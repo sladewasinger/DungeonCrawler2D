@@ -1,6 +1,6 @@
 # AI Crafting Design
 
-The signature feature (Epic 8–9). At the crafting table, the player types what they want to make and selects ingredients. An AI composes a brand-new `ItemDefinition` from the engine's existing effect vocabulary; the engine validates it and accepts or denies. Accepted items are real: craftable again by anyone with the ingredients.
+The signature feature (Epics 9–10). At the crafting table in your personal room (a stretch room off any safe room — see [GAME_DESIGN.md](GAME_DESIGN.md)), the player types what they want to make and selects ingredients. An AI composes a brand-new `ItemDefinition` from the engine's existing effect vocabulary; the engine validates it and accepts or denies. Accepted items are real: craftable again by anyone with the ingredients.
 
 **The molotov test:** the game ships with no molotov cocktail. Player selects `rag` + `vodka-bottle`, types "make a molotov cocktail." The AI returns a throwable item tagged `flammable`+`explosive-ish`, whose impact spawns `area-fire`. Validation passes (all known primitives/tags, damage within budget for those ingredients). The item now exists, with the player credited as inventor.
 
@@ -22,8 +22,10 @@ The signature feature (Epic 8–9). At the crafting table, the player types what
    c. Plausibility: proposal must cite which ingredient contributes each behavior
    d. Content moderation on name/description
 6. Accept → consume ingredients, persist definition, push to the player's live
-   game session — the game server loads it like any content file and broadcasts
-   it, so party members immediately see (and can be hit by) the new invention
+   shard — the game server loads it like any content file, so anyone nearby
+   can immediately see (and be hit by) the new invention. In a PvPvE world,
+   the balance budget is also PvP balance — every accepted item is a weapon
+   against players, not just monsters
    Deny  → player-facing flavor message with reason category; ingredients kept
 7. (v0.6) Other players discover the item as a craftable recipe via the registry
 ```

@@ -33,15 +33,16 @@ CloudFront                          play.yourdomain.com (A record)
    │   (game client bundle)         ├─ Caddy: wss:// TLS termination
    │                                │   (free Let's Encrypt certs, auto-renew)
    └─ /api/* → API Gateway          └─ game-server (Node + ws)
-       (HTTP API)                       ├─ authoritative sim, all sessions
-           │                            └─ pulls registry defs, pushes save
-           ▼                                deltas to DynamoDB
+       (HTTP API)                       ├─ authoritative sim: floor shards,
+           │                            │   AOI replication, chat fan-out
+           │                            └─ pulls registry defs, pushes world
+           ▼                                & stash deltas to DynamoDB
        Lambda (Node 22)
        ├─ /craft → Claude API (key in SSM)
        ├─ /registry → DynamoDB
-       └─ /session-broker → tells client which
-           game server to connect to (trivial now,
-           the scale-out seam later)
+       └─ /shard-broker → tells client which
+           game server/shard to connect to
+           (trivial now, the scale-out seam later)
 ```
 
 Component choices, each picked for cost:
@@ -52,7 +53,7 @@ Component choices, each picked for cost:
 | TLS (web) | ACM certificate on CloudFront | Free, auto-renews |
 | TLS (websocket) | **Caddy on the game server** | Free Let's Encrypt, zero-config renewal — avoids the $16/mo NLB entirely |
 | Static hosting | S3 + CloudFront | CloudFront always-free tier: 1 TB egress + 10M requests/mo — covers us outright |
-| Game server | **EC2 t4g.nano** (2 vCPU burst, 0.5 GB, ARM) at $3.06/mo; bump to t4g.micro ($6.13/mo, 1 GB) if memory-pressured | A Node sim at 20 Hz for a handful of 4-player parties is tiny; one nano hosts dozens of concurrent sessions. Cheapest possible stateful compute |
+| Game server | **EC2 t4g.nano** (2 vCPU burst, 0.5 GB, ARM) at $3.06/mo; bump to t4g.micro ($6.13/mo, 1 GB) if memory-pressured | Thanks to AOI replication and active-chunk simulation (only chunks near players tick — see [ARCHITECTURE.md](ARCHITECTURE.md)), a 20 Hz Node sim hosting tens of players across floor shards is tiny. Cheapest possible stateful compute |
 | API | API Gateway **HTTP API** | $1.00/M requests vs REST API's $3.50/M |
 | Services compute | Lambda (Node 22, esbuild-bundled) | Always-free tier: 1M invocations + 400K GB-s/mo — $0 at our scale, $0 idle |
 | Data | DynamoDB **on-demand** | No provisioned capacity while idle; 25 GB storage always free |
@@ -68,7 +69,8 @@ Cost-control details:
 - **The public IPv4 tax:** AWS charges $3.65/mo per public IPv4 on a running instance (since Feb 2024). Unavoidable for a websocket endpoint; it's the second-largest line item, which tells you how cheap everything else is.
 - **Registry reads cached at CloudFront**; game servers also cache definitions in memory — accepted items are immutable.
 - **Registry-first crafting** (see [AI_CRAFTING.md](AI_CRAFTING.md)): only genuinely new (ingredients + intent) combinations pay for AI inference.
-- **Game traffic egress is negligible:** 4 players × ~16 kB/s of snapshots ≈ 14 GB/mo at 2 h/day — inside the 100 GB/mo always-free egress tier.
+- **Game traffic egress is negligible:** AOI replication caps per-player bandwidth at a constant (~16 kB/s of deltas) regardless of world size or population; 4 concurrent players ≈ 14 GB/mo at 2 h/day — inside the 100 GB/mo always-free egress tier.
+- **World persistence is cheap:** hibernated-chunk deltas and stashes are periodic small writes to DynamoDB — thousands of writes/mo cost fractions of a cent on on-demand.
 
 ## Cost estimates
 
@@ -114,11 +116,11 @@ A crafting call ≈ 3.5K input tokens (system prompt with primitive catalog + in
 
 ### Scale-out path (documented now, built when needed)
 
-One t4g.nano handles the entire beta comfortably — a 20 Hz JSON sim for dozens of sessions is a rounding error for even half a vCPU. When (if) concurrent load outgrows one box:
+One t4g.nano handles the entire beta comfortably — with AOI and active-chunk simulation, a 20 Hz JSON sim for tens of concurrent players is a rounding error for even half a vCPU. When (if) concurrent load outgrows one box:
 
 1. **Vertical first:** t4g.micro → small → medium. Each step is a Terraform variable change; capacity roughly doubles per step, cost stays single-digit dollars.
-2. **Horizontal via the broker:** the session broker (already the connection point) assigns new sessions across N game servers registered in DynamoDB. Sessions never span servers, so there's no shared-state problem — this is embarrassingly parallel.
-3. **Only at real scale:** broker-launched Fargate tasks per pool, warm pool for cold-start hiding. Not designed further until the problem exists.
+2. **Horizontal via the broker:** the shard broker (already the connection point) assigns floor shards across N game servers registered in DynamoDB. A shard never spans servers, so there's no shared-state problem; cross-shard systems (global chat, DMs, registry) are already server-independent and can fan out via a tiny pub/sub (DynamoDB streams or a $0-idle Momento/API-GW hop — decided when needed).
+3. **Only at real scale:** broker-launched Fargate tasks per shard pool, warm pool for cold-start hiding. Not designed further until the problem exists.
 
 ## Terraform layout
 

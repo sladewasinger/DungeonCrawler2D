@@ -2,7 +2,9 @@
 
 The effects engine is the foundation the whole game — and especially AI crafting — stands on. Its job: make "what an item/effect *does*" expressible entirely as data, so new effects (including AI-proposed ones) require zero new code.
 
-**Multiplayer note:** effects are simulated exclusively on the game server as part of the authoritative tick (see [ARCHITECTURE.md](ARCHITECTURE.md)). Clients receive effect events (`EffectApplied`, `AreaSpawned`, `EntityTransformed`…) and render them — they never compute outcomes. This guarantees every party member sees the same fire spread identically, and no client can cheat a debuff away.
+**Multiplayer note:** effects are simulated exclusively on the game server as part of the authoritative tick (see [ARCHITECTURE.md](ARCHITECTURE.md)). Clients receive effect events (`EffectApplied`, `AreaSpawned`, `EntityTransformed`…) within their area of interest and render them — they never compute outcomes. Every observer sees the same fire spread identically, and no client can cheat a debuff away — which matters double in PvP.
+
+**Safe rooms are this system, not a special case:** safe-room tiles carry a `sanctuary` zone tag ([GAME_DESIGN.md](GAME_DESIGN.md)), and one interaction rule suppresses hostile primitives (negative `modify_health`, debuff `apply_status`, hostile `spawn_area`/`spread`) for anything inside — fire dies at the threshold, PvP damage zeroes out, healing still works.
 
 ## Three layers
 

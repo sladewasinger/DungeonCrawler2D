@@ -39,7 +39,7 @@ dungeoncrawler2D/
 ├── packages/
 │   ├── engine/                  # ── PURE: no Phaser, no Node APIs ──
 │   │   ├── core/                #   Seeded RNG, event bus, fixed-tick clock, ids
-│   │   ├── dungeon/             #   Procedural generation: DungeonMap, generators
+│   │   ├── world/               #   Chunked generation: (worldSeed, floor, chunk) → geometry, zones, safe rooms
 │   │   ├── entities/            #   Entity model, stats, tags
 │   │   ├── effects/             #   Primitives, StatusEffect, interaction rules (EFFECTS.md)
 │   │   ├── areas/               #   Tile-region area effects, spread/decay sim
@@ -52,10 +52,11 @@ dungeoncrawler2D/
 │   │   ├── render/              #   Tilemap renderer, entity sprite sync, effect VFX
 │   │   ├── net/                 #   WebSocket client, prediction, interpolation, reconciliation
 │   │   ├── input/               #   Keyboard/mouse → intents
-│   │   └── ui/                  #   Inventory, hotbar, crafting dialog, party HUD
+│   │   └── ui/                  #   HUD widget registry + layout config (GAME_DESIGN.md), chat, inventory, crafting
 │   ├── game-server/             # ── NODE + ws ──
-│   │   ├── session/             #   Rooms: create/join/leave, join-in-progress, reconnect
-│   │   ├── sim/                 #   Runs engine at fixed tick; snapshot/delta broadcasting
+│   │   ├── world/               #   Floor shards: chunk activation/hibernation, spawns, stretch-room instances
+│   │   ├── sim/                 #   Runs engine at fixed tick; AOI-scoped delta broadcasting
+│   │   ├── social/              #   Chat channels, DMs, fistbump handshakes, mute/block enforcement
 │   │   └── main.ts
 │   └── services/                # ── (v0.5+) LAMBDA HANDLERS ──
 │       ├── craft/               #   AI crafting proxy
@@ -68,7 +69,7 @@ Dependency rule (lint-enforced): `engine` imports nothing from other packages; `
 
 ## Networking model
 
-**Server-authoritative, intent/event protocol.** The game server owns the truth; clients are input devices and renderers. This is the standard architecture for cheat-resistant co-op, and it falls out naturally from the pure-engine design.
+**Server-authoritative, intent/event protocol.** The game server owns the truth; clients are input devices and renderers. In a PvPvE game this isn't just good practice — a client that could lie about damage or position would be a direct weapon against other players. It falls out naturally from the pure-engine design.
 
 ```
 client                          game server (authoritative)
@@ -76,7 +77,7 @@ client                          game server (authoritative)
 input → intent  ──────────────▶ validate intent
                                 engine tick (20 Hz): movement,
 predict own movement            effects, areas, combat, AI
-interpolate other entities ◀── snapshot deltas + events (~15–20 Hz)
+interpolate other entities ◀── AOI-scoped deltas + events (~15–20 Hz)
 reconcile own position     ◀── authoritative position corrections
 render (60 fps, Phaser)
 ```
@@ -86,9 +87,18 @@ Key decisions:
 - **Tick rates:** server simulates at a fixed **20 Hz** (effects internally tick slower, e.g. 2–10 Hz — DoT cadence doesn't need more). Clients render at 60 fps, interpolating between snapshots (~100 ms buffer).
 - **Intents up, events down.** Clients never say "I took damage" or "the fire spread" — they say "I pressed up" / "I threw item X at tile Y". The server replies with what actually happened. All effect/combat/loot outcomes are computed exactly once, on the server.
 - **Prediction only for your own movement.** Top-down walking predicts trivially; server reconciliation corrects drift. Everything else (projectiles, effects, enemies) is rendered from server events with interpolation — at co-op latencies (<150 ms) this feels fine and keeps the code simple.
-- **Maps ship as a seed.** `generateDungeon(seed, depth, config)` is deterministic, so a floor transfer is a few bytes; late joiners get seed + one full entity snapshot.
-- **Protocol lives in `engine/net`** as typed messages (zod-validated on the server — never trust the client), JSON-encoded first. Binary encoding (msgpack) is a v0.8 optimization if profiling demands it; at 4 players and this message volume it likely never will.
-- **Sessions are server-owned.** No player is "host"; anyone can disconnect and the run continues. Reconnect grace period restores the player.
+- **Area-of-interest (AOI) replication.** The floor is vast and shared, so full-world broadcast is impossible by design: each client receives entity/effect deltas only within a view radius around its player. AOI is simultaneously the bandwidth cap (per-player traffic is constant regardless of world size), the *fog of dread* (you genuinely don't know who's out there), and what makes stumbling onto a stranger an event.
+- **Geometry ships as seeds.** Chunks are deterministic from `(worldSeed, floor, chunkCoord)`, so the server sends coordinates, never tiles; a joining client gets its position + an AOI entity snapshot and generates everything else locally.
+- **Chat rides the same socket** as lightweight channel messages (global / party / DM / proximity), fanned out server-side with mute/block lists enforced *before* delivery — a blocked player's messages never reach your client.
+- **Protocol lives in `engine/net`** as typed messages (zod-validated on the server — never trust the client, doubly so in PvP), JSON-encoded first. Binary encoding (msgpack) is a v0.9 optimization if profiling demands it.
+- **Shards are server-owned.** No player is "host"; disconnects get a grace period and the floor keeps simulating. One game-server process hosts one or more floor shards.
+
+### World model: floors, chunks, stretch rooms
+
+- A **floor** is a vast map simulated by one shard. The server keeps **active chunks** (near players) hot in the tick loop and **hibernates** the rest, persisting their deltas (looted items, burned/charred tiles, opened doors) so the world stays consistent when someone wanders back.
+- **Fixed features** — safe rooms, stairways, biome regions — are placed deterministically per floor, identical for every player.
+- Map regions carry **zone tags** (`sanctuary` on safe rooms) that the effects engine reads like any other tag — sanctuary is data plus one interaction rule, not special-case code (see [EFFECTS.md](EFFECTS.md)).
+- **Stretch rooms** (personal rooms, party rooms — see [GAME_DESIGN.md](GAME_DESIGN.md)) are small instanced sub-maps attached to safe rooms by portal. They're simulated as tiny always-`sanctuary` chunks keyed by player/party id, not part of floor geometry — which is how one safe-room door can lead somewhere different for each player.
 
 ### Simulation loop
 
@@ -101,6 +111,7 @@ An `Entity` is an id + stat block + **tag set** + active effects + (optional) in
 - Material/state tags: `flammable`, `liquid`, `wet`, `metal`, `organic`, `sharp`
 - Behavioral tags: `enemy`, `player`, `item`, `container`
 - Effect-owned tags: being on fire adds `burning`; standing in water adds `wet`
+- Zone tags on map regions: `sanctuary` (safe rooms — hostile primitives suppressed); later biome tags like `flooded`, `overgrown`
 
 Interaction rules (see [EFFECTS.md](EFFECTS.md)) are written against tags, never against specific items. That's why an AI-invented item slots in: if it says `tags: ["flammable", "liquid"]`, every existing rule about flammable liquids already applies to it — on the server, for the whole party.
 
@@ -108,9 +119,9 @@ Interaction rules (see [EFFECTS.md](EFFECTS.md)) are written against tags, never
 
 Every effect, item, and enemy is a JSON file in `content/`, validated against a TypeScript schema (zod) at load time — by the game server (authoritative), by the client (rendering metadata), and in v0.5 against the AI's structured output. Code interprets; data defines. When an AI-crafted item is accepted, the game server loads its definition exactly like a shipped content file and broadcasts it to the session.
 
-### Dungeon generation
+### World generation
 
-`generateDungeon(seed, depth, config) → DungeonMap` — a pure function over a seeded RNG. Determinism is a **tested networking invariant**: the same seed must produce a byte-identical map on every machine, because clients regenerate the map locally from the seed the server sends. Spawned entities (enemies, loot) are placed by the server and sent as events, so only static geometry relies on determinism.
+`generateChunk(worldSeed, floor, chunkCoord, config) → DungeonChunk` — a pure function over a seeded RNG, plus a deterministic per-floor pass that places fixed features (safe rooms, stairways, biomes). Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities (enemies, loot, players) are placed by the server and sent as events, so only static geometry and zones rely on determinism. Cross-chunk connectivity (corridors that meet at boundaries) is part of the generator's contract and test suite.
 
 ## Rendering & art pipeline
 
@@ -138,8 +149,8 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 ## Testing strategy
 
 - **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation — all headless engine code
-- **Protocol/sim tests:** in-process game server + two headless clients exchanging real protocol messages; scripted scenarios ("A throws molotov on wet ground next to B") run for N ticks, asserting both clients converge on identical outcomes
-- **Determinism tests:** same seed ⇒ byte-identical `DungeonMap`, run in CI on Linux + local on Windows to catch platform drift
+- **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, and out-of-range clients receive nothing
+- **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
 - **Manual/playtest:** Phaser layer, feel, latency tuning — every release playtested as a duo minimum
 
 ## Conventions
