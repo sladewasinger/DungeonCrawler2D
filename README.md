@@ -14,6 +14,7 @@ Art style: minimal top-down pixel art ("pixel art +"), tonally in the direction 
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Tech stack, code organization, core engine systems |
 | [docs/EFFECTS.md](docs/EFFECTS.md) | The generic effect model: status effects, area effects, interactions |
 | [docs/AI_CRAFTING.md](docs/AI_CRAFTING.md) | AI crafting pipeline: prompt → item proposal → validation → shared registry |
+| [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | AWS serverless architecture, Terraform layout, cost estimates |
 
 ## Status
 

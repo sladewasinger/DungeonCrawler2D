@@ -70,8 +70,10 @@ Same ingredients + semantically similar intent should converge on one canonical 
 
 ## Server evolution
 
-- **v0.5:** Minimal Node proxy — one `/craft` endpoint, keys in env, rate limiting, local (per-player) persistence of accepted items
-- **v0.6:** Item registry DB, accounts/anonymous ids, publish/discover, moderation & reporting, admin kill-switch (a pulled item degrades gracefully into its ingredients for owners)
+Serverless on AWS, defined in Terraform — full architecture and cost model in [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
+
+- **v0.5:** One Lambda behind API Gateway (`POST /craft`), AI API key in SSM Parameter Store, API Gateway throttling for rate limits, local (per-player) persistence of accepted items
+- **v0.6:** Item registry in DynamoDB, accounts/anonymous ids, publish/discover, moderation & reporting, admin kill-switch (a DynamoDB flag checked at read time; a pulled item degrades gracefully into its ingredients for owners)
 - **v1.0:** Caching/cost telemetry, model-tier routing (cheap model first, escalate on low confidence)
 
 ## Player experience details
@@ -82,7 +84,7 @@ Same ingredients + semantically similar intent should converge on one canonical 
 
 ## Open questions (to resolve before Epic 8)
 
-1. Which AI provider/model tier — and do we allow a local fallback list of pre-authored "AI-style" recipes when the API is unreachable?
+1. Which AI model tier — per the cost table in [INFRASTRUCTURE.md](INFRASTRUCTURE.md), even a top-tier model costs ~$0.02–0.03 per new craft (~$36/mo at a pessimistic ceiling), so this is a quality decision, not a cost one. Also: do we allow a local fallback list of pre-authored "AI-style" recipes when the API is unreachable?
 2. Should denied prompts consume a resource (to discourage spam) or stay free (to encourage experimentation)? Leaning: free but rate-limited.
 3. Item ownership semantics in v0.6 — global namespace vs. per-world/per-season registries.
 4. Can AI items be used as *ingredients* for further AI items (recursive crafting)? Powerful but compounds balance risk; propose capping composition depth at 2 initially.

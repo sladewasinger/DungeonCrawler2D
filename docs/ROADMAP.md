@@ -124,7 +124,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 **Goal:** The signature feature, per [AI_CRAFTING.md](AI_CRAFTING.md). Free-text prompt at the crafting table → AI composes a new `ItemDefinition` from existing primitives → engine validates → accept/deny → item exists.
 
 - [ ] Crafting prompt UI (text input + selected ingredients)
-- [ ] Server-side proxy for the AI API (never ship API keys to the browser) — minimal Node service
+- [ ] Terraform baseline in `infra/`: Route 53, ACM, S3 + CloudFront frontend hosting, API Gateway + Lambda, SSM for the API key, AWS Budgets alert (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md))
+- [ ] Server-side proxy for the AI API (never ship API keys to the browser) — one Lambda behind API Gateway
 - [ ] Prompt engineering: system prompt encoding the primitive catalog, tag vocabulary, balance budget, and output JSON schema
 - [ ] Structured output → `ItemDefinition` proposal; schema + semantic validation (only known primitives/tags, power budget vs. ingredient cost)
 - [ ] Accept/deny pipeline with player-facing result ("The tinkerer refuses…" on deny); consume ingredients on accept
@@ -138,7 +139,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Accepted AI items become part of the world for every player.
 
-- [ ] Backend service + database (item registry, user accounts or anonymous IDs)
+- [ ] Registry backend: DynamoDB (on-demand) + Lambda routes, CloudFront-cached registry reads (item registry, user accounts or anonymous IDs)
 - [ ] Accepted items published to registry; other players with matching ingredients can craft them (recipe discovery)
 - [ ] Canonicalization: near-duplicate proposals resolve to the existing registry item
 - [ ] Moderation/reporting flow and admin kill-switch for problem items
@@ -170,7 +171,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Shipped and sustainable.
 
-- [ ] Production hosting (static frontend + backend), monitoring, error reporting
+- [ ] Production hardening of the serverless stack (monitoring, error reporting, alarms) — hosting itself has been live since v0.5 at ~$0.55/mo idle
 - [ ] AI API cost controls at scale (caching, registry-first lookups so repeat crafts never call the API)
 - [ ] itch.io page + landing page, trailer/GIFs
 - [ ] Launch; post-launch cadence plan (content drops = new base items/tags, which multiply AI-craftable space)

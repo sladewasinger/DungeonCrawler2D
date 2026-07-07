@@ -8,8 +8,9 @@
 | Language | **TypeScript** (strict) | Data schemas for items/effects need real types |
 | Build/dev | **Vite** | Instant HMR, trivial static deploy |
 | Tests | **Vitest** | Same toolchain as Vite; runs the headless engine core |
-| Backend (v0.5+) | Node + TypeScript (Fastify or similar) | AI API proxy first, item registry later |
-| Persistence | localStorage → backend DB (v0.6) | Start simple, migrate behind a storage interface |
+| Backend (v0.5+) | AWS Lambda (Node + TypeScript) behind API Gateway | AI API proxy first, item registry later; serverless = ~$0 idle (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) |
+| Infrastructure | AWS, defined in Terraform | Serverless: S3 + CloudFront + Lambda + DynamoDB; cost-optimized |
+| Persistence | localStorage → DynamoDB (v0.6) | Start simple, migrate behind a storage interface |
 
 ## The one rule that matters
 
@@ -45,7 +46,8 @@ dungeoncrawler2D/
 │       ├── items/*.json       # vodka-bottle.json, rag.json, knife.json, ...
 │       ├── enemies/*.json
 │       └── tilesets/          # Tileset metadata (which tiles are flammable, etc.)
-├── server/                    # (v0.5+) AI proxy, later item registry
+├── server/                    # (v0.5+) Lambda handlers: AI proxy, later item registry
+├── infra/                     # (v0.5+) Terraform — see INFRASTRUCTURE.md
 └── tests/                     # Vitest suites mirroring src/engine/
 ```
 
