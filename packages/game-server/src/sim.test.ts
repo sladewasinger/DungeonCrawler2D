@@ -133,6 +133,13 @@ describe("GameSim", () => {
     expect(resumed.playerId).toBe(a.playerId);
     expect(resumed.spawn.x).toBeCloseTo(before.x, 5);
     expect(sim.playerCount).toBe(1);
+
+    // Regression: the resuming client restarts seq at 0 — its inputs
+    // must not be dropped as stale replays of the old session.
+    sim.handleInput(a.playerId, input(1, 1, 0));
+    const snap = sim.step().get(a.playerId)!;
+    expect(snap.lastSeq).toBe(1);
+    expect(snap.self.x).toBeGreaterThanOrEqual(before.x);
   });
 
   it("issues a fresh identity when the resume token is expired", () => {

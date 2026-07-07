@@ -78,6 +78,9 @@ export class GameSim {
       if (slot && !slot.connected) {
         slot.connected = true;
         slot.pendingInputs.length = 0;
+        // The resuming client restarts its input sequence at 0; without
+        // this reset every post-resume input would be dropped as stale.
+        slot.lastSeq = -1;
         return {
           playerId: slot.id,
           resumeToken: slot.resumeToken,

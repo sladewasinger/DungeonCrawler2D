@@ -1,29 +1,34 @@
-import { CHUNK_SIZE, TICK_RATE, TILE, ZONE, type MoveInput } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  STEP_UP,
+  TICK_RATE,
+  TILE,
+  ZONE,
+  hash2D,
+  type MoveInput,
+  type World,
+} from "@dc2d/engine";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
-import {
-  PLAYER_TEXTURE_PEER,
-  PLAYER_TEXTURE_SELF,
-  TILE_PX,
-  drawFloorTile,
-  drawSanctuaryTile,
-  drawStairsTile,
-  drawWallTile,
-  ensurePlayerTextures,
-} from "../render/placeholderArt";
+import atlas from "../render/atlas.json";
 
 /**
- * Renders the shared world and everyone in it. Terrain chunks are
- * drawn once to canvas textures using the procedural placeholder art
- * (brick floors, wall faces, cliff strata — height reads at a glance);
- * players are pixel sprites with a shadow blob anchoring their ground
- * position — the sprite lifts off the shadow with z.
+ * Renders the shared world from the baked 64×64 pixel-art atlas
+ * (assets regenerate via `npm run art`). Each chunk becomes a pair of
+ * tilemap layers over the single shared tileset texture — base terrain
+ * plus an overlay for cliff faces and ledge rims — with per-tile tint
+ * carrying the height shading. Players are atlas sprites whose shadow
+ * blob stays at the ground position; the sprite lifts off the shadow
+ * only by its height ABOVE THE LOCAL TERRAIN (z − heightAt), so a
+ * grounded crawler on a plateau stands on its shadow and only jumps
+ * and falls separate them.
  */
 
+const TILE_PX = atlas.tileSize;
 const CHUNK_PX = CHUNK_SIZE * TILE_PX;
-const Z_PX = 12; // vertical pixels per height unit
+const Z_PX = 48; // vertical pixels per height unit (0.75 tiles)
 const RENDER_DELAY_MS = 120; // interpolation delay for peers
-const CHUNK_VIEW_RADIUS = 2; // chunks kept rendered around the player
+const CHUNK_VIEW_RADIUS = 1; // 3×3 chunks around the player stay built
 
 interface PeerVisual {
   sprite: Phaser.GameObjects.Image;
@@ -32,7 +37,7 @@ interface PeerVisual {
 }
 
 export class DungeonScene extends Phaser.Scene {
-  private chunkImages = new Map<string, Phaser.GameObjects.Image>();
+  private chunkMaps = new Map<string, Phaser.Tilemaps.Tilemap>();
   private peerVisuals = new Map<string, PeerVisual>();
   private selfSprite!: Phaser.GameObjects.Image;
   private selfShadow!: Phaser.GameObjects.Ellipse;
@@ -48,6 +53,17 @@ export class DungeonScene extends Phaser.Scene {
     super("dungeon");
   }
 
+  preload(): void {
+    this.load.spritesheet("tiles", "assets/tiles.png", {
+      frameWidth: TILE_PX,
+      frameHeight: TILE_PX,
+    });
+    this.load.spritesheet("players", "assets/players.png", {
+      frameWidth: TILE_PX,
+      frameHeight: TILE_PX,
+    });
+  }
+
   create(): void {
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -57,14 +73,13 @@ export class DungeonScene extends Phaser.Scene {
       this.borderGraphics.setVisible(this.showBorders);
     });
 
-    ensurePlayerTextures(this);
-    this.selfShadow = this.add.ellipse(0, 0, 12, 7, 0x000000, 0.45).setDepth(1);
+    this.selfShadow = this.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1);
     this.selfSprite = this.add
-      .image(0, 0, PLAYER_TEXTURE_SELF)
+      .image(0, 0, "players", atlas.players.self)
       .setOrigin(0.5, 0.85)
       .setDepth(2);
     this.selfLabel = this.add
-      .text(0, 0, "", { fontSize: "10px", color: "#ffe9b0" })
+      .text(0, 0, "", { fontSize: "12px", color: "#ffe9b0" })
       .setOrigin(0.5, 1)
       .setDepth(3);
 
@@ -72,7 +87,7 @@ export class DungeonScene extends Phaser.Scene {
 
     this.debugText = this.add
       .text(8, 8, "connecting…", {
-        fontSize: "12px",
+        fontSize: "13px",
         color: "#9fe8c9",
         backgroundColor: "#0d0a12c0",
         padding: { x: 6, y: 4 },
@@ -91,6 +106,7 @@ export class DungeonScene extends Phaser.Scene {
       );
       return;
     }
+    const world = conn.world;
 
     // Fixed-step input sampling at the shared tick rate.
     this.accumulatorMs += deltaMs;
@@ -103,12 +119,14 @@ export class DungeonScene extends Phaser.Scene {
     const body = conn.body;
     this.ensureChunksAround(body.x, body.y);
 
-    // Self.
+    // Self: shadow on the ground, sprite lifted only by height above terrain.
     const sx = body.x * TILE_PX;
     const sy = body.y * TILE_PX;
+    const lift = this.liftFor(world, body.x, body.y, body.z);
     this.selfShadow.setPosition(sx, sy);
-    this.selfSprite.setPosition(sx, sy - body.z * Z_PX);
-    this.selfLabel.setPosition(sx, sy - body.z * Z_PX - 18);
+    this.selfShadow.setScale(1 - Math.min(0.35, lift / 400));
+    this.selfSprite.setPosition(sx, sy - lift);
+    this.selfLabel.setPosition(sx, sy - lift - 44);
     this.selfLabel.setText(conn.welcome.playerId);
 
     // Peers (interpolated slightly in the past).
@@ -119,13 +137,13 @@ export class DungeonScene extends Phaser.Scene {
       let visual = this.peerVisuals.get(peer.id);
       if (!visual) {
         visual = {
-          shadow: this.add.ellipse(0, 0, 12, 7, 0x000000, 0.45).setDepth(1),
+          shadow: this.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
           sprite: this.add
-            .image(0, 0, PLAYER_TEXTURE_PEER)
+            .image(0, 0, "players", atlas.players.peer)
             .setOrigin(0.5, 0.85)
             .setDepth(2),
           label: this.add
-            .text(0, 0, peer.name, { fontSize: "10px", color: "#c8ecf7" })
+            .text(0, 0, peer.name, { fontSize: "12px", color: "#c8ecf7" })
             .setOrigin(0.5, 1)
             .setDepth(3),
         };
@@ -133,9 +151,11 @@ export class DungeonScene extends Phaser.Scene {
       }
       const px = peer.x * TILE_PX;
       const py = peer.y * TILE_PX;
+      const peerLift = this.liftFor(world, peer.x, peer.y, peer.z);
       visual.shadow.setPosition(px, py);
-      visual.sprite.setPosition(px, py - peer.z * Z_PX);
-      visual.label.setPosition(px, py - peer.z * Z_PX - 18);
+      visual.shadow.setScale(1 - Math.min(0.35, peerLift / 400));
+      visual.sprite.setPosition(px, py - peerLift);
+      visual.label.setPosition(px, py - peerLift - 44);
     }
     for (const [id, visual] of this.peerVisuals) {
       if (!seen.has(id)) {
@@ -161,6 +181,12 @@ export class DungeonScene extends Phaser.Scene {
     );
   }
 
+  /** Pixels the sprite floats above its shadow: height above local terrain. */
+  private liftFor(world: World, x: number, y: number, z: number): number {
+    const terrain = world.heightAt(Math.floor(x), Math.floor(y));
+    return Math.max(0, z - terrain) * Z_PX;
+  }
+
   private readInput(): MoveInput {
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
@@ -174,78 +200,104 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private ensureChunksAround(x: number, y: number): void {
-    const world = this.conn.world!;
     const ccx = Math.floor(x / CHUNK_SIZE);
     const ccy = Math.floor(y / CHUNK_SIZE);
     for (let cy = ccy - CHUNK_VIEW_RADIUS; cy <= ccy + CHUNK_VIEW_RADIUS; cy++) {
       for (let cx = ccx - CHUNK_VIEW_RADIUS; cx <= ccx + CHUNK_VIEW_RADIUS; cx++) {
         const key = `${cx},${cy}`;
-        if (this.chunkImages.has(key)) continue;
-        this.chunkImages.set(key, this.renderChunk(cx, cy));
+        if (this.chunkMaps.has(key)) continue;
+        this.chunkMaps.set(key, this.buildChunkMap(cx, cy));
       }
     }
     // Cull far chunks so memory stays flat while roaming.
-    for (const [key, image] of this.chunkImages) {
+    for (const [key, map] of this.chunkMaps) {
       const [cx, cy] = key.split(",").map(Number) as [number, number];
       if (Math.max(Math.abs(cx - ccx), Math.abs(cy - ccy)) > CHUNK_VIEW_RADIUS + 1) {
-        image.destroy();
-        this.textures.remove(`chunk-${key}`);
-        this.chunkImages.delete(key);
+        map.destroy();
+        this.chunkMaps.delete(key);
       }
     }
   }
 
-  private renderChunk(cx: number, cy: number): Phaser.GameObjects.Image {
+  /**
+   * One chunk → a base tilemap layer (terrain) + an overlay layer
+   * (cliff faces where the north neighbor is a big step up, rim
+   * highlights where this tile is the top of a drop). All layers share
+   * the single atlas texture; height shading is per-tile tint.
+   */
+  private buildChunkMap(cx: number, cy: number): Phaser.Tilemaps.Tilemap {
     const world = this.conn.world!;
     const chunk = world.getChunk(cx, cy);
-    const texKey = `chunk-${cx},${cy}`;
-    const canvas = this.textures.createCanvas(texKey, CHUNK_PX, CHUNK_PX)!;
-    const ctx = canvas.getContext();
+    const map = this.make.tilemap({
+      tileWidth: TILE_PX,
+      tileHeight: TILE_PX,
+      width: CHUNK_SIZE,
+      height: CHUNK_SIZE,
+    });
+    const tileset = map.addTilesetImage("tiles", "tiles", TILE_PX, TILE_PX, 0, 0)!;
+    const ox = cx * CHUNK_PX;
+    const oy = cy * CHUNK_PX;
+    const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(-10);
+    const overlay = map.createBlankLayer("overlay", tileset, ox, oy)!.setDepth(-9);
+
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         const i = ly * CHUNK_SIZE + lx;
         const wx = cx * CHUNK_SIZE + lx;
         const wy = cy * CHUNK_SIZE + ly;
         const tile = chunk.tiles[i];
-        const zone = chunk.zones[i];
         const h = chunk.height[i] ?? 0;
-        const px = lx * TILE_PX;
-        const py = ly * TILE_PX;
+
         if (tile === TILE.Wall) {
-          drawWallTile(ctx, px, py, wx, wy, world.isWalkable(wx, wy + 1));
+          const variants = world.isWalkable(wx, wy + 1)
+            ? atlas.frames.wallFace
+            : atlas.frames.wall;
+          base.putTileAt(variants[hash2D(7, wx, wy) % variants.length]!, lx, ly);
           continue;
         }
         if (tile === TILE.Stairs) {
-          drawStairsTile(ctx, px, py);
+          base.putTileAt(atlas.frames.stairs, lx, ly);
           continue;
         }
-        // heightAt reads across chunk borders (neighbor chunks are
-        // generated lazily and cached), so cliff faces and rims are
-        // seamless.
-        const neighbors = {
-          n: world.heightAt(wx, wy - 1),
-          e: world.heightAt(wx + 1, wy),
-          s: world.heightAt(wx, wy + 1),
-          w: world.heightAt(wx - 1, wy),
-        };
-        if (zone === ZONE.Sanctuary) {
-          drawSanctuaryTile(ctx, px, py, wx, wy, h, neighbors);
+
+        const variants =
+          chunk.zones[i] === ZONE.Sanctuary ? atlas.frames.sanctuary : atlas.frames.floor;
+        const baseTile = base.putTileAt(variants[hash2D(11, wx, wy) % variants.length]!, lx, ly);
+        if (baseTile) baseTile.tint = heightTint(h);
+
+        // Overlay: cliff face rising behind this tile, or ledge rims.
+        // heightAt reads across chunk borders (lazily generated), so
+        // faces are seamless at chunk edges.
+        const n = world.heightAt(wx, wy - 1);
+        const rise = n - h;
+        let overlayFrame = -1;
+        let overlayTintHeight = h;
+        if (rise > 2.5) {
+          overlayFrame = atlas.frames.faceTall[hash2D(13, wx, wy) % 2]!;
+          overlayTintHeight = n;
+        } else if (rise > STEP_UP) {
+          overlayFrame = atlas.frames.faceShort[hash2D(13, wx, wy) % 2]!;
+          overlayTintHeight = n;
         } else {
-          drawFloorTile(ctx, px, py, wx, wy, h, neighbors);
+          let mask = 0;
+          if (h - world.heightAt(wx, wy + 1) > STEP_UP) mask |= 1;
+          if (h - world.heightAt(wx + 1, wy) > STEP_UP) mask |= 2;
+          if (h - world.heightAt(wx - 1, wy) > STEP_UP) mask |= 4;
+          if (mask > 0) overlayFrame = atlas.frames.rimBase + mask;
+        }
+        if (overlayFrame >= 0) {
+          const overlayTile = overlay.putTileAt(overlayFrame, lx, ly);
+          if (overlayTile) overlayTile.tint = heightTint(overlayTintHeight);
         }
       }
     }
-    canvas.refresh();
-    return this.add
-      .image(cx * CHUNK_PX, cy * CHUNK_PX, texKey)
-      .setOrigin(0, 0)
-      .setDepth(-10);
+    return map;
   }
 
   private drawChunkBorders(x: number, y: number): void {
     const g = this.borderGraphics;
     g.clear();
-    g.lineStyle(1, 0x9fe8c9, 0.5);
+    g.lineStyle(2, 0x9fe8c9, 0.5);
     const ccx = Math.floor(x / CHUNK_SIZE);
     const ccy = Math.floor(y / CHUNK_SIZE);
     for (let cy = ccy - CHUNK_VIEW_RADIUS; cy <= ccy + CHUNK_VIEW_RADIUS; cy++) {
@@ -254,4 +306,11 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
   }
+}
+
+/** Height → brightness tint (multiplicative, so assets are baked mid-bright). */
+function heightTint(h: number): number {
+  const brightness = Math.max(0.45, Math.min(1, 0.62 + h * 0.055));
+  const gray = Math.round(brightness * 255);
+  return (gray << 16) | (gray << 8) | gray;
 }

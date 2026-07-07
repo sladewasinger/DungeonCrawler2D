@@ -24,11 +24,9 @@ conn.connect();
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
-  // Low internal resolution scaled 2× — pixel-perfect chunky rendering
-  // so the placeholder pixel art reads the way the real tileset will.
-  width: 480,
-  height: 320,
-  zoom: 2,
+  // 64px tiles: 1280×720 shows a 20×11-tile window onto the floor.
+  width: 1280,
+  height: 720,
   backgroundColor: "#0d0a12",
   pixelArt: true,
   scene: [new DungeonScene(conn)],

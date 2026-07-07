@@ -1,0 +1,39 @@
+{
+  "tileSize": 64,
+  "frames": {
+    "floor": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "sanctuary": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "wall": [
+      16,
+      17
+    ],
+    "wallFace": [
+      18,
+      19
+    ],
+    "stairs": 20,
+    "faceTall": [
+      24,
+      25
+    ],
+    "faceShort": [
+      26,
+      27
+    ],
+    "rimBase": 31
+  },
+  "players": {
+    "self": 0,
+    "peer": 1
+  }
+}
