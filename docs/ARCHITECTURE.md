@@ -96,7 +96,7 @@ Key decisions:
 ### World model: floors, chunks, stretch rooms
 
 - A **floor is exactly one shard, and floors never interact.** No shared space, no cross-floor effects — a floor is a self-contained world with its own difficulty, biome, and lifecycle. Descent through a stairway is a one-way handoff: the shard broker moves the player's connection (and state) to the next floor's shard. This makes sharding trivially clean — nothing ever spans a shard boundary.
-- **Floors are timed waves** (see [GAME_DESIGN.md](GAME_DESIGN.md)): a lightweight lifecycle controller (scheduled Lambda or the broker) opens stairways when the floor's condition is met (working assumption: time gate) and ends floors on schedule.
+- **Floors run indefinitely for now** (see [GAME_DESIGN.md](GAME_DESIGN.md)): one global world, stairways open, new players start on floor 1. The timed **Seasons** lifecycle (post-v1.0) will add a lightweight controller (scheduled Lambda or the broker) that opens stairways on each floor's time gate and closes seasons to new joins.
 - **Terrain is heightmapped.** Each chunk carries a continuous height field alongside its tile/zone data; entities live at `(x, y, z)`. Gravity, jump arcs, and landings are part of the engine's physics step from v0.1 — retrofitting z into a shipped protocol and generator would be miserable, so it's in the data model from the first commit.
 - The server keeps **active chunks** (near players) hot in the tick loop and **hibernates** the rest, persisting their deltas (looted items, burned/charred tiles, opened doors) so the world stays consistent when someone wanders back.
 - **Fixed features** — safe rooms, stairways, biome regions — are placed deterministically per floor, identical for every player.

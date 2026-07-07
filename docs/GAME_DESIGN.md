@@ -6,18 +6,18 @@ The multiplayer fantasy: you spawn alone somewhere in a vast dungeon floor. You 
 
 - **Floors are vast, and floors are worlds.** Each floor ("level" — the terms are loose) is one procedurally generated map, far larger than a screen — generated lazily in **chunks**, each chunk deterministic from `(worldSeed, floor, chunkCoord)` so clients regenerate geometry locally from coordinates alone (see [ARCHITECTURE.md](ARCHITECTURE.md)). Each floor runs as its own isolated shard: **players on different floors never interact** — no shared space, no cross-floor effects (at least for now). Floors differ in difficulty, biome, and character — one floor might be flooded caves, another a sky realm of cloud cities.
 - **Shared, not instanced.** Everyone on a floor inhabits the same world: the fire you started is the fire they walk into. World deltas (looted items, burned tiles, charred terrain) persist while the floor is live.
-- **The objective is the stairway down.** Getting to (and through) the stairway is the game. Stairways are fixed, identical-for-everyone features of the floor — but they're **sealed until a condition is met**, most likely a time gate (e.g., they open for the final 3 days of the floor's run). Once open, descend whenever you're ready: early descenders start the next floor immediately while the rest keep fighting to survive above. No sleep-pods here (unlike the books) — going down early just means you're first to the next world.
-- **Floors run on a shared clock.** A floor is a timed "wave": it opens, it runs, its stairways unlock, and it ends. Everyone experiences the same floor lifecycle — it's the next level of the game, for everyone. What exactly happens to players still on a floor when it ends (forced descent? the floor collapses, DCC-style?) is an open question below.
-- **Spawning:** new arrivals spawn at a random valid location on the floor (biased away from other players and enemy clusters), with brief **spawn protection** (can't deal or take PvP damage until it expires or they act aggressively).
+- **The objective is the stairway down.** Getting to (and through) the stairway is the game. Stairways are fixed, identical-for-everyone features of the floor, and they're **one-way** — descent is commitment. Early descenders start the next floor immediately while the rest keep fighting to survive above. No sleep-pods here (unlike the books) — going down early just means you're first to the next world.
+- **Floors run forever — for now.** One global world: new players join on floor 1 and work their way down; stairways are simply open. The endgame vision is **Seasons** (a late, post-v1.0 epic, recorded so we design toward it): parallel game instances run as timed seasons — floor 1 open for ~1 week, floor 2 ~9 days, subsequent floors ~2 weeks — with stairways sealed until late in each floor's window; once a season's floor 1 closes, that season stops accepting new players and newcomers start on a fresh season/world.
+- **Spawning:** new arrivals spawn at a random valid location on the floor, **far from other players** (and enemy clusters). There is no spawn-protection shield — the dungeon is vast, and distance *is* the protection.
 
 ## Verticality
 
 Top-down with a real, **continuous height axis** (CrossCode-style) — not discrete layers:
 
-- **Terrain is heightmapped.** Chunks carry a continuous height field: terraces, cliffs, plateaus, chasms — up to set pieces as tall as **cloud cities**. Entities live at `(x, y, z)`.
+- **Terrain is heightmapped.** Chunks carry a continuous height field: terraces, cliffs, plateaus, chasms. Entities live at `(x, y, z)`. (Sky-scale set pieces — a DCC-style **floating castle** that crawlers must figure out how to reach via rope, flight, teleportation, maybe someday a vehicle — are deferred post-v1.0, but the height model is built to allow them.)
 - **Rendering:** an entity's shadow blob anchors its ground position; the sprite offsets upward by z. The shadow is what makes height readable in top-down — players parse it instantly. Elevation-readable cliff tiles are a first-class art requirement.
 - **Movement:** jumping, falling (**fall damage** scales with the drop), knockback off ledges (fall damage is a weapon), updrafts, and **flight** — z above terrain, shadow gliding over the chasm below.
-- **Effects obey height** (see [EFFECTS.md](EFFECTS.md)): heavy gases sink into pits and low ground, smoke rises, liquids flow downhill, ground-bound areas can't touch airborne entities. Poison poured off a cloud-city ledge rains onto the terraces below — within the same floor.
+- **Effects obey height** (see [EFFECTS.md](EFFECTS.md)): heavy gases sink into pits and low ground, smoke rises, liquids flow downhill, ground-bound areas can't touch airborne entities. Poison poured off a high ledge rains onto the terraces below — within the same floor.
 - **Movement capabilities are data:** `flying`, `feather-fall`, `sticky-feet` (cliff traversal, ledge-grip, knockback immunity) are statuses composed from primitives — which makes them **AI-craftable**. Glue + boots = something.
 
 ## PvPvE rules
@@ -27,10 +27,12 @@ Everyone can hurt everyone, except where consent or sanctuary says otherwise:
 | Context | Player-vs-player damage & hostile effects | Enforced by |
 | --- | --- | --- |
 | Open world, unaffiliated players | **Allowed** — but never required; you can also just… not | — |
-| Same party | **Off** (friendly fire toggle per party, default off) | Server checks party membership |
+| Same party | **On — always. No toggle.** Watch your swings; melee gets a targeting aid (below), but AoE, throwables, and areas hit everyone | — |
 | Safe rooms (and rooms off them) | **Suppressed for everyone** — no damage, no hostile statuses, no hostile area effects; fire dies at the threshold | Server: `sanctuary` zone tag suppresses hostile effect primitives (see [EFFECTS.md](EFFECTS.md)) |
 
-Indirect griefing (kiting a horde into someone, laying fire at a safe-room exit) is deliberately possible — emergent dungeon cruelty is part of the fantasy — but spawn protection, sanctuary thresholds, and death economics keep it survivable. PvE death rules apply to PvP death too: drop carried items (the killer can loot them), keep your stash. Severity is an open tuning question.
+Indirect griefing (kiting a horde into someone, laying fire at a safe-room exit) is deliberately possible — emergent dungeon cruelty is part of the fantasy — and distance-based spawning, sanctuary thresholds, and death economics keep it survivable. Death is the same everywhere, PvE or PvP: **full loot drop** — everything carried falls where you died (your killer may loot it), your stash is safe.
+
+**Melee targeting aid (because friendly fire never turns off):** a melee swing resolves against the *best* target in its arc, with hostiles preferred over party members — fighting shoulder-to-shoulder against a monster won't clip your friend. But a swing with no hostile in the arc hits whatever's there, friends included, and AoE/throwables/areas make no distinction ever. Positioning still matters; molotovs stay honest.
 
 ## Safe rooms & stretch rooms
 
@@ -57,7 +59,7 @@ The clever bit is that they **stretch**: the room manifests extra doors per visi
 ## Parties
 
 - Formed by **mutual consent only** — an invite/accept flow (natural gateway: the fistbump).
-- Party members: friendly fire off (default), shared party chat, party door in safe rooms, see each other on the floor (position pings even outside view range — they're your people).
+- Party members: shared party chat, party door in safe rooms, see each other on the floor (position pings even outside view range — they're your people). **Friendly fire stays on** — partying up is trust, not immunity; the melee targeting aid keeps accidents rare.
 - Leaving/disbanding is unilateral and instant. Loot sharing rules: open question (default: free-for-all pickup, party etiquette is social, not mechanical).
 
 ## Social fabric
@@ -82,15 +84,21 @@ Full HUD customization ships late (v0.8), but the **architecture is a day-one co
 
 New HUD work in any epic must be built as a widget from the start; PRs adding fixed-position UI get bounced.
 
-## Open questions
+## Resolved decisions (2026-07-06)
 
-1. **Floor lifecycle tuning:** how long does a floor run (days? a week?), and when do stairways unlock (final 3 days is the working assumption)? What happens to players still on the floor at end — forced descent, or DCC-style collapse (descend or die)?
-2. **One global cycle or cohorts?** Is there one world-clock for everyone (a new player joining mid-cycle spawns onto floor 1 wherever it is in its run), or do fresh "games" start periodically so newcomers get a fresh floor 1? Leaning global-with-rolling-floor-1 for community mass, but mid-cycle onboarding needs design.
-3. **Are stairs one-way?** Assumed yes — descent is commitment. Confirm.
-4. **Flight balance:** are cloud-city regions reachable only via flight/climbing capabilities (making verticality items progression keys), or always accessible with hard routes?
-5. **Shard capacity:** target concurrent players per floor shard (tuning: 20–50 to start?).
-6. **PvP death severity:** full loot drop vs partial; any protection for fresh spawns beyond the initial shield?
-7. **Global chat scope:** truly global (all floors, one big tavern) vs per-floor? Leaning truly global for community feel — especially since floors don't share space, chat is the only cross-floor connective tissue.
-8. **Party friendly-fire toggle:** keep it, or is it a griefing vector inside consent?
-9. **Moderation:** global chat at any scale needs report/mute tooling and probably lightweight automated filtering by launch — scope for v1.0.
-10. **Proximity voice?** Out of scope through v1.0; text only.
+1. **Floor lifecycle:** floors run forever for now. **Seasons** are the endgame vision (post-v1.0): parallel timed game instances — floor 1 ~1 week, floor 2 ~9 days, later floors ~2 weeks; joins close when a season's floor 1 ends; newcomers start a fresh season.
+2. **One global world** for now; new players join on floor 1 and work down.
+3. **Stairs are one-way.**
+4. **Sky set pieces deferred:** no cloud cities yet; the floating-castle concept (multiple access routes — rope, flight, teleport, maybe a vehicle) waits, but the height model supports it.
+5. **Shard capacity:** target **20 concurrent players** per floor shard to start.
+6. **Death is full loot drop; no spawn shield** — distance-based spawn placement is the protection.
+7. **Global chat is truly global** (all floors — the only cross-floor connective tissue).
+8. **Party friendly fire is always on, no toggle** — mitigated by the hostile-preferring melee targeting aid.
+9. **Moderation is in scope for v1.0** (report/mute tooling + lightweight automated filtering).
+10. **No voice.** Text chat only.
+
+## Remaining open questions
+
+1. **Seasons detail** (when that epic arrives): exact end-of-floor handling for stragglers — forced descent vs DCC-style collapse; season cadence and overlap.
+2. **Party loot etiquette:** free-for-all pickup assumed; revisit if playtests turn sour.
+3. **Floating-castle access design:** which capabilities gate it, and how many routes — deferred with the feature.

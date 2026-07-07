@@ -58,13 +58,13 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] Game server process: runs the shared `engine` simulation at a fixed tick (~20 Hz), owns truth; simulates only **active chunks** (near players), hibernates the rest with persisted deltas
 - [ ] WebSocket protocol (JSON first): client→server **intents** (move, use, drop…), server→client **snapshots/events**
 - [ ] **Area-of-interest replication:** each client receives deltas only for entities within its view radius — mandatory on a vast map, and it's also what makes "stumbling upon someone" a moment
-- [ ] Random spawn placement (away from players/enemy clusters) + spawn protection flag
+- [ ] Random spawn placement guaranteeing distance from other players — no spawn shield; distance is the protection
 - [ ] Player movement: client-side prediction for your own character, interpolation for others, server reconciliation
 - [ ] **z from day one:** entities are `(x, y, z)` in the protocol; server-side gravity, jumping, and falling (fall *damage* arrives with the effects engine in v0.2)
 - [ ] Shadow-blob rendering: shadow anchors ground position, sprite offsets by z
 - [ ] Join/leave/reconnect: connect → spawn; disconnect grace period; rejoin restores position and inventory
 - [ ] Headless multi-client + in-process-server simulation tests for protocol and AOI correctness
-- [ ] Terraform baseline + deployed playtest server (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) so remote friends can playtest
+- [ ] Terraform baseline + deployed playtest server (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) — **deferred until the hosting account is decided**; meanwhile local dev mimics prod topology (standalone game-server process + static client over the real protocol)
 
 **Done when:** Three people on different networks spawn apart on one vast floor, wander, jump off ledges, and find each other — movement feels responsive (<150 ms perceived), and a dropped client rejoins where they left.
 
@@ -119,9 +119,10 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] Basic AI behaviors: wander, chase (aggro table across nearby players — kiting a horde onto a stranger is legal and hilarious), melee, ranged
 - [ ] Melee + throwable combat; damage types routed through effects engine; hit registration server-side (generous hitboxes over rewind)
 - [ ] Knockback interacts with ledges — fall damage is a weapon, in PvE and PvP alike
-- [ ] **PvP rules per [GAME_DESIGN.md](GAME_DESIGN.md):** unaffiliated players damage each other; party members don't (toggle, default off); `sanctuary` suppresses everything; spawn protection until expiry or aggression
+- [ ] **PvP rules per [GAME_DESIGN.md](GAME_DESIGN.md):** everyone can damage everyone — friendly fire is always on, even in parties; `sanctuary` suppresses everything
+- [ ] **Melee targeting aid:** swings resolve against the best target in the arc, hostiles preferred over party members; an arc with no hostile hits whoever's there; AoE/throwables/areas hit everyone, always
 - [ ] Enemy status vulnerability via tags (a plant-monster is flammable; a slime is immune to bleed)
-- [ ] Death: drop carried items where you fell (anyone may loot — including your killer), respawn at random location, keep stash; downed-then-revive state for party members
+- [ ] Death: **full loot drop** where you fell (anyone may loot — including your killer), respawn at random distant location, keep stash; downed-then-revive state for party members
 - [ ] 4–6 starter enemies as data files
 
 **Done when:** Two strangers can fight over a loot drop with molotovs and knives — or ignore each other — and a plant-monster kited into their crossfire burns either way.
@@ -133,7 +134,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] Safe-room sanctuary rules live (zone tag from Epics 3/5 + PvP rules from Epic 6, now with real rooms)
 - [ ] **Stretch rooms:** personal door in every safe room → your instanced personal room (stash + crafting table); implementation: portal-attached instanced sub-maps, not floor geometry
 - [ ] **Party rooms:** party door → shared common room with individual member rooms off it
-- [ ] Party system: invite/accept (mutual consent), leave/disband, party chat channel plumbing, friendly-fire flag, member position pings outside AOI
+- [ ] Party system: invite/accept (mutual consent), leave/disband, party chat channel plumbing, member position pings outside AOI (friendly fire stays on — no flag)
 - [ ] Persistent stash, server-side per player (anonymous id first, accounts in v0.8)
 - [ ] Crafting table interactable + crafting UI (select ingredients from inventory)
 - [ ] Recipe-based crafting for known items (the deterministic path; AI path comes in v0.6)
@@ -187,8 +188,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 **Goal:** A reason to keep descending.
 
 - [ ] Accounts (lightweight: email or OAuth) replacing anonymous ids; stash/codex/contacts/settings server-side
-- [ ] **Floor lifecycle system** (GAME_DESIGN.md § World structure): floors run on a shared clock; stairways sealed until the floor's condition is met (working assumption: time gate — open for the final stretch); descent is a one-way shard handoff to the next floor, available the moment stairs open; end-of-floor handling per the open questions
-- [ ] Floor identity & difficulty scaling: enemy stats/density per floor, biome tilesets feeding the tag system — flooded floors, overgrown floors, **cloud-city sky floors built on the height system**
+- [ ] **Descent goes live:** stairways become functional one-way shard handoffs to the next floor (floors run forever and stairs are open — the timed **Seasons** lifecycle is post-v1.0, below)
+- [ ] Floor identity & difficulty scaling: enemy stats/density per floor, biome tilesets feeding the tag system — flooded floors, overgrown floors (sky set pieces like the floating castle: post-v1.0)
 - [ ] Player progression (levels or unlock-based; kept simple)
 - [ ] Boss chambers on deeper floors — designed so strangers have a reason to temporarily ally
 - [ ] **Editable HUD editor:** drag/resize/toggle/reset over the v0.5 widget foundation; layouts sync to account
@@ -213,6 +214,11 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] AI API cost controls at scale (caching, registry-first lookups so repeat crafts never call the API)
 - [ ] itch.io page + landing page, trailer/GIFs (fistbump-then-betrayal clips will market themselves)
 - [ ] Launch; post-launch cadence plan (content drops = new base items/tags, which multiply AI-craftable space)
+
+### Post-v1.0 (recorded now, designed later)
+
+- **Seasons:** parallel game instances run as timed seasons — floor 1 open ~1 week, floor 2 ~9 days, subsequent floors ~2 weeks, stairways sealed until late in each window; joins close when a season's floor 1 ends, newcomers start a fresh season/world (GAME_DESIGN.md § Resolved decisions)
+- **Sky set pieces:** the floating castle — reachable by rope, flight, teleportation, maybe a vehicle; the height model already supports it
 
 ---
 
