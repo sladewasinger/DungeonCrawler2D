@@ -46,7 +46,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Fixed features placed deterministically per floor: **safe rooms** (flat sanctuaries every 3×3 chunks; stretch-room doors arrive in v0.4) and inert stairway markers (functional in v0.8); biome regions come with floor identity (v0.8)
 - [x] Logical grid model (chunks: tiles + height + zone tags like `sanctuary`) decoupled from rendering
 - [x] Client-side chunk streaming: generate/render chunks entering view, cull chunks leaving
-- [x] **Pixel-art generation** (64×64, real committed binaries — spritesheets baked by `npm run art`): beveled brick floors (4 variants), cracked rock walls with stone-course faces, cliff-face strata tiles + ledge-rim overlay tiles, sanctuary flagstones, stair treads, and hooded crawler sprites (gold self / blue peers); rendered via tilemap layers with per-tile height tint
+- [x] **Pixel art** (64×64, real committed binaries): tiles sourced from the Craftpix free top-down dungeon pack in `assets/pack/` (see its license.txt), composed into our spritesheets by `npm run art` — floors with crack decals, dark wall tops, masonry wall/cliff faces, teal sanctuary recolor, procedural stair treads + ledge-rim overlays + hooded crawler sprites (gold self / blue peers); rendered via tilemap layers with per-tile height tint
 - [x] Debug overlay: seed/pos/chunk/ping/fps display, chunk-border toggle (debug teleport needs a server-side debug message — soon)
 - [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room flatness/sanctuary invariants
 
@@ -65,6 +65,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Shadow-blob rendering: shadow anchors ground position, sprite offsets by z
 - [x] Join/leave/reconnect: connect → spawn; 30 s disconnect grace; resume token restores identity and position
 - [x] Headless multi-client + in-process-server simulation tests for protocol, AOI, reconnect, and multi-client convergence
+- [x] **Dev proving ground** (engine `testzone.ts`, stamped over chunks (0,0)–(1,1), spawns prefer it — remove before v0.9): terraced hill to a h5 summit, stair ramp to four h3 jump pillars over 2/3/4-tile gaps, a jump-climb drop tower with h2/4/6/8 bands, and a chasm with an exit ramp — everything needed to test jumping across and falling off cliffs
 - [ ] Terraform baseline + deployed playtest server (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) — **deferred until the hosting account is decided**; meanwhile local dev mimics prod topology (standalone game-server process + static client over the real protocol)
 
 **Done when:** Three people on different networks spawn apart on one vast floor, wander, jump off ledges, and find each other — movement feels responsive (<150 ms perceived), and a dropped client rejoins where they left.

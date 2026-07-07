@@ -24,9 +24,11 @@ describe("world generation", () => {
   });
 
   it("differs across seeds and floors", () => {
-    const a = generateChunk(SEED, FLOOR, 0, 0);
-    const b = generateChunk(hashString("other-world"), FLOOR, 0, 0);
-    const c = generateChunk(SEED, FLOOR + 1, 0, 0);
+    // Chunk (5,5) — outside the dev test zone at (0,0)–(1,1), which is
+    // deliberately identical on every seed and floor.
+    const a = generateChunk(SEED, FLOOR, 5, 5);
+    const b = generateChunk(hashString("other-world"), FLOOR, 5, 5);
+    const c = generateChunk(SEED, FLOOR + 1, 5, 5);
     expect(Array.from(a.tiles)).not.toEqual(Array.from(b.tiles));
     expect(Array.from(a.tiles)).not.toEqual(Array.from(c.tiles));
   });

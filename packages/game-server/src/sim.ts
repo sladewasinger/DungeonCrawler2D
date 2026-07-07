@@ -6,6 +6,7 @@ import {
   RECONNECT_GRACE_MS,
   Rng,
   SPAWN_CHUNK_RANGE,
+  TEST_SPAWN,
   TICK_DT,
   TICK_RATE,
   chunkCenter,
@@ -206,6 +207,21 @@ export class GameSim {
    * player; there is no spawn shield — distance is the protection.
    */
   private findSpawn(): { x: number; y: number; z: number } {
+    // Dev scaffolding: the first player to fit lands at the movement
+    // proving ground (engine testzone.ts). Distance rules still apply,
+    // so everyone else spawns out in the world. Remove before v0.9.
+    const test = { x: Math.floor(TEST_SPAWN.x), y: Math.floor(TEST_SPAWN.y) };
+    if (this.world.isWalkable(test.x, test.y)) {
+      let nearest = Infinity;
+      for (const other of this.players.values()) {
+        const d = Math.hypot(other.body.x - TEST_SPAWN.x, other.body.y - TEST_SPAWN.y);
+        if (d < nearest) nearest = d;
+      }
+      if (nearest >= MIN_SPAWN_DIST) {
+        return { x: TEST_SPAWN.x, y: TEST_SPAWN.y, z: this.world.heightAt(test.x, test.y) };
+      }
+    }
+
     let best: { x: number; y: number } | null = null;
     let bestDist = -1;
     for (let attempt = 0; attempt < 40; attempt++) {

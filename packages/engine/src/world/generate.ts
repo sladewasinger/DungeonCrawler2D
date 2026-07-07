@@ -1,5 +1,6 @@
 import { fbm2D } from "../core/noise";
 import { hash2D, mixSeeds } from "../core/rng";
+import { applyTestZone } from "./testzone";
 import { CHUNK_SIZE, TILE, ZONE, type Chunk, type TileType } from "./types";
 
 /**
@@ -228,6 +229,7 @@ export function generateChunk(
   }
 
   applyFlattenedFeature(worldSeed, floor, cx, cy, seeds, segs, tiles, height, zones);
+  applyTestZone(cx, cy, tiles, height, zones); // dev scaffolding — see testzone.ts
   sealInteriorPockets(tiles, corridorCarved, zones);
 
   return { cx, cy, tiles, height, zones };
