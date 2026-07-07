@@ -249,10 +249,16 @@ export class DungeonScene extends Phaser.Scene {
         const h = chunk.height[i] ?? 0;
 
         if (tile === TILE.Wall) {
-          const variants = world.isWalkable(wx, wy + 1)
-            ? atlas.frames.wallFace
-            : atlas.frames.wall;
-          base.putTileAt(variants[hash2D(7, wx, wy) % variants.length]!, lx, ly);
+          // Blob autotile per the pack's sample: rounded cobble edges
+          // around dark interiors; the bottom edge doubles as the
+          // south-facing wall courses. Mask bits set where the
+          // neighbor is OPEN (N=1, E=2, S=4, W=8).
+          let mask = 0;
+          if (world.tileAt(wx, wy - 1) !== TILE.Wall) mask |= 1;
+          if (world.tileAt(wx + 1, wy) !== TILE.Wall) mask |= 2;
+          if (world.tileAt(wx, wy + 1) !== TILE.Wall) mask |= 4;
+          if (world.tileAt(wx - 1, wy) !== TILE.Wall) mask |= 8;
+          base.putTileAt(atlas.frames.wallAuto[mask]!, lx, ly);
           continue;
         }
         if (tile === TILE.Stairs) {

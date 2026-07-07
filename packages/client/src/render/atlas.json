@@ -13,14 +13,6 @@
       10,
       11
     ],
-    "wall": [
-      16,
-      17
-    ],
-    "wallFace": [
-      18,
-      19
-    ],
     "stairs": 20,
     "faceTall": [
       24,
@@ -30,10 +22,48 @@
       26,
       27
     ],
-    "rimBase": 31
+    "rimBase": 31,
+    "wallAuto": [
+      40,
+      41,
+      42,
+      45,
+      43,
+      43,
+      47,
+      49,
+      44,
+      46,
+      49,
+      49,
+      48,
+      49,
+      49,
+      49
+    ],
+    "areas": {
+      "fire": 50,
+      "wet": 51,
+      "poison": 52,
+      "oil": 53,
+      "smoke": 54,
+      "steam": 55
+    },
+    "interact": {
+      "craftingTable": 56,
+      "stash": 57,
+      "doorPersonal": 58,
+      "doorParty": 59
+    }
   },
   "players": {
     "self": 0,
     "peer": 1
+  },
+  "enemies": {
+    "slime": 0,
+    "plant-creeper": 1,
+    "skeleton": 2,
+    "spitter": 3
   }
 }
