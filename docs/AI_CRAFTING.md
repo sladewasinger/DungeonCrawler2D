@@ -8,7 +8,9 @@ The signature feature (Epic 8–9). At the crafting table, the player types what
 
 ```
 1. Player: prompt + ingredient selection (crafting table UI)
-2. Client → server proxy (POST /craft) — API keys live server-side only
+2. Client → crafting Lambda (POST /craft) — API keys live server-side only.
+   Crafting is request/response and not latency-sensitive, so it stays
+   serverless even though gameplay runs on the stateful game server
 3. Registry check: has this (ingredients + intent) been crafted before?
    ├─ yes → return existing item, no AI call (cost control + consistency)
    └─ no  → continue
@@ -19,9 +21,11 @@ The signature feature (Epic 8–9). At the crafting table, the player types what
    b. Balance budget: item power ≤ f(ingredient tier); numeric caps
    c. Plausibility: proposal must cite which ingredient contributes each behavior
    d. Content moderation on name/description
-6. Accept → consume ingredients, instantiate item, persist, publish to registry
+6. Accept → consume ingredients, persist definition, push to the player's live
+   game session — the game server loads it like any content file and broadcasts
+   it, so party members immediately see (and can be hit by) the new invention
    Deny  → player-facing flavor message with reason category; ingredients kept
-7. (v0.6) Other players discover the item as a craftable recipe
+7. (v0.6) Other players discover the item as a craftable recipe via the registry
 ```
 
 ## ItemProposal contract (sketch)

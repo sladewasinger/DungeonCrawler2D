@@ -2,6 +2,8 @@
 
 The effects engine is the foundation the whole game — and especially AI crafting — stands on. Its job: make "what an item/effect *does*" expressible entirely as data, so new effects (including AI-proposed ones) require zero new code.
 
+**Multiplayer note:** effects are simulated exclusively on the game server as part of the authoritative tick (see [ARCHITECTURE.md](ARCHITECTURE.md)). Clients receive effect events (`EffectApplied`, `AreaSpawned`, `EntityTransformed`…) and render them — they never compute outcomes. This guarantees every party member sees the same fire spread identically, and no client can cheat a debuff away.
+
 ## Three layers
 
 1. **Effect primitives** — the only layer implemented in code. Small, orthogonal, heavily tested verbs.
