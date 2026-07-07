@@ -1,6 +1,6 @@
 # Roadmap — Epics, Goals, and Release Timeline
 
-From empty repo to fully complete game. Dates assume part-time development starting **July 2026**; each release is a playable, shippable build. This is a **real-time PvPvE multiplayer** game set in a vast shared dungeon — players spawn apart, can fight or befriend anyone they meet, and safety exists only in safe rooms. The player-facing design (world structure, PvP rules, safe/stretch rooms, social systems, editable HUD) lives in [GAME_DESIGN.md](GAME_DESIGN.md); this doc sequences the work. Earliest epics: basic graphics, world generation, multiplayer support.
+From empty repo to fully complete game. Dates assume part-time development starting **July 2026**; each release is a playable, shippable build. This is a **real-time PvPvE multiplayer** game set in a vast dungeon of stacked, isolated floor-worlds with a **continuous height axis** (cliffs, chasms, cloud cities, flight, fall damage) — players spawn apart, can fight or befriend anyone they meet, safety exists only in safe rooms, and reaching the stairway down is the objective. The player-facing design lives in [GAME_DESIGN.md](GAME_DESIGN.md); this doc sequences the work. Earliest epics: basic graphics, world generation, multiplayer support.
 
 ---
 
@@ -8,14 +8,14 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 | Release | Name | Target | Theme |
 | --- | --- | --- | --- |
-| v0.1 | Walking Skeleton | **Sep 2026** | Scaffold, vast chunked world gen, players spawning apart and finding each other in real time |
+| v0.1 | Walking Skeleton | **Sep 2026** | Scaffold, vast heightmapped world gen, players spawning apart and finding each other in real time |
 | v0.2 | Living Engine | **Nov 2026** | Server-authoritative effects engine, items, inventory, throwables |
 | v0.3 | Dangerous Dungeon | **Jan 2027** | Combat — PvE and PvP — area effects, sanctuary enforcement |
 | v0.4 | Safe Haven | **Mar 2027** | Safe rooms that stretch: personal & party rooms, party system, recipe crafting |
 | v0.5 | Social Fabric | **Apr 2027** | Fistbump → DMs, global chat, mute/block everything, HUD widget foundation |
 | v0.6 | The Spark | **Jun 2027** | AI crafting — natural-language item creation |
 | v0.7 | Invention Economy | **Jul 2027** | Global item registry — accepted items craftable by all players |
-| v0.8 | The Long Game | **Sep 2027** | Progression, accounts, descent/depth scaling, editable HUD |
+| v0.8 | The Long Game | **Sep 2027** | Floor lifecycle & descent, accounts, progression, editable HUD |
 | v0.9 | Beta | **Nov 2027** | Content pass, art/audio polish, balancing, load testing |
 | v1.0 | Release | **Jan 2028** | Launch on web (itch.io + own domain), moderation, post-launch plan |
 
@@ -42,13 +42,14 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 - [ ] Seeded RNG; chunk geometry deterministic from `(worldSeed, floor, chunkCoord)` — byte-exact across machines (a networking correctness requirement)
 - [ ] Chunked generator producing connected caves/rooms/corridors across chunk boundaries, no orphan regions
+- [ ] **Continuous height field per chunk** (GAME_DESIGN.md § Verticality): terraces, cliffs, plateaus, chasms; reachability contract includes vertical routes (stairs, jumpable ledges, survivable fall lines)
 - [ ] Fixed features placed deterministically per floor: **safe rooms** (with door slots for stretch rooms), stairways down, biome regions
 - [ ] Logical grid model (`DungeonMap` chunks: floor/wall/door/spawn/exit + zone tags like `sanctuary`) decoupled from rendering
 - [ ] Client-side chunk streaming: generate/render chunks entering view, drop chunks leaving
 - [ ] Debug overlay: seed/chunk display, teleport, chunk borders
 - [ ] Unit tests: cross-chunk connectivity, determinism, safe-room placement invariants
 
-**Done when:** Two machines given the same seed render identical geometry at any coordinate, and a player can walk for minutes without hitting an edge or a seam.
+**Done when:** Two machines given the same seed render identical geometry (heights included) at any coordinate, and a player can walk for minutes without hitting an edge or a seam — past cliffs and chasms with legible elevation.
 
 ## Epic 2 — Multiplayer Core (v0.1) ⭐
 
@@ -59,11 +60,13 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Area-of-interest replication:** each client receives deltas only for entities within its view radius — mandatory on a vast map, and it's also what makes "stumbling upon someone" a moment
 - [ ] Random spawn placement (away from players/enemy clusters) + spawn protection flag
 - [ ] Player movement: client-side prediction for your own character, interpolation for others, server reconciliation
+- [ ] **z from day one:** entities are `(x, y, z)` in the protocol; server-side gravity, jumping, and falling (fall *damage* arrives with the effects engine in v0.2)
+- [ ] Shadow-blob rendering: shadow anchors ground position, sprite offsets by z
 - [ ] Join/leave/reconnect: connect → spawn; disconnect grace period; rejoin restores position and inventory
 - [ ] Headless multi-client + in-process-server simulation tests for protocol and AOI correctness
 - [ ] Terraform baseline + deployed playtest server (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) so remote friends can playtest
 
-**Done when:** Three people on different networks spawn apart on one vast floor, wander, and find each other — movement feels responsive (<150 ms perceived), and a dropped client rejoins where they left.
+**Done when:** Three people on different networks spawn apart on one vast floor, wander, jump off ledges, and find each other — movement feels responsive (<150 ms perceived), and a dropped client rejoins where they left.
 
 ## Epic 3 — Effects Engine (v0.2)
 
@@ -75,6 +78,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Zone tags:** effects respect map zones — the `sanctuary` tag suppresses hostile primitives (groundwork for safe rooms in v0.3/v0.4)
 - [ ] Effect events broadcast within AOI (`EffectApplied`, `EffectExpired`, `EntityTransformed`) — clients render, never simulate outcomes
 - [ ] Tag-driven interaction rules (fire + wet ⇒ extinguish; fire + flammable ⇒ ignite; exposure timers: char, cook)
+- [ ] **Verticality as data:** fall damage routed through `modify_health` scaled by drop height; `airborne`, `flying`, `feather-fall`, `sticky-feet` as data statuses (GAME_DESIGN.md § Verticality)
 - [ ] Base status set as data files: bleeding, poisoned, on fire, wet, healing, slowed, burned/charred
 - [ ] Headless unit tests for every primitive and interaction rule
 
@@ -101,6 +105,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] Spread/decay simulation on the server tick (fire spreads to flammable tiles, consumes fuel, leaves char; clouds drift and dissipate); deltas broadcast within AOI; hibernating chunks pause their areas
 - [ ] Entity ↔ area interaction: standing in fire applies "on fire"; wet ground applies "wet" and slows
 - [ ] Area ↔ area interaction via the same tag rules (fire meets wet ⇒ steam/extinguish)
+- [ ] **Height-aware propagation:** heavy gases sink into pits and low ground, smoke rises, liquids flow downhill along the height field; ground-bound areas can't touch airborne entities — poison poured off a ledge rains onto the terrace below
 - [ ] **Sanctuary boundary:** hostile areas cannot enter or be placed inside `sanctuary` zones — fire dies at the safe-room threshold
 - [ ] Exposure timers: items left in fire char, then are destroyed; raw meat cooks
 
@@ -113,6 +118,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] Enemy framework: data-defined enemies (stats, tags, drops, behavior params), AI runs on the server (active chunks only)
 - [ ] Basic AI behaviors: wander, chase (aggro table across nearby players — kiting a horde onto a stranger is legal and hilarious), melee, ranged
 - [ ] Melee + throwable combat; damage types routed through effects engine; hit registration server-side (generous hitboxes over rewind)
+- [ ] Knockback interacts with ledges — fall damage is a weapon, in PvE and PvP alike
 - [ ] **PvP rules per [GAME_DESIGN.md](GAME_DESIGN.md):** unaffiliated players damage each other; party members don't (toggle, default off); `sanctuary` suppresses everything; spawn protection until expiry or aggression
 - [ ] Enemy status vulnerability via tags (a plant-monster is flammable; a slime is immune to bleed)
 - [ ] Death: drop carried items where you fell (anyone may loot — including your killer), respawn at random location, keep stash; downed-then-revive state for party members
@@ -181,11 +187,11 @@ From empty repo to fully complete game. Dates assume part-time development start
 **Goal:** A reason to keep descending.
 
 - [ ] Accounts (lightweight: email or OAuth) replacing anonymous ids; stash/codex/contacts/settings server-side
-- [ ] Descent: stairways down, difficulty scaling by depth (enemy stats, density, new biome tilesets feeding the tag system — flooded floors, overgrown floors)
+- [ ] **Floor lifecycle system** (GAME_DESIGN.md § World structure): floors run on a shared clock; stairways sealed until the floor's condition is met (working assumption: time gate — open for the final stretch); descent is a one-way shard handoff to the next floor, available the moment stairs open; end-of-floor handling per the open questions
+- [ ] Floor identity & difficulty scaling: enemy stats/density per floor, biome tilesets feeding the tag system — flooded floors, overgrown floors, **cloud-city sky floors built on the height system**
 - [ ] Player progression (levels or unlock-based; kept simple)
 - [ ] Boss chambers on deeper floors — designed so strangers have a reason to temporarily ally
 - [ ] **Editable HUD editor:** drag/resize/toggle/reset over the v0.5 widget foundation; layouts sync to account
-- [ ] Floor lifecycle: hibernation/persistence policy, and the world-reset decision from GAME_DESIGN.md open questions
 
 ## Epic 12 — Content, Art & Audio Polish (v0.9)
 

@@ -121,8 +121,17 @@ An AI item proposal may only:
 
 The validator rejects unknown primitives/tags, out-of-budget numbers, and self-referencing loops. A rejected proposal costs the player nothing but the attempt.
 
+## Verticality
+
+The world has a continuous height axis ([GAME_DESIGN.md](GAME_DESIGN.md) § Verticality). Height is an **input to the same machinery**, not a new system:
+
+- **Fall damage** is `modify_health` scaled by drop distance — and an interaction rule cancels it on landing in water (the engine already thinks this way: fire + wet ⇒ extinguish)
+- **`airborne`** is a tag set by jumping/flying; ground-bound area effects and melee simply don't match airborne targets — flying over your own burning oil slick is a legal play
+- **Area effects carry a `buoyancy` param:** heavy gases sink into pits and low terrain, smoke rises, liquids flow downhill along the height field. Poison poured off a cloud-city ledge rains onto the terraces below.
+- **Movement capabilities are statuses:** `flying`, `feather-fall`, `sticky-feet` (cliff traversal, ledge-grip, knockback immunity) compose from existing primitives — data, therefore AI-craftable
+
 ## Launch status set (v0.2–v0.3)
 
 Debuffs: `bleeding`, `poisoned`, `on-fire`, `slowed`, `wet` (contextual), `blinded` (smoke)
-Buffs: `healing`, `regenerating`, `haste`, `resist-fire`, `well-fed`
+Buffs: `healing`, `regenerating`, `haste`, `resist-fire`, `well-fed`, `feather-fall`, `flying` (rare), `sticky-feet`
 Areas: `area-fire`, `area-wet`, `area-poison-cloud`, `area-oil`, `area-smoke`, `area-steam`

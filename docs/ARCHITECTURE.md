@@ -39,7 +39,7 @@ dungeoncrawler2D/
 ├── packages/
 │   ├── engine/                  # ── PURE: no Phaser, no Node APIs ──
 │   │   ├── core/                #   Seeded RNG, event bus, fixed-tick clock, ids
-│   │   ├── world/               #   Chunked generation: (worldSeed, floor, chunk) → geometry, zones, safe rooms
+│   │   ├── world/               #   Chunked generation: (worldSeed, floor, chunk) → heightmapped geometry, zones, safe rooms
 │   │   ├── entities/            #   Entity model, stats, tags
 │   │   ├── effects/             #   Primitives, StatusEffect, interaction rules (EFFECTS.md)
 │   │   ├── areas/               #   Tile-region area effects, spread/decay sim
@@ -95,18 +95,21 @@ Key decisions:
 
 ### World model: floors, chunks, stretch rooms
 
-- A **floor** is a vast map simulated by one shard. The server keeps **active chunks** (near players) hot in the tick loop and **hibernates** the rest, persisting their deltas (looted items, burned/charred tiles, opened doors) so the world stays consistent when someone wanders back.
+- A **floor is exactly one shard, and floors never interact.** No shared space, no cross-floor effects — a floor is a self-contained world with its own difficulty, biome, and lifecycle. Descent through a stairway is a one-way handoff: the shard broker moves the player's connection (and state) to the next floor's shard. This makes sharding trivially clean — nothing ever spans a shard boundary.
+- **Floors are timed waves** (see [GAME_DESIGN.md](GAME_DESIGN.md)): a lightweight lifecycle controller (scheduled Lambda or the broker) opens stairways when the floor's condition is met (working assumption: time gate) and ends floors on schedule.
+- **Terrain is heightmapped.** Each chunk carries a continuous height field alongside its tile/zone data; entities live at `(x, y, z)`. Gravity, jump arcs, and landings are part of the engine's physics step from v0.1 — retrofitting z into a shipped protocol and generator would be miserable, so it's in the data model from the first commit.
+- The server keeps **active chunks** (near players) hot in the tick loop and **hibernates** the rest, persisting their deltas (looted items, burned/charred tiles, opened doors) so the world stays consistent when someone wanders back.
 - **Fixed features** — safe rooms, stairways, biome regions — are placed deterministically per floor, identical for every player.
 - Map regions carry **zone tags** (`sanctuary` on safe rooms) that the effects engine reads like any other tag — sanctuary is data plus one interaction rule, not special-case code (see [EFFECTS.md](EFFECTS.md)).
 - **Stretch rooms** (personal rooms, party rooms — see [GAME_DESIGN.md](GAME_DESIGN.md)) are small instanced sub-maps attached to safe rooms by portal. They're simulated as tiny always-`sanctuary` chunks keyed by player/party id, not part of floor geometry — which is how one safe-room door can lead somewhere different for each player.
 
 ### Simulation loop
 
-The engine exposes a pure step function — `tick(state, intents, dt) → {state, events}` — with no timers or sockets of its own. The game server drives it on a 20 Hz interval and broadcasts the resulting events/deltas. The client drives the same function for its own predicted entity, and Vitest drives it directly in tests (including full two-client protocol simulations with no network and no browser).
+The engine exposes a pure step function — `tick(state, intents, dt) → {state, events}` — with no timers or sockets of its own. The tick includes the z-physics step: gravity, jump arcs, and landings, with fall damage routed through the effects engine like any other damage. The game server drives it on a 20 Hz interval and broadcasts the resulting events/deltas. The client drives the same function for its own predicted entity, and Vitest drives it directly in tests (including full two-client protocol simulations with no network and no browser).
 
 ### Entities, stats, tags
 
-An `Entity` is an id + stat block + **tag set** + active effects + (optional) inventory. Tags are the universal vocabulary that everything keys off:
+An `Entity` is an id + position `(x, y, z)` + stat block + **tag set** + active effects + (optional) inventory. Tags are the universal vocabulary that everything keys off:
 
 - Material/state tags: `flammable`, `liquid`, `wet`, `metal`, `organic`, `sharp`
 - Behavioral tags: `enemy`, `player`, `item`, `container`
@@ -121,12 +124,13 @@ Every effect, item, and enemy is a JSON file in `content/`, validated against a 
 
 ### World generation
 
-`generateChunk(worldSeed, floor, chunkCoord, config) → DungeonChunk` — a pure function over a seeded RNG, plus a deterministic per-floor pass that places fixed features (safe rooms, stairways, biomes). Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities (enemies, loot, players) are placed by the server and sent as events, so only static geometry and zones rely on determinism. Cross-chunk connectivity (corridors that meet at boundaries) is part of the generator's contract and test suite.
+`generateChunk(worldSeed, floor, chunkCoord, config) → DungeonChunk` — a pure function over a seeded RNG producing tiles, zones, and a **continuous height field** (terraces, cliffs, chasms, up to cloud-city set pieces), plus a deterministic per-floor pass that places fixed features (safe rooms, stairways, biomes). Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry and heights on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities (enemies, loot, players) are placed by the server and sent as events, so only static geometry and zones rely on determinism. The generator's contract and test suite cover cross-chunk connectivity **and vertical reachability** (routes exist between height levels — by stairs, jumps, or deliberate fall lines).
 
 ## Rendering & art pipeline
 
 - 16×16 pixel tiles, rendered at 3–4× zoom with `pixelArt: true` (nearest-neighbor)
 - Top-down view; Don't Starve-adjacent mood via palette and silhouette, not detail
+- **Verticality rendering:** a shadow blob anchors every entity's ground position; the sprite offsets upward by z (jump, flight, falling). Cliff/elevation tiles that read clearly are a first-class art requirement — height must be legible at a glance
 - Placeholder art is programmatically generated colored tiles at first; real tilesets swap in behind the same tileset-metadata format
 - Player characters get palette-swap variants so party members are distinguishable at a glance
 - Effect VFX (fire, poison bubbles, splashes) are small particle configs keyed by effect tags — an AI item tagged `fire` automatically gets fire VFX
