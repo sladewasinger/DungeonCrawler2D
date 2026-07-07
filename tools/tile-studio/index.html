@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Tile Studio — dc2d map editor</title>
+<style>
+  :root {
+    --bg: #14121c; --panel: #1d1a28; --line: #35304a; --ink: #e8e4f0;
+    --dim: #8f8aa4; --accent: #9fe8c9; --gold: #ffe9b0; --danger: #ff8f7a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 ui-monospace, Consolas, monospace; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  header { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--panel); }
+  header b { color: var(--accent); }
+  header label { color: var(--dim); }
+  input[type=number] { width: 56px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 2px 5px; }
+  select, button { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 3px 9px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+  main { flex: 1; display: flex; min-height: 0; }
+  #paletteWrap { width: 300px; border-right: 1px solid var(--line); overflow: auto; background: var(--panel); padding: 8px; }
+  #paletteWrap h3, .half h3 { margin: 2px 0 6px; font-size: 12px; color: var(--dim); font-weight: normal; text-transform: uppercase; letter-spacing: 1px; }
+  #palette { image-rendering: pixelated; cursor: crosshair; }
+  #right { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .half { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px; }
+  .half + .half { border-top: 1px solid var(--line); }
+  .half .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+  .canvasWrap { flex: 1; overflow: auto; border: 1px solid var(--line); background: #0d0b14; }
+  canvas.grid { image-rendering: pixelated; cursor: crosshair; display: block; }
+  #status { color: var(--dim); margin-left: auto; }
+  .hint { color: var(--dim); font-size: 12px; }
+  kbd { background: var(--line); border-radius: 3px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <b>TILE STUDIO</b>
+  <label>sheet <input id="fileInput" type="file" accept="image/png" /></label>
+  <label>tile px <input id="tileSize" type="number" value="16" min="4" /></label>
+  <label>grid <input id="gridW" type="number" value="26" min="4" max="64" /> × <input id="gridH" type="number" value="15" min="4" max="64" /></label>
+  <label>origin <input id="originX" type="number" value="68" /> , <input id="originY" type="number" value="12" /></label>
+  <button id="importBtn">Import JSON</button>
+  <input id="importFile" type="file" accept="application/json" style="display:none" />
+  <select id="exportSource"><option value="smart">export: smart grid</option><option value="example">export: example grid</option></select>
+  <button id="exportBtn" class="primary">Export map JSON</button>
+  <span id="status"></span>
+</header>
+<main>
+  <div id="paletteWrap">
+    <h3>Palette — click to select</h3>
+    <div class="bar">
+      <label>logic tag
+        <select id="tagSelect">
+          <option value="">(art only)</option>
+          <option value="0">floor</option>
+          <option value="1">wall</option>
+          <option value="2">stairs</option>
+          <option value="3">door: personal</option>
+          <option value="4">door: party</option>
+          <option value="5">door: exit</option>
+          <option value="6">crafting table</option>
+          <option value="7">stash</option>
+          <option value="8">door: safe room</option>
+        </select>
+      </label>
+    </div>
+    <div class="hint">Tag tells the game what the selected tile IS (collision/doors). Dots mark tagged tiles.</div>
+    <canvas id="palette"></canvas>
+  </div>
+  <div id="right">
+    <div class="half">
+      <h3>1 · Example — paint freely; the studio learns which tiles may touch</h3>
+      <div class="bar">
+        <button id="learnBtn" class="primary">Learn rules from example</button>
+        <button id="clearExample">Clear</button>
+        <span class="hint"><kbd>LMB</kbd> paint &nbsp;<kbd>RMB</kbd> erase &nbsp;<kbd>MMB</kbd>/<kbd>alt</kbd> pick</span>
+        <span id="ruleInfo" class="hint"></span>
+      </div>
+      <div class="canvasWrap"><canvas id="example" class="grid"></canvas></div>
+    </div>
+    <div class="half">
+      <h3>2 · Smart paint — place seeds; learned rules complete the borders (WFC)</h3>
+      <div class="bar">
+        <button id="resolveBtn">Re-solve</button>
+        <button id="clearSmart">Clear</button>
+        <label><input id="autoSolve" type="checkbox" checked /> auto-solve while painting</label>
+        <span class="hint">seeds draw with a gold pip; everything else is the solver's</span>
+      </div>
+      <div class="canvasWrap"><canvas id="smart" class="grid"></canvas></div>
+    </div>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const EMPTY = -1;
+const CELL = 28; // on-screen cell size
+
+const state = {
+  img: null,
+  sheetName: "walls_floor.png",
+  ts: 16,
+  cols: 0,
+  rows: 0,
+  selected: 0,
+  tags: new Map(),            // tileIndex -> logic id
+  usable: null,               // Set of non-empty tile indices (null = unknown/taint)
+  gw: 26, gh: 15,
+  example: [],                // gw*gh of tileIndex | EMPTY
+  smart: [],                  // { t: tileIndex|EMPTY, seed: bool }
+  rules: null,                // Map(tileKey -> {n:Set,e:Set,s:Set,w:Set})
+};
+
+// ── sheet loading ────────────────────────────────────────────────────
+function loadImage(src, name) {
+  const img = new Image();
+  img.onload = () => {
+    state.img = img;
+    state.sheetName = name;
+    state.cols = Math.floor(img.width / state.ts);
+    state.rows = Math.floor(img.height / state.ts);
+    detectUsable();
+    drawPalette();
+    drawGrid("example");
+    drawGrid("smart");
+    setStatus(`${name}: ${state.cols}×${state.rows} tiles @ ${state.ts}px`);
+  };
+  img.onerror = () => setStatus(`could not load ${src} — pick a PNG with the file input`, true);
+  img.src = src;
+}
+
+function detectUsable() {
+  try {
+    const c = document.createElement("canvas");
+    c.width = state.img.width; c.height = state.img.height;
+    const x = c.getContext("2d");
+    x.drawImage(state.img, 0, 0);
+    const data = x.getImageData(0, 0, c.width, c.height).data;
+    state.usable = new Set();
+    for (let r = 0; r < state.rows; r++) for (let col = 0; col < state.cols; col++) {
+      let opaque = 0;
+      for (let y = 0; y < state.ts; y++) for (let px = 0; px < state.ts; px++) {
+        if (data[(((r * state.ts + y) * c.width) + col * state.ts + px) * 4 + 3] > 16) opaque++;
+      }
+      if (opaque > state.ts * state.ts * 0.05) state.usable.add(r * state.cols + col);
+    }
+  } catch { state.usable = null; /* canvas tainted under file:// — show all */ }
+}
+
+// ── palette ──────────────────────────────────────────────────────────
+const PAL_SCALE = 2;
+function drawPalette() {
+  const cv = $("palette");
+  const cell = state.ts * PAL_SCALE;
+  cv.width = state.cols * cell; cv.height = state.rows * cell;
+  const x = cv.getContext("2d");
+  x.imageSmoothingEnabled = false;
+  x.fillStyle = "#0d0b14"; x.fillRect(0, 0, cv.width, cv.height);
+  for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
+    const idx = r * state.cols + c;
+    if (state.usable && !state.usable.has(idx)) continue;
+    x.drawImage(state.img, c * state.ts, r * state.ts, state.ts, state.ts, c * cell, r * cell, cell, cell);
+    if (state.tags.has(idx)) {
+      x.fillStyle = "#9fe8c9"; x.fillRect(c * cell + cell - 7, r * cell + 2, 5, 5);
+    }
+  }
+  x.strokeStyle = "rgba(120,110,160,0.35)";
+  for (let c = 0; c <= state.cols; c++) { x.beginPath(); x.moveTo(c * cell + 0.5, 0); x.lineTo(c * cell + 0.5, cv.height); x.stroke(); }
+  for (let r = 0; r <= state.rows; r++) { x.beginPath(); x.moveTo(0, r * cell + 0.5); x.lineTo(cv.width, r * cell + 0.5); x.stroke(); }
+  const sc = state.selected % state.cols, sr = Math.floor(state.selected / state.cols);
+  x.strokeStyle = "#ffe9b0"; x.lineWidth = 2;
+  x.strokeRect(sc * cell + 1, sr * cell + 1, cell - 2, cell - 2);
+  x.lineWidth = 1;
+}
+$("palette").addEventListener("pointerdown", (e) => {
+  const rect = e.target.getBoundingClientRect();
+  const cell = state.ts * PAL_SCALE;
+  const c = Math.floor((e.clientX - rect.left) / cell);
+  const r = Math.floor((e.clientY - rect.top) / cell);
+  if (c < 0 || r < 0 || c >= state.cols || r >= state.rows) return;
+  state.selected = r * state.cols + c;
+  $("tagSelect").value = state.tags.has(state.selected) ? String(state.tags.get(state.selected)) : "";
+  drawPalette();
+  setStatus(`selected tile ${state.selected} (col ${c}, row ${r})`);
+});
+$("tagSelect").addEventListener("change", () => {
+  const v = $("tagSelect").value;
+  if (v === "") state.tags.delete(state.selected);
+  else state.tags.set(state.selected, Number(v));
+  drawPalette();
+});
+
+// ── grids ────────────────────────────────────────────────────────────
+function resizeGrids() {
+  state.gw = Math.max(4, Math.min(64, Number($("gridW").value) || 26));
+  state.gh = Math.max(4, Math.min(64, Number($("gridH").value) || 15));
+  const n = state.gw * state.gh;
+  const oldEx = state.example, oldSm = state.smart;
+  state.example = Array.from({ length: n }, (_, i) => oldEx[i] ?? EMPTY);
+  state.smart = Array.from({ length: n }, (_, i) => oldSm[i] ?? { t: EMPTY, seed: false });
+  drawGrid("example"); drawGrid("smart");
+}
+$("gridW").addEventListener("change", resizeGrids);
+$("gridH").addEventListener("change", resizeGrids);
+
+function cellTile(which, i) {
+  return which === "example" ? state.example[i] : state.smart[i].t;
+}
+
+function drawGrid(which) {
+  const cv = $(which);
+  cv.width = state.gw * CELL; cv.height = state.gh * CELL;
+  const x = cv.getContext("2d");
+  x.imageSmoothingEnabled = false;
+  x.fillStyle = "#0d0b14"; x.fillRect(0, 0, cv.width, cv.height);
+  x.strokeStyle = "rgba(120,110,160,0.22)";
+  for (let c = 0; c <= state.gw; c++) { x.beginPath(); x.moveTo(c * CELL + 0.5, 0); x.lineTo(c * CELL + 0.5, cv.height); x.stroke(); }
+  for (let r = 0; r <= state.gh; r++) { x.beginPath(); x.moveTo(0, r * CELL + 0.5); x.lineTo(cv.width, r * CELL + 0.5); x.stroke(); }
+  if (!state.img) return;
+  for (let r = 0; r < state.gh; r++) for (let c = 0; c < state.gw; c++) {
+    const i = r * state.gw + c;
+    const t = cellTile(which, i);
+    if (t === EMPTY) continue;
+    const sc = t % state.cols, sr = Math.floor(t / state.cols);
+    x.drawImage(state.img, sc * state.ts, sr * state.ts, state.ts, state.ts, c * CELL, r * CELL, CELL, CELL);
+    if (which === "smart" && state.smart[i].seed) {
+      x.fillStyle = "#ffe9b0"; x.fillRect(c * CELL + CELL - 6, r * CELL + 2, 4, 4);
+    }
+  }
+}
+
+function bindPainting(which) {
+  const cv = $(which);
+  let painting = 0; // 1 = paint, 2 = erase
+  const apply = (e) => {
+    const rect = cv.getBoundingClientRect();
+    const c = Math.floor((e.clientX - rect.left) / CELL);
+    const r = Math.floor((e.clientY - rect.top) / CELL);
+    if (c < 0 || r < 0 || c >= state.gw || r >= state.gh) return;
+    const i = r * state.gw + c;
+    if (painting === 3) { // pick
+      const t = cellTile(which, i);
+      if (t !== EMPTY) { state.selected = t; drawPalette(); }
+      return;
+    }
+    if (which === "example") {
+      state.example[i] = painting === 1 ? state.selected : EMPTY;
+    } else {
+      state.smart[i] = painting === 1
+        ? { t: state.selected, seed: true }
+        : { t: EMPTY, seed: false };
+    }
+    drawGrid(which);
+  };
+  cv.addEventListener("contextmenu", (e) => e.preventDefault());
+  cv.addEventListener("pointerdown", (e) => {
+    painting = e.button === 2 ? 2 : e.button === 1 || e.altKey ? 3 : 1;
+    apply(e);
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener("pointermove", (e) => { if (painting) apply(e); });
+  cv.addEventListener("pointerup", () => {
+    const wasPainting = painting;
+    painting = 0;
+    if (which === "smart" && wasPainting !== 3 && $("autoSolve").checked) solveSmart();
+    autosave();
+  });
+}
+bindPainting("example");
+bindPainting("smart");
+
+// ── rule learning ────────────────────────────────────────────────────
+// 8 directions: diagonals matter — without them a border ring can't
+// learn that its corners exist, and WFC leaves gaps.
+const DIRS = [
+  ["n", 0, -1, "s"],
+  ["e", 1, 0, "w"],
+  ["s", 0, 1, "n"],
+  ["w", -1, 0, "e"],
+  ["ne", 1, -1, "sw"],
+  ["se", 1, 1, "nw"],
+  ["sw", -1, 1, "ne"],
+  ["nw", -1, -1, "se"],
+];
+function emptyDirSets() {
+  const out = {};
+  for (const [dir] of DIRS) out[dir] = new Set();
+  return out;
+}
+function learn() {
+  const rules = new Map();
+  const entry = (t) => {
+    if (!rules.has(t)) rules.set(t, emptyDirSets());
+    return rules.get(t);
+  };
+  for (let r = 0; r < state.gh; r++) for (let c = 0; c < state.gw; c++) {
+    const a = state.example[r * state.gw + c];
+    for (const [dir, dx, dy, opp] of DIRS) {
+      const nc = c + dx, nr = r + dy;
+      const b = (nc < 0 || nr < 0 || nc >= state.gw || nr >= state.gh)
+        ? EMPTY
+        : state.example[nr * state.gw + nc];
+      entry(a)[dir].add(b);
+      entry(b)[opp].add(a);
+    }
+  }
+  state.rules = rules;
+  const tiles = [...rules.keys()].filter((t) => t !== EMPTY).length;
+  const facts = [...rules.values()].reduce(
+    (s, d) => s + DIRS.reduce((n, [dir]) => n + d[dir].size, 0),
+    0,
+  );
+  $("ruleInfo").textContent = `learned: ${tiles} tiles, ${facts} adjacency facts`;
+  autosave();
+}
+$("learnBtn").addEventListener("click", () => { learn(); solveSmart(); });
+
+// ── WFC-style solver over the smart grid ─────────────────────────────
+function solveSmart() {
+  if (!state.rules) return;
+  const { gw, gh } = state;
+  const R = 2; // halo distance around seeds that the solver owns
+  const seeds = [];
+  for (let i = 0; i < gw * gh; i++) if (state.smart[i].seed) seeds.push(i);
+  if (seeds.length === 0) { drawGrid("smart"); return; }
+
+  const isVar = new Array(gw * gh).fill(false);
+  for (const s of seeds) {
+    const sc = s % gw, sr = Math.floor(s / gw);
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      const c = sc + dx, r = sr + dy;
+      if (c < 0 || r < 0 || c >= gw || r >= gh) continue;
+      const i = r * gw + c;
+      if (!state.smart[i].seed) isVar[i] = true;
+    }
+  }
+  const allValues = [...state.rules.keys()];
+  const allowed = (a, dir, b) => {
+    const e = state.rules.get(a);
+    return e ? e[dir].has(b) : false;
+  };
+  const fixedValue = (i) => (state.smart[i].seed ? state.smart[i].t : EMPTY);
+  // Value ordering: EMPTY first (don't balloon the shape), then tiles
+  // that can border emptiness (edge pieces), then pure interior tiles.
+  const canTouchEmpty = new Map();
+  for (const v of allValues) {
+    const e = state.rules.get(v);
+    canTouchEmpty.set(v, DIRS.some(([dir]) => e[dir].has(EMPTY)));
+  }
+  const rank = (v) => (v === EMPTY ? 0 : canTouchEmpty.get(v) ? 1 : 2);
+
+  const attempt = (rng) => {
+    const domains = new Map();
+    for (let i = 0; i < gw * gh; i++) if (isVar[i]) domains.set(i, new Set(allValues));
+    const neighborVals = (i, dir, dx, dy) => {
+      const c = i % gw, r = Math.floor(i / gw);
+      const nc = c + dx, nr = r + dy;
+      if (nc < 0 || nr < 0 || nc >= gw || nr >= gh) return [EMPTY];
+      const n = nr * gw + nc;
+      if (domains.has(n)) return [...domains.get(n)];
+      return [fixedValue(n)];
+    };
+    const propagate = () => {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const [i, dom] of domains) {
+          for (const [dir, dx, dy] of DIRS) {
+            const nv = neighborVals(i, dir, dx, dy);
+            for (const v of [...dom]) {
+              if (!nv.some((b) => allowed(v, dir, b))) { dom.delete(v); changed = true; }
+            }
+          }
+          if (dom.size === 0) return false;
+        }
+      }
+      return true;
+    };
+    if (!propagate()) return null;
+    for (;;) {
+      let pick = null, pickSize = Infinity;
+      for (const [i, dom] of domains) {
+        if (dom.size > 1 && dom.size < pickSize) { pick = i; pickSize = dom.size; }
+      }
+      if (pick === null) break; // all singletons
+      const candidates = [...domains.get(pick)];
+      candidates.sort((a, b) => rank(a) - rank(b) || rng() - 0.5);
+      const choice = candidates[0];
+      domains.set(pick, new Set([choice]));
+      if (!propagate()) return null;
+    }
+    const out = new Map();
+    for (const [i, dom] of domains) out.set(i, [...dom][0]);
+    return out;
+  };
+
+  let solution = null;
+  for (let tries = 0; tries < 60 && !solution; tries++) {
+    let s = 1234 + tries * 7919;
+    const rng = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+    solution = attempt(rng);
+  }
+  for (let i = 0; i < gw * gh; i++) {
+    if (!isVar[i]) continue;
+    state.smart[i] = { t: solution ? solution.get(i) : EMPTY, seed: false };
+  }
+  setStatus(solution ? "solved" : "no consistent completion — paint a richer example and re-learn", !solution);
+  drawGrid("smart");
+  autosave();
+}
+$("resolveBtn").addEventListener("click", solveSmart);
+$("clearExample").addEventListener("click", () => { state.example.fill(EMPTY); drawGrid("example"); autosave(); });
+$("clearSmart").addEventListener("click", () => { state.smart = state.smart.map(() => ({ t: EMPTY, seed: false })); drawGrid("smart"); autosave(); });
+
+// ── export / import ──────────────────────────────────────────────────
+function exportMap() {
+  const src = $("exportSource").value;
+  const get = (i) => (src === "example" ? state.example[i] : state.smart[i].t);
+  let minC = Infinity, minR = Infinity, maxC = -1, maxR = -1;
+  for (let r = 0; r < state.gh; r++) for (let c = 0; c < state.gw; c++) {
+    if (get(r * state.gw + c) !== EMPTY) {
+      minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+      minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+    }
+  }
+  if (maxC < 0) { setStatus("nothing painted to export", true); return; }
+  const w = maxC - minC + 1, h = maxR - minR + 1;
+  const art = [], logic = [];
+  for (let r = minR; r <= maxR; r++) for (let c = minC; c <= maxC; c++) {
+    const t = get(r * state.gw + c);
+    art.push(t === EMPTY ? null : t);
+    logic.push(t === EMPTY ? null : (state.tags.has(t) ? state.tags.get(t) : null));
+  }
+  const map = {
+    format: "dc2d-map", version: 1,
+    tileSize: state.ts, sheet: state.sheetName, sheetCols: state.cols,
+    origin: { x: Number($("originX").value) || 0, y: Number($("originY").value) || 0 },
+    width: w, height: h, logic, art, flattenTo: 0,
+  };
+  const blob = new Blob([JSON.stringify(map, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "custom-map.json";
+  a.click();
+  setStatus(`exported ${w}×${h} map — drop it at packages/client/public/assets/custom-map.json and restart npm run dev`);
+}
+$("exportBtn").addEventListener("click", exportMap);
+
+$("importBtn").addEventListener("click", () => $("importFile").click());
+$("importFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const map = JSON.parse(await file.text());
+  if (map.format !== "dc2d-map") { setStatus("not a dc2d-map file", true); return; }
+  $("gridW").value = Math.max(state.gw, map.width);
+  $("gridH").value = Math.max(state.gh, map.height);
+  resizeGrids();
+  state.smart = state.smart.map(() => ({ t: EMPTY, seed: false }));
+  for (let r = 0; r < map.height; r++) for (let c = 0; c < map.width; c++) {
+    const t = (map.art ?? [])[r * map.width + c];
+    if (t !== null && t !== undefined) state.smart[r * state.gw + c] = { t, seed: true };
+  }
+  $("originX").value = map.origin?.x ?? 0;
+  $("originY").value = map.origin?.y ?? 0;
+  drawGrid("smart");
+  setStatus(`imported ${map.width}×${map.height} into the smart grid (as seeds)`);
+});
+
+// ── autosave (localStorage) ──────────────────────────────────────────
+function autosave() {
+  try {
+    localStorage.setItem("tile-studio", JSON.stringify({
+      ts: state.ts, gw: state.gw, gh: state.gh,
+      tags: [...state.tags], example: state.example, smart: state.smart,
+      selected: state.selected,
+    }));
+  } catch { /* full/blocked — fine */ }
+}
+function restore() {
+  try {
+    const raw = localStorage.getItem("tile-studio");
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s.ts) { state.ts = s.ts; $("tileSize").value = s.ts; }
+    if (s.gw) $("gridW").value = s.gw;
+    if (s.gh) $("gridH").value = s.gh;
+    resizeGrids();
+    state.tags = new Map(s.tags ?? []);
+    if (Array.isArray(s.example)) state.example = state.example.map((_, i) => s.example[i] ?? EMPTY);
+    if (Array.isArray(s.smart)) state.smart = state.smart.map((_, i) => s.smart[i] ?? { t: EMPTY, seed: false });
+    state.selected = s.selected ?? 0;
+  } catch { /* corrupt — start fresh */ }
+}
+
+function setStatus(msg, bad = false) {
+  const el = $("status");
+  el.textContent = msg;
+  el.style.color = bad ? "var(--danger)" : "var(--dim)";
+}
+
+$("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.ts = Number($("tileSize").value) || 16;
+  loadImage(URL.createObjectURL(file), file.name);
+});
+$("tileSize").addEventListener("change", () => {
+  state.ts = Number($("tileSize").value) || 16;
+  if (state.img) loadImage(state.img.src, state.sheetName);
+});
+
+resizeGrids();
+restore();
+resizeGrids();
+loadImage("../../assets/pack/walls_floor.png", "walls_floor.png");
+</script>
+</body>
+</html>

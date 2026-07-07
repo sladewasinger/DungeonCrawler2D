@@ -50,6 +50,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Client-side chunk streaming: generate/render chunks entering view, cull chunks leaving
 - [x] **Pixel art** (64×64, real committed binaries): tiles sourced from the Craftpix free top-down dungeon pack in `assets/pack/` (see its license.txt), composed into our spritesheets by `npm run art` — floors with crack decals, dark wall tops, masonry wall/cliff faces, teal sanctuary recolor, procedural stair treads + ledge-rim overlays + hooded crawler sprites (gold self / blue peers); rendered via tilemap layers with per-tile height tint
 - [x] Debug overlay: seed/pos/chunk/ping/fps display, chunk-border toggle (debug teleport needs a server-side debug message — soon)
+- [x] **Tile Studio** (`npm run studio`, [tools/tile-studio/](../tools/tile-studio/README.md)): auto-split tile palette with logic tagging, freeform example painting, adjacency-rule learning, and WFC-style smart painting that completes borders around seeded regions; exports `dc2d-map` JSON that both server and client stamp over generation (`custommap.ts`) — drop an export at `packages/client/public/assets/custom-map.json` and walk through your own room in-game
 - [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room entrance invariants
 
 **Done when:** Two machines given the same seed render identical geometry (heights included) at any coordinate, and a player can walk for minutes without hitting an edge or a seam — past cliffs and chasms with legible elevation.
@@ -96,6 +97,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 - [x] `ItemDefinition` JSON schema: identity, tags (flammable, liquid, sharp…), behaviors (consumable, throwable, weapon), effect payloads
 - [x] Server-side inventory: pickup, drop, stack; drops visible to anyone in AOI (loot is contested by design); hotbar UI client-side
+- [x] Hotbar & input UX: number keys, mouse wheel, and clicking a slot all select (e2e-tested); range-gated craft/stash panels close for real when you walk away (no phantom key capture); melee swings render a visible arc, hit or miss
 - [x] Throwable system: intent → server ballistic arc + impact (direct hits, effect primitives at the tile, break chance) → observers render the projectile
 - [x] Consumables wired to the effects engine (bandage strips bleeding; raw meat gambles poison)
 - [x] Starter item set as data: vodka bottle, rag, stick, bandage, knife, torch, water flask, raw meat

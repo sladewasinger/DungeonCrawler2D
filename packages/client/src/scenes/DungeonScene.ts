@@ -1,11 +1,14 @@
 import { content } from "@dc2d/content";
 import {
   CHUNK_SIZE,
+  MELEE_RANGE,
   PICKUP_RANGE,
   STEP_UP,
   TICK_RATE,
   TILE,
   ZONE,
+  customArtAt,
+  getCustomMap,
   hash2D,
   hashString,
   type EntitySnapshot,
@@ -69,6 +72,7 @@ export class DungeonScene extends Phaser.Scene {
     this.load.spritesheet("tiles", "assets/tiles.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.spritesheet("enemies", "assets/enemies.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
+    this.load.image("packsheet", `assets/${atlas.packSheet.image}`);
   }
 
   create(): void {
@@ -109,6 +113,12 @@ export class DungeonScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!this.conn.body) return;
+      // Clicks on UI act on the UI — never swing through the hotbar.
+      const uiHit = this.hud.hitTest(pointer.x, pointer.y);
+      if (uiHit !== null) {
+        if (uiHit.startsWith("slot:")) this.conn.selectSlot(Number(uiHit.slice(5)));
+        return;
+      }
       const wx = pointer.worldX / TILE_PX;
       const wy = pointer.worldY / TILE_PX;
       if (pointer.rightButtonDown()) {
@@ -117,9 +127,20 @@ export class DungeonScene extends Phaser.Scene {
         if (def?.throwable) this.conn.useSlot(this.conn.selectedSlot, wx, wy);
         else this.conn.useSlot(this.conn.selectedSlot);
       } else {
-        this.conn.attack(wx - this.conn.body.x, wy - this.conn.body.y);
+        const dx = wx - this.conn.body.x;
+        const dy = wy - this.conn.body.y;
+        this.conn.attack(dx, dy);
+        this.showSwing(dx, dy);
       }
     });
+    // Mouse wheel cycles the hotbar selection.
+    this.input.on(
+      "wheel",
+      (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+        const dir = dy > 0 ? 1 : -1;
+        this.conn.selectSlot((((this.conn.selectedSlot + dir) % 9) + 9) % 9);
+      },
+    );
 
     this.selfVisual = {
       shadow: this.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
@@ -156,6 +177,14 @@ export class DungeonScene extends Phaser.Scene {
       this.accumulatorMs -= stepMs;
       this.prevStep = { x: conn.body.x, y: conn.body.y, z: conn.body.z };
       conn.sampleInput(this.readInput());
+    }
+
+    // Range-gated panels close for real when you walk away — otherwise
+    // the number keys stay hijacked by a dialog you can't see.
+    if (this.craftPanelOpen && !this.tableNearby()) this.craftPanelOpen = false;
+    if (this.stashPanelOpen && !this.stashNearby()) {
+      this.stashPanelOpen = false;
+      conn.stash = null;
     }
 
     const body = conn.body;
@@ -205,12 +234,12 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private onNumberKey(n: number): void {
-    if (this.craftPanelOpen) {
+    if (this.craftPanelOpen && this.tableNearby()) {
       const recipe = [...content.recipes.values()][n - 1];
       if (recipe) this.conn.craft(recipe.id);
       return;
     }
-    if (this.stashPanelOpen && this.conn.stash) {
+    if (this.stashPanelOpen && this.conn.stash && this.stashNearby()) {
       this.conn.stashOp("take", n - 1);
       return;
     }
@@ -332,6 +361,24 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   // ── rendering ────────────────────────────────────────────────────
+
+  /** Cosmetic melee swing arc — attacking must feel like something, hit or miss. */
+  private showSwing(dx: number, dy: number): void {
+    const len = Math.hypot(dx, dy) || 1;
+    const angle = Math.atan2(dy / len, dx / len);
+    const px = this.selfVisual.sprite.x;
+    const py = this.selfVisual.sprite.y;
+    const radius = MELEE_RANGE * TILE_PX * 0.9;
+    const g = this.add.graphics().setDepth(3);
+    g.fillStyle(0xffe9b0, 0.35);
+    g.slice(px, py, radius, angle - 0.55, angle + 0.55);
+    g.fillPath();
+    g.lineStyle(3, 0xfff6d8, 0.9);
+    g.beginPath();
+    g.arc(px, py, radius, angle - 0.55, angle + 0.55);
+    g.strokePath();
+    this.tweens.add({ targets: g, alpha: 0, duration: 130, onComplete: () => g.destroy() });
+  }
 
   private renderSelf(x: number, y: number, z: number): void {
     const conn = this.conn;
@@ -542,6 +589,12 @@ export class DungeonScene extends Phaser.Scene {
     const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(-10);
     const borders = map.createBlankLayer("borders", tileset, ox, oy)!.setDepth(-9.5);
     const overlay = map.createBlankLayer("overlay", tileset, ox, oy)!.setDepth(-9);
+    // Tile Studio art overrides render verbatim above the autotiles.
+    let custom: Phaser.Tilemaps.TilemapLayer | null = null;
+    if (getCustomMap()?.art) {
+      const packTileset = map.addTilesetImage("packsheet", "packsheet", TILE_PX, TILE_PX, 0, 0)!;
+      custom = map.createBlankLayer("custom", packTileset, ox, oy)!.setDepth(-8.8);
+    }
 
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -559,6 +612,10 @@ export class DungeonScene extends Phaser.Scene {
           if (overlayTile && frames.overlayTintHeight !== null) {
             overlayTile.tint = heightTint(frames.overlayTintHeight);
           }
+        }
+        if (custom) {
+          const art = customArtAt(wx, wy);
+          if (art !== null) custom.putTileAt(art, lx, ly);
         }
       }
     }

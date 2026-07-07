@@ -145,6 +145,38 @@ export class Hud {
     container.setPosition(x, y);
   }
 
+  /**
+   * What UI element is under this screen point? "slot:N" for hotbar
+   * slots, "panel" for the modal panel, null for the game world —
+   * clicks on UI must not swing weapons.
+   */
+  hitTest(screenX: number, screenY: number): string | null {
+    const { width, height } = this.scene.scale;
+    const hotbar = DEFAULT_LAYOUT.hotbar!;
+    const hx = width / 2 + hotbar.x;
+    const hy = height + hotbar.y;
+    if (screenY >= hy - SLOT_PX && screenY <= hy - 4) {
+      for (let i = 0; i < 9; i++) {
+        const x0 = hx + i * SLOT_PX - 4.5 * SLOT_PX;
+        if (screenX >= x0 && screenX <= x0 + SLOT_PX - 4) return `slot:${i}`;
+      }
+    }
+    const panelContainer = this.widgets.get("panel")!;
+    if (panelContainer.visible) {
+      const px = width / 2 + DEFAULT_LAYOUT.panel!.x;
+      const py = DEFAULT_LAYOUT.panel!.y;
+      if (
+        screenX >= px - 190 &&
+        screenX <= px + 190 &&
+        screenY >= py &&
+        screenY <= py + this.panelBg.height
+      ) {
+        return "panel";
+      }
+    }
+    return null;
+  }
+
   // ── frame update ─────────────────────────────────────────────────
 
   update(conn: Connection, prompt: string, panel: string | null, debug: string): void {

@@ -1,5 +1,11 @@
 {
   "tileSize": 64,
+  "packSheet": {
+    "image": "pack-sheet.png",
+    "tileSize": 64,
+    "cols": 13,
+    "rows": 23
+  },
   "frames": {
     "floor": [
       0,

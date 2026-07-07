@@ -3,6 +3,7 @@ export * from "./core/rng";
 export * from "./core/noise";
 export * from "./world/types";
 export * from "./world/generate";
+export * from "./world/custommap";
 export * from "./world/testzone";
 export * from "./world/rooms";
 export * from "./world/world";

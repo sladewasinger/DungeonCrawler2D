@@ -168,6 +168,27 @@ test.describe("dungeoncrawler2d e2e", () => {
     );
   });
 
+  test("hotbar: number keys, mouse wheel, and clicking slots all select", async ({ page }) => {
+    await openGame(page);
+    const selected = () => page.evaluate(() => window.__dc2d!.conn.selectedSlot);
+
+    await page.keyboard.press("3");
+    expect(await selected()).toBe(2);
+
+    await page.mouse.move(640, 300); // over the world, not the UI
+    await page.mouse.wheel(0, 120);
+    expect(await selected()).toBe(3);
+    await page.mouse.wheel(0, -120);
+    expect(await selected()).toBe(2);
+
+    // Click slot 6 (index 5): hotbar is bottom-center anchored.
+    const box = page.viewportSize()!;
+    const slotX = box.width / 2 + 5 * 46 - 4.5 * 46 + 20;
+    const slotY = box.height - 14 - 24;
+    await page.mouse.click(slotX, slotY);
+    expect(await selected()).toBe(5);
+  });
+
   test("safe rooms are door portals, personal rooms nest inside them", async ({ page }) => {
     test.setTimeout(90_000);
     await openGame(page);

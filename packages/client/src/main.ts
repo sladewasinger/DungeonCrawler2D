@@ -1,3 +1,4 @@
+import { customMapSchema, setCustomMap } from "@dc2d/engine";
 import Phaser from "phaser";
 import { Connection, persistentClientId } from "./net/connection";
 import { DungeonScene } from "./scenes/DungeonScene";
@@ -17,7 +18,22 @@ function playerName(): string {
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://localhost:8081";
 
 const conn = new Connection(wsUrl, playerName(), persistentClientId());
-conn.connect();
+
+// Tile Studio map stamp (tools/tile-studio/): must be installed before
+// any chunk is generated, and must match the server's file exactly —
+// so load it first, then connect.
+async function loadCustomMap(): Promise<void> {
+  try {
+    const res = await fetch("assets/custom-map.json");
+    if (!res.ok) return;
+    const def = customMapSchema.parse(await res.json());
+    setCustomMap(def);
+    console.log(`[main] custom map stamped at (${def.origin.x}, ${def.origin.y})`);
+  } catch {
+    // no custom map — the normal case
+  }
+}
+void loadCustomMap().then(() => conn.connect());
 
 // e2e/test hook: Playwright asserts against live client state. Set
 // before the Game boots so it exists even if later setup fails.

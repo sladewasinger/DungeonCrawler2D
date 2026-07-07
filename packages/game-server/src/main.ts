@@ -1,5 +1,6 @@
 import { content } from "@dc2d/content";
-import { hashString } from "@dc2d/engine";
+import { customMapSchema, hashString, setCustomMap } from "@dc2d/engine";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { startServer } from "./server";
 
@@ -21,6 +22,18 @@ const storeFile =
   process.env.STORE_FILE === "none"
     ? null
     : (process.env.STORE_FILE ?? join(process.cwd(), "data", "players.json"));
+
+// Tile Studio map stamp (tools/tile-studio/): the client fetches the
+// same file from its public dir, so both sides generate identically.
+const customMapFile =
+  process.env.CUSTOM_MAP ?? join(process.cwd(), "..", "client", "public", "assets", "custom-map.json");
+if (process.env.CUSTOM_MAP !== "none" && existsSync(customMapFile)) {
+  const def = customMapSchema.parse(JSON.parse(readFileSync(customMapFile, "utf8")));
+  setCustomMap(def);
+  console.log(
+    `[game-server] custom map "${customMapFile}" stamped at (${def.origin.x}, ${def.origin.y}) ${def.width}×${def.height}`,
+  );
+}
 
 const server = startServer({
   port,

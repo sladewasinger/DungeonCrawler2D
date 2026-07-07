@@ -186,6 +186,11 @@ const S = {
   courseOutline: [64, 289, 16, 2],
   courseA: [64, 291, 16, 12],
   courseB: [80, 291, 16, 12],
+  // the column's south FACE (grid cell ~(0,3)): lavender shoulder course
+  // + cobble courses — this is what the bottom of a wall looks like
+  faceShoulder: [13, 40, 16, 6],
+  faceCourse: [13, 46, 16, 7],
+  faceCourseB: [22, 58, 16, 7],
   // single-course wall chunk with rounded ends at (48,195) 16×13
   endcapL: [48, 195, 6, 13],
   endcapR: [58, 195, 6, 13],
@@ -244,6 +249,13 @@ const F = {
 
 const atlas = {
   tileSize: TILE,
+  /** Whole pack sheet upscaled 4× — tileset for Tile Studio custom maps. */
+  packSheet: {
+    image: "pack-sheet.png",
+    tileSize: TILE,
+    cols: Math.floor(wallsFloor.width / SRC_TILE),
+    rows: Math.floor(wallsFloor.height / SRC_TILE),
+  },
   frames: {
     floor: F.floor,
     sanctuary: F.sanctuary,
@@ -298,13 +310,11 @@ function drawWallTop(x, y, { n, e, w }) {
   if (e) rect(tiles, x + TILE - P(1), y, P(1), P(1), BASECOAT);
 }
 
-/** South-facing brick face: darker course ending in the light sliver. */
+/** South-facing wall face: the column's shoulder + cobble course (~cell 0,3). */
 function drawWallFace(x, y, { n, e, w }) {
-  // seam to the wall-top tile above (or hard outline if floor above)
-  rect(tiles, x, y, TILE, P(2), n ? INK : hexToRgb("#211f2c"));
-  blitRect(tiles, x, y + P(2), wallsFloor, S.courseA[0], S.courseA[1], 16, 11, {
-    brightness: 0.78,
-  });
+  blitRect(tiles, x, y, wallsFloor, ...S.faceShoulder);
+  blitRect(tiles, x, y + P(6), wallsFloor, ...S.faceCourse);
+  if (n) rect(tiles, x, y, TILE, P(2), INK); // 1-tall wall: dark cap on top
   rect(tiles, x, y + P(13), TILE, P(2), SLIVER);
   rect(tiles, x, y + P(15), TILE, P(1), INK);
   if (w) {
@@ -421,19 +431,18 @@ for (let mask = 1; mask < 16; mask++) {
 
 atlas.frames.faceTall.forEach((frame, i) => {
   const [x, y] = frameXY(frame);
-  const course = i === 0 ? S.courseA : S.courseB;
+  const course = i === 0 ? S.faceCourse : S.faceCourseB;
   rect(tiles, x, y, TILE, P(1), LIP);
-  rect(tiles, x, y + P(1), TILE, P(1), INK);
-  blitRect(tiles, x, y + P(2), wallsFloor, course[0], course[1], 16, 7, { brightness: 0.85 });
-  blitRect(tiles, x, y + P(9), wallsFloor, course[0], course[1], 16, 6, { brightness: 0.68 });
+  blitRect(tiles, x, y + P(1), wallsFloor, ...S.faceShoulder);
+  blitRect(tiles, x, y + P(7), wallsFloor, ...course, { brightness: 0.92 });
+  blitRect(tiles, x, y + P(13), wallsFloor, course[0], course[1], 16, 2, { brightness: 0.7 });
   rect(tiles, x, y + P(15), TILE, P(1), [0, 0, 0, 120]);
 });
 atlas.frames.faceShort.forEach((frame, i) => {
   const [x, y] = frameXY(frame);
-  const course = i === 0 ? S.courseA : S.courseB;
+  const course = i === 0 ? S.faceCourse : S.faceCourseB;
   rect(tiles, x, y, TILE, P(1), LIP);
-  rect(tiles, x, y + P(1), TILE, P(1), INK);
-  blitRect(tiles, x, y + P(2), wallsFloor, course[0], course[1], 16, 5, { brightness: 0.8 });
+  blitRect(tiles, x, y + P(1), wallsFloor, course[0], course[1], 16, 6, { brightness: 0.92 });
   rect(tiles, x, y + P(7), TILE, P(1), [0, 0, 0, 120]);
 });
 
@@ -671,10 +680,16 @@ ENEMY_SPRITES.forEach((sprite, i) => {
 
 // ── write ──────────────────────────────────────────────────────────
 
+// Full pack sheet at 4× — lets the client render Tile Studio maps with
+// raw sheet tiles the editor picked.
+const packSheet = makeImage(wallsFloor.width * SCALE, wallsFloor.height * SCALE);
+blitRect(packSheet, 0, 0, wallsFloor, 0, 0, wallsFloor.width, wallsFloor.height);
+
 mkdirSync(ASSET_DIR, { recursive: true });
 writePng(tiles, join(ASSET_DIR, "tiles.png"));
 writePng(players, join(ASSET_DIR, "players.png"));
 writePng(enemies, join(ASSET_DIR, "enemies.png"));
+writePng(packSheet, join(ASSET_DIR, "pack-sheet.png"));
 writeFileSync(ATLAS_JSON, JSON.stringify(atlas, null, 2) + "\n");
 
 console.log(`wrote ${join(ASSET_DIR, "tiles.png")} (${tiles.width}×${tiles.height})`);

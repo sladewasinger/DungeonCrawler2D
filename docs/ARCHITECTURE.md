@@ -33,6 +33,7 @@ dungeoncrawler2D/
 ├── assets/pack/                 # Source art (Craftpix asset pack + license), pre-pipeline
 ├── tools/generate-art.mjs       # Bakes the committed spritesheets + atlas.json from measured pack slices
 ├── tools/render-sample.ts       # Renders docs/art-samples/ proof images via the client's tileframes.ts
+├── tools/tile-studio/           # In-browser map editor (npm run studio): palette + rule learning + WFC paint → dc2d-map JSON
 ├── tests/e2e/                   # Playwright live-browser suite (npm run test:e2e)
 ├── packages/
 │   ├── content/                 # ── DATA, NOT CODE (@dc2d/content) — shared by server & client ──
