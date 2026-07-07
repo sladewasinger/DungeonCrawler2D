@@ -1,52 +1,58 @@
+import { content } from "@dc2d/content";
 import {
   CHUNK_SIZE,
+  PICKUP_RANGE,
   STEP_UP,
   TICK_RATE,
   TILE,
   ZONE,
   hash2D,
+  hashString,
+  type EntitySnapshot,
   type MoveInput,
   type World,
 } from "@dc2d/engine";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
 import atlas from "../render/atlas.json";
+import { Hud } from "../ui/hud";
 
 /**
- * Renders the shared world from the baked 64×64 pixel-art atlas
- * (assets regenerate via `npm run art`). Each chunk becomes a pair of
- * tilemap layers over the single shared tileset texture — base terrain
- * plus an overlay for cliff faces and ledge rims — with per-tile tint
- * carrying the height shading. Players are atlas sprites whose shadow
- * blob stays at the ground position; the sprite lifts off the shadow
- * only by its height ABOVE THE LOCAL TERRAIN (z − heightAt), so a
- * grounded crawler on a plateau stands on its shadow and only jumps
- * and falls separate them.
+ * Renders the shared world from the baked atlas and everything the
+ * server replicates: terrain (tilemap layers + tint height shading),
+ * area effects, entities of every kind, HUD widgets, and the contextual
+ * prompts/panels for doors, crafting, stash, and parties. Input maps
+ * to intents — the server decides what actually happens.
  */
 
 const TILE_PX = atlas.tileSize;
 const CHUNK_PX = CHUNK_SIZE * TILE_PX;
-const Z_PX = 48; // vertical pixels per height unit (0.75 tiles)
-const RENDER_DELAY_MS = 120; // interpolation delay for peers
-const CHUNK_VIEW_RADIUS = 1; // 3×3 chunks around the player stay built
+const Z_PX = 48;
+const RENDER_DELAY_MS = 120;
+const CHUNK_VIEW_RADIUS = 1;
 
-interface PeerVisual {
+interface EntityVisual {
   sprite: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Ellipse;
-  label: Phaser.GameObjects.Text;
+  label: Phaser.GameObjects.Text | null;
 }
 
 export class DungeonScene extends Phaser.Scene {
   private chunkMaps = new Map<string, Phaser.Tilemaps.Tilemap>();
-  private peerVisuals = new Map<string, PeerVisual>();
-  private selfSprite!: Phaser.GameObjects.Image;
-  private selfShadow!: Phaser.GameObjects.Ellipse;
-  private selfLabel!: Phaser.GameObjects.Text;
-  private debugText!: Phaser.GameObjects.Text;
+  private visuals = new Map<string, EntityVisual>();
+  private areaImages = new Map<string, Phaser.GameObjects.Image>();
+  private selfVisual!: EntityVisual;
+  private hud!: Hud;
+  private barGfx!: Phaser.GameObjects.Graphics;
   private borderGraphics!: Phaser.GameObjects.Graphics;
   private showBorders = false;
   private accumulatorMs = 0;
-  private keys!: Record<"W" | "A" | "S" | "D" | "SPACE" | "G", Phaser.Input.Keyboard.Key>;
+  private craftPanelOpen = false;
+  private stashPanelOpen = false;
+  private keys!: Record<
+    "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "Q" | "ESC",
+    Phaser.Input.Keyboard.Key
+  >;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
   constructor(private readonly conn: Connection) {
@@ -54,61 +60,87 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.spritesheet("tiles", "assets/tiles.png", {
-      frameWidth: TILE_PX,
-      frameHeight: TILE_PX,
-    });
-    this.load.spritesheet("players", "assets/players.png", {
-      frameWidth: TILE_PX,
-      frameHeight: TILE_PX,
-    });
+    this.load.spritesheet("tiles", "assets/tiles.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
+    this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
+    this.load.spritesheet("enemies", "assets/enemies.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
   }
 
   create(): void {
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,G") as DungeonScene["keys"];
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,Q,ESC") as DungeonScene["keys"];
+
     this.keys.G.on("down", () => {
       this.showBorders = !this.showBorders;
       this.borderGraphics.setVisible(this.showBorders);
     });
+    this.keys.E.on("down", () => {
+      if (this.stashNearby() && !this.stashPanelOpen) this.stashPanelOpen = true;
+      this.conn.interact();
+    });
+    this.keys.R.on("down", () => this.conn.pickup());
+    this.keys.C.on("down", () => {
+      this.craftPanelOpen = !this.craftPanelOpen && this.tableNearby();
+    });
+    this.keys.Q.on("down", () => this.conn.drop(this.conn.selectedSlot));
+    this.keys.F.on("down", () => {
+      if (this.conn.pendingInvite) {
+        this.conn.partyOp("accept");
+        return;
+      }
+      const nearest = this.nearestPlayer(6);
+      if (nearest) this.conn.partyOp("invite", nearest.id);
+    });
+    this.keys.ESC.on("down", () => {
+      this.craftPanelOpen = false;
+      this.stashPanelOpen = false;
+      this.conn.stash = null;
+    });
+    for (let i = 1; i <= 9; i++) {
+      keyboard.addKey(48 + i).on("down", () => this.onNumberKey(i));
+    }
 
-    this.selfShadow = this.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1);
-    this.selfSprite = this.add
-      .image(0, 0, "players", atlas.players.self)
-      .setOrigin(0.5, 0.85)
-      .setDepth(2);
-    this.selfLabel = this.add
-      .text(0, 0, "", { fontSize: "12px", color: "#ffe9b0" })
-      .setOrigin(0.5, 1)
-      .setDepth(3);
+    this.input.mouse?.disableContextMenu();
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (!this.conn.body) return;
+      const wx = pointer.worldX / TILE_PX;
+      const wy = pointer.worldY / TILE_PX;
+      if (pointer.rightButtonDown()) {
+        const slot = this.conn.inventory[this.conn.selectedSlot];
+        const def = slot ? content.items.get(slot.item) : undefined;
+        if (def?.throwable) this.conn.useSlot(this.conn.selectedSlot, wx, wy);
+        else this.conn.useSlot(this.conn.selectedSlot);
+      } else {
+        this.conn.attack(wx - this.conn.body.x, wy - this.conn.body.y);
+      }
+    });
 
+    this.selfVisual = {
+      shadow: this.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
+      sprite: this.add.image(0, 0, "players", atlas.players.self).setOrigin(0.5, 0.85).setDepth(2),
+      label: null,
+    };
+    this.barGfx = this.add.graphics().setDepth(4);
     this.borderGraphics = this.add.graphics().setDepth(5).setVisible(false);
-
-    this.debugText = this.add
-      .text(8, 8, "connecting…", {
-        fontSize: "13px",
-        color: "#9fe8c9",
-        backgroundColor: "#0d0a12c0",
-        padding: { x: 6, y: 4 },
-      })
-      .setScrollFactor(0)
-      .setDepth(100);
-
+    this.hud = new Hud(this);
     this.cameras.main.setBackgroundColor("#0d0a12");
   }
 
   override update(_time: number, deltaMs: number): void {
     const { conn } = this;
-    if (!conn.world || !conn.body || !conn.welcome) {
-      this.debugText.setText(
-        conn.status === "closed" ? "disconnected — retrying…" : "connecting…",
-      );
-      return;
-    }
+    if (!conn.world || !conn.body || !conn.welcome) return;
     const world = conn.world;
 
-    // Fixed-step input sampling at the shared tick rate.
+    if (conn.teleported) {
+      conn.teleported = false;
+      for (const [key, map] of this.chunkMaps) {
+        map.destroy();
+        this.chunkMaps.delete(key);
+      }
+      this.cameras.main.centerOn(conn.body.x * TILE_PX, conn.body.y * TILE_PX);
+    }
+
+    // Fixed-step input sampling.
     this.accumulatorMs += deltaMs;
     const stepMs = 1000 / TICK_RATE;
     while (this.accumulatorMs >= stepMs) {
@@ -118,76 +150,20 @@ export class DungeonScene extends Phaser.Scene {
 
     const body = conn.body;
     this.ensureChunksAround(body.x, body.y);
-
-    // Self: shadow on the ground, sprite lifted only by height above terrain.
-    const sx = body.x * TILE_PX;
-    const sy = body.y * TILE_PX;
-    const lift = this.liftFor(world, body.x, body.y, body.z);
-    this.selfShadow.setPosition(sx, sy);
-    this.selfShadow.setScale(1 - Math.min(0.35, lift / 400));
-    this.selfSprite.setPosition(sx, sy - lift);
-    this.selfLabel.setPosition(sx, sy - lift - 44);
-    this.selfLabel.setText(conn.welcome.playerId);
-
-    // Peers (interpolated slightly in the past).
-    const peers = conn.interpolatedPeers(RENDER_DELAY_MS);
-    const seen = new Set<string>();
-    for (const peer of peers) {
-      seen.add(peer.id);
-      let visual = this.peerVisuals.get(peer.id);
-      if (!visual) {
-        visual = {
-          shadow: this.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
-          sprite: this.add
-            .image(0, 0, "players", atlas.players.peer)
-            .setOrigin(0.5, 0.85)
-            .setDepth(2),
-          label: this.add
-            .text(0, 0, peer.name, { fontSize: "12px", color: "#c8ecf7" })
-            .setOrigin(0.5, 1)
-            .setDepth(3),
-        };
-        this.peerVisuals.set(peer.id, visual);
-      }
-      const px = peer.x * TILE_PX;
-      const py = peer.y * TILE_PX;
-      const peerLift = this.liftFor(world, peer.x, peer.y, peer.z);
-      visual.shadow.setPosition(px, py);
-      visual.shadow.setScale(1 - Math.min(0.35, peerLift / 400));
-      visual.sprite.setPosition(px, py - peerLift);
-      visual.label.setPosition(px, py - peerLift - 44);
-    }
-    for (const [id, visual] of this.peerVisuals) {
-      if (!seen.has(id)) {
-        visual.sprite.destroy();
-        visual.shadow.destroy();
-        visual.label.destroy();
-        this.peerVisuals.delete(id);
-      }
-    }
-
-    this.cameras.main.centerOn(sx, sy);
-
+    this.renderAreas();
+    this.renderSelf();
+    this.renderEntities();
+    this.spawnFloatingText();
     if (this.showBorders) this.drawChunkBorders(body.x, body.y);
-
-    const tileX = Math.floor(body.x);
-    const tileY = Math.floor(body.y);
-    this.debugText.setText(
-      [
-        `world ${conn.welcome.worldSeed} floor ${conn.welcome.floor}  [G] chunk borders`,
-        `pos ${body.x.toFixed(1)}, ${body.y.toFixed(1)}  z ${body.z.toFixed(2)}  chunk ${Math.floor(tileX / CHUNK_SIZE)},${Math.floor(tileY / CHUNK_SIZE)}`,
-        `ping ${conn.rttMs.toFixed(0)}ms  peers in view ${conn.peerCount}  fps ${this.game.loop.actualFps.toFixed(0)}`,
-      ].join("\n"),
-    );
+    this.cameras.main.centerOn(body.x * TILE_PX, body.y * TILE_PX);
+    this.hud.update(conn, this.contextPrompt(), this.panelContent(), this.debugContent());
   }
 
-  /** Pixels the sprite floats above its shadow: height above local terrain. */
-  private liftFor(world: World, x: number, y: number, z: number): number {
-    const terrain = world.heightAt(Math.floor(x), Math.floor(y));
-    return Math.max(0, z - terrain) * Z_PX;
-  }
+  // ── input helpers ────────────────────────────────────────────────
 
   private readInput(): MoveInput {
+    const chatting = document.activeElement?.id === "chat-input";
+    if (chatting || this.conn.downed) return { moveX: 0, moveY: 0, jump: false };
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
     const up = this.cursors.up.isDown || this.keys.W.isDown;
@@ -199,6 +175,310 @@ export class DungeonScene extends Phaser.Scene {
     };
   }
 
+  private onNumberKey(n: number): void {
+    if (this.craftPanelOpen) {
+      const recipe = [...content.recipes.values()][n - 1];
+      if (recipe) this.conn.craft(recipe.id);
+      return;
+    }
+    if (this.stashPanelOpen && this.conn.stash) {
+      this.conn.stashOp("take", n - 1);
+      return;
+    }
+    this.conn.selectSlot(n - 1);
+  }
+
+  private nearestPlayer(range: number): EntitySnapshot | null {
+    const body = this.conn.body!;
+    let best: EntitySnapshot | null = null;
+    let bestDist = range;
+    for (const { snap } of this.conn.entities.values()) {
+      if (snap.kind !== "player") continue;
+      const d = Math.hypot(snap.x - body.x, snap.y - body.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = snap;
+      }
+    }
+    return best;
+  }
+
+  // ── contextual UI ────────────────────────────────────────────────
+
+  private tileUnderfoot(): number {
+    const body = this.conn.body!;
+    return this.conn.world!.tileAt(Math.floor(body.x), Math.floor(body.y));
+  }
+
+  private nearTile(tile: number): boolean {
+    const body = this.conn.body!;
+    const tx = Math.floor(body.x);
+    const ty = Math.floor(body.y);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (this.conn.world!.tileAt(tx + dx, ty + dy) === tile) return true;
+      }
+    }
+    return false;
+  }
+
+  private tableNearby(): boolean {
+    return this.nearTile(TILE.CraftingTable);
+  }
+
+  private stashNearby(): boolean {
+    return this.nearTile(TILE.Stash);
+  }
+
+  private itemNearby(): boolean {
+    const body = this.conn.body!;
+    for (const { snap } of this.conn.entities.values()) {
+      if (snap.kind !== "item") continue;
+      if (Math.hypot(snap.x - body.x, snap.y - body.y) <= PICKUP_RANGE) return true;
+    }
+    return false;
+  }
+
+  private downedAllyNearby(): boolean {
+    const body = this.conn.body!;
+    for (const { snap } of this.conn.entities.values()) {
+      if (snap.kind === "player" && snap.downed) {
+        if (Math.hypot(snap.x - body.x, snap.y - body.y) <= 1.6) return true;
+      }
+    }
+    return false;
+  }
+
+  private contextPrompt(): string {
+    if (this.conn.downed) return "You are downed — hold on for a revive…";
+    const underfoot = this.tileUnderfoot();
+    if (underfoot === TILE.DoorPersonal) return "[E] enter your room";
+    if (underfoot === TILE.DoorParty) return "[E] enter party room";
+    if (underfoot === TILE.DoorExit) return "[E] leave";
+    if (this.downedAllyNearby()) return "[E] revive party member";
+    const prompts: string[] = [];
+    if (this.itemNearby()) prompts.push("[R] pick up");
+    if (this.tableNearby()) prompts.push("[C] craft");
+    if (this.stashNearby()) prompts.push("[E] stash");
+    return prompts.join("   ");
+  }
+
+  private panelContent(): string | null {
+    if (this.craftPanelOpen && this.tableNearby()) {
+      const lines = ["CRAFTING — press a number, [Esc] closes"];
+      let n = 1;
+      for (const recipe of content.recipes.values()) {
+        const inputs = recipe.inputs
+          .map((i) => `${i.qty}× ${content.items.get(i.item)?.name ?? i.item}`)
+          .join(" + ");
+        const output = content.items.get(recipe.output.item)?.name ?? recipe.output.item;
+        lines.push(`[${n}] ${output}   (${inputs})`);
+        n++;
+      }
+      return lines.join("\n");
+    }
+    if (this.stashPanelOpen && this.conn.stash && this.stashNearby()) {
+      const lines = ["STASH — number takes, [E] again refreshes, [Esc] closes"];
+      this.conn.stash.forEach((entry, i) => {
+        const name = content.items.get(entry.item)?.name ?? entry.item;
+        lines.push(`[${i + 1}] ${name}${entry.qty > 1 ? ` ×${entry.qty}` : ""}`);
+      });
+      if (this.conn.stash.length === 0) lines.push("(empty)");
+      lines.push("", "[P in hotbar → use Q to drop, or stash put via number+shift soon]");
+      return lines.join("\n");
+    }
+    return null;
+  }
+
+  private debugContent(): string {
+    const conn = this.conn;
+    const body = conn.body!;
+    return [
+      `world ${conn.welcome!.worldSeed} floor ${conn.welcome!.floor}`,
+      `pos ${body.x.toFixed(1)}, ${body.y.toFixed(1)}  z ${body.z.toFixed(2)}`,
+      `ping ${conn.rttMs.toFixed(0)}ms  fps ${this.game.loop.actualFps.toFixed(0)}`,
+      `[G] chunk grid  [F] fistbump/invite`,
+    ].join("\n");
+  }
+
+  // ── rendering ────────────────────────────────────────────────────
+
+  private renderSelf(): void {
+    const conn = this.conn;
+    const body = conn.body!;
+    const world = conn.world!;
+    const sx = body.x * TILE_PX;
+    const sy = body.y * TILE_PX;
+    const lift = Math.max(0, body.z - world.heightAt(Math.floor(body.x), Math.floor(body.y))) * Z_PX;
+    this.selfVisual.shadow.setPosition(sx, sy);
+    this.selfVisual.shadow.setScale(1 - Math.min(0.35, lift / 400));
+    this.selfVisual.sprite.setPosition(sx, sy - lift);
+    this.selfVisual.sprite.setTint(statusTint(conn.fx));
+    this.selfVisual.sprite.setAlpha(conn.downed ? 0.5 : 1);
+  }
+
+  private renderEntities(): void {
+    const conn = this.conn;
+    const world = conn.world!;
+    this.barGfx.clear();
+    const seen = new Set<string>();
+
+    for (const { id, snap, x, y, z } of conn.interpolated(RENDER_DELAY_MS)) {
+      seen.add(id);
+      let visual = this.visuals.get(id);
+      if (!visual) {
+        visual = this.createVisual(snap);
+        this.visuals.set(id, visual);
+      }
+      const px = x * TILE_PX;
+      const py = y * TILE_PX;
+      const lift = Math.max(0, z - world.heightAt(Math.floor(x), Math.floor(y))) * Z_PX;
+      visual.shadow.setPosition(px, py);
+      visual.sprite.setPosition(px, py - lift);
+      visual.sprite.setTint(statusTint(snap.fx ?? []));
+      visual.sprite.setAlpha(snap.downed ? 0.5 : 1);
+      visual.label?.setPosition(px, py - lift - 44);
+
+      if (snap.hp !== undefined && snap.maxHp !== undefined && snap.hp < snap.maxHp) {
+        const frac = Math.max(0, snap.hp / snap.maxHp);
+        this.barGfx.fillStyle(0x0d0a12, 0.8).fillRect(px - 20, py - lift - 40, 40, 5);
+        this.barGfx
+          .fillStyle(frac > 0.35 ? 0x6fce62 : 0xd8574d, 1)
+          .fillRect(px - 19, py - lift - 39, 38 * frac, 3);
+      }
+    }
+
+    for (const [id, visual] of this.visuals) {
+      if (!seen.has(id)) {
+        visual.sprite.destroy();
+        visual.shadow.destroy();
+        visual.label?.destroy();
+        this.visuals.delete(id);
+      }
+    }
+  }
+
+  private createVisual(snap: EntitySnapshot): EntityVisual {
+    let sprite: Phaser.GameObjects.Image;
+    let label: Phaser.GameObjects.Text | null = null;
+    switch (snap.kind) {
+      case "player": {
+        sprite = this.add.image(0, 0, "players", atlas.players.peer).setOrigin(0.5, 0.85);
+        label = this.add
+          .text(0, 0, snap.name ?? "?", { fontSize: "12px", color: "#c8ecf7" })
+          .setOrigin(0.5, 1)
+          .setDepth(3);
+        break;
+      }
+      case "enemy": {
+        const spriteName = snap.defId ? content.enemies.get(snap.defId)?.sprite : undefined;
+        const frame = spriteName
+          ? ((atlas.enemies as Record<string, number>)[spriteName] ?? 0)
+          : 0;
+        sprite = this.add.image(0, 0, "enemies", frame).setOrigin(0.5, 0.85);
+        break;
+      }
+      case "item": {
+        sprite = this.add.image(0, 0, this.itemTexture(snap.defId ?? "?")).setOrigin(0.5, 0.7);
+        break;
+      }
+      case "projectile":
+      default: {
+        sprite = this.add.image(0, 0, this.itemTexture(snap.defId ?? "spit")).setOrigin(0.5, 0.5).setScale(0.6);
+        break;
+      }
+    }
+    sprite.setDepth(2);
+    const shadow = this.add
+      .ellipse(0, 0, snap.kind === "item" || snap.kind === "projectile" ? 18 : 34, snap.kind === "item" || snap.kind === "projectile" ? 9 : 16, 0x000000, 0.35)
+      .setDepth(1);
+    return { sprite, shadow, label };
+  }
+
+  /** Item icons are generated (REPLACE-LATER art): tinted disc + initial. */
+  private itemTexture(defId: string): string {
+    const key = `item-${defId}`;
+    if (this.textures.exists(key)) return key;
+    const canvas = this.textures.createCanvas(key, 28, 28)!;
+    const ctx = canvas.getContext();
+    const hue = hashString(defId) % 360;
+    ctx.fillStyle = `hsl(${hue}, 45%, 42%)`;
+    ctx.beginPath();
+    ctx.arc(14, 14, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#0d0a12";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "#f4efe4";
+    ctx.font = "bold 14px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText((content.items.get(defId)?.name ?? defId).charAt(0).toUpperCase(), 14, 15);
+    canvas.refresh();
+    return key;
+  }
+
+  private renderAreas(): void {
+    const conn = this.conn;
+    const live = conn.areaTiles;
+    for (const [key, image] of this.areaImages) {
+      if (!live.has(key)) {
+        image.destroy();
+        this.areaImages.delete(key);
+      }
+    }
+    for (const [key, defId] of live) {
+      const existing = this.areaImages.get(key);
+      const spriteName = content.areas.get(defId)?.sprite ?? "steam";
+      const frame = (atlas.frames.areas as Record<string, number>)[spriteName] ?? atlas.frames.areas.steam;
+      if (existing) {
+        if (existing.frame.name !== String(frame)) existing.setFrame(frame);
+        continue;
+      }
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      const image = this.add
+        .image(x * TILE_PX, y * TILE_PX, "tiles", frame)
+        .setOrigin(0, 0)
+        .setDepth(-5)
+        .setAlpha(0.8);
+      this.areaImages.set(key, image);
+    }
+  }
+
+  private spawnFloatingText(): void {
+    for (const event of this.conn.drainVisualEvents()) {
+      if (event.t !== "hit") continue;
+      const pos = this.entityScreenPos(event.id);
+      if (!pos) continue;
+      const text = this.add
+        .text(pos.x, pos.y - 50, `${event.amount > 0 ? "+" : ""}${Math.round(event.amount)}`, {
+          fontSize: "14px",
+          color: event.amount < 0 ? "#ff7a66" : "#8fe08a",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(50);
+      this.tweens.add({
+        targets: text,
+        y: pos.y - 90,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => text.destroy(),
+      });
+    }
+  }
+
+  private entityScreenPos(id: string): { x: number; y: number } | null {
+    if (id === this.conn.welcome?.playerId) {
+      return { x: this.conn.body!.x * TILE_PX, y: this.conn.body!.y * TILE_PX };
+    }
+    const remote = this.conn.entities.get(id);
+    if (!remote) return null;
+    return { x: remote.snap.x * TILE_PX, y: remote.snap.y * TILE_PX };
+  }
+
+  // ── terrain (unchanged from Epic 1/2 apart from door/table tiles) ──
+
   private ensureChunksAround(x: number, y: number): void {
     const ccx = Math.floor(x / CHUNK_SIZE);
     const ccy = Math.floor(y / CHUNK_SIZE);
@@ -209,7 +489,6 @@ export class DungeonScene extends Phaser.Scene {
         this.chunkMaps.set(key, this.buildChunkMap(cx, cy));
       }
     }
-    // Cull far chunks so memory stays flat while roaming.
     for (const [key, map] of this.chunkMaps) {
       const [cx, cy] = key.split(",").map(Number) as [number, number];
       if (Math.max(Math.abs(cx - ccx), Math.abs(cy - ccy)) > CHUNK_VIEW_RADIUS + 1) {
@@ -219,12 +498,6 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  /**
-   * One chunk → a base tilemap layer (terrain) + an overlay layer
-   * (cliff faces where the north neighbor is a big step up, rim
-   * highlights where this tile is the top of a drop). All layers share
-   * the single atlas texture; height shading is per-tile tint.
-   */
   private buildChunkMap(cx: number, cy: number): Phaser.Tilemaps.Tilemap {
     const world = this.conn.world!;
     const chunk = world.getChunk(cx, cy);
@@ -249,10 +522,6 @@ export class DungeonScene extends Phaser.Scene {
         const h = chunk.height[i] ?? 0;
 
         if (tile === TILE.Wall) {
-          // Blob autotile per the pack's sample: rounded cobble edges
-          // around dark interiors; the bottom edge doubles as the
-          // south-facing wall courses. Mask bits set where the
-          // neighbor is OPEN (N=1, E=2, S=4, W=8).
           let mask = 0;
           if (world.tileAt(wx, wy - 1) !== TILE.Wall) mask |= 1;
           if (world.tileAt(wx + 1, wy) !== TILE.Wall) mask |= 2;
@@ -265,15 +534,28 @@ export class DungeonScene extends Phaser.Scene {
           base.putTileAt(atlas.frames.stairs, lx, ly);
           continue;
         }
+        const special =
+          tile === TILE.DoorPersonal
+            ? atlas.frames.interact.doorPersonal
+            : tile === TILE.DoorParty
+              ? atlas.frames.interact.doorParty
+              : tile === TILE.DoorExit
+                ? atlas.frames.interact.doorPersonal
+                : tile === TILE.CraftingTable
+                  ? atlas.frames.interact.craftingTable
+                  : tile === TILE.Stash
+                    ? atlas.frames.interact.stash
+                    : null;
 
         const variants =
           chunk.zones[i] === ZONE.Sanctuary ? atlas.frames.sanctuary : atlas.frames.floor;
         const baseTile = base.putTileAt(variants[hash2D(11, wx, wy) % variants.length]!, lx, ly);
         if (baseTile) baseTile.tint = heightTint(h);
+        if (special !== null) {
+          overlay.putTileAt(special, lx, ly);
+          continue;
+        }
 
-        // Overlay: cliff face rising behind this tile, or ledge rims.
-        // heightAt reads across chunk borders (lazily generated), so
-        // faces are seamless at chunk edges.
         const n = world.heightAt(wx, wy - 1);
         const rise = n - h;
         let overlayFrame = -1;
@@ -314,9 +596,17 @@ export class DungeonScene extends Phaser.Scene {
   }
 }
 
-/** Height → brightness tint (multiplicative, so assets are baked mid-bright). */
 function heightTint(h: number): number {
   const brightness = Math.max(0.45, Math.min(1, 0.62 + h * 0.055));
   const gray = Math.round(brightness * 255);
   return (gray << 16) | (gray << 8) | gray;
+}
+
+/** Status-driven sprite tint (first match wins). */
+function statusTint(fx: readonly string[]): number {
+  if (fx.includes("on-fire")) return 0xffa066;
+  if (fx.includes("poisoned")) return 0xa8e08a;
+  if (fx.includes("wet")) return 0x9ec4ff;
+  if (fx.includes("slowed")) return 0xc0b8d8;
+  return 0xffffff;
 }
