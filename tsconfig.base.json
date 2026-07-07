@@ -14,9 +14,9 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@dc2d/engine": ["packages/engine/src/index.ts"]
+      "@dc2d/engine": ["./packages/engine/src/index.ts"],
+      "@dc2d/content": ["./packages/content/src/index.ts"]
     }
   }
 }

@@ -63,7 +63,8 @@ describe("world generation", () => {
         const sanctuaryHeights: number[] = [];
         for (let i = 0; i < chunk.zones.length; i++) {
           if (chunk.zones[i] === ZONE.Sanctuary) {
-            expect(chunk.tiles[i]).toBe(TILE.Floor);
+            // Sanctuary interior: floor plus the stretch-room doors.
+            expect([TILE.Floor, TILE.DoorPersonal, TILE.DoorParty]).toContain(chunk.tiles[i]);
             sanctuaryHeights.push(chunk.height[i]!);
           }
         }

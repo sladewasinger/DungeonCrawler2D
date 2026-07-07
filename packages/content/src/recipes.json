@@ -1,0 +1,15 @@
+[
+  {
+    "id": "bandage",
+    "inputs": [{ "item": "rag", "qty": 2 }],
+    "output": { "item": "bandage", "qty": 1 }
+  },
+  {
+    "id": "torch",
+    "inputs": [
+      { "item": "stick", "qty": 1 },
+      { "item": "rag", "qty": 1 }
+    ],
+    "output": { "item": "torch", "qty": 1 }
+  }
+]

@@ -1,6 +1,7 @@
 import { generateChunk } from "./generate";
 import {
   CHUNK_SIZE,
+  SOLID_TILES,
   TILE,
   ZONE,
   type Chunk,
@@ -57,7 +58,7 @@ export class World implements WorldView {
   }
 
   isWalkable(wx: number, wy: number): boolean {
-    return this.tileAt(wx, wy) !== TILE.Wall;
+    return !SOLID_TILES.has(this.tileAt(wx, wy));
   }
 
   isSanctuary(wx: number, wy: number): boolean {

@@ -4,8 +4,24 @@ export const TILE = {
   Floor: 0,
   Wall: 1,
   Stairs: 2,
+  /** Safe-room door to your personal stretch room. */
+  DoorPersonal: 3,
+  /** Safe-room door to your party's common room. */
+  DoorParty: 4,
+  /** Inside a stretch room: door back to where you came from. */
+  DoorExit: 5,
+  /** Interactables (solid; interact from an adjacent tile). */
+  CraftingTable: 6,
+  Stash: 7,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
+
+/** Solid tiles that block movement. */
+export const SOLID_TILES: ReadonlySet<number> = new Set([
+  TILE.Wall,
+  TILE.CraftingTable,
+  TILE.Stash,
+]);
 
 export const ZONE = {
   None: 0,

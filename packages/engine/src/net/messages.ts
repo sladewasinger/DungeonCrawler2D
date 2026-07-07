@@ -1,12 +1,14 @@
 import { z } from "zod";
 
 /**
- * The wire protocol, shared by client and server. JSON-encoded for
- * now (binary is a v0.9 optimization). The server zod-validates every
- * inbound message — the client is untrusted input, doubly so in PvP.
+ * Wire protocol v2, shared by client and server. JSON-encoded (binary
+ * is a v0.9 optimization). The server zod-validates every inbound
+ * message — the client is untrusted input, doubly so in PvP. Clients
+ * send INTENTS; the server replies with what actually happened.
  */
 
 const axis = z.union([z.literal(-1), z.literal(0), z.literal(1)]);
+const slot = z.number().int().min(0).max(8);
 
 // ── client → server ────────────────────────────────────────────────
 
@@ -14,33 +16,77 @@ export const clientHelloSchema = z.object({
   type: z.literal("hello"),
   protocol: z.number().int(),
   name: z.string().min(1).max(16),
-  /** Present when attempting to resume a recent session. */
+  /** Persistent anonymous identity (stash/slot ownership). */
+  clientId: z.string().min(4).max(64),
   resumeToken: z.string().max(64).optional(),
 });
 
 export const clientInputSchema = z.object({
   type: z.literal("input"),
-  /** Monotonic per-client sequence number, echoed back for reconciliation. */
   seq: z.number().int().nonnegative(),
   moveX: axis,
   moveY: axis,
   jump: z.boolean(),
 });
 
-export const clientPingSchema = z.object({
-  type: z.literal("ping"),
-  t: z.number(),
+export const clientAttackSchema = z.object({
+  type: z.literal("attack"),
+  dirX: z.number().min(-1).max(1),
+  dirY: z.number().min(-1).max(1),
 });
+
+export const clientUseSlotSchema = z.object({
+  type: z.literal("useSlot"),
+  slot,
+  /** Present = throw at this tile (if throwable); absent = consume. */
+  targetX: z.number().optional(),
+  targetY: z.number().optional(),
+});
+
+export const clientPickupSchema = z.object({ type: z.literal("pickup") });
+export const clientDropSchema = z.object({ type: z.literal("drop"), slot });
+export const clientSelectSlotSchema = z.object({ type: z.literal("selectSlot"), slot });
+export const clientInteractSchema = z.object({ type: z.literal("interact") });
+export const clientCraftSchema = z.object({ type: z.literal("craft"), recipe: z.string().max(64) });
+
+export const clientStashSchema = z.object({
+  type: z.literal("stash"),
+  op: z.enum(["put", "take"]),
+  index: z.number().int().min(0).max(63),
+});
+
+export const clientPartySchema = z.object({
+  type: z.literal("party"),
+  op: z.enum(["invite", "accept", "leave"]),
+  target: z.string().max(32).optional(),
+});
+
+export const clientChatSchema = z.object({
+  type: z.literal("chat"),
+  channel: z.enum(["party", "local"]),
+  text: z.string().min(1).max(200),
+});
+
+export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
 
 export const clientMessageSchema = z.discriminatedUnion("type", [
   clientHelloSchema,
   clientInputSchema,
+  clientAttackSchema,
+  clientUseSlotSchema,
+  clientPickupSchema,
+  clientDropSchema,
+  clientSelectSlotSchema,
+  clientInteractSchema,
+  clientCraftSchema,
+  clientStashSchema,
+  clientPartySchema,
+  clientChatSchema,
   clientPingSchema,
 ]);
 
 export type ClientHello = z.infer<typeof clientHelloSchema>;
 export type ClientInput = z.infer<typeof clientInputSchema>;
-export type ClientPing = z.infer<typeof clientPingSchema>;
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 // ── server → client ────────────────────────────────────────────────
@@ -51,15 +97,74 @@ export const bodySnapshotSchema = z.object({
   z: z.number(),
   zVel: z.number(),
   grounded: z.boolean(),
+  kx: z.number(),
+  ky: z.number(),
 });
 
-export const peerSnapshotSchema = z.object({
+export const selfSnapshotSchema = bodySnapshotSchema.extend({
+  hp: z.number(),
+  maxHp: z.number(),
+  /** Active status ids (HUD icons / tint). */
+  fx: z.array(z.string()),
+  downed: z.boolean().optional(),
+});
+
+export const entitySnapshotSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  kind: z.enum(["player", "enemy", "item", "projectile"]),
+  defId: z.string().optional(),
+  name: z.string().optional(),
   x: z.number(),
   y: z.number(),
   z: z.number(),
+  hp: z.number().optional(),
+  maxHp: z.number().optional(),
+  fx: z.array(z.string()).optional(),
+  qty: z.number().optional(),
+  downed: z.boolean().optional(),
 });
+export type EntitySnapshot = z.infer<typeof entitySnapshotSchema>;
+
+export const invSlotSchema = z.object({ item: z.string(), qty: z.number().int() }).nullable();
+export type InvSlot = z.infer<typeof invSlotSchema>;
+
+export const partySnapshotSchema = z
+  .object({
+    id: z.string(),
+    /** Members incl. off-AOI position pings — they're your people. */
+    members: z.array(
+      z.object({ id: z.string(), name: z.string(), x: z.number(), y: z.number() }),
+    ),
+  })
+  .nullable();
+
+export const gameEventSchema = z.discriminatedUnion("t", [
+  z.object({ t: z.literal("hit"), id: z.string(), amount: z.number() }),
+  z.object({ t: z.literal("death"), id: z.string() }),
+  z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
+  z.object({
+    t: z.literal("chat"),
+    channel: z.enum(["party", "local", "system"]),
+    from: z.string(),
+    name: z.string(),
+    text: z.string(),
+  }),
+  z.object({ t: z.literal("toast"), msg: z.string() }),
+  z.object({ t: z.literal("invite"), from: z.string(), name: z.string() }),
+  z.object({ t: z.literal("teleported") }),
+  z.object({
+    t: z.literal("stash"),
+    slots: z.array(z.object({ item: z.string(), qty: z.number().int() })),
+  }),
+]);
+export type GameEvent = z.infer<typeof gameEventSchema>;
+
+export const areaTileSchema = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  defId: z.string().nullable(),
+});
+export type AreaTileUpdate = z.infer<typeof areaTileSchema>;
 
 export const serverWelcomeSchema = z.object({
   type: z.literal("welcome"),
@@ -75,20 +180,18 @@ export const serverWelcomeSchema = z.object({
 export const serverSnapshotSchema = z.object({
   type: z.literal("snapshot"),
   tick: z.number().int(),
-  /** Last input seq the server has applied for this client. */
   lastSeq: z.number().int(),
-  self: bodySnapshotSchema,
-  /** Everyone inside this client's area of interest. */
-  others: z.array(peerSnapshotSchema),
-  /** Ids that left the area of interest since the last snapshot. */
+  self: selfSnapshotSchema,
+  inventory: z.array(invSlotSchema),
+  selectedSlot: slot,
+  party: partySnapshotSchema,
+  entities: z.array(entitySnapshotSchema),
   left: z.array(z.string()),
+  events: z.array(gameEventSchema),
+  areas: z.array(areaTileSchema),
 });
 
-export const serverPongSchema = z.object({
-  type: z.literal("pong"),
-  t: z.number(),
-});
-
+export const serverPongSchema = z.object({ type: z.literal("pong"), t: z.number() });
 export const serverErrorSchema = z.object({
   type: z.literal("error"),
   code: z.string(),
@@ -105,7 +208,6 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
 export type ServerWelcome = z.infer<typeof serverWelcomeSchema>;
 export type ServerSnapshot = z.infer<typeof serverSnapshotSchema>;
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
-export type PeerSnapshot = z.infer<typeof peerSnapshotSchema>;
 
 // ── encode / decode ────────────────────────────────────────────────
 

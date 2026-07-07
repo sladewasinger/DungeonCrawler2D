@@ -4,13 +4,31 @@ import {
   decodeServerMessage,
   encodeMessage,
   type ClientInput,
+  type ClientMessage,
   type ServerSnapshot,
 } from "./messages";
 
-describe("protocol", () => {
+describe("protocol v2", () => {
   it("round-trips a client input", () => {
     const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, jump: true };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
+  });
+
+  it("round-trips gameplay intents", () => {
+    const intents: ClientMessage[] = [
+      { type: "attack", dirX: 1, dirY: 0 },
+      { type: "useSlot", slot: 2, targetX: 10.5, targetY: -3.25 },
+      { type: "pickup" },
+      { type: "drop", slot: 0 },
+      { type: "interact" },
+      { type: "craft", recipe: "bandage" },
+      { type: "stash", op: "put", index: 3 },
+      { type: "party", op: "invite", target: "p2" },
+      { type: "chat", channel: "party", text: "behind you" },
+    ];
+    for (const intent of intents) {
+      expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);
+    }
   });
 
   it("round-trips a server snapshot", () => {
@@ -18,9 +36,32 @@ describe("protocol", () => {
       type: "snapshot",
       tick: 42,
       lastSeq: 7,
-      self: { x: 1.5, y: 2.5, z: 0, zVel: 0, grounded: true },
-      others: [{ id: "p2", name: "Stranger", x: 9, y: 9, z: 3 }],
+      self: {
+        x: 1.5,
+        y: 2.5,
+        z: 0,
+        zVel: 0,
+        grounded: true,
+        kx: 0,
+        ky: 0,
+        hp: 22,
+        maxHp: 30,
+        fx: ["bleeding"],
+      },
+      inventory: [{ item: "rag", qty: 2 }, null, null, null, null, null, null, null, null],
+      selectedSlot: 0,
+      party: { id: "party1", members: [{ id: "p2", name: "Ally", x: 100, y: 50 }] },
+      entities: [
+        { id: "e1", kind: "enemy", defId: "slime", x: 9, y: 9, z: 0, hp: 12, maxHp: 12, fx: [] },
+        { id: "i1", kind: "item", defId: "knife", x: 8, y: 8, z: 0 },
+      ],
       left: ["p3"],
+      events: [
+        { t: "hit", id: "e1", amount: -6 },
+        { t: "toast", msg: "Crafted bandage" },
+        { t: "chat", channel: "party", from: "p2", name: "Ally", text: "hi" },
+      ],
+      areas: [{ x: 5, y: 5, defId: "area-fire" }, { x: 6, y: 5, defId: null }],
     };
     expect(decodeServerMessage(encodeMessage(snap))).toEqual(snap);
   });
@@ -32,17 +73,17 @@ describe("protocol", () => {
     expect(
       decodeClientMessage('{"type":"input","seq":1,"moveX":50,"moveY":0,"jump":false}'),
     ).toBeNull();
-    // Non-integer seq.
-    expect(
-      decodeClientMessage('{"type":"input","seq":1.5,"moveX":0,"moveY":0,"jump":false}'),
-    ).toBeNull();
-    // Oversized name.
+    // Slot out of range.
+    expect(decodeClientMessage('{"type":"drop","slot":99}')).toBeNull();
+    // Oversized chat.
     expect(
       decodeClientMessage(
-        `{"type":"hello","protocol":1,"name":"${"x".repeat(40)}"}`,
+        `{"type":"chat","channel":"local","text":"${"x".repeat(500)}"}`,
       ),
     ).toBeNull();
-    // Missing jump field.
-    expect(decodeClientMessage('{"type":"input","seq":1,"moveX":0,"moveY":0}')).toBeNull();
+    // Missing clientId on hello.
+    expect(
+      decodeClientMessage('{"type":"hello","protocol":2,"name":"A"}'),
+    ).toBeNull();
   });
 });

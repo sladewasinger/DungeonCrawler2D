@@ -1,4 +1,6 @@
+import { content } from "@dc2d/content";
 import { hashString } from "@dc2d/engine";
+import { join } from "node:path";
 import { startServer } from "./server";
 
 /**
@@ -15,8 +17,12 @@ const port = Number(process.env.GAME_PORT ?? 8081);
 const seedText = process.env.WORLD_SEED ?? "dev-world-1";
 const floor = Number(process.env.FLOOR ?? 1);
 const worldSeed = hashString(seedText);
+const storeFile =
+  process.env.STORE_FILE === "none"
+    ? null
+    : (process.env.STORE_FILE ?? join(process.cwd(), "data", "players.json"));
 
-const server = startServer({ port, worldSeed, floor });
+const server = startServer({ port, worldSeed, floor, content, storeFile });
 
 console.log(
   `[game-server] floor ${floor} of world "${seedText}" (seed ${worldSeed}) listening on ws://localhost:${port}`,

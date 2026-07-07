@@ -8,6 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@dc2d/content": "*",
     "@dc2d/engine": "*",
     "phaser": "^3.90.0"
   },

@@ -1,0 +1,53 @@
+[
+  {
+    "id": "area-fire",
+    "tags": ["fire", "hostile"],
+    "buoyancy": 0,
+    "duration": 8,
+    "onEnterStatus": "on-fire",
+    "spread": { "chance": 0.5, "ontoAreaTag": "flammable", "maxSteps": 6 },
+    "sprite": "fire"
+  },
+  {
+    "id": "area-wet",
+    "tags": ["wet", "liquid"],
+    "buoyancy": -1,
+    "duration": 25,
+    "onEnterStatus": "wet",
+    "spread": { "chance": 0.15, "maxSteps": 2 },
+    "sprite": "wet"
+  },
+  {
+    "id": "area-oil",
+    "tags": ["oil", "flammable", "liquid"],
+    "buoyancy": -1,
+    "duration": 40,
+    "onEnterStatus": "slowed",
+    "spread": { "chance": 0.1, "maxSteps": 2 },
+    "sprite": "oil"
+  },
+  {
+    "id": "area-poison",
+    "tags": ["poison", "gas", "hostile"],
+    "buoyancy": -1,
+    "duration": 12,
+    "onEnterStatus": "poisoned",
+    "spread": { "chance": 0.3, "maxSteps": 4 },
+    "sprite": "poison"
+  },
+  {
+    "id": "area-smoke",
+    "tags": ["smoke", "gas"],
+    "buoyancy": 1,
+    "duration": 8,
+    "spread": { "chance": 0.3, "maxSteps": 3 },
+    "sprite": "smoke"
+  },
+  {
+    "id": "area-steam",
+    "tags": ["steam", "gas"],
+    "buoyancy": 1,
+    "duration": 4,
+    "sprite": "steam"
+  }
+]

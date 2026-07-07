@@ -4,9 +4,11 @@ import {
   World,
   decodeClientMessage,
   encodeMessage,
+  type ContentRegistry,
 } from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { GameSim } from "./sim";
+import { PlayerStore } from "./store";
 
 /**
  * Thin ws transport around GameSim. Every inbound message is decoded
@@ -19,19 +21,25 @@ export interface ServerOptions {
   port: number;
   worldSeed: number;
   floor: number;
+  content: ContentRegistry;
+  storeFile?: string | null;
   rngSeed?: number;
 }
 
 export interface RunningServer {
   wss: WebSocketServer;
   sim: GameSim;
+  store: PlayerStore;
   stop(): void;
 }
 
 export function startServer(opts: ServerOptions): RunningServer {
   const world = new World(opts.worldSeed, opts.floor);
+  const store = new PlayerStore(opts.storeFile ?? null);
   const sim = new GameSim(
     world,
+    opts.content,
+    store,
     opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
   );
   const wss = new WebSocketServer({ port: opts.port });
@@ -49,7 +57,7 @@ export function startServer(opts: ServerOptions): RunningServer {
 
       switch (msg.type) {
         case "hello": {
-          if (playerId !== null) return; // one hello per connection
+          if (playerId !== null) return;
           if (msg.protocol !== PROTOCOL_VERSION) {
             ws.send(
               encodeMessage({
@@ -61,7 +69,7 @@ export function startServer(opts: ServerOptions): RunningServer {
             ws.close(1002, "protocol mismatch");
             return;
           }
-          const join = sim.addPlayer(msg.name, msg.resumeToken);
+          const join = sim.addPlayer(msg.name, msg.clientId, msg.resumeToken);
           playerId = join.playerId;
           const previous = sockets.get(playerId);
           if (previous && previous !== ws) previous.close(1000, "resumed elsewhere");
@@ -80,14 +88,15 @@ export function startServer(opts: ServerOptions): RunningServer {
           );
           return;
         }
-        case "input": {
+        case "input":
           if (playerId) sim.handleInput(playerId, msg);
           return;
-        }
-        case "ping": {
+        case "ping":
           ws.send(encodeMessage({ type: "pong", t: msg.t }));
           return;
-        }
+        default:
+          if (playerId) sim.queueAction(playerId, msg);
+          return;
       }
     });
 
@@ -116,8 +125,10 @@ export function startServer(opts: ServerOptions): RunningServer {
   return {
     wss,
     sim,
+    store,
     stop() {
       clearInterval(interval);
+      store.flush();
       wss.close();
       for (const ws of sockets.values()) ws.close(1001, "server stopping");
     },

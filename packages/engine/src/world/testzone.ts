@@ -28,11 +28,13 @@ export const TEST_SPAWN = { x: 28.5, y: 28.5 };
 interface Sample {
   tile: TileType;
   h: number;
+  zone: number;
 }
 
 function sample(wx: number, wy: number): Sample {
   let h = 0;
   let tile: TileType = TILE.Floor;
+  let zone: number = ZONE.None;
 
   // Terraced hill: +1 per 2-tile ring, summit h5.
   const hillD = Math.max(Math.abs(wx - 14), Math.abs(wy - 14));
@@ -67,7 +69,22 @@ function sample(wx: number, wy: number): Sample {
   if (wy >= 44 && wy <= 51 && ((wx >= 24 && wx <= 28) || (wx >= 32 && wx <= 38))) h = 2;
   if (wy === 52 && wx >= 29 && wx <= 31) h = 1;
 
-  return { tile, h };
+  // Safe pad with stretch-room doors (sanctuary + party/door testing).
+  if (wx >= 50 && wx <= 58 && wy >= 50 && wy <= 58) {
+    h = 0;
+    const onRing = wx === 50 || wx === 58 || wy === 50 || wy === 58;
+    const gateW = wx === 50 && wy >= 53 && wy <= 55;
+    const gateS = wy === 58 && wx >= 53 && wx <= 55;
+    if (onRing && !gateW && !gateS) {
+      tile = TILE.Wall;
+    } else {
+      zone = ZONE.Sanctuary;
+      if (wx === 53 && wy === 52) tile = TILE.DoorPersonal;
+      if (wx === 55 && wy === 52) tile = TILE.DoorParty;
+    }
+  }
+
+  return { tile, h, zone };
 }
 
 /**
@@ -95,11 +112,11 @@ export function applyTestZone(
       const wx = cx * CHUNK_SIZE + lx;
       const wy = cy * CHUNK_SIZE + ly;
       const i = ly * CHUNK_SIZE + lx;
-      const { tile, h } = sample(wx, wy);
+      const { tile, h, zone } = sample(wx, wy);
       const borderDist = Math.min(wx, wy, ZONE_TILES - 1 - wx, ZONE_TILES - 1 - wy);
       const blend = borderDist >= EDGE_BLEND ? 0 : 1 - borderDist / EDGE_BLEND;
       tiles[i] = tile;
-      zones[i] = ZONE.None;
+      zones[i] = zone;
       height[i] = h * (1 - blend) + (height[i] ?? 0) * blend;
     }
   }

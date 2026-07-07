@@ -1,6 +1,6 @@
 /** Shared constants — the single source of truth for client and server. */
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Server simulation rate. Clients also step prediction at this rate. */
 export const TICK_RATE = 20;
@@ -25,3 +25,29 @@ export const RECONNECT_GRACE_MS = 30_000;
 
 /** Cap on how many buffered inputs the server applies per player per tick. */
 export const MAX_INPUTS_PER_TICK = 5;
+
+/** Verticality: falls beyond this height hurt (feather-fall negates). */
+export const SAFE_FALL_HEIGHT = 3;
+export const FALL_DAMAGE_PER_UNIT = 6;
+
+/** Combat. */
+export const MELEE_RANGE = 1.6;
+/** cos of the half-angle of the melee arc (~70°). */
+export const MELEE_ARC_COS = 0.35;
+export const FIST_DAMAGE = 3;
+export const KNOCKBACK_FORCE = 10;
+export const KNOCKBACK_DECAY = 0.72;
+export const PLAYER_MAX_HP = 30;
+export const RESPAWN_DELAY_TICKS = 40; // 2 s
+export const DOWNED_DURATION = 30; // s — party bleed-out window
+export const REVIVE_HP_FRACTION = 0.3;
+
+/** Items. */
+export const THROW_SPEED = 10; // tiles/s
+export const MAX_THROW_RANGE = 8;
+export const PICKUP_RANGE = 1.5;
+export const INTERACT_RANGE = 1.6;
+export const INVENTORY_SLOTS = 9;
+
+/** Enemies simulate only within this radius of any player. */
+export const ENEMY_ACTIVE_RADIUS = 48;

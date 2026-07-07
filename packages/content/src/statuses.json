@@ -1,0 +1,102 @@
+[
+  {
+    "id": "bleeding",
+    "name": "Bleeding",
+    "kind": "debuff",
+    "tags": ["bleed", "physical"],
+    "duration": 8,
+    "tickEvery": 2,
+    "stacking": "refresh",
+    "onTick": [{ "primitive": "modify_health", "amount": -2 }]
+  },
+  {
+    "id": "poisoned",
+    "name": "Poisoned",
+    "kind": "debuff",
+    "tags": ["poison"],
+    "duration": 10,
+    "tickEvery": 2,
+    "stacking": "refresh",
+    "onTick": [{ "primitive": "modify_health", "amount": -1 }]
+  },
+  {
+    "id": "on-fire",
+    "name": "On Fire",
+    "kind": "debuff",
+    "tags": ["fire"],
+    "duration": 5,
+    "tickEvery": 1,
+    "stacking": "refresh",
+    "appliesTags": ["burning"],
+    "onTick": [{ "primitive": "modify_health", "amount": -3 }]
+  },
+  {
+    "id": "slowed",
+    "name": "Slowed",
+    "kind": "debuff",
+    "tags": ["slow"],
+    "duration": 4,
+    "stacking": "refresh",
+    "whileActive": [{ "primitive": "modify_stat", "stat": "speed", "mult": 0.6 }]
+  },
+  {
+    "id": "wet",
+    "name": "Wet",
+    "kind": "debuff",
+    "tags": ["wet"],
+    "duration": 6,
+    "stacking": "refresh",
+    "appliesTags": ["wet"],
+    "whileActive": [{ "primitive": "modify_stat", "stat": "speed", "mult": 0.85 }]
+  },
+  {
+    "id": "healing",
+    "name": "Healing",
+    "kind": "buff",
+    "tags": ["heal"],
+    "duration": 6,
+    "tickEvery": 1,
+    "stacking": "refresh",
+    "onTick": [{ "primitive": "modify_health", "amount": 2 }]
+  },
+  {
+    "id": "regenerating",
+    "name": "Regenerating",
+    "kind": "buff",
+    "tags": ["heal"],
+    "duration": 20,
+    "tickEvery": 2,
+    "stacking": "refresh",
+    "onTick": [{ "primitive": "modify_health", "amount": 1 }]
+  },
+  {
+    "id": "bandaged",
+    "name": "Bandaged",
+    "kind": "buff",
+    "tags": ["heal"],
+    "duration": 1,
+    "stacking": "refresh",
+    "onApply": [
+      { "primitive": "modify_health", "amount": 4 },
+      { "primitive": "remove_status", "tag": "bleed" }
+    ]
+  },
+  {
+    "id": "feather-fall",
+    "name": "Feather Fall",
+    "kind": "buff",
+    "tags": ["feather-fall"],
+    "duration": 30,
+    "stacking": "refresh",
+    "appliesTags": ["feather-fall"]
+  },
+  {
+    "id": "sticky-feet",
+    "name": "Sticky Feet",
+    "kind": "buff",
+    "tags": ["sticky-feet"],
+    "duration": 30,
+    "stacking": "refresh",
+    "appliesTags": ["sticky-feet"]
+  }
+]

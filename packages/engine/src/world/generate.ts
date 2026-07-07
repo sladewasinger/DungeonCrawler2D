@@ -1,5 +1,6 @@
 import { fbm2D } from "../core/noise";
 import { hash2D, mixSeeds } from "../core/rng";
+import { generateRoomChunk, isRoomChunk } from "./rooms";
 import { applyTestZone } from "./testzone";
 import { CHUNK_SIZE, TILE, ZONE, type Chunk, type TileType } from "./types";
 
@@ -200,6 +201,7 @@ export function generateChunk(
   cx: number,
   cy: number,
 ): Chunk {
+  if (isRoomChunk(cy)) return generateRoomChunk(cx, cy);
   const seeds = seedsFor(worldSeed, floor);
   const segs = corridorSegments(worldSeed, floor, cx, cy);
 
@@ -283,6 +285,26 @@ function applyFlattenedFeature(
         height[i] = featureH + (height[i]! - featureH) * t;
       }
     }
+  }
+
+  if (safeRoom) {
+    // Wall ring with 3-wide gates on all four sides, and the stretch-
+    // room doors on the interior north row (GAME_DESIGN.md).
+    const ringD = half + 1;
+    for (let ly = centerLy - ringD; ly <= centerLy + ringD; ly++) {
+      for (let lx = centerLx - ringD; lx <= centerLx + ringD; lx++) {
+        if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
+        const d = Math.max(Math.abs(lx - centerLx), Math.abs(ly - centerLy));
+        if (d !== ringD) continue;
+        const gateNS = Math.abs(lx - centerLx) <= 1 && Math.abs(ly - centerLy) === ringD;
+        const gateEW = Math.abs(ly - centerLy) <= 1 && Math.abs(lx - centerLx) === ringD;
+        if (gateNS || gateEW) continue;
+        tiles[ly * CHUNK_SIZE + lx] = TILE.Wall;
+      }
+    }
+    const doorLy = centerLy - half + 1;
+    tiles[doorLy * CHUNK_SIZE + (centerLx - 2)] = TILE.DoorPersonal;
+    tiles[doorLy * CHUNK_SIZE + (centerLx + 2)] = TILE.DoorParty;
   }
 }
 
