@@ -1,30 +1,32 @@
-import {
-  CHUNK_SIZE,
-  TICK_RATE,
-  TILE,
-  ZONE,
-  type Chunk,
-  type MoveInput,
-} from "@dc2d/engine";
+import { CHUNK_SIZE, TICK_RATE, TILE, ZONE, type MoveInput } from "@dc2d/engine";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
+import {
+  PLAYER_TEXTURE_PEER,
+  PLAYER_TEXTURE_SELF,
+  TILE_PX,
+  drawFloorTile,
+  drawSanctuaryTile,
+  drawStairsTile,
+  drawWallTile,
+  ensurePlayerTextures,
+} from "../render/placeholderArt";
 
 /**
  * Renders the shared world and everyone in it. Terrain chunks are
- * drawn once to canvas textures (height → shade, so elevation reads at
- * a glance); entities are simple shapes with a shadow blob anchoring
- * their ground position — the sprite lifts off the shadow with z.
- * Placeholder "pixel art +" until the real tileset lands.
+ * drawn once to canvas textures using the procedural placeholder art
+ * (brick floors, wall faces, cliff strata — height reads at a glance);
+ * players are pixel sprites with a shadow blob anchoring their ground
+ * position — the sprite lifts off the shadow with z.
  */
 
-const TILE_PX = 16;
 const CHUNK_PX = CHUNK_SIZE * TILE_PX;
 const Z_PX = 12; // vertical pixels per height unit
 const RENDER_DELAY_MS = 120; // interpolation delay for peers
 const CHUNK_VIEW_RADIUS = 2; // chunks kept rendered around the player
 
 interface PeerVisual {
-  sprite: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Ellipse;
   label: Phaser.GameObjects.Text;
 }
@@ -32,7 +34,7 @@ interface PeerVisual {
 export class DungeonScene extends Phaser.Scene {
   private chunkImages = new Map<string, Phaser.GameObjects.Image>();
   private peerVisuals = new Map<string, PeerVisual>();
-  private selfSprite!: Phaser.GameObjects.Arc;
+  private selfSprite!: Phaser.GameObjects.Image;
   private selfShadow!: Phaser.GameObjects.Ellipse;
   private selfLabel!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
@@ -55,8 +57,12 @@ export class DungeonScene extends Phaser.Scene {
       this.borderGraphics.setVisible(this.showBorders);
     });
 
+    ensurePlayerTextures(this);
     this.selfShadow = this.add.ellipse(0, 0, 12, 7, 0x000000, 0.45).setDepth(1);
-    this.selfSprite = this.add.circle(0, 0, 6, 0xffd166).setDepth(2);
+    this.selfSprite = this.add
+      .image(0, 0, PLAYER_TEXTURE_SELF)
+      .setOrigin(0.5, 0.85)
+      .setDepth(2);
     this.selfLabel = this.add
       .text(0, 0, "", { fontSize: "10px", color: "#ffe9b0" })
       .setOrigin(0.5, 1)
@@ -102,7 +108,7 @@ export class DungeonScene extends Phaser.Scene {
     const sy = body.y * TILE_PX;
     this.selfShadow.setPosition(sx, sy);
     this.selfSprite.setPosition(sx, sy - body.z * Z_PX);
-    this.selfLabel.setPosition(sx, sy - body.z * Z_PX - 8);
+    this.selfLabel.setPosition(sx, sy - body.z * Z_PX - 18);
     this.selfLabel.setText(conn.welcome.playerId);
 
     // Peers (interpolated slightly in the past).
@@ -114,7 +120,10 @@ export class DungeonScene extends Phaser.Scene {
       if (!visual) {
         visual = {
           shadow: this.add.ellipse(0, 0, 12, 7, 0x000000, 0.45).setDepth(1),
-          sprite: this.add.circle(0, 0, 6, 0x7ad7f0).setDepth(2),
+          sprite: this.add
+            .image(0, 0, PLAYER_TEXTURE_PEER)
+            .setOrigin(0.5, 0.85)
+            .setDepth(2),
           label: this.add
             .text(0, 0, peer.name, { fontSize: "10px", color: "#c8ecf7" })
             .setOrigin(0.5, 1)
@@ -126,7 +135,7 @@ export class DungeonScene extends Phaser.Scene {
       const py = peer.y * TILE_PX;
       visual.shadow.setPosition(px, py);
       visual.sprite.setPosition(px, py - peer.z * Z_PX);
-      visual.label.setPosition(px, py - peer.z * Z_PX - 8);
+      visual.label.setPosition(px, py - peer.z * Z_PX - 18);
     }
     for (const [id, visual] of this.peerVisuals) {
       if (!seen.has(id)) {
@@ -172,7 +181,7 @@ export class DungeonScene extends Phaser.Scene {
       for (let cx = ccx - CHUNK_VIEW_RADIUS; cx <= ccx + CHUNK_VIEW_RADIUS; cx++) {
         const key = `${cx},${cy}`;
         if (this.chunkImages.has(key)) continue;
-        this.chunkImages.set(key, this.renderChunk(world.getChunk(cx, cy)));
+        this.chunkImages.set(key, this.renderChunk(cx, cy));
       }
     }
     // Cull far chunks so memory stays flat while roaming.
@@ -186,34 +195,49 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private renderChunk(chunk: Chunk): Phaser.GameObjects.Image {
-    const texKey = `chunk-${chunk.cx},${chunk.cy}`;
+  private renderChunk(cx: number, cy: number): Phaser.GameObjects.Image {
+    const world = this.conn.world!;
+    const chunk = world.getChunk(cx, cy);
+    const texKey = `chunk-${cx},${cy}`;
     const canvas = this.textures.createCanvas(texKey, CHUNK_PX, CHUNK_PX)!;
     const ctx = canvas.getContext();
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         const i = ly * CHUNK_SIZE + lx;
+        const wx = cx * CHUNK_SIZE + lx;
+        const wy = cy * CHUNK_SIZE + ly;
         const tile = chunk.tiles[i];
         const zone = chunk.zones[i];
         const h = chunk.height[i] ?? 0;
+        const px = lx * TILE_PX;
+        const py = ly * TILE_PX;
         if (tile === TILE.Wall) {
-          ctx.fillStyle = "#241f2e";
-        } else if (tile === TILE.Stairs) {
-          ctx.fillStyle = "#8858c8";
-        } else if (zone === ZONE.Sanctuary) {
-          const light = Math.max(18, Math.min(55, 30 + h * 4));
-          ctx.fillStyle = `hsl(165, 38%, ${light}%)`;
-        } else {
-          // Height → lightness: cliffs and terraces read at a glance.
-          const light = Math.max(10, Math.min(60, 20 + h * 5));
-          ctx.fillStyle = `hsl(262, 14%, ${light}%)`;
+          drawWallTile(ctx, px, py, wx, wy, world.isWalkable(wx, wy + 1));
+          continue;
         }
-        ctx.fillRect(lx * TILE_PX, ly * TILE_PX, TILE_PX, TILE_PX);
+        if (tile === TILE.Stairs) {
+          drawStairsTile(ctx, px, py);
+          continue;
+        }
+        // heightAt reads across chunk borders (neighbor chunks are
+        // generated lazily and cached), so cliff faces and rims are
+        // seamless.
+        const neighbors = {
+          n: world.heightAt(wx, wy - 1),
+          e: world.heightAt(wx + 1, wy),
+          s: world.heightAt(wx, wy + 1),
+          w: world.heightAt(wx - 1, wy),
+        };
+        if (zone === ZONE.Sanctuary) {
+          drawSanctuaryTile(ctx, px, py, wx, wy, h, neighbors);
+        } else {
+          drawFloorTile(ctx, px, py, wx, wy, h, neighbors);
+        }
       }
     }
     canvas.refresh();
     return this.add
-      .image(chunk.cx * CHUNK_PX, chunk.cy * CHUNK_PX, texKey)
+      .image(cx * CHUNK_PX, cy * CHUNK_PX, texKey)
       .setOrigin(0, 0)
       .setDepth(-10);
   }

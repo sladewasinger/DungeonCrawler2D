@@ -32,7 +32,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Strict TS everywhere; `engine` imports nothing from client or server
 - [x] Vitest wired up; engine logic testable headlessly
 - [x] `npm run dev` starts client + local game server together
-- [x] Placeholder art generated at runtime (height-shaded canvas tiles — no binary assets yet); committed 16×16 tileset + asset pipeline docs come with the first real art pass
+- [x] Runtime-generated placeholder art (no binary assets yet) — see the placeholder art generation item in Epic 1; committed 16×16 tileset + asset pipeline docs come with the first real art pass (v0.9)
 
 **Done when:** One command runs the stack locally; `npm test` passes.
 
@@ -46,6 +46,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Fixed features placed deterministically per floor: **safe rooms** (flat sanctuaries every 3×3 chunks; stretch-room doors arrive in v0.4) and inert stairway markers (functional in v0.8); biome regions come with floor identity (v0.8)
 - [x] Logical grid model (chunks: tiles + height + zone tags like `sanctuary`) decoupled from rendering
 - [x] Client-side chunk streaming: generate/render chunks entering view, cull chunks leaving
+- [x] **Placeholder art generation** (procedural, deterministic, no binary assets): brick floor tiles with per-brick color variation, rock wall tiles with visible faces, cliff-face strata where terrain drops behind a tile + rim highlights on ledge edges, sanctuary flagstones, stair treads, and a generic hooded player sprite (gold self / blue peers)
 - [x] Debug overlay: seed/pos/chunk/ping/fps display, chunk-border toggle (debug teleport needs a server-side debug message — soon)
 - [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room flatness/sanctuary invariants
 
