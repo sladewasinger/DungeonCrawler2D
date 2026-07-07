@@ -19,9 +19,9 @@ Art style: minimal top-down pixel art ("pixel art +"), tonally in the direction 
 
 ## Status
 
-Pre-development. Planning docs are under review; implementation of Release v0.1 (scaffold + procedural dungeon generation + real-time multiplayer core) begins on approval.
+**v0.1 in progress.** Epics 0–2 are implemented and tested: monorepo scaffold, deterministic heightmapped chunk generation (caves, corridors, cliffs, safe rooms), and the server-authoritative multiplayer core (20 Hz tick, AOI replication, prediction/reconciliation, reconnect). Runs entirely locally — deployment (Terraform + EC2/CloudFront per [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)) is deferred until the hosting account is decided.
 
-## Getting started (once v0.1 lands)
+## Getting started
 
 ```bash
 npm install

@@ -1,0 +1,146 @@
+import { describe, expect, it } from "vitest";
+import { STEP_UP } from "../core/constants";
+import { hashString } from "../core/rng";
+import { chunkCenter, generateChunk, isSafeRoomChunk } from "./generate";
+import { CHUNK_SIZE, TILE, ZONE } from "./types";
+import { World } from "./world";
+
+const SEED = hashString("test-world");
+const FLOOR = 1;
+
+describe("world generation", () => {
+  it("is byte-identical for identical inputs (networking invariant)", () => {
+    for (const [cx, cy] of [
+      [0, 0],
+      [-3, 7],
+      [12, -12],
+    ] as const) {
+      const a = generateChunk(SEED, FLOOR, cx, cy);
+      const b = generateChunk(SEED, FLOOR, cx, cy);
+      expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
+      expect(Array.from(a.height)).toEqual(Array.from(b.height));
+      expect(Array.from(a.zones)).toEqual(Array.from(b.zones));
+    }
+  });
+
+  it("differs across seeds and floors", () => {
+    const a = generateChunk(SEED, FLOOR, 0, 0);
+    const b = generateChunk(hashString("other-world"), FLOOR, 0, 0);
+    const c = generateChunk(SEED, FLOOR + 1, 0, 0);
+    expect(Array.from(a.tiles)).not.toEqual(Array.from(b.tiles));
+    expect(Array.from(a.tiles)).not.toEqual(Array.from(c.tiles));
+  });
+
+  it("borders agree between adjacent chunks (terrain is seamless)", () => {
+    const left = generateChunk(SEED, FLOOR, 0, 0);
+    const right = generateChunk(SEED, FLOOR, 1, 0);
+    // Heights are pure functions of world coords; compare the shared
+    // column's immediate neighbors for continuity: the right edge of
+    // chunk 0 and left edge of chunk 1 must come from the same fields,
+    // so no jump larger than intra-chunk jumps should appear.
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      const hL = left.height[ly * CHUNK_SIZE + (CHUNK_SIZE - 1)]!;
+      const hR = right.height[ly * CHUNK_SIZE]!;
+      const intraJump = Math.abs(
+        left.height[ly * CHUNK_SIZE + (CHUNK_SIZE - 1)]! -
+          left.height[ly * CHUNK_SIZE + (CHUNK_SIZE - 2)]!,
+      );
+      // Cross-border jump must be same order as intra-chunk jumps
+      // (cliffs exist, but a seam artifact would dwarf them).
+      expect(Math.abs(hL - hR)).toBeLessThanOrEqual(Math.max(4, intraJump * 4 + 4));
+    }
+  });
+
+  it("safe-room chunks contain a flat sanctuary", () => {
+    let found = 0;
+    for (let cx = -6; cx <= 6 && found === 0; cx++) {
+      for (let cy = -6; cy <= 6 && found === 0; cy++) {
+        if (!isSafeRoomChunk(SEED, FLOOR, cx, cy)) continue;
+        found++;
+        const chunk = generateChunk(SEED, FLOOR, cx, cy);
+        const sanctuaryHeights: number[] = [];
+        for (let i = 0; i < chunk.zones.length; i++) {
+          if (chunk.zones[i] === ZONE.Sanctuary) {
+            expect(chunk.tiles[i]).toBe(TILE.Floor);
+            sanctuaryHeights.push(chunk.height[i]!);
+          }
+        }
+        expect(sanctuaryHeights.length).toBeGreaterThan(50); // 11×11 room
+        const min = Math.min(...sanctuaryHeights);
+        const max = Math.max(...sanctuaryHeights);
+        expect(max - min).toBeLessThan(0.001); // flat
+      }
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
+  it("chunk centers across a region are mutually reachable on foot", () => {
+    // BFS over walkable tiles using the movement step rule (can rise
+    // ≤ STEP_UP, can drop any amount). The corridor network is the
+    // connectivity guarantee: every chunk center must be reachable
+    // from the origin chunk's center.
+    const world = new World(SEED, FLOOR);
+    const range = 2; // 5×5 chunks = 160×160 tiles
+    const start = snapCenter(world, 0, 0);
+    const reached = bfs(world, start, range);
+
+    for (let cx = -range; cx <= range; cx++) {
+      for (let cy = -range; cy <= range; cy++) {
+        const target = snapCenter(world, cx, cy);
+        expect(
+          reached.has(`${target.x},${target.y}`),
+          `center of chunk ${cx},${cy} unreachable`,
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+function snapCenter(world: World, cx: number, cy: number): { x: number; y: number } {
+  const c = chunkCenter(world.worldSeed, world.floor, cx, cy);
+  // Centers are on the corridor network; snap to the nearest walkable
+  // tile just in case of rounding.
+  for (let r = 0; r < 4; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const x = Math.round(c.x) + dx;
+        const y = Math.round(c.y) + dy;
+        if (world.isWalkable(x, y)) return { x, y };
+      }
+    }
+  }
+  throw new Error(`no walkable tile near center of ${cx},${cy}`);
+}
+
+function bfs(
+  world: World,
+  start: { x: number; y: number },
+  chunkRange: number,
+): Set<string> {
+  const min = -chunkRange * CHUNK_SIZE;
+  const max = (chunkRange + 1) * CHUNK_SIZE - 1;
+  const reached = new Set<string>([`${start.x},${start.y}`]);
+  const queue = [start];
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++]!;
+    const curH = world.heightAt(cur.x, cur.y);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      if (nx < min || ny < min || nx > max || ny > max) continue;
+      const key = `${nx},${ny}`;
+      if (reached.has(key) || !world.isWalkable(nx, ny)) continue;
+      // Walk rule: may rise at most STEP_UP; drops are free.
+      if (world.heightAt(nx, ny) - curH > STEP_UP) continue;
+      reached.add(key);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  return reached;
+}

@@ -27,12 +27,12 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** A cleanly organized monorepo any developer can clone, run (client + server), and understand in under 10 minutes.
 
-- [ ] Git repo, `.gitignore`, README, planning docs (this doc)
-- [ ] npm workspaces monorepo: `packages/engine` (shared, pure), `packages/client` (Phaser 3 + Vite), `packages/game-server` (Node + ws), `packages/services` (Lambda handlers, v0.6+) — per [ARCHITECTURE.md](ARCHITECTURE.md)
-- [ ] Strict TS everywhere; `engine` imports nothing from client or server
-- [ ] Vitest wired up; engine logic testable headlessly
-- [ ] `npm run dev` starts client + local game server together
-- [ ] Placeholder pixel-art tileset (16×16) generated/committed; asset pipeline documented
+- [x] Git repo, `.gitignore`, README, planning docs (this doc)
+- [x] npm workspaces monorepo: `packages/engine` (shared, pure), `packages/client` (Phaser 3 + Vite), `packages/game-server` (Node + ws) — per [ARCHITECTURE.md](ARCHITECTURE.md); `packages/services` (Lambda handlers) arrives in v0.6
+- [x] Strict TS everywhere; `engine` imports nothing from client or server
+- [x] Vitest wired up; engine logic testable headlessly
+- [x] `npm run dev` starts client + local game server together
+- [x] Placeholder art generated at runtime (height-shaded canvas tiles — no binary assets yet); committed 16×16 tileset + asset pipeline docs come with the first real art pass
 
 **Done when:** One command runs the stack locally; `npm test` passes.
 
@@ -40,14 +40,14 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Floors big enough to get lost in, generated lazily in deterministic chunks — because the server ships coordinates and seeds, never tiles.
 
-- [ ] Seeded RNG; chunk geometry deterministic from `(worldSeed, floor, chunkCoord)` — byte-exact across machines (a networking correctness requirement)
-- [ ] Chunked generator producing connected caves/rooms/corridors across chunk boundaries, no orphan regions
-- [ ] **Continuous height field per chunk** (GAME_DESIGN.md § Verticality): terraces, cliffs, plateaus, chasms; reachability contract includes vertical routes (stairs, jumpable ledges, survivable fall lines)
-- [ ] Fixed features placed deterministically per floor: **safe rooms** (with door slots for stretch rooms), stairways down, biome regions
-- [ ] Logical grid model (`DungeonMap` chunks: floor/wall/door/spawn/exit + zone tags like `sanctuary`) decoupled from rendering
-- [ ] Client-side chunk streaming: generate/render chunks entering view, drop chunks leaving
-- [ ] Debug overlay: seed/chunk display, teleport, chunk borders
-- [ ] Unit tests: cross-chunk connectivity, determinism, safe-room placement invariants
+- [x] Seeded RNG; chunk geometry deterministic from `(worldSeed, floor, chunkCoord)` — byte-exact across machines (a networking correctness requirement), all integer-hash based
+- [x] Chunked generator: noise caves + a corridor network between jittered chunk centers (the global connectivity guarantee); interior wall-enclosed pockets sealed
+- [x] **Continuous height field per chunk** (GAME_DESIGN.md § Verticality): rolling terrain + quantized plateaus whose cliff faces flatten into walkable ramps near corridors — vertical reachability by construction
+- [x] Fixed features placed deterministically per floor: **safe rooms** (flat sanctuaries every 3×3 chunks; stretch-room doors arrive in v0.4) and inert stairway markers (functional in v0.8); biome regions come with floor identity (v0.8)
+- [x] Logical grid model (chunks: tiles + height + zone tags like `sanctuary`) decoupled from rendering
+- [x] Client-side chunk streaming: generate/render chunks entering view, cull chunks leaving
+- [x] Debug overlay: seed/pos/chunk/ping/fps display, chunk-border toggle (debug teleport needs a server-side debug message — soon)
+- [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room flatness/sanctuary invariants
 
 **Done when:** Two machines given the same seed render identical geometry (heights included) at any coordinate, and a player can walk for minutes without hitting an edge or a seam — past cliffs and chasms with legible elevation.
 
@@ -55,15 +55,15 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** The load-bearing epic. A server-authoritative shared world that many players occupy at once, spawning apart on a vast floor and stumbling onto each other.
 
-- [ ] Game server process: runs the shared `engine` simulation at a fixed tick (~20 Hz), owns truth; simulates only **active chunks** (near players), hibernates the rest with persisted deltas
-- [ ] WebSocket protocol (JSON first): client→server **intents** (move, use, drop…), server→client **snapshots/events**
-- [ ] **Area-of-interest replication:** each client receives deltas only for entities within its view radius — mandatory on a vast map, and it's also what makes "stumbling upon someone" a moment
-- [ ] Random spawn placement guaranteeing distance from other players — no spawn shield; distance is the protection
-- [ ] Player movement: client-side prediction for your own character, interpolation for others, server reconciliation
-- [ ] **z from day one:** entities are `(x, y, z)` in the protocol; server-side gravity, jumping, and falling (fall *damage* arrives with the effects engine in v0.2)
-- [ ] Shadow-blob rendering: shadow anchors ground position, sprite offsets by z
-- [ ] Join/leave/reconnect: connect → spawn; disconnect grace period; rejoin restores position and inventory
-- [ ] Headless multi-client + in-process-server simulation tests for protocol and AOI correctness
+- [x] Game server process: runs the shared `engine` simulation at a fixed 20 Hz tick, owns truth (per-chunk hibernation becomes meaningful when chunks gain state — effects/enemies in v0.2/v0.3)
+- [x] WebSocket protocol (JSON, zod-validated server-side): client→server **intents**, server→client **snapshots** — speedhack-shaped input is rejected at the schema
+- [x] **Area-of-interest replication:** each client receives only entities within its view radius, with enter/leave notices — mandatory on a vast map, and it's also what makes "stumbling upon someone" a moment
+- [x] Random spawn placement guaranteeing distance from other players (candidates sampled on the corridor network, so spawns are never in isolated pockets) — no spawn shield; distance is the protection
+- [x] Player movement: client-side prediction through the same engine `stepBody` the server runs, snapshot reconciliation with input replay, ~120 ms interpolation for others
+- [x] **z from day one:** entities are `(x, y, z)` in the protocol; server-side gravity, jumping, and falling (fall *damage* arrives with the effects engine in v0.2)
+- [x] Shadow-blob rendering: shadow anchors ground position, sprite offsets by z
+- [x] Join/leave/reconnect: connect → spawn; 30 s disconnect grace; resume token restores identity and position
+- [x] Headless multi-client + in-process-server simulation tests for protocol, AOI, reconnect, and multi-client convergence
 - [ ] Terraform baseline + deployed playtest server (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) — **deferred until the hosting account is decided**; meanwhile local dev mimics prod topology (standalone game-server process + static client over the real protocol)
 
 **Done when:** Three people on different networks spawn apart on one vast floor, wander, jump off ledges, and find each other — movement feels responsive (<150 ms perceived), and a dropped client rejoins where they left.

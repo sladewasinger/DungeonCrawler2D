@@ -1,0 +1,19 @@
+{
+  "name": "dungeoncrawler2d",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w @dc2d/game-server\" \"npm run dev -w @dc2d/client\"",
+    "build": "npm run build -w @dc2d/client && npm run build -w @dc2d/game-server",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p packages/engine && tsc --noEmit -p packages/game-server && tsc --noEmit -p packages/client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}
