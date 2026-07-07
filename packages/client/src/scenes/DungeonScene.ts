@@ -15,6 +15,7 @@ import {
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
 import atlas from "../render/atlas.json";
+import { frameForTile } from "../render/tileframes";
 import { Hud } from "../ui/hud";
 
 /**
@@ -511,71 +512,25 @@ export class DungeonScene extends Phaser.Scene {
     const ox = cx * CHUNK_PX;
     const oy = cy * CHUNK_PX;
     const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(-10);
+    const borders = map.createBlankLayer("borders", tileset, ox, oy)!.setDepth(-9.5);
     const overlay = map.createBlankLayer("overlay", tileset, ox, oy)!.setDepth(-9);
 
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        const i = ly * CHUNK_SIZE + lx;
         const wx = cx * CHUNK_SIZE + lx;
         const wy = cy * CHUNK_SIZE + ly;
-        const tile = chunk.tiles[i];
-        const h = chunk.height[i] ?? 0;
+        const frames = frameForTile(world, wx, wy);
 
-        if (tile === TILE.Wall) {
-          let mask = 0;
-          if (world.tileAt(wx, wy - 1) !== TILE.Wall) mask |= 1;
-          if (world.tileAt(wx + 1, wy) !== TILE.Wall) mask |= 2;
-          if (world.tileAt(wx, wy + 1) !== TILE.Wall) mask |= 4;
-          if (world.tileAt(wx - 1, wy) !== TILE.Wall) mask |= 8;
-          base.putTileAt(atlas.frames.wallAuto[mask]!, lx, ly);
-          continue;
+        const baseTile = base.putTileAt(frames.base, lx, ly);
+        if (baseTile && frames.baseTintHeight !== null) {
+          baseTile.tint = heightTint(frames.baseTintHeight);
         }
-        if (tile === TILE.Stairs) {
-          base.putTileAt(atlas.frames.stairs, lx, ly);
-          continue;
-        }
-        const special =
-          tile === TILE.DoorPersonal
-            ? atlas.frames.interact.doorPersonal
-            : tile === TILE.DoorParty
-              ? atlas.frames.interact.doorParty
-              : tile === TILE.DoorExit
-                ? atlas.frames.interact.doorPersonal
-                : tile === TILE.CraftingTable
-                  ? atlas.frames.interact.craftingTable
-                  : tile === TILE.Stash
-                    ? atlas.frames.interact.stash
-                    : null;
-
-        const variants =
-          chunk.zones[i] === ZONE.Sanctuary ? atlas.frames.sanctuary : atlas.frames.floor;
-        const baseTile = base.putTileAt(variants[hash2D(11, wx, wy) % variants.length]!, lx, ly);
-        if (baseTile) baseTile.tint = heightTint(h);
-        if (special !== null) {
-          overlay.putTileAt(special, lx, ly);
-          continue;
-        }
-
-        const n = world.heightAt(wx, wy - 1);
-        const rise = n - h;
-        let overlayFrame = -1;
-        let overlayTintHeight = h;
-        if (rise > 2.5) {
-          overlayFrame = atlas.frames.faceTall[hash2D(13, wx, wy) % 2]!;
-          overlayTintHeight = n;
-        } else if (rise > STEP_UP) {
-          overlayFrame = atlas.frames.faceShort[hash2D(13, wx, wy) % 2]!;
-          overlayTintHeight = n;
-        } else {
-          let mask = 0;
-          if (h - world.heightAt(wx, wy + 1) > STEP_UP) mask |= 1;
-          if (h - world.heightAt(wx + 1, wy) > STEP_UP) mask |= 2;
-          if (h - world.heightAt(wx - 1, wy) > STEP_UP) mask |= 4;
-          if (mask > 0) overlayFrame = atlas.frames.rimBase + mask;
-        }
-        if (overlayFrame >= 0) {
-          const overlayTile = overlay.putTileAt(overlayFrame, lx, ly);
-          if (overlayTile) overlayTile.tint = heightTint(overlayTintHeight);
+        if (frames.border >= 0) borders.putTileAt(frames.border, lx, ly);
+        if (frames.overlay >= 0) {
+          const overlayTile = overlay.putTileAt(frames.overlay, lx, ly);
+          if (overlayTile && frames.overlayTintHeight !== null) {
+            overlayTile.tint = heightTint(frames.overlayTintHeight);
+          }
         }
       }
     }
@@ -597,7 +552,9 @@ export class DungeonScene extends Phaser.Scene {
 }
 
 function heightTint(h: number): number {
-  const brightness = Math.max(0.45, Math.min(1, 0.62 + h * 0.055));
+  // Ground level renders at (near) full brightness so the white-brick
+  // floor reads white; only depth darkens noticeably.
+  const brightness = Math.max(0.5, Math.min(1, 0.95 + h * 0.035));
   const gray = Math.round(brightness * 255);
   return (gray << 16) | (gray << 8) | gray;
 }

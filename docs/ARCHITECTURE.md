@@ -31,7 +31,8 @@ Everything that defines *what the game is* — effect primitives, interaction ru
 dungeoncrawler2D/
 ├── docs/                        # This documentation
 ├── assets/pack/                 # Source art (Craftpix asset pack + license), pre-pipeline
-├── tools/generate-art.mjs       # Bakes the committed spritesheets + atlas.json
+├── tools/generate-art.mjs       # Bakes the committed spritesheets + atlas.json from measured pack slices
+├── tools/render-sample.ts       # Renders docs/art-samples/ proof images via the client's tileframes.ts
 ├── tests/e2e/                   # Playwright live-browser suite (npm run test:e2e)
 ├── packages/
 │   ├── content/                 # ── DATA, NOT CODE (@dc2d/content) — shared by server & client ──

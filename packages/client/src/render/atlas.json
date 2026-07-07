@@ -8,52 +8,54 @@
       3
     ],
     "sanctuary": [
-      8,
-      9,
-      10,
-      11
+      4,
+      5,
+      6,
+      7
     ],
-    "stairs": 20,
+    "stairs": 8,
     "faceTall": [
-      24,
-      25
+      9,
+      10
     ],
     "faceShort": [
-      26,
-      27
+      11,
+      12
     ],
-    "rimBase": 31,
+    "rimBase": 13,
     "wallAuto": [
-      40,
-      41,
-      42,
-      45,
-      43,
-      43,
-      47,
-      49,
-      44,
-      46,
-      49,
-      49,
-      48,
-      49,
-      49,
-      49
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36
     ],
+    "wallShadowBase": 37,
+    "sancRimBase": 53,
     "areas": {
-      "fire": 50,
-      "wet": 51,
-      "poison": 52,
-      "oil": 53,
-      "smoke": 54,
-      "steam": 55
+      "fire": 69,
+      "wet": 70,
+      "poison": 71,
+      "oil": 72,
+      "smoke": 73,
+      "steam": 74
     },
     "interact": {
-      "craftingTable": 56,
-      "stash": 57,
-      "doorPersonal": 58,
-      "doorParty": 59
+      "craftingTable": 75,
+      "stash": 76,
+      "doorPersonal": 77,
+      "doorParty": 78
     }
   },
   "players": {

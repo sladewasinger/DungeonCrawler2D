@@ -23,7 +23,7 @@ conn.connect();
 // before the Game boots so it exists even if later setup fails.
 declare global {
   interface Window {
-    __dc2d?: { conn: Connection };
+    __dc2d?: { conn: Connection; game?: Phaser.Game };
   }
 }
 window.__dc2d = { conn };
@@ -31,7 +31,7 @@ window.addEventListener("error", (event) => {
   console.error("[main] uncaught:", event.message, event.filename, event.lineno);
 });
 
-new Phaser.Game({
+window.__dc2d.game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
   width: 1280,
