@@ -15,6 +15,10 @@ import { CHUNK_SIZE, TILE, ZONE, type TileType } from "./types";
  *    take the stair ramp on its west edge; walk off any edge to fall
  *  - Chasm at y44–52: two h2 platforms with a 3-tile gap; fall in and
  *    exit via the ramp at the south end
+ *  - Safe-room entrance kiosk at (53..55, 52..54), portal door (54,54)
+ *
+ * The sim adds example fixtures on top (items/hazards/enemies for each
+ * of Epics 3–7) — see TEST_ZONE_* tables in game-server/src/sim.ts.
  */
 
 export const TEST_ZONE_MIN_CHUNK = 0;
@@ -69,19 +73,12 @@ function sample(wx: number, wy: number): Sample {
   if (wy >= 44 && wy <= 51 && ((wx >= 24 && wx <= 28) || (wx >= 32 && wx <= 38))) h = 2;
   if (wy === 52 && wx >= 29 && wx <= 31) h = 1;
 
-  // Safe pad with stretch-room doors (sanctuary + party/door testing).
+  // Safe-room entrance kiosk on a flat pad: the portal door in the
+  // south face leads to the region's instanced safe room (rooms.ts).
   if (wx >= 50 && wx <= 58 && wy >= 50 && wy <= 58) {
     h = 0;
-    const onRing = wx === 50 || wx === 58 || wy === 50 || wy === 58;
-    const gateW = wx === 50 && wy >= 53 && wy <= 55;
-    const gateS = wy === 58 && wx >= 53 && wx <= 55;
-    if (onRing && !gateW && !gateS) {
-      tile = TILE.Wall;
-    } else {
-      zone = ZONE.Sanctuary;
-      if (wx === 53 && wy === 52) tile = TILE.DoorPersonal;
-      if (wx === 55 && wy === 52) tile = TILE.DoorParty;
-    }
+    if (Math.abs(wx - 54) <= 1 && Math.abs(wy - 53) <= 1) tile = TILE.Wall;
+    if (wx === 54 && wy === 54) tile = TILE.DoorSafeRoom;
   }
 
   return { tile, h, zone };

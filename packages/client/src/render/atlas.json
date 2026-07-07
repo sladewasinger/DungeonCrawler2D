@@ -55,7 +55,9 @@
       "craftingTable": 75,
       "stash": 76,
       "doorPersonal": 77,
-      "doorParty": 78
+      "doorParty": 78,
+      "doorExit": 79,
+      "doorSafeRoom": 80
     }
   },
   "players": {

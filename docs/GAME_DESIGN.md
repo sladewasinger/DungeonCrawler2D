@@ -36,25 +36,28 @@ Indirect griefing (kiting a horde into someone, laying fire at a safe-room exit)
 
 ## Safe rooms & stretch rooms
 
-Safe rooms are generated map features, **identical for all players**, and absolutely safe — the dungeon's social hubs.
+Safe rooms are behind **doors** on the shared floor — a wall kiosk with a portal door, placed identically for all players every few chunks. Everything past the door is absolutely safe: the dungeon's social hubs.
 
-The clever bit is that they **stretch**: the room manifests extra doors per visitor, leading to instanced spaces that don't exist in the shared map geometry.
+Every layer is the same portal mechanic ("stretch rooms"): rooms manifest as instanced spaces that don't exist in the shared floor geometry, entered by door.
 
 ```
         VAST SHARED FLOOR
-        ┌────────────────────┐
-        │     SAFE ROOM      │   ← fixed map feature, sanctuary rules,
-        │                    │     everyone sees the same room
-        │  [your door]───────┼──▶ YOUR PERSONAL ROOM (instanced, per player)
-        │                    │      stash, crafting table, decorations
-        │  [party door]──────┼──▶ PARTY COMMON ROOM (instanced, per party)
-        │                    │      shared area + one inner door per member
-        └────────────────────┘      leading to their individual room
+        ┌──────────────┐
+        │ [safe-room   │
+        │  door kiosk]─┼──▶ SAFE ROOM (instanced, shared per region)
+        └──────────────┘    sanctuary rules; same door → same room for everyone
+                            │
+                            ├─[your door]───▶ YOUR PERSONAL ROOM (per player)
+                            │                   stash, crafting table, decorations
+                            ├─[party door]──▶ PARTY COMMON ROOM (per party)
+                            │                   shared area + a personal door inside
+                            └─[exit door]───▶ back to where you entered from
 ```
 
+- **The safe-room door** leads everyone in a region to the *same* shared safe room — meeting space, communal stash + crafting table.
 - **Your door** appears in *every* safe room and always leads to the same personal room — your base travels with you. Contains your stash and **crafting table** (the AI crafting site — see [AI_CRAFTING.md](AI_CRAFTING.md)).
 - **Party door** appears when you're in a party: a shared common room for hanging out/planning, with individual member rooms off it.
-- Others see their own doors, not yours. Implementation-wise these are small instanced sub-maps attached by portal, not part of floor geometry.
+- Doors are shared geometry with per-player destinations; exits unwind the way you came (personal room → safe room → floor). Implementation: instanced sub-maps in a reserved chunk band, entered by server teleport.
 
 ## Parties
 

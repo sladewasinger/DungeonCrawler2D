@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { holdKey, openGame, readState } from "./helpers";
+import { findTile, holdKey, openGame, readState, walkTo } from "./helpers";
+
+// Tile ids mirrored from the engine's TILE map (engine isn't importable here).
+const T_DOOR_PERSONAL = 3;
+const T_DOOR_EXIT = 5;
+const T_DOOR_SAFE_ROOM = 8;
 
 /**
  * Live-browser end-to-end: a real chromium drives the real client
@@ -148,6 +153,68 @@ test.describe("dungeoncrawler2d e2e", () => {
     const state = await readState(page);
     expect(state.hp).toBeGreaterThan(0);
     expect(state.hp).toBeLessThanOrEqual(30);
+  });
+
+  test("ground items at spawn: walk onto the sword and pick it up", async ({ page }) => {
+    const state = await openGame(page);
+    await page.waitForTimeout(600); // let fixtures/areas replicate in
+    await page.screenshot({ path: "docs/art-samples/live-proving-ground.png" });
+    const sword = state.entities.find((e) => e.kind === "item" && e.defId === "sword");
+    expect(sword, "sword fixture visible at spawn").toBeTruthy();
+    await walkTo(page, sword!.x, sword!.y);
+    await page.keyboard.press("r");
+    await page.waitForFunction(() =>
+      window.__dc2d!.conn.inventory.some((s) => s?.item === "sword"),
+    );
+  });
+
+  test("safe rooms are door portals, personal rooms nest inside them", async ({ page }) => {
+    test.setTimeout(90_000);
+    await openGame(page);
+
+    // Route around the proving-ground structures to the entrance kiosk.
+    await walkTo(page, 34.5, 29.5);
+    await walkTo(page, 48.5, 29.5);
+    await walkTo(page, 48.5, 55.5);
+    await walkTo(page, 54.5, 56.5);
+    const door = await findTile(page, T_DOOR_SAFE_ROOM, 8);
+    await walkTo(page, door.x, door.y + 0.2, { tolerance: 0.35 });
+
+    // Through the portal: far-away instanced room, sanctuary underfoot.
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__dc2d!.conn.body!.y > 100_000);
+    const inSafeRoom = await page.evaluate(() => {
+      const conn = window.__dc2d!.conn;
+      return conn.world!.isSanctuary(Math.floor(conn.body!.x), Math.floor(conn.body!.y));
+    });
+    expect(inSafeRoom).toBe(true);
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: "docs/art-samples/live-safe-room.png" });
+    const safeY = (await readState(page)).y;
+
+    // The personal door inside leads to your own room…
+    const personal = await findTile(page, T_DOOR_PERSONAL, 10);
+    await walkTo(page, personal.x, personal.y, { tolerance: 0.35 });
+    await page.keyboard.press("e");
+    await page.waitForFunction(
+      (limit) => Math.abs(window.__dc2d!.conn.body!.y - limit) > 20,
+      safeY,
+    );
+
+    // …and exits unwind: personal room → safe room → overworld kiosk.
+    const exitA = await findTile(page, T_DOOR_EXIT, 10);
+    await walkTo(page, exitA.x, exitA.y, { tolerance: 0.35 });
+    await page.keyboard.press("e");
+    await page.waitForFunction(
+      (limit) => Math.abs(window.__dc2d!.conn.body!.y - limit) < 20,
+      safeY,
+    );
+    const exitB = await findTile(page, T_DOOR_EXIT, 10);
+    await walkTo(page, exitB.x, exitB.y, { tolerance: 0.35 });
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__dc2d!.conn.body!.y < 1_000);
+    const back = await readState(page);
+    expect(Math.hypot(back.x - door.x, back.y - door.y)).toBeLessThan(2);
   });
 
   test("reload resumes the same identity and stays playable", async ({ page }) => {

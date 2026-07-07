@@ -48,6 +48,11 @@ export class DungeonScene extends Phaser.Scene {
   private borderGraphics!: Phaser.GameObjects.Graphics;
   private showBorders = false;
   private accumulatorMs = 0;
+  /** Body position before the latest fixed step — render interpolation. */
+  private prevStep: { x: number; y: number; z: number } | null = null;
+  private camX = 0;
+  private camY = 0;
+  private camSnap = true;
   private craftPanelOpen = false;
   private stashPanelOpen = false;
   private keys!: Record<
@@ -125,6 +130,7 @@ export class DungeonScene extends Phaser.Scene {
     this.borderGraphics = this.add.graphics().setDepth(5).setVisible(false);
     this.hud = new Hud(this);
     this.cameras.main.setBackgroundColor("#0d0a12");
+    this.cameras.main.setRoundPixels(true);
   }
 
   override update(_time: number, deltaMs: number): void {
@@ -138,25 +144,47 @@ export class DungeonScene extends Phaser.Scene {
         map.destroy();
         this.chunkMaps.delete(key);
       }
-      this.cameras.main.centerOn(conn.body.x * TILE_PX, conn.body.y * TILE_PX);
+      this.prevStep = null;
+      this.camSnap = true;
     }
 
-    // Fixed-step input sampling.
+    // Fixed-step input sampling; the pre-step position feeds render
+    // interpolation so 20Hz prediction looks like 60fps motion.
     this.accumulatorMs += deltaMs;
     const stepMs = 1000 / TICK_RATE;
     while (this.accumulatorMs >= stepMs) {
       this.accumulatorMs -= stepMs;
+      this.prevStep = { x: conn.body.x, y: conn.body.y, z: conn.body.z };
       conn.sampleInput(this.readInput());
     }
 
     const body = conn.body;
+    const alpha = Math.min(1, this.accumulatorMs / stepMs);
+    const prev = this.prevStep ?? body;
+    const rx = prev.x + (body.x - prev.x) * alpha;
+    const ry = prev.y + (body.y - prev.y) * alpha;
+    const rz = prev.z + (body.z - prev.z) * alpha;
+
     this.ensureChunksAround(body.x, body.y);
     this.renderAreas();
-    this.renderSelf();
+    this.renderSelf(rx, ry, rz);
     this.renderEntities();
     this.spawnFloatingText();
     if (this.showBorders) this.drawChunkBorders(body.x, body.y);
-    this.cameras.main.centerOn(body.x * TILE_PX, body.y * TILE_PX);
+
+    // Eased camera: snaps on teleport, otherwise glides after the player.
+    const targetX = rx * TILE_PX;
+    const targetY = ry * TILE_PX;
+    if (this.camSnap) {
+      this.camX = targetX;
+      this.camY = targetY;
+      this.camSnap = false;
+    } else {
+      const k = 1 - Math.exp((-deltaMs / 1000) * 10);
+      this.camX += (targetX - this.camX) * k;
+      this.camY += (targetY - this.camY) * k;
+    }
+    this.cameras.main.centerOn(this.camX, this.camY);
     this.hud.update(conn, this.contextPrompt(), this.panelContent(), this.debugContent());
   }
 
@@ -253,6 +281,7 @@ export class DungeonScene extends Phaser.Scene {
   private contextPrompt(): string {
     if (this.conn.downed) return "You are downed — hold on for a revive…";
     const underfoot = this.tileUnderfoot();
+    if (underfoot === TILE.DoorSafeRoom) return "[E] enter safe room";
     if (underfoot === TILE.DoorPersonal) return "[E] enter your room";
     if (underfoot === TILE.DoorParty) return "[E] enter party room";
     if (underfoot === TILE.DoorExit) return "[E] leave";
@@ -304,13 +333,12 @@ export class DungeonScene extends Phaser.Scene {
 
   // ── rendering ────────────────────────────────────────────────────
 
-  private renderSelf(): void {
+  private renderSelf(x: number, y: number, z: number): void {
     const conn = this.conn;
-    const body = conn.body!;
     const world = conn.world!;
-    const sx = body.x * TILE_PX;
-    const sy = body.y * TILE_PX;
-    const lift = Math.max(0, body.z - world.heightAt(Math.floor(body.x), Math.floor(body.y))) * Z_PX;
+    const sx = x * TILE_PX;
+    const sy = y * TILE_PX;
+    const lift = Math.max(0, z - world.heightAt(Math.floor(x), Math.floor(y))) * Z_PX;
     this.selfVisual.shadow.setPosition(sx, sy);
     this.selfVisual.shadow.setScale(1 - Math.min(0.35, lift / 400));
     this.selfVisual.sprite.setPosition(sx, sy - lift);

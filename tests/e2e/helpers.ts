@@ -76,6 +76,59 @@ export async function holdKey(page: Page, key: string, ms: number): Promise<void
   await page.keyboard.up(key);
 }
 
+/** Steer toward (tx, ty) with real held keys, axis-dominant, re-aiming each hop. */
+export async function walkTo(
+  page: Page,
+  tx: number,
+  ty: number,
+  opts: { timeoutMs?: number; tolerance?: number } = {},
+): Promise<void> {
+  const deadline = Date.now() + (opts.timeoutMs ?? 30_000);
+  const tolerance = opts.tolerance ?? 0.5;
+  for (;;) {
+    const s = await readState(page);
+    const dx = tx - s.x;
+    const dy = ty - s.y;
+    if (Math.hypot(dx, dy) <= tolerance) return;
+    if (Date.now() > deadline) {
+      throw new Error(`walkTo(${tx},${ty}) stuck at (${s.x.toFixed(1)},${s.y.toFixed(1)})`);
+    }
+    const key = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "d" : "a") : dy > 0 ? "s" : "w";
+    const dist = Math.max(Math.abs(dx), Math.abs(dy));
+    await holdKey(page, key, Math.min(600, Math.max(80, dist * 110)));
+  }
+}
+
+/** Nearest world tile of the given id around the player (client worldgen). */
+export async function findTile(
+  page: Page,
+  tileId: number,
+  radius = 12,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate(
+    ([id, r]) => {
+      const conn = window.__dc2d!.conn;
+      const bx = Math.floor(conn.body!.x);
+      const by = Math.floor(conn.body!.y);
+      let best: { x: number; y: number } | null = null;
+      let bestD = Number.POSITIVE_INFINITY;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (conn.world!.tileAt(bx + dx, by + dy) !== id) continue;
+          const d = dx * dx + dy * dy;
+          if (d < bestD) {
+            bestD = d;
+            best = { x: bx + dx + 0.5, y: by + dy + 0.5 };
+          }
+        }
+      }
+      if (!best) throw new Error(`tile ${id} not found within ${r} tiles`);
+      return best;
+    },
+    [tileId, radius] as const,
+  );
+}
+
 declare global {
   interface Window {
     __dc2d?: {
@@ -93,6 +146,11 @@ declare global {
         party: { id: string; members: Array<{ id: string; name: string; x: number; y: number }> } | null;
         pendingInvite: { from: string; name: string } | null;
         chatLog: Array<{ channel: string; name: string; text: string }>;
+        inventory: Array<{ item: string; qty: number } | null>;
+        world: {
+          tileAt(x: number, y: number): number;
+          isSanctuary(x: number, y: number): boolean;
+        } | null;
         attack(dx: number, dy: number): void;
       };
     };

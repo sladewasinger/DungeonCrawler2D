@@ -278,8 +278,7 @@ function applyFlattenedFeature(
       tiles[i] = TILE.Floor;
       if (d <= half) {
         height[i] = featureH;
-        if (safeRoom) zones[i] = ZONE.Sanctuary;
-        else tiles[i] = TILE.Stairs;
+        if (!safeRoom) tiles[i] = TILE.Stairs;
       } else {
         const t = smoothstep01((d - half) / margin);
         height[i] = featureH + (height[i]! - featureH) * t;
@@ -288,24 +287,29 @@ function applyFlattenedFeature(
   }
 
   if (safeRoom) {
-    // Wall ring with 3-wide gates on all four sides, and the stretch-
-    // room doors on the interior north row (GAME_DESIGN.md).
-    const ringD = half + 1;
-    for (let ly = centerLy - ringD; ly <= centerLy + ringD; ly++) {
-      for (let lx = centerLx - ringD; lx <= centerLx + ringD; lx++) {
-        if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-        const d = Math.max(Math.abs(lx - centerLx), Math.abs(ly - centerLy));
-        if (d !== ringD) continue;
-        const gateNS = Math.abs(lx - centerLx) <= 1 && Math.abs(ly - centerLy) === ringD;
-        const gateEW = Math.abs(ly - centerLy) <= 1 && Math.abs(lx - centerLx) === ringD;
-        if (gateNS || gateEW) continue;
-        tiles[ly * CHUNK_SIZE + lx] = TILE.Wall;
-      }
-    }
-    const doorLy = centerLy - half + 1;
-    tiles[doorLy * CHUNK_SIZE + (centerLx - 2)] = TILE.DoorPersonal;
-    tiles[doorLy * CHUNK_SIZE + (centerLx + 2)] = TILE.DoorParty;
+    // The safe room itself is an instanced stretch room (rooms.ts); the
+    // overworld only gets its entrance: a wall kiosk whose south face
+    // is a portal door (GAME_DESIGN.md § Safe rooms).
+    carveSafeRoomEntrance(tiles, centerLx, centerLy);
   }
+}
+
+/** 3×3 wall kiosk with the portal door in its south face. */
+export function carveSafeRoomEntrance(
+  tiles: Uint8Array,
+  centerLx: number,
+  centerLy: number,
+): void {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const lx = centerLx + dx;
+      const ly = centerLy + dy;
+      if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
+      tiles[ly * CHUNK_SIZE + lx] = TILE.Wall;
+    }
+  }
+  const doorLy = centerLy + 1;
+  if (doorLy < CHUNK_SIZE) tiles[doorLy * CHUNK_SIZE + centerLx] = TILE.DoorSafeRoom;
 }
 
 /**
@@ -327,7 +331,8 @@ function sealInteriorPockets(
     const lx = i % size;
     const ly = (i - lx) / size;
     const onBorder = lx === 0 || ly === 0 || lx === size - 1 || ly === size - 1;
-    if (corridorCarved[i] === 1 || zones[i] !== ZONE.None || tiles[i] === TILE.Stairs || onBorder) {
+    const isSeedTile = tiles[i] === TILE.Stairs || tiles[i] === TILE.DoorSafeRoom;
+    if (corridorCarved[i] === 1 || zones[i] !== ZONE.None || isSeedTile || onBorder) {
       reached[i] = 1;
       queue.push(i);
     }

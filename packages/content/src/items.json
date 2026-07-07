@@ -16,6 +16,20 @@
     "weapon": { "damage": 6, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
   },
   {
+    "id": "sword",
+    "name": "Rusty Sword",
+    "tags": ["sharp", "metal"],
+    "maxStack": 1,
+    "weapon": { "damage": 8, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
+  },
+  {
+    "id": "hammer",
+    "name": "Heavy Hammer",
+    "tags": ["blunt", "metal"],
+    "maxStack": 1,
+    "weapon": { "damage": 10, "applies": [{ "status": "slowed", "chance": 0.5 }] }
+  },
+  {
     "id": "torch",
     "name": "Torch",
     "tags": ["wood", "fire"],

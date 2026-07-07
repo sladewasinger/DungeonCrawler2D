@@ -13,6 +13,8 @@ export const TILE = {
   /** Interactables (solid; interact from an adjacent tile). */
   CraftingTable: 6,
   Stash: 7,
+  /** Overworld portal into the region's shared safe room. */
+  DoorSafeRoom: 8,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 

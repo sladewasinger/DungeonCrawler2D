@@ -45,12 +45,12 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Seeded RNG; chunk geometry deterministic from `(worldSeed, floor, chunkCoord)` — byte-exact across machines (a networking correctness requirement), all integer-hash based
 - [x] Chunked generator: noise caves + a corridor network between jittered chunk centers (the global connectivity guarantee); interior wall-enclosed pockets sealed
 - [x] **Continuous height field per chunk** (GAME_DESIGN.md § Verticality): rolling terrain + quantized plateaus whose cliff faces flatten into walkable ramps near corridors — vertical reachability by construction
-- [x] Fixed features placed deterministically per floor: **safe rooms** (flat sanctuaries every 3×3 chunks; stretch-room doors arrive in v0.4) and inert stairway markers (functional in v0.8); biome regions come with floor identity (v0.8)
+- [x] Fixed features placed deterministically per floor: **safe-room entrance kiosks** (portal doors every 3×3 chunks; the rooms behind them arrive in v0.4) and inert stairway markers (functional in v0.8); biome regions come with floor identity (v0.8)
 - [x] Logical grid model (chunks: tiles + height + zone tags like `sanctuary`) decoupled from rendering
 - [x] Client-side chunk streaming: generate/render chunks entering view, cull chunks leaving
 - [x] **Pixel art** (64×64, real committed binaries): tiles sourced from the Craftpix free top-down dungeon pack in `assets/pack/` (see its license.txt), composed into our spritesheets by `npm run art` — floors with crack decals, dark wall tops, masonry wall/cliff faces, teal sanctuary recolor, procedural stair treads + ledge-rim overlays + hooded crawler sprites (gold self / blue peers); rendered via tilemap layers with per-tile height tint
 - [x] Debug overlay: seed/pos/chunk/ping/fps display, chunk-border toggle (debug teleport needs a server-side debug message — soon)
-- [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room flatness/sanctuary invariants
+- [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room entrance invariants
 
 **Done when:** Two machines given the same seed render identical geometry (heights included) at any coordinate, and a player can walk for minutes without hitting an edge or a seam — past cliffs and chasms with legible elevation.
 
@@ -67,7 +67,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Shadow-blob rendering: shadow anchors ground position, sprite offsets by z
 - [x] Join/leave/reconnect: connect → spawn; 30 s disconnect grace; resume token restores identity and position
 - [x] Headless multi-client + in-process-server simulation tests for protocol, AOI, reconnect, and multi-client convergence
-- [x] **Dev proving ground** (engine `testzone.ts`, stamped over chunks (0,0)–(1,1), spawns prefer it — remove before v0.9): terraced hill to a h5 summit, stair ramp to four h3 jump pillars over 2/3/4-tile gaps, a jump-climb drop tower with h2/4/6/8 bands, and a chasm with an exit ramp — everything needed to test jumping across and falling off cliffs
+- [x] **Dev proving ground** (engine `testzone.ts`, stamped over chunks (0,0)–(1,1), spawns prefer it — remove before v0.9): terraced hill to a h5 summit, stair ramp to four h3 jump pillars over 2/3/4-tile gaps, a jump-climb drop tower with h2/4/6/8 bands, a chasm with an exit ramp, and a safe-room entrance kiosk — plus per-epic example fixtures (see Epics 3–7)
+- [x] **Camera & motion polish:** fixed-timestep render interpolation of the predicted body plus an eased camera follow (snaps on teleports) — no more 20 Hz stepping jitter
 - [ ] Terraform baseline + deployed playtest server (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) — **deferred until the hosting account is decided**; meanwhile local dev mimics prod topology (standalone game-server process + static client over the real protocol)
 
 **Done when:** Three people on different networks spawn apart on one vast floor, wander, jump off ledges, and find each other — movement feels responsive (<150 ms perceived), and a dropped client rejoins where they left.
@@ -85,6 +86,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] **Verticality as data:** fall damage scaled by drop height (liquids break falls), feather-fall negates, sticky-feet grips against knockback, `airborne` derived tag
 - [x] Base status set as data: bleeding, poisoned, on-fire, wet, healing, regenerating, bandaged, slowed, feather-fall, sticky-feet
 - [x] Headless unit tests for primitives, lifecycle, rules, immunity, sanctuary, and scaling
+- [x] **In-game examples (proving ground):** standing fire and poison patches near spawn apply on-fire/poisoned on contact; a ground bandage cures bleeding; raw meat gambles poison — every base status is triggerable in play
 
 **Done when:** A new status effect (e.g. "frozen") can be added purely as a data file, and all observers see identical outcomes.
 
@@ -98,6 +100,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Consumables wired to the effects engine (bandage strips bleeding; raw meat gambles poison)
 - [x] Starter item set as data: vodka bottle, rag, stick, bandage, knife, torch, water flask, raw meat
 - [x] Item definition validation (schema + referenced-primitive checks) — shared later by AI crafting
+- [x] **In-game examples (proving ground):** a weapon rack on the ground at spawn — rusty sword, heavy hammer, knife — plus throwables (torch, vodka bottle, water flask), consumables (bandage, raw meat), and crafting ingredients (rags, stick); walk on, [R] to pick up, hotbar to use ([e2e-tested](../tests/e2e/game.spec.ts))
 
 **Done when:** Player A throws a torch, a passing stranger sees the same arc, and the oil it lands on ignites for everyone.
 
@@ -112,6 +115,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] **Height-aware propagation:** heavy gas and liquids never spread uphill, smoke never spreads downhill; ground areas can't touch airborne entities
 - [x] **Sanctuary boundary:** hostile areas cannot enter or be placed inside `sanctuary` zones — fire dies at the safe-room threshold
 - [x] Exposure timers: items left in fire char and are destroyed (raw-meat → cooked transform deferred with the food system)
+- [x] **In-game examples (proving ground):** permanent fire, poison, oil, and wet patches near spawn (reseeded by the sim as they decay) — walk into them, throw the water flask at the fire for steam, torch the oil slick
 
 **Done when:** A molotov-like item (data only) creates spreading fire that every observer sees identically — and that stops dead at a safe-room door.
 
@@ -128,6 +132,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Enemy status vulnerability via tags (plant-creeper burns ×2; slime immune to bleed; skeleton immune to bleed and poison)
 - [x] Death: **full loot drop** where you fell (anyone may loot — including your killer), respawn at random distant location, keep stash; downed-then-revive for party members with a 30 s bleed-out
 - [x] 4 starter enemies as data files: slime, plant-creeper, skeleton, spitter (generated sprites — replace-later art)
+- [x] **In-game examples (proving ground):** all four enemy kinds placed as fixtures — a slime pit south of spawn (the e2e combat arena), a creeper and a fast skeleton to the west, a poison spitter on the hill; sword/hammer pickups make the damage difference feelable
 
 **Done when:** Two strangers can fight over a loot drop with molotovs and knives — or ignore each other — and a plant-monster kited into their crossfire burns either way.
 
@@ -135,9 +140,11 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Sanctuary, the stretch-room system, and consent-based grouping.
 
-- [x] Safe-room sanctuary rules live: no damage, no debuffs, no hostile areas, enemies can't enter; safe rooms now generate with wall rings, gates, and stretch-room doors
+- [x] Safe-room sanctuary rules live: no damage, no debuffs, no hostile areas, enemies can't enter
+- [x] **Safe rooms are door portals** (GAME_DESIGN.md § Safe rooms): the overworld shows an entrance kiosk whose door teleports you into the region's instanced safe room — sanctuary interior with communal stash, crafting table, and the stretch-room doors; same door → same room for everyone
 - [x] **Stretch rooms:** personal door in every safe room → your instanced personal room (stash + crafting table + exit door); implemented as a reserved chunk band of deterministic sub-maps, entry by server teleport, rooms spaced beyond AOI
 - [x] **Party rooms:** party door → shared common room, with a personal door inside (shared geometry, per-player destination — that's the stretch trick)
+- [x] **Exit doors unwind like a stack:** floor → safe room → personal room and back out the way you came (e2e-tested with a real browser walking the whole loop)
 - [x] Party system: invite/accept via proximity (mutual consent, [F] fistbump flow), leave/disband, party chat channel, member position pings outside AOI (friendly fire stays on — no flag)
 - [x] Persistent stash, server-side per anonymous clientId (file-backed store; DynamoDB + accounts land in v0.8)
 - [x] Crafting table interactable + crafting panel UI

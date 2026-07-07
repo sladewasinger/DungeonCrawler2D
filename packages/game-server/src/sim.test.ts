@@ -12,6 +12,8 @@ import {
   hashString,
   personalRoomFeatures,
   personalRoomSpawn,
+  safeRoomFeatures,
+  safeRoomSpawn,
   type ClientInput,
   type Entity,
   type GameEvent,
@@ -128,10 +130,11 @@ describe("GameSim", () => {
     const snap = sim.step().get(a.playerId)!;
     expect(snap.self.fx).toContain("on-fire");
 
-    // Sanctuary: the test-zone safe pad at (50..58, 50..58).
-    teleport(entity, 54.5, 54.5, sim);
-    sim.areas.spawn("area-fire", 54, 54, 1);
-    expect(sim.areas.defAt(54, 54)).toBeNull();
+    // Sanctuary: inside the instanced safe room behind the test-zone door.
+    const safe = safeRoomSpawn(1, 1);
+    teleport(entity, safe.x, safe.y, sim);
+    sim.areas.spawn("area-fire", Math.floor(safe.x), Math.floor(safe.y), 1);
+    expect(sim.areas.defAt(Math.floor(safe.x), Math.floor(safe.y))).toBeNull();
   });
 
   it("falls hurt; feather-fall negates", () => {
@@ -259,8 +262,9 @@ describe("GameSim", () => {
     const b = sim.addPlayer("B", "client-b");
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
-    teleport(aEntity, 53.5, 54.5, sim); // safe pad
-    teleport(bEntity, 54.5, 54.5, sim);
+    const safe = safeRoomSpawn(1, 1); // room behind the test-zone door
+    teleport(aEntity, safe.x, safe.y, sim);
+    teleport(bEntity, safe.x + 1, safe.y, sim);
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
     expect(bEntity.hp).toBe(PLAYER_MAX_HP);
@@ -360,14 +364,33 @@ describe("GameSim", () => {
     expect(snaps.get(bId)!.self.hp).toBe(Math.round(PLAYER_MAX_HP * 0.3));
   });
 
-  it("personal doors lead to your own room with stash, table, and exit", () => {
+  it("portals nest: world door → safe room → personal room → exits unwind", () => {
     const a = sim.addPlayer("A", "client-a");
     const entity = sim.getPlayerEntity(a.playerId)!;
-    teleport(entity, 53.5, 52.5, sim); // DoorPersonal on the safe pad
-    expect(sim.world.tileAt(53, 52)).toBe(TILE.DoorPersonal);
+
+    // The overworld shows a door, not an open sanctuary pad.
+    expect(sim.world.tileAt(54, 54)).toBe(TILE.DoorSafeRoom);
+    expect(sim.world.isSanctuary(54, 55)).toBe(false);
+    teleport(entity, 54.5, 54.5, sim);
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
 
+    // Inside the region's shared safe room: sanctuary, doors, fixtures.
+    const safe = safeRoomSpawn(1, 1);
+    expect(entity.body.x).toBeCloseTo(safe.x, 3);
+    expect(entity.body.y).toBeCloseTo(safe.y, 3);
+    expect(sim.world.isSanctuary(Math.floor(safe.x), Math.floor(safe.y))).toBe(true);
+    const safeF = safeRoomFeatures(1, 1);
+    expect(sim.world.tileAt(safeF.doorPersonal.x, safeF.doorPersonal.y)).toBe(TILE.DoorPersonal);
+    expect(sim.world.tileAt(safeF.doorParty.x, safeF.doorParty.y)).toBe(TILE.DoorParty);
+    expect(sim.world.tileAt(safeF.exit.x, safeF.exit.y)).toBe(TILE.DoorExit);
+    expect(sim.world.tileAt(safeF.stash.x, safeF.stash.y)).toBe(TILE.Stash);
+    expect(sim.world.tileAt(safeF.table.x, safeF.table.y)).toBe(TILE.CraftingTable);
+
+    // Personal door inside the safe room → your own room.
+    teleport(entity, safeF.doorPersonal.x + 0.5, safeF.doorPersonal.y + 0.5, sim);
+    sim.queueAction(a.playerId, { type: "interact" });
+    sim.step();
     const spawn = personalRoomSpawn(0); // first client gets slot 0
     expect(entity.body.x).toBeCloseTo(spawn.x, 3);
     expect(entity.body.y).toBeCloseTo(spawn.y, 3);
@@ -376,12 +399,59 @@ describe("GameSim", () => {
     expect(sim.world.tileAt(features.table.x, features.table.y)).toBe(TILE.CraftingTable);
     expect(sim.world.isSanctuary(Math.floor(entity.body.x), Math.floor(entity.body.y))).toBe(true);
 
-    // Exit door returns to where you entered from.
+    // Exits unwind the stack: personal room → safe room → overworld.
     teleport(entity, features.exit.x + 0.5, features.exit.y + 0.5, sim);
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
-    expect(entity.body.x).toBeCloseTo(53.5, 3);
-    expect(entity.body.y).toBeCloseTo(52.5, 3);
+    expect(entity.body.x).toBeCloseTo(safeF.doorPersonal.x + 0.5, 3);
+    expect(entity.body.y).toBeCloseTo(safeF.doorPersonal.y + 0.5, 3);
+
+    teleport(entity, safeF.exit.x + 0.5, safeF.exit.y + 0.5, sim);
+    sim.queueAction(a.playerId, { type: "interact" });
+    sim.step();
+    expect(entity.body.x).toBeCloseTo(54.5, 3);
+    expect(entity.body.y).toBeCloseTo(54.5, 3);
+  });
+
+  it("the proving ground offers every epic's examples: weapons, hazards, enemies", () => {
+    const a = sim.addPlayer("A", "client-a"); // spawns at TEST_SPAWN
+    const snap = stepN(sim, 2).get(a.playerId)!;
+
+    // Epic 4: ground items at spawn, including the starter weapons.
+    const itemDefs = new Set(
+      snap.entities.filter((e) => e.kind === "item").map((e) => e.defId),
+    );
+    for (const def of ["sword", "hammer", "bandage", "rag", "vodka-bottle"]) {
+      expect(itemDefs, `missing ground item ${def}`).toContain(def);
+    }
+
+    // Epic 5: standing hazards, and they reseed after decaying.
+    expect(sim.areas.defAt(34, 24)).toBe("area-fire");
+    expect(sim.areas.defAt(18, 33)).toBe("area-poison");
+    stepN(sim, TICK_RATE * 16); // > area-fire duration (8s) + reseed period
+    expect(sim.areas.defAt(34, 24)).toBe("area-fire");
+
+    // Epic 6: all four enemy kinds live in the proving ground.
+    expect(sim.enemyCount).toBeGreaterThanOrEqual(5);
+  });
+
+  it("a picked-up sword out-damages fists", () => {
+    const a = sim.addPlayer("A", "client-a");
+    const b = sim.addPlayer("B", "client-b");
+    const aEntity = sim.getPlayerEntity(a.playerId)!;
+    const bEntity = sim.getPlayerEntity(b.playerId)!;
+
+    // Walk onto the sword fixture and pick it up for real.
+    teleport(aEntity, 30.5, 27.5, sim);
+    sim.step();
+    sim.queueAction(a.playerId, { type: "pickup" });
+    sim.step();
+    expect(sim.getInventory(a.playerId)![0]?.item).toBe("sword");
+
+    teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
+    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    sim.step();
+    expect(PLAYER_MAX_HP - bEntity.hp).toBeGreaterThanOrEqual(8); // sword, not fists
   });
 
   it("crafting needs the table and the ingredients", () => {

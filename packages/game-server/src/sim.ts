@@ -38,6 +38,7 @@ import {
   newEntityId,
   personalRoomSpawn,
   partyRoomSpawn,
+  safeRoomSpawn,
   pickMeleeTarget,
   stepBody,
   stepProjectile,
@@ -77,7 +78,8 @@ interface PlayerSlot {
   selectedSlot: number;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];
-  returnPos: { x: number; y: number; z: number } | null;
+  /** Where DoorExit leads, innermost last — portals nest (world → safe room → personal). */
+  returnStack: Array<{ x: number; y: number; z: number }>;
   partyId: string | null;
   respawnAtTick: number | null;
   /** Send the full area set on next snapshot (join/teleport). */
@@ -108,11 +110,45 @@ const GRACE_TICKS = Math.ceil((RECONNECT_GRACE_MS / 1000) * TICK_RATE);
 const INVITE_TTL_TICKS = 30 * TICK_RATE;
 const ITEM_CHAR_SECONDS = 3;
 
-/** Deterministic enemies in the dev test zone (e2e fixtures). */
+/**
+ * Deterministic dev-test-zone fixtures: one example of everything the
+ * Epic 3–7 systems introduced, findable right at spawn (28.5, 28.5) so
+ * every mechanic is testable without hunting (see ROADMAP per-epic
+ * "in-game examples" bullets). Also e2e fixtures — keep positions stable.
+ */
+// The slime pit at (20..24, 42) is the e2e combat arena — the other
+// enemy examples live in the west/north corners, outside aggro range
+// of both the arena and the walking routes.
 const TEST_ZONE_ENEMIES: Array<{ def: string; x: number; y: number }> = [
   { def: "slime", x: 20.5, y: 42.5 },
   { def: "slime", x: 23.5, y: 42.5 },
+  { def: "plant-creeper", x: 8.5, y: 36.5 },
+  { def: "skeleton", x: 8.5, y: 14.5 },
+  { def: "spitter", x: 12.5, y: 20.5 },
 ];
+
+/** Weapons, ingredients, throwables, and consumables on the ground at spawn. */
+const TEST_ZONE_ITEMS: Array<{ def: string; x: number; y: number; qty?: number }> = [
+  { def: "sword", x: 30.5, y: 27.5 },
+  { def: "hammer", x: 31.5, y: 28.5 },
+  { def: "knife", x: 30.5, y: 29.5 },
+  { def: "torch", x: 27.5, y: 26.5 },
+  { def: "vodka-bottle", x: 28.5, y: 26.5 },
+  { def: "water-flask", x: 29.5, y: 26.5 },
+  { def: "bandage", x: 26.5, y: 28.5, qty: 2 },
+  { def: "rag", x: 26.5, y: 29.5, qty: 2 },
+  { def: "stick", x: 27.5, y: 30.5 },
+  { def: "raw-meat", x: 28.5, y: 30.5 },
+];
+
+/** Standing hazards near spawn; reseeded when they burn/decay away. */
+const TEST_ZONE_HAZARDS: Array<{ def: string; x: number; y: number; radius: number }> = [
+  { def: "area-fire", x: 34, y: 24, radius: 1 },
+  { def: "area-poison", x: 18, y: 33, radius: 1 },
+  { def: "area-oil", x: 36, y: 31, radius: 1 },
+  { def: "area-wet", x: 31, y: 32, radius: 1 },
+];
+const HAZARD_RESEED_TICKS = 5 * TICK_RATE;
 
 export class GameSim {
   private readonly players = new Map<string, PlayerSlot>();
@@ -132,6 +168,8 @@ export class GameSim {
   private tickCount = 0;
   private nextPartyId = 1;
   private nextPartyRoom = 0;
+  /** True once the test-zone chunk activated — keeps hazard fixtures seeded. */
+  private hazardsActive = false;
 
   constructor(
     readonly world: World,
@@ -206,7 +244,7 @@ export class GameSim {
       inventory: Array(INVENTORY_SLOTS).fill(null),
       selectedSlot: 0,
       outbox: [],
-      returnPos: null,
+      returnStack: [],
       partyId: null,
       respawnAtTick: null,
       needsFullAreas: true,
@@ -284,6 +322,9 @@ export class GameSim {
     this.stepPlayers(effectEvents);
     this.processActions(effectEvents);
     this.activateChunksNearPlayers();
+    if (this.hazardsActive && this.tickCount % HAZARD_RESEED_TICKS === 0) {
+      this.seedTestZoneHazards();
+    }
     this.stepEnemies(effectEvents);
     this.stepProjectiles(effectEvents);
     this.areas.tick(TICK_DT, () => this.rng.next());
@@ -314,6 +355,7 @@ export class GameSim {
         slot.entity.statuses = [];
         slot.downedAtTick = null;
         delete slot.entity.downedUntil;
+        slot.returnStack = [];
         slot.needsFullAreas = true;
         slot.outbox.push({ t: "teleported" }, { t: "toast", msg: "You wake up somewhere else…" });
       }
@@ -595,6 +637,13 @@ export class GameSim {
     const tileX = Math.floor(body.x);
     const tileY = Math.floor(body.y);
     const tile = this.world.tileAt(tileX, tileY);
+    if (tile === TILE.DoorSafeRoom) {
+      const doorCx = Math.floor(tileX / CHUNK_SIZE);
+      const doorCy = Math.floor(tileY / CHUNK_SIZE);
+      this.teleport(slot, safeRoomSpawn(doorCx, doorCy), { remember: true });
+      slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
+      return;
+    }
     if (tile === TILE.DoorPersonal) {
       this.teleport(slot, personalRoomSpawn(slot.stored.slot), { remember: true });
       slot.outbox.push({ t: "toast", msg: "Your room. Stash and crafting table inside." });
@@ -612,7 +661,7 @@ export class GameSim {
       return;
     }
     if (tile === TILE.DoorExit) {
-      const back = slot.returnPos ?? this.findSpawn();
+      const back = slot.returnStack.pop() ?? this.findSpawn();
       this.teleport(slot, back, { remember: false });
       return;
     }
@@ -639,7 +688,8 @@ export class GameSim {
     opts: { remember: boolean },
   ): void {
     if (opts.remember) {
-      slot.returnPos = { x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z };
+      slot.returnStack.push({ x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z });
+      if (slot.returnStack.length > 4) slot.returnStack.shift();
     }
     const z = to.z ?? this.world.heightAt(Math.floor(to.x), Math.floor(to.y));
     slot.entity.body = createBody(to.x, to.y, z);
@@ -814,12 +864,26 @@ export class GameSim {
     }
   }
 
+  /** Keep the dev hazard patches alive — areas decay, examples shouldn't. */
+  private seedTestZoneHazards(): void {
+    for (const hazard of TEST_ZONE_HAZARDS) {
+      if (this.areas.defAt(hazard.x, hazard.y) === null) {
+        this.areas.spawn(hazard.def, hazard.x, hazard.y, hazard.radius);
+      }
+    }
+  }
+
   private populateChunk(cx: number, cy: number): void {
     if (isRoomChunk(cy)) return;
     // Dev test zone: fixed fixtures instead of random spawns.
     if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 1) {
-      if (cx === 0 && cy === 1) {
-        for (const fixture of TEST_ZONE_ENEMIES) this.spawnEnemy(fixture.def, fixture.x, fixture.y);
+      const inChunk = (f: { x: number; y: number }) =>
+        Math.floor(f.x / CHUNK_SIZE) === cx && Math.floor(f.y / CHUNK_SIZE) === cy;
+      for (const f of TEST_ZONE_ENEMIES) if (inChunk(f)) this.spawnEnemy(f.def, f.x, f.y);
+      for (const f of TEST_ZONE_ITEMS) if (inChunk(f)) this.spawnItem(f.def, f.x, f.y, f.qty ?? 1);
+      if (cx === 0 && cy === 0) {
+        this.hazardsActive = true;
+        this.seedTestZoneHazards();
       }
       return;
     }

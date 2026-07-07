@@ -81,13 +81,15 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
       ? atlas.frames.interact.doorPersonal
       : tile === TILE.DoorParty
         ? atlas.frames.interact.doorParty
-        : tile === TILE.DoorExit
-          ? atlas.frames.interact.doorPersonal
-          : tile === TILE.CraftingTable
-            ? atlas.frames.interact.craftingTable
-            : tile === TILE.Stash
-              ? atlas.frames.interact.stash
-              : null;
+        : tile === TILE.DoorSafeRoom
+          ? atlas.frames.interact.doorSafeRoom
+          : tile === TILE.DoorExit
+            ? atlas.frames.interact.doorExit
+            : tile === TILE.CraftingTable
+              ? atlas.frames.interact.craftingTable
+              : tile === TILE.Stash
+                ? atlas.frames.interact.stash
+                : null;
   if (special !== null) {
     return { base, baseTintHeight: h, border, overlay: special, overlayTintHeight: null };
   }

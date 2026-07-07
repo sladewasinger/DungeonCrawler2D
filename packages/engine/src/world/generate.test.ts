@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { STEP_UP } from "../core/constants";
 import { hashString } from "../core/rng";
 import { chunkCenter, generateChunk, isSafeRoomChunk } from "./generate";
+import { safeRoomChunk, safeRoomFeatures, safeRoomSpawn } from "./rooms";
 import { CHUNK_SIZE, TILE, ZONE } from "./types";
 import { World } from "./world";
 
@@ -53,28 +54,52 @@ describe("world generation", () => {
     }
   });
 
-  it("safe-room chunks contain a flat sanctuary", () => {
+  it("safe-room chunks contain an entrance portal, not an open sanctuary", () => {
     let found = 0;
     for (let cx = -6; cx <= 6 && found === 0; cx++) {
       for (let cy = -6; cy <= 6 && found === 0; cy++) {
         if (!isSafeRoomChunk(SEED, FLOOR, cx, cy)) continue;
         found++;
         const chunk = generateChunk(SEED, FLOOR, cx, cy);
-        const sanctuaryHeights: number[] = [];
-        for (let i = 0; i < chunk.zones.length; i++) {
-          if (chunk.zones[i] === ZONE.Sanctuary) {
-            // Sanctuary interior: floor plus the stretch-room doors.
-            expect([TILE.Floor, TILE.DoorPersonal, TILE.DoorParty]).toContain(chunk.tiles[i]);
-            sanctuaryHeights.push(chunk.height[i]!);
+        let doors = 0;
+        let doorIndex = -1;
+        for (let i = 0; i < chunk.tiles.length; i++) {
+          // The overworld has no sanctuary anymore — safety is behind the door.
+          expect(chunk.zones[i]).toBe(ZONE.None);
+          if (chunk.tiles[i] === TILE.DoorSafeRoom) {
+            doors++;
+            doorIndex = i;
           }
         }
-        expect(sanctuaryHeights.length).toBeGreaterThan(50); // 11×11 room
-        const min = Math.min(...sanctuaryHeights);
-        const max = Math.max(...sanctuaryHeights);
-        expect(max - min).toBeLessThan(0.001); // flat
+        expect(doors).toBe(1);
+        // The door sits in the kiosk's south face: wall behind, floor ahead.
+        expect(chunk.tiles[doorIndex - CHUNK_SIZE]).toBe(TILE.Wall);
+        expect(chunk.tiles[doorIndex + CHUNK_SIZE]).toBe(TILE.Floor);
       }
     }
     expect(found).toBeGreaterThan(0);
+  });
+
+  it("the instanced safe room has sanctuary, portal doors, and fixtures", () => {
+    const world = new World(SEED, FLOOR);
+    const doorCx = 3;
+    const doorCy = -2;
+    const f = safeRoomFeatures(doorCx, doorCy);
+    expect(world.tileAt(f.doorPersonal.x, f.doorPersonal.y)).toBe(TILE.DoorPersonal);
+    expect(world.tileAt(f.doorParty.x, f.doorParty.y)).toBe(TILE.DoorParty);
+    expect(world.tileAt(f.exit.x, f.exit.y)).toBe(TILE.DoorExit);
+    expect(world.tileAt(f.stash.x, f.stash.y)).toBe(TILE.Stash);
+    expect(world.tileAt(f.table.x, f.table.y)).toBe(TILE.CraftingTable);
+
+    const spawn = safeRoomSpawn(doorCx, doorCy);
+    expect(world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
+    expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
+
+    // Distinct doors get distinct rooms; the same door is stable.
+    const roomA = safeRoomChunk(doorCx, doorCy);
+    const roomB = safeRoomChunk(doorCx + 1, doorCy);
+    expect(roomA).not.toEqual(roomB);
+    expect(safeRoomChunk(doorCx, doorCy)).toEqual(roomA);
   });
 
   it("chunk centers across a region are mutually reachable on foot", () => {

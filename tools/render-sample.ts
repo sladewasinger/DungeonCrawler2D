@@ -9,7 +9,16 @@
  *   safe-room.png — the dev proving-ground safe pad (real worldgen)
  *   cave.png      — natural cave walls from worldgen
  */
-import { CHUNK_SIZE, TILE, World, ZONE, hashString, type TileType, type ZoneType } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  TILE,
+  World,
+  ZONE,
+  hashString,
+  safeRoomChunk,
+  type TileType,
+  type ZoneType,
+} from "@dc2d/engine";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,8 +133,14 @@ render(showcaseWorld, 0, 0, 24, 16, "showcase.png");
 // ── real worldgen ──────────────────────────────────────────────────
 
 const world = new World(hashString("e2e-world"), 1);
-// dev proving ground safe pad (x50..58, y50..58) with its doors
-render(world, 44, 42, 22, 22, "safe-room.png");
+// dev proving ground: the safe-room entrance kiosk and its clearing
+render(world, 44, 42, 22, 22, "safe-room-entrance.png");
+
+// the instanced safe room behind the proving-ground door (chunk 1,1)
+{
+  const room = safeRoomChunk(1, 1);
+  render(world, room.cx * CHUNK_SIZE + 5, room.cy * CHUNK_SIZE + 8, 22, 16, "safe-room.png");
+}
 
 // natural cave walls away from the test zone
 {

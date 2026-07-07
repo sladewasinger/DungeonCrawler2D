@@ -218,7 +218,7 @@ const BASECOAT = [121, 130, 153];
 // ── atlas layout ───────────────────────────────────────────────────
 
 const COLS = 8;
-const ROWS = 10;
+const ROWS = 11;
 const frameXY = (index) => [(index % COLS) * TILE, Math.floor(index / COLS) * TILE];
 
 const F = {
@@ -232,7 +232,14 @@ const F = {
   wallShadowBase: 37, // + adjacent-wall mask 1..15 → 38..52
   sancRimBase: 53, // + platform-edge mask 1..15 → 54..68
   areas: { fire: 69, wet: 70, poison: 71, oil: 72, smoke: 73, steam: 74 },
-  interact: { craftingTable: 75, stash: 76, doorPersonal: 77, doorParty: 78 },
+  interact: {
+    craftingTable: 75,
+    stash: 76,
+    doorPersonal: 77,
+    doorParty: 78,
+    doorExit: 79,
+    doorSafeRoom: 80,
+  },
 };
 
 const atlas = {
@@ -532,6 +539,8 @@ function paintArea(frame, seed, blobs) {
   };
   paintDoor(I.doorPersonal, "#e8b53e"); // gold: your door
   paintDoor(I.doorParty, "#59b7d8"); // blue: party door
+  paintDoor(I.doorExit, "#cfd4e2"); // pale: the way back
+  paintDoor(I.doorSafeRoom, "#7fd8a8"); // green: safe room portal
 }
 
 // ── player + enemy sprites (procedural; REPLACE-LATER art) ─────────
