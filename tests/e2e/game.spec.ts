@@ -1,0 +1,171 @@
+import { expect, test } from "@playwright/test";
+import { holdKey, openGame, readState } from "./helpers";
+
+/**
+ * Live-browser end-to-end: a real chromium drives the real client
+ * against a real game server over real websockets. Movement and jumps
+ * use trusted keyboard events — the layer headless tests can't reach.
+ */
+
+test.describe("dungeoncrawler2d e2e", () => {
+  test("boots, connects, and renders the world", async ({ page }) => {
+    const state = await openGame(page);
+    expect(state.status).toBe("connected");
+    expect(state.hp).toBe(30);
+    expect(state.playerId).not.toBeNull();
+    await expect(page.locator("canvas").first()).toBeVisible();
+    // The proving-ground slime fixtures are inside AOI at spawn.
+    expect(state.entities.some((e) => e.kind === "enemy" && e.defId === "slime")).toBe(true);
+  });
+
+  test("real keyboard movement and a real spacebar jump", async ({ page }) => {
+    const before = await openGame(page);
+
+    await holdKey(page, "d", 1000);
+    const afterMove = await readState(page);
+    expect(afterMove.x).toBeGreaterThan(before.x + 4); // ~8 tiles/s
+
+    // Jump: z must rise above the terrain mid-flight…
+    await page.keyboard.down(" ");
+    await page.waitForFunction(() => {
+      const body = window.__dc2d!.conn.body!;
+      return !body.grounded;
+    });
+    await page.keyboard.up(" ");
+    // …and gravity must bring us back down.
+    await page.waitForFunction(() => window.__dc2d!.conn.body!.grounded);
+  });
+
+  test("two browsers meet: AOI visibility, fistbump party, party chat", async ({ browser }) => {
+    const contextA = await browser.newContext();
+    const contextB = await browser.newContext();
+    const pageA = await contextA.newPage();
+    const pageB = await contextB.newPage();
+
+    const stateA = await openGame(pageA);
+    const stateB = await openGame(pageB);
+    expect(stateA.playerId).not.toBe(stateB.playerId);
+
+    // Clustered spawns put them 2 tiles apart: both see each other.
+    await pageA.waitForFunction(
+      (otherId) => [...window.__dc2d!.conn.entities.keys()].includes(otherId!),
+      stateB.playerId,
+    );
+    await pageB.waitForFunction(
+      (otherId) => [...window.__dc2d!.conn.entities.keys()].includes(otherId!),
+      stateA.playerId,
+    );
+
+    // A invites (F near B), B sees the invite and accepts (F).
+    await pageA.keyboard.press("f");
+    await pageB.waitForFunction(() => window.__dc2d!.conn.pendingInvite !== null);
+    await pageB.keyboard.press("f");
+    await pageA.waitForFunction(() => window.__dc2d!.conn.party !== null);
+    await pageB.waitForFunction(() => window.__dc2d!.conn.party !== null);
+    const partyA = (await readState(pageA)).party!;
+    expect(partyA.members.map((m) => m.id)).toContain(stateB.playerId);
+
+    // Party chat through the real chat input.
+    await pageA.keyboard.press("Enter");
+    await pageA.locator("#chat-input").fill("descend at dawn");
+    await pageA.keyboard.press("Enter");
+    await pageB.waitForFunction(() =>
+      window.__dc2d!.conn.chatLog.some((l) => l.text === "descend at dawn" && l.channel === "party"),
+    );
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  test("combat: attacking the slime fixtures hurts and kills them", async ({ page }) => {
+    await openGame(page);
+
+    // Walk toward the slimes at (20.5, 42.5): line up on the 3-tile
+    // pillar gap (x24–26), then head south through it. Adaptive —
+    // clustered spawns shift our start by a few tiles per player.
+    for (let i = 0; i < 30; i++) {
+      const s = await readState(page);
+      if (Math.abs(s.x - 25.2) < 0.6) break;
+      await holdKey(page, s.x > 25.2 ? "a" : "d", 200);
+    }
+    for (let i = 0; i < 30; i++) {
+      const s = await readState(page);
+      const near = s.entities.some(
+        (e) => e.kind === "enemy" && Math.hypot(e.x - s.x, e.y - s.y) < 6,
+      );
+      if (near || s.y > 44) break;
+      await holdKey(page, "s", 300);
+    }
+
+    // Wait until a slime is within melee-ish range (they also chase us).
+    await page.waitForFunction(() => {
+      const conn = window.__dc2d!.conn;
+      const body = conn.body!;
+      return [...conn.entities.values()].some(
+        (e) =>
+          e.snap.kind === "enemy" &&
+          Math.hypot(e.snap.x - body.x, e.snap.y - body.y) < 1.4,
+      );
+    }, undefined, { timeout: 20_000 });
+
+    // Mark the nearest slime as our victim (adjacent chunks spawn
+    // extra random enemies, so we track one specific id to its death).
+    const targetId = await page.evaluate(() => {
+      const conn = window.__dc2d!.conn;
+      const body = conn.body!;
+      let best: string | null = null;
+      let dist = Number.POSITIVE_INFINITY;
+      for (const e of conn.entities.values()) {
+        if (e.snap.kind !== "enemy" || e.snap.defId !== "slime") continue;
+        const d = Math.hypot(e.snap.x - body.x, e.snap.y - body.y);
+        if (d < dist) {
+          dist = d;
+          best = e.snap.id;
+        }
+      }
+      return best;
+    });
+    expect(targetId).not.toBeNull();
+
+    // Swing whenever it's in reach (it chases us; we knock it back)
+    // until the server removes the corpse from our AOI.
+    await page.waitForFunction(
+      (id) => {
+        const conn = window.__dc2d!.conn;
+        const body = conn.body!;
+        const target = conn.entities.get(id!);
+        if (!target) return true; // dead and gone
+        const dx = target.snap.x - body.x;
+        const dy = target.snap.y - body.y;
+        if (Math.hypot(dx, dy) < 2) conn.attack(dx, dy);
+        return false;
+      },
+      targetId,
+      { timeout: 30_000, polling: 250 },
+    );
+
+    // We took some bites in the scrap — hp is authoritative and we live.
+    const state = await readState(page);
+    expect(state.hp).toBeGreaterThan(0);
+    expect(state.hp).toBeLessThanOrEqual(30);
+  });
+
+  test("reload resumes the same identity and stays playable", async ({ page }) => {
+    const before = await openGame(page);
+    await holdKey(page, "d", 600);
+    const moved = await readState(page);
+
+    await page.reload();
+    await page.waitForFunction(
+      () => window.__dc2d?.conn.status === "connected" && window.__dc2d.conn.body !== null,
+    );
+    const after = await readState(page);
+    expect(after.playerId).toBe(before.playerId); // resume token worked
+    expect(Math.abs(after.x - moved.x)).toBeLessThan(2); // position kept
+
+    await page.locator("canvas").first().click({ position: { x: 640, y: 200 } });
+    await holdKey(page, "a", 600);
+    const afterMove = await readState(page);
+    expect(afterMove.x).toBeLessThan(after.x - 2); // inputs accepted post-resume
+  });
+});

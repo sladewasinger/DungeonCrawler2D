@@ -30,13 +30,13 @@ Everything that defines *what the game is* — effect primitives, interaction ru
 ```
 dungeoncrawler2D/
 ├── docs/                        # This documentation
-├── assets/                      # Source art (aseprite/png), pre-pipeline
-├── content/                     # ── DATA, NOT CODE — shared by server & client ──
-│   ├── effects/*.json           #   bleeding.json, on-fire.json, wet.json, ...
-│   ├── items/*.json             #   vodka-bottle.json, rag.json, knife.json, ...
-│   ├── enemies/*.json
-│   └── tilesets/                #   Tileset metadata (which tiles are flammable, etc.)
+├── assets/pack/                 # Source art (Craftpix asset pack + license), pre-pipeline
+├── tools/generate-art.mjs       # Bakes the committed spritesheets + atlas.json
+├── tests/e2e/                   # Playwright live-browser suite (npm run test:e2e)
 ├── packages/
+│   ├── content/                 # ── DATA, NOT CODE (@dc2d/content) — shared by server & client ──
+│   │   └── src/                 #   statuses/areas/items/enemies/recipes/rules JSON,
+│   │                            #   zod-validated with cross-reference checks at import
 │   ├── engine/                  # ── PURE: no Phaser, no Node APIs ──
 │   │   ├── core/                #   Seeded RNG, event bus, fixed-tick clock, ids
 │   │   ├── world/               #   Chunked generation: (worldSeed, floor, chunk) → heightmapped geometry, zones, safe rooms
@@ -152,7 +152,8 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 
 ## Testing strategy
 
-- **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation — all headless engine code
+- **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation, melee targeting, AI decisions, area buoyancy — all headless engine code
+- **Live-browser e2e (Playwright):** a real chromium drives the real client against a real server — trusted keyboard movement/jumps, two-context AOI + party flows, combat, reload-resume (`npm run test:e2e`)
 - **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, and out-of-range clients receive nothing
 - **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
 - **Manual/playtest:** Phaser layer, feel, latency tuning — every release playtested as a duo minimum

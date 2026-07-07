@@ -21,6 +21,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 (Launch moved to Jan 2028: PvPvE + vast shared world + social systems are genuinely more game than instanced co-op runs. Worth it — this design has an identity.)
 
+> **Progress note (2026-07-07):** Epics 0–7 are implemented and tested (76 tests: unit + multi-client sim integration + live-browser Playwright) — far ahead of the dates above. Remaining v0.1–v0.4 stragglers: the deployed playtest server (waiting on the hosting decision) and the deferred items marked below.
+
 ---
 
 ## Epic 0 — Foundation (v0.1)
@@ -74,15 +76,15 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** The generic, data-driven effect model in [EFFECTS.md](EFFECTS.md), running **authoritatively on the game server**. No effect is a special case; "bleeding", "on fire", "poisoned" are data composed from coded primitives. Server-side effects mean every nearby player sees the same fire spread — and nobody can cheat a debuff away.
 
-- [ ] `EffectPrimitive` catalog (tick damage/heal, stat mod, movement mod, spread, transform, spawn)
-- [ ] `StatusEffect` = data: primitives + duration + tick rate + stacking rule + tags
-- [ ] Effect lifecycle on the server tick: apply → tick → expire/refresh/stack; resistance & immunity hooks
-- [ ] **Zone tags:** effects respect map zones — the `sanctuary` tag suppresses hostile primitives (groundwork for safe rooms in v0.3/v0.4)
-- [ ] Effect events broadcast within AOI (`EffectApplied`, `EffectExpired`, `EntityTransformed`) — clients render, never simulate outcomes
-- [ ] Tag-driven interaction rules (fire + wet ⇒ extinguish; fire + flammable ⇒ ignite; exposure timers: char, cook)
-- [ ] **Verticality as data:** fall damage routed through `modify_health` scaled by drop height; `airborne`, `flying`, `feather-fall`, `sticky-feet` as data statuses (GAME_DESIGN.md § Verticality)
-- [ ] Base status set as data files: bleeding, poisoned, on fire, wet, healing, slowed, burned/charred
-- [ ] Headless unit tests for every primitive and interaction rule
+- [x] `EffectPrimitive` catalog: modify_health, modify_stat, apply/remove_status, spawn_area, destroy_entity (spread/transform live in the area system)
+- [x] `StatusEffect` = data: primitives + duration + tick rate + stacking rule + tags (`@dc2d/content`, zod-validated with cross-reference checks — the same validator AI crafting will use)
+- [x] Effect lifecycle on the server tick: apply → tick → expire/refresh/stack; immunity (slime can't bleed) and damage-scale (flammable plants burn ×2) hooks
+- [x] **Zone tags:** `sanctuary` suppresses damage, debuffs, and hostile areas — server-enforced
+- [x] Effect events broadcast within AOI (hp deltas, status on/off, deaths) — clients render, never simulate outcomes
+- [x] Tag-driven interaction rules to a bounded fixpoint (fire + wet ⇒ both extinguish); fire ignites the flammable via area contact
+- [x] **Verticality as data:** fall damage scaled by drop height (liquids break falls), feather-fall negates, sticky-feet grips against knockback, `airborne` derived tag
+- [x] Base status set as data: bleeding, poisoned, on-fire, wet, healing, regenerating, bandaged, slowed, feather-fall, sticky-feet
+- [x] Headless unit tests for primitives, lifecycle, rules, immunity, sanctuary, and scaling
 
 **Done when:** A new status effect (e.g. "frozen") can be added purely as a data file, and all observers see identical outcomes.
 
@@ -90,12 +92,12 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Items are pure data referencing effect primitives — the format AI crafting will later emit. Server-authoritative inventory (no duplication cheats — this matters double in PvP, where items are stakes).
 
-- [ ] `ItemDefinition` JSON schema: identity, tags (flammable, liquid, sharp…), behaviors (consumable, throwable, equippable), effect payloads
-- [ ] Server-side inventory: pickup, drop, stack; drops visible to anyone in AOI (loot is contested by design); hotbar UI client-side
-- [ ] Throwable system: intent → server simulates arc + impact (apply effects, spawn area effect, break) → observers render projectile
-- [ ] Consumables (drink/eat/apply) wired to the effects engine
-- [ ] Starter item set as data: vodka bottle, rag, bandage, knife, torch, water flask, raw meat
-- [ ] Item definition validation (schema + referenced-primitive checks) — shared later by AI crafting
+- [x] `ItemDefinition` JSON schema: identity, tags (flammable, liquid, sharp…), behaviors (consumable, throwable, weapon), effect payloads
+- [x] Server-side inventory: pickup, drop, stack; drops visible to anyone in AOI (loot is contested by design); hotbar UI client-side
+- [x] Throwable system: intent → server ballistic arc + impact (direct hits, effect primitives at the tile, break chance) → observers render the projectile
+- [x] Consumables wired to the effects engine (bandage strips bleeding; raw meat gambles poison)
+- [x] Starter item set as data: vodka bottle, rag, stick, bandage, knife, torch, water flask, raw meat
+- [x] Item definition validation (schema + referenced-primitive checks) — shared later by AI crafting
 
 **Done when:** Player A throws a torch, a passing stranger sees the same arc, and the oil it lands on ignites for everyone.
 
@@ -103,13 +105,13 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** The ground itself participates in the effect system, simulated once on the server.
 
-- [ ] Tile-region area effect model: wet ground, fire, poison cloud, oil slick, smoke
-- [ ] Spread/decay simulation on the server tick (fire spreads to flammable tiles, consumes fuel, leaves char; clouds drift and dissipate); deltas broadcast within AOI; hibernating chunks pause their areas
-- [ ] Entity ↔ area interaction: standing in fire applies "on fire"; wet ground applies "wet" and slows
-- [ ] Area ↔ area interaction via the same tag rules (fire meets wet ⇒ steam/extinguish)
-- [ ] **Height-aware propagation:** heavy gases sink into pits and low ground, smoke rises, liquids flow downhill along the height field; ground-bound areas can't touch airborne entities — poison poured off a ledge rains onto the terrace below
-- [ ] **Sanctuary boundary:** hostile areas cannot enter or be placed inside `sanctuary` zones — fire dies at the safe-room threshold
-- [ ] Exposure timers: items left in fire char, then are destroyed; raw meat cooks
+- [x] Tile-region area effect model: wet ground, fire, poison cloud, oil slick, smoke, steam
+- [x] Spread/decay simulation on the server tick: fire spreads only along flammable fuel (oil lines) and consumes it; clouds dissipate; deltas broadcast within AOI (charred-tile visuals deferred to the v0.9 art pass)
+- [x] Entity ↔ area interaction: standing in fire ignites you; wet ground applies "wet" and slows; oil slows
+- [x] Area ↔ area interaction: fire meets wet ⇒ steam; fire meets oil ⇒ ignition
+- [x] **Height-aware propagation:** heavy gas and liquids never spread uphill, smoke never spreads downhill; ground areas can't touch airborne entities
+- [x] **Sanctuary boundary:** hostile areas cannot enter or be placed inside `sanctuary` zones — fire dies at the safe-room threshold
+- [x] Exposure timers: items left in fire char and are destroyed (raw-meat → cooked transform deferred with the food system)
 
 **Done when:** A molotov-like item (data only) creates spreading fire that every observer sees identically — and that stops dead at a safe-room door.
 
@@ -117,15 +119,15 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Something to use all these effects on — monsters, and each other.
 
-- [ ] Enemy framework: data-defined enemies (stats, tags, drops, behavior params), AI runs on the server (active chunks only)
-- [ ] Basic AI behaviors: wander, chase (aggro table across nearby players — kiting a horde onto a stranger is legal and hilarious), melee, ranged
-- [ ] Melee + throwable combat; damage types routed through effects engine; hit registration server-side (generous hitboxes over rewind)
-- [ ] Knockback interacts with ledges — fall damage is a weapon, in PvE and PvP alike
-- [ ] **PvP rules per [GAME_DESIGN.md](GAME_DESIGN.md):** everyone can damage everyone — friendly fire is always on, even in parties; `sanctuary` suppresses everything
-- [ ] **Melee targeting aid:** swings resolve against the best target in the arc, hostiles preferred over party members; an arc with no hostile hits whoever's there; AoE/throwables/areas hit everyone, always
-- [ ] Enemy status vulnerability via tags (a plant-monster is flammable; a slime is immune to bleed)
-- [ ] Death: **full loot drop** where you fell (anyone may loot — including your killer), respawn at random distant location, keep stash; downed-then-revive state for party members
-- [ ] 4–6 starter enemies as data files
+- [x] Enemy framework: data-defined enemies (stats, tags, drops, attack params); AI runs server-side, frozen when no player is near
+- [x] Basic AI behaviors: wander, chase nearest visible player (sanctuary-blind — kiting a horde onto a stranger is legal and hilarious), melee strike, ranged spit
+- [x] Melee + throwable combat; damage routed through the effects engine with source tags; hit registration server-side (generous hitboxes over rewind)
+- [x] Knockback interacts with ledges — fall damage is a weapon, in PvE and PvP alike (sticky-feet grips)
+- [x] **PvP rules per [GAME_DESIGN.md](GAME_DESIGN.md):** everyone can damage everyone — friendly fire is always on, even in parties; `sanctuary` suppresses everything
+- [x] **Melee targeting aid:** swings resolve against the best target in the arc, hostiles preferred over party members; an arc with no hostile hits whoever's there; AoE/throwables/areas hit everyone, always
+- [x] Enemy status vulnerability via tags (plant-creeper burns ×2; slime immune to bleed; skeleton immune to bleed and poison)
+- [x] Death: **full loot drop** where you fell (anyone may loot — including your killer), respawn at random distant location, keep stash; downed-then-revive for party members with a 30 s bleed-out
+- [x] 4 starter enemies as data files: slime, plant-creeper, skeleton, spitter (generated sprites — replace-later art)
 
 **Done when:** Two strangers can fight over a loot drop with molotovs and knives — or ignore each other — and a plant-monster kited into their crossfire burns either way.
 
@@ -133,13 +135,13 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Goal:** Sanctuary, the stretch-room system, and consent-based grouping.
 
-- [ ] Safe-room sanctuary rules live (zone tag from Epics 3/5 + PvP rules from Epic 6, now with real rooms)
-- [ ] **Stretch rooms:** personal door in every safe room → your instanced personal room (stash + crafting table); implementation: portal-attached instanced sub-maps, not floor geometry
-- [ ] **Party rooms:** party door → shared common room with individual member rooms off it
-- [ ] Party system: invite/accept (mutual consent), leave/disband, party chat channel plumbing, member position pings outside AOI (friendly fire stays on — no flag)
-- [ ] Persistent stash, server-side per player (anonymous id first, accounts in v0.8)
-- [ ] Crafting table interactable + crafting UI (select ingredients from inventory)
-- [ ] Recipe-based crafting for known items (the deterministic path; AI path comes in v0.6)
+- [x] Safe-room sanctuary rules live: no damage, no debuffs, no hostile areas, enemies can't enter; safe rooms now generate with wall rings, gates, and stretch-room doors
+- [x] **Stretch rooms:** personal door in every safe room → your instanced personal room (stash + crafting table + exit door); implemented as a reserved chunk band of deterministic sub-maps, entry by server teleport, rooms spaced beyond AOI
+- [x] **Party rooms:** party door → shared common room, with a personal door inside (shared geometry, per-player destination — that's the stretch trick)
+- [x] Party system: invite/accept via proximity (mutual consent, [F] fistbump flow), leave/disband, party chat channel, member position pings outside AOI (friendly fire stays on — no flag)
+- [x] Persistent stash, server-side per anonymous clientId (file-backed store; DynamoDB + accounts land in v0.8)
+- [x] Crafting table interactable + crafting panel UI
+- [x] Recipe-based crafting for known items (bandage, torch — the deterministic path; AI path comes in v0.6)
 
 **Done when:** Two strangers meet in a safe room, party up, enter their new party room together, then each retreat through their own personal door to craft in private.
 

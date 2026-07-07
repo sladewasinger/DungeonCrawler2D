@@ -21,3 +21,8 @@ Thumbs.db
 # Logs & test artifacts
 *.log
 coverage/
+test-results/
+playwright-report/
+
+# Runtime data (dev game-server store)
+packages/game-server/data/

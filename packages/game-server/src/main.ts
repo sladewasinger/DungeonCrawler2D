@@ -22,7 +22,14 @@ const storeFile =
     ? null
     : (process.env.STORE_FILE ?? join(process.cwd(), "data", "players.json"));
 
-const server = startServer({ port, worldSeed, floor, content, storeFile });
+const server = startServer({
+  port,
+  worldSeed,
+  floor,
+  content,
+  storeFile,
+  clusterSpawns: process.env.CLUSTER_SPAWNS === "1",
+});
 
 console.log(
   `[game-server] floor ${floor} of world "${seedText}" (seed ${worldSeed}) listening on ws://localhost:${port}`,

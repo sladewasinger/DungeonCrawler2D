@@ -265,7 +265,10 @@ export class Connection {
   // ── intents ──────────────────────────────────────────────────────
 
   attack(dirX: number, dirY: number): void {
-    this.sendRaw({ type: "attack", dirX, dirY });
+    // Normalize: the protocol carries a unit direction (aiming at a
+    // point 5 tiles away must not fail validation and vanish).
+    const len = Math.hypot(dirX, dirY) || 1;
+    this.sendRaw({ type: "attack", dirX: dirX / len, dirY: dirY / len });
   }
 
   useSlot(slot: number, targetX?: number, targetY?: number): void {

@@ -9,10 +9,12 @@
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w @dc2d/game-server\" \"npm run dev -w @dc2d/client\"",
     "build": "npm run build -w @dc2d/client && npm run build -w @dc2d/game-server",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit -p packages/engine && tsc --noEmit -p packages/game-server && tsc --noEmit -p packages/client",
     "art": "node tools/generate-art.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "concurrently": "^9.1.0",
     "pngjs": "^7.0.0",
     "typescript": "^5.8.0",

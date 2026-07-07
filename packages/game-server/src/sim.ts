@@ -138,6 +138,10 @@ export class GameSim {
     private readonly content: ContentRegistry,
     private readonly store: PlayerStore = new PlayerStore(null),
     rngSeed = 1,
+    private readonly opts: {
+      /** e2e scaffolding: spawn players together at the proving ground. */
+      clusterSpawns?: boolean;
+    } = {},
   ) {
     this.rng = new Rng(rngSeed);
     this.effects = new EffectsEngine(content, (x, y) => world.isSanctuary(x, y));
@@ -1272,6 +1276,15 @@ export class GameSim {
   // ── spawning ─────────────────────────────────────────────────────
 
   private findSpawn(): { x: number; y: number; z: number } {
+    // e2e scaffolding: everyone spawns side by side at the proving
+    // ground (real spawns keep MIN_SPAWN_DIST — distance is the
+    // protection; browser tests can't walk 80 tiles to meet).
+    if (this.opts.clusterSpawns) {
+      const x = TEST_SPAWN.x + this.players.size * 2;
+      const y = TEST_SPAWN.y;
+      return { x, y, z: this.world.heightAt(Math.floor(x), Math.floor(y)) };
+    }
+
     // Dev scaffolding: first player to fit lands at the proving ground.
     const test = { x: Math.floor(TEST_SPAWN.x), y: Math.floor(TEST_SPAWN.y) };
     if (this.world.isWalkable(test.x, test.y)) {
