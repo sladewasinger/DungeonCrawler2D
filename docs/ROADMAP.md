@@ -50,10 +50,23 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Client-side chunk streaming: generate/render chunks entering view, cull chunks leaving
 - [x] **Pixel art** (64×64, real committed binaries): tiles sourced from the Craftpix free top-down dungeon pack in `assets/pack/` (see its license.txt), composed into our spritesheets by `npm run art` — floors with crack decals, dark wall tops, masonry wall/cliff faces, teal sanctuary recolor, procedural stair treads + ledge-rim overlays + hooded crawler sprites (gold self / blue peers); rendered via tilemap layers with per-tile height tint
 - [x] Debug overlay: seed/pos/chunk/ping/fps display, chunk-border toggle (debug teleport needs a server-side debug message — soon)
-- [x] **Tile Studio** (`npm run studio`, [tools/tile-studio/](../tools/tile-studio/README.md)): auto-split tile palette with logic tagging, freeform example painting, adjacency-rule learning, and WFC-style smart painting that completes borders around seeded regions; exports `dc2d-map` JSON that both server and client stamp over generation (`custommap.ts`) — drop an export at `packages/client/public/assets/custom-map.json` and walk through your own room in-game
+- [x] **Tile Studio** (`npm run studio`, [tools/tile-studio/](../tools/tile-studio/README.md)): auto-split tile palette with logic tagging and rectangle multi-select, freeform example painting, adjacency-rule learning, and a backtracking constraint solver that completes borders around seeded regions; exports `dc2d-map` JSON that both server and client stamp over generation (`custommap.ts`) — drop an export at `packages/client/public/assets/custom-map.json` and walk through your own room in-game. Authoring sheet is the Cainos top-down pack composed per [TILESET.md](TILESET.md)
 - [x] Unit tests: cross-chunk connectivity (BFS with the walk rule), byte-exact determinism, seam continuity, safe-room entrance invariants
 
 **Done when:** Two machines given the same seed render identical geometry (heights included) at any coordinate, and a player can walk for minutes without hitting an edge or a seam — past cliffs and chasms with legible elevation.
+
+## Epic 1.5 — Code Organization (retrofit, 2026-07)
+
+**Goal:** Package boundaries stayed clean through Epics 0–7, but individual files didn't — `sim.ts` reached 1,400 lines. Split every oversized module along its domain seams and make the standard explicit in [ARCHITECTURE.md](ARCHITECTURE.md) § Code organization so it can't drift again.
+
+- [x] **game-server:** `sim.ts` god-class → `src/sim/` — shared `SimState` (state.ts) + one module per concern (players, actions, inventory, social, enemies, projectiles, statuses, deaths, spawn, snapshots, testzone) behind a `GameSim` facade whose `step()` reads as the tick order; public API unchanged (server.ts and all 22 sim tests untouched in behavior)
+- [x] **client net:** `connection.ts` → transport/intents (connection.ts), movement prediction (prediction.ts), server-truth application (apply.ts), entity interpolation (interpolate.ts), browser identity (identity.ts)
+- [x] **client scene:** 650-line `DungeonScene` → frame orchestration only, with `render/` (TerrainRenderer, EntityRenderer, AreaRenderer + shared constants), `input/controller.ts` (keyboard/mouse → intents), and `ui/` (Panels state, contextual prompts, proximity queries)
+- [x] **engine worldgen:** `generate.ts` → terrain sampling (terrain.ts), fixed features (features.ts), reachability sealing (pockets.ts), thin `generateChunk` orchestrator
+- [x] **Standard documented:** ~300-line soft cap, facade-folder pattern, state-in-one-place, seam-driven splits — ARCHITECTURE.md § Code organization + Conventions
+- [x] Behavior-preserving: full vitest suite (87) and Playwright e2e (8) green, `npm run typecheck` clean
+
+**Done when:** No source file needs scrolling to understand its job, every file is ≤ ~300 lines, and a new contributor can find any mechanic from the folder listing alone.
 
 ## Epic 2 — Multiplayer Core (v0.1) ⭐
 

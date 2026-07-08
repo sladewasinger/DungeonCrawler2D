@@ -10,8 +10,8 @@
     },
     {
       "name": "studio",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "studio"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5099"],
       "port": 5099
     }
   ]

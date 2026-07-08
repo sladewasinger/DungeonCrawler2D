@@ -50,15 +50,18 @@ dungeoncrawler2D/
 │   │   ├── crafting/            #   Recipe matching; AI proposal validation (v0.5)
 │   │   └── net/                 #   Protocol types: intents, events, snapshots (shared contract)
 │   ├── client/                  # ── PHASER + VITE ──
-│   │   ├── scenes/              #   Boot, Dungeon, Base, UI overlay scenes
-│   │   ├── render/              #   Tilemap renderer, entity sprite sync, effect VFX
-│   │   ├── net/                 #   WebSocket client, prediction, interpolation, reconciliation
-│   │   ├── input/               #   Keyboard/mouse → intents
-│   │   └── ui/                  #   HUD widget registry + layout config (GAME_DESIGN.md), chat, inventory, crafting
+│   │   ├── scenes/              #   Scene orchestration: frame loop, fixed-step sampling, camera
+│   │   ├── render/              #   TerrainRenderer, EntityRenderer, AreaRenderer, atlas constants
+│   │   ├── net/                 #   connection (socket + intents), prediction, apply (server truth), interpolate, identity
+│   │   ├── input/               #   Keyboard/mouse → intents (controller.ts)
+│   │   └── ui/                  #   HUD widget registry (GAME_DESIGN.md), panels, contextual prompts, proximity queries
 │   ├── game-server/             # ── NODE + ws ──
-│   │   ├── world/               #   Floor shards: chunk activation/hibernation, spawns, stretch-room instances
-│   │   ├── sim/                 #   Runs engine at fixed tick; AOI-scoped delta broadcasting
-│   │   ├── social/              #   Chat channels, DMs, fistbump handshakes, mute/block enforcement
+│   │   ├── sim/                 #   The authoritative sim — one module per concern over a shared
+│   │   │                        #   SimState (state.ts): players, actions, inventory, social,
+│   │   │                        #   enemies, projectiles, statuses, deaths, spawn, snapshots,
+│   │   │                        #   testzone; GameSim facade + tick order in index.ts
+│   │   ├── server.ts            #   ws transport: decode/zod-validate → sim; snapshots out
+│   │   ├── store.ts             #   File-backed player store (stash, identity) → DynamoDB in v0.8
 │   │   └── main.ts
 │   └── services/                # ── (v0.5+) LAMBDA HANDLERS ──
 │       ├── craft/               #   AI crafting proxy
@@ -68,6 +71,17 @@ dungeoncrawler2D/
 ```
 
 Dependency rule (lint-enforced): `engine` imports nothing from other packages; `client`, `game-server`, and `services` import `engine`; nobody imports across the other three.
+
+## Code organization
+
+Package boundaries alone don't keep code maintainable — Epic 1.5 exists because `sim.ts` quietly grew to 1,400 lines inside a perfectly clean package layout. These rules keep files human-sized; treat crossing them as a review blocker, not a cleanup for later:
+
+- **~300 lines is the soft cap for a source file.** Not a hard limit — a cohesive 320-line module beats two awkward halves — but crossing it is the prompt to split by concern. A file you can't summarize in one sentence ("enemy population and per-tick AI") is already two files.
+- **A subsystem that outgrows one file becomes a folder with a facade.** Pattern (see `game-server/src/sim/`): a shared state type in `state.ts`, sibling modules exporting plain functions that take that state as their first argument, and an `index.ts` facade that owns the state instance, the public API, and the orchestration order (the sim's tick order lives in one `step()` anyone can read top to bottom). Consumers import the facade, never the internals — the split is invisible from outside the folder.
+- **State lives in one place; behavior lives in modules.** No module-level mutable state hiding in the siblings — everything mutable hangs off the one state object, so any function's inputs are visible in its signature.
+- **Split along the domain's own seams, not line counts.** The client splits as transport / prediction / server-truth application / interpolation because those are the netcode's real seams; the scene splits as input → intents, render, contextual UI. If a split forces two files to share private details, it was the wrong seam.
+- **Every file opens with a doc comment** saying what it owns and why it exists — the codebase should be navigable from folder listings and first lines alone.
+- **New epics add folders/modules, not length.** When a feature lands as +400 lines to an existing file, that's the drift this section forbids — the same feature lands as a new module wired into the facade.
 
 ## Networking model
 
@@ -162,6 +176,7 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 
 ## Conventions
 
+- File size and module structure per **Code organization** above — ~300-line soft cap, facade folders for subsystems, no god files
 - Strict TS, no `any` in `engine`
 - `engine` imports nothing from other packages or `phaser`/`ws` (enforced by lint rule)
 - All server-received messages are zod-validated before touching the sim — the client is untrusted input

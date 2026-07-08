@@ -1,39 +1,28 @@
 import {
   PROTOCOL_VERSION,
-  TICK_DT,
   World,
   createBody,
   decodeServerMessage,
   encodeMessage,
-  stepBody,
-  type AreaTileUpdate,
   type BodyState,
   type ClientMessage,
   type EntitySnapshot,
-  type GameEvent,
   type InvSlot,
   type MoveInput,
   type ServerSnapshot,
   type ServerWelcome,
 } from "@dc2d/engine";
+import { applySnapshot } from "./apply";
+import { loadResumeToken, saveResumeToken } from "./identity";
+import { interpolated, type RemoteEntity } from "./interpolate";
+import { Prediction } from "./prediction";
 
 /**
- * WebSocket client, protocol v2. Predicts the local body through the
- * same engine stepBody the server runs; everything else (hp, statuses,
- * inventory, entities, areas) is server truth rendered as received.
+ * WebSocket client, protocol v2: socket lifecycle, outgoing intents,
+ * and the client-visible state. Prediction (prediction.ts) runs the
+ * local body; snapshots apply server truth (apply.ts); remote entities
+ * render interpolated (interpolate.ts).
  */
-
-interface Sample {
-  t: number;
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface RemoteEntity {
-  snap: EntitySnapshot;
-  samples: Sample[];
-}
 
 export interface Toast {
   msg: string;
@@ -51,18 +40,6 @@ export type VisualEvent =
   | { t: "hit"; id: string; amount: number }
   | { t: "death"; id: string }
   | { t: "status"; id: string; status: string; on: boolean };
-
-const RESUME_KEY = "dc2d-resume-token";
-const CLIENT_ID_KEY = "dc2d-client-id";
-
-export function persistentClientId(): string {
-  let id = localStorage.getItem(CLIENT_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(CLIENT_ID_KEY, id);
-  }
-  return id;
-}
 
 export class Connection {
   world: World | null = null;
@@ -91,10 +68,10 @@ export class Connection {
 
   readonly entities = new Map<string, RemoteEntity>();
   readonly areaTiles = new Map<string, string>();
+  /** Local movement prediction; apply.ts reconciles it per snapshot. */
+  readonly prediction = new Prediction();
 
   private ws: WebSocket | null = null;
-  private seq = 0;
-  private pending: Array<{ seq: number; input: MoveInput }> = [];
   private pingTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -109,7 +86,7 @@ export class Connection {
     this.ws = ws;
 
     ws.onopen = () => {
-      const resumeToken = sessionStorage.getItem(RESUME_KEY) ?? undefined;
+      const resumeToken = loadResumeToken();
       this.sendRaw({
         type: "hello",
         protocol: PROTOCOL_VERSION,
@@ -134,27 +111,11 @@ export class Connection {
 
   private handle(msg: NonNullable<ReturnType<typeof decodeServerMessage>>): void {
     switch (msg.type) {
-      case "welcome": {
-        this.welcome = msg;
-        this.status = "connected";
-        sessionStorage.setItem(RESUME_KEY, msg.resumeToken);
-        this.world = new World(msg.worldSeed, msg.floor);
-        this.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
-        this.pending = [];
-        this.entities.clear();
-        this.areaTiles.clear();
-        this.teleported = true;
-        if (!this.pingTimer) {
-          this.pingTimer = setInterval(() => {
-            if (this.ws?.readyState === WebSocket.OPEN) {
-              this.sendRaw({ type: "ping", t: performance.now() });
-            }
-          }, 2000);
-        }
+      case "welcome":
+        this.onWelcome(msg);
         return;
-      }
       case "snapshot":
-        this.applySnapshot(msg);
+        applySnapshot(this, msg);
         return;
       case "pong":
         this.rttMs = performance.now() - msg.t;
@@ -165,97 +126,32 @@ export class Connection {
     }
   }
 
-  private applySnapshot(snap: ServerSnapshot): void {
-    if (!this.world) return;
-
-    // Self: adopt authoritative state, replay unacked inputs.
-    this.body = {
-      x: snap.self.x,
-      y: snap.self.y,
-      z: snap.self.z,
-      zVel: snap.self.zVel,
-      grounded: snap.self.grounded,
-      fallPeak: snap.self.z,
-      kx: snap.self.kx,
-      ky: snap.self.ky,
-    };
-    this.pending = this.pending.filter((p) => p.seq > snap.lastSeq);
-    for (const p of this.pending) stepBody(this.world, this.body, p.input, TICK_DT);
-
-    this.hp = snap.self.hp;
-    this.maxHp = snap.self.maxHp;
-    this.fx = snap.self.fx;
-    this.downed = snap.self.downed ?? false;
-    this.inventory = snap.inventory;
-    this.selectedSlot = snap.selectedSlot;
-    this.party = snap.party;
-
-    const now = performance.now();
-    for (const entity of snap.entities) {
-      let remote = this.entities.get(entity.id);
-      if (!remote) {
-        remote = { snap: entity, samples: [] };
-        this.entities.set(entity.id, remote);
-      }
-      remote.snap = entity;
-      remote.samples.push({ t: now, x: entity.x, y: entity.y, z: entity.z });
-      while (remote.samples.length > 0 && now - remote.samples[0]!.t > 1000) {
-        remote.samples.shift();
-      }
-    }
-    for (const id of snap.left) this.entities.delete(id);
-
-    for (const tile of snap.areas) this.applyAreaTile(tile);
-
-    for (const event of snap.events) this.applyEvent(event);
-  }
-
-  private applyAreaTile(tile: AreaTileUpdate): void {
-    const key = `${tile.x},${tile.y}`;
-    if (tile.defId === null) this.areaTiles.delete(key);
-    else this.areaTiles.set(key, tile.defId);
-  }
-
-  private applyEvent(event: GameEvent): void {
-    switch (event.t) {
-      case "toast":
-        this.toasts.push({ msg: event.msg, until: performance.now() + 5000 });
-        if (this.toasts.length > 5) this.toasts.shift();
-        return;
-      case "chat":
-        this.chatLog.push({ channel: event.channel, name: event.name, text: event.text });
-        if (this.chatLog.length > 8) this.chatLog.shift();
-        return;
-      case "invite":
-        this.pendingInvite = { from: event.from, name: event.name };
-        return;
-      case "stash":
-        this.stash = event.slots;
-        return;
-      case "teleported":
-        this.teleported = true;
-        this.pending = [];
-        this.entities.clear();
-        this.areaTiles.clear();
-        return;
-      case "hit":
-      case "death":
-      case "status":
-        this.visualEvents.push(event);
-        return;
+  private onWelcome(msg: ServerWelcome): void {
+    this.welcome = msg;
+    this.status = "connected";
+    saveResumeToken(msg.resumeToken);
+    this.world = new World(msg.worldSeed, msg.floor);
+    this.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
+    this.prediction.reset();
+    this.entities.clear();
+    this.areaTiles.clear();
+    this.teleported = true;
+    if (!this.pingTimer) {
+      this.pingTimer = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.sendRaw({ type: "ping", t: performance.now() });
+        }
+      }, 2000);
     }
   }
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
     if (!this.world || !this.body || this.status !== "connected") return;
-    this.seq++;
-    stepBody(this.world, this.body, input, TICK_DT);
-    this.pending.push({ seq: this.seq, input });
-    if (this.pending.length > 60) this.pending.shift();
+    const seq = this.prediction.predict(this.world, this.body, input);
     this.sendRaw({
       type: "input",
-      seq: this.seq,
+      seq,
       moveX: input.moveX as -1 | 0 | 1,
       moveY: input.moveY as -1 | 0 | 1,
       jump: input.jump,
@@ -320,26 +216,10 @@ export class Connection {
   }
 
   /** Peer positions rendered `delayMs` in the past, lerped. */
-  interpolated(delayMs: number): Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> {
-    const t = performance.now() - delayMs;
-    const out: Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> = [];
-    for (const [id, remote] of this.entities) {
-      const s = remote.samples;
-      if (s.length === 0) continue;
-      let pos: Sample = s[s.length - 1]!;
-      for (let i = s.length - 1; i > 0; i--) {
-        const a = s[i - 1]!;
-        const b = s[i]!;
-        if (a.t <= t && t <= b.t) {
-          const k = b.t === a.t ? 1 : (t - a.t) / (b.t - a.t);
-          pos = { t, x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k };
-          break;
-        }
-      }
-      if (t < s[0]!.t) pos = s[0]!;
-      out.push({ id, snap: remote.snap, x: pos.x, y: pos.y, z: pos.z });
-    }
-    return out;
+  interpolated(
+    delayMs: number,
+  ): Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> {
+    return interpolated(this.entities, delayMs);
   }
 
   private sendRaw(msg: ClientMessage): void {

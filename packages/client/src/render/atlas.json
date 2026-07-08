@@ -3,8 +3,9 @@
   "packSheet": {
     "image": "pack-sheet.png",
     "tileSize": 64,
-    "cols": 13,
-    "rows": 23
+    "sourceTile": 32,
+    "cols": 32,
+    "rows": 40
   },
   "frames": {
     "floor": [

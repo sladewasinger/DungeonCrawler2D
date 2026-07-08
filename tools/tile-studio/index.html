@@ -18,15 +18,15 @@
   button:hover { border-color: var(--accent); }
   button.primary { border-color: var(--accent); color: var(--accent); }
   main { flex: 1; display: flex; min-height: 0; }
-  #paletteWrap { width: 300px; border-right: 1px solid var(--line); overflow: auto; background: var(--panel); padding: 8px; }
+  #paletteWrap { width: 420px; border-right: 1px solid var(--line); overflow: auto; background: var(--panel); padding: 8px; }
   #paletteWrap h3, .half h3 { margin: 2px 0 6px; font-size: 12px; color: var(--dim); font-weight: normal; text-transform: uppercase; letter-spacing: 1px; }
-  #palette { image-rendering: pixelated; cursor: crosshair; }
+  #palette { image-rendering: pixelated; cursor: crosshair; touch-action: none; }
   #right { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .half { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 10px; }
   .half + .half { border-top: 1px solid var(--line); }
   .half .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
   .canvasWrap { flex: 1; overflow: auto; border: 1px solid var(--line); background: #0d0b14; }
-  canvas.grid { image-rendering: pixelated; cursor: crosshair; display: block; }
+  canvas.grid { image-rendering: pixelated; cursor: crosshair; display: block; touch-action: none; }
   #status { color: var(--dim); margin-left: auto; }
   .hint { color: var(--dim); font-size: 12px; }
   kbd { background: var(--line); border-radius: 3px; padding: 0 4px; }
@@ -36,7 +36,7 @@
 <header>
   <b>TILE STUDIO</b>
   <label>sheet <input id="fileInput" type="file" accept="image/png" /></label>
-  <label>tile px <input id="tileSize" type="number" value="16" min="4" /></label>
+  <label>tile px <input id="tileSize" type="number" value="32" min="4" /></label>
   <label>grid <input id="gridW" type="number" value="26" min="4" max="64" /> × <input id="gridH" type="number" value="15" min="4" max="64" /></label>
   <label>origin <input id="originX" type="number" value="68" /> , <input id="originY" type="number" value="12" /></label>
   <button id="importBtn">Import JSON</button>
@@ -47,7 +47,7 @@
 </header>
 <main>
   <div id="paletteWrap">
-    <h3>Palette — click to select</h3>
+    <h3>Palette — click or drag-select a block</h3>
     <div class="bar">
       <label>logic tag
         <select id="tagSelect">
@@ -64,7 +64,7 @@
         </select>
       </label>
     </div>
-    <div class="hint">Tag tells the game what the selected tile IS (collision/doors). Dots mark tagged tiles.</div>
+    <div class="hint">Tag tells the game what the selected tile(s) ARE (collision/doors) — it applies to every tile in the selection. Dots mark tagged tiles.</div>
     <canvas id="palette"></canvas>
   </div>
   <div id="right">
@@ -73,13 +73,13 @@
       <div class="bar">
         <button id="learnBtn" class="primary">Learn rules from example</button>
         <button id="clearExample">Clear</button>
-        <span class="hint"><kbd>LMB</kbd> paint &nbsp;<kbd>RMB</kbd> erase &nbsp;<kbd>MMB</kbd>/<kbd>alt</kbd> pick</span>
+        <span class="hint"><kbd>LMB</kbd> paint/drag &nbsp;<kbd>RMB</kbd> erase &nbsp;<kbd>MMB</kbd>/<kbd>alt</kbd> pick</span>
         <span id="ruleInfo" class="hint"></span>
       </div>
       <div class="canvasWrap"><canvas id="example" class="grid"></canvas></div>
     </div>
     <div class="half">
-      <h3>2 · Smart paint — place seeds; learned rules complete the borders (WFC)</h3>
+      <h3>2 · Smart paint — place seeds; learned rules complete the borders</h3>
       <div class="bar">
         <button id="resolveBtn">Re-solve</button>
         <button id="clearSmart">Clear</button>
@@ -90,26 +90,38 @@
     </div>
   </div>
 </main>
-<script>
-"use strict";
+<script type="module">
+import { EMPTY, learnRules, solve } from "./solver.mjs";
+
 const $ = (id) => document.getElementById(id);
-const EMPTY = -1;
-const CELL = 28; // on-screen cell size
+const CELL = 32; // on-screen grid cell size
+
+// Keep strokes alive when the pointer leaves the canvas; some pointer
+// types (and synthetic test events) can't be captured — that's fine.
+function capture(el, e) {
+  try { el.setPointerCapture(e.pointerId); } catch { /* uncapturable */ }
+}
 
 const state = {
   img: null,
-  sheetName: "walls_floor.png",
-  ts: 16,
+  sheetName: "tilesheet.png",
+  ts: 32,
   cols: 0,
   rows: 0,
-  selected: 0,
+  /** palette selection rect, in sheet cells */
+  sel: { c: 0, r: 0, w: 1, h: 1 },
   tags: new Map(),            // tileIndex -> logic id
   usable: null,               // Set of non-empty tile indices (null = unknown/taint)
   gw: 26, gh: 15,
   example: [],                // gw*gh of tileIndex | EMPTY
   smart: [],                  // { t: tileIndex|EMPTY, seed: bool }
-  rules: null,                // Map(tileKey -> {n:Set,e:Set,s:Set,w:Set})
+  rules: null,                // learned adjacency rules (Map)
+  weights: null,              // tile -> example frequency
+  solveNonce: 1234,           // bumped by Re-solve for a fresh variation
 };
+
+// e2e / verification hook (also handy in the console).
+window.__studio = { state, drawGrid, drawPalette, runSolve, learn };
 
 // ── sheet loading ────────────────────────────────────────────────────
 function loadImage(src, name) {
@@ -119,6 +131,7 @@ function loadImage(src, name) {
     state.sheetName = name;
     state.cols = Math.floor(img.width / state.ts);
     state.rows = Math.floor(img.height / state.ts);
+    clampSel();
     detectUsable();
     drawPalette();
     drawGrid("example");
@@ -147,11 +160,24 @@ function detectUsable() {
   } catch { state.usable = null; /* canvas tainted under file:// — show all */ }
 }
 
-// ── palette ──────────────────────────────────────────────────────────
-const PAL_SCALE = 2;
+// ── palette (drag = rectangle multi-select) ──────────────────────────
+const palScale = () => (state.ts >= 32 ? 1 : 2);
+
+function selAnchorTile() {
+  return state.sel.r * state.cols + state.sel.c;
+}
+function clampSel() {
+  const s = state.sel;
+  s.c = Math.max(0, Math.min(state.cols - 1 || 0, s.c));
+  s.r = Math.max(0, Math.min(state.rows - 1 || 0, s.r));
+  s.w = Math.max(1, Math.min(state.cols - s.c, s.w));
+  s.h = Math.max(1, Math.min(state.rows - s.r, s.h));
+}
+
 function drawPalette() {
   const cv = $("palette");
-  const cell = state.ts * PAL_SCALE;
+  if (!state.img) return;
+  const cell = state.ts * palScale();
   cv.width = state.cols * cell; cv.height = state.rows * cell;
   const x = cv.getContext("2d");
   x.imageSmoothingEnabled = false;
@@ -167,27 +193,66 @@ function drawPalette() {
   x.strokeStyle = "rgba(120,110,160,0.35)";
   for (let c = 0; c <= state.cols; c++) { x.beginPath(); x.moveTo(c * cell + 0.5, 0); x.lineTo(c * cell + 0.5, cv.height); x.stroke(); }
   for (let r = 0; r <= state.rows; r++) { x.beginPath(); x.moveTo(0, r * cell + 0.5); x.lineTo(cv.width, r * cell + 0.5); x.stroke(); }
-  const sc = state.selected % state.cols, sr = Math.floor(state.selected / state.cols);
+  const s = state.sel;
   x.strokeStyle = "#ffe9b0"; x.lineWidth = 2;
-  x.strokeRect(sc * cell + 1, sr * cell + 1, cell - 2, cell - 2);
+  x.strokeRect(s.c * cell + 1, s.r * cell + 1, s.w * cell - 2, s.h * cell - 2);
   x.lineWidth = 1;
 }
-$("palette").addEventListener("pointerdown", (e) => {
-  const rect = e.target.getBoundingClientRect();
-  const cell = state.ts * PAL_SCALE;
+
+function paletteCell(e) {
+  const rect = $("palette").getBoundingClientRect();
+  const cell = state.ts * palScale();
   const c = Math.floor((e.clientX - rect.left) / cell);
   const r = Math.floor((e.clientY - rect.top) / cell);
-  if (c < 0 || r < 0 || c >= state.cols || r >= state.rows) return;
-  state.selected = r * state.cols + c;
-  $("tagSelect").value = state.tags.has(state.selected) ? String(state.tags.get(state.selected)) : "";
+  if (c < 0 || r < 0 || c >= state.cols || r >= state.rows) return null;
+  return { c, r };
+}
+
+let palAnchor = null; // cell where the selection drag started
+$("palette").addEventListener("pointerdown", (e) => {
+  const at = paletteCell(e);
+  if (!at) return;
+  palAnchor = at;
+  state.sel = { c: at.c, r: at.r, w: 1, h: 1 };
+  syncTagSelect();
   drawPalette();
-  setStatus(`selected tile ${state.selected} (col ${c}, row ${r})`);
+  capture($("palette"), e);
 });
+$("palette").addEventListener("pointermove", (e) => {
+  if (!palAnchor) return;
+  const at = paletteCell(e);
+  if (!at) return;
+  state.sel = {
+    c: Math.min(palAnchor.c, at.c),
+    r: Math.min(palAnchor.r, at.r),
+    w: Math.abs(at.c - palAnchor.c) + 1,
+    h: Math.abs(at.r - palAnchor.r) + 1,
+  };
+  drawPalette();
+});
+$("palette").addEventListener("pointerup", () => {
+  if (!palAnchor) return;
+  palAnchor = null;
+  const s = state.sel;
+  setStatus(`selected ${s.w}×${s.h} block at col ${s.c}, row ${s.r} (tile ${selAnchorTile()})`);
+  autosave();
+});
+$("palette").addEventListener("pointercancel", () => { palAnchor = null; });
+
+function syncTagSelect() {
+  const t = selAnchorTile();
+  $("tagSelect").value = state.tags.has(t) ? String(state.tags.get(t)) : "";
+}
 $("tagSelect").addEventListener("change", () => {
   const v = $("tagSelect").value;
-  if (v === "") state.tags.delete(state.selected);
-  else state.tags.set(state.selected, Number(v));
+  const s = state.sel;
+  for (let dr = 0; dr < s.h; dr++) for (let dc = 0; dc < s.w; dc++) {
+    const idx = (s.r + dr) * state.cols + (s.c + dc);
+    if (v === "") state.tags.delete(idx);
+    else state.tags.set(idx, Number(v));
+  }
   drawPalette();
+  autosave();
 });
 
 // ── grids ────────────────────────────────────────────────────────────
@@ -229,186 +294,141 @@ function drawGrid(which) {
   }
 }
 
+// ── painting (multi-tile stamp, gap-free drag strokes) ───────────────
+const mod = (n, m) => ((n % m) + m) % m;
+
 function bindPainting(which) {
   const cv = $(which);
-  let painting = 0; // 1 = paint, 2 = erase
-  const apply = (e) => {
+  // stroke.mode: 1 = paint, 2 = erase, 3 = pick.
+  // Pattern stamps align to the stroke's anchor cell, so dragging a
+  // multi-tile selection tiles it seamlessly (Godot/Tiled-style).
+  let stroke = null;
+
+  const cellAt = (e) => {
     const rect = cv.getBoundingClientRect();
     const c = Math.floor((e.clientX - rect.left) / CELL);
     const r = Math.floor((e.clientY - rect.top) / CELL);
+    return { c, r };
+  };
+  const inBounds = ({ c, r }) => c >= 0 && r >= 0 && c < state.gw && r < state.gh;
+
+  const applyCell = (c, r) => {
     if (c < 0 || r < 0 || c >= state.gw || r >= state.gh) return;
     const i = r * state.gw + c;
-    if (painting === 3) { // pick
+    if (stroke.mode === 3) { // pick: collapse selection to the cell's tile
       const t = cellTile(which, i);
-      if (t !== EMPTY) { state.selected = t; drawPalette(); }
+      if (t !== EMPTY) {
+        state.sel = { c: t % state.cols, r: Math.floor(t / state.cols), w: 1, h: 1 };
+        syncTagSelect();
+        drawPalette();
+      }
       return;
     }
-    if (which === "example") {
-      state.example[i] = painting === 1 ? state.selected : EMPTY;
-    } else {
-      state.smart[i] = painting === 1
-        ? { t: state.selected, seed: true }
-        : { t: EMPTY, seed: false };
+    let tile = EMPTY;
+    if (stroke.mode === 1) {
+      const s = state.sel;
+      const pc = s.c + mod(c - stroke.anchorC, s.w);
+      const pr = s.r + mod(r - stroke.anchorR, s.h);
+      tile = pr * state.cols + pc;
     }
-    drawGrid(which);
+    if (which === "example") {
+      state.example[i] = tile;
+    } else {
+      state.smart[i] = stroke.mode === 1 ? { t: tile, seed: true } : { t: EMPTY, seed: false };
+    }
   };
+
+  // Bresenham between consecutive pointer events so fast drags leave
+  // no gaps.
+  const applyLine = (from, to) => {
+    let { c: x0, r: y0 } = from;
+    const { c: x1, r: y1 } = to;
+    const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      applyCell(x0, y0);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  };
+
+  const endStroke = (solveAfter) => {
+    if (!stroke) return;
+    const wasPick = stroke.mode === 3;
+    stroke = null;
+    if (solveAfter && which === "smart" && !wasPick && $("autoSolve").checked) runSolve();
+    autosave();
+  };
+
   cv.addEventListener("contextmenu", (e) => e.preventDefault());
   cv.addEventListener("pointerdown", (e) => {
-    painting = e.button === 2 ? 2 : e.button === 1 || e.altKey ? 3 : 1;
-    apply(e);
-    cv.setPointerCapture(e.pointerId);
+    const at = cellAt(e);
+    if (!inBounds(at)) return;
+    const mode = e.button === 2 ? 2 : e.button === 1 || e.altKey ? 3 : 1;
+    stroke = { mode, anchorC: at.c, anchorR: at.r, last: at };
+    applyCell(at.c, at.r);
+    drawGrid(which);
+    capture(cv, e);
   });
-  cv.addEventListener("pointermove", (e) => { if (painting) apply(e); });
-  cv.addEventListener("pointerup", () => {
-    const wasPainting = painting;
-    painting = 0;
-    if (which === "smart" && wasPainting !== 3 && $("autoSolve").checked) solveSmart();
-    autosave();
+  cv.addEventListener("pointermove", (e) => {
+    if (!stroke) return;
+    const at = cellAt(e);
+    if (at.c === stroke.last.c && at.r === stroke.last.r) return;
+    applyLine(stroke.last, at);
+    stroke.last = at;
+    drawGrid(which);
   });
+  cv.addEventListener("pointerup", () => endStroke(true));
+  cv.addEventListener("pointercancel", () => endStroke(false));
 }
 bindPainting("example");
 bindPainting("smart");
 
 // ── rule learning ────────────────────────────────────────────────────
-// 8 directions: diagonals matter — without them a border ring can't
-// learn that its corners exist, and WFC leaves gaps.
-const DIRS = [
-  ["n", 0, -1, "s"],
-  ["e", 1, 0, "w"],
-  ["s", 0, 1, "n"],
-  ["w", -1, 0, "e"],
-  ["ne", 1, -1, "sw"],
-  ["se", 1, 1, "nw"],
-  ["sw", -1, 1, "ne"],
-  ["nw", -1, -1, "se"],
-];
-function emptyDirSets() {
-  const out = {};
-  for (const [dir] of DIRS) out[dir] = new Set();
-  return out;
-}
-function learn() {
-  const rules = new Map();
-  const entry = (t) => {
-    if (!rules.has(t)) rules.set(t, emptyDirSets());
-    return rules.get(t);
-  };
-  for (let r = 0; r < state.gh; r++) for (let c = 0; c < state.gw; c++) {
-    const a = state.example[r * state.gw + c];
-    for (const [dir, dx, dy, opp] of DIRS) {
-      const nc = c + dx, nr = r + dy;
-      const b = (nc < 0 || nr < 0 || nc >= state.gw || nr >= state.gh)
-        ? EMPTY
-        : state.example[nr * state.gw + nc];
-      entry(a)[dir].add(b);
-      entry(b)[opp].add(a);
-    }
-  }
+function learn(silent = false) {
+  const { rules, weights, tileCount, factCount } = learnRules(state.example, state.gw, state.gh);
   state.rules = rules;
-  const tiles = [...rules.keys()].filter((t) => t !== EMPTY).length;
-  const facts = [...rules.values()].reduce(
-    (s, d) => s + DIRS.reduce((n, [dir]) => n + d[dir].size, 0),
-    0,
-  );
-  $("ruleInfo").textContent = `learned: ${tiles} tiles, ${facts} adjacency facts`;
-  autosave();
+  state.weights = weights;
+  $("ruleInfo").textContent = `learned: ${tileCount} tiles, ${factCount} adjacency facts`;
+  if (!silent) autosave();
 }
-$("learnBtn").addEventListener("click", () => { learn(); solveSmart(); });
+$("learnBtn").addEventListener("click", () => { learn(); runSolve(); });
 
-// ── WFC-style solver over the smart grid ─────────────────────────────
-function solveSmart() {
-  if (!state.rules) return;
-  const { gw, gh } = state;
-  const R = 2; // halo distance around seeds that the solver owns
-  const seeds = [];
-  for (let i = 0; i < gw * gh; i++) if (state.smart[i].seed) seeds.push(i);
-  if (seeds.length === 0) { drawGrid("smart"); return; }
-
-  const isVar = new Array(gw * gh).fill(false);
-  for (const s of seeds) {
-    const sc = s % gw, sr = Math.floor(s / gw);
-    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
-      const c = sc + dx, r = sr + dy;
-      if (c < 0 || r < 0 || c >= gw || r >= gh) continue;
-      const i = r * gw + c;
-      if (!state.smart[i].seed) isVar[i] = true;
-    }
+// ── solving (module does the search; we just apply the result) ──────
+function runSolve() {
+  if (!state.rules) {
+    setStatus("no rules learned yet — paint an example and press Learn", true);
+    return;
   }
-  const allValues = [...state.rules.keys()];
-  const allowed = (a, dir, b) => {
-    const e = state.rules.get(a);
-    return e ? e[dir].has(b) : false;
-  };
-  const fixedValue = (i) => (state.smart[i].seed ? state.smart[i].t : EMPTY);
-  // Value ordering: EMPTY first (don't balloon the shape), then tiles
-  // that can border emptiness (edge pieces), then pure interior tiles.
-  const canTouchEmpty = new Map();
-  for (const v of allValues) {
-    const e = state.rules.get(v);
-    canTouchEmpty.set(v, DIRS.some(([dir]) => e[dir].has(EMPTY)));
+  const result = solve(state.smart, state.gw, state.gh, {
+    rules: state.rules,
+    weights: state.weights,
+    halo: 2,
+    seed: state.solveNonce,
+  });
+  const unseen = result.unknownSeeds.length
+    ? ` (${result.unknownSeeds.length} seed tile${result.unknownSeeds.length > 1 ? "s" : ""} never appeared in the example)`
+    : "";
+  if (!result.ok) {
+    // Non-destructive: the previous fill stays on screen.
+    setStatus(`no consistent completion — paint a richer example and re-learn${unseen}`, true);
+    return;
   }
-  const rank = (v) => (v === EMPTY ? 0 : canTouchEmpty.get(v) ? 1 : 2);
-
-  const attempt = (rng) => {
-    const domains = new Map();
-    for (let i = 0; i < gw * gh; i++) if (isVar[i]) domains.set(i, new Set(allValues));
-    const neighborVals = (i, dir, dx, dy) => {
-      const c = i % gw, r = Math.floor(i / gw);
-      const nc = c + dx, nr = r + dy;
-      if (nc < 0 || nr < 0 || nc >= gw || nr >= gh) return [EMPTY];
-      const n = nr * gw + nc;
-      if (domains.has(n)) return [...domains.get(n)];
-      return [fixedValue(n)];
-    };
-    const propagate = () => {
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const [i, dom] of domains) {
-          for (const [dir, dx, dy] of DIRS) {
-            const nv = neighborVals(i, dir, dx, dy);
-            for (const v of [...dom]) {
-              if (!nv.some((b) => allowed(v, dir, b))) { dom.delete(v); changed = true; }
-            }
-          }
-          if (dom.size === 0) return false;
-        }
-      }
-      return true;
-    };
-    if (!propagate()) return null;
-    for (;;) {
-      let pick = null, pickSize = Infinity;
-      for (const [i, dom] of domains) {
-        if (dom.size > 1 && dom.size < pickSize) { pick = i; pickSize = dom.size; }
-      }
-      if (pick === null) break; // all singletons
-      const candidates = [...domains.get(pick)];
-      candidates.sort((a, b) => rank(a) - rank(b) || rng() - 0.5);
-      const choice = candidates[0];
-      domains.set(pick, new Set([choice]));
-      if (!propagate()) return null;
-    }
-    const out = new Map();
-    for (const [i, dom] of domains) out.set(i, [...dom][0]);
-    return out;
-  };
-
-  let solution = null;
-  for (let tries = 0; tries < 60 && !solution; tries++) {
-    let s = 1234 + tries * 7919;
-    const rng = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
-    solution = attempt(rng);
+  if (result.varCount === 0) {
+    setStatus("no seeds painted yet — paint in the smart grid first");
+    return;
   }
-  for (let i = 0; i < gw * gh; i++) {
-    if (!isVar[i]) continue;
-    state.smart[i] = { t: solution ? solution.get(i) : EMPTY, seed: false };
+  for (const [i, t] of result.assignment) {
+    state.smart[i] = { t, seed: false };
   }
-  setStatus(solution ? "solved" : "no consistent completion — paint a richer example and re-learn", !solution);
+  setStatus(`solved ${result.assignment.size} cells around your seeds${unseen}`, false);
   drawGrid("smart");
   autosave();
 }
-$("resolveBtn").addEventListener("click", solveSmart);
+$("resolveBtn").addEventListener("click", () => { state.solveNonce++; runSolve(); });
 $("clearExample").addEventListener("click", () => { state.example.fill(EMPTY); drawGrid("example"); autosave(); });
 $("clearSmart").addEventListener("click", () => { state.smart = state.smart.map(() => ({ t: EMPTY, seed: false })); drawGrid("smart"); autosave(); });
 
@@ -463,16 +483,22 @@ $("importFile").addEventListener("change", async (e) => {
   $("originX").value = map.origin?.x ?? 0;
   $("originY").value = map.origin?.y ?? 0;
   drawGrid("smart");
-  setStatus(`imported ${map.width}×${map.height} into the smart grid (as seeds)`);
+  const wrongSheet = map.sheet && map.sheet !== state.sheetName;
+  setStatus(
+    `imported ${map.width}×${map.height} into the smart grid (as seeds)` +
+      (wrongSheet ? ` — WARNING: map was drawn on ${map.sheet}, current sheet is ${state.sheetName}` : ""),
+    wrongSheet,
+  );
 });
 
 // ── autosave (localStorage) ──────────────────────────────────────────
 function autosave() {
   try {
     localStorage.setItem("tile-studio", JSON.stringify({
+      v: 2, // bumped when the default sheet changes — stale grids don't map
       ts: state.ts, gw: state.gw, gh: state.gh,
       tags: [...state.tags], example: state.example, smart: state.smart,
-      selected: state.selected,
+      sel: state.sel,
     }));
   } catch { /* full/blocked — fine */ }
 }
@@ -481,6 +507,7 @@ function restore() {
     const raw = localStorage.getItem("tile-studio");
     if (!raw) return;
     const s = JSON.parse(raw);
+    if (s.v !== 2) return; // autosave from an older sheet — indices don't map
     if (s.ts) { state.ts = s.ts; $("tileSize").value = s.ts; }
     if (s.gw) $("gridW").value = s.gw;
     if (s.gh) $("gridH").value = s.gh;
@@ -488,7 +515,11 @@ function restore() {
     state.tags = new Map(s.tags ?? []);
     if (Array.isArray(s.example)) state.example = state.example.map((_, i) => s.example[i] ?? EMPTY);
     if (Array.isArray(s.smart)) state.smart = state.smart.map((_, i) => s.smart[i] ?? { t: EMPTY, seed: false });
-    state.selected = s.selected ?? 0;
+    if (s.sel) state.sel = s.sel;
+    else if (typeof s.selected === "number") state.sel = { c: 0, r: 0, w: 1, h: 1 };
+    // Rules aren't persisted — re-derive them so Re-solve works after a
+    // reload (this silent no-op was the old "solving is broken" bug).
+    if (state.example.some((t) => t !== EMPTY)) learn(true);
   } catch { /* corrupt — start fresh */ }
 }
 
@@ -501,18 +532,18 @@ function setStatus(msg, bad = false) {
 $("fileInput").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  state.ts = Number($("tileSize").value) || 16;
+  state.ts = Number($("tileSize").value) || 32;
   loadImage(URL.createObjectURL(file), file.name);
 });
 $("tileSize").addEventListener("change", () => {
-  state.ts = Number($("tileSize").value) || 16;
+  state.ts = Number($("tileSize").value) || 32;
   if (state.img) loadImage(state.img.src, state.sheetName);
 });
 
 resizeGrids();
 restore();
 resizeGrids();
-loadImage("../../assets/pack/walls_floor.png", "walls_floor.png");
+loadImage("../../assets/topdown/tilesheet.png", "tilesheet.png");
 </script>
 </body>
 </html>

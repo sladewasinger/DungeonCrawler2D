@@ -1,6 +1,8 @@
 import { customMapSchema, setCustomMap } from "@dc2d/engine";
 import Phaser from "phaser";
-import { Connection, persistentClientId } from "./net/connection";
+import { Connection } from "./net/connection";
+import { persistentClientId } from "./net/identity";
+import atlas from "./render/atlas.json";
 import { DungeonScene } from "./scenes/DungeonScene";
 
 const NAME_KEY = "dc2d-name";
@@ -27,6 +29,12 @@ async function loadCustomMap(): Promise<void> {
     const res = await fetch("assets/custom-map.json");
     if (!res.ok) return;
     const def = customMapSchema.parse(await res.json());
+    if (def.sheetCols !== atlas.packSheet.cols) {
+      console.warn(
+        `[main] custom map was drawn on a ${def.sheetCols}-col sheet but the pack sheet has ` +
+          `${atlas.packSheet.cols} cols — art will scramble; re-export it from Tile Studio`,
+      );
+    }
     setCustomMap(def);
     console.log(`[main] custom map stamped at (${def.origin.x}, ${def.origin.y})`);
   } catch {

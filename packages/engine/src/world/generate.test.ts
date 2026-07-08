@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { STEP_UP } from "../core/constants";
 import { hashString } from "../core/rng";
-import { chunkCenter, generateChunk, isSafeRoomChunk } from "./generate";
+import { isSafeRoomChunk } from "./features";
+import { generateChunk } from "./generate";
+import { chunkCenter } from "./terrain";
 import { safeRoomChunk, safeRoomFeatures, safeRoomSpawn } from "./rooms";
 import { CHUNK_SIZE, TILE, ZONE } from "./types";
 import { World } from "./world";

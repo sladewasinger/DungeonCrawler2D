@@ -4,12 +4,21 @@
  *   packages/client/public/assets/tiles.png     — 64×64 tile atlas
  *   packages/client/public/assets/players.png   — 64×64 player sheet
  *   packages/client/public/assets/enemies.png   — 64×64 enemy sheet
+ *   packages/client/public/assets/pack-sheet.png — Tile Studio sheet ×2
+ *   assets/topdown/tilesheet.png                — Tile Studio sheet ×1
  *   packages/client/src/render/atlas.json       — frame indices (source of truth)
  *
  * Terrain tiles come from the Craftpix "Free 2D Top-Down Pixel Dungeon
  * Asset Pack" in assets/pack/ (see its license.txt): 16×16-scale sources
  * upscaled 4×. The pack pieces are free-form assemblies, not a grid, so
  * every slice below is a measured pixel rect from walls_floor.png.
+ *
+ * The Tile Studio sheet (custom hand-authored maps) is a separate,
+ * combined sheet composed from the Cainos "Pixel Art Top Down — Basic"
+ * pack in assets/topdown/ (32×32 tiles). See docs/TILESET.md for the
+ * cell layout. tilesheet.png (32px) feeds the editor; pack-sheet.png
+ * (same grid ×2 → 64px) feeds the in-game custom-map layer, so tile
+ * indices agree between the two by construction.
  *
  * Wall grammar (matches the pack's own sample render):
  *   - deep wall interior            → near-black flat
@@ -247,14 +256,72 @@ const F = {
   },
 };
 
+// ── Tile Studio combined sheet (Cainos top-down pack, 32px tiles) ──
+// Cell layout — keep in sync with docs/TILESET.md:
+//   rows  0–7 : Grass (cols 0–7) | Stone Ground (cols 8–15)
+//   rows  8–23: Wall  (cols 0–15) | Props (cols 16–31)
+//   rows 24–39: Plant (cols 0–15) | Struct (cols 16–31)
+const TOPDOWN = join(ROOT, "assets", "topdown");
+const TD_TILE = 32;
+const TD_COLS = 32;
+const TD_ROWS = 40;
+const TD_LAYOUT = [
+  ["TX Tileset Grass.png", 0, 0],
+  ["TX Tileset Stone Ground.png", 8, 0],
+  ["TX Tileset Wall.png", 0, 8],
+  ["TX Props.png", 16, 8],
+  ["TX Plant.png", 0, 24],
+  ["TX Struct.png", 16, 24],
+];
+
+/** Copy src 1:1 into dst at a pixel offset. */
+function copyInto(dst, dstX, dstY, src) {
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < src.width; x++) {
+      const si = (y * src.width + x) * 4;
+      const di = ((dstY + y) * dst.width + dstX + x) * 4;
+      dst.data[di] = src.data[si];
+      dst.data[di + 1] = src.data[si + 1];
+      dst.data[di + 2] = src.data[si + 2];
+      dst.data[di + 3] = src.data[si + 3];
+    }
+  }
+}
+
+/** Nearest-neighbor integer upscale. */
+function upscaled(src, factor) {
+  const out = makeImage(src.width * factor, src.height * factor);
+  for (let y = 0; y < out.height; y++) {
+    for (let x = 0; x < out.width; x++) {
+      const si = ((y / factor | 0) * src.width + (x / factor | 0)) * 4;
+      const di = (y * out.width + x) * 4;
+      out.data[di] = src.data[si];
+      out.data[di + 1] = src.data[si + 1];
+      out.data[di + 2] = src.data[si + 2];
+      out.data[di + 3] = src.data[si + 3];
+    }
+  }
+  return out;
+}
+
+const studioSheet = makeImage(TD_COLS * TD_TILE, TD_ROWS * TD_TILE);
+for (const [file, cellX, cellY] of TD_LAYOUT) {
+  const img = loadPng(join(TOPDOWN, file));
+  if (img.width % TD_TILE || img.height % TD_TILE) {
+    throw new Error(`${file}: not a multiple of ${TD_TILE}px (${img.width}×${img.height})`);
+  }
+  copyInto(studioSheet, cellX * TD_TILE, cellY * TD_TILE, img);
+}
+
 const atlas = {
   tileSize: TILE,
-  /** Whole pack sheet upscaled 4× — tileset for Tile Studio custom maps. */
+  /** Tile Studio combined sheet ×2 — tileset for custom-map art. */
   packSheet: {
     image: "pack-sheet.png",
     tileSize: TILE,
-    cols: Math.floor(wallsFloor.width / SRC_TILE),
-    rows: Math.floor(wallsFloor.height / SRC_TILE),
+    sourceTile: TD_TILE,
+    cols: TD_COLS,
+    rows: TD_ROWS,
   },
   frames: {
     floor: F.floor,
@@ -680,19 +747,20 @@ ENEMY_SPRITES.forEach((sprite, i) => {
 
 // ── write ──────────────────────────────────────────────────────────
 
-// Full pack sheet at 4× — lets the client render Tile Studio maps with
-// raw sheet tiles the editor picked.
-const packSheet = makeImage(wallsFloor.width * SCALE, wallsFloor.height * SCALE);
-blitRect(packSheet, 0, 0, wallsFloor, 0, 0, wallsFloor.width, wallsFloor.height);
+// The studio edits at 32px; the game stamps the same grid at 64px.
+const packSheet = upscaled(studioSheet, TILE / TD_TILE);
 
 mkdirSync(ASSET_DIR, { recursive: true });
 writePng(tiles, join(ASSET_DIR, "tiles.png"));
 writePng(players, join(ASSET_DIR, "players.png"));
 writePng(enemies, join(ASSET_DIR, "enemies.png"));
+writePng(studioSheet, join(TOPDOWN, "tilesheet.png"));
 writePng(packSheet, join(ASSET_DIR, "pack-sheet.png"));
 writeFileSync(ATLAS_JSON, JSON.stringify(atlas, null, 2) + "\n");
 
 console.log(`wrote ${join(ASSET_DIR, "tiles.png")} (${tiles.width}×${tiles.height})`);
 console.log(`wrote ${join(ASSET_DIR, "players.png")} (${players.width}×${players.height})`);
 console.log(`wrote ${join(ASSET_DIR, "enemies.png")} (${enemies.width}×${enemies.height})`);
+console.log(`wrote ${join(TOPDOWN, "tilesheet.png")} (${studioSheet.width}×${studioSheet.height})`);
+console.log(`wrote ${join(ASSET_DIR, "pack-sheet.png")} (${packSheet.width}×${packSheet.height})`);
 console.log(`wrote ${ATLAS_JSON}`);
