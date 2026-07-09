@@ -5,6 +5,7 @@ import type { Connection } from "../net/connection";
 import { AreaRenderer } from "../render/areas";
 import atlas from "../render/atlas.json";
 import { TILE_PX } from "../render/constants";
+import { ENEMY_FRAME_COUNT, ENEMY_SPRITE_IDS, enemyTextureKey } from "../render/enemySprites";
 import { EntityRenderer } from "../render/entities";
 import { ITEM_SPRITE_IDS } from "../render/itemSprites";
 import { TerrainRenderer } from "../render/terrain";
@@ -40,8 +41,12 @@ export class DungeonScene extends Phaser.Scene {
   preload(): void {
     this.load.spritesheet("tiles", "assets/tiles.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
-    this.load.spritesheet("enemies", "assets/enemies.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.image("packsheet", `assets/${atlas.packSheet.image}`);
+    for (const enemyId of ENEMY_SPRITE_IDS) {
+      for (let frame = 0; frame < ENEMY_FRAME_COUNT; frame++) {
+        this.load.image(enemyTextureKey(enemyId, frame), `assets/enemies/${enemyId}-${frame}.png`);
+      }
+    }
     for (const itemId of ITEM_SPRITE_IDS) {
       this.load.image(`item-${itemId}`, `assets/items/${itemId}.png`);
     }

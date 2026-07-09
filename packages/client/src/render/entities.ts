@@ -11,6 +11,7 @@ import Phaser from "phaser";
 import type { ThrowPreview } from "../input/controller";
 import type { Connection } from "../net/connection";
 import atlas from "./atlas.json";
+import { enemyTextureKey } from "./enemySprites";
 import { itemTextureKey } from "./itemSprites";
 import { TILE_PX, Z_PX } from "./constants";
 
@@ -27,9 +28,11 @@ interface EntityVisual {
   shadow: Phaser.GameObjects.Ellipse;
   label: Phaser.GameObjects.Text | null;
   kind: EntitySnapshot["kind"];
+  defId?: string;
   phase: number;
   lastX?: number;
   lastY?: number;
+  moving?: boolean;
   /** Eased screen elevation of the body (px). */
   elevPx?: number;
   /** Eased screen elevation of the ground under it (px, the shadow). */
@@ -177,6 +180,10 @@ export class EntityRenderer {
       visual.shadow.setScale(1 - Math.min(0.35, (elev.body - elev.ground) / 400));
       const bob = this.motionOffset(visual, x, y, now);
       visual.sprite.setPosition(px, py - elev.body + bob);
+      if (visual.kind === "enemy") {
+        const frameRate = visual.moving ? 130 : 420;
+        visual.sprite.setTexture(enemyTextureKey(visual.defId ?? "slime", Math.floor(now / frameRate + visual.phase)));
+      }
       if (visual.kind === "projectile") visual.sprite.setRotation(now / 100);
       visual.sprite.setTint(statusTint(snap.fx ?? []));
       visual.sprite.setAlpha(snap.downed ? 0.5 : 1);
@@ -261,10 +268,16 @@ export class EntityRenderer {
     const angle = Math.atan2(dy / len, dx / len);
     const px = this.selfVisual.sprite.x;
     const py = this.selfVisual.sprite.y;
+    const stabbing = conn.weapon === "knife";
+    const radius = MELEE_RANGE * TILE_PX * 0.9;
     if (conn.weapon) {
       const weapon = this.scene.add
-        .image(px + Math.cos(angle) * 16, py + Math.sin(angle) * 16, itemTextureKey(conn.weapon))
-        .setOrigin(0.3, 0.7)
+        .image(
+          px + Math.cos(angle) * (stabbing ? 2 : 16),
+          py + Math.sin(angle) * (stabbing ? 2 : 16),
+          itemTextureKey(conn.weapon),
+        )
+        .setOrigin(stabbing ? 0.18 : 0.3, 0.7)
         .setDisplaySize(68, 68)
         .setDepth(5)
         .setRotation(angle + Math.PI / 4);
@@ -272,15 +285,25 @@ export class EntityRenderer {
         targets: weapon,
         x: px + Math.cos(angle) * 76,
         y: py + Math.sin(angle) * 76,
-        rotation: angle + Math.PI / 4 + 0.45,
+        rotation: angle + Math.PI / 4 + (stabbing ? 0.08 : 0.45),
         alpha: 0,
-        duration: 150,
-        ease: "Quad.Out",
+        duration: stabbing ? 100 : 150,
+        ease: stabbing ? "Expo.Out" : "Quad.Out",
         onComplete: () => weapon.destroy(),
       });
     }
-    const radius = MELEE_RANGE * TILE_PX * 0.9;
     const g = this.scene.add.graphics().setDepth(4);
+    if (stabbing) {
+      g.lineStyle(4, 0xfff6d8, 0.95);
+      g.lineBetween(
+        px + Math.cos(angle) * 12,
+        py + Math.sin(angle) * 12,
+        px + Math.cos(angle) * radius,
+        py + Math.sin(angle) * radius,
+      );
+      this.scene.tweens.add({ targets: g, alpha: 0, duration: 100, onComplete: () => g.destroy() });
+      return;
+    }
     g.fillStyle(0xffe9b0, 0.35);
     g.slice(px, py, radius, angle - 0.55, angle + 0.55);
     g.fillPath();
@@ -293,25 +316,68 @@ export class EntityRenderer {
 
   spawnFloatingText(conn: Connection): void {
     for (const event of conn.drainVisualEvents()) {
-      if (event.t !== "hit") continue;
       const pos = entityScreenPos(conn, event.id);
       if (!pos) continue;
-      const text = this.scene.add
-        .text(pos.x, pos.y - 50, `${event.amount > 0 ? "+" : ""}${Math.round(event.amount)}`, {
-          fontSize: "14px",
-          color: event.amount < 0 ? "#ff7a66" : "#8fe08a",
-          fontStyle: "bold",
-        })
-        .setOrigin(0.5, 1)
-        .setDepth(50);
-      this.scene.tweens.add({
-        targets: text,
-        y: pos.y - 90,
-        alpha: 0,
-        duration: 800,
-        onComplete: () => text.destroy(),
-      });
+      if (event.t === "death") {
+        this.spawnImpactBurst(pos.x, pos.y - 24, 0xffd36b, 16);
+        this.spawnFeedbackText(pos.x, pos.y - 50, "DEFEATED", "#ffe9b0", 950);
+        continue;
+      }
+      if (event.t === "status") {
+        const statusName = content.statuses.get(event.status)?.name ?? event.status;
+        const color = event.on ? "#ffcc70" : "#8fe08a";
+        this.spawnFeedbackText(pos.x, pos.y - 50, `${event.on ? "+" : "-"}${statusName}`, color, 700);
+        continue;
+      }
+      this.spawnImpactBurst(pos.x, pos.y - 24, event.amount < 0 ? 0xff7a66 : 0x8fe08a, 11);
+      this.spawnFeedbackText(
+        pos.x,
+        pos.y - 50,
+        `${event.amount > 0 ? "+" : ""}${Math.round(event.amount)}`,
+        event.amount < 0 ? "#ff7a66" : "#8fe08a",
+        800,
+      );
     }
+  }
+
+  private spawnFeedbackText(x: number, y: number, value: string, color: string, duration: number): void {
+    const text = this.scene.add
+      .text(x, y, value, {
+        fontSize: "14px",
+        color,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(50);
+    this.scene.tweens.add({
+      targets: text,
+      y: y - 40,
+      alpha: 0,
+      duration,
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  private spawnImpactBurst(x: number, y: number, color: number, radius: number): void {
+    const burst = this.scene.add.graphics().setPosition(x, y).setDepth(49);
+    burst.lineStyle(2, color, 0.9);
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8 + Math.PI / 8;
+      burst.lineBetween(
+        Math.cos(angle) * radius * 0.35,
+        Math.sin(angle) * radius * 0.35,
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+      );
+    }
+    this.scene.tweens.add({
+      targets: burst,
+      alpha: 0,
+      scale: 1.5,
+      duration: 180,
+      ease: "Quad.Out",
+      onComplete: () => burst.destroy(),
+    });
   }
 
   private createVisual(snap: EntitySnapshot): EntityVisual {
@@ -327,11 +393,10 @@ export class EntityRenderer {
         break;
       }
       case "enemy": {
-        const spriteName = snap.defId ? content.enemies.get(snap.defId)?.sprite : undefined;
-        const frame = spriteName
-          ? ((atlas.enemies as Record<string, number>)[spriteName] ?? 0)
-          : 0;
-        sprite = this.scene.add.image(0, 0, "enemies", frame).setOrigin(0.5, 0.85);
+        sprite = this.scene.add
+          .image(0, 0, enemyTextureKey(snap.defId ?? "slime", 0))
+          .setOrigin(0.5, 0.85)
+          .setDisplaySize(58, 58);
         break;
       }
       case "item": {
@@ -365,6 +430,7 @@ export class EntityRenderer {
       shadow,
       label,
       kind: snap.kind,
+      defId: snap.defId,
       phase: phaseFromId(snap.id),
     };
   }
@@ -374,6 +440,7 @@ export class EntityRenderer {
       visual.lastX !== undefined && visual.lastY !== undefined && Math.hypot(x - visual.lastX, y - visual.lastY) > 0.001;
     visual.lastX = x;
     visual.lastY = y;
+    visual.moving = moved;
     if (visual.kind === "item") return Math.sin(now / 240 + visual.phase) * 1.5;
     if (visual.kind === "projectile") return 0;
     return Math.sin(now / (moved ? 55 : 480) + visual.phase) * (moved ? 1.5 : 0.4);

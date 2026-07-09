@@ -152,7 +152,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] **Melee targeting aid:** swings resolve against the best target in the arc, hostiles preferred over party members; an arc with no hostile hits whoever's there; AoE/throwables/areas hit everyone, always
 - [x] Enemy status vulnerability via tags (plant-creeper burns ×2; slime immune to bleed; skeleton immune to bleed and poison)
 - [x] Death: **full loot drop** where you fell (anyone may loot — including your killer), respawn at random distant location, keep stash; downed-then-revive for party members with a 30 s bleed-out
-- [x] 4 starter enemies as data files: slime, plant-creeper, skeleton, spitter (generated sprites — replace-later art)
+- [x] 4 starter enemies as data files: slime, plant-creeper, skeleton, spitter (pixel-art three-frame motion sprites)
 - [x] **In-game examples (proving ground):** all four enemy kinds placed as fixtures — a slime pit south of spawn (the e2e combat arena), a creeper and a fast skeleton to the west, a poison spitter on the hill; sword/hammer pickups make the damage difference feelable
 
 **Done when:** Two strangers can fight over a loot drop with molotovs and knives — or ignore each other — and a plant-monster kited into their crossfire burns either way.
