@@ -55,8 +55,9 @@ export async function readState(page: Page): Promise<HookState> {
 }
 
 /** Load the game and wait until the client is connected and spawned. */
-export async function openGame(page: Page): Promise<HookState> {
+export async function openGame(page: Page, level: "dungeon" | "sandbox" = "sandbox"): Promise<HookState> {
   await page.goto("/");
+  await page.locator(`[data-level="${level}"]`).click();
   await page.waitForFunction(
     () => window.__dc2d?.conn.status === "connected" && window.__dc2d.conn.body !== null,
     undefined,

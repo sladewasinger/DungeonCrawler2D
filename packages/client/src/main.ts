@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { Connection } from "./net/connection";
 import { persistentClientId } from "./net/identity";
 import { InventoryPanel } from "./ui/inventoryPanel";
+import { TitleScreen } from "./ui/titleScreen";
 import atlas from "./render/atlas.json";
 import { DungeonScene } from "./scenes/DungeonScene";
 
@@ -17,10 +18,20 @@ function playerName(): string {
   return name;
 }
 
+function savePlayerName(name: string): void {
+  localStorage.setItem(NAME_KEY, name);
+}
+
 // Same topology as production: the client only knows a ws URL.
 const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://localhost:8081";
 
 const conn = new Connection(wsUrl, playerName(), persistentClientId());
+const customMapReady = loadCustomMap();
+const title = new TitleScreen(playerName(), (level, name) => {
+  savePlayerName(name);
+  conn.setName(name);
+  void customMapReady.then(() => conn.connect(level));
+});
 
 // Tile Studio map stamp (tools/tile-studio/): must be installed before
 // any chunk is generated, and must match the server's file exactly —
@@ -42,8 +53,6 @@ async function loadCustomMap(): Promise<void> {
     // no custom map — the normal case
   }
 }
-void loadCustomMap().then(() => conn.connect());
-
 // e2e/test hook: Playwright asserts against live client state. Set
 // before the Game boots so it exists even if later setup fails.
 declare global {
@@ -90,6 +99,7 @@ Object.assign(chatInput.style, {
   fontSize: "13px",
   opacity: "0.55",
   zIndex: "10",
+  display: "none",
 });
 chatInput.addEventListener("focus", () => {
   chatInput.style.opacity = "1";
@@ -100,6 +110,10 @@ chatInput.addEventListener("blur", () => {
   chatInput.style.border = "1px solid #5c5470";
 });
 document.body.appendChild(chatInput);
+conn.onConnected = () => {
+  title.hide();
+  chatInput.style.display = "block";
+};
 
 // While ANY text input has focus (chat, inventory search), Phaser must
 // stop capturing the keyboard: its registered keys (space, digits,

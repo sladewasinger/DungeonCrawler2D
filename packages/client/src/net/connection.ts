@@ -1,5 +1,6 @@
 import {
   PROTOCOL_VERSION,
+  LEVEL,
   World,
   createBody,
   decodeServerMessage,
@@ -11,6 +12,7 @@ import {
   type MoveInput,
   type ServerSnapshot,
   type ServerWelcome,
+  type LevelId,
 } from "@dc2d/engine";
 import { applySnapshot } from "./apply";
 import { loadResumeToken, saveResumeToken } from "./identity";
@@ -80,11 +82,19 @@ export class Connection {
 
   constructor(
     private readonly url: string,
-    private readonly name: string,
+    private name: string,
     private readonly clientId: string,
   ) {}
 
-  connect(): void {
+  onConnected: (() => void) | null = null;
+  private level: LevelId = LEVEL.Dungeon;
+
+  setName(name: string): void {
+    this.name = name;
+  }
+
+  connect(level: LevelId = this.level): void {
+    this.level = level;
     this.status = "connecting";
     const ws = new WebSocket(this.url);
     this.ws = ws;
@@ -96,6 +106,7 @@ export class Connection {
         protocol: PROTOCOL_VERSION,
         name: this.name,
         clientId: this.clientId,
+        level: this.level,
         ...(resumeToken ? { resumeToken } : {}),
       });
     };
@@ -134,12 +145,13 @@ export class Connection {
     this.welcome = msg;
     this.status = "connected";
     saveResumeToken(msg.resumeToken);
-    this.world = new World(msg.worldSeed, msg.floor);
+    this.world = new World(msg.worldSeed, msg.floor, msg.level);
     this.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
     this.prediction.reset();
     this.entities.clear();
     this.areaTiles.clear();
     this.teleported = true;
+    this.onConnected?.();
     if (!this.pingTimer) {
       this.pingTimer = setInterval(() => {
         if (this.ws?.readyState === WebSocket.OPEN) {

@@ -8,6 +8,7 @@ import {
   createBody,
   enemyThink,
   isRoomChunk,
+  LEVEL,
   launchVelocity,
   makeEntity,
   newEntityId,
@@ -26,6 +27,7 @@ const PLATFORM_LOOT: string[] = ["bandage", "torch", "vodka-bottle", "knife", "w
 /** Enemy population (chunk activation) and per-tick AI. */
 
 export function activateChunksNearPlayers(sim: SimState): void {
+  if (sim.world.level === LEVEL.Sandbox && !sim.opts.testFixtures) return;
   for (const slot of sim.players.values()) {
     const ccx = Math.floor(slot.entity.body.x / CHUNK_SIZE);
     const ccy = Math.floor(slot.entity.body.y / CHUNK_SIZE);
@@ -42,8 +44,10 @@ export function activateChunksNearPlayers(sim: SimState): void {
 
 function populateChunk(sim: SimState, cx: number, cy: number): void {
   if (isRoomChunk(cy)) return;
-  // Dev test zone: fixed fixtures instead of random spawns.
-  if (populateTestZoneChunk(sim, cx, cy)) return;
+  if (sim.world.level === LEVEL.Sandbox) {
+    if (sim.opts.testFixtures) populateTestZoneChunk(sim, cx, cy);
+    return;
+  }
 
   // Ruin platforms carry loot on their tops — climbing pays.
   for (const spot of platformLootSpots(sim.world.worldSeed, sim.world.floor, cx, cy)) {

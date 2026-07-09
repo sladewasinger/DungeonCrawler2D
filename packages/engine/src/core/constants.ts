@@ -1,6 +1,6 @@
 /** Shared constants — the single source of truth for client and server. */
 
-export const PROTOCOL_VERSION = 3; // v3: unlimited inventory + hotbar bindings + equipment
+export const PROTOCOL_VERSION = 4;
 
 /** Server simulation rate. Clients also step prediction at this rate. */
 export const TICK_RATE = 20;

@@ -3,11 +3,11 @@ import {
   AOI_RADIUS,
   ATTACK_COOLDOWN_MS,
   JUMP_VELOCITY,
-  MIN_SPAWN_DIST,
+  LEVEL,
   PLAYER_MAX_HP,
   RECONNECT_GRACE_MS,
   RESPAWN_DELAY_TICKS,
-  TEST_SPAWN,
+  SANDBOX_SPAWN,
   TICK_RATE,
   TILE,
   World,
@@ -62,7 +62,19 @@ describe("GameSim", () => {
 
   beforeEach(() => {
     store = new PlayerStore(null);
-    sim = new GameSim(new World(SEED, 1), content, store, 1234);
+    sim = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 1234, {
+      testFixtures: true,
+    });
+  });
+
+  it("keeps the playable sandbox fixed and enemy-free", () => {
+    const sandbox = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, new PlayerStore(null), 77);
+    const player = sandbox.addPlayer("Sandboxer", "sandbox-client");
+    stepN(sandbox, TICK_RATE * 3);
+    expect(player.spawn.x).toBeCloseTo(SANDBOX_SPAWN.x, 5);
+    expect(player.spawn.y).toBeCloseTo(SANDBOX_SPAWN.y, 5);
+    expect(sandbox.enemyCount).toBe(0);
+    expect(sandbox.world.heightAt(18, 57)).toBe(7);
   });
 
   // ── dev harness: debug commands ──────────────────────────────────
@@ -77,8 +89,9 @@ describe("GameSim", () => {
     expect(aEntity.body.x).toBeCloseTo(spawnX, 3);
 
     // Dev sim: teleport moves the player; god mode shrugs off a skeleton.
-    const dev = new GameSim(new World(SEED, 1), content, new PlayerStore(null), 99, {
+    const dev = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, new PlayerStore(null), 99, {
       debugCommands: true,
+      testFixtures: true,
     });
     const b = dev.addPlayer("B", "client-b");
     const bEntity = dev.getPlayerEntity(b.playerId)!;
@@ -97,26 +110,25 @@ describe("GameSim", () => {
 
   // ── Epic 2 regression: spawn / AOI / reconnect ───────────────────
 
-  it("spawns the first player at the proving ground, others far away", () => {
+  it("spawns sandbox players at fixed traversal-lab positions", () => {
     const a = sim.addPlayer("A", "client-a");
-    expect(a.spawn.x).toBeCloseTo(TEST_SPAWN.x, 5);
+    expect(a.spawn.x).toBeCloseTo(SANDBOX_SPAWN.x, 5);
     const b = sim.addPlayer("B", "client-b");
-    expect(Math.hypot(a.spawn.x - b.spawn.x, a.spawn.y - b.spawn.y)).toBeGreaterThanOrEqual(
-      MIN_SPAWN_DIST,
-    );
+    expect(Math.hypot(a.spawn.x - b.spawn.x, a.spawn.y - b.spawn.y)).toBeCloseTo(2, 5);
   });
 
   it("replicates only within AOI, with enter/leave notices", () => {
     const a = sim.addPlayer("A", "client-a");
     const b = sim.addPlayer("B", "client-b");
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + AOI_RADIUS * 3, SANDBOX_SPAWN.y, sim);
     let snap = sim.step().get(a.playerId)!;
     expect(snap.entities.filter((e) => e.kind === "player")).toHaveLength(0);
 
-    teleport(sim.getPlayerEntity(b.playerId)!, TEST_SPAWN.x + 3, TEST_SPAWN.y, sim);
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + 3, SANDBOX_SPAWN.y, sim);
     snap = sim.step().get(a.playerId)!;
     expect(snap.entities.some((e) => e.id === b.playerId)).toBe(true);
 
-    teleport(sim.getPlayerEntity(b.playerId)!, TEST_SPAWN.x + AOI_RADIUS * 3, TEST_SPAWN.y, sim);
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + AOI_RADIUS * 3, SANDBOX_SPAWN.y, sim);
     snap = sim.step().get(a.playerId)!;
     expect(snap.left).toContain(b.playerId);
   });
@@ -150,7 +162,7 @@ describe("GameSim", () => {
     expect(sim.playerCount).toBe(0);
     // Their inventory hit the floor — lootable, per full-loot rules.
     const b = sim.addPlayer("B", "client-b");
-    teleport(sim.getPlayerEntity(b.playerId)!, TEST_SPAWN.x, TEST_SPAWN.y, sim);
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x, SANDBOX_SPAWN.y, sim);
     const snap = sim.step().get(b.playerId)!;
     expect(snap.entities.some((e) => e.kind === "item" && e.defId === "knife")).toBe(true);
   });
@@ -403,12 +415,13 @@ describe("GameSim", () => {
   it("party invite/accept requires proximity and consent; leave disbands at 1", () => {
     const a = sim.addPlayer("A", "client-a");
     const b = sim.addPlayer("B", "client-b");
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + 500, SANDBOX_SPAWN.y, sim);
     // Too far: invite is dropped.
     sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
     let snaps = sim.step();
     expect(eventsOf(snaps, b.playerId).some((e) => e.t === "invite")).toBe(false);
 
-    teleport(sim.getPlayerEntity(b.playerId)!, TEST_SPAWN.x + 2, TEST_SPAWN.y, sim);
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + 2, SANDBOX_SPAWN.y, sim);
     sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
     snaps = sim.step();
     expect(eventsOf(snaps, b.playerId).some((e) => e.t === "invite")).toBe(true);
@@ -418,10 +431,10 @@ describe("GameSim", () => {
     expect(snaps.get(a.playerId)!.party?.members.map((m) => m.id)).toContain(b.playerId);
 
     // Party members see each other's pings even far outside AOI.
-    teleport(sim.getPlayerEntity(b.playerId)!, TEST_SPAWN.x + 500, TEST_SPAWN.y, sim);
+    teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + 500, SANDBOX_SPAWN.y, sim);
     snaps = sim.step();
     const ping = snaps.get(a.playerId)!.party!.members.find((m) => m.id === b.playerId)!;
-    expect(ping.x).toBeCloseTo(TEST_SPAWN.x + 500, 3);
+    expect(ping.x).toBeCloseTo(SANDBOX_SPAWN.x + 500, 3);
 
     sim.queueAction(b.playerId, { type: "party", op: "leave" });
     snaps = sim.step();
@@ -430,7 +443,7 @@ describe("GameSim", () => {
 
   it("party chat reaches members anywhere; local chat is AOI-scoped", () => {
     const { aId, bId } = makeParty(sim);
-    teleport(sim.getPlayerEntity(bId)!, TEST_SPAWN.x + 500, TEST_SPAWN.y, sim);
+    teleport(sim.getPlayerEntity(bId)!, SANDBOX_SPAWN.x + 500, SANDBOX_SPAWN.y, sim);
     sim.queueAction(aId, { type: "chat", channel: "party", text: "descend at dawn" });
     let snaps = sim.step();
     expect(
@@ -510,7 +523,7 @@ describe("GameSim", () => {
   });
 
   it("the proving ground offers every epic's examples: weapons, hazards, enemies", () => {
-    const a = sim.addPlayer("A", "client-a"); // spawns at TEST_SPAWN
+    const a = sim.addPlayer("A", "client-a");
     const snap = stepN(sim, 2).get(a.playerId)!;
 
     // Epic 4: ground items at spawn, including the starter weapons.
@@ -584,7 +597,9 @@ describe("GameSim", () => {
     ]);
 
     // "Restart": a new sim sharing the same store.
-    const sim2 = new GameSim(new World(SEED, 1), content, store, 99);
+    const sim2 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 99, {
+      testFixtures: true,
+    });
     const again = sim2.addPlayer("A", "client-a");
     const entity2 = sim2.getPlayerEntity(again.playerId)!;
     teleport(entity2, features.stash.x + 1.5, features.stash.y + 0.5, sim2);
@@ -599,7 +614,7 @@ describe("GameSim", () => {
 function makeParty(sim: GameSim): { aId: string; bId: string } {
   const a = sim.addPlayer("A", "client-a");
   const b = sim.addPlayer("B", "client-b");
-  teleport(sim.getPlayerEntity(b.playerId)!, TEST_SPAWN.x + 2, TEST_SPAWN.y, sim);
+  teleport(sim.getPlayerEntity(b.playerId)!, SANDBOX_SPAWN.x + 2, SANDBOX_SPAWN.y, sim);
   sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
   sim.step();
   sim.queueAction(b.playerId, { type: "party", op: "accept" });

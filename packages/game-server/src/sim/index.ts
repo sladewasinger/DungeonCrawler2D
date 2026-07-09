@@ -52,6 +52,7 @@ export class GameSim {
       clusterSpawns?: boolean;
       /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
       debugCommands?: boolean;
+      testFixtures?: boolean;
     } = {},
   ) {
     this.state = createSimState(world, content, store, rngSeed, opts);

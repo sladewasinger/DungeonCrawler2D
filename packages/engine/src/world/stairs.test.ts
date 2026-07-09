@@ -3,6 +3,7 @@ import { STEP_UP, TICK_DT } from "../core/constants";
 import { hashString } from "../core/rng";
 import { createBody, stepBody } from "../entities/movement";
 import { hasTerrace, terraceSpec } from "./features/terraces";
+import { LEVEL } from "./level";
 import { entryClimbDir, stairRampAt } from "./stairs";
 import { CHUNK_SIZE, TILE } from "./types";
 import { World } from "./world";
@@ -30,37 +31,49 @@ function findSouthEntry(world: World): { x: number; y: number } {
 
 describe("stairs as physical ramps", () => {
   const world = new World(SEED, FLOOR);
+  const sandbox = new World(SEED, FLOOR, LEVEL.Sandbox);
   const entry = findSouthEntry(world);
 
-  it("ramps linearly across the complete two-tile stair run", () => {
+  it("ramps linearly across the complete two-and-a-half-tile stair run", () => {
     const { x, y } = entry;
-    expect(stairRampAt(world, x + 0.5, y + 1.999)).toBeCloseTo(0, 2);
-    expect(stairRampAt(world, x + 0.5, y + 1.75)).toBeCloseTo(0.25, 5);
-    expect(stairRampAt(world, x + 0.5, y + 1.5)).toBeCloseTo(0.5, 5);
-    expect(stairRampAt(world, x + 0.5, y + 1.25)).toBeCloseTo(0.75, 5);
-    expect(stairRampAt(world, x + 0.5, y + 1.001)).toBeCloseTo(1, 2);
-    expect(stairRampAt(world, x + 0.5, y + 0.999)).toBeCloseTo(1, 2);
-    expect(stairRampAt(world, x + 0.5, y + 0.75)).toBeCloseTo(1.25, 5);
-    expect(stairRampAt(world, x + 0.5, y + 0.5)).toBeCloseTo(1.5, 5);
-    expect(stairRampAt(world, x + 0.5, y + 0.25)).toBeCloseTo(1.75, 5);
+    expect(stairRampAt(world, x + 0.5, y + 2.499)).toBeCloseTo(0, 2);
+    expect(stairRampAt(world, x + 0.5, y + 2.25)).toBeCloseTo(0.2, 5);
+    expect(stairRampAt(world, x + 0.5, y + 2)).toBeCloseTo(0.4, 5);
+    expect(stairRampAt(world, x + 0.5, y + 1.5)).toBeCloseTo(0.8, 5);
+    expect(stairRampAt(world, x + 0.5, y + 1.25)).toBeCloseTo(1, 5);
+    expect(stairRampAt(world, x + 0.5, y + 1.001)).toBeCloseTo(1.2, 2);
+    expect(stairRampAt(world, x + 0.5, y + 0.999)).toBeCloseTo(1.2, 2);
+    expect(stairRampAt(world, x + 0.5, y + 0.75)).toBeCloseTo(1.4, 5);
+    expect(stairRampAt(world, x + 0.5, y + 0.5)).toBeCloseTo(1.6, 5);
+    expect(stairRampAt(world, x + 0.5, y + 0.25)).toBeCloseTo(1.8, 5);
     expect(stairRampAt(world, x + 0.5, y + 0.001)).toBeCloseTo(2, 2);
-    expect(world.groundAt(x + 0.5, y + 2.5)).toBe(0);
+    expect(world.groundAt(x + 0.5, y + 3.5)).toBe(0);
     expect(world.groundAt(x + 0.5, y - 0.5)).toBe(2);
   });
 
-  it("starts climbing on the approach tile and reaches the top on foot", () => {
+  it("matches the visible horizontal staircase footprint", () => {
+    expect(entryClimbDir(sandbox, 13, 36)).toBe(1);
+    expect(sandbox.groundAt(11.5, 36.5)).toBeCloseTo(0, 5);
+    expect(sandbox.groundAt(12.1, 36.5)).toBeCloseTo(0.48, 5);
+    expect(sandbox.groundAt(12.5, 36.5)).toBeCloseTo(0.8, 5);
+    expect(sandbox.groundAt(13.5, 36.5)).toBeCloseTo(1.6, 5);
+    expect(sandbox.groundAt(13.999, 36.5)).toBeCloseTo(2, 2);
+    expect(sandbox.groundAt(14.1, 36.5)).toBe(2);
+  });
+
+  it("starts climbing on the outer approach tile and reaches the top on foot", () => {
     const { x, y } = entry;
-    const body = createBody(x + 0.5, y + 2.5, 0);
+    const body = createBody(x + 0.5, y + 3.5, 0);
     const zs: number[] = [];
-    let roseOnApproach = false;
+    let roseOnOuterApproach = false;
     for (let i = 0; i < 30; i++) {
       stepBody(world, body, { moveX: 0, moveY: -1, jump: false }, TICK_DT);
       zs.push(body.z);
       expect(body.grounded).toBe(true);
-      if (Math.floor(body.y) === y + 1 && body.z > 0) roseOnApproach = true;
+      if (Math.floor(body.y) === y + 2 && body.z > 0) roseOnOuterApproach = true;
     }
     expect(body.z).toBeCloseTo(2, 5);
-    expect(roseOnApproach).toBe(true);
+    expect(roseOnOuterApproach).toBe(true);
     expect(zs.some((z) => z > 0.2 && z < 0.8)).toBe(true);
     expect(zs.some((z) => z > 1.2 && z < 1.8)).toBe(true);
     for (let i = 1; i < zs.length; i++) {
@@ -70,7 +83,7 @@ describe("stairs as physical ramps", () => {
 
   it("falls from partial height when leaving the stair's side", () => {
     const { x, y } = entry;
-    const body = createBody(x + 0.5, y + 2.5, 0);
+    const body = createBody(x + 0.5, y + 3.5, 0);
     for (let i = 0; i < 30 && body.z < 0.4; i++) {
       stepBody(world, body, { moveX: 0, moveY: -1, jump: false }, TICK_DT);
     }

@@ -13,6 +13,12 @@ const T_DOOR_SAFE_ROOM = 8;
  */
 
 test.describe("dungeoncrawler2d e2e", () => {
+  test("shows both level choices before connecting", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('[data-level="dungeon"]')).toBeVisible();
+    await expect(page.locator('[data-level="sandbox"]')).toBeVisible();
+  });
+
   test("boots, connects, and renders the world", async ({ page }) => {
     const state = await openGame(page);
     expect(state.status).toBe("connected");
@@ -353,7 +359,7 @@ test.describe("dungeoncrawler2d e2e", () => {
       { timeout: 5000 },
     );
     const arrived = await readState(page);
-    expect(arrived.z).toBeCloseTo(0.5, 1);
+    expect(arrived.z).toBeCloseTo(0.8, 1);
     await page.waitForTimeout(400); // terrain chunks build in
     await page.screenshot({ path: "docs/art-samples/live-terrace-stairs.png" });
 

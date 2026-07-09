@@ -28,6 +28,7 @@ export default defineConfig({
         STORE_FILE: "none",
         CLUSTER_SPAWNS: "1",
         DEBUG_COMMANDS: "1",
+        TEST_FIXTURES: "1",
       },
     },
     {

@@ -9,6 +9,7 @@ import { z } from "zod";
 
 const axis = z.union([z.literal(-1), z.literal(0), z.literal(1)]);
 const slot = z.number().int().min(0).max(8);
+const level = z.enum(["dungeon", "sandbox"]);
 
 // ── client → server ────────────────────────────────────────────────
 
@@ -18,6 +19,7 @@ export const clientHelloSchema = z.object({
   name: z.string().min(1).max(16),
   /** Persistent anonymous identity (stash/slot ownership). */
   clientId: z.string().min(4).max(64),
+  level: level.default("dungeon"),
   resumeToken: z.string().max(64).optional(),
 });
 
@@ -207,6 +209,7 @@ export const serverWelcomeSchema = z.object({
   resumeToken: z.string(),
   worldSeed: z.number().int(),
   floor: z.number().int(),
+  level,
   tickRate: z.number().int(),
   spawn: z.object({ x: z.number(), y: z.number(), z: z.number() }),
 });

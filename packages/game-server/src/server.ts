@@ -1,21 +1,17 @@
 import {
+  LEVEL,
+  LEVEL_IDS,
   PROTOCOL_VERSION,
   TICK_RATE,
   World,
   decodeClientMessage,
   encodeMessage,
   type ContentRegistry,
+  type LevelId,
 } from "@dc2d/engine";
 import { WebSocket, WebSocketServer } from "ws";
 import { GameSim } from "./sim";
 import { PlayerStore } from "./store";
-
-/**
- * Thin ws transport around GameSim. Every inbound message is decoded
- * and zod-validated by the engine's protocol module before it touches
- * the sim; anything malformed is dropped (and hello failures close
- * the socket).
- */
 
 export interface ServerOptions {
   port: number;
@@ -24,37 +20,44 @@ export interface ServerOptions {
   content: ContentRegistry;
   storeFile?: string | null;
   rngSeed?: number;
-  /** e2e scaffolding: spawn players together at the proving ground. */
   clusterSpawns?: boolean;
-  /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
   debugCommands?: boolean;
+  testFixtures?: boolean;
 }
 
 export interface RunningServer {
   wss: WebSocketServer;
   sim: GameSim;
+  sims: Record<LevelId, GameSim>;
   store: PlayerStore;
   stop(): void;
 }
 
 export function startServer(opts: ServerOptions): RunningServer {
-  const world = new World(opts.worldSeed, opts.floor);
   const store = new PlayerStore(opts.storeFile ?? null);
-  const sim = new GameSim(
-    world,
-    opts.content,
-    store,
-    opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
-    {
-      clusterSpawns: opts.clusterSpawns ?? false,
-      debugCommands: opts.debugCommands ?? false,
-    },
-  );
+  const initialSeed = opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+  const sims = Object.fromEntries(
+    LEVEL_IDS.map((level, index) => [
+      level,
+      new GameSim(
+        new World(opts.worldSeed, opts.floor, level),
+        opts.content,
+        store,
+        initialSeed + index,
+        {
+          clusterSpawns: opts.clusterSpawns ?? false,
+          debugCommands: opts.debugCommands ?? false,
+          testFixtures: opts.testFixtures ?? false,
+        },
+      ),
+    ]),
+  ) as Record<LevelId, GameSim>;
   const wss = new WebSocketServer({ port: opts.port });
-  const sockets = new Map<string, WebSocket>();
+  const sockets = new Map<string, { ws: WebSocket; sim: GameSim }>();
 
   wss.on("connection", (ws) => {
     let playerId: string | null = null;
+    let sim: GameSim | null = null;
 
     ws.on("message", (data) => {
       const msg = decodeClientMessage(data.toString());
@@ -77,11 +80,12 @@ export function startServer(opts: ServerOptions): RunningServer {
             ws.close(1002, "protocol mismatch");
             return;
           }
+          sim = sims[msg.level];
           const join = sim.addPlayer(msg.name, msg.clientId, msg.resumeToken);
           playerId = join.playerId;
           const previous = sockets.get(playerId);
-          if (previous && previous !== ws) previous.close(1000, "resumed elsewhere");
-          sockets.set(playerId, ws);
+          if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");
+          sockets.set(playerId, { ws, sim });
           ws.send(
             encodeMessage({
               type: "welcome",
@@ -90,6 +94,7 @@ export function startServer(opts: ServerOptions): RunningServer {
               resumeToken: join.resumeToken,
               worldSeed: opts.worldSeed,
               floor: opts.floor,
+              level: msg.level,
               tickRate: TICK_RATE,
               spawn: join.spawn,
             }),
@@ -97,48 +102,44 @@ export function startServer(opts: ServerOptions): RunningServer {
           return;
         }
         case "input":
-          if (playerId) sim.handleInput(playerId, msg);
+          if (playerId && sim) sim.handleInput(playerId, msg);
           return;
         case "ping":
           ws.send(encodeMessage({ type: "pong", t: msg.t }));
           return;
         default:
-          if (playerId) sim.queueAction(playerId, msg);
-          return;
+          if (playerId && sim) sim.queueAction(playerId, msg);
       }
     });
 
     ws.on("close", () => {
-      if (playerId && sockets.get(playerId) === ws) {
+      if (playerId && sim && sockets.get(playerId)?.ws === ws) {
         sockets.delete(playerId);
         sim.markDisconnected(playerId);
       }
     });
-
-    ws.on("error", () => {
-      /* close handler does the cleanup */
-    });
   });
 
   const interval = setInterval(() => {
-    const snapshots = sim.step();
-    for (const [id, snapshot] of snapshots) {
-      const ws = sockets.get(id);
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(encodeMessage(snapshot));
+    for (const level of LEVEL_IDS) {
+      const snapshots = sims[level].step();
+      for (const [id, snapshot] of snapshots) {
+        const socket = sockets.get(id)?.ws;
+        if (socket?.readyState === WebSocket.OPEN) socket.send(encodeMessage(snapshot));
       }
     }
   }, 1000 / TICK_RATE);
 
   return {
     wss,
-    sim,
+    sim: sims[LEVEL.Dungeon],
+    sims,
     store,
     stop() {
       clearInterval(interval);
       store.flush();
       wss.close();
-      for (const ws of sockets.values()) ws.close(1001, "server stopping");
+      for (const { ws } of sockets.values()) ws.close(1001, "server stopping");
     },
   };
 }

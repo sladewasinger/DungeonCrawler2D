@@ -2,6 +2,7 @@ export * from "./core/constants";
 export * from "./core/rng";
 export * from "./core/noise";
 export * from "./world/types";
+export * from "./world/level";
 export * from "./world/stairs";
 export * from "./world/terrain";
 export * from "./world/features/fixed";

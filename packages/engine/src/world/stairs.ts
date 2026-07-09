@@ -12,11 +12,12 @@ const DIRS = [
   [-1, 0],
 ] as const;
 
+const STAIR_RUN_LENGTH = 2.5;
+
 interface StairRun {
   stairX: number;
   stairY: number;
   direction: number;
-  onApproach: boolean;
 }
 
 export function entryClimbDir(world: StairView, wx: number, wy: number): number | null {
@@ -34,37 +35,40 @@ export function entryClimbDir(world: StairView, wx: number, wy: number): number 
 }
 
 function stairRunAt(world: StairView, tx: number, ty: number): StairRun | null {
-  const direction = entryClimbDir(world, tx, ty);
-  if (direction !== null) return { stairX: tx, stairY: ty, direction, onApproach: false };
-
   for (let direction = 0; direction < DIRS.length; direction++) {
     const [dx, dy] = DIRS[direction]!;
-    const stairX = tx + dx;
-    const stairY = ty + dy;
-    if (entryClimbDir(world, stairX, stairY) === direction) {
-      return { stairX, stairY, direction, onApproach: true };
+    for (let offset = 0; offset <= 2; offset++) {
+      const stairX = tx + dx * offset;
+      const stairY = ty + dy * offset;
+      if (entryClimbDir(world, stairX, stairY) === direction) {
+        return { stairX, stairY, direction };
+      }
     }
   }
 
   return null;
 }
 
+function distanceFromHighEdge(run: StairRun, x: number, y: number): number {
+  switch (run.direction) {
+    case 0:
+      return run.stairY - y;
+    case 1:
+      return x - (run.stairX + 1);
+    case 2:
+      return y - (run.stairY + 1);
+    default:
+      return run.stairX - x;
+  }
+}
+
 export function stairRampAt(world: StairView, x: number, y: number): number | null {
-  const tx = Math.floor(x);
-  const ty = Math.floor(y);
-  const run = stairRunAt(world, tx, ty);
+  const run = stairRunAt(world, Math.floor(x), Math.floor(y));
   if (!run) return null;
   const [dx, dy] = DIRS[run.direction]!;
   const high = world.heightAt(run.stairX + dx, run.stairY + dy);
   const low = world.heightAt(run.stairX - dx, run.stairY - dy);
-  const progress =
-    run.direction === 0
-      ? 1 - (y - ty)
-      : run.direction === 1
-        ? x - tx
-        : run.direction === 2
-          ? y - ty
-          : 1 - (x - tx);
-  const t = (run.onApproach ? progress : 1 + progress) / 2;
-  return low + (high - low) * t;
+  const t = (distanceFromHighEdge(run, x, y) + STAIR_RUN_LENGTH) / STAIR_RUN_LENGTH;
+  if (t < 0) return null;
+  return low + (high - low) * Math.min(1, t);
 }

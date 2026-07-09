@@ -49,6 +49,7 @@ const server = startServer({
   storeFile,
   clusterSpawns: process.env.CLUSTER_SPAWNS === "1",
   debugCommands,
+  testFixtures: process.env.TEST_FIXTURES === "1",
 });
 
 console.log(

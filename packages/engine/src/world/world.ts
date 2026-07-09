@@ -1,5 +1,6 @@
 import { generateChunk } from "./generate";
 import { stairRampAt } from "./stairs";
+import { LEVEL, type LevelId } from "./level";
 import {
   CHUNK_SIZE,
   SOLID_TILES,
@@ -23,13 +24,14 @@ export class World implements WorldView {
   constructor(
     readonly worldSeed: number,
     readonly floor: number,
+    readonly level: LevelId = LEVEL.Dungeon,
   ) {}
 
   getChunk(cx: number, cy: number): Chunk {
     const key = `${cx},${cy}`;
     let chunk = this.chunks.get(key);
     if (!chunk) {
-      chunk = generateChunk(this.worldSeed, this.floor, cx, cy);
+      chunk = generateChunk(this.worldSeed, this.floor, cx, cy, this.level);
       this.chunks.set(key, chunk);
     }
     return chunk;

@@ -96,6 +96,7 @@ export interface SimState {
     clusterSpawns?: boolean;
     /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
     debugCommands?: boolean;
+    testFixtures?: boolean;
   };
   readonly players: Map<string, PlayerSlot>;
   readonly byToken: Map<string, string>;
