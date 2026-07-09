@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GRAVITY, JUMP_VELOCITY, STEP_UP, TICK_DT, WALL_RISE } from "../core/constants";
 import { hashString } from "../core/rng";
 import { createBody, stepBody } from "../entities/movement";
-import { personalRoomChunk, personalRoomSpawn } from "./rooms";
+import { personalRoomChunk, personalRoomSpawn } from "./features/rooms";
 import { CHUNK_SIZE, TILE } from "./types";
 import { World } from "./world";
 

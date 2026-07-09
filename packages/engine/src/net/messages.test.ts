@@ -8,7 +8,7 @@ import {
   type ServerSnapshot,
 } from "./messages";
 
-describe("protocol v2", () => {
+describe("protocol v3", () => {
   it("round-trips a client input", () => {
     const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, jump: true };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
@@ -19,7 +19,11 @@ describe("protocol v2", () => {
       { type: "attack", dirX: 1, dirY: 0 },
       { type: "useSlot", slot: 2, targetX: 10.5, targetY: -3.25 },
       { type: "pickup" },
-      { type: "drop", slot: 0 },
+      { type: "drop", item: "rag" },
+      { type: "assign", slot: 4, item: "bandage" },
+      { type: "assign", slot: 4, item: null },
+      { type: "equip", item: "knife" },
+      { type: "equip", item: null },
       { type: "interact" },
       { type: "craft", recipe: "bandage" },
       { type: "stash", op: "put", index: 3 },
@@ -48,8 +52,12 @@ describe("protocol v2", () => {
         maxHp: 30,
         fx: ["bleeding"],
       },
-      inventory: [{ item: "rag", qty: 2 }, null, null, null, null, null, null, null, null],
-      selectedSlot: 0,
+      inventory: [
+        { item: "rag", qty: 2 },
+        { item: "bandage", qty: 5 },
+      ],
+      hotbar: ["bandage", null, null, null, null, null, null, null, null],
+      weapon: "knife",
       party: { id: "party1", members: [{ id: "p2", name: "Ally", x: 100, y: 50 }] },
       entities: [
         { id: "e1", kind: "enemy", defId: "slime", x: 9, y: 9, z: 0, hp: 12, maxHp: 12, fx: [] },
@@ -73,8 +81,8 @@ describe("protocol v2", () => {
     expect(
       decodeClientMessage('{"type":"input","seq":1,"moveX":50,"moveY":0,"jump":false}'),
     ).toBeNull();
-    // Slot out of range.
-    expect(decodeClientMessage('{"type":"drop","slot":99}')).toBeNull();
+    // Hotbar slot out of range.
+    expect(decodeClientMessage('{"type":"assign","slot":99,"item":"rag"}')).toBeNull();
     // Oversized chat.
     expect(
       decodeClientMessage(

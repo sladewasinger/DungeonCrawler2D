@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { STEP_UP } from "../core/constants";
-import { hashString } from "../core/rng";
+import { STEP_UP } from "../../core/constants";
+import { hashString } from "../../core/rng";
 import { hasPlatformCluster } from "./platforms";
 import { TERRACE_RISE, hasTerrace, terraceSpec } from "./terraces";
-import { chunkCenter } from "./terrain";
-import { CHUNK_SIZE, TILE } from "./types";
-import { World } from "./world";
+import { chunkCenter } from "../terrain";
+import { CHUNK_SIZE, TILE } from "../types";
+import { World } from "../world";
 
 const SEED = hashString("test-world");
 const FLOOR = 1;
@@ -49,7 +49,10 @@ describe("raised sections (terraces)", () => {
     }
     expect(raisedFloors).toBeGreaterThan(40);
 
-    // Stairs: only on the boundary ring, at the halfway step.
+    // Entry steps: one tile OUTSIDE the boundary (the rect's outline
+    // stays unbroken; the staircase object leans against it) — and
+    // NEVER on the north side (no north→south-climbing staircase
+    // exists in the pack; north edges are drop-off ledges).
     let stairs = 0;
     let linked = 0;
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
@@ -59,9 +62,13 @@ describe("raised sections (terraces)", () => {
         if (world.tileAt(x, y) !== TILE.Stairs) continue;
         stairs++;
         expect(world.heightAt(x, y)).toBe(TERRACE_RISE / 2);
-        const onRing =
-          Math.abs(lx - spec.lx) === spec.hx || Math.abs(ly - spec.ly) === spec.hy;
-        expect(onRing).toBe(true);
+        const dx = Math.abs(lx - spec.lx);
+        const dy = ly - spec.ly;
+        const outsideEdge =
+          (dx === spec.hx + 1 && Math.abs(dy) < spec.hy) || // east/west
+          (dy === spec.hy + 1 && dx < spec.hx); // south
+        expect(outsideEdge, `step at ${lx},${ly} hugs an entry edge`).toBe(true);
+        expect(dy, "no steps on the north side").not.toBe(-(spec.hy + 1));
         // Does this entry step actually link low ground to the top?
         let low = false;
         let high = false;

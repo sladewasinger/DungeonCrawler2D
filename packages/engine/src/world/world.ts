@@ -1,4 +1,5 @@
 import { generateChunk } from "./generate";
+import { stairRampAt } from "./stairs";
 import {
   CHUNK_SIZE,
   SOLID_TILES,
@@ -59,6 +60,11 @@ export class World implements WorldView {
 
   isWalkable(wx: number, wy: number): boolean {
     return !SOLID_TILES.has(this.tileAt(wx, wy));
+  }
+
+  /** Continuous ground height: stair tiles ramp with position. */
+  groundAt(x: number, y: number): number {
+    return stairRampAt(this, x, y) ?? this.heightAt(Math.floor(x), Math.floor(y));
   }
 
   isSanctuary(wx: number, wy: number): boolean {

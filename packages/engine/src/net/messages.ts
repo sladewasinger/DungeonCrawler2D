@@ -37,6 +37,7 @@ export const clientAttackSchema = z.object({
 
 export const clientUseSlotSchema = z.object({
   type: z.literal("useSlot"),
+  /** Hotbar slot: uses the item def bound there, consuming from inventory. */
   slot,
   /** Present = throw at this tile (if throwable); absent = consume. */
   targetX: z.number().optional(),
@@ -44,8 +45,19 @@ export const clientUseSlotSchema = z.object({
 });
 
 export const clientPickupSchema = z.object({ type: z.literal("pickup") });
-export const clientDropSchema = z.object({ type: z.literal("drop"), slot });
-export const clientSelectSlotSchema = z.object({ type: z.literal("selectSlot"), slot });
+/** Drop a whole stack from the unlimited inventory, by item def. */
+export const clientDropSchema = z.object({ type: z.literal("drop"), item: z.string().max(64) });
+/** Bind an owned item def to a hotbar slot (null clears the binding). */
+export const clientAssignSchema = z.object({
+  type: z.literal("assign"),
+  slot,
+  item: z.string().max(64).nullable(),
+});
+/** Equip an owned weapon def into the character slot (null unequips). */
+export const clientEquipSchema = z.object({
+  type: z.literal("equip"),
+  item: z.string().max(64).nullable(),
+});
 export const clientInteractSchema = z.object({ type: z.literal("interact") });
 export const clientCraftSchema = z.object({ type: z.literal("craft"), recipe: z.string().max(64) });
 
@@ -89,7 +101,8 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientUseSlotSchema,
   clientPickupSchema,
   clientDropSchema,
-  clientSelectSlotSchema,
+  clientAssignSchema,
+  clientEquipSchema,
   clientInteractSchema,
   clientCraftSchema,
   clientStashSchema,
@@ -142,7 +155,11 @@ export const entitySnapshotSchema = z.object({
 });
 export type EntitySnapshot = z.infer<typeof entitySnapshotSchema>;
 
-export const invSlotSchema = z.object({ item: z.string(), qty: z.number().int() }).nullable();
+/** One inventory stack: the unlimited inventory holds one per item def. */
+export const invStackSchema = z.object({ item: z.string(), qty: z.number().int() });
+export type InvStack = z.infer<typeof invStackSchema>;
+/** Stash slots may be empty (the stash keeps its fixed-capacity model). */
+export const invSlotSchema = invStackSchema.nullable();
 export type InvSlot = z.infer<typeof invSlotSchema>;
 
 export const partySnapshotSchema = z
@@ -199,8 +216,12 @@ export const serverSnapshotSchema = z.object({
   tick: z.number().int(),
   lastSeq: z.number().int(),
   self: selfSnapshotSchema,
-  inventory: z.array(invSlotSchema),
-  selectedSlot: slot,
+  /** Unlimited inventory: one stack per item def. */
+  inventory: z.array(invStackSchema),
+  /** Hotbar bindings: item def per quick-use slot (qty lives in inventory). */
+  hotbar: z.array(z.string().nullable()),
+  /** Equipped weapon def (melee swings use it), null = fists. */
+  weapon: z.string().nullable(),
   party: partySnapshotSchema,
   entities: z.array(entitySnapshotSchema),
   left: z.array(z.string()),

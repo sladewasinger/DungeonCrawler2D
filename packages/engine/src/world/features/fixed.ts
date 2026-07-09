@@ -1,12 +1,12 @@
-import { hash2D, mixSeeds } from "../core/rng";
+import { hash2D, mixSeeds } from "../../core/rng";
 import {
   baseSample,
   seedsFor,
   smoothstep01,
   type CorridorSegment,
   type Seeds,
-} from "./terrain";
-import { CHUNK_SIZE, TILE } from "./types";
+} from "../terrain";
+import { CHUNK_SIZE, TILE } from "../types";
 
 /**
  * Fixed features placed deterministically per floor: safe-room

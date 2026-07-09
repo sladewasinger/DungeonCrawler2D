@@ -1,5 +1,5 @@
-import { hash2D, mixSeeds } from "../core/rng";
-import { isSafeRoomChunk, isStairsChunk } from "./features";
+import { hash2D, mixSeeds } from "../../core/rng";
+import { isSafeRoomChunk, isStairsChunk } from "./fixed";
 import {
   CORRIDOR_HALF_WIDTH,
   baseSample,
@@ -9,8 +9,8 @@ import {
   seedsFor,
   type CorridorSegment,
   type Seeds,
-} from "./terrain";
-import { CHUNK_SIZE, TILE } from "./types";
+} from "../terrain";
+import { CHUNK_SIZE, TILE } from "../types";
 
 /**
  * Ruin platform clusters — the jump playground of the overworld.

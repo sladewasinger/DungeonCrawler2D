@@ -41,6 +41,9 @@ export class DungeonScene extends Phaser.Scene {
     this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.spritesheet("enemies", "assets/enemies.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.image("packsheet", `assets/${atlas.packSheet.image}`);
+    for (const [key, sprite] of Object.entries(atlas.stairSprites)) {
+      this.load.image(`stair-${key}`, `assets/${sprite.image}`);
+    }
   }
 
   create(): void {

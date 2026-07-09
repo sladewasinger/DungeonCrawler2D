@@ -9,7 +9,7 @@ import {
   type EnemyDef,
   type Entity,
   type GameEvent,
-  type InvSlot,
+  type InvStack,
   type World,
 } from "@dc2d/engine";
 import { PlayerStore, type StoredPlayer } from "../store";
@@ -37,8 +37,12 @@ export interface PlayerSlot {
   connected: boolean;
   reapAtTick: number;
   known: Set<string>;
-  inventory: InvSlot[];
-  selectedSlot: number;
+  /** Unlimited inventory: one stack per item def, pruned at qty 0. */
+  inventory: InvStack[];
+  /** Quick-use bar: item def bound per slot (qty lives in inventory). */
+  hotbar: Array<string | null>;
+  /** Equipped weapon def; null = fists. Melee swings read this. */
+  weapon: string | null;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];
   /** Where DoorExit leads, innermost last — portals nest (world → safe room → personal). */

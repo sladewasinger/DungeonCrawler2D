@@ -21,7 +21,7 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { adjacentToTile, combatants, effectTargetFor } from "./helpers";
-import { consumeFromSlot, doCraft, doDrop, doPickup, doStash } from "./inventory";
+import { doCraft, doDrop, doPickup, doStash, invIndex, invQty, invRemove } from "./inventory";
 import { doChat, doParty } from "./social";
 import { findSpawn } from "./spawn";
 import type { PlayerSlot, SimState } from "./state";
@@ -47,10 +47,23 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
           if (slot.downedAtTick === null) doPickup(sim, slot);
           break;
         case "drop":
-          if (slot.downedAtTick === null) doDrop(sim, slot, action.slot);
+          if (slot.downedAtTick === null) doDrop(sim, slot, action.item);
           break;
-        case "selectSlot":
-          slot.selectedSlot = action.slot;
+        case "assign":
+          // Bind an owned def (or clear) — the hotbar holds references.
+          if (action.item === null || invIndex(slot, action.item) >= 0) {
+            slot.hotbar[action.slot] = action.item;
+          }
+          break;
+        case "equip":
+          if (action.item === null) {
+            slot.weapon = null;
+          } else if (
+            invIndex(slot, action.item) >= 0 &&
+            sim.content.items.get(action.item)?.weapon
+          ) {
+            slot.weapon = action.item;
+          }
           break;
         case "interact":
           doInteract(sim, slot, effectEvents);
@@ -99,9 +112,10 @@ function doAttack(
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
   if (sim.tickCount < slot.attackReadyAtTick) return; // swing still recovering
   slot.attackReadyAtTick = sim.tickCount + ATTACK_COOLDOWN_TICKS;
-  const weaponSlot = slot.inventory[slot.selectedSlot];
-  const weapon = weaponSlot ? sim.content.items.get(weaponSlot.item)?.weapon : undefined;
-  const weaponTags = weaponSlot ? (sim.content.items.get(weaponSlot.item)?.tags ?? []) : [];
+  // Melee swings use the EQUIPPED weapon (character slot, not hotbar).
+  const weaponDef = slot.weapon ? sim.content.items.get(slot.weapon) : undefined;
+  const weapon = weaponDef?.weapon;
+  const weaponTags = weaponDef?.tags ?? [];
 
   const victim = pickMeleeTarget(attacker, dirX, dirY, combatants(sim), (target) =>
     target.kind === "player" &&
@@ -132,6 +146,7 @@ function doAttack(
   }
 }
 
+/** Use whatever def is bound to a hotbar slot, consuming from inventory. */
 function doUseSlot(
   sim: SimState,
   slot: PlayerSlot,
@@ -140,10 +155,10 @@ function doUseSlot(
   targetY: number | undefined,
   effectEvents: EffectEvent[],
 ): void {
-  const inv = slot.inventory[index];
-  if (!inv) return;
-  const def = sim.content.items.get(inv.item);
-  if (!def) return;
+  const defId = slot.hotbar[index];
+  if (!defId) return;
+  const def = sim.content.items.get(defId);
+  if (!def || invQty(slot, defId) < 1) return;
 
   if (targetX !== undefined && targetY !== undefined && def.throwable) {
     const from = slot.entity.body;
@@ -157,17 +172,17 @@ function doUseSlot(
     const to = {
       x: from.x + dx,
       y: from.y + dy,
-      z: sim.world.heightAt(Math.floor(from.x + dx), Math.floor(from.y + dy)),
+      z: sim.world.groundAt(from.x + dx, from.y + dy),
     };
     const projectile = makeEntity("projectile", createBody(from.x, from.y, from.z + 1), {
       id: newEntityId("j"),
-      defId: inv.item,
+      defId,
       ownerId: slot.entity.id,
       tags: new Set(def.tags),
       vel: launchVelocity({ x: from.x, y: from.y, z: from.z + 1 }, to, THROW_SPEED),
     });
     sim.projectiles.set(projectile.id, projectile);
-    consumeFromSlot(slot, index);
+    invRemove(slot, defId, 1);
     return;
   }
 
@@ -179,7 +194,7 @@ function doUseSlot(
       {},
       () => sim.rng.next(),
     );
-    consumeFromSlot(slot, index);
+    invRemove(slot, defId, 1);
   }
 }
 
@@ -254,7 +269,7 @@ function teleport(
     slot.returnStack.push({ x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z });
     if (slot.returnStack.length > 4) slot.returnStack.shift();
   }
-  const z = to.z ?? sim.world.heightAt(Math.floor(to.x), Math.floor(to.y));
+  const z = to.z ?? sim.world.groundAt(to.x, to.y);
   slot.entity.body = createBody(to.x, to.y, z);
   slot.needsFullAreas = true;
   slot.known.clear();

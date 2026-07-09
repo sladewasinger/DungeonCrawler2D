@@ -10,7 +10,7 @@ export function findSpawn(sim: SimState): { x: number; y: number; z: number } {
   if (sim.opts.clusterSpawns) {
     const x = TEST_SPAWN.x + sim.players.size * 2;
     const y = TEST_SPAWN.y;
-    return { x, y, z: sim.world.heightAt(Math.floor(x), Math.floor(y)) };
+    return { x, y, z: sim.world.groundAt(x, y) };
   }
 
   // Dev scaffolding: first player to fit lands at the proving ground.
@@ -22,7 +22,7 @@ export function findSpawn(sim: SimState): { x: number; y: number; z: number } {
       if (d < nearest) nearest = d;
     }
     if (nearest >= MIN_SPAWN_DIST) {
-      return { x: TEST_SPAWN.x, y: TEST_SPAWN.y, z: sim.world.heightAt(test.x, test.y) };
+      return { x: TEST_SPAWN.x, y: TEST_SPAWN.y, z: sim.world.groundAt(TEST_SPAWN.x, TEST_SPAWN.y) };
     }
   }
 
@@ -51,7 +51,7 @@ export function findSpawn(sim: SimState): { x: number; y: number; z: number } {
   const spot = best ?? { x: 0.5, y: 0.5 };
   const x = spot.x + 0.5;
   const y = spot.y + 0.5;
-  return { x, y, z: sim.world.heightAt(Math.floor(x), Math.floor(y)) };
+  return { x, y, z: sim.world.groundAt(x, y) };
 }
 
 export function findWalkableNear(

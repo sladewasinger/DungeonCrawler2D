@@ -34,10 +34,16 @@
  *   - sanctuary                     → smooth slab, teal-shifted + bevel ring
  *   - floor next to a wall          → soft dark shadow border overlay
  *
+ * Staircases: single-step entries wear the pack's REAL staircase
+ * objects (TX Struct) — a 2×3-tile south-face staircase and the E/W
+ * wedge objects — baked as standalone sprites (stair-*.png) and
+ * stamped over the tilemap by render/stairsprites.ts. Tread tiles
+ * remain underneath for long ramps and north-edge entries.
+ *
  * REPLACE-LATER ART (procedural placeholders, no pack equivalent):
- * stair treads, ledge-rim overlays, player + enemy sprites, area-effect
- * overlay tiles (fire/wet/poison/oil/smoke/steam), crafting table and
- * door tiles. The stash chest is from the pack's Objects.png.
+ * ledge-rim overlays, player + enemy sprites, area-effect overlay
+ * tiles (fire/wet/poison/oil/smoke/steam), crafting table and door
+ * tiles. The stash chest is from the pack's Objects.png.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -300,9 +306,9 @@ const F = {
   stairRailE: 85,
   stairRailN: 86,
   stairRailS: 87,
-  /** Wall brick face, lower half of the wall's own cell (the cap layer
-   * renders the top shifted half a tile north). */
-  wallFaceHalf: 88,
+  /** Wall brick face filling the wall's own cell (the cap layer renders
+   * the top a full tile north — walls read two tiles tall). */
+  wallFace: 88,
 };
 
 // ── Tile Studio combined sheet (Cainos top-down pack, 32px tiles) ──
@@ -383,7 +389,7 @@ const atlas = {
     stairRailE: F.stairRailE,
     stairRailN: F.stairRailN,
     stairRailS: F.stairRailS,
-    wallFaceHalf: F.wallFaceHalf,
+    wallFace: F.wallFace,
     faceTall: F.faceTall,
     faceShort: F.faceShort,
     /** rim frame = rimBase + bitmask (S=1, E=2, W=4, N=8), masks 1..15 */
@@ -522,11 +528,12 @@ for (let mask = 1; mask < 16; mask++) {
   blitRect(tiles, x, y + TILE - K(14), txWall, ...C.capEdgeS, KS);
 }
 
-// Wall face for the lower half of a wall's own cell: the visible base
-// you collide with (the cap layer draws the top half a tile north).
+// Wall face filling the wall's own cell: the visible base you collide
+// with (the cap layer draws the top a full tile north, so the whole
+// wall reads two tiles tall like the pack's own structures).
 {
-  const [x, y] = frameXY(atlas.frames.wallFaceHalf);
-  blitRect(tiles, x, y + K(16), txWall, C.face[0], C.face[1], 32, 11, KS);
+  const [x, y] = frameXY(atlas.frames.wallFace);
+  blitRect(tiles, x, y, txWall, ...C.face, KS);
   blitRect(tiles, x, y + TILE - K(5), txWall, ...C.faceBottom, KS);
 }
 
@@ -784,12 +791,57 @@ ENEMY_SPRITES.forEach((sprite, i) => {
   drawPixelMap(enemies, i * TILE, 0, sprite.pixels, sprite.palette);
 });
 
+// ── full staircase objects (TX Struct) — standalone sprites ────────
+
+// The pack's real staircases, baked ×2 like every other Cainos slice:
+// a 2×3-tile south-face staircase (courses + side trim) and the two
+// full wedge objects (slanted rails over a stringer). They're
+// free-form multi-tile assemblies, not grid tiles, so they ship as
+// standalone images that render/stairsprites.ts stamps over
+// single-step entries (one object per entry, like the pack's sample
+// map). Measured rects, clean (least-mossy) variants.
+const STAIR_SPRITES = {
+  ns: [32, 32, 64, 96], // south-face staircase, climbs north
+  e: [48, 288, 90, 96], // wedge, tall side east — climbs east
+  w: [184, 384, 88, 96], // wedge, tall side west — climbs west
+};
+/** The struct staircases carry grass tufts where they met the pack's
+ * grass platforms — on our stone dungeon they read as olive bands.
+ * Recolor olive pixels to a warm stone gray of the same luminance
+ * (outlines and geometry untouched). */
+function degrass(img) {
+  for (let i = 0; i < img.data.length; i += 4) {
+    if (img.data[i + 3] < 8) continue;
+    const [r, g, b] = [img.data[i], img.data[i + 1], img.data[i + 2]];
+    if (g > 40 && b < g * 0.5) {
+      const lum = 0.3 * r + 0.6 * g + 0.1 * b;
+      img.data[i] = Math.min(255, Math.round(lum * 1.05));
+      img.data[i + 1] = Math.round(lum);
+      img.data[i + 2] = Math.round(lum * 0.82);
+    }
+  }
+}
+
+atlas.stairSprites = {};
+const stairImages = {};
+for (const [key, [sx, sy, w, h]] of Object.entries(STAIR_SPRITES)) {
+  const img = makeImage(w * 2, h * 2);
+  blitRect(img, 0, 0, txStruct, sx, sy, w, h, KS);
+  degrass(img);
+  stairImages[`stair-${key}.png`] = img;
+  atlas.stairSprites[key] = { image: `stair-${key}.png`, w: w * 2, h: h * 2 };
+}
+
 // ── write ──────────────────────────────────────────────────────────
 
 // The studio edits at 32px; the game stamps the same grid at 64px.
 const packSheet = upscaled(studioSheet, TILE / TD_TILE);
 
 mkdirSync(ASSET_DIR, { recursive: true });
+for (const [file, img] of Object.entries(stairImages)) {
+  writePng(img, join(ASSET_DIR, file));
+  console.log(`wrote ${join(ASSET_DIR, file)} (${img.width}×${img.height})`);
+}
 writePng(tiles, join(ASSET_DIR, "tiles.png"));
 writePng(players, join(ASSET_DIR, "players.png"));
 writePng(enemies, join(ASSET_DIR, "enemies.png"));

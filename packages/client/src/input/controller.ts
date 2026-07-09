@@ -11,10 +11,14 @@ import { nearestPlayer, stashNearby, tableNearby } from "../ui/queries";
  * Keyboard/mouse → intents. Nothing here changes game state directly:
  * every handler either sends an intent through the Connection or flips
  * local UI state (panels, chunk grid). The server decides what happens.
+ *
+ * Combat/use model: LEFT CLICK swings the EQUIPPED weapon; number keys
+ * 1–9 USE whatever is bound to that hotbar slot (consumables fire
+ * immediately, throwables launch at the mouse cursor).
  */
 
 type Keys = Record<
-  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "Q" | "ESC",
+  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC",
   Phaser.Input.Keyboard.Key
 >;
 
@@ -25,9 +29,16 @@ export interface InputHooks {
   onToggleBorders(): void;
 }
 
+/** Movement/keys pause while any text input has focus (chat, search). */
+function typingInInput(): boolean {
+  const el = document.activeElement;
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+}
+
 export class InputController {
   private readonly keys: Keys;
   private readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+  private readonly scene: Phaser.Scene;
   /** Mirrors the server's swing cooldown so the arc never lies. */
   private nextSwingAt = 0;
 
@@ -38,29 +49,38 @@ export class InputController {
     hud: Hud,
     hooks: InputHooks,
   ) {
+    this.scene = scene;
     const keyboard = scene.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,Q,ESC") as Keys;
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,ESC") as Keys;
 
-    this.keys.G.on("down", () => hooks.onToggleBorders());
-    this.keys.E.on("down", () => {
-      this.panels.openStashIfNearby(conn);
-      conn.interact();
-    });
-    this.keys.R.on("down", () => conn.pickup());
-    this.keys.C.on("down", () => this.panels.toggleCraft(conn));
-    this.keys.Q.on("down", () => conn.drop(conn.selectedSlot));
-    this.keys.F.on("down", () => {
-      if (conn.pendingInvite) {
-        conn.partyOp("accept");
-        return;
-      }
-      const nearest = nearestPlayer(conn, 6);
-      if (nearest) conn.partyOp("invite", nearest.id);
-    });
+    const guarded = (fn: () => void) => () => {
+      if (!typingInInput()) fn();
+    };
+    this.keys.G.on("down", guarded(() => hooks.onToggleBorders()));
+    this.keys.E.on(
+      "down",
+      guarded(() => {
+        this.panels.openStashIfNearby(conn);
+        conn.interact();
+      }),
+    );
+    this.keys.R.on("down", guarded(() => conn.pickup()));
+    this.keys.C.on("down", guarded(() => this.panels.toggleCraft(conn)));
+    this.keys.F.on(
+      "down",
+      guarded(() => {
+        if (conn.pendingInvite) {
+          conn.partyOp("accept");
+          return;
+        }
+        const nearest = nearestPlayer(conn, 6);
+        if (nearest) conn.partyOp("invite", nearest.id);
+      }),
+    );
     this.keys.ESC.on("down", () => this.panels.closeAll(conn));
     for (let i = 1; i <= 9; i++) {
-      keyboard.addKey(48 + i).on("down", () => this.onNumberKey(i));
+      keyboard.addKey(48 + i).on("down", guarded(() => this.onNumberKey(i)));
     }
 
     scene.input.mouse?.disableContextMenu();
@@ -69,40 +89,23 @@ export class InputController {
       // Clicks on UI act on the UI — never swing through the hotbar.
       const uiHit = hud.hitTest(pointer.x, pointer.y);
       if (uiHit !== null) {
-        if (uiHit.startsWith("slot:")) conn.selectSlot(Number(uiHit.slice(5)));
+        if (uiHit.startsWith("slot:")) this.useHotbar(Number(uiHit.slice(5)));
         return;
       }
-      const wx = pointer.worldX / TILE_PX;
-      const wy = pointer.worldY / TILE_PX;
-      if (pointer.rightButtonDown()) {
-        const slot = conn.inventory[conn.selectedSlot];
-        const def = slot ? content.items.get(slot.item) : undefined;
-        if (def?.throwable) conn.useSlot(conn.selectedSlot, wx, wy);
-        else conn.useSlot(conn.selectedSlot);
-      } else {
-        const now = performance.now();
-        if (now < this.nextSwingAt) return;
-        this.nextSwingAt = now + ATTACK_COOLDOWN_MS;
-        const dx = wx - conn.body.x;
-        const dy = wy - conn.body.y;
-        conn.attack(dx, dy);
-        hooks.onSwing(dx, dy);
-      }
+      if (pointer.rightButtonDown()) return; // reserved
+      const now = performance.now();
+      if (now < this.nextSwingAt) return;
+      this.nextSwingAt = now + ATTACK_COOLDOWN_MS;
+      const dx = pointer.worldX / TILE_PX - conn.body.x;
+      const dy = pointer.worldY / TILE_PX - conn.body.y;
+      conn.attack(dx, dy);
+      hooks.onSwing(dx, dy);
     });
-    // Mouse wheel cycles the hotbar selection.
-    scene.input.on(
-      "wheel",
-      (_p: unknown, _o: unknown, _dx: number, dy: number) => {
-        const dir = dy > 0 ? 1 : -1;
-        conn.selectSlot((((conn.selectedSlot + dir) % 9) + 9) % 9);
-      },
-    );
   }
 
   /** Sampled at the fixed tick rate by the scene. */
   readInput(): MoveInput {
-    const chatting = document.activeElement?.id === "chat-input";
-    if (chatting || this.conn.downed) return { moveX: 0, moveY: 0, jump: false };
+    if (typingInInput() || this.conn.downed) return { moveX: 0, moveY: 0, jump: false };
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
     const up = this.cursors.up.isDown || this.keys.W.isDown;
@@ -114,7 +117,21 @@ export class InputController {
     };
   }
 
-  /** Numbers act on the open panel first, then the hotbar. */
+  /** Use the item bound to a hotbar slot (throwables aim at the mouse). */
+  private useHotbar(index: number): void {
+    const { conn } = this;
+    const defId = conn.hotbar[index];
+    if (!defId) return;
+    const def = content.items.get(defId);
+    if (def?.throwable) {
+      const pointer = this.scene.input.activePointer;
+      conn.useSlot(index, pointer.worldX / TILE_PX, pointer.worldY / TILE_PX);
+    } else {
+      conn.useSlot(index);
+    }
+  }
+
+  /** Numbers act on the open panel first, then USE the hotbar slot. */
   private onNumberKey(n: number): void {
     const { conn, panels } = this;
     if (panels.craftOpen && tableNearby(conn)) {
@@ -126,6 +143,6 @@ export class InputController {
       conn.stashOp("take", n - 1);
       return;
     }
-    conn.selectSlot(n - 1);
+    this.useHotbar(n - 1);
   }
 }

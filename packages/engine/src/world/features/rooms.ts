@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, TILE, ZONE, type Chunk } from "./types";
+import { CHUNK_SIZE, TILE, ZONE, type Chunk } from "../types";
 
 /**
  * Stretch rooms (GAME_DESIGN.md § Safe rooms): instanced sub-maps that

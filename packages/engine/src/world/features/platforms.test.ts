@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { GRAVITY, JUMP_VELOCITY, STEP_UP } from "../core/constants";
-import { hashString } from "../core/rng";
+import { GRAVITY, JUMP_VELOCITY, STEP_UP } from "../../core/constants";
+import { hashString } from "../../core/rng";
 import { PLATFORM_TIER_STEP, hasPlatformCluster, platformLootSpots } from "./platforms";
-import { CORRIDOR_HALF_WIDTH, chunkCenter, corridorSegments, distToCorridor } from "./terrain";
-import { CHUNK_SIZE } from "./types";
-import { World } from "./world";
+import { CORRIDOR_HALF_WIDTH, chunkCenter, corridorSegments, distToCorridor } from "../terrain";
+import { CHUNK_SIZE } from "../types";
+import { World } from "../world";
 
 const SEED = hashString("test-world");
 const FLOOR = 1;

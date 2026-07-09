@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CHUNK_SIZE, TILE } from "./types";
+import { CHUNK_SIZE, TILE } from "../types";
 
 /**
  * Custom map stamps — hand-authored maps from the Tile Studio editor
@@ -33,6 +33,8 @@ export const customMapSchema = z.object({
   logic: z.array(z.union([z.number().int().min(0).max(8), z.null()])),
   /** Pack-sheet tile indices, row-major, null = no art override. */
   art: z.array(gridCell).optional(),
+  /** Second art layer drawn OVER `art` (objects/walls on their ground). */
+  art2: z.array(gridCell).optional(),
   flattenTo: z.number().optional(),
 });
 export type CustomMapDef = z.infer<typeof customMapSchema>;
@@ -43,7 +45,11 @@ let active: CustomMapDef | null = null;
 export function setCustomMap(def: CustomMapDef | null): void {
   if (def !== null) {
     const cells = def.width * def.height;
-    if (def.logic.length !== cells || (def.art !== undefined && def.art.length !== cells)) {
+    if (
+      def.logic.length !== cells ||
+      (def.art !== undefined && def.art.length !== cells) ||
+      (def.art2 !== undefined && def.art2.length !== cells)
+    ) {
       throw new Error(`custom map grids must have width*height (${cells}) entries`);
     }
   }
@@ -61,6 +67,15 @@ export function customArtAt(wx: number, wy: number): number | null {
   const ly = wy - active.origin.y;
   if (lx < 0 || ly < 0 || lx >= active.width || ly >= active.height) return null;
   return active.art[ly * active.width + lx] ?? null;
+}
+
+/** Top-layer art override (drawn over `art`), or null. */
+export function customArt2At(wx: number, wy: number): number | null {
+  if (!active?.art2) return null;
+  const lx = wx - active.origin.x;
+  const ly = wy - active.origin.y;
+  if (lx < 0 || ly < 0 || lx >= active.width || ly >= active.height) return null;
+  return active.art2[ly * active.width + lx] ?? null;
 }
 
 /**

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { STEP_UP, WALL_RISE } from "../core/constants";
 import { hashString } from "../core/rng";
-import { isSafeRoomChunk, isStairsChunk } from "./features";
+import { isSafeRoomChunk, isStairsChunk } from "./features/fixed";
 import { generateChunk } from "./generate";
-import { PLATFORM_TIER_STEP, hasPlatformCluster } from "./platforms";
-import { hasTerrace } from "./terraces";
+import { PLATFORM_TIER_STEP, hasPlatformCluster } from "./features/platforms";
+import { hasTerrace } from "./features/terraces";
 import { chunkCenter } from "./terrain";
-import { safeRoomChunk, safeRoomFeatures, safeRoomSpawn } from "./rooms";
+import { safeRoomChunk, safeRoomFeatures, safeRoomSpawn } from "./features/rooms";
 import { CHUNK_SIZE, TILE, ZONE } from "./types";
 import { World } from "./world";
 

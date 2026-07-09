@@ -2,41 +2,50 @@ import { PICKUP_RANGE, TILE, type Entity } from "@dc2d/engine";
 import { adjacentToTile, spawnItem } from "./helpers";
 import type { PlayerSlot, SimState } from "./state";
 
-/** Inventory, pickup/drop, crafting, and stash operations. */
+/**
+ * The unlimited inventory: one stack per item def, no capacity. The
+ * hotbar holds BINDINGS (item defs), not items — using a bound slot
+ * consumes from the inventory stack; bindings survive an empty stack
+ * so refilling re-arms the same key. Weapons live in the equipment
+ * slot, not the hotbar.
+ */
 
-/** Returns leftover quantity that didn't fit. */
-export function addToInventory(
-  sim: SimState,
-  slot: PlayerSlot,
-  defId: string,
-  qty: number,
-): number {
-  const def = sim.content.items.get(defId);
-  if (!def) return qty;
-  let remaining = qty;
-  for (let i = 0; i < slot.inventory.length && remaining > 0; i++) {
-    const s = slot.inventory[i];
-    if (s && s.item === defId && s.qty < def.maxStack) {
-      const take = Math.min(def.maxStack - s.qty, remaining);
-      s.qty += take;
-      remaining -= take;
-    }
-  }
-  for (let i = 0; i < slot.inventory.length && remaining > 0; i++) {
-    if (slot.inventory[i] === null) {
-      const take = Math.min(def.maxStack, remaining);
-      slot.inventory[i] = { item: defId, qty: take };
-      remaining -= take;
-    }
-  }
-  return remaining;
+/** Index of the stack holding `defId`, or -1. */
+export function invIndex(slot: PlayerSlot, defId: string): number {
+  return slot.inventory.findIndex((s) => s.item === defId);
 }
 
-export function consumeFromSlot(slot: PlayerSlot, index: number): void {
-  const inv = slot.inventory[index];
-  if (!inv) return;
-  inv.qty--;
-  if (inv.qty <= 0) slot.inventory[index] = null;
+export function invQty(slot: PlayerSlot, defId: string): number {
+  const i = invIndex(slot, defId);
+  return i >= 0 ? slot.inventory[i]!.qty : 0;
+}
+
+/**
+ * Add to the inventory (never fails — it's unlimited). The first
+ * weapon auto-equips (bare hands → sword is never the wrong call);
+ * hotbar bindings are the player's own — pickups never touch them
+ * (bind from the inventory panel: click a row, press 1-9).
+ */
+export function invAdd(sim: SimState, slot: PlayerSlot, defId: string, qty: number): void {
+  const i = invIndex(slot, defId);
+  if (i >= 0) slot.inventory[i]!.qty += qty;
+  else slot.inventory.push({ item: defId, qty });
+
+  const def = sim.content.items.get(defId);
+  if (!def) return;
+  if (def.weapon && slot.weapon === null) {
+    slot.weapon = defId;
+    slot.outbox.push({ t: "toast", msg: `Equipped ${def.name}` });
+  }
+}
+
+/** Remove qty of a def; false if the stack is short. Prunes empty stacks. */
+export function invRemove(slot: PlayerSlot, defId: string, qty: number): boolean {
+  const i = invIndex(slot, defId);
+  if (i < 0 || slot.inventory[i]!.qty < qty) return false;
+  slot.inventory[i]!.qty -= qty;
+  if (slot.inventory[i]!.qty <= 0) slot.inventory.splice(i, 1);
+  return true;
 }
 
 export function doPickup(sim: SimState, slot: PlayerSlot): void {
@@ -53,34 +62,30 @@ export function doPickup(sim: SimState, slot: PlayerSlot): void {
     }
   }
   if (!best?.defId) return;
-  const leftover = addToInventory(sim, slot, best.defId, best.qty);
-  if (leftover === 0) {
-    sim.items.delete(best.id);
-    sim.exposure.delete(best.id);
-  } else if (leftover < best.qty) {
-    best.qty = leftover;
-  } else {
-    slot.outbox.push({ t: "toast", msg: "Inventory full" });
-  }
+  invAdd(sim, slot, best.defId, best.qty);
+  sim.items.delete(best.id);
+  sim.exposure.delete(best.id);
 }
 
-export function doDrop(sim: SimState, slot: PlayerSlot, index: number): void {
-  const inv = slot.inventory[index];
-  if (!inv) return;
-  slot.inventory[index] = null;
-  spawnItem(sim, inv.item, slot.entity.body.x, slot.entity.body.y, inv.qty);
+/** Drop a whole stack by def (the binding stays, re-armed on repickup). */
+export function doDrop(sim: SimState, slot: PlayerSlot, defId: string): void {
+  const i = invIndex(slot, defId);
+  if (i < 0) return;
+  const stack = slot.inventory[i]!;
+  spawnItem(sim, stack.item, slot.entity.body.x, slot.entity.body.y, stack.qty);
+  slot.inventory.splice(i, 1);
+  if (slot.weapon === defId) slot.weapon = null;
 }
 
 export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {
-  for (let i = 0; i < slot.inventory.length; i++) {
-    const inv = slot.inventory[i];
-    if (!inv) continue;
-    slot.inventory[i] = null;
+  for (const stack of slot.inventory) {
     // Scatter a little so stacks are visible/lootable.
     const jx = (sim.rng.next() - 0.5) * 1.5;
     const jy = (sim.rng.next() - 0.5) * 1.5;
-    spawnItem(sim, inv.item, slot.entity.body.x + jx, slot.entity.body.y + jy, inv.qty);
+    spawnItem(sim, stack.item, slot.entity.body.x + jx, slot.entity.body.y + jy, stack.qty);
   }
+  slot.inventory = [];
+  slot.weapon = null;
 }
 
 export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void {
@@ -92,31 +97,14 @@ export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void
     slot.outbox.push({ t: "toast", msg: "You need a crafting table" });
     return;
   }
-  // Verify inputs.
   for (const input of recipe.inputs) {
-    let have = 0;
-    for (const s of slot.inventory) if (s?.item === input.item) have += s.qty;
-    if (have < input.qty) {
+    if (invQty(slot, input.item) < input.qty) {
       slot.outbox.push({ t: "toast", msg: `Missing ${input.item}` });
       return;
     }
   }
-  // Consume.
-  for (const input of recipe.inputs) {
-    let need = input.qty;
-    for (let i = 0; i < slot.inventory.length && need > 0; i++) {
-      const s = slot.inventory[i];
-      if (!s || s.item !== input.item) continue;
-      const take = Math.min(s.qty, need);
-      s.qty -= take;
-      need -= take;
-      if (s.qty <= 0) slot.inventory[i] = null;
-    }
-  }
-  const leftover = addToInventory(sim, slot, recipe.output.item, recipe.output.qty);
-  if (leftover > 0) {
-    spawnItem(sim, recipe.output.item, slot.entity.body.x, slot.entity.body.y, leftover);
-  }
+  for (const input of recipe.inputs) invRemove(slot, input.item, input.qty);
+  invAdd(sim, slot, recipe.output.item, recipe.output.qty);
   slot.outbox.push({ t: "toast", msg: `Crafted ${recipe.output.item}` });
 }
 
@@ -130,24 +118,20 @@ export function doStash(
   const tileY = Math.floor(slot.entity.body.y);
   if (!adjacentToTile(sim, tileX, tileY, TILE.Stash)) return;
   if (op === "put") {
-    const inv = slot.inventory[index];
-    if (!inv) return;
-    const def = sim.content.items.get(inv.item);
+    const stack = slot.inventory[index];
+    if (!stack) return;
+    const def = sim.content.items.get(stack.item);
     if (!def) return;
-    if (sim.store.stashAdd(slot.stored, inv.item, inv.qty, def.maxStack)) {
-      slot.inventory[index] = null;
+    if (sim.store.stashAdd(slot.stored, stack.item, stack.qty, def.maxStack)) {
+      if (slot.weapon === stack.item) slot.weapon = null;
+      slot.inventory.splice(index, 1);
     } else {
       slot.outbox.push({ t: "toast", msg: "Stash full" });
     }
   } else {
     const entry = sim.store.stashTake(slot.stored, index);
     if (!entry) return;
-    const leftover = addToInventory(sim, slot, entry.item, entry.qty);
-    if (leftover > 0) {
-      const def = sim.content.items.get(entry.item);
-      sim.store.stashAdd(slot.stored, entry.item, leftover, def?.maxStack ?? 1);
-      if (leftover === entry.qty) slot.outbox.push({ t: "toast", msg: "Inventory full" });
-    }
+    invAdd(sim, slot, entry.item, entry.qty);
   }
   slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
 }

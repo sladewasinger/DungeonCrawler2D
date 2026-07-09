@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { findTile, holdKey, openGame, readState, walkTo } from "./helpers";
+import { findTile, holdKey, nearestItem, openGame, readState, walkTo } from "./helpers";
 
 // Tile ids mirrored from the engine's TILE map (engine isn't importable here).
 const T_DOOR_PERSONAL = 3;
@@ -70,13 +70,23 @@ test.describe("dungeoncrawler2d e2e", () => {
     const partyA = (await readState(pageA)).party!;
     expect(partyA.members.map((m) => m.id)).toContain(stateB.playerId);
 
-    // Party chat through the real chat input.
+    // Party chat through the real chat input, with REAL typed keys.
+    // The message deliberately mixes WASD letters, digits, and spaces:
+    // Phaser used to capture those at the window level and the input
+    // never saw them (and the player walked while you typed). If
+    // capture leaks again, the text arrives mangled and this times out.
+    const posBefore = await readState(pageA);
     await pageA.keyboard.press("Enter");
-    await pageA.locator("#chat-input").fill("descend at dawn");
+    await pageA.keyboard.type("descend at dawn 12 44", { delay: 15 });
     await pageA.keyboard.press("Enter");
     await pageB.waitForFunction(() =>
-      window.__dc2d!.conn.chatLog.some((l) => l.text === "descend at dawn" && l.channel === "party"),
+      window.__dc2d!.conn.chatLog.some(
+        (l) => l.text === "descend at dawn 12 44" && l.channel === "party",
+      ),
     );
+    // Typing W/A/S/D into chat must not move the player.
+    const posAfter = await readState(pageA);
+    expect(Math.hypot(posAfter.x - posBefore.x, posAfter.y - posBefore.y)).toBeLessThan(0.3);
 
     await contextA.close();
     await contextB.close();
@@ -155,38 +165,59 @@ test.describe("dungeoncrawler2d e2e", () => {
     expect(state.hp).toBeLessThanOrEqual(30);
   });
 
-  test("ground items at spawn: walk onto the sword and pick it up", async ({ page }) => {
-    const state = await openGame(page);
+  test("ground items at spawn: pick up the sword — it auto-equips as the weapon", async ({
+    page,
+  }) => {
+    await openGame(page);
     await page.waitForTimeout(600); // let fixtures/areas replicate in
     await page.screenshot({ path: "docs/art-samples/live-proving-ground.png" });
-    const sword = state.entities.find((e) => e.kind === "item" && e.defId === "sword");
+    const sword = await nearestItem(page, "sword");
     expect(sword, "sword fixture visible at spawn").toBeTruthy();
     await walkTo(page, sword!.x, sword!.y);
     await page.keyboard.press("r");
     await page.waitForFunction(() =>
-      window.__dc2d!.conn.inventory.some((s) => s?.item === "sword"),
+      window.__dc2d!.conn.inventory.some((s) => s.item === "sword"),
     );
+    // Weapons go to the character slot, not the hotbar.
+    expect(await page.evaluate(() => window.__dc2d!.conn.weapon)).toBe("sword");
+    expect(await page.evaluate(() => window.__dc2d!.conn.hotbar.includes("sword"))).toBe(false);
   });
 
-  test("hotbar: number keys, mouse wheel, and clicking slots all select", async ({ page }) => {
+  test("pick up a bandage: hotbar untouched until bound via the panel, then a number key USES it", async ({
+    page,
+  }) => {
     await openGame(page);
-    const selected = () => page.evaluate(() => window.__dc2d!.conn.selectedSlot);
+    await page.waitForTimeout(600);
+    const bandage = await nearestItem(page, "bandage");
+    expect(bandage, "bandage fixture visible at spawn").toBeTruthy();
+    await walkTo(page, bandage!.x, bandage!.y);
+    await page.keyboard.press("r");
+    await page.waitForFunction(() =>
+      window.__dc2d!.conn.inventory.some((s) => s.item === "bandage"),
+    );
+    // Pickups never touch the hotbar — binding is the player's call.
+    expect(await page.evaluate(() => window.__dc2d!.conn.hotbar.indexOf("bandage"))).toBe(-1);
 
+    // Bind through the real panel flow: [I] → search → click row → digit.
+    await page.keyboard.press("i");
+    await expect(page.locator("#inventory-panel")).toBeVisible();
+    await page.locator("#inventory-panel input").fill("band");
+    await expect(page.locator("#inventory-panel")).toContainText("Bandage");
+    await page.getByText(/^Bandage ×/).click();
     await page.keyboard.press("3");
-    expect(await selected()).toBe(2);
+    await page.waitForFunction(() => window.__dc2d!.conn.hotbar[2] === "bandage");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#inventory-panel")).toBeHidden();
 
-    await page.mouse.move(640, 300); // over the world, not the UI
-    await page.mouse.wheel(0, 120);
-    expect(await selected()).toBe(3);
-    await page.mouse.wheel(0, -120);
-    expect(await selected()).toBe(2);
-
-    // Click slot 6 (index 5): hotbar is bottom-center anchored.
-    const box = page.viewportSize()!;
-    const slotX = box.width / 2 + 5 * 46 - 4.5 * 46 + 20;
-    const slotY = box.height - 14 - 24;
-    await page.mouse.click(slotX, slotY);
-    expect(await selected()).toBe(5);
+    const qtyBefore = await page.evaluate(
+      () => window.__dc2d!.conn.inventory.find((s) => s.item === "bandage")!.qty,
+    );
+    await page.keyboard.press("3"); // 1-9 uses the bound item
+    await page.waitForFunction(
+      (before) =>
+        (window.__dc2d!.conn.inventory.find((s) => s.item === "bandage")?.qty ?? 0) < before,
+      qtyBefore,
+    );
   });
 
   test("safe rooms are door portals, personal rooms nest inside them", async ({ page }) => {
@@ -269,6 +300,10 @@ test.describe("dungeoncrawler2d e2e", () => {
       const conn = window.__dc2d!.conn;
       conn.debugGod(true);
       const w = conn.world!;
+      // Prefer an entry approached from the SOUTH (it wears the full
+      // south-face staircase object — the screenshot below is the
+      // standing visual proof); fall back to any entry.
+      let fallback: { stairX: number; stairY: number; lowX: number; lowY: number } | null = null;
       for (let r = 2; r <= 8; r++) {
         for (let cy = -r; cy <= r; cy++) {
           for (let cx = -r; cx <= r; cx++) {
@@ -278,7 +313,9 @@ test.describe("dungeoncrawler2d e2e", () => {
                 const x = cx * 32 + lx;
                 const y = cy * 32 + ly;
                 if (w.tileAt(x, y) !== 2 || Math.abs(w.heightAt(x, y) - 1) > 0.01) continue;
-                // the low approach tile in front of the entry step
+                // A true entry: low floor in front of the step AND the
+                // terrace top directly behind it — the walk must cross
+                // the step ALONG its climb axis, not sideways.
                 for (const [dx, dy] of [
                   [0, 1],
                   [0, -1],
@@ -287,14 +324,18 @@ test.describe("dungeoncrawler2d e2e", () => {
                 ] as const) {
                   if (w.tileAt(x + dx, y + dy) !== 0) continue;
                   if (w.heightAt(x + dx, y + dy) > 0.01) continue;
-                  return { stairX: x, stairY: y, lowX: x + dx + 0.5, lowY: y + dy + 0.5 };
+                  if (w.tileAt(x - dx, y - dy) !== 0) continue;
+                  if (Math.abs(w.heightAt(x - dx, y - dy) - 2) > 0.01) continue;
+                  const found = { stairX: x, stairY: y, lowX: x + dx + 0.5, lowY: y + dy + 0.5 };
+                  if (dy === 1) return found;
+                  fallback = fallback ?? found;
                 }
               }
             }
           }
         }
       }
-      return null;
+      return fallback;
     });
     expect(spot).not.toBeNull();
 
@@ -312,7 +353,9 @@ test.describe("dungeoncrawler2d e2e", () => {
       { timeout: 5000 },
     );
     const arrived = await readState(page);
-    expect(arrived.z).toBeCloseTo(0, 1); // at the base, on low ground
+    expect(arrived.z).toBeCloseTo(0.5, 1);
+    await page.waitForTimeout(400); // terrain chunks build in
+    await page.screenshot({ path: "docs/art-samples/live-terrace-stairs.png" });
 
     // Walk up the staircase with real keys: 0 → 1 → 2, never airborne.
     const key =

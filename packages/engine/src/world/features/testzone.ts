@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, TILE, ZONE, type TileType } from "./types";
+import { CHUNK_SIZE, TILE, ZONE, type TileType } from "../types";
 
 /**
  * DEV SCAFFOLDING — a deterministic movement proving ground stamped
@@ -9,10 +9,12 @@ import { CHUNK_SIZE, TILE, ZONE, type TileType } from "./types";
  *
  * Contents (world tile coords):
  *  - Terraced hill at (14,14): 1-step rings, walk to the h5 summit
- *  - Stair ramp x10–13 up to four h3 jump pillars with 2/3/4-tile
- *    gaps between them (jump across, or miss and fall to the floor)
+ *  - Staircase up to four h2 jump pillars with 2/3/4-tile gaps
+ *    between them (jump across, or miss and fall to the floor)
  *  - Drop tower x40–55: h 2/4/6/8 bands — jump-climb the +2 steps or
- *    take the stair ramp on its west edge; walk off any edge to fall
+ *    take the west staircase lane: real single-step staircases with
+ *    landings between (every climb is one staircase OBJECT — no long
+ *    tread ramps; the art can't represent multi-level ramps)
  *  - Chasm at y44–52: two h2 platforms with a 3-tile gap; fall in and
  *    exit via the ramp at the south end
  *  - Safe-room entrance kiosk at (53..55, 52..54), portal door (54,54)
@@ -44,26 +46,34 @@ function sample(wx: number, wy: number): Sample {
   const hillD = Math.max(Math.abs(wx - 14), Math.abs(wy - 14));
   if (hillD <= 10) h = Math.min(5, Math.ceil((10 - hillD) / 2));
 
-  // Stair ramp + jump pillars.
+  // Jump pillars, with a single-step staircase entry onto pillar 1
+  // (stair h1 between the floor and the h2 top → one wedge object).
   if (wy >= 34 && wy <= 37) {
-    if (wx >= 10 && wx <= 13) {
-      h = Math.min(3, wx - 9);
+    if (wx === 13) {
+      h = 1;
       tile = TILE.Stairs;
     } else if (
-      (wx >= 14 && wx <= 17) || // pillar 1 (reached from the ramp)
+      (wx >= 14 && wx <= 17) || // pillar 1 (climb the staircase)
       (wx >= 20 && wx <= 23) || // gap 2
       (wx >= 27 && wx <= 30) || // gap 3
       (wx >= 35 && wx <= 38) // gap 4
     ) {
-      h = 3;
+      h = 2;
     }
   }
 
-  // Drop tower: bands rise +2 northward; west columns are a 1-step ramp.
+  // Drop tower: bands rise +2 northward. The west lane (x40–41) climbs
+  // the same +2 steps as real staircases with landings between — a
+  // single-step stair row at each band boundary (wy 27/23/19/15), so
+  // every climb renders as one staircase object, sample-map style.
   if (wx >= 40 && wx <= 55 && wy >= 12 && wy <= 27) {
     if (wx <= 41) {
-      h = Math.min(8, Math.floor((27 - wy) / 2) + 1);
-      tile = TILE.Stairs;
+      if ((27 - wy) % 4 === 0) {
+        h = (27 - wy) / 2 + 1; // 1, 3, 5, 7 — the entry steps
+        tile = TILE.Stairs;
+      } else {
+        h = 2 * (Math.floor((27 - wy) / 4) + 1); // 2, 4, 6, 8 landings
+      }
     } else {
       h = 2 + 2 * Math.floor((27 - wy) / 4);
     }

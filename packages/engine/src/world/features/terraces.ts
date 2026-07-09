@@ -1,5 +1,5 @@
-import { hash2D, mixSeeds } from "../core/rng";
-import { isSafeRoomChunk, isStairsChunk } from "./features";
+import { hash2D, mixSeeds } from "../../core/rng";
+import { isSafeRoomChunk, isStairsChunk } from "./fixed";
 import { hasPlatformCluster } from "./platforms";
 import {
   CORRIDOR_HALF_WIDTH,
@@ -7,8 +7,8 @@ import {
   distToCorridor,
   seedsFor,
   type CorridorSegment,
-} from "./terrain";
-import { CHUNK_SIZE, TILE } from "./types";
+} from "../terrain";
+import { CHUNK_SIZE, TILE } from "../types";
 
 /**
  * Raised sections — the "height second" feature done the deliberate
@@ -84,9 +84,17 @@ export function terraceSpec(
 /**
  * Stamp the raised section over a chunk's generated data (after the
  * platform clusters, before the test zone / custom map / sealing).
- * Interior rises TERRACE_RISE; boundary-ring floor tiles on the
- * corridor become TILE.Stairs at the halfway height (one walkable step
- * to each side); cave walls inside simply ride up with the ground.
+ * The whole rect rises TERRACE_RISE (cave walls inside ride up with
+ * the ground); entry steps at TERRACE_RISE/2 are then placed one tile
+ * OUTSIDE the boundary where the corridor crosses it — the rect's
+ * outline stays an unbroken straight edge and the staircase object
+ * leans against it from the low ground, exactly like the pack's
+ * sample map (never recessed into an alcove). Steps are EXACTLY as
+ * wide as the object each one wears (render/stairsprites.ts): south
+ * entries 2 tiles (the 2×3 south-face staircase), east/west entries 1
+ * tile (the wedges). NO north entries: a staircase climbing
+ * north→south would stand hidden behind the platform (the pack has no
+ * such sprite) — north edges are drop-off ledges you leave, not enter.
  */
 export function applyTerrace(
   worldSeed: number,
@@ -99,22 +107,69 @@ export function applyTerrace(
 ): void {
   const spec = terraceSpec(worldSeed, floor, cx, cy);
   if (!spec) return;
-  for (let ly = spec.ly - spec.hy; ly <= spec.ly + spec.hy; ly++) {
-    for (let lx = spec.lx - spec.hx; lx <= spec.lx + spec.hx; lx++) {
+  const x0 = spec.lx - spec.hx;
+  const x1 = spec.lx + spec.hx;
+  const y0 = spec.ly - spec.hy;
+  const y1 = spec.ly + spec.hy;
+  for (let ly = y0; ly <= y1; ly++) {
+    for (let lx = x0; lx <= x1; lx++) {
       if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-      const i = ly * CHUNK_SIZE + lx;
-      const onRing =
-        Math.abs(lx - spec.lx) === spec.hx || Math.abs(ly - spec.ly) === spec.hy;
-      if (onRing && tiles[i] === TILE.Floor) {
-        const wx = cx * CHUNK_SIZE + lx;
-        const wy = cy * CHUNK_SIZE + ly;
-        if (distToCorridor(segs, wx, wy) <= CORRIDOR_HALF_WIDTH) {
-          tiles[i] = TILE.Stairs;
-          height[i] = TERRACE_RISE / 2; // the entry step
-          continue;
-        }
-      }
-      height[i] = TERRACE_RISE;
+      height[ly * CHUNK_SIZE + lx] = TERRACE_RISE;
     }
   }
+
+  // Place one centered, object-width entry step per contiguous
+  // corridor crossing of an edge — on the low tile just outside it.
+  // Both the step tile and the boundary tile BEHIND it (insideDx/Dy)
+  // must be floor: no steps against cave walls, no steps to nowhere.
+  const carve = (
+    cells: Array<[number, number]>,
+    want: number,
+    insideDx: number,
+    insideDy: number,
+  ): void => {
+    let run: Array<[number, number]> = [];
+    const flush = (): void => {
+      if (run.length > 0) {
+        const w = Math.min(want, run.length);
+        const start = Math.floor((run.length - w) / 2);
+        for (let k = start; k < start + w; k++) {
+          const [lx, ly] = run[k]!;
+          const i = ly * CHUNK_SIZE + lx;
+          tiles[i] = TILE.Stairs;
+          height[i] = TERRACE_RISE / 2;
+        }
+      }
+      run = [];
+    };
+    for (const [lx, ly] of cells) {
+      const inChunk = lx >= 0 && ly >= 0 && lx < CHUNK_SIZE && ly < CHUNK_SIZE;
+      const onCorridor =
+        inChunk &&
+        distToCorridor(segs, cx * CHUNK_SIZE + lx, cy * CHUNK_SIZE + ly) <=
+          CORRIDOR_HALF_WIDTH;
+      if (
+        onCorridor &&
+        tiles[ly * CHUNK_SIZE + lx] === TILE.Floor &&
+        tiles[(ly + insideDy) * CHUNK_SIZE + (lx + insideDx)] === TILE.Floor
+      ) {
+        run.push([lx, ly]);
+      } else {
+        flush();
+      }
+    }
+    flush();
+  };
+
+  const south: Array<[number, number]> = [];
+  for (let lx = x0 + 1; lx <= x1 - 1; lx++) south.push([lx, y1 + 1]);
+  carve(south, 2, 0, -1);
+  const east: Array<[number, number]> = [];
+  const west: Array<[number, number]> = [];
+  for (let ly = y0 + 1; ly <= y1 - 1; ly++) {
+    east.push([x1 + 1, ly]);
+    west.push([x0 - 1, ly]);
+  }
+  carve(east, 1, -1, 0);
+  carve(west, 1, 1, 0);
 }

@@ -92,8 +92,9 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
         fx: self.statuses.map((s) => s.defId),
         ...(slot.downedAtTick !== null ? { downed: true } : {}),
       },
-      inventory: slot.inventory.map((s) => (s ? { ...s } : null)),
-      selectedSlot: slot.selectedSlot,
+      inventory: slot.inventory.map((s) => ({ ...s })),
+      hotbar: [...slot.hotbar],
+      weapon: slot.weapon,
       party: party
         ? {
             id: party.id,

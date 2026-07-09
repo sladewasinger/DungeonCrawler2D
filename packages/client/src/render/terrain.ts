@@ -1,6 +1,7 @@
-import { CHUNK_SIZE, customArtAt, getCustomMap, type World } from "@dc2d/engine";
+import { CHUNK_SIZE, customArt2At, customArtAt, getCustomMap, type World } from "@dc2d/engine";
 import Phaser from "phaser";
 import { CHUNK_PX, TILE_PX } from "./constants";
+import { stairSpritesInRect } from "./stairsprites";
 import { frameForTile, heightTint } from "./tileframes";
 
 /**
@@ -14,6 +15,8 @@ const CHUNK_VIEW_RADIUS = 1;
 
 export class TerrainRenderer {
   private readonly chunkMaps = new Map<string, Phaser.Tilemaps.Tilemap>();
+  /** Staircase-object images per chunk (they live outside the tilemap). */
+  private readonly chunkStairs = new Map<string, Phaser.GameObjects.Image[]>();
   private readonly borderGraphics: Phaser.GameObjects.Graphics;
   private showBorders = false;
 
@@ -26,6 +29,10 @@ export class TerrainRenderer {
     for (const [key, map] of this.chunkMaps) {
       map.destroy();
       this.chunkMaps.delete(key);
+    }
+    for (const [key, images] of this.chunkStairs) {
+      for (const img of images) img.destroy();
+      this.chunkStairs.delete(key);
     }
   }
 
@@ -42,6 +49,7 @@ export class TerrainRenderer {
         const key = `${cx},${cy}`;
         if (this.chunkMaps.has(key)) continue;
         this.chunkMaps.set(key, this.buildChunkMap(world, cx, cy));
+        this.chunkStairs.set(key, this.buildStairSprites(world, cx, cy));
       }
     }
     for (const [key, map] of this.chunkMaps) {
@@ -49,6 +57,8 @@ export class TerrainRenderer {
       if (Math.max(Math.abs(cx - ccx), Math.abs(cy - ccy)) > CHUNK_VIEW_RADIUS + 1) {
         map.destroy();
         this.chunkMaps.delete(key);
+        for (const img of this.chunkStairs.get(key) ?? []) img.destroy();
+        this.chunkStairs.delete(key);
       }
     }
   }
@@ -67,6 +77,21 @@ export class TerrainRenderer {
     }
   }
 
+  /** Full staircase objects (stair-ns/e/w.png) over single-step
+   * entries — placement math in stairsprites.ts, shared with the
+   * sample renderer. Drawn above the tile art (which stays underneath
+   * as the fill for long ramps), below entities. */
+  private buildStairSprites(world: World, cx: number, cy: number): Phaser.GameObjects.Image[] {
+    const specs = stairSpritesInRect(world, cx * CHUNK_SIZE, cy * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
+    return specs.map((s) =>
+      this.scene.add
+        .image(s.px, s.py, `stair-${s.key}`)
+        .setOrigin(0, 0)
+        .setDepth(-8.85)
+        .setTint(heightTint(s.tintHeight)),
+    );
+  }
+
   private buildChunkMap(world: World, cx: number, cy: number): Phaser.Tilemaps.Tilemap {
     world.getChunk(cx, cy); // warm the chunk cache before per-tile lookups
     const map = this.scene.make.tilemap({
@@ -81,17 +106,25 @@ export class TerrainRenderer {
     const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(-10);
     const borders = map.createBlankLayer("borders", tileset, ox, oy)!.setDepth(-9.5);
     const overlay = map.createBlankLayer("overlay", tileset, ox, oy)!.setDepth(-9);
-    // Wall tops: shifted half a tile north and drawn ABOVE entities, so
-    // a wall's body leans over the tile behind it and half-hides anyone
-    // standing there (entities on wall tops bump their depth past this).
+    // Wall tops: shifted a FULL tile north and drawn ABOVE entities —
+    // a wall reads two tiles tall (brick face in its own cell, top
+    // surface leaning over the cell behind it), and anyone standing
+    // back there is hidden behind its body (entities on wall tops bump
+    // their depth past this).
     const caps = map
-      .createBlankLayer("caps", tileset, ox, oy - TILE_PX / 2)!
+      .createBlankLayer("caps", tileset, ox, oy - TILE_PX)!
       .setDepth(3);
-    // Tile Studio art overrides render verbatim above the autotiles.
+    // Tile Studio art overrides render verbatim above the autotiles:
+    // two layers, so authored objects/walls sit on their own ground.
     let custom: Phaser.Tilemaps.TilemapLayer | null = null;
-    if (getCustomMap()?.art) {
+    let custom2: Phaser.Tilemaps.TilemapLayer | null = null;
+    const customMap = getCustomMap();
+    if (customMap?.art || customMap?.art2) {
       const packTileset = map.addTilesetImage("packsheet", "packsheet", TILE_PX, TILE_PX, 0, 0)!;
       custom = map.createBlankLayer("custom", packTileset, ox, oy)!.setDepth(-8.8);
+      if (customMap.art2) {
+        custom2 = map.createBlankLayer("custom2", packTileset, ox, oy)!.setDepth(-8.7);
+      }
     }
 
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {
@@ -120,6 +153,10 @@ export class TerrainRenderer {
         if (custom) {
           const art = customArtAt(wx, wy);
           if (art !== null) custom.putTileAt(art, lx, ly);
+        }
+        if (custom2) {
+          const art2 = customArt2At(wx, wy);
+          if (art2 !== null) custom2.putTileAt(art2, lx, ly);
         }
       }
     }

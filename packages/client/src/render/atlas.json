@@ -28,7 +28,7 @@
     "stairRailE": 85,
     "stairRailN": 86,
     "stairRailS": 87,
-    "wallFaceHalf": 88,
+    "wallFace": 88,
     "faceTall": [
       9,
       10
@@ -84,5 +84,22 @@
     "plant-creeper": 1,
     "skeleton": 2,
     "spitter": 3
+  },
+  "stairSprites": {
+    "ns": {
+      "image": "stair-ns.png",
+      "w": 128,
+      "h": 192
+    },
+    "e": {
+      "image": "stair-e.png",
+      "w": 180,
+      "h": 192
+    },
+    "w": {
+      "image": "stair-w.png",
+      "w": 176,
+      "h": 192
+    }
   }
 }

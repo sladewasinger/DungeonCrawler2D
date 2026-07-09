@@ -1,5 +1,6 @@
 import { STEP_UP, TILE, WALL_RISE, ZONE, hash2D, type World } from "@dc2d/engine";
 import atlas from "./atlas.json";
+import { entryClimbDir } from "@dc2d/engine";
 
 /**
  * Pure per-tile frame selection — the single place that turns world
@@ -76,16 +77,16 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
     NESW.forEach(([dx, dy], i) => {
       if (world.tileAt(wx + dx, wy + dy) !== TILE.Wall) mask |= 1 << i;
     });
-    // Real floor underneath; the wall's brick face fills the lower half
-    // of its own cell (that's the base you collide with); the top cap
-    // goes to the north-shifted layer above entities.
+    // Real floor underneath; the wall's brick face fills its own cell
+    // (that's the base you collide with); the top cap goes to the
+    // full-tile-north-shifted layer above entities — two tiles tall.
     const floorVariants = atlas.frames.floor;
     const southOpen = world.tileAt(wx, wy + 1) !== TILE.Wall;
     return {
       base: floorVariants[hash2D(11, wx, wy) % floorVariants.length]!,
       baseTintHeight: h - WALL_RISE,
       border: -1,
-      overlay: southOpen ? atlas.frames.wallFaceHalf : -1,
+      overlay: southOpen ? atlas.frames.wallFace : -1,
       overlayTintHeight: h,
       cap: atlas.frames.wallAuto[mask]!,
       capTintHeight: h,
@@ -93,6 +94,20 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
   }
 
   if (tile === TILE.Stairs) {
+    // Single-step entries that wear a full staircase OBJECT (see
+    // stairsprites.ts) render as plain ground — the object IS the
+    // stairs; tread tiles underneath doubled the art. Climb-S entries
+    // (no sprite: the face points away) and long ramps fall through to
+    // the tread branch below.
+    const objectDir = entryClimbDir(world, wx, wy);
+    if (objectDir !== null && objectDir !== 2) {
+      const floorVariants = atlas.frames.floor;
+      return {
+        ...none,
+        base: floorVariants[hash2D(11, wx, wy) % floorVariants.length]!,
+        baseTintHeight: h,
+      };
+    }
     // Tread lines run perpendicular to the climb: pick the frame by the
     // dominant WALKABLE slope axis (an east-climbing run must not wear
     // north-south treads, and a cliff dropping off one side must not

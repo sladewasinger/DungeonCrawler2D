@@ -30,14 +30,24 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import atlas from "../packages/client/src/render/atlas.json";
+import { stairSpritesInRect } from "../packages/client/src/render/stairsprites";
 import { frameForTile, heightTintFactors } from "../packages/client/src/render/tileframes";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "docs", "art-samples");
 const TILE_PX = atlas.tileSize;
 
-const sheet = PNG.sync.read(readFileSync(join(ROOT, "packages", "client", "public", "assets", "tiles.png")));
+const ASSETS = join(ROOT, "packages", "client", "public", "assets");
+const sheet = PNG.sync.read(readFileSync(join(ASSETS, "tiles.png")));
 const COLS = Math.floor(sheet.width / TILE_PX);
+
+// the standalone staircase objects the live client stamps over entries
+const stairSheets = Object.fromEntries(
+  Object.entries(atlas.stairSprites).map(([key, s]) => [
+    key,
+    PNG.sync.read(readFileSync(join(ASSETS, s.image))),
+  ]),
+);
 
 function stampFrame(dst: PNG, dx: number, dy: number, frame: number, tintH: number | null): void {
   const sx = (frame % COLS) * TILE_PX;
@@ -79,9 +89,32 @@ function render(world: WorldLike, x0: number, y0: number, w: number, h: number, 
       stampFrame(img, tx * TILE_PX, ty * TILE_PX, f.base, f.baseTintHeight);
       if (f.border >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX, f.border, null);
       if (f.overlay >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX, f.overlay, f.overlayTintHeight);
-      // wall caps render half a tile north (row-major order keeps them
+      // wall caps render a full tile north (row-major order keeps them
       // over the previous row, same as the live caps layer)
-      if (f.cap >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX - TILE_PX / 2, f.cap, f.capTintHeight);
+      if (f.cap >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX - TILE_PX, f.cap, f.capTintHeight);
+    }
+  }
+  // staircase objects over single-step entries, same placement as live
+  for (const s of stairSpritesInRect(world, x0, y0, w, h)) {
+    const src = stairSheets[s.key]!;
+    const tint = heightTintFactors(s.tintHeight);
+    const dx0 = s.px - x0 * TILE_PX;
+    const dy0 = s.py - y0 * TILE_PX;
+    for (let y = 0; y < src.height; y++) {
+      for (let x = 0; x < src.width; x++) {
+        const dx = dx0 + x;
+        const dy = dy0 + y;
+        if (dx < 0 || dy < 0 || dx >= img.width || dy >= img.height) continue;
+        const si = (y * src.width + x) * 4;
+        const a = src.data[si + 3]! / 255;
+        if (a === 0) continue;
+        const di = (dy * img.width + dx) * 4;
+        for (let c = 0; c < 3; c++) {
+          const v = src.data[si + c]! * tint[c]!;
+          img.data[di + c] = Math.round(v * a + img.data[di + c]! * (1 - a));
+        }
+        img.data[di + 3] = 255;
+      }
     }
   }
   writeFileSync(join(OUT, file), PNG.sync.write(img));

@@ -2,6 +2,7 @@ import { customMapSchema, setCustomMap } from "@dc2d/engine";
 import Phaser from "phaser";
 import { Connection } from "./net/connection";
 import { persistentClientId } from "./net/identity";
+import { InventoryPanel } from "./ui/inventoryPanel";
 import atlas from "./render/atlas.json";
 import { DungeonScene } from "./scenes/DungeonScene";
 
@@ -55,6 +56,9 @@ window.addEventListener("error", (event) => {
   console.error("[main] uncaught:", event.message, event.filename, event.lineno);
 });
 
+// [I] inventory — a DOM overlay panel (search/filter/bind/equip).
+new InventoryPanel(conn);
+
 window.__dc2d.game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
@@ -70,23 +74,52 @@ window.__dc2d.game = new Phaser.Game({
 const chatInput = document.createElement("input");
 chatInput.id = "chat-input";
 chatInput.maxLength = 200;
-chatInput.placeholder = "party chat — start with /l for local";
+chatInput.placeholder = "[Enter] to chat · /l local · /tp x y · /god";
+// Always visible under the chat log — dimmed until focused, so you can
+// SEE where chat lives before you've ever pressed Enter.
 Object.assign(chatInput.style, {
   position: "absolute",
-  bottom: "180px",
-  left: "50%",
-  transform: "translateX(-50%)",
-  width: "420px",
-  padding: "6px 10px",
-  background: "#0d0a12e8",
+  bottom: "34px",
+  left: "12px",
+  width: "340px",
+  padding: "5px 9px",
+  background: "#0d0a12b8",
   color: "#e8e4f0",
-  border: "1px solid #9fe8c9",
+  border: "1px solid #5c5470",
   fontFamily: "monospace",
   fontSize: "13px",
-  display: "none",
+  opacity: "0.55",
   zIndex: "10",
 });
+chatInput.addEventListener("focus", () => {
+  chatInput.style.opacity = "1";
+  chatInput.style.border = "1px solid #9fe8c9";
+});
+chatInput.addEventListener("blur", () => {
+  chatInput.style.opacity = "0.55";
+  chatInput.style.border = "1px solid #5c5470";
+});
 document.body.appendChild(chatInput);
+
+// While ANY text input has focus (chat, inventory search), Phaser must
+// stop capturing the keyboard: its registered keys (space, digits,
+// WASD) preventDefault at the window level, which is why typing spaces
+// and numbers into chat used to do game actions instead of typing.
+function setGameKeyboard(enabled: boolean): void {
+  const scene = window.__dc2d?.game?.scene.getScene("dungeon");
+  const kb = scene?.input.keyboard;
+  if (!kb) return;
+  kb.enabled = enabled;
+  if (enabled) kb.enableGlobalCapture();
+  else kb.disableGlobalCapture();
+  if (enabled) kb.resetKeys(); // nothing stays "held" from before typing
+}
+document.addEventListener("focusin", (e) => {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    setGameKeyboard(false);
+  }
+});
+document.addEventListener("focusout", () => setGameKeyboard(true));
 
 // Dev-harness chat commands (the server ignores them unless its
 // debugCommands option is on): /god toggles, /tp X Y teleports.
@@ -115,10 +148,8 @@ window.addEventListener("keydown", (event) => {
       else conn.chat("local", raw);
     }
     chatInput.value = "";
-    chatInput.style.display = "none";
     chatInput.blur();
-  } else {
-    chatInput.style.display = "block";
+  } else if (!(document.activeElement instanceof HTMLInputElement)) {
     chatInput.focus();
     event.preventDefault();
   }
@@ -126,7 +157,6 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && document.activeElement === chatInput) {
     chatInput.value = "";
-    chatInput.style.display = "none";
     chatInput.blur();
   }
 });

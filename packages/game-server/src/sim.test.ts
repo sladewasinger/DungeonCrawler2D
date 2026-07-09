@@ -2,6 +2,7 @@ import { content } from "@dc2d/content";
 import {
   AOI_RADIUS,
   ATTACK_COOLDOWN_MS,
+  JUMP_VELOCITY,
   MIN_SPAWN_DIST,
   PLAYER_MAX_HP,
   RECONNECT_GRACE_MS,
@@ -40,9 +41,9 @@ function input(seq: number, moveX: -1 | 0 | 1, moveY: -1 | 0 | 1, jump = false):
 function teleport(entity: Entity, x: number, y: number, sim: GameSim): void {
   entity.body.x = x;
   entity.body.y = y;
-  entity.body.z = sim.world.heightAt(Math.floor(x), Math.floor(y));
+  entity.body.z = sim.world.groundAt(x, y);
   entity.body.grounded = true;
-  entity.body.fallPeak = entity.body.z;
+  entity.body.fallStart = entity.body.z;
 }
 
 function stepN(sim: GameSim, n: number): Map<string, ServerSnapshot> {
@@ -181,7 +182,7 @@ describe("GameSim", () => {
       entity.body.z = height;
       entity.body.grounded = false;
       entity.body.zVel = 0;
-      entity.body.fallPeak = height;
+      entity.body.fallStart = height;
       stepN(sim, 30); // ~1.5 s of gravity
       expect(entity.body.grounded).toBe(true);
       expect(entity.body.z).toBe(0);
@@ -199,43 +200,76 @@ describe("GameSim", () => {
     expect(entity.hp).toBe(70);
   });
 
+  it("jumping off a low platform hurts no more than walking off it", () => {
+    const a = sim.addPlayer("A", "client-a");
+    const entity = sim.getPlayerEntity(a.playerId)!;
+    entity.maxHp = 100;
+    entity.hp = 100;
+    // Airborne as if the player jumped at the edge of a +2 platform
+    // over flat ground: the arc peaks at ~4.2, but the DROP below the
+    // takeoff point is only 2 — under SAFE_FALL, so it must be free.
+    // (Fall damage measured from the arc's peak made every jump-off of
+    // a harmless platform a bleeding event.)
+    teleport(entity, 30.5, 30.5, sim); // flat h0
+    entity.body.z = 2;
+    entity.body.fallStart = 2;
+    entity.body.zVel = JUMP_VELOCITY;
+    entity.body.grounded = false;
+    stepN(sim, 40); // ~2 s: up, over the peak, down, land
+    expect(entity.body.grounded).toBe(true);
+    expect(entity.body.z).toBe(0);
+    expect(entity.hp).toBe(100);
+  });
+
   // ── Epic 4: items, inventory, throwables ─────────────────────────
 
-  it("picks up, stacks, drops, and consumes items", () => {
+  it("picks up, stacks, drops — pickups never touch the hotbar; binding is explicit", () => {
     const a = sim.addPlayer("A", "client-a");
     const entity = sim.getPlayerEntity(a.playerId)!;
     sim.spawnItem("rag", entity.body.x + 0.5, entity.body.y, 2);
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
     const inv = sim.getInventory(a.playerId)!;
-    expect(inv[0]).toEqual({ item: "rag", qty: 2 });
+    expect(inv).toEqual([{ item: "rag", qty: 2 }]);
 
     sim.spawnItem("rag", entity.body.x + 0.5, entity.body.y, 3);
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
-    expect(inv[0]).toEqual({ item: "rag", qty: 5 }); // stacked
+    expect(inv).toEqual([{ item: "rag", qty: 5 }]); // stacked, unlimited
 
-    sim.queueAction(a.playerId, { type: "drop", slot: 0 });
+    sim.queueAction(a.playerId, { type: "drop", item: "rag" });
     let snap = sim.step().get(a.playerId)!;
-    expect(inv[0]).toBeNull();
+    expect(inv.length).toBe(0);
     expect(snap.entities.some((e) => e.kind === "item" && e.defId === "rag")).toBe(true);
 
-    // Consume: bandage heals and strips bleeding.
+    // Picking a bandage up does NOT touch the hotbar (bindings are the
+    // player's own); binding explicitly via assign makes 1-9 use it.
+    teleport(entity, 10.5, 30.5, sim); // clear of the rag we just dropped
     entity.hp = 20;
     sim.effects.applyStatus(entity, "bleeding", []);
-    inv[1] = { item: "bandage", qty: 1 };
-    sim.queueAction(a.playerId, { type: "useSlot", slot: 1 });
+    sim.spawnItem("bandage", entity.body.x + 0.5, entity.body.y, 1);
+    sim.queueAction(a.playerId, { type: "pickup" });
+    sim.step();
+    const hotbar = sim.getHotbar(a.playerId)!;
+    expect(hotbar.indexOf("bandage")).toBe(-1); // never auto-bound
+    sim.queueAction(a.playerId, { type: "assign", slot: 2, item: "bandage" });
+    sim.step();
+    expect(hotbar[2]).toBe("bandage");
+    sim.queueAction(a.playerId, { type: "useSlot", slot: 2 });
     snap = sim.step().get(a.playerId)!;
     expect(snap.self.hp).toBe(24);
     expect(snap.self.fx).not.toContain("bleeding");
-    expect(inv[1]).toBeNull();
+    expect(inv.find((s) => s.item === "bandage")).toBeUndefined(); // consumed
+    expect(hotbar[2]).toBe("bandage"); // binding survives the empty stack
   });
 
   it("a thrown vodka bottle leaves an oil slick; a torch onto it ignites", () => {
     const a = sim.addPlayer("A", "client-a");
     const entity = sim.getPlayerEntity(a.playerId)!;
     const inv = sim.getInventory(a.playerId)!;
-    inv[0] = { item: "vodka-bottle", qty: 1 };
+    const hotbar = sim.getHotbar(a.playerId)!;
+    inv.push({ item: "vodka-bottle", qty: 1 });
+    hotbar[0] = "vodka-bottle";
     const tx = entity.body.x + 4;
     const ty = entity.body.y;
     sim.queueAction(a.playerId, { type: "useSlot", slot: 0, targetX: tx, targetY: ty });
@@ -243,7 +277,8 @@ describe("GameSim", () => {
     const oilTile = nearbyAreaTile(sim, tx, ty, "oil");
     expect(oilTile).not.toBeNull();
 
-    inv[0] = { item: "torch", qty: 1 };
+    inv.push({ item: "torch", qty: 1 });
+    hotbar[0] = "torch";
     sim.queueAction(a.playerId, { type: "useSlot", slot: 0, targetX: tx, targetY: ty });
     stepN(sim, 30);
     expect(nearbyAreaTile(sim, tx, ty, "fire")).not.toBeNull();
@@ -301,7 +336,10 @@ describe("GameSim", () => {
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
     teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
-    sim.getInventory(a.playerId)![0] = { item: "knife", qty: 1 };
+    sim.getInventory(a.playerId)!.push({ item: "knife", qty: 1 });
+    sim.queueAction(a.playerId, { type: "equip", item: "knife" });
+    sim.step();
+    expect(sim.getWeapon(a.playerId)).toBe("knife");
     // Swing until the 40% bleed chance lands (seeded rng, bounded),
     // waiting out the swing cooldown between attempts.
     for (let i = 0; i < 10 && !bEntity.statuses.some((s) => s.defId === "bleeding"); i++) {
@@ -337,14 +375,14 @@ describe("GameSim", () => {
     expect(entity.hp).toBeLessThan(PLAYER_MAX_HP);
 
     // Force the kill: full loot drop where they fell, then respawn.
-    sim.getInventory(a.playerId)![0] = { item: "torch", qty: 2 };
+    sim.getInventory(a.playerId)!.push({ item: "torch", qty: 2 });
     const deathX = entity.body.x;
     entity.hp = 0;
     sim.step();
     const respawnSnaps = stepN(sim, RESPAWN_DELAY_TICKS + 2);
     const snap = respawnSnaps.get(a.playerId)!;
     expect(snap.self.hp).toBe(PLAYER_MAX_HP);
-    expect(sim.getInventory(a.playerId)![0]).toBeNull();
+    expect(sim.getInventory(a.playerId)!.length).toBe(0);
     expect(Math.abs(snap.self.x - deathX)).toBeGreaterThan(1); // moved elsewhere
   });
 

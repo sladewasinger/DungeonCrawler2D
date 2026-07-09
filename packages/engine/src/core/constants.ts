@@ -1,6 +1,6 @@
 /** Shared constants — the single source of truth for client and server. */
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3; // v3: unlimited inventory + hotbar bindings + equipment
 
 /** Server simulation rate. Clients also step prediction at this rate. */
 export const TICK_RATE = 20;
@@ -55,7 +55,8 @@ export const THROW_SPEED = 10; // tiles/s
 export const MAX_THROW_RANGE = 8;
 export const PICKUP_RANGE = 1.5;
 export const INTERACT_RANGE = 1.6;
-export const INVENTORY_SLOTS = 9;
+/** Quick-use bar size. The inventory itself is unlimited. */
+export const HOTBAR_SLOTS = 9;
 
 /** Enemies simulate only within this radius of any player. */
 export const ENEMY_ACTIVE_RADIUS = 48;

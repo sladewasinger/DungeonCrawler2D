@@ -50,7 +50,7 @@ export function adjacentToTile(
 export function spawnItem(sim: SimState, defId: string, x: number, y: number, qty = 1): Entity {
   const item = makeEntity(
     "item",
-    createBody(x, y, sim.world.heightAt(Math.floor(x), Math.floor(y))),
+    createBody(x, y, sim.world.groundAt(x, y)),
     {
       id: newEntityId("i"),
       defId,
@@ -68,7 +68,7 @@ export function spawnEnemy(sim: SimState, defId: string, x: number, y: number): 
   if (!def) throw new Error(`unknown enemy ${defId}`);
   const entity = makeEntity(
     "enemy",
-    createBody(x, y, sim.world.heightAt(Math.floor(x), Math.floor(y))),
+    createBody(x, y, sim.world.groundAt(x, y)),
     {
       id: newEntityId("e"),
       defId,

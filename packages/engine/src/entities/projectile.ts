@@ -44,7 +44,7 @@ export function stepProjectile(world: WorldView, p: Entity, dt: number): Project
 
   p.body.z += vel.z * dt;
   vel.z -= GRAVITY * dt;
-  const terrain = world.heightAt(tileX, tileY);
+  const terrain = world.groundAt(nx, ny);
   if (p.body.z <= terrain) {
     p.body.z = terrain;
     return { impact: { x: nx, y: ny } };

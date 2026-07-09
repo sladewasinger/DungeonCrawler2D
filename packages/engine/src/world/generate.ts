@@ -1,10 +1,10 @@
 import { WALL_RISE } from "../core/constants";
-import { applyCustomMap } from "./custommap";
-import { applyFlattenedFeature } from "./features";
-import { applyPlatformCluster } from "./platforms";
+import { applyCustomMap } from "./features/custommap";
+import { applyFlattenedFeature } from "./features/fixed";
+import { applyPlatformCluster } from "./features/platforms";
 import { sealInteriorPockets } from "./pockets";
-import { applyTerrace } from "./terraces";
-import { generateRoomChunk, isRoomChunk } from "./rooms";
+import { applyTerrace } from "./features/terraces";
+import { generateRoomChunk, isRoomChunk } from "./features/rooms";
 import {
   CORRIDOR_HALF_WIDTH,
   baseSample,
@@ -12,7 +12,7 @@ import {
   distToCorridor,
   seedsFor,
 } from "./terrain";
-import { applyTestZone } from "./testzone";
+import { applyTestZone } from "./features/testzone";
 import { CHUNK_SIZE, TILE, type Chunk } from "./types";
 
 /**

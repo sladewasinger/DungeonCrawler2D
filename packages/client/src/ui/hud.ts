@@ -1,5 +1,4 @@
 import { content } from "@dc2d/content";
-import type { InvSlot } from "@dc2d/engine";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
 
@@ -187,10 +186,11 @@ export class Hud {
     this.healthBar
       .fillStyle(frac > 0.35 ? 0x6fce62 : 0xd8574d, 1)
       .fillRect(2, 2, 176 * Math.max(0, frac), 14);
+    const weaponName = conn.weapon ? (content.items.get(conn.weapon)?.name ?? conn.weapon) : "Fists";
     this.healthText.setText(
       conn.downed
         ? `DOWNED — a party member can revive you`
-        : `${Math.ceil(conn.hp)} / ${conn.maxHp}`,
+        : `${Math.ceil(conn.hp)} / ${conn.maxHp}   ⚔ ${weaponName}`,
     );
 
     // Active statuses.
@@ -198,17 +198,22 @@ export class Hud {
       conn.fx.map((id) => content.statuses.get(id)?.name ?? id).join("  "),
     );
 
-    // Hotbar.
+    // Hotbar: each slot shows its BINDING; the stack count lives in the
+    // (unlimited) inventory. Empty stacks stay bound but dim.
     this.hotbarGfx.clear();
     for (let i = 0; i < 9; i++) {
       const x = i * SLOT_PX - 4.5 * SLOT_PX;
-      const selected = i === conn.selectedSlot;
+      const defId = conn.hotbar[i] ?? null;
+      const qty = defId ? (conn.inventory.find((s) => s.item === defId)?.qty ?? 0) : 0;
+      const armed = defId !== null && qty > 0;
       this.hotbarGfx
         .fillStyle(0x0d0a12, 0.85)
         .fillRect(x, -SLOT_PX, SLOT_PX - 4, SLOT_PX - 4)
-        .lineStyle(selected ? 2 : 1, selected ? 0xffe9b0 : 0x5c5470, 1)
+        .lineStyle(1, armed ? 0x9fe8c9 : 0x5c5470, 1)
         .strokeRect(x, -SLOT_PX, SLOT_PX - 4, SLOT_PX - 4);
-      this.hotbarTexts[i]!.setText(this.slotLabel(conn.inventory[i] ?? null, i));
+      this.hotbarTexts[i]!.setText(this.slotLabel(defId, qty, i)).setAlpha(
+        defId !== null && qty === 0 ? 0.45 : 1,
+      );
     }
 
     // Toasts / chat / party.
@@ -237,10 +242,10 @@ export class Hud {
     this.debugText.setText(debug);
   }
 
-  private slotLabel(slot: InvSlot, index: number): string {
+  private slotLabel(defId: string | null, qty: number, index: number): string {
     const key = `${index + 1}`;
-    if (!slot) return key;
-    const name = content.items.get(slot.item)?.name ?? slot.item;
-    return `${key} ${name}${slot.qty > 1 ? ` ×${slot.qty}` : ""}`;
+    if (!defId) return key;
+    const name = content.items.get(defId)?.name ?? defId;
+    return `${key} ${name}${qty !== 1 ? ` ×${qty}` : ""}`;
   }
 }

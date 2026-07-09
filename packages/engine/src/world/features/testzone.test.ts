@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hashString } from "../core/rng";
+import { hashString } from "../../core/rng";
 import { TEST_SPAWN } from "./testzone";
-import { TILE } from "./types";
-import { World } from "./world";
+import { TILE } from "../types";
+import { World } from "../world";
 
 const SEED = hashString("test-world");
 
@@ -13,14 +13,20 @@ describe("test zone (dev proving ground)", () => {
     const other = new World(hashString("another-world"), 3);
     for (const w of [world, other]) {
       expect(w.heightAt(14, 14)).toBe(5); // hill summit
-      expect(w.heightAt(15, 35)).toBe(3); // pillar 1 top
+      expect(w.heightAt(15, 35)).toBe(2); // pillar 1 top
       expect(w.heightAt(18, 35)).toBe(0); // 2-tile gap floor
       expect(w.heightAt(50, 13)).toBe(8); // drop tower top band
       expect(w.heightAt(26, 47)).toBe(2); // chasm west platform
       expect(w.heightAt(30, 47)).toBe(0); // chasm gap
       expect(w.heightAt(30, 52)).toBe(1); // chasm exit ramp
-      expect(w.tileAt(11, 35)).toBe(TILE.Stairs); // pillar stair ramp
-      expect(w.tileAt(40, 20)).toBe(TILE.Stairs); // tower stair ramp
+      // Every authored climb is a SINGLE-STEP entry (one staircase
+      // object), never a multi-tile tread ramp.
+      expect(w.tileAt(13, 35)).toBe(TILE.Stairs); // pillar staircase
+      expect(w.heightAt(13, 35)).toBe(1);
+      expect(w.tileAt(40, 19)).toBe(TILE.Stairs); // tower lane entry step
+      expect(w.heightAt(40, 19)).toBe(5);
+      expect(w.tileAt(40, 20)).toBe(TILE.Floor); // landing between climbs
+      expect(w.heightAt(40, 20)).toBe(4);
     }
   });
 
@@ -55,9 +61,9 @@ describe("test zone (dev proving ground)", () => {
   });
 
   it("pillar gaps are jumpable-scale, not walkable", () => {
-    // From the gap floor, the pillar walls are a +3 rise — blocked on
-    // foot (STEP_UP is 1), reachable only by jumping across the tops.
+    // From the gap floor, the pillar walls are a +2 rise — blocked on
+    // foot (STEP_UP is 1), crossed by jumping.
     expect(world.heightAt(19, 35)).toBe(0);
-    expect(world.heightAt(20, 35)).toBe(3);
+    expect(world.heightAt(20, 35)).toBe(2);
   });
 });

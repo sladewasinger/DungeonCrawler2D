@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { hashString } from "../core/rng";
-import { customArtAt, setCustomMap, type CustomMapDef } from "./custommap";
-import { TILE } from "./types";
-import { World } from "./world";
+import { hashString } from "../../core/rng";
+import { customArt2At, customArtAt, setCustomMap, type CustomMapDef } from "./custommap";
+import { TILE } from "../types";
+import { World } from "../world";
 
 const SEED = hashString("custom-map-test");
 
@@ -75,6 +75,20 @@ describe("custom map stamps (Tile Studio import)", () => {
     expect(customArtAt(169, 170)).toBeNull(); // outside
     setCustomMap(null);
     expect(customArtAt(170, 170)).toBeNull();
+  });
+
+  it("carries an optional second art layer (objects over their ground)", () => {
+    // no art2 on the base map → always null
+    setCustomMap(map);
+    expect(customArt2At(170, 170)).toBeNull();
+    // with art2: top-layer indices resolve inside the stamp only
+    setCustomMap({
+      ...map,
+      art2: Array.from({ length: 30 }, (_, i) => (i === 7 ? 300 : null)),
+    });
+    expect(customArt2At(171, 171)).toBe(300); // index 7 = (1,1)
+    expect(customArt2At(170, 170)).toBeNull();
+    expect(customArt2At(169, 170)).toBeNull(); // outside
   });
 
   it("does not disturb the world when no map is set", () => {

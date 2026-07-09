@@ -7,11 +7,17 @@ import { NEUTRAL_INPUT, createBody, stepBody, type StepResult } from "./movement
 function fakeWorld(opts: {
   walls?: Array<[number, number]>;
   heightFn?: (x: number, y: number) => number;
+  /** Continuous ground override (stair ramps); defaults to tile height. */
+  groundFn?: (x: number, y: number) => number;
 }): WorldView {
   const walls = new Set((opts.walls ?? []).map(([x, y]) => `${x},${y}`));
+  const heightAt = (x: number, y: number): number =>
+    opts.heightFn ? opts.heightFn(x, y) : 0;
   return {
     isWalkable: (x, y) => !walls.has(`${x},${y}`),
-    heightAt: (x, y) => (opts.heightFn ? opts.heightFn(x, y) : 0),
+    heightAt,
+    groundAt: (x, y) =>
+      opts.groundFn ? opts.groundFn(x, y) : heightAt(Math.floor(x), Math.floor(y)),
   };
 }
 

@@ -7,7 +7,7 @@ import {
   type BodyState,
   type ClientMessage,
   type EntitySnapshot,
-  type InvSlot,
+  type InvStack,
   type MoveInput,
   type ServerSnapshot,
   type ServerWelcome,
@@ -53,8 +53,12 @@ export class Connection {
   maxHp = 1;
   fx: string[] = [];
   downed = false;
-  inventory: InvSlot[] = [];
-  selectedSlot = 0;
+  /** Unlimited inventory: one stack per item def. */
+  inventory: InvStack[] = [];
+  /** Hotbar bindings (item defs); qty lives in inventory. */
+  hotbar: Array<string | null> = [];
+  /** Equipped weapon def; null = fists. */
+  weapon: string | null = null;
   party: ServerSnapshot["party"] = null;
 
   // UI state fed by events.
@@ -179,13 +183,16 @@ export class Connection {
     this.sendRaw({ type: "pickup" });
   }
 
-  drop(slot: number): void {
-    this.sendRaw({ type: "drop", slot });
+  drop(item: string): void {
+    this.sendRaw({ type: "drop", item });
   }
 
-  selectSlot(slot: number): void {
-    this.selectedSlot = slot; // optimistic; server echoes next snapshot
-    this.sendRaw({ type: "selectSlot", slot });
+  assignSlot(slot: number, item: string | null): void {
+    this.sendRaw({ type: "assign", slot, item });
+  }
+
+  equip(item: string | null): void {
+    this.sendRaw({ type: "equip", item });
   }
 
   interact(): void {

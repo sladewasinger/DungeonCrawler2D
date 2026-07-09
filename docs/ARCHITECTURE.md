@@ -41,7 +41,8 @@ dungeoncrawler2D/
 │   │                            #   zod-validated with cross-reference checks at import
 │   ├── engine/                  # ── PURE: no Phaser, no Node APIs ──
 │   │   ├── core/                #   Seeded RNG, event bus, fixed-tick clock, ids
-│   │   ├── world/               #   Chunked generation: (worldSeed, floor, chunk) → heightmapped geometry, zones, safe rooms
+│   │   ├── world/               #   Layout pipeline: types, terrain (caves+corridors), generate, pockets, world cache
+│   │   │   └── features/        #   Deliberate stamps: fixed kiosks/stairways, platforms, terraces, rooms, testzone, custommap
 │   │   ├── entities/            #   Entity model, stats, tags
 │   │   ├── effects/             #   Primitives, StatusEffect, interaction rules (EFFECTS.md)
 │   │   ├── areas/               #   Tile-region area effects, spread/decay sim
@@ -178,6 +179,7 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 - **Live-browser e2e (Playwright):** a real chromium drives the real client against a real server — trusted keyboard movement/jumps, two-context AOI + party flows, combat, reload-resume (`npm run test:e2e`)
 - **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, and out-of-range clients receive nothing
 - **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
+- **Dev harness for verification:** fixed seeds everywhere (`e2e-world` for Playwright, `dev-world-1` locally) plus server-gated debug intents — `/god` (no damage, no knockback) and `/tp X Y` — so a feature is verified by teleporting straight to it and asserting, not by wandering a live PvP world. Gated by the server's `debugCommands` option: on for dev/e2e, hard-off in production
 - **Manual/playtest:** Phaser layer, feel, latency tuning — every release playtested as a duo minimum
 
 ## Conventions

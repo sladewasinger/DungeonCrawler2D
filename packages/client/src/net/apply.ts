@@ -18,7 +18,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
     z: snap.self.z,
     zVel: snap.self.zVel,
     grounded: snap.self.grounded,
-    fallPeak: snap.self.z,
+    fallStart: snap.self.z,
     kx: snap.self.kx,
     ky: snap.self.ky,
   };
@@ -29,7 +29,8 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   conn.fx = snap.self.fx;
   conn.downed = snap.self.downed ?? false;
   conn.inventory = snap.inventory;
-  conn.selectedSlot = snap.selectedSlot;
+  conn.hotbar = snap.hotbar;
+  conn.weapon = snap.weapon;
   conn.party = snap.party;
 
   const now = performance.now();

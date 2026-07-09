@@ -69,6 +69,29 @@ export async function openGame(page: Page): Promise<HookState> {
   return state;
 }
 
+/**
+ * The closest ground item of a def, from a FRESH state read. Snapshots
+ * can contain far-away copies (platform loot on unreachable mesas), so
+ * "the fixture at spawn" must be picked by distance, not list order.
+ */
+export async function nearestItem(
+  page: Page,
+  defId: string,
+): Promise<{ x: number; y: number } | null> {
+  const s = await readState(page);
+  let best: { x: number; y: number } | null = null;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (const e of s.entities) {
+    if (e.kind !== "item" || e.defId !== defId) continue;
+    const d = Math.hypot(e.x - s.x, e.y - s.y);
+    if (d < bestD) {
+      bestD = d;
+      best = { x: e.x, y: e.y };
+    }
+  }
+  return best;
+}
+
 /** Hold a key for a duration of real gameplay. */
 export async function holdKey(page: Page, key: string, ms: number): Promise<void> {
   await page.keyboard.down(key);

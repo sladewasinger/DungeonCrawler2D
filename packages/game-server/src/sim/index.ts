@@ -6,7 +6,7 @@ import {
   type EffectEvent,
   type EffectsEngine,
   type Entity,
-  type InvSlot,
+  type InvStack,
   type ServerSnapshot,
   type World,
 } from "@dc2d/engine";
@@ -103,8 +103,16 @@ export class GameSim {
     return this.state.players.get(playerId)?.entity;
   }
 
-  getInventory(playerId: string): InvSlot[] | undefined {
+  getInventory(playerId: string): InvStack[] | undefined {
     return this.state.players.get(playerId)?.inventory;
+  }
+
+  getHotbar(playerId: string): Array<string | null> | undefined {
+    return this.state.players.get(playerId)?.hotbar;
+  }
+
+  getWeapon(playerId: string): string | null | undefined {
+    return this.state.players.get(playerId)?.weapon;
   }
 
   /** Test access: spawn an item entity on the ground. */
