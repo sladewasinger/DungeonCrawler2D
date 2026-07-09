@@ -40,7 +40,8 @@ export class Hud {
 
   private healthBar!: Phaser.GameObjects.Graphics;
   private healthText!: Phaser.GameObjects.Text;
-  private statusText!: Phaser.GameObjects.Text;
+  private statusContainer!: Phaser.GameObjects.Container;
+  private statusChips: Phaser.GameObjects.Text[] = [];
   private hotbarGfx!: Phaser.GameObjects.Graphics;
   private hotbarTexts: Phaser.GameObjects.Text[] = [];
   private hotbarIcons: Phaser.GameObjects.Image[] = [];
@@ -60,8 +61,7 @@ export class Hud {
       c.add([this.healthBar, this.healthText]);
     });
     this.register("status", (c) => {
-      this.statusText = scene.add.text(0, 0, "", { fontSize: "12px", color: "#ffb997" });
-      c.add(this.statusText);
+      this.statusContainer = c;
     });
     this.register("hotbar", (c) => {
       this.hotbarGfx = scene.add.graphics();
@@ -219,10 +219,7 @@ export class Hud {
         : `${Math.ceil(conn.hp)} / ${conn.maxHp}   ⚔ ${weaponName}`,
     );
 
-    // Active statuses.
-    this.statusText.setText(
-      conn.fx.map((id) => content.statuses.get(id)?.name ?? id).join("  "),
-    );
+    this.updateStatusChips(conn.fx);
 
     // Hotbar: each slot shows its BINDING; the stack count lives in the
     // (unlimited) inventory. Empty stacks stay bound but dim.
@@ -286,5 +283,63 @@ export class Hud {
     const key = `${index + 1}`;
     if (!defId) return key;
     return `${key}${qty !== 1 ? ` x${qty}` : ""}`;
+  }
+
+  private updateStatusChips(statusIds: readonly string[]): void {
+    let x = 0;
+    for (let index = 0; index < statusIds.length; index++) {
+      const chip = this.statusChips[index] ?? this.createStatusChip();
+      const display = statusDisplay(statusIds[index]!);
+      chip
+        .setText(display.label)
+        .setColor(display.color)
+        .setBackgroundColor(display.background)
+        .setPosition(x, 0)
+        .setVisible(true);
+      x += chip.width + 5;
+    }
+    for (let index = statusIds.length; index < this.statusChips.length; index++) {
+      this.statusChips[index]!.setVisible(false);
+    }
+  }
+
+  private createStatusChip(): Phaser.GameObjects.Text {
+    const chip = this.scene.add.text(0, 0, "", {
+      fontSize: "11px",
+      fontStyle: "bold",
+      padding: { x: 5, y: 2 },
+    });
+    this.statusChips.push(chip);
+    this.statusContainer.add(chip);
+    return chip;
+  }
+}
+
+function statusDisplay(id: string): { label: string; color: string; background: string } {
+  switch (id) {
+    case "bleeding":
+      return { label: "BLEED", color: "#ffd4d4", background: "#612b35" };
+    case "on-fire":
+      return { label: "FIRE", color: "#fff0b0", background: "#8f3a20" };
+    case "poisoned":
+      return { label: "POISON", color: "#e2ffc1", background: "#3a6632" };
+    case "wet":
+      return { label: "WET", color: "#d4efff", background: "#2a5475" };
+    case "slowed":
+      return { label: "SLOW", color: "#e1d7ff", background: "#51406e" };
+    case "healing":
+    case "regenerating":
+    case "bandaged":
+      return { label: "HEAL", color: "#dcffd6", background: "#36754b" };
+    case "feather-fall":
+      return { label: "FEATHER", color: "#fff2d5", background: "#715b40" };
+    case "sticky-feet":
+      return { label: "GRIP", color: "#f5e2bd", background: "#6a4d32" };
+    default:
+      return {
+        label: (content.statuses.get(id)?.name ?? id).toUpperCase(),
+        color: "#e8e4f0",
+        background: "#3f394f",
+      };
   }
 }
