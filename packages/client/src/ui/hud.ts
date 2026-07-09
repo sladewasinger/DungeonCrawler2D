@@ -44,6 +44,7 @@ export class Hud {
   private hotbarGfx!: Phaser.GameObjects.Graphics;
   private hotbarTexts: Phaser.GameObjects.Text[] = [];
   private hotbarIcons: Phaser.GameObjects.Image[] = [];
+  private hotbarTip!: Phaser.GameObjects.Text;
   private toastText!: Phaser.GameObjects.Text;
   private chatText!: Phaser.GameObjects.Text;
   private partyText!: Phaser.GameObjects.Text;
@@ -82,6 +83,16 @@ export class Hud {
         this.hotbarTexts.push(t);
         c.add([icon, t]);
       }
+      this.hotbarTip = scene.add
+        .text(0, -SLOT_PX - 8, "", {
+          fontSize: "11px",
+          color: "#ffe9b0",
+          backgroundColor: "#0d0a12e8",
+          padding: { x: 5, y: 2 },
+        })
+        .setOrigin(0.5, 1)
+        .setVisible(false);
+      c.add(this.hotbarTip);
     });
     this.register("toasts", (c) => {
       this.toastText = scene.add
@@ -234,6 +245,15 @@ export class Hud {
         .setTexture(itemTextureKey(defId ?? "rag"))
         .setVisible(defId !== null)
         .setAlpha(armed ? 1 : 0.35);
+    }
+    const hotbarHit = this.hitTest(this.scene.input.activePointer.x, this.scene.input.activePointer.y);
+    const hoveredSlot = hotbarHit?.startsWith("slot:") ? Number(hotbarHit.slice(5)) : null;
+    const hoveredDef = hoveredSlot === null ? null : conn.hotbar[hoveredSlot];
+    this.hotbarTip.setVisible(hoveredDef !== null && hoveredDef !== undefined);
+    if (hoveredDef) {
+      this.hotbarTip
+        .setText(content.items.get(hoveredDef)?.name ?? hoveredDef)
+        .setX(hoveredSlot! * SLOT_PX - 4.5 * SLOT_PX + (SLOT_PX - 4) / 2);
     }
 
     // Toasts / chat / party.
