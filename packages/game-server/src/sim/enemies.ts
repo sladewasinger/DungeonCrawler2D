@@ -11,12 +11,17 @@ import {
   launchVelocity,
   makeEntity,
   newEntityId,
+  platformLootSpots,
   stepBody,
+  TILE,
   type EffectEvent,
 } from "@dc2d/engine";
-import { spawnEnemy } from "./helpers";
+import { spawnEnemy, spawnItem } from "./helpers";
 import type { SimState } from "./state";
 import { populateTestZoneChunk } from "./testzone";
+
+/** Loot table for ruin-platform tops — a reason to make the jump. */
+const PLATFORM_LOOT: string[] = ["bandage", "torch", "vodka-bottle", "knife", "water-flask"];
 
 /** Enemy population (chunk activation) and per-tick AI. */
 
@@ -39,6 +44,15 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
   if (isRoomChunk(cy)) return;
   // Dev test zone: fixed fixtures instead of random spawns.
   if (populateTestZoneChunk(sim, cx, cy)) return;
+
+  // Ruin platforms carry loot on their tops — climbing pays.
+  for (const spot of platformLootSpots(sim.world.worldSeed, sim.world.floor, cx, cy)) {
+    if (sim.rng.next() < 0.6) {
+      const def = PLATFORM_LOOT[Math.floor(sim.rng.next() * PLATFORM_LOOT.length)]!;
+      spawnItem(sim, def, spot.x, spot.y, 1);
+    }
+  }
+
   if (sim.enemies.size > 150) return;
   const table: Array<[string, number]> = [
     ["slime", 0.4],
@@ -46,11 +60,13 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
     ["skeleton", 0.2],
     ["spitter", 0.15],
   ];
-  const count = 1 + Math.floor(sim.rng.next() * 3);
+  const count = 2 + Math.floor(sim.rng.next() * 3);
   for (let n = 0; n < count; n++) {
     const wx = cx * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     const wy = cy * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     if (!sim.world.isWalkable(wx, wy) || sim.world.isSanctuary(wx, wy)) continue;
+    // Enemies can't jump — don't strand spawns on wall tops.
+    if (sim.world.tileAt(wx, wy) === TILE.Wall) continue;
     let tooClose = false;
     for (const slot of sim.players.values()) {
       if (Math.hypot(slot.entity.body.x - wx, slot.entity.body.y - wy) < 12) tooClose = true;

@@ -88,11 +88,28 @@ Object.assign(chatInput.style, {
 });
 document.body.appendChild(chatInput);
 
+// Dev-harness chat commands (the server ignores them unless its
+// debugCommands option is on): /god toggles, /tp X Y teleports.
+let godOn = false;
+function handleDevCommand(raw: string): boolean {
+  if (raw === "/god") {
+    godOn = !godOn;
+    conn.debugGod(godOn);
+    return true;
+  }
+  if (raw.startsWith("/tp ")) {
+    const [x, y] = raw.slice(4).trim().split(/\s+/).map(Number);
+    if (Number.isFinite(x) && Number.isFinite(y)) conn.debugTeleport(x!, y!);
+    return true;
+  }
+  return false;
+}
+
 window.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
   if (document.activeElement === chatInput) {
     const raw = chatInput.value.trim();
-    if (raw.length > 0) {
+    if (raw.length > 0 && !handleDevCommand(raw)) {
       if (raw.startsWith("/l ")) conn.chat("local", raw.slice(3));
       else if (conn.party) conn.chat("party", raw);
       else conn.chat("local", raw);

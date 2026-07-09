@@ -12,10 +12,16 @@
 import {
   CHUNK_SIZE,
   TILE,
+  WALL_RISE,
   World,
   ZONE,
+  chunkCenter,
+  hasPlatformCluster,
+  hasTerrace,
   hashString,
+  platformLootSpots,
   safeRoomChunk,
+  terraceSpec,
   type TileType,
   type ZoneType,
 } from "@dc2d/engine";
@@ -24,7 +30,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import atlas from "../packages/client/src/render/atlas.json";
-import { frameForTile } from "../packages/client/src/render/tileframes";
+import { frameForTile, heightTintFactors } from "../packages/client/src/render/tileframes";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "docs", "art-samples");
@@ -33,15 +39,11 @@ const TILE_PX = atlas.tileSize;
 const sheet = PNG.sync.read(readFileSync(join(ROOT, "packages", "client", "public", "assets", "tiles.png")));
 const COLS = Math.floor(sheet.width / TILE_PX);
 
-function heightBrightness(h: number): number {
-  // must match heightTint in DungeonScene.ts
-  return Math.max(0.5, Math.min(1, 0.95 + h * 0.035));
-}
-
 function stampFrame(dst: PNG, dx: number, dy: number, frame: number, tintH: number | null): void {
   const sx = (frame % COLS) * TILE_PX;
   const sy = Math.floor(frame / COLS) * TILE_PX;
-  const b = tintH === null ? 1 : heightBrightness(tintH);
+  // same elevation tint the live client applies per tile
+  const tint = tintH === null ? [1, 1, 1] : heightTintFactors(tintH);
   for (let y = 0; y < TILE_PX; y++) {
     for (let x = 0; x < TILE_PX; x++) {
       const si = ((sy + y) * sheet.width + sx + x) * 4;
@@ -55,7 +57,7 @@ function stampFrame(dst: PNG, dx: number, dy: number, frame: number, tintH: numb
         dst.data[di + 2] = 16;
       }
       for (let c = 0; c < 3; c++) {
-        const v = sheet.data[si + c]! * b;
+        const v = sheet.data[si + c]! * tint[c]!;
         dst.data[di + c] = Math.round(v * a + dst.data[di + c]! * (1 - a));
       }
       dst.data[di + 3] = 255;
@@ -77,6 +79,9 @@ function render(world: WorldLike, x0: number, y0: number, w: number, h: number, 
       stampFrame(img, tx * TILE_PX, ty * TILE_PX, f.base, f.baseTintHeight);
       if (f.border >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX, f.border, null);
       if (f.overlay >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX, f.overlay, f.overlayTintHeight);
+      // wall caps render half a tile north (row-major order keeps them
+      // over the previous row, same as the live caps layer)
+      if (f.cap >= 0) stampFrame(img, tx * TILE_PX, ty * TILE_PX - TILE_PX / 2, f.cap, f.capTintHeight);
     }
   }
   writeFileSync(join(OUT, file), PNG.sync.write(img));
@@ -118,8 +123,9 @@ const showcaseWorld: WorldLike = {
       default: return TILE.Floor as TileType;
     }
   },
-  heightAt() {
-    return 0;
+  heightAt(wx, wy) {
+    // walls are raised terrain now — the showcase demos the faces too
+    return showcaseWorld.tileAt(wx, wy) === TILE.Wall ? WALL_RISE : 0;
   },
   zoneAt(wx, wy) {
     const ch = SHOWCASE[wy]?.[wx];
@@ -164,4 +170,74 @@ render(world, 44, 42, 22, 22, "safe-room-entrance.png");
     }
   }
   render(world, best[0] * CHUNK_SIZE, best[1] * CHUNK_SIZE, 24, 20, "cave.png");
+}
+
+// a ruin platform cluster (jumpable mesas + loot spots)
+{
+  let found: [number, number] | null = null;
+  outer: for (let cy = 2; cy < 12 && !found; cy++) {
+    for (let cx = 2; cx < 12; cx++) {
+      if (hasPlatformCluster(world.worldSeed, world.floor, cx, cy)) {
+        found = [cx, cy];
+        break outer;
+      }
+    }
+  }
+  if (found) {
+    const spots = platformLootSpots(world.worldSeed, world.floor, found[0], found[1]);
+    const cx = spots.length > 0 ? Math.round(spots[0]!.x) : found[0] * CHUNK_SIZE + 16;
+    const cy = spots.length > 0 ? Math.round(spots[0]!.y) : found[1] * CHUNK_SIZE + 16;
+    render(world, cx - 13, cy - 13, 26, 26, "platforms.png");
+  }
+}
+
+// a raised section: hard ledges all around, staircase entries on the corridor
+{
+  let found: [number, number] | null = null;
+  outer: for (let cy = 2; cy < 12 && !found; cy++) {
+    for (let cx = 2; cx < 12; cx++) {
+      if (hasTerrace(world.worldSeed, world.floor, cx, cy)) {
+        found = [cx, cy];
+        break outer;
+      }
+    }
+  }
+  if (found) {
+    const spec = terraceSpec(world.worldSeed, world.floor, found[0], found[1])!;
+    const tx = found[0] * CHUNK_SIZE + spec.lx;
+    const ty = found[1] * CHUNK_SIZE + spec.ly;
+    render(
+      world,
+      tx - spec.hx - 3,
+      ty - spec.hy - 3,
+      spec.hx * 2 + 7,
+      spec.hy * 2 + 7,
+      "terrace.png",
+    );
+  }
+}
+
+// wild plateau cliffs + corridor ramps (the climb routes must read)
+{
+  // scan for the region with the widest height range near a corridor
+  let best: [number, number] = [3, 3];
+  let bestRange = -1;
+  for (let cy = 2; cy < 10; cy++) {
+    for (let cx = 2; cx < 10; cx++) {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let t = 0; t < CHUNK_SIZE; t += 2) {
+        const c = chunkCenter(world.worldSeed, world.floor, cx, cy);
+        const h = world.heightAt(Math.round(c.x) - CHUNK_SIZE / 2 + t, Math.round(c.y));
+        lo = Math.min(lo, h);
+        hi = Math.max(hi, h);
+      }
+      if (hi - lo > bestRange) {
+        bestRange = hi - lo;
+        best = [cx, cy];
+      }
+    }
+  }
+  const c = chunkCenter(world.worldSeed, world.floor, best[0], best[1]);
+  render(world, Math.round(c.x) - 14, Math.round(c.y) - 12, 28, 24, "wild-cliffs.png");
 }

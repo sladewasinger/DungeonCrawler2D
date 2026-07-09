@@ -3,44 +3,33 @@ import { hash2D, mixSeeds } from "../core/rng";
 import { CHUNK_SIZE } from "./types";
 
 /**
- * Base terrain sampling — pure functions of world coordinates, so
- * chunk borders always agree:
+ * Base LAYOUT sampling — pure functions of world coordinates, so chunk
+ * borders always agree:
  *  - Cave noise decides walls vs floor.
  *  - A corridor network — L-shaped paths between jittered chunk
  *    centers — is carved through everything. It is the global
- *    connectivity guarantee AND the ramp system: terrain cliffs
- *    flatten into walkable slopes near corridors.
- *  - Height = plateau field (sharp cliffs off-corridor, ramps on) +
- *    gentle rolling noise. Cliffs taller than STEP_UP are real
- *    obstacles: droppable from above, blocked from below.
+ *    connectivity guarantee.
+ *
+ * The base dungeon is FLAT: layout first, height second. Every tile
+ * samples at height 0; verticality comes only from deliberate features
+ * layered on top (walls rise WALL_RISE, ruin platform clusters, the
+ * authored proving ground) — never from a noise heightfield, which is
+ * how we ended up with staircases splitting hallways for no reason.
  */
 
 const CAVE_FREQ = 0.055;
 const CAVE_WALL_THRESHOLD = 0.585;
 
 export const CORRIDOR_HALF_WIDTH = 1.6; // carve radius (tiles)
-const CORRIDOR_EASE = 6; // cliff→ramp blend radius around corridors
-
-const PLATEAU_FREQ = 0.018;
-const PLATEAU_LEVELS = 3;
-const CLIFF_STEP = 3; // height difference between plateau levels
-const CLIFF_RAMP_MIN = 0.12; // fraction of a level used by the cliff face
-
-const ROLLING_FREQ = 0.09;
-const ROLLING_AMP = 1.0;
 
 export interface Seeds {
   cave: number;
-  plateau: number;
-  rolling: number;
   layout: number;
 }
 
 export function seedsFor(worldSeed: number, floor: number): Seeds {
   return {
     cave: mixSeeds(worldSeed, floor, 0xca7e),
-    plateau: mixSeeds(worldSeed, floor, 0x9127),
-    rolling: mixSeeds(worldSeed, floor, 0x2011),
     layout: mixSeeds(worldSeed, floor, 0x1a10),
   };
 }
@@ -127,35 +116,18 @@ export function distToCorridor(segs: CorridorSegment[], wx: number, wy: number):
   return dCorr;
 }
 
-/** Terrain sample at a world tile, before room/stairs overlays. */
+/**
+ * Layout sample at a world tile, before feature overlays. Height is
+ * always 0 here by design — see the module doc.
+ */
 export function baseSample(
   seeds: Seeds,
   segs: CorridorSegment[],
   wx: number,
   wy: number,
 ): { wall: boolean; height: number } {
-  const dCorr = distToCorridor(segs, wx, wy);
-  const carved = dCorr <= CORRIDOR_HALF_WIDTH;
-  const corridorness = smoothstep01(1 - dCorr / CORRIDOR_EASE);
-
+  const carved = distToCorridor(segs, wx, wy) <= CORRIDOR_HALF_WIDTH;
   const cave = fbm2D(seeds.cave, wx * CAVE_FREQ, wy * CAVE_FREQ, 3);
   const wall = !carved && cave > CAVE_WALL_THRESHOLD;
-
-  // Plateaus: quantized levels with a controllable ramp width. Off
-  // corridors the ramp is a near-vertical cliff face; on corridors it
-  // widens into a fully walkable slope.
-  const p = fbm2D(seeds.plateau, wx * PLATEAU_FREQ, wy * PLATEAU_FREQ, 2);
-  const t = Math.min(PLATEAU_LEVELS - 1e-6, p * PLATEAU_LEVELS);
-  const level = Math.floor(t);
-  const frac = t - level;
-  const rampWidth = CLIFF_RAMP_MIN + (1 - CLIFF_RAMP_MIN) * corridorness;
-  const ramp = smoothstep01((frac - (0.5 - rampWidth / 2)) / rampWidth);
-  const plateauHeight = (level + ramp) * CLIFF_STEP;
-
-  const rolling =
-    (fbm2D(seeds.rolling, wx * ROLLING_FREQ, wy * ROLLING_FREQ, 2) - 0.5) *
-    2 *
-    ROLLING_AMP;
-
-  return { wall, height: plateauHeight + rolling };
+  return { wall, height: 0 };
 }

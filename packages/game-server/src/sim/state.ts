@@ -48,6 +48,10 @@ export interface PlayerSlot {
   /** Send the full area set on next snapshot (join/teleport). */
   needsFullAreas: boolean;
   downedAtTick: number | null;
+  /** Melee swings gate on this tick (spam clicks are dropped). */
+  attackReadyAtTick: number;
+  /** Dev harness: full heal + no knockback every tick (debugCommands only). */
+  god: boolean;
 }
 
 export interface EnemySlot {
@@ -86,6 +90,8 @@ export interface SimState {
   readonly opts: {
     /** e2e scaffolding: spawn players together at the proving ground. */
     clusterSpawns?: boolean;
+    /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
+    debugCommands?: boolean;
   };
   readonly players: Map<string, PlayerSlot>;
   readonly byToken: Map<string, string>;

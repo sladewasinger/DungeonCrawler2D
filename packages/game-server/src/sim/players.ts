@@ -79,6 +79,8 @@ export function addPlayer(
     respawnAtTick: null,
     needsFullAreas: true,
     downedAtTick: null,
+    attackReadyAtTick: 0,
+    god: false,
   };
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
@@ -158,6 +160,23 @@ export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
         if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
       }
     }
+  }
+}
+
+/**
+ * Dev-harness god mode: whatever the tick did to a god player, undo it
+ * before deaths resolve — full heal, statuses stripped, knockback
+ * zeroed. One choke point instead of guards in every damage path.
+ */
+export function applyGodMode(sim: SimState): void {
+  for (const slot of sim.players.values()) {
+    if (!slot.god) continue;
+    slot.entity.hp = slot.entity.maxHp;
+    slot.entity.statuses = [];
+    slot.entity.body.kx = 0;
+    slot.entity.body.ky = 0;
+    slot.downedAtTick = null;
+    delete slot.entity.downedUntil;
   }
 }
 

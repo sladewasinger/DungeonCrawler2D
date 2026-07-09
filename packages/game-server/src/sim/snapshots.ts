@@ -49,6 +49,9 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
         ...(entity.kind === "player" && sim.players.get(entity.id)?.downedAtTick !== null
           ? { downed: true }
           : {}),
+        // Projectiles never touch body.grounded; everyone else is
+        // airborne only mid-jump/mid-fall.
+        ...(entity.kind === "projectile" || !entity.body.grounded ? { air: true as const } : {}),
       });
     };
     for (const other of sim.players.values()) if (other.entity.hp >= 0) consider(other.entity);

@@ -69,6 +69,19 @@ export const clientChatSchema = z.object({
 
 export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
 
+/**
+ * Dev-harness commands (god mode, teleport). The SERVER gates these on
+ * its debugCommands option — off, they're dropped like any other
+ * malformed intent. Never enabled on a production shard.
+ */
+export const clientDebugSchema = z.object({
+  type: z.literal("debug"),
+  op: z.enum(["teleport", "god"]),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  on: z.boolean().optional(),
+});
+
 export const clientMessageSchema = z.discriminatedUnion("type", [
   clientHelloSchema,
   clientInputSchema,
@@ -83,6 +96,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientPartySchema,
   clientChatSchema,
   clientPingSchema,
+  clientDebugSchema,
 ]);
 
 export type ClientHello = z.infer<typeof clientHelloSchema>;
@@ -122,6 +136,9 @@ export const entitySnapshotSchema = z.object({
   fx: z.array(z.string()).optional(),
   qty: z.number().optional(),
   downed: z.boolean().optional(),
+  /** Present iff airborne — grounded entities render planted on their
+   * shadow (interpolating z across height steps must not read as a hop). */
+  air: z.literal(true).optional(),
 });
 export type EntitySnapshot = z.infer<typeof entitySnapshotSchema>;
 

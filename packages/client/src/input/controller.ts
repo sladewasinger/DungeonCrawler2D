@@ -1,5 +1,5 @@
 import { content } from "@dc2d/content";
-import type { MoveInput } from "@dc2d/engine";
+import { ATTACK_COOLDOWN_MS, type MoveInput } from "@dc2d/engine";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
 import { TILE_PX } from "../render/constants";
@@ -28,6 +28,8 @@ export interface InputHooks {
 export class InputController {
   private readonly keys: Keys;
   private readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+  /** Mirrors the server's swing cooldown so the arc never lies. */
+  private nextSwingAt = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -78,6 +80,9 @@ export class InputController {
         if (def?.throwable) conn.useSlot(conn.selectedSlot, wx, wy);
         else conn.useSlot(conn.selectedSlot);
       } else {
+        const now = performance.now();
+        if (now < this.nextSwingAt) return;
+        this.nextSwingAt = now + ATTACK_COOLDOWN_MS;
         const dx = wx - conn.body.x;
         const dy = wy - conn.body.y;
         conn.attack(dx, dy);

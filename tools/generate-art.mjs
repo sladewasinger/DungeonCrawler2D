@@ -8,10 +8,13 @@
  *   assets/topdown/tilesheet.png                — Tile Studio sheet ×1
  *   packages/client/src/render/atlas.json       — frame indices (source of truth)
  *
- * Terrain tiles come from the Craftpix "Free 2D Top-Down Pixel Dungeon
- * Asset Pack" in assets/pack/ (see its license.txt): 16×16-scale sources
- * upscaled 4×. The pack pieces are free-form assemblies, not a grid, so
- * every slice below is a measured pixel rect from walls_floor.png.
+ * Terrain tiles come from the Cainos "Pixel Art Top Down — Basic" pack
+ * in assets/topdown/ (32×32 sources upscaled 2×) — the same pack the
+ * Tile Studio sheet composes, so generated terrain and hand-authored
+ * stamps share one look. The Cainos sheets are free-form assemblies,
+ * not a uniform grid, so every slice below is a measured pixel rect.
+ * The Craftpix pack in assets/pack/ now supplies only the stash chest
+ * (Objects.png).
  *
  * The Tile Studio sheet (custom hand-authored maps) is a separate,
  * combined sheet composed from the Cainos "Pixel Art Top Down — Basic"
@@ -20,19 +23,16 @@
  * (same grid ×2 → 64px) feeds the in-game custom-map layer, so tile
  * indices agree between the two by construction.
  *
- * Wall grammar (matches the pack's own sample render):
- *   - deep wall interior            → near-black flat
- *   - north edge (floor above)      → dark outline + lit brick course
- *   - south edge (floor below)      → darker brick course "face" ending
- *                                     in a light base sliver (sharp edge)
- *   - east/west edges               → rounded cobble rim strips
- *   - 1-wide N-S wall               → solid brick strip; dark rounded cap
- *                                     at the top end, sliver at the bottom
- *   - 1-tall E-W wall               → outline + course + sliver, rounded ends
- *   - floors                        → the four white-brick tiles from the
- *                                     sheet's bottom-right corner
- *   - sanctuary                     → flat platform grey + bevel rim ring
- *   - floor next to a wall          → soft dark-grey shadow border overlay
+ * Wall grammar (Cainos pieces over the same autotile masks):
+ *   - deep wall interior            → warm near-black flat
+ *   - north edge (floor above)      → outlined smooth cap course
+ *   - south edge (floor below)      → cap band + brick face + dark base
+ *   - east/west edges               → smooth side-wall strips
+ *   - 1-wide N-S wall               → side strips both edges, dark core
+ *   - 1-tall E-W wall               → cap band + brick face (compressed)
+ *   - floors                        → rough stone-ground tiles (6 variants)
+ *   - sanctuary                     → smooth slab, teal-shifted + bevel ring
+ *   - floor next to a wall          → soft dark shadow border overlay
  *
  * REPLACE-LATER ART (procedural placeholders, no pack equivalent):
  * stair treads, ledge-rim overlays, player + enemy sprites, area-effect
@@ -72,20 +72,49 @@ function writePng(img, path) {
 }
 
 /**
- * Blit an arbitrary source pixel rect to (dstX, dstY), upscaled 4×.
- * Coordinates are raw pixels in the source image, not grid cells.
+ * Blit an arbitrary source pixel rect to (dstX, dstY), upscaled by
+ * `scale` (default 4× for the 16px Craftpix sources; Cainos 32px
+ * sources pass 2). Coordinates are raw pixels, not grid cells.
  */
 function blitRect(dst, dstX, dstY, src, sx, sy, w, h, opts = {}) {
-  const { tint = [1, 1, 1], brightness = 1, alphaMul = 1 } = opts;
+  const { tint = [1, 1, 1], brightness = 1, alphaMul = 1, scale = SCALE } = opts;
   for (let py = 0; py < h; py++) {
     for (let px = 0; px < w; px++) {
       const si = ((sy + py) * src.width + sx + px) * 4;
       const alpha = src.data[si + 3] * alphaMul;
       if (alpha < 8) continue;
-      for (let dy = 0; dy < SCALE; dy++) {
-        for (let dx = 0; dx < SCALE; dx++) {
-          const tx = dstX + px * SCALE + dx;
-          const ty = dstY + py * SCALE + dy;
+      for (let dy = 0; dy < scale; dy++) {
+        for (let dx = 0; dx < scale; dx++) {
+          const tx = dstX + px * scale + dx;
+          const ty = dstY + py * scale + dy;
+          if (tx < 0 || ty < 0 || tx >= dst.width || ty >= dst.height) continue;
+          const di = (ty * dst.width + tx) * 4;
+          const a = alpha / 255;
+          for (let c = 0; c < 3; c++) {
+            const v = Math.min(255, src.data[si + c] * tint[c] * brightness);
+            dst.data[di + c] = Math.round(v * a + dst.data[di + c] * (1 - a));
+          }
+          dst.data[di + 3] = Math.max(dst.data[di + 3], Math.round(alpha));
+        }
+      }
+    }
+  }
+}
+
+/** blitRect, with the source slice rotated 90° clockwise (w×h → h×w). */
+function blitRectRot90(dst, dstX, dstY, src, sx, sy, w, h, opts = {}) {
+  const { tint = [1, 1, 1], brightness = 1, alphaMul = 1, scale = SCALE } = opts;
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const si = ((sy + py) * src.width + sx + px) * 4;
+      const alpha = src.data[si + 3] * alphaMul;
+      if (alpha < 8) continue;
+      const rx = h - 1 - py; // rotated dest coords
+      const ry = px;
+      for (let dy = 0; dy < scale; dy++) {
+        for (let dx = 0; dx < scale; dx++) {
+          const tx = dstX + rx * scale + dx;
+          const ty = dstY + ry * scale + dy;
           if (tx < 0 || ty < 0 || tx >= dst.width || ty >= dst.height) continue;
           const di = (ty * dst.width + tx) * 4;
           const a = alpha / 255;
@@ -172,76 +201,87 @@ function rng(seed) {
 
 // ── sources ────────────────────────────────────────────────────────
 
-const wallsFloor = loadPng(join(PACK, "walls_floor.png"));
-const objects = loadPng(join(PACK, "Objects.png"));
+const objects = loadPng(join(PACK, "Objects.png")); // stash chest only
 
-// Measured pixel rects in walls_floor.png (verified against 8× crops):
-const S = {
-  // the four white-brick floor tiles, bottom-right corner of the sheet
-  floor: [
-    [176, 336],
-    [192, 336],
-    [176, 352],
-    [192, 352],
+// Terrain sources: the Cainos "Pixel Art Top Down — Basic" pack (32px
+// tiles, upscaled 2×) — the same pack the Tile Studio sheet composes,
+// so generated terrain and hand-authored stamps share one look.
+const txStone = loadPng(join(ROOT, "assets", "topdown", "TX Tileset Stone Ground.png"));
+const txWall = loadPng(join(ROOT, "assets", "topdown", "TX Tileset Wall.png"));
+const txStruct = loadPng(join(ROOT, "assets", "topdown", "TX Struct.png"));
+/** Cainos source-pixel → atlas-pixel (32px cells → 64px tiles). */
+const K = (n) => n * 2;
+const KS = { scale: 2 };
+
+// Measured pixel rects in the Cainos sheets (verified against grid crops):
+const C = {
+  // TX Tileset Stone Ground — rough ground rows 5/7 (row 6 holds a ring)
+  ground: [
+    [0, 160],
+    [32, 160],
+    [64, 160],
+    [0, 224],
+    [32, 224],
+    [64, 224],
   ],
-  // free-standing square column, top-left of sheet (x1..44, y0..77):
-  blackFill: [13, 14, 16, 16], // flat near-black wall-top interior
-  rimTop: [13, 1, 16, 8], // cobble rim course, north edge
-  rimLeft: [1, 14, 7, 16], // cobble rim strip, west edge
-  rimRight: [38, 14, 7, 16], // cobble rim strip, east edge
-  cornerTL: [1, 0, 11, 11],
-  cornerTR: [34, 0, 11, 11],
-  // arch-wall assembly (x48..143, y288..333): lit 16px-periodic brick course
-  courseOutline: [64, 289, 16, 2],
-  courseA: [64, 291, 16, 12],
-  courseB: [80, 291, 16, 12],
-  // the column's south FACE (grid cell ~(0,3)): lavender shoulder course
-  // + cobble courses — this is what the bottom of a wall looks like
-  faceShoulder: [13, 40, 16, 6],
-  faceCourse: [13, 46, 16, 7],
-  faceCourseB: [22, 58, 16, 7],
-  // single-course wall chunk with rounded ends at (48,195) 16×13
-  endcapL: [48, 195, 6, 13],
-  endcapR: [58, 195, 6, 13],
-  // clean 2-wide vertical wall strip, right of sheet (x176..207, y240..335):
-  // its outer halves compose a seamless 1-wide solid-brick strip
-  vstripL: [176, 256, 8, 16],
-  vstripR: [200, 256, 8, 16],
-  // flat grey platform with beveled rim (x1..44, y79..127)
-  platInterior: [15, 94, 16, 16],
-  platBevelTop: [13, 80, 16, 7],
-  platBevelBottom: [13, 120, 16, 7],
-  platBevelLeft: [2, 94, 7, 16],
-  platBevelRight: [37, 94, 7, 16],
-  platCornTL: [2, 80, 10, 10],
-  platCornTR: [34, 80, 10, 10],
-  platCornBL: [2, 117, 10, 10],
-  platCornBR: [34, 117, 10, 10],
+  // smooth slab (the "built" surface): plain + stud-dotted interiors
+  slabPlain: [32, 32],
+  slabDotted: [192, 32],
+  // the big slab's beveled edges + corners (sanctuary rim ring)
+  slabBevelTop: [32, 0, 32, 6],
+  slabBevelBottom: [32, 90, 32, 6],
+  slabBevelLeft: [0, 32, 6, 32],
+  slabBevelRight: [90, 32, 6, 32],
+  slabCornTL: [0, 0, 10, 10],
+  slabCornTR: [86, 0, 10, 10],
+  slabCornBL: [0, 86, 10, 10],
+  slabCornBR: [86, 86, 10, 10],
+  // TX Tileset Wall — cap band, brick faces, 1-wide strip pieces
+  capEdgeN: [192, 32, 32, 14], // outer top edge: outline + smooth cap course
+  capEdgeS: [192, 138, 32, 14], // outer bottom edge bar (structure 2, row 4)
+  face: [64, 128, 32, 32], // clean brick face (room front wall)
+  faceWeathered: [64, 192, 32, 32], // weathered face w/ ledge lip on top
+  faceWeatheredB: [96, 192, 32, 32], // crack variant
+  faceBottom: [64, 249, 32, 5], // dark base edge (bottom brick course end)
+  stripL: [32, 64, 10, 32], // room side wall, west edge (smooth bar)
+  stripR: [118, 64, 10, 32], // room side wall, east edge
+};
+
+// TX Struct — the pack's real staircase pixels. N-S treads are the
+// struct wall-face brick courses (the pack's own sample builds its
+// south-descending staircases exactly this way); E-W treads are the
+// same slice rotated 90° (the wedge staircases are free-form diagonal
+// assemblies that don't slice into a repeatable tile).
+const CS = {
+  nsTread: [40, 72, 32, 32],
 };
 
 const CHEST = [8, 1]; // stash chest cell in Objects.png (16px grid)
 
-const INK = hexToRgb("#15141d"); // dark outline
-const SLIVER = hexToRgb("#c6cbd9"); // light base edge ("sharp edge on bottom")
-const SHADOW = hexToRgb("#2e3140"); // darker-grey wall border on floors
-const LIP = [174, 184, 208];
+const INK = hexToRgb("#2b241d"); // dark outline (Cainos brown-black)
+const SLIVER = hexToRgb("#bdb6a5"); // light base edge ("sharp edge on bottom")
+const SHADOW = hexToRgb("#2e2a24"); // darker wall border on floors
+const LIP = [193, 186, 168];
 // Floor-toned coat under every wall frame so rounded corners and slice
 // gaps show floor, not the void behind the tilemap.
-const BASECOAT = [121, 130, 153];
+const BASECOAT = [139, 133, 119];
+// Wall-top interior: dungeon dark with a warm cast (big wall masses
+// read as void, matching the old grammar).
+const WALL_DARK = [34, 29, 24];
 
 // ── atlas layout ───────────────────────────────────────────────────
 
 const COLS = 8;
-const ROWS = 11;
+const ROWS = 14;
 const frameXY = (index) => [(index % COLS) * TILE, Math.floor(index / COLS) * TILE];
 
 const F = {
-  floor: [0, 1, 2, 3],
+  floor: [0, 1, 2, 3, 82, 83], // 82/83 live in the atlas tail (added later)
   sanctuary: [4, 5, 6, 7],
   stairs: 8,
   faceTall: [9, 10],
   faceShort: [11, 12],
-  rimBase: 13, // + mask 1..7 → 14..20
+  rimBase: 89, // + mask 1..15 (S=1, E=2, W=4, N=8) → 90..104; 13..20 retired
   wallBase: 21, // + N/E/S/W open-mask 0..15 → 21..36
   wallShadowBase: 37, // + adjacent-wall mask 1..15 → 38..52
   sancRimBase: 53, // + platform-edge mask 1..15 → 54..68
@@ -254,6 +294,15 @@ const F = {
     doorExit: 79,
     doorSafeRoom: 80,
   },
+  stairsEW: 81,
+  // rail overlays for authored stair runs (edge tiles get a railing)
+  stairRailW: 84,
+  stairRailE: 85,
+  stairRailN: 86,
+  stairRailS: 87,
+  /** Wall brick face, lower half of the wall's own cell (the cap layer
+   * renders the top shifted half a tile north). */
+  wallFaceHalf: 88,
 };
 
 // ── Tile Studio combined sheet (Cainos top-down pack, 32px tiles) ──
@@ -327,9 +376,17 @@ const atlas = {
     floor: F.floor,
     sanctuary: F.sanctuary,
     stairs: F.stairs,
+    /** E-W treads for ramps that climb east/west. */
+    stairsEW: F.stairsEW,
+    /** Stair-run railing overlays by run edge side. */
+    stairRailW: F.stairRailW,
+    stairRailE: F.stairRailE,
+    stairRailN: F.stairRailN,
+    stairRailS: F.stairRailS,
+    wallFaceHalf: F.wallFaceHalf,
     faceTall: F.faceTall,
     faceShort: F.faceShort,
-    /** rim frame = rimBase + bitmask (S=1, E=2, W=4), masks 1..7 */
+    /** rim frame = rimBase + bitmask (S=1, E=2, W=4, N=8), masks 1..15 */
     rimBase: F.rimBase,
     /** wall frame by N/E/S/W open-neighbor bitmask (N=1,E=2,S=4,W=8) */
     wallAuto: Array.from({ length: 16 }, (_, mask) => F.wallBase + mask),
@@ -349,95 +406,47 @@ const P = (n) => n * SCALE; // source-pixel → atlas-pixel
 
 // ── floors ─────────────────────────────────────────────────────────
 
+// Rough Cainos stone ground — six seamless variants.
 atlas.frames.floor.forEach((frame, i) => {
   const [x, y] = frameXY(frame);
-  blitRect(tiles, x, y, wallsFloor, S.floor[i][0], S.floor[i][1], 16, 16);
+  const [sx, sy] = C.ground[i % C.ground.length];
+  blitRect(tiles, x, y, txStone, sx, sy, 32, 32, KS);
 });
 
-// Sanctuary: the pack's flat platform grey (the current "lighter grey").
-atlas.frames.sanctuary.forEach((frame) => {
+// Sanctuary: the smooth Cainos slab, teal-shifted — safety reads as
+// "built" against the rough ground.
+const TEAL = { ...KS, tint: [0.62, 1.04, 0.99] };
+atlas.frames.sanctuary.forEach((frame, i) => {
   const [x, y] = frameXY(frame);
-  blitRect(tiles, x, y, wallsFloor, ...S.platInterior);
+  const [sx, sy] = i % 2 === 0 ? C.slabPlain : C.slabDotted;
+  blitRect(tiles, x, y, txStone, sx, sy, 32, 32, TEAL);
 });
 
 // ── wall autotile (16 frames by N/E/S/W open-neighbor mask) ────────
 
-/** Wall-top tile: black interior, course on N, rim strips on E/W. */
-function drawWallTop(x, y, { n, e, w }) {
-  blitRect(tiles, x, y, wallsFloor, ...S.blackFill);
-  if (w) blitRect(tiles, x, y, wallsFloor, ...S.rimLeft);
-  if (e) blitRect(tiles, x + P(16 - 7), y, wallsFloor, ...S.rimRight);
-  if (n) {
-    rect(tiles, x, y, TILE, P(1), INK);
-    blitRect(tiles, x, y + P(1), wallsFloor, ...S.rimTop);
-  }
-  if (n && w) blitRect(tiles, x, y, wallsFloor, ...S.cornerTL);
-  if (n && e) blitRect(tiles, x + P(16 - 11), y, wallsFloor, ...S.cornerTR);
-  if (w) rect(tiles, x, y, P(1), P(1), BASECOAT);
-  if (e) rect(tiles, x + TILE - P(1), y, P(1), P(1), BASECOAT);
-}
-
-/** South-facing wall face: the column's shoulder + cobble course (~cell 0,3). */
-function drawWallFace(x, y, { n, e, w }) {
-  blitRect(tiles, x, y, wallsFloor, ...S.faceShoulder);
-  blitRect(tiles, x, y + P(6), wallsFloor, ...S.faceCourse);
-  if (n) rect(tiles, x, y, TILE, P(2), INK); // 1-tall wall: dark cap on top
-  rect(tiles, x, y + P(13), TILE, P(2), SLIVER);
-  rect(tiles, x, y + P(15), TILE, P(1), INK);
-  if (w) {
-    blitRect(tiles, x, y + P(1), wallsFloor, ...S.endcapL, { brightness: 0.9 });
-    rect(tiles, x, y + P(1), P(1), P(14), INK);
-    rect(tiles, x, y, P(1), P(2), BASECOAT);
-    rect(tiles, x, y + TILE - P(2), P(1), P(2), BASECOAT);
-  }
-  if (e) {
-    blitRect(tiles, x + P(10), y + P(1), wallsFloor, ...S.endcapR, { brightness: 0.9 });
-    rect(tiles, x + P(15), y + P(1), P(1), P(14), INK);
-    rect(tiles, x + TILE - P(1), y, P(1), P(2), BASECOAT);
-    rect(tiles, x + TILE - P(1), y + TILE - P(2), P(1), P(2), BASECOAT);
-  }
-}
-
-/** 1-wide N-S wall: solid brick strip; cap at the top end, sliver at the bottom. */
-function drawVStrip(x, y, { cap, base }) {
-  blitRect(tiles, x, y, wallsFloor, ...S.vstripL);
-  blitRect(tiles, x + P(8), y, wallsFloor, ...S.vstripR);
-  if (cap) {
-    // dark rounded cap: "black on top"
-    rect(tiles, x + P(1), y, P(14), P(2), INK);
-    rect(tiles, x, y + P(1), P(1), P(2), INK);
-    rect(tiles, x + P(15), y + P(1), P(1), P(2), INK);
-    rect(tiles, x + P(2), y + P(2), P(12), P(1), [96, 96, 122]);
-    rect(tiles, x, y, P(1), P(1), BASECOAT);
-    rect(tiles, x + P(15), y, P(1), P(1), BASECOAT);
-  }
-  if (base) {
-    // "sharp edge on bottom"
-    rect(tiles, x + P(1), y + P(13), P(14), P(2), SLIVER);
-    rect(tiles, x + P(1), y + P(15), P(14), P(1), INK);
-    rect(tiles, x, y + P(15), P(1), P(1), BASECOAT);
-    rect(tiles, x + P(15), y + P(15), P(1), P(1), BASECOAT);
-  }
+/**
+ * Wall-top platform frame: the wall is terrain raised WALL_RISE, so
+ * every mask draws the same thing — a dark top surface with Cainos
+ * cap/strip outlines on whichever edges border lower ground. The south
+ * FACE is no longer baked in here: it renders on the tile below via
+ * the shared cliff-face overlay, same as any ledge.
+ */
+function drawWallTop(x, y, { n, e, s, w }) {
+  rect(tiles, x, y, TILE, TILE, WALL_DARK);
+  if (w) blitRect(tiles, x, y, txWall, ...C.stripL, KS);
+  if (e) blitRect(tiles, x + TILE - K(10), y, txWall, ...C.stripR, KS);
+  if (n) blitRect(tiles, x, y, txWall, ...C.capEdgeN, KS);
+  if (s) blitRect(tiles, x, y + TILE - K(14), txWall, ...C.capEdgeS, KS);
 }
 
 for (let mask = 0; mask < 16; mask++) {
   const [x, y] = frameXY(F.wallBase + mask);
-  rect(tiles, x, y, TILE, TILE, BASECOAT);
-  const n = !!(mask & 1);
-  const e = !!(mask & 2);
-  const s = !!(mask & 4);
-  const w = !!(mask & 8);
-  if (e && w && !s) {
-    drawVStrip(x, y, { cap: n, base: false }); // strip middle / north cap
-  } else if (e && w && s && !n) {
-    drawVStrip(x, y, { cap: false, base: true }); // strip south end
-  } else if (e && w && s && n) {
-    drawVStrip(x, y, { cap: true, base: true }); // isolated pillar
-  } else if (s) {
-    drawWallFace(x, y, { n, e, w }); // south face (walls, EW strips, ends)
-  } else {
-    drawWallTop(x, y, { n, e, w }); // wall top (interior + N/E/W edges)
-  }
+  drawWallTop(x, y, {
+    n: !!(mask & 1),
+    e: !!(mask & 2),
+    s: !!(mask & 4),
+    w: !!(mask & 8),
+  });
 }
 
 // ── floor-side wall shadow overlays ("darker grey border") ─────────
@@ -470,52 +479,77 @@ for (let mask = 1; mask < 16; mask++) {
   const e = !!(mask & 2);
   const s = !!(mask & 4);
   const w = !!(mask & 8);
-  if (n) blitRect(tiles, x, y, wallsFloor, ...S.platBevelTop);
-  if (s) blitRect(tiles, x, y + P(16 - 7), wallsFloor, ...S.platBevelBottom);
-  if (w) blitRect(tiles, x, y, wallsFloor, ...S.platBevelLeft);
-  if (e) blitRect(tiles, x + P(16 - 7), y, wallsFloor, ...S.platBevelRight);
-  if (n && w) blitRect(tiles, x, y, wallsFloor, ...S.platCornTL);
-  if (n && e) blitRect(tiles, x + P(16 - 10), y, wallsFloor, ...S.platCornTR);
-  if (s && w) blitRect(tiles, x, y + P(16 - 10), wallsFloor, ...S.platCornBL);
-  if (s && e) blitRect(tiles, x + P(16 - 10), y + P(16 - 10), wallsFloor, ...S.platCornBR);
+  if (n) blitRect(tiles, x, y, txStone, ...C.slabBevelTop, TEAL);
+  if (s) blitRect(tiles, x, y + TILE - K(6), txStone, ...C.slabBevelBottom, TEAL);
+  if (w) blitRect(tiles, x, y, txStone, ...C.slabBevelLeft, TEAL);
+  if (e) blitRect(tiles, x + TILE - K(6), y, txStone, ...C.slabBevelRight, TEAL);
+  if (n && w) blitRect(tiles, x, y, txStone, ...C.slabCornTL, TEAL);
+  if (n && e) blitRect(tiles, x + TILE - K(10), y, txStone, ...C.slabCornTR, TEAL);
+  if (s && w) blitRect(tiles, x, y + TILE - K(10), txStone, ...C.slabCornBL, TEAL);
+  if (s && e) blitRect(tiles, x + TILE - K(10), y + TILE - K(10), txStone, ...C.slabCornBR, TEAL);
 }
 
 // ── stairs: procedural treads (REPLACE-LATER; pack stairs are diagonal) ──
 
+// The pack's real staircase pixels (TX Struct): N-S treads are the
+// brick courses its own sample map uses for south-descending stairs;
+// E-W treads are the same slice rotated so nosings run north-south.
 {
   const [x, y] = frameXY(atlas.frames.stairs);
-  for (let t = 0; t < 4; t++) {
-    const ty = y + t * 16;
-    rect(tiles, x, ty, TILE, 12, [128, 134, 158]);
-    rect(tiles, x, ty, TILE, 3, [176, 184, 206]);
-    rect(tiles, x, ty + 12, TILE, 4, [42, 40, 58]);
-  }
-  rect(tiles, x, y, 4, TILE, [70, 70, 92]);
-  rect(tiles, x + TILE - 4, y, 4, TILE, [70, 70, 92]);
+  blitRect(tiles, x, y, txStruct, ...CS.nsTread, KS);
+}
+{
+  const [x, y] = frameXY(atlas.frames.stairsEW);
+  blitRectRot90(tiles, x, y, txStruct, ...CS.nsTread, KS);
+}
+// Run-edge railings (overlays; the rails are what make it read STAIRS).
+// Sliced from the wall sheet's smooth side strips and cap courses —
+// the same trim the pack's own staircases wear.
+{
+  const [x, y] = frameXY(atlas.frames.stairRailW);
+  blitRect(tiles, x, y, txWall, ...C.stripL, KS);
+}
+{
+  const [x, y] = frameXY(atlas.frames.stairRailE);
+  blitRect(tiles, x + TILE - K(10), y, txWall, ...C.stripR, KS);
+}
+{
+  const [x, y] = frameXY(atlas.frames.stairRailN);
+  blitRect(tiles, x, y, txWall, ...C.capEdgeN, KS);
+}
+{
+  const [x, y] = frameXY(atlas.frames.stairRailS);
+  blitRect(tiles, x, y + TILE - K(14), txWall, ...C.capEdgeS, KS);
+}
+
+// Wall face for the lower half of a wall's own cell: the visible base
+// you collide with (the cap layer draws the top half a tile north).
+{
+  const [x, y] = frameXY(atlas.frames.wallFaceHalf);
+  blitRect(tiles, x, y + K(16), txWall, C.face[0], C.face[1], 32, 11, KS);
+  blitRect(tiles, x, y + TILE - K(5), txWall, ...C.faceBottom, KS);
 }
 
 // ── terrain cliff faces: stacked brick courses from the pack ───────
 
 atlas.frames.faceTall.forEach((frame, i) => {
   const [x, y] = frameXY(frame);
-  const course = i === 0 ? S.faceCourse : S.faceCourseB;
-  rect(tiles, x, y, TILE, P(1), LIP);
-  blitRect(tiles, x, y + P(1), wallsFloor, ...S.faceShoulder);
-  blitRect(tiles, x, y + P(7), wallsFloor, ...course, { brightness: 0.92 });
-  blitRect(tiles, x, y + P(13), wallsFloor, course[0], course[1], 16, 2, { brightness: 0.7 });
-  rect(tiles, x, y + P(15), TILE, P(1), [0, 0, 0, 120]);
+  const src = i === 0 ? C.faceWeathered : C.faceWeatheredB;
+  blitRect(tiles, x, y, txWall, ...src, KS); // ledge lip is baked into row 6
+  blitRect(tiles, x, y + TILE - K(5), txWall, ...C.faceBottom, KS);
+  rect(tiles, x, y + TILE - 2, TILE, 2, [0, 0, 0, 120]);
 });
 atlas.frames.faceShort.forEach((frame, i) => {
   const [x, y] = frameXY(frame);
-  const course = i === 0 ? S.faceCourse : S.faceCourseB;
-  rect(tiles, x, y, TILE, P(1), LIP);
-  blitRect(tiles, x, y + P(1), wallsFloor, course[0], course[1], 16, 6, { brightness: 0.92 });
-  rect(tiles, x, y + P(7), TILE, P(1), [0, 0, 0, 120]);
+  const src = i === 0 ? C.faceWeathered : C.faceWeatheredB;
+  blitRect(tiles, x, y, txWall, src[0], src[1], 32, 14, KS); // lip + one course
+  blitRect(tiles, x, y + K(14), txWall, ...C.faceBottom, KS);
+  rect(tiles, x, y + K(19) - 2, TILE, 2, [0, 0, 0, 120]);
 });
 
 // ── ledge-rim overlays (heights; REPLACE-LATER procedural) ─────────
 
-for (let mask = 1; mask <= 7; mask++) {
+for (let mask = 1; mask <= 15; mask++) {
   const [x, y] = frameXY(atlas.frames.rimBase + mask);
   const soft = [LIP[0], LIP[1], LIP[2], 150];
   if (mask & 1) {
@@ -529,6 +563,11 @@ for (let mask = 1; mask <= 7; mask++) {
   if (mask & 4) {
     rect(tiles, x, y, 4, TILE, LIP);
     rect(tiles, x + 4, y, 4, TILE, soft);
+  }
+  if (mask & 8) {
+    // north drop — the platform's top border line
+    rect(tiles, x, y, TILE, 4, LIP);
+    rect(tiles, x, y + 4, TILE, 4, soft);
   }
 }
 
@@ -587,13 +626,13 @@ function paintArea(frame, seed, blobs) {
   const I = atlas.frames.interact;
   {
     const [x, y] = frameXY(I.stash);
-    blitRect(tiles, x, y, wallsFloor, S.floor[0][0], S.floor[0][1], 16, 16);
+    blitRect(tiles, x, y, txStone, C.ground[0][0], C.ground[0][1], 32, 32, KS);
     blitRect(tiles, x, y, objects, CHEST[0] * 16, CHEST[1] * 16, 16, 16);
   }
   {
     // crafting table: workbench with tools (REPLACE-LATER art)
     const [x, y] = frameXY(I.craftingTable);
-    blitRect(tiles, x, y, wallsFloor, S.floor[1][0], S.floor[1][1], 16, 16);
+    blitRect(tiles, x, y, txStone, C.ground[1][0], C.ground[1][1], 32, 32, KS);
     rect(tiles, x + 8, y + 16, 48, 36, hexToRgb("#6e4a28")); // tabletop
     rect(tiles, x + 8, y + 16, 48, 5, hexToRgb("#8a6136"));
     rect(tiles, x + 8, y + 47, 48, 5, hexToRgb("#4c3018"));

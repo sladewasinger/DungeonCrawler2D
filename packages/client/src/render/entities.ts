@@ -1,5 +1,5 @@
 import { content } from "@dc2d/content";
-import { MELEE_RANGE, hashString, type EntitySnapshot } from "@dc2d/engine";
+import { MELEE_RANGE, TILE, hashString, type EntitySnapshot } from "@dc2d/engine";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
 import atlas from "./atlas.json";
@@ -37,12 +37,22 @@ export class EntityRenderer {
     const world = conn.world!;
     const sx = x * TILE_PX;
     const sy = y * TILE_PX;
-    const lift = Math.max(0, z - world.heightAt(Math.floor(x), Math.floor(y))) * Z_PX;
+    // Grounded = planted on the shadow, always. Interpolated z crosses
+    // tile-height steps mid-walk, and lifting by that difference made
+    // stair climbs read as hops.
+    const lift = conn.body!.grounded
+      ? 0
+      : Math.max(0, z - world.heightAt(Math.floor(x), Math.floor(y))) * Z_PX;
     this.selfVisual.shadow.setPosition(sx, sy);
     this.selfVisual.shadow.setScale(1 - Math.min(0.35, lift / 400));
     this.selfVisual.sprite.setPosition(sx, sy - lift);
     this.selfVisual.sprite.setTint(statusTint(conn.fx));
     this.selfVisual.sprite.setAlpha(conn.downed ? 0.5 : 1);
+    // On a wall top (or jumping over one) you render above the wall-cap
+    // layer; on the ground you render below it (half-hidden behind walls).
+    const overWall = world.tileAt(Math.floor(x), Math.floor(y)) === TILE.Wall;
+    this.selfVisual.sprite.setDepth(overWall ? 3.5 : 2);
+    this.selfVisual.shadow.setDepth(overWall ? 3.4 : 1);
   }
 
   renderRemotes(conn: Connection): void {
@@ -59,12 +69,18 @@ export class EntityRenderer {
       }
       const px = x * TILE_PX;
       const py = y * TILE_PX;
-      const lift = Math.max(0, z - world.heightAt(Math.floor(x), Math.floor(y))) * Z_PX;
+      // Only airborne entities lift off their shadow (see renderSelf).
+      const lift = snap.air
+        ? Math.max(0, z - world.heightAt(Math.floor(x), Math.floor(y))) * Z_PX
+        : 0;
       visual.shadow.setPosition(px, py);
       visual.sprite.setPosition(px, py - lift);
       visual.sprite.setTint(statusTint(snap.fx ?? []));
       visual.sprite.setAlpha(snap.downed ? 0.5 : 1);
       visual.label?.setPosition(px, py - lift - 44);
+      const overWall = world.tileAt(Math.floor(x), Math.floor(y)) === TILE.Wall;
+      visual.sprite.setDepth(overWall ? 3.5 : 2);
+      visual.shadow.setDepth(overWall ? 3.4 : 1);
 
       if (snap.hp !== undefined && snap.maxHp !== undefined && snap.hp < snap.maxHp) {
         const frac = Math.max(0, snap.hp / snap.maxHp);
@@ -92,7 +108,7 @@ export class EntityRenderer {
     const px = this.selfVisual.sprite.x;
     const py = this.selfVisual.sprite.y;
     const radius = MELEE_RANGE * TILE_PX * 0.9;
-    const g = this.scene.add.graphics().setDepth(3);
+    const g = this.scene.add.graphics().setDepth(4);
     g.fillStyle(0xffe9b0, 0.35);
     g.slice(px, py, radius, angle - 0.55, angle + 0.55);
     g.fillPath();
@@ -135,7 +151,7 @@ export class EntityRenderer {
         label = this.scene.add
           .text(0, 0, snap.name ?? "?", { fontSize: "12px", color: "#c8ecf7" })
           .setOrigin(0.5, 1)
-          .setDepth(3);
+          .setDepth(4); // above the wall-cap layer
         break;
       }
       case "enemy": {

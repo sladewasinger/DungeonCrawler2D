@@ -26,6 +26,8 @@ export interface ServerOptions {
   rngSeed?: number;
   /** e2e scaffolding: spawn players together at the proving ground. */
   clusterSpawns?: boolean;
+  /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
+  debugCommands?: boolean;
 }
 
 export interface RunningServer {
@@ -43,7 +45,10 @@ export function startServer(opts: ServerOptions): RunningServer {
     opts.content,
     store,
     opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
-    { clusterSpawns: opts.clusterSpawns ?? false },
+    {
+      clusterSpawns: opts.clusterSpawns ?? false,
+      debugCommands: opts.debugCommands ?? false,
+    },
   );
   const wss = new WebSocketServer({ port: opts.port });
   const sockets = new Map<string, WebSocket>();

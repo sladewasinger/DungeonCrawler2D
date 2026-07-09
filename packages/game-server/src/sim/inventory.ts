@@ -44,6 +44,8 @@ export function doPickup(sim: SimState, slot: PlayerSlot): void {
   let best: Entity | null = null;
   let bestDist = PICKUP_RANGE;
   for (const item of sim.items.values()) {
+    // Same level only — no grabbing loot off a mesa top from below.
+    if (Math.abs(item.body.z - body.z) > 1.5) continue;
     const d = Math.hypot(item.body.x - body.x, item.body.y - body.y);
     if (d <= bestDist) {
       bestDist = d;

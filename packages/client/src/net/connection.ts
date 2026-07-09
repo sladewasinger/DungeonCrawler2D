@@ -209,6 +209,16 @@ export class Connection {
     this.sendRaw({ type: "chat", channel, text });
   }
 
+  // ── dev harness (server drops these unless debugCommands is on) ──
+
+  debugTeleport(x: number, y: number): void {
+    this.sendRaw({ type: "debug", op: "teleport", x, y });
+  }
+
+  debugGod(on = true): void {
+    this.sendRaw({ type: "debug", op: "god", on });
+  }
+
   drainVisualEvents(): VisualEvent[] {
     const out = this.visualEvents;
     this.visualEvents = [];

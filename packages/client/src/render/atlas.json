@@ -12,7 +12,9 @@
       0,
       1,
       2,
-      3
+      3,
+      82,
+      83
     ],
     "sanctuary": [
       4,
@@ -21,6 +23,12 @@
       7
     ],
     "stairs": 8,
+    "stairsEW": 81,
+    "stairRailW": 84,
+    "stairRailE": 85,
+    "stairRailN": 86,
+    "stairRailS": 87,
+    "wallFaceHalf": 88,
     "faceTall": [
       9,
       10
@@ -29,7 +37,7 @@
       11,
       12
     ],
-    "rimBase": 13,
+    "rimBase": 89,
     "wallAuto": [
       21,
       22,

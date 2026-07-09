@@ -17,6 +17,7 @@ import { activateChunksNearPlayers, stepEnemies } from "./enemies";
 import { spawnEnemy, spawnItem } from "./helpers";
 import {
   addPlayer,
+  applyGodMode,
   handleInput,
   markDisconnected,
   queueAction,
@@ -49,6 +50,8 @@ export class GameSim {
     opts: {
       /** e2e scaffolding: spawn players together at the proving ground. */
       clusterSpawns?: boolean;
+      /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
+      debugCommands?: boolean;
     } = {},
   ) {
     this.state = createSimState(world, content, store, rngSeed, opts);
@@ -134,6 +137,7 @@ export class GameSim {
     applyAreaContact(sim, effectEvents);
     tickStatuses(sim, effectEvents);
     realizeEffectEvents(sim, effectEvents);
+    applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
     resolveDeaths(sim);
     expireInvites(sim);
 

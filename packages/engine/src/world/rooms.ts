@@ -121,9 +121,15 @@ export function personalRoomFeatures(slot: number): {
  * room template is carved. Every room interior is sanctuary — no
  * fighting in anyone's home.
  */
+/**
+ * Room walls rise far beyond the jump apex (≈2.2): stretch rooms stay
+ * sealed — no hopping the perimeter into the void band.
+ */
+const ROOM_WALL_RISE = 6;
+
 export function generateRoomChunk(cx: number, cy: number): Chunk {
   const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TILE.Wall);
-  const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE).fill(ROOM_WALL_RISE);
   const zones = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
 
   const isPersonalRow = cy === ROOM_REGION_CY;
@@ -143,6 +149,7 @@ export function generateRoomChunk(cx: number, cy: number): Chunk {
     const i = ly * CHUNK_SIZE + lx;
     tiles[i] = tile;
     zones[i] = zone;
+    height[i] = 0; // carved interior sits at floor level
   };
 
   // Carve the interior (walls stay on the perimeter ring).

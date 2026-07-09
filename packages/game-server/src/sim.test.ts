@@ -1,6 +1,7 @@
 import { content } from "@dc2d/content";
 import {
   AOI_RADIUS,
+  ATTACK_COOLDOWN_MS,
   MIN_SPAWN_DIST,
   PLAYER_MAX_HP,
   RECONNECT_GRACE_MS,
@@ -29,6 +30,8 @@ import { PlayerStore } from "./store";
  */
 
 const SEED = hashString("sim-test-world");
+/** Ticks until the next melee swing is accepted (see actions.ts). */
+const SWING_TICKS = Math.round((ATTACK_COOLDOWN_MS / 1000) * TICK_RATE);
 
 function input(seq: number, moveX: -1 | 0 | 1, moveY: -1 | 0 | 1, jump = false): ClientInput {
   return { type: "input", seq, moveX, moveY, jump };
@@ -59,6 +62,36 @@ describe("GameSim", () => {
   beforeEach(() => {
     store = new PlayerStore(null);
     sim = new GameSim(new World(SEED, 1), content, store, 1234);
+  });
+
+  // ── dev harness: debug commands ──────────────────────────────────
+
+  it("debug teleport and god mode work when enabled — and are dropped when not", () => {
+    // Default sim: debugCommands off — debug intents are ignored.
+    const a = sim.addPlayer("A", "client-a");
+    const aEntity = sim.getPlayerEntity(a.playerId)!;
+    const spawnX = aEntity.body.x;
+    sim.queueAction(a.playerId, { type: "debug", op: "teleport", x: 500.5, y: 500.5 });
+    sim.step();
+    expect(aEntity.body.x).toBeCloseTo(spawnX, 3);
+
+    // Dev sim: teleport moves the player; god mode shrugs off a skeleton.
+    const dev = new GameSim(new World(SEED, 1), content, new PlayerStore(null), 99, {
+      debugCommands: true,
+    });
+    const b = dev.addPlayer("B", "client-b");
+    const bEntity = dev.getPlayerEntity(b.playerId)!;
+    dev.queueAction(b.playerId, { type: "debug", op: "teleport", x: 10.5, y: 30.5 });
+    dev.step();
+    expect(bEntity.body.x).toBeCloseTo(10.5, 3);
+    expect(bEntity.body.y).toBeCloseTo(30.5, 3);
+
+    dev.queueAction(b.playerId, { type: "debug", op: "god", on: true });
+    dev.step();
+    dev.spawnEnemy("skeleton", bEntity.body.x + 1, bEntity.body.y);
+    for (let i = 0; i < TICK_RATE * 4; i++) dev.step();
+    expect(bEntity.hp).toBe(PLAYER_MAX_HP); // it swung plenty; god shrugged
+    expect(bEntity.body.kx).toBe(0); // and no knockback sticks
   });
 
   // ── Epic 2 regression: spawn / AOI / reconnect ───────────────────
@@ -218,6 +251,27 @@ describe("GameSim", () => {
 
   // ── Epic 6: combat ───────────────────────────────────────────────
 
+  it("melee swings gate on a cooldown — spam clicks land exactly one hit", () => {
+    const a = sim.addPlayer("A", "client-a");
+    const aEntity = sim.getPlayerEntity(a.playerId)!;
+    const slime = sim.spawnEnemy("slime", aEntity.body.x + 1, aEntity.body.y);
+    // A burst of attack intents in one tick and the next: one swing.
+    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    sim.step();
+    teleport(slime, aEntity.body.x + 1, aEntity.body.y, sim); // undo knockback
+    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    sim.step();
+    expect(slime.hp).toBe(12 - 3);
+
+    // After the cooldown, the next swing lands.
+    stepN(sim, SWING_TICKS);
+    teleport(slime, aEntity.body.x + 1, aEntity.body.y, sim);
+    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    sim.step();
+    expect(slime.hp).toBe(12 - 6);
+  });
+
   it("melee prefers the enemy over an adjacent party member (targeting aid)", () => {
     const { aId, bId } = makeParty(sim);
     const aEntity = sim.getPlayerEntity(aId)!;
@@ -234,6 +288,7 @@ describe("GameSim", () => {
     // No hostile in arc → the friend takes the hit. Trust, not immunity.
     slime.hp = 0;
     sim.step(); // reap the corpse
+    stepN(sim, SWING_TICKS); // let the swing cooldown recover
     teleport(bEntity, aEntity.body.x + 0.5, aEntity.body.y, sim);
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
@@ -247,11 +302,14 @@ describe("GameSim", () => {
     const bEntity = sim.getPlayerEntity(b.playerId)!;
     teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
     sim.getInventory(a.playerId)![0] = { item: "knife", qty: 1 };
-    // Swing until the 40% bleed chance lands (seeded rng, bounded).
+    // Swing until the 40% bleed chance lands (seeded rng, bounded),
+    // waiting out the swing cooldown between attempts.
     for (let i = 0; i < 10 && !bEntity.statuses.some((s) => s.defId === "bleeding"); i++) {
       sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
       sim.step();
       teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim); // undo knockback
+      stepN(sim, SWING_TICKS);
+      teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
     }
     expect(bEntity.hp).toBeLessThan(PLAYER_MAX_HP);
     expect(bEntity.statuses.some((s) => s.defId === "bleeding")).toBe(true);

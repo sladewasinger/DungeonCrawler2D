@@ -188,7 +188,9 @@ export class Hud {
       .fillStyle(frac > 0.35 ? 0x6fce62 : 0xd8574d, 1)
       .fillRect(2, 2, 176 * Math.max(0, frac), 14);
     this.healthText.setText(
-      conn.downed ? `DOWNED — a party member can revive you` : `${conn.hp} / ${conn.maxHp}`,
+      conn.downed
+        ? `DOWNED — a party member can revive you`
+        : `${Math.ceil(conn.hp)} / ${conn.maxHp}`,
     );
 
     // Active statuses.

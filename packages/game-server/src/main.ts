@@ -35,6 +35,12 @@ if (process.env.CUSTOM_MAP !== "none" && existsSync(customMapFile)) {
   );
 }
 
+// Dev harness (god mode, teleport): on for local dev and tests, and
+// HARD OFF under NODE_ENV=production — the deploy checklist (v0.9)
+// additionally requires DEBUG_COMMANDS=0 on real shards.
+const debugCommands =
+  process.env.NODE_ENV !== "production" && process.env.DEBUG_COMMANDS !== "0";
+
 const server = startServer({
   port,
   worldSeed,
@@ -42,6 +48,7 @@ const server = startServer({
   content,
   storeFile,
   clusterSpawns: process.env.CLUSTER_SPAWNS === "1",
+  debugCommands,
 });
 
 console.log(

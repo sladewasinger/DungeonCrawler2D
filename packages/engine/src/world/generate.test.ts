@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { STEP_UP } from "../core/constants";
+import { STEP_UP, WALL_RISE } from "../core/constants";
 import { hashString } from "../core/rng";
-import { isSafeRoomChunk } from "./features";
+import { isSafeRoomChunk, isStairsChunk } from "./features";
 import { generateChunk } from "./generate";
+import { PLATFORM_TIER_STEP, hasPlatformCluster } from "./platforms";
+import { hasTerrace } from "./terraces";
 import { chunkCenter } from "./terrain";
 import { safeRoomChunk, safeRoomFeatures, safeRoomSpawn } from "./rooms";
 import { CHUNK_SIZE, TILE, ZONE } from "./types";
@@ -12,6 +14,48 @@ const SEED = hashString("test-world");
 const FLOOR = 1;
 
 describe("world generation", () => {
+  it("the base dungeon is flat; height exists only where something was built", () => {
+    // Away from the dev test zone (0,0)–(1,1) and room space, and
+    // skipping stairway-feature chunks (their pads author TILE.Stairs).
+    let plainFloors = 0;
+    for (const [cx, cy] of [
+      [4, 4],
+      [7, -3],
+      [-5, 6],
+      [9, 8],
+      [-8, -8],
+      [12, 3],
+    ] as const) {
+      if (isStairsChunk(SEED, FLOOR, cx, cy)) continue;
+      const terrace = hasTerrace(SEED, FLOOR, cx, cy);
+      const platforms = hasPlatformCluster(SEED, FLOOR, cx, cy);
+      const chunk = generateChunk(SEED, FLOOR, cx, cy);
+      for (let i = 0; i < chunk.tiles.length; i++) {
+        const h = chunk.height[i]!;
+        if (chunk.tiles[i] === TILE.Floor) {
+          // Whole jumpable tiers only, and NOTHING raised outside the
+          // deliberate features — a plain chunk is perfectly flat.
+          expect(h % PLATFORM_TIER_STEP).toBe(0);
+          expect(h).toBeGreaterThanOrEqual(0);
+          expect(h).toBeLessThanOrEqual(2 * PLATFORM_TIER_STEP);
+          if (!terrace && !platforms) {
+            expect(h).toBe(0);
+            plainFloors++;
+          }
+        } else if (chunk.tiles[i] === TILE.Stairs) {
+          // Stairs exist only as terrace entries: half-rise steps on a
+          // section boundary — never sprinkled by terrain math.
+          expect(terrace).toBe(true);
+          expect(Math.abs(h % PLATFORM_TIER_STEP)).toBe(1);
+        } else if (chunk.tiles[i] === TILE.Wall) {
+          // Wall tops = local ground + WALL_RISE.
+          expect((h - WALL_RISE) % PLATFORM_TIER_STEP).toBe(0);
+        }
+      }
+    }
+    expect(plainFloors).toBeGreaterThan(50);
+  });
+
   it("is byte-identical for identical inputs (networking invariant)", () => {
     for (const [cx, cy] of [
       [0, 0],

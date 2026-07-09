@@ -1,4 +1,5 @@
 import {
+  ATTACK_COOLDOWN_MS,
   CHUNK_SIZE,
   FIST_DAMAGE,
   INTERACT_RANGE,
@@ -6,6 +7,7 @@ import {
   MAX_THROW_RANGE,
   REVIVE_HP_FRACTION,
   THROW_SPEED,
+  TICK_RATE,
   TILE,
   applyKnockback,
   createBody,
@@ -65,10 +67,26 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
         case "chat":
           doChat(sim, slot, action.channel, action.text);
           break;
+        case "debug":
+          // Dev harness only — a production shard drops these outright.
+          if (!sim.opts.debugCommands) break;
+          if (action.op === "god") {
+            slot.god = action.on ?? true;
+            slot.outbox.push({ t: "toast", msg: slot.god ? "God mode ON" : "God mode off" });
+          } else if (
+            action.op === "teleport" &&
+            Number.isFinite(action.x) &&
+            Number.isFinite(action.y)
+          ) {
+            teleport(sim, slot, { x: action.x!, y: action.y! }, { remember: false });
+          }
+          break;
       }
     }
   }
 }
+
+const ATTACK_COOLDOWN_TICKS = Math.round((ATTACK_COOLDOWN_MS / 1000) * TICK_RATE);
 
 function doAttack(
   sim: SimState,
@@ -79,6 +97,8 @@ function doAttack(
 ): void {
   const attacker = slot.entity;
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
+  if (sim.tickCount < slot.attackReadyAtTick) return; // swing still recovering
+  slot.attackReadyAtTick = sim.tickCount + ATTACK_COOLDOWN_TICKS;
   const weaponSlot = slot.inventory[slot.selectedSlot];
   const weapon = weaponSlot ? sim.content.items.get(weaponSlot.item)?.weapon : undefined;
   const weaponTags = weaponSlot ? (sim.content.items.get(weaponSlot.item)?.tags ?? []) : [];

@@ -256,4 +256,71 @@ test.describe("dungeoncrawler2d e2e", () => {
     const afterMove = await readState(page);
     expect(afterMove.x).toBeLessThan(after.x - 2); // inputs accepted post-resume
   });
+
+  test("dev harness: god + teleport to a raised section, climb its staircase", async ({
+    page,
+  }) => {
+    await openGame(page);
+
+    // Find a terrace stair entry at this fixed seed by scanning the
+    // world through the client's own deterministic generator: the only
+    // odd-height stairs in the wild are raised-section entries.
+    const spot = await page.evaluate(() => {
+      const conn = window.__dc2d!.conn;
+      conn.debugGod(true);
+      const w = conn.world!;
+      for (let r = 2; r <= 8; r++) {
+        for (let cy = -r; cy <= r; cy++) {
+          for (let cx = -r; cx <= r; cx++) {
+            if (Math.max(Math.abs(cx), Math.abs(cy)) !== r) continue;
+            for (let ly = 0; ly < 32; ly++) {
+              for (let lx = 0; lx < 32; lx++) {
+                const x = cx * 32 + lx;
+                const y = cy * 32 + ly;
+                if (w.tileAt(x, y) !== 2 || Math.abs(w.heightAt(x, y) - 1) > 0.01) continue;
+                // the low approach tile in front of the entry step
+                for (const [dx, dy] of [
+                  [0, 1],
+                  [0, -1],
+                  [1, 0],
+                  [-1, 0],
+                ] as const) {
+                  if (w.tileAt(x + dx, y + dy) !== 0) continue;
+                  if (w.heightAt(x + dx, y + dy) > 0.01) continue;
+                  return { stairX: x, stairY: y, lowX: x + dx + 0.5, lowY: y + dy + 0.5 };
+                }
+              }
+            }
+          }
+        }
+      }
+      return null;
+    });
+    expect(spot).not.toBeNull();
+
+    // Teleport to the approach tile (a debug intent the server honors
+    // because the e2e server runs with DEBUG_COMMANDS=1).
+    await page.evaluate(({ lowX, lowY }) => {
+      window.__dc2d!.conn.debugTeleport(lowX, lowY);
+    }, spot!);
+    await page.waitForFunction(
+      ({ lowX, lowY }) => {
+        const b = window.__dc2d!.conn.body;
+        return b !== null && Math.hypot(b.x - lowX, b.y - lowY) < 1;
+      },
+      spot!,
+      { timeout: 5000 },
+    );
+    const arrived = await readState(page);
+    expect(arrived.z).toBeCloseTo(0, 1); // at the base, on low ground
+
+    // Walk up the staircase with real keys: 0 → 1 → 2, never airborne.
+    const key =
+      spot!.stairY < Math.floor(spot!.lowY) ? "w" : spot!.stairY > Math.floor(spot!.lowY) ? "s" : spot!.stairX < Math.floor(spot!.lowX) ? "a" : "d";
+    await page.locator("canvas").first().click({ position: { x: 640, y: 200 } });
+    await holdKey(page, key, 900);
+    const onTop = await readState(page);
+    expect(onTop.grounded).toBe(true);
+    expect(onTop.z).toBeCloseTo(2, 1); // standing atop the raised section
+  });
 });

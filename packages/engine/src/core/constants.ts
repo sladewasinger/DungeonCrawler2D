@@ -12,6 +12,12 @@ export const MOVE_SPEED = 8;
 export const STEP_UP = 1.0;
 export const JUMP_VELOCITY = 11.5; // apex ≈ 2.2 tiles — clears one cliff step
 export const GRAVITY = 30;
+/**
+ * Walls are terrain, not axioms: a wall tile is the local ground raised
+ * this much — too tall to walk up, low enough to jump onto. Wall tops
+ * are walkable platforms; falling off is just falling.
+ */
+export const WALL_RISE = 2;
 
 /** Area-of-interest replication radius (tiles). */
 export const AOI_RADIUS = 40;
@@ -32,6 +38,8 @@ export const FALL_DAMAGE_PER_UNIT = 6;
 
 /** Combat. */
 export const MELEE_RANGE = 1.6;
+/** Minimum time between melee swings — spam-clicking must not be the meta. */
+export const ATTACK_COOLDOWN_MS = 350;
 /** cos of the half-angle of the melee arc (~70°). */
 export const MELEE_ARC_COS = 0.35;
 export const FIST_DAMAGE = 3;

@@ -1,8 +1,7 @@
 import { CHUNK_SIZE, customArtAt, getCustomMap, type World } from "@dc2d/engine";
 import Phaser from "phaser";
-import atlas from "./atlas.json";
 import { CHUNK_PX, TILE_PX } from "./constants";
-import { frameForTile } from "./tileframes";
+import { frameForTile, heightTint } from "./tileframes";
 
 /**
  * Chunked terrain as Phaser tilemap layers (base + borders + cliff
@@ -82,6 +81,12 @@ export class TerrainRenderer {
     const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(-10);
     const borders = map.createBlankLayer("borders", tileset, ox, oy)!.setDepth(-9.5);
     const overlay = map.createBlankLayer("overlay", tileset, ox, oy)!.setDepth(-9);
+    // Wall tops: shifted half a tile north and drawn ABOVE entities, so
+    // a wall's body leans over the tile behind it and half-hides anyone
+    // standing there (entities on wall tops bump their depth past this).
+    const caps = map
+      .createBlankLayer("caps", tileset, ox, oy - TILE_PX / 2)!
+      .setDepth(3);
     // Tile Studio art overrides render verbatim above the autotiles.
     let custom: Phaser.Tilemaps.TilemapLayer | null = null;
     if (getCustomMap()?.art) {
@@ -106,6 +111,12 @@ export class TerrainRenderer {
             overlayTile.tint = heightTint(frames.overlayTintHeight);
           }
         }
+        if (frames.cap >= 0) {
+          const capTile = caps.putTileAt(frames.cap, lx, ly);
+          if (capTile && frames.capTintHeight !== null) {
+            capTile.tint = heightTint(frames.capTintHeight);
+          }
+        }
         if (custom) {
           const art = customArtAt(wx, wy);
           if (art !== null) custom.putTileAt(art, lx, ly);
@@ -114,12 +125,4 @@ export class TerrainRenderer {
     }
     return map;
   }
-}
-
-function heightTint(h: number): number {
-  // Ground level renders at (near) full brightness so the white-brick
-  // floor reads white; only depth darkens noticeably.
-  const brightness = Math.max(0.5, Math.min(1, 0.95 + h * 0.035));
-  const gray = Math.round(brightness * 255);
-  return (gray << 16) | (gray << 8) | gray;
 }

@@ -1,6 +1,9 @@
+import { WALL_RISE } from "../core/constants";
 import { applyCustomMap } from "./custommap";
 import { applyFlattenedFeature } from "./features";
+import { applyPlatformCluster } from "./platforms";
 import { sealInteriorPockets } from "./pockets";
+import { applyTerrace } from "./terraces";
 import { generateRoomChunk, isRoomChunk } from "./rooms";
 import {
   CORRIDOR_HALF_WIDTH,
@@ -13,11 +16,18 @@ import { applyTestZone } from "./testzone";
 import { CHUNK_SIZE, TILE, type Chunk } from "./types";
 
 /**
- * Chunked, deterministic world generation: `generateChunk` layers the
- * base terrain sample (terrain.ts), fixed features (features.ts), dev
- * scaffolding (testzone.ts), Tile Studio stamps (custommap.ts), and a
- * reachability pass (pockets.ts). Every layer is a pure function of
- * world coordinates, so chunk borders always agree.
+ * Chunked, deterministic world generation — LAYOUT FIRST, HEIGHT SECOND.
+ *
+ * `generateChunk` builds a FLAT dungeon: cave-noise walls, the corridor
+ * network (terrain.ts), fixed features (features.ts), dev scaffolding
+ * (testzone.ts), Tile Studio stamps (custommap.ts), and a reachability
+ * pass (pockets.ts) — all at height 0. Verticality is then layered on
+ * only by deliberate features that make sense as *places*: ruin
+ * platform clusters (platforms.ts), wall tops rising WALL_RISE, and the
+ * authored proving ground. No noise heightfield — height changes exist
+ * where something was built, never because a contour happened to pass
+ * through a hallway. Every layer is a pure function of world
+ * coordinates, so chunk borders always agree.
  */
 export function generateChunk(
   worldSeed: number,
@@ -50,9 +60,20 @@ export function generateChunk(
   }
 
   applyFlattenedFeature(worldSeed, floor, cx, cy, seeds, segs, tiles, height, zones);
+  applyPlatformCluster(worldSeed, floor, cx, cy, seeds, segs, tiles, height);
+  applyTerrace(worldSeed, floor, cx, cy, segs, tiles, height); // raised sections
   applyTestZone(cx, cy, tiles, height, zones); // dev scaffolding — see testzone.ts
   applyCustomMap(cx, cy, tiles, height, corridorCarved); // Tile Studio stamps
   sealInteriorPockets(tiles, corridorCarved, zones);
+
+  // Walls are terrain: raise every wall tile WALL_RISE above the ground
+  // it stands on. Height (not a solidity axiom) is what blocks walking
+  // into a wall — and what lets you jump onto its top and walk it.
+  // Runs last so sealed pockets and stamped walls rise too; pure per
+  // tile, so chunk seams still agree.
+  for (let i = 0; i < tiles.length; i++) {
+    if (tiles[i] === TILE.Wall) height[i] = height[i]! + WALL_RISE;
+  }
 
   return { cx, cy, tiles, height, zones };
 }

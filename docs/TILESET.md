@@ -46,14 +46,17 @@ Handy cells (used by `tools/tile-studio/example-map.json`):
   - front-wall cap: 353, 354, 355 (row 11)
   - front-wall brick face: 385, 386, 387 (row 12)
 
-## What did NOT change
+## Terrain autotiles (re-sourced 2026-07-08)
 
 The generated dungeon's terrain autotiles (`tiles.png` — floors, wall
-grammar, sanctuary, cliffs) still bake from the **Craftpix** pack in
-`assets/pack/` via measured pixel rects in `generate-art.mjs`.
-Custom-map stamps render *over* that terrain, so the two packs coexist.
-Follow-up if we commit to Cainos: re-source the terrain autotiles from
-`TX Tileset Wall` / `TX Tileset Stone Ground` and retire `assets/pack/`.
+grammar, sanctuary, cliff faces) now bake from the **same Cainos pack**
+via measured pixel rects in `generate-art.mjs`: rough stone ground for
+floors, the smooth slab (teal-shifted) for sanctuary, and the wall
+sheet's caps/side-strips/brick-faces for the 16-mask wall grammar and
+cliff faces. Generated terrain and hand-authored stamps share one look.
+
+The Craftpix pack in `assets/pack/` now supplies only the stash-chest
+sprite (`Objects.png`); retire it fully when the chest gets real art.
 
 ## Compatibility notes
 

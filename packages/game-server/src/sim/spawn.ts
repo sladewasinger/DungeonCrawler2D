@@ -1,4 +1,4 @@
-import { MIN_SPAWN_DIST, SPAWN_CHUNK_RANGE, TEST_SPAWN, chunkCenter } from "@dc2d/engine";
+import { MIN_SPAWN_DIST, SPAWN_CHUNK_RANGE, TEST_SPAWN, TILE, chunkCenter } from "@dc2d/engine";
 import type { SimState } from "./state";
 
 /** Where new and respawning players appear. */
@@ -65,7 +65,11 @@ export function findWalkableNear(
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         const x = Math.round(wx) + dx;
         const y = Math.round(wy) + dy;
-        if (sim.world.isWalkable(x, y)) return { x, y };
+        // Wall tops are technically standable, but nobody's first
+        // moment should be marooned on one.
+        if (sim.world.isWalkable(x, y) && sim.world.tileAt(x, y) !== TILE.Wall) {
+          return { x, y };
+        }
       }
     }
   }

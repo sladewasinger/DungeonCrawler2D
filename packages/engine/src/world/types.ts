@@ -18,9 +18,12 @@ export const TILE = {
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
-/** Solid tiles that block movement. */
+/**
+ * Solid tiles that block movement outright (furniture). Walls are NOT
+ * here: a wall is terrain raised WALL_RISE — its height blocks walking,
+ * and its top is a walkable platform you can jump onto.
+ */
 export const SOLID_TILES: ReadonlySet<number> = new Set([
-  TILE.Wall,
   TILE.CraftingTable,
   TILE.Stash,
 ]);

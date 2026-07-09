@@ -27,6 +27,7 @@ export default defineConfig({
         WORLD_SEED: "e2e-world",
         STORE_FILE: "none",
         CLUSTER_SPAWNS: "1",
+        DEBUG_COMMANDS: "1",
       },
     },
     {

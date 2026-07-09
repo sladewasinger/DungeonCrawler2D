@@ -1,4 +1,4 @@
-import { STEP_UP, TILE, ZONE, hash2D, type World } from "@dc2d/engine";
+import { STEP_UP, TILE, WALL_RISE, ZONE, hash2D, type World } from "@dc2d/engine";
 import atlas from "./atlas.json";
 
 /**
@@ -8,20 +8,48 @@ import atlas from "./atlas.json";
  * to the live client.
  *
  * Layers:
- *   base    — floor / sanctuary / wall autotile / stairs
+ *   base    — floor everywhere (walls stand on real floor) / stairs
  *   border  — floor-side wall shadows and sanctuary bevel rims
- *   overlay — interactables, terrain cliff faces, ledge rims
+ *   overlay — interactables, terrain cliff faces, ledge rims, and the
+ *             wall's own brick face (lower half of the wall cell)
+ *   cap     — wall TOPS, drawn on a layer shifted half a tile north and
+ *             ABOVE entities: the wall's body leans over the tile
+ *             behind it, so walking up from the south you stop at its
+ *             visible base, and standing north of it you're half-hidden
  *
  * Wall autotile mask: open (non-wall) neighbors N=1, E=2, S=4, W=8.
  */
 
 export interface TileFrames {
   base: number;
-  /** Height used to tint the base tile, or null for untinted (walls, stairs). */
+  /** Height used to tint the base tile, or null for untinted. */
   baseTintHeight: number | null;
   border: number; // -1 = none
   overlay: number; // -1 = none
   overlayTintHeight: number | null;
+  /** Wall-top frame for the north-shifted caps layer. -1 = none. */
+  cap: number;
+  capTintHeight: number | null;
+}
+
+/**
+ * Elevation tint: higher ground renders brighter and warmer, depths
+ * darker and cooler — the whole height range stays readable, not just
+ * the first step (the old curve capped at h≈1.4 and the world read
+ * flat). Shared by the live tilemap layers and the sample renderer.
+ */
+export function heightTintFactors(h: number): [number, number, number] {
+  const t = Math.max(-1.3, Math.min(1, h / 6));
+  const g = Math.max(0.5, Math.min(1, 0.78 + 0.22 * t));
+  const r = Math.min(1, g + 0.07 * Math.max(0, t));
+  const b = Math.min(1, g + 0.09 * Math.max(0, -t));
+  return [r, g, b];
+}
+
+/** heightTintFactors packed for Phaser's per-tile tint. */
+export function heightTint(h: number): number {
+  const [r, g, b] = heightTintFactors(h);
+  return (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
 }
 
 const NESW: ReadonlyArray<readonly [number, number]> = [
@@ -39,6 +67,8 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
     border: -1,
     overlay: -1,
     overlayTintHeight: null,
+    cap: -1,
+    capTintHeight: null,
   };
 
   if (tile === TILE.Wall) {
@@ -46,11 +76,72 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
     NESW.forEach(([dx, dy], i) => {
       if (world.tileAt(wx + dx, wy + dy) !== TILE.Wall) mask |= 1 << i;
     });
-    return { ...none, base: atlas.frames.wallAuto[mask]! };
+    // Real floor underneath; the wall's brick face fills the lower half
+    // of its own cell (that's the base you collide with); the top cap
+    // goes to the north-shifted layer above entities.
+    const floorVariants = atlas.frames.floor;
+    const southOpen = world.tileAt(wx, wy + 1) !== TILE.Wall;
+    return {
+      base: floorVariants[hash2D(11, wx, wy) % floorVariants.length]!,
+      baseTintHeight: h - WALL_RISE,
+      border: -1,
+      overlay: southOpen ? atlas.frames.wallFaceHalf : -1,
+      overlayTintHeight: h,
+      cap: atlas.frames.wallAuto[mask]!,
+      capTintHeight: h,
+    };
   }
 
   if (tile === TILE.Stairs) {
-    return { ...none, base: atlas.frames.stairs };
+    // Tread lines run perpendicular to the climb: pick the frame by the
+    // dominant WALKABLE slope axis (an east-climbing run must not wear
+    // north-south treads, and a cliff dropping off one side must not
+    // out-vote the actual climb direction). Two-tile context at half
+    // weight lets a run's flat top step inherit its direction.
+    const wr = (dh: number) => (Math.abs(dh) <= STEP_UP * 1.5 ? Math.abs(dh) : 0);
+    const hE = world.heightAt(wx + 1, wy);
+    const hW = world.heightAt(wx - 1, wy);
+    const hN = world.heightAt(wx, wy - 1);
+    const hS = world.heightAt(wx, wy + 1);
+    // Primary vote: the signed THROUGH-climb — a real staircase steps
+    // down on one side and up on the other along its climb axis. This
+    // is what separates a stair in a terrace-edge notch (both sideways
+    // neighbors higher) from the direction you actually walk it.
+    const sw = (dh: number) => (Math.abs(dh) <= STEP_UP * 1.5 ? dh : 0);
+    const throughEW = Math.abs(sw(hE - h) + sw(h - hW));
+    const throughNS = Math.abs(sw(hN - h) + sw(h - hS));
+    const ew =
+      wr(hE - h) +
+      wr(hW - h) +
+      0.5 * (wr(world.heightAt(wx + 2, wy) - hE) + wr(world.heightAt(wx - 2, wy) - hW));
+    const ns =
+      wr(hN - h) +
+      wr(hS - h) +
+      0.5 * (wr(world.heightAt(wx, wy - 2) - hN) + wr(world.heightAt(wx, wy + 2) - hS));
+    const climbsEW = throughEW !== throughNS ? throughEW > throughNS : ew > ns;
+    // Run-edge railings, like the pack's own staircases: a rail wherever
+    // the run borders a wall or a different level (anything that isn't
+    // more stairs or same-height floor).
+    const railAt = (dx: number, dy: number): boolean => {
+      const t = world.tileAt(wx + dx, wy + dy);
+      if (t === TILE.Stairs) return false;
+      return t === TILE.Wall || Math.abs(world.heightAt(wx + dx, wy + dy) - h) > 0.5;
+    };
+    let overlay = -1;
+    if (climbsEW) {
+      if (railAt(0, -1)) overlay = atlas.frames.stairRailN;
+      else if (railAt(0, 1)) overlay = atlas.frames.stairRailS;
+    } else {
+      if (railAt(-1, 0)) overlay = atlas.frames.stairRailW;
+      else if (railAt(1, 0)) overlay = atlas.frames.stairRailE;
+    }
+    return {
+      ...none,
+      base: climbsEW ? atlas.frames.stairsEW : atlas.frames.stairs,
+      baseTintHeight: h,
+      overlay,
+      overlayTintHeight: h,
+    };
   }
 
   const sanctuary = world.zoneAt(wx, wy) === ZONE.Sanctuary;
@@ -91,27 +182,30 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
                 ? atlas.frames.interact.stash
                 : null;
   if (special !== null) {
-    return { base, baseTintHeight: h, border, overlay: special, overlayTintHeight: null };
+    return { ...none, base, baseTintHeight: h, border, overlay: special };
   }
 
-  // Terrain verticality: cliff faces where the tile north of us is
-  // higher; ledge rims where we drop off to the S/E/W.
-  const rise = world.heightAt(wx, wy - 1) - h;
+  // Terrain verticality, anchored the way the pack anchors it: a raised
+  // tile's own south-edge row carries the cliff FACE — so climbing up
+  // from below, your feet stop exactly at the visible base — and
+  // drop-offs to the N/E/W draw rim lines along the top's border.
+  // Heights are honest everywhere (walls included), so pure height math
+  // decides; no tile-kind special cases.
+  const dropS = h - world.heightAt(wx, wy + 1);
   let overlay = -1;
-  let overlayTintHeight: number | null = h;
-  if (rise > 2.5) {
+  const overlayTintHeight: number | null = h;
+  if (dropS > 1.8) {
     overlay = atlas.frames.faceTall[hash2D(13, wx, wy) % 2]!;
-    overlayTintHeight = world.heightAt(wx, wy - 1);
-  } else if (rise > STEP_UP) {
+  } else if (dropS > STEP_UP) {
     overlay = atlas.frames.faceShort[hash2D(13, wx, wy) % 2]!;
-    overlayTintHeight = world.heightAt(wx, wy - 1);
   } else {
+    // South drops always took the face path above, so rims mark E/W/N.
     let rimMask = 0;
-    if (h - world.heightAt(wx, wy + 1) > STEP_UP) rimMask |= 1;
     if (h - world.heightAt(wx + 1, wy) > STEP_UP) rimMask |= 2;
     if (h - world.heightAt(wx - 1, wy) > STEP_UP) rimMask |= 4;
+    if (h - world.heightAt(wx, wy - 1) > STEP_UP) rimMask |= 8; // the top border
     if (rimMask > 0) overlay = atlas.frames.rimBase + rimMask;
   }
 
-  return { base, baseTintHeight: h, border, overlay, overlayTintHeight };
+  return { base, baseTintHeight: h, border, overlay, overlayTintHeight, cap: -1, capTintHeight: null };
 }
