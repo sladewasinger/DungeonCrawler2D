@@ -126,6 +126,7 @@ export const bodySnapshotSchema = z.object({
   z: z.number(),
   zVel: z.number(),
   grounded: z.boolean(),
+  coyoteTime: z.number().nonnegative(),
   kx: z.number(),
   ky: z.number(),
 });

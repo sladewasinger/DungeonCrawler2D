@@ -1,6 +1,7 @@
 import { content } from "@dc2d/content";
 import Phaser from "phaser";
 import type { Connection } from "../net/connection";
+import { itemTextureKey } from "../render/itemSprites";
 
 /**
  * The HUD widget foundation (GAME_DESIGN.md § Editable HUD): every
@@ -42,6 +43,7 @@ export class Hud {
   private statusText!: Phaser.GameObjects.Text;
   private hotbarGfx!: Phaser.GameObjects.Graphics;
   private hotbarTexts: Phaser.GameObjects.Text[] = [];
+  private hotbarIcons: Phaser.GameObjects.Image[] = [];
   private toastText!: Phaser.GameObjects.Text;
   private chatText!: Phaser.GameObjects.Text;
   private partyText!: Phaser.GameObjects.Text;
@@ -64,14 +66,21 @@ export class Hud {
       this.hotbarGfx = scene.add.graphics();
       c.add(this.hotbarGfx);
       for (let i = 0; i < 9; i++) {
+        const icon = scene.add
+          .image(i * SLOT_PX - 4.5 * SLOT_PX + 21, -SLOT_PX + 20, "item-rag")
+          .setDisplaySize(28, 28)
+          .setVisible(false);
         const t = scene.add
-          .text(i * SLOT_PX - 4.5 * SLOT_PX + 4, -SLOT_PX + 4, "", {
-            fontSize: "10px",
+          .text(i * SLOT_PX - 4.5 * SLOT_PX + 3, -SLOT_PX + 29, "", {
+            fontSize: "8px",
             color: "#e8e4f0",
+            align: "center",
           })
           .setWordWrapWidth(SLOT_PX - 8);
+        t.setFixedSize(SLOT_PX - 8, SLOT_PX - 31);
+        this.hotbarIcons.push(icon);
         this.hotbarTexts.push(t);
-        c.add(t);
+        c.add([icon, t]);
       }
     });
     this.register("toasts", (c) => {
@@ -178,7 +187,13 @@ export class Hud {
 
   // ── frame update ─────────────────────────────────────────────────
 
-  update(conn: Connection, prompt: string, panel: string | null, debug: string): void {
+  update(
+    conn: Connection,
+    prompt: string,
+    panel: string | null,
+    debug: string,
+    selectedThrowable: number | null,
+  ): void {
     // Health.
     this.healthBar.clear();
     this.healthBar.fillStyle(0x1a1420, 1).fillRect(0, 0, 180, 18);
@@ -206,14 +221,19 @@ export class Hud {
       const defId = conn.hotbar[i] ?? null;
       const qty = defId ? (conn.inventory.find((s) => s.item === defId)?.qty ?? 0) : 0;
       const armed = defId !== null && qty > 0;
+      const selected = selectedThrowable === i;
       this.hotbarGfx
-        .fillStyle(0x0d0a12, 0.85)
+        .fillStyle(selected ? 0x4d3b12 : 0x0d0a12, selected ? 1 : 0.85)
         .fillRect(x, -SLOT_PX, SLOT_PX - 4, SLOT_PX - 4)
-        .lineStyle(1, armed ? 0x9fe8c9 : 0x5c5470, 1)
+        .lineStyle(selected ? 3 : 1, selected ? 0xffe9b0 : armed ? 0x9fe8c9 : 0x5c5470, 1)
         .strokeRect(x, -SLOT_PX, SLOT_PX - 4, SLOT_PX - 4);
-      this.hotbarTexts[i]!.setText(this.slotLabel(defId, qty, i)).setAlpha(
-        defId !== null && qty === 0 ? 0.45 : 1,
-      );
+      this.hotbarTexts[i]!
+        .setText(selected ? `THROW\n${this.slotLabel(defId, qty, i)}` : this.slotLabel(defId, qty, i))
+        .setAlpha(defId !== null && qty === 0 ? 0.45 : 1);
+      this.hotbarIcons[i]!
+        .setTexture(itemTextureKey(defId ?? "rag"))
+        .setVisible(defId !== null)
+        .setAlpha(armed ? 1 : 0.35);
     }
 
     // Toasts / chat / party.
@@ -245,7 +265,6 @@ export class Hud {
   private slotLabel(defId: string | null, qty: number, index: number): string {
     const key = `${index + 1}`;
     if (!defId) return key;
-    const name = content.items.get(defId)?.name ?? defId;
-    return `${key} ${name}${qty !== 1 ? ` ×${qty}` : ""}`;
+    return `${key}${qty !== 1 ? ` x${qty}` : ""}`;
   }
 }

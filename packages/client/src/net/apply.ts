@@ -18,6 +18,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
     z: snap.self.z,
     zVel: snap.self.zVel,
     grounded: snap.self.grounded,
+    coyoteTime: snap.self.coyoteTime,
     fallStart: snap.self.z,
     kx: snap.self.kx,
     ky: snap.self.ky,

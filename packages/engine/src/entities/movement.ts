@@ -1,4 +1,11 @@
-import { GRAVITY, JUMP_VELOCITY, KNOCKBACK_DECAY, MOVE_SPEED, STEP_UP } from "../core/constants";
+import {
+  COYOTE_TIME,
+  GRAVITY,
+  JUMP_VELOCITY,
+  KNOCKBACK_DECAY,
+  MOVE_SPEED,
+  STEP_UP,
+} from "../core/constants";
 import type { WorldView } from "../world/types";
 
 /**
@@ -15,6 +22,7 @@ export interface BodyState {
   z: number;
   zVel: number;
   grounded: boolean;
+  coyoteTime: number;
   /** Ground z where the body last left the ground. Fall damage is the
    * DROP below your takeoff point — jumping off a platform hurts
    * exactly as much as walking off it, never "platform + jump apex". */
@@ -47,7 +55,7 @@ export interface StepOpts {
 export const NEUTRAL_INPUT: MoveInput = { moveX: 0, moveY: 0, jump: false };
 
 export function createBody(x: number, y: number, z: number): BodyState {
-  return { x, y, z, zVel: 0, grounded: true, fallStart: z, kx: 0, ky: 0 };
+  return { x, y, z, zVel: 0, grounded: true, coyoteTime: 0, fallStart: z, kx: 0, ky: 0 };
 }
 
 export function cloneBody(body: BodyState): BodyState {
@@ -129,9 +137,13 @@ export function stepBody(
   const result: StepResult = {};
   const speed = opts.speed ?? MOVE_SPEED;
 
-  if (input.jump && body.grounded) {
+  if (body.grounded) body.coyoteTime = COYOTE_TIME;
+  else body.coyoteTime = Math.max(0, body.coyoteTime - dt);
+
+  if (input.jump && (body.grounded || body.coyoteTime > 0)) {
     body.zVel = JUMP_VELOCITY;
     body.grounded = false;
+    body.coyoteTime = 0;
     body.fallStart = body.z;
   }
 

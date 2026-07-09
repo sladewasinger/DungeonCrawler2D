@@ -1,8 +1,17 @@
 import { content } from "@dc2d/content";
-import { MELEE_RANGE, TILE, hashString, type EntitySnapshot } from "@dc2d/engine";
+import {
+  GRAVITY,
+  MAX_THROW_RANGE,
+  MELEE_RANGE,
+  THROW_SPEED,
+  TILE,
+  type EntitySnapshot,
+} from "@dc2d/engine";
 import Phaser from "phaser";
+import type { ThrowPreview } from "../input/controller";
 import type { Connection } from "../net/connection";
 import atlas from "./atlas.json";
+import { itemTextureKey } from "./itemSprites";
 import { TILE_PX, Z_PX } from "./constants";
 
 /**
@@ -17,6 +26,10 @@ interface EntityVisual {
   sprite: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Ellipse;
   label: Phaser.GameObjects.Text | null;
+  kind: EntitySnapshot["kind"];
+  phase: number;
+  lastX?: number;
+  lastY?: number;
   /** Eased screen elevation of the body (px). */
   elevPx?: number;
   /** Eased screen elevation of the ground under it (px, the shadow). */
@@ -30,8 +43,10 @@ export class EntityRenderer {
   private readonly visuals = new Map<string, EntityVisual>();
   private readonly selfVisual: EntityVisual;
   private readonly selfGhost: Phaser.GameObjects.Image;
+  private readonly heldWeapon: Phaser.GameObjects.Image;
   private readonly barGfx: Phaser.GameObjects.Graphics;
   private readonly hoverTip: Phaser.GameObjects.Text;
+  private readonly throwArc: Phaser.GameObjects.Graphics;
   private lastFrameAt = 0;
   private frameDt = 1 / 60;
 
@@ -40,6 +55,8 @@ export class EntityRenderer {
       shadow: scene.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
       sprite: scene.add.image(0, 0, "players", atlas.players.self).setOrigin(0.5, 0.85).setDepth(2),
       label: null,
+      kind: "player",
+      phase: 0,
     };
     // Silhouette ghost above the wall-cap layer: walls two tiles tall
     // hide a player standing right behind them completely — the ghost
@@ -50,7 +67,14 @@ export class EntityRenderer {
       .setDepth(4.5)
       .setAlpha(0.3)
       .setVisible(false);
+    this.heldWeapon = scene.add
+      .image(0, 0, "item-rag")
+      .setOrigin(0.28, 0.72)
+      .setDisplaySize(38, 38)
+      .setDepth(2.2)
+      .setVisible(false);
     this.barGfx = scene.add.graphics().setDepth(4);
+    this.throwArc = scene.add.graphics().setDepth(5);
     // Ground-item name on mouse hover — know what it is before [R].
     this.hoverTip = scene.add
       .text(0, 0, "", {
@@ -97,14 +121,33 @@ export class EntityRenderer {
     const elev = this.elevate(this.selfVisual, z, world.groundAt(x, y));
     this.selfVisual.shadow.setPosition(sx, sy - elev.ground);
     this.selfVisual.shadow.setScale(1 - Math.min(0.35, (elev.body - elev.ground) / 400));
-    this.selfVisual.sprite.setPosition(sx, sy - elev.body);
+    const bob = this.motionOffset(this.selfVisual, x, y, now);
+    this.selfVisual.sprite.setPosition(sx, sy - elev.body + bob);
     this.selfVisual.sprite.setTint(statusTint(conn.fx));
     this.selfVisual.sprite.setAlpha(conn.downed ? 0.5 : 1);
     // On a wall top (or jumping over one) you render above the wall-cap
     // layer; on the ground you render below it (half-hidden behind walls).
     const overWall = world.tileAt(Math.floor(x), Math.floor(y)) === TILE.Wall;
-    this.selfVisual.sprite.setDepth(overWall ? 3.5 : 2);
+    const spriteDepth = overWall ? 3.5 : 2;
+    this.selfVisual.sprite.setDepth(spriteDepth);
     this.selfVisual.shadow.setDepth(overWall ? 3.4 : 1);
+    const cursor = this.scene.cameras.main.getWorldPoint(
+      this.scene.input.activePointer.x,
+      this.scene.input.activePointer.y,
+    );
+    const angle = Math.atan2(cursor.y - this.selfVisual.sprite.y, cursor.x - this.selfVisual.sprite.x);
+    const hasWeapon = conn.weapon !== null && !conn.downed;
+    this.heldWeapon.setVisible(hasWeapon);
+    if (hasWeapon && conn.weapon) {
+      this.heldWeapon
+        .setTexture(itemTextureKey(conn.weapon))
+        .setPosition(
+          this.selfVisual.sprite.x + Math.cos(angle) * 11,
+          this.selfVisual.sprite.y + Math.sin(angle) * 11,
+        )
+        .setRotation(angle + Math.PI / 4)
+        .setDepth(spriteDepth + 0.2);
+    }
     // Behind a wall (its cap covers this tile): show the silhouette.
     const occluded = !overWall && world.tileAt(Math.floor(x), Math.floor(y) + 1) === TILE.Wall;
     this.selfGhost.setVisible(occluded);
@@ -113,6 +156,7 @@ export class EntityRenderer {
 
   renderRemotes(conn: Connection): void {
     const world = conn.world!;
+    const now = performance.now();
     this.barGfx.clear();
     const seen = new Set<string>();
     const pointer = this.scene.input.activePointer;
@@ -131,10 +175,12 @@ export class EntityRenderer {
       const elev = this.elevate(visual, z, world.groundAt(x, y));
       visual.shadow.setPosition(px, py - elev.ground);
       visual.shadow.setScale(1 - Math.min(0.35, (elev.body - elev.ground) / 400));
-      visual.sprite.setPosition(px, py - elev.body);
+      const bob = this.motionOffset(visual, x, y, now);
+      visual.sprite.setPosition(px, py - elev.body + bob);
+      if (visual.kind === "projectile") visual.sprite.setRotation(now / 100);
       visual.sprite.setTint(statusTint(snap.fx ?? []));
       visual.sprite.setAlpha(snap.downed ? 0.5 : 1);
-      visual.label?.setPosition(px, py - elev.body - 44);
+      visual.label?.setPosition(px, py - elev.body + bob - 44);
       const overWall = world.tileAt(Math.floor(x), Math.floor(y)) === TILE.Wall;
       visual.sprite.setDepth(overWall ? 3.5 : 2);
       visual.shadow.setDepth(overWall ? 3.4 : 1);
@@ -170,12 +216,69 @@ export class EntityRenderer {
     }
   }
 
+  renderThrowPreview(conn: Connection, preview: ThrowPreview | null): void {
+    const g = this.throwArc;
+    g.clear();
+    if (!preview || !conn.body || !conn.world) return;
+    const from = conn.body;
+    let dx = preview.targetX - from.x;
+    let dy = preview.targetY - from.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance === 0) return;
+    const range = Math.min(distance, MAX_THROW_RANGE);
+    dx = (dx / distance) * range;
+    dy = (dy / distance) * range;
+    const targetX = from.x + dx;
+    const targetY = from.y + dy;
+    const fromZ = from.z + 1;
+    const targetZ = conn.world.groundAt(targetX, targetY);
+    const duration = range / THROW_SPEED;
+    const vx = dx / duration;
+    const vy = dy / duration;
+    const vz = (targetZ - fromZ + (GRAVITY / 2) * duration * duration) / duration;
+    const steps = Math.max(10, Math.ceil(duration * 30));
+    let previousX = from.x * TILE_PX;
+    let previousY = from.y * TILE_PX - fromZ * Z_PX;
+    g.lineStyle(2, 0xffe9b0, 0.9);
+    for (let step = 1; step <= steps; step++) {
+      const time = (duration * step) / steps;
+      const x = from.x + vx * time;
+      const y = from.y + vy * time;
+      const z = fromZ + vz * time - (GRAVITY / 2) * time * time;
+      const px = x * TILE_PX;
+      const py = y * TILE_PX - z * Z_PX;
+      g.lineBetween(previousX, previousY, px, py);
+      previousX = px;
+      previousY = py;
+    }
+    g.fillStyle(0xffe9b0, 0.22).fillCircle(targetX * TILE_PX, targetY * TILE_PX - targetZ * Z_PX, 13);
+    g.lineStyle(2, 0xffe9b0, 0.95).strokeCircle(targetX * TILE_PX, targetY * TILE_PX - targetZ * Z_PX, 13);
+  }
+
   /** Cosmetic melee swing arc — attacking must feel like something, hit or miss. */
-  showSwing(dx: number, dy: number): void {
+  showSwing(conn: Connection, dx: number, dy: number): void {
     const len = Math.hypot(dx, dy) || 1;
     const angle = Math.atan2(dy / len, dx / len);
     const px = this.selfVisual.sprite.x;
     const py = this.selfVisual.sprite.y;
+    if (conn.weapon) {
+      const weapon = this.scene.add
+        .image(px + Math.cos(angle) * 16, py + Math.sin(angle) * 16, itemTextureKey(conn.weapon))
+        .setOrigin(0.3, 0.7)
+        .setDisplaySize(68, 68)
+        .setDepth(5)
+        .setRotation(angle + Math.PI / 4);
+      this.scene.tweens.add({
+        targets: weapon,
+        x: px + Math.cos(angle) * 76,
+        y: py + Math.sin(angle) * 76,
+        rotation: angle + Math.PI / 4 + 0.45,
+        alpha: 0,
+        duration: 150,
+        ease: "Quad.Out",
+        onComplete: () => weapon.destroy(),
+      });
+    }
     const radius = MELEE_RANGE * TILE_PX * 0.9;
     const g = this.scene.add.graphics().setDepth(4);
     g.fillStyle(0xffe9b0, 0.35);
@@ -232,15 +335,23 @@ export class EntityRenderer {
         break;
       }
       case "item": {
-        sprite = this.scene.add.image(0, 0, this.itemTexture(snap.defId ?? "?")).setOrigin(0.5, 0.7);
+        sprite = this.scene.add
+          .image(0, 0, itemTextureKey(snap.defId ?? ""))
+          .setOrigin(0.5, 0.7)
+          .setDisplaySize(46, 46);
         break;
       }
       case "projectile":
       default: {
-        sprite = this.scene.add
-          .image(0, 0, this.itemTexture(snap.defId ?? "spit"))
-          .setOrigin(0.5, 0.5)
-          .setScale(0.6);
+        sprite = snap.defId
+          ? this.scene.add
+              .image(0, 0, itemTextureKey(snap.defId))
+              .setOrigin(0.5, 0.5)
+              .setDisplaySize(30, 30)
+          : this.scene.add
+              .image(0, 0, "tiles", atlas.frames.areas.poison)
+              .setOrigin(0.5, 0.5)
+              .setDisplaySize(28, 28);
         break;
       }
     }
@@ -249,31 +360,31 @@ export class EntityRenderer {
     const shadow = this.scene.add
       .ellipse(0, 0, small ? 18 : 34, small ? 9 : 16, 0x000000, 0.35)
       .setDepth(1);
-    return { sprite, shadow, label };
+    return {
+      sprite,
+      shadow,
+      label,
+      kind: snap.kind,
+      phase: phaseFromId(snap.id),
+    };
   }
 
-  /** Item icons are generated (REPLACE-LATER art): tinted disc + initial. */
-  private itemTexture(defId: string): string {
-    const key = `item-${defId}`;
-    if (this.scene.textures.exists(key)) return key;
-    const canvas = this.scene.textures.createCanvas(key, 28, 28)!;
-    const ctx = canvas.getContext();
-    const hue = hashString(defId) % 360;
-    ctx.fillStyle = `hsl(${hue}, 45%, 42%)`;
-    ctx.beginPath();
-    ctx.arc(14, 14, 12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#0d0a12";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = "#f4efe4";
-    ctx.font = "bold 14px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText((content.items.get(defId)?.name ?? defId).charAt(0).toUpperCase(), 14, 15);
-    canvas.refresh();
-    return key;
+  private motionOffset(visual: EntityVisual, x: number, y: number, now: number): number {
+    const moved =
+      visual.lastX !== undefined && visual.lastY !== undefined && Math.hypot(x - visual.lastX, y - visual.lastY) > 0.001;
+    visual.lastX = x;
+    visual.lastY = y;
+    if (visual.kind === "item") return Math.sin(now / 240 + visual.phase) * 1.5;
+    if (visual.kind === "projectile") return 0;
+    return Math.sin(now / (moved ? 55 : 480) + visual.phase) * (moved ? 1.5 : 0.4);
   }
+
+}
+
+function phaseFromId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return (hash & 0xffff) / 0xffff * Math.PI * 2;
 }
 
 function entityScreenPos(conn: Connection, id: string): { x: number; y: number } | null {

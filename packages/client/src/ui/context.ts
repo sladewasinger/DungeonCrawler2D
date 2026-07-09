@@ -42,7 +42,11 @@ export function panelContent(conn: Connection, panels: Panels): string | null {
       lines.push(`[${i + 1}] ${name}${entry.qty > 1 ? ` ×${entry.qty}` : ""}`);
     });
     if (conn.stash.length === 0) lines.push("(empty)");
-    lines.push("", "[P in hotbar → use Q to drop, or stash put via number+shift soon]");
+    const bound = conn.hotbar
+      .map((item, index) => (item ? `[${index + 1}] ${content.items.get(item)?.name ?? item}` : null))
+      .filter((entry): entry is string => entry !== null);
+    lines.push("", "[1-9] take    [Shift+1-9] store bound stack");
+    if (bound.length > 0) lines.push(...bound);
     return lines.join("\n");
   }
   return null;

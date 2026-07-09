@@ -47,6 +47,7 @@ describe("protocol v3", () => {
         z: 0,
         zVel: 0,
         grounded: true,
+        coyoteTime: 0,
         kx: 0,
         ky: 0,
         hp: 22,

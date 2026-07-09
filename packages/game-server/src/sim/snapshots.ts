@@ -85,6 +85,7 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
         z: self.body.z,
         zVel: self.body.zVel,
         grounded: self.body.grounded,
+        coyoteTime: self.body.coyoteTime,
         kx: self.body.kx,
         ky: self.body.ky,
         hp: self.hp,

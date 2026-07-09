@@ -13,12 +13,12 @@ import { nearestPlayer, stashNearby, tableNearby } from "../ui/queries";
  * local UI state (panels, chunk grid). The server decides what happens.
  *
  * Combat/use model: LEFT CLICK swings the EQUIPPED weapon; number keys
- * 1–9 USE whatever is bound to that hotbar slot (consumables fire
- * immediately, throwables launch at the mouse cursor).
+ * 1–9 USE whatever is bound to that hotbar slot. Throwable slots arm
+ * a mouse trajectory; the next world click throws.
  */
 
 type Keys = Record<
-  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC",
+  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT",
   Phaser.Input.Keyboard.Key
 >;
 
@@ -27,6 +27,12 @@ export interface InputHooks {
   onSwing(dx: number, dy: number): void;
   /** [G] debug chunk-grid toggle. */
   onToggleBorders(): void;
+}
+
+export interface ThrowPreview {
+  slot: number;
+  targetX: number;
+  targetY: number;
 }
 
 /** Movement/keys pause while any text input has focus (chat, search). */
@@ -41,6 +47,7 @@ export class InputController {
   private readonly scene: Phaser.Scene;
   /** Mirrors the server's swing cooldown so the arc never lies. */
   private nextSwingAt = 0;
+  private selectedThrowable: number | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -52,7 +59,7 @@ export class InputController {
     this.scene = scene;
     const keyboard = scene.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,ESC") as Keys;
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,ESC,SHIFT") as Keys;
 
     const guarded = (fn: () => void) => () => {
       if (!typingInInput()) fn();
@@ -78,7 +85,10 @@ export class InputController {
         if (nearest) conn.partyOp("invite", nearest.id);
       }),
     );
-    this.keys.ESC.on("down", () => this.panels.closeAll(conn));
+    this.keys.ESC.on("down", () => {
+      this.selectedThrowable = null;
+      this.panels.closeAll(conn);
+    });
     for (let i = 1; i <= 9; i++) {
       keyboard.addKey(48 + i).on("down", guarded(() => this.onNumberKey(i)));
     }
@@ -89,10 +99,16 @@ export class InputController {
       // Clicks on UI act on the UI — never swing through the hotbar.
       const uiHit = hud.hitTest(pointer.x, pointer.y);
       if (uiHit !== null) {
-        if (uiHit.startsWith("slot:")) this.useHotbar(Number(uiHit.slice(5)));
+        if (uiHit.startsWith("slot:")) this.activateHotbar(Number(uiHit.slice(5)));
         return;
       }
       if (pointer.rightButtonDown()) return; // reserved
+      const throwPreview = this.throwPreview();
+      if (throwPreview) {
+        conn.useSlot(throwPreview.slot, throwPreview.targetX, throwPreview.targetY);
+        this.selectedThrowable = null;
+        return;
+      }
       const now = performance.now();
       if (now < this.nextSwingAt) return;
       this.nextSwingAt = now + ATTACK_COOLDOWN_MS;
@@ -117,15 +133,34 @@ export class InputController {
     };
   }
 
-  /** Use the item bound to a hotbar slot (throwables aim at the mouse). */
-  private useHotbar(index: number): void {
+  throwPreview(): ThrowPreview | null {
+    const slot = this.activeThrowableSlot();
+    if (slot === null) return null;
+    const pointer = this.scene.input.activePointer;
+    return {
+      slot,
+      targetX: pointer.worldX / TILE_PX,
+      targetY: pointer.worldY / TILE_PX,
+    };
+  }
+
+  private activeThrowableSlot(): number | null {
+    if (this.selectedThrowable === null) return null;
+    const defId = this.conn.hotbar[this.selectedThrowable];
+    if (!defId || !content.items.get(defId)?.throwable) {
+      this.selectedThrowable = null;
+      return null;
+    }
+    return this.selectedThrowable;
+  }
+
+  private activateHotbar(index: number): void {
     const { conn } = this;
     const defId = conn.hotbar[index];
     if (!defId) return;
     const def = content.items.get(defId);
     if (def?.throwable) {
-      const pointer = this.scene.input.activePointer;
-      conn.useSlot(index, pointer.worldX / TILE_PX, pointer.worldY / TILE_PX);
+      this.selectedThrowable = this.selectedThrowable === index ? null : index;
     } else {
       conn.useSlot(index);
     }
@@ -140,9 +175,15 @@ export class InputController {
       return;
     }
     if (panels.stashOpen && conn.stash && stashNearby(conn)) {
-      conn.stashOp("take", n - 1);
+      if (this.keys.SHIFT.isDown) {
+        const defId = conn.hotbar[n - 1];
+        const inventoryIndex = defId ? conn.inventory.findIndex((stack) => stack.item === defId) : -1;
+        if (inventoryIndex >= 0) conn.stashOp("put", inventoryIndex);
+      } else {
+        conn.stashOp("take", n - 1);
+      }
       return;
     }
-    this.useHotbar(n - 1);
+    this.activateHotbar(n - 1);
   }
 }

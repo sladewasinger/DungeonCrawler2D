@@ -102,6 +102,28 @@ describe("movement", () => {
     expect(body.z).toBe(0);
   });
 
+  it("allows a brief coyote jump after stepping off a ledge", () => {
+    const world = fakeWorld({ heightFn: (x) => (x < 8 ? 2 : 0) });
+    const body = createBody(7.5, 5.5, 2);
+    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
+    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
+    expect(body.grounded).toBe(false);
+    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
+    expect(body.zVel).toBeGreaterThan(0);
+    expect(body.z).toBeGreaterThan(2);
+  });
+
+  it("does not allow a jump after the coyote window expires", () => {
+    const world = fakeWorld({ heightFn: (x) => (x < 8 ? 2 : 0) });
+    const body = createBody(7.5, 5.5, 2);
+    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
+    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
+    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
+    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
+    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
+    expect(body.zVel).toBeLessThanOrEqual(0);
+  });
+
   it("gravity applies even with neutral input (server coasting)", () => {
     const world = fakeWorld({ heightFn: () => 0 });
     const body = createBody(5.5, 5.5, 0);

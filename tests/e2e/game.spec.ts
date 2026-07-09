@@ -226,6 +226,41 @@ test.describe("dungeoncrawler2d e2e", () => {
     );
   });
 
+  test("a throwable key arms an aim, then a world click throws it", async ({ page }) => {
+    await openGame(page);
+    await page.waitForTimeout(600);
+    const bottle = await nearestItem(page, "vodka-bottle");
+    expect(bottle, "vodka bottle fixture visible at spawn").toBeTruthy();
+    await walkTo(page, bottle!.x, bottle!.y);
+    await page.keyboard.press("r");
+    await page.waitForFunction(() =>
+      window.__dc2d!.conn.inventory.some((s) => s.item === "vodka-bottle"),
+    );
+    await page.keyboard.press("i");
+    await page.locator("#inventory-panel input").fill("vodka");
+    await page.getByText(/^Vodka Bottle ×/).click();
+    await page.keyboard.press("4");
+    await page.waitForFunction(() => window.__dc2d!.conn.hotbar[3] === "vodka-bottle");
+    await page.keyboard.press("Escape");
+
+    const qtyBefore = await page.evaluate(
+      () => window.__dc2d!.conn.inventory.find((s) => s.item === "vodka-bottle")!.qty,
+    );
+    await page.keyboard.press("4");
+    await page.waitForTimeout(150);
+    expect(
+      await page.evaluate(
+        () => window.__dc2d!.conn.inventory.find((s) => s.item === "vodka-bottle")!.qty,
+      ),
+    ).toBe(qtyBefore);
+    await page.locator("canvas").first().click({ position: { x: 900, y: 280 } });
+    await page.waitForFunction(
+      (before) =>
+        (window.__dc2d!.conn.inventory.find((s) => s.item === "vodka-bottle")?.qty ?? 0) < before,
+      qtyBefore,
+    );
+  });
+
   test("safe rooms are door portals, personal rooms nest inside them", async ({ page }) => {
     test.setTimeout(90_000);
     await openGame(page);

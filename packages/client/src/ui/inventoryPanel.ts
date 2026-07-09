@@ -1,5 +1,6 @@
 import { content } from "@dc2d/content";
 import type { Connection } from "../net/connection";
+import { itemAssetPath } from "../render/itemSprites";
 
 /**
  * The inventory panel — a DOM overlay (like the chat input) because a
@@ -180,6 +181,7 @@ export class InventoryPanel {
     const { conn } = this;
     const weaponName = conn.weapon ? nameOf(conn.weapon) : "none (fists)";
     this.equipLine.innerHTML = "";
+    if (conn.weapon) this.equipLine.appendChild(itemIcon(conn.weapon, 28));
     this.equipLine.append(`⚔ Weapon: ${weaponName} `);
     if (conn.weapon) {
       const un = rowButton("Unequip");
@@ -210,6 +212,7 @@ export class InventoryPanel {
         cursor: "pointer",
         border: `1px solid ${this.selected === stack.item ? "#ffe9b0" : "transparent"}`,
       });
+      row.appendChild(itemIcon(stack.item, 32));
       const label = document.createElement("span");
       label.textContent = `${nameOf(stack.item)} ×${stack.qty}`;
       label.style.flex = "1";
@@ -272,4 +275,18 @@ function rowButton(label: string): HTMLButtonElement {
     cursor: "pointer",
   });
   return b;
+}
+
+function itemIcon(defId: string, size: number): HTMLImageElement {
+  const image = document.createElement("img");
+  image.src = itemAssetPath(defId);
+  image.alt = "";
+  Object.assign(image.style, {
+    width: `${size}px`,
+    height: `${size}px`,
+    objectFit: "contain",
+    imageRendering: "pixelated",
+    flex: "0 0 auto",
+  });
+  return image;
 }

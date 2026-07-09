@@ -6,6 +6,7 @@ import { AreaRenderer } from "../render/areas";
 import atlas from "../render/atlas.json";
 import { TILE_PX } from "../render/constants";
 import { EntityRenderer } from "../render/entities";
+import { ITEM_SPRITE_IDS } from "../render/itemSprites";
 import { TerrainRenderer } from "../render/terrain";
 import { contextPrompt, debugContent, panelContent } from "../ui/context";
 import { Hud } from "../ui/hud";
@@ -41,6 +42,9 @@ export class DungeonScene extends Phaser.Scene {
     this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.spritesheet("enemies", "assets/enemies.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.image("packsheet", `assets/${atlas.packSheet.image}`);
+    for (const itemId of ITEM_SPRITE_IDS) {
+      this.load.image(`item-${itemId}`, `assets/items/${itemId}.png`);
+    }
     for (const [key, sprite] of Object.entries(atlas.stairSprites)) {
       this.load.image(`stair-${key}`, `assets/${sprite.image}`);
     }
@@ -52,7 +56,7 @@ export class DungeonScene extends Phaser.Scene {
     this.areaRenderer = new AreaRenderer(this);
     this.hud = new Hud(this);
     this.inputController = new InputController(this, this.conn, this.panels, this.hud, {
-      onSwing: (dx, dy) => this.entityRenderer.showSwing(dx, dy),
+      onSwing: (dx, dy) => this.entityRenderer.showSwing(this.conn, dx, dy),
       onToggleBorders: () => this.terrain.toggleBorders(),
     });
     this.cameras.main.setBackgroundColor("#0d0a12");
@@ -93,6 +97,7 @@ export class DungeonScene extends Phaser.Scene {
     this.areaRenderer.render(conn);
     this.entityRenderer.renderSelf(conn, rx, ry, rz);
     this.entityRenderer.renderRemotes(conn);
+    this.entityRenderer.renderThrowPreview(conn, this.inputController.throwPreview());
     this.entityRenderer.spawnFloatingText(conn);
     this.terrain.drawBordersIfVisible(body.x, body.y);
 
@@ -115,6 +120,7 @@ export class DungeonScene extends Phaser.Scene {
       contextPrompt(conn),
       panelContent(conn, this.panels),
       debugContent(conn, this.game.loop.actualFps),
+      this.inputController.throwPreview()?.slot ?? null,
     );
   }
 }
