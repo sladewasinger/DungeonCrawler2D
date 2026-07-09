@@ -261,6 +261,61 @@ test.describe("dungeoncrawler2d e2e", () => {
     );
   });
 
+  test("a bound hotbar stack can be stored with Shift plus its number key", async ({ page }) => {
+    await openGame(page);
+    await page.waitForTimeout(600);
+    await page.evaluate(() => window.__dc2d!.conn.debugTeleport(26.5, 28.5));
+    await page.waitForFunction(() => {
+      const body = window.__dc2d!.conn.body!;
+      return Math.hypot(body.x - 26.5, body.y - 28.5) < 1;
+    });
+    await page.locator("canvas").first().click({ position: { x: 640, y: 200 } });
+    await page.keyboard.press("r");
+    await page.waitForFunction(() =>
+      window.__dc2d!.conn.inventory.some((stack) => stack.item === "bandage"),
+    );
+    await page.evaluate(() => window.__dc2d!.conn.assignSlot(0, "bandage"));
+    await page.waitForFunction(() => window.__dc2d!.conn.hotbar[0] === "bandage");
+
+    await page.evaluate(() => window.__dc2d!.conn.debugTeleport(54.5, 54.5));
+    await page.waitForFunction(() => {
+      const body = window.__dc2d!.conn.body!;
+      return Math.hypot(body.x - 54.5, body.y - 54.5) < 1;
+    });
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__dc2d!.conn.body!.y > 100_000);
+    const stash = await page.evaluate(() => {
+      const world = window.__dc2d!.conn.world!;
+      const body = window.__dc2d!.conn.body!;
+      for (let y = Math.floor(body.y) - 12; y <= Math.floor(body.y) + 12; y++) {
+        for (let x = Math.floor(body.x) - 12; x <= Math.floor(body.x) + 12; x++) {
+          if (world.tileAt(x, y) === 7) return { x, y };
+        }
+      }
+      return null;
+    });
+    expect(stash).not.toBeNull();
+    await page.evaluate(
+      (target) => window.__dc2d!.conn.debugTeleport(target!.x + 1.5, target!.y + 0.5),
+      stash,
+    );
+    await page.waitForFunction(
+      (target) => {
+        const body = window.__dc2d!.conn.body!;
+        return Math.hypot(body.x - (target!.x + 1.5), body.y - (target!.y + 0.5)) < 1;
+      },
+      stash,
+    );
+    await page.keyboard.press("e");
+    await page.waitForFunction(() => window.__dc2d!.conn.stash !== null);
+    await page.keyboard.down("Shift");
+    await page.keyboard.press("1");
+    await page.keyboard.up("Shift");
+    await page.waitForFunction(() =>
+      window.__dc2d!.conn.stash!.some((stack) => stack.item === "bandage"),
+    );
+  });
+
   test("safe rooms are door portals, personal rooms nest inside them", async ({ page }) => {
     test.setTimeout(90_000);
     await openGame(page);
