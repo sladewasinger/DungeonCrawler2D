@@ -1,4 +1,4 @@
-import { STEP_UP, TILE, WALL_RISE, ZONE, hash2D, type World } from "@dc2d/engine";
+import { STEP_UP, TILE, WALL_RISE, ZONE, hash2D, hash2DFloat, type World } from "@dc2d/engine";
 import atlas from "./atlas.json";
 import { entryClimbDir } from "@dc2d/engine";
 
@@ -160,7 +160,11 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
   }
 
   const sanctuary = world.zoneAt(wx, wy) === ZONE.Sanctuary;
-  const variants = sanctuary ? atlas.frames.sanctuary : atlas.frames.floor;
+  const grassPatch =
+    !sanctuary &&
+    tile === TILE.Floor &&
+    hash2DFloat(71, Math.floor(wx / 6), Math.floor(wy / 6)) < 0.28;
+  const variants = sanctuary ? atlas.frames.sanctuary : grassPatch ? atlas.frames.grass : atlas.frames.floor;
   const base = variants[hash2D(11, wx, wy) % variants.length]!;
 
   // Borders: sanctuary floors get the platform bevel ring; ordinary

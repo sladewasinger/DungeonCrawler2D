@@ -394,6 +394,19 @@ describe("GameSim", () => {
     expect(findSpitter(snapshots)?.anim).toBe("recover");
   });
 
+  it("melee enemies hold a replicated attack pose after landing a hit", () => {
+    const player = sim.addPlayer("Target", "melee-target");
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    teleport(entity, SANDBOX_SPAWN.x, SANDBOX_SPAWN.y, sim);
+    const skeleton = sim.spawnEnemy("skeleton", SANDBOX_SPAWN.x + 0.8, SANDBOX_SPAWN.y);
+
+    const first = sim.step().get(player.playerId)!;
+    expect(first.entities.find((entry) => entry.id === skeleton.id)?.anim).toBe("attack");
+
+    const afterPose = stepN(sim, 4).get(player.playerId)!;
+    expect(afterPose.entities.find((entry) => entry.id === skeleton.id)?.anim).toBe("idle");
+  });
+
   it("sanctuary suppresses PvP entirely", () => {
     const a = sim.addPlayer("A", "client-a");
     const b = sim.addPlayer("B", "client-b");

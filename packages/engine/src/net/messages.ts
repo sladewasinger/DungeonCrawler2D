@@ -10,7 +10,7 @@ import { z } from "zod";
 const axis = z.union([z.literal(-1), z.literal(0), z.literal(1)]);
 const slot = z.number().int().min(0).max(8);
 const level = z.enum(["dungeon", "sandbox"]);
-export const enemyAnimationStateSchema = z.enum(["idle", "walk", "windup", "spit", "recover"]);
+export const enemyAnimationStateSchema = z.enum(["idle", "walk", "windup", "spit", "recover", "attack"]);
 export type EnemyAnimationState = z.infer<typeof enemyAnimationStateSchema>;
 
 // ── client → server ────────────────────────────────────────────────

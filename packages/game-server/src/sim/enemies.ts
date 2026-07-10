@@ -27,6 +27,7 @@ const PLATFORM_LOOT: string[] = ["bandage", "torch", "vodka-bottle", "knife", "w
 const SPITTER_WINDUP_TICKS = 5;
 const SPITTER_SPIT_TICKS = 2;
 const SPITTER_RECOVER_TICKS = 3;
+const MELEE_ATTACK_TICKS = 4;
 
 /** Enemy population (chunk activation) and per-tick AI. */
 
@@ -113,7 +114,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     }
     if (!near) continue;
 
-    if (advanceRangedAttack(sim, enemy)) continue;
+    if (advanceAttackAnimation(sim, enemy)) continue;
 
     const decision = enemyThink(
       enemy.brain,
@@ -163,13 +164,19 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
             victim.body.y - entity.body.y,
             KNOCKBACK_FORCE * 0.6,
           );
+          enemy.animation = { state: "attack", ticksRemaining: MELEE_ATTACK_TICKS };
         }
       }
     }
   }
 }
 
-function advanceRangedAttack(sim: SimState, enemy: EnemySlot): boolean {
+function advanceAttackAnimation(sim: SimState, enemy: EnemySlot): boolean {
+  if (enemy.animation.state === "attack") {
+    enemy.animation.ticksRemaining -= 1;
+    if (enemy.animation.ticksRemaining <= 0) enemy.animation = { state: "idle", ticksRemaining: 0 };
+    return true;
+  }
   if (!enemy.def.attack.ranged || enemy.animation.state === "idle" || enemy.animation.state === "walk") {
     return false;
   }

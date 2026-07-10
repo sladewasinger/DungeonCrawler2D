@@ -29,7 +29,7 @@ describe("protocol", () => {
       { type: "stash", op: "put", index: 3 },
       { type: "party", op: "invite", target: "p2" },
       { type: "chat", channel: "party", text: "behind you" },
-      { type: "hello", protocol: 7, name: "Crawler", clientId: "client-1", level: "sandbox" },
+      { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "sandbox" },
     ];
     for (const intent of intents) {
       expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);

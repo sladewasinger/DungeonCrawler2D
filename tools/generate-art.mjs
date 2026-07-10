@@ -213,6 +213,7 @@ const objects = loadPng(join(PACK, "Objects.png")); // stash chest only
 // tiles, upscaled 2×) — the same pack the Tile Studio sheet composes,
 // so generated terrain and hand-authored stamps share one look.
 const txStone = loadPng(join(ROOT, "assets", "topdown", "TX Tileset Stone Ground.png"));
+const txGrass = loadPng(join(ROOT, "assets", "topdown", "TX Tileset Grass.png"));
 const txWall = loadPng(join(ROOT, "assets", "topdown", "TX Tileset Wall.png"));
 const txStruct = loadPng(join(ROOT, "assets", "topdown", "TX Struct.png"));
 /** Cainos source-pixel → atlas-pixel (32px cells → 64px tiles). */
@@ -229,6 +230,11 @@ const C = {
     [0, 224],
     [32, 224],
     [64, 224],
+  ],
+  grass: [
+    [0, 0],
+    [32, 0],
+    [64, 0],
   ],
   // smooth slab (the "built" surface): plain + stud-dotted interiors
   slabPlain: [32, 32],
@@ -271,9 +277,6 @@ const LIP = [193, 186, 168];
 // Floor-toned coat under every wall frame so rounded corners and slice
 // gaps show floor, not the void behind the tilemap.
 const BASECOAT = [139, 133, 119];
-// Wall-top interior: dungeon dark with a warm cast (big wall masses
-// read as void, matching the old grammar).
-const WALL_DARK = [34, 29, 24];
 
 // ── atlas layout ───────────────────────────────────────────────────
 
@@ -283,6 +286,7 @@ const frameXY = (index) => [(index % COLS) * TILE, Math.floor(index / COLS) * TI
 
 const F = {
   floor: [0, 1, 2, 3, 82, 83], // 82/83 live in the atlas tail (added later)
+  grass: [105, 106, 107],
   sanctuary: [4, 5, 6, 7],
   stairs: 8,
   faceTall: [9, 10],
@@ -380,6 +384,7 @@ const atlas = {
   },
   frames: {
     floor: F.floor,
+    grass: F.grass,
     sanctuary: F.sanctuary,
     stairs: F.stairs,
     /** E-W treads for ramps that climb east/west. */
@@ -419,6 +424,12 @@ atlas.frames.floor.forEach((frame, i) => {
   blitRect(tiles, x, y, txStone, sx, sy, 32, 32, KS);
 });
 
+atlas.frames.grass.forEach((frame, i) => {
+  const [x, y] = frameXY(frame);
+  const [sx, sy] = C.grass[i % C.grass.length];
+  blitRect(tiles, x, y, txGrass, sx, sy, 32, 32, KS);
+});
+
 // Sanctuary: the smooth Cainos slab, teal-shifted — safety reads as
 // "built" against the rough ground.
 const TEAL = { ...KS, tint: [0.62, 1.04, 0.99] };
@@ -432,13 +443,13 @@ atlas.frames.sanctuary.forEach((frame, i) => {
 
 /**
  * Wall-top platform frame: the wall is terrain raised WALL_RISE, so
- * every mask draws the same thing — a dark top surface with Cainos
+ * every mask draws the same thing — a real stone platform surface with Cainos
  * cap/strip outlines on whichever edges border lower ground. The south
  * FACE is no longer baked in here: it renders on the tile below via
  * the shared cliff-face overlay, same as any ledge.
  */
 function drawWallTop(x, y, { n, e, s, w }) {
-  rect(tiles, x, y, TILE, TILE, WALL_DARK);
+  blitRect(tiles, x, y, txStone, ...C.ground[0], 32, 32, KS);
   if (w) blitRect(tiles, x, y, txWall, ...C.stripL, KS);
   if (e) blitRect(tiles, x + TILE - K(10), y, txWall, ...C.stripR, KS);
   if (n) blitRect(tiles, x, y, txWall, ...C.capEdgeN, KS);

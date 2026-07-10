@@ -10,6 +10,7 @@ export const SPITTER_FRAME_COUNTS: Record<EnemyAnimationState, number> = {
   windup: 2,
   spit: 1,
   recover: 2,
+  attack: 1,
 };
 
 const ENEMY_SPRITE_SET = new Set<string>(ENEMY_SPRITE_IDS);

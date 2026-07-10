@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
+const node = JSON.stringify(process.execPath);
+
 /**
  * Live-browser e2e: boots a dedicated game server (CLUSTER_SPAWNS so
  * two browser contexts spawn side by side — real spawns are 80+ tiles
@@ -19,7 +21,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npx tsx packages/game-server/src/main.ts",
+      command: `${node} node_modules/tsx/dist/cli.mjs packages/game-server/src/main.ts`,
       port: 8099,
       reuseExistingServer: false,
       env: {
@@ -32,7 +34,7 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run dev -w @dc2d/client",
+      command: `${node} node_modules/vite/bin/vite.js packages/client --port 5199`,
       port: 5199,
       reuseExistingServer: false,
       env: {

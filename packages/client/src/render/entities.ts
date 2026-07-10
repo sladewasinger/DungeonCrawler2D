@@ -63,7 +63,7 @@ export class EntityRenderer {
   constructor(private readonly scene: Phaser.Scene) {
     this.selfVisual = {
       shadow: scene.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
-      sprite: scene.add.image(0, 0, "players", atlas.players.self).setOrigin(0.5, 0.85).setDepth(2),
+      sprite: scene.add.image(0, 0, "players", atlas.players.self).setOrigin(0.5, 0.5).setDepth(2),
       label: null,
       kind: "player",
       phase: 0,
@@ -73,7 +73,7 @@ export class EntityRenderer {
     // keeps you located while occluded, invisible otherwise.
     this.selfGhost = scene.add
       .image(0, 0, "players", atlas.players.self)
-      .setOrigin(0.5, 0.85)
+      .setOrigin(0.5, 0.5)
       .setDepth(4.5)
       .setAlpha(0.3)
       .setVisible(false);
@@ -141,14 +141,16 @@ export class EntityRenderer {
     const spriteDepth = overWall ? 3.5 : 2;
     this.selfVisual.sprite.setDepth(spriteDepth);
     this.selfVisual.shadow.setDepth(overWall ? 3.4 : 1);
+    if (this.selfVisual.faceX !== undefined && this.selfVisual.faceY !== undefined) {
+      const rotation = facingRotation(Math.atan2(this.selfVisual.faceY, this.selfVisual.faceX));
+      this.selfVisual.sprite.setRotation(rotation);
+      this.selfGhost.setRotation(rotation);
+    }
     const cursor = this.scene.cameras.main.getWorldPoint(
       this.scene.input.activePointer.x,
       this.scene.input.activePointer.y,
     );
     const angle = Math.atan2(cursor.y - this.selfVisual.sprite.y, cursor.x - this.selfVisual.sprite.x);
-    const playerRotation = facingRotation(angle);
-    this.selfVisual.sprite.setRotation(playerRotation);
-    this.selfGhost.setRotation(playerRotation);
     const hasWeapon = conn.weapon !== null && !conn.downed;
     this.heldWeapon.setVisible(hasWeapon);
     if (hasWeapon && conn.weapon) {
@@ -203,6 +205,7 @@ export class EntityRenderer {
         }
         const frame = enemyAnimationFrame(visual, now);
         visual.sprite.setTexture(enemyTextureKey(visual.defId ?? "slime", state, frame));
+        this.applyEnemyPose(visual, state, now);
       }
       if (visual.kind === "player" || visual.kind === "enemy") {
         visual.faceX = snap.aimX ?? snap.faceX ?? visual.faceX;
@@ -412,7 +415,7 @@ export class EntityRenderer {
     let label: Phaser.GameObjects.Text | null = null;
     switch (snap.kind) {
       case "player": {
-        sprite = this.scene.add.image(0, 0, "players", atlas.players.peer).setOrigin(0.5, 0.85);
+        sprite = this.scene.add.image(0, 0, "players", atlas.players.peer).setOrigin(0.5, 0.5);
         label = this.scene.add
           .text(0, 0, snap.name ?? "?", { fontSize: "12px", color: "#c8ecf7" })
           .setOrigin(0.5, 1)
@@ -422,7 +425,7 @@ export class EntityRenderer {
       case "enemy": {
         sprite = this.scene.add
           .image(0, 0, enemyTextureKey(snap.defId ?? "slime", snap.anim ?? "idle", 0))
-          .setOrigin(0.5, 0.85)
+          .setOrigin(0.5, 0.5)
           .setDisplaySize(58, 58);
         break;
       }
@@ -464,8 +467,14 @@ export class EntityRenderer {
   }
 
   private motionOffset(visual: EntityVisual, x: number, y: number, now: number): number {
-    const moved =
-      visual.lastX !== undefined && visual.lastY !== undefined && Math.hypot(x - visual.lastX, y - visual.lastY) > 0.001;
+    const dx = visual.lastX === undefined ? 0 : x - visual.lastX;
+    const dy = visual.lastY === undefined ? 0 : y - visual.lastY;
+    const moved = Math.hypot(dx, dy) > 0.001;
+    if (moved) {
+      const length = Math.hypot(dx, dy);
+      visual.faceX = dx / length;
+      visual.faceY = dy / length;
+    }
     visual.lastX = x;
     visual.lastY = y;
     visual.moving = moved;
@@ -481,6 +490,19 @@ export class EntityRenderer {
     const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
     const blend = 1 - Math.exp(-this.frameDt * 18);
     visual.sprite.setRotation(current + delta * blend);
+  }
+
+  private applyEnemyPose(visual: EntityVisual, state: EnemyAnimationState, now: number): void {
+    if (state === "attack") {
+      const pulse = 0.1 + Math.sin(now / 55 + visual.phase) * 0.04;
+      visual.sprite.setScale(1 + pulse, 1 - pulse * 0.7);
+      return;
+    }
+    if (state === "windup") {
+      visual.sprite.setScale(0.92, 1.08);
+      return;
+    }
+    visual.sprite.setScale(1);
   }
 
   private spawnSpitMuzzle(x: number, y: number, aimX: number | undefined, aimY: number | undefined): void {
@@ -513,6 +535,7 @@ function enemyAnimationFrame(visual: EntityVisual, now: number): number {
   if (state === "idle") return Math.floor(now / 340 + visual.phase);
   if (state === "windup") return Math.min(1, Math.floor(elapsed / 110));
   if (state === "recover") return Math.min(1, Math.floor(elapsed / 85));
+  if (state === "attack") return 2;
   return 0;
 }
 
