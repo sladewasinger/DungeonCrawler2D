@@ -94,14 +94,14 @@
         <button id="resolveBtn">Re-solve</button>
         <button id="clearSmart">Clear layer</button>
         <label><input id="autoSolve" type="checkbox" checked /> auto-solve while painting</label>
-        <span class="hint">gold pin = locked seed; the solver fills the halo. Both panels use the layer above.</span>
+        <span class="hint">gold pin = locked seed. Top-wall seeds use the learned ground rules to paint terrain support; top rules are optional.</span>
       </div>
       <div class="canvasWrap"><canvas id="smart" class="grid"></canvas></div>
     </div>
   </div>
 </main>
 <script type="module">
-import { EMPTY, learnRules, solve } from "./solver.mjs";
+import { EMPTY, learnRules, solve, solveWithOverlaySeeds } from "./solver.mjs";
 
 const $ = (id) => document.getElementById(id);
 const CELL = 32; // on-screen grid cell size
@@ -537,33 +537,65 @@ function runSolve() {
   const layer = activeLayer();
   const rules = state.rules[layer];
   const weights = state.weights[layer];
-  if (!rules) {
-    setStatus(`no ${layer} rules learned yet — paint that layer in Example, then press Learn`, true);
-    return;
-  }
-  const target = layerCells("smart", layer);
-  const result = solve(target, state.gw, state.gh, {
-    rules,
-    weights,
+  const applyResult = (target, result) => {
+    for (const [i, t] of result.assignment) target[i] = { t, seed: false };
+  };
+  const solveTarget = (target, targetRules, targetWeights) => solve(target, state.gw, state.gh, {
+    rules: targetRules,
+    weights: targetWeights,
     halo: 2,
     seed: state.solveNonce,
   });
+
+  if (layer === "top") {
+    const groundRules = state.rules.ground;
+    const groundWeights = state.weights.ground;
+    const support = groundRules ? solveWithOverlaySeeds(state.smart, state.top, state.gw, state.gh, {
+      rules: groundRules,
+      weights: groundWeights,
+      halo: 2,
+      seed: state.solveNonce,
+    }) : null;
+    const topResult = rules ? solveTarget(state.top, rules, weights) : null;
+    const supportReady = support?.ok && support.overlaySeedCount > 0;
+    const topReady = topResult?.ok && topResult.varCount > 0;
+
+    if (!supportReady && !topReady) {
+      const unsupported = support?.unsupportedOverlaySeeds.length
+        ? `; ${support.unsupportedOverlaySeeds.length} top seed tile${support.unsupportedOverlaySeeds.length === 1 ? "" : "s"} never appeared in the ground example`
+        : "";
+      setStatus(`top paint needs a ground example for terrain support or a top-layer example for top-only completion${unsupported}`, true);
+      return;
+    }
+    if (supportReady) applyResult(state.smart, support);
+    if (topReady) applyResult(state.top, topResult);
+    const pieces = [];
+    if (supportReady) pieces.push(`placed ${support.assignment.size} ground support tile${support.assignment.size === 1 ? "" : "s"}`);
+    if (topReady) pieces.push(`placed ${topResult.assignment.size} top tile${topResult.assignment.size === 1 ? "" : "s"}`);
+    setStatus(`${pieces.join("; ")} from your wall seed${support.overlaySeedCount === 1 ? "" : "s"}`);
+    drawAll();
+    autosave();
+    return;
+  }
+
+  if (!rules) {
+    setStatus("no ground rules learned yet — paint a ground example, then press Learn", true);
+    return;
+  }
+  const result = solveTarget(state.smart, rules, weights);
   const unseen = result.unknownSeeds.length
     ? ` (${result.unknownSeeds.length} seed tile${result.unknownSeeds.length > 1 ? "s" : ""} never appeared in the example)`
     : "";
   if (!result.ok) {
-    // Non-destructive: the previous fill stays on screen.
     setStatus(`no consistent completion — paint a richer example and re-learn${unseen}`, true);
     return;
   }
   if (result.varCount === 0) {
-    setStatus("no seeds painted yet — paint in the smart grid first");
+    setStatus("no ground seeds painted yet — paint in the smart grid first");
     return;
   }
-  for (const [i, t] of result.assignment) {
-    target[i] = { t, seed: false };
-  }
-  setStatus(`solved ${result.assignment.size} ${layer} cells around your locked seed${result.assignment.size === 1 ? "" : "s"}${unseen}`, false);
+  applyResult(state.smart, result);
+  setStatus(`solved ${result.assignment.size} ground cells around your locked seed${result.assignment.size === 1 ? "" : "s"}${unseen}`);
   drawAll();
   autosave();
 }

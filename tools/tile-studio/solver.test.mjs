@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY, learnRules, solve, violations } from "./solver.mjs";
+import { EMPTY, learnRules, solve, solveWithOverlaySeeds, violations } from "./solver.mjs";
 
 /**
  * Build a row-major tile grid from ASCII art. '.' = EMPTY, everything
@@ -163,6 +163,42 @@ describe("solve", () => {
 
     expect(result.ok).toBe(true);
     expect(result.assignment.get(4 * target.gw + 4)).toBe(CHARS.G);
+  });
+
+  it("uses a top-layer seed to complete its learned ground support", () => {
+    const CHARS = { G: 40, W: 41 };
+    const example = grid(
+      [
+        "........",
+        ".G......",
+        "...W....",
+        "...G....",
+        "........",
+      ],
+      CHARS,
+    );
+    const { rules, weights } = learnRules(example.cells, example.gw, example.gh);
+    const ground = seedGrid(
+      [
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+      ],
+      CHARS,
+    );
+    const top = ground.cells.map(() => ({ t: EMPTY, seed: false }));
+    top[3 * ground.gw + 4] = { t: CHARS.W, seed: true };
+
+    const result = solveWithOverlaySeeds(ground.cells, top, ground.gw, ground.gh, { rules, weights });
+
+    expect(result.ok).toBe(true);
+    expect(result.overlaySeedCount).toBe(1);
+    expect(result.assignment.get(4 * ground.gw + 4)).toBe(CHARS.G);
+    expect(ground.cells[3 * ground.gw + 4]).toEqual({ t: EMPTY, seed: false });
   });
 
   it("fails cleanly on contradictory seeds without touching the input", () => {

@@ -272,6 +272,28 @@ export function solve(cells, gw, gh, opts) {
   return { ok: false, assignment: null, unknownSeeds, varCount: varCells.length };
 }
 
+export function solveWithOverlaySeeds(cells, overlay, gw, gh, opts) {
+  const constrained = cells.map((cell) => ({ ...cell }));
+  const unsupportedOverlaySeeds = [];
+  let overlaySeedCount = 0;
+  for (let i = 0; i < overlay.length; i++) {
+    const cell = overlay[i];
+    if (!cell.seed) continue;
+    if (!opts.rules?.has(cell.t)) {
+      unsupportedOverlaySeeds.push(cell.t);
+      continue;
+    }
+    constrained[i] = { t: cell.t, seed: true };
+    overlaySeedCount++;
+  }
+  const result = solve(constrained, gw, gh, opts);
+  return {
+    ...result,
+    overlaySeedCount,
+    unsupportedOverlaySeeds: [...new Set(unsupportedOverlaySeeds)],
+  };
+}
+
 /**
  * Validate a full smart grid against rules — every non-solver check a
  * test needs: are all 8-neighborhoods of every painted cell allowed?
