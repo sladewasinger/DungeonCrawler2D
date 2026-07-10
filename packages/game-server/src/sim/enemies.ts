@@ -28,6 +28,7 @@ const SPITTER_WINDUP_TICKS = 5;
 const SPITTER_SPIT_TICKS = 2;
 const SPITTER_RECOVER_TICKS = 3;
 const MELEE_ATTACK_TICKS = 4;
+const MELEE_RECOVER_TICKS = 3;
 
 /** Enemy population (chunk activation) and per-tick AI. */
 
@@ -173,6 +174,13 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
 
 function advanceAttackAnimation(sim: SimState, enemy: EnemySlot): boolean {
   if (enemy.animation.state === "attack") {
+    enemy.animation.ticksRemaining -= 1;
+    if (enemy.animation.ticksRemaining <= 0) {
+      enemy.animation = { state: "recover", ticksRemaining: MELEE_RECOVER_TICKS };
+    }
+    return true;
+  }
+  if (enemy.animation.state === "recover" && !enemy.def.attack.ranged) {
     enemy.animation.ticksRemaining -= 1;
     if (enemy.animation.ticksRemaining <= 0) enemy.animation = { state: "idle", ticksRemaining: 0 };
     return true;

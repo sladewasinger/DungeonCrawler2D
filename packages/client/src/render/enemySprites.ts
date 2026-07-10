@@ -2,7 +2,16 @@ import type { EnemyAnimationState } from "@dc2d/engine";
 
 export const ENEMY_SPRITE_IDS = ["slime", "plant-creeper", "skeleton", "spitter"] as const;
 
-export const ENEMY_FRAME_COUNT = 3;
+export const ENEMY_ANIMATION_STATES = ["idle", "walk", "windup", "spit", "recover", "attack"] as const;
+
+export const NORMAL_ENEMY_FRAME_COUNTS: Record<EnemyAnimationState, number> = {
+  idle: 1,
+  walk: 2,
+  windup: 1,
+  spit: 1,
+  recover: 1,
+  attack: 1,
+};
 
 export const SPITTER_FRAME_COUNTS: Record<EnemyAnimationState, number> = {
   idle: 3,
@@ -14,9 +23,14 @@ export const SPITTER_FRAME_COUNTS: Record<EnemyAnimationState, number> = {
 };
 
 const ENEMY_SPRITE_SET = new Set<string>(ENEMY_SPRITE_IDS);
+const NORMAL_ENEMY_ASSET_DIR: Record<Exclude<(typeof ENEMY_SPRITE_IDS)[number], "spitter">, string> = {
+  slime: "slime-v2",
+  "plant-creeper": "plant-creeper-v2",
+  skeleton: "skeleton-v3",
+};
 
 export function enemyFrameCount(defId: string, state: EnemyAnimationState): number {
-  return defId === "spitter" ? SPITTER_FRAME_COUNTS[state] : ENEMY_FRAME_COUNT;
+  return defId === "spitter" ? SPITTER_FRAME_COUNTS[state] : NORMAL_ENEMY_FRAME_COUNTS[state];
 }
 
 export function enemyTextureKey(defId: string, state: EnemyAnimationState, frame: number): string {
@@ -25,5 +39,13 @@ export function enemyTextureKey(defId: string, state: EnemyAnimationState, frame
   const animationFrame = ((frame % frameCount) + frameCount) % frameCount;
   return enemyId === "spitter"
     ? `enemy-spitter-${state}-${animationFrame}`
-    : `enemy-${enemyId}-${animationFrame}`;
+    : `enemy-${enemyId}-${state}-${animationFrame}`;
+}
+
+export function enemyAssetPath(defId: string, state: EnemyAnimationState, frame: number): string {
+  const enemyId = ENEMY_SPRITE_SET.has(defId) ? (defId as (typeof ENEMY_SPRITE_IDS)[number]) : "slime";
+  const frameCount = enemyFrameCount(enemyId, state);
+  const animationFrame = ((frame % frameCount) + frameCount) % frameCount;
+  const directory = enemyId === "spitter" ? "spitter-v3" : NORMAL_ENEMY_ASSET_DIR[enemyId];
+  return `assets/enemies/${directory}/${state}-${animationFrame}.png`;
 }

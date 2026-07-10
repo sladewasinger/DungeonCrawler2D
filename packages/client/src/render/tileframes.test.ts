@@ -6,8 +6,8 @@ import { frameForTile } from "./tileframes";
 const openFloor = {
   tileAt: () => TILE.Floor,
   heightAt: () => 0,
-  zoneAt: () => ZONE.Open,
-} as World;
+  zoneAt: () => ZONE.None,
+} as unknown as World;
 
 describe("frameForTile", () => {
   it("uses deterministic, contiguous grass courtyards on ordinary floor", () => {

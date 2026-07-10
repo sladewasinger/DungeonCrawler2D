@@ -12,6 +12,7 @@ import Phaser from "phaser";
 import type { ThrowPreview } from "../input/controller";
 import type { Connection } from "../net/connection";
 import atlas from "./atlas.json";
+import { CombatParticles } from "./combatParticles";
 import { enemyTextureKey } from "./enemySprites";
 import { itemTextureKey } from "./itemSprites";
 import { TILE_PX, Z_PX } from "./constants";
@@ -57,10 +58,12 @@ export class EntityRenderer {
   private readonly barGfx: Phaser.GameObjects.Graphics;
   private readonly hoverTip: Phaser.GameObjects.Text;
   private readonly throwArc: Phaser.GameObjects.Graphics;
+  private readonly particles: CombatParticles;
   private lastFrameAt = 0;
   private frameDt = 1 / 60;
 
   constructor(private readonly scene: Phaser.Scene) {
+    this.particles = new CombatParticles(scene);
     this.selfVisual = {
       shadow: scene.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
       sprite: scene.add.image(0, 0, "players", atlas.players.self).setOrigin(0.5, 0.5).setDepth(2),
@@ -349,17 +352,18 @@ export class EntityRenderer {
       const pos = entityScreenPos(conn, event.id);
       if (!pos) continue;
       if (event.t === "death") {
-        this.spawnImpactBurst(pos.x, pos.y - 24, 0xffd36b, 16);
+        this.particles.impact(pos.x, pos.y - 24, 0xffd36b, 16);
         this.spawnFeedbackText(pos.x, pos.y - 50, "DEFEATED", "#ffe9b0", 950);
         continue;
       }
       if (event.t === "status") {
         const statusName = content.statuses.get(event.status)?.name ?? event.status;
         const color = event.on ? "#ffcc70" : "#8fe08a";
+        this.particles.status(pos.x, pos.y - 24, event.on ? 0xffcc70 : 0x8fe08a);
         this.spawnFeedbackText(pos.x, pos.y - 50, `${event.on ? "+" : "-"}${statusName}`, color, 700);
         continue;
       }
-      this.spawnImpactBurst(pos.x, pos.y - 24, event.amount < 0 ? 0xff7a66 : 0x8fe08a, 11);
+      this.particles.impact(pos.x, pos.y - 24, event.amount < 0 ? 0xff7a66 : 0x8fe08a, 11);
       this.spawnFeedbackText(
         pos.x,
         pos.y - 50,
@@ -385,28 +389,6 @@ export class EntityRenderer {
       alpha: 0,
       duration,
       onComplete: () => text.destroy(),
-    });
-  }
-
-  private spawnImpactBurst(x: number, y: number, color: number, radius: number): void {
-    const burst = this.scene.add.graphics().setPosition(x, y).setDepth(49);
-    burst.lineStyle(2, color, 0.9);
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8 + Math.PI / 8;
-      burst.lineBetween(
-        Math.cos(angle) * radius * 0.35,
-        Math.sin(angle) * radius * 0.35,
-        Math.cos(angle) * radius,
-        Math.sin(angle) * radius,
-      );
-    }
-    this.scene.tweens.add({
-      targets: burst,
-      alpha: 0,
-      scale: 1.5,
-      duration: 180,
-      ease: "Quad.Out",
-      onComplete: () => burst.destroy(),
     });
   }
 
@@ -509,21 +491,9 @@ export class EntityRenderer {
     const length = Math.hypot(aimX ?? 0, aimY ?? 0) || 1;
     const dx = (aimX ?? 0) / length;
     const dy = (aimY ?? 1) / length;
-    const burst = this.scene.add.graphics().setDepth(6);
     const mouthX = x + dx * 12;
     const mouthY = y - 14 + dy * 8;
-    burst.fillStyle(0xd8ff52, 0.95).fillCircle(mouthX, mouthY, 5);
-    burst.fillStyle(0x8dc52d, 0.85).fillCircle(mouthX + dx * 8, mouthY + dy * 8, 3);
-    burst.lineStyle(2, 0xeaff87, 0.75).lineBetween(mouthX, mouthY, mouthX + dx * 22, mouthY + dy * 22);
-    this.scene.tweens.add({
-      targets: burst,
-      x: dx * 14,
-      y: dy * 14,
-      alpha: 0,
-      duration: 120,
-      ease: "Quad.Out",
-      onComplete: () => burst.destroy(),
-    });
+    this.particles.launch(mouthX, mouthY, dx, dy);
   }
 
 }

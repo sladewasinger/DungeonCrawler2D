@@ -403,8 +403,11 @@ describe("GameSim", () => {
     const first = sim.step().get(player.playerId)!;
     expect(first.entities.find((entry) => entry.id === skeleton.id)?.anim).toBe("attack");
 
-    const afterPose = stepN(sim, 4).get(player.playerId)!;
-    expect(afterPose.entities.find((entry) => entry.id === skeleton.id)?.anim).toBe("idle");
+    const recovery = stepN(sim, 4).get(player.playerId)!;
+    expect(recovery.entities.find((entry) => entry.id === skeleton.id)?.anim).toBe("recover");
+
+    const afterRecovery = stepN(sim, 3).get(player.playerId)!;
+    expect(afterRecovery.entities.find((entry) => entry.id === skeleton.id)?.anim).toBe("idle");
   });
 
   it("sanctuary suppresses PvP entirely", () => {

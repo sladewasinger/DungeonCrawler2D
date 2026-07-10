@@ -6,9 +6,10 @@ import { AreaRenderer } from "../render/areas";
 import atlas from "../render/atlas.json";
 import { TILE_PX } from "../render/constants";
 import {
-  ENEMY_FRAME_COUNT,
+  ENEMY_ANIMATION_STATES,
   ENEMY_SPRITE_IDS,
-  SPITTER_FRAME_COUNTS,
+  enemyAssetPath,
+  enemyFrameCount,
   enemyTextureKey,
 } from "../render/enemySprites";
 import { EntityRenderer } from "../render/entities";
@@ -48,14 +49,10 @@ export class DungeonScene extends Phaser.Scene {
     this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
     this.load.image("packsheet", `assets/${atlas.packSheet.image}`);
     for (const enemyId of ENEMY_SPRITE_IDS) {
-      if (enemyId === "spitter") continue;
-      for (let frame = 0; frame < ENEMY_FRAME_COUNT; frame++) {
-        this.load.image(enemyTextureKey(enemyId, "idle", frame), `assets/enemies/${enemyId}-${frame}.png`);
-      }
-    }
-    for (const [state, frameCount] of Object.entries(SPITTER_FRAME_COUNTS)) {
-      for (let frame = 0; frame < frameCount; frame++) {
-        this.load.image(enemyTextureKey("spitter", state as keyof typeof SPITTER_FRAME_COUNTS, frame), `assets/enemies/spitter-v3/${state}-${frame}.png`);
+      for (const state of ENEMY_ANIMATION_STATES) {
+        for (let frame = 0; frame < enemyFrameCount(enemyId, state); frame++) {
+          this.load.image(enemyTextureKey(enemyId, state, frame), enemyAssetPath(enemyId, state, frame));
+        }
       }
     }
     for (const itemId of ITEM_SPRITE_IDS) {
