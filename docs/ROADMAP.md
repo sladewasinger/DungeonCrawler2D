@@ -181,8 +181,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] **Spitter foundation:** distinct idle, walk, wind-up, open-mouth release, and recovery frames; the delayed ranged attack drives those states server-side
 - [x] **Spitter launch readability:** the release frame contains no baked projectile; a short muzzle particle starts at the open mouth while the authoritative projectile begins its flight
 - [x] Live visual verification of the spitter wind-up, release, recovery, and projectile handoff
-- [ ] Give slime, plant-creeper, and skeleton their own intent-readable idle, walk, attack, and recovery animation sets
-- [ ] Standardize reusable launch, impact, hit, death, and area-effect particles with clear source positions, layering, and lifetimes
+- [x] Give slime, plant-creeper, and skeleton their own intent-readable idle, walk, attack, and recovery animation sets (`enemySprites.ts` state contract; server attack/recovery snapshots; centered alpha-frame sets)
+- [x] Standardize reusable launch, impact, hit, death, and status particles with clear source positions, layering, and lifetimes (`CombatParticles`)
 - [ ] Review combat scenes at normal play speed for visual timing, projectile origin, and readability under multiple simultaneous entities
 
 **Done when:** Every starter enemy has separate locomotion and attack intent, and every combat particle visibly originates from the actor, projectile, or area that caused it.
