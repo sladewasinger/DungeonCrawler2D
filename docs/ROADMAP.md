@@ -173,6 +173,20 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Done when:** Two strangers meet in a safe room, party up, enter their new party room together, then each retreat through their own personal door to craft in private.
 
+## Epic 7.5 — Enemy & Particle Refinement (in progress)
+
+**Goal:** Make combat readable at a glance. Enemy motion must communicate its intent, and particles must originate from the action that created them rather than being baked into a static sprite.
+
+- [x] Animation-state contract: enemies can replicate `idle`, `walk`, `windup`, `spit`, and `recover` states independently of positional movement
+- [x] **Spitter foundation:** distinct idle, walk, wind-up, open-mouth release, and recovery frames; the delayed ranged attack drives those states server-side
+- [x] **Spitter launch readability:** the release frame contains no baked projectile; a short muzzle particle starts at the open mouth while the authoritative projectile begins its flight
+- [x] Live visual verification of the spitter wind-up, release, recovery, and projectile handoff
+- [ ] Give slime, plant-creeper, and skeleton their own intent-readable idle, walk, attack, and recovery animation sets
+- [ ] Standardize reusable launch, impact, hit, death, and area-effect particles with clear source positions, layering, and lifetimes
+- [ ] Review combat scenes at normal play speed for visual timing, projectile origin, and readability under multiple simultaneous entities
+
+**Done when:** Every starter enemy has separate locomotion and attack intent, and every combat particle visibly originates from the actor, projectile, or area that caused it.
+
 ## Epic 8 — Social Fabric (v0.5)
 
 **Goal:** The systems in [GAME_DESIGN.md](GAME_DESIGN.md) § Social fabric: meeting people is the game's magic moment, so the plumbing around it must be consent-first.
