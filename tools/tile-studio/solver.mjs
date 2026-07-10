@@ -25,6 +25,10 @@ export const DIRS = [
   ["sw", -1, 1],
   ["nw", -1, -1],
 ];
+export const OVERLAY_SUPPORT_DIRS = [
+  ["under", 0, 0],
+  ["south", 0, 1],
+];
 const OPP = { n: "s", s: "n", e: "w", w: "e", ne: "sw", sw: "ne", se: "nw", nw: "se" };
 
 function emptyDirSets() {
@@ -77,6 +81,63 @@ export function learnRules(cells, gw, gh) {
   let factCount = 0;
   for (const d of rules.values()) for (const [dir] of DIRS) factCount += d[dir].size;
   return { rules, weights, tileCount, factCount };
+}
+
+export function learnOverlaySupports(ground, overlay, gw, gh) {
+  const supports = new Map();
+  for (let r = 0; r < gh; r++) {
+    for (let c = 0; c < gw; c++) {
+      const top = overlay[r * gw + c];
+      if (top === EMPTY) continue;
+      if (!supports.has(top)) supports.set(top, new Map());
+      const entry = supports.get(top);
+      for (const [dir, dx, dy] of OVERLAY_SUPPORT_DIRS) {
+        const nc = c + dx;
+        const nr = r + dy;
+        if (nc < 0 || nr < 0 || nc >= gw || nr >= gh) continue;
+        const terrain = ground[nr * gw + nc];
+        if (terrain === EMPTY) continue;
+        if (!entry.has(dir)) entry.set(dir, new Map());
+        const options = entry.get(dir);
+        options.set(terrain, (options.get(terrain) ?? 0) + 1);
+      }
+    }
+  }
+  let factCount = 0;
+  for (const entry of supports.values()) for (const options of entry.values()) factCount += options.size;
+  return { supports, tileCount: supports.size, factCount };
+}
+
+function mostCommon(options) {
+  return [...options].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? EMPTY;
+}
+
+export function applyOverlaySupports(ground, overlay, supports, gw, gh) {
+  const assignment = new Map();
+  const unknownSeeds = [];
+  let matchingSeedCount = 0;
+  for (let i = 0; i < overlay.length; i++) {
+    const top = overlay[i];
+    if (!top.seed) continue;
+    const support = supports.get(top.t);
+    if (!support) {
+      unknownSeeds.push(top.t);
+      continue;
+    }
+    matchingSeedCount++;
+    const c = i % gw;
+    const r = Math.floor(i / gw);
+    for (const [dir, dx, dy] of OVERLAY_SUPPORT_DIRS) {
+      const terrain = mostCommon(support.get(dir) ?? new Map());
+      const nc = c + dx;
+      const nr = r + dy;
+      if (terrain === EMPTY || nc < 0 || nr < 0 || nc >= gw || nr >= gh) continue;
+      const target = nr * gw + nc;
+      if (ground[target].seed || assignment.has(target)) continue;
+      assignment.set(target, terrain);
+    }
+  }
+  return { assignment, matchingSeedCount, unknownSeeds: [...new Set(unknownSeeds)] };
 }
 
 /**
@@ -270,28 +331,6 @@ export function solve(cells, gw, gh, opts) {
     }
   }
   return { ok: false, assignment: null, unknownSeeds, varCount: varCells.length };
-}
-
-export function solveWithOverlaySeeds(cells, overlay, gw, gh, opts) {
-  const constrained = cells.map((cell) => ({ ...cell }));
-  const unsupportedOverlaySeeds = [];
-  let overlaySeedCount = 0;
-  for (let i = 0; i < overlay.length; i++) {
-    const cell = overlay[i];
-    if (!cell.seed) continue;
-    if (!opts.rules?.has(cell.t)) {
-      unsupportedOverlaySeeds.push(cell.t);
-      continue;
-    }
-    constrained[i] = { t: cell.t, seed: true };
-    overlaySeedCount++;
-  }
-  const result = solve(constrained, gw, gh, opts);
-  return {
-    ...result,
-    overlaySeedCount,
-    unsupportedOverlaySeeds: [...new Set(unsupportedOverlaySeeds)],
-  };
 }
 
 /**

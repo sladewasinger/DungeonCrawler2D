@@ -94,14 +94,14 @@
         <button id="resolveBtn">Re-solve</button>
         <button id="clearSmart">Clear layer</button>
         <label><input id="autoSolve" type="checkbox" checked /> auto-solve while painting</label>
-        <span class="hint">gold pin = locked seed. Top-wall seeds use the learned ground rules to paint terrain support; top rules are optional.</span>
+        <span class="hint">gold pin = locked seed. Top-wall seeds reuse terrain learned beneath them in Example; top-only rules are optional.</span>
       </div>
       <div class="canvasWrap"><canvas id="smart" class="grid"></canvas></div>
     </div>
   </div>
 </main>
 <script type="module">
-import { EMPTY, learnRules, solve, solveWithOverlaySeeds } from "./solver.mjs";
+import { EMPTY, applyOverlaySupports, learnOverlaySupports, learnRules, solve } from "./solver.mjs";
 
 const $ = (id) => document.getElementById(id);
 const CELL = 32; // on-screen grid cell size
@@ -129,6 +129,7 @@ const state = {
   top: [],                    // top smart layer: { t: tileIndex|EMPTY, seed: bool }
   rules: { ground: null, top: null },
   weights: { ground: null, top: null },
+  supports: new Map(),
   solveNonce: 1234,           // bumped by Re-solve for a fresh variation
   history: [],
   future: [],
@@ -331,8 +332,16 @@ function tileLabel(tile) {
 function updateTileInfo() {
   const tile = selAnchorTile();
   const rules = state.rules[activeLayer()];
+  const support = activeLayer() === "top" ? state.supports.get(tile) : null;
+  const supportInfo = support
+    ? ` • ground support ${["under", "south"].map((dir) => {
+      const options = support.get(dir);
+      const terrain = options ? [...options].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] : EMPTY;
+      return `${dir}: ${tileLabel(terrain)}`;
+    }).join(" | ")}`
+    : "";
   if (!rules?.has(tile)) {
-    $("tileInfo").textContent = `selected ${tileLabel(tile)} • paint it in the ${activeLayer()} Example, then Learn rules`;
+    $("tileInfo").textContent = `selected ${tileLabel(tile)} • paint it in the ${activeLayer()} Example, then Learn rules${supportInfo}`;
     return;
   }
   const rule = rules.get(tile);
@@ -340,7 +349,7 @@ function updateTileInfo() {
     const values = [...rule[dir]].slice(0, 4).map(tileLabel).join(", ");
     return `${dir}: ${values || "—"}`;
   });
-  $("tileInfo").textContent = `selected ${tileLabel(tile)} • learned neighbors ${sides.join(" | ")}`;
+  $("tileInfo").textContent = `selected ${tileLabel(tile)} • learned neighbors ${sides.join(" | ")}${supportInfo}`;
 }
 $("tagSelect").addEventListener("change", () => {
   rememberEdit();
@@ -523,10 +532,13 @@ function learn(silent = false) {
   const ground = learnRules(state.example, state.gw, state.gh);
   const hasTopExample = state.exampleTop.some((tile) => tile !== EMPTY);
   const top = hasTopExample ? learnRules(state.exampleTop, state.gw, state.gh) : null;
+  const supports = learnOverlaySupports(state.example, state.exampleTop, state.gw, state.gh);
   state.rules = { ground: ground.rules, top: top?.rules ?? null };
   state.weights = { ground: ground.weights, top: top?.weights ?? null };
+  state.supports = supports.supports;
   const topSummary = top ? `; top ${top.tileCount} tiles / ${top.factCount} facts` : "; top has no example yet";
-  $("ruleInfo").textContent = `learned ground ${ground.tileCount} tiles / ${ground.factCount} facts${topSummary}`;
+  const supportSummary = supports.tileCount ? `; ${supports.tileCount} top tiles with ${supports.factCount} ground support facts` : "";
+  $("ruleInfo").textContent = `learned ground ${ground.tileCount} tiles / ${ground.factCount} facts${topSummary}${supportSummary}`;
   updateTileInfo();
   if (!silent) autosave();
 }
@@ -548,31 +560,30 @@ function runSolve() {
   });
 
   if (layer === "top") {
-    const groundRules = state.rules.ground;
-    const groundWeights = state.weights.ground;
-    const support = groundRules ? solveWithOverlaySeeds(state.smart, state.top, state.gw, state.gh, {
-      rules: groundRules,
-      weights: groundWeights,
-      halo: 2,
-      seed: state.solveNonce,
-    }) : null;
+    const support = applyOverlaySupports(state.smart, state.top, state.supports, state.gw, state.gh);
     const topResult = rules ? solveTarget(state.top, rules, weights) : null;
-    const supportReady = support?.ok && support.overlaySeedCount > 0;
+    const supportReady = support.matchingSeedCount > 0;
     const topReady = topResult?.ok && topResult.varCount > 0;
 
     if (!supportReady && !topReady) {
-      const unsupported = support?.unsupportedOverlaySeeds.length
-        ? `; ${support.unsupportedOverlaySeeds.length} top seed tile${support.unsupportedOverlaySeeds.length === 1 ? "" : "s"} never appeared in the ground example`
+      const unsupported = support.unknownSeeds.length
+        ? `; ${support.unknownSeeds.length} top seed tile${support.unknownSeeds.length === 1 ? "" : "s"} has no learned ground support`
         : "";
-      setStatus(`top paint needs a ground example for terrain support or a top-layer example for top-only completion${unsupported}`, true);
+      setStatus(`top paint needs a composited example: paint terrain below the top tile, then click Learn${unsupported}`, true);
       return;
     }
     if (supportReady) applyResult(state.smart, support);
     if (topReady) applyResult(state.top, topResult);
     const pieces = [];
-    if (supportReady) pieces.push(`placed ${support.assignment.size} ground support tile${support.assignment.size === 1 ? "" : "s"}`);
+    if (supportReady) {
+      pieces.push(
+        support.assignment.size
+          ? `placed ${support.assignment.size} learned ground support tile${support.assignment.size === 1 ? "" : "s"}`
+          : "verified the existing learned ground support",
+      );
+    }
     if (topReady) pieces.push(`placed ${topResult.assignment.size} top tile${topResult.assignment.size === 1 ? "" : "s"}`);
-    setStatus(`${pieces.join("; ")} from your wall seed${support.overlaySeedCount === 1 ? "" : "s"}`);
+    setStatus(`${pieces.join("; ")} for ${support.matchingSeedCount} top seed${support.matchingSeedCount === 1 ? "" : "s"}`);
     drawAll();
     autosave();
     return;

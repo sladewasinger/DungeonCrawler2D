@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY, learnRules, solve, solveWithOverlaySeeds, violations } from "./solver.mjs";
+import { EMPTY, applyOverlaySupports, learnOverlaySupports, learnRules, solve, violations } from "./solver.mjs";
 
 /**
  * Build a row-major tile grid from ASCII art. '.' = EMPTY, everything
@@ -165,19 +165,34 @@ describe("solve", () => {
     expect(result.assignment.get(4 * target.gw + 4)).toBe(CHARS.G);
   });
 
-  it("uses a top-layer seed to complete its learned ground support", () => {
+  it("uses a top-layer seed to place its learned ground support", () => {
     const CHARS = { G: 40, W: 41 };
-    const example = grid(
+    const groundExample = grid(
       [
         "........",
         ".G......",
-        "...W....",
+        "...G....",
         "...G....",
         "........",
       ],
       CHARS,
     );
-    const { rules, weights } = learnRules(example.cells, example.gw, example.gh);
+    const topExample = grid(
+      [
+        "........",
+        "........",
+        "...W....",
+        "........",
+        "........",
+      ],
+      CHARS,
+    );
+    const { supports } = learnOverlaySupports(
+      groundExample.cells,
+      topExample.cells,
+      groundExample.gw,
+      groundExample.gh,
+    );
     const ground = seedGrid(
       [
         "........",
@@ -193,10 +208,10 @@ describe("solve", () => {
     const top = ground.cells.map(() => ({ t: EMPTY, seed: false }));
     top[3 * ground.gw + 4] = { t: CHARS.W, seed: true };
 
-    const result = solveWithOverlaySeeds(ground.cells, top, ground.gw, ground.gh, { rules, weights });
+    const result = applyOverlaySupports(ground.cells, top, supports, ground.gw, ground.gh);
 
-    expect(result.ok).toBe(true);
-    expect(result.overlaySeedCount).toBe(1);
+    expect(result.matchingSeedCount).toBe(1);
+    expect(result.assignment.get(3 * ground.gw + 4)).toBe(CHARS.G);
     expect(result.assignment.get(4 * ground.gw + 4)).toBe(CHARS.G);
     expect(ground.cells[3 * ground.gw + 4]).toEqual({ t: EMPTY, seed: false });
   });

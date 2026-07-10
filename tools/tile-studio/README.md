@@ -51,9 +51,10 @@ combined sheet loads from `assets/topdown/tilesheet.png` automatically.)
    by the solver. For example, if your Example shows a wall-base tile
    only with grass directly below it, Smart Paint places that grass under
    every wall-base seed. This works when the wall is painted on the
-   **top** layer too: the locked top wall acts as a temporary ground
-   constraint while the solver fills its ground support, without copying
-   the wall into the exported ground layer. `Re-solve` re-runs
+   **top** layer too: learning records the terrain directly beneath the
+   wall and at its foot, then places that support when the top wall is
+   seeded—without copying the wall into the exported ground layer.
+   `Re-solve` re-runs
    with fresh randomness; toggle auto-solve off to place many seeds
    first. A failed solve **keeps your grid** and says why; seed tiles
    that never appeared in the example are flagged (they don't
