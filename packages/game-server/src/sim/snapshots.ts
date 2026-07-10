@@ -61,6 +61,7 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
               ...(aim ? { aimX: aim.x, aimY: aim.y } : {}),
             }
           : {}),
+        ...(entity.facing ? { faceX: entity.facing.x, faceY: entity.facing.y } : {}),
         ...(entity.kind === "player" && sim.players.get(entity.id)?.downedAtTick !== null
           ? { downed: true }
           : {}),

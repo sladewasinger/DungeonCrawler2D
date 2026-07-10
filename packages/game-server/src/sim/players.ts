@@ -9,6 +9,7 @@ import {
   TICK_DT,
   TICK_RATE,
   createBody,
+  faceEntity,
   makeEntity,
   newEntityId,
   stepBody,
@@ -58,6 +59,7 @@ export function addPlayer(
     maxHp: PLAYER_MAX_HP,
     baseSpeed: 8,
     tags: new Set(["player", "organic"]),
+    facing: { x: 0, y: 1 },
   });
   const token = newToken(sim);
   const slot: PlayerSlot = {
@@ -156,6 +158,7 @@ export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
       if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
     } else {
       for (const input of inputs) {
+        faceEntity(entity, input.moveX, input.moveY);
         const result = stepBody(sim.world, entity.body, input, TICK_DT, opts);
         slot.lastSeq = input.seq;
         if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);

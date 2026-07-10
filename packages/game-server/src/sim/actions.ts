@@ -11,6 +11,7 @@ import {
   TILE,
   applyKnockback,
   createBody,
+  faceEntity,
   launchVelocity,
   makeEntity,
   newEntityId,
@@ -109,6 +110,7 @@ function doAttack(
   effectEvents: EffectEvent[],
 ): void {
   const attacker = slot.entity;
+  faceEntity(attacker, dirX, dirY);
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
   if (sim.tickCount < slot.attackReadyAtTick) return; // swing still recovering
   slot.attackReadyAtTick = sim.tickCount + ATTACK_COOLDOWN_TICKS;
@@ -165,6 +167,7 @@ function doUseSlot(
     let dx = targetX - from.x;
     let dy = targetY - from.y;
     const dist = Math.hypot(dx, dy);
+    faceEntity(slot.entity, dx, dy);
     if (dist > MAX_THROW_RANGE) {
       dx *= MAX_THROW_RANGE / dist;
       dy *= MAX_THROW_RANGE / dist;

@@ -29,7 +29,7 @@ describe("protocol", () => {
       { type: "stash", op: "put", index: 3 },
       { type: "party", op: "invite", target: "p2" },
       { type: "chat", channel: "party", text: "behind you" },
-      { type: "hello", protocol: 6, name: "Crawler", clientId: "client-1", level: "sandbox" },
+      { type: "hello", protocol: 7, name: "Crawler", clientId: "client-1", level: "sandbox" },
     ];
     for (const intent of intents) {
       expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);
@@ -75,6 +75,8 @@ describe("protocol", () => {
           anim: "walk",
           aimX: 0.6,
           aimY: -0.8,
+          faceX: 0.6,
+          faceY: -0.8,
         },
         { id: "i1", kind: "item", defId: "knife", x: 8, y: 8, z: 0 },
       ],

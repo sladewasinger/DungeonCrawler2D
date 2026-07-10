@@ -146,6 +146,15 @@ describe("GameSim", () => {
     expect(snap.lastSeq).toBe(1);
   });
 
+  it("replicates player movement facing to nearby observers", () => {
+    const a = sim.addPlayer("A", "client-a");
+    const b = sim.addPlayer("B", "client-b");
+    sim.handleInput(b.playerId, input(1, 1, -1));
+    const remote = sim.step().get(a.playerId)!.entities.find((entry) => entry.id === b.playerId);
+    expect(remote?.faceX).toBeCloseTo(Math.SQRT1_2, 5);
+    expect(remote?.faceY).toBeCloseTo(-Math.SQRT1_2, 5);
+  });
+
   it("a resume token is useless with a different clientId (no identity theft)", () => {
     const a = sim.addPlayer("A", "client-a");
     sim.markDisconnected(a.playerId);
@@ -375,6 +384,7 @@ describe("GameSim", () => {
     const findSpitter = (state: Map<string, ServerSnapshot>) =>
       state.get(player.playerId)!.entities.find((entry) => entry.id === spitter.id);
     expect(findSpitter(snapshots)?.anim).toBe("windup");
+    expect(findSpitter(snapshots)?.faceX).toBeLessThan(0);
 
     snapshots = stepN(sim, 5);
     expect(findSpitter(snapshots)?.anim).toBe("spit");

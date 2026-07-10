@@ -77,6 +77,7 @@ export function spawnEnemy(sim: SimState, defId: string, x: number, y: number): 
       maxHp: def.hp,
       baseSpeed: def.speed,
       tags: new Set(def.tags),
+      facing: { x: 0, y: 1 },
     },
   );
   sim.enemies.set(entity.id, {

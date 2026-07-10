@@ -38,6 +38,8 @@ interface EntityVisual {
   animationStartedAt?: number;
   aimX?: number;
   aimY?: number;
+  faceX?: number;
+  faceY?: number;
   /** Eased screen elevation of the body (px). */
   elevPx?: number;
   /** Eased screen elevation of the ground under it (px, the shadow). */
@@ -144,6 +146,9 @@ export class EntityRenderer {
       this.scene.input.activePointer.y,
     );
     const angle = Math.atan2(cursor.y - this.selfVisual.sprite.y, cursor.x - this.selfVisual.sprite.x);
+    const playerRotation = facingRotation(angle);
+    this.selfVisual.sprite.setRotation(playerRotation);
+    this.selfGhost.setRotation(playerRotation);
     const hasWeapon = conn.weapon !== null && !conn.downed;
     this.heldWeapon.setVisible(hasWeapon);
     if (hasWeapon && conn.weapon) {
@@ -198,6 +203,13 @@ export class EntityRenderer {
         }
         const frame = enemyAnimationFrame(visual, now);
         visual.sprite.setTexture(enemyTextureKey(visual.defId ?? "slime", state, frame));
+      }
+      if (visual.kind === "player" || visual.kind === "enemy") {
+        visual.faceX = snap.aimX ?? snap.faceX ?? visual.faceX;
+        visual.faceY = snap.aimY ?? snap.faceY ?? visual.faceY;
+        if (visual.faceX !== undefined && visual.faceY !== undefined) {
+          this.rotateSpriteToward(visual, visual.faceX, visual.faceY);
+        }
       }
       if (visual.kind === "projectile") visual.sprite.setRotation(now / 100);
       visual.sprite.setTint(statusTint(snap.fx ?? []));
@@ -462,6 +474,15 @@ export class EntityRenderer {
     return Math.sin(now / (moved ? 55 : 480) + visual.phase) * (moved ? 1.5 : 0.4);
   }
 
+  private rotateSpriteToward(visual: EntityVisual, x: number, y: number): void {
+    if (x === 0 && y === 0) return;
+    const target = facingRotation(Math.atan2(y, x));
+    const current = visual.sprite.rotation;
+    const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    const blend = 1 - Math.exp(-this.frameDt * 18);
+    visual.sprite.setRotation(current + delta * blend);
+  }
+
   private spawnSpitMuzzle(x: number, y: number, aimX: number | undefined, aimY: number | undefined): void {
     const length = Math.hypot(aimX ?? 0, aimY ?? 0) || 1;
     const dx = (aimX ?? 0) / length;
@@ -493,6 +514,10 @@ function enemyAnimationFrame(visual: EntityVisual, now: number): number {
   if (state === "windup") return Math.min(1, Math.floor(elapsed / 110));
   if (state === "recover") return Math.min(1, Math.floor(elapsed / 85));
   return 0;
+}
+
+function facingRotation(angle: number): number {
+  return angle - Math.PI / 2;
 }
 
 function phaseFromId(id: string): number {

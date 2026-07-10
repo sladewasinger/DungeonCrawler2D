@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 

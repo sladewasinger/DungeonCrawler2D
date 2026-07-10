@@ -55,7 +55,7 @@ export class DungeonScene extends Phaser.Scene {
     }
     for (const [state, frameCount] of Object.entries(SPITTER_FRAME_COUNTS)) {
       for (let frame = 0; frame < frameCount; frame++) {
-        this.load.image(enemyTextureKey("spitter", state as keyof typeof SPITTER_FRAME_COUNTS, frame), `assets/enemies/spitter/${state}-${frame}.png`);
+        this.load.image(enemyTextureKey("spitter", state as keyof typeof SPITTER_FRAME_COUNTS, frame), `assets/enemies/spitter-v3/${state}-${frame}.png`);
       }
     }
     for (const itemId of ITEM_SPRITE_IDS) {

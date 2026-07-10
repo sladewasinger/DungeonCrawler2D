@@ -36,6 +36,8 @@ export interface Entity {
   qty: number;
   /** Projectile state (kind === "projectile"). */
   vel?: { x: number; y: number; z: number };
+  /** Last non-zero horizontal intent, normalized for presentation. */
+  facing?: { x: number; y: number };
   ownerId?: string;
   /** Party members never stop being valid melee targets — but the
    * targeting aid deprioritizes them. Kept on the entity for AOI-free
@@ -74,8 +76,15 @@ export function makeEntity(
     ...(opts.defId !== undefined ? { defId: opts.defId } : {}),
     ...(opts.name !== undefined ? { name: opts.name } : {}),
     ...(opts.vel !== undefined ? { vel: opts.vel } : {}),
+    ...(opts.facing !== undefined ? { facing: opts.facing } : {}),
     ...(opts.ownerId !== undefined ? { ownerId: opts.ownerId } : {}),
   };
+}
+
+export function faceEntity(entity: Entity, x: number, y: number): void {
+  const length = Math.hypot(x, y);
+  if (length === 0) return;
+  entity.facing = { x: x / length, y: y / length };
 }
 
 /**

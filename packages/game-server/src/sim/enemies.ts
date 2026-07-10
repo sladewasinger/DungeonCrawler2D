@@ -7,6 +7,7 @@ import {
   applyKnockback,
   createBody,
   enemyThink,
+  faceEntity,
   isRoomChunk,
   LEVEL,
   launchVelocity,
@@ -124,6 +125,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
       () => sim.rng.next(),
     );
     if (decision.shoot) {
+      faceEntity(entity, decision.shoot.x - entity.body.x, decision.shoot.y - entity.body.y);
       enemy.animation = {
         state: "windup",
         ticksRemaining: SPITTER_WINDUP_TICKS,
@@ -131,6 +133,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
       };
       continue;
     }
+    faceEntity(entity, decision.move.moveX, decision.move.moveY);
     stepBody(sim.world, entity.body, decision.move, TICK_DT, {
       speed: entity.baseSpeed * sim.effects.speedMult(entity),
       // Enemies never set foot on sanctuary ground.
@@ -143,6 +146,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     if (decision.strike) {
       const victim = sim.players.get(decision.strike.targetId)?.entity;
       if (victim && victim.hp > 0) {
+        faceEntity(entity, victim.body.x - entity.body.x, victim.body.y - entity.body.y);
         const d = Math.hypot(victim.body.x - entity.body.x, victim.body.y - entity.body.y);
         if (d <= enemy.def.attack.range + 0.3) {
           sim.effects.modifyHealth(victim, -enemy.def.attack.damage, effectEvents, {
