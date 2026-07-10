@@ -30,6 +30,15 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
       if (entity.id === self.id) return;
       if (!inAoi(entity.body.x, entity.body.y)) return;
       visible.add(entity.id);
+      const enemyAnimation = entity.kind === "enemy" ? sim.enemies.get(entity.id)!.animation : null;
+      const aim = enemyAnimation?.target
+        ? (() => {
+            const dx = enemyAnimation.target!.x - entity.body.x;
+            const dy = enemyAnimation.target!.y - entity.body.y;
+            const distance = Math.hypot(dx, dy) || 1;
+            return { x: dx / distance, y: dy / distance };
+          })()
+        : null;
       entities.push({
         id: entity.id,
         kind: entity.kind,
@@ -46,6 +55,12 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
             }
           : {}),
         ...(entity.kind === "item" && entity.qty > 1 ? { qty: entity.qty } : {}),
+        ...(enemyAnimation
+          ? {
+              anim: enemyAnimation.state,
+              ...(aim ? { aimX: aim.x, aimY: aim.y } : {}),
+            }
+          : {}),
         ...(entity.kind === "player" && sim.players.get(entity.id)?.downedAtTick !== null
           ? { downed: true }
           : {}),

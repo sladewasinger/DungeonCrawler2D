@@ -10,6 +10,8 @@ import { z } from "zod";
 const axis = z.union([z.literal(-1), z.literal(0), z.literal(1)]);
 const slot = z.number().int().min(0).max(8);
 const level = z.enum(["dungeon", "sandbox"]);
+export const enemyAnimationStateSchema = z.enum(["idle", "walk", "windup", "spit", "recover"]);
+export type EnemyAnimationState = z.infer<typeof enemyAnimationStateSchema>;
 
 // ── client → server ────────────────────────────────────────────────
 
@@ -152,6 +154,9 @@ export const entitySnapshotSchema = z.object({
   fx: z.array(z.string()).optional(),
   qty: z.number().optional(),
   downed: z.boolean().optional(),
+  anim: enemyAnimationStateSchema.optional(),
+  aimX: z.number().min(-1).max(1).optional(),
+  aimY: z.number().min(-1).max(1).optional(),
   /** Present iff airborne — grounded entities render planted on their
    * shadow (interpolating z across height steps must not read as a hop). */
   air: z.literal(true).optional(),

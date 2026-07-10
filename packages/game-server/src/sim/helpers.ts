@@ -79,6 +79,11 @@ export function spawnEnemy(sim: SimState, defId: string, x: number, y: number): 
       tags: new Set(def.tags),
     },
   );
-  sim.enemies.set(entity.id, { entity, brain: newBrain(), def });
+  sim.enemies.set(entity.id, {
+    entity,
+    brain: newBrain(),
+    def,
+    animation: { state: "idle", ticksRemaining: 0 },
+  });
   return entity;
 }

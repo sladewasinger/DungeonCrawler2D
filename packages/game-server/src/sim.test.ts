@@ -365,6 +365,25 @@ describe("GameSim", () => {
     expect(bEntity.statuses.some((s) => s.defId === "bleeding")).toBe(true);
   });
 
+  it("spitters broadcast windup, release, and recovery states around a delayed projectile", () => {
+    const player = sim.addPlayer("Target", "spitter-target");
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    teleport(entity, SANDBOX_SPAWN.x, SANDBOX_SPAWN.y, sim);
+    const spitter = sim.spawnEnemy("spitter", SANDBOX_SPAWN.x + 6, SANDBOX_SPAWN.y);
+
+    let snapshots = sim.step();
+    const findSpitter = (state: Map<string, ServerSnapshot>) =>
+      state.get(player.playerId)!.entities.find((entry) => entry.id === spitter.id);
+    expect(findSpitter(snapshots)?.anim).toBe("windup");
+
+    snapshots = stepN(sim, 5);
+    expect(findSpitter(snapshots)?.anim).toBe("spit");
+    expect(snapshots.get(player.playerId)!.entities.some((entry) => entry.kind === "projectile")).toBe(true);
+
+    snapshots = stepN(sim, 2);
+    expect(findSpitter(snapshots)?.anim).toBe("recover");
+  });
+
   it("sanctuary suppresses PvP entirely", () => {
     const a = sim.addPlayer("A", "client-a");
     const b = sim.addPlayer("B", "client-b");

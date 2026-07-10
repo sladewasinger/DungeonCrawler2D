@@ -6,6 +6,7 @@ import {
   type ClientMessage,
   type ContentRegistry,
   type EnemyBrain,
+  type EnemyAnimationState,
   type EnemyDef,
   type Entity,
   type GameEvent,
@@ -62,6 +63,11 @@ export interface EnemySlot {
   entity: Entity;
   brain: EnemyBrain;
   def: EnemyDef;
+  animation: {
+    state: EnemyAnimationState;
+    ticksRemaining: number;
+    target?: { x: number; y: number; z: number };
+  };
 }
 
 export interface Party {

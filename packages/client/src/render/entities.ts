@@ -5,6 +5,7 @@ import {
   MELEE_RANGE,
   THROW_SPEED,
   TILE,
+  type EnemyAnimationState,
   type EntitySnapshot,
 } from "@dc2d/engine";
 import Phaser from "phaser";
@@ -33,6 +34,10 @@ interface EntityVisual {
   lastX?: number;
   lastY?: number;
   moving?: boolean;
+  animationState?: EnemyAnimationState;
+  animationStartedAt?: number;
+  aimX?: number;
+  aimY?: number;
   /** Eased screen elevation of the body (px). */
   elevPx?: number;
   /** Eased screen elevation of the ground under it (px, the shadow). */
@@ -181,8 +186,18 @@ export class EntityRenderer {
       const bob = this.motionOffset(visual, x, y, now);
       visual.sprite.setPosition(px, py - elev.body + bob);
       if (visual.kind === "enemy") {
-        const frameRate = visual.moving ? 130 : 420;
-        visual.sprite.setTexture(enemyTextureKey(visual.defId ?? "slime", Math.floor(now / frameRate + visual.phase)));
+        visual.aimX = snap.aimX;
+        visual.aimY = snap.aimY;
+        const state = snap.anim ?? (visual.moving ? "walk" : "idle");
+        if (visual.animationState !== state) {
+          visual.animationState = state;
+          visual.animationStartedAt = now;
+          if (state === "spit" && visual.defId === "spitter") {
+            this.spawnSpitMuzzle(visual.sprite.x, visual.sprite.y, visual.aimX, visual.aimY);
+          }
+        }
+        const frame = enemyAnimationFrame(visual, now);
+        visual.sprite.setTexture(enemyTextureKey(visual.defId ?? "slime", state, frame));
       }
       if (visual.kind === "projectile") visual.sprite.setRotation(now / 100);
       visual.sprite.setTint(statusTint(snap.fx ?? []));
@@ -394,7 +409,7 @@ export class EntityRenderer {
       }
       case "enemy": {
         sprite = this.scene.add
-          .image(0, 0, enemyTextureKey(snap.defId ?? "slime", 0))
+          .image(0, 0, enemyTextureKey(snap.defId ?? "slime", snap.anim ?? "idle", 0))
           .setOrigin(0.5, 0.85)
           .setDisplaySize(58, 58);
         break;
@@ -432,6 +447,7 @@ export class EntityRenderer {
       kind: snap.kind,
       defId: snap.defId,
       phase: phaseFromId(snap.id),
+      ...(snap.kind === "enemy" ? { animationState: snap.anim ?? "idle", animationStartedAt: performance.now() } : {}),
     };
   }
 
@@ -446,6 +462,37 @@ export class EntityRenderer {
     return Math.sin(now / (moved ? 55 : 480) + visual.phase) * (moved ? 1.5 : 0.4);
   }
 
+  private spawnSpitMuzzle(x: number, y: number, aimX: number | undefined, aimY: number | undefined): void {
+    const length = Math.hypot(aimX ?? 0, aimY ?? 0) || 1;
+    const dx = (aimX ?? 0) / length;
+    const dy = (aimY ?? 1) / length;
+    const burst = this.scene.add.graphics().setDepth(6);
+    const mouthX = x + dx * 12;
+    const mouthY = y - 14 + dy * 8;
+    burst.fillStyle(0xd8ff52, 0.95).fillCircle(mouthX, mouthY, 5);
+    burst.fillStyle(0x8dc52d, 0.85).fillCircle(mouthX + dx * 8, mouthY + dy * 8, 3);
+    burst.lineStyle(2, 0xeaff87, 0.75).lineBetween(mouthX, mouthY, mouthX + dx * 22, mouthY + dy * 22);
+    this.scene.tweens.add({
+      targets: burst,
+      x: dx * 14,
+      y: dy * 14,
+      alpha: 0,
+      duration: 120,
+      ease: "Quad.Out",
+      onComplete: () => burst.destroy(),
+    });
+  }
+
+}
+
+function enemyAnimationFrame(visual: EntityVisual, now: number): number {
+  const state = visual.animationState ?? "idle";
+  const elapsed = now - (visual.animationStartedAt ?? now);
+  if (state === "walk") return Math.floor(now / 105 + visual.phase);
+  if (state === "idle") return Math.floor(now / 340 + visual.phase);
+  if (state === "windup") return Math.min(1, Math.floor(elapsed / 110));
+  if (state === "recover") return Math.min(1, Math.floor(elapsed / 85));
+  return 0;
 }
 
 function phaseFromId(id: string): number {

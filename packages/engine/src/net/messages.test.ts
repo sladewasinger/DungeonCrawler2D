@@ -8,7 +8,7 @@ import {
   type ServerSnapshot,
 } from "./messages";
 
-describe("protocol v3", () => {
+describe("protocol", () => {
   it("round-trips a client input", () => {
     const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, jump: true };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
@@ -29,7 +29,7 @@ describe("protocol v3", () => {
       { type: "stash", op: "put", index: 3 },
       { type: "party", op: "invite", target: "p2" },
       { type: "chat", channel: "party", text: "behind you" },
-      { type: "hello", protocol: 4, name: "Crawler", clientId: "client-1", level: "sandbox" },
+      { type: "hello", protocol: 6, name: "Crawler", clientId: "client-1", level: "sandbox" },
     ];
     for (const intent of intents) {
       expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);
@@ -62,7 +62,20 @@ describe("protocol v3", () => {
       weapon: "knife",
       party: { id: "party1", members: [{ id: "p2", name: "Ally", x: 100, y: 50 }] },
       entities: [
-        { id: "e1", kind: "enemy", defId: "slime", x: 9, y: 9, z: 0, hp: 12, maxHp: 12, fx: [] },
+        {
+          id: "e1",
+          kind: "enemy",
+          defId: "slime",
+          x: 9,
+          y: 9,
+          z: 0,
+          hp: 12,
+          maxHp: 12,
+          fx: [],
+          anim: "walk",
+          aimX: 0.6,
+          aimY: -0.8,
+        },
         { id: "i1", kind: "item", defId: "knife", x: 8, y: 8, z: 0 },
       ],
       left: ["p3"],

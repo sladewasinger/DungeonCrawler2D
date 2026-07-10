@@ -18,11 +18,14 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { spawnEnemy, spawnItem } from "./helpers";
-import type { SimState } from "./state";
+import type { EnemySlot, SimState } from "./state";
 import { populateTestZoneChunk } from "./testzone";
 
 /** Loot table for ruin-platform tops — a reason to make the jump. */
 const PLATFORM_LOOT: string[] = ["bandage", "torch", "vodka-bottle", "knife", "water-flask"];
+const SPITTER_WINDUP_TICKS = 5;
+const SPITTER_SPIT_TICKS = 2;
+const SPITTER_RECOVER_TICKS = 3;
 
 /** Enemy population (chunk activation) and per-tick AI. */
 
@@ -109,6 +112,8 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     }
     if (!near) continue;
 
+    if (advanceRangedAttack(sim, enemy)) continue;
+
     const decision = enemyThink(
       enemy.brain,
       entity,
@@ -118,11 +123,23 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
       TICK_DT,
       () => sim.rng.next(),
     );
+    if (decision.shoot) {
+      enemy.animation = {
+        state: "windup",
+        ticksRemaining: SPITTER_WINDUP_TICKS,
+        target: { x: decision.shoot.x, y: decision.shoot.y, z: decision.shoot.z },
+      };
+      continue;
+    }
     stepBody(sim.world, entity.body, decision.move, TICK_DT, {
       speed: entity.baseSpeed * sim.effects.speedMult(entity),
       // Enemies never set foot on sanctuary ground.
       blocked: (x, y) => sim.world.isSanctuary(x, y),
     });
+    enemy.animation = {
+      state: decision.move.moveX !== 0 || decision.move.moveY !== 0 ? "walk" : "idle",
+      ticksRemaining: 0,
+    };
     if (decision.strike) {
       const victim = sim.players.get(decision.strike.targetId)?.entity;
       if (victim && victim.hp > 0) {
@@ -145,22 +162,48 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
         }
       }
     }
-    if (decision.shoot) {
-      const projectile = makeEntity(
-        "projectile",
-        createBody(entity.body.x, entity.body.y, entity.body.z + 0.5),
-        {
-          id: newEntityId("j"),
-          ownerId: entity.id,
-          tags: new Set(["spit", ...enemy.def.tags]),
-          vel: launchVelocity(
-            { x: entity.body.x, y: entity.body.y, z: entity.body.z + 0.5 },
-            decision.shoot,
-            THROW_SPEED,
-          ),
-        },
-      );
-      sim.projectiles.set(projectile.id, projectile);
-    }
   }
+}
+
+function advanceRangedAttack(sim: SimState, enemy: EnemySlot): boolean {
+  if (!enemy.def.attack.ranged || enemy.animation.state === "idle" || enemy.animation.state === "walk") {
+    return false;
+  }
+  enemy.animation.ticksRemaining -= 1;
+  if (enemy.animation.ticksRemaining > 0) return true;
+  if (enemy.animation.state === "windup") {
+    const target = enemy.animation.target;
+    if (target) launchSpit(sim, enemy.entity, enemy.def.tags, target);
+    enemy.animation = { state: "spit", ticksRemaining: SPITTER_SPIT_TICKS, target };
+    return true;
+  }
+  if (enemy.animation.state === "spit") {
+    enemy.animation = { state: "recover", ticksRemaining: SPITTER_RECOVER_TICKS };
+    return true;
+  }
+  enemy.animation = { state: "idle", ticksRemaining: 0 };
+  return true;
+}
+
+function launchSpit(
+  sim: SimState,
+  entity: EnemySlot["entity"],
+  tags: readonly string[],
+  target: { x: number; y: number; z: number },
+): void {
+  const projectile = makeEntity(
+    "projectile",
+    createBody(entity.body.x, entity.body.y, entity.body.z + 0.5),
+    {
+      id: newEntityId("j"),
+      ownerId: entity.id,
+      tags: new Set(["spit", ...tags]),
+      vel: launchVelocity(
+        { x: entity.body.x, y: entity.body.y, z: entity.body.z + 0.5 },
+        target,
+        THROW_SPEED,
+      ),
+    },
+  );
+  sim.projectiles.set(projectile.id, projectile);
 }
