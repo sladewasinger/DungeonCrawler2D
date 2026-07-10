@@ -131,6 +131,40 @@ describe("solve", () => {
     expect([...r1.assignment.entries()].sort()).toEqual([...r2.assignment.entries()].sort());
   });
 
+  it("learns and applies a required tile directly below a painted seed", () => {
+    // This is the smallest useful authoring example: grass can stand on
+    // its own, but a wall-base tile appears only with grass directly south.
+    const CHARS = { G: 30, W: 31 };
+    const example = grid(
+      [
+        "........",
+        ".G......",
+        "...W....",
+        "...G....",
+        "........",
+      ],
+      CHARS,
+    );
+    const { rules, weights } = learnRules(example.cells, example.gw, example.gh);
+    const target = seedGrid(
+      [
+        "........",
+        "........",
+        "........",
+        "....W...",
+        "........",
+        "........",
+        "........",
+      ],
+      CHARS,
+    );
+
+    const result = solve(target.cells, target.gw, target.gh, { rules, weights });
+
+    expect(result.ok).toBe(true);
+    expect(result.assignment.get(4 * target.gw + 4)).toBe(CHARS.G);
+  });
+
   it("fails cleanly on contradictory seeds without touching the input", () => {
     // A/C/B only ever stack vertically: A over C over B.
     const CHARS = { A: 10, B: 11, C: 12 };

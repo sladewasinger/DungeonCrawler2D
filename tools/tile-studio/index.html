@@ -29,6 +29,7 @@
   canvas.grid { image-rendering: pixelated; cursor: crosshair; display: block; touch-action: none; }
   #status { color: var(--dim); margin-left: auto; }
   .hint { color: var(--dim); font-size: 12px; }
+  .layerBadge { color: var(--accent); font-size: 10px; letter-spacing: 0; }
   kbd { background: var(--line); border-radius: 3px; padding: 0 4px; }
 </style>
 </head>
@@ -38,7 +39,15 @@
   <label>sheet <input id="fileInput" type="file" accept="image/png" /></label>
   <label>tile px <input id="tileSize" type="number" value="32" min="4" /></label>
   <label>grid <input id="gridW" type="number" value="26" min="4" max="64" /> × <input id="gridH" type="number" value="15" min="4" max="64" /></label>
+  <label>paint layer
+    <select id="layerSelect">
+      <option value="ground">ground (terrain)</option>
+      <option value="top">top (walls / objects)</option>
+    </select>
+  </label>
   <label>origin <input id="originX" type="number" value="68" /> , <input id="originY" type="number" value="12" /></label>
+  <button id="undoBtn" title="Undo (Ctrl/Cmd+Z)">Undo</button>
+  <button id="redoBtn" title="Redo (Ctrl/Cmd+Shift+Z)">Redo</button>
   <button id="importBtn">Import JSON</button>
   <input id="importFile" type="file" accept="application/json" style="display:none" />
   <select id="exportSource"><option value="smart">export: smart grid</option><option value="example">export: example grid</option></select>
@@ -65,30 +74,27 @@
       </label>
     </div>
     <div class="hint">Tag tells the game what the selected tile(s) ARE (collision/doors) — it applies to every tile in the selection. Dots mark tagged tiles.</div>
+    <div id="tileInfo" class="hint"></div>
     <canvas id="palette"></canvas>
   </div>
   <div id="right">
     <div class="half">
-      <h3>1 · Example — paint freely; the studio learns which tiles may touch</h3>
+      <h3>1 · Example — paint freely; the studio learns which tiles may touch <span class="layerBadge" data-layer-badge></span></h3>
       <div class="bar">
         <button id="learnBtn" class="primary">Learn rules from example</button>
         <button id="clearExample">Clear</button>
-        <span class="hint"><kbd>LMB</kbd> paint/drag &nbsp;<kbd>RMB</kbd> erase &nbsp;<kbd>MMB</kbd>/<kbd>alt</kbd> pick</span>
+        <span class="hint"><kbd>LMB</kbd> paint/drag &nbsp;<kbd>RMB</kbd> erase &nbsp;<kbd>MMB</kbd>/<kbd>alt</kbd> pick &nbsp;<kbd>Ctrl/Cmd+Z</kbd> undo</span>
         <span id="ruleInfo" class="hint"></span>
       </div>
       <div class="canvasWrap"><canvas id="example" class="grid"></canvas></div>
     </div>
     <div class="half">
-      <h3>2 · Smart paint — place seeds; learned rules complete the borders</h3>
+      <h3>2 · Smart paint — lock intent; learned rules complete the surrounding cells <span class="layerBadge" data-layer-badge></span></h3>
       <div class="bar">
-        <select id="layerSelect">
-          <option value="ground">layer: ground</option>
-          <option value="top">layer: top (objects/walls)</option>
-        </select>
         <button id="resolveBtn">Re-solve</button>
         <button id="clearSmart">Clear layer</button>
         <label><input id="autoSolve" type="checkbox" checked /> auto-solve while painting</label>
-        <span class="hint">ground gets the solver; top draws over it (exported as <code>art2</code>)</span>
+        <span class="hint">gold pin = locked seed; the solver fills the halo. Both panels use the layer above.</span>
       </div>
       <div class="canvasWrap"><canvas id="smart" class="grid"></canvas></div>
     </div>
@@ -117,16 +123,82 @@ const state = {
   tags: new Map(),            // tileIndex -> logic id
   usable: null,               // Set of non-empty tile indices (null = unknown/taint)
   gw: 26, gh: 15,
-  example: [],                // gw*gh of tileIndex | EMPTY
-  smart: [],                  // ground layer: { t: tileIndex|EMPTY, seed: bool }
-  top: [],                    // top layer (objects/walls): tileIndex | EMPTY
-  rules: null,                // learned adjacency rules (Map)
-  weights: null,              // tile -> example frequency
+  example: [],                // ground example: gw*gh of tileIndex | EMPTY
+  exampleTop: [],             // top example: gw*gh of tileIndex | EMPTY
+  smart: [],                  // ground smart layer: { t: tileIndex|EMPTY, seed: bool }
+  top: [],                    // top smart layer: { t: tileIndex|EMPTY, seed: bool }
+  rules: { ground: null, top: null },
+  weights: { ground: null, top: null },
   solveNonce: 1234,           // bumped by Re-solve for a fresh variation
+  history: [],
+  future: [],
 };
 
 // e2e / verification hook (also handy in the console).
-window.__studio = { state, drawGrid, drawPalette, runSolve, learn };
+window.__studio = { state, drawGrid, drawPalette, runSolve, learn, activeLayer };
+
+const HISTORY_LIMIT = 80;
+
+function editorSnapshot() {
+  return {
+    gw: state.gw,
+    gh: state.gh,
+    example: [...state.example],
+    exampleTop: [...state.exampleTop],
+    smart: state.smart.map((cell) => ({ ...cell })),
+    top: state.top.map((cell) => ({ ...cell })),
+    tags: [...state.tags],
+    originX: $("originX").value,
+    originY: $("originY").value,
+  };
+}
+
+function applySnapshot(snapshot) {
+  state.gw = snapshot.gw;
+  state.gh = snapshot.gh;
+  $("gridW").value = snapshot.gw;
+  $("gridH").value = snapshot.gh;
+  state.example = [...snapshot.example];
+  state.exampleTop = [...snapshot.exampleTop];
+  state.smart = snapshot.smart.map((cell) => ({ ...cell }));
+  state.top = snapshot.top.map((cell) => ({ ...cell }));
+  state.tags = new Map(snapshot.tags);
+  $("originX").value = snapshot.originX;
+  $("originY").value = snapshot.originY;
+  drawPalette();
+  drawAll();
+  autosave();
+}
+
+function updateHistoryButtons() {
+  $("undoBtn").disabled = state.history.length === 0;
+  $("redoBtn").disabled = state.future.length === 0;
+}
+
+function rememberEdit() {
+  state.history.push(editorSnapshot());
+  if (state.history.length > HISTORY_LIMIT) state.history.shift();
+  state.future = [];
+  updateHistoryButtons();
+}
+
+function undo() {
+  const previous = state.history.pop();
+  if (!previous) return;
+  state.future.push(editorSnapshot());
+  applySnapshot(previous);
+  updateHistoryButtons();
+  setStatus("undo");
+}
+
+function redo() {
+  const next = state.future.pop();
+  if (!next) return;
+  state.history.push(editorSnapshot());
+  applySnapshot(next);
+  updateHistoryButtons();
+  setStatus("redo");
+}
 
 // ── sheet loading ────────────────────────────────────────────────────
 function loadImage(src, name) {
@@ -139,8 +211,8 @@ function loadImage(src, name) {
     clampSel();
     detectUsable();
     drawPalette();
-    drawGrid("example");
-    drawGrid("smart");
+    drawAll();
+    updateTileInfo();
     setStatus(`${name}: ${state.cols}×${state.rows} tiles @ ${state.ts}px`);
   };
   img.onerror = () => setStatus(`could not load ${src} — pick a PNG with the file input`, true);
@@ -247,8 +319,31 @@ $("palette").addEventListener("pointercancel", () => { palAnchor = null; });
 function syncTagSelect() {
   const t = selAnchorTile();
   $("tagSelect").value = state.tags.has(t) ? String(state.tags.get(t)) : "";
+  updateTileInfo();
+}
+
+function tileLabel(tile) {
+  if (tile === EMPTY) return "empty";
+  const tag = state.tags.get(tile);
+  return `#${tile}${tag === undefined ? "" : ` (logic ${tag})`}`;
+}
+
+function updateTileInfo() {
+  const tile = selAnchorTile();
+  const rules = state.rules[activeLayer()];
+  if (!rules?.has(tile)) {
+    $("tileInfo").textContent = `selected ${tileLabel(tile)} • paint it in the ${activeLayer()} Example, then Learn rules`;
+    return;
+  }
+  const rule = rules.get(tile);
+  const sides = ["n", "e", "s", "w"].map((dir) => {
+    const values = [...rule[dir]].slice(0, 4).map(tileLabel).join(", ");
+    return `${dir}: ${values || "—"}`;
+  });
+  $("tileInfo").textContent = `selected ${tileLabel(tile)} • learned neighbors ${sides.join(" | ")}`;
 }
 $("tagSelect").addEventListener("change", () => {
+  rememberEdit();
   const v = $("tagSelect").value;
   const s = state.sel;
   for (let dr = 0; dr < s.h; dr++) for (let dc = 0; dc < s.w; dc++) {
@@ -265,17 +360,38 @@ function resizeGrids() {
   state.gw = Math.max(4, Math.min(64, Number($("gridW").value) || 26));
   state.gh = Math.max(4, Math.min(64, Number($("gridH").value) || 15));
   const n = state.gw * state.gh;
-  const oldEx = state.example, oldSm = state.smart, oldTop = state.top;
+  const oldEx = state.example, oldExTop = state.exampleTop, oldSm = state.smart, oldTop = state.top;
   state.example = Array.from({ length: n }, (_, i) => oldEx[i] ?? EMPTY);
+  state.exampleTop = Array.from({ length: n }, (_, i) => oldExTop[i] ?? EMPTY);
   state.smart = Array.from({ length: n }, (_, i) => oldSm[i] ?? { t: EMPTY, seed: false });
-  state.top = Array.from({ length: n }, (_, i) => oldTop[i] ?? EMPTY);
-  drawGrid("example"); drawGrid("smart");
+  state.top = Array.from({ length: n }, (_, i) => {
+    const stored = oldTop[i];
+    return typeof stored === "number" ? { t: stored, seed: false } : stored ?? { t: EMPTY, seed: false };
+  });
+  drawAll();
 }
-$("gridW").addEventListener("change", resizeGrids);
-$("gridH").addEventListener("change", resizeGrids);
+$("gridW").addEventListener("change", () => { rememberEdit(); resizeGrids(); autosave(); });
+$("gridH").addEventListener("change", () => { rememberEdit(); resizeGrids(); autosave(); });
 
-function cellTile(which, i) {
-  return which === "example" ? state.example[i] : state.smart[i].t;
+function activeLayer() {
+  return $("layerSelect").value;
+}
+
+function layerCells(which, layer = activeLayer()) {
+  if (which === "example") return layer === "top" ? state.exampleTop : state.example;
+  return layer === "top" ? state.top : state.smart;
+}
+
+function cellTile(which, i, layer = activeLayer()) {
+  const cells = layerCells(which, layer);
+  return which === "example" ? cells[i] : cells[i].t;
+}
+
+function drawAll() {
+  drawGrid("example");
+  drawGrid("smart");
+  const label = activeLayer() === "top" ? "TOP LAYER" : "GROUND LAYER";
+  document.querySelectorAll("[data-layer-badge]").forEach((el) => { el.textContent = `(${label})`; });
 }
 
 function drawGrid(which) {
@@ -294,12 +410,16 @@ function drawGrid(which) {
   };
   for (let r = 0; r < state.gh; r++) for (let c = 0; c < state.gw; c++) {
     const i = r * state.gw + c;
-    const t = cellTile(which, i);
-    if (t !== EMPTY) blit(t, c, r);
-    // the smart grid stacks its top (objects) layer over the ground
-    if (which === "smart" && state.top[i] !== EMPTY) blit(state.top[i], c, r);
-    if (which === "smart" && state.smart[i].seed) {
-      x.fillStyle = "#ffe9b0"; x.fillRect(c * CELL + CELL - 6, r * CELL + 2, 4, 4);
+    const ground = cellTile(which, i, "ground");
+    const top = cellTile(which, i, "top");
+    if (ground !== EMPTY) blit(ground, c, r);
+    if (top !== EMPTY) blit(top, c, r);
+    if (which === "smart") {
+      const seed = layerCells("smart", activeLayer())[i].seed;
+      if (seed) {
+        x.fillStyle = "#ffe9b0";
+        x.beginPath(); x.arc(c * CELL + CELL - 5, r * CELL + 5, 3, 0, Math.PI * 2); x.fill();
+      }
     }
   }
 }
@@ -325,9 +445,8 @@ function bindPainting(which) {
   const applyCell = (c, r) => {
     if (c < 0 || r < 0 || c >= state.gw || r >= state.gh) return;
     const i = r * state.gw + c;
-    const topLayer = which === "smart" && $("layerSelect").value === "top";
     if (stroke.mode === 3) { // pick: collapse selection to the cell's tile
-      const t = topLayer && state.top[i] !== EMPTY ? state.top[i] : cellTile(which, i);
+      const t = cellTile(which, i);
       if (t !== EMPTY) {
         state.sel = { c: t % state.cols, r: Math.floor(t / state.cols), w: 1, h: 1 };
         syncTagSelect();
@@ -343,11 +462,9 @@ function bindPainting(which) {
       tile = pr * state.cols + pc;
     }
     if (which === "example") {
-      state.example[i] = tile;
-    } else if (topLayer) {
-      state.top[i] = tile;
+      layerCells("example")[i] = tile;
     } else {
-      state.smart[i] = stroke.mode === 1 ? { t: tile, seed: true } : { t: EMPTY, seed: false };
+      layerCells("smart")[i] = stroke.mode === 1 ? { t: tile, seed: true } : { t: EMPTY, seed: false };
     }
   };
 
@@ -372,9 +489,7 @@ function bindPainting(which) {
     if (!stroke) return;
     const wasPick = stroke.mode === 3;
     stroke = null;
-    // The solver owns the GROUND layer only; top-layer strokes never re-solve.
-    const groundStroke = which === "smart" && $("layerSelect").value !== "top";
-    if (solveAfter && groundStroke && !wasPick && $("autoSolve").checked) runSolve();
+    if (solveAfter && which === "smart" && !wasPick && $("autoSolve").checked) runSolve();
     autosave();
   };
 
@@ -383,9 +498,10 @@ function bindPainting(which) {
     const at = cellAt(e);
     if (!inBounds(at)) return;
     const mode = e.button === 2 ? 2 : e.button === 1 || e.altKey ? 3 : 1;
+    if (mode !== 3) rememberEdit();
     stroke = { mode, anchorC: at.c, anchorR: at.r, last: at };
     applyCell(at.c, at.r);
-    drawGrid(which);
+    drawAll();
     capture(cv, e);
   });
   cv.addEventListener("pointermove", (e) => {
@@ -394,7 +510,7 @@ function bindPainting(which) {
     if (at.c === stroke.last.c && at.r === stroke.last.r) return;
     applyLine(stroke.last, at);
     stroke.last = at;
-    drawGrid(which);
+    drawAll();
   });
   cv.addEventListener("pointerup", () => endStroke(true));
   cv.addEventListener("pointercancel", () => endStroke(false));
@@ -404,23 +520,31 @@ bindPainting("smart");
 
 // ── rule learning ────────────────────────────────────────────────────
 function learn(silent = false) {
-  const { rules, weights, tileCount, factCount } = learnRules(state.example, state.gw, state.gh);
-  state.rules = rules;
-  state.weights = weights;
-  $("ruleInfo").textContent = `learned: ${tileCount} tiles, ${factCount} adjacency facts`;
+  const ground = learnRules(state.example, state.gw, state.gh);
+  const hasTopExample = state.exampleTop.some((tile) => tile !== EMPTY);
+  const top = hasTopExample ? learnRules(state.exampleTop, state.gw, state.gh) : null;
+  state.rules = { ground: ground.rules, top: top?.rules ?? null };
+  state.weights = { ground: ground.weights, top: top?.weights ?? null };
+  const topSummary = top ? `; top ${top.tileCount} tiles / ${top.factCount} facts` : "; top has no example yet";
+  $("ruleInfo").textContent = `learned ground ${ground.tileCount} tiles / ${ground.factCount} facts${topSummary}`;
+  updateTileInfo();
   if (!silent) autosave();
 }
 $("learnBtn").addEventListener("click", () => { learn(); runSolve(); });
 
 // ── solving (module does the search; we just apply the result) ──────
 function runSolve() {
-  if (!state.rules) {
-    setStatus("no rules learned yet — paint an example and press Learn", true);
+  const layer = activeLayer();
+  const rules = state.rules[layer];
+  const weights = state.weights[layer];
+  if (!rules) {
+    setStatus(`no ${layer} rules learned yet — paint that layer in Example, then press Learn`, true);
     return;
   }
-  const result = solve(state.smart, state.gw, state.gh, {
-    rules: state.rules,
-    weights: state.weights,
+  const target = layerCells("smart", layer);
+  const result = solve(target, state.gw, state.gh, {
+    rules,
+    weights,
     halo: 2,
     seed: state.solveNonce,
   });
@@ -437,28 +561,43 @@ function runSolve() {
     return;
   }
   for (const [i, t] of result.assignment) {
-    state.smart[i] = { t, seed: false };
+    target[i] = { t, seed: false };
   }
-  setStatus(`solved ${result.assignment.size} cells around your seeds${unseen}`, false);
-  drawGrid("smart");
+  setStatus(`solved ${result.assignment.size} ${layer} cells around your locked seed${result.assignment.size === 1 ? "" : "s"}${unseen}`, false);
+  drawAll();
   autosave();
 }
 $("resolveBtn").addEventListener("click", () => { state.solveNonce++; runSolve(); });
-$("clearExample").addEventListener("click", () => { state.example.fill(EMPTY); drawGrid("example"); autosave(); });
+$("clearExample").addEventListener("click", () => { rememberEdit(); layerCells("example").fill(EMPTY); drawAll(); autosave(); });
 $("clearSmart").addEventListener("click", () => {
-  // Clears the ACTIVE layer only — layers are independent canvases.
-  if ($("layerSelect").value === "top") state.top = state.top.map(() => EMPTY);
+  rememberEdit();
+  const layer = activeLayer();
+  if (layer === "top") state.top = state.top.map(() => ({ t: EMPTY, seed: false }));
   else state.smart = state.smart.map(() => ({ t: EMPTY, seed: false }));
-  drawGrid("smart");
+  drawAll();
   autosave();
+});
+
+$("layerSelect").addEventListener("change", () => {
+  drawAll();
+  updateTileInfo();
+  setStatus(`painting ${activeLayer()} in both Example and Smart Paint`);
+});
+
+$("undoBtn").addEventListener("click", undo);
+$("redoBtn").addEventListener("click", redo);
+document.addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") return;
+  event.preventDefault();
+  if (event.shiftKey) redo();
+  else undo();
 });
 
 // ── export / import ──────────────────────────────────────────────────
 function exportMap() {
   const src = $("exportSource").value;
   const get = (i) => (src === "example" ? state.example[i] : state.smart[i].t);
-  // the top layer only ships with the smart grid
-  const getTop = (i) => (src === "example" ? EMPTY : state.top[i]);
+  const getTop = (i) => (src === "example" ? state.exampleTop[i] : state.top[i].t);
   let minC = Infinity, minR = Infinity, maxC = -1, maxR = -1;
   for (let r = 0; r < state.gh; r++) for (let c = 0; c < state.gw; c++) {
     const i = r * state.gw + c;
@@ -503,20 +642,21 @@ $("importFile").addEventListener("change", async (e) => {
   if (!file) return;
   const map = JSON.parse(await file.text());
   if (map.format !== "dc2d-map") { setStatus("not a dc2d-map file", true); return; }
+  rememberEdit();
   $("gridW").value = Math.max(state.gw, map.width);
   $("gridH").value = Math.max(state.gh, map.height);
   resizeGrids();
   state.smart = state.smart.map(() => ({ t: EMPTY, seed: false }));
-  state.top = state.top.map(() => EMPTY);
+  state.top = state.top.map(() => ({ t: EMPTY, seed: false }));
   for (let r = 0; r < map.height; r++) for (let c = 0; c < map.width; c++) {
     const t = (map.art ?? [])[r * map.width + c];
     if (t !== null && t !== undefined) state.smart[r * state.gw + c] = { t, seed: true };
     const top = (map.art2 ?? [])[r * map.width + c];
-    if (top !== null && top !== undefined) state.top[r * state.gw + c] = top;
+    if (top !== null && top !== undefined) state.top[r * state.gw + c] = { t: top, seed: true };
   }
   $("originX").value = map.origin?.x ?? 0;
   $("originY").value = map.origin?.y ?? 0;
-  drawGrid("smart");
+  drawAll();
   const wrongSheet = map.sheet && map.sheet !== state.sheetName;
   setStatus(
     `imported ${map.width}×${map.height} into the smart grid (as seeds)` +
@@ -529,10 +669,10 @@ $("importFile").addEventListener("change", async (e) => {
 function autosave() {
   try {
     localStorage.setItem("tile-studio", JSON.stringify({
-      v: 3, // bumped when the default sheet changes — stale grids don't map
+      v: 4, // v4 adds independent example/smart ground and top layers
       ts: state.ts, gw: state.gw, gh: state.gh,
       tags: [...state.tags], example: state.example, smart: state.smart,
-      top: state.top,
+      exampleTop: state.exampleTop, top: state.top,
       sel: state.sel,
     }));
   } catch { /* full/blocked — fine */ }
@@ -542,21 +682,27 @@ function restore() {
     const raw = localStorage.getItem("tile-studio");
     if (!raw) return;
     const s = JSON.parse(raw);
-    // v2 (same sheet, pre-layers) restores fine; older versions don't map.
-    if (s.v !== 2 && s.v !== 3) return;
+    // v2/3 stored only one example layer and top tiles without seed data.
+    if (s.v !== 2 && s.v !== 3 && s.v !== 4) return;
     if (s.ts) { state.ts = s.ts; $("tileSize").value = s.ts; }
     if (s.gw) $("gridW").value = s.gw;
     if (s.gh) $("gridH").value = s.gh;
     resizeGrids();
     state.tags = new Map(s.tags ?? []);
     if (Array.isArray(s.example)) state.example = state.example.map((_, i) => s.example[i] ?? EMPTY);
+    if (Array.isArray(s.exampleTop)) state.exampleTop = state.exampleTop.map((_, i) => s.exampleTop[i] ?? EMPTY);
     if (Array.isArray(s.smart)) state.smart = state.smart.map((_, i) => s.smart[i] ?? { t: EMPTY, seed: false });
-    if (Array.isArray(s.top)) state.top = state.top.map((_, i) => s.top[i] ?? EMPTY);
+    if (Array.isArray(s.top)) {
+      state.top = state.top.map((_, i) => {
+        const stored = s.top[i];
+        return typeof stored === "number" ? { t: stored, seed: false } : stored ?? { t: EMPTY, seed: false };
+      });
+    }
     if (s.sel) state.sel = s.sel;
     else if (typeof s.selected === "number") state.sel = { c: 0, r: 0, w: 1, h: 1 };
     // Rules aren't persisted — re-derive them so Re-solve works after a
     // reload (this silent no-op was the old "solving is broken" bug).
-    if (state.example.some((t) => t !== EMPTY)) learn(true);
+    if (state.example.some((t) => t !== EMPTY) || state.exampleTop.some((t) => t !== EMPTY)) learn(true);
   } catch { /* corrupt — start fresh */ }
 }
 
@@ -580,6 +726,7 @@ $("tileSize").addEventListener("change", () => {
 resizeGrids();
 restore();
 resizeGrids();
+updateHistoryButtons();
 loadImage("../../assets/topdown/tilesheet.png", "tilesheet.png");
 </script>
 </body>

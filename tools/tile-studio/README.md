@@ -29,25 +29,38 @@ combined sheet loads from `assets/topdown/tilesheet.png` automatically.)
    every tile in the selection, and it's what tells the game what a
    painted tile *is*; untagged tiles are art-only and keep whatever the
    generator produced underneath.
-2. **Example (top).** Paint a correct patch by hand — a wall with its
+2. **Shared layer picker.** The **paint layer** control applies to both
+   canvases. Choose **ground** for terrain and **top** for walls or
+   objects. Every canvas always shows both layers, while painting,
+   picking, clearing, and Smart Paint operate on the selected layer.
+   Learning records the examples from both layers when they are present.
+3. **Example (upper panel).** Paint a correct patch by hand — a wall with its
    floor, corners and all. `LMB` paints (and drags — strokes are
    gap-free at any speed; multi-tile selections stamp as a repeating
    pattern aligned to the stroke start), `RMB` erases, `Alt`/`MMB`
    picks. Press **Learn rules from example**: the studio records, for
    every tile, which tiles (or emptiness) it touched on each of 8
-   sides.
-3. **Smart paint (bottom).** Paint seed tiles (gold pip). A
+   sides. The palette inspector shows the selected tile's learned
+   north/east/south/west neighbors, so the result is inspectable rather
+   than a black box.
+4. **Smart paint (lower panel).** Paint **locked seed** tiles (gold pin). A
    backtracking constraint solver ([solver.mjs](solver.mjs), unit
    tests in [solver.test.mjs](solver.test.mjs)) fills the halo around
-   your seeds with tiles that satisfy the learned adjacencies — paint a
-   blob of floor and the walls appear on their own. `Re-solve` re-runs
+   your seeds with tiles that satisfy the learned adjacencies. The gold
+   pin means “do not replace this tile”; unpinned neighbors were chosen
+   by the solver. For example, if your Example shows a wall-base tile
+   only with grass directly below it, Smart Paint places that grass under
+   every wall-base seed. `Re-solve` re-runs
    with fresh randomness; toggle auto-solve off to place many seeds
    first. A failed solve **keeps your grid** and says why; seed tiles
    that never appeared in the example are flagged (they don't
    constrain their neighbors).
-4. **Export map JSON** (from the smart or example grid — it trims to
+5. **Export map JSON** (from the smart or example grid — it trims to
    the painted bounding box). Set **origin** in world-tile coordinates
    first (the default `68,12` is just east of the dev proving ground).
+
+Every paint stroke, clear, import, tag change, and grid resize is reversible
+with **Undo** / **Redo** (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`).
 
 Everything autosaves to localStorage (learned rules are re-derived from
 the example on reload); **Import JSON** loads an export back in as
