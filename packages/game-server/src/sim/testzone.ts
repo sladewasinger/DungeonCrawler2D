@@ -11,13 +11,19 @@ import type { SimState } from "./state";
 
 // The slime pit at (20..24, 42) is the e2e combat arena — the other
 // enemy examples live in the west/north corners, outside aggro range
-// of both the arena and the walking routes.
+// of both the arena and the walking routes. The remote review cluster is
+// intentionally mixed and compact: it is the normal-speed readability
+// fixture for overlapping attack tells, projectiles, and particles.
 const TEST_ZONE_ENEMIES: Array<{ def: string; x: number; y: number }> = [
   { def: "slime", x: 20.5, y: 42.5 },
   { def: "slime", x: 23.5, y: 42.5 },
   { def: "plant-creeper", x: 8.5, y: 36.5 },
   { def: "skeleton", x: 8.5, y: 14.5 },
   { def: "spitter", x: 12.5, y: 20.5 },
+  { def: "plant-creeper", x: 3.5, y: 60.5 },
+  { def: "skeleton", x: 2.5, y: 62.5 },
+  { def: "spitter", x: 5.5, y: 61.5 },
+  { def: "slime", x: 4.5, y: 63.5 },
 ];
 
 /** Weapons, ingredients, throwables, and consumables on the ground at spawn. */
@@ -42,7 +48,7 @@ const TEST_ZONE_HAZARDS: Array<{ def: string; x: number; y: number; radius: numb
   { def: "area-wet", x: 31, y: 32, radius: 1 },
 ];
 
-export const HAZARD_RESEED_TICKS = 5 * TICK_RATE;
+export const TEST_ZONE_RESEED_TICKS = 2 * TICK_RATE;
 
 /** Keep the dev hazard patches alive — areas decay, examples shouldn't. */
 export function seedTestZoneHazards(sim: SimState): void {
@@ -50,6 +56,18 @@ export function seedTestZoneHazards(sim: SimState): void {
     if (sim.areas.defAt(hazard.x, hazard.y) === null) {
       sim.areas.spawn(hazard.def, hazard.x, hazard.y, hazard.radius);
     }
+  }
+}
+
+/** Keep canonical pickup examples available across long dev/e2e sessions. */
+export function seedTestZoneItems(sim: SimState): void {
+  for (const fixture of TEST_ZONE_ITEMS) {
+    const exists = [...sim.items.values()].some(
+      (item) =>
+        item.defId === fixture.def &&
+        Math.hypot(item.body.x - fixture.x, item.body.y - fixture.y) < 0.25,
+    );
+    if (!exists) spawnItem(sim, fixture.def, fixture.x, fixture.y, fixture.qty ?? 1);
   }
 }
 

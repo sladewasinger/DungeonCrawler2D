@@ -95,7 +95,7 @@ export class InputController {
 
     scene.input.mouse?.disableContextMenu();
     scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (!conn.body) return;
+      if (!conn.body || !conn.canAct) return;
       // Clicks on UI act on the UI — never swing through the hotbar.
       const uiHit = hud.hitTest(pointer.x, pointer.y);
       if (uiHit !== null) {
@@ -121,7 +121,7 @@ export class InputController {
 
   /** Sampled at the fixed tick rate by the scene. */
   readInput(): MoveInput {
-    if (typingInInput() || this.conn.downed) return { moveX: 0, moveY: 0, jump: false };
+    if (typingInInput() || !this.conn.canAct) return { moveX: 0, moveY: 0, jump: false };
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
     const up = this.cursors.up.isDown || this.keys.W.isDown;

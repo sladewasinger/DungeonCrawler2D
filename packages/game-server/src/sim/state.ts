@@ -55,8 +55,12 @@ export interface PlayerSlot {
   downedAtTick: number | null;
   /** Melee swings gate on this tick (spam clicks are dropped). */
   attackReadyAtTick: number;
+  /** Most recent accepted swing, replicated briefly for peer animation. */
+  attackStartedAtTick: number;
   /** Dev harness: full heal + no knockback every tick (debugCommands only). */
   god: boolean;
+  /** Menu-requested death bypasses the party downed state. */
+  forceDeath: boolean;
 }
 
 export interface EnemySlot {

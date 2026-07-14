@@ -48,7 +48,7 @@ export class Connection {
   welcome: ServerWelcome | null = null;
   body: BodyState | null = null;
   rttMs = 0;
-  status: "connecting" | "connected" | "closed" = "connecting";
+  status: "connecting" | "connected" | "closed" = "closed";
 
   // Server-authoritative self state.
   hp = 0;
@@ -79,6 +79,8 @@ export class Connection {
 
   private ws: WebSocket | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private shouldReconnect = false;
 
   constructor(
     private readonly url: string,
@@ -87,20 +89,36 @@ export class Connection {
   ) {}
 
   onConnected: (() => void) | null = null;
+  onSnapshot: (() => void) | null = null;
   private level: LevelId = LEVEL.Dungeon;
+
+  get dead(): boolean {
+    return this.status === "connected" && this.hp <= 0;
+  }
+
+  get canAct(): boolean {
+    return this.status === "connected" && this.hp > 0 && !this.downed;
+  }
 
   setName(name: string): void {
     this.name = name;
   }
 
   connect(level: LevelId = this.level): void {
+    this.shouldReconnect = true;
     this.level = level;
     this.status = "connecting";
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    const previous = this.ws;
+    this.ws = null;
+    if (previous && previous.readyState < WebSocket.CLOSING) previous.close();
     const ws = new WebSocket(this.url);
     this.ws = ws;
 
     ws.onopen = () => {
-      const resumeToken = loadResumeToken();
+      if (this.ws !== ws) return;
+      const resumeToken = loadResumeToken(this.level);
       this.sendRaw({
         type: "hello",
         protocol: PROTOCOL_VERSION,
@@ -113,15 +131,39 @@ export class Connection {
 
     ws.onmessage = (event) => {
       const msg = decodeServerMessage(String(event.data));
-      if (msg) this.handle(msg);
+      if (this.ws === ws && msg) this.handle(msg);
     };
 
     ws.onclose = () => {
+      if (this.ws !== ws) return;
+      this.ws = null;
       this.status = "closed";
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.pingTimer = null;
-      setTimeout(() => this.connect(), 1000);
+      if (this.shouldReconnect) {
+        this.reconnectTimer = setTimeout(() => this.connect(), 1000);
+      }
     };
+  }
+
+  disconnect(): void {
+    this.shouldReconnect = false;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    this.pingTimer = null;
+    const ws = this.ws;
+    this.ws = null;
+    if (ws && ws.readyState < WebSocket.CLOSING) ws.close();
+    this.status = "closed";
+    this.world = null;
+    this.welcome = null;
+    this.body = null;
+    this.hp = 0;
+    this.downed = false;
+    this.entities.clear();
+    this.areaTiles.clear();
+    this.prediction.reset();
   }
 
   private handle(msg: NonNullable<ReturnType<typeof decodeServerMessage>>): void {
@@ -144,7 +186,7 @@ export class Connection {
   private onWelcome(msg: ServerWelcome): void {
     this.welcome = msg;
     this.status = "connected";
-    saveResumeToken(msg.resumeToken);
+    saveResumeToken(msg.resumeToken, msg.level);
     this.world = new World(msg.worldSeed, msg.floor, msg.level);
     this.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
     this.prediction.reset();
@@ -163,7 +205,7 @@ export class Connection {
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
-    if (!this.world || !this.body || this.status !== "connected") return;
+    if (!this.world || !this.body || !this.canAct) return;
     const seq = this.prediction.predict(this.world, this.body, input);
     this.sendRaw({
       type: "input",
@@ -177,6 +219,7 @@ export class Connection {
   // ── intents ──────────────────────────────────────────────────────
 
   attack(dirX: number, dirY: number): void {
+    if (!this.canAct) return;
     // Normalize: the protocol carries a unit direction (aiming at a
     // point 5 tiles away must not fail validation and vanish).
     const len = Math.hypot(dirX, dirY) || 1;
@@ -184,6 +227,7 @@ export class Connection {
   }
 
   useSlot(slot: number, targetX?: number, targetY?: number): void {
+    if (!this.canAct) return;
     this.sendRaw({
       type: "useSlot",
       slot,
@@ -192,40 +236,54 @@ export class Connection {
   }
 
   pickup(): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "pickup" });
   }
 
   drop(item: string): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "drop", item });
   }
 
   assignSlot(slot: number, item: string | null): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "assign", slot, item });
   }
 
   equip(item: string | null): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "equip", item });
   }
 
   interact(): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "interact" });
   }
 
   craft(recipe: string): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "craft", recipe });
   }
 
   stashOp(op: "put" | "take", index: number): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "stash", op, index });
   }
 
   partyOp(op: "invite" | "accept" | "leave", target?: string): void {
+    if (!this.canAct) return;
     if (op === "accept") this.pendingInvite = null;
     this.sendRaw({ type: "party", op, ...(target !== undefined ? { target } : {}) });
   }
 
   chat(channel: "party" | "local", text: string): void {
+    if (!this.canAct) return;
     this.sendRaw({ type: "chat", channel, text });
+  }
+
+  suicide(): void {
+    if (this.status !== "connected" || this.hp <= 0) return;
+    this.sendRaw({ type: "suicide" });
   }
 
   // ── dev harness (server drops these unless debugCommands is on) ──

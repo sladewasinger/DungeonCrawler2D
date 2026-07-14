@@ -31,6 +31,7 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
       if (!inAoi(entity.body.x, entity.body.y)) return;
       visible.add(entity.id);
       const enemyAnimation = entity.kind === "enemy" ? sim.enemies.get(entity.id)!.animation : null;
+      const playerSlot = entity.kind === "player" ? sim.players.get(entity.id) : undefined;
       const aim = enemyAnimation?.target
         ? (() => {
             const dx = enemyAnimation.target!.x - entity.body.x;
@@ -60,6 +61,9 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
               anim: enemyAnimation.state,
               ...(aim ? { aimX: aim.x, aimY: aim.y } : {}),
             }
+          : {}),
+        ...(playerSlot && sim.tickCount - playerSlot.attackStartedAtTick <= 3
+          ? { anim: "attack" as const }
           : {}),
         ...(entity.facing ? { faceX: entity.facing.x, faceY: entity.facing.y } : {}),
         ...(entity.kind === "player" && sim.players.get(entity.id)?.downedAtTick !== null
@@ -102,6 +106,8 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
         zVel: self.body.zVel,
         grounded: self.body.grounded,
         coyoteTime: self.body.coyoteTime,
+        jumpBuffer: self.body.jumpBuffer,
+        jumpHeld: self.body.jumpHeld,
         kx: self.body.kx,
         ky: self.body.ky,
         hp: self.hp,

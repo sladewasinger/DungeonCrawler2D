@@ -29,7 +29,7 @@ import { buildSnapshots } from "./snapshots";
 import { expireInvites } from "./social";
 import { createSimState, type JoinResult, type PlayerAction, type SimState } from "./state";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "./statuses";
-import { HAZARD_RESEED_TICKS, seedTestZoneHazards } from "./testzone";
+import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone";
 
 export type { JoinResult, PlayerAction } from "./state";
 
@@ -137,8 +137,9 @@ export class GameSim {
     stepPlayers(sim, effectEvents);
     processActions(sim, effectEvents);
     activateChunksNearPlayers(sim);
-    if (sim.hazardsActive && sim.tickCount % HAZARD_RESEED_TICKS === 0) {
+    if (sim.hazardsActive && sim.tickCount % TEST_ZONE_RESEED_TICKS === 0) {
       seedTestZoneHazards(sim);
+      seedTestZoneItems(sim);
     }
     stepEnemies(sim, effectEvents);
     stepProjectiles(sim, effectEvents);

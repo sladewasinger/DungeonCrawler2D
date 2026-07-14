@@ -7,6 +7,7 @@ import { downedAllyNearby, itemNearby, stashNearby, tableNearby, tileUnderfoot }
 /** Contextual HUD text: key prompts, modal panel bodies, debug line. */
 
 export function contextPrompt(conn: Connection): string {
+  if (conn.dead) return "You are dead — controls disabled until respawn…";
   if (conn.downed) return "You are downed — hold on for a revive…";
   const underfoot = tileUnderfoot(conn);
   if (underfoot === TILE.DoorSafeRoom) return "[E] enter safe room";

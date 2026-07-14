@@ -97,7 +97,7 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
 
 export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
   const players = [...sim.players.values()]
-    .filter((s) => s.entity.hp > 0)
+    .filter((s) => s.connected && s.entity.hp > 0 && s.downedAtTick === null)
     .map((s) => s.entity);
   for (const enemy of sim.enemies.values()) {
     const entity = enemy.entity;

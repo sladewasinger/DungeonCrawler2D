@@ -78,6 +78,13 @@ export class TitleScreen {
     this.root.remove();
   }
 
+  show(): void {
+    for (const choice of this.buttons) choice.disabled = false;
+    this.nameInput.disabled = false;
+    this.status.textContent = "";
+    if (!this.root.isConnected) document.body.append(this.root);
+  }
+
   private choice(level: LevelId, title: string, detail: string, color: string): HTMLButtonElement {
     const button = document.createElement("button");
     button.type = "button";

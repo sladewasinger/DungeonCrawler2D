@@ -36,7 +36,16 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
     const actions = slot.pendingActions.splice(0);
     if (slot.entity.hp <= 0) continue;
     for (const action of actions) {
+      if (slot.entity.hp <= 0) break;
       switch (action.type) {
+        case "suicide":
+          slot.god = false;
+          slot.forceDeath = true;
+          slot.downedAtTick = null;
+          delete slot.entity.downedUntil;
+          slot.entity.hp = 0;
+          slot.pendingInputs.length = 0;
+          break;
         case "attack":
           if (slot.downedAtTick === null) doAttack(sim, slot, action.dirX, action.dirY, effectEvents);
           break;
@@ -114,6 +123,7 @@ function doAttack(
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
   if (sim.tickCount < slot.attackReadyAtTick) return; // swing still recovering
   slot.attackReadyAtTick = sim.tickCount + ATTACK_COOLDOWN_TICKS;
+  slot.attackStartedAtTick = sim.tickCount;
   // Melee swings use the EQUIPPED weapon (character slot, not hotbar).
   const weaponDef = slot.weapon ? sim.content.items.get(slot.weapon) : undefined;
   const weapon = weaponDef?.weapon;

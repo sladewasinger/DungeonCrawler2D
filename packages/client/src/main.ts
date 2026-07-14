@@ -1,13 +1,16 @@
-import { customMapSchema, setCustomMap } from "@dc2d/engine";
+import { LEVEL, customMapSchema, setCustomMap, type LevelId } from "@dc2d/engine";
 import Phaser from "phaser";
+import { assetUrl } from "./assetUrl";
 import { Connection } from "./net/connection";
-import { persistentClientId } from "./net/identity";
+import { loadResumeToken, persistentClientId } from "./net/identity";
 import { InventoryPanel } from "./ui/inventoryPanel";
+import { GameMenu } from "./ui/gameMenu";
 import { TitleScreen } from "./ui/titleScreen";
 import atlas from "./render/atlas.json";
 import { DungeonScene } from "./scenes/DungeonScene";
 
 const NAME_KEY = "dc2d-name";
+const LEVEL_KEY = "dc2d-level";
 
 function playerName(): string {
   let name = localStorage.getItem(NAME_KEY);
@@ -23,22 +26,34 @@ function savePlayerName(name: string): void {
 }
 
 // Same topology as production: the client only knows a ws URL.
-const wsUrl = (import.meta.env.VITE_WS_URL as string | undefined) ?? "ws://localhost:8081";
+const wsUrl =
+  (import.meta.env.VITE_WS_URL as string | undefined) ??
+  (import.meta.env.PROD ? `wss://${window.location.host}/ws` : "ws://localhost:8081");
 
 const conn = new Connection(wsUrl, playerName(), persistentClientId());
 const customMapReady = loadCustomMap();
 const title = new TitleScreen(playerName(), (level, name) => {
   savePlayerName(name);
+  sessionStorage.setItem(LEVEL_KEY, level);
   conn.setName(name);
   void customMapReady.then(() => conn.connect(level));
 });
+
+const resumeLevel = sessionStorage.getItem(LEVEL_KEY);
+if (
+  loadResumeToken(resumeLevel ?? undefined) &&
+  (resumeLevel === LEVEL.Dungeon || resumeLevel === LEVEL.Sandbox)
+) {
+  title.hide();
+  void customMapReady.then(() => conn.connect(resumeLevel as LevelId));
+}
 
 // Tile Studio map stamp (tools/tile-studio/): must be installed before
 // any chunk is generated, and must match the server's file exactly —
 // so load it first, then connect.
 async function loadCustomMap(): Promise<void> {
   try {
-    const res = await fetch("assets/custom-map.json");
+    const res = await fetch(assetUrl("assets/custom-map.json"));
     if (!res.ok) return;
     const def = customMapSchema.parse(await res.json());
     if (def.sheetCols !== atlas.packSheet.cols) {
@@ -66,7 +81,7 @@ window.addEventListener("error", (event) => {
 });
 
 // [I] inventory — a DOM overlay panel (search/filter/bind/equip).
-new InventoryPanel(conn);
+const inventoryPanel = new InventoryPanel(conn);
 
 window.__dc2d.game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -110,30 +125,59 @@ chatInput.addEventListener("blur", () => {
   chatInput.style.border = "1px solid #5c5470";
 });
 document.body.appendChild(chatInput);
-conn.onConnected = () => {
-  title.hide();
-  chatInput.style.display = "block";
-};
-
 // While ANY text input has focus (chat, inventory search), Phaser must
 // stop capturing the keyboard: its registered keys (space, digits,
 // WASD) preventDefault at the window level, which is why typing spaces
 // and numbers into chat used to do game actions instead of typing.
+let gameKeyboardEnabled: boolean | null = null;
 function setGameKeyboard(enabled: boolean): void {
   const scene = window.__dc2d?.game?.scene.getScene("dungeon");
   const kb = scene?.input.keyboard;
   if (!kb) return;
+  if (gameKeyboardEnabled === enabled) return;
+  gameKeyboardEnabled = enabled;
   kb.enabled = enabled;
   if (enabled) kb.enableGlobalCapture();
   else kb.disableGlobalCapture();
   if (enabled) kb.resetKeys(); // nothing stays "held" from before typing
 }
+
+let menuOpen = false;
+const gameMenu = new GameMenu({
+  onOpenChange: (open) => {
+    menuOpen = open;
+    setGameKeyboard(!open && conn.canAct);
+  },
+  onSuicide: () => conn.suicide(),
+  onExit: () => {
+    conn.disconnect();
+    sessionStorage.removeItem(LEVEL_KEY);
+    inventoryPanel.hide();
+    chatInput.value = "";
+    chatInput.blur();
+    chatInput.style.display = "none";
+    gameMenu.hide();
+    setGameKeyboard(false);
+    title.show();
+  },
+});
+conn.onConnected = () => {
+  title.hide();
+  chatInput.style.display = "block";
+  gameMenu.showButton();
+};
+conn.onSnapshot = () => {
+  gameMenu.setCanSuicide(conn.canAct);
+  chatInput.disabled = !conn.canAct;
+  if (!conn.canAct && document.activeElement === chatInput) chatInput.blur();
+  setGameKeyboard(conn.canAct && !menuOpen);
+};
 document.addEventListener("focusin", (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
     setGameKeyboard(false);
   }
 });
-document.addEventListener("focusout", () => setGameKeyboard(true));
+document.addEventListener("focusout", () => setGameKeyboard(conn.canAct && !menuOpen));
 
 // Dev-harness chat commands (the server ignores them unless its
 // debugCommands option is on): /god toggles, /tp X Y teleports.

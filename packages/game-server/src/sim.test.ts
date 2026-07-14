@@ -108,6 +108,23 @@ describe("GameSim", () => {
     expect(bEntity.body.kx).toBe(0); // and no knockback sticks
   });
 
+  it("reseeds canonical dev pickups after another player consumes them", () => {
+    const player = sim.addPlayer("Fixture user", "fixture-client");
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    teleport(entity, 26.5, 28.5, sim);
+    sim.step();
+    sim.queueAction(player.playerId, { type: "pickup" });
+    sim.step();
+    expect(sim.getInventory(player.playerId)!.some((stack) => stack.item === "bandage")).toBe(true);
+
+    const snapshots = stepN(sim, TICK_RATE * 2);
+    expect(
+      snapshots.get(player.playerId)!.entities.some(
+        (entry) => entry.kind === "item" && entry.defId === "bandage",
+      ),
+    ).toBe(true);
+  });
+
   // ── Epic 2 regression: spawn / AOI / reconnect ───────────────────
 
   it("spawns sandbox players at fixed traversal-lab positions", () => {
@@ -328,6 +345,21 @@ describe("GameSim", () => {
     expect(slime.hp).toBe(12 - 6);
   });
 
+  it("replicates a short peer attack pose for every accepted swing", () => {
+    const a = sim.addPlayer("A", "client-a");
+    const b = sim.addPlayer("B", "client-b");
+    const aEntity = sim.getPlayerEntity(a.playerId)!;
+    const bEntity = sim.getPlayerEntity(b.playerId)!;
+    teleport(bEntity, aEntity.body.x, aEntity.body.y + 3, sim);
+
+    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    let snapshots = sim.step();
+    expect(snapshots.get(b.playerId)!.entities.find((entry) => entry.id === a.playerId)?.anim).toBe("attack");
+
+    snapshots = stepN(sim, 4);
+    expect(snapshots.get(b.playerId)!.entities.find((entry) => entry.id === a.playerId)?.anim).toBeUndefined();
+  });
+
   it("melee prefers the enemy over an adjacent party member (targeting aid)", () => {
     const { aId, bId } = makeParty(sim);
     const aEntity = sim.getPlayerEntity(aId)!;
@@ -516,6 +548,28 @@ describe("GameSim", () => {
     snaps = sim.step();
     expect(snaps.get(bId)!.self.downed).toBeUndefined();
     expect(snaps.get(bId)!.self.hp).toBe(Math.round(PLAYER_MAX_HP * 0.3));
+  });
+
+  it("menu suicide bypasses downed state and dead players cannot act", () => {
+    const { aId } = makeParty(sim);
+    const player = sim.getPlayerEntity(aId)!;
+    const enemy = sim.spawnEnemy("slime", player.body.x + 1, player.body.y);
+    const enemyHp = enemy.hp;
+
+    sim.queueAction(aId, { type: "suicide" });
+    let snaps = sim.step();
+    expect(snaps.get(aId)!.self.hp).toBe(0);
+    expect(snaps.get(aId)!.self.downed).toBeUndefined();
+
+    const x = player.body.x;
+    const y = player.body.y;
+    sim.handleInput(aId, { type: "input", seq: 100, moveX: 1, moveY: 0, jump: true });
+    sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
+    snaps = sim.step();
+    expect(player.body.x).toBe(x);
+    expect(player.body.y).toBe(y);
+    expect(enemy.hp).toBe(enemyHp);
+    expect(snaps.get(aId)!.self.hp).toBe(0);
   });
 
   it("portals nest: world door → safe room → personal room → exits unwind", () => {

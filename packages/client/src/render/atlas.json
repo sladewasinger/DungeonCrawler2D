@@ -81,8 +81,16 @@
     }
   },
   "players": {
-    "self": 0,
-    "peer": 1
+    "selfPalette": 0,
+    "peerPalette": 1,
+    "directions": [
+      "south",
+      "west",
+      "east",
+      "north"
+    ],
+    "framesPerDirection": 8,
+    "framesPerPalette": 32
   },
   "enemies": {
     "slime": 0,

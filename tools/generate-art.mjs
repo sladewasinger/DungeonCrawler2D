@@ -408,7 +408,13 @@ const atlas = {
     areas: F.areas,
     interact: F.interact,
   },
-  players: { self: 0, peer: 1 },
+  players: {
+    selfPalette: 0,
+    peerPalette: 1,
+    directions: ["south", "west", "east", "north"],
+    framesPerDirection: 8,
+    framesPerPalette: 32,
+  },
   enemies: { slime: 0, "plant-creeper": 1, skeleton: 2, spitter: 3 },
 };
 
@@ -678,7 +684,7 @@ function paintArea(frame, seed, blobs) {
 
 // ── player + enemy sprites (procedural; REPLACE-LATER art) ─────────
 
-const PLAYER_PIXELS = [
+const PLAYER_FRONT_PIXELS = [
   "................",
   ".....OOOOOO.....",
   "....OhhhhhhO....",
@@ -697,14 +703,105 @@ const PLAYER_PIXELS = [
   "....OOO..OOO....",
 ];
 
+const PLAYER_DIRECTIONS = ["south", "west", "east", "north"];
+const PLAYER_POSES = ["idle", "walk-a", "walk-b", "jump", "fall", "land", "attack", "downed"];
+const EMPTY_PLAYER_ROW = ".".repeat(16);
+
+function mirrorPlayerPixels(pixels) {
+  return pixels.map((line) => [...line].reverse().join(""));
+}
+
+function directionalPlayerPixels(direction) {
+  if (direction === "south") return [...PLAYER_FRONT_PIXELS];
+  if (direction === "north") {
+    return PLAYER_FRONT_PIXELS.map((line) => line.replaceAll("E", "H").replaceAll("F", "H"));
+  }
+  const west = PLAYER_FRONT_PIXELS.map((line, row) => {
+    const cells = [...line.replaceAll("E", "F")];
+    if (row >= 5 && row <= 8) {
+      const firstFace = cells.findIndex((cell) => cell === "F");
+      if (firstFace >= 0) cells[firstFace] = "E";
+    }
+    return cells.join("");
+  });
+  return direction === "west" ? west : mirrorPlayerPixels(west);
+}
+
+function setPlayerCells(pixels, row, start, value) {
+  const out = [...pixels];
+  const cells = [...out[row]];
+  for (let i = 0; i < value.length; i++) cells[start + i] = value[i];
+  out[row] = cells.join("");
+  return out;
+}
+
+function shiftPlayerPixels(pixels, deltaY) {
+  const out = Array.from({ length: 16 }, () => EMPTY_PLAYER_ROW);
+  for (let row = 0; row < 16; row++) {
+    const target = row + deltaY;
+    if (target >= 0 && target < 16) out[target] = pixels[row];
+  }
+  return out;
+}
+
+function downedPlayerPixels(pixels) {
+  const grid = pixels.map((line) => [...line]);
+  const rotated = Array.from({ length: 16 }, () => Array.from({ length: 16 }, () => "."));
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) rotated[x][15 - y] = grid[y][x];
+  }
+  return shiftPlayerPixels(rotated.map((row) => row.join("")), 2);
+}
+
+function posedPlayerPixels(direction, pose) {
+  const base = directionalPlayerPixels(direction);
+  if (pose === "idle") return base;
+  if (pose === "walk-a") {
+    const out = [...base];
+    out[14] = ".OBbO......ObBO.";
+    out[15] = "..OOO......OOO..";
+    return out;
+  }
+  if (pose === "walk-b") return mirrorPlayerPixels(posedPlayerPixels(direction === "west" ? "east" : direction === "east" ? "west" : direction, "walk-a"));
+  if (pose === "jump") return shiftPlayerPixels(base, -1);
+  if (pose === "fall") {
+    let out = shiftPlayerPixels(base, -1);
+    out = setPlayerCells(out, 10, 0, "CCC");
+    out = setPlayerCells(out, 10, 13, "CCC");
+    return out;
+  }
+  if (pose === "land") {
+    const out = [...base];
+    out[2] = EMPTY_PLAYER_ROW;
+    out[3] = base[2];
+    out[4] = base[4];
+    return out;
+  }
+  if (pose === "attack") {
+    if (direction === "west") return setPlayerCells(base, 11, 0, "CCCC");
+    if (direction === "east") return setPlayerCells(base, 11, 12, "CCCC");
+    let out = setPlayerCells(base, 11, 0, "CCC");
+    out = setPlayerCells(out, 11, 13, "CCC");
+    return out;
+  }
+  return downedPlayerPixels(base);
+}
+
 const PLAYER_PALETTES = [
   hexPalette({ O: "#241a10", h: "#f4cc6a", H: "#dfa93a", F: "#3a2c22", E: "#ffe9b0", C: "#c08a26", c: "#96691c", B: "#503c28", b: "#6e5438" }),
   hexPalette({ O: "#101a24", h: "#8ed2ec", H: "#4fa6cc", F: "#26303c", E: "#d9f2ff", C: "#3a7d9c", c: "#2c6079", B: "#39394a", b: "#4d4d63" }),
 ];
 
-const players = makeImage(2 * TILE, TILE);
-PLAYER_PALETTES.forEach((palette, p) => {
-  drawPixelMap(players, p * TILE, 0, PLAYER_PIXELS, palette);
+const players = makeImage(PLAYER_POSES.length * TILE, PLAYER_PALETTES.length * PLAYER_DIRECTIONS.length * TILE);
+PLAYER_PALETTES.forEach((palette, paletteIndex) => {
+  PLAYER_DIRECTIONS.forEach((direction, directionIndex) => {
+    PLAYER_POSES.forEach((pose, poseIndex) => {
+      const pixels = posedPlayerPixels(direction, pose);
+      if (pixels.some((line) => line.length !== 16)) throw new Error(`invalid player frame ${direction}/${pose}`);
+      const row = paletteIndex * PLAYER_DIRECTIONS.length + directionIndex;
+      drawPixelMap(players, poseIndex * TILE, row * TILE, pixels, palette);
+    });
+  });
 });
 
 const ENEMY_SPRITES = [

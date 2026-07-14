@@ -83,7 +83,9 @@ export function addPlayer(
     needsFullAreas: true,
     downedAtTick: null,
     attackReadyAtTick: 0,
+    attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    forceDeath: false,
   };
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
@@ -99,7 +101,7 @@ export function markDisconnected(sim: SimState, playerId: string): void {
 
 export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
   const slot = sim.players.get(playerId);
-  if (!slot || !slot.connected) return;
+  if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
   if (input.seq <= slot.lastSeq) return;
   slot.pendingInputs.push(input);
 }
@@ -110,7 +112,7 @@ export function queueAction(
   msg: PlayerSlot["pendingActions"][number],
 ): void {
   const slot = sim.players.get(playerId);
-  if (!slot || !slot.connected) return;
+  if (!slot || !slot.connected || slot.entity.hp <= 0) return;
   if (slot.pendingActions.length < 16) slot.pendingActions.push(msg);
 }
 
@@ -131,6 +133,7 @@ export function reapAndRespawn(sim: SimState): void {
       slot.entity.hp = PLAYER_MAX_HP;
       slot.entity.statuses = [];
       slot.downedAtTick = null;
+      slot.forceDeath = false;
       delete slot.entity.downedUntil;
       slot.returnStack = [];
       slot.needsFullAreas = true;

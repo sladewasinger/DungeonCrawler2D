@@ -21,7 +21,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 (Launch moved to Jan 2028: PvPvE + vast shared world + social systems are genuinely more game than instanced co-op runs. Worth it — this design has an identity.)
 
-> **Progress note (2026-07-07):** Epics 0–7 are implemented and tested (76 tests: unit + multi-client sim integration + live-browser Playwright) — far ahead of the dates above. Remaining v0.1–v0.4 stragglers: the deployed playtest server (waiting on the hosting decision) and the deferred items marked below.
+> **Progress note (2026-07-10):** Epics 0–7.6 are implemented and tested (131 unit/integration tests + 16 live-browser scenarios) — far ahead of the dates above. Remaining v0.1–v0.4 stragglers: the deployed playtest server (waiting on the hosting decision) and the deferred items marked below.
 
 ---
 
@@ -173,7 +173,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Done when:** Two strangers meet in a safe room, party up, enter their new party room together, then each retreat through their own personal door to craft in private.
 
-## Epic 7.5 — Enemy & Particle Refinement (in progress)
+## Epic 7.5 — Enemy & Particle Refinement (complete 2026-07-10)
 
 **Goal:** Make combat readable at a glance. Enemy motion must communicate its intent, and particles must originate from the action that created them rather than being baked into a static sprite.
 
@@ -183,15 +183,50 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Live visual verification of the spitter wind-up, release, recovery, and projectile handoff
 - [x] Give slime, plant-creeper, and skeleton their own intent-readable idle, walk, attack, and recovery animation sets (`enemySprites.ts` state contract; server attack/recovery snapshots; centered alpha-frame sets)
 - [x] Standardize reusable launch, impact, hit, death, and status particles with clear source positions, layering, and lifetimes (`CombatParticles`)
-- [ ] Review combat scenes at normal play speed for visual timing, projectile origin, and readability under multiple simultaneous entities
+- [x] Review combat scenes at normal play speed for visual timing, projectile origin, and readability under multiple simultaneous entities
 
 **Done when:** Every starter enemy has separate locomotion and attack intent, and every combat particle visibly originates from the actor, projectile, or area that caused it.
+
+## Epic 7.6 — Core Game Feel & Verticality Polish (complete 2026-07-10)
+
+**Goal:** Make the current build feel coherent before adding more systems. The character should read as an animated person instead of a rotating token, vertical traversal should be forgiving and visually honest, and every entity should occupy the world at a deliberate scale and depth.
+
+**Original audit findings (2026-07-10, resolved below):** The player had one static frame and the whole image rotated toward movement/aim; enemies were forced into one `58×58` display box even though their visible bounds differed; entities used fixed depth values except for a wall-tile special case; ordinary platform faces and stair objects always rendered below entities; and the +2 jump was physically possible but had only a small clearance margin, with no chained-platform regression covering a second rise hidden behind a taller foreground platform.
+
+- [x] **Player character and animation pass:** replace whole-sprite rotation with directional, feet-anchored `idle`, `walk`, `jump`, `fall`, `land`, `attack`, and `downed` presentation; keep held weapons, shadows, nameplates, status tints, and the occlusion silhouette attached correctly in every state
+- [x] **Sprite scale and anchor contract:** define visual bounds, feet origin, shadow size, health/name offsets, and world-space footprint separately; tune each enemy archetype against the player and tiles (starter enemies should be modestly smaller than today) instead of forcing every enemy into the same display box
+- [x] **Unified draw ordering:** derive entity ordering from the screen-space feet position and elevation, split terrain into below-entity and occluding layers, and make walls, ordinary cliff/platform faces, stair bodies/rails, entities, held items, projectiles, particles, bars, labels, and the self-ghost agree about what is in front
+- [x] **Stair and fall polish:** audit every stair orientation and long ramp at 20 Hz and normal play speed; remove visual popping/bobbing at ramp boundaries; keep the shadow grounded during jumps/falls; add clear takeoff, falling, landing, and damaging-impact feedback without changing authoritative outcomes
+- [x] **Chained-platform traversal fix:** reproduce and fix the failed jump onto a second +2 platform behind/above a taller foreground platform; make valid h0→h2→h4 routes reliable from all four cardinal approaches and diagonals without allowing rises above the jump apex or bypassing collision
+- [x] **Traversal forgiveness:** tune jump buffering/coyote time, ledge clearance, landing tolerance, and collision sampling so intended platform jumps do not require sub-tick timing; preserve deterministic client prediction and server reconciliation
+- [x] **Normal-speed combat readability pass:** fold in Epic 7.5's remaining multi-entity review; tune enemy animation cadence, facing, projectile origin, attack tells, particle density, and overlap behavior after the new scale/depth rules land
+- [x] **Polish regression harness:** add focused engine tests for chained rises, corner/diagonal approaches, stepping off and landing, and too-tall rejection; add client tests for animation/scale/depth contracts plus live-browser scenarios and screenshots for stairs, stacked platforms, falling, wall/platform occlusion, and crowded combat
+- [x] **Whole-build feel sweep:** play through the dungeon, traversal sandbox, combat fixtures, doors, pickups, throwables, death/revive, and safe rooms at normal speed; record and resolve any remaining high-salience camera, input-feedback, clipping, or visual-consistency issues found during the sweep
+
+**Done when:** The player never tips sideways as a rotated static sprite; every starter enemy is consistently scaled and readable; stairs, falls, and chained +2 platform climbs work reliably from every intended approach; occlusion is correct around walls, platforms, and stairs; and deterministic unit plus live-browser regression coverage protects those behaviors.
+
+## Epic 7.7 — Playtest Lifecycle, Character & Safe-Room Rework
+
+**Goal:** Correct the highest-friction playtest issues before expanding the feature set, then replace the temporary character and room flows with production-quality foundations.
+
+- [x] **Session menu:** add an always-available in-game menu with Resume, confirmed Kill Crawler, and Exit to Mode Select so players can move between the dungeon and traversal sandbox without reloading
+- [x] **Death lockout:** dead players cannot move, jump, attack, use items, interact, chat, or mutate inventory/party state; client prediction stops immediately and enemies ignore dead, downed, and disconnected players until respawn/reconnect
+- [x] **Held-input continuity:** keyboard enable/disable transitions are idempotent so server snapshots never clear held WASD state or introduce movement stutter
+- [ ] **Crawler art rebuild:** replace the current faceless-hood side views with one cohesive, more detailed crawler spritesheet covering idle, walk, and attack for all six directions, including true diagonals so diagonal movement never rapidly flips between vertical and horizontal animation sets
+- [ ] **Enemy scale correction:** tune every starter enemy to approximately crawler size; current live enemies are only slightly too small, so preserve their relative silhouettes rather than making a dramatic scale jump
+- [ ] **Run input:** hold Shift to run, with server-authoritative speed, deterministic prediction, animation cadence, stamina/balance decision, and keyboard help text updated together
+- [ ] **Snappier jump ascent:** increase upward acceleration/initial velocity feel without changing the accepted falling speed, then rerun the chained-platform and client reconciliation regressions
+- [ ] **Safe-room hierarchy correction:** the shared lobby has no stash or crafting table; solo players see only their personal-room door and no party door; party members see only their party door in the lobby; the party room contains one door per member leading to that member's private stash room plus one shared crafting table
+- [ ] **Conditional room replication:** generate and reveal personal/party doors from authoritative membership and room ownership so clients never see or enter an inapplicable door; update return-stack behavior and multiplayer room tests
+
+**Done when:** A playtester can safely switch modes or intentionally die, dead players are inert and untargetable, diagonal crawler motion reads cleanly in every direction, running and jumping feel intentional, and the safe-room doors and facilities exactly match solo or party membership.
 
 ## Epic 8 — Social Fabric (v0.5)
 
 **Goal:** The systems in [GAME_DESIGN.md](GAME_DESIGN.md) § Social fabric: meeting people is the game's magic moment, so the plumbing around it must be consent-first.
 
-- [ ] **Fistbump:** proximity emote handshake (both within window) → mutual contacts → DMs + quick party invite unlocked
+- [ ] **Hold-to-fistbump contact gesture:** holding F keeps the crawler's arm extended while movement remains available; physical contact between two crawlers simultaneously holding the pose creates a mutual chat contact. This gesture never creates or joins a party.
+- [ ] **Explicit party management menu (large lift):** create a party, browse contacts/nearby players, send and accept/decline invites, leave, kick, and disband; party membership changes only through these menu actions, never through fistbumps
 - [ ] Chat channels: global, party, DM, proximity — multiplexed over the existing websocket, one chat widget with tabs
 - [ ] Mute/block, server-enforced: mute channel, mute player, block player (kills DMs, fistbumps, invites); DM policy (contacts-only/everyone/nobody); profanity filter toggle; persisted per player
 - [ ] Rate limiting on all chat (the cheapest griefing surface)

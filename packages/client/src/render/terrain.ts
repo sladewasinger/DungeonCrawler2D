@@ -1,6 +1,14 @@
 import { CHUNK_SIZE, customArt2At, customArtAt, getCustomMap, type World } from "@dc2d/engine";
 import Phaser from "phaser";
+import atlas from "./atlas.json";
 import { CHUNK_PX, TILE_PX } from "./constants";
+import {
+  TERRAIN_BASE_DEPTH,
+  TERRAIN_BORDER_DEPTH,
+  WALL_CAP_DEPTH,
+  terrainOccluderDepth,
+  worldDepth,
+} from "./depth";
 import { stairSpritesInRect } from "./stairsprites";
 import { frameForTile, heightTint } from "./tileframes";
 
@@ -83,13 +91,14 @@ export class TerrainRenderer {
    * as the fill for long ramps), below entities. */
   private buildStairSprites(world: World, cx: number, cy: number): Phaser.GameObjects.Image[] {
     const specs = stairSpritesInRect(world, cx * CHUNK_SIZE, cy * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
-    return specs.map((s) =>
-      this.scene.add
+    return specs.map((s) => {
+      const stair = atlas.stairSprites[s.key];
+      return this.scene.add
         .image(s.px, s.py, `stair-${s.key}`)
         .setOrigin(0, 0)
-        .setDepth(-8.85)
-        .setTint(heightTint(s.tintHeight)),
-    );
+        .setDepth(worldDepth((s.py + stair.h) / TILE_PX, 0, 0.0005))
+        .setTint(heightTint(s.tintHeight));
+    });
   }
 
   private buildChunkMap(world: World, cx: number, cy: number): Phaser.Tilemaps.Tilemap {
@@ -103,9 +112,13 @@ export class TerrainRenderer {
     const tileset = map.addTilesetImage("tiles", "tiles", TILE_PX, TILE_PX, 0, 0)!;
     const ox = cx * CHUNK_PX;
     const oy = cy * CHUNK_PX;
-    const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(-10);
-    const borders = map.createBlankLayer("borders", tileset, ox, oy)!.setDepth(-9.5);
-    const overlay = map.createBlankLayer("overlay", tileset, ox, oy)!.setDepth(-9);
+    const base = map.createBlankLayer("base", tileset, ox, oy)!.setDepth(TERRAIN_BASE_DEPTH);
+    const borders = map.createBlankLayer("borders", tileset, ox, oy)!.setDepth(TERRAIN_BORDER_DEPTH);
+    const overlays = Array.from({ length: CHUNK_SIZE }, (_, ly) =>
+      map
+        .createBlankLayer(`overlay-${ly}`, tileset, ox, oy)!
+        .setDepth(terrainOccluderDepth(cy * CHUNK_SIZE + ly, 0.0004)),
+    );
     // Wall tops: shifted a FULL tile north and drawn ABOVE entities —
     // a wall reads two tiles tall (brick face in its own cell, top
     // surface leaning over the cell behind it), and anyone standing
@@ -113,17 +126,21 @@ export class TerrainRenderer {
     // their depth past this).
     const caps = map
       .createBlankLayer("caps", tileset, ox, oy - TILE_PX)!
-      .setDepth(3);
+      .setDepth(WALL_CAP_DEPTH);
     // Tile Studio art overrides render verbatim above the autotiles:
     // two layers, so authored objects/walls sit on their own ground.
     let custom: Phaser.Tilemaps.TilemapLayer | null = null;
-    let custom2: Phaser.Tilemaps.TilemapLayer | null = null;
+    let custom2: Phaser.Tilemaps.TilemapLayer[] | null = null;
     const customMap = getCustomMap();
     if (customMap?.art || customMap?.art2) {
       const packTileset = map.addTilesetImage("packsheet", "packsheet", TILE_PX, TILE_PX, 0, 0)!;
       custom = map.createBlankLayer("custom", packTileset, ox, oy)!.setDepth(-8.8);
       if (customMap.art2) {
-        custom2 = map.createBlankLayer("custom2", packTileset, ox, oy)!.setDepth(-8.7);
+        custom2 = Array.from({ length: CHUNK_SIZE }, (_, ly) =>
+          map
+            .createBlankLayer(`custom2-${ly}`, packTileset, ox, oy)!
+            .setDepth(terrainOccluderDepth(cy * CHUNK_SIZE + ly, 0.0006)),
+        );
       }
     }
 
@@ -139,7 +156,7 @@ export class TerrainRenderer {
         }
         if (frames.border >= 0) borders.putTileAt(frames.border, lx, ly);
         if (frames.overlay >= 0) {
-          const overlayTile = overlay.putTileAt(frames.overlay, lx, ly);
+          const overlayTile = overlays[ly]!.putTileAt(frames.overlay, lx, ly);
           if (overlayTile && frames.overlayTintHeight !== null) {
             overlayTile.tint = heightTint(frames.overlayTintHeight);
           }
@@ -156,7 +173,7 @@ export class TerrainRenderer {
         }
         if (custom2) {
           const art2 = customArt2At(wx, wy);
-          if (art2 !== null) custom2.putTileAt(art2, lx, ly);
+          if (art2 !== null) custom2[ly]!.putTileAt(art2, lx, ly);
         }
       }
     }

@@ -105,4 +105,14 @@ describe("enemy AI", () => {
     enemyThink(brain, slime, slimeDef, [downed], () => false, 0.05, () => rng.next());
     expect(brain.targetId).toBeNull();
   });
+
+  it("ignores dead players", () => {
+    const rng = new Rng(5);
+    const brain = newBrain();
+    const slime = combatant("enemy", 0, 0);
+    const dead = combatant("player", 2, 0);
+    dead.hp = 0;
+    enemyThink(brain, slime, slimeDef, [dead], () => false, 0.05, () => rng.next());
+    expect(brain.targetId).toBeNull();
+  });
 });

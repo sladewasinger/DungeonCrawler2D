@@ -13,8 +13,29 @@ import type { ThrowPreview } from "../input/controller";
 import type { Connection } from "../net/connection";
 import atlas from "./atlas.json";
 import { CombatParticles } from "./combatParticles";
+import {
+  AIM_PREVIEW_DEPTH,
+  SELF_GHOST_DEPTH,
+  WALL_TOP_ENTITY_DEPTH,
+  WORLD_OVERLAY_DEPTH,
+  entityDepth,
+} from "./depth";
+import {
+  ITEM_METRICS,
+  PLAYER_METRICS,
+  PROJECTILE_METRICS,
+  enemyMetrics,
+  type SpriteMetrics,
+} from "./entityMetrics";
 import { enemyTextureKey } from "./enemySprites";
 import { itemTextureKey } from "./itemSprites";
+import {
+  playerDirection,
+  playerFrame,
+  type PlayerAnimationState,
+  type PlayerDirection,
+  type PlayerPalette,
+} from "./playerSprites";
 import { TILE_PX, Z_PX } from "./constants";
 
 /**
@@ -31,6 +52,7 @@ interface EntityVisual {
   label: Phaser.GameObjects.Text | null;
   kind: EntitySnapshot["kind"];
   defId?: string;
+  metrics: SpriteMetrics;
   phase: number;
   lastX?: number;
   lastY?: number;
@@ -41,6 +63,12 @@ interface EntityVisual {
   aimY?: number;
   faceX?: number;
   faceY?: number;
+  lastZ?: number;
+  playerDirection?: PlayerDirection;
+  playerState?: PlayerAnimationState;
+  wasAirborne?: boolean;
+  landUntil?: number;
+  attackUntil?: number;
   /** Eased screen elevation of the body (px). */
   elevPx?: number;
   /** Eased screen elevation of the ground under it (px, the shadow). */
@@ -65,19 +93,29 @@ export class EntityRenderer {
   constructor(private readonly scene: Phaser.Scene) {
     this.particles = new CombatParticles(scene);
     this.selfVisual = {
-      shadow: scene.add.ellipse(0, 0, 34, 16, 0x000000, 0.4).setDepth(1),
-      sprite: scene.add.image(0, 0, "players", atlas.players.self).setOrigin(0.5, 0.5).setDepth(2),
+      shadow: scene
+        .add.ellipse(0, 0, PLAYER_METRICS.shadowWidth, PLAYER_METRICS.shadowHeight, 0x000000, 0.4)
+        .setDepth(entityDepth(0, 0, -0.002)),
+      sprite: scene.add
+        .image(0, 0, "players", playerFrame("self", "south", "idle"))
+        .setOrigin(PLAYER_METRICS.originX, PLAYER_METRICS.originY)
+        .setDisplaySize(PLAYER_METRICS.width, PLAYER_METRICS.height)
+        .setDepth(entityDepth(0, 0)),
       label: null,
       kind: "player",
+      metrics: PLAYER_METRICS,
       phase: 0,
+      playerDirection: "south",
+      playerState: "idle",
     };
     // Silhouette ghost above the wall-cap layer: walls two tiles tall
     // hide a player standing right behind them completely — the ghost
     // keeps you located while occluded, invisible otherwise.
     this.selfGhost = scene.add
-      .image(0, 0, "players", atlas.players.self)
-      .setOrigin(0.5, 0.5)
-      .setDepth(4.5)
+      .image(0, 0, "players", playerFrame("self", "south", "idle"))
+      .setOrigin(PLAYER_METRICS.originX, PLAYER_METRICS.originY)
+      .setDisplaySize(PLAYER_METRICS.width, PLAYER_METRICS.height)
+      .setDepth(SELF_GHOST_DEPTH)
       .setAlpha(0.3)
       .setVisible(false);
     this.heldWeapon = scene.add
@@ -86,8 +124,8 @@ export class EntityRenderer {
       .setDisplaySize(38, 38)
       .setDepth(2.2)
       .setVisible(false);
-    this.barGfx = scene.add.graphics().setDepth(4);
-    this.throwArc = scene.add.graphics().setDepth(5);
+    this.barGfx = scene.add.graphics().setDepth(WORLD_OVERLAY_DEPTH);
+    this.throwArc = scene.add.graphics().setDepth(AIM_PREVIEW_DEPTH);
     // Ground-item name on mouse hover — know what it is before [R].
     this.hoverTip = scene.add
       .text(0, 0, "", {
@@ -112,17 +150,19 @@ export class EntityRenderer {
    * The shadow gets its own eased term tracking the ground underneath,
    * so the sprite-shadow gap still reads as jump height.
    */
-  private elevate(visual: EntityVisual, z: number, terrain: number): { body: number; ground: number } {
-    const k = 1 - Math.exp(-this.frameDt * ELEV_EASE_RATE);
+  private elevate(visual: EntityVisual, z: number, terrain: number, airborne: boolean): { body: number; ground: number } {
+    const rate = airborne ? ELEV_EASE_RATE : 28;
+    const k = 1 - Math.exp(-this.frameDt * rate);
     const chase = (cur: number | undefined, target: number): number =>
       cur === undefined ? target : cur + (target - cur) * k;
-    visual.elevPx = chase(visual.elevPx, z * Z_PX);
     visual.groundPx = chase(visual.groundPx, terrain * Z_PX);
+    visual.elevPx = airborne ? chase(visual.elevPx, z * Z_PX) : visual.groundPx;
     return { body: visual.elevPx, ground: visual.groundPx };
   }
 
   renderSelf(conn: Connection, x: number, y: number, z: number): void {
     const world = conn.world!;
+    const body = conn.body!;
     const now = performance.now();
     this.frameDt = Math.min(0.1, (now - this.lastFrameAt) / 1000) || 1 / 60;
     this.lastFrameAt = now;
@@ -131,30 +171,38 @@ export class EntityRenderer {
     // z is honest everywhere now — grounded z rides the stair ramps
     // physically (World.groundAt), airborne z is the jump arc. The
     // shadow tracks the ground under the body.
-    const elev = this.elevate(this.selfVisual, z, world.groundAt(x, y));
+    const terrain = world.groundAt(x, y);
+    const airborne = !body.grounded;
+    const elev = this.elevate(this.selfVisual, z, terrain, airborne);
     this.selfVisual.shadow.setPosition(sx, sy - elev.ground);
     this.selfVisual.shadow.setScale(1 - Math.min(0.35, (elev.body - elev.ground) / 400));
     const bob = this.motionOffset(this.selfVisual, x, y, now);
     this.selfVisual.sprite.setPosition(sx, sy - elev.body + bob);
     this.selfVisual.sprite.setTint(statusTint(conn.fx));
     this.selfVisual.sprite.setAlpha(conn.downed ? 0.5 : 1);
-    // On a wall top (or jumping over one) you render above the wall-cap
-    // layer; on the ground you render below it (half-hidden behind walls).
     const overWall = world.tileAt(Math.floor(x), Math.floor(y)) === TILE.Wall;
-    const spriteDepth = overWall ? 3.5 : 2;
+    const spriteDepth = overWall ? WALL_TOP_ENTITY_DEPTH : entityDepth(y, z, 0.001);
     this.selfVisual.sprite.setDepth(spriteDepth);
-    this.selfVisual.shadow.setDepth(overWall ? 3.4 : 1);
-    if (this.selfVisual.faceX !== undefined && this.selfVisual.faceY !== undefined) {
-      const rotation = facingRotation(Math.atan2(this.selfVisual.faceY, this.selfVisual.faceX));
-      this.selfVisual.sprite.setRotation(rotation);
-      this.selfGhost.setRotation(rotation);
-    }
+    this.selfVisual.shadow.setDepth(overWall ? WALL_TOP_ENTITY_DEPTH - 0.01 : entityDepth(y, terrain, -0.002));
     const cursor = this.scene.cameras.main.getWorldPoint(
       this.scene.input.activePointer.x,
       this.scene.input.activePointer.y,
     );
     const angle = Math.atan2(cursor.y - this.selfVisual.sprite.y, cursor.x - this.selfVisual.sprite.x);
     const hasWeapon = conn.weapon !== null && !conn.downed;
+    if (hasWeapon) {
+      this.selfVisual.faceX = Math.cos(angle);
+      this.selfVisual.faceY = Math.sin(angle);
+    }
+    this.updatePlayerPresentation(
+      this.selfVisual,
+      "self",
+      now,
+      airborne,
+      body.zVel,
+      conn.downed,
+    );
+    this.selfGhost.setFrame(this.selfVisual.sprite.frame.name);
     this.heldWeapon.setVisible(hasWeapon);
     if (hasWeapon && conn.weapon) {
       this.heldWeapon
@@ -164,12 +212,21 @@ export class EntityRenderer {
           this.selfVisual.sprite.y + Math.sin(angle) * 11,
         )
         .setRotation(angle + Math.PI / 4)
-        .setDepth(spriteDepth + 0.2);
+        .setDepth(overWall ? WALL_TOP_ENTITY_DEPTH + 0.01 : entityDepth(y, z, 0.003));
     }
-    // Behind a wall (its cap covers this tile): show the silhouette.
-    const occluded = !overWall && world.tileAt(Math.floor(x), Math.floor(y) + 1) === TILE.Wall;
+    const occluded = !overWall && terrainOccludes(world, x, y, z);
     this.selfGhost.setVisible(occluded);
     if (occluded) this.selfGhost.setPosition(this.selfVisual.sprite.x, this.selfVisual.sprite.y);
+
+    if (this.selfVisual.wasAirborne !== undefined) {
+      if (!this.selfVisual.wasAirborne && airborne) {
+        this.particles.takeoff(sx, sy - elev.ground, entityDepth(y, terrain, 0.004));
+      } else if (this.selfVisual.wasAirborne && !airborne) {
+        this.selfVisual.landUntil = now + 140;
+        this.particles.landing(sx, sy - elev.ground, entityDepth(y, terrain, 0.004));
+      }
+    }
+    this.selfVisual.wasAirborne = airborne;
   }
 
   renderRemotes(conn: Connection): void {
@@ -190,7 +247,12 @@ export class EntityRenderer {
       }
       const px = x * TILE_PX;
       const py = y * TILE_PX;
-      const elev = this.elevate(visual, z, world.groundAt(x, y));
+      const terrain = world.groundAt(x, y);
+      const airborne = snap.air === true;
+      const previousZ = visual.lastZ ?? z;
+      const verticalVelocity = (z - previousZ) / Math.max(this.frameDt, 1 / 120);
+      visual.lastZ = z;
+      const elev = this.elevate(visual, z, terrain, airborne);
       visual.shadow.setPosition(px, py - elev.ground);
       visual.shadow.setScale(1 - Math.min(0.35, (elev.body - elev.ground) / 400));
       const bob = this.motionOffset(visual, x, y, now);
@@ -213,24 +275,31 @@ export class EntityRenderer {
       if (visual.kind === "player" || visual.kind === "enemy") {
         visual.faceX = snap.aimX ?? snap.faceX ?? visual.faceX;
         visual.faceY = snap.aimY ?? snap.faceY ?? visual.faceY;
-        if (visual.faceX !== undefined && visual.faceY !== undefined) {
-          this.rotateSpriteToward(visual, visual.faceX, visual.faceY);
-        }
+      }
+      if (visual.kind === "player") {
+        if (snap.anim === "attack") visual.attackUntil = Math.max(visual.attackUntil ?? 0, now + 90);
+        if (visual.wasAirborne && !airborne) visual.landUntil = now + 140;
+        this.updatePlayerPresentation(visual, "peer", now, airborne, verticalVelocity, snap.downed ?? false);
+        visual.wasAirborne = airborne;
+      } else if (visual.kind === "enemy" && visual.faceX !== undefined) {
+        visual.sprite.setFlipX(visual.faceX < 0);
       }
       if (visual.kind === "projectile") visual.sprite.setRotation(now / 100);
       visual.sprite.setTint(statusTint(snap.fx ?? []));
       visual.sprite.setAlpha(snap.downed ? 0.5 : 1);
-      visual.label?.setPosition(px, py - elev.body + bob - 44);
+      visual.label?.setPosition(px, py - elev.body + bob - visual.metrics.labelOffsetY);
       const overWall = world.tileAt(Math.floor(x), Math.floor(y)) === TILE.Wall;
-      visual.sprite.setDepth(overWall ? 3.5 : 2);
-      visual.shadow.setDepth(overWall ? 3.4 : 1);
+      const spriteDepth = overWall ? WALL_TOP_ENTITY_DEPTH : entityDepth(y, z, 0.001);
+      visual.sprite.setDepth(spriteDepth);
+      visual.shadow.setDepth(overWall ? WALL_TOP_ENTITY_DEPTH - 0.01 : entityDepth(y, terrain, -0.002));
 
       if (snap.hp !== undefined && snap.maxHp !== undefined && snap.hp < snap.maxHp) {
         const frac = Math.max(0, snap.hp / snap.maxHp);
-        this.barGfx.fillStyle(0x0d0a12, 0.8).fillRect(px - 20, py - elev.body - 40, 40, 5);
+        const barY = py - elev.body - visual.metrics.healthOffsetY;
+        this.barGfx.fillStyle(0x0d0a12, 0.8).fillRect(px - 20, barY, 40, 5);
         this.barGfx
           .fillStyle(frac > 0.35 ? 0x6fce62 : 0xd8574d, 1)
-          .fillRect(px - 19, py - elev.body - 39, 38 * frac, 3);
+          .fillRect(px - 19, barY + 1, 38 * frac, 3);
       }
 
       if (snap.kind === "item") {
@@ -297,6 +366,7 @@ export class EntityRenderer {
 
   /** Cosmetic melee swing arc — attacking must feel like something, hit or miss. */
   showSwing(conn: Connection, dx: number, dy: number): void {
+    this.selfVisual.attackUntil = performance.now() + 170;
     const len = Math.hypot(dx, dy) || 1;
     const angle = Math.atan2(dy / len, dx / len);
     const px = this.selfVisual.sprite.x;
@@ -395,9 +465,14 @@ export class EntityRenderer {
   private createVisual(snap: EntitySnapshot): EntityVisual {
     let sprite: Phaser.GameObjects.Image;
     let label: Phaser.GameObjects.Text | null = null;
+    let metrics: SpriteMetrics;
     switch (snap.kind) {
       case "player": {
-        sprite = this.scene.add.image(0, 0, "players", atlas.players.peer).setOrigin(0.5, 0.5);
+        metrics = PLAYER_METRICS;
+        sprite = this.scene.add
+          .image(0, 0, "players", playerFrame("peer", "south", "idle"))
+          .setOrigin(metrics.originX, metrics.originY)
+          .setDisplaySize(metrics.width, metrics.height);
         label = this.scene.add
           .text(0, 0, snap.name ?? "?", { fontSize: "12px", color: "#c8ecf7" })
           .setOrigin(0.5, 1)
@@ -405,46 +480,52 @@ export class EntityRenderer {
         break;
       }
       case "enemy": {
+        metrics = enemyMetrics(snap.defId);
         sprite = this.scene.add
           .image(0, 0, enemyTextureKey(snap.defId ?? "slime", snap.anim ?? "idle", 0))
-          .setOrigin(0.5, 0.5)
-          .setDisplaySize(58, 58);
+          .setOrigin(metrics.originX, metrics.originY)
+          .setDisplaySize(metrics.width, metrics.height);
         break;
       }
       case "item": {
+        metrics = ITEM_METRICS;
         sprite = this.scene.add
           .image(0, 0, itemTextureKey(snap.defId ?? ""))
-          .setOrigin(0.5, 0.7)
-          .setDisplaySize(46, 46);
+          .setOrigin(metrics.originX, metrics.originY)
+          .setDisplaySize(metrics.width, metrics.height);
         break;
       }
       case "projectile":
       default: {
+        metrics = PROJECTILE_METRICS;
         sprite = snap.defId
           ? this.scene.add
               .image(0, 0, itemTextureKey(snap.defId))
-              .setOrigin(0.5, 0.5)
-              .setDisplaySize(30, 30)
+              .setOrigin(metrics.originX, metrics.originY)
+              .setDisplaySize(metrics.width, metrics.height)
           : this.scene.add
               .image(0, 0, "tiles", atlas.frames.areas.poison)
-              .setOrigin(0.5, 0.5)
-              .setDisplaySize(28, 28);
+              .setOrigin(metrics.originX, metrics.originY)
+              .setDisplaySize(metrics.width, metrics.height);
         break;
       }
     }
-    sprite.setDepth(2);
-    const small = snap.kind === "item" || snap.kind === "projectile";
+    sprite.setDepth(entityDepth(snap.y, snap.z, 0.001));
     const shadow = this.scene.add
-      .ellipse(0, 0, small ? 18 : 34, small ? 9 : 16, 0x000000, 0.35)
-      .setDepth(1);
+      .ellipse(0, 0, metrics.shadowWidth, metrics.shadowHeight, 0x000000, 0.35)
+      .setDepth(entityDepth(snap.y, snap.z, -0.002));
     return {
       sprite,
       shadow,
       label,
       kind: snap.kind,
       defId: snap.defId,
+      metrics,
       phase: phaseFromId(snap.id),
-      ...(snap.kind === "enemy" ? { animationState: snap.anim ?? "idle", animationStartedAt: performance.now() } : {}),
+      ...(snap.kind === "enemy"
+        ? { animationState: snap.anim ?? "idle", animationStartedAt: performance.now() }
+        : {}),
+      ...(snap.kind === "player" ? { playerDirection: "south" as const, playerState: "idle" as const } : {}),
     };
   }
 
@@ -461,30 +542,46 @@ export class EntityRenderer {
     visual.lastY = y;
     visual.moving = moved;
     if (visual.kind === "item") return Math.sin(now / 240 + visual.phase) * 1.5;
-    if (visual.kind === "projectile") return 0;
-    return Math.sin(now / (moved ? 55 : 480) + visual.phase) * (moved ? 1.5 : 0.4);
-  }
-
-  private rotateSpriteToward(visual: EntityVisual, x: number, y: number): void {
-    if (x === 0 && y === 0) return;
-    const target = facingRotation(Math.atan2(y, x));
-    const current = visual.sprite.rotation;
-    const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-    const blend = 1 - Math.exp(-this.frameDt * 18);
-    visual.sprite.setRotation(current + delta * blend);
+    return 0;
   }
 
   private applyEnemyPose(visual: EntityVisual, state: EnemyAnimationState, now: number): void {
+    let scaleX = 1;
+    let scaleY = 1;
     if (state === "attack") {
       const pulse = 0.1 + Math.sin(now / 55 + visual.phase) * 0.04;
-      visual.sprite.setScale(1 + pulse, 1 - pulse * 0.7);
-      return;
+      scaleX += pulse;
+      scaleY -= pulse * 0.7;
+    } else if (state === "windup") {
+      scaleX = 0.92;
+      scaleY = 1.08;
     }
-    if (state === "windup") {
-      visual.sprite.setScale(0.92, 1.08);
-      return;
-    }
-    visual.sprite.setScale(1);
+    visual.sprite.setDisplaySize(visual.metrics.width * scaleX, visual.metrics.height * scaleY);
+  }
+
+  private updatePlayerPresentation(
+    visual: EntityVisual,
+    palette: PlayerPalette,
+    now: number,
+    airborne: boolean,
+    verticalVelocity: number,
+    downed: boolean,
+  ): void {
+    const direction = playerDirection(
+      visual.faceX ?? 0,
+      visual.faceY ?? 0,
+      visual.playerDirection ?? "south",
+    );
+    visual.playerDirection = direction;
+    let state: PlayerAnimationState;
+    if (downed) state = "downed";
+    else if ((visual.attackUntil ?? 0) > now) state = "attack";
+    else if (airborne) state = verticalVelocity >= 0 ? "jump" : "fall";
+    else if ((visual.landUntil ?? 0) > now) state = "land";
+    else state = visual.moving ? "walk" : "idle";
+    visual.playerState = state;
+    visual.sprite.setFrame(playerFrame(palette, direction, state, now, visual.phase));
+    visual.sprite.setRotation(0);
   }
 
   private spawnSpitMuzzle(x: number, y: number, aimX: number | undefined, aimY: number | undefined): void {
@@ -509,14 +606,18 @@ function enemyAnimationFrame(visual: EntityVisual, now: number): number {
   return 0;
 }
 
-function facingRotation(angle: number): number {
-  return angle - Math.PI / 2;
-}
-
 function phaseFromId(id: string): number {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
   return (hash & 0xffff) / 0xffff * Math.PI * 2;
+}
+
+function terrainOccludes(world: NonNullable<Connection["world"]>, x: number, y: number, z: number): boolean {
+  const tileX = Math.floor(x);
+  const tileY = Math.floor(y);
+  const southTile = world.tileAt(tileX, tileY + 1);
+  const southHeight = world.heightAt(tileX, tileY + 1);
+  return southTile === TILE.Wall || southHeight > z + 0.5;
 }
 
 function entityScreenPos(conn: Connection, id: string): { x: number; y: number } | null {

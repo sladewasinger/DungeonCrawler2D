@@ -1,4 +1,5 @@
 import type { EnemyAnimationState } from "@dc2d/engine";
+import { assetUrl } from "../assetUrl";
 
 export const ENEMY_SPRITE_IDS = ["slime", "plant-creeper", "skeleton", "spitter"] as const;
 
@@ -47,5 +48,5 @@ export function enemyAssetPath(defId: string, state: EnemyAnimationState, frame:
   const frameCount = enemyFrameCount(enemyId, state);
   const animationFrame = ((frame % frameCount) + frameCount) % frameCount;
   const directory = enemyId === "spitter" ? "spitter-v3" : NORMAL_ENEMY_ASSET_DIR[enemyId];
-  return `assets/enemies/${directory}/${state}-${animationFrame}.png`;
+  return assetUrl(`assets/enemies/${directory}/${state}-${animationFrame}.png`);
 }

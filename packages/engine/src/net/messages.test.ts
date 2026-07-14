@@ -29,6 +29,7 @@ describe("protocol", () => {
       { type: "stash", op: "put", index: 3 },
       { type: "party", op: "invite", target: "p2" },
       { type: "chat", channel: "party", text: "behind you" },
+      { type: "suicide" },
       { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "sandbox" },
     ];
     for (const intent of intents) {
@@ -48,6 +49,8 @@ describe("protocol", () => {
         zVel: 0,
         grounded: true,
         coyoteTime: 0,
+        jumpBuffer: 0,
+        jumpHeld: false,
         kx: 0,
         ky: 0,
         hp: 22,

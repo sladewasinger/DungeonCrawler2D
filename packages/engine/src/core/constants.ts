@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 10;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 
@@ -6,7 +6,10 @@ export const MOVE_SPEED = 8;
 export const STEP_UP = 1;
 export const JUMP_VELOCITY = 16;
 export const GRAVITY = 56;
-export const COYOTE_TIME = 0.1;
+export const COYOTE_TIME = 0.15;
+export const JUMP_BUFFER_TIME = 0.15;
+export const AIRBORNE_LEDGE_CLEARANCE = 0.18;
+export const LANDING_TOLERANCE = 0.08;
 export const WALL_RISE = 2;
 
 export const AOI_RADIUS = 40;

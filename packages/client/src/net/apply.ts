@@ -19,16 +19,18 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
     zVel: snap.self.zVel,
     grounded: snap.self.grounded,
     coyoteTime: snap.self.coyoteTime,
+    jumpBuffer: snap.self.jumpBuffer,
+    jumpHeld: snap.self.jumpHeld,
     fallStart: snap.self.z,
     kx: snap.self.kx,
     ky: snap.self.ky,
   };
-  conn.prediction.reconcile(conn.world, conn.body, snap.lastSeq);
-
   conn.hp = snap.self.hp;
   conn.maxHp = snap.self.maxHp;
   conn.fx = snap.self.fx;
   conn.downed = snap.self.downed ?? false;
+  if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
+  else conn.prediction.reconcile(conn.world, conn.body, snap.lastSeq);
   conn.inventory = snap.inventory;
   conn.hotbar = snap.hotbar;
   conn.weapon = snap.weapon;
@@ -48,6 +50,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   for (const tile of snap.areas) applyAreaTile(conn, tile);
 
   for (const event of snap.events) applyEvent(conn, event);
+  conn.onSnapshot?.();
 }
 
 function applyAreaTile(conn: Connection, tile: AreaTileUpdate): void {

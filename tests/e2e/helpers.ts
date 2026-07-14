@@ -161,7 +161,7 @@ declare global {
         hp: number;
         maxHp: number;
         fx: string[];
-        body: { x: number; y: number; z: number; grounded: boolean } | null;
+        body: { x: number; y: number; z: number; zVel: number; grounded: boolean } | null;
         welcome: { playerId: string } | null;
         entities: Map<
           string,
@@ -173,10 +173,15 @@ declare global {
         inventory: Array<{ item: string; qty: number } | null>;
         world: {
           tileAt(x: number, y: number): number;
+          heightAt(x: number, y: number): number;
+          groundAt(x: number, y: number): number;
           isSanctuary(x: number, y: number): boolean;
         } | null;
         attack(dx: number, dy: number): void;
+        debugGod(enabled: boolean): void;
+        debugTeleport(x: number, y: number): void;
       };
+      game?: unknown;
     };
   }
 }

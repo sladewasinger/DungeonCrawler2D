@@ -214,7 +214,9 @@ export class Hud {
       .fillRect(2, 2, 176 * Math.max(0, frac), 14);
     const weaponName = conn.weapon ? (content.items.get(conn.weapon)?.name ?? conn.weapon) : "Fists";
     this.healthText.setText(
-      conn.downed
+      conn.dead
+        ? `DEAD — respawning…`
+        : conn.downed
         ? `DOWNED — a party member can revive you`
         : `${Math.ceil(conn.hp)} / ${conn.maxHp}   ⚔ ${weaponName}`,
     );

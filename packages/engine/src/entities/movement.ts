@@ -1,8 +1,11 @@
 import {
+  AIRBORNE_LEDGE_CLEARANCE,
   COYOTE_TIME,
   GRAVITY,
+  JUMP_BUFFER_TIME,
   JUMP_VELOCITY,
   KNOCKBACK_DECAY,
+  LANDING_TOLERANCE,
   MOVE_SPEED,
   STEP_UP,
 } from "../core/constants";
@@ -23,6 +26,8 @@ export interface BodyState {
   zVel: number;
   grounded: boolean;
   coyoteTime: number;
+  jumpBuffer: number;
+  jumpHeld: boolean;
   /** Ground z where the body last left the ground. Fall damage is the
    * DROP below your takeoff point — jumping off a platform hurts
    * exactly as much as walking off it, never "platform + jump apex". */
@@ -55,7 +60,19 @@ export interface StepOpts {
 export const NEUTRAL_INPUT: MoveInput = { moveX: 0, moveY: 0, jump: false };
 
 export function createBody(x: number, y: number, z: number): BodyState {
-  return { x, y, z, zVel: 0, grounded: true, coyoteTime: 0, fallStart: z, kx: 0, ky: 0 };
+  return {
+    x,
+    y,
+    z,
+    zVel: 0,
+    grounded: true,
+    coyoteTime: 0,
+    jumpBuffer: 0,
+    jumpHeld: false,
+    fallStart: z,
+    kx: 0,
+    ky: 0,
+  };
 }
 
 export function cloneBody(body: BodyState): BodyState {
@@ -118,7 +135,7 @@ function tryAxisMove(
     const terrain = world.groundAt(cx, cy);
     if (body.grounded) {
       if (terrain - world.groundAt(cx - dx, cy - dy) > STEP_UP) return;
-    } else if (terrain > body.z) {
+    } else if (terrain > body.z + AIRBORNE_LEDGE_CLEARANCE) {
       return;
     }
   }
@@ -137,13 +154,18 @@ export function stepBody(
   const result: StepResult = {};
   const speed = opts.speed ?? MOVE_SPEED;
 
+  if (input.jump && !body.jumpHeld) body.jumpBuffer = JUMP_BUFFER_TIME;
+  else body.jumpBuffer = Math.max(0, body.jumpBuffer - dt);
+  body.jumpHeld = input.jump;
+
   if (body.grounded) body.coyoteTime = COYOTE_TIME;
   else body.coyoteTime = Math.max(0, body.coyoteTime - dt);
 
-  if (input.jump && (body.grounded || body.coyoteTime > 0)) {
+  if (body.jumpBuffer > 0 && (body.grounded || body.coyoteTime > 0)) {
     body.zVel = JUMP_VELOCITY;
     body.grounded = false;
     body.coyoteTime = 0;
+    body.jumpBuffer = 0;
     body.fallStart = body.z;
   }
 
@@ -171,6 +193,20 @@ export function stepBody(
 
   const terrain = world.groundAt(body.x, body.y);
 
+  if (
+    !body.grounded &&
+    body.zVel > 0 &&
+    terrain > body.z &&
+    terrain - body.z <= AIRBORNE_LEDGE_CLEARANCE
+  ) {
+    body.z = terrain;
+    body.zVel = 0;
+    body.grounded = true;
+    body.coyoteTime = COYOTE_TIME;
+    body.fallStart = terrain;
+    result.landed = { fallHeight: 0 };
+  }
+
   if (body.grounded) {
     if (terrain >= body.z) {
       body.z = terrain;
@@ -186,7 +222,7 @@ export function stepBody(
   if (!body.grounded) {
     body.z += body.zVel * dt;
     body.zVel -= GRAVITY * dt;
-    if (body.zVel <= 0 && body.z <= terrain) {
+    if (body.zVel <= 0 && body.z <= terrain + LANDING_TOLERANCE) {
       const fallHeight = Math.max(0, body.fallStart - terrain);
       body.z = terrain;
       body.zVel = 0;

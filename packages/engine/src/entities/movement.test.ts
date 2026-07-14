@@ -91,6 +91,74 @@ describe("movement", () => {
     expect(body.z).toBeCloseTo(2, 5);
   });
 
+  it.each([
+    ["east", 1, 0],
+    ["west", -1, 0],
+    ["south", 0, 1],
+    ["north", 0, -1],
+  ] as const)("reliably chains h0→h2→h4 when approaching %s", (_name, dirX, dirY) => {
+    const progress = (x: number, y: number) => (dirX !== 0 ? x * dirX : y * dirY);
+    const world = fakeWorld({
+      heightFn: (x, y) => {
+        const p = progress(x, y);
+        return p >= 11 ? 4 : p >= 8 ? 2 : 0;
+      },
+      groundFn: (x, y) => {
+        const p = progress(x, y);
+        return p >= 11 ? 4 : p >= 8 ? 2 : 0;
+      },
+    });
+    const body = createBody(dirX * 7.2 || 5.5, dirY * 7.2 || 5.5, 0);
+    const move = { moveX: dirX, moveY: dirY, jump: false };
+
+    stepBody(world, body, { ...move, jump: true }, TICK_DT);
+    for (let i = 0; i < 20 && !(body.grounded && body.z === 2); i++) stepBody(world, body, move, TICK_DT);
+    expect(body.grounded).toBe(true);
+    expect(body.z).toBe(2);
+
+    stepBody(world, body, move, TICK_DT);
+    stepBody(world, body, { ...move, jump: true }, TICK_DT);
+    for (let i = 0; i < 24 && !(body.grounded && body.z === 4); i++) stepBody(world, body, move, TICK_DT);
+    expect(body.grounded).toBe(true);
+    expect(body.z).toBe(4);
+  });
+
+  it("chains diagonal platform corners without bypassing a too-tall rise", () => {
+    const diagonal = fakeWorld({
+      heightFn: (x, y) => (x >= 11 && y >= 11 ? 4 : x >= 8 && y >= 8 ? 2 : 0),
+      groundFn: (x, y) => (x >= 11 && y >= 11 ? 4 : x >= 8 && y >= 8 ? 2 : 0),
+    });
+    const body = createBody(7.2, 7.2, 0);
+    const move = { moveX: 1, moveY: 1, jump: false };
+    stepBody(diagonal, body, { ...move, jump: true }, TICK_DT);
+    for (let i = 0; i < 28 && !(body.grounded && body.z === 2); i++) stepBody(diagonal, body, move, TICK_DT);
+    expect(body.z).toBe(2);
+    stepBody(diagonal, body, move, TICK_DT);
+    stepBody(diagonal, body, { ...move, jump: true }, TICK_DT);
+    for (let i = 0; i < 32 && !(body.grounded && body.z === 4); i++) stepBody(diagonal, body, move, TICK_DT);
+    expect(body.z).toBe(4);
+
+    const tooTall = fakeWorld({ heightFn: (x) => (x >= 8 ? 3 : 0) });
+    const blocked = createBody(7.2, 5.5, 0);
+    stepBody(tooTall, blocked, { moveX: 1, moveY: 0, jump: true }, TICK_DT);
+    runTicks(tooTall, blocked, { moveX: 1, moveY: 0, jump: false }, 40);
+    expect(blocked.x).toBeLessThan(8);
+    expect(blocked.z).toBe(0);
+  });
+
+  it("buffers a jump pressed just before landing", () => {
+    const world = fakeWorld({});
+    const body = createBody(5.5, 5.5, 0.15);
+    body.grounded = false;
+    body.zVel = -1;
+    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
+    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
+    expect(body.grounded).toBe(true);
+    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
+    expect(body.grounded).toBe(false);
+    expect(body.zVel).toBeGreaterThan(0);
+  });
+
   it("walking off a ledge falls and reports fall height on landing", () => {
     const world = fakeWorld({ heightFn: (x) => (x < 8 ? 5 : 0) });
     const body = createBody(7.5, 5.5, 5);

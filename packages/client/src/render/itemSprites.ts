@@ -1,3 +1,5 @@
+import { assetUrl } from "../assetUrl";
+
 export const ITEM_SPRITE_IDS = [
   "rag",
   "stick",
@@ -19,5 +21,5 @@ export function itemTextureKey(defId: string): string {
 
 export function itemAssetPath(defId: string): string {
   const itemId = ITEM_SPRITE_SET.has(defId) ? defId : "water-flask";
-  return `assets/items/${itemId}.png`;
+  return assetUrl(`assets/items/${itemId}.png`);
 }

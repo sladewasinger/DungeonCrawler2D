@@ -12,10 +12,15 @@ export function persistentClientId(): string {
   return id;
 }
 
-export function loadResumeToken(): string | undefined {
-  return sessionStorage.getItem(RESUME_KEY) ?? undefined;
+export function loadResumeToken(level?: string): string | undefined {
+  return (
+    sessionStorage.getItem(level ? `${RESUME_KEY}:${level}` : RESUME_KEY) ??
+    sessionStorage.getItem(RESUME_KEY) ??
+    undefined
+  );
 }
 
-export function saveResumeToken(token: string): void {
-  sessionStorage.setItem(RESUME_KEY, token);
+export function saveResumeToken(token: string, level: string): void {
+  sessionStorage.setItem(`${RESUME_KEY}:${level}`, token);
+  sessionStorage.removeItem(RESUME_KEY);
 }

@@ -42,7 +42,7 @@ export function resolveDeaths(sim: SimState): void {
           return m !== entity.id && member && member.entity.hp > 0 && member.downedAtTick === null;
         })
       : false;
-    if (party && conscious && slot.downedAtTick === null) {
+    if (!slot.forceDeath && party && conscious && slot.downedAtTick === null) {
       // Downed, not dead: a party member can still get you up.
       slot.downedAtTick = sim.tickCount;
       entity.hp = 1;
@@ -57,6 +57,7 @@ export function resolveDeaths(sim: SimState): void {
     dropAllInventory(sim, slot);
     entity.statuses = [];
     slot.downedAtTick = null;
+    slot.forceDeath = false;
     delete entity.downedUntil;
     slot.respawnAtTick = sim.tickCount + RESPAWN_DELAY_TICKS;
   }

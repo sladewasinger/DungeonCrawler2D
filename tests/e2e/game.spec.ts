@@ -47,6 +47,155 @@ test.describe("dungeoncrawler2d e2e", () => {
     await page.waitForFunction(() => window.__dc2d!.conn.body!.grounded);
   });
 
+  test("player frames stay upright and enemies keep their tuned scale", async ({ page }, testInfo) => {
+    await openGame(page);
+    await page.keyboard.down("d");
+    await page.waitForTimeout(220);
+    const presentation = await page.evaluate(() => {
+      const game = window.__dc2d!.game as {
+        scene: { getScene(name: string): { children: { list: Array<Record<string, unknown>> } } };
+      };
+      const children = game.scene.getScene("dungeon").children.list;
+      const images = children.filter((child) => child.type === "Image") as Array<{
+        texture?: { key?: string };
+        frame?: { name?: string | number };
+        visible?: boolean;
+        alpha?: number;
+        rotation?: number;
+        displayWidth?: number;
+        displayHeight?: number;
+      }>;
+      const player = images.find(
+        (image) => image.texture?.key === "players" && image.visible && (image.alpha ?? 1) > 0.5,
+      );
+      const enemies = images
+        .filter((image) => image.texture?.key?.startsWith("enemy-"))
+        .map((image) => ({ key: image.texture!.key!, width: image.displayWidth!, height: image.displayHeight! }));
+      return {
+        player: player
+          ? {
+              frame: Number(player.frame?.name),
+              rotation: player.rotation ?? 0,
+              width: player.displayWidth ?? 0,
+              height: player.displayHeight ?? 0,
+            }
+          : null,
+        enemies,
+      };
+    });
+    await page.keyboard.up("d");
+
+    expect(presentation.player).not.toBeNull();
+    expect(presentation.player!.rotation).toBeCloseTo(0, 5);
+    expect([17, 18]).toContain(presentation.player!.frame);
+    expect(presentation.player!.width).toBeCloseTo(54, 1);
+    expect(presentation.enemies.length).toBeGreaterThan(0);
+    for (const enemy of presentation.enemies) {
+      expect(enemy.width).toBeLessThanOrEqual(48);
+      expect(enemy.height).toBeLessThanOrEqual(52);
+    }
+    await page.screenshot({ path: testInfo.outputPath("upright-player-and-enemy-scale.png") });
+  });
+
+  test("real input chains the sandbox h0→h2→h4 platforms", async ({ page }, testInfo) => {
+    await openGame(page);
+    await page.evaluate(() => window.__dc2d!.conn.debugTeleport(44.5, 28.5));
+    await page.waitForFunction(() => {
+      const body = window.__dc2d!.conn.body!;
+      return Math.hypot(body.x - 44.5, body.y - 28.5) < 0.8;
+    });
+
+    const jumpNorthTo = async (height: number) => {
+      await page.keyboard.down("w");
+      await page.keyboard.down(" ");
+      await page.waitForTimeout(170);
+      await page.keyboard.up(" ");
+      await page.waitForFunction(
+        (target) => {
+          const body = window.__dc2d!.conn.body!;
+          return body.grounded && Math.abs(body.z - target) < 0.12;
+        },
+        height,
+        { timeout: 5000 },
+      );
+      await page.keyboard.up("w");
+      await page.waitForTimeout(100);
+    };
+
+    await jumpNorthTo(2);
+    const first = await readState(page);
+    expect(first.z).toBeCloseTo(2, 1);
+    await jumpNorthTo(4);
+    const second = await readState(page);
+    expect(second.z).toBeCloseTo(4, 1);
+    expect(second.y).toBeLessThan(first.y);
+    await page.screenshot({ path: testInfo.outputPath("stacked-platform-h4.png") });
+
+    await page.evaluate(() => window.__dc2d!.conn.debugTeleport(26.5, 50.5));
+    await page.waitForFunction(() => Math.hypot(window.__dc2d!.conn.body!.x - 26.5, window.__dc2d!.conn.body!.y - 50.5) < 0.8);
+    await page.keyboard.down("s");
+    await page.waitForFunction(() => !window.__dc2d!.conn.body!.grounded, undefined, { timeout: 3000 });
+    await page.keyboard.up("s");
+    await page.screenshot({ path: testInfo.outputPath("falling-from-platform.png") });
+    await page.waitForFunction(() => window.__dc2d!.conn.body!.grounded);
+  });
+
+  test("wall occlusion reveals the self silhouette", async ({ page }, testInfo) => {
+    await openGame(page);
+    await page.evaluate(() => window.__dc2d!.conn.debugTeleport(54.5, 51.5));
+    await page.waitForFunction(() => Math.hypot(window.__dc2d!.conn.body!.x - 54.5, window.__dc2d!.conn.body!.y - 51.5) < 0.8);
+    await page.waitForTimeout(250);
+    const ghost = await page.evaluate(() => {
+      const game = window.__dc2d!.game as {
+        scene: { getScene(name: string): { children: { list: Array<Record<string, unknown>> } } };
+      };
+      return game.scene
+        .getScene("dungeon")
+        .children.list.some(
+          (child) =>
+            child.type === "Image" &&
+            (child as { texture?: { key?: string } }).texture?.key === "players" &&
+            child.visible === true &&
+            Math.abs(Number(child.alpha) - 0.3) < 0.01,
+        );
+    });
+    expect(ghost).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("wall-occlusion-ghost.png") });
+  });
+
+  test("crowded combat keeps enemy scale and particle density readable", async ({ page }, testInfo) => {
+    await openGame(page);
+    await page.evaluate(() => {
+      window.__dc2d!.conn.debugGod(true);
+      window.__dc2d!.conn.debugTeleport(4.5, 61.5);
+    });
+    await page.waitForFunction(() => Math.hypot(window.__dc2d!.conn.body!.x - 4.5, window.__dc2d!.conn.body!.y - 61.5) < 0.8);
+    await page.waitForFunction(
+      () => {
+        const conn = window.__dc2d!.conn;
+        return [...conn.entities.values()].filter((entity) => entity.snap.kind === "enemy").length >= 4;
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.waitForTimeout(1400);
+    const rendered = await page.evaluate(() => {
+      const game = window.__dc2d!.game as {
+        scene: { getScene(name: string): { children: { list: Array<Record<string, unknown>> } } };
+      };
+      const children = game.scene.getScene("dungeon").children.list;
+      return {
+        enemies: children.filter(
+          (child) => child.type === "Image" && (child as { texture?: { key?: string } }).texture?.key?.startsWith("enemy-"),
+        ).length,
+        graphics: children.filter((child) => child.type === "Graphics").length,
+      };
+    });
+    expect(rendered.enemies).toBeGreaterThanOrEqual(4);
+    expect(rendered.graphics).toBeLessThan(60);
+    await page.screenshot({ path: testInfo.outputPath("crowded-combat.png") });
+  });
+
   test("two browsers meet: AOI visibility, fistbump party, party chat", async ({ browser }) => {
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
@@ -101,52 +250,35 @@ test.describe("dungeoncrawler2d e2e", () => {
   test("combat: attacking the slime fixtures hurts and kills them", async ({ page }) => {
     await openGame(page);
 
-    // Walk toward the slimes at (20.5, 42.5): line up on the 3-tile
-    // pillar gap (x24–26), then head south through it. Adaptive —
-    // clustered spawns shift our start by a few tiles per player.
-    for (let i = 0; i < 30; i++) {
-      const s = await readState(page);
-      if (Math.abs(s.x - 25.2) < 0.6) break;
-      await holdKey(page, s.x > 25.2 ? "a" : "d", 200);
-    }
-    for (let i = 0; i < 30; i++) {
-      const s = await readState(page);
-      const near = s.entities.some(
-        (e) => e.kind === "enemy" && Math.hypot(e.x - s.x, e.y - s.y) < 6,
-      );
-      if (near || s.y > 44) break;
-      await holdKey(page, "s", 300);
-    }
-
-    // Wait until a slime is within melee-ish range (they also chase us).
-    await page.waitForFunction(() => {
-      const conn = window.__dc2d!.conn;
-      const body = conn.body!;
-      return [...conn.entities.values()].some(
-        (e) =>
-          e.snap.kind === "enemy" &&
-          Math.hypot(e.snap.x - body.x, e.snap.y - body.y) < 1.4,
-      );
-    }, undefined, { timeout: 20_000 });
-
-    // Mark the nearest slime as our victim (adjacent chunks spawn
-    // extra random enemies, so we track one specific id to its death).
+    // Find the current replicated slime and use the debug harness to
+    // start beside its actual position instead of blind-walking after
+    // an AI actor that may have wandered during earlier scenarios.
     const targetId = await page.evaluate(() => {
       const conn = window.__dc2d!.conn;
-      const body = conn.body!;
-      let best: string | null = null;
+      conn.debugGod(true);
+      let best: { id: string; x: number; y: number } | null = null;
       let dist = Number.POSITIVE_INFINITY;
       for (const e of conn.entities.values()) {
         if (e.snap.kind !== "enemy" || e.snap.defId !== "slime") continue;
-        const d = Math.hypot(e.snap.x - body.x, e.snap.y - body.y);
+        const d = Math.hypot(e.snap.x - conn.body!.x, e.snap.y - conn.body!.y);
         if (d < dist) {
           dist = d;
-          best = e.snap.id;
+          best = { id: e.snap.id, x: e.snap.x, y: e.snap.y };
         }
       }
-      return best;
+      if (best) conn.debugTeleport(best.x + 1, best.y);
+      return best?.id ?? null;
     });
     expect(targetId).not.toBeNull();
+    await page.waitForFunction(
+      (id) => {
+        const conn = window.__dc2d!.conn;
+        const target = conn.entities.get(id!);
+        return target !== undefined && Math.hypot(target.snap.x - conn.body!.x, target.snap.y - conn.body!.y) < 2;
+      },
+      targetId,
+      { timeout: 5000 },
+    );
 
     // Swing whenever it's in reach (it chases us; we knock it back)
     // until the server removes the corpse from our AOI.
@@ -387,7 +519,7 @@ test.describe("dungeoncrawler2d e2e", () => {
   test("dev harness: god + teleport to a raised section, climb its staircase", async ({
     page,
   }) => {
-    await openGame(page);
+    await openGame(page, "dungeon");
 
     // Find a terrace stair entry at this fixed seed by scanning the
     // world through the client's own deterministic generator: the only

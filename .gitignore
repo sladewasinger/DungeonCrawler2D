@@ -26,3 +26,8 @@ playwright-report/
 
 # Runtime data (dev game-server store)
 packages/game-server/data/
+
+# Local Terraform values and working data
+infra/terraform.tfvars
+infra/.terraform/
+infra/*.tfplan

@@ -1,5 +1,6 @@
 import { TICK_RATE } from "@dc2d/engine";
 import Phaser from "phaser";
+import { assetUrl } from "../assetUrl";
 import { InputController } from "../input/controller";
 import type { Connection } from "../net/connection";
 import { AreaRenderer } from "../render/areas";
@@ -45,9 +46,12 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.spritesheet("tiles", "assets/tiles.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
-    this.load.spritesheet("players", "assets/players.png", { frameWidth: TILE_PX, frameHeight: TILE_PX });
-    this.load.image("packsheet", `assets/${atlas.packSheet.image}`);
+    this.load.spritesheet("tiles", assetUrl("assets/tiles.png"), { frameWidth: TILE_PX, frameHeight: TILE_PX });
+    this.load.spritesheet("players", assetUrl("assets/players.png"), {
+      frameWidth: TILE_PX,
+      frameHeight: TILE_PX,
+    });
+    this.load.image("packsheet", assetUrl(`assets/${atlas.packSheet.image}`));
     for (const enemyId of ENEMY_SPRITE_IDS) {
       for (const state of ENEMY_ANIMATION_STATES) {
         for (let frame = 0; frame < enemyFrameCount(enemyId, state); frame++) {
@@ -56,10 +60,10 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
     for (const itemId of ITEM_SPRITE_IDS) {
-      this.load.image(`item-${itemId}`, `assets/items/${itemId}.png`);
+      this.load.image(`item-${itemId}`, assetUrl(`assets/items/${itemId}.png`));
     }
     for (const [key, sprite] of Object.entries(atlas.stairSprites)) {
-      this.load.image(`stair-${key}`, `assets/${sprite.image}`);
+      this.load.image(`stair-${key}`, assetUrl(`assets/${sprite.image}`));
     }
   }
 

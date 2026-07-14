@@ -1,0 +1,52 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf install -y nodejs22
+if ! command -v aws >/dev/null 2>&1; then
+  dnf install -y awscli2 || dnf install -y awscli
+fi
+
+id dc2d >/dev/null 2>&1 || useradd --system --home-dir /opt/dungeoncrawler2d --shell /sbin/nologin dc2d
+install -d -o dc2d -g dc2d /opt/dungeoncrawler2d /var/lib/dungeoncrawler2d
+
+cat >/usr/local/bin/dc2d-sync <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+aws s3 cp "s3://${artifact_bucket}/${server_bundle_object}" /opt/dungeoncrawler2d/main.cjs --region "${aws_region}"
+chown dc2d:dc2d /opt/dungeoncrawler2d/main.cjs
+SCRIPT
+chmod 0755 /usr/local/bin/dc2d-sync
+
+cat >/etc/systemd/system/dungeoncrawler2d.service <<'UNIT'
+[Unit]
+Description=Dungeon Crawler 2D authoritative game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dc2d
+Group=dc2d
+WorkingDirectory=/opt/dungeoncrawler2d
+Environment=NODE_ENV=production
+Environment=DEBUG_COMMANDS=0
+Environment=GAME_PORT=8081
+Environment=WORLD_SEED=${world_seed}
+Environment=STORE_FILE=/var/lib/dungeoncrawler2d/players.json
+Environment=CUSTOM_MAP=none
+ExecStartPre=+/usr/local/bin/dc2d-sync
+ExecStart=/usr/bin/node /opt/dungeoncrawler2d/main.cjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/dungeoncrawler2d /var/lib/dungeoncrawler2d
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now dungeoncrawler2d.service

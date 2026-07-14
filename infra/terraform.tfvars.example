@@ -1,0 +1,6 @@
+aws_profile         = "terraform"
+aws_region          = "us-east-1"
+domain_name         = "dungeoncrawl2d.austinwasinger.com"
+instance_type       = "t4g.nano"
+world_seed          = "austin-dungeon-prod-1"
+enable_distribution = true

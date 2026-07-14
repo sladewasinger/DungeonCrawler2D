@@ -84,6 +84,7 @@ export const clientChatSchema = z.object({
 });
 
 export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
+export const clientSuicideSchema = z.object({ type: z.literal("suicide") });
 
 /**
  * Dev-harness commands (god mode, teleport). The SERVER gates these on
@@ -113,6 +114,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientPartySchema,
   clientChatSchema,
   clientPingSchema,
+  clientSuicideSchema,
   clientDebugSchema,
 ]);
 
@@ -129,6 +131,8 @@ export const bodySnapshotSchema = z.object({
   zVel: z.number(),
   grounded: z.boolean(),
   coyoteTime: z.number().nonnegative(),
+  jumpBuffer: z.number().nonnegative(),
+  jumpHeld: z.boolean(),
   kx: z.number(),
   ky: z.number(),
 });
