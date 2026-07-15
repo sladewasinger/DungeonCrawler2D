@@ -426,7 +426,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     for_each = var.enable_distribution ? [1] : []
     content {
       sid     = "InvalidateFrontend"
-      actions = ["cloudfront:CreateInvalidation"]
+      actions = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
       resources = [
         "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${local.production_distribution_id}"
       ]
