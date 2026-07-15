@@ -28,7 +28,7 @@ export interface TileFrames {
   border: number; // -1 = none
   overlay: number; // -1 = none
   overlayTintHeight: number | null;
-  /** Wall-top frame for the north-shifted caps layer. -1 = none. */
+  /** Elevated surface frame for the north-shifted caps layer. -1 = none. */
   cap: number;
   capTintHeight: number | null;
 }
@@ -75,20 +75,27 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
   if (tile === TILE.Wall) {
     let mask = 0;
     NESW.forEach(([dx, dy], i) => {
-      if (world.tileAt(wx + dx, wy + dy) !== TILE.Wall) mask |= 1 << i;
+      const neighborIsWall = world.tileAt(wx + dx, wy + dy) === TILE.Wall;
+      const dropsToNeighbor = h - world.heightAt(wx + dx, wy + dy) > STEP_UP;
+      if (!neighborIsWall || dropsToNeighbor) mask |= 1 << i;
     });
     // Real floor underneath; the wall's brick face fills its own cell
     // (that's the base you collide with); the top cap goes to the
     // full-tile-north-shifted layer above entities — two tiles tall.
     const floorVariants = atlas.frames.floor;
-    const southOpen = world.tileAt(wx, wy + 1) !== TILE.Wall;
+    const southIsWall = world.tileAt(wx, wy + 1) === TILE.Wall;
+    const southOpen = !southIsWall || h - world.heightAt(wx, wy + 1) > STEP_UP;
+    const northIsHigherWall =
+      world.tileAt(wx, wy - 1) === TILE.Wall && world.heightAt(wx, wy - 1) - h > STEP_UP;
     return {
       base: floorVariants[hash2D(11, wx, wy) % floorVariants.length]!,
       baseTintHeight: h - WALL_RISE,
       border: -1,
       overlay: southOpen ? atlas.frames.wallFace : -1,
       overlayTintHeight: h,
-      cap: atlas.frames.wallAuto[mask]!,
+      // The cap renders one tile north. A higher wall there owns that
+      // screen space, so its south face must hide this lower cap.
+      cap: northIsHigherWall ? -1 : atlas.frames.wallAuto[mask]!,
       capTintHeight: h,
     };
   }
@@ -226,5 +233,18 @@ export function frameForTile(world: World, wx: number, wy: number): TileFrames {
     if (rimMask > 0) overlay = atlas.frames.rimBase + rimMask;
   }
 
-  return { base, baseTintHeight: h, border, overlay, overlayTintHeight, cap: -1, capTintHeight: null };
+  // A two-level platform projects its first top row one tile north.
+  // Without this cap, the collision edge is only a thin rim and an
+  // actor who jumps onto the platform appears to float over lower art.
+  const northDrop = h - world.heightAt(wx, wy - 1);
+  const cap = northDrop > 1.8 ? base : -1;
+  return {
+    base,
+    baseTintHeight: h,
+    border,
+    overlay,
+    overlayTintHeight,
+    cap,
+    capTintHeight: cap >= 0 ? h : null,
+  };
 }

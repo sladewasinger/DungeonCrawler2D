@@ -5,7 +5,6 @@ import { CHUNK_PX, TILE_PX } from "./constants";
 import {
   TERRAIN_BASE_DEPTH,
   TERRAIN_BORDER_DEPTH,
-  WALL_CAP_DEPTH,
   terrainOccluderDepth,
   worldDepth,
 } from "./depth";
@@ -119,14 +118,14 @@ export class TerrainRenderer {
         .createBlankLayer(`overlay-${ly}`, tileset, ox, oy)!
         .setDepth(terrainOccluderDepth(cy * CHUNK_SIZE + ly, 0.0004)),
     );
-    // Wall tops: shifted a FULL tile north and drawn ABOVE entities —
-    // a wall reads two tiles tall (brick face in its own cell, top
-    // surface leaning over the cell behind it), and anyone standing
-    // back there is hidden behind its body (entities on wall tops bump
-    // their depth past this).
-    const caps = map
-      .createBlankLayer("caps", tileset, ox, oy - TILE_PX)!
-      .setDepth(WALL_CAP_DEPTH);
+    // Elevated surface caps shift a full tile north and sort at their
+    // source row. Actors north of a ledge are behind it; actors south
+    // of it are in front; actors on its raised top sort above it.
+    const caps = Array.from({ length: CHUNK_SIZE }, (_, ly) =>
+      map
+        .createBlankLayer(`caps-${ly}`, tileset, ox, oy - TILE_PX)!
+        .setDepth(terrainOccluderDepth(cy * CHUNK_SIZE + ly, 0.0003)),
+    );
     // Tile Studio art overrides render verbatim above the autotiles:
     // two layers, so authored objects/walls sit on their own ground.
     let custom: Phaser.Tilemaps.TilemapLayer | null = null;
@@ -162,7 +161,7 @@ export class TerrainRenderer {
           }
         }
         if (frames.cap >= 0) {
-          const capTile = caps.putTileAt(frames.cap, lx, ly);
+          const capTile = caps[ly]!.putTileAt(frames.cap, lx, ly);
           if (capTile && frames.capTintHeight !== null) {
             capTile.tint = heightTint(frames.capTintHeight);
           }
