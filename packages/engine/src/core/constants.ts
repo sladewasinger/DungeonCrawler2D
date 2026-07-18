@@ -8,8 +8,30 @@ export const TICK_DT = 1 / TICK_RATE;
 
 export const MOVE_SPEED = 8;
 export const STEP_UP = 1;
-export const JUMP_VELOCITY = 16;
-export const GRAVITY = 56;
+// Ascent launch speed and ascent-phase gravity. Tuned as a pair against
+// the feel harness (packages/engine/src/entities/feel-harness.ts) to hit
+// a 0.26-0.34s time-to-apex and a 2.5-2.8 tile full-hop apex at the fixed
+// 20Hz tick — see feel.test.ts for the asserted bands.
+export const JUMP_VELOCITY = 17.03;
+export const GRAVITY = 67.8;
+// Descent falls under GRAVITY * this multiplier — snappier landing than
+// ascent, the "come down faster than you went up" modern-platformer feel.
+export const GRAVITY_DESCENT_MULT = 2.0;
+// While |zVel| is below this fraction of JUMP_VELOCITY (near the top of
+// the arc), gravity is scaled by APEX_HANG_GRAVITY_MULT for a brief hang.
+export const APEX_HANG_SPEED_FRACTION = 0.12;
+export const APEX_HANG_GRAVITY_MULT = 0.7;
+// Releasing jump while rising zeroes the remaining ascent (Mario-style
+// hard cut) — but only once zVel has decayed below
+// JUMP_CUT_GRACE_FRACTION * JUMP_VELOCITY. The grace window means a
+// single-tick tap (press then release next tick, as a jump-buffered
+// climb input does) still commits to a full hop instead of stalling
+// underneath the ledge it was meant to clear; only a deliberately held
+// then released jump produces a short hop.
+export const JUMP_CUT_MULTIPLIER = 0;
+export const JUMP_CUT_GRACE_FRACTION = 0.7;
+// Downward speed cap (~2x launch speed) so falls stay controllable.
+export const TERMINAL_FALL_VELOCITY = 2 * JUMP_VELOCITY;
 export const COYOTE_TIME = 0.15;
 export const JUMP_BUFFER_TIME = 0.15;
 export const AIRBORNE_LEDGE_CLEARANCE = 0.18;

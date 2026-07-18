@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TICK_DT, WALL_RISE } from "../core/constants.js";
 import {
   measureChainedPlatforms,
   measureHop,
@@ -7,59 +8,72 @@ import {
 } from "./feel-harness.js";
 
 /**
- * Exercises the feel harness against the CURRENT (v1-ported) physics.
- * No target bands yet — the redesign wave asserts those. These tests
- * only prove the measurements run and return sane, self-consistent
- * numbers; the actual figures are reported alongside this task, not
- * pinned here (pinning them would fossilize the floaty baseline).
+ * Asserts the redesigned jump's feel against fixed target bands, all
+ * measured in whole ticks (TICK_DT, 20Hz) per the physics' discrete
+ * step — see docs/PORT_PLAN.md's "Redesign after baseline" entry for
+ * the bands themselves. Bands, not exact values: the harness is a
+ * deterministic simulation, but the numbers are a tuning target, not a
+ * contract worth pinning to the float.
  */
 
 const DIRECTIONS = ["north", "south", "east", "west"] as const;
 
-describe("feel harness — full vs short hop", () => {
-  it("measures a full hop (jump held)", () => {
+describe("feel — full hop", () => {
+  it("reaches apex in 0.26-0.34s", () => {
     const hop = measureHop(true);
-    expect(hop.totalTicks).toBeGreaterThan(0);
-    expect(hop.ascentTicks).toBeGreaterThan(0);
-    expect(hop.descentTicks).toBeGreaterThan(0);
-    expect(hop.apexHeight).toBeGreaterThan(0);
-    expect(hop.horizontalDistance).toBeGreaterThan(0);
+    const ascentTimeSec = hop.ascentTicks * TICK_DT;
+    expect(ascentTimeSec).toBeGreaterThanOrEqual(0.26);
+    expect(ascentTimeSec).toBeLessThanOrEqual(0.34);
   });
 
-  it("measures a short hop (jump released after takeoff)", () => {
+  it("apexes 2.5-2.8 tiles up, clearing a +2 ledge with >=0.5 margin", () => {
+    const hop = measureHop(true);
+    expect(hop.apexHeight).toBeGreaterThanOrEqual(2.5);
+    expect(hop.apexHeight).toBeLessThanOrEqual(2.8);
+    expect(hop.apexHeight - WALL_RISE).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it("falls from apex in at most 0.8x the ascent time (asymmetric gravity)", () => {
+    const hop = measureHop(true);
+    const ascentTimeSec = hop.ascentTicks * TICK_DT;
+    const descentTimeSec = hop.descentTicks * TICK_DT;
+    expect(descentTimeSec).toBeLessThanOrEqual(0.8 * ascentTimeSec);
+  });
+});
+
+describe("feel — short hop (variable jump height)", () => {
+  it("apexes 1.0-1.6 tiles up — noticeably short of the full hop", () => {
     const hop = measureHop(false);
-    expect(hop.totalTicks).toBeGreaterThan(0);
-    expect(hop.apexHeight).toBeGreaterThan(0);
+    expect(hop.apexHeight).toBeGreaterThanOrEqual(1.0);
+    expect(hop.apexHeight).toBeLessThanOrEqual(1.6);
   });
 
-  it("descent and ascent ticks both contribute to the total", () => {
-    const hop = measureHop(true);
-    expect(hop.ascentTicks + hop.descentTicks).toBe(hop.totalTicks);
+  it("is meaningfully shorter than a full hop", () => {
+    const full = measureHop(true);
+    const short = measureHop(false);
+    expect(short.apexHeight).toBeLessThan(full.apexHeight);
+    expect(short.totalTicks).toBeLessThan(full.totalTicks);
   });
 });
 
-describe("feel harness — ledge and platform chains", () => {
-  it.each(DIRECTIONS)("measures a +2 ledge climb from a standing start (%s)", (direction) => {
+describe("feel — ledge and platform chains stay reliable", () => {
+  it.each(DIRECTIONS)("clears a standing +2 ledge climb (%s)", (direction) => {
     const result = measureLedgeClimb(direction);
-    expect(result.direction).toBe(direction);
-    expect(typeof result.success).toBe("boolean");
-    expect(result.ticksUsed).toBeGreaterThan(0);
+    expect(result.success).toBe(true);
+    expect(result.finalHeight).toBe(2);
   });
 
-  it.each(DIRECTIONS)("measures chaining h0->h2->h4->h6 (%s)", (direction) => {
+  it.each(DIRECTIONS)("chains h0->h2->h4->h6 (%s)", (direction) => {
     const result = measureChainedPlatforms(direction);
-    expect(result.direction).toBe(direction);
-    expect(typeof result.success).toBe("boolean");
-    expect(result.ticksUsed).toBeGreaterThan(0);
+    expect(result.success).toBe(true);
+    expect(result.finalHeight).toBe(6);
   });
 });
 
-describe("feel harness — stair-ramp continuity", () => {
-  it("measures max per-tick |dz| across a 4-tile stair walk up and down", () => {
+describe("feel — stair-ramp continuity is unaffected by the jump retune", () => {
+  it("keeps max per-tick |dz| within a normal step across a 4-tile stair walk", () => {
     const metrics = measureStairContinuity();
-    expect(metrics.ticksUp).toBeGreaterThan(0);
-    expect(metrics.ticksDown).toBeGreaterThan(0);
-    expect(metrics.maxUpDz).toBeGreaterThanOrEqual(0);
-    expect(metrics.maxDownDz).toBeGreaterThanOrEqual(0);
+    expect(metrics.maxUpDz).toBeLessThan(1);
+    expect(metrics.maxDownDz).toBeLessThan(1);
   });
 });

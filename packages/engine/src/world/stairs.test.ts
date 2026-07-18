@@ -3,7 +3,7 @@ import { STEP_UP, TICK_DT } from "../core/constants.js";
 import { hashString } from "../core/rng.js";
 import { createBody, stepBody } from "../entities/movement/index.js";
 import { hasTerrace, terraceSpec } from "./features/terraces.js";
-import { entryClimbDir, stairRampAt } from "./stairs.js";
+import { entryClimbDir, stairRampAt, type StairView } from "./stairs.js";
 import { CHUNK_SIZE, TILE } from "./types.js";
 import { World } from "./world.js";
 
@@ -92,5 +92,78 @@ describe("stairs as physical ramps", () => {
     }
     if (fell !== null) expect(fell).toBeLessThan(2);
     expect(body.z).toBeCloseTo(world.groundAt(body.x, body.y), 5);
+  });
+
+  it("descends the same run entering from the high end, with no airborne flicker", () => {
+    const { x, y } = entry;
+    const body = createBody(x + 0.5, y - 1.5, 2);
+    let flicker = 0;
+    for (let i = 0; i < 30; i++) {
+      stepBody(world, body, { moveX: 0, moveY: 1, jump: false }, TICK_DT);
+      if (!body.grounded) flicker++;
+    }
+    expect(flicker).toBe(0);
+    expect(body.z).toBeCloseTo(0, 5);
+  });
+
+  it("lands correctly when falling onto the ramp mid-descent while moving across it", () => {
+    const { x, y } = entry;
+    const body = createBody(x + 0.5, y + 2.499, 6);
+    let landings = 0;
+    let landedZ = -1;
+    // Stop at the first landing: further travel walks off the terrace's
+    // far (unramped, by design) edge into a second, unrelated fall.
+    for (let i = 0; i < 80 && landings === 0; i++) {
+      const r = stepBody(world, body, { moveX: 0, moveY: -1, jump: false }, TICK_DT);
+      if (r.landed) {
+        landings++;
+        landedZ = body.z;
+      }
+    }
+    expect(landings).toBe(1); // one clean landing, no double-land off the ramp
+    expect(landedZ).toBeCloseTo(world.groundAt(body.x, body.y), 4);
+  });
+});
+
+describe("stair width: walking across a run sideways", () => {
+  /** Mimics terraces.ts's 2-wide south entry: stair columns 10-11 at row
+   * y=10 (height 1), raised interior north of it (y<10, height 2), flat
+   * approach south of it (y>10, height 0). Flanking columns 9 and 12 are
+   * plain floor at whatever height their row implies (no ramp). */
+  function twoWideSouthEntry(): StairView {
+    const stairCols = new Set([10, 11]);
+    return {
+      tileAt: (wx, wy) => (wy === 10 && stairCols.has(wx) ? TILE.Stairs : TILE.Floor),
+      heightAt: (wx, wy) => {
+        if (wy === 10 && stairCols.has(wx)) return 1;
+        return wy < 10 ? 2 : 0;
+      },
+    };
+  }
+
+  it("both columns of a 2-wide run ramp identically at the same row", () => {
+    const view = twoWideSouthEntry();
+    for (const y of [10.9, 10.5, 10.1]) {
+      expect(stairRampAt(view, 10.5, y)).toBeCloseTo(stairRampAt(view, 11.5, y) ?? NaN, 5);
+    }
+  });
+
+  it("reads flat immediately beside the run's own width, not ramped", () => {
+    const view = twoWideSouthEntry();
+    expect(stairRampAt(view, 9.5, 10.5)).toBeNull();
+    expect(stairRampAt(view, 12.5, 10.5)).toBeNull();
+  });
+
+  it("stepping sideways off the ramp onto the flanking approach never leaves the ground", () => {
+    const view = twoWideSouthEntry();
+    const groundAt = (x: number, y: number): number => stairRampAt(view, x, y) ?? view.heightAt(Math.floor(x), Math.floor(y));
+    const world = { isWalkable: () => true, heightAt: view.heightAt, groundAt };
+    const body = createBody(9.5, 10.9, groundAt(9.5, 10.9));
+    let flicker = 0;
+    for (let i = 0; i < 40; i++) {
+      stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
+      if (!body.grounded) flicker++;
+    }
+    expect(flicker).toBe(0);
   });
 });

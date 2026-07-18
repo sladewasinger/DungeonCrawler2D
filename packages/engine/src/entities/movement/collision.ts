@@ -34,17 +34,24 @@ function leadingCorners(
       ];
 }
 
-// Continuous ground: stair tiles ramp with position. The grounded gate is
-// the rise ACROSS THIS MOVE at the corner (target ground minus the ground
-// where that corner is now) — on flat tiles this is the same tile-to-tile
-// delta as ever (walls still block), and on ramps it's the true slope of
-// the step taken, so a staircase never reads as a wall just because the
-// corner looks ahead.
+// Continuous ground: stair tiles ramp with position. The grounded gate
+// compares the corner's target terrain against the body's OWN current z —
+// how far it must rise to stand there — not against groundAt some nearby
+// "before" point. That nearby-point version used to reconstruct the
+// pre-move corner as (cx - dx, cy - dy), but BODY_RADIUS pushes a
+// diagonal leading corner across two tile boundaries (the direction of
+// travel AND the perpendicular one) at once: for a lone raised corner
+// tile that is diagonally adjacent to the body's start position, both
+// the target corner and its "before" point can land on that SAME
+// too-tall tile, netting a false zero rise and letting a grounded body
+// walk straight up a cliff it was only ever diagonally brushing. Body.z
+// has no such blind spot, and stays safe for real ramps too: current
+// content's steepest ramp (rise 2 over STAIR_RUN_LENGTH 2.5) only rises
+// ~(BODY_RADIUS + one tick's travel) * slope ahead of the body each
+// step, well under STEP_UP.
 function cornerBlocksMove(
   world: WorldView,
   body: BodyState,
-  dx: number,
-  dy: number,
   cx: number,
   cy: number,
   blocked?: StepOpts["blocked"],
@@ -54,7 +61,7 @@ function cornerBlocksMove(
   if (!world.isWalkable(tileX, tileY)) return true;
   if (blocked?.(tileX, tileY)) return true;
   const terrain = world.groundAt(cx, cy);
-  if (body.grounded) return terrain - world.groundAt(cx - dx, cy - dy) > STEP_UP;
+  if (body.grounded) return terrain - body.z > STEP_UP;
   return terrain > body.z + AIRBORNE_LEDGE_CLEARANCE;
 }
 
@@ -69,7 +76,7 @@ function tryAxisMove(
   const nx = body.x + dx;
   const ny = body.y + dy;
   for (const [cx, cy] of leadingCorners(body, dx, dy, nx, ny)) {
-    if (cornerBlocksMove(world, body, dx, dy, cx, cy, blocked)) return;
+    if (cornerBlocksMove(world, body, cx, cy, blocked)) return;
   }
   body.x = nx;
   body.y = ny;

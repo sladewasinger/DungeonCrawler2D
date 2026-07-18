@@ -38,9 +38,16 @@ export interface HopMetrics {
   horizontalDistance: number;
 }
 
+// A one-tick tap (press then release next tick) sits inside the jump-cut
+// grace window by design — see JUMP_CUT_GRACE_FRACTION's doc comment —
+// so it still commits to a full hop, matching how a jump-buffered climb
+// input behaves. A "short hop" needs the button held long enough for
+// zVel to decay past the grace window before releasing.
+const SHORT_HOP_HOLD_TICKS = 2;
+
 /** Simulate a hop on flat ground while moving on one axis. `holdJump`
- * true keeps jump held every tick (full hop); false releases it the
- * tick after takeoff (short hop). */
+ * true keeps jump held every tick (full hop); false releases it after
+ * SHORT_HOP_HOLD_TICKS (short hop, past the jump-cut grace window). */
 export function measureHop(holdJump: boolean): HopMetrics {
   const world = fixtureWorld(() => 0);
   const body = createBody(5.5, 5.5, 0);
@@ -49,7 +56,7 @@ export function measureHop(holdJump: boolean): HopMetrics {
   let ascentTicks = 0;
   let totalTicks = 0;
   for (let tick = 1; tick <= MAX_TICKS; tick++) {
-    const jump = holdJump || tick === 1;
+    const jump = holdJump || tick <= SHORT_HOP_HOLD_TICKS;
     const result = stepBody(world, body, { moveX: 1, moveY: 0, jump }, TICK_DT);
     if (body.z > apexHeight) {
       apexHeight = body.z;
