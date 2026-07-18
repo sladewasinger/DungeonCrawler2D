@@ -5,6 +5,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Vite caches
+.vite/
+node_modules/.vite/
+node_modules/.vite-temp/
+
 # Environment / secrets (AI API keys live in server/.env — never commit)
 .env
 .env.*
