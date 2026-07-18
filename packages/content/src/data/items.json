@@ -1,0 +1,76 @@
+[
+  { "id": "rag", "name": "Rag", "tags": ["cloth", "flammable"], "maxStack": 10 },
+  { "id": "stick", "name": "Stick", "tags": ["wood", "flammable"], "maxStack": 10 },
+  {
+    "id": "bandage",
+    "name": "Bandage",
+    "tags": ["cloth"],
+    "maxStack": 5,
+    "consumable": { "effects": [{ "primitive": "apply_status", "status": "bandaged" }] }
+  },
+  {
+    "id": "knife",
+    "name": "Knife",
+    "tags": ["sharp", "metal"],
+    "maxStack": 1,
+    "weapon": { "damage": 6, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
+  },
+  {
+    "id": "sword",
+    "name": "Rusty Sword",
+    "tags": ["sharp", "metal"],
+    "maxStack": 1,
+    "weapon": { "damage": 8, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
+  },
+  {
+    "id": "hammer",
+    "name": "Heavy Hammer",
+    "tags": ["blunt", "metal"],
+    "maxStack": 1,
+    "weapon": { "damage": 10, "applies": [{ "status": "slowed", "chance": 0.5 }] }
+  },
+  {
+    "id": "torch",
+    "name": "Torch",
+    "tags": ["wood", "fire"],
+    "maxStack": 3,
+    "weapon": { "damage": 2, "applies": [{ "status": "on-fire", "chance": 0.5 }] },
+    "throwable": {
+      "onImpact": [{ "primitive": "spawn_area", "area": "area-fire", "radius": 1 }],
+      "breakChance": 1
+    }
+  },
+  {
+    "id": "vodka-bottle",
+    "name": "Vodka Bottle",
+    "tags": ["glass", "liquid", "flammable"],
+    "maxStack": 3,
+    "throwable": {
+      "onImpact": [{ "primitive": "spawn_area", "area": "area-oil", "radius": 1 }],
+      "breakChance": 1
+    }
+  },
+  {
+    "id": "water-flask",
+    "name": "Water Flask",
+    "tags": ["liquid"],
+    "maxStack": 3,
+    "consumable": { "effects": [{ "primitive": "modify_health", "amount": 2 }] },
+    "throwable": {
+      "onImpact": [{ "primitive": "spawn_area", "area": "area-wet", "radius": 1 }],
+      "breakChance": 0.5
+    }
+  },
+  {
+    "id": "raw-meat",
+    "name": "Raw Meat",
+    "tags": ["organic", "food"],
+    "maxStack": 5,
+    "consumable": {
+      "effects": [
+        { "primitive": "modify_health", "amount": 1 },
+        { "primitive": "apply_status", "status": "poisoned", "chance": 0.3 }
+      ]
+    }
+  }
+]

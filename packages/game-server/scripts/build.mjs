@@ -1,15 +1,15 @@
-// Bundles the game-server into a single Node ESM file (dist/main.js) for prod deploys.
+// Bundles the game-server into the single CJS file (dist/main.cjs) the EC2 systemd unit and deploy workflow expect.
 import { build } from "esbuild";
 
 await build({
   entryPoints: ["src/main.ts"],
-  outfile: "dist/main.js",
+  outfile: "dist/main.cjs",
   bundle: true,
   platform: "node",
-  format: "esm",
+  format: "cjs",
   target: "node22",
   packages: "bundle",
   sourcemap: true,
 });
 
-console.log("[build] wrote dist/main.js");
+console.log("[build] wrote dist/main.cjs");

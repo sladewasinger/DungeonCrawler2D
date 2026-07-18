@@ -52,6 +52,24 @@ snapshots, social, helpers → `sim/` facade with tick order in `index.ts` `step
 plus server.ts (ws transport), store.ts, main.ts. `actions.ts` (290 lines) splits
 (likely melee vs item-use vs interact seams). Sim tests port and stay green.
 
+## Deploy contract (existing Terraform stays untouched)
+
+The live stack at `dungeoncrawl2d.austinwasinger.com` (infra/) is kept as-is; v2 is a
+clean artifact swap. Code must honor:
+
+- **Server bundle:** `packages/game-server/dist/main.cjs` (CJS, node22) — systemd runs
+  `node main.cjs`; build script already emits this.
+- **Server env (systemd unit):** `GAME_PORT` (8081 prod, default 8787 dev),
+  `WORLD_SEED`, `STORE_FILE`, `DEBUG_COMMANDS=0`, `NODE_ENV=production`. `CUSTOM_MAP`
+  may be set — ignore it gracefully (feature dropped).
+- **Client:** builds to `packages/client/dist`; connects same-origin `wss://<host>/ws`
+  in prod (CloudFront `/ws*` behavior proxies to EC2 :8081) and `ws://localhost:8787`
+  in dev.
+- **Smoke script:** `tools/smoke-production.mjs <siteUrl>` must exist and join the
+  deployed server via the public endpoint (the deploy workflow calls it) — restore
+  against the v2 protocol in the server wave.
+- Deploys fire only on push to `main`; the rebuild branch never auto-deploys.
+
 ## Client rebuild (new code, the beauty investment)
 
 ```
@@ -74,6 +92,30 @@ client/src/
 Netcode/input port from v1 (proven); everything visual is new. Every scene/render
 file obeys the 200-line cap from birth — the v1 client's 639-line `entities.ts` is
 the anti-example.
+
+## Redesign after baseline (2026-07-18 — user directive)
+
+The port is a **baseline, not the destination**. Four v1 weaknesses are slated for
+deliberate redesign immediately after the engine baseline lands (behavior changes are
+*expected* here; the port-fidelity rule above stops applying once these waves start):
+
+1. **Jump/physics feel** (`core/constants`, `entities/movement`): v1's jump is
+   floaty/unsatisfying. Rework for snappy ascent, variable jump height (jump-cut on
+   release), stronger descent gravity, brief apex hang. Tuned against measurable
+   targets in a headless arc-simulation harness (time-to-apex, +2 clearance margin,
+   full-hop vs short-hop delta); chained-platform traversal must stay reliable.
+2. **World generation** (`world/`): v1 layouts read as noise-mush, not places. New
+   generator producing readable rooms/corridors/caverns and purposeful height
+   features, judged from rendered PNG proofs of real chunks. Invariants that stay:
+   byte-determinism from (seed, floor, chunk), cross-chunk connectivity, lazy
+   chunk-locality, flat-first with deliberate height.
+3. **Elevation model correctness** (`entities/movement`, `world/stairs`): targeted
+   audit + tests of step-up, stair ramps (`groundAt`), landing tolerance, ledge
+   clearance — the "elevation feels broken" bug class.
+4. **Height rendering** (client, new code): cliff faces at every rise, wall occlusion
+   correct from both approaches, feet-anchored depth sorting, shadows glued to
+   ground, elevation readable via light. Verified by screenshot against
+   VISUAL_DIRECTION.md before the wave closes.
 
 ## Sequencing
 

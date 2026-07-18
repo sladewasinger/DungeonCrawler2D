@@ -1,0 +1,13 @@
+{
+  "name": "@dc2d/tools",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Standalone art/atlas pipeline tooling. Self-contained: own deps, own lockfile, never touches the workspace root.",
+  "scripts": {
+    "bake-atlas": "node bake-atlas.mjs"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
+  }
+}

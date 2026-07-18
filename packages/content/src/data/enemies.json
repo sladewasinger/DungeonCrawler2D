@@ -1,0 +1,64 @@
+[
+  {
+    "id": "slime",
+    "name": "Slime",
+    "tags": ["organic", "slime"],
+    "hp": 12,
+    "speed": 3,
+    "aggroRadius": 8,
+    "attack": { "damage": 2, "range": 0.9, "cooldown": 1.2 },
+    "immunities": ["bleed"],
+    "drops": [{ "item": "rag", "chance": 0.4 }],
+    "sprite": "slime"
+  },
+  {
+    "id": "plant-creeper",
+    "name": "Plant Creeper",
+    "tags": ["organic", "plant", "flammable"],
+    "hp": 18,
+    "speed": 2,
+    "aggroRadius": 6,
+    "attack": { "damage": 4, "range": 1, "cooldown": 1.5 },
+    "damageScale": { "fire": 2 },
+    "drops": [
+      { "item": "stick", "chance": 0.9 },
+      { "item": "rag", "chance": 0.3 }
+    ],
+    "sprite": "plant-creeper"
+  },
+  {
+    "id": "skeleton",
+    "name": "Skeleton",
+    "tags": ["undead"],
+    "hp": 20,
+    "speed": 4.5,
+    "aggroRadius": 12,
+    "attack": { "damage": 5, "range": 1.1, "cooldown": 1 },
+    "immunities": ["bleed", "poison"],
+    "drops": [
+      { "item": "knife", "chance": 0.15 },
+      { "item": "bandage", "chance": 0.25 }
+    ],
+    "sprite": "skeleton"
+  },
+  {
+    "id": "spitter",
+    "name": "Spitter",
+    "tags": ["organic"],
+    "hp": 14,
+    "speed": 3.5,
+    "aggroRadius": 10,
+    "attack": {
+      "damage": 3,
+      "range": 7,
+      "cooldown": 2,
+      "ranged": true,
+      "applies": [{ "status": "poisoned", "chance": 0.5 }]
+    },
+    "drops": [
+      { "item": "water-flask", "chance": 0.3 },
+      { "item": "raw-meat", "chance": 0.5 }
+    ],
+    "sprite": "spitter"
+  }
+]

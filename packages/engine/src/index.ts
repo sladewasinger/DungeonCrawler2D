@@ -1,3 +1,24 @@
 // Public facade for @dc2d/engine — consumers import from here, never from siblings.
-// Placeholder: only the seeded-hash primitive exists until the sim modules land.
-export { seededFloat, seededHash } from "./core/hash.js";
+export * from "./core/constants.js";
+export * from "./core/rng.js";
+export * from "./core/noise.js";
+export * from "./world/types.js";
+export * from "./world/level.js";
+export * from "./world/stairs.js";
+export * from "./world/terrain.js";
+export * from "./world/features/fixed.js";
+export * from "./world/features/platforms.js";
+export * from "./world/pockets.js";
+export * from "./world/features/terraces.js";
+export * from "./world/generate.js";
+export * from "./world/features/rooms.js";
+export * from "./world/world.js";
+export * from "./entities/entity.js";
+export * from "./entities/movement/index.js";
+export * from "./entities/projectile.js";
+export * from "./effects/types.js";
+export * from "./effects/system.js";
+export * from "./areas/system.js";
+export * from "./combat/melee.js";
+export * from "./combat/ai.js";
+export * from "./net/messages.js";
