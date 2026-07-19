@@ -52,15 +52,15 @@ describe("GameSim: standing effects and fall damage", () => {
       expect(entity.body.z).toBe(0);
     };
 
-    dropFrom(8);
+    dropFrom(4);
     // (8 - SAFE_FALL 3) x 6 dmg/unit = 30.
     expect(entity.hp).toBe(70);
 
-    dropFrom(2); // under the safe-fall threshold: free
+    dropFrom(1); // under the safe-fall threshold: free
     expect(entity.hp).toBe(70);
 
     sim.effects.applyStatus(entity, "feather-fall", []);
-    dropFrom(8);
+    dropFrom(4);
     expect(entity.hp).toBe(70);
   });
 
@@ -75,8 +75,8 @@ describe("GameSim: standing effects and fall damage", () => {
     // the arc's peak, so it stays under SAFE_FALL and is free — that
     // invariant is unchanged by the jump retune (see movement/physics.ts).
     teleport(entity, flat.x, flat.y, sim);
-    entity.body.z = 2;
-    entity.body.fallStart = 2;
+    entity.body.z = 1;
+    entity.body.fallStart = 1;
     entity.body.zVel = JUMP_VELOCITY;
     entity.body.grounded = false;
     stepN(sim, 40); // up, over the (now snappier) peak, down, land

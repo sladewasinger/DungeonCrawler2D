@@ -20,8 +20,8 @@ describe("groundFaceRowAt", () => {
     expect(groundFaceRowAt(world, 0, 7)).toBeNull();
   });
 
-  it("a z1-style sub-threshold drop casts nothing (ramps stay clean)", () => {
-    const world = terrain({ 4: 1, 5: 0 });
+  it("a sub-threshold drop casts nothing (ramps stay clean)", () => {
+    const world = terrain({ 4: 0.7, 5: 0 });
     expect(groundFaceRowAt(world, 0, 5)).toBeNull();
   });
 

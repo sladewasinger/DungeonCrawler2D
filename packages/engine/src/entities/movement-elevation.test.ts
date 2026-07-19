@@ -67,8 +67,15 @@ describe("diagonal corner-clip", () => {
 });
 
 describe("STEP_UP walking, up and down", () => {
-  it("climbs a staircase of 1-height steps with no airborne flicker and no speed loss", () => {
-    const world = fakeWorld({ heightFn: (x) => Math.max(0, Math.floor(x) - 7) });
+  // Each tile rises 0.3 — comfortably under the post-rescale STEP_UP
+  // (0.35), unlike a flat 1-per-tile staircase (that magnitude now
+  // exceeds STEP_UP and free-falls instead — see the chasm/threshold
+  // ramp fixes in world/generate/height.ts for the real-content version
+  // of this same rule).
+  const STAIR_STEP = 0.3;
+
+  it("climbs a staircase of small steps with no airborne flicker and no speed loss", () => {
+    const world = fakeWorld({ heightFn: (x) => Math.max(0, Math.floor(x) - 7) * STAIR_STEP });
     const body = createBody(5.5, 5.5, 0);
     const xs: number[] = [];
     for (let i = 0; i < 30; i++) {
@@ -81,8 +88,8 @@ describe("STEP_UP walking, up and down", () => {
     }
   });
 
-  it("descends a staircase of 1-height steps with no airborne flicker and no speed loss", () => {
-    const heightFn = (x: number): number => Math.max(0, 22 - Math.floor(x));
+  it("descends a staircase of small steps with no airborne flicker and no speed loss", () => {
+    const heightFn = (x: number): number => Math.max(0, 22 - Math.floor(x)) * STAIR_STEP;
     const world = fakeWorld({ heightFn });
     const body = createBody(5.5, 5.5, heightFn(5.5));
     const xs: number[] = [];
@@ -125,7 +132,7 @@ describe("ledge-grip edge cases", () => {
   });
 
   it("a jump arc that falls short of a too-tall ledge is blocked the whole way, never clips onto it", () => {
-    const ledgeHeight = 3; // above the full-hop apex (~2.57): unreachable without a taller jump
+    const ledgeHeight = 3; // above the full-hop apex (~1.3): unreachable without a taller jump
     const world = fakeWorld({ heightFn: (x) => (x >= 8 ? ledgeHeight : 0) });
     const body = createBody(7.4, 5.5, 0);
     stepBody(world, body, { moveX: 1, moveY: 0, jump: true }, TICK_DT);

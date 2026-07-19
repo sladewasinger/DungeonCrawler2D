@@ -1,5 +1,5 @@
 // Collapsed tower landmark (ruins district): concentric rings stepping up
-// +2 per tier toward a rubble-strewn core — climbable tier by tier, exactly
+// +1 per tier toward a rubble-strewn core — climbable tier by tier, exactly
 // the jump-apex language the rest of the world uses. Anchored DIAGONALLY off
 // the chunk's own corridor-junction point (same trick as
 // features/platforms.ts's clusterCenter): the junction is where local
@@ -13,7 +13,7 @@ import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkCenter } 
 
 const OUTER_RADIUS = 9;
 const RING_STEP = 3; // tiles per tier
-export const TIER_RISE = 2; // height per tier — the jumpable step
+export const TIER_RISE = 1; // height per tier — the jumpable step
 /** The tower's peak height (core tier), for tests bounding the world's overall height budget. */
 export const TOWER_MAX_RISE = Math.floor(OUTER_RADIUS / RING_STEP) * TIER_RISE;
 const RUBBLE_CHANCE_DENOM = 6;

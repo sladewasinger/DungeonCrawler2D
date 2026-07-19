@@ -10,31 +10,31 @@ function luminance(tint: number): number {
 
 describe("heightTint", () => {
   it("raised ground is brighter than floor level — height reads as relative light", () => {
-    expect(luminance(heightTint(2))).toBeGreaterThan(luminance(heightTint(0)));
+    expect(luminance(heightTint(1))).toBeGreaterThan(luminance(heightTint(0)));
   });
 
   it("clamps at the dais endpoint", () => {
-    expect(heightTint(2)).toBe(heightTint(6));
+    expect(heightTint(1)).toBe(heightTint(6));
   });
 
   it("darkens progressively toward the pit floor", () => {
     const surface = luminance(heightTint(0));
-    const shallow = luminance(heightTint(-1));
-    const deep = luminance(heightTint(-2));
+    const shallow = luminance(heightTint(-0.5));
+    const deep = luminance(heightTint(-1));
     expect(shallow).toBeLessThan(surface);
     expect(deep).toBeLessThan(shallow);
   });
 
   it("goes near-black at chasm depth", () => {
-    expect(heightTint(-4)).toBe(CHASM_TINT);
-    expect(heightTint(-3)).toBe(CHASM_TINT);
+    expect(heightTint(-2)).toBe(CHASM_TINT);
+    expect(heightTint(-1.5)).toBe(CHASM_TINT);
   });
 });
 
 describe("isChasmDepth", () => {
   it("is true only at/below the chasm threshold", () => {
-    expect(isChasmDepth(-3)).toBe(true);
-    expect(isChasmDepth(-2.9)).toBe(false);
+    expect(isChasmDepth(-1.5)).toBe(true);
+    expect(isChasmDepth(-1.4)).toBe(false);
     expect(isChasmDepth(0)).toBe(false);
   });
 });

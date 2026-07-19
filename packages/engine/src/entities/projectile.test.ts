@@ -10,7 +10,7 @@ function facadeWorld(): WorldView {
     heightAt: () => 0,
     groundAt: () => 0,
     wallFaceAt: (x, y) =>
-      x === 1 && y === 0 ? { sourceX: 1, sourceY: -1, bottom: 0, top: 2 } : null,
+      x === 1 && y === 0 ? { sourceX: 1, sourceY: -1, bottom: 0, top: 2, span: 2 } : null,
   };
 }
 

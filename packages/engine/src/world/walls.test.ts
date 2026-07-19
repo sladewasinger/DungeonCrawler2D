@@ -28,8 +28,8 @@ function findWallStep(world: World): { floor: { x: number; y: number }; wall: { 
           if (world.tileAt(x + 1, y) !== TILE.Wall) continue;
           const rise = world.heightAt(x + 1, y) - world.heightAt(x, y);
           // Terrain varies under both tiles; take a clean, clearly
-          // jumpable step (jump apex ≈ 2.2).
-          if (rise > 1.6 && rise < 2.05) return { floor: { x, y }, wall: { x: x + 1, y } };
+          // jumpable step (jump apex ≈ 1.07).
+          if (rise > 0.8 && rise < 1.025) return { floor: { x, y }, wall: { x: x + 1, y } };
         }
       }
     }
@@ -41,7 +41,7 @@ describe("walls as raised terrain", () => {
   it("derives a non-walkable facade on the lower tile beneath a south wall", () => {
     const world = new World(1337, 1);
     expect(world.tileAt(52, 42)).toBe(TILE.Floor);
-    expect(world.wallFaceAt(52, 42)).toEqual({ sourceX: 52, sourceY: 41, bottom: 0, top: 2 });
+    expect(world.wallFaceAt(52, 42)).toEqual({ sourceX: 52, sourceY: 41, bottom: 0, top: 1, span: 1 });
     expect(world.isWalkable(52, 42)).toBe(false);
   });
 

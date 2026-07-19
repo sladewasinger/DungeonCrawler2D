@@ -174,11 +174,23 @@ export interface WalkBounds {
   maxY: number;
 }
 
-/** Whether (nx, ny) is a valid walking step from height curH (no wall-hop, rise capped). */
-function canWalkOnto(world: ChunkLookup, bounds: WalkBounds, curH: number, nx: number, ny: number): boolean {
+/** Whether (nx, ny) is a valid walking step from height curH (no wall-hop, rise capped).
+ * A Stairs tile at either end ramps continuously in real physics
+ * (stairRampAt), so this discrete per-tile check — which only sees a
+ * tile's own resting height — must not gate on STEP_UP there: the real
+ * body walks it smoothly regardless of the raw height delta. */
+function canWalkOnto(
+  world: ChunkLookup,
+  bounds: WalkBounds,
+  curH: number,
+  curStairs: boolean,
+  nx: number,
+  ny: number,
+): boolean {
   if (nx < bounds.minX || ny < bounds.minY || nx > bounds.maxX || ny > bounds.maxY) return false;
   if (!world.isWalkable(nx, ny)) return false;
   if (world.tileAt(nx, ny) === TILE.Wall) return false; // walking, not jumping
+  if (curStairs || world.tileAt(nx, ny) === TILE.Stairs) return true;
   return world.heightAt(nx, ny) - curH <= STEP_UP;
 }
 
@@ -190,11 +202,12 @@ export function walkableReachable(world: ChunkLookup, start: { x: number; y: num
     const cur = queue[head++];
     if (!cur) continue;
     const curH = world.heightAt(cur.x, cur.y);
+    const curStairs = world.tileAt(cur.x, cur.y) === TILE.Stairs;
     for (const [dx, dy] of NEIGHBOR_DIRS) {
       const nx = cur.x + dx;
       const ny = cur.y + dy;
       const key = `${nx},${ny}`;
-      if (reached.has(key) || !canWalkOnto(world, bounds, curH, nx, ny)) continue;
+      if (reached.has(key) || !canWalkOnto(world, bounds, curH, curStairs, nx, ny)) continue;
       reached.add(key);
       queue.push({ x: nx, y: ny });
     }

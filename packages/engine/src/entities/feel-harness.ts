@@ -108,29 +108,29 @@ function climbToward(
   return { success: false, ticksUsed: budget };
 }
 
-/** Standing one tile from a +2 ledge, attempt to clear it. */
+/** Standing one tile from a +1 ledge, attempt to clear it. */
 export function measureLedgeClimb(direction: "north" | "south" | "east" | "west"): ClimbResult {
   const [dx, dy] = dirVector(direction);
   const progress = (x: number, y: number): number => (dx !== 0 ? x * dx : y * dy);
-  const world = fixtureWorld((x, y) => (progress(x, y) >= 8 ? 2 : 0));
+  const world = fixtureWorld((x, y) => (progress(x, y) >= 8 ? 1 : 0));
   const body = createBody(dx * 7.2 || 5.5, dy * 7.2 || 5.5, 0);
-  const { success, ticksUsed } = climbToward(world, body, { moveX: dx, moveY: dy }, 2, 30);
+  const { success, ticksUsed } = climbToward(world, body, { moveX: dx, moveY: dy }, 1, 30);
   return { direction, success, ticksUsed, finalHeight: body.z };
 }
 
-/** Chain h0 -> h2 -> h4 -> h6 platforms spaced two tiles apart. */
+/** Chain h0 -> h1 -> h2 -> h3 platforms spaced two tiles apart. */
 export function measureChainedPlatforms(direction: "north" | "south" | "east" | "west"): ClimbResult {
   const [dx, dy] = dirVector(direction);
   const progress = (x: number, y: number): number => (dx !== 0 ? x * dx : y * dy);
   const heightFn = (x: number, y: number): number => {
     const p = progress(x, y);
-    return p >= 12 ? 6 : p >= 10 ? 4 : p >= 8 ? 2 : 0;
+    return p >= 12 ? 3 : p >= 10 ? 2 : p >= 8 ? 1 : 0;
   };
   const world = fixtureWorld(heightFn);
   const body = createBody(dx * 7.2 || 5.5, dy * 7.2 || 5.5, 0);
   const move = { moveX: dx, moveY: dy };
   let ticksUsed = 0;
-  for (const target of [2, 4, 6]) {
+  for (const target of [1, 2, 3]) {
     const step = climbToward(world, body, move, target, 30);
     ticksUsed += step.ticksUsed;
     if (!step.success) return { direction, success: false, ticksUsed, finalHeight: body.z };

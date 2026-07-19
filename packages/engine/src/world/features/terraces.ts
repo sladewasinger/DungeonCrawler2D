@@ -25,7 +25,7 @@ import { CHUNK_SIZE, TILE } from "../types.js";
  * districts).
  */
 
-export const TERRACE_RISE = 2;
+export const TERRACE_RISE = 1;
 const TERRACE_MODULUS = 4; // ~1 in 4 eligible chunks
 
 export function hasTerrace(

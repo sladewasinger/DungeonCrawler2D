@@ -15,9 +15,9 @@ import { CHUNK_SIZE, TILE } from "../types.js";
 /**
  * Ruin platform clusters — the jump playground of the overworld.
  * Roughly one chunk in four grows a flattened pad holding a handful of
- * mesas raised in +2 steps: +2 is exactly jumpable (jump apex ≈ 2.2),
+ * mesas raised in +1 steps: +1 is exactly jumpable (jump apex ≈ 1.07),
  * so you hop pad → mesa → across 1–3 tile gaps — and the tall central
- * mesa adds a second +2 step to +4. The server drops loot on the tops;
+ * mesa adds a second +1 step to +2. The server drops loot on the tops;
  * knockback near an edge is exactly as dangerous as it sounds.
  *
  * Everything derives from (worldSeed, floor, chunk) hashes and stays
@@ -28,7 +28,7 @@ import { CHUNK_SIZE, TILE } from "../types.js";
  */
 
 const PLATFORM_MODULUS = 4; // ~1 in 4 eligible chunks
-export const PLATFORM_TIER_STEP = 2; // jumpable rise per tier
+export const PLATFORM_TIER_STEP = 1; // jumpable rise per tier
 const PAD = 8; // flattened pad half-size (chebyshev)
 const PAD_MARGIN = 2; // height-blend apron around the pad
 const REACH = PAD + PAD_MARGIN;
@@ -41,7 +41,7 @@ interface Mesa {
   /** Half-sizes: mesa spans (dx±hx, dy±hy) around the cluster center. */
   hx: number;
   hy: number;
-  /** 1 → +2, 2 → +4 (as a second step on top of a tier-1 skirt). */
+  /** 1 → +1, 2 → +2 (as a second step on top of a tier-1 skirt). */
   tier: 1 | 2;
 }
 
@@ -108,7 +108,7 @@ function mesasFor(seeds: Seeds, cx: number, cy: number): Mesa[] {
   return mesas;
 }
 
-/** Raised height (0, +2, or +4) this cluster adds at a local offset. */
+/** Raised height (0, +1, or +2) this cluster adds at a local offset. */
 function mesaRiseAt(mesas: Mesa[], ox: number, oy: number): number {
   let rise = 0;
   for (const m of mesas) {

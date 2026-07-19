@@ -74,4 +74,6 @@ export interface WallFace {
   readonly sourceY: number;
   readonly bottom: number;
   readonly top: number;
+  /** Rows this facade projects across south of sourceY, 1-3 (capped — see wallFaceAt). */
+  readonly span: number;
 }

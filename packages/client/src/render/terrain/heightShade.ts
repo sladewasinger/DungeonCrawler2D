@@ -5,9 +5,9 @@
 // faces/edges/shadows — never from per-tile highlight rectangles (they wallpaper
 // the grid, the exact defect this module used to cause).
 
-const LOW_HEIGHT = -2; // a sunken pit floor
-const HIGH_HEIGHT = 2; // a dais / wall-top rise
-const CHASM_THRESHOLD = -3; // below this reads as void, not "deep pit"
+const LOW_HEIGHT = -1; // a sunken pit floor (1z = 1 tile)
+const HIGH_HEIGHT = 1; // a dais / wall-top rise (1z = 1 tile)
+const CHASM_THRESHOLD = -1.5; // below this reads as void, not "deep pit"
 
 /** Cools the pack's native warm-brown stone toward the doc's #2e2e3a..#494956 blue-grey. */
 const PALETTE_GRADE = 0xa8acc8;

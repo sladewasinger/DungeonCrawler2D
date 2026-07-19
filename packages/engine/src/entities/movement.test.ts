@@ -80,15 +80,15 @@ describe("movement", () => {
     expect(blocked.z).toBe(0);
   });
 
-  it("jumping clears a 2-high ledge", () => {
-    const world = fakeWorld({ heightFn: (x) => (x >= 8 ? 2 : 0) });
+  it("jumping clears a 1-high ledge", () => {
+    const world = fakeWorld({ heightFn: (x) => (x >= 8 ? 1 : 0) });
     const body = createBody(7.4, 5.5, 0);
     // Jump, then keep pushing toward the ledge.
     stepBody(world, body, { moveX: 1, moveY: 0, jump: true }, TICK_DT);
     runTicks(world, body, { moveX: 1, moveY: 0, jump: false }, 30);
     expect(body.x).toBeGreaterThan(8);
     expect(body.grounded).toBe(true);
-    expect(body.z).toBeCloseTo(2, 5);
+    expect(body.z).toBeCloseTo(1, 5);
   });
 
   it.each([
@@ -96,47 +96,47 @@ describe("movement", () => {
     ["west", -1, 0],
     ["south", 0, 1],
     ["north", 0, -1],
-  ] as const)("reliably chains h0→h2→h4 when approaching %s", (_name, dirX, dirY) => {
+  ] as const)("reliably chains h0→h1→h2 when approaching %s", (_name, dirX, dirY) => {
     const progress = (x: number, y: number) => (dirX !== 0 ? x * dirX : y * dirY);
     const world = fakeWorld({
       heightFn: (x, y) => {
         const p = progress(x, y);
-        return p >= 11 ? 4 : p >= 8 ? 2 : 0;
+        return p >= 11 ? 2 : p >= 8 ? 1 : 0;
       },
       groundFn: (x, y) => {
         const p = progress(x, y);
-        return p >= 11 ? 4 : p >= 8 ? 2 : 0;
+        return p >= 11 ? 2 : p >= 8 ? 1 : 0;
       },
     });
     const body = createBody(dirX * 7.2 || 5.5, dirY * 7.2 || 5.5, 0);
     const move = { moveX: dirX, moveY: dirY, jump: false };
 
     stepBody(world, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 20 && !(body.grounded && body.z === 2); i++) stepBody(world, body, move, TICK_DT);
+    for (let i = 0; i < 20 && !(body.grounded && body.z === 1); i++) stepBody(world, body, move, TICK_DT);
     expect(body.grounded).toBe(true);
-    expect(body.z).toBe(2);
+    expect(body.z).toBe(1);
 
     stepBody(world, body, move, TICK_DT);
     stepBody(world, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 24 && !(body.grounded && body.z === 4); i++) stepBody(world, body, move, TICK_DT);
+    for (let i = 0; i < 24 && !(body.grounded && body.z === 2); i++) stepBody(world, body, move, TICK_DT);
     expect(body.grounded).toBe(true);
-    expect(body.z).toBe(4);
+    expect(body.z).toBe(2);
   });
 
   it("chains diagonal platform corners without bypassing a too-tall rise", () => {
     const diagonal = fakeWorld({
-      heightFn: (x, y) => (x >= 11 && y >= 11 ? 4 : x >= 8 && y >= 8 ? 2 : 0),
-      groundFn: (x, y) => (x >= 11 && y >= 11 ? 4 : x >= 8 && y >= 8 ? 2 : 0),
+      heightFn: (x, y) => (x >= 11 && y >= 11 ? 2 : x >= 8 && y >= 8 ? 1 : 0),
+      groundFn: (x, y) => (x >= 11 && y >= 11 ? 2 : x >= 8 && y >= 8 ? 1 : 0),
     });
     const body = createBody(7.2, 7.2, 0);
     const move = { moveX: 1, moveY: 1, jump: false };
     stepBody(diagonal, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 28 && !(body.grounded && body.z === 2); i++) stepBody(diagonal, body, move, TICK_DT);
-    expect(body.z).toBe(2);
+    for (let i = 0; i < 28 && !(body.grounded && body.z === 1); i++) stepBody(diagonal, body, move, TICK_DT);
+    expect(body.z).toBe(1);
     stepBody(diagonal, body, move, TICK_DT);
     stepBody(diagonal, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 32 && !(body.grounded && body.z === 4); i++) stepBody(diagonal, body, move, TICK_DT);
-    expect(body.z).toBe(4);
+    for (let i = 0; i < 32 && !(body.grounded && body.z === 2); i++) stepBody(diagonal, body, move, TICK_DT);
+    expect(body.z).toBe(2);
 
     const tooTall = fakeWorld({ heightFn: (x) => (x >= 8 ? 3 : 0) });
     const blocked = createBody(7.2, 5.5, 0);

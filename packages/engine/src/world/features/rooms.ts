@@ -122,10 +122,10 @@ export function personalRoomFeatures(slot: number): {
  * fighting in anyone's home.
  */
 /**
- * Room walls rise far beyond the jump apex (≈2.2): stretch rooms stay
+ * Room walls rise far beyond the jump apex (≈1.07): stretch rooms stay
  * sealed — no hopping the perimeter into the void band.
  */
-const ROOM_WALL_RISE = 6;
+const ROOM_WALL_RISE = 3;
 
 type RoomKind = "personal" | "party" | "safe";
 

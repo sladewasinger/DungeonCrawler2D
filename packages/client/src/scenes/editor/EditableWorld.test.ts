@@ -16,11 +16,19 @@ describe("EditableWorld", () => {
     expect(world.wallFaceAt(5, 6)).toBeNull();
   });
 
-  it("raised floors block sub-facade drops only via height, not facades", () => {
+  it("raised floors cast span-proportional facades; sub-threshold drops stay clean", () => {
+    // Generalized contract: ANY higher surface projects — a z2 floor terrace
+    // blocks two southern cells (its visible face rows), matching the engine.
     const world = new EditableWorld();
     world.setCell(3, 3, TILE.Floor, 2);
-    expect(world.wallFaceAt(3, 4)).toBeNull();
-    expect(world.isWalkable(3, 4)).toBe(true);
+    expect(world.wallFaceAt(3, 4)).toMatchObject({ sourceY: 3, top: 2, span: 2 });
+    expect(world.wallFaceAt(3, 5)).toMatchObject({ sourceY: 3, span: 2 });
+    expect(world.wallFaceAt(3, 6)).toBeNull();
+    expect(world.isWalkable(3, 4)).toBe(false);
+    const gentle = new EditableWorld();
+    gentle.setCell(3, 3, TILE.Floor, 0.7);
+    expect(gentle.wallFaceAt(3, 4)).toBeNull();
+    expect(gentle.isWalkable(3, 4)).toBe(true);
   });
 
   it("outside the grid reads as chasm void", () => {

@@ -1,5 +1,6 @@
 import { generateChunk } from "./generate.js";
 import { WALL_FACE_MIN_DROP } from "../core/constants.js";
+import { isRoomChunk } from "./features/rooms.js";
 import { LEVEL, type LevelId } from "./level.js";
 import { stairRampAt } from "./stairs.js";
 import {
@@ -13,6 +14,19 @@ import {
   type WallFace,
   type ZoneType,
 } from "./types.js";
+
+/** Span cap: a facade projects at most this many rows south of its source. */
+const SPAN_CAP = 3;
+
+/** The four door tiles punch through: never a facade source, never a facade host. */
+function isDoorTile(tile: TileType): boolean {
+  return (
+    tile === TILE.DoorSafeRoom ||
+    tile === TILE.DoorPersonal ||
+    tile === TILE.DoorParty ||
+    tile === TILE.DoorExit
+  );
+}
 
 /**
  * Lazy chunk cache over the deterministic generator. Both the game
@@ -66,22 +80,37 @@ export class World implements WorldView {
     return !SOLID_TILES.has(this.tileAt(wx, wy)) && this.wallFaceAt(wx, wy) === null;
   }
 
+  /**
+   * A visible south-facing drop projected onto this tile from a raised
+   * source up to SPAN_CAP rows north (any tile type — a facade is a
+   * HEIGHT phenomenon, not a Wall-only one: raised floor casts a facade
+   * just like a wall does). Doors never source or host a facade — a
+   * door tile always punches through, and never counts as the raised
+   * surface behind one. Bounded scan: at most SPAN_CAP north lookups.
+   *
+   * Stretch rooms (features/rooms.ts) never produce facades: their
+   * ROOM_WALL_RISE perimeter is a sealed, unclimbable boundary — a
+   * different doctrine from the overworld's jumpable WALL_RISE — and it
+   * rises far more than a facade's span is meant to project. Without this
+   * exemption, any interior tile within SPAN_CAP rows of that wall (the
+   * spawn point, the stash, the crafting table — all placed on the first
+   * interior row by design) would read as blocked/ejectable, which is
+   * wrong: they're plain sanctuary floor, not a cliff base.
+   */
   wallFaceAt(wx: number, wy: number): WallFace | null {
-    const tile = this.tileAt(wx, wy);
-    if (
-      tile === TILE.Wall ||
-      tile === TILE.DoorSafeRoom ||
-      tile === TILE.DoorPersonal ||
-      tile === TILE.DoorParty ||
-      tile === TILE.DoorExit
-    ) {
-      return null;
+    if (isRoomChunk(Math.floor(wy / CHUNK_SIZE))) return null;
+    if (isDoorTile(this.tileAt(wx, wy))) return null;
+    for (let offset = 1; offset <= SPAN_CAP; offset++) {
+      const sourceY = wy - offset;
+      if (isDoorTile(this.tileAt(wx, sourceY))) continue;
+      const top = this.heightAt(wx, sourceY);
+      const foot = this.heightAt(wx, sourceY + 1);
+      if (top - foot < WALL_FACE_MIN_DROP) continue;
+      const span = Math.min(Math.max(1, Math.round(top - foot)), SPAN_CAP);
+      if (offset > span) continue;
+      return { sourceX: wx, sourceY, bottom: this.heightAt(wx, wy), top, span };
     }
-    if (this.tileAt(wx, wy - 1) !== TILE.Wall) return null;
-    const bottom = this.heightAt(wx, wy);
-    const top = this.heightAt(wx, wy - 1);
-    if (top - bottom < WALL_FACE_MIN_DROP) return null;
-    return { sourceX: wx, sourceY: wy - 1, bottom, top };
+    return null;
   }
 
   /** Continuous ground height: stair tiles ramp with position. */

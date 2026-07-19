@@ -26,11 +26,11 @@ describe("feel — full hop", () => {
     expect(ascentTimeSec).toBeLessThanOrEqual(0.34);
   });
 
-  it("apexes 2.5-2.8 tiles up, clearing a +2 ledge with >=0.5 margin", () => {
+  it("apexes 1.25-1.4 tiles up, clearing a +1 ledge with >=0.25 margin", () => {
     const hop = measureHop(true);
-    expect(hop.apexHeight).toBeGreaterThanOrEqual(2.5);
-    expect(hop.apexHeight).toBeLessThanOrEqual(2.8);
-    expect(hop.apexHeight - WALL_RISE).toBeGreaterThanOrEqual(0.5);
+    expect(hop.apexHeight).toBeGreaterThanOrEqual(1.25);
+    expect(hop.apexHeight).toBeLessThanOrEqual(1.4);
+    expect(hop.apexHeight - WALL_RISE).toBeGreaterThanOrEqual(0.25);
   });
 
   it("falls from apex in at most 0.8x the ascent time (asymmetric gravity)", () => {
@@ -42,10 +42,10 @@ describe("feel — full hop", () => {
 });
 
 describe("feel — short hop (variable jump height)", () => {
-  it("apexes 1.0-1.6 tiles up — noticeably short of the full hop", () => {
+  it("apexes 0.5-0.8 tiles up — noticeably short of the full hop", () => {
     const hop = measureHop(false);
-    expect(hop.apexHeight).toBeGreaterThanOrEqual(1.0);
-    expect(hop.apexHeight).toBeLessThanOrEqual(1.6);
+    expect(hop.apexHeight).toBeGreaterThanOrEqual(0.5);
+    expect(hop.apexHeight).toBeLessThanOrEqual(0.8);
   });
 
   it("is meaningfully shorter than a full hop", () => {
@@ -57,16 +57,16 @@ describe("feel — short hop (variable jump height)", () => {
 });
 
 describe("feel — ledge and platform chains stay reliable", () => {
-  it.each(DIRECTIONS)("clears a standing +2 ledge climb (%s)", (direction) => {
+  it.each(DIRECTIONS)("clears a standing +1 ledge climb (%s)", (direction) => {
     const result = measureLedgeClimb(direction);
     expect(result.success).toBe(true);
-    expect(result.finalHeight).toBe(2);
+    expect(result.finalHeight).toBe(1);
   });
 
-  it.each(DIRECTIONS)("chains h0->h2->h4->h6 (%s)", (direction) => {
+  it.each(DIRECTIONS)("chains h0->h1->h2->h3 (%s)", (direction) => {
     const result = measureChainedPlatforms(direction);
     expect(result.success).toBe(true);
-    expect(result.finalHeight).toBe(6);
+    expect(result.finalHeight).toBe(3);
   });
 });
 

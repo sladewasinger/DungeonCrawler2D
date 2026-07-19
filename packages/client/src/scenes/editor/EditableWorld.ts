@@ -70,15 +70,28 @@ export class EditableWorld {
     return this.heightAt(Math.floor(x), Math.floor(y));
   }
 
-  /** Mirrors the engine's facade contract: the drawn south face blocks its cell. */
+  /**
+   * Mirrors the engine's span-generalized facade contract: ANY higher non-door
+   * surface up to 3 rows north projects face rows south; each spanned cell
+   * reports the same source with its own bottom.
+   */
   wallFaceAt(wx: number, wy: number): WallFace | null {
     const tile = this.tileAt(wx, wy);
     if (DOOR_TILES.has(tile) || tile === TILE.Wall) return null;
-    if (this.tileAt(wx, wy - 1) !== TILE.Wall) return null;
     const bottom = this.heightAt(wx, wy);
-    const top = this.heightAt(wx, wy - 1);
-    if (top - bottom < WALL_FACE_MIN_DROP) return null;
-    return { sourceX: wx, sourceY: wy - 1, bottom, top };
+    for (let k = 1; k <= 3; k++) {
+      const sourceY = wy - k;
+      const sourceTile = this.tileAt(wx, sourceY);
+      if (DOOR_TILES.has(sourceTile)) return null;
+      const top = this.heightAt(wx, sourceY);
+      const drop = top - bottom;
+      if (drop >= WALL_FACE_MIN_DROP) {
+        const span = Math.min(Math.max(1, Math.round(drop)), 3);
+        return k <= span ? { sourceX: wx, sourceY, bottom, top, span } : null;
+      }
+      if (top > bottom + 0.01) return null;
+    }
+    return null;
   }
 
   isWalkable(wx: number, wy: number): boolean {

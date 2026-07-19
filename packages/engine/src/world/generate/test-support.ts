@@ -2,7 +2,8 @@
 // (BFS across chunks would otherwise regenerate on every tile lookup), a
 // border flood-fill mirroring pockets.ts's own reach seeds, and a
 // height-aware BFS matching the movement step rule (rise <= STEP_UP, drops
-// free).
+// free, always clear across a Stairs tile since real physics ramps those
+// continuously regardless of the discrete height delta).
 
 import { STEP_UP } from "../../core/constants.js";
 import { CHUNK_SIZE, TILE, type Chunk } from "../types.js";
@@ -83,16 +84,26 @@ function tileInfo(
   floor: number,
   p: WorldPoint,
   cache: ChunkCache,
-): { walkable: boolean; h: number } {
+): { walkable: boolean; h: number; stairs: boolean } {
   const cx = Math.floor(p.x / CHUNK_SIZE);
   const cy = Math.floor(p.y / CHUNK_SIZE);
   const chunk = chunkAt(seed, floor, cx, cy, cache);
   const i = (p.y - cy * CHUNK_SIZE) * CHUNK_SIZE + (p.x - cx * CHUNK_SIZE);
-  return { walkable: chunk.tiles[i] !== TILE.Wall, h: chunk.height[i] ?? 0 };
+  return {
+    walkable: chunk.tiles[i] !== TILE.Wall,
+    h: chunk.height[i] ?? 0,
+    stairs: chunk.tiles[i] === TILE.Stairs,
+  };
 }
 
-function canStep(info: { walkable: boolean; h: number }, curH: number): boolean {
-  return info.walkable && info.h - curH <= STEP_UP;
+/** A Stairs tile ramps continuously in real physics (stairRampAt), so this
+ * discrete per-tile BFS — which only sees the tile's own resting height —
+ * must not gate on STEP_UP when either end of the hop is a stair: the real
+ * body walks it smoothly regardless of the raw height delta. */
+function canStep(info: { walkable: boolean; h: number; stairs: boolean }, curH: number, curStairs: boolean): boolean {
+  if (!info.walkable) return false;
+  if (info.stairs || curStairs) return true;
+  return info.h - curH <= STEP_UP;
 }
 
 /** BFS over walkable tiles (rise <= STEP_UP, drops free), bounded to a chunkRange around start's chunk. */
@@ -110,13 +121,13 @@ export function bfsChunks(
   while (head < queue.length) {
     const cur = queue[head++];
     if (!cur) continue;
-    const curH = tileInfo(seed, floor, cur, cache).h;
+    const curInfo = tileInfo(seed, floor, cur, cache);
     for (const [dx, dy] of DIRS) {
       const next: WorldPoint = { x: cur.x + dx, y: cur.y + dy };
       if (!inBounds(next.x, next.y, bounds)) continue;
       const key = `${next.x},${next.y}`;
       if (reached.has(key)) continue;
-      if (!canStep(tileInfo(seed, floor, next, cache), curH)) continue;
+      if (!canStep(tileInfo(seed, floor, next, cache), curInfo.h, curInfo.stairs)) continue;
       reached.add(key);
       queue.push(next);
     }

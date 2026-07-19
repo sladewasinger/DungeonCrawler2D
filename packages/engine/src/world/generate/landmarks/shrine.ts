@@ -7,7 +7,10 @@ import { forEachLandmarkTile, landmarkCenter, onCorridor } from "./shared.js";
 
 const DAIS_RADIUS = 4;
 const RING_RADIUS = 6;
-export const DAIS_HEIGHT = 1;
+// A small decorative bump beside the corridor's own flush passthrough
+// (see `carved` below) — never load-bearing for reachability, so it
+// simply halves with the z-scale doctrine, no ramp needed.
+export const DAIS_HEIGHT = 0.5;
 
 export function stampShrine(
   worldSeed: number,

@@ -33,7 +33,12 @@ export function entryClimbDir(world: StairView, wx: number, wy: number): number 
     if (world.tileAt(wx - dx, wy - dy) === TILE.Stairs) continue;
     const rise = world.heightAt(wx + dx, wy + dy) - h;
     const drop = world.heightAt(wx - dx, wy - dy) - h;
-    if (rise > 0.5 && rise < 1.5 && drop < -0.5 && drop > -1.5) return direction;
+    // A threshold ramp sits at half its room variant's rise (see
+    // generate/height.ts's carveThreshold/softenSecondaryThreshold and
+    // features/terraces.ts's flushEntryRun) — a ~0.5 step under the z-scale
+    // doctrine's 1-unit-per-tile-edge footing. Bounds are that expected
+    // magnitude ±0.25, scaled down from the pre-rescale ±0.5-around-1.
+    if (rise > 0.25 && rise < 0.75 && drop < -0.25 && drop > -0.75) return direction;
   }
   return null;
 }

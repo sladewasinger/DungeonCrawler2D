@@ -1,24 +1,30 @@
 // Deliberate height: a minority of rooms sink into pits or rise onto
-// daises, always exactly the jumpable +/-2 (PLATFORM_TIER_STEP elsewhere
-// in the engine, apex ~2.2 — see core/constants.ts's JUMP_VELOCITY/GRAVITY).
-// A rarer "chasm" variant (grafted from the "caverns" candidate) drops a
-// large room to -4 with one guaranteed flat bridge deck — a real
-// knockback-off-ledge kill zone. One doorway into a raised/sunken room
-// becomes its single built stair ramp; every other doorway gets a plain
-// two-hop step (no ramp tile at all — see softenSecondaryThreshold);
-// everything else stays flat, per the flat-first rule.
+// daises, always exactly the jumpable +/-1 (PLATFORM_TIER_STEP elsewhere
+// in the engine, apex ~1.07 — see core/constants.ts's JUMP_VELOCITY/GRAVITY;
+// 1 z-unit = 1 tile edge per that file's doctrine comment). A rarer "chasm"
+// variant (grafted from the "caverns" candidate) drops a large room to -2
+// with one guaranteed flat bridge deck — a real knockback-off-ledge kill
+// zone. One doorway into a raised/sunken room becomes its single built
+// stair ramp; every other doorway gets a plain half-height threshold ramp
+// (see softenSecondaryThreshold — under STEP_UP's post-rescale shrink this
+// can no longer be a ramp-free two-hop, so it's a proper Stairs tile now,
+// same as the primary); everything else stays flat, per the flat-first rule.
 
+import { STEP_UP } from "../../core/constants.js";
 import { thresholdCells } from "./corridors.js";
 import { rectHash } from "./hash.js";
 import { rectH, rectW } from "./geometry.js";
 import { TILE } from "../types.js";
 import type { Doorway, Rect, Room, Side } from "./types.js";
 
-export const ROOM_RISE = 2;
-export const CHASM_DEPTH = -4;
+export const ROOM_RISE = 1;
+export const CHASM_DEPTH = -2;
 const CHASM_BRIDGE_HALF = 1; // 3-tile-wide guaranteed crossing
 const CHASM_MIN_SPAN = 9; // room must be big enough to hold a real drop plus the bridge
-const CHASM_RAMP_STEPS = -CHASM_DEPTH; // -1 per tile: 0 (corridor) down to CHASM_DEPTH
+// One stair tile per step, sized so each tile-to-tile hop stays inside the
+// grounded walk rule (STEP_UP) — decoupled from the raw depth magnitude
+// so a chasm this steep doesn't silently produce hops a body can't walk.
+const CHASM_RAMP_STEPS = Math.ceil(-CHASM_DEPTH / STEP_UP);
 const THRESHOLD_RAMP_MAX_WIDTH = 2; // one built staircase reads as a place, not a fence
 
 type Variant = "flat" | "pit" | "dais" | "chasm";
@@ -108,14 +114,15 @@ function inwardStep(side: Side): { dx: number; dy: number } {
 }
 
 /**
- * A chasm's drop (magnitude 4) is too steep for a single stair tile (the
- * engine's one-tile stair model tops out around magnitude 1-2 — see
+ * A chasm's drop (magnitude 2) is too steep for a single stair tile (the
+ * engine's one-tile stair model tops out around magnitude 0.75 — see
  * world/stairs.ts's entryClimbDir). Rather than leaving it to cliffs.ts's
  * general STEP_UP sweep — which can cascade well past the room, through a
  * shared corridor, into whatever it meets next — carve an explicit,
- * room-confined multi-tile staircase: one -1 step per tile, straight into
- * the room from the doorway, bottoming out at the full depth exactly
- * where the uniform pit interior (stampRingHeight) already sits.
+ * room-confined multi-tile staircase: CHASM_RAMP_STEPS equal steps (each
+ * sized under STEP_UP so a body can walk it, not just fall down it),
+ * straight into the room from the doorway, bottoming out at the full depth
+ * exactly where the uniform pit interior (stampRingHeight) already sits.
  */
 function carveChasmRamp(tiles: Uint8Array, height: Float32Array, chunkSize: number, doorway: Doorway): void {
   const { dx, dy } = inwardStep(doorway.side);
@@ -148,11 +155,17 @@ function pickPrimaryDoorway(seed: number, room: Room, roomDoorways: Doorway[]): 
  * height jump at the wall. Rather than leaving that to cliffs.ts's blunt
  * per-tile sweep — which, left to sweep both axes over several passes, can
  * converge unevenly and litter fractional-height flecks along the edge —
- * pre-soften the first interior row to the halfway height. Two STEP_UP-
- * sized hops (flat corridor -> half -> full) need no stair tile at all: a
- * secondary entrance reads as a plain step, not a second staircase.
+ * pre-soften the first interior row to the halfway height AND mark it a
+ * proper Stairs tile so stairRampAt/entryClimbDir ramp it smoothly. Before
+ * the z-scale rescale this was a plain, ramp-free two-hop (flat corridor ->
+ * half -> full, each exactly STEP_UP) with no stair tile at all; STEP_UP's
+ * post-rescale shrink (1 -> 0.35) leaves that half-step (now ~0.5) too tall
+ * to walk up freely, so it needs the same real ramp the primary threshold
+ * gets — it still reads as a lesser, single-tile entrance, just no longer a
+ * ramp-free one.
  */
 function softenSecondaryThreshold(
+  tiles: Uint8Array,
   height: Float32Array,
   chunkSize: number,
   doorway: Doorway,
@@ -163,17 +176,20 @@ function softenSecondaryThreshold(
     const ix = x + dx;
     const iy = y + dy;
     if (ix < 0 || iy < 0 || ix >= chunkSize || iy >= chunkSize) continue;
-    height[iy * chunkSize + ix] = midHeight;
+    const i = iy * chunkSize + ix;
+    height[i] = midHeight;
+    tiles[i] = TILE.Stairs;
   }
 }
 
 /**
  * Apply one room's height variant (if any). Pit/dais get exactly one
  * consolidated threshold ramp, capped to THRESHOLD_RAMP_MAX_WIDTH, with
- * every other doorway softened to a plain, ramp-free step; chasm ramps
- * every one of its doorways with its own bounded multi-tile staircase
- * (carveChasmRamp) plus its guaranteed bridge deck — a chasm's drop is too
- * steep to leave any entrance ramp-free (see carveChasmRamp's doc comment).
+ * every other doorway softened to a lesser threshold ramp of its own;
+ * chasm ramps every one of its doorways with its own bounded multi-tile
+ * staircase (carveChasmRamp) plus its guaranteed bridge deck — a chasm's
+ * drop is too steep to leave any entrance ramp-free (see carveChasmRamp's
+ * doc comment).
  */
 export function applyRoomHeight(
   seed: number,
@@ -200,6 +216,6 @@ export function applyRoomHeight(
   carveThreshold(tiles, height, chunkSize, ramp, value / 2);
   for (const doorway of roomDoorways) {
     if (doorway === primary) continue;
-    softenSecondaryThreshold(height, chunkSize, doorway, value / 2);
+    softenSecondaryThreshold(tiles, height, chunkSize, doorway, value / 2);
   }
 }
