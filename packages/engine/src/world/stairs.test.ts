@@ -1,37 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { STEP_UP, TICK_DT } from "../core/constants.js";
-import { hashString } from "../core/rng.js";
 import { createBody, stepBody } from "../entities/movement/index.js";
-import { hasTerrace, terraceSpec } from "./features/terraces.js";
-import { entryClimbDir, stairRampAt, type StairView } from "./stairs.js";
-import { CHUNK_SIZE, TILE } from "./types.js";
-import { World } from "./world.js";
+import { stairRampAt, type StairView } from "./stairs.js";
+import { TILE, type WorldView } from "./types.js";
 
-const SEED = hashString("test-world");
-const FLOOR = 1;
+/**
+ * Generator-independent stair fixtures: hand-built WorldView/StairView
+ * geometry rather than a scan over any particular chunk generator's
+ * output. Which generator is wired in as World's default is free to
+ * change (docs/PORT_PLAN.md's worldgen redesign brief) — these physics
+ * assertions only care about the shape of a staircase.
+ */
 
-function findSouthEntry(world: World): { x: number; y: number } {
-  for (let cy = -6; cy <= 6; cy++) {
-    for (let cx = -6; cx <= 6; cx++) {
-      if (!hasTerrace(SEED, FLOOR, cx, cy)) continue;
-      const spec = terraceSpec(SEED, FLOOR, cx, cy);
-      if (!spec) continue;
-      const y = cy * CHUNK_SIZE + spec.ly + spec.hy + 1;
-      for (let lx = spec.lx - spec.hx; lx <= spec.lx + spec.hx; lx++) {
-        const x = cx * CHUNK_SIZE + lx;
-        if (world.tileAt(x, y) !== TILE.Stairs) continue;
-        if (entryClimbDir(world, x, y) !== 0) continue;
-        if (world.tileAt(x, y + 1) !== TILE.Floor || world.heightAt(x, y + 1) > 0.01) continue;
-        return { x, y };
-      }
-    }
-  }
-  throw new Error("no south terrace entry found in scan range");
+const STAIR_X = 100;
+const STAIR_Y = 100;
+
+/**
+ * A hand-built 2-wide south-entry staircase, matching the shape
+ * twoWideSouthEntry below exercises for sideways crossing: a flat
+ * height-0 approach south of the run, a height-1 stair row at STAIR_Y
+ * (columns STAIR_X/STAIR_X+1), and a raised height-2 interior north of
+ * it. Flanking columns are plain floor at whatever height their row
+ * implies — no ramp. Exposes the full WorldView contract (not just
+ * StairView) so real body physics can be driven across it.
+ */
+function southEntryWorld(): WorldView & StairView {
+  const stairCols = new Set([STAIR_X, STAIR_X + 1]);
+  const heightAt = (wx: number, wy: number): number => {
+    if (wy === STAIR_Y && stairCols.has(wx)) return 1;
+    return wy < STAIR_Y ? 2 : 0;
+  };
+  const tileAt = (wx: number, wy: number): number =>
+    wy === STAIR_Y && stairCols.has(wx) ? TILE.Stairs : TILE.Floor;
+  const groundAt = (x: number, y: number): number =>
+    stairRampAt({ tileAt, heightAt }, x, y) ?? heightAt(Math.floor(x), Math.floor(y));
+  return { tileAt, heightAt, isWalkable: () => true, groundAt };
 }
 
 describe("stairs as physical ramps", () => {
-  const world = new World(SEED, FLOOR);
-  const entry = findSouthEntry(world);
+  const world = southEntryWorld();
+  const entry = { x: STAIR_X, y: STAIR_Y };
 
   it("ramps linearly across the complete two-and-a-half-tile stair run", () => {
     const { x, y } = entry;

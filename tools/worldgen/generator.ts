@@ -1,5 +1,4 @@
-// Loads the chunk generator to render: the engine's default generator, or a
-// candidate variant from packages/engine/src/world/variants/<name>/index.ts.
+// Loads the engine's chunk generator to render.
 
 import type { Chunk } from "../../packages/engine/src/world/types.js";
 
@@ -10,15 +9,11 @@ export type GenerateChunkFn = (
   cy: number,
 ) => Chunk;
 
-export async function loadGenerator(variant: string | undefined): Promise<GenerateChunkFn> {
-  const specifier = variant
-    ? `../../packages/engine/src/world/variants/${variant}/index.js`
-    : "../../packages/engine/src/world/generate.js";
-
-  const mod: unknown = await import(specifier);
+export async function loadGenerator(): Promise<GenerateChunkFn> {
+  const mod: unknown = await import("../../packages/engine/src/world/generate.js");
   const fn = (mod as { generateChunk?: unknown }).generateChunk;
   if (typeof fn !== "function") {
-    throw new Error(`no generateChunk export found at ${specifier}`);
+    throw new Error("no generateChunk export found at packages/engine/src/world/generate.js");
   }
   return fn as GenerateChunkFn;
 }

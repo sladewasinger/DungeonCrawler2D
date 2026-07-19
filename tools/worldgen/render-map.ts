@@ -1,7 +1,7 @@
-// CLI: renders an N x N-chunk region of a world-generator's output to PNG,
-// for visually judging worldgen redesigns against docs/VISUAL_DIRECTION.md.
+// CLI: renders an N x N-chunk region of the world generator's output to PNG,
+// for visually judging worldgen against docs/VISUAL_DIRECTION.md.
 //
-// Usage: npx tsx tools/worldgen/render-map.ts <seed> <floor> <chunksNxN> <outPng> [--variant name]
+// Usage: npx tsx tools/worldgen/render-map.ts <seed> <floor> <chunksNxN> <outPng>
 //
 // Dev tool only: imports the engine's world source directly (relative import
 // into packages/engine/src is acceptable here; nothing under packages/ may
@@ -22,7 +22,7 @@ const BACKGROUND = { r: 20, g: 20, b: 28 };
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const generate = await loadGenerator(args.variant);
+  const generate = await loadGenerator();
   const cache = new ChunkCache(generate, args.worldSeed, args.floor);
 
   const span = args.chunks * CHUNK_SIZE;
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
 
   canvas.write(args.outPng);
   console.log(
-    `wrote ${args.outPng} (${width}x${mapPx + LEGEND_H}px, seed=${args.worldSeed} floor=${args.floor} chunks=${args.chunks}x${args.chunks}${args.variant ? ` variant=${args.variant}` : ""})`,
+    `wrote ${args.outPng} (${width}x${mapPx + LEGEND_H}px, seed=${args.worldSeed} floor=${args.floor} chunks=${args.chunks}x${args.chunks})`,
   );
 }
 
