@@ -10,6 +10,7 @@ import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { BASE_TERRAIN_DEPTH, depthForOccluder } from "../entities/depthSort.js";
 import { drawTile } from "./drawTile.js";
 import { buildStructureMap, drawDoor } from "./structures.js";
+import { computeLightField } from "./tileLight.js";
 
 /** Rows above an occluder row its sprites may overhang (caps at wy-1, lintels/pillars up to wy-2). */
 const ROW_OVERHANG_TILES = 2;
@@ -60,10 +61,13 @@ export function buildChunkVisual(scene: Phaser.Scene, world: TerrainWorld, cx: n
     baseX + CHUNK_SIZE,
     baseY + CHUNK_SIZE,
   );
+  // Light is baked with the tiles: deterministic sources + BFS, so every client
+  // bakes identical lighting and the per-frame cost is zero.
+  const light = computeLightField(world, baseX, baseY, CHUNK_SIZE);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const wy = baseY + ly;
-      drawTile(scene, world, baseX + lx, wy, below, occluderFor(wy), structures);
+      drawTile(scene, world, baseX + lx, wy, below, occluderFor, structures, light);
     }
   }
   for (const door of structures.doors) drawDoor(scene, occluderFor(door.wy), door);

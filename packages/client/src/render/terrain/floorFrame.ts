@@ -11,8 +11,8 @@ const ROLL_SALT = 0x9f10;
 const VARIANT_SALT = 0x4c21;
 
 /** Decor chance out of 100 — higher right against a wall/chasm rim than in an open room center. */
-const EDGE_DECOR_CHANCE = 32;
-const OPEN_DECOR_CHANCE = 8;
+const EDGE_DECOR_CHANCE = 8;
+const OPEN_DECOR_CHANCE = 2;
 
 export type EdgeNeighbor = (dx: number, dy: number) => boolean;
 

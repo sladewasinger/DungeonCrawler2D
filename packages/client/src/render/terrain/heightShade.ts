@@ -52,6 +52,11 @@ function heightFactor(height: number): number {
   return lerpColor(FLOOR_FACTOR, NEUTRAL_FACTOR, clamp01(height / HIGH_HEIGHT));
 }
 
+/** Channel-wise multiply of two tints — shared by every layer that stacks shading. */
+export function multiplyTint(a: number, b: number): number {
+  return multiplyColor(a, b);
+}
+
 /** The multiply-tint a tile's base sprite takes for its terrain height (palette grade + height factor). */
 export function heightTint(height: number): number {
   return multiplyColor(PALETTE_GRADE, heightFactor(height));

@@ -1,34 +1,30 @@
-// The editor world's contract: facade blocking mirrors the engine, the void
-// frame surrounds the island, and maps survive a serialize round-trip.
+// The editor world's contract under the own-tile face model: collision is pure
+// height + solid furniture, face rows live on the raised cells themselves, the
+// void frame surrounds the island, and maps survive a serialize round-trip.
 import { TILE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
+import { ownFaceRowAt } from "../../render/terrain/ownFace.js";
 import { EditableWorld } from "./EditableWorld.js";
 
 describe("EditableWorld", () => {
-  it("projects a blocking facade south of a rock cell, but never through a door", () => {
-    // z2 clears the facade threshold under both the current and the rescaled
-    // engine constants (this suite must stay green across the 1z=1tile rescale).
+  it("raised cells ARE their own face rows — the wall starts where it was painted", () => {
     const world = new EditableWorld();
     world.setCell(5, 5, TILE.Wall, 2);
-    expect(world.wallFaceAt(5, 6)).toMatchObject({ sourceX: 5, sourceY: 5, top: 2 });
-    expect(world.isWalkable(5, 6)).toBe(false);
-    world.setCell(5, 6, TILE.DoorSafeRoom, 0);
-    expect(world.wallFaceAt(5, 6)).toBeNull();
+    world.setCell(5, 4, TILE.Wall, 2);
+    // The southern painted cell carries the face; the ground south of it stays clear.
+    expect(ownFaceRowAt(world, 5, 5)).toMatchObject({ distanceToGround: 1, surfaceHeight: 2 });
+    expect(ownFaceRowAt(world, 5, 6)).toBeNull();
+    // z2 means a two-row face: the cell above is the face's top row.
+    expect(ownFaceRowAt(world, 5, 4)).toMatchObject({ rowFromTop: 1 });
   });
 
-  it("raised floors cast span-proportional facades; sub-threshold drops stay clean", () => {
-    // Generalized contract: ANY higher surface projects — a z2 floor terrace
-    // blocks two southern cells (its visible face rows), matching the engine.
+  it("keeps every floor walkable — height blocking is the engine's job, not a tile flag", () => {
     const world = new EditableWorld();
     world.setCell(3, 3, TILE.Floor, 2);
-    expect(world.wallFaceAt(3, 4)).toMatchObject({ sourceY: 3, top: 2, span: 2 });
-    expect(world.wallFaceAt(3, 5)).toMatchObject({ sourceY: 3, span: 2 });
-    expect(world.wallFaceAt(3, 6)).toBeNull();
-    expect(world.isWalkable(3, 4)).toBe(false);
-    const gentle = new EditableWorld();
-    gentle.setCell(3, 3, TILE.Floor, 0.7);
-    expect(gentle.wallFaceAt(3, 4)).toBeNull();
-    expect(gentle.isWalkable(3, 4)).toBe(true);
+    expect(world.isWalkable(3, 3)).toBe(true);
+    expect(world.isWalkable(3, 4)).toBe(true);
+    world.setCell(2, 2, TILE.CraftingTable, 0);
+    expect(world.isWalkable(2, 2)).toBe(false);
   });
 
   it("outside the grid reads as chasm void", () => {

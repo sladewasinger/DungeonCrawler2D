@@ -1,11 +1,11 @@
-// Lighting facade: darkness + colored light pool + post-FX, driven by chunk-streamed
-// torch/door light sources plus a personal light that follows the camera's subject and
-// any externally supplied accent lights (fire/poison/steam areas from vfx/).
+// Lighting facade: the small dynamic layer over the BAKED tile lighting — a
+// colored halo pool (torch flames, portals, the personal cue) plus accent
+// lights for live effects, and camera post-FX. Ambient darkness lives in the
+// baked tile tints now; there is no screen darkness overlay to maintain.
 import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
-import { DarknessOverlay } from "./darkness.js";
 import { doorLightPositions } from "./doorLights.js";
 import type { LightSource } from "./lightSource.js";
 import { applyLightingPostFX } from "./postfx.js";
@@ -16,11 +16,11 @@ const LOAD_MARGIN_CHUNKS = 1;
 /** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
 const MAX_ACTIVE_LIGHTS = 12;
 const TORCH_COLOR = 0xff9e3d;
-const TORCH_RADIUS_TILES = 4.2;
+const TORCH_RADIUS_TILES = 1.5; // small halo at the flame — the BAKED tile light does the real work
 const PORTAL_COLOR = 0x3dd6c3;
 const PORTAL_RADIUS_TILES = 3;
 const PERSONAL_COLOR = 0xfff0d2;
-const PERSONAL_RADIUS_TILES = 3.2;
+const PERSONAL_RADIUS_TILES = 1.6; // deliberately small: a soft cue, not a headlight
 
 /** Small integer hash used only to spread flicker phase — not a determinism-sensitive RNG. */
 function hashSeed(id: string): number {
@@ -31,7 +31,6 @@ function hashSeed(id: string): number {
 
 export class LightingSystem {
   private readonly pool: LightSpritePool;
-  private readonly darkness: DarknessOverlay;
   private readonly chunkLights = new Map<string, LightSource[]>();
   private accentLights: readonly LightSource[] = [];
 
@@ -40,7 +39,6 @@ export class LightingSystem {
     private readonly world: World,
   ) {
     this.pool = new LightSpritePool(scene);
-    this.darkness = new DarknessOverlay(scene);
     applyLightingPostFX(scene.cameras.main);
   }
 
@@ -49,7 +47,7 @@ export class LightingSystem {
     this.accentLights = lights;
   }
 
-  /** Streams chunk-scanned lights around the view, then syncs the glow pool + darkness for this frame. */
+  /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
   update(view: ViewRect, personalX: number, personalY: number, nowMs: number): void {
     this.streamChunks(view);
     const personal: LightSource = {
@@ -72,7 +70,6 @@ export class LightingSystem {
     );
     const all = candidates.slice(0, MAX_ACTIVE_LIGHTS - 1).concat(personal);
     this.pool.sync(all, nowMs);
-    this.darkness.redraw();
   }
 
   /** Torch positions currently resident — vfx flame particles key off this list. */
@@ -109,7 +106,6 @@ export class LightingSystem {
 
   dispose(): void {
     this.pool.dispose();
-    this.darkness.dispose();
   }
 }
 

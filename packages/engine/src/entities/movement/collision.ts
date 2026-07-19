@@ -5,7 +5,7 @@ import { BODY_RADIUS, type BodyState, type MoveInput, type StepOpts } from "./st
 /**
  * Horizontal step + tile collision: knockback blending, diagonal
  * normalization, and the leading-edge corner check that keeps bodies
- * out of wall faces while letting stairs ramp underfoot.
+ * out of raised terrain while letting stairs ramp underfoot.
  */
 
 function clampAxis(v: number): number {
@@ -58,46 +58,11 @@ function cornerBlocksMove(
 ): boolean {
   const tileX = Math.floor(cx);
   const tileY = Math.floor(cy);
-  const wallFace = world.wallFaceAt?.(tileX, tileY);
-  if (wallFace) {
-    if (body.z + AIRBORNE_LEDGE_CLEARANCE < wallFace.top) return true;
-  } else if (!world.isWalkable(tileX, tileY)) {
-    return true;
-  }
+  if (!world.isWalkable(tileX, tileY)) return true;
   if (blocked?.(tileX, tileY)) return true;
   const terrain = world.groundAt(cx, cy);
   if (body.grounded) return terrain - body.z > STEP_UP;
   return terrain > body.z + AIRBORNE_LEDGE_CLEARANCE;
-}
-
-/** True where (x, y) is solid ground with no facade of its own — a legal eject landing. */
-function isClearGround(world: WorldView, x: number, y: number): boolean {
-  return world.isWalkable(x, y) && !world.wallFaceAt?.(x, y);
-}
-
-/**
- * A body may cross a projected facade while above its top. If it falls back
- * below that top before clearing the tile, put it at the visible south base
- * so it cannot land inside the brick projection — PAST the whole span, not
- * just one row, since a multi-row facade's brick mass extends further than
- * a single tile. The immediate landing row can itself be blocked (a 1-wide
- * slot backed by another wall); walk further south, up to span+1 rows, for
- * the first clear cell. If the whole run is walled off, there is nowhere
- * legal to stand south of it — pin the body to the source's top instead of
- * leaving it inside the wall.
- */
-export function ejectBodyBelowWallFace(world: WorldView, body: BodyState): void {
-  const tileX = Math.floor(body.x);
-  const tileY = Math.floor(body.y);
-  const wallFace = world.wallFaceAt?.(tileX, tileY);
-  if (!wallFace || body.z + AIRBORNE_LEDGE_CLEARANCE >= wallFace.top) return;
-  const pastSpan = wallFace.sourceY + wallFace.span + 1;
-  for (let row = pastSpan; row <= pastSpan + wallFace.span; row++) {
-    if (!isClearGround(world, tileX, row)) continue;
-    body.y = row + BODY_RADIUS;
-    return;
-  }
-  body.z = wallFace.top;
 }
 
 function tryAxisMove(

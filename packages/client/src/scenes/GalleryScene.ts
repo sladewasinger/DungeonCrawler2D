@@ -4,6 +4,7 @@ import { TILE, World, type TileType } from "@dc2d/engine";
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../boot/assetManifest.js";
 import { LightingSystem } from "../render/lighting/index.js";
+import { ownFaceRowAt } from "../render/terrain/ownFace.js";
 import { TerrainRenderer } from "../render/terrain/index.js";
 import { pixelTextStyle } from "../ui/font.js";
 import { anchorPoint } from "../ui/widgets/anchors.js";
@@ -131,10 +132,8 @@ export class GalleryScene extends Phaser.Scene {
     const tileName = TILE_NAMES.get(tile) ?? `tile-${tile}`;
     const height = this.world.heightAt(tileX, tileY);
     const surfaceName = tile === TILE.Wall ? "raised-top" : tileName;
-    const face = this.world.wallFaceAt(tileX, tileY);
-    const faceText = face
-      ? ` | wall-face from ${face.sourceX},${face.sourceY} z${face.bottom.toFixed(2)}-${face.top.toFixed(2)}`
-      : "";
+    const face = ownFaceRowAt(this.world, tileX, tileY);
+    const faceText = face ? ` | face row ${face.rowFromTop} of z${face.surfaceHeight} surface` : "";
     this.coordinateReadout.setText(
       `tile ${tileX}, ${tileY}  surface ${surfaceName} z${height.toFixed(2)}${faceText}`,
     );

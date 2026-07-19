@@ -52,7 +52,12 @@ export const JUMP_BUFFER_TIME = 0.15;
 export const AIRBORNE_LEDGE_CLEARANCE = 0.09;
 export const LANDING_TOLERANCE = 0.04;
 export const WALL_RISE = 1;
-/** Minimum north-to-south drop that produces a full projected wall facade. */
+/**
+ * RENDERING threshold, not collision: the minimum height drop a south
+ * tile edge needs before the client draws face rows there (the visible
+ * wall face lives on the raised tile itself — see the client's terrain
+ * renderer). Collision is pure height, gated by STEP_UP above.
+ */
 export const WALL_FACE_MIN_DROP = 0.75;
 
 export const AOI_RADIUS = 40;

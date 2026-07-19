@@ -56,24 +56,10 @@ export interface WorldView {
   isWalkable(wx: number, wy: number): boolean;
   heightAt(wx: number, wy: number): number;
   /**
-   * A visible south-facing wall projected into this otherwise lower tile.
-   * Optional so small physics test doubles can model worlds without facades.
-   */
-  wallFaceAt?(wx: number, wy: number): WallFace | null;
-  /**
    * Continuous ground height at a POSITION (not a tile): flat tiles
    * return their height, stair tiles ramp linearly along their climb
    * axis (see world/stairs.ts). This is what bodies stand on — mid-
    * staircase you're physically at z 1.2, 1.4, … not a stepped 1.
    */
   groundAt(x: number, y: number): number;
-}
-
-export interface WallFace {
-  readonly sourceX: number;
-  readonly sourceY: number;
-  readonly bottom: number;
-  readonly top: number;
-  /** Rows this facade projects across south of sourceY, 1-3 (capped — see wallFaceAt). */
-  readonly span: number;
 }

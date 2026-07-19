@@ -1,6 +1,7 @@
 // The editor's left panel: a paintable 20x20 DOM canvas plus brush palette,
 // toggles, and the cursor inspector. Pure DOM — the Phaser side only re-renders.
 import { TILE } from "@dc2d/engine";
+import { ownFaceRowAt } from "../../render/terrain/ownFace.js";
 import { EDITOR_GRID_SIZE } from "./EditableWorld.js";
 import type { EditorStore } from "./editorStore.js";
 
@@ -67,6 +68,17 @@ function buildPalette(store: EditorStore, refresh: () => void): HTMLDivElement {
   bar.append(button("collision", () => store.toggleCollision()));
   bar.append(button("reset", () => (store.reset(), refresh())));
   bar.append(
+    button("import", () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        if (file) store.importJson(await file.text());
+        refresh();
+      });
+      input.click();
+    }),
     button("export", () => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([store.exportJson()], { type: "application/json" }));
@@ -79,14 +91,14 @@ function buildPalette(store: EditorStore, refresh: () => void): HTMLDivElement {
 
 function inspectorText(store: EditorStore, x: number, y: number): string {
   const cell = store.world.cellAt(x, y);
-  const facade = store.world.wallFaceAt(x, y);
+  const face = ownFaceRowAt(store.world, x, y);
   const tileName = cell.tile === TILE.Wall ? "rock" : cell.tile === TILE.DoorSafeRoom ? "door" : "floor";
-  const facadeText = facade
-    ? ` | facade from (${facade.sourceX},${facade.sourceY}) top=${facade.top} — blocked`
+  const faceText = face
+    ? ` | face row ${face.rowFromTop}/${face.distanceToGround + face.rowFromTop - 1} of z${face.surfaceHeight}`
     : store.world.isWalkable(x, y)
       ? " | walkable"
       : " | blocked";
-  return `(${x},${y}) ${tileName} z=${cell.height}${facadeText}`;
+  return `(${x},${y}) ${tileName} z=${cell.height}${faceText}`;
 }
 
 function wirePointerPainting(

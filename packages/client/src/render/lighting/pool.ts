@@ -8,7 +8,7 @@ const LIGHT_FRAME = "light_soft";
 const LIGHT_SOURCE_PX = 64;
 const LIGHT_POOL_DEPTH = 400_000; // above the darkness rect: additive pools ARE the lit areas
 /** Kept modest (not a bright opaque wash) — darkness's erase already restores full natural brightness within the hole; this layer only adds the color cast, so it never flattens an entity's silhouette when a light sits right on top of one. */
-const BASE_ALPHA = 0.9;
+const BASE_ALPHA = 0.45;
 
 export class LightSpritePool {
   private readonly sprites = new Map<string, Phaser.GameObjects.Sprite>();
