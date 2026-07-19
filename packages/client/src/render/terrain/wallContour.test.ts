@@ -2,7 +2,7 @@
 // corners/edges, inside corners on an L, T-junctions, isolated pillars, and
 // quiet fill — the roles the renderer's art choices hang off.
 import { describe, expect, it } from "vitest";
-import { classifyWallCell, type SolidNeighbor } from "./wallContour.js";
+import { classifyWallCell, verticalFaceBridgeSide, type SolidNeighbor } from "./wallContour.js";
 
 /** Builds solid() for the cell at (x, y) inside an ASCII map ('#' = wall). */
 function solidAt(map: string[], x: number, y: number): SolidNeighbor {
@@ -43,11 +43,17 @@ describe("classifyWallCell", () => {
     expect(classifyWallCell(solidAt(run, 0, 0), true, (dx) => dx === 1)).toEqual({
       kind: "face",
       frame: "wall_left",
+      outline: { north: true, west: true, east: false },
     });
-    expect(classifyWallCell(solidAt(run, 2, 0), true, isFace)).toEqual({ kind: "face", frame: "wall_mid" });
+    expect(classifyWallCell(solidAt(run, 2, 0), true, isFace)).toEqual({
+      kind: "face",
+      frame: "wall_mid",
+      outline: { north: true, west: false, east: false },
+    });
     expect(classifyWallCell(solidAt(run, 4, 0), true, (dx) => dx === -1)).toEqual({
       kind: "face",
       frame: "wall_right",
+      outline: { north: true, west: false, east: true },
     });
   });
 
@@ -56,10 +62,36 @@ describe("classifyWallCell", () => {
     expect(classify(lone, 1, 1)).toEqual({ kind: "pillar" });
   });
 
-  it("a one-wide finger ending in open ground is a T/end piece, not fill", () => {
+  it("caps the south endpoint of a one-wide vertical ridge", () => {
     const finger = ["..#..", "..#..", "....."];
-    const role = classify(finger, 2, 1);
-    expect(role.kind).toBe("rim");
+    expect(classify(finger, 2, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_mid_left", texturedFill: true, capSouth: true, capEast: true },
+    });
+  });
+
+  it("caps the north endpoint of a one-wide vertical ridge", () => {
+    const finger = [".....", "..#..", "..#.."];
+    expect(classify(finger, 2, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_mid_left", texturedFill: true, capNorth: true, capEast: true },
+    });
+  });
+
+  it("caps both exposed sides through the middle of a one-wide vertical ridge", () => {
+    const ridge = ["..#..", "..#..", "..#.."];
+    expect(classify(ridge, 2, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_mid_left", texturedFill: true, capEast: true },
+    });
+  });
+
+  it("detects a projected face that should become a continuous vertical T-junction", () => {
+    const westJunction = ["..#..", ".##..", ".....", "..#.."];
+    const eastJunction = ["..#..", "..##.", ".....", "..#.."];
+    expect(verticalFaceBridgeSide(solidAt(westJunction, 2, 1), true)).toBe("west");
+    expect(verticalFaceBridgeSide(solidAt(eastJunction, 2, 1), true)).toBe("east");
+    expect(verticalFaceBridgeSide(solidAt(westJunction, 2, 1), false)).toBeUndefined();
   });
 
   it("an inside corner uses the inward-facing corner piece instead of breaking the junction", () => {

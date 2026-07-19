@@ -6,7 +6,7 @@ import type Phaser from "phaser";
 import { hasSouthFace } from "./faces.js";
 import { heightTint, WALL_FILL_COLOR } from "./heightShade.js";
 import { placeBottomBand, placeFillRect, placeSprite } from "./placeSprite.js";
-import { classifyWallCell } from "./wallContour.js";
+import { classifyWallCell, verticalFaceBridgeSide } from "./wallContour.js";
 
 const WALL_TOP_TINT = 0x505064;
 const OCCLUSION_SHADOW = 0x09090f;
@@ -40,6 +40,7 @@ export function drawWallTile(
     isFace(wx, wy),
     (dx) => isFace(wx + dx, wy),
   );
+  const bridgeSide = verticalFaceBridgeSide(solid, isFace(wx, wy));
 
   switch (role.kind) {
     case "pillar":
@@ -49,8 +50,31 @@ export function drawWallTile(
     case "face": {
       const frontWall = isSanctuaryFrontWall(world, wx, wy);
       const capY = frontWall ? wy - 1 : wy;
+      if (!frontWall && bridgeSide !== undefined) {
+        placeSprite(scene, occluder, wx, wy, "floor_5", { tint: WALL_TOP_TINT });
+        placeSprite(
+          scene,
+          occluder,
+          wx,
+          wy,
+          bridgeSide === "west" ? "wall_edge_mid_right" : "wall_edge_mid_left",
+          { tint },
+        );
+        placeSprite(scene, occluder, wx, wy + 1, "floor_5", { tint: WALL_TOP_TINT });
+        placeSprite(scene, occluder, wx, wy + 1, "wall_edge_mid_left", { tint });
+        placeSprite(scene, occluder, wx, wy + 1, "wall_edge_mid_right", { tint });
+        return;
+      }
+      const bottomFrame = role.outline.west
+        ? "wall_edge_bottom_left"
+        : role.outline.east
+          ? "wall_edge_bottom_right"
+          : (FACE_TO_CAP[role.frame] ?? "wall_top_mid");
       if (!frontWall) placeSprite(scene, occluder, wx, capY, "floor_5", { tint: WALL_TOP_TINT });
-      placeSprite(scene, occluder, wx, capY, FACE_TO_CAP[role.frame] ?? "wall_top_mid", { tint });
+      placeSprite(scene, occluder, wx, capY, bottomFrame, { tint });
+      if (!frontWall && role.outline.north) {
+        placeSprite(scene, occluder, wx, capY, "wall_top_mid", { tint, flipY: true });
+      }
       placeSprite(scene, occluder, wx, capY + 1, role.frame, { tint });
       if (!frontWall && !solid(0, -1)) {
         placeBottomBand(scene, occluder, wx, wy - 1, OCCLUSION_SHADOW, 0.9, OCCLUSION_FRACTION);
@@ -59,11 +83,26 @@ export function drawWallTile(
     }
     case "rim": {
       // Thin outline pieces sit OVER the mass fill; opaque ridge pieces ARE the art.
-      if (!role.art.opaque) placeFillRect(scene, occluder, wx, wy, WALL_FILL_COLOR);
+      if (!role.art.opaque) {
+        if (role.art.texturedFill) {
+          placeSprite(scene, occluder, wx, wy, "floor_5", { tint: WALL_TOP_TINT });
+        } else {
+          placeFillRect(scene, occluder, wx, wy, WALL_FILL_COLOR);
+        }
+      }
       placeSprite(scene, occluder, wx, wy, role.art.frame, {
         tint,
         ...(role.art.flip ? { flipY: true } : {}),
       });
+      const bridgedFromNorth = role.art.capNorth && verticalFaceBridgeSide(
+        (dx, dy) => world.tileAt(wx + dx, wy - 2 + dy) === TILE.Wall,
+        isFace(wx, wy - 2),
+      ) !== undefined;
+      if (role.art.capNorth && !bridgedFromNorth) {
+        placeSprite(scene, occluder, wx, wy, "wall_top_mid", { tint, flipY: true });
+      }
+      if (role.art.capSouth) placeSprite(scene, occluder, wx, wy, "wall_top_mid", { tint });
+      if (role.art.capEast) placeSprite(scene, occluder, wx, wy, "wall_edge_mid_right", { tint });
       return;
     }
     case "fill":

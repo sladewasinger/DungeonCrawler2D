@@ -3,10 +3,15 @@
 // its actual shape: face, rim piece, quiet interior fill, or freestanding pillar.
 
 export type SolidNeighbor = (dx: number, dy: number) => boolean;
+export type VerticalBridgeSide = "west" | "east";
 
 export type WallRole =
   | { readonly kind: "pillar" }
-  | { readonly kind: "face"; readonly frame: string }
+  | {
+      readonly kind: "face";
+      readonly frame: string;
+      readonly outline: { readonly north: boolean; readonly west: boolean; readonly east: boolean };
+    }
   | { readonly kind: "rim"; readonly art: RimArt }
   | { readonly kind: "fill" };
 
@@ -54,12 +59,16 @@ export interface RimArt {
   readonly flip?: boolean;
   /** Full-coverage brick art — no fill rect needed beneath it. */
   readonly opaque?: boolean;
+  readonly texturedFill?: boolean;
+  readonly capNorth?: boolean;
+  readonly capSouth?: boolean;
+  readonly capEast?: boolean;
 }
 
 const THIN_V_LEFT: RimArt = { frame: "wall_edge_mid_left" };
 const THIN_V_RIGHT: RimArt = { frame: "wall_edge_mid_right" };
-const RIDGE_V: RimArt = { frame: "wall_edge_left", opaque: true };
-const RIDGE_H: RimArt = { frame: "wall_mid", opaque: true };
+const RIDGE_V: RimArt = { frame: "wall_edge_mid_left", texturedFill: true, capEast: true };
+const RIDGE_H: RimArt = { frame: "wall_mid", opaque: true, capNorth: true, capSouth: true };
 
 const RIM_BY_KEY: Readonly<Record<number, RimArt>> = {
   1: THIN_V_LEFT,
@@ -68,11 +77,11 @@ const RIM_BY_KEY: Readonly<Record<number, RimArt>> = {
   4: { frame: "wall_top_mid", flip: true },
   5: { frame: "wall_edge_bottom_left" },
   6: { frame: "wall_edge_bottom_right" },
-  7: RIDGE_V,
+  7: { ...RIDGE_V, capSouth: true },
   8: { frame: "wall_top_mid" },
   9: { frame: "wall_edge_top_left" },
   10: { frame: "wall_edge_top_right" },
-  11: RIDGE_V,
+  11: { ...RIDGE_V, capNorth: true },
   12: RIDGE_H,
   13: { frame: "wall_left", opaque: true },
   14: { frame: "wall_right", opaque: true },
@@ -100,6 +109,22 @@ function facePiece(solid: SolidNeighbor, isFace: (dx: number) => boolean): strin
 }
 
 /**
+ * A south-projecting face can visually collide with a one-wide wall resuming
+ * two rows below it. Treat the aligned pieces as one vertical T-junction so
+ * the projected brick face does not sever the wall silhouette.
+ */
+export function verticalFaceBridgeSide(
+  solid: SolidNeighbor,
+  selfIsFace: boolean,
+): VerticalBridgeSide | undefined {
+  if (!selfIsFace || !solid(0, -1) || solid(0, 1) || !solid(0, 2)) return undefined;
+  const west = solid(-1, 0);
+  const east = solid(1, 0);
+  if (west === east) return undefined;
+  return west ? "west" : "east";
+}
+
+/**
  * The role a wall cell plays in its mass's contour.
  *
  * @param solid whether the neighbor at (dx, dy) is wall terrain
@@ -115,7 +140,13 @@ export function classifyWallCell(
   const o = openness(solid);
   const key = orthoKey(o);
   if (key === 15) return { kind: "pillar" };
-  if (selfIsFace) return { kind: "face", frame: facePiece(solid, isFaceCell) };
+  if (selfIsFace) {
+    return {
+      kind: "face",
+      frame: facePiece(solid, isFaceCell),
+      outline: { north: o.n, west: o.w, east: o.e },
+    };
+  }
   const rim = RIM_BY_KEY[key];
   if (rim !== undefined) return { kind: "rim", art: rim };
   if (anyDiagonalOpen(o)) return { kind: "rim", art: insideCornerPiece(o) };
