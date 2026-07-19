@@ -6,7 +6,7 @@ import { WidgetRegistry } from "../registry.js";
 import type { LayoutConfig, WidgetDefinition } from "../state.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
-const HUD_WIDGET_IDS = ["health", "hotbar", "buffs", "weapon", "chat", "interaction", "status", "death"];
+const HUD_WIDGET_IDS = ["health", "hotbar", "buffs", "weapon", "chat", "interaction", "status", "death", "inventory"];
 
 function stubDefinition(id: string): WidgetDefinition {
   return { id, defaultAnchor: "top-left", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true };
@@ -26,6 +26,15 @@ describe("HUD widget ids in the shipped default layout", () => {
     const resolved = registry.resolve(VIEWPORT);
     expect(resolved.get("status")?.anchor).toBe("top-right");
     expect(resolved.get("status")?.x).toBeGreaterThan(VIEWPORT.width / 2);
+  });
+});
+
+describe("inventory window's layout entry", () => {
+  it("defaults to a centered panel (anchor 'center', zero offset) — HUD_OS.md Phase 1", () => {
+    const registry = new WidgetRegistry();
+    registry.register({ id: "inventory", defaultAnchor: "center", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true });
+    const resolved = registry.resolve(VIEWPORT).get("inventory");
+    expect(resolved).toMatchObject({ anchor: "center", x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 });
   });
 });
 

@@ -1,7 +1,7 @@
 // Nameplates: small, dimmed until nearby, teal for party — the palette carries the
 // social information per VISUAL_DIRECTION's UI section.
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../ui/font.js";
+import { uiTextStyle } from "../../ui/font.js";
 import { HUD_SCALE } from "../../ui/hudScale.js";
 
 const NEAR_DISTANCE_TILES = 6;
@@ -12,7 +12,7 @@ const NEAR_ALPHA = 0.95;
 const Y_OFFSET = -16 * HUD_SCALE;
 
 export function createNameplate(scene: Phaser.Scene, depth: number): Phaser.GameObjects.Text {
-  return scene.add.text(0, 0, "", pixelTextStyle(10 * HUD_SCALE)).setOrigin(0.5, 1).setDepth(depth);
+  return scene.add.text(0, 0, "", uiTextStyle(10 * HUD_SCALE)).setOrigin(0.5, 1).setDepth(depth);
 }
 
 /** Repositions/recolors a nameplate above an entity's head: teal for party, dimmed grey otherwise. */

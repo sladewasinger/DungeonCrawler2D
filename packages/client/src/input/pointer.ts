@@ -65,7 +65,9 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
   triggerAttack(state, conn, deps.hooks, dx, dy, performance.now());
 }
 
-/** A tap that hit a HUD element: hotbar slot, one of the three touch buttons, or the chat toggle chip. */
+/** A tap that hit a HUD element: hotbar slot, one of the three touch buttons, the chat
+ * toggle chip, or the inventory window (its own row/tab/button listeners handle the
+ * click — "window:inventory" only exists so this never falls through to a world swing). */
 function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointerId: number): void {
   const { conn, queries, hooks, touch } = deps;
   if (uiHit.startsWith("slot:")) {
@@ -81,6 +83,8 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     conn.interact();
   } else if (uiHit === "chat:toggle") {
     hooks.onToggleChat();
+  } else if (uiHit === "inventory:toggle") {
+    hooks.onToggleInventory();
   }
 }
 

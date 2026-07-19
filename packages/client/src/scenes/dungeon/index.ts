@@ -20,7 +20,7 @@ import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
 import { consumeFixedSteps, interpolationAlpha, lerp } from "./fixedStep.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
-import { createInputConnectionAdapter, createInputHooks, createInputPanels, createInputQueries } from "./inputAdapters.js";
+import { createHudActions, createInputConnectionAdapter, createInputHooks, createInputPanels, createInputQueries } from "./inputAdapters.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
 import { resolveMeleeSwings } from "./meleeSwingEvents.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
@@ -54,7 +54,7 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx = new VfxSystem(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.inputController = this.buildInputController();
-    this.scene.launch("hud", { source: () => this.buildHudSnapshotNow() });
+    this.scene.launch("hud", { source: () => this.buildHudSnapshotNow(), actions: createHudActions(this.conn) });
     this.setUpCameraResize();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
@@ -80,9 +80,9 @@ export class DungeonScene extends Phaser.Scene {
 
   private buildInputController(): InputController {
     const connAdapter = createInputConnectionAdapter(this.conn);
-    const panels = createInputPanels();
+    const panels = createInputPanels(this.hudScene);
     const queries = createInputQueries(this.conn);
-    const hooks = createInputHooks(this.state.cosmetics, () => this.hudScene.toggleChat());
+    const hooks = createInputHooks(this.state.cosmetics, () => this.hudScene.toggleChat(), () => this.hudScene.toggleInventory());
     return new InputController(this, connAdapter, panels, this.hudScene, queries, hooks, SCREEN_TILE_PX);
   }
 

@@ -19,6 +19,9 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     craft: () => calls.push("craft"),
     stashOp: () => calls.push("stashOp"),
     partyOp: () => calls.push("partyOp"),
+    assignSlot: () => calls.push("assignSlot"),
+    equip: () => calls.push("equip"),
+    drop: () => calls.push("drop"),
     ...overrides,
   };
 }
@@ -105,10 +108,30 @@ describe("onNumberKey", () => {
   const panelsClosed: InputPanels = {
     craftOpen: false,
     stashOpen: false,
+    inventoryOpen: false,
+    selectedInventoryItem: null,
     openStashIfNearby: () => {},
     toggleCraft: () => {},
     closeAll: () => {},
   };
+
+  it("binds the selected inventory row to that slot when the inventory window is open with a row selected", () => {
+    const state = makeState();
+    const bound: Array<[number, string | null]> = [];
+    const conn = makeConn({ assignSlot: (slot, item) => bound.push([slot, item]) });
+    const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: "bomb" };
+    onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: false } } as Keys, 3);
+    expect(bound).toEqual([[2, "bomb"]]);
+  });
+
+  it("falls back to hotbar activation when the inventory is open but nothing is selected", () => {
+    const state = makeState();
+    const used: number[] = [];
+    const conn = makeConn({ useSlot: (i) => used.push(i) });
+    const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: null };
+    onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: false } } as Keys, 1);
+    expect(used).toEqual([0]);
+  });
 
   it("falls back to hotbar activation when no panel is open", () => {
     const state = makeState();

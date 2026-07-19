@@ -3,7 +3,7 @@
  * fill) plus an hp readout, with a white damage-flash pulse when hp drops between updates.
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER, PANEL_FILL, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -43,7 +43,7 @@ export class HealthBarWidget {
     const totalHeight = SEGMENT_HEIGHT + spacing(1);
     const bg = scene.add.rectangle(0, 0, totalWidth, totalHeight, PANEL_FILL).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
     this.flash = scene.add.rectangle(0, 0, totalWidth, totalHeight, 0xffffff, 0).setOrigin(0, 0);
-    this.label = scene.add.text(spacing(0.5), totalHeight + spacing(0.2), "", pixelTextStyle(12)).setOrigin(0, 0);
+    this.label = scene.add.text(spacing(0.5), totalHeight + spacing(0.2), "", uiTextStyle(12)).setOrigin(0, 0);
     this.container.add([bg, ...this.buildSegments(scene), this.flash, this.label]);
   }
 

@@ -128,15 +128,33 @@ export function applyFlattenedFeature(
 
   if (layout.safeRoom) {
     // The safe room itself is an instanced stretch room (rooms.ts); the
-    // overworld only gets its entrance: a wall kiosk whose south face
-    // is a portal door (GAME_DESIGN.md § Safe rooms).
-    carveSafeRoomEntrance(tiles, layout.centerLx, layout.centerLy);
+    // overworld only gets its entrance: a raised kiosk TERRACE (walkable
+    // floor, not a TILE.Wall rock mass — user-decreed 2026-07-19, see
+    // VISUAL_DIRECTION.md's wall vertical-extent rule) whose south face
+    // carries a portal door (GAME_DESIGN.md § Safe rooms).
+    carveSafeRoomEntrance(tiles, height, layout.centerLx, layout.centerLy);
   }
 }
 
-/** 5x3 wall kiosk: a short, broad enclosed mass with a south-face portal. */
+/** Height of the kiosk terrace: z2, satisfying the generator's z+1 vertical-extent floor (docs/VISUAL_DIRECTION.md). */
+export const KIOSK_HEIGHT = 2;
+
+/**
+ * 5-wide x 3-deep kiosk TERRACE: a raised, walkable floor dais (not solid
+ * rock) whose south row is its face — exactly z+1 = 3 deep for z2, per the
+ * generator's vertical-extent invariant (docs/examples/user-kiosk-terrace-
+ * example.json is the hand-authored acceptance fixture this shape matches).
+ * The door replaces the center cell of that south face row AND drops that
+ * one cell to height 0 (flush with the pad outside): STEP_UP gates grounded
+ * movement onto any raised cell (movement/collision.ts's cornerBlocksMove),
+ * doors get no ramp/jump exemption there, so a door left at the terrace's
+ * own height would be a real portal nobody could ever walk up to — the
+ * doorway is a full-depth notch cut down to the ground, same as any
+ * ordinary wall door, not a face cell at reduced height.
+ */
 export function carveSafeRoomEntrance(
   tiles: Uint8Array,
+  height: Float32Array,
   centerLx: number,
   centerLy: number,
 ): void {
@@ -145,9 +163,15 @@ export function carveSafeRoomEntrance(
       const lx = centerLx + dx;
       const ly = centerLy + dy;
       if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-      tiles[ly * CHUNK_SIZE + lx] = TILE.Wall;
+      const i = ly * CHUNK_SIZE + lx;
+      tiles[i] = TILE.Floor;
+      height[i] = KIOSK_HEIGHT;
     }
   }
   const doorLy = centerLy + 1;
-  if (doorLy < CHUNK_SIZE) tiles[doorLy * CHUNK_SIZE + centerLx] = TILE.DoorSafeRoom;
+  if (doorLy < CHUNK_SIZE) {
+    const doorIndex = doorLy * CHUNK_SIZE + centerLx;
+    tiles[doorIndex] = TILE.DoorSafeRoom;
+    height[doorIndex] = 0;
+  }
 }

@@ -1,4 +1,4 @@
-import { LEVEL, MIN_SPAWN_DIST, SPAWN_CHUNK_RANGE, TILE, chunkCenter } from "@dc2d/engine";
+import { LEVEL, MIN_SPAWN_DIST, SPAWN_CHUNK_RANGE, chunkCenter } from "@dc2d/engine";
 import type { SimState } from "./state.js";
 
 /**
@@ -141,12 +141,18 @@ function nearestPlayerDistance(sim: SimState, tile: { x: number; y: number }): n
   return nearest;
 }
 
-/** Nearest room/corridor floor tile to a world position (spiral search). */
+/**
+ * Nearest room/corridor floor tile to a world position (spiral search).
+ * `avoid` skips tiles a caller has already claimed this pass (e.g.
+ * testzone.ts snapping several tightly-packed fixtures without stacking
+ * them onto the same lone floor tile).
+ */
 export function findWalkableNear(
-  sim: SimState,
+  sim: Pick<SimState, "world">,
   wx: number,
   wy: number,
   maxRadius = 6,
+  avoid?: ReadonlySet<string>,
 ): { x: number; y: number } | null {
   for (let radius = 0; radius < maxRadius; radius++) {
     for (let dy = -radius; dy <= radius; dy++) {
@@ -154,7 +160,8 @@ export function findWalkableNear(
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
         const x = Math.round(wx) + dx;
         const y = Math.round(wy) + dy;
-        if (sim.world.isWalkable(x, y) && sim.world.tileAt(x, y) !== TILE.Wall) return { x, y };
+        if (avoid?.has(`${x},${y}`)) continue;
+        if (sim.world.isWalkable(x, y)) return { x, y };
       }
     }
   }

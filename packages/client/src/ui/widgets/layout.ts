@@ -26,8 +26,8 @@ export function resolveLayout(state: WidgetRegistryState, viewport: Viewport): M
     const base = anchorPoint(anchor, viewport);
     const x = base.x + offset.x * hudScale;
     const y = base.y + offset.y * hudScale;
-    // The monogram pixel font only renders crisp at integer canvas-scale multiples
-    // (docs/VISUAL_DIRECTION.md "pixel font everywhere") — round so widget.scale *
+    // HUD widgets carry 16px-source pixel-art icons (item/weapon sprites) that only
+    // render crisp at integer canvas-scale multiples — round so widget.scale *
     // hudScale always lands on a whole number, even for a future editor's fractional drag-resize.
     const finalScale = Math.round(scale * hudScale);
     resolved.set(id, { anchor, x, y, scale: finalScale, visible });

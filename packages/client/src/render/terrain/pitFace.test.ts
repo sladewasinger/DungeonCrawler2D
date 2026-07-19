@@ -3,12 +3,20 @@
 import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { TerrainRead } from "./faces.js";
-import { pitFaceRowAt } from "./pitFace.js";
+import { pitFaceRowAt, pitRunPieceAt } from "./pitFace.js";
 
 function terrain(heightsByRow: Record<number, number>): TerrainRead {
   return {
     heightAt: (_x, y) => heightsByRow[y] ?? 0,
     tileAt: (): TileType => TILE.Floor,
+  };
+}
+
+/** heights/tiles keyed "x,y"; missing heights default to 0, missing tiles to Floor. */
+function grid(heights: Record<string, number>, walls: ReadonlySet<string> = new Set()): TerrainRead {
+  return {
+    heightAt: (x, y) => heights[`${x},${y}`] ?? 0,
+    tileAt: (x, y) => (walls.has(`${x},${y}`) ? TILE.Wall : TILE.Floor),
   };
 }
 
@@ -41,5 +49,19 @@ describe("pitFaceRowAt", () => {
   it("excludes sub-threshold rises (a gentle dip is not a wall)", () => {
     const world = terrain({ 4: -0.5, 5: -1 });
     expect(pitFaceRowAt(world, 0, 5)).toBeNull();
+  });
+});
+
+describe("pitRunPieceAt — ONE outline at a pit rim (VISUAL_DIRECTION.md)", () => {
+  const heights = { "5,4": 0, "6,4": 0, "5,5": -1, "6,5": -1 };
+
+  it("suppresses the side closure where the non-connecting neighbor is open ground — the ground tile's own topEdges already draws that seam", () => {
+    const world = grid({ ...heights, "4,5": 0 });
+    expect(pitRunPieceAt(world, 5, 5)).toMatchObject({ closeWest: false });
+  });
+
+  it("keeps the side closure where the non-connecting neighbor is a wall — nothing else draws that seam", () => {
+    const world = grid({ ...heights, "4,5": 0 }, new Set(["4,5"]));
+    expect(pitRunPieceAt(world, 5, 5)).toMatchObject({ closeWest: true });
   });
 });

@@ -92,8 +92,11 @@ function mesasFor(seeds: Seeds, cx: number, cy: number): Mesa[] {
   const mesas: Mesa[] = [];
   // The first mesa is the tall centerpiece: a tier-1 skirt with a
   // tier-2 core (handled in mesaRiseAt); the rest ring it at hop-able
-  // offsets.
-  mesas.push({ dx: 0, dy: 0, hx: 2, hy: 2, tier: 2 });
+  // offsets. hx/hy=3 (not 2) so the tier-1 skirt is TIER2_SHELL_WIDTH=2
+  // deep on every side — a skirt only 1 deep, front-to-back, would be
+  // "all face, no platform" (docs/VISUAL_DIRECTION.md's z+1 vertical-
+  // extent rule: z1 needs >=2 deep).
+  mesas.push({ dx: 0, dy: 0, hx: 3, hy: 3, tier: 2 });
   for (let k = 1; k < count; k++) {
     const angle = ((h(k * 3 + 1) % 8) / 8) * Math.PI * 2;
     const dist = 5 + (h(k * 3 + 2) % 2); // 5..6 tiles out — gaps of 1..3
@@ -108,6 +111,11 @@ function mesasFor(seeds: Seeds, cx: number, cy: number): Mesa[] {
   return mesas;
 }
 
+// Gap (in half-extent units) between a tier-2 core's boundary and its tier-1
+// skirt's outer boundary — the skirt's own front-to-back depth on every
+// side, so it must be >=2 to satisfy z+1 for a tier-1 (z1) rise.
+const TIER2_SHELL_WIDTH = 2;
+
 /** Raised height (0, +1, or +2) this cluster adds at a local offset. */
 function mesaRiseAt(mesas: Mesa[], ox: number, oy: number): number {
   let rise = 0;
@@ -116,7 +124,9 @@ function mesaRiseAt(mesas: Mesa[], ox: number, oy: number): number {
     const inY = Math.abs(oy - m.dy) <= m.hy;
     if (!inX || !inY) continue;
     let tier = 1;
-    if (m.tier === 2 && Math.abs(ox - m.dx) <= m.hx - 1 && Math.abs(oy - m.dy) <= m.hy - 1) {
+    const coreX = Math.abs(ox - m.dx) <= m.hx - TIER2_SHELL_WIDTH;
+    const coreY = Math.abs(oy - m.dy) <= m.hy - TIER2_SHELL_WIDTH;
+    if (m.tier === 2 && coreX && coreY) {
       tier = 2; // inner core one more jump up
     }
     rise = Math.max(rise, tier * PLATFORM_TIER_STEP);

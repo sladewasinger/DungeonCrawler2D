@@ -4,7 +4,7 @@
  * clock/hourglass sprite to autotile from).
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -65,7 +65,7 @@ export class BuffChipsWidget {
   private buildChip(index: number): ChipVisual {
     const x = index * (CHIP_SIZE + CHIP_GAP);
     const box = this.scene.add.rectangle(x, 0, CHIP_SIZE, CHIP_SIZE, 0x1a1a24).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
-    const letter = this.scene.add.text(x + CHIP_SIZE / 2, CHIP_SIZE / 2 - spacing(0.3), "", pixelTextStyle(12)).setOrigin(0.5, 0.5);
+    const letter = this.scene.add.text(x + CHIP_SIZE / 2, CHIP_SIZE / 2 - spacing(0.3), "", uiTextStyle(12)).setOrigin(0.5, 0.5);
     const pip = this.scene.add.rectangle(x, CHIP_SIZE - PIP_HEIGHT, CHIP_SIZE, PIP_HEIGHT, 0xffffff).setOrigin(0, 0);
     const container = this.scene.add.container(0, 0, [box, letter, pip]).setVisible(false);
     this.root.add(container);

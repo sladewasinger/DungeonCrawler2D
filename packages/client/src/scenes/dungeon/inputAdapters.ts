@@ -1,10 +1,12 @@
 // Thin glue between input/index.ts's InputController contracts and DungeonScene's real
-// Connection + self cosmetics. Panels (craft/stash UI) aren't built yet (docs/PORT_PLAN.md
-// core slice), so InputPanels is a harmless no-op here — the E/number-key bindings are
-// already wired and become live the moment those widgets land.
+// Connection + self cosmetics. Craft/stash panels aren't built yet (docs/PORT_PLAN.md
+// core slice), so those two fields of InputPanels stay a harmless no-op — the E/number-
+// key bindings are already wired and become live the moment those widgets land. Inventory
+// (HUD_OS.md Phase 1) is real: InputPanels reads it live from HudScene's InventoryPanelSource.
 import { TILE } from "@dc2d/engine";
 import type { InputConnection, InputHooks, InputPanels, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
+import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
 import { isTileTypeNearby, isThrowableItem, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
 import { triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
 
@@ -35,16 +37,42 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     craft: (recipeId) => conn.craft(recipeId),
     stashOp: (op, index) => conn.stashOp(op, index),
     partyOp: (op, target) => conn.partyOp(op, target),
+    assignSlot: (slot, item) => conn.assignSlot(slot, item),
+    equip: (item) => conn.equip(item),
+    drop: (item) => conn.drop(item),
   };
 }
 
-export function createInputPanels(): InputPanels {
+/** The slice of HudScene's inventory-window state/actions InputPanels needs — kept
+ * structural (not a HudScene import) so this module stays decoupled from scenes/HudScene.ts. */
+export interface InventoryPanelSource {
+  inventoryOpen(): boolean;
+  selectedInventoryItem(): string | null;
+  closeInventory(): void;
+}
+
+/** The inventory window's network intents (HudSceneData.actions), bound straight to the real Connection. */
+export function createHudActions(conn: Connection): InventoryActions {
+  return {
+    assignSlot: (slot, item) => conn.assignSlot(slot, item),
+    equip: (item) => conn.equip(item),
+    drop: (item) => conn.drop(item),
+  };
+}
+
+export function createInputPanels(hud: InventoryPanelSource): InputPanels {
   return {
     craftOpen: false,
     stashOpen: false,
+    get inventoryOpen() {
+      return hud.inventoryOpen();
+    },
+    get selectedInventoryItem() {
+      return hud.selectedInventoryItem();
+    },
     openStashIfNearby: () => {},
     toggleCraft: () => {},
-    closeAll: () => {},
+    closeAll: () => hud.closeInventory(),
   };
 }
 
@@ -74,12 +102,17 @@ export function createInputQueries(conn: Connection): InputQueries {
   };
 }
 
-export function createInputHooks(cosmetics: SelfCosmeticsState, toggleChat: () => void): InputHooks {
+export function createInputHooks(
+  cosmetics: SelfCosmeticsState,
+  toggleChat: () => void,
+  toggleInventory: () => void,
+): InputHooks {
   return {
     onSwing: (dx, dy) => triggerSelfAttack(cosmetics, performance.now(), dx, dy),
     // Chunk-grid debug overlay isn't built in this wave — GalleryScene's coordinate
     // readout (render/terrain debugging) covers it for now.
     onToggleBorders: () => {},
     onToggleChat: toggleChat,
+    onToggleInventory: toggleInventory,
   };
 }

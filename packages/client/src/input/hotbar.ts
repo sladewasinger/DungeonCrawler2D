@@ -38,7 +38,18 @@ export function activateHotbar(state: InputState, conn: InputConnection, queries
   }
 }
 
-/** Numbers act on the open panel first (craft recipe / stash slot), then fall back to hotbar USE. */
+/** Shift+number puts the hotbar-bound item into the stash; a plain number takes from it. */
+function handleStashNumberKey(conn: InputConnection, keys: Keys, n: number): void {
+  if (!keys.SHIFT.isDown) {
+    conn.stashOp("take", n - 1);
+    return;
+  }
+  const defId = conn.hotbar[n - 1];
+  const inventoryIndex = defId ? conn.inventory.findIndex((stack) => stack.item === defId) : -1;
+  if (inventoryIndex >= 0) conn.stashOp("put", inventoryIndex);
+}
+
+/** Numbers act on the open panel first (inventory bind slot / craft recipe / stash slot), then fall back to hotbar USE. */
 export function onNumberKey(
   state: InputState,
   conn: InputConnection,
@@ -47,19 +58,17 @@ export function onNumberKey(
   keys: Keys,
   n: number,
 ): void {
+  if (panels.inventoryOpen && panels.selectedInventoryItem) {
+    conn.assignSlot(n - 1, panels.selectedInventoryItem);
+    return;
+  }
   if (panels.craftOpen && queries.isCraftTableNearby(conn)) {
     const recipeId = queries.recipeIdAt(n - 1);
     if (recipeId) conn.craft(recipeId);
     return;
   }
   if (panels.stashOpen && conn.stash && queries.isStashNearby(conn)) {
-    if (keys.SHIFT.isDown) {
-      const defId = conn.hotbar[n - 1];
-      const inventoryIndex = defId ? conn.inventory.findIndex((stack) => stack.item === defId) : -1;
-      if (inventoryIndex >= 0) conn.stashOp("put", inventoryIndex);
-    } else {
-      conn.stashOp("take", n - 1);
-    }
+    handleStashNumberKey(conn, keys, n);
     return;
   }
   activateHotbar(state, conn, queries, n - 1);

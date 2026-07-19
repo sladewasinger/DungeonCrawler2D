@@ -15,6 +15,8 @@ import type { HudFakeSnapshot } from "./fakeData.js";
 import { HealthBarWidget } from "./healthBar.js";
 import { HotbarWidget } from "./hotbar.js";
 import { InteractionPromptWidget } from "./interactionPrompt.js";
+import { InventoryToggleButtonWidget } from "./inventoryToggleButton.js";
+import { InventoryWindowWidget, type InventoryActions } from "./inventoryWindow.js";
 import { ReconnectToastWidget } from "./reconnectToast.js";
 import { TouchButtonsWidget } from "./touchButtons.js";
 import { TouchStickWidget } from "./touchStick.js";
@@ -30,6 +32,10 @@ function applyTouchLayoutOverrides(registry: WidgetRegistry): void {
   registry.setOverride("hotbar", { scale: 0.5 });
   registry.setOverride("weapon", { visible: false });
   registry.setOverride("chat", { offset: { x: 16, y: -150 } });
+  // The inventory panel's 340px pre-hudScale width doubles to 680px — wider than a
+  // ~390px portrait phone. Same fix as the hotbar above: half scale brings it back to
+  // a legible, on-screen size instead of running off both edges.
+  registry.setOverride("inventory", { scale: 0.5 });
   // Clears the touch-buttons cluster's top edge (touchButtons.ts) instead of sitting
   // right on top of it — only reachable on the ?camera=entities gallery preset /
   // standing near a pickup in real play, but real play hits it too.
@@ -39,6 +45,11 @@ function applyTouchLayoutOverrides(registry: WidgetRegistry): void {
   // this fix), leaving no horizontal gap for the top-right ping/fps/coords stack
   // beside it — drop the stack below the health+buffs cluster instead of squeezing in.
   registry.setOverride("status", { offset: { x: -16, y: 100 } });
+}
+
+/** The gallery's ?hud=1 preview (no live Connection) still constructs HudWidgets — inert stand-ins so its Equip/Drop buttons don't throw. */
+function noopInventoryActions(): InventoryActions {
+  return { assignSlot: () => {}, equip: () => {}, drop: () => {} };
 }
 
 export class HudWidgets {
@@ -56,10 +67,12 @@ export class HudWidgets {
   private readonly connection: ConnectionStatusWidget;
   private readonly death: DeathOverlayWidget;
   private readonly reconnectToast: ReconnectToastWidget;
+  private readonly inventory: InventoryWindowWidget;
   private touchStick: TouchStickWidget | undefined;
   private touchButtons: TouchButtonsWidget | undefined;
+  private inventoryToggleButton: InventoryToggleButtonWidget | undefined;
 
-  constructor(scene: Phaser.Scene, viewport: Viewport) {
+  constructor(scene: Phaser.Scene, viewport: Viewport, actions?: InventoryActions) {
     this.scene = scene;
     if (this.touchActive) applyTouchLayoutOverrides(this.registry);
     this.health = new HealthBarWidget(scene, this.registry, viewport);
@@ -71,6 +84,7 @@ export class HudWidgets {
     this.connection = new ConnectionStatusWidget(scene, this.registry, viewport);
     this.death = new DeathOverlayWidget(scene, this.registry, viewport);
     this.reconnectToast = new ReconnectToastWidget(scene, this.registry, viewport);
+    this.inventory = new InventoryWindowWidget(scene, this.registry, viewport, actions ?? noopInventoryActions());
     if (this.touchActive) this.buildTouchControls(scene, viewport);
     scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => this.handlePointerDown(pointer));
   }
@@ -78,6 +92,7 @@ export class HudWidgets {
   private buildTouchControls(scene: Phaser.Scene, viewport: Viewport): void {
     this.touchStick = new TouchStickWidget(scene, this.registry, viewport);
     this.touchButtons = new TouchButtonsWidget(scene, this.registry, viewport);
+    this.inventoryToggleButton = new InventoryToggleButtonWidget(scene, this.registry, viewport);
   }
 
   /**
@@ -104,6 +119,7 @@ export class HudWidgets {
     this.hotbar.update(snapshot.hotbar, snapshot.selectedSlot, snapshot.armedThrowableSlot, nowMs);
     this.buffs.update(snapshot.buffs);
     this.weapon.update(snapshot.equippedWeaponId);
+    this.inventory.update(snapshot.inventory, snapshot.equippedWeaponId);
     this.chat.update(snapshot.chat, snapshot.activeChatChannel);
     this.interaction.update(snapshot.interactionPrompt);
     this.connection.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords);
@@ -121,6 +137,7 @@ export class HudWidgets {
     this.hotbar.resize(this.registry, viewport);
     this.buffs.resize(this.registry, viewport);
     this.weapon.resize(this.registry, viewport);
+    this.inventory.resize(this.registry, viewport);
     this.chat.resize(this.registry, viewport);
     this.interaction.resize(this.registry, viewport);
     this.connection.resize(this.registry, viewport);
@@ -128,6 +145,7 @@ export class HudWidgets {
     this.reconnectToast.resize(this.registry, viewport);
     this.touchStick?.resize(this.registry, viewport);
     this.touchButtons?.resize(this.registry, viewport);
+    this.inventoryToggleButton?.resize(this.registry, viewport);
   }
 
   /** Toggles the chat panel open/closed. */
@@ -135,11 +153,32 @@ export class HudWidgets {
     this.chat.toggle();
   }
 
-  /** InputHud contract: which widget (if any) owns a screen point — hotbar slots,
-   * touch buttons, and the chat toggle chip, else null. */
+  /** Bound to [I]/[Tab] and the touch bag button (InputHooks.onToggleInventory). */
+  toggleInventory(): void {
+    this.inventory.toggle();
+  }
+
+  /** Bound to [Esc]'s InputPanels.closeAll sweep. */
+  closeInventory(): void {
+    this.inventory.close();
+  }
+
+  inventoryOpen(): boolean {
+    return this.inventory.isOpen();
+  }
+
+  /** The row currently selected for the [1-9] bind flow (input/hotbar.ts's onNumberKey), or null. */
+  selectedInventoryItem(): string | null {
+    return this.inventory.selectedItem();
+  }
+
+  /** InputHud contract: which widget (if any) owns a screen point — the inventory panel/
+   * toggle, hotbar slots, touch buttons, and the chat toggle chip, else null. */
   hitTest(screenX: number, screenY: number): string | null {
+    if (this.inventory.hitTestPanel(screenX, screenY)) return "window:inventory";
     const slot = this.hotbar.hitTestSlot(screenX, screenY);
     if (slot !== null) return `slot:${slot}`;
+    if (this.inventoryToggleButton?.hitTest(screenX, screenY)) return "inventory:toggle";
     const button = this.touchButtons?.hitTest(screenX, screenY);
     if (button) return `touch:${button}`;
     if (this.chat.hitTestToggle(screenX, screenY)) return "chat:toggle";

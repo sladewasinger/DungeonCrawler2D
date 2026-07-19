@@ -158,7 +158,12 @@ describe("GameSim: combat", () => {
   it("enemies chase and hurt players; kills drop loot and respawn far away", () => {
     const a = sim.addPlayer("A", "client-a");
     const entity = sim.getPlayerEntity(a.playerId)!;
-    teleport(entity, arena.x, arena.y, sim);
+    // A wider clearance than the shared `arena`: the enemy spawns 3
+    // tiles out and must walk the whole gap to reach the player, so the
+    // approach path itself (not just the two endpoints) has to be real,
+    // wall-free floor.
+    const wideArena = findFlatArena(sim, 28, 28, 3);
+    teleport(entity, wideArena.x, wideArena.y, sim);
     sim.spawnEnemy("skeleton", entity.body.x + 3, entity.body.y);
     stepN(sim, TICK_RATE * 4); // it closes in and swings
     expect(entity.hp).toBeLessThan(PLAYER_MAX_HP);

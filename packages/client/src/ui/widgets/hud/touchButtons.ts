@@ -6,7 +6,7 @@
  * so InputController routes taps through the one pointerdown pipeline.
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER, PANEL_FILL, SELECTION_ACCENT } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -75,7 +75,7 @@ export class TouchButtonsWidget {
   private buildGlyph(kind: TouchButtonKind, pos: { x: number; y: number; size: number }): Phaser.GameObjects.GameObject {
     if (kind === "attack") return createItemIcon(this.scene, "sword", pos.size).setPosition(pos.x, pos.y);
     const label = kind === "jump" ? "JUMP" : "USE";
-    return this.scene.add.text(pos.x, pos.y, label, pixelTextStyle(9)).setOrigin(0.5, 0.5);
+    return this.scene.add.text(pos.x, pos.y, label, uiTextStyle(9)).setOrigin(0.5, 0.5);
   }
 
   /** Screen-space hit test (pointer coords) — returns "touch:<kind>" for InputHud.hitTest, or null. */

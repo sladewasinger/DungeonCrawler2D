@@ -4,7 +4,7 @@
  * (assets/INVENTORY.md GAP #6 — rag/stick/bandage/raw-meat/torch).
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER } from "../../panel.js";
 import { ASSET_KEYS } from "../../../boot/assetManifest.js";
 
@@ -42,6 +42,6 @@ function createSpriteIcon(scene: Phaser.Scene, frame: string, size: number): Pha
 
 function createFallbackIcon(scene: Phaser.Scene, itemId: string, size: number): Phaser.GameObjects.Container {
   const box = scene.add.rectangle(0, 0, size * 0.6, size * 0.6, FALLBACK_TINT).setStrokeStyle(1, PANEL_BORDER);
-  const letter = scene.add.text(0, 0, itemId.charAt(0).toUpperCase(), pixelTextStyle(12)).setOrigin(0.5, 0.5);
+  const letter = scene.add.text(0, 0, itemId.charAt(0).toUpperCase(), uiTextStyle(12)).setOrigin(0.5, 0.5);
   return scene.add.container(0, 0, [box, letter]);
 }

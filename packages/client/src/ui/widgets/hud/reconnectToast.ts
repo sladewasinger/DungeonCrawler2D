@@ -4,7 +4,7 @@
  * until the server answers again) — hidden the rest of the time.
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { drawPanelBackground } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -32,7 +32,7 @@ export class ReconnectToastWidget {
     this.container = createWidgetContainer(scene, layout);
     const bg = drawPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT).setPosition(-PANEL_WIDTH / 2, 0);
     this.label = scene.add
-      .text(0, PANEL_HEIGHT / 2, "", pixelTextStyle(12, "#ffd23d"))
+      .text(0, PANEL_HEIGHT / 2, "", uiTextStyle(12, "#ffd23d"))
       .setOrigin(0.5, 0.5);
     this.container.add([bg, this.label]);
     this.container.setVisible(false);

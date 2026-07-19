@@ -10,8 +10,10 @@ import type {
   ChatLineData,
   HotbarSlotData,
   HudFakeSnapshot,
+  InventoryRowData,
   TileCoords,
 } from "../../ui/widgets/hud/fakeData.js";
+import { categoryOfItem, itemName } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 
 interface StatusDef {
@@ -34,6 +36,20 @@ function hotbarSlots(hotbar: readonly (string | null)[], inventory: readonly Inv
     if (!itemId) return { itemId: null, count: 0 };
     const stack = inventory.find((s) => s.item === itemId);
     return { itemId, count: stack?.qty ?? 0 };
+  });
+}
+
+/** One row per InvStack — hotbarSlots()'s sibling for the inventory window, sourced from the same intent state. */
+function inventoryRows(inventory: readonly InvStack[], hotbar: readonly (string | null)[]): InventoryRowData[] {
+  return inventory.map((stack) => {
+    const boundIndex = hotbar.indexOf(stack.item);
+    return {
+      itemId: stack.item,
+      name: itemName(stack.item),
+      qty: stack.qty,
+      category: categoryOfItem(stack.item),
+      boundSlot: boundIndex >= 0 ? boundIndex : null,
+    };
   });
 }
 
@@ -106,6 +122,7 @@ export function buildHudSnapshot(
     armedThrowableSlot,
     buffs: buffChips(src.fx),
     equippedWeaponId: src.weapon,
+    inventory: inventoryRows(src.inventory, src.hotbar),
     chat: chatLines(src.chatLog),
     activeChatChannel,
     interactionPrompt,

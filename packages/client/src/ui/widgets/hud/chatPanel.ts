@@ -7,7 +7,7 @@
  * input/touchDetect.ts and relocates this widget's offset for touch via the registry.
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { drawPanelBackground, drawSelectionAccent, PANEL_BORDER, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -70,7 +70,7 @@ export class ChatPanelWidget {
       const x = spacing(0.5) + i * (TAB_WIDTH + 4);
       const y = -PANEL_HEIGHT;
       const tabBg = this.scene.add.rectangle(x, y, TAB_WIDTH, TAB_HEIGHT, 0x14141c).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
-      const label = this.scene.add.text(x + TAB_WIDTH / 2, y + TAB_HEIGHT / 2, channel, pixelTextStyle(10)).setOrigin(0.5, 0.5);
+      const label = this.scene.add.text(x + TAB_WIDTH / 2, y + TAB_HEIGHT / 2, channel, uiTextStyle(10)).setOrigin(0.5, 0.5);
       const accent = drawSelectionAccent(this.scene, TAB_WIDTH, TAB_HEIGHT).setPosition(x, y).setVisible(false);
       this.panel.add([tabBg, label, accent]);
       this.tabAccents.set(channel, accent);
@@ -80,7 +80,7 @@ export class ChatPanelWidget {
   private buildLines(): void {
     for (let i = 0; i < MAX_LINES; i++) {
       const y = -PANEL_HEIGHT + TAB_HEIGHT + spacing(1) + i * LINE_HEIGHT;
-      const text = this.scene.add.text(spacing(1), y, "", pixelTextStyle(11)).setOrigin(0, 0);
+      const text = this.scene.add.text(spacing(1), y, "", uiTextStyle(11)).setOrigin(0, 0);
       this.panel.add(text);
       this.lineTexts.push(text);
     }
@@ -89,7 +89,7 @@ export class ChatPanelWidget {
   /** The persistent "CHAT" toggle chip, sitting where the panel's bottom edge would be — always visible on touch. */
   private buildToggleChip(): void {
     const bg = this.scene.add.rectangle(0, -CHIP_HEIGHT, CHIP_WIDTH, CHIP_HEIGHT, 0x14141c).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
-    const label = this.scene.add.text(CHIP_WIDTH / 2, -CHIP_HEIGHT / 2, "CHAT", pixelTextStyle(10)).setOrigin(0.5, 0.5);
+    const label = this.scene.add.text(CHIP_WIDTH / 2, -CHIP_HEIGHT / 2, "CHAT", uiTextStyle(10)).setOrigin(0.5, 0.5);
     this.container.add([bg, label]);
     this.toggleChipBg = bg;
   }

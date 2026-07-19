@@ -1,6 +1,6 @@
 /** Contextual interaction prompt widget ("[R] pick up") — hidden unless a prompt is active. */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER, PANEL_FILL, SELECTION_ACCENT, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -28,8 +28,8 @@ export class InteractionPromptWidget {
     this.container = createWidgetContainer(scene, layout);
     this.bg = scene.add.graphics();
     const keyColor = `#${SELECTION_ACCENT.toString(16).padStart(6, "0")}`;
-    this.keyText = scene.add.text(0, PANEL_HEIGHT / 2, "", pixelTextStyle(13, keyColor)).setOrigin(0, 0.5);
-    this.labelText = scene.add.text(0, PANEL_HEIGHT / 2, "", pixelTextStyle(13)).setOrigin(0, 0.5);
+    this.keyText = scene.add.text(0, PANEL_HEIGHT / 2, "", uiTextStyle(13, keyColor)).setOrigin(0, 0.5);
+    this.labelText = scene.add.text(0, PANEL_HEIGHT / 2, "", uiTextStyle(13)).setOrigin(0, 0.5);
     this.container.add([this.bg, this.keyText, this.labelText]);
     this.container.setVisible(false);
   }

@@ -65,6 +65,11 @@ describe("GameSim: items and inventory", () => {
   it("a thrown vodka bottle leaves an oil slick; a torch onto it ignites", () => {
     const a = sim.addPlayer("A", "client-a");
     const entity = sim.getPlayerEntity(a.playerId)!;
+    // The throw travels 4 tiles: the whole flight path (not just the
+    // player's own tile) has to be real, wall-free floor for the arc to
+    // land where the test expects instead of stopping short at a wall.
+    const arena = findFlatArena(sim, entity.body.x, entity.body.y, 4);
+    teleport(entity, arena.x, arena.y, sim);
     const inv = sim.getInventory(a.playerId)!;
     const hotbar = sim.getHotbar(a.playerId)!;
     inv.push({ item: "vodka-bottle", qty: 1 });

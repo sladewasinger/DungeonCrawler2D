@@ -37,8 +37,19 @@ function towerCenter(seed: number, worldSeed: number, floor: number, cx: number,
   };
 }
 
+/**
+ * Concentric tier by DISTANCE-FROM-CENTER (not remaining-distance-to-edge):
+ * ring k spans d in [k*RING_STEP, (k+1)*RING_STEP), so the peak tier (which
+ * has no outer ring wrapping it — it's a full RING_STEP-radius square, not
+ * an annulus) gets a north-south span of 2*RING_STEP-1, satisfying the
+ * generator's z+1 vertical-extent rule (docs/VISUAL_DIRECTION.md) as long as
+ * RING_STEP >= TOWER_MAX_RISE — true here (3 >= 3) and asserted generally by
+ * generate/verticalExtentInvariant.test.ts's multi-seed scan. The old
+ * "remaining distance" formula gave the peak a bare 1-tile square — all
+ * face, no platform.
+ */
 function tierRise(d: number): number {
-  const tier = Math.max(0, Math.floor((OUTER_RADIUS - d) / RING_STEP));
+  const tier = Math.max(0, TOWER_MAX_RISE - Math.floor(d / RING_STEP));
   return tier * TIER_RISE;
 }
 

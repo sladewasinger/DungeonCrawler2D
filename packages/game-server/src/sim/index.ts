@@ -140,8 +140,9 @@ export class GameSim {
     processActions(sim, effectEvents);
     activateChunksNearPlayers(sim);
     if (sim.hazardsActive && sim.tickCount % TEST_ZONE_RESEED_TICKS === 0) {
-      seedTestZoneHazards(sim);
-      seedTestZoneItems(sim);
+      const claimed = new Set<string>();
+      seedTestZoneHazards(sim, claimed);
+      seedTestZoneItems(sim, claimed);
     }
     stepEnemies(sim, effectEvents);
     stepProjectiles(sim, effectEvents);

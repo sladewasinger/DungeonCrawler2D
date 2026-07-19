@@ -3,24 +3,23 @@
  * ~30-frame-smoothed FPS readout (colorized by framerate), and the player's
  * rounded predicted tile coordinates ("so users can find each other or share
  * positions") — one widget under one anchor, so the stack re-anchors as a unit.
- * Reuses the "status" layout slot (formerly ping-only, top-center).
+ * Reuses the "status" layout slot (formerly ping-only, top-center). Renders as
+ * bare right-aligned text with no panel chip behind it (user-decreed
+ * 2026-07-19, docs/ROADMAP.md Epic 7.7 — legibility comes from the readable
+ * UI font, not a background).
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
-import { drawPanelBackground, spacing } from "../../panel.js";
+import { uiTextStyle } from "../../font.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
 import type { TileCoords } from "./fakeData.js";
 
 const WIDGET_ID = "status";
-const PANEL_WIDTH = 128;
 const ROW_HEIGHT = 18;
 const ROW_TEXT_SIZE = 12;
-const PADDING = spacing(1);
-const PANEL_HEIGHT = PADDING * 2 + ROW_HEIGHT * 3;
-/** Right-aligned rows sit PADDING in from the panel's right edge, which is local x=0. */
-const TEXT_X = -PADDING;
+/** Right-aligned rows sit flush with the widget's anchor point (local x=0). */
+const TEXT_X = 0;
 
 const GOOD_PING_MS = 80;
 const OK_PING_MS = 150;
@@ -53,7 +52,7 @@ function fpsColor(fps: number): number {
 }
 
 function rowY(index: number): number {
-  return PADDING + ROW_HEIGHT * index + ROW_HEIGHT / 2;
+  return ROW_HEIGHT * index + ROW_HEIGHT / 2;
 }
 
 export class ConnectionStatusWidget {
@@ -74,15 +73,14 @@ export class ConnectionStatusWidget {
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
-    const panel = drawPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT).setPosition(-PANEL_WIDTH, 0);
     this.pingText = this.buildRow(scene, 0);
     this.fpsText = this.buildRow(scene, 1);
     this.coordsText = this.buildRow(scene, 2);
-    this.container.add([panel, this.pingText, this.fpsText, this.coordsText]);
+    this.container.add([this.pingText, this.fpsText, this.coordsText]);
   }
 
   private buildRow(scene: Phaser.Scene, index: number): Phaser.GameObjects.Text {
-    return scene.add.text(TEXT_X, rowY(index), "", pixelTextStyle(ROW_TEXT_SIZE)).setOrigin(1, 0.5);
+    return scene.add.text(TEXT_X, rowY(index), "", uiTextStyle(ROW_TEXT_SIZE)).setOrigin(1, 0.5);
   }
 
   update(pingMs: number, connected: boolean, fpsSample: number, coords: TileCoords): void {

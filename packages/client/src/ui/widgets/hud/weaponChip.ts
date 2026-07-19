@@ -1,6 +1,6 @@
 /** Equipped-weapon chip HUD widget: icon + weapon name, docked near the hotbar. */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { drawPanelBackground, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -38,7 +38,7 @@ export class WeaponChipWidget {
     this.container = createWidgetContainer(scene, layout);
     const bg = drawPanelBackground(scene, CHIP_WIDTH, CHIP_HEIGHT).setPosition(-CHIP_WIDTH, -CHIP_HEIGHT);
     this.label = scene.add
-      .text(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2, "", pixelTextStyle(12))
+      .text(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2, "", uiTextStyle(12))
       .setOrigin(0, 0.5);
     this.container.add([bg, this.label]);
   }

@@ -1,6 +1,7 @@
 import { AOI_RADIUS, PLAYER_MAX_HP, RECONNECT_GRACE_MS, TICK_RATE } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GameSim } from "../index.js";
+import { snapToFloor } from "../testzone.js";
 import { input, makeSim, stepN, teleport } from "./support.js";
 
 /**
@@ -57,7 +58,8 @@ describe("GameSim: join, spawn, and AOI", () => {
   it("reseeds canonical dev pickups after another player consumes them", () => {
     const player = sim.addPlayer("Fixture user", "fixture-client");
     const entity = sim.getPlayerEntity(player.playerId)!;
-    teleport(entity, 26.5, 28.5, sim); // testzone.ts's canonical bandage fixture
+    const bandageSpot = snapToFloor(sim, 26.5, 28.5); // testzone.ts's canonical bandage fixture
+    teleport(entity, bandageSpot.x, bandageSpot.y, sim);
     sim.step();
     sim.queueAction(player.playerId, { type: "pickup" });
     sim.step();

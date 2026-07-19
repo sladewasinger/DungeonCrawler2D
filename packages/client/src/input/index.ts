@@ -92,6 +92,8 @@ export class InputController {
       state.selectedThrowable = null;
       panels.closeAll(conn);
     });
+    keys.I.on("down", guarded(() => hooks.onToggleInventory()));
+    keys.TAB.on("down", guarded(() => hooks.onToggleInventory()));
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) throw new Error("scene has no keyboard plugin");
     for (let i = 1; i <= 9; i++) {

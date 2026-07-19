@@ -54,12 +54,23 @@ Everything moves that should move.
 
 ## UI
 
-- **Pixel font everywhere** (m5x7 or equivalent CC0 bitmap font). Default browser
-  fonts are forbidden in-game.
+- **Readable UI text, pixel-font flavor only for the title (user-decreed
+  2026-07-19, overrides this section's prior "pixel font everywhere" rule —
+  see ROADMAP.md Epic 7.7):** the monogram bitmap font read blurry/over-pixelated
+  at hudScale 2 on high-density (2K+) displays — A/B'd against a larger integer
+  monogram base size and a plain system-sans stack; system sans won decisively at
+  every tested size (`packages/client/src/ui/font.ts`'s `uiTextStyle`), so it is
+  now the face for all HUD widgets, nameplates, and floating damage numbers.
+  `pixelTextStyle`/monogram is kept for the title screen's flavor heading only.
+  Default browser fonts are otherwise still forbidden as *decorative* body text
+  substitutes — this is a deliberate, single system-sans choice, not "whatever
+  the browser defaults to."
 - **One panel language:** dark `#1a1a24` panels, 1 px `#494956` border, 4 px corner,
   consistent 8 px spacing grid, gold accents for selection. Every HUD element is a
   widget (id + anchor + offset + scale + visibility from a layout config) — no
-  fixed-position UI, ever.
+  fixed-position UI, ever. Exception: the ping/FPS/coords indicator stack
+  (`connectionStatus.ts`) is deliberately bare right-aligned text with no panel
+  chip behind it (user-decreed 2026-07-19) — it is telemetry, not a widget surface.
 - Health/stamina bars are chunky, segmented, and readable at a glance; buffs/debuffs
   show as icon chips with duration pips; the hotbar shows item sprites, not text.
 - Nameplates: small, dimmed until nearby; party members in teal, strangers in neutral

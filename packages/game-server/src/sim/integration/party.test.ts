@@ -11,6 +11,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { GameSim } from "../index.js";
 import { PlayerStore } from "../../store.js";
+import { snapToFloor, snapToFloorTile } from "../testzone.js";
 import { content, SEED, eventsOf, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "./support.js";
 
 /**
@@ -153,8 +154,10 @@ describe("GameSim: party, portals, crafting, stash", () => {
       expect(itemDefs, `missing ground item ${def}`).toContain(def);
     }
 
-    expect(sim.areas.defAt(34, 24)).toBe("area-fire");
-    expect(sim.areas.defAt(18, 33)).toBe("area-poison");
+    const fireSpot = snapToFloorTile(sim, 34, 24);
+    const poisonSpot = snapToFloorTile(sim, 18, 33);
+    expect(sim.areas.defAt(fireSpot.x, fireSpot.y)).toBe("area-fire");
+    expect(sim.areas.defAt(poisonSpot.x, poisonSpot.y)).toBe("area-poison");
     expect(sim.enemyCount).toBeGreaterThanOrEqual(5);
   });
 
@@ -164,7 +167,8 @@ describe("GameSim: party, portals, crafting, stash", () => {
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
 
-    teleport(aEntity, 30.5, 27.5, sim); // testzone.ts's canonical sword fixture
+    const swordSpot = snapToFloor(sim, 30.5, 27.5); // testzone.ts's canonical sword fixture
+    teleport(aEntity, swordSpot.x, swordSpot.y, sim);
     sim.step();
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();

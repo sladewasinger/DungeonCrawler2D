@@ -67,11 +67,11 @@ describe("resolveLayout", () => {
     expect(resolved.get("health")).toEqual({ anchor: "top-left", x: 32, y: 32, scale: 2, visible: true });
   });
 
-  it("rounds widget.scale * hudScale so pixel-font text only ever renders at an integer canvas scale", () => {
+  it("rounds widget.scale * hudScale so pixel-art icons only ever render at an integer canvas scale", () => {
     state.definitions.set("health", healthDefinition());
     state.overrides.set("health", { scale: 1.3 });
     state.hudScale = 2;
-    // 1.3 * 2 = 2.6, rounds to 3 rather than blurring the monogram font at a fractional scale.
+    // 1.3 * 2 = 2.6, rounds to 3 rather than blurring 16px-source icon sprites at a fractional scale.
     expect(resolveLayout(state, VIEWPORT).get("health")?.scale).toBe(3);
   });
 });

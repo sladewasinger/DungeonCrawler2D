@@ -4,7 +4,7 @@
  * throwable is armed (docs/VISUAL_DIRECTION.md's panel language).
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { drawSelectionAccent, PANEL_BORDER, PANEL_FILL, drawPanelBackground, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
@@ -59,10 +59,10 @@ export class HotbarWidget {
     const cell = this.scene.add.rectangle(x, y, SLOT_SIZE, SLOT_SIZE, PANEL_FILL).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
     const accent = drawSelectionAccent(this.scene, SLOT_SIZE, SLOT_SIZE).setPosition(x, y).setVisible(false);
     const count = this.scene.add
-      .text(x + SLOT_SIZE - 3, y + SLOT_SIZE - 3, "", pixelTextStyle(11))
+      .text(x + SLOT_SIZE - 3, y + SLOT_SIZE - 3, "", uiTextStyle(11))
       .setOrigin(1, 1);
     const keybind = this.scene.add
-      .text(x + 2, y + 1, String(index + 1), pixelTextStyle(9, "#8f8fa3"))
+      .text(x + 2, y + 1, String(index + 1), uiTextStyle(9, "#8f8fa3"))
       .setOrigin(0, 0);
     this.container.add([cell, accent, count, keybind]);
     return { index, x: x + SLOT_SIZE / 2, y: y + SLOT_SIZE / 2, cell, accent, icon: null, count };

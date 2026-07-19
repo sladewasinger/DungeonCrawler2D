@@ -8,7 +8,7 @@ import type Phaser from "phaser";
 
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
-  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT",
+  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB",
   Phaser.Input.Keyboard.Key
 >;
 
@@ -43,6 +43,9 @@ export interface InputConnection {
   craft(recipeId: string): void;
   stashOp(op: "put" | "take", index: number): void;
   partyOp(op: "accept" | "invite", targetId?: string): void;
+  assignSlot(slot: number, item: string | null): void;
+  equip(item: string | null): void;
+  drop(item: string): void;
 }
 
 /** Resolves whether the HUD's own layer consumed a pointer event. */
@@ -55,6 +58,10 @@ export interface InputHud {
 export interface InputPanels {
   readonly craftOpen: boolean;
   readonly stashOpen: boolean;
+  /** True while the inventory window (ui/widgets/hud/inventoryWindow.ts) is open. */
+  readonly inventoryOpen: boolean;
+  /** The inventory row currently selected for the [1-9] bind flow, or null. */
+  readonly selectedInventoryItem: string | null;
   openStashIfNearby(conn: InputConnection): void;
   toggleCraft(conn: InputConnection): void;
   closeAll(conn: InputConnection): void;
@@ -76,6 +83,8 @@ export interface InputHooks {
   onToggleBorders(): void;
   /** Tapping the touch layout's chat toggle chip (docs mobile pass — chat collapses to avoid the joystick corner). */
   onToggleChat(): void;
+  /** [I]/[Tab], or the touch layout's bag button — opens/closes the inventory window. */
+  onToggleInventory(): void;
 }
 
 /** Movement/keys pause while any text input has focus (chat, search). */

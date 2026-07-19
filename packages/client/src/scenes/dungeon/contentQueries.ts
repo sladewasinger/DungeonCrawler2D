@@ -7,6 +7,9 @@ import type { TileType } from "@dc2d/engine";
 
 interface ItemDef {
   readonly id: string;
+  readonly name?: string;
+  readonly weapon?: unknown;
+  readonly consumable?: unknown;
   readonly throwable?: unknown;
 }
 
@@ -20,6 +23,24 @@ const itemById = new Map<string, ItemDef>(
 
 export function isThrowableItem(itemDefId: string): boolean {
   return !!itemById.get(itemDefId)?.throwable;
+}
+
+export type ItemCategory = "weapons" | "usables" | "materials";
+
+/**
+ * Weapon → Weapons, consumable-or-throwable → Usables, else Materials — ported
+ * verbatim from reference/client/ui/inventoryPanel.ts's categoryOf() (HUD_OS.md §7).
+ */
+export function categoryOfItem(itemDefId: string): ItemCategory {
+  const def = itemById.get(itemDefId);
+  if (def?.weapon) return "weapons";
+  if (def?.consumable || def?.throwable) return "usables";
+  return "materials";
+}
+
+/** Item def's display name, falling back to the raw id for an unknown def. */
+export function itemName(itemDefId: string): string {
+  return itemById.get(itemDefId)?.name ?? itemDefId;
 }
 
 interface RecipeDef {

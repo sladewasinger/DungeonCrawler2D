@@ -1,7 +1,7 @@
 // Floating damage-number pool: spawns a pixel-font Text per hit, colored by kind
 // (accent palette per VISUAL_DIRECTION), rises and fades, then recycles.
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../ui/font.js";
+import { uiTextStyle } from "../ui/font.js";
 import { HUD_SCALE } from "../ui/hudScale.js";
 import { damageNumberPose, isExpired } from "./damageNumberMotion.js";
 
@@ -26,7 +26,7 @@ export class DamageNumberPool {
   spawn(screenX: number, screenY: number, amount: number, nowMs: number, heal = false): void {
     const label = `${heal ? "+" : "-"}${Math.abs(Math.round(amount))}`;
     const text = this.scene.add
-      .text(screenX, screenY, label, pixelTextStyle(FONT_SIZE_PX, heal ? HEAL_COLOR : DAMAGE_COLOR))
+      .text(screenX, screenY, label, uiTextStyle(FONT_SIZE_PX, heal ? HEAL_COLOR : DAMAGE_COLOR))
       .setOrigin(0.5, 1)
       .setDepth(DEPTH);
     this.active.push({ text, startX: screenX, startY: screenY, spawnMs: nowMs });

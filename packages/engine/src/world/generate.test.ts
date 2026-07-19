@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { hashString } from "../core/rng.js";
-import { isSafeRoomChunk, isStairsChunk } from "./features/fixed.js";
+import { isSafeRoomChunk, isStairsChunk, KIOSK_HEIGHT } from "./features/fixed.js";
 import { CHASM_DEPTH } from "./generate/height.js";
 import { TOWER_MAX_RISE } from "./generate/landmarks/tower.js";
 import { generateChunk } from "./generate.js";
@@ -72,7 +72,7 @@ describe("world generation", () => {
     expect(deliberateFloors).toBeGreaterThan(0);
   });
 
-  it("safe-room chunks contain an entrance portal, not an open sanctuary", () => {
+  it("safe-room chunks contain an entrance portal on a z2 kiosk TERRACE, not an open sanctuary or a rock mass", () => {
     const found = findFirst(isSafeRoomChunk);
     expect(found).not.toBeNull();
     if (!found) return;
@@ -87,7 +87,11 @@ describe("world generation", () => {
       }
     }
     expect(doors).toBe(1);
-    expect(chunk.tiles[doorIndex - CHUNK_SIZE]).toBe(TILE.Wall);
+    // The kiosk terrace's walkable top platform sits north of the door
+    // (KIOSK_HEIGHT, not TILE.Wall rock — VISUAL_DIRECTION.md's z+1 rule);
+    // ordinary pad ground continues south of it.
+    expect(chunk.tiles[doorIndex - CHUNK_SIZE]).toBe(TILE.Floor);
+    expect(chunk.height[doorIndex - CHUNK_SIZE]).toBe(KIOSK_HEIGHT);
     expect(chunk.tiles[doorIndex + CHUNK_SIZE]).toBe(TILE.Floor);
   });
 

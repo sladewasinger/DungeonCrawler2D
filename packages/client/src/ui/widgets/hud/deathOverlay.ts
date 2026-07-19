@@ -4,7 +4,7 @@
  * "center" so its screen coverage stays a resolved layout, not a hardcoded rect.
  */
 import type Phaser from "phaser";
-import { pixelTextStyle } from "../../font.js";
+import { uiTextStyle } from "../../font.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
@@ -31,7 +31,7 @@ export class DeathOverlayWidget {
     this.container = createWidgetContainer(scene, layout);
     this.vignette = scene.add.rectangle(0, 0, viewport.width, viewport.height, VIGNETTE_COLOR, VIGNETTE_ALPHA);
     const text = scene.add
-      .text(0, 0, RESPAWN_TEXT, pixelTextStyle(20, "#e04a4a"))
+      .text(0, 0, RESPAWN_TEXT, uiTextStyle(20, "#e04a4a"))
       .setOrigin(0.5, 0.5)
       .setAlign("center");
     this.container.add([this.vignette, text]);

@@ -1,6 +1,7 @@
-// Composed multi-tile structures (doors): each has an explicit tile footprint that
-// suppresses ALL terrain art beneath it, and its frame/leaf pieces assemble as one
-// bottom-anchored unit — masonry never draws through a structure again.
+// Composed multi-tile structures (doors): each draws as a standalone leaf, bottom-
+// anchored on its tile, over whatever the ordinary terrain pass already rendered
+// there (VISUAL_DIRECTION.md's wall vertical-extent rule) — no suppression, no
+// hand-drawn frame/facade duplicating what drawTile.ts's face/wall art already owns.
 import { TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
@@ -23,7 +24,18 @@ export interface DoorStructure {
 
 export interface StructureMap {
   readonly doors: readonly DoorStructure[];
-  /** Tiles whose terrain art is fully suppressed (the structure draws instead). */
+  /**
+   * Tiles whose terrain art is fully suppressed (the structure draws
+   * instead). Always empty for doors (user-decreed 2026-07-19, see
+   * VISUAL_DIRECTION.md's wall vertical-extent rule): a door's leaf is a
+   * standalone piece drawn OVER whatever the ordinary terrain renderer
+   * already puts down — a face row for a wall/terrace doorway, plain ground
+   * otherwise — so the surface it's punched into (a kiosk terrace's top
+   * platform, an ordinary wall's brick shading) stays exactly like its
+   * neighbors, never masked out. Kept in the shape for other composed
+   * structures (chests, fountains — VISUAL_DIRECTION.md's "composed
+   * structures are atomic" rule) that may still need it.
+   */
   readonly suppressed: ReadonlySet<string>;
   /** Wall cells whose projected south face would protrude below a door frame. */
   readonly faceSuppressed: ReadonlySet<string>;
@@ -31,28 +43,7 @@ export interface StructureMap {
 
 export const tileKey = (wx: number, wy: number): string => `${wx},${wy}`;
 
-/**
- * Ordinary doors own their three-cell vertical assembly. A safe-room portal owns
- * its complete 5x3 kiosk facade so procedural contour art cannot leave stray caps
- * or short side walls around the taller door.
- */
-function doorFootprint(door: DoorStructure): string[] {
-  if (door.tile === TILE.DoorSafeRoom) {
-    const footprint: string[] = [];
-    for (let dy = -2; dy <= 0; dy++) {
-      for (let dx = -2; dx <= 2; dx++) footprint.push(tileKey(door.wx + dx, door.wy + dy));
-    }
-    return footprint;
-  }
-  return [
-    tileKey(door.wx, door.wy),
-    tileKey(door.wx, door.wy - 1),
-    tileKey(door.wx, door.wy - 2),
-  ];
-}
-
-/** Rows a door's footprint extends above its own tile — the seam-scan overshoot. */
-const FOOTPRINT_REACH = 2;
+/** Sideways reach for a door's faceSuppressed scan, into the neighboring chunk. */
 const FOOTPRINT_SIDE_REACH = 2;
 
 function doorFaceFootprint(
@@ -66,11 +57,13 @@ function doorFaceFootprint(
 }
 
 /**
- * Scans a tile-range for door tiles and precomputes the suppression mask. The
- * scan overshoots `FOOTPRINT_REACH` rows past y1 so a door just below this
- * chunk's south seam still suppresses the footprint cells it reaches up into —
- * but only doors whose own tile lies inside [y0, y1) are DRAWN by this chunk
- * (the owning chunk draws the assembly exactly once).
+ * Scans a tile-range for door tiles and precomputes the faceSuppressed mask
+ * (doors carry no suppression footprint of their own — see doorFaceFootprint).
+ * The scan overshoots `FOOTPRINT_SIDE_REACH` columns past x0/x1 so a door just
+ * over this chunk's east/west seam still contributes the faceSuppressed cells
+ * it reaches into — but only doors whose own tile lies inside [x0, x1) x
+ * [y0, y1) are DRAWN by this chunk (the owning chunk draws the leaf exactly
+ * once).
  */
 export function buildStructureMap(
   tileAt: (wx: number, wy: number) => TileType,
@@ -82,12 +75,11 @@ export function buildStructureMap(
   const doors: DoorStructure[] = [];
   const suppressed = new Set<string>();
   const faceSuppressed = new Set<string>();
-  for (let wy = y0; wy < y1 + FOOTPRINT_REACH; wy++) {
+  for (let wy = y0; wy < y1; wy++) {
     for (let wx = x0 - FOOTPRINT_SIDE_REACH; wx < x1 + FOOTPRINT_SIDE_REACH; wx++) {
       if (!DOOR_TILES.has(tileAt(wx, wy))) continue;
       const door = { wx, wy, tile: tileAt(wx, wy) };
-      if (wx >= x0 && wx < x1 && wy < y1) doors.push(door);
-      for (const key of doorFootprint(door)) suppressed.add(key);
+      if (wx >= x0 && wx < x1) doors.push(door);
       for (const key of doorFaceFootprint(door, tileAt)) faceSuppressed.add(key);
     }
   }
@@ -109,40 +101,14 @@ function addPiece(
   container.add(sprite);
 }
 
-function drawSafeRoomFacade(
-  scene: Phaser.Scene,
-  container: Phaser.GameObjects.Container,
-  door: DoorStructure,
-): void {
-  for (let dy = -2; dy <= 0; dy++) {
-    for (let dx = -2; dx <= 2; dx++) {
-      const frame = dx === -2 ? "wall_left" : dx === 2 ? "wall_right" : "wall_mid";
-      addPiece(
-        scene,
-        container,
-        frame,
-        (door.wx + dx) * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
-        (door.wy + dy + 1) * SCREEN_TILE_PX,
-      );
-    }
-  }
-  for (let dx = -2; dx <= 2; dx++) {
-    const frame = dx === -2 ? "wall_top_left" : dx === 2 ? "wall_top_right" : "wall_top_mid";
-    addPiece(
-      scene,
-      container,
-      frame,
-      (door.wx + dx) * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
-      (door.wy - 1) * SCREEN_TILE_PX,
-    );
-  }
-}
-
 /**
- * Draws one door as a single assembly, bottom-anchored on the door tile's south
- * edge. The 16x32 posts sit adjacent to the 32x32 leaf exactly as they do in the
- * source sheet, and the 32x16 lintel adds the third visual row. The owning row
- * container sorts the complete assembly against entity feet.
+ * Draws one door as its standalone leaf, bottom-anchored on the door tile's
+ * south edge (user-decreed 2026-07-19, see VISUAL_DIRECTION.md's wall
+ * vertical-extent rule): no frame posts, no lintel, no hand-drawn kiosk
+ * facade — the ordinary terrain pass (drawTile.ts) already drew this cell's
+ * ground/face art (a kiosk terrace's face row, an ordinary wall's brick
+ * shading), and the leaf sits on top of it, "punched into" the wall/face
+ * exactly like any other composed structure.
  */
 export function drawDoor(
   scene: Phaser.Scene,
@@ -151,9 +117,5 @@ export function drawDoor(
 ): void {
   const centerX = door.wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
   const bottomY = (door.wy + 1) * SCREEN_TILE_PX;
-  if (door.tile === TILE.DoorSafeRoom) drawSafeRoomFacade(scene, container, door);
   addPiece(scene, container, "doors_leaf_closed", centerX, bottomY, SANCTUARY_TEAL);
-  addPiece(scene, container, "doors_frame_left", centerX - SCREEN_TILE_PX * 1.5, bottomY);
-  addPiece(scene, container, "doors_frame_right", centerX + SCREEN_TILE_PX * 1.5, bottomY);
-  addPiece(scene, container, "doors_frame_top", centerX, bottomY - 2 * SCREEN_TILE_PX);
 }

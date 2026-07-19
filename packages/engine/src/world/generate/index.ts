@@ -25,6 +25,7 @@ import { applyLandmark } from "./landmarks/index.js";
 import { isNearLandmark } from "./landmarks/guard.js";
 import { stampRoom } from "./rooms.js";
 import type { Room } from "./types.js";
+import { resolveShallowPlateaus, resolveThinWalls } from "./verticalExtent.js";
 import { applyWallHeight } from "./wallHeight.js";
 
 function stampFixedFeature(
@@ -78,6 +79,15 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   repairCliffs(tiles, height, CHUNK_SIZE);
 
   sealInteriorPockets(tiles, corridorCarved, zones);
+  // Vertical-extent safety net (docs/VISUAL_DIRECTION.md's z+1 rule), run
+  // last on the final tile/height layout so it catches violations from
+  // every earlier source at once — including ones sealInteriorPockets just
+  // introduced by walling off a single stray tile. resolveThinWalls can
+  // open new floor-floor seams (a merged wall meeting a differently-heighted
+  // neighbor), so repairCliffs runs once more after it to smooth those.
+  resolveThinWalls(tiles, CHUNK_SIZE);
+  repairCliffs(tiles, height, CHUNK_SIZE);
+  resolveShallowPlateaus(tiles, height, CHUNK_SIZE);
 
   applyWallHeight(tiles, height, CHUNK_SIZE);
   // Run LAST, after the wall-height raise: a Stairs tile's climb axis can

@@ -36,7 +36,12 @@ export function stepProjectile(world: WorldView, p: Entity, dt: number): Project
   const tileY = Math.floor(ny);
   const nextZ = p.body.z + vel.z * dt;
 
-  if (!world.isWalkable(tileX, tileY)) {
+  // A solid tile with no height of its own (furniture) stops any
+  // projectile outright. A solid tile that IS raised (a wall) blocks
+  // only through the height check below — an arc above its visual
+  // height still clears it, even though a body can never walk or jump
+  // onto it (see SOLID_TILES's doc comment).
+  if (!world.isWalkable(tileX, tileY) && world.heightAt(tileX, tileY) <= 0) {
     return { impact: { x: p.body.x, y: p.body.y } };
   }
   p.body.x = nx;

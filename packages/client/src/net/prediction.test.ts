@@ -22,6 +22,13 @@ import { Prediction } from "./prediction.js";
 
 const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
 
+// Seed 7's origin chunk is a solid TILE.Wall mass (a landmark's footprint) —
+// since walls block horizontal movement outright (types.ts's SOLID_TILES),
+// spawning there leaves a body permanently stuck and unable to diverge
+// under knockback. This coordinate is verified open floor nearby.
+const SPAWN_X = -6;
+const SPAWN_Y = -13;
+
 function closeBody(a: BodyState, b: BodyState, eps = 1e-9): boolean {
   return Math.abs(a.x - b.x) < eps && Math.abs(a.y - b.y) < eps && Math.abs(a.z - b.z) < eps;
 }
@@ -30,8 +37,8 @@ describe("Prediction", () => {
   it("stays in lockstep with an equivalent server-side stepBody run", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
-    const client = createBody(0, 0, 5);
-    const server = createBody(0, 0, 5);
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
 
     for (let tick = 0; tick < 10; tick++) {
       prediction.predict(world, client, WALK);
@@ -44,8 +51,8 @@ describe("Prediction", () => {
   it("converges back to server truth after reconciling a misprediction", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
-    const client = createBody(0, 0, 5);
-    const server = createBody(0, 0, 5);
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
 
     // Ticks 1-10: identical inputs, no divergence yet.
     for (let tick = 0; tick < 10; tick++) {
@@ -81,14 +88,14 @@ describe("Prediction", () => {
   it("replays only inputs newer than the acked sequence", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
-    const client = createBody(0, 0, 5);
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
 
     for (let tick = 0; tick < 5; tick++) prediction.predict(world, client, WALK);
 
     // Reconciling onto a fresh body from tick-3's authoritative state
     // should reproduce exactly the client's own tick-5 position: only
     // ticks 4 and 5 were unacked and get replayed.
-    const authoritative = createBody(0, 0, 5);
+    const authoritative = createBody(SPAWN_X, SPAWN_Y, 5);
     for (let tick = 0; tick < 3; tick++) stepBody(world, authoritative, WALK, TICK_DT);
     prediction.reconcile(world, authoritative, 3);
 
@@ -98,7 +105,7 @@ describe("Prediction", () => {
   it("reset drops all pending inputs so reconcile replays nothing", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
-    const client = createBody(0, 0, 5);
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
     prediction.predict(world, client, WALK);
     prediction.predict(world, client, WALK);
 

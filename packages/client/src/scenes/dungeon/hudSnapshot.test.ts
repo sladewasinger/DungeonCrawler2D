@@ -98,4 +98,17 @@ describe("buildHudSnapshot", () => {
     const snap = buildHudSnapshot(source(), null, null, null, FPS, { x: 128.4, y: -63.6 });
     expect(snap.coords).toEqual({ x: 128, y: -64 });
   });
+
+  it("builds one inventory row per InvStack, tagging its hotbar-bound slot (or null when unbound)", () => {
+    const hotbar = ["sword", null, null, null, null, null, null, null, null];
+    const inventory = [
+      { item: "sword", qty: 1 },
+      { item: "rag", qty: 6 },
+    ];
+    const snap = buildHudSnapshot(source({ hotbar, inventory }), null, null, null, FPS, BODY_POS);
+    expect(snap.inventory).toEqual([
+      { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0 },
+      { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null },
+    ]);
+  });
 });

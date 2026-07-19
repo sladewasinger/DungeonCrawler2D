@@ -21,11 +21,16 @@ export const TILE = {
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
 /**
- * Solid tiles that block movement outright (furniture). Walls are NOT
- * here: a wall is terrain raised WALL_RISE — its height blocks walking,
- * and its top is a walkable platform you can jump onto.
+ * Solid tiles that block movement outright: furniture, and walls.
+ * TILE.Wall's collision is figuratively infinite — nothing walks into
+ * it, jumps onto it, or lands on its top, regardless of the visual
+ * height difference; high-ground tactics live exclusively on raised
+ * FLOOR terraces (terraces.ts, platforms.ts), which stay walkable/
+ * jumpable. A wall's visual height is unaffected — only collision
+ * changed. Projectiles are the one exception: see entities/projectile.ts.
  */
 export const SOLID_TILES: ReadonlySet<number> = new Set([
+  TILE.Wall,
   TILE.CraftingTable,
   TILE.Stash,
 ]);
