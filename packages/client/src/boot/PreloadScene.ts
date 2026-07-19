@@ -7,6 +7,7 @@ import { waitForPixelFontReady } from "../ui/font.js";
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
 const GALLERY_SCENE_KEY = "gallery";
+const EDITOR_SCENE_KEY = "editor";
 
 export class PreloadScene extends Phaser.Scene {
   private fontReady = false;
@@ -38,6 +39,10 @@ export class PreloadScene extends Phaser.Scene {
     const requested = new URLSearchParams(window.location.search).get(SCENE_PARAM);
     if (requested === GALLERY_SCENE_KEY) {
       this.scene.start(GALLERY_SCENE_KEY);
+      return;
+    }
+    if (requested === EDITOR_SCENE_KEY) {
+      this.scene.start(EDITOR_SCENE_KEY, this.game.registry.get("editorBoot") as object);
       return;
     }
     this.scene.start("boot-ready");

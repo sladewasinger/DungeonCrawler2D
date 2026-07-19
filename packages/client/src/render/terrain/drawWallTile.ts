@@ -1,7 +1,8 @@
 // Wall rendering by contour role. Caps stay on logical wall cells, faces project
 // south onto lower ground, and row depth decides whether an overlapping body is
 // behind or in front. Boundary tops retain quiet stone texture; deep mass is flat.
-import { TILE, type World } from "@dc2d/engine";
+import { TILE } from "@dc2d/engine";
+import type { TerrainWorld } from "./terrainWorld.js";
 import type Phaser from "phaser";
 import { hasSouthFace } from "./faces.js";
 import { floorFrame } from "./floorFrame.js";
@@ -34,7 +35,7 @@ const CORNER_NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [1, 1],
 ];
 
-function placeCornerSurface(scene: Phaser.Scene, world: World, wx: number, wy: number, target: Phaser.GameObjects.Container): void {
+function placeCornerSurface(scene: Phaser.Scene, world: TerrainWorld, wx: number, wy: number, target: Phaser.GameObjects.Container): void {
   const bordersSanctuary = CORNER_NEIGHBORS.some(
     ([dx, dy]) => world.tileAt(wx + dx, wy + dy) !== TILE.Wall && world.isSanctuary(wx + dx, wy + dy),
   );
@@ -48,13 +49,13 @@ function placeCornerSurface(scene: Phaser.Scene, world: World, wx: number, wy: n
 }
 
 /** The south perimeter of a sanctuary cavity: render it as a real foreground wall. */
-export function isSanctuaryFrontWall(world: World, wx: number, wy: number): boolean {
+export function isSanctuaryFrontWall(world: TerrainWorld, wx: number, wy: number): boolean {
   return world.tileAt(wx, wy) === TILE.Wall && world.isSanctuary(wx, wy - 1);
 }
 
 interface WallDrawContext {
   readonly scene: Phaser.Scene;
-  readonly world: World;
+  readonly world: TerrainWorld;
   readonly wx: number;
   readonly wy: number;
   readonly occluder: Phaser.GameObjects.Container;
@@ -128,7 +129,7 @@ function drawRimRole(ctx: WallDrawContext, role: RimRole): void {
 
 export function drawWallTile(
   scene: Phaser.Scene,
-  world: World,
+  world: TerrainWorld,
   wx: number,
   wy: number,
   occluder: Phaser.GameObjects.Container,

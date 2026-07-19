@@ -1,5 +1,6 @@
 // Builds/destroys one chunk's base terrain and per-row occluder containers.
-import { CHUNK_SIZE, type World } from "@dc2d/engine";
+import { CHUNK_SIZE } from "@dc2d/engine";
+import type { TerrainWorld } from "./terrainWorld.js";
 import type Phaser from "phaser";
 import { BASE_TERRAIN_DEPTH, depthForOccluder } from "../entities/depthSort.js";
 import { drawTile } from "./drawTile.js";
@@ -13,7 +14,7 @@ export interface ChunkVisual {
 }
 
 /** Generates one base container plus row-sorted wall/structure containers. */
-export function buildChunkVisual(scene: Phaser.Scene, world: World, cx: number, cy: number): ChunkVisual {
+export function buildChunkVisual(scene: Phaser.Scene, world: TerrainWorld, cx: number, cy: number): ChunkVisual {
   const below = scene.add.container(0, 0).setDepth(BASE_TERRAIN_DEPTH);
   const occluders = new Map<number, Phaser.GameObjects.Container>();
   const occluderFor = (wy: number): Phaser.GameObjects.Container => {
