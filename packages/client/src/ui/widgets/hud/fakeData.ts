@@ -1,4 +1,6 @@
 /** Fake HUD data for the gallery's HUD-on state — a presentation demo, not live game state. */
+import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
+import { isTouchDevice } from "../../../input/touchDetect.js";
 
 export interface HotbarSlotData {
   itemId: string | null;
@@ -35,6 +37,8 @@ export interface HudFakeSnapshot {
   /** True while a previously-live connection is mid dropout/backoff (see net/socket.ts). */
   reconnecting: boolean;
   downed: boolean;
+  /** Live joystick/button state for the touch widgets, or null when touch controls aren't mounted. */
+  touch: TouchVisualSnapshot | null;
 }
 
 const EMPTY_SLOT: HotbarSlotData = { itemId: null, count: 0 };
@@ -71,5 +75,6 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     connected: true,
     reconnecting: false,
     downed,
+    touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
   };
 }

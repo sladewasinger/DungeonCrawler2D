@@ -1,6 +1,7 @@
 // Headless test: the HUD widget set's ids all resolve from the shipped default layout,
 // and a full layout config round-trips through persist/loadPersisted unchanged.
 import { beforeEach, describe, expect, it } from "vitest";
+import { HUD_SCALE } from "../../hudScale.js";
 import { WidgetRegistry } from "../registry.js";
 import type { LayoutConfig, WidgetDefinition } from "../state.js";
 
@@ -49,7 +50,8 @@ describe("layout JSON round-trip through localStorage", () => {
     reloaded.loadPersisted();
     const resolved = reloaded.resolve(VIEWPORT);
 
-    expect(resolved.get("health")).toMatchObject({ anchor: "top-center", scale: 1.2 });
+    // 1.2 * HUD_SCALE (2) = 2.4, rounded to 2 — pixel-font text only ever renders at an integer scale.
+    expect(resolved.get("health")).toMatchObject({ anchor: "top-center", scale: Math.round(1.2 * HUD_SCALE) });
     expect(resolved.get("hotbar")?.visible).toBe(false);
     expect(resolved.get("death")?.anchor).toBe("bottom-right");
 

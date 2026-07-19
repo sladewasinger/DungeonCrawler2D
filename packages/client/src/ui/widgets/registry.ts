@@ -4,6 +4,7 @@
  * element registers here instead of positioning itself — "no fixed-position
  * UI, ever" (docs/VISUAL_DIRECTION.md).
  */
+import { HUD_SCALE } from "../hudScale.js";
 import shippedDefaultLayout from "./default-layout.json" with { type: "json" };
 import { resolveLayout } from "./layout.js";
 import { loadPersistedLayout, savePersistedLayout } from "./storage.js";
@@ -25,6 +26,7 @@ function applyConfig(state: WidgetRegistryState, config: LayoutConfig): void {
   for (const [id, override] of Object.entries(config.widgets)) {
     state.overrides.set(id, override);
   }
+  state.hudScale = config.hudScale ?? HUD_SCALE;
 }
 
 export class WidgetRegistry {

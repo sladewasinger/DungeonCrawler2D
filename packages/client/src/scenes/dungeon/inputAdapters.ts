@@ -74,11 +74,12 @@ export function createInputQueries(conn: Connection): InputQueries {
   };
 }
 
-export function createInputHooks(cosmetics: SelfCosmeticsState): InputHooks {
+export function createInputHooks(cosmetics: SelfCosmeticsState, toggleChat: () => void): InputHooks {
   return {
     onSwing: () => triggerSelfAttack(cosmetics, performance.now()),
     // Chunk-grid debug overlay isn't built in this wave — GalleryScene's coordinate
     // readout (render/terrain debugging) covers it for now.
     onToggleBorders: () => {},
+    onToggleChat: toggleChat,
   };
 }

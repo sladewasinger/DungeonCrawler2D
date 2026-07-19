@@ -2,11 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>DC2D v2</title>
     <style>
       html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
       #app { width: 100vw; height: 100vh; }
+      /* Touch controls (docs mobile pass) own every gesture on the canvas — without
+         this the browser fights them with its own pinch-zoom/scroll/double-tap-zoom
+         handling on every joystick drag and button tap. */
+      #app canvas { touch-action: none; }
     </style>
   </head>
   <body>

@@ -3,6 +3,7 @@
 // Connection class) so it stays a pure, table-driven function to test.
 import { statusesData } from "@dc2d/content";
 import type { InvStack } from "@dc2d/engine";
+import type { TouchVisualSnapshot } from "../../input/touch/index.js";
 import type {
   BuffChipData,
   ChatChannel,
@@ -86,6 +87,7 @@ export function buildHudSnapshot(
   src: HudSnapshotSource,
   armedThrowableSlot: number | null,
   interactionPrompt: InteractionPrompt | null,
+  touch: TouchVisualSnapshot | null,
 ): HudFakeSnapshot {
   const activeChatChannel: ChatChannel = src.hasParty ? "party" : "local";
   return {
@@ -102,5 +104,6 @@ export function buildHudSnapshot(
     connected: src.connected,
     reconnecting: src.reconnecting,
     downed: src.downed,
+    touch,
   };
 }

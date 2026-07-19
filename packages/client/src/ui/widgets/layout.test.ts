@@ -1,5 +1,6 @@
 // Headless tests for widget layout resolution — no Phaser/DOM involved.
 import { beforeEach, describe, expect, it } from "vitest";
+import { HUD_SCALE } from "../hudScale.js";
 import { anchorPoint } from "./anchors.js";
 import { resolveLayout } from "./layout.js";
 import { WidgetRegistry } from "./registry.js";
@@ -57,44 +58,67 @@ describe("resolveLayout", () => {
     state.overrides.set("ghost", { visible: false });
     expect(resolveLayout(state, VIEWPORT).size).toBe(0);
   });
+
+  it("scales both the offset and the container scale by state.hudScale", () => {
+    state.definitions.set("health", healthDefinition());
+    state.hudScale = 2;
+    const resolved = resolveLayout(state, VIEWPORT);
+    // offset (16,16) * hudScale 2, defaultScale 1 * hudScale 2.
+    expect(resolved.get("health")).toEqual({ anchor: "top-left", x: 32, y: 32, scale: 2, visible: true });
+  });
+
+  it("rounds widget.scale * hudScale so pixel-font text only ever renders at an integer canvas scale", () => {
+    state.definitions.set("health", healthDefinition());
+    state.overrides.set("health", { scale: 1.3 });
+    state.hudScale = 2;
+    // 1.3 * 2 = 2.6, rounds to 3 rather than blurring the monogram font at a fractional scale.
+    expect(resolveLayout(state, VIEWPORT).get("health")?.scale).toBe(3);
+  });
 });
 
 describe("WidgetRegistry facade", () => {
-  it("applies the shipped default-layout.json on construction", () => {
+  it("applies the shipped default-layout.json on construction, hudScale included", () => {
     const registry = new WidgetRegistry();
     registry.register(healthDefinition());
     const resolved = registry.resolve(VIEWPORT);
-    // default-layout.json places health at top-left (16,16), same as its own default.
-    expect(resolved.get("health")).toEqual({ anchor: "top-left", x: 16, y: 16, scale: 1, visible: true });
+    // default-layout.json places health at top-left (16,16) with hudScale 2: offset and
+    // scale both come out doubled — HUD text unreadably small on a 2K screen is the bug this fixes.
+    expect(resolved.get("health")).toEqual({ anchor: "top-left", x: 16 * HUD_SCALE, y: 16 * HUD_SCALE, scale: HUD_SCALE, visible: true });
   });
 
-  it("setOverride is additive across calls", () => {
+  it("setOverride is additive across calls, folding in hudScale", () => {
     const registry = new WidgetRegistry();
     registry.register(healthDefinition());
     registry.setOverride("health", { scale: 1.5 });
     registry.setOverride("health", { visible: false });
     const resolved = registry.resolve(VIEWPORT).get("health");
-    expect(resolved?.scale).toBe(1.5);
+    expect(resolved?.scale).toBe(1.5 * HUD_SCALE);
     expect(resolved?.visible).toBe(false);
   });
 
-  it("resetToDefault(id) drops a per-widget override back to the shipped layout", () => {
+  it("resetToDefault(id) drops a per-widget override back to the shipped (hudScale-folded) layout", () => {
     const registry = new WidgetRegistry();
     registry.register(healthDefinition());
     registry.setOverride("health", { anchor: "center", offset: { x: 0, y: 0 } });
     registry.resetToDefault("health");
-    expect(registry.resolve(VIEWPORT).get("health")).toEqual({ anchor: "top-left", x: 16, y: 16, scale: 1, visible: true });
+    expect(registry.resolve(VIEWPORT).get("health")).toEqual({
+      anchor: "top-left",
+      x: 16 * HUD_SCALE,
+      y: 16 * HUD_SCALE,
+      scale: HUD_SCALE,
+      visible: true,
+    });
   });
 
-  it("resetToDefault() with no id resets every widget", () => {
+  it("resetToDefault() with no id resets every widget back to defaultScale * hudScale", () => {
     const registry = new WidgetRegistry();
     registry.register(healthDefinition());
     registry.setOverride("health", { scale: 3 });
     registry.resetToDefault();
-    expect(registry.resolve(VIEWPORT).get("health")?.scale).toBe(1);
+    expect(registry.resolve(VIEWPORT).get("health")?.scale).toBe(1 * HUD_SCALE);
   });
 
-  it("persist/loadPersisted round-trip through a stubbed localStorage", () => {
+  it("persist/loadPersisted round-trip through a stubbed localStorage, hudScale folded in on resolve", () => {
     const store = new Map<string, string>();
     (globalThis as { localStorage?: Storage }).localStorage = {
       getItem: (k: string) => store.get(k) ?? null,
@@ -113,7 +137,7 @@ describe("WidgetRegistry facade", () => {
     const reloaded = new WidgetRegistry();
     reloaded.register(healthDefinition());
     reloaded.loadPersisted();
-    expect(reloaded.resolve(VIEWPORT).get("health")?.scale).toBe(2.5);
+    expect(reloaded.resolve(VIEWPORT).get("health")?.scale).toBe(2.5 * HUD_SCALE);
 
     delete (globalThis as { localStorage?: Storage }).localStorage;
   });

@@ -66,3 +66,18 @@ export function heightTint(height: number): number {
 export function isChasmDepth(height: number): boolean {
   return height <= CHASM_THRESHOLD;
 }
+
+/**
+ * Multiply shade per face row from its top (1) downward. Kept barely-there
+ * (near-white throughout) so a tall face reads as ONE material with the
+ * faintest depth cue — depth comes from row structure and boundary lines, not
+ * from crushing rows toward black. Tune by editing these two constants.
+ */
+const FACE_ROW_SHADE = [0xffffff, 0xe6e6ec, 0xd2d2da] as const;
+const TRUNCATED_ROW_SHADE = 0x8a8a94;
+
+/** The shade a face row multiplies in — truncated rows (the clipped far end of a deep face) fade darkest. */
+export function faceRowShade(rowFromTop: number, truncated: boolean): number {
+  if (truncated) return TRUNCATED_ROW_SHADE;
+  return FACE_ROW_SHADE[rowFromTop - 1] ?? TRUNCATED_ROW_SHADE;
+}

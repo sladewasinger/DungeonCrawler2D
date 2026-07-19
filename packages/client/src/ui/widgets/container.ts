@@ -17,7 +17,11 @@ export function createWidgetContainer(scene: Phaser.Scene, layout: ResolvedWidge
   return container;
 }
 
-/** Applies a freshly-resolved layout to an existing widget container (call once per resize/edit). */
+/**
+ * Applies a freshly-resolved layout to an existing widget container (call once per
+ * resize/edit). `layout.scale` already folds in the registry's global hudScale
+ * (ui/widgets/layout.ts's resolveLayout) — callers never multiply it again.
+ */
 export function syncWidgetContainer(container: Phaser.GameObjects.Container, layout: ResolvedWidgetLayout): void {
   container.setPosition(layout.x, layout.y);
   container.setScale(layout.scale);

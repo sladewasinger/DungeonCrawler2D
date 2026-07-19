@@ -2,11 +2,12 @@
 // (accent palette per VISUAL_DIRECTION), rises and fades, then recycles.
 import type Phaser from "phaser";
 import { pixelTextStyle } from "../ui/font.js";
+import { HUD_SCALE } from "../ui/hudScale.js";
 import { damageNumberPose, isExpired } from "./damageNumberMotion.js";
 
 const DAMAGE_COLOR = "#e04a4a";
 const HEAL_COLOR = "#3dd6c3";
-const FONT_SIZE_PX = 18;
+const FONT_SIZE_PX = 18 * HUD_SCALE;
 const DEPTH = 400_000;
 
 interface FloatingNumber {

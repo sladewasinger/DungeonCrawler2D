@@ -12,20 +12,31 @@ export const LIGHT_MAX = 14;
 const DOOR_LIGHT_LEVEL = 11;
 /** Sources within this many tiles outside the region still light its edge. */
 const APRON = LIGHT_MAX + 1;
-/** Brightness of a fully unlit tile — VISUAL_DIRECTION's ambient floor. */
-const AMBIENT = 0.18;
+/** Brightness of a fully unlit tile — visible but clearly dark. */
+const AMBIENT = 0.26;
+/** Levels at/above this render at full brightness (the lit plateau near a torch). */
+const CURVE_FULL_LEVEL = 9.5;
+/** Levels at/below this sit on the ambient floor; between the two an S-curve falls off. */
+const CURVE_DARK_LEVEL = 1;
 /** Warm firelight tint at full level, blended in with the level curve. */
 const WARM_R = 1.0;
-const WARM_G = 0.86;
-const WARM_B = 0.62;
+const WARM_G = 0.84;
+const WARM_B = 0.58;
 
 export interface LightField {
   /** Multiply-tint (0xRRGGBB) for the tile — brightness + warmth baked together. */
   tintAt(wx: number, wy: number): number;
 }
 
+/**
+ * S-shaped brightness: mid-to-high levels hold near full brightness (torch-lit
+ * floors read clearly), then a steep smoothstep tail drops into the ambient
+ * dark — wide bright-to-dark range so darkness still feels like darkness.
+ */
 function levelCurve(level: number): number {
-  return AMBIENT + (1 - AMBIENT) * Math.pow(level / LIGHT_MAX, 1.4);
+  const x = Math.min(1, Math.max(0, (level - CURVE_DARK_LEVEL) / (CURVE_FULL_LEVEL - CURVE_DARK_LEVEL)));
+  const s = x * x * (3 - 2 * x);
+  return AMBIENT + (1 - AMBIENT) * s;
 }
 
 /** Precomputed per-level multiply tints: dark cool ambient up to warm near-white. */

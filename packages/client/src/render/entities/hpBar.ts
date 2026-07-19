@@ -1,23 +1,26 @@
 // Micro HP bar: a chunky 2-piece (bg + fill) bar floating above an entity — the mini
 // version of VISUAL_DIRECTION's "chunky, segmented, readable at a glance" health bars.
 import type Phaser from "phaser";
+import { HUD_SCALE } from "../../ui/hudScale.js";
 
 const BAR_WIDTH = 36;
 const BAR_HEIGHT = 7;
 const BG_COLOR = 0x14141c;
 const FILL_COLOR = 0xe04a4a; // blood/damage accent doubles as the low-hp read
 const BORDER_COLOR = 0x494956;
-const Y_OFFSET = -10;
+const Y_OFFSET = -10 * HUD_SCALE;
 
 export interface HpBar {
   readonly container: Phaser.GameObjects.Container;
   readonly fill: Phaser.GameObjects.Rectangle;
 }
 
+/** Bar geometry is built at its base size, then the whole container is scaled by HUD_SCALE — a
+ * pixel-art-filtered, integer-multiple GameObject.setScale stays crisp (see docs/VISUAL_DIRECTION.md). */
 export function createHpBar(scene: Phaser.Scene, depth: number): HpBar {
   const bg = scene.add.rectangle(0, 0, BAR_WIDTH, BAR_HEIGHT, BG_COLOR).setStrokeStyle(1, BORDER_COLOR);
   const fill = scene.add.rectangle(-BAR_WIDTH / 2, 0, BAR_WIDTH, BAR_HEIGHT, FILL_COLOR).setOrigin(0, 0.5);
-  const container = scene.add.container(0, 0, [bg, fill]).setDepth(depth);
+  const container = scene.add.container(0, 0, [bg, fill]).setDepth(depth).setScale(HUD_SCALE);
   return { container, fill };
 }
 

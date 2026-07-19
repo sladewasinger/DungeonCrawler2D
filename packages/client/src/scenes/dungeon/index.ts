@@ -80,7 +80,7 @@ export class DungeonScene extends Phaser.Scene {
     const connAdapter = createInputConnectionAdapter(this.conn);
     const panels = createInputPanels();
     const queries = createInputQueries(this.conn);
-    const hooks = createInputHooks(this.state.cosmetics);
+    const hooks = createInputHooks(this.state.cosmetics, () => this.hudScene.toggleChat());
     return new InputController(this, connAdapter, panels, this.hudScene, queries, hooks, SCREEN_TILE_PX);
   }
 
@@ -202,7 +202,7 @@ export class DungeonScene extends Phaser.Scene {
       reconnecting: conn.status !== "connected",
       downed: conn.downed || conn.dead,
     };
-    return buildHudSnapshot(source, this.inputController.armedThrowableSlot(), this.interactionPrompt);
+    return buildHudSnapshot(source, this.inputController.armedThrowableSlot(), this.interactionPrompt, this.inputController.touchVisual());
   }
 
   private setUpCameraResize(): void {

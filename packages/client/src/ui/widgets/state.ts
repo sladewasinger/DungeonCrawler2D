@@ -42,6 +42,8 @@ export interface WidgetOverride {
 /** The shape shipped as default-layout.json and persisted to localStorage. */
 export interface LayoutConfig {
   version: 1;
+  /** Global multiplier every widget's container scale and anchor offset is resolved against — defaults to HUD_SCALE when omitted (e.g. an older persisted config). */
+  hudScale?: number;
   widgets: Record<string, WidgetOverride>;
 }
 
@@ -59,16 +61,19 @@ export interface Viewport {
   height: number;
 }
 
-/** Registry state: shipped defaults per widget plus the current override layer. */
+/** Registry state: shipped defaults per widget, the current override layer, and the active global HUD scale. */
 export interface WidgetRegistryState {
   definitions: Map<string, WidgetDefinition>;
   overrides: Map<string, WidgetOverride>;
+  hudScale: number;
 }
 
 export function createEmptyConfig(): LayoutConfig {
   return { version: 1, widgets: {} };
 }
 
+/** A bare state's hudScale starts neutral (1) — WidgetRegistry is the only caller that
+ * applies an actual config (and its hudScale, defaulting to HUD_SCALE) on construction. */
 export function createRegistryState(): WidgetRegistryState {
-  return { definitions: new Map(), overrides: new Map() };
+  return { definitions: new Map(), overrides: new Map(), hudScale: 1 };
 }

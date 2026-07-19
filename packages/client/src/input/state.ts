@@ -70,10 +70,12 @@ export interface InputQueries {
 }
 
 export interface InputHooks {
-  /** Cosmetic swing arc on left-click attack. */
+  /** Cosmetic swing arc on left-click (or touch ATTACK button) attack. */
   onSwing(dx: number, dy: number): void;
   /** [G] debug chunk-grid toggle. */
   onToggleBorders(): void;
+  /** Tapping the touch layout's chat toggle chip (docs mobile pass — chat collapses to avoid the joystick corner). */
+  onToggleChat(): void;
 }
 
 /** Movement/keys pause while any text input has focus (chat, search). */

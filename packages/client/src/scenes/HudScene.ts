@@ -52,6 +52,11 @@ export class HudScene extends Phaser.Scene {
     return this.hud?.hitTest(screenX, screenY) ?? null;
   }
 
+  /** Toggles the chat panel — the touch layout's collapse-to-chip affordance (InputHooks.onToggleChat). */
+  toggleChat(): void {
+    this.hud?.toggleChat();
+  }
+
   private handleResize(gameSize: Phaser.Structs.Size): void {
     this.cameras.main.setSize(gameSize.width, gameSize.height);
     this.hud?.resize({ width: gameSize.width, height: gameSize.height });

@@ -38,6 +38,9 @@ if (isEditor) {
     // RESIZE mode: the HUD widget registry re-anchors on real viewport changes
     // (docs mobile-ish 900x600 check) instead of the canvas staying letterboxed.
     scale: { mode: Phaser.Scale.RESIZE },
+    // 3 simultaneous pointers: the touch joystick plus one action button held at
+    // once (attack-while-moving) — Phaser tracks only 1 by default (docs mobile pass).
+    input: { activePointers: 3 },
     scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, HudScene],
   });
   // Perf/debug introspection, dev-server only (never in a production build):
