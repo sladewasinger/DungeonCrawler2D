@@ -5,11 +5,15 @@
  * there's no mouse to aim with) swings the equipped weapon; number keys 1-9 or a
  * hotbar tap USE whatever is bound to that slot; a throwable slot arms a mouse
  * trajectory and the next world click throws it — desktop-only, touch has no aim.
+ * Exception: an equipped throwable (a torch) always throws on primary attack instead
+ * of swinging — desktop aims at the cursor, touch throws toward the last facing
+ * (throwEquipped.ts, ASSUMPTION #42).
  */
 import type Phaser from "phaser";
 import { ATTACK_COOLDOWN_MS } from "@dc2d/engine";
 import { activateHotbar, throwPreview } from "./hotbar.js";
 import type { InputConnection, InputHooks, InputHud, InputQueries, InputState } from "./state.js";
+import { equippedIsThrowable, throwDirToward } from "./throwEquipped.js";
 import { beginStick, isInLowerLeftQuadrant, moveStick, endStick, pressButton, releaseAllForPointer } from "./touch/index.js";
 import type { TouchInputState } from "./touch/index.js";
 
@@ -53,15 +57,26 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
     return; // no mouse-aim swing/throw fallback in touch mode — the ATTACK button owns it
   }
 
-  const preview = throwPreview(state, conn, deps.queries, { x: pointer.worldX / tilePx, y: pointer.worldY / tilePx });
+  const cursorWorld = { x: pointer.worldX / tilePx, y: pointer.worldY / tilePx };
+
+  // A torch (or any throwable) equipped as the weapon shows in-hand and click always
+  // throws it — this takes priority over both the melee swing and the hotbar's
+  // separate arm-then-click flow for a non-equipped throwable.
+  if (equippedIsThrowable(conn, deps.queries)) {
+    const dir = throwDirToward(conn.body, cursorWorld);
+    conn.throwTorch(dir.dirX, dir.dirY);
+    return;
+  }
+
+  const preview = throwPreview(state, conn, deps.queries, cursorWorld);
   if (preview) {
     conn.useSlot(preview.slot, preview.targetX, preview.targetY);
     state.selectedThrowable = null;
     return;
   }
 
-  const dx = pointer.worldX / tilePx - conn.body.x;
-  const dy = pointer.worldY / tilePx - conn.body.y;
+  const dx = cursorWorld.x - conn.body.x;
+  const dy = cursorWorld.y - conn.body.y;
   triggerAttack(state, conn, deps.hooks, dx, dy, performance.now());
 }
 
@@ -74,7 +89,11 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     activateHotbar(state, conn, queries, Number(uiHit.slice(5)));
   } else if (uiHit === "touch:attack") {
     pressButton(touch, "attack", pointerId);
-    triggerAttack(state, conn, hooks, touch.lastFacing.x, touch.lastFacing.y, performance.now());
+    if (equippedIsThrowable(conn, queries)) {
+      conn.throwTorch(touch.lastFacing.x, touch.lastFacing.y);
+    } else {
+      triggerAttack(state, conn, hooks, touch.lastFacing.x, touch.lastFacing.y, performance.now());
+    }
   } else if (uiHit === "touch:jump") {
     pressButton(touch, "jump", pointerId);
   } else if (uiHit === "touch:interact") {

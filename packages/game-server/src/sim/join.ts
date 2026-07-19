@@ -6,10 +6,15 @@ import {
   newEntityId,
   type Entity,
 } from "@dc2d/engine";
+import { invAdd } from "./inventory.js";
 import { findSpawn, newToken } from "./spawn.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
 
 /** Player join and reconnect-resume: the entity/slot a fresh or returning client gets. */
+
+/** ASSUMPTION #1/#2 (docs/ASSUMPTIONS.md): the existing Rusty Sword
+ * auto-equips (invAdd's first-weapon rule), plus a full stack of torches. */
+const STARTER_TORCH_QTY = 3;
 
 export function addPlayer(
   sim: SimState,
@@ -21,6 +26,11 @@ export function addPlayer(
     const resumed = tryResume(sim, resumeToken, clientId);
     if (resumed) return resumed;
   }
+
+  // Checked BEFORE store.get (which creates the record) — this is the
+  // only point that can tell "first-ever join" from "reconnected after
+  // the in-memory slot/resume token was lost" (e.g. a server restart).
+  const isNewCharacter = !sim.store.has(clientId);
 
   const spawn = findSpawn(sim);
   const entity = makeEntity("player", createBody(spawn.x, spawn.y, spawn.z), {
@@ -36,7 +46,15 @@ export function addPlayer(
   const slot = newSlot(entity, clientId, sim.store.get(clientId, name), token);
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
+  if (isNewCharacter) grantStarterKit(sim, slot);
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false };
+}
+
+/** Granted exactly once per persistent clientId, straight into inventory
+ * (never the stash) — never re-run on death/respawn or reconnect. */
+function grantStarterKit(sim: SimState, slot: PlayerSlot): void {
+  invAdd(sim, slot, "sword", 1);
+  invAdd(sim, slot, "torch", STARTER_TORCH_QTY);
 }
 
 /** Default bookkeeping for a freshly-joined player. */

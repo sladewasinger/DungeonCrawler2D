@@ -121,6 +121,9 @@ export interface SimState {
   readonly enemies: Map<string, EnemySlot>;
   readonly items: Map<string, Entity>;
   readonly projectiles: Map<string, Entity>;
+  /** Thrown torches, flying and placed — see sim/torches.ts. Ephemeral:
+   * ASSUMPTION #41 (docs/ASSUMPTIONS.md), not persisted across restart. */
+  readonly torches: Map<string, Entity>;
   readonly parties: Map<string, Party>;
   readonly invites: Map<string, { from: string; expiresAt: number }>;
   readonly activatedChunks: Set<string>;
@@ -155,6 +158,7 @@ export function createSimState(
     enemies: new Map(),
     items: new Map(),
     projectiles: new Map(),
+    torches: new Map(),
     parties: new Map(),
     invites: new Map(),
     activatedChunks: new Set(),

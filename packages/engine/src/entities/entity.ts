@@ -7,7 +7,7 @@ import type { BodyState } from "./movement/index.js";
  * interaction rules and AI never reference specific ids, only tags.
  */
 
-export type EntityKind = "player" | "enemy" | "item" | "projectile";
+export type EntityKind = "player" | "enemy" | "item" | "projectile" | "torch";
 
 export interface ActiveStatus {
   defId: string;
@@ -45,6 +45,10 @@ export interface Entity {
   partyId?: string;
   /** Downed players bleed out unless revived (party feature). */
   downedUntil?: number;
+  /** Flight/placement state (kind === "torch"): mid-arc, or planted and burning. */
+  torchState?: "flying" | "placed";
+  /** Tick a placed torch despawns (kind === "torch", torchState === "placed"). */
+  expiresAtTick?: number;
 }
 
 let nextEntityId = 1;
@@ -68,6 +72,8 @@ function applyOptionalEntityFields(
   if (opts.vel !== undefined) entity.vel = opts.vel;
   if (opts.facing !== undefined) entity.facing = opts.facing;
   if (opts.ownerId !== undefined) entity.ownerId = opts.ownerId;
+  if (opts.torchState !== undefined) entity.torchState = opts.torchState;
+  if (opts.expiresAtTick !== undefined) entity.expiresAtTick = opts.expiresAtTick;
 }
 
 export function makeEntity(

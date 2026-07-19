@@ -11,7 +11,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 
@@ -95,3 +95,7 @@ export const PICKUP_RANGE = 1.5;
 export const INTERACT_RANGE = 1.6;
 export const HOTBAR_SLOTS = 9;
 export const ENEMY_ACTIVE_RADIUS = 48;
+
+// ASSUMPTION #40 (docs/ASSUMPTIONS.md): a placed torch burns for 180s of
+// server ticks at the fixed TICK_RATE, then despawns.
+export const TORCH_BURN_TICKS = 180 * TICK_RATE;

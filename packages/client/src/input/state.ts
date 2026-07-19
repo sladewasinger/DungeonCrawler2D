@@ -36,10 +36,15 @@ export interface InputConnection {
   readonly inventory: readonly { item: string }[];
   readonly stash: unknown;
   readonly pendingInvite: boolean;
+  /** Equipped weapon def (character slot); null = fists. When it's itself throwable
+   * (a torch), primary attack throws instead of swinging — see throwEquipped.ts. */
+  readonly weapon: string | null;
   interact(): void;
   pickup(): void;
   attack(dx: number, dy: number): void;
   useSlot(index: number, targetX?: number, targetY?: number): void;
+  /** Throws the equipped throwable toward an aim direction (not a clicked tile). */
+  throwTorch(dirX: number, dirY: number): void;
   craft(recipeId: string): void;
   stashOp(op: "put" | "take", index: number): void;
   partyOp(op: "accept" | "invite", targetId?: string): void;

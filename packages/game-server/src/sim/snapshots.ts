@@ -17,6 +17,18 @@ function combatantFields(
   return { hp: entity.hp, maxHp: entity.maxHp, fx: entity.statuses.map((s) => s.defId) };
 }
 
+/** Torch flight velocity + flying/placed state + burnout tick. */
+function torchFields(
+  entity: Entity,
+): Pick<EntitySnapshot, "vx" | "vy" | "vz" | "state" | "expiresAtTick"> | Record<string, never> {
+  if (entity.kind !== "torch") return {};
+  return {
+    ...(entity.vel ? { vx: entity.vel.x, vy: entity.vel.y, vz: entity.vel.z } : {}),
+    ...(entity.torchState ? { state: entity.torchState } : {}),
+    ...(entity.expiresAtTick !== undefined ? { expiresAtTick: entity.expiresAtTick } : {}),
+  };
+}
+
 /** Enemy anim + aim vector (unit vector toward the enemy's current target). */
 function enemyAnimFields(
   sim: SimState,
@@ -61,10 +73,16 @@ function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
     ...(entity.kind === "item" && entity.qty > 1 ? { qty: entity.qty } : {}),
     ...enemyAnimFields(sim, entity),
     ...playerFields(sim, entity),
+    ...torchFields(entity),
     ...(entity.facing ? { faceX: entity.facing.x, faceY: entity.facing.y } : {}),
     // Projectiles never touch body.grounded; everyone else is
-    // airborne only mid-jump/mid-fall.
-    ...(entity.kind === "projectile" || !entity.body.grounded ? { air: true as const } : {}),
+    // airborne only mid-jump/mid-fall. A flying torch is the same deal
+    // (placed torches sit grounded, no override needed).
+    ...(entity.kind === "projectile" ||
+    (entity.kind === "torch" && entity.torchState === "flying") ||
+    !entity.body.grounded
+      ? { air: true as const }
+      : {}),
   };
 }
 
@@ -86,6 +104,7 @@ function gatherVisible(
   for (const enemy of sim.enemies.values()) consider(enemy.entity);
   for (const item of sim.items.values()) consider(item);
   for (const projectile of sim.projectiles.values()) consider(projectile);
+  for (const torch of sim.torches.values()) consider(torch);
   return { entities, visible };
 }
 

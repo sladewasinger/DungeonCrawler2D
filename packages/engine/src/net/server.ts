@@ -29,7 +29,7 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
 
 export const entitySnapshotSchema = z.object({
   id: z.string(),
-  kind: z.enum(["player", "enemy", "item", "projectile"]),
+  kind: z.enum(["player", "enemy", "item", "projectile", "torch"]),
   defId: z.string().optional(),
   name: z.string().optional(),
   x: z.number(),
@@ -48,6 +48,15 @@ export const entitySnapshotSchema = z.object({
   /** Present iff airborne — grounded entities render planted on their
    * shadow (interpolating z across height steps must not read as a hop). */
   air: z.literal(true).optional(),
+  /** Velocity (kind === "torch", state "flying") — mirrors the flight
+   * arc so observers can render the same trajectory from snapshots. */
+  vx: z.number().optional(),
+  vy: z.number().optional(),
+  vz: z.number().optional(),
+  /** Flight/placement state (kind === "torch"). */
+  state: z.enum(["flying", "placed"]).optional(),
+  /** Tick a placed torch despawns (kind === "torch", state "placed"). */
+  expiresAtTick: z.number().int().optional(),
 });
 export type EntitySnapshot = z.infer<typeof entitySnapshotSchema>;
 

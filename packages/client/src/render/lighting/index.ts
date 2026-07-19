@@ -7,27 +7,19 @@ import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
 import { doorLightPositions } from "./doorLights.js";
-import type { LightSource } from "./lightSource.js";
+import { hashSeed, type LightSource } from "./lightSource.js";
 import { applyLightingPostFX } from "./postfx.js";
 import { LightSpritePool } from "./pool.js";
+import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlacement.js";
 
 const LOAD_MARGIN_CHUNKS = 1;
 /** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
 const MAX_ACTIVE_LIGHTS = 12;
-const TORCH_COLOR = 0xff9e3d;
-const TORCH_RADIUS_TILES = 1.5; // small halo at the flame — the BAKED tile light does the real work
 const PORTAL_COLOR = 0x3dd6c3;
 const PORTAL_RADIUS_TILES = 3;
 const PERSONAL_COLOR = 0xfff0d2;
 const PERSONAL_RADIUS_TILES = 1.6; // deliberately small: a soft cue, not a headlight
-
-/** Small integer hash used only to spread flicker phase — not a determinism-sensitive RNG. */
-function hashSeed(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-  return h >>> 0;
-}
 
 export class LightingSystem {
   private readonly pool: LightSpritePool;
@@ -72,9 +64,13 @@ export class LightingSystem {
     this.pool.sync(all, nowMs);
   }
 
-  /** Torch positions currently resident — vfx flame particles key off this list. */
+  /** Torch positions currently resident (authored wall torches + placed thrown
+   * torches, fed in as accent lights) — vfx flame particles key off this list. */
   activeTorches(): readonly LightSource[] {
-    return [...this.chunkLights.values()].flat().filter((l) => l.kind === "torch");
+    return [...this.chunkLights.values()]
+      .flat()
+      .concat(this.accentLights)
+      .filter((l) => l.kind === "torch");
   }
 
   private streamChunks(view: ViewRect): void {

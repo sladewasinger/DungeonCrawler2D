@@ -40,6 +40,13 @@ export class PlayerStore {
     }
   }
 
+  /** True if this clientId already has a durable record — i.e. this is
+   * not their first-ever join (server restarts don't reset this, unlike
+   * the in-memory per-connection sim state). */
+  has(clientId: string): boolean {
+    return this.data.has(clientId);
+  }
+
   /** Fetch (or create) the durable record for a clientId. */
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);

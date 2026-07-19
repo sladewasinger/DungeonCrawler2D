@@ -10,8 +10,18 @@ import { selectTorchPositions, torchCandidates } from "../lighting/torchPlacemen
 
 export const LIGHT_MAX = 14;
 const DOOR_LIGHT_LEVEL = 11;
-/** Sources within this many tiles outside the region still light its edge. */
-const APRON = LIGHT_MAX + 1;
+/** Sources within this many tiles outside the region still light its edge — also the
+ * radius render/terrain/lightRebake.ts uses to find every chunk a dynamic light touches. */
+export const LIGHT_APRON = LIGHT_MAX + 1;
+const APRON = LIGHT_APRON;
+
+/** A live (non-authored) light seed to flood from, e.g. a placed thrown torch —
+ * always a full-strength source, like a world torch. */
+export interface DynamicLightSeed {
+  readonly tileX: number;
+  readonly tileY: number;
+  readonly level: number;
+}
 /** Brightness of a fully unlit tile — visible but clearly dark. */
 const AMBIENT = 0.26;
 /** Levels at/above this render at full brightness (the lit plateau near a torch). */
@@ -97,8 +107,19 @@ function flood(g: LightGrid, world: TerrainRead): void {
   }
 }
 
-/** Flood-fills light levels over [x0-APRON, y0-APRON, x0+size+APRON) and exposes per-tile tints. */
-export function computeLightField(world: TerrainRead, x0: number, y0: number, size: number): LightField {
+/**
+ * Flood-fills light levels over [x0-APRON, y0-APRON, x0+size+APRON) and exposes
+ * per-tile tints. `dynamicSources` seeds live (non-authored) lights — placed thrown
+ * torches — into the same deterministic flood; harmless (and cheap) to pass sources
+ * outside this region, since seed() drops anything outside the grid.
+ */
+export function computeLightField(
+  world: TerrainRead,
+  x0: number,
+  y0: number,
+  size: number,
+  dynamicSources: readonly DynamicLightSeed[] = [],
+): LightField {
   const gsize = size + APRON * 2;
   const g: LightGrid = {
     gx0: x0 - APRON,
@@ -113,6 +134,7 @@ export function computeLightField(world: TerrainRead, x0: number, y0: number, si
   for (const d of doorLightPositions(world, g.gx0, g.gy0, g.gx0 + gsize, g.gy0 + gsize)) {
     seed(g, d.wx, d.wy + 1, DOOR_LIGHT_LEVEL);
   }
+  for (const d of dynamicSources) seed(g, d.tileX, d.tileY, d.level);
   flood(g, world);
   return {
     tintAt(wx: number, wy: number): number {

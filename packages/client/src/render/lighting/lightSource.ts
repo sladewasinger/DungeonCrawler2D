@@ -15,6 +15,13 @@ export interface LightSource {
   readonly seed: number;
 }
 
+/** Small integer hash used only to spread flicker phase — not a determinism-sensitive RNG. */
+export function hashSeed(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
 const FLICKER_PERIOD_MS = 2200;
 
 /** ~0.9..1.1 multiplier from two layered sine waves at different rates — organic, non-repeating flicker. */

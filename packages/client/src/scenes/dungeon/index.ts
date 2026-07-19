@@ -10,6 +10,7 @@ import { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import { EntityRenderer } from "../../render/entities/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
+import type { LightSource } from "../../render/lighting/lightSource.js";
 import { LightingSystem } from "../../render/lighting/index.js";
 import { TerrainRenderer } from "../../render/terrain/index.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
@@ -27,6 +28,8 @@ import { pruneProjectileVelocity } from "./projectileVelocity.js";
 import { resolveSelfAimAngle } from "./selfAim.js";
 import { updateSelfFacing } from "./selfCosmetics.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
+import { createTorchSyncState, syncTorches, type TorchSyncState } from "./torchSync.js";
+import { applyVisualEvents } from "./visualEvents.js";
 
 /** Remote entities render this far in the past, lerped between snapshot samples. */
 const INTERP_DELAY_MS = 100;
@@ -42,6 +45,8 @@ export class DungeonScene extends Phaser.Scene {
   private boundWorld: World | undefined;
   private interactionPrompt: InteractionPrompt | null = null;
   private partyIds: ReadonlySet<string> = new Set();
+  private readonly torchSyncState: TorchSyncState = createTorchSyncState();
+  private torchAccentLights: LightSource[] = [];
 
   constructor(private readonly conn: Connection) {
     super("dungeon");
@@ -163,6 +168,13 @@ export class DungeonScene extends Phaser.Scene {
     this.entityRenderer.syncProjectiles(projectiles.map((e) => projectileView(e, this.state.projectileVelocity, nowMs)));
     pruneProjectileVelocity(this.state.projectileVelocity, new Set(projectiles.map((e) => e.id)));
 
+    if (this.terrain) {
+      const torches = interpolated.filter((e) => e.snap.kind === "torch");
+      const torchSync = syncTorches(this.torchSyncState, torches, this.terrain);
+      this.entityRenderer.syncTorches(torchSync.views, context);
+      this.torchAccentLights = torchSync.accentLights;
+    }
+
     this.interactionPrompt = resolveInteractionPrompt(conn.world, render.x, render.y, items);
   }
 
@@ -170,30 +182,15 @@ export class DungeonScene extends Phaser.Scene {
     const conn = this.conn;
     if (!this.lighting || !conn.body) return;
     const areaLights = this.vfx.syncAreas(buildAreaTileViews(conn.areaTiles));
-    this.lighting.setAccentLights(areaLights);
+    this.lighting.setAccentLights([...areaLights, ...this.torchAccentLights]);
     this.lighting.update(this.cameras.main.worldView, render.x, render.y, nowMs);
     this.vfx.syncTorchFlames(this.lighting.activeTorches());
     this.vfx.trackPlayerMotion(
       { x: render.x, y: render.y, air: !conn.body.grounded, faceX: this.state.cosmetics.faceX },
       nowMs,
     );
-    this.applyVisualEvents(render, nowMs);
+    applyVisualEvents(conn, this.vfx, render, nowMs);
     this.vfx.update(nowMs);
-  }
-
-  /** Hit/death events are visual-only by the time they reach here (apply.ts routes outcome-bearing events elsewhere). */
-  private applyVisualEvents(render: RenderPose, nowMs: number): void {
-    const conn = this.conn;
-    const selfId = conn.welcome?.playerId;
-    for (const event of conn.drainVisualEvents()) {
-      if (event.t === "hit") {
-        const pos = event.id === selfId ? render : conn.entities.get(event.id)?.snap;
-        if (pos) this.vfx.spawnDamageNumber(pos.x, pos.y - 0.6, event.amount, nowMs);
-        if (event.id === selfId) this.vfx.onOwnHit(nowMs);
-      } else if (event.t === "death" && event.id === selfId) {
-        this.vfx.onOwnDeath(nowMs);
-      }
-    }
   }
 
   private buildHudSnapshotNow(): HudFakeSnapshot {

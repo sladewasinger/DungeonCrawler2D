@@ -53,6 +53,14 @@ export const clientEquipSchema = z.object({
   type: z.literal("equip"),
   item: z.string().max(64).nullable(),
 });
+/** Throw the equipped torch stack toward an aim direction (not a clicked tile) —
+ * server clamps/normalizes the vector and rejects it if no torch is carried. */
+export const clientThrowTorchSchema = z.object({
+  type: z.literal("throwTorch"),
+  dirX: z.number(),
+  dirY: z.number(),
+});
+
 export const clientInteractSchema = z.object({ type: z.literal("interact") });
 export const clientCraftSchema = z.object({ type: z.literal("craft"), recipe: z.string().max(64) });
 
@@ -95,6 +103,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientInputSchema,
   clientAttackSchema,
   clientUseSlotSchema,
+  clientThrowTorchSchema,
   clientPickupSchema,
   clientDropSchema,
   clientAssignSchema,

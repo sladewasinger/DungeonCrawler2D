@@ -10,7 +10,7 @@ import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { BASE_TERRAIN_DEPTH, depthForOccluder } from "../entities/depthSort.js";
 import { drawTile } from "./drawTile.js";
 import { buildStructureMap, drawDoor } from "./structures.js";
-import { computeLightField } from "./tileLight.js";
+import { computeLightField, type DynamicLightSeed } from "./tileLight.js";
 
 /** Rows above an occluder row its sprites may overhang (caps at wy-1, lintels/pillars up to wy-2). */
 const ROW_OVERHANG_TILES = 2;
@@ -40,8 +40,19 @@ function bake(
   return rt;
 }
 
-/** Generates chunk (cx, cy), draws every tile + structure, and bakes the result into static textures. */
-export function buildChunkVisual(scene: Phaser.Scene, world: TerrainWorld, cx: number, cy: number): ChunkVisual {
+/**
+ * Generates chunk (cx, cy), draws every tile + structure, and bakes the result into
+ * static textures. `dynamicLights` seeds live placed-torch sources into this bake —
+ * pass the caller's current set every time (including plain re-streams), so a chunk
+ * that streams in after a torch is already placed nearby bakes lit on first load.
+ */
+export function buildChunkVisual(
+  scene: Phaser.Scene,
+  world: TerrainWorld,
+  cx: number,
+  cy: number,
+  dynamicLights: readonly DynamicLightSeed[] = [],
+): ChunkVisual {
   const below = scene.add.container(0, 0);
   const rows = new Map<number, Phaser.GameObjects.Container>();
   const occluderFor = (wy: number): Phaser.GameObjects.Container => {
@@ -63,7 +74,7 @@ export function buildChunkVisual(scene: Phaser.Scene, world: TerrainWorld, cx: n
   );
   // Light is baked with the tiles: deterministic sources + BFS, so every client
   // bakes identical lighting and the per-frame cost is zero.
-  const light = computeLightField(world, baseX, baseY, CHUNK_SIZE);
+  const light = computeLightField(world, baseX, baseY, CHUNK_SIZE, dynamicLights);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const wy = baseY + ly;

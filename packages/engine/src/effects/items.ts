@@ -19,6 +19,14 @@ export const itemDefSchema = z.object({
       onImpact: z.array(primitiveSchema),
       /** Chance the item is destroyed on impact (else drops). */
       breakChance: z.number().min(0).max(1),
+      /**
+       * Data-first alternative landing behavior: a dedicated throw
+       * intent (e.g. `throwTorch`) plants a persistent, replicated
+       * world entity of this kind instead of running onImpact/
+       * breakChance — not a torch-only code special case. Item-generic
+       * target-tile throws (`useSlot`) are unaffected by this field.
+       */
+      placesEntity: z.enum(["torch"]).optional(),
     })
     .optional(),
   weapon: z

@@ -9,6 +9,7 @@ import type {
   PlayerEntityView,
   ProjectileEntityView,
   RenderContext,
+  TorchEntityView,
 } from "../../render/entities/index.js";
 import { groundItemFrame } from "./itemFrame.js";
 import { trackProjectileVelocity, type ProjectileVelocityState } from "./projectileVelocity.js";
@@ -136,4 +137,20 @@ export function projectileView(
 ): ProjectileEntityView {
   const { vx, vy } = trackProjectileVelocity(velocity, e.id, e.x, e.y, nowMs);
   return { id: e.id, x: e.x, y: e.y, frame: groundItemFrame(e.snap.defId), vx, vy };
+}
+
+/** kind === "torch" always carries `state` server-side; "flying" is just a safe default
+ * for a stale/partial sample rather than a real fallback path. */
+export function torchView(e: InterpolatedEntity): TorchEntityView {
+  return {
+    id: e.id,
+    x: e.x,
+    y: e.y,
+    z: e.z,
+    air: e.snap.air ?? false,
+    state: e.snap.state ?? "flying",
+    frame: groundItemFrame(e.snap.defId),
+    vx: e.snap.vx ?? 0,
+    vy: e.snap.vy ?? 0,
+  };
 }

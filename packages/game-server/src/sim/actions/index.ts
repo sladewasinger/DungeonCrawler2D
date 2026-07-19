@@ -5,6 +5,7 @@ import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
 import { doInteract, teleport } from "./interact.js";
 import { doUseSlot } from "./items.js";
 import { doAttack } from "./melee.js";
+import { doThrowTorch } from "../torches.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
@@ -25,6 +26,7 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
 const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
   "attack",
   "useSlot",
+  "throwTorch",
   "pickup",
   "drop",
   "craft",
@@ -57,6 +59,9 @@ function dispatchGatedAction(
       break;
     case "useSlot":
       doUseSlot(sim, slot, action.slot, action.targetX, action.targetY, effectEvents);
+      break;
+    case "throwTorch":
+      doThrowTorch(sim, slot, action.dirX, action.dirY);
       break;
     case "pickup":
       doPickup(sim, slot);

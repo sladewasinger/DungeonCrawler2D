@@ -9,9 +9,10 @@ import { createPlayerVisual, updatePlayerVisual } from "./playerVisual.js";
 import { createProjectileVisual, updateProjectileVisual } from "./projectileEntityVisual.js";
 import { monsterSpriteFor, playerSkinFor } from "./spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "./state.js";
-import type { ItemEntityView, MonsterEntityView, PlayerEntityView, ProjectileEntityView, RenderContext } from "./view.js";
+import { createTorchVisual, updateTorchVisual } from "./torchEntityVisual.js";
+import type { ItemEntityView, MonsterEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "./view.js";
 
-export type { RenderContext, PlayerEntityView, MonsterEntityView, ItemEntityView, ProjectileEntityView } from "./view.js";
+export type { RenderContext, PlayerEntityView, MonsterEntityView, ItemEntityView, ProjectileEntityView, TorchEntityView } from "./view.js";
 
 export class EntityRenderer {
   private readonly visuals = new Map<string, EntityVisual>();
@@ -48,6 +49,14 @@ export class EntityRenderer {
       updateProjectileVisual(visual, view);
     });
     this.gc(seen, "projectile");
+  }
+
+  syncTorches(views: readonly TorchEntityView[], ctx: RenderContext): void {
+    const seen = this.stepKind(views, (view) => {
+      const visual = this.getOrCreate(view.id, "torch", () => createTorchVisual(this.scene));
+      updateTorchVisual(visual, view, ctx);
+    });
+    this.gc(seen, "torch");
   }
 
   /** Runs `apply` over every view of one kind, returning the set of ids present this frame. */

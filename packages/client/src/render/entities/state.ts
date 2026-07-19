@@ -52,7 +52,17 @@ export interface ProjectileVisual {
   readonly trail: Phaser.GameObjects.Particles.ParticleEmitter;
 }
 
-export type EntityVisual = PlayerVisual | MonsterVisual | ItemVisual | ProjectileVisual;
+/**
+ * A thrown torch's body sprite. Visible only while flying — once placed, its visual
+ * identity comes entirely from the flame particle + halo (render/lighting), matching
+ * authored world torches, which have no body sprite at all (see torchEntityVisual.ts).
+ */
+export interface TorchVisual {
+  readonly kind: "torch";
+  readonly body: Phaser.GameObjects.Sprite;
+}
+
+export type EntityVisual = PlayerVisual | MonsterVisual | ItemVisual | ProjectileVisual | TorchVisual;
 
 /** Tears down every Phaser object owned by one tracked entity's visual. */
 export function destroyEntityVisual(visual: EntityVisual): void {

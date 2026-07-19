@@ -141,6 +141,16 @@ export class Connection {
     this.send({ type: "attack", dirX: dirX / len, dirY: dirY / len });
   }
 
+  /** Throws the equipped throwable toward an aim direction (not a clicked tile) —
+   * the dedicated Epic 7.8 torch-throw intent, distinct from useSlot's target-tile throw. */
+  throwTorch(dirX: number, dirY: number): void {
+    if (!this.canAct) return;
+    // Normalize, matching attack() — aiming at a point several tiles away must not
+    // fail the protocol's unit-direction validation and silently vanish.
+    const len = Math.hypot(dirX, dirY) || 1;
+    this.send({ type: "throwTorch", dirX: dirX / len, dirY: dirY / len });
+  }
+
   useSlot(slot: number, targetX?: number, targetY?: number): void {
     if (!this.canAct) return;
     this.send({

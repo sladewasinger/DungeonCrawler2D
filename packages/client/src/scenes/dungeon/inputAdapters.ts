@@ -30,10 +30,14 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     get pendingInvite() {
       return conn.pendingInvite !== null;
     },
+    get weapon() {
+      return conn.weapon;
+    },
     interact: () => conn.interact(),
     pickup: () => conn.pickup(),
     attack: (dx, dy) => conn.attack(dx, dy),
     useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
+    throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY),
     craft: (recipeId) => conn.craft(recipeId),
     stashOp: (op, index) => conn.stashOp(op, index),
     partyOp: (op, target) => conn.partyOp(op, target),

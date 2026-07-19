@@ -18,6 +18,7 @@ describe("protocol", () => {
     const intents: ClientMessage[] = [
       { type: "attack", dirX: 1, dirY: 0 },
       { type: "useSlot", slot: 2, targetX: 10.5, targetY: -3.25 },
+      { type: "throwTorch", dirX: 0.6, dirY: -0.8 },
       { type: "pickup" },
       { type: "drop", item: "rag" },
       { type: "assign", slot: 4, item: "bandage" },
@@ -82,6 +83,20 @@ describe("protocol", () => {
           faceY: -0.8,
         },
         { id: "i1", kind: "item", defId: "knife", x: 8, y: 8, z: 0 },
+        {
+          id: "t1",
+          kind: "torch",
+          defId: "torch",
+          x: 12,
+          y: 12,
+          z: 0,
+          vx: 1.5,
+          vy: 0,
+          vz: 2.1,
+          state: "flying",
+          air: true,
+        },
+        { id: "t2", kind: "torch", defId: "torch", x: 6, y: 6, z: 0, state: "placed", expiresAtTick: 3742 },
       ],
       left: ["p3"],
       events: [

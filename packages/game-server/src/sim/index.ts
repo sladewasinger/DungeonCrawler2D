@@ -28,6 +28,7 @@ import { buildSnapshots } from "./snapshots.js";
 import { expireInvites } from "./social.js";
 import { createSimState, type JoinResult, type PlayerAction, type SimState } from "./state.js";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "./statuses.js";
+import { stepTorches } from "./torches.js";
 import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
 import { PlayerStore } from "../store.js";
 
@@ -146,6 +147,7 @@ export class GameSim {
     }
     stepEnemies(sim, effectEvents);
     stepProjectiles(sim, effectEvents);
+    stepTorches(sim);
     sim.areas.tick(TICK_DT, () => sim.rng.next());
     applyAreaContact(sim, effectEvents);
     tickStatuses(sim, effectEvents);

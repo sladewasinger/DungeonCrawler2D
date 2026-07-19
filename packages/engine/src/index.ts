@@ -16,6 +16,7 @@ export * from "./world/world.js";
 export * from "./entities/entity.js";
 export * from "./entities/movement/index.js";
 export * from "./entities/projectile.js";
+export * from "./entities/torch.js";
 export * from "./effects/types.js";
 export * from "./effects/system.js";
 export * from "./areas/system.js";

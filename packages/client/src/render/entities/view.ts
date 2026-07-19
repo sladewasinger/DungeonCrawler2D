@@ -72,3 +72,15 @@ export interface ProjectileEntityView {
   readonly vx: number;
   readonly vy: number;
 }
+
+export interface TorchEntityView {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly air: boolean;
+  readonly state: "flying" | "placed";
+  readonly frame: string;
+  readonly vx: number;
+  readonly vy: number;
+}

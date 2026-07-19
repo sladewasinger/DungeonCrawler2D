@@ -37,7 +37,8 @@
     "weapon": { "damage": 2, "applies": [{ "status": "on-fire", "chance": 0.5 }] },
     "throwable": {
       "onImpact": [{ "primitive": "spawn_area", "area": "area-fire", "radius": 1 }],
-      "breakChance": 1
+      "breakChance": 1,
+      "placesEntity": "torch"
     }
   },
   {

@@ -26,6 +26,7 @@ describe("GameSim: combat", () => {
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     teleport(aEntity, arena.x, arena.y, sim);
     const slime = sim.spawnEnemy("slime", aEntity.body.x + 1, aEntity.body.y);
+    sim.queueAction(a.playerId, { type: "equip", item: null }); // fists: the starter sword auto-equips
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
@@ -65,6 +66,7 @@ describe("GameSim: combat", () => {
     // sits just outside its own bite range so it can't muddy the test.
     teleport(bEntity, aEntity.body.x + 0.5, aEntity.body.y, sim);
     const slime = sim.spawnEnemy("slime", aEntity.body.x + 1.5, aEntity.body.y);
+    sim.queueAction(aId, { type: "equip", item: null }); // fists: the starter sword auto-equips
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
     expect(slime.hp).toBe(12 - 3); // fists

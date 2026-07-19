@@ -24,6 +24,7 @@ describe("GameSim: items and inventory", () => {
     const entity = sim.getPlayerEntity(a.playerId)!;
     const arena = findFlatArena(sim, 28, 28, 1);
     teleport(entity, arena.x, arena.y, sim);
+    sim.getInventory(a.playerId)!.length = 0; // clear the starter kit for a clean slate
     sim.spawnItem("rag", entity.body.x + 0.5, entity.body.y, 2);
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
