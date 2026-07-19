@@ -24,6 +24,8 @@ export interface StructureMap {
   readonly doors: readonly DoorStructure[];
   /** Tiles whose terrain art is fully suppressed (the structure draws instead). */
   readonly suppressed: ReadonlySet<string>;
+  /** Wall cells whose projected south face would protrude below a door frame. */
+  readonly faceSuppressed: ReadonlySet<string>;
 }
 
 export const tileKey = (wx: number, wy: number): string => `${wx},${wy}`;
@@ -43,6 +45,16 @@ function doorFootprint(door: DoorStructure): string[] {
 
 /** Rows a door's footprint extends above its own tile — the seam-scan overshoot. */
 const FOOTPRINT_REACH = 2;
+const FOOTPRINT_SIDE_REACH = 2;
+
+function doorFaceFootprint(
+  door: DoorStructure,
+  tileAt: (wx: number, wy: number) => TileType,
+): string[] {
+  return [-2, -1, 1, 2]
+    .filter((dx) => tileAt(door.wx + dx, door.wy) === TILE.Wall)
+    .map((dx) => tileKey(door.wx + dx, door.wy));
+}
 
 /**
  * Scans a tile-range for door tiles and precomputes the suppression mask. The
@@ -60,15 +72,17 @@ export function buildStructureMap(
 ): StructureMap {
   const doors: DoorStructure[] = [];
   const suppressed = new Set<string>();
+  const faceSuppressed = new Set<string>();
   for (let wy = y0; wy < y1 + FOOTPRINT_REACH; wy++) {
-    for (let wx = x0; wx < x1; wx++) {
+    for (let wx = x0 - FOOTPRINT_SIDE_REACH; wx < x1 + FOOTPRINT_SIDE_REACH; wx++) {
       if (!DOOR_TILES.has(tileAt(wx, wy))) continue;
       const door = { wx, wy };
-      if (wy < y1) doors.push(door);
+      if (wx >= x0 && wx < x1 && wy < y1) doors.push(door);
       for (const key of doorFootprint(door)) suppressed.add(key);
+      for (const key of doorFaceFootprint(door, tileAt)) faceSuppressed.add(key);
     }
   }
-  return { doors, suppressed };
+  return { doors, suppressed, faceSuppressed };
 }
 
 function addPiece(
@@ -88,10 +102,9 @@ function addPiece(
 
 /**
  * Draws one door as a single assembly, bottom-anchored on the door tile's south
- * edge: the 32x32 leaf spans the doorway (overlapping half of each flanking wall
- * tile), 16x32 frame posts sit on the flanks, and the 32x16 frame top caps it.
- * Everything lands in the below-entities container, after all tile art, so the
- * assembly reads as punched INTO the wall it fronts.
+ * edge. The 16x32 posts sit adjacent to the 32x32 leaf exactly as they do in the
+ * source sheet, and the 32x16 lintel adds the third visual row. The owning row
+ * container sorts the complete assembly against entity feet.
  */
 export function drawDoor(
   scene: Phaser.Scene,
@@ -101,7 +114,7 @@ export function drawDoor(
   const centerX = door.wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
   const bottomY = (door.wy + 1) * SCREEN_TILE_PX;
   addPiece(scene, container, "doors_leaf_closed", centerX, bottomY, SANCTUARY_TEAL);
-  addPiece(scene, container, "doors_frame_left", centerX - SCREEN_TILE_PX, bottomY);
-  addPiece(scene, container, "doors_frame_right", centerX + SCREEN_TILE_PX, bottomY);
+  addPiece(scene, container, "doors_frame_left", centerX - SCREEN_TILE_PX * 1.5, bottomY);
+  addPiece(scene, container, "doors_frame_right", centerX + SCREEN_TILE_PX * 1.5, bottomY);
   addPiece(scene, container, "doors_frame_top", centerX, bottomY - 2 * SCREEN_TILE_PX);
 }

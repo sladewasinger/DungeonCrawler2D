@@ -35,6 +35,18 @@ npm run typecheck  # strict TS across all packages
 npm run lint       # standards enforcement (200-line cap, boundaries)
 ```
 
+The full simulation and local server exist, but the v2 client does not yet wire them
+into a playable `DungeonScene`; the default page currently shows the boot-ready
+placeholder. To inspect the live terrain/entity gallery while the game scene is being
+integrated, run `npm run dev -w @dc2d/client` and open:
+
+```text
+http://localhost:5173/?scene=gallery&camera=rooms
+```
+
+Useful `camera` values include `door`, `occlusion`, `pillar`, `solidmass`,
+`landmark`, `chasm`, and `sanctuary`.
+
 ## Status
 
 **v2 core slice in progress:** worldgen, multiplayer, movement/combat, effects

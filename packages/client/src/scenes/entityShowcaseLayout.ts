@@ -5,5 +5,5 @@
 /** Monster-cycling row + running/jumping player, laid out east of the "rooms" cluster. */
 export const SHOWCASE_ROW = { baseX: 31, baseY: 50 } as const;
 
-/** Reuses "rooms" preset's hand-picked wall-adjacent tile (north) plus a south companion out in the open room. */
-export const OCCLUSION_DUO = { northX: 19, northY: 46, southX: 19, southY: 49 } as const;
+/** Bodies on opposite sides of a clean ten-cell wall run centered near (-42,-44). */
+export const OCCLUSION_DUO = { northX: -42.5, northY: -44.05, southX: -42.5, southY: -41.5 } as const;

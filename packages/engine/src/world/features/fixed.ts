@@ -127,14 +127,14 @@ export function applyFlattenedFeature(
   }
 }
 
-/** 3×3 wall kiosk with the portal door in its south face. */
+/** 5x3 wall kiosk: a short, broad enclosed mass with a south-face portal. */
 export function carveSafeRoomEntrance(
   tiles: Uint8Array,
   centerLx: number,
   centerLy: number,
 ): void {
   for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
+    for (let dx = -2; dx <= 2; dx++) {
       const lx = centerLx + dx;
       const ly = centerLy + dy;
       if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;

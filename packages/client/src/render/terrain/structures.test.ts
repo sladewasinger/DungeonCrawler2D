@@ -18,6 +18,7 @@ describe("buildStructureMap", () => {
     expect(map.suppressed.has(tileKey(5, 4))).toBe(true);
     expect(map.suppressed.has(tileKey(4, 6))).toBe(false);
     expect(map.suppressed.has(tileKey(5, 7))).toBe(false);
+    for (const x of [3, 4, 6, 7]) expect(map.faceSuppressed.has(tileKey(x, 6))).toBe(true);
   });
 
   it("a door just south of the range still suppresses the cells it reaches into, but is not drawn here", () => {
@@ -26,9 +27,19 @@ describe("buildStructureMap", () => {
     expect(map.suppressed.has(tileKey(5, 31))).toBe(true);
   });
 
+  it("leaves a north-wall face intact when a room door sits one row inside it", () => {
+    const tileAt = (wx: number, wy: number) => {
+      if (wx === 5 && wy === 6) return TILE.DoorExit;
+      return wy === 5 ? TILE.Wall : TILE.Floor;
+    };
+    const map = buildStructureMap(tileAt, 0, 0, 10, 10);
+    expect(map.faceSuppressed.size).toBe(0);
+  });
+
   it("no doors, no suppression", () => {
     const map = buildStructureMap(() => TILE.Wall, 0, 0, 32, 32);
     expect(map.doors).toEqual([]);
     expect(map.suppressed.size).toBe(0);
+    expect(map.faceSuppressed.size).toBe(0);
   });
 });

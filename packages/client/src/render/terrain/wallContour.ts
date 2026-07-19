@@ -78,12 +78,12 @@ const RIM_BY_KEY: Readonly<Record<number, RimArt>> = {
   14: { frame: "wall_right", opaque: true },
 };
 
-/** Inside corner: every orthogonal is solid, the open diagonal picks the thin corner piece. */
+/** Concave boundary: every orthogonal is wall and the open diagonal selects the inward-facing corner. */
 function insideCornerPiece(o: Openness): RimArt {
-  if (o.nw) return { frame: "wall_edge_top_left" };
-  if (o.ne) return { frame: "wall_edge_top_right" };
-  if (o.sw) return { frame: "wall_edge_bottom_left" };
-  return { frame: "wall_edge_bottom_right" };
+  if (o.nw) return { frame: "wall_outer_front_right" };
+  if (o.ne) return { frame: "wall_outer_front_left" };
+  if (o.sw) return { frame: "wall_outer_top_right" };
+  return { frame: "wall_outer_top_left" };
 }
 
 function anyDiagonalOpen(o: Openness): boolean {

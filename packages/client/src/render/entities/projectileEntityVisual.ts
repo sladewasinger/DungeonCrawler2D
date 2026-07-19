@@ -17,5 +17,6 @@ export function updateProjectileVisual(visual: ProjectileVisual, view: Projectil
   if (visual.body.frame.name !== view.frame) visual.body.setFrame(view.frame);
   const screen = worldToScreen(view.x, view.y);
   visual.body.setDepth(depthForEntity(view.y));
+  visual.trail.setDepth(visual.body.depth - 0.2);
   updateProjectileMotion(visual.body, visual.trail, screen.x, screen.y, view.vx, view.vy);
 }

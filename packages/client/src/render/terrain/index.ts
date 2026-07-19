@@ -1,26 +1,18 @@
-// Terrain rendering facade: streams chunk visuals in/out around the camera and owns
-// the below-entities/above-entities occlusion layers every chunk draws into.
+// Terrain rendering facade: streams base terrain and row-sorted occluders around
+// the camera.
 import { World } from "@dc2d/engine";
 import Phaser from "phaser";
 import { buildChunkVisual, destroyChunkVisual, type ChunkVisual } from "./chunkVisual.js";
 import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "./streaming.js";
 
 const LOAD_MARGIN_CHUNKS = 1;
-const BELOW_DEPTH = 0;
-const ABOVE_DEPTH = 100;
-
 export class TerrainRenderer {
   private readonly visuals = new Map<string, ChunkVisual>();
-  private readonly belowLayer: Phaser.GameObjects.Layer;
-  private readonly aboveLayer: Phaser.GameObjects.Layer;
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: World,
-  ) {
-    this.belowLayer = scene.add.layer().setDepth(BELOW_DEPTH);
-    this.aboveLayer = scene.add.layer().setDepth(ABOVE_DEPTH);
-  }
+  ) {}
 
   /** Streams chunks around a view rect: loads what entered the margin, culls what left it. */
   update(view: ViewRect): void {
@@ -32,8 +24,6 @@ export class TerrainRenderer {
 
   private load(coord: ChunkCoord): void {
     const visual = buildChunkVisual(this.scene, this.world, coord.cx, coord.cy);
-    this.belowLayer.add(visual.below);
-    this.aboveLayer.add(visual.above);
     this.visuals.set(chunkKey(coord), visual);
   }
 
@@ -51,7 +41,5 @@ export class TerrainRenderer {
 
   dispose(): void {
     for (const key of [...this.visuals.keys()]) this.unload(key);
-    this.belowLayer.destroy();
-    this.aboveLayer.destroy();
   }
 }

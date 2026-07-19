@@ -62,7 +62,7 @@ describe("classifyWallCell", () => {
     expect(role.kind).toBe("rim");
   });
 
-  it("an inside corner (all orthogonals solid, one diagonal open) is a mid-edge piece", () => {
+  it("an inside corner uses the inward-facing corner piece instead of breaking the junction", () => {
     const ell = [
       "####.",
       "####.",
@@ -70,7 +70,14 @@ describe("classifyWallCell", () => {
       "##...",
     ];
     const role = classify(ell, 1, 1);
-    expect(role.kind).toBe("rim");
-    expect((role as { art: { frame: string } }).art.frame).toMatch(/edge_top|edge_bottom/);
+    expect(role).toEqual({ kind: "rim", art: { frame: "wall_outer_top_left" } });
+  });
+
+  it("selects all four inward-facing pieces around a cavity", () => {
+    const cavity = ["######", "######", "##..##", "##..##", "######", "######"];
+    expect(classify(cavity, 1, 1)).toEqual({ kind: "rim", art: { frame: "wall_outer_top_left" } });
+    expect(classify(cavity, 4, 1)).toEqual({ kind: "rim", art: { frame: "wall_outer_top_right" } });
+    expect(classify(cavity, 1, 4)).toEqual({ kind: "rim", art: { frame: "wall_outer_front_left" } });
+    expect(classify(cavity, 4, 4)).toEqual({ kind: "rim", art: { frame: "wall_outer_front_right" } });
   });
 });

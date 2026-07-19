@@ -79,6 +79,10 @@ function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: Rend
 /** Shadow, hp bar, nameplate, and held weapon — everything that hangs off the body's screen position. */
 function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
   const ground = worldToScreen(view.x, view.y);
+  const bodyDepth = visual.body.depth;
+  visual.shadow.setDepth(bodyDepth - 0.2);
+  visual.hpBar.container.setDepth(bodyDepth + 0.2);
+  visual.nameplate.setDepth(bodyDepth + 0.2);
   updateShadowPosition(visual.shadow, ground.x, ground.y);
   updateHpBar(visual.hpBar, ground.x, ground.y - visual.body.displayHeight, view.hp, view.maxHp);
 

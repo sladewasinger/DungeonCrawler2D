@@ -9,7 +9,15 @@ import { isSafeRoomChunk, isStairsChunk } from "./features/fixed.js";
 import { CHASM_DEPTH } from "./generate/height.js";
 import { TOWER_MAX_RISE } from "./generate/landmarks/tower.js";
 import { generateChunk } from "./generate.js";
-import { safeRoomChunk, safeRoomFeatures, safeRoomSpawn } from "./features/rooms.js";
+import {
+  PERSONAL_ROOM_H,
+  personalRoomChunk,
+  personalRoomFeatures,
+  personalRoomSpawn,
+  safeRoomChunk,
+  safeRoomFeatures,
+  safeRoomSpawn,
+} from "./features/rooms.js";
 import { CHUNK_SIZE, TILE, ZONE } from "./types.js";
 import { World } from "./world.js";
 
@@ -112,6 +120,26 @@ describe("world generation", () => {
     const roomB = safeRoomChunk(doorCx + 1, doorCy);
     expect(roomA).not.toEqual(roomB);
     expect(safeRoomChunk(doorCx, doorCy)).toEqual(roomA);
+  });
+
+  it("embeds the personal sanctuary exit in the north wall and spawns the player just inside", () => {
+    const world = new World(SEED, FLOOR);
+    const chunk = personalRoomChunk(0);
+    const baseY = chunk.cy * CHUNK_SIZE;
+    const top = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_H / 2);
+    const features = personalRoomFeatures(0);
+    const spawn = personalRoomSpawn(0);
+
+    expect(features.exit.y).toBe(baseY + top + 1);
+    expect(world.tileAt(features.exit.x, features.exit.y)).toBe(TILE.DoorExit);
+    expect(world.tileAt(features.exit.x - 1, features.exit.y)).toBe(TILE.Floor);
+    expect(world.tileAt(features.exit.x + 1, features.exit.y)).toBe(TILE.Floor);
+    expect(world.tileAt(features.exit.x - 1, features.exit.y - 1)).toBe(TILE.Wall);
+    expect(world.tileAt(features.exit.x + 1, features.exit.y - 1)).toBe(TILE.Wall);
+    expect(world.tileAt(features.exit.x, features.exit.y + 1)).toBe(TILE.Floor);
+    expect(Math.floor(spawn.x)).toBe(features.exit.x);
+    expect(Math.floor(spawn.y)).toBe(features.exit.y + 1);
+    expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
   });
 
   it("has no unreachable interior floor pockets (pocket sealing)", () => {

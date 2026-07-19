@@ -59,10 +59,10 @@ function roomCenter(chunk: { cx: number; cy: number }): { x: number; y: number }
   };
 }
 
-/** Where a teleport into the room lands you (one row above the exit door). */
+/** Where a teleport into the room lands you, one row inside the north-wall exit. */
 export function personalRoomSpawn(slot: number): { x: number; y: number } {
   const c = roomCenter(personalRoomChunk(slot));
-  return { x: c.x + 0.5, y: c.y + 1.5 };
+  return { x: c.x + 0.5, y: c.y - 2.5 };
 }
 
 export function partyRoomSpawn(slot: number): { x: number; y: number } {
@@ -112,7 +112,7 @@ export function personalRoomFeatures(slot: number): {
   return {
     stash: { x: baseX + left + 1, y: baseY + top + 1 },
     table: { x: baseX + left + PERSONAL_ROOM_W - 2, y: baseY + top + 1 },
-    exit: { x: baseX + Math.floor(CHUNK_SIZE / 2), y: baseY + top + PERSONAL_ROOM_H - 2 },
+    exit: { x: baseX + Math.floor(CHUNK_SIZE / 2), y: baseY + top + 1 },
   };
 }
 
@@ -170,7 +170,8 @@ function placeFixtures(
   h: number,
 ): void {
   const centerLx = Math.floor(CHUNK_SIZE / 2);
-  set(centerLx, top + h - 2, TILE.DoorExit);
+  const exitLy = kind === "personal" ? top + 1 : top + h - 2;
+  set(centerLx, exitLy, TILE.DoorExit);
 
   if (kind === "personal") {
     // Stash on the west wall, crafting table on the east wall.

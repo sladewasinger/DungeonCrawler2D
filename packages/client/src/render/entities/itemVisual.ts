@@ -18,6 +18,7 @@ export function updateItemVisual(visual: ItemVisual, view: ItemEntityView, nowMs
   if (visual.body.frame.name !== view.frame) visual.body.setFrame(view.frame);
   const ground = worldToScreen(view.x, view.y);
   visual.body.setDepth(depthForEntity(view.y));
+  visual.shadow.setDepth(visual.body.depth - 0.2);
   updateShadowPosition(visual.shadow, ground.x, ground.y);
   applyGroundItemMotion(visual.body, ground.x, ground.y, nowMs);
 }

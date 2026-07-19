@@ -130,11 +130,10 @@ export function resolveCameraPreset(name: string | null): CameraPreset {
 }
 
 /**
- * Presets whose marker tile coincides with a tile EntityShowcase already renders on
- * its own (entityShowcaseLayout.ts's OCCLUSION_DUO/SHOWCASE_ROW): "rooms" and
- * "occlusion" reuse OCCLUSION_DUO.north, "entities" reuses SHOWCASE_ROW's first slot.
+ * Presets whose marker tile coincides with a position EntityShowcase already renders
+ * on its own: "occlusion" uses OCCLUSION_DUO and "entities" uses SHOWCASE_ROW.
  * GalleryScene skips its own raw marker sprite for these so the fully-featured
  * EntityShowcase render (shadow/hp/nameplate/depth-sort) isn't ghosted by a second,
  * differently-anchored sprite occupying the same spot.
  */
-export const PRESETS_WITH_SHOWCASE_MARKER: ReadonlySet<CameraPresetName> = new Set(["rooms", "entities", "occlusion"]);
+export const PRESETS_WITH_SHOWCASE_MARKER: ReadonlySet<CameraPresetName> = new Set(["entities", "occlusion"]);

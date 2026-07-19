@@ -35,6 +35,10 @@ Everything moves that should move.
 
 ## Motion & juice (required, not polish-later)
 
+- **Movement is 8-way; character animation is 4-way.** Input and simulation retain
+  diagonal movement, while player visuals resolve facing to north/south/east/west
+  to control animation scope and keep the sprite set coherent.
+
 - **No static entities.** Everything alive has idle + run animations minimum (the 0x72
   pack ships them); attacks have windup/release/recover reads. Items on the ground
   bob and glint. Torches flicker. The portal swirls.

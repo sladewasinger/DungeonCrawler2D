@@ -72,6 +72,10 @@ function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<t
 /** Shadow, hp bar, nameplate — everything that hangs off the body's screen position. */
 function updateMonsterChrome(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext): void {
   const ground = worldToScreen(view.x, view.y);
+  const bodyDepth = visual.body.depth;
+  visual.shadow.setDepth(bodyDepth - 0.2);
+  visual.hpBar.container.setDepth(bodyDepth + 0.2);
+  visual.nameplate.setDepth(bodyDepth + 0.2);
   updateShadowPosition(visual.shadow, ground.x, ground.y);
   const headY = ground.y - visual.body.displayHeight;
   updateHpBar(visual.hpBar, ground.x, headY, view.hp, view.maxHp);
