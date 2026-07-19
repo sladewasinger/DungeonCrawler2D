@@ -67,3 +67,12 @@ A 1280×720 screenshot at default zoom must show: (1) coherent single-resolution
 (2) visible dynamic lighting with at least two light colors on screen, (3) an animated
 character with a correct ground shadow, (4) zero default-font text, (5) the palette
 above and nothing else. Any miss fails the phase — audits include the screenshot.
+
+Composed structures are atomic (added 2026-07-18 after review): doors/kiosks, chests,
+fountains, and any multi-piece 0x72 structure render as their composed sprite unit —
+frame pieces + leaf/body assembled the way the pack intends, punched INTO the wall
+face — never assembled loosely from tiles, never interleaved with or overdrawn by
+masonry rows. A door sliced by brick courses is an automatic audit fail. Wall grammar:
+brick faces appear only on south-facing boundary rows; wall tops are dark stone caps;
+deep solid rock is near-black mass — walls read as solid volume, not wallpapered face
+texture.
