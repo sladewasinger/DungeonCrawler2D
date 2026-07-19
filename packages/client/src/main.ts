@@ -1,6 +1,8 @@
-// Client entrypoint: boots the Phaser game against the placeholder BootScene.
+// Client entrypoint: wires up the Phaser game and its scene list. Orchestration only — no logic here.
 import Phaser from "phaser";
-import { BootScene } from "./scenes/BootScene.js";
+import { PreloadScene } from "./boot/PreloadScene.js";
+import { BootReadyScene } from "./scenes/BootReadyScene.js";
+import { GalleryScene } from "./scenes/GalleryScene.js";
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -8,5 +10,5 @@ new Phaser.Game({
   width: 1280,
   height: 720,
   pixelArt: true,
-  scene: [BootScene],
+  scene: [PreloadScene, BootReadyScene, GalleryScene],
 });

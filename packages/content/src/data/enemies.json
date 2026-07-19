@@ -24,7 +24,7 @@
       { "item": "stick", "chance": 0.9 },
       { "item": "rag", "chance": 0.3 }
     ],
-    "sprite": "plant-creeper"
+    "sprite": "plant_creeper"
   },
   {
     "id": "skeleton",
@@ -39,7 +39,7 @@
       { "item": "knife", "chance": 0.15 },
       { "item": "bandage", "chance": 0.25 }
     ],
-    "sprite": "skeleton"
+    "sprite": "skelet"
   },
   {
     "id": "spitter",
@@ -59,6 +59,6 @@
       { "item": "water-flask", "chance": 0.3 },
       { "item": "raw-meat", "chance": 0.5 }
     ],
-    "sprite": "spitter"
+    "sprite": "imp"
   }
 ]

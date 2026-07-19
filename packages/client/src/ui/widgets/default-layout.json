@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "widgets": {
+    "health": { "anchor": "top-left", "offset": { "x": 16, "y": 16 } },
+    "hotbar": { "anchor": "bottom-center", "offset": { "x": 0, "y": -16 } },
+    "buffs": { "anchor": "top-left", "offset": { "x": 16, "y": 64 } },
+    "chat": { "anchor": "bottom-left", "offset": { "x": 16, "y": -16 } },
+    "party": { "anchor": "top-right", "offset": { "x": -16, "y": 16 } },
+    "minimap": { "anchor": "top-right", "offset": { "x": -16, "y": 120 } },
+    "status": { "anchor": "top-center", "offset": { "x": 0, "y": 16 } }
+  }
+}
