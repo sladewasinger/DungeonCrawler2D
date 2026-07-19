@@ -11,6 +11,7 @@ import { spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
 import { inferPlayerAnimState } from "./playerMotion.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
+import { squashScale } from "./squash.js";
 import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
 import { weaponIconFrame } from "./weaponIcon.js";
@@ -34,6 +35,8 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     lastX: 0,
     lastY: 0,
     lastSampleMs: nowMs,
+    lastAir: false,
+    squashStartMs: undefined,
   };
 }
 
@@ -52,6 +55,7 @@ function updatePlayerBody(
   visual.body.setFlipX(view.faceX < 0);
 
   if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = ctx.nowMs;
+  applyLandingSquash(visual, view.air, ctx.nowMs);
 
   const dt = (ctx.nowMs - visual.lastSampleMs) / 1000;
   const anim = inferPlayerAnimState(view.x - visual.lastX, view.y - visual.lastY, dt, view.attacking);
@@ -60,6 +64,14 @@ function updatePlayerBody(
 
   applyPlayerTint(visual, view, ctx);
   visual.body.setAngle(view.downed ? DOWNED_ANGLE : 0);
+}
+
+/** Landing-squash edge trigger + scale application, split out of updatePlayerBody to keep its complexity down. */
+function applyLandingSquash(visual: PlayerVisual, airborne: boolean, nowMs: number): void {
+  if (visual.lastAir && !airborne) visual.squashStartMs = nowMs;
+  visual.lastAir = airborne;
+  const squash = squashScale(visual.squashStartMs === undefined ? Infinity : nowMs - visual.squashStartMs);
+  visual.body.setScale(WORLD_PIXEL_SCALE * squash.scaleX, WORLD_PIXEL_SCALE * squash.scaleY);
 }
 
 function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {

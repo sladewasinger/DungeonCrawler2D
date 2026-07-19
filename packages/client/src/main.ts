@@ -1,9 +1,15 @@
 // Client entrypoint: wires up the Phaser game and its scene list. Orchestration only — no logic here.
 import Phaser from "phaser";
 import { PreloadScene } from "./boot/PreloadScene.js";
-import { BootReadyScene } from "./scenes/BootReadyScene.js";
+import { Connection } from "./net/connection.js";
+import { persistentClientId } from "./net/identity.js";
+import { resolveWsUrl } from "./net/url.js";
 import { EditorScene, setUpEditorLayout } from "./scenes/editor/index.js";
+import { DungeonScene } from "./scenes/dungeon/index.js";
 import { GalleryScene } from "./scenes/GalleryScene.js";
+import { HudScene } from "./scenes/HudScene.js";
+import { TitleScene } from "./scenes/title/index.js";
+import { loadStoredName } from "./scenes/title/connectForm.js";
 
 const isEditor = new URLSearchParams(window.location.search).get("scene") === "editor";
 
@@ -19,12 +25,19 @@ if (isEditor) {
   });
   game.registry.set("editorBoot", { store: boot.store });
 } else {
+  // One Connection for the app's whole lifetime — Title and Dungeon share it so a
+  // reconnect never loses the in-flight session (net/connection.ts owns its own
+  // reconnect-with-backoff; the scenes only react to its onConnected callback).
+  const conn = new Connection(resolveWsUrl(window.location), loadStoredName(), persistentClientId());
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: "app",
     width: 1280,
     height: 720,
     pixelArt: true,
-    scene: [PreloadScene, BootReadyScene, GalleryScene],
+    // RESIZE mode: the HUD widget registry re-anchors on real viewport changes
+    // (docs mobile-ish 900x600 check) instead of the canvas staying letterboxed.
+    scale: { mode: Phaser.Scale.RESIZE },
+    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, HudScene],
   });
 }

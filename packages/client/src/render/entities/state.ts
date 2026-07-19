@@ -20,6 +20,9 @@ export interface PlayerVisual extends CombatantParts {
   lastX: number;
   lastY: number;
   lastSampleMs: number;
+  /** Air-state edge tracking for landing squash (squash.ts). */
+  lastAir: boolean;
+  squashStartMs: number | undefined;
 }
 
 export interface MonsterVisual extends CombatantParts {

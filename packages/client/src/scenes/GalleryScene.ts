@@ -3,7 +3,11 @@
 import { TILE, World, type TileType } from "@dc2d/engine";
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../boot/assetManifest.js";
+import { LightingSystem } from "../render/lighting/index.js";
 import { TerrainRenderer } from "../render/terrain/index.js";
+import { pixelTextStyle } from "../ui/font.js";
+import { anchorPoint } from "../ui/widgets/anchors.js";
+import { WIDGET_DEPTH } from "../ui/widgets/container.js";
 import { EntityShowcase } from "./entityShowcase.js";
 import {
   PRESETS_WITH_SHOWCASE_MARKER,
@@ -11,10 +15,17 @@ import {
   resolveCameraPresetName,
   type CameraPreset,
 } from "./galleryCameraPositions.js";
+import { showcasePlayerPose } from "./showcasePlayerMotion.js";
+import { VfxShowcase } from "./vfxShowcase.js";
+import { SHOWCASE_ROW } from "./entityShowcaseLayout.js";
 
 /** Fixed determinism contract for the gallery: same seed every load, byte-identical chunks. */
 const GALLERY_WORLD_SEED = 1337;
 const CAMERA_QUERY_PARAM = "camera";
+/** Opt-in only (?debugTerrain=1) so the acceptance-bar screenshots (?camera=...&hud=1|death,
+ * no debug param) stay exactly what VISUAL_DIRECTION's bar checks — this readout is a dev
+ * tool for iterating on terrain/facade logic, not part of the shipped scene. */
+const DEBUG_TERRAIN_QUERY_PARAM = "debugTerrain";
 
 const GROUND_ITEM_OFFSET_TILES = 2;
 
@@ -30,8 +41,10 @@ function feetPosition(tileX: number, tileY: number): { x: number; y: number } {
 export class GalleryScene extends Phaser.Scene {
   private terrain: TerrainRenderer | undefined;
   private showcase: EntityShowcase | undefined;
+  private lighting: LightingSystem | undefined;
+  private vfxShowcase: VfxShowcase | undefined;
   private world: World | undefined;
-  private coordinateReadout: HTMLDivElement | undefined;
+  private coordinateReadout: Phaser.GameObjects.Text | undefined;
 
   constructor() {
     super("gallery");
@@ -43,6 +56,8 @@ export class GalleryScene extends Phaser.Scene {
     this.world = new World(GALLERY_WORLD_SEED, 1);
     this.terrain = new TerrainRenderer(this, this.world);
     this.showcase = new EntityShowcase(this, this.world);
+    this.lighting = new LightingSystem(this, this.world);
+    this.vfxShowcase = new VfxShowcase(this, this.world, this.lighting);
 
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.centerOn(
@@ -59,30 +74,50 @@ export class GalleryScene extends Phaser.Scene {
       preset.groundItemTileY ?? preset.centerTileY,
       "flask_blue",
     );
-    this.coordinateReadout = document.createElement("div");
-    Object.assign(this.coordinateReadout.style, {
-      position: "fixed",
-      left: "8px",
-      top: "8px",
-      zIndex: "1000",
-      pointerEvents: "none",
-      padding: "5px 7px",
-      color: "#ffffff",
-      background: "rgba(8, 8, 12, 0.82)",
-      font: "14px monospace",
-      whiteSpace: "pre",
-    });
-    document.body.append(this.coordinateReadout);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.coordinateReadout?.remove();
-      this.coordinateReadout = undefined;
-    });
+    if (new URLSearchParams(window.location.search).get(DEBUG_TERRAIN_QUERY_PARAM) === "1") {
+      this.createCoordinateReadout();
+    }
+
+    // HudScene self-gates on ?hud=1|death and renders on its own postFX-free camera.
+    this.scene.launch("hud");
+    this.setUpCameraResize();
   }
 
-  /** Streams terrain + the entity showcase every frame from the camera's up-to-date view — `camera.worldView` is only valid after Phaser's own render pass has run once, not synchronously after `centerOn` in `create()`. */
+  /**
+   * ?debugTerrain=1-only debug readout (tile/surface under the cursor): a screen-space
+   * Phaser Text object in the pixel font, not a fixed-position DOM element — "no
+   * fixed-position UI, ever" (docs/VISUAL_DIRECTION.md) applies to dev overlays too.
+   * Not registered with WidgetRegistry since it's a throwaway dev tool, not a shipped
+   * HUD element, but it still anchors off the same top-right corner math widgets use.
+   */
+  private createCoordinateReadout(): void {
+    // top-right: top-left is the HUD's health/buffs widget corner (ui/widgets/default-layout.json).
+    const anchor = anchorPoint("top-right", { width: this.scale.width, height: this.scale.height });
+    this.coordinateReadout = this.add
+      .text(anchor.x - 8, anchor.y + 8, "", { ...pixelTextStyle(14), align: "right" })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(WIDGET_DEPTH)
+      .setPadding(7, 5, 7, 5)
+      .setBackgroundColor("rgba(8, 8, 12, 0.82)");
+  }
+
+  /** Keeps the main camera's viewport matched to the live canvas size under Scale.RESIZE. */
+  private setUpCameraResize(): void {
+    const onResize = (gameSize: Phaser.Structs.Size) => this.cameras.main.setSize(gameSize.width, gameSize.height);
+    this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
+  }
+
+  /** Streams terrain + the entity/vfx/lighting showcases every frame from the camera's up-to-date view — `camera.worldView` is only valid after Phaser's own render pass has run once, not synchronously after `centerOn` in `create()`. */
   update(time: number, delta: number): void {
     this.terrain?.update(this.cameras.main.worldView);
     this.showcase?.update(time, delta / 1000);
+    this.vfxShowcase?.update(time);
+    if (this.lighting && this.world) {
+      const player = showcasePlayerPose(this.world, time, SHOWCASE_ROW.baseX, SHOWCASE_ROW.baseY - 3);
+      this.lighting.update(this.cameras.main.worldView, player.x, player.y, time);
+    }
     this.updateCoordinateReadout();
   }
 
@@ -100,8 +135,9 @@ export class GalleryScene extends Phaser.Scene {
     const faceText = face
       ? ` | wall-face from ${face.sourceX},${face.sourceY} z${face.bottom.toFixed(2)}-${face.top.toFixed(2)}`
       : "";
-    this.coordinateReadout.textContent =
-      `tile ${tileX}, ${tileY}  surface ${surfaceName} z${height.toFixed(2)}${faceText}`;
+    this.coordinateReadout.setText(
+      `tile ${tileX}, ${tileY}  surface ${surfaceName} z${height.toFixed(2)}${faceText}`,
+    );
   }
 
   /** Reads ?camera=<name> off the URL, falling back to the default preset for an unknown/missing name. */

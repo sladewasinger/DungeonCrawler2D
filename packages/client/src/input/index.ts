@@ -8,7 +8,7 @@
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
 import { createKeys, readMoveInput } from "./keys.js";
-import { onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
+import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { handlePointerDown } from "./pointer.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
 
@@ -111,5 +111,10 @@ export class InputController {
       x: pointer.worldX / this.tilePx,
       y: pointer.worldY / this.tilePx,
     });
+  }
+
+  /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
+  armedThrowableSlot(): number | null {
+    return activeThrowableSlot(this.state, this.conn, this.queries);
   }
 }

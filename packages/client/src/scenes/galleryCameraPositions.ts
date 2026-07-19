@@ -4,6 +4,7 @@
 // entity-showcase row, and the wall-occlusion duo (entityShowcaseLayout.ts).
 import { personalRoomChunk, CHUNK_SIZE } from "@dc2d/engine";
 import { OCCLUSION_DUO, SHOWCASE_ROW } from "./entityShowcaseLayout.js";
+import { VFX_COMBAT, VFX_CORRIDOR, VFX_EFFECTS_ROOM } from "./vfxShowcaseLayout.js";
 
 export interface CameraPreset {
   readonly centerTileX: number;
@@ -31,7 +32,10 @@ export type CameraPresetName =
   | "solidmass"
   | "door"
   | "pillar"
-  | "platform";
+  | "platform"
+  | "corridor"
+  | "effects"
+  | "combat";
 
 export const CAMERA_PRESETS: Readonly<Record<CameraPresetName, CameraPreset>> = {
   rooms: {
@@ -111,6 +115,34 @@ export const CAMERA_PRESETS: Readonly<Record<CameraPresetName, CameraPreset>> = 
     markerTileY: 132,
     markerAnim: "wizzard_f_idle",
   },
+  /** A real wall-pinch corridor: LightingSystem's general torch scan lights it, not hand-placed props. */
+  corridor: {
+    centerTileX: VFX_CORRIDOR.centerX,
+    centerTileY: VFX_CORRIDOR.centerY,
+    markerTileX: VFX_CORRIDOR.centerX - 3,
+    markerTileY: VFX_CORRIDOR.centerY,
+    markerAnim: "wizzard_f_idle",
+  },
+  /** The burning-oil/wet/steam line plus poison cloud (vfxShowcaseLayout.ts's HAZARD_TILES). */
+  effects: {
+    centerTileX: VFX_EFFECTS_ROOM.centerX,
+    centerTileY: VFX_EFFECTS_ROOM.centerY,
+    markerTileX: VFX_EFFECTS_ROOM.centerX,
+    markerTileY: VFX_EFFECTS_ROOM.centerY - 1,
+    markerAnim: "skelet_idle",
+    groundItemTileX: 51,
+    groundItemTileY: 4,
+  },
+  /** Combat-moment juice: reuses the entity-showcase row, so skip its own marker like "entities" does. */
+  combat: {
+    centerTileX: VFX_COMBAT.centerX,
+    centerTileY: VFX_COMBAT.centerY,
+    markerTileX: SHOWCASE_ROW.baseX,
+    markerTileY: SHOWCASE_ROW.baseY,
+    markerAnim: "skelet_idle",
+    groundItemTileX: SHOWCASE_ROW.baseX,
+    groundItemTileY: SHOWCASE_ROW.baseY + 2,
+  },
 };
 
 const DEFAULT_CAMERA_PRESET: CameraPresetName = "rooms";
@@ -136,4 +168,4 @@ export function resolveCameraPreset(name: string | null): CameraPreset {
  * EntityShowcase render (shadow/hp/nameplate/depth-sort) isn't ghosted by a second,
  * differently-anchored sprite occupying the same spot.
  */
-export const PRESETS_WITH_SHOWCASE_MARKER: ReadonlySet<CameraPresetName> = new Set(["entities", "occlusion"]);
+export const PRESETS_WITH_SHOWCASE_MARKER: ReadonlySet<CameraPresetName> = new Set(["entities", "occlusion", "combat"]);

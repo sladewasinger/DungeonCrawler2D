@@ -7,6 +7,9 @@
     "chat": { "anchor": "bottom-left", "offset": { "x": 16, "y": -16 } },
     "party": { "anchor": "top-right", "offset": { "x": -16, "y": 16 } },
     "minimap": { "anchor": "top-right", "offset": { "x": -16, "y": 120 } },
-    "status": { "anchor": "top-center", "offset": { "x": 0, "y": 16 } }
+    "status": { "anchor": "top-center", "offset": { "x": 0, "y": 16 } },
+    "weapon": { "anchor": "bottom-right", "offset": { "x": -16, "y": -16 } },
+    "interaction": { "anchor": "bottom-center", "offset": { "x": 0, "y": -140 } },
+    "death": { "anchor": "center", "offset": { "x": 0, "y": 0 } }
   }
 }

@@ -92,17 +92,21 @@ export class EditorStore {
     for (const fn of this.listeners) fn();
   }
 
+  private fillRect(x0: number, y0: number, x1: number, y1: number, tile: TileType, height: number): void {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) this.world.setCell(x, y, tile, height);
+  }
+
   /** First-launch showcase: stepped terraces, cliff platforms, a rock mass with a door, a pillar, a pit. */
   private seedDemoPattern(): void {
-    // Stepped L-terrace (z1 apron, z2 core) — sub-threshold steps stay faceless.
-    for (let y = 3; y <= 8; y++) for (let x = 2; x <= 7; x++) this.world.setCell(x, y, TILE.Floor, 1);
-    for (let y = 3; y <= 5; y++) for (let x = 4; x <= 7; x++) this.world.setCell(x, y, TILE.Floor, 2);
-    // A z2 platform and a z4 block on open ground — stacked south faces + truncation fade.
-    for (let y = 3; y <= 5; y++) for (let x = 10; x <= 12; x++) this.world.setCell(x, y, TILE.Floor, 2);
-    for (let y = 3; y <= 5; y++) for (let x = 15; x <= 17; x++) this.world.setCell(x, y, TILE.Floor, 4);
-    for (let y = 12; y <= 15; y++) for (let x = 11; x <= 16; x++) this.world.setCell(x, y, TILE.Wall, 1);
+    // Stepped L-terrace (z1 apron, z2 core), then a z2 platform and a z4 block on
+    // open ground — stacked south faces + truncation fade.
+    this.fillRect(2, 3, 7, 8, TILE.Floor, 1);
+    this.fillRect(4, 3, 7, 5, TILE.Floor, 2);
+    this.fillRect(10, 3, 12, 5, TILE.Floor, 2);
+    this.fillRect(15, 3, 17, 5, TILE.Floor, 4);
+    this.fillRect(11, 12, 16, 15, TILE.Wall, 1);
     this.world.setCell(13, 15, TILE.DoorSafeRoom, 1);
     this.world.setCell(4, 14, TILE.Wall, 1);
-    for (let y = 10; y <= 12; y++) for (let x = 2; x <= 4; x++) this.world.setCell(x, y, TILE.Floor, -1);
+    this.fillRect(2, 10, 4, 12, TILE.Floor, -1);
   }
 }

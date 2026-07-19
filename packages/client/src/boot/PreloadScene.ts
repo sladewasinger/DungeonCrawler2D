@@ -45,6 +45,6 @@ export class PreloadScene extends Phaser.Scene {
       this.scene.start(EDITOR_SCENE_KEY, this.game.registry.get("editorBoot") as object);
       return;
     }
-    this.scene.start("boot-ready");
+    this.scene.start("title");
   }
 }
