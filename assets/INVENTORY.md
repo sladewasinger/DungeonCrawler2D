@@ -59,7 +59,8 @@ see GAPS): `wall_edge_bottom_left`, `wall_edge_bottom_right`,
 `wall_outer_top_left`, `wall_outer_top_right` — 18 pieces total, dungeon
 masonry palette (browns/greys), designed for wall-top/rim reads consistent
 with the "wall = raised terrain, top is walkable" model in
-`docs/ARCHITECTURE.md`.
+`docs/ARCHITECTURE.md`. Runtime brick faces are vertical facade art projected one
+cell south of their owning raised tile; they are not a second raised wall surface.
 
 Decoration built into walls: `wall_hole_1`, `wall_hole_2` (broken-wall
 holes), `wall_banner_blue/red/green/yellow` (4 banners), `wall_goo_base`,

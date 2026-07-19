@@ -1,4 +1,5 @@
 import { generateChunk } from "./generate.js";
+import { WALL_FACE_MIN_DROP } from "../core/constants.js";
 import { LEVEL, type LevelId } from "./level.js";
 import { stairRampAt } from "./stairs.js";
 import {
@@ -9,6 +10,7 @@ import {
   type Chunk,
   type TileType,
   type WorldView,
+  type WallFace,
   type ZoneType,
 } from "./types.js";
 
@@ -61,7 +63,25 @@ export class World implements WorldView {
   }
 
   isWalkable(wx: number, wy: number): boolean {
-    return !SOLID_TILES.has(this.tileAt(wx, wy));
+    return !SOLID_TILES.has(this.tileAt(wx, wy)) && this.wallFaceAt(wx, wy) === null;
+  }
+
+  wallFaceAt(wx: number, wy: number): WallFace | null {
+    const tile = this.tileAt(wx, wy);
+    if (
+      tile === TILE.Wall ||
+      tile === TILE.DoorSafeRoom ||
+      tile === TILE.DoorPersonal ||
+      tile === TILE.DoorParty ||
+      tile === TILE.DoorExit
+    ) {
+      return null;
+    }
+    if (this.tileAt(wx, wy - 1) !== TILE.Wall) return null;
+    const bottom = this.heightAt(wx, wy);
+    const top = this.heightAt(wx, wy - 1);
+    if (top - bottom < WALL_FACE_MIN_DROP) return null;
+    return { sourceX: wx, sourceY: wy - 1, bottom, top };
   }
 
   /** Continuous ground height: stair tiles ramp with position. */

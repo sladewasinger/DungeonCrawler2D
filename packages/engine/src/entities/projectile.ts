@@ -34,15 +34,17 @@ export function stepProjectile(world: WorldView, p: Entity, dt: number): Project
   const ny = p.body.y + vel.y * dt;
   const tileX = Math.floor(nx);
   const tileY = Math.floor(ny);
+  const nextZ = p.body.z + vel.z * dt;
+  const wallFace = world.wallFaceAt?.(tileX, tileY);
 
-  // Walls stop flight (impact at the current tile, not inside the wall).
-  if (!world.isWalkable(tileX, tileY)) {
+  // Full projected facades stop low shots but allow an arc that clears their top.
+  if ((wallFace && nextZ < wallFace.top) || (!wallFace && !world.isWalkable(tileX, tileY))) {
     return { impact: { x: p.body.x, y: p.body.y } };
   }
   p.body.x = nx;
   p.body.y = ny;
 
-  p.body.z += vel.z * dt;
+  p.body.z = nextZ;
   vel.z -= GRAVITY * dt;
   const terrain = world.groundAt(nx, ny);
   if (p.body.z <= terrain) {

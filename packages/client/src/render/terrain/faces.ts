@@ -1,10 +1,10 @@
 // The height-based face decision: a south-facing brick face exists only where a
 // surface actually DROPS to walkable lower ground on its south side — never from
 // tile types alone, and never at internal height steps inside a mass.
-import { TILE, type TileType } from "@dc2d/engine";
+import { TILE, WALL_FACE_MIN_DROP, type TileType } from "@dc2d/engine";
 
 /** Minimum drop (in height units) before a south edge earns a face. STEP_UP-sized ramps stay faceless. */
-export const FACE_MIN_DROP = 1.5;
+export const FACE_MIN_DROP = WALL_FACE_MIN_DROP;
 
 /** The read surface the face decision needs — World satisfies it structurally. */
 export interface TerrainRead {

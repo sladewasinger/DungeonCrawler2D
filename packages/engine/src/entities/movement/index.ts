@@ -1,6 +1,6 @@
 import { MOVE_SPEED } from "../../core/constants.js";
 import type { WorldView } from "../../world/types.js";
-import { moveHorizontal } from "./collision.js";
+import { ejectBodyBelowWallFace, moveHorizontal } from "./collision.js";
 import { resolveVerticalMotion, updateJumpState } from "./physics.js";
 
 /**
@@ -29,6 +29,7 @@ export function stepBody(
 
   updateJumpState(body, input, dt);
   moveHorizontal(world, body, input, dt, speed, opts);
+  ejectBodyBelowWallFace(world, body);
   const terrain = world.groundAt(body.x, body.y);
   return resolveVerticalMotion(body, terrain, dt);
 }

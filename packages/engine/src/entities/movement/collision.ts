@@ -58,11 +58,29 @@ function cornerBlocksMove(
 ): boolean {
   const tileX = Math.floor(cx);
   const tileY = Math.floor(cy);
-  if (!world.isWalkable(tileX, tileY)) return true;
+  const wallFace = world.wallFaceAt?.(tileX, tileY);
+  if (wallFace) {
+    if (body.z + AIRBORNE_LEDGE_CLEARANCE < wallFace.top) return true;
+  } else if (!world.isWalkable(tileX, tileY)) {
+    return true;
+  }
   if (blocked?.(tileX, tileY)) return true;
   const terrain = world.groundAt(cx, cy);
   if (body.grounded) return terrain - body.z > STEP_UP;
   return terrain > body.z + AIRBORNE_LEDGE_CLEARANCE;
+}
+
+/**
+ * A body may cross a projected facade while above its top. If it falls back
+ * below that top before clearing the tile, put it at the visible south base so
+ * it cannot land inside the brick projection.
+ */
+export function ejectBodyBelowWallFace(world: WorldView, body: BodyState): void {
+  const tileX = Math.floor(body.x);
+  const tileY = Math.floor(body.y);
+  const wallFace = world.wallFaceAt?.(tileX, tileY);
+  if (!wallFace || body.z + AIRBORNE_LEDGE_CLEARANCE >= wallFace.top) return;
+  body.y = tileY + 1 + BODY_RADIUS;
 }
 
 function tryAxisMove(

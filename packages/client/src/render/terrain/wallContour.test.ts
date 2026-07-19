@@ -27,11 +27,24 @@ describe("classifyWallCell", () => {
   ];
 
   it("classifies a rectangular mass: corners, edges, and interior fill", () => {
-    expect(classify(room, 1, 1)).toEqual({ kind: "rim", art: { frame: "wall_edge_top_left" } });
-    expect(classify(room, 5, 1)).toEqual({ kind: "rim", art: { frame: "wall_edge_top_right" } });
-    expect(classify(room, 1, 4)).toEqual({ kind: "rim", art: { frame: "wall_edge_bottom_left" } });
-    expect(classify(room, 5, 4)).toEqual({ kind: "rim", art: { frame: "wall_edge_bottom_right" } });
-    expect(classify(room, 3, 1)).toEqual({ kind: "rim", art: { frame: "wall_top_mid" } });
+    expect(classify(room, 1, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_top_left", groundFill: true },
+    });
+    expect(classify(room, 5, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_top_right", groundFill: true },
+    });
+    expect(classify(room, 1, 4)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_bottom_left", groundFill: true },
+    });
+    expect(classify(room, 5, 4)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_bottom_right", groundFill: true },
+    });
+    expect(classify(room, 3, 1)).toEqual({ kind: "rim", art: { frame: "wall_top_mid", flip: true } });
+    expect(classify(room, 3, 4)).toEqual({ kind: "rim", art: { frame: "wall_top_mid" } });
     expect(classify(room, 1, 2)).toEqual({ kind: "rim", art: { frame: "wall_edge_mid_left" } });
     expect(classify(room, 5, 2)).toEqual({ kind: "rim", art: { frame: "wall_edge_mid_right" } });
     expect(classify(room, 3, 2)).toEqual({ kind: "fill" });
@@ -66,7 +79,7 @@ describe("classifyWallCell", () => {
     const finger = ["..#..", "..#..", "....."];
     expect(classify(finger, 2, 1)).toEqual({
       kind: "rim",
-      art: { frame: "wall_edge_mid_left", texturedFill: true, capSouth: true, capEast: true },
+      art: { frame: "wall_edge_mid_left", capSouth: true, capEast: true, texturedFill: true },
     });
   });
 
@@ -74,7 +87,7 @@ describe("classifyWallCell", () => {
     const finger = [".....", "..#..", "..#.."];
     expect(classify(finger, 2, 1)).toEqual({
       kind: "rim",
-      art: { frame: "wall_edge_mid_left", texturedFill: true, capNorth: true, capEast: true },
+      art: { frame: "wall_edge_mid_left", capNorth: true, capEast: true, texturedFill: true },
     });
   });
 
@@ -82,7 +95,43 @@ describe("classifyWallCell", () => {
     const ridge = ["..#..", "..#..", "..#.."];
     expect(classify(ridge, 2, 1)).toEqual({
       kind: "rim",
-      art: { frame: "wall_edge_mid_left", texturedFill: true, capEast: true },
+      art: { frame: "wall_edge_mid_left", capEast: true, texturedFill: true },
+    });
+  });
+
+  it("uses one consistent textured surface across a two-wide vertical wall", () => {
+    const ridge = [".##.", ".##.", ".##."];
+    expect(classify(ridge, 1, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_mid_left", texturedFill: true },
+    });
+    expect(classify(ridge, 2, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_mid_right", texturedFill: true },
+    });
+  });
+
+  it("closes a narrow vertical endpoint with contour caps and the brick face below it", () => {
+    const oneWide = ["..#..", "..#..", "....."];
+    expect(classify(oneWide, 2, 1, true)).toEqual({
+      kind: "rim",
+      art: {
+        frame: "wall_edge_mid_left",
+        capSouth: true,
+        capEast: true,
+        texturedFill: true,
+        projectedFace: "wall_mid",
+      },
+    });
+
+    const twoWide = [".##.", ".##.", "...."];
+    expect(classify(twoWide, 1, 1, true)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_bottom_left", groundFill: true, projectedFace: "wall_mid" },
+    });
+    expect(classify(twoWide, 2, 1, true)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_edge_bottom_right", groundFill: true, projectedFace: "wall_mid" },
     });
   });
 
@@ -102,14 +151,26 @@ describe("classifyWallCell", () => {
       "##...",
     ];
     const role = classify(ell, 1, 1);
-    expect(role).toEqual({ kind: "rim", art: { frame: "wall_outer_top_left" } });
+    expect(role).toEqual({ kind: "rim", art: { frame: "wall_outer_top_left", groundFill: true } });
   });
 
   it("selects all four inward-facing pieces around a cavity", () => {
     const cavity = ["######", "######", "##..##", "##..##", "######", "######"];
-    expect(classify(cavity, 1, 1)).toEqual({ kind: "rim", art: { frame: "wall_outer_top_left" } });
-    expect(classify(cavity, 4, 1)).toEqual({ kind: "rim", art: { frame: "wall_outer_top_right" } });
-    expect(classify(cavity, 1, 4)).toEqual({ kind: "rim", art: { frame: "wall_outer_front_left" } });
-    expect(classify(cavity, 4, 4)).toEqual({ kind: "rim", art: { frame: "wall_outer_front_right" } });
+    expect(classify(cavity, 1, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_outer_top_left", groundFill: true },
+    });
+    expect(classify(cavity, 4, 1)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_outer_top_right", groundFill: true },
+    });
+    expect(classify(cavity, 1, 4)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_outer_front_left", groundFill: true },
+    });
+    expect(classify(cavity, 4, 4)).toEqual({
+      kind: "rim",
+      art: { frame: "wall_outer_front_right", groundFill: true },
+    });
   });
 });

@@ -37,6 +37,8 @@ export const JUMP_BUFFER_TIME = 0.15;
 export const AIRBORNE_LEDGE_CLEARANCE = 0.18;
 export const LANDING_TOLERANCE = 0.08;
 export const WALL_RISE = 2;
+/** Minimum north-to-south drop that produces a full projected wall facade. */
+export const WALL_FACE_MIN_DROP = 1.5;
 
 export const AOI_RADIUS = 40;
 export const MIN_SPAWN_DIST = 80;

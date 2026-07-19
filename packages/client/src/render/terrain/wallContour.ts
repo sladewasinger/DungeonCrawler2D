@@ -60,6 +60,9 @@ export interface RimArt {
   /** Full-coverage brick art — no fill rect needed beneath it. */
   readonly opaque?: boolean;
   readonly texturedFill?: boolean;
+  readonly groundFill?: boolean;
+  /** A narrow wall ending above open ground still needs its brick face below the cap. */
+  readonly projectedFace?: string;
   readonly capNorth?: boolean;
   readonly capSouth?: boolean;
   readonly capEast?: boolean;
@@ -67,20 +70,20 @@ export interface RimArt {
 
 const THIN_V_LEFT: RimArt = { frame: "wall_edge_mid_left" };
 const THIN_V_RIGHT: RimArt = { frame: "wall_edge_mid_right" };
-const RIDGE_V: RimArt = { frame: "wall_edge_mid_left", texturedFill: true, capEast: true };
+const RIDGE_V: RimArt = { frame: "wall_edge_mid_left", capEast: true };
 const RIDGE_H: RimArt = { frame: "wall_mid", opaque: true, capNorth: true, capSouth: true };
 
 const RIM_BY_KEY: Readonly<Record<number, RimArt>> = {
   1: THIN_V_LEFT,
   2: THIN_V_RIGHT,
   3: RIDGE_V,
-  4: { frame: "wall_top_mid", flip: true },
-  5: { frame: "wall_edge_bottom_left" },
-  6: { frame: "wall_edge_bottom_right" },
+  4: { frame: "wall_top_mid" },
+  5: { frame: "wall_edge_bottom_left", groundFill: true },
+  6: { frame: "wall_edge_bottom_right", groundFill: true },
   7: { ...RIDGE_V, capSouth: true },
-  8: { frame: "wall_top_mid" },
-  9: { frame: "wall_edge_top_left" },
-  10: { frame: "wall_edge_top_right" },
+  8: { frame: "wall_top_mid", flip: true },
+  9: { frame: "wall_edge_top_left", groundFill: true },
+  10: { frame: "wall_edge_top_right", groundFill: true },
   11: { ...RIDGE_V, capNorth: true },
   12: RIDGE_H,
   13: { frame: "wall_left", opaque: true },
@@ -89,14 +92,30 @@ const RIM_BY_KEY: Readonly<Record<number, RimArt>> = {
 
 /** Concave boundary: every orthogonal is wall and the open diagonal selects the inward-facing corner. */
 function insideCornerPiece(o: Openness): RimArt {
-  if (o.nw) return { frame: "wall_outer_front_right" };
-  if (o.ne) return { frame: "wall_outer_front_left" };
-  if (o.sw) return { frame: "wall_outer_top_right" };
-  return { frame: "wall_outer_top_left" };
+  if (o.nw) return { frame: "wall_outer_front_right", groundFill: true };
+  if (o.ne) return { frame: "wall_outer_front_left", groundFill: true };
+  if (o.sw) return { frame: "wall_outer_top_right", groundFill: true };
+  return { frame: "wall_outer_top_left", groundFill: true };
 }
 
 function anyDiagonalOpen(o: Openness): boolean {
   return o.ne || o.nw || o.se || o.sw;
+}
+
+/** True when this contour cell belongs to a one- or two-cell-wide vertical wall, not a broad wall mass. */
+function isNarrowVerticalSurface(solid: SolidNeighbor): boolean {
+  const westOpen = !solid(-1, 0);
+  const eastOpen = !solid(1, 0);
+  if (westOpen && eastOpen) return true;
+  if (westOpen) return !solid(2, 0);
+  if (eastOpen) return !solid(-2, 0);
+  return false;
+}
+
+function withSurfaceFill(art: RimArt, solid: SolidNeighbor): RimArt {
+  return !art.opaque && !art.groundFill && isNarrowVerticalSurface(solid)
+    ? { ...art, texturedFill: true }
+    : art;
 }
 
 /** Face-run piece: ends pick the left/right face caps, middles the tileable mid. */
@@ -140,6 +159,16 @@ export function classifyWallCell(
   const o = openness(solid);
   const key = orthoKey(o);
   if (key === 15) return { kind: "pillar" };
+  const rim = RIM_BY_KEY[key];
+  if (selfIsFace && solid(0, -1) && rim !== undefined && isNarrowVerticalSurface(solid)) {
+    return {
+      kind: "rim",
+      art: {
+        ...withSurfaceFill(rim, solid),
+        projectedFace: facePiece(solid, isFaceCell),
+      },
+    };
+  }
   if (selfIsFace) {
     return {
       kind: "face",
@@ -147,8 +176,7 @@ export function classifyWallCell(
       outline: { north: o.n, west: o.w, east: o.e },
     };
   }
-  const rim = RIM_BY_KEY[key];
-  if (rim !== undefined) return { kind: "rim", art: rim };
-  if (anyDiagonalOpen(o)) return { kind: "rim", art: insideCornerPiece(o) };
+  if (rim !== undefined) return { kind: "rim", art: withSurfaceFill(rim, solid) };
+  if (anyDiagonalOpen(o)) return { kind: "rim", art: withSurfaceFill(insideCornerPiece(o), solid) };
   return { kind: "fill" };
 }

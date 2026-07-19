@@ -79,4 +79,8 @@ face — never assembled loosely from tiles, never interleaved with or overdrawn
 masonry rows. A door sliced by brick courses is an automatic audit fail. Wall grammar:
 brick faces appear only on south-facing boundary rows; wall tops are dark stone caps;
 deep solid rock is near-black mass — walls read as solid volume, not wallpapered face
-texture.
+texture. A projected south face owns the full lower visual cell and its collision span:
+the underlying surface may still be floor, but grounded feet stop at the visible base.
+Raised wall-top surfaces use their own height tint, never the lower neighbor's tint.
+Door/portal cutouts are the only intentional holes in this rule. Terrain debugging must
+show both the logical surface and any projected facade source/span at the cursor.

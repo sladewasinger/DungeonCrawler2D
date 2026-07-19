@@ -18,6 +18,7 @@ export interface DoorStructure {
   /** Tile holding the engine's door — the walkable portal cell. */
   readonly wx: number;
   readonly wy: number;
+  readonly tile: TileType;
 }
 
 export interface StructureMap {
@@ -31,11 +32,18 @@ export interface StructureMap {
 export const tileKey = (wx: number, wy: number): string => `${wx},${wy}`;
 
 /**
- * The door's visual footprint: its own cell, the wall cell above (the 32x32 leaf
- * is two tiles tall), and the cell above that (the frame-top lintel row) — all
- * three excluded from wall face/rim/fill drawing so nothing crosses the assembly.
+ * Ordinary doors own their three-cell vertical assembly. A safe-room portal owns
+ * its complete 5x3 kiosk facade so procedural contour art cannot leave stray caps
+ * or short side walls around the taller door.
  */
 function doorFootprint(door: DoorStructure): string[] {
+  if (door.tile === TILE.DoorSafeRoom) {
+    const footprint: string[] = [];
+    for (let dy = -2; dy <= 0; dy++) {
+      for (let dx = -2; dx <= 2; dx++) footprint.push(tileKey(door.wx + dx, door.wy + dy));
+    }
+    return footprint;
+  }
   return [
     tileKey(door.wx, door.wy),
     tileKey(door.wx, door.wy - 1),
@@ -51,6 +59,7 @@ function doorFaceFootprint(
   door: DoorStructure,
   tileAt: (wx: number, wy: number) => TileType,
 ): string[] {
+  if (door.tile === TILE.DoorSafeRoom) return [];
   return [-2, -1, 1, 2]
     .filter((dx) => tileAt(door.wx + dx, door.wy) === TILE.Wall)
     .map((dx) => tileKey(door.wx + dx, door.wy));
@@ -76,7 +85,7 @@ export function buildStructureMap(
   for (let wy = y0; wy < y1 + FOOTPRINT_REACH; wy++) {
     for (let wx = x0 - FOOTPRINT_SIDE_REACH; wx < x1 + FOOTPRINT_SIDE_REACH; wx++) {
       if (!DOOR_TILES.has(tileAt(wx, wy))) continue;
-      const door = { wx, wy };
+      const door = { wx, wy, tile: tileAt(wx, wy) };
       if (wx >= x0 && wx < x1 && wy < y1) doors.push(door);
       for (const key of doorFootprint(door)) suppressed.add(key);
       for (const key of doorFaceFootprint(door, tileAt)) faceSuppressed.add(key);
@@ -100,6 +109,35 @@ function addPiece(
   container.add(sprite);
 }
 
+function drawSafeRoomFacade(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  door: DoorStructure,
+): void {
+  for (let dy = -2; dy <= 0; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const frame = dx === -2 ? "wall_left" : dx === 2 ? "wall_right" : "wall_mid";
+      addPiece(
+        scene,
+        container,
+        frame,
+        (door.wx + dx) * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
+        (door.wy + dy + 1) * SCREEN_TILE_PX,
+      );
+    }
+  }
+  for (let dx = -2; dx <= 2; dx++) {
+    const frame = dx === -2 ? "wall_top_left" : dx === 2 ? "wall_top_right" : "wall_top_mid";
+    addPiece(
+      scene,
+      container,
+      frame,
+      (door.wx + dx) * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
+      (door.wy - 1) * SCREEN_TILE_PX,
+    );
+  }
+}
+
 /**
  * Draws one door as a single assembly, bottom-anchored on the door tile's south
  * edge. The 16x32 posts sit adjacent to the 32x32 leaf exactly as they do in the
@@ -113,6 +151,7 @@ export function drawDoor(
 ): void {
   const centerX = door.wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
   const bottomY = (door.wy + 1) * SCREEN_TILE_PX;
+  if (door.tile === TILE.DoorSafeRoom) drawSafeRoomFacade(scene, container, door);
   addPiece(scene, container, "doors_leaf_closed", centerX, bottomY, SANCTUARY_TEAL);
   addPiece(scene, container, "doors_frame_left", centerX - SCREEN_TILE_PX * 1.5, bottomY);
   addPiece(scene, container, "doors_frame_right", centerX + SCREEN_TILE_PX * 1.5, bottomY);

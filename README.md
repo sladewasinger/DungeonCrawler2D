@@ -47,6 +47,11 @@ http://localhost:5173/?scene=gallery&camera=rooms
 Useful `camera` values include `door`, `occlusion`, `pillar`, `solidmass`,
 `landmark`, `chasm`, and `sanctuary`.
 
+The gallery HUD reports the tile under the mouse, its logical surface type and height,
+and any projected wall facade with its source tile and vertical span. Use this readout
+when reporting terrain/rendering issues so visual cells can be distinguished from the
+raised surface that owns them.
+
 ## Status
 
 **v2 core slice in progress:** worldgen, multiplayer, movement/combat, effects

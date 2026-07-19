@@ -38,6 +38,20 @@ function findWallStep(world: World): { floor: { x: number; y: number }; wall: { 
 }
 
 describe("walls as raised terrain", () => {
+  it("derives a non-walkable facade on the lower tile beneath a south wall", () => {
+    const world = new World(1337, 1);
+    expect(world.tileAt(52, 42)).toBe(TILE.Floor);
+    expect(world.wallFaceAt(52, 42)).toEqual({ sourceX: 52, sourceY: 41, bottom: 0, top: 2 });
+    expect(world.isWalkable(52, 42)).toBe(false);
+  });
+
+  it("never derives a facade across a portal doorway", () => {
+    const world = new World(1337, 1);
+    expect(world.tileAt(19, 49)).toBe(TILE.DoorSafeRoom);
+    expect(world.wallFaceAt(19, 49)).toBeNull();
+    expect(world.isWalkable(19, 49)).toBe(true);
+  });
+
   it("wall rise is above STEP_UP but under the jump apex (physics invariant)", () => {
     const apex = (JUMP_VELOCITY * JUMP_VELOCITY) / (2 * GRAVITY);
     expect(WALL_RISE).toBeGreaterThan(STEP_UP);
