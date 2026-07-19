@@ -8,14 +8,13 @@
 // machinery into one chunk. Same contract as world/generate.ts: pure,
 // chunk-local, byte-deterministic.
 
-import { WALL_RISE } from "../../core/constants.js";
 import { applyFlattenedFeature, isSafeRoomChunk, isStairsChunk } from "../features/fixed.js";
 import { generateRoomChunk, isRoomChunk } from "../features/rooms.js";
 import { sealInteriorPockets } from "../pockets.js";
 import { seedsFor } from "../terrain.js";
 import { CHUNK_SIZE, TILE, type Chunk } from "../types.js";
 import { partitionChunk } from "./bsp.js";
-import { repairCliffs } from "./cliffs.js";
+import { demoteOrphanedStairs, repairCliffs } from "./cliffs.js";
 import { carveCorridors } from "./corridors.js";
 import { districtAt } from "./district.js";
 import { edgeAnchors } from "./edges.js";
@@ -26,6 +25,7 @@ import { applyLandmark } from "./landmarks/index.js";
 import { isNearLandmark } from "./landmarks/guard.js";
 import { stampRoom } from "./rooms.js";
 import type { Room } from "./types.js";
+import { applyWallHeight } from "./wallHeight.js";
 
 function stampFixedFeature(
   worldSeed: number,
@@ -79,9 +79,12 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
 
   sealInteriorPockets(tiles, corridorCarved, zones);
 
-  for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i] === TILE.Wall) height[i] = (height[i] ?? 0) + WALL_RISE;
-  }
+  applyWallHeight(tiles, height, CHUNK_SIZE);
+  // Run LAST, after the wall-height raise: a Stairs tile's climb axis can
+  // depend on a neighboring Wall's height, which only reaches its real
+  // (post-raise) value here — checking any earlier would validate against
+  // heights no player ever actually sees (see cliffs.ts's doc comment).
+  demoteOrphanedStairs(tiles, height, CHUNK_SIZE);
 
   return { cx, cy, tiles, height, zones };
 }

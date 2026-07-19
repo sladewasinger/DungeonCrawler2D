@@ -69,6 +69,14 @@ export const SAFE_FALL_HEIGHT = 1.5;
 // Doubled alongside SAFE_FALL_HEIGHT's halving so damage for an
 // EQUIVALENT real-world drop (in tile-edges) is unchanged.
 export const FALL_DAMAGE_PER_UNIT = 12;
+// Design ruling (2026-07-19): rifts are knockback death-pits, not
+// inescapable holes. A grounded body at or below this z is standing in a
+// chasm (CHASM_DEPTH -2 in world/generate/height.ts, with slack above the
+// true floor so the ruling fires before a body settles all the way in) —
+// game-server's sim kills it outright: full loot drop + respawn, the same
+// path a normal death takes. Server-side only; the client never asserts
+// this outcome, only predicts movement.
+export const CHASM_DEATH_Z = -1.5;
 
 export const MELEE_RANGE = 1.6;
 export const ATTACK_COOLDOWN_MS = 350;

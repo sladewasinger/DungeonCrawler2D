@@ -1,6 +1,5 @@
 import {
   FALL_DAMAGE_PER_UNIT,
-  HOTBAR_SLOTS,
   MAX_INPUTS_PER_TICK,
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
@@ -10,101 +9,20 @@ import {
   TICK_RATE,
   createBody,
   faceEntity,
-  makeEntity,
-  newEntityId,
   stepBody,
   type ClientInput,
   type EffectEvent,
   type Entity,
 } from "@dc2d/engine";
+import { killIfInChasm } from "./deaths.js";
 import { dropAllInventory } from "./inventory.js";
+import { findSpawn } from "./spawn.js";
 import { leaveParty } from "./social.js";
-import { findSpawn, newToken } from "./spawn.js";
-import type { JoinResult, PlayerSlot, SimState } from "./state.js";
+import type { PlayerSlot, SimState } from "./state.js";
 
-/** Player lifecycle (join/resume/reap/respawn) and predicted movement. */
+/** Player step/lifecycle after join: input handling, movement, reap/respawn. Join/resume live in join.ts. */
 
 const GRACE_TICKS = Math.ceil((RECONNECT_GRACE_MS / 1000) * TICK_RATE);
-
-export function addPlayer(
-  sim: SimState,
-  name: string,
-  clientId: string,
-  resumeToken?: string,
-): JoinResult {
-  if (resumeToken) {
-    const resumed = tryResume(sim, resumeToken, clientId);
-    if (resumed) return resumed;
-  }
-
-  const spawn = findSpawn(sim);
-  const entity = makeEntity("player", createBody(spawn.x, spawn.y, spawn.z), {
-    id: newEntityId("p"),
-    name,
-    hp: PLAYER_MAX_HP,
-    maxHp: PLAYER_MAX_HP,
-    baseSpeed: 8,
-    tags: new Set(["player", "organic"]),
-    facing: { x: 0, y: 1 },
-  });
-  const token = newToken(sim);
-  const slot = newSlot(entity, clientId, sim.store.get(clientId, name), token);
-  sim.players.set(entity.id, slot);
-  sim.byToken.set(token, entity.id);
-  return { playerId: entity.id, resumeToken: token, spawn, resumed: false };
-}
-
-/** Default bookkeeping for a freshly-joined player. */
-function newSlot(
-  entity: Entity,
-  clientId: string,
-  stored: PlayerSlot["stored"],
-  resumeToken: string,
-): PlayerSlot {
-  return {
-    entity,
-    clientId,
-    stored,
-    resumeToken,
-    lastSeq: -1,
-    pendingInputs: [],
-    pendingActions: [],
-    connected: true,
-    reapAtTick: Number.MAX_SAFE_INTEGER,
-    known: new Set(),
-    inventory: [],
-    hotbar: Array(HOTBAR_SLOTS).fill(null),
-    weapon: null,
-    outbox: [],
-    returnStack: [],
-    partyId: null,
-    respawnAtTick: null,
-    needsFullAreas: true,
-    downedAtTick: null,
-    attackReadyAtTick: 0,
-    attackStartedAtTick: Number.NEGATIVE_INFINITY,
-    god: false,
-    forceDeath: false,
-  };
-}
-
-/** Reattach a disconnected slot to a reconnecting client, if the token still owns one. */
-function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinResult | null {
-  const existingId = sim.byToken.get(resumeToken);
-  const slot = existingId ? sim.players.get(existingId) : undefined;
-  if (!slot || slot.connected || slot.clientId !== clientId) return null;
-  slot.connected = true;
-  slot.pendingInputs.length = 0;
-  slot.pendingActions.length = 0;
-  slot.lastSeq = -1;
-  slot.needsFullAreas = true;
-  return {
-    playerId: slot.entity.id,
-    resumeToken: slot.resumeToken,
-    spawn: { x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z },
-    resumed: true,
-  };
-}
 
 export function markDisconnected(sim: SimState, playerId: string): void {
   const slot = sim.players.get(playerId);
@@ -184,6 +102,7 @@ function stepPlayerBody(
   if (inputs.length === 0) {
     const result = stepBody(sim.world, entity.body, NEUTRAL_INPUT, TICK_DT, opts);
     if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
+    killIfInChasm(slot);
     return;
   }
   for (const input of inputs) {
@@ -191,6 +110,8 @@ function stepPlayerBody(
     const result = stepBody(sim.world, entity.body, input, TICK_DT, opts);
     slot.lastSeq = input.seq;
     if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
+    killIfInChasm(slot);
+    if (entity.hp <= 0) return; // dead: stop consuming this tick's remaining inputs
   }
 }
 

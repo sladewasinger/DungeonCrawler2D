@@ -81,7 +81,7 @@ function featureLayout(
 
 /** Stamp the flattened pad and its height-blend apron into `tiles`/`height`. */
 function stampFeaturePad(layout: FeatureLayout, tiles: Uint8Array, height: Float32Array): void {
-  const { safeRoom, half, centerLx, centerLy, featureH } = layout;
+  const { half, centerLx, centerLy, featureH } = layout;
   const margin = SAFE_ROOM_MARGIN;
   const reach = half + margin;
   for (let ly = centerLy - reach; ly <= centerLy + reach; ly++) {
@@ -91,8 +91,15 @@ function stampFeaturePad(layout: FeatureLayout, tiles: Uint8Array, height: Float
       const d = Math.max(Math.abs(lx - centerLx), Math.abs(ly - centerLy));
       tiles[i] = TILE.Floor;
       if (d <= half) {
+        // featureH samples terrain.ts's baseSample, which is height 0
+        // everywhere by design (flat-first) — this pad is genuinely flat,
+        // never Stairs-tagged. A Stairs tile with no real height delta
+        // across its climb axis is the "flavor without height" bug the
+        // worldgen redesign brief calls out: a tile flavored as a
+        // staircase that ramps nothing. See world/stairs.ts's
+        // entryClimbDir and stairsInvariant.test.ts, which assert every
+        // TILE.Stairs tile has one.
         height[i] = featureH;
-        if (!safeRoom) tiles[i] = TILE.Stairs;
       } else {
         const t = smoothstep01((d - half) / margin);
         height[i] = featureH + ((height[i] ?? 0) - featureH) * t;

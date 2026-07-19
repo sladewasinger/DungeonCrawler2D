@@ -91,13 +91,17 @@ describe("world generation", () => {
     expect(chunk.tiles[doorIndex + CHUNK_SIZE]).toBe(TILE.Floor);
   });
 
-  it("stairway chunks contain a stairs pad", () => {
+  it("stairway chunks contain a cleared landing pad", () => {
+    // The pad is a flat clearing (baseSample is height 0 everywhere —
+    // flat-first), never TILE.Stairs: a Stairs tile with no real height
+    // delta across its climb axis is the "flavor without height" bug
+    // (docs/PORT_PLAN.md's worldgen redesign brief) — see fixed.ts.
     const found = findFirst(isStairsChunk);
     expect(found).not.toBeNull();
     if (!found) return;
     const chunk = generateChunk(SEED, FLOOR, found.cx, found.cy);
-    const stairTiles = Array.from(chunk.tiles).filter((t) => t === TILE.Stairs).length;
-    expect(stairTiles).toBeGreaterThan(0);
+    const clearFloor = Array.from(chunk.tiles).filter((t) => t === TILE.Floor).length;
+    expect(clearFloor).toBeGreaterThan(60);
   });
 
   it("the instanced safe room has sanctuary, portal doors, and fixtures", () => {

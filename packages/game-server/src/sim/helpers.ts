@@ -1,7 +1,18 @@
-import { createBody, makeEntity, newBrain, newEntityId, type Entity } from "@dc2d/engine";
+import { CHASM_DEATH_Z, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
 import type { SimState } from "./state.js";
 
 /** Small queries and spawners shared across the sim modules. */
+
+/**
+ * Design ruling: rifts are knockback death-pits, not inescapable holes. A
+ * grounded body resting at or below chasm depth is standing in one —
+ * whether it fell in, was knocked back into one, or walked down a ramp
+ * that bottoms out there. Used by both players.ts and enemies/ai.ts so the
+ * one ruling can't drift between them.
+ */
+export function isBodyInChasm(body: BodyState): boolean {
+  return body.grounded && body.z <= CHASM_DEATH_Z;
+}
 
 /** Every entity that can take damage or trigger effects. */
 export function combatants(sim: SimState): Entity[] {

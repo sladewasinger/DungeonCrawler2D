@@ -14,8 +14,8 @@ import { processActions } from "./actions/index.js";
 import { resolveDeaths } from "./deaths.js";
 import { activateChunksNearPlayers, stepEnemies } from "./enemies/index.js";
 import { spawnEnemy, spawnItem } from "./helpers.js";
+import { addPlayer } from "./join.js";
 import {
-  addPlayer,
   applyGodMode,
   handleInput,
   markDisconnected,

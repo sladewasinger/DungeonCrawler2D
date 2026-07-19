@@ -72,6 +72,19 @@ A 1280×720 screenshot at default zoom must show: (1) coherent single-resolution
 character with a correct ground shadow, (4) zero default-font text, (5) the palette
 above and nothing else. Any miss fails the phase — audits include the screenshot.
 
+**The wall vertical-extent rule (user-decreed 2026-07-19, generator-enforced —
+see ROADMAP):** a raised surface of height z must span at least **z + 1 tiles
+north-to-south** — z rows of visible south face plus at least one walkable top
+row. A 1-deep z1 wall is malformed (all face, no platform); z2 needs 3 deep.
+Width is unconstrained (any width ≥ 1). This is a hard worldgen invariant, not a renderer
+courtesy: the generator may never emit a raised region too shallow to show its
+own top. Corollaries: safe-room kiosks are z2 terraces (not rock masses) deep
+enough to carry their door in the face with an intact platform above; doors
+render as the standalone leaf drawn over ordinary wall rows (no frame-post
+pieces reading as half-walls, no masonry recolor, no suppression gap in the
+top platform); pit rims carry ONE outline (the surrounding ground's), never
+doubled by interior face side-closures.
+
 Composed structures are atomic (added 2026-07-18 after review): doors/kiosks, chests,
 fountains, and any multi-piece 0x72 structure render as their composed sprite unit —
 frame pieces + leaf/body assembled the way the pack intends, punched INTO the wall

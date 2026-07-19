@@ -15,9 +15,19 @@ const PALETTE_GRADE = 0xa8acc8;
 const FLOOR_FACTOR = 0xd6d6e0;
 const NEUTRAL_FACTOR = 0xffffff;
 const PIT_FACTOR = 0x767686;
-export const CHASM_TINT = multiplyColor(PALETTE_GRADE, 0x30303c);
+// Multiply factor for chasm-depth ground tiles (the "hole" sprite). Tuned so
+// the result reads as VISUAL_DIRECTION's "near-black #14141c void" on
+// AVERAGE while keeping the sprite's own cave-mouth shading visible: the
+// previous 0x30303c crushed the hole art's already-dark palette (RGB
+// 34..119) down to single-digit channel values indistinguishable from flat
+// black — a void with real texture rendering as a pure black square, the
+// pre-deploy "chasm renders pure near-black, no texture" bug. This factor's
+// darkest sprite pixel lands near #0a0a0e; the lit rim near #232329 — dark,
+// but no longer flat.
+const CHASM_FACTOR = 0x726f86;
+export const CHASM_TINT = multiplyColor(PALETTE_GRADE, CHASM_FACTOR);
 
-/** Flat fill color for solid-rock interior cells — quiet near-black, no texture, no banding. */
+/** Flat fill color for solid-rock interior cells — quiet near-black, no texture, no banding (VISUAL_DIRECTION: "deep solid rock is near-black mass, not wallpapered face texture" — unlike the hole sprite above, a wall's fill deliberately has none to begin with). */
 export const WALL_FILL_COLOR = 0x0c0c12;
 
 function clamp01(t: number): number {
@@ -47,7 +57,7 @@ function multiplyColor(a: number, b: number): number {
 }
 
 function heightFactor(height: number): number {
-  if (height <= CHASM_THRESHOLD) return 0x30303c;
+  if (height <= CHASM_THRESHOLD) return CHASM_FACTOR;
   if (height < 0) return lerpColor(PIT_FACTOR, FLOOR_FACTOR, clamp01((height - LOW_HEIGHT) / -LOW_HEIGHT));
   return lerpColor(FLOOR_FACTOR, NEUTRAL_FACTOR, clamp01(height / HIGH_HEIGHT));
 }

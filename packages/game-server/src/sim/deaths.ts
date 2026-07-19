@@ -1,9 +1,21 @@
 import { DOWNED_DURATION, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
-import { spawnItem } from "./helpers.js";
+import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { dropAllInventory } from "./inventory.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
 /** Enemy deaths (drops), downed-state flow, and player death/respawn. */
+
+/**
+ * Chasm = death (design ruling): a player standing in a rift dies outright
+ * — forceDeath skips the party-revive "downed" window straight to the
+ * ordinary full-loot-drop respawn path resolvePlayerDeath already runs
+ * below, same as a solo kill.
+ */
+export function killIfInChasm(slot: PlayerSlot): void {
+  if (slot.entity.hp <= 0 || !isBodyInChasm(slot.entity.body)) return;
+  slot.entity.hp = 0;
+  slot.forceDeath = true;
+}
 
 export function resolveDeaths(sim: SimState): void {
   resolveEnemyDeaths(sim);

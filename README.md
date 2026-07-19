@@ -29,20 +29,44 @@ engineering bar.
 
 ```bash
 npm install
-npm run dev        # Vite client + local game server together
-npm run test       # headless engine + protocol tests (vitest)
+npm run dev        # Vite client (LAN-exposed) + local game server together
+npm run test       # headless engine + protocol + client tests (vitest)
 npm run typecheck  # strict TS across all packages
 npm run lint       # standards enforcement (200-line cap, boundaries)
+npm run build      # production artifacts: client dist/ + server main.cjs
 ```
 
-The full simulation and local server exist, but the v2 client does not yet wire them
-into a playable `DungeonScene`; the default page currently shows the boot-ready
-placeholder. To inspect the live terrain/entity gallery while the game scene is being
-integrated, run `npm run dev -w @dc2d/client` and open:
+**The game is playable**: `npm run dev`, open <http://localhost:5173>, enter a name,
+walk into the dungeon. Multiplayer works out of the box — friends on your network
+join via `http://<your-LAN-IP>:5173` (if their page loads but nothing else, allow
+`node.exe` through the Windows firewall for ports 5173/8787). Everyone currently
+spawns within ~50 tiles of each other (friend-testing default; `SPAWN_RADIUS=0`
+restores the vast-world scatter).
 
-```text
-http://localhost:5173/?scene=gallery&camera=rooms
-```
+### URLs & modes
+
+| URL | What it is |
+| --- | --- |
+| `http://localhost:5173` | The game (title screen → live multiplayer dungeon) |
+| `…/?scene=editor` | **Map editor**: paint heights `z-1…z8`, rock, doors on a 20×20 grid; right panel renders through the real game pipeline; `import`/`export` round-trip JSON; `collision` overlay; hover inspector |
+| `…/?scene=gallery&camera=<name>` | Render showcases: `rooms`, `door`, `corridor`, `chasm`, `sanctuary`, `entities`, `effects`, `combat`, `pillar`, `platform`, `solidmass` (+ `&hud=1`, `&debugTerrain=1`) |
+| `…/?touch=1` | Force mobile touch controls on desktop (joystick + action buttons) |
+| `…/?server=ws://host:port` | Point the client at a specific game server |
+| `…/?debug=1` | Dev-only: exposes the Phaser game for perf probes |
+
+### Controls
+
+WASD/arrows move · Space jumps · mouse aims, click attacks · `R` picks up ·
+number keys `1–9` use hotbar · `Enter` chats (`/god`, `/tp x y` in dev builds only) ·
+touch devices get a floating joystick + attack/jump/use buttons automatically.
+Inventory window (`I`/`Tab`) is landing next — see [docs/HUD_OS.md](docs/HUD_OS.md).
+
+### Server environment
+
+`GAME_PORT` (8787 dev / 8081 prod) · `WORLD_SEED` (any string) · `SPAWN_RADIUS`
+(tiles; `0`/`off` = vast scatter; default 50 for playtests) · `DEBUG_COMMANDS=0`
+disables `/god`+`/tp` (always off under `NODE_ENV=production`) · `STORE_FILE`
+(player persistence path, `none` to disable) · `CLUSTER_SPAWNS=1` (test-grid spawns).
 
 Useful `camera` values include `door`, `occlusion`, `pillar`, `solidmass`,
 `landmark`, `chasm`, and `sanctuary`.

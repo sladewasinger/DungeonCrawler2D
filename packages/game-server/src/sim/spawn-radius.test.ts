@@ -1,7 +1,8 @@
 import { LEVEL, TILE, World, buildContentRegistry, createBody, hashString, makeEntity, newEntityId, type RawContent } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
-import { addPlayer, reapAndRespawn } from "./players.js";
+import { addPlayer } from "./join.js";
+import { reapAndRespawn } from "./players.js";
 import { RADIUS_SPAWN_MIN_SPACING, findSpawn, resolveSpawnAnchor } from "./spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "./state.js";
 

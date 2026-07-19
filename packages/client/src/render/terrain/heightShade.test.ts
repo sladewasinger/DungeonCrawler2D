@@ -29,6 +29,20 @@ describe("heightTint", () => {
     expect(heightTint(-2)).toBe(CHASM_TINT);
     expect(heightTint(-1.5)).toBe(CHASM_TINT);
   });
+
+  it("chasm tint stays dark but isn't crushed to pure black (the 'hole' sprite's own texture must survive the multiply)", () => {
+    // Regression: a prior factor (0x30303c) multiplied the hole sprite's
+    // already-dark palette down to single-digit channel values — visually
+    // indistinguishable from flat black, the pre-deploy "chasm renders
+    // pure near-black, no texture" bug. A non-trivial tint (every channel
+    // above a visibility floor, but still reading dark) keeps the sprite's
+    // cave-mouth shading visible.
+    const [r, g, b] = [(CHASM_TINT >> 16) & 0xff, (CHASM_TINT >> 8) & 0xff, CHASM_TINT & 0xff];
+    expect(r).toBeGreaterThan(20);
+    expect(g).toBeGreaterThan(20);
+    expect(b).toBeGreaterThan(20);
+    expect(luminance(CHASM_TINT)).toBeLessThan(luminance(heightTint(-1))); // still darker than an ordinary pit
+  });
 });
 
 describe("isChasmDepth", () => {

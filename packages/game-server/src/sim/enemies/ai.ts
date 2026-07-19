@@ -13,7 +13,7 @@ import {
   ENEMY_ACTIVE_RADIUS,
   type EffectEvent,
 } from "@dc2d/engine";
-import { effectTargetFor } from "../helpers.js";
+import { effectTargetFor, isBodyInChasm } from "../helpers.js";
 import type { EnemySlot, SimState } from "../state.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
@@ -77,6 +77,10 @@ function moveEnemy(sim: SimState, enemy: EnemySlot, move: { moveX: number; moveY
     // Enemies never set foot on sanctuary ground.
     blocked: (x, y) => sim.world.isSanctuary(x, y),
   });
+  // Chasm = death applies to enemies too (same knockback-death-pit ruling
+  // as players): resolveEnemyDeaths (deaths.ts) already removes any
+  // hp<=0 enemy and rolls its drops, so this is the whole of it.
+  if (isBodyInChasm(entity.body)) entity.hp = 0;
   enemy.animation = {
     state: move.moveX !== 0 || move.moveY !== 0 ? "walk" : "idle",
     ticksRemaining: 0,
