@@ -5,9 +5,11 @@
   "type": "module",
   "description": "Standalone art/atlas pipeline tooling. Self-contained: own deps, own lockfile, never touches the workspace root.",
   "scripts": {
-    "bake-atlas": "node bake-atlas.mjs"
+    "bake-atlas": "node bake-atlas.mjs",
+    "smoke-production": "node smoke-production.mjs"
   },
   "dependencies": {
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "ws": "^8.21.1"
   }
 }

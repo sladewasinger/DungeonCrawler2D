@@ -36,3 +36,4 @@ packages/game-server/data/
 infra/terraform.tfvars
 infra/.terraform/
 infra/*.tfplan
+.scratch/

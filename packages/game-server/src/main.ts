@@ -1,26 +1,77 @@
-// Placeholder WebSocket game-server entrypoint: starts a ws listener on the
-// GAME_PORT env contract the EC2 systemd unit sets (8081 in prod) — the
-// authoritative sim lands later.
-import { WebSocketServer } from "ws";
+import {
+  areasData,
+  enemiesData,
+  itemsData,
+  recipesData,
+  rulesData,
+  statusesData,
+} from "@dc2d/content";
+import { buildContentRegistry, hashString } from "@dc2d/engine";
+import { join } from "node:path";
+import { startServer } from "./server.js";
 
+/**
+ * Standalone game-server entry point. Locally this runs next to the
+ * client dev server (deliberately the same topology as production,
+ * where this process lives on the EC2 box behind CloudFront and the
+ * client is static files) — only the ws URL differs.
+ */
+
+// GAME_PORT (not PORT) so generic tooling that injects PORT for the
+// web client can't accidentally re-home the websocket server.
 const DEV_DEFAULT_PORT = 8787;
 const port = Number(process.env["GAME_PORT"] ?? DEV_DEFAULT_PORT);
+const seedText = process.env["WORLD_SEED"] ?? "dev-world-1";
+const floor = Number(process.env["FLOOR"] ?? 1);
+const worldSeed = hashString(seedText);
+const storeFile =
+  process.env["STORE_FILE"] === "none"
+    ? null
+    : (process.env["STORE_FILE"] ?? join(process.cwd(), "data", "players.json"));
 
-function startServer(): WebSocketServer {
-  const server = new WebSocketServer({ port });
-
-  server.on("connection", (socket, request) => {
-    console.log(`[game-server] connection from ${request.socket.remoteAddress ?? "unknown"}`);
-    socket.on("close", () => {
-      console.log("[game-server] connection closed");
-    });
-  });
-
-  server.on("listening", () => {
-    console.log(`[game-server] listening on ws://localhost:${port}`);
-  });
-
-  return server;
+// custom-map / Tile Studio editor was dropped from the v2 core slice
+// (see docs/PORT_PLAN.md); CUSTOM_MAP is accepted by the systemd unit
+// for compatibility but has no effect here.
+if (process.env["CUSTOM_MAP"] && process.env["CUSTOM_MAP"] !== "none") {
+  console.log(`[game-server] CUSTOM_MAP is set but ignored — custom maps are not part of v2 yet`);
 }
 
-startServer();
+// Dev harness (god mode, teleport): on for local dev and tests, and
+// HARD OFF under NODE_ENV=production regardless of DEBUG_COMMANDS.
+const debugCommands =
+  process.env["NODE_ENV"] !== "production" && process.env["DEBUG_COMMANDS"] !== "0";
+
+// RawContent wants mutable arrays; content JSON exports are readonly by
+// design (never mutated) so this is a type-only widen, not a data risk.
+const content = buildContentRegistry({
+  statuses: statusesData as unknown[],
+  rules: rulesData as unknown[],
+  areas: areasData as unknown[],
+  items: itemsData as unknown[],
+  enemies: enemiesData as unknown[],
+  recipes: recipesData as unknown[],
+});
+
+const server = startServer({
+  port,
+  worldSeed,
+  floor,
+  content,
+  storeFile,
+  clusterSpawns: process.env["CLUSTER_SPAWNS"] === "1",
+  debugCommands,
+  testFixtures: process.env["TEST_FIXTURES"] === "1",
+});
+
+console.log(
+  `[game-server] floor ${floor} of world "${seedText}" (seed ${worldSeed}) listening on ws://localhost:${port}`,
+);
+
+function shutdown(): void {
+  console.log("[game-server] shutting down");
+  server.stop();
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

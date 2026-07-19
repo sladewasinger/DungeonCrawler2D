@@ -22,7 +22,7 @@ const banNodeBuiltins = {
 };
 
 export default tseslint.config(
-  { ignores: ["reference/**", "**/dist/**", "**/node_modules/**"] },
+  { ignores: ["reference/**", "**/dist/**", "**/node_modules/**", ".scratch/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
