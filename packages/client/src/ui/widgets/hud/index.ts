@@ -34,6 +34,11 @@ function applyTouchLayoutOverrides(registry: WidgetRegistry): void {
   // right on top of it — only reachable on the ?camera=entities gallery preset /
   // standing near a pickup in real play, but real play hits it too.
   registry.setOverride("interaction", { offset: { x: 0, y: -170 } });
+  // At a ~412px-wide portrait viewport the top-left health bar alone is nearly
+  // full-width at hudScale (see docs/client-proofs/hud-indicators-mobile.png before
+  // this fix), leaving no horizontal gap for the top-right ping/fps/coords stack
+  // beside it — drop the stack below the health+buffs cluster instead of squeezing in.
+  registry.setOverride("status", { offset: { x: -16, y: 100 } });
 }
 
 export class HudWidgets {
@@ -101,7 +106,7 @@ export class HudWidgets {
     this.weapon.update(snapshot.equippedWeaponId);
     this.chat.update(snapshot.chat, snapshot.activeChatChannel);
     this.interaction.update(snapshot.interactionPrompt);
-    this.connection.update(snapshot.pingMs, snapshot.connected);
+    this.connection.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords);
     this.death.update(snapshot.downed);
     this.reconnectToast.update(snapshot.reconnecting, nowMs);
     if (snapshot.touch) {

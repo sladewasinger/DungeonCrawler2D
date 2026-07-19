@@ -32,6 +32,14 @@ export interface PlayerEntityView {
   readonly downed: boolean;
   readonly attacking: boolean;
   readonly weaponId: string | null;
+  /** Self-only live weapon-orbit target (radians): mouse-relative on desktop, facing-locked
+   * on touch. Null for remote players (no live aim to orbit — see heldWeapon.ts), which
+   * doubles as this view's "is this the self player" signal for the unarmed fist fallback. */
+  readonly weaponAimAngle: number | null;
+  /** Direction (radians) of the current/most-recent swing: self's real attack.dx/dy for
+   * exact wedge/sweep alignment, or a remote player's reported faceX/faceY as the best
+   * available proxy (the protocol never reports a remote player's actual swing direction). */
+  readonly attackAngleRad: number;
 }
 
 export interface MonsterEntityView {

@@ -22,6 +22,12 @@ export interface ChatLineData {
   text: string;
 }
 
+/** A tile-space (x, y) — the player's rounded predicted position for the top-right coords readout. */
+export interface TileCoords {
+  x: number;
+  y: number;
+}
+
 export interface HudFakeSnapshot {
   health: { hp: number; maxHp: number };
   hotbar: HotbarSlotData[];
@@ -39,6 +45,10 @@ export interface HudFakeSnapshot {
   downed: boolean;
   /** Live joystick/button state for the touch widgets, or null when touch controls aren't mounted. */
   touch: TouchVisualSnapshot | null;
+  /** Raw per-frame render fps (Phaser's game.loop.actualFps) — the top-right indicator smooths this itself. */
+  fps: number;
+  /** Player's rounded predicted tile position, for the top-right coords readout. */
+  coords: TileCoords;
 }
 
 const EMPTY_SLOT: HotbarSlotData = { itemId: null, count: 0 };
@@ -76,5 +86,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     reconnecting: false,
     downed,
     touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
+    fps: 60,
+    coords: { x: 128, y: -64 },
   };
 }

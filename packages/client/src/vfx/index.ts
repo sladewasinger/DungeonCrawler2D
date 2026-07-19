@@ -5,6 +5,7 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import type { LightSource } from "../render/lighting/lightSource.js";
 import { AreaEffectPool, type AreaTileView } from "./areaEffectPool.js";
 import { DamageNumberPool } from "./damageNumbers.js";
+import { MeleeWedgePool } from "./meleeWedge.js";
 import { spawnDustPuff, spawnFootstepMote } from "./movementParticles.js";
 import { footstepDue, isMoving, motionEvents, type MotionSample } from "./motionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
@@ -17,6 +18,7 @@ export class VfxSystem {
   private readonly areas: AreaEffectPool;
   private readonly torchFlames: TorchFlamePool;
   private readonly damageNumbers: DamageNumberPool;
+  private readonly meleeWedge: MeleeWedgePool;
   private readonly shake: ScreenShakeBudget;
   private lastPlayerSample: MotionSample | undefined;
   private lastFrameMs = 0;
@@ -25,6 +27,7 @@ export class VfxSystem {
     this.areas = new AreaEffectPool(scene);
     this.torchFlames = new TorchFlamePool(scene);
     this.damageNumbers = new DamageNumberPool(scene);
+    this.meleeWedge = new MeleeWedgePool(scene);
     this.shake = new ScreenShakeBudget(scene.cameras.main);
   }
 
@@ -65,6 +68,11 @@ export class VfxSystem {
     spawnPickupGlint(this.scene, screen.x, screen.y);
   }
 
+  /** Melee-arc swing telegraph, keyed by attacker id so a fresh swing reuses (redraws) that id's pooled Graphics rather than allocating a new one. */
+  spawnMeleeSwing(id: string, worldX: number, worldY: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+    this.meleeWedge.spawn(id, worldX, worldY, angleRad, depth, tilePx, nowMs);
+  }
+
   onOwnHit(nowMs: number): void {
     this.shake.onOwnHit(nowMs);
   }
@@ -73,14 +81,16 @@ export class VfxSystem {
     this.shake.onOwnDeath(nowMs);
   }
 
-  /** Advances every per-frame subsystem (damage numbers rise/fade). */
+  /** Advances every per-frame subsystem (damage numbers rise/fade, wedge telegraphs fade). */
   update(nowMs: number): void {
     this.damageNumbers.update(nowMs);
+    this.meleeWedge.update(nowMs);
   }
 
   dispose(): void {
     this.areas.dispose();
     this.torchFlames.dispose();
     this.damageNumbers.dispose();
+    this.meleeWedge.dispose();
   }
 }

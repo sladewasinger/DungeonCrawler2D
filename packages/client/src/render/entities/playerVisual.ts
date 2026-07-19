@@ -14,7 +14,8 @@ import { createShadow, updateShadowPosition } from "./shadow.js";
 import { squashScale } from "./squash.js";
 import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
-import { weaponIconFrame } from "./weaponIcon.js";
+import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
+import { stepOrbitAngle } from "./weaponOrbit.js";
 import { worldToScreen } from "./worldToScreen.js";
 
 const DOWNED_TINT = 0x7a3d3d;
@@ -37,6 +38,9 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     lastSampleMs: nowMs,
     lastAir: false,
     squashStartMs: undefined,
+    weaponAngle: 0,
+    wasAttacking: false,
+    swingStartMs: undefined,
   };
 }
 
@@ -101,14 +105,41 @@ function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: R
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
   updateNameplate(visual.nameplate, view.name, ground.x, ground.y - visual.body.displayHeight, distance, ctx.partyIds.has(view.id));
 
+  updateWeaponVisual(visual, view, ctx);
+}
+
+/** Edge-triggers the strike-sweep clock when `attacking` flips false->true (mirrors hitFlash.ts's tookDamage edge). */
+function applySwingEdge(visual: PlayerVisual, attacking: boolean, nowMs: number): void {
+  if (attacking && !visual.wasAttacking) visual.swingStartMs = nowMs;
+  visual.wasAttacking = attacking;
+}
+
+/** 0..1 progress through STRIKE_DURATION_MS since this swing's edge-triggered start; 0 when not striking. */
+function strikeProgress(visual: PlayerVisual, attacking: boolean, nowMs: number): number {
+  if (!attacking || visual.swingStartMs === undefined) return 0;
+  return Math.min(1, (nowMs - visual.swingStartMs) / STRIKE_DURATION_MS);
+}
+
+/** Weapon sprite: self orbits the live aim angle (sweeping toward it, see weaponOrbit.ts); remote players keep the legacy hand-offset. */
+function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
   const striking = !view.downed && view.attacking;
-  updateHeldWeapon(visual.weapon, view.downed ? null : weaponIconFrame(view.weaponId), {
+  applySwingEdge(visual, striking, ctx.nowMs);
+  const aimAngle = view.weaponAimAngle;
+  const isSelf = aimAngle !== null;
+  if (isSelf) visual.weaponAngle = stepOrbitAngle(visual.weaponAngle, aimAngle, ctx.dtSeconds);
+
+  const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
+  const isFistFallback = isSelf && rawFrame === null && !view.downed;
+  updateHeldWeapon(visual.weapon, rawFrame ?? (isFistFallback ? FIST_FALLBACK_FRAME : null), {
     screenX: visual.body.x,
     screenY: visual.body.y,
     facingX: view.faceX,
     striking,
-    strikeProgress: striking ? Math.min(1, (ctx.nowMs % STRIKE_DURATION_MS) / STRIKE_DURATION_MS) : 0,
+    strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
     wielderDepth: visual.body.depth,
+    orbitAngleRad: isSelf ? visual.weaponAngle : null,
+    attackAngleRad: view.attackAngleRad,
+    isFistFallback,
   });
 }
 

@@ -19,6 +19,14 @@ describe("HUD widget ids in the shipped default layout", () => {
     const resolved = registry.resolve(VIEWPORT);
     for (const id of HUD_WIDGET_IDS) expect(resolved.has(id)).toBe(true);
   });
+
+  it("anchors the ping/fps/coords indicator stack ('status') top-right, clear of health/buffs at top-left", () => {
+    const registry = new WidgetRegistry();
+    for (const id of HUD_WIDGET_IDS) registry.register(stubDefinition(id));
+    const resolved = registry.resolve(VIEWPORT);
+    expect(resolved.get("status")?.anchor).toBe("top-right");
+    expect(resolved.get("status")?.x).toBeGreaterThan(VIEWPORT.width / 2);
+  });
 });
 
 describe("layout JSON round-trip through localStorage", () => {

@@ -18,6 +18,8 @@ export interface DungeonSceneState {
   readonly camera: CameraFollowState;
   readonly cosmetics: SelfCosmeticsState;
   readonly projectileVelocity: ProjectileVelocityState;
+  /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
+  readonly attackFlags: Map<string, boolean>;
 }
 
 export function createDungeonSceneState(): DungeonSceneState {
@@ -27,5 +29,6 @@ export function createDungeonSceneState(): DungeonSceneState {
     camera: createCameraFollowState(),
     cosmetics: createSelfCosmeticsState(),
     projectileVelocity: createProjectileVelocityState(),
+    attackFlags: new Map(),
   };
 }

@@ -10,6 +10,7 @@ import type {
   ChatLineData,
   HotbarSlotData,
   HudFakeSnapshot,
+  TileCoords,
 } from "../../ui/widgets/hud/fakeData.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 
@@ -68,6 +69,12 @@ function chatLines(log: readonly ChatLogLine[]): ChatLineData[] {
   }));
 }
 
+/** Rounds the predicted self body's raw tile position for the top-right coords readout —
+ * "so users can find each other or share positions" only needs whole tiles, not float noise. */
+function roundedCoords(bodyPos: { x: number; y: number }): TileCoords {
+  return { x: Math.round(bodyPos.x), y: Math.round(bodyPos.y) };
+}
+
 export interface HudSnapshotSource {
   readonly hp: number;
   readonly maxHp: number;
@@ -88,6 +95,8 @@ export function buildHudSnapshot(
   armedThrowableSlot: number | null,
   interactionPrompt: InteractionPrompt | null,
   touch: TouchVisualSnapshot | null,
+  fps: number,
+  bodyPos: { x: number; y: number },
 ): HudFakeSnapshot {
   const activeChatChannel: ChatChannel = src.hasParty ? "party" : "local";
   return {
@@ -105,5 +114,7 @@ export function buildHudSnapshot(
     reconnecting: src.reconnecting,
     downed: src.downed,
     touch,
+    fps,
+    coords: roundedCoords(bodyPos),
   };
 }

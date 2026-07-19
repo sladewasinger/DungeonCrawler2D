@@ -1,54 +1,106 @@
 /**
- * Connection/ping indicator HUD widget: a colored dot (green/gold/red by latency,
- * grey when disconnected) plus the ms readout — reuses the "status" layout slot.
+ * Top-right indicator stack HUD widget: ping (colorized by latency), a
+ * ~30-frame-smoothed FPS readout (colorized by framerate), and the player's
+ * rounded predicted tile coordinates ("so users can find each other or share
+ * positions") — one widget under one anchor, so the stack re-anchors as a unit.
+ * Reuses the "status" layout slot (formerly ping-only, top-center).
  */
 import type Phaser from "phaser";
 import { pixelTextStyle } from "../../font.js";
-import { spacing } from "../../panel.js";
+import { drawPanelBackground, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
+import type { TileCoords } from "./fakeData.js";
 
 const WIDGET_ID = "status";
-const DOT_RADIUS = 4;
+const PANEL_WIDTH = 128;
+const ROW_HEIGHT = 18;
+const ROW_TEXT_SIZE = 12;
+const PADDING = spacing(1);
+const PANEL_HEIGHT = PADDING * 2 + ROW_HEIGHT * 3;
+/** Right-aligned rows sit PADDING in from the panel's right edge, which is local x=0. */
+const TEXT_X = -PADDING;
+
 const GOOD_PING_MS = 80;
-const OK_PING_MS = 160;
+const OK_PING_MS = 150;
+const GOOD_FPS = 55;
+const OK_FPS = 30;
+/** ~30 rendered frames of game.loop.actualFps — smooths the readout past single-frame jitter. */
+const FPS_SMOOTH_FRAMES = 30;
+
 const DISCONNECTED_COLOR = 0x494956;
-const GOOD_COLOR = 0x7bd44a;
-const OK_COLOR = 0xffd23d;
-const BAD_COLOR = 0xe04a4a;
+const GOOD_COLOR = 0x3dd6c3; // sanctuary/portal teal (docs/VISUAL_DIRECTION.md palette)
+const OK_COLOR = 0xffd23d; // loot/gold
+const BAD_COLOR = 0xe04a4a; // blood/damage
+const NEUTRAL_TEXT_COLOR = "#e8e8e8";
+
+function colorHex(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
 
 function pingColor(pingMs: number, connected: boolean): number {
   if (!connected) return DISCONNECTED_COLOR;
-  if (pingMs <= GOOD_PING_MS) return GOOD_COLOR;
-  if (pingMs <= OK_PING_MS) return OK_COLOR;
+  if (pingMs < GOOD_PING_MS) return GOOD_COLOR;
+  if (pingMs < OK_PING_MS) return OK_COLOR;
   return BAD_COLOR;
+}
+
+function fpsColor(fps: number): number {
+  if (fps >= GOOD_FPS) return GOOD_COLOR;
+  if (fps >= OK_FPS) return OK_COLOR;
+  return BAD_COLOR;
+}
+
+function rowY(index: number): number {
+  return PADDING + ROW_HEIGHT * index + ROW_HEIGHT / 2;
 }
 
 export class ConnectionStatusWidget {
   private readonly container: Phaser.GameObjects.Container;
-  private readonly dot: Phaser.GameObjects.Arc;
-  private readonly text: Phaser.GameObjects.Text;
+  private readonly pingText: Phaser.GameObjects.Text;
+  private readonly fpsText: Phaser.GameObjects.Text;
+  private readonly coordsText: Phaser.GameObjects.Text;
+  private readonly fpsSamples: number[] = [];
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     registry.register({
       id: WIDGET_ID,
-      defaultAnchor: "top-center",
-      defaultOffset: { x: 0, y: 16 },
+      defaultAnchor: "top-right",
+      defaultOffset: { x: -16, y: 16 },
       defaultScale: 1,
       defaultVisible: true,
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
-    this.dot = scene.add.circle(-24, 6, DOT_RADIUS, GOOD_COLOR);
-    this.text = scene.add.text(-24 + DOT_RADIUS + spacing(0.75), 0, "", pixelTextStyle(12));
-    this.container.add([this.dot, this.text]);
+    const panel = drawPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT).setPosition(-PANEL_WIDTH, 0);
+    this.pingText = this.buildRow(scene, 0);
+    this.fpsText = this.buildRow(scene, 1);
+    this.coordsText = this.buildRow(scene, 2);
+    this.container.add([panel, this.pingText, this.fpsText, this.coordsText]);
   }
 
-  update(pingMs: number, connected: boolean): void {
-    this.dot.setFillStyle(pingColor(pingMs, connected));
-    this.text.setText(connected ? `${Math.round(pingMs)}ms` : "offline");
+  private buildRow(scene: Phaser.Scene, index: number): Phaser.GameObjects.Text {
+    return scene.add.text(TEXT_X, rowY(index), "", pixelTextStyle(ROW_TEXT_SIZE)).setOrigin(1, 0.5);
+  }
+
+  update(pingMs: number, connected: boolean, fpsSample: number, coords: TileCoords): void {
+    const ping = pingColor(pingMs, connected);
+    this.pingText.setText(connected ? `${Math.round(pingMs)}ms` : "offline").setColor(colorHex(ping));
+
+    const fps = this.smoothedFps(fpsSample);
+    this.fpsText.setText(`${fps}fps`).setColor(colorHex(fpsColor(fps)));
+
+    this.coordsText.setText(`x ${coords.x}, y ${coords.y}`).setColor(NEUTRAL_TEXT_COLOR);
+  }
+
+  /** Rolling average over the last FPS_SMOOTH_FRAMES samples — actualFps alone jitters frame to frame. */
+  private smoothedFps(sample: number): number {
+    this.fpsSamples.push(sample);
+    if (this.fpsSamples.length > FPS_SMOOTH_FRAMES) this.fpsSamples.shift();
+    const total = this.fpsSamples.reduce((sum, value) => sum + value, 0);
+    return Math.round(total / this.fpsSamples.length);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

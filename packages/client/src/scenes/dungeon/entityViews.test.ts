@@ -20,27 +20,47 @@ describe("selfPlayerView", () => {
   it("carries local facing and attack-pulse cosmetics, not server fields", () => {
     const cosmetics = createSelfCosmeticsState();
     cosmetics.faceX = -1;
-    triggerSelfAttack(cosmetics, 1000);
+    triggerSelfAttack(cosmetics, 1000, -1, 0);
     const view = selfPlayerView(
       { id: "p1", name: "Hero", x: 1, y: 2, z: 0, air: false },
       { hp: 10, maxHp: 30, fx: ["on-fire"], downed: false, weaponId: "sword" },
       cosmetics,
       1000,
+      Math.PI,
     );
-    expect(view).toMatchObject({ id: "p1", faceX: -1, attacking: true, weaponId: "sword", hp: 10 });
+    expect(view).toMatchObject({ id: "p1", faceX: -1, attacking: true, weaponId: "sword", hp: 10, weaponAimAngle: Math.PI });
+  });
+
+  it("centers attackAngleRad on the swing's captured direction, not live facing", () => {
+    const cosmetics = createSelfCosmeticsState();
+    triggerSelfAttack(cosmetics, 1000, 0, 1);
+    const view = selfPlayerView(
+      { id: "p1", name: "Hero", x: 0, y: 0, z: 0, air: false },
+      { hp: 10, maxHp: 30, fx: [], downed: false, weaponId: null },
+      cosmetics,
+      1000,
+      0,
+    );
+    expect(view.attackAngleRad).toBeCloseTo(Math.PI / 2);
   });
 });
 
 describe("remotePlayerView", () => {
-  it("reads attacking off the server anim pulse and always nulls weaponId", () => {
+  it("reads attacking off the server anim pulse and always nulls weaponId/weaponAimAngle", () => {
     const view = remotePlayerView(entity({ id: "e1", kind: "player", name: "Wren", anim: "attack" }));
     expect(view.attacking).toBe(true);
     expect(view.weaponId).toBeNull();
+    expect(view.weaponAimAngle).toBeNull();
   });
 
   it("defaults missing optional fields safely", () => {
     const view = remotePlayerView(entity({ id: "e2", kind: "player" }));
     expect(view).toMatchObject({ name: "?", hp: 0, maxHp: 1, fx: [], air: false, downed: false, attacking: false });
+  });
+
+  it("derives attackAngleRad from reported facing as the best available proxy", () => {
+    const view = remotePlayerView(entity({ id: "e3", kind: "player", faceX: 0, faceY: -1 }));
+    expect(view.attackAngleRad).toBeCloseTo(-Math.PI / 2);
   });
 });
 

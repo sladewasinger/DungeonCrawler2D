@@ -56,6 +56,8 @@ export function selfPlayerView(
   vitals: SelfVitals,
   cosmetics: SelfCosmeticsState,
   nowMs: number,
+  /** Live weapon-orbit target (radians): mouse-relative on desktop, facing-locked on touch — resolved by the scene from real input (weaponOrbit.ts), since input isn't otherwise visible to this module. */
+  weaponAimAngle: number,
 ): PlayerEntityView {
   return {
     id: pose.id,
@@ -73,11 +75,15 @@ export function selfPlayerView(
     downed: vitals.downed,
     attacking: isSelfAttacking(cosmetics, nowMs),
     weaponId: vitals.weaponId,
+    weaponAimAngle,
+    attackAngleRad: Math.atan2(cosmetics.attackDirY, cosmetics.attackDirX),
   };
 }
 
 /** Other players: weaponId stays null — the protocol only reports self's equipped weapon (see render/entities/view.ts). */
 export function remotePlayerView(e: InterpolatedEntity): PlayerEntityView {
+  const faceX = e.snap.faceX ?? 1;
+  const faceY = e.snap.faceY ?? 0;
   return {
     id: e.id,
     playerId: e.id,
@@ -88,12 +94,17 @@ export function remotePlayerView(e: InterpolatedEntity): PlayerEntityView {
     hp: e.snap.hp ?? 0,
     maxHp: e.snap.maxHp ?? 1,
     fx: e.snap.fx ?? [],
-    faceX: e.snap.faceX ?? 1,
-    faceY: e.snap.faceY ?? 0,
+    faceX,
+    faceY,
     air: e.snap.air ?? false,
     downed: e.snap.downed ?? false,
     attacking: e.snap.anim === "attack",
     weaponId: null,
+    weaponAimAngle: null,
+    // The protocol never reports a remote player's actual swing direction (only enemies
+    // get aimX/aimY — see game-server/sim/snapshots.ts's enemyAnimFields), so their
+    // reported facing is the wedge telegraph's best available proxy for "attack direction".
+    attackAngleRad: Math.atan2(faceY, faceX),
   };
 }
 

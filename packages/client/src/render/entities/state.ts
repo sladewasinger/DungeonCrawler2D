@@ -23,6 +23,11 @@ export interface PlayerVisual extends CombatantParts {
   /** Air-state edge tracking for landing squash (squash.ts). */
   lastAir: boolean;
   squashStartMs: number | undefined;
+  /** Slew-limited weapon-orbit angle (weaponOrbit.ts's stepOrbitAngle) — self only; left unused for remote players, whose weapon uses the legacy hand-offset instead. */
+  weaponAngle: number;
+  /** Attack edge-tracking for the strike-sweep tween's start time. */
+  wasAttacking: boolean;
+  swingStartMs: number | undefined;
 }
 
 export interface MonsterVisual extends CombatantParts {

@@ -3,12 +3,14 @@
 import { TILE, World, type TileType } from "@dc2d/engine";
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../boot/assetManifest.js";
+import { isTouchDevice } from "../input/touchDetect.js";
 import { LightingSystem } from "../render/lighting/index.js";
 import { ownFaceRowAt } from "../render/terrain/ownFace.js";
 import { TerrainRenderer } from "../render/terrain/index.js";
 import { pixelTextStyle } from "../ui/font.js";
 import { anchorPoint } from "../ui/widgets/anchors.js";
 import { WIDGET_DEPTH } from "../ui/widgets/container.js";
+import { CombatShowcase, type CombatDemoPlayer } from "./combatShowcase.js";
 import { EntityShowcase } from "./entityShowcase.js";
 import {
   PRESETS_WITH_SHOWCASE_MARKER,
@@ -19,6 +21,15 @@ import {
 import { showcasePlayerPose } from "./showcasePlayerMotion.js";
 import { VfxShowcase } from "./vfxShowcase.js";
 import { SHOWCASE_ROW } from "./entityShowcaseLayout.js";
+
+/** ?combat=1 harness (docs/client-proofs/combat-*.png): two static demo players east of
+ * the entity-showcase row, clear of its running player/monster cycle, proven-open floor
+ * since it's the same room the row already renders in. */
+const COMBAT_DEMO_QUERY_PARAM = "combat";
+const COMBAT_DEMO_PLAYERS: readonly CombatDemoPlayer[] = [
+  { id: "combat-demo-armed", x: SHOWCASE_ROW.baseX + 10, y: SHOWCASE_ROW.baseY, weaponId: "sword" },
+  { id: "combat-demo-unarmed", x: SHOWCASE_ROW.baseX + 13, y: SHOWCASE_ROW.baseY, weaponId: null },
+];
 
 /** Fixed determinism contract for the gallery: same seed every load, byte-identical chunks. */
 const GALLERY_WORLD_SEED = 1337;
@@ -44,6 +55,7 @@ export class GalleryScene extends Phaser.Scene {
   private showcase: EntityShowcase | undefined;
   private lighting: LightingSystem | undefined;
   private vfxShowcase: VfxShowcase | undefined;
+  private combatShowcase: CombatShowcase | undefined;
   private world: World | undefined;
   private coordinateReadout: Phaser.GameObjects.Text | undefined;
 
@@ -78,10 +90,23 @@ export class GalleryScene extends Phaser.Scene {
     if (new URLSearchParams(window.location.search).get(DEBUG_TERRAIN_QUERY_PARAM) === "1") {
       this.createCoordinateReadout();
     }
+    this.setUpCombatShowcase();
 
     // HudScene self-gates on ?hud=1|death and renders on its own postFX-free camera.
     this.scene.launch("hud");
     this.setUpCameraResize();
+  }
+
+  /** ?combat=1: builds the weapon-orbit/melee-wedge demo and recenters the camera on it, overriding whatever ?camera=... preset was resolved above. */
+  private setUpCombatShowcase(): void {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(COMBAT_DEMO_QUERY_PARAM) !== "1" || !this.world) return;
+    const touchActive = isTouchDevice(window);
+    this.combatShowcase = new CombatShowcase(this, this.world, COMBAT_DEMO_PLAYERS, touchActive);
+    const [first, second] = COMBAT_DEMO_PLAYERS;
+    const midX = ((first?.x ?? 0) + (second?.x ?? 0)) / 2;
+    this.cameras.main.setZoom(2.2);
+    this.cameras.main.centerOn(midX * SCREEN_TILE_PX, SHOWCASE_ROW.baseY * SCREEN_TILE_PX);
   }
 
   /**
@@ -115,6 +140,7 @@ export class GalleryScene extends Phaser.Scene {
     this.terrain?.update(this.cameras.main.worldView);
     this.showcase?.update(time, delta / 1000);
     this.vfxShowcase?.update(time);
+    this.combatShowcase?.update(time, delta / 1000);
     if (this.lighting && this.world) {
       const player = showcasePlayerPose(this.world, time, SHOWCASE_ROW.baseX, SHOWCASE_ROW.baseY - 3);
       this.lighting.update(this.cameras.main.worldView, player.x, player.y, time);

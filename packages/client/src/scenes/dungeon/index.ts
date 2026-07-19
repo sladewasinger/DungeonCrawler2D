@@ -22,7 +22,9 @@ import { consumeFixedSteps, interpolationAlpha, lerp } from "./fixedStep.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 import { createInputConnectionAdapter, createInputHooks, createInputPanels, createInputQueries } from "./inputAdapters.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
+import { resolveMeleeSwings } from "./meleeSwingEvents.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
+import { resolveSelfAimAngle } from "./selfAim.js";
 import { updateSelfFacing } from "./selfCosmetics.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
 
@@ -138,16 +140,24 @@ export class DungeonScene extends Phaser.Scene {
     const items = interpolated.filter((e) => e.snap.kind === "item");
     const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, this.partyIds);
 
+    const touchActive = this.inputController.touchVisual() !== null;
+    const aimAngle = resolveSelfAimAngle(touchActive, this.state.cosmetics.faceX, this.state.cosmetics.faceY, render, this.cameras.main, this.input.activePointer);
     const self = selfPlayerView(
       { id: conn.welcome.playerId, name: conn.name, x: render.x, y: render.y, z: render.z, air: !conn.body.grounded },
       { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, weaponId: conn.weapon },
       this.state.cosmetics,
       nowMs,
+      aimAngle,
     );
     const players = interpolated.filter((e) => e.snap.kind === "player").map(remotePlayerView);
-    this.entityRenderer.syncPlayers([self, ...players], context);
+    const allPlayers = [self, ...players];
+    this.entityRenderer.syncPlayers(allPlayers, context);
     this.entityRenderer.syncMonsters(interpolated.filter((e) => e.snap.kind === "enemy").map(monsterView), context);
     this.entityRenderer.syncItems(items.map(itemView), nowMs);
+    // Wedge telegraph for every player whose attack just started this frame (self or remote alike).
+    for (const swing of resolveMeleeSwings(allPlayers, this.state.attackFlags)) {
+      this.vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
+    }
 
     const projectiles = interpolated.filter((e) => e.snap.kind === "projectile");
     this.entityRenderer.syncProjectiles(projectiles.map((e) => projectileView(e, this.state.projectileVelocity, nowMs)));
@@ -202,7 +212,11 @@ export class DungeonScene extends Phaser.Scene {
       reconnecting: conn.status !== "connected",
       downed: conn.downed || conn.dead,
     };
-    return buildHudSnapshot(source, this.inputController.armedThrowableSlot(), this.interactionPrompt, this.inputController.touchVisual());
+    // conn.body may still be null the first frame or two after boot (HudScene's source()
+    // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
+    const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y } : { x: 0, y: 0 };
+    const touch = this.inputController.touchVisual();
+    return buildHudSnapshot(source, this.inputController.armedThrowableSlot(), this.interactionPrompt, touch, this.game.loop.actualFps, bodyPos);
   }
 
   private setUpCameraResize(): void {

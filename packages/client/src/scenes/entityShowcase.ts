@@ -77,6 +77,10 @@ export class EntityShowcase {
       downed: false,
       attacking: false,
       weaponId: "sword",
+      // Not the combat-orbit demo (see combatShowcase.ts) — this row just proves the
+      // renderer end-to-end, so the weapon keeps its legacy facing hand-offset.
+      weaponAimAngle: null,
+      attackAngleRad: 0,
     };
   }
 

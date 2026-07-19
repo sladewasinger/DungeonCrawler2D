@@ -26,7 +26,7 @@ describe("updateSelfFacing", () => {
 describe("attack pulse", () => {
   it("reads as attacking immediately after trigger, and not once it elapses", () => {
     const state = createSelfCosmeticsState();
-    triggerSelfAttack(state, 1000);
+    triggerSelfAttack(state, 1000, 1, 0);
     expect(isSelfAttacking(state, 1000)).toBe(true);
     expect(isSelfAttacking(state, 1100)).toBe(true);
     expect(isSelfAttacking(state, 1200)).toBe(false);
@@ -35,5 +35,12 @@ describe("attack pulse", () => {
   it("defaults to not attacking before any trigger", () => {
     const state = createSelfCosmeticsState();
     expect(isSelfAttacking(state, 0)).toBe(false);
+  });
+
+  it("records the swing's exact aim direction, for the wedge/weapon-sweep telegraph to match", () => {
+    const state = createSelfCosmeticsState();
+    triggerSelfAttack(state, 1000, 0, -1);
+    expect(state.attackDirX).toBe(0);
+    expect(state.attackDirY).toBe(-1);
   });
 });
