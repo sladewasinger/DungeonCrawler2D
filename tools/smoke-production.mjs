@@ -5,9 +5,18 @@
 // Invoked by the deploy workflow as `node tools/smoke-production.mjs <siteUrl>`.
 // Self-contained: only the `ws` package (declared in tools/package.json).
 
+import { readFileSync } from "node:fs";
 import { WebSocket } from "ws";
 
-const PROTOCOL_VERSION = 10;
+// Read the protocol version straight from the engine source so this script
+// can never drift from a bump again (deploy #3 failed exactly that way).
+const constantsSrc = readFileSync(
+  new URL("../packages/engine/src/core/constants.ts", import.meta.url),
+  "utf8",
+);
+const versionMatch = constantsSrc.match(/PROTOCOL_VERSION = (\d+)/);
+if (!versionMatch) throw new Error("smoke: PROTOCOL_VERSION not found in engine constants.ts");
+const PROTOCOL_VERSION = Number(versionMatch[1]);
 const HANDSHAKE_TIMEOUT_MS = 10_000;
 const SNAPSHOT_TIMEOUT_MS = 10_000;
 const INPUT_INTENTS_TO_SEND = 5;
