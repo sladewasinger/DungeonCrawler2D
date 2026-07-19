@@ -50,6 +50,8 @@ export class GameSim {
     opts: {
       /** e2e scaffolding: spawn players together at the proving ground. */
       clusterSpawns?: boolean;
+      /** Gameplay mode: cluster spawns within N tiles of a seed anchor — see state.ts's opts doc. */
+      spawnRadiusTiles?: number | undefined;
       /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
       debugCommands?: boolean;
       testFixtures?: boolean;

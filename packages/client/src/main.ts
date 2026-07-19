@@ -1,5 +1,6 @@
 // Client entrypoint: wires up the Phaser game and its scene list. Orchestration only — no logic here.
 import Phaser from "phaser";
+import { installBootErrorOverlay } from "./boot/errorOverlay.js";
 import { PreloadScene } from "./boot/PreloadScene.js";
 import { Connection } from "./net/connection.js";
 import { persistentClientId } from "./net/identity.js";
@@ -10,6 +11,10 @@ import { GalleryScene } from "./scenes/GalleryScene.js";
 import { HudScene } from "./scenes/HudScene.js";
 import { TitleScene } from "./scenes/title/index.js";
 import { loadStoredName } from "./scenes/title/connectForm.js";
+
+// Installed before anything else can throw — a boot/runtime failure must render a
+// visible message, never a silent black screen (mobile-fix round 2, bug report A).
+installBootErrorOverlay(import.meta.env.DEV);
 
 const isEditor = new URLSearchParams(window.location.search).get("scene") === "editor";
 
@@ -40,7 +45,13 @@ if (isEditor) {
     scale: { mode: Phaser.Scale.RESIZE },
     // 3 simultaneous pointers: the touch joystick plus one action button held at
     // once (attack-while-moving) — Phaser tracks only 1 by default (docs mobile pass).
-    input: { activePointers: 3 },
+    // touch: true forces Phaser's own TouchManager on regardless of Phaser.Device's
+    // boot-time touch detection — without this, a browser that reports no touch
+    // support at page load (e.g. desktop Chrome before the device toolbar is
+    // toggled) never gets a TouchManager at all, so no Pointer ever sees a real
+    // touch event again for the rest of the session — input/index.ts's late-touch
+    // reactivity would be unreachable dead code.
+    input: { activePointers: 3, touch: true },
     scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, HudScene],
   });
   // Perf/debug introspection, dev-server only (never in a production build):

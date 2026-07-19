@@ -29,6 +29,20 @@ const storeFile =
     ? null
     : (process.env["STORE_FILE"] ?? join(process.cwd(), "data", "players.json"));
 
+// TEMPORARY friend-playtest tuning: cozy spawns so a small group lands near
+// each other instead of scattered across SPAWN_CHUNK_RANGE chunks. Raise
+// this (bigger neighborhood) or set SPAWN_RADIUS=0/"off" (classic vast
+// MIN_SPAWN_DIST scatter, engine constants) once we want the vast-world
+// experience back — this default should not survive to that point.
+const DEFAULT_SPAWN_RADIUS_TILES = 50;
+const spawnRadiusEnv = process.env["SPAWN_RADIUS"];
+const spawnRadiusTiles =
+  spawnRadiusEnv === undefined
+    ? DEFAULT_SPAWN_RADIUS_TILES
+    : spawnRadiusEnv === "0" || spawnRadiusEnv.toLowerCase() === "off"
+      ? undefined
+      : Number(spawnRadiusEnv);
+
 // custom-map / Tile Studio editor was dropped from the v2 core slice
 // (see docs/PORT_PLAN.md); CUSTOM_MAP is accepted by the systemd unit
 // for compatibility but has no effect here.
@@ -59,6 +73,7 @@ const server = startServer({
   content,
   storeFile,
   clusterSpawns: process.env["CLUSTER_SPAWNS"] === "1",
+  spawnRadiusTiles,
   debugCommands,
   testFixtures: process.env["TEST_FIXTURES"] === "1",
 });

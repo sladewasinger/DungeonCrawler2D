@@ -104,6 +104,14 @@ export interface SimState {
   readonly opts: {
     /** e2e scaffolding: spawn players together at the proving ground. */
     clusterSpawns?: boolean;
+    /**
+     * Gameplay mode: keep every spawn (and respawn) within this many tiles
+     * of a seed-derived anchor near the world origin, spaced apart from
+     * other players. `undefined`/`0` = classic vast MIN_SPAWN_DIST scatter.
+     * Distinct from `clusterSpawns`, which is a tight fixed-grid e2e/test
+     * mode and always wins if both are set — see sim/spawn.ts.
+     */
+    spawnRadiusTiles?: number | undefined;
     /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
     debugCommands?: boolean;
     testFixtures?: boolean;

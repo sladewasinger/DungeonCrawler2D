@@ -25,6 +25,8 @@ export interface ServerOptions {
   storeFile?: string | null;
   rngSeed?: number;
   clusterSpawns?: boolean;
+  /** See SimState["opts"].spawnRadiusTiles (sim/state.ts) for semantics. */
+  spawnRadiusTiles?: number | undefined;
   debugCommands?: boolean;
   testFixtures?: boolean;
 }
@@ -74,6 +76,9 @@ function buildSims(
       level,
       new GameSim(new World(opts.worldSeed, opts.floor, level), opts.content, store, initialSeed + index, {
         clusterSpawns: opts.clusterSpawns ?? false,
+        // Omitted entirely (as every test but main.ts's server does) ⇒
+        // classic vast scatter, same conservative-default shape as clusterSpawns above.
+        spawnRadiusTiles: opts.spawnRadiusTiles,
         debugCommands: opts.debugCommands ?? false,
         testFixtures: opts.testFixtures ?? false,
       }),

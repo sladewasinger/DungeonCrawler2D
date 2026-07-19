@@ -38,7 +38,10 @@ function applyTouchLayoutOverrides(registry: WidgetRegistry): void {
 
 export class HudWidgets {
   readonly registry = new WidgetRegistry();
-  private readonly touchActive = isTouchDevice();
+  private readonly scene: Phaser.Scene;
+  /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
+   * after boot) flips this reactively — see handlePointerDown. */
+  private touchActive = isTouchDevice();
   private readonly health: HealthBarWidget;
   private readonly hotbar: HotbarWidget;
   private readonly buffs: BuffChipsWidget;
@@ -48,10 +51,11 @@ export class HudWidgets {
   private readonly connection: ConnectionStatusWidget;
   private readonly death: DeathOverlayWidget;
   private readonly reconnectToast: ReconnectToastWidget;
-  private readonly touchStick: TouchStickWidget | undefined;
-  private readonly touchButtons: TouchButtonsWidget | undefined;
+  private touchStick: TouchStickWidget | undefined;
+  private touchButtons: TouchButtonsWidget | undefined;
 
   constructor(scene: Phaser.Scene, viewport: Viewport) {
+    this.scene = scene;
     if (this.touchActive) applyTouchLayoutOverrides(this.registry);
     this.health = new HealthBarWidget(scene, this.registry, viewport);
     this.hotbar = new HotbarWidget(scene, this.registry, viewport);
@@ -62,10 +66,31 @@ export class HudWidgets {
     this.connection = new ConnectionStatusWidget(scene, this.registry, viewport);
     this.death = new DeathOverlayWidget(scene, this.registry, viewport);
     this.reconnectToast = new ReconnectToastWidget(scene, this.registry, viewport);
-    if (this.touchActive) {
-      this.touchStick = new TouchStickWidget(scene, this.registry, viewport);
-      this.touchButtons = new TouchButtonsWidget(scene, this.registry, viewport);
-    }
+    if (this.touchActive) this.buildTouchControls(scene, viewport);
+    scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => this.handlePointerDown(pointer));
+  }
+
+  private buildTouchControls(scene: Phaser.Scene, viewport: Viewport): void {
+    this.touchStick = new TouchStickWidget(scene, this.registry, viewport);
+    this.touchButtons = new TouchButtonsWidget(scene, this.registry, viewport);
+  }
+
+  /**
+   * Boot-time isTouchDevice() (checked once, above) is the fast path for real
+   * touch hardware and the ?touch=1 override. It never runs again, so a browser
+   * that only starts reporting touch after boot — Chrome's device toolbar
+   * toggled mid-session, or any other late-arriving touch input — would
+   * otherwise be stuck on the desktop layout with no touch controls forever.
+   * This mounts controls + applies the touch layout live on the first touch
+   * pointer event instead.
+   */
+  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (this.touchActive || !pointer.wasTouch) return;
+    this.touchActive = true;
+    applyTouchLayoutOverrides(this.registry);
+    const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
+    this.buildTouchControls(this.scene, viewport);
+    this.resize(viewport);
   }
 
   /** Drives every widget from one fake/real snapshot; call once per frame. */

@@ -39,7 +39,9 @@ function guarded(fn: () => void): () => void {
 export class InputController {
   private readonly state: InputState;
   private readonly touch: TouchInputState = createTouchInputState();
-  private readonly touchActive: boolean = isTouchDevice();
+  /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
+   * after boot) flips this reactively — see activateTouchIfNeeded. */
+  private touchActive: boolean = isTouchDevice();
   private readonly scene: Phaser.Scene;
   private readonly queries: InputQueries;
   private readonly tilePx: number;
@@ -103,6 +105,7 @@ export class InputController {
   private bindPointer(hud: InputHud, queries: InputQueries, hooks: InputHooks, tilePx: number): void {
     this.scene.input.mouse?.disableContextMenu();
     this.scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      this.activateTouchIfNeeded(pointer);
       const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
       handlePointerDown(
         this.state,
@@ -110,7 +113,25 @@ export class InputController {
         pointer,
       );
     });
-    if (!this.touchActive) return;
+    if (this.touchActive) this.bindTouchDragListeners();
+  }
+
+  /**
+   * Boot-time isTouchDevice() (the fast path, above) never runs again, so a
+   * browser that only starts reporting touch after boot — Chrome's device
+   * toolbar toggled mid-session, or any other late-arriving touch input —
+   * would otherwise never get drag/release tracking for the joystick. Flips
+   * touchActive and wires the deferred listeners on the first touch pointer,
+   * before this same pointerdown is routed (so it's handled as touch, not a
+   * desktop click).
+   */
+  private activateTouchIfNeeded(pointer: Phaser.Input.Pointer): void {
+    if (this.touchActive || !pointer.wasTouch) return;
+    this.touchActive = true;
+    this.bindTouchDragListeners();
+  }
+
+  private bindTouchDragListeners(): void {
     this.scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => handlePointerMove(this.touch, pointer));
     this.scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer));
     this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer));

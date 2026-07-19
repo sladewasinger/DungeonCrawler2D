@@ -3,25 +3,46 @@ import type { SimState } from "./state.js";
 
 /**
  * Spawn-point selection: candidates are floor tiles inside the BSP
- * generator's rooms/corridors (not walls, not furniture), sampled around
- * random chunk centers and scored by distance from other players.
+ * generator's rooms/corridors (not walls, not furniture). Three modes,
+ * checked in this order:
  *
- * The sandbox level is a shared proving ground, not a scattered dungeon
- * run: players cluster near a fixed anchor instead (mirrors v1's
- * SANDBOX_SPAWN clustering), but the anchor is re-resolved against
- * whatever floor the live BSP generator puts there via
- * `findWalkableNear` — never a hardcoded tile, since v1's hand-authored
- * sandbox chunk no longer exists (see docs/PORT_PLAN.md's worldgen
- * redesign). This also fixes `clusterSpawns` — threaded through
- * server.ts/main.ts as an e2e-clustering option but never actually
- * consumed here — by honoring it for every level, not just sandbox.
+ *  1. `clusterSpawns` (or the Sandbox level) — the tests'/e2e tight-cluster
+ *     mode: a fixed grid a couple tiles apart around a hardcoded anchor,
+ *     snapped to real floor via `findWalkableNear` (mirrors v1's
+ *     SANDBOX_SPAWN clustering, but re-resolved against whatever floor the
+ *     live BSP generator puts there — never a hardcoded tile, since v1's
+ *     hand-authored sandbox chunk no longer exists; see
+ *     docs/PORT_PLAN.md's worldgen redesign). Wins over spawnRadiusTiles
+ *     when both are set: it exists for deterministic test/e2e geometry,
+ *     not gameplay, so it stays authoritative regardless of gameplay opts.
+ *  2. `spawnRadiusTiles` — the friend-playtest gameplay mode (see
+ *     main.ts's SPAWN_RADIUS doc comment): every join and respawn lands
+ *     within N tiles of a seed-derived anchor near the world origin, at
+ *     least RADIUS_SPAWN_MIN_SPACING apart from other players, relaxing
+ *     that spacing if the neighborhood gets crowded.
+ *  3. Classic vast scatter (default: neither option set) — random chunk
+ *     centers out to SPAWN_CHUNK_RANGE, scored by MIN_SPAWN_DIST from
+ *     other players.
  */
 const SANDBOX_ANCHOR = { x: 28, y: 28 };
 const SANDBOX_CLUSTER_SPACING = 2;
 const SANDBOX_CLUSTER_COLUMNS = 4;
 
+/** Radius-mode target spacing between concurrent players; halves under crowding. */
+export const RADIUS_SPAWN_MIN_SPACING = 6;
+// Still 3x the physical overlap threshold (2 * engine's BODY_RADIUS = 0.5),
+// so even a fully-relaxed spawn never lands literally on top of someone.
+export const RADIUS_SPAWN_SPACING_FLOOR = 1.5;
+const RADIUS_SPAWN_ATTEMPTS = 40;
+// Spiral search radius (tiles) for the one-time origin anchor — generously
+// bigger than one chunk so it finds real corridor floor even if (0,0)
+// itself lands inside solid rock between rooms.
+const ANCHOR_SEARCH_RADIUS = 48;
+
 export function findSpawn(sim: SimState): { x: number; y: number; z: number } {
   if (sim.world.level === LEVEL.Sandbox || sim.opts.clusterSpawns) return findClusteredSpawn(sim);
+  const radiusTiles = sim.opts.spawnRadiusTiles;
+  if (radiusTiles && radiusTiles > 0) return findRadiusSpawn(sim, radiusTiles);
   const spot = pickSpawnTile(sim) ?? { x: 0.5, y: 0.5 };
   const x = spot.x + 0.5;
   const y = spot.y + 0.5;
@@ -37,6 +58,60 @@ function findClusteredSpawn(sim: SimState): { x: number; y: number; z: number } 
   const x = tile.x + 0.5;
   const y = tile.y + 0.5;
   return { x, y, z: sim.world.groundAt(x, y) };
+}
+
+/** Friend-playtest spawn: near a fixed seed-derived anchor, spaced from other players. */
+function findRadiusSpawn(sim: SimState, radiusTiles: number): { x: number; y: number; z: number } {
+  const anchor = resolveSpawnAnchor(sim);
+  const tile = pickRadiusTile(sim, anchor, radiusTiles) ?? anchor;
+  const x = tile.x + 0.5;
+  const y = tile.y + 0.5;
+  return { x, y, z: sim.world.groundAt(x, y) };
+}
+
+/**
+ * The radius-mode anchor: the nearest walkable floor tile to the world
+ * origin. Depends only on `sim.world` (worldSeed + floor via the BSP
+ * generator), never on player count, join order, or `sim.rng` — so it is
+ * byte-identical on every server restart for a given seed.
+ */
+export function resolveSpawnAnchor(sim: SimState): { x: number; y: number } {
+  return findWalkableNear(sim, 0, 0, ANCHOR_SEARCH_RADIUS) ?? { x: 0, y: 0 };
+}
+
+/** Random floor candidate within radiusTiles of anchor, relaxing min spacing if crowded. */
+function pickRadiusTile(
+  sim: SimState,
+  anchor: { x: number; y: number },
+  radiusTiles: number,
+): { x: number; y: number } | null {
+  let best: { x: number; y: number } | null = null;
+  let bestDistance = -1;
+  for (let spacing = RADIUS_SPAWN_MIN_SPACING; spacing >= RADIUS_SPAWN_SPACING_FLOOR; spacing /= 2) {
+    for (let attempt = 0; attempt < RADIUS_SPAWN_ATTEMPTS; attempt++) {
+      const sample = sampleWithinRadius(sim, anchor, radiusTiles);
+      const tile = findWalkableNear(sim, sample.x, sample.y);
+      if (!tile || Math.hypot(tile.x - anchor.x, tile.y - anchor.y) > radiusTiles) continue;
+      const nearest = nearestPlayerDistance(sim, tile);
+      if (nearest >= spacing) return tile;
+      if (nearest > bestDistance) {
+        bestDistance = nearest;
+        best = tile;
+      }
+    }
+  }
+  return best;
+}
+
+/** Uniform-area random point within radiusTiles of the anchor. */
+function sampleWithinRadius(
+  sim: SimState,
+  anchor: { x: number; y: number },
+  radiusTiles: number,
+): { x: number; y: number } {
+  const angle = sim.rng.next() * Math.PI * 2;
+  const dist = Math.sqrt(sim.rng.next()) * radiusTiles;
+  return { x: anchor.x + Math.cos(angle) * dist, y: anchor.y + Math.sin(angle) * dist };
 }
 
 function pickSpawnTile(sim: SimState): { x: number; y: number } | null {
@@ -71,8 +146,9 @@ export function findWalkableNear(
   sim: SimState,
   wx: number,
   wy: number,
+  maxRadius = 6,
 ): { x: number; y: number } | null {
-  for (let radius = 0; radius < 6; radius++) {
+  for (let radius = 0; radius < maxRadius; radius++) {
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;

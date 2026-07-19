@@ -8,9 +8,15 @@ import { waitForPixelFontReady } from "../ui/font.js";
 const SCENE_PARAM = "scene";
 const GALLERY_SCENE_KEY = "gallery";
 const EDITOR_SCENE_KEY = "editor";
+/** Hard cap on waiting for the pixel font: some mobile browsers never resolve
+ * `document.fonts.ready` (font.ts) in the way desktop Chrome does — a system-font
+ * fallback beats an indefinite black screen. */
+const FONT_READY_TIMEOUT_MS = 2500;
+const FONT_POLL_INTERVAL_MS = 10;
 
 export class PreloadScene extends Phaser.Scene {
   private fontReady = false;
+  private bootStartedAtMs = 0;
 
   constructor() {
     super("preload");
@@ -27,14 +33,20 @@ export class PreloadScene extends Phaser.Scene {
   create(): void {
     const manifest = this.cache.json.get(ASSET_KEYS.animations) as AnimationManifest;
     registerAnimations(this.anims, manifest);
+    this.bootStartedAtMs = this.time.now;
     this.waitThenHandOff();
   }
 
-  /** Font loading is async and independent of Phaser's loader; poll one frame at a time. */
+  /** Font loading is async and independent of Phaser's loader; poll one frame at a
+   * time, up to FONT_READY_TIMEOUT_MS, then proceed regardless. */
   private waitThenHandOff(): void {
-    if (!this.fontReady) {
-      this.time.delayedCall(10, () => this.waitThenHandOff());
+    const timedOut = this.time.now - this.bootStartedAtMs >= FONT_READY_TIMEOUT_MS;
+    if (!this.fontReady && !timedOut) {
+      this.time.delayedCall(FONT_POLL_INTERVAL_MS, () => this.waitThenHandOff());
       return;
+    }
+    if (timedOut && !this.fontReady) {
+      console.warn(`[boot] pixel font not ready after ${FONT_READY_TIMEOUT_MS}ms — proceeding with the system font fallback`);
     }
     const requested = new URLSearchParams(window.location.search).get(SCENE_PARAM);
     if (requested === GALLERY_SCENE_KEY) {
