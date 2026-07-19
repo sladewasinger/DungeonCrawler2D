@@ -2,7 +2,7 @@
 // hand-built grid (no engine World needed — faces.ts's TerrainRead is structural).
 import { TILE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { selectTorchPositions, torchCandidates } from "./torchPlacement.js";
+import { selectTorchPositions, TORCH_SPACING_TILES, torchCandidates } from "./torchPlacement.js";
 
 /** A 1-row-thick horizontal corridor: wall at y=1 fronting floor at y=2, for x in [x0,x1). */
 function corridorWorld(x0: number, x1: number) {
@@ -29,8 +29,10 @@ describe("torchCandidates", () => {
 
 describe("selectTorchPositions", () => {
   it("spaces a long run of candidates into multiple, non-adjacent torches", () => {
-    const world = corridorWorld(59, 69);
-    const picked = selectTorchPositions(torchCandidates(world, 0, 0, 80, 4));
+    // Run spans 3 spacing buckets, so at least 3 torches regardless of the tuning value.
+    const runStart = TORCH_SPACING_TILES;
+    const world = corridorWorld(runStart, runStart + TORCH_SPACING_TILES * 3);
+    const picked = selectTorchPositions(torchCandidates(world, 0, 0, runStart + TORCH_SPACING_TILES * 4, 4));
     expect(picked.length).toBeGreaterThanOrEqual(3);
     const xs = [...picked.map((p) => p.wx)].sort((a, b) => a - b);
     for (let i = 1; i < xs.length; i++) {

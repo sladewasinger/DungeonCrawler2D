@@ -29,7 +29,7 @@ if (isEditor) {
   // reconnect never loses the in-flight session (net/connection.ts owns its own
   // reconnect-with-backoff; the scenes only react to its onConnected callback).
   const conn = new Connection(resolveWsUrl(window.location), loadStoredName(), persistentClientId());
-  new Phaser.Game({
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: "app",
     width: 1280,
@@ -40,4 +40,9 @@ if (isEditor) {
     scale: { mode: Phaser.Scale.RESIZE },
     scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, HudScene],
   });
+  // Perf/debug introspection, dev-server only (never in a production build):
+  // ?debug=1 exposes the game for FPS/display-list probes (tools + manual tuning).
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
+    (window as unknown as { __game: Phaser.Game }).__game = game;
+  }
 }

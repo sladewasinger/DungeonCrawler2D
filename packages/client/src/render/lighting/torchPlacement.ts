@@ -11,7 +11,7 @@ export interface TilePos {
 }
 
 /** Grid-bucket size in tiles — big enough that torch pools read as distinct "islands of firelight", not one continuous glow. */
-const TORCH_SPACING_TILES = 5;
+export const TORCH_SPACING_TILES = 10;
 
 /** Small multiplicative hash, deterministic for identical (wx, wy) every run. */
 function hash2(wx: number, wy: number): number {

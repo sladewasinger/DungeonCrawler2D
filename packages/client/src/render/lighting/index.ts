@@ -3,6 +3,7 @@
 // any externally supplied accent lights (fire/poison/steam areas from vfx/).
 import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
 import { DarknessOverlay } from "./darkness.js";
 import { doorLightPositions } from "./doorLights.js";
@@ -12,8 +13,10 @@ import { LightSpritePool } from "./pool.js";
 import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlacement.js";
 
 const LOAD_MARGIN_CHUNKS = 1;
+/** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
+const MAX_ACTIVE_LIGHTS = 12;
 const TORCH_COLOR = 0xff9e3d;
-const TORCH_RADIUS_TILES = 2.6;
+const TORCH_RADIUS_TILES = 4.2;
 const PORTAL_COLOR = 0x3dd6c3;
 const PORTAL_RADIUS_TILES = 3;
 const PERSONAL_COLOR = 0xfff0d2;
@@ -58,9 +61,18 @@ export class LightingSystem {
       kind: "personal",
       seed: 0,
     };
-    const all = [...this.chunkLights.values()].flat().concat(this.accentLights, personal);
+    // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
+    // viewed away from the player (gallery, spectate) must still keep its lights.
+    const centerTileX = (view.x + view.width / 2) / SCREEN_TILE_PX;
+    const centerTileY = (view.y + view.height / 2) / SCREEN_TILE_PX;
+    const candidates = [...this.chunkLights.values()].flat().concat(this.accentLights);
+    candidates.sort(
+      (a, b) =>
+        Math.hypot(a.x - centerTileX, a.y - centerTileY) - Math.hypot(b.x - centerTileX, b.y - centerTileY),
+    );
+    const all = candidates.slice(0, MAX_ACTIVE_LIGHTS - 1).concat(personal);
     this.pool.sync(all, nowMs);
-    this.darkness.redraw(all, nowMs);
+    this.darkness.redraw();
   }
 
   /** Torch positions currently resident — vfx flame particles key off this list. */
