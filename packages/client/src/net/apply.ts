@@ -1,4 +1,5 @@
 import type { AreaTileUpdate, GameEvent, ServerSnapshot, World } from "@dc2d/engine";
+import { parseFistbumpSealPartner } from "../ui/chat/fistbumpSeal.js";
 import type { Connection } from "./connection.js";
 import { recordSample } from "./interpolate.js";
 
@@ -66,6 +67,24 @@ function applyAreaTile(conn: Connection, tile: AreaTileUpdate): void {
   else conn.areaTiles.set(key, tile.defId);
 }
 
+/** Appends one chat line and, for the server's exact fistbump-seal phrasing (no
+ * dedicated wire event exists — see sim/contacts.ts's sealMutualContact), also
+ * queues the local success-flourish visual event. */
+function applyChatEvent(conn: Connection, event: Extract<GameEvent, { t: "chat" }>): void {
+  conn.chatLog.push({
+    channel: event.channel,
+    from: event.from,
+    name: event.name,
+    text: event.text,
+    ...(event.target !== undefined ? { target: event.target } : {}),
+  });
+  conn.chatSeq++;
+  // Deep enough to keep /r's DM-thread lookback working across a busy multi-tab session.
+  if (conn.chatLog.length > 40) conn.chatLog.shift();
+  const sealedWith = parseFistbumpSealPartner(event.channel, event.text);
+  if (sealedWith) conn.visualEvents.push({ t: "fistbumpSealed", partnerName: sealedWith });
+}
+
 function applyEvent(conn: Connection, event: GameEvent): void {
   switch (event.t) {
     case "toast":
@@ -73,14 +92,16 @@ function applyEvent(conn: Connection, event: GameEvent): void {
       if (conn.toasts.length > 5) conn.toasts.shift();
       return;
     case "chat":
-      conn.chatLog.push({ channel: event.channel, name: event.name, text: event.text });
-      if (conn.chatLog.length > 8) conn.chatLog.shift();
+      applyChatEvent(conn, event);
       return;
     case "invite":
       conn.pendingInvite = { from: event.from, name: event.name };
       return;
     case "stash":
       conn.stash = event.slots;
+      return;
+    case "contactsUpdated":
+      conn.contacts = event.contacts;
       return;
     case "teleported":
       conn.teleported = true;

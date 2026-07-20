@@ -1,4 +1,5 @@
 import type { EffectEvent } from "@dc2d/engine";
+import { doFistbump, doWho } from "../contacts.js";
 import { doCraft, doDrop, doPickup, doStash, invIndex } from "../inventory.js";
 import { doChat, doParty } from "../social.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
@@ -31,6 +32,7 @@ const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
   "drop",
   "craft",
   "stash",
+  "fistbump",
 ]);
 
 function dispatchAction(
@@ -75,6 +77,9 @@ function dispatchGatedAction(
     case "stash":
       doStash(sim, slot, action.op, action.index);
       break;
+    case "fistbump":
+      doFistbump(sim, slot, action.targetId);
+      break;
   }
 }
 
@@ -90,10 +95,7 @@ function dispatchStandingAction(
       doSuicide(slot);
       break;
     case "assign":
-      // Bind an owned def (or clear) — the hotbar holds references.
-      if (action.item === null || invIndex(slot, action.item) >= 0) {
-        slot.hotbar[action.slot] = action.item;
-      }
+      doAssign(slot, action.slot, action.item);
       break;
     case "equip":
       doEquip(sim, slot, action.item);
@@ -102,13 +104,31 @@ function dispatchStandingAction(
       doInteract(sim, slot, effectEvents);
       break;
     case "party":
-      doParty(sim, slot, action.op, action.target);
-      break;
     case "chat":
-      doChat(sim, slot, action.channel, action.text);
+    case "who":
+      dispatchSocialAction(sim, slot, action);
       break;
     case "debug":
       doDebug(sim, slot, action);
+      break;
+  }
+}
+
+/** Chat/party/who — split out of dispatchStandingAction to stay under the complexity cap. */
+function dispatchSocialAction(
+  sim: SimState,
+  slot: PlayerSlot,
+  action: Extract<PlayerAction, { type: "party" | "chat" | "who" }>,
+): void {
+  switch (action.type) {
+    case "party":
+      doParty(sim, slot, action.op, action.target);
+      break;
+    case "chat":
+      doChat(sim, slot, action.channel, action.text, action.target);
+      break;
+    case "who":
+      doWho(sim, slot);
       break;
   }
 }
@@ -120,6 +140,11 @@ function doSuicide(slot: PlayerSlot): void {
   delete slot.entity.downedUntil;
   slot.entity.hp = 0;
   slot.pendingInputs.length = 0;
+}
+
+/** Bind an owned def (or clear) — the hotbar holds references. */
+function doAssign(slot: PlayerSlot, hotbarSlot: number, item: string | null): void {
+  if (item === null || invIndex(slot, item) >= 0) slot.hotbar[hotbarSlot] = item;
 }
 
 function doEquip(sim: SimState, slot: PlayerSlot, item: string | null): void {

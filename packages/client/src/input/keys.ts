@@ -11,7 +11,7 @@ export function createKeys(scene: Phaser.Scene): {
   const keyboard = scene.input.keyboard;
   if (!keyboard) throw new Error("scene has no keyboard plugin");
   const cursors = keyboard.createCursorKeys();
-  const keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,ESC,SHIFT,I,TAB") as unknown as Keys;
+  const keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,ESC,SHIFT,I,TAB,ENTER,O") as unknown as Keys;
   // Phaser's TAB key doesn't preventDefault() browser focus-cycling by default —
   // without this, opening the inventory with [Tab] also yanks focus off the canvas.
   keyboard.addCapture("TAB");

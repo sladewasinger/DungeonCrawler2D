@@ -40,7 +40,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
   return {
     entity,
     clientId: `client-${name}`,
-    stored: { slot: 0, name, stash: [] },
+    stored: { slot: 0, name, stash: [], contacts: [] },
     resumeToken: `token-${name}`,
     lastSeq: -1,
     pendingInputs: [],
@@ -61,6 +61,8 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
     forceDeath: false,
+    chatTimestamps: [],
+    lastFistbumpOfferAtTick: -Infinity,
   };
 }
 
@@ -144,5 +146,57 @@ describe("social", () => {
   it("leaveParty on a partyless slot is a no-op", () => {
     expect(() => leaveParty(sim, a)).not.toThrow();
     expect(a.partyId).toBeNull();
+  });
+
+  it("global chat reaches every connected player, sender included", () => {
+    doChat(sim, a, "global", "hello floor");
+    expect(a.outbox.some((e) => e.t === "chat" && e.channel === "global")).toBe(true);
+    expect(b.outbox.some((e) => e.t === "chat" && e.channel === "global")).toBe(true);
+  });
+
+  it("dm to a non-contact is denied with a system line, no message delivered", () => {
+    doChat(sim, a, "dm", "psst", "B");
+    expect(b.outbox.some((e) => e.t === "chat" && e.channel === "dm")).toBe(false);
+    expect(a.outbox.some((e) => e.t === "chat" && e.channel === "system")).toBe(true);
+  });
+
+  it("dm between mutual contacts reaches both ends with the thread partner as target", () => {
+    a.stored.contacts.push("B");
+    doChat(sim, a, "dm", "hi B", "B");
+    expect(b.outbox.some((e) => e.t === "chat" && e.channel === "dm" && e.target === "A")).toBe(true);
+    expect(a.outbox.some((e) => e.t === "chat" && e.channel === "dm" && e.target === "B")).toBe(true);
+  });
+
+  it("dm name matching is case-insensitive and rejects ambiguous online matches", () => {
+    a.stored.contacts.push("b");
+    doChat(sim, a, "dm", "hi", "b");
+    expect(b.outbox.some((e) => e.t === "chat" && e.channel === "dm")).toBe(true);
+
+    const b2 = makeSlot("B", 12, 10);
+    sim.players.set(b2.entity.id, b2);
+    doChat(sim, a, "dm", "hi again", "b");
+    expect(a.outbox.some((e) => e.t === "chat" && e.channel === "system" && e.text.includes("Multiple"))).toBe(
+      true,
+    );
+  });
+
+  it("dm to yourself is rejected with a clear system line", () => {
+    doChat(sim, a, "dm", "hi me", "A");
+    expect(a.outbox.some((e) => e.t === "chat" && e.channel === "system" && e.text.includes("yourself"))).toBe(
+      true,
+    );
+  });
+
+  it("chat is rate-limited to 5/10s flat across every channel (ASSUMPTION #46)", () => {
+    // Mixed channels all draw from the same rolling-window budget — the
+    // 5th of ANY kind is fine, the 6th (even on a different channel) isn't.
+    doChat(sim, a, "local", "1");
+    doChat(sim, a, "party", "2"); // dropped (partyless) but still consumes the budget
+    doChat(sim, a, "global", "3");
+    doChat(sim, a, "global", "4");
+    doChat(sim, a, "local", "5");
+    a.outbox.length = 0;
+    doChat(sim, a, "global", "one too many");
+    expect(a.outbox.some((e) => e.t === "chat" && e.channel === "system")).toBe(true);
   });
 });

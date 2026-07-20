@@ -1,7 +1,9 @@
 import { TICK_RATE, type GameEvent } from "@dc2d/engine";
+import { CHAT_LIMIT, RATE_WINDOW_TICKS, findOnlineByName, withinRateLimit } from "./contacts.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
-/** Parties, invites, and chat (party + local fan-out). */
+/** Parties, invites, and chat fan-out (party/local/global/dm). Fistbump + /who
+ * live in contacts.ts, as does the shared chat/who rate-limit budget. */
 
 const INVITE_TTL_TICKS = 30 * TICK_RATE;
 /** Proximity gate for inviting: roughly fistbump range, not sight range. */
@@ -91,24 +93,70 @@ function disbandParty(sim: SimState, party: { id: string; members: Set<string> }
 export function doChat(
   sim: SimState,
   slot: PlayerSlot,
-  channel: "party" | "local",
+  channel: "party" | "local" | "global" | "dm",
   text: string,
+  target?: string,
 ): void {
-  const event: GameEvent = {
-    t: "chat",
-    channel,
-    from: slot.entity.id,
-    name: slot.entity.name ?? "?",
-    text,
-  };
-  if (channel === "party") {
-    if (!slot.partyId) return;
-    const party = sim.parties.get(slot.partyId);
-    if (!party) return;
-    for (const memberId of party.members) sim.players.get(memberId)?.outbox.push(event);
-  } else {
-    sim.worldEvents.push({ ev: event, x: slot.entity.body.x, y: slot.entity.body.y });
+  if (!withinRateLimit(slot.chatTimestamps, sim.tickCount, RATE_WINDOW_TICKS, CHAT_LIMIT)) {
+    slot.outbox.push(systemLine("You're sending messages too fast — slow down."));
+    return;
   }
+  if (channel === "party") doPartyChat(sim, slot, text);
+  else if (channel === "local") doLocalChat(sim, slot, text);
+  else if (channel === "global") doGlobalChat(sim, slot, text);
+  else doDmChat(sim, slot, text, target);
+}
+
+function doPartyChat(sim: SimState, slot: PlayerSlot, text: string): void {
+  if (!slot.partyId) return;
+  const party = sim.parties.get(slot.partyId);
+  if (!party) return;
+  const event: GameEvent = { t: "chat", channel: "party", from: slot.entity.id, name: slot.entity.name ?? "?", text };
+  for (const memberId of party.members) sim.players.get(memberId)?.outbox.push(event);
+}
+
+function doLocalChat(sim: SimState, slot: PlayerSlot, text: string): void {
+  const event: GameEvent = { t: "chat", channel: "local", from: slot.entity.id, name: slot.entity.name ?? "?", text };
+  sim.worldEvents.push({ ev: event, x: slot.entity.body.x, y: slot.entity.body.y });
+}
+
+/** Truly global (ASSUMPTION #14): every connected socket on THIS sim — dungeon/sandbox
+ * never bleed into each other because each level runs its own GameSim/players map. */
+function doGlobalChat(sim: SimState, slot: PlayerSlot, text: string): void {
+  const event: GameEvent = { t: "chat", channel: "global", from: slot.entity.id, name: slot.entity.name ?? "?", text };
+  for (const other of sim.players.values()) if (other.connected) other.outbox.push(event);
+}
+
+/** DMs require a mutual contact (ASSUMPTION #15); name matching is case-insensitive
+ * exact, with an ambiguity error on multiple online matches (ASSUMPTION #17). */
+function doDmChat(sim: SimState, slot: PlayerSlot, text: string, target?: string): void {
+  if (!target) return;
+  if ((slot.entity.name ?? "").toLowerCase() === target.toLowerCase()) {
+    slot.outbox.push(systemLine("You can't DM yourself."));
+    return;
+  }
+  const matches = findOnlineByName(sim, target);
+  if (matches.length > 1) {
+    slot.outbox.push(systemLine(`Multiple online players named "${target}" — be more specific.`));
+    return;
+  }
+  const other = matches[0];
+  const isContact = slot.stored.contacts.some((c) => c.toLowerCase() === target.toLowerCase());
+  if (!other || !isContact) {
+    slot.outbox.push(systemLine(`You haven't fistbumped ${target} yet.`));
+    return;
+  }
+  // `target` is always "the other side of this thread" relative to
+  // whichever outbox the event lands in, so either client's /r resolves
+  // to the correct partner without knowing who the sender was.
+  const senderName = slot.entity.name ?? "?";
+  const otherName = other.entity.name ?? "?";
+  other.outbox.push({ t: "chat", channel: "dm", from: slot.entity.id, name: senderName, text, target: senderName });
+  slot.outbox.push({ t: "chat", channel: "dm", from: slot.entity.id, name: senderName, text, target: otherName });
+}
+
+function systemLine(text: string): GameEvent {
+  return { t: "chat", channel: "system", from: "server", name: "system", text };
 }
 
 /** Drop invites nobody accepted in time — call once per tick. */

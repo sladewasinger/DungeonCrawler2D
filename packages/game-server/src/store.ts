@@ -17,6 +17,8 @@ export interface StoredPlayer {
   slot: number;
   name: string;
   stash: StashEntry[];
+  /** Mutual-fistbump contacts, by display name (Epic 7.10). No cap. */
+  contacts: string[];
 }
 
 export const STASH_CAPACITY = 24;
@@ -31,10 +33,13 @@ export class PlayerStore {
     try {
       const raw = JSON.parse(readFileSync(file, "utf8")) as {
         nextSlot: number;
-        players: Record<string, StoredPlayer>;
+        players: Record<string, Omit<StoredPlayer, "contacts"> & { contacts?: string[] }>;
       };
       this.nextSlot = raw.nextSlot;
-      for (const [id, p] of Object.entries(raw.players)) this.data.set(id, p);
+      // contacts is new (Epic 7.10) — records saved before it lack the field.
+      for (const [id, p] of Object.entries(raw.players)) {
+        this.data.set(id, { ...p, contacts: p.contacts ?? [] });
+      }
     } catch {
       // first boot — empty store
     }
@@ -51,7 +56,7 @@ export class PlayerStore {
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);
     if (!player) {
-      player = { slot: this.nextSlot++, name, stash: [] };
+      player = { slot: this.nextSlot++, name, stash: [], contacts: [] };
       this.data.set(clientId, player);
       this.scheduleSave();
     } else if (player.name !== name) {
@@ -90,6 +95,13 @@ export class PlayerStore {
     player.stash.splice(index, 1);
     this.scheduleSave();
     return entry;
+  }
+
+  /** Idempotent, case-insensitive: mutual fistbump adds each side's name to the other's list. */
+  addContact(player: StoredPlayer, name: string): void {
+    if (player.contacts.some((c) => c.toLowerCase() === name.toLowerCase())) return;
+    player.contacts.push(name);
+    this.scheduleSave();
   }
 
   scheduleSave(): void {

@@ -1,6 +1,8 @@
 /** Fake HUD data for the gallery's HUD-on state — a presentation demo, not live game state. */
 import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
 import { isTouchDevice } from "../../../input/touchDetect.js";
+import type { ChatPanelModel } from "../../chat/controller.js";
+import type { ContactData } from "./contactRows.js";
 
 export interface HotbarSlotData {
   itemId: string | null;
@@ -12,14 +14,6 @@ export interface BuffChipData {
   kind: "buff" | "debuff";
   remainingSec: number;
   durationSec: number;
-}
-
-export type ChatChannel = "local" | "party";
-
-export interface ChatLineData {
-  channel: ChatChannel;
-  author: string;
-  text: string;
 }
 
 /** Inventory filter-tab category — mirrors inventoryRows.ts's InventoryTabId minus "all". */
@@ -50,8 +44,8 @@ export interface HudFakeSnapshot {
   equippedWeaponId: string | null;
   /** Every inventory stack the inventory window renders — independent of the 9 hotbar slots above. */
   inventory: InventoryRowData[];
-  chat: ChatLineData[];
-  activeChatChannel: ChatChannel;
+  chatModel: ChatPanelModel;
+  contacts: ContactData[];
   interactionPrompt: { key: string; label: string } | null;
   pingMs: number;
   connected: boolean;
@@ -86,6 +80,25 @@ const FAKE_INVENTORY: InventoryRowData[] = [
   { itemId: "stick", name: "Stick", qty: 5, category: "materials", boundSlot: null },
 ];
 
+/** One tab per channel, global unread and dm dimmed (not yet seen) — proves both states at once. */
+const FAKE_CHAT_MODEL: ChatPanelModel = {
+  tabs: [
+    { id: "global", active: false, unread: true, dim: false },
+    { id: "local", active: true, unread: false, dim: false },
+    { id: "party", active: false, unread: false, dim: false },
+    { id: "dm", active: false, unread: false, dim: true },
+  ],
+  lines: [
+    { channel: "local", author: "Wren", text: "watch the spikes" },
+    { channel: "party", author: "you", text: "grabbed the key" },
+  ],
+};
+
+const FAKE_CONTACTS: ContactData[] = [
+  { name: "Wren", online: true },
+  { name: "Rex", online: false },
+];
+
 /** Static fake snapshot: half health, 5 filled hotbar slots (one armed throwable), 2 buffs, one chat line per channel. */
 export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
   return {
@@ -109,11 +122,8 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     ],
     equippedWeaponId: "sword",
     inventory: FAKE_INVENTORY,
-    chat: [
-      { channel: "local", author: "Wren", text: "watch the spikes" },
-      { channel: "party", author: "you", text: "grabbed the key" },
-    ],
-    activeChatChannel: "local",
+    chatModel: FAKE_CHAT_MODEL,
+    contacts: FAKE_CONTACTS,
     interactionPrompt: { key: "R", label: "pick up" },
     pingMs: 42,
     connected: true,

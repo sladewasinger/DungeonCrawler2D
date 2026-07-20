@@ -24,6 +24,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     assignSlot: () => calls.push("assignSlot"),
     equip: () => calls.push("equip"),
     drop: () => calls.push("drop"),
+    fistbump: () => calls.push("fistbump"),
     ...overrides,
   };
 }

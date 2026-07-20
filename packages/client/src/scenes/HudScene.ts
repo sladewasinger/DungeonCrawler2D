@@ -8,7 +8,7 @@
  */
 import Phaser from "phaser";
 import { fakeHudSnapshot, type HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { HudWidgets } from "../ui/widgets/hud/index.js";
+import { HudWidgets, type SocialActions } from "../ui/widgets/hud/index.js";
 import type { InventoryActions } from "../ui/widgets/hud/inventoryWindow.js";
 
 /** ?hud=1 shows the HUD-on state with fake data; ?hud=death also forces the death overlay. */
@@ -22,6 +22,8 @@ export interface HudSceneData {
   source?: () => HudFakeSnapshot;
   /** The inventory window's network intents — omitted in the gallery's fake-data preview. */
   actions?: InventoryActions;
+  /** Chat-tab-click + contacts-DM-button intents — omitted in the gallery's fake-data preview. */
+  social?: SocialActions;
 }
 
 export class HudScene extends Phaser.Scene {
@@ -29,6 +31,7 @@ export class HudScene extends Phaser.Scene {
   private snapshot: HudFakeSnapshot | undefined;
   private source: (() => HudFakeSnapshot) | undefined;
   private actions: InventoryActions | undefined;
+  private social: SocialActions | undefined;
 
   constructor() {
     super("hud");
@@ -37,6 +40,7 @@ export class HudScene extends Phaser.Scene {
   init(data?: HudSceneData): void {
     this.source = data?.source;
     this.actions = data?.actions;
+    this.social = data?.social;
   }
 
   create(): void {
@@ -44,7 +48,7 @@ export class HudScene extends Phaser.Scene {
     const mode = params.get(HUD_QUERY_PARAM);
     if (!this.source && mode !== "1" && mode !== "death") return;
     this.snapshot = mode === "death" ? fakeHudSnapshot(true) : mode === "1" ? fakeHudSnapshot(false) : undefined;
-    this.hud = new HudWidgets(this, { width: this.scale.width, height: this.scale.height }, this.actions);
+    this.hud = new HudWidgets(this, { width: this.scale.width, height: this.scale.height }, this.actions, this.social);
     if (params.get(INVENTORY_QUERY_PARAM) === "1") this.hud.toggleInventory();
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
@@ -85,6 +89,16 @@ export class HudScene extends Phaser.Scene {
   /** InventoryPanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
   closeInventory(): void {
     this.hud?.closeInventory();
+  }
+
+  /** [o] or the chat-tab chip (InputHooks.onToggleContacts). */
+  toggleContacts(): void {
+    this.hud?.toggleContacts();
+  }
+
+  /** [Esc] (InputHooks.onCloseOverlays). */
+  closeContacts(): void {
+    this.hud?.closeContacts();
   }
 
   private handleResize(gameSize: Phaser.Structs.Size): void {

@@ -8,7 +8,8 @@ import type Phaser from "phaser";
 
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
-  "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB",
+  | "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB"
+  | "ENTER" | "O",
   Phaser.Input.Keyboard.Key
 >;
 
@@ -51,6 +52,8 @@ export interface InputConnection {
   assignSlot(slot: number, item: string | null): void;
   equip(item: string | null): void;
   drop(item: string): void;
+  /** Hold-F contact gesture intent (Epic 7.10) — server gates range/rate/mutuality. */
+  fistbump(targetId: string): void;
 }
 
 /** Resolves whether the HUD's own layer consumed a pointer event. */
@@ -90,6 +93,12 @@ export interface InputHooks {
   onToggleChat(): void;
   /** [I]/[Tab], or the touch layout's bag button — opens/closes the inventory window. */
   onToggleInventory(): void;
+  /** [Enter] — opens the chat input box (a no-op while it's already open/focused). */
+  onOpenChat(): void;
+  /** [o], or the chip beside the chat tabs — opens/closes the contacts window. */
+  onToggleContacts(): void;
+  /** [Esc] — closes the chat input box and contacts window (inventory closes via InputPanels). */
+  onCloseOverlays(): void;
 }
 
 /** Movement/keys pause while any text input has focus (chat, search). */

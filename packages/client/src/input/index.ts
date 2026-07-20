@@ -10,10 +10,26 @@
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
 import { createKeys, readMoveInput } from "./keys.js";
+import {
+  createHoldState,
+  FISTBUMP_RANGE_TILES,
+  holdCrossedThreshold,
+  holdDown,
+  holdProgress,
+  holdUp,
+  type HoldState,
+} from "./fistbump.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
-import { createTouchInputState, mergeMoveInputs, touchMoveInput, touchVisualSnapshot, updateLastFacing } from "./touch/index.js";
+import {
+  createTouchInputState,
+  isButtonHeld,
+  mergeMoveInputs,
+  touchMoveInput,
+  touchVisualSnapshot,
+  updateLastFacing,
+} from "./touch/index.js";
 import type { TouchInputState, TouchVisualSnapshot } from "./touch/index.js";
 import { isTouchDevice } from "./touchDetect.js";
 
@@ -39,6 +55,12 @@ function guarded(fn: () => void): () => void {
 export class InputController {
   private readonly state: InputState;
   private readonly touch: TouchInputState = createTouchInputState();
+  /** Hold-vs-tap F discrimination (Epic 7.10) — a tap keeps party invite/accept as-is. */
+  private readonly fistbumpHold: HoldState = createHoldState();
+  /** Nearby-player id tracked while F is held, for both firing and the HUD ring. */
+  private fistbumpTargetId: string | null = null;
+  /** Edge-detection for the touch interact button, which has no keydown/keyup events. */
+  private touchFistbumpHeld = false;
   /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
    * after boot) flips this reactively — see activateTouchIfNeeded. */
   private touchActive: boolean = isTouchDevice();
@@ -77,23 +99,17 @@ export class InputController {
     );
     keys.R.on("down", guarded(() => conn.pickup()));
     keys.C.on("down", guarded(() => panels.toggleCraft(conn)));
-    keys.F.on(
-      "down",
-      guarded(() => {
-        if (conn.pendingInvite) {
-          conn.partyOp("accept");
-          return;
-        }
-        const nearest = queries.nearestPlayerId(conn, 6);
-        if (nearest) conn.partyOp("invite", nearest);
-      }),
-    );
+    keys.F.on("down", guarded(() => holdDown(this.fistbumpHold, this.scene.time.now)));
+    keys.F.on("up", guarded(() => this.releaseFistbumpHold(conn, queries)));
     keys.ESC.on("down", () => {
       state.selectedThrowable = null;
       panels.closeAll(conn);
+      hooks.onCloseOverlays();
     });
     keys.I.on("down", guarded(() => hooks.onToggleInventory()));
     keys.TAB.on("down", guarded(() => hooks.onToggleInventory()));
+    keys.ENTER.on("down", guarded(() => hooks.onOpenChat()));
+    keys.O.on("down", guarded(() => hooks.onToggleContacts()));
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) throw new Error("scene has no keyboard plugin");
     for (let i = 1; i <= 9; i++) {
@@ -102,6 +118,57 @@ export class InputController {
         guarded(() => onNumberKey(state, conn, panels, queries, keys, i)),
       );
     }
+  }
+
+  /** A quick tap keeps today's party invite/accept flow; a hold already fired (or missed
+   * its window with no target) and does nothing further here. */
+  private releaseFistbumpHold(conn: InputConnection, queries: InputQueries): void {
+    const result = holdUp(this.fistbumpHold, this.scene.time.now);
+    this.fistbumpTargetId = null;
+    if (result !== "tap") return;
+    if (conn.pendingInvite) {
+      conn.partyOp("accept");
+      return;
+    }
+    const nearest = queries.nearestPlayerId(conn, 6);
+    if (nearest) conn.partyOp("invite", nearest);
+  }
+
+  /** Call once per render frame: fires the fistbump intent exactly on the tick the hold
+   * crosses its threshold, and keeps the tracked nearby target fresh for the HUD ring. */
+  pollFistbumpHold(): void {
+    const nowMs = this.scene.time.now;
+    this.pollTouchFistbumpEdge(nowMs);
+    if (!this.isFistbumpHoldSourceDown()) return;
+    this.fistbumpTargetId = this.queries.nearestPlayerId(this.conn, FISTBUMP_RANGE_TILES) ?? null;
+    if (this.fistbumpTargetId && holdCrossedThreshold(this.fistbumpHold, nowMs)) {
+      this.conn.fistbump(this.fistbumpTargetId);
+    }
+  }
+
+  private isFistbumpHoldSourceDown(): boolean {
+    return this.state.keys.F.isDown || (this.touchActive && isButtonHeld(this.touch, "interact"));
+  }
+
+  /** The touch interact button has no keydown/keyup events (see pointer.ts's "touch:interact"
+   * press, which fires pickup/interact immediately as it always has) — so its hold-vs-tap
+   * edges for the fistbump gesture are detected here instead, every frame. */
+  private pollTouchFistbumpEdge(nowMs: number): void {
+    if (!this.touchActive) return;
+    const held = isButtonHeld(this.touch, "interact");
+    if (held && !this.touchFistbumpHeld) holdDown(this.fistbumpHold, nowMs);
+    else if (!held && this.touchFistbumpHeld) {
+      holdUp(this.fistbumpHold, nowMs);
+      this.fistbumpTargetId = null;
+    }
+    this.touchFistbumpHeld = held;
+  }
+
+  /** HUD-facing read: the in-progress hold's target + 0..1 ring progress, or null when idle. */
+  fistbumpHoldView(): { targetId: string; progress: number } | null {
+    if (!this.fistbumpTargetId) return null;
+    const progress = holdProgress(this.fistbumpHold, this.scene.time.now);
+    return progress > 0 ? { targetId: this.fistbumpTargetId, progress } : null;
   }
 
   private bindPointer(hud: InputHud, queries: InputQueries, hooks: InputHooks, tilePx: number): void {

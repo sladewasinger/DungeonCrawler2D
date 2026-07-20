@@ -23,6 +23,7 @@ import {
   reapAndRespawn,
   stepPlayers,
 } from "./players.js";
+import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
 import { buildSnapshots } from "./snapshots.js";
 import { expireInvites } from "./social.js";
@@ -155,6 +156,7 @@ export class GameSim {
     applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
     resolveDeaths(sim);
     expireInvites(sim);
+    expireFistbumpOffers(sim);
 
     return buildSnapshots(sim);
   }

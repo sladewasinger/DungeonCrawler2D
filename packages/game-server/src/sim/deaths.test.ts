@@ -56,7 +56,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
   return {
     entity,
     clientId: `client-${name}`,
-    stored: { slot: 0, name, stash: [] },
+    stored: { slot: 0, name, stash: [], contacts: [] },
     resumeToken: `token-${name}`,
     lastSeq: -1,
     pendingInputs: [],
@@ -77,6 +77,8 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
     forceDeath: false,
+    chatTimestamps: [],
+    lastFistbumpOfferAtTick: -Infinity,
   };
 }
 

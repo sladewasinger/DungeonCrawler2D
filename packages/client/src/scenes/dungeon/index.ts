@@ -13,26 +13,30 @@ import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import { LightingSystem } from "../../render/lighting/index.js";
 import { TerrainRenderer } from "../../render/terrain/index.js";
+import { ChatController } from "../../ui/chat/controller.js";
+import { ChatInputBox } from "../../ui/chat/chatInput.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { VfxSystem } from "../../vfx/index.js";
 import type { HudScene } from "../HudScene.js";
-import { buildAreaTileViews } from "./areaViews.js";
 import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
-import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
 import { consumeFixedSteps, interpolationAlpha, lerp } from "./fixedStep.js";
-import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
-import { createHudActions, createInputConnectionAdapter, createInputHooks, createInputPanels, createInputQueries } from "./inputAdapters.js";
-import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
-import { resolveMeleeSwings } from "./meleeSwingEvents.js";
-import { pruneProjectileVelocity } from "./projectileVelocity.js";
-import { resolveSelfAimAngle } from "./selfAim.js";
+import { FistbumpRing } from "./fistbumpRing.js";
+import { syncFistbumpRing } from "./fistbumpRingSync.js";
+import { syncEntities, syncLightingAndVfx } from "./frameSync.js";
+import {
+  createChatPort,
+  createHudActions,
+  createInputConnectionAdapter,
+  createInputHooks,
+  createInputPanels,
+  createInputQueries,
+} from "./inputAdapters.js";
+import { buildLiveHudSnapshot } from "./liveHudSnapshot.js";
+import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
+import type { InteractionPrompt } from "./interactionPrompt.js";
 import { updateSelfFacing } from "./selfCosmetics.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
-import { createTorchSyncState, syncTorches, type TorchSyncState } from "./torchSync.js";
-import { applyVisualEvents } from "./visualEvents.js";
-
-/** Remote entities render this far in the past, lerped between snapshot samples. */
-const INTERP_DELAY_MS = 100;
+import { createTorchSyncState, type TorchSyncState } from "./torchSync.js";
 
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
@@ -47,6 +51,9 @@ export class DungeonScene extends Phaser.Scene {
   private partyIds: ReadonlySet<string> = new Set();
   private readonly torchSyncState: TorchSyncState = createTorchSyncState();
   private torchAccentLights: LightSource[] = [];
+  private chatController!: ChatController;
+  private chatInputBox!: ChatInputBox;
+  private fistbumpRing!: FistbumpRing;
 
   constructor(private readonly conn: Connection) {
     super("dungeon");
@@ -57,17 +64,27 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
+    this.fistbumpRing = new FistbumpRing(this);
     this.hudScene = this.scene.get("hud") as HudScene;
+    this.chatController = new ChatController(createChatPort(this.conn));
+    this.chatInputBox = new ChatInputBox({ onSubmit: (text) => this.chatController.submit(text) });
     this.inputController = this.buildInputController();
-    this.scene.launch("hud", { source: () => this.buildHudSnapshotNow(), actions: createHudActions(this.conn) });
+    this.scene.launch("hud", {
+      source: () => this.buildHudSnapshotNow(),
+      actions: createHudActions(this.conn),
+      social: buildSocialActions(this.chatController, this.chatInputBox, () => this.scale.height, this.hudScene),
+    });
     this.setUpCameraResize();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
 
   update(time: number, deltaMs: number): void {
     const { conn } = this;
+    this.chatController.sync();
     if (!conn.world || !conn.body || !conn.welcome) return;
 
+    this.inputController.pollFistbumpHold();
+    syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
     this.consumeTeleport();
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
@@ -79,15 +96,33 @@ export class DungeonScene extends Phaser.Scene {
     this.terrain?.update(this.cameras.main.worldView);
     this.partyIds = new Set((conn.party?.members ?? []).map((m) => m.id));
 
-    this.syncEntities(time, deltaMs / 1000, render);
-    this.syncLightingAndVfx(time, render);
+    const synced = syncEntities(
+      this,
+      conn,
+      this.entityRenderer,
+      this.vfx,
+      this.terrain,
+      this.inputController,
+      this.state,
+      this.torchSyncState,
+      this.partyIds,
+      time,
+      deltaMs / 1000,
+      render,
+    );
+    this.interactionPrompt = synced.interactionPrompt;
+    this.torchAccentLights = synced.torchAccentLights;
+    syncLightingAndVfx(conn, this.lighting, this.vfx, this.cameras.main, this.torchAccentLights, this.state, time, render);
   }
 
   private buildInputController(): InputController {
     const connAdapter = createInputConnectionAdapter(this.conn);
     const panels = createInputPanels(this.hudScene);
     const queries = createInputQueries(this.conn);
-    const hooks = createInputHooks(this.state.cosmetics, () => this.hudScene.toggleChat(), () => this.hudScene.toggleInventory());
+    const hooks = createInputHooks(
+      this.state.cosmetics,
+      buildSocialHooks(this.hudScene, this.chatInputBox, () => this.scale.height),
+    );
     return new InputController(this, connAdapter, panels, this.hudScene, queries, hooks, SCREEN_TILE_PX);
   }
 
@@ -138,82 +173,14 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.centerOn(this.state.camera.x, this.state.camera.y);
   }
 
-  private syncEntities(nowMs: number, dtSeconds: number, render: RenderPose): void {
-    const conn = this.conn;
-    if (!conn.world || !conn.welcome || !conn.body) return;
-    const interpolated = conn.interpolated(INTERP_DELAY_MS);
-    const items = interpolated.filter((e) => e.snap.kind === "item");
-    const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, this.partyIds);
-
-    const touchActive = this.inputController.touchVisual() !== null;
-    const aimAngle = resolveSelfAimAngle(touchActive, this.state.cosmetics.faceX, this.state.cosmetics.faceY, render, this.cameras.main, this.input.activePointer);
-    const self = selfPlayerView(
-      { id: conn.welcome.playerId, name: conn.name, x: render.x, y: render.y, z: render.z, air: !conn.body.grounded },
-      { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, weaponId: conn.weapon },
-      this.state.cosmetics,
-      nowMs,
-      aimAngle,
-    );
-    const players = interpolated.filter((e) => e.snap.kind === "player").map(remotePlayerView);
-    const allPlayers = [self, ...players];
-    this.entityRenderer.syncPlayers(allPlayers, context);
-    this.entityRenderer.syncMonsters(interpolated.filter((e) => e.snap.kind === "enemy").map(monsterView), context);
-    this.entityRenderer.syncItems(items.map(itemView), nowMs);
-    // Wedge telegraph for every player whose attack just started this frame (self or remote alike).
-    for (const swing of resolveMeleeSwings(allPlayers, this.state.attackFlags)) {
-      this.vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
-    }
-
-    const projectiles = interpolated.filter((e) => e.snap.kind === "projectile");
-    this.entityRenderer.syncProjectiles(projectiles.map((e) => projectileView(e, this.state.projectileVelocity, nowMs)));
-    pruneProjectileVelocity(this.state.projectileVelocity, new Set(projectiles.map((e) => e.id)));
-
-    if (this.terrain) {
-      const torches = interpolated.filter((e) => e.snap.kind === "torch");
-      const torchSync = syncTorches(this.torchSyncState, torches, this.terrain);
-      this.entityRenderer.syncTorches(torchSync.views, context);
-      this.torchAccentLights = torchSync.accentLights;
-    }
-
-    this.interactionPrompt = resolveInteractionPrompt(conn.world, render.x, render.y, items);
-  }
-
-  private syncLightingAndVfx(nowMs: number, render: RenderPose): void {
-    const conn = this.conn;
-    if (!this.lighting || !conn.body) return;
-    const areaLights = this.vfx.syncAreas(buildAreaTileViews(conn.areaTiles));
-    this.lighting.setAccentLights([...areaLights, ...this.torchAccentLights]);
-    this.lighting.update(this.cameras.main.worldView, render.x, render.y, nowMs);
-    this.vfx.syncTorchFlames(this.lighting.activeTorches());
-    this.vfx.trackPlayerMotion(
-      { x: render.x, y: render.y, air: !conn.body.grounded, faceX: this.state.cosmetics.faceX },
-      nowMs,
-    );
-    applyVisualEvents(conn, this.vfx, render, nowMs);
-    this.vfx.update(nowMs);
-  }
-
   private buildHudSnapshotNow(): HudFakeSnapshot {
-    const conn = this.conn;
-    const source: HudSnapshotSource = {
-      hp: conn.hp,
-      maxHp: conn.maxHp,
-      hotbar: conn.hotbar,
-      inventory: conn.inventory,
-      weapon: conn.weapon,
-      fx: conn.fx,
-      chatLog: conn.chatLog,
-      hasParty: !!conn.party,
-      pingMs: conn.rttMs,
-      connected: conn.status === "connected",
-      reconnecting: conn.status !== "connected",
-      downed: conn.downed || conn.dead,
-    };
-    // conn.body may still be null the first frame or two after boot (HudScene's source()
-    // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
-    const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y } : { x: 0, y: 0 };
-    const touch = this.inputController.touchVisual();
-    return buildHudSnapshot(source, this.inputController.armedThrowableSlot(), this.interactionPrompt, touch, this.game.loop.actualFps, bodyPos);
+    return buildLiveHudSnapshot(
+      this.conn,
+      this.inputController,
+      this.interactionPrompt,
+      this.chatController,
+      this.game.loop.actualFps,
+    );
   }
 
   private setUpCameraResize(): void {
@@ -227,5 +194,7 @@ export class DungeonScene extends Phaser.Scene {
     this.lighting?.dispose();
     this.entityRenderer.dispose();
     this.vfx.dispose();
+    this.chatInputBox.dispose();
+    this.fistbumpRing.dispose();
   }
 }

@@ -61,6 +61,10 @@ export interface PlayerSlot {
   god: boolean;
   /** Menu-requested death bypasses the party downed state. */
   forceDeath: boolean;
+  /** Tick timestamps of recent chat sends, rolling-window rate limit (social.ts). */
+  chatTimestamps: number[];
+  /** Tick of this slot's most recent fistbump *offer* sent, rate-limited separately from chat. */
+  lastFistbumpOfferAtTick: number;
 }
 
 export interface EnemySlot {
@@ -126,6 +130,8 @@ export interface SimState {
   readonly torches: Map<string, Entity>;
   readonly parties: Map<string, Party>;
   readonly invites: Map<string, { from: string; expiresAt: number }>;
+  /** Pending fistbump offers, keyed by target entity id (Epic 7.10) — 10s window. */
+  readonly fistbumpOffers: Map<string, { from: string; expiresAtTick: number }>;
   readonly activatedChunks: Set<string>;
   /** Fire-exposure seconds per ground item id (items char, then burn away). */
   readonly exposure: Map<string, number>;
@@ -161,6 +167,7 @@ export function createSimState(
     torches: new Map(),
     parties: new Map(),
     invites: new Map(),
+    fistbumpOffers: new Map(),
     activatedChunks: new Set(),
     exposure: new Map(),
     worldEvents: [],

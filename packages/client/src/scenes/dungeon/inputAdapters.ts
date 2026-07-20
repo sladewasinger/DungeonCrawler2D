@@ -44,6 +44,7 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     assignSlot: (slot, item) => conn.assignSlot(slot, item),
     equip: (item) => conn.equip(item),
     drop: (item) => conn.drop(item),
+    fistbump: (targetId) => conn.fistbump(targetId),
   };
 }
 
@@ -61,6 +62,29 @@ export function createHudActions(conn: Connection): InventoryActions {
     assignSlot: (slot, item) => conn.assignSlot(slot, item),
     equip: (item) => conn.equip(item),
     drop: (item) => conn.drop(item),
+  };
+}
+
+/** The live Connection surface ui/chat/controller.ts's ChatController needs (its ChatPort contract). */
+export function createChatPort(conn: Connection): {
+  chatLog: Connection["chatLog"];
+  chatSeq: number;
+  chat: Connection["chat"];
+  who: Connection["who"];
+  debugGod: Connection["debugGod"];
+  debugTeleport: Connection["debugTeleport"];
+} {
+  return {
+    get chatLog() {
+      return conn.chatLog;
+    },
+    get chatSeq() {
+      return conn.chatSeq;
+    },
+    chat: (channel, text, target) => conn.chat(channel, text, target),
+    who: () => conn.who(),
+    debugGod: (on) => conn.debugGod(on),
+    debugTeleport: (x, y) => conn.debugTeleport(x, y),
   };
 }
 
@@ -106,17 +130,24 @@ export function createInputQueries(conn: Connection): InputQueries {
   };
 }
 
-export function createInputHooks(
-  cosmetics: SelfCosmeticsState,
-  toggleChat: () => void,
-  toggleInventory: () => void,
-): InputHooks {
+export interface SocialHookCallbacks {
+  toggleChat(): void;
+  toggleInventory(): void;
+  openChat(): void;
+  toggleContacts(): void;
+  closeOverlays(): void;
+}
+
+export function createInputHooks(cosmetics: SelfCosmeticsState, social: SocialHookCallbacks): InputHooks {
   return {
     onSwing: (dx, dy) => triggerSelfAttack(cosmetics, performance.now(), dx, dy),
     // Chunk-grid debug overlay isn't built in this wave — GalleryScene's coordinate
     // readout (render/terrain debugging) covers it for now.
     onToggleBorders: () => {},
-    onToggleChat: toggleChat,
-    onToggleInventory: toggleInventory,
+    onToggleChat: social.toggleChat,
+    onToggleInventory: social.toggleInventory,
+    onOpenChat: social.openChat,
+    onToggleContacts: social.toggleContacts,
+    onCloseOverlays: social.closeOverlays,
   };
 }

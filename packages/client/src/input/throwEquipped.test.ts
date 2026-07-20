@@ -24,6 +24,7 @@ function makeConn(weapon: string | null): InputConnection {
     assignSlot: () => {},
     equip: () => {},
     drop: () => {},
+    fistbump: () => {},
   };
 }
 

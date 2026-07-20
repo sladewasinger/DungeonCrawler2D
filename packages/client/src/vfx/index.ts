@@ -5,6 +5,7 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import type { LightSource } from "../render/lighting/lightSource.js";
 import { AreaEffectPool, type AreaTileView } from "./areaEffectPool.js";
 import { DamageNumberPool } from "./damageNumbers.js";
+import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
 import { MeleeWedgePool } from "./meleeWedge.js";
 import { spawnDustPuff, spawnFootstepMote } from "./movementParticles.js";
 import { footstepDue, isMoving, motionEvents, type MotionSample } from "./motionFx.js";
@@ -66,6 +67,12 @@ export class VfxSystem {
   spawnPickupGlint(worldX: number, worldY: number): void {
     const screen = worldToScreen(worldX, worldY);
     spawnPickupGlint(this.scene, screen.x, screen.y);
+  }
+
+  /** Fistbump-sealed success flourish (Epic 7.10) — call once per side, above their head. */
+  spawnFistbumpFlourish(worldX: number, worldY: number): void {
+    const screen = worldToScreen(worldX, worldY - 1.3);
+    spawnFistbumpFlourish(this.scene, screen.x, screen.y);
   }
 
   /** Melee-arc swing telegraph, keyed by attacker id so a fresh swing reuses (redraws) that id's pooled Graphics rather than allocating a new one. */

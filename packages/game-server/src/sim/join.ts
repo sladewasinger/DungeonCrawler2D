@@ -6,6 +6,7 @@ import {
   newEntityId,
   type Entity,
 } from "@dc2d/engine";
+import { sendContactsUpdated } from "./contacts.js";
 import { invAdd } from "./inventory.js";
 import { findSpawn, newToken } from "./spawn.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
@@ -47,6 +48,13 @@ export function addPlayer(
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
   if (isNewCharacter) grantStarterKit(sim, slot);
+  // ASSUMPTION #50 (docs/ASSUMPTIONS.md): sync the contact list on every
+  // join/resume so a reconnecting client doesn't wait for the next
+  // fistbump seal to see it. A same-tick collision with a fistbump-seal
+  // push (only possible on resume, and only if an incoming offer somehow
+  // survived the disconnect) just delivers the identical list twice —
+  // harmless, since the client treats contactsUpdated as a full replace.
+  sendContactsUpdated(sim, slot);
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false };
 }
 
@@ -88,6 +96,8 @@ function newSlot(
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
     forceDeath: false,
+    chatTimestamps: [],
+    lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,
   };
 }
 
@@ -101,6 +111,7 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
   slot.pendingActions.length = 0;
   slot.lastSeq = -1;
   slot.needsFullAreas = true;
+  sendContactsUpdated(sim, slot);
   return {
     playerId: slot.entity.id,
     resumeToken: slot.resumeToken,

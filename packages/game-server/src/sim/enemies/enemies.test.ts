@@ -67,7 +67,7 @@ function makePlayerSlot(x: number, y: number, sim: SimState): PlayerSlot {
   return {
     entity,
     clientId: "c1",
-    stored: { slot: 0, name: "tester", stash: [] },
+    stored: { slot: 0, name: "tester", stash: [], contacts: [] },
     resumeToken: "tok",
     lastSeq: 0,
     pendingInputs: [],
@@ -88,6 +88,8 @@ function makePlayerSlot(x: number, y: number, sim: SimState): PlayerSlot {
     attackStartedAtTick: -1000,
     god: false,
     forceDeath: false,
+    chatTimestamps: [],
+    lastFistbumpOfferAtTick: -Infinity,
   };
 }
 

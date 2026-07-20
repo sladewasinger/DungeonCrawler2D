@@ -4,15 +4,15 @@
 import { statusesData } from "@dc2d/content";
 import type { InvStack } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../input/touch/index.js";
+import type { ChatPanelModel } from "../../ui/chat/controller.js";
 import type {
   BuffChipData,
-  ChatChannel,
-  ChatLineData,
   HotbarSlotData,
   HudFakeSnapshot,
   InventoryRowData,
   TileCoords,
 } from "../../ui/widgets/hud/fakeData.js";
+import type { ContactData } from "../../ui/widgets/hud/contactRows.js";
 import { categoryOfItem, itemName } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 
@@ -71,20 +71,6 @@ function buffChips(fx: readonly string[]): BuffChipData[] {
   });
 }
 
-interface ChatLogLine {
-  readonly channel: string;
-  readonly name: string;
-  readonly text: string;
-}
-
-function chatLines(log: readonly ChatLogLine[]): ChatLineData[] {
-  return log.map((line) => ({
-    channel: line.channel === "party" ? "party" : "local",
-    author: line.name,
-    text: line.text,
-  }));
-}
-
 /** Rounds the predicted self body's raw tile position for the top-right coords readout —
  * "so users can find each other or share positions" only needs whole tiles, not float noise. */
 function roundedCoords(bodyPos: { x: number; y: number }): TileCoords {
@@ -98,8 +84,6 @@ export interface HudSnapshotSource {
   readonly inventory: readonly InvStack[];
   readonly weapon: string | null;
   readonly fx: readonly string[];
-  readonly chatLog: readonly ChatLogLine[];
-  readonly hasParty: boolean;
   readonly pingMs: number;
   readonly connected: boolean;
   readonly reconnecting: boolean;
@@ -113,8 +97,9 @@ export function buildHudSnapshot(
   touch: TouchVisualSnapshot | null,
   fps: number,
   bodyPos: { x: number; y: number },
+  chatModel: ChatPanelModel,
+  contacts: readonly ContactData[],
 ): HudFakeSnapshot {
-  const activeChatChannel: ChatChannel = src.hasParty ? "party" : "local";
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
     hotbar: hotbarSlots(src.hotbar, src.inventory),
@@ -123,8 +108,8 @@ export function buildHudSnapshot(
     buffs: buffChips(src.fx),
     equippedWeaponId: src.weapon,
     inventory: inventoryRows(src.inventory, src.hotbar),
-    chat: chatLines(src.chatLog),
-    activeChatChannel,
+    chatModel,
+    contacts: [...contacts],
     interactionPrompt,
     pingMs: src.pingMs,
     connected: src.connected,

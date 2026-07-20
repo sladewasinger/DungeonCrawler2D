@@ -13,6 +13,25 @@ import {
 } from "@dc2d/engine";
 import { closeSocket, openSocket } from "./socket.js";
 import { interpolated, type RemoteEntity } from "./interpolate.js";
+import {
+  assignSlotIntent,
+  attackIntent,
+  chatIntent,
+  craftIntent,
+  debugGodIntent,
+  debugTeleportIntent,
+  dropIntent,
+  equipIntent,
+  fistbumpIntent,
+  interactIntent,
+  partyOpIntent,
+  pickupIntent,
+  stashOpIntent,
+  suicideIntent,
+  throwTorchIntent,
+  useSlotIntent,
+  whoIntent,
+} from "./intents.js";
 import { Prediction } from "./prediction.js";
 
 /**
@@ -28,15 +47,26 @@ export interface Toast {
 
 export interface ChatLine {
   channel: string;
+  from: string;
   name: string;
   text: string;
+  /** DM thread partner's display name (set on "dm" lines only). */
+  target?: string;
+}
+
+export interface ContactInfo {
+  name: string;
+  online: boolean;
 }
 
 /** Visual-only events the scene consumes each frame. */
 export type VisualEvent =
   | { t: "hit"; id: string; amount: number }
   | { t: "death"; id: string }
-  | { t: "status"; id: string; status: string; on: boolean };
+  | { t: "status"; id: string; status: string; on: boolean }
+  /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated
+   * wire event for a sealed contact, only the system chat line this is derived from. */
+  | { t: "fistbumpSealed"; partnerName: string };
 
 export class Connection {
   world: World | null = null;
@@ -63,6 +93,11 @@ export class Connection {
   pendingInvite: { from: string; name: string } | null = null;
   toasts: Toast[] = [];
   chatLog: ChatLine[] = [];
+  /** Monotonic count of chat lines ever received — chatLog trims from the front,
+   * so consumers (ui/chat/controller.ts) diff against this to find new lines. */
+  chatSeq = 0;
+  /** Mutual contacts, refreshed wholesale on every server contactsUpdated event. */
+  contacts: ContactInfo[] = [];
   visualEvents: VisualEvent[] = [];
   /** Set when the server teleported us (scene snaps the camera). */
   teleported = false;
@@ -131,94 +166,79 @@ export class Connection {
     });
   }
 
-  // ── intents ──────────────────────────────────────────────────────
+  // ── intents (bodies live in intents.ts, split out for the file-size cap) ──
 
   attack(dirX: number, dirY: number): void {
-    if (!this.canAct) return;
-    // Normalize: the protocol carries a unit direction (aiming at a
-    // point 5 tiles away must not fail validation and vanish).
-    const len = Math.hypot(dirX, dirY) || 1;
-    this.send({ type: "attack", dirX: dirX / len, dirY: dirY / len });
+    attackIntent(this, dirX, dirY);
   }
 
   /** Throws the equipped throwable toward an aim direction (not a clicked tile) —
    * the dedicated Epic 7.8 torch-throw intent, distinct from useSlot's target-tile throw. */
   throwTorch(dirX: number, dirY: number): void {
-    if (!this.canAct) return;
-    // Normalize, matching attack() — aiming at a point several tiles away must not
-    // fail the protocol's unit-direction validation and silently vanish.
-    const len = Math.hypot(dirX, dirY) || 1;
-    this.send({ type: "throwTorch", dirX: dirX / len, dirY: dirY / len });
+    throwTorchIntent(this, dirX, dirY);
   }
 
   useSlot(slot: number, targetX?: number, targetY?: number): void {
-    if (!this.canAct) return;
-    this.send({
-      type: "useSlot",
-      slot,
-      ...(targetX !== undefined && targetY !== undefined ? { targetX, targetY } : {}),
-    });
+    useSlotIntent(this, slot, targetX, targetY);
   }
 
   pickup(): void {
-    if (!this.canAct) return;
-    this.send({ type: "pickup" });
+    pickupIntent(this);
   }
 
   drop(item: string): void {
-    if (!this.canAct) return;
-    this.send({ type: "drop", item });
+    dropIntent(this, item);
   }
 
   assignSlot(slot: number, item: string | null): void {
-    if (!this.canAct) return;
-    this.send({ type: "assign", slot, item });
+    assignSlotIntent(this, slot, item);
   }
 
   equip(item: string | null): void {
-    if (!this.canAct) return;
-    this.send({ type: "equip", item });
+    equipIntent(this, item);
   }
 
   interact(): void {
-    if (!this.canAct) return;
-    this.send({ type: "interact" });
+    interactIntent(this);
   }
 
   craft(recipe: string): void {
-    if (!this.canAct) return;
-    this.send({ type: "craft", recipe });
+    craftIntent(this, recipe);
   }
 
   stashOp(op: "put" | "take", index: number): void {
-    if (!this.canAct) return;
-    this.send({ type: "stash", op, index });
+    stashOpIntent(this, op, index);
   }
 
   partyOp(op: "invite" | "accept" | "leave", target?: string): void {
-    if (!this.canAct) return;
-    if (op === "accept") this.pendingInvite = null;
-    this.send({ type: "party", op, ...(target !== undefined ? { target } : {}) });
+    partyOpIntent(this, op, target);
   }
 
-  chat(channel: "party" | "local", text: string): void {
-    if (!this.canAct) return;
-    this.send({ type: "chat", channel, text });
+  chat(channel: "party" | "local" | "global" | "dm", text: string, target?: string): void {
+    chatIntent(this, channel, text, target);
+  }
+
+  /** Hold-F contact gesture intent — server gates range/rate/mutuality. */
+  fistbump(targetId: string): void {
+    fistbumpIntent(this, targetId);
+  }
+
+  who(): void {
+    whoIntent(this);
   }
 
   suicide(): void {
-    if (this.status !== "connected" || this.hp <= 0) return;
-    this.send({ type: "suicide" });
+    suicideIntent(this);
   }
 
   // ── dev harness (server drops these unless debugCommands is on) ──
 
   debugTeleport(x: number, y: number): void {
-    this.send({ type: "debug", op: "teleport", x, y });
+    debugTeleportIntent(this, x, y);
   }
 
   debugGod(on = true): void {
-    this.send({ type: "debug", op: "god", on });
+    debugGodIntent(this, on);
   }
 
   drainVisualEvents(): VisualEvent[] {

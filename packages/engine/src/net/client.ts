@@ -76,11 +76,24 @@ export const clientPartySchema = z.object({
   target: z.string().max(32).optional(),
 });
 
+/** target is required for channel "dm" — enforced by the parser/sim, not the
+ * wire schema itself (discriminatedUnion members must stay plain objects). */
 export const clientChatSchema = z.object({
   type: z.literal("chat"),
-  channel: z.enum(["party", "local"]),
+  channel: z.enum(["party", "local", "global", "dm"]),
   text: z.string().min(1).max(200),
+  /** Recipient display name — required for "dm", ignored otherwise. */
+  target: z.string().min(1).max(32).optional(),
 });
+
+/** Hold-F contact gesture: valid only in close proximity; server tracks the 10s pending offer. */
+export const clientFistbumpSchema = z.object({
+  type: z.literal("fistbump"),
+  targetId: z.string().max(64),
+});
+
+/** /who: server replies with nearby + online counts and names as a system chat line. */
+export const clientWhoSchema = z.object({ type: z.literal("who") });
 
 export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
 export const clientSuicideSchema = z.object({ type: z.literal("suicide") });
@@ -113,6 +126,8 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientStashSchema,
   clientPartySchema,
   clientChatSchema,
+  clientFistbumpSchema,
+  clientWhoSchema,
   clientPingSchema,
   clientSuicideSchema,
   clientDebugSchema,

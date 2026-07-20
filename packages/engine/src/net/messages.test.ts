@@ -30,6 +30,10 @@ describe("protocol", () => {
       { type: "stash", op: "put", index: 3 },
       { type: "party", op: "invite", target: "p2" },
       { type: "chat", channel: "party", text: "behind you" },
+      { type: "chat", channel: "global", text: "hello floor" },
+      { type: "chat", channel: "dm", text: "psst", target: "Ally" },
+      { type: "fistbump", targetId: "p2" },
+      { type: "who" },
       { type: "suicide" },
       { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "sandbox" },
     ];
@@ -103,6 +107,8 @@ describe("protocol", () => {
         { t: "hit", id: "e1", amount: -6 },
         { t: "toast", msg: "Crafted bandage" },
         { t: "chat", channel: "party", from: "p2", name: "Ally", text: "hi" },
+        { t: "chat", channel: "dm", from: "p2", name: "Ally", text: "hi", target: "Crawler" },
+        { t: "contactsUpdated", contacts: [{ name: "Ally", online: true }, { name: "Rex", online: false }] },
       ],
       areas: [{ x: 5, y: 5, defId: "area-fire" }, { x: 6, y: 5, defId: null }],
     };

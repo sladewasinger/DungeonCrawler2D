@@ -66,11 +66,11 @@ function buildSim(world: World): SimState {
 function buildSlot(x: number, y: number, z = 0): PlayerSlot {
   const entity = makeEntity("player", createBody(x, y, z), { id: newEntityId("p"), hp: 100, maxHp: 100 });
   return {
-    entity, clientId: "client-a", stored: { slot: 0, name: "A", stash: [] }, resumeToken: "t",
+    entity, clientId: "client-a", stored: { slot: 0, name: "A", stash: [], contacts: [] }, resumeToken: "t",
     lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: 0,
     known: new Set(), inventory: [], hotbar: Array(9).fill(null), weapon: null, outbox: [],
     returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: false,
-    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, forceDeath: false,
+    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
   };
 }
 

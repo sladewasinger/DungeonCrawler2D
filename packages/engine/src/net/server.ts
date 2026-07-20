@@ -83,10 +83,13 @@ export const gameEventSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
   z.object({
     t: z.literal("chat"),
-    channel: z.enum(["party", "local", "system"]),
+    channel: z.enum(["party", "local", "global", "dm", "system"]),
     from: z.string(),
     name: z.string(),
     text: z.string(),
+    /** The other party's display name — set on "dm" so either side can render
+     * tabs/threads and resolve /r without guessing who "the other end" was. */
+    target: z.string().optional(),
   }),
   z.object({ t: z.literal("toast"), msg: z.string() }),
   z.object({ t: z.literal("invite"), from: z.string(), name: z.string() }),
@@ -94,6 +97,12 @@ export const gameEventSchema = z.discriminatedUnion("t", [
   z.object({
     t: z.literal("stash"),
     slots: z.array(z.object({ item: z.string(), qty: z.number().int() })),
+  }),
+  /** Full mutual-contact list, sent after any fistbump-created contact and
+   * on join — online resolved live, offline falls back to last-known name. */
+  z.object({
+    t: z.literal("contactsUpdated"),
+    contacts: z.array(z.object({ name: z.string(), online: z.boolean() })),
   }),
 ]);
 export type GameEvent = z.infer<typeof gameEventSchema>;
