@@ -139,6 +139,8 @@ const FAKE_CHAT_MODEL: ChatPanelModel = {
   ],
   lines: [
     { channel: "local", author: "Wren", text: "watch the spikes" },
+    // Deliberately announcer-length: proves the word-wrap + bottom-up restack.
+    { channel: "local", author: "system", text: "Crawler #2 has entered Floor 1. Odds of survival have been posted." },
     { channel: "party", author: "you", text: "grabbed the key" },
   ],
 };

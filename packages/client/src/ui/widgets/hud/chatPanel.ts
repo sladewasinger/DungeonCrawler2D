@@ -101,7 +101,9 @@ export class ChatPanelWidget {
     this.container = createWidgetContainer(scene, layout);
     this.panel = scene.add.container(0, this.touchMode ? -CHIP_HEIGHT : 0);
     this.container.add(this.panel);
-    const bg = drawPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT).setPosition(0, -PANEL_HEIGHT);
+    // More transparent than the other panels — the chat log sits over the world
+    // constantly, so it should veil the dungeon, not wall it off (user spec).
+    const bg = drawPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT).setPosition(0, -PANEL_HEIGHT).setAlpha(0.72);
     this.hitArea = scene.add
       .rectangle(0, -PANEL_HIT_HEIGHT, PANEL_HIT_WIDTH, PANEL_HIT_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
@@ -162,7 +164,12 @@ export class ChatPanelWidget {
   private buildLines(): void {
     for (let i = 0; i < MAX_LINES; i++) {
       const y = -PANEL_HEIGHT + TAB_HEIGHT + spacing(1) + i * LINE_HEIGHT;
-      const text = this.scene.add.text(spacing(1), y, "", uiTextStyle(11, undefined, this.scale)).setOrigin(0, 0);
+      const text = this.scene.add
+        .text(spacing(1), y, "", uiTextStyle(11, undefined, this.scale))
+        .setOrigin(0, 0)
+        // Long announcer lines were escaping the panel's right edge (user
+        // screenshot 2026-07-20); wrap inside the panel, rows re-stack in update().
+        .setWordWrapWidth(PANEL_WIDTH - spacing(2));
       this.panel.add(text);
       this.lineTexts.push(text);
     }
@@ -227,8 +234,27 @@ export class ChatPanelWidget {
       const line = visible[i];
       text.setText(line ? `${line.author}: ${line.text}` : "");
     });
+    this.stackLines();
     // Empty/idle log: the always-visible "press [Enter] to chat" hint (user spec).
     this.emptyHint.setVisible(visible.length === 0);
+  }
+
+  /** Wrapped lines vary in height, so rows can't sit in fixed slots: pin the
+   * newest line to the panel's bottom and stack upward, hiding any line that
+   * would poke above the tab strip. */
+  private stackLines(): void {
+    const top = -PANEL_HEIGHT + TAB_HEIGHT + spacing(1);
+    let bottom = -spacing(1);
+    for (let i = this.lineTexts.length - 1; i >= 0; i--) {
+      const text = this.lineTexts[i]!;
+      if (text.text === "") {
+        text.setVisible(false);
+        continue;
+      }
+      const y = bottom - text.displayHeight;
+      text.setY(y).setVisible(y >= top);
+      bottom = y - spacing(0.5);
+    }
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */
