@@ -1,9 +1,15 @@
 // The editor's right panel: renders the painted world through the REAL terrain
 // pipeline (buildChunkVisual — same faces/rims/corners the game draws), with an
-// optional collision overlay proving the pixels and the blocking rules agree.
+// optional collision overlay proving the pixels and the blocking rules agree. Also
+// drives the REAL entity/vfx renderer for Epic 7.11's effects bench: SIMULATE ticks
+// bench/index.ts's local sim, and every frame its state is synced through the same
+// EntityRenderer + VfxSystem the live dungeon scene uses.
 import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { EntityRenderer, type RenderContext } from "../../render/entities/index.js";
 import { buildChunkVisual, destroyChunkVisual, type ChunkVisual } from "../../render/terrain/chunkVisual.js";
+import { VfxSystem } from "../../vfx/index.js";
+import { advanceBench, benchAreaTileViews, benchItemViews, benchMonsterViews } from "./bench/index.js";
 import { EDITOR_GRID_SIZE } from "./EditableWorld.js";
 import type { EditorStore } from "./editorStore.js";
 
@@ -15,6 +21,8 @@ export class EditorScene extends Phaser.Scene {
   private store!: EditorStore;
   private visual: ChunkVisual | undefined;
   private overlay: Phaser.GameObjects.Container | undefined;
+  private entityRenderer!: EntityRenderer;
+  private vfx!: VfxSystem;
 
   constructor() {
     super("editor");
@@ -29,8 +37,29 @@ export class EditorScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.centerOn(worldPx / 2, worldPx / 2);
     this.cameras.main.setZoom(Math.min(this.scale.width, this.scale.height) / worldPx);
+    this.entityRenderer = new EntityRenderer(this);
+    this.vfx = new VfxSystem(this);
     this.store.onChange(() => this.rebuild());
     this.rebuild();
+  }
+
+  /** Advances SIMULATE (no-op while paused) and syncs the bench's live state onto the
+   * real area-vfx and entity-sprite renderers every frame. */
+  update(time: number, delta: number): void {
+    const bench = this.store.bench;
+    advanceBench(bench, delta);
+    this.vfx.syncAreas(benchAreaTileViews(bench));
+    const ctx: RenderContext = {
+      world: bench.world,
+      nowMs: time,
+      dtSeconds: delta / 1000,
+      selfX: bench.dummy.body.x,
+      selfY: bench.dummy.body.y,
+      partyIds: new Set(),
+    };
+    this.entityRenderer.syncMonsters(benchMonsterViews(bench), ctx);
+    this.entityRenderer.syncItems(benchItemViews(bench), time);
+    this.vfx.update(time);
   }
 
   private rebuild(): void {

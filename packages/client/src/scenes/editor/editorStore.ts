@@ -1,7 +1,21 @@
 // The editor's single mutable home: the painted world, the active brush, and
 // change notification. Persists to localStorage on every stroke; seeds a demo
 // pattern on first launch so the renderer has something to prove immediately.
+// Also owns the effects test bench (Epic 7.11): area/enemy/item brushes paint
+// straight into bench/index.ts's live sim, which SIMULATE ticks separately from
+// the terrain canvas below.
 import { TILE, type TileType } from "@dc2d/engine";
+import {
+  createBench,
+  eraseBenchCell,
+  paintArea,
+  paintEnemy,
+  paintItem,
+  resetBench as resetBenchState,
+  toggleSimulate as toggleBenchSimulate,
+  type BenchLayer,
+  type BenchState,
+} from "./bench/index.js";
 import { EditableWorld } from "./EditableWorld.js";
 
 const STORAGE_KEY = "dc2d-editor-map-v1";
@@ -10,7 +24,18 @@ export type Brush =
   | { readonly kind: "height"; readonly value: number }
   | { readonly kind: "rock" }
   | { readonly kind: "door" }
-  | { readonly kind: "erase" };
+  | { readonly kind: "erase" }
+  | { readonly kind: "area"; readonly areaId: string }
+  | { readonly kind: "spawn-enemy"; readonly defId: string }
+  | { readonly kind: "spawn-item"; readonly defId: string };
+
+/** The bench layer a brush paints into, or null for a terrain brush. */
+function benchLayerOf(brush: Brush): BenchLayer | null {
+  if (brush.kind === "area") return "area";
+  if (brush.kind === "spawn-enemy") return "enemy";
+  if (brush.kind === "spawn-item") return "item";
+  return null;
+}
 
 /** Rock masses paint one z-unit above the tallest orthogonal neighbor floor, min 1. */
 function rockHeightAround(world: EditableWorld, wx: number, wy: number): number {
@@ -24,11 +49,13 @@ function rockHeightAround(world: EditableWorld, wx: number, wy: number): number 
 
 export class EditorStore {
   readonly world = new EditableWorld();
+  readonly bench: BenchState;
   brush: Brush = { kind: "height", value: 1 };
   showCollision = false;
   private readonly listeners = new Set<() => void>();
 
   constructor() {
+    this.bench = createBench(this.world);
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -48,15 +75,37 @@ export class EditorStore {
   paint(wx: number, wy: number): void {
     if (!this.world.inGrid(wx, wy)) return;
     const brush = this.brush;
+    if (brush.kind === "area") return paintArea(this.bench, wx, wy, brush.areaId);
+    if (brush.kind === "spawn-enemy") return paintEnemy(this.bench, wx, wy, brush.defId);
+    if (brush.kind === "spawn-item") return paintItem(this.bench, wx, wy, brush.defId);
+    this.paintTerrain(wx, wy, brush);
+    this.commit();
+  }
+
+  private paintTerrain(wx: number, wy: number, brush: Brush): void {
     if (brush.kind === "height") this.world.setCell(wx, wy, TILE.Floor, brush.value);
     else if (brush.kind === "erase") this.world.setCell(wx, wy, TILE.Floor, 0);
     else if (brush.kind === "rock") {
       this.world.setCell(wx, wy, TILE.Wall, rockHeightAround(this.world, wx, wy));
-    } else if (this.world.tileAt(wx, wy) === TILE.Wall) {
+    } else if (brush.kind === "door" && this.world.tileAt(wx, wy) === TILE.Wall) {
       // Door stamps require an existing rock cell: the portal punches INTO a wall.
       this.world.setCell(wx, wy, TILE.DoorSafeRoom, this.world.heightAt(wx, wy));
     }
-    this.commit();
+  }
+
+  /** Right-click erase for the bench layer the active brush belongs to; a no-op for
+   * terrain brushes (those already have their own eraser brush). */
+  eraseBenchAt(wx: number, wy: number): void {
+    const layer = benchLayerOf(this.brush);
+    if (layer) eraseBenchCell(this.bench, wx, wy, layer);
+  }
+
+  toggleSimulate(): void {
+    toggleBenchSimulate(this.bench);
+  }
+
+  resetBench(): void {
+    resetBenchState(this.bench);
   }
 
   setTileDirect(wx: number, wy: number, tile: TileType, height: number): void {

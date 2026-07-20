@@ -4,6 +4,9 @@ import type Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import type { LightSource } from "../render/lighting/lightSource.js";
 import { AreaEffectPool, type AreaTileView } from "./areaEffectPool.js";
+import { bloodTintFor } from "./bloodTint.js";
+import { BloodDecalPool } from "./bloodDecalPool.js";
+import { spawnDeathSplatter, spawnHitSplatter } from "./bloodSplatter.js";
 import { DamageNumberPool } from "./damageNumbers.js";
 import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
 import { MeleeWedgePool } from "./meleeWedge.js";
@@ -21,6 +24,7 @@ export class VfxSystem {
   private readonly damageNumbers: DamageNumberPool;
   private readonly meleeWedge: MeleeWedgePool;
   private readonly shake: ScreenShakeBudget;
+  private readonly bloodDecals: BloodDecalPool;
   private lastPlayerSample: MotionSample | undefined;
   private lastFrameMs = 0;
 
@@ -30,6 +34,7 @@ export class VfxSystem {
     this.damageNumbers = new DamageNumberPool(scene);
     this.meleeWedge = new MeleeWedgePool(scene);
     this.shake = new ScreenShakeBudget(scene.cameras.main);
+    this.bloodDecals = new BloodDecalPool(scene);
   }
 
   /** Rebuilds the active area-hazard rigs; returns their accent lights for LightingSystem.setAccentLights. */
@@ -80,6 +85,24 @@ export class VfxSystem {
     this.meleeWedge.spawn(id, worldX, worldY, angleRad, depth, tilePx, nowMs);
   }
 
+  /** Splatter + one floor decal for a landed hit (Epic 7.11) — directional when `dirX`/`dirY`
+   * (a knockback vector) is available, otherwise an even spray. `defId` (enemy content id,
+   * undefined for players) picks the blood tint via bloodTint.ts. */
+  spawnBloodHit(worldX: number, worldY: number, defId: string | undefined, nowMs: number, dirX?: number, dirY?: number): void {
+    const screen = worldToScreen(worldX, worldY);
+    const tint = bloodTintFor(defId);
+    spawnHitSplatter(this.scene, screen.x, screen.y, tint, dirX, dirY);
+    this.bloodDecals.spawn(worldX, worldY, tint, nowMs);
+  }
+
+  /** Heavier splatter + a scattered handful of floor decals for a death (Epic 7.11). */
+  spawnBloodDeath(worldX: number, worldY: number, defId: string | undefined, nowMs: number): void {
+    const screen = worldToScreen(worldX, worldY);
+    const tint = bloodTintFor(defId);
+    spawnDeathSplatter(this.scene, screen.x, screen.y, tint);
+    for (let i = 0; i < 4; i++) this.bloodDecals.spawn(worldX, worldY, tint, nowMs);
+  }
+
   onOwnHit(nowMs: number): void {
     this.shake.onOwnHit(nowMs);
   }
@@ -92,6 +115,7 @@ export class VfxSystem {
   update(nowMs: number): void {
     this.damageNumbers.update(nowMs);
     this.meleeWedge.update(nowMs);
+    this.bloodDecals.update(nowMs);
   }
 
   dispose(): void {
@@ -99,5 +123,6 @@ export class VfxSystem {
     this.torchFlames.dispose();
     this.damageNumbers.dispose();
     this.meleeWedge.dispose();
+    this.bloodDecals.dispose();
   }
 }

@@ -29,6 +29,12 @@ if (isEditor) {
     scene: [PreloadScene, EditorScene],
   });
   game.registry.set("editorBoot", { store: boot.store });
+  // Same dev-only introspection convention as ?debug=1 below — lets screenshot/e2e
+  // tooling poll the bench's live state (SIMULATE tick count, painted areas) without
+  // scraping pixels.
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
+    (window as unknown as { __editorStore: typeof boot.store }).__editorStore = boot.store;
+  }
 } else {
   // One Connection for the app's whole lifetime — Title and Dungeon share it so a
   // reconnect never loses the in-flight session (net/connection.ts owns its own

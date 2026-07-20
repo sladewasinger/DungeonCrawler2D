@@ -3,7 +3,7 @@
 // main.ts. The right panel is the REAL game renderer — that is the whole point.
 import { EditorScene } from "./EditorScene.js";
 import { EditorStore } from "./editorStore.js";
-import { buildPaintPanel } from "./paintPanel.js";
+import { buildPaintPanel } from "./paintPanel/index.js";
 
 export { EditorScene };
 

@@ -9,9 +9,18 @@ export function applyVisualEvents(conn: Connection, vfx: VfxSystem, render: Rend
   const selfId = conn.welcome?.playerId;
   for (const event of conn.drainVisualEvents()) {
     if (event.t === "hit") applyHit(conn, vfx, render, selfId, event, nowMs);
-    else if (event.t === "death" && event.id === selfId) vfx.onOwnDeath(nowMs);
+    else if (event.t === "death") applyDeath(conn, vfx, render, selfId, event, nowMs);
     else if (event.t === "fistbumpSealed") applyFistbumpSealed(conn, vfx, render, event.partnerName);
   }
+}
+
+/** Resolves a visual-event target's rendered position, content defId (enemies only),
+ * and (self only) the knockback vector its body exposes — see bloodDirection.ts. */
+function resolveTarget(conn: Connection, render: RenderPose, isSelf: boolean, id: string) {
+  const targetSnap = isSelf ? undefined : conn.entities.get(id)?.snap;
+  const pos = isSelf ? render : targetSnap;
+  const dir = isSelf && conn.body ? { x: conn.body.kx, y: conn.body.ky } : undefined;
+  return { pos, defId: targetSnap?.defId, dir };
 }
 
 function applyHit(
@@ -22,9 +31,28 @@ function applyHit(
   event: { id: string; amount: number },
   nowMs: number,
 ): void {
-  const pos = event.id === selfId ? render : conn.entities.get(event.id)?.snap;
-  if (pos) vfx.spawnDamageNumber(pos.x, pos.y - 0.6, event.amount, nowMs);
-  if (event.id === selfId) vfx.onOwnHit(nowMs);
+  const isSelf = event.id === selfId;
+  const { pos, defId, dir } = resolveTarget(conn, render, isSelf, event.id);
+  if (pos) {
+    vfx.spawnDamageNumber(pos.x, pos.y - 0.6, event.amount, nowMs);
+    vfx.spawnBloodHit(pos.x, pos.y, defId, nowMs, dir?.x, dir?.y);
+  }
+  if (isSelf) vfx.onOwnHit(nowMs);
+}
+
+/** Blood burst + decals at a dying entity's last known position; shake stays own-death-only. */
+function applyDeath(
+  conn: Connection,
+  vfx: VfxSystem,
+  render: RenderPose,
+  selfId: string | undefined,
+  event: { id: string },
+  nowMs: number,
+): void {
+  const isSelf = event.id === selfId;
+  const { pos, defId } = resolveTarget(conn, render, isSelf, event.id);
+  if (pos) vfx.spawnBloodDeath(pos.x, pos.y, defId, nowMs);
+  if (isSelf) vfx.onOwnDeath(nowMs);
 }
 
 /** Flourishes both sides of a just-sealed fistbump: our own pose plus whichever

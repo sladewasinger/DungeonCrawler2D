@@ -15,9 +15,13 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
 
   const now = performance.now();
   for (const entity of snap.entities) applyEntitySample(conn, now, entity);
-  for (const id of snap.left) conn.entities.delete(id);
   for (const tile of snap.areas) applyAreaTile(conn, tile);
+  // Events (incl. a same-tick "death") are applied before `left` prunes conn.entities,
+  // so a dying entity's last known position/defId is still there for the blood-VFX
+  // lookup in scenes/dungeon/visualEvents.ts (its own GameEvent carries no position —
+  // engine/net/server.ts's gameEventSchema — ASSUMPTIONS.md #55).
   for (const event of snap.events) applyEvent(conn, event);
+  for (const id of snap.left) conn.entities.delete(id);
   conn.onSnapshot?.();
 }
 
