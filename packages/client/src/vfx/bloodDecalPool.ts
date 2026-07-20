@@ -13,7 +13,8 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 
-export const DECAL_CAP = 40;
+/** Raised with the 45s decal lifetime so long fights don't recycle fresh blood. */
+export const DECAL_CAP = 96;
 const BASE_ALPHA = 0.85;
 const MIN_RADIUS_PX = 7;
 const MAX_RADIUS_PX = 14;

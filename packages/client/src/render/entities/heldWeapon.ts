@@ -5,7 +5,7 @@
 // "attacks have windup/release/recover reads" and the orbit spec in the combat-
 // presentation task notes.
 import type Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
@@ -18,7 +18,14 @@ const ORBIT_CENTER_OFFSET_Y = -SCREEN_TILE_PX * 0.5;
 const FIST_TINT = 0xd9a066;
 
 export function createHeldWeapon(scene: Phaser.Scene, depth: number): Phaser.GameObjects.Sprite {
-  return scene.add.sprite(0, 0, ASSET_KEYS.atlas).setOrigin(0.5, 0.5).setDepth(depth).setVisible(false);
+  // WORLD_PIXEL_SCALE matches every other entity sprite — without it the weapon
+  // draws at raw 16px source size and reads as a sliver (user playtest 2026-07-20).
+  return scene.add
+    .sprite(0, 0, ASSET_KEYS.atlas)
+    .setOrigin(0.5, 0.5)
+    .setScale(WORLD_PIXEL_SCALE)
+    .setDepth(depth)
+    .setVisible(false);
 }
 
 export interface HeldWeaponPose {

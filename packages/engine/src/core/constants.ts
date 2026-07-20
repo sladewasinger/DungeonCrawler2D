@@ -85,7 +85,9 @@ export const CHASM_DEATH_Z = -1.5;
 
 export const MELEE_RANGE = 1.6;
 export const ATTACK_COOLDOWN_MS = 350;
-export const MELEE_ARC_COS = 0.35;
+/** cos of the melee half-angle: 0.7071 = 45° half = 90° total arc
+ * (user playtest 2026-07-20: the old ~140° arc read as a lazy 180°). */
+export const MELEE_ARC_COS = 0.7071;
 export const FIST_DAMAGE = 3;
 export const KNOCKBACK_FORCE = 10;
 export const KNOCKBACK_DECAY = 0.72;

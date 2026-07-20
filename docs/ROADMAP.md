@@ -314,6 +314,25 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 **Done when:** A fresh clone has a committed e2e suite that passes locally, crafting and stash are usable from the client without dev tools, a downed party member's status is visible to their team, reconnecting mid-safe-room-nesting puts you back exactly where you were, and a prod-targeted smoke test confirms two strangers still converge on the live deploy.
 
+## Epic 7.13 — Playtest Hardening II (deploy wave 7, user screenshots 2026-07-20)
+
+**Goal:** Austin's second playtest filed a systemic defect list with annotated screenshots. Every item below ships or has a root-cause writeup; his verdict — "fill out the damn roadmap and don't stop until it's complete" — is the standing directive.
+
+- [x] Melee arc 180-ish -> 90 degrees total (MELEE_ARC_COS 0.35 -> 0.7071)
+- [ ] **Kill feedback:** enemies currently vanish on death — no burst, no guts, no corpse. Investigate why wave-4 death VFX doesn't read on live; ship a real kill moment: blood explosion + gib particles + brief corpse/bones fade + hit-stop tick
+- [ ] **XP + levels (Epic 11 core, pulled forward):** server-authoritative XP on kill, floating +XP numbers, character level on the HUD, level-up flourish; persistence in PlayerStore
+- [ ] **Starter-kit famine:** dying drops everything and the kit never re-grants -> new/returning players are permanently Unarmed (Austin joined to exactly this). Re-grant sword+torches on respawn when the player has no weapon (log assumption); also fix the "YOU DIED on first join" overlay bug (death overlay must only show after a real death event this session)
+- [ ] **1-tile corridor stuck-walking:** moving left in a 1-wide hallway requires pixel-perfect alignment — add corner-slide/auto-nudge assist in engine movement so near-misses glide into the gap
+- [ ] **z visual lift:** jumping/stepping onto a z1 platform keeps the sprite at the same screen y — entities must render y-offset by their z (sprite, shadow, nameplate), or elevation reads as nothing
+- [ ] **Terrain legibility overhaul (the "absolute mess" walls):** his screenshots show brick face strips scattered mid-floor, black void patches inside rooms, disconnected ledges — the dungeon reads as noise. Reproduce at his coords (x36,y-51 / x47,y-54 / x49,y-54 / x41,y-56 on the prod seed), diagnose worldgen fragmentation vs render grammar, and make generated dungeons READ: cohesive wall masses, clear top-vs-face contrast, no orphan face strips
+- [ ] **Enemies in the void:** enemies stand/walk in chasm/void areas (screenshots show nameplated creepers in pure black) — enemy movement must respect walkability like players; chasm kills them too
+- [x] Blood decals last 45s (was 10s), pool cap 96; sword no longer a sliver (weapon sprite now WORLD_PIXEL_SCALE like every other entity); torch-halo budget 12 -> 24 so lights stop blinking in mid-screen
+- [ ] **Health bars only after damage** (DCC-book style): nameplate HP bars hidden until an entity first takes damage this encounter (show on damage, linger, hide when full again) — user directive
+- [ ] **Movement stutters:** random hitches while walking — suspect synchronous chunk-visual baking when a new chunk scrolls into view; profile and move the bake off the hot frame (budgeted/ahead-of-camera)
+- [ ] **Torch pop-in residue:** after the 24-light budget, add a fade-in (~250ms) on newly activated halos so any remaining swap reads as kindling, not popping
+- [ ] **"Single walls" legibility (user screenshots #2, 2026-07-20):** legal 2-deep z1 ridges read as floating 1-row brick strips with bare side caps because their TOP row renders identical to plain floor — the terrain-legibility lane must make raised tops visually distinct (tone/edge treatment) and re-audit orphan strips beside chasm rims ("single walls in the void")
+- [ ] Inventory selection outline z-order (yellow ring renders under the Drop button), "Unarmed" chip text centering, and a general HUD alignment pass
+
 ## Epic 8 — Social Fabric (v0.5)
 
 **Goal:** The systems in [GAME_DESIGN.md](GAME_DESIGN.md) § Social fabric: meeting people is the game's magic moment, so the plumbing around it must be consent-first.

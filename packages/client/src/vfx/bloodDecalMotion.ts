@@ -2,7 +2,8 @@
 // object it eventually drives — mirrors damageNumberMotion.ts's split. 10s fade
 // per ASSUMPTIONS.md #29, so a long fight doesn't leave decals reading as permanent.
 
-export const DECAL_LIFETIME_MS = 10_000;
+/** User playtest 2026-07-20: "blood should stay on the floor longer" — 10s -> 45s. */
+export const DECAL_LIFETIME_MS = 45_000;
 
 /** Decal alpha for elapsed ms since spawn: holds near `baseAlpha` briefly (a fresh
  * splatter should read clearly), then fades linearly out over the remaining lifetime. */

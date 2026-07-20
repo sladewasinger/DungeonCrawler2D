@@ -15,7 +15,10 @@ import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlac
 
 const LOAD_MARGIN_CHUNKS = 1;
 /** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
-const MAX_ACTIVE_LIGHTS = 12;
+/** Wide viewports show more than 12 torches, so at 12 the nearest-N set churns
+ * MID-SCREEN as the camera moves — torches visibly blink in (user playtest
+ * 2026-07-20). 24 pushes the swap boundary past the visible edge in practice. */
+const MAX_ACTIVE_LIGHTS = 24;
 const PORTAL_COLOR = 0x3dd6c3;
 const PORTAL_RADIUS_TILES = 3;
 const PERSONAL_COLOR = 0xfff0d2;
