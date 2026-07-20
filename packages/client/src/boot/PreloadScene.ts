@@ -2,12 +2,15 @@
 import Phaser from "phaser";
 import { ASSET_KEYS, ASSET_PATHS } from "./assetManifest.js";
 import { registerAnimations, type AnimationManifest } from "./registerAnimations.js";
+import { preloadTilePacks } from "./tilePackLoader.js";
 import { waitForPixelFontReady } from "../ui/font.js";
+import { DEBUG_TILE_PX, DEBUG_TILESET_KEY, DEBUG_TILESET_PATH } from "../render/terrain/debugTileset.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
 const GALLERY_SCENE_KEY = "gallery";
 const EDITOR_SCENE_KEY = "editor";
+const AUTOTILE_GALLERY_SCENE_KEY = "autotile-gallery";
 /** Hard cap on waiting for the pixel font: some mobile browsers never resolve
  * `document.fonts.ready` (font.ts) in the way desktop Chrome does — a system-font
  * fallback beats an indefinite black screen. */
@@ -25,6 +28,11 @@ export class PreloadScene extends Phaser.Scene {
   preload(): void {
     this.load.atlas(ASSET_KEYS.atlas, ASSET_PATHS.atlasImage, ASSET_PATHS.atlasJson);
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
+    preloadTilePacks(this.load);
+    this.load.spritesheet(DEBUG_TILESET_KEY, DEBUG_TILESET_PATH, {
+      frameWidth: DEBUG_TILE_PX,
+      frameHeight: DEBUG_TILE_PX,
+    });
     waitForPixelFontReady().then(() => {
       this.fontReady = true;
     });
@@ -55,6 +63,10 @@ export class PreloadScene extends Phaser.Scene {
     }
     if (requested === EDITOR_SCENE_KEY) {
       this.scene.start(EDITOR_SCENE_KEY, this.game.registry.get("editorBoot") as object);
+      return;
+    }
+    if (requested === AUTOTILE_GALLERY_SCENE_KEY) {
+      this.scene.start(AUTOTILE_GALLERY_SCENE_KEY);
       return;
     }
     this.scene.start("title");

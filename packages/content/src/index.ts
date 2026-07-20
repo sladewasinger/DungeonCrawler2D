@@ -10,6 +10,8 @@ import enemies from "./data/enemies.json" with { type: "json" };
 import recipes from "./data/recipes.json" with { type: "json" };
 import strings from "./data/strings.json" with { type: "json" };
 import { parseStrings, type Strings } from "./data/strings.schema.js";
+import tileCatalogRaw from "./data/tileCatalog.json" with { type: "json" };
+import { parseTileCatalog, type TileCatalog } from "./data/tileCatalog.schema.js";
 
 export const statusesData: readonly unknown[] = statuses;
 export const rulesData: readonly unknown[] = rules;
@@ -19,3 +21,18 @@ export const enemiesData: readonly unknown[] = enemies;
 export const recipesData: readonly unknown[] = recipes;
 /** The Dungeon's premise/tagline copy, book-fan-voice — title screen (Epic 7.13). */
 export const stringsData: Strings = parseStrings(strings);
+/** The 7-pack tile catalog for the explicit-heights reskin (asset-foundry lane) — see
+ * docs/ASSET_LICENSES.md and this file's own schema doc comments for the query shape. */
+export const tileCatalog: TileCatalog = parseTileCatalog(tileCatalogRaw);
+export {
+  tileCatalogSchema,
+  tileRefSchema,
+  stairRefSchema,
+  waterRefSchema,
+  validateTileCatalogRefs,
+  type TileRef,
+  type StairRef,
+  type WaterRef,
+  type TilePack,
+  type TileCatalog,
+} from "./data/tileCatalog.schema.js";

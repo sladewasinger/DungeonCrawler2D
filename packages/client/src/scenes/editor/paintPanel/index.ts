@@ -6,8 +6,8 @@ import type { EditorStore } from "../editorStore.js";
 import { buildBenchPalette } from "./benchPalette.js";
 import { CELL_PX, drawGrid } from "./grid.js";
 import { buildLightingPanel } from "./lightingPanel.js";
+import { buildTerrainPalette } from "./palette/index.js";
 import { wirePointerPainting } from "./pointer.js";
-import { buildTerrainPalette } from "./terrainPalette.js";
 
 /** Builds the whole left panel into `parent`; returns the repaint hook. */
 export function buildPaintPanel(parent: HTMLElement, store: EditorStore): () => void {

@@ -6,7 +6,16 @@
 import { WALL_FACE_MIN_DROP } from "@dc2d/engine";
 import type { TerrainRead } from "./faces.js";
 
-export const MAX_FACE_ROWS = 3;
+/**
+ * Cap on drawn face rows for a stack of any height (user decree: "as many walls
+ * as needed"). Deeper drops still truncate visually (the last row fades via
+ * faceRowShade's TRUNCATED_ROW_SHADE) — the physics height field is unbounded,
+ * only the drawn brick column stops here. Picked generous enough to cover the
+ * acceptance fixture's z6 column with headroom; per-frame cost stays sane
+ * because only occluderBand.ts's DYNAMIC_FACE_ROWS of these bake into dynamic
+ * occluder strips — the rest are static base-sheet backdrop.
+ */
+export const MAX_FACE_ROWS = 16;
 
 /** How an edge's face rows split at the base plane: raised-cell rows vs rows continuing into the pit below. */
 export interface FaceSplit {

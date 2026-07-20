@@ -1,6 +1,6 @@
-// Occlusion silhouette: a wall's cap art bleeds up to ROW_OVERHANG_TILES rows north of
-// its own tile (render/terrain/chunkVisual.ts), which can paint over an entity walking
-// through that stretch. This module detects that case and keeps a flat-tint duplicate
+// Occlusion silhouette: a wall's face art climbs north of its base row (see
+// render/terrain/chunkVisual.ts's occluder strips), which can paint over an entity
+// walking near it. This module detects that case and keeps a flat-tint duplicate
 // of the sprite drawn above every layer that could be covering it, so a player never
 // loses track of where they are (docs/ROADMAP.md: "Walk-behind + occlusion outline").
 //
@@ -17,8 +17,8 @@ const GHOST_DATA_KEY = "occlusionGhost";
  * silhouette always reads as an overlay effect, never as a lighting coincidence. */
 const GHOST_TINT = 0x4fd6ff;
 const GHOST_ALPHA = 0.75;
-/** Mirrors chunkVisual.ts's ROW_OVERHANG_TILES: a wall's cap art bleeds up to this many
- * rows north of its own tile, covering entities standing there. */
+/** How many rows south a wall can sit and still have art that reaches an entity's
+ * sprite (its face climbs north of its base by its height — see occluderBand.ts). */
 const OCCLUDING_ROWS_SOUTH = 2;
 /** A nearby solid tile must clear the entity's own height by this much to read as a
  * covering wall face rather than flush terrain underfoot. */

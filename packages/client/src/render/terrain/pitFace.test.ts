@@ -3,6 +3,7 @@
 import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { TerrainRead } from "./faces.js";
+import { MAX_FACE_ROWS } from "./ownFace.js";
 import { pitFaceRowAt, pitRunPieceAt } from "./pitFace.js";
 
 function terrain(heightsByRow: Record<number, number>): TerrainRead {
@@ -33,12 +34,18 @@ describe("pitFaceRowAt", () => {
     expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 2, surfaceHeight: 1 });
   });
 
-  it("a deep 0 -> -4 chasm edge caps at MAX_FACE_ROWS and fades its deepest row", () => {
-    const world = terrain({ 4: 0, 5: -4, 6: -4, 7: -4, 8: -4 });
-    expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 1, truncated: false });
-    expect(pitFaceRowAt(world, 0, 6)).toMatchObject({ rowFromTop: 2, truncated: false });
-    expect(pitFaceRowAt(world, 0, 7)).toMatchObject({ rowFromTop: 3, truncated: true });
-    expect(pitFaceRowAt(world, 0, 8)).toBeNull();
+  it("a deep chasm edge caps at MAX_FACE_ROWS and fades its deepest row", () => {
+    // A pit deeper (in both raw depth and consecutive same-depth rows) than
+    // MAX_FACE_ROWS, built from the constant so this stays correct at any cap size.
+    const wallTopRow = 4;
+    const rawDrop = MAX_FACE_ROWS + 4;
+    const heights: Record<number, number> = { [wallTopRow]: 0 };
+    for (let y = wallTopRow + 1; y <= wallTopRow + MAX_FACE_ROWS + 2; y++) heights[y] = -rawDrop;
+    const world = terrain(heights);
+    expect(pitFaceRowAt(world, 0, wallTopRow + 1)).toMatchObject({ rowFromTop: 1, truncated: false });
+    const truncatedRow = wallTopRow + MAX_FACE_ROWS;
+    expect(pitFaceRowAt(world, 0, truncatedRow)).toMatchObject({ rowFromTop: MAX_FACE_ROWS, truncated: true });
+    expect(pitFaceRowAt(world, 0, truncatedRow + 1)).toBeNull();
   });
 
   it("never fires at or above the base plane — those faces belong to ownFace.ts", () => {

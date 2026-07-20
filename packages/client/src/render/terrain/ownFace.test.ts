@@ -41,10 +41,19 @@ describe("ownFaceRowAt", () => {
   });
 
   it("deep drops cap the face at MAX_FACE_ROWS and mark the last row truncated", () => {
-    const world = terrain({ 1: 8, 2: 8, 3: 8, 4: 8, 5: 0 });
-    expect(ownFaceRowAt(world, 0, 4)).toMatchObject({ distanceToGround: 1 });
-    expect(ownFaceRowAt(world, 0, 4 - MAX_FACE_ROWS + 1)).toMatchObject({ truncated: true });
-    expect(ownFaceRowAt(world, 0, 4 - MAX_FACE_ROWS)).toBeNull();
+    // A mass taller (in both raw height and consecutive same-height rows) than
+    // MAX_FACE_ROWS, so the scan itself runs the full cap before finding the
+    // drop — built from the constant so this stays correct at any cap size.
+    const rawDrop = MAX_FACE_ROWS + 4;
+    const groundRow = 1 + MAX_FACE_ROWS + 2;
+    const heights: Record<number, number> = {};
+    for (let y = 1; y < groundRow; y++) heights[y] = rawDrop;
+    heights[groundRow] = 0;
+    const world = terrain(heights);
+    const truncatedRow = groundRow - MAX_FACE_ROWS;
+    expect(ownFaceRowAt(world, 0, groundRow - 1)).toMatchObject({ distanceToGround: 1 });
+    expect(ownFaceRowAt(world, 0, truncatedRow)).toMatchObject({ truncated: true });
+    expect(ownFaceRowAt(world, 0, truncatedRow - 1)).toBeNull();
   });
 
   it("terrace-to-terrace drops face like any other edge — stacked terracing reads", () => {

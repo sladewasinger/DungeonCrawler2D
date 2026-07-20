@@ -7,6 +7,7 @@ import { PreloadScene } from "./boot/PreloadScene.js";
 import { Connection } from "./net/connection.js";
 import { persistentClientId } from "./net/identity.js";
 import { resolveWsUrl } from "./net/url.js";
+import { AutotileGalleryScene } from "./scenes/autotileGallery/AutotileGalleryScene.js";
 import { EditorScene, setUpEditorLayout } from "./scenes/editor/index.js";
 import { DungeonScene } from "./scenes/dungeon/index.js";
 import { GalleryScene } from "./scenes/GalleryScene.js";
@@ -37,6 +38,7 @@ if (isEditor) {
   // scraping pixels.
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
     (window as unknown as { __editorStore: typeof boot.store }).__editorStore = boot.store;
+    (window as unknown as { __game: Phaser.Game }).__game = game;
   }
 } else {
   // One Connection for the app's whole lifetime — Title and Dungeon share it so a
@@ -61,7 +63,7 @@ if (isEditor) {
     // touch event again for the rest of the session — input/index.ts's late-touch
     // reactivity would be unreachable dead code.
     input: { activePointers: 3, touch: true },
-    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, HudScene],
+    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, AutotileGalleryScene, HudScene],
   });
   // Perf/debug introspection, dev-server only (never in a production build):
   // ?debug=1 exposes the game for FPS/display-list probes (tools + manual tuning), and

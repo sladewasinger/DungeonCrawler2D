@@ -1,0 +1,407 @@
+{
+  "version": 1,
+  "tilePx": 48,
+  "packs": {
+    "medieval-sewer": {
+      "displayName": "Medieval Sewer",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 },
+        "tile-b-06": { "file": "tile-B-06.png", "cols": 16, "rows": 16 },
+        "sews-mv-a4": { "file": "Sews_MV_A4.png", "cols": 16, "rows": 15 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 1, "h": 1, "label": "stone-with-puddle" },
+        { "sheet": "tile-b-01", "col": 1, "row": 0, "w": 1, "h": 1, "label": "mossy-cobblestone" },
+        { "sheet": "tile-b-01", "col": 2, "row": 0, "w": 1, "h": 1, "label": "mossy-brick" },
+        { "sheet": "tile-b-04", "col": 0, "row": 0, "w": 1, "h": 1, "label": "plain-cobblestone" },
+        { "sheet": "tile-b-04", "col": 5, "row": 0, "w": 1, "h": 1, "label": "mossy-cobblestone-alt" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "sews-mv-a4", "col": 0, "row": 3, "w": 1, "h": 1, "label": "stone-wall-face-a" },
+        { "sheet": "sews-mv-a4", "col": 2, "row": 3, "w": 1, "h": 1, "label": "stone-wall-face-b-crystal-accent" },
+        { "sheet": "tile-b-04", "col": 12, "row": 0, "w": 1, "h": 2, "label": "wall-with-drain-grate" }
+      ],
+      "stairs": [
+        {
+          "sheet": "tile-b-04", "col": 12, "row": 2, "w": 1, "h": 6, "label": "stone-staircase-mossy",
+          "climbDirection": "north", "functional": true
+        }
+      ],
+      "doors": [
+        { "sheet": "sews-mv-a4", "col": 1, "row": 3, "w": 1, "h": 1, "label": "plank-door-wall-insert" },
+        { "sheet": "tile-b-01", "col": 0, "row": 6, "w": 2, "h": 1, "label": "iron-portcullis-double-gate" },
+        { "sheet": "tile-b-04", "col": 4, "row": 0, "w": 1, "h": 1, "label": "sewer-grate-round-window" }
+      ],
+      "torches": [
+        { "sheet": "tile-b-04", "col": 15, "row": 0, "w": 1, "h": 1, "label": "wall-torch" },
+        { "sheet": "tile-b-04", "col": 12, "row": 8, "w": 1, "h": 1, "label": "standing-torch-a" },
+        { "sheet": "tile-b-04", "col": 13, "row": 8, "w": 1, "h": 1, "label": "standing-torch-b" },
+        { "sheet": "tile-b-02", "col": 0, "row": 6, "w": 1, "h": 1, "label": "spiderweb-wall-torch" }
+      ],
+      "props": [
+        { "sheet": "tile-b-03", "col": 0, "row": 0, "w": 1, "h": 1, "label": "wooden-chest-closed" },
+        { "sheet": "tile-b-03", "col": 3, "row": 3, "w": 1, "h": 1, "label": "skeleton-bone-pile" },
+        { "sheet": "tile-b-06", "col": 4, "row": 0, "w": 1, "h": 1, "label": "barrel-full" },
+        { "sheet": "tile-b-06", "col": 0, "row": 3, "w": 1, "h": 1, "label": "burlap-sack" },
+        { "sheet": "tile-b-01", "col": 3, "row": 2, "w": 1, "h": 1, "label": "mushroom-cluster" },
+        { "sheet": "tile-b-01", "col": 4, "row": 6, "w": 1, "h": 1, "label": "stone-arch-doorway" },
+        { "sheet": "tile-b-01", "col": 5, "row": 6, "w": 1, "h": 1, "label": "wooden-ladder" },
+        { "sheet": "tile-b-05", "col": 4, "row": 5, "w": 1, "h": 1, "label": "clay-urn" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-04", "col": 9, "row": 6, "w": 1, "h": 1, "label": "floor-spike-trap-strip" },
+        { "sheet": "tile-b-01", "col": 1, "row": 3, "w": 1, "h": 1, "label": "cracked-floor-chasm-hole" },
+        { "sheet": "tile-b-06", "col": 4, "row": 6, "w": 1, "h": 1, "label": "toxic-green-sludge-pile" },
+        { "sheet": "tile-b-04", "col": 10, "row": 2, "w": 2, "h": 6, "label": "crumbling-rubble-corner-non-stair" }
+      ],
+      "water": [
+        { "sheet": "tile-b-04", "col": 4, "row": 0, "w": 1, "h": 1, "label": "water-channel-floor", "animated": false },
+        { "sheet": "tile-b-04", "col": 12, "row": 5, "w": 1, "h": 3, "label": "drain-pipe-waterfall", "animated": true },
+        { "sheet": "tile-b-05", "col": 0, "row": 0, "w": 1, "h": 1, "label": "water-pump-drip", "animated": true }
+      ],
+      "notes": [
+        "CORRECTION (docs/ASSUMPTIONS.md #200): Austin's callout coordinates for this pack's stairs — 1-indexed (6,3)-(6,5) and (7,2)-(7,5) in tile-B-04.png — are sewer-channel wall/water/grate art, verified by direct pixel crop; there are no stairs there. The pack's real functional staircase is the single-tile-wide 6-step run at 0-indexed (col 12, row 2), spanning down to row 7, in the same tile-B-04.png.",
+        "sews-mv-a4's wall-TOP autotile rows (0-indexed rows 0-1 of its one populated column-group) are unpainted RPG Maker template corner-markers, not real art — only the flat wall-FACE row (row 2) has drawn texture. No wallTop entries exist for this pack."
+      ]
+    },
+    "dragon-cave": {
+      "displayName": "Dragon Cave",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 },
+        "tile-b-06": { "file": "tile-B-06.png", "cols": 16, "rows": 16 },
+        "tile-b-07": { "file": "tile-B-07.png", "cols": 16, "rows": 16 },
+        "tile-b-08": { "file": "tile-B-08.png", "cols": 16, "rows": 16 },
+        "tile-b-09": { "file": "tile-B-09.png", "cols": 16, "rows": 16 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 1, "h": 1, "label": "rocky-cave-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 0, "w": 1, "h": 1, "label": "cracked-cave-floor" },
+        { "sheet": "tile-b-01", "col": 3, "row": 1, "w": 2, "h": 2, "label": "smooth-flagstone-floor" },
+        { "sheet": "tile-b-02", "col": 0, "row": 0, "w": 1, "h": 1, "label": "gravel-floor" },
+        { "sheet": "tile-b-02", "col": 1, "row": 0, "w": 1, "h": 1, "label": "mossy-stone-floor" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "tile-b-02", "col": 3, "row": 0, "w": 2, "h": 2, "label": "cave-mouth-wall-opening-a" },
+        { "sheet": "tile-b-02", "col": 5, "row": 0, "w": 2, "h": 2, "label": "cave-mouth-wall-opening-b" },
+        { "sheet": "tile-b-01", "col": 13, "row": 6, "w": 2, "h": 2, "label": "ancient-ruin-wall-with-arch" }
+      ],
+      "stairs": [
+        {
+          "sheet": "tile-b-05", "col": 13, "row": 4, "w": 1, "h": 4, "label": "cave-staircase-mossy",
+          "climbDirection": "north", "functional": true
+        },
+        {
+          "sheet": "tile-b-05", "col": 5, "row": 7, "w": 3, "h": 2, "label": "raised-dais-with-step-notch",
+          "climbDirection": "south", "functional": false
+        }
+      ],
+      "doors": [
+        { "sheet": "tile-b-01", "col": 13, "row": 6, "w": 2, "h": 2, "label": "stone-arch-doorway" }
+      ],
+      "torches": [],
+      "props": [
+        { "sheet": "tile-b-01", "col": 4, "row": 3, "w": 1, "h": 1, "label": "treasure-chest-open" },
+        { "sheet": "tile-b-01", "col": 5, "row": 1, "w": 1, "h": 1, "label": "crystal-cluster-cyan" },
+        { "sheet": "tile-b-01", "col": 3, "row": 4, "w": 1, "h": 1, "label": "bird-nest-with-eggs" },
+        { "sheet": "tile-b-01", "col": 0, "row": 5, "w": 1, "h": 1, "label": "skull-and-bones" },
+        { "sheet": "tile-b-06", "col": 3, "row": 3, "w": 1, "h": 1, "label": "gravestone" },
+        { "sheet": "tile-b-01", "col": 5, "row": 4, "w": 1, "h": 1, "label": "stone-column" },
+        { "sheet": "tile-b-04", "col": 3, "row": 3, "w": 1, "h": 1, "label": "dragon-egg" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-01", "col": 1, "row": 3, "w": 1, "h": 1, "label": "lava-pool-solid" },
+        { "sheet": "tile-b-09", "col": 6, "row": 0, "w": 1, "h": 1, "label": "lava-honeycomb-hazard" },
+        { "sheet": "tile-b-01", "col": 0, "row": 4, "w": 1, "h": 1, "label": "cracked-floor-about-to-erupt" }
+      ],
+      "water": [
+        { "sheet": "tile-b-05", "col": 12, "row": 15, "w": 1, "h": 1, "label": "still-water-pool", "animated": false }
+      ],
+      "notes": [
+        "No dedicated handheld/wall torch sprite anywhere across the 9 sheets — this pack's light-source role is filled by lava fountains/pools (tile-b-05, tile-b-09) instead, catalogued under hazards rather than duplicated into torches.",
+        "The only staircase found is a single 1-wide, 4-tall run in tile-b-05 (0-indexed col 13, row 4) — everything else stair-shaped in this pack (the dais notch, the raised terrace pieces) is a multi-tile decorative set-piece, not a repeatable single-cell stair grammar unit.",
+        "Dragon sprites (b-03, b-07, b-09) and skeleton/creature art were intentionally left OUT of props/hazards — Austin's decree keeps 0x72 characters/enemies for now; this pack's creature art is uncatalogued and unregistered."
+      ]
+    },
+    "coc": {
+      "displayName": "Call of Cthulhu",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 },
+        "tile-b-06": { "file": "tile-B-06.png", "cols": 16, "rows": 16 },
+        "tile-b-07": { "file": "tile-B-07.png", "cols": 16, "rows": 16 },
+        "tile-b-08": { "file": "tile-B-08.png", "cols": 16, "rows": 16 },
+        "tile-b-09": { "file": "tile-B-09.png", "cols": 16, "rows": 16 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 1, "h": 1, "label": "root-carved-stone-floor" },
+        { "sheet": "tile-b-01", "col": 0, "row": 1, "w": 1, "h": 1, "label": "cracked-root-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 0, "w": 3, "h": 3, "label": "glowing-rune-floor-set" },
+        { "sheet": "tile-b-02", "col": 0, "row": 2, "w": 2, "h": 2, "label": "mossy-swamp-floor" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "tile-b-03", "col": 0, "row": 0, "w": 3, "h": 1, "label": "stone-rune-wall" },
+        { "sheet": "tile-b-03", "col": 3, "row": 1, "w": 3, "h": 2, "label": "flesh-and-eyeball-wall" },
+        { "sheet": "tile-b-07", "col": 4, "row": 6, "w": 2, "h": 1, "label": "tentacle-relief-carved-wall" }
+      ],
+      "stairs": [
+        {
+          "sheet": "tile-b-09", "col": 0, "row": 0, "w": 1, "h": 1, "label": "shrine-altar-with-step-riser",
+          "climbDirection": "south", "functional": false
+        }
+      ],
+      "doors": [
+        { "sheet": "tile-b-03", "col": 6, "row": 1, "w": 1, "h": 1, "label": "stone-arch-doorway" }
+      ],
+      "torches": [
+        { "sheet": "tile-b-01", "col": 4, "row": 2, "w": 1, "h": 1, "label": "green-witch-flame-brazier" },
+        { "sheet": "tile-b-01", "col": 4, "row": 4, "w": 1, "h": 1, "label": "green-witch-flame-brazier-alt" },
+        { "sheet": "tile-b-05", "col": 0, "row": 8, "w": 1, "h": 1, "label": "green-flame-cauldron" }
+      ],
+      "props": [
+        { "sheet": "tile-b-05", "col": 0, "row": 0, "w": 1, "h": 1, "label": "cthulhu-idol-statue" },
+        { "sheet": "tile-b-06", "col": 0, "row": 0, "w": 1, "h": 1, "label": "tentacle-wrapped-pillar" },
+        { "sheet": "tile-b-08", "col": 1, "row": 0, "w": 1, "h": 1, "label": "obsidian-obelisk" },
+        { "sheet": "tile-b-03", "col": 4, "row": 4, "w": 2, "h": 2, "label": "bookshelf" },
+        { "sheet": "tile-b-05", "col": 5, "row": 8, "w": 1, "h": 1, "label": "throne-red" },
+        { "sheet": "tile-b-09", "col": 4, "row": 4, "w": 1, "h": 1, "label": "candelabra" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-02", "col": 4, "row": 3, "w": 2, "h": 2, "label": "chasm-black-pit" },
+        { "sheet": "tile-b-01", "col": 2, "row": 1, "w": 2, "h": 2, "label": "tentacle-swamp-floor-hazard" },
+        { "sheet": "tile-b-01", "col": 4, "row": 3, "w": 1, "h": 1, "label": "arcane-rift-crack-floor" }
+      ],
+      "water": [],
+      "notes": [
+        "No functional stairs anywhere in this pack's 9 sheets — the only stair-shaped art is a small 2-3-step altar riser (tile-b-09) tagged functional:false. A floor using this pack needs its staircase borrowed from another pack (medieval-sewer or dragon-cave).",
+        "No open-water tiles either; the swamp/tentacle floor is catalogued as a hazard, not water.",
+        "Cthulhu/idol creature statues are architecture props (they don't move, no animation frames) — kept distinct from the 0x72 enemy roster, which is unaffected by this pack."
+      ]
+    },
+    "goblin-cave": {
+      "displayName": "Goblin Cave",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 1, "row": 4, "w": 1, "h": 1, "label": "dirt-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 5, "w": 1, "h": 1, "label": "gravel-floor" },
+        { "sheet": "tile-b-01", "col": 10, "row": 4, "w": 1, "h": 1, "label": "mossy-stone-floor" },
+        { "sheet": "tile-b-01", "col": 10, "row": 6, "w": 1, "h": 1, "label": "grass-patch-floor" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 4, "h": 1, "label": "cave-rock-wall-mossy" }
+      ],
+      "stairs": [],
+      "doors": [
+        { "sheet": "tile-b-01", "col": 5, "row": 0, "w": 1, "h": 1, "label": "cave-archway-opening" }
+      ],
+      "torches": [
+        { "sheet": "tile-b-01", "col": 9, "row": 2, "w": 1, "h": 1, "label": "lit-campfire" }
+      ],
+      "props": [
+        { "sheet": "tile-b-01", "col": 1, "row": 0, "w": 1, "h": 1, "label": "goblin-totem-pole" },
+        { "sheet": "tile-b-04", "col": 0, "row": 0, "w": 1, "h": 1, "label": "skeleton-totem" },
+        { "sheet": "tile-b-04", "col": 8, "row": 0, "w": 1, "h": 1, "label": "weapon-rack" },
+        { "sheet": "tile-b-04", "col": 6, "row": 2, "w": 1, "h": 1, "label": "wooden-shield" },
+        { "sheet": "tile-b-03", "col": 0, "row": 0, "w": 1, "h": 1, "label": "goblin-tent" },
+        { "sheet": "tile-b-02", "col": 4, "row": 1, "w": 1, "h": 1, "label": "animal-pelt-hide" },
+        { "sheet": "tile-b-05", "col": 2, "row": 0, "w": 1, "h": 1, "label": "skull-pile" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-02", "col": 0, "row": 4, "w": 1, "h": 1, "label": "blood-splatter-floor-decal" }
+      ],
+      "water": [],
+      "notes": [
+        "No stairs and no wall-face variety beyond the single mossy rock-wall strip — this pack is prop-heavy (goblin camp dressing) and structurally thin; floors mixing this pack in should lean on another pack for stairs and lean wall variety.",
+        "No handheld/mounted torch sprite; the ground campfire (tile-b-01) is this pack's light source, same substitution pattern as the COC pack's braziers."
+      ]
+    },
+    "goblin-mechanical-workshop": {
+      "displayName": "Goblin Mechanical Workshop",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 0, "row": 9, "w": 1, "h": 1, "label": "clean-stone-tile-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 9, "w": 1, "h": 1, "label": "dirt-floor" },
+        { "sheet": "tile-b-01", "col": 2, "row": 9, "w": 2, "h": 2, "label": "riveted-metal-plate-floor" },
+        { "sheet": "tile-b-01", "col": 2, "row": 12, "w": 1, "h": 1, "label": "gear-embossed-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 12, "w": 1, "h": 1, "label": "mine-cart-rail-floor" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "tile-b-02", "col": 0, "row": 0, "w": 1, "h": 1, "label": "riveted-metal-wall-panel" },
+        { "sheet": "tile-b-02", "col": 1, "row": 0, "w": 1, "h": 1, "label": "brick-and-metal-patched-wall" },
+        { "sheet": "tile-b-02", "col": 2, "row": 0, "w": 1, "h": 1, "label": "stone-wall" }
+      ],
+      "stairs": [],
+      "doors": [
+        { "sheet": "tile-b-02", "col": 2, "row": 1, "w": 2, "h": 1, "label": "wood-crossbrace-double-door" },
+        { "sheet": "tile-b-02", "col": 1, "row": 2, "w": 2, "h": 1, "label": "metal-crossbrace-double-door" },
+        { "sheet": "tile-b-02", "col": 2, "row": 2, "w": 2, "h": 1, "label": "riveted-metal-double-door" }
+      ],
+      "torches": [
+        { "sheet": "tile-b-04", "col": 0, "row": 0, "w": 1, "h": 1, "label": "hanging-oil-lantern" },
+        { "sheet": "tile-b-04", "col": 2, "row": 0, "w": 1, "h": 1, "label": "wall-sconce-lamp" }
+      ],
+      "props": [
+        { "sheet": "tile-b-01", "col": 4, "row": 1, "w": 1, "h": 1, "label": "forge" },
+        { "sheet": "tile-b-03", "col": 5, "row": 3, "w": 1, "h": 1, "label": "anvil" },
+        { "sheet": "tile-b-03", "col": 8, "row": 3, "w": 1, "h": 1, "label": "workbench" },
+        { "sheet": "tile-b-03", "col": 0, "row": 3, "w": 1, "h": 1, "label": "gear-crate" },
+        { "sheet": "tile-b-01", "col": 4, "row": 0, "w": 2, "h": 2, "label": "steam-engine" },
+        { "sheet": "tile-b-05", "col": 6, "row": 3, "w": 1, "h": 1, "label": "pipe-elbow-joint" },
+        { "sheet": "tile-b-04", "col": 6, "row": 4, "w": 1, "h": 1, "label": "signage-plaque" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-04", "col": 6, "row": 1, "w": 1, "h": 1, "label": "warning-stripe-control-panel" }
+      ],
+      "water": [],
+      "notes": [
+        "No stairs anywhere in the 5 sheets. Floor variety is strong (stone/dirt/metal/rail/gear) but every wall is flat panel/brick — no autotile top/face split since this pack ships no _A4 sheet.",
+        "Lanterns (tile-b-04) are the torch-equivalent; they're battery/oil-style fixtures, not open flame, but serve the same light-source role in the catalog."
+      ]
+    },
+    "haunted-amusement-park": {
+      "displayName": "Haunted Amusement Park",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 1, "h": 1, "label": "gray-stone-paver-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 0, "w": 1, "h": 1, "label": "grass-dirt-patch-floor" },
+        { "sheet": "tile-b-01", "col": 2, "row": 0, "w": 1, "h": 1, "label": "wood-plank-crosshatch-floor" },
+        { "sheet": "tile-b-01", "col": 2, "row": 1, "w": 1, "h": 1, "label": "wire-mesh-grating-floor" },
+        { "sheet": "tile-b-01", "col": 0, "row": 2, "w": 1, "h": 1, "label": "cracked-broken-paver-floor" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "tile-b-01", "col": 4, "row": 0, "w": 2, "h": 2, "label": "chain-link-fence-wall" },
+        { "sheet": "tile-b-01", "col": 5, "row": 0, "w": 2, "h": 2, "label": "brick-wall-graffiti" },
+        { "sheet": "tile-b-01", "col": 6, "row": 1, "w": 1, "h": 1, "label": "boarded-broken-plank-wall" },
+        { "sheet": "tile-b-04", "col": 2, "row": 1, "w": 2, "h": 3, "label": "hedge-maze-wall" }
+      ],
+      "stairs": [],
+      "doors": [
+        { "sheet": "tile-b-01", "col": 0, "row": 1, "w": 2, "h": 1, "label": "picket-fence-gate" },
+        { "sheet": "tile-b-04", "col": 0, "row": 4, "w": 2, "h": 1, "label": "broken-stone-graveyard-archway" }
+      ],
+      "torches": [
+        { "sheet": "tile-b-02", "col": 6, "row": 5, "w": 1, "h": 1, "label": "eerie-orange-flame-lamp" },
+        { "sheet": "tile-b-02", "col": 7, "row": 5, "w": 1, "h": 1, "label": "eerie-blue-flame-lamp" },
+        { "sheet": "tile-b-05", "col": 0, "row": 1, "w": 1, "h": 1, "label": "street-lamp-post" }
+      ],
+      "props": [
+        { "sheet": "tile-b-01", "col": 4, "row": 4, "w": 1, "h": 1, "label": "carousel-horse" },
+        { "sheet": "tile-b-02", "col": 0, "row": 0, "w": 3, "h": 3, "label": "ferris-wheel" },
+        { "sheet": "tile-b-02", "col": 4, "row": 3, "w": 3, "h": 2, "label": "roller-coaster-track" },
+        { "sheet": "tile-b-03", "col": 0, "row": 0, "w": 1, "h": 1, "label": "ticket-booth" },
+        { "sheet": "tile-b-04", "col": 0, "row": 0, "w": 1, "h": 1, "label": "balloon-bunch" },
+        { "sheet": "tile-b-01", "col": 12, "row": 3, "w": 1, "h": 1, "label": "clown-statue" },
+        { "sheet": "tile-b-05", "col": 3, "row": 3, "w": 1, "h": 1, "label": "arcade-cabinet" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-03", "col": 2, "row": 4, "w": 2, "h": 2, "label": "collapsed-wood-shack" }
+      ],
+      "water": [],
+      "notes": [
+        "No stairs and no open-water tiles despite the beached pirate-ship prop (tile-b-02) — it sits on bare ground, no shoreline/water art accompanies it.",
+        "The green hedge-maze block (tile-b-04) is cataloged as an alt wall-face — visually a plausible painted 'wall' even though it's foliage, not masonry."
+      ]
+    },
+    "dwarf-volcano-underground-fortress": {
+      "displayName": "Dwarf Volcano Underground Fortress",
+      "sheets": {
+        "tile-b-01": { "file": "tile-B-01.png", "cols": 16, "rows": 16 },
+        "tile-b-02": { "file": "tile-B-02.png", "cols": 16, "rows": 16 },
+        "tile-b-03": { "file": "tile-B-03.png", "cols": 16, "rows": 16 },
+        "tile-b-04": { "file": "tile-B-04.png", "cols": 16, "rows": 16 },
+        "tile-b-05": { "file": "tile-B-05.png", "cols": 16, "rows": 16 },
+        "auto-tile-a4-walls-1": { "file": "Auto-tile-A4-Walls-1.png", "cols": 16, "rows": 15 },
+        "auto-tile-a4-walls-2": { "file": "Auto-tile-A4-walls-2.png", "cols": 16, "rows": 15 },
+        "auto-tile-a4-walls-3": { "file": "Auto-tile-A4-walls-3.png", "cols": 16, "rows": 15 }
+      },
+      "floorVariants": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 1, "h": 1, "label": "solid-lava-floor" },
+        { "sheet": "tile-b-01", "col": 1, "row": 0, "w": 1, "h": 1, "label": "ash-dirt-floor" },
+        { "sheet": "tile-b-01", "col": 10, "row": 2, "w": 1, "h": 1, "label": "lava-cracked-rock-floor" },
+        { "sheet": "tile-b-01", "col": 3, "row": 1, "w": 1, "h": 1, "label": "rune-etched-dark-floor" },
+        { "sheet": "auto-tile-a4-walls-1", "col": 0, "row": 0, "w": 1, "h": 1, "label": "wood-plank-floor-a" },
+        { "sheet": "auto-tile-a4-walls-1", "col": 6, "row": 4, "w": 1, "h": 1, "label": "smooth-stone-tile-floor" },
+        { "sheet": "auto-tile-a4-walls-1", "col": 7, "row": 4, "w": 1, "h": 1, "label": "cobblestone-floor" }
+      ],
+      "wallTop": [],
+      "wallFace": [
+        { "sheet": "tile-b-01", "col": 0, "row": 4, "w": 3, "h": 2, "label": "rune-carved-dark-stone-wall" },
+        { "sheet": "tile-b-01", "col": 3, "row": 4, "w": 2, "h": 3, "label": "lava-vein-dripping-wall" },
+        { "sheet": "auto-tile-a4-walls-2", "col": 0, "row": 3, "w": 1, "h": 1, "label": "riveted-metal-panel-wall" },
+        { "sheet": "auto-tile-a4-walls-2", "col": 4, "row": 3, "w": 1, "h": 1, "label": "wood-plank-door-wall-insert" },
+        { "sheet": "auto-tile-a4-walls-2", "col": 6, "row": 3, "w": 1, "h": 1, "label": "off-white-brick-wall" },
+        { "sheet": "auto-tile-a4-walls-3", "col": 4, "row": 4, "w": 1, "h": 1, "label": "cream-tile-wall-panel" }
+      ],
+      "stairs": [
+        {
+          "sheet": "tile-b-01", "col": 11, "row": 10, "w": 2, "h": 2, "label": "monumental-grand-staircase",
+          "climbDirection": "north", "functional": false
+        }
+      ],
+      "doors": [
+        { "sheet": "tile-b-05", "col": 1, "row": 1, "w": 1, "h": 1, "label": "tower-base-archway-door" },
+        { "sheet": "auto-tile-a4-walls-2", "col": 4, "row": 3, "w": 1, "h": 1, "label": "riveted-metal-door" }
+      ],
+      "torches": [
+        { "sheet": "tile-b-05", "col": 0, "row": 0, "w": 1, "h": 1, "label": "hanging-lantern" },
+        { "sheet": "tile-b-05", "col": 1, "row": 0, "w": 1, "h": 1, "label": "wall-torch-sconce" },
+        { "sheet": "tile-b-01", "col": 12, "row": 8, "w": 1, "h": 1, "label": "standing-brazier" }
+      ],
+      "props": [
+        { "sheet": "tile-b-03", "col": 6, "row": 5, "w": 1, "h": 1, "label": "anvil" },
+        { "sheet": "tile-b-01", "col": 7, "row": 10, "w": 1, "h": 4, "label": "repeatable-ladder-segment" },
+        { "sheet": "tile-b-01", "col": 10, "row": 12, "w": 1, "h": 1, "label": "mine-cart" },
+        { "sheet": "tile-b-04", "col": 0, "row": 0, "w": 1, "h": 1, "label": "gold-ore-crate" },
+        { "sheet": "tile-b-04", "col": 6, "row": 0, "w": 1, "h": 1, "label": "gem-shelf" },
+        { "sheet": "tile-b-05", "col": 4, "row": 1, "w": 1, "h": 1, "label": "cannon-turret" },
+        { "sheet": "tile-b-01", "col": 12, "row": 10, "w": 1, "h": 1, "label": "ore-pile-glowing" }
+      ],
+      "hazards": [
+        { "sheet": "tile-b-01", "col": 0, "row": 0, "w": 1, "h": 1, "label": "open-lava-floor" },
+        { "sheet": "tile-b-05", "col": 0, "row": 6, "w": 3, "h": 4, "label": "molten-lava-river-channel" },
+        { "sheet": "tile-b-03", "col": 1, "row": 1, "w": 1, "h": 1, "label": "boiling-cauldron" }
+      ],
+      "water": [],
+      "notes": [
+        "No open-water tiles anywhere — this pack substitutes lava for the liquid-hazard role everywhere a sewer/cave pack would use water.",
+        "The only stair-shaped piece is a 2x2 ornamental bidirectional 'grand staircase' (tile-b-01) — a monumental set-piece, not a single-tile repeatable TILE.Stairs unit; tagged functional:false like the COC/dragon-cave decorative risers.",
+        "auto-tile-a4-walls-1.png is NOT a classic corner-marker A4 autotile sheet like sheets 2/3 — it's a flat material-swatch sheet (wood/metal/glass/tile/brick), fully populated with no blank template rows. Sheets 2 and 3 DO follow the corner-marker convention, and (same finding as medieval-sewer) their top-autotile rows are unpainted template placeholders — only their face rows carry real texture, hence wallTop stays empty for this pack too.",
+        "Ladder (tile-b-01) is a vertical climb prop distinct from stairs — not entered under stairs since it has no ramp/height semantics in the current engine, catalogued under props instead."
+      ]
+    }
+  }
+}

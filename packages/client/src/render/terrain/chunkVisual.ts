@@ -12,9 +12,20 @@ import { drawTile } from "./drawTile.js";
 import { buildStructureMap, drawDoor } from "./structures.js";
 import { computeLightField, type DynamicLightSeed } from "./tileLight.js";
 
-/** Rows above an occluder row its sprites may overhang (caps at wy-1, lintels/pillars up to wy-2). */
-const ROW_OVERHANG_TILES = 2;
 const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
+
+/**
+ * One pending occluder strip: a face column bakes its dynamic rows (see
+ * occluderBand.ts) into the strip of its ground-adjacent row, so `overhangTiles`
+ * records the tallest such row and the bake covers exactly [wy - overhang, wy + 1].
+ * Per-frame strip cost scales with baked height — a fixed MAX_FACE_ROWS-tall
+ * strip (the 3 -> 16 pivot) made every visible wall row blit ~16 tiles of mostly
+ * transparent pixels each frame, which is the measured e2e keystroke regression.
+ */
+interface OccluderRow {
+  readonly container: Phaser.GameObjects.Container;
+  overhangTiles: number;
+}
 
 export interface ChunkVisual {
   readonly cx: number;
@@ -54,14 +65,15 @@ export function buildChunkVisual(
   dynamicLights: readonly DynamicLightSeed[] = [],
 ): ChunkVisual {
   const below = scene.add.container(0, 0);
-  const rows = new Map<number, Phaser.GameObjects.Container>();
-  const occluderFor = (wy: number): Phaser.GameObjects.Container => {
+  const rows = new Map<number, OccluderRow>();
+  const occluderFor = (wy: number, overhangTiles = 0): Phaser.GameObjects.Container => {
     let row = rows.get(wy);
     if (!row) {
-      row = scene.add.container(0, 0);
+      row = { container: scene.add.container(0, 0), overhangTiles: 0 };
       rows.set(wy, row);
     }
-    return row;
+    row.overhangTiles = Math.max(row.overhangTiles, overhangTiles);
+    return row.container;
   };
   const baseX = cx * CHUNK_SIZE;
   const baseY = cy * CHUNK_SIZE;
@@ -88,21 +100,21 @@ export function buildChunkVisual(
   return { cx, cy, below: bakedBelow, occluders: bakeRows(scene, rows, originX) };
 }
 
-/** Bakes each non-empty occluder row into a strip RT tall enough for its sprite overhang. */
+/** Bakes each non-empty occluder row into a strip RT exactly tall enough for its own content. */
 function bakeRows(
   scene: Phaser.Scene,
-  rows: ReadonlyMap<number, Phaser.GameObjects.Container>,
+  rows: ReadonlyMap<number, OccluderRow>,
   originX: number,
 ): Phaser.GameObjects.RenderTexture[] {
   const baked: Phaser.GameObjects.RenderTexture[] = [];
   for (const [wy, row] of rows) {
-    if (row.list.length === 0) {
-      row.destroy(true);
+    if (row.container.list.length === 0) {
+      row.container.destroy(true);
       continue;
     }
-    const stripTop = (wy - ROW_OVERHANG_TILES) * SCREEN_TILE_PX;
-    const stripHeight = (ROW_OVERHANG_TILES + 1) * SCREEN_TILE_PX;
-    baked.push(bake(scene, row, originX, stripTop, CHUNK_PX, stripHeight, depthForOccluder(wy + 1)));
+    const stripTop = (wy - row.overhangTiles) * SCREEN_TILE_PX;
+    const stripHeight = (row.overhangTiles + 1) * SCREEN_TILE_PX;
+    baked.push(bake(scene, row.container, originX, stripTop, CHUNK_PX, stripHeight, depthForOccluder(wy + 1)));
   }
   return baked;
 }

@@ -4,7 +4,8 @@
 // hand-drawn frame/facade duplicating what drawTile.ts's face/wall art already owns.
 import { TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { pickDoorTile } from "./packArt.js";
+import { placePackTile } from "./packSprite.js";
 
 const SANCTUARY_TEAL = 0x8fe8db;
 
@@ -86,36 +87,20 @@ export function buildStructureMap(
   return { doors, suppressed, faceSuppressed };
 }
 
-function addPiece(
-  scene: Phaser.Scene,
-  container: Phaser.GameObjects.Container,
-  frame: string,
-  bottomCenterX: number,
-  bottomY: number,
-  tint?: number,
-): void {
-  const sprite = scene.add.sprite(bottomCenterX, bottomY, ASSET_KEYS.atlas, frame);
-  sprite.setOrigin(0.5, 1);
-  sprite.setScale(WORLD_PIXEL_SCALE);
-  if (tint !== undefined) sprite.setTint(tint);
-  container.add(sprite);
-}
-
 /**
- * Draws one door as its standalone leaf, bottom-anchored on the door tile's
- * south edge (user-decreed 2026-07-19, see VISUAL_DIRECTION.md's wall
- * vertical-extent rule): no frame posts, no lintel, no hand-drawn kiosk
- * facade — the ordinary terrain pass (drawTile.ts) already drew this cell's
- * ground/face art (a kiosk terrace's face row, an ordinary wall's brick
- * shading), and the leaf sits on top of it, "punched into" the wall/face
- * exactly like any other composed structure.
+ * Draws one door as its standalone leaf, on top of the door tile (user-decreed
+ * 2026-07-19, see VISUAL_DIRECTION.md's wall vertical-extent rule): no frame
+ * posts, no lintel, no hand-drawn kiosk facade — the ordinary terrain pass
+ * (drawTile.ts) already drew this cell's ground/face art (a kiosk terrace's
+ * face row, an ordinary wall's brick shading), and the leaf sits on top of it,
+ * "punched into" the wall/face exactly like any other composed structure. Art
+ * is a pack-catalog door ref (packArt.ts), tinted the same sanctuary teal as
+ * before regardless of which pack it came from.
  */
 export function drawDoor(
   scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,
   door: DoorStructure,
 ): void {
-  const centerX = door.wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const bottomY = (door.wy + 1) * SCREEN_TILE_PX;
-  addPiece(scene, container, "doors_leaf_closed", centerX, bottomY, SANCTUARY_TEAL);
+  placePackTile(scene, container, door.wx, door.wy, pickDoorTile(door.wx, door.wy), { tint: SANCTUARY_TEAL });
 }

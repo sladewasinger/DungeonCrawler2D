@@ -11,6 +11,7 @@ export * from "./world/features/descent.js";
 export * from "./world/features/bossArena.js";
 export * from "./world/features/platforms.js";
 export * from "./world/pockets.js";
+export * from "./world/stacks/index.js";
 export * from "./world/features/terraces.js";
 export * from "./world/generate.js";
 export * from "./world/features/rooms.js";

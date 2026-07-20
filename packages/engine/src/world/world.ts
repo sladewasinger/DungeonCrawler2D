@@ -19,7 +19,12 @@ import {
  * identical terrain.
  */
 export class World implements WorldView {
-  private readonly chunks = new Map<string, Chunk>();
+  // Two-level Map (cx -> cy -> Chunk), not a `${cx},${cy}` string key: this lookup sits
+  // behind every heightAt/tileAt/zoneAt call, and those get called ~16x more often per
+  // tile since MAX_FACE_ROWS rose 3 -> 16 (ownFace.ts) for the explicit-heights reskin.
+  // Native number keys skip the per-call template-string allocation + hash that a string
+  // key would otherwise pay on every single terrain read.
+  private readonly chunks = new Map<number, Map<number, Chunk>>();
 
   constructor(
     readonly worldSeed: number,
@@ -28,11 +33,15 @@ export class World implements WorldView {
   ) {}
 
   getChunk(cx: number, cy: number): Chunk {
-    const key = `${cx},${cy}`;
-    let chunk = this.chunks.get(key);
+    let row = this.chunks.get(cx);
+    if (!row) {
+      row = new Map<number, Chunk>();
+      this.chunks.set(cx, row);
+    }
+    let chunk = row.get(cy);
     if (!chunk) {
       chunk = generateChunk(this.worldSeed, this.floor, cx, cy, this.level);
-      this.chunks.set(key, chunk);
+      row.set(cy, chunk);
     }
     return chunk;
   }
@@ -75,6 +84,8 @@ export class World implements WorldView {
 
   /** Number of generated chunks currently cached (diagnostics). */
   get cachedChunkCount(): number {
-    return this.chunks.size;
+    let total = 0;
+    for (const row of this.chunks.values()) total += row.size;
+    return total;
   }
 }

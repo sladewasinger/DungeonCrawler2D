@@ -1,17 +1,20 @@
 // Ground tile rendering: floor/void base, pit interior walls, stair treads,
 // ledge-outline edges, and single-tile props — everything that isn't a raised
 // face row or wall cell. Raised walkable tops keep real floor art; topEdges.ts
-// outlines every side that drops. Baked tile lighting shades every layer.
+// outlines every side that drops. Baked tile lighting shades every layer. Floor
+// and pit-face art come from the debug tileset + autotile.ts's bitmask solve
+// (debugArt.ts); boundary lines are generic (edgeLine.ts), not baked sprites.
 import { stairVisualAt, TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
+import { pickFloorFrame, pickStairFrame, pickWallFrame, wallAutotileAt } from "./debugArt.js";
+import { placeDebugTile, placeWallCornerDots } from "./debugSprite.js";
 import { drawStairTreads } from "./drawStairTread.js";
 import { drawSubtleSlope } from "./drawSubtleSlope.js";
-import { floorFrame, isNearEdge } from "./floorFrame.js";
+import { drawEdgeLine } from "./edgeLine.js";
 import { faceRowShade, heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint } from "./heightShade.js";
-import { pitFaceRowAt, pitRunPieceAt, type PitFaceRow } from "./pitFace.js";
-import { placeSprite } from "./placeSprite.js";
+import { pitFaceRowAt, type PitFaceRow } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
-import { stairAngle } from "./stairFrame.js";
+import { placeFillRect, placeSprite } from "./placeSprite.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import { topEdgesAt } from "./topEdges.js";
 
@@ -27,10 +30,9 @@ function drawPitFaceCell(
 ): void {
   const shade = faceRowShade(pit.rowFromTop, pit.truncated);
   const tint = multiplyTint(multiplyTint(heightTint(pit.surfaceHeight), shade), lightTint);
-  const piece = pitRunPieceAt(world, wx, wy);
-  placeSprite(scene, below, wx, wy, piece.frame, { tint });
-  if (piece.closeWest) placeSprite(scene, below, wx, wy, "wall_edge_mid_left", { tint });
-  if (piece.closeEast) placeSprite(scene, below, wx, wy, "wall_edge_mid_right", { tint });
+  const { mask4, corners } = wallAutotileAt(world, wx, wy);
+  placeDebugTile(scene, below, wx, wy, pickWallFrame(mask4), { tint });
+  placeWallCornerDots(scene, below, wx, wy, corners);
 }
 
 const ORTHO4: ReadonlyArray<readonly [number, number]> = [
@@ -49,11 +51,10 @@ const CHASM_GHOST_RIM_ALPHA = 0.2;
 const CHASM_GHOST_DEEP_ALPHA = 0.14;
 
 /**
- * A faint hint of the floor a chasm/hole tile used to be, at rim-vs-deep
- * alpha (VISUAL_DIRECTION's "holes read as HOLES," wave95 round 2) — the
- * "hole" sprite alone reads as a flat unrendered gap at a glance; this ghost
- * plus the rim/deep alpha step gives it real depth without fighting the
- * sprite's own cave-mouth shading (heightShade.ts's CHASM_FACTOR doc).
+ * A faint hint of the floor a chasm/hole tile used to be, at rim-vs-deep alpha
+ * (VISUAL_DIRECTION's "holes read as HOLES") — a flat void alone reads as an
+ * unrendered gap at a glance; this ghost plus the rim/deep alpha step gives it
+ * real depth without needing a dedicated "hole" sprite from any pack.
  */
 function drawChasmGhost(
   scene: Phaser.Scene,
@@ -67,14 +68,16 @@ function drawChasmGhost(
   if (!isChasmDepth(height)) return;
   const alpha = isChasmRim(world, wx, wy) ? CHASM_GHOST_RIM_ALPHA : CHASM_GHOST_DEEP_ALPHA;
   const ghostTint = multiplyTint(heightTint(0), lightTint);
-  placeSprite(scene, below, wx, wy, floorFrame(wx, wy, world.zoneAt(wx, wy), false), { tint: ghostTint, alpha });
+  placeDebugTile(scene, below, wx, wy, pickFloorFrame(), { tint: ghostTint, alpha });
 }
 
 /**
- * The outline pieces around a walkable top's dropping edges — drawn with
- * topEdgeHighlightTint (a lit-rim seam), not the tile's own flat fill tint,
- * so a raised top's silhouette pops instead of reading as a same-tone
- * floating strip (docs/ROADMAP.md's "single walls" legibility bug).
+ * The outline lines around a walkable top's dropping edges — drawn with
+ * topEdgeHighlightTint (a lit-rim seam), not the tile's own flat fill tint, so
+ * a raised top's silhouette pops instead of reading as a same-tone floating
+ * strip (docs/ROADMAP.md's "single walls" legibility bug). Corners draw as two
+ * straight lines meeting, not a dedicated mitered piece — a fair simplification
+ * once the lines are generic bands instead of pack-specific corner sprites.
  */
 function drawTopEdges(
   scene: Phaser.Scene,
@@ -87,14 +90,20 @@ function drawTopEdges(
 ): void {
   const edges = topEdgesAt(world, wx, wy);
   const tint = multiplyTint(topEdgeHighlightTint(height), lightTint);
-  if (edges.southCornerLeft) placeSprite(scene, below, wx, wy, "wall_edge_bottom_left", { tint });
-  if (edges.southCornerRight) placeSprite(scene, below, wx, wy, "wall_edge_bottom_right", { tint });
-  if (edges.southDashEndWest) placeSprite(scene, below, wx, wy, "wall_edge_top_left", { tint });
-  if (edges.southDashEndEast) placeSprite(scene, below, wx, wy, "wall_edge_top_right", { tint });
-  if (edges.southDash) placeSprite(scene, below, wx, wy, "wall_top_mid", { tint });
-  if (edges.west) placeSprite(scene, below, wx, wy, "wall_edge_mid_left", { tint });
-  if (edges.east) placeSprite(scene, below, wx, wy, "wall_edge_mid_right", { tint });
-  if (edges.north) placeSprite(scene, below, wx, wy, "wall_top_mid", { tint, flipY: true });
+  if (edges.west) drawEdgeLine(scene, below, wx, wy, "west", tint);
+  if (edges.east) drawEdgeLine(scene, below, wx, wy, "east", tint);
+  if (edges.north) drawEdgeLine(scene, below, wx, wy, "north", tint);
+  if (edges.southCornerLeft) {
+    drawEdgeLine(scene, below, wx, wy, "south", tint);
+    drawEdgeLine(scene, below, wx, wy, "west", tint);
+  }
+  if (edges.southCornerRight) {
+    drawEdgeLine(scene, below, wx, wy, "south", tint);
+    drawEdgeLine(scene, below, wx, wy, "east", tint);
+  }
+  if (edges.southDashEndWest || edges.southDashEndEast || edges.southDash) {
+    drawEdgeLine(scene, below, wx, wy, "south", tint);
+  }
 }
 
 export function drawGroundTile(
@@ -121,16 +130,20 @@ export function drawGroundTile(
   const height = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
   const tint = multiplyTint(heightTint(height), lightTint);
 
-  const isEdgeNeighbor = (dx: number, dy: number): boolean =>
-    world.tileAt(wx + dx, wy + dy) === TILE.Wall || isChasmDepth(world.heightAt(wx + dx, wy + dy));
-  const base = isChasmDepth(height) ? "hole" : floorFrame(wx, wy, world.zoneAt(wx, wy), isNearEdge(isEdgeNeighbor));
-  placeSprite(scene, below, wx, wy, base, { tint });
+  if (isChasmDepth(height)) {
+    // No pack carries dedicated "void" art (the schema's `hazards` category is lava/spikes,
+    // not a plain hole) — a solid fill in the same chasm tint reads as a dark gap; the ghost
+    // below adds the "used to be floor" echo VISUAL_DIRECTION asks for.
+    placeFillRect(scene, below, wx, wy, tint);
+  } else {
+    placeDebugTile(scene, below, wx, wy, pickFloorFrame(), { tint });
+  }
   drawChasmGhost(scene, below, world, wx, wy, height, lightTint);
 
   drawTopEdges(scene, below, world, wx, wy, height, lightTint);
 
-  if (tile === TILE.Stairs) {
-    placeSprite(scene, below, wx, wy, "floor_stairs", { tint, angle: stairAngle(world, wx, wy) });
+  if (tile === TILE.Stairs && stairVisual) {
+    placeDebugTile(scene, below, wx, wy, pickStairFrame(stairVisual.direction), { tint });
   }
   if (stairVisual) {
     drawStairTreads(scene, below, wx, wy, stairVisual.direction, stairVisual.t, lightTint);
