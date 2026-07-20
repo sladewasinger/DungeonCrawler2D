@@ -1,6 +1,7 @@
 // Client entrypoint: wires up the Phaser game and its scene list. Orchestration only — no logic here.
 import Phaser from "phaser";
 import { installBootErrorOverlay } from "./boot/errorOverlay.js";
+import { BUILD_SHA } from "./buildInfo.js";
 import { PreloadScene } from "./boot/PreloadScene.js";
 import { Connection } from "./net/connection.js";
 import { persistentClientId } from "./net/identity.js";
@@ -69,6 +70,10 @@ if (isEditor) {
   // window.__editorStore for the effects bench (scenes/editor/index.ts).
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
     (window as unknown as { __game: Phaser.Game }).__game = game;
-    (window as unknown as { __dc2d: { conn: Connection; game: Phaser.Game } }).__dc2d = { conn, game };
+    (window as unknown as { __dc2d: { conn: Connection; game: Phaser.Game; buildSha: string } }).__dc2d = {
+      conn,
+      game,
+      buildSha: BUILD_SHA,
+    };
   }
 }

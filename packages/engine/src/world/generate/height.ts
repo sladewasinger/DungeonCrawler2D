@@ -14,7 +14,7 @@ import { thresholdCells } from "./corridors.js";
 import { rectHash } from "./hash.js";
 import { rectH, rectW } from "./geometry.js";
 import { TILE } from "../types.js";
-import type { Doorway, Rect, Room, Side } from "./types.js";
+import type { Doorway, Point, Rect, Room, Side } from "./types.js";
 
 export const ROOM_RISE = 1;
 export const CHASM_DEPTH = -2;
@@ -50,16 +50,21 @@ function ring(rect: Rect): Rect {
   return { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
 }
 
-function isInterior(interior: Rect, x: number, y: number): boolean {
-  return x >= interior.x0 && x <= interior.x1 && y >= interior.y0 && y <= interior.y1;
-}
-
 /**
- * Raise/lower the room's interior (always) and its 1-tile wall ring
- * (unless that ring cell already belongs to an unrelated corridor passing
- * by — a stray pass-through must keep its own flat level, not inherit
- * this room's variant; only this room's own doorways, carved afterward,
- * are allowed to ramp).
+ * Raise/lower the room's interior and its 1-tile wall ring — EXCEPT any
+ * cell an unrelated corridor already carved straight through (a corridor
+ * between two other rooms can graze this room's rect, interior included,
+ * without an explicit doorway here; see cliffs.ts's module doc for the
+ * same "stray pass-through" problem at the ring). Sinking a through-
+ * corridor tile into the pit alongside it used to leave a notch a
+ * grounded body could walk INTO (drops are free) but never back OUT of
+ * except via the one primary-doorway ramp: the corridor-carved cell sat
+ * flush with the corridor on one side and the room's full pit depth on
+ * the other, so the ramp's own flanking tiles read as an "orphaned"
+ * broken chain (pit depth -> ramp -> pit depth -> rim) instead of a
+ * monotone one. A pass-through cell keeping its carved (flat) height
+ * stays walkable straight through, exactly like a ring pass-through
+ * already did — only cells this room actually owns sink into its variant.
  */
 function stampRingHeight(
   height: Float32Array,
@@ -73,7 +78,7 @@ function stampRingHeight(
     for (let x = bounds.x0; x <= bounds.x1; x++) {
       if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) continue;
       const i = y * chunkSize + x;
-      if (!isInterior(interior, x, y) && corridorCarved[i] === 1) continue;
+      if (corridorCarved[i] === 1) continue;
       height[i] = value;
     }
   }
@@ -108,7 +113,52 @@ function inwardStep(side: Side): { dx: number; dy: number } {
  * entryClimbDir and stairsInvariant.test.ts). One call per room transition,
  * by construction: this is the room's ONLY built staircase (see
  * applyRoomHeight) — every other doorway stays a plain, un-ramped edge.
+ *
+ * BOTH ends of the chain are force-set to their exact intended height —
+ * the threshold (`fromHeight`, the doorway's own port) and the landing
+ * (one step past the last Stairs tile, `toHeight`, back at the room's own
+ * interior) — even though each is a plain Floor tile some OTHER pass
+ * normally owns: stampRingHeight's pass-through protection can leave the
+ * landing at a grazing corridor's flat height instead of this room's
+ * depth (see its doc comment), and cliffs.ts's repairCliffs sweeps the
+ * WHOLE chunk for violating edges with no notion of "this cell anchors a
+ * deliberate ramp," so a tight cluster of rooms can nudge the threshold
+ * off its assumed flat level on a later pass. Either drift flanks this
+ * ramp's Stairs tile(s) with a same-height (or wrong-direction) neighbor
+ * — a dead climb axis, not a ramp — and gets it demoted to a plain,
+ * unclimbable Floor by demoteOrphanedStairs. This ramp is the room's
+ * WHOLE reason either cell exists; it always wins that tug-of-war.
  */
+function inChunk(x: number, y: number, chunkSize: number): boolean {
+  return x >= 0 && y >= 0 && x < chunkSize && y < chunkSize;
+}
+
+/** One column of carveRamp's staircase: the threshold anchor, its Stairs treads, and the landing anchor. */
+function carveRampColumn(
+  tiles: Uint8Array,
+  height: Float32Array,
+  chunkSize: number,
+  origin: Point,
+  step: { dx: number; dy: number },
+  stepCount: number,
+  fromHeight: number,
+  toHeight: number,
+): void {
+  if (inChunk(origin.x, origin.y, chunkSize)) height[origin.y * chunkSize + origin.x] = fromHeight;
+  const delta = toHeight - fromHeight;
+  for (let n = 1; n <= stepCount; n++) {
+    const sx = origin.x + step.dx * n;
+    const sy = origin.y + step.dy * n;
+    if (!inChunk(sx, sy, chunkSize)) continue;
+    const i = sy * chunkSize + sx;
+    tiles[i] = TILE.Stairs;
+    height[i] = fromHeight + (delta * n) / (stepCount + 1);
+  }
+  const lx = origin.x + step.dx * (stepCount + 1);
+  const ly = origin.y + step.dy * (stepCount + 1);
+  if (inChunk(lx, ly, chunkSize)) height[ly * chunkSize + lx] = toHeight;
+}
+
 function carveRamp(
   tiles: Uint8Array,
   height: Float32Array,
@@ -117,18 +167,10 @@ function carveRamp(
   fromHeight: number,
   toHeight: number,
 ): void {
-  const { dx, dy } = inwardStep(doorway.side);
-  const delta = toHeight - fromHeight;
-  const stepCount = Math.max(1, Math.ceil(Math.abs(delta) / MAX_STAIR_SLOPE) - 1);
-  for (const { x, y } of thresholdCells(doorway.room, doorway.side, doorway.center, doorway.width)) {
-    for (let step = 1; step <= stepCount; step++) {
-      const sx = x + dx * step;
-      const sy = y + dy * step;
-      if (sx < 0 || sy < 0 || sx >= chunkSize || sy >= chunkSize) continue;
-      const i = sy * chunkSize + sx;
-      tiles[i] = TILE.Stairs;
-      height[i] = fromHeight + (delta * step) / (stepCount + 1);
-    }
+  const step = inwardStep(doorway.side);
+  const stepCount = Math.max(1, Math.ceil(Math.abs(toHeight - fromHeight) / MAX_STAIR_SLOPE) - 1);
+  for (const origin of thresholdCells(doorway.room, doorway.side, doorway.center, doorway.width)) {
+    carveRampColumn(tiles, height, chunkSize, origin, step, stepCount, fromHeight, toHeight);
   }
 }
 

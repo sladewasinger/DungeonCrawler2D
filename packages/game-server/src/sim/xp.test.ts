@@ -16,6 +16,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
+import { announceLevelUp } from "./announcer/index.js";
 import { awardKillXp, levelForXp } from "./xp.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "./state.js";
 
@@ -146,7 +147,7 @@ describe("awardKillXp", () => {
     expect(a.stored.xp).toBe(0);
   });
 
-  it("emits a system 'Level N!' chat line when a kill crosses a level threshold", () => {
+  it("broadcasts an announcer level-up line when a kill crosses a level threshold", () => {
     const bigXpDef: EnemyDef = { ...slimeDef, xp: xpForLevel(2) };
     const a = makeSlot("A", 5, 5);
     a.attackStartedAtTick = sim.tickCount;
@@ -156,9 +157,9 @@ describe("awardKillXp", () => {
     awardKillXp(sim, enemy);
 
     expect(a.stored.level).toBe(2);
-    expect(a.outbox).toContainEqual({
-      t: "chat", channel: "system", from: "server", name: "system", text: "Level 2!",
-    });
+    // Broadcast, not private: every connected slot (here, just the killer)
+    // gets the exact deterministic line the announcer picks for this tick.
+    expect(a.outbox).toContainEqual(announceLevelUp(sim.tickCount, a.entity.id, "A", 2));
   });
 
   it("persists the award via PlayerStore (survives a fresh load from the same file)", () => {

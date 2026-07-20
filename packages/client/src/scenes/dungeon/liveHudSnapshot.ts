@@ -20,16 +20,15 @@ function nearbyStation(conn: Connection, tile: TileType): boolean {
   return !!conn.world && !!conn.body && isTileTypeNearby(conn.world, tile, conn.body.x, conn.body.y);
 }
 
-export function buildLiveHudSnapshot(
-  conn: Connection,
-  inputController: InputController,
-  interactionPrompt: InteractionPrompt | null,
-  chatController: ChatController,
-  actualFps: number,
-): HudFakeSnapshot {
-  const source: HudSnapshotSource = {
+/** Everything buildHudSnapshot's `src` needs, read straight off the live Connection —
+ * split out so buildLiveHudSnapshot itself stays under the function-length cap. */
+function buildSnapshotSource(conn: Connection): HudSnapshotSource {
+  return {
     hp: conn.hp,
     maxHp: conn.maxHp,
+    xp: conn.xp,
+    level: conn.charLevel,
+    xpForNext: conn.xpForNext,
     hotbar: conn.hotbar,
     inventory: conn.inventory,
     weapon: conn.weapon,
@@ -44,12 +43,25 @@ export function buildLiveHudSnapshot(
     stashNearby: nearbyStation(conn, TILE.Stash),
     stash: conn.stash,
     lastToast: conn.toasts.at(-1) ?? null,
+    toasts: conn.toasts,
+    // ServerWelcome carries no seed field yet (docs/ASSUMPTIONS.md, Epic 7.13 onboarding
+    // row) — the telemetry stack shows "seed —" until the server sends one.
+    seed: null,
   };
+}
+
+export function buildLiveHudSnapshot(
+  conn: Connection,
+  inputController: InputController,
+  interactionPrompt: InteractionPrompt | null,
+  chatController: ChatController,
+  actualFps: number,
+): HudFakeSnapshot {
   // conn.body may still be null the first frame or two after boot (HudScene's source()
   // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
-  const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y } : { x: 0, y: 0 };
+  const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y, z: conn.body.z } : { x: 0, y: 0, z: 0 };
   return buildHudSnapshot(
-    source,
+    buildSnapshotSource(conn),
     inputController.armedThrowableSlot(),
     interactionPrompt,
     inputController.touchVisual(),

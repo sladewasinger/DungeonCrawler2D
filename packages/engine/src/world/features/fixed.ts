@@ -140,17 +140,37 @@ export function applyFlattenedFeature(
 export const KIOSK_HEIGHT = 2;
 
 /**
- * 5-wide x 3-deep kiosk TERRACE: a raised, walkable floor dais (not solid
- * rock) whose south row is its face — exactly z+1 = 3 deep for z2, per the
- * generator's vertical-extent invariant (docs/examples/user-kiosk-terrace-
- * example.json is the hand-authored acceptance fixture this shape matches).
- * The door replaces the center cell of that south face row AND drops that
- * one cell to height 0 (flush with the pad outside): STEP_UP gates grounded
- * movement onto any raised cell (movement/collision.ts's cornerBlocksMove),
- * doors get no ramp/jump exemption there, so a door left at the terrace's
- * own height would be a real portal nobody could ever walk up to — the
- * doorway is a full-depth notch cut down to the ground, same as any
- * ordinary wall door, not a face cell at reduced height.
+ * How far the terrace reaches NORTH of its door row. ownFace.ts's face
+ * model gives a flush height-KIOSK_HEIGHT drop exactly KIOSK_HEIGHT rows
+ * of brick face (rowsOnRaised caps at the drop's own magnitude) before any
+ * row reads as walkable top — so the two rows immediately behind the door
+ * are ALWAYS face, never top, no matter how deep the terrace goes. A
+ * genuinely flat, walkable-looking platform needs KIOSK_HEIGHT MORE rows
+ * beyond that (docs/ROADMAP.md's "platform above the door" user spec,
+ * 2026-07-20: "deepen that platform to 2 tiles north-south" — the terrace
+ * used to stop exactly at the face rows, leaving a bare notch of brick
+ * directly behind the door where every OTHER kiosk column already showed
+ * flat top one row sooner — the "visible seam/split" complaint).
+ */
+const TERRACE_TOP_ROWS = KIOSK_HEIGHT;
+/** Rows from the door (exclusive) to the terrace's northmost row. */
+const TERRACE_NORTH_REACH = KIOSK_HEIGHT + TERRACE_TOP_ROWS - 1;
+
+/**
+ * 5-wide x 5-deep kiosk TERRACE: a raised, walkable floor dais (not solid
+ * rock) whose southernmost KIOSK_HEIGHT rows are its face, with
+ * TERRACE_TOP_ROWS more of genuine flat top behind that at
+ * EVERY column, door column included — never short a full z+1 of walkable
+ * top the way a too-shallow terrace leaves the door's own column with
+ * zero (docs/examples/user-kiosk-terrace-example.json is the hand-authored
+ * acceptance fixture this shape matches). The door replaces the center
+ * cell of the south face row AND drops that one cell to height 0 (flush
+ * with the pad outside): STEP_UP gates grounded movement onto any raised
+ * cell (movement/collision.ts's cornerBlocksMove), doors get no ramp/jump
+ * exemption there, so a door left at the terrace's own height would be a
+ * real portal nobody could ever walk up to — the doorway is a full-depth
+ * notch cut down to the ground, same as any ordinary wall door, not a face
+ * cell at reduced height.
  */
 export function carveSafeRoomEntrance(
   tiles: Uint8Array,
@@ -158,7 +178,7 @@ export function carveSafeRoomEntrance(
   centerLx: number,
   centerLy: number,
 ): void {
-  for (let dy = -1; dy <= 1; dy++) {
+  for (let dy = -TERRACE_NORTH_REACH; dy <= 1; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
       const lx = centerLx + dx;
       const ly = centerLy + dy;

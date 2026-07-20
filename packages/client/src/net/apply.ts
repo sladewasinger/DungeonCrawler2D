@@ -2,6 +2,7 @@ import type { AreaTileUpdate, GameEvent, ServerSnapshot, World } from "@dc2d/eng
 import { parseFistbumpSealPartner } from "../ui/chat/fistbumpSeal.js";
 import type { Connection } from "./connection.js";
 import { recordSample } from "./interpolate.js";
+import { xpGainEvents } from "./xpEvents.js";
 
 /**
  * Applies server truth to the Connection's state: authoritative self
@@ -13,6 +14,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   if (!conn.world) return;
   conn.serverTick = snap.tick;
   applySelfState(conn, snap, conn.world);
+  conn.hasReceivedSnapshot = true;
 
   const now = performance.now();
   for (const entity of snap.entities) applyEntitySample(conn, now, entity);
@@ -47,10 +49,24 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.downed = snap.self.downed ?? false;
   if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
   else conn.prediction.reconcile(world, conn.body, snap.lastSeq);
+  applyXpState(conn, snap.self.xp ?? conn.xp, snap.self.level ?? conn.charLevel, snap.self.xpForNext ?? conn.xpForNext);
   conn.inventory = snap.inventory;
   conn.hotbar = snap.hotbar;
   conn.weapon = snap.weapon;
   conn.party = snap.party;
+}
+
+/** Diffs the new xp/level against Connection's current values (pre-overwrite) and
+ * queues xpGained/levelUp visual events before committing the new totals. Skipped on
+ * the very first snapshot (conn.hasReceivedSnapshot still false) — a returning
+ * player's whole banked xp/level must not read as a fresh gain on join. */
+function applyXpState(conn: Connection, xp: number, level: number, xpForNext: number): void {
+  if (conn.hasReceivedSnapshot) {
+    conn.visualEvents.push(...xpGainEvents({ xp: conn.xp, level: conn.charLevel }, { xp, level }));
+  }
+  conn.xp = xp;
+  conn.charLevel = level;
+  conn.xpForNext = xpForNext;
 }
 
 function applyEntitySample(
@@ -93,8 +109,9 @@ function applyChatEvent(conn: Connection, event: Extract<GameEvent, { t: "chat" 
 function applyEvent(conn: Connection, event: GameEvent): void {
   switch (event.t) {
     case "toast":
-      conn.toasts.push({ msg: event.msg, until: performance.now() + 5000 });
-      if (conn.toasts.length > 5) conn.toasts.shift();
+      // Routed through Connection.pushToast (net/connection.ts) so server and
+      // client-local toasts (input toasts wiring, Epic 7.13) share one queue/duration.
+      conn.pushToast(event.msg);
       return;
     case "chat":
       applyChatEvent(conn, event);

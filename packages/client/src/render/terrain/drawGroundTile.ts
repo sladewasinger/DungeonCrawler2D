@@ -5,7 +5,7 @@
 import { TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { floorFrame, isNearEdge } from "./floorFrame.js";
-import { faceRowShade, heightTint, isChasmDepth, multiplyTint } from "./heightShade.js";
+import { faceRowShade, heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint } from "./heightShade.js";
 import { pitFaceRowAt, pitRunPieceAt, type PitFaceRow } from "./pitFace.js";
 import { placeSprite } from "./placeSprite.js";
 import { propFrame } from "./propFrame.js";
@@ -31,15 +31,23 @@ function drawPitFaceCell(
   if (piece.closeEast) placeSprite(scene, below, wx, wy, "wall_edge_mid_right", { tint });
 }
 
+/**
+ * The outline pieces around a walkable top's dropping edges — drawn with
+ * topEdgeHighlightTint (a lit-rim seam), not the tile's own flat fill tint,
+ * so a raised top's silhouette pops instead of reading as a same-tone
+ * floating strip (docs/ROADMAP.md's "single walls" legibility bug).
+ */
 function drawTopEdges(
   scene: Phaser.Scene,
   below: Phaser.GameObjects.Container,
   world: TerrainWorld,
   wx: number,
   wy: number,
-  tint: number,
+  height: number,
+  lightTint: number,
 ): void {
   const edges = topEdgesAt(world, wx, wy);
+  const tint = multiplyTint(topEdgeHighlightTint(height), lightTint);
   if (edges.southCornerLeft) placeSprite(scene, below, wx, wy, "wall_edge_bottom_left", { tint });
   if (edges.southCornerRight) placeSprite(scene, below, wx, wy, "wall_edge_bottom_right", { tint });
   if (edges.southDashEndWest) placeSprite(scene, below, wx, wy, "wall_edge_top_left", { tint });
@@ -73,7 +81,7 @@ export function drawGroundTile(
   const base = isChasmDepth(height) ? "hole" : floorFrame(wx, wy, world.zoneAt(wx, wy), isNearEdge(isEdgeNeighbor));
   placeSprite(scene, below, wx, wy, base, { tint });
 
-  drawTopEdges(scene, below, world, wx, wy, tint);
+  drawTopEdges(scene, below, world, wx, wy, height, lightTint);
 
   if (tile === TILE.Stairs) {
     placeSprite(scene, below, wx, wy, "floor_stairs", { tint, angle: stairAngle(world, wx, wy) });

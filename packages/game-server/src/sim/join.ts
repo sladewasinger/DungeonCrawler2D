@@ -6,6 +6,7 @@ import {
   newEntityId,
   type Entity,
 } from "@dc2d/engine";
+import { announceJoin, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
 import { respawnSlot } from "./players.js";
@@ -54,6 +55,10 @@ export function addPlayer(
   // survived the disconnect) just delivers the identical list twice —
   // harmless, since the client treats contactsUpdated as a full replace.
   sendContactsUpdated(sim, slot);
+  // The announcer's voice (Epic 7.13, book-fan lane): ordinal is the
+  // player's persistent PlayerStore slot number, not join order, so a
+  // returning-but-forgotten client still gets a stable "Crawler #N".
+  broadcastAnnouncement(sim, announceJoin(sim.tickCount, entity.id, name, slot.stored.slot + 1));
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false };
 }
 

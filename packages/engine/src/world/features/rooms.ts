@@ -92,7 +92,11 @@ export function safeRoomFeatures(doorCx: number, doorCy: number): {
   return {
     doorPersonal: { x: centerX - 2, y: baseY + top + 1 },
     doorParty: { x: centerX + 2, y: baseY + top + 1 },
-    exit: { x: centerX, y: baseY + top + SAFE_ROOM_H - 2 },
+    // North wall (docs/ROADMAP.md's filed ruling, 2026-07-20: "exit doors
+    // default to the north/back wall" — the safe room's north row has a
+    // free center column, DoorPersonal/DoorParty sitting at +-2 either
+    // side of it) — see placeFixtures's matching exitLy.
+    exit: { x: centerX, y: baseY + top + 1 },
     stash: { x: baseX + left + 1, y: baseY + top + 1 },
     table: { x: baseX + left + SAFE_ROOM_W - 2, y: baseY + top + 1 },
   };
@@ -160,6 +164,22 @@ function carveInterior(set: SetTile, left: number, top: number, w: number, h: nu
   }
 }
 
+/**
+ * A south exit is a plain doorway floating flush on the wall line — no
+ * passage beyond it, since these rooms are sealed dead ends (see
+ * ROOM_WALL_RISE's doc comment). docs/ROADMAP.md's filed ruling (2026-07-20,
+ * "Safe-room SOUTH exit door reads wrong"): where north is unavailable, cut
+ * a short 2-tile inset alcove past the south wall instead, so the doorway
+ * reads as a real recess from this top-down PoV, not a decal on flat rock.
+ * doorLights.ts already seeds every DoorExit tile with a teal glow — the
+ * alcove's mouth lights itself, no lighting-side change needed here.
+ */
+const ALCOVE_DEPTH = 2;
+
+function carveSouthAlcove(set: SetTile, centerLx: number, wallLy: number): void {
+  for (let d = 0; d < ALCOVE_DEPTH; d++) set(centerLx, wallLy + d, TILE.Floor);
+}
+
 /** Place the exit door plus this room kind's fixtures. */
 function placeFixtures(
   set: SetTile,
@@ -170,17 +190,21 @@ function placeFixtures(
   h: number,
 ): void {
   const centerLx = Math.floor(CHUNK_SIZE / 2);
-  const exitLy = kind === "personal" ? top + 1 : top + h - 2;
+  // North/back wall by default (docs/ROADMAP.md's filed ruling) — "party"
+  // is the one exception, its north row already spent on DoorPersonal.
+  const exitOnSouth = kind === "party";
+  const exitLy = exitOnSouth ? top + h - 2 : top + 1;
   set(centerLx, exitLy, TILE.DoorExit);
+  if (exitOnSouth) carveSouthAlcove(set, centerLx, top + h - 1);
 
   if (kind === "personal") {
     // Stash on the west wall, crafting table on the east wall.
     set(left + 1, top + 1, TILE.Stash);
     set(left + w - 2, top + 1, TILE.CraftingTable);
   } else if (kind === "safe") {
-    // The shared safe room: personal + party doors on the north row
-    // (portals — shared geometry, per-player destinations), with a
-    // communal stash and crafting table in the corners.
+    // The shared safe room: personal + party doors flank the now-north-
+    // wall exit (portals — shared geometry, per-player destinations),
+    // with a communal stash and crafting table in the corners.
     set(centerLx - 2, top + 1, TILE.DoorPersonal);
     set(centerLx + 2, top + 1, TILE.DoorParty);
     set(left + 1, top + 1, TILE.Stash);

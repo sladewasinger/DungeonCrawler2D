@@ -6,6 +6,9 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
   return {
     hp: 20,
     maxHp: 30,
+    xp: 0,
+    level: 1,
+    xpForNext: 100,
     hotbar: [null, null, null, null, null, null, null, null, null],
     inventory: [],
     weapon: null,
@@ -20,13 +23,15 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
     stashNearby: false,
     stash: null,
     lastToast: null,
+    toasts: [],
+    seed: null,
     ...overrides,
   };
 }
 
 /** Neutral fps/bodyPos/chat/contacts args for tests that don't care about those fields. */
 const FPS = 60;
-const BODY_POS = { x: 0, y: 0 };
+const BODY_POS = { x: 0, y: 0, z: 0 };
 const CHAT_MODEL: ChatPanelModel = { tabs: [], lines: [] };
 const CONTACTS: never[] = [];
 
@@ -99,9 +104,9 @@ describe("buildHudSnapshot", () => {
     expect(snap.fps).toBe(47);
   });
 
-  it("rounds the predicted body position into whole-tile coords", () => {
-    const snap = snapshotOf(source(), null, FPS, { x: 128.4, y: -63.6 });
-    expect(snap.coords).toEqual({ x: 128, y: -64 });
+  it("rounds the predicted body position into whole-tile x/y and one-decimal z", () => {
+    const snap = snapshotOf(source(), null, FPS, { x: 128.4, y: -63.6, z: 2.34 });
+    expect(snap.coords).toEqual({ x: 128, y: -64, z: 2.3 });
   });
 
   it("builds one inventory row per InvStack, tagging its hotbar-bound slot (or null when unbound)", () => {
@@ -150,5 +155,21 @@ describe("buildHudSnapshot", () => {
     const toast = { msg: "Crafted bandage", until: 12345 };
     const snap = snapshotOf(source({ lastToast: toast }));
     expect(snap.lastToast).toBe(toast);
+  });
+
+  it("passes the full toast queue and seed straight through", () => {
+    const toasts = [{ msg: "Missing rag", until: 999 }];
+    const snap = snapshotOf(source({ toasts, seed: "e2e-world" }));
+    expect(snap.toasts).toEqual(toasts);
+    expect(snap.seed).toBe("e2e-world");
+  });
+
+  it("defaults seed to null when the connection carries none", () => {
+    expect(snapshotOf(source()).seed).toBeNull();
+  });
+
+  it("maps xp/level/xpForNext straight through to the xp-bar widget's data", () => {
+    const snap = snapshotOf(source({ xp: 220, level: 3, xpForNext: 80 }));
+    expect(snap.xp).toEqual({ xp: 220, level: 3, xpForNext: 80 });
   });
 });

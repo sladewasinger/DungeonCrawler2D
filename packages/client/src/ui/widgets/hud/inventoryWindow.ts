@@ -133,13 +133,16 @@ export class InventoryWindowWidget {
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
     rowBg.on("pointerdown", () => this.selectRow(view.itemId));
-    const accent = drawSelectionAccent(this.scene, right - left, ROW_HEIGHT - 2)
-      .setPosition(left, y)
-      .setVisible(view.itemId === this.selectedItemId);
     const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE, this.scale).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
     const label = this.buildRowLabel(view, left, y);
     const buttons = this.buildRowButtons(view, right, y);
-    const objects = [rowBg, accent, icon, label, ...buttons];
+    // Drawn LAST (on top of the Equip/Drop buttons, not under them) — Epic 7.13
+    // onboarding lane's z-order fix: the selection outline used to render beneath the
+    // row's own buttons and get visually clipped by their backgrounds.
+    const accent = drawSelectionAccent(this.scene, right - left, ROW_HEIGHT - 2)
+      .setPosition(left, y)
+      .setVisible(view.itemId === this.selectedItemId);
+    const objects = [rowBg, icon, label, ...buttons, accent];
     this.panel.add(objects);
     return objects;
   }

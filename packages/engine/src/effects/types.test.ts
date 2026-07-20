@@ -79,6 +79,55 @@ describe("buildContentRegistry", () => {
     expect(registry.recipes.get("make_torch")?.output.item).toBe("torch");
   });
 
+  it("round-trips the optional flavor/epithet flavor-text fields (Epic 7.13)", () => {
+    const registry = buildContentRegistry(
+      minimalRaw({
+        items: [
+          { id: "sword", name: "Rusty Sword", tags: [], maxStack: 1, flavor: "The rust is load-bearing." },
+        ],
+        enemies: [
+          {
+            id: "slime",
+            name: "Slime",
+            tags: [],
+            hp: 10,
+            speed: 1,
+            aggroRadius: 5,
+            attack: { damage: 1, range: 1, cooldown: 1 },
+            drops: [],
+            sprite: "enemy_slime",
+            epithet: "dissolved by a slime. A slime.",
+          },
+        ],
+      }),
+    );
+    expect(registry.items.get("sword")?.flavor).toBe("The rust is load-bearing.");
+    expect(registry.enemies.get("slime")?.epithet).toBe("dissolved by a slime. A slime.");
+  });
+
+  it("accepts items/enemies without flavor/epithet (both remain optional)", () => {
+    const registry = buildContentRegistry(
+      minimalRaw({
+        items: [{ id: "wood", name: "Wood", tags: [], maxStack: 99 }],
+        enemies: [
+          {
+            id: "slime",
+            name: "Slime",
+            tags: [],
+            hp: 10,
+            speed: 1,
+            aggroRadius: 5,
+            attack: { damage: 1, range: 1, cooldown: 1 },
+            drops: [],
+            sprite: "enemy_slime",
+          },
+        ],
+      }),
+    );
+    expect(registry.items.get("wood")?.flavor).toBeUndefined();
+    expect(registry.enemies.get("slime")?.epithet).toBeUndefined();
+  });
+
   it("throws when a status onTick primitive references an unknown status", () => {
     const raw = minimalRaw({
       statuses: [

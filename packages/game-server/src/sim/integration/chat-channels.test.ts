@@ -64,6 +64,9 @@ describe("GameSim: chat channels (Epic 7.9)", () => {
 
   it("rate limit boundary: the 5th chat of any channel is fine, the 6th is denied", () => {
     const a = sim.addPlayer("A", "client-a");
+    // Flush the announcer's own join system line (Epic 7.13) before
+    // asserting on the chat rate limit's system-line output below.
+    sim.step();
     for (let i = 0; i < 5; i++) {
       sim.queueAction(a.playerId, { type: "chat", channel: "local", text: `msg${i}` });
     }

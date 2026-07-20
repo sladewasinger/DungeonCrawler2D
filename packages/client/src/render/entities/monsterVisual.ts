@@ -7,7 +7,7 @@ import { resolveAnimState, telegraphScale, telegraphTint } from "./animState.js"
 import { depthForEntity } from "./depthSort.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
-import { spriteLiftPx } from "./lift.js";
+import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import type { MonsterVisual } from "./state.js";
@@ -33,11 +33,10 @@ export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): 
 }
 
 /** Body pose: position, depth, animation, telegraph pulse, status/hit tint. */
-function updateMonsterBody(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, groundHeight: number): void {
+function updateMonsterBody(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, heightAboveGround: number): void {
   const screen = worldToScreen(view.x, view.y);
-  const liftPx = spriteLiftPx(view.z, groundHeight, view.air);
-  visual.body.setPosition(screen.x, screen.y - liftPx);
-  visual.body.setDepth(depthForEntity(view.y, view.air ? Math.max(0, view.z - groundHeight) : 0));
+  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
+  visual.body.setDepth(depthForEntity(view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
   if (view.anim !== visual.lastAnim) {
@@ -69,25 +68,28 @@ function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<t
   else visual.body.clearTint();
 }
 
-/** Shadow, hp bar, nameplate — everything that hangs off the body's screen position. */
-function updateMonsterChrome(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext): void {
+/** Shadow, hp bar, nameplate — everything that hangs off the body's screen position.
+ * Nameplate/hp bar anchor to the LIFTED body position so they rise with the sprite;
+ * the shadow deliberately keeps using the unlifted ground position. */
+function updateMonsterChrome(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, heightAboveGround: number): void {
   const ground = worldToScreen(view.x, view.y);
   const bodyDepth = visual.body.depth;
   visual.shadow.setDepth(bodyDepth - 0.2);
   visual.hpBar.container.setDepth(bodyDepth + 0.2);
   visual.nameplate.setDepth(bodyDepth + 0.2);
-  updateShadowPosition(visual.shadow, ground.x, ground.y);
-  const headY = ground.y - visual.body.displayHeight;
-  updateHpBar(visual.hpBar, ground.x, headY, view.hp, view.maxHp);
+  updateShadowPosition(visual.shadow, ground.x, ground.y, heightAboveGround);
+  const headY = visual.body.y - visual.body.displayHeight;
+  updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
-  updateNameplate(visual.nameplate, view.name, ground.x, headY, distance, false);
+  updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, false);
 }
 
 /** Advances one monster's full visual for a fresh snapshot sample. */
 export function updateMonsterVisual(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext): void {
   const groundHeight = ctx.world.groundAt(view.x, view.y);
+  const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
   visual.lastFx = view.fx;
-  updateMonsterBody(visual, view, ctx, groundHeight);
-  updateMonsterChrome(visual, view, ctx);
+  updateMonsterBody(visual, view, ctx, heightAboveGround);
+  updateMonsterChrome(visual, view, ctx, heightAboveGround);
   visual.lastHp = view.hp;
 }

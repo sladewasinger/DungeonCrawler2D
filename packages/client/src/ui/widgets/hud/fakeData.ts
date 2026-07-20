@@ -6,6 +6,7 @@ import type { ContactData } from "./contactRows.js";
 import type { PartyRowData } from "./partyFrames.js";
 import type { RecipeRowView } from "./recipeRows.js";
 import type { StashRowView } from "./stashRows.js";
+import type { XpBarData } from "./xpBarView.js";
 
 export interface HotbarSlotData {
   itemId: string | null;
@@ -32,10 +33,12 @@ export interface InventoryRowData {
   boundSlot: number | null;
 }
 
-/** A tile-space (x, y) — the player's rounded predicted position for the top-right coords readout. */
+/** A tile-space (x, y, z) — the player's rounded predicted position for the top-right
+ * telemetry readout; z stays a float (one decimal) since height rarely lands on a whole tile. */
 export interface TileCoords {
   x: number;
   y: number;
+  z: number;
 }
 
 /** The crafting window's per-frame data: whether a crafting table is in range (auto-closes
@@ -62,6 +65,8 @@ export interface ToastData {
 
 export interface HudFakeSnapshot {
   health: { hp: number; maxHp: number };
+  /** Epic 11 core (character levels), pulled forward — xpBar.ts's progress bar + level numeral. */
+  xp: XpBarData;
   hotbar: HotbarSlotData[];
   selectedSlot: number;
   armedThrowableSlot: number | null;
@@ -72,6 +77,12 @@ export interface HudFakeSnapshot {
   craft: CraftSnapshot;
   stash: StashSnapshot;
   lastToast: ToastData | null;
+  /** Every still-tracked toast (net/apply.ts + Connection.pushToast) — the top-center
+   * toastStack.ts widget's full queue, independent of lastToast's single-line consumers. */
+  toasts: ToastData[];
+  /** The connected world's seed, for the telemetry stack — null until the welcome
+   * message carries one (it doesn't yet; see docs/ASSUMPTIONS.md, Epic 7.13 onboarding row). */
+  seed: string | null;
   /** Off-self party member rows (Epic 7.12) — empty when unpartied, hides the widget. */
   party: PartyRowData[];
   chatModel: ChatPanelModel;
@@ -172,32 +183,40 @@ const FAKE_STASH: StashSnapshot = {
   entries: [{ index: 0, itemId: "bandage", name: "Bandage", qty: 2 }],
 };
 
+/** 5 filled hotbar slots (one armed throwable) + 4 empty — fakeHudSnapshot()'s own sibling to FAKE_INVENTORY etc. */
+const FAKE_HOTBAR: HotbarSlotData[] = [
+  { itemId: "sword", count: 1 },
+  { itemId: "bandage", count: 3 },
+  { itemId: "water-flask", count: 2 },
+  { itemId: "vodka-bottle", count: 1 },
+  { itemId: "hammer", count: 1 },
+  EMPTY_SLOT,
+  EMPTY_SLOT,
+  EMPTY_SLOT,
+  EMPTY_SLOT,
+];
+
+const FAKE_BUFFS: BuffChipData[] = [
+  { statusId: "on-fire", kind: "debuff", remainingSec: 3.2, durationSec: 5 },
+  { statusId: "regenerating", kind: "buff", remainingSec: 12, durationSec: 20 },
+];
+
 /** Static fake snapshot: half health, 5 filled hotbar slots (one armed throwable), 2 buffs, one chat line per channel. */
 export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
   return {
     health: { hp: 24, maxHp: 48 },
-    hotbar: [
-      { itemId: "sword", count: 1 },
-      { itemId: "bandage", count: 3 },
-      { itemId: "water-flask", count: 2 },
-      { itemId: "vodka-bottle", count: 1 },
-      { itemId: "hammer", count: 1 },
-      EMPTY_SLOT,
-      EMPTY_SLOT,
-      EMPTY_SLOT,
-      EMPTY_SLOT,
-    ],
+    xp: { xp: 220, level: 3, xpForNext: 80 },
+    hotbar: FAKE_HOTBAR,
     selectedSlot: 0,
     armedThrowableSlot: 3,
-    buffs: [
-      { statusId: "on-fire", kind: "debuff", remainingSec: 3.2, durationSec: 5 },
-      { statusId: "regenerating", kind: "buff", remainingSec: 12, durationSec: 20 },
-    ],
+    buffs: FAKE_BUFFS,
     equippedWeaponId: "sword",
     inventory: FAKE_INVENTORY,
     craft: FAKE_CRAFT,
     stash: FAKE_STASH,
     lastToast: null,
+    toasts: [],
+    seed: null,
     party: FAKE_PARTY,
     chatModel: FAKE_CHAT_MODEL,
     contacts: FAKE_CONTACTS,
@@ -209,6 +228,6 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     downed,
     touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
     fps: 60,
-    coords: { x: 128, y: -64 },
+    coords: { x: 128, y: -64, z: 2.5 },
   };
 }

@@ -1,4 +1,5 @@
 import { MELEE_RANGE, XP_LEVEL_CURVE_COEFFICIENT, xpForLevel } from "@dc2d/engine";
+import { announceKillMilestone, announceLevelUp, broadcastAnnouncement } from "./announcer/index.js";
 import type { EnemySlot, PlayerSlot, SimState } from "./state.js";
 
 /**
@@ -60,13 +61,15 @@ export function awardKillXp(sim: SimState, enemy: EnemySlot): void {
   if (amount <= 0) return;
   const killer = findKiller(sim, enemy);
   if (!killer) return;
+  // The announcer's voice (Epic 7.13, book-fan lane): milestone credit
+  // piggybacks on the same last-hit attribution XP already needs, so
+  // only xp-bearing enemies count toward a killer's tally.
+  const milestone = announceKillMilestone(sim.tickCount, killer);
+  if (milestone) broadcastAnnouncement(sim, milestone);
   const { level, leveledUp } = sim.store.addXp(killer.stored, amount, levelForXp);
   if (!leveledUp) return;
-  killer.outbox.push({
-    t: "chat",
-    channel: "system",
-    from: "server",
-    name: "system",
-    text: `Level ${level}!`,
-  });
+  broadcastAnnouncement(
+    sim,
+    announceLevelUp(sim.tickCount, killer.entity.id, killer.entity.name ?? "?", level),
+  );
 }

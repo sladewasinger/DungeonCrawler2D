@@ -1,20 +1,36 @@
 // Height → shade: one multiply tint per sprite composes a constant palette grade
 // (the pack's warm stone cooled toward VISUAL_DIRECTION's blue-grey) with a height
-// factor: floor level slightly dimmed, raised ground at full brightness, pits
-// darkening, chasms near-black. Elevation reads from this relative shading plus
-// faces/edges/shadows — never from per-tile highlight rectangles (they wallpaper
-// the grid, the exact defect this module used to cause).
+// factor: floor level slightly dimmed, raised ground stepping brighter PER TIER
+// (z0/z1/z2 each a distinct, at-a-glance step — not one flat "raised" plateau,
+// the "single walls"/floating-strip legibility bug: a 2-deep z1 ridge's own top
+// row used to render identical to plain z0 floor once both hit the same
+// brightness clamp), pits darkening, chasms near-black. Elevation reads from
+// this relative shading plus faces/edges/shadows — never from per-tile
+// highlight rectangles (they wallpaper the grid, the exact defect this module
+// used to cause).
 
 const LOW_HEIGHT = -1; // a sunken pit floor (1z = 1 tile)
-const HIGH_HEIGHT = 1; // a dais / wall-top rise (1z = 1 tile)
 const CHASM_THRESHOLD = -1.5; // below this reads as void, not "deep pit"
 
 /** Cools the pack's native warm-brown stone toward the doc's #2e2e3a..#494956 blue-grey. */
 const PALETTE_GRADE = 0xa8acc8;
-/** Floor-level dim: raised ground renders at full grade, so height reads as relative light. */
+/** Floor-level dim: raised ground steps brighter per tier, so height reads as relative light. */
 const FLOOR_FACTOR = 0xd6d6e0;
+/** z1 (one tile-edge up: a dais, a ramp landing, a ridge top) — a real step up from floor, short of full white so z2 still has headroom to read brighter. */
+const TIER1_FACTOR = 0xeaeaf0;
+/** z2 and above clamp here: multiply tint can't exceed the sprite's own pixels, so this is the brightness ceiling every higher tier (the collapsed tower's z3 peak included) shares. */
 const NEUTRAL_FACTOR = 0xffffff;
-const PIT_FACTOR = 0x767686;
+// Pit-floor darkening. Was 0x767686 — every prior brightness-demand round
+// (docs/ROADMAP.md, "brightness round 1..4") only touched tileLight.ts's
+// AMBIENT floor, never this sibling darkening factor, so an ordinary sunken
+// PIT room (real Floor tiles, real walkable depth — not a chasm/void) ended
+// up crushed toward near-black at anything short of point-blank torch light:
+// the user's "pitch black room" repro (austin-dungeon-prod-1, x-13,y18) is
+// exactly this — a legible, walkable -1 pit reading as an unrendered hole.
+// Lifted to stay visibly darker than floor (still reads as sunken) without
+// crushing readability the same way the chasm hole sprite's own factor
+// (CHASM_FACTOR, below) was tuned not to.
+const PIT_FACTOR = 0x9a9ab4;
 // Multiply factor for chasm-depth ground tiles (the "hole" sprite). Tuned so
 // the result reads as VISUAL_DIRECTION's "near-black #14141c void" on
 // AVERAGE while keeping the sprite's own cave-mouth shading visible: the
@@ -59,7 +75,8 @@ function multiplyColor(a: number, b: number): number {
 function heightFactor(height: number): number {
   if (height <= CHASM_THRESHOLD) return CHASM_FACTOR;
   if (height < 0) return lerpColor(PIT_FACTOR, FLOOR_FACTOR, clamp01((height - LOW_HEIGHT) / -LOW_HEIGHT));
-  return lerpColor(FLOOR_FACTOR, NEUTRAL_FACTOR, clamp01(height / HIGH_HEIGHT));
+  if (height < 1) return lerpColor(FLOOR_FACTOR, TIER1_FACTOR, clamp01(height));
+  return lerpColor(TIER1_FACTOR, NEUTRAL_FACTOR, clamp01(height - 1));
 }
 
 /** Channel-wise multiply of two tints — shared by every layer that stacks shading. */
@@ -75,6 +92,21 @@ export function heightTint(height: number): number {
 /** Chasm-depth tiles render as the pack's void art instead of a floor variant. */
 export function isChasmDepth(height: number): boolean {
   return height <= CHASM_THRESHOLD;
+}
+
+/** How far toward full white a top's edge-outline sprite lifts, relative to its own fill tint. */
+const TOP_EDGE_SEAM_LIFT = 0.32;
+
+/**
+ * The tint for a walkable top's edge-outline sprites (topEdgesAt's
+ * wall_edge and wall_top_mid pieces): the SAME per-tier heightTint, lifted
+ * toward white by a fixed fraction, so the boundary always reads as a
+ * lit rim seam distinctly brighter than its own tile's fill — the second
+ * half of the raised-top legibility fix (docs/ROADMAP.md's "single walls"
+ * complaint), independent of which tier the top itself sits at.
+ */
+export function topEdgeHighlightTint(height: number): number {
+  return lerpColor(heightTint(height), NEUTRAL_FACTOR, TOP_EDGE_SEAM_LIFT);
 }
 
 /**

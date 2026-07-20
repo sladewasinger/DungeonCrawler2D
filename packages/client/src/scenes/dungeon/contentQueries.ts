@@ -3,7 +3,7 @@
 // Phaser, no Connection — callers inject just the data these need to stay plain-
 // function testable.
 import { itemsData, recipesData } from "@dc2d/content";
-import type { TileType } from "@dc2d/engine";
+import { TILE, type TileType } from "@dc2d/engine";
 
 interface ItemDef {
   readonly id: string;
@@ -138,4 +138,14 @@ export function isTileTypeNearby(world: TileWorld, tile: TileType, x: number, y:
     }
   }
   return false;
+}
+
+const DOOR_TILES: readonly TileType[] = [TILE.DoorSafeRoom, TILE.DoorPersonal, TILE.DoorParty, TILE.DoorExit];
+
+/** True when the tile exactly under (x, y) is a door — mirrors the server's useDoor()
+ * gate (game-server/src/sim/actions/interact.ts checks `tileAt(floor(x), floor(y))`,
+ * not a 3x3 neighborhood like isTileTypeNearby above), so the client can predict
+ * whether [E] will actually open something. */
+export function isDoorTileAt(world: TileWorld, x: number, y: number): boolean {
+  return DOOR_TILES.includes(world.tileAt(Math.floor(x), Math.floor(y)));
 }

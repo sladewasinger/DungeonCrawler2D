@@ -10,7 +10,8 @@
     "immunities": ["bleed"],
     "drops": [{ "item": "rag", "chance": 0.4 }],
     "sprite": "slime",
-    "xp": 5
+    "xp": 5,
+    "epithet": "dissolved by a slime. A slime."
   },
   {
     "id": "plant-creeper",
@@ -26,7 +27,8 @@
       { "item": "rag", "chance": 0.3 }
     ],
     "sprite": "plant_creeper",
-    "xp": 8
+    "xp": 8,
+    "epithet": "mulched by a houseplant with opinions"
   },
   {
     "id": "skeleton",
@@ -42,7 +44,8 @@
       { "item": "bandage", "chance": 0.25 }
     ],
     "sprite": "skelet",
-    "xp": 12
+    "xp": 12,
+    "epithet": "outfought by a pile of old bones"
   },
   {
     "id": "spitter",
@@ -63,6 +66,7 @@
       { "item": "raw-meat", "chance": 0.5 }
     ],
     "sprite": "imp",
-    "xp": 12
+    "xp": 12,
+    "epithet": "spat on from a safe, professional distance"
   }
 ]

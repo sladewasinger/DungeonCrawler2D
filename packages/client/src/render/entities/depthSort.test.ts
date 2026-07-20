@@ -33,6 +33,18 @@ describe("depthForOccluder", () => {
     expect(wall).toBeGreaterThan(depthForEntity(9.99));
     expect(wall).toBeLessThan(depthForEntity(10.01));
   });
+
+  it("an entity standing on a raised platform south of a wall still draws in front of it, elevation aside", () => {
+    // Epic 7.13 z-lift: a platform's height is carried entirely by the sprite's screen
+    // Y offset (lift.ts), never by feetWorldY or the liftUnits tie-break — so a player
+    // on a z1 platform sorts against nearby walls exactly like a z0 player would.
+    const wallRow = 10;
+    const wall = depthForOccluder(wallRow);
+    const onPlatformJustSouth = depthForEntity(wallRow + 0.01, 0);
+    const onPlatformJustNorth = depthForEntity(wallRow - 0.01, 0);
+    expect(onPlatformJustSouth).toBeGreaterThan(wall);
+    expect(onPlatformJustNorth).toBeLessThan(wall);
+  });
 });
 
 describe("compareEntityDepth", () => {

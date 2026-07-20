@@ -7,14 +7,21 @@ import { AreaEffectPool, type AreaTileView } from "./areaEffectPool.js";
 import { bloodTintFor } from "./bloodTint.js";
 import { BloodDecalPool } from "./bloodDecalPool.js";
 import { spawnDeathSplatter, spawnHitSplatter } from "./bloodSplatter.js";
+import { CorpseDecalPool } from "./corpseDecalPool.js";
 import { DamageNumberPool } from "./damageNumbers.js";
 import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
+import { spawnGibBurst } from "./gibBurst.js";
+import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
+import { LevelUpFlourish } from "./levelUpFlourish.js";
+import { lowHpVignetteAlpha } from "./lowHpVignette.js";
+import { LowHpOverlay } from "./lowHpOverlay.js";
 import { MeleeWedgePool } from "./meleeWedge.js";
 import { spawnDustPuff, spawnFootstepMote, spawnRunDust } from "./movementParticles.js";
 import { footstepDue, isMoving, isRunning, motionEvents, type MotionSample } from "./motionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
 import { ScreenShakeBudget } from "./screenShake.js";
 import { TorchFlamePool } from "./torchFlames.js";
+import { XpNumberPool } from "./xpNumbers.js";
 
 export type { AreaSpriteKind, AreaTileView } from "./areaEffectPool.js";
 
@@ -22,19 +29,28 @@ export class VfxSystem {
   private readonly areas: AreaEffectPool;
   private readonly torchFlames: TorchFlamePool;
   private readonly damageNumbers: DamageNumberPool;
+  private readonly xpNumbers: XpNumberPool;
   private readonly meleeWedge: MeleeWedgePool;
   private readonly shake: ScreenShakeBudget;
   private readonly bloodDecals: BloodDecalPool;
+  private readonly corpseDecals: CorpseDecalPool;
+  private readonly levelUpFlourish: LevelUpFlourish;
+  private readonly lowHpOverlay: LowHpOverlay;
   private lastPlayerSample: MotionSample | undefined;
   private lastFrameMs = 0;
+  private selfHpRatio = 1;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.areas = new AreaEffectPool(scene);
     this.torchFlames = new TorchFlamePool(scene);
     this.damageNumbers = new DamageNumberPool(scene);
+    this.xpNumbers = new XpNumberPool(scene);
     this.meleeWedge = new MeleeWedgePool(scene);
     this.shake = new ScreenShakeBudget(scene.cameras.main);
     this.bloodDecals = new BloodDecalPool(scene);
+    this.corpseDecals = new CorpseDecalPool(scene);
+    this.levelUpFlourish = new LevelUpFlourish(scene);
+    this.lowHpOverlay = new LowHpOverlay(scene);
   }
 
   /** Rebuilds the active area-hazard rigs; returns their accent lights for LightingSystem.setAccentLights. */
@@ -120,18 +136,67 @@ export class VfxSystem {
     this.shake.onOwnDeath(nowMs);
   }
 
+  /** The full kill moment (wave-7 GRINDER demand): a chunkier gib burst than an
+   * ordinary death, a brief corpse/bone decal, a kill-weight micro-shake, and a
+   * ~60ms camera zoom-punch (hitStop.ts) so the kill reads with impact — a true
+   * engine-wide time-scale pause would touch fixedStep.ts's simulation stepping
+   * (another lane's file), so this fakes the same snap at the camera layer.
+   * Enemy deaths only — call sites gate this to `kind === "enemy"`, ordinary
+   * player deaths keep the plain blood-splatter treatment (spawnBloodDeath). */
+  spawnKillMoment(worldX: number, worldY: number, defId: string | undefined, nowMs: number): void {
+    const screen = worldToScreen(worldX, worldY);
+    spawnGibBurst(this.scene, screen.x, screen.y, bloodTintFor(defId));
+    this.corpseDecals.spawn(worldX, worldY, nowMs);
+    this.shake.onKillMoment(nowMs);
+    this.punchCamera();
+  }
+
+  private punchCamera(): void {
+    const camera = this.scene.cameras.main;
+    camera.zoomTo(HIT_STOP_ZOOM, HIT_STOP_DURATION_MS / 2, "Sine.easeOut", true, (_cam, progress) => {
+      if (progress === 1) camera.zoomTo(1, HIT_STOP_DURATION_MS / 2, "Sine.easeIn");
+    });
+  }
+
+  /** Floating "+N XP" above the self player — a kill's XP gain has no landed-hit
+   * world position of its own (net/xpEvents.ts diffs the self snapshot only). */
+  spawnXpNumber(amount: number, nowMs: number): void {
+    const sample = this.lastPlayerSample;
+    if (!sample) return;
+    const screen = worldToScreen(sample.x, sample.y - 1);
+    this.xpNumbers.spawn(screen.x, screen.y, amount, nowMs);
+  }
+
+  spawnLevelUpFlourish(level: number, nowMs: number): void {
+    this.levelUpFlourish.trigger(level, nowMs);
+  }
+
+  /** Feeds the low-hp vignette its current ratio — call once per frame regardless
+   * of whether hp changed, since the heartbeat throb animates continuously. */
+  setSelfHp(hp: number, maxHp: number): void {
+    this.selfHpRatio = maxHp > 0 ? Math.max(0, hp) / maxHp : 0;
+  }
+
   /** Advances every per-frame subsystem (damage numbers rise/fade, wedge telegraphs fade). */
   update(nowMs: number): void {
     this.damageNumbers.update(nowMs);
+    this.xpNumbers.update(nowMs);
     this.meleeWedge.update(nowMs);
     this.bloodDecals.update(nowMs);
+    this.corpseDecals.update(nowMs);
+    this.levelUpFlourish.update(nowMs);
+    this.lowHpOverlay.update(lowHpVignetteAlpha(this.selfHpRatio, nowMs));
   }
 
   dispose(): void {
     this.areas.dispose();
     this.torchFlames.dispose();
     this.damageNumbers.dispose();
+    this.xpNumbers.dispose();
     this.meleeWedge.dispose();
     this.bloodDecals.dispose();
+    this.corpseDecals.dispose();
+    this.levelUpFlourish.dispose();
+    this.lowHpOverlay.dispose();
   }
 }

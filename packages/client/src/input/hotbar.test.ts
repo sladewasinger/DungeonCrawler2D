@@ -9,7 +9,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     body: { x: 0, y: 0 },
     canAct: true,
     hotbar: ["sword", "bomb", undefined],
-    inventory: [{ item: "sword" }],
+    inventory: [{ item: "sword", qty: 1 }],
     stash: undefined,
     pendingInvite: false,
     weapon: null,
@@ -25,6 +25,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     equip: () => calls.push("equip"),
     drop: () => calls.push("drop"),
     fistbump: () => calls.push("fistbump"),
+    pushToast: () => calls.push("pushToast"),
     ...overrides,
   };
 }
@@ -36,6 +37,7 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     nearestPlayerId: () => undefined,
     isStashNearby: () => true,
     isCraftTableNearby: () => true,
+    isDoorNearby: () => false,
     downedPartyMemberInRange: () => undefined,
     ...overrides,
   };
@@ -170,7 +172,7 @@ describe("onNumberKey", () => {
     const conn = makeConn({
       stash: {},
       hotbar: ["sword", undefined, undefined],
-      inventory: [{ item: "bomb" }, { item: "sword" }],
+      inventory: [{ item: "bomb", qty: 1 }, { item: "sword", qty: 1 }],
       stashOp: (op, i) => ops.push([op, i]),
     });
     const panels: InputPanels = { ...panelsClosed, stashOpen: true };

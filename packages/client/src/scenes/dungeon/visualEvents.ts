@@ -6,21 +6,26 @@ import type { VfxSystem } from "../../vfx/index.js";
 import type { RenderPose } from "./state.js";
 
 export function applyVisualEvents(conn: Connection, vfx: VfxSystem, render: RenderPose, nowMs: number): void {
+  // Continuous (not event-edge-triggered): the low-hp heartbeat throb animates every
+  // frame, not just on hp change, so this runs whether or not any event fired below.
+  vfx.setSelfHp(conn.hp, conn.maxHp);
   const selfId = conn.welcome?.playerId;
   for (const event of conn.drainVisualEvents()) {
     if (event.t === "hit") applyHit(conn, vfx, render, selfId, event, nowMs);
     else if (event.t === "death") applyDeath(conn, vfx, render, selfId, event, nowMs);
     else if (event.t === "fistbumpSealed") applyFistbumpSealed(conn, vfx, render, event.partnerName);
+    else if (event.t === "xpGained") vfx.spawnXpNumber(event.amount, nowMs);
+    else if (event.t === "levelUp") vfx.spawnLevelUpFlourish(event.level, nowMs);
   }
 }
 
 /** Resolves a visual-event target's rendered position, content defId (enemies only),
- * and (self only) the knockback vector its body exposes — see bloodDirection.ts. */
+ * entity kind, and (self only) the knockback vector its body exposes — see bloodDirection.ts. */
 function resolveTarget(conn: Connection, render: RenderPose, isSelf: boolean, id: string) {
   const targetSnap = isSelf ? undefined : conn.entities.get(id)?.snap;
   const pos = isSelf ? render : targetSnap;
   const dir = isSelf && conn.body ? { x: conn.body.kx, y: conn.body.ky } : undefined;
-  return { pos, defId: targetSnap?.defId, dir };
+  return { pos, defId: targetSnap?.defId, kind: targetSnap?.kind, dir };
 }
 
 function applyHit(
@@ -40,7 +45,9 @@ function applyHit(
   if (isSelf) vfx.onOwnHit(nowMs);
 }
 
-/** Blood burst + decals at a dying entity's last known position; shake stays own-death-only. */
+/** Blood burst + decals at a dying entity's last known position, plus the full kill
+ * moment (gib burst, corpse decal, hit-stop, kill shake) for an enemy YOU just
+ * watched die — self-death keeps the plain blood treatment + its own shake instead. */
 function applyDeath(
   conn: Connection,
   vfx: VfxSystem,
@@ -50,9 +57,11 @@ function applyDeath(
   nowMs: number,
 ): void {
   const isSelf = event.id === selfId;
-  const { pos, defId } = resolveTarget(conn, render, isSelf, event.id);
-  if (pos) vfx.spawnBloodDeath(pos.x, pos.y, defId, nowMs);
+  const { pos, defId, kind } = resolveTarget(conn, render, isSelf, event.id);
+  if (!pos) return;
+  vfx.spawnBloodDeath(pos.x, pos.y, defId, nowMs);
   if (isSelf) vfx.onOwnDeath(nowMs);
+  else if (kind === "enemy") vfx.spawnKillMoment(pos.x, pos.y, defId, nowMs);
 }
 
 /** Flourishes both sides of a just-sealed fistbump: our own pose plus whichever

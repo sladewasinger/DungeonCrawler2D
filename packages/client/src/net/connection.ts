@@ -12,6 +12,7 @@ import {
   type LevelId,
 } from "@dc2d/engine";
 import { closeSocket, openSocket } from "./socket.js";
+import type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
 import { interpolated, type RemoteEntity } from "./interpolate.js";
 import {
   assignSlotIntent,
@@ -40,33 +41,7 @@ import { Prediction } from "./prediction.js";
  * (apply.ts); remote entities render interpolated (interpolate.ts).
  */
 
-export interface Toast {
-  msg: string;
-  until: number;
-}
-
-export interface ChatLine {
-  channel: string;
-  from: string;
-  name: string;
-  text: string;
-  /** DM thread partner's display name (set on "dm" lines only). */
-  target?: string;
-}
-
-export interface ContactInfo {
-  name: string;
-  online: boolean;
-}
-
-/** Visual-only events the scene consumes each frame. */
-export type VisualEvent =
-  | { t: "hit"; id: string; amount: number }
-  | { t: "death"; id: string }
-  | { t: "status"; id: string; status: string; on: boolean }
-  /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated
-   * wire event for a sealed contact, only the system chat line this is derived from. */
-  | { t: "fistbumpSealed"; partnerName: string };
+export type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
 
 export class Connection {
   world: World | null = null;
@@ -77,12 +52,23 @@ export class Connection {
   /** The last applied snapshot's server tick — placed-torch ember-fade math
    * (scenes/dungeon/torchSync.ts) counts down against this. */
   serverTick = 0;
+  /** Set true the first time applySnapshot ever runs — gates `dead` below so the
+   * default `hp = 0` never reads as a real death before server truth has arrived
+   * (docs/ASSUMPTIONS.md #88's client-side gap: welcome sets status "connected"
+   * before hp is known). */
+  hasReceivedSnapshot = false;
 
   // Server-authoritative self state.
   hp = 0;
   maxHp = 1;
   fx: string[] = [];
   downed = false;
+  /** Epic 11 core (character levels) — current XP, character level, and XP still
+   * needed for the next level; live on the wire since protocol 14 (ASSUMPTION #90).
+   * Named `charLevel` — `level` is already taken by the game LEVEL (dungeon/sandbox). */
+  xp = 0;
+  charLevel = 1;
+  xpForNext = 0;
   /** Unlimited inventory: one stack per item def. */
   inventory: InvStack[] = [];
   /** Hotbar bindings (item defs); qty lives in inventory. */
@@ -134,7 +120,7 @@ export class Connection {
   onSnapshot: (() => void) | null = null;
 
   get dead(): boolean {
-    return this.status === "connected" && this.hp <= 0;
+    return this.status === "connected" && this.hasReceivedSnapshot && this.hp <= 0;
   }
 
   get canAct(): boolean {
@@ -157,6 +143,7 @@ export class Connection {
     this.body = null;
     this.hp = 0;
     this.downed = false;
+    this.hasReceivedSnapshot = false;
     this.entities.clear();
     this.areaTiles.clear();
     this.prediction.reset();
@@ -266,5 +253,17 @@ export class Connection {
 
   send(msg: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(encodeMessage(msg));
+  }
+
+  /**
+   * Queues a client-local toast through the same queue/renderer as server "toast"
+   * events (net/apply.ts, ui/widgets/hud/toastStack.ts) — for failures the client can
+   * already tell won't do anything (no crafting table nearby, out of torches...)
+   * without waiting on a server round trip. Never asserts a gameplay outcome, purely
+   * UI feedback; the real intent is still sent to the server regardless.
+   */
+  pushToast(msg: string, ms = 2500): void {
+    this.toasts.push({ msg, until: performance.now() + ms });
+    if (this.toasts.length > 5) this.toasts.shift();
   }
 }

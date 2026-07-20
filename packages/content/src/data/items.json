@@ -1,11 +1,12 @@
 [
-  { "id": "rag", "name": "Rag", "tags": ["cloth", "flammable"], "maxStack": 10 },
-  { "id": "stick", "name": "Stick", "tags": ["wood", "flammable"], "maxStack": 10 },
+  { "id": "rag", "name": "Rag", "tags": ["cloth", "flammable"], "maxStack": 10, "flavor": "Absorbent. Slightly cursed. Mostly the first thing." },
+  { "id": "stick", "name": "Stick", "tags": ["wood", "flammable"], "maxStack": 10, "flavor": "The dungeon's starter weapon, technically. Don't." },
   {
     "id": "bandage",
     "name": "Bandage",
     "tags": ["cloth"],
     "maxStack": 5,
+    "flavor": "Sponsored by nobody. You're on your own for this one.",
     "consumable": { "effects": [{ "primitive": "apply_status", "status": "bandaged" }] }
   },
   {
@@ -13,6 +14,7 @@
     "name": "Knife",
     "tags": ["sharp", "metal"],
     "maxStack": 1,
+    "flavor": "Small, mean, and eager to prove it.",
     "weapon": { "damage": 6, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
   },
   {
@@ -20,6 +22,7 @@
     "name": "Rusty Sword",
     "tags": ["sharp", "metal"],
     "maxStack": 1,
+    "flavor": "Previously owned. The rust is load-bearing.",
     "weapon": { "damage": 8, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
   },
   {
@@ -27,6 +30,7 @@
     "name": "Heavy Hammer",
     "tags": ["blunt", "metal"],
     "maxStack": 1,
+    "flavor": "Subtlety was never on the crafting list.",
     "weapon": { "damage": 10, "applies": [{ "status": "slowed", "chance": 0.5 }] }
   },
   {
@@ -34,6 +38,7 @@
     "name": "Torch",
     "tags": ["wood", "fire"],
     "maxStack": 3,
+    "flavor": "Light, warmth, and a small controlled arson.",
     "weapon": { "damage": 2, "applies": [{ "status": "on-fire", "chance": 0.5 }] },
     "throwable": {
       "onImpact": [{ "primitive": "spawn_area", "area": "area-fire", "radius": 1 }],
@@ -46,6 +51,7 @@
     "name": "Vodka Bottle",
     "tags": ["glass", "liquid", "flammable"],
     "maxStack": 3,
+    "flavor": "Deeply flammable, questionably a beverage.",
     "throwable": {
       "onImpact": [{ "primitive": "spawn_area", "area": "area-oil", "radius": 1 }],
       "breakChance": 1
@@ -56,6 +62,7 @@
     "name": "Water Flask",
     "tags": ["liquid"],
     "maxStack": 3,
+    "flavor": "Hydration: the least dramatic survival tool here.",
     "consumable": { "effects": [{ "primitive": "modify_health", "amount": 2 }] },
     "throwable": {
       "onImpact": [{ "primitive": "spawn_area", "area": "area-wet", "radius": 1 }],
@@ -67,6 +74,7 @@
     "name": "Raw Meat",
     "tags": ["organic", "food"],
     "maxStack": 5,
+    "flavor": "Origin unclear. Optimism recommended.",
     "consumable": {
       "effects": [
         { "primitive": "modify_health", "amount": 1 },

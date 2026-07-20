@@ -36,6 +36,18 @@ const CHIP_HEIGHT = 22;
 const CONTACTS_CHIP_SIZE = 56;
 const CONTACTS_CHIP_FONT_SIZE = 8;
 const TAB_LABELS: Record<ChatTabId, string> = { global: "GLBL", local: "LOCAL", party: "PARTY", dm: "DM" };
+/** Judge-panel finding ("the first minute is pure guesswork") — spelled out in full on
+ * hover since the tab labels themselves are terse abbreviations. */
+const TAB_TOOLTIPS: Record<ChatTabId, string> = {
+  global: "GLBL — everyone on the floor",
+  local: "LOCAL — nearby players",
+  party: "PARTY — your party only",
+  dm: "DM — direct messages",
+};
+/** "press [Enter] to chat" hint, shown over the empty/idle message log — user-spec'd
+ * always-visible chat affordance (docs/ROADMAP.md Epic 7.13). */
+const EMPTY_HINT_TEXT = "press [Enter] to chat";
+const EMPTY_HINT_ALPHA = 0.5;
 // Wide/tall enough to cover the bg, the tab strip, and the contacts chip that sits past
 // the bg's right edge — see hitTestPanel's doc comment for why this needs to exist at all.
 const PANEL_HIT_WIDTH = Math.max(PANEL_WIDTH, spacing(0.5) + 4 * (TAB_WIDTH + 2) + 4 + CONTACTS_CHIP_SIZE);
@@ -61,6 +73,10 @@ export class ChatPanelWidget {
   private toggleChipBg: Phaser.GameObjects.Rectangle | undefined;
   private open: boolean;
   private readonly scale: number;
+  /** "press [Enter] to chat" — shown only while the active tab's log is empty. */
+  private readonly emptyHint: Phaser.GameObjects.Text;
+  /** Shared tab-hover tooltip (GLBL=everyone, LOCAL=nearby, PARTY, DM) — one Text, repositioned per tab. */
+  private readonly tooltip: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
@@ -93,6 +109,9 @@ export class ChatPanelWidget {
     this.buildTabs(actions);
     this.buildContactsChip(actions);
     this.buildLines();
+    this.emptyHint = this.buildEmptyHint();
+    this.tooltip = scene.add.text(0, 0, "", uiTextStyle(9, "#c8b98a", this.scale)).setOrigin(0, 1).setVisible(false);
+    this.panel.add(this.tooltip);
     if (this.touchMode) this.buildToggleChip();
     this.panel.setVisible(this.open);
   }
@@ -126,6 +145,8 @@ export class ChatPanelWidget {
         .setStrokeStyle(1, PANEL_BORDER)
         .setInteractive({ useHandCursor: true });
       tabBg.on("pointerdown", () => actions.onSelectTab(tab));
+      tabBg.on("pointerover", () => this.showTooltip(TAB_TOOLTIPS[tab], x + TAB_WIDTH / 2, y));
+      tabBg.on("pointerout", () => this.tooltip.setVisible(false));
       const label = this.scene.add
         .text(x + TAB_WIDTH / 2, y + TAB_HEIGHT / 2, TAB_LABELS[tab], uiTextStyle(9, undefined, this.scale))
         .setOrigin(0.5, 0.5);
@@ -145,6 +166,22 @@ export class ChatPanelWidget {
       this.panel.add(text);
       this.lineTexts.push(text);
     }
+  }
+
+  /** Centered over the empty message-log area — user-spec'd always-visible chat hint. */
+  private buildEmptyHint(): Phaser.GameObjects.Text {
+    const y = -PANEL_HEIGHT + TAB_HEIGHT + (PANEL_HEIGHT - TAB_HEIGHT) / 2;
+    const text = this.scene.add
+      .text(PANEL_WIDTH / 2, y, EMPTY_HINT_TEXT, uiTextStyle(11, "#9a9aae", this.scale))
+      .setOrigin(0.5, 0.5)
+      .setAlpha(EMPTY_HINT_ALPHA);
+    this.panel.add(text);
+    return text;
+  }
+
+  /** Positions the shared tooltip above the tab it names it for, right below the pointer. */
+  private showTooltip(text: string, x: number, y: number): void {
+    this.tooltip.setText(text).setPosition(x - this.tooltip.width / 2, y - 4).setVisible(true);
   }
 
   /** The persistent "CHAT" toggle chip, sitting where the panel's bottom edge would be — always visible on touch. */
@@ -190,6 +227,8 @@ export class ChatPanelWidget {
       const line = visible[i];
       text.setText(line ? `${line.author}: ${line.text}` : "");
     });
+    // Empty/idle log: the always-visible "press [Enter] to chat" hint (user spec).
+    this.emptyHint.setVisible(visible.length === 0);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

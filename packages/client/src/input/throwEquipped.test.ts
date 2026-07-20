@@ -1,15 +1,15 @@
 // Throw-equipped input mapping: when the equipped weapon should throw instead of swing,
 // and what direction that throw sends.
 import { describe, expect, it } from "vitest";
-import { equippedIsThrowable, throwDirToward } from "./throwEquipped.js";
+import { equippedIsThrowable, equippedStackQty, throwDirToward } from "./throwEquipped.js";
 import type { InputConnection, InputQueries } from "./state.js";
 
-function makeConn(weapon: string | null): InputConnection {
+function makeConn(weapon: string | null, inventory: InputConnection["inventory"] = []): InputConnection {
   return {
     body: { x: 0, y: 0 },
     canAct: true,
     hotbar: [],
-    inventory: [],
+    inventory,
     stash: undefined,
     pendingInvite: false,
     weapon,
@@ -25,6 +25,7 @@ function makeConn(weapon: string | null): InputConnection {
     equip: () => {},
     drop: () => {},
     fistbump: () => {},
+    pushToast: () => {},
   };
 }
 
@@ -34,6 +35,7 @@ const queries: InputQueries = {
   nearestPlayerId: () => undefined,
   isStashNearby: () => false,
   isCraftTableNearby: () => false,
+  isDoorNearby: () => false,
   downedPartyMemberInRange: () => undefined,
 };
 
@@ -48,6 +50,20 @@ describe("equippedIsThrowable", () => {
 
   it("is false when unarmed", () => {
     expect(equippedIsThrowable(makeConn(null), queries)).toBe(false);
+  });
+});
+
+describe("equippedStackQty", () => {
+  it("reads the equipped item's remaining stack count", () => {
+    expect(equippedStackQty(makeConn("torch", [{ item: "torch", qty: 2 }]))).toBe(2);
+  });
+
+  it("is 0 once the stack is gone (binding survives an empty stack)", () => {
+    expect(equippedStackQty(makeConn("torch", []))).toBe(0);
+  });
+
+  it("is 0 when unarmed", () => {
+    expect(equippedStackQty(makeConn(null))).toBe(0);
   });
 });
 

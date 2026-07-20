@@ -84,10 +84,11 @@ function buffChips(fx: readonly string[]): BuffChipData[] {
   });
 }
 
-/** Rounds the predicted self body's raw tile position for the top-right coords readout —
- * "so users can find each other or share positions" only needs whole tiles, not float noise. */
-function roundedCoords(bodyPos: { x: number; y: number }): TileCoords {
-  return { x: Math.round(bodyPos.x), y: Math.round(bodyPos.y) };
+/** Rounds the predicted self body's raw tile position for the telemetry readout — x/y to
+ * whole tiles ("so users can find each other or share positions" needs no float noise),
+ * z to one decimal (docs/ROADMAP.md Epic 7.13's "z from conn.body.z, one decimal"). */
+function roundedCoords(bodyPos: { x: number; y: number; z: number }): TileCoords {
+  return { x: Math.round(bodyPos.x), y: Math.round(bodyPos.y), z: Math.round(bodyPos.z * 10) / 10 };
 }
 
 /** Off-self party member rows for the party frames widget (Epic 7.12) — party is
@@ -111,6 +112,10 @@ function stashSnapshot(inventory: readonly InvStack[], stash: readonly StashSlot
 export interface HudSnapshotSource {
   readonly hp: number;
   readonly maxHp: number;
+  /** Epic 11 core (character levels) — see fakeData.ts's HudFakeSnapshot.xp doc comment. */
+  readonly xp: number;
+  readonly level: number;
+  readonly xpForNext: number;
   readonly hotbar: readonly (string | null)[];
   readonly inventory: readonly InvStack[];
   readonly weapon: string | null;
@@ -130,6 +135,10 @@ export interface HudSnapshotSource {
   /** The latest still-live server toast (net/apply.ts), or null — craft/stash windows'
    * result-feedback line (docs/ROADMAP.md Epic 7.12's "existing toast/system-line pattern"). */
   readonly lastToast: ToastData | null;
+  /** Every still-tracked toast — see fakeData.ts's HudFakeSnapshot.toasts doc comment. */
+  readonly toasts: readonly ToastData[];
+  /** The connected world's seed, or null until the welcome message carries one. */
+  readonly seed: string | null;
 }
 
 export function buildHudSnapshot(
@@ -138,12 +147,13 @@ export function buildHudSnapshot(
   interactionPrompt: InteractionPrompt | null,
   touch: TouchVisualSnapshot | null,
   fps: number,
-  bodyPos: { x: number; y: number },
+  bodyPos: { x: number; y: number; z: number },
   chatModel: ChatPanelModel,
   contacts: readonly ContactData[],
 ): HudFakeSnapshot {
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
+    xp: { xp: src.xp, level: src.level, xpForNext: src.xpForNext },
     hotbar: hotbarSlots(src.hotbar, src.inventory),
     selectedSlot: selectedSlotIndex(src.hotbar, src.weapon),
     armedThrowableSlot,
@@ -153,6 +163,8 @@ export function buildHudSnapshot(
     craft: craftSnapshot(src.inventory, src.craftTableNearby),
     stash: stashSnapshot(src.inventory, src.stash, src.stashNearby),
     lastToast: src.lastToast,
+    toasts: [...src.toasts],
+    seed: src.seed,
     party: partyRows(src.party),
     chatModel,
     contacts: [...contacts],

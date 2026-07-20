@@ -7,8 +7,9 @@ import { depthForEntity } from "./depthSort.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
-import { spriteLiftPx } from "./lift.js";
+import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
+import { isOccludedByWallAhead, syncOcclusionSilhouette } from "./occlusion.js";
 import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import { squashScale } from "./squash.js";
@@ -53,12 +54,11 @@ function updatePlayerBody(
   skinPrefix: string,
   view: PlayerEntityView,
   ctx: RenderContext,
-  groundHeight: number,
+  heightAboveGround: number,
 ): void {
   const screen = worldToScreen(view.x, view.y);
-  const liftPx = spriteLiftPx(view.z, groundHeight, view.air);
-  visual.body.setPosition(screen.x, screen.y - liftPx);
-  visual.body.setDepth(depthForEntity(view.y, view.air ? Math.max(0, view.z - groundHeight) : 0));
+  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
+  visual.body.setDepth(depthForEntity(view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
   if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = ctx.nowMs;
@@ -99,27 +99,24 @@ function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: Rend
   }
 }
 
-/** Shadow, hp bar, nameplate, and held weapon — everything that hangs off the body's screen position. */
-function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
+/** Shadow, hp bar, nameplate, held weapon, and occlusion silhouette — everything that
+ * hangs off the body's screen position. Nameplate/hp bar anchor to the LIFTED body
+ * position (visual.body.x/y) so they rise with the sprite; the shadow deliberately
+ * keeps using the unlifted ground position — it's how players read height at all. */
+function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext, heightAboveGround: number): void {
   const ground = worldToScreen(view.x, view.y);
   const bodyDepth = visual.body.depth;
   visual.shadow.setDepth(bodyDepth - 0.2);
   visual.hpBar.container.setDepth(bodyDepth + 0.2);
   visual.nameplate.setDepth(bodyDepth + 0.2);
-  updateShadowPosition(visual.shadow, ground.x, ground.y);
-  updateHpBar(visual.hpBar, ground.x, ground.y - visual.body.displayHeight, view.hp, view.maxHp);
+  updateShadowPosition(visual.shadow, ground.x, ground.y, heightAboveGround);
+  const headY = visual.body.y - visual.body.displayHeight;
+  updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
 
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
-  updateNameplate(
-    visual.nameplate,
-    view.name,
-    ground.x,
-    ground.y - visual.body.displayHeight,
-    distance,
-    ctx.partyIds.has(view.id),
-    view.downed,
-  );
+  updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed);
 
+  syncOcclusionSilhouette(visual.body, view.y, isOccludedByWallAhead(ctx.world, view.x, view.y, view.z));
   updateWeaponVisual(visual, view, ctx);
 }
 
@@ -161,8 +158,9 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
 /** Advances one player's full visual for a fresh snapshot sample. */
 export function updatePlayerVisual(visual: PlayerVisual, skinPrefix: string, view: PlayerEntityView, ctx: RenderContext): void {
   const groundHeight = ctx.world.groundAt(view.x, view.y);
-  updatePlayerBody(visual, skinPrefix, view, ctx, groundHeight);
-  updatePlayerChrome(visual, view, ctx);
+  const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
+  updatePlayerBody(visual, skinPrefix, view, ctx, heightAboveGround);
+  updatePlayerChrome(visual, view, ctx, heightAboveGround);
   visual.lastHp = view.hp;
   visual.lastX = view.x;
   visual.lastY = view.y;

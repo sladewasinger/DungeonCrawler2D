@@ -34,7 +34,7 @@ export interface InputConnection {
   readonly body: { x: number; y: number } | null | undefined;
   readonly canAct: boolean;
   readonly hotbar: readonly (string | undefined)[];
-  readonly inventory: readonly { item: string }[];
+  readonly inventory: readonly { item: string; qty: number }[];
   readonly stash: unknown;
   readonly pendingInvite: boolean;
   /** Equipped weapon def (character slot); null = fists. When it's itself throwable
@@ -54,6 +54,14 @@ export interface InputConnection {
   drop(item: string): void;
   /** Hold-F contact gesture intent (Epic 7.10) — server gates range/rate/mutuality. */
   fistbump(targetId: string): void;
+  /**
+   * Client-local UI feedback for an action the client can already tell will do
+   * nothing (no crafting table nearby, out of torches...) — never a substitute for
+   * the real intent, which still gets sent regardless (Epic 7.13 onboarding lane's
+   * "failed actions give no feedback" fix). Renders through the shared top-center
+   * toast stack (ui/widgets/hud/toastStack.ts).
+   */
+  pushToast(msg: string): void;
 }
 
 /** Resolves whether the HUD's own layer consumed a pointer event. */
@@ -82,6 +90,10 @@ export interface InputQueries {
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
   isStashNearby(conn: InputConnection): boolean;
   isCraftTableNearby(conn: InputConnection): boolean;
+  /** True when the tile under the player's feet is a door — mirrors the server's exact
+   * useDoor() gate (game-server/src/sim/actions/interact.ts) so the client can tell
+   * [E] would open a door without waiting on a round trip. */
+  isDoorNearby(conn: InputConnection): boolean;
   /** Nearest downed party member in interact range — gates hold-E revive (Epic 7.12), or undefined. */
   downedPartyMemberInRange(conn: InputConnection): { id: string } | undefined;
 }

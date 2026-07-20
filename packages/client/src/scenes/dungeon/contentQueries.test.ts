@@ -2,6 +2,7 @@ import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   categoryOfItem,
+  isDoorTileAt,
   isTileTypeNearby,
   isThrowableItem,
   itemName,
@@ -111,5 +112,23 @@ describe("isTileTypeNearby", () => {
   it("is false when nothing matches nearby", () => {
     const world = worldWithTileAt(99, 99, TILE.Stash);
     expect(isTileTypeNearby(world, TILE.Stash, 5, 5)).toBe(false);
+  });
+});
+
+describe("isDoorTileAt", () => {
+  function worldWithTileAt(tx: number, ty: number, tile: TileType) {
+    return { tileAt: (wx: number, wy: number) => (wx === tx && wy === ty ? tile : TILE.Floor) };
+  }
+
+  it("is true standing exactly on any of the four door tiles", () => {
+    for (const door of [TILE.DoorSafeRoom, TILE.DoorPersonal, TILE.DoorParty, TILE.DoorExit]) {
+      const world = worldWithTileAt(4, 4, door);
+      expect(isDoorTileAt(world, 4.3, 4.9)).toBe(true);
+    }
+  });
+
+  it("is false one tile off, unlike isTileTypeNearby's 3x3 neighborhood", () => {
+    const world = worldWithTileAt(4, 4, TILE.DoorExit);
+    expect(isDoorTileAt(world, 5, 4)).toBe(false);
   });
 });

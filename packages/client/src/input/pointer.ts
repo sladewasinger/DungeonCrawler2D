@@ -13,7 +13,7 @@ import type Phaser from "phaser";
 import { ATTACK_COOLDOWN_MS } from "@dc2d/engine";
 import { activateHotbar, throwPreview } from "./hotbar.js";
 import type { InputConnection, InputHooks, InputHud, InputQueries, InputState } from "./state.js";
-import { equippedIsThrowable, throwDirToward } from "./throwEquipped.js";
+import { equippedIsThrowable, equippedStackQty, throwDirToward } from "./throwEquipped.js";
 import { beginStick, isInLowerLeftQuadrant, moveStick, endStick, pressButton, releaseAllForPointer } from "./touch/index.js";
 import type { TouchInputState } from "./touch/index.js";
 
@@ -67,6 +67,18 @@ export function triggerAttack(state: InputState, conn: InputConnection, hooks: I
   hooks.onSwing(dx, dy);
 }
 
+/** Throws the equipped throwable, or toasts instead of firing an intent that would land
+ * with nothing left to throw — "throw-with-no-torch" (Epic 7.13 onboarding lane's
+ * failure-feedback set), the one failure case the client can check without a round trip
+ * since the stack count is already replicated (conn.inventory). */
+function throwEquippedOrToast(conn: InputConnection, dirX: number, dirY: number): void {
+  if (equippedStackQty(conn) <= 0) {
+    conn.pushToast("Nothing left to throw");
+    return;
+  }
+  conn.throwTorch(dirX, dirY);
+}
+
 /** Routes a single pointerdown through UI-hit-test → touch zones → armed-throw → weapon-swing, in that order. */
 export function handlePointerDown(state: InputState, deps: PointerDeps, pointer: Phaser.Input.Pointer): void {
   const { conn, hud, tilePx, touch, touchActive, viewport, camera } = deps;
@@ -94,7 +106,7 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
   // separate arm-then-click flow for a non-equipped throwable.
   if (equippedIsThrowable(conn, deps.queries)) {
     const dir = throwDirToward(conn.body, cursorWorld);
-    conn.throwTorch(dir.dirX, dir.dirY);
+    throwEquippedOrToast(conn, dir.dirX, dir.dirY);
     return;
   }
 
@@ -120,7 +132,7 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
   } else if (uiHit === "touch:attack") {
     pressButton(touch, "attack", pointerId);
     if (equippedIsThrowable(conn, queries)) {
-      conn.throwTorch(touch.lastFacing.x, touch.lastFacing.y);
+      throwEquippedOrToast(conn, touch.lastFacing.x, touch.lastFacing.y);
     } else {
       triggerAttack(state, conn, hooks, touch.lastFacing.x, touch.lastFacing.y, performance.now());
     }

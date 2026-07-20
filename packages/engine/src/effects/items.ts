@@ -7,6 +7,14 @@ export const itemDefSchema = z.object({
   name: z.string(),
   tags: z.array(z.string()),
   maxStack: z.number().int().min(1).max(99),
+  /**
+   * DCC-book flavor text (Epic 7.13, book-fan lane — ASSUMPTION #100,
+   * docs/ASSUMPTIONS.md). Optional so every hand-built ItemDef fixture
+   * elsewhere in the repo keeps compiling unchanged. Not rendered
+   * anywhere server-side yet: display in the client inventory is
+   * deferred to a future wave that owns that lane.
+   */
+  flavor: z.string().optional(),
   consumable: z
     .object({
       /** Applied to the consumer. */

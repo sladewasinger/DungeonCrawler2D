@@ -1,4 +1,5 @@
 import { DOWNED_DURATION, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
+import { announceDeath, broadcastAnnouncement } from "./announcer/index.js";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { dropAllInventory } from "./inventory.js";
 import { awardKillXp } from "./xp.js";
@@ -56,6 +57,12 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   }
 
   sim.worldEvents.push({ ev: { t: "death", id: entity.id }, x: entity.body.x, y: entity.body.y });
+  // The announcer's voice (Epic 7.13, book-fan lane): read forceDeath
+  // before it's cleared below so a chasm fall gets its own mocking pool.
+  broadcastAnnouncement(
+    sim,
+    announceDeath(sim.tickCount, entity.id, entity.name ?? "?", slot.forceDeath),
+  );
   dropAllInventory(sim, slot);
   entity.statuses = [];
   slot.downedAtTick = null;

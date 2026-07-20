@@ -22,10 +22,12 @@ import type { InventoryActions } from "./inventoryWindow.js";
 import { PanelWindows, shouldDismissOnOutsideTap } from "./panelWindows.js";
 import { PartyFramesWidget } from "./partyFrames.js";
 import { ReconnectToastWidget } from "./reconnectToast.js";
+import { ToastStackWidget } from "./toastStack.js";
 import { TouchButtonsWidget } from "./touchButtons.js";
 import { TouchStickWidget } from "./touchStick.js";
 import { applyTouchLayoutOverrides } from "./touchOverrides.js";
 import { WeaponChipWidget } from "./weaponChip.js";
+import { XpBarWidget } from "./xpBar.js";
 
 export type { SocialActions, StationActions } from "./actionBundles.js";
 
@@ -39,11 +41,17 @@ export class HudWidgets {
   private readonly hotbar: HotbarWidget;
   private readonly buffs: BuffChipsWidget;
   private readonly weapon: WeaponChipWidget;
+  /** XP progress + level numeral (Epic 11 core, pulled forward). */
+  private readonly xpBar: XpBarWidget;
   private readonly chat: ChatPanelWidget;
   private readonly interaction: InteractionPromptWidget;
-  private readonly connection: ConnectionStatusWidget;
+  /** The ping/fps/coords/seed/build telemetry stack — undefined on touch (never even
+   * built there; the judge-panel finding was it physically covers the mobile attack
+   * button). Desktop still starts it hidden internally, toggled by its own [F3] bind. */
+  private readonly connection: ConnectionStatusWidget | undefined;
   private readonly death: DeathOverlayWidget;
   private readonly reconnectToast: ReconnectToastWidget;
+  private readonly toasts: ToastStackWidget;
   /** inventory/contacts/craft/stash — the four centered window panels (panelWindows.ts). */
   private readonly panels: PanelWindows;
   /** Off-self party member rows (Epic 7.12) — hidden entirely when unpartied. */
@@ -75,11 +83,13 @@ export class HudWidgets {
     this.hotbar = new HotbarWidget(scene, this.registry, viewport);
     this.buffs = new BuffChipsWidget(scene, this.registry, viewport);
     this.weapon = new WeaponChipWidget(scene, this.registry, viewport);
+    this.xpBar = new XpBarWidget(scene, this.registry, viewport);
     this.chat = new ChatPanelWidget(scene, this.registry, viewport, socialActions.chat, this.touchActive);
     this.interaction = new InteractionPromptWidget(scene, this.registry, viewport);
-    this.connection = new ConnectionStatusWidget(scene, this.registry, viewport);
+    this.connection = this.touchActive ? undefined : new ConnectionStatusWidget(scene, this.registry, viewport);
     this.death = new DeathOverlayWidget(scene, this.registry, viewport);
     this.reconnectToast = new ReconnectToastWidget(scene, this.registry, viewport);
+    this.toasts = new ToastStackWidget(scene, this.registry, viewport);
     this.panels = new PanelWindows(scene, this.registry, viewport, actions, social, stations);
     this.party = new PartyFramesWidget(scene, this.registry, viewport);
     if (this.touchActive) this.buildTouchControls(scene, viewport);
@@ -117,7 +127,8 @@ export class HudWidgets {
     this.health.update(snapshot.health.hp, snapshot.health.maxHp, nowMs);
     this.hotbar.update(snapshot.hotbar, snapshot.selectedSlot, snapshot.armedThrowableSlot, nowMs);
     this.buffs.update(snapshot.buffs);
-    this.weapon.update(snapshot.equippedWeaponId);
+    this.weapon.update(snapshot.equippedWeaponId, nowMs);
+    this.xpBar.update(snapshot.xp);
     this.panels.update(
       snapshot.inventory,
       snapshot.equippedWeaponId,
@@ -130,9 +141,10 @@ export class HudWidgets {
     this.chat.update(snapshot.chatModel);
     this.party.update(snapshot.party);
     this.interaction.update(snapshot.interactionPrompt);
-    this.connection.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords);
+    this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed);
     this.death.update(snapshot.downed);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
+    this.toasts.update(snapshot.toasts, nowMs);
     if (snapshot.touch) {
       this.touchStick?.update(snapshot.touch.stick);
       this.touchButtons?.update(snapshot.touch.buttons);
@@ -150,13 +162,15 @@ export class HudWidgets {
     this.hotbar.resize(this.registry, viewport);
     this.buffs.resize(this.registry, viewport);
     this.weapon.resize(this.registry, viewport);
+    this.xpBar.resize(this.registry, viewport);
     this.panels.resize(this.registry, viewport);
     this.chat.resize(this.registry, viewport);
     this.party.resize(this.registry, viewport);
     this.interaction.resize(this.registry, viewport);
-    this.connection.resize(this.registry, viewport);
+    this.connection?.resize(this.registry, viewport);
     this.death.resize(this.registry, viewport);
     this.reconnectToast.resize(this.registry, viewport);
+    this.toasts.resize(this.registry, viewport);
     this.touchStick?.resize(this.registry, viewport);
     this.touchButtons?.resize(this.registry, viewport);
     this.inventoryToggleButton?.resize(this.registry, viewport);

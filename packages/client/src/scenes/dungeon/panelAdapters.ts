@@ -35,12 +35,16 @@ function toggleCraft(hud: PanelSource, queries: InputQueries, conn: InputConnect
     return;
   }
   if (queries.isCraftTableNearby(conn)) hud.toggleCraftPanel();
+  // Judge-panel finding: "failed actions give no feedback" — [C] away from any table
+  // used to be a silent no-op (Epic 7.13 onboarding lane).
+  else conn.pushToast("No crafting table nearby");
 }
 
 /** [E] near a stash: opens the window if it isn't already open. Interact() itself (fired
  * alongside this, input/index.ts's E binding) is what makes the server push conn.stash. */
 function openStashIfNearby(hud: PanelSource, queries: InputQueries, conn: InputConnection): void {
-  if (!hud.stashOpen() && queries.isStashNearby(conn)) hud.openStashPanel();
+  if (hud.stashOpen()) return;
+  if (queries.isStashNearby(conn)) hud.openStashPanel();
 }
 
 export function createInputPanels(hud: PanelSource, queries: InputQueries): InputPanels {

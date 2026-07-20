@@ -27,5 +27,15 @@ export const enemyDefSchema = z.object({
    * EnemyDef fixtures elsewhere in the repo need no changes; an absent
    * value simply awards none. */
   xp: z.number().nonnegative().optional(),
+  /**
+   * One-line kill-feed epithet (Epic 7.13, book-fan lane — ASSUMPTION
+   * #101, docs/ASSUMPTIONS.md), e.g. "dissolved by a slime. A slime."
+   * Optional so hand-built EnemyDef fixtures elsewhere keep compiling
+   * unchanged; the death announcer doesn't consume this yet (its own
+   * generic pools cover Epic 7.13's death lines) — wiring a per-enemy
+   * epithet into a specific kill needs the attacker-species plumbed
+   * through to resolvePlayerDeath, out of this lane's owned files.
+   */
+  epithet: z.string().optional(),
 });
 export type EnemyDef = z.infer<typeof enemyDefSchema>;

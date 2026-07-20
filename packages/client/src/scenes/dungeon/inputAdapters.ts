@@ -5,7 +5,7 @@ import { INTERACT_RANGE, TILE } from "@dc2d/engine";
 import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
-import { isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
+import { isDoorTileAt, isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
 import { triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
 
 export function createInputConnectionAdapter(conn: Connection): InputConnection {
@@ -43,6 +43,7 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     equip: (item) => conn.equip(item),
     drop: (item) => conn.drop(item),
     fistbump: (targetId) => conn.fistbump(targetId),
+    pushToast: (msg) => conn.pushToast(msg),
   };
 }
 
@@ -101,6 +102,7 @@ export function createInputQueries(conn: Connection): InputQueries {
       !!conn.world &&
       !!adapter.body &&
       isTileTypeNearby(conn.world, TILE.CraftingTable, adapter.body.x, adapter.body.y),
+    isDoorNearby: (adapter) => !!conn.world && !!adapter.body && isDoorTileAt(conn.world, adapter.body.x, adapter.body.y),
     downedPartyMemberInRange: (adapter) => {
       if (!adapter.body || !conn.party) return undefined;
       return nearestDownedPartyMember(conn.party.members, adapter.body.x, adapter.body.y, INTERACT_RANGE);

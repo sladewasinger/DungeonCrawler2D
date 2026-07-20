@@ -14,6 +14,13 @@ export function equippedIsThrowable(conn: InputConnection, queries: InputQueries
   return conn.weapon !== null && queries.isThrowable(conn.weapon);
 }
 
+/** The equipped throwable's remaining stack count — 0 once the last one's been thrown
+ * (equip survives an empty stack, Epic 4's binding rule), gating the "out of X" toast. */
+export function equippedStackQty(conn: InputConnection): number {
+  if (!conn.weapon) return 0;
+  return conn.inventory.find((stack) => stack.item === conn.weapon)?.qty ?? 0;
+}
+
 /** Desktop aim: direction from the body toward the cursor's world position, in tile
  * units. Connection.throwTorch normalizes it server-protocol-side, mirroring attack(). */
 export function throwDirToward(

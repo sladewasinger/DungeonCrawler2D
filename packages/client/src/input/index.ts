@@ -111,20 +111,19 @@ export class InputController {
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) throw new Error("scene has no keyboard plugin");
     for (let i = 1; i <= 9; i++) {
-      keyboard.addKey(48 + i).on(
-        "down",
-        guarded(() => onNumberKey(state, conn, panels, queries, keys, i)),
-      );
+      keyboard.addKey(48 + i).on("down", guarded(() => onNumberKey(state, conn, panels, queries, keys, i)));
     }
   }
 
-  /** [E]: a downed party member in interact range starts the hold-to-revive gesture
-   * instead of firing instantly; otherwise interact (doors/stash/pickup) fires as before. */
+  /** [E]: a downed party member starts hold-to-revive instead of firing instantly;
+   * otherwise mirrors the server's doInteract() gate client-side, purely to toast
+   * "nothing happened" rather than assert an outcome — interact() still always fires. */
   private handleInteractDown(): void {
     const { conn, panels, queries } = this;
     const target = queries.downedPartyMemberInRange(conn);
     if (this.revive.begin(target?.id, this.scene.time.now)) return;
-    panels.openStashIfNearby(conn);
+    if (queries.isStashNearby(conn)) panels.openStashIfNearby(conn);
+    else if (!queries.isDoorNearby(conn)) conn.pushToast("Nothing to interact with here");
     conn.interact();
   }
 

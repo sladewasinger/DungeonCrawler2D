@@ -6,6 +6,11 @@ import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
 import { createItemIcon } from "./itemIcon.js";
+import {
+  initialWeaponDisplay,
+  nextWeaponDisplay,
+  type WeaponDisplayState,
+} from "./weaponDisplayStability.js";
 
 const WIDGET_ID = "weapon";
 const CHIP_WIDTH = 128;
@@ -24,6 +29,10 @@ export class WeaponChipWidget {
   private readonly label: Phaser.GameObjects.Text;
   private readonly scale: number;
   private icon: Phaser.GameObjects.Container | null = null;
+  /** Debounces the raw per-snapshot weaponId so a sub-tick unarmed reading doesn't
+   * flicker the chip (weaponDisplayStability.ts — TOURIST's "bounced between Rusty
+   * Sword and Unarmed"). */
+  private display: WeaponDisplayState = initialWeaponDisplay();
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     this.scene = scene;
@@ -45,19 +54,25 @@ export class WeaponChipWidget {
     this.container.add([bg, this.label]);
   }
 
-  update(weaponId: string | null): void {
+  update(weaponId: string | null, nowMs: number): void {
+    this.display = nextWeaponDisplay(this.display, weaponId, nowMs);
+    const displayId = this.display.id;
     this.icon?.destroy();
     this.icon = null;
-    if (!weaponId) {
-      this.label.setText("Unarmed");
+    if (!displayId) {
+      // No icon to left-align past — center "Unarmed" in the whole chip instead of
+      // leaving it hanging where the icon's now-empty slot would be (Epic 7.13
+      // onboarding lane's "'Unarmed'/weapon text properly centered" polish item).
+      this.label.setOrigin(0.5, 0.5).setPosition(-CHIP_WIDTH / 2, -CHIP_HEIGHT / 2).setText("Unarmed");
       return;
     }
-    this.icon = createItemIcon(this.scene, weaponId, ICON_SIZE, this.scale).setPosition(
+    this.icon = createItemIcon(this.scene, displayId, ICON_SIZE, this.scale).setPosition(
       -CHIP_WIDTH + spacing(1) + ICON_SIZE / 2,
       -CHIP_HEIGHT / 2,
     );
     this.container.add(this.icon);
-    this.label.setText(WEAPON_NAMES[weaponId] ?? weaponId);
+    this.label.setOrigin(0, 0.5).setPosition(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2);
+    this.label.setText(WEAPON_NAMES[displayId] ?? displayId);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

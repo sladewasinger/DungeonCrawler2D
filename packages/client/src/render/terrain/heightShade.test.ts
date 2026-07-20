@@ -2,7 +2,7 @@
 // reads as RELATIVE light: floor slightly dimmed, raised ground brighter, pits
 // darker, chasm near-black. No overlay-rectangle path exists anymore.
 import { describe, expect, it } from "vitest";
-import { CHASM_TINT, heightTint, isChasmDepth } from "./heightShade.js";
+import { CHASM_TINT, heightTint, isChasmDepth, topEdgeHighlightTint } from "./heightShade.js";
 
 function luminance(tint: number): number {
   return ((tint >> 16) & 0xff) + ((tint >> 8) & 0xff) + (tint & 0xff);
@@ -13,8 +13,16 @@ describe("heightTint", () => {
     expect(luminance(heightTint(1))).toBeGreaterThan(luminance(heightTint(0)));
   });
 
-  it("clamps at the dais endpoint", () => {
-    expect(heightTint(1)).toBe(heightTint(6));
+  it("clamps at the z2 endpoint (multiply tint can't exceed the sprite's own pixels)", () => {
+    expect(heightTint(2)).toBe(heightTint(6));
+  });
+
+  it("z0/z1/z2 are each a distinct, at-a-glance brightness step (docs/ROADMAP.md's 'single walls' legibility bug: a raised top used to render identical to plain floor once both hit the same clamp)", () => {
+    const z0 = luminance(heightTint(0));
+    const z1 = luminance(heightTint(1));
+    const z2 = luminance(heightTint(2));
+    expect(z1).toBeGreaterThan(z0);
+    expect(z2).toBeGreaterThan(z1);
   });
 
   it("darkens progressively toward the pit floor", () => {
@@ -43,6 +51,12 @@ describe("heightTint", () => {
     expect(b).toBeGreaterThan(20);
     expect(luminance(CHASM_TINT)).toBeLessThan(luminance(heightTint(-1))); // still darker than an ordinary pit
   });
+
+  it("a pit floor's own darkening never crushes it below a readable fraction of floor brightness (docs/ROADMAP.md 'pitch black room' repro: austin-dungeon-prod-1 x-13,y18 is an ordinary walkable -1 pit, not a chasm/void, that read as an unrendered hole because this factor never got the same brightness passes AMBIENT did)", () => {
+    const floor = luminance(heightTint(0));
+    const pit = luminance(heightTint(-1));
+    expect(pit).toBeGreaterThan(floor * 0.55);
+  });
 });
 
 describe("isChasmDepth", () => {
@@ -50,5 +64,17 @@ describe("isChasmDepth", () => {
     expect(isChasmDepth(-1.5)).toBe(true);
     expect(isChasmDepth(-1.4)).toBe(false);
     expect(isChasmDepth(0)).toBe(false);
+  });
+});
+
+describe("topEdgeHighlightTint", () => {
+  it("is a lit rim seam: brighter than the tile's own fill tint at every tier", () => {
+    for (const height of [-1, -0.5, 0, 0.5, 1, 2]) {
+      expect(luminance(topEdgeHighlightTint(height))).toBeGreaterThan(luminance(heightTint(height)));
+    }
+  });
+
+  it("still tracks the tier gradient (a z1 seam reads brighter than a z0 seam) — not a single flat highlight color", () => {
+    expect(luminance(topEdgeHighlightTint(1))).toBeGreaterThan(luminance(topEdgeHighlightTint(0)));
   });
 });
