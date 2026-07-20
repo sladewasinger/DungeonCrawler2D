@@ -22,12 +22,12 @@ export interface DynamicLightSeed {
   readonly tileY: number;
   readonly level: number;
 }
-/** Brightness of a fully unlit tile — dark, but readable on a phone panel in a
- * bright room (user directive 2026-07-20: 0.26 was unplayably dark on real
- * hardware; playability beats mood). */
-const AMBIENT = 0.42;
+/** Brightness of a fully unlit tile. User has now demanded brighter twice
+ * (0.26 -> 0.42 -> 0.55, 2026-07-20 "make it way brighter, I can't see shit"):
+ * the dungeon reads fully at a glance; torches add warmth, not visibility. */
+const AMBIENT = 0.62;
 /** Levels at/above this render at full brightness (the lit plateau near a torch). */
-const CURVE_FULL_LEVEL = 8.5;
+const CURVE_FULL_LEVEL = 7;
 /** Levels at/below this sit on the ambient floor; between the two an S-curve falls off. */
 const CURVE_DARK_LEVEL = 0;
 /** Warm firelight tint at full level, blended in with the level curve. */

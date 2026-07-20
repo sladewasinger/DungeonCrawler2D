@@ -331,6 +331,12 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Movement stutters:** random hitches while walking — suspect synchronous chunk-visual baking when a new chunk scrolls into view; profile and move the bake off the hot frame (budgeted/ahead-of-camera)
 - [ ] **Torch pop-in residue:** after the 24-light budget, add a fade-in (~250ms) on newly activated halos so any remaining swap reads as kindling, not popping
 - [ ] **"Single walls" legibility (user screenshots #2, 2026-07-20):** legal 2-deep z1 ridges read as floating 1-row brick strips with bare side caps because their TOP row renders identical to plain floor — the terrain-legibility lane must make raised tops visually distinct (tone/edge treatment) and re-audit orphan strips beside chasm rims ("single walls in the void")
+- [x] Ambient floor 0.42 -> 0.62 with a wider full-brightness plateau (third brightness demand; torches are warmth, not visibility now)
+- [ ] **Modal usability law (user directive):** EVERY popup gets an [X] close button, its opening key TOGGLES it closed ([E] chest/stash, [C] craft), Esc always closes — current stash deliberately "never toggles closed" per v1 port, overruled
+- [ ] **[E] at the crafting table does nothing:** the interact prompt shows [E] but craft opens on [C] — make [E] open the crafting panel at the table (prompt is the contract)
+- [ ] **Safe-room interior door:** player phases through it (not collidable pre-interact) and it floats mid-room instead of sitting flush in the wall — make doors solid-until-used and place them in the wall line
+- [ ] **Interact prompt radius mismatch:** the [E] prompt appears farther out than the server accepts interacts — client prompt distance must equal the server's interact range
+- [ ] Coords readout leaks internal room-instance offsets (y 131086 inside a personal room) — display room-relative coordinates
 - [ ] Inventory selection outline z-order (yellow ring renders under the Drop button), "Unarmed" chip text centering, and a general HUD alignment pass
 
 ## Epic 8 — Social Fabric (v0.5)
