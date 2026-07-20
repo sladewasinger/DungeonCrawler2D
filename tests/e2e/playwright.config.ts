@@ -27,7 +27,7 @@ export default defineConfig({
     {
       command: "npm run dev -w @dc2d/game-server",
       port: GAME_PORT,
-      reuseExistingServer: !process.env["CI"],
+      reuseExistingServer: false, // an already-listening server has UNKNOWN env (seed/fixtures) — reusing one made the suite test a stale orphan; always boot fresh
       timeout: STARTUP_TIMEOUT_MS,
       stdout: "pipe",
       env: {
@@ -48,7 +48,7 @@ export default defineConfig({
     {
       command: `npm run dev -w @dc2d/client -- --port ${CLIENT_PORT} --strictPort`,
       port: CLIENT_PORT,
-      reuseExistingServer: !process.env["CI"],
+      reuseExistingServer: false, // an already-listening server has UNKNOWN env (seed/fixtures) — reusing one made the suite test a stale orphan; always boot fresh
       timeout: STARTUP_TIMEOUT_MS,
       stdout: "pipe",
     },
