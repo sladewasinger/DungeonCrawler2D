@@ -11,11 +11,16 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 
 export const MOVE_SPEED = 8;
+// Epic 7.12 run input: v1's SHIFT key was never a run modifier (it stored a bound
+// hotbar stack into the stash — reference/client/input/controller.ts) so there is
+// nothing to port here; the multiplier is a fresh tuning call against the roadmap's
+// own "likely ~1.5x" hint (docs/ASSUMPTIONS.md #65).
+export const RUN_SPEED_MULTIPLIER = 1.5;
 // A ≥1 rise (one tile edge) blocks walking outright — no more free
 // full-tile walk-up steps. Still admits stair-ramp walking (the steepest
 // authored ramp's per-step look-ahead rise is ~0.21 under BODY_RADIUS)

@@ -20,7 +20,8 @@ import {
   type HoldState,
 } from "./fistbump.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
-import { handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
+import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
+import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
 import {
   createTouchInputState,
@@ -61,6 +62,8 @@ export class InputController {
   private fistbumpTargetId: string | null = null;
   /** Edge-detection for the touch interact button, which has no keydown/keyup events. */
   private touchFistbumpHeld = false;
+  /** Hold-E revive gesture (Epic 7.12) — gated by a downed party member in range. */
+  private readonly revive = new ReviveGesture();
   /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
    * after boot) flips this reactively — see activateTouchIfNeeded. */
   private touchActive: boolean = isTouchDevice();
@@ -90,13 +93,8 @@ export class InputController {
   private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
     const { conn, panels, state } = this;
     keys.G.on("down", guarded(() => hooks.onToggleBorders()));
-    keys.E.on(
-      "down",
-      guarded(() => {
-        panels.openStashIfNearby(conn);
-        conn.interact();
-      }),
-    );
+    keys.E.on("down", guarded(() => this.handleInteractDown()));
+    keys.E.on("up", guarded(() => this.revive.end(this.scene.time.now)));
     keys.R.on("down", guarded(() => conn.pickup()));
     keys.C.on("down", guarded(() => panels.toggleCraft(conn)));
     keys.F.on("down", guarded(() => holdDown(this.fistbumpHold, this.scene.time.now)));
@@ -118,6 +116,27 @@ export class InputController {
         guarded(() => onNumberKey(state, conn, panels, queries, keys, i)),
       );
     }
+  }
+
+  /** [E]: a downed party member in interact range starts the hold-to-revive gesture
+   * instead of firing instantly; otherwise interact (doors/stash/pickup) fires as before. */
+  private handleInteractDown(): void {
+    const { conn, panels, queries } = this;
+    const target = queries.downedPartyMemberInRange(conn);
+    if (this.revive.begin(target?.id, this.scene.time.now)) return;
+    panels.openStashIfNearby(conn);
+    conn.interact();
+  }
+
+  /** Call once per render frame: fires the revive intent exactly on the tick the hold
+   * crosses REVIVE_HOLD_MS. */
+  pollReviveHold(): void {
+    if (this.revive.poll(this.scene.time.now)) this.conn.interact();
+  }
+
+  /** HUD-facing read: the in-progress revive hold's target + 0..1 ring progress, or null when idle. */
+  reviveHoldView(): { targetId: string; progress: number } | null {
+    return this.revive.holdView(this.scene.time.now);
   }
 
   /** A quick tap keeps today's party invite/accept flow; a hold already fired (or missed
@@ -178,7 +197,17 @@ export class InputController {
       const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
       handlePointerDown(
         this.state,
-        { conn: this.conn, hud, queries, hooks, tilePx, touch: this.touch, touchActive: this.touchActive, viewport },
+        {
+          conn: this.conn,
+          hud,
+          queries,
+          hooks,
+          tilePx,
+          touch: this.touch,
+          touchActive: this.touchActive,
+          viewport,
+          camera: this.scene.cameras.main,
+        },
         pointer,
       );
     });
@@ -218,10 +247,8 @@ export class InputController {
   /** Current armed-throw trajectory preview, for the scene to render, or null. */
   throwPreview(): ThrowPreview | null {
     const pointer = this.scene.input.activePointer;
-    return resolveThrowPreview(this.state, this.conn, this.queries, {
-      x: pointer.worldX / this.tilePx,
-      y: pointer.worldY / this.tilePx,
-    });
+    const cursorWorld = cursorWorldTile(this.scene.cameras.main, pointer, this.tilePx);
+    return resolveThrowPreview(this.state, this.conn, this.queries, cursorWorld);
   }
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */

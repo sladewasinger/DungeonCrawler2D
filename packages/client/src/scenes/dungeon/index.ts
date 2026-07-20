@@ -28,10 +28,11 @@ import {
   createHudActions,
   createInputConnectionAdapter,
   createInputHooks,
-  createInputPanels,
   createInputQueries,
 } from "./inputAdapters.js";
 import { buildLiveHudSnapshot } from "./liveHudSnapshot.js";
+import { createCraftActions, createInputPanels, createStashActions } from "./panelAdapters.js";
+import { syncReviveRing } from "./reviveRingSync.js";
 import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { updateSelfFacing } from "./selfCosmetics.js";
@@ -54,6 +55,8 @@ export class DungeonScene extends Phaser.Scene {
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
   private fistbumpRing!: FistbumpRing;
+  /** Same generic ring visual as fistbumpRing, driven by the hold-E revive gesture. */
+  private reviveRing!: FistbumpRing;
 
   constructor(private readonly conn: Connection) {
     super("dungeon");
@@ -65,14 +68,24 @@ export class DungeonScene extends Phaser.Scene {
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
     this.fistbumpRing = new FistbumpRing(this);
+    this.reviveRing = new FistbumpRing(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
-    this.chatInputBox = new ChatInputBox({ onSubmit: (text) => this.chatController.submit(text) });
+    this.chatInputBox = new ChatInputBox({
+      onSubmit: (text) => this.chatController.submit(text),
+      onFocusChange: (focused) => {
+        const keyboard = this.input.keyboard;
+        if (!keyboard) return;
+        if (focused) keyboard.disableGlobalCapture();
+        else keyboard.enableGlobalCapture();
+      },
+    });
     this.inputController = this.buildInputController();
     this.scene.launch("hud", {
       source: () => this.buildHudSnapshotNow(),
       actions: createHudActions(this.conn),
       social: buildSocialActions(this.chatController, this.chatInputBox, () => this.scale.height, this.hudScene),
+      stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
     });
     this.setUpCameraResize();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
@@ -80,11 +93,23 @@ export class DungeonScene extends Phaser.Scene {
 
   update(time: number, deltaMs: number): void {
     const { conn } = this;
+    // Reconnect retries gave up (net/socket.ts's MAX_RECONNECT_ATTEMPTS) — conn.world/
+    // body/welcome are still the last-known stale state, not null, so this check must
+    // run before the guard below or the scene would render a dead world forever
+    // instead of a clean path back to title (Epic 7.12).
+    if (conn.sessionExpired) {
+      conn.sessionExpired = false;
+      this.scene.stop("hud");
+      this.scene.start("title", { expired: true });
+      return;
+    }
     this.chatController.sync();
     if (!conn.world || !conn.body || !conn.welcome) return;
 
     this.inputController.pollFistbumpHold();
     syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
+    this.inputController.pollReviveHold();
+    syncReviveRing(this.reviveRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
     this.consumeTeleport();
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
@@ -117,8 +142,8 @@ export class DungeonScene extends Phaser.Scene {
 
   private buildInputController(): InputController {
     const connAdapter = createInputConnectionAdapter(this.conn);
-    const panels = createInputPanels(this.hudScene);
     const queries = createInputQueries(this.conn);
+    const panels = createInputPanels(this.hudScene, queries);
     const hooks = createInputHooks(
       this.state.cosmetics,
       buildSocialHooks(this.hudScene, this.chatInputBox, () => this.scale.height),
@@ -196,5 +221,6 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.dispose();
     this.chatInputBox.dispose();
     this.fistbumpRing.dispose();
+    this.reviveRing.dispose();
   }
 }

@@ -11,6 +11,7 @@ import { recordSample } from "./interpolate.js";
 
 export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   if (!conn.world) return;
+  conn.serverTick = snap.tick;
   applySelfState(conn, snap, conn.world);
 
   const now = performance.now();

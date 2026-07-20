@@ -36,6 +36,7 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     nearestPlayerId: () => undefined,
     isStashNearby: () => true,
     isCraftTableNearby: () => true,
+    downedPartyMemberInRange: () => undefined,
     ...overrides,
   };
 }

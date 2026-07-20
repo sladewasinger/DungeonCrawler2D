@@ -10,7 +10,7 @@ import {
 
 describe("protocol", () => {
   it("round-trips a client input", () => {
-    const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, jump: true };
+    const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, jump: true, run: false };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
   });
 
@@ -68,7 +68,10 @@ describe("protocol", () => {
       ],
       hotbar: ["bandage", null, null, null, null, null, null, null, null],
       weapon: "knife",
-      party: { id: "party1", members: [{ id: "p2", name: "Ally", x: 100, y: 50 }] },
+      party: {
+        id: "party1",
+        members: [{ id: "p2", name: "Ally", x: 100, y: 50, hp: 20, maxHp: 30, downed: false }],
+      },
       entities: [
         {
           id: "e1",

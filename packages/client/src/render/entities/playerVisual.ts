@@ -9,7 +9,7 @@ import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
-import { inferPlayerAnimState } from "./playerMotion.js";
+import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import { squashScale } from "./squash.js";
 import type { PlayerVisual } from "./state.js";
@@ -21,6 +21,9 @@ import { worldToScreen } from "./worldToScreen.js";
 const DOWNED_TINT = 0x7a3d3d;
 const DOWNED_ANGLE = 78;
 const STRIKE_DURATION_MS = 160;
+/** Epic 7.12: no dedicated run frames exist, so running plays the same walk loop
+ * faster instead — see playerMotion.ts's isRunningPace doc comment. */
+const RUN_ANIM_TIMESCALE = 1.35;
 
 export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVisual {
   const body = scene.add.sprite(0, 0, ASSET_KEYS.atlas).setOrigin(0.5, 1).setScale(WORLD_PIXEL_SCALE);
@@ -62,9 +65,13 @@ function updatePlayerBody(
   applyLandingSquash(visual, view.air, ctx.nowMs);
 
   const dt = (ctx.nowMs - visual.lastSampleMs) / 1000;
-  const anim = inferPlayerAnimState(view.x - visual.lastX, view.y - visual.lastY, dt, view.attacking);
+  const dxTiles = view.x - visual.lastX;
+  const dyTiles = view.y - visual.lastY;
+  const anim = inferPlayerAnimState(dxTiles, dyTiles, dt, view.attacking);
   const resolved = resolveAnimState(skinPrefix, view.downed ? "idle" : anim);
   if (visual.body.anims.currentAnim?.key !== resolved.animKey) visual.body.play(resolved.animKey);
+  const running = anim === "walk" && isRunningPace(dxTiles, dyTiles, dt);
+  visual.body.anims.timeScale = running ? RUN_ANIM_TIMESCALE : 1;
 
   applyPlayerTint(visual, view, ctx);
   visual.body.setAngle(view.downed ? DOWNED_ANGLE : 0);
@@ -103,7 +110,15 @@ function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: R
   updateHpBar(visual.hpBar, ground.x, ground.y - visual.body.displayHeight, view.hp, view.maxHp);
 
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
-  updateNameplate(visual.nameplate, view.name, ground.x, ground.y - visual.body.displayHeight, distance, ctx.partyIds.has(view.id));
+  updateNameplate(
+    visual.nameplate,
+    view.name,
+    ground.x,
+    ground.y - visual.body.displayHeight,
+    distance,
+    ctx.partyIds.has(view.id),
+    view.downed,
+  );
 
   updateWeaponVisual(visual, view, ctx);
 }

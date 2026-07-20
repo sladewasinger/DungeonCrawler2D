@@ -17,6 +17,27 @@ import { equippedIsThrowable, throwDirToward } from "./throwEquipped.js";
 import { beginStick, isInLowerLeftQuadrant, moveStick, endStick, pressButton, releaseAllForPointer } from "./touch/index.js";
 import type { TouchInputState } from "./touch/index.js";
 
+/**
+ * The one method this module needs off a Phaser camera — kept as a minimal
+ * structural interface (not `Phaser.Cameras.Scene2D.Camera`) so `cursorWorldTile`
+ * is unit-testable with a plain object, no Phaser scene required.
+ */
+export interface WorldPointCamera {
+  getWorldPoint(x: number, y: number): { x: number; y: number };
+}
+
+/**
+ * Resolves a screen-space pointer to world TILE coordinates through the given
+ * camera's own transform, in tile units (world px / tilePx). Deliberately never
+ * reads `pointer.worldX`/`worldY` — see the doc comment on the `camera` field of
+ * `PointerDeps` below for why that shared Pointer property lies whenever the
+ * parallel HudScene's camera has hit-tested more recently than the game camera.
+ */
+export function cursorWorldTile(camera: WorldPointCamera, pointer: { x: number; y: number }, tilePx: number): { x: number; y: number } {
+  const world = camera.getWorldPoint(pointer.x, pointer.y);
+  return { x: world.x / tilePx, y: world.y / tilePx };
+}
+
 export interface PointerDeps {
   conn: InputConnection;
   hud: InputHud;
@@ -27,6 +48,15 @@ export interface PointerDeps {
   touch: TouchInputState;
   touchActive: boolean;
   viewport: { width: number; height: number };
+  /**
+   * The dungeon scene's own camera, transformed through explicitly (`getWorldPoint`)
+   * instead of trusting the shared `pointer.worldX/worldY`: Phaser's Pointer.updateWorldPoint
+   * doc warns those values "will be automatically replaced the moment the Pointer is
+   * updated by an input event... should be used immediately" — with HudScene's parallel,
+   * un-zoomed, unscrolled camera also live, it reliably clobbers a scrolled/zoomed game
+   * camera's value whenever HudScene's InputPlugin hit-tests last (docs Epic 7.12 audit).
+   */
+  camera: WorldPointCamera;
 }
 
 /** Swings the equipped weapon at (dx,dy); the one cooldown-gated path both mouse-click and the touch ATTACK button use. */
@@ -39,7 +69,7 @@ export function triggerAttack(state: InputState, conn: InputConnection, hooks: I
 
 /** Routes a single pointerdown through UI-hit-test → touch zones → armed-throw → weapon-swing, in that order. */
 export function handlePointerDown(state: InputState, deps: PointerDeps, pointer: Phaser.Input.Pointer): void {
-  const { conn, hud, tilePx, touch, touchActive, viewport } = deps;
+  const { conn, hud, tilePx, touch, touchActive, viewport, camera } = deps;
   if (!conn.body || !conn.canAct) return;
 
   // Clicks/taps on UI act on the UI — never swing or summon the stick through it.
@@ -57,7 +87,7 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
     return; // no mouse-aim swing/throw fallback in touch mode — the ATTACK button owns it
   }
 
-  const cursorWorld = { x: pointer.worldX / tilePx, y: pointer.worldY / tilePx };
+  const cursorWorld = cursorWorldTile(camera, pointer, tilePx);
 
   // A torch (or any throwable) equipped as the weapon shows in-hand and click always
   // throws it — this takes priority over both the melee swing and the hotbar's

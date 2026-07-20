@@ -7,66 +7,26 @@ import type Phaser from "phaser";
 import { isTouchDevice } from "../../../input/touchDetect.js";
 import { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
+import { noopSocialActions, type SocialActions, type StationActions } from "./actionBundles.js";
 import { BuffChipsWidget } from "./buffChips.js";
-import { ChatPanelWidget, type ChatPanelActions } from "./chatPanel.js";
+import { ChatPanelWidget } from "./chatPanel.js";
 import { ConnectionStatusWidget } from "./connectionStatus.js";
-import { ContactsWindowWidget, type ContactsActions } from "./contactsWindow.js";
 import { DeathOverlayWidget } from "./deathOverlay.js";
 import type { HudFakeSnapshot } from "./fakeData.js";
 import { HealthBarWidget } from "./healthBar.js";
 import { HotbarWidget } from "./hotbar.js";
 import { InteractionPromptWidget } from "./interactionPrompt.js";
 import { InventoryToggleButtonWidget } from "./inventoryToggleButton.js";
-import { InventoryWindowWidget, type InventoryActions } from "./inventoryWindow.js";
+import type { InventoryActions } from "./inventoryWindow.js";
+import { PanelWindows } from "./panelWindows.js";
+import { PartyFramesWidget } from "./partyFrames.js";
 import { ReconnectToastWidget } from "./reconnectToast.js";
 import { TouchButtonsWidget } from "./touchButtons.js";
 import { TouchStickWidget } from "./touchStick.js";
+import { applyTouchLayoutOverrides } from "./touchOverrides.js";
 import { WeaponChipWidget } from "./weaponChip.js";
 
-/** Touch-only registry nudges so the new corner controls don't fight the existing
- * (desktop-sized) HUD for space: shrink the 9-slot hotbar (its 400-logical-px width
- * is unavoidably wide at hudScale — see docs/client-proofs/touch-*.png), hide the
- * weapon chip (redundant with the sword-icon ATTACK button), and lift chat's anchor
- * clear of the joystick's rest zone. Desktop never calls this (isTouchDevice() gates
- * the caller), so it's untouched. */
-function applyTouchLayoutOverrides(registry: WidgetRegistry): void {
-  registry.setOverride("hotbar", { scale: 0.5 });
-  registry.setOverride("weapon", { visible: false });
-  registry.setOverride("chat", { offset: { x: 16, y: -150 } });
-  // The inventory panel's 340px pre-hudScale width doubles to 680px — wider than a
-  // ~390px portrait phone. Same fix as the hotbar above: half scale brings it back to
-  // a legible, on-screen size instead of running off both edges.
-  registry.setOverride("inventory", { scale: 0.5 });
-  // Same overflow, same fix: the contacts panel's 220px width doubles to 440px.
-  registry.setOverride("contacts", { scale: 0.5 });
-  // Clears the touch-buttons cluster's top edge (touchButtons.ts) instead of sitting
-  // right on top of it — only reachable on the ?camera=entities gallery preset /
-  // standing near a pickup in real play, but real play hits it too.
-  registry.setOverride("interaction", { offset: { x: 0, y: -170 } });
-  // At a ~412px-wide portrait viewport the top-left health bar alone is nearly
-  // full-width at hudScale (see docs/client-proofs/hud-indicators-mobile.png before
-  // this fix), leaving no horizontal gap for the top-right ping/fps/coords stack
-  // beside it — drop the stack below the health+buffs cluster instead of squeezing in.
-  registry.setOverride("status", { offset: { x: -16, y: 100 } });
-}
-
-/** The gallery's ?hud=1 preview (no live Connection) still constructs HudWidgets — inert stand-ins so its Equip/Drop buttons don't throw. */
-function noopInventoryActions(): InventoryActions {
-  return { assignSlot: () => {}, equip: () => {}, drop: () => {} };
-}
-
-/** HudScene's live-vs-gallery actions bundle for the widgets this pass adds. */
-export interface SocialActions {
-  chat: ChatPanelActions;
-  contacts: ContactsActions;
-}
-
-function noopSocialActions(): SocialActions {
-  return {
-    chat: { onSelectTab: () => {}, onToggleContacts: () => {} },
-    contacts: { startDm: () => {} },
-  };
-}
+export type { SocialActions, StationActions } from "./actionBundles.js";
 
 export class HudWidgets {
   readonly registry = new WidgetRegistry();
@@ -83,13 +43,21 @@ export class HudWidgets {
   private readonly connection: ConnectionStatusWidget;
   private readonly death: DeathOverlayWidget;
   private readonly reconnectToast: ReconnectToastWidget;
-  private readonly inventory: InventoryWindowWidget;
-  private readonly contacts: ContactsWindowWidget;
+  /** inventory/contacts/craft/stash — the four centered window panels (panelWindows.ts). */
+  private readonly panels: PanelWindows;
+  /** Off-self party member rows (Epic 7.12) — hidden entirely when unpartied. */
+  private readonly party: PartyFramesWidget;
   private touchStick: TouchStickWidget | undefined;
   private touchButtons: TouchButtonsWidget | undefined;
   private inventoryToggleButton: InventoryToggleButtonWidget | undefined;
 
-  constructor(scene: Phaser.Scene, viewport: Viewport, actions?: InventoryActions, social?: SocialActions) {
+  constructor(
+    scene: Phaser.Scene,
+    viewport: Viewport,
+    actions?: InventoryActions,
+    social?: SocialActions,
+    stations?: StationActions,
+  ) {
     this.scene = scene;
     if (this.touchActive) applyTouchLayoutOverrides(this.registry);
     const socialActions = social ?? noopSocialActions();
@@ -102,8 +70,8 @@ export class HudWidgets {
     this.connection = new ConnectionStatusWidget(scene, this.registry, viewport);
     this.death = new DeathOverlayWidget(scene, this.registry, viewport);
     this.reconnectToast = new ReconnectToastWidget(scene, this.registry, viewport);
-    this.inventory = new InventoryWindowWidget(scene, this.registry, viewport, actions ?? noopInventoryActions());
-    this.contacts = new ContactsWindowWidget(scene, this.registry, viewport, socialActions.contacts);
+    this.panels = new PanelWindows(scene, this.registry, viewport, actions, social, stations);
+    this.party = new PartyFramesWidget(scene, this.registry, viewport);
     if (this.touchActive) this.buildTouchControls(scene, viewport);
     scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => this.handlePointerDown(pointer));
   }
@@ -138,13 +106,21 @@ export class HudWidgets {
     this.hotbar.update(snapshot.hotbar, snapshot.selectedSlot, snapshot.armedThrowableSlot, nowMs);
     this.buffs.update(snapshot.buffs);
     this.weapon.update(snapshot.equippedWeaponId);
-    this.inventory.update(snapshot.inventory, snapshot.equippedWeaponId);
+    this.panels.update(
+      snapshot.inventory,
+      snapshot.equippedWeaponId,
+      snapshot.contacts,
+      snapshot.craft,
+      snapshot.stash,
+      snapshot.lastToast,
+      nowMs,
+    );
     this.chat.update(snapshot.chatModel);
-    this.contacts.update(snapshot.contacts);
+    this.party.update(snapshot.party);
     this.interaction.update(snapshot.interactionPrompt);
     this.connection.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords);
     this.death.update(snapshot.downed);
-    this.reconnectToast.update(snapshot.reconnecting, nowMs);
+    this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
     if (snapshot.touch) {
       this.touchStick?.update(snapshot.touch.stick);
       this.touchButtons?.update(snapshot.touch.buttons);
@@ -157,9 +133,9 @@ export class HudWidgets {
     this.hotbar.resize(this.registry, viewport);
     this.buffs.resize(this.registry, viewport);
     this.weapon.resize(this.registry, viewport);
-    this.inventory.resize(this.registry, viewport);
-    this.contacts.resize(this.registry, viewport);
+    this.panels.resize(this.registry, viewport);
     this.chat.resize(this.registry, viewport);
+    this.party.resize(this.registry, viewport);
     this.interaction.resize(this.registry, viewport);
     this.connection.resize(this.registry, viewport);
     this.death.resize(this.registry, viewport);
@@ -176,38 +152,66 @@ export class HudWidgets {
 
   /** Bound to [I]/[Tab] and the touch bag button (InputHooks.onToggleInventory). */
   toggleInventory(): void {
-    this.inventory.toggle();
+    this.panels.toggleInventory();
   }
 
   /** Bound to [Esc]'s InputPanels.closeAll sweep. */
   closeInventory(): void {
-    this.inventory.close();
+    this.panels.closeInventory();
   }
 
   inventoryOpen(): boolean {
-    return this.inventory.isOpen();
+    return this.panels.inventoryOpen();
   }
 
   /** Bound to [o] and the chip beside the chat tabs (InputHooks.onToggleContacts). */
   toggleContacts(): void {
-    this.contacts.toggle();
+    this.panels.toggleContacts();
   }
 
   closeContacts(): void {
-    this.contacts.close();
+    this.panels.closeContacts();
   }
 
   /** The row currently selected for the [1-9] bind flow (input/hotbar.ts's onNumberKey), or null. */
   selectedInventoryItem(): string | null {
-    return this.inventory.selectedItem();
+    return this.panels.selectedInventoryItem();
   }
 
-  /** InputHud contract: which widget (if any) owns a screen point — the inventory panel,
-   * contacts panel, chat panel (tabs/contacts chip/lines), hotbar slots, inventory toggle,
-   * touch buttons, and the touch chat toggle chip, else null. */
+  /** PanelSource contract (scenes/dungeon/panelAdapters.ts) — [C] near a table toggles open/closed. */
+  craftOpen(): boolean {
+    return this.panels.craftOpen();
+  }
+
+  toggleCraftPanel(): void {
+    this.panels.toggleCraft();
+  }
+
+  /** [Esc]'s InputPanels.closeAll sweep. */
+  closeCraftPanel(): void {
+    this.panels.closeCraft();
+  }
+
+  /** PanelSource contract — [E] near a stash opens it (never toggles closed; matches v1). */
+  stashOpen(): boolean {
+    return this.panels.stashOpen();
+  }
+
+  openStashPanel(): void {
+    this.panels.openStash();
+  }
+
+  /** [Esc]'s InputPanels.closeAll sweep. */
+  closeStashPanel(): void {
+    this.panels.closeStash();
+  }
+
+  /** InputHud contract: which widget (if any) owns a screen point — the four window panels
+   * (panelWindows.ts), chat panel (tabs/contacts chip/lines), hotbar slots, inventory
+   * toggle, touch buttons, and the touch chat toggle chip, else null. */
   hitTest(screenX: number, screenY: number): string | null {
-    if (this.inventory.hitTestPanel(screenX, screenY)) return "window:inventory";
-    if (this.contacts.hitTestPanel(screenX, screenY)) return "window:contacts";
+    const panelHit = this.panels.hitTest(screenX, screenY);
+    if (panelHit) return panelHit;
     if (this.chat.hitTestPanel(screenX, screenY)) return "window:chat";
     const slot = this.hotbar.hitTestSlot(screenX, screenY);
     if (slot !== null) return `slot:${slot}`;

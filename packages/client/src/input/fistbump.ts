@@ -25,28 +25,30 @@ export function holdDown(state: HoldState, nowMs: number): void {
   state.fired = false;
 }
 
-/** 0..1 ring progress for the radial hold indicator; 0 when idle or already fired. */
-export function holdProgress(state: HoldState, nowMs: number): number {
+/** 0..1 ring progress for the radial hold indicator; 0 when idle or already fired.
+ * `holdMs` defaults to the fistbump threshold — input/revive.ts reuses this same
+ * generic hold-state machine at its own duration instead of duplicating it. */
+export function holdProgress(state: HoldState, nowMs: number, holdMs = FISTBUMP_HOLD_MS): number {
   if (state.downAtMs === null || state.fired) return 0;
-  return Math.min(1, (nowMs - state.downAtMs) / FISTBUMP_HOLD_MS);
+  return Math.min(1, (nowMs - state.downAtMs) / holdMs);
 }
 
 /** Poll while held: returns true exactly once, on the tick the hold crosses the threshold. */
-export function holdCrossedThreshold(state: HoldState, nowMs: number): boolean {
+export function holdCrossedThreshold(state: HoldState, nowMs: number, holdMs = FISTBUMP_HOLD_MS): boolean {
   if (state.downAtMs === null || state.fired) return false;
-  if (nowMs - state.downAtMs < FISTBUMP_HOLD_MS) return false;
+  if (nowMs - state.downAtMs < holdMs) return false;
   state.fired = true;
   return true;
 }
 
 /** Key/button released: "tap" = short press (run the tap action), "held" = the
- * fistbump already fired, "idle" = there was no tracked press (spurious keyup). */
-export function holdUp(state: HoldState, nowMs: number): "tap" | "held" | "idle" {
+ * hold gesture already fired, "idle" = there was no tracked press (spurious keyup). */
+export function holdUp(state: HoldState, nowMs: number, holdMs = FISTBUMP_HOLD_MS): "tap" | "held" | "idle" {
   if (state.downAtMs === null) return "idle";
   const wasFired = state.fired;
   const elapsed = nowMs - state.downAtMs;
   state.downAtMs = null;
   state.fired = false;
   if (wasFired) return "held";
-  return elapsed < FISTBUMP_HOLD_MS ? "tap" : "held";
+  return elapsed < holdMs ? "tap" : "held";
 }

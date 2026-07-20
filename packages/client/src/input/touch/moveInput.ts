@@ -5,21 +5,23 @@
  */
 import type { MoveInput } from "@dc2d/engine";
 import { isButtonHeld } from "./buttons.js";
-import { stickMoveAxes } from "./joystick.js";
+import { stickIsRunning, stickMoveAxes } from "./joystick.js";
 import type { TouchInputState } from "./state.js";
 
-/** This tick's move input from the touch stick + jump button alone (keyboard is merged by the caller). */
+/** This tick's move input from the touch stick + jump button alone (keyboard is merged by the caller).
+ * Full stick deflection stands in for held-Shift run (Epic 7.12, ASSUMPTION #65) — mobile has no Shift key. */
 export function touchMoveInput(state: TouchInputState): MoveInput {
   const { moveX, moveY } = stickMoveAxes(state);
-  return { moveX, moveY, jump: isButtonHeld(state, "jump") };
+  return { moveX, moveY, jump: isButtonHeld(state, "jump"), run: stickIsRunning(state) };
 }
 
-/** Touch wins on each axis when it's non-neutral; jump is a held-by-either union. */
+/** Touch wins on each axis when it's non-neutral; jump/run are held-by-either unions. */
 export function mergeMoveInputs(keyboard: MoveInput, touch: MoveInput): MoveInput {
   return {
     moveX: touch.moveX !== 0 ? touch.moveX : keyboard.moveX,
     moveY: touch.moveY !== 0 ? touch.moveY : keyboard.moveY,
     jump: keyboard.jump || touch.jump,
+    run: !!keyboard.run || !!touch.run,
   };
 }
 

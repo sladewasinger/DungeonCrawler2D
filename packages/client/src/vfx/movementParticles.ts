@@ -29,6 +29,27 @@ export function spawnDustPuff(scene: Phaser.Scene, screenX: number, screenY: num
   scene.time.delayedCall(320, () => emitter.destroy());
 }
 
+/** A subtle low puff at a running foot's screen position — heavier than a footstep
+ * mote but lighter than the jump/land dust, so held-run reads as a distinct gait
+ * without competing with the jump/land beats (Epic 7.12). */
+export function spawnRunDust(scene: Phaser.Scene, screenX: number, screenY: number): void {
+  const emitter = scene.add
+    .particles(screenX, screenY, ASSET_KEYS.atlas, {
+      frame: FRAME,
+      lifespan: 260,
+      speed: { min: 6, max: 22 },
+      scale: { start: 0.09, end: 0 },
+      alpha: { start: 0.4, end: 0 },
+      tint: DUST_TINT,
+      gravityY: -10,
+      quantity: 3,
+      emitting: false,
+    })
+    .setDepth(PARTICLE_DEPTH);
+  emitter.explode(3);
+  scene.time.delayedCall(280, () => emitter.destroy());
+}
+
 /** A single faint footstep mote at a sprinting foot's screen position. */
 export function spawnFootstepMote(scene: Phaser.Scene, screenX: number, screenY: number): void {
   const emitter = scene.add

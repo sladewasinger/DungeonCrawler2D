@@ -1,4 +1,4 @@
-import { MOVE_SPEED } from "../../core/constants.js";
+import { MOVE_SPEED, RUN_SPEED_MULTIPLIER } from "../../core/constants.js";
 import type { WorldView } from "../../world/types.js";
 import { moveHorizontal } from "./collision.js";
 import { resolveVerticalMotion, updateJumpState } from "./physics.js";
@@ -17,7 +17,12 @@ import type { BodyState, MoveInput, StepOpts, StepResult } from "./state.js";
 
 /** Advance one body by one fixed timestep. Mutates `body`. Tick order:
  * jump state, then horizontal collision, then vertical physics — this
- * exact order is what makes chained platform jumps feel right. */
+ * exact order is what makes chained platform jumps feel right.
+ *
+ * `input.run` (Epic 7.12) scales whatever speed the caller supplied by
+ * RUN_SPEED_MULTIPLIER — applied here, once, so the server (authoritative)
+ * and the client's prediction/replay (same function, no opts) can never
+ * drift apart on what "running" is worth. */
 export function stepBody(
   world: WorldView,
   body: BodyState,
@@ -25,7 +30,7 @@ export function stepBody(
   dt: number,
   opts: StepOpts = {},
 ): StepResult {
-  const speed = opts.speed ?? MOVE_SPEED;
+  const speed = (opts.speed ?? MOVE_SPEED) * (input.run ? RUN_SPEED_MULTIPLIER : 1);
 
   updateJumpState(body, input, dt);
   moveHorizontal(world, body, input, dt, speed, opts);

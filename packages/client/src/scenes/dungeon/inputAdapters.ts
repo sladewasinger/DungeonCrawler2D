@@ -1,13 +1,11 @@
 // Thin glue between input/index.ts's InputController contracts and DungeonScene's real
-// Connection + self cosmetics. Craft/stash panels aren't built yet (docs/PORT_PLAN.md
-// core slice), so those two fields of InputPanels stay a harmless no-op — the E/number-
-// key bindings are already wired and become live the moment those widgets land. Inventory
-// (HUD_OS.md Phase 1) is real: InputPanels reads it live from HudScene's InventoryPanelSource.
-import { TILE } from "@dc2d/engine";
-import type { InputConnection, InputHooks, InputPanels, InputQueries } from "../../input/index.js";
+// Connection + self cosmetics. Inventory (HUD_OS.md Phase 1) and craft/stash (Epic 7.12,
+// panelAdapters.ts) are both real: InputPanels reads every field live from HudScene.
+import { INTERACT_RANGE, TILE } from "@dc2d/engine";
+import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
-import { isTileTypeNearby, isThrowableItem, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
+import { isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
 import { triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
 
 export function createInputConnectionAdapter(conn: Connection): InputConnection {
@@ -48,14 +46,6 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
   };
 }
 
-/** The slice of HudScene's inventory-window state/actions InputPanels needs — kept
- * structural (not a HudScene import) so this module stays decoupled from scenes/HudScene.ts. */
-export interface InventoryPanelSource {
-  inventoryOpen(): boolean;
-  selectedInventoryItem(): string | null;
-  closeInventory(): void;
-}
-
 /** The inventory window's network intents (HudSceneData.actions), bound straight to the real Connection. */
 export function createHudActions(conn: Connection): InventoryActions {
   return {
@@ -88,22 +78,6 @@ export function createChatPort(conn: Connection): {
   };
 }
 
-export function createInputPanels(hud: InventoryPanelSource): InputPanels {
-  return {
-    craftOpen: false,
-    stashOpen: false,
-    get inventoryOpen() {
-      return hud.inventoryOpen();
-    },
-    get selectedInventoryItem() {
-      return hud.selectedInventoryItem();
-    },
-    openStashIfNearby: () => {},
-    toggleCraft: () => {},
-    closeAll: () => hud.closeInventory(),
-  };
-}
-
 function positionedEntities(conn: Connection): Array<{ id: string; kind: string; x: number; y: number }> {
   return [...conn.entities.entries()].map(([id, remote]) => ({
     id,
@@ -127,6 +101,10 @@ export function createInputQueries(conn: Connection): InputQueries {
       !!conn.world &&
       !!adapter.body &&
       isTileTypeNearby(conn.world, TILE.CraftingTable, adapter.body.x, adapter.body.y),
+    downedPartyMemberInRange: (adapter) => {
+      if (!adapter.body || !conn.party) return undefined;
+      return nearestDownedPartyMember(conn.party.members, adapter.body.x, adapter.body.y, INTERACT_RANGE);
+    },
   };
 }
 

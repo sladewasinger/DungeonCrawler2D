@@ -34,6 +34,7 @@ const queries: InputQueries = {
   nearestPlayerId: () => undefined,
   isStashNearby: () => false,
   isCraftTableNearby: () => false,
+  downedPartyMemberInRange: () => undefined,
 };
 
 describe("equippedIsThrowable", () => {

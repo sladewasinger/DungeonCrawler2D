@@ -61,8 +61,14 @@ if (isEditor) {
     scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, HudScene],
   });
   // Perf/debug introspection, dev-server only (never in a production build):
-  // ?debug=1 exposes the game for FPS/display-list probes (tools + manual tuning).
+  // ?debug=1 exposes the game for FPS/display-list probes (tools + manual tuning), and
+  // the live Connection for the committed e2e suite (tests/e2e/) to read authoritative
+  // client state (hp, inventory, entities, chat, world queries) from — the suite still
+  // drives every action through real trusted keyboard/mouse events (Phaser ignores
+  // synthetic ones), this is read-only observation, same convention as ?debug=1's
+  // window.__editorStore for the effects bench (scenes/editor/index.ts).
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
     (window as unknown as { __game: Phaser.Game }).__game = game;
+    (window as unknown as { __dc2d: { conn: Connection; game: Phaser.Game } }).__dc2d = { conn, game };
   }
 }

@@ -38,3 +38,10 @@ export function saveResumeToken(token: string, level: string): void {
   sessionStorage.setItem(`${RESUME_KEY}:${level}`, token);
   sessionStorage.removeItem(RESUME_KEY);
 }
+
+/** Purges a dead session's resume token so title's auto-resume doesn't loop back into
+ * the same expired grace window (Epic 7.12 session-expired path). */
+export function clearResumeToken(level: string): void {
+  sessionStorage.removeItem(`${RESUME_KEY}:${level}`);
+  sessionStorage.removeItem(RESUME_KEY);
+}

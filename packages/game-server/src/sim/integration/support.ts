@@ -53,8 +53,8 @@ export function makeSim(rngSeed = 1234, opts: { testFixtures?: boolean; debugCom
   return new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, new PlayerStore(null), rngSeed, opts);
 }
 
-export function input(seq: number, moveX: -1 | 0 | 1, moveY: -1 | 0 | 1, jump = false): ClientInput {
-  return { type: "input", seq, moveX, moveY, jump };
+export function input(seq: number, moveX: -1 | 0 | 1, moveY: -1 | 0 | 1, jump = false, run = false): ClientInput {
+  return { type: "input", seq, moveX, moveY, jump, run };
 }
 
 /** Force-place an entity, resetting fall tracking as if it just landed there. */

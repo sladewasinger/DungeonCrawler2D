@@ -93,7 +93,7 @@ export function syncEntities(
   let torchAccentLights: LightSource[] = [];
   if (terrain) {
     const torches = interpolated.filter((e) => e.snap.kind === "torch");
-    const torchSync = syncTorches(torchSyncState, torches, terrain);
+    const torchSync = syncTorches(torchSyncState, torches, terrain, conn.serverTick);
     const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
     entityRenderer.syncTorches(torchSync.views, context);
     torchAccentLights = torchSync.accentLights;

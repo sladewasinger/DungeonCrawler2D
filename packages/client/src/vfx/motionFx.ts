@@ -1,6 +1,8 @@
 // Pure motion edge-triggers for movement juice: jump/land/turn detection and a fixed
 // footstep cadence while sprinting — VISUAL_DIRECTION's "movement feel" rule, kept
 // Phaser-free so the triggers are unit-testable on their own (mirrors hitFlash.ts's shape).
+import { isRunningPace } from "../render/entities/playerMotion.js";
+
 export interface MotionSample {
   readonly x: number;
   readonly y: number;
@@ -37,4 +39,12 @@ export function isMoving(prev: MotionSample | undefined, curr: MotionSample, dtS
 export function footstepDue(prevFrameMs: number, nowMs: number, grounded: boolean, moving: boolean): boolean {
   if (!grounded || !moving) return false;
   return Math.floor(prevFrameMs / FOOTSTEP_INTERVAL_MS) !== Math.floor(nowMs / FOOTSTEP_INTERVAL_MS);
+}
+
+/** True once the ground speed between two samples reads as running, not walking (Epic 7.12) —
+ * shares its threshold with the animation cadence bump (render/entities/playerMotion.ts), so
+ * the dust and the faster loop always agree on what counts as "running". */
+export function isRunning(prev: MotionSample | undefined, curr: MotionSample, dtSeconds: number): boolean {
+  if (!prev) return false;
+  return isRunningPace(curr.x - prev.x, curr.y - prev.y, dtSeconds);
 }

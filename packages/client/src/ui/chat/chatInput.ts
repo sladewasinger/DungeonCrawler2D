@@ -24,6 +24,10 @@ function applyStyle(el: HTMLInputElement): void {
 
 export interface ChatInputHandlers {
   onSubmit(text: string): void;
+  /** Fires on real focus/blur. The scene uses it to suspend Phaser's global key
+   * capture while typing — otherwise every bound hotkey letter (w/a/s/d/e/r/…)
+   * is preventDefault'd at the window level and never reaches this input. */
+  onFocusChange?(focused: boolean): void;
 }
 
 export class ChatInputBox {
@@ -33,6 +37,8 @@ export class ChatInputBox {
     this.input = document.createElement("input");
     this.input.maxLength = 200;
     applyStyle(this.input);
+    this.input.addEventListener("focus", () => handlers.onFocusChange?.(true));
+    this.input.addEventListener("blur", () => handlers.onFocusChange?.(false));
     this.input.addEventListener("keydown", (event) => {
       // Both keys fully belong to the input while it's open — the game must not also act.
       if (event.key === "Enter") {

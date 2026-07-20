@@ -21,6 +21,7 @@ import { Prediction } from "./prediction.js";
  */
 
 const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
+const RUN: MoveInput = { moveX: 1, moveY: 0, jump: false, run: true };
 
 // Seed 7's origin chunk is a solid TILE.Wall mass (a landmark's footprint) —
 // since walls block horizontal movement outright (types.ts's SOLID_TILES),
@@ -46,6 +47,24 @@ describe("Prediction", () => {
     }
 
     expect(closeBody(client, server)).toBe(true);
+  });
+
+  it("predicts held-run at the same RUN_SPEED_MULTIPLIER the server applies, staying in lockstep (Epic 7.12)", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
+
+    for (let tick = 0; tick < 10; tick++) {
+      prediction.predict(world, client, RUN);
+      stepBody(world, server, RUN, TICK_DT);
+    }
+
+    expect(closeBody(client, server)).toBe(true);
+    // Running genuinely outpaces walking — not just "no drift".
+    const walked = createBody(SPAWN_X, SPAWN_Y, 5);
+    for (let tick = 0; tick < 10; tick++) stepBody(world, walked, WALK, TICK_DT);
+    expect(client.x).toBeGreaterThan(walked.x);
   });
 
   it("converges back to server truth after reconciling a misprediction", () => {

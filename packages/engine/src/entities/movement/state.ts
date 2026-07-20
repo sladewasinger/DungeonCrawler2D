@@ -28,6 +28,9 @@ export interface MoveInput {
   moveX: number;
   moveY: number;
   jump: boolean;
+  /** Hold-to-run intent (Epic 7.12). Optional so every existing caller (AI,
+   * feel-harness, editor bench) that never sets it keeps walking unchanged. */
+  run?: boolean;
 }
 
 export interface StepResult {

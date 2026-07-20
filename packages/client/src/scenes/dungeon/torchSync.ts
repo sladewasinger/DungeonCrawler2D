@@ -1,12 +1,14 @@
 // Wires live torch entities into the terrain renderer's targeted light rebake and the
 // lighting system's accent-light halos — the seam between net snapshots
 // (InterpolatedEntity) and the pure render/lighting/placedTorches.ts helpers.
+import { TICK_RATE } from "@dc2d/engine";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import {
   diffPlacedTorches,
   flyingTorchLights,
   placedTorchLights,
   placedTorchSeeds,
+  torchEmberFade,
   type PlacedTorch,
 } from "../../render/lighting/placedTorches.js";
 import type { TilePos } from "../../render/lighting/torchPlacement.js";
@@ -38,11 +40,23 @@ export function syncTorches(
   state: TorchSyncState,
   torches: readonly InterpolatedEntity[],
   terrain: TerrainRenderer,
+  /** The last snapshot's tick — the reference point `expiresAtTick` counts down to,
+   * for the fading-ember halo tell in a placed torch's last EMBER_FADE_SECONDS. */
+  serverTick: number,
 ): TorchSyncResult {
   const views = torches.map(torchView);
-  const placed: PlacedTorch[] = views
-    .filter((v) => v.state === "placed")
-    .map((v) => ({ id: v.id, tileX: Math.floor(v.x), tileY: Math.floor(v.y) }));
+  const placed: PlacedTorch[] = [];
+  views.forEach((v, i) => {
+    if (v.state !== "placed") return;
+    const expiresAtTick = torches[i]?.snap.expiresAtTick;
+    const ticksRemaining = expiresAtTick === undefined ? Number.POSITIVE_INFINITY : expiresAtTick - serverTick;
+    placed.push({
+      id: v.id,
+      tileX: Math.floor(v.x),
+      tileY: Math.floor(v.y),
+      emberFade: torchEmberFade(ticksRemaining, TICK_RATE),
+    });
+  });
 
   terrain.setDynamicLights(placedTorchSeeds(placed));
   const { changedTiles, next } = diffPlacedTorches(state.placedTiles, placed);

@@ -13,7 +13,8 @@
     "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
     "test": "vitest run",
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "e2e": "playwright test -c tests/e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

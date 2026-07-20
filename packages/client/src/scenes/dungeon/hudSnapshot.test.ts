@@ -13,7 +13,13 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
     pingMs: 40,
     connected: true,
     reconnecting: false,
+    reconnectAttempts: 0,
     downed: false,
+    party: null,
+    craftTableNearby: false,
+    stashNearby: false,
+    stash: null,
+    lastToast: null,
     ...overrides,
   };
 }
@@ -109,5 +115,40 @@ describe("buildHudSnapshot", () => {
       { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0 },
       { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null },
     ]);
+  });
+
+  it("builds the craft window's have/need rows from live inventory, gated on nearby", () => {
+    const snap = snapshotOf(source({ inventory: [{ item: "rag", qty: 6 }], craftTableNearby: true }));
+    expect(snap.craft.nearby).toBe(true);
+    const bandage = snap.craft.recipes.find((r) => r.recipeId === "bandage");
+    expect(bandage?.craftable).toBe(true);
+    expect(snap.craft.recipes.length).toBeGreaterThan(0);
+  });
+
+  it("reports the craft window as not nearby when no table is in range", () => {
+    const snap = snapshotOf(source({ craftTableNearby: false }));
+    expect(snap.craft.nearby).toBe(false);
+  });
+
+  it("builds the stash window's two columns from inventory and the live stash", () => {
+    const inventory = [{ item: "sword", qty: 1 }];
+    const stash = [{ item: "bandage", qty: 2 }];
+    const snap = snapshotOf(source({ inventory, stash, stashNearby: true }));
+    expect(snap.stash).toEqual({
+      nearby: true,
+      inventory: [{ index: 0, itemId: "sword", name: "Rusty Sword", qty: 1 }],
+      entries: [{ index: 0, itemId: "bandage", name: "Bandage", qty: 2 }],
+    });
+  });
+
+  it("treats a null stash (no server event yet) as an empty entries column", () => {
+    const snap = snapshotOf(source({ stash: null, stashNearby: true }));
+    expect(snap.stash.entries).toEqual([]);
+  });
+
+  it("passes the latest toast straight through", () => {
+    const toast = { msg: "Crafted bandage", until: 12345 };
+    const snap = snapshotOf(source({ lastToast: toast }));
+    expect(snap.lastToast).toBe(toast);
   });
 });

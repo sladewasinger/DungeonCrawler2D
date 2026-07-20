@@ -140,7 +140,15 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
       .map((m) => {
         // Member ids come from the party's own member set, always a live player slot.
         const member = sim.players.get(m)!;
-        return { id: m, name: member.entity.name ?? "?", x: member.entity.body.x, y: member.entity.body.y };
+        return {
+          id: m,
+          name: member.entity.name ?? "?",
+          x: member.entity.body.x,
+          y: member.entity.body.y,
+          hp: member.entity.hp,
+          maxHp: member.entity.maxHp,
+          downed: member.downedAtTick !== null,
+        };
       }),
   };
 }

@@ -2,19 +2,32 @@
 // hud/fakeData.ts's doc comment anticipates. Takes a narrow struct (not the whole
 // Connection class) so it stays a pure, table-driven function to test.
 import { statusesData } from "@dc2d/content";
-import type { InvStack } from "@dc2d/engine";
+import type { InvStack, ServerSnapshot } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../input/touch/index.js";
 import type { ChatPanelModel } from "../../ui/chat/controller.js";
 import type {
   BuffChipData,
+  CraftSnapshot,
   HotbarSlotData,
   HudFakeSnapshot,
   InventoryRowData,
+  StashSnapshot,
   TileCoords,
+  ToastData,
 } from "../../ui/widgets/hud/fakeData.js";
 import type { ContactData } from "../../ui/widgets/hud/contactRows.js";
-import { categoryOfItem, itemName } from "./contentQueries.js";
+import type { PartyRowData } from "../../ui/widgets/hud/partyFrames.js";
+import { recipeRowViews } from "../../ui/widgets/hud/recipeRows.js";
+import { stashRowViews } from "../../ui/widgets/hud/stashRows.js";
+import { categoryOfItem, itemName, recipeList } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
+
+/** A stash entry as the wire/Connection shape carries it — item def id + qty, no index
+ * (stashRowViews assigns the display index from array position). */
+export interface StashSlotSource {
+  readonly item: string;
+  readonly qty: number;
+}
 
 interface StatusDef {
   readonly id: string;
@@ -77,6 +90,24 @@ function roundedCoords(bodyPos: { x: number; y: number }): TileCoords {
   return { x: Math.round(bodyPos.x), y: Math.round(bodyPos.y) };
 }
 
+/** Off-self party member rows for the party frames widget (Epic 7.12) — party is
+ * null when unpartied, which naturally yields an empty (hidden) row list. */
+function partyRows(party: ServerSnapshot["party"]): PartyRowData[] {
+  if (!party) return [];
+  return party.members.map((m) => ({ id: m.id, name: m.name, hp: m.hp, maxHp: m.maxHp, downed: m.downed }));
+}
+
+/** Every recipe's have/need row against live inventory (Epic 7.12) — recipeList is
+ * content-order, matching v1's craft-panel number-key ordering. */
+function craftSnapshot(inventory: readonly InvStack[], nearby: boolean): CraftSnapshot {
+  return { nearby, recipes: recipeRowViews(recipeList, inventory, itemName) };
+}
+
+/** Both stash-window columns: your inventory (put source) and the stash (take source). */
+function stashSnapshot(inventory: readonly InvStack[], stash: readonly StashSlotSource[] | null, nearby: boolean): StashSnapshot {
+  return { nearby, inventory: stashRowViews(inventory, itemName), entries: stashRowViews(stash ?? [], itemName) };
+}
+
 export interface HudSnapshotSource {
   readonly hp: number;
   readonly maxHp: number;
@@ -87,7 +118,18 @@ export interface HudSnapshotSource {
   readonly pingMs: number;
   readonly connected: boolean;
   readonly reconnecting: boolean;
+  readonly reconnectAttempts: number;
   readonly downed: boolean;
+  readonly party: ServerSnapshot["party"];
+  /** Whether a crafting table / stash is within interact range of the self body right now —
+   * drives the craft/stash windows' auto-close-on-walk-away (mirrors v1's Panels.sync). */
+  readonly craftTableNearby: boolean;
+  readonly stashNearby: boolean;
+  /** The stash's current contents, or null before the first server "stash" event this session. */
+  readonly stash: readonly StashSlotSource[] | null;
+  /** The latest still-live server toast (net/apply.ts), or null — craft/stash windows'
+   * result-feedback line (docs/ROADMAP.md Epic 7.12's "existing toast/system-line pattern"). */
+  readonly lastToast: ToastData | null;
 }
 
 export function buildHudSnapshot(
@@ -108,12 +150,17 @@ export function buildHudSnapshot(
     buffs: buffChips(src.fx),
     equippedWeaponId: src.weapon,
     inventory: inventoryRows(src.inventory, src.hotbar),
+    craft: craftSnapshot(src.inventory, src.craftTableNearby),
+    stash: stashSnapshot(src.inventory, src.stash, src.stashNearby),
+    lastToast: src.lastToast,
+    party: partyRows(src.party),
     chatModel,
     contacts: [...contacts],
     interactionPrompt,
     pingMs: src.pingMs,
     connected: src.connected,
     reconnecting: src.reconnecting,
+    reconnectAttempts: src.reconnectAttempts,
     downed: src.downed,
     touch,
     fps,

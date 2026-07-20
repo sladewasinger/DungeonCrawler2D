@@ -82,6 +82,8 @@ export interface InputQueries {
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
   isStashNearby(conn: InputConnection): boolean;
   isCraftTableNearby(conn: InputConnection): boolean;
+  /** Nearest downed party member in interact range — gates hold-E revive (Epic 7.12), or undefined. */
+  downedPartyMemberInRange(conn: InputConnection): { id: string } | undefined;
 }
 
 export interface InputHooks {

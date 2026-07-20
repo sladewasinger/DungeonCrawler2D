@@ -3,6 +3,9 @@ import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
 import { isTouchDevice } from "../../../input/touchDetect.js";
 import type { ChatPanelModel } from "../../chat/controller.js";
 import type { ContactData } from "./contactRows.js";
+import type { PartyRowData } from "./partyFrames.js";
+import type { RecipeRowView } from "./recipeRows.js";
+import type { StashRowView } from "./stashRows.js";
 
 export interface HotbarSlotData {
   itemId: string | null;
@@ -35,6 +38,28 @@ export interface TileCoords {
   y: number;
 }
 
+/** The crafting window's per-frame data: whether a crafting table is in range (auto-closes
+ * the window when it stops being true, mirroring v1's Panels.sync) and every recipe's
+ * resolved have/need row. */
+export interface CraftSnapshot {
+  nearby: boolean;
+  recipes: RecipeRowView[];
+}
+
+/** The stash window's per-frame data: range gate plus both columns' rows. */
+export interface StashSnapshot {
+  nearby: boolean;
+  inventory: StashRowView[];
+  entries: StashRowView[];
+}
+
+/** A still-live server toast (net/apply.ts's "toast" event) — craft/stash windows show
+ * the latest one as their result-feedback line while `until` hasn't elapsed. */
+export interface ToastData {
+  msg: string;
+  until: number;
+}
+
 export interface HudFakeSnapshot {
   health: { hp: number; maxHp: number };
   hotbar: HotbarSlotData[];
@@ -44,6 +69,11 @@ export interface HudFakeSnapshot {
   equippedWeaponId: string | null;
   /** Every inventory stack the inventory window renders — independent of the 9 hotbar slots above. */
   inventory: InventoryRowData[];
+  craft: CraftSnapshot;
+  stash: StashSnapshot;
+  lastToast: ToastData | null;
+  /** Off-self party member rows (Epic 7.12) — empty when unpartied, hides the widget. */
+  party: PartyRowData[];
   chatModel: ChatPanelModel;
   contacts: ContactData[];
   interactionPrompt: { key: string; label: string } | null;
@@ -51,6 +81,8 @@ export interface HudFakeSnapshot {
   connected: boolean;
   /** True while a previously-live connection is mid dropout/backoff (see net/socket.ts). */
   reconnecting: boolean;
+  /** Consecutive failed reconnect attempts (net/socket.ts) — the toast's "(attempt N)" suffix. */
+  reconnectAttempts: number;
   downed: boolean;
   /** Live joystick/button state for the touch widgets, or null when touch controls aren't mounted. */
   touch: TouchVisualSnapshot | null;
@@ -99,6 +131,47 @@ const FAKE_CONTACTS: ContactData[] = [
   { name: "Rex", online: false },
 ];
 
+/** One healthy ally, one downed — proves both party-row states at once. */
+const FAKE_PARTY: PartyRowData[] = [
+  { id: "p2", name: "Wren", hp: 22, maxHp: 30, downed: false },
+  { id: "p3", name: "Rex", hp: 1, maxHp: 30, downed: true },
+];
+
+/** One craftable recipe (rag on hand) and one short a stick — proves both button states at once. */
+const FAKE_CRAFT: CraftSnapshot = {
+  nearby: true,
+  recipes: [
+    {
+      recipeId: "bandage",
+      outputId: "bandage",
+      outputName: "Bandage",
+      outputQty: 1,
+      ingredients: [{ itemId: "rag", name: "Rag", have: 6, need: 2, met: true }],
+      craftable: true,
+    },
+    {
+      recipeId: "torch",
+      outputId: "torch",
+      outputName: "Torch",
+      outputQty: 1,
+      ingredients: [
+        { itemId: "stick", name: "Stick", have: 0, need: 1, met: false },
+        { itemId: "rag", name: "Rag", have: 6, need: 1, met: true },
+      ],
+      craftable: false,
+    },
+  ],
+};
+
+const FAKE_STASH: StashSnapshot = {
+  nearby: true,
+  inventory: [
+    { index: 0, itemId: "sword", name: "Rusty Sword", qty: 1 },
+    { index: 1, itemId: "rag", name: "Rag", qty: 6 },
+  ],
+  entries: [{ index: 0, itemId: "bandage", name: "Bandage", qty: 2 }],
+};
+
 /** Static fake snapshot: half health, 5 filled hotbar slots (one armed throwable), 2 buffs, one chat line per channel. */
 export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
   return {
@@ -122,12 +195,17 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     ],
     equippedWeaponId: "sword",
     inventory: FAKE_INVENTORY,
+    craft: FAKE_CRAFT,
+    stash: FAKE_STASH,
+    lastToast: null,
+    party: FAKE_PARTY,
     chatModel: FAKE_CHAT_MODEL,
     contacts: FAKE_CONTACTS,
     interactionPrompt: { key: "R", label: "pick up" },
     pingMs: 42,
     connected: true,
     reconnecting: false,
+    reconnectAttempts: 0,
     downed,
     touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
     fps: 60,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOVE_SPEED, STEP_UP, TICK_DT } from "../core/constants.js";
+import { MOVE_SPEED, RUN_SPEED_MULTIPLIER, STEP_UP, TICK_DT } from "../core/constants.js";
 import type { WorldView } from "../world/types.js";
 import { NEUTRAL_INPUT, createBody, stepBody, type StepResult } from "./movement/index.js";
 
@@ -40,6 +40,19 @@ describe("movement", () => {
     expect(body.x).toBeCloseTo(5.5 + MOVE_SPEED, 5);
     expect(body.y).toBeCloseTo(5.5, 5);
     expect(body.grounded).toBe(true);
+  });
+
+  it("input.run scales speed by RUN_SPEED_MULTIPLIER, on top of a caller-supplied opts.speed", () => {
+    const world = fakeWorld({});
+    const body = createBody(5.5, 5.5, 0);
+    runTicks(world, body, { moveX: 1, moveY: 0, jump: false, run: true }, 20); // 1 second
+    expect(body.x).toBeCloseTo(5.5 + MOVE_SPEED * RUN_SPEED_MULTIPLIER, 5);
+
+    const customSpeedBody = createBody(5.5, 5.5, 0);
+    for (let i = 0; i < 20; i++) {
+      stepBody(world, customSpeedBody, { moveX: 1, moveY: 0, jump: false, run: true }, TICK_DT, { speed: 4 });
+    }
+    expect(customSpeedBody.x).toBeCloseTo(5.5 + 4 * RUN_SPEED_MULTIPLIER, 5);
   });
 
   it("is deterministic — identical inputs give identical trajectories", () => {

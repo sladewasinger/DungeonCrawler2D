@@ -10,6 +10,9 @@ import type { TouchInputState } from "./state.js";
 export const STICK_RADIUS_PX = 44;
 const DEADZONE_RATIO = 0.25;
 const SECTOR_RAD = Math.PI / 4;
+/** Epic 7.12, ASSUMPTION #65: mobile has no Shift key, so a joystick dragged past
+ * this fraction of its radius (near full deflection) stands in for holding run. */
+const RUN_DEFLECTION_RATIO = 0.85;
 
 export interface MoveAxes {
   moveX: -1 | 0 | 1;
@@ -65,4 +68,11 @@ export function stickMoveAxes(state: TouchInputState): MoveAxes {
   if (!state.stick) return NEUTRAL_AXES;
   const { curX, curY, originX, originY } = state.stick;
   return vectorToMoveAxes(curX - originX, curY - originY);
+}
+
+/** True once the drag is pushed past RUN_DEFLECTION_RATIO of the stick's radius — full-deflection-to-run. */
+export function stickIsRunning(state: TouchInputState, radius: number = STICK_RADIUS_PX): boolean {
+  if (!state.stick) return false;
+  const { curX, curY, originX, originY } = state.stick;
+  return Math.hypot(curX - originX, curY - originY) >= radius * RUN_DEFLECTION_RATIO;
 }

@@ -7,6 +7,8 @@ import { HUD_SCALE } from "../../ui/hudScale.js";
 const NEAR_DISTANCE_TILES = 6;
 const PARTY_COLOR = "#3dd6c3";
 const STRANGER_COLOR = "#9a9aae";
+/** Epic 7.12: matches deathOverlay/playerVisual's downed-red accent. */
+const DOWNED_COLOR = "#e04a4a";
 const DIM_ALPHA = 0.35;
 const NEAR_ALPHA = 0.95;
 const Y_OFFSET = -16 * HUD_SCALE;
@@ -15,7 +17,9 @@ export function createNameplate(scene: Phaser.Scene, depth: number): Phaser.Game
   return scene.add.text(0, 0, "", uiTextStyle(10 * HUD_SCALE)).setOrigin(0.5, 1).setDepth(depth);
 }
 
-/** Repositions/recolors a nameplate above an entity's head: teal for party, dimmed grey otherwise. */
+/** Repositions/recolors a nameplate above an entity's head: teal for party, dimmed
+ * grey otherwise, red "· DOWNED" suffix overriding both when the entity is downed
+ * (Epic 7.12) — a downed teammate must read as downed even past NEAR_DISTANCE_TILES. */
 export function updateNameplate(
   text: Phaser.GameObjects.Text,
   name: string,
@@ -23,9 +27,11 @@ export function updateNameplate(
   headScreenY: number,
   distanceTiles: number,
   isParty: boolean,
+  downed = false,
 ): void {
-  if (text.text !== name) text.setText(name);
+  const label = downed ? `${name} · DOWNED` : name;
+  if (text.text !== label) text.setText(label);
   text.setPosition(headScreenX, headScreenY + Y_OFFSET);
-  text.setColor(isParty ? PARTY_COLOR : STRANGER_COLOR);
-  text.setAlpha(distanceTiles <= NEAR_DISTANCE_TILES ? NEAR_ALPHA : DIM_ALPHA);
+  text.setColor(downed ? DOWNED_COLOR : isParty ? PARTY_COLOR : STRANGER_COLOR);
+  text.setAlpha(downed || distanceTiles <= NEAR_DISTANCE_TILES ? NEAR_ALPHA : DIM_ALPHA);
 }

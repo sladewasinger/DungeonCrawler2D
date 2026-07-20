@@ -23,9 +23,12 @@ function eitherDown(cursorKey: Phaser.Input.Keyboard.Key, gameKey: Phaser.Input.
   return cursorKey.isDown || gameKey.isDown;
 }
 
-/** Sampled at the fixed tick rate by the scene to build the server-bound move intent. */
+/** Sampled at the fixed tick rate by the scene to build the server-bound move intent.
+ * SHIFT holds run (Epic 7.12) — free to reuse here because it only otherwise fires
+ * inside the open stash panel (input/hotbar.ts's Shift+number put), never during
+ * ordinary movement. */
 export function readMoveInput(state: InputState, conn: InputConnection): MoveInput {
-  if (isTypingInInput() || !conn.canAct) return { moveX: 0, moveY: 0, jump: false };
+  if (isTypingInInput() || !conn.canAct) return { moveX: 0, moveY: 0, jump: false, run: false };
   const { keys, cursors } = state;
   const left = eitherDown(cursors.left, keys.A);
   const right = eitherDown(cursors.right, keys.D);
@@ -35,5 +38,6 @@ export function readMoveInput(state: InputState, conn: InputConnection): MoveInp
     moveX: (right ? 1 : 0) - (left ? 1 : 0),
     moveY: (down ? 1 : 0) - (up ? 1 : 0),
     jump: eitherDown(cursors.space, keys.SPACE),
+    run: keys.SHIFT.isDown,
   };
 }

@@ -38,11 +38,14 @@ export class ReconnectToastWidget {
     this.container.setVisible(false);
   }
 
-  update(reconnecting: boolean, nowMs: number): void {
+  /** `attempts` is the connection's consecutive-failed-retry count (net/socket.ts) —
+   * 0 on a first-ever connect, so the count only appears once a retry has genuinely happened. */
+  update(reconnecting: boolean, nowMs: number, attempts = 0): void {
     this.container.setVisible(reconnecting);
     if (!reconnecting) return;
     const dots = ".".repeat(1 + Math.floor(nowMs / DOT_PERIOD_MS) % 3);
-    this.label.setText(`Reconnecting${dots}`);
+    const suffix = attempts > 0 ? ` (attempt ${attempts})` : "";
+    this.label.setText(`Reconnecting${dots}${suffix}`);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

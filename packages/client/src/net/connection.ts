@@ -74,6 +74,9 @@ export class Connection {
   body: BodyState | null = null;
   rttMs = 0;
   status: "connecting" | "connected" | "closed" = "closed";
+  /** The last applied snapshot's server tick — placed-torch ember-fade math
+   * (scenes/dungeon/torchSync.ts) counts down against this. */
+  serverTick = 0;
 
   // Server-authoritative self state.
   hp = 0;
@@ -114,6 +117,12 @@ export class Connection {
   reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   shouldReconnect = false;
   level: LevelId = LEVEL.Dungeon;
+  /** Consecutive failed reconnect attempts since the last successful welcome — the
+   * reconnect toast's attempt count (Epic 7.12); reset to 0 on every onWelcome. */
+  reconnectAttempts = 0;
+  /** Set once retries give up past RECONNECT_GRACE_MS worth of attempts — the scene
+   * routes to title instead of leaving a dead "Reconnecting..." spinner forever. */
+  sessionExpired = false;
 
   constructor(
     readonly url: string,
@@ -163,6 +172,7 @@ export class Connection {
       moveX: input.moveX as -1 | 0 | 1,
       moveY: input.moveY as -1 | 0 | 1,
       jump: input.jump,
+      run: input.run ?? false,
     });
   }
 

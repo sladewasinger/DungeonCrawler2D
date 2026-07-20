@@ -1,6 +1,14 @@
 import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { categoryOfItem, isTileTypeNearby, isThrowableItem, itemName, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
+import {
+  categoryOfItem,
+  isTileTypeNearby,
+  isThrowableItem,
+  itemName,
+  nearestDownedPartyMember,
+  nearestEntityId,
+  recipeIdAtIndex,
+} from "./contentQueries.js";
 
 describe("isThrowableItem", () => {
   it("is true for a throwable item like the torch", () => {
@@ -67,6 +75,26 @@ describe("nearestEntityId", () => {
 
   it("returns undefined when nothing is within range", () => {
     expect(nearestEntityId(entities, "player", 0, 0, 0.5)).toBeUndefined();
+  });
+});
+
+describe("nearestDownedPartyMember", () => {
+  const members = [
+    { id: "a", x: 1, y: 0, downed: false },
+    { id: "b", x: 1.2, y: 0, downed: true },
+    { id: "c", x: 5, y: 0, downed: true },
+  ];
+
+  it("ignores conscious members even when closer", () => {
+    expect(nearestDownedPartyMember(members, 0, 0, 10)?.id).toBe("b");
+  });
+
+  it("returns undefined when no downed member is within range", () => {
+    expect(nearestDownedPartyMember(members, 0, 0, 1)).toBeUndefined();
+  });
+
+  it("returns undefined with no party members at all", () => {
+    expect(nearestDownedPartyMember([], 0, 0, 10)).toBeUndefined();
   });
 });
 

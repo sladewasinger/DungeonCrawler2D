@@ -14,13 +14,25 @@ const GAME_NAME = "DUNGEON CRAWLER";
 /** How long a first attempt gets before the status line admits it's still retrying (net/socket.ts backs off every 1s on its own). */
 const RETRY_HINT_DELAY_MS = 4000;
 
+export interface TitleSceneData {
+  /** Epic 7.12: DungeonScene routes here once reconnect retries give up (net/socket.ts's
+   * MAX_RECONNECT_ATTEMPTS) — a clean landing with an explanatory status line instead of
+   * a dead "Reconnecting..." spinner. */
+  expired?: boolean;
+}
+
 export class TitleScene extends Phaser.Scene {
   private background: TitleBackground | undefined;
   private form: ConnectForm | undefined;
   private title: Phaser.GameObjects.Text | undefined;
+  private expired = false;
 
   constructor(private readonly conn: Connection) {
     super("title");
+  }
+
+  init(data?: TitleSceneData): void {
+    this.expired = !!data?.expired;
   }
 
   create(): void {
@@ -33,7 +45,8 @@ export class TitleScene extends Phaser.Scene {
     this.conn.onConnected = () => this.scene.start("dungeon");
     this.setUpResize();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
-    this.autoResumeIfPossible();
+    if (this.expired) this.form?.setStatus("Session expired — reconnect below");
+    else this.autoResumeIfPossible();
   }
 
   update(time: number): void {

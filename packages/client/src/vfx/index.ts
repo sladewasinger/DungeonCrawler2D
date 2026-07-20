@@ -10,8 +10,8 @@ import { spawnDeathSplatter, spawnHitSplatter } from "./bloodSplatter.js";
 import { DamageNumberPool } from "./damageNumbers.js";
 import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
 import { MeleeWedgePool } from "./meleeWedge.js";
-import { spawnDustPuff, spawnFootstepMote } from "./movementParticles.js";
-import { footstepDue, isMoving, motionEvents, type MotionSample } from "./motionFx.js";
+import { spawnDustPuff, spawnFootstepMote, spawnRunDust } from "./movementParticles.js";
+import { footstepDue, isMoving, isRunning, motionEvents, type MotionSample } from "./motionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
 import { ScreenShakeBudget } from "./screenShake.js";
 import { TorchFlamePool } from "./torchFlames.js";
@@ -51,17 +51,26 @@ export class VfxSystem {
     const prev = this.lastPlayerSample;
     const dt = (nowMs - this.lastFrameMs) / 1000;
     const moving = isMoving(prev, sample, dt);
+    const running = isRunning(prev, sample, dt);
     const events = motionEvents(prev, sample);
-    this.fireMotionParticles(sample, events, moving, nowMs);
+    this.fireMotionParticles(sample, events, moving, running, nowMs);
     this.lastPlayerSample = sample;
     this.lastFrameMs = nowMs;
   }
 
-  private fireMotionParticles(sample: MotionSample, events: readonly string[], moving: boolean, nowMs: number): void {
+  private fireMotionParticles(
+    sample: MotionSample,
+    events: readonly string[],
+    moving: boolean,
+    running: boolean,
+    nowMs: number,
+  ): void {
     const screen = worldToScreen(sample.x, sample.y);
     if (events.includes("jumped") || events.includes("turned")) spawnDustPuff(this.scene, screen.x, screen.y, 5);
     if (events.includes("landed")) spawnDustPuff(this.scene, screen.x, screen.y, 8);
-    if (footstepDue(this.lastFrameMs, nowMs, !sample.air, moving)) spawnFootstepMote(this.scene, screen.x, screen.y);
+    if (!footstepDue(this.lastFrameMs, nowMs, !sample.air, moving)) return;
+    if (running) spawnRunDust(this.scene, screen.x, screen.y);
+    else spawnFootstepMote(this.scene, screen.x, screen.y);
   }
 
   spawnDamageNumber(worldX: number, worldY: number, amount: number, nowMs: number, heal = false): void {

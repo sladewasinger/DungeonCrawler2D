@@ -97,7 +97,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
 
     const x = player.body.x;
     const y = player.body.y;
-    sim.handleInput(aId, { type: "input", seq: 100, moveX: 1, moveY: 0, jump: true });
+    sim.handleInput(aId, { type: "input", seq: 100, moveX: 1, moveY: 0, jump: true, run: false });
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     snaps = sim.step();
     expect(player.body.x).toBe(x);

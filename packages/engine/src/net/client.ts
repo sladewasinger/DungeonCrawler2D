@@ -22,6 +22,8 @@ export const clientInputSchema = z.object({
   moveX: axis,
   moveY: axis,
   jump: z.boolean(),
+  /** Hold-to-run intent (Epic 7.12); absent from older clients defaults to walking. */
+  run: z.boolean().default(false),
 });
 
 export const clientAttackSchema = z.object({

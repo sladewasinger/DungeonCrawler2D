@@ -43,15 +43,26 @@ export function itemName(itemDefId: string): string {
   return itemById.get(itemDefId)?.name ?? itemDefId;
 }
 
-interface RecipeDef {
+export interface RecipeIngredient {
+  readonly item: string;
+  readonly qty: number;
+}
+
+/** A recipe definition as loaded from content — id plus its full inputs/output shape,
+ * needed by the crafting panel's have/need view-model (ui/widgets/hud/recipeRows.ts). */
+export interface RecipeDef {
   readonly id: string;
+  readonly inputs: readonly RecipeIngredient[];
+  readonly output: RecipeIngredient;
 }
 
 function isRecipeDef(value: unknown): value is RecipeDef {
-  return typeof (value as Partial<RecipeDef>)?.id === "string";
+  const def = value as Partial<RecipeDef>;
+  return typeof def?.id === "string" && Array.isArray(def.inputs) && typeof def.output === "object" && def.output !== null;
 }
 
-const recipeList: readonly RecipeDef[] = (recipesData as readonly unknown[]).filter(isRecipeDef);
+/** Every recipe, content order (matches v1's craft-panel number-key ordering). */
+export const recipeList: readonly RecipeDef[] = (recipesData as readonly unknown[]).filter(isRecipeDef);
 
 export function recipeIdAtIndex(index: number): string | undefined {
   return recipeList[index]?.id;
@@ -83,6 +94,34 @@ export function nearestEntityId(
     }
   }
   return bestId;
+}
+
+export interface PartyMemberPosition {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly downed: boolean;
+}
+
+/** Nearest DOWNED party member within `maxDistance` — the hold-E revive gesture's
+ * target gate (Epic 7.12); undefined when no downed teammate is close enough. */
+export function nearestDownedPartyMember(
+  members: readonly PartyMemberPosition[],
+  fromX: number,
+  fromY: number,
+  maxDistance: number,
+): PartyMemberPosition | undefined {
+  let best: PartyMemberPosition | undefined;
+  let bestDistance = maxDistance;
+  for (const member of members) {
+    if (!member.downed) continue;
+    const distance = Math.hypot(member.x - fromX, member.y - fromY);
+    if (distance <= bestDistance) {
+      bestDistance = distance;
+      best = member;
+    }
+  }
+  return best;
 }
 
 export interface TileWorld {

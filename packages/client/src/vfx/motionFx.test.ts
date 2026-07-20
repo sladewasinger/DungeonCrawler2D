@@ -1,6 +1,6 @@
 // Headless tests for jump/land/turn edge-triggers and footstep cadence.
 import { describe, expect, it } from "vitest";
-import { footstepDue, isMoving, motionEvents, type MotionSample } from "./motionFx.js";
+import { footstepDue, isMoving, isRunning, motionEvents, type MotionSample } from "./motionFx.js";
 
 const grounded = (x: number, faceX = 1): MotionSample => ({ x, y: 0, air: false, faceX });
 const airborne = (x: number, faceX = 1): MotionSample => ({ x, y: 0, air: true, faceX });
@@ -36,6 +36,17 @@ describe("isMoving", () => {
   it("is true once speed crosses the threshold", () => {
     expect(isMoving(grounded(0), grounded(1), 1)).toBe(true);
     expect(isMoving(grounded(0), grounded(0.01), 1)).toBe(false);
+  });
+});
+
+describe("isRunning", () => {
+  it("is false with no previous sample", () => {
+    expect(isRunning(undefined, grounded(6), 0.5)).toBe(false);
+  });
+
+  it("is false at walk speed, true at run speed", () => {
+    expect(isRunning(grounded(0), grounded(4), 0.5)).toBe(false); // 8 tiles/s
+    expect(isRunning(grounded(0), grounded(6), 0.5)).toBe(true); // 12 tiles/s
   });
 });
 

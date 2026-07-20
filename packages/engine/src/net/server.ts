@@ -70,9 +70,19 @@ export type InvSlot = z.infer<typeof invSlotSchema>;
 export const partySnapshotSchema = z
   .object({
     id: z.string(),
-    /** Members incl. off-AOI position pings — they're your people. */
+    /** Members incl. off-AOI position pings — they're your people. hp/downed
+     * (Epic 7.12) let a party frame show a teammate's status even off-AOI,
+     * where entitySnapshot's own hp/downed never reaches this client. */
     members: z.array(
-      z.object({ id: z.string(), name: z.string(), x: z.number(), y: z.number() }),
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        x: z.number(),
+        y: z.number(),
+        hp: z.number(),
+        maxHp: z.number(),
+        downed: z.boolean(),
+      }),
     ),
   })
   .nullable();
