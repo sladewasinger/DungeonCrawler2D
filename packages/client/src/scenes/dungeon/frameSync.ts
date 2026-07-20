@@ -118,7 +118,21 @@ export function syncLightingAndVfx(
   const areaLights = vfx.syncAreas(buildAreaTileViews(conn.areaTiles));
   lighting.setAccentLights([...areaLights, ...torchAccentLights]);
   lighting.update(camera.worldView, render.x, render.y, nowMs);
-  vfx.syncTorchFlames(lighting.activeTorches());
+  // Flame emitters only for torches near the camera view: uncapped, every
+  // resident torch (~140) ran a continuous ParticleEmitter — a large slice of
+  // baseline frame cost on weak hardware (leak-hunt probe, 2026-07-20).
+  const view = camera.worldView;
+  const marginPx = 2 * SCREEN_TILE_PX;
+  vfx.syncTorchFlames(
+    lighting.activeTorches().filter((t) => {
+      const sx = t.x * SCREEN_TILE_PX;
+      const sy = t.y * SCREEN_TILE_PX;
+      return (
+        sx >= view.x - marginPx && sx <= view.right + marginPx &&
+        sy >= view.y - marginPx && sy <= view.bottom + marginPx
+      );
+    }),
+  );
   vfx.trackPlayerMotion({ x: render.x, y: render.y, air: !conn.body.grounded, faceX: state.cosmetics.faceX }, nowMs);
   applyVisualEvents(conn, vfx, render, nowMs);
   vfx.update(nowMs);

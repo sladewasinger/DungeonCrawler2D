@@ -16,10 +16,14 @@ import type { Viewport } from "../state.js";
 const WIDGET_ID = "touch-stick";
 const NUB_IDLE_COLOR = 0xc9c9d6;
 const NUB_RADIUS = STICK_RADIUS_PX * 0.42;
+/** Resting/active fill alpha, matching touchButtons.ts's low-profile-until-touched
+ * treatment (wave-6 playtest, "barely any screen real estate"). */
+const REST_ALPHA = 0.35;
+const ACTIVE_ALPHA = 1;
 
 function drawRing(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   const ring = scene.add.graphics();
-  ring.fillStyle(PANEL_FILL, 0.55);
+  ring.fillStyle(PANEL_FILL, REST_ALPHA);
   ring.fillCircle(0, 0, STICK_RADIUS_PX);
   ring.lineStyle(1, PANEL_BORDER, 1);
   ring.strokeCircle(0, 0, STICK_RADIUS_PX);
@@ -36,6 +40,7 @@ function clampToRing(dx: number, dy: number): { x: number; y: number } {
 
 export class TouchStickWidget {
   private readonly container: Phaser.GameObjects.Container;
+  private readonly ring: Phaser.GameObjects.Graphics;
   private readonly nub: Phaser.GameObjects.Arc;
   private restX = 0;
   private restY = 0;
@@ -44,7 +49,10 @@ export class TouchStickWidget {
     registry.register({
       id: WIDGET_ID,
       defaultAnchor: "bottom-left",
-      defaultOffset: { x: 48, y: -92 },
+      // Tucked closer to the corner than the original {48,-92} now that the ring itself
+      // is smaller (wave-6 playtest) — keep in sync with default-layout.json's
+      // "touch-stick" entry, which still wins as the active override.
+      defaultOffset: { x: 36, y: -68 },
       defaultScale: 1,
       defaultVisible: true,
     });
@@ -53,22 +61,26 @@ export class TouchStickWidget {
     this.container = createWidgetContainer(scene, layout);
     this.restX = layout.x;
     this.restY = layout.y;
-    this.nub = scene.add.circle(0, 0, NUB_RADIUS, NUB_IDLE_COLOR, 0.75);
-    this.container.add([drawRing(scene), this.nub]);
+    this.ring = drawRing(scene);
+    this.nub = scene.add.circle(0, 0, NUB_RADIUS, NUB_IDLE_COLOR, REST_ALPHA);
+    this.container.add([this.ring, this.nub]);
   }
 
   /** Drives the floating re-home + nub drag + active tint from this frame's touch snapshot. */
   update(stick: TouchVisualSnapshot["stick"]): void {
+    // The whole rig — ring included, not just the nub — steps up to full opacity the
+    // moment a drag is live, matching touchButtons.ts's rest/pressed treatment.
+    this.ring.setAlpha(stick ? ACTIVE_ALPHA : REST_ALPHA);
     if (!stick) {
       this.container.setPosition(this.restX, this.restY);
       this.nub.setPosition(0, 0);
-      this.nub.setFillStyle(NUB_IDLE_COLOR, 0.75);
+      this.nub.setFillStyle(NUB_IDLE_COLOR, REST_ALPHA);
       return;
     }
     this.container.setPosition(stick.x, stick.y);
     const clamped = clampToRing(stick.dx, stick.dy);
     this.nub.setPosition(clamped.x, clamped.y);
-    this.nub.setFillStyle(SELECTION_ACCENT, 0.9);
+    this.nub.setFillStyle(SELECTION_ACCENT, ACTIVE_ALPHA);
   }
 
   /** Re-resolves this widget's idle screen position for a new viewport (call on resize). */

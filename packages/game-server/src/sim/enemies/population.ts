@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, isRoomChunk, LEVEL, platformLootSpots } from "@dc2d/engine";
+import { CHASM_DEATH_Z, CHUNK_SIZE, isRoomChunk, LEVEL, platformLootSpots } from "@dc2d/engine";
 import { spawnEnemy, spawnItem } from "../helpers.js";
 import type { SimState } from "../state.js";
 import { populateTestZoneChunk } from "../testzone.js";
@@ -84,8 +84,12 @@ function spawnRandomEnemies(sim: SimState, cx: number, cy: number): void {
     const wx = cx * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     const wy = cy * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     // isWalkable now excludes TILE.Wall outright (walls are solid) —
-    // enemies never spawn on/inside one.
+    // enemies never spawn on/inside one. A rift floor tile passes
+    // isWalkable (it's TILE.Floor, just deep) so it needs its own
+    // height check: never seed an enemy straight into a death-pit —
+    // see helpers.ts's isBodyInChasm for the shared ruling.
     if (!sim.world.isWalkable(wx, wy) || sim.world.isSanctuary(wx, wy)) continue;
+    if (sim.world.heightAt(wx, wy) <= CHASM_DEATH_Z) continue;
     if (tooCloseToPlayer(sim, wx, wy)) continue;
     spawnEnemy(sim, pickEnemyDef(sim), wx + 0.5, wy + 0.5);
   }

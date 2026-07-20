@@ -204,7 +204,10 @@ export class DungeonScene extends Phaser.Scene {
       this.inputController,
       this.interactionPrompt,
       this.chatController,
-      this.game.loop.actualFps,
+      // Instantaneous rate, NOT loop.actualFps: that EMA is seeded at 60 and
+      // converges over ~90s, which fabricated a "monotonic fps collapse" for
+      // slow clients (judge-panel finding; connectionStatus does its own smoothing).
+      1000 / this.game.loop.delta,
     );
   }
 

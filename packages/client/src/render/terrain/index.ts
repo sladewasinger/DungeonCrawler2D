@@ -10,8 +10,13 @@ import type { DynamicLightSeed } from "./tileLight.js";
 import type { TilePos } from "../lighting/torchPlacement.js";
 
 const LOAD_MARGIN_CHUNKS = 1;
+/** Chunk bakes per frame: a whole entering column baked synchronously caused
+ * measured 108-192ms hitches on chunk-boundary frames (leak-hunt probe,
+ * 2026-07-20). The margin gives queued chunks a full screen of runway. */
+const MAX_BAKES_PER_FRAME = 2;
 export class TerrainRenderer {
   private readonly visuals = new Map<string, ChunkVisual>();
+  private readonly bakeQueue: ChunkCoord[] = [];
   /** Live (non-authored) light sources — placed thrown torches — fed into every
    * chunk bake from here on, including chunks that stream in later. */
   private dynamicLights: readonly DynamicLightSeed[] = [];
@@ -21,12 +26,25 @@ export class TerrainRenderer {
     private readonly world: World,
   ) {}
 
-  /** Streams chunks around a view rect: loads what entered the margin, culls what left it. */
+  /** Streams chunks around a view rect: queues what entered the margin (baking at
+   * most MAX_BAKES_PER_FRAME per call), culls what left it. */
   update(view: ViewRect): void {
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.visuals.keys()));
-    for (const coord of toLoad) this.load(coord);
+    for (const coord of toLoad) {
+      const key = chunkKey(coord);
+      if (!this.bakeQueue.some((c) => chunkKey(c) === key)) this.bakeQueue.push(coord);
+    }
     for (const key of toUnloadKeys) this.unload(key);
+    // Drop queued bakes for chunks that scrolled back out before their turn.
+    const desiredKeys = new Set(desired.map(chunkKey));
+    let baked = 0;
+    while (this.bakeQueue.length > 0 && baked < MAX_BAKES_PER_FRAME) {
+      const coord = this.bakeQueue.shift()!;
+      if (!desiredKeys.has(chunkKey(coord))) continue;
+      this.load(coord);
+      baked++;
+    }
   }
 
   /** Sets this frame's live light sources — call before update()/rebuildAffected() so

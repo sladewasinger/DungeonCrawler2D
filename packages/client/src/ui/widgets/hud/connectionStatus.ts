@@ -73,14 +73,14 @@ export class ConnectionStatusWidget {
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
-    this.pingText = this.buildRow(scene, 0);
-    this.fpsText = this.buildRow(scene, 1);
-    this.coordsText = this.buildRow(scene, 2);
+    this.pingText = this.buildRow(scene, 0, layout.scale);
+    this.fpsText = this.buildRow(scene, 1, layout.scale);
+    this.coordsText = this.buildRow(scene, 2, layout.scale);
     this.container.add([this.pingText, this.fpsText, this.coordsText]);
   }
 
-  private buildRow(scene: Phaser.Scene, index: number): Phaser.GameObjects.Text {
-    return scene.add.text(TEXT_X, rowY(index), "", uiTextStyle(ROW_TEXT_SIZE)).setOrigin(1, 0.5);
+  private buildRow(scene: Phaser.Scene, index: number, scale: number): Phaser.GameObjects.Text {
+    return scene.add.text(TEXT_X, rowY(index), "", uiTextStyle(ROW_TEXT_SIZE, undefined, scale)).setOrigin(1, 0.5);
   }
 
   update(pingMs: number, connected: boolean, fpsSample: number, coords: TileCoords): void {

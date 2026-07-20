@@ -15,13 +15,15 @@ import { drawPanelBackground, drawSelectionAccent, PANEL_BORDER, PANEL_FILL, spa
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
+import { buildCloseButton, type CloseButtonHandle } from "./closeButton.js";
 import type { InventoryRowData } from "./fakeData.js";
 import { INVENTORY_TABS, inventoryRowViews, type InventoryRowView, type InventoryTabId } from "./inventoryRows.js";
 import { createItemIcon } from "./itemIcon.js";
+import { WINDOW_PANEL_HEIGHT, WINDOW_VERTICAL_OFFSET } from "./windowLayout.js";
 
 const WIDGET_ID = "inventory";
 const PANEL_WIDTH = 340;
-const PANEL_HEIGHT = 300;
+const PANEL_HEIGHT = WINDOW_PANEL_HEIGHT;
 const TAB_HEIGHT = 22;
 const ROW_HEIGHT = 32;
 const ICON_SIZE = 22;
@@ -44,6 +46,7 @@ export class InventoryWindowWidget {
   private readonly panel: Phaser.GameObjects.Container;
   /** Invisible bounds-only rect for hitTestPanel() — drawPanelBackground()'s Graphics object has no getBounds(). */
   private readonly hitArea: Phaser.GameObjects.Rectangle;
+  private readonly closeButton: CloseButtonHandle;
   private readonly tabAccents = new Map<InventoryTabId, Phaser.GameObjects.Graphics>();
   private readonly actions: InventoryActions;
   private rowObjects: Phaser.GameObjects.GameObject[] = [];
@@ -52,13 +55,21 @@ export class InventoryWindowWidget {
   private selectedItemId: string | null = null;
   private currentWeaponId: string | null = null;
   private lastSignature = "";
+  private readonly scale: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport, actions: InventoryActions) {
     this.scene = scene;
     this.actions = actions;
-    registry.register({ id: WIDGET_ID, defaultAnchor: "center", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true });
+    registry.register({
+      id: WIDGET_ID,
+      defaultAnchor: "center",
+      defaultOffset: { x: 0, y: WINDOW_VERTICAL_OFFSET },
+      defaultScale: 1,
+      defaultVisible: true,
+    });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
     this.panel = scene.add.container(0, 0);
     this.container.add(this.panel);
@@ -68,6 +79,8 @@ export class InventoryWindowWidget {
       .setOrigin(0, 0);
     this.panel.add([panelBg, this.hitArea]);
     this.buildTabs();
+    this.closeButton = buildCloseButton(scene, PANEL_WIDTH, PANEL_HEIGHT, this.scale, () => this.close());
+    this.panel.add(this.closeButton.objects);
     this.panel.setVisible(false);
   }
 
@@ -82,7 +95,9 @@ export class InventoryWindowWidget {
         .setStrokeStyle(1, PANEL_BORDER)
         .setInteractive({ useHandCursor: true });
       bg.on("pointerdown", () => this.selectTab(tab.id));
-      const label = this.scene.add.text(x + tabWidth / 2, y + TAB_HEIGHT / 2, tab.label, uiTextStyle(11)).setOrigin(0.5, 0.5);
+      const label = this.scene.add
+        .text(x + tabWidth / 2, y + TAB_HEIGHT / 2, tab.label, uiTextStyle(11, undefined, this.scale))
+        .setOrigin(0.5, 0.5);
       const accent = drawSelectionAccent(this.scene, tabWidth - 2, TAB_HEIGHT).setPosition(x, y).setVisible(tab.id === this.activeTab);
       this.panel.add([bg, label, accent]);
       this.tabAccents.set(tab.id, accent);
@@ -121,7 +136,7 @@ export class InventoryWindowWidget {
     const accent = drawSelectionAccent(this.scene, right - left, ROW_HEIGHT - 2)
       .setPosition(left, y)
       .setVisible(view.itemId === this.selectedItemId);
-    const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
+    const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE, this.scale).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
     const label = this.buildRowLabel(view, left, y);
     const buttons = this.buildRowButtons(view, right, y);
     const objects = [rowBg, accent, icon, label, ...buttons];
@@ -132,7 +147,9 @@ export class InventoryWindowWidget {
   private buildRowLabel(view: InventoryRowView, left: number, y: number): Phaser.GameObjects.Text {
     const tag = view.boundSlot !== null ? `  [${view.boundSlot + 1}]` : "";
     const x = left + ICON_SIZE + spacing(1.5);
-    return this.scene.add.text(x, y + (ROW_HEIGHT - 2) / 2, `${view.name} ×${view.qty}${tag}`, uiTextStyle(11)).setOrigin(0, 0.5);
+    return this.scene.add
+      .text(x, y + (ROW_HEIGHT - 2) / 2, `${view.name} ×${view.qty}${tag}`, uiTextStyle(11, undefined, this.scale))
+      .setOrigin(0, 0.5);
   }
 
   private buildRowButtons(view: InventoryRowView, right: number, y: number): Phaser.GameObjects.GameObject[] {
@@ -151,7 +168,7 @@ export class InventoryWindowWidget {
   private buildButton(x: number, y: number, width: number, label: string, active: boolean, onClick: () => void): Phaser.GameObjects.GameObject[] {
     const bg = this.scene.add.rectangle(x, y, width, BTN_HEIGHT, PANEL_FILL, 0.9).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
     const text = this.scene.add
-      .text(x + width / 2, y + BTN_HEIGHT / 2, label, uiTextStyle(9, active ? "#e8e8e8" : "#6b6b7e"))
+      .text(x + width / 2, y + BTN_HEIGHT / 2, label, uiTextStyle(9, active ? "#e8e8e8" : "#6b6b7e", this.scale))
       .setOrigin(0.5, 0.5);
     if (active) {
       bg.setInteractive({ useHandCursor: true });
@@ -208,7 +225,8 @@ export class InventoryWindowWidget {
    * fires through it — the panel's own row/tab/button listeners already handled the click.
    */
   hitTestPanel(screenX: number, screenY: number): boolean {
-    return this.open && this.hitArea.getBounds().contains(screenX, screenY);
+    if (!this.open) return false;
+    return this.hitArea.getBounds().contains(screenX, screenY) || this.closeButton.hitArea.getBounds().contains(screenX, screenY);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

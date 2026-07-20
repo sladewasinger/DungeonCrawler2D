@@ -1,5 +1,6 @@
 import {
   AOI_RADIUS,
+  xpForLevel,
   type Entity,
   type EntitySnapshot,
   type GameEvent,
@@ -111,6 +112,10 @@ function gatherVisible(
 /** Build the `self` block: body state + vitals, from the player's own entity. */
 function toSelfSnapshot(slot: PlayerSlot): ServerSnapshot["self"] {
   const self = slot.entity;
+  // Epic 11 core (ASSUMPTION #90, docs/ASSUMPTIONS.md): xp/level persist on
+  // the durable PlayerStore record, not the ephemeral entity.
+  const level = slot.stored.level ?? 1;
+  const xp = slot.stored.xp ?? 0;
   return {
     x: self.body.x,
     y: self.body.y,
@@ -126,6 +131,9 @@ function toSelfSnapshot(slot: PlayerSlot): ServerSnapshot["self"] {
     maxHp: self.maxHp,
     fx: self.statuses.map((s) => s.defId),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
+    xp,
+    level,
+    xpForNext: xpForLevel(level + 1) - xp,
   };
 }
 
@@ -148,6 +156,7 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
           hp: member.entity.hp,
           maxHp: member.entity.maxHp,
           downed: member.downedAtTick !== null,
+          level: member.stored.level ?? 1,
         };
       }),
   };
@@ -160,7 +169,11 @@ function toAreaSnapshot(
   areaDirty: Array<{ x: number; y: number; defId: string | null }>,
   inAoi: (x: number, y: number) => boolean,
 ): Array<{ x: number; y: number; defId: string | null }> {
-  if (!slot.needsFullAreas) return areaDirty.filter((a) => inAoi(a.x, a.y));
+  // Removals (defId null) always replicate, even outside AOI: a hazard that
+  // expires while its watcher is far away otherwise stays on that client
+  // FOREVER, running particle emitters unbounded (leak-hunt find, 2026-07-20).
+  // A removal for a tile the client never knew about is a no-op there.
+  if (!slot.needsFullAreas) return areaDirty.filter((a) => a.defId === null || inAoi(a.x, a.y));
   slot.needsFullAreas = false;
   return sim.areas.allTiles().filter((a) => inAoi(a.x, a.y));
 }

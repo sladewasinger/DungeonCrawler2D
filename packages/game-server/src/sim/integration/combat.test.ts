@@ -178,7 +178,14 @@ describe("GameSim: combat", () => {
     const respawnSnaps = stepN(sim, RESPAWN_DELAY_TICKS + 2);
     const snap = respawnSnaps.get(a.playerId)!;
     expect(snap.self.hp).toBe(PLAYER_MAX_HP);
-    expect(sim.getInventory(a.playerId)!.length).toBe(0);
+    // Full loot drop leaves the player weaponless, so respawn re-grants
+    // the starter kit (Epic 7.13 starter-kit famine fix, ASSUMPTION #87)
+    // instead of leaving them permanently Unarmed.
+    const inv = sim.getInventory(a.playerId)!;
+    expect(inv.find((s) => s.item === "sword")?.qty).toBe(1);
+    expect(inv.find((s) => s.item === "torch")?.qty).toBe(3);
+    expect(inv.length).toBe(2);
+    expect(sim.getWeapon(a.playerId)).toBe("sword");
     expect(Math.abs(snap.self.x - deathX)).toBeGreaterThan(1); // moved elsewhere
   });
 

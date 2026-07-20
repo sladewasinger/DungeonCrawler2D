@@ -13,13 +13,15 @@ import { drawPanelBackground, PANEL_BORDER, PANEL_FILL, spacing } from "../../pa
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
+import { buildCloseButton, type CloseButtonHandle } from "./closeButton.js";
 import type { CraftSnapshot, ToastData } from "./fakeData.js";
 import { createItemIcon } from "./itemIcon.js";
 import type { RecipeRowView } from "./recipeRows.js";
+import { WINDOW_PANEL_HEIGHT, WINDOW_VERTICAL_OFFSET } from "./windowLayout.js";
 
 const WIDGET_ID = "craft";
 const PANEL_WIDTH = 340;
-const PANEL_HEIGHT = 280;
+const PANEL_HEIGHT = WINDOW_PANEL_HEIGHT;
 const TITLE_HEIGHT = 24;
 const ROW_HEIGHT = 40;
 const ICON_SIZE = 24;
@@ -39,18 +41,27 @@ export class CraftWindowWidget {
   private readonly container: Phaser.GameObjects.Container;
   private readonly panel: Phaser.GameObjects.Container;
   private readonly hitArea: Phaser.GameObjects.Rectangle;
+  private readonly closeButton: CloseButtonHandle;
   private readonly footer: Phaser.GameObjects.Text;
   private readonly actions: CraftActions;
   private rowObjects: Phaser.GameObjects.GameObject[] = [];
   private open = false;
   private lastSignature: string | null = null;
+  private readonly scale: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport, actions: CraftActions) {
     this.scene = scene;
     this.actions = actions;
-    registry.register({ id: WIDGET_ID, defaultAnchor: "center", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true });
+    registry.register({
+      id: WIDGET_ID,
+      defaultAnchor: "center",
+      defaultOffset: { x: 0, y: WINDOW_VERTICAL_OFFSET },
+      defaultScale: 1,
+      defaultVisible: true,
+    });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
     this.panel = scene.add.container(0, 0);
     this.container.add(this.panel);
@@ -59,12 +70,13 @@ export class CraftWindowWidget {
       .rectangle(-PANEL_WIDTH / 2, -PANEL_HEIGHT / 2, PANEL_WIDTH, PANEL_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
     const title = scene.add
-      .text(0, -PANEL_HEIGHT / 2 + TITLE_HEIGHT / 2, "CRAFTING", uiTextStyle(12))
+      .text(0, -PANEL_HEIGHT / 2 + TITLE_HEIGHT / 2, "CRAFTING", uiTextStyle(12, undefined, this.scale, "emphasis"))
       .setOrigin(0.5, 0.5);
     this.footer = scene.add
-      .text(0, PANEL_HEIGHT / 2 - spacing(1.5), "", uiTextStyle(10, "#c8ecf7"))
+      .text(0, PANEL_HEIGHT / 2 - spacing(1.5), "", uiTextStyle(10, "#c8ecf7", this.scale))
       .setOrigin(0.5, 1);
-    this.panel.add([bg, this.hitArea, title, this.footer]);
+    this.closeButton = buildCloseButton(scene, PANEL_WIDTH, PANEL_HEIGHT, this.scale, () => this.close());
+    this.panel.add([bg, this.hitArea, title, this.footer, ...this.closeButton.objects]);
     this.panel.setVisible(false);
   }
 
@@ -81,12 +93,17 @@ export class CraftWindowWidget {
     const left = -PANEL_WIDTH / 2 + spacing(1);
     const right = PANEL_WIDTH / 2 - spacing(1);
     const rowBg = this.scene.add.rectangle(left, y, right - left, ROW_HEIGHT - 2, PANEL_FILL, 0.4).setOrigin(0, 0);
-    const icon = createItemIcon(this.scene, view.outputId, ICON_SIZE).setPosition(left + ICON_SIZE / 2 + 4, y + ICON_SIZE / 2 + 4);
+    const icon = createItemIcon(this.scene, view.outputId, ICON_SIZE, this.scale).setPosition(left + ICON_SIZE / 2 + 4, y + ICON_SIZE / 2 + 4);
     const name = this.scene.add
-      .text(left + ICON_SIZE + spacing(1.5), y + 6, `${view.outputName} ×${view.outputQty}`, uiTextStyle(11))
+      .text(left + ICON_SIZE + spacing(1.5), y + 6, `${view.outputName} ×${view.outputQty}`, uiTextStyle(11, undefined, this.scale))
       .setOrigin(0, 0);
     const ingredients = this.scene.add
-      .text(left + ICON_SIZE + spacing(1.5), y + 22, ingredientsLabel(view), uiTextStyle(9, view.craftable ? MET_COLOR : UNMET_COLOR))
+      .text(
+        left + ICON_SIZE + spacing(1.5),
+        y + 22,
+        ingredientsLabel(view),
+        uiTextStyle(9, view.craftable ? MET_COLOR : UNMET_COLOR, this.scale),
+      )
       .setOrigin(0, 0);
     const button = this.buildCraftButton(view, right - CRAFT_BTN_WIDTH, y + (ROW_HEIGHT - 2 - CRAFT_BTN_HEIGHT) / 2);
     const objects = [rowBg, icon, name, ingredients, ...button];
@@ -100,7 +117,12 @@ export class CraftWindowWidget {
       .setOrigin(0, 0)
       .setStrokeStyle(1, PANEL_BORDER);
     const text = this.scene.add
-      .text(x + CRAFT_BTN_WIDTH / 2, y + CRAFT_BTN_HEIGHT / 2, "Craft", uiTextStyle(10, view.craftable ? "#e8e8e8" : "#6b6b7e"))
+      .text(
+        x + CRAFT_BTN_WIDTH / 2,
+        y + CRAFT_BTN_HEIGHT / 2,
+        "Craft",
+        uiTextStyle(10, view.craftable ? "#e8e8e8" : "#6b6b7e", this.scale),
+      )
       .setOrigin(0.5, 0.5);
     if (view.craftable) {
       bg.setInteractive({ useHandCursor: true });
@@ -147,7 +169,8 @@ export class CraftWindowWidget {
 
   /** Shared hit-claim convention (see inventoryWindow.ts's hitTestPanel doc comment). */
   hitTestPanel(screenX: number, screenY: number): boolean {
-    return this.open && this.hitArea.getBounds().contains(screenX, screenY);
+    if (!this.open) return false;
+    return this.hitArea.getBounds().contains(screenX, screenY) || this.closeButton.hitArea.getBounds().contains(screenX, screenY);
   }
 
   resize(registry: WidgetRegistry, viewport: Viewport): void {

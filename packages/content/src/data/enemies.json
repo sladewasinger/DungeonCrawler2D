@@ -9,7 +9,8 @@
     "attack": { "damage": 2, "range": 0.9, "cooldown": 1.2 },
     "immunities": ["bleed"],
     "drops": [{ "item": "rag", "chance": 0.4 }],
-    "sprite": "slime"
+    "sprite": "slime",
+    "xp": 5
   },
   {
     "id": "plant-creeper",
@@ -24,7 +25,8 @@
       { "item": "stick", "chance": 0.9 },
       { "item": "rag", "chance": 0.3 }
     ],
-    "sprite": "plant_creeper"
+    "sprite": "plant_creeper",
+    "xp": 8
   },
   {
     "id": "skeleton",
@@ -39,7 +41,8 @@
       { "item": "knife", "chance": 0.15 },
       { "item": "bandage", "chance": 0.25 }
     ],
-    "sprite": "skelet"
+    "sprite": "skelet",
+    "xp": 12
   },
   {
     "id": "spitter",
@@ -59,6 +62,7 @@
       { "item": "water-flask", "chance": 0.3 },
       { "item": "raw-meat", "chance": 0.5 }
     ],
-    "sprite": "imp"
+    "sprite": "imp",
+    "xp": 12
   }
 ]

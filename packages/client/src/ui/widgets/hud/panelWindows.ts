@@ -16,6 +16,15 @@ import type { CraftSnapshot, InventoryRowData, StashSnapshot, ToastData } from "
 import { InventoryWindowWidget, type InventoryActions } from "./inventoryWindow.js";
 import { StashWindowWidget } from "./stashWindow.js";
 
+/**
+ * Pure decision for the touch "tap outside a window closes it" sweep (HudWidgets.hitTest):
+ * only touch has no [Esc], and only once something's actually open is there anything to
+ * dismiss — kept standalone so the decision itself is unit-testable without a Phaser scene.
+ */
+export function shouldDismissOnOutsideTap(touchActive: boolean, anyWindowOpen: boolean): boolean {
+  return touchActive && anyWindowOpen;
+}
+
 export class PanelWindows {
   private readonly inventory: InventoryWindowWidget;
   private readonly contacts: ContactsWindowWidget;
@@ -116,5 +125,18 @@ export class PanelWindows {
     if (this.craft.hitTestPanel(screenX, screenY)) return "window:craft";
     if (this.stash.hitTestPanel(screenX, screenY)) return "window:stash";
     return null;
+  }
+
+  /** True while any of the four windows is open — gates the touch "tap outside closes it" sweep. */
+  anyOpen(): boolean {
+    return this.inventory.isOpen() || this.contacts.isOpen() || this.craft.isOpen() || this.stash.isOpen();
+  }
+
+  /** Closes every open window — a touch tap outside all of them (HudWidgets.hitTest). */
+  closeAll(): void {
+    this.inventory.close();
+    this.contacts.close();
+    this.craft.close();
+    this.stash.close();
   }
 }

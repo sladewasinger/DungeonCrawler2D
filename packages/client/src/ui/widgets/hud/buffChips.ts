@@ -46,6 +46,7 @@ export class BuffChipsWidget {
   private readonly scene: Phaser.Scene;
   private readonly root: Phaser.GameObjects.Container;
   private readonly chips: ChipVisual[] = [];
+  private readonly scale: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     this.scene = scene;
@@ -58,6 +59,7 @@ export class BuffChipsWidget {
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.root = createWidgetContainer(scene, layout);
     for (let i = 0; i < MAX_CHIPS; i++) this.chips.push(this.buildChip(i));
   }
@@ -65,7 +67,9 @@ export class BuffChipsWidget {
   private buildChip(index: number): ChipVisual {
     const x = index * (CHIP_SIZE + CHIP_GAP);
     const box = this.scene.add.rectangle(x, 0, CHIP_SIZE, CHIP_SIZE, 0x1a1a24).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
-    const letter = this.scene.add.text(x + CHIP_SIZE / 2, CHIP_SIZE / 2 - spacing(0.3), "", uiTextStyle(12)).setOrigin(0.5, 0.5);
+    const letter = this.scene.add
+      .text(x + CHIP_SIZE / 2, CHIP_SIZE / 2 - spacing(0.3), "", uiTextStyle(12, undefined, this.scale))
+      .setOrigin(0.5, 0.5);
     const pip = this.scene.add.rectangle(x, CHIP_SIZE - PIP_HEIGHT, CHIP_SIZE, PIP_HEIGHT, 0xffffff).setOrigin(0, 0);
     const container = this.scene.add.container(0, 0, [box, letter, pip]).setVisible(false);
     this.root.add(container);

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { TICK_DT, WALL_RISE } from "../core/constants.js";
+import { BODY_RADIUS, CORNER_SLIDE_WINDOW } from "./movement/index.js";
 import {
   measureChainedPlatforms,
+  measureCorridorEntry,
   measureHop,
   measureLedgeClimb,
   measureStairContinuity,
@@ -75,5 +77,27 @@ describe("feel — stair-ramp continuity is unaffected by the jump retune", () =
     const metrics = measureStairContinuity();
     expect(metrics.maxUpDz).toBeLessThan(1);
     expect(metrics.maxDownDz).toBeLessThan(1);
+  });
+});
+
+describe("feel — corner-slide assist glides an off-center corridor entry", () => {
+  const NATURAL_TOLERANCE = 0.5 - BODY_RADIUS;
+
+  it.each(DIRECTIONS)("catches a near-miss within the capture window (%s)", (direction) => {
+    const offset = NATURAL_TOLERANCE + CORNER_SLIDE_WINDOW - 0.05;
+    const result = measureCorridorEntry(direction, offset);
+    expect(result.entered).toBe(true);
+    expect(result.ticksUsed * TICK_DT).toBeLessThan(1);
+  });
+
+  it.each(DIRECTIONS)("still blocks an approach well beyond the window (%s)", (direction) => {
+    const offset = NATURAL_TOLERANCE + CORNER_SLIDE_WINDOW + 0.2;
+    const result = measureCorridorEntry(direction, offset);
+    expect(result.entered).toBe(false);
+  });
+
+  it.each(DIRECTIONS)("a perfectly centered approach needs no assist (%s)", (direction) => {
+    const result = measureCorridorEntry(direction, 0);
+    expect(result.entered).toBe(true);
   });
 });

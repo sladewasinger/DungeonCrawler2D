@@ -65,12 +65,35 @@ Everything moves that should move.
   Default browser fonts are otherwise still forbidden as *decorative* body text
   substitutes — this is a deliberate, single system-sans choice, not "whatever
   the browser defaults to."
-- **One panel language:** dark `#1a1a24` panels, 1 px `#494956` border, 4 px corner,
-  consistent 8 px spacing grid, gold accents for selection. Every HUD element is a
-  widget (id + anchor + offset + scale + visibility from a layout config) — no
-  fixed-position UI, ever. Exception: the ping/FPS/coords indicator stack
-  (`connectionStatus.ts`) is deliberately bare right-aligned text with no panel
-  chip behind it (user-decreed 2026-07-19) — it is telemetry, not a widget surface.
+- **Text is crisp at any zoom, not just any size (user-decreed 2026-07-20 — "font is
+  still shitty" after the system-sans swap above):** the typeface was never the
+  problem. Every HUD widget's Text is built inside a container that Phaser later
+  stretches by `layout.scale` (hudScale × the widget's own scale); `uiTextStyle`'s
+  `resolution` was pinned to `devicePixelRatio` alone, so the glyph bitmap was baked
+  at half the density it was finally displayed at and read blurry under that
+  stretch — worse at hudScale 2, worse again on a 3x-DPR phone. `uiTextStyle(sizePx,
+  color, scale, weight)` now takes that container's `layout.scale` as a third
+  argument (every widget threads it through — `font.ts`'s header comment has the
+  math) so `resolution = devicePixelRatio * scale` and the bitmap always matches
+  its final on-screen density. Screen-anchored entity text with no scaled ancestor
+  (nameplates, floating damage numbers) needs no `scale` — it already bakes
+  `HUD_SCALE` into `sizePx` directly, same fix from the other side.
+- **Type scale + weight:** one system-sans stack, two weights — `weight: "normal"`
+  (400, unset) for everyday labels/body text, `weight: "emphasis"` (600) reserved for
+  readouts and section chrome a player should find first: hp/ammo-style numeric
+  readouts, panel section titles (CRAFTING/INVENTORY/STASH column headers), the
+  active interaction-prompt key, floating damage numbers, the DOWNED tag. Sizes run
+  9-10px for secondary labels/buttons (tab labels, keybind glyphs, footer toasts),
+  11-13px for primary row/body text, 18-20px+ for hero readouts (damage numbers,
+  the death screen). Nothing sets a heavier weight or a different family — no
+  decorative fonts anywhere in the HUD, per the acceptance bar below.
+- **One panel language:** dark `#1a1a24` panels at 92% alpha (a soft scrim, not an
+  opaque card), a thin low-contrast `#3c3c48` 1 px border, 4 px corner, consistent
+  8 px spacing grid, gold accents for selection. Every HUD element is a widget (id +
+  anchor + offset + scale + visibility from a layout config) — no fixed-position UI,
+  ever. Exception: the ping/FPS/coords indicator stack (`connectionStatus.ts`) is
+  deliberately bare right-aligned text with no panel chip behind it (user-decreed
+  2026-07-19) — it is telemetry, not a widget surface.
 - Health/stamina bars are chunky, segmented, and readable at a glance; buffs/debuffs
   show as icon chips with duration pips; the hotbar shows item sprites, not text.
 - Nameplates: small, dimmed until nearby; party members in teal, strangers in neutral

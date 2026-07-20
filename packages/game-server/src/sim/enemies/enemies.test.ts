@@ -8,6 +8,7 @@ import {
 } from "@dc2d/content";
 import {
   buildContentRegistry,
+  CHASM_DEATH_Z,
   hashString,
   LEVEL,
   makeEntity,
@@ -114,6 +115,7 @@ describe("enemy population", () => {
       expect(sim.world.isWalkable(tx, ty)).toBe(true);
       expect(sim.world.isSanctuary(tx, ty)).toBe(false);
       expect(sim.world.tileAt(tx, ty)).not.toBe(TILE.Wall);
+      expect(sim.world.heightAt(tx, ty)).toBeGreaterThan(CHASM_DEATH_Z);
     }
   });
 

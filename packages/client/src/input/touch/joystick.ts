@@ -6,8 +6,11 @@
  */
 import type { TouchInputState } from "./state.js";
 
-/** Matches the base ring's drawn radius in ui/widgets/hud/touchStick.ts (logical px, pre-hudScale). */
-export const STICK_RADIUS_PX = 44;
+/** Matches the base ring's drawn radius in ui/widgets/hud/touchStick.ts (logical px,
+ * pre-hudScale). Cut from 44 (wave-6 playtest: "the buttons are way too large... barely
+ * any screen real estate" applied to the stick too) — still well above the deadzone's
+ * own minimum meaningful drag distance. */
+export const STICK_RADIUS_PX = 32;
 const DEADZONE_RATIO = 0.25;
 const SECTOR_RAD = Math.PI / 4;
 /** Epic 7.12, ASSUMPTION #65: mobile has no Shift key, so a joystick dragged past

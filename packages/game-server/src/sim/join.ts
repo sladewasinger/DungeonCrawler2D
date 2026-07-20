@@ -7,15 +7,12 @@ import {
   type Entity,
 } from "@dc2d/engine";
 import { sendContactsUpdated } from "./contacts.js";
-import { invAdd } from "./inventory.js";
+import { ensureStarterKit } from "./inventory.js";
+import { respawnSlot } from "./players.js";
 import { findSpawn, newToken } from "./spawn.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
 
 /** Player join and reconnect-resume: the entity/slot a fresh or returning client gets. */
-
-/** ASSUMPTION #1/#2 (docs/ASSUMPTIONS.md): the existing Rusty Sword
- * auto-equips (invAdd's first-weapon rule), plus a full stack of torches. */
-const STARTER_TORCH_QTY = 3;
 
 export function addPlayer(
   sim: SimState,
@@ -27,11 +24,6 @@ export function addPlayer(
     const resumed = tryResume(sim, resumeToken, clientId);
     if (resumed) return resumed;
   }
-
-  // Checked BEFORE store.get (which creates the record) — this is the
-  // only point that can tell "first-ever join" from "reconnected after
-  // the in-memory slot/resume token was lost" (e.g. a server restart).
-  const isNewCharacter = !sim.store.has(clientId);
 
   const spawn = findSpawn(sim);
   const entity = makeEntity("player", createBody(spawn.x, spawn.y, spawn.z), {
@@ -47,7 +39,14 @@ export function addPlayer(
   const slot = newSlot(entity, clientId, sim.store.get(clientId, name), token);
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
-  if (isNewCharacter) grantStarterKit(sim, slot);
+  // ASSUMPTION #2 (docs/ASSUMPTIONS.md) is superseded by #87: the kit is
+  // no longer strictly exactly-once-per-clientId. ensureStarterKit is a
+  // no-op for anyone who already has a weapon/sword/torch, so a
+  // brand-new, genuinely empty slot gets granted here exactly as
+  // before; a returning clientId whose in-memory slot/resume token was
+  // lost (e.g. died with the only resume token they had) now gets it
+  // too, instead of rejoining permanently Unarmed.
+  ensureStarterKit(sim, slot);
   // ASSUMPTION #50 (docs/ASSUMPTIONS.md): sync the contact list on every
   // join/resume so a reconnecting client doesn't wait for the next
   // fistbump seal to see it. A same-tick collision with a fistbump-seal
@@ -56,13 +55,6 @@ export function addPlayer(
   // harmless, since the client treats contactsUpdated as a full replace.
   sendContactsUpdated(sim, slot);
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false };
-}
-
-/** Granted exactly once per persistent clientId, straight into inventory
- * (never the stash) — never re-run on death/respawn or reconnect. */
-function grantStarterKit(sim: SimState, slot: PlayerSlot): void {
-  invAdd(sim, slot, "sword", 1);
-  invAdd(sim, slot, "torch", STARTER_TORCH_QTY);
 }
 
 /** Default bookkeeping for a freshly-joined player. */
@@ -111,6 +103,14 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
   slot.pendingActions.length = 0;
   slot.lastSeq = -1;
   slot.needsFullAreas = true;
+  // Join-death fix (Epic 7.13): a client that disconnected mid-death-
+  // delay (respawnAtTick pending, hp still 0) must never resume into
+  // that dead body — the first snapshot would carry hp<=0 and read as
+  // a fresh death on reconnect. Respawn it immediately instead of
+  // waiting out whatever was left of the delay; ensureStarterKit rides
+  // along inside respawnSlot.
+  if (slot.entity.hp <= 0) respawnSlot(sim, slot);
+  else ensureStarterKit(sim, slot);
   sendContactsUpdated(sim, slot);
   return {
     playerId: slot.entity.id,

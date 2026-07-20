@@ -42,6 +42,7 @@ export class PartyFramesWidget {
   private readonly scene: Phaser.Scene;
   private readonly root: Phaser.GameObjects.Container;
   private readonly rows: RowVisual[] = [];
+  private readonly scale: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     this.scene = scene;
@@ -54,6 +55,7 @@ export class PartyFramesWidget {
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.root = createWidgetContainer(scene, layout);
     for (let i = 0; i < MAX_ROWS; i++) this.rows.push(this.buildRow(i));
   }
@@ -64,12 +66,12 @@ export class PartyFramesWidget {
       .rectangle(0, y, ROW_WIDTH, ROW_HEIGHT, PANEL_FILL, 0.85)
       .setOrigin(0, 0)
       .setStrokeStyle(1, PANEL_BORDER);
-    const label = this.scene.add.text(spacing(0.5), y + 2, "", uiTextStyle(10)).setOrigin(0, 0);
+    const label = this.scene.add.text(spacing(0.5), y + 2, "", uiTextStyle(10, undefined, this.scale)).setOrigin(0, 0);
     const barY = y + ROW_HEIGHT - HP_BAR_HEIGHT - 3;
     const hpBg = this.scene.add.rectangle(spacing(0.5), barY, HP_BAR_WIDTH, HP_BAR_HEIGHT, 0x1a1a24).setOrigin(0, 0);
     const hpFill = this.scene.add.rectangle(spacing(0.5), barY, HP_BAR_WIDTH, HP_BAR_HEIGHT, HP_COLOR).setOrigin(0, 0);
     const downedTag = this.scene.add
-      .text(ROW_WIDTH - spacing(0.5), y + 2, "DOWNED", uiTextStyle(9, "#e04a4a"))
+      .text(ROW_WIDTH - spacing(0.5), y + 2, "DOWNED", uiTextStyle(9, "#e04a4a", this.scale, "emphasis"))
       .setOrigin(1, 0);
     const container = this.scene.add.container(0, 0, [bg, label, hpBg, hpFill, downedTag]).setVisible(false);
     this.root.add(container);

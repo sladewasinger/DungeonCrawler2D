@@ -2,6 +2,8 @@ import { MOVE_SPEED, TICK_DT } from "../core/constants.js";
 import type { WorldView } from "../world/types.js";
 import { createBody, stepBody, type BodyState } from "./movement/index.js";
 
+const CORRIDOR_ENTRY_BUDGET_TICKS = 60;
+
 /**
  * Pure measurement helpers for jump/traversal "feel": headless arc
  * simulations over synthetic WorldView fixtures, run through the real
@@ -170,6 +172,53 @@ export function measureStairContinuity(): StairContinuityMetrics {
     ticksUp: upTicks.ticks,
     ticksDown: downTicks.ticks,
   };
+}
+
+export interface CorridorEntryResult {
+  direction: "north" | "south" | "east" | "west";
+  /** Tiles off the gap's centerline the approach started at. */
+  offset: number;
+  entered: boolean;
+  ticksUsed: number;
+}
+
+// A wall spanning the axis perpendicular to travel, at tile along===8,
+// with a single 1-wide opening at tile perp===10. Real (isWalkable)
+// walls, not height cliffs — this is the corridor-mouth scenario, not a
+// ledge.
+function corridorEntryWorld(dx: number): WorldView {
+  const along = (tx: number, ty: number): number => (dx !== 0 ? tx : ty);
+  const perp = (tx: number, ty: number): number => (dx !== 0 ? ty : tx);
+  return {
+    isWalkable: (tx, ty) => along(tx, ty) !== 8 || perp(tx, ty) === 10,
+    heightAt: () => 0,
+    groundAt: () => 0,
+  };
+}
+
+/** Walk straight at a 1-wide gap in an otherwise solid wall, offset from
+ * the gap's centerline by `offset` tiles perpendicular to travel — the
+ * corner-slide assist's target measurement: does an off-center approach
+ * glide through, and how many ticks does it take? */
+export function measureCorridorEntry(
+  direction: "north" | "south" | "east" | "west",
+  offset: number,
+): CorridorEntryResult {
+  const [dx, dy] = dirVector(direction);
+  const sign = dx !== 0 ? dx : dy;
+  const world = corridorEntryWorld(dx);
+  const perpStart = 10.5 + offset;
+  const alongStart = sign > 0 ? 5.5 : 10.5;
+  const body = createBody(dx !== 0 ? alongStart : perpStart, dx !== 0 ? perpStart : alongStart, 0);
+  const move = { moveX: dx, moveY: dy, jump: false };
+  const crossedWall = (along: number): boolean => (sign > 0 ? along > 9 : along < 8);
+
+  for (let tick = 1; tick <= CORRIDOR_ENTRY_BUDGET_TICKS; tick++) {
+    stepBody(world, body, move, TICK_DT);
+    const along = dx !== 0 ? body.x : body.y;
+    if (crossedWall(along)) return { direction, offset, entered: true, ticksUsed: tick };
+  }
+  return { direction, offset, entered: false, ticksUsed: CORRIDOR_ENTRY_BUDGET_TICKS };
 }
 
 /** Step a body along one axis for `tiles` worth of travel, tracking the

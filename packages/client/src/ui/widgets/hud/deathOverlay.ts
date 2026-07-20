@@ -31,7 +31,7 @@ export class DeathOverlayWidget {
     this.container = createWidgetContainer(scene, layout);
     this.vignette = scene.add.rectangle(0, 0, viewport.width, viewport.height, VIGNETTE_COLOR, VIGNETTE_ALPHA);
     const text = scene.add
-      .text(0, 0, RESPAWN_TEXT, uiTextStyle(20, "#e04a4a"))
+      .text(0, 0, RESPAWN_TEXT, uiTextStyle(20, "#e04a4a", layout.scale, "emphasis"))
       .setOrigin(0.5, 0.5)
       .setAlign("center");
     this.container.add([this.vignette, text]);

@@ -213,10 +213,15 @@ describe("GameSim: party, portals, crafting, stash", () => {
 
     const sim2 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 99, { testFixtures: true });
     const again = sim2.addPlayer("A", "client-a");
+    // The restart lost the in-memory weapon/inventory (only the stash
+    // persisted), so this returning join is kit-less and ensureStarterKit
+    // re-grants (ASSUMPTION #87, supersedes #2) — the sword/torch stacks
+    // land before the stashed knife, which the "take" below appends.
+    expect(sim2.getInventory(again.playerId)?.find((s) => s.item === "sword")?.qty).toBe(1);
     const entity2 = sim2.getPlayerEntity(again.playerId)!;
     teleport(entity2, features.stash.x + 1.5, features.stash.y + 0.5, sim2);
     sim2.queueAction(again.playerId, { type: "stash", op: "take", index: 0 });
     sim2.step();
-    expect(sim2.getInventory(again.playerId)![0]).toEqual({ item: "knife", qty: 1 });
+    expect(sim2.getInventory(again.playerId)?.find((s) => s.item === "knife")).toEqual({ item: "knife", qty: 1 });
   });
 });

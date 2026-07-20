@@ -5,6 +5,7 @@
  */
 import type Phaser from "phaser";
 import { isTouchDevice } from "../../../input/touchDetect.js";
+import { HudEditMode } from "../../hudEdit/index.js";
 import { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
 import { noopSocialActions, type SocialActions, type StationActions } from "./actionBundles.js";
@@ -18,7 +19,7 @@ import { HotbarWidget } from "./hotbar.js";
 import { InteractionPromptWidget } from "./interactionPrompt.js";
 import { InventoryToggleButtonWidget } from "./inventoryToggleButton.js";
 import type { InventoryActions } from "./inventoryWindow.js";
-import { PanelWindows } from "./panelWindows.js";
+import { PanelWindows, shouldDismissOnOutsideTap } from "./panelWindows.js";
 import { PartyFramesWidget } from "./partyFrames.js";
 import { ReconnectToastWidget } from "./reconnectToast.js";
 import { TouchButtonsWidget } from "./touchButtons.js";
@@ -50,6 +51,9 @@ export class HudWidgets {
   private touchStick: TouchStickWidget | undefined;
   private touchButtons: TouchButtonsWidget | undefined;
   private inventoryToggleButton: InventoryToggleButtonWidget | undefined;
+  /** Edit-HUD mode (docs/HUD_OS.md Phase 2) — gear chip + [F10], drag-to-move, catalog panel. */
+  private readonly editMode: HudEditMode;
+  private viewport: Viewport;
 
   constructor(
     scene: Phaser.Scene,
@@ -59,7 +63,13 @@ export class HudWidgets {
     stations?: StationActions,
   ) {
     this.scene = scene;
-    if (this.touchActive) applyTouchLayoutOverrides(this.registry);
+    this.viewport = viewport;
+    // Closes the HUD_OS.md Phase 2 prerequisite gap: a saved edit-HUD layout previously had
+    // no effect on a real boot. Runs before applyTouchLayoutOverrides so a touch profile still
+    // wins over a desktop-saved layout on the fields it touches (docs/HUD_OS.md §6, "Touch-layout
+    // overrides interaction" — different physical device, different constraints).
+    this.registry.loadPersisted();
+    if (this.touchActive) applyTouchLayoutOverrides(this.registry, viewport);
     const socialActions = social ?? noopSocialActions();
     this.health = new HealthBarWidget(scene, this.registry, viewport);
     this.hotbar = new HotbarWidget(scene, this.registry, viewport);
@@ -73,6 +83,8 @@ export class HudWidgets {
     this.panels = new PanelWindows(scene, this.registry, viewport, actions, social, stations);
     this.party = new PartyFramesWidget(scene, this.registry, viewport);
     if (this.touchActive) this.buildTouchControls(scene, viewport);
+    // Constructed last so its drag handles reflect every widget registered above.
+    this.editMode = new HudEditMode(scene, this.registry, viewport, () => this.resize(this.viewport));
     scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => this.handlePointerDown(pointer));
   }
 
@@ -94,8 +106,8 @@ export class HudWidgets {
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
     if (this.touchActive || !pointer.wasTouch) return;
     this.touchActive = true;
-    applyTouchLayoutOverrides(this.registry);
     const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
+    applyTouchLayoutOverrides(this.registry, viewport);
     this.buildTouchControls(this.scene, viewport);
     this.resize(viewport);
   }
@@ -129,6 +141,11 @@ export class HudWidgets {
 
   /** Re-resolves every widget's screen position for a new viewport (call on resize). */
   resize(viewport: Viewport): void {
+    this.viewport = viewport;
+    // Recomputed on every resize (not just first touch) so an orientation flip — the
+    // narrow axis swapping from width to height — re-derives the narrow-viewport shrink
+    // factor instead of freezing whatever the boot/first-touch viewport happened to be.
+    if (this.touchActive) applyTouchLayoutOverrides(this.registry, viewport);
     this.health.resize(this.registry, viewport);
     this.hotbar.resize(this.registry, viewport);
     this.buffs.resize(this.registry, viewport);
@@ -143,6 +160,7 @@ export class HudWidgets {
     this.touchStick?.resize(this.registry, viewport);
     this.touchButtons?.resize(this.registry, viewport);
     this.inventoryToggleButton?.resize(this.registry, viewport);
+    this.editMode.resize(viewport);
   }
 
   /** Toggles the chat panel open/closed. */
@@ -210,6 +228,25 @@ export class HudWidgets {
    * (panelWindows.ts), chat panel (tabs/contacts chip/lines), hotbar slots, inventory
    * toggle, touch buttons, and the touch chat toggle chip, else null. */
   hitTest(screenX: number, screenY: number): string | null {
+    // Edit-HUD mode suspends normal gameplay input (docs/HUD_OS.md §3) — claim every
+    // click while it's active so a drag or catalog toggle never also swings a weapon.
+    if (this.editMode.active) return "window:hud-edit";
+    const windowHit = this.hitTestWindows(screenX, screenY);
+    if (windowHit) return windowHit;
+    // Touch has no [Esc] — a tap that hit nothing above but landed while a window is open
+    // dismisses it instead of falling through to a world action, mirroring a modal's
+    // tap-outside-to-close. Consumed (non-null) so pointer.ts's swing/joystick fallback
+    // never also fires from the same tap; the string itself maps to no handleUiHit case.
+    if (shouldDismissOnOutsideTap(this.touchActive, this.panels.anyOpen())) {
+      this.panels.closeAll();
+      return "window:dismissed";
+    }
+    return null;
+  }
+
+  /** hitTest()'s ordinary (non-edit-mode) dispatch chain, split out to stay under the
+   * complexity cap once edit-mode's own branch is folded into the caller above. */
+  private hitTestWindows(screenX: number, screenY: number): string | null {
     const panelHit = this.panels.hitTest(screenX, screenY);
     if (panelHit) return panelHit;
     if (this.chat.hitTestPanel(screenX, screenY)) return "window:chat";

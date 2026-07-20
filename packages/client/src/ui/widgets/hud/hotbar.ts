@@ -32,6 +32,7 @@ export class HotbarWidget {
   private readonly scene: Phaser.Scene;
   private readonly container: Phaser.GameObjects.Container;
   private readonly slots: SlotVisual[] = [];
+  private readonly scale: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     this.scene = scene;
@@ -44,6 +45,7 @@ export class HotbarWidget {
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
 
     const totalWidth = HOTBAR_SLOT_COUNT * SLOT_SIZE + (HOTBAR_SLOT_COUNT - 1) * SLOT_GAP + spacing(1);
@@ -59,10 +61,10 @@ export class HotbarWidget {
     const cell = this.scene.add.rectangle(x, y, SLOT_SIZE, SLOT_SIZE, PANEL_FILL).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
     const accent = drawSelectionAccent(this.scene, SLOT_SIZE, SLOT_SIZE).setPosition(x, y).setVisible(false);
     const count = this.scene.add
-      .text(x + SLOT_SIZE - 3, y + SLOT_SIZE - 3, "", uiTextStyle(11))
+      .text(x + SLOT_SIZE - 3, y + SLOT_SIZE - 3, "", uiTextStyle(11, undefined, this.scale, "emphasis"))
       .setOrigin(1, 1);
     const keybind = this.scene.add
-      .text(x + 2, y + 1, String(index + 1), uiTextStyle(9, "#8f8fa3"))
+      .text(x + 2, y + 1, String(index + 1), uiTextStyle(9, "#8f8fa3", this.scale))
       .setOrigin(0, 0);
     this.container.add([cell, accent, count, keybind]);
     return { index, x: x + SLOT_SIZE / 2, y: y + SLOT_SIZE / 2, cell, accent, icon: null, count };
@@ -88,7 +90,7 @@ export class HotbarWidget {
     visual.icon?.destroy();
     visual.icon = null;
     if (view.itemId) {
-      visual.icon = createItemIcon(this.scene, view.itemId, SLOT_SIZE).setPosition(visual.x, visual.y);
+      visual.icon = createItemIcon(this.scene, view.itemId, SLOT_SIZE, this.scale).setPosition(visual.x, visual.y);
       this.container.add(visual.icon);
     }
     visual.count.setText(view.count > 1 ? String(view.count) : "");

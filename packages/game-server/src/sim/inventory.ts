@@ -41,6 +41,41 @@ export function invAdd(sim: SimState, slot: PlayerSlot, defId: string, qty: numb
   }
 }
 
+const STARTER_SWORD_DEF = "sword";
+const STARTER_TORCH_DEF = "torch";
+const STARTER_TORCH_QTY = 3;
+
+/** True once a player has neither an equipped weapon nor a starter
+ * sword/torch anywhere they own — inventory OR stash. Checking the
+ * stash is what keeps the re-grant farm-safe: a player who tucked a
+ * spare sword away before dying still "has" the kit and gets nothing. */
+function lacksStarterKit(slot: PlayerSlot): boolean {
+  if (slot.weapon !== null) return false;
+  if (invQty(slot, STARTER_SWORD_DEF) > 0 || invQty(slot, STARTER_TORCH_DEF) > 0) return false;
+  return !slot.stored.stash.some((e) => e.item === STARTER_SWORD_DEF || e.item === STARTER_TORCH_DEF);
+}
+
+/**
+ * ASSUMPTION #87 (docs/ASSUMPTIONS.md): re-grant the starter kit (1
+ * rusty sword, auto-equipped by invAdd's first-weapon rule, + 3
+ * torches) whenever a player is genuinely kit-less — no weapon
+ * equipped and no sword/torch in inventory or stash. Called on every
+ * respawn (players.ts) and on join for a returning clientId whose
+ * fresh in-memory slot has nothing (players.ts's join.ts caller),
+ * closing the "died once, permanently Unarmed" hole the exactly-once
+ * grant left. Anti-farm: items from a player's OWN death-drop corpse
+ * remain lootable exactly as before this fix — a farmer gains nothing
+ * by dying since the fresh grant plus the dropped corpse only ever
+ * nets what the exactly-once rule already handed out once, and the
+ * live inventory is bounded to one kit at a time (this only fires
+ * while completely kit-less).
+ */
+export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
+  if (!lacksStarterKit(slot)) return;
+  invAdd(sim, slot, STARTER_SWORD_DEF, 1);
+  invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
+}
+
 /** Remove qty of a def; false if the stack is short. Prunes empty stacks. */
 export function invRemove(slot: PlayerSlot, defId: string, qty: number): boolean {
   const i = invIndex(slot, defId);

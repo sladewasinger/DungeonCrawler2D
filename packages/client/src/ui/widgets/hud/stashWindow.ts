@@ -13,20 +13,36 @@ import { drawPanelBackground, PANEL_BORDER, PANEL_FILL, spacing } from "../../pa
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
+import { buildCloseButton, type CloseButtonHandle } from "./closeButton.js";
 import type { StashSnapshot, ToastData } from "./fakeData.js";
 import { createItemIcon } from "./itemIcon.js";
 import type { StashRowView } from "./stashRows.js";
+import { WINDOW_PANEL_HEIGHT, WINDOW_VERTICAL_OFFSET } from "./windowLayout.js";
 
 const WIDGET_ID = "stash";
-const PANEL_WIDTH = 440;
-const PANEL_HEIGHT = 300;
+/** Stash is the widest of the four window panels (its two-column layout needs the
+ * extra room) and the only one that can overflow a narrow phone outright — the other
+ * three (<=340px) already clear a 390px viewport with margin to spare (ASSUMPTION #87). */
+const PANEL_WIDTH_MAX = 440;
+/** Total side margin the panel must leave inside the viewport (wave-6 playtest: "barely
+ * any screen real estate" — windows need breathing room, not an edge-to-edge fit). */
+const VIEWPORT_MARGIN = 64;
+const PANEL_HEIGHT = WINDOW_PANEL_HEIGHT;
 const TITLE_HEIGHT = 24;
 const ROW_HEIGHT = 28;
 const ICON_SIZE = 20;
 const BTN_WIDTH = 44;
 const BTN_HEIGHT = 18;
-const COLUMN_WIDTH = (PANEL_WIDTH - spacing(3)) / 2;
 const MAX_VISIBLE_ROWS = Math.floor((PANEL_HEIGHT - TITLE_HEIGHT - spacing(3)) / ROW_HEIGHT);
+
+/** Caps the panel at its designed width, shrinking only when the viewport itself is too
+ * narrow to hold that width plus a comfortable margin (a 390px phone; ordinary desktop/
+ * tablet viewports are always wider than PANEL_WIDTH_MAX + VIEWPORT_MARGIN and so are
+ * unaffected). Resolved once at construction — like every other Phase 1 window, this
+ * panel's geometry isn't rebuilt on a later resize/orientation-change. */
+export function resolvePanelWidth(viewport: Viewport): number {
+  return Math.min(PANEL_WIDTH_MAX, viewport.width - VIEWPORT_MARGIN);
+}
 
 /** The stash intents this window drives — both index-addressed, matching game-server's doStash. */
 export interface StashActions {
@@ -47,36 +63,50 @@ export class StashWindowWidget {
   private readonly container: Phaser.GameObjects.Container;
   private readonly panel: Phaser.GameObjects.Container;
   private readonly hitArea: Phaser.GameObjects.Rectangle;
+  private readonly closeButton: CloseButtonHandle;
   private readonly footer: Phaser.GameObjects.Text;
   private readonly actions: StashActions;
   private rowObjects: Phaser.GameObjects.GameObject[] = [];
   private open = false;
   private lastSignature: string | null = null;
+  private readonly scale: number;
+  private readonly panelWidth: number;
+  private readonly columnWidth: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport, actions: StashActions) {
     this.scene = scene;
     this.actions = actions;
-    registry.register({ id: WIDGET_ID, defaultAnchor: "center", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true });
+    this.panelWidth = resolvePanelWidth(viewport);
+    this.columnWidth = (this.panelWidth - spacing(3)) / 2;
+    registry.register({
+      id: WIDGET_ID,
+      defaultAnchor: "center",
+      defaultOffset: { x: 0, y: WINDOW_VERTICAL_OFFSET },
+      defaultScale: 1,
+      defaultVisible: true,
+    });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
     this.panel = scene.add.container(0, 0);
     this.container.add(this.panel);
-    const bg = drawPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT).setPosition(-PANEL_WIDTH / 2, -PANEL_HEIGHT / 2);
+    const bg = drawPanelBackground(scene, this.panelWidth, PANEL_HEIGHT).setPosition(-this.panelWidth / 2, -PANEL_HEIGHT / 2);
     this.hitArea = scene.add
-      .rectangle(-PANEL_WIDTH / 2, -PANEL_HEIGHT / 2, PANEL_WIDTH, PANEL_HEIGHT, 0x000000, 0)
+      .rectangle(-this.panelWidth / 2, -PANEL_HEIGHT / 2, this.panelWidth, PANEL_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
     this.footer = scene.add
-      .text(0, PANEL_HEIGHT / 2 - spacing(1.5), "", uiTextStyle(10, "#c8ecf7"))
+      .text(0, PANEL_HEIGHT / 2 - spacing(1.5), "", uiTextStyle(10, "#c8ecf7", this.scale))
       .setOrigin(0.5, 1);
-    this.panel.add([bg, this.hitArea, this.footer]);
+    this.closeButton = buildCloseButton(scene, this.panelWidth, PANEL_HEIGHT, this.scale, () => this.close());
+    this.panel.add([bg, this.hitArea, this.footer, ...this.closeButton.objects]);
     this.buildColumnTitles();
     this.panel.setVisible(false);
   }
 
   /** Fixed 2-tuple (not ColumnSpec[]) so callers can destructure without a non-null assertion. */
   private columns(): [ColumnSpec, ColumnSpec] {
-    const left = -PANEL_WIDTH / 2 + spacing(1);
+    const left = -this.panelWidth / 2 + spacing(1);
     const right = spacing(0.5);
     return [
       { x: left, title: "INVENTORY", buttonLabel: "Put", onClick: (i) => this.actions.put(i) },
@@ -87,7 +117,9 @@ export class StashWindowWidget {
   private buildColumnTitles(): void {
     const y = -PANEL_HEIGHT / 2 + TITLE_HEIGHT / 2;
     for (const column of this.columns()) {
-      const label = this.scene.add.text(column.x + COLUMN_WIDTH / 2, y, column.title, uiTextStyle(11)).setOrigin(0.5, 0.5);
+      const label = this.scene.add
+        .text(column.x + this.columnWidth / 2, y, column.title, uiTextStyle(11, undefined, this.scale, "emphasis"))
+        .setOrigin(0.5, 0.5);
       this.panel.add(label);
     }
   }
@@ -109,11 +141,11 @@ export class StashWindowWidget {
 
   private buildRow(column: ColumnSpec, view: StashRowView, y: number): Phaser.GameObjects.GameObject[] {
     const left = column.x;
-    const rowBg = this.scene.add.rectangle(left, y, COLUMN_WIDTH, ROW_HEIGHT - 2, PANEL_FILL, 0.4).setOrigin(0, 0);
-    const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
-    const btnX = left + COLUMN_WIDTH - BTN_WIDTH;
+    const rowBg = this.scene.add.rectangle(left, y, this.columnWidth, ROW_HEIGHT - 2, PANEL_FILL, 0.4).setOrigin(0, 0);
+    const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE, this.scale).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
+    const btnX = left + this.columnWidth - BTN_WIDTH;
     const name = this.scene.add
-      .text(left + ICON_SIZE + spacing(1), y + (ROW_HEIGHT - 2) / 2, `${view.name} ×${view.qty}`, uiTextStyle(10))
+      .text(left + ICON_SIZE + spacing(1), y + (ROW_HEIGHT - 2) / 2, `${view.name} ×${view.qty}`, uiTextStyle(10, undefined, this.scale))
       .setOrigin(0, 0.5)
       .setFixedSize(btnX - (left + ICON_SIZE + spacing(1)) - 4, 0);
     const button = this.buildButton(column, view.index, btnX, y + (ROW_HEIGHT - 2 - BTN_HEIGHT) / 2);
@@ -129,7 +161,9 @@ export class StashWindowWidget {
       .setStrokeStyle(1, PANEL_BORDER)
       .setInteractive({ useHandCursor: true });
     bg.on("pointerdown", () => column.onClick(index));
-    const text = this.scene.add.text(x + BTN_WIDTH / 2, y + BTN_HEIGHT / 2, column.buttonLabel, uiTextStyle(9)).setOrigin(0.5, 0.5);
+    const text = this.scene.add
+      .text(x + BTN_WIDTH / 2, y + BTN_HEIGHT / 2, column.buttonLabel, uiTextStyle(9, undefined, this.scale))
+      .setOrigin(0.5, 0.5);
     return [bg, text];
   }
 
@@ -169,7 +203,8 @@ export class StashWindowWidget {
 
   /** Shared hit-claim convention (see inventoryWindow.ts's hitTestPanel doc comment). */
   hitTestPanel(screenX: number, screenY: number): boolean {
-    return this.open && this.hitArea.getBounds().contains(screenX, screenY);
+    if (!this.open) return false;
+    return this.hitArea.getBounds().contains(screenX, screenY) || this.closeButton.hitArea.getBounds().contains(screenX, screenY);
   }
 
   resize(registry: WidgetRegistry, viewport: Viewport): void {

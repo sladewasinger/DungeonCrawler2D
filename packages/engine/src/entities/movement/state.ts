@@ -54,6 +54,15 @@ export const NEUTRAL_INPUT: MoveInput = { moveX: 0, moveY: 0, jump: false };
  * the tile. Small enough to pass 1-wide doorways (0.5-wide band). */
 export const BODY_RADIUS = 0.25;
 
+/** Corner-slide assist search radius, in tiles. A body approaching a
+ * 1-wide gap already has ~BODY_RADIUS of free alignment slack (both
+ * leading corners land in the gap tile without any help); this is how
+ * much further off-center collision.ts's assist will additionally hunt
+ * for an opening and nudge the body toward, so a near-miss glides
+ * through instead of demanding pixel-perfect alignment. Tuned by feel:
+ * see entities/feel.test.ts's corridor-entry band. */
+export const CORNER_SLIDE_WINDOW = 0.35;
+
 export function createBody(x: number, y: number, z: number): BodyState {
   return {
     x,

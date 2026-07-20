@@ -11,7 +11,14 @@ import { resolveVerticalMotion, updateJumpState } from "./physics.js";
  */
 
 export type { BodyState, MoveInput, StepOpts, StepResult } from "./state.js";
-export { BODY_RADIUS, NEUTRAL_INPUT, applyKnockback, cloneBody, createBody } from "./state.js";
+export {
+  BODY_RADIUS,
+  CORNER_SLIDE_WINDOW,
+  NEUTRAL_INPUT,
+  applyKnockback,
+  cloneBody,
+  createBody,
+} from "./state.js";
 
 import type { BodyState, MoveInput, StepOpts, StepResult } from "./state.js";
 

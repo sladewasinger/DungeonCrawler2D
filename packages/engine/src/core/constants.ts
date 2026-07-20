@@ -11,7 +11,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 
@@ -106,3 +106,15 @@ export const ENEMY_ACTIVE_RADIUS = 48;
 // ASSUMPTION #40 (docs/ASSUMPTIONS.md): a placed torch burns for 180s of
 // server ticks at the fixed TICK_RATE, then despawns.
 export const TORCH_BURN_TICKS = 180 * TICK_RATE;
+
+// ASSUMPTION #90 (docs/ASSUMPTIONS.md): Epic 11 core (character levels),
+// pulled forward into Epic 7.13 by the user's second playtest. Total XP to
+// REACH `level` (level 1 = 0 XP) grows quadratically with no cap: each
+// step to the next level costs 2*XP_LEVEL_CURVE_COEFFICIENT more XP than
+// the previous step did, so the climb steepens smoothly instead of
+// jumping. `xpForLevel(2) = 100`, `xpForLevel(3) = 300`, `xpForLevel(4) =
+// 600`, etc.
+export const XP_LEVEL_CURVE_COEFFICIENT = 50;
+export function xpForLevel(level: number): number {
+  return XP_LEVEL_CURVE_COEFFICIENT * (level - 1) * level;
+}

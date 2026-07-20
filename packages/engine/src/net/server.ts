@@ -25,6 +25,12 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   /** Active status ids (HUD icons / tint). */
   fx: z.array(z.string()),
   downed: z.boolean().optional(),
+  /** Epic 11 core (character levels), pulled forward into Epic 7.13 —
+   * current XP, character level, and XP still needed for the next level.
+   * Additive/optional: protocol 14+ (ASSUMPTION #90, docs/ASSUMPTIONS.md). */
+  xp: z.number().int().nonnegative().optional(),
+  level: z.number().int().positive().optional(),
+  xpForNext: z.number().int().nonnegative().optional(),
 });
 
 export const entitySnapshotSchema = z.object({
@@ -82,6 +88,9 @@ export const partySnapshotSchema = z
         hp: z.number(),
         maxHp: z.number(),
         downed: z.boolean(),
+        /** Epic 11 core: teammate's level (party-frame badge, client TBD).
+         * Additive/optional: protocol 14+ (ASSUMPTION #90). */
+        level: z.number().int().positive().optional(),
       }),
     ),
   })

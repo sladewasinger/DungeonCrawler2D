@@ -25,12 +25,14 @@ export function itemIconFrame(itemId: string): string | null {
 
 /**
  * Builds one item's icon centered at local (0,0), always as a Container so callers
- * don't need to special-case sprite vs. fallback game objects.
+ * don't need to special-case sprite vs. fallback game objects. `containerScale` is the
+ * enclosing widget's `layout.scale` (font.ts's uiTextStyle header comment) — needed only
+ * by the fallback's letter Text so it stays crisp under the widget container's transform.
  */
-export function createItemIcon(scene: Phaser.Scene, itemId: string, size: number): Phaser.GameObjects.Container {
+export function createItemIcon(scene: Phaser.Scene, itemId: string, size: number, containerScale = 1): Phaser.GameObjects.Container {
   const frame = itemIconFrame(itemId);
   if (frame) return createSpriteIcon(scene, frame, size);
-  return createFallbackIcon(scene, itemId, size);
+  return createFallbackIcon(scene, itemId, size, containerScale);
 }
 
 function createSpriteIcon(scene: Phaser.Scene, frame: string, size: number): Phaser.GameObjects.Container {
@@ -40,8 +42,8 @@ function createSpriteIcon(scene: Phaser.Scene, frame: string, size: number): Pha
   return scene.add.container(0, 0, [sprite]);
 }
 
-function createFallbackIcon(scene: Phaser.Scene, itemId: string, size: number): Phaser.GameObjects.Container {
+function createFallbackIcon(scene: Phaser.Scene, itemId: string, size: number, containerScale: number): Phaser.GameObjects.Container {
   const box = scene.add.rectangle(0, 0, size * 0.6, size * 0.6, FALLBACK_TINT).setStrokeStyle(1, PANEL_BORDER);
-  const letter = scene.add.text(0, 0, itemId.charAt(0).toUpperCase(), uiTextStyle(12)).setOrigin(0.5, 0.5);
+  const letter = scene.add.text(0, 0, itemId.charAt(0).toUpperCase(), uiTextStyle(12, undefined, containerScale)).setOrigin(0.5, 0.5);
   return scene.add.container(0, 0, [box, letter]);
 }

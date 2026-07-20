@@ -3,6 +3,19 @@
 // for title flavor text, and a plain system-sans style for everything else — HUD
 // widgets, nameplates, damage numbers — which reads legibly at any size without the
 // blur monogram showed at 2x hudScale on high-density displays.
+//
+// `uiTextStyle`'s `scale` param matters more than it looks: a widget's Text is created
+// at its logical fontSize, then the whole widget container is stretched by
+// `layout.scale` (hudScale x the widget's own scale, see ui/widgets/layout.ts) via a
+// Phaser GPU transform. Text's own `resolution` only bakes sharpness relative to its
+// own local size — if the container's later scale isn't folded in here too, the glyph
+// bitmap is baked below the density it's finally displayed at and gets blurrily
+// upscaled by that transform. That was the real bug behind "HUD text is blurry", not
+// the typeface: resolution was already pinned to devicePixelRatio, just not to the
+// widget scale stacked on top of it. Screen-anchored entity text that lives outside any
+// scaled container (nameplate.ts, damageNumbers.ts) instead pre-multiplies its fontSize
+// by HUD_SCALE directly and passes no `scale` here — same fix, applied the other way,
+// because there's no ancestor transform to account for.
 import type Phaser from "phaser";
 import { ASSET_PATHS } from "../boot/assetManifest.js";
 
@@ -58,20 +71,33 @@ export function pixelTextStyle(
   };
 }
 
+/** 600 for emphasis (readouts, section titles, active state); 400 (unset — the
+ * system stack's own regular weight) for everyday labels and body text. */
+export type UiTextWeight = "normal" | "emphasis";
+
 /**
  * The everyday UI Text style — HUD widgets, nameplates, damage numbers. Plain
- * system sans, pinned to the device pixel ratio for crisp glyphs; no
+ * system sans, pinned to the device pixel ratio (times any ancestor container
+ * scale — see this file's header comment) for crisp glyphs at any zoom; no
  * asset/network dependency and no integer-size rounding requirement, unlike
  * the pixel font it replaces for these surfaces.
+ *
+ * @param scale Extra multiplier this Text will be stretched by after creation —
+ *   pass a widget's `layout.scale` when building Text inside a container that
+ *   gets `setScale(layout.scale)`; leave at 1 for text with no such ancestor
+ *   (nameplates/damage numbers, which already bake HUD_SCALE into `sizePx`).
  */
 export function uiTextStyle(
   sizePx: number,
   color = "#e8e8e8",
+  scale = 1,
+  weight: UiTextWeight = "normal",
 ): Phaser.Types.GameObjects.Text.TextStyle {
-  const resolution = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  const resolution = Math.max(1, (window.devicePixelRatio || 1) * scale);
   return {
     fontFamily: UI_FONT_STACK,
     fontSize: `${sizePx}px`,
+    fontStyle: weight === "emphasis" ? "600" : "400",
     color,
     resolution,
   };

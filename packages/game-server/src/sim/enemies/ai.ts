@@ -44,6 +44,16 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     const entity = enemy.entity;
     if (entity.hp <= 0) continue; // corpses don't bite
     if (!isNearAnyPlayer(entity, players)) continue; // frozen far from everyone
+    // Checked before the shoot/melee/wander dispatch, not only inside
+    // moveEnemy's post-move check: a ranged decision below `continue`s
+    // straight to beginWindup without ever calling moveEnemy, which
+    // used to let a spitter parked in a rift (bad spawn, or chased/
+    // knocked in) keep winding up and firing forever without this
+    // ruling ever re-checking it.
+    if (isBodyInChasm(entity.body)) {
+      entity.hp = 0;
+      continue;
+    }
     if (advanceAttackAnimation(sim, enemy)) continue;
 
     const decision = enemyThink(

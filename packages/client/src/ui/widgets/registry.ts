@@ -7,6 +7,7 @@
 import { HUD_SCALE } from "../hudScale.js";
 import shippedDefaultLayout from "./default-layout.json" with { type: "json" };
 import { resolveLayout } from "./layout.js";
+import { mergeLayoutConfigs } from "./mergeLayout.js";
 import { loadPersistedLayout, savePersistedLayout } from "./storage.js";
 import {
   createRegistryState,
@@ -45,6 +46,25 @@ export class WidgetRegistry {
     this.state.definitions.delete(id);
   }
 
+  /** Every currently-registered widget's shipped definition — edit-HUD's catalog panel
+   * (ui/hudEdit/catalogPanel.ts) iterates this to list every window, hidden ones included. */
+  listDefinitions(): WidgetDefinition[] {
+    return [...this.state.definitions.values()];
+  }
+
+  /** The current override for one widget, if any — edit-HUD reads this to know a widget's live anchor/offset/visible. */
+  getOverride(id: string): WidgetOverride | undefined {
+    return this.state.overrides.get(id);
+  }
+
+  /** The active global HUD scale — edit-HUD needs this to convert a drag's real on-screen
+   * offset back into the pre-hudScale unit every stored/default offset is authored in
+   * (resolveLayout re-multiplies by this on every read; storing the already-scaled
+   * value would double it). */
+  getHudScale(): number {
+    return this.state.hudScale;
+  }
+
   /** Applies a partial override (e.g. from a drag in the future HUD editor). */
   setOverride(id: string, override: WidgetOverride): void {
     const existing = this.state.overrides.get(id) ?? {};
@@ -73,9 +93,15 @@ export class WidgetRegistry {
     savePersistedLayout(STORAGE_KEY, config);
   }
 
-  /** Loads a previously-persisted layout over the shipped defaults, if one exists. */
+  /**
+   * Loads a previously-persisted layout, merged over the shipped default-layout.json
+   * (mergeLayout.ts) rather than replacing it outright — a widget the saved blob
+   * predates (shipped after the user's last save) still resolves to its shipped
+   * placement instead of silently losing its layout.
+   */
   loadPersisted(): void {
     const persisted = loadPersistedLayout(STORAGE_KEY);
-    if (persisted) applyConfig(this.state, persisted);
+    if (!persisted) return;
+    applyConfig(this.state, mergeLayoutConfigs(shippedDefaultLayout as LayoutConfig, persisted));
   }
 }

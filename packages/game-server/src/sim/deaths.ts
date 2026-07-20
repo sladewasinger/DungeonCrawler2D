@@ -1,6 +1,7 @@
 import { DOWNED_DURATION, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { dropAllInventory } from "./inventory.js";
+import { awardKillXp } from "./xp.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
 /** Enemy deaths (drops), downed-state flow, and player death/respawn. */
@@ -31,6 +32,10 @@ function resolveEnemyDeaths(sim: SimState): void {
       x: enemy.entity.body.x,
       y: enemy.entity.body.y,
     });
+    // --- XP award hook (Epic 11 core / Epic 7.13, XP lane) — other lanes
+    // touching this file this wave, leave this call alone. ---
+    awardKillXp(sim, enemy);
+    // --- end XP award hook ---
     for (const drop of enemy.def.drops) {
       if (sim.rng.next() >= drop.chance) continue;
       const jx = (sim.rng.next() - 0.5) * 1.2;

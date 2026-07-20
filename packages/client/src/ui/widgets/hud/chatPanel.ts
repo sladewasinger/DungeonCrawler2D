@@ -29,7 +29,12 @@ const TAB_HEIGHT = 18;
 const LINE_HEIGHT = 16;
 const CHIP_WIDTH = 64;
 const CHIP_HEIGHT = 22;
-const CONTACTS_CHIP_SIZE = 20;
+// Wide enough to spell "CONTACTS" in full (matching contactsWindow.ts's own panel
+// title exactly) at CONTACTS_CHIP_FONT_SIZE — the prior single lowercase "o" chip
+// didn't read as "open contacts" to a first-time player next to four spelled-out tab
+// labels (wave-6 sweep: "contacts-tab-unlabeled-single-letter").
+const CONTACTS_CHIP_SIZE = 56;
+const CONTACTS_CHIP_FONT_SIZE = 8;
 const TAB_LABELS: Record<ChatTabId, string> = { global: "GLBL", local: "LOCAL", party: "PARTY", dm: "DM" };
 // Wide/tall enough to cover the bg, the tab strip, and the contacts chip that sits past
 // the bg's right edge — see hitTestPanel's doc comment for why this needs to exist at all.
@@ -55,6 +60,7 @@ export class ChatPanelWidget {
   private readonly hitArea: Phaser.GameObjects.Rectangle;
   private toggleChipBg: Phaser.GameObjects.Rectangle | undefined;
   private open: boolean;
+  private readonly scale: number;
 
   constructor(
     scene: Phaser.Scene,
@@ -75,6 +81,7 @@ export class ChatPanelWidget {
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
     this.panel = scene.add.container(0, this.touchMode ? -CHIP_HEIGHT : 0);
     this.container.add(this.panel);
@@ -90,7 +97,7 @@ export class ChatPanelWidget {
     this.panel.setVisible(this.open);
   }
 
-  /** Small "o" chip sitting right of the tab strip — opens the contacts window. Its own
+  /** "CONTACTS" chip sitting right of the tab strip — opens the contacts window. Its own
    * `pointerdown` listener owns the click (same direct-interactive pattern as the tabs
    * above and the contacts window's own DM button), so no stored reference is needed. */
   private buildContactsChip(actions: ChatPanelActions): void {
@@ -104,7 +111,7 @@ export class ChatPanelWidget {
       .setInteractive({ useHandCursor: true });
     bg.on("pointerdown", () => actions.onToggleContacts());
     const label = this.scene.add
-      .text(x + CONTACTS_CHIP_SIZE / 2, y + TAB_HEIGHT / 2, "o", uiTextStyle(10))
+      .text(x + CONTACTS_CHIP_SIZE / 2, y + TAB_HEIGHT / 2, "CONTACTS", uiTextStyle(CONTACTS_CHIP_FONT_SIZE, undefined, this.scale))
       .setOrigin(0.5, 0.5);
     this.panel.add([bg, label]);
   }
@@ -119,7 +126,9 @@ export class ChatPanelWidget {
         .setStrokeStyle(1, PANEL_BORDER)
         .setInteractive({ useHandCursor: true });
       tabBg.on("pointerdown", () => actions.onSelectTab(tab));
-      const label = this.scene.add.text(x + TAB_WIDTH / 2, y + TAB_HEIGHT / 2, TAB_LABELS[tab], uiTextStyle(9)).setOrigin(0.5, 0.5);
+      const label = this.scene.add
+        .text(x + TAB_WIDTH / 2, y + TAB_HEIGHT / 2, TAB_LABELS[tab], uiTextStyle(9, undefined, this.scale))
+        .setOrigin(0.5, 0.5);
       const accent = drawSelectionAccent(this.scene, TAB_WIDTH, TAB_HEIGHT).setPosition(x, y).setVisible(false);
       const dot = this.scene.add.circle(x + TAB_WIDTH - 5, y + 4, 2.5, 0xffd23d).setVisible(false);
       this.panel.add([tabBg, label, accent, dot]);
@@ -132,7 +141,7 @@ export class ChatPanelWidget {
   private buildLines(): void {
     for (let i = 0; i < MAX_LINES; i++) {
       const y = -PANEL_HEIGHT + TAB_HEIGHT + spacing(1) + i * LINE_HEIGHT;
-      const text = this.scene.add.text(spacing(1), y, "", uiTextStyle(11)).setOrigin(0, 0);
+      const text = this.scene.add.text(spacing(1), y, "", uiTextStyle(11, undefined, this.scale)).setOrigin(0, 0);
       this.panel.add(text);
       this.lineTexts.push(text);
     }
@@ -141,7 +150,9 @@ export class ChatPanelWidget {
   /** The persistent "CHAT" toggle chip, sitting where the panel's bottom edge would be — always visible on touch. */
   private buildToggleChip(): void {
     const bg = this.scene.add.rectangle(0, -CHIP_HEIGHT, CHIP_WIDTH, CHIP_HEIGHT, 0x14141c).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
-    const label = this.scene.add.text(CHIP_WIDTH / 2, -CHIP_HEIGHT / 2, "CHAT", uiTextStyle(10)).setOrigin(0.5, 0.5);
+    const label = this.scene.add
+      .text(CHIP_WIDTH / 2, -CHIP_HEIGHT / 2, "CHAT", uiTextStyle(10, undefined, this.scale))
+      .setOrigin(0.5, 0.5);
     this.container.add([bg, label]);
     this.toggleChipBg = bg;
   }

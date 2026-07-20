@@ -61,6 +61,9 @@ describe("protocol", () => {
         hp: 22,
         maxHp: 30,
         fx: ["bleeding"],
+        xp: 120,
+        level: 3,
+        xpForNext: 180,
       },
       inventory: [
         { item: "rag", qty: 2 },
@@ -70,7 +73,7 @@ describe("protocol", () => {
       weapon: "knife",
       party: {
         id: "party1",
-        members: [{ id: "p2", name: "Ally", x: 100, y: 50, hp: 20, maxHp: 30, downed: false }],
+        members: [{ id: "p2", name: "Ally", x: 100, y: 50, hp: 20, maxHp: 30, downed: false, level: 5 }],
       },
       entities: [
         {
@@ -116,6 +119,27 @@ describe("protocol", () => {
       areas: [{ x: 5, y: 5, defId: "area-fire" }, { x: 6, y: 5, defId: null }],
     };
     expect(decodeServerMessage(encodeMessage(snap))).toEqual(snap);
+  });
+
+  it("self.xp/level/xpForNext and party member level are additive/optional (Epic 11 core)", () => {
+    const withoutXpFields = {
+      type: "snapshot" as const,
+      tick: 1,
+      lastSeq: 0,
+      self: {
+        x: 0, y: 0, z: 0, zVel: 0, grounded: true, coyoteTime: 0, jumpBuffer: 0,
+        jumpHeld: false, kx: 0, ky: 0, hp: 30, maxHp: 30, fx: [],
+      },
+      inventory: [],
+      hotbar: Array(9).fill(null),
+      weapon: null,
+      party: null,
+      entities: [],
+      left: [],
+      events: [],
+      areas: [],
+    };
+    expect(decodeServerMessage(encodeMessage(withoutXpFields))).toEqual(withoutXpFields);
   });
 
   it("rejects malformed and hostile input (the client is untrusted)", () => {

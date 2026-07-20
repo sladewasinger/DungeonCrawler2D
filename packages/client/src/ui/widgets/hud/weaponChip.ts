@@ -22,6 +22,7 @@ export class WeaponChipWidget {
   private readonly scene: Phaser.Scene;
   private readonly container: Phaser.GameObjects.Container;
   private readonly label: Phaser.GameObjects.Text;
+  private readonly scale: number;
   private icon: Phaser.GameObjects.Container | null = null;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
@@ -35,10 +36,11 @@ export class WeaponChipWidget {
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
     const bg = drawPanelBackground(scene, CHIP_WIDTH, CHIP_HEIGHT).setPosition(-CHIP_WIDTH, -CHIP_HEIGHT);
     this.label = scene.add
-      .text(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2, "", uiTextStyle(12))
+      .text(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2, "", uiTextStyle(12, undefined, layout.scale, "emphasis"))
       .setOrigin(0, 0.5);
     this.container.add([bg, this.label]);
   }
@@ -50,7 +52,7 @@ export class WeaponChipWidget {
       this.label.setText("Unarmed");
       return;
     }
-    this.icon = createItemIcon(this.scene, weaponId, ICON_SIZE).setPosition(
+    this.icon = createItemIcon(this.scene, weaponId, ICON_SIZE, this.scale).setPosition(
       -CHIP_WIDTH + spacing(1) + ICON_SIZE / 2,
       -CHIP_HEIGHT / 2,
     );

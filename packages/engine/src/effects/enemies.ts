@@ -22,5 +22,10 @@ export const enemyDefSchema = z.object({
   damageScale: z.record(z.string(), z.number().positive()).optional(),
   drops: z.array(z.object({ item: z.string(), chance: z.number().min(0).max(1) })),
   sprite: z.string(),
+  /** XP granted to the killer on death (Epic 11 core, pulled forward into
+   * Epic 7.13 — ASSUMPTION #90, docs/ASSUMPTIONS.md). Optional so hand-built
+   * EnemyDef fixtures elsewhere in the repo need no changes; an absent
+   * value simply awards none. */
+  xp: z.number().nonnegative().optional(),
 });
 export type EnemyDef = z.infer<typeof enemyDefSchema>;

@@ -14,7 +14,7 @@ function torchesIn(snaps: Map<string, ServerSnapshot>, playerId: string): Entity
 }
 
 describe("GameSim: starter kit", () => {
-  it("grants sword + 3 torches exactly once per clientId — a post-restart reconnect gets nothing", () => {
+  it("grants sword + 3 torches on first join; a post-restart reconnect with no kit gets it re-granted", () => {
     const store = new PlayerStore(null);
     const sim1 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 1234, { testFixtures: true });
     const a = sim1.addPlayer("A", "client-a");
@@ -24,12 +24,17 @@ describe("GameSim: starter kit", () => {
     expect(sim1.getWeapon(a.playerId)).toBe("sword"); // first-weapon auto-equip
 
     // Simulate a server restart: a fresh GameSim sharing the durable
-    // store, but with no in-memory slot or resume token to reattach to —
-    // the only way "first-ever join" survives a restart is the store.
+    // store, but with no in-memory slot or resume token to reattach to.
+    // The kit lived only in memory (never stashed), so this returning
+    // clientId is genuinely kit-less again — ensureStarterKit re-grants
+    // it exactly like a brand-new join would (Epic 7.13 starter-kit
+    // famine fix, ASSUMPTION #87, supersedes #2's "never re-granted").
     const sim2 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 99, { testFixtures: true });
     const again = sim2.addPlayer("A", "client-a");
-    expect(sim2.getInventory(again.playerId)).toEqual([]);
-    expect(sim2.getWeapon(again.playerId)).toBeNull();
+    const inv2 = sim2.getInventory(again.playerId)!;
+    expect(inv2.find((s) => s.item === "sword")?.qty).toBe(1);
+    expect(inv2.find((s) => s.item === "torch")?.qty).toBe(3);
+    expect(sim2.getWeapon(again.playerId)).toBe("sword");
   });
 
   it("does not re-grant the kit across an in-process reconnect (same resume token)", () => {

@@ -43,7 +43,7 @@ export class InventoryToggleButtonWidget {
     this.container = createWidgetContainer(scene, layout);
     const chipBg = drawPanelBackground(scene, CHIP_WIDTH, CHIP_HEIGHT).setPosition(-CHIP_WIDTH / 2, -CHIP_HEIGHT);
     this.hitArea = scene.add.rectangle(-CHIP_WIDTH / 2, -CHIP_HEIGHT, CHIP_WIDTH, CHIP_HEIGHT, 0x000000, 0).setOrigin(0, 0);
-    const label = scene.add.text(0, -CHIP_HEIGHT / 2, "BAG", uiTextStyle(11)).setOrigin(0.5, 0.5);
+    const label = scene.add.text(0, -CHIP_HEIGHT / 2, "BAG", uiTextStyle(11, undefined, layout.scale)).setOrigin(0.5, 0.5);
     this.container.add([chipBg, this.hitArea, label]);
   }
 

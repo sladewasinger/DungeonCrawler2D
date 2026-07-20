@@ -19,6 +19,14 @@ export interface StoredPlayer {
   stash: StashEntry[];
   /** Mutual-fistbump contacts, by display name (Epic 7.10). No cap. */
   contacts: string[];
+  /** Epic 11 core (character levels), pulled forward into Epic 7.13 —
+   * ASSUMPTION #90 (docs/ASSUMPTIONS.md). Optional in the TYPE (not just
+   * the save file) so the many hand-built PlayerSlot/StoredPlayer test
+   * fixtures across sim/ that predate this field keep compiling unchanged;
+   * every reader treats a missing value as xp 0 / level 1, and `get()`
+   * below always populates concrete values for records it creates. */
+  xp?: number;
+  level?: number;
 }
 
 export const STASH_CAPACITY = 24;
@@ -33,12 +41,13 @@ export class PlayerStore {
     try {
       const raw = JSON.parse(readFileSync(file, "utf8")) as {
         nextSlot: number;
-        players: Record<string, Omit<StoredPlayer, "contacts"> & { contacts?: string[] }>;
+        players: Record<string, StoredPlayer>;
       };
       this.nextSlot = raw.nextSlot;
-      // contacts is new (Epic 7.10) — records saved before it lack the field.
+      // contacts (Epic 7.10) and xp/level (Epic 11 core, ASSUMPTION #90)
+      // are both additive — records saved before either shipped lack them.
       for (const [id, p] of Object.entries(raw.players)) {
-        this.data.set(id, { ...p, contacts: p.contacts ?? [] });
+        this.data.set(id, { ...p, contacts: p.contacts ?? [], xp: p.xp ?? 0, level: p.level ?? 1 });
       }
     } catch {
       // first boot — empty store
@@ -56,7 +65,7 @@ export class PlayerStore {
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);
     if (!player) {
-      player = { slot: this.nextSlot++, name, stash: [], contacts: [] };
+      player = { slot: this.nextSlot++, name, stash: [], contacts: [], xp: 0, level: 1 };
       this.data.set(clientId, player);
       this.scheduleSave();
     } else if (player.name !== name) {
@@ -102,6 +111,26 @@ export class PlayerStore {
     if (player.contacts.some((c) => c.toLowerCase() === name.toLowerCase())) return;
     player.contacts.push(name);
     this.scheduleSave();
+  }
+
+  /**
+   * Add XP and recompute level via the caller-supplied curve (kept out of
+   * this persistence-only file — see sim/xp.ts's `levelForXp`). Death never
+   * calls this in reverse: XP is never removed (ASSUMPTION #90). No level
+   * cap, so `leveledUp` can fire on every call in principle.
+   */
+  addXp(
+    player: StoredPlayer,
+    amount: number,
+    levelForXp: (xp: number) => number,
+  ): { level: number; leveledUp: boolean } {
+    const beforeLevel = player.level ?? 1;
+    const xp = (player.xp ?? 0) + amount;
+    const level = levelForXp(xp);
+    player.xp = xp;
+    player.level = level;
+    this.scheduleSave();
+    return { level, leveledUp: level > beforeLevel };
   }
 
   scheduleSave(): void {

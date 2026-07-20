@@ -15,7 +15,7 @@ import {
   type Entity,
 } from "@dc2d/engine";
 import { killIfInChasm } from "./deaths.js";
-import { dropAllInventory } from "./inventory.js";
+import { dropAllInventory, ensureStarterKit } from "./inventory.js";
 import { findSpawn } from "./spawn.js";
 import { leaveParty } from "./social.js";
 import type { PlayerSlot, SimState } from "./state.js";
@@ -62,8 +62,11 @@ export function reapAndRespawn(sim: SimState): void {
   }
 }
 
-/** Reset a dead slot to a fresh body/HP at a new spawn point. */
-function respawnSlot(sim: SimState, slot: PlayerSlot): void {
+/** Reset a dead slot to a fresh body/HP at a new spawn point. Exported
+ * for join.ts, which must never resume a reconnecting client into a
+ * body that's still dead (Epic 7.13 join-death fix) — same reset, same
+ * starter-kit safety net, whichever caller triggers it. */
+export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.respawnAtTick = null;
   const spawn = findSpawn(sim);
   slot.entity.body = createBody(spawn.x, spawn.y, spawn.z);
@@ -75,6 +78,9 @@ function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.returnStack = [];
   slot.needsFullAreas = true;
   slot.outbox.push({ t: "teleported" }, { t: "toast", msg: "You wake up somewhere else…" });
+  // Epic 7.13: full-loot death drop + the exactly-once starter kit
+  // otherwise leaves a repeat-death player permanently Unarmed.
+  ensureStarterKit(sim, slot);
 }
 
 export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {

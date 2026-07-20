@@ -26,7 +26,7 @@ export class DamageNumberPool {
   spawn(screenX: number, screenY: number, amount: number, nowMs: number, heal = false): void {
     const label = `${heal ? "+" : "-"}${Math.abs(Math.round(amount))}`;
     const text = this.scene.add
-      .text(screenX, screenY, label, uiTextStyle(FONT_SIZE_PX, heal ? HEAL_COLOR : DAMAGE_COLOR))
+      .text(screenX, screenY, label, uiTextStyle(FONT_SIZE_PX, heal ? HEAL_COLOR : DAMAGE_COLOR, 1, "emphasis"))
       .setOrigin(0.5, 1)
       .setDepth(DEPTH);
     this.active.push({ text, startX: screenX, startY: screenY, spawnMs: nowMs });
