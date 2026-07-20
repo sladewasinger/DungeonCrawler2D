@@ -11,6 +11,8 @@ export interface PlaceSpriteOptions {
   readonly flipY?: boolean;
   /** 1 = bottom-anchored on the tile's south edge (tall sprites like columns). */
   readonly originY?: number;
+  /** Faint overlay ghosts (stair treads, depth texture) — defaults to fully opaque. */
+  readonly alpha?: number;
 }
 
 /** Adds a tile sprite (atlas frame, world-pixel-scaled) to `container`. */
@@ -31,8 +33,33 @@ export function placeSprite(
   if (opts.tint !== undefined) sprite.setTint(opts.tint);
   if (opts.angle !== undefined) sprite.setAngle(opts.angle);
   if (opts.flipY) sprite.setFlipY(true);
+  if (opts.alpha !== undefined) sprite.setAlpha(opts.alpha);
   container.add(sprite);
   return sprite;
+}
+
+/**
+ * A translucent rect covering a fractional slice of one tile (e.g. [1/3, 2/3]
+ * on the Y axis for a horizontal stair-tread riser) — the same tile-anchored
+ * math as placeFillRect/placeBottomBand, generalized to an arbitrary band on
+ * either axis instead of a fixed bottom fraction.
+ */
+export function placeFractionalRect(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  wx: number,
+  wy: number,
+  xFrac: readonly [number, number],
+  yFrac: readonly [number, number],
+  color: number,
+  alpha: number,
+): void {
+  const left = wx * SCREEN_TILE_PX + xFrac[0] * SCREEN_TILE_PX;
+  const right = wx * SCREEN_TILE_PX + xFrac[1] * SCREEN_TILE_PX;
+  const top = wy * SCREEN_TILE_PX + yFrac[0] * SCREEN_TILE_PX;
+  const bottom = wy * SCREEN_TILE_PX + yFrac[1] * SCREEN_TILE_PX;
+  const rect = scene.add.rectangle((left + right) / 2, (top + bottom) / 2, right - left, bottom - top, color, alpha);
+  container.add(rect);
 }
 
 /** A flat filled rect covering one tile — the quiet treatment for solid-rock interior. */

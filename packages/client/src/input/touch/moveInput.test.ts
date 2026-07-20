@@ -1,4 +1,5 @@
-// Headless tests: touch MoveInput derivation, merge-with-keyboard precedence, and facing memory.
+// Headless tests: touch MoveInput derivation across the wave-9 deadzone/face-band/walk-ramp
+// bands, merge-with-keyboard precedence, and facing memory.
 import { describe, expect, it } from "vitest";
 import { pressButton, releaseButton } from "./buttons.js";
 import { beginStick, moveStick } from "./joystick.js";
@@ -10,11 +11,53 @@ describe("touchMoveInput", () => {
     expect(touchMoveInput(createTouchInputState())).toEqual({ moveX: 0, moveY: 0, jump: false, run: false });
   });
 
-  it("reflects the live stick drag and the jump button's held state", () => {
+  it("11% deflection (below the deadzone) stays fully neutral", () => {
     const state = createTouchInputState();
     beginStick(state, 1, 0, 0);
-    // 40/44 of the radius also crosses the run-deflection threshold (0.85) — expected,
-    // not incidental: a hard directional drag naturally reads as "running" too.
+    moveStick(state, 1, 4.4, 0);
+    const input = touchMoveInput(state);
+    expect(input.moveX).toBe(0);
+    expect(input.moveY).toBe(0);
+    expect(input.run).toBe(false);
+  });
+
+  it("15% deflection (face band) turns the character without moving it", () => {
+    const state = createTouchInputState();
+    state.lastFacing = { x: -1, y: 0 };
+    beginStick(state, 1, 0, 0);
+    moveStick(state, 1, 6, 0);
+    const input = touchMoveInput(state);
+    expect(input.moveX).toBe(0);
+    expect(input.moveY).toBe(0);
+    expect(state.lastFacing).toEqual({ x: 1, y: 0 });
+  });
+
+  it("21% deflection walks at a soft creep near 0.36", () => {
+    const state = createTouchInputState();
+    beginStick(state, 1, 0, 0);
+    moveStick(state, 1, 8.4, 0);
+    expect(touchMoveInput(state).moveX).toBeCloseTo(0.358125, 5);
+  });
+
+  it("60% deflection walks near two-thirds speed", () => {
+    const state = createTouchInputState();
+    beginStick(state, 1, 0, 0);
+    moveStick(state, 1, 24, 0);
+    expect(touchMoveInput(state).moveX).toBeCloseTo(0.675, 5);
+  });
+
+  it("100% deflection hits full speed and also sets run", () => {
+    const state = createTouchInputState();
+    beginStick(state, 1, 0, 0);
+    moveStick(state, 1, 40, 0);
+    const input = touchMoveInput(state);
+    expect(input.moveX).toBeCloseTo(1, 5);
+    expect(input.run).toBe(true);
+  });
+
+  it("reflects the jump button's held state alongside the stick", () => {
+    const state = createTouchInputState();
+    beginStick(state, 1, 0, 0);
     moveStick(state, 1, 40, 0);
     pressButton(state, "jump", 2);
     expect(touchMoveInput(state)).toEqual({ moveX: 1, moveY: 0, jump: true, run: true });
@@ -25,15 +68,6 @@ describe("touchMoveInput", () => {
     pressButton(state, "jump", 2);
     releaseButton(state, "jump", 2);
     expect(touchMoveInput(state).jump).toBe(false);
-  });
-
-  it("run flips true only once the drag nears full deflection (ASSUMPTION #65)", () => {
-    const state = createTouchInputState();
-    beginStick(state, 1, 0, 0);
-    moveStick(state, 1, 20, 0); // partial drag: walking
-    expect(touchMoveInput(state).run).toBe(false);
-    moveStick(state, 1, 40, 0); // full deflection: running
-    expect(touchMoveInput(state).run).toBe(true);
   });
 });
 
@@ -52,6 +86,14 @@ describe("mergeMoveInputs", () => {
       { moveX: 0, moveY: 0, jump: false, run: false },
     );
     expect(merged).toEqual({ moveX: 1, moveY: 1, jump: false, run: false });
+  });
+
+  it("touch's ramped (fractional) magnitude still wins over keyboard's full-magnitude axis", () => {
+    const merged = mergeMoveInputs(
+      { moveX: 1, moveY: 0, jump: false, run: false },
+      { moveX: 0.36, moveY: 0, jump: false, run: false },
+    );
+    expect(merged.moveX).toBeCloseTo(0.36, 5);
   });
 
   it("jump is true if either source holds it", () => {

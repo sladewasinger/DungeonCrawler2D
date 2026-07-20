@@ -9,8 +9,17 @@ import type { TouchInputState } from "./state.js";
 
 export { createTouchInputState } from "./state.js";
 export type { TouchButtonState, TouchInputState, TouchStickState } from "./state.js";
-export { beginStick, endStick, moveStick, stickMoveAxes, STICK_RADIUS_PX, vectorToMoveAxes } from "./joystick.js";
-export type { MoveAxes } from "./joystick.js";
+export {
+  beginStick,
+  endStick,
+  moveStick,
+  stickDragVector,
+  stickIsRunning,
+  stickMoveVector,
+  STICK_RADIUS_PX,
+  vectorToStickDirection,
+} from "./joystick.js";
+export type { StickDirection } from "./joystick.js";
 export { isButtonHeld, pressButton, releaseAllForPointer, releaseButton } from "./buttons.js";
 export type { TouchButtonId } from "./buttons.js";
 export { mergeMoveInputs, touchMoveInput, updateLastFacing } from "./moveInput.js";

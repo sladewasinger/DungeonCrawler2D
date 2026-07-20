@@ -24,8 +24,13 @@ export interface BodyState {
 }
 
 export interface MoveInput {
-  /** -1, 0, or 1. */
+  /** Signed axis component, in [-1, 1]. The (moveX, moveY) vector's
+   * magnitude scales walk speed (see collision.ts's moveHorizontal),
+   * clamped to 1 so a diagonal can never exceed base speed. Keyboard
+   * sends unit-ish values (-1/0/1 per axis); analog sources (touch
+   * stick) send fractional magnitude for a walk-to-run ramp. */
   moveX: number;
+  /** See moveX. */
   moveY: number;
   jump: boolean;
   /** Hold-to-run intent (Epic 7.12). Optional so every existing caller (AI,

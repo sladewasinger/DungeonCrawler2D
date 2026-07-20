@@ -9,11 +9,11 @@ import {
 } from "./state.js";
 
 /**
- * Horizontal step + tile collision: knockback blending, diagonal
- * normalization, the leading-edge corner check that keeps bodies out of
- * raised terrain while letting stairs ramp underfoot, and the corner-
- * slide assist that turns an off-center approach to a 1-wide gap into a
- * smooth entry instead of a wall.
+ * Horizontal step + tile collision: analog-magnitude direction scaling,
+ * the leading-edge corner check that keeps bodies out of raised terrain
+ * while letting stairs ramp underfoot, and the corner-slide assist that
+ * turns an off-center approach to a 1-wide gap into a smooth entry
+ * instead of a wall.
  */
 
 /** Scan resolution for the corner-slide search, in tiles. Small enough
@@ -21,8 +21,18 @@ import {
  * edge; cheap since the search only runs on a blocked tick. */
 const CORNER_SLIDE_PROBE_STEP = 0.01;
 
-function clampAxis(v: number): number {
-  return v > 0 ? 1 : v < 0 ? -1 : 0;
+// Scales (moveX, moveY) so its length never exceeds 1, preserving both
+// direction and magnitude below that: an analog magnitude in [0,1]
+// (e.g. a touch stick's partial deflection) passes through unchanged,
+// so speed = base * magnitude, while any raw vector at or past unit
+// length (keyboard's -1/0/1 axes, a diagonal (1,1), or a hostile
+// overshoot) is normalized to exactly 1 — identical to the old
+// axis-clamp-then-normalize-diagonal behavior for every input that
+// code path could ever produce.
+function scaledDirection(input: MoveInput): [number, number] {
+  const magnitude = Math.hypot(input.moveX, input.moveY);
+  const scale = magnitude > 1 ? 1 / magnitude : 1;
+  return [input.moveX * scale, input.moveY * scale];
 }
 
 // Leading-edge corners in the movement direction (the trailing side was
@@ -164,12 +174,7 @@ export function moveHorizontal(
   speed: number,
   opts: StepOpts,
 ): void {
-  let dirX = clampAxis(input.moveX);
-  let dirY = clampAxis(input.moveY);
-  if (dirX !== 0 && dirY !== 0) {
-    dirX *= Math.SQRT1_2;
-    dirY *= Math.SQRT1_2;
-  }
+  const [dirX, dirY] = scaledDirection(input);
 
   // Knockback: an external velocity that decays; sticky-feet grips.
   if (opts.stickyFeet) {

@@ -14,6 +14,11 @@ describe("protocol", () => {
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
   });
 
+  it("round-trips fractional analog moveX/moveY (touch-stick magnitude, additive bounds widening)", () => {
+    const input: ClientInput = { type: "input", seq: 8, moveX: 0.5, moveY: -0.2, jump: false, run: false };
+    expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
+  });
+
   it("round-trips gameplay intents", () => {
     const intents: ClientMessage[] = [
       { type: "attack", dirX: 1, dirY: 0 },

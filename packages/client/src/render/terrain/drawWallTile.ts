@@ -9,6 +9,31 @@ import { placeFillRect, placeSprite } from "./placeSprite.js";
 import { classifyWallCell, type WallRole } from "./wallContour.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 
+// A "fill" cell (wallContour's own doc: quiet interior mass) always has zero
+// open ORTHOGONAL or DIAGONAL neighbor by construction — the rim/diagonal
+// checks that would otherwise classify it already ran first. So a small
+// embedded rock formation surrounded by open floor (the "black rectangular
+// void inside a room" repro, wave95 round 2) reads 100% identical to acres
+// of untouched cave rock: same flat WALL_FILL_COLOR, zero cue it has any
+// volume at all. Looking one ring further out (the 16 cells at Chebyshev
+// distance 2) tells the two apart — a small formation's fill cells almost
+// all border open ground just past their own immediate wall neighbors.
+const RING2_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [-2, -2], [-1, -2], [0, -2], [1, -2], [2, -2],
+  [-2, -1], [2, -1],
+  [-2, 0], [2, 0],
+  [-2, 1], [2, 1],
+  [-2, 2], [-1, 2], [0, 2], [1, 2], [2, 2],
+]; // prettier-ignore
+
+/** True once every cell 2 rings out is also wall — genuinely deep mass, not a small embedded formation. */
+function isDeepFillInterior(solid: (dx: number, dy: number) => boolean): boolean {
+  return RING2_OFFSETS.every(([dx, dy]) => solid(dx, dy));
+}
+
+const FILL_NEAR_EDGE_COLOR = 0x18181f;
+const FILL_GHOST_ALPHA = 0.16;
+
 const WALL_TOP_TINT = 0x505064;
 
 type RimRole = Extract<WallRole, { kind: "rim" }>;
@@ -90,7 +115,8 @@ export function drawWallTile(
       drawRimRole(scene, world, wx, wy, occluder, role, tint, lightTint);
       return;
     case "fill":
-      placeFillRect(scene, occluder, wx, wy, WALL_FILL_COLOR);
+      placeFillRect(scene, occluder, wx, wy, isDeepFillInterior(solid) ? WALL_FILL_COLOR : FILL_NEAR_EDGE_COLOR);
+      placeSprite(scene, occluder, wx, wy, "wall_mid", { tint, alpha: FILL_GHOST_ALPHA });
       return;
     case "face":
       // Unreachable: faces are decided in drawTile via ownFaceRowAt. Draw fill

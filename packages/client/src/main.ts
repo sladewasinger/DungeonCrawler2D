@@ -1,6 +1,7 @@
 // Client entrypoint: wires up the Phaser game and its scene list. Orchestration only — no logic here.
 import Phaser from "phaser";
 import { installBootErrorOverlay } from "./boot/errorOverlay.js";
+import { registerServiceWorker } from "./boot/registerServiceWorker.js";
 import { BUILD_SHA } from "./buildInfo.js";
 import { PreloadScene } from "./boot/PreloadScene.js";
 import { Connection } from "./net/connection.js";
@@ -16,6 +17,7 @@ import { loadStoredName } from "./scenes/title/connectForm.js";
 // Installed before anything else can throw — a boot/runtime failure must render a
 // visible message, never a silent black screen (mobile-fix round 2, bug report A).
 installBootErrorOverlay(import.meta.env.DEV);
+registerServiceWorker(import.meta.env.PROD);
 
 const isEditor = new URLSearchParams(window.location.search).get("scene") === "editor";
 

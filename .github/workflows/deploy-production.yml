@@ -63,7 +63,24 @@ jobs:
         run: aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/server/main.cjs"
 
       - name: Publish client
-        run: aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" --delete
+        # Two-pass publish: hashed assets get long immutable caching; the
+        # entry documents (index.html, sw.js, manifest) get no-cache so the
+        # service worker's build-SHA cache-busting actually reaches players —
+        # a cached sw.js would pin clients to a stale build forever.
+        run: |
+          aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html" --exclude "sw.js" --exclude "manifest.webmanifest"
+          aws s3 cp packages/client/dist/index.html "s3://$FRONTEND_BUCKET/index.html" \
+            --cache-control "no-cache"
+          if [ -f packages/client/dist/sw.js ]; then
+            aws s3 cp packages/client/dist/sw.js "s3://$FRONTEND_BUCKET/sw.js" \
+              --cache-control "no-cache"
+          fi
+          if [ -f packages/client/dist/manifest.webmanifest ]; then
+            aws s3 cp packages/client/dist/manifest.webmanifest "s3://$FRONTEND_BUCKET/manifest.webmanifest" \
+              --cache-control "no-cache" --content-type "application/manifest+json"
+          fi
 
       - name: Restart game server on published bundle
         shell: bash

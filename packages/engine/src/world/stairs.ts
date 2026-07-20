@@ -139,3 +139,23 @@ export function stairRampAt(world: StairView, x: number, y: number): number | nu
   if (t < 0) return null;
   return low + (high - low) * Math.min(1, t);
 }
+
+/** A tile's place on a staircase's visual run, for the renderer's tread art —
+ * covers both the physical Stairs tiles AND the flanking RUN_PADDING Floor
+ * tiles (today those padding tiles carry a real ramped groundAt but draw as
+ * plain flat floor, the "I only know there's a staircase because my
+ * character moves up" bug). */
+export interface StairVisual {
+  /** DIRS index this run climbs toward (its high end). */
+  readonly direction: number;
+  /** 0 at the run's low (padding) end, 1 at its topmost physical tread. */
+  readonly t: number;
+}
+
+export function stairVisualAt(world: StairView, wx: number, wy: number): StairVisual | null {
+  const run = stairRunAt(world, wx, wy);
+  if (!run) return null;
+  const runLength = run.length + RUN_PADDING;
+  const raw = (distanceFromTopEdge(run, wx + 0.5, wy + 0.5) + runLength) / runLength;
+  return { direction: run.direction, t: Math.max(0, Math.min(1, raw)) };
+}

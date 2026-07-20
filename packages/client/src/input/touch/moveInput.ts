@@ -5,13 +5,20 @@
  */
 import type { MoveInput } from "@dc2d/engine";
 import { isButtonHeld } from "./buttons.js";
-import { stickIsRunning, stickMoveAxes } from "./joystick.js";
+import { stickDragVector, stickIsRunning, stickMoveVector } from "./joystick.js";
 import type { TouchInputState } from "./state.js";
 
-/** This tick's move input from the touch stick + jump button alone (keyboard is merged by the caller).
- * Full stick deflection stands in for held-Shift run (Epic 7.12, ASSUMPTION #65) — mobile has no Shift key. */
+/** This tick's move input from the touch stick + jump button alone (keyboard is merged
+ * by the caller). The stick's direction and its ramped move magnitude are derived
+ * together (joystick.ts's stickMoveVector) so the wave-9 face band can turn the
+ * character (lastFacing) without moving the body: direction goes live at the deadzone,
+ * magnitude stays 0 until the face band ends. Full extension also stands in for
+ * held-Shift run (Epic 7.12, ASSUMPTION #65) — mobile has no Shift key. */
 export function touchMoveInput(state: TouchInputState): MoveInput {
-  const { moveX, moveY } = stickMoveAxes(state);
+  const drag = stickDragVector(state);
+  if (!drag) return { moveX: 0, moveY: 0, jump: isButtonHeld(state, "jump"), run: false };
+  const { direction, moveX, moveY } = stickMoveVector(drag.dx, drag.dy);
+  if (direction.moveX !== 0 || direction.moveY !== 0) updateLastFacing(state, direction.moveX, direction.moveY);
   return { moveX, moveY, jump: isButtonHeld(state, "jump"), run: stickIsRunning(state) };
 }
 

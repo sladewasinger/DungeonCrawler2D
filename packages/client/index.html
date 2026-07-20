@@ -2,11 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <!-- viewport-fit=cover: lets env(safe-area-inset-*) resolve to real values instead
+         of 0 (src/boot/safeArea.ts) once the canvas draws under a notch/gesture-bar in
+         fullscreen. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#14141c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>DC2D v2</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
-      #app { width: 100vw; height: 100vh; }
+      html, body { margin: 0; padding: 0; background: #000; overflow: hidden; height: 100%; }
+      /* 100dvh over 100vh: on Chrome/Safari mobile the address bar showing/hiding
+         resizes the *small* viewport (vh) but not the *dynamic* one (dvh) — without
+         this the canvas would get clipped or leave a gap every time the chrome
+         collapses (the whole point of the fullscreen chip below). vh stays as the
+         fallback for browsers that don't support dvh yet. */
+      #app { width: 100vw; height: 100vh; height: 100dvh; }
       /* Touch controls (docs mobile pass) own every gesture on the canvas — without
          this the browser fights them with its own pinch-zoom/scroll/double-tap-zoom
          handling on every joystick drag and button tap. */

@@ -70,7 +70,15 @@ export interface RimArt {
 
 const THIN_V_LEFT: RimArt = { frame: "wall_edge_mid_left" };
 const THIN_V_RIGHT: RimArt = { frame: "wall_edge_mid_right" };
-const RIDGE_V: RimArt = { frame: "wall_edge_mid_left", capEast: true };
+// A 1-wide N/S ridge (floor open on BOTH sides) used the same thin dash-over-
+// floor-texture treatment as a mass's boundary edge — legible against a solid
+// mass behind it, but with nothing but a bare floor tile on both sides here,
+// it read as a barely-there sliver ("floating brick strips in open floor,"
+// wave95 round 2). wall_edge_left is the opaque full-coverage counterpart the
+// RimArt doc already named for exactly this "the wall IS the whole ridge"
+// case (previously unused anywhere) — same opaque treatment RIDGE_H already
+// gets for the perpendicular (E/W) orientation, just never wired up for this one.
+const RIDGE_V: RimArt = { frame: "wall_edge_left", opaque: true, capEast: true };
 const RIDGE_H: RimArt = { frame: "wall_mid", opaque: true, capNorth: true, capSouth: true };
 
 const RIM_BY_KEY: Readonly<Record<number, RimArt>> = {

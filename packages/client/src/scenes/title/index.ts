@@ -4,12 +4,14 @@
 // otherwise waits for the player. Hands off to "dungeon" the moment the server welcomes us.
 import { LEVEL } from "@dc2d/engine";
 import Phaser from "phaser";
+import { isTouchDevice } from "../../input/touchDetect.js";
 import { loadResumeToken } from "../../net/identity.js";
 import type { Connection } from "../../net/connection.js";
 import { pixelTextStyle } from "../../ui/font.js";
 import { TitleBackground } from "./background.js";
 import { TitleControlsHint } from "./controlsHint.js";
 import { ConnectForm, loadStoredName } from "./connectForm.js";
+import { FullscreenChip, requestFullscreenBestEffort } from "./fullscreenChip.js";
 
 const GAME_NAME = "DUNGEON CRAWLER";
 /** How long a first attempt gets before the status line admits it's still retrying (net/socket.ts backs off every 1s on its own). */
@@ -33,6 +35,7 @@ export class TitleScene extends Phaser.Scene {
   private form: ConnectForm | undefined;
   private title: Phaser.GameObjects.Text | undefined;
   private controlsHint: TitleControlsHint | undefined;
+  private fullscreenChip: FullscreenChip | undefined;
   private expired = false;
 
   constructor(private readonly conn: Connection) {
@@ -50,6 +53,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(3);
     this.controlsHint = new TitleControlsHint(this);
+    this.fullscreenChip = new FullscreenChip();
     this.form = new ConnectForm({ onConnect: (name) => this.handleConnect(name) });
     this.conn.onConnected = () => {
       this.queueRecapToastIfFirstEver();
@@ -75,6 +79,9 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private handleConnect(name: string): void {
+    // Fired first, synchronously, still inside the button's click gesture — requestFullscreen
+    // is only honored by the browser when called with no `await` yet on the call stack.
+    if (isTouchDevice()) requestFullscreenBestEffort();
     this.form?.setBusy(true);
     this.form?.setStatus("Connecting...");
     this.conn.setName(name);
@@ -111,5 +118,6 @@ export class TitleScene extends Phaser.Scene {
     this.background?.dispose();
     this.form?.dispose();
     this.controlsHint?.dispose();
+    this.fullscreenChip?.dispose();
   }
 }

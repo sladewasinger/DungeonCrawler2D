@@ -2,7 +2,13 @@ import { z } from "zod";
 
 /** Zod schemas and types for client→server wire messages (intents, never asserted outcomes). */
 
-const axis = z.union([z.literal(-1), z.literal(0), z.literal(1)]);
+// Analog movement magnitude: was literal(-1|0|1) only (keyboard's discrete
+// axes); widened additively to any finite value in [-1, 1] so an analog
+// source (touch stick) can send fractional magnitude for a walk-to-run
+// ramp. Every value the old literal union accepted still parses, so this
+// is a superset — no protocol bump. Speedhack overshoot (e.g. moveX: 50)
+// still fails validation, same as before.
+const axis = z.number().min(-1).max(1);
 const slot = z.number().int().min(0).max(8);
 const level = z.enum(["dungeon", "sandbox"]);
 

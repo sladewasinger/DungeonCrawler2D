@@ -75,27 +75,27 @@ describe("classifyWallCell", () => {
     expect(classify(lone, 1, 1)).toEqual({ kind: "pillar" });
   });
 
-  it("caps the south endpoint of a one-wide vertical ridge", () => {
+  it("caps the south endpoint of a one-wide vertical ridge with the opaque full-coverage edge frame", () => {
     const finger = ["..#..", "..#..", "....."];
     expect(classify(finger, 2, 1)).toEqual({
       kind: "rim",
-      art: { frame: "wall_edge_mid_left", capSouth: true, capEast: true, texturedFill: true },
+      art: { frame: "wall_edge_left", opaque: true, capSouth: true, capEast: true },
     });
   });
 
-  it("caps the north endpoint of a one-wide vertical ridge", () => {
+  it("caps the north endpoint of a one-wide vertical ridge with the opaque full-coverage edge frame", () => {
     const finger = [".....", "..#..", "..#.."];
     expect(classify(finger, 2, 1)).toEqual({
       kind: "rim",
-      art: { frame: "wall_edge_mid_left", capNorth: true, capEast: true, texturedFill: true },
+      art: { frame: "wall_edge_left", opaque: true, capNorth: true, capEast: true },
     });
   });
 
-  it("caps both exposed sides through the middle of a one-wide vertical ridge", () => {
+  it("caps both exposed sides through the middle of a one-wide vertical ridge with the opaque full-coverage edge frame", () => {
     const ridge = ["..#..", "..#..", "..#.."];
     expect(classify(ridge, 2, 1)).toEqual({
       kind: "rim",
-      art: { frame: "wall_edge_mid_left", capEast: true, texturedFill: true },
+      art: { frame: "wall_edge_left", opaque: true, capEast: true },
     });
   });
 
@@ -116,10 +116,10 @@ describe("classifyWallCell", () => {
     expect(classify(oneWide, 2, 1, true)).toEqual({
       kind: "rim",
       art: {
-        frame: "wall_edge_mid_left",
+        frame: "wall_edge_left",
+        opaque: true,
         capSouth: true,
         capEast: true,
-        texturedFill: true,
         projectedFace: "wall_mid",
       },
     });

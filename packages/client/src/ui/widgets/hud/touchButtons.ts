@@ -14,12 +14,13 @@ import type { Viewport } from "../state.js";
 import { createItemIcon } from "./itemIcon.js";
 
 const WIDGET_ID = "touch-buttons";
-/** Wave-6 playtest ("buttons are way too large... barely any screen real estate"):
- * cut ~25% off every diameter from the original 44/34/34 set, still comfortably
- * above the ~44px onscreen thumb-target floor once hudScale is folded in. */
-const ATTACK_SIZE = 34;
-const JUMP_SIZE = 26;
-const INTERACT_SIZE = 26;
+/** Wave-6 playtest ("buttons are way too large... barely any screen real estate") cut
+ * these to 34/26/26. Wave-9 user spec walks part of that back — "movement joystick and
+ * buttons need to be slightly bigger" — without returning all the way to the original
+ * 44/34/34 set. */
+const ATTACK_SIZE = 40;
+const JUMP_SIZE = 30;
+const INTERACT_SIZE = 30;
 const GAP = 5;
 /** Resting/pressed fill alpha — low at rest so the cluster doesn't visually crowd the
  * scene, full the moment a finger is actually on it (wave-6 playtest, "barely any
