@@ -16,7 +16,7 @@ import {
   type BenchLayer,
   type BenchState,
 } from "./bench/index.js";
-import { EditableWorld } from "./EditableWorld.js";
+import { EditableWorld, type EditorWorldData } from "./EditableWorld.js";
 
 const STORAGE_KEY = "dc2d-editor-map-v1";
 
@@ -24,6 +24,7 @@ export type Brush =
   | { readonly kind: "height"; readonly value: number }
   | { readonly kind: "rock" }
   | { readonly kind: "door" }
+  | { readonly kind: "torch" }
   | { readonly kind: "erase" }
   | { readonly kind: "area"; readonly areaId: string }
   | { readonly kind: "spawn-enemy"; readonly defId: string }
@@ -52,6 +53,10 @@ export class EditorStore {
   readonly bench: BenchState;
   brush: Brush = { kind: "height", value: 1 };
   showCollision = false;
+  /** When set, the "height" brush stamps TILE.Stairs instead of TILE.Floor — lets a
+   * hand-built ramp exercise the real entryClimbDir/tread-render path (wave95: stairs
+   * need a way to author a run in the editor at all, not just via generated chunks). */
+  stairsMode = false;
   private readonly listeners = new Set<() => void>();
 
   constructor() {
@@ -59,7 +64,7 @@ export class EditorStore {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        this.world.load(JSON.parse(saved) as { tiles: number[]; heights: number[] });
+        this.world.load(JSON.parse(saved) as EditorWorldData);
         return;
       } catch {
         // Corrupt save: fall through to the demo pattern.
@@ -82,14 +87,24 @@ export class EditorStore {
     this.commit();
   }
 
+  toggleStairsMode(): void {
+    this.stairsMode = !this.stairsMode;
+    this.notify();
+  }
+
   private paintTerrain(wx: number, wy: number, brush: Brush): void {
-    if (brush.kind === "height") this.world.setCell(wx, wy, TILE.Floor, brush.value);
-    else if (brush.kind === "erase") this.world.setCell(wx, wy, TILE.Floor, 0);
+    if (brush.kind === "height") {
+      this.world.setCell(wx, wy, this.stairsMode ? TILE.Stairs : TILE.Floor, brush.value);
+    } else if (brush.kind === "erase") this.world.setCell(wx, wy, TILE.Floor, 0);
     else if (brush.kind === "rock") {
       this.world.setCell(wx, wy, TILE.Wall, rockHeightAround(this.world, wx, wy));
     } else if (brush.kind === "door" && this.world.tileAt(wx, wy) === TILE.Wall) {
       // Door stamps require an existing rock cell: the portal punches INTO a wall.
       this.world.setCell(wx, wy, TILE.DoorSafeRoom, this.world.heightAt(wx, wy));
+    } else if (brush.kind === "torch") {
+      // Unlike world torches (wall-mounted only), the editor's torch brush stamps
+      // any tile — it's a pure light source for tuning, not a placement-rules test.
+      this.world.addTorch(wx, wy);
     }
   }
 
@@ -98,6 +113,13 @@ export class EditorStore {
   eraseBenchAt(wx: number, wy: number): void {
     const layer = benchLayerOf(this.brush);
     if (layer) eraseBenchCell(this.bench, wx, wy, layer);
+  }
+
+  /** Right-click erase for the torch brush — removes a stamped light source and
+   * persists the change, mirroring eraseBenchAt's contract for bench layers. */
+  eraseTorchAt(wx: number, wy: number): void {
+    this.world.removeTorch(wx, wy);
+    this.commit();
   }
 
   toggleSimulate(): void {
@@ -117,12 +139,19 @@ export class EditorStore {
     this.notify();
   }
 
+  /** Re-renders without touching persisted map data — the lighting panel calls this
+   * after adjusting tileLight.ts's module-level config, so the live bake picks up the
+   * new tuning without writing a spurious localStorage save. */
+  notifyLightingChange(): void {
+    this.notify();
+  }
+
   exportJson(): string {
     return JSON.stringify(this.world.serialize());
   }
 
   importJson(json: string): void {
-    this.world.load(JSON.parse(json) as { tiles: number[]; heights: number[] });
+    this.world.load(JSON.parse(json) as EditorWorldData);
     this.commit();
   }
 

@@ -42,4 +42,40 @@ describe("EditableWorld", () => {
     expect(copy.cellAt(2, 2)).toEqual({ tile: TILE.Wall, height: 3 });
     expect(copy.cellAt(4, 4)).toEqual({ tile: TILE.Floor, height: -1 });
   });
+
+  it("stamps and removes torches independently of the tile underneath", () => {
+    const world = new EditableWorld();
+    world.setCell(7, 7, TILE.Floor, 2);
+    world.addTorch(7, 7);
+    expect(world.hasTorch(7, 7)).toBe(true);
+    expect(world.cellAt(7, 7)).toEqual({ tile: TILE.Floor, height: 2 });
+    world.removeTorch(7, 7);
+    expect(world.hasTorch(7, 7)).toBe(false);
+    expect(world.cellAt(7, 7)).toEqual({ tile: TILE.Floor, height: 2 });
+  });
+
+  it("ignores a torch stamp outside the grid", () => {
+    const world = new EditableWorld();
+    world.addTorch(-1, -1);
+    expect(world.torchPositions()).toEqual([]);
+  });
+
+  it("round-trips torches through serialize/load (additive map-JSON field)", () => {
+    const world = new EditableWorld();
+    world.addTorch(3, 9);
+    world.addTorch(12, 1);
+    const copy = new EditableWorld();
+    copy.load(world.serialize());
+    expect(copy.torchPositions().sort((a, b) => a.wx - b.wx)).toEqual([
+      { wx: 3, wy: 9 },
+      { wx: 12, wy: 1 },
+    ]);
+  });
+
+  it("loads a pre-torch save (no 'torches' key at all) with zero torches, not a crash", () => {
+    const world = new EditableWorld();
+    world.addTorch(5, 5);
+    world.load({ tiles: new Array(400).fill(0), heights: new Array(400).fill(0) });
+    expect(world.torchPositions()).toEqual([]);
+  });
 });

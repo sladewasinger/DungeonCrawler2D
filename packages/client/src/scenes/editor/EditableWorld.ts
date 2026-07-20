@@ -1,6 +1,9 @@
 // A hand-painted 20x20 world satisfying the terrain renderer's read surface —
 // the editor's model. Outside the grid reads as chasm void, so the painted map
-// renders as an island and its south edges cast faces into the abyss.
+// renders as an island and its south edges cast faces into the abyss. Also owns
+// the editor's own torch overlay (the lighting workbench's torch brush): a set of
+// tile positions serialized alongside tiles/heights, additive to the map JSON so
+// older saves without a "torches" field still load cleanly.
 import { TILE, ZONE, type TileType, type ZoneType } from "@dc2d/engine";
 
 export const EDITOR_GRID_SIZE = 20;
@@ -11,9 +14,22 @@ export interface EditorCell {
   readonly height: number;
 }
 
+export interface TorchTile {
+  readonly wx: number;
+  readonly wy: number;
+}
+
+export interface EditorWorldData {
+  readonly tiles: number[];
+  readonly heights: number[];
+  /** Optional so pre-torch saves (no "torches" key at all) still load. */
+  readonly torches?: readonly TorchTile[];
+}
+
 export class EditableWorld {
   private readonly tiles = new Uint8Array(EDITOR_GRID_SIZE * EDITOR_GRID_SIZE);
   private readonly heights = new Float32Array(EDITOR_GRID_SIZE * EDITOR_GRID_SIZE);
+  private readonly torches = new Set<string>();
 
   inGrid(wx: number, wy: number): boolean {
     return wx >= 0 && wy >= 0 && wx < EDITOR_GRID_SIZE && wy < EDITOR_GRID_SIZE;
@@ -32,13 +48,43 @@ export class EditableWorld {
     this.heights[i] = height;
   }
 
-  serialize(): { tiles: number[]; heights: number[] } {
-    return { tiles: [...this.tiles], heights: [...this.heights] };
+  // ── torch overlay (editor-only light sources) ───────────────────
+
+  private torchKey(wx: number, wy: number): string {
+    return `${wx},${wy}`;
   }
 
-  load(data: { tiles: number[]; heights: number[] }): void {
+  addTorch(wx: number, wy: number): void {
+    if (!this.inGrid(wx, wy)) return;
+    this.torches.add(this.torchKey(wx, wy));
+  }
+
+  removeTorch(wx: number, wy: number): void {
+    this.torches.delete(this.torchKey(wx, wy));
+  }
+
+  hasTorch(wx: number, wy: number): boolean {
+    return this.torches.has(this.torchKey(wx, wy));
+  }
+
+  /** Every stamped torch, in the shape `computeLightField`'s dynamic-seed callers want
+   * (see EditorScene.ts, which maps these to full-strength `DynamicLightSeed`s). */
+  torchPositions(): TorchTile[] {
+    return [...this.torches].map((key) => {
+      const [wx, wy] = key.split(",").map(Number) as [number, number];
+      return { wx, wy };
+    });
+  }
+
+  serialize(): EditorWorldData {
+    return { tiles: [...this.tiles], heights: [...this.heights], torches: this.torchPositions() };
+  }
+
+  load(data: EditorWorldData): void {
     this.tiles.set(data.tiles.slice(0, this.tiles.length));
     this.heights.set(data.heights.slice(0, this.heights.length));
+    this.torches.clear();
+    for (const t of data.torches ?? []) this.addTorch(t.wx, t.wy);
   }
 
   // ── TerrainWorld surface ─────────────────────────────────────────

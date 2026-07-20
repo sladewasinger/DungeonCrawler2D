@@ -13,3 +13,11 @@ export function selectButton(bar: HTMLElement, target: HTMLButtonElement): void 
   for (const el of bar.querySelectorAll("button")) (el as HTMLButtonElement).style.outline = "";
   target.style.outline = "2px solid #ffd23d";
 }
+
+/** A small dim caption heading a palette section (EFFECTS/SPAWN/LIGHTING/…). */
+export function sectionLabel(text: string): HTMLDivElement {
+  const el = document.createElement("div");
+  el.textContent = text;
+  el.style.cssText = "font:11px monospace;color:#8f8fa3;margin-top:6px";
+  return el;
+}

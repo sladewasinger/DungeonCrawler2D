@@ -3,14 +3,7 @@
 // bench's own RESET — independent of the terrain canvas's own reset button.
 import { AREA_BRUSHES, ENEMY_BRUSH_IDS, GROUND_ITEM_BRUSH_ID, enemyDef } from "../bench/index.js";
 import type { EditorStore } from "../editorStore.js";
-import { button, selectButton } from "./domHelpers.js";
-
-function sectionLabel(text: string): HTMLDivElement {
-  const el = document.createElement("div");
-  el.textContent = text;
-  el.style.cssText = "font:11px monospace;color:#8f8fa3;margin-top:6px";
-  return el;
-}
+import { button, sectionLabel, selectButton } from "./domHelpers.js";
 
 function buildEffectsBar(store: EditorStore): HTMLDivElement {
   const bar = document.createElement("div");

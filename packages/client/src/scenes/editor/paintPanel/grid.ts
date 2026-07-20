@@ -30,6 +30,15 @@ function cellStyle(tile: number, height: number): { fill: string; label: string 
   return { fill: heightColor(height), label: String(height) };
 }
 
+/** A small flame glyph (bottom-right) marking a stamped torch — the editor's own light
+ * source, distinct from the area dot / spawn chip corners drawBenchOverlay uses. */
+function drawTorchMarker(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = "#ffb300";
+  ctx.beginPath();
+  ctx.arc(x * CELL_PX + CELL_PX - 6, y * CELL_PX + CELL_PX - 6, 4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 /** A small dot for a painted area tile (top-left) and a chip for an enemy/item spawn (top-right). */
 function drawBenchOverlay(ctx: CanvasRenderingContext2D, bench: BenchState, x: number, y: number): void {
   const areaId = bench.areas.defAt(x, y);
@@ -63,6 +72,7 @@ export function drawGrid(canvas: HTMLCanvasElement, store: EditorStore): void {
       ctx.fillStyle = cell.height >= 3 ? "#14141c" : "#c8c8d6";
       ctx.fillText(label, x * CELL_PX + CELL_PX / 2, y * CELL_PX + CELL_PX / 2);
       drawBenchOverlay(ctx, store.bench, x, y);
+      if (store.world.hasTorch(x, y)) drawTorchMarker(ctx, x, y);
     }
   }
 }

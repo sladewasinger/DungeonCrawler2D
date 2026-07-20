@@ -22,13 +22,9 @@ export interface DynamicLightSeed {
   readonly tileY: number;
   readonly level: number;
 }
-/** Brightness of a fully unlit tile. User has now demanded brighter twice
- * (0.26 -> 0.42 -> 0.55, 2026-07-20 "make it way brighter, I can't see shit"):
- * the dungeon reads fully at a glance; torches add warmth, not visibility. */
-const AMBIENT = 0.72;
-/** Levels at/above this render at full brightness (the lit plateau near a torch). */
-const CURVE_FULL_LEVEL = 7;
-/** Levels at/below this sit on the ambient floor; between the two an S-curve falls off. */
+/** Levels at/below this sit on the ambient floor; between it and `curveFullLevel` an
+ * S-curve falls off. Not a tuning knob (no visual-direction case for moving it) —
+ * unlike ambient/curveFullLevel/warmth below, it never varies. */
 const CURVE_DARK_LEVEL = 0;
 /** Warm firelight tint at full level, blended in with the level curve. */
 const WARM_R = 1.0;
@@ -42,6 +38,49 @@ const COOL_R = 0.86;
 const COOL_G = 0.94;
 const COOL_B = 1.1;
 
+/** The tunable knobs behind the baked lighting curve — injectable so the editor's
+ * lighting workbench can preview tuning changes live. See `setTileLightConfig`. */
+export interface TileLightConfig {
+  /** Brightness of a fully unlit tile (0..1). User has now demanded brighter twice
+   * (0.26 -> 0.42 -> 0.55 -> 0.72, 2026-07-20 "make it way brighter, I can't see
+   * shit"): the dungeon reads fully at a glance; torches add warmth, not visibility. */
+  readonly ambient: number;
+  /** Levels at/above this render at full brightness (the lit plateau near a torch). */
+  readonly curveFullLevel: number;
+  /** 0..1 scale on the warm/cool hue split: 1 is the shipped full split, 0 collapses
+   * every level to the cool tint regardless of light level (pure brightness, no hue cue). */
+  readonly warmth: number;
+}
+
+/** The last-shipped tuning (2026-07-20) — what every client bakes against unless the
+ * editor has overridden it for this session. */
+export const DEFAULT_TILE_LIGHT_CONFIG: TileLightConfig = {
+  ambient: 0.72,
+  curveFullLevel: 7,
+  warmth: 1,
+};
+
+let config: TileLightConfig = DEFAULT_TILE_LIGHT_CONFIG;
+let levelTints: readonly number[] = buildLevelTints(config);
+
+/**
+ * Overrides the baked-light tuning knobs and recomputes the derived per-level tint
+ * table. CONTRACT: only `scenes/editor`'s lighting panel may call this — it is a
+ * process-wide mutable override, not a per-bake parameter, so it exists purely for
+ * the editor's live preview loop. No dungeon/gameplay code path may call this; live
+ * play always bakes against `DEFAULT_TILE_LIGHT_CONFIG`.
+ */
+export function setTileLightConfig(overrides: Partial<TileLightConfig>): void {
+  config = { ...config, ...overrides };
+  levelTints = buildLevelTints(config);
+}
+
+/** The config the next `computeLightField` bake will use — read by the editor's
+ * lighting panel to seed its sliders and copy-paste readout. */
+export function getTileLightConfig(): TileLightConfig {
+  return config;
+}
+
 export interface LightField {
   /** Multiply-tint (0xRRGGBB) for the tile — brightness + warmth baked together. */
   tintAt(wx: number, wy: number): number;
@@ -52,20 +91,23 @@ export interface LightField {
  * floors read clearly), then a steep smoothstep tail drops into the ambient
  * dark — wide bright-to-dark range so darkness still feels like darkness.
  */
-function levelCurve(level: number): number {
-  const x = Math.min(1, Math.max(0, (level - CURVE_DARK_LEVEL) / (CURVE_FULL_LEVEL - CURVE_DARK_LEVEL)));
+function levelCurve(level: number, cfg: TileLightConfig): number {
+  const x = Math.min(1, Math.max(0, (level - CURVE_DARK_LEVEL) / (cfg.curveFullLevel - CURVE_DARK_LEVEL)));
   const s = x * x * (3 - 2 * x);
-  return AMBIENT + (1 - AMBIENT) * s;
+  return cfg.ambient + (1 - cfg.ambient) * s;
 }
 
-/** Precomputed per-level multiply tints: cool blue-gray ambient up to warm near-white. */
-const LEVEL_TINTS: readonly number[] = Array.from({ length: LIGHT_MAX + 1 }, (_, level) => {
-  const b = levelCurve(level);
-  const warmth = level / LIGHT_MAX;
-  const ch = (cool: number, warm: number) =>
-    Math.min(255, Math.round(255 * b * (cool + warmth * (warm - cool))));
-  return (ch(COOL_R, WARM_R) << 16) | (ch(COOL_G, WARM_G) << 8) | ch(COOL_B, WARM_B);
-});
+/** Per-level multiply tints: cool blue-gray ambient up to warm near-white. Rebuilt
+ * whenever `setTileLightConfig` changes the underlying knobs. */
+function buildLevelTints(cfg: TileLightConfig): readonly number[] {
+  return Array.from({ length: LIGHT_MAX + 1 }, (_, level) => {
+    const b = levelCurve(level, cfg);
+    const warmth = (level / LIGHT_MAX) * cfg.warmth;
+    const ch = (cool: number, warm: number) =>
+      Math.min(255, Math.round(255 * b * (cool + warmth * (warm - cool))));
+    return (ch(COOL_R, WARM_R) << 16) | (ch(COOL_G, WARM_G) << 8) | ch(COOL_B, WARM_B);
+  });
+}
 
 /** Mutable BFS grid state shared by the seed/flood helpers. */
 interface LightGrid {
@@ -149,7 +191,7 @@ export function computeLightField(
   return {
     tintAt(wx: number, wy: number): number {
       const level = inGrid(g, wx, wy) ? (g.levels[gridIndex(g, wx, wy)] ?? 0) : 0;
-      return LEVEL_TINTS[level] ?? LEVEL_TINTS[0] ?? 0x2e2e2e;
+      return levelTints[level] ?? levelTints[0] ?? 0x2e2e2e;
     },
   };
 }

@@ -19,11 +19,25 @@ function buildHeightButtons(store: EditorStore, bar: HTMLElement): void {
     store.brush = { kind: "rock" };
     selectButton(bar, rock);
   });
+  // Toggles (not a brush swap): while on, the height brush above stamps TILE.Stairs
+  // instead of TILE.Floor, so a hand-built run exercises the real climb-direction
+  // render path instead of just a flat platform.
+  const stairs = button("stairs", () => {
+    store.toggleStairsMode();
+    stairs.style.outline = store.stairsMode ? "2px solid #ffd23d" : "";
+  });
+  bar.append(stairs);
   const door = button("door", () => {
     store.brush = { kind: "door" };
     selectButton(bar, door);
   });
-  bar.append(rock, door);
+  // Torch: an editor-only light source, stampable on any tile (no wall-facing
+  // requirement like real world torches) — right-click erases via eraseTorchAt.
+  const torch = button("torch", () => {
+    store.brush = { kind: "torch" };
+    selectButton(bar, torch);
+  });
+  bar.append(rock, door, torch);
 }
 
 function buildFileButtons(store: EditorStore, refresh: () => void): HTMLButtonElement[] {

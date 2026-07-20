@@ -8,6 +8,8 @@ import { inspectorText } from "./inspector.js";
 const isBenchBrush = (store: EditorStore): boolean =>
   store.brush.kind === "area" || store.brush.kind === "spawn-enemy" || store.brush.kind === "spawn-item";
 
+const isTorchBrush = (store: EditorStore): boolean => store.brush.kind === "torch";
+
 function cellFromEvent(canvas: HTMLCanvasElement, ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -21,6 +23,11 @@ function makePaintAt(store: EditorStore, refresh: () => void, isErasing: () => b
   return (x: number, y: number): void => {
     if (isErasing() && isBenchBrush(store)) {
       store.eraseBenchAt(x, y);
+      refresh();
+      return;
+    }
+    if (isErasing() && isTorchBrush(store)) {
+      store.eraseTorchAt(x, y);
       refresh();
       return;
     }

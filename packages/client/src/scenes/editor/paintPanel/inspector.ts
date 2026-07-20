@@ -25,5 +25,6 @@ export function inspectorText(store: EditorStore, x: number, y: number): string 
     : store.world.isWalkable(x, y)
       ? " | walkable"
       : " | blocked";
-  return `(${x},${y}) ${tileName} z=${cell.height}${faceText}${benchText(store, x, y)}`;
+  const torchText = store.world.hasTorch(x, y) ? " | torch" : "";
+  return `(${x},${y}) ${tileName} z=${cell.height}${faceText}${torchText}${benchText(store, x, y)}`;
 }

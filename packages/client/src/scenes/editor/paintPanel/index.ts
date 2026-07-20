@@ -5,6 +5,7 @@ import { EDITOR_GRID_SIZE } from "../EditableWorld.js";
 import type { EditorStore } from "../editorStore.js";
 import { buildBenchPalette } from "./benchPalette.js";
 import { CELL_PX, drawGrid } from "./grid.js";
+import { buildLightingPanel } from "./lightingPanel.js";
 import { wirePointerPainting } from "./pointer.js";
 import { buildTerrainPalette } from "./terrainPalette.js";
 
@@ -18,7 +19,13 @@ export function buildPaintPanel(parent: HTMLElement, store: EditorStore): () => 
   inspector.textContent = "hover a cell";
   const refresh = () => drawGrid(canvas, store);
   wirePointerPainting(canvas, store, inspector, refresh);
-  parent.append(buildTerrainPalette(store, refresh), buildBenchPalette(store, refresh), canvas, inspector);
+  parent.append(
+    buildTerrainPalette(store, refresh),
+    buildBenchPalette(store, refresh),
+    buildLightingPanel(store),
+    canvas,
+    inspector,
+  );
   refresh();
   return refresh;
 }
