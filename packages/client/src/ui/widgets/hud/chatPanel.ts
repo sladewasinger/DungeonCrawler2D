@@ -169,7 +169,12 @@ export class ChatPanelWidget {
         .setOrigin(0, 0)
         // Long announcer lines were escaping the panel's right edge (user
         // screenshot 2026-07-20); wrap inside the panel, rows re-stack in update().
-        .setWordWrapWidth(PANEL_WIDTH - spacing(2));
+        // useAdvancedWrap=true breaks INSIDE unbroken character runs — without
+        // it a "WWWW..." grief string ignores the wrap entirely and spans the
+        // whole screen (user QA catch, 2026-07-20). Server already caps 200 chars;
+        // maxLines caps one message's screen real estate at 3 wrapped rows.
+        .setWordWrapWidth(PANEL_WIDTH - spacing(2), true)
+        .setStyle({ maxLines: 3 });
       this.panel.add(text);
       this.lineTexts.push(text);
     }
