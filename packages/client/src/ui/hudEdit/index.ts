@@ -131,6 +131,10 @@ export class HudEditMode {
 
   private save(): void {
     this.registry.persist();
+    // Layout edits already persist as you drag, so a bare "save" felt like a dead
+    // button (user 2026-07-20: "make it save and close the panel") — SAVE now
+    // commits AND exits edit mode in one tap.
+    this.exit();
   }
 
   private reset(): void {

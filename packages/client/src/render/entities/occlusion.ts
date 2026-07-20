@@ -24,15 +24,18 @@ const OCCLUDING_ROWS_SOUTH = 2;
  * covering wall face rather than flush terrain underfoot. */
 const OCCLUSION_HEIGHT_MARGIN = 0.5;
 
-/** True when a solid tile within OCCLUDING_ROWS_SOUTH south of (x, y) stands tall
- * enough above z that its rendered cap art plausibly paints over this sprite. */
+/** True when a solid tile south of (x, y) stands tall enough that its rendered
+ * body actually reaches this sprite's row: a wall's art extends north of its base
+ * by its HEIGHT, so a wall dy rows south only covers you when height - z >= dy.
+ * (The old >= 0.5-for-any-dy check ghost-tinted players standing fully in the
+ * open two rows north of an ordinary z1 wall — user screenshot 2026-07-20.) */
 export function isOccludedByWallAhead(world: WorldView, x: number, y: number, z: number): boolean {
   const tileX = Math.floor(x);
   const tileY = Math.floor(y);
-  for (let dy = 0; dy <= OCCLUDING_ROWS_SOUTH; dy++) {
+  for (let dy = 1; dy <= OCCLUDING_ROWS_SOUTH; dy++) {
     const wallY = tileY + dy;
     if (world.isWalkable(tileX, wallY)) continue;
-    if (world.heightAt(tileX, wallY) - z >= OCCLUSION_HEIGHT_MARGIN) return true;
+    if (world.heightAt(tileX, wallY) - z >= dy - 1 + OCCLUSION_HEIGHT_MARGIN) return true;
   }
   return false;
 }

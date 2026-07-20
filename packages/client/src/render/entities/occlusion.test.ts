@@ -17,8 +17,16 @@ describe("isOccludedByWallAhead", () => {
     expect(isOccludedByWallAhead(fakeWorld({}), 5.5, 5.5, 0)).toBe(false);
   });
 
-  it("is true when a tall wall sits at the entity's own tile", () => {
-    expect(isOccludedByWallAhead(fakeWorld({ "5,5": 2 }), 5.5, 5.5, 0)).toBe(true);
+  it("ignores the entity's own tile — collision forbids standing inside a wall", () => {
+    expect(isOccludedByWallAhead(fakeWorld({ "5,5": 2 }), 5.5, 5.5, 0)).toBe(false);
+  });
+
+  it("is true for a z1 wall one row south (its body reaches this row)", () => {
+    expect(isOccludedByWallAhead(fakeWorld({ "5,6": 1 }), 5.5, 5.5, 0)).toBe(true);
+  });
+
+  it("is FALSE for a z1 wall two rows south — its art can't reach this far north (user false-positive, 2026-07-20)", () => {
+    expect(isOccludedByWallAhead(fakeWorld({ "5,7": 1 }), 5.5, 5.5, 0)).toBe(false);
   });
 
   it("is true when a tall wall sits up to 2 rows south (its cap art bleeds north onto this row)", () => {
