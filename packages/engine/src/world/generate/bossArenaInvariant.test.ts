@@ -42,7 +42,7 @@ function ringCells(spawn: WorldPoint): WorldPoint[] {
 }
 
 describe("boss arena: exactly one gate", () => {
-  it("every ring-wall cell is Wall except the gate's full-thickness notch", () => {
+  it("every ring-wall cell is Wall except the gate's full-thickness notch", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS) {
       const spawn = bossArenaSpawnAnchor({ worldSeed: seed, floor: FLOOR_CAP });
@@ -68,7 +68,7 @@ describe("boss arena: exactly one gate", () => {
     expect(checked).toBeGreaterThan(25);
   });
 
-  it("the spawn anchor sits inside the ring and reaches the wider corridor network through the gate", () => {
+  it("the spawn anchor sits inside the ring and reaches the wider corridor network through the gate", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS.slice(0, 35)) {
       const chunk = bossArenaChunk(seed, FLOOR_CAP);

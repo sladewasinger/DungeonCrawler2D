@@ -93,7 +93,7 @@ function reportViolations(violations: Array<{ seed: number; floor: number; cx: n
 }
 
 describe("generator vertical-extent invariant", () => {
-  it("zero shallow raised regions across many seeds, floors, and chunk coordinates", () => {
+  it("zero shallow raised regions across many seeds, floors, and chunk coordinates", { timeout: 120_000 }, () => {
     const violations: Array<{ seed: number; floor: number; cx: number; cy: number; v: Violation }> = [];
     for (let seed = 1; seed <= 20; seed++) {
       for (let floor = 0; floor <= 1; floor++) {

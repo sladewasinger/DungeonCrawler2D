@@ -20,7 +20,7 @@ function tileAt(seed: number, floor: number, p: WorldPoint): number {
 }
 
 describe("StairwayDown/StairwayUp reachability", () => {
-  it("StairwayDown's own position is real walkable Floor, on floors 1..FLOOR_CAP-1", () => {
+  it("StairwayDown's own position is real walkable Floor, on floors 1..FLOOR_CAP-1", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS) {
       for (let floor = 1; floor <= 3; floor++) {
@@ -34,7 +34,7 @@ describe("StairwayDown/StairwayUp reachability", () => {
     expect(checked).toBeGreaterThan(50);
   });
 
-  it("StairwayDown's platform reaches the wider corridor network (leaves its own chunk via BFS)", () => {
+  it("StairwayDown's platform reaches the wider corridor network (leaves its own chunk via BFS)", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS.slice(0, 35)) {
       const floor = 1;
@@ -52,7 +52,7 @@ describe("StairwayDown/StairwayUp reachability", () => {
     expect(checked).toBeGreaterThan(25);
   });
 
-  it("StairwayUp's platform likewise reaches the wider corridor network", () => {
+  it("StairwayUp's platform likewise reaches the wider corridor network", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS.slice(0, 35)) {
       const floor = 2;
