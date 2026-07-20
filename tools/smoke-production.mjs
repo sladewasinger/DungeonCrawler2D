@@ -65,7 +65,7 @@ function withTimeout(promise, ms, label) {
 }
 
 /** Sends the hello handshake for `name`, resolving with the server's welcome. */
-function waitForWelcome(ws, name) {
+function waitForWelcome(ws, name, level) {
   return new Promise((resolve, reject) => {
     ws.once("open", () => {
       ws.send(
@@ -74,7 +74,7 @@ function waitForWelcome(ws, name) {
           protocol: PROTOCOL_VERSION,
           name,
           clientId: `smoke-${name}-${Date.now().toString(36)}`,
-          level: "dungeon",
+          level,
         }),
       );
     });
@@ -96,9 +96,9 @@ function waitForWelcome(ws, name) {
 }
 
 /** Opens a fresh socket and completes its join handshake; resolves with both. */
-async function joinSocket(target, name) {
+async function joinSocket(target, name, level = "dungeon") {
   const ws = new WebSocket(target);
-  const welcome = await withTimeout(waitForWelcome(ws, name), HANDSHAKE_TIMEOUT_MS, `${name} handshake`);
+  const welcome = await withTimeout(waitForWelcome(ws, name, level), HANDSHAKE_TIMEOUT_MS, `${name} handshake`);
   return { ws, welcome };
 }
 
@@ -168,10 +168,12 @@ async function runSoloChecks(target) {
 }
 
 /** Two real sockets: a global chat line sent from one must cross to the other —
- * the deployed-server counterpart to the committed e2e suite's chat.test.ts. */
+ * the deployed-server counterpart to the committed e2e suite's chat.test.ts.
+ * Runs in the SANDBOX sim: global chat is scoped per-sim, so real players in
+ * the dungeon never see the smoke line (a live player screenshotted one). */
 async function runChatCrossCheck(target) {
-  const a = await joinSocket(target, "SmokeChatA");
-  const b = await joinSocket(target, "SmokeChatB");
+  const a = await joinSocket(target, "SmokeChatA", "sandbox");
+  const b = await joinSocket(target, "SmokeChatB", "sandbox");
   try {
     const marker = `smoke-global-${Date.now().toString(36)}`;
     const heardWaiter = waitForChatLine(b.ws, marker);

@@ -337,6 +337,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Safe-room interior door:** player phases through it (not collidable pre-interact) and it floats mid-room instead of sitting flush in the wall — make doors solid-until-used and place them in the wall line
 - [ ] **Interact prompt radius mismatch:** the [E] prompt appears farther out than the server accepts interacts — client prompt distance must equal the server's interact range
 - [ ] Coords readout leaks internal room-instance offsets (y 131086 inside a personal room) — display room-relative coordinates
+- [x] Sword flips upright on the left half of the orbit (setFlipY when cos(angle)<0 — pure rotation rendered it upside down); production smoke chat check moved to the sandbox sim (its "SmokeChatA" line was landing in real players' global tab every deploy — user screenshotted it)
+- [ ] **Safe-room SOUTH exit door reads wrong (user screenshot):** north-wall doors sit flush and look right; the south exit floats over the invisible south wall line. Ruling to implement: exit doors default to the north/back wall; where a south exit is required, build a visible alcove treatment — a 1-2 tile inset hallway with a glowing entrance mouth — so the doorway reads from this top-down PoV
 - [ ] Inventory selection outline z-order (yellow ring renders under the Drop button), "Unarmed" chip text centering, and a general HUD alignment pass
 
 ## Epic 8 — Social Fabric (v0.5)

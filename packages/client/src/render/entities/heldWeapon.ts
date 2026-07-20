@@ -92,6 +92,10 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
   sprite.setDepth(pose.wielderDepth + Math.sin(angle) * WEAPON_DEPTH_BIAS);
   const center = orbitPosition(pose.screenX, pose.screenY + ORBIT_CENTER_OFFSET_Y, angle, SCREEN_TILE_PX);
   sprite.setFlipX(false);
+  // On the left half of the orbit a pure rotation renders the weapon upside
+  // down; a vertical flip mirrors the blade back upright — the standard ARPG
+  // held-weapon treatment (user playtest 2026-07-20).
+  sprite.setFlipY(Math.cos(angle) < 0);
   sprite.setPosition(center.x, center.y);
   sprite.setRotation(center.rotation);
 }
