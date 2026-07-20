@@ -1,5 +1,10 @@
 import { MELEE_RANGE, XP_LEVEL_CURVE_COEFFICIENT, xpForLevel } from "@dc2d/engine";
-import { announceKillMilestone, announceLevelUp, broadcastAnnouncement } from "./announcer/index.js";
+import {
+  announceKill,
+  announceKillMilestone,
+  announceLevelUp,
+  broadcastAnnouncement,
+} from "./announcer/index.js";
 import type { EnemySlot, PlayerSlot, SimState } from "./state.js";
 
 /**
@@ -61,6 +66,9 @@ export function awardKillXp(sim: SimState, enemy: EnemySlot): void {
   if (amount <= 0) return;
   const killer = findKiller(sim, enemy);
   if (!killer) return;
+  // Personal kill line (panel round 2 BOOKFAN): private to the killer,
+  // every attributed kill — distinct from the public milestone pool below.
+  killer.outbox.push(announceKill(sim.tickCount, killer.entity.id, enemy.def));
   // The announcer's voice (Epic 7.13, book-fan lane): milestone credit
   // piggybacks on the same last-hit attribution XP already needs, so
   // only xp-bearing enemies count toward a killer's tally.

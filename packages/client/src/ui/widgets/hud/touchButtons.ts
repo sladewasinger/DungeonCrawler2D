@@ -23,9 +23,34 @@ const INTERACT_SIZE = 26;
 const GAP = 5;
 /** Resting/pressed fill alpha — low at rest so the cluster doesn't visually crowd the
  * scene, full the moment a finger is actually on it (wave-6 playtest, "barely any
- * screen real estate"). */
+ * screen real estate"). JUMP/USE stay at the original low-profile value; ATTACK is
+ * raised (judge-panel: at 0.35 it was "so low-contrast... a first-time player likely
+ * won't find it") plus gets a brief idle pulse — see attackRestAlpha below. */
 const REST_ALPHA = 0.35;
+const ATTACK_REST_ALPHA = 0.55;
 const PRESSED_ALPHA = 1;
+/** How long after a session starts the ATTACK button pulses for first-time
+ * discoverability — after this it settles flat at ATTACK_REST_ALPHA. */
+export const ATTACK_PULSE_DURATION_MS = 10_000;
+const ATTACK_PULSE_PERIOD_MS = 1200;
+/** Peak alpha added on top of ATTACK_REST_ALPHA at the crest of each pulse — subtle by
+ * design (judge-panel asked for discoverability, not a strobing button). */
+const ATTACK_PULSE_AMPLITUDE = 0.15;
+
+/**
+ * Pure pulse state machine for the ATTACK button's rest alpha: a gentle sine breathing
+ * between ATTACK_REST_ALPHA and ATTACK_REST_ALPHA + ATTACK_PULSE_AMPLITUDE for the
+ * first ATTACK_PULSE_DURATION_MS of a session, then flat at ATTACK_REST_ALPHA forever
+ * after. `elapsedMs` is time since the button was constructed (session start), not
+ * wall-clock time — exported standalone so the state machine is unit-testable without
+ * a live Phaser clock.
+ */
+export function attackRestAlpha(elapsedMs: number): number {
+  if (elapsedMs < 0 || elapsedMs >= ATTACK_PULSE_DURATION_MS) return ATTACK_REST_ALPHA;
+  const phase = (elapsedMs % ATTACK_PULSE_PERIOD_MS) / ATTACK_PULSE_PERIOD_MS;
+  const wave = (Math.sin(phase * Math.PI * 2) + 1) / 2;
+  return ATTACK_REST_ALPHA + wave * ATTACK_PULSE_AMPLITUDE;
+}
 
 export type TouchButtonKind = "attack" | "jump" | "interact";
 
@@ -55,9 +80,13 @@ export class TouchButtonsWidget {
   private readonly container: Phaser.GameObjects.Container;
   private readonly buttons: ButtonVisual[] = [];
   private readonly scale: number;
+  /** Session start, for attackRestAlpha's elapsed-time pulse window — Phaser's own
+   * clock (scene.time.now), matching the nowMs the caller's update() passes in. */
+  private readonly sessionStartMs: number;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     this.scene = scene;
+    this.sessionStartMs = scene.time.now;
     registry.register({
       id: WIDGET_ID,
       defaultAnchor: "bottom-right",
@@ -79,7 +108,8 @@ export class TouchButtonsWidget {
   }
 
   private buildButton(kind: TouchButtonKind, pos: { x: number; y: number; size: number }): void {
-    const cell = this.scene.add.circle(pos.x, pos.y, pos.size / 2, PANEL_FILL, REST_ALPHA).setStrokeStyle(1, PANEL_BORDER);
+    const restAlpha = kind === "attack" ? attackRestAlpha(0) : REST_ALPHA;
+    const cell = this.scene.add.circle(pos.x, pos.y, pos.size / 2, PANEL_FILL, restAlpha).setStrokeStyle(1, PANEL_BORDER);
     this.container.add(cell);
     this.container.add(this.buildGlyph(kind, pos));
     this.buttons.push({ kind, x: pos.x, y: pos.y, size: pos.size, cell });
@@ -97,10 +127,13 @@ export class TouchButtonsWidget {
     return null;
   }
 
-  /** Pressed-state tint per button from this frame's touch snapshot. */
-  update(pressed: { attack: boolean; jump: boolean; interact: boolean }): void {
+  /** Pressed-state tint per button from this frame's touch snapshot, plus the ATTACK
+   * button's first-session idle pulse (attackRestAlpha) while at rest. */
+  update(pressed: { attack: boolean; jump: boolean; interact: boolean }, nowMs: number): void {
+    const attackAlpha = attackRestAlpha(nowMs - this.sessionStartMs);
     for (const button of this.buttons) {
-      button.cell.setFillStyle(pressed[button.kind] ? SELECTION_ACCENT : PANEL_FILL, pressed[button.kind] ? PRESSED_ALPHA : REST_ALPHA);
+      const restAlpha = button.kind === "attack" ? attackAlpha : REST_ALPHA;
+      button.cell.setFillStyle(pressed[button.kind] ? SELECTION_ACCENT : PANEL_FILL, pressed[button.kind] ? PRESSED_ALPHA : restAlpha);
     }
   }
 

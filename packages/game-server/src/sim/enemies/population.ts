@@ -1,5 +1,6 @@
 import { CHASM_DEATH_Z, CHUNK_SIZE, isRoomChunk, LEVEL, platformLootSpots } from "@dc2d/engine";
 import { spawnEnemy, spawnItem } from "../helpers.js";
+import { resolveSpawnAnchor } from "../spawn.js";
 import type { SimState } from "../state.js";
 import { populateTestZoneChunk } from "../testzone.js";
 
@@ -9,6 +10,28 @@ import { populateTestZoneChunk } from "../testzone.js";
  * the BSP room/corridor/district generator), never a cached layout, so
  * it stays correct as worldgen changes.
  */
+
+/**
+ * Diagnosis (panel round 2, GRINDER'S BLOCKER, docs/ASSUMPTIONS.md #150):
+ * a fresh floor-1 world seeds only ~5-12 enemies within ENEMY_ACTIVE_RADIUS
+ * (48 tiles) of the spawn anchor even after a wide sweep — thin enough that
+ * a 15-minute hunt can plausibly whiff. This radius (bigger than
+ * ENEMY_ACTIVE_RADIUS, matching a realistic walking sweep) is where floor-1
+ * chunk population gets a density bonus, and what enemies/repopulation.ts
+ * tops back up once other players thin it out.
+ */
+export const NEAR_SPAWN_RADIUS_TILES = 60;
+/** Extra enemies per near-spawn floor-1 chunk, on top of the 2-4 base roll. */
+const NEAR_SPAWN_BONUS_ENEMIES = 2;
+
+/** Floor-1 chunks within NEAR_SPAWN_RADIUS_TILES of the spawn anchor get denser spawns. */
+export function isNearSpawnChunk(sim: SimState, cx: number, cy: number): boolean {
+  if (sim.world.floor !== 1) return false;
+  const anchor = resolveSpawnAnchor(sim);
+  const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+  const centerY = cy * CHUNK_SIZE + CHUNK_SIZE / 2;
+  return Math.hypot(centerX - anchor.x, centerY - anchor.y) <= NEAR_SPAWN_RADIUS_TILES;
+}
 
 /** Loot table for ruin-platform tops — a reason to make the jump. */
 const PLATFORM_LOOT: string[] = ["bandage", "torch", "vodka-bottle", "knife", "water-flask"];
@@ -61,7 +84,7 @@ function spawnPlatformLoot(sim: SimState, cx: number, cy: number): void {
   }
 }
 
-function pickEnemyDef(sim: SimState): string {
+export function pickEnemyDef(sim: SimState): string {
   let roll = sim.rng.next();
   for (const [defId, weight] of ENEMY_TABLE) {
     if (roll < weight) return defId;
@@ -71,7 +94,7 @@ function pickEnemyDef(sim: SimState): string {
   return ENEMY_TABLE[0]![0];
 }
 
-function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
+export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
   for (const slot of sim.players.values()) {
     if (Math.hypot(slot.entity.body.x - x, slot.entity.body.y - y) < 12) return true;
   }
@@ -79,7 +102,8 @@ function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
 }
 
 function spawnRandomEnemies(sim: SimState, cx: number, cy: number): void {
-  const count = 2 + Math.floor(sim.rng.next() * 3);
+  const bonus = isNearSpawnChunk(sim, cx, cy) ? NEAR_SPAWN_BONUS_ENEMIES : 0;
+  const count = 2 + Math.floor(sim.rng.next() * 3) + bonus;
   for (let n = 0; n < count; n++) {
     const wx = cx * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     const wy = cy * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);

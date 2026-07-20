@@ -22,6 +22,21 @@ import type { Viewport } from "../state.js";
 const NARROW_VIEWPORT_THRESHOLD = 600;
 
 /**
+ * Below this logical viewport height (a landscape phone, e.g. 844x390), the collapsed
+ * chat toggle chip's *fixed* bottom-anchored offset (-150) lands close enough to the
+ * top of the screen to clip the tail of the top-left HP bar (judge-panel finding,
+ * confirmed at 844x390: HP bar bottom edge ~y56, chip without this fix spans ~y46-90).
+ * Below this threshold the chip's screen-space Y is pinned to CHAT_SHORT_TOP_CLEARANCE_PX
+ * instead of scaling off the (now very short) viewport height.
+ */
+const CHAT_SHORT_HEIGHT_THRESHOLD = 480;
+/** Target screen-space Y (top of the container) for the chat chip on a short viewport —
+ * clears the shrunk HP bar (bottom ~56px, see health's own narrow-viewport shrink above)
+ * with margin, and stays well above the touch-stick's rest position (~222px, see
+ * touchStick.ts's STICK_RADIUS_PX) so it never trades one collision for another. */
+const CHAT_SHORT_TOP_CLEARANCE_PX = 170;
+
+/**
  * Uses the SMALLER of width/height, not width alone: a landscape phone (844x390) has
  * the same 390px squeeze a portrait one (390x844) does — its own 844px width reads as
  * roomy but isn't the axis anything actually has to fit inside. Both orientations of
@@ -30,6 +45,19 @@ const NARROW_VIEWPORT_THRESHOLD = 600;
 function narrowViewportFactor(viewport: Viewport): number {
   const narrowAxis = Math.min(viewport.width, viewport.height);
   return Math.min(narrowAxis / NARROW_VIEWPORT_THRESHOLD, 1);
+}
+
+/**
+ * The collapsed chat chip's pre-hudScale y-offset (bottom-anchored, so negative moves
+ * it up). On a roomy viewport the fixed -150 (mirrors the shipped default's general
+ * shape) sits well clear of everything. On a short one it's replaced with a value
+ * solved so the *resulting screen position* pins to CHAT_SHORT_TOP_CLEARANCE_PX
+ * regardless of exactly how short — see resolveLayout (layout.ts): screen y =
+ * viewport.height + offset.y * hudScale, so offset.y = (target - height) / hudScale.
+ */
+function chatOffsetY(viewport: Viewport, hudScale: number): number {
+  if (viewport.height >= CHAT_SHORT_HEIGHT_THRESHOLD) return -150;
+  return (CHAT_SHORT_TOP_CLEARANCE_PX - viewport.height) / hudScale;
 }
 
 /** Shrinks/repositions the desktop-sized HUD so the new corner touch controls don't
@@ -43,6 +71,7 @@ function narrowViewportFactor(viewport: Viewport): number {
  * mount, so the factor never goes stale (index.ts's resize()). */
 export function applyTouchLayoutOverrides(registry: WidgetRegistry, viewport: Viewport): void {
   const factor = narrowViewportFactor(viewport);
+  const hudScale = registry.getHudScale();
   // The segmented HP bar has no narrow-viewport treatment of its own (unlike status/
   // party below) and at its stock finalScale 2 runs to a 390px phone's edge with zero
   // margin, crowding straight into the top-right telemetry stack (wave-6 sweep:
@@ -50,7 +79,7 @@ export function applyTouchLayoutOverrides(registry: WidgetRegistry, viewport: Vi
   registry.setOverride("health", { scale: factor });
   registry.setOverride("hotbar", { scale: 0.5 });
   registry.setOverride("weapon", { visible: false });
-  registry.setOverride("chat", { offset: { x: 16, y: -150 } });
+  registry.setOverride("chat", { offset: { x: 16, y: chatOffsetY(viewport, hudScale) } });
   registry.setOverride("inventory", { scale: 0.5 });
   registry.setOverride("contacts", { scale: 0.5 });
   registry.setOverride("craft", { scale: 0.5 });

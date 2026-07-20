@@ -101,3 +101,45 @@ describe("applyTouchLayoutOverrides' narrow-viewport shrink", () => {
     expect(registry.resolve(narrow).get("inventory")?.scale).toBe(1);
   });
 });
+
+// Judge-panel finding, confirmed at 844x390: the collapsed chat chip's fixed bottom
+// offset clips the tail of the top-left HP bar on a short (landscape-phone) viewport.
+describe("applyTouchLayoutOverrides' chat offset on short viewports", () => {
+  function registryWithChat(): WidgetRegistry {
+    const registry = new WidgetRegistry();
+    registry.register(stubDefinition("chat"));
+    registry.register(stubDefinition("health"));
+    return registry;
+  }
+
+  it("keeps the chat chip well clear of the HP bar at 844x390", () => {
+    const registry = registryWithChat();
+    const viewport = { width: 844, height: 390 };
+    applyTouchLayoutOverrides(registry, viewport);
+    const resolved = registry.resolve(viewport);
+    const chatY = resolved.get("chat")!.y;
+    const healthY = resolved.get("health")!.y;
+    // The HP bar's own container sits ~32-56px from the top at this viewport (top-left
+    // anchor, shrunk scale); the chat chip must resolve well below that.
+    expect(chatY).toBeGreaterThan(healthY + 80);
+  });
+
+  it("does not touch the offset on a roomy (non-short) viewport", () => {
+    const registry = registryWithChat();
+    const viewport = { width: 1280, height: 800 };
+    applyTouchLayoutOverrides(registry, viewport);
+    const resolved = registry.resolve(viewport);
+    // Bottom-anchored default offset -150 * hudScale(2) below the viewport height.
+    expect(resolved.get("chat")!.y).toBe(800 - 300);
+  });
+
+  it("still clears the HP bar on a shorter landscape phone (390 wide, 844 tall — height, not width, gates this)", () => {
+    const registry = registryWithChat();
+    const viewport = { width: 390, height: 844 };
+    applyTouchLayoutOverrides(registry, viewport);
+    const resolved = registry.resolve(viewport);
+    // Portrait: height is roomy, so this should use the un-clamped default, not the
+    // short-viewport pin.
+    expect(resolved.get("chat")!.y).toBe(844 - 300);
+  });
+});

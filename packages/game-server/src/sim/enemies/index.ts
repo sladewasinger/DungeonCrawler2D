@@ -3,3 +3,4 @@
 
 export { activateChunksNearPlayers } from "./population.js";
 export { stepEnemies } from "./ai.js";
+export { REPOPULATE_INTERVAL_TICKS, repopulateNearSpawn } from "./repopulation.js";

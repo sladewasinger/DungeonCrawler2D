@@ -2,8 +2,9 @@
 // join/death/level/kill/fistbump/torch moments — the DCC book-fan lane
 // (Epic 7.13). Every line rides the existing "system" chat channel, so
 // no client changes are required to see them.
-import type { GameEvent } from "@dc2d/engine";
+import type { EnemyDef, GameEvent } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../state.js";
+import { killVerbPhrase } from "./killLine.js";
 import {
   BOSS_INTRO_LINES,
   BOSS_KILL_LINES,
@@ -15,6 +16,7 @@ import {
   JOIN_LINES,
   KILL_MILESTONE_LINES,
   LEVEL_UP_LINES,
+  PERSONAL_KILL_LINES,
 } from "./lines.js";
 import { pickLineIndex } from "./pick.js";
 import { recordKill } from "./killCounts.js";
@@ -68,6 +70,18 @@ export function announceKillMilestone(tick: number, killer: PlayerSlot): GameEve
   if (!KILL_MILESTONES.includes(count)) return null;
   const line = pick(KILL_MILESTONE_LINES, tick, `kills:${killer.entity.id}:${count}`);
   return systemLine(line(killer.entity.name ?? "?", count));
+}
+
+/**
+ * Killer-addressed personal kill line (panel round 2 BOOKFAN): fires on
+ * every attributed kill, not just milestones — the caller pushes the
+ * result straight onto the killer's outbox, never broadcastAnnouncement,
+ * so only the killer hears it.
+ */
+export function announceKill(tick: number, killerId: string, def: EnemyDef): GameEvent {
+  const verbPhrase = killVerbPhrase(def);
+  const line = pick(PERSONAL_KILL_LINES, tick, `kill:${killerId}:${def.id}`);
+  return systemLine(line(verbPhrase));
 }
 
 export function announceFistbump(tick: number, aId: string, aName: string, bName: string): GameEvent {

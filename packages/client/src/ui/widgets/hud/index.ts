@@ -147,7 +147,7 @@ export class HudWidgets {
     this.toasts.update(snapshot.toasts, nowMs);
     if (snapshot.touch) {
       this.touchStick?.update(snapshot.touch.stick);
-      this.touchButtons?.update(snapshot.touch.buttons);
+      this.touchButtons?.update(snapshot.touch.buttons, nowMs);
     }
   }
 

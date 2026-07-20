@@ -41,6 +41,21 @@ export const KILL_MILESTONE_LINES: readonly KillLine[] = [
   (name, count) => `${name} racks up kill #${count}. Efficient. Almost professional.`,
 ];
 
+export type PersonalKillLine = (verbPhrase: string) => string;
+
+/**
+ * Killer-only lines (panel round 2 BOOKFAN) — a distinct pool from
+ * KILL_MILESTONE_LINES above: these fire on every attributed kill, not
+ * just milestone counts, and are delivered privately to the killer
+ * (never broadcast). `verbPhrase` comes from killLine.ts's active-voice
+ * transform of the enemy's content epithet.
+ */
+export const PERSONAL_KILL_LINES: readonly PersonalKillLine[] = [
+  (verbPhrase) => `${verbPhrase}.`,
+  (verbPhrase) => `${verbPhrase}. Nobody else needs to know.`,
+  (verbPhrase) => `${verbPhrase}. The dungeon's tally updates quietly.`,
+];
+
 export const FISTBUMP_LINES: readonly FistbumpLine[] = [
   (a, b) => `${a} and ${b} form an alliance. How adorable.`,
   (a, b) => `${a} and ${b} are now allies. The dungeon appreciates a bigger meal.`,

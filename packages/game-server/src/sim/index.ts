@@ -13,7 +13,12 @@ import {
 } from "@dc2d/engine";
 import { processActions } from "./actions/index.js";
 import { resolveDeaths } from "./deaths.js";
-import { activateChunksNearPlayers, stepEnemies } from "./enemies/index.js";
+import {
+  activateChunksNearPlayers,
+  REPOPULATE_INTERVAL_TICKS,
+  repopulateNearSpawn,
+  stepEnemies,
+} from "./enemies/index.js";
 import { drainReadyTransfers, initBossFloor, receiveTransfer, stepBoss } from "./floors/index.js";
 import { spawnEnemy, spawnItem } from "./helpers.js";
 import { addPlayer } from "./join.js";
@@ -207,6 +212,7 @@ export class GameSim {
     stepPlayers(sim, effectEvents);
     processActions(sim, effectEvents);
     activateChunksNearPlayers(sim);
+    if (sim.tickCount % REPOPULATE_INTERVAL_TICKS === 0) repopulateNearSpawn(sim);
     if (sim.hazardsActive && sim.tickCount % TEST_ZONE_RESEED_TICKS === 0) {
       const claimed = new Set<string>();
       seedTestZoneHazards(sim, claimed);

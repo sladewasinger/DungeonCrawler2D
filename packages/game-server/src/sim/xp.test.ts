@@ -16,7 +16,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
-import { announceLevelUp } from "./announcer/index.js";
+import { announceKill, announceLevelUp } from "./announcer/index.js";
 import { awardKillXp, levelForXp } from "./xp.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "./state.js";
 
@@ -34,6 +34,7 @@ const EMPTY_CONTENT: RawContent = {
 const slimeDef: EnemyDef = {
   id: "slime", name: "Slime", tags: ["organic"], hp: 12, speed: 3, aggroRadius: 8,
   attack: { damage: 2, range: 0.9, cooldown: 1.2 }, drops: [], sprite: "slime", xp: 5,
+  epithet: "dissolved by a slime. A slime.",
 };
 
 function makeSlot(name: string, x: number, y: number): PlayerSlot {
@@ -160,6 +161,37 @@ describe("awardKillXp", () => {
     // Broadcast, not private: every connected slot (here, just the killer)
     // gets the exact deterministic line the announcer picks for this tick.
     expect(a.outbox).toContainEqual(announceLevelUp(sim.tickCount, a.entity.id, "A", 2));
+  });
+
+  it("sends the killer a private personal kill line naming the enemy's epithet", () => {
+    const a = makeSlot("A", 5, 5);
+    a.attackStartedAtTick = sim.tickCount;
+    sim.players.set(a.entity.id, a);
+    const enemy = makeEnemySlot(5.5, 5, slimeDef);
+
+    awardKillXp(sim, enemy);
+
+    expect(a.outbox).toContainEqual(announceKill(sim.tickCount, a.entity.id, slimeDef));
+    const killLine = a.outbox.find(
+      (ev) => ev.t === "chat" && ev.text.startsWith("Dissolved a slime"),
+    );
+    expect(killLine).toBeDefined();
+  });
+
+  it("delivers the personal kill line only to the killer, never broadcasts it", () => {
+    const killer = makeSlot("Killer", 5, 5);
+    killer.attackStartedAtTick = sim.tickCount;
+    const bystander = makeSlot("Bystander", 5, 5);
+    sim.players.set(killer.entity.id, killer);
+    sim.players.set(bystander.entity.id, bystander);
+    const enemy = makeEnemySlot(5.5, 5, slimeDef);
+
+    awardKillXp(sim, enemy);
+
+    const bystanderKillLine = bystander.outbox.find(
+      (ev) => ev.t === "chat" && ev.text.startsWith("Dissolved a slime"),
+    );
+    expect(bystanderKillLine).toBeUndefined();
   });
 
   it("persists the award via PlayerStore (survives a fresh load from the same file)", () => {
