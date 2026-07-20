@@ -7,12 +7,18 @@ import type Phaser from "phaser";
 import type { LightingSystem } from "../render/lighting/index.js";
 import type { LightSource } from "../render/lighting/lightSource.js";
 import { VfxSystem, type AreaTileView } from "../vfx/index.js";
+import { floorAnnouncerLine } from "./dungeon/floorAnnouncer.js";
 import { DEMO_HIT_TICK_MS, demoSkeletonHp, showcaseMonsterSlot, SHOWCASE_ROW } from "./entityShowcaseLayout.js";
 import { showcasePlayerPose } from "./showcasePlayerMotion.js";
 import { HAZARD_TILES } from "./vfxShowcaseLayout.js";
 
 const SHAKE_INTERVAL_MS = 2400;
 const GLINT_INTERVAL_MS = 2200;
+/** Epic 7.14 proof loop — re-triggers often enough that a screenshot taken any time
+ * after load lands inside the banner's ~3s visible window (docs/client-proofs). */
+const FLOOR_BANNER_INTERVAL_MS = 4000;
+/** Same loop for the boss-down celebration — offset so it doesn't pop mid-banner. */
+const BOSS_DOWN_INTERVAL_MS = 4000;
 
 /** A standing arena-lantern glow over the combat row — every real encounter room has some light source; this demo's is implicit. */
 const ARENA_LIGHT: LightSource = {
@@ -46,6 +52,8 @@ export class VfxShowcase {
   private lastDamageTickMs = 0;
   private lastShakeMs = 0;
   private lastGlintMs = 0;
+  private lastFloorBannerMs = -FLOOR_BANNER_INTERVAL_MS;
+  private lastBossDownMs = -BOSS_DOWN_INTERVAL_MS / 2;
 
   constructor(
     scene: Phaser.Scene,
@@ -63,6 +71,8 @@ export class VfxShowcase {
     this.tickDamageNumbers(nowMs);
     this.tickShake(nowMs);
     this.tickGlint(nowMs);
+    this.tickFloorBanner(nowMs);
+    this.tickBossDown(nowMs);
     this.vfx.update(nowMs);
   }
 
@@ -95,6 +105,20 @@ export class VfxShowcase {
     if (nowMs - this.lastGlintMs < GLINT_INTERVAL_MS) return;
     this.lastGlintMs = nowMs;
     this.vfx.spawnPickupGlint(SHOWCASE_ROW.baseX, SHOWCASE_ROW.baseY + 2);
+  }
+
+  /** Periodic floor-entry banner (Epic 7.14 proof, docs/client-proofs/wave8-floor-banner.png). */
+  private tickFloorBanner(nowMs: number): void {
+    if (nowMs - this.lastFloorBannerMs < FLOOR_BANNER_INTERVAL_MS) return;
+    this.lastFloorBannerMs = nowMs;
+    this.vfx.spawnFloorBanner(3, floorAnnouncerLine(3), nowMs);
+  }
+
+  /** Periodic boss-down celebration (Epic 7.14 proof). */
+  private tickBossDown(nowMs: number): void {
+    if (nowMs - this.lastBossDownMs < BOSS_DOWN_INTERVAL_MS) return;
+    this.lastBossDownMs = nowMs;
+    this.vfx.spawnBossDownFlourish("The Warden of Five", nowMs);
   }
 
   dispose(): void {

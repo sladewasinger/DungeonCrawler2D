@@ -11,14 +11,14 @@
  */
 import type Phaser from "phaser";
 import { uiTextStyle } from "../../font.js";
-import { drawPanelBackground, drawSelectionAccent, PANEL_BORDER, PANEL_FILL, spacing } from "../../panel.js";
+import { drawPanelBackground, drawSelectionAccent, PANEL_BORDER, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
 import { buildCloseButton, type CloseButtonHandle } from "./closeButton.js";
 import type { InventoryRowData } from "./fakeData.js";
+import { buildInventoryRow } from "./inventoryRowBuilder.js";
 import { INVENTORY_TABS, inventoryRowViews, type InventoryRowView, type InventoryTabId } from "./inventoryRows.js";
-import { createItemIcon } from "./itemIcon.js";
 import { WINDOW_PANEL_HEIGHT, WINDOW_VERTICAL_OFFSET } from "./windowLayout.js";
 
 const WIDGET_ID = "inventory";
@@ -27,9 +27,6 @@ const PANEL_HEIGHT = WINDOW_PANEL_HEIGHT;
 const TAB_HEIGHT = 22;
 const ROW_HEIGHT = 32;
 const ICON_SIZE = 22;
-const BTN_HEIGHT = 18;
-const DROP_WIDTH = 42;
-const EQUIP_WIDTH = 48;
 /** No scroll region in Phase 1 (HUD_OS.md §7) — extra rows simply don't render. */
 const MAX_VISIBLE_ROWS = Math.floor((PANEL_HEIGHT - TAB_HEIGHT - spacing(2)) / ROW_HEIGHT);
 
@@ -128,56 +125,25 @@ export class InventoryWindowWidget {
   private buildRow(view: InventoryRowView, y: number): Phaser.GameObjects.GameObject[] {
     const left = -PANEL_WIDTH / 2 + spacing(1);
     const right = PANEL_WIDTH / 2 - spacing(1);
-    const rowBg = this.scene.add
-      .rectangle(left, y, right - left, ROW_HEIGHT - 2, PANEL_FILL, 0.4)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
-    rowBg.on("pointerdown", () => this.selectRow(view.itemId));
-    const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE, this.scale).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
-    const label = this.buildRowLabel(view, left, y);
-    const buttons = this.buildRowButtons(view, right, y);
-    // Drawn LAST (on top of the Equip/Drop buttons, not under them) — Epic 7.13
-    // onboarding lane's z-order fix: the selection outline used to render beneath the
-    // row's own buttons and get visually clipped by their backgrounds.
-    const accent = drawSelectionAccent(this.scene, right - left, ROW_HEIGHT - 2)
-      .setPosition(left, y)
-      .setVisible(view.itemId === this.selectedItemId);
-    const objects = [rowBg, icon, label, ...buttons, accent];
+    const objects = buildInventoryRow(
+      {
+        scene: this.scene,
+        scale: this.scale,
+        iconSize: ICON_SIZE,
+        rowHeight: ROW_HEIGHT,
+        currentWeaponId: this.currentWeaponId,
+        selectedItemId: this.selectedItemId,
+        onSelect: (itemId) => this.selectRow(itemId),
+        onEquip: (itemId) => this.actions.equip(itemId),
+        onDrop: (itemId) => this.actions.drop(itemId),
+      },
+      view,
+      left,
+      right,
+      y,
+    );
     this.panel.add(objects);
     return objects;
-  }
-
-  private buildRowLabel(view: InventoryRowView, left: number, y: number): Phaser.GameObjects.Text {
-    const tag = view.boundSlot !== null ? `  [${view.boundSlot + 1}]` : "";
-    const x = left + ICON_SIZE + spacing(1.5);
-    return this.scene.add
-      .text(x, y + (ROW_HEIGHT - 2) / 2, `${view.name} ×${view.qty}${tag}`, uiTextStyle(11, undefined, this.scale))
-      .setOrigin(0, 0.5);
-  }
-
-  private buildRowButtons(view: InventoryRowView, right: number, y: number): Phaser.GameObjects.GameObject[] {
-    const btnY = y + (ROW_HEIGHT - 2 - BTN_HEIGHT) / 2;
-    const dropX = right - DROP_WIDTH;
-    const drop = this.buildButton(dropX, btnY, DROP_WIDTH, "Drop", true, () => this.actions.drop(view.itemId));
-    if (!view.isWeapon) return drop;
-    const equippedHere = this.currentWeaponId === view.itemId;
-    const equipX = dropX - spacing(0.5) - EQUIP_WIDTH;
-    const equip = this.buildButton(equipX, btnY, EQUIP_WIDTH, equippedHere ? "Equipped" : "Equip", !equippedHere, () =>
-      this.actions.equip(view.itemId),
-    );
-    return [...equip, ...drop];
-  }
-
-  private buildButton(x: number, y: number, width: number, label: string, active: boolean, onClick: () => void): Phaser.GameObjects.GameObject[] {
-    const bg = this.scene.add.rectangle(x, y, width, BTN_HEIGHT, PANEL_FILL, 0.9).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
-    const text = this.scene.add
-      .text(x + width / 2, y + BTN_HEIGHT / 2, label, uiTextStyle(9, active ? "#e8e8e8" : "#6b6b7e", this.scale))
-      .setOrigin(0.5, 0.5);
-    if (active) {
-      bg.setInteractive({ useHandCursor: true });
-      bg.on("pointerdown", onClick);
-    }
-    return [bg, text];
   }
 
   update(rows: readonly InventoryRowData[], weaponId: string | null): void {

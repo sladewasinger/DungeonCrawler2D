@@ -68,5 +68,22 @@
     "sprite": "imp",
     "xp": 12,
     "epithet": "spat on from a safe, professional distance"
+  },
+  {
+    "id": "warden-of-five",
+    "name": "The Warden of Five",
+    "tags": ["undead", "boss"],
+    "hp": 600,
+    "speed": 1.8,
+    "aggroRadius": 14,
+    "attack": { "damage": 12.5, "range": 1.8, "cooldown": 1.8 },
+    "immunities": ["bleed", "poison"],
+    "drops": [
+      { "item": "hammer", "chance": 0.6 },
+      { "item": "bandage", "chance": 1 }
+    ],
+    "sprite": "skelet",
+    "xp": 200,
+    "epithet": "flattened by the Warden of Five, in the Warden's own house"
   }
 ]

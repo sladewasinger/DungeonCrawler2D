@@ -73,3 +73,47 @@ describe("PlayerStore xp/level", () => {
     }
   });
 });
+
+describe("PlayerStore deepestFloor (Epic 7.14)", () => {
+  it("new records start at deepestFloor 1", () => {
+    const store = new PlayerStore(null);
+    expect(store.get("client-1", "A").deepestFloor).toBe(1);
+  });
+
+  it("recordDeepestFloor only ever increases, never decreases", () => {
+    const store = new PlayerStore(null);
+    const player = store.get("client-1", "A");
+    store.recordDeepestFloor(player, 4);
+    expect(player.deepestFloor).toBe(4);
+    store.recordDeepestFloor(player, 2); // back to floor 1's spawn on death — watermark stays
+    expect(player.deepestFloor).toBe(4);
+    store.recordDeepestFloor(player, 5);
+    expect(player.deepestFloor).toBe(5);
+  });
+
+  it("loads a pre-Epic-7.14 save file (no deepestFloor field) defaulting to 1", () => {
+    const file = tempFile();
+    try {
+      const legacy = { nextSlot: 1, players: { "client-1": { slot: 0, name: "A", stash: [], contacts: [], xp: 0, level: 1 } } };
+      writeFileSync(file, JSON.stringify(legacy));
+      const store = new PlayerStore(file);
+      expect(store.get("client-1", "A").deepestFloor).toBe(1);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  it("survives a restart: deepestFloor written by one instance loads in a fresh one", () => {
+    const file = tempFile();
+    try {
+      const a = new PlayerStore(file);
+      a.recordDeepestFloor(a.get("client-1", "A"), 4);
+      a.flush();
+
+      const b = new PlayerStore(file);
+      expect(b.get("client-1", "A").deepestFloor).toBe(4);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+});

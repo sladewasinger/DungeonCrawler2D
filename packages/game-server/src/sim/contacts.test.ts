@@ -50,7 +50,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     god: false,
     forceDeath: false,
     chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity,
+    lastFistbumpOfferAtTick: -Infinity, pendingTransfer: null,
   };
 }
 
@@ -126,10 +126,12 @@ describe("contacts", () => {
     expect(a.outbox.some((e) => e.t === "chat" && e.text.includes("wait a moment"))).toBe(true);
   });
 
-  it("/who reports online count, nearby count, and sorted names", () => {
+  it("/who reports online count, nearby count, and sorted names with floor (Epic 7.14)", () => {
     doWho(sim, a);
     const line = a.outbox.find((e) => e.t === "chat" && e.channel === "system");
-    expect(line).toMatchObject({ text: expect.stringContaining("Online (2, 1 nearby): A, B") });
+    expect(line).toMatchObject({
+      text: expect.stringContaining("Online (2, 1 nearby): A (F1), B (F1)"),
+    });
   });
 
   it("withinRateLimit prunes the window and enforces the cap", () => {

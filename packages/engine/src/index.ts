@@ -7,6 +7,8 @@ export * from "./world/level.js";
 export * from "./world/stairs.js";
 export * from "./world/terrain.js";
 export * from "./world/features/fixed.js";
+export * from "./world/features/descent.js";
+export * from "./world/features/bossArena.js";
 export * from "./world/features/platforms.js";
 export * from "./world/pockets.js";
 export * from "./world/features/terraces.js";

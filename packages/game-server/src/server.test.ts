@@ -18,7 +18,7 @@ import {
 import type { AddressInfo } from "node:net";
 import { WebSocket } from "ws";
 import { describe, expect, it } from "vitest";
-import { startServer, type RunningServer } from "./server.js";
+import { startServer, type RunningServer } from "./server/index.js";
 
 const content = buildContentRegistry({
   statuses: statusesData as unknown[],

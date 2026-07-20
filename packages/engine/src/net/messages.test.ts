@@ -35,7 +35,9 @@ describe("protocol", () => {
       { type: "fistbump", targetId: "p2" },
       { type: "who" },
       { type: "suicide" },
+      { type: "descend" },
       { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "sandbox" },
+      { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "dungeon", floor: 3 },
     ];
     for (const intent of intents) {
       expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);
@@ -64,6 +66,8 @@ describe("protocol", () => {
         xp: 120,
         level: 3,
         xpForNext: 180,
+        floor: 3,
+        deepestFloor: 4,
       },
       inventory: [
         { item: "rag", qty: 2 },

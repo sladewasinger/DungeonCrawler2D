@@ -1,6 +1,8 @@
-import type { AreaTileUpdate, GameEvent, ServerSnapshot, World } from "@dc2d/engine";
+import { World, type AreaTileUpdate, type GameEvent, type ServerSnapshot } from "@dc2d/engine";
 import { parseFistbumpSealPartner } from "../ui/chat/fistbumpSeal.js";
+import { isBossDefId } from "./bossDefIds.js";
 import type { Connection } from "./connection.js";
+import { floorChangeEvents } from "./floorEvents.js";
 import { recordSample } from "./interpolate.js";
 import { xpGainEvents } from "./xpEvents.js";
 
@@ -50,6 +52,7 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
   else conn.prediction.reconcile(world, conn.body, snap.lastSeq);
   applyXpState(conn, snap.self.xp ?? conn.xp, snap.self.level ?? conn.charLevel, snap.self.xpForNext ?? conn.xpForNext);
+  applyFloorState(conn, snap);
   conn.inventory = snap.inventory;
   conn.hotbar = snap.hotbar;
   conn.weapon = snap.weapon;
@@ -67,6 +70,26 @@ function applyXpState(conn: Connection, xp: number, level: number, xpForNext: nu
   conn.xp = xp;
   conn.charLevel = level;
   conn.xpForNext = xpForNext;
+}
+
+/** Epic 7.14 (The Descent) — diffs the connected floor and queues a floorEntered visual
+ * event on change. self.floor is additive/optional (protocol 15+, mirrors xp/level's
+ * own rollout in ASSUMPTION #90), so this falls back to the welcome handshake's floor
+ * for an older/mid-rollout server.
+ *
+ * INTEGRATION FIX (wave 8 gate): `conn.world` was only ever constructed once, in
+ * socket.ts's onWelcome, from the JOIN-time floor — every descend/ascend left it
+ * silently stale (wrong chunk geometry for prediction, terrain, and this file's own
+ * stairwayProximity checks), even though scenes/dungeon/index.ts's
+ * `ensureWorldBoundSystems` was already written to rebuild on a `conn.world` identity
+ * change and just never got one. Rebuilding here — the one place a floor change is
+ * already detected — keeps `conn.world` (same worldSeed/level, new floor) in sync on
+ * every transfer without new state elsewhere. */
+function applyFloorState(conn: Connection, snap: ServerSnapshot): void {
+  const next = snap.self.floor ?? conn.welcome?.floor ?? conn.floor;
+  if (conn.hasReceivedSnapshot) conn.visualEvents.push(...floorChangeEvents(conn.floor, next));
+  if (next !== conn.floor && conn.world) conn.world = new World(conn.world.worldSeed, next, conn.world.level);
+  conn.floor = next;
 }
 
 function applyEntitySample(
@@ -131,9 +154,23 @@ function applyEvent(conn: Connection, event: GameEvent): void {
       conn.entities.clear();
       conn.areaTiles.clear();
       return;
+    case "death":
+      // Applied before `left` prunes conn.entities (see applySnapshot's ordering comment),
+      // so the dying entity's defId/name is still there for the boss-down check below.
+      conn.visualEvents.push(event);
+      pushBossDownIfBoss(conn, event.id);
+      return;
     default:
-      // Remaining variants (hit/death/status) are visual-only; the scene drains them.
+      // Remaining variants (hit/status) are visual-only; the scene drains them.
       conn.visualEvents.push(event);
       return;
   }
+}
+
+/** Epic 7.14 boss-death celebration: the wire has no dedicated "boss defeated" event,
+ * so this recognizes it from a plain death whose entity carries a boss content id. */
+function pushBossDownIfBoss(conn: Connection, id: string): void {
+  const snap = conn.entities.get(id)?.snap;
+  if (!isBossDefId(snap?.defId)) return;
+  conn.visualEvents.push({ t: "bossDown", name: snap?.name ?? snap?.defId ?? "The boss" });
 }

@@ -7,6 +7,8 @@
 // nearby rooms flat means the landmark's own (already-graduated) height
 // meets ordinary ground with nothing more than the usual WALL_RISE step.
 
+import { bossArenaGuardAnchor } from "../../features/bossArena.js";
+import { descentGuardAnchor } from "../../features/descent.js";
 import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed.js";
 import type { Rect } from "../types.js";
 import { isLandmarkChunk } from "../district.js";
@@ -34,4 +36,18 @@ export function isNearLandmark(
   if (isStairsChunk(worldSeed, floor, cx, cy)) return false;
   const center = landmarkCenter(worldSeed, floor, cx, cy);
   return chebyshevDistance(rect, center.lx, center.ly) <= GUARD_REACH;
+}
+
+/** Same guard as isNearLandmark, for the single-per-floor descent structures (features/descent.ts, features/bossArena.ts) — whichever (if any) claimed this chunk. */
+export function isNearDescent(
+  worldSeed: number,
+  floor: number,
+  cx: number,
+  cy: number,
+  rect: Rect,
+): boolean {
+  const anchor =
+    descentGuardAnchor(worldSeed, floor, cx, cy) ?? bossArenaGuardAnchor(worldSeed, floor, cx, cy);
+  if (!anchor) return false;
+  return chebyshevDistance(rect, anchor.lx, anchor.ly) <= anchor.reach;
 }

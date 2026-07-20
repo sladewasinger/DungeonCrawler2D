@@ -110,7 +110,7 @@ function gatherVisible(
 }
 
 /** Build the `self` block: body state + vitals, from the player's own entity. */
-function toSelfSnapshot(slot: PlayerSlot): ServerSnapshot["self"] {
+function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"] {
   const self = slot.entity;
   // Epic 11 core (ASSUMPTION #90, docs/ASSUMPTIONS.md): xp/level persist on
   // the durable PlayerStore record, not the ephemeral entity.
@@ -134,6 +134,9 @@ function toSelfSnapshot(slot: PlayerSlot): ServerSnapshot["self"] {
     xp,
     level,
     xpForNext: xpForLevel(level + 1) - xp,
+    // Epic 7.14 (The Descent): current floor + the durable deepest-floor watermark.
+    floor: sim.world.floor,
+    deepestFloor: slot.stored.deepestFloor ?? 1,
   };
 }
 
@@ -203,7 +206,7 @@ function buildPlayerSnapshot(
     type: "snapshot",
     tick: sim.tickCount,
     lastSeq: slot.lastSeq,
-    self: toSelfSnapshot(slot),
+    self: toSelfSnapshot(sim, slot),
     inventory: slot.inventory.map((s) => ({ ...s })),
     hotbar: [...slot.hotbar],
     weapon: slot.weapon,

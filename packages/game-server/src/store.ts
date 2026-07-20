@@ -27,6 +27,12 @@ export interface StoredPlayer {
    * below always populates concrete values for records it creates. */
   xp?: number;
   level?: number;
+  /** Epic 7.14 (The Descent) — deepest floor this clientId has ever
+   * reached. Optional in the TYPE for the same reason xp/level are: many
+   * pre-existing hand-built fixtures across sim/ predate this field;
+   * every reader treats a missing value as 1, and `get()` always
+   * populates a concrete value for records it creates. */
+  deepestFloor?: number;
 }
 
 export const STASH_CAPACITY = 24;
@@ -44,10 +50,17 @@ export class PlayerStore {
         players: Record<string, StoredPlayer>;
       };
       this.nextSlot = raw.nextSlot;
-      // contacts (Epic 7.10) and xp/level (Epic 11 core, ASSUMPTION #90)
-      // are both additive — records saved before either shipped lack them.
+      // contacts (Epic 7.10), xp/level (Epic 11 core, ASSUMPTION #90), and
+      // deepestFloor (Epic 7.14) are all additive — records saved before
+      // any of them shipped lack them.
       for (const [id, p] of Object.entries(raw.players)) {
-        this.data.set(id, { ...p, contacts: p.contacts ?? [], xp: p.xp ?? 0, level: p.level ?? 1 });
+        this.data.set(id, {
+          ...p,
+          contacts: p.contacts ?? [],
+          xp: p.xp ?? 0,
+          level: p.level ?? 1,
+          deepestFloor: p.deepestFloor ?? 1,
+        });
       }
     } catch {
       // first boot — empty store
@@ -65,7 +78,7 @@ export class PlayerStore {
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);
     if (!player) {
-      player = { slot: this.nextSlot++, name, stash: [], contacts: [], xp: 0, level: 1 };
+      player = { slot: this.nextSlot++, name, stash: [], contacts: [], xp: 0, level: 1, deepestFloor: 1 };
       this.data.set(clientId, player);
       this.scheduleSave();
     } else if (player.name !== name) {
@@ -110,6 +123,14 @@ export class PlayerStore {
   addContact(player: StoredPlayer, name: string): void {
     if (player.contacts.some((c) => c.toLowerCase() === name.toLowerCase())) return;
     player.contacts.push(name);
+    this.scheduleSave();
+  }
+
+  /** Epic 7.14 (The Descent): bump the durable deepest-floor watermark;
+   * never decreases (arriving back at floor 1 doesn't erase a floor 4 run). */
+  recordDeepestFloor(player: StoredPlayer, floor: number): void {
+    if (floor <= (player.deepestFloor ?? 1)) return;
+    player.deepestFloor = floor;
     this.scheduleSave();
   }
 

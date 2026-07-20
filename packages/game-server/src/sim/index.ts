@@ -6,6 +6,7 @@ import {
   type EffectEvent,
   type EffectsEngine,
   type Entity,
+  type GameEvent,
   type InvStack,
   type ServerSnapshot,
   type World,
@@ -13,6 +14,7 @@ import {
 import { processActions } from "./actions/index.js";
 import { resolveDeaths } from "./deaths.js";
 import { activateChunksNearPlayers, stepEnemies } from "./enemies/index.js";
+import { drainReadyTransfers, initBossFloor, receiveTransfer, stepBoss } from "./floors/index.js";
 import { spawnEnemy, spawnItem } from "./helpers.js";
 import { addPlayer } from "./join.js";
 import {
@@ -27,13 +29,19 @@ import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
 import { buildSnapshots } from "./snapshots.js";
 import { expireInvites } from "./social.js";
-import { createSimState, type JoinResult, type PlayerAction, type SimState } from "./state.js";
+import {
+  createSimState,
+  type FloorTransferRequest,
+  type JoinResult,
+  type PlayerAction,
+  type SimState,
+} from "./state.js";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "./statuses.js";
 import { stepTorches } from "./torches.js";
 import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
 import { PlayerStore } from "../store.js";
 
-export type { JoinResult, PlayerAction } from "./state.js";
+export type { JoinResult, PlayerAction, FloorTransferRequest } from "./state.js";
 
 /**
  * The authoritative floor simulation — a facade over the sim/ modules,
@@ -60,6 +68,7 @@ export class GameSim {
     } = {},
   ) {
     this.state = createSimState(world, content, store, rngSeed, opts);
+    initBossFloor(this.state); // no-op off floor FLOOR_CAP (Epic 7.14)
   }
 
   get world(): World {
@@ -84,6 +93,12 @@ export class GameSim {
 
   get enemyCount(): number {
     return this.state.enemies.size;
+  }
+
+  /** Test access: ground-item entities currently in this sim (e.g. a
+   * death's full-loot drop, which stays on the floor it happened on). */
+  get itemCount(): number {
+    return this.state.items.size;
   }
 
   // ── join / leave / input ─────────────────────────────────────────
@@ -130,6 +145,57 @@ export class GameSim {
     return spawnEnemy(this.state, defId, x, y);
   }
 
+  // ── Epic 7.14 (The Descent): cross-sim transfer + cross-floor social ──
+  // FloorRegistry (game-server/src/floorRegistry.ts) is the only caller of
+  // these — they operate one tick behind step() by design (see
+  // floors/transfer.ts's doc comment).
+
+  /** Slots that left this sim THIS tick, awaiting placement elsewhere. */
+  takeOutgoingTransfers(): FloorTransferRequest[] {
+    const out = this.state.outgoingTransfers;
+    this.state.outgoingTransfers = [];
+    return out;
+  }
+
+  /** Place an arriving slot into this sim. */
+  receiveTransfer(req: FloorTransferRequest): void {
+    receiveTransfer(this.state, req);
+  }
+
+  /** Global chat events this sim's players sent THIS tick, awaiting relay
+   * to every other active floor. */
+  takePendingGlobalChat(): GameEvent[] {
+    const out = this.state.pendingGlobalChat;
+    this.state.pendingGlobalChat = [];
+    return out;
+  }
+
+  /** Deliver a relayed global-chat event to every connected player here. */
+  injectGlobalChat(event: GameEvent): void {
+    for (const slot of this.state.players.values()) if (slot.connected) slot.outbox.push(event);
+  }
+
+  /** Does a resume token belong to a slot currently in THIS sim? Lets
+   * FloorRegistry route a reconnecting "dungeon" hello to the right floor. */
+  hasToken(token: string): boolean {
+    return this.state.byToken.has(token);
+  }
+
+  /** FloorRegistry refreshes this once per tick for cross-floor /who. */
+  setCrossFloorDirectory(directory: ReadonlyArray<{ name: string; floor: number }>): void {
+    this.state.crossFloorDirectory = directory;
+  }
+
+  /** Snapshot of `{name, floor}` for every connected player — FloorRegistry's input to setCrossFloorDirectory. */
+  listConnectedPlayers(): Array<{ name: string; floor: number }> {
+    const floor = this.state.world.floor;
+    const out: Array<{ name: string; floor: number }> = [];
+    for (const slot of this.state.players.values()) {
+      if (slot.connected) out.push({ name: slot.entity.name ?? "?", floor });
+    }
+    return out;
+  }
+
   // ── main tick ────────────────────────────────────────────────────
 
   step(): Map<string, ServerSnapshot> {
@@ -155,8 +221,10 @@ export class GameSim {
     realizeEffectEvents(sim, effectEvents);
     applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
     resolveDeaths(sim);
+    stepBoss(sim); // Epic 7.14 — no-op off floor FLOOR_CAP
     expireInvites(sim);
     expireFistbumpOffers(sim);
+    drainReadyTransfers(sim); // Epic 7.14 — tail of the tick, after everything that could queue one
 
     return buildSnapshots(sim);
   }

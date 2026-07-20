@@ -6,6 +6,7 @@ import { TILE, type TileType } from "@dc2d/engine";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { ChatController } from "../../ui/chat/controller.js";
+import { resolveBossBar } from "../../ui/widgets/hud/bossBarView.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { isTileTypeNearby } from "./contentQueries.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
@@ -44,9 +45,9 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     stash: conn.stash,
     lastToast: conn.toasts.at(-1) ?? null,
     toasts: conn.toasts,
-    // ServerWelcome carries no seed field yet (docs/ASSUMPTIONS.md, Epic 7.13 onboarding
-    // row) — the telemetry stack shows "seed —" until the server sends one.
-    seed: null,
+    seed: conn.welcome ? String(conn.welcome.worldSeed) : null,
+    floor: conn.floor,
+    boss: resolveBossBar([...conn.entities.values()].map((e) => e.snap)),
   };
 }
 

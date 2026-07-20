@@ -17,11 +17,14 @@ const BAR_WIDTH = 168;
 const BAR_HEIGHT = 6;
 const FILL_COLOR = 0xffd23d;
 const LEVEL_BADGE_WIDTH = 34;
+/** Epic 7.14: floor numeral docked past the bar's right edge, mirroring the level badge's left dock. */
+const FLOOR_LABEL_GAP = 8;
 
 export class XpBarWidget {
   private readonly container: Phaser.GameObjects.Container;
   private readonly fill: Phaser.GameObjects.Rectangle;
   private readonly levelLabel: Phaser.GameObjects.Text;
+  private readonly floorLabel: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     registry.register({
@@ -46,12 +49,16 @@ export class XpBarWidget {
       .setOrigin(0, 0)
       .setStrokeStyle(1, PANEL_BORDER);
     this.fill = scene.add.rectangle(barX, 0, BAR_WIDTH, BAR_HEIGHT, FILL_COLOR).setOrigin(0, 0);
-    this.container.add([this.levelLabel, bg, this.fill]);
+    this.floorLabel = scene.add
+      .text(barX + BAR_WIDTH + FLOOR_LABEL_GAP, BAR_HEIGHT / 2 + spacing(0.5), "", uiTextStyle(11, "#9a9aae", layout.scale))
+      .setOrigin(0, 0.5);
+    this.container.add([this.levelLabel, bg, this.fill, this.floorLabel]);
   }
 
-  update(data: XpBarData): void {
+  update(data: XpBarData, floor: number): void {
     this.fill.width = BAR_WIDTH * xpProgressRatio(data);
     this.levelLabel.setText(`Lv ${data.level}`);
+    this.floorLabel.setText(`Floor ${floor}`);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

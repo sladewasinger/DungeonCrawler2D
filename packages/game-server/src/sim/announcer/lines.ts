@@ -50,3 +50,28 @@ export const FIRST_TORCH_LINES: readonly TorchLine[] = [
   (name) => `${name} throws their first torch. Fire: humanity's greatest hit.`,
   (name) => `${name} learns to throw a torch. The dark takes note.`,
 ];
+
+/**
+ * Epic 7.14 (The Descent) — one authored line per floor (indexed
+ * `floor - 1`), not a rotating pool: a floor's identity should read the
+ * same every time you arrive, escalating menace 1 -> 5.
+ */
+export const FLOOR_ENTRY_LINES: readonly string[] = [
+  "Floor 1. Try not to die.",
+  "Floor 2. The slimes here have opinions.",
+  "Floor 3. It gets warmer wherever the blood pools.",
+  "Floor 4. Whatever's down here has had time to think about you.",
+  "Floor 5. The Warden is expecting you.",
+];
+
+export type SimpleLine = () => string;
+
+export const BOSS_INTRO_LINES: readonly SimpleLine[] = [
+  () => "The Warden of Five rises. Sponsors, place your final bets.",
+  () => "Something ancient and irritated notices you've arrived. The Warden of Five.",
+];
+
+export const BOSS_KILL_LINES: readonly SimpleLine[] = [
+  () => "The Warden of Five falls. The dungeon groans in disappointment — and pays out anyway.",
+  () => "Five floors of buildup, ended in one undignified heap. The Warden of Five is dead.",
+];

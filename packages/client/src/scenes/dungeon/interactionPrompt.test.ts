@@ -1,9 +1,11 @@
-import { TILE, type TileType } from "@dc2d/engine";
+import { stairwayDownPosition, TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { resolveInteractionPrompt, type PromptWorld } from "./interactionPrompt.js";
 
+/** worldSeed 1 / floor 1's StairwayDown lands at (93, 53) — far from every tile-based
+ * test's probe coordinates below, so none of them accidentally cross into its range. */
 function worldWithTileAt(tx: number, ty: number, tile: TileType): PromptWorld {
-  return { tileAt: (wx, wy) => (wx === tx && wy === ty ? tile : TILE.Floor) };
+  return { worldSeed: 1, floor: 1, tileAt: (wx, wy) => (wx === tx && wy === ty ? tile : TILE.Floor) };
 }
 
 describe("resolveInteractionPrompt", () => {
@@ -35,5 +37,14 @@ describe("resolveInteractionPrompt", () => {
   it("does not prompt for a tile out of range", () => {
     const world = worldWithTileAt(5, 5, TILE.CraftingTable);
     expect(resolveInteractionPrompt(world, 9, 9, [])).toBeNull();
+  });
+
+  it("prompts to descend at a real StairwayDown position, ahead of an incidental interact tile", () => {
+    const world = worldWithTileAt(93, 53, TILE.CraftingTable);
+    const target = stairwayDownPosition(world);
+    expect(resolveInteractionPrompt(world, target!.x, target!.y, [])).toEqual({
+      key: "E",
+      label: "Descend to Floor 2",
+    });
   });
 });

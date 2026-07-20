@@ -8,25 +8,76 @@
 // machinery into one chunk. Same contract as world/generate.ts: pure,
 // chunk-local, byte-deterministic.
 
+import { applyBossArena } from "../features/bossArena.js";
+import { applyDescentStructure } from "../features/descent.js";
 import { applyFlattenedFeature, isSafeRoomChunk, isStairsChunk } from "../features/fixed.js";
 import { generateRoomChunk, isRoomChunk } from "../features/rooms.js";
 import { sealInteriorPockets } from "../pockets.js";
 import { seedsFor } from "../terrain.js";
 import { CHUNK_SIZE, TILE, type Chunk } from "../types.js";
 import { partitionChunk } from "./bsp.js";
+import { connectBossArenaGate } from "./bossArenaLink.js";
 import { demoteOrphanedStairs, repairCliffs } from "./cliffs.js";
 import { carveCorridors } from "./corridors.js";
+import { connectDescentStructure } from "./descentLink.js";
 import { districtAt } from "./district.js";
 import { edgeAnchors } from "./edges.js";
 import { connectFixedFeaturePad } from "./feature-link.js";
 import { applyRoomHeight } from "./height.js";
 import { architectSeed, chunkSeed } from "./hash.js";
 import { applyLandmark } from "./landmarks/index.js";
-import { isNearLandmark } from "./landmarks/guard.js";
+import { isNearDescent, isNearLandmark } from "./landmarks/guard.js";
 import { stampRoom } from "./rooms.js";
-import type { Room } from "./types.js";
+import type { Point, Room } from "./types.js";
 import { resolveShallowPlateaus, resolveThinWalls } from "./verticalExtent.js";
 import { applyWallHeight } from "./wallHeight.js";
+
+/**
+ * StairwayUp/StairwayDown (features/descent.ts): stamp, then connect via
+ * descentLink.ts's height-flattening connector — feature-link.ts's generic
+ * connectFixedFeaturePad (used below for safe rooms/stairs) only rewrites
+ * TILE type, which is provably insufficient here (descentLink.ts's own doc
+ * comment; regression-locked by generate/descentInvariant.test.ts).
+ */
+function stampDescentFeature(
+  worldSeed: number,
+  floor: number,
+  cx: number,
+  cy: number,
+  tiles: Uint8Array,
+  height: Float32Array,
+  corridorCarved: Uint8Array,
+  rooms: Room[],
+): void {
+  const exit = applyDescentStructure(worldSeed, floor, cx, cy, tiles, height);
+  if (exit) connectDescentStructure(tiles, corridorCarved, height, { x: exit.lx, y: exit.ly }, rooms);
+}
+
+/**
+ * Floor FLOOR_CAP's sealed boss arena (features/bossArena.ts): stamp, route
+ * its one gate to the network (bossArenaLink.ts's provably-safe 3-leg
+ * route), then re-stamp the ring as a cheap defensive backstop — the
+ * connector legs may pass through the arena's own INTERIOR on their way
+ * (harmless; already floor), and this guarantees the boundary ring itself
+ * ends exactly where the first stamp put it regardless.
+ */
+function stampBossArenaFeature(
+  worldSeed: number,
+  floor: number,
+  cx: number,
+  cy: number,
+  tiles: Uint8Array,
+  height: Float32Array,
+  corridorCarved: Uint8Array,
+  rooms: Room[],
+): void {
+  const arena = applyBossArena(worldSeed, floor, cx, cy, tiles, height);
+  if (!arena) return;
+  const gate: Point = { x: arena.gate.lx, y: arena.gate.ly };
+  const center: Point = { x: arena.center.lx, y: arena.center.ly };
+  connectBossArenaGate(tiles, corridorCarved, height, gate, center, rooms);
+  applyBossArena(worldSeed, floor, cx, cy, tiles, height);
+}
 
 function stampFixedFeature(
   worldSeed: number,
@@ -71,10 +122,13 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
     // A room the landmark stamp is about to overwrite (or graze) never
     // gets its own pit/dais/chasm ring — see landmarks/guard.ts.
     if (isNearLandmark(worldSeed, floor, cx, cy, room.rect)) continue;
+    if (isNearDescent(worldSeed, floor, cx, cy, room.rect)) continue;
     applyRoomHeight(perChunkSeed, tiles, height, corridorCarved, CHUNK_SIZE, room, doorways);
   }
 
   stampFixedFeature(worldSeed, floor, cx, cy, tiles, height, zones, corridorCarved, rooms);
+  stampDescentFeature(worldSeed, floor, cx, cy, tiles, height, corridorCarved, rooms);
+  stampBossArenaFeature(worldSeed, floor, cx, cy, tiles, height, corridorCarved, rooms);
   applyLandmark(district, seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height);
   repairCliffs(tiles, height, CHUNK_SIZE);
 

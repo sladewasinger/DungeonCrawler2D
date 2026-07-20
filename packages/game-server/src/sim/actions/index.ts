@@ -3,6 +3,7 @@ import { doFistbump, doWho } from "../contacts.js";
 import { doCraft, doDrop, doPickup, doStash, invIndex } from "../inventory.js";
 import { doChat, doParty } from "../social.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
+import { doDescend } from "./descend.js";
 import { doInteract, teleport } from "./interact.js";
 import { doUseSlot } from "./items.js";
 import { doAttack } from "./melee.js";
@@ -33,6 +34,7 @@ const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
   "craft",
   "stash",
   "fistbump",
+  "descend",
 ]);
 
 function dispatchAction(
@@ -79,6 +81,9 @@ function dispatchGatedAction(
       break;
     case "fistbump":
       doFistbump(sim, slot, action.targetId);
+      break;
+    case "descend":
+      doDescend(sim, slot);
       break;
   }
 }

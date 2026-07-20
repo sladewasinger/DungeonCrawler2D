@@ -77,6 +77,11 @@ export function interactIntent(conn: Connection): void {
   if (conn.canAct) conn.send({ type: "interact" });
 }
 
+/** Descends/ascends a nearby stairway (Epic 7.14, WIRE v15) — server validates range. */
+export function descendIntent(conn: Connection): void {
+  if (conn.canAct) conn.send({ type: "descend" });
+}
+
 export function craftIntent(conn: Connection, recipe: string): void {
   if (conn.canAct) conn.send({ type: "craft", recipe });
 }

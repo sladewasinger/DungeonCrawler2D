@@ -25,6 +25,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     equip: () => calls.push("equip"),
     drop: () => calls.push("drop"),
     fistbump: () => calls.push("fistbump"),
+    descend: () => calls.push("descend"),
     pushToast: () => calls.push("pushToast"),
     ...overrides,
   };
@@ -38,6 +39,7 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     isStashNearby: () => true,
     isCraftTableNearby: () => true,
     isDoorNearby: () => false,
+    isStairwayNearby: () => false,
     downedPartyMemberInRange: () => undefined,
     ...overrides,
   };

@@ -58,7 +58,14 @@ export function reapAndRespawn(sim: SimState): void {
       sim.byToken.delete(slot.resumeToken);
       continue;
     }
-    if (slot.respawnAtTick !== null && sim.tickCount >= slot.respawnAtTick) respawnSlot(sim, slot);
+    if (slot.respawnAtTick === null || sim.tickCount < slot.respawnAtTick) continue;
+    slot.respawnAtTick = null;
+    // Epic 7.14 (The Descent): death always returns you to floor 1
+    // (docs/ROADMAP.md's design call, logged as ASSUMPTION #7 pre-dates
+    // this wave) — in place if already there, else a cross-sim transfer
+    // to floor 1's spawn (floors/transfer.ts handles the reset).
+    if (sim.world.floor === 1) respawnSlot(sim, slot);
+    else slot.pendingTransfer = { targetFloor: 1, arrival: "deathSpawn" };
   }
 }
 

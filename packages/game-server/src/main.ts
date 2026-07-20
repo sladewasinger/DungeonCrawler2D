@@ -8,7 +8,7 @@ import {
 } from "@dc2d/content";
 import { buildContentRegistry, hashString } from "@dc2d/engine";
 import { join } from "node:path";
-import { startServer } from "./server.js";
+import { startServer } from "./server/index.js";
 
 /**
  * Standalone game-server entry point. Locally this runs next to the
@@ -79,7 +79,9 @@ const server = startServer({
 });
 
 console.log(
-  `[game-server] floor ${floor} of world "${seedText}" (seed ${worldSeed}) listening on ws://localhost:${port}`,
+  // Epic 7.14: the dungeon level now runs floors 1..FLOOR_CAP simultaneously
+  // (lazily created) — `floor` only still pins the sandbox level's floor.
+  `[game-server] world "${seedText}" (seed ${worldSeed}), dungeon floors 1..FLOOR_CAP live, sandbox floor ${floor}, listening on ws://localhost:${port}`,
 );
 
 function shutdown(): void {

@@ -7,12 +7,15 @@ import { AreaEffectPool, type AreaTileView } from "./areaEffectPool.js";
 import { bloodTintFor } from "./bloodTint.js";
 import { BloodDecalPool } from "./bloodDecalPool.js";
 import { spawnDeathSplatter, spawnHitSplatter } from "./bloodSplatter.js";
+import { BossDownFlourish } from "./bossDownFlourish.js";
 import { CorpseDecalPool } from "./corpseDecalPool.js";
 import { DamageNumberPool } from "./damageNumbers.js";
+import { FloorBanner } from "./floorBanner.js";
 import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
 import { spawnGibBurst } from "./gibBurst.js";
 import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 import { LevelUpFlourish } from "./levelUpFlourish.js";
+import { TeleportFade } from "./teleportFade.js";
 import { lowHpVignetteAlpha } from "./lowHpVignette.js";
 import { LowHpOverlay } from "./lowHpOverlay.js";
 import { MeleeWedgePool } from "./meleeWedge.js";
@@ -36,6 +39,10 @@ export class VfxSystem {
   private readonly corpseDecals: CorpseDecalPool;
   private readonly levelUpFlourish: LevelUpFlourish;
   private readonly lowHpOverlay: LowHpOverlay;
+  /** Epic 7.14: floor-entry title card, boss-death celebration, teleport fade-to-black. */
+  private readonly floorBanner: FloorBanner;
+  private readonly bossDownFlourish: BossDownFlourish;
+  private readonly teleportFade: TeleportFade;
   private lastPlayerSample: MotionSample | undefined;
   private lastFrameMs = 0;
   private selfHpRatio = 1;
@@ -51,6 +58,9 @@ export class VfxSystem {
     this.corpseDecals = new CorpseDecalPool(scene);
     this.levelUpFlourish = new LevelUpFlourish(scene);
     this.lowHpOverlay = new LowHpOverlay(scene);
+    this.floorBanner = new FloorBanner(scene);
+    this.bossDownFlourish = new BossDownFlourish(scene);
+    this.teleportFade = new TeleportFade(scene);
   }
 
   /** Rebuilds the active area-hazard rigs; returns their accent lights for LightingSystem.setAccentLights. */
@@ -171,6 +181,21 @@ export class VfxSystem {
     this.levelUpFlourish.trigger(level, nowMs);
   }
 
+  /** Floor-entry title card (Epic 7.14) — "FLOOR N" + the announcer's line. */
+  spawnFloorBanner(floor: number, line: string, nowMs: number): void {
+    this.floorBanner.trigger(floor, line, nowMs);
+  }
+
+  /** Boss-death celebration (Epic 7.14) — red flash + "<NAME> FALLS". */
+  spawnBossDownFlourish(bossName: string, nowMs: number): void {
+    this.bossDownFlourish.trigger(bossName, nowMs);
+  }
+
+  /** Fade-through-black on any server teleport (Epic 7.14) — doors today, stairways once wired. */
+  spawnTeleportFade(nowMs: number): void {
+    this.teleportFade.trigger(nowMs);
+  }
+
   /** Feeds the low-hp vignette its current ratio — call once per frame regardless
    * of whether hp changed, since the heartbeat throb animates continuously. */
   setSelfHp(hp: number, maxHp: number): void {
@@ -186,6 +211,9 @@ export class VfxSystem {
     this.corpseDecals.update(nowMs);
     this.levelUpFlourish.update(nowMs);
     this.lowHpOverlay.update(lowHpVignetteAlpha(this.selfHpRatio, nowMs));
+    this.floorBanner.update(nowMs);
+    this.bossDownFlourish.update(nowMs);
+    this.teleportFade.update(nowMs);
   }
 
   dispose(): void {
@@ -198,5 +226,8 @@ export class VfxSystem {
     this.corpseDecals.dispose();
     this.levelUpFlourish.dispose();
     this.lowHpOverlay.dispose();
+    this.floorBanner.dispose();
+    this.bossDownFlourish.dispose();
+    this.teleportFade.dispose();
   }
 }

@@ -11,6 +11,8 @@ interface ItemDef {
   readonly weapon?: unknown;
   readonly consumable?: unknown;
   readonly throwable?: unknown;
+  /** Epic 7.14 §4: short flavor line shown dimmed under the item name in the inventory window. */
+  readonly flavor?: string;
 }
 
 function isItemDef(value: unknown): value is ItemDef {
@@ -41,6 +43,11 @@ export function categoryOfItem(itemDefId: string): ItemCategory {
 /** Item def's display name, falling back to the raw id for an unknown def. */
 export function itemName(itemDefId: string): string {
   return itemById.get(itemDefId)?.name ?? itemDefId;
+}
+
+/** Item def's flavor line, or undefined for a def that has none (or is unknown). */
+export function itemFlavor(itemDefId: string): string | undefined {
+  return itemById.get(itemDefId)?.flavor;
 }
 
 export interface RecipeIngredient {

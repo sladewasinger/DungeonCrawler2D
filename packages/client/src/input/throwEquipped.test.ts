@@ -25,6 +25,7 @@ function makeConn(weapon: string | null, inventory: InputConnection["inventory"]
     equip: () => {},
     drop: () => {},
     fistbump: () => {},
+    descend: () => {},
     pushToast: () => {},
   };
 }
@@ -36,6 +37,7 @@ const queries: InputQueries = {
   isStashNearby: () => false,
   isCraftTableNearby: () => false,
   isDoorNearby: () => false,
+  isStairwayNearby: () => false,
   downedPartyMemberInRange: () => undefined,
 };
 

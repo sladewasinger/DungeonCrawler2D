@@ -25,6 +25,8 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
     lastToast: null,
     toasts: [],
     seed: null,
+    floor: 1,
+    boss: null,
     ...overrides,
   };
 }
@@ -117,8 +119,8 @@ describe("buildHudSnapshot", () => {
     ];
     const snap = snapshotOf(source({ hotbar, inventory }));
     expect(snap.inventory).toEqual([
-      { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0 },
-      { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null },
+      { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, flavor: expect.any(String) },
+      { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, flavor: expect.any(String) },
     ]);
   });
 

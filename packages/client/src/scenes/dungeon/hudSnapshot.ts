@@ -17,9 +17,10 @@ import type {
 } from "../../ui/widgets/hud/fakeData.js";
 import type { ContactData } from "../../ui/widgets/hud/contactRows.js";
 import type { PartyRowData } from "../../ui/widgets/hud/partyFrames.js";
+import type { BossBarData } from "../../ui/widgets/hud/bossBarView.js";
 import { recipeRowViews } from "../../ui/widgets/hud/recipeRows.js";
 import { stashRowViews } from "../../ui/widgets/hud/stashRows.js";
-import { categoryOfItem, itemName, recipeList } from "./contentQueries.js";
+import { categoryOfItem, itemFlavor, itemName, recipeList } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 
 /** A stash entry as the wire/Connection shape carries it — item def id + qty, no index
@@ -62,6 +63,7 @@ function inventoryRows(inventory: readonly InvStack[], hotbar: readonly (string 
       qty: stack.qty,
       category: categoryOfItem(stack.item),
       boundSlot: boundIndex >= 0 ? boundIndex : null,
+      flavor: itemFlavor(stack.item),
     };
   });
 }
@@ -139,6 +141,10 @@ export interface HudSnapshotSource {
   readonly toasts: readonly ToastData[];
   /** The connected world's seed, or null until the welcome message carries one. */
   readonly seed: string | null;
+  /** Current dungeon floor (Epic 7.14). */
+  readonly floor: number;
+  /** The AOI boss entity, or null when none is nearby. */
+  readonly boss: BossBarData | null;
 }
 
 export function buildHudSnapshot(
@@ -165,6 +171,8 @@ export function buildHudSnapshot(
     lastToast: src.lastToast,
     toasts: [...src.toasts],
     seed: src.seed,
+    floor: src.floor,
+    boss: src.boss,
     party: partyRows(src.party),
     chatModel,
     contacts: [...contacts],

@@ -34,4 +34,9 @@ export type VisualEvent =
    * server sends no dedicated "you gained N xp" wire event, only the cumulative total. */
   | { t: "xpGained"; amount: number }
   /** Client-detected from a self.level rise between snapshots. */
-  | { t: "levelUp"; level: number };
+  | { t: "levelUp"; level: number }
+  /** Client-detected (net/floorEvents.ts) from a self floor change between snapshots
+   * (Epic 7.14) — welcome.floor today; self.floor once the server lane's v15 bump lands. */
+  | { t: "floorEntered"; floor: number }
+  /** Client-detected (net/apply.ts) when a tracked boss entity's death event arrives. */
+  | { t: "bossDown"; name: string };

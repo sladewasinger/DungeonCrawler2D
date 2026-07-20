@@ -27,6 +27,25 @@ export type PlayerAction = Exclude<
   ClientInput | { type: "hello" } | { type: "ping" }
 >;
 
+/**
+ * Epic 7.14 (The Descent) — how a slot is arriving at its target floor:
+ * at the target's up-stair (descending), its down-stair (ascending), or
+ * a fresh death respawn (always floor 1, ignores stairways entirely).
+ */
+export type FloorArrivalKind = "stairUp" | "stairDown" | "deathSpawn";
+
+export interface PendingTransfer {
+  targetFloor: number;
+  arrival: FloorArrivalKind;
+}
+
+/** A transfer ready to leave its source sim, carrying the slot itself
+ * (the "same slot-move machinery" — the object just changes which
+ * SimState's `players` map holds it). */
+export interface FloorTransferRequest extends PendingTransfer {
+  slot: PlayerSlot;
+}
+
 export interface PlayerSlot {
   entity: Entity;
   clientId: string;
@@ -65,6 +84,10 @@ export interface PlayerSlot {
   chatTimestamps: number[];
   /** Tick of this slot's most recent fistbump *offer* sent, rate-limited separately from chat. */
   lastFistbumpOfferAtTick: number;
+  /** Epic 7.14 (The Descent): set by a stairway `descend` intent or a
+   * non-floor-1 death respawn; drained at the tail of GameSim.step() —
+   * see floors/transfer.ts. */
+  pendingTransfer: PendingTransfer | null;
 }
 
 export interface EnemySlot {
@@ -89,6 +112,9 @@ export interface JoinResult {
   resumeToken: string;
   spawn: { x: number; y: number; z: number };
   resumed: boolean;
+  /** Epic 7.14 (The Descent): the floor this join/resume landed on — the
+   * server.ts caller reads this into the welcome message's `floor`. */
+  floor: number;
 }
 
 /** A game event pinned to a world position for AOI-scoped delivery. */
@@ -142,6 +168,30 @@ export interface SimState {
   nextPartyRoom: number;
   /** True once the test-zone chunk activated — keeps hazard fixtures seeded. */
   hazardsActive: boolean;
+
+  // ── Epic 7.14 (The Descent) ─────────────────────────────────────────
+  /** Slots that left this sim this tick, awaiting FloorRegistry placement
+   * into their target floor's sim next tick — see floors/transfer.ts. */
+  outgoingTransfers: FloorTransferRequest[];
+  /** True while a player has engaged the floor-5 boss and it's still
+   * alive — the arena boundary is enforced (floors/boss.ts) only then. */
+  bossGateSealed: boolean;
+  /** Player ids inside the ring at the instant it sealed — fixed for the
+   * seal's duration, so the boundary clamp knows which direction "in"
+   * is for each player (insiders trapped in, outsiders locked out). */
+  readonly bossArenaOccupants: Set<string>;
+  /** Tick the Warden may respawn, or null while it's alive. */
+  bossRespawnAtTick: number | null;
+  /** Set by FloorRegistry each tick for sims under its management: every
+   * connected player across every active floor, for cross-floor /who
+   * (contacts.ts) and global chat relay (social.ts). Empty for sims not
+   * under a registry (sandbox, bare unit tests) — those fall back to
+   * this sim's own `players` map. */
+  crossFloorDirectory: ReadonlyArray<{ name: string; floor: number }>;
+  /** Global chat events awaiting FloorRegistry relay to every OTHER
+   * active floor sim (this sim's own players already got it directly —
+   * see social.ts's doGlobalChat). Drained once per tick by the registry. */
+  pendingGlobalChat: GameEvent[];
 }
 
 export function createSimState(
@@ -175,5 +225,11 @@ export function createSimState(
     nextPartyId: 1,
     nextPartyRoom: 0,
     hazardsActive: false,
+    outgoingTransfers: [],
+    bossGateSealed: false,
+    bossArenaOccupants: new Set(),
+    bossRespawnAtTick: null,
+    crossFloorDirectory: [],
+    pendingGlobalChat: [],
   };
 }

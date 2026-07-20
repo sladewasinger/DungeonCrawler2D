@@ -3,6 +3,7 @@
 // net/apply.ts; by the time an event reaches here it's presentation only.
 import type { Connection } from "../../net/connection.js";
 import type { VfxSystem } from "../../vfx/index.js";
+import { floorAnnouncerLine } from "./floorAnnouncer.js";
 import type { RenderPose } from "./state.js";
 
 export function applyVisualEvents(conn: Connection, vfx: VfxSystem, render: RenderPose, nowMs: number): void {
@@ -16,6 +17,8 @@ export function applyVisualEvents(conn: Connection, vfx: VfxSystem, render: Rend
     else if (event.t === "fistbumpSealed") applyFistbumpSealed(conn, vfx, render, event.partnerName);
     else if (event.t === "xpGained") vfx.spawnXpNumber(event.amount, nowMs);
     else if (event.t === "levelUp") vfx.spawnLevelUpFlourish(event.level, nowMs);
+    else if (event.t === "floorEntered") vfx.spawnFloorBanner(event.floor, floorAnnouncerLine(event.floor), nowMs);
+    else if (event.t === "bossDown") vfx.spawnBossDownFlourish(event.name, nowMs);
   }
 }
 

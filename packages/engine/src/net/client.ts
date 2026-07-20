@@ -14,6 +14,11 @@ export const clientHelloSchema = z.object({
   clientId: z.string().min(4).max(64),
   level: level.default("dungeon"),
   resumeToken: z.string().max(64).optional(),
+  /** Epic 7.14 (The Descent): requested starting floor for a FRESH join
+   * only — a resumed session always reattaches to whichever floor its
+   * slot was already on, ignoring this field. Server clamps to
+   * [1, FLOOR_CAP]; absent = floor 1. */
+  floor: z.number().int().positive().optional(),
 });
 
 export const clientInputSchema = z.object({
@@ -64,6 +69,11 @@ export const clientThrowTorchSchema = z.object({
 });
 
 export const clientInteractSchema = z.object({ type: z.literal("interact") });
+/** Epic 7.14 (The Descent): valid within interact range of a stairway —
+ * near a StairwayDown mouth descends, near a StairwayUp mouth ascends.
+ * Server resolves direction from proximity; the client sends the same
+ * intent either way. */
+export const clientDescendSchema = z.object({ type: z.literal("descend") });
 export const clientCraftSchema = z.object({ type: z.literal("craft"), recipe: z.string().max(64) });
 
 export const clientStashSchema = z.object({
@@ -124,6 +134,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientAssignSchema,
   clientEquipSchema,
   clientInteractSchema,
+  clientDescendSchema,
   clientCraftSchema,
   clientStashSchema,
   clientPartySchema,

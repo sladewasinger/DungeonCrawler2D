@@ -31,6 +31,10 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   xp: z.number().int().nonnegative().optional(),
   level: z.number().int().positive().optional(),
   xpForNext: z.number().int().nonnegative().optional(),
+  /** Epic 7.14 (The Descent) — current floor and the deepest floor this
+   * clientId has ever reached. Additive/optional: protocol 15+. */
+  floor: z.number().int().positive().optional(),
+  deepestFloor: z.number().int().positive().optional(),
 });
 
 export const entitySnapshotSchema = z.object({

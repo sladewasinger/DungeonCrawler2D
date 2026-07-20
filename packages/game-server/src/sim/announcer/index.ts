@@ -5,10 +5,13 @@
 import type { GameEvent } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../state.js";
 import {
+  BOSS_INTRO_LINES,
+  BOSS_KILL_LINES,
   CHASM_DEATH_LINES,
   DEATH_LINES,
   FIRST_TORCH_LINES,
   FISTBUMP_LINES,
+  FLOOR_ENTRY_LINES,
   JOIN_LINES,
   KILL_MILESTONE_LINES,
   LEVEL_UP_LINES,
@@ -75,4 +78,22 @@ export function announceFistbump(tick: number, aId: string, aName: string, bName
 export function announceFirstTorchThrow(tick: number, playerId: string, name: string): GameEvent {
   const line = pick(FIRST_TORCH_LINES, tick, `torch:${playerId}`);
   return systemLine(line(name));
+}
+
+/**
+ * Epic 7.14 (The Descent) — private (not broadcast) floor-identity line
+ * for whoever just arrived at `floor`. Indexed, not pooled: see
+ * lines.ts's FLOOR_ENTRY_LINES doc comment. `floor` is always in
+ * [1, FLOOR_ENTRY_LINES.length] by construction (FLOOR_CAP matches).
+ */
+export function announceFloorEntry(floor: number): GameEvent {
+  return systemLine(FLOOR_ENTRY_LINES[floor - 1] ?? `Floor ${floor}.`);
+}
+
+export function announceBossIntro(tick: number): GameEvent {
+  return systemLine(pick(BOSS_INTRO_LINES, tick, "boss:intro")());
+}
+
+export function announceBossKill(tick: number): GameEvent {
+  return systemLine(pick(BOSS_KILL_LINES, tick, "boss:kill")());
 }

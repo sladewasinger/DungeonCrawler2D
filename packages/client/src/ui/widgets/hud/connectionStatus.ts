@@ -21,7 +21,7 @@ const ROW_HEIGHT = 16;
 const ROW_TEXT_SIZE = 11;
 /** Right-aligned rows sit flush with the widget's anchor point (local x=0). */
 const TEXT_X = 0;
-const ROW_COUNT = 5;
+const ROW_COUNT = 6;
 
 const GOOD_PING_MS = 80;
 const OK_PING_MS = 150;
@@ -99,11 +99,12 @@ export class ConnectionStatusWidget {
     this.container.setVisible(this.telemetryOn);
   }
 
-  update(pingMs: number, connected: boolean, fpsSample: number, coords: TileCoords, seed: string | null): void {
+  update(pingMs: number, connected: boolean, fpsSample: number, coords: TileCoords, seed: string | null, floor: number): void {
     // Still tracked while hidden so the FPS smoothing window isn't cold the moment [F3] opens it.
     const fps = this.smoothedFps(fpsSample);
     if (!this.telemetryOn) return;
-    const [ping, fpsRow, coordsRow, seedRow, buildRow] = this.rows as [
+    const [ping, fpsRow, coordsRow, floorRow, seedRow, buildRow] = this.rows as [
+      Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
@@ -113,6 +114,7 @@ export class ConnectionStatusWidget {
     ping.setText(connected ? `${Math.round(pingMs)}ms` : "offline").setColor(colorHex(pingColor(pingMs, connected)));
     fpsRow.setText(`${fps}fps`).setColor(colorHex(fpsColor(fps)));
     coordsRow.setText(`x ${coords.x}, y ${coords.y}, z ${coords.z.toFixed(1)}`).setColor(NEUTRAL_TEXT_COLOR);
+    floorRow.setText(`floor ${floor}`).setColor(NEUTRAL_TEXT_COLOR);
     seedRow.setText(`seed ${seed ?? "—"}`).setColor(DIM_TEXT_COLOR);
     buildRow.setText(`build ${BUILD_SHA}`).setColor(DIM_TEXT_COLOR);
   }

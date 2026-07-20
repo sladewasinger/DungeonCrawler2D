@@ -128,7 +128,7 @@ export class HudWidgets {
     this.hotbar.update(snapshot.hotbar, snapshot.selectedSlot, snapshot.armedThrowableSlot, nowMs);
     this.buffs.update(snapshot.buffs);
     this.weapon.update(snapshot.equippedWeaponId, nowMs);
-    this.xpBar.update(snapshot.xp);
+    this.xpBar.update(snapshot.xp, snapshot.floor);
     this.panels.update(
       snapshot.inventory,
       snapshot.equippedWeaponId,
@@ -141,7 +141,7 @@ export class HudWidgets {
     this.chat.update(snapshot.chatModel);
     this.party.update(snapshot.party);
     this.interaction.update(snapshot.interactionPrompt);
-    this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed);
+    this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor);
     this.death.update(snapshot.downed);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
     this.toasts.update(snapshot.toasts, nowMs);

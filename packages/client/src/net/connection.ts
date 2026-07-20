@@ -21,6 +21,7 @@ import {
   craftIntent,
   debugGodIntent,
   debugTeleportIntent,
+  descendIntent,
   dropIntent,
   equipIntent,
   fistbumpIntent,
@@ -69,6 +70,10 @@ export class Connection {
   xp = 0;
   charLevel = 1;
   xpForNext = 0;
+  /** Epic 7.14 (The Descent) — current floor (net/apply.ts's applyFloorState reads
+   * snap.self.floor, welcome.floor before the first snapshot); net/floorEvents.ts
+   * diffs this for the floor banner. */
+  floor = 1;
   /** Unlimited inventory: one stack per item def. */
   inventory: InvStack[] = [];
   /** Hotbar bindings (item defs); qty lives in inventory. */
@@ -197,6 +202,11 @@ export class Connection {
 
   interact(): void {
     interactIntent(this);
+  }
+
+  /** Descends/ascends a nearby stairway (Epic 7.14) — server validates range. */
+  descend(): void {
+    descendIntent(this);
   }
 
   craft(recipe: string): void {

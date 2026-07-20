@@ -70,6 +70,11 @@ export function applyTouchLayoutOverrides(registry: WidgetRegistry, viewport: Vi
   // landscape phone the right column has to fit status + party + the touch-buttons
   // cluster stacked top-to-bottom with real gaps between all three (wave-6 playtest,
   // ASSUMPTION #87).
+  // Epic 7.14's boss bar (bossBar.ts) shipped with no narrow-viewport treatment of its
+  // own — at its stock 320px-wide finalScale 1 it runs from roughly screen-center out
+  // past the collapsed touch CHAT chip's top-left corner, confirmed live at 844x390
+  // (wave 8 integration gate). Same step-down as health/status/party below.
+  registry.setOverride("bossBar", { scale: factor });
   registry.setOverride("status", { offset: { x: -16, y: 20 }, scale: factor });
   // Directly below status's (now narrow-viewport-shrunk) 3-row stack, itself also
   // shrunk so the two together — plus the touch-buttons cluster further down — all fit

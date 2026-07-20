@@ -4,6 +4,7 @@ import { isTouchDevice } from "../../../input/touchDetect.js";
 import type { ChatPanelModel } from "../../chat/controller.js";
 import type { ContactData } from "./contactRows.js";
 import type { PartyRowData } from "./partyFrames.js";
+import type { BossBarData } from "./bossBarView.js";
 import type { RecipeRowView } from "./recipeRows.js";
 import type { StashRowView } from "./stashRows.js";
 import type { XpBarData } from "./xpBarView.js";
@@ -31,6 +32,8 @@ export interface InventoryRowData {
   category: InventoryCategory;
   /** Hotbar index this item is bound to, or null when unbound. */
   boundSlot: number | null;
+  /** Content's short flavor line (Epic 7.14 §4), undefined for a def that has none. */
+  flavor?: string | undefined;
 }
 
 /** A tile-space (x, y, z) — the player's rounded predicted position for the top-right
@@ -80,9 +83,12 @@ export interface HudFakeSnapshot {
   /** Every still-tracked toast (net/apply.ts + Connection.pushToast) — the top-center
    * toastStack.ts widget's full queue, independent of lastToast's single-line consumers. */
   toasts: ToastData[];
-  /** The connected world's seed, for the telemetry stack — null until the welcome
-   * message carries one (it doesn't yet; see docs/ASSUMPTIONS.md, Epic 7.13 onboarding row). */
+  /** The connected world's seed, for the telemetry stack — from the welcome handshake. */
   seed: string | null;
+  /** Current dungeon floor (Epic 7.14), for the telemetry stack + HUD numeral. */
+  floor: number;
+  /** The AOI boss entity (Epic 7.14), or null when none is nearby — hides the bar. */
+  boss: BossBarData | null;
   /** Off-self party member rows (Epic 7.12) — empty when unpartied, hides the widget. */
   party: PartyRowData[];
   chatModel: ChatPanelModel;
@@ -119,8 +125,8 @@ const FAKE_INVENTORY: InventoryRowData[] = [
   { itemId: "water-flask", name: "Water Flask", qty: 2, category: "usables", boundSlot: 2 },
   { itemId: "vodka-bottle", name: "Vodka Bottle", qty: 1, category: "usables", boundSlot: 3 },
   { itemId: "raw-meat", name: "Raw Meat", qty: 4, category: "usables", boundSlot: null },
-  { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null },
-  { itemId: "stick", name: "Stick", qty: 5, category: "materials", boundSlot: null },
+  { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, flavor: "Absorbent. Slightly cursed. Mostly the first thing." },
+  { itemId: "stick", name: "Stick", qty: 5, category: "materials", boundSlot: null, flavor: "The dungeon's starter weapon, technically. Don't." },
 ];
 
 /** One tab per channel, global unread and dm dimmed (not yet seen) — proves both states at once. */
@@ -216,7 +222,9 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     stash: FAKE_STASH,
     lastToast: null,
     toasts: [],
-    seed: null,
+    seed: "e2e-world",
+    floor: 1,
+    boss: null,
     party: FAKE_PARTY,
     chatModel: FAKE_CHAT_MODEL,
     contacts: FAKE_CONTACTS,

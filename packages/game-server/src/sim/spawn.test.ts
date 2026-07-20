@@ -62,7 +62,7 @@ function makeSlotAt(x: number, y: number): PlayerSlot {
     god: false,
     forceDeath: false,
     chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity,
+    lastFistbumpOfferAtTick: -Infinity, pendingTransfer: null,
   };
 }
 

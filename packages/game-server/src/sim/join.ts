@@ -6,7 +6,7 @@ import {
   newEntityId,
   type Entity,
 } from "@dc2d/engine";
-import { announceJoin, broadcastAnnouncement } from "./announcer/index.js";
+import { announceFloorEntry, announceJoin, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
 import { respawnSlot } from "./players.js";
@@ -59,7 +59,11 @@ export function addPlayer(
   // player's persistent PlayerStore slot number, not join order, so a
   // returning-but-forgotten client still gets a stable "Crawler #N".
   broadcastAnnouncement(sim, announceJoin(sim.tickCount, entity.id, name, slot.stored.slot + 1));
-  return { playerId: entity.id, resumeToken: token, spawn, resumed: false };
+  // Epic 7.14 (The Descent): every arrival on a floor — fresh join included —
+  // gets the floor's own identity line, and bumps the durable watermark.
+  slot.outbox.push(announceFloorEntry(sim.world.floor));
+  sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
+  return { playerId: entity.id, resumeToken: token, spawn, resumed: false, floor: sim.world.floor };
 }
 
 /** Default bookkeeping for a freshly-joined player. */
@@ -95,6 +99,7 @@ function newSlot(
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,
+    pendingTransfer: null,
   };
 }
 
@@ -117,10 +122,12 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
   if (slot.entity.hp <= 0) respawnSlot(sim, slot);
   else ensureStarterKit(sim, slot);
   sendContactsUpdated(sim, slot);
+  sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
   return {
     playerId: slot.entity.id,
     resumeToken: slot.resumeToken,
     spawn: { x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z },
     resumed: true,
+    floor: sim.world.floor,
   };
 }

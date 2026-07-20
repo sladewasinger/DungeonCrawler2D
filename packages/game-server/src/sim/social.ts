@@ -120,11 +120,17 @@ function doLocalChat(sim: SimState, slot: PlayerSlot, text: string): void {
   sim.worldEvents.push({ ev: event, x: slot.entity.body.x, y: slot.entity.body.y });
 }
 
-/** Truly global (ASSUMPTION #14): every connected socket on THIS sim — dungeon/sandbox
- * never bleed into each other because each level runs its own GameSim/players map. */
+/** Truly global (ASSUMPTION #14): every connected socket on THIS sim, plus
+ * (Epic 7.14) every OTHER active floor sim of the SAME level — dungeon
+ * floors share one global channel; sandbox still never bleeds in, since
+ * it isn't under a FloorRegistry and never drains pendingGlobalChat. The
+ * cross-floor half relays with a 1-tick delay (ASSUMPTION #130,
+ * docs/ASSUMPTIONS.md) — an artifact of aggregating per-sim ticks at the
+ * registry level. */
 function doGlobalChat(sim: SimState, slot: PlayerSlot, text: string): void {
   const event: GameEvent = { t: "chat", channel: "global", from: slot.entity.id, name: slot.entity.name ?? "?", text };
   for (const other of sim.players.values()) if (other.connected) other.outbox.push(event);
+  sim.pendingGlobalChat.push(event);
 }
 
 /** DMs require a mutual contact (ASSUMPTION #15); name matching is case-insensitive

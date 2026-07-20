@@ -46,7 +46,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     reapAtTick: Number.MAX_SAFE_INTEGER, known: new Set(), inventory: [], hotbar: [], weapon: null,
     outbox: [], returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: true,
     downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: Number.NEGATIVE_INFINITY,
-    god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
+    god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity, pendingTransfer: null,
   };
 }
 

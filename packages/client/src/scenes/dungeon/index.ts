@@ -111,7 +111,7 @@ export class DungeonScene extends Phaser.Scene {
     this.inputController.pollReviveHold();
     syncReviveRing(this.reviveRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
-    this.consumeTeleport();
+    this.consumeTeleport(time);
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
     this.sampleFixedStepInput(deltaMs);
@@ -161,13 +161,15 @@ export class DungeonScene extends Phaser.Scene {
     this.boundWorld = world;
   }
 
-  /** Server-flagged teleport (welcome, respawn, debug tp): reset local render state and snap the camera. */
-  private consumeTeleport(): void {
+  /** Server-flagged teleport (welcome, respawn, debug tp, Epic 7.14 stairways once wired):
+   * reset local render state, snap the camera, and fade through black over the cut. */
+  private consumeTeleport(nowMs: number): void {
     if (!this.conn.teleported) return;
     this.conn.teleported = false;
     this.state.prevStep = null;
     this.state.accumulatorMs = 0;
     requestCameraSnap(this.state.camera);
+    this.vfx.spawnTeleportFade(nowMs);
   }
 
   private sampleFixedStepInput(deltaMs: number): void {

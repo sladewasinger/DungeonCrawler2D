@@ -1,5 +1,7 @@
 import { DOWNED_DURATION, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
 import { announceDeath, broadcastAnnouncement } from "./announcer/index.js";
+import { handleBossDeath } from "./floors/boss.js";
+import { WARDEN_DEF_ID } from "./floors/constants.js";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { dropAllInventory } from "./inventory.js";
 import { awardKillXp } from "./xp.js";
@@ -37,6 +39,10 @@ function resolveEnemyDeaths(sim: SimState): void {
     // touching this file this wave, leave this call alone. ---
     awardKillXp(sim, enemy);
     // --- end XP award hook ---
+    // Epic 7.14 (The Descent): the Warden's own XP burst to the whole
+    // arena, gate unseal, and respawn timer — additional to (not instead
+    // of) the ordinary awardKillXp last-hit award above (ASSUMPTION #129).
+    if (enemy.def.id === WARDEN_DEF_ID) handleBossDeath(sim);
     for (const drop of enemy.def.drops) {
       if (sim.rng.next() >= drop.chance) continue;
       const jx = (sim.rng.next() - 0.5) * 1.2;

@@ -1,8 +1,11 @@
-// Contextual "[key] label" prompt resolution: interact (crafting table / stash / any
-// door) takes priority over pickup, matching the E/R key split in input/index.ts.
+// Contextual "[key] label" prompt resolution: a nearby stairway (Epic 7.14) takes
+// priority over interact (crafting table / stash / any door), which takes priority
+// over pickup, matching the E/R key split in input/index.ts.
 import { INTERACT_RANGE, PICKUP_RANGE, TILE, type TileType } from "@dc2d/engine";
+import { descentPromptLabel } from "./descentPrompt.js";
+import { resolveStairwayPrompt, type StairwayWorld } from "./stairwayProximity.js";
 
-export interface PromptWorld {
+export interface PromptWorld extends StairwayWorld {
   tileAt(wx: number, wy: number): TileType;
 }
 
@@ -51,6 +54,8 @@ export function resolveInteractionPrompt(
   y: number,
   items: readonly PromptTarget[],
 ): InteractionPrompt | null {
+  const stairway = resolveStairwayPrompt(world, x, y);
+  if (stairway) return { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) };
   if (hasNearbyInteractTile(world, x, y)) return { key: "E", label: "interact" };
   if (hasNearbyItem(items, x, y)) return { key: "R", label: "pick up" };
   return null;

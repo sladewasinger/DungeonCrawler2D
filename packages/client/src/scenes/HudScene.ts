@@ -7,6 +7,7 @@
  * safe to always keep launched.
  */
 import Phaser from "phaser";
+import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
 import { fakeHudSnapshot, type HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import { HudWidgets, type SocialActions, type StationActions } from "../ui/widgets/hud/index.js";
 import type { InventoryActions } from "../ui/widgets/hud/inventoryWindow.js";
@@ -20,6 +21,10 @@ const INVENTORY_QUERY_PARAM = "inventory";
  * ?inventory=1, for the Epic 7.12 windows; real play only opens them via [C]/[E] near a station. */
 const CRAFT_QUERY_PARAM = "craft";
 const STASH_QUERY_PARAM = "stash";
+/** ?boss=1 (with ?hud=1|death) — the same screenshot-aid pattern, forces a fake boss
+ * into the AOI so Epic 7.14's boss HP bar has something to show without a live server. */
+const BOSS_QUERY_PARAM = "boss";
+const FAKE_BOSS = { name: "The Warden of Five", hp: 640, maxHp: 900 };
 
 export interface HudSceneData {
   /** Pulled fresh every update() — DungeonScene's real snapshot builder. */
@@ -34,6 +39,9 @@ export interface HudSceneData {
 
 export class HudScene extends Phaser.Scene {
   private hud: HudWidgets | undefined;
+  /** Epic 7.14 boss HP bar — built from `hud.registry` rather than folded into
+   * HudWidgets itself, which is already at its file-size cap. */
+  private bossBar: BossBarWidget | undefined;
   private snapshot: HudFakeSnapshot | undefined;
   private source: (() => HudFakeSnapshot) | undefined;
   private actions: InventoryActions | undefined;
@@ -56,19 +64,29 @@ export class HudScene extends Phaser.Scene {
     const mode = params.get(HUD_QUERY_PARAM);
     if (!this.source && mode !== "1" && mode !== "death") return;
     this.snapshot = mode === "death" ? fakeHudSnapshot(true) : mode === "1" ? fakeHudSnapshot(false) : undefined;
-    this.hud = new HudWidgets(this, { width: this.scale.width, height: this.scale.height }, this.actions, this.social, this.stations);
-    if (params.get(INVENTORY_QUERY_PARAM) === "1") this.hud.toggleInventory();
-    if (params.get(CRAFT_QUERY_PARAM) === "1") this.hud.toggleCraftPanel();
-    if (params.get(STASH_QUERY_PARAM) === "1") this.hud.openStashPanel();
+    const viewport = { width: this.scale.width, height: this.scale.height };
+    this.hud = new HudWidgets(this, viewport, this.actions, this.social, this.stations);
+    this.bossBar = new BossBarWidget(this, this.hud.registry, viewport);
+    this.applyScreenshotAidParams(params);
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
   }
 
+  /** ?inventory=1/?craft=1/?stash=1/?boss=1 — screenshot aids only, split out to keep create()'s complexity down. */
+  private applyScreenshotAidParams(params: URLSearchParams): void {
+    if (this.snapshot && params.get(BOSS_QUERY_PARAM) === "1") this.snapshot.boss = FAKE_BOSS;
+    if (params.get(INVENTORY_QUERY_PARAM) === "1") this.hud?.toggleInventory();
+    if (params.get(CRAFT_QUERY_PARAM) === "1") this.hud?.toggleCraftPanel();
+    if (params.get(STASH_QUERY_PARAM) === "1") this.hud?.openStashPanel();
+  }
+
   update(time: number): void {
     if (!this.hud) return;
     const snapshot = this.source ? this.source() : this.snapshot;
-    if (snapshot) this.hud.update(snapshot, time);
+    if (!snapshot) return;
+    this.hud.update(snapshot, time);
+    this.bossBar?.update(snapshot.boss);
   }
 
   /** InputHud contract: forwarded to the live HudWidgets instance, if one is running. */
@@ -143,6 +161,8 @@ export class HudScene extends Phaser.Scene {
 
   private handleResize(gameSize: Phaser.Structs.Size): void {
     this.cameras.main.setSize(gameSize.width, gameSize.height);
-    this.hud?.resize({ width: gameSize.width, height: gameSize.height });
+    const viewport = { width: gameSize.width, height: gameSize.height };
+    this.hud?.resize(viewport);
+    if (this.hud) this.bossBar?.resize(this.hud.registry, viewport);
   }
 }

@@ -54,6 +54,8 @@ export interface InputConnection {
   drop(item: string): void;
   /** Hold-F contact gesture intent (Epic 7.10) — server gates range/rate/mutuality. */
   fistbump(targetId: string): void;
+  /** Descends/ascends a nearby stairway (Epic 7.14) — server validates range. */
+  descend(): void;
   /**
    * Client-local UI feedback for an action the client can already tell will do
    * nothing (no crafting table nearby, out of torches...) — never a substitute for
@@ -94,6 +96,9 @@ export interface InputQueries {
    * useDoor() gate (game-server/src/sim/actions/interact.ts) so the client can tell
    * [E] would open a door without waiting on a round trip. */
   isDoorNearby(conn: InputConnection): boolean;
+  /** True when a StairwayDown/StairwayUp landmark (Epic 7.14) is within interact
+   * range — takes priority over every other [E] action. */
+  isStairwayNearby(conn: InputConnection): boolean;
   /** Nearest downed party member in interact range — gates hold-E revive (Epic 7.12), or undefined. */
   downedPartyMemberInRange(conn: InputConnection): { id: string } | undefined;
 }

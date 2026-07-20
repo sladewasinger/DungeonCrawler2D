@@ -115,11 +115,13 @@ export class InputController {
     }
   }
 
-  /** [E]: a downed party member starts hold-to-revive instead of firing instantly;
-   * otherwise mirrors the server's doInteract() gate client-side, purely to toast
+  /** [E]: a nearby stairway (Epic 7.14) takes priority and sends descend() instead;
+   * otherwise a downed party member starts hold-to-revive instead of firing instantly,
+   * else this mirrors the server's doInteract() gate client-side, purely to toast
    * "nothing happened" rather than assert an outcome — interact() still always fires. */
   private handleInteractDown(): void {
     const { conn, panels, queries } = this;
+    if (queries.isStairwayNearby(conn)) return conn.descend();
     const target = queries.downedPartyMemberInRange(conn);
     if (this.revive.begin(target?.id, this.scene.time.now)) return;
     if (queries.isStashNearby(conn)) panels.openStashIfNearby(conn);

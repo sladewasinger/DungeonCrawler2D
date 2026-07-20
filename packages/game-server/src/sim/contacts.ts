@@ -89,20 +89,32 @@ export function sendContactsUpdated(sim: SimState, slot: PlayerSlot): void {
   slot.outbox.push({ t: "contactsUpdated", contacts });
 }
 
+/** Epic 7.14 (The Descent): /who's "online" list spans every floor of the
+ * dungeon (sim.crossFloorDirectory, refreshed each tick by FloorRegistry)
+ * so "shows floor per player" is meaningful; "nearby" stays a same-floor
+ * AOI count (cross-floor proximity is meaningless spatially). Sims not
+ * under a registry (sandbox, bare unit tests) fall back to their own
+ * `players` map, tagged with their own floor. */
 export function doWho(sim: SimState, slot: PlayerSlot): void {
   if (!withinRateLimit(slot.chatTimestamps, sim.tickCount, RATE_WINDOW_TICKS, CHAT_LIMIT)) {
     slot.outbox.push(systemLine("You're sending messages too fast — slow down."));
     return;
   }
-  const online = [...sim.players.values()].filter((p) => p.connected);
-  const nearby = online.filter(
+  const connectedHere = [...sim.players.values()].filter((p) => p.connected);
+  const directory =
+    sim.crossFloorDirectory.length > 0
+      ? sim.crossFloorDirectory
+      : connectedHere.map((p) => ({ name: p.entity.name ?? "?", floor: sim.world.floor }));
+  const nearby = connectedHere.filter(
     (p) =>
       p !== slot &&
       Math.hypot(p.entity.body.x - slot.entity.body.x, p.entity.body.y - slot.entity.body.y) <= AOI_RADIUS,
   ).length;
-  const names = online.map((p) => p.entity.name ?? "?").sort((x, y) => x.localeCompare(y));
+  const names = [...directory]
+    .sort((x, y) => x.name.localeCompare(y.name))
+    .map((p) => `${p.name} (F${p.floor})`);
   slot.outbox.push(
-    systemLine(`Online (${online.length}, ${nearby} nearby): ${names.join(", ")}`),
+    systemLine(`Online (${directory.length}, ${nearby} nearby): ${names.join(", ")}`),
   );
 }
 
