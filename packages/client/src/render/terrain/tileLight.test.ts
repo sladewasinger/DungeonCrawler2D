@@ -52,6 +52,9 @@ describe("setTileLightConfig", () => {
   it("lowering curveFullLevel pulls a fixed mid-level tile onto the bright plateau sooner", () => {
     const world = openWorld();
     const seedFive = [{ tileX: 2, tileY: 2, level: 5 }];
+    // Pin an explicitly-high baseline: the shipped default is user-tuned (4.5)
+    // and may already put level 5 on the plateau.
+    setTileLightConfig({ curveFullLevel: 9 });
     const beforeFull = computeLightField(world, 0, 0, 4, seedFive).tintAt(2, 2);
     setTileLightConfig({ curveFullLevel: 4 });
     const afterFull = computeLightField(world, 0, 0, 4, seedFive).tintAt(2, 2);

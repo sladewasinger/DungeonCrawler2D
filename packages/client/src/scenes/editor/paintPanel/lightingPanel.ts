@@ -28,13 +28,15 @@ const SLIDERS: readonly SliderSpec[] = [
   { key: "warmth", label: "WARMTH", min: 0, max: 1, step: 0.01 },
 ];
 
-/** The last three shipped tunings (docs/ROADMAP.md "brightness round" history), oldest
- * first, so dragging left-to-right across the row walks forward through eras. Warmth
- * isn't part of any shipped era yet, so presets leave it untouched. */
-const PRESETS: ReadonlyArray<Pick<TileLightConfig, "ambient" | "curveFullLevel">> = [
+/** Shipped tunings (docs/ROADMAP.md "brightness round" history), oldest first, so
+ * dragging left-to-right across the row walks forward through eras. Eras without a
+ * warmth value leave the current warmth untouched. */
+const PRESETS: ReadonlyArray<Partial<TileLightConfig>> = [
   { ambient: 0.42, curveFullLevel: 8.5 },
   { ambient: 0.62, curveFullLevel: 7 },
   { ambient: 0.72, curveFullLevel: 7 },
+  // Austin's first workbench tuning (2026-07-20) — the current shipped default.
+  { ambient: 0.65, curveFullLevel: 4.5, warmth: 0.75 },
 ];
 
 function debounce(fn: () => void, ms: number): () => void {
@@ -106,7 +108,7 @@ function buildPresetRow(rows: ReadonlyMap<keyof TileLightConfig, SliderRow>, onC
   bar.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-top:4px";
   for (const preset of PRESETS) {
     bar.append(
-      button(`${preset.ambient.toFixed(2)} / ${preset.curveFullLevel}`, () => {
+      button(`${(preset.ambient ?? 0).toFixed(2)} / ${preset.curveFullLevel ?? "-"}`, () => {
         setTileLightConfig(preset);
         syncSlidersToConfig(rows);
         onChange();

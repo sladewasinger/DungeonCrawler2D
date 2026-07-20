@@ -52,12 +52,14 @@ export interface TileLightConfig {
   readonly warmth: number;
 }
 
-/** The last-shipped tuning (2026-07-20) — what every client bakes against unless the
- * editor has overridden it for this session. */
+/** Tuned BY AUSTIN in the editor lighting workbench (2026-07-20) — the first
+ * user-authored tuning: lower ambient than round 4 but a much wider bright
+ * plateau (full from level 4.5) and softened warmth. What every client bakes
+ * against unless the editor has overridden it for this session. */
 export const DEFAULT_TILE_LIGHT_CONFIG: TileLightConfig = {
-  ambient: 0.72,
-  curveFullLevel: 7,
-  warmth: 1,
+  ambient: 0.65,
+  curveFullLevel: 4.5,
+  warmth: 0.75,
 };
 
 let config: TileLightConfig = DEFAULT_TILE_LIGHT_CONFIG;
