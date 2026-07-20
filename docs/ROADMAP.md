@@ -322,7 +322,7 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Kill feedback:** enemies currently vanish on death — no burst, no guts, no corpse. Investigate why wave-4 death VFX doesn't read on live; ship a real kill moment: blood explosion + gib particles + brief corpse/bones fade + hit-stop tick
 - [ ] **XP + levels (Epic 11 core, pulled forward):** server-authoritative XP on kill, floating +XP numbers, character level on the HUD, level-up flourish; persistence in PlayerStore
 - [ ] **Starter-kit famine:** dying drops everything and the kit never re-grants -> new/returning players are permanently Unarmed (Austin joined to exactly this). Re-grant sword+torches on respawn when the player has no weapon (log assumption); also fix the "YOU DIED on first join" overlay bug (death overlay must only show after a real death event this session)
-- [ ] **1-tile corridor stuck-walking:** moving left in a 1-wide hallway requires pixel-perfect alignment — add corner-slide/auto-nudge assist in engine movement so near-misses glide into the gap
+- [x] **1-tile corridor stuck-walking:** moving left in a 1-wide hallway requires pixel-perfect alignment — add corner-slide/auto-nudge assist in engine movement so near-misses glide into the gap (docs/ASSUMPTIONS.md #89)
 - [ ] **z visual lift:** jumping/stepping onto a z1 platform keeps the sprite at the same screen y — entities must render y-offset by their z (sprite, shadow, nameplate), or elevation reads as nothing
 - [ ] **Terrain legibility overhaul (the "absolute mess" walls):** his screenshots show brick face strips scattered mid-floor, black void patches inside rooms, disconnected ledges — the dungeon reads as noise. Reproduce at his coords (x36,y-51 / x47,y-54 / x49,y-54 / x41,y-56 on the prod seed), diagnose worldgen fragmentation vs render grammar, and make generated dungeons READ: cohesive wall masses, clear top-vs-face contrast, no orphan face strips
 - [ ] **Enemies in the void:** enemies stand/walk in chasm/void areas (screenshots show nameplated creepers in pure black) — enemy movement must respect walkability like players; chasm kills them too
@@ -343,7 +343,28 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Walk-behind + occlusion outline (user request):** investigate the blocked tile at his screenshot coords (x-72,y-47 wanting y-46) — determine whether a legal floor tile sits behind the wall's visual face; implement the standard top-down treatment: floor rows behind tall walls stay walkable, the player renders as a silhouette outline while occluded by wall geometry
 - [ ] **Safe-room platform above the door (user spec):** kill the visible seam/split in the platform directly above the door, and deepen that platform to 2 tiles north-south (currently 1)
 - [ ] If brightness STILL reads dark after ambient 0.72 (source art itself is dark — raw texture mean ~50/255): add a global post-gain multiplier on the terrain bake (>1.0 with clamp) instead of pushing ambient past 1
+- [ ] Chat bar always visible with a semi-transparent "press [Enter] to chat" hint line (user spec)
+- [ ] Coords readout gains z height (x, y, z); a build number (git short SHA, injected at build time) rendered on screen near the indicators
+- [ ] **Pitch-black room investigation (user screenshot x-13,y18):** player standing in a mostly-black area with scattered brick fragments — determine if it's a chasm room rendering with zero rim clarity, unrendered floor, or a lighting hole; fold the answer into the terrain legibility lane
+- [x] Blood readable + hour-long: decals switched MULTIPLY -> NORMAL blend (multiply on dark floors rendered near-black-on-black — user "can BARELY see the blood"), sized up 9-20px, lifetime 45s -> 1 hour (96-slot pool is the real bound)
+- [ ] **CONFIRMED GENERATOR BUG — inescapable pit with a broken ramp (probe-reproduced on prod seed austin-dungeon-prod-1 at (37,7) floor 1):** pit floor at z-1 contains an ORPHANED ramp at (38,7) height -0.5 whose far side returns to -1 before the z0 floor (chain -1 -> -0.5 -> -1 -> 0); every walking exit exceeds STEP_UP 0.35, so the pit traps players who don't think to jump. Fix in the generator: pit/chasm ramps must form a CONNECTED monotone chain from pit floor to rim (extend the stairs invariant test to negative-height transitions — it only covers ascending terrain today); .scratch/stuck-probe.ts holds the repro
+- [ ] Seed on screen: welcome message gains the server's world seed (additive optional field), displayed with the build number in the debug indicator stack — so stuck-position reports carry seed+coords for instant repro
 - [ ] Inventory selection outline z-order (yellow ring renders under the Drop button), "Unarmed" chip text centering, and a general HUD alignment pass
+
+## DEFINITION OF DONE (standing, user directive 2026-07-20)
+
+The game is finished ONLY when a 3-judge player panel — The Grinder (hardcore ARPG), The Tourist (casual clarity), The Book Fan (DCC tone) — **unanimously** verdicts it polished, fun, and playable. Any REJECT feeds the next wave. North star: Dungeon Crawler Carl as a 2D game. Mobile is tested in LANDSCAPE.
+
+## Epic 7.14 — The Descent (floors, stairways, bosses)
+
+**Goal:** The Dungeon goes DOWN. Depth is the game's spine, per the books.
+
+- [ ] Stairway-down landmarks: findable descent points per floor, interact to descend
+- [ ] Per-floor identity: difficulty scaling (enemy stats/density via content data), palette/theme shift per depth band, floor announcement ("Floor 3. Try not to die.")
+- [ ] Boss rooms: a guarded arena per floor band with a boss enemy (new content defs — bigger stats, distinct attack pattern, XP/loot burst), door seals during the fight
+- [ ] Death returns you to floor 1's safe room (or last safe room reached — design call for the wave)
+- [ ] Persistence: deepest-floor-reached per character; /who shows floor
+- [ ] The DCC personality layer: system-announcer lines for floor entry, boss intro, level-ups, deaths (dry, menacing, funny — the books' AI voice)
 
 ## Epic 8 — Social Fabric (v0.5)
 

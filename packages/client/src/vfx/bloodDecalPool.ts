@@ -15,9 +15,12 @@ import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 
 /** Raised with the 45s decal lifetime so long fights don't recycle fresh blood. */
 export const DECAL_CAP = 96;
-const BASE_ALPHA = 0.85;
-const MIN_RADIUS_PX = 7;
-const MAX_RADIUS_PX = 14;
+const BASE_ALPHA = 0.82;
+/** Sized up + NORMAL blend (user 2026-07-20: "I can BARELY see the blood"):
+ * MULTIPLY over an already-dark floor multiplied to near-black-on-black. Normal-
+ * blend dark red still darkens the scene (no glow) and reads on any floor tone. */
+const MIN_RADIUS_PX = 9;
+const MAX_RADIUS_PX = 20;
 /** Just under a same-row entity's feet depth, mirroring itemVisual's shadow bias. */
 const DEPTH_BIAS = -0.25;
 
@@ -53,7 +56,7 @@ export class BloodDecalPool {
   }
 
   private buildShape(): Phaser.GameObjects.Ellipse {
-    return this.scene.add.ellipse(0, 0, 1, 1).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    return this.scene.add.ellipse(0, 0, 1, 1).setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
   private place(decal: Decal, worldX: number, worldY: number, tint: number, nowMs: number): void {
