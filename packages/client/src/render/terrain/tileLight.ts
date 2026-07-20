@@ -22,12 +22,14 @@ export interface DynamicLightSeed {
   readonly tileY: number;
   readonly level: number;
 }
-/** Brightness of a fully unlit tile — visible but clearly dark. */
-const AMBIENT = 0.26;
+/** Brightness of a fully unlit tile — dark, but readable on a phone panel in a
+ * bright room (user directive 2026-07-20: 0.26 was unplayably dark on real
+ * hardware; playability beats mood). */
+const AMBIENT = 0.42;
 /** Levels at/above this render at full brightness (the lit plateau near a torch). */
-const CURVE_FULL_LEVEL = 9.5;
+const CURVE_FULL_LEVEL = 8.5;
 /** Levels at/below this sit on the ambient floor; between the two an S-curve falls off. */
-const CURVE_DARK_LEVEL = 1;
+const CURVE_DARK_LEVEL = 0;
 /** Warm firelight tint at full level, blended in with the level curve. */
 const WARM_R = 1.0;
 const WARM_G = 0.84;
