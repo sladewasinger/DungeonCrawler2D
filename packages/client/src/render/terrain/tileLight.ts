@@ -25,7 +25,7 @@ export interface DynamicLightSeed {
 /** Brightness of a fully unlit tile. User has now demanded brighter twice
  * (0.26 -> 0.42 -> 0.55, 2026-07-20 "make it way brighter, I can't see shit"):
  * the dungeon reads fully at a glance; torches add warmth, not visibility. */
-const AMBIENT = 0.62;
+const AMBIENT = 0.72;
 /** Levels at/above this render at full brightness (the lit plateau near a torch). */
 const CURVE_FULL_LEVEL = 7;
 /** Levels at/below this sit on the ambient floor; between the two an S-curve falls off. */
@@ -34,6 +34,13 @@ const CURVE_DARK_LEVEL = 0;
 const WARM_R = 1.0;
 const WARM_G = 0.84;
 const WARM_B = 0.58;
+/** Cool moonless cast at the ambient floor. With ambient this high, torches barely
+ * changed LUMINANCE — so their presence now reads through HUE contrast instead:
+ * unlit stone is cool blue-gray, torchlight is warm gold (user: "torches seem to
+ * do nearly nothing" after the brightness lifts). */
+const COOL_R = 0.86;
+const COOL_G = 0.94;
+const COOL_B = 1.1;
 
 export interface LightField {
   /** Multiply-tint (0xRRGGBB) for the tile — brightness + warmth baked together. */
@@ -51,12 +58,13 @@ function levelCurve(level: number): number {
   return AMBIENT + (1 - AMBIENT) * s;
 }
 
-/** Precomputed per-level multiply tints: dark cool ambient up to warm near-white. */
+/** Precomputed per-level multiply tints: cool blue-gray ambient up to warm near-white. */
 const LEVEL_TINTS: readonly number[] = Array.from({ length: LIGHT_MAX + 1 }, (_, level) => {
   const b = levelCurve(level);
   const warmth = level / LIGHT_MAX;
-  const ch = (warm: number) => Math.round(255 * b * (1 - warmth + warmth * warm));
-  return (ch(WARM_R) << 16) | (ch(WARM_G) << 8) | ch(WARM_B);
+  const ch = (cool: number, warm: number) =>
+    Math.min(255, Math.round(255 * b * (cool + warmth * (warm - cool))));
+  return (ch(COOL_R, WARM_R) << 16) | (ch(COOL_G, WARM_G) << 8) | ch(COOL_B, WARM_B);
 });
 
 /** Mutable BFS grid state shared by the seed/flood helpers. */

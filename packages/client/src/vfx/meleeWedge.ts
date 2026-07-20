@@ -20,7 +20,10 @@ import { wedgeAlpha, wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeome
 
 /** Warm white-orange fill, per docs/VISUAL_DIRECTION.md's fire/torch accent. */
 const FILL_COLOR = 0xffb37a;
-const FILL_ALPHA = 0.25;
+/** 0.25 was invisible on the dark canvas — only the rim read, which made the
+ * telegraph look like it started outside the player (user playtest 2026-07-20).
+ * The filled pie from the wielder's feet is the actual hit area, point-blank included. */
+const FILL_ALPHA = 0.45;
 const RIM_COLOR = 0xffe9c9;
 const RIM_ALPHA = 0.9;
 const RIM_WIDTH_PX = 2;
