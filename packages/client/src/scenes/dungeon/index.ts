@@ -136,7 +136,10 @@ export class DungeonScene extends Phaser.Scene {
    * one hard content swap (if this frame crosses the 45-degree midpoint) settles on. */
   private advanceRotation(deltaMs: number): void {
     this.rotation.update(deltaMs, () => {
-      this.terrain?.invalidateAll();
+      // rebakeAllNow, not invalidateAll: the snap must land with the whole view baked
+      // in the same frame — the budgeted 2-chunks-per-frame stream made the world
+      // blink in piecewise after every rotation (user playtest).
+      this.terrain?.rebakeAllNow();
       this.lighting?.invalidateAll();
     });
   }

@@ -23,19 +23,27 @@ import {
 import { getViewOrientation, setViewOrientation } from "../../render/view/viewState.js";
 import { compassBearingDeg } from "./compassBearing.js";
 
+/** How far the pre-snap lean tilts, in degrees — "a slight fake rotation towards the
+ * proper direction, and then everything is snapped over" (user directive 2026-07-20,
+ * replacing the two-phase compensated spin whose sign mismatch with Phaser's camera
+ * rotation read as a wrong-way 720 "twister"). Vetoable knob. */
+const LEAN_DEG = 14;
+
+function easeOutQuad(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
 /**
- * Continuous cosmetic screen-space spin (degrees) for the OLD content pre-swap, easing
- * from 0 to half the 90-degree step; then, post-swap, the REMAINING half eased back to
- * 0 against the NEW content's own frame — the jump between the two halves (exactly
- * `-fullDeltaDeg`) is the compensating offset that makes a rigid rotation of "old content
- * turned 45deg" and "new content turned -45deg" land on the same absolute screen angle.
+ * The lean, in camera-rotation degrees. Sign: Phaser camera.rotation +θ makes the WORLD
+ * appear rotated CW on screen, while a stepDir=+1 orientation swap rotates content CCW
+ * (east moves screen-right -> screen-up per worldToView) — so the camera must lean
+ * NEGATIVE stepDir for the world to tilt toward where the snap will take it. The tween
+ * ends AT the snap (update() below), so there is no post-swap phase at all.
  */
 function cameraFxDeg(tween: RotationTween): number {
   const progress = rotationTweenProgress(tween);
-  const fullDeltaDeg = tween.stepDir * 90;
-  if (progress < 0.5) return fullDeltaDeg * progress;
-  const t = (progress - 0.5) / 0.5;
-  return -fullDeltaDeg * 0.5 * (1 - t);
+  const leanT = Math.min(1, progress / 0.5);
+  return -tween.stepDir * LEAN_DEG * easeOutQuad(leanT);
 }
 
 export class RotationController {
@@ -64,9 +72,15 @@ export class RotationController {
     if (!this.tween) return;
     this.tween = advanceRotationTween(this.tween, dtMs);
     if (!this.swapped && isPastCrossfadeMidpoint(this.tween)) {
+      // Lean-then-SNAP: the swap ends the whole tween in the same instant — camera
+      // rotation returns to exactly 0, the content lands in the new orientation, and
+      // there is no post-swap animation to unwind (user directive; the old second
+      // half read as a "crazy twister").
       this.swapped = true;
       setViewOrientation(this.tween.to);
       invalidate();
+      this.tween = null;
+      return;
     }
     if (isRotationTweenDone(this.tween)) this.tween = null;
   }

@@ -39,17 +39,21 @@ describe("RotationController", () => {
     expect(controller.tweening).toBe(false);
   });
 
-  it("cameraRotationRad eases from 0, jumps by the compensating offset at the swap, and returns to 0", () => {
+  it("leans opposite-sign toward the snap, then returns to exactly 0 the instant the swap lands", () => {
+    // Hand-derived (LEAN_DEG 14, easeOutQuad over the first half of the 250ms tween):
+    //   p=0.4 -> leanT 0.8 -> ease 1-(0.2)^2 = 0.96 -> angle = -1 * 14 * 0.96 = -13.44deg
+    // (negative for stepDir=+1: Phaser camera.rotation +theta shows the world rotated
+    //  CW, while the +1 content swap rotates it CCW — the lean must preview the snap).
     const controller = new RotationController();
-    controller.request(1); // fullDelta = +90deg
+    controller.request(1);
     controller.update(0, () => {});
     expect(controller.cameraRotationRad()).toBeCloseTo(0);
-    controller.update(100, () => {}); // progress 0.4, pre-swap: 90*0.4 = 36deg
-    expect(controller.cameraRotationRad()).toBeCloseTo((36 * Math.PI) / 180, 5);
-    controller.update(30, () => {}); // progress 0.52, just past swap: -45*(1-0.04) = -43.2deg
-    expect(controller.cameraRotationRad()).toBeCloseTo((-43.2 * Math.PI) / 180, 5);
-    controller.update(120, () => {}); // tween done
-    expect(controller.cameraRotationRad()).toBe(0);
+    controller.update(100, () => {}); // progress 0.4
+    expect(controller.cameraRotationRad()).toBeCloseTo((-13.44 * Math.PI) / 180, 5);
+    controller.update(30, () => {}); // progress 0.52 — crosses the midpoint: SNAP
+    expect(controller.cameraRotationRad()).toBe(0); // no post-swap phase at all
+    expect(controller.tweening).toBe(false);
+    expect(getViewOrientation()).toBe(90);
   });
 
   it("bearingDeg matches the settled orientation once idle", () => {

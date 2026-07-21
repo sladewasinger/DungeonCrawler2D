@@ -18,6 +18,12 @@ const MAX_BAKES_PER_FRAME = 2;
 export class TerrainRenderer {
   private readonly visuals = new Map<string, ChunkVisual>();
   private readonly bakeQueue: ChunkCoord[] = [];
+  /** When set, the next update() drains the ENTIRE bake queue in one frame instead of
+   * budgeting MAX_BAKES_PER_FRAME — the camera-rotation snap needs the whole view
+   * rebaked the same frame it lands, or the world reads as blinking in chunk-by-chunk
+   * over ~6 frames (user playtest). One deliberately heavy frame for a deliberate,
+   * rare action; normal streaming stays budgeted. */
+  private drainNextUpdate = false;
   /** Live (non-authored) light sources — placed thrown torches — fed into every
    * chunk bake from here on, including chunks that stream in later. */
   private dynamicLights: readonly DynamicLightSeed[] = [];
@@ -39,13 +45,22 @@ export class TerrainRenderer {
     for (const key of toUnloadKeys) this.unload(key);
     // Drop queued bakes for chunks that scrolled back out before their turn.
     const desiredKeys = new Set(desired.map(chunkKey));
+    const budget = this.drainNextUpdate ? Number.POSITIVE_INFINITY : MAX_BAKES_PER_FRAME;
+    this.drainNextUpdate = false;
     let baked = 0;
-    while (this.bakeQueue.length > 0 && baked < MAX_BAKES_PER_FRAME) {
+    while (this.bakeQueue.length > 0 && baked < budget) {
       const coord = this.bakeQueue.shift()!;
       if (!desiredKeys.has(chunkKey(coord))) continue;
       this.load(coord);
       baked++;
     }
+  }
+
+  /** Invalidates everything AND makes the next update() rebake the whole view in one
+   * frame — the rotation-snap path (see drainNextUpdate). */
+  rebakeAllNow(): void {
+    this.invalidateAll();
+    this.drainNextUpdate = true;
   }
 
   /** Sets this frame's live light sources — call before update()/rebuildAffected() so
