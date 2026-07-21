@@ -8,6 +8,7 @@
 // stairs/door/torch/erase, each dispatching straight to EditableWorld's paint-over
 // methods (@dc2d/engine's stack facade owns the actual compile-to-height semantics).
 import type { StackDir } from "@dc2d/engine";
+import { getViewOrientation, rotateOrientation, setViewOrientation } from "../../render/view/index.js";
 import {
   createBench,
   eraseBenchCell,
@@ -130,6 +131,16 @@ export class EditorStore {
 
   toggleAutotileDebug(): void {
     this.showAutotileDebug = !this.showAutotileDebug;
+    this.notify();
+  }
+
+  /** LANE W3 (editor rotation): steps the seam's live ViewOrientation one 90-degree
+   * increment (1 = clockwise, -1 = counter-clockwise, same `dir` convention as the
+   * game's Q/X rotation) and notifies — the render panel (EditorScene) is already
+   * subscribed via onChange, so this alone triggers its rebuild/re-frame. The data grid
+   * (paintPanel) never subscribes to this notification: it stays north-fixed on purpose. */
+  rotateView(dir: 1 | -1): void {
+    setViewOrientation(rotateOrientation(getViewOrientation(), dir));
     this.notify();
   }
 

@@ -12,6 +12,7 @@ import type { EntityRenderer } from "../../render/entities/index.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { LightingSystem } from "../../render/lighting/index.js";
 import type { TerrainRenderer } from "../../render/terrain/index.js";
+import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
 import { buildAreaTileViews } from "./areaViews.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
@@ -103,6 +104,31 @@ export function syncEntities(
   return { interactionPrompt: resolveInteractionPrompt(conn.world, render.x, render.y, items), torchAccentLights };
 }
 
+/**
+ * The full per-frame entity + lighting/vfx sync, composed — DungeonScene.update()'s own
+ * length-cap split: it just calls this and assigns the two returned fields, rather than
+ * inlining both syncEntities and syncLightingAndVfx calls itself.
+ */
+export function syncFrame(
+  scene: Phaser.Scene,
+  conn: Connection,
+  entityRenderer: EntityRenderer,
+  vfx: VfxSystem,
+  terrain: TerrainRenderer | undefined,
+  lighting: LightingSystem | undefined,
+  inputController: InputController,
+  state: DungeonSceneState,
+  torchSyncState: TorchSyncState,
+  partyIds: ReadonlySet<string>,
+  nowMs: number,
+  dtSeconds: number,
+  render: RenderPose,
+): EntitySyncResult {
+  const synced = syncEntities(scene, conn, entityRenderer, vfx, terrain, inputController, state, torchSyncState, partyIds, nowMs, dtSeconds, render);
+  syncLightingAndVfx(conn, lighting, vfx, scene.cameras.main, synced.torchAccentLights, state, nowMs, render);
+  return synced;
+}
+
 /** Feeds this frame's lighting/vfx systems from the connection + accumulated accent lights. */
 export function syncLightingAndVfx(
   conn: Connection,
@@ -125,8 +151,10 @@ export function syncLightingAndVfx(
   const marginPx = 2 * SCREEN_TILE_PX;
   vfx.syncTorchFlames(
     lighting.activeTorches().filter((t) => {
-      const sx = t.x * SCREEN_TILE_PX;
-      const sy = t.y * SCREEN_TILE_PX;
+      // t.x/t.y are real world tile units (LightSource's own contract) — route through
+      // the seam so this margin-cull compares like-with-like against camera.worldView,
+      // which is itself in view-pixel space once worldToScreen (below) is oriented.
+      const { x: sx, y: sy } = worldToScreen(t.x, t.y);
       return (
         sx >= view.x - marginPx && sx <= view.right + marginPx &&
         sy >= view.y - marginPx && sy <= view.bottom + marginPx

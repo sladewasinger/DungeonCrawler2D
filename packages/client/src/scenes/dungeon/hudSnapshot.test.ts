@@ -36,9 +36,10 @@ const FPS = 60;
 const BODY_POS = { x: 0, y: 0, z: 0 };
 const CHAT_MODEL: ChatPanelModel = { tabs: [], lines: [] };
 const CONTACTS: never[] = [];
+const COMPASS = 0;
 
 function snapshotOf(src: HudSnapshotSource, armedThrowableSlot = null as number | null, fps = FPS, bodyPos = BODY_POS) {
-  return buildHudSnapshot(src, armedThrowableSlot, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS);
+  return buildHudSnapshot(src, armedThrowableSlot, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS, COMPASS);
 }
 
 describe("buildHudSnapshot", () => {
@@ -87,7 +88,7 @@ describe("buildHudSnapshot", () => {
       lines: [{ channel: "global", author: "server", text: "welcome" }],
     };
     const contacts = [{ name: "Wren", online: true }];
-    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, chatModel, contacts);
+    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, chatModel, contacts, COMPASS);
     expect(snap.chatModel).toBe(chatModel);
     expect(snap.contacts).toEqual(contacts);
   });
@@ -95,7 +96,7 @@ describe("buildHudSnapshot", () => {
   it("passes through armedThrowableSlot, interactionPrompt, and touch unchanged", () => {
     const prompt = { key: "E", label: "interact" };
     const touch = { stick: null, buttons: { attack: false, jump: false, interact: false } };
-    const snap = buildHudSnapshot(source(), 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS);
+    const snap = buildHudSnapshot(source(), 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS);
     expect(snap.armedThrowableSlot).toBe(3);
     expect(snap.interactionPrompt).toBe(prompt);
     expect(snap.touch).toBe(touch);

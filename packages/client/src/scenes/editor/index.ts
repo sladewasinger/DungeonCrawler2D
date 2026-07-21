@@ -10,6 +10,10 @@ export { EditorScene };
 export interface EditorBoot {
   readonly store: EditorStore;
   readonly parentId: string;
+  /** LANE W3: lets EditorScene's render-panel pointer handling share the data grid's
+   * own repaint + inspector readout, so painting/hovering either panel stays in sync. */
+  readonly refreshGrid: () => void;
+  readonly setInspectorText: (text: string) => void;
 }
 
 /** Splits #app into panel + canvas hosts and returns what main.ts needs to boot Phaser. */
@@ -26,6 +30,6 @@ export function setUpEditorLayout(): EditorBoot {
   app.append(left, right);
 
   const store = new EditorStore();
-  buildPaintPanel(left, store);
-  return { store, parentId: right.id };
+  const panel = buildPaintPanel(left, store);
+  return { store, parentId: right.id, refreshGrid: panel.refresh, setInspectorText: panel.setInspectorText };
 }

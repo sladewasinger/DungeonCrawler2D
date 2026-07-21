@@ -15,8 +15,10 @@ import { faceRowShade, heightTint, isChasmDepth, multiplyTint, topEdgeHighlightT
 import { pitFaceRowAt, type PitFaceRow } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
 import { placeFillRect, placeSprite } from "./placeSprite.js";
+import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import { topEdgesAt } from "./topEdges.js";
+import type { ViewTerrainWorld } from "./viewWorld.js";
 
 /** A pit cell carrying an interior north-wall row draws brick instead of its floor/hole art. */
 function drawPitFaceCell(
@@ -108,7 +110,7 @@ function drawTopEdges(
 
 export function drawGroundTile(
   scene: Phaser.Scene,
-  world: TerrainWorld,
+  world: ViewTerrainWorld,
   wx: number,
   wy: number,
   below: Phaser.GameObjects.Container,
@@ -126,7 +128,12 @@ export function drawGroundTile(
   // share one continuous groundAt ramp — draw both from that same continuous
   // height, or a padding tile's real slope renders as flat floor (the "I only
   // know there's a staircase because my character moves up" bug).
-  const stairVisual = stairVisualAt(world, wx, wy);
+  // stairVisualAt is a real height-gradient fact (climb direction is which
+  // neighbor is physically higher), so unlike everything else in this
+  // function it must query the REAL world at the REAL coordinates, not the
+  // view-space proxy — see viewWorld.ts's module doc.
+  const real = world.toReal(wx, wy);
+  const stairVisual = stairVisualAt(world.real, real.x, real.y);
   const height = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
   const tint = multiplyTint(heightTint(height), lightTint);
 
@@ -142,11 +149,15 @@ export function drawGroundTile(
 
   drawTopEdges(scene, below, world, wx, wy, height, lightTint);
 
+  // Treads stay perpendicular to the SCREEN climb direction (the seam's stairTreadAxis
+  // invariant): remap the real-world climb direction to whichever screen slot it
+  // currently renders toward before handing it to the direction-index-agnostic tread math.
+  const screenDirection = stairVisual ? screenClimbDirIndex(stairVisual.direction, world.orientation) : 0;
   if (tile === TILE.Stairs && stairVisual) {
-    placeDebugTile(scene, below, wx, wy, pickStairFrame(stairVisual.direction), { tint });
+    placeDebugTile(scene, below, wx, wy, pickStairFrame(screenDirection), { tint });
   }
   if (stairVisual) {
-    drawStairTreads(scene, below, wx, wy, stairVisual.direction, stairVisual.t, lightTint);
+    drawStairTreads(scene, below, wx, wy, screenDirection, stairVisual.t, lightTint);
   } else {
     // Sub-integer height legibility (pockets, repaired-cliff half-steps): a
     // stair run's own tread art above already covers this same visual job.

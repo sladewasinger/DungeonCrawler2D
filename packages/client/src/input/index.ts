@@ -9,16 +9,9 @@
  */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
+import { screenMoveToWorld } from "./cameraRelative.js";
 import { createKeys, readMoveInput } from "./keys.js";
-import {
-  createHoldState,
-  FISTBUMP_RANGE_TILES,
-  holdCrossedThreshold,
-  holdDown,
-  holdProgress,
-  holdUp,
-  type HoldState,
-} from "./fistbump.js";
+import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import { ReviveGesture } from "./revive.js";
@@ -33,6 +26,7 @@ import {
 } from "./touch/index.js";
 import type { TouchInputState, TouchVisualSnapshot } from "./touch/index.js";
 import { isTouchDevice } from "./touchDetect.js";
+import { getViewOrientation } from "../render/view/index.js";
 
 export type {
   InputConnection,
@@ -236,13 +230,15 @@ export class InputController {
     this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer));
   }
 
-  /** Sampled at the fixed tick rate by the scene. */
+  /** Sampled at the fixed tick rate by the scene. Keyboard/touch author SCREEN-space
+   * intent (screen-up = "forward") — camera-relative controls remap it to WORLD space
+   * here, the one choke point before Connection.sampleInput's predicted stepBody. */
   readInput(): MoveInput {
     const keyboardMove = readMoveInput(this.state, this.conn);
-    if (!this.touchActive) return keyboardMove;
+    if (!this.touchActive) return screenMoveToWorld(keyboardMove, getViewOrientation());
     const merged = mergeMoveInputs(keyboardMove, touchMoveInput(this.touch));
     updateLastFacing(this.touch, merged.moveX, merged.moveY);
-    return merged;
+    return screenMoveToWorld(merged, getViewOrientation());
   }
 
   /** Current armed-throw trajectory preview, for the scene to render, or null. */

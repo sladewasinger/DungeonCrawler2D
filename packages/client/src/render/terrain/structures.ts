@@ -4,8 +4,8 @@
 // hand-drawn frame/facade duplicating what drawTile.ts's face/wall art already owns.
 import { TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { pickDoorTile } from "./packArt.js";
-import { placePackTile } from "./packSprite.js";
+import { placeDebugTile } from "./debugSprite.js";
+import { FRAME_DOOR } from "./debugTileset.js";
 
 const SANCTUARY_TEAL = 0x8fe8db;
 
@@ -94,13 +94,15 @@ export function buildStructureMap(
  * (drawTile.ts) already drew this cell's ground/face art (a kiosk terrace's
  * face row, an ordinary wall's brick shading), and the leaf sits on top of it,
  * "punched into" the wall/face exactly like any other composed structure. Art
- * is a pack-catalog door ref (packArt.ts), tinted the same sanctuary teal as
- * before regardless of which pack it came from.
+ * is the debug tileset's single door frame (2.5D rotation lane — retires the
+ * legacy pack-art door path, `packArt.ts`'s `pickDoorTile` left in place unused
+ * per this repo's own re-skin precedent), tinted the same sanctuary teal as
+ * before regardless of door type.
  */
 export function drawDoor(
   scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,
   door: DoorStructure,
 ): void {
-  placePackTile(scene, container, door.wx, door.wy, pickDoorTile(door.wx, door.wy), { tint: SANCTUARY_TEAL });
+  placeDebugTile(scene, container, door.wx, door.wy, FRAME_DOOR, { tint: SANCTUARY_TEAL });
 }

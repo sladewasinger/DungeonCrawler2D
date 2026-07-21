@@ -3,7 +3,8 @@
 // tileset (docs/ASSUMPTIONS.md's autotile-debug lane): flat GRAY floors, PURPLE-GRAY
 // walls with a BLACK 3px border on whichever edges the bitmask autotile module says are
 // NOT the same material, HORIZONTAL-LINES stairs (climbs north/south), VERTICAL-LINES
-// stairs (climbs east/west). Deterministic, no randomness — rerun manually
+// stairs (climbs east/west), a BROWN rounded-rect DOOR with a darker arch line (2.5D
+// rotation lane: retires the legacy pack-art door path). Deterministic, no randomness — rerun manually
 // (`node scripts/generateDebugTileset.mjs`) whenever the tile art or layout changes;
 // output is committed like atlas.png/contact-sheet.png.
 //
@@ -23,11 +24,13 @@ const outPath = path.join(clientDir, "public", "assets", "debug-tileset.png");
 
 const TILE_PX = 48;
 const COLS = 4;
-const FRAME_COUNT = 3 + 16; // floor, stairs-NS, stairs-EW, 16 wall mask4 variants
+const FRAME_COUNT = 3 + 16 + 1; // floor, stairs-NS, stairs-EW, 16 wall mask4 variants, door
 
 const FLOOR_GRAY = [0x8a, 0x8a, 0x8a, 0xff];
 const WALL_PURPLE_GRAY = [0x6e, 0x64, 0x80, 0xff];
 const BLACK = [0x00, 0x00, 0x00, 0xff];
+const DOOR_BROWN = [0x8b, 0x5a, 0x2b, 0xff];
+const DOOR_BROWN_DARK = [0x5a, 0x38, 0x1a, 0xff];
 
 const BORDER_PX = 3;
 const LINE_PX = 3;
@@ -66,6 +69,52 @@ function drawWallVariant(canvas, ox, oy, mask4) {
   if (edges.east) canvas.fillRect(ox + TILE_PX - BORDER_PX, oy, BORDER_PX, TILE_PX, BLACK);
 }
 
+/** True when (rx, ry) — coordinates relative to a `w`x`h` box — falls inside a rect
+ * whose corners are rounded to `radius`: the plus-shaped core, or within `radius` of
+ * whichever corner circle center is nearest. */
+function insideRoundedRect(rx, ry, w, h, radius) {
+  if (rx >= radius && rx < w - radius) return true;
+  if (ry >= radius && ry < h - radius) return true;
+  const cx = rx < radius ? radius : w - radius - 1;
+  const cy = ry < radius ? radius : h - radius - 1;
+  const dx = rx - cx;
+  const dy = ry - cy;
+  return dx * dx + dy * dy <= radius * radius;
+}
+
+function fillRoundedRect(canvas, x, y, w, h, radius, rgba) {
+  for (let ry = 0; ry < h; ry++) {
+    for (let rx = 0; rx < w; rx++) {
+      if (insideRoundedRect(rx, ry, w, h, radius)) canvas.setPixel(x + rx, y + ry, rgba);
+    }
+  }
+}
+
+/** A simple brown rounded-rect leaf with a darker arch line near the top (debug-tileset
+ * language for doors — flat color + one accent line, same posture as floor/wall/stairs). */
+const DOOR_MARGIN_PX = 4;
+const DOOR_RADIUS_PX = 6;
+const ARCH_RADIUS_PX = 13;
+const ARCH_LINE_PX = 3;
+
+function drawDoor(canvas, ox, oy) {
+  canvas.fillRect(ox, oy, TILE_PX, TILE_PX, FLOOR_GRAY);
+  const doorW = TILE_PX - DOOR_MARGIN_PX * 2;
+  const doorH = TILE_PX - DOOR_MARGIN_PX * 2;
+  fillRoundedRect(canvas, ox + DOOR_MARGIN_PX, oy + DOOR_MARGIN_PX, doorW, doorH, DOOR_RADIUS_PX, DOOR_BROWN);
+  // Arch line: the upper half of a circle centered a bit below the door's top edge.
+  const archCx = ox + TILE_PX / 2;
+  const archCy = oy + DOOR_MARGIN_PX + ARCH_RADIUS_PX + 2;
+  for (let dy = -ARCH_RADIUS_PX; dy <= 0; dy++) {
+    for (let dx = -ARCH_RADIUS_PX; dx <= ARCH_RADIUS_PX; dx++) {
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (Math.abs(dist - ARCH_RADIUS_PX) <= ARCH_LINE_PX / 2) {
+        canvas.setPixel(Math.round(archCx + dx), Math.round(archCy + dy), DOOR_BROWN_DARK);
+      }
+    }
+  }
+}
+
 function frameOrigin(index) {
   const col = index % COLS;
   const row = Math.floor(index / COLS);
@@ -89,6 +138,9 @@ function run() {
     const { ox, oy } = frameOrigin(3 + mask4);
     drawWallVariant(canvas, ox, oy, mask4);
   }
+
+  const { ox: doorX, oy: doorY } = frameOrigin(3 + 16);
+  drawDoor(canvas, doorX, doorY);
 
   canvas.writeFile(outPath);
   console.log(`debug tileset written to ${outPath} (${canvas.width}x${canvas.height}, ${FRAME_COUNT} frames)`);

@@ -8,9 +8,11 @@ import type { TerrainWorld } from "./terrainWorld.js";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { BASE_TERRAIN_DEPTH, depthForOccluder } from "../entities/depthSort.js";
-import { drawTile } from "./drawTile.js";
+import type { ViewOrientation } from "../view/viewOrientation.js";
+import { drawTile, type OccluderFor } from "./drawTile.js";
 import { buildStructureMap, drawDoor } from "./structures.js";
 import { computeLightField, type DynamicLightSeed } from "./tileLight.js";
+import { viewChunkWorldOrigin, viewWorld } from "./viewWorld.js";
 
 const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
 
@@ -34,6 +36,20 @@ export interface ChunkVisual {
   readonly occluders: readonly Phaser.GameObjects.RenderTexture[];
 }
 
+/** Builds the occluderFor accessor: lazily creates one container per occluder row,
+ * tracking the tallest overhang any caller has asked that row to bake. */
+function makeOccluderFor(scene: Phaser.Scene, rows: Map<number, OccluderRow>): OccluderFor {
+  return (wy: number, overhangTiles = 0): Phaser.GameObjects.Container => {
+    let row = rows.get(wy);
+    if (!row) {
+      row = { container: scene.add.container(0, 0), overhangTiles: 0 };
+      rows.set(wy, row);
+    }
+    row.overhangTiles = Math.max(row.overhangTiles, overhangTiles);
+    return row.container;
+  };
+}
+
 /** Flattens `container` (children at absolute world positions) into a static RT anchored at (originX, originY). */
 function bake(
   scene: Phaser.Scene,
@@ -52,51 +68,55 @@ function bake(
 }
 
 /**
- * Generates chunk (cx, cy), draws every tile + structure, and bakes the result into
- * static textures. `dynamicLights` seeds live placed-torch sources into this bake —
- * pass the caller's current set every time (including plain re-streams), so a chunk
- * that streams in after a torch is already placed nearby bakes lit on first load.
+ * Generates VIEW-space chunk (cx, cy) — its baked screen position is fixed at this
+ * orientation, per the chunk cache policy in docs/ASSUMPTIONS.md — draws every tile +
+ * structure, and bakes the result into static textures. `dynamicLights` seeds live
+ * placed-torch sources into this bake — pass the caller's current set every time
+ * (including plain re-streams), so a chunk that streams in after a torch is already
+ * placed nearby bakes lit on first load.
+ *
+ * `(cx, cy)` name a VIEW chunk (streaming.ts's desiredChunks already runs purely off the
+ * camera's on-screen rect, which is itself in view-pixel space once worldToScreen routes
+ * through the seam — see worldToScreen.ts — so it needs no changes of its own). Every
+ * per-tile face/edge/autotile decision reads the view-space proxy (viewWorld.ts) so it's
+ * automatically screen-relative; the one genuinely world-space read — baked lighting's
+ * BFS flood — needs this chunk's REAL world footprint, found via viewChunkWorldOrigin.
  */
 export function buildChunkVisual(
   scene: Phaser.Scene,
   world: TerrainWorld,
   cx: number,
   cy: number,
+  orientation: ViewOrientation,
   dynamicLights: readonly DynamicLightSeed[] = [],
 ): ChunkVisual {
   const below = scene.add.container(0, 0);
   const rows = new Map<number, OccluderRow>();
-  const occluderFor = (wy: number, overhangTiles = 0): Phaser.GameObjects.Container => {
-    let row = rows.get(wy);
-    if (!row) {
-      row = { container: scene.add.container(0, 0), overhangTiles: 0 };
-      rows.set(wy, row);
-    }
-    row.overhangTiles = Math.max(row.overhangTiles, overhangTiles);
-    return row.container;
-  };
-  const baseX = cx * CHUNK_SIZE;
-  const baseY = cy * CHUNK_SIZE;
+  const occluderFor = makeOccluderFor(scene, rows);
+  const vw = viewWorld(world, orientation);
+  const baseVX = cx * CHUNK_SIZE;
+  const baseVY = cy * CHUNK_SIZE;
   const structures = buildStructureMap(
-    (wx, wy) => world.tileAt(wx, wy),
-    baseX,
-    baseY,
-    baseX + CHUNK_SIZE,
-    baseY + CHUNK_SIZE,
+    (vx, vy) => vw.tileAt(vx, vy),
+    baseVX,
+    baseVY,
+    baseVX + CHUNK_SIZE,
+    baseVY + CHUNK_SIZE,
   );
-  // Light is baked with the tiles: deterministic sources + BFS, so every client
-  // bakes identical lighting and the per-frame cost is zero.
-  const light = computeLightField(world, baseX, baseY, CHUNK_SIZE, dynamicLights);
+  // Light is baked with the tiles: deterministic sources + BFS over the REAL world, so
+  // every client bakes identical lighting and the per-frame cost is zero.
+  const realOrigin = viewChunkWorldOrigin(baseVX, baseVY, CHUNK_SIZE, orientation);
+  const light = computeLightField(world, realOrigin.x, realOrigin.y, CHUNK_SIZE, dynamicLights);
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const wy = baseY + ly;
-      drawTile(scene, world, baseX + lx, wy, below, occluderFor, structures, light);
+      const vy = baseVY + ly;
+      drawTile(scene, vw, baseVX + lx, vy, below, occluderFor, structures, light);
     }
   }
   for (const door of structures.doors) drawDoor(scene, occluderFor(door.wy), door);
 
-  const originX = baseX * SCREEN_TILE_PX;
-  const bakedBelow = bake(scene, below, originX, baseY * SCREEN_TILE_PX, CHUNK_PX, CHUNK_PX, BASE_TERRAIN_DEPTH);
+  const originX = baseVX * SCREEN_TILE_PX;
+  const bakedBelow = bake(scene, below, originX, baseVY * SCREEN_TILE_PX, CHUNK_PX, CHUNK_PX, BASE_TERRAIN_DEPTH);
   return { cx, cy, below: bakedBelow, occluders: bakeRows(scene, rows, originX) };
 }
 

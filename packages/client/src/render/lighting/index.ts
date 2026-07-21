@@ -5,7 +5,10 @@
 import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { viewChunkWorldOrigin } from "../terrain/viewWorld.js";
 import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
+import { getViewOrientation } from "../view/viewState.js";
+import { viewToWorld } from "../view/viewTransform.js";
 import { doorLightPositions } from "./doorLights.js";
 import { hashSeed, type LightSource } from "./lightSource.js";
 import { applyLightingPostFX } from "./postfx.js";
@@ -56,12 +59,16 @@ export class LightingSystem {
     };
     // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
     // viewed away from the player (gallery, spectate) must still keep its lights.
-    const centerTileX = (view.x + view.width / 2) / SCREEN_TILE_PX;
-    const centerTileY = (view.y + view.height / 2) / SCREEN_TILE_PX;
+    // `view` is the camera's on-screen rect, which is in VIEW-pixel space once
+    // worldToScreen routes through the seam — convert its center back to a REAL world
+    // tile position before comparing against light.x/y, which stay real-world (torch/
+    // door positions are scanned straight off the real world in scanChunk below).
+    const centerView = { x: (view.x + view.width / 2) / SCREEN_TILE_PX, y: (view.y + view.height / 2) / SCREEN_TILE_PX };
+    const centerWorld = viewToWorld(centerView, getViewOrientation());
     const candidates = [...this.chunkLights.values()].flat().concat(this.accentLights);
     candidates.sort(
       (a, b) =>
-        Math.hypot(a.x - centerTileX, a.y - centerTileY) - Math.hypot(b.x - centerTileX, b.y - centerTileY),
+        Math.hypot(a.x - centerWorld.x, a.y - centerWorld.y) - Math.hypot(b.x - centerWorld.x, b.y - centerWorld.y),
     );
     const all = candidates.slice(0, MAX_ACTIVE_LIGHTS - 1).concat(personal);
     this.pool.sync(all, nowMs);
@@ -76,6 +83,14 @@ export class LightingSystem {
       .filter((l) => l.kind === "torch");
   }
 
+  /** Forces every chunk-scanned light (torch/door) to be re-derived — the lighting
+   * sibling of TerrainRenderer.invalidateAll(), fired at the same live-rotation swap
+   * instant since scanChunk's chunk footprint is also computed via the seam's
+   * orientation-dependent viewChunkWorldOrigin. */
+  invalidateAll(): void {
+    this.chunkLights.clear();
+  }
+
   private streamChunks(view: ViewRect): void {
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.chunkLights.keys()));
@@ -84,8 +99,13 @@ export class LightingSystem {
   }
 
   private scanChunk(coord: ChunkCoord): LightSource[] {
-    const x0 = coord.cx * CHUNK_SIZE;
-    const y0 = coord.cy * CHUNK_SIZE;
+    // (coord.cx, coord.cy) name a VIEW chunk (same desiredChunks call as terrain's
+    // TerrainRenderer, off the camera's view-pixel rect) — torch/door positions are a
+    // real-world scan (torchCandidates/doorLightPositions read the real World), so this
+    // needs the chunk's real-world footprint, not its view-space one.
+    const origin = viewChunkWorldOrigin(coord.cx * CHUNK_SIZE, coord.cy * CHUNK_SIZE, CHUNK_SIZE, getViewOrientation());
+    const x0 = origin.x;
+    const y0 = origin.y;
     const x1 = x0 + CHUNK_SIZE;
     const y1 = y0 + CHUNK_SIZE;
     const torches = selectTorchPositions(torchCandidates(this.world, x0, y0, x1, y1)).map((p) => this.torchLight(p));

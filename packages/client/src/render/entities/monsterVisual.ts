@@ -4,7 +4,6 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { resolveAnimState, telegraphScale, telegraphTint } from "./animState.js";
-import { depthForEntity } from "./depthSort.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
@@ -13,7 +12,7 @@ import { createShadow, updateShadowPosition } from "./shadow.js";
 import type { MonsterVisual } from "./state.js";
 import { compositeStatusTint, statusTintFor } from "./statusTint.js";
 import type { MonsterEntityView, RenderContext } from "./view.js";
-import { worldToScreen } from "./worldToScreen.js";
+import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 
 export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): MonsterVisual {
   const body = scene.add.sprite(0, 0, ASSET_KEYS.atlas).setOrigin(0.5, 1).setScale(WORLD_PIXEL_SCALE);
@@ -36,7 +35,7 @@ export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): 
 function updateMonsterBody(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, heightAboveGround: number): void {
   const screen = worldToScreen(view.x, view.y);
   visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
-  visual.body.setDepth(depthForEntity(view.y, heightAboveGround));
+  visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
   if (view.anim !== visual.lastAnim) {

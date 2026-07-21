@@ -11,7 +11,9 @@
  */
 import type Phaser from "phaser";
 import { ATTACK_COOLDOWN_MS } from "@dc2d/engine";
+import { screenDirToWorld } from "./cameraRelative.js";
 import { activateHotbar, throwPreview } from "./hotbar.js";
+import { getViewOrientation, viewToWorld } from "../render/view/index.js";
 import type { InputConnection, InputHooks, InputHud, InputQueries, InputState } from "./state.js";
 import { equippedIsThrowable, equippedStackQty, throwDirToward } from "./throwEquipped.js";
 import { beginStick, isInLowerLeftQuadrant, moveStick, endStick, pressButton, releaseAllForPointer } from "./touch/index.js";
@@ -27,15 +29,23 @@ export interface WorldPointCamera {
 }
 
 /**
- * Resolves a screen-space pointer to world TILE coordinates through the given
+ * Resolves a screen-space pointer to real WORLD tile coordinates through the given
  * camera's own transform, in tile units (world px / tilePx). Deliberately never
  * reads `pointer.worldX`/`worldY` — see the doc comment on the `camera` field of
  * `PointerDeps` below for why that shared Pointer property lies whenever the
  * parallel HudScene's camera has hit-tested more recently than the game camera.
+ *
+ * The camera's own "world" is really VIEW-pixel space (every draw call routes through
+ * worldToScreen, which the game camera centers on) — this is the mouse-aim choke point
+ * LANE W2 routes through viewToWorld (docs/ASSUMPTIONS.md) so every caller (attack aim,
+ * throw direction, the armed-throwable target) gets a genuine world-space point with no
+ * per-call-site change needed. At orientation 0, viewToWorld is the identity, so this is
+ * byte-identical to the pre-rotation behavior this function's own tests already lock.
  */
 export function cursorWorldTile(camera: WorldPointCamera, pointer: { x: number; y: number }, tilePx: number): { x: number; y: number } {
   const world = camera.getWorldPoint(pointer.x, pointer.y);
-  return { x: world.x / tilePx, y: world.y / tilePx };
+  const viewTile = { x: world.x / tilePx, y: world.y / tilePx };
+  return viewToWorld(viewTile, getViewOrientation());
 }
 
 export interface PointerDeps {
@@ -131,10 +141,14 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     activateHotbar(state, conn, queries, Number(uiHit.slice(5)));
   } else if (uiHit === "touch:attack") {
     pressButton(touch, "attack", pointerId);
+    // lastFacing is stored screen-relative (there's no mouse to aim with on touch) —
+    // convert to world-space here, at the point of use, the same choke point
+    // cursorWorldTile uses for mouse aim (LANE W2, docs/ASSUMPTIONS.md).
+    const dir = screenDirToWorld(touch.lastFacing, getViewOrientation());
     if (equippedIsThrowable(conn, queries)) {
-      throwEquippedOrToast(conn, touch.lastFacing.x, touch.lastFacing.y);
+      throwEquippedOrToast(conn, dir.x, dir.y);
     } else {
-      triggerAttack(state, conn, hooks, touch.lastFacing.x, touch.lastFacing.y, performance.now());
+      triggerAttack(state, conn, hooks, dir.x, dir.y, performance.now());
     }
   } else if (uiHit === "touch:jump") {
     pressButton(touch, "jump", pointerId);

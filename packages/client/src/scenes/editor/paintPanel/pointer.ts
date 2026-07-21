@@ -1,14 +1,11 @@
-// Pointer-driven painting: drag-paint with the left button, right-click erase. Erasing
-// targets the terrain eraser brush for terrain brushes, or the matching bench layer
-// (area/enemy/item) for bench brushes via editorStore.eraseBenchAt.
+// Pointer-driven painting: drag-paint with the left button, right-click erase. The
+// actual brush/erase decision (erase targets the terrain eraser for terrain brushes, or
+// the matching bench layer for bench brushes) lives in paintAction.ts, shared with the
+// Phaser render panel (renderPanelPointer.ts, LANE W3) so both panels agree.
 import { EDITOR_GRID_SIZE } from "../EditableWorld.js";
 import type { EditorStore } from "../editorStore.js";
+import { paintCell } from "../paintAction.js";
 import { inspectorText } from "./inspector.js";
-
-const isBenchBrush = (store: EditorStore): boolean =>
-  store.brush.kind === "area" || store.brush.kind === "spawn-enemy" || store.brush.kind === "spawn-item";
-
-const isTorchBrush = (store: EditorStore): boolean => store.brush.kind === "torch";
 
 function cellFromEvent(canvas: HTMLCanvasElement, ev: PointerEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
@@ -18,23 +15,10 @@ function cellFromEvent(canvas: HTMLCanvasElement, ev: PointerEvent): { x: number
   };
 }
 
-/** Paints (or, for a bench brush while erasing, un-paints) one cell and repaints the canvas. */
+/** Paints (or, for a bench/torch brush while erasing, un-paints) one cell and repaints the canvas. */
 function makePaintAt(store: EditorStore, refresh: () => void, isErasing: () => boolean) {
   return (x: number, y: number): void => {
-    if (isErasing() && isBenchBrush(store)) {
-      store.eraseBenchAt(x, y);
-      refresh();
-      return;
-    }
-    if (isErasing() && isTorchBrush(store)) {
-      store.eraseTorchAt(x, y);
-      refresh();
-      return;
-    }
-    const active = store.brush;
-    if (isErasing()) store.brush = { kind: "erase" };
-    store.paint(x, y);
-    store.brush = active;
+    paintCell(store, x, y, isErasing());
     refresh();
   };
 }

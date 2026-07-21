@@ -5,9 +5,15 @@ import { registerAnimations, type AnimationManifest } from "./registerAnimations
 import { preloadTilePacks } from "./tilePackLoader.js";
 import { waitForPixelFontReady } from "../ui/font.js";
 import { DEBUG_TILE_PX, DEBUG_TILESET_KEY, DEBUG_TILESET_PATH } from "../render/terrain/debugTileset.js";
+import { setViewOrientation } from "../render/view/viewState.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
+/** Dev-only startup ViewOrientation override (e.g. `?vo=90`) — the 2.5D-rotation lane's
+ * only way to set orientation this pass; the game itself never changes it mid-session
+ * yet (that's the next lane's Q/E input). Exists so the connectivity gallery (and
+ * anyone else) can be captured at all 4 orientations for the seam's own regression gate. */
+const VIEW_ORIENTATION_PARAM = "vo";
 const GALLERY_SCENE_KEY = "gallery";
 const EDITOR_SCENE_KEY = "editor";
 const AUTOTILE_GALLERY_SCENE_KEY = "autotile-gallery";
@@ -56,7 +62,10 @@ export class PreloadScene extends Phaser.Scene {
     if (timedOut && !this.fontReady) {
       console.warn(`[boot] pixel font not ready after ${FONT_READY_TIMEOUT_MS}ms — proceeding with the system font fallback`);
     }
-    const requested = new URLSearchParams(window.location.search).get(SCENE_PARAM);
+    const params = new URLSearchParams(window.location.search);
+    const vo = params.get(VIEW_ORIENTATION_PARAM);
+    if (vo !== null) setViewOrientation(Number(vo));
+    const requested = params.get(SCENE_PARAM);
     if (requested === GALLERY_SCENE_KEY) {
       this.scene.start(GALLERY_SCENE_KEY);
       return;

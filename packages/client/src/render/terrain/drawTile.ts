@@ -16,15 +16,15 @@ import { bakesIntoStaticBase, stripOverhangTiles } from "./occluderBand.js";
 import { ownFaceRowAt, type OwnFaceRow } from "./ownFace.js";
 import { placeFillRect } from "./placeSprite.js";
 import { tileKey, type StructureMap } from "./structures.js";
-import type { TerrainWorld } from "./terrainWorld.js";
 import type { LightField } from "./tileLight.js";
+import type { ViewTerrainWorld } from "./viewWorld.js";
 
 /** `overhangTiles` tells the strip how far above its base row this content sits, so it bakes just tall enough. */
 export type OccluderFor = (wy: number, overhangTiles?: number) => Phaser.GameObjects.Container;
 
 function drawFaceCell(
   scene: Phaser.Scene,
-  world: TerrainWorld,
+  world: ViewTerrainWorld,
   wx: number,
   wy: number,
   face: OwnFaceRow,
@@ -41,9 +41,18 @@ function drawFaceCell(
   const shade = faceRowShade(face.rowFromTop, face.truncated);
   // The face is lit by the open ground at its FOOT: the light flood never
   // enters wall cells, so sampling the face's own cell would leave every brick
-  // band ambient-dark even directly beside a torch.
-  const lightTint = light.tintAt(wx, wy + face.distanceToGround);
+  // band ambient-dark even directly beside a torch. Baked lighting is genuinely
+  // world-space data (tileLight.ts's BFS flows through real walls), so this is
+  // the one lookup here that must go through the real world's coordinates, not
+  // the view-space (wx, wy) everything else in this function reads.
+  const groundReal = world.toReal(wx, wy + face.distanceToGround);
+  const lightTint = light.tintAt(groundReal.x, groundReal.y);
   const tint = multiplyTint(multiplyTint(heightTint(face.surfaceHeight), shade), lightTint);
+  // wallAutotileAt reads `world` (the view-space proxy) deliberately: probing its
+  // cardinal neighbors in view-space yields the bit-remapped mask for whatever
+  // material now sits at each SCREEN-adjacent cell — the same true world-adjacency
+  // facts as ever, just visited in screen reading order, so the border still sits
+  // between the same two world tiles (see viewWorld.ts's module doc).
   const { mask4, corners } = wallAutotileAt(world, wx, wy);
   placeDebugTile(scene, container, wx, wy, pickWallFrame(mask4), { tint });
   placeWallCornerDots(scene, container, wx, wy, corners);
@@ -51,7 +60,7 @@ function drawFaceCell(
 
 export function drawTile(
   scene: Phaser.Scene,
-  world: TerrainWorld,
+  world: ViewTerrainWorld,
   wx: number,
   wy: number,
   below: Phaser.GameObjects.Container,
@@ -59,7 +68,8 @@ export function drawTile(
   structures: StructureMap,
   light: LightField,
 ): void {
-  const lightTint = light.tintAt(wx, wy);
+  const real = world.toReal(wx, wy);
+  const lightTint = light.tintAt(real.x, real.y);
   if (structures.suppressed.has(tileKey(wx, wy))) {
     // The portal cell keeps floor under transparent door pixels; suppressed wall
     // cells above keep only quiet mass fill — the assembly draws over both.

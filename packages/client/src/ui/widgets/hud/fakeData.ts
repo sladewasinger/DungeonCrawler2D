@@ -107,6 +107,9 @@ export interface HudFakeSnapshot {
   fps: number;
   /** Player's rounded predicted tile position, for the top-right coords readout. */
   coords: TileCoords;
+  /** LANE W2 compass widget's live bearing (0 = world-north at screen-up), degrees,
+   * clockwise-positive — scenes/dungeon/rotationControl.ts's RotationController. */
+  compassBearingDeg: number;
 }
 
 const EMPTY_SLOT: HotbarSlotData = { itemId: null, count: 0 };
@@ -241,5 +244,6 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
     fps: 60,
     coords: { x: 128, y: -64, z: 2.5 },
+    compassBearingDeg: 0,
   };
 }

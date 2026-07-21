@@ -147,6 +147,41 @@ export interface HudSnapshotSource {
   readonly boss: BossBarData | null;
 }
 
+/** Hotbar/inventory/craft/stash fields — split out so buildHudSnapshot itself stays under the function-length cap. */
+function inventoryFields(src: HudSnapshotSource, armedThrowableSlot: number | null) {
+  return {
+    hotbar: hotbarSlots(src.hotbar, src.inventory),
+    selectedSlot: selectedSlotIndex(src.hotbar, src.weapon),
+    armedThrowableSlot,
+    buffs: buffChips(src.fx),
+    equippedWeaponId: src.weapon,
+    inventory: inventoryRows(src.inventory, src.hotbar),
+    craft: craftSnapshot(src.inventory, src.craftTableNearby),
+    stash: stashSnapshot(src.inventory, src.stash, src.stashNearby),
+  };
+}
+
+/** Connection/telemetry fields — buildHudSnapshot's other length-cap split. */
+function statusFields(
+  src: HudSnapshotSource,
+  touch: TouchVisualSnapshot | null,
+  fps: number,
+  bodyPos: { x: number; y: number; z: number },
+  compassBearingDeg: number,
+) {
+  return {
+    pingMs: src.pingMs,
+    connected: src.connected,
+    reconnecting: src.reconnecting,
+    reconnectAttempts: src.reconnectAttempts,
+    downed: src.downed,
+    touch,
+    fps,
+    coords: roundedCoords(bodyPos),
+    compassBearingDeg,
+  };
+}
+
 export function buildHudSnapshot(
   src: HudSnapshotSource,
   armedThrowableSlot: number | null,
@@ -156,18 +191,12 @@ export function buildHudSnapshot(
   bodyPos: { x: number; y: number; z: number },
   chatModel: ChatPanelModel,
   contacts: readonly ContactData[],
+  compassBearingDeg: number,
 ): HudFakeSnapshot {
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
     xp: { xp: src.xp, level: src.level, xpForNext: src.xpForNext },
-    hotbar: hotbarSlots(src.hotbar, src.inventory),
-    selectedSlot: selectedSlotIndex(src.hotbar, src.weapon),
-    armedThrowableSlot,
-    buffs: buffChips(src.fx),
-    equippedWeaponId: src.weapon,
-    inventory: inventoryRows(src.inventory, src.hotbar),
-    craft: craftSnapshot(src.inventory, src.craftTableNearby),
-    stash: stashSnapshot(src.inventory, src.stash, src.stashNearby),
+    ...inventoryFields(src, armedThrowableSlot),
     lastToast: src.lastToast,
     toasts: [...src.toasts],
     seed: src.seed,
@@ -177,13 +206,6 @@ export function buildHudSnapshot(
     chatModel,
     contacts: [...contacts],
     interactionPrompt,
-    pingMs: src.pingMs,
-    connected: src.connected,
-    reconnecting: src.reconnecting,
-    reconnectAttempts: src.reconnectAttempts,
-    downed: src.downed,
-    touch,
-    fps,
-    coords: roundedCoords(bodyPos),
+    ...statusFields(src, touch, fps, bodyPos, compassBearingDeg),
   };
 }

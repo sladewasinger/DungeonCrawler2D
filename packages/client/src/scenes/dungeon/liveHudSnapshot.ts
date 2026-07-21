@@ -57,6 +57,8 @@ export function buildLiveHudSnapshot(
   interactionPrompt: InteractionPrompt | null,
   chatController: ChatController,
   actualFps: number,
+  /** LANE W2 HUD compass — 0 = world-north at screen-up (scenes/dungeon/rotationControl.ts). */
+  compassBearingDeg: number,
 ): HudFakeSnapshot {
   // conn.body may still be null the first frame or two after boot (HudScene's source()
   // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
@@ -70,5 +72,6 @@ export function buildLiveHudSnapshot(
     bodyPos,
     chatController.model(CHAT_LINES_SHOWN),
     conn.contacts,
+    compassBearingDeg,
   );
 }

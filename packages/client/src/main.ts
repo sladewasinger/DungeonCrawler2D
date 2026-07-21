@@ -14,6 +14,7 @@ import { GalleryScene } from "./scenes/GalleryScene.js";
 import { HudScene } from "./scenes/HudScene.js";
 import { TitleScene } from "./scenes/title/index.js";
 import { loadStoredName } from "./scenes/title/connectForm.js";
+import { getViewOrientation } from "./render/view/index.js";
 
 // Installed before anything else can throw — a boot/runtime failure must render a
 // visible message, never a silent black screen (mobile-fix round 2, bug report A).
@@ -32,13 +33,19 @@ if (isEditor) {
     pixelArt: true,
     scene: [PreloadScene, EditorScene],
   });
-  game.registry.set("editorBoot", { store: boot.store });
+  game.registry.set("editorBoot", boot);
   // Same dev-only introspection convention as ?debug=1 below — lets screenshot/e2e
   // tooling poll the bench's live state (SIMULATE tick count, painted areas) without
   // scraping pixels.
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
     (window as unknown as { __editorStore: typeof boot.store }).__editorStore = boot.store;
     (window as unknown as { __game: Phaser.Game }).__game = game;
+    // LANE W3: editor-mode counterpart to the game's window.__dc2d.viewOrientation()
+    // read-only hook (LANE W2) — a distinct global since editor mode has no Connection
+    // to nest it under, so tests/screenshot tooling can assert the render panel's
+    // exact settled orientation without scraping pixels.
+    (window as unknown as { __editorViewOrientation: () => number }).__editorViewOrientation = () =>
+      getViewOrientation();
   }
 } else {
   // One Connection for the app's whole lifetime — Title and Dungeon share it so a
@@ -74,10 +81,17 @@ if (isEditor) {
   // window.__editorStore for the effects bench (scenes/editor/index.ts).
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("debug") === "1") {
     (window as unknown as { __game: Phaser.Game }).__game = game;
-    (window as unknown as { __dc2d: { conn: Connection; game: Phaser.Game; buildSha: string } }).__dc2d = {
+    (
+      window as unknown as {
+        __dc2d: { conn: Connection; game: Phaser.Game; buildSha: string; viewOrientation: () => number };
+      }
+    ).__dc2d = {
       conn,
       game,
       buildSha: BUILD_SHA,
+      // LANE W2, read-only observation (same convention as the rest of this hook): the
+      // seam's live settled ViewOrientation, for the e2e rotation spec to assert against.
+      viewOrientation: () => getViewOrientation(),
     };
   }
 }

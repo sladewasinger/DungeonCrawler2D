@@ -3,6 +3,7 @@
 // placed/expired torch) without touching anything outside its light apron.
 import { World } from "@dc2d/engine";
 import Phaser from "phaser";
+import { getViewOrientation } from "../view/viewState.js";
 import { buildChunkVisual, destroyChunkVisual, type ChunkVisual } from "./chunkVisual.js";
 import { affectedChunkKeys } from "./lightRebake.js";
 import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "./streaming.js";
@@ -60,7 +61,7 @@ export class TerrainRenderer {
    * current dynamicLights the moment they load.
    */
   rebuildAffected(tiles: readonly TilePos[]): void {
-    for (const key of affectedChunkKeys(tiles)) {
+    for (const key of affectedChunkKeys(tiles, getViewOrientation())) {
       if (!this.visuals.has(key)) continue;
       const [cx, cy] = key.split(",").map(Number) as [number, number];
       this.load({ cx, cy });
@@ -71,7 +72,12 @@ export class TerrainRenderer {
     const key = chunkKey(coord);
     const existing = this.visuals.get(key);
     if (existing) destroyChunkVisual(existing);
-    const visual = buildChunkVisual(this.scene, this.world, coord.cx, coord.cy, this.dynamicLights);
+    // Reads the seam's ViewState fresh per chunk build rather than being handed
+    // orientation as a constructor/update param: this lane's orientation is fixed for
+    // the whole session (docs/ASSUMPTIONS.md), so every resident chunk is baked at the
+    // same value regardless of when it streams in — no live-rotation cache invalidation
+    // is needed (or implemented) yet; that's next lane's job once Q/E actually changes it.
+    const visual = buildChunkVisual(this.scene, this.world, coord.cx, coord.cy, getViewOrientation(), this.dynamicLights);
     this.visuals.set(key, visual);
   }
 
@@ -80,6 +86,17 @@ export class TerrainRenderer {
     if (!visual) return;
     destroyChunkVisual(visual);
     this.visuals.delete(key);
+  }
+
+  /**
+   * Forces every currently-resident chunk to unload — the next update() call re-streams
+   * and rebakes each one fresh against whatever getViewOrientation() returns by then. The
+   * one-time cost live camera rotation pays (scenes/dungeon/rotationControl.ts's hard
+   * swap): chunks are baked per-orientation and never kept in a multi-orientation cache
+   * (docs/ASSUMPTIONS.md row 258's chunk-bake cache-policy decision).
+   */
+  invalidateAll(): void {
+    for (const key of [...this.visuals.keys()]) this.unload(key);
   }
 
   /** Chunk visuals currently resident — GPU memory stays flat because this stays bounded by the view margin. */

@@ -10,6 +10,7 @@
 //   frame 1            stairs-NS        horizontal lines (climbs north/south)
 //   frame 2            stairs-EW        vertical lines (climbs east/west)
 //   frame 3 .. 18       wall mask4 0..15  purple-gray + black 3px border per autotile.ts's edgesForMask4
+//   frame 19            door             brown rounded-rect + darker arch line
 
 export const DEBUG_TILE_PX = 48;
 export const DEBUG_TILESET_COLS = 4;
@@ -21,7 +22,8 @@ export const FRAME_STAIRS_NS = 1;
 export const FRAME_STAIRS_EW = 2;
 /** Wall variant frame for cardinal mask4 (0..15) is WALL_FRAME_BASE + mask4. */
 export const WALL_FRAME_BASE = 3;
-export const DEBUG_TILESET_FRAME_COUNT = WALL_FRAME_BASE + 16;
+export const FRAME_DOOR = WALL_FRAME_BASE + 16;
+export const DEBUG_TILESET_FRAME_COUNT = FRAME_DOOR + 1;
 
 /** The frame index for a given 4-bit cardinal wall mask (0..15). */
 export function wallFrameFor(mask4: number): number {

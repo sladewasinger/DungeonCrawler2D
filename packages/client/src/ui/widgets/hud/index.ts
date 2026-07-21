@@ -11,6 +11,7 @@ import type { Viewport } from "../state.js";
 import { noopSocialActions, type SocialActions, type StationActions } from "./actionBundles.js";
 import { BuffChipsWidget } from "./buffChips.js";
 import { ChatPanelWidget } from "./chatPanel.js";
+import { CompassWidget } from "./compass.js";
 import { ConnectionStatusWidget } from "./connectionStatus.js";
 import { DeathOverlayWidget } from "./deathOverlay.js";
 import type { HudFakeSnapshot } from "./fakeData.js";
@@ -49,6 +50,8 @@ export class HudWidgets {
    * built there; the judge-panel finding was it physically covers the mobile attack
    * button). Desktop still starts it hidden internally, toggled by its own [F3] bind. */
   private readonly connection: ConnectionStatusWidget | undefined;
+  /** LANE W2: which world direction currently renders at screen-up (scenes/dungeon/rotationControl.ts). */
+  private readonly compass: CompassWidget;
   private readonly death: DeathOverlayWidget;
   private readonly reconnectToast: ReconnectToastWidget;
   private readonly toasts: ToastStackWidget;
@@ -63,13 +66,7 @@ export class HudWidgets {
   private readonly editMode: HudEditMode;
   private viewport: Viewport;
 
-  constructor(
-    scene: Phaser.Scene,
-    viewport: Viewport,
-    actions?: InventoryActions,
-    social?: SocialActions,
-    stations?: StationActions,
-  ) {
+  constructor(scene: Phaser.Scene, viewport: Viewport, actions?: InventoryActions, social?: SocialActions, stations?: StationActions) {
     this.scene = scene;
     this.viewport = viewport;
     // Closes the HUD_OS.md Phase 2 prerequisite gap: a saved edit-HUD layout previously had
@@ -87,6 +84,7 @@ export class HudWidgets {
     this.chat = new ChatPanelWidget(scene, this.registry, viewport, socialActions.chat, this.touchActive);
     this.interaction = new InteractionPromptWidget(scene, this.registry, viewport);
     this.connection = this.touchActive ? undefined : new ConnectionStatusWidget(scene, this.registry, viewport);
+    this.compass = new CompassWidget(scene, this.registry, viewport);
     this.death = new DeathOverlayWidget(scene, this.registry, viewport);
     this.reconnectToast = new ReconnectToastWidget(scene, this.registry, viewport);
     this.toasts = new ToastStackWidget(scene, this.registry, viewport);
@@ -129,19 +127,12 @@ export class HudWidgets {
     this.buffs.update(snapshot.buffs);
     this.weapon.update(snapshot.equippedWeaponId, nowMs);
     this.xpBar.update(snapshot.xp, snapshot.floor);
-    this.panels.update(
-      snapshot.inventory,
-      snapshot.equippedWeaponId,
-      snapshot.contacts,
-      snapshot.craft,
-      snapshot.stash,
-      snapshot.lastToast,
-      nowMs,
-    );
+    this.panels.update(snapshot.inventory, snapshot.equippedWeaponId, snapshot.contacts, snapshot.craft, snapshot.stash, snapshot.lastToast, nowMs);
     this.chat.update(snapshot.chatModel);
     this.party.update(snapshot.party);
     this.interaction.update(snapshot.interactionPrompt);
     this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor);
+    this.compass.update(snapshot.compassBearingDeg);
     this.death.update(snapshot.downed);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
     this.toasts.update(snapshot.toasts, nowMs);
@@ -168,6 +159,7 @@ export class HudWidgets {
     this.party.resize(this.registry, viewport);
     this.interaction.resize(this.registry, viewport);
     this.connection?.resize(this.registry, viewport);
+    this.compass.resize(this.registry, viewport);
     this.death.resize(this.registry, viewport);
     this.reconnectToast.resize(this.registry, viewport);
     this.toasts.resize(this.registry, viewport);

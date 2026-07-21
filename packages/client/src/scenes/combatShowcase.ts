@@ -7,10 +7,9 @@
 import type { World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
-import { depthForEntity } from "../render/entities/depthSort.js";
 import { EntityRenderer, type PlayerEntityView, type RenderContext } from "../render/entities/index.js";
 import { resolveAimAngle, type AimSource } from "../render/entities/weaponOrbit.js";
-import { worldToScreen } from "../render/entities/worldToScreen.js";
+import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
 import { VfxSystem } from "../vfx/index.js";
 
 /** Mirrors render/entities/playerVisual.ts's STRIKE_DURATION_MS — how long a demo swing holds the strike telegraph. */
@@ -48,7 +47,7 @@ export class CombatShowcase {
     this.swingUntilMs = nowMs + SWING_HOLD_MS;
     for (const demo of this.players) {
       const angle = this.aimAngle(demo);
-      this.vfx.spawnMeleeSwing(demo.id, demo.x, demo.y, angle, depthForEntity(demo.y) - WEDGE_DEPTH_BIAS, SCREEN_TILE_PX, nowMs);
+      this.vfx.spawnMeleeSwing(demo.id, demo.x, demo.y, angle, depthForEntityNow(demo.x, demo.y) - WEDGE_DEPTH_BIAS, SCREEN_TILE_PX, nowMs);
     }
   }
 

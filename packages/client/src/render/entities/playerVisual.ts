@@ -3,7 +3,6 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { resolveAnimState } from "./animState.js";
-import { depthForEntity } from "./depthSort.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
@@ -17,7 +16,7 @@ import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
 import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
 import { stepOrbitAngle } from "./weaponOrbit.js";
-import { worldToScreen } from "./worldToScreen.js";
+import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 
 const DOWNED_TINT = 0x7a3d3d;
 const DOWNED_ANGLE = 78;
@@ -58,7 +57,7 @@ function updatePlayerBody(
 ): void {
   const screen = worldToScreen(view.x, view.y);
   visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
-  visual.body.setDepth(depthForEntity(view.y, heightAboveGround));
+  visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
   if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = ctx.nowMs;

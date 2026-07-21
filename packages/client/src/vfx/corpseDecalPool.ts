@@ -4,8 +4,7 @@
 // pattern" brief. A bone-pale cross Shape (not a sprite — no bone art in the atlas),
 // alpha-blended so it reads on any floor tone without glowing.
 import Phaser from "phaser";
-import { depthForEntity } from "../render/entities/depthSort.js";
-import { worldToScreen } from "../render/entities/worldToScreen.js";
+import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
 
@@ -63,7 +62,7 @@ export class CorpseDecalPool {
       .setRotation(Math.random() * Math.PI)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
-      .setDepth(depthForEntity(worldY) + DEPTH_BIAS);
+      .setDepth(depthForEntityNow(worldX, worldY) + DEPTH_BIAS);
     decal.spawnMs = nowMs;
   }
 

@@ -8,8 +8,7 @@
 // Ellipse/Arc Shape precedent (shadow.ts, meleeWedge.ts). Multiply-blended, never
 // additive: decals darken the floor, they don't glow — VISUAL_DIRECTION's rule.
 import Phaser from "phaser";
-import { depthForEntity } from "../render/entities/depthSort.js";
-import { worldToScreen } from "../render/entities/worldToScreen.js";
+import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 
@@ -71,7 +70,7 @@ export class BloodDecalPool {
       .setFillStyle(tint, 1)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
-      .setDepth(depthForEntity(worldY) + DEPTH_BIAS);
+      .setDepth(depthForEntityNow(worldX, worldY) + DEPTH_BIAS);
     decal.spawnMs = nowMs;
   }
 

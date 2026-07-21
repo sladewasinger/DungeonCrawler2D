@@ -2,6 +2,7 @@
 // id, reused across frames (never recreated), tinted per light and gently flickering.
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { worldToScreen } from "../entities/worldToScreen.js";
 import { flickerAlpha, flickerScale, type LightSource } from "./lightSource.js";
 
 const LIGHT_FRAME = "light_soft";
@@ -45,7 +46,8 @@ export class LightSpritePool {
 
   private place(sprite: Phaser.GameObjects.Sprite, light: LightSource, nowMs: number): void {
     const scale = ((light.radiusTiles * 2 * SCREEN_TILE_PX) / LIGHT_SOURCE_PX) * flickerScale(nowMs, light.seed);
-    sprite.setPosition(light.x * SCREEN_TILE_PX, light.y * SCREEN_TILE_PX);
+    const screen = worldToScreen(light.x, light.y);
+    sprite.setPosition(screen.x, screen.y);
     sprite.setScale(scale);
     sprite.setTint(light.color);
     sprite.setAlpha(Math.min(1, BASE_ALPHA * flickerAlpha(nowMs, light.seed)));

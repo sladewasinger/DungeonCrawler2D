@@ -219,6 +219,8 @@ declare global {
         connect(level: "dungeon" | "sandbox"): void;
       };
       game: unknown;
+      /** LANE W2 read-only observation hook — the seam's live settled ViewOrientation. */
+      viewOrientation(): number;
     };
   }
 }

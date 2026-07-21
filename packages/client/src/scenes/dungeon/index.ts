@@ -10,7 +10,6 @@ import { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import { EntityRenderer } from "../../render/entities/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
-import type { LightSource } from "../../render/lighting/lightSource.js";
 import { LightingSystem } from "../../render/lighting/index.js";
 import { TerrainRenderer } from "../../render/terrain/index.js";
 import { ChatController } from "../../ui/chat/controller.js";
@@ -22,7 +21,7 @@ import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
 import { consumeFixedSteps, interpolationAlpha, lerp } from "./fixedStep.js";
 import { FistbumpRing } from "./fistbumpRing.js";
 import { syncFistbumpRing } from "./fistbumpRingSync.js";
-import { syncEntities, syncLightingAndVfx } from "./frameSync.js";
+import { syncFrame } from "./frameSync.js";
 import {
   createChatPort,
   createHudActions,
@@ -32,6 +31,8 @@ import {
 } from "./inputAdapters.js";
 import { buildLiveHudSnapshot } from "./liveHudSnapshot.js";
 import { createCraftActions, createInputPanels, createStashActions } from "./panelAdapters.js";
+import { RotationController } from "./rotationControl.js";
+import { bindRotationKeys } from "./rotationKeys.js";
 import { syncReviveRing } from "./reviveRingSync.js";
 import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
@@ -51,12 +52,14 @@ export class DungeonScene extends Phaser.Scene {
   private interactionPrompt: InteractionPrompt | null = null;
   private partyIds: ReadonlySet<string> = new Set();
   private readonly torchSyncState: TorchSyncState = createTorchSyncState();
-  private torchAccentLights: LightSource[] = [];
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
   private fistbumpRing!: FistbumpRing;
   /** Same generic ring visual as fistbumpRing, driven by the hold-E revive gesture. */
   private reviveRing!: FistbumpRing;
+  /** LANE W2: Q/X camera rotation (see rotationControl.ts's doc comment for the Q/E-vs-Q/X
+   * key deviation) — owns the tween + the hard content swap + the cosmetic camera spin. */
+  private readonly rotation = new RotationController();
 
   constructor(private readonly conn: Connection) {
     super("dungeon");
@@ -88,6 +91,7 @@ export class DungeonScene extends Phaser.Scene {
       stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
     });
     this.setUpCameraResize();
+    bindRotationKeys(this, this.rotation);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
 
@@ -112,32 +116,29 @@ export class DungeonScene extends Phaser.Scene {
     syncReviveRing(this.reviveRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
     this.consumeTeleport(time);
+    this.advanceRotation(deltaMs);
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
     this.sampleFixedStepInput(deltaMs);
 
     const render = this.interpolateSelfPose();
     this.updateCameraFollow(render, deltaMs);
+    this.cameras.main.setRotation(this.rotation.cameraRotationRad());
     this.terrain?.update(this.cameras.main.worldView);
     this.partyIds = new Set((conn.party?.members ?? []).map((m) => m.id));
 
-    const synced = syncEntities(
-      this,
-      conn,
-      this.entityRenderer,
-      this.vfx,
-      this.terrain,
-      this.inputController,
-      this.state,
-      this.torchSyncState,
-      this.partyIds,
-      time,
-      deltaMs / 1000,
-      render,
-    );
+    const synced = syncFrame(this, conn, this.entityRenderer, this.vfx, this.terrain, this.lighting, this.inputController, this.state, this.torchSyncState, this.partyIds, time, deltaMs / 1000, render);
     this.interactionPrompt = synced.interactionPrompt;
-    this.torchAccentLights = synced.torchAccentLights;
-    syncLightingAndVfx(conn, this.lighting, this.vfx, this.cameras.main, this.torchAccentLights, this.state, time, render);
+  }
+
+  /** Advances the Q/X rotation tween BEFORE input is sampled, so camera-relative
+   * movement this same frame already remaps against whatever orientation the tween's
+   * one hard content swap (if this frame crosses the 45-degree midpoint) settles on. */
+  private advanceRotation(deltaMs: number): void {
+    this.rotation.update(deltaMs, () => {
+      this.terrain?.invalidateAll();
+      this.lighting?.invalidateAll();
+    });
   }
 
   private buildInputController(): InputController {
@@ -210,6 +211,7 @@ export class DungeonScene extends Phaser.Scene {
       // converges over ~90s, which fabricated a "monotonic fps collapse" for
       // slow clients (judge-panel finding; connectionStatus does its own smoothing).
       1000 / this.game.loop.delta,
+      this.rotation.bearingDeg(),
     );
   }
 

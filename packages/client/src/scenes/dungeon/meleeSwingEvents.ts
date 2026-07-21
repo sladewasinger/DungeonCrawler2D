@@ -3,7 +3,7 @@
 // state) and resolves each swing's wedge-telegraph spawn parameters — the one seam both
 // the self and remote presentation paths share, since PlayerEntityView.attackAngleRad
 // already carries the right angle for either case (entityViews.ts).
-import { depthForEntity } from "../../render/entities/depthSort.js";
+import { depthForEntityNow } from "../../render/entities/worldToScreen.js";
 import type { PlayerEntityView } from "../../render/entities/index.js";
 
 /** Draws the wedge just under the wielder's feet-depth, so it reads as a ground telegraph rather than floating in front of the body. */
@@ -32,5 +32,5 @@ export function resolveMeleeSwings(players: readonly PlayerEntityView[], previou
 }
 
 function toSpawn(player: PlayerEntityView): MeleeSwingSpawn {
-  return { id: player.id, worldX: player.x, worldY: player.y, angleRad: player.attackAngleRad, depth: depthForEntity(player.y) - WEDGE_DEPTH_BIAS };
+  return { id: player.id, worldX: player.x, worldY: player.y, angleRad: player.attackAngleRad, depth: depthForEntityNow(player.x, player.y) - WEDGE_DEPTH_BIAS };
 }

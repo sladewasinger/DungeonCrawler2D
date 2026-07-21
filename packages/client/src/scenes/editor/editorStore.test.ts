@@ -1,7 +1,8 @@
 // Headless tests for the torch brush's paint/erase wiring and the lighting panel's
 // store-side contract: notifyLightingChange re-renders the Phaser view without writing
 // a spurious save, which is what lets the sliders debounce-rebake on every drag tick.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { getViewOrientation, resetViewOrientation } from "../../render/view/index.js";
 import { EditorStore } from "./editorStore.js";
 
 /** Node's default vitest environment (see root vitest.config.ts) has no `localStorage`
@@ -94,6 +95,29 @@ describe("EditorStore autotile mask cache", () => {
     reloaded.importJson(store.exportJson());
     expect(reloaded.autotileMasks.get(3, 3)?.edges.east).toBe(false);
     expect(reloaded.autotileMasks.get(4, 3)?.edges.west).toBe(false);
+  });
+});
+
+describe("EditorStore.rotateView", () => {
+  afterEach(() => resetViewOrientation()); // the seam's ViewOrientation is a module-level singleton — reset so it can't leak into another test file's expectations of orientation 0
+
+  it("steps the seam's live ViewOrientation clockwise/counter-clockwise and notifies listeners", () => {
+    installFakeLocalStorage();
+    const store = new EditorStore();
+    let notifyCount = 0;
+    store.onChange(() => notifyCount++);
+    expect(getViewOrientation()).toBe(0);
+
+    store.rotateView(1);
+    expect(getViewOrientation()).toBe(90);
+    expect(notifyCount).toBe(1);
+
+    store.rotateView(-1);
+    expect(getViewOrientation()).toBe(0);
+    expect(notifyCount).toBe(2);
+
+    store.rotateView(-1);
+    expect(getViewOrientation()).toBe(270);
   });
 });
 
