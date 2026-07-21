@@ -148,3 +148,48 @@ describe("enemy AI", () => {
     expect(brain.targetId).toBeNull();
   });
 });
+
+describe("melee cone-vs-body (point-blank playability)", () => {
+  // Hand-derived cases (BODY_RADIUS 0.25, MELEE_ARC_COS 0.7071 -> half-arc 45deg,
+  // MELEE_RANGE 1.6). Allowance = asin(0.25/dist); hit iff offAxis <= 45 + allowance.
+  //
+  //  dist  offAxis  allowance  verdict
+  //  0.5   60deg    30.0deg    HIT  (45+30=75 >= 60) — the user's "swing goes past a
+  //                                  close enemy": center-point testing rejected this
+  //  1.5   60deg    9.6deg     MISS (45+9.6=54.6 < 60) — arc stays honest at range
+  //  1.5   40deg    9.6deg     HIT  (inside the plain 45deg arc, as before)
+  //  1.75  0deg     —          HIT  (1.75 - 0.25 = 1.5 <= 1.6: blade reaches the EDGE)
+  //  2.0   0deg     —          MISS (2.0 - 0.25 = 1.75 > 1.6)
+  const attacker = combatant("player", 0, 0);
+  const aimEast = { x: 1, y: 0 };
+
+  function enemyAt(dist: number, offAxisDeg: number): Entity {
+    const rad = (offAxisDeg * Math.PI) / 180;
+    return combatant("enemy", dist * Math.cos(rad), dist * Math.sin(rad));
+  }
+
+  it("hits a touching enemy 60 degrees off the aim axis (dist 0.5)", () => {
+    const enemy = enemyAt(0.5, 60);
+    expect(pickMeleeTarget(attacker, aimEast.x, aimEast.y, [enemy], () => false)).toBe(enemy);
+  });
+
+  it("still misses a RANGED enemy 60 degrees off-axis (dist 1.5) — the arc does not balloon", () => {
+    const enemy = enemyAt(1.5, 60);
+    expect(pickMeleeTarget(attacker, aimEast.x, aimEast.y, [enemy], () => false)).toBeNull();
+  });
+
+  it("hits a ranged enemy inside the plain 45-degree half-arc (dist 1.5, 40 degrees)", () => {
+    const enemy = enemyAt(1.5, 40);
+    expect(pickMeleeTarget(attacker, aimEast.x, aimEast.y, [enemy], () => false)).toBe(enemy);
+  });
+
+  it("range reaches the target's near edge, not its center (dist 1.75 dead-ahead hits)", () => {
+    const enemy = enemyAt(1.75, 0);
+    expect(pickMeleeTarget(attacker, aimEast.x, aimEast.y, [enemy], () => false)).toBe(enemy);
+  });
+
+  it("dist 2.0 dead-ahead is still out of reach", () => {
+    const enemy = enemyAt(2.0, 0);
+    expect(pickMeleeTarget(attacker, aimEast.x, aimEast.y, [enemy], () => false)).toBeNull();
+  });
+});

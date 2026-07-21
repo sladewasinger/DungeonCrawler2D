@@ -116,8 +116,8 @@ export class VfxSystem {
   }
 
   /** Melee-arc swing telegraph, keyed by attacker id so a fresh swing reuses (redraws) that id's pooled Graphics rather than allocating a new one. */
-  spawnMeleeSwing(id: string, worldX: number, worldY: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
-    this.meleeWedge.spawn(id, worldX, worldY, angleRad, depth, tilePx, nowMs);
+  spawnMeleeSwing(id: string, worldX: number, worldY: number, liftUnits: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+    this.meleeWedge.spawn(id, worldX, worldY, liftUnits, angleRad, depth, tilePx, nowMs);
   }
 
   /** Splatter + one floor decal for a landed hit (Epic 7.11) — directional when `dirX`/`dirY`

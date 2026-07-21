@@ -64,7 +64,7 @@ function syncCombatants(
   entityRenderer.syncMonsters(interpolated.filter((e) => e.snap.kind === "enemy").map(monsterView), context);
   entityRenderer.syncItems(items.map(itemView), nowMs);
   for (const swing of resolveMeleeSwings(allPlayers, state.attackFlags)) {
-    vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
+    vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.liftUnits, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
   }
 }
 

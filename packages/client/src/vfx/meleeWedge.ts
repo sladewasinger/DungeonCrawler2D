@@ -40,11 +40,13 @@ export class MeleeWedgePool {
   constructor(private readonly scene: Phaser.Scene) {}
 
   /** (Re)shapes `id`'s wedge at world (x,y) aimed at `angleRad`, starting its fade now. Reuses the id's Arc object across swings instead of allocating a new one each time. */
-  spawn(id: string, worldX: number, worldY: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+  spawn(id: string, worldX: number, worldY: number, liftUnits: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
     const swing = this.swings.get(id) ?? this.build();
     this.swings.set(id, swing);
     const screen = worldToScreen(worldX, worldY);
-    applyWedgeShape(swing.shape, screen.x, screen.y, wedgeGeometry(angleRad, tilePx));
+    // z-lift is always screen-up (rotation invariant 2) — the wedge anchors at the
+    // wielder's lifted feet, same plane as the sprite, at every elevation.
+    applyWedgeShape(swing.shape, screen.x, screen.y - liftUnits * tilePx, wedgeGeometry(angleRad, tilePx));
     swing.shape.setDepth(depth).setVisible(true).setAlpha(1);
     swing.startedAtMs = nowMs;
   }
