@@ -1,19 +1,19 @@
-// Melee-swing wedge telegraph: one pooled Arc Shape per attacking entity id, redrawn only
+// Melee-swing wedge telegraph: one pooled Graphics per attacking entity id, redrawn only
 // when that id's swing starts (not every frame) and faded via alpha thereafter — the
 // v1-style "pie shape wedge" showing the attack's real distance/arc, per VISUAL_DIRECTION's
 // "hits feel like hits" juice requirement.
 //
-// Uses Phaser.GameObjects.Arc (a batched Shape primitive, same family as the hp bar's
-// Rectangle/the shadow's Ellipse and this codebase's only fill-shape precedent) rather
-// than a raw Graphics object: it needs no manual moveTo/arc/closePath path composition,
-// supports independent fill+stroke alpha out of the box, and is the more portable choice
-// generally (Graphics' arbitrary-path fill goes through a separate stencil-buffer-based
-// WebGL pipeline some lower-end/software GL drivers handle poorly). Note for whoever next
-// touches this: in this repo's headless Playwright screenshot harness specifically, *any*
-// overlay draw call here — proven with both a raw Graphics arc and this Arc Shape — stops
-// compositing once the gallery's terrain/lighting/entity-showcase layers are also active,
-// while the exact same code renders correctly with those layers removed; that reproduces
-// in the harness only; treat it as a screenshot-tooling ceiling, not a rendering bug here.
+// Drawn with Graphics.slice(), the one Phaser primitive whose fill path runs
+// center -> arc -> back to center: a true ice-cream-cone pie with its tip AT the
+// wielder. The previous Phaser.GameObjects.Arc Shape closes its fill chord-to-chord
+// instead, which rendered the region between the curve and the chord — a crescent
+// floating a full radius away from the player with no tip ("a floating slice too far
+// away from me", user screenshots 2026-07-20). Note for whoever next touches this: in
+// this repo's headless Playwright screenshot harness specifically, any overlay draw
+// call here — proven with both a raw Graphics arc and an Arc Shape — stops compositing
+// once the gallery's terrain/lighting/entity-showcase layers are also active; that
+// reproduces in the harness only; treat it as a screenshot-tooling ceiling, not a
+// rendering bug here.
 import Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { wedgeAlpha, wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
@@ -27,10 +27,9 @@ const FILL_ALPHA = 0.45;
 const RIM_COLOR = 0xffe9c9;
 const RIM_ALPHA = 0.9;
 const RIM_WIDTH_PX = 2;
-const RAD_TO_DEG = 180 / Math.PI;
 
 interface WedgeSwing {
-  readonly shape: Phaser.GameObjects.Arc;
+  readonly gfx: Phaser.GameObjects.Graphics;
   startedAtMs: number;
 }
 
@@ -39,50 +38,46 @@ export class MeleeWedgePool {
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  /** (Re)shapes `id`'s wedge at world (x,y) aimed at `angleRad`, starting its fade now. Reuses the id's Arc object across swings instead of allocating a new one each time. */
+  /** (Re)shapes `id`'s wedge at world (x,y) aimed at `angleRad`, starting its fade now. Reuses the id's Graphics object across swings instead of allocating a new one each time. */
   spawn(id: string, worldX: number, worldY: number, liftUnits: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
-    const swing = this.swings.get(id) ?? this.build();
+    const swing = this.swings.get(id) ?? { gfx: this.scene.add.graphics(), startedAtMs: -Infinity };
     this.swings.set(id, swing);
     const screen = worldToScreen(worldX, worldY);
     // z-lift is always screen-up (rotation invariant 2) — the wedge anchors at the
     // wielder's lifted feet, same plane as the sprite, at every elevation.
-    applyWedgeShape(swing.shape, screen.x, screen.y - liftUnits * tilePx, wedgeGeometry(angleRad, tilePx));
-    swing.shape.setDepth(depth).setVisible(true).setAlpha(1);
+    drawWedge(swing.gfx, screen.x, screen.y - liftUnits * tilePx, wedgeGeometry(angleRad, tilePx));
+    swing.gfx.setDepth(depth).setVisible(true).setAlpha(1);
     swing.startedAtMs = nowMs;
   }
 
-  private build(): WedgeSwing {
-    const shape = this.scene.add.arc(0, 0, 1, 0, 1, false);
-    shape.setFillStyle(FILL_COLOR, FILL_ALPHA);
-    shape.setStrokeStyle(RIM_WIDTH_PX, RIM_COLOR, RIM_ALPHA);
-    return { shape, startedAtMs: -Infinity };
-  }
-
   /**
-   * Fades every active wedge; hides it once fully faded (the Arc object itself is kept
-   * for reuse). Visibility always tracks `alpha > 0` both ways, not just hiding on fade-
-   * out: `spawn`'s trigger-time clock (a raw event handler, e.g. `performance.now()`) and
-   * this `update`'s per-frame scene clock can race by a frame, so the very first update
-   * after a spawn can read a still-negative (pre-spawn) elapsed and alpha 0 — a one-way
-   * hide would then leave it permanently invisible once alpha recovers.
+   * Fades every active wedge; hides it once fully faded (the Graphics object itself is
+   * kept for reuse). Visibility always tracks `alpha > 0` both ways, not just hiding on
+   * fade-out: `spawn`'s trigger-time clock (a raw event handler, e.g. `performance.now()`)
+   * and this `update`'s per-frame scene clock can race by a frame, so the very first
+   * update after a spawn can read a still-negative (pre-spawn) elapsed and alpha 0 — a
+   * one-way hide would then leave it permanently invisible once alpha recovers.
    */
   update(nowMs: number): void {
     for (const swing of this.swings.values()) {
       const alpha = wedgeAlpha(nowMs - swing.startedAtMs);
-      swing.shape.setAlpha(alpha).setVisible(alpha > 0);
+      swing.gfx.setAlpha(alpha).setVisible(alpha > 0);
     }
   }
 
   dispose(): void {
-    for (const swing of this.swings.values()) swing.shape.destroy();
+    for (const swing of this.swings.values()) swing.gfx.destroy();
     this.swings.clear();
   }
 }
 
-/** Arc's start/end angles are in degrees; wedgeGeometry's are radians (matching resolveAimAngle/atan2 throughout the rest of the client). */
-function applyWedgeShape(shape: Phaser.GameObjects.Arc, centerX: number, centerY: number, geo: WedgeGeometry): void {
-  shape.setPosition(centerX, centerY);
-  shape.radius = geo.radiusPx;
-  shape.startAngle = geo.startAngle * RAD_TO_DEG;
-  shape.endAngle = geo.endAngle * RAD_TO_DEG;
+/** The pie: tip at (tipX, tipY), fanning out to the geometry's arc — fill plus rim stroke. */
+function drawWedge(gfx: Phaser.GameObjects.Graphics, tipX: number, tipY: number, geo: WedgeGeometry): void {
+  gfx.clear();
+  gfx.fillStyle(FILL_COLOR, FILL_ALPHA);
+  gfx.slice(tipX, tipY, geo.radiusPx, geo.startAngle, geo.endAngle, false);
+  gfx.fillPath();
+  gfx.lineStyle(RIM_WIDTH_PX, RIM_COLOR, RIM_ALPHA);
+  gfx.slice(tipX, tipY, geo.radiusPx, geo.startAngle, geo.endAngle, false);
+  gfx.strokePath();
 }
