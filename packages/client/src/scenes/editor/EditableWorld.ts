@@ -85,6 +85,33 @@ export class EditableWorld {
     this.setStack(wx, wy, { walls: (s.stair ? 0 : s.walls) + 1, cap: null, stair: null });
   }
 
+  /** Stamps one solid wall at an explicit rendered height. This is the terrain-debug
+   * tool's direct authoring path: a click always means exactly the height shown in
+   * the left panel, not "add another invisible stack and count it mentally." */
+  paintWallHeightAt(wx: number, wy: number, height: number): void {
+    this.setStack(wx, wy, { walls: height, cap: null, stair: null });
+  }
+
+  /** Writes the editor's primary terrain datum: a walkable floor at an exact z height. */
+  paintFloorHeightAt(wx: number, wy: number, height: number, capId: string): void {
+    this.setStack(wx, wy, { walls: height, cap: capId, stair: null });
+  }
+
+  /** Makes this height cell a solid, non-walkable void wall with no floor cap. */
+  paintVoidAt(wx: number, wy: number): void {
+    this.setStack(wx, wy, { walls: this.heightAt(wx, wy), cap: null, stair: null });
+  }
+
+  /** Restores an explicit walkable floor cap at the void cell's existing height. */
+  restoreFloorAt(wx: number, wy: number, capId: string): void {
+    this.paintFloorHeightAt(wx, wy, this.heightAt(wx, wy), capId);
+  }
+
+  /** Raises or lowers one cell in the editor's floor-height field. */
+  adjustFloorHeightAt(wx: number, wy: number, delta: number, capId: string): void {
+    this.paintFloorHeightAt(wx, wy, this.heightAt(wx, wy) + delta, capId);
+  }
+
   /** Caps an existing wall stack walkable at the same height, or just re-textures bare
    * ground (walls 0) — `capId` is the art lane's floor-variant id (`"<packId>:<index>"`). */
   paintFloorAt(wx: number, wy: number, capId: string): void {
@@ -120,6 +147,13 @@ export class EditableWorld {
     // The last wall layer pops to bare ground, not a capless (solid, invisible)
     // walls=0 wall — that shape is only valid for legacy pit-adjacent imports.
     this.setStack(wx, wy, GROUND_STACK);
+  }
+
+  /** Restores the authored terrain and editor-only torch layer to a genuinely blank map. */
+  clear(): void {
+    this.stacks = new Array(CELL_COUNT).fill(GROUND_STACK);
+    this.torches.clear();
+    this.compiled = undefined;
   }
 
   // ── torch overlay (editor-only light sources) ───────────────────
@@ -211,6 +245,6 @@ export class EditableWorld {
   /** Own-tile face model: collision is pure height + solid furniture — the face IS the raised tile. */
   isWalkable(wx: number, wy: number): boolean {
     const tile = this.tileAt(wx, wy);
-    return tile !== TILE.CraftingTable && tile !== TILE.Stash;
+    return tile !== TILE.Wall && tile !== TILE.CraftingTable && tile !== TILE.Stash;
   }
 }

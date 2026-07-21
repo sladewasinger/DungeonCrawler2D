@@ -27,16 +27,15 @@
 // body's "destroy" event, so callers don't need a teardown hook either.
 import type { WorldView } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { screenSouthWorldDirection, type CompassDir } from "../view/directionRemap.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
+import { worldTileToView } from "../view/viewTransform.js";
 import { depthForOccluder } from "./depthSort.js";
 
 const GHOST_DATA_KEY = "occlusionGhost";
-/** A saturated "spirit" cyan, deliberately far from any sprite's natural palette so the
- * silhouette always reads as an overlay effect, never as a lighting coincidence. */
-const GHOST_TINT = 0x4fd6ff;
-const GHOST_ALPHA = 0.75;
+const GHOST_TINT = 0xe4e4e4;
+const GHOST_ALPHA = 0.42;
 /**
  * Search ceiling for how many rows ahead a tall occluder could still reach: mirrors
  * `render/terrain/ownFace.ts`'s `MAX_FACE_ROWS` (not imported directly — that module
@@ -59,6 +58,37 @@ const WORLD_STEP: Record<CompassDir, { dx: number; dy: number }> = {
   W: { dx: -1, dy: 0 },
 };
 
+export interface TerrainOcclusion {
+  /** The world-pixel Y where the terrain face begins. Everything below this point is hidden. */
+  readonly screenY: number;
+}
+
+/** Finds the foremost terrain face that actually crosses the entity's row. The returned
+ * screen-space seam is used to crop the ghost duplicate to the exact hidden portion;
+ * this is deliberately richer than a boolean because an all-or-nothing duplicate makes
+ * an unobscured head read as a ghost as well. */
+export function terrainOcclusionAhead(
+  world: WorldView,
+  x: number,
+  y: number,
+  z: number,
+  orientation: ViewOrientation,
+): TerrainOcclusion | null {
+  const tileX = Math.floor(x);
+  const tileY = Math.floor(y);
+  const { dx, dy } = WORLD_STEP[screenSouthWorldDirection(orientation)];
+  let closestSeamY = Number.POSITIVE_INFINITY;
+  for (let step = 1; step <= MAX_OCCLUDING_ROWS_AHEAD; step++) {
+    const checkX = tileX + dx * step;
+    const checkY = tileY + dy * step;
+    const height = world.heightAt(checkX, checkY);
+    if (height - z < step) continue;
+    const viewTile = worldTileToView({ x: checkX, y: checkY }, orientation);
+    closestSeamY = Math.min(closestSeamY, (viewTile.y - height) * SCREEN_TILE_PX);
+  }
+  return Number.isFinite(closestSeamY) ? { screenY: closestSeamY } : null;
+}
+
 /** True when terrain toward the camera (screen-south) of (x, y) stands tall enough
  * that its rendered body actually reaches this sprite's row. Under the elevation
  * shift (docs/ELEVATION-PROJECTION.md section 3) a cell's body — cap and face band
@@ -75,15 +105,7 @@ export function isOccludedByTerrainAhead(
   z: number,
   orientation: ViewOrientation,
 ): boolean {
-  const tileX = Math.floor(x);
-  const tileY = Math.floor(y);
-  const { dx, dy } = WORLD_STEP[screenSouthWorldDirection(orientation)];
-  for (let step = 1; step <= MAX_OCCLUDING_ROWS_AHEAD; step++) {
-    const checkX = tileX + dx * step;
-    const checkY = tileY + dy * step;
-    if (world.heightAt(checkX, checkY) - z >= step) return true;
-  }
-  return false;
+  return terrainOcclusionAhead(world, x, y, z, orientation) !== null;
 }
 
 /** Depth guaranteed above any occluder strip that could plausibly cover a sprite whose
@@ -92,21 +114,37 @@ function ghostDepth(tileY: number): number {
   return depthForOccluder(tileY + MAX_OCCLUDING_ROWS_AHEAD + 1) + 1;
 }
 
-/** Lazily creates a flat-tint duplicate of `body` and keeps it synced, visible only
- * while `occluded`. `worldY` is the entity's feet position, used to depth the ghost
- * above whatever terrain could be covering it. */
-export function syncOcclusionSilhouette(body: Phaser.GameObjects.Sprite, worldY: number, occluded: boolean): void {
+/** Lazily creates a neutral duplicate of `body`, then crops it to just the part covered
+ * by terrain. The normal body remains at its usual depth, so its visible portion keeps
+ * its real sprite colors; only the hidden portion is lifted above the terrain. */
+export function syncOcclusionSilhouette(
+  body: Phaser.GameObjects.Sprite,
+  worldY: number,
+  occlusion: TerrainOcclusion | null,
+): void {
   // Phaser's DataManager is untyped by design; this key is only ever written/read here.
   const existing = body.getData(GHOST_DATA_KEY) as Phaser.GameObjects.Sprite | undefined;
-  if (!occluded) {
+  if (occlusion === null) {
     existing?.setVisible(false);
     return;
   }
   const ghost = existing ?? createGhost(body);
-  ghost.setVisible(true);
   ghost.setPosition(body.x, body.y);
-  ghost.setFlipX(body.flipX);
   if (body.frame.name !== ghost.frame.name) ghost.setFrame(body.frame.name);
+  ghost.setFlipX(body.flipX);
+  ghost.setScale(body.scaleX, body.scaleY);
+  ghost.setAngle(body.angle);
+  const bodyTop = body.y - body.displayHeight;
+  const displayCropTop = Math.min(body.displayHeight, Math.max(0, occlusion.screenY - bodyTop));
+  const sourceHeight = ghost.frame.height;
+  const sourceCropTop = Math.min(sourceHeight, displayCropTop / Math.abs(body.scaleY));
+  if (sourceCropTop >= sourceHeight) {
+    ghost.setVisible(false);
+    return;
+  }
+  if (sourceCropTop <= 0) ghost.setCrop();
+  else ghost.setCrop(0, sourceCropTop, ghost.frame.width, sourceHeight - sourceCropTop);
+  ghost.setVisible(true);
   ghost.setDepth(ghostDepth(Math.floor(worldY)));
 }
 

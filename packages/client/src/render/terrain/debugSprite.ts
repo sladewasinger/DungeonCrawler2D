@@ -5,7 +5,7 @@
 // baking every corner combination into the spritesheet.
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import type { InnerCorners } from "./autotile.js";
+import type { CardinalEdges, InnerCorners } from "./autotile.js";
 import { DEBUG_TILE_PX, DEBUG_TILESET_KEY } from "./debugTileset.js";
 import { placeFractionalRect } from "./placeSprite.js";
 
@@ -55,6 +55,22 @@ const CORNER_RECT: Readonly<
  * height/light tint (this is an overlay rect, not a tinted sprite, so it needs its own
  * real color rather than a multiply factor). */
 const CORNER_DOT_COLOR = 0x000000;
+const WALL_BORDER_FRAC = 3 / DEBUG_TILE_PX;
+
+/** Draws the same black perimeter as the baked wall tiles, without introducing a second wall-fill color. */
+export function placeWallEdges(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  wx: number,
+  wy: number,
+  edges: CardinalEdges,
+  liftPx = 0,
+): void {
+  if (edges.north) placeFractionalRect(scene, container, wx, wy, [0, 1], [0, WALL_BORDER_FRAC], CORNER_DOT_COLOR, 1, liftPx);
+  if (edges.east) placeFractionalRect(scene, container, wx, wy, [1 - WALL_BORDER_FRAC, 1], [0, 1], CORNER_DOT_COLOR, 1, liftPx);
+  if (edges.south) placeFractionalRect(scene, container, wx, wy, [0, 1], [1 - WALL_BORDER_FRAC, 1], CORNER_DOT_COLOR, 1, liftPx);
+  if (edges.west) placeFractionalRect(scene, container, wx, wy, [0, WALL_BORDER_FRAC], [0, 1], CORNER_DOT_COLOR, 1, liftPx);
+}
 
 /** Draws a small black dot at every inner corner `corners` flags — the 8-bit refinement
  * over the 16-variant baked border, so a concave notch (both cardinals wall, diagonal not) shows up even though neither of this tile's own edges carries a border there. */

@@ -6,6 +6,7 @@
 // One pooled Graphics per attacker id, same reuse pattern as MeleeWedgePool.
 import Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
+import { getViewOrientation, worldAngleToView } from "../render/view/index.js";
 import { wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
 import { whiffAlpha } from "./whiffFadeMotion.js";
 
@@ -28,7 +29,7 @@ export class WhiffFadePool {
     const arc = this.arcs.get(id) ?? { gfx: this.scene.add.graphics(), startedAtMs: -Infinity };
     this.arcs.set(id, arc);
     const screen = worldToScreen(worldX, worldY);
-    drawArc(arc.gfx, screen.x, screen.y - z * tilePx, wedgeGeometry(angleRad, tilePx));
+    drawArc(arc.gfx, screen.x, screen.y - z * tilePx, wedgeGeometry(worldAngleToView(angleRad, getViewOrientation()), tilePx));
     arc.gfx.setDepth(depth).setVisible(true).setAlpha(whiffAlpha(0));
     arc.startedAtMs = nowMs;
   }

@@ -24,7 +24,7 @@ export function buildPaintPanel(parent: HTMLElement, store: EditorStore): PaintP
   canvas.width = canvas.height = EDITOR_GRID_SIZE * CELL_PX;
   canvas.style.cssText = "border:1px solid #494956;cursor:crosshair;touch-action:none";
   const inspector = document.createElement("div");
-  inspector.style.cssText = "font:12px monospace;color:#8f8fa3;min-height:18px;margin-top:6px";
+  inspector.style.cssText = "box-sizing:border-box;width:520px;min-height:48px;max-height:48px;overflow-y:auto;overflow-wrap:anywhere;white-space:normal;font:12px/16px monospace;color:#8f8fa3;margin-top:6px";
   inspector.textContent = "hover a cell";
   const refresh = () => drawGrid(canvas, store);
   const setInspectorText = (text: string): void => {

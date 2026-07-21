@@ -14,15 +14,17 @@
 import { stairVisualAt, TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { cliffSidesAt } from "./cliffMask.js";
-import { pickFloorFrame, pickStairFrame, pickWallFrame, wallAutotileAt } from "./debugArt.js";
-import { placeDebugTile, placeWallCornerDots } from "./debugSprite.js";
+import type { CardinalEdges } from "./autotile.js";
+import { pickFloorFrame, pickStairFrame } from "./debugArt.js";
+import { placeDebugTile, placeWallEdges } from "./debugSprite.js";
 import { drawContactShade } from "./drawContactShade.js";
 import { drawStairTreads } from "./drawStairTread.js";
 import { drawSubtleSlope } from "./drawSubtleSlope.js";
+import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { drawEdgeLine } from "./edgeLine.js";
-import { faceRowShade, heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint } from "./heightShade.js";
+import { heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
 import { type CapOccluderFor, surfaceContainerFor } from "./occluderBand.js";
-import { pitFaceRowAt, type PitFaceRow } from "./pitFace.js";
+import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
 import { placeFillRect, placeSprite, surfaceLiftPx } from "./placeSprite.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
@@ -39,55 +41,73 @@ import type { ViewTerrainWorld } from "./viewWorld.js";
  */
 function drawPitFaceCell(
   scene: Phaser.Scene,
-  below: Phaser.GameObjects.Container,
-  world: TerrainWorld,
-  wx: number,
-  wy: number,
-  pit: PitFaceRow,
-  lightTint: number,
-): void {
-  const shade = faceRowShade(pit.rowFromTop, pit.truncated);
-  const tint = multiplyTint(multiplyTint(heightTint(pit.surfaceHeight), shade), lightTint);
-  const { mask4, corners } = wallAutotileAt(world, wx, wy);
-  placeDebugTile(scene, below, wx, wy, pickWallFrame(mask4), { tint });
-  placeWallCornerDots(scene, below, wx, wy, corners);
-}
-
-const ORTHO4: ReadonlyArray<readonly [number, number]> = [
-  [0, -1],
-  [0, 1],
-  [-1, 0],
-  [1, 0],
-];
-
-/** True once any orthogonal neighbor is NOT chasm-depth — this cell borders the rim, not deep void. */
-function isChasmRim(world: TerrainWorld, wx: number, wy: number): boolean {
-  return ORTHO4.some(([dx, dy]) => !isChasmDepth(world.heightAt(wx + dx, wy + dy)));
-}
-
-const CHASM_GHOST_RIM_ALPHA = 0.2;
-const CHASM_GHOST_DEEP_ALPHA = 0.14;
-
-/**
- * A faint hint of the floor a chasm/hole tile used to be, at rim-vs-deep alpha
- * (VISUAL_DIRECTION's "holes read as HOLES") — a flat void alone reads as an
- * unrendered gap at a glance; this ghost plus the rim/deep alpha step gives it
- * real depth without needing a dedicated "hole" sprite from any pack.
- */
-function drawChasmGhost(
-  scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,
   world: TerrainWorld,
   wx: number,
   wy: number,
-  height: number,
+  pit: NonNullable<ReturnType<typeof pitFaceRowAt>>,
   lightTint: number,
-  liftPx: number,
 ): void {
-  if (!isChasmDepth(height)) return;
-  const alpha = isChasmRim(world, wx, wy) ? CHASM_GHOST_RIM_ALPHA : CHASM_GHOST_DEEP_ALPHA;
-  const ghostTint = multiplyTint(heightTint(0), lightTint);
-  placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint: ghostTint, alpha, liftPx });
+  drawWallTile(scene, world, wx, wy, container, 0, { ...pit, isStep: false }, pitFaceSideEdges(world, wx, wy, pit), southFaceColor(lightTint));
+}
+
+function samePitFace(
+  world: TerrainWorld,
+  wx: number,
+  wy: number,
+  pit: NonNullable<ReturnType<typeof pitFaceRowAt>>,
+): boolean {
+  const neighbor = pitFaceRowAt(world, wx, wy);
+  return neighbor !== null && neighbor.rowFromTop === pit.rowFromTop && neighbor.surfaceHeight === pit.surfaceHeight;
+}
+
+function pitFaceSideEdges(
+  world: TerrainWorld,
+  wx: number,
+  wy: number,
+  pit: NonNullable<ReturnType<typeof pitFaceRowAt>>,
+): Partial<CardinalEdges> {
+  return {
+    west: !samePitFace(world, wx - 1, wy, pit),
+    east: !samePitFace(world, wx + 1, wy, pit),
+  };
+}
+
+function drawPitStepFaces(
+  scene: Phaser.Scene,
+  world: TerrainWorld,
+  wx: number,
+  wy: number,
+  capOccluderFor: CapOccluderFor,
+  lightTint: number,
+): void {
+  for (const face of pitStepFaceRowsAt(world, wx, wy)) {
+    const liftPx = surfaceLiftPx(face.surfaceHeight - face.rowFromTop);
+    const container = capOccluderFor(face.screenY);
+    drawWallTile(
+      scene,
+      world,
+      wx,
+      wy,
+      container,
+      liftPx,
+      face,
+      {},
+      southFaceColor(lightTint),
+    );
+    if (face.rowFromTop === 1) {
+      drawEdgeLine(scene, container, wx, wy, "north", multiplyTint(topEdgeHighlightTint(face.surfaceHeight), lightTint), 1, liftPx);
+    }
+  }
+}
+
+function chasmEdgesAt(world: TerrainWorld, wx: number, wy: number) {
+  return {
+    north: !isChasmDepth(world.heightAt(wx, wy - 1)),
+    east: !isChasmDepth(world.heightAt(wx + 1, wy)),
+    south: !isChasmDepth(world.heightAt(wx, wy + 1)),
+    west: !isChasmDepth(world.heightAt(wx - 1, wy)),
+  };
 }
 
 /**
@@ -145,21 +165,18 @@ function drawSurface(
   lightTint: number,
   liftPx: number,
 ): void {
-  if (isChasmDepth(height)) {
-    // No pack carries dedicated "void" art (the schema's `hazards` category is lava/spikes,
-    // not a plain hole) — a solid fill in the same chasm tint reads as a dark gap; the ghost
-    // below adds the "used to be floor" echo VISUAL_DIRECTION asks for.
-    placeFillRect(scene, container, wx, wy, tint, liftPx);
+  const isChasm = isChasmDepth(height);
+  if (isChasm) {
+    placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftPx });
   } else {
     placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftPx });
   }
-  drawChasmGhost(scene, container, world, wx, wy, height, lightTint, liftPx);
-
   // Fake-AO contact shadows (contactShade.ts) go under the white rim outlines:
   // the LOW side darkens here, the HIGH side's lit rim stays crisp above.
   drawContactShade(scene, container, world, wx, wy, height, liftPx);
 
   drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
+  if (isChasm) placeWallEdges(scene, container, wx, wy, chasmEdgesAt(world, wx, wy), liftPx);
 
   // Treads stay perpendicular to the SCREEN climb direction (the seam's stairTreadAxis
   // invariant): remap the real-world climb direction to whichever screen slot it
@@ -206,6 +223,10 @@ export function drawGroundTile(
   const height = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
   const tint = multiplyTint(heightTint(height), lightTint);
   const liftPx = surfaceLiftPx(height);
+  // A below-zero cap shifts down into later rows, leaving its raw row behind.
+  // That space is vertical void/wall volume, not a second floor: keep it purple
+  // so the sole gray walkable surface remains the shifted cap below.
+  if (height < 0) placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
   const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
 
   drawSurface(scene, world, wx, wy, container, tile, height, stairVisual, tint, lightTint, liftPx);
@@ -217,5 +238,6 @@ export function drawGroundTile(
   // `container`: the band never moves, so it always fits the flat base sheet
   // exactly like today, regardless of which container the shifted cap used.
   const pit = pitFaceRowAt(world, wx, wy);
-  if (pit !== null) drawPitFaceCell(scene, below, world, wx, wy, pit, lightTint);
+  if (pit !== null) drawPitFaceCell(scene, container, world, wx, wy, pit, lightTint);
+  drawPitStepFaces(scene, world, wx, wy, capOccluderFor, lightTint);
 }

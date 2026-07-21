@@ -2,6 +2,7 @@
 // store-side contract: notifyLightingChange re-renders the Phaser view without writing
 // a spurious save, which is what lets the sliders debounce-rebake on every drag tick.
 import { afterEach, describe, expect, it } from "vitest";
+import { TILE } from "@dc2d/engine";
 import { getViewOrientation, resetViewOrientation } from "../../render/view/index.js";
 import { EditorStore } from "./editorStore.js";
 
@@ -40,7 +41,7 @@ describe("EditorStore torch brush", () => {
   it("right-click erase with the torch brush removes only the torch, leaving the tile untouched", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    // (0,0) is untouched by the seeded demo pattern, so 3 wall paints land at exactly z3.
+    // Three stacked wall strokes make a height-3 wall on the blank editor map.
     store.brush = { kind: "wall" };
     store.paint(0, 0);
     store.paint(0, 0);
@@ -54,12 +55,44 @@ describe("EditorStore torch brush", () => {
   });
 });
 
+describe("EditorStore void brush", () => {
+  it("turns a floor into a non-walkable void without changing its height, then restores it", () => {
+    installFakeLocalStorage();
+    const store = new EditorStore();
+    store.adjustFloorHeight(5, 5, 2);
+    store.brush = { kind: "void" };
+    store.paint(5, 5);
+    expect(store.world.cellAt(5, 5)).toEqual({ tile: TILE.Wall, height: 2 });
+    expect(store.world.isWalkable(5, 5)).toBe(false);
+    store.restoreVoidAt(5, 5);
+    expect(store.world.cellAt(5, 5)).toEqual({ tile: TILE.Floor, height: 2 });
+    expect(store.world.isWalkable(5, 5)).toBe(true);
+  });
+});
+
 describe("EditorStore autotile mask cache", () => {
+  it("raises and lowers an authored floor height one step at a time", () => {
+    installFakeLocalStorage();
+    const store = new EditorStore();
+    store.adjustFloorHeight(3, 3, 1);
+    store.adjustFloorHeight(3, 3, 1);
+    store.adjustFloorHeight(3, 3, -1);
+    expect(store.world.cellAt(3, 3)).toEqual({ tile: TILE.Floor, height: 1 });
+  });
+
+  it("uses an explicit-height wall brush for a direct rendering repro", () => {
+    installFakeLocalStorage();
+    const store = new EditorStore();
+    store.brush = { kind: "wall", height: 3 };
+    store.paint(3, 3);
+    expect(store.world.cellAt(3, 3)).toEqual({ tile: TILE.Wall, height: 3 });
+  });
+
   it("resolves an isolated painted wall's mask immediately (no full-map recompute needed to see it)", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
     store.brush = { kind: "wall" };
-    store.paint(0, 0); // untouched by the seeded demo pattern
+    store.paint(0, 0);
     expect(store.autotileMasks.get(0, 0)?.mask4).toBe(0);
     expect(store.autotileMasks.get(0, 0)?.edges).toEqual({ north: true, east: true, south: true, west: true });
   });

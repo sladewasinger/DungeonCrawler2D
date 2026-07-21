@@ -38,6 +38,12 @@ export function worldToView(world: Point, orientation: ViewOrientation): Point {
   }
 }
 
+/** World-space heading (radians) -> its screen/view-space heading at `orientation`. */
+export function worldAngleToView(angleRad: number, orientation: ViewOrientation): number {
+  const direction = worldToView({ x: Math.cos(angleRad), y: Math.sin(angleRad) }, orientation);
+  return Math.atan2(direction.y, direction.x);
+}
+
 /** View-space -> world (continuous tile units). Exact inverse of worldToView. */
 export function viewToWorld(view: Point, orientation: ViewOrientation): Point {
   switch (orientation) {

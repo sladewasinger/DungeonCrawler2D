@@ -6,8 +6,8 @@
 //
 // Pages in a class are all the SAME fixed size, so any spare fits any bake:
 // frames only ever cover the planned bands, and recycle() re-blanks the pixels
-// and purges old frames, so reuse is visually indistinguishable from a fresh
-// texture.
+// and purges old strip frames while preserving Phaser's required base frame, so
+// reuse is visually indistinguishable from a fresh texture.
 import { CHUNK_SIZE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
@@ -45,7 +45,9 @@ function makePool(textures: Phaser.Textures.TextureManager, cls: PageClass): Pag
   return new PagePool({
     create: () => createPage(textures, PAGE_CLASSES[cls].height),
     recycle: (page) => {
-      for (const name of page.getFrameNames()) page.remove(name);
+      for (const name of page.getFrameNames()) {
+        if (name !== "__BASE") page.remove(name);
+      }
       page.clear();
     },
     destroy: (page) => {

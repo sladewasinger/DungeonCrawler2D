@@ -4,7 +4,7 @@ import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { TerrainRead } from "./faces.js";
 import { MAX_FACE_ROWS } from "./ownFace.js";
-import { pitFaceRowAt } from "./pitFace.js";
+import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 
 function terrain(heightsByRow: Record<number, number>): TerrainRead {
   return {
@@ -24,6 +24,15 @@ describe("pitFaceRowAt", () => {
   it("a 1 -> -1 edge continues the raised row downward as row 2 inside the pit", () => {
     const world = terrain({ 4: 1, 5: -1 });
     expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 2, surfaceHeight: 1 });
+  });
+
+  it("draws a stepped pit face below its own lowered floor cap", () => {
+    const world = terrain({ 4: 0, 5: -1, 6: -2 });
+    expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 1, surfaceHeight: 0 });
+    expect(pitFaceRowAt(world, 0, 6)).toBeNull();
+    expect(pitStepFaceRowsAt(world, 0, 5)).toMatchObject([
+      { rowFromTop: 1, totalRows: 1, surfaceHeight: -1, screenY: 7, isStep: true, truncated: false },
+    ]);
   });
 
   it("a deep chasm edge caps at MAX_FACE_ROWS and fades its deepest row", () => {

@@ -34,12 +34,20 @@ const COMBAT_DEMO_PLAYERS: readonly CombatDemoPlayer[] = [
 /** Fixed determinism contract for the gallery: same seed every load, byte-identical chunks. */
 const GALLERY_WORLD_SEED = 1337;
 const CAMERA_QUERY_PARAM = "camera";
+const GALLERY_SEED_QUERY_PARAM = "seed";
+const GALLERY_CENTER_X_QUERY_PARAM = "x";
+const GALLERY_CENTER_Y_QUERY_PARAM = "y";
 /** Opt-in only (?debugTerrain=1) so the acceptance-bar screenshots (?camera=...&hud=1|death,
  * no debug param) stay exactly what VISUAL_DIRECTION's bar checks — this readout is a dev
  * tool for iterating on terrain/facade logic, not part of the shipped scene. */
 const DEBUG_TERRAIN_QUERY_PARAM = "debugTerrain";
 
 const GROUND_ITEM_OFFSET_TILES = 2;
+
+function finiteQueryNumber(params: URLSearchParams, name: string): number | null {
+  const value = Number(params.get(name));
+  return Number.isFinite(value) ? value : null;
+}
 
 const TILE_NAMES = new Map<TileType, string>(
   Object.entries(TILE).map(([name, value]) => [value, name.toLowerCase()]),
@@ -64,9 +72,13 @@ export class GalleryScene extends Phaser.Scene {
   }
 
   create(): void {
-    const presetName = resolveCameraPresetName(new URLSearchParams(window.location.search).get(CAMERA_QUERY_PARAM));
+    const params = new URLSearchParams(window.location.search);
+    const presetName = resolveCameraPresetName(params.get(CAMERA_QUERY_PARAM));
     const preset = this.resolvePreset();
-    this.world = new World(GALLERY_WORLD_SEED, 1);
+    const seed = finiteQueryNumber(params, GALLERY_SEED_QUERY_PARAM) ?? GALLERY_WORLD_SEED;
+    const centerTileX = finiteQueryNumber(params, GALLERY_CENTER_X_QUERY_PARAM) ?? preset.centerTileX;
+    const centerTileY = finiteQueryNumber(params, GALLERY_CENTER_Y_QUERY_PARAM) ?? preset.centerTileY;
+    this.world = new World(seed, 1);
     this.terrain = new TerrainRenderer(this, this.world);
     this.showcase = new EntityShowcase(this, this.world);
     this.lighting = new LightingSystem(this, this.world);
@@ -74,8 +86,8 @@ export class GalleryScene extends Phaser.Scene {
 
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.centerOn(
-      preset.centerTileX * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
-      preset.centerTileY * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
+      centerTileX * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
+      centerTileY * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
     );
 
     // Skip the raw marker where EntityShowcase already renders a fully-featured
