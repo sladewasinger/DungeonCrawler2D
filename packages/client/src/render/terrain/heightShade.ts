@@ -13,11 +13,11 @@ const LOW_HEIGHT = -1; // a sunken pit floor (1z = 1 tile)
 const CHASM_THRESHOLD = -1.5; // below this reads as void, not "deep pit"
 
 /** Cools the pack's native warm-brown stone toward the doc's #2e2e3a..#494956 blue-grey. */
-const PALETTE_GRADE = 0xa8acc8;
+const PALETTE_GRADE = 0xb0b0b0;
 /** Floor-level dim: raised ground steps brighter per tier, so height reads as relative light. */
-const FLOOR_FACTOR = 0xd6d6e0;
+const FLOOR_FACTOR = 0xd8d8d8;
 /** z1 (one tile-edge up: a dais, a ramp landing, a ridge top) — a real step up from floor, short of full white so z2 still has headroom to read brighter. */
-const TIER1_FACTOR = 0xeaeaf0;
+const TIER1_FACTOR = 0xeaeaea;
 /** z2 and above clamp here: multiply tint can't exceed the sprite's own pixels, so this is the brightness ceiling every higher tier (the collapsed tower's z3 peak included) shares. */
 const NEUTRAL_FACTOR = 0xffffff;
 // Pit-floor darkening. Was 0x767686 — every prior brightness-demand round
@@ -30,7 +30,7 @@ const NEUTRAL_FACTOR = 0xffffff;
 // Lifted to stay visibly darker than floor (still reads as sunken) without
 // crushing readability the same way the chasm hole sprite's own factor
 // (CHASM_FACTOR, below) was tuned not to.
-const PIT_FACTOR = 0x9a9ab4;
+const PIT_FACTOR = 0x9a9a9a;
 // Multiply factor for chasm-depth ground tiles (the "hole" sprite). Tuned so
 // the result reads as VISUAL_DIRECTION's "near-black #14141c void" on
 // AVERAGE while keeping the sprite's own cave-mouth shading visible: the
@@ -40,12 +40,10 @@ const PIT_FACTOR = 0x9a9ab4;
 // pre-deploy "chasm renders pure near-black, no texture" bug. This factor's
 // darkest sprite pixel lands near #0a0a0e; the lit rim near #232329 — dark,
 // but no longer flat.
-const CHASM_FACTOR = 0x726f86;
+const CHASM_FACTOR = 0x707070;
 export const CHASM_TINT = multiplyColor(PALETTE_GRADE, CHASM_FACTOR);
-
-/** Flat fill color for solid-rock interior cells — quiet near-black, no texture, no banding (VISUAL_DIRECTION: "deep solid rock is near-black mass, not wallpapered face texture" — unlike the hole sprite above, a wall's fill deliberately has none to begin with). */
-export const WALL_FILL_COLOR = 0x0c0c12;
-
+/** Flat, unlit purple for every non-walkable void surface and its exposed underlay. */
+export const VOID_SURFACE_COLOR = 0x202036;
 function clamp01(t: number): number {
   return Math.min(1, Math.max(0, t));
 }

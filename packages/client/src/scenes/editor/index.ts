@@ -23,7 +23,7 @@ export function setUpEditorLayout(): EditorBoot {
   app.style.cssText = "display:flex;gap:12px;align-items:flex-start;padding:12px;background:#14141c";
 
   const left = document.createElement("div");
-  left.style.cssText = "flex:0 0 auto";
+  left.style.cssText = "flex:0 0 544px;width:544px;min-width:0";
   const right = document.createElement("div");
   right.id = "editor-canvas";
   right.style.cssText = "flex:0 0 auto;image-rendering:pixelated";

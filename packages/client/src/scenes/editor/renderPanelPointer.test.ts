@@ -3,6 +3,7 @@
 // (cross-checked against viewTransform.ts's own worldToView, never re-derived by hand
 // only) plus the in-grid boundary.
 import { afterEach, describe, expect, it } from "vitest";
+import { TILE } from "@dc2d/engine";
 import { resetViewOrientation, setViewOrientation, worldTileToView } from "../../render/view/index.js";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { EditorStore } from "./editorStore.js";
@@ -23,6 +24,10 @@ function installFakeLocalStorage(): void {
 /** A screen point guaranteed to land inside tile (vx, vy) — offset well clear of any tile edge. */
 function screenPointFor(vx: number, vy: number): { worldX: number; worldY: number } {
   return { worldX: vx * SCREEN_TILE_PX + 10, worldY: vy * SCREEN_TILE_PX + 10 };
+}
+
+function stampRaisedCell(store: EditorStore): void {
+  store.world.setCell(5, 5, TILE.Floor, 3);
 }
 
 // (19, 19) sits outside every rect seedDemoPattern.ts paints (its rects top out at
@@ -66,6 +71,7 @@ describe("hoveredCellAt", () => {
   it("resolves a click on the raised cap's SHIFTED screen slot to the real elevated cell, orientation 0", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
+    stampRaisedCell(store);
     // home view row of (5,5) at orientation 0 is 5 (identity); shifted screen row = 5 - 3 = 2.
     const { worldX, worldY } = screenPointFor(5, 2);
     expect(hoveredCellAt(store, worldX, worldY)).toEqual({ vx: 5, vy: 2, wx: 5, wy: 5 });
@@ -74,6 +80,7 @@ describe("hoveredCellAt", () => {
   it("resolves a click on the raised cap's SHIFTED screen slot to the real elevated cell, orientation 180 (acceptance shot)", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
+    stampRaisedCell(store);
     setViewOrientation(180);
     // worldTileToView({5,5}, 180) = (-6, -6); shifted screen row = -6 - 3 = -9.
     const home = worldTileToView({ x: 5, y: 5 }, 180);

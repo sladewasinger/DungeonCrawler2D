@@ -67,25 +67,16 @@ export function wireRenderPanelPointer(
   preview: Phaser.GameObjects.Rectangle,
   hooks: RenderPanelPointerHooks,
 ): void {
-  let painting = false;
-  let erasing = false;
   scene.input.mouse?.disableContextMenu();
 
   scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
     const cell = hoveredCellAt(store, pointer.worldX, pointer.worldY);
     updatePreview(store, preview, hooks, cell);
-    if (painting && cell) {
-      paintCell(store, cell.wx, cell.wy, erasing);
-      hooks.refreshGrid();
-    }
   });
   scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
     const cell = hoveredCellAt(store, pointer.worldX, pointer.worldY);
     if (!cell) return;
-    painting = true;
-    erasing = pointer.rightButtonDown();
-    paintCell(store, cell.wx, cell.wy, erasing);
+    paintCell(store, cell.wx, cell.wy, pointer.rightButtonDown());
     hooks.refreshGrid();
   });
-  scene.input.on("pointerup", () => (painting = false));
 }

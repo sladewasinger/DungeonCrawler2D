@@ -1,13 +1,13 @@
 // The editor's single mutable home: the painted world, the active brush, and change
-// notification. Persists to localStorage on every stroke; seeds a demo pattern on
-// first launch so the renderer has something to prove immediately. Also owns the
+// notification. Persists to localStorage on every stroke and starts blank so each
+// renderer repro contains only deliberately painted cells. Also owns the
 // effects test bench (Epic 7.11): area/enemy/item brushes paint straight into
 // bench/index.ts's live sim, which SIMULATE ticks separately from the terrain canvas.
 //
 // Explicit-heights reskin: "no more z buttons" — the terrain brushes are floor/wall/
 // stairs/door/torch/erase, each dispatching straight to EditableWorld's paint-over
 // methods (@dc2d/engine's stack facade owns the actual compile-to-height semantics).
-import type { StackDir } from "@dc2d/engine";
+import { DEFAULT_FLOOR_CAP, type StackDir } from "@dc2d/engine";
 import { getViewOrientation, rotateOrientation, setViewOrientation } from "../../render/view/index.js";
 import {
   createBench,
@@ -22,13 +22,13 @@ import {
 } from "./bench/index.js";
 import { AutotileMaskCache } from "./autotileMaskCache.js";
 import { EditableWorld, EDITOR_GRID_SIZE } from "./EditableWorld.js";
-import { seedDemoPattern } from "./seedDemoPattern.js";
 
 const STORAGE_KEY = "dc2d-editor-map-v2";
 
 export type Brush =
-  | { readonly kind: "floor"; readonly capId: string }
-  | { readonly kind: "wall" }
+  | { readonly kind: "floor"; readonly capId: string; readonly height?: number }
+  | { readonly kind: "void" }
+  | { readonly kind: "wall"; readonly height?: number }
   | { readonly kind: "stairs"; readonly direction: StackDir }
   | { readonly kind: "door" }
   | { readonly kind: "torch" }
@@ -52,7 +52,7 @@ export class EditorStore {
    * DEBUG overlay — kept fresh incrementally (paint stroke -> resolveAround), rebuilt
    * whole only on load/import/reset. */
   readonly autotileMasks = new AutotileMaskCache();
-  brush: Brush = { kind: "wall" };
+  brush: Brush = { kind: "floor", capId: DEFAULT_FLOOR_CAP, height: 0 };
   showCollision = false;
   showAutotileDebug = false;
   private readonly listeners = new Set<() => void>();
@@ -70,10 +70,9 @@ export class EditorStore {
         this.world.load(JSON.parse(saved));
         return;
       } catch {
-        // Corrupt save: fall through to the demo pattern.
+      // Corrupt save: fall through to the blank map.
       }
     }
-    seedDemoPattern(this.world);
   }
 
   onChange(listener: () => void): void {
@@ -91,8 +90,15 @@ export class EditorStore {
   }
 
   private paintTerrain(wx: number, wy: number, brush: Brush): void {
-    if (brush.kind === "wall") this.world.paintWallAt(wx, wy);
-    else if (brush.kind === "floor") this.world.paintFloorAt(wx, wy, brush.capId);
+    if (brush.kind === "wall") {
+      if (brush.height === undefined) this.world.paintWallAt(wx, wy);
+      else this.world.paintWallHeightAt(wx, wy, brush.height);
+    }
+    else if (brush.kind === "void") this.world.paintVoidAt(wx, wy);
+    else if (brush.kind === "floor") {
+      if (brush.height === undefined) this.world.paintFloorAt(wx, wy, brush.capId);
+      else this.world.paintFloorHeightAt(wx, wy, brush.height, brush.capId);
+    }
     else if (brush.kind === "stairs") this.world.paintStairsAt(wx, wy, brush.direction);
     else if (brush.kind === "door") this.world.paintDoorAt(wx, wy);
     else if (brush.kind === "erase") this.world.eraseAt(wx, wy);
@@ -162,9 +168,21 @@ export class EditorStore {
   }
 
   reset(): void {
-    this.world.load({ tiles: new Array(400).fill(0), heights: new Array(400).fill(0) });
-    seedDemoPattern(this.world);
+    this.world.clear();
     this.autotileMasks.rebuildAll(this.world, EDITOR_GRID_SIZE);
+    this.commit();
+  }
+
+  restoreVoidAt(wx: number, wy: number): void {
+    this.world.restoreFloorAt(wx, wy, DEFAULT_FLOOR_CAP);
+    this.autotileMasks.resolveAround(this.world, wx, wy);
+    this.commit();
+  }
+
+  adjustFloorHeight(wx: number, wy: number, delta: number): void {
+    if (!this.world.inGrid(wx, wy)) return;
+    this.world.adjustFloorHeightAt(wx, wy, delta, DEFAULT_FLOOR_CAP);
+    this.autotileMasks.resolveAround(this.world, wx, wy);
     this.commit();
   }
 

@@ -11,6 +11,7 @@
 // screen-space camera also live, it reliably clobbers a scrolled/zoomed game camera's
 // value. Doing the transform locally sidesteps that entirely.
 import type Phaser from "phaser";
+import { spriteLiftPx } from "../../render/entities/lift.js";
 import { resolveAimAngle, type AimSource } from "../../render/entities/weaponOrbit.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import { getViewOrientation, worldToView } from "../../render/view/index.js";
@@ -37,5 +38,11 @@ function touchFacingSource(faceX: number, faceY: number): AimSource {
 function mouseAimSource(render: RenderPose, camera: Phaser.Cameras.Scene2D.Camera, pointer: Phaser.Input.Pointer): AimSource {
   const screen = worldToScreen(render.x, render.y);
   const world = camera.getWorldPoint(pointer.x, pointer.y);
-  return { kind: "mouse", playerScreenX: screen.x, playerScreenY: screen.y, pointerScreenX: world.x, pointerScreenY: world.y };
+  return {
+    kind: "mouse",
+    playerScreenX: screen.x,
+    playerScreenY: screen.y - spriteLiftPx(render.z),
+    pointerScreenX: world.x,
+    pointerScreenY: world.y,
+  };
 }

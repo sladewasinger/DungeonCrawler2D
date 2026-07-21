@@ -88,6 +88,14 @@ describe("EditableWorld", () => {
 });
 
 describe("EditableWorld paint-over stacking (explicit-heights reskin)", () => {
+  it("stamps a wall at the exact height selected by the terrain-debug tool", () => {
+    const world = new EditableWorld();
+    world.paintWallHeightAt(6, 6, 4);
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 4 });
+    world.paintWallHeightAt(6, 6, -1);
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: -1 });
+  });
+
   it("wall brush stacks +1 per paint, uncapped", () => {
     const world = new EditableWorld();
     world.paintWallAt(6, 6);

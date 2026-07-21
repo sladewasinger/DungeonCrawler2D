@@ -2,13 +2,25 @@
 // reads as RELATIVE light: floor slightly dimmed, raised ground brighter, pits
 // darker, chasm near-black. No overlay-rectangle path exists anymore.
 import { describe, expect, it } from "vitest";
-import { CHASM_TINT, heightTint, isChasmDepth, topEdgeHighlightTint } from "./heightShade.js";
+import { CHASM_TINT, heightTint, isChasmDepth, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
 
 function luminance(tint: number): number {
   return ((tint >> 16) & 0xff) + ((tint >> 8) & 0xff) + (tint & 0xff);
 }
 
+function channels(tint: number): readonly [number, number, number] {
+  return [(tint >> 16) & 0xff, (tint >> 8) & 0xff, tint & 0xff];
+}
+
 describe("heightTint", () => {
+  it("keeps every walkable height on the neutral gray material ramp", () => {
+    for (const height of [-1, 0, 1, 2]) {
+      const [r, g, b] = channels(heightTint(height));
+      expect(r).toBe(g);
+      expect(g).toBe(b);
+    }
+  });
+
   it("raised ground is brighter than floor level — height reads as relative light", () => {
     expect(luminance(heightTint(1))).toBeGreaterThan(luminance(heightTint(0)));
   });
@@ -56,6 +68,12 @@ describe("heightTint", () => {
     const floor = luminance(heightTint(0));
     const pit = luminance(heightTint(-1));
     expect(pit).toBeGreaterThan(floor * 0.55);
+  });
+});
+
+describe("void surface color", () => {
+  it("is the single fixed color used by every void surface and wall-material row", () => {
+    expect(VOID_SURFACE_COLOR).toBe(0x202036);
   });
 });
 

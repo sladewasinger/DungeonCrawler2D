@@ -3,13 +3,14 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { getViewOrientation } from "../view/viewState.js";
+import { worldAngleToView } from "../view/viewTransform.js";
 import { resolveAnimState } from "./animState.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
-import { isOccludedByTerrainAhead, syncOcclusionSilhouette } from "./occlusion.js";
+import { syncOcclusionSilhouette, terrainOcclusionAhead } from "./occlusion.js";
 import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import { squashScale } from "./squash.js";
@@ -128,8 +129,8 @@ function updatePlayerChrome(
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
   updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed);
 
-  const occluded = isOccludedByTerrainAhead(ctx.world, view.x, view.y, view.z, getViewOrientation());
-  syncOcclusionSilhouette(visual.body, view.y, occluded);
+  const occlusion = terrainOcclusionAhead(ctx.world, view.x, view.y, view.z, getViewOrientation());
+  syncOcclusionSilhouette(visual.body, view.y, occlusion);
   updateWeaponVisual(visual, view, ctx);
 }
 
@@ -163,7 +164,7 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
     strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
     wielderDepth: visual.body.depth,
     orbitAngleRad: isSelf ? visual.weaponAngle : null,
-    attackAngleRad: view.attackAngleRad,
+    attackAngleRad: worldAngleToView(view.attackAngleRad, getViewOrientation()),
     isFistFallback,
   });
 }

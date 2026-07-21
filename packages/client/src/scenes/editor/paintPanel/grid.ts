@@ -33,6 +33,7 @@ function heightColor(h: number): string {
 function cellStyle(stack: StackTile, cell: EditorCell): { fill: string; label: string } {
   if (stack.stair) return { fill: heightColor(cell.height), label: STAIR_ARROW[stack.stair.dir] };
   if (stack.feature) return { fill: "#3dd6c3", label: "D" };
+  if (cell.tile === TILE.Wall && stack.cap === null) return { fill: "#202036", label: `V${cell.height}` };
   if (stack.cap === null && stack.walls > 0) return { fill: "#6b6b7e", label: `W${stack.walls}` };
   return { fill: heightColor(cell.height), label: String(cell.height) };
 }

@@ -3,7 +3,7 @@
 // path unchanged (brief step 1's "at orientation 0 output must be PIXEL-IDENTICAL").
 import { describe, expect, it } from "vitest";
 import { VIEW_ORIENTATIONS } from "./viewOrientation.js";
-import { viewTileToWorld, viewToWorld, worldTileToView, worldToView, type Point } from "./viewTransform.js";
+import { viewTileToWorld, viewToWorld, worldAngleToView, worldTileToView, worldToView, type Point } from "./viewTransform.js";
 
 const SAMPLE_POINTS: readonly Point[] = [
   { x: 0, y: 0 },
@@ -40,6 +40,15 @@ describe("worldToView", () => {
     expect(worldToView(p, 90)).toEqual({ x: -1, y: 0 });
     expect(worldToView(p, 180)).toEqual({ x: 0, y: 1 });
     expect(worldToView(p, 270)).toEqual({ x: 1, y: 0 });
+  });
+});
+
+describe("worldAngleToView", () => {
+  it("rotates a world-east attack direction into the matching screen direction", () => {
+    expect(worldAngleToView(0, 0)).toBeCloseTo(0);
+    expect(worldAngleToView(0, 90)).toBeCloseTo(-Math.PI / 2);
+    expect(worldAngleToView(0, 180)).toBeCloseTo(Math.PI);
+    expect(worldAngleToView(0, 270)).toBeCloseTo(Math.PI / 2);
   });
 });
 

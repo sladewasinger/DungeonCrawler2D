@@ -1,44 +1,75 @@
-// Pit interior faces: a dig below the base plane shows its north wall INSIDE
-// the hole — the rows a raised surface doesn't own (ownFace.ts's base-plane
-// split) continue southward into the pit cells. A 0 -> -1 edge keeps the flat
-// ground flat and draws one brick row inside the pit's northmost cell; a
-// 1 -> -1 edge draws one row on the z1 tile and one more continuing down.
+// Pit faces stay attached to the highest reachable rim while the terrain rises northward.
 import { WALL_FACE_MIN_DROP } from "@dc2d/engine";
 import type { TerrainRead } from "./faces.js";
 import { faceSplit, MAX_FACE_ROWS } from "./ownFace.js";
 
 export interface PitFaceRow {
-  /** 1 = the wall's top row overall, continuing the numbering from any rows on the raised side. */
   readonly rowFromTop: number;
-  /** Height of the upper surface this wall descends from. */
+  readonly totalRows: number;
   readonly surfaceHeight: number;
-  /** True when the real drop exceeds MAX_FACE_ROWS and this is the deepest drawn row (fades into the hole). */
   readonly truncated: boolean;
 }
 
-/**
- * The interior north-wall row this BELOW-BASE cell renders instead of its
- * floor/hole art, or null for deeper pit cells that keep their dark floor.
- * The pit cell at distance d south of the edge draws row rowsOnRaised + d.
- */
+export interface PitStepFaceRow extends PitFaceRow {
+  readonly screenY: number;
+  readonly isStep: true;
+}
+
+/** Rows owned by a below-base floor that drops further south. They begin below that
+ * floor's shifted cap, rather than occupying the next pit floor's screen row. */
+export function pitStepFaceRowsAt(world: TerrainRead, wx: number, wy: number): readonly PitStepFaceRow[] {
+  const height = world.heightAt(wx, wy);
+  const southHeight = world.heightAt(wx, wy + 1);
+  if (height >= 0 || southHeight >= 0 || height - southHeight < WALL_FACE_MIN_DROP) return [];
+
+  const rawRows = Math.round(height - southHeight);
+  const totalRows = Math.min(rawRows, MAX_FACE_ROWS);
+  return Array.from({ length: totalRows }, (_, index) => {
+    const rowFromTop = index + 1;
+    return {
+      rowFromTop,
+      totalRows,
+      surfaceHeight: height,
+      screenY: wy - height + rowFromTop,
+      isStep: true,
+      truncated: rowFromTop === MAX_FACE_ROWS && rawRows > MAX_FACE_ROWS,
+    };
+  });
+}
+
 export function pitFaceRowAt(world: TerrainRead, wx: number, wy: number): PitFaceRow | null {
   const floorHeight = world.heightAt(wx, wy);
   if (floorHeight >= 0) return null;
-  for (let d = 1; d <= MAX_FACE_ROWS; d++) {
-    const northHeight = world.heightAt(wx, wy - d);
-    const rise = northHeight - floorHeight;
-    if (rise >= WALL_FACE_MIN_DROP) {
-      const { totalRows, rowsOnRaised, rawRows } = faceSplit(northHeight, floorHeight);
-      const rowFromTop = rowsOnRaised + d;
-      if (rowFromTop > totalRows) return null;
-      return {
-        rowFromTop,
-        surfaceHeight: northHeight,
-        truncated: rowFromTop === MAX_FACE_ROWS && rawRows > MAX_FACE_ROWS,
-      };
+
+  const immediateNorthHeight = world.heightAt(wx, wy - 1);
+  if (immediateNorthHeight < 0 && immediateNorthHeight - floorHeight >= WALL_FACE_MIN_DROP) return null;
+
+  let highestNorthHeight = Number.NEGATIVE_INFINITY;
+  let highestNorthDistance = 0;
+  let previousNorthHeight = floorHeight;
+
+  for (let distance = 1; distance <= MAX_FACE_ROWS; distance += 1) {
+    const northHeight = world.heightAt(wx, wy - distance);
+    if (northHeight < previousNorthHeight) break;
+    previousNorthHeight = northHeight;
+
+    // Retain the closest cell at a given height, but replace it when a stepped pit reaches a higher rim.
+    if (northHeight - floorHeight >= WALL_FACE_MIN_DROP && northHeight > highestNorthHeight) {
+      highestNorthHeight = northHeight;
+      highestNorthDistance = distance;
     }
-    // Same pit floor continues north — keep scanning only while it stays level.
-    if (Math.abs(northHeight - floorHeight) > 0.01) return null;
   }
-  return null;
+
+  if (highestNorthDistance === 0) return null;
+
+  const { rawRows, totalRows, rowsOnRaised } = faceSplit(highestNorthHeight, floorHeight);
+  const rowFromTop = rowsOnRaised + highestNorthDistance;
+  if (rowFromTop > totalRows) return null;
+
+  return {
+    rowFromTop,
+    totalRows,
+    surfaceHeight: highestNorthHeight,
+    truncated: rowFromTop === MAX_FACE_ROWS && rawRows > MAX_FACE_ROWS
+  };
 }

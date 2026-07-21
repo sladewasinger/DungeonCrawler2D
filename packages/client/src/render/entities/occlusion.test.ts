@@ -2,7 +2,8 @@
 // Phaser glue is exercised via the manual zoomed screenshot proof instead).
 import { describe, expect, it } from "vitest";
 import type { WorldView } from "@dc2d/engine";
-import { isOccludedByTerrainAhead } from "./occlusion.js";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { isOccludedByTerrainAhead, terrainOcclusionAhead } from "./occlusion.js";
 
 function fakeWorld(heights: Record<string, number>): WorldView {
   return {
@@ -16,6 +17,10 @@ function fakeWorld(heights: Record<string, number>): WorldView {
 }
 
 describe("isOccludedByTerrainAhead", () => {
+  it("returns the top seam of the occluding face so only the covered sprite pixels need a ghost", () => {
+    expect(terrainOcclusionAhead(fakeWorld({ "5,6": 1 }), 5.5, 5.5, 0, 0)).toEqual({ screenY: 5 * SCREEN_TILE_PX });
+  });
+
   it("is false with no terrain nearby", () => {
     expect(isOccludedByTerrainAhead(fakeWorld({}), 5.5, 5.5, 0, 0)).toBe(false);
   });

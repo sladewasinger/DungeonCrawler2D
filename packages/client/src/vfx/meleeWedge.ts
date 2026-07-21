@@ -16,6 +16,7 @@
 // rendering bug here.
 import Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
+import { getViewOrientation, worldAngleToView } from "../render/view/index.js";
 import { wedgeAlpha, wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
 
 /** Warm white-orange fill, per docs/VISUAL_DIRECTION.md's fire/torch accent. */
@@ -46,7 +47,7 @@ export class MeleeWedgePool {
     // (`- z*TILE`), same absolute-z axis the wielder's own sprite lifts by — the
     // telegraph tracks the body, not the ground, when the wielder is airborne.
     const screen = worldToScreen(worldX, worldY);
-    drawWedge(swing.gfx, screen.x, screen.y - z * tilePx, wedgeGeometry(angleRad, tilePx));
+    drawWedge(swing.gfx, screen.x, screen.y - z * tilePx, wedgeGeometry(worldAngleToView(angleRad, getViewOrientation()), tilePx));
     swing.gfx.setDepth(depth).setVisible(true).setAlpha(1);
     swing.startedAtMs = nowMs;
   }
