@@ -13,6 +13,7 @@ import { DamageNumberPool } from "./damageNumbers.js";
 import { FloorBanner } from "./floorBanner.js";
 import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
 import { spawnGibBurst } from "./gibBurst.js";
+import { GraceRing } from "./graceRing.js";
 import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 import { LevelUpFlourish } from "./levelUpFlourish.js";
 import { TeleportFade } from "./teleportFade.js";
@@ -47,6 +48,10 @@ export class VfxSystem {
   private readonly floorBanner: FloorBanner;
   private readonly bossDownFlourish: BossDownFlourish;
   private readonly teleportFade: TeleportFade;
+  /** Panel round 4 (LANE B): self-only spawn-grace shield ring — public, unlike this
+   * class's other pooled subsystems, since frameSync.ts drives it directly with the
+   * self player's own render pose (no other subsystem needs a raw world position). */
+  readonly graceRing: GraceRing;
   private lastPlayerSample: MotionSample | undefined;
   private lastFrameMs = 0;
   private selfHpRatio = 1;
@@ -66,6 +71,7 @@ export class VfxSystem {
     this.floorBanner = new FloorBanner(scene);
     this.bossDownFlourish = new BossDownFlourish(scene);
     this.teleportFade = new TeleportFade(scene);
+    this.graceRing = new GraceRing(scene);
   }
 
   /** Rebuilds the active area-hazard rigs; returns their accent lights for LightingSystem.setAccentLights. */
@@ -257,5 +263,6 @@ export class VfxSystem {
     this.floorBanner.dispose();
     this.bossDownFlourish.dispose();
     this.teleportFade.dispose();
+    this.graceRing.dispose();
   }
 }

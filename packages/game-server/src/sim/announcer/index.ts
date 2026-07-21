@@ -18,6 +18,7 @@ import {
   LEVEL_UP_LINES,
   PERSONAL_KILL_LINES,
   STAIRWAY_HINT_LINES,
+  ratingSentence,
 } from "./lines.js";
 import { pickLineIndex } from "./pick.js";
 import { recordKill } from "./killCounts.js";
@@ -45,9 +46,11 @@ export function announceJoin(tick: number, playerId: string, name: string, ordin
 }
 
 /**
- * `rating` (panel round 3b, "Small" item) is the 2-9 audience score derived from this
- * life's run stats — see sim/announcer/rating.ts and deaths.ts's call site, which reads
- * lifeStats.ts's per-life kill/duration snapshot right before calling this.
+ * `rating` (panel round 3b "Small" item, round 4 hardening) is the 2-9 audience score
+ * derived from this life's run stats + seeded jitter — see sim/announcer/rating.ts and
+ * deaths.ts's call site. Round 4 (BookFan: "2 of 5 deaths had no number"): the rating
+ * sentence is appended to EVERY death line, ordinary and chasm pools alike, so no
+ * rotation ever drops the number.
  */
 export function announceDeath(
   tick: number,
@@ -58,7 +61,7 @@ export function announceDeath(
 ): GameEvent {
   const pool = chasm ? CHASM_DEATH_LINES : DEATH_LINES;
   const line = pick(pool, tick, `death:${playerId}`);
-  return systemLine(line(name, rating));
+  return systemLine(`${line(name)} ${ratingSentence(rating)}`);
 }
 
 export function announceLevelUp(

@@ -95,6 +95,11 @@ export class Connection {
   visualEvents: VisualEvent[] = [];
   /** Set when the server teleported us (scene snaps the camera). */
   teleported = false;
+  /** Set when hp climbs back from <=0 (net/apply.ts's respawn detection) — the scene
+   * consumes this to start the client-local spawn-grace shield ring (selfCosmetics.ts's
+   * startSelfGrace); see docs/ASSUMPTIONS.md row 380 for why this is an approximation,
+   * not real server-driven grace state. */
+  justRespawned = false;
 
   readonly entities = new Map<string, RemoteEntity>();
   readonly areaTiles = new Map<string, string>();
@@ -148,6 +153,7 @@ export class Connection {
     this.body = null;
     this.hp = 0;
     this.downed = false;
+    this.justRespawned = false;
     this.hasReceivedSnapshot = false;
     this.entities.clear();
     this.areaTiles.clear();

@@ -190,5 +190,8 @@ export function syncLightingAndVfx(
     vfx.spawnMeleeWhiff(swing.attackerId, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
   }
   applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);
+  // Panel round 4 (LANE B): shield ring, self-only — countdown itself is driven by
+  // selfCosmetics.ts's consumeRespawnGrace/endSelfGrace.
+  vfx.graceRing.sync(render.x, render.y, state.cosmetics.graceUntilMs, nowMs);
   vfx.update(nowMs);
 }

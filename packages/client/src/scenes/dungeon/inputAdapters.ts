@@ -6,7 +6,7 @@ import type { InputConnection, InputHooks, InputQueries } from "../../input/inde
 import type { Connection } from "../../net/connection.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
 import { isDoorTileAt, isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
-import { triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
+import { endSelfGrace, triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
 import { resolveStairwayPrompt } from "./stairwayProximity.js";
 
 export function createInputConnectionAdapter(conn: Connection): InputConnection {
@@ -130,7 +130,12 @@ export interface SocialHookCallbacks {
 
 export function createInputHooks(cosmetics: SelfCosmeticsState, social: SocialHookCallbacks): InputHooks {
   return {
-    onSwing: (dx, dy) => triggerSelfAttack(cosmetics, performance.now(), dx, dy),
+    onSwing: (dx, dy) => {
+      // Any offensive action forfeits spawn grace early (spawnSafety.ts's own
+      // forfeit rule) — see selfCosmetics.ts's grace-ring doc comment.
+      endSelfGrace(cosmetics);
+      triggerSelfAttack(cosmetics, performance.now(), dx, dy);
+    },
     // Chunk-grid debug overlay isn't built in this wave — GalleryScene's coordinate
     // readout (render/terrain debugging) covers it for now.
     onToggleBorders: () => {},

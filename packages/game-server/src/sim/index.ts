@@ -32,7 +32,7 @@ import {
 } from "./players.js";
 import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
-import { endSpawnGrace } from "./spawnSafety.js";
+import { endSpawnGrace, maintainSpawnClearance } from "./spawnSafety.js";
 import { buildSnapshots } from "./snapshots.js";
 import { expireInvites } from "./social.js";
 import {
@@ -227,6 +227,13 @@ export class GameSim {
       seedTestZoneHazards(sim, claimed);
       seedTestZoneItems(sim, claimed);
     }
+    // Panel round 4 ordering fix (adjacency-at-first-frame race): every
+    // enemy population/relocation path this tick — chunk activation,
+    // near-spawn repopulation, hazard reseeds, melee knockback from
+    // processActions — has run by here, so the graced-radius sweep sees
+    // the final pre-movement enemy set. It MUST precede stepEnemies:
+    // an evicted camper never gets to think, move, or strike.
+    maintainSpawnClearance(sim);
     stepEnemies(sim, effectEvents);
     stepProjectiles(sim, effectEvents);
     stepTorches(sim);

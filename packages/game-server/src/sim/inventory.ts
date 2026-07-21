@@ -76,6 +76,23 @@ export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
   invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
 }
 
+/**
+ * Panel round 4 (BookFan: "respawn comes back UNARMED"), ASSUMPTION #381
+ * (docs/ASSUMPTIONS.md): a RESPAWN re-grants the starter kit
+ * unconditionally — sword in hand, torches in the bag — exactly like a
+ * genuinely fresh join. ensureStarterKit's stash check (#87's farm-safety
+ * for join/resume) is what left BookFan weaponless: a spare sword or
+ * torch sitting in a stash they aren't standing at counted as "has the
+ * kit". The full-loot death drop has already emptied the live inventory
+ * by the time this runs, so each grant fires at most once per death;
+ * the explicit equip below also never depends on a content lookup.
+ */
+export function grantRespawnKit(sim: SimState, slot: PlayerSlot): void {
+  if (invQty(slot, STARTER_SWORD_DEF) === 0) invAdd(sim, slot, STARTER_SWORD_DEF, 1);
+  if (slot.weapon === null) slot.weapon = STARTER_SWORD_DEF;
+  if (invQty(slot, STARTER_TORCH_DEF) === 0) invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
+}
+
 /** Remove qty of a def; false if the stack is short. Prunes empty stacks. */
 export function invRemove(slot: PlayerSlot, defId: string, qty: number): boolean {
   const i = invIndex(slot, defId);

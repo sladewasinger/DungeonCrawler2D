@@ -3,14 +3,12 @@
 
 export type JoinLine = (name: string, ordinal: number) => string;
 /**
- * `rating` (panel round 3b, "Small" item) is the derived 2-9 audience score for this
- * life (rating.ts) — only DEATH_LINES' first entry actually reads it (the "rates it a
- * N out of 10" line); every other entry, ordinary or chasm, is a plain `(name) => ...`
- * arrow, which TypeScript accepts here since a function with fewer declared params is
- * assignable wherever more are expected (same reason `(x) => x` satisfies Array.map's
- * `(value, index, array) => T`).
+ * Panel round 4 (BookFan: "2 of 5 deaths had no number"): death lines are now pure
+ * flavor — the derived 2-9 audience score (rating.ts) rides in ratingSentence below,
+ * which announceDeath appends to EVERY death announcement, ordinary and chasm alike,
+ * so the rating is always present no matter which pool entry rotates in.
  */
-export type DeathLine = (name: string, rating: number) => string;
+export type DeathLine = (name: string) => string;
 export type LevelLine = (name: string, level: number) => string;
 export type KillLine = (name: string, count: number) => string;
 export type FistbumpLine = (a: string, b: string) => string;
@@ -24,20 +22,20 @@ export const JOIN_LINES: readonly JoinLine[] = [
 ];
 
 /**
- * Panel round 3b, "Small" item: the rating line used to hard-code "a 6 out of 10" —
- * always the same number regardless of the run. `rating` is now derived per-death from
- * this life's kills/floor/survival-time (rating.ts), and the flavor amplifies at the
- * scale's extremes (2-3 harsh, 8-9 impressed) so the number reads as reactive, not
- * decorative. The other three entries are unrelated flavor and don't reference a score.
+ * The always-present rating tail (panel round 4): appended by announceDeath to every
+ * death line, whichever pool entry rotates in. Derived per-death from this life's
+ * kills/floor/survival-time plus a seeded per-death jitter (rating.ts); the flavor
+ * amplifies at the scale's extremes (2-3 harsh, 8-9 impressed) so the number reads as
+ * reactive, not decorative.
  */
-function ratingLine(name: string, rating: number): string {
+export function ratingSentence(rating: number): string {
   const suffix =
     rating <= 3 ? " Brutal, even by house standards." : rating >= 8 ? " A surprisingly generous crowd tonight." : "";
-  return `${name} has died. The audience rates it a ${rating} out of 10.${suffix}`;
+  return `The audience rates it a ${rating} out of 10.${suffix}`;
 }
 
 export const DEATH_LINES: readonly DeathLine[] = [
-  ratingLine,
+  (name) => `${name} has died.`,
   (name) => `${name} is no more. Efficient, if uninspired.`,
   (name) => `${name} has been recycled into the dungeon's ecosystem.`,
   (name) => `${name}'s run ends here. A moment of silence — thirty seconds, sponsored.`,

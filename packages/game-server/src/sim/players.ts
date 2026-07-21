@@ -15,7 +15,7 @@ import {
   type Entity,
 } from "@dc2d/engine";
 import { killIfInChasm } from "./deaths.js";
-import { dropAllInventory, ensureStarterKit } from "./inventory.js";
+import { dropAllInventory, grantRespawnKit } from "./inventory.js";
 import { findSpawn } from "./spawn.js";
 import { endSpawnGrace, secureSpawnHandoff } from "./spawnSafety.js";
 import { leaveParty } from "./social.js";
@@ -89,9 +89,10 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   // Panel round 3b blocker #1: death must never respawn into the same
   // ambush — clear the entry tile's neighborhood + grant spawn grace.
   secureSpawnHandoff(sim, slot);
-  // Epic 7.13: full-loot death drop + the exactly-once starter kit
-  // otherwise leaves a repeat-death player permanently Unarmed.
-  ensureStarterKit(sim, slot);
+  // Panel round 4 (BookFan: respawned UNARMED): the kit re-grant is
+  // unconditional on respawn — sword equipped + torch stack, exactly
+  // like a fresh join. See inventory.ts's grantRespawnKit doc.
+  grantRespawnKit(sim, slot);
 }
 
 export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {

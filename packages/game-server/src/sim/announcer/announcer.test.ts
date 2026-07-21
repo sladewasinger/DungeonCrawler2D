@@ -62,12 +62,29 @@ describe("announcer line builders", () => {
     expect(ordinary.t === "chat" && ordinary.text).not.toBe(chasm.t === "chat" ? chasm.text : "");
   });
 
-  it("announceDeath embeds the derived rating into the ordinary-pool rating line", () => {
-    // tick 12, salt "death:p1" happens to land on DEATH_LINES[0] (the rating line) —
-    // pinned here rather than searching, since pickLineIndex's determinism guarantees
-    // this tick reproduces the same index every run.
-    const withRating = announceDeath(12, "p1", "Rowan", false, 9);
-    expect(withRating.t === "chat" && withRating.text).toContain("9 out of 10");
+  it("announceDeath carries the rating on EVERY line rotation, ordinary and chasm (round 4)", () => {
+    // BookFan round 4: "2 of 5 deaths had no number". Sweep enough ticks to hit every
+    // pool entry (rotation covers a 4-pool within 200 ticks per pickLineIndex's own
+    // coverage test above) — the rating sentence must survive all of them.
+    for (let tick = 0; tick < 40; tick++) {
+      for (const chasm of [false, true]) {
+        const event = announceDeath(tick, "p1", "Rowan", chasm, 6);
+        expect(event.t === "chat" && event.text, `tick ${tick} chasm=${String(chasm)}`).toContain(
+          "a 6 out of 10",
+        );
+      }
+    }
+  });
+
+  it("announceDeath amplifies only the scale's extremes with extra flavor", () => {
+    const harsh = announceDeath(12, "p1", "Rowan", false, 2);
+    expect(harsh.t === "chat" && harsh.text).toContain("Brutal, even by house standards.");
+    const generous = announceDeath(12, "p1", "Rowan", false, 9);
+    expect(generous.t === "chat" && generous.text).toContain("A surprisingly generous crowd tonight.");
+    const middle = announceDeath(12, "p1", "Rowan", false, 5);
+    const middleText = middle.t === "chat" ? middle.text : "";
+    expect(middleText).not.toContain("Brutal");
+    expect(middleText).not.toContain("generous");
   });
 
   it("announceLevelUp embeds the level number", () => {

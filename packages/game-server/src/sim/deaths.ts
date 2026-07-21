@@ -76,11 +76,18 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   // kills/floor/survival-time instead of a hard-coded "6" — takeLifeStats resets the
   // tracking for whatever life starts next.
   const { killsThisLife, survivalTicks } = takeLifeStats(slot, sim.tickCount);
-  const rating = ratingForRun({
-    killsThisLife,
-    floor: sim.world.floor,
-    survivalSeconds: survivalTicks / TICK_RATE,
-  });
+  // Panel round 4: a small deterministic per-death wobble from the seeded
+  // sim Rng — {-1, 0, +1} — so two similar scrub deaths don't both read
+  // "5 out of 10" (rating.ts clamps it; ASSUMPTION #382).
+  const jitter = Math.floor(sim.rng.next() * 3) - 1;
+  const rating = ratingForRun(
+    {
+      killsThisLife,
+      floor: sim.world.floor,
+      survivalSeconds: survivalTicks / TICK_RATE,
+    },
+    jitter,
+  );
   broadcastAnnouncement(
     sim,
     announceDeath(sim.tickCount, entity.id, entity.name ?? "?", slot.forceDeath, rating),

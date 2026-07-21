@@ -80,7 +80,7 @@ describe("enforceSpawnClearance", () => {
     // Fixture sanity: the bystander really is outside the radius already.
     expect(Math.hypot(far.x - spot.x, far.y - spot.y)).toBeGreaterThan(SPAWN_CLEARANCE_RADIUS);
 
-    enforceSpawnClearance(sim, spot.x, spot.y);
+    enforceSpawnClearance(sim, [{ x: spot.x, y: spot.y }]);
 
     const moved = Math.hypot(camper.body.x - spot.x, camper.body.y - spot.y);
     expect(moved).toBeGreaterThanOrEqual(SPAWN_CLEARANCE_RADIUS);
@@ -100,7 +100,7 @@ describe("enforceSpawnClearance", () => {
     const first = spawnEnemy(sim, "skeleton", spot.x, spot.y);
     const second = spawnEnemy(sim, "skeleton", spot.x, spot.y);
 
-    enforceSpawnClearance(sim, spot.x, spot.y);
+    enforceSpawnClearance(sim, [{ x: spot.x, y: spot.y }]);
 
     for (const body of [first.body, second.body]) {
       expect(Math.hypot(body.x - spot.x, body.y - spot.y)).toBeGreaterThanOrEqual(SPAWN_CLEARANCE_RADIUS);

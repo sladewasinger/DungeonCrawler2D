@@ -45,9 +45,21 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
     kx: snap.self.kx,
     ky: snap.self.ky,
   };
+  // Panel round 4 (LANE B): hp <=0 -> >0 is a real respawn handoff (game-server's
+  // respawnSlot, which also grants a fresh spawn-grace window) — the party-revive
+  // "downed" flag below never actually zeroes hp (downPlayer clamps it to 1, not 0), so
+  // hp is the one wire-visible signal that covers the common solo-death path too,
+  // without a protocol change. Connection's `hp` field defaults to 0, so this also
+  // fires on the very first snapshot of a brand-new connection (a genuine fresh join,
+  // also grace-eligible server-side) — the one accepted false positive is a full page
+  // reload reconnecting into a still-alive body, which cosmetically shows a ring the
+  // server didn't actually grant for ~2s; harmless (no gameplay effect either way). See
+  // docs/ASSUMPTIONS.md row 380.
+  const wasDead = conn.hp <= 0;
   conn.hp = snap.self.hp;
   conn.maxHp = snap.self.maxHp;
   conn.fx = snap.self.fx;
+  if (wasDead && conn.hp > 0) conn.justRespawned = true;
   conn.downed = snap.self.downed ?? false;
   if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
   else conn.prediction.reconcile(world, conn.body, snap.lastSeq);

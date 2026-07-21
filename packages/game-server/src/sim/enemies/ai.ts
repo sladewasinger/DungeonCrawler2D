@@ -14,7 +14,7 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { effectTargetFor, isBodyInChasm } from "../helpers.js";
-import { isSpawnProtected } from "../spawnSafety.js";
+import { gracedClearanceCenters, insideGracedClearance, isSpawnProtected } from "../spawnSafety.js";
 import type { EnemySlot, SimState } from "../state.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
@@ -48,6 +48,10 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
         !isSpawnProtected(s, sim.tickCount),
     )
     .map((s) => s.entity);
+  // Panel round 4 (Grinder's drift-in leak): while a player is graced,
+  // hostiles may not MOVE into their clearance radius — moveEnemy clamps
+  // at the boundary. Computed once per tick, not per enemy.
+  const graced = gracedClearanceCenters(sim);
   for (const enemy of sim.enemies.values()) {
     const entity = enemy.entity;
     if (entity.hp <= 0) continue; // corpses don't bite
@@ -77,7 +81,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
       beginWindup(enemy, decision.shoot);
       continue;
     }
-    moveEnemy(sim, enemy, decision.move);
+    moveEnemy(sim, enemy, decision.move, graced);
     if (decision.strike) resolveStrike(sim, enemy, decision.strike.targetId, effectEvents);
   }
 }
@@ -87,14 +91,32 @@ function beginWindup(enemy: EnemySlot, shoot: { x: number; y: number; z: number 
   enemy.animation = { state: "windup", ticksRemaining: SPITTER_WINDUP_TICKS, target: shoot };
 }
 
-function moveEnemy(sim: SimState, enemy: EnemySlot, move: { moveX: number; moveY: number; jump: boolean }): void {
+function moveEnemy(
+  sim: SimState,
+  enemy: EnemySlot,
+  move: { moveX: number; moveY: number; jump: boolean },
+  graced: ReadonlyArray<{ x: number; y: number }>,
+): void {
   const entity = enemy.entity;
   faceEntity(entity, move.moveX, move.moveY);
+  const before = { ...entity.body };
   stepBody(sim.world, entity.body, move, TICK_DT, {
     speed: entity.baseSpeed * sim.effects.speedMult(entity),
     // Enemies never set foot on sanctuary ground.
     blocked: (x, y) => sim.world.isSanctuary(x, y),
   });
+  // Panel round 4 (spawnSafety.ts guarantee 2): a hostile that was
+  // outside a graced player's clearance radius may not end its step
+  // inside one — revert the whole step, a deterministic clamp at the
+  // boundary (it stalls; the next think can wander elsewhere). One
+  // already inside is left to maintainSpawnClearance, which ran before
+  // this step and will run again before it could ever act from inside.
+  if (
+    insideGracedClearance(graced, entity.body.x, entity.body.y) &&
+    !insideGracedClearance(graced, before.x, before.y)
+  ) {
+    entity.body = before;
+  }
   // Chasm = death applies to enemies too (same knockback-death-pit ruling
   // as players): resolveEnemyDeaths (deaths.ts) already removes any
   // hp<=0 enemy and rolls its drops, so this is the whole of it.

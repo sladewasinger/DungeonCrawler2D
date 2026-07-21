@@ -36,7 +36,7 @@ import { bindRotationKeys } from "./rotationKeys.js";
 import { syncReviveRing } from "./reviveRingSync.js";
 import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
-import { updateSelfFacing } from "./selfCosmetics.js";
+import { consumeRespawnGrace, updateSelfFacing } from "./selfCosmetics.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
 import { createTorchSyncState, type TorchSyncState } from "./torchSync.js";
 import { trackWallBump } from "./wallBumpTracking.js";
@@ -117,6 +117,7 @@ export class DungeonScene extends Phaser.Scene {
     syncReviveRing(this.reviveRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
     this.consumeTeleport(time);
+    consumeRespawnGrace(conn, this.state.cosmetics, time);
     this.advanceRotation(deltaMs);
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
@@ -190,7 +191,7 @@ export class DungeonScene extends Phaser.Scene {
       const body = conn.body;
       if (body) state.prevStep = { x: body.x, y: body.y, z: body.z };
       const move = this.inputController.readInput();
-      updateSelfFacing(state.cosmetics, move.moveX, move.moveY);
+      updateSelfFacing(state.cosmetics, move.moveX, move.moveY, move.jump);
       const preX = body?.x ?? 0;
       const preY = body?.y ?? 0;
       conn.sampleInput(move);

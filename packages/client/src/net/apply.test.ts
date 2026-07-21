@@ -28,7 +28,7 @@ function freshConnection(floor: number): Connection {
   return conn;
 }
 
-function snapshotAtFloor(floor: number): ServerSnapshot {
+function snapshotAtFloor(floor: number, hp = 10): ServerSnapshot {
   return {
     type: "snapshot",
     tick: 1,
@@ -44,7 +44,7 @@ function snapshotAtFloor(floor: number): ServerSnapshot {
       jumpHeld: false,
       kx: 0,
       ky: 0,
-      hp: 10,
+      hp,
       maxHp: 10,
       fx: [],
       floor,
@@ -83,5 +83,40 @@ describe("applySnapshot floor transfer", () => {
     applySnapshot(conn, snapshotAtFloor(1));
 
     expect(conn.world).toBe(before);
+  });
+});
+
+describe("applySnapshot respawn detection (panel round 4, LANE B spawn-grace ring)", () => {
+  it("flags justRespawned when hp climbs back from <=0 (respawnSlot's full-hp reset)", () => {
+    const conn = freshConnection(1);
+    conn.hasReceivedSnapshot = true;
+    applySnapshot(conn, snapshotAtFloor(1, 0));
+    expect(conn.justRespawned).toBe(false);
+
+    applySnapshot(conn, snapshotAtFloor(1, 10));
+
+    expect(conn.justRespawned).toBe(true);
+  });
+
+  it("does not flag justRespawned on an ordinary damage tick (hp staying > 0)", () => {
+    const conn = freshConnection(1);
+    conn.hasReceivedSnapshot = true;
+    // Establishes a live, already-spawned connection first (this initial snapshot is
+    // itself a "fresh join" edge case — see the dedicated test below); reset the flag
+    // before exercising the actual behavior under test.
+    applySnapshot(conn, snapshotAtFloor(1, 10));
+    conn.justRespawned = false;
+
+    applySnapshot(conn, snapshotAtFloor(1, 6));
+
+    expect(conn.justRespawned).toBe(false);
+  });
+
+  it("flags justRespawned on a brand-new connection's very first snapshot (fresh join, also grace-eligible server-side)", () => {
+    const conn = freshConnection(1);
+
+    applySnapshot(conn, snapshotAtFloor(1, 10));
+
+    expect(conn.justRespawned).toBe(true);
   });
 });
