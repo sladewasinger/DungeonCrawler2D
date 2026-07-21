@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { startRotationTween } from "../../render/view/rotationTween.js";
+import { ROTATION_TWEEN_MS, startRotationTween } from "../../render/view/rotationTween.js";
 import { compassBearingDeg } from "./compassBearing.js";
 
 describe("compassBearingDeg", () => {
@@ -20,10 +20,12 @@ describe("compassBearingDeg", () => {
   });
 
   it("animates continuously through a tween instead of snapping at the settled endpoints", () => {
-    const tween = startRotationTween(0, 1); // "E" direction, 0 -> 90
+    // Expressed in duration fractions, not wall-clock literals, so the sweep stays
+    // pinned when ROTATION_TWEEN_MS is retuned (250 -> 120, user speed directive).
+    const tween = startRotationTween(0, 1); // clockwise, 0 -> 90
     const start = compassBearingDeg(0, { ...tween, elapsedMs: 0 });
-    const mid = compassBearingDeg(0, { ...tween, elapsedMs: 125 });
-    const end = compassBearingDeg(0, { ...tween, elapsedMs: 250 });
+    const mid = compassBearingDeg(0, { ...tween, elapsedMs: ROTATION_TWEEN_MS / 2 });
+    const end = compassBearingDeg(0, { ...tween, elapsedMs: ROTATION_TWEEN_MS });
     expect(start).toBe(0);
     expect(mid).toBeCloseTo(315); // wrapDegrees(-45)
     expect(end).toBe(270);

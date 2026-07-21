@@ -3,8 +3,11 @@
 // from their own update loop and tests can advance it in fixed steps without a renderer.
 import { rotateOrientation, wrapDegrees, type ViewOrientation } from "./viewOrientation.js";
 
-/** Brief's "~250ms tween". */
-export const ROTATION_TWEEN_MS = 250;
+/** 120ms: the lean-then-snap completes its snap at the 60ms midpoint — near-live
+ * rotation the user can chain continuously ("almost live and constantly", user
+ * directive 2026-07-21; was 250ms, which read as a half-second-plus per step once
+ * the input-eaten window and rebake stacked on top). */
+export const ROTATION_TWEEN_MS = 120;
 
 export interface RotationTween {
   readonly from: ViewOrientation;

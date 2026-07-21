@@ -49,15 +49,18 @@ function cameraFxDeg(tween: RotationTween): number {
 export class RotationController {
   private tween: RotationTween | null = null;
   private swapped = false;
+  /** One-deep chain: a request landing mid-tween starts the moment the current step
+   * snaps, so holding the key spins continuously (user directive 2026-07-21 — the old
+   * behavior ATE inputs during the tween, which with 250ms steps read as sluggish). */
+  private pendingDir: 1 | -1 | null = null;
 
-  /**
-   * Starts one 90-degree step in `dir` (1 = the "E"-direction/clockwise, -1 = "Q"/ccw,
-   * per docs/ASSUMPTIONS.md row 252's convention) — ignored while a tween is already in
-   * flight rather than queuing a second step, a deliberate brief input-eating window
-   * (vetoable, logged) simpler than chaining or interrupting an in-progress rotation.
-   */
+  /** Starts one 90-degree step in `dir` (1 = clockwise/"X", -1 = "Q"/ccw, per
+   * docs/ASSUMPTIONS.md row 252's convention); mid-tween requests chain. */
   request(dir: 1 | -1): void {
-    if (this.tween) return;
+    if (this.tween) {
+      this.pendingDir = dir;
+      return;
+    }
     this.tween = startRotationTween(getViewOrientation(), dir);
     this.swapped = false;
   }
@@ -80,6 +83,12 @@ export class RotationController {
       setViewOrientation(this.tween.to);
       invalidate();
       this.tween = null;
+      // Chain the queued step immediately — held-key continuous spin.
+      if (this.pendingDir !== null) {
+        const dir = this.pendingDir;
+        this.pendingDir = null;
+        this.request(dir);
+      }
       return;
     }
     if (isRotationTweenDone(this.tween)) this.tween = null;
