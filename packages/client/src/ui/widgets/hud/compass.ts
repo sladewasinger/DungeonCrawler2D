@@ -1,8 +1,11 @@
 /**
- * LANE W2 HUD compass widget: a small debug-style dial showing which WORLD direction
- * currently renders at screen-up, animating smoothly through the Q/X rotation tween
- * (scenes/dungeon/rotationControl.ts's bearingDeg()). Placed in the existing top-right
- * indicator stack (status/party/minimap), below the reserved "minimap" slot.
+ * LANE W2 HUD compass widget, redesigned as a rotating LETTER DIAL (user correction
+ * 2026-07-20): the four cardinals are drawn at their true current screen directions, so
+ * whatever letter sits under the fixed top tick IS what renders screen-up right now.
+ * The first version was a bare north-needle — mathematically identical information, but
+ * a needle pointing right after a Q-press reads as "east is up" when it means "north is
+ * to the right (west is up)"; letters remove the ambiguity instead of asking the player
+ * to decode it. Animates smoothly through the Q/X lean via rotationControl's bearingDeg().
  */
 import type Phaser from "phaser";
 import { uiTextStyle } from "../../font.js";
@@ -12,14 +15,25 @@ import type { Viewport } from "../state.js";
 
 const WIDGET_ID = "compass";
 const RADIUS = 22;
+/** Letters sit just inside the ring so they never collide with the tick. */
+const LETTER_RADIUS = RADIUS - 8;
 const RING_COLOR = 0x494956;
 const FORWARD_TICK_COLOR = 0x9a9aae;
-const NEEDLE_COLOR = 0xe04a4a; // blood/damage accent (docs/VISUAL_DIRECTION.md), used here for the north tip
+const NORTH_COLOR = "#e04a4a"; // blood/damage accent (docs/VISUAL_DIRECTION.md) — N pops
+const OTHER_COLOR = "#9a9aae";
 const LABEL_COLOR = "#9a9aae";
+
+/** Screen-bearing offsets of each cardinal relative to north, clockwise-positive. */
+const CARDINALS: ReadonlyArray<{ letter: string; offsetDeg: number; color: string }> = [
+  { letter: "N", offsetDeg: 0, color: NORTH_COLOR },
+  { letter: "E", offsetDeg: 90, color: OTHER_COLOR },
+  { letter: "S", offsetDeg: 180, color: OTHER_COLOR },
+  { letter: "W", offsetDeg: 270, color: OTHER_COLOR },
+];
 
 export class CompassWidget {
   private readonly container: Phaser.GameObjects.Container;
-  private readonly needle: Phaser.GameObjects.Graphics;
+  private readonly letters: Array<{ readonly text: Phaser.GameObjects.Text; readonly offsetDeg: number }> = [];
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     registry.register({
@@ -40,23 +54,25 @@ export class CompassWidget {
     ring.strokeCircle(0, 0, RADIUS);
     ring.fillStyle(FORWARD_TICK_COLOR, 1);
     ring.fillTriangle(-4, -RADIUS - 2, 4, -RADIUS - 2, 0, -RADIUS + 6);
-    this.needle = scene.add.graphics();
     const label = scene.add.text(0, RADIUS + 12, "COMPASS", uiTextStyle(9, LABEL_COLOR, layout.scale)).setOrigin(0.5, 0.5);
-    this.container.add([ring, this.needle, label]);
+    this.container.add([ring, label]);
+    for (const cardinal of CARDINALS) {
+      const text = scene.add.text(0, 0, cardinal.letter, uiTextStyle(9, cardinal.color, layout.scale)).setOrigin(0.5, 0.5);
+      this.letters.push({ text, offsetDeg: cardinal.offsetDeg });
+      this.container.add(text);
+    }
     this.update(0);
   }
 
   /** `bearingDeg`: 0 = world-north currently renders at screen-up, clockwise-positive
-   * (screen east = 90, south = 180, west = 270) — rotationControl.ts's bearingDeg(). */
+   * (screen east = 90, south = 180, west = 270) — rotationControl.ts's bearingDeg().
+   * Each letter is placed AT its cardinal's current screen direction, so the letter
+   * under the top tick is always the direction currently rendering screen-up. */
   update(bearingDeg: number): void {
-    const rad = (bearingDeg * Math.PI) / 180;
-    const tip = { x: Math.sin(rad) * (RADIUS - 4), y: -Math.cos(rad) * (RADIUS - 4) };
-    const back = { x: Math.sin(rad + Math.PI) * (RADIUS * 0.35), y: -Math.cos(rad + Math.PI) * (RADIUS * 0.35) };
-    const left = { x: back.x + Math.sin(rad - Math.PI / 2) * 3, y: back.y - Math.cos(rad - Math.PI / 2) * 3 };
-    const right = { x: back.x + Math.sin(rad + Math.PI / 2) * 3, y: back.y - Math.cos(rad + Math.PI / 2) * 3 };
-    this.needle.clear();
-    this.needle.fillStyle(NEEDLE_COLOR, 1);
-    this.needle.fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+    for (const { text, offsetDeg } of this.letters) {
+      const rad = ((bearingDeg + offsetDeg) * Math.PI) / 180;
+      text.setPosition(Math.sin(rad) * LETTER_RADIUS, -Math.cos(rad) * LETTER_RADIUS);
+    }
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */
