@@ -141,6 +141,11 @@ export class DungeonScene extends Phaser.Scene {
       // blink in piecewise after every rotation (user playtest).
       this.terrain?.rebakeAllNow();
       this.lighting?.invalidateAll();
+      // An orientation swap teleports the player's VIEW position, and the eased
+      // follow would otherwise pan dozens of tiles from the old view coords back
+      // to the player ("I'm literally off-screen after the rotation" — user).
+      // The camera contract's own rule applies: snaps on teleport.
+      requestCameraSnap(this.state.camera);
     });
   }
 
