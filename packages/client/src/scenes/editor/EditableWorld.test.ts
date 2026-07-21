@@ -128,16 +128,20 @@ describe("EditableWorld paint-over stacking (explicit-heights reskin)", () => {
   });
 
   it("stairs interpolate a run between flanking anchors — no per-tile authored height", () => {
+    // R2-STAIRS-SPEC §2/line54 midpoint contract (1-z per tread): tile k from the low
+    // anchor = low + (high−low)·(k−0.5)/stepCount. A VALID run has |high−low| = stepCount,
+    // so for a 0→3 climb over 3 treads the tile-CENTER heights are 0.5, 1.5, 2.5.
+    // (Values hand-derived from the spec formula, not echoed from the implementation.)
     const world = new EditableWorld();
     world.paintFloorAt(4, 19, "medieval-sewer:0"); // south (downhill) anchor, height 0
     world.paintStairsAt(4, 18, 0); // 0 = north, per StackDir's 0=N/1=E/2=S/3=W
     world.paintStairsAt(4, 17, 0);
     world.paintStairsAt(4, 16, 0);
-    for (let i = 0; i < 4; i++) world.paintWallAt(4, 15);
-    world.paintFloorAt(4, 15, "medieval-sewer:0"); // north (uphill) anchor, height 4
-    expect(world.cellAt(4, 18)).toEqual({ tile: TILE.Stairs, height: 1 });
-    expect(world.cellAt(4, 17)).toEqual({ tile: TILE.Stairs, height: 2 });
-    expect(world.cellAt(4, 16)).toEqual({ tile: TILE.Stairs, height: 3 });
+    for (let i = 0; i < 3; i++) world.paintWallAt(4, 15);
+    world.paintFloorAt(4, 15, "medieval-sewer:0"); // north (uphill) anchor, height 3
+    expect(world.cellAt(4, 18)).toEqual({ tile: TILE.Stairs, height: 0.5 }); // k=1: 3·0.5/3
+    expect(world.cellAt(4, 17)).toEqual({ tile: TILE.Stairs, height: 1.5 }); // k=2: 3·1.5/3
+    expect(world.cellAt(4, 16)).toEqual({ tile: TILE.Stairs, height: 2.5 }); // k=3: 3·2.5/3
   });
 
   it("a stacked platform survives a v2 serialize/load round-trip (further painting still stacks)", () => {

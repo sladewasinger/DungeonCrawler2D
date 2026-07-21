@@ -42,5 +42,6 @@ export function stepBody(
   updateJumpState(body, input, dt);
   moveHorizontal(world, body, input, dt, speed, opts);
   const terrain = world.groundAt(body.x, body.y);
-  return resolveVerticalMotion(body, terrain, dt);
+  const onStair = world.stairHeightAt(body.x, body.y) !== null;
+  return resolveVerticalMotion(body, terrain, dt, onStair);
 }

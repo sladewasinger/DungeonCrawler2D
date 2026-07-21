@@ -89,6 +89,25 @@ function sweep(tiles: Uint8Array, height: Float32Array, chunkSize: number): bool
  * with no real delta on its far side (a second "flavor without height"
  * source; see stairsInvariant.test.ts).
  */
+/**
+ * True if either side of this edge is already a Wall (an existing
+ * `sweep()` guard, restated here since `ramp` is called for both the east
+ * and south edge of `i`) or a Stairs tile. The Stairs half is
+ * docs/R2-STAIRS-SPEC.md section 4c, re-verified after RUN_PADDING was
+ * retired to 0: a deliberate carveRamp tread's far-side transitions are
+ * that ramp's own business (flush by construction, per the compact-stairs
+ * contract), not this graze-repair net's. Before RUN_PADDING was retired,
+ * `alreadyRamped` below caught this by virtual reach; with the padding
+ * gone that reach shrank to the physical tile only, so a flat neighbor one
+ * hop past a real Stairs tile could pass every other check here and get
+ * tagged as a SECOND, redundant tread beside the first — silently
+ * widening a compact 1-tile exit back into a 2-tile runway.
+ */
+function edgeTouchesWallOrStairs(tiles: Uint8Array, i: number, n: number): boolean {
+  const blocks = (t: number | undefined): boolean => t === TILE.Wall || t === TILE.Stairs;
+  return blocks(tiles[i]) || blocks(tiles[n]);
+}
+
 function ramp(
   tiles: Uint8Array,
   height: Float32Array,
@@ -98,7 +117,7 @@ function ramp(
   nx: number,
   ny: number,
 ): boolean {
-  if (tiles[n] === TILE.Wall) return false;
+  if (edgeTouchesWallOrStairs(tiles, i, n)) return false;
   const hi = height[i] ?? 0;
   const hn = height[n] ?? 0;
   const delta = hn - hi;

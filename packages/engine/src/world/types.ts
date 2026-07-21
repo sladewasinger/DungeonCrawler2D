@@ -67,4 +67,13 @@ export interface WorldView {
    * staircase you're physically at z 1.2, 1.4, … not a stepped 1.
    */
   groundAt(x: number, y: number): number;
+  /**
+   * Ramp height at a POSITION iff it sits on a TILE.Stairs tile, else
+   * null. Lets movement physics detect "on a stair" (the glide + rim-gate
+   * walkability rule, entities/movement/{physics,collision}.ts) without
+   * importing TILE itself. Unlike groundAt, this is null off a Stairs
+   * tile even where a flat neighbor happens to sit flush with one —
+   * see docs/R2-STAIRS-SPEC.md section 3.
+   */
+  stairHeightAt(x: number, y: number): number | null;
 }

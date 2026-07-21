@@ -78,6 +78,12 @@ export class World implements WorldView {
     return stairRampAt(this, x, y) ?? this.heightAt(Math.floor(x), Math.floor(y));
   }
 
+  /** Ramp height iff (x, y) sits on a TILE.Stairs tile, else null — see WorldView's doc comment. */
+  stairHeightAt(x: number, y: number): number | null {
+    if (this.tileAt(Math.floor(x), Math.floor(y)) !== TILE.Stairs) return null;
+    return stairRampAt(this, x, y);
+  }
+
   isSanctuary(wx: number, wy: number): boolean {
     return this.zoneAt(wx, wy) === ZONE.Sanctuary;
   }

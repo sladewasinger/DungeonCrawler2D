@@ -1,8 +1,22 @@
 // Shared tile-sprite placement: terrain sprites center on their tile (rotation
 // pivots correctly), with variants for bottom-anchoring (pillars), flat fill
 // rects (solid-rock interior), half-face cliff bands, and occlusion bands.
+// Every placement function takes an optional `liftPx` (docs/ELEVATION-PROJECTION.md
+// section 0/1): a scalar screen-Y offset SUBTRACTED after ordinary tile-position
+// math, never folded into world coordinates — the one shift rule, applied at the
+// lowest placement layer so every surface caller gets it for free. Pass
+// `surfaceLiftPx(height)` (below): positive height subtracts (shifts screen-up);
+// negative height (a pit/chasm floor) subtracts a negative number, i.e. shifts DOWN.
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, SOURCE_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+
+/** Pixels to shift a terrain surface upward for height `h` — same `h*TILE` axis
+ * as entities' `spriteLiftPx` (render/entities/lift.ts), just fed a cell's own
+ * surface height instead of an entity's z. Negative height (pit/chasm floor)
+ * yields a negative liftPx, i.e. shifts DOWN (spec worked example D). */
+export function surfaceLiftPx(height: number): number {
+  return height * SCREEN_TILE_PX;
+}
 
 export interface PlaceSpriteOptions {
   readonly tint?: number;
@@ -13,6 +27,8 @@ export interface PlaceSpriteOptions {
   readonly originY?: number;
   /** Faint overlay ghosts (stair treads, depth texture) — defaults to fully opaque. */
   readonly alpha?: number;
+  /** Screen-Y pixels to subtract after placement — see `surfaceLiftPx` above. */
+  readonly liftPx?: number;
 }
 
 /** Adds a tile sprite (atlas frame, world-pixel-scaled) to `container`. */
@@ -26,7 +42,7 @@ export function placeSprite(
 ): Phaser.GameObjects.Sprite {
   const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
   const originY = opts.originY ?? 0.5;
-  const cy = originY === 1 ? (wy + 1) * SCREEN_TILE_PX : wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
+  const cy = (originY === 1 ? (wy + 1) * SCREEN_TILE_PX : wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2) - (opts.liftPx ?? 0);
   const sprite = scene.add.sprite(cx, cy, ASSET_KEYS.atlas, frame);
   sprite.setOrigin(0.5, originY);
   sprite.setScale(WORLD_PIXEL_SCALE);
@@ -53,11 +69,12 @@ export function placeFractionalRect(
   yFrac: readonly [number, number],
   color: number,
   alpha: number,
+  liftPx = 0,
 ): void {
   const left = wx * SCREEN_TILE_PX + xFrac[0] * SCREEN_TILE_PX;
   const right = wx * SCREEN_TILE_PX + xFrac[1] * SCREEN_TILE_PX;
-  const top = wy * SCREEN_TILE_PX + yFrac[0] * SCREEN_TILE_PX;
-  const bottom = wy * SCREEN_TILE_PX + yFrac[1] * SCREEN_TILE_PX;
+  const top = wy * SCREEN_TILE_PX + yFrac[0] * SCREEN_TILE_PX - liftPx;
+  const bottom = wy * SCREEN_TILE_PX + yFrac[1] * SCREEN_TILE_PX - liftPx;
   const rect = scene.add.rectangle((left + right) / 2, (top + bottom) / 2, right - left, bottom - top, color, alpha);
   container.add(rect);
 }
@@ -69,9 +86,10 @@ export function placeFillRect(
   wx: number,
   wy: number,
   color: number,
+  liftPx = 0,
 ): void {
   const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const cy = wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
+  const cy = wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2 - liftPx;
   container.add(scene.add.rectangle(cx, cy, SCREEN_TILE_PX, SCREEN_TILE_PX, color, 1));
 }
 

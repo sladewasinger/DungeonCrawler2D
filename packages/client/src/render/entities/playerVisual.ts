@@ -57,9 +57,10 @@ function updatePlayerBody(
   heightAboveGround: number,
 ): void {
   const screen = worldToScreen(view.x, view.y);
-  // Flat projection: grounded entities sit AT their world row like the terrain does;
-  // only height above the local ground (jump/fall) lifts the sprite — see lift.ts.
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(heightAboveGround));
+  // ELEVATION-PROJECTION section 3: absolute-z lift. Terrain now bakes the matching
+  // shift into its own drawn cap (wave E2), so a grounded body (z === groundAt) lands
+  // exactly on it — see lift.ts's module doc.
+  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
@@ -102,21 +103,25 @@ function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: Rend
 }
 
 /** Shadow, hp bar, nameplate, held weapon, and occlusion silhouette — everything that
- * hangs off the body's screen position. Under flat projection the ground screen point
- * IS the drawn floor at every terrain height — the shadow sits there always, and the
- * sprite joins it whenever grounded (lift.ts); nameplate/hp bar follow the body. */
+ * hangs off the body's screen position. Shadow is GROUND-anchored (section 5): fed the
+ * SHIFTED ground screen point (`worldToScreen(...).y - groundAt*TILE`, reusing
+ * spriteLiftPx's identical `height*TILE` shape), which coincides with the sprite's own
+ * absolute-z lift once grounded — both land on the same drawn cap. Nameplate/hp bar
+ * are ENTITY-anchored: they just follow the already-lifted body position. */
 function updatePlayerChrome(
   visual: PlayerVisual,
   view: PlayerEntityView,
   ctx: RenderContext,
   heightAboveGround: number,
+  groundHeight: number,
 ): void {
   const ground = worldToScreen(view.x, view.y);
+  const shiftedGroundY = ground.y - spriteLiftPx(groundHeight);
   const bodyDepth = visual.body.depth;
   visual.shadow.setDepth(bodyDepth - 0.2);
   visual.hpBar.container.setDepth(bodyDepth + 0.2);
   visual.nameplate.setDepth(bodyDepth + 0.2);
-  updateShadowPosition(visual.shadow, ground.x, ground.y, heightAboveGround);
+  updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
   const headY = visual.body.y - visual.body.displayHeight;
   updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
 
@@ -168,7 +173,7 @@ export function updatePlayerVisual(visual: PlayerVisual, skinPrefix: string, vie
   const groundHeight = ctx.world.groundAt(view.x, view.y);
   const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
   updatePlayerBody(visual, skinPrefix, view, ctx, heightAboveGround);
-  updatePlayerChrome(visual, view, ctx, heightAboveGround);
+  updatePlayerChrome(visual, view, ctx, heightAboveGround, groundHeight);
   visual.lastHp = view.hp;
   visual.lastX = view.x;
   visual.lastY = view.y;

@@ -115,27 +115,30 @@ export class VfxSystem {
     spawnFistbumpFlourish(this.scene, screen.x, screen.y);
   }
 
-  /** Melee-arc swing telegraph, keyed by attacker id so a fresh swing reuses (redraws) that id's pooled Graphics rather than allocating a new one. */
-  spawnMeleeSwing(id: string, worldX: number, worldY: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
-    this.meleeWedge.spawn(id, worldX, worldY, angleRad, depth, tilePx, nowMs);
+  /** Melee-arc swing telegraph, keyed by attacker id so a fresh swing reuses (redraws)
+   * that id's pooled Graphics rather than allocating a new one. `z` is the wielder's
+   * absolute height — the wedge anchors at their lifted feet (meleeWedge.ts). */
+  spawnMeleeSwing(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+    this.meleeWedge.spawn(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
   }
 
   /** Splatter + one floor decal for a landed hit (Epic 7.11) — directional when `dirX`/`dirY`
    * (a knockback vector) is available, otherwise an even spray. `defId` (enemy content id,
-   * undefined for players) picks the blood tint via bloodTint.ts. */
-  spawnBloodHit(worldX: number, worldY: number, defId: string | undefined, nowMs: number, dirX?: number, dirY?: number): void {
+   * undefined for players) picks the blood tint via bloodTint.ts. `groundHeight` is the hit
+   * position's `groundAt` — the decal is GROUND-anchored, shifted by that height (section 5). */
+  spawnBloodHit(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number, dirX?: number, dirY?: number): void {
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
     spawnHitSplatter(this.scene, screen.x, screen.y, tint, dirX, dirY);
-    this.bloodDecals.spawn(worldX, worldY, tint, nowMs);
+    this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
   }
 
   /** Heavier splatter + a scattered handful of floor decals for a death (Epic 7.11). */
-  spawnBloodDeath(worldX: number, worldY: number, defId: string | undefined, nowMs: number): void {
+  spawnBloodDeath(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
     spawnDeathSplatter(this.scene, screen.x, screen.y, tint);
-    for (let i = 0; i < 4; i++) this.bloodDecals.spawn(worldX, worldY, tint, nowMs);
+    for (let i = 0; i < 4; i++) this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
   }
 
   onOwnHit(nowMs: number): void {
@@ -153,10 +156,10 @@ export class VfxSystem {
    * (another lane's file), so this fakes the same snap at the camera layer.
    * Enemy deaths only — call sites gate this to `kind === "enemy"`, ordinary
    * player deaths keep the plain blood-splatter treatment (spawnBloodDeath). */
-  spawnKillMoment(worldX: number, worldY: number, defId: string | undefined, nowMs: number): void {
+  spawnKillMoment(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
     spawnGibBurst(this.scene, screen.x, screen.y, bloodTintFor(defId));
-    this.corpseDecals.spawn(worldX, worldY, nowMs);
+    this.corpseDecals.spawn(worldX, worldY, groundHeight, nowMs);
     this.shake.onKillMoment(nowMs);
     this.punchCamera();
   }

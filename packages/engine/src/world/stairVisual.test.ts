@@ -34,29 +34,24 @@ function eastEntryWorld(): StairView {
   };
 }
 
+// Re-baselined for RUN_PADDING retired to 0 (docs/R2-STAIRS-SPEC.md, Wave
+// R2): the visual now confines to exactly the run's own physical tile(s) —
+// no more fading "padding" reach into the flanking Floor tiles.
 describe("stairVisualAt", () => {
-  it("reports the climb direction, with t near the top of its 1-tile-plus-padding range on the tread itself", () => {
+  it("reports the climb direction, t=0.5 at the tile's own center (a lone tile's own physical extent)", () => {
     const world = southEntryWorld();
     const visual = stairVisualAt(world, X, Y);
     expect(visual).not.toBeNull();
     expect(visual?.direction).toBe(0); // climbs north
-    // Tile CENTER sits half a tile south of the run's true top edge (where t
-    // hits exactly 1), so a single-tile run's own tread reads under 1 — this
-    // is the same t stairRampAt would compute at that same position.
-    expect(visual?.t).toBeCloseTo(0.8, 5);
+    expect(visual?.t).toBeCloseTo(0.5, 5);
   });
 
-  it("returns a lower, non-null t on the padding Floor tile south of a run", () => {
+  it("returns null on the Floor tile south of the run (no more padding reach)", () => {
     const world = southEntryWorld();
-    const onRun = stairVisualAt(world, X, Y);
-    const padding = stairVisualAt(world, X, Y + 1);
-    expect(padding).not.toBeNull();
-    expect(padding?.direction).toBe(0);
-    expect(padding?.t).toBeGreaterThan(0);
-    expect(padding?.t).toBeLessThan(onRun?.t ?? 0);
+    expect(stairVisualAt(world, X, Y + 1)).toBeNull();
   });
 
-  it("returns null once a query tile sits beyond both the search radius and the padding reach", () => {
+  it("returns null once a query tile sits beyond the run's own physical extent", () => {
     const world = southEntryWorld();
     expect(stairVisualAt(world, X, Y + 5)).toBeNull();
   });
@@ -75,10 +70,9 @@ describe("stairVisualAt", () => {
     expect(row0?.t).toBeCloseTo(row1?.t ?? -1, 5);
   });
 
-  it("padding west of an east-entry run ramps toward 0 the further it sits from the tread", () => {
+  it("returns null west of an east-entry run (no more fading padding reach)", () => {
     const world = eastEntryWorld();
-    const near = stairVisualAt(world, X - 1, Y);
-    const far = stairVisualAt(world, X - 2, Y);
-    expect(near?.t ?? 0).toBeGreaterThan(far?.t ?? 0);
+    expect(stairVisualAt(world, X - 1, Y)).toBeNull();
+    expect(stairVisualAt(world, X - 2, Y)).toBeNull();
   });
 });

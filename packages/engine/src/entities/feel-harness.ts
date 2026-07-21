@@ -24,6 +24,7 @@ export function fixtureWorld(
     isWalkable: () => true,
     heightAt: heightFn,
     groundAt: (x, y) => (groundFn ? groundFn(x, y) : heightFn(Math.floor(x), Math.floor(y))),
+    stairHeightAt: () => null,
   };
 }
 
@@ -193,6 +194,7 @@ function corridorEntryWorld(dx: number): WorldView {
     isWalkable: (tx, ty) => along(tx, ty) !== 8 || perp(tx, ty) === 10,
     heightAt: () => 0,
     groundAt: () => 0,
+    stairHeightAt: () => null,
   };
 }
 

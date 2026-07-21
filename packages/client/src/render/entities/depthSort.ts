@@ -18,6 +18,18 @@ export function depthForOccluder(southEdgeWorldY: number): number {
   return depthForEntity(southEdgeWorldY) + OCCLUDER_BIAS;
 }
 
+/**
+ * A shifted CAP strip keyed to walkable row `capRowY` (chunkVisual.ts's
+ * bakeCapRows): covers feet at ANY fractional position strictly north of the
+ * row (feetWorldY < capRowY, including e.g. capRowY - 0.5 — the case
+ * depthForOccluder(capRowY - 1) missed, leaving a south neighbor's raised cap
+ * behind the entity it must occlude), while the row's own occupants
+ * (feetWorldY >= capRowY) stay in front of the cap they stand on.
+ */
+export function depthForCapOccluder(capRowY: number): number {
+  return depthForEntity(capRowY) - OCCLUDER_BIAS;
+}
+
 export interface DepthKey {
   readonly feetWorldY: number;
   readonly liftUnits?: number;

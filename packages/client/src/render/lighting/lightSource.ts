@@ -13,6 +13,14 @@ export interface LightSource {
   readonly kind: LightKind;
   /** Per-source phase offset so identical lights don't flicker in sync. */
   readonly seed: number;
+  /**
+   * GROUND-anchored screen shift, in world-height units (`groundAt` at the light's
+   * tile) — docs/ELEVATION-PROJECTION.md section 5: "personal halo + torch/door lights
+   * use groundAt(tile) so a torch on a platform glows on the platform." Omitted/0 for
+   * a light with no ground concept (or not yet plumbed this wave); pool.ts converts it
+   * to the same `height*TILE` screen-Y shift every other ground-anchored thing uses.
+   */
+  readonly groundHeight?: number;
 }
 
 /** Small integer hash used only to spread flicker phase — not a determinism-sensitive RNG. */

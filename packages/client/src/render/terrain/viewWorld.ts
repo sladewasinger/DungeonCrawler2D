@@ -1,7 +1,7 @@
 // The terrain draw pipeline's view-space adapter (2.5D rotation lane, step 2): wraps a
 // real TerrainWorld so every (vx, vy) it's queried at is read through viewToWorld first.
 // This is the ENTIRE mechanism behind "wall faces are screen-relative" (invariant 2):
-// ownFace.ts/pitFace.ts/topEdges.ts are untouched, orientation-ignorant modules that only
+// ownFace.ts/pitFace.ts/cliffMask.ts are untouched, orientation-ignorant modules that only
 // ever say "my south neighbor" — feeding them this proxy instead of the raw world makes
 // their hardcoded (0,+1)/(±1,0) offsets automatically mean SCREEN south/east/west at
 // whatever the current orientation is, with zero changes to their own logic. At

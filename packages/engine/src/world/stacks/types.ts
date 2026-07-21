@@ -54,9 +54,15 @@ export const TILE_FEATURE: ReadonlyMap<TileType, StackFeature> = new Map(
  * byte-for-byte — see compile.ts's doc comment on why a generic formula
  * can't always re-derive it), compile uses it verbatim. When absent —
  * freshly authored in the editor via paintStairsAt, which has no height to
- * give — compile interpolates a linear run between the tile's flanking
- * non-stair anchors along `dir`, so "the engine figures out what height it
- * is at" per Austin's decree.
+ * give — compile interpolates a run between the tile's flanking non-stair
+ * anchors along `dir`, so "the engine figures out what height it is at"
+ * per Austin's decree. docs/R2-STAIRS-SPEC.md's compact-stairs contract:
+ * a deliberate run spans exactly one z-unit per tile (anchors differing by
+ * `stepCount`), and each tread's compiled height is its tile-CENTER value
+ * `low + delta*(k-0.5)/stepCount` — not an even split of the full rise
+ * across `stepCount + 1` gaps. The continuous ramp a moving body actually
+ * stands on (world/stairs.ts's stairRampAt) is independent of this
+ * compiled scalar; the two only need to agree at tile center.
  */
 export interface StackTile {
   readonly walls: number;

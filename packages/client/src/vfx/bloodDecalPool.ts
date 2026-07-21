@@ -7,7 +7,11 @@
 // solid-fill Shape is the reliable choice here, matching the codebase's existing
 // Ellipse/Arc Shape precedent (shadow.ts, meleeWedge.ts). Multiply-blended, never
 // additive: decals darken the floor, they don't glow — VISUAL_DIRECTION's rule.
+//
+// GROUND-anchored (docs/ELEVATION-PROJECTION.md section 5): shifted by the hit
+// position's `groundAt` height, same `height*TILE` shape the shadow/halo use.
 import Phaser from "phaser";
+import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
 import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
@@ -35,10 +39,11 @@ export class BloodDecalPool {
   constructor(private readonly scene: Phaser.Scene) {}
 
   /** Places one decal near (worldX, worldY), growing the pool until DECAL_CAP then
-   * recycling the oldest-cycled slot round-robin. */
-  spawn(worldX: number, worldY: number, tint: number, nowMs: number): void {
+   * recycling the oldest-cycled slot round-robin. `groundHeight` is the hit position's
+   * `groundAt` — GROUND-anchored (ELEVATION-PROJECTION section 5), shifted by it. */
+  spawn(worldX: number, worldY: number, groundHeight: number, tint: number, nowMs: number): void {
     const decal = shouldGrowPool(this.decals.length, DECAL_CAP) ? this.grow() : this.recycle();
-    this.place(decal, worldX, worldY, tint, nowMs);
+    this.place(decal, worldX, worldY, groundHeight, tint, nowMs);
   }
 
   private grow(): Decal {
@@ -58,14 +63,15 @@ export class BloodDecalPool {
     return this.scene.add.ellipse(0, 0, 1, 1).setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
-  private place(decal: Decal, worldX: number, worldY: number, tint: number, nowMs: number): void {
+  private place(decal: Decal, worldX: number, worldY: number, groundHeight: number, tint: number, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
+    const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const scatterPx = 12;
     const scatterX = (Math.random() - 0.5) * scatterPx;
     const scatterY = (Math.random() - 0.5) * scatterPx;
     const radius = MIN_RADIUS_PX + Math.random() * (MAX_RADIUS_PX - MIN_RADIUS_PX);
     decal.shape
-      .setPosition(screen.x + scatterX, screen.y + scatterY)
+      .setPosition(screen.x + scatterX, shiftedY + scatterY)
       .setSize(radius * 2, radius * 1.4)
       .setFillStyle(tint, 1)
       .setAlpha(BASE_ALPHA)

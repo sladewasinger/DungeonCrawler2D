@@ -38,14 +38,15 @@ export class MeleeWedgePool {
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  /** (Re)shapes `id`'s wedge at world (x,y) aimed at `angleRad`, starting its fade now. Reuses the id's Graphics object across swings instead of allocating a new one each time. */
-  spawn(id: string, worldX: number, worldY: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+  /** (Re)shapes `id`'s wedge at world (x,y,z) aimed at `angleRad`, starting its fade now. Reuses the id's Graphics object across swings instead of allocating a new one each time. */
+  spawn(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
     const swing = this.swings.get(id) ?? { gfx: this.scene.add.graphics(), startedAtMs: -Infinity };
     this.swings.set(id, swing);
-    // Flat projection: the ground telegraph anchors at the wielder's world row at
-    // every terrain height, exactly like the shadow (lift.ts module doc).
+    // ELEVATION-PROJECTION section 5: ENTITY-anchored at the wielder's LIFTED feet
+    // (`- z*TILE`), same absolute-z axis the wielder's own sprite lifts by — the
+    // telegraph tracks the body, not the ground, when the wielder is airborne.
     const screen = worldToScreen(worldX, worldY);
-    drawWedge(swing.gfx, screen.x, screen.y, wedgeGeometry(angleRad, tilePx));
+    drawWedge(swing.gfx, screen.x, screen.y - z * tilePx, wedgeGeometry(angleRad, tilePx));
     swing.gfx.setDepth(depth).setVisible(true).setAlpha(1);
     swing.startedAtMs = nowMs;
   }

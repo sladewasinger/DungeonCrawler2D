@@ -40,6 +40,13 @@ export interface InputConnection {
   /** Equipped weapon def (character slot); null = fists. When it's itself throwable
    * (a torch), primary attack throws instead of swinging — see throwEquipped.ts. */
   readonly weapon: string | null;
+  /**
+   * Real terrain height at a world tile, for `cursorWorldTile`'s tallest-first aim
+   * pick (docs/ELEVATION-PROJECTION.md section 4) — undefined where no world is bound
+   * yet (reconnect gap) or in test fakes, both of which fall back to flat (h=0) aim,
+   * byte-identical to pre-E3 behavior.
+   */
+  readonly heightAt?: (wx: number, wy: number) => number;
   interact(): void;
   pickup(): void;
   attack(dx: number, dy: number): void;

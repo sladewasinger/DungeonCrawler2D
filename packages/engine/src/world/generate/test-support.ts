@@ -20,6 +20,36 @@ export interface WorldPoint {
   y: number;
 }
 
+/** stairs.ts's own DIRS convention (0=N,1=E,2=S,3=W); entryClimbDir's returned index points from a Stairs tile toward its strictly-higher neighbor. */
+export const CLIMB_DIRS: ReadonlyArray<readonly [number, number]> = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+];
+
+/** Iterate every chunk coordinate in a square of `chunkRange` around the origin — the scan window stairsInvariant/stairsEscapability's seed sweeps share. */
+export function forEachChunkCoord(chunkRange: number, cb: (cx: number, cy: number) => void): void {
+  for (let cx = -chunkRange; cx <= chunkRange; cx++) {
+    for (let cy = -chunkRange; cy <= chunkRange; cy++) cb(cx, cy);
+  }
+}
+
+/** Every Stairs tile's world coordinates across a `forEachChunkCoord` scan window. */
+export function scanStairs(seed: number, floor: number, chunkRange: number): WorldPoint[] {
+  const found: WorldPoint[] = [];
+  forEachChunkCoord(chunkRange, (cx, cy) => {
+    const chunk = generateChunk(seed, floor, cx, cy);
+    for (let i = 0; i < chunk.tiles.length; i++) {
+      if (chunk.tiles[i] !== TILE.Stairs) continue;
+      const lx = i % CHUNK_SIZE;
+      const ly = (i - lx) / CHUNK_SIZE;
+      found.push({ x: cx * CHUNK_SIZE + lx, y: cy * CHUNK_SIZE + ly });
+    }
+  });
+  return found;
+}
+
 export function chunkAt(seed: number, floor: number, cx: number, cy: number, cache: ChunkCache): Chunk {
   const key = `${cx},${cy}`;
   let chunk = cache.get(key);

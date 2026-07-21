@@ -15,6 +15,8 @@ const DEBUG_TILE_SCALE = SCREEN_TILE_PX / DEBUG_TILE_PX;
 export interface PlaceDebugTileOptions {
   readonly tint?: number;
   readonly alpha?: number;
+  /** Screen-Y pixels to subtract after placement (docs/ELEVATION-PROJECTION.md's one shift rule) — see placeSprite.ts's `surfaceLiftPx`. */
+  readonly liftPx?: number;
 }
 
 /** Adds a debug-tileset frame, centered on (wx, wy), to `container`. */
@@ -27,7 +29,7 @@ export function placeDebugTile(
   opts: PlaceDebugTileOptions = {},
 ): Phaser.GameObjects.Sprite {
   const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const cy = wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
+  const cy = wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2 - (opts.liftPx ?? 0);
   const sprite = scene.add.sprite(cx, cy, DEBUG_TILESET_KEY, frame);
   sprite.setOrigin(0.5, 0.5);
   sprite.setScale(DEBUG_TILE_SCALE);
@@ -62,10 +64,11 @@ export function placeWallCornerDots(
   wx: number,
   wy: number,
   corners: InnerCorners,
+  liftPx = 0,
 ): void {
   for (const key of Object.keys(CORNER_RECT) as (keyof InnerCorners)[]) {
     if (!corners[key]) continue;
     const rect = CORNER_RECT[key];
-    placeFractionalRect(scene, container, wx, wy, rect.x, rect.y, CORNER_DOT_COLOR, 1);
+    placeFractionalRect(scene, container, wx, wy, rect.x, rect.y, CORNER_DOT_COLOR, 1, liftPx);
   }
 }

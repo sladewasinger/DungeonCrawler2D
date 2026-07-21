@@ -3,7 +3,11 @@
 // bloodDecalSlots.ts's pure cap arithmetic, per the wave-7 "blood-decal pool
 // pattern" brief. A bone-pale cross Shape (not a sprite — no bone art in the atlas),
 // alpha-blended so it reads on any floor tone without glowing.
+//
+// GROUND-anchored (docs/ELEVATION-PROJECTION.md section 5): shifted by the kill
+// position's `groundAt` height, same `height*TILE` shape the shadow/halo use.
 import Phaser from "phaser";
+import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
 import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
@@ -27,10 +31,11 @@ export class CorpseDecalPool {
   constructor(private readonly scene: Phaser.Scene) {}
 
   /** Places one bone-cross decal near (worldX, worldY) — grows the pool until
-   * CORPSE_DECAL_CAP, then recycles the oldest-cycled slot round-robin. */
-  spawn(worldX: number, worldY: number, nowMs: number): void {
+   * CORPSE_DECAL_CAP, then recycles the oldest-cycled slot round-robin. `groundHeight`
+   * is the kill position's `groundAt`, GROUND-anchoring the decal (section 5). */
+  spawn(worldX: number, worldY: number, groundHeight: number, nowMs: number): void {
     const decal = shouldGrowPool(this.decals.length, CORPSE_DECAL_CAP) ? this.grow() : this.recycle();
-    this.place(decal, worldX, worldY, nowMs);
+    this.place(decal, worldX, worldY, groundHeight, nowMs);
   }
 
   private grow(): CorpseDecal {
@@ -52,13 +57,14 @@ export class CorpseDecalPool {
     return this.scene.add.container(0, 0, [vertical, horizontal]).setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
-  private place(decal: CorpseDecal, worldX: number, worldY: number, nowMs: number): void {
+  private place(decal: CorpseDecal, worldX: number, worldY: number, groundHeight: number, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
+    const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const scatterPx = 6;
     const scatterX = (Math.random() - 0.5) * scatterPx;
     const scatterY = (Math.random() - 0.5) * scatterPx;
     decal.container
-      .setPosition(screen.x + scatterX, screen.y + scatterY)
+      .setPosition(screen.x + scatterX, shiftedY + scatterY)
       .setRotation(Math.random() * Math.PI)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)

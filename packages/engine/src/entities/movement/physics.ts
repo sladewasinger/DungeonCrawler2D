@@ -114,9 +114,36 @@ function applyGravityAndLand(
   }
 }
 
+/**
+ * On-stair glide (docs/R2-STAIRS-SPEC.md section 3c): a grounded body
+ * standing on a real Stairs tile rides `terrain` (the continuous ramp)
+ * directly, bypassing STEP_UP entirely — a 1.0-slope compact stair rises
+ * 0.4-0.6 z/tick at walk/run speed, both over STEP_UP(0.35), so the
+ * ordinary grounded step-up gate can never admit it. The glide is
+ * velocity-invariant (no new movement constant), so it covers walk, run,
+ * and knockback with zero per-entity tuning. Only engages while grounded:
+ * `updateJumpState` runs before this in stepBody, so a buffered jump has
+ * already cleared `grounded` and fires a normal arc; an airborne body
+ * falling ONTO a stair still lands via the unchanged tryLandOnLedge/
+ * resolveGroundedZ/applyGravityAndLand path below, then glides on
+ * subsequent grounded ticks.
+ */
+function applyStairGlide(body: BodyState, terrain: number): boolean {
+  if (!body.grounded) return false;
+  body.z = terrain;
+  body.zVel = 0;
+  return true;
+}
+
 /** After horizontal movement, resolve grounded/airborne z against `terrain`. */
-export function resolveVerticalMotion(body: BodyState, terrain: number, dt: number): StepResult {
+export function resolveVerticalMotion(
+  body: BodyState,
+  terrain: number,
+  dt: number,
+  onStair: boolean,
+): StepResult {
   const result: StepResult = {};
+  if (onStair && applyStairGlide(body, terrain)) return result;
   tryLandOnLedge(body, terrain, result);
   resolveGroundedZ(body, terrain);
   applyGravityAndLand(body, terrain, dt, result);

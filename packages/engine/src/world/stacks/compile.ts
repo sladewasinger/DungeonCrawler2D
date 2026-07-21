@@ -72,7 +72,14 @@ function anchorHeight(anchorIndex: number, height: Float32Array): number {
   return anchorIndex >= 0 ? (height[anchorIndex] ?? 0) : 0;
 }
 
-/** Stamp one run's treads, dividing `delta` into `stepCount + 1` equal slope-steps from `low`. */
+/**
+ * Stamp one run's treads at the docs/R2-STAIRS-SPEC.md section 2 midpoint
+ * form: tread `k` (1-indexed from the low anchor) sits at
+ * `low + delta * (k - 0.5) / stepCount` — the tile-CENTER height for a
+ * deliberate one-z-per-tile stair (k=1 of 1 gives the exact midpoint,
+ * identical to the old even-split formula there; only multi-tile runs
+ * move, from even-split to per-tile midpoints).
+ */
 function writeTreads(
   fields: { tiles: Uint8Array; height: Float32Array; resolved: Uint8Array },
   width: number,
@@ -83,7 +90,7 @@ function writeTreads(
   for (let n = 1; n <= run.stepCount; n++) {
     const i = (origin.y + step.dy * (n - 1)) * width + (origin.x + step.dx * (n - 1));
     fields.tiles[i] = TILE.Stairs;
-    fields.height[i] = run.low + (run.delta * n) / (run.stepCount + 1);
+    fields.height[i] = run.low + (run.delta * (n - 0.5)) / run.stepCount;
     fields.resolved[i] = 1;
   }
 }

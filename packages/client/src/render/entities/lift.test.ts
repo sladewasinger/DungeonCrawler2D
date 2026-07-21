@@ -1,40 +1,37 @@
-// Headless tests for the elevation-lift conversion under FLAT PROJECTION (lift.ts
-// module doc): terrain draws every surface at its raw world row, so a grounded entity
-// lifts by ZERO at every terrain height, and only height above the local ground
-// (jump/fall/flying) lifts the sprite. Hand-derived from SCREEN_TILE_PX = 48 px/unit —
-// not by echoing the implementation's own output back.
+// Headless tests for the elevation-lift conversion under the ELEVATION-PROJECTION
+// contract (docs/ELEVATION-PROJECTION.md sections 3, 5): absolute-z entity lift, plus
+// the same `height*TILE` shape re-derived for ground-anchored callers (shadow/halo/
+// decals pass a cell's `groundAt` instead of an entity's `z`). Hand-derived from
+// SCREEN_TILE_PX = 48 px/unit — not by echoing the implementation's own output back.
 import { describe, expect, it } from "vitest";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 
-describe("spriteLiftPx (flat projection)", () => {
-  it("a grounded entity on a z1 platform gets ZERO lift — it stands on its drawn tile", () => {
-    expect(spriteLiftPx(1, 1)).toBe(0);
+describe("spriteLiftPx (absolute z)", () => {
+  it("lifts a grounded entity by its full height above z=0 — standing on a z1 platform reads as one tile up, coinciding with the platform's own shifted cap", () => {
+    expect(spriteLiftPx(1)).toBe(48);
   });
 
-  it("a grounded entity on a z-1 pit floor gets zero lift too", () => {
-    expect(spriteLiftPx(-1, -1)).toBe(0);
-  });
-
-  it("stays zero at flat ground level", () => {
-    expect(spriteLiftPx(0, 0)).toBe(0);
+  it("stays zero at ground level", () => {
     expect(spriteLiftPx(0)).toBe(0);
   });
 
-  it("lifts by height ABOVE local ground only: jumping to z2.5 off a z1 platform is 1.5 tiles up", () => {
-    expect(spriteLiftPx(2.5, 1)).toBe(1.5 * 48);
+  it("scales linearly with z, whether or not the trailing (ignored) args are supplied", () => {
+    expect(spriteLiftPx(3)).toBe(3 * 48);
+    expect(spriteLiftPx(3, 1, true)).toBe(3 * 48);
+    expect(spriteLiftPx(3, 1, false)).toBe(3 * 48);
   });
 
-  it("falling into a pit (z between rim and floor) lifts by clearance above the pit floor", () => {
-    // z -0.4 while the ground below is the pit floor at -1: clearance 0.6 tiles.
-    expect(spriteLiftPx(-0.4, -1)).toBeCloseTo(0.6 * 48, 10);
+  it("pushes a below-zero entity (a pit/chasm floor) down on screen instead of clamping to zero — ruling 2, losing height moves you down-screen", () => {
+    expect(spriteLiftPx(-1)).toBe(-48);
   });
 
-  it("never lifts negative when z dips under the local ground during step-down transitions", () => {
-    expect(spriteLiftPx(0.9, 1)).toBe(0);
+  it("fractional z (mid-jump, or a stair-ramp center height) lifts proportionally", () => {
+    expect(spriteLiftPx(2.5)).toBe(2.5 * 48);
+    expect(spriteLiftPx(-0.5)).toBe(-0.5 * 48);
   });
 
-  it("accepts the legacy 3-arg call shape (torch visual) with identical semantics", () => {
-    expect(spriteLiftPx(2, 0.5, true)).toBe(1.5 * 48);
+  it("doubles as the GROUND-anchor shift when called with a cell's groundAt height instead of z (section 5): a shadow under an entity on a z-1 pit floor shifts DOWN one tile, same formula", () => {
+    expect(spriteLiftPx(-1)).toBe(-1 * 48);
   });
 });
 

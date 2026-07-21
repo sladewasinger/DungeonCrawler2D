@@ -56,6 +56,9 @@ export class LightingSystem {
       radiusTiles: PERSONAL_RADIUS_TILES,
       kind: "personal",
       seed: 0,
+      // GROUND-anchored (section 5): the halo sits on the shifted ground beneath the
+      // player, coinciding with their own absolute-z lift once grounded.
+      groundHeight: this.world.groundAt(personalX, personalY),
     };
     // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
     // viewed away from the player (gallery, spectate) must still keep its lights.
@@ -115,12 +118,15 @@ export class LightingSystem {
 
   private torchLight(p: TilePos): LightSource {
     const id = `torch:${p.wx},${p.wy}`;
-    return { id, x: p.wx + 0.5, y: p.wy + 1.1, color: TORCH_COLOR, radiusTiles: TORCH_RADIUS_TILES, kind: "torch", seed: hashSeed(id) };
+    // groundAt(tile) — section 5: a torch on a platform glows on the platform.
+    const groundHeight = this.world.groundAt(p.wx + 0.5, p.wy + 0.5);
+    return { id, x: p.wx + 0.5, y: p.wy + 1.1, color: TORCH_COLOR, radiusTiles: TORCH_RADIUS_TILES, kind: "torch", seed: hashSeed(id), groundHeight };
   }
 
   private doorLight(p: TilePos): LightSource {
     const id = `door:${p.wx},${p.wy}`;
-    return { id, x: p.wx + 0.5, y: p.wy + 0.5, color: PORTAL_COLOR, radiusTiles: PORTAL_RADIUS_TILES, kind: "portal", seed: hashSeed(id) };
+    const groundHeight = this.world.groundAt(p.wx + 0.5, p.wy + 0.5);
+    return { id, x: p.wx + 0.5, y: p.wy + 0.5, color: PORTAL_COLOR, radiusTiles: PORTAL_RADIUS_TILES, kind: "portal", seed: hashSeed(id), groundHeight };
   }
 
   dispose(): void {

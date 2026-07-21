@@ -13,6 +13,8 @@ export interface MeleeSwingSpawn {
   readonly id: string;
   readonly worldX: number;
   readonly worldY: number;
+  /** The wielder's absolute height — the wedge anchors at their lifted feet. */
+  readonly z: number;
   readonly angleRad: number;
   readonly depth: number;
 }
@@ -32,12 +34,12 @@ export function resolveMeleeSwings(players: readonly PlayerEntityView[], previou
 }
 
 function toSpawn(player: PlayerEntityView): MeleeSwingSpawn {
-  // Flat projection: the ground telegraph sits at the wielder's world row at every
-  // terrain height, exactly like the shadow — no lift term (lift.ts module doc).
+  // ELEVATION-PROJECTION section 5: ENTITY-anchored at the wielder's lifted feet.
   return {
     id: player.id,
     worldX: player.x,
     worldY: player.y,
+    z: player.z,
     angleRad: player.attackAngleRad,
     depth: depthForEntityNow(player.x, player.y) - WEDGE_DEPTH_BIAS,
   };

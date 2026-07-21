@@ -7,7 +7,7 @@
 // highlight's own screen position differs, since it lives in view/screen space.
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { getViewOrientation, viewTileToWorld } from "../../render/view/index.js";
+import { getViewOrientation, pickTallestFirst } from "../../render/view/index.js";
 import type { EditorStore } from "./editorStore.js";
 import { paintCell } from "./paintAction.js";
 import { inspectorText } from "./paintPanel/inspector.js";
@@ -21,17 +21,25 @@ interface HoveredCell {
 
 /** Screen (view-pixel) -> world tile at the CURRENT orientation, or null outside the
  * paintable grid. Pure aside from reading the live ViewOrientation, so a Phaser Pointer
- * is never required — any {worldX, worldY} pair works, easing unit testing. */
+ * is never required — any {worldX, worldY} pair works, easing unit testing.
+ *
+ * WAVE E3 (docs/ELEVATION-PROJECTION.md section 4): a raised cell's cap draws SHIFTED
+ * screen-up from its own view row, so the flat `viewTileToWorld({vx,vy})` this used to
+ * call would resolve to the wrong (flat-projected) cell wherever height is nonzero —
+ * literally a different world tile, one row off per unit of height. `pickTallestFirst`
+ * searches height candidates tallest-first and returns the cell that's ACTUALLY drawn
+ * at this screen slot. The returned `vx`/`vy` stay the raw floored screen slot
+ * unchanged (not the resolved cell's own unshifted home row) — that slot IS the
+ * resolved cell's shifted position by construction (its home row minus its own height
+ * equals back this slot), so `updatePreview` below already draws the highlight exactly
+ * on the drawn cap with no separate shift math needed. */
 export function hoveredCellAt(store: EditorStore, worldX: number, worldY: number): HoveredCell | null {
   const orientation = getViewOrientation();
   const vx = Math.floor(worldX / SCREEN_TILE_PX);
   const vy = Math.floor(worldY / SCREEN_TILE_PX);
-  // Tile-index mapping (floored cell -> world cell), which agrees with flooring the
-  // continuous transform of the raw pointer — the view cell you hover IS the world
-  // cell you paint, matching where the terrain grid actually draws it.
-  const world = viewTileToWorld({ x: vx, y: vy }, orientation);
-  if (!store.world.inGrid(world.x, world.y)) return null;
-  return { vx, vy, wx: world.x, wy: world.y };
+  const pick = pickTallestFirst(vx, vy, orientation, (wx, wy) => store.world.heightAt(wx, wy));
+  if (!store.world.inGrid(pick.wx, pick.wy)) return null;
+  return { vx, vy, wx: pick.wx, wy: pick.wy };
 }
 
 export interface RenderPanelPointerHooks {

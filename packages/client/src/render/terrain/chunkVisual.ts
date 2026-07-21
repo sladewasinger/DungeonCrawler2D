@@ -7,9 +7,10 @@ import { CHUNK_SIZE } from "@dc2d/engine";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { BASE_TERRAIN_DEPTH, depthForOccluder } from "../entities/depthSort.js";
+import { BASE_TERRAIN_DEPTH, depthForCapOccluder, depthForOccluder } from "../entities/depthSort.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import { drawTile, type OccluderFor } from "./drawTile.js";
+import type { CapOccluderFor } from "./occluderBand.js";
 import { buildStructureMap, drawDoor } from "./structures.js";
 import { computeLightField, type DynamicLightSeed } from "./tileLight.js";
 import { viewChunkWorldOrigin, viewWorld } from "./viewWorld.js";
@@ -46,6 +47,35 @@ function makeOccluderFor(scene: Phaser.Scene, rows: Map<number, OccluderRow>): O
       rows.set(wy, row);
     }
     row.overhangTiles = Math.max(row.overhangTiles, overhangTiles);
+    return row.container;
+  };
+}
+
+/**
+ * A cell's shifted CAP strip, keyed to its OWN raw row `vy` (never a foot row —
+ * a cap's own row is itself walkable ground, unlike a face band's wall cell).
+ * Overhangs grow independently: a positive height only ever bleeds up, a
+ * negative one only ever bleeds down.
+ */
+interface CapRow {
+  readonly container: Phaser.GameObjects.Container;
+  overhangAbove: number;
+  overhangBelow: number;
+}
+
+/** Builds the capOccluderFor accessor (docs/ELEVATION-PROJECTION.md section 2):
+ * a SEPARATE row-map from the face-band `rows` above — a cap's depth formula
+ * differs from a band's (see bakeCapRows), so sharing one map would conflate
+ * two different depth intents under the same row key. */
+function makeCapOccluderFor(scene: Phaser.Scene, rows: Map<number, CapRow>): CapOccluderFor {
+  return (vy: number, overhangAbove = 0, overhangBelow = 0): Phaser.GameObjects.Container => {
+    let row = rows.get(vy);
+    if (!row) {
+      row = { container: scene.add.container(0, 0), overhangAbove: 0, overhangBelow: 0 };
+      rows.set(vy, row);
+    }
+    row.overhangAbove = Math.max(row.overhangAbove, overhangAbove);
+    row.overhangBelow = Math.max(row.overhangBelow, overhangBelow);
     return row.container;
   };
 }
@@ -93,6 +123,8 @@ export function buildChunkVisual(
   const below = scene.add.container(0, 0);
   const rows = new Map<number, OccluderRow>();
   const occluderFor = makeOccluderFor(scene, rows);
+  const capRows = new Map<number, CapRow>();
+  const capOccluderFor = makeCapOccluderFor(scene, capRows);
   const vw = viewWorld(world, orientation);
   const baseVX = cx * CHUNK_SIZE;
   const baseVY = cy * CHUNK_SIZE;
@@ -110,14 +142,15 @@ export function buildChunkVisual(
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const vy = baseVY + ly;
-      drawTile(scene, vw, baseVX + lx, vy, below, occluderFor, structures, light);
+      drawTile(scene, vw, baseVX + lx, vy, below, occluderFor, capOccluderFor, structures, light);
     }
   }
   for (const door of structures.doors) drawDoor(scene, occluderFor(door.wy), door);
 
   const originX = baseVX * SCREEN_TILE_PX;
   const bakedBelow = bake(scene, below, originX, baseVY * SCREEN_TILE_PX, CHUNK_PX, CHUNK_PX, BASE_TERRAIN_DEPTH);
-  return { cx, cy, below: bakedBelow, occluders: bakeRows(scene, rows, originX) };
+  const occluders = [...bakeRows(scene, rows, originX), ...bakeCapRows(scene, capRows, originX)];
+  return { cx, cy, below: bakedBelow, occluders };
 }
 
 /** Bakes each non-empty occluder row into a strip RT exactly tall enough for its own content. */
@@ -135,6 +168,35 @@ function bakeRows(
     const stripTop = (wy - row.overhangTiles) * SCREEN_TILE_PX;
     const stripHeight = (row.overhangTiles + 1) * SCREEN_TILE_PX;
     baked.push(bake(scene, row.container, originX, stripTop, CHUNK_PX, stripHeight, depthForOccluder(wy + 1)));
+  }
+  return baked;
+}
+
+/**
+ * Bakes each non-empty CAP strip. Depth uses depthForCapOccluder(vy), NOT a
+ * band's foot-row depthForOccluder formula: a cap's own row `vy` is walkable —
+ * an entity standing anywhere on it (feetWorldY >= vy) must draw IN FRONT of
+ * its own cap, while an entity at ANY fractional feet position strictly north
+ * (feetWorldY < vy) must be occluded BY it. The previous
+ * depthForOccluder(vy - 1) key only cleared feet at exactly vy - 1 (the row
+ * boundary), so a body standing MID-row north of a raised south neighbor drew
+ * over the cap that should hide its feet — the cliff-drop occlusion of
+ * docs/ELEVATION-PROJECTION.md acceptance shot 1 never happened.
+ */
+function bakeCapRows(
+  scene: Phaser.Scene,
+  rows: ReadonlyMap<number, CapRow>,
+  originX: number,
+): Phaser.GameObjects.RenderTexture[] {
+  const baked: Phaser.GameObjects.RenderTexture[] = [];
+  for (const [vy, row] of rows) {
+    if (row.container.list.length === 0) {
+      row.container.destroy(true);
+      continue;
+    }
+    const stripTop = (vy - row.overhangAbove) * SCREEN_TILE_PX;
+    const stripHeight = (row.overhangAbove + 1 + row.overhangBelow) * SCREEN_TILE_PX;
+    baked.push(bake(scene, row.container, originX, stripTop, CHUNK_PX, stripHeight, depthForCapOccluder(vy)));
   }
   return baked;
 }

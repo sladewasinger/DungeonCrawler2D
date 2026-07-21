@@ -7,7 +7,7 @@ import { launchTorch, stepTorch } from "./torch.js";
 
 /** Flat, fully open ground — every tile walkable, height 0. */
 function flatWorld(): WorldView {
-  return { isWalkable: () => true, heightAt: () => 0, groundAt: () => 0 };
+  return { isWalkable: () => true, heightAt: () => 0, groundAt: () => 0, stairHeightAt: () => null };
 }
 
 /** A solid (furniture) tile at (3, 0): blocks a flight path aimed east. */
@@ -16,6 +16,7 @@ function wallAt3World(): WorldView {
     isWalkable: (x, y) => !(x === 3 && y === 0),
     heightAt: () => 0,
     groundAt: () => 0,
+    stairHeightAt: () => null,
   };
 }
 

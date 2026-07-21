@@ -24,6 +24,7 @@ function corridorWorld(axis: "x" | "y", wallAt: number, gapAt: number): WorldVie
     },
     heightAt: () => 0,
     groundAt: () => 0,
+    stairHeightAt: () => null,
   };
 }
 
@@ -73,7 +74,12 @@ describe("corner-slide assist (1-tile corridor entry)", () => {
 
   it("never enters the wall/void it wasn't already allowed into (assist stays a legal move)", () => {
     // A dead end: no gap anywhere nearby, so no offset should ever unblock it.
-    const world: WorldView = { isWalkable: (tx) => tx !== WALL_AT, heightAt: () => 0, groundAt: () => 0 };
+    const world: WorldView = {
+      isWalkable: (tx) => tx !== WALL_AT,
+      heightAt: () => 0,
+      groundAt: () => 0,
+      stairHeightAt: () => null,
+    };
     const body = createBody(5.5, GAP_CENTER, 0);
     for (let i = 0; i < 60; i++) stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
     expect(body.x).toBeLessThan(WALL_AT);

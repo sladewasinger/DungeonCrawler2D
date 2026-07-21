@@ -13,7 +13,7 @@ import type Phaser from "phaser";
 import { ATTACK_COOLDOWN_MS } from "@dc2d/engine";
 import { screenDirToWorld } from "./cameraRelative.js";
 import { activateHotbar, throwPreview } from "./hotbar.js";
-import { getViewOrientation, viewToWorld } from "../render/view/index.js";
+import { getViewOrientation, pickTallestFirst, viewToWorld } from "../render/view/index.js";
 import type { InputConnection, InputHooks, InputHud, InputQueries, InputState } from "./state.js";
 import { equippedIsThrowable, equippedStackQty, throwDirToward } from "./throwEquipped.js";
 import { beginStick, isInLowerLeftQuadrant, moveStick, endStick, pressButton, releaseAllForPointer } from "./touch/index.js";
@@ -41,11 +41,29 @@ export interface WorldPointCamera {
  * throw direction, the armed-throwable target) gets a genuine world-space point with no
  * per-call-site change needed. At orientation 0, viewToWorld is the identity, so this is
  * byte-identical to the pre-rotation behavior this function's own tests already lock.
+ *
+ * WAVE E3 (docs/ELEVATION-PROJECTION.md section 4): when `heightAt` is supplied, the
+ * screen point is first resolved tallest-first (`pickTallestFirst`) so aiming at a
+ * raised cap's SHIFTED screen position (a jump-attack target, an armed torch's throw
+ * spot) lands on the platform actually drawn there, not the flat cell a naive mapping
+ * would guess. Only the integer view-tile part feeds the search; the picked height then
+ * shifts the CONTINUOUS view point before the final `viewToWorld`, preserving the
+ * sub-tile precision aim direction needs. Omitting `heightAt` (or the flat h=0 fallback)
+ * is byte-identical to the pre-E3 behavior this function's own tests already lock.
  */
-export function cursorWorldTile(camera: WorldPointCamera, pointer: { x: number; y: number }, tilePx: number): { x: number; y: number } {
+export function cursorWorldTile(
+  camera: WorldPointCamera,
+  pointer: { x: number; y: number },
+  tilePx: number,
+  heightAt?: (wx: number, wy: number) => number,
+): { x: number; y: number } {
   const world = camera.getWorldPoint(pointer.x, pointer.y);
   const viewTile = { x: world.x / tilePx, y: world.y / tilePx };
-  return viewToWorld(viewTile, getViewOrientation());
+  const orientation = getViewOrientation();
+  if (!heightAt) return viewToWorld(viewTile, orientation);
+  const pick = pickTallestFirst(Math.floor(viewTile.x), Math.floor(viewTile.y), orientation, heightAt);
+  if (pick.height === 0) return viewToWorld(viewTile, orientation);
+  return viewToWorld({ x: viewTile.x, y: viewTile.y + pick.height }, orientation);
 }
 
 export interface PointerDeps {
@@ -109,7 +127,7 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
     return; // no mouse-aim swing/throw fallback in touch mode — the ATTACK button owns it
   }
 
-  const cursorWorld = cursorWorldTile(camera, pointer, tilePx);
+  const cursorWorld = cursorWorldTile(camera, pointer, tilePx, conn.heightAt);
 
   // A torch (or any throwable) equipped as the weapon shows in-hand and click always
   // throws it — this takes priority over both the melee swing and the hotbar's

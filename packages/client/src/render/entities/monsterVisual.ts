@@ -34,9 +34,9 @@ export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): 
 /** Body pose: position, depth, animation, telegraph pulse, status/hit tint. */
 function updateMonsterBody(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, heightAboveGround: number): void {
   const screen = worldToScreen(view.x, view.y);
-  // Flat projection: grounded entities sit AT their world row like the terrain does;
-  // only height above the local ground (jump/fall) lifts the sprite — see lift.ts.
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(heightAboveGround));
+  // ELEVATION-PROJECTION section 3: absolute-z lift — see lift.ts's module doc and
+  // playerVisual.ts's matching comment.
+  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
@@ -70,20 +70,22 @@ function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<t
 }
 
 /** Shadow, hp bar, nameplate — everything that hangs off the body's screen position.
- * Under flat projection the ground screen point IS the drawn floor at every terrain
- * height — the shadow sits there always; see playerVisual.ts's chrome doc. */
+ * Shadow is GROUND-anchored to the SHIFTED ground point; see playerVisual.ts's
+ * matching chrome doc for the full rationale. */
 function updateMonsterChrome(
   visual: MonsterVisual,
   view: MonsterEntityView,
   ctx: RenderContext,
   heightAboveGround: number,
+  groundHeight: number,
 ): void {
   const ground = worldToScreen(view.x, view.y);
+  const shiftedGroundY = ground.y - spriteLiftPx(groundHeight);
   const bodyDepth = visual.body.depth;
   visual.shadow.setDepth(bodyDepth - 0.2);
   visual.hpBar.container.setDepth(bodyDepth + 0.2);
   visual.nameplate.setDepth(bodyDepth + 0.2);
-  updateShadowPosition(visual.shadow, ground.x, ground.y, heightAboveGround);
+  updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
   const headY = visual.body.y - visual.body.displayHeight;
   updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
@@ -96,6 +98,6 @@ export function updateMonsterVisual(visual: MonsterVisual, view: MonsterEntityVi
   const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
   visual.lastFx = view.fx;
   updateMonsterBody(visual, view, ctx, heightAboveGround);
-  updateMonsterChrome(visual, view, ctx, heightAboveGround);
+  updateMonsterChrome(visual, view, ctx, heightAboveGround, groundHeight);
   visual.lastHp = view.hp;
 }

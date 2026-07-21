@@ -74,6 +74,7 @@ function flatWorld(opts: {
     heightAt: (x, y) => opts.heightFn?.(x, y) ?? 0,
     groundAt: (x, y) => opts.heightFn?.(Math.floor(x), Math.floor(y)) ?? 0,
     isSanctuary: (x, y) => opts.sanctuary?.(x, y) ?? false,
+    stairHeightAt: () => null,
   };
 }
 

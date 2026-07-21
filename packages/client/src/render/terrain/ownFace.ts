@@ -74,29 +74,3 @@ export function ownFaceRowAt(world: TerrainRead, wx: number, wy: number): OwnFac
   return null;
 }
 
-/** The atlas piece a face row's own tile draws, plus which side(s) still need the thin closure line. */
-export interface FaceRunPiece {
-  readonly frame: "wall_left" | "wall_mid" | "wall_right";
-  readonly closeWest: boolean;
-  readonly closeEast: boolean;
-}
-
-/**
- * Pure run-piece choice from per-side connectivity. A run END picks the
- * wall_left/wall_right frame whose built-in mortar border closes that side; an
- * isolated column (neither side connects) also closes both with the thin lines.
- */
-export function faceRunPiece(westConnects: boolean, eastConnects: boolean): FaceRunPiece {
-  const frame = !westConnects ? "wall_left" : !eastConnects ? "wall_right" : "wall_mid";
-  return { frame, closeWest: !westConnects, closeEast: !eastConnects };
-}
-
-/**
- * Run-aware brick piece for a RAISED face cell. A neighbor counts as connected
- * only when it is ALSO a face row at this exact row — a neighbor at the same
- * height whose own drop lands a row further south (a ramp delaying it) renders
- * non-brick art here, so the run still needs its border against it.
- */
-export function faceRunPieceAt(world: TerrainRead, wx: number, wy: number): FaceRunPiece {
-  return faceRunPiece(ownFaceRowAt(world, wx - 1, wy) !== null, ownFaceRowAt(world, wx + 1, wy) !== null);
-}

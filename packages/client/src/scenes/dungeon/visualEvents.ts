@@ -43,7 +43,8 @@ function applyHit(
   const { pos, defId, dir } = resolveTarget(conn, render, isSelf, event.id);
   if (pos) {
     vfx.spawnDamageNumber(pos.x, pos.y - 0.6, event.amount, nowMs);
-    vfx.spawnBloodHit(pos.x, pos.y, defId, nowMs, dir?.x, dir?.y);
+    const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
+    vfx.spawnBloodHit(pos.x, pos.y, groundHeight, defId, nowMs, dir?.x, dir?.y);
   }
   if (isSelf) vfx.onOwnHit(nowMs);
 }
@@ -62,9 +63,10 @@ function applyDeath(
   const isSelf = event.id === selfId;
   const { pos, defId, kind } = resolveTarget(conn, render, isSelf, event.id);
   if (!pos) return;
-  vfx.spawnBloodDeath(pos.x, pos.y, defId, nowMs);
+  const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
+  vfx.spawnBloodDeath(pos.x, pos.y, groundHeight, defId, nowMs);
   if (isSelf) vfx.onOwnDeath(nowMs);
-  else if (kind === "enemy") vfx.spawnKillMoment(pos.x, pos.y, defId, nowMs);
+  else if (kind === "enemy") vfx.spawnKillMoment(pos.x, pos.y, groundHeight, defId, nowMs);
 }
 
 /** Flourishes both sides of a just-sealed fistbump: our own pose plus whichever

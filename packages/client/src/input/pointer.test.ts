@@ -34,4 +34,24 @@ describe("cursorWorldTile", () => {
     };
     expect(cursorWorldTile(camera, pointerWithMisleadingWorldFields, 32)).toEqual({ x: 2, y: 3 });
   });
+
+  // WAVE E3 (docs/ELEVATION-PROJECTION.md section 4): omitting heightAt (or supplying
+  // one that reports flat ground everywhere) must stay byte-identical to the pre-E3
+  // behavior above — these use the same camera/tilePx as the first test.
+  describe("with a heightAt callback", () => {
+    const camera = { getWorldPoint: (x: number, y: number) => ({ x: x * 2, y: y * 2 }) };
+
+    it("is byte-identical to the no-callback case when every cell reports height 0", () => {
+      expect(cursorWorldTile(camera, { x: 100, y: 50 }, 32, () => 0)).toEqual({ x: 6.25, y: 3.125 });
+    });
+
+    it("shifts the aim point onto a taller cap 2 tiles south of the raw view tile (orientation 0)", () => {
+      // Raw view tile = floor(6.25, 3.125) = (6, 3). At orientation 0 the tallest-first
+      // search's candidate for h is world (6, 3+h) — set height 2 at world (6,5) so the
+      // h=2 probe accepts, shifting the continuous view point's y by +2 before viewToWorld
+      // (the identity at orientation 0), preserving the .25 sub-tile fraction on x.
+      const heightAt = (wx: number, wy: number) => (wx === 6 && wy === 5 ? 2 : 0);
+      expect(cursorWorldTile(camera, { x: 100, y: 50 }, 32, heightAt)).toEqual({ x: 6.25, y: 5.125 });
+    });
+  });
 });

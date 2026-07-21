@@ -1,8 +1,11 @@
 // Headless test for the shadow's height-scaling curve (Phaser glue itself needs a live
-// scene, so only the pure math is unit-tested here). Under flat projection the shadow
-// has NO lift math at all — it sits at the ground-plane screen point at every terrain
-// height (shadow.ts module doc); position is Phaser glue, covered by lift.test.ts's
-// sprite-side invariants sharing the same convention.
+// scene, so only the pure math is unit-tested here). Under the ELEVATION-PROJECTION
+// contract the shadow's POSITION math is just "place it at whatever shifted ground
+// point the caller computes" (shadow.ts module doc) — the caller does the
+// `groundAt*TILE` shift via lift.ts's spriteLiftPx, covered by lift.test.ts's
+// ground-anchor case; this file only owns the height-scale curve, unaffected by the
+// absolute-z revert since it always took `heightAboveGround` (airborne clearance), not
+// raw z.
 import { describe, expect, it } from "vitest";
 import { shadowScaleForHeight } from "./shadow.js";
 

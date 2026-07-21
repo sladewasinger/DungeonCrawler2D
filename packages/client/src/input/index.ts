@@ -244,7 +244,7 @@ export class InputController {
   /** Current armed-throw trajectory preview, for the scene to render, or null. */
   throwPreview(): ThrowPreview | null {
     const pointer = this.scene.input.activePointer;
-    const cursorWorld = cursorWorldTile(this.scene.cameras.main, pointer, this.tilePx);
+    const cursorWorld = cursorWorldTile(this.scene.cameras.main, pointer, this.tilePx, this.conn.heightAt);
     return resolveThrowPreview(this.state, this.conn, this.queries, cursorWorld);
   }
 

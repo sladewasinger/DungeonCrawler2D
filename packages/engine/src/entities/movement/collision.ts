@@ -7,6 +7,7 @@ import {
   type MoveInput,
   type StepOpts,
 } from "./state.js";
+import { stairGateBlocks } from "./stairGate.js";
 
 /**
  * Horizontal step + tile collision: analog-magnitude direction scaling,
@@ -57,32 +58,29 @@ function leadingCorners(
       ];
 }
 
-// Continuous ground: stair tiles ramp with position. The grounded gate
-// compares the corner's target terrain against the body's OWN current z —
-// how far it must rise to stand there — not against groundAt some nearby
-// "before" point. That nearby-point version used to reconstruct the
-// pre-move corner as (cx - dx, cy - dy), but BODY_RADIUS pushes a
-// diagonal leading corner across two tile boundaries (the direction of
-// travel AND the perpendicular one) at once: for a lone raised corner
-// tile that is diagonally adjacent to the body's start position, both
-// the target corner and its "before" point can land on that SAME
-// too-tall tile, netting a false zero rise and letting a grounded body
-// walk straight up a cliff it was only ever diagonally brushing. Body.z
-// has no such blind spot, and stays safe for real ramps too: current
-// content's steepest ramp (rise 2 over STAIR_RUN_LENGTH 2.5) only rises
-// ~(BODY_RADIUS + one tick's travel) * slope ahead of the body each
-// step, well under STEP_UP.
+// Continuous ground: the grounded gate compares the corner's target terrain
+// against the body's OWN current z (how far it must rise), not some nearby
+// "before" point — BODY_RADIUS can push a diagonal corner across two tile
+// boundaries at once, and a reconstructed "before" point can land on the
+// SAME too-tall tile as the target, netting a false zero rise. A compact
+// stair (docs/R2-STAIRS-SPEC.md) rises 0.4-0.6 z/tick at walk/run, well over
+// STEP_UP, so it can never pass this ordinary gate — stairGateBlocks above
+// is the stair-specific replacement, gated on separately below.
 function cornerBlocksMove(
   world: WorldView,
   body: BodyState,
   cx: number,
   cy: number,
+  dx: number,
+  dy: number,
   blocked?: StepOpts["blocked"],
 ): boolean {
   const tileX = Math.floor(cx);
   const tileY = Math.floor(cy);
   if (!world.isWalkable(tileX, tileY)) return true;
   if (blocked?.(tileX, tileY)) return true;
+  const onStair = world.stairHeightAt(body.x, body.y) !== null || world.stairHeightAt(cx, cy) !== null;
+  if (body.grounded && onStair) return stairGateBlocks(world, body, cx, cy, dx, dy);
   const terrain = world.groundAt(cx, cy);
   if (body.grounded) return terrain - body.z > STEP_UP;
   return terrain > body.z + AIRBORNE_LEDGE_CLEARANCE;
@@ -100,7 +98,7 @@ function canMoveAxis(
   const nx = body.x + dx;
   const ny = body.y + dy;
   for (const [cx, cy] of leadingCorners(body, dx, dy, nx, ny)) {
-    if (cornerBlocksMove(world, body, cx, cy, blocked)) return false;
+    if (cornerBlocksMove(world, body, cx, cy, dx, dy, blocked)) return false;
   }
   return true;
 }

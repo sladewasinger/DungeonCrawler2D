@@ -4,20 +4,12 @@
 import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { TerrainRead } from "./faces.js";
-import { faceRunPieceAt, MAX_FACE_ROWS, ownFaceRowAt } from "./ownFace.js";
+import { MAX_FACE_ROWS, ownFaceRowAt } from "./ownFace.js";
 
 function terrain(heightsByRow: Record<number, number>, walls: ReadonlySet<number> = new Set()): TerrainRead {
   return {
     heightAt: (_x, y) => heightsByRow[y] ?? 0,
     tileAt: (_x, y): TileType => (walls.has(y) ? TILE.Wall : TILE.Floor),
-  };
-}
-
-/** 2D terrain fixture, needed once a test cares about horizontal (x) neighbors, not just south drop. */
-function terrain2D(heights: Record<string, number>): TerrainRead {
-  return {
-    heightAt: (x, y) => heights[`${x},${y}`] ?? 0,
-    tileAt: (): TileType => TILE.Floor,
   };
 }
 
@@ -76,39 +68,5 @@ describe("ownFaceRowAt", () => {
   it("flat base-plane ground beside a pit stays faceless — the wall renders inside the hole", () => {
     const world = terrain({ 4: 0, 5: -1 });
     expect(ownFaceRowAt(world, 0, 4)).toBeNull();
-  });
-});
-
-describe("faceRunPieceAt", () => {
-  it("picks wall_mid for the interior of a run and endcaps its two ends", () => {
-    // A 3-wide face row: (4,0) west end, (5,0) middle, (6,0) east end.
-    const world = terrain2D({ "4,0": 1, "5,0": 1, "6,0": 1, "4,1": 0, "5,1": 0, "6,1": 0 });
-    expect(faceRunPieceAt(world, 4, 0)).toEqual({ frame: "wall_left", closeWest: true, closeEast: false });
-    expect(faceRunPieceAt(world, 5, 0)).toEqual({ frame: "wall_mid", closeWest: false, closeEast: false });
-    expect(faceRunPieceAt(world, 6, 0)).toEqual({ frame: "wall_right", closeWest: false, closeEast: true });
-  });
-
-  it("closes BOTH sides of an isolated one-wide face column instead of defaulting to wall_mid", () => {
-    // Regression: neither neighbor is a face at this row, so the old `!west && east` /
-    // `west && !east` chain fell through to wall_mid — seamless brick tiling with no
-    // border on either genuinely-open side.
-    const world = terrain2D({ "5,0": 1, "5,1": 0 });
-    expect(faceRunPieceAt(world, 5, 0)).toEqual({ frame: "wall_left", closeWest: true, closeEast: true });
-  });
-
-  it("still closes a side whose neighbor shares this cell's height but faces one row further south (a ramp delay)", () => {
-    // (4,0) is the SAME wall mass as the target and even the same height, but its own
-    // south drop doesn't land until row 1 — at row 0 it renders non-brick contour art,
-    // so the target still needs its west border, same as it would against open air.
-    const world = terrain2D({
-      "5,0": 1,
-      "5,1": 0,
-      "4,0": 1,
-      "4,1": 1,
-      "4,2": 0,
-      "6,0": 1,
-      "6,1": 0,
-    });
-    expect(faceRunPieceAt(world, 5, 0)).toEqual({ frame: "wall_left", closeWest: true, closeEast: false });
   });
 });

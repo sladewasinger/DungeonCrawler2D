@@ -10,7 +10,12 @@ import { CORNER_SLIDE_WINDOW, createBody, stepBody } from "./movement/index.js";
  * keyboard's existing -1/0/1 axes feel byte-identical to before.
  */
 
-const OPEN_WORLD: WorldView = { isWalkable: () => true, heightAt: () => 0, groundAt: () => 0 };
+const OPEN_WORLD: WorldView = {
+  isWalkable: () => true,
+  heightAt: () => 0,
+  groundAt: () => 0,
+  stairHeightAt: () => null,
+};
 
 function walk(moveX: number, moveY: number, ticks: number): { x: number; y: number } {
   const body = createBody(5.5, 5.5, 0);
@@ -68,6 +73,7 @@ describe("analog movement magnitude", () => {
       isWalkable: (tx, ty) => tx !== WALL_AT || ty === GAP_AT,
       heightAt: () => 0,
       groundAt: () => 0,
+      stairHeightAt: () => null,
     };
     const offset = CORNER_SLIDE_WINDOW - 0.05;
     const body = createBody(5.5, GAP_CENTER + offset, 0);

@@ -3,9 +3,9 @@
 // split) continue southward into the pit cells. A 0 -> -1 edge keeps the flat
 // ground flat and draws one brick row inside the pit's northmost cell; a
 // 1 -> -1 edge draws one row on the z1 tile and one more continuing down.
-import { TILE, WALL_FACE_MIN_DROP } from "@dc2d/engine";
+import { WALL_FACE_MIN_DROP } from "@dc2d/engine";
 import type { TerrainRead } from "./faces.js";
-import { faceRunPiece, faceSplit, MAX_FACE_ROWS, type FaceRunPiece } from "./ownFace.js";
+import { faceSplit, MAX_FACE_ROWS } from "./ownFace.js";
 
 export interface PitFaceRow {
   /** 1 = the wall's top row overall, continuing the numbering from any rows on the raised side. */
@@ -41,27 +41,4 @@ export function pitFaceRowAt(world: TerrainRead, wx: number, wy: number): PitFac
     if (Math.abs(northHeight - floorHeight) > 0.01) return null;
   }
   return null;
-}
-
-/**
- * Run-aware brick piece for a pit face cell — same shapes and closure rules
- * as raised runs, EXCEPT a side closure (the thin `wall_edge_mid_*` mortar
- * line) only draws when that side's non-connecting neighbor is a real WALL.
- * Where it's open ground instead, the surrounding ground tile's own
- * topEdgesAt already draws that exact seam from its side (its `east`/`west`
- * flag) — drawing it again here would double the rim's outline
- * (VISUAL_DIRECTION.md: "pit rims carry ONE outline"). A wall neighbor never
- * runs topEdgesAt (drawWallTile owns wall cells, not drawGroundTile), so
- * there the closure here is the ONLY line and must stay.
- */
-export function pitRunPieceAt(world: TerrainRead, wx: number, wy: number): FaceRunPiece {
-  const piece = faceRunPiece(
-    pitFaceRowAt(world, wx - 1, wy) !== null,
-    pitFaceRowAt(world, wx + 1, wy) !== null,
-  );
-  return {
-    frame: piece.frame,
-    closeWest: piece.closeWest && world.tileAt(wx - 1, wy) === TILE.Wall,
-    closeEast: piece.closeEast && world.tileAt(wx + 1, wy) === TILE.Wall,
-  };
 }

@@ -1,4 +1,4 @@
-// Phaser glue for a thrown torch: while flying it arcs with the usual airborne z-lift
+// Phaser glue for a thrown torch: while flying it arcs with the usual absolute z-lift
 // (lift.ts, the same convention every jumping/falling entity uses) and points along its
 // velocity like a projectile; the instant it lands the body sprite hides — a placed
 // torch's visual identity is the flame particle + halo (render/lighting), exactly like
@@ -21,7 +21,8 @@ export function updateTorchVisual(visual: TorchVisual, view: TorchEntityView, ct
   if (visual.body.frame.name !== view.frame) visual.body.setFrame(view.frame);
   const screen = worldToScreen(view.x, view.y);
   const groundHeight = ctx.world.groundAt(view.x, view.y);
-  const liftPx = flying ? spriteLiftPx(view.z, groundHeight, view.air) : 0;
+  // ELEVATION-PROJECTION section 3: absolute-z lift, same as every other entity.
+  const liftPx = flying ? spriteLiftPx(view.z) : 0;
   visual.body.setPosition(screen.x, screen.y - liftPx);
   visual.body.setDepth(depthForEntityNow(view.x, view.y, flying ? Math.max(0, view.z - groundHeight) : 0));
   visual.body.setAngle(flying ? velocityAngleDegrees(view.vx, view.vy) : 0);

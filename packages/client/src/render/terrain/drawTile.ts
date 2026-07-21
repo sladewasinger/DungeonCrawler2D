@@ -5,6 +5,14 @@
 // Art comes from the debug tileset + autotile.ts's bitmask solve (debugArt.ts) —
 // borders draw from 2D map-space material adjacency, never per-row, so a face row
 // and a plain wall cell at the same (x, y) always agree on where the border is.
+//
+// docs/ELEVATION-PROJECTION.md's whole-scene shift (section 1): a face row no
+// longer REPLACES its cell's rendering — a WALKABLE (non-Wall) face cell always
+// ALSO draws its normal shifted ground/cap (drawGroundTile), then this module
+// overlays the raw, unshifted brick BAND on top, filling the rows the cap's
+// shift vacated. A face cell that IS solid Wall terrain keeps exactly today's
+// behavior (raw band only, no separate cap) — it's never walkable, so there is
+// no "surface an entity stands on" to shift; see docs/ASSUMPTIONS.md row 305.
 import { TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { pickFloorFrame, pickWallFrame, wallAutotileAt } from "./debugArt.js";
@@ -12,9 +20,14 @@ import { placeDebugTile, placeWallCornerDots } from "./debugSprite.js";
 import { drawGroundTile } from "./drawGroundTile.js";
 import { drawWallTile } from "./drawWallTile.js";
 import { faceRowShade, heightTint, multiplyTint, WALL_FILL_COLOR } from "./heightShade.js";
-import { bakesIntoStaticBase, stripOverhangTiles } from "./occluderBand.js";
+import {
+  bakesIntoStaticBase,
+  stripOverhangTiles,
+  surfaceContainerFor,
+  type CapOccluderFor,
+} from "./occluderBand.js";
 import { ownFaceRowAt, type OwnFaceRow } from "./ownFace.js";
-import { placeFillRect } from "./placeSprite.js";
+import { placeFillRect, surfaceLiftPx } from "./placeSprite.js";
 import { tileKey, type StructureMap } from "./structures.js";
 import type { LightField } from "./tileLight.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
@@ -56,6 +69,37 @@ function drawFaceCell(
   const { mask4, corners } = wallAutotileAt(world, wx, wy);
   placeDebugTile(scene, container, wx, wy, pickWallFrame(mask4), { tint });
   placeWallCornerDots(scene, container, wx, wy, corners);
+  // No white cliff edges here (docs/ROADMAP.md "OUTLINE SCOPE CORRECTION", user
+  // ruling 2026-07-20): a face band is wall-material body, and wall bodies keep
+  // the black autotile border only. A WALKABLE face cell's white perimeter rides
+  // its SHIFTED cap instead — drawGroundTile's drawTopEdges, which the dispatch
+  // below always runs for non-Wall cells before overlaying this band.
+}
+
+function drawSuppressedTile(
+  scene: Phaser.Scene,
+  world: ViewTerrainWorld,
+  wx: number,
+  wy: number,
+  below: Phaser.GameObjects.Container,
+  capOccluderFor: CapOccluderFor,
+  lightTint: number,
+): void {
+  // The portal cell keeps floor under transparent door pixels; suppressed wall
+  // cells above keep only quiet mass fill — the assembly draws over both. Both
+  // still shift with their own height, same as any other cap (a door can sit on
+  // a raised terrace — structures.ts's own module doc).
+  const height = world.heightAt(wx, wy);
+  const liftPx = surfaceLiftPx(height);
+  const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+  if (world.tileAt(wx, wy) === TILE.Wall) {
+    placeFillRect(scene, container, wx, wy, WALL_FILL_COLOR, liftPx);
+  } else {
+    placeDebugTile(scene, container, wx, wy, pickFloorFrame(), {
+      tint: multiplyTint(heightTint(height), lightTint),
+      liftPx,
+    });
+  }
 }
 
 export function drawTile(
@@ -65,31 +109,30 @@ export function drawTile(
   wy: number,
   below: Phaser.GameObjects.Container,
   occluderFor: OccluderFor,
+  capOccluderFor: CapOccluderFor,
   structures: StructureMap,
   light: LightField,
 ): void {
   const real = world.toReal(wx, wy);
   const lightTint = light.tintAt(real.x, real.y);
   if (structures.suppressed.has(tileKey(wx, wy))) {
-    // The portal cell keeps floor under transparent door pixels; suppressed wall
-    // cells above keep only quiet mass fill — the assembly draws over both.
-    if (world.tileAt(wx, wy) === TILE.Wall) {
-      placeFillRect(scene, occluderFor(wy), wx, wy, WALL_FILL_COLOR);
-    } else {
-      placeDebugTile(scene, below, wx, wy, pickFloorFrame(), {
-        tint: multiplyTint(heightTint(world.heightAt(wx, wy)), lightTint),
-      });
-    }
+    drawSuppressedTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
     return;
   }
   const face = ownFaceRowAt(world, wx, wy);
-  if (face !== null) {
-    drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
-    return;
-  }
   if (world.tileAt(wx, wy) === TILE.Wall) {
-    drawWallTile(scene, world, wx, wy, occluderFor(wy), lightTint);
+    if (face !== null) {
+      drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
+    } else {
+      const height = world.heightAt(wx, wy);
+      const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+      drawWallTile(scene, world, wx, wy, container, lightTint, surfaceLiftPx(height));
+    }
     return;
   }
-  drawGroundTile(scene, world, wx, wy, below, lightTint);
+  // Walkable ground ALWAYS draws its shifted cap; a raised platform whose south
+  // edge also drops (face !== null) additionally overlays the raw band on top —
+  // the rows the cap's shift vacated (module doc above).
+  drawGroundTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
+  if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
 }

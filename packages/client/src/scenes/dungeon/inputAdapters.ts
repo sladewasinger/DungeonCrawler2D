@@ -32,6 +32,12 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     get weapon() {
       return conn.weapon;
     },
+    // WAVE E3 aim pick (docs/ELEVATION-PROJECTION.md section 4): reads `conn.world`
+    // LIVE on every call (never snapshotted at adapter-construction time, since a
+    // reconnect can bind `conn.world` well after this adapter is built) — reports flat
+    // (height 0 everywhere) while no world is bound yet, which is exactly the input
+    // pickTallestFirst's own flat fallback needs to behave byte-identically to pre-E3 aim.
+    heightAt: (wx, wy) => conn.world?.heightAt(wx, wy) ?? 0,
     interact: () => conn.interact(),
     pickup: () => conn.pickup(),
     attack: (dx, dy) => conn.attack(dx, dy),

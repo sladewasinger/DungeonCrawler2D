@@ -10,6 +10,7 @@ function raisedTileWorld(): WorldView {
     isWalkable: () => true,
     heightAt: (x, y) => (x === 1 && y === 0 ? 2 : 0),
     groundAt: (x, y) => (Math.floor(x) === 1 && Math.floor(y) === 0 ? 2 : 0),
+    stairHeightAt: () => null,
   };
 }
 
@@ -19,6 +20,7 @@ function solidTileWorld(): WorldView {
     isWalkable: (x, y) => !(x === 1 && y === 0),
     heightAt: () => 0,
     groundAt: () => 0,
+    stairHeightAt: () => null,
   };
 }
 

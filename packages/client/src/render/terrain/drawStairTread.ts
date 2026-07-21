@@ -20,6 +20,7 @@ export function drawStairTreads(
   direction: number,
   t: number,
   lightTint: number,
+  liftPx = 0,
 ): void {
   const vertical = stacksVertically(direction);
   const color = multiplyTint(RISER_COLOR, lightTint);
@@ -27,7 +28,7 @@ export function drawStairTreads(
   for (const riser of treadRisers(direction, t)) {
     const alpha = RISER_BASE_ALPHA + RISER_ALPHA_SPAN * riser.brightness;
     const band: [number, number] = [riser.axisFrac - half, riser.axisFrac + half];
-    if (vertical) placeFractionalRect(scene, container, wx, wy, [0, 1], band, color, alpha);
-    else placeFractionalRect(scene, container, wx, wy, band, [0, 1], color, alpha);
+    if (vertical) placeFractionalRect(scene, container, wx, wy, [0, 1], band, color, alpha, liftPx);
+    else placeFractionalRect(scene, container, wx, wy, band, [0, 1], color, alpha, liftPx);
   }
 }

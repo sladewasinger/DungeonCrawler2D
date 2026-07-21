@@ -29,13 +29,19 @@ const DIRS: readonly Dir[] = [
 // higher, which is lower — never a magnitude one.
 const DELTA_EPSILON = 0.01;
 
-// Tiles of flat approach beyond a run's own physical ends that still read
-// as "on the ramp," so the transition from flat ground onto the stairs has
-// no visible kink. Tuned against the original single-tile threshold ramp
-// (1 physical tile + 1.5 padding = the previously-hardcoded 2.5-tile
-// virtual span); a longer physical run just adds its own extra tiles on
-// top of the same padding.
-const RUN_PADDING = 1.5;
+// Retired to 0 (docs/R2-STAIRS-SPEC.md, Wave R2 compact stairs — Austin's
+// ruling: a pit stair reads as one rim-straddling tile, never a multi-tile
+// runway). Was 1.5: a virtual flat-approach extension so a body's per-tick
+// rise while walking a shallow multi-tile run never brushed STEP_UP. That
+// problem is now solved differently and more generally — the on-stair
+// GLIDE (entities/movement/physics.ts) ignores STEP_UP entirely while
+// grounded on a real Stairs tile, so no virtual padding is needed to keep
+// climbing smooth, and a lone tile's ramp is now exactly its own physical
+// extent: flush with the low neighbor at one edge, the high neighbor at
+// the other, nothing beyond. Kept as a named constant (not deleted/inlined)
+// so `runLength = run.length + RUN_PADDING` and `stairVisualAt`'s matching
+// formula stay self-documenting about why the term is still there at 0.
+const RUN_PADDING = 0;
 
 /** How far (tiles) to look, from a query position that isn't itself on a run, for the nearest one. */
 const RUN_SEARCH_RADIUS = 2;
@@ -141,14 +147,14 @@ export function stairRampAt(world: StairView, x: number, y: number): number | nu
 }
 
 /** A tile's place on a staircase's visual run, for the renderer's tread art —
- * covers both the physical Stairs tiles AND the flanking RUN_PADDING Floor
- * tiles (today those padding tiles carry a real ramped groundAt but draw as
- * plain flat floor, the "I only know there's a staircase because my
- * character moves up" bug). */
+ * with RUN_PADDING retired to 0 this is non-null ONLY on a run's own
+ * physical Stairs tile(s): a lone rim-adjacent tread reads as exactly one
+ * tile's worth of tread art, never a flanking floor tile beyond it (the
+ * "no runway" ruling this section's decision summary describes). */
 export interface StairVisual {
   /** DIRS index this run climbs toward (its high end). */
   readonly direction: number;
-  /** 0 at the run's low (padding) end, 1 at its topmost physical tread. */
+  /** 0 at the run's own low (physical) edge, 1 at its topmost physical tread. */
   readonly t: number;
 }
 
@@ -157,5 +163,13 @@ export function stairVisualAt(world: StairView, wx: number, wy: number): StairVi
   if (!run) return null;
   const runLength = run.length + RUN_PADDING;
   const raw = (distanceFromTopEdge(run, wx + 0.5, wy + 0.5) + runLength) / runLength;
-  return { direction: run.direction, t: Math.max(0, Math.min(1, raw)) };
+  // Unlike the old padded search, a query outside the run's own physical
+  // extent must read as "no visual here" (null), not a clamped 0/1 ghost —
+  // stairRunAt's RUN_SEARCH_RADIUS still LOOKS outward for a run from a
+  // non-run tile (kept for stairRampAt's own null-vs-flush boundary math
+  // above), but with no padding a found run's valid [0, 1] span is exactly
+  // its physical tiles, so anything outside that range is genuinely off
+  // the run, not a fading approach.
+  if (raw < 0 || raw > 1) return null;
+  return { direction: run.direction, t: raw };
 }

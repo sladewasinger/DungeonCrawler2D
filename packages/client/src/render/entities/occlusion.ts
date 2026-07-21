@@ -13,6 +13,15 @@
 // with the view (screenSouthWorldDirection); the height math itself stays plain
 // world-space data, same as cliffMask.ts.
 //
+// WAVE E3 (docs/ELEVATION-PROJECTION.md section 3): under the shift, a cell's drawn
+// body reaches exactly `height` rows north of its own row (the cap shifts screen-up
+// by `height*TILE`, same math as the face band it caps). So the test is now EXACT,
+// no fudge margin: a step-k neighbor occludes iff its height clears the entity's own
+// z by at least k. The old 2-row cap + 0.5 margin was itself already numerically
+// equivalent to this for every case this file's tests exercised (`step - 1 + 0.5 ==
+// step - 0.5`, which only differs from `step` at fractional heights no fixture used)
+// — this rewrite just makes the true rule explicit and removes the hidden coincidence.
+//
 // The duplicate is stored on the body sprite's own Phaser data store rather than a new
 // field on PlayerVisual (state.ts is a different lane's file) and self-destroys off the
 // body's "destroy" event, so callers don't need a teardown hook either.
@@ -28,13 +37,18 @@ const GHOST_DATA_KEY = "occlusionGhost";
  * silhouette always reads as an overlay effect, never as a lighting coincidence. */
 const GHOST_TINT = 0x4fd6ff;
 const GHOST_ALPHA = 0.75;
-/** How many rows toward the camera a tall occluder can sit and still have art that
- * reaches an entity's sprite (its face climbs away from its base by its height —
- * see occluderBand.ts). */
-const OCCLUDING_ROWS_AHEAD = 2;
-/** A nearby tile must clear the entity's own height by this much to read as a
- * covering face/rim rather than flush terrain underfoot. */
-const OCCLUSION_HEIGHT_MARGIN = 0.5;
+/**
+ * Search ceiling for how many rows ahead a tall occluder could still reach: mirrors
+ * `render/terrain/ownFace.ts`'s `MAX_FACE_ROWS` (not imported directly — that module
+ * lives in the terrain layer, which itself depends on `render/view`, and this file
+ * sits beside `render/view`'s own consumers; duplicating the one constant keeps the
+ * dependency direction one-way). No drawn cap/face ever climbs higher than that
+ * budget, so no cell taller than it could occlude further north than this many rows
+ * regardless — see docs/ASSUMPTIONS.md row 320. Also bounds the loop when `z` is very
+ * negative (a deep-pit dweller), where even flat ground could otherwise satisfy the
+ * exact test at implausibly large `step`.
+ */
+const MAX_OCCLUDING_ROWS_AHEAD = 16;
 
 /** Real-world (dx, dy) unit step for one tile toward each compass direction — north
  * is -y per the engine's convention (stairFrame.ts's NEIGHBORS table). */
@@ -46,12 +60,14 @@ const WORLD_STEP: Record<CompassDir, { dx: number; dy: number }> = {
 };
 
 /** True when terrain toward the camera (screen-south) of (x, y) stands tall enough
- * that its rendered body actually reaches this sprite's row: terrain's art extends
- * away from its base by its HEIGHT, so a tile `step` rows ahead only covers you when
- * height - z >= step. Any terrain counts now, not just walls — a walkable floor rim
- * occludes exactly like a wall face would (WAVE R2). `orientation` picks which real
- * world direction is currently screen-south (directionRemap.ts), so the check reads
- * through the same seam as every other neighbor-direction decision in this lane. */
+ * that its rendered body actually reaches this sprite's row. Under the elevation
+ * shift (docs/ELEVATION-PROJECTION.md section 3) a cell's body — cap and face band
+ * alike — extends screen-up by exactly its own height, so a tile `step` rows ahead
+ * covers this row iff `heightAt(ahead) - z >= step`, EXACTLY (no margin term). Any
+ * terrain counts, not just walls — a walkable floor rim occludes exactly like a wall
+ * face would (WAVE R2). `orientation` picks which real world direction is currently
+ * screen-south (directionRemap.ts), so the check reads through the same seam as every
+ * other neighbor-direction decision in this lane. */
 export function isOccludedByTerrainAhead(
   world: WorldView,
   x: number,
@@ -62,10 +78,10 @@ export function isOccludedByTerrainAhead(
   const tileX = Math.floor(x);
   const tileY = Math.floor(y);
   const { dx, dy } = WORLD_STEP[screenSouthWorldDirection(orientation)];
-  for (let step = 1; step <= OCCLUDING_ROWS_AHEAD; step++) {
+  for (let step = 1; step <= MAX_OCCLUDING_ROWS_AHEAD; step++) {
     const checkX = tileX + dx * step;
     const checkY = tileY + dy * step;
-    if (world.heightAt(checkX, checkY) - z >= step - 1 + OCCLUSION_HEIGHT_MARGIN) return true;
+    if (world.heightAt(checkX, checkY) - z >= step) return true;
   }
   return false;
 }
@@ -73,7 +89,7 @@ export function isOccludedByTerrainAhead(
 /** Depth guaranteed above any occluder strip that could plausibly cover a sprite whose
  * feet sit in row `tileY` (see chunkVisual.ts's per-row occluder bake). */
 function ghostDepth(tileY: number): number {
-  return depthForOccluder(tileY + OCCLUDING_ROWS_AHEAD + 1) + 1;
+  return depthForOccluder(tileY + MAX_OCCLUDING_ROWS_AHEAD + 1) + 1;
 }
 
 /** Lazily creates a flat-tint duplicate of `body` and keeps it synced, visible only

@@ -35,51 +35,53 @@ function southEntryWorld(): WorldView & StairView {
     wy === STAIR_Y && stairCols.has(wx) ? TILE.Stairs : TILE.Floor;
   const groundAt = (x: number, y: number): number =>
     stairRampAt({ tileAt, heightAt }, x, y) ?? heightAt(Math.floor(x), Math.floor(y));
-  return { tileAt, heightAt, isWalkable: () => true, groundAt };
+  const stairHeightAt = (x: number, y: number): number | null =>
+    tileAt(Math.floor(x), Math.floor(y)) === TILE.Stairs ? stairRampAt({ tileAt, heightAt }, x, y) : null;
+  return { tileAt, heightAt, isWalkable: () => true, groundAt, stairHeightAt };
 }
 
 describe("stairs as physical ramps", () => {
   const world = southEntryWorld();
   const entry = { x: STAIR_X, y: STAIR_Y };
 
-  it("ramps linearly across the complete two-and-a-half-tile stair run", () => {
+  // Re-baselined for RUN_PADDING retired to 0 (docs/R2-STAIRS-SPEC.md,
+  // Wave R2): a lone Stairs tile's ramp is now exactly its own physical
+  // extent — flush with the low neighbor at one edge, the high neighbor
+  // at the other, nothing beyond. The old test asserted a virtual
+  // "two-and-a-half-tile" run; that padding is gone by design.
+  it("ramps linearly across the stair's own single physical tile, flush at both edges", () => {
     const { x, y } = entry;
-    expect(stairRampAt(world, x + 0.5, y + 2.499)).toBeCloseTo(0, 2);
-    expect(stairRampAt(world, x + 0.5, y + 2.25)).toBeCloseTo(0.1, 5);
-    expect(stairRampAt(world, x + 0.5, y + 2)).toBeCloseTo(0.2, 5);
-    expect(stairRampAt(world, x + 0.5, y + 1.5)).toBeCloseTo(0.4, 5);
-    expect(stairRampAt(world, x + 0.5, y + 1.25)).toBeCloseTo(0.5, 5);
-    expect(stairRampAt(world, x + 0.5, y + 1.001)).toBeCloseTo(0.6, 2);
-    expect(stairRampAt(world, x + 0.5, y + 0.999)).toBeCloseTo(0.6, 2);
-    expect(stairRampAt(world, x + 0.5, y + 0.75)).toBeCloseTo(0.7, 5);
-    expect(stairRampAt(world, x + 0.5, y + 0.5)).toBeCloseTo(0.8, 5);
-    expect(stairRampAt(world, x + 0.5, y + 0.25)).toBeCloseTo(0.9, 5);
-    expect(stairRampAt(world, x + 0.5, y + 0.001)).toBeCloseTo(1, 2);
-    expect(world.groundAt(x + 0.5, y + 3.5)).toBe(0);
+    // South of the tile: flat at the low anchor (stairRampAt itself is
+    // null this far out; groundAt falls back to the flat neighbor height).
+    expect(stairRampAt(world, x + 0.5, y + 1.001)).toBeNull();
+    expect(world.groundAt(x + 0.5, y + 1.5)).toBe(0);
+    // Within the tile [y, y+1]: linear from the high edge (y) to the low edge (y+1).
+    expect(stairRampAt(world, x + 0.5, y)).toBeCloseTo(1, 5);
+    expect(stairRampAt(world, x + 0.5, y + 0.25)).toBeCloseTo(0.75, 5);
+    expect(stairRampAt(world, x + 0.5, y + 0.5)).toBeCloseTo(0.5, 5);
+    expect(stairRampAt(world, x + 0.5, y + 0.75)).toBeCloseTo(0.25, 5);
+    expect(stairRampAt(world, x + 0.5, y + 1)).toBeCloseTo(0, 5);
+    // North of the tile: flat at the high anchor.
     expect(world.groundAt(x + 0.5, y - 0.5)).toBe(1);
   });
 
-  it("starts climbing on the outer approach tile and reaches the top on foot", () => {
+  it("climbs via the on-stair glide, staying grounded the whole way, flat right up until the physical tile", () => {
     const { x, y } = entry;
     const body = createBody(x + 0.5, y + 3.5, 0);
-    const zs: number[] = [];
-    let roseOnOuterApproach = false;
+    let roseBeforeTile = false;
+    let maxTickRise = 0;
     for (let i = 0; i < 30; i++) {
+      const prevZ = body.z;
       stepBody(world, body, { moveX: 0, moveY: -1, jump: false }, TICK_DT);
-      zs.push(body.z);
       expect(body.grounded).toBe(true);
-      if (Math.floor(body.y) === y + 2 && body.z > 0) roseOnOuterApproach = true;
+      if (body.y > y + 1 && body.z > 0) roseBeforeTile = true;
+      maxTickRise = Math.max(maxTickRise, body.z - prevZ);
     }
     expect(body.z).toBeCloseTo(1, 5);
-    expect(roseOnOuterApproach).toBe(true);
-    expect(zs.some((z) => z > 0.1 && z < 0.4)).toBe(true);
-    expect(zs.some((z) => z > 0.6 && z < 0.9)).toBe(true);
-    for (let i = 1; i < zs.length; i++) {
-      const prev = zs[i - 1];
-      const cur = zs[i];
-      if (prev === undefined || cur === undefined) continue;
-      expect(cur - prev).toBeLessThan(STEP_UP * 0.9);
-    }
+    expect(roseBeforeTile).toBe(false);
+    // The glide bypasses STEP_UP entirely on a compact stair -- proves
+    // this is really the glide, not the old padded gentle-ramp shape.
+    expect(maxTickRise).toBeGreaterThan(STEP_UP);
   });
 
   it("falls from partial height when leaving the stair's side", () => {
@@ -166,7 +168,9 @@ describe("stair width: walking across a run sideways", () => {
   it("stepping sideways off the ramp onto the flanking approach never leaves the ground", () => {
     const view = twoWideSouthEntry();
     const groundAt = (x: number, y: number): number => stairRampAt(view, x, y) ?? view.heightAt(Math.floor(x), Math.floor(y));
-    const world = { isWalkable: () => true, heightAt: view.heightAt, groundAt };
+    const stairHeightAt = (x: number, y: number): number | null =>
+      view.tileAt(Math.floor(x), Math.floor(y)) === TILE.Stairs ? stairRampAt(view, x, y) : null;
+    const world = { isWalkable: () => true, heightAt: view.heightAt, groundAt, stairHeightAt };
     const body = createBody(9.5, 10.9, groundAt(9.5, 10.9));
     let flicker = 0;
     for (let i = 0; i < 40; i++) {
@@ -211,7 +215,9 @@ describe("multi-tile runs (chasm-gradient regression)", () => {
   function walkDown(view: StairView, startX: number, steps: number, depth: number): void {
     const groundAt = (x: number, y: number): number =>
       stairRampAt(view, x, y) ?? view.heightAt(Math.floor(x), Math.floor(y));
-    const world = { isWalkable: () => true, heightAt: view.heightAt, groundAt };
+    const stairHeightAt = (x: number, y: number): number | null =>
+      view.tileAt(Math.floor(x), Math.floor(y)) === TILE.Stairs ? stairRampAt(view, x, y) : null;
+    const world = { isWalkable: () => true, heightAt: view.heightAt, groundAt, stairHeightAt };
     const body = createBody(startX, RUN_Y - 2, 0);
     for (let i = 0; i < 150; i++) {
       stepBody(world, body, { moveX: 0, moveY: 1, jump: false }, TICK_DT);

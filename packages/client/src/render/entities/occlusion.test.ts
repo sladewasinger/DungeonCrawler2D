@@ -11,6 +11,7 @@ function fakeWorld(heights: Record<string, number>): WorldView {
     isWalkable: () => true,
     heightAt: (x, y) => heights[`${x},${y}`] ?? 0,
     groundAt: () => 0,
+    stairHeightAt: () => null,
   };
 }
 
@@ -72,5 +73,32 @@ describe("isOccludedByTerrainAhead", () => {
     const world = fakeWorld({ "4,5": 1 });
     expect(isOccludedByTerrainAhead(world, 5.5, 5.5, 0, 0)).toBe(false);
     expect(isOccludedByTerrainAhead(world, 5.5, 5.5, 0, 90)).toBe(true);
+  });
+
+  // WAVE E3 exact-test truth table (docs/ELEVATION-PROJECTION.md section 3): each case
+  // hand-derived from `heightAt(ahead) - z >= step`, independent of the implementation.
+  describe("WAVE E3 exact-test truth table", () => {
+    it("pit-behind-rim: a z0 rim one row south of a z-1 pit-dweller occludes (0 - (-1) = 1 >= 1)", () => {
+      expect(isOccludedByTerrainAhead(fakeWorld({ "5,6": 0 }), 5.5, 5.5, -1, 0)).toBe(true);
+    });
+
+    it("z1-entity-behind-z2-wall: a z2 wall one row south of a z1 entity occludes (2 - 1 = 1 >= 1)", () => {
+      expect(isOccludedByTerrainAhead(fakeWorld({ "5,6": 2 }), 5.5, 5.5, 1, 0)).toBe(true);
+    });
+
+    it("z1-entity-behind-z2-wall two rows south does NOT occlude (2 - 1 = 1, needs >= 2)", () => {
+      expect(isOccludedByTerrainAhead(fakeWorld({ "5,7": 2 }), 5.5, 5.5, 1, 0)).toBe(false);
+    });
+
+    it("tall-platform-vs-short-wall: an entity standing on a z2 platform is NOT occluded by a z1 wall one row south (1 - 2 = -1 >= 1 is false)", () => {
+      expect(isOccludedByTerrainAhead(fakeWorld({ "5,6": 1 }), 5.5, 5.5, 2, 0)).toBe(false);
+    });
+
+    it("tall-platform-vs-short-wall holds at every orientation (the entity's own height always clears a shorter neighbor)", () => {
+      const world = fakeWorld({ "5,4": 1, "4,5": 1, "6,5": 1 });
+      expect(isOccludedByTerrainAhead(world, 5.5, 5.5, 2, 180)).toBe(false);
+      expect(isOccludedByTerrainAhead(world, 5.5, 5.5, 2, 90)).toBe(false);
+      expect(isOccludedByTerrainAhead(world, 5.5, 5.5, 2, 270)).toBe(false);
+    });
   });
 });

@@ -4,11 +4,17 @@
 // 1 z-unit = 1 tile edge per that file's doctrine comment). A rarer "chasm"
 // variant (grafted from the "caverns" candidate) drops a large room to -2
 // with one guaranteed flat bridge deck — a real knockback-off-ledge kill
-// zone. Every height-variant room gets EXACTLY ONE built staircase, at one
+// zone. A pit/dais room gets EXACTLY ONE built staircase, at one
 // deliberately-chosen doorway (carveRamp); every OTHER doorway meets the
 // room at a plain, un-ramped edge — a real cliff you jump or fall, not a
 // second staircase (docs/PORT_PLAN.md's "one straight run per transition,
-// no clusters" stair redesign). Everything else stays flat, flat-first.
+// no clusters" stair redesign). A chasm room gets NO staircase at all —
+// docs/R2-STAIRS-SPEC.md Open Question 1, resolved: a walkable-both-ways
+// stair's low anchor must sit above CHASM_DEATH_Z, which a ramp descending
+// to -2 cannot satisfy, so every chasm rim is a sheer, un-ramped edge;
+// the guaranteed bridge (stampBridge) is the one crossing, and falling off
+// the rim is the intended knockback-death ruling, not a climbable descent.
+// Everything else stays flat, flat-first.
 
 import { thresholdCells } from "./corridors.js";
 import { rectHash } from "./hash.js";
@@ -20,10 +26,12 @@ export const ROOM_RISE = 1;
 export const CHASM_DEPTH = -2;
 const CHASM_BRIDGE_HALF = 1; // 3-tile-wide guaranteed crossing
 const CHASM_MIN_SPAN = 9; // room must be big enough to hold a real drop plus the bridge
-// Per-tile slope budget for an authored ramp: kept well under STEP_UP so a
-// body's per-tick rise while walking a run (slope * MOVE_SPEED * TICK_DT)
-// never brushes the grounded step-up gate — see stairs.test.ts / the
-// generator invariant test in stairsInvariant.test.ts.
+// Retired as this generator's own tread budget (docs/R2-STAIRS-SPEC.md,
+// Wave R2 compact stairs): carveRamp now emits exactly one tread per whole
+// z (stepCount = round(|delta|)), walkable via the on-stair glide, which
+// ignores STEP_UP entirely rather than needing a shallow per-tread slope.
+// Kept alive ONLY as cliffs.ts's sub-tier auto-repair step size (a
+// graze-edge fix well short of a full deliberate tier) — do not delete.
 export const MAX_STAIR_SLOPE = 0.5;
 const THRESHOLD_RAMP_MAX_WIDTH = 2; // one built staircase reads as a place, not a fence
 
@@ -103,16 +111,54 @@ function inwardStep(side: Side): { dx: number; dy: number } {
   return { dx: 1, dy: 0 }; // W wall -> interior is east
 }
 
+/** In-bounds check shared by carveRampColumn's threshold/tread/landing writes. */
+function inChunk(x: number, y: number, chunkSize: number): boolean {
+  return x >= 0 && y >= 0 && x < chunkSize && y < chunkSize;
+}
+
+/**
+ * One column of carveRamp's staircase: the threshold anchor, its Stairs
+ * treads, and the landing anchor. Compact-stairs contract
+ * (docs/R2-STAIRS-SPEC.md section 2): one tread per whole z, each at its
+ * tile-CENTER midpoint height `fromHeight + sign(delta)*(n - 0.5)` — a
+ * z0->z-1 pit gives exactly 1 tread at -0.5, flush with the rim (n=1: the
+ * threshold) at one edge and the pit floor (the landing, one past the
+ * last tread) at the other.
+ */
+function carveRampColumn(
+  tiles: Uint8Array,
+  height: Float32Array,
+  chunkSize: number,
+  origin: Point,
+  step: { dx: number; dy: number },
+  stepCount: number,
+  fromHeight: number,
+  toHeight: number,
+): void {
+  if (inChunk(origin.x, origin.y, chunkSize)) height[origin.y * chunkSize + origin.x] = fromHeight;
+  const sign = Math.sign(toHeight - fromHeight);
+  for (let n = 1; n <= stepCount; n++) {
+    const sx = origin.x + step.dx * n;
+    const sy = origin.y + step.dy * n;
+    if (!inChunk(sx, sy, chunkSize)) continue;
+    const i = sy * chunkSize + sx;
+    tiles[i] = TILE.Stairs;
+    height[i] = fromHeight + sign * (n - 0.5);
+  }
+  const lx = origin.x + step.dx * (stepCount + 1);
+  const ly = origin.y + step.dy * (stepCount + 1);
+  if (inChunk(lx, ly, chunkSize)) height[ly * chunkSize + lx] = toHeight;
+}
+
 /**
  * One straight, single-axis staircase from a doorway's threshold
  * (`fromHeight`, already the corridor's flat level) to a room's interior
- * (`toHeight`): as many equal-slope tiles as MAX_STAIR_SLOPE demands,
- * dividing the FULL gap into stepCount + 1 equal jumps so neither end tile
- * is flush with its flat neighbor (every physical Stairs tile keeps a
- * real, sign-detectable delta on both sides — see world/stairs.ts's
- * entryClimbDir and stairsInvariant.test.ts). One call per room transition,
- * by construction: this is the room's ONLY built staircase (see
- * applyRoomHeight) — every other doorway stays a plain, un-ramped edge.
+ * (`toHeight`): one tread per whole z (docs/R2-STAIRS-SPEC.md's decision
+ * summary — a z0->z-1 pit exit is exactly 1 tile, flush with the rim at
+ * one edge and the pit floor at the other by construction). One call per
+ * room transition, by construction: this is the room's ONLY built
+ * staircase (see applyRoomHeight) — every other doorway stays a plain,
+ * un-ramped edge.
  *
  * BOTH ends of the chain are force-set to their exact intended height —
  * the threshold (`fromHeight`, the doorway's own port) and the landing
@@ -129,36 +175,6 @@ function inwardStep(side: Side): { dx: number; dy: number } {
  * unclimbable Floor by demoteOrphanedStairs. This ramp is the room's
  * WHOLE reason either cell exists; it always wins that tug-of-war.
  */
-function inChunk(x: number, y: number, chunkSize: number): boolean {
-  return x >= 0 && y >= 0 && x < chunkSize && y < chunkSize;
-}
-
-/** One column of carveRamp's staircase: the threshold anchor, its Stairs treads, and the landing anchor. */
-function carveRampColumn(
-  tiles: Uint8Array,
-  height: Float32Array,
-  chunkSize: number,
-  origin: Point,
-  step: { dx: number; dy: number },
-  stepCount: number,
-  fromHeight: number,
-  toHeight: number,
-): void {
-  if (inChunk(origin.x, origin.y, chunkSize)) height[origin.y * chunkSize + origin.x] = fromHeight;
-  const delta = toHeight - fromHeight;
-  for (let n = 1; n <= stepCount; n++) {
-    const sx = origin.x + step.dx * n;
-    const sy = origin.y + step.dy * n;
-    if (!inChunk(sx, sy, chunkSize)) continue;
-    const i = sy * chunkSize + sx;
-    tiles[i] = TILE.Stairs;
-    height[i] = fromHeight + (delta * n) / (stepCount + 1);
-  }
-  const lx = origin.x + step.dx * (stepCount + 1);
-  const ly = origin.y + step.dy * (stepCount + 1);
-  if (inChunk(lx, ly, chunkSize)) height[ly * chunkSize + lx] = toHeight;
-}
-
 function carveRamp(
   tiles: Uint8Array,
   height: Float32Array,
@@ -168,7 +184,7 @@ function carveRamp(
   toHeight: number,
 ): void {
   const step = inwardStep(doorway.side);
-  const stepCount = Math.max(1, Math.ceil(Math.abs(toHeight - fromHeight) / MAX_STAIR_SLOPE) - 1);
+  const stepCount = Math.round(Math.abs(toHeight - fromHeight));
   for (const origin of thresholdCells(doorway.room, doorway.side, doorway.center, doorway.width)) {
     carveRampColumn(tiles, height, chunkSize, origin, step, stepCount, fromHeight, toHeight);
   }
@@ -187,14 +203,17 @@ function pickPrimaryDoorway(seed: number, room: Room, roomDoorways: Doorway[]): 
 }
 
 /**
- * Apply one room's height variant (if any). Every variant gets exactly one
+ * Apply one room's height variant (if any). A pit/dais gets exactly one
  * consolidated ramp at one deliberately-chosen doorway (carveRamp), capped
  * to THRESHOLD_RAMP_MAX_WIDTH; every other doorway meets the room at a
- * plain, un-ramped edge — a real cliff (jump it, or for a chasm's depth,
- * fall and take the knockback-death ruling). A room with no doorways at
- * all just keeps its stamped height with no ramp anywhere (unreachable by
- * corridor; connectivity is guaranteed by the corridor network, not by
- * this pass).
+ * plain, un-ramped edge — a real cliff you jump. A chasm gets NO ramp at
+ * any doorway — every rim is sheer, crossed only by its guaranteed bridge
+ * (stampBridge); falling off is the knockback-death ruling, not a climbable
+ * descent (docs/R2-STAIRS-SPEC.md Open Question 1: a walkable-both-ways
+ * stair's low anchor must sit above CHASM_DEATH_Z, which -2 cannot). A room
+ * with no doorways at all just keeps its stamped height with no ramp
+ * anywhere (unreachable by corridor; connectivity is guaranteed by the
+ * corridor network, not by this pass).
  */
 export function applyRoomHeight(
   seed: number,
@@ -209,14 +228,13 @@ export function applyRoomHeight(
   if (variant === "flat") return;
   const value = variantValue(variant);
   stampRingHeight(height, corridorCarved, chunkSize, room.rect, value);
+  if (variant === "chasm") {
+    stampBridge(height, chunkSize, room.rect);
+    return;
+  }
   const roomDoorways = doorways.filter((d) => d.room === room);
   const primary = pickPrimaryDoorway(seed, room, roomDoorways);
   if (!primary) return;
   const ramp = { ...primary, width: Math.min(primary.width, THRESHOLD_RAMP_MAX_WIDTH) };
-  if (variant === "chasm") {
-    stampBridge(height, chunkSize, room.rect);
-    carveRamp(tiles, height, chunkSize, ramp, 0, CHASM_DEPTH);
-    return;
-  }
   carveRamp(tiles, height, chunkSize, ramp, 0, value);
 }

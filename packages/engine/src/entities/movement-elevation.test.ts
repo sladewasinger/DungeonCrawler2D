@@ -18,6 +18,7 @@ function fakeWorld(opts: {
     isWalkable: () => true,
     heightAt,
     groundAt: (x, y) => (opts.groundFn ? opts.groundFn(x, y) : heightAt(Math.floor(x), Math.floor(y))),
+    stairHeightAt: () => null,
   };
 }
 

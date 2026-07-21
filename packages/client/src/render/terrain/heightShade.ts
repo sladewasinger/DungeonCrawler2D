@@ -98,8 +98,8 @@ export function isChasmDepth(height: number): boolean {
 const TOP_EDGE_SEAM_LIFT = 0.32;
 
 /**
- * The tint for a walkable top's edge-outline sprites (topEdgesAt's
- * wall_edge and wall_top_mid pieces): the SAME per-tier heightTint, lifted
+ * The tint for a walkable top's edge-outline bands (drawGroundTile's
+ * drawTopEdges via cliffMask.ts): the SAME per-tier heightTint, lifted
  * toward white by a fixed fraction, so the boundary always reads as a
  * lit rim seam distinctly brighter than its own tile's fill — the second
  * half of the raised-top legibility fix (docs/ROADMAP.md's "single walls"

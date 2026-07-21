@@ -23,7 +23,7 @@ describe("subtleSlopeEdgesAt", () => {
     expect(subtleSlopeEdgesAt(world, 0, 0)).toMatchObject({ north: false, south: false, east: false, west: false });
   });
 
-  it("only flags a HIGHER neighbor's side — a raised bump gets no edges from this module (that's ownFace/topEdges territory once it clears 0.75, and invisible below it by design)", () => {
+  it("only flags a HIGHER neighbor's side — a raised bump gets no edges from this module (that's ownFace/cliffMask territory once it clears 0.75, and invisible below it by design)", () => {
     const world = flatWithDip(0.5);
     expect(subtleSlopeEdgesAt(world, 0, 0)).toMatchObject({ north: false, south: false, east: false, west: false });
   });
