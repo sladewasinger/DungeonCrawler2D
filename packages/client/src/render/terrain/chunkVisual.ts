@@ -1,100 +1,67 @@
 // Builds/destroys one chunk's terrain, BAKED: tiles draw once into transient
-// containers which are flattened into static RenderTextures (one base sheet +
-// one strip per occluder row), then destroyed. A chunk costs a handful of
-// textures instead of thousands of live GameObjects — the difference between
-// 9 fps and a real frame rate at 20k tiles resident.
+// containers which are flattened into static POOLED textures (one full-chunk
+// base page + a few shared strip-atlas pages holding every occluder row as a
+// frame, each displayed by a cheap Image at its own depth — stripAtlas.ts plans
+// the packing, terrainPages.ts pools the pages), then destroyed. A chunk costs
+// a handful of framebuffer-backed textures instead of dozens — the fix for the
+// ~580-resident-RT pipeline pressure (docs/ROADMAP.md), proven pixel-identical
+// to the retired one-RT-per-strip model by the A/B camera-sweep capture.
 import { CHUNK_SIZE } from "@dc2d/engine";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { BASE_TERRAIN_DEPTH, depthForCapOccluder, depthForOccluder } from "../entities/depthSort.js";
+import { BASE_TERRAIN_DEPTH } from "../entities/depthSort.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
-import { drawTile, type OccluderFor } from "./drawTile.js";
-import type { CapOccluderFor } from "./occluderBand.js";
+import { drawTile } from "./drawTile.js";
+import { planStripAtlas } from "./stripAtlas.js";
+import { acquireStripPage, pagePoolFor, releasePage } from "./terrainPages.js";
+import {
+  collectCapStrips,
+  collectFaceStrips,
+  makeCapOccluderFor,
+  makeOccluderFor,
+  type CapRow,
+  type OccluderRow,
+  type PendingStrip,
+} from "./stripRows.js";
 import { buildStructureMap, drawDoor } from "./structures.js";
 import { computeLightField, type DynamicLightSeed } from "./tileLight.js";
 import { viewChunkWorldOrigin, viewWorld } from "./viewWorld.js";
 
 const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
 
-/**
- * One pending occluder strip: a face column bakes its dynamic rows (see
- * occluderBand.ts) into the strip of its ground-adjacent row, so `overhangTiles`
- * records the tallest such row and the bake covers exactly [wy - overhang, wy + 1].
- * Per-frame strip cost scales with baked height — a fixed MAX_FACE_ROWS-tall
- * strip (the 3 -> 16 pivot) made every visible wall row blit ~16 tiles of mostly
- * transparent pixels each frame, which is the measured e2e keystroke regression.
- */
-interface OccluderRow {
-  readonly container: Phaser.GameObjects.Container;
-  overhangTiles: number;
-}
-
 export interface ChunkVisual {
   readonly cx: number;
   readonly cy: number;
-  readonly below: Phaser.GameObjects.RenderTexture;
-  readonly occluders: readonly Phaser.GameObjects.RenderTexture[];
+  /** The flat base sheet's display Image (backed by a pooled full-chunk page). */
+  readonly below: Phaser.GameObjects.Image;
+  /** The pooled full-chunk page `below` draws from — released with the chunk. */
+  readonly belowPage: Phaser.Textures.DynamicTexture;
+  /** One Image per occluder strip, positioned/depth-keyed exactly like the old per-strip RTs. */
+  readonly occluders: readonly Phaser.GameObjects.Image[];
+  /** The shared strip-atlas pages the occluder images draw from — released with the chunk. */
+  readonly atlasPages: readonly Phaser.Textures.DynamicTexture[];
 }
 
-/** Builds the occluderFor accessor: lazily creates one container per occluder row,
- * tracking the tallest overhang any caller has asked that row to bake. */
-function makeOccluderFor(scene: Phaser.Scene, rows: Map<number, OccluderRow>): OccluderFor {
-  return (wy: number, overhangTiles = 0): Phaser.GameObjects.Container => {
-    let row = rows.get(wy);
-    if (!row) {
-      row = { container: scene.add.container(0, 0), overhangTiles: 0 };
-      rows.set(wy, row);
-    }
-    row.overhangTiles = Math.max(row.overhangTiles, overhangTiles);
-    return row.container;
-  };
-}
-
-/**
- * A cell's shifted CAP strip, keyed to its OWN raw row `vy` (never a foot row —
- * a cap's own row is itself walkable ground, unlike a face band's wall cell).
- * Overhangs grow independently: a positive height only ever bleeds up, a
- * negative one only ever bleeds down.
- */
-interface CapRow {
-  readonly container: Phaser.GameObjects.Container;
-  overhangAbove: number;
-  overhangBelow: number;
-}
-
-/** Builds the capOccluderFor accessor (docs/ELEVATION-PROJECTION.md section 2):
- * a SEPARATE row-map from the face-band `rows` above — a cap's depth formula
- * differs from a band's (see bakeCapRows), so sharing one map would conflate
- * two different depth intents under the same row key. */
-function makeCapOccluderFor(scene: Phaser.Scene, rows: Map<number, CapRow>): CapOccluderFor {
-  return (vy: number, overhangAbove = 0, overhangBelow = 0): Phaser.GameObjects.Container => {
-    let row = rows.get(vy);
-    if (!row) {
-      row = { container: scene.add.container(0, 0), overhangAbove: 0, overhangBelow: 0 };
-      rows.set(vy, row);
-    }
-    row.overhangAbove = Math.max(row.overhangAbove, overhangAbove);
-    row.overhangBelow = Math.max(row.overhangBelow, overhangBelow);
-    return row.container;
-  };
-}
-
-/** Flattens `container` (children at absolute world positions) into a static RT anchored at (originX, originY). */
-function bake(
+/** Flattens `container` (children at absolute world positions) into a pooled
+ * full-chunk page displayed by an Image at (originX, originY) — the base-sheet
+ * counterpart of bakeStripAtlas, sharing the same churn-avoiding pool. */
+function bakeBase(
   scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,
   originX: number,
   originY: number,
-  width: number,
-  height: number,
-  depth: number,
-): Phaser.GameObjects.RenderTexture {
-  const rt = scene.add.renderTexture(originX, originY, width, height).setOrigin(0, 0).setDepth(depth);
+): { image: Phaser.GameObjects.Image; page: Phaser.Textures.DynamicTexture } {
+  const page = pagePoolFor(scene.textures, "base").acquire();
   container.setPosition(-originX, -originY);
-  rt.draw(container);
+  page.draw(container);
   container.destroy(true);
-  return rt;
+  const image = scene.add
+    .image(originX, originY, page)
+    .setOrigin(0, 0)
+    .setDepth(BASE_TERRAIN_DEPTH)
+    .setName("terrain-base");
+  return { image, page };
 }
 
 /**
@@ -148,60 +115,57 @@ export function buildChunkVisual(
   for (const door of structures.doors) drawDoor(scene, occluderFor(door.wy), door);
 
   const originX = baseVX * SCREEN_TILE_PX;
-  const bakedBelow = bake(scene, below, originX, baseVY * SCREEN_TILE_PX, CHUNK_PX, CHUNK_PX, BASE_TERRAIN_DEPTH);
-  const occluders = [...bakeRows(scene, rows, originX), ...bakeCapRows(scene, capRows, originX)];
-  return { cx, cy, below: bakedBelow, occluders };
-}
-
-/** Bakes each non-empty occluder row into a strip RT exactly tall enough for its own content. */
-function bakeRows(
-  scene: Phaser.Scene,
-  rows: ReadonlyMap<number, OccluderRow>,
-  originX: number,
-): Phaser.GameObjects.RenderTexture[] {
-  const baked: Phaser.GameObjects.RenderTexture[] = [];
-  for (const [wy, row] of rows) {
-    if (row.container.list.length === 0) {
-      row.container.destroy(true);
-      continue;
-    }
-    const stripTop = (wy - row.overhangTiles) * SCREEN_TILE_PX;
-    const stripHeight = (row.overhangTiles + 1) * SCREEN_TILE_PX;
-    baked.push(bake(scene, row.container, originX, stripTop, CHUNK_PX, stripHeight, depthForOccluder(wy + 1)));
-  }
-  return baked;
+  const base = bakeBase(scene, below, originX, baseVY * SCREEN_TILE_PX);
+  const { images, pages } = bakeStripAtlas(scene, [...collectFaceStrips(rows), ...collectCapStrips(capRows)], originX);
+  return { cx, cy, below: base.image, belowPage: base.page, occluders: images, atlasPages: pages };
 }
 
 /**
- * Bakes each non-empty CAP strip. Depth uses depthForCapOccluder(vy), NOT a
- * band's foot-row depthForOccluder formula: a cap's own row `vy` is walkable —
- * an entity standing anywhere on it (feetWorldY >= vy) must draw IN FRONT of
- * its own cap, while an entity at ANY fractional feet position strictly north
- * (feetWorldY < vy) must be occluded BY it. The previous
- * depthForOccluder(vy - 1) key only cleared feet at exactly vy - 1 (the row
- * boundary), so a body standing MID-row north of a raised south neighbor drew
- * over the cap that should hide its feet — the cliff-drop occlusion of
- * docs/ELEVATION-PROJECTION.md acceptance shot 1 never happened.
+ * Bakes every pending strip into shared per-chunk DynamicTexture pages
+ * (stripAtlas.ts's plan) and returns one Image per strip at the strip's exact
+ * old screen position and depth — the pixels and painter ordering of the
+ * retired one-RT-per-strip model at a fraction of the framebuffer count.
  */
-function bakeCapRows(
+function bakeStripAtlas(
   scene: Phaser.Scene,
-  rows: ReadonlyMap<number, CapRow>,
+  strips: readonly PendingStrip[],
   originX: number,
-): Phaser.GameObjects.RenderTexture[] {
-  const baked: Phaser.GameObjects.RenderTexture[] = [];
-  for (const [vy, row] of rows) {
-    if (row.container.list.length === 0) {
-      row.container.destroy(true);
-      continue;
+): { images: Phaser.GameObjects.Image[]; pages: Phaser.Textures.DynamicTexture[] } {
+  const plan = planStripAtlas(strips.map((s) => s.stripHeight));
+  const pages = plan.pageHeights.map((height) => acquireStripPage(scene.textures, height));
+  // Same-length arrays by construction (planStripAtlas returns one entry per
+  // input strip, and every packed.page indexes an allocated page).
+  const placed = strips.map((strip, i) => ({ strip, packed: plan.strips[i]!, page: pages[plan.strips[i]!.page]! }));
+  // One beginDraw/endDraw pass per PAGE, not per strip: every strip stamp inside
+  // a single framebuffer bind (batchDraw), instead of ~25 bind+flush cycles per
+  // page — the per-strip draw() overhead was measurable on the harness.
+  pages.forEach((page) => {
+    page.beginDraw();
+    for (const { strip, packed, page: own } of placed) {
+      if (own !== page) continue;
+      strip.container.setPosition(-originX, packed.bandY - strip.stripTop);
+      page.batchDraw(strip.container);
     }
-    const stripTop = (vy - row.overhangAbove) * SCREEN_TILE_PX;
-    const stripHeight = (row.overhangAbove + 1 + row.overhangBelow) * SCREEN_TILE_PX;
-    baked.push(bake(scene, row.container, originX, stripTop, CHUNK_PX, stripHeight, depthForCapOccluder(vy)));
-  }
-  return baked;
+    page.endDraw();
+  });
+  const images = placed.map(({ strip, packed, page }, i) => {
+    strip.container.destroy(true);
+    page.add(`s${i}`, 0, 0, packed.bandY, CHUNK_PX, strip.stripHeight);
+    return scene.add
+      .image(originX, strip.stripTop, page, `s${i}`)
+      .setOrigin(0, 0)
+      .setDepth(strip.depth)
+      .setName("terrain-strip");
+  });
+  return { images, pages };
 }
 
 export function destroyChunkVisual(visual: ChunkVisual): void {
   visual.below.destroy();
   for (const row of visual.occluders) row.destroy();
+  // Images first (above), then their backing pages: pooled fixed-size pages park
+  // for the next bake; a dedicated oversized strip page really leaves the manager
+  // (releasePage's own discriminator).
+  releasePage(visual.belowPage, "base");
+  for (const page of visual.atlasPages) releasePage(page, "strip");
 }

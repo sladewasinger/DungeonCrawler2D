@@ -44,3 +44,30 @@ export function diffChunks(
   const toUnloadKeys = [...loadedKeys].filter((k) => !desiredKeys.has(k));
   return { toLoad, toUnloadKeys };
 }
+
+/**
+ * This frame's bake picks from the queue, urgency-tiered (the RT-pipeline
+ * pressure item's time-slicing): chunks already INSIDE the strict view (a
+ * teleport/rotation landing) jump the queue and use the full `maxVisible`
+ * budget — a hole the player can see must fill fastest — while margin-only
+ * chunks (ordinary walking streams enter through the off-screen LOAD_MARGIN)
+ * bake at most `maxMargin` per frame, halving the walking bake spike at zero
+ * visible cost. Non-desired queue entries (scrolled back out before their
+ * turn) are dropped. Returns the picks plus the queue's survivors, in order.
+ */
+export function planBakes(
+  queue: readonly ChunkCoord[],
+  desiredKeys: ReadonlySet<string>,
+  viewKeys: ReadonlySet<string>,
+  maxVisible: number,
+  maxMargin: number,
+): { bake: ChunkCoord[]; keep: ChunkCoord[] } {
+  const still = queue.filter((c) => desiredKeys.has(chunkKey(c)));
+  const visible = still.filter((c) => viewKeys.has(chunkKey(c)));
+  const margin = still.filter((c) => !viewKeys.has(chunkKey(c)));
+  const bake: ChunkCoord[] = visible.slice(0, maxVisible);
+  const marginBudget = Math.min(maxMargin, maxVisible - bake.length);
+  if (marginBudget > 0) bake.push(...margin.slice(0, marginBudget));
+  const picked = new Set(bake.map(chunkKey));
+  return { bake, keep: still.filter((c) => !picked.has(chunkKey(c))) };
+}

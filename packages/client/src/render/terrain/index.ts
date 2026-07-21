@@ -6,7 +6,7 @@ import Phaser from "phaser";
 import { getViewOrientation } from "../view/viewState.js";
 import { buildChunkVisual, destroyChunkVisual, type ChunkVisual } from "./chunkVisual.js";
 import { affectedChunkKeys } from "./lightRebake.js";
-import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "./streaming.js";
+import { chunkKey, desiredChunks, diffChunks, planBakes, type ChunkCoord, type ViewRect } from "./streaming.js";
 import type { DynamicLightSeed } from "./tileLight.js";
 import type { TilePos } from "../lighting/torchPlacement.js";
 
@@ -15,6 +15,10 @@ const LOAD_MARGIN_CHUNKS = 1;
  * measured 108-192ms hitches on chunk-boundary frames (leak-hunt probe,
  * 2026-07-20). The margin gives queued chunks a full screen of runway. */
 const MAX_BAKES_PER_FRAME = 2;
+/** Margin-only (not yet visible) chunks bake slower still — they're off-screen
+ * by LOAD_MARGIN_CHUNKS, so appearing a few frames later costs nothing visible
+ * while halving the walking-stream bake spike (see streaming.ts's planBakes). */
+const MAX_MARGIN_BAKES_PER_FRAME = 1;
 export class TerrainRenderer {
   private readonly visuals = new Map<string, ChunkVisual>();
   private readonly bakeQueue: ChunkCoord[] = [];
@@ -33,8 +37,11 @@ export class TerrainRenderer {
     private readonly world: World,
   ) {}
 
-  /** Streams chunks around a view rect: queues what entered the margin (baking at
-   * most MAX_BAKES_PER_FRAME per call), culls what left it. */
+  /** Streams chunks around a view rect: queues what entered the margin, bakes this
+   * frame's urgency-tiered picks (planBakes — visible chunks first at
+   * MAX_BAKES_PER_FRAME, margin-only at MAX_MARGIN_BAKES_PER_FRAME), culls what
+   * left. planBakes also drops queued bakes for chunks that scrolled back out
+   * before their turn. */
   update(view: ViewRect): void {
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.visuals.keys()));
@@ -43,17 +50,20 @@ export class TerrainRenderer {
       if (!this.bakeQueue.some((c) => chunkKey(c) === key)) this.bakeQueue.push(coord);
     }
     for (const key of toUnloadKeys) this.unload(key);
-    // Drop queued bakes for chunks that scrolled back out before their turn.
     const desiredKeys = new Set(desired.map(chunkKey));
-    const budget = this.drainNextUpdate ? Number.POSITIVE_INFINITY : MAX_BAKES_PER_FRAME;
+    const viewKeys = new Set(desiredChunks(view, 0).map(chunkKey));
+    const drain = this.drainNextUpdate;
     this.drainNextUpdate = false;
-    let baked = 0;
-    while (this.bakeQueue.length > 0 && baked < budget) {
-      const coord = this.bakeQueue.shift()!;
-      if (!desiredKeys.has(chunkKey(coord))) continue;
-      this.load(coord);
-      baked++;
-    }
+    const { bake, keep } = planBakes(
+      this.bakeQueue,
+      desiredKeys,
+      viewKeys,
+      drain ? Number.POSITIVE_INFINITY : MAX_BAKES_PER_FRAME,
+      drain ? Number.POSITIVE_INFINITY : MAX_MARGIN_BAKES_PER_FRAME,
+    );
+    this.bakeQueue.length = 0;
+    this.bakeQueue.push(...keep);
+    for (const coord of bake) this.load(coord);
   }
 
   /** Invalidates everything AND makes the next update() rebake the whole view in one
