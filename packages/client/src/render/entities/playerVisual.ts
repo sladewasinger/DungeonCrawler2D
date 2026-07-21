@@ -2,13 +2,14 @@
 // flash, downed pose, plus the shared combatant chrome (shadow/hp/nameplate).
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { getViewOrientation } from "../view/viewState.js";
 import { resolveAnimState } from "./animState.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
-import { isOccludedByWallAhead, syncOcclusionSilhouette } from "./occlusion.js";
+import { isOccludedByTerrainAhead, syncOcclusionSilhouette } from "./occlusion.js";
 import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import { squashScale } from "./squash.js";
@@ -56,7 +57,9 @@ function updatePlayerBody(
   heightAboveGround: number,
 ): void {
   const screen = worldToScreen(view.x, view.y);
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
+  // Flat projection: grounded entities sit AT their world row like the terrain does;
+  // only height above the local ground (jump/fall) lifts the sprite — see lift.ts.
+  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(heightAboveGround));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
@@ -99,10 +102,15 @@ function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: Rend
 }
 
 /** Shadow, hp bar, nameplate, held weapon, and occlusion silhouette — everything that
- * hangs off the body's screen position. Nameplate/hp bar anchor to the LIFTED body
- * position (visual.body.x/y) so they rise with the sprite; the shadow deliberately
- * keeps using the unlifted ground position — it's how players read height at all. */
-function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext, heightAboveGround: number): void {
+ * hangs off the body's screen position. Under flat projection the ground screen point
+ * IS the drawn floor at every terrain height — the shadow sits there always, and the
+ * sprite joins it whenever grounded (lift.ts); nameplate/hp bar follow the body. */
+function updatePlayerChrome(
+  visual: PlayerVisual,
+  view: PlayerEntityView,
+  ctx: RenderContext,
+  heightAboveGround: number,
+): void {
   const ground = worldToScreen(view.x, view.y);
   const bodyDepth = visual.body.depth;
   visual.shadow.setDepth(bodyDepth - 0.2);
@@ -115,7 +123,8 @@ function updatePlayerChrome(visual: PlayerVisual, view: PlayerEntityView, ctx: R
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
   updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed);
 
-  syncOcclusionSilhouette(visual.body, view.y, isOccludedByWallAhead(ctx.world, view.x, view.y, view.z));
+  const occluded = isOccludedByTerrainAhead(ctx.world, view.x, view.y, view.z, getViewOrientation());
+  syncOcclusionSilhouette(visual.body, view.y, occluded);
   updateWeaponVisual(visual, view, ctx);
 }
 

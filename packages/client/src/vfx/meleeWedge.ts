@@ -39,13 +39,13 @@ export class MeleeWedgePool {
   constructor(private readonly scene: Phaser.Scene) {}
 
   /** (Re)shapes `id`'s wedge at world (x,y) aimed at `angleRad`, starting its fade now. Reuses the id's Graphics object across swings instead of allocating a new one each time. */
-  spawn(id: string, worldX: number, worldY: number, liftUnits: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+  spawn(id: string, worldX: number, worldY: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
     const swing = this.swings.get(id) ?? { gfx: this.scene.add.graphics(), startedAtMs: -Infinity };
     this.swings.set(id, swing);
+    // Flat projection: the ground telegraph anchors at the wielder's world row at
+    // every terrain height, exactly like the shadow (lift.ts module doc).
     const screen = worldToScreen(worldX, worldY);
-    // z-lift is always screen-up (rotation invariant 2) — the wedge anchors at the
-    // wielder's lifted feet, same plane as the sprite, at every elevation.
-    drawWedge(swing.gfx, screen.x, screen.y - liftUnits * tilePx, wedgeGeometry(angleRad, tilePx));
+    drawWedge(swing.gfx, screen.x, screen.y, wedgeGeometry(angleRad, tilePx));
     swing.gfx.setDepth(depth).setVisible(true).setAlpha(1);
     swing.startedAtMs = nowMs;
   }

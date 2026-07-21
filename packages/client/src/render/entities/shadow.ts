@@ -3,6 +3,17 @@
 // shadow blob stays glued to the ground — it's how players read z." It also shrinks
 // slightly the further an entity is off the ground it's standing on, reinforcing a
 // jump's height the same way a real top-down shadow would.
+//
+// WAVE R2 shadow/ground unification, FLAT-PROJECTION form (user rulings, docs/ROADMAP.md):
+// the debug terrain renderer draws every surface at its raw world row (placeDebugTile —
+// no north-shift for height), so the ground beneath an entity is ALWAYS drawn at the
+// entity's own world position. The shadow therefore sits exactly at the ground-plane
+// screen point at every terrain height — no lift term at all — and the sprite joins it
+// there whenever grounded (lift.ts lifts only by height ABOVE the local ground). The
+// earlier "shadow a tile south of the feet / near the head in a pit" reports were the
+// SPRITE floating off its drawn floor via the old absolute-z lift, not the shadow being
+// misplaced; with the sprite fixed, shadow-at-world-row is correct by construction.
+// Airborne (jump/fall) the sprite rises while the shadow stays put — the one divergence.
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 
@@ -33,8 +44,9 @@ export function shadowScaleForHeight(heightAboveGround: number): number {
   return Math.max(SHADOW_MIN_SCALE, 1 - heightAboveGround * HEIGHT_SCALE_FALLOFF);
 }
 
-/** Repositions a shadow at an entity's ground-plane screen position, scaling it down
- * the further off that ground the entity currently is (0 while standing on it). */
+/** Repositions a shadow at an entity's ground-plane screen position — under flat
+ * projection that IS the drawn floor beneath it at every terrain height — scaling it
+ * down the further off that ground the entity currently is (0 while standing on it). */
 export function updateShadowPosition(
   shadow: Phaser.GameObjects.Ellipse,
   groundScreenX: number,

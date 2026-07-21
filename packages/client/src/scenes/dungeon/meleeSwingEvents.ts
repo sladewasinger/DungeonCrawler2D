@@ -13,10 +13,6 @@ export interface MeleeSwingSpawn {
   readonly id: string;
   readonly worldX: number;
   readonly worldY: number;
-  /** Wielder z in tiles — the wedge must lift with the sprite (screen-up, like every
-   * entity visual), or on raised floors the pie draws a full tile south of the
-   * character ("the attack starts too far away from the player" — user playtest). */
-  readonly liftUnits: number;
   readonly angleRad: number;
   readonly depth: number;
 }
@@ -36,12 +32,13 @@ export function resolveMeleeSwings(players: readonly PlayerEntityView[], previou
 }
 
 function toSpawn(player: PlayerEntityView): MeleeSwingSpawn {
+  // Flat projection: the ground telegraph sits at the wielder's world row at every
+  // terrain height, exactly like the shadow — no lift term (lift.ts module doc).
   return {
     id: player.id,
     worldX: player.x,
     worldY: player.y,
-    liftUnits: player.z,
     angleRad: player.attackAngleRad,
-    depth: depthForEntityNow(player.x, player.y, player.z) - WEDGE_DEPTH_BIAS,
+    depth: depthForEntityNow(player.x, player.y) - WEDGE_DEPTH_BIAS,
   };
 }

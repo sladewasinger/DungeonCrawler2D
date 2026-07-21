@@ -34,7 +34,9 @@ export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): 
 /** Body pose: position, depth, animation, telegraph pulse, status/hit tint. */
 function updateMonsterBody(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, heightAboveGround: number): void {
   const screen = worldToScreen(view.x, view.y);
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
+  // Flat projection: grounded entities sit AT their world row like the terrain does;
+  // only height above the local ground (jump/fall) lifts the sprite — see lift.ts.
+  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(heightAboveGround));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 
@@ -68,9 +70,14 @@ function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<t
 }
 
 /** Shadow, hp bar, nameplate — everything that hangs off the body's screen position.
- * Nameplate/hp bar anchor to the LIFTED body position so they rise with the sprite;
- * the shadow deliberately keeps using the unlifted ground position. */
-function updateMonsterChrome(visual: MonsterVisual, view: MonsterEntityView, ctx: RenderContext, heightAboveGround: number): void {
+ * Under flat projection the ground screen point IS the drawn floor at every terrain
+ * height — the shadow sits there always; see playerVisual.ts's chrome doc. */
+function updateMonsterChrome(
+  visual: MonsterVisual,
+  view: MonsterEntityView,
+  ctx: RenderContext,
+  heightAboveGround: number,
+): void {
   const ground = worldToScreen(view.x, view.y);
   const bodyDepth = visual.body.depth;
   visual.shadow.setDepth(bodyDepth - 0.2);

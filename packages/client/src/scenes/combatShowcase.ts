@@ -47,7 +47,7 @@ export class CombatShowcase {
     this.swingUntilMs = nowMs + SWING_HOLD_MS;
     for (const demo of this.players) {
       const angle = this.aimAngle(demo);
-      this.vfx.spawnMeleeSwing(demo.id, demo.x, demo.y, 0, angle, depthForEntityNow(demo.x, demo.y) - WEDGE_DEPTH_BIAS, SCREEN_TILE_PX, nowMs);
+      this.vfx.spawnMeleeSwing(demo.id, demo.x, demo.y, angle, depthForEntityNow(demo.x, demo.y) - WEDGE_DEPTH_BIAS, SCREEN_TILE_PX, nowMs);
     }
   }
 
