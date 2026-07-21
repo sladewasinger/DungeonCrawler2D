@@ -121,13 +121,15 @@ export function drawTile(
   }
   const face = ownFaceRowAt(world, wx, wy);
   if (world.tileAt(wx, wy) === TILE.Wall) {
-    if (face !== null) {
-      drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
-    } else {
-      const height = world.heightAt(wx, wy);
-      const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
-      drawWallTile(scene, world, wx, wy, container, lightTint, surfaceLiftPx(height));
-    }
+    // EVERY wall cell draws its shifted cap — face owners included (spec section 1:
+    // "always draw the shifted cap THEN overlay the band"). Skipping the cap on
+    // face-owning cells left every raw row that DEPENDED on one of those caps for
+    // coverage (the row h screen-north, vacated by its own cap's shift) rendering
+    // nothing — the scattered black squares of the 2026-07-21 production playtest.
+    const height = world.heightAt(wx, wy);
+    const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+    drawWallTile(scene, world, wx, wy, container, lightTint, surfaceLiftPx(height));
+    if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
     return;
   }
   // Walkable ground ALWAYS draws its shifted cap; a raised platform whose south

@@ -19,7 +19,7 @@
 // lighting (computeLightField's BFS is a real-world light-flow simulation) and the
 // engine's stair climb-direction detection (a real height-gradient fact).
 import type { ViewOrientation } from "../view/viewOrientation.js";
-import { viewTileToWorld, type Point } from "../view/viewTransform.js";
+import { viewTileToWorld, viewToWorld, type Point } from "../view/viewTransform.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 
 export interface ViewTerrainWorld extends TerrainWorld {
@@ -49,7 +49,16 @@ export function viewWorld(world: TerrainWorld, orientation: ViewOrientation): Vi
     zoneAt: (vx, vy) => world.zoneAt(...toRealArgs(toReal, vx, vy)),
     isSanctuary: (vx, vy) => world.isSanctuary(...toRealArgs(toReal, vx, vy)),
     isWalkable: (vx, vy) => world.isWalkable(...toRealArgs(toReal, vx, vy)),
-    groundAt: (vx, vy) => world.groundAt(...toRealArgs(toReal, vx, vy)),
+    // groundAt is the proxy's one CONTINUOUS sampler (the engine's ramp-aware ground
+    // takes fractional positions — callers pass cell CENTERS like (vx+0.5, vy+0.5)).
+    // It must map through the continuous transform: the tile-index mapping would
+    // floor a center into the NEXT cell over (floor(viewToWorld(vx+0.5+0.5)) lands
+    // one cell east/south even unrotated), which misrouted every stair-aware
+    // surface-height read (occluderBand's drawnSurfaceHeight, tread shifts).
+    groundAt: (vx, vy) => {
+      const p = viewToWorld({ x: vx, y: vy }, orientation);
+      return world.groundAt(p.x, p.y);
+    },
   };
 }
 

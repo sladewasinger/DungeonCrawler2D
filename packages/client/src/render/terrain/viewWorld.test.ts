@@ -38,14 +38,17 @@ describe("viewWorld at orientation 90", () => {
     expect(vw.tileAt(5, 5)).toBe(TILE.Floor);
   });
 
-  it("heightAt/groundAt agree with the real world's cell at the mapped position", () => {
+  it("heightAt (tile) and groundAt (continuous center) agree on the displayed cell", () => {
     const world = fakeWorld(() => TILE.Floor);
     const vw = viewWorld(world, 90);
     // viewTileToWorld({x:2,y:3}, 90) = floor(viewToWorld(2.5, 3.5)) = (-4, 2) — the
     // tile-index mapping, one cell past the pure rotation of the bare index, in
     // lockstep with every interior point of the cell (see viewTransform.test.ts).
     expect(vw.heightAt(2, 3)).toBe(world.heightAt(-4, 2));
-    expect(vw.groundAt(2, 3)).toBe(world.groundAt(-4, 2));
+    // groundAt is the proxy's continuous sampler: the view cell's CENTER (2.5, 3.5)
+    // maps to the displayed world cell's own center, viewToWorld(2.5, 3.5) = (-3.5, 2.5)
+    // — inside tile (-4, 2), consistent with heightAt above.
+    expect(vw.groundAt(2.5, 3.5)).toBe(world.groundAt(-3.5, 2.5));
   });
 });
 
@@ -81,5 +84,27 @@ describe("viewChunkWorldOrigin", () => {
         }
       }
     }
+  });
+});
+
+describe("viewWorld groundAt (continuous sampler)", () => {
+  it("maps a fractional cell-center query through the CONTINUOUS transform, not the tile mapping", () => {
+    // Hand-derived at orientation 90: view center (2.5, 3.5) -> viewToWorld = (-3.5, 2.5).
+    // The tile mapping would floor the inputs' halves into the next cell over (the
+    // drawnSurfaceHeight misrouting behind the 2026-07-21 black squares).
+    const calls: Array<[number, number]> = [];
+    const world = fakeWorld(() => TILE.Floor);
+    const recording = { ...world, groundAt: (x: number, y: number) => { calls.push([x, y]); return 0; } };
+    const vw = viewWorld(recording, 90);
+    vw.groundAt(2.5, 3.5);
+    expect(calls).toEqual([[-3.5, 2.5]]);
+  });
+
+  it("is the identity at orientation 0 — center in, same center out", () => {
+    const calls: Array<[number, number]> = [];
+    const world = fakeWorld(() => TILE.Floor);
+    const recording = { ...world, groundAt: (x: number, y: number) => { calls.push([x, y]); return 0; } };
+    viewWorld(recording, 0).groundAt(5.5, 8.5);
+    expect(calls).toEqual([[5.5, 8.5]]);
   });
 });
