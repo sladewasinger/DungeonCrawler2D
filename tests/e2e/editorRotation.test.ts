@@ -34,8 +34,13 @@ interface EditorPhaserScene {
 // inverse of viewToWorld's point(view.y, -view.x). Duplicated here (not imported) since
 // e2e specs drive the real page only, never import the app's own modules; cross-checked
 // against packages/client/src/render/view/viewTransform.test.ts's exhaustive unit coverage.
-function worldToView270(wx: number, wy: number): { x: number; y: number } {
-  return { x: -wy, y: wx };
+// TILE-INDEX mapping at orientation 270, hand-derived (viewTransform.ts worldTileToView):
+// a tile index is not a point — map the tile CENTER and floor, so the cell agrees with
+// every interior point. rotate270(wx+0.5, wy+0.5) = (-(wy+0.5), wx+0.5), floored:
+// x = -wy - 1, y = wx. Worked: world (3,12) -> view cell (-13, 3). The old pure-index
+// helper (-wy, wx) was the one-cell-off convention this repo fixed renderer-wide.
+function worldTileToView270(wx: number, wy: number): { x: number; y: number } {
+  return { x: -wy - 1, y: wx };
 }
 
 const SCREEN_TILE_PX = 48;
@@ -87,7 +92,7 @@ test.describe("editor rotation", () => {
       (window as unknown as EditorDebugWindow).__editorStore.brush = { kind: "wall" };
     });
 
-    const view = worldToView270(TARGET_WX, TARGET_WY);
+    const view = worldTileToView270(TARGET_WX, TARGET_WY);
     const { screenX, screenY } = await page.evaluate(
       ({ viewX, viewY, tilePx }) => {
         const scene = (window as unknown as EditorDebugWindow).__game.scene.getScene("editor");
