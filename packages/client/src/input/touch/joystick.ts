@@ -24,10 +24,9 @@ const FACE_BAND_END_RATIO = 0.2;
  * deadzone I walk and then increase walk speed until I'm at max"). */
 const WALK_START_MAGNITUDE = 0.35;
 const MAX_MAGNITUDE = 1;
-/** Near-full deflection also stands in for holding run (Epic 7.12, ASSUMPTION #65:
- * mobile has no Shift key) — "the max extent" per the wave-9 spec. Raised from 0.85
- * now that the ramp below it has room to build up to full walk speed first. */
-const RUN_DEFLECTION_RATIO = 0.95;
+/** Mobile run requires a deliberate two-ring drag. Full walking speed remains at the
+ * visible ring; the extra thumb travel prevents accidental sprinting. */
+const RUN_DEFLECTION_RATIO = 2;
 
 const SECTOR_RAD = Math.PI / 4;
 

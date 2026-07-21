@@ -85,17 +85,17 @@ describe("stickMoveVector — wave-9 deadzone/face-band/walk-ramp bands", () => 
 });
 
 describe("stickIsRunning", () => {
-  it("stays false below the 95% run-deflection threshold", () => {
+  it("stays false until the thumb has travelled two stick radii", () => {
     const state = createTouchInputState();
     beginStick(state, 1, 0, 0);
-    moveStick(state, 1, 37, 0); // 92.5%
+    moveStick(state, 1, 79, 0);
     expect(stickIsRunning(state)).toBe(false);
   });
 
-  it("flips true once the drag reaches full deflection", () => {
+  it("flips true at two stick radii, after full walking speed has already been reached", () => {
     const state = createTouchInputState();
     beginStick(state, 1, 0, 0);
-    moveStick(state, 1, 40, 0); // 100%
+    moveStick(state, 1, 80, 0);
     expect(stickIsRunning(state)).toBe(true);
   });
 });
