@@ -32,6 +32,7 @@ import {
 } from "./players.js";
 import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
+import { endSpawnGrace } from "./spawnSafety.js";
 import { buildSnapshots } from "./snapshots.js";
 import { expireInvites } from "./social.js";
 import {
@@ -148,6 +149,14 @@ export class GameSim {
   /** Test access: spawn an enemy. */
   spawnEnemy(defId: string, x: number, y: number): Entity {
     return spawnEnemy(this.state, defId, x, y);
+  }
+
+  /** Test access: forfeit a player's spawn grace (sim/spawnSafety.ts) —
+   * combat fixtures hand-place a "long-established" player and expect
+   * immediate hostility, without burning SPAWN_GRACE_TICKS of steps. */
+  endSpawnGrace(playerId: string): void {
+    const slot = this.state.players.get(playerId);
+    if (slot) endSpawnGrace(slot);
   }
 
   // ── Epic 7.14 (The Descent): cross-sim transfer + cross-floor social ──

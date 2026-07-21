@@ -37,9 +37,10 @@ const BODY_POS = { x: 0, y: 0, z: 0 };
 const CHAT_MODEL: ChatPanelModel = { tabs: [], lines: [] };
 const CONTACTS: never[] = [];
 const COMPASS = 0;
+const STAIRWAY = null;
 
 function snapshotOf(src: HudSnapshotSource, armedThrowableSlot = null as number | null, fps = FPS, bodyPos = BODY_POS) {
-  return buildHudSnapshot(src, armedThrowableSlot, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS, COMPASS);
+  return buildHudSnapshot(src, armedThrowableSlot, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
 }
 
 describe("buildHudSnapshot", () => {
@@ -88,7 +89,7 @@ describe("buildHudSnapshot", () => {
       lines: [{ channel: "global", author: "server", text: "welcome" }],
     };
     const contacts = [{ name: "Wren", online: true }];
-    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, chatModel, contacts, COMPASS);
+    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, chatModel, contacts, COMPASS, STAIRWAY);
     expect(snap.chatModel).toBe(chatModel);
     expect(snap.contacts).toEqual(contacts);
   });
@@ -96,10 +97,17 @@ describe("buildHudSnapshot", () => {
   it("passes through armedThrowableSlot, interactionPrompt, and touch unchanged", () => {
     const prompt = { key: "E", label: "interact" };
     const touch = { stick: null, buttons: { attack: false, jump: false, interact: false } };
-    const snap = buildHudSnapshot(source(), 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS);
+    const snap = buildHudSnapshot(source(), 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
     expect(snap.armedThrowableSlot).toBe(3);
     expect(snap.interactionPrompt).toBe(prompt);
     expect(snap.touch).toBe(touch);
+  });
+
+  it("passes the stairway tick straight through for the compass widget (LANE W)", () => {
+    const tick = { screenBearingDeg: 135, near: true };
+    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, tick);
+    expect(snap.stairway).toBe(tick);
+    expect(snapshotOf(source()).stairway).toBeNull();
   });
 
   it("passes fps straight through for the top-right indicator's own smoothing", () => {

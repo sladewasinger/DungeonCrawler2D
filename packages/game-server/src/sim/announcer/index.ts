@@ -2,7 +2,7 @@
 // join/death/level/kill/fistbump/torch moments — the DCC book-fan lane
 // (Epic 7.13). Every line rides the existing "system" chat channel, so
 // no client changes are required to see them.
-import type { EnemyDef, GameEvent } from "@dc2d/engine";
+import { stairwayDownChunk, type EnemyDef, type GameEvent } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../state.js";
 import { killVerbPhrase } from "./killLine.js";
 import {
@@ -17,6 +17,7 @@ import {
   KILL_MILESTONE_LINES,
   LEVEL_UP_LINES,
   PERSONAL_KILL_LINES,
+  STAIRWAY_HINT_LINES,
 } from "./lines.js";
 import { pickLineIndex } from "./pick.js";
 import { recordKill } from "./killCounts.js";
@@ -43,15 +44,21 @@ export function announceJoin(tick: number, playerId: string, name: string, ordin
   return systemLine(line(name, ordinal));
 }
 
+/**
+ * `rating` (panel round 3b, "Small" item) is the 2-9 audience score derived from this
+ * life's run stats — see sim/announcer/rating.ts and deaths.ts's call site, which reads
+ * lifeStats.ts's per-life kill/duration snapshot right before calling this.
+ */
 export function announceDeath(
   tick: number,
   playerId: string,
   name: string,
   chasm: boolean,
+  rating: number,
 ): GameEvent {
   const pool = chasm ? CHASM_DEATH_LINES : DEATH_LINES;
   const line = pick(pool, tick, `death:${playerId}`);
-  return systemLine(line(name));
+  return systemLine(line(name, rating));
 }
 
 export function announceLevelUp(
@@ -102,6 +109,24 @@ export function announceFirstTorchThrow(tick: number, playerId: string, name: st
  */
 export function announceFloorEntry(floor: number): GameEvent {
   return systemLine(FLOOR_ENTRY_LINES[floor - 1] ?? `Floor ${floor}.`);
+}
+
+/**
+ * LANE W / panel R3 blocker #2 (stairs wayfinding) — private stairway-exists
+ * hint pushed right after announceFloorEntry on every floor arrival (fresh
+ * join and stair transfer both; same cadence as the identity line it rides
+ * behind). Null on floors with no StairwayDown (FLOOR_CAP's boss arena), so
+ * the caller pushes only when non-null. Salted per (player, floor) so two
+ * players arriving the same tick still diverge — the usual tick+salt rotation
+ * (pick.ts) varies the line across separate arrivals.
+ */
+export function announceStairwayHint(
+  tick: number,
+  playerId: string,
+  world: { worldSeed: number; floor: number },
+): GameEvent | null {
+  if (!stairwayDownChunk(world.worldSeed, world.floor)) return null;
+  return systemLine(pick(STAIRWAY_HINT_LINES, tick, `stairs:${playerId}:${world.floor}`)());
 }
 
 export function announceBossIntro(tick: number): GameEvent {

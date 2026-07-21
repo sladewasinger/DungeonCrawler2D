@@ -9,7 +9,7 @@
     "status": { "anchor": "top-right", "offset": { "x": -16, "y": 16 } },
     "party": { "anchor": "top-right", "offset": { "x": -16, "y": 104 } },
     "minimap": { "anchor": "top-right", "offset": { "x": -16, "y": 188 } },
-    "compass": { "anchor": "top-right", "offset": { "x": -16, "y": 272 } },
+    "compass": { "anchor": "top-right", "offset": { "x": -56, "y": 150 } },
     "weapon": { "anchor": "bottom-right", "offset": { "x": -16, "y": -88 } },
     "interaction": { "anchor": "bottom-center", "offset": { "x": 0, "y": -140 } },
     "death": { "anchor": "center", "offset": { "x": 0, "y": 0 } },

@@ -14,6 +14,7 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { effectTargetFor, isBodyInChasm } from "../helpers.js";
+import { isSpawnProtected } from "../spawnSafety.js";
 import type { EnemySlot, SimState } from "../state.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
@@ -38,7 +39,14 @@ function isNearAnyPlayer(entity: EnemySlot["entity"], players: readonly EnemySlo
 
 export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
   const players = [...sim.players.values()]
-    .filter((s) => s.connected && s.entity.hp > 0 && s.downedAtTick === null)
+    // Spawn-grace players are invisible to enemy aggro (spawnSafety.ts).
+    .filter(
+      (s) =>
+        s.connected &&
+        s.entity.hp > 0 &&
+        s.downedAtTick === null &&
+        !isSpawnProtected(s, sim.tickCount),
+    )
     .map((s) => s.entity);
   for (const enemy of sim.enemies.values()) {
     const entity = enemy.entity;

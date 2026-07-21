@@ -7,6 +7,7 @@ import { doDescend } from "./descend.js";
 import { doInteract, teleport } from "./interact.js";
 import { doUseSlot } from "./items.js";
 import { doAttack } from "./melee.js";
+import { endSpawnGrace } from "../spawnSafety.js";
 import { doThrowTorch } from "../torches.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
@@ -37,6 +38,9 @@ const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
   "descend",
 ]);
 
+/** Offensive action types — performing one forfeits spawn grace (spawnSafety.ts). */
+const FORFEITS_SPAWN_GRACE = new Set<PlayerAction["type"]>(["attack", "useSlot", "throwTorch"]);
+
 function dispatchAction(
   sim: SimState,
   slot: PlayerSlot,
@@ -44,7 +48,9 @@ function dispatchAction(
   effectEvents: EffectEvent[],
 ): void {
   if (GATED_ON_STANDING.has(action.type)) {
-    if (slot.downedAtTick === null) dispatchGatedAction(sim, slot, action, effectEvents);
+    if (slot.downedAtTick !== null) return;
+    if (FORFEITS_SPAWN_GRACE.has(action.type)) endSpawnGrace(slot);
+    dispatchGatedAction(sim, slot, action, effectEvents);
     return;
   }
   dispatchStandingAction(sim, slot, action, effectEvents);

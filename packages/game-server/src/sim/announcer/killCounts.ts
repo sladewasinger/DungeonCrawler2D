@@ -16,3 +16,12 @@ export function recordKill(slot: PlayerSlot): number {
   killCounts.set(slot, next);
   return next;
 }
+
+/**
+ * Read-only peek at a slot's cumulative session kill tally (panel round 3b, "Small"
+ * item) — lifeStats.ts diffs two snapshots of this to derive a this-life kill count
+ * instead of keeping a second counter that could drift out of sync with this one.
+ */
+export function getKillCount(slot: PlayerSlot): number {
+  return killCounts.get(slot) ?? 0;
+}

@@ -1,5 +1,7 @@
 import { DOWNED_DURATION, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
 import { announceDeath, broadcastAnnouncement } from "./announcer/index.js";
+import { ensureLifeTracked, takeLifeStats } from "./announcer/lifeStats.js";
+import { ratingForRun } from "./announcer/rating.js";
 import { handleBossDeath } from "./floors/boss.js";
 import { WARDEN_DEF_ID } from "./floors/constants.js";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
@@ -54,6 +56,11 @@ function resolveEnemyDeaths(sim: SimState): void {
 
 function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   const entity = slot.entity;
+  // Panel round 3b, "Small" item: seeds this slot's life-start bookkeeping the first
+  // time it's ever observed here (this function runs every tick for every slot,
+  // regardless of whether it dies), so the eventual takeLifeStats call below has a
+  // real (within one tick) life-start reference even on a player's very first death.
+  ensureLifeTracked(slot, sim.tickCount);
   bleedOutIfExpired(sim, slot);
   if (entity.hp > 0 || slot.respawnAtTick !== null) return;
 
@@ -65,9 +72,18 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   sim.worldEvents.push({ ev: { t: "death", id: entity.id }, x: entity.body.x, y: entity.body.y });
   // The announcer's voice (Epic 7.13, book-fan lane): read forceDeath
   // before it's cleared below so a chasm fall gets its own mocking pool.
+  // Panel round 3b, "Small" item: derive the audience rating from this life's own
+  // kills/floor/survival-time instead of a hard-coded "6" — takeLifeStats resets the
+  // tracking for whatever life starts next.
+  const { killsThisLife, survivalTicks } = takeLifeStats(slot, sim.tickCount);
+  const rating = ratingForRun({
+    killsThisLife,
+    floor: sim.world.floor,
+    survivalSeconds: survivalTicks / TICK_RATE,
+  });
   broadcastAnnouncement(
     sim,
-    announceDeath(sim.tickCount, entity.id, entity.name ?? "?", slot.forceDeath),
+    announceDeath(sim.tickCount, entity.id, entity.name ?? "?", slot.forceDeath, rating),
   );
   dropAllInventory(sim, slot);
   entity.statuses = [];

@@ -1,5 +1,5 @@
 import { createBody, stairwayDownPosition, stairwayUpPosition } from "@dc2d/engine";
-import { announceFloorEntry } from "../announcer/index.js";
+import { announceFloorEntry, announceStairwayHint } from "../announcer/index.js";
 import { respawnSlot } from "../players.js";
 import { leaveParty } from "../social.js";
 import { findSpawn } from "../spawn.js";
@@ -54,5 +54,9 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
     slot.outbox.push({ t: "teleported" });
   }
   slot.outbox.push(announceFloorEntry(sim.world.floor));
+  // LANE W (panel R3 blocker #2): the stairway-exists hint rides right behind the
+  // floor identity line on every arrival — null (skipped) on FLOOR_CAP's boss floor.
+  const stairHint = announceStairwayHint(sim.tickCount, slot.entity.id, sim.world);
+  if (stairHint) slot.outbox.push(stairHint);
   sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
 }

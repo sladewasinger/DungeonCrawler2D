@@ -14,6 +14,10 @@ export interface EffectTarget {
   immunities?: readonly string[];
   /** Damage multipliers by source tag. */
   damageScale?: Readonly<Record<string, number>>;
+  /** Full hostile suppression (spawn grace): damage and debuffs are
+   * dropped outright — heals and buffs still land. The server sim
+   * decides who is protected (game-server sim/spawnSafety.ts). */
+  invulnerable?: boolean;
 }
 
 /** Scales a hostile amount by the target's per-tag damageScale, or returns it unchanged. */
@@ -40,6 +44,7 @@ function resolveDelta(
   target: EffectTarget,
 ): number | null {
   if (amount >= 0) return amount;
+  if (target.invulnerable) return null;
   if (!opts.ignoreSanctuary && inSanctuary(state, entity)) return null;
   return scaleDamage(amount, opts.sourceTags, target.damageScale);
 }

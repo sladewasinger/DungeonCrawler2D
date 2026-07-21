@@ -77,6 +77,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity,
+    spawnGraceUntilTick: 0,
     pendingTransfer: null,
   };
 }

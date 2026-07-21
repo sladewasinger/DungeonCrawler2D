@@ -7,7 +7,7 @@ import { inSanctuary, tagsOf, type EffectsState } from "./state.js";
 /** True if a status may not be applied to this entity right now (dead, sanctuary, immunity). */
 function isBlocked(state: EffectsState, entity: Entity, def: StatusDef, target: EffectTarget): boolean {
   if (entity.hp <= 0) return true;
-  if (def.kind === "debuff" && inSanctuary(state, entity)) return true;
+  if (def.kind === "debuff" && (inSanctuary(state, entity) || target.invulnerable)) return true;
   if (target.immunities?.some((tag) => def.tags.includes(tag))) return true;
   return false;
 }

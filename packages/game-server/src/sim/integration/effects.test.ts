@@ -21,6 +21,7 @@ describe("GameSim: standing effects and fall damage", () => {
 
   it("standing in fire ignites you; fire cannot exist in sanctuary", () => {
     const a = sim.addPlayer("A", "client-a");
+    sim.endSpawnGrace(a.playerId); // spawn grace would suppress the debuff (spawnSafety.ts)
     const entity = sim.getPlayerEntity(a.playerId)!;
     sim.areas.spawn("area-fire", Math.floor(entity.body.x), Math.floor(entity.body.y), 0);
     const snap = sim.step().get(a.playerId)!;

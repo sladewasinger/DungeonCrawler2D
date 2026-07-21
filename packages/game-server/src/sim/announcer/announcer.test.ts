@@ -9,6 +9,7 @@ import {
   announceJoin,
   announceKillMilestone,
   announceLevelUp,
+  announceStairwayHint,
   broadcastAnnouncement,
 } from "./index.js";
 import { pickLineIndex } from "./pick.js";
@@ -56,9 +57,17 @@ describe("announcer line builders", () => {
   });
 
   it("announceDeath picks a distinct pool for chasm vs ordinary deaths", () => {
-    const ordinary = announceDeath(10, "p1", "Rowan", false);
-    const chasm = announceDeath(10, "p1", "Rowan", true);
+    const ordinary = announceDeath(10, "p1", "Rowan", false, 6);
+    const chasm = announceDeath(10, "p1", "Rowan", true, 6);
     expect(ordinary.t === "chat" && ordinary.text).not.toBe(chasm.t === "chat" ? chasm.text : "");
+  });
+
+  it("announceDeath embeds the derived rating into the ordinary-pool rating line", () => {
+    // tick 12, salt "death:p1" happens to land on DEATH_LINES[0] (the rating line) —
+    // pinned here rather than searching, since pickLineIndex's determinism guarantees
+    // this tick reproduces the same index every run.
+    const withRating = announceDeath(12, "p1", "Rowan", false, 9);
+    expect(withRating.t === "chat" && withRating.text).toContain("9 out of 10");
   });
 
   it("announceLevelUp embeds the level number", () => {
@@ -76,6 +85,23 @@ describe("announcer line builders", () => {
   it("announceFirstTorchThrow embeds the name", () => {
     const event = announceFirstTorchThrow(5, "p1", "Rowan");
     expect(event.t === "chat" && event.text).toContain("Rowan");
+  });
+
+  it("announceStairwayHint yields a system line about the way down on floors 1-4 (LANE W)", () => {
+    for (const floor of [1, 2, 3, 4]) {
+      const event = announceStairwayHint(10, "p1", { worldSeed: 1337, floor });
+      expect(event).toMatchObject({ t: "chat", channel: "system", from: "server", name: "system" });
+      expect(event?.t === "chat" ? event.text : "").toMatch(/down/i);
+    }
+  });
+
+  it("announceStairwayHint returns null on the boss floor (FLOOR_CAP has no StairwayDown)", () => {
+    expect(announceStairwayHint(10, "p1", { worldSeed: 1337, floor: 5 })).toBeNull();
+  });
+
+  it("announceStairwayHint is deterministic for the same (tick, player, floor)", () => {
+    const world = { worldSeed: 1337, floor: 1 };
+    expect(announceStairwayHint(7, "p1", world)).toEqual(announceStairwayHint(7, "p1", world));
   });
 });
 

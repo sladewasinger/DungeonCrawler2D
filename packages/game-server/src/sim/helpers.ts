@@ -1,5 +1,6 @@
 import { CHASM_DEATH_Z, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
 import { scaledEnemyDef } from "./floors/scaling.js";
+import { isSpawnProtected } from "./spawnSafety.js";
 import type { SimState } from "./state.js";
 
 /** Small queries and spawners shared across the sim modules. */
@@ -23,7 +24,8 @@ export function combatants(sim: SimState): Entity[] {
   return out;
 }
 
-/** Per-entity effect modifiers (enemy immunities / damage scaling). */
+/** Per-entity effect modifiers (enemy immunities / damage scaling,
+ * player spawn-grace invulnerability). */
 export function effectTargetFor(sim: SimState, entity: Entity) {
   if (entity.kind === "enemy") {
     const def = sim.enemies.get(entity.id)?.def;
@@ -32,6 +34,8 @@ export function effectTargetFor(sim: SimState, entity: Entity) {
       ...(def?.damageScale ? { damageScale: def.damageScale } : {}),
     };
   }
+  const slot = sim.players.get(entity.id);
+  if (slot && isSpawnProtected(slot, sim.tickCount)) return { invulnerable: true };
   return {};
 }
 

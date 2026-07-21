@@ -16,6 +16,7 @@ import type Phaser from "phaser";
 import { cliffSidesAt } from "./cliffMask.js";
 import { pickFloorFrame, pickStairFrame, pickWallFrame, wallAutotileAt } from "./debugArt.js";
 import { placeDebugTile, placeWallCornerDots } from "./debugSprite.js";
+import { drawContactShade } from "./drawContactShade.js";
 import { drawStairTreads } from "./drawStairTread.js";
 import { drawSubtleSlope } from "./drawSubtleSlope.js";
 import { drawEdgeLine } from "./edgeLine.js";
@@ -153,6 +154,10 @@ function drawSurface(
     placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftPx });
   }
   drawChasmGhost(scene, container, world, wx, wy, height, lightTint, liftPx);
+
+  // Fake-AO contact shadows (contactShade.ts) go under the white rim outlines:
+  // the LOW side darkens here, the HIGH side's lit rim stays crisp above.
+  drawContactShade(scene, container, world, wx, wy, height, liftPx);
 
   drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
 

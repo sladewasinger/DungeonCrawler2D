@@ -18,12 +18,13 @@ import { LevelUpFlourish } from "./levelUpFlourish.js";
 import { TeleportFade } from "./teleportFade.js";
 import { lowHpVignetteAlpha } from "./lowHpVignette.js";
 import { LowHpOverlay } from "./lowHpOverlay.js";
-import { MeleeWedgePool } from "./meleeWedge.js";
+import { MeleeSwingFx } from "./meleeSwingFx.js";
 import { spawnDustPuff, spawnFootstepMote, spawnRunDust } from "./movementParticles.js";
 import { footstepDue, isMoving, isRunning, motionEvents, type MotionSample } from "./motionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
 import { ScreenShakeBudget } from "./screenShake.js";
 import { TorchFlamePool } from "./torchFlames.js";
+import { WallBumpFx } from "./wallBumpFx.js";
 import { XpNumberPool } from "./xpNumbers.js";
 
 export type { AreaSpriteKind, AreaTileView } from "./areaEffectPool.js";
@@ -33,7 +34,10 @@ export class VfxSystem {
   private readonly torchFlames: TorchFlamePool;
   private readonly damageNumbers: DamageNumberPool;
   private readonly xpNumbers: XpNumberPool;
-  private readonly meleeWedge: MeleeWedgePool;
+  /** Swing wedge telegraph + its whiff arc-fade counter-cue (panel round 3b item 5). */
+  private readonly meleeSwingFx: MeleeSwingFx;
+  /** Panel round 3b item 4 (WALL-BUMP FEEDBACK): sprite-nudge state + contact-point flash. */
+  private readonly wallBumpFx: WallBumpFx;
   private readonly shake: ScreenShakeBudget;
   private readonly bloodDecals: BloodDecalPool;
   private readonly corpseDecals: CorpseDecalPool;
@@ -52,7 +56,8 @@ export class VfxSystem {
     this.torchFlames = new TorchFlamePool(scene);
     this.damageNumbers = new DamageNumberPool(scene);
     this.xpNumbers = new XpNumberPool(scene);
-    this.meleeWedge = new MeleeWedgePool(scene);
+    this.meleeSwingFx = new MeleeSwingFx(scene);
+    this.wallBumpFx = new WallBumpFx(scene);
     this.shake = new ScreenShakeBudget(scene.cameras.main);
     this.bloodDecals = new BloodDecalPool(scene);
     this.corpseDecals = new CorpseDecalPool(scene);
@@ -119,7 +124,25 @@ export class VfxSystem {
    * that id's pooled Graphics rather than allocating a new one. `z` is the wielder's
    * absolute height — the wedge anchors at their lifted feet (meleeWedge.ts). */
   spawnMeleeSwing(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
-    this.meleeWedge.spawn(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
+    this.meleeSwingFx.spawnSwing(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
+  }
+
+  /** The whiff arc-fade (panel round 3b item 5) — same geometry params as spawnMeleeSwing,
+   * fired once a swing's WHIFF_TIMEOUT_MS elapses with no correlating hit (meleeConnect.ts). */
+  spawnMeleeWhiff(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+    this.meleeSwingFx.spawnWhiff(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
+  }
+
+  /** Wall-bump deny cue (panel round 3b item 4): fires the contact-point flash and starts
+   * the sprite-nudge window — `dirX/dirY` is the blocked move-intent direction. */
+  triggerWallBump(worldX: number, worldY: number, dirX: number, dirY: number, nowMs: number): void {
+    this.wallBumpFx.trigger(worldX, worldY, dirX, dirY, nowMs);
+  }
+
+  /** This frame's wall-bump sprite-nudge offset (world tiles) — add to the self view's
+   * x/y only (frameSync.ts), never to the camera or any other entity. */
+  wallBumpNudgeOffset(nowMs: number): { x: number; y: number } {
+    return this.wallBumpFx.offset(nowMs);
   }
 
   /** Splatter + one floor decal for a landed hit (Epic 7.11) — directional when `dirX`/`dirY`
@@ -209,7 +232,8 @@ export class VfxSystem {
   update(nowMs: number): void {
     this.damageNumbers.update(nowMs);
     this.xpNumbers.update(nowMs);
-    this.meleeWedge.update(nowMs);
+    this.meleeSwingFx.update(nowMs);
+    this.wallBumpFx.update(nowMs);
     this.bloodDecals.update(nowMs);
     this.corpseDecals.update(nowMs);
     this.levelUpFlourish.update(nowMs);
@@ -224,7 +248,8 @@ export class VfxSystem {
     this.torchFlames.dispose();
     this.damageNumbers.dispose();
     this.xpNumbers.dispose();
-    this.meleeWedge.dispose();
+    this.meleeSwingFx.dispose();
+    this.wallBumpFx.dispose();
     this.bloodDecals.dispose();
     this.corpseDecals.dispose();
     this.levelUpFlourish.dispose();

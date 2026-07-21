@@ -164,6 +164,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
   it("a picked-up sword out-damages fists", () => {
     const a = sim.addPlayer("A", "client-a");
     const b = sim.addPlayer("B", "client-b");
+    sim.endSpawnGrace(b.playerId); // hand-placed victim, not a fresh spawn (spawnSafety.ts)
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
 

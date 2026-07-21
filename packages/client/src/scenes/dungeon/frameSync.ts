@@ -8,12 +8,13 @@ import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
-import type { EntityRenderer } from "../../render/entities/index.js";
+import type { EntityRenderer, PlayerEntityView } from "../../render/entities/index.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { LightingSystem } from "../../render/lighting/index.js";
 import type { TerrainRenderer } from "../../render/terrain/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
+import { collectExpiredSwings, registerPendingSwing } from "../../vfx/meleeConnect.js";
 import { buildAreaTileViews } from "./areaViews.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
@@ -51,8 +52,12 @@ function syncCombatants(
   const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
   const touchActive = inputController.touchVisual() !== null;
   const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
+  // Panel round 3b item 4 (WALL-BUMP FEEDBACK): folded into the self view's x/y ONLY —
+  // never into `render` itself, so the camera (which follows `render` directly) and
+  // every other reader stay put; the nudge reads as "you personally bumped".
+  const nudge = vfx.wallBumpNudgeOffset(nowMs);
   const self = selfPlayerView(
-    { id: conn.welcome.playerId, name: conn.name, x: render.x, y: render.y, z: render.z, air: !conn.body.grounded },
+    { id: conn.welcome.playerId, name: conn.name, x: render.x + nudge.x, y: render.y + nudge.y, z: render.z, air: !conn.body.grounded },
     { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, weaponId: conn.weapon },
     state.cosmetics,
     nowMs,
@@ -63,8 +68,24 @@ function syncCombatants(
   entityRenderer.syncPlayers(allPlayers, context);
   entityRenderer.syncMonsters(interpolated.filter((e) => e.snap.kind === "enemy").map(monsterView), context);
   entityRenderer.syncItems(items.map(itemView), nowMs);
+  spawnMeleeSwings(vfx, state, allPlayers, nowMs);
+}
+
+/** Spawns the wedge telegraph for every swing that just started, and registers each as
+ * pending a correlating hit (panel round 3b item 5, WHIFF FEEDBACK) — syncLightingAndVfx
+ * later flushes whichever ones time out into the whiff cue (meleeConnect.ts). */
+function spawnMeleeSwings(vfx: VfxSystem, state: DungeonSceneState, allPlayers: PlayerEntityView[], nowMs: number): void {
   for (const swing of resolveMeleeSwings(allPlayers, state.attackFlags)) {
     vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
+    registerPendingSwing(state.pendingSwings, {
+      attackerId: swing.id,
+      worldX: swing.worldX,
+      worldY: swing.worldY,
+      z: swing.z,
+      angleRad: swing.angleRad,
+      depth: swing.depth,
+      startedAtMs: nowMs,
+    });
   }
 }
 
@@ -162,6 +183,12 @@ export function syncLightingAndVfx(
     }),
   );
   vfx.trackPlayerMotion({ x: render.x, y: render.y, air: !conn.body.grounded, faceX: state.cosmetics.faceX }, nowMs);
-  applyVisualEvents(conn, vfx, render, nowMs);
+  // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
+  // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush
+  // whatever's left over into the whiff cue before this frame's vfx.update fades it.
+  for (const swing of collectExpiredSwings(state.pendingSwings, nowMs)) {
+    vfx.spawnMeleeWhiff(swing.attackerId, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
+  }
+  applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);
   vfx.update(nowMs);
 }

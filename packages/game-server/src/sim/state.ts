@@ -84,6 +84,9 @@ export interface PlayerSlot {
   chatTimestamps: number[];
   /** Tick of this slot's most recent fistbump *offer* sent, rate-limited separately from chat. */
   lastFistbumpOfferAtTick: number;
+  /** Spawn-grace protection holds while tickCount < this (0 = none) —
+   * set at every fresh-spawn handoff, see sim/spawnSafety.ts. */
+  spawnGraceUntilTick: number;
   /** Epic 7.14 (The Descent): set by a stairway `descend` intent or a
    * non-floor-1 death respawn; drained at the tail of GameSim.step() —
    * see floors/transfer.ts. */

@@ -83,7 +83,7 @@ function makeScoutSlot(x: number, y: number, sim: SimState): PlayerSlot {
     god: false,
     forceDeath: false,
     chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity, pendingTransfer: null,
+    lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }
 

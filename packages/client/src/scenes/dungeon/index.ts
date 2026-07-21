@@ -39,6 +39,7 @@ import type { InteractionPrompt } from "./interactionPrompt.js";
 import { updateSelfFacing } from "./selfCosmetics.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
 import { createTorchSyncState, type TorchSyncState } from "./torchSync.js";
+import { trackWallBump } from "./wallBumpTracking.js";
 
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
@@ -119,7 +120,7 @@ export class DungeonScene extends Phaser.Scene {
     this.advanceRotation(deltaMs);
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
-    this.sampleFixedStepInput(deltaMs);
+    this.sampleFixedStepInput(deltaMs, time);
 
     const render = this.interpolateSelfPose();
     this.updateCameraFollow(render, deltaMs);
@@ -181,7 +182,7 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.spawnTeleportFade(nowMs);
   }
 
-  private sampleFixedStepInput(deltaMs: number): void {
+  private sampleFixedStepInput(deltaMs: number, nowMs: number): void {
     const { conn, state } = this;
     const { steps, accumulatorMs } = consumeFixedSteps(state.accumulatorMs, deltaMs);
     state.accumulatorMs = accumulatorMs;
@@ -190,7 +191,11 @@ export class DungeonScene extends Phaser.Scene {
       if (body) state.prevStep = { x: body.x, y: body.y, z: body.z };
       const move = this.inputController.readInput();
       updateSelfFacing(state.cosmetics, move.moveX, move.moveY);
+      const preX = body?.x ?? 0;
+      const preY = body?.y ?? 0;
       conn.sampleInput(move);
+      // Panel round 3b item 4 (WALL-BUMP FEEDBACK) — see wallBumpTracking.ts's doc comment.
+      trackWallBump(conn, state, this.vfx, move, preX, preY, nowMs);
     }
   }
 

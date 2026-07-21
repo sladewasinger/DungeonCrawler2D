@@ -59,6 +59,7 @@ describe("GameSim: combat", () => {
 
   it("melee prefers the enemy over an adjacent party member (targeting aid)", () => {
     const { aId, bId } = makeParty(sim);
+    sim.endSpawnGrace(bId); // hand-placed victim, not a fresh spawn (spawnSafety.ts)
     const aEntity = sim.getPlayerEntity(aId)!;
     const bEntity = sim.getPlayerEntity(bId)!;
     teleport(aEntity, arena.x, arena.y, sim);
@@ -85,6 +86,7 @@ describe("GameSim: combat", () => {
   it("weapons carry damage, statuses, and source tags (knife bleeds a player)", () => {
     const a = sim.addPlayer("A", "client-a");
     const b = sim.addPlayer("B", "client-b");
+    sim.endSpawnGrace(b.playerId); // hand-placed victim, not a fresh spawn (spawnSafety.ts)
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
     teleport(aEntity, arena.x, arena.y, sim);
@@ -108,6 +110,7 @@ describe("GameSim: combat", () => {
 
   it("spitters broadcast windup, release, and recovery states around a delayed projectile", () => {
     const player = sim.addPlayer("Target", "spitter-target");
+    sim.endSpawnGrace(player.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
     const entity = sim.getPlayerEntity(player.playerId)!;
     teleport(entity, arena.x, arena.y, sim);
     const spitter = sim.spawnEnemy("spitter", entity.body.x + 6, entity.body.y);
@@ -128,6 +131,7 @@ describe("GameSim: combat", () => {
 
   it("melee enemies hold a replicated attack pose after landing a hit", () => {
     const player = sim.addPlayer("Target", "melee-target");
+    sim.endSpawnGrace(player.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
     const entity = sim.getPlayerEntity(player.playerId)!;
     teleport(entity, arena.x, arena.y, sim);
     const skeleton = sim.spawnEnemy("skeleton", entity.body.x + 0.8, entity.body.y);
@@ -159,6 +163,7 @@ describe("GameSim: combat", () => {
 
   it("enemies chase and hurt players; kills drop loot and respawn far away", () => {
     const a = sim.addPlayer("A", "client-a");
+    sim.endSpawnGrace(a.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
     const entity = sim.getPlayerEntity(a.playerId)!;
     // A wider clearance than the shared `arena`: the enemy spawns 3
     // tiles out and must walk the whole gap to reach the player, so the

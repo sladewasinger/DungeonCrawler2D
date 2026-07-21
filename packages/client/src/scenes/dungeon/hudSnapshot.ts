@@ -11,6 +11,7 @@ import type {
   HotbarSlotData,
   HudFakeSnapshot,
   InventoryRowData,
+  StairwayTickData,
   StashSnapshot,
   TileCoords,
   ToastData,
@@ -168,6 +169,7 @@ function statusFields(
   fps: number,
   bodyPos: { x: number; y: number; z: number },
   compassBearingDeg: number,
+  stairway: StairwayTickData | null,
 ) {
   return {
     pingMs: src.pingMs,
@@ -179,6 +181,7 @@ function statusFields(
     fps,
     coords: roundedCoords(bodyPos),
     compassBearingDeg,
+    stairway,
   };
 }
 
@@ -192,6 +195,8 @@ export function buildHudSnapshot(
   chatModel: ChatPanelModel,
   contacts: readonly ContactData[],
   compassBearingDeg: number,
+  /** The compass dial's gold StairwayDown tick (LANE W) — see stairwayTick.ts. */
+  stairway: StairwayTickData | null,
 ): HudFakeSnapshot {
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
@@ -206,6 +211,6 @@ export function buildHudSnapshot(
     chatModel,
     contacts: [...contacts],
     interactionPrompt,
-    ...statusFields(src, touch, fps, bodyPos, compassBearingDeg),
+    ...statusFields(src, touch, fps, bodyPos, compassBearingDeg, stairway),
   };
 }

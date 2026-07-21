@@ -6,11 +6,12 @@ import {
   newEntityId,
   type Entity,
 } from "@dc2d/engine";
-import { announceFloorEntry, announceJoin, broadcastAnnouncement } from "./announcer/index.js";
+import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
 import { respawnSlot } from "./players.js";
 import { findSpawn, newToken } from "./spawn.js";
+import { secureSpawnHandoff } from "./spawnSafety.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
 
 /** Player join and reconnect-resume: the entity/slot a fresh or returning client gets. */
@@ -40,6 +41,9 @@ export function addPlayer(
   const slot = newSlot(entity, clientId, sim.store.get(clientId, name), token);
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
+  // Panel round 3b blocker #1: no hostile on/near the entry tile at
+  // control handoff, plus a short no-damage/no-aggro grace window.
+  secureSpawnHandoff(sim, slot);
   // ASSUMPTION #2 (docs/ASSUMPTIONS.md) is superseded by #87: the kit is
   // no longer strictly exactly-once-per-clientId. ensureStarterKit is a
   // no-op for anyone who already has a weapon/sword/torch, so a
@@ -62,6 +66,10 @@ export function addPlayer(
   // Epic 7.14 (The Descent): every arrival on a floor — fresh join included —
   // gets the floor's own identity line, and bumps the durable watermark.
   slot.outbox.push(announceFloorEntry(sim.world.floor));
+  // LANE W (panel R3 blocker #2): ...followed by the stairway-exists hint,
+  // when this floor has a StairwayDown at all.
+  const stairHint = announceStairwayHint(sim.tickCount, entity.id, sim.world);
+  if (stairHint) slot.outbox.push(stairHint);
   sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false, floor: sim.world.floor };
 }
@@ -99,6 +107,7 @@ function newSlot(
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,
+    spawnGraceUntilTick: 0,
     pendingTransfer: null,
   };
 }

@@ -33,7 +33,7 @@ function makeSlot(x: number, y: number, world: World): PlayerSlot {
     reapAtTick: 0, known: new Set(), inventory: [], hotbar: [], weapon: null, outbox: [],
     returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: true, downedAtTick: null,
     attackReadyAtTick: 0, attackStartedAtTick: -1000, god: false, forceDeath: false, chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity, pendingTransfer: null,
+    lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }
 

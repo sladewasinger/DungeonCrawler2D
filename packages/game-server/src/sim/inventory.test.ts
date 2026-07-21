@@ -70,7 +70,7 @@ function buildSlot(x: number, y: number, z = 0): PlayerSlot {
     lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: 0,
     known: new Set(), inventory: [], hotbar: Array(9).fill(null), weapon: null, outbox: [],
     returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: false,
-    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity, pendingTransfer: null,
+    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }
 

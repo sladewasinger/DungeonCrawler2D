@@ -17,6 +17,7 @@ import {
 import { killIfInChasm } from "./deaths.js";
 import { dropAllInventory, ensureStarterKit } from "./inventory.js";
 import { findSpawn } from "./spawn.js";
+import { endSpawnGrace, secureSpawnHandoff } from "./spawnSafety.js";
 import { leaveParty } from "./social.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
@@ -85,6 +86,9 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.returnStack = [];
   slot.needsFullAreas = true;
   slot.outbox.push({ t: "teleported" }, { t: "toast", msg: "You wake up somewhere else…" });
+  // Panel round 3b blocker #1: death must never respawn into the same
+  // ambush — clear the entry tile's neighborhood + grant spawn grace.
+  secureSpawnHandoff(sim, slot);
   // Epic 7.13: full-loot death drop + the exactly-once starter kit
   // otherwise leaves a repeat-death player permanently Unarmed.
   ensureStarterKit(sim, slot);
@@ -119,6 +123,9 @@ function stepPlayerBody(
     return;
   }
   for (const input of inputs) {
+    // Meaningful movement forfeits spawn grace (spawnSafety.ts) —
+    // neutral coasting between inputs does not.
+    if (input.moveX !== 0 || input.moveY !== 0 || input.jump) endSpawnGrace(slot);
     faceEntity(entity, input.moveX, input.moveY);
     const result = stepBody(sim.world, entity.body, input, TICK_DT, opts);
     slot.lastSeq = input.seq;

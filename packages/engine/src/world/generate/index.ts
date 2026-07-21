@@ -29,6 +29,7 @@ import { applyLandmark } from "./landmarks/index.js";
 import { isNearDescent, isNearLandmark } from "./landmarks/guard.js";
 import { stampRoom } from "./rooms.js";
 import type { Point, Room } from "./types.js";
+import { applyShowcase } from "./showcase.js";
 import { resolveShallowPlateaus, resolveThinWalls } from "./verticalExtent.js";
 import { applyWallHeight } from "./wallHeight.js";
 
@@ -149,6 +150,13 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   // (post-raise) value here — checking any earlier would validate against
   // heights no player ever actually sees (see cliffs.ts's doc comment).
   demoteOrphanedStairs(tiles, height, CHUNK_SIZE);
+
+  // Elevation showcase guarantee (PANEL ROUND 3b blocker #3): floor-1 entry
+  // chunk (0,0) only — find-or-carve one clean z1 platform and one clean z-1
+  // pit near spawn. AFTER every safety net (an earlier slot let the nets
+  // rework a natural feature the find phase had accepted); the carve itself
+  // introduces nothing the nets police — see showcase.ts's module doc.
+  applyShowcase(worldSeed, floor, cx, cy, tiles, height, zones);
 
   return { cx, cy, tiles, height, zones };
 }

@@ -3,16 +3,23 @@
 // net/apply.ts; by the time an event reaches here it's presentation only.
 import type { Connection } from "../../net/connection.js";
 import type { VfxSystem } from "../../vfx/index.js";
+import { resolveHitAgainstPending, type PendingSwing } from "../../vfx/meleeConnect.js";
 import { floorAnnouncerLine } from "./floorAnnouncer.js";
 import type { RenderPose } from "./state.js";
 
-export function applyVisualEvents(conn: Connection, vfx: VfxSystem, render: RenderPose, nowMs: number): void {
+export function applyVisualEvents(
+  conn: Connection,
+  vfx: VfxSystem,
+  render: RenderPose,
+  pendingSwings: Map<string, PendingSwing>,
+  nowMs: number,
+): void {
   // Continuous (not event-edge-triggered): the low-hp heartbeat throb animates every
   // frame, not just on hp change, so this runs whether or not any event fired below.
   vfx.setSelfHp(conn.hp, conn.maxHp);
   const selfId = conn.welcome?.playerId;
   for (const event of conn.drainVisualEvents()) {
-    if (event.t === "hit") applyHit(conn, vfx, render, selfId, event, nowMs);
+    if (event.t === "hit") applyHit(conn, vfx, render, selfId, event, pendingSwings, nowMs);
     else if (event.t === "death") applyDeath(conn, vfx, render, selfId, event, nowMs);
     else if (event.t === "fistbumpSealed") applyFistbumpSealed(conn, vfx, render, event.partnerName);
     else if (event.t === "xpGained") vfx.spawnXpNumber(event.amount, nowMs);
@@ -37,6 +44,7 @@ function applyHit(
   render: RenderPose,
   selfId: string | undefined,
   event: { id: string; amount: number },
+  pendingSwings: Map<string, PendingSwing>,
   nowMs: number,
 ): void {
   const isSelf = event.id === selfId;
@@ -45,6 +53,9 @@ function applyHit(
     vfx.spawnDamageNumber(pos.x, pos.y - 0.6, event.amount, nowMs);
     const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
     vfx.spawnBloodHit(pos.x, pos.y, groundHeight, defId, nowMs, dir?.x, dir?.y);
+    // Panel round 3b item 5 (WHIFF FEEDBACK): this hit landed somewhere — whichever
+    // pending swing plausibly caused it never gets flagged a whiff (meleeConnect.ts).
+    resolveHitAgainstPending(pendingSwings, pos.x, pos.y);
   }
   if (isSelf) vfx.onOwnHit(nowMs);
 }

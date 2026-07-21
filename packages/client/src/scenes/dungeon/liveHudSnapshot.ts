@@ -11,6 +11,7 @@ import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { isTileTypeNearby } from "./contentQueries.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
+import { resolveStairwayTick } from "./stairwayTick.js";
 
 const CHAT_LINES_SHOWN = 4;
 
@@ -63,6 +64,10 @@ export function buildLiveHudSnapshot(
   // conn.body may still be null the first frame or two after boot (HudScene's source()
   // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
   const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y, z: conn.body.z } : { x: 0, y: 0, z: 0 };
+  // LANE W: conn.world tracks floor changes live (net/apply.ts's applyFloorState
+  // rebuilds it on every transfer), so the tick re-aims at the NEW floor's stairway
+  // the same frame the descent lands.
+  const stairway = conn.world ? resolveStairwayTick(conn.world, bodyPos.x, bodyPos.y, compassBearingDeg) : null;
   return buildHudSnapshot(
     buildSnapshotSource(conn),
     inputController.armedThrowableSlot(),
@@ -73,5 +78,6 @@ export function buildLiveHudSnapshot(
     chatController.model(CHAT_LINES_SHOWN),
     conn.contacts,
     compassBearingDeg,
+    stairway,
   );
 }

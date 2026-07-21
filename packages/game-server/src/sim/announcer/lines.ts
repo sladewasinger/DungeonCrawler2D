@@ -2,7 +2,15 @@
 // snark in the books' AI-broadcast tone; never punches at real people.
 
 export type JoinLine = (name: string, ordinal: number) => string;
-export type DeathLine = (name: string) => string;
+/**
+ * `rating` (panel round 3b, "Small" item) is the derived 2-9 audience score for this
+ * life (rating.ts) — only DEATH_LINES' first entry actually reads it (the "rates it a
+ * N out of 10" line); every other entry, ordinary or chasm, is a plain `(name) => ...`
+ * arrow, which TypeScript accepts here since a function with fewer declared params is
+ * assignable wherever more are expected (same reason `(x) => x` satisfies Array.map's
+ * `(value, index, array) => T`).
+ */
+export type DeathLine = (name: string, rating: number) => string;
 export type LevelLine = (name: string, level: number) => string;
 export type KillLine = (name: string, count: number) => string;
 export type FistbumpLine = (a: string, b: string) => string;
@@ -15,8 +23,21 @@ export const JOIN_LINES: readonly JoinLine[] = [
   (name) => `${name} steps in. Something in the dark just perked up.`,
 ];
 
+/**
+ * Panel round 3b, "Small" item: the rating line used to hard-code "a 6 out of 10" —
+ * always the same number regardless of the run. `rating` is now derived per-death from
+ * this life's kills/floor/survival-time (rating.ts), and the flavor amplifies at the
+ * scale's extremes (2-3 harsh, 8-9 impressed) so the number reads as reactive, not
+ * decorative. The other three entries are unrelated flavor and don't reference a score.
+ */
+function ratingLine(name: string, rating: number): string {
+  const suffix =
+    rating <= 3 ? " Brutal, even by house standards." : rating >= 8 ? " A surprisingly generous crowd tonight." : "";
+  return `${name} has died. The audience rates it a ${rating} out of 10.${suffix}`;
+}
+
 export const DEATH_LINES: readonly DeathLine[] = [
-  (name) => `${name} has died. The audience rates it a 6 out of 10.`,
+  ratingLine,
   (name) => `${name} is no more. Efficient, if uninspired.`,
   (name) => `${name} has been recycled into the dungeon's ecosystem.`,
   (name) => `${name}'s run ends here. A moment of silence — thirty seconds, sponsored.`,
@@ -80,6 +101,20 @@ export const FLOOR_ENTRY_LINES: readonly string[] = [
 ];
 
 export type SimpleLine = () => string;
+
+/**
+ * LANE W / panel R3 blocker #2 (stairs wayfinding) — the floor-arrival hint
+ * that a StairwayDown exists, delivered right after FLOOR_ENTRY_LINES' identity
+ * line. A rotating pool (unlike the per-floor identity lines): the hint is the
+ * same fact every floor, so repetition is the thing to vary. Two of the three
+ * point at the compass's gold tick on purpose — the diegetic tutorial for the
+ * new wayfinding signal.
+ */
+export const STAIRWAY_HINT_LINES: readonly SimpleLine[] = [
+  () => "The stairs down are posted. Finding them is your problem.",
+  () => "This floor has a way down. The gold tick on your compass is legally required to point at it.",
+  () => "Stairs down exist. Follow the gold tick, or wander — the audience enjoys both.",
+];
 
 export const BOSS_INTRO_LINES: readonly SimpleLine[] = [
   () => "The Warden of Five rises. Sponsors, place your final bets.",

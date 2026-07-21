@@ -66,6 +66,17 @@ export interface ToastData {
   until: number;
 }
 
+/** LANE W stairs wayfinding (panel R3 blocker #2): the compass dial's gold
+ * stairway-down tick. `screenBearingDeg` uses the exact same screen-bearing
+ * convention as compassBearingDeg below (0 = screen-up, clockwise-positive),
+ * already composed with the view rotation by scenes/dungeon/stairwayTick.ts. */
+export interface StairwayTickData {
+  /** On-screen direction toward this floor's StairwayDown, degrees. */
+  screenBearingDeg: number;
+  /** Within STAIRWAY_NEAR_TILES of the stairway — the tick pulses. */
+  near: boolean;
+}
+
 export interface HudFakeSnapshot {
   health: { hp: number; maxHp: number };
   /** Epic 11 core (character levels), pulled forward — xpBar.ts's progress bar + level numeral. */
@@ -110,6 +121,9 @@ export interface HudFakeSnapshot {
   /** LANE W2 compass widget's live bearing (0 = world-north at screen-up), degrees,
    * clockwise-positive — scenes/dungeon/rotationControl.ts's RotationController. */
   compassBearingDeg: number;
+  /** The compass dial's gold StairwayDown tick, or null to hide it (boss floor,
+   * or no world yet) — scenes/dungeon/stairwayTick.ts's resolveStairwayTick. */
+  stairway: StairwayTickData | null;
 }
 
 const EMPTY_SLOT: HotbarSlotData = { itemId: null, count: 0 };
@@ -245,5 +259,8 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     fps: 60,
     coords: { x: 128, y: -64, z: 2.5 },
     compassBearingDeg: 0,
+    // Southeast-ish and out of pulse range — proves the gallery renders the gold
+    // tick at a non-cardinal angle without the pulse animation muddying screenshots.
+    stairway: { screenBearingDeg: 135, near: false },
   };
 }
