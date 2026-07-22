@@ -32,6 +32,10 @@ export interface MoveInput {
   moveX: number;
   /** See moveX. */
   moveY: number;
+  /** Optional independent facing direction. Absent inputs keep the legacy
+   * movement-facing behavior used by the 2D client and AI. */
+  faceX?: number | undefined;
+  faceY?: number | undefined;
   jump: boolean;
   /** Hold-to-run intent (Epic 7.12). Optional so every existing caller (AI,
    * feel-harness, editor bench) that never sets it keeps walking unchanged. */

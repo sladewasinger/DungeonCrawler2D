@@ -17,7 +17,7 @@ import type { SimState } from "./state.js";
  *     not gameplay, so it stays authoritative regardless of gameplay opts.
  *  2. `spawnRadiusTiles` — the friend-playtest gameplay mode (see
  *     main.ts's SPAWN_RADIUS doc comment): every join and respawn lands
- *     within N tiles of a seed-derived anchor near the world origin, at
+ *     within N tiles of the fixed 3D playtest anchor, at
  *     least RADIUS_SPAWN_MIN_SPACING apart from other players, relaxing
  *     that spacing if the neighborhood gets crowded.
  *  3. Classic vast scatter (default: neither option set) — random chunk
@@ -25,6 +25,7 @@ import type { SimState } from "./state.js";
  *     other players.
  */
 const SANDBOX_ANCHOR = { x: 28, y: 28 };
+const PLAYTEST_SPAWN_ANCHOR = { x: 14, y: 10 };
 const SANDBOX_CLUSTER_SPACING = 2;
 const SANDBOX_CLUSTER_COLUMNS = 4;
 
@@ -70,13 +71,16 @@ function findRadiusSpawn(sim: SimState, radiusTiles: number): { x: number; y: nu
 }
 
 /**
- * The radius-mode anchor: the nearest walkable floor tile to the world
- * origin. Depends only on `sim.world` (worldSeed + floor via the BSP
+ * The radius-mode anchor: the nearest walkable floor tile to the fixed
+ * 3D playtest coordinate. Depends only on `sim.world` (worldSeed + floor via the BSP
  * generator), never on player count, join order, or `sim.rng` — so it is
  * byte-identical on every server restart for a given seed.
  */
 export function resolveSpawnAnchor(sim: SimState): { x: number; y: number } {
-  return findWalkableNear(sim, 0, 0, ANCHOR_SEARCH_RADIUS) ?? { x: 0, y: 0 };
+  return (
+    findWalkableNear(sim, PLAYTEST_SPAWN_ANCHOR.x, PLAYTEST_SPAWN_ANCHOR.y, ANCHOR_SEARCH_RADIUS) ??
+    PLAYTEST_SPAWN_ANCHOR
+  );
 }
 
 /** Random floor candidate within radiusTiles of anchor, relaxing min spacing if crowded. */

@@ -1,6 +1,5 @@
 import {
   FALL_DAMAGE_PER_UNIT,
-  MAX_INPUTS_PER_TICK,
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
   RECONNECT_GRACE_MS,
@@ -29,6 +28,7 @@ export function markDisconnected(sim: SimState, playerId: string): void {
   const slot = sim.players.get(playerId);
   if (!slot) return;
   slot.connected = false;
+  slot.pendingInputs.length = 0;
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
 }
 
@@ -36,7 +36,7 @@ export function handleInput(sim: SimState, playerId: string, input: ClientInput)
   const slot = sim.players.get(playerId);
   if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
   if (input.seq <= slot.lastSeq) return;
-  slot.pendingInputs.push(input);
+  slot.pendingInputs[0] = input;
 }
 
 export function queueAction(
@@ -106,7 +106,7 @@ export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
   }
 }
 
-/** Consume this tick's queued inputs (or coast on neutral input) and resolve landings. */
+/** Advances every body once with its newest held control state. */
 function stepPlayerBody(
   sim: SimState,
   slot: PlayerSlot,
@@ -115,25 +115,14 @@ function stepPlayerBody(
 ): void {
   const tags = sim.effects.tagsOf(entity);
   const opts = { speed: entity.baseSpeed * sim.effects.speedMult(entity), stickyFeet: tags.has("sticky-feet") };
-  const inputs = slot.pendingInputs.splice(0, MAX_INPUTS_PER_TICK);
-  slot.pendingInputs.length = 0;
-  if (inputs.length === 0) {
-    const result = stepBody(sim.world, entity.body, NEUTRAL_INPUT, TICK_DT, opts);
-    if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
-    killIfInChasm(slot);
-    return;
-  }
-  for (const input of inputs) {
-    // Meaningful movement forfeits spawn grace (spawnSafety.ts) —
-    // neutral coasting between inputs does not.
-    if (input.moveX !== 0 || input.moveY !== 0 || input.jump) endSpawnGrace(slot);
-    faceEntity(entity, input.moveX, input.moveY);
-    const result = stepBody(sim.world, entity.body, input, TICK_DT, opts);
-    slot.lastSeq = input.seq;
-    if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
-    killIfInChasm(slot);
-    if (entity.hp <= 0) return; // dead: stop consuming this tick's remaining inputs
-  }
+  const latestInput = slot.pendingInputs[0];
+  const input = latestInput ?? NEUTRAL_INPUT;
+  if (input.moveX !== 0 || input.moveY !== 0 || input.jump) endSpawnGrace(slot);
+  faceEntity(entity, input.faceX ?? input.moveX, input.faceY ?? input.moveY);
+  const result = stepBody(sim.world, entity.body, input, TICK_DT, opts);
+  if (latestInput) slot.lastSeq = latestInput.seq;
+  if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
+  killIfInChasm(slot);
 }
 
 /**

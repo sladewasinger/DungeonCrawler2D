@@ -10,7 +10,7 @@ import {
 
 describe("protocol", () => {
   it("round-trips a client input", () => {
-    const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, jump: true, run: false };
+    const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, faceX: 0, faceY: -1, jump: true, run: false };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
   });
 

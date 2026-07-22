@@ -70,6 +70,8 @@ export class GameSim {
       spawnRadiusTiles?: number | undefined;
       /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
       debugCommands?: boolean;
+      /** Temporary playtest switch: keep populated hostiles visible but inert. */
+      freezeEnemies?: boolean;
       testFixtures?: boolean;
     } = {},
   ) {
@@ -234,8 +236,10 @@ export class GameSim {
     // the final pre-movement enemy set. It MUST precede stepEnemies:
     // an evicted camper never gets to think, move, or strike.
     maintainSpawnClearance(sim);
-    stepEnemies(sim, effectEvents);
-    stepProjectiles(sim, effectEvents);
+    if (!sim.opts.freezeEnemies) {
+      stepEnemies(sim, effectEvents);
+      stepProjectiles(sim, effectEvents);
+    }
     stepTorches(sim);
     sim.areas.tick(TICK_DT, () => sim.rng.next());
     applyAreaContact(sim, effectEvents);

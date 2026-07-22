@@ -34,7 +34,7 @@ const storeFile =
 // this (bigger neighborhood) or set SPAWN_RADIUS=0/"off" (classic vast
 // MIN_SPAWN_DIST scatter, engine constants) once we want the vast-world
 // experience back — this default should not survive to that point.
-const DEFAULT_SPAWN_RADIUS_TILES = 50;
+const DEFAULT_SPAWN_RADIUS_TILES = 2;
 const spawnRadiusEnv = process.env["SPAWN_RADIUS"];
 const spawnRadiusTiles =
   spawnRadiusEnv === undefined
@@ -42,6 +42,7 @@ const spawnRadiusTiles =
     : spawnRadiusEnv === "0" || spawnRadiusEnv.toLowerCase() === "off"
       ? undefined
       : Number(spawnRadiusEnv);
+const freezeEnemies = process.env["FREEZE_ENEMIES"] !== "0";
 
 // custom-map / Tile Studio editor was dropped from the v2 core slice
 // (see docs/PORT_PLAN.md); CUSTOM_MAP is accepted by the systemd unit
@@ -74,6 +75,7 @@ const server = startServer({
   storeFile,
   clusterSpawns: process.env["CLUSTER_SPAWNS"] === "1",
   spawnRadiusTiles,
+  freezeEnemies,
   debugCommands,
   testFixtures: process.env["TEST_FIXTURES"] === "1",
 });

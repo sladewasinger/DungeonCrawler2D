@@ -49,7 +49,7 @@ export const SEED = hashString("sim-test-world");
 /** Ticks until the next melee swing is accepted (see sim/actions/melee.ts). */
 export const SWING_TICKS = Math.round((ATTACK_COOLDOWN_MS / 1000) * TICK_RATE);
 
-export function makeSim(rngSeed = 1234, opts: { testFixtures?: boolean; debugCommands?: boolean } = { testFixtures: true }): GameSim {
+export function makeSim(rngSeed = 1234, opts: { testFixtures?: boolean; debugCommands?: boolean; freezeEnemies?: boolean } = { testFixtures: true }): GameSim {
   return new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, new PlayerStore(null), rngSeed, opts);
 }
 

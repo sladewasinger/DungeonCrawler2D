@@ -147,6 +147,8 @@ export interface SimState {
     spawnRadiusTiles?: number | undefined;
     /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
     debugCommands?: boolean;
+    /** Temporary playtest switch: keep populated hostiles visible but inert. */
+    freezeEnemies?: boolean;
     testFixtures?: boolean;
   };
   readonly players: Map<string, PlayerSlot>;

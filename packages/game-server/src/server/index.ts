@@ -28,6 +28,7 @@ export interface ServerOptions {
   /** See SimState["opts"].spawnRadiusTiles (sim/state.ts) for semantics. */
   spawnRadiusTiles?: number | undefined;
   debugCommands?: boolean;
+  freezeEnemies?: boolean;
   testFixtures?: boolean;
 }
 
@@ -48,6 +49,7 @@ export function startServer(opts: ServerOptions): RunningServer {
     clusterSpawns: opts.clusterSpawns ?? false,
     spawnRadiusTiles: opts.spawnRadiusTiles,
     debugCommands: opts.debugCommands ?? false,
+    freezeEnemies: opts.freezeEnemies ?? false,
     testFixtures: opts.testFixtures ?? false,
   };
   const floors = new FloorRegistry(opts.worldSeed, opts.content, store, initialSeed, simOpts);

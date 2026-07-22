@@ -32,6 +32,8 @@ export const clientInputSchema = z.object({
   seq: z.number().int().nonnegative(),
   moveX: axis,
   moveY: axis,
+  faceX: axis.optional(),
+  faceY: axis.optional(),
   jump: z.boolean(),
   /** Hold-to-run intent (Epic 7.12); absent from older clients defaults to walking. */
   run: z.boolean().default(false),

@@ -167,8 +167,10 @@ export class Connection {
     this.send({
       type: "input",
       seq,
-      moveX: input.moveX as -1 | 0 | 1,
-      moveY: input.moveY as -1 | 0 | 1,
+      moveX: input.moveX,
+      moveY: input.moveY,
+      ...(input.faceX !== undefined ? { faceX: input.faceX } : {}),
+      ...(input.faceY !== undefined ? { faceY: input.faceY } : {}),
       jump: input.jump,
       run: input.run ?? false,
     });

@@ -21,9 +21,17 @@ import { getViewOrientation } from "./render/view/index.js";
 installBootErrorOverlay(import.meta.env.DEV);
 registerServiceWorker(import.meta.env.PROD);
 
-const isEditor = new URLSearchParams(window.location.search).get("scene") === "editor";
+const route = new URLSearchParams(window.location.search);
+const isThreeDungeon = route.get("renderer") === "three";
+const isEditor = route.get("scene") === "editor";
 
-if (isEditor) {
+if (isThreeDungeon) {
+  const root = document.getElementById("app");
+  if (!root) throw new Error("Missing #app root for Three.js renderer.");
+  const conn = new Connection(resolveWsUrl(window.location), loadStoredName(), persistentClientId());
+  conn.connect();
+  void import("./three/ThreeDungeonClient.js").then(({ startThreeDungeon }) => startThreeDungeon({ root, search: route, conn }));
+} else if (isEditor) {
   const boot = setUpEditorLayout();
   const game = new Phaser.Game({
     type: Phaser.AUTO,
