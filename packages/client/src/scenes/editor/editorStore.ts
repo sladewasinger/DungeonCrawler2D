@@ -90,14 +90,10 @@ export class EditorStore {
   }
 
   private paintTerrain(wx: number, wy: number, brush: Brush): void {
-    if (brush.kind === "wall") {
-      if (brush.height === undefined) this.world.paintWallAt(wx, wy);
-      else this.world.paintWallHeightAt(wx, wy, brush.height);
-    }
+    if (brush.kind === "wall") this.paintWall(wx, wy, brush.height);
     else if (brush.kind === "void") this.world.paintVoidAt(wx, wy);
     else if (brush.kind === "floor") {
-      if (brush.height === undefined) this.world.paintFloorAt(wx, wy, brush.capId);
-      else this.world.paintFloorHeightAt(wx, wy, brush.height, brush.capId);
+      this.paintFloor(wx, wy, brush.capId, brush.height);
     }
     else if (brush.kind === "stairs") this.world.paintStairsAt(wx, wy, brush.direction);
     else if (brush.kind === "door") this.world.paintDoorAt(wx, wy);
@@ -106,6 +102,16 @@ export class EditorStore {
     // A terrain brush can only ever change wall-adjacency for the painted cell and its
     // 8 neighbors — the live re-solve this lane asks for, never a full-map recompute.
     if (brush.kind !== "torch") this.autotileMasks.resolveAround(this.world, wx, wy);
+  }
+
+  private paintWall(wx: number, wy: number, height: number | undefined): void {
+    if (height === undefined) this.world.paintWallAt(wx, wy);
+    else this.world.paintWallHeightAt(wx, wy, height);
+  }
+
+  private paintFloor(wx: number, wy: number, capId: string, height: number | undefined): void {
+    if (height === undefined) this.world.paintFloorAt(wx, wy, capId);
+    else this.world.paintFloorHeightAt(wx, wy, height, capId);
   }
 
   /** Right-click erase for the bench layer the active brush belongs to; a no-op for

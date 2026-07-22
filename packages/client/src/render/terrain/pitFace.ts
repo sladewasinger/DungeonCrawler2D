@@ -44,6 +44,22 @@ export function pitFaceRowAt(world: TerrainRead, wx: number, wy: number): PitFac
   const immediateNorthHeight = world.heightAt(wx, wy - 1);
   if (immediateNorthHeight < 0 && immediateNorthHeight - floorHeight >= WALL_FACE_MIN_DROP) return null;
 
+  const rim = highestNorthRim(world, wx, wy, floorHeight);
+  if (!rim) return null;
+
+  const { rawRows, totalRows, rowsOnRaised } = faceSplit(rim.height, floorHeight);
+  const rowFromTop = rowsOnRaised + rim.distance;
+  if (rowFromTop > totalRows) return null;
+
+  return {
+    rowFromTop,
+    totalRows,
+    surfaceHeight: rim.height,
+    truncated: rowFromTop === MAX_FACE_ROWS && rawRows > MAX_FACE_ROWS,
+  };
+}
+
+const highestNorthRim = (world: TerrainRead, wx: number, wy: number, floorHeight: number) => {
   let highestNorthHeight = Number.NEGATIVE_INFINITY;
   let highestNorthDistance = 0;
   let previousNorthHeight = floorHeight;
@@ -60,16 +76,5 @@ export function pitFaceRowAt(world: TerrainRead, wx: number, wy: number): PitFac
     }
   }
 
-  if (highestNorthDistance === 0) return null;
-
-  const { rawRows, totalRows, rowsOnRaised } = faceSplit(highestNorthHeight, floorHeight);
-  const rowFromTop = rowsOnRaised + highestNorthDistance;
-  if (rowFromTop > totalRows) return null;
-
-  return {
-    rowFromTop,
-    totalRows,
-    surfaceHeight: highestNorthHeight,
-    truncated: rowFromTop === MAX_FACE_ROWS && rawRows > MAX_FACE_ROWS
-  };
-}
+  return highestNorthDistance === 0 ? null : { height: highestNorthHeight, distance: highestNorthDistance };
+};

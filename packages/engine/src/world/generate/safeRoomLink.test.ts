@@ -47,7 +47,9 @@ describe("safe-room kiosk stays reachable", () => {
       const chunk = generateChunk(worldSeed, FLOOR, found.cx, found.cy);
       const doorIndex = (door.y - found.cy * CHUNK_SIZE) * CHUNK_SIZE + (door.x - found.cx * CHUNK_SIZE);
       const southIndex = (south.y - found.cy * CHUNK_SIZE) * CHUNK_SIZE + (south.x - found.cx * CHUNK_SIZE);
-      expect(SOLID_TILES.has(chunk.tiles[doorIndex]!)).toBe(true);
+      const doorTile = chunk.tiles[doorIndex];
+      if (doorTile === undefined) throw new Error(`Missing door tile for seed ${worldSeed}`);
+      expect(SOLID_TILES.has(doorTile)).toBe(true);
       expect(chunk.height[doorIndex]).toBe(2);
       expect(chunk.height[southIndex]).toBe(0);
       checked++;
