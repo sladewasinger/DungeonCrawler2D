@@ -46,10 +46,19 @@ describe("touchMoveInput", () => {
     expect(touchMoveInput(state).moveX).toBeCloseTo(0.675, 5);
   });
 
-  it("100% deflection hits full speed and also sets run", () => {
+  it("100% deflection hits full walking speed without running", () => {
     const state = createTouchInputState();
     beginStick(state, 1, 0, 0);
     moveStick(state, 1, 40, 0);
+    const input = touchMoveInput(state);
+    expect(input.moveX).toBeCloseTo(1, 5);
+    expect(input.run).toBe(false);
+  });
+
+  it("200% deflection sets run after the full walking ring", () => {
+    const state = createTouchInputState();
+    beginStick(state, 1, 0, 0);
+    moveStick(state, 1, 80, 0);
     const input = touchMoveInput(state);
     expect(input.moveX).toBeCloseTo(1, 5);
     expect(input.run).toBe(true);
@@ -60,7 +69,7 @@ describe("touchMoveInput", () => {
     beginStick(state, 1, 0, 0);
     moveStick(state, 1, 40, 0);
     pressButton(state, "jump", 2);
-    expect(touchMoveInput(state)).toEqual({ moveX: 1, moveY: 0, jump: true, run: true });
+    expect(touchMoveInput(state)).toEqual({ moveX: 1, moveY: 0, jump: true, run: false });
   });
 
   it("jump clears once its pointer releases", () => {

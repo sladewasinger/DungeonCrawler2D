@@ -24,6 +24,20 @@ function bootSim(worldSeed: number): GameSim {
 describe("safe room party door: present for everyone, functional only in a party", () => {
   const seeds = [SEED, hashString("sim-test-world-2")];
 
+  it.each(seeds)("worldSeed %i: the solid overworld kiosk door opens from its south threshold", (worldSeed) => {
+    const sim = bootSim(worldSeed);
+    const player = sim.addPlayer("A", "client-a");
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    const door = findSafeRoomDoor(sim);
+    expect(sim.world.isWalkable(door.x, door.y)).toBe(false);
+
+    teleport(entity, door.x + 0.5, door.y + 1.5, sim);
+    sim.queueAction(player.playerId, { type: "interact" });
+    sim.step();
+
+    expect(sim.world.isSanctuary(Math.floor(entity.body.x), Math.floor(entity.body.y))).toBe(true);
+  });
+
   it.each(seeds)("worldSeed %i: solo player sees both doors but the party door only toasts", (worldSeed) => {
     const sim = bootSim(worldSeed);
     const a = sim.addPlayer("A", "client-a");

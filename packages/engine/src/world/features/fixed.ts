@@ -192,6 +192,6 @@ export function carveSafeRoomEntrance(
   if (doorLy < CHUNK_SIZE) {
     const doorIndex = doorLy * CHUNK_SIZE + centerLx;
     tiles[doorIndex] = TILE.DoorSafeRoom;
-    height[doorIndex] = 0;
+    height[doorIndex] = KIOSK_HEIGHT;
   }
 }

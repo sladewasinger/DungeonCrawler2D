@@ -11,7 +11,6 @@ import { getViewOrientation } from "../view/viewState.js";
 import { viewToWorld } from "../view/viewTransform.js";
 import { doorLightPositions } from "./doorLights.js";
 import { hashSeed, type LightSource } from "./lightSource.js";
-import { applyLightingPostFX } from "./postfx.js";
 import { LightSpritePool } from "./pool.js";
 import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlacement.js";
@@ -37,7 +36,6 @@ export class LightingSystem {
     private readonly world: World,
   ) {
     this.pool = new LightSpritePool(scene);
-    applyLightingPostFX(scene.cameras.main);
   }
 
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */

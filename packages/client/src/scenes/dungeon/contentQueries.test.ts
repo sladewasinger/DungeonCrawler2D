@@ -2,6 +2,7 @@ import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   categoryOfItem,
+  isDoorNearby,
   isDoorTileAt,
   isTileTypeNearby,
   isThrowableItem,
@@ -130,5 +131,21 @@ describe("isDoorTileAt", () => {
   it("is false one tile off, unlike isTileTypeNearby's 3x3 neighborhood", () => {
     const world = worldWithTileAt(4, 4, TILE.DoorExit);
     expect(isDoorTileAt(world, 5, 4)).toBe(false);
+  });
+});
+
+describe("isDoorNearby", () => {
+  function worldWithTileAt(tx: number, ty: number, tile: TileType) {
+    return { tileAt: (wx: number, wy: number) => (wx === tx && wy === ty ? tile : TILE.Floor) };
+  }
+
+  it("recognizes a door from its neighboring interaction threshold", () => {
+    const world = worldWithTileAt(4, 4, TILE.DoorSafeRoom);
+    expect(isDoorNearby(world, 4.5, 5.5)).toBe(true);
+  });
+
+  it("does not reach beyond the 3x3 interaction neighborhood", () => {
+    const world = worldWithTileAt(4, 4, TILE.DoorSafeRoom);
+    expect(isDoorNearby(world, 6.5, 4.5)).toBe(false);
   });
 });

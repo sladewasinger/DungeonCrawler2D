@@ -28,6 +28,7 @@ import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
 import { placeFillRect, placeSprite, surfaceLiftPx } from "./placeSprite.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
+import { drawsVoidUnderlay, renderedSurfaceHeight } from "./stairSurface.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
@@ -220,13 +221,14 @@ export function drawGroundTile(
   // view-space proxy — see viewWorld.ts's module doc.
   const real = world.toReal(wx, wy);
   const stairVisual = stairVisualAt(world.real, real.x, real.y);
-  const height = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
+  const physicalHeight = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
+  const height = renderedSurfaceHeight(tile, physicalHeight);
   const tint = multiplyTint(heightTint(height), lightTint);
   const liftPx = surfaceLiftPx(height);
   // A below-zero cap shifts down into later rows, leaving its raw row behind.
   // That space is vertical void/wall volume, not a second floor: keep it purple
   // so the sole gray walkable surface remains the shifted cap below.
-  if (height < 0) placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
+  if (drawsVoidUnderlay(tile, height)) placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
   const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
 
   drawSurface(scene, world, wx, wy, container, tile, height, stairVisual, tint, lightTint, liftPx);

@@ -49,16 +49,17 @@ function reviveDownedPartyMember(
   return false;
 }
 
-/** Doors: standing on one teleports. True if the tile under the player was a door. */
+/** Doors: use a nearby solid doorway to teleport. */
 function useDoor(sim: SimState, slot: PlayerSlot): boolean {
   const body = slot.entity.body;
   const tileX = Math.floor(body.x);
   const tileY = Math.floor(body.y);
-  const tile = sim.world.tileAt(tileX, tileY);
-  switch (tile) {
+  const door = nearbyDoor(sim, tileX, tileY);
+  if (!door) return false;
+  switch (door.tile) {
     case TILE.DoorSafeRoom: {
-      const doorCx = Math.floor(tileX / CHUNK_SIZE);
-      const doorCy = Math.floor(tileY / CHUNK_SIZE);
+      const doorCx = Math.floor(door.x / CHUNK_SIZE);
+      const doorCy = Math.floor(door.y / CHUNK_SIZE);
       teleport(sim, slot, safeRoomSpawn(doorCx, doorCy), { remember: true });
       slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
       return true;
@@ -76,6 +77,25 @@ function useDoor(sim: SimState, slot: PlayerSlot): boolean {
     default:
       return false;
   }
+}
+
+function nearbyDoor(sim: SimState, tileX: number, tileY: number): { tile: number; x: number; y: number } | null {
+  const atPlayer = sim.world.tileAt(tileX, tileY);
+  if (isDoorTile(atPlayer)) return { tile: atPlayer, x: tileX, y: tileY };
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const x = tileX + dx;
+      const y = tileY + dy;
+      const tile = sim.world.tileAt(x, y);
+      if (isDoorTile(tile)) return { tile, x, y };
+    }
+  }
+  return null;
+}
+
+function isDoorTile(tile: number): tile is typeof TILE.DoorSafeRoom | typeof TILE.DoorPersonal | typeof TILE.DoorParty | typeof TILE.DoorExit {
+  return tile === TILE.DoorSafeRoom || tile === TILE.DoorPersonal || tile === TILE.DoorParty || tile === TILE.DoorExit;
 }
 
 function useDoorParty(sim: SimState, slot: PlayerSlot): void {

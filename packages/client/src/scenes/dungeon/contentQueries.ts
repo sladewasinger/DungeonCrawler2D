@@ -156,3 +156,8 @@ const DOOR_TILES: readonly TileType[] = [TILE.DoorSafeRoom, TILE.DoorPersonal, T
 export function isDoorTileAt(world: TileWorld, x: number, y: number): boolean {
   return DOOR_TILES.includes(world.tileAt(Math.floor(x), Math.floor(y)));
 }
+
+/** True when a door is in the 3x3 interaction neighborhood around (x, y). */
+export function isDoorNearby(world: TileWorld, x: number, y: number): boolean {
+  return DOOR_TILES.some((tile) => isTileTypeNearby(world, tile, x, y));
+}

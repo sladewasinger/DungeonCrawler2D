@@ -118,10 +118,12 @@ export function drawTile(
     // coverage (the row h screen-north, vacated by its own cap's shift) rendering
     // nothing — the scattered black squares of the 2026-07-21 production playtest.
     const height = world.heightAt(wx, wy);
-    // A displaced wall cap (up for positive z, down for negative z) leaves its
-    // raw tile row exposed. Walls have no base-layer sprite, so preserve the
-    // void backdrop there instead of letting the canvas show through as black.
-    if (height !== 0) placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
+    // A displaced cap leaves its source row exposed. This is wall volume, not
+    // void: it must use the south-wall material and live in a depth-sorted band
+    // so terrain behind it cannot leak through after the camera rotates.
+    if (height !== 0 && face === null) {
+      drawWallTile(scene, world, wx, wy, occluderFor(wy), 0, undefined, {}, southFaceColor(lightTint));
+    }
     const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
     drawWallTile(scene, world, wx, wy, container, surfaceLiftPx(height));
     // A one-cell-deep W3 has no equally high cells north/south to own its two

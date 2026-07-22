@@ -20,7 +20,7 @@ describe("carveSafeRoomEntrance", () => {
         expect(tiles[i]).toBe(isDoor ? TILE.DoorSafeRoom : TILE.Floor);
         // The door cell itself drops to ground level (0) so a grounded body
         // can actually walk up to it — see carveSafeRoomEntrance's doc comment.
-        expect(height[i]).toBe(isDoor ? 0 : KIOSK_HEIGHT);
+        expect(height[i]).toBe(KIOSK_HEIGHT);
       }
     }
     expect(tiles[CENTER_LY * CHUNK_SIZE + (CENTER_LX - 3)]).toBe(TILE.Floor);

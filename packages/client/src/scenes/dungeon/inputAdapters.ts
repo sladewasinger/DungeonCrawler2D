@@ -5,7 +5,7 @@ import { INTERACT_RANGE, TILE } from "@dc2d/engine";
 import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
-import { isDoorTileAt, isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
+import { isDoorNearby, isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
 import { endSelfGrace, triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
 import { resolveStairwayPrompt } from "./stairwayProximity.js";
 
@@ -110,7 +110,7 @@ export function createInputQueries(conn: Connection): InputQueries {
       !!conn.world &&
       !!adapter.body &&
       isTileTypeNearby(conn.world, TILE.CraftingTable, adapter.body.x, adapter.body.y),
-    isDoorNearby: (adapter) => !!conn.world && !!adapter.body && isDoorTileAt(conn.world, adapter.body.x, adapter.body.y),
+    isDoorNearby: (adapter) => !!conn.world && !!adapter.body && isDoorNearby(conn.world, adapter.body.x, adapter.body.y),
     isStairwayNearby: (adapter) =>
       !!conn.world && !!adapter.body && !!resolveStairwayPrompt(conn.world, adapter.body.x, adapter.body.y),
     downedPartyMemberInRange: (adapter) => {

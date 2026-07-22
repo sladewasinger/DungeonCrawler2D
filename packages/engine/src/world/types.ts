@@ -21,7 +21,7 @@ export const TILE = {
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
 /**
- * Solid tiles that block movement outright: furniture, and walls.
+ * Solid tiles that block movement outright: furniture, doors, and walls.
  * TILE.Wall's collision is figuratively infinite — nothing walks into
  * it, jumps onto it, or lands on its top, regardless of the visual
  * height difference; high-ground tactics live exclusively on raised
@@ -33,6 +33,10 @@ export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.Wall,
   TILE.CraftingTable,
   TILE.Stash,
+  TILE.DoorPersonal,
+  TILE.DoorParty,
+  TILE.DoorExit,
+  TILE.DoorSafeRoom,
 ]);
 
 export const ZONE = {
