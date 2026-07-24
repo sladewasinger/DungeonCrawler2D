@@ -32,36 +32,31 @@ drifted into a mix of real work, already-shipped work, superseded decisions, pro
 recaptures, and post-v1 ideas. This queue is the current source of execution order.
 Completing one release slice does not complete this roadmap.
 
-1. [ ] **TOP PRIORITY — production-grade movement networking audit:** deployed 2D is
-   broadly smooth with only occasional correction, while local 2D can show a regular,
-   cyclic rubberband and Three.js is smooth under the same local session. Treat this as
-   an environment-sensitive client/network diagnosis, not proof that one renderer or
-   the server tick is universally broken. Reproduce the same scripted route locally and
-   against deployment, in both renderers, recording frame time, input sampling,
-   fixed-step catch-up, predicted-body advance, snapshot application/sequence
-   acknowledgement, interpolation buffer, camera-follow target, post-reconcile render
-   offsets, RTT/jitter, WebSocket queue depth, and packet loss. Find any periodic 2D
-   correction/double-application or local runtime pressure without weakening server
-   authority. Chrome also shows a
-   continuous 20 Hz client input stream interleaved with roughly 20 Hz server
-   snapshot-delta stream: about 2,400 WebSocket messages per connected player per
-   minute before combat/events, with 1.6–1.9 KB snapshots in the reported capture.
-   Establish a reproducible per-client/per-server baseline (messages/sec, bytes/sec,
-   encode/decode time, queue depth, packet-loss behavior, and movement correction
-   error) before changing cadence. Independently of the local symptom, keep the server
-   authoritative, but stop treating
-   render cadence as network cadence: coalesce unchanged movement intent and send a
-   low-rate heartbeat/timeout-safe refresh while idle; transmit state changes and
-   combat actions immediately; negotiate a lower/adaptive AOI snapshot rate with a
-   higher burst rate only when nearby actor/combat state requires it. Clients should
-   interpolate authoritative snapshots and visually extrapolate remote actors/enemies
-   from server-provided velocity/intent between them; they must never become AI or
-   combat authorities. Reconcile only meaningful divergence smoothly (hard-correct
-   teleports/invalid states), with a bounded prediction history and no periodic
-   rubberband. Ship a protocol benchmark and multi-client loss/jitter test proving a
-   large reduction in idle message/byte rate while preserving responsive local input,
-   accurate enemy movement, and stable collision/combat truth. This supersedes the
-   prior “fixed” movement item as the first release blocker.
+1. [x] **Production-grade movement networking audit (released 2026-07-24,
+   `7be5720`):** simulation and local prediction remain fixed at 20 Hz, while unchanged
+   movement input is coalesced to a 2 Hz heartbeat and changes/actions send
+   immediately. Server replication now sends transactional AOI snapshots at 10 Hz
+   while idle and 20 Hz while nearby movement, combat, events, dirty areas, departures,
+   or baseline recovery require it; rejected or backpressured sends do not advance the
+   client's replication ledger. Local reconciliation projects predicted work onto the
+   authoritative `snapshot.tick` timeline instead of treating sparse wire `lastSeq`
+   acknowledgements as simulation coverage, retains a bounded 64-step history, eases
+   ordinary render-space corrections, and hard-snaps invalid or teleport divergence.
+   Remote actors interpolate authoritative samples and extrapolate authoritative
+   velocity for no more than 150 ms. Client/server metrics cover message and byte rate,
+   codec time, send-queue depth, RTT/jitter, baseline recovery, and reconciliation
+   error; connection teardown removes diagnostics without allowing a stale replaced
+   socket to erase the live client's metrics. Deterministic cadence, transactional-send,
+   dropped-delta recovery, packet-loss, diagnostics-race, and integrated coalesced-input
+   reconciliation tests cover the production contract. The deterministic benchmark
+   reduced its idle-input sample from 20 messages/1,390 bytes to 2 messages/139 bytes,
+   and its snapshot sample from 20 messages/10,112 bytes to 11 messages/5,092 bytes.
+   **Non-blocking runtime observation:** automated evidence proves protocol behavior and
+   deterministic loss/recovery, but not every device/network/render-load combination.
+   Keep the manual two-client route in `docs/MANUAL_TEST_CHECKLIST.md` as an ongoing
+   regression watch for device-specific frame stalls or transport jitter rather than
+   reopening this completed networking implementation audit without a reproducible
+   trace.
 2. [x] **Immediate movement-reconciliation regression:** investigate and fix the
    continuous client/server rubberbanding introduced or exposed after the chunk-loading
    performance work. Reproduce it with ordinary sustained movement, instrument predicted
