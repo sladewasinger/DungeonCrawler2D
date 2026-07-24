@@ -48,11 +48,18 @@ The Three.js renderer is a new client shell over the existing deterministic engi
 
 ## Milestone 5 — HUD OS and Shipping Gates
 
-- [ ] Port the widget catalog to HTML/CSS: health, hotbar, chat, inventory, party, prompts, map, and settings.
+- [x] Mount one shared HTML/CSS HUD catalog over both Phaser and Three.js: health/status, XP, hotbar, chat tabs, inventory, party, prompts, settings, and HUD Edit Mode all use the same DOM contract.
 - [ ] Replace the HUD inventory panel with a focused full-screen inventory workspace: an 80%-opaque backdrop, category tabs, filters, folders, and game-input capture while it is open.
 - [ ] Persist movable/resizable/pinned layouts per account; keep normal play chrome-free and HUD Edit Mode explicit.
 - [ ] Add Three.js fixed-seed visual tests for terrain, doors, stairs, light radius, fog, HUD focus, and mobile controls.
 - [ ] Profile target devices and enforce an object/triangle/light budget before enabling Three.js by default.
+
+## Milestone 6 — Shared Client Performance Release
+
+- [ ] Split renderer entrypoints: dynamically import the Phaser and Three.js shells independently so selecting one renderer does not download the other's runtime. Acceptance: the route shell remains small, the Phaser route's current ~1.57 MB main payload becomes a lazy Phaser chunk, and production-build manifests prove neither route requests the other renderer chunk.
+- [ ] Add server spatial entity buckets for AOI snapshots before changing snapshot semantics. Acceptance: an AOI query visits only buckets intersecting its radius, preserves deterministic entity ordering, and a dense-world benchmark reports candidate scans proportional to nearby buckets rather than all live entities.
+- [ ] Add backwards-compatible snapshot deltas after spatial buckets: inventory/hotbar only transmit on revision changes and unchanged entities transmit only their stable identity/revision. Acceptance: a legacy full-snapshot client remains valid during rollout, loss/reconnect can recover from a full baseline, and an idle 20 Hz benchmark materially reduces bytes and allocations without stale actors.
+- [ ] Continue 2D renderer hitch work: keep pooling transient Phaser visuals and add intra-chunk slicing only when a measured real-device chunk bake exceeds the frame budget. Existing strip-atlas/page pooling and urgency-tiered cross-chunk baking are complete; slicing must preserve pixel output and keep strict-view chunks usable while work is spread across frames.
 
 ## Acceptance Rules
 
@@ -60,3 +67,4 @@ The Three.js renderer is a new client shell over the existing deterministic engi
 2. A player can identify floor, wall, drop, stair, door, enemy, and light source at a glance.
 3. Touch, keyboard, mouse, chat, and HUD controls never leak focus to the browser during play.
 4. Every renderer change has deterministic fixed-seed coverage plus a manual desktop and mobile check.
+5. A performance release advances only after the casual, child, and expert judge passes all agree and the build/bench evidence is recorded.
