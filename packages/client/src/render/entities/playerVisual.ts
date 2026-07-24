@@ -22,6 +22,7 @@ import { stepOrbitAngle } from "./weaponOrbit.js";
 import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 
 const DOWNED_TINT = 0x7a3d3d;
+const DISCONNECTED_TINT = 0x55555a;
 const DOWNED_ANGLE = 78;
 const STRIKE_DURATION_MS = 160;
 /** Epic 7.12: no dedicated run frames exist, so running plays the same walk loop
@@ -92,6 +93,10 @@ function applyLandingSquash(visual: PlayerVisual, airborne: boolean, nowMs: numb
 }
 
 function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
+  if (view.disconnected) {
+    visual.body.setTint(DISCONNECTED_TINT);
+    return;
+  }
   if (view.downed) {
     visual.body.setTint(DOWNED_TINT);
     return;
@@ -136,7 +141,7 @@ function updatePlayerChrome(
   visual.hpBar.container.setVisible(visual.hpBarRevealed);
 
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
-  updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed);
+  updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed, view.disconnected);
 
   const occlusion = terrainOcclusionAhead(ctx.world, view.x, view.y, view.z, getViewOrientation());
   syncOcclusionSilhouette(visual.body, view.y, occlusion);

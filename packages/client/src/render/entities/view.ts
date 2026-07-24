@@ -26,6 +26,7 @@ export interface PlayerEntityView {
   readonly faceY: number;
   readonly air: boolean;
   readonly downed: boolean;
+  readonly disconnected?: boolean;
   readonly attacking: boolean;
   readonly weaponId: string | null;
   /** Self-only live weapon-orbit target. Remote players use replicated facing instead. */

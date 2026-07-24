@@ -32,13 +32,32 @@ drifted into a mix of real work, already-shipped work, superseded decisions, pro
 recaptures, and post-v1 ideas. This queue is the current source of execution order.
 Completing one release slice does not complete this roadmap.
 
-1. [x] **Immediate movement-reconciliation regression:** investigate and fix the
+1. [ ] **TOP PRIORITY — network cadence and prediction audit:** Chrome shows a
+   continuous 20 Hz client input stream interleaved with roughly 20 Hz server
+   snapshot-delta stream: about 2,400 WebSocket messages per connected player per
+   minute before combat/events, with 1.6–1.9 KB snapshots in the reported capture.
+   Establish a reproducible per-client/per-server baseline (messages/sec, bytes/sec,
+   encode/decode time, queue depth, packet-loss behavior, and movement correction
+   error) before changing cadence. Keep the server authoritative, but stop treating
+   render cadence as network cadence: coalesce unchanged movement intent and send a
+   low-rate heartbeat/timeout-safe refresh while idle; transmit state changes and
+   combat actions immediately; negotiate a lower/adaptive AOI snapshot rate with a
+   higher burst rate only when nearby actor/combat state requires it. Clients should
+   interpolate authoritative snapshots and visually extrapolate remote actors/enemies
+   from server-provided velocity/intent between them; they must never become AI or
+   combat authorities. Reconcile only meaningful divergence smoothly (hard-correct
+   teleports/invalid states), with a bounded prediction history and no periodic
+   rubberband. Ship a protocol benchmark and multi-client loss/jitter test proving a
+   large reduction in idle message/byte rate while preserving responsive local input,
+   accurate enemy movement, and stable collision/combat truth. This supersedes the
+   prior “fixed” movement item as the first release blocker.
+2. [x] **Immediate movement-reconciliation regression:** investigate and fix the
    continuous client/server rubberbanding introduced or exposed after the chunk-loading
    performance work. Reproduce it with ordinary sustained movement, instrument predicted
    versus authoritative pose, input sequence acknowledgement, fixed-step catch-up, and
    snapshot cadence, then remove the recurring correction without regressing chunk-load
    smoothness. This blocks every feature slice below.
-2. [ ] **Mobile reconnect/session continuity regression:** returning from an ordinary
+3. [x] **Mobile reconnect/session continuity regression:** returning from an ordinary
    mobile background interruption must resume the same server player slot for at least
    **four minutes** when the same device reconnects. Preserve position, health,
    inventory, hotbar, equipped weapon, party membership, character identity/sprite, and
@@ -51,22 +70,27 @@ Completing one release slice does not complete this roadmap.
    `Enter Full Screen` control to Settings and a user-gesture-safe fallback that
    re-enters fullscreen when a returning mobile player taps the game after a browser or
    OS interruption. Cover the 2D renderer first and keep the 3D route behavior aligned.
-3. [x] **Shared client performance release:** renderer-isolated bundles, spatial AOI
+   Server/session continuity is complete: the grace is four minutes, the frozen body remains
+   visible and labeled while disconnected, resume keeps the same slot/state, and invite replay
+   is covered. The shared Settings menu now exposes `Enter Full Screen`, and both
+   renderers use the same standard/WebKit request path plus a one-shot direct-game-tap
+   retry after a mobile browser or OS return.
+4. [x] **Shared client performance release:** renderer-isolated bundles, spatial AOI
    buckets, revisioned snapshot deltas, and budgeted Phaser terrain/lighting churn.
-4. [x] **Shared inventory workspace:** replace the movable inventory HUD panel with
+5. [x] **Shared inventory workspace:** replace the movable inventory HUD panel with
    one full-screen HTML workspace used by both renderers; include an 82%-dark modal
    backdrop, search, category tabs, All/Equipped/Hotbar folders, scrolling item
    actions, and complete gameplay-input capture while open.
-5. [x] **2D interaction-contract hardening:** E/USE at a crafting surface opens and
+6. [x] **2D interaction-contract hardening:** E/USE at a crafting surface opens and
    toggles crafting; E/USE at a stash toggles it; E/C/Escape and panel-local X controls
    follow one modal law. Prompts, client actions, Three.js parity, crafting/stash
    validation, and authoritative door/stash handling now share one engine-owned
    tile-center range resolver with door > stash > craft priority; revive targeting is
    nearest and deterministic on both sides.
-6. [x] **2D correctness and cleanup:** damage-triggered health bars, placed-torch
+7. [x] **2D correctness and cleanup:** damage-triggered health bars, placed-torch
    pickup/cap, torch halo fade-in, protocol-mismatch refresh UX, room-relative
    coordinates, title/mode-select parity, and dead pack-render path removal.
-7. [ ] **2D presentation/content:** cohesive four-direction crawler art, readable kill
+8. [ ] **2D presentation/content:** cohesive four-direction crawler art, readable kill
    and area-effect proof recaptures, bench projectile presentation, and the remaining
    terrain-generation decisions (corridor width, minimum pit size, walkable wall-back
    generation).
@@ -437,6 +461,7 @@ epics, but they do not displace the next playable feature slice in this queue.
 - [ ] **Kill feedback:** enemies currently vanish on death — no burst, no guts, no corpse. Investigate why wave-4 death VFX doesn't read on live; ship a real kill moment: blood explosion + gib particles + brief corpse/bones fade + hit-stop tick
 - [ ] **XP + levels (Epic 11 core, pulled forward):** server-authoritative XP on kill, floating +XP numbers, character level on the HUD, level-up flourish; persistence in PlayerStore
 - [ ] **Starter-kit famine:** dying drops everything and the kit never re-grants -> new/returning players are permanently Unarmed (Austin joined to exactly this). Re-grant sword+torches on respawn when the player has no weapon (log assumption); also fix the "YOU DIED on first join" overlay bug (death overlay must only show after a real death event this session)
+- [ ] **Contextual hotbar onboarding (supersedes unconditional starter-bandage coaching):** never show “Press [1] to equip, then [E] to apply the bandage” on join or while a crawler is at full health. The current source is `packages/client/src/ui/tutorials/model.ts`: the first snapshot treats the starter bandage as a newly assigned hotbar item (`assignedItems([], hotbar)`), emits the persistent `usable` tutorial, and `ThreeHudTutorials` stores it for replay. Change the starter bindings in `packages/game-server/src/sim/inventory.ts` to torch in slot 1 and bandage in slot 2; first live hotbar state shows only “Press [1–9] to select a hotbar item.” Once the player actually selects a populated slot, show the action specific to that selected item (torch: `[G]` throws; bandage: `[E]` uses). The bandage-specific health prompt remains conditional on real damage/low health. Present these as a subtle, transparent, borderless CSS hint floating just above the hotbar with a gentle vertical bob, never as a center-screen modal. Extend the tutorial input/state contract with selected-slot edges rather than inferring interaction from hotbar assignment.
 - [x] **1-tile corridor stuck-walking:** moving left in a 1-wide hallway requires pixel-perfect alignment — add corner-slide/auto-nudge assist in engine movement so near-misses glide into the gap (docs/ASSUMPTIONS.md #89)
 - [x] **z visual lift:** jumping/stepping onto a z1 platform keeps the sprite at the same screen y — entities must render y-offset by their z (sprite, shadow, nameplate), or elevation reads as nothing (`render/entities/lift.ts` now lifts by the entity's full absolute z, grounded or airborne — see `docs/client-proofs/wave7b-zlift.png`)
 - [ ] **Terrain legibility overhaul (the "absolute mess" walls):** his screenshots show brick face strips scattered mid-floor, black void patches inside rooms, disconnected ledges — the dungeon reads as noise. Reproduce at his coords (x36,y-51 / x47,y-54 / x49,y-54 / x41,y-56 on the prod seed), diagnose worldgen fragmentation vs render grammar, and make generated dungeons READ: cohesive wall masses, clear top-vs-face contrast, no orphan face strips
@@ -465,6 +490,7 @@ epics, but they do not displace the next playable feature slice in this queue.
 - [ ] **CONFIRMED GENERATOR BUG — inescapable pit with a broken ramp (probe-reproduced on prod seed austin-dungeon-prod-1 at (37,7) floor 1):** pit floor at z-1 contains an ORPHANED ramp at (38,7) height -0.5 whose far side returns to -1 before the z0 floor (chain -1 -> -0.5 -> -1 -> 0); every walking exit exceeds STEP_UP 0.35, so the pit traps players who don't think to jump. Fix in the generator: pit/chasm ramps must form a CONNECTED monotone chain from pit floor to rim (extend the stairs invariant test to negative-height transitions — it only covers ascending terrain today); .scratch/stuck-probe.ts holds the repro
 - [ ] Seed on screen: welcome message gains the server's world seed (additive optional field), displayed with the build number in the debug indicator stack — so stuck-position reports carry seed+coords for instant repro
 - [ ] Inventory selection outline z-order (yellow ring renders under the Drop button), "Unarmed" chip text centering, and a general HUD alignment pass
+- [ ] **HUD composition polish (desktop + mobile):** panels are not a blanket dark-card treatment. Preserve existing frameless overlays where they read better; in particular, buffs/debuffs render as compact content-only chips with no opaque panel background or border. Audit the shipped default layouts at each target viewport so visible widgets do not overlap or hide one another (the reported buffs-under-chat default is a release blocker); reserve dark framed panels for dense, interactive surfaces such as inventory/settings/chat where contrast and hit targets need them.
 - [ ] **WAVE R2 — floor-rim occlusion (user playtest 2026-07-20, pit at z-1):** wall faces occlude a pit-dweller correctly, but one tile over — where plain z0 FLOOR is between the entity and the camera — nothing occludes, and the player looks like he's standing on the floor above. Rule: ANY terrain higher than the entity that sits between it and the camera occludes, floor rims exactly like walls (the pit's south rim needs occluder treatment). Implement through the rotation view seam so it holds at all 4 orientations. Fix AFTER the 2.5D rotation lands (user: "You can fix these after the 2.5D stuff")
 - [x] **PRE-MERGE CLEANUP:** removed the dead pack-art renderer, sprite placer, frame-index export, and Phaser preload path. The pack catalog and lazy DOM image loading remain for editor swatches and future floor theming.
 - [ ] **POLISH (post-R2, user directive 2026-07-20 — "after everything else... but definitely needs to get done"): fake ambient occlusion on ALL edges.** Baked AO gradients wherever surfaces meet at a height discontinuity: contact-shadow gradient on the LOW floor hugging the base of walls/cliff faces, darkening in interior corners (both wall-wall inside corners and floor pockets), subtle gradient under visual overhangs, slight darkening at cliff-top rims on the low side. "Even if it's fake" — bake it into the chunk terrain textures using the SAME higher/lower-neighbor masks as the cliff outlines + rim occluders (third consumer of that mask); keep it a tunable strength knob (editor lighting workbench slider, like ambient/warmth) so the user can dial it. Face-attached AO follows face selection through the view seam (screen-relative); floor-attached AO is world-space (rotation-safe automatically)

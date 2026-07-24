@@ -11,7 +11,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 
@@ -68,7 +68,7 @@ export const WALL_FACE_MIN_DROP = 0.75;
 export const AOI_RADIUS = 40;
 export const MIN_SPAWN_DIST = 80;
 export const SPAWN_CHUNK_RANGE = 16;
-export const RECONNECT_GRACE_MS = 30_000;
+export const RECONNECT_GRACE_MS = 4 * 60_000;
 export const MAX_INPUTS_PER_TICK = 5;
 export const SAFE_FALL_HEIGHT = 1.5;
 // Doubled alongside SAFE_FALL_HEIGHT's halving so damage for an

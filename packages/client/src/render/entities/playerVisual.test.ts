@@ -1,0 +1,55 @@
+/** Verifies the live player visual forwards reconnect state into its rendered nameplate. */
+import { describe, expect, it, vi } from "vitest";
+
+const probes = vi.hoisted(() => ({ nameplate: vi.fn() }));
+
+vi.mock("../../boot/assetManifest.js", () => ({ ASSET_KEYS: { atlas: "atlas" }, WORLD_PIXEL_SCALE: 1 }));
+vi.mock("../view/viewState.js", () => ({ getViewOrientation: () => 0 }));
+vi.mock("../view/viewTransform.js", () => ({ worldAngleToView: (value: number) => value }));
+vi.mock("./animState.js", () => ({ resolveAnimState: () => ({ animKey: "idle" }) }));
+vi.mock("./heldWeapon.js", () => ({ createHeldWeapon: vi.fn(), updateHeldWeapon: vi.fn() }));
+vi.mock("./hpBar.js", () => ({ createHpBar: vi.fn(), updateHpBar: vi.fn() }));
+vi.mock("./hpBarVisibility.js", () => ({ resolveHpBarVisibility: () => false }));
+vi.mock("./hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
+vi.mock("./lift.js", () => ({ airborneHeightAboveGround: () => 0, spriteLiftPx: () => 0 }));
+vi.mock("./nameplate.js", () => ({ createNameplate: vi.fn(), updateNameplate: probes.nameplate }));
+vi.mock("./occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), terrainOcclusionAhead: () => false }));
+vi.mock("./playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
+vi.mock("./shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
+vi.mock("./squash.js", () => ({ squashScale: () => ({ scaleX: 1, scaleY: 1 }) }));
+vi.mock("./weaponIcon.js", () => ({ FIST_FALLBACK_FRAME: 0, weaponIconFrame: () => null }));
+vi.mock("./weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
+vi.mock("./worldToScreen.js", () => ({ depthForEntityNow: () => 1, worldToScreen: (x: number, y: number) => ({ x, y }) }));
+
+function sprite() {
+  const anims = { currentAnim: { key: "idle" }, timeScale: 1 };
+  return {
+    x: 0, y: 0, depth: 0, displayHeight: 16, anims,
+    tint: null as number | null,
+    setPosition(x: number, y: number) { this.x = x; this.y = y; return this; },
+    setDepth(depth: number) { this.depth = depth; return this; }, setFlipX() { return this; },
+    play() { return this; }, setScale() { return this; }, setTint(value: number) { this.tint = value; return this; },
+    setTintFill(value: number) { this.tint = value; return this; }, clearTint() { this.tint = null; return this; }, setAngle() { return this; },
+  };
+}
+
+describe("updatePlayerVisual", () => {
+  it("shows then clears disconnected state through the actual player visual update", async () => {
+    const { updatePlayerVisual } = await import("./playerVisual.js");
+    const body = sprite();
+    const visual = {
+      body, weapon: {}, shadow: { setDepth: vi.fn() }, hpBar: { container: { setDepth: vi.fn(), setVisible: vi.fn() } },
+      nameplate: { setDepth: vi.fn() }, lastHp: 30, hpBarRevealed: false, hitFlashStartMs: undefined,
+      lastX: 0, lastY: 0, lastSampleMs: 0, lastAir: false, squashStartMs: undefined,
+      weaponAngle: 0, wasAttacking: false, swingStartMs: undefined,
+    };
+    const context = { nowMs: 10, dtSeconds: 0.016, selfX: 0, selfY: 0, partyIds: new Set(), world: { groundAt: () => 0 } };
+    const view = { id: "p", playerId: "p", name: "Wren", x: 1, y: 2, z: 0, hp: 30, maxHp: 30, fx: [], faceX: 1, faceY: 0, air: false, downed: false, disconnected: true, attacking: false, weaponId: null, weaponAimAngle: null, attackAngleRad: 0 };
+    updatePlayerVisual(visual as never, "hero", view, context as never);
+    expect(body.tint).toBe(0x55555a);
+    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14, expect.any(Number), false, false, true);
+    updatePlayerVisual(visual as never, "hero", { ...view, disconnected: false }, context as never);
+    expect(body.tint).toBeNull();
+    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14, expect.any(Number), false, false, false);
+  });
+});

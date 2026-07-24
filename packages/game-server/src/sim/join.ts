@@ -9,7 +9,6 @@ import {
 import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
-import { respawnSlot } from "./players.js";
 import { findSpawn, newToken } from "./spawn.js";
 import { secureSpawnHandoff } from "./spawnSafety.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
@@ -90,6 +89,7 @@ function newSlot(
     pendingInputs: [],
     pendingActions: [],
     connected: true,
+    disconnectedAtTick: null,
     reapAtTick: Number.MAX_SAFE_INTEGER,
     known: new Set(),
     inventory: [],
@@ -112,24 +112,35 @@ function newSlot(
   };
 }
 
+/** Rebase lifecycle deadlines by offline time so reconnect grace pauses them. */
+function restorePausedLifecycle(sim: SimState, slot: PlayerSlot): void {
+  const disconnectedAt = slot.disconnectedAtTick ?? sim.tickCount;
+  const pausedTicks = Math.max(0, sim.tickCount - disconnectedAt);
+  if (slot.respawnAtTick !== null) slot.respawnAtTick += pausedTicks;
+  if (slot.downedAtTick !== null) slot.downedAtTick += pausedTicks;
+  if (slot.entity.downedUntil !== undefined) slot.entity.downedUntil += pausedTicks;
+  if (slot.spawnGraceUntilTick > disconnectedAt) slot.spawnGraceUntilTick += pausedTicks;
+  slot.disconnectedAtTick = null;
+}
+
 /** Reattach a disconnected slot to a reconnecting client, if the token still owns one. */
 function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinResult | null {
   const existingId = sim.byToken.get(resumeToken);
   const slot = existingId ? sim.players.get(existingId) : undefined;
   if (!slot || slot.connected || slot.clientId !== clientId) return null;
+  restorePausedLifecycle(sim, slot);
   slot.connected = true;
   slot.pendingInputs.length = 0;
   slot.pendingActions.length = 0;
   slot.lastSeq = -1;
   slot.needsFullAreas = true;
-  // Join-death fix (Epic 7.13): a client that disconnected mid-death-
-  // delay (respawnAtTick pending, hp still 0) must never resume into
-  // that dead body — the first snapshot would carry hp<=0 and read as
-  // a fresh death on reconnect. Respawn it immediately instead of
-  // waiting out whatever was left of the delay; ensureStarterKit rides
-  // along inside respawnSlot.
-  if (slot.entity.hp <= 0) respawnSlot(sim, slot);
-  else ensureStarterKit(sim, slot);
+  // Dead and downed slots retain their paused state until gameplay resumes.
+  if (slot.entity.hp > 0) ensureStarterKit(sim, slot);
+  const invite = sim.invites.get(slot.entity.id);
+  if (invite) {
+    const inviter = sim.players.get(invite.from);
+    if (inviter) slot.outbox.push({ t: "invite", from: inviter.entity.id, name: inviter.entity.name ?? "?" });
+  }
   sendContactsUpdated(sim, slot);
   sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
   return {

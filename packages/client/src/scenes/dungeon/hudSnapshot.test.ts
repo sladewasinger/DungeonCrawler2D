@@ -45,6 +45,17 @@ function snapshotOf(src: HudSnapshotSource, selectedSlot = null as number | null
 }
 
 describe("buildHudSnapshot", () => {
+  it("preserves party disconnected state through the public HUD snapshot", () => {
+    const party = {
+      members: [{ id: "p", name: "Wren", hp: 10, maxHp: 30, downed: false, disconnected: true, x: 3, y: 4 }],
+    };
+    const snap = snapshotOf(source({ party: party as never }));
+    expect(snap.party[0]).toMatchObject({ id: "p", name: "Wren", disconnected: true });
+    expect(snap.party[0]?.arrow).toBeDefined();
+    const resumed = snapshotOf(source({ party: { ...party, members: [{ ...party.members[0], disconnected: false }] } as never }));
+    expect(resumed.party[0]).toMatchObject({ id: "p", disconnected: false });
+  });
+
   it("maps health/ping/connection straight through", () => {
     const snap = snapshotOf(source({ hp: 5, maxHp: 30, pingMs: 99 }));
     expect(snap.health).toEqual({ hp: 5, maxHp: 30 });

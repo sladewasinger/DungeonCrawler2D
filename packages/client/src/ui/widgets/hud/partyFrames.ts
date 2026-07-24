@@ -7,6 +7,7 @@
 import type Phaser from "phaser";
 import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER, PANEL_FILL, spacing } from "../../panel.js";
+import { partyPresence } from "../../partyPresence.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
@@ -17,6 +18,7 @@ export interface PartyRowData {
   readonly hp: number;
   readonly maxHp: number;
   readonly downed: boolean;
+  readonly disconnected?: boolean;
   readonly arrow: string;
   readonly distance: number;
 }
@@ -88,7 +90,15 @@ export class PartyFramesWidget {
   private applyRow(row: RowVisual, data: PartyRowData | undefined): void {
     row.container.setVisible(!!data);
     if (!data) return;
-    row.label.setText(`${data.arrow} ${data.name} · ${data.distance}m`);
+    const presence = partyPresence(data.name, data.disconnected === true);
+    if (data.disconnected) {
+      row.label.setText(presence.label);
+      row.hpFill.width = HP_BAR_WIDTH * (data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0);
+      row.hpFill.setFillStyle(0x777780);
+      row.downedTag.setVisible(false);
+      return;
+    }
+    row.label.setText(`${data.arrow} ${presence.label} · ${data.distance}m`);
     const ratio = data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0;
     row.hpFill.width = HP_BAR_WIDTH * ratio;
     row.hpFill.setFillStyle(data.downed ? DOWNED_COLOR : HP_COLOR);

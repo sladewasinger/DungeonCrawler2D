@@ -57,6 +57,8 @@ export interface PlayerSlot {
   pendingInputs: ClientInput[];
   pendingActions: PlayerAction[];
   connected: boolean;
+  /** Tick control was lost; reconnect uses it to pause lifecycle deadlines. */
+  disconnectedAtTick?: number | null;
   reapAtTick: number;
   known: Set<string>;
   /** Unlimited inventory: one stack per item def, pruned at qty 0. */

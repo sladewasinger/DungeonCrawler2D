@@ -115,6 +115,7 @@ export interface PartyMemberPosition {
   readonly x: number;
   readonly y: number;
   readonly downed: boolean;
+  readonly disconnected?: boolean | undefined;
 }
 
 /** Nearest DOWNED party member within `maxDistance` — the hold-E revive gesture's
@@ -128,7 +129,7 @@ export function nearestDownedPartyMember(
   let best: PartyMemberPosition | undefined;
   let bestDistance = maxDistance;
   for (const member of members) {
-    if (!member.downed) continue;
+    if (!member.downed || member.disconnected) continue;
     const distance = Math.hypot(member.x - fromX, member.y - fromY);
     const closer = distance < bestDistance;
     const deterministicTie = distance === bestDistance && (!best || member.id < best.id);

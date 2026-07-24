@@ -7,6 +7,8 @@ anything left blank ships as written.
 
 | # | Assumption | My default | Where it lands | Austin's answer |
 | --- | --- | --- | --- | --- |
+| 420 | Mobile fullscreen recovery | The shared Settings control requests fullscreen only from its direct click gesture; after a mobile visibility return, the next direct game-canvas tap makes one best-effort retry without cancelling the gameplay tap or installing a permanent capture listener. Standard and WebKit fullscreen APIs both receive the same best-effort landscape lock. | Active queue item 2 | |
+| 419 | Reconnect retry duration | Supersedes row 76's obsolete 30-second tuning: retry once per second for `ceil(RECONNECT_GRACE_MS / 1000) + 5`, or about 245 seconds. The client only clears its tab-scoped resume token after the four-minute server retention window has elapsed. | Active queue item 2 | |
 | 1 | Which weapon auto-equips in the starter kit | The existing `sword` item def (Rusty Sword) — no new starter-tier item | Epic 7.8 | |
 | 2 | When the starter kit is (re)granted | Once per persistent `clientId`, on first-ever join only — never re-granted on death/respawn/reconnect (dying can't be a gear-reroll button) | Epic 7.8 | |
 | 3 | Does the starter kit touch the stash | No — it lands straight in inventory and the equipped slot; stash stays exactly as it was | Epic 7.8 | |
@@ -18,6 +20,7 @@ anything left blank ships as written.
 | 9 | Cap on concurrently placed torches per floor | 40 — placement past the cap fails with a toast ("too many torches burning nearby") rather than evicting the oldest | Epic 7.8 | |
 | 10 | Mechanism for the placed torch's real light | A new one-time trigger of the existing deterministic BFS flood (`computeLightField` in `tileLight.ts`) on placement/pickup/burnout — not a new per-frame dynamic-light channel | Epic 7.8 | |
 | 11 | Protocol version bump for the new chat channels | Bumps by 1 past today's `PROTOCOL_VERSION = 10` | Epic 7.9 | |
+| 418 | Transient mobile-disconnect retention | Keep the exact server player slot for four minutes. The frozen dark-gray body remains visible, has no combat/effect participation, and retains inventory, hotbar, equipped weapon, party membership, identity, and pending invites until successful resume or expiry. Resume tokens remain tab-scoped so parallel tabs cannot claim the same slot. | Active queue item 2 | |
 | 12 | Do `dungeon` and `sandbox` share one global chat / online count | No — each level scopes its own global channel and `/who` count, matching how AOI/party/spawn already partition per sim; sandbox stays a private test mode | Epic 7.9 | |
 | 13 | What "fans out to all floors" means today | Every connected socket on the current game-server process (both sims `server.ts` runs) — true cross-floor pub/sub waits on Epic 11's multi-floor shard infrastructure, since only one floor runs per instance today | Epic 7.9 | |
 | 14 | Does global chat need an unlock | No — works for everyone immediately, no level gate | Epic 7.9 | |

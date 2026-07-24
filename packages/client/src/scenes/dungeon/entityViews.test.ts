@@ -53,10 +53,12 @@ describe("remotePlayerView", () => {
       name: "Wren",
       anim: "attack",
       weapon: "sword",
+      disconnected: true,
     }));
     expect(view.attacking).toBe(true);
     expect(view.weaponId).toBe("sword");
     expect(view.weaponAimAngle).toBeNull();
+    expect(view.disconnected).toBe(true);
   });
 
   it("defaults missing optional fields safely", () => {

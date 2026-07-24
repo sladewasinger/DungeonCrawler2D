@@ -55,7 +55,7 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
   const members = [];
   for (const id of party.members) {
     const member = sim.players.get(id);
-    if (id === slot.entity.id || !member?.connected) continue;
+    if (id === slot.entity.id || !member) continue;
     members.push({
       id,
       name: member.entity.name ?? "?",
@@ -64,6 +64,7 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
       hp: member.entity.hp,
       maxHp: member.entity.maxHp,
       downed: member.downedAtTick !== null,
+      ...(member.connected ? {} : { disconnected: true }),
       level: member.stored.level ?? 1,
     });
   }

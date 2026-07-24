@@ -1,6 +1,7 @@
 /** Renders labeled party bearings and distances inside a managed HUD window. */
 import type { Connection } from "../net/connection.js";
 import { resolvePartyNavigation } from "../ui/partyNavigation.js";
+import { partyPresence } from "../ui/partyPresence.js";
 import type { FirstPersonState } from "./movement.js";
 import { HUD_PANEL, createHudTitle } from "./ThreeHudStyles.js";
 
@@ -33,13 +34,19 @@ export class ThreePartyTracker {
       const member = members[index];
       row.hidden = !member;
       if (!member) return;
+      const presence = partyPresence(member.name, member.disconnected === true);
+      if (member.disconnected) {
+        row.textContent = presence.label;
+        row.style.color = presence.color ?? "";
+        return;
+      }
       const navigation = resolvePartyNavigation(
         { x: player.x, y: player.z },
         member,
         viewBearingDeg,
       );
       row.textContent =
-        `${navigation.arrow} ${member.name} · ${navigation.distance}m` +
+        `${navigation.arrow} ${presence.label} · ${navigation.distance}m` +
         `${member.downed ? " · DOWNED" : ""}`;
       row.style.color = member.downed ? "#e96a6a" : "";
     });

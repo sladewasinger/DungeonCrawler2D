@@ -26,8 +26,9 @@ const GRACE_TICKS = Math.ceil((RECONNECT_GRACE_MS / 1000) * TICK_RATE);
 
 export function markDisconnected(sim: SimState, playerId: string): void {
   const slot = sim.players.get(playerId);
-  if (!slot) return;
+  if (!slot || !slot.connected) return;
   slot.connected = false;
+  slot.disconnectedAtTick = sim.tickCount;
   slot.pendingInputs.length = 0;
   slot.pendingActions.length = 0;
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
@@ -60,6 +61,7 @@ export function reapAndRespawn(sim: SimState): void {
       sim.byToken.delete(slot.resumeToken);
       continue;
     }
+    if (!slot.connected) continue;
     if (slot.respawnAtTick === null || sim.tickCount < slot.respawnAtTick) continue;
     slot.respawnAtTick = null;
     // Epic 7.14 (The Descent): death always returns you to floor 1
@@ -71,10 +73,7 @@ export function reapAndRespawn(sim: SimState): void {
   }
 }
 
-/** Reset a dead slot to a fresh body/HP at a new spawn point. Exported
- * for join.ts, which must never resume a reconnecting client into a
- * body that's still dead (Epic 7.13 join-death fix) — same reset, same
- * starter-kit safety net, whichever caller triggers it. */
+/** Reset a dead connected slot after its authoritative respawn delay elapses. */
 export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.respawnAtTick = null;
   const spawn = findSpawn(sim);

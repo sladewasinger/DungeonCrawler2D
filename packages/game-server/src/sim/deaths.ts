@@ -61,10 +61,10 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   // regardless of whether it dies), so the eventual takeLifeStats call below has a
   // real (within one tick) life-start reference even on a player's very first death.
   ensureLifeTracked(slot, sim.tickCount);
-  bleedOutIfExpired(sim, slot);
+  const bledOut = bleedOutIfExpired(sim, slot);
   if (entity.hp > 0 || slot.respawnAtTick !== null) return;
 
-  if (!slot.forceDeath && slot.downedAtTick === null && hasConsciousPartyMember(sim, slot)) {
+  if (!bledOut && !slot.forceDeath && slot.downedAtTick === null && hasConsciousPartyMember(sim, slot)) {
     downPlayer(sim, slot);
     return;
   }
@@ -101,11 +101,12 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
 }
 
 /** Downed players bleed out to real death once the timer expires. */
-function bleedOutIfExpired(sim: SimState, slot: PlayerSlot): void {
-  if (slot.downedAtTick === null) return;
-  if (sim.tickCount - slot.downedAtTick < DOWNED_DURATION * TICK_RATE) return;
+function bleedOutIfExpired(sim: SimState, slot: PlayerSlot): boolean {
+  if (slot.downedAtTick === null) return false;
+  if (sim.tickCount - slot.downedAtTick < DOWNED_DURATION * TICK_RATE) return false;
   slot.entity.hp = 0;
   slot.downedAtTick = null;
+  return true;
 }
 
 function hasConsciousPartyMember(sim: SimState, slot: PlayerSlot): boolean {

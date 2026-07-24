@@ -67,9 +67,7 @@ export class SpatialEntityIndex {
 /** Builds one tick-local index in the legacy snapshot ordering. */
 export function indexSnapshotEntities(sim: SimState): SpatialEntityIndex {
   const index = new SpatialEntityIndex();
-  for (const slot of sim.players.values()) {
-    if (slot.connected && slot.entity.hp >= 0) index.add(slot.entity);
-  }
+  for (const slot of sim.players.values()) if (slot.entity.hp >= 0) index.add(slot.entity);
   for (const slot of sim.enemies.values()) index.add(slot.entity);
   for (const item of sim.items.values()) index.add(item);
   for (const projectile of sim.projectiles.values()) index.add(projectile);

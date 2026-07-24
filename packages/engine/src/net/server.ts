@@ -50,6 +50,7 @@ export const entitySnapshotSchema = z.object({
   fx: z.array(z.string()).optional(),
   qty: z.number().optional(),
   downed: z.boolean().optional(),
+  disconnected: z.boolean().optional(),
   anim: enemyAnimationStateSchema.optional(),
   aimX: z.number().min(-1).max(1).optional(),
   aimY: z.number().min(-1).max(1).optional(),
@@ -93,6 +94,7 @@ export const partySnapshotSchema = z
         hp: z.number(),
         maxHp: z.number(),
         downed: z.boolean(),
+        disconnected: z.boolean().optional(),
         /** Epic 11 core: teammate's level (party-frame badge, client TBD).
          * Additive/optional: protocol 14+ (ASSUMPTION #90). */
         level: z.number().int().positive().optional(),

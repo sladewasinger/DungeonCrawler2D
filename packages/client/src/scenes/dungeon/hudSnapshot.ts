@@ -114,6 +114,7 @@ function partyRows(
     hp: member.hp,
     maxHp: member.maxHp,
     downed: member.downed,
+    disconnected: member.disconnected ?? false,
     ...resolvePartyNavigation(bodyPos, member, viewBearingDeg),
   }));
 }

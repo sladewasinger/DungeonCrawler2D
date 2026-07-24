@@ -4,12 +4,13 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as THREE from "three";
 import { remoteActorPose } from "./remoteActorPose.js";
+import { createRemoteActorAnimation, updateRemoteActorAnimation, type RemoteActorAnimation } from "./remoteActorAnimation.js";
+import { syncReconnectPresentation, type DisconnectedActorLabel, type ReconnectActor } from "./ThreeRemoteActorReconnectPresentation.js";
 import { createEnemyTexture } from "./threeVisuals.js";
 
 const KNIGHT_MODEL_URL = "/assets/three-models/Knight_Animated.fbx";
 const KNIGHT_TEXTURE_URL = "/assets/three-models/Texture.png";
 const KNIGHT_HEIGHT = 1.1;
-const RUN_SPEED = 0.12;
 
 interface ActorObject {
   position: { x: number; y: number; z: number; set(x: number, y: number, z: number): void };
@@ -25,30 +26,10 @@ interface KnightMesh {
   receiveShadow?: boolean;
 }
 
-interface KnightClip {
-  name: string;
-}
-
 interface KnightModel extends ActorObject {
-  animations?: KnightClip[];
+  animations?: Array<{ name: string }>;
   updateMatrixWorld(force?: boolean): void;
   traverse(callback: (object: KnightMesh) => void): void;
-}
-
-interface AnimationAction {
-  play(): AnimationAction;
-  reset(): AnimationAction;
-  fadeIn(seconds: number): AnimationAction;
-  fadeOut(seconds: number): AnimationAction;
-}
-
-interface ActorAnimation {
-  mixer: { update(seconds: number): void };
-  idle: AnimationAction;
-  run: AnimationAction;
-  current: "idle" | "run";
-  x: number;
-  z: number;
 }
 
 type VisibleKind = "player" | "enemy";
@@ -56,7 +37,9 @@ type VisibleKind = "player" | "enemy";
 interface ActiveActor {
   object: ActorObject;
   kind: VisibleKind;
-  animation?: ActorAnimation | undefined;
+  animation?: RemoteActorAnimation | undefined;
+  disconnected: boolean;
+  disconnectedLabel?: DisconnectedActorLabel | undefined;
 }
 
 export class ThreeRemoteActors {
@@ -131,12 +114,18 @@ export class ThreeRemoteActors {
     const pose = remoteActorPose(player);
     active.object.position.set(pose.x, pose.y + (kind === "enemy" ? 0.5 : 0), pose.z);
     active.object.rotation.y = pose.yaw;
-    this.updateAnimation(active.animation, pose.x, pose.z, elapsed);
+    updateRemoteActorAnimation(active.animation, pose.x, pose.z, elapsed);
+    this.syncDisconnectedPresentation(active, player.snap.disconnected === true);
   }
 
   private addActor(id: string, kind: VisibleKind): ActiveActor {
     const object = this.createActor(kind);
-    const active: ActiveActor = { object, kind, ...(kind === "player" ? { animation: this.createAnimation(object) } : {}) };
+    const active: ActiveActor = {
+      object,
+      kind,
+      disconnected: false,
+      ...(kind === "player" ? { animation: createRemoteActorAnimation(object, this.template) } : {}),
+    };
     this.group.add(object);
     this.actors.set(id, active);
     return active;
@@ -146,34 +135,6 @@ export class ThreeRemoteActors {
     if (kind === "enemy") return this.createEnemySprite();
     if (this.template) return cloneSkinned(this.template as never) as unknown as ActorObject;
     return this.createFallback();
-  }
-
-  private createAnimation(object: ActorObject): ActorAnimation | undefined {
-    const clips = this.template?.animations;
-    const idleClip = clips?.find((clip) => clip.name.startsWith("Idle"));
-    const runClip = clips?.find((clip) => clip.name === "Running");
-    if (!idleClip || !runClip) return undefined;
-    const mixer = new THREE.AnimationMixer(object as never);
-    const idle = mixer.clipAction(idleClip as never).play() as unknown as AnimationAction;
-    const run = mixer.clipAction(runClip as never) as unknown as AnimationAction;
-    return { mixer, idle, run, current: "idle", x: object.position.x, z: object.position.z };
-  }
-
-  private updateAnimation(animation: ActorAnimation | undefined, x: number, z: number, elapsed: number): void {
-    if (!animation) return;
-    const seconds = Math.max(elapsed, 0.001);
-    const speed = Math.hypot(x - animation.x, z - animation.z) / seconds;
-    const next = speed > RUN_SPEED ? "run" : "idle";
-    if (next !== animation.current) {
-      const incoming = next === "run" ? animation.run : animation.idle;
-      const outgoing = next === "run" ? animation.idle : animation.run;
-      outgoing.fadeOut(0.12);
-      incoming.reset().fadeIn(0.12).play();
-      animation.current = next;
-    }
-    animation.x = x;
-    animation.z = z;
-    animation.mixer.update(elapsed);
   }
 
   private createFallback(): ActorObject {
@@ -187,6 +148,17 @@ export class ThreeRemoteActors {
     const sprite = new THREE.Sprite(this.enemyMaterial);
     sprite.scale.set(0.74, 0.99, 1);
     return sprite;
+  }
+
+  private syncDisconnectedPresentation(active: ActiveActor, disconnected: boolean): void {
+    if (active.kind !== "player" || active.disconnected === disconnected) return;
+    active.disconnected = disconnected;
+    active.disconnectedLabel = syncReconnectPresentation(
+      active.object as unknown as ReconnectActor,
+      active.disconnectedLabel,
+      disconnected,
+      KNIGHT_HEIGHT,
+    );
   }
 
   private replaceFallback(id: string, actor: ActorObject): void {

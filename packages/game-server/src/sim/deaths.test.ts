@@ -146,7 +146,12 @@ describe("resolveDeaths", () => {
 
   it("bleeds a downed player out to full death once the timer expires", () => {
     const a = makeSlot("A", 0, 0);
+    const b = makeSlot("B", 1, 0);
     sim.players.set(a.entity.id, a);
+    sim.players.set(b.entity.id, b);
+    a.partyId = "p1";
+    b.partyId = "p1";
+    sim.parties.set("p1", { id: "p1", members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
     a.downedAtTick = 0;
     a.entity.hp = 1;
     sim.tickCount = DOWNED_DURATION * TICK_RATE;

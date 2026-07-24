@@ -44,13 +44,14 @@ function enemyFields(
 function playerFields(
   sim: SimState,
   entity: Entity,
-): Pick<EntitySnapshot, "anim" | "downed" | "weapon"> | Record<string, never> {
+): Pick<EntitySnapshot, "anim" | "downed" | "disconnected" | "weapon"> | Record<string, never> {
   if (entity.kind !== "player") return {};
   const slot = sim.players.get(entity.id);
   if (!slot) return {};
   return {
     ...(sim.tickCount - slot.attackStartedAtTick <= 3 ? { anim: "attack" as const } : {}),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
+    ...(slot.connected ? {} : { disconnected: true }),
     weapon: slot.weapon,
   };
 }
@@ -100,6 +101,7 @@ function playerMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot):
   const fields = playerFields(sim, entity);
   return snapshot.anim === fields.anim &&
     snapshot.downed === fields.downed &&
+    snapshot.disconnected === fields.disconnected &&
     snapshot.weapon === fields.weapon;
 }
 
