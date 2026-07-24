@@ -25,6 +25,68 @@ From empty repo to fully complete game. Dates assume part-time development start
 
 ---
 
+## Active execution queue (reconciled 2026-07-24)
+
+The epic history below records how the project got here, but old unchecked bullets had
+drifted into a mix of real work, already-shipped work, superseded decisions, proof
+recaptures, and post-v1 ideas. This queue is the current source of execution order.
+Completing one release slice does not complete this roadmap.
+
+1. [ ] **Immediate movement-reconciliation regression:** investigate and fix the
+   continuous client/server rubberbanding introduced or exposed after the chunk-loading
+   performance work. Reproduce it with ordinary sustained movement, instrument predicted
+   versus authoritative pose, input sequence acknowledgement, fixed-step catch-up, and
+   snapshot cadence, then remove the recurring correction without regressing chunk-load
+   smoothness. This blocks every feature slice below.
+2. [x] **Shared client performance release:** renderer-isolated bundles, spatial AOI
+   buckets, revisioned snapshot deltas, and budgeted Phaser terrain/lighting churn.
+3. [x] **Shared inventory workspace:** replace the movable inventory HUD panel with
+   one full-screen HTML workspace used by both renderers; include an 82%-dark modal
+   backdrop, search, category tabs, All/Equipped/Hotbar folders, scrolling item
+   actions, and complete gameplay-input capture while open.
+4. [ ] **2D interaction-contract hardening:** E at a crafting surface opens and
+   toggles crafting; E at a stash toggles it; E/C/Escape/X follow one modal law; the
+   prompt and accepted server interaction share the same range and priority.
+5. [ ] **2D correctness and cleanup:** damage-triggered health bars, placed-torch
+   pickup/cap, torch halo fade-in, protocol-mismatch refresh UX, room-relative
+   coordinates, title/mode-select parity, and dead pack-render path removal.
+6. [ ] **2D presentation/content:** cohesive four-direction crawler art, readable kill
+   and area-effect proof recaptures, bench projectile presentation, and the remaining
+   terrain-generation decisions (corridor width, minimum pit size, walkable wall-back
+   generation).
+   **General 2D UI and combat readability:** add restrained contextual controls/help at
+   the bottom of the screen and on hover: selecting hotbar slot 1 shows `[E] to use`
+   for its usable item, while the active weapon advertises `Left click to attack`.
+   Add a right-mouse held block action that spends stamina and stops only blockable
+   direct projectiles such as arrows and rocks—not explosive damage. Sprinting also
+   spends stamina; start with a generous pool, drain it over sustained sprint/block,
+   recover while walking, and recover faster while standing still. Add very slow health
+   regeneration after a meaningful no-damage delay. Replace the ambiguous paper/bone
+   bandage art with a clearly readable tan adhesive-bandage sprite.
+7. [ ] **The Descent:** finish stairway traversal, floor identity/difficulty, bosses,
+   death destination, progression persistence, and announcer personality.
+8. [ ] **Social Fabric through launch:** explicit party management, chat moderation
+   controls, contacts presence, AI crafting/registry, accounts/meta progression,
+   final art/audio/juice, onboarding, load hardening, moderation, and production.
+   Onboarding must be event-gated: inventory guidance only after a relevant pickup or
+   inventory action, and low-health bandage guidance only after a real post-snapshot
+   health threshold crossing with an available bandage binding. Never show either at
+   initial load, and dismiss them immediately when their predicate is no longer true.
+   The focused inventory workspace must also behave as a finished desktop interaction:
+   [Tab] and [I] both toggle it open **and closed** (with Escape as the universal
+   close), and every actionable control—Use, Drop One, Equip, folders, tabs, filters,
+   and hotbar bindings—uses `cursor: pointer` plus clear hover, active/click, disabled,
+   and selected states. This is product polish, not optional follow-up styling.
+9. [ ] **Three.js opt-in parity:** keep the alternate renderer compatible with shared
+   simulation/HUD changes while 2D leads; complete its collision/mesh, input,
+   perception, interaction, visual-regression, and device-budget gates before making
+   it a default renderer.
+
+Deferred infrastructure and proof-only captures stay attached to their original
+epics, but they do not displace the next playable feature slice in this queue.
+
+---
+
 ## Epic 0 — Foundation (v0.1)
 
 **Goal:** A cleanly organized monorepo any developer can clone, run (client + server), and understand in under 10 minutes.
@@ -215,13 +277,13 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [ ] **Crawler art rebuild:** replace the current faceless-hood views with one cohesive, more detailed crawler spritesheet covering idle, walk, and attack in four visual directions (north/south/east/west). Simulation and input remain 8-way; diagonal movement resolves to a stable dominant-axis facing so it never rapidly flips between animation sets.
 - [x] **Enemy scale correction:** tune every starter enemy to approximately crawler size; current live enemies are only slightly too small, so preserve their relative silhouettes rather than making a dramatic scale jump (2026-07-19: user confirmed current scaling is right — no change needed)
 - [x] **Run input:** hold Shift to run, with server-authoritative speed, deterministic prediction, animation cadence, stamina/balance decision, and keyboard help text updated together
-- [ ] **Snappier jump ascent:** increase upward acceleration/initial velocity feel without changing the accepted falling speed, then rerun the chained-platform and client reconciliation regressions
-- [ ] **Safe-room hierarchy correction:** the shared lobby has no stash or crafting table; solo players see only their personal-room door and no party door; party members see only their party door in the lobby; the party room contains one door per member leading to that member's private stash room plus one shared crafting table
-- [ ] **Conditional room replication:** generate and reveal personal/party doors from authoritative membership and room ownership so clients never see or enter an inapplicable door; update return-stack behavior and multiplayer room tests
-- [ ] **Inventory window (Phase 1 of the Crawler OS HUD — [docs/HUD_OS.md](HUD_OS.md)):** the immediate next client feature, decoupled from the rest of this epic's character/room rework — a proper `WidgetRegistry` window replacing the DOM `InventoryPanel` overlay, opened on [i]/[Tab]: v1's All/Weapons/Usables/Materials filter tabs, atlas-sprite item rows with qty, click-to-bind to a hotbar slot, equip/unequip, drop; search stays deferred. The state and intents it needs already exist on `Connection` (`inventory`, `hotbar`, `weapon`, `assignSlot`/`equip`/`drop`) — this phase is UI only, spec'd concretely enough to build with no other brief
-- [ ] **Walls are solid, period (user-decreed 2026-07-19, supersedes "wall tops are walkable platforms"):** TILE.Wall blocks absolutely — visual height stays, collision height is figuratively infinite; nothing jumps over a wall or into the black void it bounds. High-ground tactics live exclusively on raised floor terraces. Engine isWalkable + movement + affected tests; kills the void-jumping bug class outright
+- [x] **Snappier jump ascent:** current jump constants and chained-rise/reconciliation regressions carry the accepted faster ascent without changing the terminal fall contract
+- [x] **Safe-room hierarchy decision resolved:** the proposed viewer-dependent room geometry was superseded by deterministic shared room geometry; party state gates destinations and interactions rather than changing the generated door layout per viewer
+- [x] **Conditional room replication decision resolved:** deterministic rooms remain identical across clients; authoritative membership controls whether party-room interactions succeed
+- [x] **Shared inventory workspace (supersedes the original HUD-window brief):** [i]/[Tab] opens one full-screen HTML/CSS inventory workspace in both renderers, with category tabs, All/Equipped/Hotbar folders, search, scrolling item rows, equip/unequip, use, bind-next, and drop-one actions. It is intentionally not a movable HUD panel: opening it captures gameplay input and pointer focus, and closing it restores the active renderer.
+- [x] **Walls are solid, period (user-decreed 2026-07-19):** TILE.Wall blocks absolutely while raised walkable tactics live on floor terraces
 - [x] **Readable UI font:** current pixel font at 2x reads blurry/over-pixelated (user report) — switch HUD text to a clearer face (monogram may remain for flavor headers); update VISUAL_DIRECTION's pixel-font rule accordingly. Ping/FPS/coords become bare floating numbers, no panel chip behind them (2026-07-19: A/B'd monogram-larger vs system-sans; system sans won decisively — `ui/font.ts`'s `uiTextStyle`, monogram kept for the title screen only)
-- [ ] **Wall vertical-extent rule (generator, user-decreed 2026-07-19 — see VISUAL_DIRECTION.md):** every raised surface of height z must span ≥ z+1 tiles north-to-south (z face rows + ≥1 walkable top row; width unbounded). Acceptance fixture: docs/examples/user-kiosk-terrace-example.json (the user's hand-painted kiosk/pit/terrace map — load via the editor's import button). Hard worldgen invariant with a multi-seed test asserting no malformed shallow walls; requires re-tuning wall/ridge/dais/landmark placement depths. Companion fixes in the same pass: safe-room kiosks become z2 terraces (not rock masses) with the door carried in the face and the top platform intact; doors render as the standalone leaf over ordinary wall rows (no frame-post half-walls, no masonry recolor, no suppression gap); pit rims draw ONE outline (surrounding ground's), never doubled by interior face side-closures
+- [x] **Wall vertical-extent rule (generator, user-decreed 2026-07-19 — see VISUAL_DIRECTION.md):** raised surfaces, kiosk terraces, standalone door leaves, and single-outline pit rims now follow the shared height-map contract and are covered by deterministic generator/renderer fixtures. Remaining terrain correctness work is tracked in the active execution queue rather than reopening this historical deploy wave.
 
 **Done when:** A playtester can safely switch modes or intentionally die, dead players are inert and untargetable, diagonal crawler motion reads cleanly in every direction, running and jumping feel intentional, the safe-room doors and facilities exactly match solo or party membership, and the inventory window is live.
 

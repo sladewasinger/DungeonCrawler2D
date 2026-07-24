@@ -75,6 +75,7 @@ class ThreeDungeonClient {
       setViewDistance: this.setViewDistance,
       onSelectHotbar: this.actions.selectHotbar,
     });
+    this.input.setGameplayBlocked(() => this.hud.inventoryOpen());
     this.terrain = new ThreeTerrain(this.world, this.scene, this.viewDistance);
     this.configureScene();
     this.remoteActors = new ThreeRemoteActors(this.scene);

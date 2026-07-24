@@ -208,6 +208,11 @@ export class HudScene extends Phaser.Scene {
       root,
       connection,
       focusGame: () => this.game.canvas.focus({ preventScroll: true }),
+      setTextInputFocused: (focused: boolean) => {
+        const keyboard = this.input.keyboard;
+        if (focused) keyboard?.disableGlobalCapture();
+        else keyboard?.enableGlobalCapture();
+      },
       bindKeyboard: false,
       showReticle: false,
       ...(this.onSelectHotbar

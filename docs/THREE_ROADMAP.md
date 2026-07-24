@@ -18,13 +18,13 @@ The Three.js renderer is a new client shell over the existing deterministic engi
 - [ ] Build merged terrain meshes by chunk, culling interior faces and exposing only visible facades.
 - [ ] Match doors, walls, stairs, pits, and voids to engine collision with fixed-seed visual regression maps.
 - [x] Connect the Three.js route to the authoritative session and render interpolated remote-player snapshots.
-- [ ] Define and verify a first-person movement adapter against server collision before routing local movement through shared prediction and reconciliation.
-- [ ] Port server snapshots: local predicted player, interpolated peers/enemies, effects, loot, and doors; render peers as scaled billboards from the existing player atlas.
+- [x] Route first-person movement through the shared authoritative input, prediction, reconciliation, collision, and interpolation contracts.
+- [ ] Finish snapshot presentation parity: local prediction and animated/interpolated Knight peers are live; enemies, effects, loot, and doors still need the same production rendering and fixed-fixture verification.
 - [ ] Keep the Three.js route an opt-in renderer until it reaches feature parity.
 
 ## Milestone 2 — First-Person Controls
 
-- [ ] Finish keyboard/mouse look, touch stick/look pad, jump, attack, use, inventory, chat, and settings as one input-mode state machine.
+- [ ] Finish the input-mode state machine. Keyboard/mouse look, touch movement/look, jump, inventory, chat, and settings are live; attack/use parity, remapping, and complete focus-transition coverage remain.
 - [ ] Add pointer-lock recovery, focus restoration, remapping, sensitivity, dead-zone, and accessibility settings.
 - [ ] Tune jump impulse and collision clearance so a player can jump onto a one-tile ledge without making higher terrain climbable from a standstill.
 - [ ] Implement explicit jump arcs and landing against the shared height field; only 0.5-tile or smaller step-up exceptions are allowed.
@@ -33,7 +33,7 @@ The Three.js renderer is a new client shell over the existing deterministic engi
 
 ## Milestone 3 — Dungeon Perception
 
-- [ ] Replace debug lighting with authored wall sconces, emitted light, shadows, and a player-held light where equipped.
+- [ ] Finish authored dungeon lighting. Wall sconces and emitted light are live; production shadows, equipped player-held light behavior, and light-budget validation remain.
 - [ ] Make view distance a single gameplay/render setting: geometry radius, AOI/entity radius, and distance fog agree.
 - [ ] Add fog-of-war presentation without hiding nearby entities at terrain rebuild boundaries.
 - [ ] Add occlusion-aware sprite silhouettes and readable enemy/player contrast.
@@ -42,15 +42,15 @@ The Three.js renderer is a new client shell over the existing deterministic engi
 ## Milestone 4 — Art, Audio, and Interaction
 
 - [ ] Build materials for gray walkable surfaces, purple cliff/wall facades, pits, voids, stairs, doors, and props.
-- [ ] Replace prototype billboards with animated sprite-facing actors and directional combat feedback.
+- [ ] Finish actor presentation. Remote players use textured, animated Knight models; production enemy models/sprites and directional combat feedback remain.
 - [ ] Add diegetic torches, doors, loot, blood/effects, impact particles, positional SFX, and dungeon ambience.
 - [ ] Support interaction prompts and inventory actions using the existing authoritative intent/event protocol.
 
 ## Milestone 5 — HUD OS and Shipping Gates
 
 - [x] Mount one shared HTML/CSS HUD catalog over both Phaser and Three.js: health/status, XP, hotbar, chat tabs, inventory, party, prompts, settings, and HUD Edit Mode all use the same DOM contract.
-- [ ] Replace the HUD inventory panel with a focused full-screen inventory workspace: an 80%-opaque backdrop, category tabs, filters, folders, and game-input capture while it is open.
-- [ ] Persist movable/resizable/pinned layouts per account; keep normal play chrome-free and HUD Edit Mode explicit.
+- [x] Replace the HUD inventory panel with a focused full-screen inventory workspace: an opaque backdrop, category tabs, search/filtering, All/Equipped/Hotbar folders, authoritative item actions, and game-input capture while it is open.
+- [ ] Finish account-scoped movable/resizable/pinned layout persistence. Browser-profile persistence, chrome-free normal play, and explicit HUD Edit Mode are live.
 - [ ] Add Three.js fixed-seed visual tests for terrain, doors, stairs, light radius, fog, HUD focus, and mobile controls.
 - [ ] Profile target devices and enforce an object/triangle/light budget before enabling Three.js by default.
 

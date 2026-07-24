@@ -10,6 +10,9 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const editingText = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
+const inventoryOwnsEvent = (target: EventTarget | null) =>
+  target instanceof Element && target.closest("[data-inventory-workspace]") !== null;
+
 const ignorePointerLockFailure = () => undefined;
 
 export interface ThreeInputSample {
@@ -30,6 +33,7 @@ export class ThreeInput {
   private readonly touch: ThreeTouchControls;
   private yaw = Math.PI;
   private pitch = -0.08;
+  private gameplayBlocked = () => false;
 
   constructor(root: HTMLElement, private readonly canvas: HTMLCanvasElement) {
     canvas.tabIndex = -1;
@@ -44,6 +48,10 @@ export class ThreeInput {
   }
 
   sample(elapsed: number): ThreeInputSample {
+    if (this.gameplayBlocked()) {
+      this.reset();
+      return this.blockedSample();
+    }
     const touch = this.touch.read(elapsed);
     this.yaw += touch.yaw;
     this.pitch = clamp(this.pitch + touch.pitch, -LOOK_LIMIT, LOOK_LIMIT);
@@ -79,6 +87,10 @@ export class ThreeInput {
     this.canvas.focus({ preventScroll: true });
   }
 
+  setGameplayBlocked(blocked: () => boolean): void {
+    this.gameplayBlocked = blocked;
+  }
+
   consumeJumpPress(): boolean {
     return this.touch.consumeJumpPress();
   }
@@ -87,13 +99,27 @@ export class ThreeInput {
     return Number(this.held.has(positive)) - Number(this.held.has(negative));
   }
 
+  private blockedSample(): ThreeInputSample {
+    return {
+      input: { forward: 0, right: 0, jump: false, yaw: this.yaw },
+      yaw: this.yaw,
+      pitch: this.pitch,
+      mouseCaptured: false,
+      attack: false,
+      interact: false,
+      throwItem: false,
+      giveUp: false,
+    };
+  }
+
   private consumePress(code: string): boolean {
     const pressed = this.pressed.delete(code);
     return pressed;
   }
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
-    if (editingText(event.target)) return;
+    if (this.gameplayBlocked() || editingText(event.target) ||
+      inventoryOwnsEvent(event.target)) return;
     if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyG", "KeyK"].includes(event.code)) {
       event.preventDefault();
     }

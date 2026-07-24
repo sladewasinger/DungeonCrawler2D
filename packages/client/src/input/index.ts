@@ -14,33 +14,18 @@ import { interactOrUse, throwSelected, withPointerFacing } from "./gameplayActio
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
+import { guardedAction } from "./inputGuard.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
+import { cancelHeldGestures } from "./modalGestures.js";
 import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
-import {
-  createTouchInputState, isButtonHeld, mergeMoveInputs,
-  touchMoveInput, touchVisualSnapshot, updateLastFacing,
-  type TouchInputState, type TouchVisualSnapshot,
-} from "./touch/index.js";
+import { createTouchInputState, isButtonHeld, mergeMoveInputs, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { isTouchDevice } from "./touchDetect.js";
 import { getViewOrientation } from "../render/view/index.js";
 
-export type {
-  InputConnection, InputHooks, InputHud, InputPanels,
-  InputQueries,
-  ThrowPreview,
-} from "./state.js";
+export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
-
-/** Guards a key handler so typing in a chat/search box never fires game actions. */
-function guarded(fn: () => void): () => void {
-  return () => {
-    const el = document.activeElement;
-    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
-    fn();
-  };
-}
 
 export class InputController {
   private readonly state: InputState;
@@ -83,28 +68,30 @@ export class InputController {
 
   private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
     const { conn, panels, state } = this;
-    keys.G.on("down", guarded(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx)));
-    keys.E.on("down", guarded(() => this.handleInteractDown()));
-    keys.E.on("up", guarded(() => this.revive.end(this.scene.time.now)));
-    keys.K.on("down", guarded(() => this.giveUp.begin(conn.downed, this.scene.time.now)));
-    keys.K.on("up", guarded(() => this.giveUp.end(this.scene.time.now)));
-    keys.R.on("down", guarded(() => conn.pickup()));
-    keys.C.on("down", guarded(() => panels.toggleCraft(conn)));
-    keys.F.on("down", guarded(() => holdDown(this.fistbumpHold, this.scene.time.now)));
-    keys.F.on("up", guarded(() => this.releaseFistbumpHold(conn, queries)));
+    const blocked = () => panels.inventoryOpen;
+    keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
+    keys.E.on("down", guardedAction(() => this.handleInteractDown(), blocked));
+    keys.E.on("up", () => this.revive.end(this.scene.time.now));
+    keys.K.on("down", guardedAction(() => this.giveUp.begin(conn.downed, this.scene.time.now), blocked));
+    keys.K.on("up", () => this.giveUp.end(this.scene.time.now));
+    keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
+    keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
+    keys.F.on("down", guardedAction(() => holdDown(this.fistbumpHold, this.scene.time.now), blocked));
+    keys.F.on("up", () => this.releaseFistbumpHold(conn, queries));
     keys.ESC.on("down", () => {
       state.selectedSlot = null;
       panels.closeAll(conn);
       hooks.onCloseOverlays();
     });
-    keys.I.on("down", guarded(() => hooks.onToggleInventory()));
-    keys.TAB.on("down", guarded(() => hooks.onToggleInventory()));
-    keys.ENTER.on("down", guarded(() => hooks.onOpenChat()));
-    keys.O.on("down", guarded(() => hooks.onToggleContacts()));
+    keys.I.on("down", guardedAction(() => hooks.onToggleInventory()));
+    keys.TAB.on("down", guardedAction(() => hooks.onToggleInventory()));
+    keys.ENTER.on("down", guardedAction(() => hooks.onOpenChat(), blocked));
+    keys.O.on("down", guardedAction(() => hooks.onToggleContacts(), blocked));
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) throw new Error("scene has no keyboard plugin");
     for (let i = 1; i <= 9; i++) {
-      keyboard.addKey(48 + i).on("down", guarded(() => onNumberKey(state, conn, panels, queries, keys, i)));
+      keyboard.addKey(48 + i).on("down",
+        guardedAction(() => onNumberKey(state, conn, panels, queries, keys, i), blocked));
     }
   }
 
@@ -119,11 +106,13 @@ export class InputController {
   /** Call once per render frame: fires the revive intent exactly on the tick the hold
    * crosses REVIVE_HOLD_MS. */
   pollReviveHold(): void {
+    if (this.cancelModalGestures()) return;
     if (this.revive.poll(this.scene.time.now)) this.conn.interact();
   }
 
   /** Fires the suicide intent once after a complete hold while downed. */
   pollGiveUpHold(): void {
+    if (this.cancelModalGestures()) return;
     if (this.giveUp.poll(this.conn.downed, this.scene.time.now)) this.conn.suicide();
   }
 
@@ -149,6 +138,7 @@ export class InputController {
   /** Call once per render frame: fires the fistbump intent exactly on the tick the hold
    * crosses its threshold, and keeps the tracked nearby target fresh for the HUD ring. */
   pollFistbumpHold(): void {
+    if (this.cancelModalGestures()) return;
     const nowMs = this.scene.time.now;
     this.pollTouchFistbumpEdge(nowMs);
     if (!this.isFistbumpHoldSourceDown()) return;
@@ -233,6 +223,9 @@ export class InputController {
    * intent (screen-up = "forward") — camera-relative controls remap it to WORLD space
    * here, the one choke point before Connection.sampleInput's predicted stepBody. */
   readInput(): MoveInput {
+    if (this.panels.inventoryOpen) {
+      return { moveX: 0, moveY: 0, jump: false, run: false };
+    }
     const keyboardMove = readMoveInput(this.state, this.conn);
     if (!this.touchActive) return withPointerFacing(screenMoveToWorld(keyboardMove, getViewOrientation()), this.scene, this.conn, this.tilePx);
     const merged = mergeMoveInputs(keyboardMove, touchMoveInput(this.touch));
@@ -242,11 +235,17 @@ export class InputController {
     return { ...move, faceX: facing.x, faceY: facing.y };
   }
 
+  private cancelModalGestures(): boolean {
+    if (!this.panels.inventoryOpen) return false;
+    cancelHeldGestures(this.scene.time.now, this.revive, this.giveUp, this.fistbumpHold);
+    this.fistbumpTargetId = null;
+    this.touchFistbumpHeld = this.touchActive && isButtonHeld(this.touch, "interact");
+    return true;
+  }
+
   private throwSelectedTouch(): void {
-    throwSelected(
-      this.scene, this.conn, this.queries, this.state, this.touch, true,
-      this.tilePx,
-    );
+    throwSelected(this.scene, this.conn, this.queries, this.state,
+      this.touch, true, this.tilePx);
   }
 
   /** Current armed-throw trajectory preview, for the scene to render, or null. */

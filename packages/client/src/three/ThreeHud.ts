@@ -18,7 +18,9 @@ import { ThreeHudSettings } from "./ThreeHudSettings.js";
 import {
   createHudKeyboard,
   createHudSettings,
+  mountHudOverlays,
   mountHudRoot,
+  mountHudReticle,
 } from "./ThreeHudSetup.js";
 import { ThreeHudStatus } from "./ThreeHudStatus.js";
 import { ThreeHudStash } from "./ThreeHudStash.js";
@@ -30,7 +32,6 @@ import { threeHudWindowSpecs } from "./ThreeHudWindowSpecs.js";
 import { ThreePartyInvite } from "./ThreePartyInvite.js";
 import { ThreePartyTracker } from "./ThreePartyTracker.js";
 import type { ViewDistance } from "./viewDistance.js";
-
 export interface ThreeHudUpdate {
   connection: Connection;
   world: World;
@@ -39,7 +40,6 @@ export interface ThreeHudUpdate {
   mouseCaptured: boolean;
   snapshot?: HudFakeSnapshot;
 }
-
 export interface ThreeHudOptions {
   root: HTMLElement;
   connection: Connection;
@@ -49,6 +49,7 @@ export interface ThreeHudOptions {
   bindKeyboard?: boolean;
   showReticle?: boolean;
   onSelectHotbar?: (index: number | null) => void;
+  setTextInputFocused?: (focused: boolean) => void;
 }
 
 export class ThreeHud {
@@ -72,21 +73,21 @@ export class ThreeHud {
   private readonly settings: ThreeHudSettings;
   private readonly touch: ThreeHudTouchOverlay;
   private readonly keyboard: ThreeHudKeyboard;
-
+  private readonly focusGame: () => void;
+  private readonly setTextInputFocused: (focused: boolean) => void;
   constructor(options: ThreeHudOptions) {
-    const { root, connection, focusGame } = options;
-    const touchDevice = isTouchDevice();
+    const { root, connection, focusGame } = options, touchDevice = isTouchDevice();
+    this.focusGame = focusGame;
+    this.setTextInputFocused = options.setTextInputFocused ?? (() => {});
     this.tutorials = new ThreeHudTutorials(touchDevice ? "touch" : "keyboard");
     this.hotbar = new ThreeHudHotbar(options.onSelectHotbar);
     mountHudRoot(root, this.element);
-    this.chat = new ThreeHudChat(connection, touchDevice, focusGame);
+    this.chat = new ThreeHudChat(connection, touchDevice, focusGame, this.setTextInputFocused);
     this.inventory = new ThreeHudInventory(connection, () => this.closeInventory());
     this.contacts = new ThreeHudContacts((name) => this.chat.startDm(name));
     this.craft = new ThreeHudCraft((recipe) => connection.craft(recipe));
-    this.stash = new ThreeHudStash(
-      (index) => connection.stashOp("put", index),
-      (index) => connection.stashOp("take", index),
-    );
+    this.stash = new ThreeHudStash((index) => connection.stashOp("put", index),
+      (index) => connection.stashOp("take", index));
     this.manager = new HudWindowManager(this.element);
     threeHudWindowSpecs(this.windowContents()).forEach((window) => this.manager.add(window));
     this.touch = new ThreeHudTouchOverlay(() => this.toggleInventory());
@@ -96,9 +97,14 @@ export class ThreeHud {
     });
     this.downed = new ThreeDownedOverlay(this.element);
     this.invite = new ThreePartyInvite(connection);
-    this.element.append(this.invite.element, this.tutorials.element, this.touch.element, this.notices.element);
+    mountHudOverlays(this.element, [
+      this.invite.element, this.tutorials.element, this.touch.element,
+      this.notices.element, this.inventory.element,
+    ]);
     this.keyboard = createHudKeyboard({
       toggleInventory: () => this.toggleInventory(),
+      closeInventory: () => this.closeInventory(),
+      inventoryOpen: () => this.inventoryOpen(),
       selectHotbar: (index) => this.hotbar.select(index),
       focusChat: () => this.chat.focus(),
       leaveChat: () => {
@@ -107,9 +113,8 @@ export class ThreeHud {
       },
       chatOwnsFocus: () => this.chat.ownsFocus(),
     }, options);
-    if (options.showReticle !== false) this.addReticle();
+    if (options.showReticle !== false) mountHudReticle(this.element);
   }
-
   update(update: ThreeHudUpdate): void {
     const { connection, world, player, yaw, mouseCaptured } = update;
     this.chat.update();
@@ -126,26 +131,21 @@ export class ThreeHud {
     this.touch.update(update.snapshot?.touch ?? null);
     if (update.snapshot) this.updateSnapshotPanels(update.snapshot);
   }
-
   toggleInventory(): void {
-    this.manager.setVisible(
-      "three-inventory",
-      !this.manager.isVisible("three-inventory"),
-    );
+    const opening = !this.inventoryOpen();
+    this.inventory.toggle(this.focusGame);
+    this.setTextInputFocused(opening);
   }
-
   closeInventory(): void {
-    this.manager.setVisible("three-inventory", false);
+    if (!this.inventoryOpen()) return;
+    this.inventory.closeAndFocus(this.focusGame);
+    this.setTextInputFocused(false);
   }
-
   inventoryOpen(): boolean {
-    return this.manager.isVisible("three-inventory");
+    return this.inventory.isOpen();
   }
 
-  focusChat(): void {
-    this.chat.focus();
-  }
-
+  focusChat(): void { this.chat.focus(); }
   toggleChat(): void {
     this.toggleWindow("three-chat");
   }
@@ -153,11 +153,9 @@ export class ThreeHud {
   toggleContacts(): void {
     this.toggleWindow("three-contacts");
   }
-
   closeContacts(): void {
     this.manager.setVisible("three-contacts", false);
   }
-
   toggleCraft(): void {
     this.toggleWindow("three-craft");
   }
@@ -165,7 +163,6 @@ export class ThreeHud {
   closeCraft(): void {
     this.manager.setVisible("three-craft", false);
   }
-
   craftOpen(): boolean {
     return this.manager.isVisible("three-craft");
   }
@@ -173,33 +170,29 @@ export class ThreeHud {
   openStash(): void {
     this.manager.setVisible("three-stash", true);
   }
-
   closeStash(): void {
     this.manager.setVisible("three-stash", false);
   }
-
   stashOpen(): boolean {
     return this.manager.isVisible("three-stash");
   }
 
   dispose(): void {
+    this.setTextInputFocused(false);
+    this.inventory.dispose();
     this.keyboard.dispose();
     this.settings.dispose();
     this.manager.dispose();
     this.element.remove();
   }
-
   private windowContents() {
     return {
       status: this.status.element, buffs: this.buffs.element,
-      hotbar: this.hotbar.element, chat: this.chat.element,
-      inventory: this.inventory.element, weapon: this.weapon.element,
-      party: this.party.element, telemetry: this.telemetry.element,
-      contacts: this.contacts.element, craft: this.craft.element,
-      stash: this.stash.element,
+      hotbar: this.hotbar.element, chat: this.chat.element, weapon: this.weapon.element,
+      party: this.party.element, telemetry: this.telemetry.element, contacts: this.contacts.element,
+      craft: this.craft.element, stash: this.stash.element,
     };
   }
-
   private toggleWindow(id: string): void {
     this.manager.setVisible(id, !this.manager.isVisible(id));
   }
@@ -211,13 +204,5 @@ export class ThreeHud {
     this.notices.update(snapshot, performance.now());
     if (!snapshot.craft.nearby) this.closeCraft();
     if (!snapshot.stash.nearby) this.closeStash();
-  }
-
-  private addReticle(): void {
-    const reticle = document.createElement("div");
-    reticle.style.cssText =
-      "position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px;" +
-      "border:1px solid rgba(255,255,255,.82);box-sizing:border-box;pointer-events:none";
-    this.element.append(reticle);
   }
 }

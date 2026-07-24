@@ -23,6 +23,21 @@ export const mountHudRoot = (
   root.append(element);
 };
 
+export const mountHudOverlays = (
+  root: HTMLElement,
+  overlays: readonly HTMLElement[],
+): void => {
+  root.append(...overlays);
+};
+
+export const mountHudReticle = (root: HTMLElement): void => {
+  const reticle = document.createElement("div");
+  reticle.style.cssText =
+    "position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px;" +
+    "border:1px solid rgba(255,255,255,.82);box-sizing:border-box;pointer-events:none";
+  root.append(reticle);
+};
+
 export const createHudSettings = (
   root: HTMLElement,
   manager: HudWindowManager,

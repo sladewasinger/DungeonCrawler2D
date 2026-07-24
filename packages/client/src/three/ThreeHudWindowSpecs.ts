@@ -6,7 +6,6 @@ export interface ThreeHudWindowContents {
   buffs: HTMLElement;
   hotbar: HTMLElement;
   chat: HTMLElement;
-  inventory: HTMLElement;
   weapon: HTMLElement;
   party: HTMLElement;
   telemetry: HTMLElement;
@@ -48,7 +47,6 @@ export const threeHudWindowSpecs = (
     height: 190,
     anchor: "center-left",
   }),
-  spec("three-inventory", "Inventory", 390, 420, "center-right", content.inventory, true, undefined, false),
   spec("three-weapon", "Active weapon", 230, 84, "bottom-right", content.weapon),
   spec("three-party", "Party", 230, 154, "top-center", content.party),
   spec("three-telemetry", "World status", 244, 150, "top-right", content.telemetry),

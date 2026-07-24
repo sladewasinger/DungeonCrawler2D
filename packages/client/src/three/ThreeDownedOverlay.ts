@@ -6,14 +6,16 @@ export class ThreeDownedOverlay {
 
   constructor(parent: HTMLElement) {
     this.element.style.cssText =
-      "position:absolute;inset:0;display:grid;place-items:center;white-space:pre-line;text-align:center;" +
+      "position:absolute;inset:0;display:none;place-items:center;white-space:pre-line;text-align:center;" +
       "font:700 18px monospace;color:#f2e9e2;background:rgba(18,4,8,.38);pointer-events:none";
     this.element.hidden = true;
     parent.append(this.element);
   }
 
   update(connection: Connection): void {
-    this.element.hidden = !connection.downed && !connection.dead;
+    const visible = connection.downed || connection.dead;
+    this.element.hidden = !visible;
+    this.element.style.display = visible ? "grid" : "none";
     this.element.textContent = connection.downed
       ? "DOWNED\nHold [K] to give up\nA party member can revive you"
       : "YOU DIED\nRespawning...";

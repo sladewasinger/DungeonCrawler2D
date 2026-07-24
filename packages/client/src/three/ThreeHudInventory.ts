@@ -1,127 +1,150 @@
-/** Owns the scrollable HTML inventory workspace and its authoritative actions. */
+/** Owns the shared inventory workspace state and authoritative item actions. */
 import type { Connection } from "../net/connection.js";
-import { inventoryRows, nextAvailableHotbarSlot } from "./ThreeHudModel.js";
-import { HUD_GOLD, HUD_MUTED, HUD_PANEL, createHudButton } from "./ThreeHudStyles.js";
-
-type InventoryTab = "all" | "weapons" | "usables" | "materials";
-const TABS: readonly InventoryTab[] = ["all", "weapons", "usables", "materials"];
+import { inventoryRows } from "./ThreeHudModel.js";
+import {
+  createInventoryShell,
+  type InventoryFolder,
+  type InventoryTab,
+} from "./ThreeInventoryShell.js";
+import { createInventoryRow } from "./ThreeInventoryRows.js";
+import { HUD_GOLD } from "./ThreeHudStyles.js";
 
 export class ThreeHudInventory {
-  readonly element = document.createElement("div");
-  private readonly header = document.createElement("div");
-  private readonly tabs = document.createElement("div");
-  private readonly list = document.createElement("div");
+  private readonly shell;
+  readonly element;
   private selectedTab: InventoryTab = "all";
+  private selectedFolder: InventoryFolder = "all";
   private signature = "";
 
   constructor(
     private readonly connection: Connection,
     close: () => void,
   ) {
-    this.element.style.cssText =
-      `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:7px`;
-    this.header.style.cssText =
-      "display:grid;grid-template-columns:1fr auto;gap:6px";
-    this.tabs.style.cssText = "display:flex;gap:4px";
-    this.list.style.cssText =
-      "min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;" +
-      "align-content:start;gap:5px;scrollbar-color:#555a75 #171827";
-    this.tabs.append(...TABS.map((tab) => this.createTab(tab)));
-    const closeButton = createHudButton("close", close);
-    closeButton.setAttribute("aria-label", "Close inventory");
-    this.header.append(this.tabs, closeButton);
-    this.element.append(this.header, this.list);
+    this.shell = createInventoryShell({
+      close,
+      selectTab: (tab) => {
+        this.selectedTab = tab;
+        this.invalidate();
+      },
+      selectFolder: (folder) => {
+        this.selectedFolder = folder;
+        this.invalidate();
+      },
+      search: () => this.invalidate(),
+    });
+    this.element = this.shell.element;
+    window.addEventListener("keydown", this.captureFocusNavigation, true);
+  }
+
+  open(): void {
+    this.element.hidden = false;
+    this.element.style.display = "grid";
+    this.invalidate();
+    this.shell.search.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      if (this.isOpen()) this.shell.search.focus({ preventScroll: true });
+    });
+  }
+
+  close(): void {
+    this.element.hidden = true;
+    this.element.style.display = "none";
+    this.shell.search.blur();
+  }
+
+  isOpen(): boolean {
+    return this.element.style.display !== "none";
+  }
+
+  toggle(focusGame: () => void): void {
+    if (this.isOpen()) this.closeAndFocus(focusGame);
+    else {
+      this.open();
+      if (document.pointerLockElement) document.exitPointerLock();
+    }
+  }
+
+  closeAndFocus(focusGame: () => void): void {
+    if (!this.isOpen()) return;
+    this.close();
+    focusGame();
+  }
+
+  dispose(): void {
+    window.removeEventListener("keydown", this.captureFocusNavigation, true);
   }
 
   update(): void {
+    if (!this.isOpen()) return;
     const signature = JSON.stringify([
       this.connection.inventory,
       this.connection.hotbar,
       this.connection.weapon,
       this.selectedTab,
+      this.selectedFolder,
+      this.shell.search.value,
     ]);
     if (signature === this.signature) return;
     this.signature = signature;
-    const rows = inventoryRows(
-      this.connection.inventory,
-      this.connection.hotbar,
-    ).filter((row) =>
-      this.selectedTab === "all" || row.category === this.selectedTab
+    const rows = this.visibleRows();
+    this.shell.summary.textContent =
+      `${rows.length} of ${this.connection.inventory.length} stacks`;
+    this.shell.list.replaceChildren(
+      ...rows.map((row) => createInventoryRow(this.connection, row)),
     );
-    this.list.replaceChildren(...rows.map((row) => this.createRow(row)));
-    this.syncTabs();
+    this.syncNavigation();
   }
 
-  private createTab(tab: InventoryTab): HTMLButtonElement {
-    const button = createHudButton(tab, () => {
-      this.selectedTab = tab;
-      this.signature = "";
-      this.update();
-    });
-    button.dataset.inventoryTab = tab;
-    button.style.flex = "1";
-    return button;
+  private visibleRows(): ReturnType<typeof inventoryRows> {
+    const query = this.shell.search.value.trim().toLocaleLowerCase();
+    return inventoryRows(this.connection.inventory, this.connection.hotbar)
+      .filter((row) =>
+        this.selectedTab === "all" || row.category === this.selectedTab)
+      .filter((row) =>
+        this.selectedFolder === "all" ||
+        (this.selectedFolder === "equipped" &&
+          row.id === this.connection.weapon) ||
+        (this.selectedFolder === "hotbar" && row.boundSlot !== null))
+      .filter((row) =>
+        !query ||
+        row.name.toLocaleLowerCase().includes(query) ||
+        row.flavor?.toLocaleLowerCase().includes(query));
   }
 
-  private syncTabs(): void {
-    for (const element of this.tabs.children) {
+  private syncNavigation(): void {
+    this.syncSelected(
+      this.shell.tabs,
+      "inventoryTab",
+      this.selectedTab,
+    );
+    this.syncSelected(
+      this.shell.folders,
+      "inventoryFolder",
+      this.selectedFolder,
+    );
+  }
+
+  private syncSelected(
+    parent: HTMLElement,
+    key: "inventoryTab" | "inventoryFolder",
+    selected: string,
+  ): void {
+    for (const element of parent.children) {
       const button = element as HTMLButtonElement;
-      button.style.borderColor = button.dataset.inventoryTab === this.selectedTab
-        ? HUD_GOLD
-        : "#555a75";
-      button.style.color = button.dataset.inventoryTab === this.selectedTab
-        ? HUD_GOLD
-        : "#f2f0eb";
+      const active = button.dataset[key] === selected;
+      button.style.borderColor = active ? HUD_GOLD : "#555a75";
+      button.style.color = active ? HUD_GOLD : "#f2f0eb";
     }
   }
 
-  private createRow(
-    row: ReturnType<typeof inventoryRows>[number],
-  ): HTMLDivElement {
-    const element = document.createElement("div");
-    element.style.cssText =
-      "padding:6px;border:1px solid #454960;background:rgba(24,25,39,.86)";
-    const heading = document.createElement("div");
-    heading.style.cssText =
-      "display:flex;justify-content:space-between;gap:8px;font-weight:700";
-    const binding = row.boundSlot === null ? "" : ` [${row.boundSlot + 1}]`;
-    heading.append(
-      document.createTextNode(`${row.name}${binding}`),
-      document.createTextNode(`×${row.quantity}`),
-    );
-    const flavor = document.createElement("div");
-    flavor.textContent = row.flavor ?? row.category;
-    flavor.style.cssText =
-      `color:${HUD_MUTED};font-size:10px;margin:3px 0 5px;overflow-wrap:anywhere`;
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;gap:4px;flex-wrap:wrap";
-    if (row.canEquip) actions.append(this.equipButton(row.id));
-    if (row.canUse) actions.append(
-      createHudButton("use", () => this.connection.useItem(row.id)),
-    );
-    if (row.canHotbar) actions.append(this.hotbarButton(row.id));
-    actions.append(createHudButton("drop one", () => this.connection.drop(row.id)));
-    element.append(heading, flavor, actions);
-    return element;
+  private invalidate(): void {
+    this.signature = "";
+    this.update();
   }
 
-  private equipButton(itemId: string): HTMLButtonElement {
-    const equipped = this.connection.weapon === itemId;
-    return createHudButton(equipped ? "unequip" : "equip", () => {
-      this.connection.equip(equipped ? null : itemId);
-    });
-  }
-
-  private hotbarButton(itemId: string): HTMLButtonElement {
-    const existing = this.connection.hotbar.indexOf(itemId);
-    const label = existing >= 0 ? `slot ${existing + 1}` : "hotbar";
-    return createHudButton(label, () => {
-      const slot = nextAvailableHotbarSlot(this.connection.hotbar, itemId);
-      if (slot < 0) {
-        this.connection.pushToast("The hotbar is full.");
-        return;
-      }
-      this.connection.assignSlot(slot, itemId);
-    });
-  }
+  private readonly captureFocusNavigation = (event: KeyboardEvent): void => {
+    if (!this.isOpen() || event.code !== "Tab") return;
+    event.preventDefault();
+    this.shell.moveFocus(event.shiftKey);
+  };
 }

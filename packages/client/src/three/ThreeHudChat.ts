@@ -30,6 +30,7 @@ export class ThreeHudChat {
     private readonly connection: Connection,
     mobile: boolean,
     private readonly focusGame: () => void,
+    setTextInputFocused: (focused: boolean) => void,
   ) {
     this.chat = new ChatController(connection);
     this.input = createInput(mobile);
@@ -40,6 +41,8 @@ export class ThreeHudChat {
       "min-height:0;overflow-y:auto;display:flex;flex-direction:column;" +
       "gap:5px;color:#d4d1df;overflow-wrap:anywhere;white-space:pre-wrap";
     this.input.addEventListener("keydown", (event) => this.submit(event));
+    this.input.addEventListener("focus", () => setTextInputFocused(true));
+    this.input.addEventListener("blur", () => setTextInputFocused(false));
     this.element.append(this.tabs, this.lines, this.input);
     this.render();
   }
