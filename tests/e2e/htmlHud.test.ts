@@ -1,5 +1,6 @@
 /** Protects the shared HTML HUD's real browser visibility and resize contracts. */
 import { expect, test, type Page } from "@playwright/test";
+import { CLIENT_URL, WS_URL } from "./env.js";
 import { openGame } from "./helpers.js";
 
 const STATUS_PANEL = '[data-hud-window="three-health"]';
@@ -55,4 +56,12 @@ test("dragging the native resize corner changes size without moving the panel", 
   const after = await panel.boundingBox();
   expect(after?.x).toBeCloseTo(before.x, 0);
   expect(after?.y).toBeCloseTo(before.y, 0);
+});
+
+test("the independently loaded Three renderer boots and connects", async ({ page }) => {
+  await page.goto(`${CLIENT_URL}/?renderer=three&server=${encodeURIComponent(WS_URL)}`);
+  await expect(page.locator("#app canvas")).toBeVisible();
+  const telemetry = page.locator('[data-hud-window="three-telemetry"]');
+  await expect(telemetry).toContainText("connected", { timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "HUD settings" })).toBeVisible();
 });

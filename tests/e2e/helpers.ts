@@ -111,6 +111,7 @@ export async function openGame(page: Page, name?: string, level: "dungeon" | "sa
     await page.getByRole("button", { name: "Enter the Dungeon" }).click();
   } else {
     await page.waitForFunction(() => window.__dc2d !== undefined, undefined, { timeout: 10_000 });
+    await page.getByRole("button", { name: "Enter the Dungeon" }).waitFor();
     await page.evaluate(
       ({ name: playerName }) => {
         const conn = window.__dc2d!.conn;

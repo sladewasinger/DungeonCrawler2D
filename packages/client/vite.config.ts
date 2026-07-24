@@ -5,6 +5,7 @@ import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { rendererIsolation } from "./build/rendererIsolation.js";
 
 const clientRoot = dirname(fileURLToPath(import.meta.url));
 const threeModelDirectory = resolve(clientRoot, "../../assets/3D/models/Fantasy_Heroes_Free");
@@ -53,8 +54,9 @@ function serveThreeAssets() {
 export default defineConfig({
   server: { port: 5173 },
   define: { __BUILD_SHA__: JSON.stringify(gitShortSha()) },
-  plugins: [serveThreeAssets()],
+  plugins: [serveThreeAssets(), rendererIsolation()],
   build: {
+    manifest: true,
     rollupOptions: {
       // Second input alongside index.html: the service worker (src/boot/sw/serviceWorkerEntry.ts)
       // needs the same __BUILD_SHA__ define as the app bundle (cache name derivation —
