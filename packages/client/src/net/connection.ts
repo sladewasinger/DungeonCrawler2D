@@ -35,6 +35,7 @@ import {
   whoIntent,
 } from "./intents.js";
 import { Prediction } from "./prediction.js";
+import { PredictionCorrection } from "./predictionCorrection.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -105,6 +106,8 @@ export class Connection {
   readonly areaTiles = new Map<string, string>();
   /** Local movement prediction; apply.ts reconciles it per snapshot. */
   readonly prediction = new Prediction();
+  /** Render-only displacement needed to keep interpolation on the reconciled timeline. */
+  readonly predictionCorrection = new PredictionCorrection();
 
   // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
   // class delegates its lifecycle to; treat as this facade's internals.
@@ -158,6 +161,7 @@ export class Connection {
     this.entities.clear();
     this.areaTiles.clear();
     this.prediction.reset();
+    this.predictionCorrection.reset();
   }
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */

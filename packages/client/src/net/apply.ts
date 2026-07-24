@@ -31,6 +31,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
 }
 
 function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): void {
+  const predictedBeforeSnapshot = conn.body;
   // Self: adopt authoritative state, replay unacked inputs.
   conn.body = {
     x: snap.self.x,
@@ -63,6 +64,7 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.downed = snap.self.downed ?? false;
   if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
   else conn.prediction.reconcile(world, conn.body, snap.lastSeq);
+  if (predictedBeforeSnapshot) conn.predictionCorrection.record(predictedBeforeSnapshot, conn.body);
   applyXpState(conn, snap.self.xp ?? conn.xp, snap.self.level ?? conn.charLevel, snap.self.xpForNext ?? conn.xpForNext);
   applyFloorState(conn, snap);
   conn.inventory = snap.inventory;
@@ -163,6 +165,7 @@ function applyEvent(conn: Connection, event: GameEvent): void {
     case "teleported":
       conn.teleported = true;
       conn.prediction.reset();
+      conn.predictionCorrection.reset();
       conn.entities.clear();
       conn.areaTiles.clear();
       return;

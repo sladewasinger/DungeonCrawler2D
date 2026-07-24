@@ -8,6 +8,7 @@ import {
 } from "@dc2d/content";
 import { buildContentRegistry, hashString } from "@dc2d/engine";
 import { join } from "node:path";
+import { enemiesAreFrozen } from "./runtimeOptions.js";
 import { startServer } from "./server/index.js";
 
 /**
@@ -42,7 +43,7 @@ const spawnRadiusTiles =
     : spawnRadiusEnv === "0" || spawnRadiusEnv.toLowerCase() === "off"
       ? undefined
       : Number(spawnRadiusEnv);
-const freezeEnemies = process.env["FREEZE_ENEMIES"] !== "0";
+const freezeEnemies = enemiesAreFrozen(process.env["FREEZE_ENEMIES"]);
 
 // custom-map / Tile Studio editor was dropped from the v2 core slice
 // (see docs/PORT_PLAN.md); CUSTOM_MAP is accepted by the systemd unit

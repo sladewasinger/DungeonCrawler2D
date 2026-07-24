@@ -113,6 +113,7 @@ function onWelcome(conn: Connection, msg: ServerWelcome): void {
   conn.world = new World(msg.worldSeed, msg.floor, msg.level);
   conn.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
   conn.prediction.reset();
+  conn.predictionCorrection.reset();
   conn.entities.clear();
   conn.areaTiles.clear();
   conn.teleported = true;

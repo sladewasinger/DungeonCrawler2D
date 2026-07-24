@@ -18,7 +18,7 @@ import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { VfxSystem } from "../../vfx/index.js";
 import type { HudScene } from "../HudScene.js";
 import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
-import { consumeFixedSteps, interpolationAlpha, lerp } from "./fixedStep.js";
+import { consumeFixedSteps, interpolationAlpha, lerp, translatePose } from "./fixedStep.js";
 import { FistbumpRing } from "./fistbumpRing.js";
 import { syncFistbumpRing } from "./fistbumpRingSync.js";
 import { syncFrame } from "./frameSync.js";
@@ -119,6 +119,7 @@ export class DungeonScene extends Phaser.Scene {
     this.consumeTeleport(time);
     consumeRespawnGrace(conn, this.state.cosmetics, time);
     this.advanceRotation(deltaMs);
+    this.state.prevStep = translatePose(this.state.prevStep, conn.predictionCorrection.consume());
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
     this.sampleFixedStepInput(deltaMs, time);
@@ -187,10 +188,10 @@ export class DungeonScene extends Phaser.Scene {
     const { conn, state } = this;
     const { steps, accumulatorMs } = consumeFixedSteps(state.accumulatorMs, deltaMs);
     state.accumulatorMs = accumulatorMs;
+    const move = this.inputController.readInput();
     for (let i = 0; i < steps; i++) {
       const body = conn.body;
       if (body) state.prevStep = { x: body.x, y: body.y, z: body.z };
-      const move = this.inputController.readInput();
       updateSelfFacing(state.cosmetics, move.moveX, move.moveY, move.jump);
       const preX = body?.x ?? 0;
       const preY = body?.y ?? 0;

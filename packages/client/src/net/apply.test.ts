@@ -120,3 +120,15 @@ describe("applySnapshot respawn detection (panel round 4, LANE B spawn-grace rin
     expect(conn.justRespawned).toBe(true);
   });
 });
+
+describe("applySnapshot prediction correction", () => {
+  it("records the displacement from the predicted pose to reconciled server truth", () => {
+    const conn = freshConnection(1);
+    if (!conn.body) throw new Error("freshConnection must create a body");
+    conn.body = { ...conn.body, x: 2.5, y: -1.25, z: 0.5 };
+
+    applySnapshot(conn, snapshotAtFloor(1, 10));
+
+    expect(conn.predictionCorrection.consume()).toEqual({ x: -2.5, y: 1.25, z: -0.5 });
+  });
+});
