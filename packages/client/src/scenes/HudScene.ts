@@ -184,7 +184,10 @@ export class HudScene extends Phaser.Scene {
     this.htmlHud = createLiveHtmlHud({
       root,
       connection,
-      focusGame: () => this.game.canvas.focus({ preventScroll: true }),
+      focusGame: () => {
+        this.game.canvas.tabIndex = -1;
+        this.game.canvas.focus({ preventScroll: true });
+      },
       setTextInputFocused: (focused: boolean) => {
         const keyboard = this.input.keyboard;
         if (focused) keyboard?.disableGlobalCapture();

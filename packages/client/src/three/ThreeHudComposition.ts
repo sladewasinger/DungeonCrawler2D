@@ -168,6 +168,12 @@ const createOverlayParts = (
     {
       focusGame: options.focusGame,
       ...options.session,
+      beforeOpen: () => {
+        statics.inventory.close();
+        windows.overlays.closeAll();
+        options.setTextInputFocused(false);
+      },
+      onOpenChange: options.setTextInputFocused,
     },
   );
   windows.settings.onEditingChange((editing) => {

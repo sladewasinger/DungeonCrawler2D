@@ -108,12 +108,44 @@ test("inventory is a modal workspace that blocks 2D world input", async ({ page 
   await expect(page.locator("[data-session-menu]")).toBeVisible();
   await expect(page.getByRole("button", { name: "Respawn (die)" })).toBeEnabled();
   await expect(page.getByText("World brightness")).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(inventory).toBeHidden();
+  await page.keyboard.press("i");
+  await expect(inventory).toBeHidden();
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-session-menu]")).toBeHidden();
 });
 
+test("the session menu contains focus and leaves background controls inert", async ({ page }) => {
+  await openGame(page, "SessionFocus");
+  const menu = page.locator("[data-session-menu]");
+  const resume = menu.getByRole("button", { name: "Resume" });
+  const gear = page.locator("button[aria-label='Game menu']");
+  const canvas = page.locator("#app canvas").first();
+  await gear.click();
+  await expect(menu).toBeVisible();
+  await expect(resume).toBeFocused();
+  await expect(gear).toHaveAttribute("aria-hidden", "true");
+  expect(await gear.evaluate((element) => element.inert)).toBe(true);
+  expect(await canvas.evaluate((element) => element.inert)).toBe(true);
+  await gear.focus();
+  await expect(resume).toBeFocused();
+  const finalControl = menu.getByRole("button", { name: "Enter Full Screen" });
+  await page.keyboard.press("Shift+Tab");
+  await expect(finalControl).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(resume).toBeFocused();
+  await resume.focus();
+  await page.keyboard.press("Space");
+  await expect(menu).toBeHidden();
+  await expect(gear).not.toHaveAttribute("aria-hidden", "true");
+  expect(await gear.evaluate((element) => element.inert)).toBe(false);
+  expect(await canvas.evaluate((element) => element.inert)).toBe(false);
+  await expect(gear).toBeFocused();
+});
+
 test("the independently loaded Three renderer boots and connects", async ({ page }) => {
-  test.setTimeout(75_000);
+  test.setTimeout(120_000);
   await page.goto(
     `${CLIENT_URL}/?renderer=three&server=${encodeURIComponent(WS_URL)}`,
     { waitUntil: "domcontentloaded" },
@@ -136,7 +168,18 @@ test("the independently loaded Three renderer boots and connects", async ({ page
     .toBeVisible();
   await page.keyboard.press("Escape");
   await expect(inventory).toBeHidden();
-  await page.getByRole("button", { name: "Game menu" }).click();
+  const menu = page.locator("[data-session-menu]");
+  const resume = menu.getByRole("button", { name: "Resume" });
+  const gear = page.getByRole("button", { name: "Game menu" });
+  await gear.click();
+  await expect(resume).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  await gear.click();
+  await expect(resume).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(menu).toBeHidden();
+  await gear.click();
   await page.getByRole("button", { name: "Quit to opening screen" }).click();
   await page.getByRole("button", { name: "Confirm quit" }).click();
   await expect(page.getByRole("button", { name: "Enter the Dungeon" })).toBeVisible();

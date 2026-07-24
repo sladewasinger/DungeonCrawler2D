@@ -32,7 +32,9 @@ export class ThreeHudKeyboard {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.defaultPrevented) return;
+    if (this.captureSessionMenuEvent(event)) return;
     if (this.captureTabEvent(event)) return;
+    if (this.captureInventoryToggleEvent(event)) return;
     if (this.captureInventoryEvent(event)) return;
     if (event.code.startsWith("Digit")) this.selectHotbar(event);
     if (event.code === "Enter" && !this.actions.chatOwnsFocus()) {
@@ -42,12 +44,29 @@ export class ThreeHudKeyboard {
     this.captureEscapeEvent(event);
   };
 
+  private captureSessionMenuEvent(event: KeyboardEvent): boolean {
+    if (!this.actions.sessionMenuOpen()) return false;
+    if (event.code === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.actions.closeSessionMenu();
+    }
+    return true;
+  }
+
   private captureTabEvent(event: KeyboardEvent): boolean {
     if (event.code !== "Tab") return false;
     event.preventDefault();
-    if (!this.actions.inventoryOpen() && !this.actions.chatOwnsFocus()) {
-      this.actions.toggleInventory();
-    }
+    event.stopImmediatePropagation();
+    if (!this.actions.chatOwnsFocus()) this.actions.toggleInventory();
+    return true;
+  }
+
+  private captureInventoryToggleEvent(event: KeyboardEvent): boolean {
+    if (event.code !== "KeyI" || this.actions.chatOwnsFocus()) return false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.actions.toggleInventory();
     return true;
   }
 

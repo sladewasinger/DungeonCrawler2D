@@ -85,8 +85,8 @@ export class InputController {
       const overlayWasOpen = hooks.onCloseOverlays();
       if (!panelsWereOpen && !overlayWasOpen) hooks.onToggleSessionMenu();
     });
-    keys.I.on("down", guardedAction(() => hooks.onToggleInventory()));
-    keys.TAB.on("down", guardedAction(() => hooks.onToggleInventory()));
+    keys.I.on("down", guardedAction(() => hooks.onToggleInventory(), blocked));
+    keys.TAB.on("down", guardedAction(() => hooks.onToggleInventory(), blocked));
     keys.ENTER.on("down", guardedAction(() => hooks.onOpenChat(), blocked));
     keys.O.on("down", guardedAction(() => hooks.onToggleContacts(), blocked));
     const keyboard = this.scene.input.keyboard;
