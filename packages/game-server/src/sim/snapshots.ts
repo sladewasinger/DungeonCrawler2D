@@ -7,6 +7,7 @@ import {
   type ServerSnapshot,
 } from "@dc2d/engine";
 import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
+import { indexSnapshotEntities, type SpatialEntityIndex } from "./spatialEntities.js";
 
 /** AOI-scoped per-player snapshots: entities, events, and area deltas. */
 
@@ -92,23 +93,15 @@ function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
 function gatherVisible(
   sim: SimState,
   self: Entity,
-  inAoi: (x: number, y: number) => boolean,
+  entityIndex: SpatialEntityIndex,
 ): { entities: EntitySnapshot[]; visible: Set<string> } {
   const entities: EntitySnapshot[] = [];
   const visible = new Set<string>();
-  const consider = (entity: Entity) => {
-    if (entity.id === self.id) return;
-    if (!inAoi(entity.body.x, entity.body.y)) return;
+  for (const entity of entityIndex.queryCircle(self.body.x, self.body.y, AOI_RADIUS).entities) {
+    if (entity.id === self.id) continue;
     visible.add(entity.id);
     entities.push(toEntitySnapshot(sim, entity));
-  };
-  for (const other of sim.players.values()) {
-    if (other.connected && other.entity.hp >= 0) consider(other.entity);
   }
-  for (const enemy of sim.enemies.values()) consider(enemy.entity);
-  for (const item of sim.items.values()) consider(item);
-  for (const projectile of sim.projectiles.values()) consider(projectile);
-  for (const torch of sim.torches.values()) consider(torch);
   return { entities, visible };
 }
 
@@ -190,12 +183,13 @@ function buildPlayerSnapshot(
   slot: PlayerSlot,
   areaDirty: Array<{ x: number; y: number; defId: string | null }>,
   worldEvents: WorldEvent[],
+  entityIndex: SpatialEntityIndex,
 ): ServerSnapshot {
   const self = slot.entity;
   const inAoi = (x: number, y: number) =>
     (x - self.body.x) ** 2 + (y - self.body.y) ** 2 <= AOI_RADIUS * AOI_RADIUS;
 
-  const { entities, visible } = gatherVisible(sim, self, inAoi);
+  const { entities, visible } = gatherVisible(sim, self, entityIndex);
 
   const left: string[] = [];
   for (const id of slot.known) if (!visible.has(id)) left.push(id);
@@ -224,6 +218,7 @@ function buildPlayerSnapshot(
 /** Build AOI-scoped snapshots for every connected player. */
 export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
   const snapshots = new Map<string, ServerSnapshot>();
+  const entityIndex = indexSnapshotEntities(sim);
   const areaDirty = sim.areas.drainDirty();
   const worldEvents = sim.worldEvents;
   sim.worldEvents = [];
@@ -233,7 +228,7 @@ export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
       slot.outbox.length = 0;
       continue;
     }
-    snapshots.set(slot.entity.id, buildPlayerSnapshot(sim, slot, areaDirty, worldEvents));
+    snapshots.set(slot.entity.id, buildPlayerSnapshot(sim, slot, areaDirty, worldEvents, entityIndex));
   }
   return snapshots;
 }
