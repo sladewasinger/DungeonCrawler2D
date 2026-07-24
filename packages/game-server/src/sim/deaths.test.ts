@@ -1,5 +1,7 @@
 import {
+  DOWNED_DURATION,
   LEVEL,
+  TICK_RATE,
   World,
   buildContentRegistry,
   createBody,
@@ -147,7 +149,7 @@ describe("resolveDeaths", () => {
     sim.players.set(a.entity.id, a);
     a.downedAtTick = 0;
     a.entity.hp = 1;
-    sim.tickCount = 30 * 20; // DOWNED_DURATION(30s) * TICK_RATE(20)
+    sim.tickCount = DOWNED_DURATION * TICK_RATE;
 
     resolveDeaths(sim);
 

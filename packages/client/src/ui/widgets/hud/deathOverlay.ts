@@ -12,11 +12,13 @@ import type { Viewport } from "../state.js";
 const WIDGET_ID = "death";
 const VIGNETTE_COLOR = 0x0a0a10;
 const VIGNETTE_ALPHA = 0.72;
+const DOWNED_TEXT = "DOWNED\nHold [K] to give up\nA party member can revive you";
 const RESPAWN_TEXT = "YOU DIED\nrespawning...";
 
 export class DeathOverlayWidget {
   private readonly container: Phaser.GameObjects.Container;
   private readonly vignette: Phaser.GameObjects.Rectangle;
+  private readonly text: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     registry.register({
@@ -30,16 +32,17 @@ export class DeathOverlayWidget {
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
     this.vignette = scene.add.rectangle(0, 0, viewport.width, viewport.height, VIGNETTE_COLOR, VIGNETTE_ALPHA);
-    const text = scene.add
+    this.text = scene.add
       .text(0, 0, RESPAWN_TEXT, uiTextStyle(20, "#e04a4a", layout.scale, "emphasis"))
       .setOrigin(0.5, 0.5)
       .setAlign("center");
-    this.container.add([this.vignette, text]);
+    this.container.add([this.vignette, this.text]);
     this.container.setVisible(false);
   }
 
-  update(downed: boolean): void {
-    this.container.setVisible(downed);
+  update(downed: boolean, dead: boolean): void {
+    this.container.setVisible(downed || dead);
+    this.text.setText(downed ? DOWNED_TEXT : RESPAWN_TEXT);
   }
 
   /** Resizes the vignette to cover the new viewport, then re-syncs the container position. */

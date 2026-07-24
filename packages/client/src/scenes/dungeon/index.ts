@@ -114,6 +114,7 @@ export class DungeonScene extends Phaser.Scene {
     this.inputController.pollFistbumpHold();
     syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
     this.inputController.pollReviveHold();
+    this.inputController.pollGiveUpHold();
     syncReviveRing(this.reviveRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
     this.consumeTeleport(time);

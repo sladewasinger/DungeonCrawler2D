@@ -2,6 +2,7 @@ import {
   ATTACK_COOLDOWN_MS,
   FIST_DAMAGE,
   KNOCKBACK_FORCE,
+  PARTY_FRIENDLY_FIRE_SCALE,
   TICK_RATE,
   applyKnockback,
   faceEntity,
@@ -50,7 +51,7 @@ function resolveHit(
   effectEvents: EffectEvent[],
 ): void {
   const weapon = weaponDef?.weapon;
-  const damage = weapon?.damage ?? FIST_DAMAGE;
+  const damage = (weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim);
   const target = effectTargetFor(sim, victim);
   sim.effects.modifyHealth(victim, -damage, effectEvents, { sourceTags: weaponDef?.tags ?? [] }, target);
   for (const apply of weapon?.applies ?? []) {
@@ -63,6 +64,16 @@ function resolveHit(
     KNOCKBACK_FORCE,
   );
   finishIfDownedPlayer(sim, victim, effectEvents);
+}
+
+/** Partying preserves friendly fire, but halves direct melee damage between members. */
+function damageScaleFor(sim: SimState, attacker: Entity, victim: Entity): number {
+  if (attacker.kind !== "player" || victim.kind !== "player") return 1;
+  const attackerParty = sim.players.get(attacker.id)?.partyId;
+  const victimParty = sim.players.get(victim.id)?.partyId;
+  return typeof attackerParty === "string" && attackerParty === victimParty
+    ? PARTY_FRIENDLY_FIRE_SCALE
+    : 1;
 }
 
 /** Striking a downed player finishes them. */

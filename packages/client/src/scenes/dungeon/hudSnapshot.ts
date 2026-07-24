@@ -23,6 +23,7 @@ import { recipeRowViews } from "../../ui/widgets/hud/recipeRows.js";
 import { stashRowViews } from "../../ui/widgets/hud/stashRows.js";
 import { categoryOfItem, itemFlavor, itemName, recipeList } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
+import { resolvePartyNavigation } from "../../ui/partyNavigation.js";
 
 /** A stash entry as the wire/Connection shape carries it — item def id + qty, no index
  * (stashRowViews assigns the display index from array position). */
@@ -96,9 +97,20 @@ function roundedCoords(bodyPos: { x: number; y: number; z: number }): TileCoords
 
 /** Off-self party member rows for the party frames widget (Epic 7.12) — party is
  * null when unpartied, which naturally yields an empty (hidden) row list. */
-function partyRows(party: ServerSnapshot["party"]): PartyRowData[] {
+function partyRows(
+  party: ServerSnapshot["party"],
+  bodyPos: { x: number; y: number },
+  viewBearingDeg: number,
+): PartyRowData[] {
   if (!party) return [];
-  return party.members.map((m) => ({ id: m.id, name: m.name, hp: m.hp, maxHp: m.maxHp, downed: m.downed }));
+  return party.members.map((member) => ({
+    id: member.id,
+    name: member.name,
+    hp: member.hp,
+    maxHp: member.maxHp,
+    downed: member.downed,
+    ...resolvePartyNavigation(bodyPos, member, viewBearingDeg),
+  }));
 }
 
 /** Every recipe's have/need row against live inventory (Epic 7.12) — recipeList is
@@ -128,6 +140,7 @@ export interface HudSnapshotSource {
   readonly reconnecting: boolean;
   readonly reconnectAttempts: number;
   readonly downed: boolean;
+  readonly dead: boolean;
   readonly party: ServerSnapshot["party"];
   /** Whether a crafting table / stash is within interact range of the self body right now —
    * drives the craft/stash windows' auto-close-on-walk-away (mirrors v1's Panels.sync). */
@@ -177,6 +190,7 @@ function statusFields(
     reconnecting: src.reconnecting,
     reconnectAttempts: src.reconnectAttempts,
     downed: src.downed,
+    dead: src.dead,
     touch,
     fps,
     coords: roundedCoords(bodyPos),
@@ -207,7 +221,7 @@ export function buildHudSnapshot(
     seed: src.seed,
     floor: src.floor,
     boss: src.boss,
-    party: partyRows(src.party),
+    party: partyRows(src.party, bodyPos, compassBearingDeg),
     chatModel,
     contacts: [...contacts],
     interactionPrompt,

@@ -28,12 +28,12 @@ Everyone can hurt everyone, except where consent or sanctuary says otherwise:
 | Context | Player-vs-player damage & hostile effects | Enforced by |
 | --- | --- | --- |
 | Open world, unaffiliated players | **Allowed** — but never required; you can also just… not | — |
-| Same party | **On — always. No toggle.** Watch your swings; melee gets a targeting aid (below), but AoE, throwables, and areas hit everyone | — |
+| Same party | **On — always. No toggle.** Direct melee damage is halved and gets a targeting aid (below), but AoE, throwables, and areas hit everyone | — |
 | Safe rooms (and rooms off them) | **Suppressed for everyone** — no damage, no hostile statuses, no hostile area effects; fire dies at the threshold | Server: `sanctuary` zone tag suppresses hostile effect primitives (see [EFFECTS.md](EFFECTS.md)) |
 
 Indirect griefing (kiting a horde into someone, laying fire at a safe-room exit) is deliberately possible — emergent dungeon cruelty is part of the fantasy — and distance-based spawning, sanctuary thresholds, and death economics keep it survivable. Death is the same everywhere, PvE or PvP: **full loot drop** — everything carried falls where you died (your killer may loot it), your stash is safe.
 
-**Melee targeting aid (because friendly fire never turns off):** a melee swing resolves against the *best* target in its arc, with hostiles preferred over party members — fighting shoulder-to-shoulder against a monster won't clip your friend. But a swing with no hostile in the arc hits whatever's there, friends included, and AoE/throwables/areas make no distinction ever. Positioning still matters; molotovs stay honest.
+**Melee targeting aid (because friendly fire never turns off):** a melee swing resolves against the *best* target in its arc, with hostiles preferred over party members — fighting shoulder-to-shoulder against a monster won't clip your friend. But a swing with no hostile in the arc hits whatever's there, friends included. Direct melee damage between party members is halved; AoE/throwables/areas make no distinction. Positioning still matters; molotovs stay honest.
 
 ## Safe rooms & stretch rooms
 
@@ -63,7 +63,8 @@ Every layer is the same portal mechanic ("stretch rooms"): rooms manifest as ins
 ## Parties
 
 - Formed by **mutual consent only** — an invite/accept flow (natural gateway: the fistbump).
-- Party members: shared party chat, party door in safe rooms, see each other on the floor (position pings even outside view range — they're your people). **Friendly fire stays on** — partying up is trust, not immunity; the melee targeting aid keeps accidents rare.
+- Party members: shared party chat, party door in safe rooms, and labeled direction/distance tracking from position pings even outside view range — they're your people. **Friendly fire stays on at half direct melee damage** — partying up is trust, not immunity; the melee targeting aid keeps accidents rare.
+- A lethal hit becomes a **60-second downed window** while a conscious party member remains. Nearby members can revive; holding **K** for 1.5 seconds gives up early and enters the ordinary loot-drop/respawn path.
 - Leaving/disbanding is unilateral and instant. Loot sharing rules: open question (default: free-for-all pickup, party etiquette is social, not mechanical).
 
 ## Social fabric
@@ -97,7 +98,7 @@ New HUD work in any epic must be built as a widget from the start; PRs adding fi
 5. **Shard capacity:** target **20 concurrent players** per floor shard to start.
 6. **Death is full loot drop; no spawn shield** — distance-based spawn placement is the protection.
 7. **Global chat is truly global** (all floors — the only cross-floor connective tissue).
-8. **Party friendly fire is always on, no toggle** — mitigated by the hostile-preferring melee targeting aid.
+8. **Party friendly fire is always on, no toggle** — direct melee damage between members is halved and the hostile-preferring targeting aid keeps accidents rare.
 9. **Moderation is in scope for v1.0** (report/mute tooling + lightweight automated filtering).
 10. **No voice.** Text chat only.
 

@@ -1,6 +1,7 @@
 import {
   LEVEL,
   PLAYER_MAX_HP,
+  RESPAWN_DELAY_TICKS,
   TILE,
   World,
   personalRoomFeatures,
@@ -104,6 +105,22 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(player.body.y).toBe(y);
     expect(enemy.hp).toBe(enemyHp);
     expect(snaps.get(aId)!.self.hp).toBe(0);
+  });
+
+  it("a downed party member can give up and respawn", () => {
+    const { bId } = makeParty(sim);
+    const player = sim.getPlayerEntity(bId)!;
+    player.hp = 0;
+    let snaps = sim.step();
+    expect(snaps.get(bId)!.self.downed).toBe(true);
+
+    sim.queueAction(bId, { type: "suicide" });
+    snaps = sim.step();
+    expect(snaps.get(bId)!.self.hp).toBe(0);
+    expect(snaps.get(bId)!.self.downed).toBeUndefined();
+
+    stepN(sim, RESPAWN_DELAY_TICKS);
+    expect(sim.getPlayerEntity(bId)!.hp).toBe(PLAYER_MAX_HP);
   });
 
   it("portals nest: world door -> safe room -> personal room -> exits unwind", () => {

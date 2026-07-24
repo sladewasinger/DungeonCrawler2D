@@ -8,6 +8,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
   return {
     body: { x: 0, y: 0 },
     canAct: true,
+    downed: false,
     hotbar: ["sword", "bomb", undefined],
     inventory: [{ item: "sword", qty: 1 }],
     stash: undefined,
@@ -26,6 +27,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     drop: () => calls.push("drop"),
     fistbump: () => calls.push("fistbump"),
     descend: () => calls.push("descend"),
+    suicide: () => calls.push("suicide"),
     pushToast: () => calls.push("pushToast"),
     ...overrides,
   };

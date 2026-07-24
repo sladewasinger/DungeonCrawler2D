@@ -111,7 +111,7 @@ class ThreeDungeonClient {
     this.syncAuthoritativeWorld();
     const elapsed = this.elapsed(time);
     const sampled = this.input.sample(elapsed);
-    this.publishActions(sampled.yaw, sampled.attack, sampled.interact);
+    this.publishActions(sampled.yaw, sampled.attack, sampled.interact, sampled.giveUp);
     this.publishInput(sampled.input, elapsed);
     this.syncPlayerPresentation(elapsed);
     this.refreshTerrain();
@@ -143,9 +143,10 @@ class ThreeDungeonClient {
     }
   }
 
-  private publishActions(yaw: number, attack: boolean, interact: boolean): void {
+  private publishActions(yaw: number, attack: boolean, interact: boolean, giveUp: boolean): void {
     if (attack) this.options.conn.attack(-Math.sin(yaw), -Math.cos(yaw));
     if (interact) this.options.conn.interact();
+    if (giveUp && this.options.conn.downed) this.options.conn.suicide();
   }
 
   private syncPlayerPresentation(elapsed: number): void {

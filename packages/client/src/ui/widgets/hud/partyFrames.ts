@@ -17,13 +17,15 @@ export interface PartyRowData {
   readonly hp: number;
   readonly maxHp: number;
   readonly downed: boolean;
+  readonly arrow: string;
+  readonly distance: number;
 }
 
 const WIDGET_ID = "party";
 /** Beyond this, a member simply has no dedicated row — party size itself is
  * unbounded (docs/ASSUMPTIONS.md #67), but HUD real estate isn't. */
 const MAX_ROWS = 6;
-const ROW_WIDTH = 150;
+const ROW_WIDTH = 180;
 const ROW_HEIGHT = 22;
 const ROW_GAP = 4;
 const HP_BAR_WIDTH = 70;
@@ -86,7 +88,7 @@ export class PartyFramesWidget {
   private applyRow(row: RowVisual, data: PartyRowData | undefined): void {
     row.container.setVisible(!!data);
     if (!data) return;
-    row.label.setText(data.name);
+    row.label.setText(`${data.arrow} ${data.name} · ${data.distance}m`);
     const ratio = data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0;
     row.hpFill.width = HP_BAR_WIDTH * ratio;
     row.hpFill.setFillStyle(data.downed ? DOWNED_COLOR : HP_COLOR);

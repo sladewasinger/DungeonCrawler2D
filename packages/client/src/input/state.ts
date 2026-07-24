@@ -9,7 +9,7 @@ import type Phaser from "phaser";
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
   | "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB"
-  | "ENTER" | "O",
+  | "ENTER" | "O" | "K",
   Phaser.Input.Keyboard.Key
 >;
 
@@ -33,6 +33,7 @@ export interface InputState {
 export interface InputConnection {
   readonly body: { x: number; y: number } | null | undefined;
   readonly canAct: boolean;
+  readonly downed: boolean;
   readonly hotbar: readonly (string | undefined)[];
   readonly inventory: readonly { item: string; qty: number }[];
   readonly stash: unknown;
@@ -63,6 +64,8 @@ export interface InputConnection {
   fistbump(targetId: string): void;
   /** Descends/ascends a nearby stairway (Epic 7.14) — server validates range. */
   descend(): void;
+  /** Sends the existing server-authoritative suicide intent after a deliberate hold. */
+  suicide(): void;
   /**
    * Client-local UI feedback for an action the client can already tell will do
    * nothing (no crafting table nearby, out of torches...) — never a substitute for

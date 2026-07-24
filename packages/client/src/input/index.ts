@@ -12,6 +12,7 @@ import type { MoveInput } from "@dc2d/engine";
 import { screenMoveToWorld } from "./cameraRelative.js";
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
+import { GiveUpGesture } from "./giveUp.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import { ReviveGesture } from "./revive.js";
@@ -58,6 +59,8 @@ export class InputController {
   private touchFistbumpHeld = false;
   /** Hold-E revive gesture (Epic 7.12) — gated by a downed party member in range. */
   private readonly revive = new ReviveGesture();
+  /** Hold-K surrender gesture, active only while this player is downed. */
+  private readonly giveUp = new GiveUpGesture();
   /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
    * after boot) flips this reactively — see activateTouchIfNeeded. */
   private touchActive: boolean = isTouchDevice();
@@ -89,6 +92,8 @@ export class InputController {
     keys.G.on("down", guarded(() => hooks.onToggleBorders()));
     keys.E.on("down", guarded(() => this.handleInteractDown()));
     keys.E.on("up", guarded(() => this.revive.end(this.scene.time.now)));
+    keys.K.on("down", guarded(() => this.giveUp.begin(conn.downed, this.scene.time.now)));
+    keys.K.on("up", guarded(() => this.giveUp.end(this.scene.time.now)));
     keys.R.on("down", guarded(() => conn.pickup()));
     keys.C.on("down", guarded(() => panels.toggleCraft(conn)));
     keys.F.on("down", guarded(() => holdDown(this.fistbumpHold, this.scene.time.now)));
@@ -127,6 +132,11 @@ export class InputController {
    * crosses REVIVE_HOLD_MS. */
   pollReviveHold(): void {
     if (this.revive.poll(this.scene.time.now)) this.conn.interact();
+  }
+
+  /** Fires the suicide intent once after a complete hold while downed. */
+  pollGiveUpHold(): void {
+    if (this.giveUp.poll(this.conn.downed, this.scene.time.now)) this.conn.suicide();
   }
 
   /** HUD-facing read: the in-progress revive hold's target + 0..1 ring progress, or null when idle. */

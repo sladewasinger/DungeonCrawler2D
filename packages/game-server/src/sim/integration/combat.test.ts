@@ -1,4 +1,11 @@
-import { PLAYER_MAX_HP, RESPAWN_DELAY_TICKS, TICK_RATE, type ServerSnapshot } from "@dc2d/engine";
+import {
+  FIST_DAMAGE,
+  PARTY_FRIENDLY_FIRE_SCALE,
+  PLAYER_MAX_HP,
+  RESPAWN_DELAY_TICKS,
+  TICK_RATE,
+  type ServerSnapshot,
+} from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { GameSim } from "../index.js";
 import { SWING_TICKS, findFlatArena, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "./support.js";
@@ -73,14 +80,14 @@ describe("GameSim: combat", () => {
     expect(slime.hp).toBe(12 - 3); // fists
     expect(bEntity.hp).toBe(PLAYER_MAX_HP); // friend untouched
 
-    // No hostile in arc -> the friend takes the hit. Trust, not immunity.
+    // No hostile in arc -> the friend takes the reduced hit. Trust, not immunity.
     slime.hp = 0;
     sim.step(); // reap the corpse
     stepN(sim, SWING_TICKS); // let the swing cooldown recover
     teleport(bEntity, aEntity.body.x + 0.5, aEntity.body.y, sim);
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
-    expect(bEntity.hp).toBe(PLAYER_MAX_HP - 3);
+    expect(bEntity.hp).toBe(PLAYER_MAX_HP - FIST_DAMAGE * PARTY_FRIENDLY_FIRE_SCALE);
   });
 
   it("weapons carry damage, statuses, and source tags (knife bleeds a player)", () => {

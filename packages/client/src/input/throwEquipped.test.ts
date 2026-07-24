@@ -8,6 +8,7 @@ function makeConn(weapon: string | null, inventory: InputConnection["inventory"]
   return {
     body: { x: 0, y: 0 },
     canAct: true,
+    downed: false,
     hotbar: [],
     inventory,
     stash: undefined,
@@ -26,6 +27,7 @@ function makeConn(weapon: string | null, inventory: InputConnection["inventory"]
     drop: () => {},
     fistbump: () => {},
     descend: () => {},
+    suicide: () => {},
     pushToast: () => {},
   };
 }

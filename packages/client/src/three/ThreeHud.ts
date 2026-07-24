@@ -7,6 +7,8 @@ import type { FirstPersonState } from "./movement.js";
 import { HudWindowManager } from "./HudWindows.js";
 import { createHudPanelTitle, createHudSlots } from "./ThreeHudPanels.js";
 import { ThreeHudChat } from "./ThreeHudChat.js";
+import { ThreeDownedOverlay } from "./ThreeDownedOverlay.js";
+import { ThreePartyTracker } from "./ThreePartyTracker.js";
 import type { ViewDistance } from "./viewDistance.js";
 import { createViewDistanceButton } from "./viewDistanceButton.js";
 
@@ -35,6 +37,8 @@ export class ThreeHud {
   private readonly readout = document.createElement("div");
   private readonly manager: HudWindowManager;
   private readonly chat: ThreeHudChat;
+  private readonly downedOverlay: ThreeDownedOverlay;
+  private readonly partyTracker: ThreePartyTracker;
   private readonly mobile = isTouchDevice();
   private inventoryVisible = false;
   private settingsVisible = false;
@@ -50,10 +54,14 @@ export class ThreeHud {
     this.mountSettings();
     this.bindKeyboard();
     this.addReticle();
+    this.downedOverlay = new ThreeDownedOverlay(this.element);
+    this.partyTracker = new ThreePartyTracker(this.element);
   }
 
   update({ connection, world, player, yaw, mouseCaptured }: ThreeHudUpdate): void {
     this.chat.update();
+    this.downedOverlay.update(connection);
+    this.partyTracker.update(connection, player, yaw);
     const heading = Math.round((((yaw * 180) / Math.PI) % 360 + 360) % 360);
     const health = Math.max(0, connection.hp);
     const healthFraction = connection.maxHp > 0 ? health / connection.maxHp : 0;

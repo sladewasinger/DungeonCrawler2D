@@ -1,5 +1,6 @@
 import {
   LEVEL,
+  TICK_RATE,
   World,
   buildContentRegistry,
   createBody,
@@ -187,7 +188,7 @@ describe("social", () => {
     );
   });
 
-  it("chat is rate-limited to 5/10s flat across every channel (ASSUMPTION #46)", () => {
+  it("chat allows five messages per three seconds and then recovers automatically", () => {
     // Mixed channels all draw from the same rolling-window budget — the
     // 5th of ANY kind is fine, the 6th (even on a different channel) isn't.
     doChat(sim, a, "local", "1");
@@ -198,5 +199,17 @@ describe("social", () => {
     a.outbox.length = 0;
     doChat(sim, a, "global", "one too many");
     expect(a.outbox.some((e) => e.t === "chat" && e.channel === "system")).toBe(true);
+    a.outbox.length = 0;
+    sim.tickCount = 3 * TICK_RATE;
+    doChat(sim, a, "global", "allowed again");
+    expect(a.outbox.some((e) => e.t === "chat" && e.text === "allowed again")).toBe(true);
+  });
+
+  it("a throttled player continues receiving chat from other players", () => {
+    for (let index = 0; index < 5; index++) doChat(sim, a, "global", `sent ${index}`);
+    doChat(sim, a, "global", "rejected");
+    a.outbox.length = 0;
+    doChat(sim, b, "global", "still visible");
+    expect(a.outbox.some((e) => e.t === "chat" && e.text === "still visible")).toBe(true);
   });
 });

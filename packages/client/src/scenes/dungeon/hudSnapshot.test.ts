@@ -18,6 +18,7 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
     reconnecting: false,
     reconnectAttempts: 0,
     downed: false,
+    dead: false,
     party: null,
     craftTableNearby: false,
     stashNearby: false,

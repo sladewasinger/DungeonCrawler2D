@@ -112,6 +112,7 @@ export interface HudFakeSnapshot {
   /** Consecutive failed reconnect attempts (net/socket.ts) — the toast's "(attempt N)" suffix. */
   reconnectAttempts: number;
   downed: boolean;
+  dead: boolean;
   /** Live joystick/button state for the touch widgets, or null when touch controls aren't mounted. */
   touch: TouchVisualSnapshot | null;
   /** Raw per-frame render fps (Phaser's game.loop.actualFps) — the top-right indicator smooths this itself. */
@@ -171,8 +172,8 @@ const FAKE_CONTACTS: ContactData[] = [
 
 /** One healthy ally, one downed — proves both party-row states at once. */
 const FAKE_PARTY: PartyRowData[] = [
-  { id: "p2", name: "Wren", hp: 22, maxHp: 30, downed: false },
-  { id: "p3", name: "Rex", hp: 1, maxHp: 30, downed: true },
+  { id: "p2", name: "Wren", hp: 22, maxHp: 30, downed: false, arrow: "↗", distance: 12 },
+  { id: "p3", name: "Rex", hp: 1, maxHp: 30, downed: true, arrow: "←", distance: 28 },
 ];
 
 /** One craftable recipe (rag on hand) and one short a stick — proves both button states at once. */
@@ -255,6 +256,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     reconnecting: false,
     reconnectAttempts: 0,
     downed,
+    dead: false,
     touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
     fps: 60,
     coords: { x: 128, y: -64, z: 2.5 },

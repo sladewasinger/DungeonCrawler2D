@@ -17,6 +17,9 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     get canAct() {
       return conn.canAct;
     },
+    get downed() {
+      return conn.downed;
+    },
     get hotbar() {
       return conn.hotbar.map((id) => id ?? undefined);
     },
@@ -38,6 +41,16 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     // (height 0 everywhere) while no world is bound yet, which is exactly the input
     // pickTallestFirst's own flat fallback needs to behave byte-identically to pre-E3 aim.
     heightAt: (wx, wy) => conn.world?.heightAt(wx, wy) ?? 0,
+    ...createInputActions(conn),
+  };
+}
+
+/** Delegates input intents without exposing the concrete Connection to the controller. */
+function createInputActions(conn: Connection): Omit<
+  InputConnection,
+  "body" | "canAct" | "downed" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt"
+> {
+  return {
     interact: () => conn.interact(),
     pickup: () => conn.pickup(),
     attack: (dx, dy) => conn.attack(dx, dy),
@@ -51,6 +64,7 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     drop: (item) => conn.drop(item),
     fistbump: (targetId) => conn.fistbump(targetId),
     descend: () => conn.descend(),
+    suicide: () => conn.suicide(),
     pushToast: (msg) => conn.pushToast(msg),
   };
 }

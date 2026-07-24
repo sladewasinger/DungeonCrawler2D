@@ -133,7 +133,7 @@ export class HudWidgets {
     this.interaction.update(snapshot.interactionPrompt);
     this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor);
     this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs);
-    this.death.update(snapshot.downed);
+    this.death.update(snapshot.downed, snapshot.dead);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
     this.toasts.update(snapshot.toasts, nowMs);
     if (snapshot.touch) {

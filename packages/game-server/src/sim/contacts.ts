@@ -12,18 +12,20 @@ const OFFER_COOLDOWN_TICKS = 2 * TICK_RATE;
  * default): one flat cap shared by every chat channel AND /who, since a
  * /who response is itself a system chat line and its player scan isn't free. */
 export const CHAT_LIMIT = 5;
-export const RATE_WINDOW_TICKS = 10 * TICK_RATE;
+export const RATE_WINDOW_TICKS = 3 * TICK_RATE;
 
 /** Rolling-window rate limit: prunes stale timestamps in place, then
- * records+allows iff still under `limit`. Shared by chat and fistbump offers. */
+ * records+allows iff still under `limit`. A slot can cross between floor
+ * simulations with different tick origins, so future timestamps reset the old
+ * clock domain instead of permanently locking that player out. */
 export function withinRateLimit(
   timestamps: number[],
   nowTick: number,
   windowTicks: number,
   limit: number,
 ): boolean {
-  // length > 0 just above guarantees index 0 exists.
-  while (timestamps.length > 0 && timestamps[0]! < nowTick - windowTicks) timestamps.shift();
+  if (timestamps.some((timestamp) => timestamp > nowTick)) timestamps.length = 0;
+  while (timestamps.length > 0 && timestamps[0]! <= nowTick - windowTicks) timestamps.shift();
   if (timestamps.length >= limit) return false;
   timestamps.push(nowTick);
   return true;
