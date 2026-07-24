@@ -1,4 +1,10 @@
-import { LEVEL, World, type ContentRegistry, type ServerSnapshot } from "@dc2d/engine";
+import {
+  LEVEL,
+  World,
+  type ContentRegistry,
+  type ServerSnapshot,
+  type ServerStateSnapshot,
+} from "@dc2d/engine";
 import { GameSim } from "./sim/index.js";
 import { FLOOR_CAP } from "./sim/floors/index.js";
 import { PlayerStore } from "./store.js";
@@ -22,6 +28,11 @@ export interface TickResult {
   snapshots: Map<string, ServerSnapshot>;
   /** Players whose socket must now route to a different sim. */
   moved: Array<{ playerId: string; sim: GameSim }>;
+}
+
+export interface ReplicationTickResult {
+  snapshots: Map<string, ServerStateSnapshot>;
+  moved: TickResult["moved"];
 }
 
 export class FloorRegistry {
@@ -66,13 +77,20 @@ export class FloorRegistry {
 
   stepAll(): TickResult {
     const active = [...this.sims.values()];
-    const snapshots = new Map<string, ServerSnapshot>();
-    for (const sim of active) for (const [id, snap] of sim.step()) snapshots.set(id, snap);
+    const snapshots = collectSnapshots(active, (sim) => sim.step());
+    return { snapshots, moved: this.finishTick(active) };
+  }
 
+  stepAllReplicated(): ReplicationTickResult {
+    const active = [...this.sims.values()];
+    const snapshots = collectSnapshots(active, (sim) => sim.stepReplicated());
+    return { snapshots, moved: this.finishTick(active) };
+  }
+
+  private finishTick(active: GameSim[]): TickResult["moved"] {
     relayGlobalChat(active);
     refreshDirectory(active);
-
-    return { snapshots, moved: this.applyTransfers(active) };
+    return this.applyTransfers(active);
   }
 
   private applyTransfers(active: GameSim[]): TickResult["moved"] {
@@ -86,6 +104,17 @@ export class FloorRegistry {
     }
     return moved;
   }
+}
+
+function collectSnapshots<T>(
+  active: GameSim[],
+  step: (sim: GameSim) => Map<string, T>,
+): Map<string, T> {
+  const snapshots = new Map<string, T>();
+  for (const sim of active) {
+    for (const [id, snapshot] of step(sim)) snapshots.set(id, snapshot);
+  }
+  return snapshots;
 }
 
 /** Relay each floor's global-chat events to every OTHER active floor

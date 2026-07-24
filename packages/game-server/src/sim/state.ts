@@ -11,9 +11,11 @@ import {
   type Entity,
   type GameEvent,
   type InvStack,
+  type SnapshotMode,
   type World,
 } from "@dc2d/engine";
 import { PlayerStore, type StoredPlayer } from "../store.js";
+import type { SnapshotClientState, SnapshotEntityState } from "./snapshotState.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
@@ -24,7 +26,7 @@ import { PlayerStore, type StoredPlayer } from "../store.js";
 /** Everything a client can ask for besides movement and handshakes. */
 export type PlayerAction = Exclude<
   ClientMessage,
-  ClientInput | { type: "hello" } | { type: "ping" }
+  ClientInput | { type: "hello" } | { type: "ping" } | { type: "snapshotResync" }
 >;
 
 /**
@@ -91,6 +93,8 @@ export interface PlayerSlot {
    * non-floor-1 death respawn; drained at the tail of GameSim.step() —
    * see floors/transfer.ts. */
   pendingTransfer: PendingTransfer | null;
+  /** Negotiated wire mode follows this slot across floor transfers. */
+  snapshotMode?: SnapshotMode;
 }
 
 export interface EnemySlot {
@@ -197,6 +201,9 @@ export interface SimState {
    * active floor sim (this sim's own players already got it directly —
    * see social.ts's doGlobalChat). Drained once per tick by the registry. */
   pendingGlobalChat: GameEvent[];
+  /** Transport-only delta caches, isolated from authoritative gameplay state. */
+  readonly snapshotClients: Map<string, SnapshotClientState>;
+  readonly snapshotEntities: Map<string, SnapshotEntityState>;
 }
 
 export function createSimState(
@@ -207,9 +214,7 @@ export function createSimState(
   opts: SimState["opts"],
 ): SimState {
   return {
-    world,
-    content,
-    store,
+    world, content, store,
     rng: new Rng(rngSeed),
     effects: new EffectsEngine(content, (x, y) => world.isSanctuary(x, y)),
     areas: new AreaSystem(content, world),
@@ -236,5 +241,7 @@ export function createSimState(
     bossRespawnAtTick: null,
     crossFloorDirectory: [],
     pendingGlobalChat: [],
+    snapshotClients: new Map(),
+    snapshotEntities: new Map(),
   };
 }

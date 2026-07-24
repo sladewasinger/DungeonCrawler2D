@@ -1,234 +1,125 @@
-import {
-  AOI_RADIUS,
-  xpForLevel,
-  type Entity,
-  type EntitySnapshot,
-  type GameEvent,
-  type ServerSnapshot,
+import type {
+  ServerSnapshot,
+  ServerSnapshotDelta,
+  ServerStateSnapshot,
 } from "@dc2d/engine";
-import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
+import { buildPlayerSnapshotFrame, type PlayerSnapshotFrame } from "./playerSnapshot.js";
+import {
+  deltaEntityEntries,
+  finishDeltaSnapshot,
+  needsSnapshotBaseline,
+  pruneSnapshotClients,
+  snapshotClientState,
+  syncHotbarRevision,
+  syncInventoryRevision,
+} from "./snapshotReplication.js";
 import { indexSnapshotEntities, type SpatialEntityIndex } from "./spatialEntities.js";
+import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
 
-/** AOI-scoped per-player snapshots: entities, events, and area deltas. */
+/** AOI-scoped snapshots with an opt-in revision delta transport. */
 
-/** Extra fields layered onto a base entity snapshot for combatant kinds and animation state. */
-function combatantFields(
-  entity: Entity,
-): Pick<EntitySnapshot, "hp" | "maxHp" | "fx"> | Record<string, never> {
-  if (entity.kind !== "player" && entity.kind !== "enemy") return {};
-  return { hp: entity.hp, maxHp: entity.maxHp, fx: entity.statuses.map((s) => s.defId) };
+interface SnapshotTickContext {
+  index: SpatialEntityIndex;
+  dirty: ServerSnapshot["areas"];
+  worldEvents: WorldEvent[];
 }
 
-/** Torch flight velocity + flying/placed state + burnout tick. */
-function torchFields(
-  entity: Entity,
-): Pick<EntitySnapshot, "vx" | "vy" | "vz" | "state" | "expiresAtTick"> | Record<string, never> {
-  if (entity.kind !== "torch") return {};
-  return {
-    ...(entity.vel ? { vx: entity.vel.x, vy: entity.vel.y, vz: entity.vel.z } : {}),
-    ...(entity.torchState ? { state: entity.torchState } : {}),
-    ...(entity.expiresAtTick !== undefined ? { expiresAtTick: entity.expiresAtTick } : {}),
-  };
-}
-
-/** Enemy anim + aim vector (unit vector toward the enemy's current target). */
-function enemyAnimFields(
-  sim: SimState,
-  entity: Entity,
-): Pick<EntitySnapshot, "anim" | "aimX" | "aimY"> | Record<string, never> {
-  if (entity.kind !== "enemy") return {};
-  // kind === "enemy" guarantees an enemy slot exists.
-  const animation = sim.enemies.get(entity.id)!.animation;
-  const target = animation.target;
-  if (!target) return { anim: animation.state };
-  const dx = target.x - entity.body.x;
-  const dy = target.y - entity.body.y;
-  const distance = Math.hypot(dx, dy) || 1;
-  return { anim: animation.state, aimX: dx / distance, aimY: dy / distance };
-}
-
-/** Player-only fields: brief attack replication and downed flag. */
-function playerFields(
-  sim: SimState,
-  entity: Entity,
-): Pick<EntitySnapshot, "anim" | "downed" | "weapon"> | Record<string, never> {
-  if (entity.kind !== "player") return {};
-  const slot = sim.players.get(entity.id);
-  if (!slot) return {};
-  return {
-    ...(sim.tickCount - slot.attackStartedAtTick <= 3 ? { anim: "attack" as const } : {}),
-    ...(slot.downedAtTick !== null ? { downed: true } : {}),
-    weapon: slot.weapon,
-  };
-}
-
-/** Build one entity's AOI snapshot payload. */
-function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
-  return {
-    id: entity.id,
-    kind: entity.kind,
-    ...(entity.defId !== undefined ? { defId: entity.defId } : {}),
-    ...(entity.name !== undefined ? { name: entity.name } : {}),
-    x: entity.body.x,
-    y: entity.body.y,
-    z: entity.body.z,
-    ...combatantFields(entity),
-    ...(entity.kind === "item" && entity.qty > 1 ? { qty: entity.qty } : {}),
-    ...enemyAnimFields(sim, entity),
-    ...playerFields(sim, entity),
-    ...torchFields(entity),
-    ...(entity.facing ? { faceX: entity.facing.x, faceY: entity.facing.y } : {}),
-    // Projectiles never touch body.grounded; everyone else is
-    // airborne only mid-jump/mid-fall. A flying torch is the same deal
-    // (placed torches sit grounded, no override needed).
-    ...(entity.kind === "projectile" ||
-    (entity.kind === "torch" && entity.torchState === "flying") ||
-    !entity.body.grounded
-      ? { air: true as const }
-      : {}),
-  };
-}
-
-/** Gather every entity in `self`'s AOI, marking which ids are newly/still visible. */
-function gatherVisible(
-  sim: SimState,
-  self: Entity,
-  entityIndex: SpatialEntityIndex,
-): { entities: EntitySnapshot[]; visible: Set<string> } {
-  const entities: EntitySnapshot[] = [];
-  const visible = new Set<string>();
-  for (const entity of entityIndex.queryCircle(self.body.x, self.body.y, AOI_RADIUS).entities) {
-    if (entity.id === self.id) continue;
-    visible.add(entity.id);
-    entities.push(toEntitySnapshot(sim, entity));
-  }
-  return { entities, visible };
-}
-
-/** Build the `self` block: body state + vitals, from the player's own entity. */
-function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"] {
-  const self = slot.entity;
-  // Epic 11 core (ASSUMPTION #90, docs/ASSUMPTIONS.md): xp/level persist on
-  // the durable PlayerStore record, not the ephemeral entity.
-  const level = slot.stored.level ?? 1;
-  const xp = slot.stored.xp ?? 0;
-  return {
-    x: self.body.x,
-    y: self.body.y,
-    z: self.body.z,
-    zVel: self.body.zVel,
-    grounded: self.body.grounded,
-    coyoteTime: self.body.coyoteTime,
-    jumpBuffer: self.body.jumpBuffer,
-    jumpHeld: self.body.jumpHeld,
-    kx: self.body.kx,
-    ky: self.body.ky,
-    hp: self.hp,
-    maxHp: self.maxHp,
-    fx: self.statuses.map((s) => s.defId),
-    ...(slot.downedAtTick !== null ? { downed: true } : {}),
-    xp,
-    level,
-    xpForNext: xpForLevel(level + 1) - xp,
-    // Epic 7.14 (The Descent): current floor + the durable deepest-floor watermark.
-    floor: sim.world.floor,
-    deepestFloor: slot.stored.deepestFloor ?? 1,
-  };
-}
-
-/** Build the `party` block: other members' ids/names/positions, or null when unpartied. */
-function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party"] {
-  const party = slot.partyId ? sim.parties.get(slot.partyId) : undefined;
-  if (!party) return null;
-  return {
-    id: party.id,
-    members: [...party.members]
-      .filter((m) => m !== slot.entity.id && sim.players.get(m)?.connected)
-      .map((m) => {
-        // Member ids come from the party's own member set, always a live player slot.
-        const member = sim.players.get(m)!;
-        return {
-          id: m,
-          name: member.entity.name ?? "?",
-          x: member.entity.body.x,
-          y: member.entity.body.y,
-          hp: member.entity.hp,
-          maxHp: member.entity.maxHp,
-          downed: member.downedAtTick !== null,
-          level: member.stored.level ?? 1,
-        };
-      }),
-  };
-}
-
-/** Area deltas in AOI: dirty tiles, or the full known set right after join/teleport. */
-function toAreaSnapshot(
-  sim: SimState,
-  slot: PlayerSlot,
-  areaDirty: Array<{ x: number; y: number; defId: string | null }>,
-  inAoi: (x: number, y: number) => boolean,
-): Array<{ x: number; y: number; defId: string | null }> {
-  // Removals (defId null) always replicate, even outside AOI: a hazard that
-  // expires while its watcher is far away otherwise stays on that client
-  // FOREVER, running particle emitters unbounded (leak-hunt find, 2026-07-20).
-  // A removal for a tile the client never knew about is a no-op there.
-  if (!slot.needsFullAreas) return areaDirty.filter((a) => a.defId === null || inAoi(a.x, a.y));
-  slot.needsFullAreas = false;
-  return sim.areas.allTiles().filter((a) => inAoi(a.x, a.y));
-}
-
-/** Build one player's full ServerSnapshot: self, entities, events, area deltas. */
-function buildPlayerSnapshot(
-  sim: SimState,
-  slot: PlayerSlot,
-  areaDirty: Array<{ x: number; y: number; defId: string | null }>,
-  worldEvents: WorldEvent[],
-  entityIndex: SpatialEntityIndex,
-): ServerSnapshot {
-  const self = slot.entity;
-  const inAoi = (x: number, y: number) =>
-    (x - self.body.x) ** 2 + (y - self.body.y) ** 2 <= AOI_RADIUS * AOI_RADIUS;
-
-  const { entities, visible } = gatherVisible(sim, self, entityIndex);
-
-  const left: string[] = [];
-  for (const id of slot.known) if (!visible.has(id)) left.push(id);
-  slot.known = visible;
-
-  const events: GameEvent[] = [...slot.outbox];
-  slot.outbox.length = 0;
-  for (const we of worldEvents) if (inAoi(we.x, we.y)) events.push(we.ev);
-
+function fullSnapshot(slot: PlayerSlot, frame: PlayerSnapshotFrame): ServerSnapshot {
   return {
     type: "snapshot",
-    tick: sim.tickCount,
-    lastSeq: slot.lastSeq,
-    self: toSelfSnapshot(sim, slot),
-    inventory: slot.inventory.map((s) => ({ ...s })),
+    ...frame,
+    inventory: slot.inventory.map((stack) => ({ ...stack })),
     hotbar: [...slot.hotbar],
-    weapon: slot.weapon,
-    party: toPartySnapshot(sim, slot),
-    entities,
-    left,
-    events,
-    areas: toAreaSnapshot(sim, slot, areaDirty, inAoi),
+    entities: frame.entities.map(({ snapshot }) => snapshot),
   };
 }
 
-/** Build AOI-scoped snapshots for every connected player. */
+function deltaSnapshot(
+  sim: SimState,
+  slot: PlayerSlot,
+  frame: PlayerSnapshotFrame,
+): ServerSnapshotDelta {
+  const state = snapshotClientState(sim, slot);
+  const baseline = needsSnapshotBaseline(state);
+  const inventoryChanged = syncInventoryRevision(state, slot.inventory);
+  const hotbarChanged = syncHotbarRevision(state, slot.hotbar);
+  return finishDeltaSnapshot(state, {
+    type: "snapshotDelta",
+    tick: frame.tick,
+    lastSeq: frame.lastSeq,
+    self: frame.self,
+    inventoryRevision: state.inventoryRevision,
+    ...(baseline || inventoryChanged ? { inventory: state.inventory } : {}),
+    hotbarRevision: state.hotbarRevision,
+    ...(baseline || hotbarChanged ? { hotbar: state.hotbar } : {}),
+    weapon: frame.weapon,
+    party: frame.party,
+    entities: deltaEntityEntries(state, frame.entities, baseline),
+    left: frame.left,
+    events: frame.events,
+    areas: frame.areas,
+  });
+}
+
+function tickContext(sim: SimState): SnapshotTickContext {
+  const context = {
+    index: indexSnapshotEntities(sim),
+    dirty: sim.areas.drainDirty(),
+    worldEvents: sim.worldEvents,
+  };
+  sim.worldEvents = [];
+  return context;
+}
+
+function snapshotFrame(
+  sim: SimState,
+  slot: PlayerSlot,
+  context: SnapshotTickContext,
+): PlayerSnapshotFrame {
+  return buildPlayerSnapshotFrame(
+    sim,
+    slot,
+    context.dirty,
+    context.worldEvents,
+    context.index,
+  );
+}
+
+function pruneEntityCache(sim: SimState, index: SpatialEntityIndex): void {
+  for (const id of sim.snapshotEntities.keys()) {
+    if (!index.has(id)) sim.snapshotEntities.delete(id);
+  }
+}
+
+/** Full snapshots for transport-free simulation tests and legacy callers. */
 export function buildSnapshots(sim: SimState): Map<string, ServerSnapshot> {
   const snapshots = new Map<string, ServerSnapshot>();
-  const entityIndex = indexSnapshotEntities(sim);
-  const areaDirty = sim.areas.drainDirty();
-  const worldEvents = sim.worldEvents;
-  sim.worldEvents = [];
-
+  const context = tickContext(sim);
   for (const slot of sim.players.values()) {
     if (!slot.connected) {
       slot.outbox.length = 0;
       continue;
     }
-    snapshots.set(slot.entity.id, buildPlayerSnapshot(sim, slot, areaDirty, worldEvents, entityIndex));
+    snapshots.set(slot.entity.id, fullSnapshot(slot, snapshotFrame(sim, slot, context)));
   }
+  pruneEntityCache(sim, context.index);
+  return snapshots;
+}
+
+/** Negotiated wire snapshots; clients without a capability remain byte-compatible. */
+export function buildReplicatedSnapshots(sim: SimState): Map<string, ServerStateSnapshot> {
+  const snapshots = new Map<string, ServerStateSnapshot>();
+  const context = tickContext(sim);
+  for (const slot of sim.players.values()) {
+    if (!slot.connected) {
+      slot.outbox.length = 0;
+      continue;
+    }
+    const frame = snapshotFrame(sim, slot, context);
+    const snapshot = slot.snapshotMode ? deltaSnapshot(sim, slot, frame) : fullSnapshot(slot, frame);
+    snapshots.set(slot.entity.id, snapshot);
+  }
+  pruneEntityCache(sim, context.index);
+  pruneSnapshotClients(sim);
   return snapshots;
 }

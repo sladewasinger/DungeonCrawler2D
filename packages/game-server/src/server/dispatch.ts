@@ -64,7 +64,8 @@ function dispatchMessage(
   }
   const entry = conn.playerId ? sockets.get(conn.playerId) : undefined;
   if (!entry) return;
-  if (msg.type === "input") entry.sim.handleInput(conn.playerId as string, msg);
+  if (msg.type === "snapshotResync") entry.sim.requestSnapshotBaseline(conn.playerId as string);
+  else if (msg.type === "input") entry.sim.handleInput(conn.playerId as string, msg);
   else entry.sim.queueAction(conn.playerId as string, msg);
 }
 
@@ -96,6 +97,7 @@ function handleHello(
   }
   const sim = resolveJoinSim(msg, floors, sandbox);
   const join = sim.addPlayer(msg.name, msg.clientId, msg.resumeToken);
+  sim.configureSnapshotMode(join.playerId, msg.snapshotMode);
   conn.playerId = join.playerId;
   const previous = sockets.get(join.playerId);
   if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");

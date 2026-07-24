@@ -2,10 +2,11 @@
 // integration gate): conn.world must track the CURRENT floor, not just the
 // join-time one, or every post-transfer prediction/terrain/stairway-proximity
 // read silently uses the wrong floor's chunk geometry.
-import { LEVEL, World, type ServerSnapshot } from "@dc2d/engine";
+import { LEVEL, World, type ServerSnapshot, type ServerSnapshotDelta } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { applySnapshot } from "./apply.js";
 import { Connection } from "./connection.js";
+import { applySnapshotDelta } from "./snapshotDelta.js";
 
 const WORLD_SEED = 12345;
 
@@ -130,5 +131,65 @@ describe("applySnapshot prediction correction", () => {
     applySnapshot(conn, snapshotAtFloor(1, 10));
 
     expect(conn.predictionCorrection.consume()).toEqual({ x: -2.5, y: 1.25, z: -0.5 });
+  });
+});
+
+function deltaAt(
+  tick: number,
+  baseTick: number | null,
+  baseline: boolean,
+  areas: ServerSnapshotDelta["areas"] = [],
+): ServerSnapshotDelta {
+  const full = snapshotAtFloor(1, 10);
+  return {
+    type: "snapshotDelta",
+    tick,
+    baseTick,
+    baseline,
+    lastSeq: full.lastSeq,
+    self: full.self,
+    inventoryRevision: 1,
+    ...(baseline ? { inventory: [{ item: "bandage", qty: 2 }] } : {}),
+    hotbarRevision: 1,
+    ...(baseline ? { hotbar: ["bandage"] } : {}),
+    weapon: full.weapon,
+    party: full.party,
+    entities: baseline
+      ? [{ id: "item-1", kind: "item", defId: "rag", x: 1, y: 2, z: 0, revision: 3 }]
+      : [{ id: "item-1", revision: 3, unchanged: true }],
+    left: [],
+    events: [],
+    areas,
+  };
+}
+
+describe("applySnapshotDelta", () => {
+  it("applies known revisions, rejects a missed tick, and recovers from a baseline", () => {
+    const conn = freshConnection(1);
+    applySnapshotDelta(conn, deltaAt(10, null, true, [
+      { x: 0, y: 0, defId: "area-fire" },
+    ]));
+    expect(conn.inventory).toEqual([{ item: "bandage", qty: 2 }]);
+    expect(conn.entities.get("item-1")?.snap.defId).toBe("rag");
+    expect(conn.areaTiles.get("0,0")).toBe("area-fire");
+
+    applySnapshotDelta(conn, deltaAt(11, 10, false));
+    expect(conn.serverTick).toBe(11);
+
+    applySnapshotDelta(conn, deltaAt(13, 12, false, [
+      { x: 0, y: 0, defId: null },
+      { x: 1, y: 0, defId: "area-wet" },
+    ]));
+    expect(conn.serverTick).toBe(11);
+    expect(conn.snapshotRevisions.awaitingBaseline).toBe(true);
+    expect(conn.areaTiles.get("0,0")).toBe("area-fire");
+    expect(conn.areaTiles.has("1,0")).toBe(false);
+
+    applySnapshotDelta(conn, deltaAt(14, null, true, [
+      { x: 1, y: 0, defId: "area-wet" },
+    ]));
+    expect(conn.serverTick).toBe(14);
+    expect(conn.snapshotRevisions.awaitingBaseline).toBe(false);
+    expect([...conn.areaTiles]).toEqual([["1,0", "area-wet"]]);
   });
 });

@@ -9,6 +9,8 @@ import {
   type GameEvent,
   type InvStack,
   type ServerSnapshot,
+  type ServerStateSnapshot,
+  type SnapshotMode,
   type World,
 } from "@dc2d/engine";
 import { processActions } from "./actions/index.js";
@@ -33,7 +35,8 @@ import {
 import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
 import { endSpawnGrace, maintainSpawnClearance } from "./spawnSafety.js";
-import { buildSnapshots } from "./snapshots.js";
+import { buildReplicatedSnapshots, buildSnapshots } from "./snapshots.js";
+import { configureSnapshotMode, requestSnapshotBaseline } from "./snapshotReplication.js";
 import { expireInvites } from "./social.js";
 import {
   createSimState,
@@ -127,6 +130,12 @@ export class GameSim {
     queueAction(this.state, playerId, msg);
   }
 
+  configureSnapshotMode(playerId: string, mode: SnapshotMode | undefined): void {
+    configureSnapshotMode(this.state, playerId, mode);
+  }
+
+  requestSnapshotBaseline(playerId: string): void { requestSnapshotBaseline(this.state, playerId); }
+
   getPlayerEntity(playerId: string): Entity | undefined {
     return this.state.players.get(playerId)?.entity;
   }
@@ -215,6 +224,17 @@ export class GameSim {
   // ── main tick ────────────────────────────────────────────────────
 
   step(): Map<string, ServerSnapshot> {
+    this.advanceTick();
+    return buildSnapshots(this.state);
+  }
+
+  /** Production transport path: negotiated clients receive revision deltas. */
+  stepReplicated(): Map<string, ServerStateSnapshot> {
+    this.advanceTick();
+    return buildReplicatedSnapshots(this.state);
+  }
+
+  private advanceTick(): void {
     const sim = this.state;
     sim.tickCount++;
     const effectEvents: EffectEvent[] = [];
@@ -252,6 +272,5 @@ export class GameSim {
     expireFistbumpOffers(sim);
     drainReadyTransfers(sim); // Epic 7.14 — tail of the tick, after everything that could queue one
 
-    return buildSnapshots(sim);
   }
 }

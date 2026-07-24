@@ -11,6 +11,8 @@ import { z } from "zod";
 const axis = z.number().min(-1).max(1);
 const slot = z.number().int().min(0).max(8);
 const level = z.enum(["dungeon", "sandbox"]);
+export const snapshotModeSchema = z.literal("delta-v1");
+export type SnapshotMode = z.infer<typeof snapshotModeSchema>;
 
 export const clientHelloSchema = z.object({
   type: z.literal("hello"),
@@ -25,6 +27,8 @@ export const clientHelloSchema = z.object({
    * slot was already on, ignoring this field. Server clamps to
    * [1, FLOOR_CAP]; absent = floor 1. */
   floor: z.number().int().positive().optional(),
+  /** Additive capability negotiation: absent clients keep full snapshots. */
+  snapshotMode: snapshotModeSchema.optional(),
 });
 
 export const clientInputSchema = z.object({
@@ -122,6 +126,8 @@ export const clientWhoSchema = z.object({ type: z.literal("who") });
 
 export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
 export const clientSuicideSchema = z.object({ type: z.literal("suicide") });
+/** Requests a complete delta baseline after a revision/base-tick mismatch. */
+export const clientSnapshotResyncSchema = z.object({ type: z.literal("snapshotResync") });
 
 /**
  * Dev-harness commands (god mode, teleport). The SERVER gates these on
@@ -157,6 +163,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientWhoSchema,
   clientPingSchema,
   clientSuicideSchema,
+  clientSnapshotResyncSchema,
   clientDebugSchema,
 ]);
 

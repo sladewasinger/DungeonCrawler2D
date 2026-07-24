@@ -43,8 +43,17 @@ describe("protocol", () => {
       { type: "who" },
       { type: "suicide" },
       { type: "descend" },
+      { type: "snapshotResync" },
       { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "sandbox" },
-      { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "dungeon", floor: 3 },
+      {
+        type: "hello",
+        protocol: 8,
+        name: "Crawler",
+        clientId: "client-1",
+        level: "dungeon",
+        floor: 3,
+        snapshotMode: "delta-v1",
+      },
     ];
     for (const intent of intents) {
       expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);

@@ -37,6 +37,7 @@ import {
 } from "./intents.js";
 import { Prediction } from "./prediction.js";
 import { PredictionCorrection } from "./predictionCorrection.js";
+import { SnapshotRevisionState } from "./snapshotState.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -55,6 +56,7 @@ export class Connection {
   /** The last applied snapshot's server tick — placed-torch ember-fade math
    * (scenes/dungeon/torchSync.ts) counts down against this. */
   serverTick = 0;
+  readonly snapshotRevisions = new SnapshotRevisionState();
   /** Set true the first time applySnapshot ever runs — gates `dead` below so the
    * default `hp = 0` never reads as a real death before server truth has arrived
    * (docs/ASSUMPTIONS.md #88's client-side gap: welcome sets status "connected"
@@ -141,9 +143,7 @@ export class Connection {
     return this.status === "connected" && this.hp > 0 && !this.downed;
   }
 
-  setName(name: string): void {
-    this.name = name;
-  }
+  setName(name: string): void { this.name = name; }
 
   connect(level: LevelId = this.level): void {
     this.level = level;
@@ -159,6 +159,7 @@ export class Connection {
     this.downed = false;
     this.justRespawned = false;
     this.hasReceivedSnapshot = false;
+    this.snapshotRevisions.reset();
     this.entities.clear();
     this.areaTiles.clear();
     this.prediction.reset();
@@ -197,9 +198,7 @@ export class Connection {
 
   useItem(item: string): void { useItemIntent(this, item); }
 
-  pickup(): void {
-    pickupIntent(this);
-  }
+  pickup(): void { pickupIntent(this); }
 
   drop(item: string): void {
     dropIntent(this, item);

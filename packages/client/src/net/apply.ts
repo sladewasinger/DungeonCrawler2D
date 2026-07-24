@@ -14,6 +14,7 @@ import { xpGainEvents } from "./xpEvents.js";
 
 export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   if (!conn.world) return;
+  if (snap.events.some((event) => event.t === "teleported")) prepareTeleport(conn);
   conn.serverTick = snap.tick;
   applySelfState(conn, snap, conn.world);
   conn.hasReceivedSnapshot = true;
@@ -28,6 +29,14 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   for (const event of snap.events) applyEvent(conn, event);
   for (const id of snap.left) conn.entities.delete(id);
   conn.onSnapshot?.();
+}
+
+function prepareTeleport(conn: Connection): void {
+  conn.entities.clear();
+  conn.snapshotRevisions.entities.clear();
+  conn.areaTiles.clear();
+  conn.prediction.reset();
+  conn.predictionCorrection.reset();
 }
 
 function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): void {
@@ -166,8 +175,6 @@ function applyEvent(conn: Connection, event: GameEvent): void {
       conn.teleported = true;
       conn.prediction.reset();
       conn.predictionCorrection.reset();
-      conn.entities.clear();
-      conn.areaTiles.clear();
       return;
     case "death":
       // Applied before `left` prunes conn.entities (see applySnapshot's ordering comment),

@@ -168,6 +168,40 @@ export const serverSnapshotSchema = z.object({
   areas: z.array(areaTileSchema),
 });
 
+export const entitySnapshotRevisionSchema = entitySnapshotSchema.extend({
+  revision: z.number().int().nonnegative(),
+});
+export const entitySnapshotReferenceSchema = z.object({
+  id: z.string(),
+  revision: z.number().int().nonnegative(),
+  unchanged: z.literal(true),
+});
+export const entitySnapshotDeltaEntrySchema = z.union([
+  entitySnapshotRevisionSchema,
+  entitySnapshotReferenceSchema,
+]);
+
+/** Negotiated snapshot form: reliable ordered deltas with explicit recovery metadata. */
+export const serverSnapshotDeltaSchema = z.object({
+  type: z.literal("snapshotDelta"),
+  tick: z.number().int(),
+  /** Previous successfully sent delta tick; null identifies a complete baseline. */
+  baseTick: z.number().int().nullable(),
+  baseline: z.boolean(),
+  lastSeq: z.number().int(),
+  self: selfSnapshotSchema,
+  inventoryRevision: z.number().int().nonnegative(),
+  inventory: z.array(invStackSchema).optional(),
+  hotbarRevision: z.number().int().nonnegative(),
+  hotbar: z.array(z.string().nullable()).optional(),
+  weapon: z.string().nullable(),
+  party: partySnapshotSchema,
+  entities: z.array(entitySnapshotDeltaEntrySchema),
+  left: z.array(z.string()),
+  events: z.array(gameEventSchema),
+  areas: z.array(areaTileSchema),
+});
+
 export const serverPongSchema = z.object({ type: z.literal("pong"), t: z.number() });
 export const serverErrorSchema = z.object({
   type: z.literal("error"),
@@ -178,10 +212,16 @@ export const serverErrorSchema = z.object({
 export const serverMessageSchema = z.discriminatedUnion("type", [
   serverWelcomeSchema,
   serverSnapshotSchema,
+  serverSnapshotDeltaSchema,
   serverPongSchema,
   serverErrorSchema,
 ]);
 
 export type ServerWelcome = z.infer<typeof serverWelcomeSchema>;
 export type ServerSnapshot = z.infer<typeof serverSnapshotSchema>;
+export type EntitySnapshotRevision = z.infer<typeof entitySnapshotRevisionSchema>;
+export type EntitySnapshotReference = z.infer<typeof entitySnapshotReferenceSchema>;
+export type EntitySnapshotDeltaEntry = z.infer<typeof entitySnapshotDeltaEntrySchema>;
+export type ServerSnapshotDelta = z.infer<typeof serverSnapshotDeltaSchema>;
+export type ServerStateSnapshot = ServerSnapshot | ServerSnapshotDelta;
 export type ServerMessage = z.infer<typeof serverMessageSchema>;

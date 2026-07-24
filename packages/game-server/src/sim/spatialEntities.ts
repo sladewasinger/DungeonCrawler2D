@@ -16,6 +16,7 @@ export interface SpatialEntityQuery {
 
 export class SpatialEntityIndex {
   private readonly buckets = new Map<string, IndexedEntity[]>();
+  private readonly ids = new Set<string>();
   private nextOrder = 0;
 
   add(entity: Entity): void {
@@ -25,8 +26,13 @@ export class SpatialEntityIndex {
     );
     const bucket = this.buckets.get(key);
     const indexed = { entity, order: this.nextOrder++ };
+    this.ids.add(entity.id);
     if (bucket) bucket.push(indexed);
     else this.buckets.set(key, [indexed]);
+  }
+
+  has(id: string): boolean {
+    return this.ids.has(id);
   }
 
   queryCircle(x: number, y: number, radius: number): SpatialEntityQuery {

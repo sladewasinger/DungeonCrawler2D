@@ -9,6 +9,7 @@ import {
 import { applySnapshot } from "./apply.js";
 import type { Connection } from "./connection.js";
 import { clearResumeToken, loadResumeToken, saveResumeToken } from "./identity.js";
+import { applySnapshotDelta } from "./snapshotDelta.js";
 
 /**
  * WebSocket wire mechanics for Connection: open/close, the hello
@@ -44,6 +45,7 @@ export function openSocket(conn: Connection): void {
       name: conn.name,
       clientId: conn.clientId,
       level: conn.level,
+      snapshotMode: "delta-v1",
       ...(resumeToken ? { resumeToken } : {}),
     });
   };
@@ -93,7 +95,11 @@ function handleMessage(conn: Connection, msg: NonNullable<ReturnType<typeof deco
       onWelcome(conn, msg);
       return;
     case "snapshot":
+      conn.snapshotRevisions.reset();
       applySnapshot(conn, msg);
+      return;
+    case "snapshotDelta":
+      applySnapshotDelta(conn, msg);
       return;
     case "pong":
       conn.rttMs = performance.now() - msg.t;
@@ -114,6 +120,7 @@ function onWelcome(conn: Connection, msg: ServerWelcome): void {
   conn.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
   conn.prediction.reset();
   conn.predictionCorrection.reset();
+  conn.snapshotRevisions.reset();
   conn.entities.clear();
   conn.areaTiles.clear();
   conn.teleported = true;
