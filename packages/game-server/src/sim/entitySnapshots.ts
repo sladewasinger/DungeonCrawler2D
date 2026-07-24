@@ -15,12 +15,26 @@ function combatantFields(
   return { hp: entity.hp, maxHp: entity.maxHp, fx: entity.statuses.map((status) => status.defId) };
 }
 
+function velocityFields(
+  sim: SimState,
+  entity: Entity,
+): Pick<EntitySnapshot, "vx" | "vy" | "vz"> | Record<string, never> {
+  if ((entity.kind === "projectile" || entity.kind === "torch") && entity.vel) {
+    return { vx: entity.vel.x, vy: entity.vel.y, vz: entity.vel.z };
+  }
+  const motion = sim.replicationMotion.get(entity.id);
+  return motion ? {
+    vx: motion.x,
+    vy: motion.y,
+    ...(!entity.body.grounded ? { vz: entity.body.zVel } : {}),
+  } : {};
+}
+
 function torchFields(
   entity: Entity,
-): Pick<EntitySnapshot, "vx" | "vy" | "vz" | "state" | "expiresAtTick"> | Record<string, never> {
+): Pick<EntitySnapshot, "state" | "expiresAtTick"> | Record<string, never> {
   if (entity.kind !== "torch") return {};
   return {
-    ...(entity.vel ? { vx: entity.vel.x, vy: entity.vel.y, vz: entity.vel.z } : {}),
     ...(entity.torchState ? { state: entity.torchState } : {}),
     ...(entity.expiresAtTick !== undefined ? { expiresAtTick: entity.expiresAtTick } : {}),
   };
@@ -75,6 +89,7 @@ function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
     ...(entity.kind === "item" && entity.qty > 1 ? { qty: entity.qty } : {}),
     ...enemyFields(sim, entity),
     ...playerFields(sim, entity),
+    ...velocityFields(sim, entity),
     ...torchFields(entity),
     ...(entity.facing ? { faceX: entity.facing.x, faceY: entity.facing.y } : {}),
     ...(isAirborne(entity) ? { air: true as const } : {}),
@@ -105,12 +120,16 @@ function playerMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot):
     snapshot.weapon === fields.weapon;
 }
 
+function velocityMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {
+  const velocity = velocityFields(sim, entity);
+  return snapshot.vx === velocity.vx &&
+    snapshot.vy === velocity.vy &&
+    snapshot.vz === velocity.vz;
+}
+
 function torchMatches(entity: Entity, snapshot: EntitySnapshot): boolean {
   if (entity.kind !== "torch") return true;
-  return snapshot.vx === entity.vel?.x &&
-    snapshot.vy === entity.vel?.y &&
-    snapshot.vz === entity.vel?.z &&
-    snapshot.state === entity.torchState &&
+  return snapshot.state === entity.torchState &&
     snapshot.expiresAtTick === entity.expiresAtTick;
 }
 
@@ -134,6 +153,7 @@ function snapshotMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot
   return baseMatches(entity, snapshot) &&
     presentationMatches(entity, snapshot) &&
     statusesMatch(entity, snapshot) &&
+    velocityMatches(sim, entity, snapshot) &&
     enemyMatches(sim, entity, snapshot) &&
     playerMatches(sim, entity, snapshot) &&
     torchMatches(entity, snapshot);

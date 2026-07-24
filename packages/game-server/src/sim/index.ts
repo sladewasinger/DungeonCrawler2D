@@ -35,7 +35,12 @@ import {
 import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
 import { endSpawnGrace, maintainSpawnClearance } from "./spawnSafety.js";
-import { buildReplicatedSnapshots, buildSnapshots } from "./snapshots.js";
+import {
+  buildPreparedReplicatedSnapshots,
+  buildReplicatedSnapshots,
+  buildSnapshots,
+  type PreparedSnapshotDelivery,
+} from "./snapshots.js";
 import { configureSnapshotMode, requestSnapshotBaseline } from "./snapshotReplication.js";
 import { expireInvites } from "./social.js";
 import {
@@ -82,21 +87,13 @@ export class GameSim {
     initBossFloor(this.state); // no-op off floor FLOOR_CAP (Epic 7.14)
   }
 
-  get world(): World {
-    return this.state.world;
-  }
+  get world(): World { return this.state.world; }
 
-  get effects(): EffectsEngine {
-    return this.state.effects;
-  }
+  get effects(): EffectsEngine { return this.state.effects; }
 
-  get areas(): AreaSystem {
-    return this.state.areas;
-  }
+  get areas(): AreaSystem { return this.state.areas; }
 
-  get tick(): number {
-    return this.state.tickCount;
-  }
+  get tick(): number { return this.state.tickCount; }
 
   get playerCount(): number {
     return this.state.players.size;
@@ -232,6 +229,12 @@ export class GameSim {
   stepReplicated(): Map<string, ServerStateSnapshot> {
     this.advanceTick();
     return buildReplicatedSnapshots(this.state);
+  }
+
+  /** Production path: transport commits each delivery after its socket accepts it. */
+  stepPreparedReplicated(): Map<string, PreparedSnapshotDelivery> {
+    this.advanceTick();
+    return buildPreparedReplicatedSnapshots(this.state);
   }
 
   private advanceTick(): void {

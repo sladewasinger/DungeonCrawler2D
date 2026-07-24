@@ -97,6 +97,7 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
 
 export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const slot of sim.players.values()) {
+    sim.replicationMotion.set(slot.entity.id, { x: 0, y: 0 });
     if (!slot.connected) {
       slot.pendingInputs.length = 0;
       continue;
@@ -123,7 +124,13 @@ function stepPlayerBody(
   const input = latestInput ?? NEUTRAL_INPUT;
   if (input.moveX !== 0 || input.moveY !== 0 || input.jump) endSpawnGrace(slot);
   faceEntity(entity, input.faceX ?? input.moveX, input.faceY ?? input.moveY);
+  const beforeX = entity.body.x;
+  const beforeY = entity.body.y;
   const result = stepBody(sim.world, entity.body, input, TICK_DT, opts);
+  sim.replicationMotion.set(entity.id, {
+    x: (entity.body.x - beforeX) / TICK_DT,
+    y: (entity.body.y - beforeY) / TICK_DT,
+  });
   if (latestInput) slot.lastSeq = latestInput.seq;
   if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
   killIfInChasm(slot);

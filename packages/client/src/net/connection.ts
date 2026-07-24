@@ -1,7 +1,7 @@
 import {
   LEVEL,
+  WireMetrics,
   World,
-  encodeMessage,
   type BodyState,
   type ClientMessage,
   type EntitySnapshot,
@@ -35,6 +35,9 @@ import {
   useSlotIntent,
   whoIntent,
 } from "./intents.js";
+import { sendMeasured } from "./measuredSend.js";
+import { MovementCadence } from "./movementCadence.js";
+import { sampleMovement } from "./movementSampling.js";
 import { Prediction } from "./prediction.js";
 import { PredictionCorrection } from "./predictionCorrection.js";
 import { SnapshotRevisionState } from "./snapshotState.js";
@@ -109,8 +112,12 @@ export class Connection {
   readonly areaTiles = new Map<string, string>();
   /** Local movement prediction; apply.ts reconciles it per snapshot. */
   readonly prediction = new Prediction();
-  /** Render-only displacement needed to keep interpolation on the reconciled timeline. */
+  /** Wire cadence is independent from the fixed prediction cadence. */
+  readonly movementCadence = new MovementCadence();
+  /** Render-only smoothing keeps authoritative correction out of simulation state. */
   readonly predictionCorrection = new PredictionCorrection();
+  /** Live traffic/correction diagnostics expose the roadmap's reproducible baseline. */
+  readonly networkMetrics = new WireMetrics();
 
   // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
   // class delegates its lifecycle to; treat as this facade's internals.
@@ -161,23 +168,13 @@ export class Connection {
     this.entities.clear();
     this.areaTiles.clear();
     this.prediction.reset();
+    this.movementCadence.reset();
     this.predictionCorrection.reset();
   }
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
-    if (!this.world || !this.body || !this.canAct) return;
-    const seq = this.prediction.predict(this.world, this.body, input);
-    this.send({
-      type: "input",
-      seq,
-      moveX: input.moveX,
-      moveY: input.moveY,
-      ...(input.faceX !== undefined ? { faceX: input.faceX } : {}),
-      ...(input.faceY !== undefined ? { faceY: input.faceY } : {}),
-      jump: input.jump,
-      run: input.run ?? false,
-    });
+    sampleMovement(this, input);
   }
 
   // ── intents (bodies live in intents.ts, split out for the file-size cap) ──
@@ -268,7 +265,7 @@ export class Connection {
   }
 
   send(msg: ClientMessage): void {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(encodeMessage(msg));
+    sendMeasured(this.ws, msg, this.networkMetrics);
   }
 
   /**

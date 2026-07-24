@@ -1,23 +1,18 @@
-// Converts live bench state into the exact view shapes the REAL renderer consumes
-// (render/entities + vfx/areaEffectPool) — the bench drives that renderer, it never
-// reimplements it. Area sprite kinds read off the content registry's own `sprite`
-// field, the same source the live dungeon scene's areaViews.ts resolves from.
+// Converts live bench state into the exact view shapes the production entity and VFX
+// renderers consume, keeping the offline bench on the same presentation contracts.
 import type { AreaTileView, AreaSpriteKind } from "../../../vfx/index.js";
-import type { ItemEntityView, MonsterEntityView } from "../../../render/entities/index.js";
+import type { ItemEntityView, MonsterEntityView, ProjectileEntityView } from "../../../render/entities/index.js";
 import { groundItemFrame } from "../../dungeon/itemFrame.js";
 import { DUMMY_NAME } from "./dummy.js";
 import type { BenchState } from "./state.js";
 
-/** Assumption #62: the id folds in defId (not just "x,y") so a same-tile meeting (oil
- * catching fire, fire+wet becoming steam — system.ts's AREA_MEETS) reads as a fresh
- * tile to AreaEffectPool.sync, which only rebuilds a rig for an id it hasn't seen
- * before; a bare position id would let it keep reusing the old sprite kind's rig. */
+/** Stable tile ids plus the separate content effect id exercise the live rig-rebuild contract. */
 export function benchAreaTileViews(state: BenchState): AreaTileView[] {
   const out: AreaTileView[] = [];
   for (const tile of state.areas.allTiles()) {
     const def = state.content.areas.get(tile.defId);
     if (!def) continue;
-    out.push({ id: `${tile.x},${tile.y}:${tile.defId}`, x: tile.x + 0.5, y: tile.y + 0.5, sprite: def.sprite as AreaSpriteKind });
+    out.push({ id: `${tile.x},${tile.y}`, effectId: tile.defId, x: tile.x + 0.5, y: tile.y + 0.5, sprite: def.sprite as AreaSpriteKind });
   }
   return out;
 }
@@ -64,4 +59,12 @@ export function benchMonsterViews(state: BenchState): MonsterEntityView[] {
 
 export function benchItemViews(state: BenchState): ItemEntityView[] {
   return [...state.items.values()].map((item) => ({ id: item.id, x: item.x, y: item.y, frame: groundItemFrame(item.defId) }));
+}
+
+/** Adapts live bench projectiles to the exact view consumed by EntityRenderer.syncProjectiles. */
+export function benchProjectileViews(state: BenchState): ProjectileEntityView[] {
+  return [...state.projectiles.values()].map(({ entity }) => {
+    const velocity = entity.vel ?? { x: 0, y: 0 };
+    return { id: entity.id, x: entity.body.x, y: entity.body.y, frame: groundItemFrame(entity.defId), vx: velocity.x, vy: velocity.y };
+  });
 }

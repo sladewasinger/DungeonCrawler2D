@@ -106,6 +106,7 @@ function requestBaseline(conn: Connection): void {
   conn.snapshotRevisions.awaitingBaseline = true;
   if (conn.snapshotRevisions.resyncPending) return;
   conn.snapshotRevisions.resyncPending = true;
+  conn.networkMetrics.recordRecoveryRequest();
   conn.send({ type: "snapshotResync" });
 }
 

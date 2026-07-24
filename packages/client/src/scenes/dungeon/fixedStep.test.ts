@@ -5,7 +5,6 @@ import {
   consumeFixedSteps,
   interpolationAlpha,
   lerp,
-  translatePose,
 } from "./fixedStep.js";
 
 describe("consumeFixedSteps", () => {
@@ -51,15 +50,5 @@ describe("lerp", () => {
   it("interpolates linearly", () => {
     expect(lerp(0, 10, 0.5)).toBe(5);
     expect(lerp(-4, 4, 0.25)).toBe(-2);
-  });
-});
-
-describe("translatePose", () => {
-  it("moves interpolation history by the authoritative correction", () => {
-    expect(translatePose({ x: 5, y: 2, z: 1 }, { x: -0.5, y: 0.25, z: 0 })).toEqual({
-      x: 4.5,
-      y: 2.25,
-      z: 1,
-    });
   });
 });

@@ -10,7 +10,7 @@ import {
   type BodyState,
   type MoveInput,
 } from "@dc2d/engine";
-import { Prediction } from "./prediction.js";
+import { PREDICTION_HISTORY_LIMIT, Prediction } from "./prediction.js";
 
 /**
  * Proves the client-side prediction/reconciliation loop: running the
@@ -104,7 +104,7 @@ describe("Prediction", () => {
     expect(closeBody(corrected, server)).toBe(true);
   });
 
-  it("replays only inputs newer than the acked sequence", () => {
+  it("replays only inputs newer than the authoritative server tick", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
     const client = createBody(SPAWN_X, SPAWN_Y, 5);
@@ -113,12 +113,30 @@ describe("Prediction", () => {
 
     // Reconciling onto a fresh body from tick-3's authoritative state
     // should reproduce exactly the client's own tick-5 position: only
-    // ticks 4 and 5 were unacked and get replayed.
+    // ticks 4 and 5 are newer than server tick 3 and get replayed.
     const authoritative = createBody(SPAWN_X, SPAWN_Y, 5);
     for (let tick = 0; tick < 3; tick++) stepBody(world, authoritative, WALK, TICK_DT);
     prediction.reconcile(world, authoritative, 3);
 
     expect(closeBody(authoritative, client)).toBe(true);
+  });
+
+  it("uses authoritative tick coverage instead of sparse wire sequence acknowledgements", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
+    prediction.reconcile(world, client, 100);
+
+    for (let tick = 101; tick <= 110; tick++) {
+      prediction.predict(world, client, WALK);
+      stepBody(world, server, WALK, TICK_DT);
+      if (tick % 2 !== 0) continue;
+      const authoritative = cloneBody(server);
+      prediction.reconcile(world, authoritative, tick);
+      expect(closeBody(authoritative, server)).toBe(true);
+      Object.assign(client, authoritative);
+    }
   });
 
   it("reset drops all pending inputs so reconcile replays nothing", () => {
@@ -134,5 +152,25 @@ describe("Prediction", () => {
     prediction.reconcile(world, body, 0);
 
     expect(closeBody(body, before)).toBe(true);
+  });
+
+  it("evicts only the oldest input when history exceeds its bounded limit", () => {
+    expect(PREDICTION_HISTORY_LIMIT).toBe(64);
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const inputs: MoveInput[] = Array.from({ length: PREDICTION_HISTORY_LIMIT + 1 }, (_, index) =>
+      index % 2 === 0 ? WALK : { ...WALK, moveX: -1 });
+    for (const input of inputs) prediction.predict(world, client, input);
+
+    const replayed = createBody(SPAWN_X, SPAWN_Y, 5);
+    prediction.reconcile(world, replayed, 0);
+    const retainedExpected = createBody(SPAWN_X, SPAWN_Y, 5);
+    for (const input of inputs.slice(1)) stepBody(world, retainedExpected, input, TICK_DT);
+    const unbounded = createBody(SPAWN_X, SPAWN_Y, 5);
+    for (const input of inputs) stepBody(world, unbounded, input, TICK_DT);
+
+    expect(closeBody(replayed, retainedExpected)).toBe(true);
+    expect(closeBody(replayed, unbounded)).toBe(false);
   });
 });

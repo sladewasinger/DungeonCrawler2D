@@ -33,16 +33,16 @@ const ARENA_LIGHT: LightSource = {
 
 /** Flattens the hand-placed HAZARD_TILES groups into the AreaTileView list AreaEffectPool expects. */
 function hazardTiles(): AreaTileView[] {
-  const groups: Array<{ sprite: AreaTileView["sprite"]; positions: readonly { x: number; y: number }[] }> = [
-    { sprite: "oil", positions: HAZARD_TILES.oil },
-    { sprite: "fire", positions: HAZARD_TILES.fire },
-    { sprite: "steam", positions: HAZARD_TILES.steam },
-    { sprite: "wet", positions: HAZARD_TILES.wet },
-    { sprite: "poison", positions: HAZARD_TILES.poison },
+  const groups: Array<{ effectId: string; sprite: AreaTileView["sprite"]; positions: readonly { x: number; y: number }[] }> = [
+    { effectId: "area-oil", sprite: "oil", positions: HAZARD_TILES.oil },
+    { effectId: "area-fire", sprite: "fire", positions: HAZARD_TILES.fire },
+    { effectId: "area-steam", sprite: "steam", positions: HAZARD_TILES.steam },
+    { effectId: "area-wet", sprite: "wet", positions: HAZARD_TILES.wet },
+    { effectId: "area-poison", sprite: "poison", positions: HAZARD_TILES.poison },
   ];
   const tiles: AreaTileView[] = [];
   for (const group of groups) {
-    for (const p of group.positions) tiles.push({ id: `hazard:${p.x},${p.y}`, x: p.x + 0.5, y: p.y + 0.5, sprite: group.sprite });
+    for (const p of group.positions) tiles.push({ id: `hazard:${p.x},${p.y}`, effectId: group.effectId, x: p.x + 0.5, y: p.y + 0.5, sprite: group.sprite });
   }
   return tiles;
 }

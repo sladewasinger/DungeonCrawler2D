@@ -36,7 +36,7 @@ function prepareTeleport(conn: Connection): void {
   conn.snapshotRevisions.entities.clear();
   conn.areaTiles.clear();
   conn.prediction.reset();
-  conn.predictionCorrection.reset();
+  conn.predictionCorrection.reset(true);
 }
 
 function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): void {
@@ -72,8 +72,9 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
   conn.downed = snap.self.downed ?? false;
   if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
-  else conn.prediction.reconcile(world, conn.body, snap.lastSeq);
+  else conn.prediction.reconcile(world, conn.body, snap.tick);
   if (predictedBeforeSnapshot) conn.predictionCorrection.record(predictedBeforeSnapshot, conn.body);
+  conn.networkMetrics.recordCorrection(conn.predictionCorrection.lastError);
   applyXpState(conn, snap.self.xp ?? conn.xp, snap.self.level ?? conn.charLevel, snap.self.xpForNext ?? conn.xpForNext);
   applyFloorState(conn, snap);
   conn.inventory = snap.inventory;
@@ -174,7 +175,7 @@ function applyEvent(conn: Connection, event: GameEvent): void {
     case "teleported":
       conn.teleported = true;
       conn.prediction.reset();
-      conn.predictionCorrection.reset();
+      conn.predictionCorrection.reset(true);
       return;
     case "death":
       // Applied before `left` prunes conn.entities (see applySnapshot's ordering comment),

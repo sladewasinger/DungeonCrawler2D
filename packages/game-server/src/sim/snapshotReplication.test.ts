@@ -15,6 +15,14 @@ function entryFor(entries: EntitySnapshotDeltaEntry[], id: string): EntitySnapsh
   return entry;
 }
 
+function nextDelta(sim: ReturnType<typeof makeSim>, playerId: string): ServerSnapshotDelta {
+  for (let attempts = 0; attempts < 2; attempts++) {
+    const snapshot = sim.stepReplicated().get(playerId);
+    if (snapshot) return asDelta(snapshot);
+  }
+  throw new Error("snapshot cadence exceeded two ticks");
+}
+
 describe("snapshot delta replication", () => {
   it("keeps legacy clients full, then sends revisions, references, and recovery baselines", () => {
     const sim = makeSim();
@@ -24,7 +32,7 @@ describe("snapshot delta replication", () => {
     expect(sim.stepReplicated().get(player.playerId)?.type).toBe("snapshot");
 
     sim.configureSnapshotMode(player.playerId, "delta-v1");
-    const baseline = asDelta(sim.stepReplicated().get(player.playerId));
+    const baseline = nextDelta(sim, player.playerId);
     expect(baseline).toMatchObject({
       baseline: true,
       baseTick: null,
@@ -33,7 +41,7 @@ describe("snapshot delta replication", () => {
     });
     expect(entryFor(baseline.entities, item.id)).not.toHaveProperty("unchanged");
 
-    const idle = asDelta(sim.stepReplicated().get(player.playerId));
+    const idle = nextDelta(sim, player.playerId);
     expect(idle).toMatchObject({
       baseline: false,
       baseTick: baseline.tick,
@@ -46,7 +54,7 @@ describe("snapshot delta replication", () => {
     expect(JSON.stringify(idle).length).toBeLessThan(JSON.stringify(baseline).length);
 
     sim.getInventory(player.playerId)?.push({ item: "water-flask", qty: 1 });
-    const inventoryDelta = asDelta(sim.stepReplicated().get(player.playerId));
+    const inventoryDelta = nextDelta(sim, player.playerId);
     expect(inventoryDelta.inventoryRevision).toBeGreaterThan(idle.inventoryRevision);
     expect(inventoryDelta.inventory).toContainEqual({ item: "water-flask", qty: 1 });
     expect(inventoryDelta.hotbar).toBeUndefined();
@@ -54,12 +62,12 @@ describe("snapshot delta replication", () => {
     const areaX = Math.floor(player.spawn.x);
     const areaY = Math.floor(player.spawn.y);
     sim.areas.spawn("area-wet", areaX, areaY, 0);
-    const areaDelta = asDelta(sim.stepReplicated().get(player.playerId));
+    const areaDelta = nextDelta(sim, player.playerId);
     expect(areaDelta.areas).toContainEqual({ x: areaX, y: areaY, defId: "area-wet" });
     sim.stepReplicated();
 
     sim.requestSnapshotBaseline(player.playerId);
-    const recovered = asDelta(sim.stepReplicated().get(player.playerId));
+    const recovered = nextDelta(sim, player.playerId);
     expect(recovered.baseline).toBe(true);
     expect(recovered.entities.every((entry) => !("unchanged" in entry))).toBe(true);
     expect(recovered.areas).toContainEqual({ x: areaX, y: areaY, defId: "area-wet" });

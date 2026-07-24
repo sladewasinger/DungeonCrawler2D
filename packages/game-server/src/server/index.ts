@@ -6,6 +6,7 @@ import { PlayerStore } from "../store.js";
 import { broadcastTick } from "./broadcast.js";
 import { handleConnection } from "./dispatch.js";
 import { startHeartbeat } from "./heartbeat.js";
+import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
 import type { SocketMap } from "./types.js";
 
 /** WebSocket transport facade: decodes/validates inbound messages,
@@ -40,6 +41,7 @@ export interface RunningServer {
   /** Epic 7.14: the dungeon level's per-floor sim registry. */
   floors: FloorRegistry;
   store: PlayerStore;
+  networkMetrics: ServerNetworkDiagnostics;
   stop(): void;
 }
 
@@ -61,26 +63,28 @@ export function startServer(opts: ServerOptions): RunningServer {
     initialSeed + 1000,
     simOpts,
   );
-  const sims: Record<LevelId, GameSim> = { dungeon: floors.base, sandbox };
   const wss = new WebSocketServer({ port: opts.port });
   const sockets: SocketMap = new Map();
+  const networkMetrics = new ServerNetworkDiagnostics();
   const stopHeartbeat = startHeartbeat(wss);
 
   wss.on("connection", (ws: WebSocket) => {
-    handleConnection(ws, floors, sandbox, sockets, opts.worldSeed);
+    handleConnection(ws, floors, sandbox, sockets, opts.worldSeed, networkMetrics);
   });
 
-  const interval = setInterval(() => broadcastTick(floors, sandbox, sockets), 1000 / TICK_RATE);
+  const interval = setInterval(
+    () => broadcastTick(floors, sandbox, sockets, networkMetrics),
+    1000 / TICK_RATE,
+  );
 
   return {
     wss,
     sim: floors.base,
-    sims,
+    sims: { dungeon: floors.base, sandbox },
     floors,
     store,
-    stop() {
-      stopServer(interval, stopHeartbeat, store, wss, sockets);
-    },
+    networkMetrics,
+    stop: () => stopServer(interval, stopHeartbeat, store, wss, sockets),
   };
 }
 

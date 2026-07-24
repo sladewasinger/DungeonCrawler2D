@@ -15,7 +15,11 @@ import {
   type World,
 } from "@dc2d/engine";
 import { PlayerStore, type StoredPlayer } from "../store.js";
-import type { SnapshotClientState, SnapshotEntityState } from "./snapshotState.js";
+import type {
+  SnapshotClientState,
+  SnapshotEntityState,
+  SnapshotPendingState,
+} from "./snapshotState.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
@@ -206,6 +210,9 @@ export interface SimState {
   /** Transport-only delta caches, isolated from authoritative gameplay state. */
   readonly snapshotClients: Map<string, SnapshotClientState>;
   readonly snapshotEntities: Map<string, SnapshotEntityState>;
+  readonly snapshotPending: Map<string, SnapshotPendingState>;
+  /** Last authoritative horizontal displacement per second, for remote extrapolation only. */
+  readonly replicationMotion: Map<string, { x: number; y: number }>;
 }
 
 export function createSimState(
@@ -216,11 +223,10 @@ export function createSimState(
   opts: SimState["opts"],
 ): SimState {
   return {
-    world, content, store,
+    world, content, store, opts,
     rng: new Rng(rngSeed),
     effects: new EffectsEngine(content, (x, y) => world.isSanctuary(x, y)),
     areas: new AreaSystem(content, world),
-    opts,
     players: new Map(),
     byToken: new Map(),
     enemies: new Map(),
@@ -245,5 +251,7 @@ export function createSimState(
     pendingGlobalChat: [],
     snapshotClients: new Map(),
     snapshotEntities: new Map(),
+    snapshotPending: new Map(),
+    replicationMotion: new Map(),
   };
 }

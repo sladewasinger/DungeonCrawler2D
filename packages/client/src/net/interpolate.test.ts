@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { EntitySnapshot } from "@dc2d/engine";
-import { interpolated, recordSample, type RemoteEntity } from "./interpolate.js";
+import {
+  MAX_EXTRAPOLATION_MS,
+  interpolated,
+  recordSample,
+  type RemoteEntity,
+} from "./interpolate.js";
 
 function snap(x: number): EntitySnapshot {
   return { id: "e1", kind: "player", x, y: 0, z: 0 };
@@ -36,5 +41,41 @@ describe("interpolate", () => {
 
     expect(remote.samples).toHaveLength(1);
     expect(remote.samples[0]?.x).toBe(2);
+  });
+
+  it("extrapolates velocity across jitter without exceeding the safety horizon", () => {
+    const moving = { ...snap(3), y: 4, vx: 2, vy: -1 };
+    const remote: RemoteEntity = { snap: moving, samples: [] };
+    recordSample(remote, 100, moving);
+    const entities = new Map([["e1", remote]]);
+
+    const [result] = interpolated(entities, 0, 100 + MAX_EXTRAPOLATION_MS + 100);
+
+    expect(result?.x).toBeCloseTo(3 + 2 * MAX_EXTRAPOLATION_MS / 1000);
+    expect(result?.y).toBeCloseTo(4 - MAX_EXTRAPOLATION_MS / 1000);
+    expect(result?.z).toBe(0);
+  });
+
+  it("keeps multiple actors convergent across one lost update and irregular arrival", () => {
+    const right: RemoteEntity = { snap: { ...snap(3), vx: 1 }, samples: [] };
+    const left: RemoteEntity = {
+      snap: { ...snap(-3), id: "e2", vx: -1 },
+      samples: [],
+    };
+    for (const [remote, direction] of [[right, 1], [left, -1]] as const) {
+      recordSample(remote, 0, { ...remote.snap, x: 0 });
+      recordSample(remote, 100, { ...remote.snap, x: direction * 0.1 });
+      recordSample(remote, 300, { ...remote.snap, x: direction * 0.3 });
+    }
+    const entities = new Map([["e1", right], ["e2", left]]);
+
+    const duringGap = interpolated(entities, 100, 250);
+    const afterJitter = interpolated(entities, 100, 450);
+    const afterLongLoss = interpolated(entities, 100, 650);
+
+    expect(duringGap.map((actor) => actor.x)).toEqual([0.15, -0.15]);
+    expect(afterJitter.map((actor) => actor.x)).toEqual([0.35, -0.35]);
+    expect(afterLongLoss[0]?.x).toBeCloseTo(0.45);
+    expect(afterLongLoss[1]?.x).toBeCloseTo(-0.45);
   });
 });

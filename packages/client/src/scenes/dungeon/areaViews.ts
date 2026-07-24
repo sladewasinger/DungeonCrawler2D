@@ -30,7 +30,7 @@ export function buildAreaTileViews(areaTiles: ReadonlyMap<string, string>): Area
     const sprite = spriteByAreaId.get(defId);
     if (!sprite) continue;
     const { x, y } = parseTileKey(key);
-    views.push({ id: key, x: x + 0.5, y: y + 0.5, sprite });
+    views.push({ id: key, effectId: defId, x: x + 0.5, y: y + 0.5, sprite });
   }
   return views;
 }

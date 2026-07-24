@@ -3,7 +3,6 @@ import {
   PROTOCOL_VERSION,
   TICK_RATE,
   decodeClientMessage,
-  encodeMessage,
   type ClientHello,
   type ClientMessage,
   type LevelId,
@@ -12,6 +11,8 @@ import type { WebSocket } from "ws";
 import type { FloorRegistry } from "../floorRegistry.js";
 import type { GameSim } from "../sim/index.js";
 import type { ConnState, SocketMap } from "./types.js";
+import { sendServerMessage } from "./measuredSend.js";
+import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
 
 /** Per-connection message routing: hello/resume, protocol check, and
  * handing off input/action messages to whichever sim currently owns
@@ -23,16 +24,28 @@ export function handleConnection(
   sandbox: GameSim,
   sockets: SocketMap,
   worldSeed: number,
+  diagnostics: ServerNetworkDiagnostics,
 ): void {
   const conn: ConnState = { playerId: null };
 
   ws.on("message", (data) => {
-    const msg = decodeClientMessage(data.toString());
+    const raw = data.toString();
+    const startedAt = performance.now();
+    const msg = decodeClientMessage(raw);
+    const decodedAt = performance.now();
+    diagnostics.record(
+      conn.playerId,
+      "inbound",
+      raw,
+      decodedAt - startedAt,
+      ws.bufferedAmount,
+      decodedAt,
+    );
     if (!msg) {
       if (conn.playerId === null) ws.close(1002, "bad message");
       return;
     }
-    dispatchMessage(ws, msg, conn, floors, sandbox, sockets, worldSeed);
+    dispatchMessage(ws, msg, conn, floors, sandbox, sockets, worldSeed, diagnostics);
   });
 
   ws.on("close", () => {
@@ -41,6 +54,7 @@ export function handleConnection(
     if (entry?.ws === ws) {
       sockets.delete(conn.playerId);
       entry.sim.markDisconnected(conn.playerId);
+      diagnostics.removeClient(conn.playerId);
     }
   });
 }
@@ -53,20 +67,29 @@ function dispatchMessage(
   sandbox: GameSim,
   sockets: SocketMap,
   worldSeed: number,
+  diagnostics: ServerNetworkDiagnostics,
 ): void {
   if (msg.type === "hello") {
-    handleHello(ws, msg, conn, floors, sandbox, sockets, worldSeed);
+    handleHello(ws, msg, conn, floors, sandbox, sockets, worldSeed, diagnostics);
     return;
   }
   if (msg.type === "ping") {
-    ws.send(encodeMessage({ type: "pong", t: msg.t }));
+    sendServerMessage(ws, conn.playerId, { type: "pong", t: msg.t }, diagnostics);
     return;
   }
-  const entry = conn.playerId ? sockets.get(conn.playerId) : undefined;
+  if (conn.playerId) routeAuthenticatedMessage(msg, conn.playerId, sockets);
+}
+
+export function routeAuthenticatedMessage(
+  msg: ClientMessage,
+  playerId: string,
+  sockets: SocketMap,
+): void {
+  const entry = sockets.get(playerId);
   if (!entry) return;
-  if (msg.type === "snapshotResync") entry.sim.requestSnapshotBaseline(conn.playerId as string);
-  else if (msg.type === "input") entry.sim.handleInput(conn.playerId as string, msg);
-  else entry.sim.queueAction(conn.playerId as string, msg);
+  if (msg.type === "snapshotResync") entry.sim.requestSnapshotBaseline(playerId);
+  else if (msg.type === "input") entry.sim.handleInput(playerId, msg);
+  else if (msg.type !== "hello" && msg.type !== "ping") entry.sim.queueAction(playerId, msg);
 }
 
 /** Which sim a hello lands in: sandbox is unchanged; a dungeon resume
@@ -89,10 +112,11 @@ function handleHello(
   sandbox: GameSim,
   sockets: SocketMap,
   worldSeed: number,
+  diagnostics: ServerNetworkDiagnostics,
 ): void {
   if (conn.playerId !== null) return;
   if (msg.protocol !== PROTOCOL_VERSION) {
-    rejectProtocolMismatch(ws);
+    rejectProtocolMismatch(ws, diagnostics);
     return;
   }
   const sim = resolveJoinSim(msg, floors, sandbox);
@@ -100,18 +124,24 @@ function handleHello(
   sim.configureSnapshotMode(join.playerId, msg.snapshotMode);
   conn.playerId = join.playerId;
   const previous = sockets.get(join.playerId);
-  if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");
   sockets.set(join.playerId, { ws, sim });
-  sendWelcome(ws, join, msg.level, worldSeed);
+  if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");
+  sendWelcome(ws, join, msg.level, worldSeed, diagnostics);
 }
 
-function rejectProtocolMismatch(ws: WebSocket): void {
-  ws.send(
-    encodeMessage({
+function rejectProtocolMismatch(
+  ws: WebSocket,
+  diagnostics: ServerNetworkDiagnostics,
+): void {
+  sendServerMessage(
+    ws,
+    null,
+    {
       type: "error",
       code: "protocol_mismatch",
       message: `server speaks protocol ${PROTOCOL_VERSION}`,
-    }),
+    },
+    diagnostics,
   );
   ws.close(1002, "protocol mismatch");
 }
@@ -121,9 +151,12 @@ function sendWelcome(
   join: ReturnType<GameSim["addPlayer"]>,
   level: LevelId,
   worldSeed: number,
+  diagnostics: ServerNetworkDiagnostics,
 ): void {
-  ws.send(
-    encodeMessage({
+  sendServerMessage(
+    ws,
+    join.playerId,
+    {
       type: "welcome",
       protocol: PROTOCOL_VERSION,
       playerId: join.playerId,
@@ -133,6 +166,7 @@ function sendWelcome(
       level,
       tickRate: TICK_RATE,
       spawn: join.spawn,
-    }),
+    },
+    diagnostics,
   );
 }

@@ -3,12 +3,13 @@ import {
   RECONNECT_GRACE_MS,
   World,
   createBody,
-  decodeServerMessage,
+  type ServerMessage,
   type ServerWelcome,
 } from "@dc2d/engine";
 import { applySnapshot } from "./apply.js";
 import type { Connection } from "./connection.js";
 import { clearResumeToken, loadResumeToken, saveResumeToken } from "./identity.js";
+import { decodeMeasuredServerMessage } from "./measuredDecode.js";
 import { applySnapshotDelta } from "./snapshotDelta.js";
 
 /**
@@ -51,7 +52,8 @@ export function openSocket(conn: Connection): void {
   };
 
   ws.onmessage = (event) => {
-    const msg = decodeServerMessage(String(event.data));
+    const raw = String(event.data);
+    const msg = decodeMeasuredServerMessage(raw, ws.bufferedAmount, conn.networkMetrics);
     if (conn.ws === ws && msg) handleMessage(conn, msg);
   };
 
@@ -96,7 +98,7 @@ export function requireConnectionUpdate(conn: Connection, message: string): void
   conn.onUpdateRequired?.(message);
 }
 
-function handleMessage(conn: Connection, msg: NonNullable<ReturnType<typeof decodeServerMessage>>): void {
+function handleMessage(conn: Connection, msg: ServerMessage): void {
   switch (msg.type) {
     case "welcome":
       onWelcome(conn, msg);
@@ -108,9 +110,12 @@ function handleMessage(conn: Connection, msg: NonNullable<ReturnType<typeof deco
     case "snapshotDelta":
       applySnapshotDelta(conn, msg);
       return;
-    case "pong":
-      conn.rttMs = performance.now() - msg.t;
+    case "pong": {
+      const roundTrip = performance.now() - msg.t;
+      conn.rttMs = roundTrip;
+      conn.networkMetrics.recordRoundTrip(roundTrip);
       return;
+    }
     case "error":
       console.error(`[server] ${msg.code}: ${msg.message}`);
       if (msg.code === "protocol_mismatch") requireConnectionUpdate(conn, msg.message);
@@ -127,7 +132,8 @@ function onWelcome(conn: Connection, msg: ServerWelcome): void {
   conn.world = new World(msg.worldSeed, msg.floor, msg.level);
   conn.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
   conn.prediction.reset();
-  conn.predictionCorrection.reset();
+  conn.movementCadence.reset();
+  conn.predictionCorrection.reset(true);
   conn.snapshotRevisions.reset();
   conn.entities.clear();
   conn.areaTiles.clear();

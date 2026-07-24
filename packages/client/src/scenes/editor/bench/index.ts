@@ -6,11 +6,12 @@ import { TICK_DT, TICK_RATE, type EffectEvent } from "@dc2d/engine";
 import type { EditableWorld } from "../EditableWorld.js";
 import { tickDummyRegen } from "./dummy.js";
 import { effectTargetFor, tickEnemyAi } from "./enemySim.js";
+import { stepBenchProjectiles } from "./projectiles.js";
 import { createBenchState, type BenchState } from "./state.js";
 
 export { AREA_BRUSHES, ENEMY_BRUSH_IDS, GROUND_ITEM_BRUSH_ID, enemyDef } from "./content.js";
 export { eraseBenchCell, paintArea, paintEnemy, paintItem, resetBench, type BenchLayer } from "./paint.js";
-export { benchAreaTileViews, benchItemViews, benchMonsterViews } from "./views.js";
+export { benchAreaTileViews, benchItemViews, benchMonsterViews, benchProjectileViews } from "./views.js";
 export type { BenchEnemy, BenchItemSpawn, BenchState } from "./state.js";
 
 export function createBench(world: EditableWorld): BenchState {
@@ -63,6 +64,7 @@ export function stepBenchTick(state: BenchState): void {
   tickStatusesAndRules(state, events);
   realizeEvents(state, events);
   tickEnemyAi(state, TICK_DT, events);
+  stepBenchProjectiles(state, events);
   tickDummyRegen(state.dummy, TICK_DT);
   reapDeadEnemies(state);
 }

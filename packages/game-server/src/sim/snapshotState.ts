@@ -1,4 +1,10 @@
-import type { EntitySnapshot, InvStack, SnapshotMode } from "@dc2d/engine";
+import type {
+  AreaTileUpdate,
+  EntitySnapshot,
+  GameEvent,
+  InvStack,
+  SnapshotMode,
+} from "@dc2d/engine";
 
 /** Persistent server-side replication caches; none of this is gameplay state. */
 
@@ -18,6 +24,11 @@ export interface SnapshotEntityState {
   snapshot: EntitySnapshot;
 }
 
+export interface SnapshotPendingState {
+  events: GameEvent[];
+  areas: Map<string, AreaTileUpdate>;
+}
+
 export function newSnapshotClientState(mode: SnapshotMode): SnapshotClientState {
   return {
     mode,
@@ -29,4 +40,17 @@ export function newSnapshotClientState(mode: SnapshotMode): SnapshotClientState 
     hotbar: [],
     entityRevisions: new Map(),
   };
+}
+
+export function cloneSnapshotClientState(state: SnapshotClientState): SnapshotClientState {
+  return {
+    ...state,
+    inventory: state.inventory.map((stack) => ({ ...stack })),
+    hotbar: [...state.hotbar],
+    entityRevisions: new Map(state.entityRevisions),
+  };
+}
+
+export function newSnapshotPendingState(): SnapshotPendingState {
+  return { events: [], areas: new Map() };
 }

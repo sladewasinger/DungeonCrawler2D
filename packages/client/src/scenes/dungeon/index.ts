@@ -19,7 +19,7 @@ import { VfxSystem } from "../../vfx/index.js";
 import type { HudScene } from "../HudScene.js";
 import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
 import { bindDungeonCameraResize } from "./cameraResize.js";
-import { consumeFixedSteps, interpolationAlpha, lerp, translatePose } from "./fixedStep.js";
+import { consumeFixedSteps } from "./fixedStep.js";
 import { FistbumpRing } from "./fistbumpRing.js";
 import { syncFistbumpRing } from "./fistbumpRingSync.js";
 import { syncFrame } from "./frameSync.js";
@@ -39,6 +39,7 @@ import { createSessionActions } from "./sessionActions.js";
 import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { consumeRespawnGrace, updateSelfFacing } from "./selfCosmetics.js";
+import { interpolateConnectionSelf } from "./selfInterpolation.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
 import { createTorchSyncState, type TorchSyncState } from "./torchSync.js";
 import { trackWallBump } from "./wallBumpTracking.js";
@@ -69,6 +70,8 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.game.canvas.tabIndex = -1;
+    this.game.canvas.focus({ preventScroll: true });
     this.cameras.main.setBackgroundColor("#14141c");
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
@@ -121,14 +124,14 @@ export class DungeonScene extends Phaser.Scene {
     syncReviveRing(this.reviveRing, this.inputController, conn);
     this.ensureWorldBoundSystems(conn.world);
     this.consumeTeleport(time);
+    this.consumeHardCorrection();
     consumeRespawnGrace(conn, this.state.cosmetics, time);
     this.advanceRotation(deltaMs);
-    this.state.prevStep = translatePose(this.state.prevStep, conn.predictionCorrection.consume());
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
     this.sampleFixedStepInput(deltaMs, time);
 
-    const render = this.interpolateSelfPose();
+    const render = interpolateConnectionSelf(conn, this.state, deltaMs);
     this.updateCameraFollow(render, deltaMs);
     this.cameras.main.setRotation(this.rotation.cameraRotationRad());
     this.terrain?.update(this.cameras.main.worldView);
@@ -188,6 +191,12 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.spawnTeleportFade(nowMs);
   }
 
+  private consumeHardCorrection(): void {
+    if (!this.conn.predictionCorrection.consumeHardSnap()) return;
+    this.state.prevStep = null;
+    requestCameraSnap(this.state.camera);
+  }
+
   private sampleFixedStepInput(deltaMs: number, nowMs: number): void {
     const { conn, state } = this;
     const { steps, accumulatorMs } = consumeFixedSteps(state.accumulatorMs, deltaMs);
@@ -203,15 +212,6 @@ export class DungeonScene extends Phaser.Scene {
       // Panel round 3b item 4 (WALL-BUMP FEEDBACK) — see wallBumpTracking.ts's doc comment.
       trackWallBump(conn, state, this.vfx, move, preX, preY, nowMs);
     }
-  }
-
-  /** This frame's smoothed self pose: last tick's pre-step position lerped toward the current predicted body. */
-  private interpolateSelfPose(): RenderPose {
-    const body = this.conn.body;
-    if (!body) return { x: 0, y: 0, z: 0 };
-    const alpha = interpolationAlpha(this.state.accumulatorMs);
-    const prev = this.state.prevStep ?? body;
-    return { x: lerp(prev.x, body.x, alpha), y: lerp(prev.y, body.y, alpha), z: lerp(prev.z, body.z, alpha) };
   }
 
   private updateCameraFollow(render: RenderPose, deltaMs: number): void {

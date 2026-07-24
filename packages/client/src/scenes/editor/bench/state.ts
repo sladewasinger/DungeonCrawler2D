@@ -25,6 +25,12 @@ export interface BenchItemSpawn {
   readonly y: number;
 }
 
+/** A client-only projectile retains the attack payload until its engine flight resolves. */
+export interface BenchProjectile {
+  readonly entity: Entity;
+  readonly attack: EnemyDef["attack"];
+}
+
 export interface BenchState {
   readonly content: ContentRegistry;
   readonly world: EditableWorld;
@@ -33,6 +39,7 @@ export interface BenchState {
   readonly effects: EffectsEngine;
   readonly enemies: Map<string, BenchEnemy>;
   readonly items: Map<string, BenchItemSpawn>;
+  readonly projectiles: Map<string, BenchProjectile>;
   dummy: Entity;
   running: boolean;
   tickAccumMs: number;
@@ -54,6 +61,7 @@ export function createBenchState(world: EditableWorld): BenchState {
     effects: new EffectsEngine(content, (x, y) => world.isSanctuary(x, y)),
     enemies: new Map(),
     items: new Map(),
+    projectiles: new Map(),
     dummy: createDummy(center, center),
     running: false,
     tickAccumMs: 0,

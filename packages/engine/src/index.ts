@@ -27,3 +27,4 @@ export * from "./areas/system.js";
 export * from "./combat/melee.js";
 export * from "./combat/ai.js";
 export * from "./net/messages.js";
+export * from "./net/metrics.js";

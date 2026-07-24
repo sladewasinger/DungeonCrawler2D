@@ -54,6 +54,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
   const graced = gracedClearanceCenters(sim);
   for (const enemy of sim.enemies.values()) {
     const entity = enemy.entity;
+    sim.replicationMotion.set(entity.id, { x: 0, y: 0 });
     if (entity.hp <= 0) continue; // corpses don't bite
     if (!isNearAnyPlayer(entity, players)) continue; // frozen far from everyone
     // Checked before the shoot/melee/wander dispatch, not only inside
@@ -117,6 +118,10 @@ function moveEnemy(
   ) {
     entity.body = before;
   }
+  sim.replicationMotion.set(entity.id, {
+    x: (entity.body.x - before.x) / TICK_DT,
+    y: (entity.body.y - before.y) / TICK_DT,
+  });
   // Chasm = death applies to enemies too (same knockback-death-pit ruling
   // as players): resolveEnemyDeaths (deaths.ts) already removes any
   // hp<=0 enemy and rolls its drops, so this is the whole of it.

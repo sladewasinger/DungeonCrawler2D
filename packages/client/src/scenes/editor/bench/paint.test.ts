@@ -3,6 +3,7 @@
 // active brush's layer, and RESET clears everything back to blank.
 import { describe, expect, it } from "vitest";
 import { EditableWorld } from "../EditableWorld.js";
+import { stepBenchTick } from "./index.js";
 import { eraseBenchCell, paintArea, paintEnemy, paintItem, resetBench } from "./paint.js";
 import { createBenchState } from "./state.js";
 
@@ -59,13 +60,18 @@ describe("bench paint", () => {
   it("RESET clears every painted layer, stops SIMULATE, and re-centers the dummy", () => {
     const state = bench();
     paintArea(state, 6, 6, "area-poison");
-    paintEnemy(state, 7, 7, "spitter");
+    paintEnemy(state, 1, 1, "slime");
     paintItem(state, 8, 8, "raw-meat");
+    const dummyTile = Math.floor(state.dummy.body.x);
+    paintEnemy(state, dummyTile - 3, dummyTile, "spitter");
+    stepBenchTick(state);
+    expect(state.projectiles.size).toBe(1);
     state.running = true;
     resetBench(state);
     expect(state.areas.size).toBe(0);
     expect(state.enemies.size).toBe(0);
     expect(state.items.size).toBe(0);
+    expect(state.projectiles.size).toBe(0);
     expect(state.running).toBe(false);
     expect(state.dummy.hp).toBe(state.dummy.maxHp);
   });

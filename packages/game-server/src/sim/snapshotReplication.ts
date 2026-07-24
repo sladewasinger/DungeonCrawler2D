@@ -105,4 +105,8 @@ export function pruneSnapshotClients(sim: SimState): void {
     const slot = sim.players.get(id);
     if (!slot?.connected) sim.snapshotClients.delete(id);
   }
+  for (const id of sim.snapshotPending.keys()) {
+    const slot = sim.players.get(id);
+    if (!slot?.connected) sim.snapshotPending.delete(id);
+  }
 }

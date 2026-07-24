@@ -5,6 +5,7 @@ import {
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { versionedEntitySnapshot, type VersionedEntitySnapshot } from "./entitySnapshots.js";
+import { newSnapshotPendingState, type SnapshotPendingState } from "./snapshotState.js";
 import { type SpatialEntityIndex } from "./spatialEntities.js";
 import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
 
@@ -20,6 +21,11 @@ export interface PlayerSnapshotFrame {
   left: string[];
   events: GameEvent[];
   areas: ServerSnapshot["areas"];
+  visibleIds: Set<string>;
+  privateEventCount: number;
+  pendingEventCount: number;
+  pendingAreaKeys: string[];
+  includesFullAreas: boolean;
 }
 
 function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"] {
@@ -74,14 +80,21 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
 function areaSnapshot(
   sim: SimState,
   slot: PlayerSlot,
-  dirty: ServerSnapshot["areas"],
+  pending: SnapshotPendingState,
   inAoi: (x: number, y: number) => boolean,
-): ServerSnapshot["areas"] {
+): { areas: ServerSnapshot["areas"]; keys: string[]; includesFullAreas: boolean } {
   if (!slot.needsFullAreas) {
-    return dirty.filter((area) => area.defId === null || inAoi(area.x, area.y));
+    return {
+      areas: [...pending.areas.values()],
+      keys: [...pending.areas.keys()],
+      includesFullAreas: false,
+    };
   }
-  slot.needsFullAreas = false;
-  return sim.areas.allTiles().filter((area) => inAoi(area.x, area.y));
+  return {
+    areas: sim.areas.allTiles().filter((area) => inAoi(area.x, area.y)),
+    keys: [...pending.areas.keys()],
+    includesFullAreas: true,
+  };
 }
 
 function visibleEntities(
@@ -103,19 +116,38 @@ function visibleEntities(
 function leavingEntities(slot: PlayerSlot, visible: Set<string>): string[] {
   const left = [];
   for (const id of slot.known) if (!visible.has(id)) left.push(id);
-  slot.known = visible;
   return left;
 }
 
 function snapshotEvents(
   slot: PlayerSlot,
+  pending: SnapshotPendingState,
+): GameEvent[] {
+  return [...slot.outbox, ...pending.events];
+}
+
+function pendingState(sim: SimState, slot: PlayerSlot): SnapshotPendingState {
+  let pending = sim.snapshotPending.get(slot.entity.id);
+  if (!pending) {
+    pending = newSnapshotPendingState();
+    sim.snapshotPending.set(slot.entity.id, pending);
+  }
+  return pending;
+}
+
+function queueDeliveries(
+  pending: SnapshotPendingState,
+  dirty: ServerSnapshot["areas"],
   worldEvents: WorldEvent[],
   inAoi: (x: number, y: number) => boolean,
-): GameEvent[] {
-  const events = [...slot.outbox];
-  slot.outbox.length = 0;
-  for (const event of worldEvents) if (inAoi(event.x, event.y)) events.push(event.ev);
-  return events;
+): void {
+  for (const area of dirty) {
+    if (area.defId !== null && !inAoi(area.x, area.y)) continue;
+    pending.areas.set(`${area.x},${area.y}`, area);
+  }
+  for (const event of worldEvents) {
+    if (inAoi(event.x, event.y)) pending.events.push(event.ev);
+  }
 }
 
 export function buildPlayerSnapshotFrame(
@@ -128,7 +160,10 @@ export function buildPlayerSnapshotFrame(
   const self = slot.entity;
   const inAoi = (x: number, y: number) =>
     (x - self.body.x) ** 2 + (y - self.body.y) ** 2 <= AOI_RADIUS * AOI_RADIUS;
+  const pending = pendingState(sim, slot);
+  queueDeliveries(pending, dirty, worldEvents, inAoi);
   const visible = visibleEntities(sim, slot, index);
+  const area = areaSnapshot(sim, slot, pending, inAoi);
   return {
     tick: sim.tickCount,
     lastSeq: slot.lastSeq,
@@ -137,7 +172,26 @@ export function buildPlayerSnapshotFrame(
     party: toPartySnapshot(sim, slot),
     entities: visible.entities,
     left: leavingEntities(slot, visible.ids),
-    events: snapshotEvents(slot, worldEvents, inAoi),
-    areas: areaSnapshot(sim, slot, dirty, inAoi),
+    events: snapshotEvents(slot, pending),
+    areas: area.areas,
+    visibleIds: visible.ids,
+    privateEventCount: slot.outbox.length,
+    pendingEventCount: pending.events.length,
+    pendingAreaKeys: area.keys,
+    includesFullAreas: area.includesFullAreas,
   };
+}
+
+/** Commits only the mutable delivery cursors represented by a frame that will be sent. */
+export function commitPlayerSnapshotFrame(
+  sim: SimState,
+  slot: PlayerSlot,
+  frame: PlayerSnapshotFrame,
+): void {
+  slot.known = frame.visibleIds;
+  slot.outbox.splice(0, frame.privateEventCount);
+  const pending = sim.snapshotPending.get(slot.entity.id);
+  pending?.events.splice(0, frame.pendingEventCount);
+  for (const key of frame.pendingAreaKeys) pending?.areas.delete(key);
+  if (frame.includesFullAreas) slot.needsFullAreas = false;
 }

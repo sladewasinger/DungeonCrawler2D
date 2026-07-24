@@ -13,12 +13,6 @@ export interface StepResult {
   readonly accumulatorMs: number;
 }
 
-interface Pose {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
 /** Consumes bounded fixed steps and discards whole overdue ticks after a long stall. */
 export function consumeFixedSteps(accumulatorMs: number, deltaMs: number): StepResult {
   const elapsed = Math.max(0, accumulatorMs + deltaMs);
@@ -34,13 +28,4 @@ export function interpolationAlpha(accumulatorMs: number): number {
 
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
-}
-
-export function translatePose(pose: Pose | null, correction: Pose): Pose | null {
-  if (!pose) return null;
-  return {
-    x: pose.x + correction.x,
-    y: pose.y + correction.y,
-    z: pose.z + correction.z,
-  };
 }

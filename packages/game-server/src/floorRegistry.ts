@@ -6,6 +6,7 @@ import {
   type ServerStateSnapshot,
 } from "@dc2d/engine";
 import { GameSim } from "./sim/index.js";
+import type { PreparedSnapshotDelivery } from "./sim/snapshots.js";
 import { FLOOR_CAP } from "./sim/floors/index.js";
 import { PlayerStore } from "./store.js";
 
@@ -32,6 +33,11 @@ export interface TickResult {
 
 export interface ReplicationTickResult {
   snapshots: Map<string, ServerStateSnapshot>;
+  moved: TickResult["moved"];
+}
+
+export interface PreparedReplicationTickResult {
+  snapshots: Map<string, PreparedSnapshotDelivery>;
   moved: TickResult["moved"];
 }
 
@@ -84,6 +90,12 @@ export class FloorRegistry {
   stepAllReplicated(): ReplicationTickResult {
     const active = [...this.sims.values()];
     const snapshots = collectSnapshots(active, (sim) => sim.stepReplicated());
+    return { snapshots, moved: this.finishTick(active) };
+  }
+
+  stepAllPreparedReplicated(): PreparedReplicationTickResult {
+    const active = [...this.sims.values()];
+    const snapshots = collectSnapshots(active, (sim) => sim.stepPreparedReplicated());
     return { snapshots, moved: this.finishTick(active) };
   }
 

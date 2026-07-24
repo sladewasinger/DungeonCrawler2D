@@ -3,7 +3,7 @@
 // join-time one, or every post-transfer prediction/terrain/stairway-proximity
 // read silently uses the wrong floor's chunk geometry.
 import { LEVEL, World, type ServerSnapshot, type ServerSnapshotDelta } from "@dc2d/engine";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { applySnapshot } from "./apply.js";
 import { Connection } from "./connection.js";
 import { applySnapshotDelta } from "./snapshotDelta.js";
@@ -123,14 +123,16 @@ describe("applySnapshot respawn detection (panel round 4, LANE B spawn-grace rin
 });
 
 describe("applySnapshot prediction correction", () => {
-  it("records the displacement from the predicted pose to reconciled server truth", () => {
+  it("records reconciliation error and preserves the pre-correction render pose", () => {
     const conn = freshConnection(1);
     if (!conn.body) throw new Error("freshConnection must create a body");
-    conn.body = { ...conn.body, x: 2.5, y: -1.25, z: 0.5 };
+    conn.body = { ...conn.body, x: 0.5, y: -0.25, z: 0.1 };
 
     applySnapshot(conn, snapshotAtFloor(1, 10));
 
-    expect(conn.predictionCorrection.consume()).toEqual({ x: -2.5, y: 1.25, z: -0.5 });
+    expect(conn.predictionCorrection.advance(0)).toEqual({ x: 0.5, y: -0.25, z: 0.1 });
+    expect(conn.networkMetrics.snapshot(performance.now()).maximumCorrectionError)
+      .toBeCloseTo(Math.hypot(0.5, -0.25, 0.1));
   });
 });
 
@@ -166,6 +168,7 @@ function deltaAt(
 describe("applySnapshotDelta", () => {
   it("applies known revisions, rejects a missed tick, and recovers from a baseline", () => {
     const conn = freshConnection(1);
+    const send = vi.spyOn(conn, "send").mockImplementation(() => undefined);
     applySnapshotDelta(conn, deltaAt(10, null, true, [
       { x: 0, y: 0, defId: "area-fire" },
     ]));
@@ -182,13 +185,24 @@ describe("applySnapshotDelta", () => {
     ]));
     expect(conn.serverTick).toBe(11);
     expect(conn.snapshotRevisions.awaitingBaseline).toBe(true);
+    expect(conn.networkMetrics.snapshot(performance.now()).recoveryRequests).toBe(1);
     expect(conn.areaTiles.get("0,0")).toBe("area-fire");
     expect(conn.areaTiles.has("1,0")).toBe(false);
+    applySnapshotDelta(conn, deltaAt(14, 13, false, [
+      { x: 2, y: 0, defId: "area-oil" },
+    ]));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ type: "snapshotResync" });
+    expect(conn.serverTick).toBe(11);
+    expect(conn.entities.get("item-1")?.snap.defId).toBe("rag");
+    expect(conn.areaTiles.get("0,0")).toBe("area-fire");
+    expect(conn.areaTiles.has("1,0")).toBe(false);
+    expect(conn.areaTiles.has("2,0")).toBe(false);
 
-    applySnapshotDelta(conn, deltaAt(14, null, true, [
+    applySnapshotDelta(conn, deltaAt(15, null, true, [
       { x: 1, y: 0, defId: "area-wet" },
     ]));
-    expect(conn.serverTick).toBe(14);
+    expect(conn.serverTick).toBe(15);
     expect(conn.snapshotRevisions.awaitingBaseline).toBe(false);
     expect([...conn.areaTiles]).toEqual([["1,0", "area-wet"]]);
   });

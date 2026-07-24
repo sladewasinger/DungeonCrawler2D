@@ -17,12 +17,13 @@ export interface RemoteEntity {
   samples: Sample[];
 }
 
+export const MAX_EXTRAPOLATION_MS = 150;
+
 /** Record a snapshot position, discarding samples older than a second. */
 export function recordSample(remote: RemoteEntity, now: number, snap: EntitySnapshot): void {
   remote.snap = snap;
   remote.samples.push({ t: now, x: snap.x, y: snap.y, z: snap.z });
-  // length > 0 just checked: index 0 exists.
-  while (remote.samples.length > 0 && now - remote.samples[0]!.t > 1000) {
+  while (remote.samples[0] && now - remote.samples[0].t > 1000) {
     remote.samples.shift();
   }
 }
@@ -36,21 +37,55 @@ export function interpolated(
   const t = now - delayMs;
   const out: Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> = [];
   for (const [id, remote] of entities) {
-    const s = remote.samples;
-    if (s.length === 0) continue;
-    // s.length > 0 just checked, and the loop below only indexes within [0, s.length).
-    let pos: Sample = s[s.length - 1]!;
-    for (let i = s.length - 1; i > 0; i--) {
-      const a = s[i - 1]!;
-      const b = s[i]!;
-      if (a.t <= t && t <= b.t) {
-        const k = b.t === a.t ? 1 : (t - a.t) / (b.t - a.t);
-        pos = { t, x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k };
-        break;
-      }
-    }
-    if (t < s[0]!.t) pos = s[0]!;
+    const pos = sampleAtTime(remote.samples, remote.snap, t);
+    if (!pos) continue;
     out.push({ id, snap: remote.snap, x: pos.x, y: pos.y, z: pos.z });
   }
   return out;
+}
+
+function sampleAtTime(
+  samples: Sample[],
+  snap: EntitySnapshot,
+  targetTime: number,
+): Sample | null {
+  const newest = samples.at(-1);
+  if (!newest) return null;
+  const oldest = samples[0];
+  if (oldest && targetTime < oldest.t) return oldest;
+  const pair = bracketingPair(samples, targetTime);
+  const sample = pair ? lerp(pair[0], pair[1], targetTime) : newest;
+  return targetTime > sample.t ? extrapolate(sample, snap, targetTime) : sample;
+}
+
+function bracketingPair(samples: Sample[], targetTime: number): [Sample, Sample] | null {
+  for (let index = samples.length - 1; index > 0; index--) {
+    const left = samples[index - 1];
+    const right = samples[index];
+    if (left && right && left.t <= targetTime && targetTime <= right.t) {
+      return [left, right];
+    }
+  }
+  return null;
+}
+
+function lerp(left: Sample, right: Sample, targetTime: number): Sample {
+  const amount = right.t === left.t ? 1 : (targetTime - left.t) / (right.t - left.t);
+  return {
+    t: targetTime,
+    x: left.x + (right.x - left.x) * amount,
+    y: left.y + (right.y - left.y) * amount,
+    z: left.z + (right.z - left.z) * amount,
+  };
+}
+
+function extrapolate(sample: Sample, snap: EntitySnapshot, targetTime: number): Sample {
+  const elapsedMs = Math.min(targetTime - sample.t, MAX_EXTRAPOLATION_MS);
+  const elapsedSeconds = elapsedMs / 1000;
+  return {
+    t: sample.t + elapsedMs,
+    x: sample.x + (snap.vx ?? 0) * elapsedSeconds,
+    y: sample.y + (snap.vy ?? 0) * elapsedSeconds,
+    z: sample.z + (snap.air ? (snap.vz ?? 0) * elapsedSeconds : 0),
+  };
 }

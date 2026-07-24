@@ -94,19 +94,21 @@ Package boundaries alone don't keep code maintainable — Epic 1.5 exists becaus
 ```
 client                          game server (authoritative)
 ──────                          ────────────────────────────
-input → intent  ──────────────▶ validate intent
+changed input + heartbeat ───▶ validate intent
                                 engine tick (20 Hz): movement,
 predict own movement            effects, areas, combat, AI
-interpolate other entities ◀── AOI-scoped deltas + events (~15–20 Hz)
+interpolate/extrapolate peers ◀ AOI deltas (10 Hz idle, 20 Hz active)
 reconcile own position     ◀── authoritative position corrections
 render (60 fps, Phaser)
 ```
 
 Key decisions:
 
-- **Tick rates:** server simulates at a fixed **20 Hz** (effects internally tick slower, e.g. 2–10 Hz — DoT cadence doesn't need more). Clients render at 60 fps, interpolating between snapshots (~100 ms buffer).
+- **Simulation and wire cadence are separate.** The server and each client's local prediction remain fixed at **20 Hz**. Unchanged movement intent is coalesced to a 2 Hz heartbeat while direction, aim, jump, run, and actions send immediately. AOI snapshots use a 10 Hz baseline and burst to 20 Hz for nearby motion, combat animation, events, AOI departures, dirty areas, and baseline recovery.
 - **Intents up, events down.** Clients never say "I took damage" or "the fire spread" — they say "I pressed up" / "I threw item X at tile Y". The server replies with what actually happened. All effect/combat/loot outcomes are computed exactly once, on the server.
-- **Prediction only for your own movement.** Top-down walking predicts trivially; server reconciliation corrects drift. Everything else (projectiles, effects, enemies) is rendered from server events with interpolation — at co-op latencies (<150 ms) this feels fine and keeps the code simple.
+- **Prediction only for your own movement.** Top-down walking predicts through the same engine step as the server. Every predicted step is projected onto the authoritative simulation-tick timeline; reconciliation discards steps covered by `snapshot.tick` and replays only later work. `lastSeq` remains a sparse wire-input acknowledgement and must not define simulation coverage because unchanged held input is coalesced while the server continues stepping it. The bounded history ignores sub-threshold noise, eases ordinary corrections in render space, and hard-snaps teleports or invalid divergence. Remote dynamic actors interpolate buffered authoritative samples and extrapolate reported velocity for at most 150 ms when a snapshot is late; simulation state is never extrapolated.
+- **Replication cursors commit after transport acceptance.** Snapshot baselines, revision/base ticks, AOI membership, events, and dirty-area cursors advance only after an open socket accepts the encoded frame. A closed or throwing socket leaves the transaction pending. Clients reject a delta whose base tick or revision chain is missing without partially applying it, request one recovery baseline, and resume incremental replication only after that baseline arrives.
+- **Network metrics are first-class diagnostics.** Client and server transport paths aggregate messages/sec, bytes/sec, codec time, and maximum send-queue depth; the client also records RTT/jitter, baseline-recovery requests, and reconciliation error. Deterministic protocol benchmarks cover idle reduction and independent full-baseline recovery after a dropped client delta.
 - **Area-of-interest (AOI) replication.** The floor is vast and shared, so full-world broadcast is impossible by design: each client receives entity/effect deltas only within a view radius around its player. AOI is simultaneously the bandwidth cap (per-player traffic is constant regardless of world size), the *fog of dread* (you genuinely don't know who's out there), and what makes stumbling onto a stranger an event.
 - **Geometry ships as seeds.** Chunks are deterministic from `(worldSeed, floor, chunkCoord)`, so the server sends coordinates, never tiles; a joining client gets its position + an AOI entity snapshot and generates everything else locally.
 - **Chat rides the same socket** as lightweight channel messages (global / party / DM / proximity), fanned out server-side with mute/block lists enforced *before* delivery — a blocked player's messages never reach your client.
