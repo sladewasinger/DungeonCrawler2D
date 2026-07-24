@@ -1,5 +1,5 @@
 /** Owns browser persistence and validation for HUD window layouts. */
-import type { HudAnchor } from "./HudWindows.js";
+import type { HudAnchor } from "./HudWindowLayout.js";
 
 const STORAGE_KEY = "dc2d.three.hud.windows.v2";
 

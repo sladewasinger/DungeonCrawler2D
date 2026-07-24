@@ -1,28 +1,27 @@
 /** Owns persistent, geometry-stable HTML HUD windows and edit-mode manipulation. */
 import { isTouchDevice } from "../input/touchDetect.js";
-import { anchoredPosition } from "./HudWindowGeometry.js";
-import { bindHudWindowEditing, type EditableHudWindow } from "./HudWindowEditing.js";
+import {
+  bindHudWindowEditing,
+  type EditableHudWindow,
+  type HudWindowEditingBinding,
+} from "./HudWindowEditing.js";
+import {
+  defaultWindowLayout,
+  resolveWindowPosition,
+  restoreStoredLayout,
+  scaledWindowSize,
+  shouldUseMobileDefault,
+  type HudWindowSpec,
+} from "./HudWindowLayout.js";
 import {
   buildHudWindow,
   type HudWindowRecord,
 } from "./HudWindowRecord.js";
-import { loadWindowLayouts, saveWindowLayouts, type HudWindowLayout } from "./hudWindowStorage.js";
-
-export type HudAnchor = "top-left" | "top-center" | "top-right" |
-  "center-left" | "center" | "center-right" | "bottom-left" |
-  "bottom-center" | "bottom-right" | "free";
-
-export interface HudWindowSpec {
-  id: string;
-  title: string;
-  width: number;
-  height: number;
-  anchor: Exclude<HudAnchor, "free">;
-  content: HTMLElement;
-  mobile?: Pick<HudWindowSpec, "width" | "height" | "anchor">;
-  interactive?: boolean;
-  defaultVisible?: boolean;
-}
+import {
+  loadWindowLayouts,
+  saveWindowLayouts,
+} from "./hudWindowStorage.js";
+export type { HudAnchor, HudWindowSpec } from "./HudWindowLayout.js";
 
 export interface HudWindowView {
   readonly id: string;
@@ -32,19 +31,10 @@ export interface HudWindowView {
 
 const MOBILE_SCALE = 0.66;
 
-const restoreStoredLayout = (
-  stored: HudWindowLayout,
-  defaults: HudWindowLayout,
-): HudWindowLayout => ({
-  ...stored,
-  width: stored.width > 0 ? stored.width : defaults.width,
-  height: stored.height > 0 ? stored.height : defaults.height,
-  visible: stored.visible ?? defaults.visible ?? true,
-});
-
 export class HudWindowManager {
   private readonly layer = document.createElement("div");
   private readonly records = new Map<string, HudWindowRecord>();
+  private readonly editingBindings = new Map<string, HudWindowEditingBinding>();
   private readonly stored = loadWindowLayouts();
   private readonly mobile = isTouchDevice();
   private readonly listeners = new Set<() => void>();
@@ -62,8 +52,12 @@ export class HudWindowManager {
     const effective = this.mobile && spec.mobile ? { ...spec, ...spec.mobile } : spec;
     const stored = this.stored[spec.id];
     const defaultVisible = spec.defaultVisible ?? true;
-    const defaults = this.defaultLayout(effective, defaultVisible);
-    const layout = this.useMobileDefault(spec, stored)
+    const defaults = defaultWindowLayout(
+      effective,
+      defaultVisible,
+      ++this.zCounter,
+    );
+    const layout = shouldUseMobileDefault(this.mobile, spec, stored)
       ? defaults
       : stored
         ? restoreStoredLayout(stored, defaults)
@@ -86,7 +80,10 @@ export class HudWindowManager {
 
   setEditing(editing: boolean): void {
     this.editing = editing;
-    for (const record of this.records.values()) this.applyChrome(record);
+    for (const record of this.records.values()) {
+      this.editingBindings.get(record.id)?.setEditing(editing);
+      this.applyChrome(record);
+    }
   }
 
   setVisible(id: string, visible: boolean): void {
@@ -117,24 +114,14 @@ export class HudWindowManager {
 
   dispose(): void {
     window.removeEventListener("resize", this.layoutAll);
-    this.listeners.clear(); this.layer.remove();
-  }
-
-  private defaultLayout(spec: HudWindowSpec, visible: boolean): HudWindowLayout {
-    return {
-      anchor: spec.anchor,
-      x: 0,
-      y: 0,
-      width: spec.width,
-      height: spec.height,
-      z: ++this.zCounter,
-      visible,
-    };
+    this.listeners.clear();
+    this.editingBindings.clear();
+    this.layer.remove();
   }
 
   private bindWindow(record: HudWindowRecord): void {
     record.element.addEventListener("pointerdown", () => this.raise(record));
-    bindHudWindowEditing(record, {
+    const binding = bindHudWindowEditing(record, {
       root: this.root,
       mobile: this.mobile,
       editing: () => this.editing,
@@ -143,26 +130,12 @@ export class HudWindowManager {
       raise: () => this.raise(record),
       persist: () => this.persist(),
     });
-  }
-
-  private useMobileDefault(
-    spec: HudWindowSpec,
-    stored: HudWindowLayout | undefined,
-  ): boolean {
-    if (!this.mobile || !spec.mobile || !stored) return false;
-    return stored.anchor === spec.anchor && stored.x === 0 && stored.y === 0 &&
-      stored.width === spec.width && stored.height === spec.height;
+    binding.setEditing(this.editing);
+    this.editingBindings.set(record.id, binding);
   }
 
   private get scale(): number {
     return this.mobile ? MOBILE_SCALE : 1;
-  }
-
-  private size(record: HudWindowRecord) {
-    return {
-      width: Math.round(record.layout.width * this.scale),
-      height: Math.round(record.layout.height * this.scale),
-    };
   }
 
   private raise(record: EditableHudWindow): void {
@@ -171,16 +144,11 @@ export class HudWindowManager {
   }
 
   private apply(record: HudWindowRecord): void {
-    const size = this.size(record);
-    const anchored = anchoredPosition(
-      record.layout.anchor,
-      size.width,
-      size.height,
-      this.root.clientWidth,
-      this.root.clientHeight,
-    );
-    const position = record.layout.anchor === "free" ?
-      { x: record.layout.x, y: record.layout.y } : anchored;
+    const size = scaledWindowSize(record.layout, this.scale);
+    const position = resolveWindowPosition(record.layout, size, {
+      width: this.root.clientWidth,
+      height: this.root.clientHeight,
+    });
     const visible = record.layout.visible !== false;
     Object.assign(record.element.style, {
       display: visible ? "block" : "none",
@@ -194,7 +162,7 @@ export class HudWindowManager {
   }
 
   private applyChrome(record: HudWindowRecord): void {
-    record.element.style.resize = this.editing ? "both" : "none";
+    record.element.style.resize = "none";
     record.element.style.pointerEvents = "auto";
     record.element.style.outline = this.editing ? "1px solid rgba(112,118,148,.9)" : "none";
     record.element.style.background = this.editing ? "rgba(17,18,29,.22)" : "transparent";
