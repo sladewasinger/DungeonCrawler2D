@@ -25,6 +25,7 @@ describe("GameSim: items and inventory", () => {
     const arena = findFlatArena(sim, 28, 28, 1);
     teleport(entity, arena.x, arena.y, sim);
     sim.getInventory(a.playerId)!.length = 0; // clear the starter kit for a clean slate
+    sim.getHotbar(a.playerId)!.fill(null);
     sim.spawnItem("rag", entity.body.x + 0.5, entity.body.y, 2);
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
@@ -105,7 +106,7 @@ describe("GameSim: items and inventory", () => {
     sim.queueAction(a.playerId, { type: "assign", slot: 1, item: "torch" });
     sim.step();
     expect(sim.getWeapon(a.playerId)).toBe("sword");
-    expect(sim.getHotbar(a.playerId)![0]).toBeNull();
+    expect(sim.getHotbar(a.playerId)![0]).toBe("bandage");
     expect(sim.getHotbar(a.playerId)![1]).toBe("torch");
   });
 });

@@ -46,6 +46,11 @@ const STARTER_TORCH_DEF = "torch";
 const STARTER_BANDAGE_DEF = "bandage";
 const STARTER_TORCH_QTY = 3;
 const STARTER_BANDAGE_QTY = 2;
+const STARTER_BANDAGE_SLOT = 0;
+
+function bindStarterBandage(slot: PlayerSlot): void {
+  slot.hotbar[STARTER_BANDAGE_SLOT] = STARTER_BANDAGE_DEF;
+}
 
 /** True once a player has neither an equipped weapon nor a starter
  * sword/torch anywhere they own — inventory OR stash. Checking the
@@ -77,6 +82,7 @@ export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
   invAdd(sim, slot, STARTER_SWORD_DEF, 1);
   invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
   invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
+  bindStarterBandage(slot);
 }
 
 /**
@@ -97,6 +103,7 @@ export function grantRespawnKit(sim: SimState, slot: PlayerSlot): void {
   if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
     invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
   }
+  bindStarterBandage(slot);
 }
 
 /** Remove qty of a def; false if the stack is short. Prunes empty stacks. */

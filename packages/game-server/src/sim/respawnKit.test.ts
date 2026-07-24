@@ -45,6 +45,7 @@ function expectFullKit(slot: PlayerSlot): void {
   expect(invQty(slot, "sword")).toBe(1);
   expect(invQty(slot, "torch")).toBe(3);
   expect(invQty(slot, "bandage")).toBe(2);
+  expect(slot.hotbar[0]).toBe("bandage");
 }
 
 /** Kill, resolve the death, then jump to the scheduled respawn tick. */
