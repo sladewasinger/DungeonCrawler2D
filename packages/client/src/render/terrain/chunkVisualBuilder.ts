@@ -3,6 +3,7 @@ import { CHUNK_SIZE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { BASE_TERRAIN_DEPTH } from "../entities/depthSort.js";
+import { CHUNK_PX, IMAGES_PER_STEP, required, ROWS_PER_STEP, STRIPS_PER_BAKE_STEP, type BuildPhase } from "./chunkBuildPolicy.js";
 import { drawTile } from "./drawTile.js";
 import { planStripAtlas, type AtlasPlan } from "./stripAtlas.js";
 import { acquireStripPage, pagePoolFor, releasePage } from "./terrainPages.js";
@@ -22,16 +23,6 @@ import type { ViewOrientation } from "../view/viewOrientation.js";
 import { viewChunkWorldOrigin, viewWorld, type ViewTerrainWorld } from "./viewWorld.js";
 import type { ChunkVisual, ChunkVisualBuilder } from "./chunkVisualTypes.js";
 
-const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
-const ROWS_PER_STEP = 1;
-const IMAGES_PER_STEP = 8;
-type BuildPhase = "page" | "structures" | "light" | "tiles" | "collect" | "pages" | "bake" | "images";
-
-function required<T>(value: T | null, message: string): T {
-  if (value === null) throw new Error(message);
-  return value;
-}
-
 export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private phase: BuildPhase = "page";
   private readonly rows = new Map<number, OccluderRow>();
@@ -50,6 +41,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private plan: AtlasPlan = { pageHeights: [], strips: [] };
   private readonly pages: Phaser.Textures.DynamicTexture[] = [];
   private bakedPages = 0;
+  private nextBakeStrip = 0;
   private baseImage: Phaser.GameObjects.Image | null = null;
   private readonly images: Phaser.GameObjects.Image[] = [];
   private completed = false;
@@ -163,9 +155,15 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const page = this.pages[this.bakedPages];
     if (page) {
       page.beginDraw();
-      this.strips.forEach((strip, index) => this.drawStripOnPage(page, strip, index));
+      for (let drawn = 0; drawn < STRIPS_PER_BAKE_STEP; drawn++) {
+        const strip = this.strips[this.nextBakeStrip];
+        const packed = this.plan.strips[this.nextBakeStrip];
+        if (!strip || !packed || packed.page !== this.bakedPages) break;
+        this.drawStripOnPage(page, strip, this.nextBakeStrip++);
+      }
       page.endDraw();
-      this.bakedPages++;
+      const next = this.plan.strips[this.nextBakeStrip];
+      if (!next || next.page !== this.bakedPages) this.bakedPages++;
     }
     if (this.bakedPages === this.pages.length) {
       this.baseImage = this.scene.add.image(this.originX, this.originY, required(this.basePage, "chunk build has no base page"))

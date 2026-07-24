@@ -16,6 +16,7 @@ export type { RenderContext, PlayerEntityView, MonsterEntityView, ItemEntityView
 
 export class EntityRenderer {
   private readonly visuals = new Map<string, EntityVisual>();
+  private readonly seen = new Set<string>();
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -61,7 +62,8 @@ export class EntityRenderer {
 
   /** Runs `apply` over every view of one kind, returning the set of ids present this frame. */
   private stepKind<T extends { id: string }>(views: readonly T[], apply: (view: T) => void): Set<string> {
-    const seen = new Set<string>();
+    const seen = this.seen;
+    seen.clear();
     for (const view of views) {
       seen.add(view.id);
       apply(view);

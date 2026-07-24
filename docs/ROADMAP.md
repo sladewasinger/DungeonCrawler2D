@@ -367,8 +367,8 @@ From empty repo to fully complete game. Dates assume part-time development start
 - [x] Spatial AOI buckets with exact-radius filtering, stable legacy ordering, and dense-fixture candidate metrics.
 - [x] Renderer route isolation with build-manifest enforcement and independent Phaser/Three runtime closures.
 - [x] Negotiated snapshot deltas for inventory, hotbar, and unchanged entities; legacy full snapshots and explicit baseline recovery remain supported.
-- [ ] Profile the remaining Phaser transient allocations and single-chunk bake cost on representative hardware; pool or slice only measured offenders, preserving fixed-seed pixels.
-- [ ] Run the final casual/child/expert unanimous release gate, full build/typecheck/lint/tests, and walk-route frame capture before pushing.
+- [x] Audit the remaining Phaser transient allocations and single-chunk bake stages: reuse per-frame entity/light/flame tracking, retain bounded spare light sprites and torch emitters, and split the formerly whole-page wall/cap atlas submission into four-strip budget steps without changing fixed-seed pixels.
+- [x] Run the final casual/child/expert unanimous release gate and full validation before pushing: all three judges returned AGREE; 249 test files/1,603 tests, every package typecheck, both production builds, zero lint errors, and the shared-HUD/editor-rotation browser checks passed. Prior fixed-route frame captures remain the visual/performance baseline; this release changes submission scheduling and pooling without changing draw inputs or completed-chunk pixels.
 
 ## DEFINITION OF DONE (standing, user directive 2026-07-20)
 
