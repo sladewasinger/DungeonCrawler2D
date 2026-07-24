@@ -14,6 +14,7 @@ import { GalleryScene } from "../scenes/GalleryScene.js";
 import { HudScene } from "../scenes/HudScene.js";
 import { TitleScene } from "../scenes/title/index.js";
 import { loadStoredName } from "../scenes/title/connectForm.js";
+import { installPhaserFullscreenRetry } from "./mobileFullscreen.js";
 
 export function startPhaserRoute(search: URLSearchParams): void {
   if (search.get("scene") === "editor") startEditor(search);
@@ -51,6 +52,7 @@ function startGame(search: URLSearchParams): void {
     input: { activePointers: 3, touch: true },
     scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, AutotileGalleryScene, HudScene],
   });
+  installPhaserFullscreenRetry(game.canvas);
   if (!import.meta.env.DEV || search.get("debug") !== "1") return;
   const debugWindow = window as unknown as GameDebugWindow;
   debugWindow.__game = game;
