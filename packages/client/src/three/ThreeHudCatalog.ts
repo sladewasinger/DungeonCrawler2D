@@ -31,8 +31,10 @@ export class ThreeHudCatalog {
       input.type = "checkbox";
       input.checked = window.visible;
       input.style.accentColor = HUD_GOLD;
-      input.addEventListener("change", () => {
-        this.manager.setVisible(window.id, input.checked);
+      input.addEventListener("input", (event) => {
+        event.stopPropagation();
+        const visible = (event.currentTarget as HTMLInputElement).checked;
+        this.manager.setVisible(window.id, visible);
       });
       label.append(input, document.createTextNode(window.title));
       return label;

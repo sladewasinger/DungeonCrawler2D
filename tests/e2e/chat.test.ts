@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { clickHudText } from "./hudInteraction.js";
 import { openGame } from "./helpers.js";
 
 /**
@@ -21,14 +20,16 @@ import { openGame } from "./helpers.js";
  * message-content assertions fail.
  */
 function chatInput(page: Page): Locator {
-  return page.locator("input").first();
+  return page.locator('[data-hud-window="three-chat"] input');
 }
 
 /** Clicks the real Phaser "GLBL" tab first (proves the click-to-switch UI actually
  * works, not just that global is the fresh-session default) — before opening the DOM
  * chat input, since that click would otherwise blur it mid-message. */
 async function sendGlobal(page: Page, text: string): Promise<void> {
-  await clickHudText(page, "GLBL");
+  await page.locator('[data-hud-window="three-chat"]')
+    .getByRole("button", { name: "global", exact: true })
+    .click();
   await page.keyboard.press("Enter");
   await expect(chatInput(page)).toBeFocused();
   await page.keyboard.type(text);
@@ -52,6 +53,14 @@ test.describe("chat: global fan-out and the DM contact gate", () => {
 
     await openGame(pageA, "Ashling");
     const stateB = await openGame(pageB, "Bramble");
+    await Promise.all([
+      pageA.evaluate(() => window.__dc2d!.conn.debugGod(true)),
+      pageB.evaluate(() => window.__dc2d!.conn.debugGod(true)),
+    ]);
+    await pageA.keyboard.press("Enter");
+    await expect(chatInput(pageA)).toBeFocused();
+    await pageA.keyboard.press("Escape");
+    await expect(chatInput(pageA)).not.toBeFocused();
 
     // Clustered test-server spawns land them within AOI of each other.
     await pageA.waitForFunction(

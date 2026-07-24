@@ -29,9 +29,10 @@ export class ThreeHudSettings {
     private readonly manager: HudWindowManager,
     getViewDistance?: () => ViewDistance,
     setViewDistance?: (viewDistance: ViewDistance) => void,
+    replayTutorials?: () => void,
   ) {
     this.catalog = new ThreeHudCatalog(manager);
-    this.configureMenu(getViewDistance, setViewDistance);
+    this.configureMenu(getViewDistance, setViewDistance, replayTutorials);
     this.gear.addEventListener("click", () => this.toggleMenu());
     root.append(this.gear, this.menu);
   }
@@ -39,6 +40,7 @@ export class ThreeHudSettings {
   private configureMenu(
     getViewDistance?: () => ViewDistance,
     setViewDistance?: (viewDistance: ViewDistance) => void,
+    replayTutorials?: () => void,
   ): void {
     this.menu.hidden = true;
     this.menu.style.cssText =
@@ -56,8 +58,22 @@ export class ThreeHudSettings {
     if (getViewDistance && setViewDistance) {
       controls.push(createViewDistanceButton(getViewDistance, setViewDistance));
     }
+    if (replayTutorials) {
+      controls.push(this.replayButton(replayTutorials));
+    }
     controls.push(this.catalog.element);
     this.menu.append(...controls);
+  }
+
+  private replayButton(replay: () => void): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Replay tutorial hints";
+    button.style.cssText =
+      "width:100%;margin-top:6px;padding:7px;border:1px solid #757a93;" +
+      "background:#292b40;color:#f2f0eb;font:12px monospace";
+    button.addEventListener("click", replay);
+    return button;
   }
 
   dispose(): void {

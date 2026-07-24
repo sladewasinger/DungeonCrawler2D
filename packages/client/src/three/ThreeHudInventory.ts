@@ -8,20 +8,29 @@ const TABS: readonly InventoryTab[] = ["all", "weapons", "usables", "materials"]
 
 export class ThreeHudInventory {
   readonly element = document.createElement("div");
+  private readonly header = document.createElement("div");
   private readonly tabs = document.createElement("div");
   private readonly list = document.createElement("div");
   private selectedTab: InventoryTab = "all";
   private signature = "";
 
-  constructor(private readonly connection: Connection) {
+  constructor(
+    private readonly connection: Connection,
+    close: () => void,
+  ) {
     this.element.style.cssText =
       `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:7px`;
+    this.header.style.cssText =
+      "display:grid;grid-template-columns:1fr auto;gap:6px";
     this.tabs.style.cssText = "display:flex;gap:4px";
     this.list.style.cssText =
       "min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;" +
       "align-content:start;gap:5px;scrollbar-color:#555a75 #171827";
     this.tabs.append(...TABS.map((tab) => this.createTab(tab)));
-    this.element.append(this.tabs, this.list);
+    const closeButton = createHudButton("close", close);
+    closeButton.setAttribute("aria-label", "Close inventory");
+    this.header.append(this.tabs, closeButton);
+    this.element.append(this.header, this.list);
   }
 
   update(): void {

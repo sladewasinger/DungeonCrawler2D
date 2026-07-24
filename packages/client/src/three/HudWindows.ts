@@ -2,6 +2,10 @@
 import { isTouchDevice } from "../input/touchDetect.js";
 import { anchoredPosition } from "./HudWindowGeometry.js";
 import { bindHudWindowEditing, type EditableHudWindow } from "./HudWindowEditing.js";
+import {
+  buildHudWindow,
+  type HudWindowRecord,
+} from "./HudWindowRecord.js";
 import { loadWindowLayouts, saveWindowLayouts, type HudWindowLayout } from "./hudWindowStorage.js";
 
 export type HudAnchor = "top-left" | "top-center" | "top-right" |
@@ -26,30 +30,17 @@ export interface HudWindowView {
   readonly visible: boolean;
 }
 
-interface HudWindowRecord {
-  id: string;
-  title: string;
-  element: HTMLDivElement;
-  content: HTMLDivElement;
-  layout: HudWindowLayout;
-  interactive: boolean;
-}
-
 const MOBILE_SCALE = 0.66;
-const buildWindow = (spec: HudWindowSpec) => {
-  const element = document.createElement("div");
-  element.dataset.hudWindow = spec.id;
-  element.setAttribute("aria-label", spec.title);
-  element.style.cssText =
-    "position:absolute;min-width:0;min-height:0;overflow:hidden;" +
-    "color:#f2f0eb;font:12px monospace;box-sizing:border-box";
-  const content = document.createElement("div");
-  content.style.cssText =
-    "width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;box-sizing:border-box";
-  content.append(spec.content);
-  element.append(content);
-  return { element, content };
-};
+
+const restoreStoredLayout = (
+  stored: HudWindowLayout,
+  defaults: HudWindowLayout,
+): HudWindowLayout => ({
+  ...stored,
+  width: stored.width > 0 ? stored.width : defaults.width,
+  height: stored.height > 0 ? stored.height : defaults.height,
+  visible: stored.visible ?? defaults.visible ?? true,
+});
 
 export class HudWindowManager {
   private readonly layer = document.createElement("div");
@@ -75,9 +66,9 @@ export class HudWindowManager {
     const layout = this.useMobileDefault(spec, stored)
       ? defaults
       : stored
-        ? { ...stored, visible: stored.visible ?? defaultVisible }
+        ? restoreStoredLayout(stored, defaults)
         : defaults;
-    const built = buildWindow(effective);
+    const built = buildHudWindow(effective);
     const record = {
       ...built,
       id: spec.id,
@@ -190,8 +181,9 @@ export class HudWindowManager {
     );
     const position = record.layout.anchor === "free" ?
       { x: record.layout.x, y: record.layout.y } : anchored;
+    const visible = record.layout.visible !== false;
     Object.assign(record.element.style, {
-      display: record.layout.visible !== false ? "block" : "none",
+      display: visible ? "block" : "none",
       left: `${position.x}px`,
       top: `${position.y}px`,
       width: `${size.width}px`,
@@ -203,11 +195,15 @@ export class HudWindowManager {
 
   private applyChrome(record: HudWindowRecord): void {
     record.element.style.resize = this.editing ? "both" : "none";
-    record.element.style.pointerEvents = this.editing || record.interactive ? "auto" : "none";
+    record.element.style.pointerEvents = "auto";
     record.element.style.outline = this.editing ? "1px solid rgba(112,118,148,.9)" : "none";
     record.element.style.background = this.editing ? "rgba(17,18,29,.22)" : "transparent";
     record.element.style.boxShadow = this.editing ? "0 10px 24px rgba(0,0,0,.28)" : "none";
-    record.element.style.touchAction = this.editing ? "none" : "auto";
+    record.element.style.touchAction = this.editing
+      ? "none"
+      : record.interactive
+        ? "auto"
+        : "manipulation";
   }
 
   private readonly layoutAll = (): void => {

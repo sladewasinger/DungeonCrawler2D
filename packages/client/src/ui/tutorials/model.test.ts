@@ -59,4 +59,26 @@ describe("contextual tutorials", () => {
     advanceTutorials(state, snapshot({ hp: 20 }));
     expect(advanceTutorials(state, snapshot({ hp: 5 }))).toHaveLength(1);
   });
+
+  it("uses touch controls instead of impossible keyboard instructions", () => {
+    const state = createTutorialState();
+    expect(advanceTutorials(state, snapshot(), "touch")).toContainEqual({
+      id: "usable",
+      text: "Tap hotbar slot [1], then tap [USE] to apply the bandage.",
+      persistent: true,
+    });
+    const messages = advanceTutorials(state, snapshot({
+      inventory: [
+        { item: "bandage", qty: 2 },
+        { item: "torch", qty: 1 },
+      ],
+      hotbar: ["bandage", "torch", null, null, null, null, null, null, null],
+    }), "touch");
+    expect(messages.map(({ text }) => text)).toContain(
+      "Select the item, then tap [THROW].",
+    );
+    expect(messages.map(({ text }) => text)).toContain(
+      "Tap [BAG] to open your inventory.",
+    );
+  });
 });

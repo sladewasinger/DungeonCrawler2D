@@ -3,6 +3,7 @@ import type { InvStack } from "@dc2d/engine";
 import { isConsumableItem, isThrowableItem } from "../itemCatalog.js";
 
 export type TutorialId = "inventory" | "throwable" | "usable" | "low-health";
+export type TutorialInputMode = "keyboard" | "touch";
 
 export interface TutorialMessage {
   id: TutorialId;
@@ -44,59 +45,90 @@ const assignedItems = (
 const usableMessage = (
   hotbar: readonly (string | null)[],
   item: string,
+  mode: TutorialInputMode,
 ): TutorialMessage => {
   const slot = hotbar.indexOf(item) + 1;
+  const select = mode === "touch"
+    ? `Tap hotbar slot [${slot}]`
+    : `Press [${slot}] to equip`;
+  const use = mode === "touch" ? "tap [USE]" : "[E]";
   return {
     id: "usable",
     text: item === "bandage"
-      ? `Press [${slot}] to equip, then [E] to apply the bandage.`
-      : `Press [${slot}] to select ${item}, then [E] to use it.`,
+      ? `${select}, then ${use} to apply the bandage.`
+      : `${select}, then ${use} to use ${item}.`,
     persistent: true,
   };
 };
 
 const lowHealthMessage = (
   hotbar: readonly (string | null)[],
+  mode: TutorialInputMode,
 ): TutorialMessage => {
   const bandageSlot = hotbar.indexOf("bandage");
+  const action = mode === "touch"
+    ? `Tap slot [${bandageSlot + 1}], then tap [USE]`
+    : `Press [${bandageSlot + 1}], then [E]`;
   return {
     id: "low-health",
     text: bandageSlot >= 0
-      ? `Health low! Press [${bandageSlot + 1}], then [E] to heal.`
-      : "Health low! Open your inventory and use a bandage.",
+      ? `Health low! ${action} to heal.`
+      : `Health low! ${mode === "touch" ? "Tap [BAG]" : "Open your inventory"} and use a bandage.`,
     persistent: false,
   };
+};
+
+const inventoryPickupMessage = (
+  state: TutorialState,
+  snapshot: TutorialSnapshot,
+  mode: TutorialInputMode,
+): TutorialMessage | null => {
+  const pickedUp = state.initialized && snapshot.inventory.some((stack) =>
+    stack.qty > (state.inventory.get(stack.item) ?? 0)
+  );
+  if (!pickedUp) return null;
+  return {
+    id: "inventory",
+    text: mode === "touch"
+      ? "Tap [BAG] to open your inventory."
+      : "Press [Tab] to open your inventory.",
+    persistent: true,
+  };
+};
+
+const assignmentMessages = (
+  assigned: readonly string[],
+  hotbar: readonly (string | null)[],
+  mode: TutorialInputMode,
+): TutorialMessage[] => {
+  const messages: TutorialMessage[] = [];
+  if (assigned.find(isThrowableItem)) {
+    messages.push({
+      id: "throwable",
+      text: mode === "touch"
+        ? "Select the item, then tap [THROW]."
+        : "Press [G] to throw the selected item.",
+      persistent: true,
+    });
+  }
+  const usable = assigned.find(isConsumableItem);
+  if (usable) messages.push(usableMessage(hotbar, usable, mode));
+  return messages;
 };
 
 export const advanceTutorials = (
   state: TutorialState,
   snapshot: TutorialSnapshot,
+  mode: TutorialInputMode = "keyboard",
 ): TutorialMessage[] => {
   const nextInventory = quantities(snapshot.inventory);
   const healthIsLow = snapshot.maxHp > 0 && snapshot.hp / snapshot.maxHp < 0.3;
   const assigned = assignedItems(state.hotbar, snapshot.hotbar);
-  const messages: TutorialMessage[] = [];
-  if (state.initialized && snapshot.inventory.some((stack) =>
-    stack.qty > (state.inventory.get(stack.item) ?? 0)
-  )) {
-    messages.push({
-      id: "inventory",
-      text: "Press [Tab] to open your inventory.",
-      persistent: true,
-    });
-  }
-  const throwable = assigned.find(isThrowableItem);
-  if (throwable) {
-    messages.push({
-      id: "throwable",
-      text: "Press [G] to throw the selected item.",
-      persistent: true,
-    });
-  }
-  const usable = assigned.find(isConsumableItem);
-  if (usable) messages.push(usableMessage(snapshot.hotbar, usable));
+  const messages = assignmentMessages(assigned, snapshot.hotbar, mode);
+  const inventoryMessage = inventoryPickupMessage(state, snapshot, mode);
+  if (inventoryMessage) messages.unshift(inventoryMessage);
   if (healthIsLow && !state.healthWasLow) {
-    messages.push(lowHealthMessage(snapshot.hotbar));
+    messages.push(lowHealthMessage(snapshot.hotbar, mode));
   }
   state.initialized = true;
   state.inventory = nextInventory;

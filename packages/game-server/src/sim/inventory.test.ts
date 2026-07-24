@@ -1,19 +1,11 @@
+/** Verifies inventory stacks, starter migration, drops, crafting, and stash behavior. */
 import {
-  areasData,
-  enemiesData,
-  itemsData,
-  recipesData,
-  rulesData,
-  statusesData,
+  areasData, enemiesData, itemsData,
+  recipesData, rulesData, statusesData,
 } from "@dc2d/content";
 import {
-  TILE,
-  buildContentRegistry,
-  createBody,
-  makeEntity,
-  newEntityId,
-  resetEntityIds,
-  type World,
+  TILE, buildContentRegistry, createBody, makeEntity,
+  newEntityId, resetEntityIds, type World,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -22,6 +14,7 @@ import {
   doPickup,
   doStash,
   dropAllInventory,
+  ensureStarterKit,
   invAdd,
   invIndex,
   invQty,
@@ -99,6 +92,19 @@ describe("inventory: adding and removing stacks", () => {
     expect(slot.weapon).toBe("sword");
     invAdd(sim, slot, "hammer", 1);
     expect(slot.weapon).toBe("sword"); // first weapon wins, hammer sits unequipped
+  });
+
+  it("migrates an existing starter kit to bandages in slot one once", () => {
+    const sim = buildSim(fakeWorld());
+    const slot = buildSlot(0, 0);
+    invAdd(sim, slot, "sword", 1);
+    invAdd(sim, slot, "torch", 3);
+    ensureStarterKit(sim, slot);
+    expect(invQty(slot, "bandage")).toBe(2);
+    expect(slot.hotbar[0]).toBe("bandage");
+    invRemove(slot, "bandage", 2);
+    ensureStarterKit(sim, slot);
+    expect(invQty(slot, "bandage")).toBe(0);
   });
 });
 

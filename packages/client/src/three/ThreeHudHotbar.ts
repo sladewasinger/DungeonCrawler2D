@@ -12,7 +12,7 @@ export class ThreeHudHotbar {
   private selected = -1;
   private signature = "";
 
-  constructor(private readonly onSelect?: (index: number) => void) {
+  constructor(private readonly onSelect?: (index: number | null) => void) {
     this.element.style.cssText =
       "width:100%;height:100%;display:grid;" +
       "grid-template-columns:repeat(9,minmax(30px,1fr));gap:4px;align-items:end";
@@ -52,7 +52,7 @@ export class ThreeHudHotbar {
     if (index < 0 || index >= SLOT_COUNT) return;
     this.selected = this.selected === index ? -1 : index;
     this.applySelection();
-    this.onSelect?.(index);
+    this.onSelect?.(this.selected >= 0 ? this.selected : null);
   }
 
   selectedSlot(): number {

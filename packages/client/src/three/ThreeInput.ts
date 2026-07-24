@@ -12,6 +12,17 @@ const editingText = (target: EventTarget | null) => target instanceof HTMLInputE
 
 const ignorePointerLockFailure = () => undefined;
 
+export interface ThreeInputSample {
+  input: FirstPersonInput;
+  yaw: number;
+  pitch: number;
+  mouseCaptured: boolean;
+  attack: boolean;
+  interact: boolean;
+  throwItem: boolean;
+  giveUp: boolean;
+}
+
 export class ThreeInput {
   private readonly held = new Set<string>();
   private readonly pressed = new Set<string>();
@@ -32,7 +43,7 @@ export class ThreeInput {
     canvas.addEventListener("pointerdown", this.capturePointer);
   }
 
-  sample(elapsed: number): { input: FirstPersonInput; yaw: number; pitch: number; mouseCaptured: boolean; attack: boolean; interact: boolean; giveUp: boolean } {
+  sample(elapsed: number): ThreeInputSample {
     const touch = this.touch.read(elapsed);
     this.yaw += touch.yaw;
     this.pitch = clamp(this.pitch + touch.pitch, -LOOK_LIMIT, LOOK_LIMIT);
@@ -48,6 +59,7 @@ export class ThreeInput {
       mouseCaptured: document.pointerLockElement === this.canvas,
       attack: touch.attack,
       interact: touch.interact || this.consumePress("KeyE"),
+      throwItem: touch.throwItem || this.consumePress("KeyG"),
       giveUp: this.giveUp.poll(true, performance.now()),
     };
   }
@@ -82,7 +94,7 @@ export class ThreeInput {
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
     if (editingText(event.target)) return;
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyK"].includes(event.code)) {
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyG", "KeyK"].includes(event.code)) {
       event.preventDefault();
     }
     if (!this.held.has(event.code)) this.pressed.add(event.code);

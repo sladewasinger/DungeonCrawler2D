@@ -4,9 +4,9 @@
 // suite must never collide with a developer's own `npm run dev` running alongside it.
 
 /** Vite dev server port this suite's client runs on. */
-export const CLIENT_PORT = 5199;
+export const CLIENT_PORT = Number(process.env["E2E_CLIENT_PORT"] ?? 5199);
 /** game-server GAME_PORT this suite's server runs on. */
-export const GAME_PORT = 8799;
+export const GAME_PORT = Number(process.env["E2E_GAME_PORT"] ?? 8799);
 export const WS_URL = `ws://localhost:${GAME_PORT}`;
 export const CLIENT_URL = `http://localhost:${CLIENT_PORT}`;
 

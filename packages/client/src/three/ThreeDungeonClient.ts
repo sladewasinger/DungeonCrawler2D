@@ -2,6 +2,7 @@
 import { World } from "@dc2d/engine";
 import type { Connection } from "../net/connection.js";
 import * as THREE from "three";
+import { ThreeActionController } from "./ThreeActionController.js";
 import { ThreeHud } from "./ThreeHud.js";
 import { ThreeInput } from "./ThreeInput.js";
 import { enableMobileDisplay } from "./ThreeMobileDisplay.js";
@@ -42,6 +43,7 @@ class ThreeDungeonClient {
   private readonly camera = new THREE.PerspectiveCamera(74, 1, 0.05, 90);
   private readonly renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
   private readonly hud: ThreeHud;
+  private readonly actions: ThreeActionController;
   private readonly input: ThreeInput;
   private terrain: ThreeTerrain;
   private readonly remoteActors: ThreeRemoteActors;
@@ -64,12 +66,14 @@ class ThreeDungeonClient {
     options.root.replaceChildren(this.renderer.domElement);
     this.releaseMobileDisplay = enableMobileDisplay(options.root);
     this.input = new ThreeInput(options.root, this.renderer.domElement);
+    this.actions = new ThreeActionController(options.conn);
     this.hud = new ThreeHud({
       root: options.root,
       connection: options.conn,
       focusGame: () => this.input.focusGame(),
       viewDistance: this.viewDistance,
       setViewDistance: this.setViewDistance,
+      onSelectHotbar: this.actions.selectHotbar,
     });
     this.terrain = new ThreeTerrain(this.world, this.scene, this.viewDistance);
     this.configureScene();
@@ -117,7 +121,7 @@ class ThreeDungeonClient {
     this.syncAuthoritativeWorld();
     const elapsed = this.elapsed(time);
     const sampled = this.input.sample(elapsed);
-    this.publishActions(sampled.yaw, sampled.attack, sampled.interact, sampled.giveUp);
+    this.actions.publish(this.world, sampled);
     this.publishInput(sampled.input, elapsed);
     this.syncPlayerPresentation(elapsed);
     this.refreshTerrain();
@@ -147,12 +151,6 @@ class ThreeDungeonClient {
     for (let tick = 0; tick < clock.ticks; tick += 1) {
       this.options.conn.sampleInput(firstPersonMoveInput({ ...input, jump: input.jump || (tick === 0 && jumpPressed) }));
     }
-  }
-
-  private publishActions(yaw: number, attack: boolean, interact: boolean, giveUp: boolean): void {
-    if (attack) this.options.conn.attack(-Math.sin(yaw), -Math.cos(yaw));
-    if (interact) this.options.conn.interact();
-    if (giveUp && this.options.conn.downed) this.options.conn.suicide();
   }
 
   private syncPlayerPresentation(elapsed: number): void {
@@ -210,6 +208,8 @@ class ThreeDungeonClient {
     if (!this.active) return;
     this.active = false;
     window.removeEventListener("resize", this.resize);
+    window.removeEventListener("pagehide", this.dispose);
+    this.hud.dispose();
     this.input.dispose();
     this.terrain.dispose();
     this.remoteActors.dispose();

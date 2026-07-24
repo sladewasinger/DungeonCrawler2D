@@ -67,6 +67,7 @@ export interface PointerDeps {
   tilePx: number;
   touch: TouchInputState;
   touchActive: boolean;
+  throwSelected(): void;
   viewport: { width: number; height: number };
   /**
    * The dungeon scene's own camera, transformed through explicitly (`getWorldPoint`)
@@ -142,6 +143,8 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     pressButton(touch, "interact", pointerId);
     conn.pickup();
     conn.interact();
+  } else if (uiHit === "touch:throw") {
+    deps.throwSelected();
   } else if (uiHit === "chat:toggle") {
     hooks.onToggleChat();
   } else if (uiHit === "inventory:toggle") {

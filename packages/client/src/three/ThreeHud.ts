@@ -48,7 +48,7 @@ export interface ThreeHudOptions {
   setViewDistance?: (viewDistance: ViewDistance) => void;
   bindKeyboard?: boolean;
   showReticle?: boolean;
-  onSelectHotbar?: (index: number) => void;
+  onSelectHotbar?: (index: number | null) => void;
 }
 
 export class ThreeHud {
@@ -67,7 +67,7 @@ export class ThreeHud {
   private readonly stash: ThreeHudStash;
   private readonly downed: ThreeDownedOverlay;
   private readonly invite: ThreePartyInvite;
-  private readonly tutorials = new ThreeHudTutorials();
+  private readonly tutorials: ThreeHudTutorials;
   private readonly notices = new ThreeHudNotices();
   private readonly settings: ThreeHudSettings;
   private readonly touch: ThreeHudTouchOverlay;
@@ -75,10 +75,12 @@ export class ThreeHud {
 
   constructor(options: ThreeHudOptions) {
     const { root, connection, focusGame } = options;
+    const touchDevice = isTouchDevice();
+    this.tutorials = new ThreeHudTutorials(touchDevice ? "touch" : "keyboard");
     this.hotbar = new ThreeHudHotbar(options.onSelectHotbar);
     mountHudRoot(root, this.element);
-    this.chat = new ThreeHudChat(connection, isTouchDevice(), focusGame);
-    this.inventory = new ThreeHudInventory(connection);
+    this.chat = new ThreeHudChat(connection, touchDevice, focusGame);
+    this.inventory = new ThreeHudInventory(connection, () => this.closeInventory());
     this.contacts = new ThreeHudContacts((name) => this.chat.startDm(name));
     this.craft = new ThreeHudCraft((recipe) => connection.craft(recipe));
     this.stash = new ThreeHudStash(
@@ -86,10 +88,12 @@ export class ThreeHud {
       (index) => connection.stashOp("take", index),
     );
     this.manager = new HudWindowManager(this.element);
-    threeHudWindowSpecs(this.windowContents())
-      .forEach((window) => this.manager.add(window));
+    threeHudWindowSpecs(this.windowContents()).forEach((window) => this.manager.add(window));
     this.touch = new ThreeHudTouchOverlay(() => this.toggleInventory());
-    this.settings = createHudSettings(this.element, this.manager, options);
+    this.settings = createHudSettings(this.element, this.manager, {
+      ...options,
+      replayTutorials: () => this.tutorials.replay(),
+    });
     this.downed = new ThreeDownedOverlay(this.element);
     this.invite = new ThreePartyInvite(connection);
     this.element.append(this.invite.element, this.tutorials.element, this.touch.element, this.notices.element);
@@ -142,6 +146,10 @@ export class ThreeHud {
     this.chat.focus();
   }
 
+  toggleChat(): void {
+    this.toggleWindow("three-chat");
+  }
+
   toggleContacts(): void {
     this.toggleWindow("three-contacts");
   }
@@ -183,16 +191,11 @@ export class ThreeHud {
 
   private windowContents() {
     return {
-      status: this.status.element,
-      buffs: this.buffs.element,
-      hotbar: this.hotbar.element,
-      chat: this.chat.element,
-      inventory: this.inventory.element,
-      weapon: this.weapon.element,
-      party: this.party.element,
-      telemetry: this.telemetry.element,
-      contacts: this.contacts.element,
-      craft: this.craft.element,
+      status: this.status.element, buffs: this.buffs.element,
+      hotbar: this.hotbar.element, chat: this.chat.element,
+      inventory: this.inventory.element, weapon: this.weapon.element,
+      party: this.party.element, telemetry: this.telemetry.element,
+      contacts: this.contacts.element, craft: this.craft.element,
       stash: this.stash.element,
     };
   }

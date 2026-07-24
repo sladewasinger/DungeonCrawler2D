@@ -27,6 +27,7 @@ export class ThreeHudTouchOverlay {
   private readonly attack = createButton("ATTACK", 24, 80, 40);
   private readonly jump = createButton("JUMP", 29, 130, 30);
   private readonly interact = createButton("USE", 68, 130, 30);
+  private readonly throwItem = createButton("THROW", 107, 130, 30);
   private readonly bag = document.createElement("button");
 
   constructor(toggleInventory: () => void) {
@@ -51,6 +52,7 @@ export class ThreeHudTouchOverlay {
       this.attack,
       this.jump,
       this.interact,
+      this.throwItem,
       this.bag,
     );
   }

@@ -14,27 +14,20 @@ import { interactOrUse, throwSelected, withPointerFacing } from "./gameplayActio
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
-import { activateHotbar, activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
+import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
 import {
-  createTouchInputState,
-  isButtonHeld,
-  mergeMoveInputs,
-  touchMoveInput,
-  touchVisualSnapshot,
-  updateLastFacing,
+  createTouchInputState, isButtonHeld, mergeMoveInputs,
+  touchMoveInput, touchVisualSnapshot, updateLastFacing,
+  type TouchInputState, type TouchVisualSnapshot,
 } from "./touch/index.js";
-import type { TouchInputState, TouchVisualSnapshot } from "./touch/index.js";
 import { isTouchDevice } from "./touchDetect.js";
 import { getViewOrientation } from "../render/view/index.js";
 
 export type {
-  InputConnection,
-  InputHooks,
-  InputHud,
-  InputPanels,
+  InputConnection, InputHooks, InputHud, InputPanels,
   InputQueries,
   ThrowPreview,
 } from "./state.js";
@@ -205,6 +198,7 @@ export class InputController {
           tilePx,
           touch: this.touch,
           touchActive: this.touchActive,
+          throwSelected: () => this.throwSelectedTouch(),
           viewport,
           camera: this.scene.cameras.main,
         },
@@ -248,6 +242,13 @@ export class InputController {
     return { ...move, faceX: facing.x, faceY: facing.y };
   }
 
+  private throwSelectedTouch(): void {
+    throwSelected(
+      this.scene, this.conn, this.queries, this.state, this.touch, true,
+      this.tilePx,
+    );
+  }
+
   /** Current armed-throw trajectory preview, for the scene to render, or null. */
   throwPreview(): ThrowPreview | null {
     const pointer = this.scene.input.activePointer;
@@ -263,7 +264,7 @@ export class InputController {
   /** Hotbar slot selected by keyboard/touch, regardless of its item category. */
   selectedHotbarSlot(): number | null { return this.state.selectedSlot; }
 
-  selectHotbarSlot(index: number): void { activateHotbar(this.state, this.conn, index); }
+  setHotbarSlot(index: number | null): void { this.state.selectedSlot = index; }
 
   /** Live joystick/button state for the touch HUD widgets to render, or null when touch isn't active. */
   touchVisual(): TouchVisualSnapshot | null {

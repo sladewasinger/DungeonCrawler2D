@@ -87,7 +87,7 @@ export class DungeonScene extends Phaser.Scene {
     this.inputController = this.buildInputController();
     this.scene.launch("hud", {
       source: () => this.buildHudSnapshotNow(), connection: this.conn,
-      onSelectHotbar: (index: number) => this.inputController.selectHotbarSlot(index), actions: createHudActions(this.conn),
+      onSelectHotbar: (index: number | null) => this.inputController.setHotbarSlot(index), actions: createHudActions(this.conn),
       social: buildSocialActions(this.chatController, this.chatInputBox, () => this.scale.height, this.hudScene),
       stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
     });

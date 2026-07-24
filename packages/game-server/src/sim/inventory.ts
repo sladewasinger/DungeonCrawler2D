@@ -52,6 +52,14 @@ function bindStarterBandage(slot: PlayerSlot): void {
   slot.hotbar[STARTER_BANDAGE_SLOT] = STARTER_BANDAGE_DEF;
 }
 
+function migrateStarterBandages(sim: SimState, slot: PlayerSlot): void {
+  if (slot.hotbar.includes(STARTER_BANDAGE_DEF)) return;
+  if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
+    invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
+  }
+  bindStarterBandage(slot);
+}
+
 /** True once a player has neither an equipped weapon nor a starter
  * sword/torch anywhere they own — inventory OR stash. Checking the
  * stash is what keeps the re-grant farm-safe: a player who tucked a
@@ -78,11 +86,11 @@ function lacksStarterKit(slot: PlayerSlot): boolean {
  * while completely kit-less).
  */
 export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
-  if (!lacksStarterKit(slot)) return;
-  invAdd(sim, slot, STARTER_SWORD_DEF, 1);
-  invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
-  invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
-  bindStarterBandage(slot);
+  if (lacksStarterKit(slot)) {
+    invAdd(sim, slot, STARTER_SWORD_DEF, 1);
+    invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
+  }
+  migrateStarterBandages(sim, slot);
 }
 
 /**

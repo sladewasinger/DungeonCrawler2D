@@ -6,6 +6,7 @@ import { defineConfig } from "@playwright/test";
 import { CLIENT_PORT, CLIENT_URL, GAME_PORT } from "./env.js";
 
 const STARTUP_TIMEOUT_MS = 30_000;
+const REUSE_EXISTING_SERVERS = process.env["E2E_REUSE_SERVERS"] === "1";
 
 export default defineConfig({
   testDir: ".",
@@ -27,7 +28,7 @@ export default defineConfig({
     {
       command: "npm run dev -w @dc2d/game-server",
       port: GAME_PORT,
-      reuseExistingServer: false, // an already-listening server has UNKNOWN env (seed/fixtures) — reusing one made the suite test a stale orphan; always boot fresh
+      reuseExistingServer: REUSE_EXISTING_SERVERS,
       timeout: STARTUP_TIMEOUT_MS,
       stdout: "pipe",
       env: {
@@ -48,7 +49,7 @@ export default defineConfig({
     {
       command: `npm run dev -w @dc2d/client -- --port ${CLIENT_PORT} --strictPort`,
       port: CLIENT_PORT,
-      reuseExistingServer: false, // an already-listening server has UNKNOWN env (seed/fixtures) — reusing one made the suite test a stale orphan; always boot fresh
+      reuseExistingServer: REUSE_EXISTING_SERVERS,
       timeout: STARTUP_TIMEOUT_MS,
       stdout: "pipe",
     },

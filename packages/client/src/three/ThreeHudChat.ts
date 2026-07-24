@@ -74,6 +74,11 @@ export class ThreeHudChat {
 
   private submit(event: KeyboardEvent): void {
     event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.leave();
+      return;
+    }
     if (event.key !== "Enter") return;
     event.preventDefault();
     if (this.input.value.trim()) this.chat.submit(this.input.value);

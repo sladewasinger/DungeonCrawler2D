@@ -12,6 +12,7 @@ import { fakeHudSnapshot, type HudFakeSnapshot } from "../ui/widgets/hud/fakeDat
 import { HudWidgets, type SocialActions, type StationActions } from "../ui/widgets/hud/index.js";
 import type { InventoryActions } from "../ui/widgets/hud/inventoryWindow.js";
 import type { Connection } from "../net/connection.js";
+import { HtmlTouchHitRegions } from "../three/HtmlTouchHitRegions.js";
 import { ThreeHud } from "../three/ThreeHud.js";
 
 /** ?hud=1 shows the HUD-on state with fake data; ?hud=death also forces the death overlay. */
@@ -38,7 +39,7 @@ export interface HudSceneData {
   /** The crafting-table/stash windows' network intents (Epic 7.12) — omitted in the gallery's fake-data preview. */
   stations?: StationActions;
   connection?: Connection;
-  onSelectHotbar?: (index: number) => void;
+  onSelectHotbar?: (index: number | null) => void;
 }
 
 export class HudScene extends Phaser.Scene {
@@ -53,7 +54,8 @@ export class HudScene extends Phaser.Scene {
   private stations: StationActions | undefined;
   private connection: Connection | undefined;
   private htmlHud: ThreeHud | undefined;
-  private onSelectHotbar: ((index: number) => void) | undefined;
+  private readonly touchHits = new HtmlTouchHitRegions();
+  private onSelectHotbar: ((index: number | null) => void) | undefined;
 
   constructor() {
     super("hud");
@@ -73,10 +75,11 @@ export class HudScene extends Phaser.Scene {
     const mode = params.get(HUD_QUERY_PARAM);
     if (!this.source && mode !== "1" && mode !== "death") return;
     this.snapshot = mode === "death" ? fakeHudSnapshot(true) : mode === "1" ? fakeHudSnapshot(false) : undefined;
-    const viewport = { width: this.scale.width, height: this.scale.height };
-    this.hud = new HudWidgets(this, viewport, this.actions, this.social, this.stations);
-    if (this.source && this.connection) this.createHtmlHud(this.connection);
-    this.bossBar = new BossBarWidget(this, this.hud.registry, viewport);
+    if (this.source && this.connection) {
+      this.createHtmlHud(this.connection);
+    } else {
+      this.createPreviewHud();
+    }
     this.applyScreenshotAidParams(params);
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
@@ -92,24 +95,31 @@ export class HudScene extends Phaser.Scene {
   }
 
   update(time: number): void {
-    if (!this.hud) return;
     const snapshot = this.source ? this.source() : this.snapshot;
     if (!snapshot) return;
-    this.hud.update(snapshot, time);
+    if (this.htmlHud) {
+      this.updateHtmlHud(snapshot);
+      return;
+    }
+    this.hud?.update(snapshot, time);
     this.bossBar?.update(snapshot.boss);
-    this.updateHtmlHud(snapshot);
   }
 
   /** InputHud contract: forwarded to the live HudWidgets instance, if one is running. */
   hitTest(screenX: number, screenY: number): string | null {
-    return this.htmlHud
-      ? this.hud?.hitTestTouchOnly(screenX, screenY) ?? null
-      : this.hud?.hitTest(screenX, screenY) ?? null;
+    if (!this.htmlHud) return this.hud?.hitTest(screenX, screenY) ?? null;
+    return this.touchHits.hitTest(
+      screenX,
+      screenY,
+      this.scale.width,
+      this.scale.height,
+    );
   }
 
   /** Toggles the chat panel — the touch layout's collapse-to-chip affordance (InputHooks.onToggleChat). */
   toggleChat(): void {
-    this.hud?.toggleChat();
+    if (this.htmlHud) this.htmlHud.toggleChat();
+    else this.hud?.toggleChat();
   }
 
   /** Toggles the inventory window — [I]/[Tab] or the touch bag button (InputHooks.onToggleInventory). */
@@ -194,7 +204,6 @@ export class HudScene extends Phaser.Scene {
   private createHtmlHud(connection: Connection): void {
     const root = document.getElementById("app");
     if (!root) throw new Error("Missing #app root for HTML HUD.");
-    this.cameras.main.setAlpha(0);
     const options = {
       root,
       connection,
@@ -216,6 +225,7 @@ export class HudScene extends Phaser.Scene {
     const connection = this.connection;
     const world = connection?.world;
     if (!this.htmlHud || !connection || !world) return;
+    this.touchHits.setActive(snapshot.touch !== null);
     const player = {
       x: snapshot.coords.x,
       y: snapshot.coords.z,
@@ -231,5 +241,17 @@ export class HudScene extends Phaser.Scene {
       mouseCaptured: true,
       snapshot,
     });
+  }
+
+  private createPreviewHud(): void {
+    const viewport = { width: this.scale.width, height: this.scale.height };
+    this.hud = new HudWidgets(
+      this,
+      viewport,
+      this.actions,
+      this.social,
+      this.stations,
+    );
+    this.bossBar = new BossBarWidget(this, this.hud.registry, viewport);
   }
 }

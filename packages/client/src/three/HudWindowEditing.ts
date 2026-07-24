@@ -20,6 +20,22 @@ export interface HudWindowEditingContext {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+const RESIZE_HANDLE_PX = 18;
+
+export const isResizeHandle = (
+  rect: Pick<DOMRect, "right" | "bottom">,
+  x: number,
+  y: number,
+): boolean =>
+  x <= rect.right &&
+  y <= rect.bottom &&
+  rect.right - x <= RESIZE_HANDLE_PX &&
+  rect.bottom - y <= RESIZE_HANDLE_PX;
+
+export const isInteractiveEditTarget = (target: EventTarget | null): boolean =>
+  target instanceof Element &&
+  target.closest("button,input,select,textarea,[contenteditable]") !== null;
+
 const sizeOf = (
   record: EditableHudWindow,
   scale: number,
@@ -46,6 +62,12 @@ const captureDrag = (
   event: PointerEvent,
 ): void => {
   if (!context.editing()) return;
+  if (isInteractiveEditTarget(event.target)) return;
+  if (isResizeHandle(
+    record.element.getBoundingClientRect(),
+    event.clientX,
+    event.clientY,
+  )) return;
   event.preventDefault();
   event.stopPropagation();
   beginDrag(record, context, event);
@@ -124,7 +146,9 @@ const resizeWindow = (
   context: HudWindowEditingContext,
 ): void => {
   if (!context.editing()) return;
+  if (record.layout.visible === false) return;
   const rect = record.element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
   record.layout.width = Math.round(rect.width / context.scale());
   record.layout.height = Math.round(rect.height / context.scale());
   context.persist();

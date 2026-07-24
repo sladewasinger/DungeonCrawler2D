@@ -9,6 +9,7 @@ export interface ThreeHudSetupOptions {
   viewDistance?: ViewDistance;
   setViewDistance?: (viewDistance: ViewDistance) => void;
   bindKeyboard?: boolean;
+  replayTutorials?: () => void;
 }
 
 export const mountHudRoot = (
@@ -38,6 +39,7 @@ export const createHudSettings = (
         activeDistance = distance;
         options.setViewDistance?.(distance);
       },
+    options.replayTutorials,
   );
 };
 
