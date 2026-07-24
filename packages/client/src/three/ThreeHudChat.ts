@@ -55,6 +55,14 @@ export class ThreeHudChat {
     this.input.focus();
   }
 
+  startDm(name: string): void {
+    this.chat.selectTab("dm");
+    this.input.value = `/dm ${name} `;
+    this.render();
+    this.focus();
+    this.input.setSelectionRange(this.input.value.length, this.input.value.length);
+  }
+
   ownsFocus(): boolean {
     return document.activeElement === this.input;
   }

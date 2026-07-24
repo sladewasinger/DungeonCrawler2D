@@ -11,6 +11,8 @@ import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
 import { fakeHudSnapshot, type HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import { HudWidgets, type SocialActions, type StationActions } from "../ui/widgets/hud/index.js";
 import type { InventoryActions } from "../ui/widgets/hud/inventoryWindow.js";
+import type { Connection } from "../net/connection.js";
+import { ThreeHud } from "../three/ThreeHud.js";
 
 /** ?hud=1 shows the HUD-on state with fake data; ?hud=death also forces the death overlay. */
 const HUD_QUERY_PARAM = "hud";
@@ -35,6 +37,8 @@ export interface HudSceneData {
   social?: SocialActions;
   /** The crafting-table/stash windows' network intents (Epic 7.12) — omitted in the gallery's fake-data preview. */
   stations?: StationActions;
+  connection?: Connection;
+  onSelectHotbar?: (index: number) => void;
 }
 
 export class HudScene extends Phaser.Scene {
@@ -47,6 +51,9 @@ export class HudScene extends Phaser.Scene {
   private actions: InventoryActions | undefined;
   private social: SocialActions | undefined;
   private stations: StationActions | undefined;
+  private connection: Connection | undefined;
+  private htmlHud: ThreeHud | undefined;
+  private onSelectHotbar: ((index: number) => void) | undefined;
 
   constructor() {
     super("hud");
@@ -57,6 +64,8 @@ export class HudScene extends Phaser.Scene {
     this.actions = data?.actions;
     this.social = data?.social;
     this.stations = data?.stations;
+    this.connection = data?.connection;
+    this.onSelectHotbar = data?.onSelectHotbar;
   }
 
   create(): void {
@@ -66,6 +75,7 @@ export class HudScene extends Phaser.Scene {
     this.snapshot = mode === "death" ? fakeHudSnapshot(true) : mode === "1" ? fakeHudSnapshot(false) : undefined;
     const viewport = { width: this.scale.width, height: this.scale.height };
     this.hud = new HudWidgets(this, viewport, this.actions, this.social, this.stations);
+    if (this.source && this.connection) this.createHtmlHud(this.connection);
     this.bossBar = new BossBarWidget(this, this.hud.registry, viewport);
     this.applyScreenshotAidParams(params);
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
@@ -87,11 +97,14 @@ export class HudScene extends Phaser.Scene {
     if (!snapshot) return;
     this.hud.update(snapshot, time);
     this.bossBar?.update(snapshot.boss);
+    this.updateHtmlHud(snapshot);
   }
 
   /** InputHud contract: forwarded to the live HudWidgets instance, if one is running. */
   hitTest(screenX: number, screenY: number): string | null {
-    return this.hud?.hitTest(screenX, screenY) ?? null;
+    return this.htmlHud
+      ? this.hud?.hitTestTouchOnly(screenX, screenY) ?? null
+      : this.hud?.hitTest(screenX, screenY) ?? null;
   }
 
   /** Toggles the chat panel — the touch layout's collapse-to-chip affordance (InputHooks.onToggleChat). */
@@ -101,62 +114,74 @@ export class HudScene extends Phaser.Scene {
 
   /** Toggles the inventory window — [I]/[Tab] or the touch bag button (InputHooks.onToggleInventory). */
   toggleInventory(): void {
-    this.hud?.toggleInventory();
+    if (this.htmlHud) this.htmlHud.toggleInventory();
+    else this.hud?.toggleInventory();
   }
 
   /** InventoryPanelSource contract (inputAdapters.ts's createInputPanels). */
   inventoryOpen(): boolean {
-    return this.hud?.inventoryOpen() ?? false;
+    return this.htmlHud?.inventoryOpen() ?? this.hud?.inventoryOpen() ?? false;
   }
 
   /** InventoryPanelSource contract. */
   selectedInventoryItem(): string | null {
-    return this.hud?.selectedInventoryItem() ?? null;
+    return this.htmlHud ? null : this.hud?.selectedInventoryItem() ?? null;
   }
 
   /** InventoryPanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
   closeInventory(): void {
-    this.hud?.closeInventory();
+    if (this.htmlHud) this.htmlHud.closeInventory();
+    else this.hud?.closeInventory();
+  }
+
+  focusChat(): void {
+    this.htmlHud?.focusChat();
   }
 
   /** [o] or the chat-tab chip (InputHooks.onToggleContacts). */
   toggleContacts(): void {
-    this.hud?.toggleContacts();
+    if (this.htmlHud) this.htmlHud.toggleContacts();
+    else this.hud?.toggleContacts();
   }
 
   /** [Esc] (InputHooks.onCloseOverlays). */
   closeContacts(): void {
-    this.hud?.closeContacts();
+    if (this.htmlHud) this.htmlHud.closeContacts();
+    else this.hud?.closeContacts();
   }
 
   /** PanelSource contract (scenes/dungeon/panelAdapters.ts's createInputPanels). */
   craftOpen(): boolean {
-    return this.hud?.craftOpen() ?? false;
+    return this.htmlHud?.craftOpen() ?? this.hud?.craftOpen() ?? false;
   }
 
   /** PanelSource contract — flips the craft window open/closed, no range gating (the caller checks that). */
   toggleCraftPanel(): void {
-    this.hud?.toggleCraftPanel();
+    if (this.htmlHud) this.htmlHud.toggleCraft();
+    else this.hud?.toggleCraftPanel();
   }
 
   /** PanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
   closeCraftPanel(): void {
-    this.hud?.closeCraftPanel();
+    if (this.htmlHud) this.htmlHud.closeCraft();
+    else this.hud?.closeCraftPanel();
   }
 
   /** PanelSource contract. */
   stashOpen(): boolean {
-    return this.hud?.stashOpen() ?? false;
+    return this.htmlHud?.stashOpen() ?? this.hud?.stashOpen() ?? false;
   }
 
   /** PanelSource contract — opens the stash window if it isn't already open. */
   openStashPanel(): void {
-    this.hud?.openStashPanel();
+    if (this.htmlHud) this.htmlHud.openStash();
+    else this.hud?.openStashPanel();
   }
 
   /** PanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
   closeStashPanel(): void {
-    this.hud?.closeStashPanel();
+    if (this.htmlHud) this.htmlHud.closeStash();
+    else this.hud?.closeStashPanel();
   }
 
   private handleResize(gameSize: Phaser.Structs.Size): void {
@@ -164,5 +189,47 @@ export class HudScene extends Phaser.Scene {
     const viewport = { width: gameSize.width, height: gameSize.height };
     this.hud?.resize(viewport);
     if (this.hud) this.bossBar?.resize(this.hud.registry, viewport);
+  }
+
+  private createHtmlHud(connection: Connection): void {
+    const root = document.getElementById("app");
+    if (!root) throw new Error("Missing #app root for HTML HUD.");
+    this.cameras.main.setAlpha(0);
+    const options = {
+      root,
+      connection,
+      focusGame: () => this.game.canvas.focus({ preventScroll: true }),
+      bindKeyboard: false,
+      showReticle: false,
+      ...(this.onSelectHotbar
+        ? { onSelectHotbar: this.onSelectHotbar }
+        : {}),
+    };
+    this.htmlHud = new ThreeHud(options);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.htmlHud?.dispose();
+      this.htmlHud = undefined;
+    });
+  }
+
+  private updateHtmlHud(snapshot: HudFakeSnapshot): void {
+    const connection = this.connection;
+    const world = connection?.world;
+    if (!this.htmlHud || !connection || !world) return;
+    const player = {
+      x: snapshot.coords.x,
+      y: snapshot.coords.z,
+      z: snapshot.coords.y,
+      verticalVelocity: 0,
+      grounded: true,
+    };
+    this.htmlHud.update({
+      connection,
+      world,
+      player,
+      yaw: -(snapshot.compassBearingDeg * Math.PI) / 180,
+      mouseCaptured: true,
+      snapshot,
+    });
   }
 }

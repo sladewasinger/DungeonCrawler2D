@@ -250,6 +250,16 @@ export class HudWidgets {
     return null;
   }
 
+  /** Keeps only the legacy touch-control hit regions while the visible HUD is DOM-rendered. */
+  hitTestTouchOnly(screenX: number, screenY: number): string | null {
+    const button = this.touchButtons?.hitTest(screenX, screenY);
+    if (button) return `touch:${button}`;
+    if (this.inventoryToggleButton?.hitTest(screenX, screenY)) {
+      return "inventory:toggle";
+    }
+    return null;
+  }
+
   /** hitTest()'s ordinary (non-edit-mode) dispatch chain, split out to stay under the
    * complexity cap once edit-mode's own branch is folded into the caller above. */
   private hitTestWindows(screenX: number, screenY: number): string | null {

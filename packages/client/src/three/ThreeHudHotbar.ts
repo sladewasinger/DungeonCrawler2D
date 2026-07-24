@@ -9,10 +9,10 @@ const SLOT_COUNT = 9;
 export class ThreeHudHotbar {
   readonly element = document.createElement("div");
   private readonly slots: HTMLButtonElement[] = [];
-  private selected = 0;
+  private selected = -1;
   private signature = "";
 
-  constructor() {
+  constructor(private readonly onSelect?: (index: number) => void) {
     this.element.style.cssText =
       "width:100%;height:100%;display:grid;" +
       "grid-template-columns:repeat(9,minmax(30px,1fr));gap:4px;align-items:end";
@@ -30,7 +30,11 @@ export class ThreeHudHotbar {
     this.applySelection();
   }
 
-  update(connection: Connection): void {
+  update(connection: Connection, selected?: number | null): void {
+    if (selected !== undefined && selected !== this.selected) {
+      this.selected = selected ?? -1;
+      this.applySelection();
+    }
     const signature = JSON.stringify([connection.hotbar, connection.inventory]);
     if (signature === this.signature) return;
     this.signature = signature;
@@ -46,8 +50,9 @@ export class ThreeHudHotbar {
 
   select(index: number): void {
     if (index < 0 || index >= SLOT_COUNT) return;
-    this.selected = index;
+    this.selected = this.selected === index ? -1 : index;
     this.applySelection();
+    this.onSelect?.(index);
   }
 
   selectedSlot(): number {

@@ -64,7 +64,7 @@ export class HudWindowManager {
     this.layer.style.cssText =
       "position:absolute;inset:0;pointer-events:none;overflow:hidden";
     root.append(this.layer);
-    window.addEventListener("resize", () => this.layoutAll());
+    window.addEventListener("resize", this.layoutAll);
   }
 
   add(spec: HudWindowSpec): HTMLElement {
@@ -122,6 +122,11 @@ export class HudWindowManager {
   onChange(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  dispose(): void {
+    window.removeEventListener("resize", this.layoutAll);
+    this.listeners.clear(); this.layer.remove();
   }
 
   private defaultLayout(spec: HudWindowSpec, visible: boolean): HudWindowLayout {
@@ -205,9 +210,9 @@ export class HudWindowManager {
     record.element.style.touchAction = this.editing ? "none" : "auto";
   }
 
-  private layoutAll(): void {
+  private readonly layoutAll = (): void => {
     for (const record of this.records.values()) this.apply(record);
-  }
+  };
 
   private persist(): void {
     saveWindowLayouts(Object.fromEntries(

@@ -27,8 +27,8 @@ export class ThreeHudSettings {
   constructor(
     root: HTMLElement,
     private readonly manager: HudWindowManager,
-    getViewDistance: () => ViewDistance,
-    setViewDistance: (viewDistance: ViewDistance) => void,
+    getViewDistance?: () => ViewDistance,
+    setViewDistance?: (viewDistance: ViewDistance) => void,
   ) {
     this.catalog = new ThreeHudCatalog(manager);
     this.configureMenu(getViewDistance, setViewDistance);
@@ -37,8 +37,8 @@ export class ThreeHudSettings {
   }
 
   private configureMenu(
-    getViewDistance: () => ViewDistance,
-    setViewDistance: (viewDistance: ViewDistance) => void,
+    getViewDistance?: () => ViewDistance,
+    setViewDistance?: (viewDistance: ViewDistance) => void,
   ): void {
     this.menu.hidden = true;
     this.menu.style.cssText =
@@ -52,11 +52,18 @@ export class ThreeHudSettings {
     this.edit.addEventListener("click", () => this.toggleEditing());
     this.updateLabel();
     this.catalog.setEditing(false);
-    this.menu.append(
-      this.edit,
-      createViewDistanceButton(getViewDistance, setViewDistance),
-      this.catalog.element,
-    );
+    const controls: HTMLElement[] = [this.edit];
+    if (getViewDistance && setViewDistance) {
+      controls.push(createViewDistanceButton(getViewDistance, setViewDistance));
+    }
+    controls.push(this.catalog.element);
+    this.menu.append(...controls);
+  }
+
+  dispose(): void {
+    this.catalog.dispose();
+    this.gear.remove();
+    this.menu.remove();
   }
 
   private toggleMenu(): void {

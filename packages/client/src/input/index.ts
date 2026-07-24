@@ -14,7 +14,7 @@ import { interactOrUse, throwSelected, withPointerFacing } from "./gameplayActio
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
-import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
+import { activateHotbar, activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
@@ -261,9 +261,9 @@ export class InputController {
   }
 
   /** Hotbar slot selected by keyboard/touch, regardless of its item category. */
-  selectedHotbarSlot(): number | null {
-    return this.state.selectedSlot;
-  }
+  selectedHotbarSlot(): number | null { return this.state.selectedSlot; }
+
+  selectHotbarSlot(index: number): void { activateHotbar(this.state, this.conn, index); }
 
   /** Live joystick/button state for the touch HUD widgets to render, or null when touch isn't active. */
   touchVisual(): TouchVisualSnapshot | null {

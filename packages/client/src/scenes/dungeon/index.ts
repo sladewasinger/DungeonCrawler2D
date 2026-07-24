@@ -86,8 +86,8 @@ export class DungeonScene extends Phaser.Scene {
     });
     this.inputController = this.buildInputController();
     this.scene.launch("hud", {
-      source: () => this.buildHudSnapshotNow(),
-      actions: createHudActions(this.conn),
+      source: () => this.buildHudSnapshotNow(), connection: this.conn,
+      onSelectHotbar: (index: number) => this.inputController.selectHotbarSlot(index), actions: createHudActions(this.conn),
       social: buildSocialActions(this.chatController, this.chatInputBox, () => this.scale.height, this.hudScene),
       stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
     });
@@ -159,7 +159,7 @@ export class DungeonScene extends Phaser.Scene {
     const panels = createInputPanels(this.hudScene, queries);
     const hooks = createInputHooks(
       this.state.cosmetics,
-      buildSocialHooks(this.hudScene, this.chatInputBox, () => this.scale.height),
+      buildSocialHooks(this.hudScene, this.chatInputBox),
     );
     return new InputController(this, connAdapter, panels, this.hudScene, queries, hooks, SCREEN_TILE_PX);
   }

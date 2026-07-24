@@ -64,7 +64,13 @@ class ThreeDungeonClient {
     options.root.replaceChildren(this.renderer.domElement);
     this.releaseMobileDisplay = enableMobileDisplay(options.root);
     this.input = new ThreeInput(options.root, this.renderer.domElement);
-    this.hud = new ThreeHud(options.root, options.conn, () => this.input.focusGame(), this.viewDistance, this.setViewDistance);
+    this.hud = new ThreeHud({
+      root: options.root,
+      connection: options.conn,
+      focusGame: () => this.input.focusGame(),
+      viewDistance: this.viewDistance,
+      setViewDistance: this.setViewDistance,
+    });
     this.terrain = new ThreeTerrain(this.world, this.scene, this.viewDistance);
     this.configureScene();
     this.remoteActors = new ThreeRemoteActors(this.scene);

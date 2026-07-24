@@ -5,6 +5,8 @@
 | Layer | Choice | Why |
 | --- | --- | --- |
 | Rendering/game framework | **Phaser 3** (client only) | Mature, well-documented, ideal for top-down tile games |
+| Alternate renderer | **Three.js** (client only) | First-person presentation over the same authoritative simulation and protocol |
+| HUD rendering | **HTML/CSS DOM layer** (shared by Phaser and Three.js) | One renderer-neutral window system, layout store, inventory, chat, and tutorial surface |
 | Language | **TypeScript** (strict, everywhere) | One language across engine/client/server; data schemas need real types |
 | Shared simulation | **`packages/engine`** — pure TS, no Phaser, no Node APIs | Runs authoritatively on the game server *and* on the client for prediction; testable headlessly |
 | Game server | **Node + `ws`** on a small EC2 instance | Real-time authoritative sim needs a stateful process (see [INFRASTRUCTURE.md](INFRASTRUCTURE.md)) |
@@ -52,10 +54,11 @@ dungeoncrawler2D/
 │   │   └── net/                 #   Protocol types: intents, events, snapshots (shared contract)
 │   ├── client/                  # ── PHASER + VITE ──
 │   │   ├── scenes/              #   Scene orchestration: frame loop, fixed-step sampling, camera
-│   │   ├── render/              #   TerrainRenderer, EntityRenderer, AreaRenderer, atlas constants
+│   │   ├── render/              #   Phaser TerrainRenderer, EntityRenderer, AreaRenderer, atlas constants
 │   │   ├── net/                 #   connection (socket + intents), prediction, apply (server truth), interpolate, identity
 │   │   ├── input/               #   Keyboard/mouse → intents (controller.ts)
-│   │   └── ui/                  #   HUD widget registry (GAME_DESIGN.md), panels, contextual prompts, proximity queries
+│   │   ├── three/               #   Three.js renderer plus the shared renderer-neutral HTML HUD
+│   │   └── ui/                  #   HUD models, tutorials, item catalog, and legacy Phaser input hit regions
 │   ├── game-server/             # ── NODE + ws ──
 │   │   ├── sim/                 #   The authoritative sim — one module per concern over a shared
 │   │   │                        #   SimState (state.ts): players, actions, inventory, social,

@@ -39,12 +39,11 @@ export function buildSocialActions(
 export function buildSocialHooks(
   hudScene: HudScene,
   box: ChatInputBox,
-  viewportHeight: () => number,
 ): SocialHookCallbacks {
   return {
     toggleChat: () => hudScene.toggleChat(),
     toggleInventory: () => hudScene.toggleInventory(),
-    openChat: () => openChatInputAt(box, viewportHeight()),
+    openChat: () => hudScene.focusChat(),
     toggleContacts: () => hudScene.toggleContacts(),
     closeOverlays: () => {
       box.close();
