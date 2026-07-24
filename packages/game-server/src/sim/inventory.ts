@@ -124,7 +124,21 @@ export function invRemove(slot: PlayerSlot, defId: string, qty: number): boolean
   return true;
 }
 
-/** Pick up the nearest ground item within range on the same level. */
+function nearestPlacedTorch(sim: SimState, body: Entity["body"], maxDistance: number): Entity | null {
+  let best: Entity | null = null;
+  let bestDistance = maxDistance;
+  for (const torch of sim.torches.values()) {
+    if (torch.torchState !== "placed" || Math.abs(torch.body.z - body.z) > 1.5) continue;
+    const distance = Math.hypot(torch.body.x - body.x, torch.body.y - body.y);
+    if (distance <= bestDistance) {
+      best = torch;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** Pick up the nearest ground item or still-burning placed torch on the same level. */
 export function doPickup(sim: SimState, slot: PlayerSlot): void {
   const body = slot.entity.body;
   let best: Entity | null = null;
@@ -138,7 +152,14 @@ export function doPickup(sim: SimState, slot: PlayerSlot): void {
       best = item;
     }
   }
-  if (!best?.defId) return;
+  best = nearestPlacedTorch(sim, body, bestDist) ?? best;
+  if (!best) return;
+  if (best.kind === "torch" && best.torchState === "placed") {
+    sim.torches.delete(best.id);
+    invAdd(sim, slot, "torch", 1);
+    return;
+  }
+  if (!best.defId) return;
   invAdd(sim, slot, best.defId, best.qty);
   sim.items.delete(best.id);
   sim.exposure.delete(best.id);

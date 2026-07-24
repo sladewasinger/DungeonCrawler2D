@@ -89,6 +89,13 @@ export function closeSocket(conn: Connection): void {
   conn.status = "closed";
 }
 
+export function requireConnectionUpdate(conn: Connection, message: string): void {
+  conn.updateRequired = true;
+  conn.updateRequiredMessage = message;
+  closeSocket(conn);
+  conn.onUpdateRequired?.(message);
+}
+
 function handleMessage(conn: Connection, msg: NonNullable<ReturnType<typeof decodeServerMessage>>): void {
   switch (msg.type) {
     case "welcome":
@@ -106,6 +113,7 @@ function handleMessage(conn: Connection, msg: NonNullable<ReturnType<typeof deco
       return;
     case "error":
       console.error(`[server] ${msg.code}: ${msg.message}`);
+      if (msg.code === "protocol_mismatch") requireConnectionUpdate(conn, msg.message);
       return;
   }
 }

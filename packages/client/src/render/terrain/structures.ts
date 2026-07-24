@@ -95,8 +95,7 @@ export function buildStructureMap(
  * face row, an ordinary wall's brick shading), and the leaf sits on top of it,
  * "punched into" the wall/face exactly like any other composed structure. Art
  * is the debug tileset's single door frame (2.5D rotation lane — retires the
- * legacy pack-art door path, `packArt.ts`'s `pickDoorTile` left in place unused
- * per this repo's own re-skin precedent), tinted the same sanctuary teal as
+ * retired pack-art door path), tinted the same sanctuary teal as
  * before regardless of door type.
  */
 export function drawDoor(

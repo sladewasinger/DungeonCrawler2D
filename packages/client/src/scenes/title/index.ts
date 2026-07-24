@@ -1,16 +1,15 @@
 // TitleScene: the game's front door — its name in the monogram pixel font over a dark
 // animated background (drifting embers + a torchlit door), a name field, and a connect
-// button. Auto-connects silently when a resume token is already on file (rejoin flow);
-// otherwise waits for the player. Hands off to "dungeon" the moment the server welcomes us.
-import { LEVEL } from "@dc2d/engine";
+// buttons. Choosing a mode resumes its stored session when one exists; the title never
+// guesses between multiple modes. Hands off to "dungeon" when the server welcomes us.
+import type { LevelId } from "@dc2d/engine";
 import Phaser from "phaser";
 import { isTouchDevice } from "../../input/touchDetect.js";
-import { loadResumeToken } from "../../net/identity.js";
 import type { Connection } from "../../net/connection.js";
 import { pixelTextStyle } from "../../ui/font.js";
 import { TitleBackground } from "./background.js";
 import { TitleControlsHint } from "./controlsHint.js";
-import { ConnectForm, loadStoredName } from "./connectForm.js";
+import { ConnectForm } from "./connectForm.js";
 import { FullscreenChip, requestFullscreenBestEffort } from "./fullscreenChip.js";
 
 const GAME_NAME = "DUNGEON CRAWLER";
@@ -54,7 +53,7 @@ export class TitleScene extends Phaser.Scene {
       .setDepth(3);
     this.controlsHint = new TitleControlsHint(this);
     this.fullscreenChip = new FullscreenChip();
-    this.form = new ConnectForm({ onConnect: (name) => this.handleConnect(name) });
+    this.form = new ConnectForm({ onConnect: (name, level) => this.handleConnect(name, level) });
     this.conn.onConnected = () => {
       this.queueRecapToastIfFirstEver();
       this.scene.start("dungeon");
@@ -62,30 +61,20 @@ export class TitleScene extends Phaser.Scene {
     this.setUpResize();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
     if (this.expired) this.form?.setStatus("Session expired — reconnect below");
-    else this.autoResumeIfPossible();
   }
 
   update(time: number): void {
     this.background?.update(time);
   }
 
-  /** Silently rejoins if the browser already holds a live session token (see net/identity.ts). */
-  private autoResumeIfPossible(): void {
-    if (!loadResumeToken(LEVEL.Dungeon)) return;
-    this.form?.setStatus("Rejoining...");
-    this.form?.setBusy(true);
-    this.conn.setName(loadStoredName());
-    this.conn.connect(LEVEL.Dungeon);
-  }
-
-  private handleConnect(name: string): void {
+  private handleConnect(name: string, level: LevelId): void {
     // Fired first, synchronously, still inside the button's click gesture — requestFullscreen
     // is only honored by the browser when called with no `await` yet on the call stack.
     if (isTouchDevice()) requestFullscreenBestEffort();
     this.form?.setBusy(true);
     this.form?.setStatus("Connecting...");
     this.conn.setName(name);
-    this.conn.connect(LEVEL.Dungeon);
+    this.conn.connect(level);
     this.time.delayedCall(RETRY_HINT_DELAY_MS, () => this.hintIfStillConnecting());
   }
 

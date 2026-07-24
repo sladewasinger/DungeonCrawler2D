@@ -5,6 +5,7 @@ import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { resolveAnimState, telegraphScale, telegraphTint } from "./animState.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
+import { resolveHpBarVisibility } from "./hpBarVisibility.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
@@ -23,7 +24,8 @@ export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): 
     hpBar: createHpBar(scene, 0),
     nameplate: createNameplate(scene, 0),
     spritePrefix,
-    lastHp: 0,
+    lastHp: undefined,
+    hpBarRevealed: false,
     lastFx: [],
     hitFlashStartMs: undefined,
     lastAnim: undefined,
@@ -88,6 +90,13 @@ function updateMonsterChrome(
   updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
   const headY = visual.body.y - visual.body.displayHeight;
   updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
+  visual.hpBarRevealed = resolveHpBarVisibility(
+    visual.lastHp,
+    view.hp,
+    view.maxHp,
+    visual.hpBarRevealed,
+  );
+  visual.hpBar.container.setVisible(visual.hpBarRevealed);
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
   updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, false);
 }

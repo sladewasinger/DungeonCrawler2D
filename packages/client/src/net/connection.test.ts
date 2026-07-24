@@ -2,6 +2,7 @@
 // constructor does no I/O and every field the getters read is a plain public property.
 import { describe, expect, it } from "vitest";
 import { Connection } from "./connection.js";
+import { requireConnectionUpdate } from "./socket.js";
 
 function freshConnection(): Connection {
   return new Connection("wss://example.test", "Tester", "client-1");
@@ -46,5 +47,21 @@ describe("Connection.disconnect", () => {
     conn.hasReceivedSnapshot = true;
     conn.disconnect();
     expect(conn.hasReceivedSnapshot).toBe(false);
+  });
+});
+
+describe("requireConnectionUpdate", () => {
+  it("stops reconnecting and reports a terminal client-version mismatch", () => {
+    const conn = freshConnection();
+    const messages: string[] = [];
+    conn.shouldReconnect = true;
+    conn.onUpdateRequired = (message) => messages.push(message);
+
+    requireConnectionUpdate(conn, "Refresh this client");
+
+    expect(conn.updateRequired).toBe(true);
+    expect(conn.shouldReconnect).toBe(false);
+    expect(conn.status).toBe("closed");
+    expect(messages).toEqual(["Refresh this client"]);
   });
 });

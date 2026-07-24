@@ -107,6 +107,8 @@ export const ENEMY_ACTIVE_RADIUS = 48;
 // ASSUMPTION #40 (docs/ASSUMPTIONS.md): a placed torch burns for 180s of
 // server ticks at the fixed TICK_RATE, then despawns.
 export const TORCH_BURN_TICKS = 180 * TICK_RATE;
+/** Authoritative per-floor budget across both flying and placed player torches. */
+export const MAX_ACTIVE_TORCHES_PER_FLOOR = 40;
 
 // ASSUMPTION #90 (docs/ASSUMPTIONS.md): Epic 11 core (character levels),
 // pulled forward into Epic 7.13 by the user's second playtest. Total XP to

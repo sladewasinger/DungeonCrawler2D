@@ -7,6 +7,7 @@ import { worldAngleToView } from "../view/viewTransform.js";
 import { resolveAnimState } from "./animState.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
+import { resolveHpBarVisibility } from "./hpBarVisibility.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
 import { createNameplate, updateNameplate } from "./nameplate.js";
@@ -36,7 +37,8 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     shadow: createShadow(scene, 0),
     hpBar: createHpBar(scene, 0),
     nameplate: createNameplate(scene, 0),
-    lastHp: 0,
+    lastHp: undefined,
+    hpBarRevealed: false,
     hitFlashStartMs: undefined,
     lastX: 0,
     lastY: 0,
@@ -125,6 +127,13 @@ function updatePlayerChrome(
   updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
   const headY = visual.body.y - visual.body.displayHeight;
   updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
+  visual.hpBarRevealed = resolveHpBarVisibility(
+    visual.lastHp,
+    view.hp,
+    view.maxHp,
+    visual.hpBarRevealed,
+  );
+  visual.hpBar.container.setVisible(visual.hpBarRevealed);
 
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
   updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed);

@@ -1,5 +1,5 @@
-// Places one debug-tileset frame on a container (packSprite.ts's counterpart for the
-// debug art path), plus the inner-corner refinement dots the autotile module's 8-bit
+// Places one debug-tileset frame on a terrain container, plus the inner-corner
+// refinement dots the autotile module's 8-bit
 // corner solve calls for — drawn as generic small rects (edgeLine.ts's own convention:
 // pack-agnostic overlay geometry, not baked sprite variants) rather than combinatorially
 // baking every corner combination into the spritesheet.

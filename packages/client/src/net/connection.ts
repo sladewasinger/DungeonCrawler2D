@@ -125,16 +125,15 @@ export class Connection {
   /** Set once retries give up past RECONNECT_GRACE_MS worth of attempts — the scene
    * routes to title instead of leaving a dead "Reconnecting..." spinner forever. */
   sessionExpired = false;
+  /** Terminal wire incompatibility: reconnecting cannot succeed until the page reloads. */
+  updateRequired = false;
+  updateRequiredMessage = "";
 
-  constructor(
-    readonly url: string,
-    public name: string,
-    readonly clientId: string,
-  ) {}
+  constructor(readonly url: string, public name: string, readonly clientId: string) {}
 
   onConnected: (() => void) | null = null;
   onSnapshot: (() => void) | null = null;
-
+  onUpdateRequired: ((message: string) => void) | null = null;
   get dead(): boolean {
     return this.status === "connected" && this.hasReceivedSnapshot && this.hp <= 0;
   }
@@ -144,7 +143,6 @@ export class Connection {
   }
 
   setName(name: string): void { this.name = name; }
-
   connect(level: LevelId = this.level): void {
     this.level = level;
     openSocket(this);
@@ -197,17 +195,13 @@ export class Connection {
   useSlot(slot: number, targetX?: number, targetY?: number): void { useSlotIntent(this, slot, targetX, targetY); }
 
   useItem(item: string): void { useItemIntent(this, item); }
-
   pickup(): void { pickupIntent(this); }
-
   drop(item: string): void {
     dropIntent(this, item);
   }
-
   assignSlot(slot: number, item: string | null): void {
     assignSlotIntent(this, slot, item);
   }
-
   equip(item: string | null): void {
     equipIntent(this, item);
   }

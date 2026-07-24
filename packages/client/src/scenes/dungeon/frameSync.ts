@@ -129,13 +129,15 @@ export function syncEntities(
     torchAccentLights = torchSync.accentLights;
   }
 
-  const items = interpolated.filter((e) => e.snap.kind === "item");
+  const pickupTargets = interpolated.filter(
+    (e) => e.snap.kind === "item" || (e.snap.kind === "torch" && e.snap.state === "placed"),
+  );
   const body = conn.body;
   const reviveTarget = conn.party
     ? nearestDownedPartyMember(conn.party.members, body.x, body.y, INTERACT_RANGE)
     : undefined;
   return {
-    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, items, reviveTarget, selectedConsumableName(conn, inputController)),
+    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, pickupTargets, reviveTarget, selectedConsumableName(conn, inputController)),
     torchAccentLights,
   };
 }

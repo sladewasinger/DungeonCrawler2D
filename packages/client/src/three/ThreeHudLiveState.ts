@@ -72,7 +72,7 @@ function resolvePrompt(
   if (!body) return null;
   const items = [...connection.entities.values()]
     .map(({ snap }) => snap)
-    .filter(({ kind }) => kind === "item");
+    .filter((snap) => snap.kind === "item" || (snap.kind === "torch" && snap.state === "placed"));
   const reviveTarget = connection.party
     ? nearestDownedPartyMember(
       connection.party.members,

@@ -7,7 +7,14 @@
 // hiding the tile. See docs/ASSUMPTIONS.md #86.
 import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE, TILE } from "../types.js";
-import { generateRoomChunk, partyRoomChunk, safeRoomChunk, safeRoomFeatures } from "./rooms.js";
+import {
+  displayCoordinates,
+  generateRoomChunk,
+  partyRoomChunk,
+  personalRoomSpawn,
+  safeRoomChunk,
+  safeRoomFeatures,
+} from "./rooms.js";
 
 function countTile(tiles: Uint8Array, tile: number): number {
   let n = 0;
@@ -86,5 +93,13 @@ describe("party room's south exit alcove", () => {
     expect(chunk.tiles[(exitLy + 1) * CHUNK_SIZE + exitLx - 1]).toBe(TILE.Wall);
     expect(chunk.tiles[(exitLy + 1) * CHUNK_SIZE + exitLx + 1]).toBe(TILE.Wall);
     expect(chunk.tiles[(exitLy + 3) * CHUNK_SIZE + exitLx]).toBe(TILE.Wall);
+  });
+});
+
+describe("room display coordinates", () => {
+  it("keeps overworld positions global and room positions local to their reserved chunk", () => {
+    expect(displayCoordinates(-17.25, 42.5)).toEqual({ x: -17.25, y: 42.5 });
+    const spawn = personalRoomSpawn(3);
+    expect(displayCoordinates(spawn.x, spawn.y)).toEqual({ x: 0.5, y: -2.5 });
   });
 });

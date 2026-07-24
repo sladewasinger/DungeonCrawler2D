@@ -3,6 +3,7 @@
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { worldToScreen } from "../entities/worldToScreen.js";
+import { torchHaloFade } from "./haloFade.js";
 import { flickerAlpha, flickerScale, type LightSource } from "./lightSource.js";
 
 const LIGHT_FRAME = "light_soft";
@@ -16,6 +17,7 @@ const BASE_ALPHA = 0.62;
 
 export class LightSpritePool {
   private readonly sprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private readonly visibleSinceMs = new Map<string, number>();
   private readonly spare: Phaser.GameObjects.Sprite[] = [];
   private readonly seen = new Set<string>();
 
@@ -27,12 +29,14 @@ export class LightSpritePool {
     seen.clear();
     for (const light of lights) {
       seen.add(light.id);
+      if (!this.visibleSinceMs.has(light.id)) this.visibleSinceMs.set(light.id, nowMs);
       this.place(this.getOrCreate(light.id), light, nowMs);
     }
     for (const [id, sprite] of this.sprites) {
       if (seen.has(id)) continue;
       this.release(sprite);
       this.sprites.delete(id);
+      this.visibleSinceMs.delete(id);
     }
   }
 
@@ -70,13 +74,17 @@ export class LightSpritePool {
     sprite.setPosition(screen.x, shiftedY);
     sprite.setScale(scale);
     sprite.setTint(light.color);
-    sprite.setAlpha(Math.min(1, BASE_ALPHA * flickerAlpha(nowMs, light.seed)));
+    const fade = light.kind === "torch"
+      ? torchHaloFade(nowMs, this.visibleSinceMs.get(light.id) ?? nowMs)
+      : 1;
+    sprite.setAlpha(Math.min(1, BASE_ALPHA * flickerAlpha(nowMs, light.seed) * fade));
   }
 
   dispose(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     for (const sprite of this.spare) sprite.destroy();
     this.sprites.clear();
+    this.visibleSinceMs.clear();
     this.spare.length = 0;
   }
 }

@@ -105,6 +105,7 @@ test("the independently loaded Three renderer boots and connects", async ({ page
     `${CLIENT_URL}/?renderer=three&server=${encodeURIComponent(WS_URL)}`,
     { waitUntil: "domcontentloaded" },
   );
+  await page.getByRole("button", { name: "Enter the Dungeon" }).click();
   const telemetry = page.locator('[data-hud-window="three-telemetry"]');
   await expect(telemetry).toContainText("connected", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "HUD settings" })).toBeVisible();

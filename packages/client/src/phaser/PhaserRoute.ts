@@ -1,6 +1,7 @@
 /** Boots the Phaser editor or game only after the route selects the 2D renderer. */
 import Phaser from "phaser";
 import { PreloadScene } from "../boot/PreloadScene.js";
+import { bindVersionRefreshOverlay } from "../boot/versionRefreshOverlay.js";
 import { BUILD_SHA } from "../buildInfo.js";
 import { Connection } from "../net/connection.js";
 import { persistentClientId } from "../net/identity.js";
@@ -39,6 +40,7 @@ function startEditor(search: URLSearchParams): void {
 
 function startGame(search: URLSearchParams): void {
   const conn = new Connection(resolveWsUrl(window.location), loadStoredName(), persistentClientId());
+  bindVersionRefreshOverlay(conn);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: "app",

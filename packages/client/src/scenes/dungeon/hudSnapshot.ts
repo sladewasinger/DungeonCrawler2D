@@ -2,7 +2,7 @@
 // hud/fakeData.ts's doc comment anticipates. Takes a narrow struct (not the whole
 // Connection class) so it stays a pure, table-driven function to test.
 import { statusesData } from "@dc2d/content";
-import type { InvStack, ServerSnapshot } from "@dc2d/engine";
+import { displayCoordinates, type InvStack, type ServerSnapshot } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../input/touch/index.js";
 import type { ChatPanelModel } from "../../ui/chat/controller.js";
 import type {
@@ -96,7 +96,8 @@ function buffChips(fx: readonly string[]): BuffChipData[] {
  * whole tiles ("so users can find each other or share positions" needs no float noise),
  * z to one decimal (docs/ROADMAP.md Epic 7.13's "z from conn.body.z, one decimal"). */
 function roundedCoords(bodyPos: { x: number; y: number; z: number }): TileCoords {
-  return { x: Math.round(bodyPos.x), y: Math.round(bodyPos.y), z: Math.round(bodyPos.z * 10) / 10 };
+  const display = displayCoordinates(bodyPos.x, bodyPos.y);
+  return { x: Math.round(display.x), y: Math.round(display.y), z: Math.round(bodyPos.z * 10) / 10 };
 }
 
 /** Off-self party member rows for the party frames widget (Epic 7.12) — party is

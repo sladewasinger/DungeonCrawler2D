@@ -10,12 +10,13 @@ interface CombatantParts {
   readonly shadow: Phaser.GameObjects.Ellipse;
   readonly hpBar: HpBar;
   readonly nameplate: Phaser.GameObjects.Text;
+  hpBarRevealed: boolean;
 }
 
 export interface PlayerVisual extends CombatantParts {
   readonly kind: "player";
   readonly weapon: Phaser.GameObjects.Sprite;
-  lastHp: number;
+  lastHp: number | undefined;
   hitFlashStartMs: number | undefined;
   lastX: number;
   lastY: number;
@@ -33,7 +34,7 @@ export interface PlayerVisual extends CombatantParts {
 export interface MonsterVisual extends CombatantParts {
   readonly kind: "enemy";
   readonly spritePrefix: string;
-  lastHp: number;
+  lastHp: number | undefined;
   lastFx: readonly string[];
   hitFlashStartMs: number | undefined;
   lastAnim: string | undefined;

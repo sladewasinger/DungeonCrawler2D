@@ -1,6 +1,5 @@
 // WALL: one brush, per Austin's decree ("no more z buttons... I can put as many walls
-// as needed, then a floor on top"). Which pack's wall art actually renders is a
-// deterministic per-position mix (the renderer lane's packArt.ts), not a per-tile
+// as needed, then a floor on top"). Its pack swatch is representative, not a per-tile
 // choice — this brush only ever stacks; it never picks a variant.
 import { tileCatalog, type TileRef } from "@dc2d/content";
 import type { EditorStore } from "../../editorStore.js";

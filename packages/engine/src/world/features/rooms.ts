@@ -59,6 +59,18 @@ function roomCenter(chunk: { cx: number; cy: number }): { x: number; y: number }
   };
 }
 
+/**
+ * Converts the reserved-band world coordinates used by room simulation into a
+ * room-local HUD readout. Overworld coordinates pass through unchanged.
+ */
+export function displayCoordinates(x: number, y: number): { x: number; y: number } {
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const cy = Math.floor(y / CHUNK_SIZE);
+  if (!isRoomChunk(cy)) return { x, y };
+  const center = roomCenter({ cx, cy });
+  return { x: x - center.x, y: y - center.y };
+}
+
 /** Where a teleport into the room lands you, one row inside the north-wall exit. */
 export function personalRoomSpawn(slot: number): { x: number; y: number } {
   const c = roomCenter(personalRoomChunk(slot));

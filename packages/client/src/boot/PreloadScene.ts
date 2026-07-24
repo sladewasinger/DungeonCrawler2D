@@ -2,7 +2,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS, ASSET_PATHS } from "./assetManifest.js";
 import { registerAnimations, type AnimationManifest } from "./registerAnimations.js";
-import { preloadTilePacks } from "./tilePackLoader.js";
 import { waitForPixelFontReady } from "../ui/font.js";
 import { DEBUG_TILE_PX, DEBUG_TILESET_KEY, DEBUG_TILESET_PATH } from "../render/terrain/debugTileset.js";
 import { setViewOrientation } from "../render/view/viewState.js";
@@ -34,7 +33,6 @@ export class PreloadScene extends Phaser.Scene {
   preload(): void {
     this.load.atlas(ASSET_KEYS.atlas, ASSET_PATHS.atlasImage, ASSET_PATHS.atlasJson);
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
-    preloadTilePacks(this.load);
     this.load.spritesheet(DEBUG_TILESET_KEY, DEBUG_TILESET_PATH, {
       frameWidth: DEBUG_TILE_PX,
       frameHeight: DEBUG_TILE_PX,

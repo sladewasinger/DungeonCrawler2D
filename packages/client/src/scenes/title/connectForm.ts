@@ -2,6 +2,8 @@
 // input, so this uses the same "styled DOM overlay" pattern reference/client/main.ts's
 // chat input proved, matching the panel language (dark fill, thin border, gold accent)
 // from ui/panel.ts and the monogram font from ui/font.ts.
+import { LEVEL, type LevelId } from "@dc2d/engine";
+
 const PANEL_BG = "#1a1a24";
 const PANEL_BORDER = "#494956";
 const GOLD = "#ffd23d";
@@ -48,6 +50,9 @@ function applyButtonStyle(el: HTMLButtonElement): void {
     fontSize: "16px",
     cursor: "pointer",
     letterSpacing: "1px",
+    display: "grid",
+    gap: "4px",
+    textAlign: "left",
   });
 }
 
@@ -61,13 +66,13 @@ function applyStatusStyle(el: HTMLDivElement): void {
 }
 
 export interface ConnectFormHandlers {
-  onConnect(name: string): void;
+  onConnect(name: string, level: LevelId): void;
 }
 
 export class ConnectForm {
   private readonly root: HTMLDivElement;
   private readonly input: HTMLInputElement;
-  private readonly button: HTMLButtonElement;
+  private readonly buttons: HTMLButtonElement[] = [];
   private readonly status: HTMLDivElement;
 
   constructor(handlers: ConnectFormHandlers) {
@@ -79,25 +84,57 @@ export class ConnectForm {
     this.input.value = loadStoredName();
     applyInputStyle(this.input);
 
-    this.button = document.createElement("button");
-    this.button.textContent = "Enter the Dungeon";
-    applyButtonStyle(this.button);
-    this.button.addEventListener("click", () => this.submit(handlers));
+    const choices = document.createElement("div");
+    choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
+    this.buttons.push(
+      this.createButton(
+        "Enter the Dungeon",
+        "Procedural world · enemies · progression",
+        LEVEL.Dungeon,
+        handlers,
+      ),
+      this.createButton(
+        "Enter the Sandbox",
+        "Fixed traversal course · no enemies",
+        LEVEL.Sandbox,
+        handlers,
+      ),
+    );
+    choices.append(...this.buttons);
     this.input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") this.submit(handlers);
+      if (event.key === "Enter") this.submit(handlers, LEVEL.Dungeon);
     });
 
     this.status = document.createElement("div");
     applyStatusStyle(this.status);
 
-    this.root.append(this.input, this.button, this.status);
+    this.root.append(this.input, choices, this.status);
     document.body.append(this.root);
   }
 
-  private submit(handlers: ConnectFormHandlers): void {
+  private createButton(
+    label: string,
+    detail: string,
+    level: LevelId,
+    handlers: ConnectFormHandlers,
+  ): HTMLButtonElement {
+    const button = document.createElement("button");
+    const title = document.createElement("strong");
+    title.textContent = label;
+    const description = document.createElement("small");
+    description.textContent = detail;
+    description.style.cssText = "color:#a9a9b8;font-size:11px;letter-spacing:0";
+    button.append(title, description);
+    button.setAttribute("aria-label", label);
+    applyButtonStyle(button);
+    button.addEventListener("click", () => this.submit(handlers, level));
+    return button;
+  }
+
+  private submit(handlers: ConnectFormHandlers, level: LevelId): void {
     const name = this.input.value.trim().slice(0, 16) || loadStoredName();
     localStorage.setItem(NAME_STORAGE_KEY, name);
-    handlers.onConnect(name);
+    handlers.onConnect(name, level);
   }
 
   setStatus(text: string): void {
@@ -105,7 +142,7 @@ export class ConnectForm {
   }
 
   setBusy(busy: boolean): void {
-    this.button.disabled = busy;
+    for (const button of this.buttons) button.disabled = busy;
     this.input.disabled = busy;
   }
 

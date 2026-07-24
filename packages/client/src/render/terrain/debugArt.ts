@@ -1,5 +1,4 @@
-// Debug-tileset tile picks: the pack-art path's (packArt.ts) replacement for terrain
-// rendering while the user verifies connectivity tile-by-tile. Floors/stairs are a
+// Debug-tileset tile picks for the production terrain renderer. Floors/stairs are a
 // straight lookup; walls run autotile.ts's pure bitmask solver against 2D map-space
 // material adjacency (TILE.Wall equality) — the SAME solid-neighbor test regardless
 // of whether the caller is a plain wall cell, a raised face row, or a pit-interior

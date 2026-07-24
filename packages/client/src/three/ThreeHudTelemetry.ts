@@ -1,5 +1,5 @@
 /** Renders live build, connection, seed, position, and heading telemetry. */
-import type { World } from "@dc2d/engine";
+import { displayCoordinates, type World } from "@dc2d/engine";
 import { BUILD_SHA } from "../buildInfo.js";
 import type { Connection } from "../net/connection.js";
 import type { FirstPersonState } from "./movement.js";
@@ -25,11 +25,12 @@ export class ThreeHudTelemetry {
     const heading = Math.round(
       ((((yaw * 180) / Math.PI) % 360) + 360) % 360,
     );
+    const display = displayCoordinates(player.x, player.z);
     this.readout.textContent =
       `build ${BUILD_SHA}\n` +
       `floor ${world.floor} · ${connection.status}\n` +
       `seed ${world.worldSeed}\n` +
-      `x ${player.x.toFixed(1)}, y ${player.z.toFixed(1)}, z ${player.y.toFixed(2)}\n` +
+      `x ${display.x.toFixed(1)}, y ${display.y.toFixed(1)}, z ${player.y.toFixed(2)}\n` +
       `heading ${heading}°\n` +
       (mouseCaptured
         ? "mouse captured"

@@ -73,7 +73,7 @@ export class ThreeActionController {
     const body = this.connection.body;
     if (!body) return false;
     return [...this.connection.entities.values()].some(({ snap }) =>
-      snap.kind === "item" &&
+      (snap.kind === "item" || (snap.kind === "torch" && snap.state === "placed")) &&
       Math.hypot(snap.x - body.x, snap.y - body.y) <= PICKUP_RANGE
     );
   }

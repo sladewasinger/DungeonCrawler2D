@@ -2,14 +2,13 @@
 // and a path that actually matches where the asset-foundry lane copied its file.
 import { describe, expect, it } from "vitest";
 import { tileCatalog } from "@dc2d/content";
-import { tilePackFrameIndex, tilePackSheetKey, tilePackSheetSpecs } from "./tilePackManifest.js";
+import { tilePackSheetKey, tilePackSheetSpecs } from "./tilePackManifest.js";
 
 describe("tilePackSheetKey", () => {
   it("is stable and namespaced by pack + sheet id", () => {
     expect(tilePackSheetKey("medieval-sewer", "tile-b-04")).toBe("tilepack:medieval-sewer:tile-b-04");
   });
 });
-
 describe("tilePackSheetSpecs", () => {
   const specs = tilePackSheetSpecs(tileCatalog);
 
@@ -33,12 +32,5 @@ describe("tilePackSheetSpecs", () => {
       expect(spec.frameWidth).toBe(48);
       expect(spec.frameHeight).toBe(48);
     }
-  });
-});
-
-describe("tilePackFrameIndex", () => {
-  it("computes row-major frame index within a sheet", () => {
-    expect(tilePackFrameIndex({ sheet: "s", col: 0, row: 0, w: 1, h: 1, label: "x" }, 16)).toBe(0);
-    expect(tilePackFrameIndex({ sheet: "s", col: 3, row: 2, w: 1, h: 1, label: "x" }, 16)).toBe(35);
   });
 });

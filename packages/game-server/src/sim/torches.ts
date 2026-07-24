@@ -1,5 +1,6 @@
 import {
   TICK_DT,
+  MAX_ACTIVE_TORCHES_PER_FLOOR,
   TORCH_BURN_TICKS,
   createBody,
   faceEntity,
@@ -30,6 +31,10 @@ export function doThrowTorch(sim: SimState, slot: PlayerSlot, dirX: number, dirY
   if (invQty(slot, TORCH_ITEM) < 1) return;
   const def = sim.content.items.get(TORCH_ITEM);
   if (def?.throwable?.placesEntity !== "torch") return;
+  if (sim.torches.size >= MAX_ACTIVE_TORCHES_PER_FLOOR) {
+    slot.outbox.push({ t: "toast", msg: "too many torches burning nearby" });
+    return;
+  }
 
   const thrower = slot.entity;
   faceEntity(thrower, dirX, dirY);

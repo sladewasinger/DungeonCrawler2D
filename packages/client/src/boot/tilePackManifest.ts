@@ -1,6 +1,6 @@
 // Derives stable Phaser spritesheet keys/paths/frame geometry from @dc2d/content's
-// tileCatalog — pure data shaping, no Phaser/DOM calls (those live in tilePackLoader.ts).
-import { tileCatalog, type TileCatalog, type TileRef } from "@dc2d/content";
+// tileCatalog — pure data shaping for editor swatches, with no Phaser dependency.
+import { tileCatalog, type TileCatalog } from "@dc2d/content";
 
 /** Root every pack sheet is copied under (see docs/ASSET_LICENSES.md). */
 const PACKS_BASE_PATH = "assets/packs";
@@ -42,10 +42,6 @@ export function tilePackSheetSpecs(catalog: TileCatalog): TilePackSheetSpec[] {
 /** A single-tile ref's Phaser frame index within its own sheet (`row * cols + col`).
  * Only meaningful for `w === 1 && h === 1` refs — multi-tile refs (backgrounds/props)
  * aren't one Phaser frame; the renderer composites those from the sheet image directly. */
-export function tilePackFrameIndex(ref: TileRef, sheetCols: number): number {
-  return ref.row * sheetCols + ref.col;
-}
-
 /** The manifest this app boots with — re-exported so callers don't also need
  * `@dc2d/content` just to reach the one catalog instance. */
 export const bootTileCatalog: TileCatalog = tileCatalog;
