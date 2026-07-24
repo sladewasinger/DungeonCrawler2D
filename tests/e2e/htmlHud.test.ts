@@ -7,7 +7,7 @@ const STATUS_PANEL = '[data-hud-window="three-health"]';
 const STORAGE_KEY = "dc2d.three.hud.windows.v2";
 
 const openHudEditor = async (page: Page): Promise<void> => {
-  await page.getByRole("button", { name: "HUD settings" }).click();
+  await page.getByRole("button", { name: "Game menu" }).click();
   await page.getByRole("button", { name: "HUD Edit Mode: OFF" }).click();
 };
 
@@ -29,6 +29,7 @@ test("hidden panels recover their saved size and can be shown again", async ({ p
   expect(initial?.width).toBeGreaterThan(100);
   expect(initial?.height).toBeGreaterThan(50);
   await openHudEditor(page);
+  await page.getByRole("button", { name: "Game menu" }).click();
   const checkbox = page.getByRole("checkbox", { name: "Status", exact: true });
   await checkbox.uncheck();
   await expect(panel).toBeHidden();
@@ -39,13 +40,19 @@ test("hidden panels recover their saved size and can be shown again", async ({ p
   expect(restored?.height).toBe(initial?.height);
 });
 
-test("dragging the native resize corner changes size without moving the panel", async ({ page }) => {
+test("the HUD edit grip resizes without moving the panel", async ({ page }) => {
   await openGame(page, "HudResize");
   await openHudEditor(page);
   const panel = page.locator(STATUS_PANEL);
+  const grip = panel.locator("[data-hud-resize-grip='true']");
+  await expect(grip).toBeVisible();
   const before = await panel.boundingBox();
-  if (!before) throw new Error("status panel has no browser rectangle");
-  await page.mouse.move(before.x + before.width - 2, before.y + before.height - 2);
+  const gripBounds = await grip.boundingBox();
+  if (!before || !gripBounds) throw new Error("status panel has no edit geometry");
+  await page.mouse.move(
+    gripBounds.x + gripBounds.width / 2,
+    gripBounds.y + gripBounds.height / 2,
+  );
   await page.mouse.down();
   await page.mouse.move(before.x + before.width + 58, before.y + before.height + 38, {
     steps: 8,
@@ -97,10 +104,16 @@ test("inventory is a modal workspace that blocks 2D world input", async ({ page 
   expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(0.05);
   await page.keyboard.press("Escape");
   await expect(inventory).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-session-menu]")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Respawn (die)" })).toBeEnabled();
+  await expect(page.getByText("World brightness")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-session-menu]")).toBeHidden();
 });
 
 test("the independently loaded Three renderer boots and connects", async ({ page }) => {
-  test.setTimeout(45_000);
+  test.setTimeout(75_000);
   await page.goto(
     `${CLIENT_URL}/?renderer=three&server=${encodeURIComponent(WS_URL)}`,
     { waitUntil: "domcontentloaded" },
@@ -108,7 +121,7 @@ test("the independently loaded Three renderer boots and connects", async ({ page
   await page.getByRole("button", { name: "Enter the Dungeon" }).click();
   const telemetry = page.locator('[data-hud-window="three-telemetry"]');
   await expect(telemetry).toContainText("connected", { timeout: 20_000 });
-  await expect(page.getByRole("button", { name: "HUD settings" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Game menu" })).toBeVisible();
   await page.keyboard.press("Tab");
   const inventory = page.locator("[data-inventory-workspace]");
   await expect(inventory.getByRole("searchbox")).toBeFocused();
@@ -123,4 +136,8 @@ test("the independently loaded Three renderer boots and connects", async ({ page
     .toBeVisible();
   await page.keyboard.press("Escape");
   await expect(inventory).toBeHidden();
+  await page.getByRole("button", { name: "Game menu" }).click();
+  await page.getByRole("button", { name: "Quit to opening screen" }).click();
+  await page.getByRole("button", { name: "Confirm quit" }).click();
+  await expect(page.getByRole("button", { name: "Enter the Dungeon" })).toBeVisible();
 });

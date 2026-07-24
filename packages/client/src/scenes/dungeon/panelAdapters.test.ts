@@ -7,6 +7,7 @@ const setup = () => {
   let stash = false;
   const source = {
     inventoryOpen: () => true,
+    blocksGameplay: () => true,
     selectedInventoryItem: () => null,
     closeInventory: vi.fn(),
     craftOpen: () => craft,

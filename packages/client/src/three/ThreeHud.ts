@@ -2,33 +2,19 @@
 import type { World } from "@dc2d/engine";
 import { isTouchDevice } from "../input/touchDetect.js";
 import type { Connection } from "../net/connection.js";
+import type { SessionMenuActions } from "../ui/sessionMenu/SessionMenu.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { HudWindowManager } from "./HudWindows.js";
 import type { FirstPersonState } from "./movement.js";
-import { ThreeDownedOverlay } from "./ThreeDownedOverlay.js";
-import { ThreeHudBuffs } from "./ThreeHudBuffs.js";
-import { ThreeHudHotbar } from "./ThreeHudHotbar.js";
-import { ThreeHudInventory } from "./ThreeHudInventory.js";
+import {
+  createThreeHudComposition,
+  type ThreeHudComposition,
+} from "./ThreeHudComposition.js";
 import { ThreeHudKeyboard } from "./ThreeHudKeyboard.js";
 import { syncThreeHudLiveState } from "./ThreeHudLiveState.js";
-import { ThreeHudNotices } from "./ThreeHudNotices.js";
-import { ThreeHudSettings } from "./ThreeHudSettings.js";
 import {
   createHudKeyboard,
-  createHudSettings,
-  mountHudOverlays,
-  mountHudRoot,
   mountHudReticle,
 } from "./ThreeHudSetup.js";
-import { ThreeHudStatus } from "./ThreeHudStatus.js";
-import { createThreeHudPanels, type ThreeHudPanels } from "./ThreeHudPanels.js";
-import { ThreeHudTelemetry } from "./ThreeHudTelemetry.js";
-import { ThreeHudTouchOverlay } from "./ThreeHudTouchOverlay.js";
-import { ThreeHudTutorials } from "./ThreeHudTutorials.js";
-import { ThreeHudWeapon } from "./ThreeHudWeapon.js";
-import { threeHudWindowSpecs } from "./ThreeHudWindowSpecs.js";
-import { ThreePartyInvite } from "./ThreePartyInvite.js";
-import { ThreePartyTracker } from "./ThreePartyTracker.js";
 import type { ViewDistance } from "./viewDistance.js";
 export interface ThreeHudUpdate {
   connection: Connection;
@@ -48,160 +34,158 @@ export interface ThreeHudOptions {
   showReticle?: boolean;
   onSelectHotbar?: (index: number | null) => void;
   setTextInputFocused?: (focused: boolean) => void;
+  session: Omit<SessionMenuActions, "focusGame">;
 }
 
 export class ThreeHud {
   readonly element = document.createElement("div");
-  private readonly manager: HudWindowManager;
-  private readonly status = new ThreeHudStatus(); private readonly hotbar: ThreeHudHotbar;
-  private readonly buffs = new ThreeHudBuffs(); private readonly weapon = new ThreeHudWeapon();
-  private readonly telemetry = new ThreeHudTelemetry(); private readonly party = new ThreePartyTracker();
-  private readonly inventory: ThreeHudInventory; private readonly panels: ThreeHudPanels;
-  private readonly downed: ThreeDownedOverlay; private readonly invite: ThreePartyInvite;
-  private readonly tutorials: ThreeHudTutorials; private readonly notices = new ThreeHudNotices();
-  private readonly settings: ThreeHudSettings; private readonly touch: ThreeHudTouchOverlay;
+  private readonly parts: ThreeHudComposition;
   private readonly keyboard: ThreeHudKeyboard;
   private readonly focusGame: () => void;
   private readonly setTextInputFocused: (focused: boolean) => void;
+
   constructor(options: ThreeHudOptions) {
-    const { root, connection, focusGame } = options, touchDevice = isTouchDevice();
-    this.focusGame = focusGame;
+    this.focusGame = options.focusGame;
     this.setTextInputFocused = options.setTextInputFocused ?? (() => {});
-    this.tutorials = new ThreeHudTutorials(touchDevice ? "touch" : "keyboard");
-    this.hotbar = new ThreeHudHotbar(options.onSelectHotbar);
-    mountHudRoot(root, this.element);
-    this.inventory = new ThreeHudInventory(connection, () => this.closeInventory());
-    this.panels = createThreeHudPanels(connection, touchDevice, focusGame, this.setTextInputFocused, {
-      toggleContacts: () => this.toggleContacts(), closeContacts: () => this.closeContacts(),
-      closeCraft: () => this.closeCraft(), closeStash: () => this.closeStash(),
-    });
-    this.manager = new HudWindowManager(this.element);
-    threeHudWindowSpecs(this.windowContents()).forEach((window) => this.manager.add(window));
-    this.touch = new ThreeHudTouchOverlay(() => this.toggleInventory());
-    this.settings = createHudSettings(this.element, this.manager, {
-      ...options,
-      replayTutorials: () => this.tutorials.replay(),
-    });
-    this.downed = new ThreeDownedOverlay(this.element);
-    this.invite = new ThreePartyInvite(connection);
-    mountHudOverlays(this.element, [
-      this.invite.element, this.tutorials.element, this.touch.element,
-      this.notices.element, this.inventory.element,
-    ]);
-    this.keyboard = createHudKeyboard({
+    this.parts = createThreeHudComposition(
+      {
+        root: options.root,
+        element: this.element,
+        connection: options.connection,
+        focusGame: options.focusGame,
+        setTextInputFocused: this.setTextInputFocused,
+        touchDevice: isTouchDevice(),
+        ...(options.viewDistance === undefined
+          ? {}
+          : { viewDistance: options.viewDistance }),
+        ...(options.setViewDistance
+          ? { setViewDistance: options.setViewDistance }
+          : {}),
+        ...(options.onSelectHotbar
+          ? { onSelectHotbar: options.onSelectHotbar }
+          : {}),
+        session: options.session,
+      },
+      {
+        closeInventory: () => this.closeInventory(),
+        toggleContacts: () => this.toggleContacts(),
+        closeContacts: () => this.closeContacts(),
+        closeCraft: () => this.closeCraft(),
+        closeStash: () => this.closeStash(),
+        toggleInventory: () => this.toggleInventory(),
+      },
+    );
+    this.keyboard = this.createKeyboard(options);
+    if (options.showReticle !== false) mountHudReticle(this.element);
+  }
+
+  private createKeyboard(options: ThreeHudOptions): ThreeHudKeyboard {
+    const { parts } = this;
+    return createHudKeyboard({
       toggleInventory: () => this.toggleInventory(),
       closeInventory: () => this.closeInventory(),
       inventoryOpen: () => this.inventoryOpen(),
-      selectHotbar: (index) => this.hotbar.select(index),
-      focusChat: () => this.panels.chat.focus(),
+      selectHotbar: (index) => parts.hotbar.select(index),
+      focusChat: () => parts.panels.chat.focus(),
       leaveChat: () => {
-        this.panels.chat.leave();
-        focusGame();
+        parts.panels.chat.leave();
+        this.focusGame();
       },
-      chatOwnsFocus: () => this.panels.chat.ownsFocus(),
+      chatOwnsFocus: () => parts.panels.chat.ownsFocus(),
       closeOverlays: () => this.closeOverlays(),
+      sessionMenuOpen: () => parts.sessionMenu.isOpen(),
+      toggleSessionMenu: () => parts.sessionMenu.toggle(),
+      closeSessionMenu: () => parts.sessionMenu.close(),
     }, options);
-    if (options.showReticle !== false) mountHudReticle(this.element);
   }
   update(update: ThreeHudUpdate): void {
     const { connection, world, player, yaw, mouseCaptured } = update;
-    this.panels.chat.update();
-    this.inventory.update();
-    this.status.update(connection, world.floor);
-    this.hotbar.update(connection, update.snapshot?.selectedSlot);
-    this.buffs.update(connection);
-    this.weapon.update(connection);
-    this.party.update(connection, player, yaw);
-    this.telemetry.update(connection, world, player, yaw, mouseCaptured);
-    this.downed.update(connection);
-    this.invite.update();
-    this.tutorials.update(connection, performance.now());
-    this.touch.update(update.snapshot?.touch ?? null);
+    const { parts } = this;
+    parts.panels.chat.update();
+    parts.inventory.update();
+    parts.status.update(connection, world.floor);
+    parts.hotbar.update(connection, update.snapshot?.selectedSlot);
+    parts.buffs.update(connection);
+    parts.weapon.update(connection);
+    parts.party.update(connection, player, yaw);
+    parts.telemetry.update(connection, world, player, yaw, mouseCaptured);
+    parts.downed.update(connection);
+    parts.invite.update();
+    parts.sessionMenu.update(
+      connection.status === "connected" && connection.hp > 0,
+    );
+    parts.tutorials.update(connection, performance.now());
+    parts.touch.update(update.snapshot?.touch ?? null);
     if (update.snapshot) this.updateSnapshotPanels(update.snapshot);
-    else syncThreeHudLiveState(connection, world, this.hotbar.selectedSlot(),
-      this.panels, this.notices, () => this.closeCraft(), () => this.closeStash());
+    else {
+      syncThreeHudLiveState(
+        connection,
+        world,
+        parts.hotbar.selectedSlot(),
+        parts.panels,
+        parts.notices,
+        () => this.closeCraft(),
+        () => this.closeStash(),
+      );
+    }
   }
+
   toggleInventory(): void {
     const opening = !this.inventoryOpen();
-    this.inventory.toggle(this.focusGame);
+    this.parts.inventory.toggle(this.focusGame);
     this.setTextInputFocused(opening);
   }
+
   closeInventory(): void {
     if (!this.inventoryOpen()) return;
-    this.inventory.closeAndFocus(this.focusGame);
+    this.parts.inventory.closeAndFocus(this.focusGame);
     this.setTextInputFocused(false);
   }
+
   inventoryOpen(): boolean {
-    return this.inventory.isOpen();
+    return this.parts.inventory.isOpen();
   }
 
-  focusChat(): void { this.panels.chat.focus(); }
-  toggleChat(): void { this.toggleWindow("three-chat"); }
-
-  toggleContacts(): void { this.toggleWindow("three-contacts"); }
-  closeContacts(): void { this.manager.setVisible("three-contacts", false); }
-  toggleCraft(): void {
-    const opening = !this.craftOpen();
-    if (opening) this.closeStash();
-    this.manager.setVisible("three-craft", opening);
+  blocksGameplay(): boolean {
+    return this.inventoryOpen() || this.parts.sessionMenu.isOpen();
   }
 
-  closeCraft(): void { this.manager.setVisible("three-craft", false); }
-  craftOpen(): boolean {
-    return this.manager.isVisible("three-craft");
+  sessionMenuOpen(): boolean {
+    return this.parts.sessionMenu.isOpen();
   }
 
-  openStash(): void {
-    this.manager.setVisible("three-stash", true);
-  }
-  toggleStash(): boolean {
-    const opening = !this.stashOpen();
-    if (opening) this.closeCraft();
-    this.manager.setVisible("three-stash", opening);
-    return opening;
-  }
-  closeStash(): void { this.manager.setVisible("three-stash", false); }
-  stashOpen(): boolean {
-    return this.manager.isVisible("three-stash");
+  toggleSessionMenu(): void {
+    this.parts.sessionMenu.toggle();
   }
 
-  closeOverlays(): boolean {
-    const wasOpen = this.craftOpen() || this.stashOpen() ||
-      this.manager.isVisible("three-contacts");
-    this.closeCraft();
-    this.closeStash();
-    this.closeContacts();
-    if (wasOpen) this.focusGame();
-    return wasOpen;
-  }
+  focusChat(): void { this.parts.panels.chat.focus(); }
+  toggleChat(): void { this.parts.overlays.toggleChat(); }
+
+  toggleContacts(): void { this.parts.overlays.toggleContacts(); }
+  closeContacts(): void { this.parts.overlays.closeContacts(); }
+  toggleCraft(): void { this.parts.overlays.toggleCraft(); }
+
+  closeCraft(): void { this.parts.overlays.closeCraft(); }
+  craftOpen(): boolean { return this.parts.overlays.craftOpen(); }
+
+  openStash(): void { this.parts.overlays.openStash(); }
+  toggleStash(): boolean { return this.parts.overlays.toggleStash(); }
+  closeStash(): void { this.parts.overlays.closeStash(); }
+  stashOpen(): boolean { return this.parts.overlays.stashOpen(); }
+
+  closeOverlays(): boolean { return this.parts.overlays.closeAll(); }
 
   dispose(): void {
     this.setTextInputFocused(false);
-    this.inventory.dispose();
+    this.parts.inventory.dispose();
     this.keyboard.dispose();
-    this.settings.dispose();
-    this.manager.dispose();
+    this.parts.sessionMenu.dispose();
+    this.parts.settings.dispose();
+    this.parts.manager.dispose();
     this.element.remove();
-  }
-  private windowContents() {
-    return {
-      status: this.status.element, buffs: this.buffs.element,
-      hotbar: this.hotbar.element, chat: this.panels.chat.element, weapon: this.weapon.element,
-      party: this.party.element, telemetry: this.telemetry.element,
-      contacts: this.panels.contacts.element,
-      craft: this.panels.craft.element, stash: this.panels.stash.element,
-    };
-  }
-  private toggleWindow(id: string): void {
-    this.manager.setVisible(id, !this.manager.isVisible(id));
   }
 
   private updateSnapshotPanels(snapshot: HudFakeSnapshot): void {
-    this.panels.contacts.update(snapshot.contacts);
-    this.panels.craft.update(snapshot.craft);
-    this.panels.stash.update(snapshot.stash);
-    this.notices.update(snapshot, performance.now());
-    if (!snapshot.craft.nearby) this.closeCraft();
-    if (!snapshot.stash.nearby) this.closeStash();
+    this.parts.overlays.update(snapshot, this.parts.notices);
   }
 }

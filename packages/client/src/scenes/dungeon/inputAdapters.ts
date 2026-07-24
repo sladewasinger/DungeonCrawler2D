@@ -164,7 +164,8 @@ export interface SocialHookCallbacks {
   toggleInventory(): void;
   openChat(): void;
   toggleContacts(): void;
-  closeOverlays(): void;
+  closeOverlays(): boolean;
+  toggleSessionMenu(): void;
 }
 
 export function createInputHooks(cosmetics: SelfCosmeticsState, social: SocialHookCallbacks): InputHooks {
@@ -183,5 +184,6 @@ export function createInputHooks(cosmetics: SelfCosmeticsState, social: SocialHo
     onOpenChat: social.openChat,
     onToggleContacts: social.toggleContacts,
     onCloseOverlays: social.closeOverlays,
+    onToggleSessionMenu: social.toggleSessionMenu,
   };
 }

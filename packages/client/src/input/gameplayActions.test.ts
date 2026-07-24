@@ -45,6 +45,7 @@ const setup = (
     craftOpen: false,
     stashOpen: false,
     inventoryOpen: false,
+    gameplayBlocked: false,
     selectedInventoryItem: null,
     toggleStash: () => {
       calls.push("toggleStash");

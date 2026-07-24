@@ -6,8 +6,8 @@ import { ThreeHudSettings } from "./ThreeHudSettings.js";
 import type { ViewDistance } from "./viewDistance.js";
 
 export interface ThreeHudSetupOptions {
-  viewDistance?: ViewDistance;
-  setViewDistance?: (viewDistance: ViewDistance) => void;
+  viewDistance?: ViewDistance | undefined;
+  setViewDistance?: ((viewDistance: ViewDistance) => void) | undefined;
   bindKeyboard?: boolean;
   replayTutorials?: () => void;
 }
@@ -39,13 +39,11 @@ export const mountHudReticle = (root: HTMLElement): void => {
 };
 
 export const createHudSettings = (
-  root: HTMLElement,
   manager: HudWindowManager,
   options: ThreeHudSetupOptions,
 ): ThreeHudSettings => {
   let activeDistance: ViewDistance = options.viewDistance ?? 18;
   return new ThreeHudSettings(
-    root,
     manager,
     options.viewDistance === undefined ? undefined : () => activeDistance,
     options.setViewDistance === undefined

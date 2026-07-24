@@ -8,39 +8,15 @@
  */
 import Phaser from "phaser";
 import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
-import { fakeHudSnapshot, type HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { HudWidgets, type SocialActions, type StationActions } from "../ui/widgets/hud/index.js";
-import type { InventoryActions } from "../ui/widgets/hud/inventoryWindow.js";
+import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
+import { HudWidgets } from "../ui/widgets/hud/index.js";
 import type { Connection } from "../net/connection.js";
 import { HtmlTouchHitRegions } from "../three/HtmlTouchHitRegions.js";
 import { ThreeHud } from "../three/ThreeHud.js";
-
-/** ?hud=1 shows the HUD-on state with fake data; ?hud=death also forces the death overlay. */
-const HUD_QUERY_PARAM = "hud";
-/** ?inventory=1 (with ?hud=1|death) forces the inventory window open — a screenshot aid,
- * not a shipped gameplay flag; real play only opens it via [I]/[Tab] or the bag button. */
-const INVENTORY_QUERY_PARAM = "inventory";
-/** ?craft=1 / ?stash=1 (with ?hud=1|death) — the same screenshot-aid pattern as
- * ?inventory=1, for the Epic 7.12 windows; real play only opens them via [C]/[E] near a station. */
-const CRAFT_QUERY_PARAM = "craft";
-const STASH_QUERY_PARAM = "stash";
-/** ?boss=1 (with ?hud=1|death) — the same screenshot-aid pattern, forces a fake boss
- * into the AOI so Epic 7.14's boss HP bar has something to show without a live server. */
-const BOSS_QUERY_PARAM = "boss";
-const FAKE_BOSS = { name: "The Warden of Five", hp: 640, maxHp: 900 };
-
-export interface HudSceneData {
-  /** Pulled fresh every update() — DungeonScene's real snapshot builder. */
-  source?: () => HudFakeSnapshot;
-  /** The inventory window's network intents — omitted in the gallery's fake-data preview. */
-  actions?: InventoryActions;
-  /** Chat-tab-click + contacts-DM-button intents — omitted in the gallery's fake-data preview. */
-  social?: SocialActions;
-  /** The crafting-table/stash windows' network intents (Epic 7.12) — omitted in the gallery's fake-data preview. */
-  stations?: StationActions;
-  connection?: Connection;
-  onSelectHotbar?: (index: number | null) => void;
-}
+import { createLiveHtmlHud } from "./hudHtml.js";
+import { applyHudPreviewAids, resolveHudPreview } from "./hudPreview.js";
+import type { HudSceneData } from "./hudSceneData.js";
+export type { HudSceneData } from "./hudSceneData.js";
 
 export class HudScene extends Phaser.Scene {
   private hud: HudWidgets | undefined;
@@ -49,13 +25,14 @@ export class HudScene extends Phaser.Scene {
   private bossBar: BossBarWidget | undefined;
   private snapshot: HudFakeSnapshot | undefined;
   private source: (() => HudFakeSnapshot) | undefined;
-  private actions: InventoryActions | undefined;
-  private social: SocialActions | undefined;
-  private stations: StationActions | undefined;
+  private actions: HudSceneData["actions"];
+  private social: HudSceneData["social"];
+  private stations: HudSceneData["stations"];
   private connection: Connection | undefined;
   private htmlHud: ThreeHud | undefined;
   private readonly touchHits = new HtmlTouchHitRegions();
   private onSelectHotbar: ((index: number | null) => void) | undefined;
+  private session: HudSceneData["session"];
 
   constructor() {
     super("hud");
@@ -68,30 +45,19 @@ export class HudScene extends Phaser.Scene {
     this.stations = data?.stations;
     this.connection = data?.connection;
     this.onSelectHotbar = data?.onSelectHotbar;
+    this.session = data?.session;
   }
 
   create(): void {
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get(HUD_QUERY_PARAM);
-    if (!this.source && mode !== "1" && mode !== "death") return;
-    this.snapshot = mode === "death" ? fakeHudSnapshot(true) : mode === "1" ? fakeHudSnapshot(false) : undefined;
-    if (this.source && this.connection) {
-      this.createHtmlHud(this.connection);
-    } else {
-      this.createPreviewHud();
-    }
-    this.applyScreenshotAidParams(params);
+    this.snapshot = this.source ? undefined : resolveHudPreview(params) ?? undefined;
+    if (!this.source && !this.snapshot) return;
+    if (this.source && this.connection) this.createHtmlHud(this.connection);
+    else this.createPreviewHud();
+    applyHudPreviewAids(params, this.snapshot, this.hud);
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
-  }
-
-  /** ?inventory=1/?craft=1/?stash=1/?boss=1 — screenshot aids only, split out to keep create()'s complexity down. */
-  private applyScreenshotAidParams(params: URLSearchParams): void {
-    if (this.snapshot && params.get(BOSS_QUERY_PARAM) === "1") this.snapshot.boss = FAKE_BOSS;
-    if (params.get(INVENTORY_QUERY_PARAM) === "1") this.hud?.toggleInventory();
-    if (params.get(CRAFT_QUERY_PARAM) === "1") this.hud?.toggleCraftPanel();
-    if (params.get(STASH_QUERY_PARAM) === "1") this.hud?.openStashPanel();
   }
 
   update(time: number): void {
@@ -108,12 +74,7 @@ export class HudScene extends Phaser.Scene {
   /** InputHud contract: forwarded to the live HudWidgets instance, if one is running. */
   hitTest(screenX: number, screenY: number): string | null {
     if (!this.htmlHud) return this.hud?.hitTest(screenX, screenY) ?? null;
-    return this.touchHits.hitTest(
-      screenX,
-      screenY,
-      this.scale.width,
-      this.scale.height,
-    );
+    return this.touchHits.hitTest(screenX, screenY, this.scale.width, this.scale.height);
   }
 
   /** Toggles the chat panel — the touch layout's collapse-to-chip affordance (InputHooks.onToggleChat). */
@@ -131,6 +92,18 @@ export class HudScene extends Phaser.Scene {
   /** InventoryPanelSource contract (inputAdapters.ts's createInputPanels). */
   inventoryOpen(): boolean {
     return this.htmlHud?.inventoryOpen() ?? this.hud?.inventoryOpen() ?? false;
+  }
+
+  blocksGameplay(): boolean {
+    return this.htmlHud?.blocksGameplay() ?? this.hud?.inventoryOpen() ?? false;
+  }
+
+  sessionMenuOpen(): boolean {
+    return this.htmlHud?.sessionMenuOpen() ?? false;
+  }
+
+  toggleSessionMenu(): void {
+    this.htmlHud?.toggleSessionMenu();
   }
 
   /** InventoryPanelSource contract. */
@@ -158,6 +131,10 @@ export class HudScene extends Phaser.Scene {
   closeContacts(): void {
     if (this.htmlHud) this.htmlHud.closeContacts();
     else this.hud?.closeContacts();
+  }
+
+  closeTransientOverlays(): boolean {
+    return this.htmlHud?.closeOverlays() ?? false;
   }
 
   /** PanelSource contract (scenes/dungeon/panelAdapters.ts's createInputPanels). */
@@ -204,7 +181,7 @@ export class HudScene extends Phaser.Scene {
   private createHtmlHud(connection: Connection): void {
     const root = document.getElementById("app");
     if (!root) throw new Error("Missing #app root for HTML HUD.");
-    const options = {
+    this.htmlHud = createLiveHtmlHud({
       root,
       connection,
       focusGame: () => this.game.canvas.focus({ preventScroll: true }),
@@ -213,13 +190,14 @@ export class HudScene extends Phaser.Scene {
         if (focused) keyboard?.disableGlobalCapture();
         else keyboard?.enableGlobalCapture();
       },
-      bindKeyboard: false,
-      showReticle: false,
       ...(this.onSelectHotbar
         ? { onSelectHotbar: this.onSelectHotbar }
         : {}),
-    };
-    this.htmlHud = new ThreeHud(options);
+      session: this.session ?? {
+        respawn: () => {},
+        quitToTitle: () => {},
+      },
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.htmlHud?.dispose();
       this.htmlHud = undefined;

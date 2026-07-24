@@ -46,8 +46,10 @@ export function buildSocialHooks(
     openChat: () => hudScene.focusChat(),
     toggleContacts: () => hudScene.toggleContacts(),
     closeOverlays: () => {
+      const chatWasOpen = box.isOpen();
       box.close();
-      hudScene.closeContacts();
+      return hudScene.closeTransientOverlays() || chatWasOpen;
     },
+    toggleSessionMenu: () => hudScene.toggleSessionMenu(),
   };
 }

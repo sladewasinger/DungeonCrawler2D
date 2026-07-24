@@ -88,6 +88,8 @@ export interface InputPanels {
   readonly stashOpen: boolean;
   /** True while the inventory window (ui/widgets/hud/inventoryWindow.ts) is open. */
   readonly inventoryOpen: boolean;
+  /** True while a modal workspace or game menu owns player input. */
+  readonly gameplayBlocked: boolean;
   /** The inventory row currently selected for the [1-9] bind flow, or null. */
   readonly selectedInventoryItem: string | null;
   toggleStash(conn: InputConnection): boolean;
@@ -127,7 +129,9 @@ export interface InputHooks {
   /** [o], or the chip beside the chat tabs — opens/closes the contacts window. */
   onToggleContacts(): void;
   /** [Esc] — closes the chat input box and contacts window (inventory closes via InputPanels). */
-  onCloseOverlays(): void;
+  onCloseOverlays(): boolean;
+  /** Opens or closes the shared non-pausing game menu. */
+  onToggleSessionMenu(): void;
 }
 
 /** Movement/keys pause while any text input has focus (chat, search). */

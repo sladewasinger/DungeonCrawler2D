@@ -8,6 +8,9 @@ export interface ThreeHudKeyboardActions {
   leaveChat(): void;
   chatOwnsFocus(): boolean;
   closeOverlays(): boolean;
+  sessionMenuOpen(): boolean;
+  toggleSessionMenu(): void;
+  closeSessionMenu(): void;
 }
 
 export class ThreeHudKeyboard {
@@ -70,8 +73,15 @@ export class ThreeHudKeyboard {
 
   private captureEscapeEvent(event: KeyboardEvent): boolean {
     if (event.code !== "Escape") return false;
-    if (this.actions.chatOwnsFocus()) this.actions.leaveChat();
-    else if (!this.actions.closeOverlays()) return false;
+    if (this.actions.chatOwnsFocus()) {
+      this.actions.leaveChat();
+    } else if (this.actions.closeOverlays()) {
+      // Transient windows close before Escape opens the game menu.
+    } else if (this.actions.sessionMenuOpen()) {
+      this.actions.closeSessionMenu();
+    } else {
+      this.actions.toggleSessionMenu();
+    }
     event.preventDefault();
     return true;
   }

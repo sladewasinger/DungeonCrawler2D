@@ -12,6 +12,21 @@ export function startThreeRoute(search: URLSearchParams): void {
   if (!root) throw new Error("Missing #app root for Three.js renderer.");
   const conn = new Connection(resolveWsUrl(window.location), loadStoredName(), persistentClientId());
   bindVersionRefreshOverlay(conn);
-  const title = new StandaloneTitle(conn, root, () => startThreeDungeon({ root, search, conn }));
-  title.start();
+  const showTitle = (): void => {
+    let stopDungeon: (() => void) | null = null;
+    const title = new StandaloneTitle(conn, root, () => {
+      stopDungeon = startThreeDungeon({
+        root,
+        search,
+        conn,
+        onQuitToTitle: () => {
+          stopDungeon?.();
+          stopDungeon = null;
+          showTitle();
+        },
+      });
+    });
+    title.start();
+  };
+  showTitle();
 }

@@ -38,22 +38,35 @@ Completing one release slice does not complete this roadmap.
    versus authoritative pose, input sequence acknowledgement, fixed-step catch-up, and
    snapshot cadence, then remove the recurring correction without regressing chunk-load
    smoothness. This blocks every feature slice below.
-2. [x] **Shared client performance release:** renderer-isolated bundles, spatial AOI
+2. [ ] **Mobile reconnect/session continuity regression:** returning from an ordinary
+   mobile background interruption must resume the same server player slot for at least
+   **four minutes** when the same device reconnects. Preserve position, health,
+   inventory, hotbar, equipped weapon, party membership, character identity/sprite, and
+   pending social state; do not create a fresh player merely because the browser paused
+   WebSocket traffic. During the grace window leave the body in-world as a dark-gray
+   `Disconnected` player, invulnerable and excluded from enemy targeting/attacks, then
+   remove it only after expiry. Add deterministic reconnect, party-preservation, and
+   mobile-background simulation coverage before treating the new instant-disconnect
+   behavior as shippable. In the same mobile-resilience release, add an explicit
+   `Enter Full Screen` control to Settings and a user-gesture-safe fallback that
+   re-enters fullscreen when a returning mobile player taps the game after a browser or
+   OS interruption. Cover the 2D renderer first and keep the 3D route behavior aligned.
+3. [x] **Shared client performance release:** renderer-isolated bundles, spatial AOI
    buckets, revisioned snapshot deltas, and budgeted Phaser terrain/lighting churn.
-3. [x] **Shared inventory workspace:** replace the movable inventory HUD panel with
+4. [x] **Shared inventory workspace:** replace the movable inventory HUD panel with
    one full-screen HTML workspace used by both renderers; include an 82%-dark modal
    backdrop, search, category tabs, All/Equipped/Hotbar folders, scrolling item
    actions, and complete gameplay-input capture while open.
-4. [x] **2D interaction-contract hardening:** E/USE at a crafting surface opens and
+5. [x] **2D interaction-contract hardening:** E/USE at a crafting surface opens and
    toggles crafting; E/USE at a stash toggles it; E/C/Escape and panel-local X controls
    follow one modal law. Prompts, client actions, Three.js parity, crafting/stash
    validation, and authoritative door/stash handling now share one engine-owned
    tile-center range resolver with door > stash > craft priority; revive targeting is
    nearest and deterministic on both sides.
-5. [x] **2D correctness and cleanup:** damage-triggered health bars, placed-torch
+6. [x] **2D correctness and cleanup:** damage-triggered health bars, placed-torch
    pickup/cap, torch halo fade-in, protocol-mismatch refresh UX, room-relative
    coordinates, title/mode-select parity, and dead pack-render path removal.
-6. [ ] **2D presentation/content:** cohesive four-direction crawler art, readable kill
+7. [ ] **2D presentation/content:** cohesive four-direction crawler art, readable kill
    and area-effect proof recaptures, bench projectile presentation, and the remaining
    terrain-generation decisions (corridor width, minimum pit size, walkable wall-back
    generation).
@@ -73,11 +86,12 @@ Completing one release slice does not complete this roadmap.
    clients. Initial required controls: revive hold defaults to **4 seconds** (not the
    current 600 ms), torch light radius is doubled in both renderers, and the Three.js
    global baseline lighting is increased from its currently too-dark value. Keep
-   gameplay authority server-side (revive, stamina, lights), while per-user brightness
-   and font scale remain local accessibility preferences. Add a non-pausing game menu
-   with confirmed `Respawn (die)`, `Quit to opening screen` (disconnects the player
-   before returning to the name/Enter Dungeon screen), and Settings for local
-   brightness and font scaling.
+   gameplay authority server-side (revive, stamina, lights). **Shipped 2026-07-24:**
+   the renderer-neutral, non-pausing game menu now provides confirmed
+   `Respawn (die)`, confirmed `Quit to opening screen` (disconnect first, then return
+   in-page), and versioned local brightness and HUD font-scale accessibility settings
+   in both renderers. The restricted authoritative live-config/admin backbone,
+   4-second server-timed revive, and shared light tuning remain open.
    **Mobile HUD-edit and controls ergonomics:** HUD Edit Mode must be practically
    usable by touch: enlarge resize affordances on mobile, keep move and resize hit
    regions unambiguous, and support a two-finger pinch gesture to resize a selected
@@ -89,9 +103,9 @@ Completing one release slice does not complete this roadmap.
    touch targets. Replace simple circular red/green blood with varied, readable splat
    decals appropriate to the hit type; each decal must expire after 30 seconds so long
    play sessions do not accumulate visual clutter or unbounded render work.
-7. [ ] **The Descent:** finish stairway traversal, floor identity/difficulty, bosses,
+8. [ ] **The Descent:** finish stairway traversal, floor identity/difficulty, bosses,
    death destination, progression persistence, and announcer personality.
-8. [ ] **Social Fabric through launch:** explicit party management, chat moderation
+9. [ ] **Social Fabric through launch:** explicit party management, chat moderation
    controls, contacts presence, AI crafting/registry, accounts/meta progression,
    final art/audio/juice, onboarding, load hardening, moderation, and production.
    Onboarding must be event-gated: inventory guidance only after a relevant pickup or
@@ -103,7 +117,18 @@ Completing one release slice does not complete this roadmap.
    close), and every actionable control—Use, Drop One, Equip, folders, tabs, filters,
    and hotbar bindings—uses `cursor: pointer` plus clear hover, active/click, disabled,
    and selected states. This is product polish, not optional follow-up styling.
-9. [ ] **Three.js opt-in parity:** keep the alternate renderer compatible with shared
+   **Release notes and versioning:** ship a player-facing Release Notes page linked
+   from the opening/Enter Dungeon screen. Every shipped version gets its own committed
+   Markdown post under a stable repo directory (for example `docs/releases/vX.Y.Z.md`)
+   with front matter for version/date/title, a short summary, and explicit Added,
+   Changed, Removed, and Fixed sections. The website builds an index and individual
+   blog-style post views from those documents; release publication fails if the version
+   lacks a corresponding note. Start at `0.1.0` and follow SemVer: patch releases
+   (`0.1.1`) are compatible bug fixes, minor releases (`0.2.0`) add player-facing
+   functionality, and major releases (`1.0.0`) introduce intentionally breaking public
+   contracts. Pre-1.0 breaking changes still increment the minor version rather than
+   silently reusing a version number.
+10. [ ] **Three.js opt-in parity:** keep the alternate renderer compatible with shared
    simulation/HUD changes while 2D leads; complete its collision/mesh, input,
    perception, interaction, visual-regression, and device-budget gates before making
    it a default renderer.
@@ -297,7 +322,9 @@ epics, but they do not displace the next playable feature slice in this queue.
 
 **Goal:** Correct the highest-friction playtest issues before expanding the feature set, then replace the temporary character and room flows with production-quality foundations.
 
-- [x] **Session menu:** add an always-available in-game menu with Resume, confirmed Kill Crawler, and Exit to Mode Select so players can move between the dungeon and traversal sandbox without reloading
+- [x] **Session menu:** shared non-pausing HTML menu with Resume, confirmed Respawn
+  (die), confirmed disconnect-before-return to the opening mode selector, and local
+  brightness/font-scale settings in both renderers (2026-07-24)
 - [x] **Death lockout:** dead players cannot move, jump, attack, use items, interact, chat, or mutate inventory/party state; client prediction stops immediately and enemies ignore dead, downed, and disconnected players until respawn/reconnect
 - [x] **Held-input continuity:** keyboard enable/disable transitions are idempotent so server snapshots never clear held WASD state or introduce movement stutter
 - [ ] **Crawler art rebuild:** replace the current faceless-hood views with one cohesive, more detailed crawler spritesheet covering idle, walk, and attack in four visual directions (north/south/east/west). Simulation and input remain 8-way; diagonal movement resolves to a stable dominant-axis facing so it never rapidly flips between animation sets.

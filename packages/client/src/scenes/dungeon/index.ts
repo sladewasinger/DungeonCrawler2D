@@ -18,6 +18,7 @@ import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { VfxSystem } from "../../vfx/index.js";
 import type { HudScene } from "../HudScene.js";
 import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
+import { bindDungeonCameraResize } from "./cameraResize.js";
 import { consumeFixedSteps, interpolationAlpha, lerp, translatePose } from "./fixedStep.js";
 import { FistbumpRing } from "./fistbumpRing.js";
 import { syncFistbumpRing } from "./fistbumpRingSync.js";
@@ -34,6 +35,7 @@ import { createCraftActions, createInputPanels, createStashActions } from "./pan
 import { RotationController } from "./rotationControl.js";
 import { bindRotationKeys } from "./rotationKeys.js";
 import { syncReviveRing } from "./reviveRingSync.js";
+import { createSessionActions } from "./sessionActions.js";
 import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { consumeRespawnGrace, updateSelfFacing } from "./selfCosmetics.js";
@@ -90,8 +92,9 @@ export class DungeonScene extends Phaser.Scene {
       onSelectHotbar: (index: number | null) => this.inputController.setHotbarSlot(index), actions: createHudActions(this.conn),
       social: buildSocialActions(this.chatController, this.chatInputBox, () => this.scale.height, this.hudScene),
       stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
+      session: createSessionActions(this, this.conn),
     });
-    this.setUpCameraResize();
+    bindDungeonCameraResize(this);
     bindRotationKeys(this, this.rotation);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
@@ -229,12 +232,6 @@ export class DungeonScene extends Phaser.Scene {
       1000 / this.game.loop.delta,
       this.rotation.bearingDeg(),
     );
-  }
-
-  private setUpCameraResize(): void {
-    const onResize = (gameSize: Phaser.Structs.Size) => this.cameras.main.setSize(gameSize.width, gameSize.height);
-    this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
   }
 
   private dispose(): void {

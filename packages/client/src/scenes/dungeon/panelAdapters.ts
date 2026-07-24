@@ -14,6 +14,7 @@ import type { StashActions } from "../../ui/widgets/hud/stashWindow.js";
  * inputAdapters.ts's former InventoryPanelSource. */
 export interface PanelSource {
   inventoryOpen(): boolean;
+  blocksGameplay(): boolean;
   selectedInventoryItem(): string | null;
   closeInventory(): void;
   craftOpen(): boolean;
@@ -66,6 +67,9 @@ export function createInputPanels(hud: PanelSource, queries: InputQueries): Inpu
     },
     get inventoryOpen() {
       return hud.inventoryOpen();
+    },
+    get gameplayBlocked() {
+      return hud.blocksGameplay();
     },
     get selectedInventoryItem() {
       return hud.selectedInventoryItem();

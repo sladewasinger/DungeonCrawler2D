@@ -68,7 +68,7 @@ export class InputController {
 
   private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
     const { conn, panels, state } = this;
-    const blocked = () => panels.inventoryOpen;
+    const blocked = () => panels.gameplayBlocked;
     keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
     keys.E.on("down", guardedAction(() => this.handleInteractDown(), blocked));
     keys.E.on("up", () => this.revive.end(this.scene.time.now));
@@ -80,8 +80,10 @@ export class InputController {
     keys.F.on("up", () => this.releaseFistbumpHold(conn, queries));
     keys.ESC.on("down", () => {
       state.selectedSlot = null;
+      const panelsWereOpen = panels.inventoryOpen || panels.craftOpen || panels.stashOpen;
       panels.closeAll(conn);
-      hooks.onCloseOverlays();
+      const overlayWasOpen = hooks.onCloseOverlays();
+      if (!panelsWereOpen && !overlayWasOpen) hooks.onToggleSessionMenu();
     });
     keys.I.on("down", guardedAction(() => hooks.onToggleInventory()));
     keys.TAB.on("down", guardedAction(() => hooks.onToggleInventory()));
@@ -221,7 +223,7 @@ export class InputController {
    * intent (screen-up = "forward") — camera-relative controls remap it to WORLD space
    * here, the one choke point before Connection.sampleInput's predicted stepBody. */
   readInput(): MoveInput {
-    if (this.panels.inventoryOpen) {
+    if (this.panels.gameplayBlocked) {
       return { moveX: 0, moveY: 0, jump: false, run: false };
     }
     const keyboardMove = readMoveInput(this.state, this.conn);
@@ -234,7 +236,7 @@ export class InputController {
   }
 
   private cancelModalGestures(): boolean {
-    if (!this.panels.inventoryOpen) return false;
+    if (!this.panels.gameplayBlocked) return false;
     cancelHeldGestures(this.scene.time.now, this.revive, this.giveUp, this.fistbumpHold);
     this.fistbumpTargetId = null;
     this.touchFistbumpHeld = this.touchActive && isButtonHeld(this.touch, "interact");

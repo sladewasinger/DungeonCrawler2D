@@ -1,31 +1,17 @@
-/** Owns the gear menu, edit-mode switch, view distance, and window catalog. */
+/** Builds the HUD-and-view controls embedded in the shared game menu. */
 import type { HudWindowManager } from "./HudWindows.js";
 import { ThreeHudCatalog } from "./ThreeHudCatalog.js";
 import type { ViewDistance } from "./viewDistance.js";
 import { createViewDistanceButton } from "./viewDistanceButton.js";
 
-const createGear = (): HTMLButtonElement => {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "⚙";
-  button.setAttribute("aria-label", "HUD settings");
-  button.style.cssText =
-    "position:absolute;right:12px;top:12px;z-index:1300;width:34px;height:34px;" +
-    "border:1px solid #71758b;background:rgba(18,19,30,.76);color:#f3f0e9;" +
-    "font:20px sans-serif;pointer-events:auto";
-  return button;
-};
-
 export class ThreeHudSettings {
-  private readonly gear = createGear();
-  private readonly menu = document.createElement("div");
+  readonly element = document.createElement("div");
   private readonly edit = document.createElement("button");
   private readonly catalog: ThreeHudCatalog;
-  private visible = false;
+  private readonly editingListeners = new Set<(editing: boolean) => void>();
   private editing = false;
 
   constructor(
-    root: HTMLElement,
     private readonly manager: HudWindowManager,
     getViewDistance?: () => ViewDistance,
     setViewDistance?: (viewDistance: ViewDistance) => void,
@@ -33,8 +19,6 @@ export class ThreeHudSettings {
   ) {
     this.catalog = new ThreeHudCatalog(manager);
     this.configureMenu(getViewDistance, setViewDistance, replayTutorials);
-    this.gear.addEventListener("click", () => this.toggleMenu());
-    root.append(this.gear, this.menu);
   }
 
   private configureMenu(
@@ -42,11 +26,7 @@ export class ThreeHudSettings {
     setViewDistance?: (viewDistance: ViewDistance) => void,
     replayTutorials?: () => void,
   ): void {
-    this.menu.hidden = true;
-    this.menu.style.cssText =
-      "position:absolute;right:12px;top:52px;z-index:1301;width:210px;" +
-      "padding:10px;background:rgba(18,19,30,.96);border:1px solid #686d86;" +
-      "box-shadow:0 8px 22px rgba(0,0,0,.48);pointer-events:auto";
+    this.element.style.cssText = "display:grid;gap:6px";
     this.edit.type = "button";
     this.edit.style.cssText =
       "width:100%;padding:7px;border:1px solid #757a93;background:#292b40;" +
@@ -62,7 +42,7 @@ export class ThreeHudSettings {
       controls.push(this.replayButton(replayTutorials));
     }
     controls.push(this.catalog.element);
-    this.menu.append(...controls);
+    this.element.append(...controls);
   }
 
   private replayButton(replay: () => void): HTMLButtonElement {
@@ -78,13 +58,13 @@ export class ThreeHudSettings {
 
   dispose(): void {
     this.catalog.dispose();
-    this.gear.remove();
-    this.menu.remove();
+    this.editingListeners.clear();
+    this.element.remove();
   }
 
-  private toggleMenu(): void {
-    this.visible = !this.visible;
-    this.menu.hidden = !this.visible;
+  onEditingChange(listener: (editing: boolean) => void): () => void {
+    this.editingListeners.add(listener);
+    return () => this.editingListeners.delete(listener);
   }
 
   private toggleEditing(): void {
@@ -92,6 +72,7 @@ export class ThreeHudSettings {
     this.manager.setEditing(this.editing);
     this.catalog.setEditing(this.editing);
     this.updateLabel();
+    for (const listener of this.editingListeners) listener(this.editing);
   }
 
   private updateLabel(): void {

@@ -1,6 +1,5 @@
 /** Owns Three.js client composition, lifecycle, frame order, and renderer configuration. */
 import { World } from "@dc2d/engine";
-import type { Connection } from "../net/connection.js";
 import * as THREE from "three";
 import { ThreeActionController } from "./ThreeActionController.js";
 import { ThreeHud } from "./ThreeHud.js";
@@ -10,30 +9,19 @@ import { ThreeRemoteActors } from "./ThreeRemoteActors.js";
 import { advanceInputClock, firstPersonMoveInput } from "./firstPersonNetworking.js";
 import { presentFirstPerson } from "./firstPersonPresentation.js";
 import type { FirstPersonState } from "./movement.js";
-import { DEFAULT_TERRAIN_VIEW_RADIUS, ThreeTerrain } from "./ThreeTerrain.js";
+import { ThreeTerrain } from "./ThreeTerrain.js";
 import { needsTerrainRefresh } from "./terrainStreaming.js";
-import { isViewDistance, type ViewDistance } from "./viewDistance.js";
+import {
+  queryRouteNumber,
+  queryViewDistance,
+  type ThreeRouteOptions,
+} from "./threeRouteConfig.js";
+import type { ViewDistance } from "./viewDistance.js";
 import { findWalkable } from "./worldSearch.js";
 
 const EYE_HEIGHT = 0.72;
 const FOG_COLOR = "#07080d";
 const FOG_NEAR = 14;
-
-interface ThreeRouteOptions {
-  conn: Connection;
-  root: HTMLElement;
-  search: URLSearchParams;
-}
-
-const queryNumber = (search: URLSearchParams, key: string, fallback: number) => {
-  const value = Number(search.get(key));
-  return Number.isFinite(value) ? value : fallback;
-};
-
-const queryViewDistance = (search: URLSearchParams): ViewDistance => {
-  const value = queryNumber(search, "viewDistance", DEFAULT_TERRAIN_VIEW_RADIUS);
-  return isViewDistance(value) ? value : DEFAULT_TERRAIN_VIEW_RADIUS;
-};
 
 export const startThreeDungeon = (options: ThreeRouteOptions) => new ThreeDungeonClient(options).start();
 
@@ -57,7 +45,10 @@ class ThreeDungeonClient {
   private active = false;
 
   constructor(private readonly options: ThreeRouteOptions) {
-    this.world = new World(queryNumber(options.search, "seed", 228182761), queryNumber(options.search, "floor", 1));
+    this.world = new World(
+      queryRouteNumber(options.search, "seed", 228182761),
+      queryRouteNumber(options.search, "floor", 1),
+    );
     this.viewDistance = queryViewDistance(options.search);
     const spawn = findWalkable(this.world, 0, 0);
     this.state = { x: spawn.x, y: spawn.height, z: spawn.z, verticalVelocity: 0, grounded: true };
@@ -76,8 +67,12 @@ class ThreeDungeonClient {
       viewDistance: this.viewDistance,
       setViewDistance: this.setViewDistance,
       onSelectHotbar: this.actions.selectHotbar,
+      session: {
+        respawn: () => options.conn.suicide(),
+        quitToTitle: options.onQuitToTitle,
+      },
     });
-    this.input.setGameplayBlocked(() => this.hud.inventoryOpen());
+    this.input.setGameplayBlocked(() => this.hud.blocksGameplay());
     this.terrain = new ThreeTerrain(this.world, this.scene, this.viewDistance);
     this.configureScene();
     this.remoteActors = new ThreeRemoteActors(this.scene);
