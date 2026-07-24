@@ -31,12 +31,13 @@ export class ThreeHudChat {
     mobile: boolean,
     private readonly focusGame: () => void,
     setTextInputFocused: (focused: boolean) => void,
+    private readonly toggleContacts: () => void,
   ) {
     this.chat = new ChatController(connection);
     this.input = createInput(mobile);
     this.element.style.cssText =
       `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr auto;gap:6px`;
-    this.tabs.style.cssText = "display:grid;grid-template-columns:repeat(4,1fr);gap:3px";
+    this.tabs.style.cssText = "display:grid;grid-template-columns:repeat(5,1fr);gap:3px";
     this.lines.style.cssText =
       "min-height:0;overflow-y:auto;display:flex;flex-direction:column;" +
       "gap:5px;color:#d4d1df;overflow-wrap:anywhere;white-space:pre-wrap";
@@ -93,7 +94,15 @@ export class ThreeHudChat {
 
   private render(): void {
     const model = this.chat.model(60);
-    this.tabs.replaceChildren(...model.tabs.map((tab) => this.createTab(tab)));
+    const contacts = document.createElement("button");
+    contacts.type = "button";
+    contacts.textContent = "contacts";
+    contacts.setAttribute("aria-label", "Toggle contacts");
+    contacts.style.cssText =
+      "padding:4px 2px;border:1px solid #555a75;background:#1b1c2c;" +
+      "color:#e6e5ef;font:10px monospace;pointer-events:auto";
+    contacts.addEventListener("click", this.toggleContacts);
+    this.tabs.replaceChildren(...model.tabs.map((tab) => this.createTab(tab)), contacts);
     this.lines.replaceChildren(...model.lines.map((line) => this.createLine(line)));
     this.lines.scrollTop = this.lines.scrollHeight;
   }

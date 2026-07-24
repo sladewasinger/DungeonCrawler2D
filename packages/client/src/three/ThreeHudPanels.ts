@@ -1,27 +1,46 @@
-/** Shared DOM factories for first-person HUD panels. */
-export const createHudPanelTitle = (text: string) => {
-  const element = document.createElement("div");
-  element.textContent = text;
-  element.style.cssText = "color:#aaaec8;font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px";
-  return element;
-};
+/** Constructs the interactive HTML HUD panels without lengthening the ThreeHud facade. */
+import type { Connection } from "../net/connection.js";
+import { ThreeHudChat } from "./ThreeHudChat.js";
+import { ThreeHudContacts } from "./ThreeHudContacts.js";
+import { ThreeHudCraft } from "./ThreeHudCraft.js";
+import { ThreeHudStash } from "./ThreeHudStash.js";
 
-export const createHudSlots = () => {
-  const grid = document.createElement("div");
-  grid.style.cssText = "display:grid;grid-template-columns:repeat(9,minmax(30px,1fr));gap:4px";
-  const labels = ["sword", "bandage", "flask", "torch", "hammer", "", "", "", ""];
-  labels.forEach((label, index) => {
-    const slot = document.createElement("button");
-    slot.type = "button";
-    slot.textContent = label ? String(index + 1) + "\n" + label : String(index + 1);
-    slot.style.cssText = "min-height:42px;padding:2px;border:1px solid #555a75;background:#1b1c2c;color:#e6e5ef;font:10px monospace;white-space:pre-line";
-    slot.addEventListener("click", () => selectHudSlot(grid, slot));
-    grid.append(slot);
-  });
-  return grid;
-};
+export interface ThreeHudPanelActions {
+  toggleContacts(): void;
+  closeContacts(): void;
+  closeCraft(): void;
+  closeStash(): void;
+}
 
-const selectHudSlot = (grid: HTMLDivElement, slot: HTMLButtonElement) => {
-  for (const sibling of grid.children) (sibling as HTMLElement).style.outline = "none";
-  slot.style.outline = "2px solid #ffd54c";
-};
+export interface ThreeHudPanels {
+  chat: ThreeHudChat;
+  contacts: ThreeHudContacts;
+  craft: ThreeHudCraft;
+  stash: ThreeHudStash;
+}
+
+export function createThreeHudPanels(
+  connection: Connection,
+  mobile: boolean,
+  focusGame: () => void,
+  setTextInputFocused: (focused: boolean) => void,
+  actions: ThreeHudPanelActions,
+): ThreeHudPanels {
+  const chat = new ThreeHudChat(
+    connection,
+    mobile,
+    focusGame,
+    setTextInputFocused,
+    actions.toggleContacts,
+  );
+  return {
+    chat,
+    contacts: new ThreeHudContacts((name) => chat.startDm(name), actions.closeContacts),
+    craft: new ThreeHudCraft((recipe) => connection.craft(recipe), actions.closeCraft),
+    stash: new ThreeHudStash(
+      (index) => connection.stashOp("put", index),
+      (index) => connection.stashOp("take", index),
+      actions.closeStash,
+    ),
+  };
+}

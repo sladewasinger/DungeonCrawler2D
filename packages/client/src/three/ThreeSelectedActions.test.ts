@@ -14,6 +14,7 @@ const connection = (
     body: { x: 1.2, y: 1.2 },
     hotbar: [item],
     interact: vi.fn(() => undefined),
+    pickup: vi.fn(() => undefined),
     descend: vi.fn(() => undefined),
     useSlot: vi.fn<ThreeActionPort["useSlot"]>(),
     throwTorch: vi.fn<ThreeActionPort["throwTorch"]>(),
@@ -53,5 +54,12 @@ describe("Three.js selected item actions", () => {
     throwSelectedItem(port, 0, 0);
     expect(port.useSlot).not.toHaveBeenCalled();
     expect(port.throwTorch).not.toHaveBeenCalled();
+  });
+
+  it("uses pickup as the no-context fallback when an item is nearby", () => {
+    const port = connection(null);
+    useSelectedOrInteract(port, world(), null, undefined, true);
+    expect(port.pickup).toHaveBeenCalledOnce();
+    expect(port.interact).not.toHaveBeenCalled();
   });
 });

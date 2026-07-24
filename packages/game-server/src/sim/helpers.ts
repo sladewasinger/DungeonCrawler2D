@@ -49,20 +49,6 @@ export function positionOf(sim: SimState, id: string): { x: number; y: number } 
   return entity ? { x: entity.body.x, y: entity.body.y } : { x: 0, y: 0 };
 }
 
-export function adjacentToTile(
-  sim: SimState,
-  tileX: number,
-  tileY: number,
-  tile: number,
-): boolean {
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (sim.world.tileAt(tileX + dx, tileY + dy) === tile) return true;
-    }
-  }
-  return false;
-}
-
 /** Spawn an item entity on the ground. */
 export function spawnItem(sim: SimState, defId: string, x: number, y: number, qty = 1): Entity {
   const item = makeEntity(

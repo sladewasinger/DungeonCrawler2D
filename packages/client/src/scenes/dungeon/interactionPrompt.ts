@@ -1,7 +1,12 @@
 // Contextual "[key] label" prompt resolution: a nearby stairway (Epic 7.14) takes
-// priority over interact (crafting table / stash / any door), which takes priority
-// over pickup, matching the E/R key split in input/index.ts.
-import { INTERACT_RANGE, PICKUP_RANGE, TILE, type TileType } from "@dc2d/engine";
+// priority over revive, world interaction, selected-item use, and pickup, matching
+// the E/R key split and action ordering in input/gameplayActions.ts.
+import {
+  PICKUP_RANGE,
+  resolveWorldInteraction,
+  type TileType,
+  type WorldInteractionKind,
+} from "@dc2d/engine";
 import { descentPromptLabel } from "./descentPrompt.js";
 import { resolveStairwayPrompt, type StairwayWorld } from "./stairwayProximity.js";
 
@@ -14,33 +19,15 @@ export interface PromptTarget {
   readonly y: number;
 }
 
-const INTERACT_TILES: ReadonlySet<TileType> = new Set([
-  TILE.CraftingTable,
-  TILE.Stash,
-  TILE.DoorPersonal,
-  TILE.DoorParty,
-  TILE.DoorExit,
-  TILE.DoorSafeRoom,
-]);
-
-/** Scans the 3x3 tile neighborhood around (x, y) for an interactable within range. */
-function hasNearbyInteractTile(world: PromptWorld, x: number, y: number): boolean {
-  const cx = Math.floor(x);
-  const cy = Math.floor(y);
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const tx = cx + dx;
-      const ty = cy + dy;
-      if (!INTERACT_TILES.has(world.tileAt(tx, ty))) continue;
-      if (Math.hypot(tx + 0.5 - x, ty + 0.5 - y) <= INTERACT_RANGE) return true;
-    }
-  }
-  return false;
-}
-
 function hasNearbyItem(items: readonly PromptTarget[], x: number, y: number): boolean {
   return items.some((item) => Math.hypot(item.x - x, item.y - y) <= PICKUP_RANGE);
 }
+
+const worldPrompt = (kind: WorldInteractionKind): InteractionPrompt => {
+  if (kind === "door") return { key: "E", label: "enter" };
+  if (kind === "stash") return { key: "E", label: "open stash" };
+  return { key: "E", label: "craft" };
+};
 
 export interface InteractionPrompt {
   readonly key: string;
@@ -53,10 +40,15 @@ export function resolveInteractionPrompt(
   x: number,
   y: number,
   items: readonly PromptTarget[],
+  reviveTarget?: { readonly id: string },
+  selectedConsumableName?: string,
 ): InteractionPrompt | null {
   const stairway = resolveStairwayPrompt(world, x, y);
   if (stairway) return { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) };
-  if (hasNearbyInteractTile(world, x, y)) return { key: "E", label: "interact" };
+  if (reviveTarget) return { key: "E", label: "hold to revive" };
+  const worldTarget = resolveWorldInteraction(world, x, y);
+  if (worldTarget) return worldPrompt(worldTarget.kind);
+  if (selectedConsumableName) return { key: "E", label: `use ${selectedConsumableName}` };
   if (hasNearbyItem(items, x, y)) return { key: "R", label: "pick up" };
   return null;
 }

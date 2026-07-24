@@ -43,7 +43,7 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     nearestPlayerId: () => undefined,
     isStashNearby: () => true,
     isCraftTableNearby: () => true,
-    isDoorNearby: () => false,
+    worldInteraction: () => null,
     isStairwayNearby: () => false,
     downedPartyMemberInRange: () => undefined,
     ...overrides,
@@ -122,7 +122,7 @@ describe("onNumberKey", () => {
     stashOpen: false,
     inventoryOpen: false,
     selectedInventoryItem: null,
-    openStashIfNearby: () => {},
+    toggleStash: () => false,
     toggleCraft: () => {},
     closeAll: () => {},
   };

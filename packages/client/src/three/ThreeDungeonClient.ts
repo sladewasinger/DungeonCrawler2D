@@ -66,7 +66,9 @@ class ThreeDungeonClient {
     options.root.replaceChildren(this.renderer.domElement);
     this.releaseMobileDisplay = enableMobileDisplay(options.root);
     this.input = new ThreeInput(options.root, this.renderer.domElement);
-    this.actions = new ThreeActionController(options.conn);
+    this.actions = new ThreeActionController(options.conn, {
+      toggleCraft: () => this.hud.toggleCraft(), toggleStash: () => this.hud.toggleStash(),
+    });
     this.hud = new ThreeHud({
       root: options.root,
       connection: options.conn,

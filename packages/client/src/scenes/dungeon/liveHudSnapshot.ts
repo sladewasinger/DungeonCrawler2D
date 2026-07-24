@@ -2,24 +2,23 @@
  * Marshals live Connection + InputController + ChatController state into one
  * HudFakeSnapshot frame — split out of DungeonScene to stay under the file-size cap.
  */
-import { TILE, type TileType } from "@dc2d/engine";
+import { findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/engine";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { ChatController } from "../../ui/chat/controller.js";
 import { resolveBossBar } from "../../ui/widgets/hud/bossBarView.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
-import { isTileTypeNearby } from "./contentQueries.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { resolveStairwayTick } from "./stairwayTick.js";
 
 const CHAT_LINES_SHOWN = 4;
 
-/** Self-body proximity to a station tile — same 3x3/INTERACT_RANGE-agnostic neighborhood
- * check inputAdapters.ts's InputQueries uses, called directly here since this module
- * already holds the real Connection (no adapter indirection needed). */
-function nearbyStation(conn: Connection, tile: TileType): boolean {
-  return !!conn.world && !!conn.body && isTileTypeNearby(conn.world, tile, conn.body.x, conn.body.y);
+/** Self-body proximity using the engine-owned interaction contract shared by input,
+ * prompt rendering, and the authoritative server. */
+function nearbyStation(conn: Connection, kind: WorldInteractionKind): boolean {
+  return !!conn.world && !!conn.body &&
+    !!findWorldInteractionTarget(conn.world, conn.body.x, conn.body.y, kind);
 }
 
 /** Everything buildHudSnapshot's `src` needs, read straight off the live Connection —
@@ -42,8 +41,8 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     downed: conn.downed,
     dead: conn.dead,
     party: conn.party,
-    craftTableNearby: nearbyStation(conn, TILE.CraftingTable),
-    stashNearby: nearbyStation(conn, TILE.Stash),
+    craftTableNearby: nearbyStation(conn, "craft"),
+    stashNearby: nearbyStation(conn, "stash"),
     stash: conn.stash,
     lastToast: conn.toasts.at(-1) ?? null,
     toasts: conn.toasts,

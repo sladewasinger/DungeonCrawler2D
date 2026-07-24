@@ -1,10 +1,6 @@
-import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   categoryOfItem,
-  isDoorNearby,
-  isDoorTileAt,
-  isTileTypeNearby,
   isThrowableItem,
   itemName,
   nearestDownedPartyMember,
@@ -23,7 +19,6 @@ describe("isThrowableItem", () => {
     expect(isThrowableItem("nonexistent")).toBe(false);
   });
 });
-
 describe("weaponCooldownMs", () => {
   it("uses each weapon's data-driven attack cadence", () => {
     expect(weaponCooldownMs("knife", 400)).toBe(240);
@@ -111,54 +106,12 @@ describe("nearestDownedPartyMember", () => {
   it("returns undefined with no party members at all", () => {
     expect(nearestDownedPartyMember([], 0, 0, 10)).toBeUndefined();
   });
-});
 
-describe("isTileTypeNearby", () => {
-  function worldWithTileAt(tx: number, ty: number, tile: TileType) {
-    return { tileAt: (wx: number, wy: number) => (wx === tx && wy === ty ? tile : TILE.Floor) };
-  }
-
-  it("finds a matching tile in the 3x3 neighborhood", () => {
-    const world = worldWithTileAt(4, 4, TILE.Stash);
-    expect(isTileTypeNearby(world, TILE.Stash, 5, 5)).toBe(true);
-  });
-
-  it("is false when nothing matches nearby", () => {
-    const world = worldWithTileAt(99, 99, TILE.Stash);
-    expect(isTileTypeNearby(world, TILE.Stash, 5, 5)).toBe(false);
-  });
-});
-
-describe("isDoorTileAt", () => {
-  function worldWithTileAt(tx: number, ty: number, tile: TileType) {
-    return { tileAt: (wx: number, wy: number) => (wx === tx && wy === ty ? tile : TILE.Floor) };
-  }
-
-  it("is true standing exactly on any of the four door tiles", () => {
-    for (const door of [TILE.DoorSafeRoom, TILE.DoorPersonal, TILE.DoorParty, TILE.DoorExit]) {
-      const world = worldWithTileAt(4, 4, door);
-      expect(isDoorTileAt(world, 4.3, 4.9)).toBe(true);
-    }
-  });
-
-  it("is false one tile off, unlike isTileTypeNearby's 3x3 neighborhood", () => {
-    const world = worldWithTileAt(4, 4, TILE.DoorExit);
-    expect(isDoorTileAt(world, 5, 4)).toBe(false);
-  });
-});
-
-describe("isDoorNearby", () => {
-  function worldWithTileAt(tx: number, ty: number, tile: TileType) {
-    return { tileAt: (wx: number, wy: number) => (wx === tx && wy === ty ? tile : TILE.Floor) };
-  }
-
-  it("recognizes a door from its neighboring interaction threshold", () => {
-    const world = worldWithTileAt(4, 4, TILE.DoorSafeRoom);
-    expect(isDoorNearby(world, 4.5, 5.5)).toBe(true);
-  });
-
-  it("does not reach beyond the 3x3 interaction neighborhood", () => {
-    const world = worldWithTileAt(4, 4, TILE.DoorSafeRoom);
-    expect(isDoorNearby(world, 6.5, 4.5)).toBe(false);
+  it("breaks equal-distance ties by stable member id", () => {
+    const tied = [
+      { id: "later", x: -1, y: 0, downed: true },
+      { id: "earlier", x: 1, y: 0, downed: true },
+    ];
+    expect(nearestDownedPartyMember(tied, 0, 0, 10)?.id).toBe("earlier");
   });
 });

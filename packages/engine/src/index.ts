@@ -5,6 +5,7 @@ export * from "./core/noise.js";
 export * from "./world/types.js";
 export * from "./world/level.js";
 export * from "./world/stairs.js";
+export * from "./world/interactions.js";
 export * from "./world/terrain.js";
 export * from "./world/features/fixed.js";
 export * from "./world/features/descent.js";

@@ -4,12 +4,12 @@ import {
   REVIVE_HP_FRACTION,
   TILE,
   createBody,
+  resolveWorldInteraction,
   partyRoomSpawn,
   personalRoomSpawn,
   safeRoomSpawn,
   type EffectEvent,
 } from "@dc2d/engine";
-import { adjacentToTile } from "../helpers.js";
 import { findSpawn } from "../spawn.js";
 import type { PlayerSlot, SimState } from "../state.js";
 
@@ -18,11 +18,10 @@ import type { PlayerSlot, SimState } from "../state.js";
 export function doInteract(sim: SimState, slot: PlayerSlot, effectEvents: EffectEvent[]): void {
   if (slot.partyId && reviveDownedPartyMember(sim, slot, effectEvents)) return;
   if (slot.downedAtTick !== null) return;
-  if (useDoor(sim, slot)) return;
-
-  const tileX = Math.floor(slot.entity.body.x);
-  const tileY = Math.floor(slot.entity.body.y);
-  if (adjacentToTile(sim, tileX, tileY, TILE.Stash)) {
+  const body = slot.entity.body;
+  const target = resolveWorldInteraction(sim.world, body.x, body.y);
+  if (target?.kind === "door" && useDoor(sim, slot, target)) return;
+  if (target?.kind === "stash") {
     slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
   }
 }
@@ -34,35 +33,36 @@ function reviveDownedPartyMember(
   effectEvents: EffectEvent[],
 ): boolean {
   const body = slot.entity.body;
-  for (const other of sim.players.values()) {
-    if (
-      other === slot ||
-      !other.connected ||
-      other.partyId !== slot.partyId ||
-      other.downedAtTick === null
-    ) {
-      continue;
-    }
-    const d = Math.hypot(other.entity.body.x - body.x, other.entity.body.y - body.y);
-    if (d > INTERACT_RANGE) continue;
-    other.downedAtTick = null;
-    delete other.entity.downedUntil;
-    other.entity.hp = Math.max(1, Math.round(other.entity.maxHp * REVIVE_HP_FRACTION));
-    other.outbox.push({ t: "toast", msg: `${slot.entity.name} got you back up!` });
-    slot.outbox.push({ t: "toast", msg: `You revived ${other.entity.name}` });
-    effectEvents.push({ t: "hp", id: other.entity.id, delta: other.entity.hp, hp: other.entity.hp });
-    return true;
-  }
-  return false;
+  const candidates = [...sim.players.values()]
+    .filter((other) =>
+      other !== slot &&
+      other.connected &&
+      other.partyId === slot.partyId &&
+      other.downedAtTick !== null
+    )
+    .map((other) => ({
+      other,
+      distance: Math.hypot(other.entity.body.x - body.x, other.entity.body.y - body.y),
+    }))
+    .filter(({ distance }) => distance <= INTERACT_RANGE)
+    .sort((a, b) => a.distance - b.distance || a.other.entity.id.localeCompare(b.other.entity.id));
+  const target = candidates[0]?.other;
+  if (!target) return false;
+  target.downedAtTick = null;
+  delete target.entity.downedUntil;
+  target.entity.hp = Math.max(1, Math.round(target.entity.maxHp * REVIVE_HP_FRACTION));
+  target.outbox.push({ t: "toast", msg: `${slot.entity.name} got you back up!` });
+  slot.outbox.push({ t: "toast", msg: `You revived ${target.entity.name}` });
+  effectEvents.push({ t: "hp", id: target.entity.id, delta: target.entity.hp, hp: target.entity.hp });
+  return true;
 }
 
 /** Doors: use a nearby solid doorway to teleport. */
-function useDoor(sim: SimState, slot: PlayerSlot): boolean {
-  const body = slot.entity.body;
-  const tileX = Math.floor(body.x);
-  const tileY = Math.floor(body.y);
-  const door = nearbyDoor(sim, tileX, tileY);
-  if (!door) return false;
+function useDoor(
+  sim: SimState,
+  slot: PlayerSlot,
+  door: { tile: number; x: number; y: number },
+): boolean {
   switch (door.tile) {
     case TILE.DoorSafeRoom: {
       const doorCx = Math.floor(door.x / CHUNK_SIZE);
@@ -84,25 +84,6 @@ function useDoor(sim: SimState, slot: PlayerSlot): boolean {
     default:
       return false;
   }
-}
-
-function nearbyDoor(sim: SimState, tileX: number, tileY: number): { tile: number; x: number; y: number } | null {
-  const atPlayer = sim.world.tileAt(tileX, tileY);
-  if (isDoorTile(atPlayer)) return { tile: atPlayer, x: tileX, y: tileY };
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const x = tileX + dx;
-      const y = tileY + dy;
-      const tile = sim.world.tileAt(x, y);
-      if (isDoorTile(tile)) return { tile, x, y };
-    }
-  }
-  return null;
-}
-
-function isDoorTile(tile: number): tile is typeof TILE.DoorSafeRoom | typeof TILE.DoorPersonal | typeof TILE.DoorParty | typeof TILE.DoorExit {
-  return tile === TILE.DoorSafeRoom || tile === TILE.DoorPersonal || tile === TILE.DoorParty || tile === TILE.DoorExit;
 }
 
 function useDoorParty(sim: SimState, slot: PlayerSlot): void {

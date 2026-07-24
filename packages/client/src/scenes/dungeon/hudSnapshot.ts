@@ -119,12 +119,12 @@ function partyRows(
 
 /** Every recipe's have/need row against live inventory (Epic 7.12) — recipeList is
  * content-order, matching v1's craft-panel number-key ordering. */
-function craftSnapshot(inventory: readonly InvStack[], nearby: boolean): CraftSnapshot {
+export function craftSnapshot(inventory: readonly InvStack[], nearby: boolean): CraftSnapshot {
   return { nearby, recipes: recipeRowViews(recipeList, inventory, itemName) };
 }
 
 /** Both stash-window columns: your inventory (put source) and the stash (take source). */
-function stashSnapshot(inventory: readonly InvStack[], stash: readonly StashSlotSource[] | null, nearby: boolean): StashSnapshot {
+export function stashSnapshot(inventory: readonly InvStack[], stash: readonly StashSlotSource[] | null, nearby: boolean): StashSnapshot {
   return { nearby, inventory: stashRowViews(inventory, itemName), entries: stashRowViews(stash ?? [], itemName) };
 }
 

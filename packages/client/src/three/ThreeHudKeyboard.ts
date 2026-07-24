@@ -7,6 +7,7 @@ export interface ThreeHudKeyboardActions {
   focusChat(): void;
   leaveChat(): void;
   chatOwnsFocus(): boolean;
+  closeOverlays(): boolean;
 }
 
 export class ThreeHudKeyboard {
@@ -35,10 +36,7 @@ export class ThreeHudKeyboard {
       event.preventDefault();
       this.actions.focusChat();
     }
-    if (event.code === "Escape" && this.actions.chatOwnsFocus()) {
-      event.preventDefault();
-      this.actions.leaveChat();
-    }
+    this.captureEscapeEvent(event);
   };
 
   private captureTabEvent(event: KeyboardEvent): boolean {
@@ -67,6 +65,14 @@ export class ThreeHudKeyboard {
       !event.target.closest("[data-inventory-workspace]")) {
       event.preventDefault();
     }
+    return true;
+  }
+
+  private captureEscapeEvent(event: KeyboardEvent): boolean {
+    if (event.code !== "Escape") return false;
+    if (this.actions.chatOwnsFocus()) this.actions.leaveChat();
+    else if (!this.actions.closeOverlays()) return false;
+    event.preventDefault();
     return true;
   }
 }

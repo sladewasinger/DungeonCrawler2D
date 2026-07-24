@@ -90,7 +90,7 @@ export interface InputPanels {
   readonly inventoryOpen: boolean;
   /** The inventory row currently selected for the [1-9] bind flow, or null. */
   readonly selectedInventoryItem: string | null;
-  openStashIfNearby(conn: InputConnection): void;
+  toggleStash(conn: InputConnection): boolean;
   toggleCraft(conn: InputConnection): void;
   closeAll(conn: InputConnection): void;
 }
@@ -104,10 +104,8 @@ export interface InputQueries {
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
   isStashNearby(conn: InputConnection): boolean;
   isCraftTableNearby(conn: InputConnection): boolean;
-  /** True when the tile under the player's feet is a door — mirrors the server's exact
-   * useDoor() gate (game-server/src/sim/actions/interact.ts) so the client can tell
-   * [E] would open a door without waiting on a round trip. */
-  isDoorNearby(conn: InputConnection): boolean;
+  /** Highest-priority door/stash/craft target under the shared engine range contract. */
+  worldInteraction(conn: InputConnection): import("@dc2d/engine").WorldInteractionTarget | null;
   /** True when a StairwayDown/StairwayUp landmark (Epic 7.14) is within interact
    * range — takes priority over every other [E] action. */
   isStairwayNearby(conn: InputConnection): boolean;

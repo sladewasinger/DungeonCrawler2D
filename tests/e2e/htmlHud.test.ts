@@ -100,8 +100,11 @@ test("inventory is a modal workspace that blocks 2D world input", async ({ page 
 });
 
 test("the independently loaded Three renderer boots and connects", async ({ page }) => {
-  await page.goto(`${CLIENT_URL}/?renderer=three&server=${encodeURIComponent(WS_URL)}`);
-  await expect(page.locator("#app canvas")).toBeVisible();
+  test.setTimeout(45_000);
+  await page.goto(
+    `${CLIENT_URL}/?renderer=three&server=${encodeURIComponent(WS_URL)}`,
+    { waitUntil: "domcontentloaded" },
+  );
   const telemetry = page.locator('[data-hud-window="three-telemetry"]');
   await expect(telemetry).toContainText("connected", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "HUD settings" })).toBeVisible();

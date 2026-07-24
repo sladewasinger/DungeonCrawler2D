@@ -34,17 +34,26 @@ function toggleCraft(hud: PanelSource, queries: InputQueries, conn: InputConnect
     hud.closeCraftPanel();
     return;
   }
-  if (queries.isCraftTableNearby(conn)) hud.toggleCraftPanel();
+  if (queries.isCraftTableNearby(conn)) {
+    hud.closeStashPanel();
+    hud.toggleCraftPanel();
+  }
   // Judge-panel finding: "failed actions give no feedback" — [C] away from any table
   // used to be a silent no-op (Epic 7.13 onboarding lane).
   else conn.pushToast("No crafting table nearby");
 }
 
-/** [E] near a stash: opens the window if it isn't already open. Interact() itself (fired
- * alongside this, input/index.ts's E binding) is what makes the server push conn.stash. */
-function openStashIfNearby(hud: PanelSource, queries: InputQueries, conn: InputConnection): void {
-  if (hud.stashOpen()) return;
-  if (queries.isStashNearby(conn)) hud.openStashPanel();
+/** [E] near a stash toggles its panel. The shared gameplay action sends the server
+ * interaction only when opening, which refreshes the authoritative stash snapshot. */
+function toggleStash(hud: PanelSource, queries: InputQueries, conn: InputConnection): boolean {
+  if (hud.stashOpen()) {
+    hud.closeStashPanel();
+    return false;
+  }
+  if (!queries.isStashNearby(conn)) return false;
+  hud.closeCraftPanel();
+  hud.openStashPanel();
+  return true;
 }
 
 export function createInputPanels(hud: PanelSource, queries: InputQueries): InputPanels {
@@ -61,7 +70,7 @@ export function createInputPanels(hud: PanelSource, queries: InputQueries): Inpu
     get selectedInventoryItem() {
       return hud.selectedInventoryItem();
     },
-    openStashIfNearby: (conn) => openStashIfNearby(hud, queries, conn),
+    toggleStash: (conn) => toggleStash(hud, queries, conn),
     toggleCraft: (conn) => toggleCraft(hud, queries, conn),
     closeAll: () => {
       hud.closeInventory();

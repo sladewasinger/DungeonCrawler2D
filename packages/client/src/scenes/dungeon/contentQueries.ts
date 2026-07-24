@@ -3,7 +3,6 @@
 // Phaser, no Connection — callers inject just the data these need to stay plain-
 // function testable.
 import { itemsData, recipesData } from "@dc2d/content";
-import { TILE, type TileType } from "@dc2d/engine";
 
 interface ItemDef {
   readonly id: string;
@@ -131,41 +130,12 @@ export function nearestDownedPartyMember(
   for (const member of members) {
     if (!member.downed) continue;
     const distance = Math.hypot(member.x - fromX, member.y - fromY);
-    if (distance <= bestDistance) {
+    const closer = distance < bestDistance;
+    const deterministicTie = distance === bestDistance && (!best || member.id < best.id);
+    if (closer || deterministicTie) {
       bestDistance = distance;
       best = member;
     }
   }
   return best;
-}
-
-export interface TileWorld {
-  tileAt(wx: number, wy: number): TileType;
-}
-
-/** Any matching tile within a 3x3 neighborhood of (x, y) — the same interact radius as interactionPrompt.ts. */
-export function isTileTypeNearby(world: TileWorld, tile: TileType, x: number, y: number): boolean {
-  const cx = Math.floor(x);
-  const cy = Math.floor(y);
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (world.tileAt(cx + dx, cy + dy) === tile) return true;
-    }
-  }
-  return false;
-}
-
-const DOOR_TILES: readonly TileType[] = [TILE.DoorSafeRoom, TILE.DoorPersonal, TILE.DoorParty, TILE.DoorExit];
-
-/** True when the tile exactly under (x, y) is a door — mirrors the server's useDoor()
- * gate (game-server/src/sim/actions/interact.ts checks `tileAt(floor(x), floor(y))`,
- * not a 3x3 neighborhood like isTileTypeNearby above), so the client can predict
- * whether [E] will actually open something. */
-export function isDoorTileAt(world: TileWorld, x: number, y: number): boolean {
-  return DOOR_TILES.includes(world.tileAt(Math.floor(x), Math.floor(y)));
-}
-
-/** True when a door is in the 3x3 interaction neighborhood around (x, y). */
-export function isDoorNearby(world: TileWorld, x: number, y: number): boolean {
-  return DOOR_TILES.some((tile) => isTileTypeNearby(world, tile, x, y));
 }

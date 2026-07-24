@@ -1,5 +1,6 @@
 /** Contextual interaction prompt widget ("[R] pick up") — hidden unless a prompt is active. */
 import type Phaser from "phaser";
+import { isTouchDevice } from "../../../input/touchDetect.js";
 import { uiTextStyle } from "../../font.js";
 import { PANEL_BORDER, PANEL_FILL, SELECTION_ACCENT, spacing } from "../../panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../container.js";
@@ -42,7 +43,7 @@ export class InteractionPromptWidget {
       return;
     }
     this.container.setVisible(true);
-    this.keyText.setText(`[${prompt.key}]`);
+    this.keyText.setText(`[${isTouchDevice() ? "USE" : prompt.key}]`);
     this.labelText.setText(` ${prompt.label}`);
     this.layoutTexts();
   }

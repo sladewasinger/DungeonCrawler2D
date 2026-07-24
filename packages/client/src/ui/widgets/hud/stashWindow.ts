@@ -183,7 +183,7 @@ export class StashWindowWidget {
     this.rebuildRows(stash);
   }
 
-  /** [E] near a stash opens it if not already open — never toggles closed (matches v1's openStashIfNearby). */
+  /** Opens the legacy Phaser stash preview; live HTML behavior is owned by panelAdapters.ts. */
   openIfClosed(): void {
     if (this.open) return;
     this.open = true;

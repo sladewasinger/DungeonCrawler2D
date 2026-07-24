@@ -16,13 +16,18 @@ function useWorldInteraction(
   panels: InputPanels,
   queries: InputQueries,
 ): boolean {
-  const stashNearby = queries.isStashNearby(conn);
-  if (stashNearby) panels.openStashIfNearby(conn);
-  const nearby = stashNearby
-    || queries.isDoorNearby(conn)
-    || queries.isCraftTableNearby(conn);
-  if (nearby) conn.interact();
-  return nearby;
+  const target = queries.worldInteraction(conn);
+  if (!target) return false;
+  if (target.kind === "craft") {
+    panels.toggleCraft(conn);
+    return true;
+  }
+  if (target.kind === "stash") {
+    if (panels.toggleStash(conn)) conn.interact();
+    return true;
+  }
+  conn.interact();
+  return true;
 }
 
 /** E priority: stairs/revive/world interaction first, then the selected consumable. */
@@ -32,6 +37,7 @@ export function interactOrUse(
   queries: InputQueries,
   selectedSlot: number | null,
   startRevive: (targetId: string | undefined) => boolean,
+  fallback: "interact" | "pickup" = "interact",
 ): void {
   if (queries.isStairwayNearby(conn)) return conn.descend();
   if (startRevive(queries.downedPartyMemberInRange(conn)?.id)) return;
@@ -41,6 +47,11 @@ export function interactOrUse(
     conn.useSlot(selectedSlot);
     return;
   }
+  useFallback(conn, fallback);
+}
+
+function useFallback(conn: InputConnection, fallback: "interact" | "pickup"): void {
+  if (fallback === "pickup") return conn.pickup();
   conn.pushToast("Nothing to interact with here");
   conn.interact();
 }

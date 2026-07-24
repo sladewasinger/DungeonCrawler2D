@@ -29,6 +29,27 @@ export const bindTouchActionButton = (element: HTMLButtonElement, trigger: () =>
   element.addEventListener("lostpointercapture", release);
 };
 
+export const bindTouchHoldButton = (
+  element: HTMLButtonElement,
+  press: () => void,
+  setHeld: (held: boolean) => void,
+): void => {
+  const release = () => {
+    setHeld(false);
+    setTouchButtonPressed(element, false);
+  };
+  element.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    setHeld(true);
+    setTouchButtonPressed(element, true);
+    press();
+    element.setPointerCapture(event.pointerId);
+  });
+  element.addEventListener("pointerup", release);
+  element.addEventListener("pointercancel", release);
+  element.addEventListener("lostpointercapture", release);
+};
+
 export const bindTouchJumpButton = (element: HTMLButtonElement, press: () => void, setHeld: (held: boolean) => void): void => {
   let lastPointerDown = 0;
   const release = () => {

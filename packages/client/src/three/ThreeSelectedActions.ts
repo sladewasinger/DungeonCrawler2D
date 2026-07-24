@@ -1,10 +1,6 @@
 /** Resolves selected-item use and throw actions for the first-person renderer. */
-import { MAX_THROW_RANGE, TILE, type World } from "@dc2d/engine";
-import {
-  isConsumableItem,
-  isDoorNearby,
-  isTileTypeNearby,
-} from "../scenes/dungeon/contentQueries.js";
+import { MAX_THROW_RANGE, resolveWorldInteraction, type World } from "@dc2d/engine";
+import { isConsumableItem } from "../scenes/dungeon/contentQueries.js";
 import { resolveStairwayPrompt } from "../scenes/dungeon/stairwayProximity.js";
 import { isThrowableItem } from "../ui/itemCatalog.js";
 
@@ -12,31 +8,46 @@ export interface ThreeActionPort {
   readonly body: { x: number; y: number } | null;
   readonly hotbar: readonly (string | null)[];
   interact(): void;
+  pickup(): void;
   descend(): void;
   useSlot(slot: number, targetX?: number, targetY?: number): void;
   throwTorch(dirX: number, dirY: number): void;
 }
+
+export interface ThreeInteractionPanels {
+  toggleCraft(): void;
+  toggleStash(): boolean;
+}
+
+const useWorldTarget = (
+  target: ReturnType<typeof resolveWorldInteraction>,
+  connection: ThreeActionPort,
+  panels?: ThreeInteractionPanels,
+): boolean => {
+  if (!target) return false;
+  if (target.kind === "craft" && panels) {
+    panels.toggleCraft();
+    return true;
+  }
+  if (target.kind === "stash" && panels) {
+    if (panels.toggleStash()) connection.interact();
+    return true;
+  }
+  connection.interact();
+  return true;
+};
 
 const selectedItem = (
   connection: ThreeActionPort,
   slot: number | null,
 ): string | null => slot === null ? null : connection.hotbar[slot] ?? null;
 
-const worldInteractionNearby = (
-  connection: ThreeActionPort,
-  world: World,
-): boolean => {
-  const body = connection.body;
-  if (!body) return false;
-  return isDoorNearby(world, body.x, body.y) ||
-    isTileTypeNearby(world, TILE.Stash, body.x, body.y) ||
-    isTileTypeNearby(world, TILE.CraftingTable, body.x, body.y);
-};
-
 export const useSelectedOrInteract = (
   connection: ThreeActionPort,
   world: World,
   slot: number | null,
+  panels?: ThreeInteractionPanels,
+  pickupNearby = false,
 ): void => {
   const body = connection.body;
   if (!body) return;
@@ -44,13 +55,15 @@ export const useSelectedOrInteract = (
     connection.descend();
     return;
   }
-  if (worldInteractionNearby(connection, world)) {
-    connection.interact();
-    return;
-  }
+  const target = resolveWorldInteraction(world, body.x, body.y);
+  if (useWorldTarget(target, connection, panels)) return;
   const item = selectedItem(connection, slot);
   if (slot !== null && item && isConsumableItem(item)) {
     connection.useSlot(slot);
+    return;
+  }
+  if (pickupNearby) {
+    connection.pickup();
     return;
   }
   connection.interact();

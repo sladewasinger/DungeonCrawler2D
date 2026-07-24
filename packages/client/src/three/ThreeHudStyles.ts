@@ -29,3 +29,18 @@ export const createHudButton = (
   button.addEventListener("click", action);
   return button;
 };
+
+export const createHudPanelHeader = (
+  title: string,
+  close: () => void,
+): HTMLDivElement => {
+  const header = document.createElement("div");
+  header.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;gap:8px";
+  const label = createHudTitle(title);
+  label.style.marginBottom = "0";
+  const button = createHudButton("×", close);
+  button.setAttribute("aria-label", `Close ${title}`);
+  header.append(label, button);
+  return header;
+};

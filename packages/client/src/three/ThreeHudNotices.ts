@@ -1,6 +1,12 @@
 /** Presents transient toasts, interaction prompts, reconnect state, and boss health above both renderers. */
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
+import { isTouchDevice } from "../input/touchDetect.js";
 import { HUD_GOLD } from "./ThreeHudStyles.js";
+
+export type ThreeHudNoticeState = Pick<
+  HudFakeSnapshot,
+  "boss" | "interactionPrompt" | "reconnecting" | "reconnectAttempts" | "toasts"
+>;
 
 export class ThreeHudNotices {
   readonly element = document.createElement("div");
@@ -31,7 +37,7 @@ export class ThreeHudNotices {
     );
   }
 
-  update(snapshot: HudFakeSnapshot, nowMs: number): void {
+  update(snapshot: ThreeHudNoticeState, nowMs: number): void {
     this.updateBoss(snapshot);
     const toast = [...snapshot.toasts]
       .reverse()
@@ -40,7 +46,7 @@ export class ThreeHudNotices {
     this.toast.textContent = toast?.msg ?? "";
     this.interaction.hidden = snapshot.interactionPrompt === null;
     this.interaction.textContent = snapshot.interactionPrompt
-      ? `[${snapshot.interactionPrompt.key}] ${snapshot.interactionPrompt.label}`
+      ? `[${isTouchDevice() ? "USE" : snapshot.interactionPrompt.key}] ${snapshot.interactionPrompt.label}`
       : "";
     this.reconnect.hidden = !snapshot.reconnecting;
     this.reconnect.textContent =
@@ -62,7 +68,7 @@ export class ThreeHudNotices {
     this.boss.append(this.bossFill, this.bossLabel);
   }
 
-  private updateBoss(snapshot: HudFakeSnapshot): void {
+  private updateBoss(snapshot: ThreeHudNoticeState): void {
     const boss = snapshot.boss;
     this.boss.hidden = boss === null;
     if (!boss) return;

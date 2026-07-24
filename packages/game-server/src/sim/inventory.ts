@@ -1,5 +1,5 @@
-import { PICKUP_RANGE, TILE, type Entity } from "@dc2d/engine";
-import { adjacentToTile, spawnItem } from "./helpers.js";
+import { PICKUP_RANGE, findWorldInteractionTarget, type Entity } from "@dc2d/engine";
+import { spawnItem } from "./helpers.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
 /**
@@ -165,9 +165,8 @@ export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {
 export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void {
   const recipe = sim.content.recipes.get(recipeId);
   if (!recipe) return;
-  const tileX = Math.floor(slot.entity.body.x);
-  const tileY = Math.floor(slot.entity.body.y);
-  if (!adjacentToTile(sim, tileX, tileY, TILE.CraftingTable)) {
+  const body = slot.entity.body;
+  if (!findWorldInteractionTarget(sim.world, body.x, body.y, "craft")) {
     slot.outbox.push({ t: "toast", msg: "You need a crafting table" });
     return;
   }
@@ -188,9 +187,8 @@ export function doStash(
   op: "put" | "take",
   index: number,
 ): void {
-  const tileX = Math.floor(slot.entity.body.x);
-  const tileY = Math.floor(slot.entity.body.y);
-  if (!adjacentToTile(sim, tileX, tileY, TILE.Stash)) return;
+  const body = slot.entity.body;
+  if (!findWorldInteractionTarget(sim.world, body.x, body.y, "stash")) return;
   if (op === "put") {
     const stack = slot.inventory[index];
     if (!stack) return;

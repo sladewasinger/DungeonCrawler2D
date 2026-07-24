@@ -1,18 +1,21 @@
 /** Renders the HTML crafting list and emits authoritative craft intents. */
 import type { CraftSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { HUD_MUTED, HUD_PANEL, createHudButton, createHudTitle } from "./ThreeHudStyles.js";
+import { HUD_MUTED, HUD_PANEL, createHudButton, createHudPanelHeader } from "./ThreeHudStyles.js";
 
 export class ThreeHudCraft {
   readonly element = document.createElement("div");
   private readonly list = document.createElement("div");
   private signature = "";
 
-  constructor(private readonly craft: (recipeId: string) => void) {
+  constructor(
+    private readonly craft: (recipeId: string) => void,
+    close: () => void,
+  ) {
     this.element.style.cssText =
       `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:5px`;
     this.list.style.cssText =
       "min-height:0;overflow-y:auto;display:grid;align-content:start;gap:6px";
-    this.element.append(createHudTitle("Crafting"), this.list);
+    this.element.append(createHudPanelHeader("Crafting", close), this.list);
   }
 
   update(snapshot: CraftSnapshot): void {

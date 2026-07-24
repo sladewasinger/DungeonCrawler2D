@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   REVIVE_HOLD_MS,
+  ReviveGesture,
   beginRevive,
   createReviveHoldState,
   endRevive,
@@ -38,5 +39,14 @@ describe("revive hold gesture", () => {
     const state = createReviveHoldState();
     endRevive(state, 0);
     expect(resolveReviveHoldView(state, 0)).toBeNull();
+  });
+
+  it("exposes active hold state so shared touch USE cannot also fistbump", () => {
+    const gesture = new ReviveGesture();
+    expect(gesture.active()).toBe(false);
+    gesture.begin("p2", 0);
+    expect(gesture.active()).toBe(true);
+    gesture.end(100);
+    expect(gesture.active()).toBe(false);
   });
 });

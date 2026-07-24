@@ -67,6 +67,7 @@ export interface PointerDeps {
   tilePx: number;
   touch: TouchInputState;
   touchActive: boolean;
+  performContextAction(): void;
   throwSelected(): void;
   viewport: { width: number; height: number };
   /**
@@ -141,8 +142,7 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     pressButton(touch, "jump", pointerId);
   } else if (uiHit === "touch:interact") {
     pressButton(touch, "interact", pointerId);
-    conn.pickup();
-    conn.interact();
+    deps.performContextAction();
   } else if (uiHit === "touch:throw") {
     deps.throwSelected();
   } else if (uiHit === "chat:toggle") {
@@ -158,7 +158,13 @@ export function handlePointerMove(touch: TouchInputState, pointer: Phaser.Input.
 }
 
 /** Releases the stick (if this pointer owns it) and any buttons this pointer held — pointerup/pointerupoutside. */
-export function handlePointerUp(touch: TouchInputState, pointer: Phaser.Input.Pointer): void {
+export function handlePointerUp(
+  touch: TouchInputState,
+  pointer: Phaser.Input.Pointer,
+  onInteractReleased: () => void = () => {},
+): void {
+  const releasedInteract = touch.buttons.interact === pointer.id;
   endStick(touch, pointer.id);
   releaseAllForPointer(touch, pointer.id);
+  if (releasedInteract) onInteractReleased();
 }

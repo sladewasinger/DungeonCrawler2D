@@ -14,14 +14,14 @@ describe("resolveInteractionPrompt", () => {
     expect(resolveInteractionPrompt(world, 5, 5, [])).toBeNull();
   });
 
-  it("prompts interact near a crafting table", () => {
+  it("prompts craft near a crafting table", () => {
     const world = worldWithTileAt(5, 5, TILE.CraftingTable);
-    expect(resolveInteractionPrompt(world, 5.4, 5.4, [])).toEqual({ key: "E", label: "interact" });
+    expect(resolveInteractionPrompt(world, 5.4, 5.4, [])).toEqual({ key: "E", label: "craft" });
   });
 
-  it("prompts interact near a door tile", () => {
+  it("prompts enter near a door tile", () => {
     const world = worldWithTileAt(5, 5, TILE.DoorSafeRoom);
-    expect(resolveInteractionPrompt(world, 5.5, 4.9, [])).toEqual({ key: "E", label: "interact" });
+    expect(resolveInteractionPrompt(world, 5.5, 4.9, [])).toEqual({ key: "E", label: "enter" });
   });
 
   it("prompts pickup near a ground item when no interactable is in range", () => {
@@ -31,7 +31,10 @@ describe("resolveInteractionPrompt", () => {
 
   it("prefers interact over pickup when both are in range", () => {
     const world = worldWithTileAt(5, 5, TILE.Stash);
-    expect(resolveInteractionPrompt(world, 5.4, 5.4, [{ x: 5.4, y: 5.4 }])).toEqual({ key: "E", label: "interact" });
+    expect(resolveInteractionPrompt(world, 5.4, 5.4, [{ x: 5.4, y: 5.4 }])).toEqual({
+      key: "E",
+      label: "open stash",
+    });
   });
 
   it("does not prompt for a tile out of range", () => {
@@ -46,5 +49,24 @@ describe("resolveInteractionPrompt", () => {
       key: "E",
       label: "Descend to Floor 2",
     });
+  });
+
+  it("prompts a revive ahead of terrain interaction and pickup", () => {
+    const world = worldWithTileAt(5, 5, TILE.Stash);
+    expect(resolveInteractionPrompt(world, 5.4, 5.4, [{ x: 5.4, y: 5.4 }], { id: "ally" })).toEqual({
+      key: "E",
+      label: "hold to revive",
+    });
+  });
+
+  it("shows selected consumable use after world interactions and before pickup", () => {
+    expect(resolveInteractionPrompt(
+      worldWithTileAt(99, 99, TILE.CraftingTable),
+      5,
+      5,
+      [{ x: 5.2, y: 5 }],
+      undefined,
+      "Bandage",
+    )).toEqual({ key: "E", label: "use Bandage" });
   });
 });

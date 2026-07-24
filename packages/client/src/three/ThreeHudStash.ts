@@ -1,7 +1,13 @@
 /** Renders the HTML two-column stash and emits put/take intents by authoritative row index. */
 import type { StashSnapshot } from "../ui/widgets/hud/fakeData.js";
 import type { StashRowView } from "../ui/widgets/hud/stashRows.js";
-import { HUD_MUTED, HUD_PANEL, createHudButton, createHudTitle } from "./ThreeHudStyles.js";
+import {
+  HUD_MUTED,
+  HUD_PANEL,
+  createHudButton,
+  createHudPanelHeader,
+  createHudTitle,
+} from "./ThreeHudStyles.js";
 
 const createColumn = (
   title: string,
@@ -39,18 +45,23 @@ export class ThreeHudStash {
   constructor(
     private readonly put: (index: number) => void,
     private readonly take: (index: number) => void,
+    private readonly close: () => void,
   ) {
     this.element.style.cssText =
-      `${HUD_PANEL};display:grid;grid-template-columns:1fr 1fr;gap:10px`;
+      `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:8px`;
   }
 
   update(snapshot: StashSnapshot): void {
     const signature = JSON.stringify(snapshot);
     if (signature === this.signature) return;
     this.signature = signature;
-    this.element.replaceChildren(
+    const columns = document.createElement("div");
+    columns.style.cssText =
+      "min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:10px";
+    columns.append(
       createColumn("Inventory", snapshot.inventory, "put", this.put),
       createColumn("Stash", snapshot.entries, "take", this.take),
     );
+    this.element.replaceChildren(createHudPanelHeader("Stash", this.close), columns);
   }
 }

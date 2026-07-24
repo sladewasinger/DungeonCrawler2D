@@ -21,7 +21,8 @@ export interface ThreeInputSample {
   pitch: number;
   mouseCaptured: boolean;
   attack: boolean;
-  interact: boolean;
+  interactPressed: boolean;
+  interactHeld: boolean;
   throwItem: boolean;
   giveUp: boolean;
 }
@@ -66,7 +67,8 @@ export class ThreeInput {
       pitch: this.pitch,
       mouseCaptured: document.pointerLockElement === this.canvas,
       attack: touch.attack,
-      interact: touch.interact || this.consumePress("KeyE"),
+      interactPressed: touch.interactPressed || this.consumePress("KeyE"),
+      interactHeld: touch.interactHeld || this.held.has("KeyE"),
       throwItem: touch.throwItem || this.consumePress("KeyG"),
       giveUp: this.giveUp.poll(true, performance.now()),
     };
@@ -106,7 +108,8 @@ export class ThreeInput {
       pitch: this.pitch,
       mouseCaptured: false,
       attack: false,
-      interact: false,
+      interactPressed: false,
+      interactHeld: false,
       throwItem: false,
       giveUp: false,
     };

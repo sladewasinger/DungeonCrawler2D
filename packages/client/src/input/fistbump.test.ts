@@ -6,6 +6,7 @@ import {
   holdDown,
   holdProgress,
   holdUp,
+  syncHoldSource,
 } from "./fistbump.js";
 
 describe("hold-vs-tap F discrimination", () => {
@@ -52,5 +53,12 @@ describe("hold-vs-tap F discrimination", () => {
   it("a spurious keyup with no tracked press is idle", () => {
     const state = createHoldState();
     expect(holdUp(state, 1000)).toBe("idle");
+  });
+
+  it("cancels an active touch hold when a higher-priority gesture takes ownership", () => {
+    const state = createHoldState();
+    expect(syncHoldSource(state, false, true, 0)).toBe(true);
+    expect(syncHoldSource(state, true, false, 100)).toBe(false);
+    expect(holdCrossedThreshold(state, FISTBUMP_HOLD_MS)).toBe(false);
   });
 });

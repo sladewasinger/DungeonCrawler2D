@@ -12,7 +12,7 @@ import type { MoveInput } from "@dc2d/engine";
 import { screenDirToWorld, screenMoveToWorld } from "./cameraRelative.js";
 import { interactOrUse, throwSelected, withPointerFacing } from "./gameplayActions.js";
 import { createKeys, readMoveInput } from "./keys.js";
-import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
+import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
 import { guardedAction } from "./inputGuard.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
@@ -99,8 +99,8 @@ export class InputController {
    * otherwise a downed party member starts hold-to-revive instead of firing instantly,
    * else this mirrors the server's doInteract() gate client-side, purely to toast
    * "nothing happened" rather than assert an outcome — interact() still always fires. */
-  private handleInteractDown(): void {
-    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.revive.begin(targetId, this.scene.time.now));
+  private handleInteractDown(fallback: "interact" | "pickup" = "interact"): void {
+    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.revive.begin(targetId, this.scene.time.now), fallback);
   }
 
   /** Call once per render frame: fires the revive intent exactly on the tick the hold
@@ -149,21 +149,18 @@ export class InputController {
   }
 
   private isFistbumpHoldSourceDown(): boolean {
-    return this.state.keys.F.isDown || (this.touchActive && isButtonHeld(this.touch, "interact"));
+    return this.state.keys.F.isDown ||
+      (this.touchActive && !this.revive.active() && isButtonHeld(this.touch, "interact"));
   }
 
-  /** The touch interact button has no keydown/keyup events (see pointer.ts's "touch:interact"
-   * press, which fires pickup/interact immediately as it always has) — so its hold-vs-tap
+  /** The touch interact button has no keydown/keyup events, so its hold-vs-tap
    * edges for the fistbump gesture are detected here instead, every frame. */
   private pollTouchFistbumpEdge(nowMs: number): void {
     if (!this.touchActive) return;
-    const held = isButtonHeld(this.touch, "interact");
-    if (held && !this.touchFistbumpHeld) holdDown(this.fistbumpHold, nowMs);
-    else if (!held && this.touchFistbumpHeld) {
-      holdUp(this.fistbumpHold, nowMs);
-      this.fistbumpTargetId = null;
-    }
-    this.touchFistbumpHeld = held;
+    const held = !this.revive.active() && isButtonHeld(this.touch, "interact");
+    const nextHeld = syncHoldSource(this.fistbumpHold, this.touchFistbumpHeld, held, nowMs);
+    if (this.touchFistbumpHeld && !nextHeld) this.fistbumpTargetId = null;
+    this.touchFistbumpHeld = nextHeld;
   }
 
   /** HUD-facing read: the in-progress hold's target + 0..1 ring progress, or null when idle. */
@@ -188,6 +185,7 @@ export class InputController {
           tilePx,
           touch: this.touch,
           touchActive: this.touchActive,
+          performContextAction: () => this.handleInteractDown("pickup"),
           throwSelected: () => this.throwSelectedTouch(),
           viewport,
           camera: this.scene.cameras.main,
@@ -215,8 +213,8 @@ export class InputController {
 
   private bindTouchDragListeners(): void {
     this.scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => handlePointerMove(this.touch, pointer));
-    this.scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer));
-    this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer));
+    const release = () => this.revive.end(this.scene.time.now);
+    this.scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release)); this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release));
   }
 
   /** Sampled at the fixed tick rate by the scene. Keyboard/touch author SCREEN-space

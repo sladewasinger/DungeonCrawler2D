@@ -1,14 +1,17 @@
 // Thin glue between input/index.ts's InputController contracts and DungeonScene's real
 // Connection + self cosmetics. Inventory (HUD_OS.md Phase 1) and craft/stash (Epic 7.12,
 // panelAdapters.ts) are both real: InputPanels reads every field live from HudScene.
-import { ATTACK_COOLDOWN_MS, INTERACT_RANGE, TILE } from "@dc2d/engine";
+import {
+  ATTACK_COOLDOWN_MS,
+  INTERACT_RANGE,
+  findWorldInteractionTarget,
+  resolveWorldInteraction,
+} from "@dc2d/engine";
 import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
 import {
   isConsumableItem,
-  isDoorNearby,
-  isTileTypeNearby,
   isThrowableItem,
   nearestDownedPartyMember,
   nearestEntityId,
@@ -138,12 +141,15 @@ export function createInputQueries(conn: Connection): InputQueries {
         ? nearestEntityId(positionedEntities(conn), "player", adapter.body.x, adapter.body.y, maxDistance)
         : undefined,
     isStashNearby: (adapter) =>
-      !!conn.world && !!adapter.body && isTileTypeNearby(conn.world, TILE.Stash, adapter.body.x, adapter.body.y),
+      !!conn.world && !!adapter.body &&
+      !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "stash"),
     isCraftTableNearby: (adapter) =>
-      !!conn.world &&
-      !!adapter.body &&
-      isTileTypeNearby(conn.world, TILE.CraftingTable, adapter.body.x, adapter.body.y),
-    isDoorNearby: (adapter) => !!conn.world && !!adapter.body && isDoorNearby(conn.world, adapter.body.x, adapter.body.y),
+      !!conn.world && !!adapter.body &&
+      !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "craft"),
+    worldInteraction: (adapter) =>
+      conn.world && adapter.body
+        ? resolveWorldInteraction(conn.world, adapter.body.x, adapter.body.y)
+        : null,
     isStairwayNearby: (adapter) =>
       !!conn.world && !!adapter.body && !!resolveStairwayPrompt(conn.world, adapter.body.x, adapter.body.y),
     downedPartyMemberInRange: (adapter) => {

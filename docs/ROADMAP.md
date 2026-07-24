@@ -32,7 +32,7 @@ drifted into a mix of real work, already-shipped work, superseded decisions, pro
 recaptures, and post-v1 ideas. This queue is the current source of execution order.
 Completing one release slice does not complete this roadmap.
 
-1. [ ] **Immediate movement-reconciliation regression:** investigate and fix the
+1. [x] **Immediate movement-reconciliation regression:** investigate and fix the
    continuous client/server rubberbanding introduced or exposed after the chunk-loading
    performance work. Reproduce it with ordinary sustained movement, instrument predicted
    versus authoritative pose, input sequence acknowledgement, fixed-step catch-up, and
@@ -44,9 +44,12 @@ Completing one release slice does not complete this roadmap.
    one full-screen HTML workspace used by both renderers; include an 82%-dark modal
    backdrop, search, category tabs, All/Equipped/Hotbar folders, scrolling item
    actions, and complete gameplay-input capture while open.
-4. [ ] **2D interaction-contract hardening:** E at a crafting surface opens and
-   toggles crafting; E at a stash toggles it; E/C/Escape/X follow one modal law; the
-   prompt and accepted server interaction share the same range and priority.
+4. [x] **2D interaction-contract hardening:** E/USE at a crafting surface opens and
+   toggles crafting; E/USE at a stash toggles it; E/C/Escape and panel-local X controls
+   follow one modal law. Prompts, client actions, Three.js parity, crafting/stash
+   validation, and authoritative door/stash handling now share one engine-owned
+   tile-center range resolver with door > stash > craft priority; revive targeting is
+   nearest and deterministic on both sides.
 5. [ ] **2D correctness and cleanup:** damage-triggered health bars, placed-torch
    pickup/cap, torch halo fade-in, protocol-mismatch refresh UX, room-relative
    coordinates, title/mode-select parity, and dead pack-render path removal.

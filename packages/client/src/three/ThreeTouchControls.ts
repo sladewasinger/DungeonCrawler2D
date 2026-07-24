@@ -1,6 +1,6 @@
 /** Owns touch-stick, aim-stick, and action control presentation for mobile play. */
 import { isTouchDevice } from "../input/touchDetect.js";
-import { bindTouchActionButton, bindTouchJumpButton, createTouchButton, setTouchButtonPressed } from "./ThreeTouchActionButtons.js";
+import { bindTouchActionButton, bindTouchHoldButton, bindTouchJumpButton, createTouchButton, setTouchButtonPressed } from "./ThreeTouchActionButtons.js";
 import { touchVector, type TouchVector } from "./touchMath.js";
 
 const STICK_RADIUS = 54;
@@ -10,26 +10,18 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 export class ThreeTouchControls {
   readonly active = isTouchDevice();
-  private movement: TouchVector = { x: 0, z: 0 };
-  private aim: TouchVector = { x: 0, z: 0 };
-  private jump = false;
-  private jumpPressed = false;
-  private attack = false;
-  private interact = false;
-  private throwItem = false;
-  private yaw = 0;
-  private pitch = 0;
-  private stickPointer: number | null = null;
-  private lookPointer: number | null = null;
+  private movement: TouchVector = { x: 0, z: 0 }; private aim: TouchVector = { x: 0, z: 0 };
+  private jump = false; private jumpPressed = false;
+  private attack = false; private interactPressed = false;
+  private interactHeld = false; private throwItem = false;
+  private yaw = 0; private pitch = 0;
+  private stickPointer: number | null = null; private lookPointer: number | null = null;
   private jumpPointer: number | null = null;
-  private stickOrigin = { x: 0, y: 0 };
-  private lookOrigin = { x: 0, y: 0 };
+  private stickOrigin = { x: 0, y: 0 }; private lookOrigin = { x: 0, y: 0 };
   private readonly layer = document.createElement("div");
   private readonly movementZone = document.createElement("div");
-  private readonly stick = document.createElement("div");
-  private readonly knob = document.createElement("div");
-  private readonly aimStick = document.createElement("div");
-  private readonly aimKnob = document.createElement("div");
+  private readonly stick = document.createElement("div"); private readonly knob = document.createElement("div");
+  private readonly aimStick = document.createElement("div"); private readonly aimKnob = document.createElement("div");
   private jumpButton: HTMLButtonElement | null = null;
 
   constructor(private readonly root: HTMLElement) {
@@ -44,7 +36,7 @@ export class ThreeTouchControls {
     root.addEventListener("pointercancel", this.releaseCapturedJump, true);
   }
 
-  read(seconds: number): { forward: number; right: number; jump: boolean; attack: boolean; interact: boolean; throwItem: boolean; yaw: number; pitch: number } {
+  read(seconds: number): { forward: number; right: number; jump: boolean; attack: boolean; interactPressed: boolean; interactHeld: boolean; throwItem: boolean; yaw: number; pitch: number } {
     const elapsed = clamp(seconds, 0, 0.05);
     this.yaw += -this.aim.x * AIM_TURN_SPEED * elapsed;
     this.pitch += this.aim.z * AIM_TURN_SPEED * elapsed;
@@ -53,13 +45,14 @@ export class ThreeTouchControls {
       right: this.movement.x,
       jump: this.jump,
       attack: this.attack,
-      interact: this.interact,
+      interactPressed: this.interactPressed,
+      interactHeld: this.interactHeld,
       throwItem: this.throwItem,
       yaw: this.yaw,
       pitch: this.pitch,
     };
     this.attack = false;
-    this.interact = false;
+    this.interactPressed = false;
     this.throwItem = false;
     this.yaw = 0;
     this.pitch = 0;
@@ -78,7 +71,8 @@ export class ThreeTouchControls {
     this.jump = false;
     this.jumpPressed = false;
     this.attack = false;
-    this.interact = false;
+    this.interactPressed = false;
+    this.interactHeld = false;
     this.throwItem = false;
     this.yaw = 0;
     this.pitch = 0;
@@ -128,7 +122,11 @@ export class ThreeTouchControls {
     const interact = createTouchButton("USE", 181, 86);
     const throwItem = createTouchButton("THROW", 247, 86);
     bindTouchActionButton(attack, () => this.triggerAction("attack"));
-    bindTouchActionButton(interact, () => this.triggerAction("interact"));
+    bindTouchHoldButton(
+      interact,
+      () => { this.interactPressed = true; },
+      (held) => { this.interactHeld = held; },
+    );
     bindTouchActionButton(throwItem, () => this.triggerAction("throw"));
     bindTouchJumpButton(jump, () => this.queueJump(), (held) => { this.jump = held; });
     this.jumpButton = jump;
@@ -202,9 +200,8 @@ export class ThreeTouchControls {
     return bounds !== undefined && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
   }
 
-  private triggerAction(action: "attack" | "interact" | "throw"): void {
+  private triggerAction(action: "attack" | "throw"): void {
     if (action === "attack") this.attack = true;
-    else if (action === "interact") this.interact = true;
     else this.throwItem = true;
   }
 

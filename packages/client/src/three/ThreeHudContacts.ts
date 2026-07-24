@@ -1,19 +1,19 @@
 /** Renders the HTML contacts list and opens direct-message composition from a row. */
 import type { ContactData } from "../ui/widgets/hud/contactRows.js";
 import { contactRowViews } from "../ui/widgets/hud/contactRows.js";
-import { HUD_MUTED, HUD_PANEL, createHudButton, createHudTitle } from "./ThreeHudStyles.js";
+import { HUD_MUTED, HUD_PANEL, createHudButton, createHudPanelHeader } from "./ThreeHudStyles.js";
 
 export class ThreeHudContacts {
   readonly element = document.createElement("div");
   private readonly list = document.createElement("div");
   private signature = "";
 
-  constructor(startDm: (name: string) => void) {
+  constructor(startDm: (name: string) => void, close: () => void) {
     this.element.style.cssText =
       `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:5px`;
     this.list.style.cssText =
       "min-height:0;overflow-y:auto;display:grid;align-content:start;gap:5px";
-    this.element.append(createHudTitle("Contacts"), this.list);
+    this.element.append(createHudPanelHeader("Contacts", close), this.list);
     this.startDm = startDm;
   }
 

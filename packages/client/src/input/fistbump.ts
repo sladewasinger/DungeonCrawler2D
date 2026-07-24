@@ -52,3 +52,14 @@ export function holdUp(state: HoldState, nowMs: number, holdMs = FISTBUMP_HOLD_M
   if (wasFired) return "held";
   return elapsed < holdMs ? "tap" : "held";
 }
+
+export function syncHoldSource(
+  state: HoldState,
+  wasHeld: boolean,
+  held: boolean,
+  nowMs: number,
+): boolean {
+  if (held && !wasHeld) holdDown(state, nowMs);
+  else if (!held && wasHeld) holdUp(state, nowMs);
+  return held;
+}

@@ -3,8 +3,11 @@
 // the shared pointer.worldX/worldY — that field is silently rewritten by whichever
 // scene's InputPlugin last hit-tested it, and the parallel HudScene's un-zoomed camera
 // reliably clobbers it while a HUD panel is open (see pointer.ts's doc comment).
-import { describe, expect, it } from "vitest";
-import { cursorWorldTile } from "./pointer.js";
+import type Phaser from "phaser";
+import { describe, expect, it, vi } from "vitest";
+import { createTouchInputState } from "./touch/index.js";
+import { cursorWorldTile, handlePointerDown, type PointerDeps } from "./pointer.js";
+import type { InputState } from "./state.js";
 
 describe("cursorWorldTile", () => {
   it("divides the camera's own world-point transform by tilePx", () => {
@@ -53,5 +56,23 @@ describe("cursorWorldTile", () => {
       const heightAt = (wx: number, wy: number) => (wx === 6 && wy === 5 ? 2 : 0);
       expect(cursorWorldTile(camera, { x: 100, y: 50 }, 32, heightAt)).toEqual({ x: 6.25, y: 5.125 });
     });
+  });
+});
+
+describe("touch context action", () => {
+  it("routes USE through the same contextual callback as keyboard E", () => {
+    const performContextAction = vi.fn();
+    const touch = createTouchInputState();
+    const deps = {
+      conn: { body: { x: 0, y: 0 }, canAct: true },
+      hud: { hitTest: () => "touch:interact" },
+      touch,
+      touchActive: true,
+      performContextAction,
+    } as unknown as PointerDeps;
+    const pointer = { id: 4, x: 0, y: 0, rightButtonDown: () => false };
+    handlePointerDown({} as InputState, deps, pointer as unknown as Phaser.Input.Pointer);
+    expect(performContextAction).toHaveBeenCalledOnce();
+    expect(touch.buttons.interact).toBe(4);
   });
 });

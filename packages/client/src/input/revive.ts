@@ -67,6 +67,10 @@ export class ReviveGesture {
     return reviveCrossedThreshold(this.state, nowMs);
   }
 
+  active(): boolean {
+    return this.state.targetId !== null;
+  }
+
   /** HUD ring view: target id + 0..1 progress, or null when idle. */
   holdView(nowMs: number): { targetId: string; progress: number } | null {
     return resolveReviveHoldView(this.state, nowMs);
