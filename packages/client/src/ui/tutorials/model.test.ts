@@ -13,8 +13,36 @@ const snapshot = (
 });
 
 describe("contextual tutorials", () => {
-  it("teaches the starter bandage binding once", () => {
+  it("teaches starter healing and warns on an initially low live snapshot", () => {
     const state = createTutorialState();
+    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toEqual([
+      {
+        id: "usable",
+        text: "Press [1] to equip, then [E] to apply the bandage.",
+        persistent: true,
+      },
+      {
+        id: "low-health",
+        text: "Health low! Press [1], then [E] to heal.",
+        persistent: false,
+      },
+    ]);
+    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toEqual([]);
+  });
+
+  it("teaches the starter bandage already assigned by the first live snapshot", () => {
+    const state = createTutorialState();
+    expect(advanceTutorials(state, snapshot())).toEqual([{
+      id: "usable",
+      text: "Press [1] to equip, then [E] to apply the bandage.",
+      persistent: true,
+    }]);
+    expect(advanceTutorials(state, snapshot())).toEqual([]);
+  });
+
+  it("teaches a bandage binding after a player-driven hotbar change", () => {
+    const state = createTutorialState();
+    expect(advanceTutorials(state, snapshot({ hotbar: Array(9).fill(null) }))).toEqual([]);
     expect(advanceTutorials(state, snapshot())).toEqual([
       {
         id: "usable",
@@ -62,6 +90,7 @@ describe("contextual tutorials", () => {
 
   it("uses touch controls instead of impossible keyboard instructions", () => {
     const state = createTutorialState();
+    advanceTutorials(state, snapshot({ hotbar: Array(9).fill(null) }), "touch");
     expect(advanceTutorials(state, snapshot(), "touch")).toContainEqual({
       id: "usable",
       text: "Tap hotbar slot [1], then tap [USE] to apply the bandage.",
