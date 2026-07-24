@@ -33,7 +33,6 @@ export class ThreeHudInventory {
       search: () => this.invalidate(),
     });
     this.element = this.shell.element;
-    window.addEventListener("keydown", this.captureFocusNavigation, true);
   }
 
   open(): void {
@@ -68,10 +67,6 @@ export class ThreeHudInventory {
     if (!this.isOpen()) return;
     this.close();
     focusGame();
-  }
-
-  dispose(): void {
-    window.removeEventListener("keydown", this.captureFocusNavigation, true);
   }
 
   update(): void {
@@ -142,9 +137,4 @@ export class ThreeHudInventory {
     this.update();
   }
 
-  private readonly captureFocusNavigation = (event: KeyboardEvent): void => {
-    if (!this.isOpen() || event.code !== "Tab") return;
-    event.preventDefault();
-    this.shell.moveFocus(event.shiftKey);
-  };
 }

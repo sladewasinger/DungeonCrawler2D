@@ -7,6 +7,7 @@ import {
 import { HudWindowManager } from "./HudWindows.js";
 import { ThreeDownedOverlay } from "./ThreeDownedOverlay.js";
 import { ThreeHudBuffs } from "./ThreeHudBuffs.js";
+import { ThreeHudCompass } from "./ThreeHudCompass.js";
 import { ThreeHudHotbar } from "./ThreeHudHotbar.js";
 import { ThreeHudInventory } from "./ThreeHudInventory.js";
 import { ThreeHudNotices } from "./ThreeHudNotices.js";
@@ -31,6 +32,7 @@ import type { ViewDistance } from "./viewDistance.js";
 export interface ThreeHudComposition {
   manager: HudWindowManager;
   status: ThreeHudStatus;
+  compass: ThreeHudCompass;
   hotbar: ThreeHudHotbar;
   buffs: ThreeHudBuffs;
   weapon: ThreeHudWeapon;
@@ -73,6 +75,7 @@ export interface ThreeHudCompositionActions {
 type StaticParts = Pick<
   ThreeHudComposition,
   | "status"
+  | "compass"
   | "hotbar"
   | "buffs"
   | "weapon"
@@ -102,6 +105,7 @@ const createStaticParts = (
   );
   return {
     status: new ThreeHudStatus(),
+    compass: new ThreeHudCompass(),
     hotbar: new ThreeHudHotbar(options.onSelectHotbar),
     buffs: new ThreeHudBuffs(),
     weapon: new ThreeHudWeapon(),
@@ -136,6 +140,7 @@ const createWindowParts = (
   const manager = new HudWindowManager(options.element);
   threeHudWindowSpecs({
     status: statics.status.element,
+    compass: statics.compass.element,
     buffs: statics.buffs.element,
     hotbar: statics.hotbar.element,
     chat: panels.chat.element,

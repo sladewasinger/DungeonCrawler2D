@@ -1,113 +1,121 @@
-/** Verifies contextual tutorials trigger from state transitions without repeating continuously. */
+/** Verifies contextual tutorials trigger from authoritative player actions and health edges. */
 import { describe, expect, it } from "vitest";
-import { advanceTutorials, createTutorialState, type TutorialSnapshot } from "./model.js";
+import {
+  advanceTutorials,
+  createTutorialState,
+  type TutorialSnapshot,
+} from "./model.js";
 
 const snapshot = (
   patch: Partial<TutorialSnapshot> = {},
 ): TutorialSnapshot => ({
-  inventory: [{ item: "bandage", qty: 2 }],
-  hotbar: ["bandage", null, null, null, null, null, null, null, null],
+  inventory: [
+    { item: "torch", qty: 3 },
+    { item: "bandage", qty: 2 },
+  ],
+  hotbar: ["torch", "bandage", null, null, null, null, null, null, null],
+  selectedSlot: null,
   hp: 30,
   maxHp: 30,
   ...patch,
 });
 
 describe("contextual tutorials", () => {
-  it("teaches starter healing and warns on an initially low live snapshot", () => {
-    const state = createTutorialState();
-    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toEqual([
-      {
-        id: "usable",
-        text: "Press [1] to equip, then [E] to apply the bandage.",
-        persistent: true,
-      },
-      {
-        id: "low-health",
-        text: "Health low! Press [1], then [E] to heal.",
-        persistent: false,
-      },
-    ]);
-    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toEqual([]);
-  });
-
-  it("teaches the starter bandage already assigned by the first live snapshot", () => {
+  it("teaches hotbar selection on hydration without inferring an item action", () => {
     const state = createTutorialState();
     expect(advanceTutorials(state, snapshot())).toEqual([{
-      id: "usable",
-      text: "Press [1] to equip, then [E] to apply the bandage.",
+      id: "hotbar",
+      text: "Press [1–9] to select a hotbar item.",
       persistent: true,
     }]);
-    expect(advanceTutorials(state, snapshot())).toEqual([]);
+    expect(advanceTutorials(state, snapshot({
+      hotbar: ["torch", "bandage", "rag", null, null, null, null, null, null],
+    }))).toEqual([]);
   });
 
-  it("teaches a bandage binding after a player-driven hotbar change", () => {
+  it("teaches actions only after selecting a populated slot", () => {
     const state = createTutorialState();
-    expect(advanceTutorials(state, snapshot({ hotbar: Array(9).fill(null) }))).toEqual([]);
-    expect(advanceTutorials(state, snapshot())).toEqual([
-      {
-        id: "usable",
-        text: "Press [1] to equip, then [E] to apply the bandage.",
-        persistent: true,
-      },
-    ]);
-    expect(advanceTutorials(state, snapshot())).toEqual([]);
+    advanceTutorials(state, snapshot());
+    expect(advanceTutorials(state, snapshot({ selectedSlot: 0 }))).toEqual([{
+      id: "throwable",
+      text: "Press [G] to throw the selected item.",
+      persistent: true,
+    }]);
+    expect(advanceTutorials(state, snapshot({ selectedSlot: 0 }))).toEqual([]);
+    expect(advanceTutorials(state, snapshot({ selectedSlot: 1 }))).toEqual([{
+      id: "usable",
+      text: "Press [E] to apply the selected bandage.",
+      persistent: true,
+    }]);
+    expect(advanceTutorials(state, snapshot({
+      selectedSlot: 2,
+      hotbar: ["torch", "bandage", "rag", null, null, null, null, null, null],
+    }))).toEqual([]);
   });
 
   it("teaches inventory after a real pickup rather than initial hydration", () => {
     const state = createTutorialState();
     advanceTutorials(state, snapshot());
     const messages = advanceTutorials(state, snapshot({
-      inventory: [{ item: "bandage", qty: 2 }, { item: "rag", qty: 1 }],
-    }));
-    expect(messages.map((message) => message.id)).toContain("inventory");
-  });
-
-  it("teaches throwable selection with its dedicated key", () => {
-    const state = createTutorialState();
-    advanceTutorials(state, snapshot());
-    const messages = advanceTutorials(state, snapshot({
-      hotbar: ["bandage", "torch", null, null, null, null, null, null, null],
-    }));
-    expect(messages).toContainEqual({
-      id: "throwable",
-      text: "Press [G] to throw the selected item.",
-      persistent: true,
-    });
-  });
-
-  it("warns once per low-health episode with the bound bandage slot", () => {
-    const state = createTutorialState();
-    advanceTutorials(state, snapshot());
-    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toContainEqual({
-      id: "low-health",
-      text: "Health low! Press [1], then [E] to heal.",
-      persistent: false,
-    });
-    expect(advanceTutorials(state, snapshot({ hp: 7 }))).toEqual([]);
-    advanceTutorials(state, snapshot({ hp: 20 }));
-    expect(advanceTutorials(state, snapshot({ hp: 5 }))).toHaveLength(1);
-  });
-
-  it("uses touch controls instead of impossible keyboard instructions", () => {
-    const state = createTutorialState();
-    advanceTutorials(state, snapshot({ hotbar: Array(9).fill(null) }), "touch");
-    expect(advanceTutorials(state, snapshot(), "touch")).toContainEqual({
-      id: "usable",
-      text: "Tap hotbar slot [1], then tap [USE] to apply the bandage.",
-      persistent: true,
-    });
-    const messages = advanceTutorials(state, snapshot({
       inventory: [
+        { item: "torch", qty: 3 },
         { item: "bandage", qty: 2 },
-        { item: "torch", qty: 1 },
+        { item: "rag", qty: 1 },
       ],
-      hotbar: ["bandage", "torch", null, null, null, null, null, null, null],
-    }), "touch");
-    expect(messages.map(({ text }) => text)).toContain(
-      "Select the item, then tap [THROW].",
-    );
-    expect(messages.map(({ text }) => text)).toContain(
-      "Tap [BAG] to open your inventory.",
-    );
+    }));
+    expect(messages).toEqual([{
+      id: "inventory",
+      text: "Press [Tab] to open your inventory.",
+      persistent: true,
+    }]);
+  });
+
+  it("warns only on a post-hydration low-health edge with a bandage available", () => {
+    const state = createTutorialState();
+    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toHaveLength(1);
+    expect(advanceTutorials(state, snapshot({ hp: 20 }))).toEqual([]);
+    expect(advanceTutorials(state, snapshot({ hp: 8 }))).toEqual([{
+      id: "low-health",
+      text: "Health low! Press [2], then [E] to heal.",
+      persistent: false,
+    }]);
+    expect(advanceTutorials(state, snapshot({ hp: 7 }))).toEqual([]);
+
+    const unavailable = createTutorialState();
+    advanceTutorials(unavailable, snapshot({
+      inventory: [{ item: "torch", qty: 3 }],
+      hp: 30,
+    }));
+    expect(advanceTutorials(unavailable, snapshot({
+      inventory: [{ item: "torch", qty: 3 }],
+      hp: 8,
+    }))).toEqual([]);
+  });
+
+  it("uses touch controls for selection, throwing, and healing", () => {
+    const state = createTutorialState();
+    expect(advanceTutorials(state, snapshot(), "touch")).toEqual([{
+      id: "hotbar",
+      text: "Tap [1–9] to select a hotbar item.",
+      persistent: true,
+    }]);
+    expect(advanceTutorials(
+      state,
+      snapshot({ selectedSlot: 0 }),
+      "touch",
+    )).toEqual([{
+      id: "throwable",
+      text: "Tap [THROW] to throw the selected item.",
+      persistent: true,
+    }]);
+    expect(advanceTutorials(
+      state,
+      snapshot({ selectedSlot: 1 }),
+      "touch",
+    )).toEqual([{
+      id: "usable",
+      text: "Tap [USE] to apply the selected bandage.",
+      persistent: true,
+    }]);
   });
 });

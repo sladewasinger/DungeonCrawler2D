@@ -9,8 +9,8 @@ import {
 } from "../ui/tutorials/model.js";
 import { HUD_GOLD } from "./ThreeHudStyles.js";
 
-const STORAGE_KEY = "dc2d.hud.tutorials.v1";
-const HISTORY_STORAGE_KEY = "dc2d.hud.tutorial-history.v1";
+const STORAGE_KEY = "dc2d.hud.tutorials.v2";
+const HISTORY_STORAGE_KEY = "dc2d.hud.tutorial-history.v2";
 const DISPLAY_MS = 9000;
 
 const loadSeen = (): Set<TutorialId> => {
@@ -57,19 +57,37 @@ export class ThreeHudTutorials {
     this.element.setAttribute("aria-live", "polite");
     this.element.setAttribute("aria-atomic", "true");
     this.element.style.cssText =
-      "position:absolute;left:50%;bottom:18%;translate:-50% 0;z-index:1100;" +
-      "max-width:min(520px,78vw);padding:8px 12px;text-align:center;" +
-      "background:rgba(17,18,29,.82);border:1px solid rgba(255,213,76,.58);" +
+      "position:absolute;left:50%;bottom:78px;transform:translate(-50%,0);z-index:1100;" +
+      "max-width:min(520px,78vw);padding:2px 8px;text-align:center;" +
+      "background:transparent;border:0;" +
       `color:${HUD_GOLD};font:${mode === "touch" ? 14 : 12}px monospace;pointer-events:none;` +
-      "box-shadow:0 7px 20px rgba(0,0,0,.34)";
+      "text-shadow:0 1px 3px rgba(0,0,0,.9)";
+    if (
+      typeof globalThis.matchMedia !== "function" ||
+      !globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      this.element.animate?.(
+        [
+          { transform: "translate(-50%,0)" },
+          { transform: "translate(-50%,-4px)" },
+          { transform: "translate(-50%,0)" },
+        ],
+        { duration: 2400, iterations: Infinity, easing: "ease-in-out" },
+      );
+    }
   }
 
-  update(connection: Connection, nowMs: number): void {
+  update(
+    connection: Connection,
+    selectedSlot: number | null,
+    nowMs: number,
+  ): void {
     if (!connection.hasReceivedSnapshot) return;
-    this.dismissRecoveredLowHealth(connection);
+    this.dismissUnavailableLowHealth(connection);
     const messages = advanceTutorials(this.state, {
       inventory: connection.inventory,
       hotbar: connection.hotbar,
+      selectedSlot,
       hp: connection.hp,
       maxHp: connection.maxHp,
     }, this.mode);
@@ -106,9 +124,12 @@ export class ThreeHudTutorials {
     this.active = null;
   }
 
-  private dismissRecoveredLowHealth(connection: Connection): void {
+  private dismissUnavailableLowHealth(connection: Connection): void {
     const healthIsLow = connection.maxHp > 0 && connection.hp / connection.maxHp < 0.3;
-    if (healthIsLow) return;
+    const hasBandage = connection.inventory.some((stack) =>
+      stack.item === "bandage" && stack.qty > 0
+    );
+    if (healthIsLow && hasBandage) return;
     for (let index = this.queue.length - 1; index >= 0; index -= 1) {
       if (this.queue[index]?.id === "low-health") this.queue.splice(index, 1);
     }
@@ -119,6 +140,12 @@ export class ThreeHudTutorials {
   }
 
   private enqueue(message: TutorialMessage): void {
+    if (message.id === "throwable" || message.id === "usable") {
+      this.finishActive();
+      this.activeUntil = 0;
+      this.queue.unshift(message);
+      return;
+    }
     if (message.id !== "low-health") {
       this.queue.push(message);
       return;

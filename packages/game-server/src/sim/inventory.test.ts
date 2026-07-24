@@ -94,16 +94,23 @@ describe("inventory: adding and removing stacks", () => {
     expect(slot.weapon).toBe("sword"); // first weapon wins, hammer sits unequipped
   });
 
-  it("migrates an existing starter kit to bandages in slot one once", () => {
+  it("migrates a legacy hotbar once, then preserves its customized layout", () => {
     const sim = buildSim(fakeWorld());
     const slot = buildSlot(0, 0);
     invAdd(sim, slot, "sword", 1);
     invAdd(sim, slot, "torch", 3);
+    slot.hotbar[0] = "bandage";
     ensureStarterKit(sim, slot);
     expect(invQty(slot, "bandage")).toBe(2);
-    expect(slot.hotbar[0]).toBe("bandage");
+    expect(slot.stored.starterHotbarSchema).toBe(1);
+    expect(slot.stored.hotbar?.slice(0, 2)).toEqual(["torch", "bandage"]);
+    const customized = [null, null, null, "torch", null, null, null, null, "bandage"];
+    slot.hotbar = [...customized];
+    sim.store.recordHotbar(slot.stored, slot.hotbar);
     invRemove(slot, "bandage", 2);
     ensureStarterKit(sim, slot);
+    expect(slot.hotbar).toEqual(customized);
+    expect(slot.stored.hotbar).toEqual(customized);
     expect(invQty(slot, "bandage")).toBe(0);
   });
 });
@@ -185,13 +192,8 @@ describe("inventory: crafting", () => {
     doCraft(sim, slot, "bandage");
     expect(invQty(slot, "rag")).toBe(0);
     expect(invQty(slot, "bandage")).toBe(1);
-  });
-
-  it("refuses to craft when an input is missing", () => {
-    const sim = buildSim(fakeWorld({ x: 0, y: 0, tile: TILE.CraftingTable }));
-    const slot = buildSlot(0, 1);
     doCraft(sim, slot, "bandage");
-    expect(invQty(slot, "bandage")).toBe(0);
+    expect(invQty(slot, "bandage")).toBe(1);
     expect(slot.outbox.at(-1)).toEqual({ t: "toast", msg: "Missing rag" });
   });
 });

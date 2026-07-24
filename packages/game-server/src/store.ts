@@ -17,6 +17,8 @@ export interface StoredPlayer {
   slot: number;
   name: string;
   stash: StashEntry[];
+  hotbar?: Array<string | null>;
+  starterHotbarSchema?: number;
   /** Mutual-fistbump contacts, by display name (Epic 7.10). No cap. */
   contacts: string[];
   /** Epic 11 core (character levels), pulled forward into Epic 7.13 —
@@ -37,6 +39,18 @@ export interface StoredPlayer {
 
 export const STASH_CAPACITY = 24;
 
+const normalizeStoredPlayer = (player: StoredPlayer): StoredPlayer => ({
+  ...player,
+  contacts: player.contacts ?? [],
+  xp: player.xp ?? 0,
+  level: player.level ?? 1,
+  deepestFloor: player.deepestFloor ?? 1,
+  ...(Array.isArray(player.hotbar) ? { hotbar: [...player.hotbar] } : {}),
+  ...(player.starterHotbarSchema === undefined
+    ? {}
+    : { starterHotbarSchema: player.starterHotbarSchema }),
+});
+
 export class PlayerStore {
   private readonly data = new Map<string, StoredPlayer>();
   private nextSlot = 0;
@@ -54,13 +68,7 @@ export class PlayerStore {
       // deepestFloor (Epic 7.14) are all additive — records saved before
       // any of them shipped lack them.
       for (const [id, p] of Object.entries(raw.players)) {
-        this.data.set(id, {
-          ...p,
-          contacts: p.contacts ?? [],
-          xp: p.xp ?? 0,
-          level: p.level ?? 1,
-          deepestFloor: p.deepestFloor ?? 1,
-        });
+        this.data.set(id, normalizeStoredPlayer(p));
       }
     } catch {
       // first boot — empty store
@@ -131,6 +139,18 @@ export class PlayerStore {
   recordDeepestFloor(player: StoredPlayer, floor: number): void {
     if (floor <= (player.deepestFloor ?? 1)) return;
     player.deepestFloor = floor;
+    this.scheduleSave();
+  }
+
+  recordHotbar(
+    player: StoredPlayer,
+    hotbar: readonly (string | null)[],
+    starterHotbarSchema = player.starterHotbarSchema,
+  ): void {
+    player.hotbar = [...hotbar];
+    if (starterHotbarSchema !== undefined) {
+      player.starterHotbarSchema = starterHotbarSchema;
+    }
     this.scheduleSave();
   }
 

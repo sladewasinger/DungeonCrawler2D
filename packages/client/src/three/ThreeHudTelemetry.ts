@@ -5,6 +5,10 @@ import type { Connection } from "../net/connection.js";
 import type { FirstPersonState } from "./movement.js";
 import { HUD_PANEL, createHudTitle } from "./ThreeHudStyles.js";
 
+export const headingDegrees = (yaw: number): number => Math.round(
+  ((((-yaw * 180) / Math.PI) % 360) + 360) % 360,
+);
+
 export class ThreeHudTelemetry {
   readonly element = document.createElement("div");
   private readonly readout = document.createElement("div");
@@ -22,9 +26,7 @@ export class ThreeHudTelemetry {
     yaw: number,
     mouseCaptured: boolean,
   ): void {
-    const heading = Math.round(
-      ((((yaw * 180) / Math.PI) % 360) + 360) % 360,
-    );
+    const heading = headingDegrees(yaw);
     const display = displayCoordinates(player.x, player.z);
     this.readout.textContent =
       `build ${BUILD_SHA}\n` +

@@ -4,9 +4,8 @@ import { brightnessField, e2eWorld } from "./lightField.js";
 import { LIGHT_APRON } from "../../packages/client/src/render/terrain/tileLight.js";
 
 /**
- * Throws a starter-kit torch through the REAL click-to-throw path (input/pointer.ts:
- * an equipped throwable always throws on primary attack) and asserts the corridor it
- * lands in actually brightens.
+ * Throws a starter-kit torch through the real hotbar-selection + G-key path
+ * (input/gameplayActions.ts) and asserts the corridor it lands in actually brightens.
  *
  * DOCUMENTED CHOICE (Epic 7.12 lane brief: "assert via canvas pixel sample or the
  * client's light-state API, your call"): this uses the light-state API, not a pixel
@@ -63,14 +62,14 @@ test.describe("throwable torches light the world for real", () => {
     const before = await openGame(page, "Torchbearer");
     expect(before.inventory.find((s) => s.item === "torch")?.qty).toBe(3);
 
-    // Equip the torch as the weapon — the same "equipped throwable always throws on
-    // primary attack" model input/pointer.ts's equippedIsThrowable branch drives.
-    await page.evaluate(() => window.__dc2d!.conn.equip("torch"));
-    await page.waitForFunction(() => window.__dc2d!.conn.weapon === "torch");
-
-    // A real click, aimed well south of the player — direction is all that matters
-    // (net/intents.ts's throwTorch normalizes it), the server clamps to MAX_THROW_RANGE.
-    await page.locator("canvas").first().click({ position: { x: 640, y: 700 } });
+    // Torches are hotbar throwables, not weapons. Bind and select it exactly as a
+    // player would, then drive the shared G-key throw path with an aimed pointer.
+    await page.evaluate(() => window.__dc2d!.conn.assignSlot(0, "torch"));
+    await page.waitForFunction(() => window.__dc2d!.conn.hotbar[0] === "torch");
+    const canvas = page.locator("canvas").first();
+    await canvas.hover({ position: { x: 640, y: 700 } });
+    await page.keyboard.press("1");
+    await page.keyboard.press("g");
 
     await page.waitForFunction(
       () => {

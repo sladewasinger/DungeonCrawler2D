@@ -5,13 +5,21 @@ import type Phaser from "phaser";
 import { isTypingInInput } from "../../input/state.js";
 import type { RotationController } from "./rotationControl.js";
 
+export const rotationDirectionForKey = (code: string): 1 | -1 | null => {
+  if (code === "KeyQ") return -1;
+  if (code === "KeyX") return 1;
+  return null;
+};
+
 export function bindRotationKeys(scene: Phaser.Scene, rotation: RotationController): void {
-  const keyboard = scene.input.keyboard;
-  if (!keyboard) return;
-  keyboard.addKey("Q").on("down", () => {
-    if (!isTypingInInput()) rotation.request(-1);
-  });
-  keyboard.addKey("X").on("down", () => {
-    if (!isTypingInInput()) rotation.request(1);
+  const onKeyDown = (event: KeyboardEvent): void => {
+    const direction = rotationDirectionForKey(event.code);
+    if (direction === null || isTypingInInput()) return;
+    event.preventDefault();
+    rotation.request(direction);
+  };
+  window.addEventListener("keydown", onKeyDown, true);
+  scene.events.once("shutdown", () => {
+    window.removeEventListener("keydown", onKeyDown, true);
   });
 }

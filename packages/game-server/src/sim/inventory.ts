@@ -46,18 +46,26 @@ const STARTER_TORCH_DEF = "torch";
 const STARTER_BANDAGE_DEF = "bandage";
 const STARTER_TORCH_QTY = 3;
 const STARTER_BANDAGE_QTY = 2;
-const STARTER_BANDAGE_SLOT = 0;
+const STARTER_TORCH_SLOT = 0;
+const STARTER_BANDAGE_SLOT = 1;
+const STARTER_HOTBAR_SCHEMA = 1;
 
-function bindStarterBandage(slot: PlayerSlot): void {
+function bindStarterItems(slot: PlayerSlot): void {
+  slot.hotbar[STARTER_TORCH_SLOT] = STARTER_TORCH_DEF;
   slot.hotbar[STARTER_BANDAGE_SLOT] = STARTER_BANDAGE_DEF;
 }
 
-function migrateStarterBandages(sim: SimState, slot: PlayerSlot): void {
-  if (slot.hotbar.includes(STARTER_BANDAGE_DEF)) return;
+function migrateStarterItems(sim: SimState, slot: PlayerSlot): void {
+  if ((slot.stored.starterHotbarSchema ?? 0) >= STARTER_HOTBAR_SCHEMA) return;
   if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
     invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
   }
-  bindStarterBandage(slot);
+  bindStarterItems(slot);
+  sim.store.recordHotbar(
+    slot.stored,
+    slot.hotbar,
+    STARTER_HOTBAR_SCHEMA,
+  );
 }
 
 /** True once a player has neither an equipped weapon nor a starter
@@ -89,8 +97,11 @@ export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
   if (lacksStarterKit(slot)) {
     invAdd(sim, slot, STARTER_SWORD_DEF, 1);
     invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
+    if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
+      invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
+    }
   }
-  migrateStarterBandages(sim, slot);
+  migrateStarterItems(sim, slot);
 }
 
 /**
@@ -111,7 +122,6 @@ export function grantRespawnKit(sim: SimState, slot: PlayerSlot): void {
   if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
     invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
   }
-  bindStarterBandage(slot);
 }
 
 /** Remove qty of a def; false if the stack is short. Prunes empty stacks. */

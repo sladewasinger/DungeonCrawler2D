@@ -2,7 +2,12 @@
 import type { InvStack } from "@dc2d/engine";
 import { isConsumableItem, isThrowableItem } from "../itemCatalog.js";
 
-export type TutorialId = "inventory" | "throwable" | "usable" | "low-health";
+export type TutorialId =
+  | "hotbar"
+  | "inventory"
+  | "throwable"
+  | "usable"
+  | "low-health";
 export type TutorialInputMode = "keyboard" | "touch";
 
 export interface TutorialMessage {
@@ -14,6 +19,7 @@ export interface TutorialMessage {
 export interface TutorialSnapshot {
   inventory: readonly InvStack[];
   hotbar: readonly (string | null)[];
+  selectedSlot: number | null;
   hp: number;
   maxHp: number;
 }
@@ -21,42 +27,33 @@ export interface TutorialSnapshot {
 export interface TutorialState {
   initialized: boolean;
   inventory: Map<string, number>;
-  hotbar: readonly (string | null)[];
+  selectedSlot: number | null;
   healthWasLow: boolean;
 }
 
 export const createTutorialState = (): TutorialState => ({
   initialized: false,
   inventory: new Map(),
-  hotbar: [],
+  selectedSlot: null,
   healthWasLow: false,
 });
 
 const quantities = (inventory: readonly InvStack[]) =>
   new Map(inventory.map((stack) => [stack.item, stack.qty]));
 
-const assignedItems = (
-  previous: readonly (string | null)[],
-  current: readonly (string | null)[],
-) => current.filter((item, index): item is string =>
-  item !== null && item !== previous[index]
-);
-
 const usableMessage = (
-  hotbar: readonly (string | null)[],
   item: string,
   mode: TutorialInputMode,
 ): TutorialMessage => {
-  const slot = hotbar.indexOf(item) + 1;
-  const select = mode === "touch"
-    ? `Tap hotbar slot [${slot}]`
-    : `Press [${slot}] to equip`;
-  const use = mode === "touch" ? "tap [USE]" : "[E]";
   return {
     id: "usable",
     text: item === "bandage"
-      ? `${select}, then ${use} to apply the bandage.`
-      : `${select}, then ${use} to use ${item}.`,
+      ? mode === "touch"
+        ? "Tap [USE] to apply the selected bandage."
+        : "Press [E] to apply the selected bandage."
+      : mode === "touch"
+        ? `Tap [USE] to use the selected ${item}.`
+        : `Press [E] to use the selected ${item}.`,
     persistent: true,
   };
 };
@@ -96,25 +93,50 @@ const inventoryPickupMessage = (
   };
 };
 
-const assignmentMessages = (
-  assigned: readonly string[],
-  hotbar: readonly (string | null)[],
+const hotbarMessage = (mode: TutorialInputMode): TutorialMessage => ({
+  id: "hotbar",
+  text: mode === "touch"
+    ? "Tap [1–9] to select a hotbar item."
+    : "Press [1–9] to select a hotbar item.",
+  persistent: true,
+});
+
+const selectedItem = (
+  state: TutorialState,
+  snapshot: TutorialSnapshot,
+  inventory: ReadonlyMap<string, number>,
+): string | null => {
+  if (
+    !state.initialized ||
+    snapshot.selectedSlot === null ||
+    snapshot.selectedSlot === state.selectedSlot
+  ) return null;
+  const item = snapshot.hotbar[snapshot.selectedSlot] ?? null;
+  return item && (inventory.get(item) ?? 0) > 0 ? item : null;
+};
+
+const selectionMessage = (
+  item: string | null,
   mode: TutorialInputMode,
-): TutorialMessage[] => {
-  const messages: TutorialMessage[] = [];
-  if (assigned.find(isThrowableItem)) {
-    messages.push({
+): TutorialMessage | null => {
+  if (!item) return null;
+  if (isThrowableItem(item)) {
+    return {
       id: "throwable",
       text: mode === "touch"
-        ? "Select the item, then tap [THROW]."
+        ? "Tap [THROW] to throw the selected item."
         : "Press [G] to throw the selected item.",
       persistent: true,
-    });
+    };
   }
-  const usable = assigned.find(isConsumableItem);
-  if (usable) messages.push(usableMessage(hotbar, usable, mode));
-  return messages;
+  return isConsumableItem(item) ? usableMessage(item, mode) : null;
 };
+
+const crossedLowHealthThreshold = (
+  state: TutorialState,
+  healthIsLow: boolean,
+  bandageAvailable: boolean,
+) => state.initialized && healthIsLow && !state.healthWasLow && bandageAvailable;
 
 export const advanceTutorials = (
   state: TutorialState,
@@ -123,16 +145,21 @@ export const advanceTutorials = (
 ): TutorialMessage[] => {
   const nextInventory = quantities(snapshot.inventory);
   const healthIsLow = snapshot.maxHp > 0 && snapshot.hp / snapshot.maxHp < 0.3;
-  const assigned = assignedItems(state.hotbar, snapshot.hotbar);
-  const messages = assignmentMessages(assigned, snapshot.hotbar, mode);
+  const messages = state.initialized ? [] : [hotbarMessage(mode)];
   const inventoryMessage = inventoryPickupMessage(state, snapshot, mode);
   if (inventoryMessage) messages.unshift(inventoryMessage);
-  if (healthIsLow && !state.healthWasLow) {
+  const actionMessage = selectionMessage(
+    selectedItem(state, snapshot, nextInventory),
+    mode,
+  );
+  if (actionMessage) messages.push(actionMessage);
+  const bandageAvailable = (nextInventory.get("bandage") ?? 0) > 0;
+  if (crossedLowHealthThreshold(state, healthIsLow, bandageAvailable)) {
     messages.push(lowHealthMessage(snapshot.hotbar, mode));
   }
   state.initialized = true;
   state.inventory = nextInventory;
-  state.hotbar = [...snapshot.hotbar];
+  state.selectedSlot = snapshot.selectedSlot;
   state.healthWasLow = healthIsLow;
   return messages;
 };

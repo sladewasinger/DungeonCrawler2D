@@ -28,7 +28,6 @@ export interface InventoryShell {
   search: HTMLInputElement;
   list: HTMLDivElement;
   summary: HTMLSpanElement;
-  moveFocus(backward: boolean): void;
 }
 
 const workspace = (): { element: HTMLDivElement; shell: HTMLElement } => {
@@ -112,20 +111,6 @@ const filterInput = (search: () => void): HTMLInputElement => {
   return input;
 };
 
-const focusableElements = (root: HTMLElement): HTMLElement[] =>
-  [...root.querySelectorAll<HTMLElement>(
-    "button:not([disabled]),input:not([disabled])",
-  )].filter((element) => element.offsetParent !== null);
-
-const moveFocus = (root: HTMLElement, backward: boolean): void => {
-  const focusable = focusableElements(root);
-  if (focusable.length === 0) return;
-  const current = focusable.indexOf(document.activeElement as HTMLElement);
-  const offset = backward ? -1 : 1;
-  const index = (current + offset + focusable.length) % focusable.length;
-  focusable[index]?.focus();
-};
-
 export const createInventoryShell = (
   callbacks: InventoryShellCallbacks,
 ): InventoryShell => {
@@ -151,6 +136,5 @@ export const createInventoryShell = (
   shell.append(header(summary, callbacks.close), toolbar, body);
   return {
     element, tabs, folders, search, list, summary,
-    moveFocus: (backward) => moveFocus(element, backward),
   };
 };

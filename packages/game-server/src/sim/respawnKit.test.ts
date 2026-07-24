@@ -45,7 +45,8 @@ function expectFullKit(slot: PlayerSlot): void {
   expect(invQty(slot, "sword")).toBe(1);
   expect(invQty(slot, "torch")).toBe(3);
   expect(invQty(slot, "bandage")).toBe(2);
-  expect(slot.hotbar[0]).toBe("bandage");
+  expect(slot.hotbar[0]).toBe("torch");
+  expect(slot.hotbar[1]).toBe("bandage");
 }
 
 /** Kill, resolve the death, then jump to the scheduled respawn tick. */
@@ -97,5 +98,28 @@ describe("respawn starter kit (panel round 4)", () => {
     dieAndRespawn(sim, slot);
     expect(slot.entity.hp).toBe(PLAYER_MAX_HP);
     expectFullKit(slot);
+  });
+
+  it("respawn restores items without overwriting a customized hotbar", () => {
+    const customized = [
+      null,
+      null,
+      null,
+      "torch",
+      null,
+      null,
+      null,
+      null,
+      "bandage",
+    ];
+    slot.hotbar = [...customized];
+    sim.store.recordHotbar(slot.stored, slot.hotbar);
+    dieAndRespawn(sim, slot);
+    expect(slot.entity.hp).toBe(PLAYER_MAX_HP);
+    expect(invQty(slot, "sword")).toBe(1);
+    expect(invQty(slot, "torch")).toBe(3);
+    expect(invQty(slot, "bandage")).toBe(2);
+    expect(slot.hotbar).toEqual(customized);
+    expect(slot.stored.hotbar).toEqual(customized);
   });
 });

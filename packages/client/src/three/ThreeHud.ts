@@ -11,6 +11,7 @@ import {
 } from "./ThreeHudComposition.js";
 import { ThreeHudKeyboard } from "./ThreeHudKeyboard.js";
 import { syncThreeHudLiveState } from "./ThreeHudLiveState.js";
+import { resolveThreeCompassState } from "./ThreeHudCompass.js";
 import {
   createHudKeyboard,
   mountHudReticle,
@@ -104,6 +105,7 @@ export class ThreeHud {
     parts.panels.chat.update();
     parts.inventory.update();
     parts.status.update(connection, world.floor);
+    this.updateCompass(update);
     parts.hotbar.update(connection, update.snapshot?.selectedSlot);
     parts.buffs.update(connection);
     parts.weapon.update(connection);
@@ -114,7 +116,12 @@ export class ThreeHud {
     parts.sessionMenu.update(
       connection.status === "connected" && connection.hp > 0,
     );
-    parts.tutorials.update(connection, performance.now());
+    const selectedSlot = parts.hotbar.selectedSlot();
+    parts.tutorials.update(
+      connection,
+      selectedSlot >= 0 ? selectedSlot : null,
+      performance.now(),
+    );
     parts.touch.update(update.snapshot?.touch ?? null);
     if (update.snapshot) this.updateSnapshotPanels(update.snapshot);
     else {
@@ -128,6 +135,16 @@ export class ThreeHud {
         () => this.closeStash(),
       );
     }
+  }
+
+  private updateCompass(update: ThreeHudUpdate): void {
+    const compass = resolveThreeCompassState(
+      update.world,
+      update.player,
+      update.yaw,
+      update.snapshot,
+    );
+    this.parts.compass.update(compass.bearingDeg, compass.stairway);
   }
 
   toggleInventory(): void {
@@ -147,7 +164,8 @@ export class ThreeHud {
   }
 
   blocksGameplay(): boolean {
-    return this.inventoryOpen() || this.parts.sessionMenu.isOpen();
+    return this.inventoryOpen() || this.parts.sessionMenu.isOpen() ||
+      this.parts.panels.chat.ownsFocus();
   }
 
   sessionMenuOpen(): boolean {
@@ -177,7 +195,6 @@ export class ThreeHud {
 
   dispose(): void {
     this.setTextInputFocused(false);
-    this.parts.inventory.dispose();
     this.keyboard.dispose();
     this.parts.sessionMenu.dispose();
     this.parts.settings.dispose();

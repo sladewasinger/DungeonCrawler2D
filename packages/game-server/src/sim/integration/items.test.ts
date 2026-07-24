@@ -1,6 +1,16 @@
+import { LEVEL, World } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { GameSim } from "../index.js";
-import { findFlatArena, makeSim, nearbyAreaTile, stepN, teleport } from "./support.js";
+import { PlayerStore } from "../../store.js";
+import { GameSim } from "../index.js";
+import {
+  content,
+  findFlatArena,
+  makeSim,
+  nearbyAreaTile,
+  SEED,
+  stepN,
+  teleport,
+} from "./support.js";
 
 /**
  * Epic 4 regressions: pickup/stack/drop, explicit hotbar binding, and
@@ -103,10 +113,46 @@ describe("GameSim: items and inventory", () => {
 
     sim.queueAction(a.playerId, { type: "equip", item: "torch" });
     sim.queueAction(a.playerId, { type: "assign", slot: 0, item: "sword" });
-    sim.queueAction(a.playerId, { type: "assign", slot: 1, item: "torch" });
+    sim.queueAction(a.playerId, { type: "assign", slot: 2, item: "torch" });
     sim.step();
     expect(sim.getWeapon(a.playerId)).toBe("sword");
-    expect(sim.getHotbar(a.playerId)![0]).toBe("bandage");
-    expect(sim.getHotbar(a.playerId)![1]).toBe("torch");
+    expect(sim.getHotbar(a.playerId)![0]).toBe("torch");
+    expect(sim.getHotbar(a.playerId)![1]).toBe("bandage");
+    expect(sim.getHotbar(a.playerId)![2]).toBe("torch");
+  });
+
+  it("restores queued hotbar assignment and unbind actions from the store", () => {
+    const store = new PlayerStore(null);
+    const createSim = (seed: number) =>
+      new GameSim(
+        new World(SEED, 1, LEVEL.Sandbox),
+        content,
+        store,
+        seed,
+        { testFixtures: true },
+      );
+    const first = createSim(1);
+    const joined = first.addPlayer("A", "persistent-hotbar");
+    first.queueAction(joined.playerId, {
+      type: "assign",
+      slot: 4,
+      item: "torch",
+    });
+    first.step();
+
+    const second = createSim(2);
+    const rejoined = second.addPlayer("A", "persistent-hotbar");
+    expect(second.getHotbar(rejoined.playerId)?.[4]).toBe("torch");
+    second.queueAction(rejoined.playerId, {
+      type: "assign",
+      slot: 0,
+      item: null,
+    });
+    second.step();
+
+    const third = createSim(3);
+    const restored = third.addPlayer("A", "persistent-hotbar");
+    expect(third.getHotbar(restored.playerId)?.[0]).toBeNull();
+    expect(third.getHotbar(restored.playerId)?.[4]).toBe("torch");
   });
 });

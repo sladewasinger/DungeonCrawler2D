@@ -74,6 +74,13 @@ export function addPlayer(
 }
 
 /** Default bookkeeping for a freshly-joined player. */
+function restoredHotbar(stored: PlayerSlot["stored"]): Array<string | null> {
+  const hotbar = Array<string | null>(HOTBAR_SLOTS).fill(null);
+  const saved = stored.hotbar?.slice(0, HOTBAR_SLOTS) ?? [];
+  for (const [index, item] of saved.entries()) hotbar[index] = item;
+  return hotbar;
+}
+
 function newSlot(
   entity: Entity,
   clientId: string,
@@ -93,7 +100,7 @@ function newSlot(
     reapAtTick: Number.MAX_SAFE_INTEGER,
     known: new Set(),
     inventory: [],
-    hotbar: Array(HOTBAR_SLOTS).fill(null),
+    hotbar: restoredHotbar(stored),
     weapon: null,
     outbox: [],
     returnStack: [],

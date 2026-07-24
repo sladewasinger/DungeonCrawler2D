@@ -117,3 +117,39 @@ describe("PlayerStore deepestFloor (Epic 7.14)", () => {
     }
   });
 });
+
+describe("PlayerStore starter hotbar schema", () => {
+  it("loads legacy records and persists a migrated hotbar across restart", () => {
+    const file = tempFile();
+    try {
+      const legacy = {
+        nextSlot: 1,
+        players: {
+          "client-1": {
+            slot: 0,
+            name: "A",
+            stash: [],
+            contacts: [],
+          },
+        },
+      };
+      writeFileSync(file, JSON.stringify(legacy));
+      const before = new PlayerStore(file);
+      const player = before.get("client-1", "A");
+      expect(player.hotbar).toBeUndefined();
+      expect(player.starterHotbarSchema).toBeUndefined();
+      before.recordHotbar(
+        player,
+        ["torch", "bandage", null, null, null, null, null, null, null],
+        1,
+      );
+      before.flush();
+
+      const after = new PlayerStore(file).get("client-1", "A");
+      expect(after.hotbar?.slice(0, 2)).toEqual(["torch", "bandage"]);
+      expect(after.starterHotbarSchema).toBe(1);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+});

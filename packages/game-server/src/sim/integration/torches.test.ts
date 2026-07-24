@@ -28,7 +28,10 @@ describe("GameSim: starter kit", () => {
     expect(inv1.find((s) => s.item === "sword")?.qty).toBe(1);
     expect(inv1.find((s) => s.item === "torch")?.qty).toBe(3);
     expect(inv1.find((s) => s.item === "bandage")?.qty).toBe(2);
-    expect(sim1.getHotbar(a.playerId)?.[0]).toBe("bandage");
+    expect(sim1.getHotbar(a.playerId)?.slice(0, 2)).toEqual([
+      "torch",
+      "bandage",
+    ]);
     expect(sim1.getWeapon(a.playerId)).toBe("sword"); // first-weapon auto-equip
 
     // Simulate a server restart: a fresh GameSim sharing the durable
@@ -43,7 +46,10 @@ describe("GameSim: starter kit", () => {
     expect(inv2.find((s) => s.item === "sword")?.qty).toBe(1);
     expect(inv2.find((s) => s.item === "torch")?.qty).toBe(3);
     expect(inv2.find((s) => s.item === "bandage")?.qty).toBe(2);
-    expect(sim2.getHotbar(again.playerId)?.[0]).toBe("bandage");
+    expect(sim2.getHotbar(again.playerId)?.slice(0, 2)).toEqual([
+      "torch",
+      "bandage",
+    ]);
     expect(sim2.getWeapon(again.playerId)).toBe("sword");
   });
 

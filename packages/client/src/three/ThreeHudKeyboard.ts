@@ -32,17 +32,43 @@ export class ThreeHudKeyboard {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.defaultPrevented) return;
+    if (this.captureChatEvent(event)) return;
+    if (this.captureTextEntryEvent(event)) return;
     if (this.captureSessionMenuEvent(event)) return;
     if (this.captureTabEvent(event)) return;
     if (this.captureInventoryToggleEvent(event)) return;
     if (this.captureInventoryEvent(event)) return;
     if (event.code.startsWith("Digit")) this.selectHotbar(event);
-    if (event.code === "Enter" && !this.actions.chatOwnsFocus()) {
+    if (event.code === "Enter") {
       event.preventDefault();
       this.actions.focusChat();
     }
     this.captureEscapeEvent(event);
   };
+
+  /** Text entry owns every game-level shortcut while its browser input is focused. */
+  private captureChatEvent(event: KeyboardEvent): boolean {
+    if (!this.actions.chatOwnsFocus()) return false;
+    if (event.code === "Escape") {
+      event.preventDefault();
+      this.actions.leaveChat();
+    } else if (event.code === "Tab") {
+      // Keep browser focus inside chat; Tab toggles inventory after chat closes.
+      event.preventDefault();
+    }
+    return true;
+  }
+
+  private captureTextEntryEvent(event: KeyboardEvent): boolean {
+    const target = event.target as Partial<Element> | null;
+    if (!target || typeof target.matches !== "function" ||
+      !target.matches("input,textarea,[contenteditable='true']")) {
+      return false;
+    }
+    return event.code !== "Tab" ||
+      !this.actions.inventoryOpen() ||
+      !target.closest?.("[data-inventory-workspace]");
+  }
 
   private captureSessionMenuEvent(event: KeyboardEvent): boolean {
     if (!this.actions.sessionMenuOpen()) return false;
@@ -58,12 +84,13 @@ export class ThreeHudKeyboard {
     if (event.code !== "Tab") return false;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (!this.actions.chatOwnsFocus()) this.actions.toggleInventory();
+    if (this.actions.inventoryOpen()) this.actions.closeInventory();
+    else this.actions.toggleInventory();
     return true;
   }
 
   private captureInventoryToggleEvent(event: KeyboardEvent): boolean {
-    if (event.code !== "KeyI" || this.actions.chatOwnsFocus()) return false;
+    if (event.code !== "KeyI") return false;
     event.preventDefault();
     event.stopImmediatePropagation();
     this.actions.toggleInventory();
@@ -71,7 +98,6 @@ export class ThreeHudKeyboard {
   }
 
   private selectHotbar(event: KeyboardEvent): void {
-    if (this.actions.chatOwnsFocus()) return;
     const index = Number(event.code.slice(5)) - 1;
     if (index < 0 || index >= 9) return;
     event.preventDefault();

@@ -32,13 +32,24 @@ drifted into a mix of real work, already-shipped work, superseded decisions, pro
 recaptures, and post-v1 ideas. This queue is the current source of execution order.
 Completing one release slice does not complete this roadmap.
 
-1. [ ] **TOP PRIORITY — network cadence and prediction audit:** Chrome shows a
+1. [ ] **TOP PRIORITY — production-grade movement networking audit:** deployed 2D is
+   broadly smooth with only occasional correction, while local 2D can show a regular,
+   cyclic rubberband and Three.js is smooth under the same local session. Treat this as
+   an environment-sensitive client/network diagnosis, not proof that one renderer or
+   the server tick is universally broken. Reproduce the same scripted route locally and
+   against deployment, in both renderers, recording frame time, input sampling,
+   fixed-step catch-up, predicted-body advance, snapshot application/sequence
+   acknowledgement, interpolation buffer, camera-follow target, post-reconcile render
+   offsets, RTT/jitter, WebSocket queue depth, and packet loss. Find any periodic 2D
+   correction/double-application or local runtime pressure without weakening server
+   authority. Chrome also shows a
    continuous 20 Hz client input stream interleaved with roughly 20 Hz server
    snapshot-delta stream: about 2,400 WebSocket messages per connected player per
    minute before combat/events, with 1.6–1.9 KB snapshots in the reported capture.
    Establish a reproducible per-client/per-server baseline (messages/sec, bytes/sec,
    encode/decode time, queue depth, packet-loss behavior, and movement correction
-   error) before changing cadence. Keep the server authoritative, but stop treating
+   error) before changing cadence. Independently of the local symptom, keep the server
+   authoritative, but stop treating
    render cadence as network cadence: coalesce unchanged movement intent and send a
    low-rate heartbeat/timeout-safe refresh while idle; transmit state changes and
    combat actions immediately; negotiate a lower/adaptive AOI snapshot rate with a
@@ -462,6 +473,7 @@ epics, but they do not displace the next playable feature slice in this queue.
 - [ ] **XP + levels (Epic 11 core, pulled forward):** server-authoritative XP on kill, floating +XP numbers, character level on the HUD, level-up flourish; persistence in PlayerStore
 - [ ] **Starter-kit famine:** dying drops everything and the kit never re-grants -> new/returning players are permanently Unarmed (Austin joined to exactly this). Re-grant sword+torches on respawn when the player has no weapon (log assumption); also fix the "YOU DIED on first join" overlay bug (death overlay must only show after a real death event this session)
 - [ ] **Contextual hotbar onboarding (supersedes unconditional starter-bandage coaching):** never show “Press [1] to equip, then [E] to apply the bandage” on join or while a crawler is at full health. The current source is `packages/client/src/ui/tutorials/model.ts`: the first snapshot treats the starter bandage as a newly assigned hotbar item (`assignedItems([], hotbar)`), emits the persistent `usable` tutorial, and `ThreeHudTutorials` stores it for replay. Change the starter bindings in `packages/game-server/src/sim/inventory.ts` to torch in slot 1 and bandage in slot 2; first live hotbar state shows only “Press [1–9] to select a hotbar item.” Once the player actually selects a populated slot, show the action specific to that selected item (torch: `[G]` throws; bandage: `[E]` uses). The bandage-specific health prompt remains conditional on real damage/low health. Present these as a subtle, transparent, borderless CSS hint floating just above the hotbar with a gentle vertical bob, never as a center-screen modal. Extend the tutorial input/state contract with selected-slot edges rather than inferring interaction from hotbar assignment.
+- [ ] **Bandage healing contract:** a bandage must never present as damage. Applying one immediately restores **4 HP** and shows green floating **`+4`** feedback (never red `-4`), then applies or refreshes a visible healing/regeneration buff for exactly 5 seconds that restores **2 HP per second** (14 HP total, clamped to max health). Keep healing authoritative in server simulation; snapshot/event-drive the buff duration and cadence so both renderers and the buff HUD agree. Put its values in the centralized live-tuning config rather than scattering client constants, and cover feedback sign/color plus buff expiry in focused tests.
 - [x] **1-tile corridor stuck-walking:** moving left in a 1-wide hallway requires pixel-perfect alignment — add corner-slide/auto-nudge assist in engine movement so near-misses glide into the gap (docs/ASSUMPTIONS.md #89)
 - [x] **z visual lift:** jumping/stepping onto a z1 platform keeps the sprite at the same screen y — entities must render y-offset by their z (sprite, shadow, nameplate), or elevation reads as nothing (`render/entities/lift.ts` now lifts by the entity's full absolute z, grounded or airborne — see `docs/client-proofs/wave7b-zlift.png`)
 - [ ] **Terrain legibility overhaul (the "absolute mess" walls):** his screenshots show brick face strips scattered mid-floor, black void patches inside rooms, disconnected ledges — the dungeon reads as noise. Reproduce at his coords (x36,y-51 / x47,y-54 / x49,y-54 / x41,y-56 on the prod seed), diagnose worldgen fragmentation vs render grammar, and make generated dungeons READ: cohesive wall masses, clear top-vs-face contrast, no orphan face strips

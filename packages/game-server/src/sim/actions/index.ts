@@ -162,11 +162,13 @@ function doSuicide(slot: PlayerSlot): void {
 function doAssign(sim: SimState, slot: PlayerSlot, hotbarSlot: number, item: string | null): void {
   if (item === null) {
     slot.hotbar[hotbarSlot] = null;
+    sim.store.recordHotbar(slot.stored, slot.hotbar);
     return;
   }
   const def = sim.content.items.get(item);
   if (invIndex(slot, item) >= 0 && !def?.weapon && (def?.consumable || def?.throwable)) {
     slot.hotbar[hotbarSlot] = item;
+    sim.store.recordHotbar(slot.stored, slot.hotbar);
   }
 }
 

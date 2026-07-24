@@ -20,7 +20,6 @@ export const createLiveHtmlHud = (options: LiveHtmlHudOptions): ThreeHud =>
     connection: options.connection,
     focusGame: options.focusGame,
     setTextInputFocused: options.setTextInputFocused,
-    bindKeyboard: false,
     showReticle: false,
     ...(options.onSelectHotbar
       ? { onSelectHotbar: options.onSelectHotbar }
