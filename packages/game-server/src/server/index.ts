@@ -5,6 +5,7 @@ import { GameSim } from "../sim/index.js";
 import { PlayerStore } from "../store.js";
 import { broadcastTick } from "./broadcast.js";
 import { handleConnection } from "./dispatch.js";
+import { startHeartbeat } from "./heartbeat.js";
 import type { SocketMap } from "./types.js";
 
 /** WebSocket transport facade: decodes/validates inbound messages,
@@ -63,6 +64,7 @@ export function startServer(opts: ServerOptions): RunningServer {
   const sims: Record<LevelId, GameSim> = { dungeon: floors.base, sandbox };
   const wss = new WebSocketServer({ port: opts.port });
   const sockets: SocketMap = new Map();
+  const stopHeartbeat = startHeartbeat(wss);
 
   wss.on("connection", (ws: WebSocket) => {
     handleConnection(ws, floors, sandbox, sockets, opts.worldSeed);
@@ -77,10 +79,21 @@ export function startServer(opts: ServerOptions): RunningServer {
     floors,
     store,
     stop() {
-      clearInterval(interval);
-      store.flush();
-      wss.close();
-      for (const { ws } of sockets.values()) ws.close(1001, "server stopping");
+      stopServer(interval, stopHeartbeat, store, wss, sockets);
     },
   };
+}
+
+function stopServer(
+  interval: ReturnType<typeof setInterval>,
+  stopHeartbeat: () => void,
+  store: PlayerStore,
+  wss: WebSocketServer,
+  sockets: SocketMap,
+): void {
+  clearInterval(interval);
+  stopHeartbeat();
+  store.flush();
+  wss.close();
+  for (const { ws } of sockets.values()) ws.close(1001, "server stopping");
 }

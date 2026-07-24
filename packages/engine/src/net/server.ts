@@ -55,6 +55,7 @@ export const entitySnapshotSchema = z.object({
   aimY: z.number().min(-1).max(1).optional(),
   faceX: z.number().min(-1).max(1).optional(),
   faceY: z.number().min(-1).max(1).optional(),
+  weapon: z.string().nullable().optional(),
   /** Present iff airborne — grounded entities render planted on their
    * shadow (interpolating z across height steps must not read as a hop). */
   air: z.literal(true).optional(),

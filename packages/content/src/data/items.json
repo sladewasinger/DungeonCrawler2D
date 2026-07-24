@@ -15,7 +15,7 @@
     "tags": ["sharp", "metal"],
     "maxStack": 1,
     "flavor": "Small, mean, and eager to prove it.",
-    "weapon": { "damage": 6, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
+    "weapon": { "damage": 6, "range": 1.6, "cooldownMs": 240, "arcCos": 0.8, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
   },
   {
     "id": "sword",
@@ -23,7 +23,7 @@
     "tags": ["sharp", "metal"],
     "maxStack": 1,
     "flavor": "Previously owned. The rust is load-bearing.",
-    "weapon": { "damage": 8, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
+    "weapon": { "damage": 9, "range": 2, "cooldownMs": 350, "arcCos": 0.7071, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
   },
   {
     "id": "hammer",
@@ -31,7 +31,7 @@
     "tags": ["blunt", "metal"],
     "maxStack": 1,
     "flavor": "Subtlety was never on the crafting list.",
-    "weapon": { "damage": 10, "applies": [{ "status": "slowed", "chance": 0.5 }] }
+    "weapon": { "damage": 10, "range": 1.7, "cooldownMs": 500, "arcCos": 0.74, "applies": [{ "status": "slowed", "chance": 0.5 }] }
   },
   {
     "id": "torch",
@@ -39,7 +39,6 @@
     "tags": ["wood", "fire"],
     "maxStack": 3,
     "flavor": "Light, warmth, and a small controlled arson.",
-    "weapon": { "damage": 2, "applies": [{ "status": "on-fire", "chance": 0.5 }] },
     "throwable": {
       "onImpact": [{ "primitive": "spawn_area", "area": "area-fire", "radius": 1 }],
       "breakChance": 1,

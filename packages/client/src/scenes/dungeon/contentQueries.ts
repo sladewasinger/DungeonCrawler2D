@@ -8,7 +8,7 @@ import { TILE, type TileType } from "@dc2d/engine";
 interface ItemDef {
   readonly id: string;
   readonly name?: string;
-  readonly weapon?: unknown;
+  readonly weapon?: { readonly cooldownMs?: number };
   readonly consumable?: unknown;
   readonly throwable?: unknown;
   /** Epic 7.14 §4: short flavor line shown dimmed under the item name in the inventory window. */
@@ -25,6 +25,14 @@ const itemById = new Map<string, ItemDef>(
 
 export function isThrowableItem(itemDefId: string): boolean {
   return !!itemById.get(itemDefId)?.throwable;
+}
+
+export function isConsumableItem(itemDefId: string): boolean {
+  return !!itemById.get(itemDefId)?.consumable;
+}
+
+export function weaponCooldownMs(itemDefId: string | null, fallbackMs: number): number {
+  return (itemDefId ? itemById.get(itemDefId)?.weapon?.cooldownMs : undefined) ?? fallbackMs;
 }
 
 export type ItemCategory = "weapons" | "usables" | "materials";

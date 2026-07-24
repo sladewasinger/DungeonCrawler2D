@@ -44,6 +44,7 @@ function expectFullKit(slot: PlayerSlot): void {
   expect(slot.weapon).toBe("sword");
   expect(invQty(slot, "sword")).toBe(1);
   expect(invQty(slot, "torch")).toBe(3);
+  expect(invQty(slot, "bandage")).toBe(2);
 }
 
 /** Kill, resolve the death, then jump to the scheduled respawn tick. */
@@ -69,7 +70,7 @@ describe("respawn starter kit (panel round 4)", () => {
     slot = sim.players.get(join.playerId)!;
   });
 
-  it("a fresh join is armed: Rusty Sword equipped + 3 torches", () => {
+  it("a fresh join is armed and carries torches plus two bandages", () => {
     expectFullKit(slot);
   });
 

@@ -9,7 +9,8 @@
  */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
-import { screenMoveToWorld } from "./cameraRelative.js";
+import { screenDirToWorld, screenMoveToWorld } from "./cameraRelative.js";
+import { interactOrUse, throwSelected, withPointerFacing } from "./gameplayActions.js";
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
@@ -82,14 +83,14 @@ export class InputController {
     this.queries = queries;
     this.tilePx = tilePx;
     const { keys, cursors } = createKeys(scene);
-    this.state = { keys, cursors, nextSwingAt: 0, selectedThrowable: null };
+    this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null };
     this.bindKeys(keys, queries, hooks);
     this.bindPointer(hud, queries, hooks, tilePx);
   }
 
   private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
     const { conn, panels, state } = this;
-    keys.G.on("down", guarded(() => hooks.onToggleBorders()));
+    keys.G.on("down", guarded(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx)));
     keys.E.on("down", guarded(() => this.handleInteractDown()));
     keys.E.on("up", guarded(() => this.revive.end(this.scene.time.now)));
     keys.K.on("down", guarded(() => this.giveUp.begin(conn.downed, this.scene.time.now)));
@@ -99,7 +100,7 @@ export class InputController {
     keys.F.on("down", guarded(() => holdDown(this.fistbumpHold, this.scene.time.now)));
     keys.F.on("up", guarded(() => this.releaseFistbumpHold(conn, queries)));
     keys.ESC.on("down", () => {
-      state.selectedThrowable = null;
+      state.selectedSlot = null;
       panels.closeAll(conn);
       hooks.onCloseOverlays();
     });
@@ -119,13 +120,7 @@ export class InputController {
    * else this mirrors the server's doInteract() gate client-side, purely to toast
    * "nothing happened" rather than assert an outcome — interact() still always fires. */
   private handleInteractDown(): void {
-    const { conn, panels, queries } = this;
-    if (queries.isStairwayNearby(conn)) return conn.descend();
-    const target = queries.downedPartyMemberInRange(conn);
-    if (this.revive.begin(target?.id, this.scene.time.now)) return;
-    if (queries.isStashNearby(conn)) panels.openStashIfNearby(conn);
-    else if (!queries.isDoorNearby(conn)) conn.pushToast("Nothing to interact with here");
-    conn.interact();
+    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.revive.begin(targetId, this.scene.time.now));
   }
 
   /** Call once per render frame: fires the revive intent exactly on the tick the hold
@@ -245,10 +240,12 @@ export class InputController {
    * here, the one choke point before Connection.sampleInput's predicted stepBody. */
   readInput(): MoveInput {
     const keyboardMove = readMoveInput(this.state, this.conn);
-    if (!this.touchActive) return screenMoveToWorld(keyboardMove, getViewOrientation());
+    if (!this.touchActive) return withPointerFacing(screenMoveToWorld(keyboardMove, getViewOrientation()), this.scene, this.conn, this.tilePx);
     const merged = mergeMoveInputs(keyboardMove, touchMoveInput(this.touch));
     updateLastFacing(this.touch, merged.moveX, merged.moveY);
-    return screenMoveToWorld(merged, getViewOrientation());
+    const move = screenMoveToWorld(merged, getViewOrientation());
+    const facing = screenDirToWorld(this.touch.lastFacing, getViewOrientation());
+    return { ...move, faceX: facing.x, faceY: facing.y };
   }
 
   /** Current armed-throw trajectory preview, for the scene to render, or null. */
@@ -261,6 +258,11 @@ export class InputController {
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
   armedThrowableSlot(): number | null {
     return activeThrowableSlot(this.state, this.conn, this.queries);
+  }
+
+  /** Hotbar slot selected by keyboard/touch, regardless of its item category. */
+  selectedHotbarSlot(): number | null {
+    return this.state.selectedSlot;
   }
 
   /** Live joystick/button state for the touch HUD widgets to render, or null when touch isn't active. */

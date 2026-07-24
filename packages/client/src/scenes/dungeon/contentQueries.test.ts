@@ -10,6 +10,7 @@ import {
   nearestDownedPartyMember,
   nearestEntityId,
   recipeIdAtIndex,
+  weaponCooldownMs,
 } from "./contentQueries.js";
 
 describe("isThrowableItem", () => {
@@ -23,15 +24,27 @@ describe("isThrowableItem", () => {
   });
 });
 
+describe("weaponCooldownMs", () => {
+  it("uses each weapon's data-driven attack cadence", () => {
+    expect(weaponCooldownMs("knife", 400)).toBe(240);
+    expect(weaponCooldownMs("sword", 400)).toBe(350);
+  });
+
+  it("uses the fallback while unarmed or for an unknown item", () => {
+    expect(weaponCooldownMs(null, 400)).toBe(400);
+    expect(weaponCooldownMs("nonexistent", 400)).toBe(400);
+  });
+});
+
 describe("categoryOfItem", () => {
-  it("puts weapons in the weapons tab even when they're also throwable (torch)", () => {
+  it("puts only weapons in the weapons tab", () => {
     expect(categoryOfItem("sword")).toBe("weapons");
-    expect(categoryOfItem("torch")).toBe("weapons");
   });
 
   it("puts consumables and non-weapon throwables in the usables tab", () => {
     expect(categoryOfItem("bandage")).toBe("usables");
     expect(categoryOfItem("vodka-bottle")).toBe("usables");
+    expect(categoryOfItem("torch")).toBe("usables");
   });
 
   it("falls back to materials for everything else, including unknown ids", () => {

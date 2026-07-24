@@ -23,6 +23,7 @@ describe("protocol", () => {
     const intents: ClientMessage[] = [
       { type: "attack", dirX: 1, dirY: 0 },
       { type: "useSlot", slot: 2, targetX: 10.5, targetY: -3.25 },
+      { type: "useItem", item: "bandage" },
       { type: "throwTorch", dirX: 0.6, dirY: -0.8 },
       { type: "pickup" },
       { type: "drop", item: "rag" },
@@ -34,6 +35,7 @@ describe("protocol", () => {
       { type: "craft", recipe: "bandage" },
       { type: "stash", op: "put", index: 3 },
       { type: "party", op: "invite", target: "p2" },
+      { type: "party", op: "decline" },
       { type: "chat", channel: "party", text: "behind you" },
       { type: "chat", channel: "global", text: "hello floor" },
       { type: "chat", channel: "dm", text: "psst", target: "Ally" },
@@ -85,6 +87,15 @@ describe("protocol", () => {
         members: [{ id: "p2", name: "Ally", x: 100, y: 50, hp: 20, maxHp: 30, downed: false, level: 5 }],
       },
       entities: [
+        {
+          id: "p2",
+          kind: "player",
+          name: "Ally",
+          x: 2,
+          y: 3,
+          z: 0,
+          weapon: "sword",
+        },
         {
           id: "e1",
           kind: "enemy",

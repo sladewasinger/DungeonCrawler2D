@@ -131,7 +131,17 @@ describe("inventory: pickup and drop", () => {
     expect(sim.items.has(item.id)).toBe(true);
   });
 
-  it("drops a whole stack onto the ground and clears equip if it was the weapon", () => {
+  it("drops one item from a stack", () => {
+    const sim = buildSim(fakeWorld());
+    const slot = buildSlot(1, 1);
+    invAdd(sim, slot, "rag", 3);
+    doDrop(sim, slot, "rag");
+    expect(invQty(slot, "rag")).toBe(2);
+    const dropped = [...sim.items.values()].find((e) => e.defId === "rag");
+    expect(dropped?.qty).toBe(1);
+  });
+
+  it("clears equip when the final weapon copy is dropped", () => {
     const sim = buildSim(fakeWorld());
     const slot = buildSlot(1, 1);
     invAdd(sim, slot, "sword", 1);

@@ -46,10 +46,16 @@ describe("selfPlayerView", () => {
 });
 
 describe("remotePlayerView", () => {
-  it("reads attacking off the server anim pulse and always nulls weaponId/weaponAimAngle", () => {
-    const view = remotePlayerView(entity({ id: "e1", kind: "player", name: "Wren", anim: "attack" }));
+  it("reads attacking and held weapon from the server snapshot", () => {
+    const view = remotePlayerView(entity({
+      id: "e1",
+      kind: "player",
+      name: "Wren",
+      anim: "attack",
+      weapon: "sword",
+    }));
     expect(view.attacking).toBe(true);
-    expect(view.weaponId).toBeNull();
+    expect(view.weaponId).toBe("sword");
     expect(view.weaponAimAngle).toBeNull();
   });
 

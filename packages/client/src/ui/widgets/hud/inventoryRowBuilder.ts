@@ -13,6 +13,8 @@ import { createItemIcon } from "./itemIcon.js";
 const BTN_HEIGHT = 18;
 const DROP_WIDTH = 42;
 const EQUIP_WIDTH = 48;
+const USE_WIDTH = 36;
+const HOTBAR_WIDTH = 48;
 const BTN_GAP = 4;
 const NAME_LINE_Y_OFFSET = -6;
 const FLAVOR_LINE_Y_OFFSET = 8;
@@ -27,6 +29,8 @@ export interface RowBuilderContext {
   readonly selectedItemId: string | null;
   onSelect(itemId: string): void;
   onEquip(itemId: string): void;
+  onHotbar(itemId: string): void;
+  onUse(itemId: string): void;
   onDrop(itemId: string): void;
 }
 
@@ -61,11 +65,37 @@ function buildRowButtons(ctx: RowBuilderContext, view: InventoryRowView, right: 
   const btnY = y + (height - BTN_HEIGHT) / 2;
   const dropX = right - DROP_WIDTH;
   const drop = buildButton(ctx, dropX, btnY, DROP_WIDTH, "Drop", true, () => ctx.onDrop(view.itemId));
-  if (!view.isWeapon) return drop;
+  if (view.isWeapon) return [...buildEquipButton(ctx, view, dropX, btnY), ...drop];
+  const buttons = [...drop];
+  let cursor = dropX;
+  if (view.canHotbar) {
+    cursor -= BTN_GAP + HOTBAR_WIDTH;
+    buttons.unshift(...buildButton(ctx, cursor, btnY, HOTBAR_WIDTH, view.boundSlot === null ? "Hotbar" : `[${view.boundSlot + 1}]`, true, () => ctx.onHotbar(view.itemId)));
+  }
+  if (view.canUse) {
+    cursor -= BTN_GAP + USE_WIDTH;
+    buttons.unshift(...buildButton(ctx, cursor, btnY, USE_WIDTH, "Use", true, () => ctx.onUse(view.itemId)));
+  }
+  return buttons;
+}
+
+function buildEquipButton(
+  ctx: RowBuilderContext,
+  view: InventoryRowView,
+  dropX: number,
+  btnY: number,
+): Phaser.GameObjects.GameObject[] {
   const equippedHere = ctx.currentWeaponId === view.itemId;
   const equipX = dropX - BTN_GAP - EQUIP_WIDTH;
-  const equip = buildButton(ctx, equipX, btnY, EQUIP_WIDTH, equippedHere ? "Equipped" : "Equip", !equippedHere, () => ctx.onEquip(view.itemId));
-  return [...equip, ...drop];
+  return buildButton(
+    ctx,
+    equipX,
+    btnY,
+    EQUIP_WIDTH,
+    equippedHere ? "Equipped" : "Equip",
+    !equippedHere,
+    () => ctx.onEquip(view.itemId),
+  );
 }
 
 function buildButton(ctx: RowBuilderContext, x: number, y: number, width: number, label: string, active: boolean, onClick: () => void): Phaser.GameObjects.GameObject[] {

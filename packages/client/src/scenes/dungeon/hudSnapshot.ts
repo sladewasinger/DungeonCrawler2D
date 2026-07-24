@@ -21,7 +21,14 @@ import type { PartyRowData } from "../../ui/widgets/hud/partyFrames.js";
 import type { BossBarData } from "../../ui/widgets/hud/bossBarView.js";
 import { recipeRowViews } from "../../ui/widgets/hud/recipeRows.js";
 import { stashRowViews } from "../../ui/widgets/hud/stashRows.js";
-import { categoryOfItem, itemFlavor, itemName, recipeList } from "./contentQueries.js";
+import {
+  categoryOfItem,
+  isConsumableItem,
+  isThrowableItem,
+  itemFlavor,
+  itemName,
+  recipeList,
+} from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { resolvePartyNavigation } from "../../ui/partyNavigation.js";
 
@@ -65,14 +72,11 @@ function inventoryRows(inventory: readonly InvStack[], hotbar: readonly (string 
       qty: stack.qty,
       category: categoryOfItem(stack.item),
       boundSlot: boundIndex >= 0 ? boundIndex : null,
+      canUse: isConsumableItem(stack.item),
+      canHotbar: isConsumableItem(stack.item) || isThrowableItem(stack.item),
       flavor: itemFlavor(stack.item),
     };
   });
-}
-
-/** The hotbar slot holding the currently equipped weapon, or -1 (no highlight) when unarmed. */
-function selectedSlotIndex(hotbar: readonly (string | null)[], weapon: string | null): number {
-  return weapon ? hotbar.indexOf(weapon) : -1;
 }
 
 /**
@@ -162,10 +166,14 @@ export interface HudSnapshotSource {
 }
 
 /** Hotbar/inventory/craft/stash fields — split out so buildHudSnapshot itself stays under the function-length cap. */
-function inventoryFields(src: HudSnapshotSource, armedThrowableSlot: number | null) {
+function inventoryFields(
+  src: HudSnapshotSource,
+  selectedHotbarSlot: number | null,
+  armedThrowableSlot: number | null,
+) {
   return {
     hotbar: hotbarSlots(src.hotbar, src.inventory),
-    selectedSlot: selectedSlotIndex(src.hotbar, src.weapon),
+    selectedSlot: selectedHotbarSlot ?? -1,
     armedThrowableSlot,
     buffs: buffChips(src.fx),
     equippedWeaponId: src.weapon,
@@ -201,6 +209,7 @@ function statusFields(
 
 export function buildHudSnapshot(
   src: HudSnapshotSource,
+  selectedHotbarSlot: number | null,
   armedThrowableSlot: number | null,
   interactionPrompt: InteractionPrompt | null,
   touch: TouchVisualSnapshot | null,
@@ -215,7 +224,7 @@ export function buildHudSnapshot(
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
     xp: { xp: src.xp, level: src.level, xpForNext: src.xpForNext },
-    ...inventoryFields(src, armedThrowableSlot),
+    ...inventoryFields(src, selectedHotbarSlot, armedThrowableSlot),
     lastToast: src.lastToast,
     toasts: [...src.toasts],
     seed: src.seed,

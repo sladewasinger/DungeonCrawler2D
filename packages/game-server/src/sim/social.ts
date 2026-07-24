@@ -12,11 +12,12 @@ const INVITE_RANGE_TILES = 6;
 export function doParty(
   sim: SimState,
   slot: PlayerSlot,
-  op: "invite" | "accept" | "leave",
+  op: "invite" | "accept" | "decline" | "leave",
   target?: string,
 ): void {
   if (op === "invite" && target) invitePlayer(sim, slot, target);
   else if (op === "accept") acceptInvite(sim, slot);
+  else if (op === "decline") declineInvite(sim, slot);
   else if (op === "leave") leaveParty(sim, slot);
 }
 
@@ -48,6 +49,19 @@ function acceptInvite(sim: SimState, slot: PlayerSlot): void {
     sim.players.get(memberId)?.outbox.push({
       t: "toast",
       msg: `${slot.entity.name} joined the party`,
+    });
+  }
+}
+
+function declineInvite(sim: SimState, slot: PlayerSlot): void {
+  const invite = sim.invites.get(slot.entity.id);
+  if (!invite) return;
+  sim.invites.delete(slot.entity.id);
+  const inviter = sim.players.get(invite.from);
+  if (inviter?.connected) {
+    inviter.outbox.push({
+      t: "toast",
+      msg: `${slot.entity.name ?? "Player"} declined the party invite`,
     });
   }
 }

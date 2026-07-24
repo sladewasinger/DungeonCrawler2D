@@ -5,10 +5,9 @@ import { doChat, doParty } from "../social.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
 import { doDescend } from "./descend.js";
 import { doInteract, teleport } from "./interact.js";
-import { doUseSlot } from "./items.js";
+import { dispatchItemAction } from "./items.js";
 import { doAttack } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety.js";
-import { doThrowTorch } from "../torches.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
@@ -17,7 +16,7 @@ import { doThrowTorch } from "../torches.js";
 export function processActions(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const slot of sim.players.values()) {
     const actions = slot.pendingActions.splice(0);
-    if (slot.entity.hp <= 0) continue;
+    if (!slot.connected || slot.entity.hp <= 0) continue;
     for (const action of actions) {
       if (slot.entity.hp <= 0) break;
       dispatchAction(sim, slot, action, effectEvents);
@@ -29,6 +28,7 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
 const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
   "attack",
   "useSlot",
+  "useItem",
   "throwTorch",
   "pickup",
   "drop",
@@ -39,7 +39,14 @@ const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
 ]);
 
 /** Offensive action types — performing one forfeits spawn grace (spawnSafety.ts). */
-const FORFEITS_SPAWN_GRACE = new Set<PlayerAction["type"]>(["attack", "useSlot", "throwTorch"]);
+const FORFEITS_SPAWN_GRACE = new Set<PlayerAction["type"]>([
+  "attack",
+  "useSlot",
+  "useItem",
+  "throwTorch",
+]);
+
+const ITEM_ACTIONS = new Set<PlayerAction["type"]>(["useSlot", "useItem", "throwTorch"]);
 
 function dispatchAction(
   sim: SimState,
@@ -63,15 +70,13 @@ function dispatchGatedAction(
   action: PlayerAction,
   effectEvents: EffectEvent[],
 ): void {
+  if (ITEM_ACTIONS.has(action.type)) {
+    dispatchItemAction(sim, slot, action, effectEvents);
+    return;
+  }
   switch (action.type) {
     case "attack":
       doAttack(sim, slot, action.dirX, action.dirY, effectEvents);
-      break;
-    case "useSlot":
-      doUseSlot(sim, slot, action.slot, action.targetX, action.targetY, effectEvents);
-      break;
-    case "throwTorch":
-      doThrowTorch(sim, slot, action.dirX, action.dirY);
       break;
     case "pickup":
       doPickup(sim, slot);
@@ -106,7 +111,7 @@ function dispatchStandingAction(
       doSuicide(slot);
       break;
     case "assign":
-      doAssign(slot, action.slot, action.item);
+      doAssign(sim, slot, action.slot, action.item);
       break;
     case "equip":
       doEquip(sim, slot, action.item);
@@ -154,8 +159,15 @@ function doSuicide(slot: PlayerSlot): void {
 }
 
 /** Bind an owned def (or clear) — the hotbar holds references. */
-function doAssign(slot: PlayerSlot, hotbarSlot: number, item: string | null): void {
-  if (item === null || invIndex(slot, item) >= 0) slot.hotbar[hotbarSlot] = item;
+function doAssign(sim: SimState, slot: PlayerSlot, hotbarSlot: number, item: string | null): void {
+  if (item === null) {
+    slot.hotbar[hotbarSlot] = null;
+    return;
+  }
+  const def = sim.content.items.get(item);
+  if (invIndex(slot, item) >= 0 && !def?.weapon && (def?.consumable || def?.throwable)) {
+    slot.hotbar[hotbarSlot] = item;
+  }
 }
 
 function doEquip(sim: SimState, slot: PlayerSlot, item: string | null): void {

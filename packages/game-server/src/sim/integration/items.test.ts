@@ -38,7 +38,7 @@ describe("GameSim: items and inventory", () => {
 
     sim.queueAction(a.playerId, { type: "drop", item: "rag" });
     let snap = sim.step().get(a.playerId)!;
-    expect(inv.length).toBe(0);
+    expect(inv).toEqual([{ item: "rag", qty: 4 }]);
     expect(snap.entities.some((e) => e.kind === "item" && e.defId === "rag")).toBe(true);
 
     // Picking a bandage up does NOT touch the hotbar (bindings are the
@@ -87,5 +87,25 @@ describe("GameSim: items and inventory", () => {
     sim.queueAction(a.playerId, { type: "useSlot", slot: 0, targetX: tx, targetY: ty });
     stepN(sim, 30);
     expect(nearbyAreaTile(sim, tx, ty, "fire")).not.toBeNull();
+  });
+
+  it("uses consumables directly while rejecting invalid equip and hotbar assignments", () => {
+    const a = sim.addPlayer("A", "client-a");
+    const entity = sim.getPlayerEntity(a.playerId)!;
+    entity.hp = 20;
+    sim.effects.applyStatus(entity, "bleeding", []);
+    sim.queueAction(a.playerId, { type: "useItem", item: "bandage" });
+    sim.step();
+    expect(entity.hp).toBe(24);
+    expect(entity.statuses.some((status) => status.defId === "bleeding")).toBe(false);
+    expect(sim.getInventory(a.playerId)!.find((stack) => stack.item === "bandage")?.qty).toBe(1);
+
+    sim.queueAction(a.playerId, { type: "equip", item: "torch" });
+    sim.queueAction(a.playerId, { type: "assign", slot: 0, item: "sword" });
+    sim.queueAction(a.playerId, { type: "assign", slot: 1, item: "torch" });
+    sim.step();
+    expect(sim.getWeapon(a.playerId)).toBe("sword");
+    expect(sim.getHotbar(a.playerId)![0]).toBeNull();
+    expect(sim.getHotbar(a.playerId)![1]).toBe("torch");
   });
 });

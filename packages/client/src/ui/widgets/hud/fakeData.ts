@@ -32,6 +32,8 @@ export interface InventoryRowData {
   category: InventoryCategory;
   /** Hotbar index this item is bound to, or null when unbound. */
   boundSlot: number | null;
+  canUse: boolean;
+  canHotbar: boolean;
   /** Content's short flavor line (Epic 7.14 §4), undefined for a def that has none. */
   flavor?: string | undefined;
 }
@@ -135,16 +137,16 @@ const EMPTY_SLOT: HotbarSlotData = { itemId: null, count: 0 };
  * "cap visible rows, no scroll region yet" behavior, not just the tab filters.
  */
 const FAKE_INVENTORY: InventoryRowData[] = [
-  { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0 },
-  { itemId: "knife", name: "Knife", qty: 1, category: "weapons", boundSlot: null },
-  { itemId: "hammer", name: "Heavy Hammer", qty: 1, category: "weapons", boundSlot: 4 },
-  { itemId: "torch", name: "Torch", qty: 2, category: "weapons", boundSlot: null },
-  { itemId: "bandage", name: "Bandage", qty: 3, category: "usables", boundSlot: 1 },
-  { itemId: "water-flask", name: "Water Flask", qty: 2, category: "usables", boundSlot: 2 },
-  { itemId: "vodka-bottle", name: "Vodka Bottle", qty: 1, category: "usables", boundSlot: 3 },
-  { itemId: "raw-meat", name: "Raw Meat", qty: 4, category: "usables", boundSlot: null },
-  { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, flavor: "Absorbent. Slightly cursed. Mostly the first thing." },
-  { itemId: "stick", name: "Stick", qty: 5, category: "materials", boundSlot: null, flavor: "The dungeon's starter weapon, technically. Don't." },
+  { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, canUse: false, canHotbar: false },
+  { itemId: "knife", name: "Knife", qty: 1, category: "weapons", boundSlot: null, canUse: false, canHotbar: false },
+  { itemId: "hammer", name: "Heavy Hammer", qty: 1, category: "weapons", boundSlot: 4, canUse: false, canHotbar: false },
+  { itemId: "torch", name: "Torch", qty: 2, category: "usables", boundSlot: null, canUse: false, canHotbar: true },
+  { itemId: "bandage", name: "Bandage", qty: 3, category: "usables", boundSlot: 1, canUse: true, canHotbar: true },
+  { itemId: "water-flask", name: "Water Flask", qty: 2, category: "usables", boundSlot: 2, canUse: true, canHotbar: true },
+  { itemId: "vodka-bottle", name: "Vodka Bottle", qty: 1, category: "usables", boundSlot: 3, canUse: false, canHotbar: true },
+  { itemId: "raw-meat", name: "Raw Meat", qty: 4, category: "usables", boundSlot: null, canUse: true, canHotbar: true },
+  { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, canUse: false, canHotbar: false, flavor: "Absorbent. Slightly cursed. Mostly the first thing." },
+  { itemId: "stick", name: "Stick", qty: 5, category: "materials", boundSlot: null, canUse: false, canHotbar: false, flavor: "The dungeon's starter weapon, technically. Don't." },
 ];
 
 /** One tab per channel, global unread and dm dimmed (not yet seen) — proves both states at once. */

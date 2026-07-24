@@ -16,8 +16,6 @@ import type { PlayerSlot, SimState } from "../state.js";
 
 /** Melee swing resolution: cooldown gating, targeting-aid, damage, knockback. */
 
-const ATTACK_COOLDOWN_TICKS = Math.round((ATTACK_COOLDOWN_MS / 1000) * TICK_RATE);
-
 export function doAttack(
   sim: SimState,
   slot: PlayerSlot,
@@ -28,18 +26,36 @@ export function doAttack(
   const attacker = slot.entity;
   faceEntity(attacker, dirX, dirY);
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
+  const weaponDef = equippedWeapon(sim, slot);
+  const cooldownTicks = attackCooldownTicks(weaponDef);
   if (sim.tickCount < slot.attackReadyAtTick) return; // swing still recovering
-  slot.attackReadyAtTick = sim.tickCount + ATTACK_COOLDOWN_TICKS;
+  slot.attackReadyAtTick = sim.tickCount + cooldownTicks;
   slot.attackStartedAtTick = sim.tickCount;
-  // Melee swings use the EQUIPPED weapon (character slot, not hotbar).
-  const weaponDef = slot.weapon ? sim.content.items.get(slot.weapon) : undefined;
 
-  const victim = pickMeleeTarget(attacker, dirX, dirY, combatants(sim), (target) =>
-    target.kind === "player" &&
-    slot.partyId !== null &&
-    sim.players.get(target.id)?.partyId === slot.partyId,
+  const victim = pickMeleeTarget(
+    attacker,
+    dirX,
+    dirY,
+    combatants(sim),
+    (target) => isPartyMember(sim, slot, target),
+    weaponDef?.weapon?.range,
+    weaponDef?.weapon?.arcCos,
   );
   if (victim) resolveHit(sim, attacker, weaponDef, victim, effectEvents);
+}
+
+function equippedWeapon(sim: SimState, slot: PlayerSlot): ItemDef | undefined {
+  return slot.weapon ? sim.content.items.get(slot.weapon) : undefined;
+}
+
+function attackCooldownTicks(weaponDef: ItemDef | undefined): number {
+  const cooldownMs = weaponDef?.weapon?.cooldownMs ?? ATTACK_COOLDOWN_MS;
+  return Math.round((cooldownMs / 1000) * TICK_RATE);
+}
+
+function isPartyMember(sim: SimState, slot: PlayerSlot, target: Entity): boolean {
+  if (target.kind !== "player" || slot.partyId === null) return false;
+  return sim.players.get(target.id)?.partyId === slot.partyId;
 }
 
 /** Damage, status applies, knockback, and the downed-player finisher for one swing. */

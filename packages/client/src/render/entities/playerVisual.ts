@@ -146,13 +146,14 @@ function strikeProgress(visual: PlayerVisual, attacking: boolean, nowMs: number)
   return Math.min(1, (nowMs - visual.swingStartMs) / STRIKE_DURATION_MS);
 }
 
-/** Weapon sprite: self orbits the live aim angle (sweeping toward it, see weaponOrbit.ts); remote players keep the legacy hand-offset. */
+/** Weapon sprite: local aim or replicated remote facing drives the same orbit. */
 function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
   const striking = !view.downed && view.attacking;
   applySwingEdge(visual, striking, ctx.nowMs);
   const aimAngle = view.weaponAimAngle;
   const isSelf = aimAngle !== null;
   if (isSelf) visual.weaponAngle = stepOrbitAngle(visual.weaponAngle, aimAngle, ctx.dtSeconds);
+  const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());
 
   const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
   const isFistFallback = isSelf && rawFrame === null && !view.downed;
@@ -163,7 +164,7 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
     striking,
     strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
     wielderDepth: visual.body.depth,
-    orbitAngleRad: isSelf ? visual.weaponAngle : null,
+    orbitAngleRad: isSelf ? visual.weaponAngle : facingAngle,
     attackAngleRad: worldAngleToView(view.attackAngleRad, getViewOrientation()),
     isFistFallback,
   });

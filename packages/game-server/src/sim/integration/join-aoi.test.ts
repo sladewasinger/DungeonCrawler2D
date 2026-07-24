@@ -120,6 +120,27 @@ describe("GameSim: join, spawn, and AOI", () => {
     expect(snap.lastSeq).toBe(1);
   });
 
+  it("immediately hides and freezes a disconnected player during reconnect grace", () => {
+    const observer = sim.addPlayer("Observer", "client-observer");
+    const leaving = sim.addPlayer("Leaving", "client-leaving");
+    const entity = sim.getPlayerEntity(leaving.playerId)!;
+    teleport(entity, observer.spawn.x + 3, observer.spawn.y, sim);
+    expect(sim.step().get(observer.playerId)!.entities.some((e) => e.id === leaving.playerId)).toBe(true);
+
+    sim.handleInput(leaving.playerId, input(1, 1, 0));
+    sim.markDisconnected(leaving.playerId);
+    const x = entity.body.x;
+    const snapshot = sim.step().get(observer.playerId)!;
+
+    expect(snapshot.entities.some((e) => e.id === leaving.playerId)).toBe(false);
+    expect(snapshot.left).toContain(leaving.playerId);
+    expect(entity.body.x).toBe(x);
+    expect(sim.playerCount).toBe(2);
+
+    const resumed = sim.addPlayer("Leaving", "client-leaving", leaving.resumeToken);
+    expect(resumed.resumed).toBe(true);
+  });
+
   it("holding run is server-authoritative: RUN_SPEED_MULTIPLIER faster than walking, per tick (Epic 7.12)", () => {
     // A short 5-tick run (< 3 tiles at RUN_SPEED_MULTIPLIER) from a claimed-open
     // fixture spot — plenty of clearance from the proving ground's geometry.

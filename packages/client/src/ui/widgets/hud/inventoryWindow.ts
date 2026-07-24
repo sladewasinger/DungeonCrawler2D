@@ -33,7 +33,9 @@ const MAX_VISIBLE_ROWS = Math.floor((PANEL_HEIGHT - TAB_HEIGHT - spacing(2)) / R
 /** The three network intents this window drives, threaded down from HudScene's actions bundle. */
 export interface InventoryActions {
   assignSlot(slot: number, item: string | null): void;
+  assignNext(item: string): void;
   equip(item: string | null): void;
+  use(item: string): void;
   drop(item: string): void;
 }
 
@@ -135,6 +137,8 @@ export class InventoryWindowWidget {
         selectedItemId: this.selectedItemId,
         onSelect: (itemId) => this.selectRow(itemId),
         onEquip: (itemId) => this.actions.equip(itemId),
+        onHotbar: (itemId) => this.actions.assignNext(itemId),
+        onUse: (itemId) => this.actions.use(itemId),
         onDrop: (itemId) => this.actions.drop(itemId),
       },
       view,
@@ -156,7 +160,7 @@ export class InventoryWindowWidget {
   }
 
   private computeSignature(rows: readonly InventoryRowData[], weaponId: string | null): string {
-    const rowsKey = rows.map((row) => `${row.itemId}:${row.qty}:${row.boundSlot}`).join(",");
+    const rowsKey = rows.map((row) => `${row.itemId}:${row.qty}:${row.boundSlot}:${row.canUse}:${row.canHotbar}`).join(",");
     return `${this.activeTab}|${this.selectedItemId}|${weaponId}|${rowsKey}`;
   }
 

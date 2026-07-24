@@ -29,6 +29,7 @@ export function markDisconnected(sim: SimState, playerId: string): void {
   if (!slot) return;
   slot.connected = false;
   slot.pendingInputs.length = 0;
+  slot.pendingActions.length = 0;
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
 }
 
@@ -97,6 +98,10 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
 
 export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const slot of sim.players.values()) {
+    if (!slot.connected) {
+      slot.pendingInputs.length = 0;
+      continue;
+    }
     const entity = slot.entity;
     if (entity.hp <= 0 || slot.downedAtTick !== null) {
       slot.pendingInputs.length = 0;

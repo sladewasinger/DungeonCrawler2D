@@ -1,11 +1,20 @@
 // Thin glue between input/index.ts's InputController contracts and DungeonScene's real
 // Connection + self cosmetics. Inventory (HUD_OS.md Phase 1) and craft/stash (Epic 7.12,
 // panelAdapters.ts) are both real: InputPanels reads every field live from HudScene.
-import { INTERACT_RANGE, TILE } from "@dc2d/engine";
+import { ATTACK_COOLDOWN_MS, INTERACT_RANGE, TILE } from "@dc2d/engine";
 import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
-import { isDoorNearby, isTileTypeNearby, isThrowableItem, nearestDownedPartyMember, nearestEntityId, recipeIdAtIndex } from "./contentQueries.js";
+import {
+  isConsumableItem,
+  isDoorNearby,
+  isTileTypeNearby,
+  isThrowableItem,
+  nearestDownedPartyMember,
+  nearestEntityId,
+  recipeIdAtIndex,
+  weaponCooldownMs,
+} from "./contentQueries.js";
 import { endSelfGrace, triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
 import { resolveStairwayPrompt } from "./stairwayProximity.js";
 
@@ -55,6 +64,7 @@ function createInputActions(conn: Connection): Omit<
     pickup: () => conn.pickup(),
     attack: (dx, dy) => conn.attack(dx, dy),
     useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
+    useItem: (item) => conn.useItem(item),
     throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY),
     craft: (recipeId) => conn.craft(recipeId),
     stashOp: (op, index) => conn.stashOp(op, index),
@@ -73,7 +83,14 @@ function createInputActions(conn: Connection): Omit<
 export function createHudActions(conn: Connection): InventoryActions {
   return {
     assignSlot: (slot, item) => conn.assignSlot(slot, item),
+    assignNext: (item) => {
+      const existing = conn.hotbar.indexOf(item);
+      const slot = existing >= 0 ? existing : conn.hotbar.findIndex((entry) => !entry);
+      if (slot >= 0) conn.assignSlot(slot, item);
+      else conn.pushToast("Hotbar is full");
+    },
     equip: (item) => conn.equip(item),
+    use: (item) => conn.useItem(item),
     drop: (item) => conn.drop(item),
   };
 }
@@ -113,6 +130,8 @@ function positionedEntities(conn: Connection): Array<{ id: string; kind: string;
 export function createInputQueries(conn: Connection): InputQueries {
   return {
     isThrowable: isThrowableItem,
+    isConsumable: isConsumableItem,
+    attackCooldownMs: (weaponId) => weaponCooldownMs(weaponId, ATTACK_COOLDOWN_MS),
     recipeIdAt: recipeIdAtIndex,
     nearestPlayerId: (adapter, maxDistance) =>
       adapter.body

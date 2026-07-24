@@ -5,10 +5,10 @@ import { INVENTORY_TABS, inventoryRowViews } from "./inventoryRows.js";
 
 function rows(): InventoryRowData[] {
   return [
-    { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0 },
-    { itemId: "bandage", name: "Bandage", qty: 3, category: "usables", boundSlot: null },
-    { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null },
-    { itemId: "hammer", name: "Heavy Hammer", qty: 1, category: "weapons", boundSlot: 4 },
+    { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, canUse: false, canHotbar: false },
+    { itemId: "bandage", name: "Bandage", qty: 3, category: "usables", boundSlot: null, canUse: true, canHotbar: true },
+    { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, canUse: false, canHotbar: false },
+    { itemId: "hammer", name: "Heavy Hammer", qty: 1, category: "weapons", boundSlot: 4, canUse: false, canHotbar: false },
   ];
 }
 

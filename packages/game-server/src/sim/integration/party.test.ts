@@ -202,7 +202,8 @@ describe("GameSim: party, portals, crafting, stash", () => {
     const a = sim.addPlayer("A", "client-a");
     const entity = sim.getPlayerEntity(a.playerId)!;
     const inv = sim.getInventory(a.playerId)!;
-    inv[0] = { item: "rag", qty: 2 };
+    inv.length = 0;
+    inv.push({ item: "rag", qty: 2 });
 
     sim.queueAction(a.playerId, { type: "craft", recipe: "bandage" });
     sim.step();
@@ -236,8 +237,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
     // re-grants (ASSUMPTION #87, supersedes #2) — the sword/torch stacks
     // land before the stashed knife, which the "take" below appends.
     expect(sim2.getInventory(again.playerId)?.find((s) => s.item === "sword")?.qty).toBe(1);
-    const entity2 = sim2.getPlayerEntity(again.playerId)!;
-    teleport(entity2, features.stash.x + 1.5, features.stash.y + 0.5, sim2);
+    teleport(sim2.getPlayerEntity(again.playerId)!, features.stash.x + 1.5, features.stash.y + 0.5, sim2);
     sim2.queueAction(again.playerId, { type: "stash", op: "take", index: 0 });
     sim2.step();
     expect(sim2.getInventory(again.playerId)?.find((s) => s.item === "knife")).toEqual({ item: "knife", qty: 1 });

@@ -25,6 +25,8 @@ export interface InventoryRowView {
   qty: number;
   boundSlot: number | null;
   isWeapon: boolean;
+  canUse: boolean;
+  canHotbar: boolean;
   flavor?: string | undefined;
 }
 
@@ -44,6 +46,8 @@ export function inventoryRowViews(rows: readonly InventoryRowData[], activeTab: 
       qty: row.qty,
       boundSlot: row.boundSlot,
       isWeapon: row.category === "weapons",
+      canUse: row.canUse,
+      canHotbar: row.canHotbar,
       flavor: row.flavor,
     }));
 }

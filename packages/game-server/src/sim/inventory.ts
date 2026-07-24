@@ -43,7 +43,9 @@ export function invAdd(sim: SimState, slot: PlayerSlot, defId: string, qty: numb
 
 const STARTER_SWORD_DEF = "sword";
 const STARTER_TORCH_DEF = "torch";
+const STARTER_BANDAGE_DEF = "bandage";
 const STARTER_TORCH_QTY = 3;
+const STARTER_BANDAGE_QTY = 2;
 
 /** True once a player has neither an equipped weapon nor a starter
  * sword/torch anywhere they own — inventory OR stash. Checking the
@@ -74,6 +76,7 @@ export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
   if (!lacksStarterKit(slot)) return;
   invAdd(sim, slot, STARTER_SWORD_DEF, 1);
   invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
+  invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
 }
 
 /**
@@ -91,6 +94,9 @@ export function grantRespawnKit(sim: SimState, slot: PlayerSlot): void {
   if (invQty(slot, STARTER_SWORD_DEF) === 0) invAdd(sim, slot, STARTER_SWORD_DEF, 1);
   if (slot.weapon === null) slot.weapon = STARTER_SWORD_DEF;
   if (invQty(slot, STARTER_TORCH_DEF) === 0) invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
+  if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
+    invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
+  }
 }
 
 /** Remove qty of a def; false if the stack is short. Prunes empty stacks. */
@@ -123,14 +129,11 @@ export function doPickup(sim: SimState, slot: PlayerSlot): void {
   sim.exposure.delete(best.id);
 }
 
-/** Drop a whole stack by def (the binding stays, re-armed on repickup). */
+/** Drop one item by def; equipment clears only when its final copy leaves. */
 export function doDrop(sim: SimState, slot: PlayerSlot, defId: string): void {
-  const i = invIndex(slot, defId);
-  if (i < 0) return;
-  const stack = slot.inventory[i]!;
-  spawnItem(sim, stack.item, slot.entity.body.x, slot.entity.body.y, stack.qty);
-  slot.inventory.splice(i, 1);
-  if (slot.weapon === defId) slot.weapon = null;
+  if (!invRemove(slot, defId, 1)) return;
+  spawnItem(sim, defId, slot.entity.body.x, slot.entity.body.y, 1);
+  if (slot.weapon === defId && invQty(slot, defId) === 0) slot.weapon = null;
 }
 
 export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {

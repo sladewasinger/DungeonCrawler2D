@@ -2,8 +2,6 @@ import { MELEE_ARC_COS, MELEE_RANGE } from "../core/constants.js";
 import type { Entity } from "../entities/entity.js";
 import { BODY_RADIUS } from "../entities/movement/state.js";
 
-const MELEE_HALF_ARC_RAD = Math.acos(MELEE_ARC_COS);
-
 /**
  * The melee targeting aid (GAME_DESIGN.md § PvPvE): friendly fire is
  * ALWAYS on — but a swing resolves against the *best* target in its
@@ -32,6 +30,7 @@ function isEligibleTarget(
   nx: number,
   ny: number,
   range: number,
+  halfArcRad: number,
 ): number | null {
   if (target.id === attacker.id || target.hp <= 0) return null;
   if (target.kind !== "player" && target.kind !== "enemy") return null;
@@ -53,7 +52,7 @@ function isEligibleTarget(
     const dot = (dx / dist) * nx + (dy / dist) * ny;
     const offAxisRad = Math.acos(Math.min(1, Math.max(-1, dot)));
     const bodyAllowanceRad = Math.asin(Math.min(1, BODY_RADIUS / dist));
-    if (offAxisRad > MELEE_HALF_ARC_RAD + bodyAllowanceRad) return null;
+    if (offAxisRad > halfArcRad + bodyAllowanceRad) return null;
   }
   return dist;
 }
@@ -76,10 +75,11 @@ function findBestTargets(
   candidates: Iterable<Entity>,
   isPartyMember: (target: Entity) => boolean,
   range: number,
+  halfArcRad: number,
 ): BestTargets {
   const best: BestTargets = { hostile: null, friendly: null };
   for (const target of candidates) {
-    const dist = isEligibleTarget(attacker, target, nx, ny, range);
+    const dist = isEligibleTarget(attacker, target, nx, ny, range, halfArcRad);
     if (dist === null) continue;
     if (isPartyMember(target)) {
       best.friendly = closerCandidate(best.friendly, target, dist);
@@ -97,8 +97,9 @@ export function pickMeleeTarget(
   candidates: Iterable<Entity>,
   isPartyMember: (target: Entity) => boolean,
   range = MELEE_RANGE,
+  arcCos = MELEE_ARC_COS,
 ): Entity | null {
   const { nx, ny } = normalizeDirection(dirX, dirY);
-  const best = findBestTargets(attacker, nx, ny, candidates, isPartyMember, range);
+  const best = findBestTargets(attacker, nx, ny, candidates, isPartyMember, range, Math.acos(arcCos));
   return best.hostile?.entity ?? best.friendly?.entity ?? null;
 }

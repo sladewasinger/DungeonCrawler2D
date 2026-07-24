@@ -1,10 +1,6 @@
 // Per-frame input contracts for the entity renderer: shaped to mirror
 // @dc2d/engine's EntitySnapshot/EnemyAnimationState fields 1:1 so wiring a real
-// net.apply()-derived list in later waves is a passthrough, not a rewrite. The one
-// deliberate extra is PlayerEntityView.weaponId — the wire protocol only reports the
-// self player's equipped weapon (ServerSnapshot.weapon), not other players' per-entity
-// weapon, which packages/engine/net is off-limits to change in this wave. Callers
-// supply null for remote players until that protocol gap is closed.
+// net.apply()-derived list in later waves is a passthrough, not a rewrite.
 import type { EnemyAnimationState, WorldView } from "@dc2d/engine";
 
 export interface RenderContext {
@@ -32,9 +28,7 @@ export interface PlayerEntityView {
   readonly downed: boolean;
   readonly attacking: boolean;
   readonly weaponId: string | null;
-  /** Self-only live weapon-orbit target (radians): mouse-relative on desktop, facing-locked
-   * on touch. Null for remote players (no live aim to orbit — see heldWeapon.ts), which
-   * doubles as this view's "is this the self player" signal for the unarmed fist fallback. */
+  /** Self-only live weapon-orbit target. Remote players use replicated facing instead. */
   readonly weaponAimAngle: number | null;
   /** Direction (radians) of the current/most-recent swing: self's real attack.dx/dy for
    * exact wedge/sweep alignment, or a remote player's reported faceX/faceY as the best

@@ -31,6 +31,7 @@ import {
   stashOpIntent,
   suicideIntent,
   throwTorchIntent,
+  useItemIntent,
   useSlotIntent,
   whoIntent,
 } from "./intents.js";
@@ -186,15 +187,15 @@ export class Connection {
     attackIntent(this, dirX, dirY);
   }
 
-  /** Throws the equipped throwable toward an aim direction (not a clicked tile) —
+  /** Throws a hotbar torch toward an aim direction (not a clicked tile) —
    * the dedicated Epic 7.8 torch-throw intent, distinct from useSlot's target-tile throw. */
   throwTorch(dirX: number, dirY: number): void {
     throwTorchIntent(this, dirX, dirY);
   }
 
-  useSlot(slot: number, targetX?: number, targetY?: number): void {
-    useSlotIntent(this, slot, targetX, targetY);
-  }
+  useSlot(slot: number, targetX?: number, targetY?: number): void { useSlotIntent(this, slot, targetX, targetY); }
+
+  useItem(item: string): void { useItemIntent(this, item); }
 
   pickup(): void {
     pickupIntent(this);
@@ -229,7 +230,7 @@ export class Connection {
     stashOpIntent(this, op, index);
   }
 
-  partyOp(op: "invite" | "accept" | "leave", target?: string): void {
+  partyOp(op: "invite" | "accept" | "decline" | "leave", target?: string): void {
     partyOpIntent(this, op, target);
   }
 

@@ -17,10 +17,7 @@ export function weaponIconFrame(weaponId: string | null): string | null {
  * Unarmed stand-in for the self player's orbiting weapon: the 0x72 pack ships no bare-
  * hand/fist/gauntlet icon (heroes only ever hold a weapon in its source art), so the
  * smallest weapon silhouette (a plain knife) doubles as one, tinted a skin tone by
- * heldWeapon.ts so it reads as a fist/knuckle, not a real blade. Self-only: remote
- * players keep showing no weapon at all while `weaponId` is null, since the wire
- * protocol never actually distinguishes "this remote player has no weapon" from "the
- * protocol doesn't report it" (see view.ts's weaponId doc) — guessing a fist there
- * could paint an armed player as unarmed.
+ * heldWeapon.ts so it reads as a fist/knuckle, not a real blade. It remains self-only;
+ * remote players with a null replicated weapon render empty-handed.
  */
 export const FIST_FALLBACK_FRAME = "weapon_knife";

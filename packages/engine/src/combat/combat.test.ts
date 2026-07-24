@@ -192,4 +192,14 @@ describe("melee cone-vs-body (point-blank playability)", () => {
     const enemy = enemyAt(2.0, 0);
     expect(pickMeleeTarget(attacker, aimEast.x, aimEast.y, [enemy], () => false)).toBeNull();
   });
+
+  it("supports a longer sword reach and narrower dagger arc from content tuning", () => {
+    const distant = enemyAt(2.2, 0);
+    expect(pickMeleeTarget(attacker, 1, 0, [distant], () => false, 2, 0.7071)).toBe(distant);
+    expect(pickMeleeTarget(attacker, 1, 0, [distant], () => false, 1.6, 0.8)).toBeNull();
+
+    const offAxis = enemyAt(1.5, 50);
+    expect(pickMeleeTarget(attacker, 1, 0, [offAxis], () => false, 2, 0.7071)).toBe(offAxis);
+    expect(pickMeleeTarget(attacker, 1, 0, [offAxis], () => false, 1.6, 0.8)).toBeNull();
+  });
 });

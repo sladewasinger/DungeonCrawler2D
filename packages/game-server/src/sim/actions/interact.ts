@@ -35,7 +35,14 @@ function reviveDownedPartyMember(
 ): boolean {
   const body = slot.entity.body;
   for (const other of sim.players.values()) {
-    if (other === slot || other.partyId !== slot.partyId || other.downedAtTick === null) continue;
+    if (
+      other === slot ||
+      !other.connected ||
+      other.partyId !== slot.partyId ||
+      other.downedAtTick === null
+    ) {
+      continue;
+    }
     const d = Math.hypot(other.entity.body.x - body.x, other.entity.body.y - body.y);
     if (d > INTERACT_RANGE) continue;
     other.downedAtTick = null;

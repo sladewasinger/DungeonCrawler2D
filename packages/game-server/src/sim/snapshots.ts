@@ -50,13 +50,14 @@ function enemyAnimFields(
 function playerFields(
   sim: SimState,
   entity: Entity,
-): Pick<EntitySnapshot, "anim" | "downed"> | Record<string, never> {
+): Pick<EntitySnapshot, "anim" | "downed" | "weapon"> | Record<string, never> {
   if (entity.kind !== "player") return {};
   const slot = sim.players.get(entity.id);
   if (!slot) return {};
   return {
     ...(sim.tickCount - slot.attackStartedAtTick <= 3 ? { anim: "attack" as const } : {}),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
+    weapon: slot.weapon,
   };
 }
 
@@ -101,7 +102,9 @@ function gatherVisible(
     visible.add(entity.id);
     entities.push(toEntitySnapshot(sim, entity));
   };
-  for (const other of sim.players.values()) if (other.entity.hp >= 0) consider(other.entity);
+  for (const other of sim.players.values()) {
+    if (other.connected && other.entity.hp >= 0) consider(other.entity);
+  }
   for (const enemy of sim.enemies.values()) consider(enemy.entity);
   for (const item of sim.items.values()) consider(item);
   for (const projectile of sim.projectiles.values()) consider(projectile);
@@ -147,7 +150,7 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
   return {
     id: party.id,
     members: [...party.members]
-      .filter((m) => m !== slot.entity.id)
+      .filter((m) => m !== slot.entity.id && sim.players.get(m)?.connected)
       .map((m) => {
         // Member ids come from the party's own member set, always a live player slot.
         const member = sim.players.get(m)!;

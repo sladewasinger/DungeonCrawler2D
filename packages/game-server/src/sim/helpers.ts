@@ -19,7 +19,7 @@ export function isBodyInChasm(body: BodyState): boolean {
 /** Every entity that can take damage or trigger effects. */
 export function combatants(sim: SimState): Entity[] {
   const out: Entity[] = [];
-  for (const slot of sim.players.values()) out.push(slot.entity);
+  for (const slot of sim.players.values()) if (slot.connected) out.push(slot.entity);
   for (const enemy of sim.enemies.values()) out.push(enemy.entity);
   return out;
 }

@@ -29,7 +29,7 @@ describe("hotbarSlotViews", () => {
     expect(views[1]?.selected).toBe(true);
   });
 
-  it("marks the armed-throwable slot independently of selection", () => {
+  it("marks the selected throwable slot independently of weapon equipment", () => {
     const views = hotbarSlotViews(inventory(), 0, 1);
     expect(views[0]).toMatchObject({ selected: true, armed: false });
     expect(views[1]).toMatchObject({ selected: false, armed: true });

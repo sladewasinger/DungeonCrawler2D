@@ -26,7 +26,7 @@ export interface InputState {
   cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   /** Mirrors the server's swing cooldown so the swing arc never lies. */
   nextSwingAt: number;
-  selectedThrowable: number | null;
+  selectedSlot: number | null;
 }
 
 /** The subset of the network connection input needs to read and act on. */
@@ -38,8 +38,7 @@ export interface InputConnection {
   readonly inventory: readonly { item: string; qty: number }[];
   readonly stash: unknown;
   readonly pendingInvite: boolean;
-  /** Equipped weapon def (character slot); null = fists. When it's itself throwable
-   * (a torch), primary attack throws instead of swinging — see throwEquipped.ts. */
+  /** Equipped weapon definition in the character slot; null means fists. */
   readonly weapon: string | null;
   /**
    * Real terrain height at a world tile, for `cursorWorldTile`'s tallest-first aim
@@ -52,7 +51,8 @@ export interface InputConnection {
   pickup(): void;
   attack(dx: number, dy: number): void;
   useSlot(index: number, targetX?: number, targetY?: number): void;
-  /** Throws the equipped throwable toward an aim direction (not a clicked tile). */
+  useItem(item: string): void;
+  /** Throws a hotbar torch toward an aim direction. */
   throwTorch(dirX: number, dirY: number): void;
   craft(recipeId: string): void;
   stashOp(op: "put" | "take", index: number): void;
@@ -98,6 +98,8 @@ export interface InputPanels {
 /** Content/world lookups the controller needs but doesn't own. */
 export interface InputQueries {
   isThrowable(itemDefId: string): boolean;
+  isConsumable(itemDefId: string): boolean;
+  attackCooldownMs(weaponId: string | null): number;
   recipeIdAt(index: number): string | undefined;
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
   isStashNearby(conn: InputConnection): boolean;
@@ -116,7 +118,7 @@ export interface InputQueries {
 export interface InputHooks {
   /** Cosmetic swing arc on left-click (or touch ATTACK button) attack. */
   onSwing(dx: number, dy: number): void;
-  /** [G] debug chunk-grid toggle. */
+  /** Legacy debug hook retained for gallery tooling. */
   onToggleBorders(): void;
   /** Tapping the touch layout's chat toggle chip (docs mobile pass — chat collapses to avoid the joystick corner). */
   onToggleChat(): void;

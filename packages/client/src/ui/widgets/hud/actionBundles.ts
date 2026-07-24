@@ -10,7 +10,7 @@ import type { InventoryActions } from "./inventoryWindow.js";
 import type { StashActions } from "./stashWindow.js";
 
 export function noopInventoryActions(): InventoryActions {
-  return { assignSlot: () => {}, equip: () => {}, drop: () => {} };
+  return { assignSlot: () => {}, assignNext: () => {}, equip: () => {}, use: () => {}, drop: () => {} };
 }
 
 export interface SocialActions {

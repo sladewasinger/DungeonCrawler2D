@@ -72,7 +72,7 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
   positionOrbiting(sprite, pose);
 }
 
-/** Remote-player (and pre-orbit) presentation: fixed hand offset flipped to facing, with a small swing-arc bob. */
+/** Legacy fixed hand offset retained for callers that do not provide an orbit angle. */
 function positionLegacyHandOffset(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
   const facingSign = pose.facingX < 0 ? -1 : 1;
   sprite.setFlipX(facingSign < 0);

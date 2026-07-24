@@ -9,7 +9,8 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { invQty, invRemove } from "../inventory.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
+import { doThrowTorch } from "../torches.js";
 
 /** Hotbar item use: throwables launch a projectile, consumables run their effects. */
 
@@ -31,16 +32,29 @@ export function doUseSlot(
     return;
   }
 
-  if (def.consumable) {
-    sim.effects.runPrimitives(
-      slot.entity,
-      def.consumable.effects,
-      effectEvents,
-      {},
-      () => sim.rng.next(),
-    );
-    invRemove(slot, defId, 1);
-  }
+  consumeItem(sim, slot, defId, effectEvents);
+}
+
+export function doUseItem(
+  sim: SimState,
+  slot: PlayerSlot,
+  defId: string,
+  effectEvents: EffectEvent[],
+): void {
+  if (invQty(slot, defId) < 1) return;
+  consumeItem(sim, slot, defId, effectEvents);
+}
+
+function consumeItem(
+  sim: SimState,
+  slot: PlayerSlot,
+  defId: string,
+  effectEvents: EffectEvent[],
+): void {
+  const consumable = sim.content.items.get(defId)?.consumable;
+  if (!consumable) return;
+  sim.effects.runPrimitives(slot.entity, consumable.effects, effectEvents, {}, () => sim.rng.next());
+  invRemove(slot, defId, 1);
 }
 
 function throwItem(
@@ -74,4 +88,24 @@ function throwItem(
   });
   sim.projectiles.set(projectile.id, projectile);
   invRemove(slot, defId, 1);
+}
+
+/** Dispatches the three inventory-use action shapes split from actions/index.ts. */
+export function dispatchItemAction(
+  sim: SimState,
+  slot: PlayerSlot,
+  action: PlayerAction,
+  effectEvents: EffectEvent[],
+): void {
+  switch (action.type) {
+    case "useSlot":
+      doUseSlot(sim, slot, action.slot, action.targetX, action.targetY, effectEvents);
+      break;
+    case "useItem":
+      doUseItem(sim, slot, action.item, effectEvents);
+      break;
+    case "throwTorch":
+      doThrowTorch(sim, slot, action.dirX, action.dirY);
+      break;
+  }
 }

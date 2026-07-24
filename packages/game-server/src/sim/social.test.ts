@@ -114,6 +114,18 @@ describe("social", () => {
     expect(b.partyId).toBeNull();
   });
 
+  it("declining removes the invite and tells the inviter", () => {
+    doParty(sim, a, "invite", b.entity.id);
+    doParty(sim, b, "decline");
+    expect(sim.invites.has(b.entity.id)).toBe(false);
+    expect(a.outbox).toContainEqual({
+      t: "toast",
+      msg: "B declined the party invite",
+    });
+    doParty(sim, b, "accept");
+    expect(b.partyId).toBeNull();
+  });
+
   it("party chat reaches every member; local chat is a positional world event", () => {
     doParty(sim, a, "invite", b.entity.id);
     doParty(sim, b, "accept");

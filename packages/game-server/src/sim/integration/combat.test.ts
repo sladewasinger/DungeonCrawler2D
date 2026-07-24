@@ -58,7 +58,10 @@ describe("GameSim: combat", () => {
 
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     let snapshots = sim.step();
-    expect(snapshots.get(b.playerId)!.entities.find((entry) => entry.id === a.playerId)?.anim).toBe("attack");
+    expect(snapshots.get(b.playerId)!.entities.find((entry) => entry.id === a.playerId)).toMatchObject({
+      anim: "attack",
+      weapon: "sword",
+    });
 
     snapshots = stepN(sim, 4);
     expect(snapshots.get(b.playerId)!.entities.find((entry) => entry.id === a.playerId)?.anim).toBeUndefined();
@@ -196,7 +199,8 @@ describe("GameSim: combat", () => {
     const inv = sim.getInventory(a.playerId)!;
     expect(inv.find((s) => s.item === "sword")?.qty).toBe(1);
     expect(inv.find((s) => s.item === "torch")?.qty).toBe(3);
-    expect(inv.length).toBe(2);
+    expect(inv.find((s) => s.item === "bandage")?.qty).toBe(2);
+    expect(inv.length).toBe(3);
     expect(sim.getWeapon(a.playerId)).toBe("sword");
     expect(Math.abs(snap.self.x - deathX)).toBeGreaterThan(1); // moved elsewhere
   });

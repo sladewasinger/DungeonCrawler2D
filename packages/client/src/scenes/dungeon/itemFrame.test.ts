@@ -6,8 +6,10 @@ describe("groundItemFrame", () => {
     expect(groundItemFrame("sword")).toBe("weapon_rusty_sword");
   });
 
-  it("falls back to a generic frame for unmapped item ids", () => {
-    expect(groundItemFrame("rag")).toBe("skull");
+  it("uses distinct atlas frames for common materials and consumables", () => {
+    expect(groundItemFrame("rag")).toBe("item_rag");
+    expect(groundItemFrame("bandage")).toBe("item_bandage");
+    expect(groundItemFrame("torch")).toBe("item_torch");
   });
 
   it("falls back to a generic frame when the defId is missing", () => {

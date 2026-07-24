@@ -14,13 +14,14 @@ function torchesIn(snaps: Map<string, ServerSnapshot>, playerId: string): Entity
 }
 
 describe("GameSim: starter kit", () => {
-  it("grants sword + 3 torches on first join; a post-restart reconnect with no kit gets it re-granted", () => {
+  it("grants sword, torches, and bandages on first join and after a kit-less restart", () => {
     const store = new PlayerStore(null);
     const sim1 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 1234, { testFixtures: true });
     const a = sim1.addPlayer("A", "client-a");
     const inv1 = sim1.getInventory(a.playerId)!;
     expect(inv1.find((s) => s.item === "sword")?.qty).toBe(1);
     expect(inv1.find((s) => s.item === "torch")?.qty).toBe(3);
+    expect(inv1.find((s) => s.item === "bandage")?.qty).toBe(2);
     expect(sim1.getWeapon(a.playerId)).toBe("sword"); // first-weapon auto-equip
 
     // Simulate a server restart: a fresh GameSim sharing the durable
@@ -34,6 +35,7 @@ describe("GameSim: starter kit", () => {
     const inv2 = sim2.getInventory(again.playerId)!;
     expect(inv2.find((s) => s.item === "sword")?.qty).toBe(1);
     expect(inv2.find((s) => s.item === "torch")?.qty).toBe(3);
+    expect(inv2.find((s) => s.item === "bandage")?.qty).toBe(2);
     expect(sim2.getWeapon(again.playerId)).toBe("sword");
   });
 

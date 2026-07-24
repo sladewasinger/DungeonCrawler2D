@@ -81,7 +81,7 @@ export function selfPlayerView(
   };
 }
 
-/** Other players: weaponId stays null — the protocol only reports self's equipped weapon (see render/entities/view.ts). */
+/** Other players use replicated equipment and facing for their held-weapon pose. */
 export function remotePlayerView(e: InterpolatedEntity): PlayerEntityView {
   const faceX = e.snap.faceX ?? 1;
   const faceY = e.snap.faceY ?? 0;
@@ -100,7 +100,7 @@ export function remotePlayerView(e: InterpolatedEntity): PlayerEntityView {
     air: e.snap.air ?? false,
     downed: e.snap.downed ?? false,
     attacking: e.snap.anim === "attack",
-    weaponId: null,
+    weaponId: e.snap.weapon ?? null,
     weaponAimAngle: null,
     // The protocol never reports a remote player's actual swing direction (only enemies
     // get aimX/aimY — see game-server/sim/snapshots.ts's enemyAnimFields), so their

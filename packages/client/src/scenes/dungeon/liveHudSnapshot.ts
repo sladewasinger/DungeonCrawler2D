@@ -71,6 +71,7 @@ export function buildLiveHudSnapshot(
   const stairway = conn.world ? resolveStairwayTick(conn.world, bodyPos.x, bodyPos.y, compassBearingDeg) : null;
   return buildHudSnapshot(
     buildSnapshotSource(conn),
+    inputController.selectedHotbarSlot(),
     inputController.armedThrowableSlot(),
     interactionPrompt,
     inputController.touchVisual(),

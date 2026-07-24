@@ -25,7 +25,7 @@ export function killIfInChasm(slot: PlayerSlot): void {
 
 export function resolveDeaths(sim: SimState): void {
   resolveEnemyDeaths(sim);
-  for (const slot of sim.players.values()) resolvePlayerDeath(sim, slot);
+  for (const slot of sim.players.values()) if (slot.connected) resolvePlayerDeath(sim, slot);
 }
 
 function resolveEnemyDeaths(sim: SimState): void {
@@ -114,7 +114,7 @@ function hasConsciousPartyMember(sim: SimState, slot: PlayerSlot): boolean {
   for (const memberId of party.members) {
     if (memberId === slot.entity.id) continue;
     const member = sim.players.get(memberId);
-    if (member && member.entity.hp > 0 && member.downedAtTick === null) return true;
+    if (member?.connected && member.entity.hp > 0 && member.downedAtTick === null) return true;
   }
   return false;
 }

@@ -54,8 +54,13 @@ export const clientUseSlotSchema = z.object({
   targetY: z.number().optional(),
 });
 
+export const clientUseItemSchema = z.object({
+  type: z.literal("useItem"),
+  item: z.string().max(64),
+});
+
 export const clientPickupSchema = z.object({ type: z.literal("pickup") });
-/** Drop a whole stack from the unlimited inventory, by item def. */
+/** Drop one item from the unlimited inventory, by item def. */
 export const clientDropSchema = z.object({ type: z.literal("drop"), item: z.string().max(64) });
 /** Bind an owned item def to a hotbar slot (null clears the binding). */
 export const clientAssignSchema = z.object({
@@ -92,7 +97,7 @@ export const clientStashSchema = z.object({
 
 export const clientPartySchema = z.object({
   type: z.literal("party"),
-  op: z.enum(["invite", "accept", "leave"]),
+  op: z.enum(["invite", "accept", "decline", "leave"]),
   target: z.string().max(32).optional(),
 });
 
@@ -136,6 +141,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientInputSchema,
   clientAttackSchema,
   clientUseSlotSchema,
+  clientUseItemSchema,
   clientThrowTorchSchema,
   clientPickupSchema,
   clientDropSchema,

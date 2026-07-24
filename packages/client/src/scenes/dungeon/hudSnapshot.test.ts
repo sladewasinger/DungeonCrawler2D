@@ -40,8 +40,8 @@ const CONTACTS: never[] = [];
 const COMPASS = 0;
 const STAIRWAY = null;
 
-function snapshotOf(src: HudSnapshotSource, armedThrowableSlot = null as number | null, fps = FPS, bodyPos = BODY_POS) {
-  return buildHudSnapshot(src, armedThrowableSlot, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
+function snapshotOf(src: HudSnapshotSource, selectedSlot = null as number | null, fps = FPS, bodyPos = BODY_POS) {
+  return buildHudSnapshot(src, selectedSlot, null, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
 }
 
 describe("buildHudSnapshot", () => {
@@ -61,9 +61,9 @@ describe("buildHudSnapshot", () => {
     expect(snap.hotbar[1]).toEqual({ itemId: null, count: 0 });
   });
 
-  it("highlights the hotbar slot holding the equipped weapon", () => {
+  it("highlights the explicitly selected hotbar slot", () => {
     const hotbar = [null, "sword", null, null, null, null, null, null, null];
-    const snap = snapshotOf(source({ hotbar, weapon: "sword" }));
+    const snap = snapshotOf(source({ hotbar, weapon: "sword" }), 1);
     expect(snap.selectedSlot).toBe(1);
   });
 
@@ -90,7 +90,7 @@ describe("buildHudSnapshot", () => {
       lines: [{ channel: "global", author: "server", text: "welcome" }],
     };
     const contacts = [{ name: "Wren", online: true }];
-    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, chatModel, contacts, COMPASS, STAIRWAY);
+    const snap = buildHudSnapshot(source(), null, null, null, null, FPS, BODY_POS, chatModel, contacts, COMPASS, STAIRWAY);
     expect(snap.chatModel).toBe(chatModel);
     expect(snap.contacts).toEqual(contacts);
   });
@@ -98,7 +98,7 @@ describe("buildHudSnapshot", () => {
   it("passes through armedThrowableSlot, interactionPrompt, and touch unchanged", () => {
     const prompt = { key: "E", label: "interact" };
     const touch = { stick: null, buttons: { attack: false, jump: false, interact: false } };
-    const snap = buildHudSnapshot(source(), 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
+    const snap = buildHudSnapshot(source(), 3, 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
     expect(snap.armedThrowableSlot).toBe(3);
     expect(snap.interactionPrompt).toBe(prompt);
     expect(snap.touch).toBe(touch);
@@ -106,7 +106,7 @@ describe("buildHudSnapshot", () => {
 
   it("passes the stairway tick straight through for the compass widget (LANE W)", () => {
     const tick = { screenBearingDeg: 135, near: true };
-    const snap = buildHudSnapshot(source(), null, null, null, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, tick);
+    const snap = buildHudSnapshot(source(), null, null, null, null, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, tick);
     expect(snap.stairway).toBe(tick);
     expect(snapshotOf(source()).stairway).toBeNull();
   });
@@ -129,8 +129,8 @@ describe("buildHudSnapshot", () => {
     ];
     const snap = snapshotOf(source({ hotbar, inventory }));
     expect(snap.inventory).toEqual([
-      { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, flavor: expect.any(String) },
-      { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, flavor: expect.any(String) },
+      { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, canUse: false, canHotbar: false, flavor: expect.any(String) },
+      { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, canUse: false, canHotbar: false, flavor: expect.any(String) },
     ]);
   });
 

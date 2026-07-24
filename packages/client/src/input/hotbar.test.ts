@@ -18,6 +18,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     pickup: () => calls.push("pickup"),
     attack: () => calls.push("attack"),
     useSlot: () => calls.push("useSlot"),
+    useItem: () => calls.push("useItem"),
     throwTorch: () => calls.push("throwTorch"),
     craft: () => calls.push("craft"),
     stashOp: () => calls.push("stashOp"),
@@ -36,6 +37,8 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
 function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
   return {
     isThrowable: (id) => id === "bomb",
+    isConsumable: (id) => id === "potion",
+    attackCooldownMs: () => 350,
     recipeIdAt: () => undefined,
     nearestPlayerId: () => undefined,
     isStashNearby: () => true,
@@ -52,56 +55,55 @@ function makeState(): InputState {
     keys: {} as Keys,
     cursors: {} as InputState["cursors"],
     nextSwingAt: 0,
-    selectedThrowable: null,
+    selectedSlot: null,
   };
 }
 
 describe("activateHotbar", () => {
-  it("arms a throwable slot instead of using it immediately", () => {
+  it("selects a throwable slot instead of using it immediately", () => {
     const state = makeState();
     const conn = makeConn();
-    activateHotbar(state, conn, makeQueries(), 1);
-    expect(state.selectedThrowable).toBe(1);
+    activateHotbar(state, conn, 1);
+    expect(state.selectedSlot).toBe(1);
   });
 
   it("toggles the same throwable slot off on a second press", () => {
     const state = makeState();
     const conn = makeConn();
-    const queries = makeQueries();
-    activateHotbar(state, conn, queries, 1);
-    activateHotbar(state, conn, queries, 1);
-    expect(state.selectedThrowable).toBeNull();
+    activateHotbar(state, conn, 1);
+    activateHotbar(state, conn, 1);
+    expect(state.selectedSlot).toBeNull();
   });
 
-  it("uses a non-throwable slot immediately without arming it", () => {
+  it("selects a non-throwable slot without using it", () => {
     const state = makeState();
     const used: number[] = [];
     const conn = makeConn({ useSlot: (i) => used.push(i) });
-    activateHotbar(state, conn, makeQueries(), 0);
-    expect(used).toEqual([0]);
-    expect(state.selectedThrowable).toBeNull();
+    activateHotbar(state, conn, 0);
+    expect(used).toEqual([]);
+    expect(state.selectedSlot).toBe(0);
   });
 
   it("does nothing for an empty slot", () => {
     const state = makeState();
     const conn = makeConn();
-    activateHotbar(state, conn, makeQueries(), 2);
-    expect(state.selectedThrowable).toBeNull();
+    activateHotbar(state, conn, 2);
+    expect(state.selectedSlot).toBeNull();
   });
 });
 
 describe("activeThrowableSlot / throwPreview", () => {
-  it("clears the armed slot if its item stops being a throwable (e.g. consumed)", () => {
+  it("returns null if the selected item is no longer throwable", () => {
     const state = makeState();
-    state.selectedThrowable = 1;
+    state.selectedSlot = 1;
     const conn = makeConn({ hotbar: ["sword", undefined, undefined] });
     expect(activeThrowableSlot(state, conn, makeQueries())).toBeNull();
-    expect(state.selectedThrowable).toBeNull();
+    expect(state.selectedSlot).toBe(1);
   });
 
   it("builds a world-space preview for an armed throwable", () => {
     const state = makeState();
-    state.selectedThrowable = 1;
+    state.selectedSlot = 1;
     const conn = makeConn();
     const preview = throwPreview(state, conn, makeQueries(), { x: 3.5, y: 2 });
     expect(preview).toEqual({ slot: 1, targetX: 3.5, targetY: 2 });
@@ -136,19 +138,17 @@ describe("onNumberKey", () => {
 
   it("falls back to hotbar activation when the inventory is open but nothing is selected", () => {
     const state = makeState();
-    const used: number[] = [];
-    const conn = makeConn({ useSlot: (i) => used.push(i) });
+    const conn = makeConn();
     const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: null };
     onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: false } } as Keys, 1);
-    expect(used).toEqual([0]);
+    expect(state.selectedSlot).toBe(0);
   });
 
   it("falls back to hotbar activation when no panel is open", () => {
     const state = makeState();
-    const used: number[] = [];
-    const conn = makeConn({ useSlot: (i) => used.push(i) });
+    const conn = makeConn();
     onNumberKey(state, conn, panelsClosed, makeQueries(), { SHIFT: { isDown: false } } as Keys, 1);
-    expect(used).toEqual([0]);
+    expect(state.selectedSlot).toBe(0);
   });
 
   it("crafts the recipe at that slot when the craft panel is open near a table", () => {

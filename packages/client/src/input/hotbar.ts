@@ -4,15 +4,11 @@
  */
 import type { InputConnection, InputPanels, InputQueries, InputState, Keys, ThrowPreview } from "./state.js";
 
-/** Current armed-throwable preview, or null when no throwable is selected. */
+/** Current selected throwable slot, or null when no throwable is selected. */
 export function activeThrowableSlot(state: InputState, conn: InputConnection, queries: InputQueries): number | null {
-  if (state.selectedThrowable === null) return null;
-  const defId = conn.hotbar[state.selectedThrowable];
-  if (!defId || !queries.isThrowable(defId)) {
-    state.selectedThrowable = null;
-    return null;
-  }
-  return state.selectedThrowable;
+  if (state.selectedSlot === null) return null;
+  const defId = conn.hotbar[state.selectedSlot];
+  return defId && queries.isThrowable(defId) ? state.selectedSlot : null;
 }
 
 /** Builds the world-space throw preview from the active pointer, if any slot is armed. */
@@ -27,15 +23,11 @@ export function throwPreview(
   return { slot, targetX: pointerWorld.x, targetY: pointerWorld.y };
 }
 
-/** [1-9]/hotbar click: arms a throwable or fires USE immediately for consumables/gear. */
-export function activateHotbar(state: InputState, conn: InputConnection, queries: InputQueries, index: number): void {
+/** [1-9]/hotbar click selects a usable without consuming or throwing it. */
+export function activateHotbar(state: InputState, conn: InputConnection, index: number): void {
   const defId = conn.hotbar[index];
   if (!defId) return;
-  if (queries.isThrowable(defId)) {
-    state.selectedThrowable = state.selectedThrowable === index ? null : index;
-  } else {
-    conn.useSlot(index);
-  }
+  state.selectedSlot = state.selectedSlot === index ? null : index;
 }
 
 /** Shift+number puts the hotbar-bound item into the stash; a plain number takes from it. */
@@ -49,7 +41,7 @@ function handleStashNumberKey(conn: InputConnection, keys: Keys, n: number): voi
   if (inventoryIndex >= 0) conn.stashOp("put", inventoryIndex);
 }
 
-/** Numbers act on the open panel first (inventory bind slot / craft recipe / stash slot), then fall back to hotbar USE. */
+/** Numbers act on the open panel first, then select their matching hotbar slot. */
 export function onNumberKey(
   state: InputState,
   conn: InputConnection,
@@ -71,5 +63,5 @@ export function onNumberKey(
     handleStashNumberKey(conn, keys, n);
     return;
   }
-  activateHotbar(state, conn, queries, n - 1);
+  activateHotbar(state, conn, n - 1);
 }

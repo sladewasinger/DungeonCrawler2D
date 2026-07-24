@@ -14,6 +14,11 @@ const ITEM_ICON_FRAMES: Readonly<Record<string, string>> = {
   hammer: "weapon_hammer",
   "water-flask": "flask_blue",
   "vodka-bottle": "flask_red",
+  bandage: "item_bandage",
+  rag: "item_rag",
+  "raw-meat": "item_raw_meat",
+  stick: "item_stick",
+  torch: "item_torch",
 };
 
 const FALLBACK_TINT = 0x6b6b7e;

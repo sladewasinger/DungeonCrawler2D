@@ -22,6 +22,6 @@ describe("GameSim: party combat", () => {
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
 
-    expect(PLAYER_MAX_HP - bEntity.hp).toBe(4);
+    expect(PLAYER_MAX_HP - bEntity.hp).toBe(4.5);
   });
 });

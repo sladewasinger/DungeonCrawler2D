@@ -8,7 +8,7 @@
     "aggroRadius": 8,
     "attack": { "damage": 2, "range": 0.9, "cooldown": 1.2 },
     "immunities": ["bleed"],
-    "drops": [{ "item": "rag", "chance": 0.4 }],
+    "drops": [{ "item": "rag", "chance": 0.75 }],
     "sprite": "slime",
     "xp": 5,
     "epithet": "dissolved by a slime. A slime."
@@ -24,7 +24,7 @@
     "damageScale": { "fire": 2 },
     "drops": [
       { "item": "stick", "chance": 0.9 },
-      { "item": "rag", "chance": 0.3 }
+      { "item": "rag", "chance": 0.6 }
     ],
     "sprite": "plant_creeper",
     "xp": 8,
@@ -41,7 +41,8 @@
     "immunities": ["bleed", "poison"],
     "drops": [
       { "item": "knife", "chance": 0.15 },
-      { "item": "bandage", "chance": 0.25 }
+      { "item": "bandage", "chance": 0.25 },
+      { "item": "rag", "chance": 0.4 }
     ],
     "sprite": "skelet",
     "xp": 12,
@@ -63,7 +64,8 @@
     },
     "drops": [
       { "item": "water-flask", "chance": 0.3 },
-      { "item": "raw-meat", "chance": 0.5 }
+      { "item": "raw-meat", "chance": 0.5 },
+      { "item": "rag", "chance": 0.35 }
     ],
     "sprite": "imp",
     "xp": 12,

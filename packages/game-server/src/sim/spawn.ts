@@ -140,6 +140,7 @@ function pickSpawnTile(sim: SimState): { x: number; y: number } | null {
 function nearestPlayerDistance(sim: SimState, tile: { x: number; y: number }): number {
   let nearest = Infinity;
   for (const other of sim.players.values()) {
+    if (!other.connected) continue;
     nearest = Math.min(nearest, Math.hypot(other.entity.body.x - tile.x, other.entity.body.y - tile.y));
   }
   return nearest;
