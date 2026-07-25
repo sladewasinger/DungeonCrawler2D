@@ -84,6 +84,10 @@ function applyVitals(conn: Connection, snap: ServerSnapshot): void {
   conn.stamina = snap.self.stamina ?? conn.stamina;
   conn.maxStamina = snap.self.maxStamina ?? conn.maxStamina;
   conn.blocking = snap.self.blocking ?? false;
+  conn.staminaRecoveryDelaySeconds =
+    snap.self.staminaRecoveryDelaySeconds ?? conn.staminaRecoveryDelaySeconds;
+  conn.staminaExhausted =
+    snap.self.staminaExhausted ?? conn.staminaExhausted;
   conn.fx = snap.self.fx;
   conn.statusEffects = snapshotStatusEffects(snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;

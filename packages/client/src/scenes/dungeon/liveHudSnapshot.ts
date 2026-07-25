@@ -31,6 +31,7 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     stamina: conn.stamina,
     maxStamina: conn.maxStamina,
     blocking: conn.blocking,
+    staminaExhausted: conn.staminaExhausted,
     xp: conn.xp,
     level: conn.charLevel,
     xpForNext: conn.xpForNext,

@@ -37,6 +37,8 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   stamina: z.number().nonnegative().optional(),
   maxStamina: z.number().positive().optional(),
   blocking: z.boolean().optional(),
+  staminaRecoveryDelaySeconds: z.number().nonnegative().optional(),
+  staminaExhausted: z.boolean().optional(),
   /** Active status ids (HUD icons / tint). */
   fx: z.array(z.string()),
   /** Timed status state for authoritative HUD progress; additive for rolling clients. */

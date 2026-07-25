@@ -82,6 +82,8 @@ describe("protocol", () => {
         stamina: 64,
         maxStamina: 100,
         blocking: true,
+        staminaRecoveryDelaySeconds: 2.5,
+        staminaExhausted: true,
         fx: ["bleeding"],
         xp: 120,
         level: 3,

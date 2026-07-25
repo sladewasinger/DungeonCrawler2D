@@ -139,7 +139,7 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
   - Stamina recovers while walking and faster while idle.
   - Health regenerates slowly only after a meaningful no-damage delay.
   - Prediction, mobile controls, tooltips, and both HUDs reflect the same state.
-- **Evidence/status:** Protocol v19, shared engine policy, server simulation,
+- **Evidence/status:** Protocol v20, shared engine policy, server simulation,
   prediction, 2D/Three input adapters, touch controls, action help, and both HUDs
   use the same authoritative stamina/block state. Focused tests cover resource
   drain/recovery, delayed health regeneration, prediction, and projectile
