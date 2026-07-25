@@ -223,8 +223,6 @@ function applyEvent(conn: Connection, event: GameEvent): void {
       return;
     case "teleported":
       conn.teleported = true;
-      conn.prediction.reset();
-      conn.predictionCorrection.reset(true);
       return;
     case "death":
       // Applied before `left` prunes conn.entities (see applySnapshot's ordering comment),

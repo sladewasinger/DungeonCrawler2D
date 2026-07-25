@@ -8,7 +8,7 @@ import type { PlayerSlot, SimState } from "./state.js";
 export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
   const slot = sim.players.get(playerId);
   if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
-  if (!isInputTickPlausible(slot, sim.tickCount, input.projectedServerTick)) return;
+  if (!isInputTickPlausible(slot, input.projectedServerTick)) return;
   const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
   if (input.seq <= highestReceivedSeq) return;
   slot.highestReceivedSeq = input.seq;
@@ -34,11 +34,11 @@ export function resetInputTimeline(slot: PlayerSlot): void {
 
 function isInputTickPlausible(
   slot: PlayerSlot,
-  serverTick: number,
   projectedTick: number,
 ): boolean {
   const lastTimelineTick = slot.lastProjectedServerTick ?? -1;
-  const timelineTick = lastTimelineTick >= 0 ? lastTimelineTick : serverTick;
+  if (lastTimelineTick < 0) return true;
+  const timelineTick = lastTimelineTick;
   return projectedTick >= timelineTick - PROJECTED_INPUT_MAX_PAST_TICKS &&
     projectedTick <= timelineTick + PROJECTED_INPUT_MAX_FUTURE_TICKS;
 }
