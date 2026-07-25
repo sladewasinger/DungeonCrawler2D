@@ -1,6 +1,7 @@
 // DungeonScene's mutable per-frame state bag: the fixed-step accumulator, the render-
 // interpolation reference pose, and every subsystem's small local cosmetic state.
 // One object per scene instance so no module holds state of its own.
+import { NEUTRAL_INPUT, type MoveInput } from "@dc2d/engine";
 import type { PendingSwing } from "../../vfx/meleeConnect.js";
 import { createCameraFollowState, type CameraFollowState } from "./cameraFollow.js";
 import { createProjectileVelocityState, type ProjectileVelocityState } from "./projectileVelocity.js";
@@ -16,7 +17,7 @@ export interface RenderPose {
 export interface DungeonSceneState {
   accumulatorMs: number;
   /** Self body pose just before the most recent fixed step — the interpolation source. */
-  prevStep: RenderPose | null;
+  renderInput: MoveInput;
   readonly camera: CameraFollowState;
   readonly cosmetics: SelfCosmeticsState;
   readonly projectileVelocity: ProjectileVelocityState;
@@ -33,7 +34,7 @@ export interface DungeonSceneState {
 export function createDungeonSceneState(): DungeonSceneState {
   return {
     accumulatorMs: 0,
-    prevStep: null,
+    renderInput: NEUTRAL_INPUT,
     camera: createCameraFollowState(),
     cosmetics: createSelfCosmeticsState(),
     projectileVelocity: createProjectileVelocityState(),

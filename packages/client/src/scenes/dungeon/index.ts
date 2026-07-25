@@ -185,7 +185,6 @@ export class DungeonScene extends Phaser.Scene {
   private consumeTeleport(nowMs: number): void {
     if (!this.conn.teleported) return;
     this.conn.teleported = false;
-    this.state.prevStep = null;
     this.state.accumulatorMs = 0;
     requestCameraSnap(this.state.camera);
     this.vfx.spawnTeleportFade(nowMs);
@@ -193,7 +192,6 @@ export class DungeonScene extends Phaser.Scene {
 
   private consumeHardCorrection(): void {
     if (!this.conn.predictionCorrection.consumeHardSnap()) return;
-    this.state.prevStep = null;
     requestCameraSnap(this.state.camera);
   }
 
@@ -202,9 +200,9 @@ export class DungeonScene extends Phaser.Scene {
     const { steps, accumulatorMs } = consumeFixedSteps(state.accumulatorMs, deltaMs);
     state.accumulatorMs = accumulatorMs;
     const move = this.inputController.readInput();
+    state.renderInput = move;
     for (let i = 0; i < steps; i++) {
       const body = conn.body;
-      if (body) state.prevStep = { x: body.x, y: body.y, z: body.z };
       updateSelfFacing(state.cosmetics, move.moveX, move.moveY, move.jump);
       const preX = body?.x ?? 0;
       const preY = body?.y ?? 0;

@@ -1,8 +1,15 @@
 /** Produces the local player's render pose without mutating authoritative simulation state. */
-import type { BodyState } from "@dc2d/engine";
+import {
+  cloneBody,
+  stepBody,
+  stepPlayerResources,
+  type BodyState,
+  type MoveInput,
+  type PlayerResourceState,
+  type World,
+} from "@dc2d/engine";
 import type { Connection } from "../../net/connection.js";
 import type { PredictionCorrection } from "../../net/predictionCorrection.js";
-import { interpolationAlpha, lerp } from "./fixedStep.js";
 import type { DungeonSceneState, RenderPose } from "./state.js";
 
 export function interpolateConnectionSelf(
@@ -10,29 +17,43 @@ export function interpolateConnectionSelf(
   state: DungeonSceneState,
   deltaMs: number,
 ): RenderPose {
-  if (!connection.body) return { x: 0, y: 0, z: 0 };
-  return interpolateSelf(
+  if (!connection.body || !connection.world) return { x: 0, y: 0, z: 0 };
+  return projectSelfRenderPose(
+    connection.world,
     connection.body,
-    state.prevStep,
+    state.renderInput,
     state.accumulatorMs,
+    connection,
+    connection.weapon !== null,
     connection.predictionCorrection,
     deltaMs,
   );
 }
 
-export function interpolateSelf(
+export function projectSelfRenderPose(
+  world: World,
   body: BodyState,
-  previous: RenderPose | null,
+  input: MoveInput,
   accumulatorMs: number,
+  resources: PlayerResourceState,
+  canBlock: boolean,
   correction: PredictionCorrection,
   deltaMs: number,
 ): RenderPose {
-  const alpha = interpolationAlpha(accumulatorMs);
-  const from = previous ?? body;
+  const projected = cloneBody(body);
+  const projectedResources = { ...resources };
+  const dt = Math.max(0, accumulatorMs) / 1000;
+  const effective = stepPlayerResources(
+    projectedResources,
+    input,
+    canBlock,
+    dt,
+  ).input;
+  stepBody(world, projected, effective, dt);
   const offset = correction.advance(deltaMs);
   return {
-    x: lerp(from.x, body.x, alpha) + offset.x,
-    y: lerp(from.y, body.y, alpha) + offset.y,
-    z: lerp(from.z, body.z, alpha) + offset.z,
+    x: projected.x + offset.x,
+    y: projected.y + offset.y,
+    z: projected.z + offset.z,
   };
 }

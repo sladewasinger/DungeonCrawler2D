@@ -3,8 +3,6 @@ import {
   MAX_STEPS_PER_FRAME,
   STEP_MS,
   consumeFixedSteps,
-  interpolationAlpha,
-  lerp,
 } from "./fixedStep.js";
 
 describe("consumeFixedSteps", () => {
@@ -33,22 +31,3 @@ describe("consumeFixedSteps", () => {
   });
 });
 
-describe("interpolationAlpha", () => {
-  it("is 0 right after a step and approaches 1 before the next", () => {
-    expect(interpolationAlpha(0)).toBe(0);
-    expect(interpolationAlpha(STEP_MS)).toBe(1);
-    expect(interpolationAlpha(STEP_MS / 2)).toBeCloseTo(0.5);
-  });
-
-  it("clamps outside [0,1]", () => {
-    expect(interpolationAlpha(-5)).toBe(0);
-    expect(interpolationAlpha(STEP_MS * 5)).toBe(1);
-  });
-});
-
-describe("lerp", () => {
-  it("interpolates linearly", () => {
-    expect(lerp(0, 10, 0.5)).toBe(5);
-    expect(lerp(-4, 4, 0.25)).toBe(-2);
-  });
-});
