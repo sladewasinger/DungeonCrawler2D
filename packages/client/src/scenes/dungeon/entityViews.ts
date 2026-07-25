@@ -11,10 +11,16 @@ import type {
 } from "../../render/entities/index.js";
 import { groundItemFrame } from "./itemFrame.js";
 import { trackProjectileVelocity, type ProjectileVelocityState } from "./projectileVelocity.js";
-import { remotePlayerFields } from "./remotePlayerFields.js";
+import { remotePlayerFieldsInto } from "./remotePlayerFields.js";
 import { isSelfAttacking, type SelfCosmeticsState } from "./selfCosmetics.js";
 
 export type { InterpolatedEntity } from "../../net/interpolate.js";
+
+const EMPTY_FX: readonly string[] = [];
+
+function valueOr<T>(value: T | undefined, fallback: T): T {
+  return value === undefined ? fallback : value;
+}
 
 export function buildRenderContext(
   world: WorldView,
@@ -23,26 +29,34 @@ export function buildRenderContext(
   selfX: number,
   selfY: number,
   partyIds: ReadonlySet<string>,
+  target?: RenderContext,
 ): RenderContext {
-  return { world, nowMs, dtSeconds, selfX, selfY, partyIds };
+  const context = target ?? {} as RenderContext;
+  context.world = world;
+  context.nowMs = nowMs;
+  context.dtSeconds = dtSeconds;
+  context.selfX = selfX;
+  context.selfY = selfY;
+  context.partyIds = partyIds;
+  return context;
 }
 
 export interface SelfPose {
-  readonly id: string;
-  readonly name: string;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  readonly air: boolean;
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  air: boolean;
 }
 
 export interface SelfVitals {
-  readonly hp: number;
-  readonly maxHp: number;
-  readonly fx: readonly string[];
-  readonly downed: boolean;
-  readonly blocking: boolean;
-  readonly weaponId: string | null;
+  hp: number;
+  maxHp: number;
+  fx: readonly string[];
+  downed: boolean;
+  blocking: boolean;
+  weaponId: string | null;
 }
 
 export function selfPlayerView(
@@ -51,76 +65,109 @@ export function selfPlayerView(
   cosmetics: SelfCosmeticsState,
   nowMs: number,
   weaponAimAngle: number,
+  target?: PlayerEntityView,
 ): PlayerEntityView {
-  return {
-    id: pose.id,
-    playerId: pose.id,
-    name: pose.name,
-    x: pose.x,
-    y: pose.y,
-    z: pose.z,
-    hp: vitals.hp,
-    maxHp: vitals.maxHp,
-    fx: vitals.fx,
-    faceX: cosmetics.faceX,
-    faceY: cosmetics.faceY,
-    air: pose.air,
-    downed: vitals.downed,
-    disconnected: false,
-    attacking: isSelfAttacking(cosmetics, nowMs),
-    blocking: vitals.blocking,
-    weaponId: vitals.weaponId,
-    weaponAimAngle,
-    attackAngleRad: Math.atan2(cosmetics.attackDirY, cosmetics.attackDirX),
-  };
+  const view = target ?? {} as PlayerEntityView;
+  view.id = pose.id;
+  view.playerId = pose.id;
+  view.name = pose.name;
+  view.x = pose.x;
+  view.y = pose.y;
+  view.z = pose.z;
+  view.hp = vitals.hp;
+  view.maxHp = vitals.maxHp;
+  view.fx = vitals.fx;
+  view.faceX = cosmetics.faceX;
+  view.faceY = cosmetics.faceY;
+  view.air = pose.air;
+  view.downed = vitals.downed;
+  view.disconnected = false;
+  view.attacking = isSelfAttacking(cosmetics, nowMs);
+  view.blocking = vitals.blocking;
+  view.weaponId = vitals.weaponId;
+  view.weaponAimAngle = weaponAimAngle;
+  view.attackAngleRad = Math.atan2(cosmetics.attackDirY, cosmetics.attackDirX);
+  return view;
 }
 
 /** Other players use replicated equipment, facing, and reconnect status. */
-export function remotePlayerView(e: InterpolatedEntity): PlayerEntityView {
-  return { id: e.id, playerId: e.id, x: e.x, y: e.y, z: e.z, ...remotePlayerFields(e.snap) };
+export function remotePlayerView(
+  e: InterpolatedEntity,
+  target?: PlayerEntityView,
+): PlayerEntityView {
+  const view = target ?? {} as PlayerEntityView;
+  view.id = e.id;
+  view.playerId = e.id;
+  view.x = e.x;
+  view.y = e.y;
+  view.z = e.z;
+  remotePlayerFieldsInto(e.snap, view);
+  return view;
 }
 
-export function monsterView(e: InterpolatedEntity): MonsterEntityView {
-  return {
-    id: e.id,
-    defId: e.snap.defId ?? "unknown",
-    name: e.snap.name ?? e.snap.defId ?? "?",
-    x: e.x,
-    y: e.y,
-    z: e.z,
-    hp: e.snap.hp ?? 0,
-    maxHp: e.snap.maxHp ?? 1,
-    fx: e.snap.fx ?? [],
-    anim: e.snap.anim ?? "idle",
-    faceX: e.snap.faceX ?? 1,
-    air: e.snap.air ?? false,
-  };
+export function monsterView(
+  e: InterpolatedEntity,
+  target?: MonsterEntityView,
+): MonsterEntityView {
+  const view = target ?? {} as MonsterEntityView;
+  view.id = e.id;
+  view.defId = valueOr(e.snap.defId, "unknown");
+  view.name = valueOr(e.snap.name, valueOr(e.snap.defId, "?"));
+  view.x = e.x;
+  view.y = e.y;
+  view.z = e.z;
+  view.hp = valueOr(e.snap.hp, 0);
+  view.maxHp = valueOr(e.snap.maxHp, 1);
+  view.fx = valueOr(e.snap.fx, EMPTY_FX);
+  view.anim = valueOr(e.snap.anim, "idle");
+  view.faceX = valueOr(e.snap.faceX, 1);
+  view.air = valueOr(e.snap.air, false);
+  return view;
 }
 
-export function itemView(e: InterpolatedEntity): ItemEntityView {
-  return { id: e.id, x: e.x, y: e.y, frame: groundItemFrame(e.snap.defId) };
+export function itemView(
+  e: InterpolatedEntity,
+  target?: ItemEntityView,
+): ItemEntityView {
+  const view = target ?? {} as ItemEntityView;
+  view.id = e.id;
+  view.x = e.x;
+  view.y = e.y;
+  view.frame = groundItemFrame(e.snap.defId);
+  return view;
 }
 
 export function projectileView(
   e: InterpolatedEntity,
   velocity: ProjectileVelocityState,
   nowMs: number,
+  target?: ProjectileEntityView,
 ): ProjectileEntityView {
   const { vx, vy } = trackProjectileVelocity(velocity, e.id, e.x, e.y, nowMs);
-  return { id: e.id, x: e.x, y: e.y, frame: groundItemFrame(e.snap.defId), vx, vy };
+  const view = target ?? {} as ProjectileEntityView;
+  view.id = e.id;
+  view.x = e.x;
+  view.y = e.y;
+  view.frame = groundItemFrame(e.snap.defId);
+  view.vx = vx;
+  view.vy = vy;
+  return view;
 }
 
 /** Torch snapshots carry state server-side; flying is only a stale-sample fallback. */
-export function torchView(e: InterpolatedEntity): TorchEntityView {
-  return {
-    id: e.id,
-    x: e.x,
-    y: e.y,
-    z: e.z,
-    air: e.snap.air ?? false,
-    state: e.snap.state ?? "flying",
-    frame: groundItemFrame(e.snap.defId),
-    vx: e.snap.vx ?? 0,
-    vy: e.snap.vy ?? 0,
-  };
+export function torchView(
+  e: InterpolatedEntity,
+  target?: TorchEntityView,
+): TorchEntityView {
+  const view = target ?? {} as TorchEntityView;
+  view.id = e.id;
+  view.x = e.x;
+  view.y = e.y;
+  view.z = e.z;
+  view.air = e.snap.air ?? false;
+  view.state = e.snap.state ?? "flying";
+  view.frame = groundItemFrame(e.snap.defId);
+  view.vx = e.snap.vx ?? 0;
+  view.vy = e.snap.vy ?? 0;
+  return view;
 }

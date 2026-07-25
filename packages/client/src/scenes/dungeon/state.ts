@@ -13,6 +13,7 @@ import {
 import type { PendingSwing } from "../../vfx/meleeConnect.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { AreaTileView } from "../../vfx/index.js";
+import type { RenderContext } from "../../render/entities/index.js";
 import { createCameraFollowState, type CameraFollowState } from "./cameraFollow.js";
 import { createProjectileVelocityState, type ProjectileVelocityState } from "./projectileVelocity.js";
 import { createSelfCosmeticsState, type SelfCosmeticsState } from "./selfCosmetics.js";
@@ -25,6 +26,7 @@ import {
   createFrameEntityViews,
   type FrameEntityViews,
 } from "./frameEntityViews.js";
+import type { SelfPose, SelfVitals } from "./entityViews.js";
 
 export interface RenderPose {
   readonly x: number;
@@ -65,6 +67,9 @@ export interface DungeonSceneState {
   readonly projectileVelocity: ProjectileVelocityState;
   readonly entityBuckets: FrameEntityBuckets;
   readonly entityViews: FrameEntityViews;
+  readonly selfPose: SelfPose;
+  readonly selfVitals: SelfVitals;
+  renderContext: RenderContext | null;
   readonly selfProjection: SelfProjectionScratch;
   readonly areaViews: AreaTileView[];
   readonly areaViewRecords: AreaTileView[];
@@ -89,6 +94,16 @@ export function createDungeonSceneState(): DungeonSceneState {
     projectileVelocity: createProjectileVelocityState(),
     entityBuckets: createFrameEntityBuckets(),
     entityViews: createFrameEntityViews(),
+    selfPose: { id: "", name: "", x: 0, y: 0, z: 0, air: false },
+    selfVitals: {
+      hp: 0,
+      maxHp: 1,
+      fx: [],
+      downed: false,
+      blocking: false,
+      weaponId: null,
+    },
+    renderContext: null,
     selfProjection: createSelfProjectionScratch(),
     areaViews: [],
     areaViewRecords: [],

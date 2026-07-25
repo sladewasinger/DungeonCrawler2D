@@ -22,6 +22,7 @@ export interface TorchSyncState {
   readonly seenPlacedIds: Set<string>;
   readonly changedTiles: TilePos[];
   readonly views: TorchEntityView[];
+  readonly viewRecords: TorchEntityView[];
   readonly placed: PlacedTorch[];
   readonly flying: TorchEntityView[];
   readonly accentLights: LightSource[];
@@ -37,6 +38,7 @@ export function createTorchSyncState(): TorchSyncState {
     seenPlacedIds: new Set(),
     changedTiles: [],
     views,
+    viewRecords: [],
     placed: [],
     flying: [],
     accentLights,
@@ -55,7 +57,12 @@ function buildTorchFrame(
   torches: readonly InterpolatedEntity[],
   serverTick: number,
 ): void {
-  const views = mapFrameInto(torches, state.views, torchView);
+  const views = mapFrameInto(
+    torches,
+    state.views,
+    state.viewRecords,
+    torchView,
+  );
   state.placed.length = 0;
   state.flying.length = 0;
   for (let index = 0; index < views.length; index++) {

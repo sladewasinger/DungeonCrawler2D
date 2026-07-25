@@ -21,14 +21,51 @@ const REMOTE_DEFAULTS = {
   blocking: false,
 };
 
+function valueOr<T>(value: T | undefined, fallback: T): T {
+  return value === undefined ? fallback : value;
+}
+
 export function remotePlayerFields(snapshot: EntitySnapshot): RemotePlayerFields {
-  const player = { ...REMOTE_DEFAULTS, ...snapshot } as typeof REMOTE_DEFAULTS & EntitySnapshot;
-  return {
-    name: player.name, hp: player.hp, maxHp: player.maxHp, fx: player.fx,
-    faceX: player.faceX, faceY: player.faceY, air: player.air,
-    downed: player.downed, disconnected: player.disconnected,
-    attacking: player.anim === "attack", blocking: player.blocking,
-    weaponId: player.weapon,
-    weaponAimAngle: null, attackAngleRad: Math.atan2(player.faceY, player.faceX),
-  };
+  return remotePlayerFieldsInto(snapshot, {
+    name: REMOTE_DEFAULTS.name,
+    hp: REMOTE_DEFAULTS.hp,
+    maxHp: REMOTE_DEFAULTS.maxHp,
+    fx: REMOTE_DEFAULTS.fx,
+    faceX: REMOTE_DEFAULTS.faceX,
+    faceY: REMOTE_DEFAULTS.faceY,
+    air: REMOTE_DEFAULTS.air,
+    downed: REMOTE_DEFAULTS.downed,
+    disconnected: REMOTE_DEFAULTS.disconnected,
+    attacking: false,
+    blocking: REMOTE_DEFAULTS.blocking,
+    weaponId: REMOTE_DEFAULTS.weapon,
+    weaponAimAngle: null,
+    attackAngleRad: 0,
+  });
+}
+
+export function remotePlayerFieldsInto(
+  snapshot: EntitySnapshot,
+  target: RemotePlayerFields,
+): RemotePlayerFields {
+  const faceX = valueOr(snapshot.faceX, REMOTE_DEFAULTS.faceX);
+  const faceY = valueOr(snapshot.faceY, REMOTE_DEFAULTS.faceY);
+  target.name = valueOr(snapshot.name, REMOTE_DEFAULTS.name);
+  target.hp = valueOr(snapshot.hp, REMOTE_DEFAULTS.hp);
+  target.maxHp = valueOr(snapshot.maxHp, REMOTE_DEFAULTS.maxHp);
+  target.fx = valueOr(snapshot.fx, REMOTE_DEFAULTS.fx);
+  target.faceX = faceX;
+  target.faceY = faceY;
+  target.air = valueOr(snapshot.air, REMOTE_DEFAULTS.air);
+  target.downed = valueOr(snapshot.downed, REMOTE_DEFAULTS.downed);
+  target.disconnected = valueOr(
+    snapshot.disconnected,
+    REMOTE_DEFAULTS.disconnected,
+  );
+  target.attacking = snapshot.anim === "attack";
+  target.blocking = valueOr(snapshot.blocking, REMOTE_DEFAULTS.blocking);
+  target.weaponId = valueOr(snapshot.weapon, REMOTE_DEFAULTS.weapon);
+  target.weaponAimAngle = null;
+  target.attackAngleRad = Math.atan2(faceY, faceX);
+  return target;
 }

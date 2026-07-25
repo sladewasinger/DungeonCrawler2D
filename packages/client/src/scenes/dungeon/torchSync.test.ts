@@ -42,6 +42,7 @@ describe("syncTorches", () => {
       100,
     );
     const views = first.views;
+    const viewRecords = [...first.views];
     const accentLights = first.accentLights;
 
     for (let frame = 0; frame < 300; frame++) {
@@ -53,6 +54,9 @@ describe("syncTorches", () => {
       );
       expect(result).toBe(first);
       expect(result.views).toBe(views);
+      expect(result.views).toEqual(viewRecords);
+      expect(result.views[0]).toBe(viewRecords[0]);
+      expect(result.views[1]).toBe(viewRecords[1]);
       expect(result.accentLights).toBe(accentLights);
     }
 

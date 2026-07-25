@@ -4,79 +4,79 @@
 import type { EnemyAnimationState, WorldView } from "@dc2d/engine";
 
 export interface RenderContext {
-  readonly world: WorldView;
-  readonly nowMs: number;
-  readonly dtSeconds: number;
-  readonly selfX: number;
-  readonly selfY: number;
-  readonly partyIds: ReadonlySet<string>;
+  world: WorldView;
+  nowMs: number;
+  dtSeconds: number;
+  selfX: number;
+  selfY: number;
+  partyIds: ReadonlySet<string>;
 }
 
 export interface PlayerEntityView {
-  readonly id: string;
-  readonly playerId: string;
-  readonly name: string;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  readonly hp: number;
-  readonly maxHp: number;
-  readonly fx: readonly string[];
-  readonly faceX: number;
-  readonly faceY: number;
-  readonly air: boolean;
-  readonly downed: boolean;
-  readonly disconnected?: boolean;
-  readonly attacking: boolean;
-  readonly blocking: boolean;
-  readonly weaponId: string | null;
+  id: string;
+  playerId: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+  fx: readonly string[];
+  faceX: number;
+  faceY: number;
+  air: boolean;
+  downed: boolean;
+  disconnected?: boolean;
+  attacking: boolean;
+  blocking: boolean;
+  weaponId: string | null;
   /** Self-only live weapon-orbit target. Remote players use replicated facing instead. */
-  readonly weaponAimAngle: number | null;
+  weaponAimAngle: number | null;
   /** Direction (radians) of the current/most-recent swing: self's real attack.dx/dy for
    * exact wedge/sweep alignment, or a remote player's reported faceX/faceY as the best
    * available proxy (the protocol never reports a remote player's actual swing direction). */
-  readonly attackAngleRad: number;
+  attackAngleRad: number;
 }
 
 export interface MonsterEntityView {
-  readonly id: string;
-  readonly defId: string;
-  readonly name: string;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  readonly hp: number;
-  readonly maxHp: number;
-  readonly fx: readonly string[];
-  readonly anim: EnemyAnimationState;
-  readonly faceX: number;
-  readonly air: boolean;
+  id: string;
+  defId: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+  fx: readonly string[];
+  anim: EnemyAnimationState;
+  faceX: number;
+  air: boolean;
 }
 
 export interface ItemEntityView {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-  readonly frame: string;
+  id: string;
+  x: number;
+  y: number;
+  frame: string;
 }
 
 export interface ProjectileEntityView {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-  readonly frame: string;
-  readonly vx: number;
-  readonly vy: number;
+  id: string;
+  x: number;
+  y: number;
+  frame: string;
+  vx: number;
+  vy: number;
 }
 
 export interface TorchEntityView {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  readonly air: boolean;
-  readonly state: "flying" | "placed";
-  readonly frame: string;
-  readonly vx: number;
-  readonly vy: number;
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  air: boolean;
+  state: "flying" | "placed";
+  frame: string;
+  vx: number;
+  vy: number;
 }

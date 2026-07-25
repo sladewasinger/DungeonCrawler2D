@@ -7,17 +7,25 @@ import type {
 
 export interface FrameEntityViews {
   readonly players: PlayerEntityView[];
+  readonly playerRecords: PlayerEntityView[];
   readonly enemies: MonsterEntityView[];
+  readonly enemyRecords: MonsterEntityView[];
   readonly items: ItemEntityView[];
+  readonly itemRecords: ItemEntityView[];
   readonly projectiles: ProjectileEntityView[];
+  readonly projectileRecords: ProjectileEntityView[];
 }
 
 export function createFrameEntityViews(): FrameEntityViews {
   return {
     players: [],
+    playerRecords: [],
     enemies: [],
+    enemyRecords: [],
     items: [],
+    itemRecords: [],
     projectiles: [],
+    projectileRecords: [],
   };
 }
 
@@ -25,12 +33,16 @@ export function createFrameEntityViews(): FrameEntityViews {
 export function mapFrameInto<T, U>(
   source: readonly T[],
   out: U[],
-  map: (value: T) => U,
+  records: U[],
+  map: (value: T, target: U | undefined) => U,
 ): U[] {
   out.length = source.length;
   for (let index = 0; index < source.length; index++) {
     const value = source[index];
-    if (value !== undefined) out[index] = map(value);
+    if (value === undefined) continue;
+    const record = map(value, records[index]);
+    records[index] = record;
+    out[index] = record;
   }
   return out;
 }

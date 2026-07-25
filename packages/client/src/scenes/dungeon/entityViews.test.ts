@@ -1,6 +1,7 @@
 import type { EntitySnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
+  buildRenderContext,
   itemView,
   monsterView,
   projectileView,
@@ -29,6 +30,15 @@ describe("selfPlayerView", () => {
       Math.PI,
     );
     expect(view).toMatchObject({ id: "p1", faceX: -1, attacking: true, blocking: true, weaponId: "sword", hp: 10, weaponAimAngle: Math.PI });
+    expect(selfPlayerView(
+      { id: "p1", name: "Hero", x: 2, y: 3, z: 0, air: false },
+      { hp: 11, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
+      cosmetics,
+      1001,
+      0,
+      view,
+    )).toBe(view);
+    expect(view).toMatchObject({ x: 2, y: 3, hp: 11, blocking: false });
   });
 
   it("centers attackAngleRad on the swing's captured direction, not live facing", () => {
@@ -61,6 +71,11 @@ describe("remotePlayerView", () => {
     expect(view.blocking).toBe(true);
     expect(view.weaponAimAngle).toBeNull();
     expect(view.disconnected).toBe(true);
+    expect(remotePlayerView(
+      entity({ id: "e1", kind: "player", name: "Wren", hp: 4 }),
+      view,
+    )).toBe(view);
+    expect(view.hp).toBe(4);
   });
 
   it("defaults missing optional fields safely", () => {
@@ -78,6 +93,11 @@ describe("monsterView", () => {
   it("maps snapshot fields with idle/unknown fallbacks", () => {
     const view = monsterView(entity({ id: "m1", kind: "enemy", defId: "skeleton", hp: 5, maxHp: 10 }));
     expect(view).toMatchObject({ defId: "skeleton", name: "skeleton", anim: "idle", hp: 5, maxHp: 10 });
+    expect(monsterView(
+      entity({ id: "m1", kind: "enemy", defId: "skeleton", hp: 4 }),
+      view,
+    )).toBe(view);
+    expect(view.hp).toBe(4);
   });
 });
 
@@ -85,6 +105,10 @@ describe("itemView", () => {
   it("resolves the ground-item frame from defId", () => {
     const view = itemView(entity({ id: "i1", kind: "item", defId: "sword" }));
     expect(view.frame).toBe("weapon_rusty_sword");
+    expect(itemView(
+      entity({ id: "i1", kind: "item", defId: "torch" }),
+      view,
+    )).toBe(view);
   });
 });
 
@@ -97,5 +121,29 @@ describe("projectileView", () => {
     const view = projectileView(e2, velocity, 1000);
     expect(view.vx).toBeCloseTo(1);
     expect(view.vy).toBeCloseTo(0);
+    expect(projectileView(e2, velocity, 1100, view)).toBe(view);
+  });
+});
+
+describe("buildRenderContext", () => {
+  it("rewrites a caller-owned frame context", () => {
+    const world = { groundAt: () => 0 } as never;
+    const context = buildRenderContext(world, 1, 0.016, 2, 3, new Set());
+
+    expect(buildRenderContext(
+      world,
+      2,
+      0.02,
+      4,
+      5,
+      new Set(["p"]),
+      context,
+    )).toBe(context);
+    expect(context).toMatchObject({
+      nowMs: 2,
+      dtSeconds: 0.02,
+      selfX: 4,
+      selfY: 5,
+    });
   });
 });

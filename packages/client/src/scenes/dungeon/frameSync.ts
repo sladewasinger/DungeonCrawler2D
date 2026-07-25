@@ -9,22 +9,21 @@ import { INTERACT_RANGE } from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
-import type { EntityRenderer, PlayerEntityView } from "../../render/entities/index.js";
+import type { EntityRenderer } from "../../render/entities/index.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { LightingSystem } from "../../render/lighting/index.js";
 import type { TerrainRenderer } from "../../render/terrain/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
-import { collectExpiredSwings, registerPendingSwing } from "../../vfx/meleeConnect.js";
+import { collectExpiredSwings } from "../../vfx/meleeConnect.js";
 import { buildAreaTileViewsInto } from "./areaViews.js";
+import { syncCombatants } from "./combatantSync.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
-import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
-import { bucketFrameEntities, type FrameEntityBuckets } from "./frameEntityBuckets.js";
+import { buildRenderContext, projectileView } from "./entityViews.js";
+import { bucketFrameEntities } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
-import { resolveMeleeSwings } from "./meleeSwingEvents.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
-import { resolveSelfAimAngle } from "./selfAim.js";
 import type { DungeonSceneState, RenderPose } from "./state.js";
 import { syncTorches, type TorchSyncState } from "./torchSync.js";
 import { applyVisualEvents } from "./visualEvents.js";
@@ -35,64 +34,9 @@ export interface EntitySyncResult {
 }
 
 /** Players + monsters + items + the melee-swing wedge telegraph. */
-function syncCombatants(
-  scene: Phaser.Scene,
-  conn: Connection,
-  entityRenderer: EntityRenderer,
-  vfx: VfxSystem,
-  inputController: InputController,
-  state: DungeonSceneState,
-  nowMs: number,
-  render: RenderPose,
-  buckets: FrameEntityBuckets,
-  context: ReturnType<typeof buildRenderContext>,
-): void {
-  if (!conn.world || !conn.welcome || !conn.body) return;
-  const touchActive = inputController.touchVisual() !== null;
-  const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
-  const players = state.entityViews.players;
-  players.length = buckets.players.length + 1;
-  players[0] = selfPlayerView(
-    { id: conn.welcome.playerId, name: conn.name, x: render.x, y: render.y, z: render.z, air: !conn.body.grounded },
-    { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, blocking: conn.blocking, weaponId: conn.weapon },
-    state.cosmetics,
-    nowMs,
-    aimAngle,
-  );
-  for (let index = 0; index < buckets.players.length; index++) {
-    const remote = buckets.players[index];
-    if (remote) players[index + 1] = remotePlayerView(remote);
-  }
-  entityRenderer.syncPlayers(players, context);
-  entityRenderer.syncMonsters(
-    mapFrameInto(buckets.enemies, state.entityViews.enemies, monsterView),
-    context,
-  );
-  entityRenderer.syncItems(
-    mapFrameInto(buckets.items, state.entityViews.items, itemView),
-    nowMs,
-  );
-  spawnMeleeSwings(vfx, state, players, nowMs);
-}
-
 /** Spawns the wedge telegraph for every swing that just started, and registers each as
  * pending a correlating hit (panel round 3b item 5, WHIFF FEEDBACK) — syncLightingAndVfx
  * later flushes whichever ones time out into the whiff cue (meleeConnect.ts). */
-function spawnMeleeSwings(vfx: VfxSystem, state: DungeonSceneState, allPlayers: PlayerEntityView[], nowMs: number): void {
-  for (const swing of resolveMeleeSwings(allPlayers, state.attackFlags)) {
-    vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
-    registerPendingSwing(state.pendingSwings, {
-      attackerId: swing.id,
-      worldX: swing.worldX,
-      worldY: swing.worldY,
-      z: swing.z,
-      angleRad: swing.angleRad,
-      depth: swing.depth,
-      startedAtMs: nowMs,
-    });
-  }
-}
-
 /** Rebuilds every rendered entity (players/monsters/items/projectiles/torches) for this frame. */
 export function syncEntities(
   scene: Phaser.Scene,
@@ -111,13 +55,13 @@ export function syncEntities(
   if (!conn.world || !conn.welcome || !conn.body) return { interactionPrompt: null, torchAccentLights: [] };
   const interpolated = conn.interpolated();
   const buckets = bucketFrameEntities(interpolated, state.entityBuckets);
-  const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
+  const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds, state.renderContext ?? undefined);
+  state.renderContext = context;
   syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context);
 
   entityRenderer.syncProjectiles(mapFrameInto(
-    buckets.projectiles,
-    state.entityViews.projectiles,
-    (entity) => projectileView(entity, state.projectileVelocity, nowMs),
+    buckets.projectiles, state.entityViews.projectiles, state.entityViews.projectileRecords,
+    (entity, target) => projectileView(entity, state.projectileVelocity, nowMs, target),
   ));
   pruneProjectileVelocity(state.projectileVelocity, buckets.projectileIds);
 
