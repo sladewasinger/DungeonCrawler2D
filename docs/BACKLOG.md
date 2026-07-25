@@ -38,6 +38,9 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
   clients through the real WebSocket game server. The committed JSON baseline and
   packet corpus include phase-level traffic, codec, step, queue, acknowledgement,
   correction, loss-recovery, reconnect, runtime, and host measurements.
+  `npm run benchmark:network-load` additionally holds the 20-player target shard
+  population in one AOI for 120 measured ticks. The committed run records 1.35 ms
+  server-step p95, zero queued client bytes, and zero protocol decode failures.
 
 ### NET-2 — Input timeline and acknowledgement contract
 
@@ -115,7 +118,13 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     is bounded by measured latency, and cannot alter authoritative movement history.
   - Two-client manual routes pass in both renderers on desktop and mobile.
 - **Evidence/status:** Current movement/reconciliation tests and diagnostics support
-  the policy. Actual-server latency evidence remains NET-1 work.
+  the policy. Sequence-based reconciliation prevents projected-clock lead from
+  accumulating during long sessions; remote interpolation now follows filtered
+  server simulation time; local 2D presentation renders a collision-aware partial
+  tick ahead without mutating gameplay state. Accelerated five-minute prediction
+  and 3,600-position area-retention tests cover the reported degradation path.
+  NET-1 and the 20-player load gate provide actual-server timing and queue evidence.
+  The status remains in progress only for the two-client manual routes above.
 
 ## 2. Shippable 2D Gameplay and Polish
 
@@ -194,8 +203,12 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     non-overlapping, and visually responsive.
   - Chat/inventory capture input; fullscreen has an explicit user-gesture path.
   - Landscape layouts pass representative phone and tablet viewport checks.
-- **Evidence/status:** Shared mobile controls and fullscreen paths exist. Final
-  ergonomics require manual device evidence.
+- **Evidence/status:** Shared mobile controls, fullscreen paths, touch drag/resize,
+  pinch geometry, and input-capture tests exist. The live 2D HTML controls and
+  Phaser hit routing now consume one geometry source; every action target is at
+  least 44 px. Automated compact-phone, standard/large-phone, and tablet landscape
+  checks prove the action cluster stays on-screen and clear of the joystick and
+  bag. Final ergonomics still require manual device evidence.
 
 ## 3. Descent, Progression, and Social Systems
 

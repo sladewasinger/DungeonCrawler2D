@@ -20,7 +20,7 @@ roadmap is preserved in
   unacknowledged inputs under latency, loss, and backpressure.
 - [x] Benchmark representative JSON, MessagePack, and Protobuf packets before
   deciding whether a negotiated binary protocol is worthwhile.
-- [ ] Tune and load-test from measured frame, simulation, transport, and correction
+- [x] Tune and load-test from measured frame, simulation, transport, and correction
   budgets.
 
 ## Epic 2 — Shippable 2D Gameplay

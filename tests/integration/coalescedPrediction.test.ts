@@ -1,4 +1,4 @@
-/** Exercises coalesced client prediction against real authoritative simulation snapshots. */
+/** Exercises full-rate client prediction against real authoritative simulation snapshots. */
 import {
   LEVEL,
   World,
@@ -28,7 +28,7 @@ function expectSamePosition(connection: Connection, serverX: number, serverY: nu
 }
 
 describe("prediction integration", () => {
-  it("keeps 1,000 held ticks aligned using only key-down and key-up wire events", () => {
+  it("keeps 1,000 held ticks aligned with monotonic full-rate input", () => {
     const sim = makeSim(717, { testFixtures: true, freezeEnemies: true });
     const joined = sim.addPlayer("Predictor", "prediction-client");
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
@@ -71,7 +71,14 @@ describe("prediction integration", () => {
     const stopped = sim.stepReplicated().get(joined.playerId);
     if (stopped?.type === "snapshot") applySnapshot(connection, stopped);
 
-    expect(sentInputs.map(({ seq }) => seq)).toEqual([1, 2]);
+    expect(sentInputs).toHaveLength(1_003);
+    expect(sentInputs.every((input, index) => input.seq === index + 1))
+      .toBe(true);
+    expect(sentInputs.every((input, index) =>
+      index === 0 ||
+      input.projectedServerTick >=
+        (sentInputs[index - 1]?.projectedServerTick ?? 0)))
+      .toBe(true);
     expect(droppedSnapshot).toBe(true);
     expect(deliveredSnapshots).toBeGreaterThanOrEqual(499);
     expect(deliveredSnapshots).toBeLessThan(1_000);
