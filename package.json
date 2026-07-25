@@ -14,6 +14,7 @@
     "build": "npm run build -w @dc2d/game-server && npm run build -w @dc2d/client",
     "test": "vitest run",
     "benchmark:network": "tsx tools/network-baseline.ts",
+    "benchmark:network-load": "tsx tools/network-load.ts",
     "benchmark:codecs": "tsx tools/network-codec-assessment.ts",
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
     "lint": "eslint .",

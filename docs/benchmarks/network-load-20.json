@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T16:11:36.381Z",
+  "command": "npm run benchmark:network-load",
+  "clientCount": 20,
+  "tickRate": 20,
+  "measuredTicks": 120,
+  "measuredDurationSeconds": 6,
+  "runtime": {
+    "node": "v24.14.0",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "logicalCpuCount": 16
+  },
+  "serverStepMilliseconds": {
+    "samples": 120,
+    "mean": 0.9955508333333398,
+    "p95": 1.3474000000005617,
+    "p99": 1.603900000000067,
+    "max": 3.4442999999998847
+  },
+  "transport": {
+    "clientToServerBytesPerSecond": 43947,
+    "serverToClientBytesPerSecond": 1493286.6666666667,
+    "maximumClientQueueBytes": 0,
+    "decodeFailures": 0
+  },
+  "heap": {
+    "startBytes": 32250424,
+    "endBytes": 39172000,
+    "deltaBytes": 6921576
+  },
+  "budgets": {
+    "serverStepP95Milliseconds": 25,
+    "maximumClientQueueBytes": 65536,
+    "decodeFailures": 0
+  },
+  "passed": true,
+  "limitations": [
+    "Loopback WebSockets do not model WAN latency or packet loss.",
+    "Heap delta includes ordinary runtime allocation and is evidence, not a leak proof.",
+    "Clients exercise movement replication but do not render frames."
+  ]
+}

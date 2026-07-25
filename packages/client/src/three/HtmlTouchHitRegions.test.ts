@@ -12,7 +12,11 @@ const HEIGHT = 720;
 describe("HTML touch hit regions", () => {
   it("stays inert until touch input becomes active", () => {
     const regions = new HtmlTouchHitRegions();
-    const center = touchActionCenter(HTML_TOUCH_ACTIONS[0]!, WIDTH, HEIGHT);
+    const attack = HTML_TOUCH_ACTIONS.find(
+      (region) => region.action === "attack",
+    );
+    if (!attack) throw new Error("Missing attack touch region");
+    const center = touchActionCenter(attack, WIDTH, HEIGHT);
     expect(regions.hitTest(center.x, center.y, WIDTH, HEIGHT)).toBeNull();
   });
 

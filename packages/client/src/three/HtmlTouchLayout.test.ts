@@ -44,10 +44,8 @@ describe("HTML touch control layout", () => {
         expect(box.right).toBeLessThanOrEqual(viewport.width);
         expect(box.bottom).toBeLessThanOrEqual(viewport.height);
       }
-      for (let left = 0; left < HTML_TOUCH_ACTIONS.length; left += 1) {
-        for (let right = left + 1; right < HTML_TOUCH_ACTIONS.length; right += 1) {
-          const first = HTML_TOUCH_ACTIONS[left]!;
-          const second = HTML_TOUCH_ACTIONS[right]!;
+      for (const [index, first] of HTML_TOUCH_ACTIONS.entries()) {
+        for (const second of HTML_TOUCH_ACTIONS.slice(index + 1)) {
           const firstCenter = touchActionCenter(first, viewport.width, viewport.height);
           const secondCenter = touchActionCenter(second, viewport.width, viewport.height);
           expect(Math.hypot(
