@@ -4,10 +4,10 @@
 import { isRunningPace } from "../render/entities/playerMotion.js";
 
 export interface MotionSample {
-  readonly x: number;
-  readonly y: number;
-  readonly air: boolean;
-  readonly faceX: number;
+  x: number;
+  y: number;
+  air: boolean;
+  faceX: number;
 }
 
 export type MotionEvent = "jumped" | "landed" | "turned";
@@ -17,12 +17,20 @@ const FOOTSTEP_INTERVAL_MS = 260;
 
 /** Edge-triggered motion events between two consecutive samples. Empty on the first sample (no prior state). */
 export function motionEvents(prev: MotionSample | undefined, curr: MotionSample): MotionEvent[] {
-  if (!prev) return [];
-  const events: MotionEvent[] = [];
-  if (!prev.air && curr.air) events.push("jumped");
-  if (prev.air && !curr.air) events.push("landed");
-  if (turned(prev.faceX, curr.faceX)) events.push("turned");
-  return events;
+  return motionEventsInto(prev, curr, []);
+}
+
+export function motionEventsInto(
+  prev: MotionSample | undefined,
+  curr: MotionSample,
+  output: MotionEvent[],
+): MotionEvent[] {
+  output.length = 0;
+  if (!prev) return output;
+  if (!prev.air && curr.air) output.push("jumped");
+  if (prev.air && !curr.air) output.push("landed");
+  if (turned(prev.faceX, curr.faceX)) output.push("turned");
+  return output;
 }
 
 function turned(prevFaceX: number, currFaceX: number): boolean {

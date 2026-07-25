@@ -20,8 +20,7 @@ import { TeleportFade } from "./teleportFade.js";
 import { lowHpVignetteAlpha } from "./lowHpVignette.js";
 import { LowHpOverlay } from "./lowHpOverlay.js";
 import { MeleeSwingFx } from "./meleeSwingFx.js";
-import { spawnDustPuff, spawnFootstepMote, spawnRunDust } from "./movementParticles.js";
-import { footstepDue, isMoving, isRunning, motionEvents, type MotionSample } from "./motionFx.js";
+import { PlayerMotionFx } from "./playerMotionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
 import { ScreenShakeBudget } from "./screenShake.js";
 import { TorchFlamePool } from "./torchFlames.js";
@@ -52,8 +51,7 @@ export class VfxSystem {
    * class's other pooled subsystems, since frameSync.ts drives it directly with the
    * self player's own render pose (no other subsystem needs a raw world position). */
   readonly graceRing: GraceRing;
-  private lastPlayerSample: MotionSample | undefined;
-  private lastFrameMs = 0;
+  private readonly playerMotionFx: PlayerMotionFx;
   private selfHpRatio = 1;
 
   constructor(private readonly scene: Phaser.Scene) {
@@ -68,6 +66,7 @@ export class VfxSystem {
     this.corpseDecals = new CorpseDecalPool(scene);
     this.levelUpFlourish = new LevelUpFlourish(scene);
     this.lowHpOverlay = new LowHpOverlay(scene);
+    this.playerMotionFx = new PlayerMotionFx(scene);
     this.floorBanner = new FloorBanner(scene);
     this.bossDownFlourish = new BossDownFlourish(scene);
     this.teleportFade = new TeleportFade(scene);
@@ -84,30 +83,14 @@ export class VfxSystem {
   }
 
   /** Feeds one frame of the tracked player's motion: fires dust/footstep edge triggers. */
-  trackPlayerMotion(sample: MotionSample, nowMs: number): void {
-    const prev = this.lastPlayerSample;
-    const dt = (nowMs - this.lastFrameMs) / 1000;
-    const moving = isMoving(prev, sample, dt);
-    const running = isRunning(prev, sample, dt);
-    const events = motionEvents(prev, sample);
-    this.fireMotionParticles(sample, events, moving, running, nowMs);
-    this.lastPlayerSample = sample;
-    this.lastFrameMs = nowMs;
-  }
-
-  private fireMotionParticles(
-    sample: MotionSample,
-    events: readonly string[],
-    moving: boolean,
-    running: boolean,
+  trackPlayerMotion(
+    x: number,
+    y: number,
+    air: boolean,
+    faceX: number,
     nowMs: number,
   ): void {
-    const screen = worldToScreen(sample.x, sample.y);
-    if (events.includes("jumped") || events.includes("turned")) spawnDustPuff(this.scene, screen.x, screen.y, 5);
-    if (events.includes("landed")) spawnDustPuff(this.scene, screen.x, screen.y, 8);
-    if (!footstepDue(this.lastFrameMs, nowMs, !sample.air, moving)) return;
-    if (running) spawnRunDust(this.scene, screen.x, screen.y);
-    else spawnFootstepMote(this.scene, screen.x, screen.y);
+    this.playerMotionFx.track(x, y, air, faceX, nowMs);
   }
 
   spawnDamageNumber(worldX: number, worldY: number, feedback: import("../ui/healthFeedback.js").HealthFeedback, nowMs: number): void {
@@ -196,7 +179,7 @@ export class VfxSystem {
   /** Floating "+N XP" above the self player — a kill's XP gain has no landed-hit
    * world position of its own (net/xpEvents.ts diffs the self snapshot only). */
   spawnXpNumber(amount: number, nowMs: number): void {
-    const sample = this.lastPlayerSample;
+    const sample = this.playerMotionFx.latest;
     if (!sample) return;
     const screen = worldToScreen(sample.x, sample.y - 1);
     this.xpNumbers.spawn(screen.x, screen.y, amount, nowMs);

@@ -1,6 +1,14 @@
 // Headless tests for jump/land/turn edge-triggers and footstep cadence.
 import { describe, expect, it } from "vitest";
-import { footstepDue, isMoving, isRunning, motionEvents, type MotionSample } from "./motionFx.js";
+import {
+  footstepDue,
+  isMoving,
+  isRunning,
+  motionEvents,
+  motionEventsInto,
+  type MotionEvent,
+  type MotionSample,
+} from "./motionFx.js";
 
 const grounded = (x: number, faceX = 1): MotionSample => ({ x, y: 0, air: false, faceX });
 const airborne = (x: number, faceX = 1): MotionSample => ({ x, y: 0, air: true, faceX });
@@ -24,6 +32,20 @@ describe("motionEvents", () => {
 
   it("fires nothing when nothing changed", () => {
     expect(motionEvents(grounded(0, 1), grounded(1, 1))).toEqual([]);
+  });
+
+  it("reuses a caller-owned event buffer across long idle and edge sequences", () => {
+    const events: MotionEvent[] = [];
+    const identity = events;
+    for (let frame = 0; frame < 1_000; frame++) {
+      expect(motionEventsInto(grounded(frame), grounded(frame + 1), events))
+        .toBe(identity);
+      expect(events).toEqual([]);
+    }
+
+    expect(motionEventsInto(grounded(0, 1), airborne(0, -1), events))
+      .toBe(identity);
+    expect(events).toEqual(["jumped", "turned"]);
   });
 });
 

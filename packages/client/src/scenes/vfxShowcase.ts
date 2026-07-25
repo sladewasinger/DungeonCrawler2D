@@ -80,7 +80,13 @@ export class VfxShowcase {
   /** Feeds the shared showcase-player trajectory into the vfx system for dust/footstep juice. */
   private trackPlayer(nowMs: number): void {
     const pose = showcasePlayerPose(this.world, nowMs, SHOWCASE_ROW.baseX, SHOWCASE_ROW.baseY - 3);
-    this.vfx.trackPlayerMotion({ x: pose.x, y: pose.y, air: pose.air, faceX: pose.faceX }, nowMs);
+    this.vfx.trackPlayerMotion(
+      pose.x,
+      pose.y,
+      pose.air,
+      pose.faceX,
+      nowMs,
+    );
   }
 
   /** Floating damage number timed to the skeleton's real hp dip (entityShowcaseLayout.ts's demoSkeletonHp) — the number, the hp bar, and the hit-flash all land on the same tick. */

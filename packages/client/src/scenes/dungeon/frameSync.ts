@@ -201,7 +201,7 @@ export function syncLightingAndVfx(
       ) visibleTorchLights.push(torch);
   }
   vfx.syncTorchFlames(visibleTorchLights);
-  vfx.trackPlayerMotion({ x: render.x, y: render.y, air: !conn.body.grounded, faceX: state.cosmetics.faceX }, nowMs);
+  vfx.trackPlayerMotion(render.x, render.y, !conn.body.grounded, state.cosmetics.faceX, nowMs);
   // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
   // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush
   // whatever's left over into the whiff cue before this frame's vfx.update fades it.
