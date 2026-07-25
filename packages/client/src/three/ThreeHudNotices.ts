@@ -21,13 +21,25 @@ export function contextualHelpText(
   actionHints: readonly ContextualActionHint[],
   touchDevice: boolean,
 ): string {
-  const segments = prompt
-    ? [`[${touchDevice ? "USE" : prompt.key}] ${prompt.label}`]
-    : [];
-  segments.push(...actionHints.map((hint) =>
-    `[${touchDevice ? hint.touchKey : hint.key}] ${hint.label}`
-  ));
-  return segments.join("   ·   ");
+  let text = prompt
+    ? `[${touchDevice ? "USE" : prompt.key}] ${prompt.label}`
+    : "";
+  for (const hint of actionHints) {
+    if (text.length > 0) text += "   ·   ";
+    text += `[${touchDevice ? hint.touchKey : hint.key}] ${hint.label}`;
+  }
+  return text;
+}
+
+export function latestVisibleToast(
+  toasts: ThreeHudNoticeState["toasts"],
+  nowMs: number,
+) {
+  for (let index = toasts.length - 1; index >= 0; index--) {
+    const toast = toasts[index];
+    if (toast && toast.until > nowMs) return toast;
+  }
+  return undefined;
 }
 
 export class ThreeHudNotices {
@@ -39,6 +51,7 @@ export class ThreeHudNotices {
   private readonly interaction = document.createElement("div");
   private readonly reconnect = document.createElement("div");
   private readonly actionHelp = new ActionHelpLifecycle();
+  private readonly completedActions = new Set<ContextualAction>();
 
   constructor() {
     this.element.style.cssText =
@@ -63,14 +76,16 @@ export class ThreeHudNotices {
 
   update(snapshot: ThreeHudNoticeState, nowMs: number): void {
     this.updateBoss(snapshot);
-    const toast = [...snapshot.toasts]
-      .reverse()
-      .find((entry) => entry.until > nowMs);
+    const toast = latestVisibleToast(snapshot.toasts, nowMs);
     this.toast.hidden = !toast;
     this.toast.textContent = toast?.msg ?? "";
+    this.completedActions.clear();
+    for (const action of snapshot.completedContextualActions ?? []) {
+      this.completedActions.add(action);
+    }
     const visibleActionHints = this.actionHelp.visibleHints(
       snapshot.actionHints,
-      new Set(snapshot.completedContextualActions ?? []),
+      this.completedActions,
       nowMs,
     );
     const helpText = contextualHelpText(

@@ -61,7 +61,12 @@ const DISPLAY_CAP = 60;
 export class ChatController {
   private readonly tabs: ChatTabsState = createChatTabsState();
   private readonly display: RenderChatLine[] = [];
+  private readonly modelCache = new Map<
+    number,
+    { revision: number; model: ChatPanelModel }
+  >();
   private seenSeq = 0;
+  private modelRevision = 0;
 
   constructor(private readonly port: ChatPort) {}
 
@@ -102,6 +107,7 @@ export class ChatController {
 
   selectTab(tab: ChatTabId): void {
     selectTab(this.tabs, tab);
+    this.modelRevision++;
   }
 
   activeTab(): ChatTabId {
@@ -115,7 +121,9 @@ export class ChatController {
 
   /** The render model the chat panel widget draws each frame. */
   model(maxLines: number): ChatPanelModel {
-    return {
+    const cached = this.modelCache.get(maxLines);
+    if (cached?.revision === this.modelRevision) return cached.model;
+    const model = {
       tabs: CHAT_TABS.map((id) => ({
         id,
         active: id === this.tabs.active,
@@ -124,6 +132,8 @@ export class ChatController {
       })),
       lines: this.display.filter((l) => lineVisibleOn(l.channel, this.tabs.active)).slice(-maxLines),
     };
+    this.modelCache.set(maxLines, { revision: this.modelRevision, model });
+    return model;
   }
 
   private pushSystem(text: string): void {
@@ -133,5 +143,6 @@ export class ChatController {
   private pushLine(line: RenderChatLine): void {
     this.display.push(line);
     if (this.display.length > DISPLAY_CAP) this.display.shift();
+    this.modelRevision++;
   }
 }

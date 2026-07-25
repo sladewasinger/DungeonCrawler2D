@@ -14,7 +14,7 @@ import {
   type InteractionPrompt,
 } from "../scenes/dungeon/interactionPrompt.js";
 import { resolveContextualActionHelp } from "../ui/actionHelp.js";
-import { resolveBossBar } from "../ui/widgets/hud/bossBarView.js";
+import { resolveRemoteBossBar } from "../ui/widgets/hud/bossBarView.js";
 import type { ThreeHudNoticeState } from "./ThreeHudNotices.js";
 import type { ThreeHudNotices } from "./ThreeHudNotices.js";
 import type { ThreeHudPanels } from "./ThreeHudPanels.js";
@@ -34,7 +34,7 @@ export function buildThreeHudLiveState(
     stash: stashSnapshot(connection.inventory, connection.stash, stashNearby),
   };
   const notices: ThreeHudNoticeState = {
-    boss: resolveBossBar([...connection.entities.values()].map(({ snap }) => snap)),
+    boss: resolveRemoteBossBar(connection.entities.values()),
     interactionPrompt: resolvePrompt(connection, world),
     actionHints: resolveContextualActionHelp({
       selectedItemId: selectedSlot < 0

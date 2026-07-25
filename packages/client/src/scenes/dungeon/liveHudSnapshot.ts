@@ -6,7 +6,7 @@ import { findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/eng
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { ChatController } from "../../ui/chat/controller.js";
-import { resolveBossBar } from "../../ui/widgets/hud/bossBarView.js";
+import { resolveRemoteBossBar } from "../../ui/widgets/hud/bossBarView.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
@@ -54,7 +54,7 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     toasts: conn.toasts,
     seed: conn.welcome ? String(conn.welcome.worldSeed) : null,
     floor: conn.floor,
-    boss: resolveBossBar([...conn.entities.values()].map((e) => e.snap)),
+    boss: resolveRemoteBossBar(conn.entities.values()),
   };
 }
 

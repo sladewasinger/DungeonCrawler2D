@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveBossBar, type BossEntitySource } from "./bossBarView.js";
+import {
+  resolveBossBar,
+  resolveRemoteBossBar,
+  type BossEntitySource,
+} from "./bossBarView.js";
 
 describe("resolveBossBar", () => {
   it("returns null when no boss entity is in the list", () => {
@@ -28,5 +32,17 @@ describe("resolveBossBar", () => {
   it("returns null when the boss entity is missing hp fields", () => {
     const entities: BossEntitySource[] = [{ kind: "enemy", defId: "warden-of-five" }];
     expect(resolveBossBar(entities)).toBeNull();
+  });
+
+  it("scans live remote records without materializing a snapshot array", () => {
+    const remotes = new Map([
+      ["slime", { snap: { kind: "enemy", defId: "slime", hp: 10, maxHp: 10 } }],
+      ["boss", { snap: { kind: "enemy", defId: "warden-of-five", hp: 7, maxHp: 20 } }],
+    ]);
+    expect(resolveRemoteBossBar(remotes.values())).toEqual({
+      name: "Warden Of Five",
+      hp: 7,
+      maxHp: 20,
+    });
   });
 });

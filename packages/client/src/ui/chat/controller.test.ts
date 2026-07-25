@@ -119,4 +119,19 @@ describe("ChatController", () => {
     controller.selectTab("local");
     expect(controller.model(4).lines.map((l) => l.text)).toEqual(["l1", "sys"]);
   });
+
+  it("reuses an unchanged render model and invalidates visible state changes", () => {
+    const port = makePort();
+    const controller = new ChatController(port);
+    const initial = controller.model(4);
+
+    expect(controller.model(4)).toBe(initial);
+    port.push({ channel: "global", name: "A", text: "new" });
+    controller.sync();
+    const withLine = controller.model(4);
+    expect(withLine).not.toBe(initial);
+    expect(controller.model(4)).toBe(withLine);
+    controller.selectTab("local");
+    expect(controller.model(4)).not.toBe(withLine);
+  });
 });

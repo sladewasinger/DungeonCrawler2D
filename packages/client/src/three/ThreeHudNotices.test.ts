@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { contextualHelpText } from "./ThreeHudNotices.js";
+import {
+  contextualHelpText,
+  latestVisibleToast,
+} from "./ThreeHudNotices.js";
 
 const hints = [
   {
@@ -29,5 +32,19 @@ describe("contextualHelpText", () => {
 
   it("stays hidden when there is no contextual help", () => {
     expect(contextualHelpText(null, [], false)).toBe("");
+  });
+
+  it("selects the newest live toast without reversing the source queue", () => {
+    const toasts = [
+      { msg: "expired", until: 10 },
+      { msg: "older", until: 30 },
+      { msg: "newest", until: 40 },
+    ];
+    expect(latestVisibleToast(toasts, 20)?.msg).toBe("newest");
+    expect(toasts.map((toast) => toast.msg)).toEqual([
+      "expired",
+      "older",
+      "newest",
+    ]);
   });
 });
