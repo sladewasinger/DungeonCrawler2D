@@ -215,6 +215,65 @@ resource "aws_instance" "game_server" {
   ]
 }
 
+data "aws_iam_policy_document" "backup_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["backup.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "backup" {
+  name               = "${local.name}-backup"
+  assume_role_policy = data.aws_iam_policy_document.backup_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "backup" {
+  role       = aws_iam_role.backup.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+}
+
+resource "aws_iam_role_policy_attachment" "restore" {
+  role       = aws_iam_role.backup.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
+}
+
+resource "aws_backup_vault" "player_data" {
+  name = "${local.name}-player-data"
+}
+
+resource "aws_backup_plan" "player_data" {
+  name = "${local.name}-daily"
+
+  rule {
+    rule_name         = "daily-player-data"
+    target_vault_name = aws_backup_vault.player_data.name
+    schedule          = "cron(0 8 * * ? *)"
+    start_window      = 60
+    completion_window = 180
+
+    lifecycle {
+      delete_after = 35
+    }
+
+    recovery_point_tags = {
+      project     = "dungeoncrawler2d"
+      environment = "prod"
+      data        = "player-state"
+    }
+  }
+}
+
+resource "aws_backup_selection" "player_data" {
+  name         = "${local.name}-instance"
+  iam_role_arn = aws_iam_role.backup.arn
+  plan_id      = aws_backup_plan.player_data.id
+  resources    = [aws_instance.game_server.arn]
+}
+
 resource "aws_eip" "game_server" {
   domain   = "vpc"
   instance = aws_instance.game_server.id

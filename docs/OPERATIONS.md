@@ -31,8 +31,14 @@ aws s3 sync \
 Restart `dungeoncrawler2d` through SSM, invalidate the CloudFront distribution,
 and run `node tools/smoke-production.mjs "$SITE_URL"`.
 
-## Current limitation
+## Player-data backups
 
-Player data still resides on the production instance volume. A release rollback
-does not roll player data backward. Off-host backups and a practiced restore
-procedure remain mandatory before the public-release gate can pass.
+Player data resides on the encrypted production instance volume. AWS Backup
+captures that instance into a dedicated vault every day and retains recovery
+points for 35 days. Application rollback deliberately does not roll player data
+backward.
+
+A production-readiness review must still record a successful restore drill. The
+drill restores to a replacement instance, validates the versioned player store,
+runs the production smoke command against the replacement, and destroys the
+replacement only after the evidence has been retained.
