@@ -51,6 +51,17 @@ export default tseslint.config(
     rules: { "max-lines-per-function": "off" },
   },
   {
+    // This deterministic end-to-end benchmark keeps its scenario timeline and
+    // packet corpus orchestration together so reruns exercise one fixed workload.
+    // Keep explicit finite caps here without relaxing application source limits.
+    files: ["tools/network-baseline.ts"],
+    rules: {
+      "max-lines": ["error", { max: 850, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["error", { max: 340, skipBlankLines: true, skipComments: true }],
+      complexity: ["error", { max: 20 }],
+    },
+  },
+  {
     // engine: pure TS, zero deps except zod, forbidden `any`/`!`/ts-comments outright.
     files: ["packages/engine/**/*.ts"],
     rules: {

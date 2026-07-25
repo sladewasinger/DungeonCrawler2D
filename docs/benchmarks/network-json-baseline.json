@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-25T00:42:37.109Z",
+  "generatedAt": "2026-07-25T00:54:19.442Z",
   "command": "npm run benchmark:network",
   "codec": "json",
   "deterministicInputs": {
@@ -34,27 +34,27 @@
   "warm": {
     "aggregate": {
       "packets": 275,
-      "bytes": 336614,
+      "bytes": 336066,
       "messagesPerSecond": 49.10714285714286,
-      "bytesPerSecond": 60109.64285714286,
+      "bytesPerSecond": 60011.78571428572,
       "packetBytes": {
         "count": 275,
-        "mean": 1224.050909090909,
-        "p50": 1450,
+        "mean": 1222.0581818181818,
+        "p50": 1447,
         "p95": 1680,
         "p99": 3614,
-        "max": 4297
+        "max": 4347
       }
     },
     "directions": {
       "clientToServer": {
         "packets": 52,
-        "bytes": 4930,
+        "bytes": 4927,
         "messagesPerSecond": 9.285714285714286,
-        "bytesPerSecond": 880.3571428571429,
+        "bytesPerSecond": 879.8214285714287,
         "packetBytes": {
           "count": 52,
-          "mean": 94.8076923076923,
+          "mean": 94.75,
           "p50": 109,
           "p95": 111,
           "p99": 187,
@@ -63,29 +63,29 @@
       },
       "serverToClient": {
         "packets": 223,
-        "bytes": 331684,
+        "bytes": 331139,
         "messagesPerSecond": 39.82142857142858,
-        "bytesPerSecond": 59229.28571428572,
+        "bytesPerSecond": 59131.96428571429,
         "packetBytes": {
           "count": 223,
-          "mean": 1487.372197309417,
+          "mean": 1484.9282511210763,
           "p50": 1486,
           "p95": 1698,
           "p99": 3614,
-          "max": 4297
+          "max": 4347
         }
       }
     },
     "clients": {
       "bench-a": {
         "packets": 91,
-        "bytes": 110424,
+        "bytes": 110212,
         "messagesPerSecond": 16.25,
-        "bytesPerSecond": 19718.57142857143,
+        "bytesPerSecond": 19680.714285714286,
         "packetBytes": {
           "count": 91,
-          "mean": 1213.4505494505495,
-          "p50": 1505,
+          "mean": 1211.1208791208792,
+          "p50": 1483,
           "p95": 1760,
           "p99": 4271,
           "max": 4271
@@ -93,27 +93,27 @@
       },
       "bench-b": {
         "packets": 92,
-        "bytes": 118390,
+        "bytes": 118261,
         "messagesPerSecond": 16.42857142857143,
-        "bytesPerSecond": 21141.07142857143,
+        "bytesPerSecond": 21118.035714285717,
         "packetBytes": {
           "count": 92,
-          "mean": 1286.8478260869565,
-          "p50": 1486,
+          "mean": 1285.445652173913,
+          "p50": 1484,
           "p95": 1683,
-          "p99": 4297,
-          "max": 4297
+          "p99": 4347,
+          "max": 4347
         }
       },
       "bench-c": {
         "packets": 92,
-        "bytes": 107800,
+        "bytes": 107593,
         "messagesPerSecond": 16.42857142857143,
-        "bytesPerSecond": 19250,
+        "bytesPerSecond": 19213.035714285714,
         "packetBytes": {
           "count": 92,
-          "mean": 1171.7391304347825,
-          "p50": 1426,
+          "mean": 1169.4891304347825,
+          "p50": 1424,
           "p95": 1623,
           "p99": 3614,
           "max": 3614
@@ -123,12 +123,12 @@
     "phases": {
       "idle": {
         "packets": 36,
-        "bytes": 39476,
+        "bytes": 39470,
         "messagesPerSecond": 36,
-        "bytesPerSecond": 39476,
+        "bytesPerSecond": 39470,
         "packetBytes": {
           "count": 36,
-          "mean": 1096.5555555555557,
+          "mean": 1096.388888888889,
           "p50": 1308,
           "p95": 1352,
           "p99": 1352,
@@ -136,14 +136,14 @@
         }
       },
       "movement": {
-        "packets": 48,
-        "bytes": 59452,
-        "messagesPerSecond": 48,
-        "bytesPerSecond": 59452,
+        "packets": 51,
+        "bytes": 63336,
+        "messagesPerSecond": 51,
+        "bytesPerSecond": 63336,
         "packetBytes": {
-          "count": 48,
-          "mean": 1238.5833333333333,
-          "p50": 1505,
+          "count": 51,
+          "mean": 1241.8823529411766,
+          "p50": 1457,
           "p95": 1723,
           "p99": 1867,
           "max": 1867
@@ -192,29 +192,29 @@
         }
       },
       "reconnect": {
-        "packets": 40,
-        "bytes": 52365,
-        "messagesPerSecond": 40,
-        "bytesPerSecond": 52365,
+        "packets": 37,
+        "bytes": 47939,
+        "messagesPerSecond": 37,
+        "bytesPerSecond": 47939,
         "packetBytes": {
-          "count": 40,
-          "mean": 1309.125,
+          "count": 37,
+          "mean": 1295.6486486486488,
           "p50": 1486,
-          "p95": 1680,
-          "p99": 4297,
-          "max": 4297
+          "p95": 1768,
+          "p99": 4347,
+          "max": 4347
         }
       }
     },
     "packetTypes": {
       "clientToServer:input": {
         "packets": 39,
-        "bytes": 4258,
+        "bytes": 4255,
         "messagesPerSecond": 6.964285714285714,
-        "bytesPerSecond": 760.3571428571429,
+        "bytesPerSecond": 759.8214285714287,
         "packetBytes": {
           "count": 39,
-          "mean": 109.17948717948718,
+          "mean": 109.1025641025641,
           "p50": 109,
           "p95": 111,
           "p99": 111,
@@ -223,16 +223,16 @@
       },
       "serverToClient:snapshotDelta": {
         "packets": 222,
-        "bytes": 331480,
+        "bytes": 330935,
         "messagesPerSecond": 39.642857142857146,
-        "bytesPerSecond": 59192.857142857145,
+        "bytesPerSecond": 59095.53571428572,
         "packetBytes": {
           "count": 222,
-          "mean": 1493.1531531531532,
+          "mean": 1490.6981981981983,
           "p50": 1486,
           "p95": 1698,
           "p99": 3614,
-          "max": 4297
+          "max": 4347
         }
       },
       "clientToServer:chat": {
@@ -392,35 +392,35 @@
     },
     "clientEncodeMilliseconds": {
       "count": 52,
-      "mean": 0.002651923076878295,
-      "p50": 0.0018000000000029104,
-      "p95": 0.00709999999980937,
-      "p99": 0.009299999999711872,
-      "max": 0.009299999999711872
+      "mean": 0.0026230769230524997,
+      "p50": 0.0015999999995983671,
+      "p95": 0.008499999999912689,
+      "p99": 0.009099999999307329,
+      "max": 0.009099999999307329
     },
     "clientDecodeMilliseconds": {
-      "count": 226,
-      "mean": 0.12301415929205047,
-      "p50": 0.10789999999997235,
-      "p95": 0.25460000000020955,
-      "p99": 0.2891999999997097,
-      "max": 0.48900000000003274
+      "count": 229,
+      "mean": 0.13503013100436306,
+      "p50": 0.11500000000023647,
+      "p95": 0.29490000000032524,
+      "p99": 0.3483000000001084,
+      "max": 0.5241000000000895
     },
     "serverStepMilliseconds": {
       "count": 112,
-      "mean": 0.3842133928571617,
-      "p50": 0.32469999999966603,
-      "p95": 0.856499999999869,
-      "p99": 1.4785999999994601,
-      "max": 1.521600000000035
+      "mean": 0.4498883928570915,
+      "p50": 0.38920000000052823,
+      "p95": 0.9445999999998094,
+      "p99": 1.2946999999999207,
+      "max": 2.3959999999988213
     },
     "inputToAckMilliseconds": {
       "count": 39,
-      "mean": 77.02725128205125,
-      "p50": 62.25770000000011,
-      "p95": 112.46389999999974,
-      "p99": 117.04549999999972,
-      "max": 117.04549999999972
+      "mean": 78.59187435897441,
+      "p50": 57.7516999999998,
+      "p95": 118.9434999999994,
+      "p99": 118.96820000000025,
+      "max": 118.96820000000025
     },
     "reconciliation": {
       "samples": 222,
@@ -446,15 +446,15 @@
         "max": 120.01666550942
       },
       "ordinaryMovementAndLoss": {
-        "samples": 91,
+        "samples": 94,
         "visibleCorrectionCount": 7,
         "visibleCorrectionsPerSecond": 2.692307692307692,
-        "correctedSnapshotFraction": 0.07692307692307693,
+        "correctedSnapshotFraction": 0.07446808510638298,
         "smoothCount": 7,
         "hardCount": 0,
         "error": {
-          "count": 91,
-          "mean": 0.006593406593406453,
+          "count": 94,
+          "mean": 0.00638297872340412,
           "p50": 0,
           "p95": 0.05999999999999872,
           "p99": 0.11999999999999744,
@@ -495,17 +495,17 @@
           }
         },
         "movement": {
-          "samples": 39,
+          "samples": 42,
           "visibleCorrectionCount": 3,
           "visibleCorrectionsPerSecond": 3,
-          "correctedSnapshotFraction": 0.07692307692307693,
+          "correctedSnapshotFraction": 0.07142857142857142,
           "smoothCount": 3,
           "hardCount": 0,
           "error": {
-            "count": 39,
-            "mean": 0.007692307692307528,
+            "count": 42,
+            "mean": 0.007142857142856991,
             "p50": 0,
-            "p95": 0.11999999999999744,
+            "p95": 0.05999999999999872,
             "p99": 0.11999999999999744,
             "max": 0.11999999999999744
           },
@@ -591,14 +591,14 @@
           }
         },
         "reconnect": {
-          "samples": 32,
+          "samples": 29,
           "visibleCorrectionCount": 0,
           "visibleCorrectionsPerSecond": 0,
           "correctedSnapshotFraction": 0,
           "smoothCount": 0,
           "hardCount": 0,
           "error": {
-            "count": 32,
+            "count": 29,
             "mean": 0,
             "p50": 0,
             "p95": 0,
@@ -631,25 +631,25 @@
       "client": "bench-a",
       "phase": "idle",
       "seq": 1,
-      "projectedServerTick": 11,
+      "projectedServerTick": 9,
       "acknowledgedProjectedServerTick": 12,
-      "milliseconds": 103.04510000000005
+      "milliseconds": 110.11950000000002
     },
     {
       "client": "bench-b",
       "phase": "idle",
       "seq": 1,
-      "projectedServerTick": 11,
+      "projectedServerTick": 9,
       "acknowledgedProjectedServerTick": 12,
-      "milliseconds": 101.8084
+      "milliseconds": 109.22269999999992
     },
     {
       "client": "bench-c",
       "phase": "idle",
       "seq": 1,
-      "projectedServerTick": 11,
+      "projectedServerTick": 9,
       "acknowledgedProjectedServerTick": 12,
-      "milliseconds": 100.59479999999996
+      "milliseconds": 108.08979999999997
     },
     {
       "client": "bench-a",
@@ -657,7 +657,7 @@
       "seq": 11,
       "projectedServerTick": 21,
       "acknowledgedProjectedServerTick": 22,
-      "milliseconds": 111.51689999999985
+      "milliseconds": 105.0634
     },
     {
       "client": "bench-b",
@@ -665,7 +665,7 @@
       "seq": 11,
       "projectedServerTick": 21,
       "acknowledgedProjectedServerTick": 22,
-      "milliseconds": 111.58950000000004
+      "milliseconds": 105.09680000000003
     },
     {
       "client": "bench-c",
@@ -673,7 +673,7 @@
       "seq": 11,
       "projectedServerTick": 21,
       "acknowledgedProjectedServerTick": 22,
-      "milliseconds": 111.63929999999982
+      "milliseconds": 105.14509999999996
     },
     {
       "client": "bench-a",
@@ -681,7 +681,7 @@
       "seq": 21,
       "projectedServerTick": 31,
       "acknowledgedProjectedServerTick": 32,
-      "milliseconds": 106.60950000000003
+      "milliseconds": 111.04759999999987
     },
     {
       "client": "bench-b",
@@ -689,7 +689,7 @@
       "seq": 21,
       "projectedServerTick": 31,
       "acknowledgedProjectedServerTick": 32,
-      "milliseconds": 106.65440000000012
+      "milliseconds": 111.1700000000003
     },
     {
       "client": "bench-c",
@@ -697,7 +697,7 @@
       "seq": 21,
       "projectedServerTick": 31,
       "acknowledgedProjectedServerTick": 32,
-      "milliseconds": 106.68459999999982
+      "milliseconds": 111.23300000000017
     },
     {
       "client": "bench-a",
@@ -705,7 +705,7 @@
       "seq": 26,
       "projectedServerTick": 36,
       "acknowledgedProjectedServerTick": 36,
-      "milliseconds": 40.160899999999856
+      "milliseconds": 56.11180000000013
     },
     {
       "client": "bench-b",
@@ -713,7 +713,7 @@
       "seq": 31,
       "projectedServerTick": 41,
       "acknowledgedProjectedServerTick": 41,
-      "milliseconds": 62.25770000000011
+      "milliseconds": 55.76999999999998
     },
     {
       "client": "bench-c",
@@ -721,7 +721,7 @@
       "seq": 31,
       "projectedServerTick": 41,
       "acknowledgedProjectedServerTick": 41,
-      "milliseconds": 62.435799999999745
+      "milliseconds": 55.940700000000106
     },
     {
       "client": "bench-a",
@@ -729,7 +729,7 @@
       "seq": 31,
       "projectedServerTick": 41,
       "acknowledgedProjectedServerTick": 42,
-      "milliseconds": 117.04549999999972
+      "milliseconds": 111.08740000000034
     },
     {
       "client": "bench-a",
@@ -737,7 +737,7 @@
       "seq": 32,
       "projectedServerTick": 42,
       "acknowledgedProjectedServerTick": 42,
-      "milliseconds": 55.11830000000009
+      "milliseconds": 55.731500000000324
     },
     {
       "client": "bench-a",
@@ -745,7 +745,7 @@
       "seq": 36,
       "projectedServerTick": 46,
       "acknowledgedProjectedServerTick": 46,
-      "milliseconds": 49.06770000000006
+      "milliseconds": 56.082000000000335
     },
     {
       "client": "bench-b",
@@ -753,7 +753,7 @@
       "seq": 41,
       "projectedServerTick": 51,
       "acknowledgedProjectedServerTick": 51,
-      "milliseconds": 56.66379999999981
+      "milliseconds": 56.73199999999997
     },
     {
       "client": "bench-c",
@@ -761,7 +761,7 @@
       "seq": 41,
       "projectedServerTick": 51,
       "acknowledgedProjectedServerTick": 51,
-      "milliseconds": 56.79980000000023
+      "milliseconds": 56.87830000000031
     },
     {
       "client": "bench-a",
@@ -769,7 +769,7 @@
       "seq": 46,
       "projectedServerTick": 56,
       "acknowledgedProjectedServerTick": 56,
-      "milliseconds": 63.55420000000004
+      "milliseconds": 55.74420000000009
     },
     {
       "client": "bench-b",
@@ -777,7 +777,7 @@
       "seq": 51,
       "projectedServerTick": 61,
       "acknowledgedProjectedServerTick": 61,
-      "milliseconds": 61.47719999999981
+      "milliseconds": 56.59310000000005
     },
     {
       "client": "bench-c",
@@ -785,7 +785,7 @@
       "seq": 51,
       "projectedServerTick": 61,
       "acknowledgedProjectedServerTick": 61,
-      "milliseconds": 61.60629999999992
+      "milliseconds": 56.73979999999983
     },
     {
       "client": "bench-a",
@@ -793,7 +793,7 @@
       "seq": 56,
       "projectedServerTick": 66,
       "acknowledgedProjectedServerTick": 66,
-      "milliseconds": 48.84790000000021
+      "milliseconds": 55.48369999999977
     },
     {
       "client": "bench-b",
@@ -801,7 +801,7 @@
       "seq": 61,
       "projectedServerTick": 71,
       "acknowledgedProjectedServerTick": 71,
-      "milliseconds": 44.69890000000032
+      "milliseconds": 57.7516999999998
     },
     {
       "client": "bench-c",
@@ -809,7 +809,7 @@
       "seq": 61,
       "projectedServerTick": 71,
       "acknowledgedProjectedServerTick": 71,
-      "milliseconds": 44.70190000000002
+      "milliseconds": 57.80169999999998
     },
     {
       "client": "bench-a",
@@ -817,7 +817,7 @@
       "seq": 66,
       "projectedServerTick": 76,
       "acknowledgedProjectedServerTick": 76,
-      "milliseconds": 50.72729999999956
+      "milliseconds": 65.07150000000001
     },
     {
       "client": "bench-b",
@@ -825,7 +825,7 @@
       "seq": 71,
       "projectedServerTick": 81,
       "acknowledgedProjectedServerTick": 82,
-      "milliseconds": 103.75420000000031
+      "milliseconds": 112.99499999999989
     },
     {
       "client": "bench-c",
@@ -833,7 +833,7 @@
       "seq": 71,
       "projectedServerTick": 81,
       "acknowledgedProjectedServerTick": 82,
-      "milliseconds": 103.67300000000068
+      "milliseconds": 112.93000000000029
     },
     {
       "client": "bench-a",
@@ -841,7 +841,7 @@
       "seq": 76,
       "projectedServerTick": 86,
       "acknowledgedProjectedServerTick": 86,
-      "milliseconds": 54.75720000000001
+      "milliseconds": 49.26329999999962
     },
     {
       "client": "bench-b",
@@ -849,7 +849,7 @@
       "seq": 81,
       "projectedServerTick": 91,
       "acknowledgedProjectedServerTick": 91,
-      "milliseconds": 56.85530000000017
+      "milliseconds": 52.622299999999996
     },
     {
       "client": "bench-c",
@@ -857,7 +857,7 @@
       "seq": 81,
       "projectedServerTick": 91,
       "acknowledgedProjectedServerTick": 91,
-      "milliseconds": 56.90859999999975
+      "milliseconds": 52.724600000000464
     },
     {
       "client": "bench-a",
@@ -865,7 +865,7 @@
       "seq": 81,
       "projectedServerTick": 91,
       "acknowledgedProjectedServerTick": 92,
-      "milliseconds": 112.46389999999974
+      "milliseconds": 110.58190000000013
     },
     {
       "client": "bench-a",
@@ -873,7 +873,7 @@
       "seq": 86,
       "projectedServerTick": 96,
       "acknowledgedProjectedServerTick": 96,
-      "milliseconds": 49.16700000000037
+      "milliseconds": 56.383600000000115
     },
     {
       "client": "bench-b",
@@ -881,7 +881,7 @@
       "seq": 91,
       "projectedServerTick": 101,
       "acknowledgedProjectedServerTick": 102,
-      "milliseconds": 110.20569999999952
+      "milliseconds": 118.9434999999994
     },
     {
       "client": "bench-c",
@@ -889,7 +889,7 @@
       "seq": 91,
       "projectedServerTick": 101,
       "acknowledgedProjectedServerTick": 102,
-      "milliseconds": 110.1869999999999
+      "milliseconds": 118.96820000000025
     },
     {
       "client": "bench-a",
@@ -897,7 +897,7 @@
       "seq": 96,
       "projectedServerTick": 106,
       "acknowledgedProjectedServerTick": 106,
-      "milliseconds": 47.71630000000005
+      "milliseconds": 43.198600000000624
     },
     {
       "client": "bench-b",
@@ -905,7 +905,7 @@
       "seq": 1,
       "projectedServerTick": 108,
       "acknowledgedProjectedServerTick": 108,
-      "milliseconds": 33.21969999999965
+      "milliseconds": 47.977600000000166
     },
     {
       "client": "bench-c",
@@ -913,7 +913,7 @@
       "seq": 101,
       "projectedServerTick": 112,
       "acknowledgedProjectedServerTick": 112,
-      "milliseconds": 49.76119999999992
+      "milliseconds": 42.60450000000037
     },
     {
       "client": "bench-b",
@@ -921,7 +921,7 @@
       "seq": 6,
       "projectedServerTick": 113,
       "acknowledgedProjectedServerTick": 114,
-      "milliseconds": 111.36799999999948
+      "milliseconds": 99.57560000000012
     },
     {
       "client": "bench-a",
@@ -929,7 +929,7 @@
       "seq": 106,
       "projectedServerTick": 117,
       "acknowledgedProjectedServerTick": 118,
-      "milliseconds": 112.17780000000039
+      "milliseconds": 105.27049999999963
     },
     {
       "client": "bench-c",
@@ -937,7 +937,7 @@
       "seq": 111,
       "projectedServerTick": 122,
       "acknowledgedProjectedServerTick": 122,
-      "milliseconds": 56.542199999999866
+      "milliseconds": 55.336599999999635
     }
   ],
   "recovery": {
@@ -959,12 +959,12 @@
   },
   "serverDiagnostics": {
     "aggregate": {
-      "inboundMessagesPerSecond": 7.859304278095108,
-      "outboundMessagesPerSecond": 36.152799679237496,
-      "inboundBytesPerSecond": 760.2090683539268,
-      "outboundBytesPerSecond": 53833.09058324025,
-      "encodeMilliseconds": 2.357900000001507,
-      "decodeMilliseconds": 3.2333000000026573,
+      "inboundMessagesPerSecond": 7.8701110011903035,
+      "outboundMessagesPerSecond": 36.202510605475396,
+      "inboundBytesPerSecond": 760.8250944241609,
+      "outboundBytesPerSecond": 53914.26696011782,
+      "encodeMilliseconds": 2.463499999998078,
+      "decodeMilliseconds": 3.5782000000002085,
       "maximumQueueBytes": 0,
       "roundTripMilliseconds": 0,
       "roundTripJitterMilliseconds": 0,
@@ -974,12 +974,12 @@
     },
     "clients": {
       "handshake": {
-        "inboundMessagesPerSecond": 0.5715857656796443,
+        "inboundMessagesPerSecond": 0.5723717091774766,
         "outboundMessagesPerSecond": 0,
-        "inboundBytesPerSecond": 82.45124669928867,
+        "inboundBytesPerSecond": 82.564619048851,
         "outboundBytesPerSecond": 0,
         "encodeMilliseconds": 0,
-        "decodeMilliseconds": 0.5413000000000352,
+        "decodeMilliseconds": 0.8013000000002535,
         "maximumQueueBytes": 0,
         "roundTripMilliseconds": 0,
         "roundTripJitterMilliseconds": 0,
@@ -988,12 +988,12 @@
         "maximumCorrectionError": 0
       },
       "p1": {
-        "inboundMessagesPerSecond": 3.1464216790284327,
-        "outboundMessagesPerSecond": 11.298514211056645,
-        "inboundBytesPerSecond": 269.1620727241596,
-        "outboundBytesPerSecond": 17790.154211561217,
-        "encodeMilliseconds": 1.2906999999992195,
-        "decodeMilliseconds": 2.0023000000002185,
+        "inboundMessagesPerSecond": 3.1515791381218947,
+        "outboundMessagesPerSecond": 11.31703417780135,
+        "inboundBytesPerSecond": 269.46001630942203,
+        "outboundBytesPerSecond": 17819.314954135567,
+        "encodeMilliseconds": 1.3478999999973666,
+        "decodeMilliseconds": 2.134599999999864,
         "maximumQueueBytes": 0,
         "roundTripMilliseconds": 0,
         "roundTripJitterMilliseconds": 0,
@@ -1002,12 +1002,12 @@
         "maximumCorrectionError": 0
       },
       "p3": {
-        "inboundMessagesPerSecond": 2.1466485228117254,
-        "outboundMessagesPerSecond": 12.450561432308007,
-        "inboundBytesPerSecond": 209.36978592490362,
-        "outboundBytesPerSecond": 17228.285494579304,
-        "encodeMilliseconds": 0.4412000000014018,
-        "decodeMilliseconds": 0.25530000000151176,
+        "inboundMessagesPerSecond": 2.1504240858507786,
+        "outboundMessagesPerSecond": 12.472459697934516,
+        "inboundBytesPerSecond": 209.59466756758923,
+        "outboundBytesPerSecond": 17258.58690500973,
+        "encodeMilliseconds": 0.455300000001273,
+        "decodeMilliseconds": 0.21570000000042455,
         "maximumQueueBytes": 0,
         "roundTripMilliseconds": 0,
         "roundTripJitterMilliseconds": 0,
@@ -1016,12 +1016,12 @@
         "maximumCorrectionError": 0
       },
       "p2": {
-        "inboundMessagesPerSecond": 1.9999866000897777,
-        "outboundMessagesPerSecond": 11.999919600538666,
-        "inboundBytesPerSecond": 218.99853270983067,
-        "outboundBytesPerSecond": 19434.869786372416,
-        "encodeMilliseconds": 0.07909999999992579,
-        "decodeMilliseconds": 0.047599999999874854,
+        "inboundMessagesPerSecond": 1.9765547011019384,
+        "outboundMessagesPerSecond": 11.85932820661163,
+        "inboundBytesPerSecond": 216.43273977066227,
+        "outboundBytesPerSecond": 19256.584175485637,
+        "encodeMilliseconds": 0.08510000000023865,
+        "decodeMilliseconds": 0.06409999999959837,
         "maximumQueueBytes": 0,
         "roundTripMilliseconds": 0,
         "roundTripJitterMilliseconds": 0,

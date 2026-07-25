@@ -38,7 +38,7 @@
       "direction": "serverToClient",
       "type": "welcome",
       "bytes": 204,
-      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p1\",\"resumeToken\":\"xh0jon8ysazmr2zpj0b1tmy3wu0i421lmrzna2ck\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":26.5,\"y\":26.5,\"z\":0}}"
+      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p1\",\"resumeToken\":\"xh0jon8ysazmr2zpj0b1tmy3wu0i421lmrznp4a5\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":26.5,\"y\":26.5,\"z\":0}}"
     },
     {
       "index": 4,
@@ -47,7 +47,7 @@
       "direction": "serverToClient",
       "type": "welcome",
       "bytes": 204,
-      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p2\",\"resumeToken\":\"gfhwnnzte0p20xvos3fn6pixuo89w4z4mrzna2cn\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":26.5,\"y\":24.5,\"z\":0}}"
+      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p2\",\"resumeToken\":\"gfhwnnzte0p20xvos3fn6pixuo89w4z4mrznp4a8\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":26.5,\"y\":24.5,\"z\":0}}"
     },
     {
       "index": 5,
@@ -56,7 +56,7 @@
       "direction": "serverToClient",
       "type": "welcome",
       "bytes": 204,
-      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p3\",\"resumeToken\":\"e93hqj5d4077vw589t33z02e9d7m6pzimrzna2cp\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":37.5,\"y\":23.5,\"z\":0}}"
+      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p3\",\"resumeToken\":\"e93hqj5d4077vw589t33z02e9d7m6pzimrznp4ab\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":37.5,\"y\":23.5,\"z\":0}}"
     },
     {
       "index": 6,
@@ -223,56 +223,56 @@
     {
       "index": 24,
       "client": "bench-a",
-      "phase": "warmup",
+      "phase": "idle",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 107,
+      "payload": "{\"type\":\"input\",\"seq\":1,\"projectedServerTick\":9,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 25,
+      "client": "bench-b",
+      "phase": "idle",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 107,
+      "payload": "{\"type\":\"input\",\"seq\":1,\"projectedServerTick\":9,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 26,
+      "client": "bench-c",
+      "phase": "idle",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 107,
+      "payload": "{\"type\":\"input\",\"seq\":1,\"projectedServerTick\":9,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 27,
+      "client": "bench-a",
+      "phase": "idle",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1351,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":10,\"lastSeq\":-1,\"lastProjectedServerTick\":-1,\"self\":{\"x\":26.5,\"y\":26.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":8,\"baseline\":false}"
     },
     {
-      "index": 25,
+      "index": 28,
       "client": "bench-b",
-      "phase": "warmup",
+      "phase": "idle",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1308,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":10,\"lastSeq\":-1,\"lastProjectedServerTick\":-1,\"self\":{\"x\":26.5,\"y\":24.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":8,\"baseline\":false}"
     },
     {
-      "index": 26,
+      "index": 29,
       "client": "bench-c",
-      "phase": "warmup",
+      "phase": "idle",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1222,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":10,\"lastSeq\":-1,\"lastProjectedServerTick\":-1,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":8,\"baseline\":false}"
-    },
-    {
-      "index": 27,
-      "client": "bench-a",
-      "phase": "idle",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 108,
-      "payload": "{\"type\":\"input\",\"seq\":1,\"projectedServerTick\":11,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 28,
-      "client": "bench-b",
-      "phase": "idle",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 108,
-      "payload": "{\"type\":\"input\",\"seq\":1,\"projectedServerTick\":11,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 29,
-      "client": "bench-c",
-      "phase": "idle",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 108,
-      "payload": "{\"type\":\"input\",\"seq\":1,\"projectedServerTick\":11,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 30,
@@ -386,40 +386,13 @@
       "index": 42,
       "client": "bench-a",
       "phase": "idle",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":11,\"projectedServerTick\":21,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 43,
-      "client": "bench-b",
-      "phase": "idle",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":11,\"projectedServerTick\":21,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 44,
-      "client": "bench-c",
-      "phase": "idle",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":11,\"projectedServerTick\":21,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 45,
-      "client": "bench-a",
-      "phase": "idle",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1351,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":20,\"lastSeq\":1,\"lastProjectedServerTick\":20,\"self\":{\"x\":26.5,\"y\":26.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":18,\"baseline\":false}"
     },
     {
-      "index": 46,
+      "index": 43,
       "client": "bench-b",
       "phase": "idle",
       "direction": "serverToClient",
@@ -428,13 +401,40 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":20,\"lastSeq\":1,\"lastProjectedServerTick\":20,\"self\":{\"x\":26.5,\"y\":24.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":18,\"baseline\":false}"
     },
     {
-      "index": 47,
+      "index": 44,
       "client": "bench-c",
       "phase": "idle",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1222,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":20,\"lastSeq\":1,\"lastProjectedServerTick\":20,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":18,\"baseline\":false}"
+    },
+    {
+      "index": 45,
+      "client": "bench-a",
+      "phase": "idle",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":11,\"projectedServerTick\":21,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 46,
+      "client": "bench-b",
+      "phase": "idle",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":11,\"projectedServerTick\":21,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 47,
+      "client": "bench-c",
+      "phase": "idle",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":11,\"projectedServerTick\":21,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 48,
@@ -547,33 +547,6 @@
     {
       "index": 60,
       "client": "bench-a",
-      "phase": "idle",
-      "direction": "serverToClient",
-      "type": "snapshotDelta",
-      "bytes": 1352,
-      "payload": "{\"type\":\"snapshotDelta\",\"tick\":30,\"lastSeq\":11,\"lastProjectedServerTick\":30,\"self\":{\"x\":26.5,\"y\":26.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":28,\"baseline\":false}"
-    },
-    {
-      "index": 61,
-      "client": "bench-b",
-      "phase": "idle",
-      "direction": "serverToClient",
-      "type": "snapshotDelta",
-      "bytes": 1309,
-      "payload": "{\"type\":\"snapshotDelta\",\"tick\":30,\"lastSeq\":11,\"lastProjectedServerTick\":30,\"self\":{\"x\":26.5,\"y\":24.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":28,\"baseline\":false}"
-    },
-    {
-      "index": 62,
-      "client": "bench-c",
-      "phase": "idle",
-      "direction": "serverToClient",
-      "type": "snapshotDelta",
-      "bytes": 1223,
-      "payload": "{\"type\":\"snapshotDelta\",\"tick\":30,\"lastSeq\":11,\"lastProjectedServerTick\":30,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":28,\"baseline\":false}"
-    },
-    {
-      "index": 63,
-      "client": "bench-a",
       "phase": "movement",
       "direction": "clientToServer",
       "type": "input",
@@ -581,7 +554,7 @@
       "payload": "{\"type\":\"input\",\"seq\":21,\"projectedServerTick\":31,\"moveX\":1,\"moveY\":0,\"jump\":false,\"run\":true,\"block\":false}"
     },
     {
-      "index": 64,
+      "index": 61,
       "client": "bench-b",
       "phase": "movement",
       "direction": "clientToServer",
@@ -590,13 +563,40 @@
       "payload": "{\"type\":\"input\",\"seq\":21,\"projectedServerTick\":31,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
-      "index": 65,
+      "index": 62,
       "client": "bench-c",
       "phase": "movement",
       "direction": "clientToServer",
       "type": "input",
       "bytes": 109,
       "payload": "{\"type\":\"input\",\"seq\":21,\"projectedServerTick\":31,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 63,
+      "client": "bench-a",
+      "phase": "movement",
+      "direction": "serverToClient",
+      "type": "snapshotDelta",
+      "bytes": 1352,
+      "payload": "{\"type\":\"snapshotDelta\",\"tick\":30,\"lastSeq\":11,\"lastProjectedServerTick\":30,\"self\":{\"x\":26.5,\"y\":26.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":28,\"baseline\":false}"
+    },
+    {
+      "index": 64,
+      "client": "bench-b",
+      "phase": "movement",
+      "direction": "serverToClient",
+      "type": "snapshotDelta",
+      "bytes": 1309,
+      "payload": "{\"type\":\"snapshotDelta\",\"tick\":30,\"lastSeq\":11,\"lastProjectedServerTick\":30,\"self\":{\"x\":26.5,\"y\":24.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":28,\"baseline\":false}"
+    },
+    {
+      "index": 65,
+      "client": "bench-c",
+      "phase": "movement",
+      "direction": "serverToClient",
+      "type": "snapshotDelta",
+      "bytes": 1223,
+      "payload": "{\"type\":\"snapshotDelta\",\"tick\":30,\"lastSeq\":11,\"lastProjectedServerTick\":30,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":1,\"unchanged\":true},{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":28,\"baseline\":false}"
     },
     {
       "index": 66,
@@ -737,13 +737,40 @@
       "index": 81,
       "client": "bench-a",
       "phase": "movement",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":31,\"projectedServerTick\":41,\"moveX\":-1,\"moveY\":0,\"jump\":true,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 82,
+      "client": "bench-b",
+      "phase": "movement",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":31,\"projectedServerTick\":41,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 83,
+      "client": "bench-c",
+      "phase": "movement",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":31,\"projectedServerTick\":41,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 84,
+      "client": "bench-a",
+      "phase": "movement",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1849,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":40,\"lastSeq\":26,\"lastProjectedServerTick\":40,\"self\":{\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":97.5,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"wet\"],\"statusEffects\":[{\"id\":\"wet\",\"remainingSeconds\":5.95,\"durationSeconds\":6}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"p3\",\"kind\":\"player\",\"name\":\"bench-c\",\"x\":37.5,\"y\":23.5,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"on-fire\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":0,\"faceY\":1,\"revision\":2},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":25.5,\"y\":23.5,\"z\":0,\"revision\":1}],\"left\":[],\"events\":[{\"t\":\"status\",\"id\":\"p1\",\"status\":\"wet\",\"on\":true},{\"t\":\"status\",\"id\":\"p3\",\"status\":\"on-fire\",\"on\":true}],\"areas\":[{\"x\":26,\"y\":26,\"defId\":\"area-wet\"},{\"x\":25,\"y\":27,\"defId\":\"area-wet\"},{\"x\":26,\"y\":27,\"defId\":\"area-wet\"}],\"baseTick\":38,\"baseline\":false}"
     },
     {
-      "index": 82,
+      "index": 85,
       "client": "bench-b",
       "phase": "movement",
       "direction": "serverToClient",
@@ -752,40 +779,13 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":40,\"lastSeq\":21,\"lastProjectedServerTick\":40,\"self\":{\"x\":26.5,\"y\":24.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":0,\"faceY\":1,\"revision\":7},{\"id\":\"p3\",\"kind\":\"player\",\"name\":\"bench-c\",\"x\":37.5,\"y\":23.5,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"on-fire\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":0,\"faceY\":1,\"revision\":2},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":25.5,\"y\":23.5,\"z\":0,\"revision\":1}],\"left\":[],\"events\":[{\"t\":\"status\",\"id\":\"p1\",\"status\":\"wet\",\"on\":true},{\"t\":\"status\",\"id\":\"p3\",\"status\":\"on-fire\",\"on\":true}],\"areas\":[{\"x\":26,\"y\":26,\"defId\":\"area-wet\"},{\"x\":25,\"y\":27,\"defId\":\"area-wet\"},{\"x\":26,\"y\":27,\"defId\":\"area-wet\"}],\"baseTick\":38,\"baseline\":false}"
     },
     {
-      "index": 83,
+      "index": 86,
       "client": "bench-c",
       "phase": "movement",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1723,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":40,\"lastSeq\":21,\"lastProjectedServerTick\":40,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.95,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":0,\"faceY\":1,\"revision\":7},{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":25.5,\"y\":23.5,\"z\":0,\"revision\":1}],\"left\":[],\"events\":[{\"t\":\"status\",\"id\":\"p1\",\"status\":\"wet\",\"on\":true},{\"t\":\"status\",\"id\":\"p3\",\"status\":\"on-fire\",\"on\":true}],\"areas\":[{\"x\":26,\"y\":26,\"defId\":\"area-wet\"},{\"x\":25,\"y\":27,\"defId\":\"area-wet\"},{\"x\":26,\"y\":27,\"defId\":\"area-wet\"}],\"baseTick\":38,\"baseline\":false}"
-    },
-    {
-      "index": 84,
-      "client": "bench-a",
-      "phase": "movement",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":31,\"projectedServerTick\":41,\"moveX\":-1,\"moveY\":0,\"jump\":true,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 85,
-      "client": "bench-b",
-      "phase": "movement",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":31,\"projectedServerTick\":41,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 86,
-      "client": "bench-c",
-      "phase": "movement",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":31,\"projectedServerTick\":41,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 87,
@@ -888,6 +888,15 @@
     },
     {
       "index": 98,
+      "client": "bench-a",
+      "phase": "movement",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":36,\"projectedServerTick\":46,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 99,
       "client": "bench-b",
       "phase": "movement",
       "direction": "serverToClient",
@@ -896,22 +905,13 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":45,\"lastSeq\":31,\"lastProjectedServerTick\":45,\"self\":{\"x\":26.5,\"y\":24.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":24.8,\"y\":27.699999999999996,\"z\":1.28125,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":-6.799999999999997,\"vy\":0,\"vz\":0.03999999999999959,\"faceX\":-1,\"faceY\":0,\"air\":true,\"revision\":12},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":44,\"baseline\":false}"
     },
     {
-      "index": 99,
+      "index": 100,
       "client": "bench-c",
       "phase": "movement",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1533,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":45,\"lastSeq\":31,\"lastProjectedServerTick\":45,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.95,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":24.8,\"y\":27.699999999999996,\"z\":1.28125,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":-6.799999999999997,\"vy\":0,\"vz\":0.03999999999999959,\"faceX\":-1,\"faceY\":0,\"air\":true,\"revision\":12},{\"id\":\"p2\",\"revision\":1,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i7\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i13\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":44,\"baseline\":false}"
-    },
-    {
-      "index": 100,
-      "client": "bench-a",
-      "phase": "movement",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":36,\"projectedServerTick\":46,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 101,
@@ -1788,6 +1788,15 @@
     },
     {
       "index": 198,
+      "client": "bench-c",
+      "phase": "aoiChunkCrossing",
+      "direction": "clientToServer",
+      "type": "debug",
+      "bytes": 50,
+      "payload": "{\"type\":\"debug\",\"op\":\"teleport\",\"x\":70.5,\"y\":56.5}"
+    },
+    {
+      "index": 199,
       "client": "bench-a",
       "phase": "aoiChunkCrossing",
       "direction": "serverToClient",
@@ -1796,7 +1805,7 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":76,\"lastSeq\":66,\"lastProjectedServerTick\":76,\"self\":{\"x\":24.8,\"y\":27.699999999999996,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"wet\"],\"statusEffects\":[{\"id\":\"wet\",\"remainingSeconds\":4.150000000000007,\"durationSeconds\":6}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":2,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":74,\"baseline\":false}"
     },
     {
-      "index": 199,
+      "index": 200,
       "client": "bench-b",
       "phase": "aoiChunkCrossing",
       "direction": "serverToClient",
@@ -1805,22 +1814,13 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":76,\"lastSeq\":61,\"lastProjectedServerTick\":76,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":19,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":74,\"baseline\":false}"
     },
     {
-      "index": 200,
+      "index": 201,
       "client": "bench-c",
       "phase": "aoiChunkCrossing",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 584,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":76,\"lastSeq\":61,\"lastProjectedServerTick\":76,\"self\":{\"x\":157.5,\"y\":23.5,\"z\":2,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.650000000000001,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":74,\"baseline\":false}"
-    },
-    {
-      "index": 201,
-      "client": "bench-c",
-      "phase": "aoiChunkCrossing",
-      "direction": "clientToServer",
-      "type": "debug",
-      "bytes": 50,
-      "payload": "{\"type\":\"debug\",\"op\":\"teleport\",\"x\":70.5,\"y\":56.5}"
     },
     {
       "index": 202,
@@ -1941,15 +1941,6 @@
     },
     {
       "index": 215,
-      "client": "bench-c",
-      "phase": "aoiChunkCrossing",
-      "direction": "clientToServer",
-      "type": "debug",
-      "bytes": 50,
-      "payload": "{\"type\":\"debug\",\"op\":\"teleport\",\"x\":37.5,\"y\":23.5}"
-    },
-    {
-      "index": 216,
       "client": "bench-a",
       "phase": "aoiChunkCrossing",
       "direction": "serverToClient",
@@ -1958,7 +1949,7 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":82,\"lastSeq\":66,\"lastProjectedServerTick\":82,\"self\":{\"x\":24.8,\"y\":27.699999999999996,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"wet\"],\"statusEffects\":[{\"id\":\"wet\",\"remainingSeconds\":3.8500000000000076,\"durationSeconds\":6}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":2,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":80,\"baseline\":false}"
     },
     {
-      "index": 217,
+      "index": 216,
       "client": "bench-b",
       "phase": "aoiChunkCrossing",
       "direction": "serverToClient",
@@ -1967,13 +1958,22 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":82,\"lastSeq\":71,\"lastProjectedServerTick\":82,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":19,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":80,\"baseline\":false}"
     },
     {
-      "index": 218,
+      "index": 217,
       "client": "bench-c",
       "phase": "aoiChunkCrossing",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 583,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":82,\"lastSeq\":71,\"lastProjectedServerTick\":82,\"self\":{\"x\":70.5,\"y\":56.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.350000000000002,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":80,\"baseline\":false}"
+    },
+    {
+      "index": 218,
+      "client": "bench-c",
+      "phase": "aoiChunkCrossing",
+      "direction": "clientToServer",
+      "type": "debug",
+      "bytes": 50,
+      "payload": "{\"type\":\"debug\",\"op\":\"teleport\",\"x\":37.5,\"y\":23.5}"
     },
     {
       "index": 219,
@@ -2238,6 +2238,15 @@
     },
     {
       "index": 248,
+      "client": "bench-a",
+      "phase": "lossRecovery",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":86,\"projectedServerTick\":96,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 249,
       "client": "bench-b",
       "phase": "lossRecovery",
       "direction": "serverToClient",
@@ -2246,22 +2255,13 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":95,\"lastSeq\":81,\"lastProjectedServerTick\":95,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":6.799999999999997,\"vy\":0,\"faceX\":1,\"faceY\":0,\"revision\":24},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":94,\"baseline\":false}"
     },
     {
-      "index": 249,
+      "index": 250,
       "client": "bench-c",
       "phase": "lossRecovery",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1577,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":95,\"lastSeq\":81,\"lastProjectedServerTick\":95,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.95,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":6.799999999999997,\"vy\":0,\"faceX\":1,\"faceY\":0,\"revision\":24},{\"id\":\"p2\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":94,\"baseline\":false}"
-    },
-    {
-      "index": 250,
-      "client": "bench-a",
-      "phase": "lossRecovery",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":86,\"projectedServerTick\":96,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 251,
@@ -2319,6 +2319,24 @@
     },
     {
       "index": 257,
+      "client": "bench-b",
+      "phase": "lossRecovery",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 110,
+      "payload": "{\"type\":\"input\",\"seq\":91,\"projectedServerTick\":101,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 258,
+      "client": "bench-c",
+      "phase": "lossRecovery",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 110,
+      "payload": "{\"type\":\"input\",\"seq\":91,\"projectedServerTick\":101,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
+    },
+    {
+      "index": 259,
       "client": "bench-a",
       "phase": "lossRecovery",
       "direction": "serverToClient",
@@ -2327,7 +2345,7 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":100,\"lastSeq\":86,\"lastProjectedServerTick\":100,\"self\":{\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"wet\"],\"statusEffects\":[{\"id\":\"wet\",\"remainingSeconds\":5.95,\"durationSeconds\":6}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":2,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":2,\"unchanged\":true},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":98,\"baseline\":false}"
     },
     {
-      "index": 258,
+      "index": 260,
       "client": "bench-b",
       "phase": "lossRecovery",
       "direction": "serverToClient",
@@ -2336,31 +2354,13 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":100,\"lastSeq\":81,\"lastProjectedServerTick\":100,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":25,\"unchanged\":true},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":98,\"baseline\":false}"
     },
     {
-      "index": 259,
+      "index": 261,
       "client": "bench-c",
       "phase": "lossRecovery",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1426,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":100,\"lastSeq\":81,\"lastProjectedServerTick\":100,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.95,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":25,\"unchanged\":true},{\"id\":\"p2\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":98,\"baseline\":false}"
-    },
-    {
-      "index": 260,
-      "client": "bench-b",
-      "phase": "lossRecovery",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 110,
-      "payload": "{\"type\":\"input\",\"seq\":91,\"projectedServerTick\":101,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 261,
-      "client": "bench-c",
-      "phase": "lossRecovery",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 110,
-      "payload": "{\"type\":\"input\",\"seq\":91,\"projectedServerTick\":101,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 262,
@@ -2441,7 +2441,7 @@
       "direction": "clientToServer",
       "type": "hello",
       "bytes": 187,
-      "payload": "{\"type\":\"hello\",\"protocol\":19,\"name\":\"bench-b\",\"clientId\":\"network-baseline-client-2\",\"level\":\"sandbox\",\"snapshotMode\":\"delta-v1\",\"resumeToken\":\"gfhwnnzte0p20xvos3fn6pixuo89w4z4mrzna2cn\"}"
+      "payload": "{\"type\":\"hello\",\"protocol\":19,\"name\":\"bench-b\",\"clientId\":\"network-baseline-client-2\",\"level\":\"sandbox\",\"snapshotMode\":\"delta-v1\",\"resumeToken\":\"gfhwnnzte0p20xvos3fn6pixuo89w4z4mrznp4a8\"}"
     },
     {
       "index": 271,
@@ -2450,7 +2450,7 @@
       "direction": "serverToClient",
       "type": "welcome",
       "bytes": 204,
-      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p2\",\"resumeToken\":\"gfhwnnzte0p20xvos3fn6pixuo89w4z4mrzna2cn\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":27.5,\"y\":26.5,\"z\":1}}"
+      "payload": "{\"type\":\"welcome\",\"protocol\":19,\"playerId\":\"p2\",\"resumeToken\":\"gfhwnnzte0p20xvos3fn6pixuo89w4z4mrznp4a8\",\"worldSeed\":1489611677,\"floor\":1,\"level\":\"sandbox\",\"tickRate\":20,\"spawn\":{\"x\":27.5,\"y\":26.5,\"z\":1}}"
     },
     {
       "index": 272,
@@ -2458,8 +2458,8 @@
       "phase": "reconnect",
       "direction": "serverToClient",
       "type": "snapshotDelta",
-      "bytes": 4297,
-      "payload": "{\"type\":\"snapshotDelta\",\"tick\":107,\"lastSeq\":-1,\"lastProjectedServerTick\":-1,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"inventory\":[{\"item\":\"sword\",\"qty\":1},{\"item\":\"torch\",\"qty\":2},{\"item\":\"bandage\",\"qty\":2}],\"hotbarRevision\":1,\"hotbar\":[\"torch\",\"bandage\",null,null,null,null,null,null,null],\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":1,\"faceY\":0,\"revision\":25},{\"id\":\"p3\",\"kind\":\"player\",\"name\":\"bench-c\",\"x\":37.5,\"y\":23.5,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"on-fire\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":0,\"faceY\":1,\"revision\":2},{\"id\":\"e4\",\"kind\":\"enemy\",\"defId\":\"skeleton\",\"name\":\"Skeleton\",\"x\":8.5,\"y\":14.5,\"z\":0,\"hp\":20,\"maxHp\":20,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e5\",\"kind\":\"enemy\",\"defId\":\"spitter\",\"name\":\"Spitter\",\"x\":14.5,\"y\":20.5,\"z\":0,\"hp\":14,\"maxHp\":14,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e16\",\"kind\":\"enemy\",\"defId\":\"slime\",\"name\":\"Slime\",\"x\":21.5,\"y\":43.5,\"z\":0,\"hp\":12,\"maxHp\":12,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e17\",\"kind\":\"enemy\",\"defId\":\"slime\",\"name\":\"Slime\",\"x\":24.5,\"y\":43.5,\"z\":0,\"hp\":12,\"maxHp\":12,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e18\",\"kind\":\"enemy\",\"defId\":\"plant-creeper\",\"name\":\"Plant Creeper\",\"x\":8.5,\"y\":36.5,\"z\":0,\"hp\":18,\"maxHp\":18,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e19\",\"kind\":\"enemy\",\"defId\":\"plant-creeper\",\"name\":\"Plant Creeper\",\"x\":4.5,\"y\":58.5,\"z\":1,\"hp\":18,\"maxHp\":18,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e20\",\"kind\":\"enemy\",\"defId\":\"skeleton\",\"name\":\"Skeleton\",\"x\":5.5,\"y\":58.5,\"z\":1,\"hp\":20,\"maxHp\":20,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e21\",\"kind\":\"enemy\",\"defId\":\"spitter\",\"name\":\"Spitter\",\"x\":6.5,\"y\":58.5,\"z\":1,\"hp\":14,\"maxHp\":14,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"i6\",\"kind\":\"item\",\"defId\":\"sword\",\"x\":26.5,\"y\":24.5,\"z\":0,\"revision\":1},{\"id\":\"i8\",\"kind\":\"item\",\"defId\":\"knife\",\"x\":26.5,\"y\":25.5,\"z\":0,\"revision\":1},{\"id\":\"i9\",\"kind\":\"item\",\"defId\":\"torch\",\"x\":26.5,\"y\":26.5,\"z\":0,\"revision\":1},{\"id\":\"i10\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":26.5,\"y\":27.5,\"z\":0,\"revision\":1},{\"id\":\"i11\",\"kind\":\"item\",\"defId\":\"water-flask\",\"x\":25.5,\"y\":22.5,\"z\":0,\"revision\":1},{\"id\":\"i12\",\"kind\":\"item\",\"defId\":\"bandage\",\"x\":25.5,\"y\":27.5,\"z\":0,\"qty\":2,\"revision\":1},{\"id\":\"i14\",\"kind\":\"item\",\"defId\":\"stick\",\"x\":23.5,\"y\":26.5,\"z\":0,\"revision\":1},{\"id\":\"i15\",\"kind\":\"item\",\"defId\":\"raw-meat\",\"x\":24.5,\"y\":26.5,\"z\":0,\"revision\":1},{\"id\":\"i23\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":25.5,\"y\":23.5,\"z\":0,\"revision\":1},{\"id\":\"i25\",\"kind\":\"item\",\"defId\":\"torch\",\"x\":24.8,\"y\":27.699999999999996,\"z\":0,\"revision\":1},{\"id\":\"i26\",\"kind\":\"item\",\"defId\":\"hammer\",\"x\":37.5,\"y\":24.5,\"z\":0,\"revision\":1},{\"id\":\"i27\",\"kind\":\"item\",\"defId\":\"rag\",\"x\":24.5,\"y\":27.5,\"z\":0,\"qty\":2,\"revision\":1},{\"id\":\"t24\",\"kind\":\"torch\",\"defId\":\"torch\",\"x\":27.5,\"y\":35.5,\"z\":2,\"state\":\"placed\",\"expiresAtTick\":3670,\"revision\":17}],\"left\":[],\"events\":[{\"t\":\"contactsUpdated\",\"contacts\":[]}],\"areas\":[{\"x\":37,\"y\":23,\"defId\":\"area-fire\"},{\"x\":38,\"y\":23,\"defId\":\"area-fire\"},{\"x\":37,\"y\":24,\"defId\":\"area-fire\"},{\"x\":13,\"y\":36,\"defId\":\"area-poison\"},{\"x\":14,\"y\":36,\"defId\":\"area-poison\"},{\"x\":14,\"y\":37,\"defId\":\"area-poison\"},{\"x\":37,\"y\":26,\"defId\":\"area-oil\"},{\"x\":37,\"y\":27,\"defId\":\"area-oil\"},{\"x\":38,\"y\":27,\"defId\":\"area-oil\"},{\"x\":25,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":37,\"defId\":\"area-wet\"},{\"x\":27,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":38,\"defId\":\"area-wet\"},{\"x\":13,\"y\":37,\"defId\":\"area-poison\"},{\"x\":14,\"y\":38,\"defId\":\"area-poison\"},{\"x\":24,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":26,\"defId\":\"area-wet\"},{\"x\":25,\"y\":27,\"defId\":\"area-wet\"},{\"x\":26,\"y\":27,\"defId\":\"area-wet\"},{\"x\":25,\"y\":26,\"defId\":\"area-wet\"},{\"x\":23,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":25,\"defId\":\"area-wet\"},{\"x\":25,\"y\":25,\"defId\":\"area-wet\"}],\"baseTick\":null,\"baseline\":true}"
+      "bytes": 4347,
+      "payload": "{\"type\":\"snapshotDelta\",\"tick\":107,\"lastSeq\":-1,\"lastProjectedServerTick\":-1,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"inventory\":[{\"item\":\"sword\",\"qty\":1},{\"item\":\"torch\",\"qty\":2},{\"item\":\"bandage\",\"qty\":2}],\"hotbarRevision\":1,\"hotbar\":[\"torch\",\"bandage\",null,null,null,null,null,null,null],\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"kind\":\"player\",\"name\":\"bench-a\",\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"wet\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":1,\"faceY\":0,\"revision\":25},{\"id\":\"p3\",\"kind\":\"player\",\"name\":\"bench-c\",\"x\":37.5,\"y\":23.5,\"z\":0,\"hp\":30,\"maxHp\":30,\"fx\":[\"on-fire\"],\"weapon\":\"sword\",\"vx\":0,\"vy\":0,\"faceX\":0,\"faceY\":1,\"revision\":2},{\"id\":\"e4\",\"kind\":\"enemy\",\"defId\":\"skeleton\",\"name\":\"Skeleton\",\"x\":8.5,\"y\":14.5,\"z\":0,\"hp\":20,\"maxHp\":20,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e5\",\"kind\":\"enemy\",\"defId\":\"spitter\",\"name\":\"Spitter\",\"x\":14.5,\"y\":20.5,\"z\":0,\"hp\":14,\"maxHp\":14,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e16\",\"kind\":\"enemy\",\"defId\":\"slime\",\"name\":\"Slime\",\"x\":21.5,\"y\":43.5,\"z\":0,\"hp\":12,\"maxHp\":12,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e17\",\"kind\":\"enemy\",\"defId\":\"slime\",\"name\":\"Slime\",\"x\":24.5,\"y\":43.5,\"z\":0,\"hp\":12,\"maxHp\":12,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e18\",\"kind\":\"enemy\",\"defId\":\"plant-creeper\",\"name\":\"Plant Creeper\",\"x\":8.5,\"y\":36.5,\"z\":0,\"hp\":18,\"maxHp\":18,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e19\",\"kind\":\"enemy\",\"defId\":\"plant-creeper\",\"name\":\"Plant Creeper\",\"x\":4.5,\"y\":58.5,\"z\":1,\"hp\":18,\"maxHp\":18,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e20\",\"kind\":\"enemy\",\"defId\":\"skeleton\",\"name\":\"Skeleton\",\"x\":5.5,\"y\":58.5,\"z\":1,\"hp\":20,\"maxHp\":20,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"e21\",\"kind\":\"enemy\",\"defId\":\"spitter\",\"name\":\"Spitter\",\"x\":6.5,\"y\":58.5,\"z\":1,\"hp\":14,\"maxHp\":14,\"fx\":[],\"anim\":\"idle\",\"faceX\":0,\"faceY\":1,\"revision\":1},{\"id\":\"i6\",\"kind\":\"item\",\"defId\":\"sword\",\"x\":26.5,\"y\":24.5,\"z\":0,\"revision\":1},{\"id\":\"i8\",\"kind\":\"item\",\"defId\":\"knife\",\"x\":26.5,\"y\":25.5,\"z\":0,\"revision\":1},{\"id\":\"i9\",\"kind\":\"item\",\"defId\":\"torch\",\"x\":26.5,\"y\":26.5,\"z\":0,\"revision\":1},{\"id\":\"i10\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":26.5,\"y\":27.5,\"z\":0,\"revision\":1},{\"id\":\"i11\",\"kind\":\"item\",\"defId\":\"water-flask\",\"x\":25.5,\"y\":22.5,\"z\":0,\"revision\":1},{\"id\":\"i12\",\"kind\":\"item\",\"defId\":\"bandage\",\"x\":25.5,\"y\":27.5,\"z\":0,\"qty\":2,\"revision\":1},{\"id\":\"i14\",\"kind\":\"item\",\"defId\":\"stick\",\"x\":23.5,\"y\":26.5,\"z\":0,\"revision\":1},{\"id\":\"i15\",\"kind\":\"item\",\"defId\":\"raw-meat\",\"x\":24.5,\"y\":26.5,\"z\":0,\"revision\":1},{\"id\":\"i23\",\"kind\":\"item\",\"defId\":\"vodka-bottle\",\"x\":25.5,\"y\":23.5,\"z\":0,\"revision\":1},{\"id\":\"i25\",\"kind\":\"item\",\"defId\":\"torch\",\"x\":24.8,\"y\":27.699999999999996,\"z\":0,\"revision\":1},{\"id\":\"i26\",\"kind\":\"item\",\"defId\":\"hammer\",\"x\":37.5,\"y\":24.5,\"z\":0,\"revision\":1},{\"id\":\"i27\",\"kind\":\"item\",\"defId\":\"rag\",\"x\":24.5,\"y\":27.5,\"z\":0,\"qty\":2,\"revision\":1},{\"id\":\"t24\",\"kind\":\"torch\",\"defId\":\"torch\",\"x\":27.5,\"y\":35.5,\"z\":2,\"state\":\"placed\",\"expiresAtTick\":3670,\"revision\":17}],\"left\":[],\"events\":[{\"t\":\"contactsUpdated\",\"contacts\":[]},{\"t\":\"moderationUpdated\",\"muted\":[],\"blocked\":[]}],\"areas\":[{\"x\":37,\"y\":23,\"defId\":\"area-fire\"},{\"x\":38,\"y\":23,\"defId\":\"area-fire\"},{\"x\":37,\"y\":24,\"defId\":\"area-fire\"},{\"x\":13,\"y\":36,\"defId\":\"area-poison\"},{\"x\":14,\"y\":36,\"defId\":\"area-poison\"},{\"x\":14,\"y\":37,\"defId\":\"area-poison\"},{\"x\":37,\"y\":26,\"defId\":\"area-oil\"},{\"x\":37,\"y\":27,\"defId\":\"area-oil\"},{\"x\":38,\"y\":27,\"defId\":\"area-oil\"},{\"x\":25,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":37,\"defId\":\"area-wet\"},{\"x\":27,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":38,\"defId\":\"area-wet\"},{\"x\":13,\"y\":37,\"defId\":\"area-poison\"},{\"x\":14,\"y\":38,\"defId\":\"area-poison\"},{\"x\":24,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":26,\"defId\":\"area-wet\"},{\"x\":25,\"y\":27,\"defId\":\"area-wet\"},{\"x\":26,\"y\":27,\"defId\":\"area-wet\"},{\"x\":25,\"y\":26,\"defId\":\"area-wet\"},{\"x\":23,\"y\":37,\"defId\":\"area-wet\"},{\"x\":26,\"y\":25,\"defId\":\"area-wet\"},{\"x\":25,\"y\":25,\"defId\":\"area-wet\"}],\"baseTick\":null,\"baseline\":true}"
     },
     {
       "index": 273,
@@ -2535,15 +2535,6 @@
     },
     {
       "index": 281,
-      "client": "bench-b",
-      "phase": "reconnect",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 109,
-      "payload": "{\"type\":\"input\",\"seq\":6,\"projectedServerTick\":113,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 282,
       "client": "bench-a",
       "phase": "reconnect",
       "direction": "serverToClient",
@@ -2552,7 +2543,7 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":112,\"lastSeq\":96,\"lastProjectedServerTick\":112,\"self\":{\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"wet\"],\"statusEffects\":[{\"id\":\"wet\",\"remainingSeconds\":5.95,\"durationSeconds\":6}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":2,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":5,\"unchanged\":true},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":110,\"baseline\":false}"
     },
     {
-      "index": 283,
+      "index": 282,
       "client": "bench-b",
       "phase": "reconnect",
       "direction": "serverToClient",
@@ -2561,13 +2552,22 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":112,\"lastSeq\":1,\"lastProjectedServerTick\":112,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":25,\"unchanged\":true},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":110,\"baseline\":false}"
     },
     {
-      "index": 284,
+      "index": 283,
       "client": "bench-c",
       "phase": "reconnect",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1428,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":112,\"lastSeq\":101,\"lastProjectedServerTick\":112,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.95,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":25,\"unchanged\":true},{\"id\":\"p2\",\"revision\":5,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":110,\"baseline\":false}"
+    },
+    {
+      "index": 284,
+      "client": "bench-b",
+      "phase": "reconnect",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 109,
+      "payload": "{\"type\":\"input\",\"seq\":6,\"projectedServerTick\":113,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 285,
@@ -2600,22 +2600,13 @@
       "index": 288,
       "client": "bench-a",
       "phase": "reconnect",
-      "direction": "clientToServer",
-      "type": "input",
-      "bytes": 111,
-      "payload": "{\"type\":\"input\",\"seq\":106,\"projectedServerTick\":117,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
-    },
-    {
-      "index": 289,
-      "client": "bench-a",
-      "phase": "reconnect",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1561,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":116,\"lastSeq\":96,\"lastProjectedServerTick\":116,\"self\":{\"x\":26.5,\"y\":27.699999999999996,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"wet\"],\"statusEffects\":[{\"id\":\"wet\",\"remainingSeconds\":5.95,\"durationSeconds\":6}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":2,\"hotbarRevision\":2,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p2\",\"revision\":5,\"unchanged\":true},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":114,\"baseline\":false}"
     },
     {
-      "index": 290,
+      "index": 289,
       "client": "bench-b",
       "phase": "reconnect",
       "direction": "serverToClient",
@@ -2624,13 +2615,22 @@
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":116,\"lastSeq\":6,\"lastProjectedServerTick\":116,\"self\":{\"x\":27.5,\"y\":26.5,\"z\":1,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[],\"statusEffects\":[],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":25,\"unchanged\":true},{\"id\":\"p3\",\"revision\":2,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"e19\",\"revision\":1,\"unchanged\":true},{\"id\":\"e20\",\"revision\":1,\"unchanged\":true},{\"id\":\"e21\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":114,\"baseline\":false}"
     },
     {
-      "index": 291,
+      "index": 290,
       "client": "bench-c",
       "phase": "reconnect",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1428,
       "payload": "{\"type\":\"snapshotDelta\",\"tick\":116,\"lastSeq\":101,\"lastProjectedServerTick\":116,\"self\":{\"x\":37.5,\"y\":23.5,\"z\":0,\"zVel\":0,\"grounded\":true,\"coyoteTime\":0.15,\"jumpBuffer\":0,\"jumpHeld\":false,\"kx\":0,\"ky\":0,\"hp\":30,\"maxHp\":30,\"stamina\":100,\"maxStamina\":100,\"blocking\":false,\"fx\":[\"on-fire\"],\"statusEffects\":[{\"id\":\"on-fire\",\"remainingSeconds\":4.95,\"durationSeconds\":5}],\"xp\":0,\"level\":1,\"xpForNext\":100,\"floor\":1,\"deepestFloor\":1},\"inventoryRevision\":1,\"hotbarRevision\":1,\"weapon\":\"sword\",\"party\":null,\"entities\":[{\"id\":\"p1\",\"revision\":25,\"unchanged\":true},{\"id\":\"p2\",\"revision\":5,\"unchanged\":true},{\"id\":\"e4\",\"revision\":1,\"unchanged\":true},{\"id\":\"e5\",\"revision\":1,\"unchanged\":true},{\"id\":\"e16\",\"revision\":1,\"unchanged\":true},{\"id\":\"e17\",\"revision\":1,\"unchanged\":true},{\"id\":\"e18\",\"revision\":1,\"unchanged\":true},{\"id\":\"i6\",\"revision\":1,\"unchanged\":true},{\"id\":\"i8\",\"revision\":1,\"unchanged\":true},{\"id\":\"i9\",\"revision\":1,\"unchanged\":true},{\"id\":\"i10\",\"revision\":1,\"unchanged\":true},{\"id\":\"i11\",\"revision\":1,\"unchanged\":true},{\"id\":\"i12\",\"revision\":1,\"unchanged\":true},{\"id\":\"i14\",\"revision\":1,\"unchanged\":true},{\"id\":\"i15\",\"revision\":1,\"unchanged\":true},{\"id\":\"i23\",\"revision\":1,\"unchanged\":true},{\"id\":\"i25\",\"revision\":1,\"unchanged\":true},{\"id\":\"i26\",\"revision\":1,\"unchanged\":true},{\"id\":\"i27\",\"revision\":1,\"unchanged\":true},{\"id\":\"t24\",\"revision\":17,\"unchanged\":true}],\"left\":[],\"events\":[],\"areas\":[],\"baseTick\":114,\"baseline\":false}"
+    },
+    {
+      "index": 291,
+      "client": "bench-a",
+      "phase": "reconnect",
+      "direction": "clientToServer",
+      "type": "input",
+      "bytes": 111,
+      "payload": "{\"type\":\"input\",\"seq\":106,\"projectedServerTick\":117,\"moveX\":0,\"moveY\":0,\"jump\":false,\"run\":false,\"block\":false}"
     },
     {
       "index": 292,
@@ -2698,7 +2698,7 @@
     {
       "index": 299,
       "client": "bench-a",
-      "phase": "reconnect",
+      "phase": "complete",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1562,
@@ -2707,7 +2707,7 @@
     {
       "index": 300,
       "client": "bench-b",
-      "phase": "reconnect",
+      "phase": "complete",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1486,
@@ -2716,7 +2716,7 @@
     {
       "index": 301,
       "client": "bench-c",
-      "phase": "reconnect",
+      "phase": "complete",
       "direction": "serverToClient",
       "type": "snapshotDelta",
       "bytes": 1428,
