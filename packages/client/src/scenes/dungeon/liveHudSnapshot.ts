@@ -11,8 +11,12 @@ import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { resolveStairwayTick } from "./stairwayTick.js";
+import type { ContextualAction } from "../../ui/actionHelp.js";
 
 const CHAT_LINES_SHOWN = 4;
+export type LiveHudSnapshot = HudFakeSnapshot & {
+  completedContextualActions: ContextualAction[];
+};
 
 /** Self-body proximity using the engine-owned interaction contract shared by input,
  * prompt rendering, and the authoritative server. */
@@ -66,7 +70,7 @@ export function buildLiveHudSnapshot(
   actualFps: number,
   /** LANE W2 HUD compass — 0 = world-north at screen-up (scenes/dungeon/rotationControl.ts). */
   compassBearingDeg: number,
-): HudFakeSnapshot {
+): LiveHudSnapshot {
   // conn.body may still be null the first frame or two after boot (HudScene's source()
   // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
   const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y, z: conn.body.z } : { x: 0, y: 0, z: 0 };
@@ -74,7 +78,7 @@ export function buildLiveHudSnapshot(
   // rebuilds it on every transfer), so the tick re-aims at the NEW floor's stairway
   // the same frame the descent lands.
   const stairway = conn.world ? resolveStairwayTick(conn.world, bodyPos.x, bodyPos.y, compassBearingDeg) : null;
-  return buildHudSnapshot(
+  const snapshot = buildHudSnapshot(
     buildSnapshotSource(conn),
     inputController.selectedHotbarSlot(),
     inputController.armedThrowableSlot(),
@@ -86,5 +90,7 @@ export function buildLiveHudSnapshot(
     conn.contacts,
     compassBearingDeg,
     stairway,
-  );
+  ) as LiveHudSnapshot;
+  snapshot.completedContextualActions = [...conn.contextualActionsUsed];
+  return snapshot;
 }

@@ -30,7 +30,7 @@ import {
   createInputHooks,
   createInputQueries,
 } from "./inputAdapters.js";
-import { buildLiveHudSnapshot } from "./liveHudSnapshot.js";
+import { LiveHudSnapshotCache } from "./liveHudSnapshotCache.js";
 import { createCraftActions, createInputPanels, createStashActions } from "./panelAdapters.js";
 import { RotationController } from "./rotationControl.js";
 import { bindRotationKeys } from "./rotationKeys.js";
@@ -56,6 +56,7 @@ export class DungeonScene extends Phaser.Scene {
   private interactionPrompt: InteractionPrompt | null = null;
   private readonly partyIds = new Set<string>();
   private readonly torchSyncState: TorchSyncState = createTorchSyncState();
+  private readonly hudSnapshotCache = new LiveHudSnapshotCache();
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
   private fistbumpRing!: FistbumpRing;
@@ -220,7 +221,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private buildHudSnapshotNow(): HudFakeSnapshot {
-    return buildLiveHudSnapshot(
+    return this.hudSnapshotCache.build(
       this.conn,
       this.inputController,
       this.interactionPrompt,
