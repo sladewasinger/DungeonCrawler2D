@@ -60,9 +60,16 @@ export interface FlyingTorch {
 /** Halo + flame-particle light for every placed torch (kind "torch" — the same kind
  * LightingSystem.activeTorches() reads to spawn flame particles). */
 export function placedTorchLights(torches: readonly PlacedTorch[]): LightSource[] {
-  return torches.map((t) => {
+  return appendPlacedTorchLights(torches, []);
+}
+
+export function appendPlacedTorchLights(
+  torches: readonly PlacedTorch[],
+  out: LightSource[],
+): LightSource[] {
+  for (const t of torches) {
     const fade = t.emberFade ?? 1;
-    return {
+    out.push({
       id: `torch-placed:${t.id}`,
       x: t.tileX + 0.5,
       y: t.tileY + 0.5,
@@ -70,22 +77,33 @@ export function placedTorchLights(torches: readonly PlacedTorch[]): LightSource[
       radiusTiles: TORCH_RADIUS_TILES * (0.55 + 0.45 * fade),
       kind: "torch" as const,
       seed: hashSeed(t.id),
-    };
-  });
+    });
+  }
+  return out;
 }
 
 /** Plain travel glow for every flying torch — kind "fire" so it never spawns a
  * flame-particle emitter chasing the arc; the light rides the flight path only. */
 export function flyingTorchLights(torches: readonly FlyingTorch[]): LightSource[] {
-  return torches.map((t) => ({
-    id: `torch-flight:${t.id}`,
-    x: t.x,
-    y: t.y,
-    color: TORCH_COLOR,
-    radiusTiles: TORCH_FLIGHT_RADIUS_TILES,
-    kind: "fire" as const,
-    seed: hashSeed(t.id),
-  }));
+  return appendFlyingTorchLights(torches, []);
+}
+
+export function appendFlyingTorchLights(
+  torches: readonly FlyingTorch[],
+  out: LightSource[],
+): LightSource[] {
+  for (const t of torches) {
+    out.push({
+      id: `torch-flight:${t.id}`,
+      x: t.x,
+      y: t.y,
+      color: TORCH_COLOR,
+      radiusTiles: TORCH_FLIGHT_RADIUS_TILES,
+      kind: "fire" as const,
+      seed: hashSeed(t.id),
+    });
+  }
+  return out;
 }
 
 /** BFS seeds for the baked chunk light — a placed torch shines exactly as bright as
@@ -115,4 +133,32 @@ export function diffPlacedTorches(
     if (!next.has(id)) changedTiles.push(tile);
   }
   return { changedTiles, next };
+}
+
+/**
+ * In-place variant for the frame loop. Existing tile records survive unchanged
+ * frames; only land, move, and removal events allocate persistent tile values.
+ */
+export function updatePlacedTorchTiles(
+  placedTiles: Map<string, TilePos>,
+  current: readonly PlacedTorch[],
+  seenIds: Set<string>,
+  changedTiles: TilePos[],
+): TilePos[] {
+  seenIds.clear();
+  changedTiles.length = 0;
+  for (const torch of current) {
+    seenIds.add(torch.id);
+    const prior = placedTiles.get(torch.id);
+    if (prior && prior.wx === torch.tileX && prior.wy === torch.tileY) continue;
+    const tile = { wx: torch.tileX, wy: torch.tileY };
+    placedTiles.set(torch.id, tile);
+    changedTiles.push(tile);
+  }
+  for (const [id, tile] of placedTiles) {
+    if (seenIds.has(id)) continue;
+    placedTiles.delete(id);
+    changedTiles.push(tile);
+  }
+  return changedTiles;
 }

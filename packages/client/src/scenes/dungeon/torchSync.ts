@@ -4,29 +4,79 @@
 import { TICK_RATE } from "@dc2d/engine";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import {
-  diffPlacedTorches,
-  flyingTorchLights,
-  placedTorchLights,
+  appendFlyingTorchLights,
+  appendPlacedTorchLights,
   placedTorchSeeds,
   torchEmberFade,
   type PlacedTorch,
+  updatePlacedTorchTiles,
 } from "../../render/lighting/placedTorches.js";
 import type { TilePos } from "../../render/lighting/torchPlacement.js";
 import type { TorchEntityView } from "../../render/entities/index.js";
 import type { TerrainRenderer } from "../../render/terrain/index.js";
 import { torchView, type InterpolatedEntity } from "./entityViews.js";
+import { mapFrameInto } from "./frameEntityViews.js";
 
 export interface TorchSyncState {
-  placedTiles: Map<string, TilePos>;
+  readonly placedTiles: Map<string, TilePos>;
+  readonly seenPlacedIds: Set<string>;
+  readonly changedTiles: TilePos[];
+  readonly views: TorchEntityView[];
+  readonly placed: PlacedTorch[];
+  readonly flying: TorchEntityView[];
+  readonly accentLights: LightSource[];
+  readonly result: TorchSyncResult;
+  terrain: TerrainRenderer | null;
 }
 
 export function createTorchSyncState(): TorchSyncState {
-  return { placedTiles: new Map() };
+  const views: TorchEntityView[] = [];
+  const accentLights: LightSource[] = [];
+  return {
+    placedTiles: new Map(),
+    seenPlacedIds: new Set(),
+    changedTiles: [],
+    views,
+    placed: [],
+    flying: [],
+    accentLights,
+    result: { views, accentLights },
+    terrain: null,
+  };
 }
 
 export interface TorchSyncResult {
   readonly views: TorchEntityView[];
   readonly accentLights: LightSource[];
+}
+
+function buildTorchFrame(
+  state: TorchSyncState,
+  torches: readonly InterpolatedEntity[],
+  serverTick: number,
+): void {
+  const views = mapFrameInto(torches, state.views, torchView);
+  state.placed.length = 0;
+  state.flying.length = 0;
+  for (let index = 0; index < views.length; index++) {
+    const view = views[index];
+    if (!view) continue;
+    if (view.state === "flying") {
+      state.flying.push(view);
+      continue;
+    }
+    if (view.state !== "placed") continue;
+    const expiresAtTick = torches[index]?.snap.expiresAtTick;
+    const ticksRemaining = expiresAtTick === undefined
+      ? Number.POSITIVE_INFINITY
+      : expiresAtTick - serverTick;
+    state.placed.push({
+      id: view.id,
+      tileX: Math.floor(view.x),
+      tileY: Math.floor(view.y),
+      emberFade: torchEmberFade(ticksRemaining, TICK_RATE),
+    });
+  }
 }
 
 /**
@@ -44,25 +94,23 @@ export function syncTorches(
    * for the fading-ember halo tell in a placed torch's last EMBER_FADE_SECONDS. */
   serverTick: number,
 ): TorchSyncResult {
-  const views = torches.map(torchView);
-  const placed: PlacedTorch[] = [];
-  views.forEach((v, i) => {
-    if (v.state !== "placed") return;
-    const expiresAtTick = torches[i]?.snap.expiresAtTick;
-    const ticksRemaining = expiresAtTick === undefined ? Number.POSITIVE_INFINITY : expiresAtTick - serverTick;
-    placed.push({
-      id: v.id,
-      tileX: Math.floor(v.x),
-      tileY: Math.floor(v.y),
-      emberFade: torchEmberFade(ticksRemaining, TICK_RATE),
-    });
-  });
-
-  terrain.setDynamicLights(placedTorchSeeds(placed));
-  const { changedTiles, next } = diffPlacedTorches(state.placedTiles, placed);
-  state.placedTiles = next;
+  buildTorchFrame(state, torches, serverTick);
+  const changedTiles = updatePlacedTorchTiles(
+    state.placedTiles,
+    state.placed,
+    state.seenPlacedIds,
+    state.changedTiles,
+  );
+  const terrainChanged = state.terrain !== terrain;
+  state.terrain = terrain;
+  if (terrainChanged || changedTiles.length > 0) {
+    terrain.setDynamicLights(placedTorchSeeds(state.placed));
+  }
   if (changedTiles.length > 0) terrain.rebuildAffected(changedTiles);
 
-  const flying = views.filter((v) => v.state === "flying");
-  return { views, accentLights: [...placedTorchLights(placed), ...flyingTorchLights(flying)] };
+  const accentLights = state.accentLights;
+  accentLights.length = 0;
+  appendPlacedTorchLights(state.placed, accentLights);
+  appendFlyingTorchLights(state.flying, accentLights);
+  return state.result;
 }

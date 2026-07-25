@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendFlyingTorchLights,
+  appendPlacedTorchLights,
   diffPlacedTorches,
   EMBER_FADE_SECONDS,
   flyingTorchLights,
   placedTorchLights,
   placedTorchSeeds,
   torchEmberFade,
+  updatePlacedTorchTiles,
 } from "./placedTorches.js";
 import { LIGHT_MAX } from "../terrain/tileLight.js";
 import { TORCH_RADIUS_TILES } from "./torchLightStyle.js";
@@ -21,6 +24,14 @@ describe("placedTorchLights / flyingTorchLights", () => {
   it("tags a flying torch's glow kind fire, not torch (no flame particle mid-flight)", () => {
     const [light] = flyingTorchLights([{ id: "t1", x: 4.2, y: 6.7 }]);
     expect(light).toMatchObject({ x: 4.2, y: 6.7, kind: "fire" });
+  });
+
+  it("appends both light kinds into caller-owned frame storage", () => {
+    const output: ReturnType<typeof placedTorchLights> = [];
+    appendPlacedTorchLights([{ id: "p", tileX: 1, tileY: 2 }], output);
+    appendFlyingTorchLights([{ id: "f", x: 3, y: 4 }], output);
+
+    expect(output.map((light) => light.kind)).toEqual(["torch", "fire"]);
   });
 });
 
@@ -94,5 +105,37 @@ describe("diffPlacedTorches", () => {
       ]),
     );
     expect(changedTiles).toHaveLength(2);
+  });
+});
+
+describe("updatePlacedTorchTiles", () => {
+  it("mutates bounded state only for landing, movement, and removal", () => {
+    const placed = new Map<string, { wx: number; wy: number }>();
+    const seen = new Set<string>();
+    const changed: Array<{ wx: number; wy: number }> = [];
+
+    expect(updatePlacedTorchTiles(
+      placed,
+      [{ id: "t", tileX: 1, tileY: 2 }],
+      seen,
+      changed,
+    )).toEqual([{ wx: 1, wy: 2 }]);
+    const stableTile = placed.get("t");
+    expect(updatePlacedTorchTiles(
+      placed,
+      [{ id: "t", tileX: 1, tileY: 2 }],
+      seen,
+      changed,
+    )).toEqual([]);
+    expect(placed.get("t")).toBe(stableTile);
+    expect(updatePlacedTorchTiles(
+      placed,
+      [{ id: "t", tileX: 2, tileY: 2 }],
+      seen,
+      changed,
+    )).toEqual([{ wx: 2, wy: 2 }]);
+    expect(updatePlacedTorchTiles(placed, [], seen, changed))
+      .toEqual([{ wx: 2, wy: 2 }]);
+    expect(placed).toHaveLength(0);
   });
 });
