@@ -120,6 +120,7 @@ export interface HudSnapshotSource {
   readonly hp: number;
   readonly maxHp: number;
   readonly stamina: number; readonly maxStamina: number; readonly blocking: boolean;
+  readonly staminaExhausted: boolean;
   /** Epic 11 core (character levels) — see fakeData.ts's HudFakeSnapshot.xp doc comment. */
   readonly xp: number;
   readonly level: number;
@@ -177,7 +178,7 @@ function inventoryFields(
       selectedItemId,
       weaponId: src.weapon,
       canBlock: src.weapon !== null && src.stamina > 0 &&
-        !src.downed && !src.dead,
+        !src.staminaExhausted && !src.downed && !src.dead,
     }),
   };
 }

@@ -9,6 +9,7 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
     stamina: 100,
     maxStamina: 100,
     blocking: false,
+    staminaExhausted: false,
     xp: 0,
     level: 1,
     xpForNext: 100,
@@ -87,6 +88,9 @@ describe("buildHudSnapshot", () => {
     expect(snap.stamina).toEqual({ stamina: 42, maxStamina: 100, blocking: true });
     expect(snap.actionHints.map(({ action }) => action)).toEqual(["use", "attack", "block"]);
   });
+
+  it("does not advertise blocking while stamina is exhausted", () =>
+    expect(snapshotOf(source({ weapon: "sword", stamina: 2, staminaExhausted: true })).actionHints.map(({ action }) => action)).toEqual(["attack"]));
 
   it("selects -1 when unarmed", () => {
     const snap = snapshotOf(source({ weapon: null }));

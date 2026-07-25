@@ -29,7 +29,12 @@ describe("snapshot delta replication", () => {
     const player = sim.addPlayer("A", "client-a");
     const item = sim.spawnItem("rag", player.spawn.x + 1, player.spawn.y);
 
-    expect(sim.stepReplicated().get(player.playerId)?.type).toBe("snapshot");
+    const legacy = sim.stepReplicated().get(player.playerId);
+    expect(legacy?.type).toBe("snapshot");
+    expect(legacy?.self).toMatchObject({
+      staminaRecoveryDelaySeconds: 0,
+      staminaExhausted: false,
+    });
 
     sim.configureSnapshotMode(player.playerId, "delta-v1");
     const baseline = nextDelta(sim, player.playerId);

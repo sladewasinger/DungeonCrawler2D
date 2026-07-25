@@ -51,6 +51,7 @@ function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"]
     stamina: slot.stamina ?? PLAYER_MAX_STAMINA,
     maxStamina: slot.maxStamina ?? PLAYER_MAX_STAMINA,
     blocking: slot.blocking ?? false,
+    staminaRecoveryDelaySeconds: slot.staminaRecoveryDelaySeconds ?? 0, staminaExhausted: slot.staminaExhausted ?? false,
     fx: self.statuses.map((status) => status.defId),
     statusEffects: self.statuses.map((status) => ({
       id: status.defId,
