@@ -10,6 +10,7 @@ import Phaser from "phaser";
 import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import { HudWidgets } from "../ui/widgets/hud/index.js";
+import { MovementTraceControl } from "../ui/movementTraceControl.js";
 import type { Connection } from "../net/connection.js";
 import { HtmlTouchHitRegions } from "../three/HtmlTouchHitRegions.js";
 import { ThreeHud } from "../three/ThreeHud.js";
@@ -29,7 +30,7 @@ export class HudScene extends Phaser.Scene {
   private social: HudSceneData["social"];
   private stations: HudSceneData["stations"];
   private connection: Connection | undefined;
-  private htmlHud: ThreeHud | undefined;
+  private htmlHud: ThreeHud | undefined; private movementTraceControl: MovementTraceControl | undefined;
   private readonly touchHits = new HtmlTouchHitRegions();
   private onSelectHotbar: ((index: number | null) => void) | undefined;
   private session: HudSceneData["session"];
@@ -181,13 +182,11 @@ export class HudScene extends Phaser.Scene {
   private createHtmlHud(connection: Connection): void {
     const root = document.getElementById("app");
     if (!root) throw new Error("Missing #app root for HTML HUD.");
+    const focusGame = () => { this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true }); };
     this.htmlHud = createLiveHtmlHud({
       root,
       connection,
-      focusGame: () => {
-        this.game.canvas.tabIndex = -1;
-        this.game.canvas.focus({ preventScroll: true });
-      },
+      focusGame,
       setTextInputFocused: (focused: boolean) => {
         const keyboard = this.input.keyboard;
         if (focused) keyboard?.disableGlobalCapture();
@@ -201,7 +200,10 @@ export class HudScene extends Phaser.Scene {
         quitToTitle: () => {},
       },
     });
+    this.movementTraceControl = new MovementTraceControl(root, connection, focusGame);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.movementTraceControl?.dispose();
+      this.movementTraceControl = undefined;
       this.htmlHud?.dispose();
       this.htmlHud = undefined;
     });
@@ -227,6 +229,7 @@ export class HudScene extends Phaser.Scene {
       mouseCaptured: true,
       snapshot,
     });
+    this.movementTraceControl?.update();
   }
 
   private createPreviewHud(): void {

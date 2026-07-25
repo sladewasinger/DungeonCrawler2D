@@ -73,6 +73,12 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   reconcilePrediction(conn, snap, world);
   if (predictedBeforeSnapshot) conn.predictionCorrection.record(predictedBeforeSnapshot, conn.body);
   conn.networkMetrics.recordCorrection(conn.predictionCorrection.lastError);
+  conn.movementTrace.recordSnapshot(
+    snap,
+    predictedBeforeSnapshot,
+    conn.body,
+    conn.movementTraceState(),
+  );
   applyXpState(conn, snap.self.xp ?? conn.xp, snap.self.level ?? conn.charLevel, snap.self.xpForNext ?? conn.xpForNext);
   applyFloorState(conn, snap);
   conn.inventory = snap.inventory;
