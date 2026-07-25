@@ -91,7 +91,12 @@ export function projectSelfRenderPose(
   const step = stepBody(world, projected, effective, TICK_DT);
   const blockedX = input.moveX !== 0 && step.blockedX === true;
   const blockedY = input.moveY !== 0 && step.blockedY === true;
-  const offset = correction.advance(deltaMs, { x: blockedX, y: blockedY });
+  const offset = correction.advanceInto(
+    deltaMs,
+    blockedX,
+    blockedY,
+    scratch.correction,
+  );
   scratch.pose.x = body.x + (projected.x - body.x) * alpha + offset.x;
   scratch.pose.y = body.y + (projected.y - body.y) * alpha + offset.y;
   scratch.pose.z = body.z + (projected.z - body.z) * alpha + offset.z;

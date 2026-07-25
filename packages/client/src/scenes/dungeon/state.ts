@@ -35,6 +35,7 @@ export interface SelfProjectionScratch {
   readonly body: BodyState;
   readonly resources: PlayerResourceState;
   readonly resourceStep: PlayerResourceStep;
+  readonly correction: { x: number; y: number; z: number };
   readonly pose: { x: number; y: number; z: number };
 }
 
@@ -49,6 +50,7 @@ export function createSelfProjectionScratch(): SelfProjectionScratch {
       staminaExhausted: false,
     },
     resourceStep: createPlayerResourceStep(),
+    correction: { x: 0, y: 0, z: 0 },
     pose: { x: 0, y: 0, z: 0 },
   };
 }

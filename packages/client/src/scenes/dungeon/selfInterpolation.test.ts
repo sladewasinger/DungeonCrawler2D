@@ -177,6 +177,7 @@ describe("projectSelfRenderPose", () => {
     const bodyIdentity = scratch.body;
     const resourceIdentity = scratch.resources;
     const inputIdentity = scratch.resourceStep.input;
+    const correctionIdentity = scratch.correction;
     const poseIdentity = scratch.pose;
 
     for (let frame = 0; frame < 1_000; frame++) {
@@ -197,6 +198,7 @@ describe("projectSelfRenderPose", () => {
     expect(scratch.body).toBe(bodyIdentity);
     expect(scratch.resources).toBe(resourceIdentity);
     expect(scratch.resourceStep.input).toBe(inputIdentity);
+    expect(scratch.correction).toBe(correctionIdentity);
     expect(body.x).toBe(SPAWN_X);
     expect(resources.stamina).toBe(100);
   });
