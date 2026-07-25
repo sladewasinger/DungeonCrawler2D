@@ -178,25 +178,29 @@ export function syncLightingAndVfx(
   const areaLights = vfx.syncAreas(
     buildAreaTileViews(conn.areaTiles, camera.worldView, 2 * SCREEN_TILE_PX),
   );
-  lighting.setAccentLights([...areaLights, ...torchAccentLights]);
+  const accentLights = state.accentLights;
+  accentLights.length = 0;
+  accentLights.push(...areaLights, ...torchAccentLights);
+  lighting.setAccentLights(accentLights);
   lighting.update(camera.worldView, render.x, render.y, nowMs);
   // Flame emitters only for torches near the camera view: uncapped, every
   // resident torch (~140) ran a continuous ParticleEmitter — a large slice of
   // baseline frame cost on weak hardware (leak-hunt probe, 2026-07-20).
   const view = camera.worldView;
   const marginPx = 2 * SCREEN_TILE_PX;
-  vfx.syncTorchFlames(
-    lighting.activeTorches().filter((t) => {
+  const visibleTorchLights = state.visibleTorchLights;
+  visibleTorchLights.length = 0;
+  for (const torch of lighting.activeTorches()) {
       // t.x/t.y are real world tile units (LightSource's own contract) — route through
       // the seam so this margin-cull compares like-with-like against camera.worldView,
       // which is itself in view-pixel space once worldToScreen (below) is oriented.
-      const { x: sx, y: sy } = worldToScreen(t.x, t.y);
-      return (
+      const { x: sx, y: sy } = worldToScreen(torch.x, torch.y);
+      if (
         sx >= view.x - marginPx && sx <= view.right + marginPx &&
         sy >= view.y - marginPx && sy <= view.bottom + marginPx
-      );
-    }),
-  );
+      ) visibleTorchLights.push(torch);
+  }
+  vfx.syncTorchFlames(visibleTorchLights);
   vfx.trackPlayerMotion({ x: render.x, y: render.y, air: !conn.body.grounded, faceX: state.cosmetics.faceX }, nowMs);
   // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
   // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush

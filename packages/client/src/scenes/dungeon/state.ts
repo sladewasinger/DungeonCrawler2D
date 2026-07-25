@@ -3,6 +3,7 @@
 // One object per scene instance so no module holds state of its own.
 import { NEUTRAL_INPUT, type MoveInput } from "@dc2d/engine";
 import type { PendingSwing } from "../../vfx/meleeConnect.js";
+import type { LightSource } from "../../render/lighting/lightSource.js";
 import { createCameraFollowState, type CameraFollowState } from "./cameraFollow.js";
 import { createProjectileVelocityState, type ProjectileVelocityState } from "./projectileVelocity.js";
 import { createSelfCosmeticsState, type SelfCosmeticsState } from "./selfCosmetics.js";
@@ -31,6 +32,8 @@ export interface DungeonSceneState {
   readonly projectileVelocity: ProjectileVelocityState;
   readonly entityBuckets: FrameEntityBuckets;
   readonly entityViews: FrameEntityViews;
+  readonly accentLights: LightSource[];
+  readonly visibleTorchLights: LightSource[];
   /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
   readonly attackFlags: Map<string, boolean>;
   /** Panel round 3b item 5 (WHIFF FEEDBACK): swings awaiting a correlating "hit" event,
@@ -50,6 +53,8 @@ export function createDungeonSceneState(): DungeonSceneState {
     projectileVelocity: createProjectileVelocityState(),
     entityBuckets: createFrameEntityBuckets(),
     entityViews: createFrameEntityViews(),
+    accentLights: [],
+    visibleTorchLights: [],
     attackFlags: new Map(),
     pendingSwings: new Map(),
     wallBump: createWallBumpState(),

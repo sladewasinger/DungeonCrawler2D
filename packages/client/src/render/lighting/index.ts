@@ -10,6 +10,7 @@ import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } f
 import { getViewOrientation } from "../view/viewState.js";
 import { viewToWorld } from "../view/viewTransform.js";
 import { doorLightPositions } from "./doorLights.js";
+import { collectTorchLights, selectFrameLights } from "./frameLights.js";
 import { hashSeed, type LightSource } from "./lightSource.js";
 import { LightSpritePool } from "./pool.js";
 import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
@@ -25,11 +26,27 @@ const PORTAL_COLOR = 0x3dd6c3;
 const PORTAL_RADIUS_TILES = 3;
 const PERSONAL_COLOR = 0xfff0d2;
 const PERSONAL_RADIUS_TILES = 1.6; // deliberately small: a soft cue, not a headlight
+type MutableLightSource = {
+  -readonly [Key in keyof LightSource]: LightSource[Key];
+};
 
 export class LightingSystem {
   private readonly pool: LightSpritePool;
   private readonly chunkLights = new Map<string, LightSource[]>();
   private accentLights: readonly LightSource[] = [];
+  private readonly candidateLights: LightSource[] = [];
+  private readonly frameLights: LightSource[] = [];
+  private readonly activeTorchLights: LightSource[] = [];
+  private readonly personalLight: MutableLightSource = {
+    id: "personal",
+    x: 0,
+    y: 0,
+    color: PERSONAL_COLOR,
+    radiusTiles: PERSONAL_RADIUS_TILES,
+    kind: "personal",
+    seed: 0,
+    groundHeight: 0,
+  };
 
   constructor(
     scene: Phaser.Scene,
@@ -46,18 +63,9 @@ export class LightingSystem {
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
   update(view: ViewRect, personalX: number, personalY: number, nowMs: number): void {
     this.streamChunks(view);
-    const personal: LightSource = {
-      id: "personal",
-      x: personalX,
-      y: personalY,
-      color: PERSONAL_COLOR,
-      radiusTiles: PERSONAL_RADIUS_TILES,
-      kind: "personal",
-      seed: 0,
-      // GROUND-anchored (section 5): the halo sits on the shifted ground beneath the
-      // player, coinciding with their own absolute-z lift once grounded.
-      groundHeight: this.world.groundAt(personalX, personalY),
-    };
+    this.personalLight.x = personalX;
+    this.personalLight.y = personalY;
+    this.personalLight.groundHeight = this.world.groundAt(personalX, personalY);
     // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
     // viewed away from the player (gallery, spectate) must still keep its lights.
     // `view` is the camera's on-screen rect, which is in VIEW-pixel space once
@@ -66,22 +74,27 @@ export class LightingSystem {
     // door positions are scanned straight off the real world in scanChunk below).
     const centerView = { x: (view.x + view.width / 2) / SCREEN_TILE_PX, y: (view.y + view.height / 2) / SCREEN_TILE_PX };
     const centerWorld = viewToWorld(centerView, getViewOrientation());
-    const candidates = [...this.chunkLights.values()].flat().concat(this.accentLights);
-    candidates.sort(
-      (a, b) =>
-        Math.hypot(a.x - centerWorld.x, a.y - centerWorld.y) - Math.hypot(b.x - centerWorld.x, b.y - centerWorld.y),
+    const lights = selectFrameLights(
+      this.chunkLights.values(),
+      this.accentLights,
+      centerWorld.x,
+      centerWorld.y,
+      this.personalLight,
+      MAX_ACTIVE_LIGHTS,
+      this.candidateLights,
+      this.frameLights,
     );
-    const all = candidates.slice(0, MAX_ACTIVE_LIGHTS - 1).concat(personal);
-    this.pool.sync(all, nowMs);
+    this.pool.sync(lights, nowMs);
   }
 
   /** Torch positions currently resident (authored wall torches + placed thrown
    * torches, fed in as accent lights) — vfx flame particles key off this list. */
   activeTorches(): readonly LightSource[] {
-    return [...this.chunkLights.values()]
-      .flat()
-      .concat(this.accentLights)
-      .filter((l) => l.kind === "torch");
+    return collectTorchLights(
+      this.chunkLights.values(),
+      this.accentLights,
+      this.activeTorchLights,
+    );
   }
 
   /** Forces every chunk-scanned light (torch/door) to be re-derived — the lighting
