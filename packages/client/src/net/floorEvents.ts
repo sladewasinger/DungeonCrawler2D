@@ -2,8 +2,8 @@ import type { VisualEvent } from "./connectionTypes.js";
 
 /**
  * Derives a "floorEntered" visual event from consecutive self floor values — mirrors
- * xpEvents.ts's diff-the-cumulative-total pattern. Fires on any change (descend or
- * ascend both re-announce), never on the very first snapshot (apply.ts gates that,
+ * xpEvents.ts's diff-the-cumulative-total pattern. Descent and death returns both
+ * re-announce, but the very first snapshot stays quiet,
  * same as xpGainEvents — a returning player's starting floor must not banner).
  */
 export function floorChangeEvents(prevFloor: number, nextFloor: number): VisualEvent[] {

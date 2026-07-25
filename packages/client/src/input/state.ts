@@ -62,7 +62,7 @@ export interface InputConnection {
   drop(item: string): void;
   /** Hold-F contact gesture intent (Epic 7.10) — server gates range/rate/mutuality. */
   fistbump(targetId: string): void;
-  /** Descends/ascends a nearby stairway (Epic 7.14) — server validates range. */
+  /** Descends a nearby one-way stairway; the server validates range. */
   descend(): void;
   /** Sends the existing server-authoritative suicide intent after a deliberate hold. */
   suicide(): void;

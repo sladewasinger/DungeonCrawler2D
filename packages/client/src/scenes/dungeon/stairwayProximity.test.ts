@@ -13,12 +13,12 @@ describe("resolveStairwayPrompt", () => {
     expect(prompt).toEqual({ direction: "down", floor: 2 });
   });
 
-  it("prompts to ascend when standing at floor 2's StairwayUp", () => {
+  it("does not advertise the arrival stair as an ascent path", () => {
     const world = new World(SEED, 2);
     const target = stairwayUpPosition(world);
     expect(target).not.toBeNull();
     const prompt = resolveStairwayPrompt(world, target!.x, target!.y);
-    expect(prompt).toEqual({ direction: "up", floor: 1 });
+    expect(prompt).toBeNull();
   });
 
   it("returns null far from either stairway", () => {

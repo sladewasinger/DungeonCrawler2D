@@ -1,4 +1,4 @@
-import { createBody, stairwayDownPosition, stairwayUpPosition } from "@dc2d/engine";
+import { createBody, stairwayUpPosition } from "@dc2d/engine";
 import { announceFloorEntry, announceStairwayHint } from "../announcer/index.js";
 import { respawnSlot } from "../players.js";
 import { leaveParty } from "../social.js";
@@ -46,9 +46,7 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
     // same machinery every floor-1 in-place death already used.
     respawnSlot(sim, slot);
   } else {
-    const landing =
-      (req.arrival === "stairUp" ? stairwayUpPosition(sim.world) : stairwayDownPosition(sim.world)) ??
-      null;
+    const landing = stairwayUpPosition(sim.world);
     const target = landing ? { ...landing, z: sim.world.groundAt(landing.x, landing.y) } : findSpawn(sim);
     slot.entity.body = createBody(target.x, target.y, target.z);
     slot.outbox.push({ t: "teleported" });

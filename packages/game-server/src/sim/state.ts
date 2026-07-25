@@ -35,10 +35,10 @@ export type PlayerAction = Exclude<
 
 /**
  * Epic 7.14 (The Descent) — how a slot is arriving at its target floor:
- * at the target's up-stair after descending, its down-stair after ascending,
- * or a fresh death respawn.
+ * at the target's up-stair after one-way descent, or a fresh death
+ * respawn (always floor 1, ignores stairways entirely).
  */
-export type FloorArrivalKind = "stairUp" | "stairDown" | "deathSpawn";
+export type FloorArrivalKind = "stairUp" | "deathSpawn";
 
 export interface PendingTransfer {
   targetFloor: number;

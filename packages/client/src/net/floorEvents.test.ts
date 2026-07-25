@@ -6,7 +6,7 @@ describe("floorChangeEvents", () => {
     expect(floorChangeEvents(1, 2)).toEqual([{ t: "floorEntered", floor: 2 }]);
   });
 
-  it("emits floorEntered when the floor falls (ascend/respawn)", () => {
+  it("emits floorEntered when death returns the player to floor one", () => {
     expect(floorChangeEvents(3, 1)).toEqual([{ t: "floorEntered", floor: 1 }]);
   });
 

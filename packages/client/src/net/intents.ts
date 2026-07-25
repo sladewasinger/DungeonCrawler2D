@@ -81,7 +81,7 @@ export function interactIntent(conn: Connection): void {
   if (conn.canAct) conn.send({ type: "interact" });
 }
 
-/** Descends/ascends a nearby stairway (Epic 7.14, WIRE v15) — server validates range. */
+/** Descends a nearby one-way stairway; the server validates range. */
 export function descendIntent(conn: Connection): void {
   if (conn.canAct) conn.send({ type: "descend" });
 }

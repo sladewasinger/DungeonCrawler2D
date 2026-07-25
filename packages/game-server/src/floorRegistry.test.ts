@@ -11,6 +11,7 @@ import {
   buildContentRegistry,
   hashString,
   stairwayDownPosition,
+  stairwayUpPosition,
   type ContentRegistry,
   type Entity,
 } from "@dc2d/engine";
@@ -73,6 +74,29 @@ describe("FloorRegistry: the descent chain", () => {
     const snap = finalSim.step().get(join.playerId)!;
     expect(snap.self.floor).toBe(5);
     expect(snap.self.deepestFloor).toBe(5);
+  });
+
+  it("does not accept a descend intent at an arrival stairway", () => {
+    const floors = makeRegistry();
+    const join = floors.base.addPlayer("A", "client-a");
+    const entity = floors.base.getPlayerEntity(join.playerId)!;
+    const down = stairwayDownPosition({ worldSeed: SEED, floor: 1 })!;
+    placeAt(entity, down.x, down.y);
+    floors.base.queueAction(join.playerId, { type: "descend" });
+    floors.stepAll();
+
+    const floor2 = floors.findByToken(join.resumeToken)!;
+    const arrival = stairwayUpPosition(floor2.world)!;
+    placeAt(entity, arrival.x, arrival.y);
+    floor2.queueAction(join.playerId, { type: "descend" });
+    const result = floors.stepAll();
+
+    expect(result.moved.some((move) => move.playerId === join.playerId)).toBe(false);
+    expect(floors.findByToken(join.resumeToken)?.world.floor).toBe(2);
+    expect(result.snapshots.get(join.playerId)?.events).toContainEqual({
+      t: "toast",
+      msg: "No stairway in reach.",
+    });
   });
 
   it("enemy stats scale on a live floor-3 sim (floor 1 stays unscaled)", () => {

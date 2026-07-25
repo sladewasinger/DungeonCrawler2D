@@ -2,7 +2,7 @@
 // the same deterministic StairwayDown/StairwayUp world positions the engine's descent.ts
 // exposes (no TILE type — interaction is proximity-based, matching the server's own
 // `doDescend` gate in game-server/src/sim/actions/descend.ts).
-import { INTERACT_RANGE, stairwayDownPosition, stairwayUpPosition } from "@dc2d/engine";
+import { INTERACT_RANGE, stairwayDownPosition } from "@dc2d/engine";
 import type { StairwayDirection } from "./descentPrompt.js";
 
 export interface StairwayPrompt {
@@ -28,7 +28,5 @@ function within(x: number, y: number, target: { x: number; y: number }): boolean
 export function resolveStairwayPrompt(world: StairwayWorld, x: number, y: number): StairwayPrompt | null {
   const down = stairwayDownPosition(world);
   if (down && within(x, y, down)) return { direction: "down", floor: world.floor + 1 };
-  const up = stairwayUpPosition(world);
-  if (up && within(x, y, up)) return { direction: "up", floor: world.floor - 1 };
   return null;
 }

@@ -1,13 +1,12 @@
-import { INTERACT_RANGE, stairwayDownPosition, stairwayUpPosition } from "@dc2d/engine";
+import { INTERACT_RANGE, stairwayDownPosition } from "@dc2d/engine";
 import { FLOOR_CAP } from "../floors/constants.js";
 import type { PlayerSlot, SimState } from "../state.js";
 
 /**
  * The `descend` intent (Epic 7.14, WIRE v15): valid within interact
- * range of EITHER stairway on the player's current floor — near the
- * down-mouth descends to floor+1's up-stair, near the up-mouth ascends
- * to floor-1's down-stair (symmetric). Out of range of both: a toast,
- * no-op.
+ * range of the down stairway on the player's current floor. Descent is
+ * one-way: the arrival stairway on the next floor never accepts this
+ * intent. Out of range: a toast, no-op.
  */
 export function doDescend(sim: SimState, slot: PlayerSlot): void {
   if (slot.pendingTransfer) return;
@@ -18,13 +17,6 @@ export function doDescend(sim: SimState, slot: PlayerSlot): void {
     const down = stairwayDownPosition(sim.world);
     if (down && withinRange(body, down)) {
       slot.pendingTransfer = { targetFloor: floor + 1, arrival: "stairUp" };
-      return;
-    }
-  }
-  if (floor > 1) {
-    const up = stairwayUpPosition(sim.world);
-    if (up && withinRange(body, up)) {
-      slot.pendingTransfer = { targetFloor: floor - 1, arrival: "stairDown" };
       return;
     }
   }
