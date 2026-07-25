@@ -6,7 +6,13 @@
 import type Phaser from "phaser";
 import { describe, expect, it, vi } from "vitest";
 import { createTouchInputState } from "./touch/index.js";
-import { cursorWorldTile, handlePointerDown, type PointerDeps } from "./pointer.js";
+import {
+  cursorWorldTile,
+  handlePointerDown,
+  handlePointerMove,
+  handlePointerUp,
+  type PointerDeps,
+} from "./pointer.js";
 import type { InputState } from "./state.js";
 
 describe("cursorWorldTile", () => {
@@ -74,5 +80,54 @@ describe("touch context action", () => {
     handlePointerDown({} as InputState, deps, pointer as unknown as Phaser.Input.Pointer);
     expect(performContextAction).toHaveBeenCalledOnce();
     expect(touch.buttons.interact).toBe(4);
+  });
+});
+
+describe("touch joystick network cadence", () => {
+  it("keeps high-rate drag local until fixed sampling and sends one immediate release edge", () => {
+    const sendMovementEdge = vi.fn();
+    const touch = createTouchInputState();
+    const deps = {
+      conn: { body: { x: 0, y: 0 }, canAct: true },
+      hud: { hitTest: () => null },
+      queries: {},
+      hooks: {},
+      tilePx: 48,
+      touch,
+      touchActive: true,
+      sendMovementEdge,
+      performContextAction: vi.fn(),
+      throwSelected: vi.fn(),
+      viewport: { width: 800, height: 400 },
+      camera: { getWorldPoint: (x: number, y: number) => ({ x, y }) },
+    } as unknown as PointerDeps;
+    const down = {
+      id: 7,
+      x: 100,
+      y: 300,
+      rightButtonDown: () => false,
+    } as unknown as Phaser.Input.Pointer;
+    handlePointerDown({} as InputState, deps, down);
+
+    for (let event = 0; event < 120; event++) {
+      handlePointerMove(touch, {
+        id: 7,
+        x: 100 + event,
+        y: 300,
+      } as Phaser.Input.Pointer);
+    }
+
+    expect(touch.stick?.curX).toBe(219);
+    expect(sendMovementEdge).not.toHaveBeenCalled();
+
+    handlePointerUp(
+      touch,
+      { id: 7 } as Phaser.Input.Pointer,
+      vi.fn(),
+      sendMovementEdge,
+    );
+
+    expect(touch.stick).toBeNull();
+    expect(sendMovementEdge).toHaveBeenCalledOnce();
   });
 });

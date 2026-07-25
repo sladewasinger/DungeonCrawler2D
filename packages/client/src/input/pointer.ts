@@ -117,7 +117,6 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
   if (touchActive) {
     if (isInLowerLeftQuadrant(pointer.x, pointer.y, viewport.width, viewport.height)) {
       beginStick(touch, pointer.id, pointer.x, pointer.y);
-      deps.sendMovementEdge();
     }
     return; // no mouse-aim swing/throw fallback in touch mode — the ATTACK button owns it
   }
@@ -165,10 +164,8 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
 export function handlePointerMove(
   touch: TouchInputState,
   pointer: Phaser.Input.Pointer,
-  onMovementEdge: () => void = () => {},
 ): void {
   moveStick(touch, pointer.id, pointer.x, pointer.y);
-  onMovementEdge();
 }
 
 /** Releases the stick (if this pointer owns it) and any buttons this pointer held — pointerup/pointerupoutside. */

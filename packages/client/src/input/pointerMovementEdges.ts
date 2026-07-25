@@ -11,7 +11,7 @@ export function bindPointerMovementEdges(
   onMovementEdge: () => void,
 ): void {
   scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-    if (touchActive()) handlePointerMove(touch, pointer, onMovementEdge);
+    if (touchActive()) handlePointerMove(touch, pointer);
   });
   const release = (pointer: Phaser.Input.Pointer) => {
     if (touchActive()) handlePointerUp(touch, pointer, onInteractReleased, onMovementEdge);
