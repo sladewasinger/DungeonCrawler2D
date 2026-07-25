@@ -3,6 +3,8 @@ import {
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
   PLAYER_MAX_STAMINA,
+  PROJECTED_INPUT_MAX_FUTURE_TICKS,
+  PROJECTED_INPUT_MAX_PAST_TICKS,
   RECONNECT_GRACE_MS,
   SAFE_FALL_HEIGHT,
   TICK_DT,
@@ -40,6 +42,8 @@ export function markDisconnected(sim: SimState, playerId: string): void {
 export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
   const slot = sim.players.get(playerId);
   if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
+  if (input.projectedServerTick < sim.tickCount - PROJECTED_INPUT_MAX_PAST_TICKS ||
+    input.projectedServerTick > sim.tickCount + PROJECTED_INPUT_MAX_FUTURE_TICKS) return;
   const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
   if (input.seq <= highestReceivedSeq) return;
   slot.highestReceivedSeq = input.seq;

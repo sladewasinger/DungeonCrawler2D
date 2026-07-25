@@ -94,7 +94,7 @@ describe("Prediction", () => {
     // does), then reconcile — every input up to the last tick is
     // acked, so nothing replays and the client snaps onto the server.
     const corrected = cloneBody(server);
-    prediction.reconcile(world, corrected, 13);
+    prediction.reconcile(world, corrected, 13, 13);
     expect(closeBody(corrected, server)).toBe(true);
 
     // Both sides keep stepping identically from here — convergence holds.
@@ -117,7 +117,7 @@ describe("Prediction", () => {
     // ticks 4 and 5 are newer than server tick 3 and get replayed.
     const authoritative = createBody(SPAWN_X, SPAWN_Y, 5);
     for (let tick = 0; tick < 3; tick++) stepBody(world, authoritative, WALK, TICK_DT);
-    prediction.reconcile(world, authoritative, 3);
+    prediction.reconcile(world, authoritative, 3, 3);
 
     expect(closeBody(authoritative, client)).toBe(true);
   });
@@ -149,22 +149,25 @@ describe("Prediction", () => {
     expect(clientResources.stamina).toBe(serverResources.stamina);
   });
 
-  it("uses authoritative tick coverage instead of sparse wire sequence acknowledgements", () => {
+  it("does not accumulate clock drift over five minutes of a slightly faster client", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
     const client = createBody(SPAWN_X, SPAWN_Y, 5);
     const server = createBody(SPAWN_X, SPAWN_Y, 5);
-    prediction.reconcile(world, client, 100);
+    prediction.reconcile(world, client, -1, 100);
 
-    for (let tick = 101; tick <= 110; tick++) {
-      prediction.predict(world, client, WALK);
+    for (let tick = 101; tick <= 6_100; tick++) {
+      let latest = prediction.predict(world, client, WALK);
+      if (tick % 100 === 0) latest = prediction.predict(world, client, WALK);
       stepBody(world, server, WALK, TICK_DT);
-      if (tick % 2 !== 0) continue;
       const authoritative = cloneBody(server);
-      prediction.reconcile(world, authoritative, tick);
+      prediction.reconcile(world, authoritative, latest.seq, tick);
       expect(closeBody(authoritative, server)).toBe(true);
       Object.assign(client, authoritative);
     }
+
+    expect(prediction.pendingStepCount).toBe(0);
+    expect(prediction.projectedTick).toBe(6_100);
   });
 
   it("reset drops all pending inputs so reconcile replays nothing", () => {
@@ -177,7 +180,7 @@ describe("Prediction", () => {
     prediction.reset();
     const body = createBody(1, 2, 5);
     const before = cloneBody(body);
-    prediction.reconcile(world, body, 0);
+    prediction.reconcile(world, body, 0, 0);
 
     expect(closeBody(body, before)).toBe(true);
   });
@@ -192,7 +195,7 @@ describe("Prediction", () => {
     for (const input of inputs) prediction.predict(world, client, input);
 
     const replayed = createBody(SPAWN_X, SPAWN_Y, 5);
-    prediction.reconcile(world, replayed, 0);
+    prediction.reconcile(world, replayed, 0, 0);
     const retainedExpected = createBody(SPAWN_X, SPAWN_Y, 5);
     for (const input of inputs.slice(1)) stepBody(world, retainedExpected, input, TICK_DT);
     const unbounded = createBody(SPAWN_X, SPAWN_Y, 5);

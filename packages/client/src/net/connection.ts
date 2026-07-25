@@ -23,6 +23,7 @@ import { sampleMovement, sendMovementEdge } from "./movementSampling.js";
 import { Prediction } from "./prediction.js";
 import { PredictionCorrection } from "./predictionCorrection.js";
 import { SnapshotRevisionState } from "./snapshotState.js";
+import { ServerTimeline } from "./serverTimeline.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -108,6 +109,7 @@ export class Connection extends ConnectionActions {
   readonly movementCadence = new MovementCadence();
   /** Render-only smoothing keeps authoritative correction out of simulation state. */
   readonly predictionCorrection = new PredictionCorrection();
+  readonly serverTimeline = new ServerTimeline();
   /** Live traffic/correction diagnostics expose the roadmap's reproducible baseline. */
   readonly networkMetrics = new WireMetrics();
   // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
@@ -172,6 +174,7 @@ export class Connection extends ConnectionActions {
     this.prediction.reset();
     this.movementCadence.reset();
     this.predictionCorrection.reset();
+    this.serverTimeline.reset();
   }
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
@@ -201,8 +204,9 @@ export class Connection extends ConnectionActions {
   /** Peer positions rendered `delayMs` in the past, lerped. */
   interpolated(
     delayMs: number,
+    now: number = performance.now(),
   ): Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> {
-    return interpolated(this.entities, delayMs);
+    return interpolated(this.entities, delayMs, this.serverTimeline.now(now));
   }
 
   send(msg: ClientMessage): void {

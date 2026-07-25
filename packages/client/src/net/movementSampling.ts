@@ -28,7 +28,7 @@ export function sendMovementEdge(connection: Connection, input: MoveInput): void
 
 export function sampleMovement(connection: Connection, input: MoveInput): void {
   if (!connection.world || !connection.body || !connection.canAct) return;
-  const projectedServerTick = connection.prediction.predict(
+  const identity = connection.prediction.predict(
     connection.world,
     connection.body,
     input,
@@ -36,9 +36,5 @@ export function sampleMovement(connection: Connection, input: MoveInput): void {
     connection.weapon !== null,
   );
   if (!connection.movementCadence.shouldSend(input)) return;
-  sendMovement(
-    connection,
-    input,
-    connection.prediction.nextInputIdentity(projectedServerTick),
-  );
+  sendMovement(connection, input, identity);
 }

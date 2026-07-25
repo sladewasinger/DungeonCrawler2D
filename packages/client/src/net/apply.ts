@@ -5,6 +5,7 @@ import type { Connection } from "./connection.js";
 import { floorChangeEvents } from "./floorEvents.js";
 import { recordSample } from "./interpolate.js";
 import { xpGainEvents } from "./xpEvents.js";
+import { pruneAreaTiles } from "./areaTileRetention.js";
 
 /**
  * Applies server truth to the Connection's state: authoritative self
@@ -20,8 +21,10 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   conn.hasReceivedSnapshot = true;
 
   const now = performance.now();
-  for (const entity of snap.entities) applyEntitySample(conn, now, entity);
+  const serverTime = conn.serverTimeline.observe(snap.tick, now);
+  for (const entity of snap.entities) applyEntitySample(conn, serverTime, entity);
   for (const tile of snap.areas) applyAreaTile(conn, tile);
+  pruneAreaTiles(conn.areaTiles, snap.self.x, snap.self.y);
   // Events (incl. a same-tick "death") are applied before `left` prunes conn.entities,
   // so a dying entity's last known position/defId is still there for the blood-VFX
   // lookup in scenes/dungeon/visualEvents.ts (its own GameEvent carries no position —
@@ -104,6 +107,7 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
     conn.prediction.reconcile(
       world,
       body,
+      snap.lastSeq,
       snap.tick,
       conn,
       snap.weapon !== null,

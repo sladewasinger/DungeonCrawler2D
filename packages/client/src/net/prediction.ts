@@ -16,7 +16,7 @@ import {
 export const PREDICTION_HISTORY_LIMIT = 64;
 
 interface PredictedStep {
-  readonly serverTick: number;
+  readonly seq: number;
   readonly input: MoveInput;
 }
 
@@ -41,45 +41,52 @@ export class Prediction {
     return { seq: this.seq, projectedServerTick };
   }
 
-  /** Advance the local body one tick and remember the input for replay. */
+  /** Advance one local tick and bind it to the sequence sent for this prediction. */
   predict(
     world: World,
     body: BodyState,
     input: MoveInput,
     resources?: PlayerResourceState,
     canBlock = false,
-  ): number {
+  ): PredictedInputIdentity {
+    this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
     const effective = resources
       ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
       : input;
     stepBody(world, body, effective, TICK_DT);
     this.pending.push({
-      serverTick: this.projectedServerTick,
+      seq: this.seq,
       input,
     });
     if (this.pending.length > PREDICTION_HISTORY_LIMIT) this.pending.shift();
-    return this.projectedServerTick;
+    return { seq: this.seq, projectedServerTick: this.projectedServerTick };
   }
 
-  /** Drop simulation steps covered by server time, then replay genuinely newer work. */
+  /** Drop causally acknowledged inputs, rebase the projected clock, and replay the rest. */
   reconcile(
     world: World,
     body: BodyState,
+    lastAckedSeq: number,
     authoritativeServerTick: number,
     resources?: PlayerResourceState,
     canBlock = false,
   ): void {
-    this.projectedServerTick = Math.max(
-      this.projectedServerTick ?? authoritativeServerTick,
-      authoritativeServerTick,
-    );
-    this.pending = this.pending.filter((step) => step.serverTick > authoritativeServerTick);
+    this.pending = this.pending.filter((step) => step.seq > lastAckedSeq);
+    this.projectedServerTick = authoritativeServerTick + this.pending.length;
     for (const p of this.pending) {
       const effective = resources
         ? stepPlayerResources(resources, p.input, canBlock, TICK_DT).input
         : p.input;
       stepBody(world, body, effective, TICK_DT);
     }
+  }
+
+  get pendingStepCount(): number {
+    return this.pending.length;
+  }
+
+  get projectedTick(): number | null {
+    return this.projectedServerTick;
   }
 }

@@ -29,4 +29,18 @@ describe("buildAreaTileViews", () => {
     expect(oil?.id).toBe(fire?.id);
     expect([oil?.effectId, fire?.effectId]).toEqual(["area-oil", "area-fire"]);
   });
+
+  it("limits active area rigs to the camera neighborhood", () => {
+    const tiles = new Map([
+      ["0,0", "area-fire"],
+      ["100,100", "area-fire"],
+    ]);
+
+    const views = buildAreaTileViews(
+      tiles,
+      { x: -100, y: -100, right: 100, bottom: 100 },
+    );
+
+    expect(views.map(({ id }) => id)).toEqual(["0,0"]);
+  });
 });

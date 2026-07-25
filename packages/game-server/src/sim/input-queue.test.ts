@@ -1,5 +1,7 @@
 import {
   MOVE_SPEED,
+  PROJECTED_INPUT_MAX_FUTURE_TICKS,
+  PROJECTED_INPUT_MAX_PAST_TICKS,
   TICK_RATE,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
@@ -70,14 +72,26 @@ describe("player input queue", () => {
     expect(entity.body.x).toBeGreaterThan(5.5);
   });
 
-  it("does not discard valid sequenced input because client and server clocks drift", () => {
+  it("accepts bounded clock drift and rejects impossible projected ticks", () => {
     const sim = makeSim();
     const player = sim.addPlayer("Timeline tester", "timeline-client");
 
-    sim.handleInput(player.playerId, input(1, 1, 0, false, false, 10_000));
+    sim.handleInput(player.playerId, input(
+      1,
+      1,
+      0,
+      false,
+      false,
+      sim.tick + PROJECTED_INPUT_MAX_FUTURE_TICKS,
+    ));
     expect(sim.step().get(player.playerId)?.lastSeq).toBe(1);
 
-    sim.handleInput(player.playerId, input(2, 0, 0, false, false, 0));
+    for (let tick = 0; tick <= PROJECTED_INPUT_MAX_PAST_TICKS; tick++) sim.step();
+    sim.handleInput(player.playerId, input(2, 0, 0, false, false, sim.tick - PROJECTED_INPUT_MAX_PAST_TICKS));
+    expect(sim.step().get(player.playerId)?.lastSeq).toBe(2);
+
+    sim.handleInput(player.playerId, input(3, -1, 0, false, false, sim.tick + PROJECTED_INPUT_MAX_FUTURE_TICKS + 1));
+    sim.handleInput(player.playerId, input(4, -1, 0, false, false, sim.tick - PROJECTED_INPUT_MAX_PAST_TICKS - 1));
     expect(sim.step().get(player.playerId)?.lastSeq).toBe(2);
   });
 });

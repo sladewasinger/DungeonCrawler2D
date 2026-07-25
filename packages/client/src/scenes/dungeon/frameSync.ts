@@ -173,7 +173,9 @@ export function syncLightingAndVfx(
   render: RenderPose,
 ): void {
   if (!lighting || !conn.body) return;
-  const areaLights = vfx.syncAreas(buildAreaTileViews(conn.areaTiles));
+  const areaLights = vfx.syncAreas(
+    buildAreaTileViews(conn.areaTiles, camera.worldView, 2 * SCREEN_TILE_PX),
+  );
   lighting.setAccentLights([...areaLights, ...torchAccentLights]);
   lighting.update(camera.worldView, render.x, render.y, nowMs);
   // Flame emitters only for torches near the camera view: uncapped, every

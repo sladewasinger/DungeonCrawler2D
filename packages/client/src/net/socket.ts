@@ -134,6 +134,7 @@ function onWelcome(conn: Connection, msg: ServerWelcome): void {
   conn.prediction.reset();
   conn.movementCadence.reset();
   conn.predictionCorrection.reset(true);
+  conn.serverTimeline.reset();
   conn.snapshotRevisions.reset();
   conn.entities.clear();
   conn.areaTiles.clear();

@@ -221,7 +221,7 @@ class ScriptedClient {
 
   sampleInput(input: MoveInput): void {
     if (!this.world || !this.body || this.latestServerTick === 0) return;
-    const projectedServerTick = this.prediction.predict(
+    const identity = this.prediction.predict(
       this.world,
       this.body,
       input,
@@ -229,7 +229,6 @@ class ScriptedClient {
       this.weapon !== null,
     );
     if (!this.cadence.shouldSend(input)) return;
-    const identity = this.prediction.nextInputIdentity(projectedServerTick);
     this.send({
       type: "input",
       seq: identity.seq,
@@ -319,13 +318,11 @@ class ScriptedClient {
       kx: message.self.kx,
       ky: message.self.ky,
     };
-    const acknowledgedTick = message.lastProjectedServerTick >= 0
-      ? message.lastProjectedServerTick
-      : message.tick;
     this.prediction.reconcile(
       this.world,
       this.body,
-      acknowledgedTick,
+      message.lastSeq,
+      message.tick,
       this.resources,
       message.weapon !== null,
     );
