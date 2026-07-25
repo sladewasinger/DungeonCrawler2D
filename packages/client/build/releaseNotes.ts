@@ -98,6 +98,57 @@ export function releaseNotesPlugin(repositoryRoot: string, applicationVersion: s
       const notes = loadReleaseNotes(repositoryRoot, applicationVersion);
       emitReleasePages(notes, (asset) => this.emitFile(asset));
     },
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const rendered = releaseNotesRequest(
+          repositoryRoot,
+          applicationVersion,
+          request.url ?? "/",
+        );
+        if (!rendered) return next();
+        response.statusCode = rendered.status;
+        for (const [name, value] of Object.entries(rendered.headers)) {
+          response.setHeader(name, value);
+        }
+        response.end(rendered.body);
+      });
+    },
+  };
+}
+
+export interface ReleaseNotesHttpResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export function releaseNotesRequest(
+  repositoryRoot: string,
+  applicationVersion: string,
+  requestUrl: string,
+): ReleaseNotesHttpResponse | null {
+  const path = new URL(requestUrl, "http://release-notes.local").pathname;
+  if (path === "/releases" || path === "/releases/") {
+    return {
+      status: 302,
+      headers: { location: "/releases/index.html", "cache-control": "no-store" },
+      body: "",
+    };
+  }
+  if (!path.startsWith("/releases/") || !path.endsWith(".html")) return null;
+  validateManifestVersions(repositoryRoot, applicationVersion);
+  const fileName = path.slice(1);
+  const asset = releaseAssets(
+    loadReleaseNotes(repositoryRoot, applicationVersion),
+  ).find((candidate) => candidate.fileName === fileName);
+  if (!asset) return null;
+  return {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    body: asset.source,
   };
 }
 
@@ -136,19 +187,24 @@ interface ReleaseAsset {
 }
 
 function emitReleasePages(notes: ReleaseNote[], emit: (asset: ReleaseAsset) => unknown): void {
+  for (const asset of releaseAssets(notes)) emit(asset);
+}
+
+function releaseAssets(notes: ReleaseNote[]): ReleaseAsset[] {
   const cards = notes
     .map((note) => `<article><h2><a href="./v${escapeHtml(note.version)}.html">v${escapeHtml(note.version)} · ${escapeHtml(note.title)}</a></h2><time datetime="${escapeHtml(note.date)}">${escapeHtml(note.date)}</time></article>`)
     .join("");
-  emit({
+  const assets: ReleaseAsset[] = [{
     type: "asset",
     fileName: "releases/index.html",
     source: page("DungeonCrawler2D Release Notes", `<h1>Release Notes</h1>${cards}<p><a href="/">Return to DungeonCrawler2D</a></p>`),
-  });
+  }];
   for (const note of notes) {
-    emit({
+    assets.push({
       type: "asset",
       fileName: `releases/v${note.version}.html`,
       source: page(`DungeonCrawler2D v${note.version}`, noteBody(note)),
     });
   }
+  return assets;
 }
