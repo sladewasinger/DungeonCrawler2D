@@ -16,6 +16,7 @@ import {
   World,
   buildContentRegistry,
   createBody,
+  decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
   hashString,
@@ -197,6 +198,9 @@ class ScriptedClient {
     }
     const startedAt = performance.now();
     const payload = encodeMessage(message);
+    if (!decodeClientMessage(payload)) {
+      throw new Error(`${this.label} encoded an invalid ${message.type} packet`);
+    }
     const encodedAt = performance.now();
     encodeSamples.push({
       client: this.label,
@@ -217,7 +221,7 @@ class ScriptedClient {
 
   sampleInput(input: MoveInput): void {
     if (!this.world || !this.body || this.latestServerTick === 0) return;
-    const identity = this.prediction.predict(
+    const projectedServerTick = this.prediction.predict(
       this.world,
       this.body,
       input,
@@ -225,6 +229,7 @@ class ScriptedClient {
       this.weapon !== null,
     );
     if (!this.cadence.shouldSend(input)) return;
+    const identity = this.prediction.nextInputIdentity(projectedServerTick);
     this.send({
       type: "input",
       seq: identity.seq,
