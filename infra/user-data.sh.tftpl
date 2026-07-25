@@ -2,12 +2,49 @@
 set -euxo pipefail
 
 dnf install -y nodejs22
+dnf install -y amazon-cloudwatch-agent
 if ! command -v aws >/dev/null 2>&1; then
   dnf install -y awscli2 || dnf install -y awscli
 fi
 
 id dc2d >/dev/null 2>&1 || useradd --system --home-dir /opt/dungeoncrawler2d --shell /sbin/nologin dc2d
-install -d -o dc2d -g dc2d /opt/dungeoncrawler2d /var/lib/dungeoncrawler2d
+install -d -o dc2d -g dc2d /opt/dungeoncrawler2d /var/lib/dungeoncrawler2d /var/log/dungeoncrawler2d
+
+cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'JSON'
+{
+  "agent": {
+    "region": "${aws_region}"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/dungeoncrawler2d/server.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "append_dimensions": {
+      "InstanceId": "$${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "disk": {
+        "measurement": ["used_percent"],
+        "resources": ["/"]
+      },
+      "mem": {
+        "measurement": ["mem_used_percent"]
+      }
+    }
+  }
+}
+JSON
 
 cat >/usr/local/bin/dc2d-sync <<'SCRIPT'
 #!/bin/bash
@@ -36,6 +73,8 @@ Environment=STORE_FILE=/var/lib/dungeoncrawler2d/players.json
 Environment=CUSTOM_MAP=none
 ExecStartPre=+/usr/local/bin/dc2d-sync
 ExecStart=/usr/bin/node /opt/dungeoncrawler2d/main.cjs
+StandardOutput=append:/var/log/dungeoncrawler2d/server.log
+StandardError=append:/var/log/dungeoncrawler2d/server.log
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
@@ -49,4 +88,5 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
+systemctl enable --now amazon-cloudwatch-agent.service
 systemctl enable --now dungeoncrawler2d.service

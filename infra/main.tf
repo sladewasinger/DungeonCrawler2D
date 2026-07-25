@@ -133,6 +133,11 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.game_server.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_role_policy" "server_artifacts" {
   name = "server-artifacts"
   role = aws_iam_role.game_server.id
@@ -188,6 +193,7 @@ resource "aws_instance" "game_server" {
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
     aws_region           = var.aws_region
     artifact_bucket      = aws_s3_bucket.artifacts.id
+    log_group_name       = aws_cloudwatch_log_group.game_server.name
     server_bundle_object = local.server_bundle_object
     world_seed           = var.world_seed
   })
@@ -210,9 +216,78 @@ resource "aws_instance" "game_server" {
 
   depends_on = [
     aws_iam_role_policy.server_artifacts,
+    aws_iam_role_policy_attachment.cloudwatch_agent,
     aws_iam_role_policy_attachment.ssm,
     aws_s3_object.server_bundle,
   ]
+}
+
+resource "aws_cloudwatch_log_group" "game_server" {
+  name              = "/dungeoncrawler2d/prod/server"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_metric_alarm" "server_cpu" {
+  alarm_name          = "${local.name}-high-cpu"
+  alarm_description   = "Authoritative server CPU exceeded 85% for ten minutes."
+  namespace           = "AWS/EC2"
+  metric_name         = "CPUUtilization"
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 2
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 85
+  dimensions = {
+    InstanceId = aws_instance.game_server.id
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "server_status" {
+  alarm_name          = "${local.name}-status-check"
+  alarm_description   = "The production game server failed an EC2 status check."
+  namespace           = "AWS/EC2"
+  metric_name         = "StatusCheckFailed"
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 2
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  dimensions = {
+    InstanceId = aws_instance.game_server.id
+  }
+}
+
+resource "aws_cloudwatch_dashboard" "production" {
+  dashboard_name = local.name
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        width  = 12
+        height = 6
+        properties = {
+          title  = "Authoritative server"
+          region = var.aws_region
+          view   = "timeSeries"
+          metrics = [
+            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.game_server.id],
+            [".", "NetworkIn", ".", "."],
+            [".", "NetworkOut", ".", "."]
+          ]
+        }
+      },
+      {
+        type   = "log"
+        width  = 12
+        height = 6
+        properties = {
+          title  = "Recent server errors"
+          region = var.aws_region
+          query  = "SOURCE '${aws_cloudwatch_log_group.game_server.name}' | fields @timestamp, @message | filter @message like /error|failed|exception/i | sort @timestamp desc | limit 50"
+        }
+      }
+    ]
+  })
 }
 
 data "aws_iam_policy_document" "backup_assume_role" {

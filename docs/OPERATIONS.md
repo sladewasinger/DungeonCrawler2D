@@ -42,3 +42,14 @@ A production-readiness review must still record a successful restore drill. The
 drill restores to a replacement instance, validates the versioned player store,
 runs the production smoke command against the replacement, and destroys the
 replacement only after the evidence has been retained.
+
+## Monitoring
+
+The production instance ships its server log to
+`/dungeoncrawler2d/prod/server` in CloudWatch Logs with 30-day retention. The
+production dashboard shows CPU and network traffic alongside a recent-error
+query. High CPU and failed EC2 status checks have dedicated alarms.
+
+An operator must attach the alarms to the team's paging destination before the
+public-release gate. Terraform intentionally does not guess an email, phone
+number, or incident-management service.
