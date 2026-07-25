@@ -1,8 +1,8 @@
 /** Converts authoritative prediction divergence into a bounded render-only smoothing offset. */
 export interface PositionCorrection {
-  x: number;
-  y: number;
-  z: number;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
 }
 
 interface Position {
@@ -14,6 +14,7 @@ interface Position {
 export const CORRECTION_SMOOTH_THRESHOLD = 0.02;
 export const CORRECTION_HARD_THRESHOLD = 1.5;
 const DECAY_MS = 140;
+const ZERO_CORRECTION: PositionCorrection = { x: 0, y: 0, z: 0 };
 
 function isFinitePosition(position: Position): boolean {
   return Number.isFinite(position.x) &&
@@ -22,7 +23,7 @@ function isFinitePosition(position: Position): boolean {
 }
 
 export class PredictionCorrection {
-  private readonly offset: PositionCorrection = { x: 0, y: 0, z: 0 };
+  private offset: PositionCorrection = ZERO_CORRECTION;
   private hardSnap = false;
   lastError = 0;
 
@@ -36,43 +37,34 @@ export class PredictionCorrection {
     const dz = before.z - after.z;
     this.lastError = Math.hypot(dx, dy, dz);
     if (this.lastError >= CORRECTION_HARD_THRESHOLD) {
-      this.clearOffset();
+      this.offset = ZERO_CORRECTION;
       this.hardSnap = true;
       return;
     }
     if (this.lastError < CORRECTION_SMOOTH_THRESHOLD) return;
-    this.offset.x += dx;
-    this.offset.y += dy;
-    this.offset.z += dz;
+    this.offset = {
+      x: this.offset.x + dx,
+      y: this.offset.y + dy,
+      z: this.offset.z + dz,
+    };
   }
 
   advance(
     deltaMs: number,
     blockedAxes: { readonly x?: boolean; readonly y?: boolean } = {},
   ): PositionCorrection {
-    return this.advanceInto(
-      deltaMs,
-      blockedAxes.x === true,
-      blockedAxes.y === true,
-      { x: 0, y: 0, z: 0 },
-    );
-  }
-
-  advanceInto(
-    deltaMs: number,
-    blockedX: boolean,
-    blockedY: boolean,
-    output: PositionCorrection,
-  ): PositionCorrection {
     const current = this.offset;
-    output.x = blockedX ? 0 : current.x;
-    output.y = blockedY ? 0 : current.y;
-    output.z = current.z;
     const decay = Math.exp(-Math.max(0, deltaMs) / DECAY_MS);
-    current.x = blockedX ? 0 : current.x * decay;
-    current.y = blockedY ? 0 : current.y * decay;
-    current.z *= decay;
-    return output;
+    this.offset = {
+      x: blockedAxes.x ? 0 : current.x * decay,
+      y: blockedAxes.y ? 0 : current.y * decay,
+      z: current.z * decay,
+    };
+    return {
+      x: blockedAxes.x ? 0 : current.x,
+      y: blockedAxes.y ? 0 : current.y,
+      z: current.z,
+    };
   }
 
   consumeHardSnap(): boolean {
@@ -82,14 +74,8 @@ export class PredictionCorrection {
   }
 
   reset(hardSnap = false): void {
-    this.clearOffset();
+    this.offset = ZERO_CORRECTION;
     this.hardSnap = hardSnap;
     this.lastError = 0;
-  }
-
-  private clearOffset(): void {
-    this.offset.x = 0;
-    this.offset.y = 0;
-    this.offset.z = 0;
   }
 }

@@ -30,18 +30,6 @@ describe("PredictionCorrection", () => {
     expect(correction.advance(0).y).toBeGreaterThan(0);
   });
 
-  it("advances into one stable output record without allocating axis options", () => {
-    const correction = new PredictionCorrection();
-    const output = { x: 0, y: 0, z: 0 };
-    correction.record({ x: 1.5, y: 2.5, z: 0.25 }, { x: 1, y: 2, z: 0 });
-
-    for (let frame = 0; frame < 1_000; frame++) {
-      expect(correction.advanceInto(0, true, false, output)).toBe(output);
-    }
-
-    expect(output).toEqual({ x: 0, y: 0.5, z: 0.25 });
-  });
-
   it("hard-snaps teleports and invalid divergence without carrying an offset", () => {
     const correction = new PredictionCorrection();
     correction.record(

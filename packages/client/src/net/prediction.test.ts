@@ -187,6 +187,28 @@ describe("Prediction", () => {
     expect(clientResources.stamina).toBe(serverResources.stamina);
   });
 
+  it("does not accumulate clock drift over five minutes of a slightly faster client", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
+    prediction.reconcile(world, client, -1, 100);
+
+    for (let tick = 101; tick <= 6_100; tick++) {
+      let latest = prediction.predict(world, client, WALK);
+      if (tick % 100 === 0) latest = prediction.predict(world, client, WALK);
+      stepBody(world, server, WALK, TICK_DT);
+      const authoritative = cloneBody(server);
+      prediction.reconcile(world, authoritative, latest.seq, tick);
+      expect(closeBody(authoritative, server)).toBe(true);
+      Object.assign(client, authoritative);
+    }
+
+    expect(prediction.pendingStepCount).toBe(0);
+    expect(prediction.projectedTick).toBe(6_100);
+    expect(prediction.allocatedStepRecordCount).toBe(2);
+  });
+
   it("reset drops all pending inputs so reconcile replays nothing", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();

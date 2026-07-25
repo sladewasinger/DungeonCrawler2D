@@ -1,8 +1,7 @@
 import {
   TICK_DT,
-  createPlayerResourceStep,
   stepBody,
-  stepPlayerResourcesInto,
+  stepPlayerResources,
   type BodyState,
   type MoveInput,
   type PlayerResourceState,
@@ -31,7 +30,6 @@ export class Prediction {
   private projectedServerTick: number | null = null;
   private readonly pending: PredictedStep[] = [];
   private readonly recycled: PredictedStep[] = [];
-  private readonly resourceStep = createPlayerResourceStep();
   private allocatedStepRecords = 0;
 
   reset(): void {
@@ -56,7 +54,9 @@ export class Prediction {
   ): PredictedInputIdentity {
     this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
-    const effective = this.effectiveInput(resources, input, canBlock);
+    const effective = resources
+      ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
+      : input;
     stepBody(world, body, effective, TICK_DT);
     this.pending.push(this.acquireStep(this.seq, input));
     if (this.pending.length > PREDICTION_HISTORY_LIMIT) {
@@ -85,9 +85,11 @@ export class Prediction {
       retainedCount++;
     }
     this.pending.length = retainedCount;
-    this.projectedServerTick = authoritativeServerTick + retainedCount;
+    this.projectedServerTick = authoritativeServerTick + this.pending.length;
     for (const p of this.pending) {
-      const effective = this.effectiveInput(resources, p.input, canBlock);
+      const effective = resources
+        ? stepPlayerResources(resources, p.input, canBlock, TICK_DT).input
+        : p.input;
       stepBody(world, body, effective, TICK_DT);
     }
   }
@@ -104,25 +106,7 @@ export class Prediction {
     return this.projectedServerTick;
   }
 
-  private effectiveInput(
-    resources: PlayerResourceState | undefined,
-    input: MoveInput,
-    canBlock: boolean,
-  ): MoveInput {
-    if (!resources) return input;
-    return stepPlayerResourcesInto(
-      resources,
-      input,
-      canBlock,
-      TICK_DT,
-      this.resourceStep,
-    ).input;
-  }
-
-  private acquireStep(
-    seq: number,
-    input: MoveInput,
-  ): PredictedStep {
+  private acquireStep(seq: number, input: MoveInput): PredictedStep {
     const step = this.recycled.pop();
     if (step) {
       step.seq = seq;

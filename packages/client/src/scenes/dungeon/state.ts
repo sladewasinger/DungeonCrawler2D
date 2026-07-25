@@ -1,15 +1,7 @@
 // DungeonScene's mutable per-frame state bag: the fixed-step accumulator, the render-
 // interpolation reference pose, and every subsystem's small local cosmetic state.
 // One object per scene instance so no module holds state of its own.
-import {
-  NEUTRAL_INPUT,
-  createBody,
-  createPlayerResourceStep,
-  type BodyState,
-  type MoveInput,
-  type PlayerResourceState,
-  type PlayerResourceStep,
-} from "@dc2d/engine";
+import { NEUTRAL_INPUT, type MoveInput } from "@dc2d/engine";
 import type { PendingSwing } from "../../vfx/meleeConnect.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { AreaTileView } from "../../vfx/index.js";
@@ -35,30 +27,6 @@ export interface RenderPose {
   readonly z: number;
 }
 
-export interface SelfProjectionScratch {
-  readonly body: BodyState;
-  readonly resources: PlayerResourceState;
-  readonly resourceStep: PlayerResourceStep;
-  readonly correction: { x: number; y: number; z: number };
-  readonly pose: { x: number; y: number; z: number };
-}
-
-export function createSelfProjectionScratch(): SelfProjectionScratch {
-  return {
-    body: createBody(0, 0, 0),
-    resources: {
-      stamina: 0,
-      maxStamina: 0,
-      blocking: false,
-      staminaRecoveryDelaySeconds: 0,
-      staminaExhausted: false,
-    },
-    resourceStep: createPlayerResourceStep(),
-    correction: { x: 0, y: 0, z: 0 },
-    pose: { x: 0, y: 0, z: 0 },
-  };
-}
-
 export interface DungeonSceneState {
   accumulatorMs: number;
   /** Self body pose just before the most recent fixed step — the interpolation source. */
@@ -71,7 +39,6 @@ export interface DungeonSceneState {
   readonly selfPose: SelfPose;
   readonly selfVitals: SelfVitals;
   renderContext: RenderContext | null;
-  readonly selfProjection: SelfProjectionScratch;
   readonly areaViews: AreaTileView[];
   readonly areaViewRecords: AreaTileView[];
   readonly accentLights: LightSource[];
@@ -109,7 +76,6 @@ export function createDungeonSceneState(): DungeonSceneState {
       weaponId: null,
     },
     renderContext: null,
-    selfProjection: createSelfProjectionScratch(),
     areaViews: [],
     areaViewRecords: [],
     accentLights: [],
