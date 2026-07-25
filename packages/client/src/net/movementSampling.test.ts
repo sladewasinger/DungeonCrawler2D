@@ -10,7 +10,10 @@ const IDLE: MoveInput = { moveX: 0, moveY: 0, jump: false, run: false };
 describe("sampleMovement", () => {
   it("predicts every tick but sends heartbeats and control edges immediately", () => {
     let sequence = 0;
-    const predict = vi.fn(() => ++sequence);
+    const predict = vi.fn(() => {
+      const seq = ++sequence;
+      return { seq, projectedServerTick: 100 + seq };
+    });
     const send = vi.fn();
     const connection = {
       world: {},
@@ -36,6 +39,8 @@ describe("sampleMovement", () => {
     expect(predict).toHaveBeenCalledTimes(24);
     const inputs = send.mock.calls.map(([message]) => message as ClientInput);
     expect(inputs.map(({ seq }) => seq)).toEqual([1, 11, 21, 22, 23, 24]);
+    expect(inputs.map(({ projectedServerTick }) => projectedServerTick))
+      .toEqual([101, 111, 121, 122, 123, 124]);
     expect(inputs.at(-1)).toMatchObject({ moveX: 1, faceY: -1, jump: true, run: true });
   });
 });

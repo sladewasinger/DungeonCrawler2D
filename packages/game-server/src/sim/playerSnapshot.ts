@@ -14,6 +14,7 @@ import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
 export interface PlayerSnapshotFrame {
   tick: number;
   lastSeq: number;
+  lastProjectedServerTick: number;
   self: ServerSnapshot["self"];
   weapon: string | null;
   party: ServerSnapshot["party"];
@@ -174,6 +175,7 @@ export function buildPlayerSnapshotFrame(
   return {
     tick: sim.tickCount,
     lastSeq: slot.lastSeq,
+    lastProjectedServerTick: slot.lastProjectedServerTick ?? -1,
     self: toSelfSnapshot(sim, slot),
     weapon: slot.weapon,
     party: toPartySnapshot(sim, slot),

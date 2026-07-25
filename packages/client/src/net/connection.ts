@@ -149,7 +149,7 @@ export class Connection {
   }
 
   get canAct(): boolean {
-    return this.status === "connected" && this.hp > 0 && !this.downed;
+    return this.status === "connected" && this.hasReceivedSnapshot && this.hp > 0 && !this.downed;
   }
 
   setName(name: string): void { this.name = name; }
@@ -210,7 +210,7 @@ export class Connection {
     interactIntent(this);
   }
 
-  /** Descends/ascends a nearby stairway (Epic 7.14) — server validates range. */
+  /** Descends a nearby one-way stairway; the server validates range. */
   descend(): void {
     descendIntent(this);
   }

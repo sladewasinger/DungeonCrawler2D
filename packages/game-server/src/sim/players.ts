@@ -2,6 +2,8 @@ import {
   FALL_DAMAGE_PER_UNIT,
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
+  PROJECTED_INPUT_MAX_FUTURE_TICKS,
+  PROJECTED_INPUT_MAX_PAST_TICKS,
   RECONNECT_GRACE_MS,
   SAFE_FALL_HEIGHT,
   TICK_DT,
@@ -37,7 +39,15 @@ export function markDisconnected(sim: SimState, playerId: string): void {
 export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
   const slot = sim.players.get(playerId);
   if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
-  if (input.seq <= slot.lastSeq) return;
+  const minimumProjectedTick = Math.max(0, sim.tickCount - PROJECTED_INPUT_MAX_PAST_TICKS);
+  const maximumProjectedTick = sim.tickCount + PROJECTED_INPUT_MAX_FUTURE_TICKS;
+  if (
+    input.projectedServerTick < minimumProjectedTick ||
+    input.projectedServerTick > maximumProjectedTick
+  ) return;
+  const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
+  if (input.seq <= highestReceivedSeq) return;
+  slot.highestReceivedSeq = input.seq;
   slot.pendingInputs[0] = input;
 }
 
@@ -131,7 +141,10 @@ function stepPlayerBody(
     x: (entity.body.x - beforeX) / TICK_DT,
     y: (entity.body.y - beforeY) / TICK_DT,
   });
-  if (latestInput) slot.lastSeq = latestInput.seq;
+  if (latestInput) {
+    slot.lastSeq = latestInput.seq;
+    slot.lastProjectedServerTick = sim.tickCount;
+  }
   if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
   killIfInChasm(slot);
 }

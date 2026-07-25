@@ -12,6 +12,7 @@ describe("MovementCadence", () => {
     const inputs = Array.from({ length: 20 }, (_, seq): ClientInput => ({
       type: "input",
       seq,
+      projectedServerTick: seq,
       ...IDLE,
       run: IDLE.run ?? false,
     }));

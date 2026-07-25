@@ -12,6 +12,11 @@ interface PredictedStep {
   readonly input: MoveInput;
 }
 
+export interface PredictedInputIdentity {
+  readonly seq: number;
+  readonly projectedServerTick: number;
+}
+
 export class Prediction {
   private seq = 0;
   private projectedServerTick: number | null = null;
@@ -23,7 +28,7 @@ export class Prediction {
   }
 
   /** Advance the local body one tick and remember the input for replay. */
-  predict(world: World, body: BodyState, input: MoveInput): number {
+  predict(world: World, body: BodyState, input: MoveInput): PredictedInputIdentity {
     this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
     stepBody(world, body, input, TICK_DT);
@@ -32,13 +37,16 @@ export class Prediction {
       input,
     });
     if (this.pending.length > PREDICTION_HISTORY_LIMIT) this.pending.shift();
-    return this.seq;
+    return { seq: this.seq, projectedServerTick: this.projectedServerTick };
   }
 
-  /** Drop prediction steps covered by server time, then replay only genuinely newer work. */
-  reconcile(world: World, body: BodyState, authoritativeTick: number): void {
-    this.projectedServerTick = Math.max(this.projectedServerTick ?? authoritativeTick, authoritativeTick);
-    this.pending = this.pending.filter((step) => step.serverTick > authoritativeTick);
+  /** Drop prediction steps covered by acknowledged server progress, then replay newer work. */
+  reconcile(world: World, body: BodyState, acknowledgedProjectedTick: number): void {
+    this.projectedServerTick = Math.max(
+      this.projectedServerTick ?? acknowledgedProjectedTick,
+      acknowledgedProjectedTick,
+    );
+    this.pending = this.pending.filter((step) => step.serverTick > acknowledgedProjectedTick);
     for (const p of this.pending) stepBody(world, body, p.input, TICK_DT);
   }
 }

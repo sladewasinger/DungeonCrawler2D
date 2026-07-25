@@ -94,7 +94,7 @@ describe("GameSim: join, spawn, and AOI", () => {
     const start = snapToFloor(sim, 5, 5, claimed);
     teleport(entity, start.x, start.y, sim);
     for (let seq = 1; seq <= 5; seq += 1) {
-      sim.handleInput(a.playerId, { type: "input", seq, moveX: 1, moveY: 0, jump: false, run: true });
+      sim.handleInput(a.playerId, { type: "input", seq, projectedServerTick: sim.tick, moveX: 1, moveY: 0, jump: false, run: true });
       sim.step();
     }
     const ranDistance = entity.body.x - start.x;

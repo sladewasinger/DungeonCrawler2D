@@ -4,11 +4,16 @@ import type { Connection } from "./connection.js";
 
 export function sampleMovement(connection: Connection, input: MoveInput): void {
   if (!connection.world || !connection.body || !connection.canAct) return;
-  const seq = connection.prediction.predict(connection.world, connection.body, input);
+  const { seq, projectedServerTick } = connection.prediction.predict(
+    connection.world,
+    connection.body,
+    input,
+  );
   if (!connection.movementCadence.shouldSend(input)) return;
   connection.send({
     type: "input",
     seq,
+    projectedServerTick,
     moveX: input.moveX,
     moveY: input.moveY,
     ...(input.faceX !== undefined ? { faceX: input.faceX } : {}),

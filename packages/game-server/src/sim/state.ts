@@ -35,8 +35,8 @@ export type PlayerAction = Exclude<
 
 /**
  * Epic 7.14 (The Descent) — how a slot is arriving at its target floor:
- * at the target's up-stair (descending), its down-stair (ascending), or
- * a fresh death respawn (always floor 1, ignores stairways entirely).
+ * at the target's up-stair after descending, its down-stair after ascending,
+ * or a fresh death respawn.
  */
 export type FloorArrivalKind = "stairUp" | "stairDown" | "deathSpawn";
 
@@ -58,6 +58,10 @@ export interface PlayerSlot {
   stored: StoredPlayer;
   resumeToken: string;
   lastSeq: number;
+  /** Highest sequence accepted from the current socket epoch, including unprocessed input. */
+  highestReceivedSeq?: number;
+  /** Projected server tick paired with lastSeq after authoritative processing. */
+  lastProjectedServerTick?: number;
   pendingInputs: ClientInput[];
   pendingActions: PlayerAction[];
   connected: boolean;

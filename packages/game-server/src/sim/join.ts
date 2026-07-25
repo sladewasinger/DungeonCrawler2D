@@ -93,6 +93,8 @@ function newSlot(
     stored,
     resumeToken,
     lastSeq: -1,
+    highestReceivedSeq: -1,
+    lastProjectedServerTick: -1,
     pendingInputs: [],
     pendingActions: [],
     connected: true,
@@ -140,6 +142,8 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
   slot.pendingInputs.length = 0;
   slot.pendingActions.length = 0;
   slot.lastSeq = -1;
+  slot.highestReceivedSeq = -1;
+  slot.lastProjectedServerTick = -1;
   slot.needsFullAreas = true;
   // Dead and downed slots retain their paused state until gameplay resumes.
   if (slot.entity.hp > 0) ensureStarterKit(sim, slot);

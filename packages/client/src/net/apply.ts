@@ -72,8 +72,7 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.statusEffects = snapshotStatusEffects(snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
   conn.downed = snap.self.downed ?? false;
-  if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
-  else conn.prediction.reconcile(world, conn.body, snap.tick);
+  reconcilePrediction(conn, snap, world);
   if (predictedBeforeSnapshot) conn.predictionCorrection.record(predictedBeforeSnapshot, conn.body);
   conn.networkMetrics.recordCorrection(conn.predictionCorrection.lastError);
   applyXpState(conn, snap.self.xp ?? conn.xp, snap.self.level ?? conn.charLevel, snap.self.xpForNext ?? conn.xpForNext);
@@ -82,6 +81,18 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.hotbar = snap.hotbar;
   conn.weapon = snap.weapon;
   conn.party = snap.party;
+}
+
+function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: World): void {
+  if (conn.hp <= 0 || conn.downed) {
+    conn.prediction.reset();
+    return;
+  }
+  const acknowledgedTick = snap.lastProjectedServerTick >= 0
+    ? snap.lastProjectedServerTick
+    : snap.tick;
+  const body = conn.body;
+  if (body) conn.prediction.reconcile(world, body, acknowledgedTick);
 }
 
 function snapshotStatusEffects(snap: ServerSnapshot) {
@@ -111,7 +122,7 @@ function applyXpState(conn: Connection, xp: number, level: number, xpForNext: nu
  * for an older/mid-rollout server.
  *
  * INTEGRATION FIX (wave 8 gate): `conn.world` was only ever constructed once, in
- * socket.ts's onWelcome, from the JOIN-time floor — every descend/ascend left it
+ * socket.ts's onWelcome, from the join-time floor, so every transfer left it
  * silently stale (wrong chunk geometry for prediction, terrain, and this file's own
  * stairwayProximity checks), even though scenes/dungeon/index.ts's
  * `ensureWorldBoundSystems` was already written to rebuild on a `conn.world` identity

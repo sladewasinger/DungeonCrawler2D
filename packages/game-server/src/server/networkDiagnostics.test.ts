@@ -126,7 +126,7 @@ describe("server network diagnostics wiring", () => {
     expect(sockets.get(joined.playerId)?.ws).toBe(replacement);
     const measured = diagnostics.snapshot(performance.now() + 1000).clients.get(joined.playerId);
     expect(measured?.outboundMessagesPerSecond).toBeGreaterThan(1.5);
-    replacement.receive({ type: "input", seq: 1, moveX: 1, moveY: 0, jump: false, run: false });
+    replacement.receive({ type: "input", seq: 1, projectedServerTick: sandbox.tick, moveX: 1, moveY: 0, jump: false, run: false });
     sandbox.step();
     expect(sandbox.getPlayerEntity(joined.playerId)?.facing).toEqual({ x: 1, y: 0 });
 

@@ -98,11 +98,11 @@ describe("spawn grace", () => {
   });
 
   it("survives neutral coasting but forfeits on the first real movement input", () => {
-    handleInput(sim, playerId, { type: "input", seq: 1, moveX: 0, moveY: 0, jump: false, run: false });
+    handleInput(sim, playerId, { type: "input", seq: 1, projectedServerTick: sim.tickCount, moveX: 0, moveY: 0, jump: false, run: false });
     stepPlayers(sim, []);
     expect(isSpawnProtected(slot, sim.tickCount)).toBe(true); // stood still: still safe
 
-    handleInput(sim, playerId, { type: "input", seq: 2, moveX: 1, moveY: 0, jump: false, run: false });
+    handleInput(sim, playerId, { type: "input", seq: 2, projectedServerTick: sim.tickCount, moveX: 1, moveY: 0, jump: false, run: false });
     stepPlayers(sim, []);
     expect(isSpawnProtected(slot, sim.tickCount)).toBe(false);
   });

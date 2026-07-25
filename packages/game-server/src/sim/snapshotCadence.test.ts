@@ -7,6 +7,7 @@ function frame(tick: number): PlayerSnapshotFrame {
   return {
     tick,
     lastSeq: 0,
+    lastProjectedServerTick: 0,
     self: {
       x: 0, y: 0, z: 0, zVel: 0, grounded: true,
       coyoteTime: 0, jumpBuffer: 0, jumpHeld: false, kx: 0, ky: 0,

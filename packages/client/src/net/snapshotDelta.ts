@@ -90,6 +90,7 @@ function materializeSnapshot(
     type: "snapshot",
     tick: delta.tick,
     lastSeq: delta.lastSeq,
+    lastProjectedServerTick: delta.lastProjectedServerTick,
     self: delta.self,
     inventory: delta.inventory ?? conn.inventory,
     hotbar: delta.hotbar ?? conn.hotbar,

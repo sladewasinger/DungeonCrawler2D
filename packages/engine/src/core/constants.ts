@@ -11,9 +11,11 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 18;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
+export const PROJECTED_INPUT_MAX_PAST_TICKS = 64;
+export const PROJECTED_INPUT_MAX_FUTURE_TICKS = 8;
 
 export const MOVE_SPEED = 8;
 // Epic 7.12 run input: v1's SHIFT key was never a run modifier (it stored a bound

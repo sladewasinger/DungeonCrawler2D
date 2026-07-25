@@ -34,6 +34,7 @@ function snapshotAtFloor(floor: number, hp = 10): ServerSnapshot {
     type: "snapshot",
     tick: 1,
     lastSeq: 0,
+    lastProjectedServerTick: 0,
     self: {
       x: 0,
       y: 0,
@@ -149,6 +150,7 @@ function deltaAt(
     baseTick,
     baseline,
     lastSeq: full.lastSeq,
+    lastProjectedServerTick: full.lastProjectedServerTick,
     self: full.self,
     inventoryRevision: 1,
     ...(baseline ? { inventory: [{ item: "bandage", qty: 2 }] } : {}),

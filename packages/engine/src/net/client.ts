@@ -33,7 +33,8 @@ export const clientHelloSchema = z.object({
 
 export const clientInputSchema = z.object({
   type: z.literal("input"),
-  seq: z.number().int().nonnegative(),
+  seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  projectedServerTick: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   moveX: axis,
   moveY: axis,
   faceX: axis.optional(),

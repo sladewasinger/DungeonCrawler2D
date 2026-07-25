@@ -13,6 +13,7 @@ describe("snapshot delta protocol", () => {
       baseTick: null,
       baseline: true,
       lastSeq: 7,
+      lastProjectedServerTick: 41,
       self: {
         x: 1,
         y: 2,

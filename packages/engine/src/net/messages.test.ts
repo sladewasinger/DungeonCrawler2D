@@ -10,12 +10,12 @@ import {
 
 describe("protocol", () => {
   it("round-trips a client input", () => {
-    const input: ClientInput = { type: "input", seq: 7, moveX: 1, moveY: -1, faceX: 0, faceY: -1, jump: true, run: false };
+    const input: ClientInput = { type: "input", seq: 7, projectedServerTick: 41, moveX: 1, moveY: -1, faceX: 0, faceY: -1, jump: true, run: false };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
   });
 
   it("round-trips fractional analog moveX/moveY (touch-stick magnitude, additive bounds widening)", () => {
-    const input: ClientInput = { type: "input", seq: 8, moveX: 0.5, moveY: -0.2, jump: false, run: false };
+    const input: ClientInput = { type: "input", seq: 8, projectedServerTick: 42, moveX: 0.5, moveY: -0.2, jump: false, run: false };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
   });
 
@@ -65,6 +65,7 @@ describe("protocol", () => {
       type: "snapshot",
       tick: 42,
       lastSeq: 7,
+      lastProjectedServerTick: 41,
       self: {
         x: 1.5,
         y: 2.5,
@@ -155,6 +156,7 @@ describe("protocol", () => {
       type: "snapshot" as const,
       tick: 1,
       lastSeq: 0,
+      lastProjectedServerTick: 0,
       self: {
         x: 0, y: 0, z: 0, zVel: 0, grounded: true, coyoteTime: 0, jumpBuffer: 0,
         jumpHeld: false, kx: 0, ky: 0, hp: 30, maxHp: 30, fx: [],
@@ -177,6 +179,12 @@ describe("protocol", () => {
     // moveX outside {-1,0,1} — a speedhack attempt.
     expect(
       decodeClientMessage('{"type":"input","seq":1,"moveX":50,"moveY":0,"jump":false}'),
+    ).toBeNull();
+    expect(
+      decodeClientMessage('{"type":"input","seq":9007199254740992,"projectedServerTick":1,"moveX":0,"moveY":0,"jump":false,"run":false}'),
+    ).toBeNull();
+    expect(
+      decodeClientMessage('{"type":"input","seq":1,"projectedServerTick":9007199254740992,"moveX":0,"moveY":0,"jump":false,"run":false}'),
     ).toBeNull();
     // Hotbar slot out of range.
     expect(decodeClientMessage('{"type":"assign","slot":99,"item":"rag"}')).toBeNull();

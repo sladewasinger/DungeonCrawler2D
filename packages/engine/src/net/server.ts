@@ -173,6 +173,7 @@ export const serverSnapshotSchema = z.object({
   type: z.literal("snapshot"),
   tick: z.number().int(),
   lastSeq: z.number().int(),
+  lastProjectedServerTick: z.number().int(),
   self: selfSnapshotSchema,
   /** Unlimited inventory: one stack per item def. */
   inventory: z.array(invStackSchema),
@@ -208,6 +209,7 @@ export const serverSnapshotDeltaSchema = z.object({
   baseTick: z.number().int().nullable(),
   baseline: z.boolean(),
   lastSeq: z.number().int(),
+  lastProjectedServerTick: z.number().int(),
   self: selfSnapshotSchema,
   inventoryRevision: z.number().int().nonnegative(),
   inventory: z.array(invStackSchema).optional(),
