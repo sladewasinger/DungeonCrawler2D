@@ -161,8 +161,17 @@ function strikeProgress(visual: PlayerVisual, attacking: boolean, nowMs: number)
 }
 
 /** Weapon sprite: local aim or replicated remote facing drives the same orbit. */
+function isGuarding(view: PlayerEntityView): boolean {
+  return !view.downed && view.blocking;
+}
+
+function isStriking(view: PlayerEntityView): boolean {
+  return !view.downed && !view.blocking && view.attacking;
+}
+
 function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
-  const striking = !view.downed && view.attacking;
+  const blocking = isGuarding(view);
+  const striking = isStriking(view);
   applySwingEdge(visual, striking, ctx.nowMs);
   const aimAngle = view.weaponAimAngle;
   const isSelf = aimAngle !== null;
@@ -176,6 +185,8 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
     screenY: visual.body.y,
     facingX: view.faceX,
     striking,
+    blocking,
+    nowMs: ctx.nowMs,
     strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
     wielderDepth: visual.body.depth,
     orbitAngleRad: isSelf ? visual.weaponAngle : facingAngle,

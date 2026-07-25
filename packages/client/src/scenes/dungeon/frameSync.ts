@@ -60,7 +60,7 @@ function syncCombatants(
   const nudge = vfx.wallBumpNudgeOffset(nowMs);
   const self = selfPlayerView(
     { id: conn.welcome.playerId, name: conn.name, x: render.x + nudge.x, y: render.y + nudge.y, z: render.z, air: !conn.body.grounded },
-    { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, weaponId: conn.weapon },
+    { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, blocking: conn.blocking, weaponId: conn.weapon },
     state.cosmetics,
     nowMs,
     aimAngle,

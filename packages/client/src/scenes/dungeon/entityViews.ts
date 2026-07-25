@@ -47,6 +47,7 @@ export interface SelfVitals {
   readonly maxHp: number;
   readonly fx: readonly string[];
   readonly downed: boolean;
+  readonly blocking: boolean;
   readonly weaponId: string | null;
 }
 
@@ -73,6 +74,7 @@ export function selfPlayerView(
     downed: vitals.downed,
     disconnected: false,
     attacking: isSelfAttacking(cosmetics, nowMs),
+    blocking: vitals.blocking,
     weaponId: vitals.weaponId,
     weaponAimAngle,
     attackAngleRad: Math.atan2(cosmetics.attackDirY, cosmetics.attackDirX),

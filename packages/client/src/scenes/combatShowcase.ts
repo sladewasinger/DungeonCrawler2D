@@ -83,6 +83,7 @@ export class CombatShowcase {
       air: false,
       downed: false,
       attacking,
+      blocking: false,
       weaponId: demo.weaponId,
       weaponAimAngle: angle,
       attackAngleRad: angle,

@@ -21,6 +21,7 @@ function view(overrides: Partial<PlayerEntityView> & { id: string }): PlayerEnti
     air: false,
     downed: false,
     attacking: false,
+    blocking: false,
     weaponId: null,
     weaponAimAngle: null,
     attackAngleRad: 0,

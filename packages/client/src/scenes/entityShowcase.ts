@@ -76,6 +76,7 @@ export class EntityShowcase {
       air: pose.air,
       downed: false,
       attacking: false,
+      blocking: false,
       weaponId: "sword",
       // Not the combat-orbit demo (see combatShowcase.ts) — this row just proves the
       // renderer end-to-end, so the weapon keeps its legacy facing hand-offset.

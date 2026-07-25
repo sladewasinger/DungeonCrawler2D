@@ -6,6 +6,10 @@
 // presentation task notes.
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import {
+  BLOCK_GUARD_TINT,
+  blockGuardTransform,
+} from "./blockGuard.js";
 import { MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
@@ -33,6 +37,8 @@ export interface HeldWeaponPose {
   readonly screenY: number;
   readonly facingX: number;
   readonly striking: boolean;
+  readonly blocking: boolean;
+  readonly nowMs: number;
   /** 0..1 progress through the strike telegraph, driving the swing arc/sweep. */
   readonly strikeProgress: number;
   /** The wielder body sprite's current Phaser depth, so the weapon can draw near it. */
@@ -61,8 +67,15 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
   }
   sprite.setVisible(true);
   sprite.setFrame(frame);
-  if (pose.isFistFallback) sprite.setTint(FIST_TINT);
+  if (pose.blocking) sprite.setTint(BLOCK_GUARD_TINT);
+  else if (pose.isFistFallback) sprite.setTint(FIST_TINT);
   else sprite.clearTint();
+  sprite.setScale(WORLD_PIXEL_SCALE);
+
+  if (pose.blocking) {
+    positionGuard(sprite, pose);
+    return;
+  }
 
   if (pose.orbitAngleRad === null) {
     sprite.setDepth(pose.wielderDepth + WEAPON_DEPTH_BIAS);
@@ -70,6 +83,29 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
     return;
   }
   positionOrbiting(sprite, pose);
+}
+
+function positionGuard(
+  sprite: Phaser.GameObjects.Sprite,
+  pose: HeldWeaponPose,
+): void {
+  const facingAngle = pose.orbitAngleRad ??
+    (pose.facingX < 0 ? Math.PI : 0);
+  const guard = blockGuardTransform(
+    pose.screenX,
+    pose.screenY + ORBIT_CENTER_OFFSET_Y,
+    facingAngle,
+    SCREEN_TILE_PX,
+    pose.nowMs,
+  );
+  sprite.setDepth(
+    pose.wielderDepth + Math.sin(facingAngle) * WEAPON_DEPTH_BIAS,
+  );
+  sprite.setFlipX(false);
+  sprite.setFlipY(false);
+  sprite.setPosition(guard.x, guard.y);
+  sprite.setRotation(guard.rotation);
+  sprite.setScale(WORLD_PIXEL_SCALE * guard.scale);
 }
 
 /** Legacy fixed hand offset retained for callers that do not provide an orbit angle. */

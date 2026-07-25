@@ -4,7 +4,8 @@ import type { PlayerEntityView } from "../../render/entities/index.js";
 
 export type RemotePlayerFields = Pick<PlayerEntityView,
   "name" | "hp" | "maxHp" | "fx" | "faceX" | "faceY" | "air" | "downed" |
-  "disconnected" | "attacking" | "weaponId" | "weaponAimAngle" | "attackAngleRad">;
+  "disconnected" | "attacking" | "blocking" | "weaponId" |
+  "weaponAimAngle" | "attackAngleRad">;
 
 const REMOTE_DEFAULTS = {
   air: false,
@@ -17,6 +18,7 @@ const REMOTE_DEFAULTS = {
   maxHp: 1,
   name: "?",
   weapon: null,
+  blocking: false,
 };
 
 export function remotePlayerFields(snapshot: EntitySnapshot): RemotePlayerFields {
@@ -25,7 +27,8 @@ export function remotePlayerFields(snapshot: EntitySnapshot): RemotePlayerFields
     name: player.name, hp: player.hp, maxHp: player.maxHp, fx: player.fx,
     faceX: player.faceX, faceY: player.faceY, air: player.air,
     downed: player.downed, disconnected: player.disconnected,
-    attacking: player.anim === "attack", weaponId: player.weapon,
+    attacking: player.anim === "attack", blocking: player.blocking,
+    weaponId: player.weapon,
     weaponAimAngle: null, attackAngleRad: Math.atan2(player.faceY, player.faceX),
   };
 }
