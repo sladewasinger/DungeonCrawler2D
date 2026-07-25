@@ -1,0 +1,1045 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T00:42:37.109Z",
+  "command": "npm run benchmark:network",
+  "codec": "json",
+  "deterministicInputs": {
+    "worldSeedText": "net-json-baseline-v1",
+    "worldSeed": 1489611677,
+    "rngSeed": 424242,
+    "tickRate": 20,
+    "playerCount": 3,
+    "phaseTicks": {
+      "warmup": 10,
+      "idle": 20,
+      "movement": 20,
+      "gameplay": 20,
+      "aoiChunkCrossing": 20,
+      "lossRecovery": 12,
+      "reconnect": 20
+    },
+    "measuredTicks": 112,
+    "measuredDurationSeconds": 5.6
+  },
+  "runtime": {
+    "node": "v24.14.0",
+    "v8": "13.6.233.17-node.41",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "logicalCpuCount": 16,
+    "totalMemoryBytes": 33460244480
+  },
+  "warm": {
+    "aggregate": {
+      "packets": 275,
+      "bytes": 336614,
+      "messagesPerSecond": 49.10714285714286,
+      "bytesPerSecond": 60109.64285714286,
+      "packetBytes": {
+        "count": 275,
+        "mean": 1224.050909090909,
+        "p50": 1450,
+        "p95": 1680,
+        "p99": 3614,
+        "max": 4297
+      }
+    },
+    "directions": {
+      "clientToServer": {
+        "packets": 52,
+        "bytes": 4930,
+        "messagesPerSecond": 9.285714285714286,
+        "bytesPerSecond": 880.3571428571429,
+        "packetBytes": {
+          "count": 52,
+          "mean": 94.8076923076923,
+          "p50": 109,
+          "p95": 111,
+          "p99": 187,
+          "max": 187
+        }
+      },
+      "serverToClient": {
+        "packets": 223,
+        "bytes": 331684,
+        "messagesPerSecond": 39.82142857142858,
+        "bytesPerSecond": 59229.28571428572,
+        "packetBytes": {
+          "count": 223,
+          "mean": 1487.372197309417,
+          "p50": 1486,
+          "p95": 1698,
+          "p99": 3614,
+          "max": 4297
+        }
+      }
+    },
+    "clients": {
+      "bench-a": {
+        "packets": 91,
+        "bytes": 110424,
+        "messagesPerSecond": 16.25,
+        "bytesPerSecond": 19718.57142857143,
+        "packetBytes": {
+          "count": 91,
+          "mean": 1213.4505494505495,
+          "p50": 1505,
+          "p95": 1760,
+          "p99": 4271,
+          "max": 4271
+        }
+      },
+      "bench-b": {
+        "packets": 92,
+        "bytes": 118390,
+        "messagesPerSecond": 16.42857142857143,
+        "bytesPerSecond": 21141.07142857143,
+        "packetBytes": {
+          "count": 92,
+          "mean": 1286.8478260869565,
+          "p50": 1486,
+          "p95": 1683,
+          "p99": 4297,
+          "max": 4297
+        }
+      },
+      "bench-c": {
+        "packets": 92,
+        "bytes": 107800,
+        "messagesPerSecond": 16.42857142857143,
+        "bytesPerSecond": 19250,
+        "packetBytes": {
+          "count": 92,
+          "mean": 1171.7391304347825,
+          "p50": 1426,
+          "p95": 1623,
+          "p99": 3614,
+          "max": 3614
+        }
+      }
+    },
+    "phases": {
+      "idle": {
+        "packets": 36,
+        "bytes": 39476,
+        "messagesPerSecond": 36,
+        "bytesPerSecond": 39476,
+        "packetBytes": {
+          "count": 36,
+          "mean": 1096.5555555555557,
+          "p50": 1308,
+          "p95": 1352,
+          "p99": 1352,
+          "max": 1352
+        }
+      },
+      "movement": {
+        "packets": 48,
+        "bytes": 59452,
+        "messagesPerSecond": 48,
+        "bytesPerSecond": 59452,
+        "packetBytes": {
+          "count": 48,
+          "mean": 1238.5833333333333,
+          "p50": 1505,
+          "p95": 1723,
+          "p99": 1867,
+          "max": 1867
+        }
+      },
+      "gameplay": {
+        "packets": 74,
+        "bytes": 94376,
+        "messagesPerSecond": 74,
+        "bytesPerSecond": 94376,
+        "packetBytes": {
+          "count": 74,
+          "mean": 1275.3513513513512,
+          "p50": 1506,
+          "p95": 1760,
+          "p99": 2315,
+          "max": 2315
+        }
+      },
+      "aoiChunkCrossing": {
+        "packets": 48,
+        "bytes": 53119,
+        "messagesPerSecond": 48,
+        "bytesPerSecond": 53119,
+        "packetBytes": {
+          "count": 48,
+          "mean": 1106.6458333333333,
+          "p50": 1390,
+          "p95": 1611,
+          "p99": 3614,
+          "max": 3614
+        }
+      },
+      "lossRecovery": {
+        "packets": 29,
+        "bytes": 37826,
+        "messagesPerSecond": 48.333333333333336,
+        "bytesPerSecond": 63043.333333333336,
+        "packetBytes": {
+          "count": 29,
+          "mean": 1304.344827586207,
+          "p50": 1559,
+          "p95": 1638,
+          "p99": 4271,
+          "max": 4271
+        }
+      },
+      "reconnect": {
+        "packets": 40,
+        "bytes": 52365,
+        "messagesPerSecond": 40,
+        "bytesPerSecond": 52365,
+        "packetBytes": {
+          "count": 40,
+          "mean": 1309.125,
+          "p50": 1486,
+          "p95": 1680,
+          "p99": 4297,
+          "max": 4297
+        }
+      }
+    },
+    "packetTypes": {
+      "clientToServer:input": {
+        "packets": 39,
+        "bytes": 4258,
+        "messagesPerSecond": 6.964285714285714,
+        "bytesPerSecond": 760.3571428571429,
+        "packetBytes": {
+          "count": 39,
+          "mean": 109.17948717948718,
+          "p50": 109,
+          "p95": 111,
+          "p99": 111,
+          "max": 111
+        }
+      },
+      "serverToClient:snapshotDelta": {
+        "packets": 222,
+        "bytes": 331480,
+        "messagesPerSecond": 39.642857142857146,
+        "bytesPerSecond": 59192.857142857145,
+        "packetBytes": {
+          "count": 222,
+          "mean": 1493.1531531531532,
+          "p50": 1486,
+          "p95": 1698,
+          "p99": 3614,
+          "max": 4297
+        }
+      },
+      "clientToServer:chat": {
+        "packets": 1,
+        "bytes": 66,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 11.785714285714286,
+        "packetBytes": {
+          "count": 1,
+          "mean": 66,
+          "p50": 66,
+          "p95": 66,
+          "p99": 66,
+          "max": 66
+        }
+      },
+      "clientToServer:equip": {
+        "packets": 1,
+        "bytes": 31,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 5.5357142857142865,
+        "packetBytes": {
+          "count": 1,
+          "mean": 31,
+          "p50": 31,
+          "p95": 31,
+          "p99": 31,
+          "max": 31
+        }
+      },
+      "clientToServer:assign": {
+        "packets": 1,
+        "bytes": 41,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 7.321428571428572,
+        "packetBytes": {
+          "count": 1,
+          "mean": 41,
+          "p50": 41,
+          "p95": 41,
+          "p99": 41,
+          "max": 41
+        }
+      },
+      "clientToServer:debug": {
+        "packets": 4,
+        "bytes": 201,
+        "messagesPerSecond": 0.7142857142857143,
+        "bytesPerSecond": 35.892857142857146,
+        "packetBytes": {
+          "count": 4,
+          "mean": 50.25,
+          "p50": 50,
+          "p95": 51,
+          "p99": 51,
+          "max": 51
+        }
+      },
+      "clientToServer:attack": {
+        "packets": 1,
+        "bytes": 35,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 6.25,
+        "packetBytes": {
+          "count": 1,
+          "mean": 35,
+          "p50": 35,
+          "p95": 35,
+          "p99": 35,
+          "max": 35
+        }
+      },
+      "clientToServer:throwTorch": {
+        "packets": 1,
+        "bytes": 39,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 6.964285714285714,
+        "packetBytes": {
+          "count": 1,
+          "mean": 39,
+          "p50": 39,
+          "p95": 39,
+          "p99": 39,
+          "max": 39
+        }
+      },
+      "clientToServer:pickup": {
+        "packets": 1,
+        "bytes": 17,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 3.035714285714286,
+        "packetBytes": {
+          "count": 1,
+          "mean": 17,
+          "p50": 17,
+          "p95": 17,
+          "p99": 17,
+          "max": 17
+        }
+      },
+      "clientToServer:drop": {
+        "packets": 1,
+        "bytes": 30,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 5.357142857142858,
+        "packetBytes": {
+          "count": 1,
+          "mean": 30,
+          "p50": 30,
+          "p95": 30,
+          "p99": 30,
+          "max": 30
+        }
+      },
+      "clientToServer:snapshotResync": {
+        "packets": 1,
+        "bytes": 25,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 4.464285714285714,
+        "packetBytes": {
+          "count": 1,
+          "mean": 25,
+          "p50": 25,
+          "p95": 25,
+          "p99": 25,
+          "max": 25
+        }
+      },
+      "clientToServer:hello": {
+        "packets": 1,
+        "bytes": 187,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 33.392857142857146,
+        "packetBytes": {
+          "count": 1,
+          "mean": 187,
+          "p50": 187,
+          "p95": 187,
+          "p99": 187,
+          "max": 187
+        }
+      },
+      "serverToClient:welcome": {
+        "packets": 1,
+        "bytes": 204,
+        "messagesPerSecond": 0.17857142857142858,
+        "bytesPerSecond": 36.42857142857143,
+        "packetBytes": {
+          "count": 1,
+          "mean": 204,
+          "p50": 204,
+          "p95": 204,
+          "p99": 204,
+          "max": 204
+        }
+      }
+    },
+    "clientEncodeMilliseconds": {
+      "count": 52,
+      "mean": 0.002651923076878295,
+      "p50": 0.0018000000000029104,
+      "p95": 0.00709999999980937,
+      "p99": 0.009299999999711872,
+      "max": 0.009299999999711872
+    },
+    "clientDecodeMilliseconds": {
+      "count": 226,
+      "mean": 0.12301415929205047,
+      "p50": 0.10789999999997235,
+      "p95": 0.25460000000020955,
+      "p99": 0.2891999999997097,
+      "max": 0.48900000000003274
+    },
+    "serverStepMilliseconds": {
+      "count": 112,
+      "mean": 0.3842133928571617,
+      "p50": 0.32469999999966603,
+      "p95": 0.856499999999869,
+      "p99": 1.4785999999994601,
+      "max": 1.521600000000035
+    },
+    "inputToAckMilliseconds": {
+      "count": 39,
+      "mean": 77.02725128205125,
+      "p50": 62.25770000000011,
+      "p95": 112.46389999999974,
+      "p99": 117.04549999999972,
+      "max": 117.04549999999972
+    },
+    "reconciliation": {
+      "samples": 222,
+      "visibleCorrectionCount": 11,
+      "visibleCorrectionsPerSecond": 1.9642857142857144,
+      "correctedSnapshotFraction": 0.04954954954954955,
+      "smoothCount": 7,
+      "hardCount": 4,
+      "error": {
+        "count": 222,
+        "mean": 1.1838066172979222,
+        "p50": 0,
+        "p95": 0,
+        "p99": 46.66904755831214,
+        "max": 120.01666550942
+      },
+      "visibleError": {
+        "count": 11,
+        "mean": 23.891369912739886,
+        "p50": 0.11999999999999744,
+        "p95": 120.01666550942,
+        "p99": 120.01666550942,
+        "max": 120.01666550942
+      },
+      "ordinaryMovementAndLoss": {
+        "samples": 91,
+        "visibleCorrectionCount": 7,
+        "visibleCorrectionsPerSecond": 2.692307692307692,
+        "correctedSnapshotFraction": 0.07692307692307693,
+        "smoothCount": 7,
+        "hardCount": 0,
+        "error": {
+          "count": 91,
+          "mean": 0.006593406593406453,
+          "p50": 0,
+          "p95": 0.05999999999999872,
+          "p99": 0.11999999999999744,
+          "max": 0.11999999999999744
+        },
+        "visibleError": {
+          "count": 7,
+          "mean": 0.08571428571428388,
+          "p50": 0.05999999999999872,
+          "p95": 0.11999999999999744,
+          "p99": 0.11999999999999744,
+          "max": 0.11999999999999744
+        }
+      },
+      "phases": {
+        "idle": {
+          "samples": 30,
+          "visibleCorrectionCount": 0,
+          "visibleCorrectionsPerSecond": 0,
+          "correctedSnapshotFraction": 0,
+          "smoothCount": 0,
+          "hardCount": 0,
+          "error": {
+            "count": 30,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "visibleError": {
+            "count": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "movement": {
+          "samples": 39,
+          "visibleCorrectionCount": 3,
+          "visibleCorrectionsPerSecond": 3,
+          "correctedSnapshotFraction": 0.07692307692307693,
+          "smoothCount": 3,
+          "hardCount": 0,
+          "error": {
+            "count": 39,
+            "mean": 0.007692307692307528,
+            "p50": 0,
+            "p95": 0.11999999999999744,
+            "p99": 0.11999999999999744,
+            "max": 0.11999999999999744
+          },
+          "visibleError": {
+            "count": 3,
+            "mean": 0.09999999999999787,
+            "p50": 0.11999999999999744,
+            "p95": 0.11999999999999744,
+            "p99": 0.11999999999999744,
+            "max": 0.11999999999999744
+          }
+        },
+        "gameplay": {
+          "samples": 60,
+          "visibleCorrectionCount": 1,
+          "visibleCorrectionsPerSecond": 1,
+          "correctedSnapshotFraction": 0.016666666666666666,
+          "smoothCount": 0,
+          "hardCount": 1,
+          "error": {
+            "count": 60,
+            "mean": 0.0408248290463863,
+            "p50": 0,
+            "p95": 0,
+            "p99": 2.449489742783178,
+            "max": 2.449489742783178
+          },
+          "visibleError": {
+            "count": 1,
+            "mean": 2.449489742783178,
+            "p50": 2.449489742783178,
+            "p95": 2.449489742783178,
+            "p99": 2.449489742783178,
+            "max": 2.449489742783178
+          }
+        },
+        "aoiChunkCrossing": {
+          "samples": 39,
+          "visibleCorrectionCount": 3,
+          "visibleCorrectionsPerSecond": 3,
+          "correctedSnapshotFraction": 0.07692307692307693,
+          "smoothCount": 0,
+          "hardCount": 3,
+          "error": {
+            "count": 39,
+            "mean": 6.660399469162963,
+            "p50": 0,
+            "p95": 93.06986622962344,
+            "p99": 120.01666550942,
+            "max": 120.01666550942
+          },
+          "visibleError": {
+            "count": 3,
+            "mean": 86.58519309911851,
+            "p50": 93.06986622962344,
+            "p95": 120.01666550942,
+            "p99": 120.01666550942,
+            "max": 120.01666550942
+          }
+        },
+        "lossRecovery": {
+          "samples": 22,
+          "visibleCorrectionCount": 4,
+          "visibleCorrectionsPerSecond": 6.666666666666667,
+          "correctedSnapshotFraction": 0.18181818181818182,
+          "smoothCount": 4,
+          "hardCount": 0,
+          "error": {
+            "count": 22,
+            "mean": 0.013636363636363346,
+            "p50": 0,
+            "p95": 0.05999999999999872,
+            "p99": 0.11999999999999744,
+            "max": 0.11999999999999744
+          },
+          "visibleError": {
+            "count": 4,
+            "mean": 0.0749999999999984,
+            "p50": 0.05999999999999872,
+            "p95": 0.11999999999999744,
+            "p99": 0.11999999999999744,
+            "max": 0.11999999999999744
+          }
+        },
+        "reconnect": {
+          "samples": 32,
+          "visibleCorrectionCount": 0,
+          "visibleCorrectionsPerSecond": 0,
+          "correctedSnapshotFraction": 0,
+          "smoothCount": 0,
+          "hardCount": 0,
+          "error": {
+            "count": 32,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "visibleError": {
+            "count": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        }
+      }
+    },
+    "clientQueueBytes": {
+      "count": 55,
+      "mean": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 0
+    },
+    "maximumClientQueueBytes": 0
+  },
+  "acknowledgements": [
+    {
+      "client": "bench-a",
+      "phase": "idle",
+      "seq": 1,
+      "projectedServerTick": 11,
+      "acknowledgedProjectedServerTick": 12,
+      "milliseconds": 103.04510000000005
+    },
+    {
+      "client": "bench-b",
+      "phase": "idle",
+      "seq": 1,
+      "projectedServerTick": 11,
+      "acknowledgedProjectedServerTick": 12,
+      "milliseconds": 101.8084
+    },
+    {
+      "client": "bench-c",
+      "phase": "idle",
+      "seq": 1,
+      "projectedServerTick": 11,
+      "acknowledgedProjectedServerTick": 12,
+      "milliseconds": 100.59479999999996
+    },
+    {
+      "client": "bench-a",
+      "phase": "idle",
+      "seq": 11,
+      "projectedServerTick": 21,
+      "acknowledgedProjectedServerTick": 22,
+      "milliseconds": 111.51689999999985
+    },
+    {
+      "client": "bench-b",
+      "phase": "idle",
+      "seq": 11,
+      "projectedServerTick": 21,
+      "acknowledgedProjectedServerTick": 22,
+      "milliseconds": 111.58950000000004
+    },
+    {
+      "client": "bench-c",
+      "phase": "idle",
+      "seq": 11,
+      "projectedServerTick": 21,
+      "acknowledgedProjectedServerTick": 22,
+      "milliseconds": 111.63929999999982
+    },
+    {
+      "client": "bench-a",
+      "phase": "movement",
+      "seq": 21,
+      "projectedServerTick": 31,
+      "acknowledgedProjectedServerTick": 32,
+      "milliseconds": 106.60950000000003
+    },
+    {
+      "client": "bench-b",
+      "phase": "movement",
+      "seq": 21,
+      "projectedServerTick": 31,
+      "acknowledgedProjectedServerTick": 32,
+      "milliseconds": 106.65440000000012
+    },
+    {
+      "client": "bench-c",
+      "phase": "movement",
+      "seq": 21,
+      "projectedServerTick": 31,
+      "acknowledgedProjectedServerTick": 32,
+      "milliseconds": 106.68459999999982
+    },
+    {
+      "client": "bench-a",
+      "phase": "movement",
+      "seq": 26,
+      "projectedServerTick": 36,
+      "acknowledgedProjectedServerTick": 36,
+      "milliseconds": 40.160899999999856
+    },
+    {
+      "client": "bench-b",
+      "phase": "movement",
+      "seq": 31,
+      "projectedServerTick": 41,
+      "acknowledgedProjectedServerTick": 41,
+      "milliseconds": 62.25770000000011
+    },
+    {
+      "client": "bench-c",
+      "phase": "movement",
+      "seq": 31,
+      "projectedServerTick": 41,
+      "acknowledgedProjectedServerTick": 41,
+      "milliseconds": 62.435799999999745
+    },
+    {
+      "client": "bench-a",
+      "phase": "movement",
+      "seq": 31,
+      "projectedServerTick": 41,
+      "acknowledgedProjectedServerTick": 42,
+      "milliseconds": 117.04549999999972
+    },
+    {
+      "client": "bench-a",
+      "phase": "movement",
+      "seq": 32,
+      "projectedServerTick": 42,
+      "acknowledgedProjectedServerTick": 42,
+      "milliseconds": 55.11830000000009
+    },
+    {
+      "client": "bench-a",
+      "phase": "movement",
+      "seq": 36,
+      "projectedServerTick": 46,
+      "acknowledgedProjectedServerTick": 46,
+      "milliseconds": 49.06770000000006
+    },
+    {
+      "client": "bench-b",
+      "phase": "gameplay",
+      "seq": 41,
+      "projectedServerTick": 51,
+      "acknowledgedProjectedServerTick": 51,
+      "milliseconds": 56.66379999999981
+    },
+    {
+      "client": "bench-c",
+      "phase": "gameplay",
+      "seq": 41,
+      "projectedServerTick": 51,
+      "acknowledgedProjectedServerTick": 51,
+      "milliseconds": 56.79980000000023
+    },
+    {
+      "client": "bench-a",
+      "phase": "gameplay",
+      "seq": 46,
+      "projectedServerTick": 56,
+      "acknowledgedProjectedServerTick": 56,
+      "milliseconds": 63.55420000000004
+    },
+    {
+      "client": "bench-b",
+      "phase": "gameplay",
+      "seq": 51,
+      "projectedServerTick": 61,
+      "acknowledgedProjectedServerTick": 61,
+      "milliseconds": 61.47719999999981
+    },
+    {
+      "client": "bench-c",
+      "phase": "gameplay",
+      "seq": 51,
+      "projectedServerTick": 61,
+      "acknowledgedProjectedServerTick": 61,
+      "milliseconds": 61.60629999999992
+    },
+    {
+      "client": "bench-a",
+      "phase": "gameplay",
+      "seq": 56,
+      "projectedServerTick": 66,
+      "acknowledgedProjectedServerTick": 66,
+      "milliseconds": 48.84790000000021
+    },
+    {
+      "client": "bench-b",
+      "phase": "aoiChunkCrossing",
+      "seq": 61,
+      "projectedServerTick": 71,
+      "acknowledgedProjectedServerTick": 71,
+      "milliseconds": 44.69890000000032
+    },
+    {
+      "client": "bench-c",
+      "phase": "aoiChunkCrossing",
+      "seq": 61,
+      "projectedServerTick": 71,
+      "acknowledgedProjectedServerTick": 71,
+      "milliseconds": 44.70190000000002
+    },
+    {
+      "client": "bench-a",
+      "phase": "aoiChunkCrossing",
+      "seq": 66,
+      "projectedServerTick": 76,
+      "acknowledgedProjectedServerTick": 76,
+      "milliseconds": 50.72729999999956
+    },
+    {
+      "client": "bench-b",
+      "phase": "aoiChunkCrossing",
+      "seq": 71,
+      "projectedServerTick": 81,
+      "acknowledgedProjectedServerTick": 82,
+      "milliseconds": 103.75420000000031
+    },
+    {
+      "client": "bench-c",
+      "phase": "aoiChunkCrossing",
+      "seq": 71,
+      "projectedServerTick": 81,
+      "acknowledgedProjectedServerTick": 82,
+      "milliseconds": 103.67300000000068
+    },
+    {
+      "client": "bench-a",
+      "phase": "aoiChunkCrossing",
+      "seq": 76,
+      "projectedServerTick": 86,
+      "acknowledgedProjectedServerTick": 86,
+      "milliseconds": 54.75720000000001
+    },
+    {
+      "client": "bench-b",
+      "phase": "lossRecovery",
+      "seq": 81,
+      "projectedServerTick": 91,
+      "acknowledgedProjectedServerTick": 91,
+      "milliseconds": 56.85530000000017
+    },
+    {
+      "client": "bench-c",
+      "phase": "lossRecovery",
+      "seq": 81,
+      "projectedServerTick": 91,
+      "acknowledgedProjectedServerTick": 91,
+      "milliseconds": 56.90859999999975
+    },
+    {
+      "client": "bench-a",
+      "phase": "lossRecovery",
+      "seq": 81,
+      "projectedServerTick": 91,
+      "acknowledgedProjectedServerTick": 92,
+      "milliseconds": 112.46389999999974
+    },
+    {
+      "client": "bench-a",
+      "phase": "lossRecovery",
+      "seq": 86,
+      "projectedServerTick": 96,
+      "acknowledgedProjectedServerTick": 96,
+      "milliseconds": 49.16700000000037
+    },
+    {
+      "client": "bench-b",
+      "phase": "lossRecovery",
+      "seq": 91,
+      "projectedServerTick": 101,
+      "acknowledgedProjectedServerTick": 102,
+      "milliseconds": 110.20569999999952
+    },
+    {
+      "client": "bench-c",
+      "phase": "lossRecovery",
+      "seq": 91,
+      "projectedServerTick": 101,
+      "acknowledgedProjectedServerTick": 102,
+      "milliseconds": 110.1869999999999
+    },
+    {
+      "client": "bench-a",
+      "phase": "reconnect",
+      "seq": 96,
+      "projectedServerTick": 106,
+      "acknowledgedProjectedServerTick": 106,
+      "milliseconds": 47.71630000000005
+    },
+    {
+      "client": "bench-b",
+      "phase": "reconnect",
+      "seq": 1,
+      "projectedServerTick": 108,
+      "acknowledgedProjectedServerTick": 108,
+      "milliseconds": 33.21969999999965
+    },
+    {
+      "client": "bench-c",
+      "phase": "reconnect",
+      "seq": 101,
+      "projectedServerTick": 112,
+      "acknowledgedProjectedServerTick": 112,
+      "milliseconds": 49.76119999999992
+    },
+    {
+      "client": "bench-b",
+      "phase": "reconnect",
+      "seq": 6,
+      "projectedServerTick": 113,
+      "acknowledgedProjectedServerTick": 114,
+      "milliseconds": 111.36799999999948
+    },
+    {
+      "client": "bench-a",
+      "phase": "reconnect",
+      "seq": 106,
+      "projectedServerTick": 117,
+      "acknowledgedProjectedServerTick": 118,
+      "milliseconds": 112.17780000000039
+    },
+    {
+      "client": "bench-c",
+      "phase": "reconnect",
+      "seq": 111,
+      "projectedServerTick": 122,
+      "acknowledgedProjectedServerTick": 122,
+      "milliseconds": 56.542199999999866
+    }
+  ],
+  "recovery": {
+    "bench-a": {
+      "baselines": 2,
+      "recoveryBaselines": 1,
+      "intentionallyIgnoredDeltas": 1
+    },
+    "bench-b": {
+      "baselines": 1,
+      "recoveryBaselines": 1,
+      "intentionallyIgnoredDeltas": 0
+    },
+    "bench-c": {
+      "baselines": 1,
+      "recoveryBaselines": 0,
+      "intentionallyIgnoredDeltas": 0
+    }
+  },
+  "serverDiagnostics": {
+    "aggregate": {
+      "inboundMessagesPerSecond": 7.859304278095108,
+      "outboundMessagesPerSecond": 36.152799679237496,
+      "inboundBytesPerSecond": 760.2090683539268,
+      "outboundBytesPerSecond": 53833.09058324025,
+      "encodeMilliseconds": 2.357900000001507,
+      "decodeMilliseconds": 3.2333000000026573,
+      "maximumQueueBytes": 0,
+      "roundTripMilliseconds": 0,
+      "roundTripJitterMilliseconds": 0,
+      "recoveryRequests": 0,
+      "meanCorrectionError": 0,
+      "maximumCorrectionError": 0
+    },
+    "clients": {
+      "handshake": {
+        "inboundMessagesPerSecond": 0.5715857656796443,
+        "outboundMessagesPerSecond": 0,
+        "inboundBytesPerSecond": 82.45124669928867,
+        "outboundBytesPerSecond": 0,
+        "encodeMilliseconds": 0,
+        "decodeMilliseconds": 0.5413000000000352,
+        "maximumQueueBytes": 0,
+        "roundTripMilliseconds": 0,
+        "roundTripJitterMilliseconds": 0,
+        "recoveryRequests": 0,
+        "meanCorrectionError": 0,
+        "maximumCorrectionError": 0
+      },
+      "p1": {
+        "inboundMessagesPerSecond": 3.1464216790284327,
+        "outboundMessagesPerSecond": 11.298514211056645,
+        "inboundBytesPerSecond": 269.1620727241596,
+        "outboundBytesPerSecond": 17790.154211561217,
+        "encodeMilliseconds": 1.2906999999992195,
+        "decodeMilliseconds": 2.0023000000002185,
+        "maximumQueueBytes": 0,
+        "roundTripMilliseconds": 0,
+        "roundTripJitterMilliseconds": 0,
+        "recoveryRequests": 0,
+        "meanCorrectionError": 0,
+        "maximumCorrectionError": 0
+      },
+      "p3": {
+        "inboundMessagesPerSecond": 2.1466485228117254,
+        "outboundMessagesPerSecond": 12.450561432308007,
+        "inboundBytesPerSecond": 209.36978592490362,
+        "outboundBytesPerSecond": 17228.285494579304,
+        "encodeMilliseconds": 0.4412000000014018,
+        "decodeMilliseconds": 0.25530000000151176,
+        "maximumQueueBytes": 0,
+        "roundTripMilliseconds": 0,
+        "roundTripJitterMilliseconds": 0,
+        "recoveryRequests": 0,
+        "meanCorrectionError": 0,
+        "maximumCorrectionError": 0
+      },
+      "p2": {
+        "inboundMessagesPerSecond": 1.9999866000897777,
+        "outboundMessagesPerSecond": 11.999919600538666,
+        "inboundBytesPerSecond": 218.99853270983067,
+        "outboundBytesPerSecond": 19434.869786372416,
+        "encodeMilliseconds": 0.07909999999992579,
+        "decodeMilliseconds": 0.047599999999874854,
+        "maximumQueueBytes": 0,
+        "roundTripMilliseconds": 0,
+        "roundTripJitterMilliseconds": 0,
+        "recoveryRequests": 0,
+        "meanCorrectionError": 0,
+        "maximumCorrectionError": 0
+      }
+    }
+  },
+  "schemaValidation": {
+    "decoder": "decodeServerMessage",
+    "rejectedPackets": 0
+  },
+  "corpusFile": "network-packet-corpus.json",
+  "limitations": [
+    "Loopback WebSockets do not create representative WAN latency or sustained socket backpressure.",
+    "The loss phase intentionally ignores one delivered delta; WebSocket/TCP itself remains reliable and ordered.",
+    "Headless clients execute production Prediction, MovementCadence, and PredictionCorrection, but do not include renderer frame stalls.",
+    "Server-step timing is benchmark-local wrapping of the real floor and sandbox step calls."
+  ]
+}
