@@ -18,7 +18,7 @@ roadmap is preserved in
   timing baseline.
 - [x] Add projected-server-tick input acknowledgement and prove clean replay of
   unacknowledged inputs under latency, loss, and backpressure.
-- [ ] Benchmark representative JSON, MessagePack, and Protobuf packets before
+- [x] Benchmark representative JSON, MessagePack, and Protobuf packets before
   deciding whether a negotiated binary protocol is worthwhile.
 - [ ] Tune and load-test from measured frame, simulation, transport, and correction
   budgets.

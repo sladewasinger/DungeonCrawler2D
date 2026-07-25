@@ -64,7 +64,7 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
 
 ### NET-3 — Codec assessment from captured packets
 
-- **Status:** Planned; measurement only.
+- **Status:** Complete; measurement only.
 - **Dependencies:** NET-1 representative packet corpus.
 - **Acceptance criteria:**
   - Replay the same captured client and server packets through JSON,
@@ -75,7 +75,12 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     the JSON baseline.
   - Make an explicit keep-JSON or trial-binary recommendation from measured total
     bandwidth and CPU impact, not packet size alone.
-- **Evidence/status:** Not run.
+- **Evidence/status:** `npm run benchmark:codecs` replays all 591 captured
+  packets through JSON, MessagePack, and a representative recursive Protobuf
+  envelope with full round-trip conformance. MessagePack saves 30.09% of corpus
+  bytes but is slower than native JSON; the Protobuf envelope is larger and
+  materially slower. The published assessment recommends keeping JSON until
+  concurrency evidence shows bandwidth or queue pressure.
 - **Constraint:** Do not implement runtime Protobuf unless this benchmark
   demonstrates an immediate material benefit.
 
@@ -91,7 +96,9 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
   - Add cross-codec conformance, malformed-payload, reconnect, baseline-recovery,
     and protocol-mismatch tests.
   - Re-run NET-1 scenarios and demonstrate an end-to-end benefit.
-- **Evidence/status:** Not scheduled.
+- **Evidence/status:** NET-3 did not demonstrate a current latency or capacity
+  bottleneck that justifies mixed-codec rollout. Not scheduled; MessagePack is
+  the measured first trial if later load evidence changes that decision.
 - **Constraint:** No compression now. Small realtime packets do not justify its
   latency, CPU, and complexity without separate evidence.
 

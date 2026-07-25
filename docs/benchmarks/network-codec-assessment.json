@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T15:59:40.442Z",
+  "command": "npm run benchmark:codecs",
+  "sourceCorpus": "network-packet-corpus.json",
+  "corpusPackets": 591,
+  "runtime": {
+    "node": "v24.14.0",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           "
+  },
+  "protobufSchema": {
+    "kind": "generic recursive typed value envelope",
+    "initializationMilliseconds": 1.5900000000000034
+  },
+  "results": [
+    {
+      "codec": "json",
+      "cold": {
+        "packetBytes": 130,
+        "encodeMilliseconds": 0.010599999999982401,
+        "decodeMilliseconds": 0.008699999999976171
+      },
+      "warm": {
+        "batches": 20,
+        "packetsPerBatch": 591,
+        "totalBytes": 414349,
+        "packetBytes": {
+          "count": 591,
+          "mean": 701.098138747885,
+          "p50": 110,
+          "p95": 1692,
+          "p99": 3529,
+          "max": 4451
+        },
+        "bytesByDirection": {
+          "clientToServer": 36977,
+          "serverToClient": 377372
+        },
+        "bytesByType": {
+          "clientToServer:hello": 577,
+          "serverToClient:welcome": 816,
+          "serverToClient:snapshotDelta": 376556,
+          "clientToServer:input": 35915,
+          "clientToServer:chat": 66,
+          "clientToServer:equip": 31,
+          "clientToServer:assign": 41,
+          "clientToServer:debug": 201,
+          "clientToServer:attack": 35,
+          "clientToServer:throwTorch": 39,
+          "clientToServer:pickup": 17,
+          "clientToServer:drop": 30,
+          "clientToServer:snapshotResync": 25
+        },
+        "encodeBatchMilliseconds": {
+          "count": 20,
+          "mean": 0.6110100000000017,
+          "p50": 0.608399999999989,
+          "p95": 0.7034000000000162,
+          "p99": 0.7307999999999879,
+          "max": 0.7307999999999879
+        },
+        "decodeBatchMilliseconds": {
+          "count": 20,
+          "mean": 1.0843049999999976,
+          "p50": 1.0877000000000123,
+          "p95": 1.1580999999999904,
+          "p99": 1.1735999999999933,
+          "max": 1.1735999999999933
+        },
+        "encodeMicrosecondsPerPacket": 1.0294416243654636,
+        "decodeMicrosecondsPerPacket": 1.8404399323181257
+      },
+      "conformance": {
+        "packetsRoundTripped": 591,
+        "failures": 0
+      }
+    },
+    {
+      "codec": "messagepack",
+      "cold": {
+        "packetBytes": 106,
+        "encodeMilliseconds": 0.334699999999998,
+        "decodeMilliseconds": 0.45650000000000546
+      },
+      "warm": {
+        "batches": 20,
+        "packetsPerBatch": 591,
+        "totalBytes": 289673,
+        "packetBytes": {
+          "count": 591,
+          "mean": 490.1404399323181,
+          "p50": 70,
+          "p95": 1178,
+          "p99": 2608,
+          "max": 3375
+        },
+        "bytesByDirection": {
+          "clientToServer": 23909,
+          "serverToClient": 265764
+        },
+        "bytesByType": {
+          "clientToServer:hello": 478,
+          "serverToClient:welcome": 672,
+          "serverToClient:snapshotDelta": 265092,
+          "clientToServer:input": 23030,
+          "clientToServer:chat": 54,
+          "clientToServer:equip": 23,
+          "clientToServer:assign": 30,
+          "clientToServer:debug": 184,
+          "clientToServer:attack": 25,
+          "clientToServer:throwTorch": 29,
+          "clientToServer:pickup": 13,
+          "clientToServer:drop": 22,
+          "clientToServer:snapshotResync": 21
+        },
+        "encodeBatchMilliseconds": {
+          "count": 20,
+          "mean": 1.5284499999999952,
+          "p50": 1.4436999999999784,
+          "p95": 1.6300999999999704,
+          "p99": 2.6084999999999923,
+          "max": 2.6084999999999923
+        },
+        "decodeBatchMilliseconds": {
+          "count": 20,
+          "mean": 1.6894250000000028,
+          "p50": 1.5911999999999864,
+          "p95": 2.5027000000000044,
+          "p99": 2.5257000000000005,
+          "max": 2.5257000000000005
+        },
+        "encodeMicrosecondsPerPacket": 2.442808798646326,
+        "decodeMicrosecondsPerPacket": 2.6923857868020074
+      },
+      "conformance": {
+        "packetsRoundTripped": 591,
+        "failures": 0
+      }
+    },
+    {
+      "codec": "protobuf",
+      "cold": {
+        "packetBytes": 151,
+        "encodeMilliseconds": 2.6790000000000305,
+        "decodeMilliseconds": 0.4105999999999881
+      },
+      "warm": {
+        "batches": 20,
+        "packetsPerBatch": 591,
+        "totalBytes": 569077,
+        "packetBytes": {
+          "count": 591,
+          "mean": 962.9052453468697,
+          "p50": 148,
+          "p95": 2280,
+          "p99": 5409,
+          "max": 6558
+        },
+        "bytesByDirection": {
+          "clientToServer": 49999,
+          "serverToClient": 519078
+        },
+        "bytesByType": {
+          "clientToServer:hello": 663,
+          "serverToClient:welcome": 1080,
+          "serverToClient:snapshotDelta": 517998,
+          "clientToServer:input": 48692,
+          "clientToServer:chat": 73,
+          "clientToServer:equip": 36,
+          "clientToServer:assign": 56,
+          "clientToServer:debug": 276,
+          "clientToServer:attack": 58,
+          "clientToServer:throwTorch": 62,
+          "clientToServer:pickup": 20,
+          "clientToServer:drop": 35,
+          "clientToServer:snapshotResync": 28
+        },
+        "encodeBatchMilliseconds": {
+          "count": 20,
+          "mean": 4.469209999999995,
+          "p50": 4.421099999999967,
+          "p95": 4.945899999999995,
+          "p99": 5.058800000000019,
+          "max": 5.058800000000019
+        },
+        "decodeBatchMilliseconds": {
+          "count": 20,
+          "mean": 9.661315000000002,
+          "p50": 9.565900000000056,
+          "p95": 9.913000000000011,
+          "p99": 10.526999999999987,
+          "max": 10.526999999999987
+        },
+        "encodeMicrosecondsPerPacket": 7.480710659898422,
+        "decodeMicrosecondsPerPacket": 16.185956006768283
+      },
+      "conformance": {
+        "packetsRoundTripped": 591,
+        "failures": 0
+      }
+    }
+  ],
+  "comparison": {
+    "messagePackByteReductionVsJson": 0.3008961044916242,
+    "protobufByteReductionVsJson": -0.3734243355239182
+  },
+  "implementation": {
+    "json": {
+      "browserSupport": "native",
+      "schemaMaintenance": "existing Zod wire schemas",
+      "failureDiagnostics": "human-readable payload plus Zod path diagnostics"
+    },
+    "messagepack": {
+      "browserSupport": "@msgpack/msgpack supports browser Uint8Array payloads",
+      "schemaMaintenance": "existing Zod schemas remain required after binary decode",
+      "failureDiagnostics": "binary payload requires codec tooling before Zod diagnostics"
+    },
+    "protobuf": {
+      "browserSupport": "protobufjs supports browser Uint8Array payloads",
+      "schemaMaintenance": "requires schema and generated/runtime mapping alongside Zod",
+      "failureDiagnostics": "binary payload and field-number mapping complicate incidents"
+    }
+  },
+  "allocationMeasurement": {
+    "status": "not reported",
+    "reason": "short-lived JavaScript allocations are not reliable without an isolated process and controlled garbage collection"
+  }
+}
