@@ -13,6 +13,7 @@ import { Prediction } from "./prediction.js";
 
 const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
 const RUN: MoveInput = { ...WALK, run: true };
+const STOP: MoveInput = { moveX: 0, moveY: 0, jump: false, run: false };
 const SPAWN_X = -6;
 const SPAWN_Y = -13;
 
@@ -86,5 +87,24 @@ describe("Prediction catch-up reconciliation", () => {
     expect(closeBody(reconciled, expected)).toBe(true);
     expect(prediction.pendingStepCount).toBe(1);
     expect(prediction.projectedTick).toBe(42);
+  });
+
+  it("does not replay movement superseded by an acknowledged stop edge", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
+    prediction.reconcile(world, client, -1, 40);
+
+    prediction.predict(world, client, RUN);
+    prediction.predict(world, client, RUN);
+    const stop = prediction.nextInputIdentity();
+    stepBody(world, server, STOP, TICK_DT);
+    const reconciled = cloneBody(server);
+    prediction.reconcile(world, reconciled, stop.seq, 41);
+
+    expect(closeBody(reconciled, server)).toBe(true);
+    expect(prediction.pendingStepCount).toBe(0);
+    expect(prediction.projectedTick).toBe(41);
   });
 });

@@ -25,7 +25,7 @@ interface PredictedStep {
 function shouldRetainStep(
   step: PredictedStep,
   index: number,
-  newestAcknowledgedFutureIndex: number,
+  acknowledgedFutureIndex: number,
   lastAckedSeq: number,
   authoritativeServerTick: number,
 ): boolean {
@@ -33,7 +33,7 @@ function shouldRetainStep(
     step.projectedServerTick > authoritativeServerTick;
   const isUnacknowledged = step.seq > lastAckedSeq;
   return belongsAfterSnapshot &&
-    (isUnacknowledged || index === newestAcknowledgedFutureIndex);
+    (isUnacknowledged || index === acknowledgedFutureIndex);
 }
 
 export interface PredictedInputIdentity {
@@ -94,8 +94,8 @@ export class Prediction {
     resources?: PlayerResourceState,
     canBlock = false,
   ): void {
-    const newestAcknowledgedFutureIndex =
-      this.findNewestAcknowledgedFuture(lastAckedSeq, authoritativeServerTick);
+    const acknowledgedFutureIndex =
+      this.findAcknowledgedFuture(lastAckedSeq, authoritativeServerTick);
     let retainedCount = 0;
     let nextProjectedServerTick = authoritativeServerTick;
     let index = 0;
@@ -104,7 +104,7 @@ export class Prediction {
       if (!shouldRetainStep(
         step,
         stepIndex,
-        newestAcknowledgedFutureIndex,
+        acknowledgedFutureIndex,
         lastAckedSeq,
         authoritativeServerTick,
       )) {
@@ -136,20 +136,19 @@ export class Prediction {
     return this.projectedServerTick;
   }
 
-  private findNewestAcknowledgedFuture(
+  private findAcknowledgedFuture(
     lastAckedSeq: number,
     authoritativeServerTick: number,
   ): number {
-    let newestIndex = -1;
     let index = 0;
     for (const step of this.pending) {
-      if (step.seq <= lastAckedSeq &&
+      if (step.seq === lastAckedSeq &&
         step.projectedServerTick > authoritativeServerTick) {
-        newestIndex = index;
+        return index;
       }
       index++;
     }
-    return newestIndex;
+    return -1;
   }
 
   private effectiveInput(
