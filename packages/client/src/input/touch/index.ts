@@ -34,7 +34,7 @@ export function isInLowerLeftQuadrant(x: number, y: number, viewportWidth: numbe
 /** Read-only projection of touch state for the HUD widgets to render — never mutated by ui/. */
 export interface TouchVisualSnapshot {
   stick: { x: number; y: number; dx: number; dy: number } | null;
-  buttons: { attack: boolean; jump: boolean; interact: boolean; block?: boolean };
+  buttons: { attack: boolean; jump: boolean; interact: boolean; block?: boolean; sprint?: boolean };
 }
 
 export function touchVisualSnapshot(state: TouchInputState): TouchVisualSnapshot {
@@ -48,6 +48,7 @@ export function touchVisualSnapshot(state: TouchInputState): TouchVisualSnapshot
       jump: state.buttons.jump !== null,
       interact: state.buttons.interact !== null,
       block: state.buttons.block !== null,
+      sprint: state.buttons.sprint !== null,
     },
   };
 }

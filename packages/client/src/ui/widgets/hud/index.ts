@@ -27,6 +27,7 @@ import { StaminaBarWidget } from "./staminaBar.js";
 import { ToastStackWidget } from "./toastStack.js";
 import { TouchButtonsWidget } from "./touchButtons.js";
 import { TouchStickWidget } from "./touchStick.js";
+import { TouchSprintWidget } from "./touchSprint.js";
 import { applyTouchLayoutOverrides } from "./touchOverrides.js";
 import { WeaponChipWidget } from "./weaponChip.js";
 import { XpBarWidget } from "./xpBar.js";
@@ -40,9 +41,7 @@ export class HudWidgets {
    * after boot) flips this reactively — see handlePointerDown. */
   private touchActive = isTouchDevice();
   private readonly health: HealthBarWidget; private readonly stamina: StaminaBarWidget;
-  private readonly hotbar: HotbarWidget;
-  private readonly buffs: BuffChipsWidget;
-  private readonly weapon: WeaponChipWidget;
+  private readonly hotbar: HotbarWidget; private readonly buffs: BuffChipsWidget; private readonly weapon: WeaponChipWidget;
   /** XP progress + level numeral (Epic 11 core, pulled forward). */
   private readonly xpBar: XpBarWidget;
   private readonly chat: ChatPanelWidget;
@@ -53,14 +52,12 @@ export class HudWidgets {
   private readonly connection: ConnectionStatusWidget | undefined;
   /** LANE W2: which world direction currently renders at screen-up (scenes/dungeon/rotationControl.ts). */
   private readonly compass: CompassWidget;
-  private readonly death: DeathOverlayWidget;
-  private readonly reconnectToast: ReconnectToastWidget;
-  private readonly toasts: ToastStackWidget;
+  private readonly death: DeathOverlayWidget; private readonly reconnectToast: ReconnectToastWidget; private readonly toasts: ToastStackWidget;
   /** inventory/contacts/craft/stash — the four centered window panels (panelWindows.ts). */
   private readonly panels: PanelWindows;
   /** Off-self party member rows (Epic 7.12) — hidden entirely when unpartied. */
   private readonly party: PartyFramesWidget;
-  private touchStick: TouchStickWidget | undefined;
+  private touchStick: TouchStickWidget | undefined; private touchSprint: TouchSprintWidget | undefined;
   private touchButtons: TouchButtonsWidget | undefined;
   private inventoryToggleButton: InventoryToggleButtonWidget | undefined;
   /** Edit-HUD mode (docs/HUD_OS.md Phase 2) — gear chip + [F10], drag-to-move, catalog panel. */
@@ -99,6 +96,7 @@ export class HudWidgets {
 
   private buildTouchControls(scene: Phaser.Scene, viewport: Viewport): void {
     this.touchStick = new TouchStickWidget(scene, this.registry, viewport);
+    this.touchSprint = new TouchSprintWidget(scene, this.registry, viewport);
     this.touchButtons = new TouchButtonsWidget(scene, this.registry, viewport);
     this.inventoryToggleButton = new InventoryToggleButtonWidget(scene, this.registry, viewport);
   }
@@ -130,7 +128,7 @@ export class HudWidgets {
     this.xpBar.update(snapshot.xp, snapshot.floor);
     this.panels.update(snapshot.inventory, snapshot.equippedWeaponId, snapshot.contacts, snapshot.craft, snapshot.stash, snapshot.lastToast, nowMs);
     this.chat.update(snapshot.chatModel);
-    this.party.update(snapshot.party);
+    this.party.update(snapshot.party, snapshot.partySelfLeader);
     this.interaction.update(snapshot.interactionPrompt);
     this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor);
     this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs);
@@ -139,6 +137,7 @@ export class HudWidgets {
     this.toasts.update(snapshot.toasts, nowMs);
     if (snapshot.touch) {
       this.touchStick?.update(snapshot.touch.stick);
+      this.touchSprint?.update(snapshot.touch.buttons.sprint ?? false);
       this.touchButtons?.update(snapshot.touch.buttons, nowMs);
     }
   }
@@ -165,6 +164,7 @@ export class HudWidgets {
     this.reconnectToast.resize(this.registry, viewport);
     this.toasts.resize(this.registry, viewport);
     this.touchStick?.resize(this.registry, viewport);
+    this.touchSprint?.resize(this.registry, viewport);
     this.touchButtons?.resize(this.registry, viewport);
     this.inventoryToggleButton?.resize(this.registry, viewport);
     this.editMode.resize(viewport);
@@ -255,6 +255,7 @@ export class HudWidgets {
   hitTestTouchOnly(screenX: number, screenY: number): string | null {
     const button = this.touchButtons?.hitTest(screenX, screenY);
     if (button) return `touch:${button}`;
+    if (this.touchSprint?.hitTest(screenX, screenY)) return "touch:sprint";
     if (this.inventoryToggleButton?.hitTest(screenX, screenY)) {
       return "inventory:toggle";
     }
@@ -269,9 +270,8 @@ export class HudWidgets {
     if (this.chat.hitTestPanel(screenX, screenY)) return "window:chat";
     const slot = this.hotbar.hitTestSlot(screenX, screenY);
     if (slot !== null) return `slot:${slot}`;
-    if (this.inventoryToggleButton?.hitTest(screenX, screenY)) return "inventory:toggle";
-    const button = this.touchButtons?.hitTest(screenX, screenY);
-    if (button) return `touch:${button}`;
+    const touchHit = this.hitTestTouchOnly(screenX, screenY);
+    if (touchHit) return touchHit;
     if (this.chat.hitTestToggle(screenX, screenY)) return "chat:toggle";
     return null;
   }

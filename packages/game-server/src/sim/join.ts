@@ -10,7 +10,7 @@ import {
 import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
-import { sendModerationState } from "./moderation.js";
+import { refreshModerationBindings, sendModerationState } from "./moderation.js";
 import { findSpawn, newToken } from "./spawn.js";
 import { secureSpawnHandoff } from "./spawnSafety.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
@@ -58,7 +58,7 @@ export function addPlayer(
   // before; a returning clientId whose in-memory slot/resume token was
   // lost (e.g. died with the only resume token they had) now gets it
   // too, instead of rejoining permanently Unarmed.
-  ensureStarterKit(sim, slot);
+  ensureStarterKit(sim, slot); syncModerationState(sim, slot);
   // ASSUMPTION #50 (docs/ASSUMPTIONS.md): sync the contact list on every
   // join/resume so a reconnecting client doesn't wait for the next
   // fistbump seal to see it. A same-tick collision with a fistbump-seal
@@ -82,6 +82,11 @@ export function addPlayer(
 }
 
 /** Default bookkeeping for a freshly-joined player. */
+function syncModerationState(sim: SimState, slot: PlayerSlot): void {
+  refreshModerationBindings(sim);
+  sendModerationState(slot);
+}
+
 function restoredHotbar(stored: PlayerSlot["stored"]): Array<string | null> {
   const hotbar = Array<string | null>(HOTBAR_SLOTS).fill(null);
   const saved = stored.hotbar?.slice(0, HOTBAR_SLOTS) ?? [];
@@ -130,12 +135,16 @@ function newSlot(
 
 function initialResources(tick: number): Pick<
   PlayerSlot,
-  "stamina" | "maxStamina" | "blocking" | "lastDamageAtTick"
+  "stamina" | "maxStamina" | "blocking" |
+  "staminaRecoveryDelaySeconds" | "staminaExhausted" |
+  "lastDamageAtTick"
 > {
   return {
     stamina: PLAYER_MAX_STAMINA,
     maxStamina: PLAYER_MAX_STAMINA,
     blocking: false,
+    staminaRecoveryDelaySeconds: 0,
+    staminaExhausted: false,
     lastDamageAtTick: tick,
   };
 }

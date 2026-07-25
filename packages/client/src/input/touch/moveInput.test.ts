@@ -7,6 +7,11 @@ import { mergeMoveInputs, touchMoveInput, updateLastFacing } from "./moveInput.j
 import { createTouchInputState } from "./state.js";
 
 describe("touchMoveInput", () => {
+  it("supports a dedicated held sprint target without requiring stick over-deflection", () => {
+    const state = createTouchInputState();
+    state.buttons.sprint = 7;
+    expect(touchMoveInput(state).run).toBe(true);
+  });
   it("is neutral, jump/run false, with no stick and no buttons held", () => {
     expect(touchMoveInput(createTouchInputState())).toEqual({ moveX: 0, moveY: 0, jump: false, run: false });
   });

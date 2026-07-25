@@ -8,18 +8,20 @@ import { sampleMovement } from "./movementSampling.js";
 const IDLE: MoveInput = { moveX: 0, moveY: 0, jump: false, run: false };
 
 describe("sampleMovement", () => {
-  it("predicts and sends every fixed tick, including control edges", () => {
+  it("predicts every fixed tick but sends only changed control states", () => {
+    let predictedTick = 100;
     let sequence = 0;
-    const predict = vi.fn(() => {
-      const seq = ++sequence;
-      return { seq, projectedServerTick: 100 + seq };
-    });
+    const predict = vi.fn(() => ++predictedTick);
+    const nextInputIdentity = vi.fn((projectedServerTick: number) => ({
+      seq: ++sequence,
+      projectedServerTick,
+    }));
     const send = vi.fn();
     const connection = {
       world: {},
       body: {},
       canAct: true,
-      prediction: { predict },
+      prediction: { predict, nextInputIdentity },
       movementCadence: new MovementCadence(),
       send,
     } as unknown as Connection;
@@ -38,11 +40,9 @@ describe("sampleMovement", () => {
 
     expect(predict).toHaveBeenCalledTimes(24);
     const inputs = send.mock.calls.map(([message]) => message as ClientInput);
-    expect(inputs.map(({ seq }) => seq)).toEqual(
-      Array.from({ length: 24 }, (_, index) => index + 1),
-    );
+    expect(inputs.map(({ seq }) => seq)).toEqual([1, 2, 3, 4, 5]);
     expect(inputs.map(({ projectedServerTick }) => projectedServerTick))
-      .toEqual(Array.from({ length: 24 }, (_, index) => 101 + index));
+      .toEqual([101, 121, 122, 123, 124]);
     expect(inputs.at(-1)).toMatchObject({ moveX: 1, faceY: -1, jump: true, run: true });
   });
 });

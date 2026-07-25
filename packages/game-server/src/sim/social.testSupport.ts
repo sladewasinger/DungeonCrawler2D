@@ -31,7 +31,7 @@ export function makeSocialSlot(name: string, x: number, y: number): PlayerSlot {
   return {
     entity,
     clientId: `client-${name}`,
-    stored: { slot: 0, name, stash: [], contacts: [] },
+    stored: { slot: 0, name, stash: [], contacts: [], localProfileId: `local-test-${name}` },
     resumeToken: `token-${name}`,
     lastSeq: -1,
     pendingInputs: [],

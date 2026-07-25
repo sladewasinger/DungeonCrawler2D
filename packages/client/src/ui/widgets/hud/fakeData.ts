@@ -105,7 +105,7 @@ export interface HudFakeSnapshot {
   /** The AOI boss entity (Epic 7.14), or null when none is nearby — hides the bar. */
   boss: BossBarData | null;
   /** Off-self party member rows (Epic 7.12) — empty when unpartied, hides the widget. */
-  party: PartyRowData[];
+  party: PartyRowData[]; partySelfLeader: boolean;
   chatModel: ChatPanelModel;
   contacts: ContactData[];
   interactionPrompt: { key: string; label: string } | null;
@@ -249,7 +249,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     seed: "e2e-world",
     floor: 1,
     boss: null,
-    party: FAKE_PARTY,
+    party: FAKE_PARTY, partySelfLeader: false,
     chatModel: FAKE_CHAT_MODEL,
     contacts: FAKE_CONTACTS,
     interactionPrompt: { key: "R", label: "pick up" },

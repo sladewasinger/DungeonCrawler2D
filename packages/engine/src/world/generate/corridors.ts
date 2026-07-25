@@ -11,7 +11,7 @@ import { band, centerX, centerY, clampInt, lPathLegs, rectDistance } from "./geo
 import { rectHash } from "./hash.js";
 import type { Doorway, Point, Rect, Room, Side } from "./types.js";
 
-const WIDTH_MIN = 1;
+export const CORRIDOR_WIDTH_MIN = 2;
 const WIDTH_MAX = 3;
 const PORT_JITTER = 2;
 
@@ -66,9 +66,9 @@ function thresholdCenter(side: Side, port: Point): number {
   return isVertical(side) ? port.x : port.y;
 }
 
-function corridorWidth(seed: number, a: Rect, b: Rect): number {
+export function corridorWidth(seed: number, a: Rect, b: Rect): number {
   const salted = rectHash(seed, { x0: a.x0, y0: a.y0, x1: b.x1, y1: b.y1 }, 0x9c02);
-  return WIDTH_MIN + (salted % (WIDTH_MAX - WIDTH_MIN + 1));
+  return CORRIDOR_WIDTH_MIN + (salted % (WIDTH_MAX - CORRIDOR_WIDTH_MIN + 1));
 }
 
 function connectRooms(

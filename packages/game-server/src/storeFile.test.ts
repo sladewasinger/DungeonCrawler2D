@@ -55,7 +55,7 @@ describe("PlayerStore file integrity", () => {
     }
   });
 
-  it("migrates version 1 saves to version 2 descent state defaults", () => {
+  it("migrates version 1 saves to current descent/profile defaults", () => {
     const file = tempFile();
     try {
       writeFileSync(file, JSON.stringify({
@@ -80,14 +80,51 @@ describe("PlayerStore file integrity", () => {
         descentComplete: false,
       });
       expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
-        version: 2,
+        version: PLAYER_STORE_VERSION,
         players: {
           "client-1": {
             activeFloor: 1,
             descentComplete: false,
+            localProfileId: "local-profile-0",
+            craftedRecipes: {},
+            mutedProfileIds: [],
+            blockedProfileIds: [],
           },
         },
       });
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  it("migrates version 2 saves without losing descent progress", () => {
+    const file = tempFile();
+    try {
+      writeFileSync(file, JSON.stringify({
+        version: 2,
+        nextSlot: 1,
+        players: {
+          "client-1": {
+            slot: 0,
+            name: "A",
+            stash: [],
+            contacts: [],
+            xp: 0,
+            level: 1,
+            deepestFloor: 4,
+            activeFloor: 3,
+            descentComplete: true,
+          },
+        },
+      }));
+      const store = new PlayerStore(file);
+      expect(store.get("client-1", "A")).toMatchObject({
+        activeFloor: 3,
+        descentComplete: true,
+        localProfileId: "local-profile-0",
+        craftedRecipes: {},
+      });
+      expect(JSON.parse(readFileSync(file, "utf8")).version).toBe(PLAYER_STORE_VERSION);
     } finally {
       rmSync(file, { force: true });
     }

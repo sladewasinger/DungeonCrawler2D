@@ -100,7 +100,7 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
     conn.prediction.reconcile(
       world,
       body,
-      snap.lastSeq,
+      snap.tick,
       conn,
       snap.weapon !== null,
     );

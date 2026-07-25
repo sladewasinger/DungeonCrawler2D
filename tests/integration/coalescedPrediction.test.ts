@@ -28,7 +28,7 @@ function expectSamePosition(connection: Connection, serverX: number, serverY: nu
 }
 
 describe("prediction integration", () => {
-  it("keeps every held input tick aligned across dropped authoritative snapshots", () => {
+  it("keeps 1,000 held ticks aligned using only key-down and key-up wire events", () => {
     const sim = makeSim(717, { testFixtures: true, freezeEnemies: true });
     const joined = sim.addPlayer("Predictor", "prediction-client");
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
@@ -49,10 +49,11 @@ describe("prediction integration", () => {
       sentInputs.push(message);
       sim.handleInput(joined.playerId, message);
     });
+    connection.sendInputEdge(HELD_MOVE);
 
     let deliveredSnapshots = 0;
     let droppedSnapshot = false;
-    for (let localTick = 1; localTick <= 20; localTick++) {
+    for (let localTick = 1; localTick <= 1_000; localTick++) {
       connection.sampleInput(HELD_MOVE);
       const snapshot = sim.stepReplicated().get(joined.playerId);
       if (!snapshot || snapshot.type !== "snapshot") continue;
@@ -64,13 +65,16 @@ describe("prediction integration", () => {
       applySnapshot(connection, snapshot);
       expectSamePosition(connection, serverPlayer.body.x, serverPlayer.body.y);
     }
+    const idle = { moveX: 0, moveY: 0, jump: false, run: false };
+    connection.sendInputEdge(idle);
+    connection.sampleInput(idle);
+    const stopped = sim.stepReplicated().get(joined.playerId);
+    if (stopped?.type === "snapshot") applySnapshot(connection, stopped);
 
-    expect(sentInputs.map(({ seq }) => seq)).toEqual(
-      Array.from({ length: 20 }, (_, index) => index + 1),
-    );
+    expect(sentInputs.map(({ seq }) => seq)).toEqual([1, 2]);
     expect(droppedSnapshot).toBe(true);
-    expect(deliveredSnapshots).toBeGreaterThanOrEqual(9);
-    expect(deliveredSnapshots).toBeLessThan(20);
+    expect(deliveredSnapshots).toBeGreaterThanOrEqual(499);
+    expect(deliveredSnapshots).toBeLessThan(1_000);
     expect(connection.networkMetrics.snapshot(performance.now()).maximumCorrectionError)
       .toBeLessThan(1e-9);
   });

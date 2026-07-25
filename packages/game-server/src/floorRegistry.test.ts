@@ -139,6 +139,30 @@ describe("FloorRegistry: the descent chain", () => {
     );
   });
 
+  it("applies durable mute controls to cross-floor global chat", () => {
+    const floors = makeRegistry();
+    const onFloor1 = floors.base.addPlayer("A", "client-a");
+    const floor4 = floors.ensureFloor(4);
+    const onFloor4 = floor4.addPlayer("B", "client-b");
+    floor4.queueAction(onFloor4.playerId, {
+      type: "moderation",
+      op: "mute",
+      target: "A",
+    });
+    floors.stepAll();
+
+    floors.base.queueAction(onFloor1.playerId, {
+      type: "chat",
+      channel: "global",
+      text: "blocked across floors",
+    });
+    floors.stepAll();
+    const received = floors.stepAll().snapshots.get(onFloor4.playerId)?.events ?? [];
+    expect(received.some(
+      (event) => event.t === "chat" && event.text === "blocked across floors",
+    )).toBe(false);
+  });
+
   it("/who lists players across every active floor with their floor number", () => {
     const floors = makeRegistry();
     const onFloor1 = floors.base.addPlayer("A", "client-a");

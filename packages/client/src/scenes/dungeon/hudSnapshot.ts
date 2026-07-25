@@ -17,7 +17,6 @@ import type {
   ToastData,
 } from "../../ui/widgets/hud/fakeData.js";
 import type { ContactData } from "../../ui/widgets/hud/contactRows.js";
-import type { PartyRowData } from "../../ui/widgets/hud/partyFrames.js";
 import type { BossBarData } from "../../ui/widgets/hud/bossBarView.js";
 import { recipeRowViews } from "../../ui/widgets/hud/recipeRows.js";
 import { stashRowViews } from "../../ui/widgets/hud/stashRows.js";
@@ -30,8 +29,8 @@ import {
   recipeList,
 } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
-import { resolvePartyNavigation } from "../../ui/partyNavigation.js";
 import { statusPresentations } from "../../ui/statusPresentation.js";
+import { partyRowsView } from "./partyRows.js";
 
 /** A stash entry as the wire/Connection shape carries it — item def id + qty, no index
  * (stashRowViews assigns the display index from array position). */
@@ -88,23 +87,6 @@ function roundedCoords(bodyPos: { x: number; y: number; z: number }): TileCoords
 
 /** Off-self party member rows for the party frames widget (Epic 7.12) — party is
  * null when unpartied, which naturally yields an empty (hidden) row list. */
-function partyRows(
-  party: ServerSnapshot["party"],
-  bodyPos: { x: number; y: number },
-  viewBearingDeg: number,
-): PartyRowData[] {
-  if (!party) return [];
-  return party.members.map((member) => ({
-    id: member.id,
-    name: member.name,
-    hp: member.hp,
-    maxHp: member.maxHp,
-    downed: member.downed,
-    disconnected: member.disconnected ?? false,
-    ...resolvePartyNavigation(bodyPos, member, viewBearingDeg),
-  }));
-}
-
 /** Every recipe's have/need row against live inventory (Epic 7.12) — recipeList is
  * content-order, matching v1's craft-panel number-key ordering. */
 export function craftSnapshot(inventory: readonly InvStack[], nearby: boolean): CraftSnapshot {
@@ -117,6 +99,7 @@ export function stashSnapshot(inventory: readonly InvStack[], stash: readonly St
 }
 
 export interface HudSnapshotSource {
+  readonly playerId: string | null;
   readonly hp: number;
   readonly maxHp: number;
   readonly stamina: number; readonly maxStamina: number; readonly blocking: boolean;
@@ -220,6 +203,7 @@ export function buildHudSnapshot(
   /** The compass dial's gold StairwayDown tick (LANE W) — see stairwayTick.ts. */
   stairway: StairwayTickData | null,
 ): HudFakeSnapshot {
+  const party = partyRowsView(src.party, src.playerId, bodyPos, compassBearingDeg);
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
     stamina: { stamina: src.stamina, maxStamina: src.maxStamina, blocking: src.blocking },
@@ -230,7 +214,8 @@ export function buildHudSnapshot(
     seed: src.seed,
     floor: src.floor,
     boss: src.boss,
-    party: partyRows(src.party, bodyPos, compassBearingDeg),
+    party: party.rows,
+    partySelfLeader: party.selfIsLeader,
     chatModel,
     contacts: [...contacts],
     interactionPrompt,

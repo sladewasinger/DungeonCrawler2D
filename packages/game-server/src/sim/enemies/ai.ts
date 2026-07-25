@@ -134,19 +134,21 @@ function moveEnemy(
 
 function resolveStrike(sim: SimState, enemy: EnemySlot, targetId: string, effectEvents: EffectEvent[]): void {
   const entity = enemy.entity;
-  const victim = sim.players.get(targetId)?.entity;
+  const victimSlot = sim.players.get(targetId);
+  const victim = victimSlot?.entity;
   if (!victim || victim.hp <= 0) return;
   faceEntity(entity, victim.body.x - entity.body.x, victim.body.y - entity.body.y);
   const d = Math.hypot(victim.body.x - entity.body.x, victim.body.y - entity.body.y);
   if (d > enemy.def.attack.range + 0.3) return;
 
+  enemy.animation = { state: "attack", ticksRemaining: MELEE_ATTACK_TICKS };
+  if (victimSlot.blocking) return;
   const target = effectTargetFor(sim, victim);
   sim.effects.modifyHealth(victim, -enemy.def.attack.damage, effectEvents, { sourceTags: enemy.def.tags }, target);
   for (const apply of enemy.def.attack.applies ?? []) {
     if (sim.rng.next() < apply.chance) sim.effects.applyStatus(victim, apply.status, effectEvents, target);
   }
   applyKnockback(victim.body, victim.body.x - entity.body.x, victim.body.y - entity.body.y, KNOCKBACK_FORCE * 0.6);
-  enemy.animation = { state: "attack", ticksRemaining: MELEE_ATTACK_TICKS };
 }
 
 /** Advance a windup/attack/recover pose. Returns true while the enemy

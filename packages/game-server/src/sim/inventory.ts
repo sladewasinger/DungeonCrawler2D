@@ -209,6 +209,7 @@ export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void
   }
   for (const input of recipe.inputs) invRemove(slot, input.item, input.qty);
   invAdd(sim, slot, recipe.output.item, recipe.output.qty);
+  sim.store.recordCraft(slot.stored, recipe.id);
   slot.outbox.push({ t: "toast", msg: `Crafted ${recipe.output.item}` });
 }
 

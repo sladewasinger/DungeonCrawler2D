@@ -103,7 +103,7 @@ describe("social", () => {
     doModeration(sim, b, "report", a.entity.id, "chat abuse");
     expect(sim.moderationReports.at(-1)).toMatchObject({
       reporterId: b.entity.id,
-      targetId: a.entity.id,
+      targetId: "local-test-A",
       reason: "chat abuse",
     });
   });

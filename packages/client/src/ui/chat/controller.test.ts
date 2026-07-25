@@ -71,11 +71,17 @@ describe("ChatController", () => {
   it("dispatches party management and moderation commands", () => {
     const port = makePort();
     const controller = new ChatController(port);
+    controller.submit("/party invite Wren");
+    controller.submit("/party accept");
+    controller.submit("/party decline");
     controller.submit("/party leave");
     controller.submit("/party kick Wren");
     controller.submit("/block Wren");
     controller.submit("/report Wren harassment");
     expect(port.sent).toEqual([
+      { intent: "party", op: "invite", target: "Wren" },
+      { intent: "party", op: "accept", target: undefined },
+      { intent: "party", op: "decline", target: undefined },
       { intent: "party", op: "leave", target: undefined },
       { intent: "party", op: "kick", target: "Wren" },
       { intent: "moderation", op: "block", target: "wren", reason: undefined },

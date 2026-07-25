@@ -1,4 +1,5 @@
 /** Renders labeled party bearings and distances inside a managed HUD window. */
+import { INTERACT_RANGE } from "@dc2d/engine";
 import type { Connection } from "../net/connection.js";
 import { resolvePartyNavigation } from "../ui/partyNavigation.js";
 import { partyPresence } from "../ui/partyPresence.js";
@@ -9,11 +10,12 @@ const MAX_VISIBLE_MEMBERS = 6;
 
 export class ThreePartyTracker {
   readonly element = document.createElement("div");
+  private readonly title = createHudTitle("Party");
   private readonly rows: HTMLDivElement[] = [];
 
   constructor() {
     this.element.style.cssText = `${HUD_PANEL};display:grid;align-content:start;gap:4px`;
-    this.element.append(createHudTitle("Party"));
+    this.element.append(this.title);
     for (let index = 0; index < MAX_VISIBLE_MEMBERS; index += 1) {
       const row = document.createElement("div");
       row.hidden = true;
@@ -28,6 +30,9 @@ export class ThreePartyTracker {
     yaw: number,
   ): void {
     const members = connection.party?.members.slice(0, MAX_VISIBLE_MEMBERS) ?? [];
+    this.title.textContent = connection.party?.leaderId === connection.welcome?.playerId
+      ? "Party · You lead"
+      : "Party";
     this.element.style.visibility = members.length > 0 ? "visible" : "hidden";
     const viewBearingDeg = (-yaw * 180) / Math.PI;
     this.rows.forEach((row, index) => {
@@ -45,9 +50,12 @@ export class ThreePartyTracker {
         member,
         viewBearingDeg,
       );
+      const leader = connection.party?.leaderId === member.id ? " · LEADER" : "";
+      const downed = member.downed
+        ? navigation.distance <= INTERACT_RANGE ? " · REVIVE [E]" : " · DOWNED"
+        : "";
       row.textContent =
-        `${navigation.arrow} ${presence.label} · ${navigation.distance}m` +
-        `${member.downed ? " · DOWNED" : ""}`;
+        `${navigation.arrow} ${presence.label} · ${navigation.distance}m${leader}${downed}`;
       row.style.color = member.downed ? "#e96a6a" : "";
     });
   }

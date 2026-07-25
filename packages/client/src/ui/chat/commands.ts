@@ -11,7 +11,11 @@ export type ChatCommand =
   | { kind: "none" }
   | { kind: "send"; channel: ChatSendChannel; text: string; target?: string }
   | { kind: "who" }
-  | { kind: "party"; op: "leave" | "kick"; target?: string }
+  | {
+      kind: "party";
+      op: "invite" | "accept" | "decline" | "leave" | "kick";
+      target?: string;
+    }
   | {
       kind: "moderation";
       op: "mute" | "unmute" | "block" | "unblock" | "report";
@@ -26,7 +30,8 @@ export type ChatCommand =
   | { kind: "debug-teleport"; x: number; y: number };
 
 export const HELP_LINES: readonly string[] = [
-  "/party leave | /party kick <name> — manage your party",
+  "/party invite <name> | accept | decline — answer invitations",
+  "/party leave | kick <name> — manage membership",
   "/mute|unmute|block|unblock <name> — control contact",
   "/report <name> [reason] — flag abuse for review",
   "/help — this list",
@@ -75,9 +80,20 @@ function parseTeleport(rest: string): ChatCommand {
 
 function parseParty(rest: string): ChatCommand {
   const { cmd, rest: target } = splitCommand(rest);
-  if (cmd === "leave" && !target) return { kind: "party", op: "leave" };
-  if (cmd === "kick" && target) return { kind: "party", op: "kick", target };
-  return { kind: "error", message: "Usage: /party leave | /party kick <name>" };
+  const untargeted = new Set(["accept", "decline", "leave"]);
+  if (untargeted.has(cmd) && !target) {
+    return {
+      kind: "party",
+      op: cmd as "accept" | "decline" | "leave",
+    };
+  }
+  if ((cmd === "invite" || cmd === "kick") && target) {
+    return { kind: "party", op: cmd, target };
+  }
+  return {
+    kind: "error",
+    message: "Usage: /party invite <name> | accept | decline | leave | kick <name>",
+  };
 }
 
 function parseModeration(

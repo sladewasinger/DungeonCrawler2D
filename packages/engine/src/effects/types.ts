@@ -11,4 +11,13 @@ export { areaDefSchema, type AreaDef } from "./areas.js";
 export { itemDefSchema, type ItemDef } from "./items.js";
 export { enemyDefSchema, type EnemyDef } from "./enemies.js";
 export { recipeDefSchema, type RecipeDef } from "./recipes.js";
+export {
+  inventionProvenanceSchema,
+  inventionProposalSchema,
+  validateInventionProposal,
+  InventionReviewQueue,
+  type InventionProposal,
+  type InventionValidation,
+  type PendingInvention,
+} from "./inventions.js";
 export { type ContentRegistry, type RawContent, buildContentRegistry } from "./registry.js";

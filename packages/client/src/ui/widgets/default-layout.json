@@ -14,7 +14,8 @@
     "weapon": { "anchor": "bottom-right", "offset": { "x": -16, "y": -88 } },
     "interaction": { "anchor": "bottom-center", "offset": { "x": 0, "y": -140 } },
     "death": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
-    "touch-stick": { "anchor": "bottom-left", "offset": { "x": 36, "y": -68 } },
+    "touch-stick": { "anchor": "bottom-left", "offset": { "x": 86, "y": -68 } },
+    "touch-sprint": { "anchor": "bottom-left", "offset": { "x": 26, "y": -68 } },
     "touch-buttons": { "anchor": "bottom-right", "offset": { "x": -12, "y": -40 } }
   }
 }

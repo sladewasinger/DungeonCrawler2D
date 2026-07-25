@@ -114,17 +114,25 @@ export function doWho(sim: SimState, slot: PlayerSlot): void {
   const directory =
     sim.crossFloorDirectory.length > 0
       ? sim.crossFloorDirectory
-      : connectedHere.map((p) => ({ name: p.entity.name ?? "?", floor: sim.world.floor }));
+      : connectedHere.map((p) => ({
+        name: p.entity.name ?? "?",
+        floor: sim.world.floor,
+        profileId: p.stored.localProfileId,
+      }));
   const nearby = connectedHere.filter(
     (p) =>
       p !== slot &&
       Math.hypot(p.entity.body.x - slot.entity.body.x, p.entity.body.y - slot.entity.body.y) <= AOI_RADIUS,
   ).length;
-  const names = [...directory]
+  const blockedProfiles = new Set(slot.stored.blockedProfileIds ?? []);
+  const visibleDirectory = directory.filter(
+    (player) => !player.profileId || !blockedProfiles.has(player.profileId),
+  );
+  const names = [...visibleDirectory]
     .sort((x, y) => x.name.localeCompare(y.name))
     .map((p) => `${p.name} (F${p.floor})`);
   slot.outbox.push(
-    systemLine(`Online (${directory.length}, ${nearby} nearby): ${names.join(", ")}`),
+    systemLine(`Online (${visibleDirectory.length}, ${nearby} nearby): ${names.join(", ")}`),
   );
 }
 

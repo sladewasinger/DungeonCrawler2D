@@ -81,6 +81,8 @@ export interface PlayerSlot {
   stamina?: number;
   maxStamina?: number;
   blocking?: boolean;
+  staminaRecoveryDelaySeconds?: number;
+  staminaExhausted?: boolean;
   lastDamageAtTick?: number;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];
@@ -226,7 +228,7 @@ export interface SimState {
    * (contacts.ts) and global chat relay (social.ts). Empty for sims not
    * under a registry (sandbox, bare unit tests) — those fall back to
    * this sim's own `players` map. */
-  crossFloorDirectory: ReadonlyArray<{ name: string; floor: number }>;
+  crossFloorDirectory: ReadonlyArray<{ name: string; floor: number; profileId?: string }>;
   /** Global chat events awaiting FloorRegistry relay to every OTHER
    * active floor sim (this sim's own players already got it directly —
    * see social.ts's doGlobalChat). Drained once per tick by the registry. */

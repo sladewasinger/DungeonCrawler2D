@@ -1,4 +1,5 @@
 import { loadPlayerStoreFile, savePlayerStoreFile } from "./storeFile.js";
+import { localProfileIdForSlot, normalizeStoredPlayer } from "./storedPlayer.js";
 
 /**
  * Persistent per-player data keyed by anonymous clientId: personal
@@ -40,23 +41,18 @@ export interface StoredPlayer {
   /** Durable terminal objective. Once the Warden has been defeated with
    * this player in the arena, it never becomes false again. */
   descentComplete?: boolean;
+  /** Stable server-local profile identifier. It is not an authentication
+   * credential; future identity providers may link to it without rewriting
+   * character progression. */
+  localProfileId?: string;
+  /** Durable, policy-neutral progression: successful crafts per recipe id. */
+  craftedRecipes?: Record<string, number>;
+  /** Social safety bindings use stable local profile ids, never transient entities. */
+  mutedProfileIds?: string[];
+  blockedProfileIds?: string[];
 }
 
 export const STASH_CAPACITY = 24;
-
-const normalizeStoredPlayer = (player: StoredPlayer): StoredPlayer => ({
-  ...player,
-  contacts: player.contacts ?? [],
-  xp: player.xp ?? 0,
-  level: player.level ?? 1,
-  deepestFloor: player.deepestFloor ?? 1,
-  activeFloor: player.activeFloor ?? 1,
-  descentComplete: player.descentComplete ?? false,
-  ...(Array.isArray(player.hotbar) ? { hotbar: [...player.hotbar] } : {}),
-  ...(player.starterHotbarSchema === undefined
-    ? {}
-    : { starterHotbarSchema: player.starterHotbarSchema }),
-});
 
 export class PlayerStore {
   private readonly data = new Map<string, StoredPlayer>();
@@ -88,8 +84,9 @@ export class PlayerStore {
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);
     if (!player) {
+      const slot = this.nextSlot++;
       player = {
-        slot: this.nextSlot++,
+        slot,
         name,
         stash: [],
         contacts: [],
@@ -98,6 +95,10 @@ export class PlayerStore {
         deepestFloor: 1,
         activeFloor: 1,
         descentComplete: false,
+        localProfileId: localProfileIdForSlot(slot),
+        craftedRecipes: {},
+        mutedProfileIds: [],
+        blockedProfileIds: [],
       };
       this.data.set(clientId, player);
       this.scheduleSave();
@@ -111,6 +112,14 @@ export class PlayerStore {
   /** Read an existing record without creating one or accepting client-supplied state. */
   find(clientId: string): StoredPlayer | undefined {
     return this.data.get(clientId);
+  }
+
+  findUniqueByName(name: string): StoredPlayer | undefined {
+    const lower = name.toLowerCase();
+    const matches = [...this.data.values()].filter(
+      (player) => player.name.toLowerCase() === lower,
+    );
+    return matches.length === 1 ? matches[0] : undefined;
   }
 
   /** Merge items into a stash (stacking), respecting capacity. */
@@ -176,6 +185,27 @@ export class PlayerStore {
     player.descentComplete = true;
     this.scheduleSave();
     return true;
+  }
+
+  recordCraft(player: StoredPlayer, recipeId: string): void {
+    const crafted = (player.craftedRecipes ??= {});
+    crafted[recipeId] = (crafted[recipeId] ?? 0) + 1;
+    this.scheduleSave();
+  }
+
+  recordModerationProfile(
+    player: StoredPlayer,
+    kind: "mutedProfileIds" | "blockedProfileIds",
+    profileId: string,
+    enabled: boolean,
+  ): void {
+    const values = (player[kind] ??= []);
+    const index = values.indexOf(profileId);
+    if (enabled && index < 0) values.push(profileId);
+    else if (!enabled && index >= 0) values.splice(index, 1);
+    else return;
+    values.sort();
+    this.scheduleSave();
   }
 
   recordHotbar(

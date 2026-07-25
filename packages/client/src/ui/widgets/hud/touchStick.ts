@@ -52,7 +52,7 @@ export class TouchStickWidget {
       // Tucked closer to the corner than the original {48,-92} now that the ring itself
       // is smaller (wave-6 playtest) — keep in sync with default-layout.json's
       // "touch-stick" entry, which still wins as the active override.
-      defaultOffset: { x: 36, y: -68 },
+      defaultOffset: { x: 86, y: -68 },
       defaultScale: 1,
       defaultVisible: true,
     });

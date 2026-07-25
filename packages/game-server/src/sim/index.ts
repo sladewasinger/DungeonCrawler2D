@@ -44,6 +44,11 @@ import {
 import { configureSnapshotMode, requestSnapshotBaseline } from "./snapshotReplication.js";
 import { expireInvites } from "./social.js";
 import {
+  injectGlobalChat,
+  listConnectedPlayers,
+  profileIdForPlayer,
+} from "./socialBridge.js";
+import {
   createSimState,
   type FloorTransferRequest,
   type JoinResult,
@@ -100,9 +105,7 @@ export class GameSim {
     return this.state.players.size;
   }
 
-  get enemyCount(): number {
-    return this.state.enemies.size;
-  }
+  get enemyCount(): number { return this.state.enemies.size; }
 
   /** Test access: ground-item entities currently in this sim (e.g. a
    * death's full-loot drop, which stays on the floor it happened on). */
@@ -194,9 +197,11 @@ export class GameSim {
   }
 
   /** Deliver a relayed global-chat event to every connected player here. */
-  injectGlobalChat(event: GameEvent): void {
-    for (const slot of this.state.players.values()) if (slot.connected) slot.outbox.push(event);
-  }
+  injectGlobalChat(event: GameEvent, senderProfileId?: string): void {
+    injectGlobalChat(this.state, event, senderProfileId); }
+
+  profileIdForPlayer(playerId: string): string | undefined {
+    return profileIdForPlayer(this.state, playerId); }
 
   /** Does a resume token belong to a slot currently in THIS sim? Lets
    * FloorRegistry route a reconnecting "dungeon" hello to the right floor. */
@@ -205,19 +210,15 @@ export class GameSim {
   }
 
   /** FloorRegistry refreshes this once per tick for cross-floor /who. */
-  setCrossFloorDirectory(directory: ReadonlyArray<{ name: string; floor: number }>): void {
+  setCrossFloorDirectory(
+    directory: ReadonlyArray<{ name: string; floor: number; profileId?: string }>,
+  ): void {
     this.state.crossFloorDirectory = directory;
   }
 
-  /** Snapshot of `{name, floor}` for every connected player — FloorRegistry's input to setCrossFloorDirectory. */
-  listConnectedPlayers(): Array<{ name: string; floor: number }> {
-    const floor = this.state.world.floor;
-    const out: Array<{ name: string; floor: number }> = [];
-    for (const slot of this.state.players.values()) {
-      if (slot.connected) out.push({ name: slot.entity.name ?? "?", floor });
-    }
-    return out;
-  }
+  /** Presence records for every connected player — FloorRegistry refreshes every sim. */
+  listConnectedPlayers(): Array<{ name: string; floor: number; profileId: string }> {
+    return listConnectedPlayers(this.state); }
 
   // ── main tick ────────────────────────────────────────────────────
 

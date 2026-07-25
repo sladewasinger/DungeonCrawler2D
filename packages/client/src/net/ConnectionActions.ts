@@ -27,7 +27,10 @@ export class ConnectionActions {
     return this as unknown as Connection;
   }
 
-  attack(dirX: number, dirY: number): void { attackIntent(this.connection, dirX, dirY); }
+  attack(dirX: number, dirY: number): void {
+    this.connection.contextualActionsUsed.add("attack");
+    attackIntent(this.connection, dirX, dirY);
+  }
   throwTorch(dirX: number, dirY: number): void { throwTorchIntent(this.connection, dirX, dirY); }
   useSlot(slot: number, targetX?: number, targetY?: number): void {
     useSlotIntent(this.connection, slot, targetX, targetY);
@@ -49,9 +52,13 @@ export class ConnectionActions {
     partyOpIntent(this.connection, op, target);
   }
 
-  partyCommand(op: "leave" | "kick", targetName?: string): void {
-    const target = op === "kick" ? this.resolveSocialTarget(targetName) : undefined;
-    if (op === "kick" && !target) return;
+  partyCommand(
+    op: "invite" | "accept" | "decline" | "leave" | "kick",
+    targetName?: string,
+  ): void {
+    const targeted = op === "invite" || op === "kick";
+    const target = targeted ? this.resolveSocialTarget(targetName) : undefined;
+    if (targeted && !target) return;
     this.partyOp(op, target);
   }
 

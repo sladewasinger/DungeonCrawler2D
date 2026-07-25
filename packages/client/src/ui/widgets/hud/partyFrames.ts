@@ -19,6 +19,8 @@ export interface PartyRowData {
   readonly maxHp: number;
   readonly downed: boolean;
   readonly disconnected?: boolean;
+  readonly leader?: boolean;
+  readonly revive?: boolean;
   readonly arrow: string;
   readonly distance: number;
 }
@@ -45,6 +47,7 @@ interface RowVisual {
 export class PartyFramesWidget {
   private readonly scene: Phaser.Scene;
   private readonly root: Phaser.GameObjects.Container;
+  private readonly title: Phaser.GameObjects.Text;
   private readonly rows: RowVisual[] = [];
   private readonly scale: number;
 
@@ -61,6 +64,10 @@ export class PartyFramesWidget {
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.scale = layout.scale;
     this.root = createWidgetContainer(scene, layout);
+    this.title = scene.add
+      .text(0, -18, "PARTY", uiTextStyle(10, "#d8bd72", this.scale, "emphasis"))
+      .setOrigin(0, 0);
+    this.root.add(this.title);
     for (let i = 0; i < MAX_ROWS; i++) this.rows.push(this.buildRow(i));
   }
 
@@ -82,8 +89,9 @@ export class PartyFramesWidget {
     return { container, label, hpFill, downedTag };
   }
 
-  update(members: readonly PartyRowData[]): void {
+  update(members: readonly PartyRowData[], selfIsLeader = false): void {
     this.root.setVisible(members.length > 0);
+    this.title.setText(selfIsLeader ? "PARTY · YOU LEAD" : "PARTY");
     this.rows.forEach((row, i) => this.applyRow(row, members[i]));
   }
 
@@ -98,11 +106,12 @@ export class PartyFramesWidget {
       row.downedTag.setVisible(false);
       return;
     }
-    row.label.setText(`${data.arrow} ${presence.label} · ${data.distance}m`);
+    const leader = data.leader ? " LEADER" : "";
+    row.label.setText(`${data.arrow} ${presence.label}${leader} · ${data.distance}m`);
     const ratio = data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0;
     row.hpFill.width = HP_BAR_WIDTH * ratio;
     row.hpFill.setFillStyle(data.downed ? DOWNED_COLOR : HP_COLOR);
-    row.downedTag.setVisible(data.downed);
+    row.downedTag.setText(data.revive ? "REVIVE [E]" : "DOWNED").setVisible(data.downed);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

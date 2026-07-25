@@ -7,7 +7,7 @@ import { wireByteLength } from "./wireSize.js";
 const IDLE: MoveInput = { moveX: 0, moveY: 0, jump: false, run: false };
 
 describe("MovementCadence", () => {
-  it("sends every fixed prediction tick so authoritative input cannot fall behind", () => {
+  it("sends one held-state event regardless of how many fixed ticks pass", () => {
     const cadence = new MovementCadence();
     const inputs = Array.from({ length: 20 }, (_, seq): ClientInput => ({
       type: "input",
@@ -22,8 +22,8 @@ describe("MovementCadence", () => {
     const adaptiveBytes = sends.reduce((total, entry) =>
       total + wireByteLength(encodeMessage(entry)), 0);
 
-    expect(sends.map(({ seq }) => seq)).toEqual(inputs.map(({ seq }) => seq));
-    expect(adaptiveBytes).toBe(legacyBytes);
+    expect(sends.map(({ seq }) => seq)).toEqual([0]);
+    expect(adaptiveBytes).toBeLessThan(legacyBytes / 10);
   });
 
   it("sends movement, aim, jump, run, and block changes immediately", () => {

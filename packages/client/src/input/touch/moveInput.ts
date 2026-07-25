@@ -21,7 +21,7 @@ export function touchMoveInput(state: TouchInputState): MoveInput {
       moveX: 0,
       moveY: 0,
       jump: isButtonHeld(state, "jump"),
-      run: false,
+      run: isButtonHeld(state, "sprint"),
       ...(isButtonHeld(state, "block") ? { block: true } : {}),
     };
   }
@@ -31,7 +31,7 @@ export function touchMoveInput(state: TouchInputState): MoveInput {
     moveX,
     moveY,
     jump: isButtonHeld(state, "jump"),
-    run: stickIsRunning(state),
+    run: isButtonHeld(state, "sprint") || stickIsRunning(state),
     ...(isButtonHeld(state, "block") ? { block: true } : {}),
   };
 }

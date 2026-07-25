@@ -191,7 +191,7 @@ describe("inventory: crafting", () => {
     slot.entity.body.y = 5; // adjacent to the table tile
     doCraft(sim, slot, "bandage");
     expect(invQty(slot, "rag")).toBe(0);
-    expect(invQty(slot, "bandage")).toBe(1);
+    expect(invQty(slot, "bandage")).toBe(1); expect(slot.stored.craftedRecipes).toEqual({ bandage: 1 });
     doCraft(sim, slot, "bandage");
     expect(invQty(slot, "bandage")).toBe(1);
     expect(slot.outbox.at(-1)).toEqual({ t: "toast", msg: "Missing rag" });

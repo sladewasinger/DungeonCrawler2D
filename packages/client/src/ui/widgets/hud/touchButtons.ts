@@ -18,10 +18,9 @@ const WIDGET_ID = "touch-buttons";
  * these to 34/26/26. Wave-9 user spec walks part of that back — "movement joystick and
  * buttons need to be slightly bigger" — without returning all the way to the original
  * 44/34/34 set. */
-const ATTACK_SIZE = 40;
-const JUMP_SIZE = 30;
-const INTERACT_SIZE = 30;
-const GAP = 5;
+const ATTACK_SIZE = 50;
+const SECONDARY_SIZE = 40;
+const GAP = 6;
 /** Resting/pressed fill alpha — low at rest so the cluster doesn't visually crowd the
  * scene, full the moment a finger is actually on it (wave-6 playtest, "barely any
  * screen real estate"). JUMP/USE stay at the original low-profile value; ATTACK is
@@ -53,7 +52,7 @@ export function attackRestAlpha(elapsedMs: number): number {
   return ATTACK_REST_ALPHA + wave * ATTACK_PULSE_AMPLITUDE;
 }
 
-export type TouchButtonKind = "attack" | "block" | "jump" | "interact";
+export type TouchButtonKind = "attack" | "block" | "jump" | "interact" | "throw";
 
 interface ButtonVisual {
   kind: TouchButtonKind;
@@ -69,16 +68,17 @@ interface ButtonVisual {
  * single wide row, so the whole thing stays narrow enough not to reach into the
  * floating joystick's territory on a narrow (~390px) portrait phone.
  */
-function buttonPositions(): Record<TouchButtonKind, { x: number; y: number; size: number }> {
+export function actionButtonLayout(): Record<TouchButtonKind, { x: number; y: number; size: number }> {
   const attack = { x: -ATTACK_SIZE / 2, y: -ATTACK_SIZE / 2, size: ATTACK_SIZE };
-  const jump = { x: attack.x, y: -(ATTACK_SIZE + GAP + JUMP_SIZE / 2), size: JUMP_SIZE };
-  const interact = { x: jump.x - (JUMP_SIZE / 2 + GAP + INTERACT_SIZE / 2), y: jump.y, size: INTERACT_SIZE };
+  const jump = { x: attack.x, y: -(ATTACK_SIZE + GAP + SECONDARY_SIZE / 2), size: SECONDARY_SIZE };
+  const interact = { x: jump.x - (SECONDARY_SIZE + GAP), y: jump.y, size: SECONDARY_SIZE };
+  const throwItem = { x: attack.x - (ATTACK_SIZE / 2 + GAP + SECONDARY_SIZE / 2), y: attack.y, size: SECONDARY_SIZE };
   const block = {
-    x: attack.x - (ATTACK_SIZE + GAP),
+    x: throwItem.x - (SECONDARY_SIZE + GAP),
     y: attack.y,
-    size: ATTACK_SIZE,
+    size: SECONDARY_SIZE,
   };
-  return { attack, block, jump, interact };
+  return { attack, block, jump, interact, throw: throwItem };
 }
 
 export class TouchButtonsWidget {
@@ -107,11 +107,12 @@ export class TouchButtonsWidget {
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.scale = layout.scale;
     this.container = createWidgetContainer(scene, layout);
-    const positions = buttonPositions();
+    const positions = actionButtonLayout();
     this.buildButton("attack", positions.attack);
     this.buildButton("block", positions.block);
     this.buildButton("jump", positions.jump);
     this.buildButton("interact", positions.interact);
+    this.buildButton("throw", positions.throw);
   }
 
   private buildButton(kind: TouchButtonKind, pos: { x: number; y: number; size: number }): void {
@@ -124,7 +125,7 @@ export class TouchButtonsWidget {
 
   private buildGlyph(kind: TouchButtonKind, pos: { x: number; y: number; size: number }): Phaser.GameObjects.GameObject {
     if (kind === "attack") return createItemIcon(this.scene, "sword", pos.size, this.scale).setPosition(pos.x, pos.y);
-    const label = kind === "jump" ? "JUMP" : kind === "block" ? "BLOCK" : "USE";
+    const label = kind === "jump" ? "JUMP" : kind === "block" ? "BLOCK" : kind === "throw" ? "THROW" : "USE";
     return this.scene.add.text(pos.x, pos.y, label, uiTextStyle(9, undefined, this.scale)).setOrigin(0.5, 0.5);
   }
 
@@ -140,7 +141,7 @@ export class TouchButtonsWidget {
     const attackAlpha = attackRestAlpha(nowMs - this.sessionStartMs);
     for (const button of this.buttons) {
       const restAlpha = button.kind === "attack" ? attackAlpha : REST_ALPHA;
-      const isPressed = pressed[button.kind] ?? false;
+      const isPressed = button.kind === "throw" ? false : pressed[button.kind] ?? false;
       button.cell.setFillStyle(
         isPressed ? SELECTION_ACCENT : PANEL_FILL,
         isPressed ? PRESSED_ALPHA : restAlpha,

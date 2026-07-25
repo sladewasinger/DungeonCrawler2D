@@ -16,7 +16,7 @@ import {
 export const PREDICTION_HISTORY_LIMIT = 64;
 
 interface PredictedStep {
-  readonly seq: number;
+  readonly serverTick: number;
   readonly input: MoveInput;
 }
 
@@ -35,13 +35,10 @@ export class Prediction {
     this.pending = [];
   }
 
-  /** Reserve a wire identity for a control edge before the next fixed prediction tick. */
-  nextInputIdentity(): PredictedInputIdentity {
+  /** Reserve a wire identity for a changed control state, independent of simulation ticks. */
+  nextInputIdentity(projectedServerTick = (this.projectedServerTick ?? 0) + 1): PredictedInputIdentity {
     this.seq++;
-    return {
-      seq: this.seq,
-      projectedServerTick: (this.projectedServerTick ?? 0) + 1,
-    };
+    return { seq: this.seq, projectedServerTick };
   }
 
   /** Advance the local body one tick and remember the input for replay. */
@@ -51,30 +48,33 @@ export class Prediction {
     input: MoveInput,
     resources?: PlayerResourceState,
     canBlock = false,
-  ): PredictedInputIdentity {
+  ): number {
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
     const effective = resources
       ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
       : input;
     stepBody(world, body, effective, TICK_DT);
-    this.seq++;
     this.pending.push({
-      seq: this.seq,
+      serverTick: this.projectedServerTick,
       input,
     });
     if (this.pending.length > PREDICTION_HISTORY_LIMIT) this.pending.shift();
-    return { seq: this.seq, projectedServerTick: this.projectedServerTick };
+    return this.projectedServerTick;
   }
 
-  /** Drop server-acknowledged inputs, then replay only inputs the server has not consumed. */
+  /** Drop simulation steps covered by server time, then replay genuinely newer work. */
   reconcile(
     world: World,
     body: BodyState,
-    lastAckedSeq: number,
+    authoritativeServerTick: number,
     resources?: PlayerResourceState,
     canBlock = false,
   ): void {
-    this.pending = this.pending.filter((step) => step.seq > lastAckedSeq);
+    this.projectedServerTick = Math.max(
+      this.projectedServerTick ?? authoritativeServerTick,
+      authoritativeServerTick,
+    );
+    this.pending = this.pending.filter((step) => step.serverTick > authoritativeServerTick);
     for (const p of this.pending) {
       const effective = resources
         ? stepPlayerResources(resources, p.input, canBlock, TICK_DT).input

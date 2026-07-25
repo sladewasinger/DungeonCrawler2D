@@ -144,7 +144,12 @@ function relayGlobalChat(active: GameSim[]): void {
     if (origin.events.length === 0) continue;
     for (const other of perSim) {
       if (other.sim === origin.sim) continue;
-      for (const event of origin.events) other.sim.injectGlobalChat(event);
+      for (const event of origin.events) {
+        const senderProfileId = event.t === "chat"
+          ? origin.sim.profileIdForPlayer(event.from)
+          : undefined;
+        other.sim.injectGlobalChat(event, senderProfileId);
+      }
     }
   }
 }

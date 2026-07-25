@@ -25,6 +25,7 @@ function nearbyStation(conn: Connection, kind: WorldInteractionKind): boolean {
  * split out so buildLiveHudSnapshot itself stays under the function-length cap. */
 function buildSnapshotSource(conn: Connection): HudSnapshotSource {
   return {
+    playerId: conn.welcome?.playerId ?? null,
     hp: conn.hp,
     maxHp: conn.maxHp,
     stamina: conn.stamina,

@@ -7,6 +7,12 @@ import { remoteActorPose } from "./remoteActorPose.js";
 import { createRemoteActorAnimation, updateRemoteActorAnimation, type RemoteActorAnimation } from "./remoteActorAnimation.js";
 import { syncReconnectPresentation, type DisconnectedActorLabel, type ReconnectActor } from "./ThreeRemoteActorReconnectPresentation.js";
 import { createEnemyTexture } from "./threeVisuals.js";
+import {
+  createRemoteActorAura,
+  disposeRemoteActorAura,
+  syncRemoteActorAura,
+  type RemoteActorAura,
+} from "./ThreeRemoteActorAura.js";
 
 const KNIGHT_MODEL_URL = "/assets/three-models/Knight_Animated.fbx";
 const KNIGHT_TEXTURE_URL = "/assets/three-models/Texture.png";
@@ -16,7 +22,7 @@ interface ActorObject {
   position: { x: number; y: number; z: number; set(x: number, y: number, z: number): void };
   rotation: { x: number; y: number; z: number };
   scale: { setScalar(value: number): void };
-  add(...objects: ActorObject[]): void;
+  add(...objects: unknown[]): void;
 }
 
 interface KnightMesh {
@@ -37,6 +43,7 @@ type VisibleKind = "player" | "enemy";
 interface ActiveActor {
   object: ActorObject;
   kind: VisibleKind;
+  aura?: RemoteActorAura | undefined;
   animation?: RemoteActorAnimation | undefined;
   disconnected: boolean;
   disconnectedLabel?: DisconnectedActorLabel | undefined;
@@ -47,6 +54,8 @@ export class ThreeRemoteActors {
   private readonly actors = new Map<string, ActiveActor>();
   private readonly enemyTexture = createEnemyTexture();
   private readonly enemyMaterial = new THREE.SpriteMaterial({ map: this.enemyTexture, transparent: true, depthWrite: false });
+  private readonly fallbackGeometry = new THREE.CapsuleGeometry(0.2, 0.55, 4, 8);
+  private readonly fallbackMaterial = new THREE.MeshStandardMaterial({ color: "#d8b38b", emissive: "#563d2c", emissiveIntensity: 0.3 });
   private readonly knightTexture = new THREE.TextureLoader().load(KNIGHT_TEXTURE_URL);
   private readonly knightMaterial = new THREE.MeshStandardMaterial({ map: this.knightTexture, roughness: 0.78, metalness: 0.04 });
   private template: KnightModel | null = null;
@@ -65,14 +74,16 @@ export class ThreeRemoteActors {
       active.add(actor.id);
       this.syncActor(actor.id, actor, kind, elapsed);
     }
-    for (const [id, actor] of this.actors) if (!active.has(id)) this.removeActor(id, actor.object);
+    for (const [id, actor] of this.actors) if (!active.has(id)) this.removeActor(id, actor);
   }
 
   dispose(): void {
     this.group.removeFromParent();
-    this.actors.clear();
+    for (const [id, actor] of this.actors) this.removeActor(id, actor);
     this.enemyTexture.dispose();
     this.enemyMaterial.dispose();
+    this.fallbackGeometry.dispose();
+    this.fallbackMaterial.dispose();
     this.knightTexture.dispose();
     this.knightMaterial.dispose();
   }
@@ -115,14 +126,18 @@ export class ThreeRemoteActors {
     active.object.position.set(pose.x, pose.y + (kind === "enemy" ? 0.5 : 0), pose.z);
     active.object.rotation.y = pose.yaw;
     updateRemoteActorAnimation(active.animation, pose.x, pose.z, elapsed);
+    if (active.aura) syncRemoteActorAura(active.aura, player.snap);
     this.syncDisconnectedPresentation(active, player.snap.disconnected === true);
   }
 
   private addActor(id: string, kind: VisibleKind): ActiveActor {
     const object = this.createActor(kind);
+    const aura = createRemoteActorAura(kind === "enemy");
+    object.add(aura.object);
     const active: ActiveActor = {
       object,
       kind,
+      aura,
       disconnected: false,
       ...(kind === "player" ? { animation: createRemoteActorAnimation(object, this.template) } : {}),
     };
@@ -139,8 +154,8 @@ export class ThreeRemoteActors {
 
   private createFallback(): ActorObject {
     return new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.2, 0.55, 4, 8),
-      new THREE.MeshStandardMaterial({ color: "#d8b38b", emissive: "#563d2c", emissiveIntensity: 0.3 }),
+      this.fallbackGeometry,
+      this.fallbackMaterial,
     );
   }
 
@@ -162,6 +177,8 @@ export class ThreeRemoteActors {
   }
 
   private replaceFallback(id: string, actor: ActorObject): void {
+    const previous = this.actors.get(id);
+    if (previous?.aura) disposeRemoteActorAura(previous.aura);
     this.group.remove(actor);
     const replacement = this.addActor(id, "player");
     replacement.object.position.set(actor.position.x, actor.position.y, actor.position.z);
@@ -170,8 +187,9 @@ export class ThreeRemoteActors {
     replacement.object.rotation.z = actor.rotation.z;
   }
 
-  private removeActor(id: string, actor: ActorObject): void {
-    this.group.remove(actor);
+  private removeActor(id: string, actor: ActiveActor): void {
+    if (actor.aura) disposeRemoteActorAura(actor.aura);
+    this.group.remove(actor.object);
     this.actors.delete(id);
   }
 }

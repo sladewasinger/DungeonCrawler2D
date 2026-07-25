@@ -111,6 +111,7 @@ export function applyTouchLayoutOverrides(registry: WidgetRegistry, viewport: Vi
   // a 390px-tall landscape phone without overlapping (ASSUMPTION #87).
   registry.setOverride("party", { offset: { x: -16, y: 85 }, scale: factor });
   registry.setOverride("touch-stick", { scale: factor });
+  registry.setOverride("touch-sprint", { scale: factor });
   registry.setOverride("touch-buttons", { scale: factor });
   registry.setOverride("inventory-toggle", { scale: factor });
 }

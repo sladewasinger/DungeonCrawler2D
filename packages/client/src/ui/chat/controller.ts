@@ -22,7 +22,10 @@ export interface ChatPort {
   readonly chatSeq: number;
   chat(channel: "party" | "local" | "global" | "dm", text: string, target?: string): void;
   who(): void;
-  partyCommand(op: "leave" | "kick", target?: string): void;
+  partyCommand(
+    op: "invite" | "accept" | "decline" | "leave" | "kick",
+    target?: string,
+  ): void;
   moderate(
     op: "mute" | "unmute" | "block" | "unblock" | "report",
     target: string,

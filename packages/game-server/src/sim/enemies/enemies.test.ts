@@ -16,6 +16,7 @@ import {
   World,
   createBody,
   type ContentRegistry,
+  type EffectEvent,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { spawnEnemy } from "../helpers.js";
@@ -171,6 +172,26 @@ describe("enemy AI", () => {
     stepEnemies(sim, []);
 
     expect(player.hp).toBeLessThan(startHp);
+    expect(sim.enemies.get(enemy.id)?.animation.state).toBe("attack");
+  });
+
+  it("fully blocks melee damage, status effects, and knockback with a weapon", () => {
+    const enemy = spawnEnemy(sim, "skeleton", spot.x + 0.8, spot.y);
+    const slot = sim.players.get("p1");
+    if (!slot) throw new Error("missing blocking player fixture");
+    slot.weapon = "sword";
+    slot.blocking = true;
+    const startHp = slot.entity.hp;
+    const startBody = { ...slot.entity.body };
+    const effects: EffectEvent[] = [];
+
+    stepEnemies(sim, effects);
+
+    expect(slot.entity.hp).toBe(startHp);
+    expect(slot.entity.statuses).toEqual([]);
+    expect(slot.entity.body.kx).toBe(startBody.kx);
+    expect(slot.entity.body.ky).toBe(startBody.ky);
+    expect(effects).toEqual([]);
     expect(sim.enemies.get(enemy.id)?.animation.state).toBe("attack");
   });
 

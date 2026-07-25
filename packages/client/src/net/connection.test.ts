@@ -50,6 +50,20 @@ describe("Connection.disconnect", () => {
   });
 });
 
+describe("Connection contextual action completion", () => {
+  it("records attack and block presses so persistent combat help can dismiss", () => {
+    const conn = freshConnection();
+    conn.attack(1, 0);
+    conn.sampleInput({
+      moveX: 0,
+      moveY: 0,
+      jump: false,
+      block: true,
+    });
+    expect([...conn.contextualActionsUsed]).toEqual(["attack", "block"]);
+  });
+});
+
 describe("requireConnectionUpdate", () => {
   it("stops reconnecting and reports a terminal client-version mismatch", () => {
     const conn = freshConnection();

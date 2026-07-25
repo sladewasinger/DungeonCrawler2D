@@ -1,6 +1,7 @@
 import { createBody, stairwayUpPosition } from "@dc2d/engine";
 import { announceFloorEntry, announceStairwayHint } from "../announcer/index.js";
 import { respawnSlot } from "../players.js";
+import { refreshModerationBindings } from "../moderation.js";
 import { leaveParty } from "../social.js";
 import { findSpawn } from "../spawn.js";
 import type { FloorTransferRequest, SimState } from "../state.js";
@@ -37,6 +38,7 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
   const { slot } = req;
   sim.players.set(slot.entity.id, slot);
   sim.byToken.set(slot.resumeToken, slot.entity.id);
+  refreshModerationBindings(sim);
   slot.known.clear();
   slot.needsFullAreas = true;
   slot.pendingInputs.length = 0;
