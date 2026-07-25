@@ -67,6 +67,7 @@ export interface PointerDeps {
   tilePx: number;
   touch: TouchInputState;
   touchActive: boolean;
+  sendMovementEdge(): void;
   performContextAction(): void;
   throwSelected(): void;
   viewport: { width: number; height: number };
@@ -108,11 +109,15 @@ export function handlePointerDown(state: InputState, deps: PointerDeps, pointer:
     handleUiHit(state, deps, uiHit, pointer.id);
     return;
   }
-  if (pointer.rightButtonDown()) return; // reserved
+  if (pointer.rightButtonDown()) {
+    deps.sendMovementEdge();
+    return;
+  }
 
   if (touchActive) {
     if (isInLowerLeftQuadrant(pointer.x, pointer.y, viewport.width, viewport.height)) {
       beginStick(touch, pointer.id, pointer.x, pointer.y);
+      deps.sendMovementEdge();
     }
     return; // no mouse-aim swing/throw fallback in touch mode — the ATTACK button owns it
   }
@@ -140,8 +145,13 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     triggerAttack(state, conn, hooks, dir.x, dir.y, performance.now(), queries.attackCooldownMs(conn.weapon));
   } else if (uiHit === "touch:block") {
     pressButton(touch, "block", pointerId);
+    deps.sendMovementEdge();
+  } else if (uiHit === "touch:sprint") {
+    pressButton(touch, "sprint", pointerId);
+    deps.sendMovementEdge();
   } else if (uiHit === "touch:jump") {
     pressButton(touch, "jump", pointerId);
+    deps.sendMovementEdge();
   } else if (uiHit === "touch:interact") {
     pressButton(touch, "interact", pointerId);
     deps.performContextAction();
@@ -155,8 +165,13 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
 }
 
 /** Live drag tracking for the floating stick — routed from the scene's pointermove. */
-export function handlePointerMove(touch: TouchInputState, pointer: Phaser.Input.Pointer): void {
+export function handlePointerMove(
+  touch: TouchInputState,
+  pointer: Phaser.Input.Pointer,
+  onMovementEdge: () => void = () => {},
+): void {
   moveStick(touch, pointer.id, pointer.x, pointer.y);
+  onMovementEdge();
 }
 
 /** Releases the stick (if this pointer owns it) and any buttons this pointer held — pointerup/pointerupoutside. */
@@ -164,9 +179,11 @@ export function handlePointerUp(
   touch: TouchInputState,
   pointer: Phaser.Input.Pointer,
   onInteractReleased: () => void = () => {},
+  onMovementEdge: () => void = () => {},
 ): void {
   const releasedInteract = touch.buttons.interact === pointer.id;
   endStick(touch, pointer.id);
   releaseAllForPointer(touch, pointer.id);
   if (releasedInteract) onInteractReleased();
+  onMovementEdge();
 }

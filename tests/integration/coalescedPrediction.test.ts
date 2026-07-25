@@ -27,8 +27,8 @@ function expectSamePosition(connection: Connection, serverX: number, serverY: nu
   expect(connection.body?.y).toBeCloseTo(serverY, 10);
 }
 
-describe("coalesced prediction integration", () => {
-  it("does not replay held ticks already covered by 10 Hz authoritative snapshots", () => {
+describe("prediction integration", () => {
+  it("keeps every held input tick aligned across dropped authoritative snapshots", () => {
     const sim = makeSim(717, { testFixtures: true, freezeEnemies: true });
     const joined = sim.addPlayer("Predictor", "prediction-client");
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
@@ -65,7 +65,9 @@ describe("coalesced prediction integration", () => {
       expectSamePosition(connection, serverPlayer.body.x, serverPlayer.body.y);
     }
 
-    expect(sentInputs.map(({ seq }) => seq)).toEqual([1, 11]);
+    expect(sentInputs.map(({ seq }) => seq)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    );
     expect(droppedSnapshot).toBe(true);
     expect(deliveredSnapshots).toBeGreaterThanOrEqual(9);
     expect(deliveredSnapshots).toBeLessThan(20);

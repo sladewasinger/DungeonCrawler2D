@@ -62,7 +62,7 @@ export class InputController {
     const { keys, cursors } = createKeys(scene);
     this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null };
     this.bindKeys(keys, queries, hooks);
-    bindKeyboardMovementEdges(this.state, () => this.conn.sendInputEdge?.(this.readInput()));
+    bindKeyboardMovementEdges(this.state, () => this.sendCurrentMovementEdge());
     this.bindPointer(hud, queries, hooks, tilePx);
   }
 
@@ -187,6 +187,7 @@ export class InputController {
           tilePx,
           touch: this.touch,
           touchActive: this.touchActive,
+          sendMovementEdge: () => this.sendCurrentMovementEdge(),
           performContextAction: () => this.handleInteractDown("pickup"),
           throwSelected: () => this.throwSelectedTouch(),
           viewport,
@@ -194,6 +195,12 @@ export class InputController {
         },
         pointer,
       );
+    });
+    this.scene.input.on("pointerup", () => {
+      if (!this.touchActive) this.sendCurrentMovementEdge();
+    });
+    this.scene.input.on("pointerupoutside", () => {
+      if (!this.touchActive) this.sendCurrentMovementEdge();
     });
     if (this.touchActive) this.bindTouchDragListeners();
   }
@@ -214,9 +221,14 @@ export class InputController {
   }
 
   private bindTouchDragListeners(): void {
-    this.scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => handlePointerMove(this.touch, pointer));
+    const sendMovementEdge = () => this.sendCurrentMovementEdge();
+    this.scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => handlePointerMove(this.touch, pointer, sendMovementEdge));
     const release = () => this.revive.end(this.scene.time.now);
-    this.scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release)); this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release));
+    this.scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release, sendMovementEdge)); this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release, sendMovementEdge));
+  }
+
+  private sendCurrentMovementEdge(): void {
+    this.conn.sendInputEdge?.(this.readInput());
   }
 
   /** Sampled at the fixed tick rate by the scene. Keyboard/touch author SCREEN-space
