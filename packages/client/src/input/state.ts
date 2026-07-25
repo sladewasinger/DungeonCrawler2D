@@ -5,6 +5,7 @@
  * directly, so this subsystem ports and tests standalone).
  */
 import type Phaser from "phaser";
+import type { MoveInput } from "@dc2d/engine";
 
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
@@ -74,6 +75,8 @@ export interface InputConnection {
    * toast stack (ui/widgets/hud/toastStack.ts).
    */
   pushToast(msg: string): void;
+  /** Sends a changed movement/control state immediately, outside the fixed prediction tick. */
+  sendInputEdge?(input: MoveInput): void;
 }
 
 /** Resolves whether the HUD's own layer consumed a pointer event. */

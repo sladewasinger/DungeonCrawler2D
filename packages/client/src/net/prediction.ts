@@ -16,7 +16,7 @@ import {
 export const PREDICTION_HISTORY_LIMIT = 64;
 
 interface PredictedStep {
-  readonly serverTick: number;
+  readonly seq: number;
   readonly input: MoveInput;
 }
 
@@ -35,6 +35,15 @@ export class Prediction {
     this.pending = [];
   }
 
+  /** Reserve a wire identity for a control edge before the next fixed prediction tick. */
+  nextInputIdentity(): PredictedInputIdentity {
+    this.seq++;
+    return {
+      seq: this.seq,
+      projectedServerTick: (this.projectedServerTick ?? 0) + 1,
+    };
+  }
+
   /** Advance the local body one tick and remember the input for replay. */
   predict(
     world: World,
@@ -43,33 +52,29 @@ export class Prediction {
     resources?: PlayerResourceState,
     canBlock = false,
   ): PredictedInputIdentity {
-    this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
     const effective = resources
       ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
       : input;
     stepBody(world, body, effective, TICK_DT);
+    this.seq++;
     this.pending.push({
-      serverTick: this.projectedServerTick,
+      seq: this.seq,
       input,
     });
     if (this.pending.length > PREDICTION_HISTORY_LIMIT) this.pending.shift();
     return { seq: this.seq, projectedServerTick: this.projectedServerTick };
   }
 
-  /** Drop prediction steps covered by acknowledged server progress, then replay newer work. */
+  /** Drop server-acknowledged inputs, then replay only inputs the server has not consumed. */
   reconcile(
     world: World,
     body: BodyState,
-    acknowledgedProjectedTick: number,
+    lastAckedSeq: number,
     resources?: PlayerResourceState,
     canBlock = false,
   ): void {
-    this.projectedServerTick = Math.max(
-      this.projectedServerTick ?? acknowledgedProjectedTick,
-      acknowledgedProjectedTick,
-    );
-    this.pending = this.pending.filter((step) => step.serverTick > acknowledgedProjectedTick);
+    this.pending = this.pending.filter((step) => step.seq > lastAckedSeq);
     for (const p of this.pending) {
       const effective = resources
         ? stepPlayerResources(resources, p.input, canBlock, TICK_DT).input

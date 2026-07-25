@@ -1,7 +1,5 @@
 import {
   MOVE_SPEED,
-  PROJECTED_INPUT_MAX_FUTURE_TICKS,
-  PROJECTED_INPUT_MAX_PAST_TICKS,
   TICK_RATE,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
@@ -23,7 +21,7 @@ describe("player input queue", () => {
     const first = sim.step().get(player.playerId);
     if (!first) throw new Error("first snapshot is missing");
     expect(first.lastSeq).toBe(2);
-    expect(first.lastProjectedServerTick).toBe(sim.tick);
+    expect(first.lastProjectedServerTick).toBe(0);
     expect(entity.body.x - start.x).toBeCloseTo(MOVE_SPEED / TICK_RATE, 5);
 
     sim.step();
@@ -34,6 +32,16 @@ describe("player input queue", () => {
     if (!stopped) throw new Error("stopped snapshot is missing");
     expect(stopped.lastSeq).toBe(3);
     expect(entity.body.x - start.x).toBeCloseTo((MOVE_SPEED / TICK_RATE) * 2, 5);
+  });
+
+  it("acknowledges only the projected tick carried by the processed input", () => {
+    const sim = makeSim();
+    const player = sim.addPlayer("Ack tester", "ack-client");
+
+    sim.handleInput(player.playerId, input(1, 1, 0, false, false, 7));
+    expect(sim.step().get(player.playerId)?.lastProjectedServerTick).toBe(7);
+
+    expect(sim.step().get(player.playerId)?.lastProjectedServerTick).toBe(7);
   });
 
   it("uses an explicit look vector without changing movement", () => {
@@ -62,22 +70,14 @@ describe("player input queue", () => {
     expect(entity.body.x).toBeGreaterThan(5.5);
   });
 
-  it("rejects projected ticks outside the bounded server window", () => {
+  it("does not discard valid sequenced input because client and server clocks drift", () => {
     const sim = makeSim();
     const player = sim.addPlayer("Timeline tester", "timeline-client");
 
-    sim.handleInput(player.playerId, input(
-      1,
-      1,
-      0,
-      false,
-      false,
-      sim.tick + PROJECTED_INPUT_MAX_FUTURE_TICKS + 1,
-    ));
-    expect(sim.step().get(player.playerId)?.lastSeq).toBe(-1);
+    sim.handleInput(player.playerId, input(1, 1, 0, false, false, 10_000));
+    expect(sim.step().get(player.playerId)?.lastSeq).toBe(1);
 
-    for (let index = 0; index <= PROJECTED_INPUT_MAX_PAST_TICKS; index++) sim.step();
-    sim.handleInput(player.playerId, input(2, 1, 0, false, false, 0));
-    expect(sim.step().get(player.playerId)?.lastSeq).toBe(-1);
+    sim.handleInput(player.playerId, input(2, 0, 0, false, false, 0));
+    expect(sim.step().get(player.playerId)?.lastSeq).toBe(2);
   });
 });

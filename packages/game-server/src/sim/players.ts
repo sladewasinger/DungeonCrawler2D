@@ -3,8 +3,6 @@ import {
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
   PLAYER_MAX_STAMINA,
-  PROJECTED_INPUT_MAX_FUTURE_TICKS,
-  PROJECTED_INPUT_MAX_PAST_TICKS,
   RECONNECT_GRACE_MS,
   SAFE_FALL_HEIGHT,
   TICK_DT,
@@ -18,7 +16,7 @@ import {
 } from "@dc2d/engine";
 import { killIfInChasm } from "./deaths.js";
 import { advancePlayerResources } from "./combatResources.js";
-import { dropAllInventory, grantRespawnKit } from "./inventory.js";
+import { grantRespawnKit } from "./inventory.js";
 import { findSpawn } from "./spawn.js";
 import { endSpawnGrace, secureSpawnHandoff } from "./spawnSafety.js";
 import { leaveParty } from "./social.js";
@@ -42,12 +40,6 @@ export function markDisconnected(sim: SimState, playerId: string): void {
 export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
   const slot = sim.players.get(playerId);
   if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
-  const minimumProjectedTick = Math.max(0, sim.tickCount - PROJECTED_INPUT_MAX_PAST_TICKS);
-  const maximumProjectedTick = sim.tickCount + PROJECTED_INPUT_MAX_FUTURE_TICKS;
-  if (
-    input.projectedServerTick < minimumProjectedTick ||
-    input.projectedServerTick > maximumProjectedTick
-  ) return;
   const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
   if (input.seq <= highestReceivedSeq) return;
   slot.highestReceivedSeq = input.seq;
@@ -68,7 +60,7 @@ export function queueAction(
 export function reapAndRespawn(sim: SimState): void {
   for (const [id, slot] of sim.players) {
     if (!slot.connected && sim.tickCount >= slot.reapAtTick) {
-      dropAllInventory(sim, slot);
+      // dropAllInventory(sim, slot); // Don't drop items for disconnected players; only deaths.
       leaveParty(sim, slot);
       sim.players.delete(id);
       sim.byToken.delete(slot.resumeToken);
@@ -152,7 +144,7 @@ function stepPlayerBody(
   });
   if (latestInput) {
     slot.lastSeq = latestInput.seq;
-    slot.lastProjectedServerTick = sim.tickCount;
+    slot.lastProjectedServerTick = latestInput.projectedServerTick;
   }
   if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
   killIfInChasm(slot);

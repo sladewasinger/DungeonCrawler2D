@@ -17,16 +17,15 @@ import { GiveUpGesture } from "./giveUp.js";
 import { guardedAction } from "./inputGuard.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { cancelHeldGestures } from "./modalGestures.js";
+import { bindKeyboardMovementEdges } from "./movementEdges.js";
 import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
 import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
 import { createTouchInputState, isButtonHeld, mergeMoveInputs, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { isTouchDevice } from "./touchDetect.js";
 import { getViewOrientation } from "../render/view/index.js";
-
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
-
 export class InputController {
   private readonly state: InputState;
   private readonly touch: TouchInputState = createTouchInputState();
@@ -63,6 +62,7 @@ export class InputController {
     const { keys, cursors } = createKeys(scene);
     this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null };
     this.bindKeys(keys, queries, hooks);
+    bindKeyboardMovementEdges(this.state, () => this.conn.sendInputEdge?.(this.readInput()));
     this.bindPointer(hud, queries, hooks, tilePx);
   }
 
@@ -223,9 +223,7 @@ export class InputController {
    * intent (screen-up = "forward") — camera-relative controls remap it to WORLD space
    * here, the one choke point before Connection.sampleInput's predicted stepBody. */
   readInput(): MoveInput {
-    if (this.panels.gameplayBlocked) {
-      return { moveX: 0, moveY: 0, jump: false, run: false };
-    }
+    if (this.panels.gameplayBlocked) return { moveX: 0, moveY: 0, jump: false, run: false };
     const keyboardMove = readMoveInput(this.state, this.conn);
     if (!this.touchActive) return { ...withPointerFacing(screenMoveToWorld(keyboardMove, getViewOrientation()), this.scene, this.conn, this.tilePx), block: this.scene.input.activePointer.rightButtonDown() };
     const merged = mergeMoveInputs(keyboardMove, touchMoveInput(this.touch));

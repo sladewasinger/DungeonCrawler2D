@@ -1,7 +1,7 @@
 /** Coalesces unchanged movement intents while preserving immediate control-state changes. */
 import type { MoveInput } from "@dc2d/engine";
 
-export const INPUT_HEARTBEAT_TICKS = 10;
+export const INPUT_HEARTBEAT_TICKS = 1;
 
 function comparableInput(input: MoveInput): readonly (number | boolean)[] {
   return [
@@ -28,6 +28,13 @@ export class MovementCadence {
   reset(): void {
     this.lastSent = null;
     this.ticksSinceSend = INPUT_HEARTBEAT_TICKS;
+  }
+
+  shouldSendEdge(input: MoveInput): boolean {
+    if (this.lastSent && sameInput(this.lastSent, input)) return false;
+    this.lastSent = { ...input };
+    this.ticksSinceSend = 0;
+    return true;
   }
 
   shouldSend(input: MoveInput): boolean {

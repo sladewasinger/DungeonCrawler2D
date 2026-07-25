@@ -95,15 +95,12 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
     conn.prediction.reset();
     return;
   }
-  const acknowledgedTick = snap.lastProjectedServerTick >= 0
-    ? snap.lastProjectedServerTick
-    : snap.tick;
   const body = conn.body;
   if (body) {
     conn.prediction.reconcile(
       world,
       body,
-      acknowledgedTick,
+      snap.lastSeq,
       conn,
       snap.weapon !== null,
     );

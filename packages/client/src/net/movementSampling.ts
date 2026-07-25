@@ -2,6 +2,30 @@
 import type { MoveInput } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 
+function sendMovement(
+  connection: Connection,
+  input: MoveInput,
+  identity: { seq: number; projectedServerTick: number },
+): void {
+  connection.send({
+    type: "input",
+    ...identity,
+    moveX: input.moveX,
+    moveY: input.moveY,
+    ...(input.faceX !== undefined ? { faceX: input.faceX } : {}),
+    ...(input.faceY !== undefined ? { faceY: input.faceY } : {}),
+    jump: input.jump,
+    run: input.run ?? false,
+    block: input.block ?? false,
+  });
+}
+
+export function sendMovementEdge(connection: Connection, input: MoveInput): void {
+  if (!connection.world || !connection.body || !connection.canAct) return;
+  if (!connection.movementCadence.shouldSendEdge(input)) return;
+  sendMovement(connection, input, connection.prediction.nextInputIdentity());
+}
+
 export function sampleMovement(connection: Connection, input: MoveInput): void {
   if (!connection.world || !connection.body || !connection.canAct) return;
   const { seq, projectedServerTick } = connection.prediction.predict(
@@ -12,16 +36,5 @@ export function sampleMovement(connection: Connection, input: MoveInput): void {
     connection.weapon !== null,
   );
   if (!connection.movementCadence.shouldSend(input)) return;
-  connection.send({
-    type: "input",
-    seq,
-    projectedServerTick,
-    moveX: input.moveX,
-    moveY: input.moveY,
-    ...(input.faceX !== undefined ? { faceX: input.faceX } : {}),
-    ...(input.faceY !== undefined ? { faceY: input.faceY } : {}),
-    jump: input.jump,
-    run: input.run ?? false,
-    block: input.block ?? false,
-  });
+  sendMovement(connection, input, { seq, projectedServerTick });
 }

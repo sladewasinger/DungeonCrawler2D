@@ -19,7 +19,7 @@ import { ConnectionActions } from "./ConnectionActions.js";
 import { interpolated, type RemoteEntity } from "./interpolate.js";
 import { sendMeasured } from "./measuredSend.js";
 import { MovementCadence } from "./movementCadence.js";
-import { sampleMovement } from "./movementSampling.js";
+import { sampleMovement, sendMovementEdge } from "./movementSampling.js";
 import { Prediction } from "./prediction.js";
 import { PredictionCorrection } from "./predictionCorrection.js";
 import { SnapshotRevisionState } from "./snapshotState.js";
@@ -107,7 +107,6 @@ export class Connection extends ConnectionActions {
   readonly predictionCorrection = new PredictionCorrection();
   /** Live traffic/correction diagnostics expose the roadmap's reproducible baseline. */
   readonly networkMetrics = new WireMetrics();
-
   // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
   // class delegates its lifecycle to; treat as this facade's internals.
   ws: WebSocket | null = null;
@@ -172,6 +171,10 @@ export class Connection extends ConnectionActions {
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
     sampleMovement(this, input);
+  }
+
+  sendInputEdge(input: MoveInput): void {
+    sendMovementEdge(this, input);
   }
 
   // ── intents (bodies live in intents.ts, split out for the file-size cap) ──
