@@ -2,6 +2,7 @@ import { createBody, stairwayUpPosition } from "@dc2d/engine";
 import { announceFloorEntry, announceStairwayHint } from "../announcer/index.js";
 import { respawnSlot } from "../players.js";
 import { refreshModerationBindings } from "../moderation.js";
+import { resetInputTimeline } from "../playerInputTimeline.js";
 import { leaveParty } from "../social.js";
 import { findSpawn } from "../spawn.js";
 import type { FloorTransferRequest, SimState } from "../state.js";
@@ -41,7 +42,7 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
   refreshModerationBindings(sim);
   slot.known.clear();
   slot.needsFullAreas = true;
-  slot.pendingInputs.length = 0;
+  resetInputTimeline(slot);
 
   if (req.arrival === "deathSpawn") {
     // Full reset (hp/body/statuses/starter-kit) at THIS sim's own spawn —

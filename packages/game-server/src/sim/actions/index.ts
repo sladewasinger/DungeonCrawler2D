@@ -9,6 +9,7 @@ import { doInteract, teleport } from "./interact.js";
 import { dispatchItemAction } from "./items.js";
 import { doAttack } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety.js";
+import { resetInputTimeline } from "../playerInputTimeline.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
@@ -160,7 +161,7 @@ function doSuicide(slot: PlayerSlot): void {
   slot.downedAtTick = null;
   delete slot.entity.downedUntil;
   slot.entity.hp = 0;
-  slot.pendingInputs.length = 0;
+  resetInputTimeline(slot);
 }
 
 /** Bind an owned def (or clear) — the hotbar holds references. */

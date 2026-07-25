@@ -26,12 +26,12 @@ import { spawnEnemy, spawnItem } from "./helpers.js";
 import { addPlayer } from "./join.js";
 import {
   applyGodMode,
-  handleInput,
   markDisconnected,
   queueAction,
   reapAndRespawn,
   stepPlayers,
 } from "./players.js";
+import { handleInput } from "./playerInputTimeline.js";
 import { expireFistbumpOffers } from "./contacts.js";
 import { stepProjectiles } from "./projectiles.js";
 import { endSpawnGrace, maintainSpawnClearance } from "./spawnSafety.js";

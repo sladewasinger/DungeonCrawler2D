@@ -3,8 +3,6 @@ import {
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
   PLAYER_MAX_STAMINA,
-  PROJECTED_INPUT_MAX_FUTURE_TICKS,
-  PROJECTED_INPUT_MAX_PAST_TICKS,
   RECONNECT_GRACE_MS,
   SAFE_FALL_HEIGHT,
   TICK_DT,
@@ -12,7 +10,6 @@ import {
   createBody,
   faceEntity,
   stepBody,
-  type ClientInput,
   type EffectEvent,
   type Entity,
 } from "@dc2d/engine";
@@ -23,8 +20,11 @@ import { findSpawn } from "./spawn.js";
 import { endSpawnGrace, secureSpawnHandoff } from "./spawnSafety.js";
 import { leaveParty } from "./social.js";
 import type { PlayerSlot, SimState } from "./state.js";
+import { advanceInputTimeline, resetInputTimeline } from "./playerInputTimeline.js";
 
 /** Player step/lifecycle after join: input handling, movement, reap/respawn. Join/resume live in join.ts. */
+
+export { handleInput } from "./playerInputTimeline.js";
 
 const GRACE_TICKS = Math.ceil((RECONNECT_GRACE_MS / 1000) * TICK_RATE);
 
@@ -33,21 +33,10 @@ export function markDisconnected(sim: SimState, playerId: string): void {
   if (!slot || !slot.connected) return;
   slot.connected = false;
   slot.disconnectedAtTick = sim.tickCount;
-  slot.pendingInputs.length = 0;
+  resetInputTimeline(slot);
   slot.pendingActions.length = 0;
   slot.blocking = false;
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
-}
-
-export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
-  const slot = sim.players.get(playerId);
-  if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
-  if (input.projectedServerTick < sim.tickCount - PROJECTED_INPUT_MAX_PAST_TICKS ||
-    input.projectedServerTick > sim.tickCount + PROJECTED_INPUT_MAX_FUTURE_TICKS) return;
-  const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
-  if (input.seq <= highestReceivedSeq) return;
-  slot.highestReceivedSeq = input.seq;
-  slot.pendingInputs[0] = input;
 }
 
 export function queueAction(
@@ -92,6 +81,7 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.maxStamina ??= PLAYER_MAX_STAMINA;
   slot.stamina = slot.maxStamina;
   slot.blocking = false;
+  resetInputTimeline(slot);
   slot.staminaRecoveryDelaySeconds = 0;
   slot.staminaExhausted = false;
   slot.lastDamageAtTick = sim.tickCount;
@@ -115,20 +105,20 @@ export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const slot of sim.players.values()) {
     sim.replicationMotion.set(slot.entity.id, { x: 0, y: 0 });
     if (!slot.connected) {
-      slot.pendingInputs.length = 0;
+      resetInputTimeline(slot);
       continue;
     }
     const entity = slot.entity;
     if (entity.hp <= 0 || slot.downedAtTick !== null) {
       slot.blocking = false;
-      slot.pendingInputs.length = 0;
+      resetInputTimeline(slot);
       continue;
     }
     stepPlayerBody(sim, slot, entity, effectEvents);
   }
 }
 
-/** Advances every body once with its newest held control state. */
+/** Advances every body once with the control state due on its client simulation timeline. */
 function stepPlayerBody(
   sim: SimState,
   slot: PlayerSlot,
@@ -137,8 +127,7 @@ function stepPlayerBody(
 ): void {
   const tags = sim.effects.tagsOf(entity);
   const opts = { speed: entity.baseSpeed * sim.effects.speedMult(entity), stickyFeet: tags.has("sticky-feet") };
-  const latestInput = slot.pendingInputs[0];
-  const input = advancePlayerResources(slot, latestInput ?? NEUTRAL_INPUT);
+  const input = advancePlayerResources(slot, advanceInputTimeline(slot) ?? NEUTRAL_INPUT);
   if (input.moveX !== 0 || input.moveY !== 0 || input.jump) endSpawnGrace(slot);
   faceEntity(entity, input.faceX ?? input.moveX, input.faceY ?? input.moveY);
   const beforeX = entity.body.x;
@@ -148,10 +137,6 @@ function stepPlayerBody(
     x: (entity.body.x - beforeX) / TICK_DT,
     y: (entity.body.y - beforeY) / TICK_DT,
   });
-  if (latestInput) {
-    slot.lastSeq = latestInput.seq;
-    slot.lastProjectedServerTick = latestInput.projectedServerTick;
-  }
   if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
   killIfInChasm(slot);
 }

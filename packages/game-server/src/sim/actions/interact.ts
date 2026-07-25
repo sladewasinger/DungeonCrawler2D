@@ -11,6 +11,7 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { findSpawn } from "../spawn.js";
+import { resetInputTimeline } from "../playerInputTimeline.js";
 import type { PlayerSlot, SimState } from "../state.js";
 
 /** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
@@ -110,6 +111,7 @@ export function teleport(
   }
   const z = to.z ?? sim.world.groundAt(to.x, to.y);
   slot.entity.body = createBody(to.x, to.y, z);
+  resetInputTimeline(slot);
   slot.needsFullAreas = true;
   slot.known.clear();
   slot.outbox.push({ t: "teleported" });

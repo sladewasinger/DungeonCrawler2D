@@ -61,8 +61,10 @@ export interface PlayerSlot {
   lastSeq: number;
   /** Highest sequence accepted from the current socket epoch, including unprocessed input. */
   highestReceivedSeq?: number;
-  /** Projected server tick paired with lastSeq after authoritative processing. */
+  /** Last client-projected simulation tick completed by the authoritative player step. */
   lastProjectedServerTick?: number;
+  /** Control state held after consuming every command due for the simulated input tick. */
+  heldInput?: ClientInput;
   pendingInputs: ClientInput[];
   pendingActions: PlayerAction[];
   connected: boolean;

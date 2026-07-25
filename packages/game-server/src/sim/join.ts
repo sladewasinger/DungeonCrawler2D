@@ -11,6 +11,7 @@ import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnoun
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
 import { refreshModerationBindings, sendModerationState } from "./moderation.js";
+import { resetInputTimeline } from "./playerInputTimeline.js";
 import { findSpawn, newToken } from "./spawn.js";
 import { secureSpawnHandoff } from "./spawnSafety.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
@@ -167,11 +168,10 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
   if (!slot || slot.connected || slot.clientId !== clientId) return null;
   restorePausedLifecycle(sim, slot);
   slot.connected = true;
-  slot.pendingInputs.length = 0;
+  resetInputTimeline(slot);
   slot.pendingActions.length = 0;
   slot.lastSeq = -1;
   slot.highestReceivedSeq = -1;
-  slot.lastProjectedServerTick = -1;
   slot.needsFullAreas = true;
   // Dead and downed slots retain their paused state until gameplay resumes.
   if (slot.entity.hp > 0) ensureStarterKit(sim, slot);
