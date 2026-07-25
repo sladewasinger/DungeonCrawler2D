@@ -18,6 +18,7 @@ import {
   desiredChunks,
   diffChunks,
   planBakes,
+  SettledChunkWindow,
   type ChunkCoord,
   type ViewRect,
 } from "./streaming.js";
@@ -27,20 +28,20 @@ const LOAD_MARGIN_CHUNKS = 1;
 const BUILD_BUDGET_MS = 4;
 const MAX_BUILD_STARTS_PER_FRAME = 2;
 const MAX_MARGIN_BUILD_STARTS_PER_FRAME = 1;
-
 export class TerrainRenderer {
   private readonly visuals = new Map<string, ChunkVisual>();
   private readonly builders = new Map<string, ChunkVisualBuilder>();
   private readonly bakeQueue: ChunkCoord[] = [];
+  private readonly settledWindow = new SettledChunkWindow();
   private drainNextUpdate = false;
   private dynamicLights: readonly DynamicLightSeed[] = [];
-
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: World,
   ) {}
 
   update(view: ViewRect): void {
+    if (this.canSkipSettledWindow(view)) return;
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const knownKeys = new Set([
       ...this.visuals.keys(),
@@ -76,6 +77,19 @@ export class TerrainRenderer {
       () => this.advanceBuild(viewKeys),
       BUILD_BUDGET_MS,
       () => performance.now(),
+    );
+    this.captureSettledWindow(view);
+  }
+
+  private canSkipSettledWindow(view: ViewRect): boolean {
+    return this.settledWindow.canSkip(
+      view, this.builders.size, this.bakeQueue.length,
+    );
+  }
+
+  private captureSettledWindow(view: ViewRect): void {
+    this.settledWindow.captureIfIdle(
+      view, this.builders.size, this.bakeQueue.length,
     );
   }
 
@@ -169,6 +183,7 @@ export class TerrainRenderer {
   }
 
   invalidateAll(): void {
+    this.settledWindow.reset();
     for (const builder of this.builders.values()) builder.cancel();
     this.builders.clear();
     this.bakeQueue.length = 0;

@@ -6,7 +6,7 @@ import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { viewChunkWorldOrigin } from "../terrain/viewWorld.js";
-import { chunkKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
+import { chunkKey, chunkWindowKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { viewToWorld } from "../view/viewTransform.js";
 import { doorLightPositions } from "./doorLights.js";
@@ -33,6 +33,7 @@ type MutableLightSource = {
 export class LightingSystem {
   private readonly pool: LightSpritePool;
   private readonly chunkLights = new Map<string, LightSource[]>();
+  private streamedWindow = "";
   private accentLights: readonly LightSource[] = [];
   private readonly candidateLights: LightSource[] = [];
   private readonly frameLights: LightSource[] = [];
@@ -103,13 +104,17 @@ export class LightingSystem {
    * orientation-dependent viewChunkWorldOrigin. */
   invalidateAll(): void {
     this.chunkLights.clear();
+    this.streamedWindow = "";
   }
 
   private streamChunks(view: ViewRect): void {
+    const window = chunkWindowKey(view, LOAD_MARGIN_CHUNKS);
+    if (window === this.streamedWindow) return;
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.chunkLights.keys()));
     for (const coord of toLoad) this.chunkLights.set(chunkKey(coord), this.scanChunk(coord));
     for (const key of toUnloadKeys) this.chunkLights.delete(key);
+    this.streamedWindow = window;
   }
 
   private scanChunk(coord: ChunkCoord): LightSource[] {

@@ -2,7 +2,14 @@
 import { CHUNK_SIZE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { chunkKey, desiredChunks, diffChunks, planBakes } from "./streaming.js";
+import {
+  chunkKey,
+  chunkWindowKey,
+  desiredChunks,
+  diffChunks,
+  planBakes,
+  SettledChunkWindow,
+} from "./streaming.js";
 
 const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
 
@@ -23,6 +30,33 @@ describe("desiredChunks", () => {
   it("covers a view spanning multiple chunks", () => {
     const chunks = desiredChunks({ x: 0, y: 0, width: CHUNK_PX + 1, height: 1 }, 0);
     expect(chunks.map(chunkKey).sort()).toEqual(["0,0", "1,0"]);
+  });
+});
+
+describe("chunkWindowKey", () => {
+  it("is stable during sub-chunk camera motion and changes at a streaming boundary", () => {
+    const start = { x: 10, y: 20, width: 100, height: 80 };
+    const withinWindow = { ...start, x: 20, y: 30 };
+    const crossedBoundary = { ...start, x: CHUNK_PX + 10 };
+
+    expect(chunkWindowKey(withinWindow, 1)).toBe(chunkWindowKey(start, 1));
+    expect(chunkWindowKey(crossedBoundary, 1)).not.toBe(
+      chunkWindowKey(start, 1),
+    );
+  });
+
+  it("skips only an idle captured window and resets for a forced rebake", () => {
+    const view = { x: 10, y: 20, width: 100, height: 80 };
+    const settled = new SettledChunkWindow();
+
+    expect(settled.canSkip(view, 0, 0)).toBe(false);
+    settled.captureIfIdle(view, 1, 0);
+    expect(settled.canSkip(view, 0, 0)).toBe(false);
+    settled.captureIfIdle(view, 0, 0);
+    expect(settled.canSkip({ ...view, x: 20 }, 0, 0)).toBe(true);
+    expect(settled.canSkip(view, 1, 0)).toBe(false);
+    settled.reset();
+    expect(settled.canSkip(view, 0, 0)).toBe(false);
   });
 });
 

@@ -21,6 +21,41 @@ export function chunkKey(c: ChunkCoord): string {
   return `${c.cx},${c.cy}`;
 }
 
+/** Stable identity for the chunk bounds covered by a view and margin. */
+export function chunkWindowKey(view: ViewRect, marginChunks: number): string {
+  const minCx = Math.floor(view.x / CHUNK_PX) - marginChunks;
+  const maxCx = Math.floor((view.x + view.width) / CHUNK_PX) + marginChunks;
+  const minCy = Math.floor(view.y / CHUNK_PX) - marginChunks;
+  const maxCy = Math.floor((view.y + view.height) / CHUNK_PX) + marginChunks;
+  return `${minCx},${maxCx},${minCy},${maxCy}`;
+}
+
+export class SettledChunkWindow {
+  private desired = "";
+  private strict = "";
+
+  canSkip(view: ViewRect, builderCount: number, queueCount: number): boolean {
+    if (builderCount !== 0 || queueCount !== 0) return false;
+    return this.desired === chunkWindowKey(view, 1) &&
+      this.strict === chunkWindowKey(view, 0);
+  }
+
+  captureIfIdle(
+    view: ViewRect,
+    builderCount: number,
+    queueCount: number,
+  ): void {
+    if (builderCount !== 0 || queueCount !== 0) return;
+    this.desired = chunkWindowKey(view, 1);
+    this.strict = chunkWindowKey(view, 0);
+  }
+
+  reset(): void {
+    this.desired = "";
+    this.strict = "";
+  }
+}
+
 /** Chunk coords whose bounds intersect the view rect expanded by `marginChunks` on every side. */
 export function desiredChunks(view: ViewRect, marginChunks: number): ChunkCoord[] {
   const minCx = Math.floor(view.x / CHUNK_PX) - marginChunks;
