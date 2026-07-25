@@ -1,14 +1,20 @@
 /** Presents transient toasts, interaction prompts, reconnect state, and boss health above both renderers. */
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import { isTouchDevice } from "../input/touchDetect.js";
-import type { ContextualActionHint } from "../ui/actionHelp.js";
+import type {
+  ContextualAction,
+  ContextualActionHint,
+} from "../ui/actionHelp.js";
+import { ActionHelpLifecycle } from "../ui/actionHelpLifecycle.js";
 import { HUD_GOLD } from "./ThreeHudStyles.js";
 
 export type ThreeHudNoticeState = Pick<
   HudFakeSnapshot,
   "actionHints" | "boss" | "interactionPrompt" | "reconnecting" |
   "reconnectAttempts" | "toasts"
->;
+> & {
+  readonly completedContextualActions?: readonly ContextualAction[];
+};
 
 export function contextualHelpText(
   prompt: ThreeHudNoticeState["interactionPrompt"],
@@ -32,6 +38,7 @@ export class ThreeHudNotices {
   private readonly toast = document.createElement("div");
   private readonly interaction = document.createElement("div");
   private readonly reconnect = document.createElement("div");
+  private readonly actionHelp = new ActionHelpLifecycle();
 
   constructor() {
     this.element.style.cssText =
@@ -61,9 +68,14 @@ export class ThreeHudNotices {
       .find((entry) => entry.until > nowMs);
     this.toast.hidden = !toast;
     this.toast.textContent = toast?.msg ?? "";
+    const visibleActionHints = this.actionHelp.visibleHints(
+      snapshot.actionHints,
+      new Set(snapshot.completedContextualActions ?? []),
+      nowMs,
+    );
     const helpText = contextualHelpText(
       snapshot.interactionPrompt,
-      snapshot.actionHints,
+      visibleActionHints,
       isTouchDevice(),
     );
     this.interaction.hidden = helpText.length === 0;

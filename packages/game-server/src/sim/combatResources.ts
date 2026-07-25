@@ -17,10 +17,14 @@ const ensureResourceState = (slot: PlayerSlot) => {
   slot.maxStamina ??= PLAYER_MAX_STAMINA;
   slot.stamina ??= slot.maxStamina;
   slot.blocking ??= false;
+  slot.staminaRecoveryDelaySeconds ??= 0;
+  slot.staminaExhausted ??= false;
   return {
     stamina: slot.stamina,
     maxStamina: slot.maxStamina,
     blocking: slot.blocking,
+    staminaRecoveryDelaySeconds: slot.staminaRecoveryDelaySeconds,
+    staminaExhausted: slot.staminaExhausted,
   };
 };
 
@@ -48,6 +52,8 @@ export function advancePlayerResources(
   slot.stamina = resources.stamina;
   slot.maxStamina = resources.maxStamina;
   slot.blocking = resources.blocking;
+  slot.staminaRecoveryDelaySeconds = resources.staminaRecoveryDelaySeconds;
+  slot.staminaExhausted = resources.staminaExhausted;
   return step.input;
 }
 

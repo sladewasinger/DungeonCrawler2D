@@ -81,6 +81,8 @@ export interface PlayerSlot {
   stamina?: number;
   maxStamina?: number;
   blocking?: boolean;
+  staminaRecoveryDelaySeconds?: number;
+  staminaExhausted?: boolean;
   lastDamageAtTick?: number;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];

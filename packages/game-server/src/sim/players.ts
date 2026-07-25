@@ -88,6 +88,8 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.maxStamina ??= PLAYER_MAX_STAMINA;
   slot.stamina = slot.maxStamina;
   slot.blocking = false;
+  slot.staminaRecoveryDelaySeconds = 0;
+  slot.staminaExhausted = false;
   slot.lastDamageAtTick = sim.tickCount;
   slot.entity.statuses = [];
   slot.downedAtTick = null;

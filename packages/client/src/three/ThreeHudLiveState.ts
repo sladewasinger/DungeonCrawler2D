@@ -43,6 +43,7 @@ export function buildThreeHudLiveState(
       weaponId: connection.weapon ?? null,
       canBlock: connection.canBlock,
     }),
+    completedContextualActions: [...(connection.contextualActionsUsed ?? [])],
     reconnecting: connection.status !== "connected",
     reconnectAttempts: connection.reconnectAttempts,
     toasts: connection.toasts,

@@ -54,6 +54,9 @@ export class Connection extends ConnectionActions {
   stamina = PLAYER_MAX_STAMINA;
   maxStamina = PLAYER_MAX_STAMINA;
   blocking = false;
+  staminaRecoveryDelaySeconds = 0;
+  staminaExhausted = false;
+  readonly contextualActionsUsed = new Set<"attack" | "block">();
   fx: string[] = [];
   /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
   statusEffects: ActiveStatusSnapshot[] = [];
@@ -140,7 +143,8 @@ export class Connection extends ConnectionActions {
   }
 
   get canBlock(): boolean {
-    return this.canAct && this.weapon !== null && this.stamina > 0;
+    return this.canAct && this.weapon !== null && this.stamina > 0 &&
+      !this.staminaExhausted;
   }
 
   setName(name: string): void { this.name = name; }
@@ -157,6 +161,8 @@ export class Connection extends ConnectionActions {
     this.hp = 0;
     this.stamina = PLAYER_MAX_STAMINA;
     this.blocking = false;
+    this.staminaRecoveryDelaySeconds = 0;
+    this.staminaExhausted = false;
     this.downed = false;
     this.justRespawned = false;
     this.hasReceivedSnapshot = false;
@@ -170,6 +176,7 @@ export class Connection extends ConnectionActions {
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
+    if (input.block) this.contextualActionsUsed.add("block");
     sampleMovement(this, input);
   }
 

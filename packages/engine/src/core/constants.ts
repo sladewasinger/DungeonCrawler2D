@@ -28,6 +28,8 @@ export const SPRINT_STAMINA_PER_SECOND = 22;
 export const BLOCK_STAMINA_PER_SECOND = 14;
 export const WALK_STAMINA_RECOVERY_PER_SECOND = 12;
 export const IDLE_STAMINA_RECOVERY_PER_SECOND = 22;
+export const STAMINA_EXHAUSTION_RECOVERY_DELAY_SECONDS = 4;
+export const STAMINA_EXHAUSTION_RECOVERY_FRACTION = 0.2;
 export const HEALTH_REGEN_DELAY_SECONDS = 8;
 export const HEALTH_REGEN_PER_SECOND = 0.5;
 // A ≥1 rise (one tile edge) blocks walking outright — no more free

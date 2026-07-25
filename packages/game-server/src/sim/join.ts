@@ -130,12 +130,16 @@ function newSlot(
 
 function initialResources(tick: number): Pick<
   PlayerSlot,
-  "stamina" | "maxStamina" | "blocking" | "lastDamageAtTick"
+  "stamina" | "maxStamina" | "blocking" |
+  "staminaRecoveryDelaySeconds" | "staminaExhausted" |
+  "lastDamageAtTick"
 > {
   return {
     stamina: PLAYER_MAX_STAMINA,
     maxStamina: PLAYER_MAX_STAMINA,
     blocking: false,
+    staminaRecoveryDelaySeconds: 0,
+    staminaExhausted: false,
     lastDamageAtTick: tick,
   };
 }

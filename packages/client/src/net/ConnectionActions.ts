@@ -27,7 +27,10 @@ export class ConnectionActions {
     return this as unknown as Connection;
   }
 
-  attack(dirX: number, dirY: number): void { attackIntent(this.connection, dirX, dirY); }
+  attack(dirX: number, dirY: number): void {
+    this.connection.contextualActionsUsed.add("attack");
+    attackIntent(this.connection, dirX, dirY);
+  }
   throwTorch(dirX: number, dirY: number): void { throwTorchIntent(this.connection, dirX, dirY); }
   useSlot(slot: number, targetX?: number, targetY?: number): void {
     useSlotIntent(this.connection, slot, targetX, targetY);
