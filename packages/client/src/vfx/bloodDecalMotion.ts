@@ -1,11 +1,10 @@
 // Floor blood-decal fade curve: pure so it's unit-testable apart from the Image
-// object it eventually drives — mirrors damageNumberMotion.ts's split. 10s fade
-// per ASSUMPTIONS.md #29, so a long fight doesn't leave decals reading as permanent.
+// object it eventually drives — mirrors damageNumberMotion.ts's split. The bounded
+// lifetime keeps long fights from leaving decals reading as permanent.
 
-/** User 2026-07-20 round 2: "indefinitely, or for at least like an hour" — 1 hour.
- * The 96-slot pool round-robins long before this in heavy fights, which is the
- * real bound; the timer only cleans up after quiet sessions. */
-export const DECAL_LIFETIME_MS = 3_600_000;
+/** Blood remains readable during a fight but always disappears within GAME-3's
+ * thirty-second combat-readability bound. */
+export const DECAL_LIFETIME_MS = 30_000;
 
 /** Decal alpha for elapsed ms since spawn: holds near `baseAlpha` briefly (a fresh
  * splatter should read clearly), then fades linearly out over the remaining lifetime. */

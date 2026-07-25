@@ -1,12 +1,28 @@
 /** Presents transient toasts, interaction prompts, reconnect state, and boss health above both renderers. */
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import { isTouchDevice } from "../input/touchDetect.js";
+import type { ContextualActionHint } from "../ui/actionHelp.js";
 import { HUD_GOLD } from "./ThreeHudStyles.js";
 
 export type ThreeHudNoticeState = Pick<
   HudFakeSnapshot,
-  "boss" | "interactionPrompt" | "reconnecting" | "reconnectAttempts" | "toasts"
+  "actionHints" | "boss" | "interactionPrompt" | "reconnecting" |
+  "reconnectAttempts" | "toasts"
 >;
+
+export function contextualHelpText(
+  prompt: ThreeHudNoticeState["interactionPrompt"],
+  actionHints: readonly ContextualActionHint[],
+  touchDevice: boolean,
+): string {
+  const segments = prompt
+    ? [`[${touchDevice ? "USE" : prompt.key}] ${prompt.label}`]
+    : [];
+  segments.push(...actionHints.map((hint) =>
+    `[${touchDevice ? hint.touchKey : hint.key}] ${hint.label}`
+  ));
+  return segments.join("   ·   ");
+}
 
 export class ThreeHudNotices {
   readonly element = document.createElement("div");
@@ -25,8 +41,9 @@ export class ThreeHudNotices {
       "position:absolute;left:50%;top:12%;translate:-50% 0;max-width:70vw;" +
       "padding:6px 10px;background:rgba(17,18,29,.82);text-align:center";
     this.interaction.style.cssText =
-      "position:absolute;left:50%;bottom:25%;translate:-50% 0;padding:6px 10px;" +
-      "background:rgba(17,18,29,.78);border:1px solid #555a75";
+      "position:absolute;left:50%;bottom:25%;translate:-50% 0;padding:5px 9px;" +
+      "max-width:min(720px,88vw);box-sizing:border-box;text-align:center;" +
+      "background:rgba(17,18,29,.72);border:1px solid #555a75";
     this.reconnect.style.cssText =
       `position:absolute;left:50%;top:5%;translate:-50% 0;color:${HUD_GOLD}`;
     this.element.append(
@@ -44,10 +61,13 @@ export class ThreeHudNotices {
       .find((entry) => entry.until > nowMs);
     this.toast.hidden = !toast;
     this.toast.textContent = toast?.msg ?? "";
-    this.interaction.hidden = snapshot.interactionPrompt === null;
-    this.interaction.textContent = snapshot.interactionPrompt
-      ? `[${isTouchDevice() ? "USE" : snapshot.interactionPrompt.key}] ${snapshot.interactionPrompt.label}`
-      : "";
+    const helpText = contextualHelpText(
+      snapshot.interactionPrompt,
+      snapshot.actionHints,
+      isTouchDevice(),
+    );
+    this.interaction.hidden = helpText.length === 0;
+    this.interaction.textContent = helpText;
     this.reconnect.hidden = !snapshot.reconnecting;
     this.reconnect.textContent =
       `Reconnecting${snapshot.reconnectAttempts > 0

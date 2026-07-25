@@ -17,7 +17,7 @@ import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
 import { collectExpiredSwings, registerPendingSwing } from "../../vfx/meleeConnect.js";
 import { buildAreaTileViews } from "./areaViews.js";
-import { isConsumableItem, itemName, nearestDownedPartyMember } from "./contentQueries.js";
+import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
 import { resolveMeleeSwings } from "./meleeSwingEvents.js";
@@ -91,12 +91,6 @@ function spawnMeleeSwings(vfx: VfxSystem, state: DungeonSceneState, allPlayers: 
   }
 }
 
-function selectedConsumableName(conn: Connection, inputController: InputController): string | undefined {
-  const slot = inputController.selectedHotbarSlot();
-  const item = slot === null ? null : conn.hotbar[slot];
-  return item && isConsumableItem(item) ? itemName(item) : undefined;
-}
-
 /** Rebuilds every rendered entity (players/monsters/items/projectiles/torches) for this frame. */
 export function syncEntities(
   scene: Phaser.Scene,
@@ -137,7 +131,7 @@ export function syncEntities(
     ? nearestDownedPartyMember(conn.party.members, body.x, body.y, INTERACT_RANGE)
     : undefined;
   return {
-    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, pickupTargets, reviveTarget, selectedConsumableName(conn, inputController)),
+    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, pickupTargets, reviveTarget),
     torchAccentLights,
   };
 }

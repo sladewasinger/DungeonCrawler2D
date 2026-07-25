@@ -4,11 +4,7 @@ import {
   type World,
 } from "@dc2d/engine";
 import type { Connection } from "../net/connection.js";
-import {
-  isConsumableItem,
-  itemName,
-  nearestDownedPartyMember,
-} from "../scenes/dungeon/contentQueries.js";
+import { nearestDownedPartyMember } from "../scenes/dungeon/contentQueries.js";
 import {
   craftSnapshot,
   stashSnapshot,
@@ -17,6 +13,7 @@ import {
   resolveInteractionPrompt,
   type InteractionPrompt,
 } from "../scenes/dungeon/interactionPrompt.js";
+import { resolveContextualActionHelp } from "../ui/actionHelp.js";
 import { resolveBossBar } from "../ui/widgets/hud/bossBarView.js";
 import type { ThreeHudNoticeState } from "./ThreeHudNotices.js";
 import type { ThreeHudNotices } from "./ThreeHudNotices.js";
@@ -38,7 +35,13 @@ export function buildThreeHudLiveState(
   };
   const notices: ThreeHudNoticeState = {
     boss: resolveBossBar([...connection.entities.values()].map(({ snap }) => snap)),
-    interactionPrompt: resolvePrompt(connection, world, selectedSlot),
+    interactionPrompt: resolvePrompt(connection, world),
+    actionHints: resolveContextualActionHelp({
+      selectedItemId: selectedSlot < 0
+        ? null
+        : connection.hotbar[selectedSlot] ?? null,
+      weaponId: connection.weapon ?? null,
+    }),
     reconnecting: connection.status !== "connected",
     reconnectAttempts: connection.reconnectAttempts,
     toasts: connection.toasts,
@@ -66,7 +69,6 @@ export function syncThreeHudLiveState(
 function resolvePrompt(
   connection: Connection,
   world: World,
-  selectedSlot: number,
 ): InteractionPrompt | null {
   const body = connection.body;
   if (!body) return null;
@@ -81,15 +83,12 @@ function resolvePrompt(
       INTERACT_RANGE,
     )
     : undefined;
-  const item = selectedSlot < 0 ? null : connection.hotbar[selectedSlot];
-  const selectedName = item && isConsumableItem(item) ? itemName(item) : undefined;
   const prompt = resolveInteractionPrompt(
     world,
     body.x,
     body.y,
     items,
     reviveTarget,
-    selectedName,
   );
   return prompt ? { ...prompt, key: "E" } : null;
 }

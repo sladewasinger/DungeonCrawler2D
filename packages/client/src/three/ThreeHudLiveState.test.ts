@@ -10,11 +10,16 @@ const world = (station = false) => ({
     station && x === 20 && y === 20 ? TILE.CraftingTable : TILE.Floor,
 }) as World;
 
-const connection = (withItem = false) => ({
+const connection = (
+  withItem = false,
+  hotbar: readonly (string | null)[] = [],
+  weapon: string | null = null,
+) => ({
   body: { x: 20.2, y: 20.2 },
   inventory: [{ item: "rag", qty: 2 }],
   stash: [{ item: "stick", qty: 1 }],
-  hotbar: [],
+  hotbar,
+  weapon,
   entities: new Map(withItem
     ? [["item", { snap: { id: "item", kind: "item", x: 20.4, y: 20.2 } as EntitySnapshot }]]
     : []),
@@ -37,5 +42,17 @@ describe("buildThreeHudLiveState", () => {
   it("maps nearby pickup prompts to the first-person E/USE action", () => {
     const state = buildThreeHudLiveState(connection(true), world(), -1);
     expect(state.notices.interactionPrompt).toEqual({ key: "E", label: "pick up" });
+  });
+
+  it("feeds selected-item and weapon actions through the live notice model", () => {
+    const state = buildThreeHudLiveState(
+      connection(false, ["bandage"], "sword"),
+      world(),
+      0,
+    );
+    expect(state.notices.actionHints.map(({ action }) => action))
+      .toEqual(["use", "attack"]);
+    expect(state.notices.actionHints)
+      .not.toContainEqual(expect.objectContaining({ action: "block" }));
   });
 });

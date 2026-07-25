@@ -3,6 +3,7 @@
 // Connection class) so it stays a pure, table-driven function to test.
 import { displayCoordinates, type ActiveStatusSnapshot, type InvStack, type ServerSnapshot } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../input/touch/index.js";
+import { resolveContextualActionHelp } from "../../ui/actionHelp.js";
 import type { ChatPanelModel } from "../../ui/chat/controller.js";
 import type {
   BuffChipData,
@@ -159,6 +160,9 @@ function inventoryFields(
   selectedHotbarSlot: number | null,
   armedThrowableSlot: number | null,
 ) {
+  const selectedItemId = selectedHotbarSlot === null
+    ? null
+    : src.hotbar[selectedHotbarSlot] ?? null;
   return {
     hotbar: hotbarSlots(src.hotbar, src.inventory),
     selectedSlot: selectedHotbarSlot ?? -1,
@@ -168,6 +172,10 @@ function inventoryFields(
     inventory: inventoryRows(src.inventory, src.hotbar),
     craft: craftSnapshot(src.inventory, src.craftTableNearby),
     stash: stashSnapshot(src.inventory, src.stash, src.stashNearby),
+    actionHints: resolveContextualActionHelp({
+      selectedItemId,
+      weaponId: src.weapon,
+    }),
   };
 }
 

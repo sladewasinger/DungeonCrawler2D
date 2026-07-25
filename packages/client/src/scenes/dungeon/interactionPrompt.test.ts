@@ -59,14 +59,4 @@ describe("resolveInteractionPrompt", () => {
     });
   });
 
-  it("shows selected consumable use after world interactions and before pickup", () => {
-    expect(resolveInteractionPrompt(
-      worldWithTileAt(99, 99, TILE.CraftingTable),
-      5,
-      5,
-      [{ x: 5.2, y: 5 }],
-      undefined,
-      "Bandage",
-    )).toEqual({ key: "E", label: "use Bandage" });
-  });
 });

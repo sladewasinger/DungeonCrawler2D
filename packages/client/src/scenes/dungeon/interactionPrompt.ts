@@ -1,6 +1,6 @@
 // Contextual "[key] label" prompt resolution: a nearby stairway (Epic 7.14) takes
-// priority over revive, world interaction, selected-item use, and pickup, matching
-// the E/R key split and action ordering in input/gameplayActions.ts.
+// priority over revive, world interaction, and pickup. Selected-item actions use
+// ui/actionHelp.ts so persistent controls do not displace nearby-world prompts.
 import {
   PICKUP_RANGE,
   resolveWorldInteraction,
@@ -41,14 +41,12 @@ export function resolveInteractionPrompt(
   y: number,
   items: readonly PromptTarget[],
   reviveTarget?: { readonly id: string },
-  selectedConsumableName?: string,
 ): InteractionPrompt | null {
   const stairway = resolveStairwayPrompt(world, x, y);
   if (stairway) return { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) };
   if (reviveTarget) return { key: "E", label: "hold to revive" };
   const worldTarget = resolveWorldInteraction(world, x, y);
   if (worldTarget) return worldPrompt(worldTarget.kind);
-  if (selectedConsumableName) return { key: "E", label: `use ${selectedConsumableName}` };
   if (hasNearbyItem(items, x, y)) return { key: "R", label: "pick up" };
   return null;
 }

@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { DECAL_LIFETIME_MS, decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 
 describe("isDecalExpired", () => {
+  it("keeps the configured lifetime within the thirty-second readability bound", () => {
+    expect(DECAL_LIFETIME_MS).toBeGreaterThan(0);
+    expect(DECAL_LIFETIME_MS).toBeLessThanOrEqual(30_000);
+  });
+
   it("flips exactly at the lifetime boundary", () => {
     expect(isDecalExpired(DECAL_LIFETIME_MS - 1)).toBe(false);
     expect(isDecalExpired(DECAL_LIFETIME_MS)).toBe(true);

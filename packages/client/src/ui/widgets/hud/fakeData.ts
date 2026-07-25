@@ -2,6 +2,7 @@
 import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
 import { isTouchDevice } from "../../../input/touchDetect.js";
 import type { ChatPanelModel } from "../../chat/controller.js";
+import type { ContextualActionHint } from "../../actionHelp.js";
 import type { ContactData } from "./contactRows.js";
 import type { PartyRowData } from "./partyFrames.js";
 import type { BossBarData } from "./bossBarView.js";
@@ -107,6 +108,8 @@ export interface HudFakeSnapshot {
   chatModel: ChatPanelModel;
   contacts: ContactData[];
   interactionPrompt: { key: string; label: string } | null;
+  /** Selected-item and equipped-weapon controls that are currently actionable. */
+  actionHints: ContextualActionHint[];
   pingMs: number;
   connected: boolean;
   /** True while a previously-live connection is mid dropout/backoff (see net/socket.ts). */
@@ -220,16 +223,12 @@ const FAKE_HOTBAR: HotbarSlotData[] = [
   { itemId: "water-flask", count: 2 },
   { itemId: "vodka-bottle", count: 1 },
   { itemId: "hammer", count: 1 },
-  EMPTY_SLOT,
-  EMPTY_SLOT,
-  EMPTY_SLOT,
-  EMPTY_SLOT,
+  EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT,
 ];
 
 const FAKE_BUFFS: BuffChipData[] = [
   { statusId: "on-fire", kind: "debuff", remainingSec: 3.2, durationSec: 5 },
-  { statusId: "regenerating", kind: "buff", remainingSec: 12, durationSec: 20 },
-];
+  { statusId: "regenerating", kind: "buff", remainingSec: 12, durationSec: 20 }];
 
 /** Static fake snapshot: half health, 5 filled hotbar slots (one armed throwable), 2 buffs, one chat line per channel. */
 export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
@@ -253,6 +252,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     chatModel: FAKE_CHAT_MODEL,
     contacts: FAKE_CONTACTS,
     interactionPrompt: { key: "R", label: "pick up" },
+    actionHints: [{ action: "attack", key: "LMB", touchKey: "ATTACK", label: "Attack with Rusty Sword" }],
     pingMs: 42,
     connected: true,
     reconnecting: false,

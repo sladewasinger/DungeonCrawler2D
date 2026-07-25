@@ -1,4 +1,4 @@
-// Pooled floor blood decals: cosmetic-only, hard-capped, ~10s fade (bloodDecalMotion.ts)
+// Pooled floor blood decals: cosmetic-only, hard-capped, 30s fade (bloodDecalMotion.ts)
 // with round-robin reuse once at cap (bloodDecalSlots.ts) — so a long fight can't grow
 // the pool unbounded (ASSUMPTIONS.md #29). A filled Ellipse Shape, not a sprite: the
 // atlas's only soft-glow frame (`light_soft`, used elsewhere for ADD-blend light halos —
@@ -16,7 +16,7 @@ import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScre
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 
-/** Raised with the 45s decal lifetime so long fights don't recycle fresh blood. */
+/** Keeps a busy fight readable without allowing the cosmetic pool to grow unbounded. */
 export const DECAL_CAP = 96;
 const BASE_ALPHA = 0.82;
 /** Sized up + NORMAL blend (user 2026-07-20: "I can BARELY see the blood"):
