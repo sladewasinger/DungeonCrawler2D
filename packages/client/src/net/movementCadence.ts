@@ -3,22 +3,21 @@ import type { MoveInput } from "@dc2d/engine";
 
 export const INPUT_HEARTBEAT_TICKS = 1;
 
-function comparableInput(input: MoveInput): readonly (number | boolean)[] {
-  return [
-    input.moveX,
-    input.moveY,
-    input.faceX ?? 0,
-    input.faceY ?? 0,
-    input.jump,
-    input.run ?? false,
-    input.block ?? false,
-  ];
+function sameDirection(left: MoveInput, right: MoveInput): boolean {
+  return left.moveX === right.moveX &&
+    left.moveY === right.moveY &&
+    (left.faceX ?? 0) === (right.faceX ?? 0) &&
+    (left.faceY ?? 0) === (right.faceY ?? 0);
+}
+
+function sameActions(left: MoveInput, right: MoveInput): boolean {
+  return left.jump === right.jump &&
+    (left.run ?? false) === (right.run ?? false) &&
+    (left.block ?? false) === (right.block ?? false);
 }
 
 function sameInput(left: MoveInput, right: MoveInput): boolean {
-  const leftFields = comparableInput(left);
-  const rightFields = comparableInput(right);
-  return leftFields.every((value, index) => value === rightFields[index]);
+  return sameDirection(left, right) && sameActions(left, right);
 }
 
 export class MovementCadence {

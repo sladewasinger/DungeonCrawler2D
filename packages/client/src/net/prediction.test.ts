@@ -117,12 +117,13 @@ describe("Prediction", () => {
     expect(closeBody(corrected, server)).toBe(true);
   });
 
-  it("stays motionless against a wall through prediction and repeated reconciliation", () => {
+  it("settles at a stable wall contact through prediction and repeated reconciliation", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
     const start = findEastWallApproach(world);
     const client = createBody(start.x, start.y, start.z);
     const server = createBody(start.x, start.y, start.z);
+    let contactX: number | null = null;
 
     for (let tick = 1; tick <= 60; tick++) {
       const predicted = prediction.predict(world, client, WALK);
@@ -131,10 +132,15 @@ describe("Prediction", () => {
       prediction.reconcile(world, reconciled, predicted.seq, tick);
       Object.assign(client, reconciled);
 
-      expect(client.x).toBe(start.x);
+      contactX ??= client.x;
+      expect(client.x).toBe(contactX);
       expect(client.y).toBe(start.y);
       expect(closeBody(client, server)).toBe(true);
     }
+
+    expect(contactX).not.toBeNull();
+    expect(contactX as number).toBeGreaterThan(start.x);
+    expect(contactX as number).toBeLessThan(start.x + 0.5);
   });
 
   it("replays only inputs newer than the authoritative server tick", () => {
@@ -200,6 +206,7 @@ describe("Prediction", () => {
 
     expect(prediction.pendingStepCount).toBe(0);
     expect(prediction.projectedTick).toBe(6_100);
+    expect(prediction.allocatedStepRecordCount).toBe(2);
   });
 
   it("reset drops all pending inputs so reconcile replays nothing", () => {
@@ -215,6 +222,11 @@ describe("Prediction", () => {
     prediction.reconcile(world, body, 0, 0);
 
     expect(closeBody(body, before)).toBe(true);
+    expect(prediction.allocatedStepRecordCount).toBe(2);
+
+    prediction.predict(world, body, WALK);
+
+    expect(prediction.allocatedStepRecordCount).toBe(2);
   });
 
   it("evicts only the oldest input when history exceeds its bounded limit", () => {

@@ -16,8 +16,8 @@ import {
 export const PREDICTION_HISTORY_LIMIT = 64;
 
 interface PredictedStep {
-  readonly seq: number;
-  readonly input: MoveInput;
+  seq: number;
+  input: MoveInput;
 }
 
 export interface PredictedInputIdentity {
@@ -28,11 +28,14 @@ export interface PredictedInputIdentity {
 export class Prediction {
   private seq = 0;
   private projectedServerTick: number | null = null;
-  private pending: PredictedStep[] = [];
+  private readonly pending: PredictedStep[] = [];
+  private readonly recycled: PredictedStep[] = [];
+  private allocatedStepRecords = 0;
 
   reset(): void {
     this.projectedServerTick = null;
-    this.pending = [];
+    for (const step of this.pending) this.recycleStep(step);
+    this.pending.length = 0;
   }
 
   /** Reserve a wire identity for a changed control state, independent of simulation ticks. */
@@ -55,11 +58,11 @@ export class Prediction {
       ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
       : input;
     stepBody(world, body, effective, TICK_DT);
-    this.pending.push({
-      seq: this.seq,
-      input,
-    });
-    if (this.pending.length > PREDICTION_HISTORY_LIMIT) this.pending.shift();
+    this.pending.push(this.acquireStep(this.seq, input));
+    if (this.pending.length > PREDICTION_HISTORY_LIMIT) {
+      const evicted = this.pending.shift();
+      if (evicted) this.recycleStep(evicted);
+    }
     return { seq: this.seq, projectedServerTick: this.projectedServerTick };
   }
 
@@ -72,7 +75,16 @@ export class Prediction {
     resources?: PlayerResourceState,
     canBlock = false,
   ): void {
-    this.pending = this.pending.filter((step) => step.seq > lastAckedSeq);
+    let retainedCount = 0;
+    for (const step of this.pending) {
+      if (step.seq <= lastAckedSeq) {
+        this.recycleStep(step);
+        continue;
+      }
+      this.pending[retainedCount] = step;
+      retainedCount++;
+    }
+    this.pending.length = retainedCount;
     this.projectedServerTick = authoritativeServerTick + this.pending.length;
     for (const p of this.pending) {
       const effective = resources
@@ -86,7 +98,26 @@ export class Prediction {
     return this.pending.length;
   }
 
+  get allocatedStepRecordCount(): number {
+    return this.allocatedStepRecords;
+  }
+
   get projectedTick(): number | null {
     return this.projectedServerTick;
+  }
+
+  private acquireStep(seq: number, input: MoveInput): PredictedStep {
+    const step = this.recycled.pop();
+    if (step) {
+      step.seq = seq;
+      step.input = input;
+      return step;
+    }
+    this.allocatedStepRecords++;
+    return { seq, input };
+  }
+
+  private recycleStep(step: PredictedStep): void {
+    if (this.recycled.length < PREDICTION_HISTORY_LIMIT) this.recycled.push(step);
   }
 }

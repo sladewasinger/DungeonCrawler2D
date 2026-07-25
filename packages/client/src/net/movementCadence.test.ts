@@ -49,4 +49,18 @@ describe("MovementCadence", () => {
     cadence.reset();
     expect(cadence.shouldSend(IDLE)).toBe(true);
   });
+
+  it("treats omitted optional controls like their explicit neutral values", () => {
+    const cadence = new MovementCadence();
+    expect(cadence.shouldSendEdge({ moveX: 0, moveY: 0, jump: false })).toBe(true);
+    expect(cadence.shouldSendEdge({
+      moveX: 0,
+      moveY: 0,
+      faceX: 0,
+      faceY: 0,
+      jump: false,
+      run: false,
+      block: false,
+    })).toBe(false);
+  });
 });
