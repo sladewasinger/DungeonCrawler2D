@@ -36,8 +36,11 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
