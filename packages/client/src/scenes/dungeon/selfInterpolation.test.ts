@@ -1,9 +1,11 @@
 import {
   LEVEL,
   MOVE_SPEED,
+  TICK_DT,
   World,
   cloneBody,
   createBody,
+  stepBody,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PredictionCorrection } from "../../net/predictionCorrection.js";
@@ -92,5 +94,44 @@ describe("projectSelfRenderPose", () => {
     expect(pose.y).toBe(start.y);
     expect(body.x).toBe(start.x);
     expect(body.y).toBe(start.y);
+  });
+
+  it("stays fixed throughout a blocked sprint tick instead of advancing then snapping back", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const wall = findEastWallApproach(world);
+    const run = { moveX: 1, moveY: 0, jump: false, run: true };
+    const body = createBody(wall.x - 0.45, wall.y, wall.z);
+    stepBody(world, body, run, TICK_DT);
+    const contactX = body.x;
+    const accumulatorSamples = [1, 3, 5, 20, 35, 49];
+    const legacyVariableStepXs = accumulatorSamples.map((accumulatorMs) => {
+      const projected = cloneBody(body);
+      stepBody(world, projected, run, accumulatorMs / 1000);
+      return projected.x;
+    });
+
+    const poses = accumulatorSamples.map((accumulatorMs) =>
+      projectSelfRenderPose(
+        world,
+        body,
+        run,
+        accumulatorMs,
+        { stamina: 100, maxStamina: 100, blocking: false },
+        false,
+        new PredictionCorrection(),
+        16,
+      ));
+
+    expect(contactX).toBeGreaterThan(wall.x - 0.45);
+    expect(legacyVariableStepXs[0]).toBeGreaterThan(contactX);
+    expect(legacyVariableStepXs.at(-1)).toBe(contactX);
+    expect(poses.map((pose) => pose.x)).toEqual([
+      contactX,
+      contactX,
+      contactX,
+      contactX,
+      contactX,
+      contactX,
+    ]);
   });
 });

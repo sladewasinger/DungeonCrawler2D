@@ -1,5 +1,6 @@
 /** Produces the local player's render pose without mutating authoritative simulation state. */
 import {
+  TICK_DT,
   cloneBody,
   stepBody,
   stepPlayerResources,
@@ -42,18 +43,21 @@ export function projectSelfRenderPose(
 ): RenderPose {
   const projected = cloneBody(body);
   const projectedResources = { ...resources };
-  const dt = Math.max(0, accumulatorMs) / 1000;
+  const alpha = Math.min(
+    1,
+    Math.max(0, accumulatorMs) / (TICK_DT * 1000),
+  );
   const effective = stepPlayerResources(
     projectedResources,
     input,
     canBlock,
-    dt,
+    TICK_DT,
   ).input;
-  stepBody(world, projected, effective, dt);
+  stepBody(world, projected, effective, TICK_DT);
   const offset = correction.advance(deltaMs);
   return {
-    x: projected.x + offset.x,
-    y: projected.y + offset.y,
-    z: projected.z + offset.z,
+    x: body.x + (projected.x - body.x) * alpha + offset.x,
+    y: body.y + (projected.y - body.y) * alpha + offset.y,
+    z: body.z + (projected.z - body.z) * alpha + offset.z,
   };
 }
