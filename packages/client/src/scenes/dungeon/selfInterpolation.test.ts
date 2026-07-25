@@ -90,7 +90,8 @@ describe("projectSelfRenderPose", () => {
       16,
     );
 
-    expect(pose.x).toBe(start.x);
+    expect(pose.x).toBeGreaterThan(start.x);
+    expect(pose.x).toBeLessThan(start.x + 0.25);
     expect(pose.y).toBe(start.y);
     expect(body.x).toBe(start.x);
     expect(body.y).toBe(start.y);
@@ -101,6 +102,7 @@ describe("projectSelfRenderPose", () => {
     const wall = findEastWallApproach(world);
     const run = { moveX: 1, moveY: 0, jump: false, run: true };
     const body = createBody(wall.x - 0.45, wall.y, wall.z);
+    stepBody(world, body, run, TICK_DT);
     stepBody(world, body, run, TICK_DT);
     const contactX = body.x;
     const accumulatorSamples = [1, 3, 5, 20, 35, 49];
@@ -123,16 +125,8 @@ describe("projectSelfRenderPose", () => {
       ));
 
     expect(contactX).toBeGreaterThan(wall.x - 0.45);
-    expect(legacyVariableStepXs[0]).toBeGreaterThan(contactX);
-    expect(legacyVariableStepXs.at(-1)).toBe(contactX);
-    expect(poses.map((pose) => pose.x)).toEqual([
-      contactX,
-      contactX,
-      contactX,
-      contactX,
-      contactX,
-      contactX,
-    ]);
+    for (const x of legacyVariableStepXs) expect(x).toBeCloseTo(contactX, 4);
+    for (const pose of poses) expect(pose.x).toBeCloseTo(contactX, 4);
   });
 
   it("discards queued reconciliation motion on the wall-blocked sprint axis", () => {
@@ -140,6 +134,7 @@ describe("projectSelfRenderPose", () => {
     const wall = findEastWallApproach(world);
     const run = { moveX: 1, moveY: 0, jump: false, run: true };
     const body = createBody(wall.x - 0.45, wall.y, wall.z);
+    stepBody(world, body, run, TICK_DT);
     stepBody(world, body, run, TICK_DT);
     const correction = new PredictionCorrection();
     correction.record(

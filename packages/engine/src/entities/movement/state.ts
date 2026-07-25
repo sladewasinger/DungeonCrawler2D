@@ -47,6 +47,8 @@ export interface MoveInput {
 
 export interface StepResult {
   landed?: { fallHeight: number };
+  blockedX?: boolean;
+  blockedY?: boolean;
 }
 
 export interface StepOpts {

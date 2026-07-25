@@ -53,9 +53,9 @@ export function projectSelfRenderPose(
     canBlock,
     TICK_DT,
   ).input;
-  stepBody(world, projected, effective, TICK_DT);
-  const blockedX = input.moveX !== 0 && projected.x === body.x;
-  const blockedY = input.moveY !== 0 && projected.y === body.y;
+  const step = stepBody(world, projected, effective, TICK_DT);
+  const blockedX = input.moveX !== 0 && step.blockedX === true;
+  const blockedY = input.moveY !== 0 && step.blockedY === true;
   const offset = correction.advance(deltaMs, { x: blockedX, y: blockedY });
   return {
     x: body.x + (projected.x - body.x) * alpha + offset.x,

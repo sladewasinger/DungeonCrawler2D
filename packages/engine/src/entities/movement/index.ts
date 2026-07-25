@@ -40,8 +40,11 @@ export function stepBody(
   const speed = (opts.speed ?? MOVE_SPEED) * (input.run ? RUN_SPEED_MULTIPLIER : 1);
 
   updateJumpState(body, input, dt);
-  moveHorizontal(world, body, input, dt, speed, opts);
+  const blockedAxes = moveHorizontal(world, body, input, dt, speed, opts);
   const terrain = world.groundAt(body.x, body.y);
   const onStair = world.stairHeightAt(body.x, body.y) !== null;
-  return resolveVerticalMotion(body, terrain, dt, onStair);
+  const result = resolveVerticalMotion(body, terrain, dt, onStair);
+  if ((blockedAxes & 1) !== 0) result.blockedX = true;
+  if ((blockedAxes & 2) !== 0) result.blockedY = true;
+  return result;
 }

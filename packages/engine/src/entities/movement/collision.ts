@@ -1,13 +1,12 @@
-import { AIRBORNE_LEDGE_CLEARANCE, KNOCKBACK_DECAY, STEP_UP } from "../../core/constants.js";
+import { KNOCKBACK_DECAY } from "../../core/constants.js";
 import type { WorldView } from "../../world/types.js";
 import {
-  BODY_RADIUS,
   CORNER_SLIDE_WINDOW,
   type BodyState,
   type MoveInput,
   type StepOpts,
 } from "./state.js";
-import { stairGateBlocks } from "./stairGate.js";
+import { canMoveAxis, moveAxisToContact } from "./axisSweep.js";
 
 /**
  * Horizontal step + tile collision: analog-magnitude direction scaling,
@@ -36,73 +35,6 @@ function scaledDirection(input: MoveInput): [number, number] {
   return [input.moveX * scale, input.moveY * scale];
 }
 
-// Leading-edge corners in the movement direction (the trailing side was
-// already valid). Both corners must accept the move.
-function leadingCorners(
-  body: BodyState,
-  dx: number,
-  dy: number,
-  nx: number,
-  ny: number,
-): Array<[number, number]> {
-  const ex = nx + Math.sign(dx) * BODY_RADIUS;
-  const ey = ny + Math.sign(dy) * BODY_RADIUS;
-  return dx !== 0
-    ? [
-        [ex, body.y - BODY_RADIUS],
-        [ex, body.y + BODY_RADIUS],
-      ]
-    : [
-        [body.x - BODY_RADIUS, ey],
-        [body.x + BODY_RADIUS, ey],
-      ];
-}
-
-// Continuous ground: the grounded gate compares the corner's target terrain
-// against the body's OWN current z (how far it must rise), not some nearby
-// "before" point — BODY_RADIUS can push a diagonal corner across two tile
-// boundaries at once, and a reconstructed "before" point can land on the
-// SAME too-tall tile as the target, netting a false zero rise. A compact
-// stair (docs/R2-STAIRS-SPEC.md) rises 0.4-0.6 z/tick at walk/run, well over
-// STEP_UP, so it can never pass this ordinary gate — stairGateBlocks above
-// is the stair-specific replacement, gated on separately below.
-function cornerBlocksMove(
-  world: WorldView,
-  body: BodyState,
-  cx: number,
-  cy: number,
-  dx: number,
-  dy: number,
-  blocked?: StepOpts["blocked"],
-): boolean {
-  const tileX = Math.floor(cx);
-  const tileY = Math.floor(cy);
-  if (!world.isWalkable(tileX, tileY)) return true;
-  if (blocked?.(tileX, tileY)) return true;
-  const onStair = world.stairHeightAt(body.x, body.y) !== null || world.stairHeightAt(cx, cy) !== null;
-  if (body.grounded && onStair) return stairGateBlocks(world, body, cx, cy, dx, dy);
-  const terrain = world.groundAt(cx, cy);
-  if (body.grounded) return terrain - body.z > STEP_UP;
-  return terrain > body.z + AIRBORNE_LEDGE_CLEARANCE;
-}
-
-// Pure predicate version of the leading-corner check, so the corner-slide
-// search can probe hypothetical positions without mutating `body`.
-function canMoveAxis(
-  world: WorldView,
-  body: BodyState,
-  dx: number,
-  dy: number,
-  blocked?: StepOpts["blocked"],
-): boolean {
-  const nx = body.x + dx;
-  const ny = body.y + dy;
-  for (const [cx, cy] of leadingCorners(body, dx, dy, nx, ny)) {
-    if (cornerBlocksMove(world, body, cx, cy, dx, dy, blocked)) return false;
-  }
-  return true;
-}
-
 /** Attempt one axis move; mutates `body` and reports whether it moved. */
 function tryAxisMove(
   world: WorldView,
@@ -111,11 +43,7 @@ function tryAxisMove(
   dy: number,
   blocked?: StepOpts["blocked"],
 ): boolean {
-  if (dx === 0 && dy === 0) return true;
-  if (!canMoveAxis(world, body, dx, dy, blocked)) return false;
-  body.x += dx;
-  body.y += dy;
-  return true;
+  return moveAxisToContact(world, body, dx, dy, blocked) === 1;
 }
 
 // Scan outward (smallest magnitude first, both signs) from the body's
@@ -171,7 +99,7 @@ export function moveHorizontal(
   dt: number,
   speed: number,
   opts: StepOpts,
-): void {
+): number {
   const [dirX, dirY] = scaledDirection(input);
 
   // Knockback: an external velocity that decays; sticky-feet grips.
@@ -188,10 +116,13 @@ export function moveHorizontal(
 
   const dx = vx * dt;
   const dy = vy * dt;
-  if (!tryAxisMove(world, body, dx, 0, opts.blocked) && dx !== 0) {
-    attemptCornerSlide(world, body, dx, 0, opts.blocked);
+  const xFraction = moveAxisToContact(world, body, dx, 0, opts.blocked);
+  if (xFraction < 1 && dx !== 0) {
+    attemptCornerSlide(world, body, dx * (1 - xFraction), 0, opts.blocked);
   }
-  if (!tryAxisMove(world, body, 0, dy, opts.blocked) && dy !== 0) {
-    attemptCornerSlide(world, body, 0, dy, opts.blocked);
+  const yFraction = moveAxisToContact(world, body, 0, dy, opts.blocked);
+  if (yFraction < 1 && dy !== 0) {
+    attemptCornerSlide(world, body, 0, dy * (1 - yFraction), opts.blocked);
   }
+  return (xFraction < 1 ? 1 : 0) | (yFraction < 1 ? 2 : 0);
 }
