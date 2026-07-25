@@ -7,6 +7,10 @@ import { createCameraFollowState, type CameraFollowState } from "./cameraFollow.
 import { createProjectileVelocityState, type ProjectileVelocityState } from "./projectileVelocity.js";
 import { createSelfCosmeticsState, type SelfCosmeticsState } from "./selfCosmetics.js";
 import { createWallBumpState, type WallBumpState } from "../../input/wallBump.js";
+import {
+  createFrameEntityBuckets,
+  type FrameEntityBuckets,
+} from "./frameEntityBuckets.js";
 
 export interface RenderPose {
   readonly x: number;
@@ -21,6 +25,7 @@ export interface DungeonSceneState {
   readonly camera: CameraFollowState;
   readonly cosmetics: SelfCosmeticsState;
   readonly projectileVelocity: ProjectileVelocityState;
+  readonly entityBuckets: FrameEntityBuckets;
   /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
   readonly attackFlags: Map<string, boolean>;
   /** Panel round 3b item 5 (WHIFF FEEDBACK): swings awaiting a correlating "hit" event,
@@ -38,6 +43,7 @@ export function createDungeonSceneState(): DungeonSceneState {
     camera: createCameraFollowState(),
     cosmetics: createSelfCosmeticsState(),
     projectileVelocity: createProjectileVelocityState(),
+    entityBuckets: createFrameEntityBuckets(),
     attackFlags: new Map(),
     pendingSwings: new Map(),
     wallBump: createWallBumpState(),

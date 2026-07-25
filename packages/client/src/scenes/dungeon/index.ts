@@ -54,7 +54,7 @@ export class DungeonScene extends Phaser.Scene {
   private lighting: LightingSystem | undefined;
   private boundWorld: World | undefined;
   private interactionPrompt: InteractionPrompt | null = null;
-  private partyIds: ReadonlySet<string> = new Set();
+  private readonly partyIds = new Set<string>();
   private readonly torchSyncState: TorchSyncState = createTorchSyncState();
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
@@ -135,7 +135,8 @@ export class DungeonScene extends Phaser.Scene {
     this.updateCameraFollow(render, deltaMs);
     this.cameras.main.setRotation(this.rotation.cameraRotationRad());
     this.terrain?.update(this.cameras.main.worldView);
-    this.partyIds = new Set((conn.party?.members ?? []).map((m) => m.id));
+    this.partyIds.clear();
+    for (const member of conn.party?.members ?? []) this.partyIds.add(member.id);
 
     const synced = syncFrame(this, conn, this.entityRenderer, this.vfx, this.terrain, this.lighting, this.inputController, this.state, this.torchSyncState, this.partyIds, time, deltaMs / 1000, render);
     this.interactionPrompt = synced.interactionPrompt;

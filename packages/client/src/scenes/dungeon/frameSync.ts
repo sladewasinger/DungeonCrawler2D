@@ -19,6 +19,7 @@ import { collectExpiredSwings, registerPendingSwing } from "../../vfx/meleeConne
 import { buildAreaTileViews } from "./areaViews.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
+import { bucketFrameEntities, type FrameEntityBuckets } from "./frameEntityBuckets.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
 import { resolveMeleeSwings } from "./meleeSwingEvents.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
@@ -40,15 +41,12 @@ function syncCombatants(
   vfx: VfxSystem,
   inputController: InputController,
   state: DungeonSceneState,
-  partyIds: ReadonlySet<string>,
   nowMs: number,
-  dtSeconds: number,
   render: RenderPose,
-  interpolated: ReturnType<Connection["interpolated"]>,
+  buckets: FrameEntityBuckets,
+  context: ReturnType<typeof buildRenderContext>,
 ): void {
   if (!conn.world || !conn.welcome || !conn.body) return;
-  const items = interpolated.filter((e) => e.snap.kind === "item");
-  const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
   const touchActive = inputController.touchVisual() !== null;
   const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
   const self = selfPlayerView(
@@ -58,11 +56,11 @@ function syncCombatants(
     nowMs,
     aimAngle,
   );
-  const players = interpolated.filter((e) => e.snap.kind === "player").map(remotePlayerView);
+  const players = buckets.players.map(remotePlayerView);
   const allPlayers = [self, ...players];
   entityRenderer.syncPlayers(allPlayers, context);
-  entityRenderer.syncMonsters(interpolated.filter((e) => e.snap.kind === "enemy").map(monsterView), context);
-  entityRenderer.syncItems(items.map(itemView), nowMs);
+  entityRenderer.syncMonsters(buckets.enemies.map(monsterView), context);
+  entityRenderer.syncItems(buckets.items.map(itemView), nowMs);
   spawnMeleeSwings(vfx, state, allPlayers, nowMs);
 }
 
@@ -101,30 +99,26 @@ export function syncEntities(
 ): EntitySyncResult {
   if (!conn.world || !conn.welcome || !conn.body) return { interactionPrompt: null, torchAccentLights: [] };
   const interpolated = conn.interpolated();
-  syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, partyIds, nowMs, dtSeconds, render, interpolated);
+  const buckets = bucketFrameEntities(interpolated, state.entityBuckets);
+  const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
+  syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context);
 
-  const projectiles = interpolated.filter((e) => e.snap.kind === "projectile");
-  entityRenderer.syncProjectiles(projectiles.map((e) => projectileView(e, state.projectileVelocity, nowMs)));
-  pruneProjectileVelocity(state.projectileVelocity, new Set(projectiles.map((e) => e.id)));
+  entityRenderer.syncProjectiles(buckets.projectiles.map((e) => projectileView(e, state.projectileVelocity, nowMs)));
+  pruneProjectileVelocity(state.projectileVelocity, buckets.projectileIds);
 
   let torchAccentLights: LightSource[] = [];
   if (terrain) {
-    const torches = interpolated.filter((e) => e.snap.kind === "torch");
-    const torchSync = syncTorches(torchSyncState, torches, terrain, conn.serverTick);
-    const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
+    const torchSync = syncTorches(torchSyncState, buckets.torches, terrain, conn.serverTick);
     entityRenderer.syncTorches(torchSync.views, context);
     torchAccentLights = torchSync.accentLights;
   }
 
-  const pickupTargets = interpolated.filter(
-    (e) => e.snap.kind === "item" || (e.snap.kind === "torch" && e.snap.state === "placed"),
-  );
   const body = conn.body;
   const reviveTarget = conn.party
     ? nearestDownedPartyMember(conn.party.members, body.x, body.y, INTERACT_RANGE)
     : undefined;
   return {
-    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, pickupTargets, reviveTarget),
+    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, buckets.pickupTargets, reviveTarget),
     torchAccentLights,
   };
 }
