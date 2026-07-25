@@ -25,7 +25,7 @@ export const createHudButton = (
   button.textContent = label;
   button.style.cssText =
     `border:1px solid #555a75;background:#1b1c2c;color:${HUD_TEXT};` +
-    "padding:4px 6px;font:10px monospace;pointer-events:auto";
+    "padding:4px 6px;font:10px monospace;pointer-events:auto;cursor:pointer";
   button.addEventListener("click", action);
   return button;
 };
