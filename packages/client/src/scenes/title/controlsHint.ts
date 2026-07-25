@@ -1,63 +1,37 @@
-// Title screen "how to play" chrome: the book-fan lane's canonical DCC-voice tagline
-// ("the first minute is pure guesswork" was the judge-panel's Tourist verdict — a
-// stranger dropped into a vast multiplayer dungeon with zero on-ramp) plus a compact
-// controls cheat-sheet, laid out above ConnectForm's DOM overlay so they read before
-// the player ever presses Connect. Split from index.ts to keep TitleScene orchestration-
-// only. Premise/tagline copy lives in content (@dc2d/content's stringsData, ASSUMPTION
-// #102) rather than hardcoded here — this lane just wires it onto the screen. Layout
-// math (viewport-aware stacking + short-viewport collapse) lives in
-// controlsHintLayout.ts so it's unit-testable without a live Phaser scene.
 import { stringsData } from "@dc2d/content";
-import type Phaser from "phaser";
-import { uiTextStyle } from "../../ui/font.js";
-import { COMPACT_CONTROLS_LINE, CONTROLS_LINE, computeControlsHintLayout, isShortViewport, wrapWidthFor } from "./controlsHintLayout.js";
+import { titleHintContent } from "./controlsHintLayout.js";
+
+const UI_FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 export class TitleControlsHint {
-  private readonly tagline: Phaser.GameObjects.Text;
-  private readonly premise: Phaser.GameObjects.Text;
-  private readonly controls: Phaser.GameObjects.Text;
+  private readonly root = document.createElement("section");
+  private readonly tagline = document.createElement("p");
+  private readonly premise = document.createElement("p");
+  private readonly controls = document.createElement("p");
 
-  constructor(scene: Phaser.Scene) {
-    this.tagline = scene.add
-      .text(0, 0, stringsData.tagline, uiTextStyle(16, "#ffd23d", 1, "emphasis"))
-      .setOrigin(0.5, 0.5)
-      .setDepth(3);
-    this.premise = scene.add
-      .text(0, 0, stringsData.premise, { ...uiTextStyle(12, "#9a9aae"), wordWrap: { width: wrapWidthFor(640) }, align: "center" })
-      .setOrigin(0.5, 0)
-      .setDepth(3);
-    this.controls = scene.add.text(0, 0, "", uiTextStyle(12, "#9a9aae")).setOrigin(0.5, 0.5).setDepth(3);
-    this.layout(scene.scale.width, scene.scale.height);
+  constructor() {
+    this.root.setAttribute("aria-label", "How to play");
+    this.root.style.cssText =
+      `position:fixed;left:50%;translate:-50% 0;z-index:3;width:min(780px,calc(100vw - 48px));` +
+      `text-align:center;pointer-events:none;font-family:${UI_FONT};`;
+    this.tagline.textContent = stringsData.tagline;
+    this.tagline.style.cssText = "margin:0 0 10px;color:#ffd23d;font-size:clamp(20px,1.5vw,26px);font-weight:700";
+    this.premise.textContent = stringsData.premise;
+    this.premise.style.cssText = "margin:0;color:#c6c6d2;font-size:clamp(16px,1.2vw,20px);line-height:1.45";
+    this.controls.style.cssText = "margin:14px 0 0;color:#d5d5df;font-size:clamp(15px,1.1vw,18px);line-height:1.4";
+    this.root.append(this.tagline, this.premise, this.controls);
+    document.body.append(this.root);
+    this.layout(window.innerWidth, window.innerHeight);
   }
 
-  /**
-   * Repositions every line for the current viewport — call on create and on resize.
-   * All three sit ABOVE the torchlit door (background.ts's door spans roughly 0.505 to
-   * 0.64 of height) rather than over or below it — below leaves too little room before
-   * ConnectForm's DOM overlay (anchored at the bottom 14%). On short viewports (e.g.
-   * landscape phones at 844x390 — judge-panel "title screen text collision... an
-   * unreadable mess") the premise paragraph is hidden and the cheat-sheet collapses to
-   * one compact line — see controlsHintLayout.ts. Text/style is set *before* measuring
-   * so `.height` reflects the content that's about to be positioned, not last call's.
-   */
-  layout(width: number, height: number): void {
-    const short = isShortViewport(height);
-    if (short) {
-      // Deliberate call-site log per panel spec (surfaces the short-viewport collapse
-      // to devtools while testing at 844x390), not left-over debugging.
-      console.debug(`[title/controlsHint] short viewport ${width}x${height} — collapsed to compact controls line`);
-    }
-    this.premise.setStyle({ wordWrap: { width: wrapWidthFor(width) } });
-    this.controls.setText(short ? COMPACT_CONTROLS_LINE : CONTROLS_LINE);
-    const positions = computeControlsHintLayout(height, this.tagline.height, this.premise.height, this.controls.height);
-    this.tagline.setPosition(width / 2, positions.taglineY);
-    this.premise.setPosition(width / 2, positions.premiseY).setVisible(positions.premiseVisible);
-    this.controls.setPosition(width / 2, positions.controlsY);
+  layout(_width: number, height: number): void {
+    const content = titleHintContent(height);
+    this.root.style.top = `${Math.round(height * 0.34)}px`;
+    this.premise.hidden = !content.premiseVisible;
+    this.controls.textContent = content.controlsText;
   }
 
   dispose(): void {
-    this.tagline.destroy();
-    this.premise.destroy();
-    this.controls.destroy();
+    this.root.remove();
   }
 }

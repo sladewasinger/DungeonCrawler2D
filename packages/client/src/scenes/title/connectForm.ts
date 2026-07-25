@@ -22,7 +22,7 @@ function applyRootStyle(el: HTMLDivElement): void {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "10px",
+    gap: "12px",
     zIndex: "20",
   });
 }
@@ -30,24 +30,24 @@ function applyRootStyle(el: HTMLDivElement): void {
 function applyInputStyle(el: HTMLInputElement): void {
   Object.assign(el.style, {
     width: "220px",
-    padding: "8px 10px",
+    padding: "10px 12px",
     background: PANEL_BG,
     color: "#e8e8e8",
     border: `1px solid ${PANEL_BORDER}`,
     fontFamily: "monogram, monospace",
-    fontSize: "16px",
+    fontSize: "20px",
     textAlign: "center",
   });
 }
 
 function applyButtonStyle(el: HTMLButtonElement): void {
   Object.assign(el.style, {
-    padding: "10px 22px",
+    padding: "12px 26px",
     background: PANEL_BG,
     color: GOLD,
     border: `1px solid ${GOLD}`,
     fontFamily: "monogram, monospace",
-    fontSize: "16px",
+    fontSize: "20px",
     cursor: "pointer",
     letterSpacing: "1px",
     display: "grid",
@@ -60,7 +60,7 @@ function applyStatusStyle(el: HTMLDivElement): void {
   Object.assign(el.style, {
     color: "#9a9aae",
     fontFamily: "monogram, monospace",
-    fontSize: "13px",
+    fontSize: "16px",
     minHeight: "16px",
   });
 }
@@ -123,7 +123,7 @@ export class ConnectForm {
     title.textContent = label;
     const description = document.createElement("small");
     description.textContent = detail;
-    description.style.cssText = "color:#a9a9b8;font-size:11px;letter-spacing:0";
+    description.style.cssText = "color:#c4c4d0;font-size:14px;letter-spacing:0";
     button.append(title, description);
     button.setAttribute("aria-label", label);
     applyButtonStyle(button);

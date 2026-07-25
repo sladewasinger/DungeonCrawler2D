@@ -48,10 +48,10 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     this.background = new TitleBackground(this);
     this.title = this.add
-      .text(this.scale.width / 2, this.scale.height * 0.28, GAME_NAME, pixelTextStyle(48, "#ffd23d"))
+      .text(this.scale.width / 2, this.scale.height * 0.28, GAME_NAME, pixelTextStyle(60, "#ffd23d"))
       .setOrigin(0.5, 0.5)
       .setDepth(3);
-    this.controlsHint = new TitleControlsHint(this);
+    this.controlsHint = new TitleControlsHint();
     this.fullscreenChip = new FullscreenChip();
     this.form = new ConnectForm({ onConnect: (name, level) => this.handleConnect(name, level) });
     this.conn.onConnected = () => {
