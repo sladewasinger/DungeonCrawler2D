@@ -28,6 +28,7 @@ export function interpolateConnectionSelf(
     connection.weapon !== null,
     connection.predictionCorrection,
     deltaMs,
+    state.prevStep,
   );
 }
 
@@ -40,6 +41,7 @@ export function projectSelfRenderPose(
   canBlock: boolean,
   correction: PredictionCorrection,
   deltaMs: number,
+  previous: RenderPose | null = null,
 ): RenderPose {
   const projected = cloneBody(body);
   const projectedResources = { ...resources };
@@ -57,9 +59,10 @@ export function projectSelfRenderPose(
   const blockedX = input.moveX !== 0 && step.blockedX === true;
   const blockedY = input.moveY !== 0 && step.blockedY === true;
   const offset = correction.advance(deltaMs, { x: blockedX, y: blockedY });
+  const from = previous ?? body;
   return {
-    x: body.x + (projected.x - body.x) * alpha + offset.x,
-    y: body.y + (projected.y - body.y) * alpha + offset.y,
-    z: body.z + (projected.z - body.z) * alpha + offset.z,
+    x: from.x + (body.x - from.x) * alpha + offset.x,
+    y: from.y + (body.y - from.y) * alpha + offset.y,
+    z: from.z + (body.z - from.z) * alpha + offset.z,
   };
 }

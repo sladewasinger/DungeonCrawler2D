@@ -29,7 +29,9 @@ export interface RenderPose {
 
 export interface DungeonSceneState {
   accumulatorMs: number;
-  /** Self body pose just before the most recent fixed step — the interpolation source. */
+  /** Self body pose just before the most recent fixed step. */
+  prevStep: RenderPose | null;
+  /** Current controls are used only to cancel correction on collision-blocked axes. */
   renderInput: MoveInput;
   readonly camera: CameraFollowState;
   readonly cosmetics: SelfCosmeticsState;
@@ -60,6 +62,7 @@ export interface DungeonSceneState {
 export function createDungeonSceneState(): DungeonSceneState {
   return {
     accumulatorMs: 0,
+    prevStep: null,
     renderInput: NEUTRAL_INPUT,
     camera: createCameraFollowState(),
     cosmetics: createSelfCosmeticsState(),
