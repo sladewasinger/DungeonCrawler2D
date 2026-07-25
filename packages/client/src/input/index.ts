@@ -18,7 +18,8 @@ import { guardedAction } from "./inputGuard.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { cancelHeldGestures } from "./modalGestures.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
-import { cursorWorldTile, handlePointerDown, handlePointerMove, handlePointerUp } from "./pointer.js";
+import { cursorWorldTile, handlePointerDown } from "./pointer.js";
+import { bindPointerMovementEdges } from "./pointerMovementEdges.js";
 import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
 import { createTouchInputState, isButtonHeld, mergeMoveInputs, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
@@ -196,13 +197,7 @@ export class InputController {
         pointer,
       );
     });
-    this.scene.input.on("pointerup", () => {
-      if (!this.touchActive) this.sendCurrentMovementEdge();
-    });
-    this.scene.input.on("pointerupoutside", () => {
-      if (!this.touchActive) this.sendCurrentMovementEdge();
-    });
-    if (this.touchActive) this.bindTouchDragListeners();
+    bindPointerMovementEdges(this.scene, this.touch, () => this.touchActive, () => this.revive.end(this.scene.time.now), () => this.sendCurrentMovementEdge());
   }
 
   /**
@@ -217,19 +212,9 @@ export class InputController {
   private activateTouchIfNeeded(pointer: Phaser.Input.Pointer): void {
     if (this.touchActive || !pointer.wasTouch) return;
     this.touchActive = true;
-    this.bindTouchDragListeners();
   }
 
-  private bindTouchDragListeners(): void {
-    const sendMovementEdge = () => this.sendCurrentMovementEdge();
-    this.scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => handlePointerMove(this.touch, pointer, sendMovementEdge));
-    const release = () => this.revive.end(this.scene.time.now);
-    this.scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release, sendMovementEdge)); this.scene.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => handlePointerUp(this.touch, pointer, release, sendMovementEdge));
-  }
-
-  private sendCurrentMovementEdge(): void {
-    this.conn.sendInputEdge?.(this.readInput());
-  }
+  private sendCurrentMovementEdge(): void { this.conn.sendInputEdge?.(this.readInput()); }
 
   /** Sampled at the fixed tick rate by the scene. Keyboard/touch author SCREEN-space
    * intent (screen-up = "forward") — camera-relative controls remap it to WORLD space

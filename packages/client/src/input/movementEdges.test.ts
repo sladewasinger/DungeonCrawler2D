@@ -101,7 +101,7 @@ describe("keyboard movement edges", () => {
     w.press();
 
     expect(wireSend).toHaveBeenCalledTimes(1);
-    expect(decodeClientMessage(wireSend.mock.calls[0]![0])).toMatchObject({
+    expect(decodeClientMessage(wireSend.mock.calls[0]?.[0] ?? "")).toMatchObject({
       type: "input",
       seq: 1,
       moveX: 0,
@@ -111,7 +111,7 @@ describe("keyboard movement edges", () => {
     w.release();
 
     expect(wireSend).toHaveBeenCalledTimes(2);
-    expect(decodeClientMessage(wireSend.mock.calls[1]![0])).toMatchObject({
+    expect(decodeClientMessage(wireSend.mock.calls[1]?.[0] ?? "")).toMatchObject({
       type: "input",
       seq: 2,
       moveX: 0,
