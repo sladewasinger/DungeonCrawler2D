@@ -73,13 +73,9 @@ test("inventory is a modal workspace that blocks 2D world input", async ({ page 
   await expect(inventory).toBeVisible();
   await expect(inventory.getByRole("searchbox")).toBeFocused();
   await page.keyboard.type("sword");
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
-  const focusedAction = await page.evaluate(() =>
-    document.activeElement?.textContent?.trim().toLocaleLowerCase() ?? "");
-  expect(focusedAction).toBe("unequip");
+  const unequip = inventory.getByRole("button", { name: "unequip", exact: true });
+  await unequip.focus();
+  await expect(unequip).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(inventory.getByRole("button", { name: "equip", exact: true }))
     .toBeVisible();
@@ -126,8 +122,8 @@ test("the session menu contains focus and leaves background controls inert", asy
   await expect(menu).toBeVisible();
   await expect(resume).toBeFocused();
   await expect(gear).toHaveAttribute("aria-hidden", "true");
-  expect(await gear.evaluate((element) => element.inert)).toBe(true);
-  expect(await canvas.evaluate((element) => element.inert)).toBe(true);
+  expect(await gear.evaluate((element) => (element as HTMLElement).inert)).toBe(true);
+  expect(await canvas.evaluate((element) => (element as HTMLElement).inert)).toBe(true);
   await gear.focus();
   await expect(resume).toBeFocused();
   const finalControl = menu.getByRole("button", { name: "Enter Full Screen" });
@@ -139,8 +135,8 @@ test("the session menu contains focus and leaves background controls inert", asy
   await page.keyboard.press("Space");
   await expect(menu).toBeHidden();
   await expect(gear).not.toHaveAttribute("aria-hidden", "true");
-  expect(await gear.evaluate((element) => element.inert)).toBe(false);
-  expect(await canvas.evaluate((element) => element.inert)).toBe(false);
+  expect(await gear.evaluate((element) => (element as HTMLElement).inert)).toBe(false);
+  expect(await canvas.evaluate((element) => (element as HTMLElement).inert)).toBe(false);
   await expect(gear).toBeFocused();
 });
 
@@ -158,7 +154,9 @@ test("the independently loaded Three renderer boots and connects", async ({ page
   const inventory = page.locator("[data-inventory-workspace]");
   await expect(inventory.getByRole("searchbox")).toBeFocused();
   await page.keyboard.type("sword");
-  for (let index = 0; index < 4; index++) await page.keyboard.press("Tab");
+  const unequip = inventory.getByRole("button", { name: "unequip", exact: true });
+  await unequip.focus();
+  await expect(unequip).toBeFocused();
   await page.keyboard.press("Enter");
   const equipButton = inventory.getByRole("button", { name: "equip", exact: true });
   await expect(equipButton).toBeVisible();

@@ -212,6 +212,7 @@ declare global {
           heightAt(x: number, y: number): number;
         } | null;
         attack(dx: number, dy: number): void;
+        assignSlot(slot: number, item: string | null): void;
         equip(item: string | null): void;
         throwTorch(dirX: number, dirY: number): void;
         pickup(): void;

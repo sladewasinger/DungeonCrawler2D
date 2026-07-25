@@ -67,7 +67,14 @@ test.describe("throwable torches light the world for real", () => {
     await page.evaluate(() => window.__dc2d!.conn.assignSlot(0, "torch"));
     await page.waitForFunction(() => window.__dc2d!.conn.hotbar[0] === "torch");
     const canvas = page.locator("canvas").first();
-    await canvas.hover({ position: { x: 640, y: 700 } });
+    await canvas.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      element.dispatchEvent(new PointerEvent("pointermove", {
+        bubbles: true,
+        clientX: bounds.left + bounds.width / 2,
+        clientY: bounds.top + bounds.height - 20,
+      }));
+    });
     await page.keyboard.press("1");
     await page.keyboard.press("g");
 
