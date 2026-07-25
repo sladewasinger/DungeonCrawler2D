@@ -1,21 +1,9 @@
 /** Matches the DOM touch overlay's button geometry for Phaser pointer routing. */
-
-export type HtmlTouchAction = "attack" | "block" | "jump" | "interact" | "throw";
-
-interface CircleRegion {
-  action: HtmlTouchAction;
-  right: number;
-  bottom: number;
-  size: number;
-}
-
-const REGIONS: readonly CircleRegion[] = [
-  { action: "attack", right: 24, bottom: 80, size: 40 },
-  { action: "block", right: 74, bottom: 80, size: 40 },
-  { action: "jump", right: 29, bottom: 130, size: 30 },
-  { action: "interact", right: 68, bottom: 130, size: 30 },
-  { action: "throw", right: 107, bottom: 130, size: 30 },
-];
+import {
+  HTML_TOUCH_ACTIONS,
+  touchActionCenter,
+  type HtmlTouchActionRegion,
+} from "./HtmlTouchLayout.js";
 
 export class HtmlTouchHitRegions {
   private active = false;
@@ -31,7 +19,7 @@ export class HtmlTouchHitRegions {
     height: number,
   ): string | null {
     if (!this.active) return null;
-    const hit = REGIONS.find((region) =>
+    const hit = HTML_TOUCH_ACTIONS.find((region) =>
       insideCircle(x, y, width, height, region)
     );
     return hit ? `touch:${hit.action}` : null;
@@ -43,10 +31,9 @@ const insideCircle = (
   y: number,
   width: number,
   height: number,
-  region: CircleRegion,
+  region: HtmlTouchActionRegion,
 ): boolean => {
   const radius = region.size / 2;
-  const centerX = width - region.right - radius;
-  const centerY = height - region.bottom - radius;
-  return Math.hypot(x - centerX, y - centerY) <= radius;
+  const center = touchActionCenter(region, width, height);
+  return Math.hypot(x - center.x, y - center.y) <= radius;
 };
