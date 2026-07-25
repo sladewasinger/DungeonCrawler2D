@@ -3,17 +3,22 @@ import type { MoveInput } from "@dc2d/engine";
 
 export const INPUT_HEARTBEAT_TICKS = 10;
 
-function sameAxis(left: number | undefined, right: number | undefined): boolean {
-  return (left ?? 0) === (right ?? 0);
+function comparableInput(input: MoveInput): readonly (number | boolean)[] {
+  return [
+    input.moveX,
+    input.moveY,
+    input.faceX ?? 0,
+    input.faceY ?? 0,
+    input.jump,
+    input.run ?? false,
+    input.block ?? false,
+  ];
 }
 
 function sameInput(left: MoveInput, right: MoveInput): boolean {
-  return left.moveX === right.moveX &&
-    left.moveY === right.moveY &&
-    sameAxis(left.faceX, right.faceX) &&
-    sameAxis(left.faceY, right.faceY) &&
-    left.jump === right.jump &&
-    (left.run ?? false) === (right.run ?? false);
+  const leftFields = comparableInput(left);
+  const rightFields = comparableInput(right);
+  return leftFields.every((value, index) => value === rightFields[index]);
 }
 
 export class MovementCadence {

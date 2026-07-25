@@ -65,13 +65,7 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   // reload reconnecting into a still-alive body, which cosmetically shows a ring the
   // server didn't actually grant for ~2s; harmless (no gameplay effect either way). See
   // docs/ASSUMPTIONS.md row 380.
-  const wasDead = conn.hp <= 0;
-  conn.hp = snap.self.hp;
-  conn.maxHp = snap.self.maxHp;
-  conn.fx = snap.self.fx;
-  conn.statusEffects = snapshotStatusEffects(snap);
-  if (wasDead && conn.hp > 0) conn.justRespawned = true;
-  conn.downed = snap.self.downed ?? false;
+  applyVitals(conn, snap);
   reconcilePrediction(conn, snap, world);
   if (predictedBeforeSnapshot) conn.predictionCorrection.record(predictedBeforeSnapshot, conn.body);
   conn.networkMetrics.recordCorrection(conn.predictionCorrection.lastError);
@@ -83,6 +77,19 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.party = snap.party;
 }
 
+function applyVitals(conn: Connection, snap: ServerSnapshot): void {
+  const wasDead = conn.hp <= 0;
+  conn.hp = snap.self.hp;
+  conn.maxHp = snap.self.maxHp;
+  conn.stamina = snap.self.stamina ?? conn.stamina;
+  conn.maxStamina = snap.self.maxStamina ?? conn.maxStamina;
+  conn.blocking = snap.self.blocking ?? false;
+  conn.fx = snap.self.fx;
+  conn.statusEffects = snapshotStatusEffects(snap);
+  if (wasDead && conn.hp > 0) conn.justRespawned = true;
+  conn.downed = snap.self.downed ?? false;
+}
+
 function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: World): void {
   if (conn.hp <= 0 || conn.downed) {
     conn.prediction.reset();
@@ -92,7 +99,15 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
     ? snap.lastProjectedServerTick
     : snap.tick;
   const body = conn.body;
-  if (body) conn.prediction.reconcile(world, body, acknowledgedTick);
+  if (body) {
+    conn.prediction.reconcile(
+      world,
+      body,
+      acknowledgedTick,
+      conn,
+      snap.weapon !== null,
+    );
+  }
 }
 
 function snapshotStatusEffects(snap: ServerSnapshot) {
@@ -190,7 +205,15 @@ function applyEvent(conn: Connection, event: GameEvent): void {
       conn.stash = event.slots;
       return;
     case "contactsUpdated":
-      conn.contacts = event.contacts;
+      conn.contacts = event.contacts.map((contact) => ({
+        name: contact.name,
+        online: contact.online,
+        ...(contact.id === undefined ? {} : { id: contact.id }),
+      }));
+      return;
+    case "moderationUpdated":
+      conn.mutedPlayers = new Set(event.muted);
+      conn.blockedPlayers = new Set(event.blocked);
       return;
     case "teleported":
       conn.teleported = true;

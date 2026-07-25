@@ -11,7 +11,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 18;
+export const PROTOCOL_VERSION = 19;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 export const PROJECTED_INPUT_MAX_PAST_TICKS = 64;
@@ -23,6 +23,13 @@ export const MOVE_SPEED = 8;
 // nothing to port here; the multiplier is a fresh tuning call against the roadmap's
 // own "likely ~1.5x" hint (docs/ASSUMPTIONS.md #65).
 export const RUN_SPEED_MULTIPLIER = 1.5;
+export const PLAYER_MAX_STAMINA = 100;
+export const SPRINT_STAMINA_PER_SECOND = 22;
+export const BLOCK_STAMINA_PER_SECOND = 14;
+export const WALK_STAMINA_RECOVERY_PER_SECOND = 12;
+export const IDLE_STAMINA_RECOVERY_PER_SECOND = 22;
+export const HEALTH_REGEN_DELAY_SECONDS = 8;
+export const HEALTH_REGEN_PER_SECOND = 0.5;
 // A ≥1 rise (one tile edge) blocks walking outright — no more free
 // full-tile walk-up steps. Still admits stair-ramp walking (the steepest
 // authored ramp's per-step look-ahead rise is ~0.21 under BODY_RADIUS)

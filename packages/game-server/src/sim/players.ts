@@ -2,6 +2,7 @@ import {
   FALL_DAMAGE_PER_UNIT,
   NEUTRAL_INPUT,
   PLAYER_MAX_HP,
+  PLAYER_MAX_STAMINA,
   PROJECTED_INPUT_MAX_FUTURE_TICKS,
   PROJECTED_INPUT_MAX_PAST_TICKS,
   RECONNECT_GRACE_MS,
@@ -16,6 +17,7 @@ import {
   type Entity,
 } from "@dc2d/engine";
 import { killIfInChasm } from "./deaths.js";
+import { advancePlayerResources } from "./combatResources.js";
 import { dropAllInventory, grantRespawnKit } from "./inventory.js";
 import { findSpawn } from "./spawn.js";
 import { endSpawnGrace, secureSpawnHandoff } from "./spawnSafety.js";
@@ -33,6 +35,7 @@ export function markDisconnected(sim: SimState, playerId: string): void {
   slot.disconnectedAtTick = sim.tickCount;
   slot.pendingInputs.length = 0;
   slot.pendingActions.length = 0;
+  slot.blocking = false;
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
 }
 
@@ -85,10 +88,15 @@ export function reapAndRespawn(sim: SimState): void {
 
 /** Reset a dead connected slot after its authoritative respawn delay elapses. */
 export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
+  sim.store.recordActiveFloor(slot.stored, sim.world.floor);
   slot.respawnAtTick = null;
   const spawn = findSpawn(sim);
   slot.entity.body = createBody(spawn.x, spawn.y, spawn.z);
   slot.entity.hp = PLAYER_MAX_HP;
+  slot.maxStamina ??= PLAYER_MAX_STAMINA;
+  slot.stamina = slot.maxStamina;
+  slot.blocking = false;
+  slot.lastDamageAtTick = sim.tickCount;
   slot.entity.statuses = [];
   slot.downedAtTick = null;
   slot.forceDeath = false;
@@ -114,6 +122,7 @@ export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
     }
     const entity = slot.entity;
     if (entity.hp <= 0 || slot.downedAtTick !== null) {
+      slot.blocking = false;
       slot.pendingInputs.length = 0;
       continue;
     }
@@ -131,7 +140,7 @@ function stepPlayerBody(
   const tags = sim.effects.tagsOf(entity);
   const opts = { speed: entity.baseSpeed * sim.effects.speedMult(entity), stickyFeet: tags.has("sticky-feet") };
   const latestInput = slot.pendingInputs[0];
-  const input = latestInput ?? NEUTRAL_INPUT;
+  const input = advancePlayerResources(slot, latestInput ?? NEUTRAL_INPUT);
   if (input.moveX !== 0 || input.moveY !== 0 || input.jump) endSpawnGrace(slot);
   faceEntity(entity, input.faceX ?? input.moveX, input.faceY ?? input.moveY);
   const beforeX = entity.body.x;

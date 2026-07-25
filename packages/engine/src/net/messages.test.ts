@@ -10,7 +10,7 @@ import {
 
 describe("protocol", () => {
   it("round-trips a client input", () => {
-    const input: ClientInput = { type: "input", seq: 7, projectedServerTick: 41, moveX: 1, moveY: -1, faceX: 0, faceY: -1, jump: true, run: false };
+    const input: ClientInput = { type: "input", seq: 7, projectedServerTick: 41, moveX: 1, moveY: -1, faceX: 0, faceY: -1, jump: true, run: false, block: true };
     expect(decodeClientMessage(encodeMessage(input))).toEqual(input);
   });
 
@@ -79,6 +79,9 @@ describe("protocol", () => {
         ky: 0,
         hp: 22,
         maxHp: 30,
+        stamina: 64,
+        maxStamina: 100,
+        blocking: true,
         fx: ["bleeding"],
         xp: 120,
         level: 3,
@@ -94,6 +97,7 @@ describe("protocol", () => {
       weapon: "knife",
       party: {
         id: "party1",
+        leaderId: "p2",
         members: [{ id: "p2", name: "Ally", x: 100, y: 50, hp: 20, maxHp: 30, downed: false, level: 5 }],
       },
       entities: [
@@ -105,6 +109,7 @@ describe("protocol", () => {
           y: 3,
           z: 0,
           weapon: "sword",
+          blocking: true,
         },
         {
           id: "e1",

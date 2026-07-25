@@ -27,6 +27,9 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
   return {
     hp: conn.hp,
     maxHp: conn.maxHp,
+    stamina: conn.stamina,
+    maxStamina: conn.maxStamina,
+    blocking: conn.blocking,
     xp: conn.xp,
     level: conn.charLevel,
     xpForNext: conn.xpForNext,

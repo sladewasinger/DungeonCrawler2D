@@ -1,18 +1,9 @@
-import {
-  LEVEL,
-  TICK_RATE,
-  World,
-  buildContentRegistry,
-  createBody,
-  hashString,
-  makeEntity,
-  newEntityId,
-  type RawContent,
-} from "@dc2d/engine";
+import { TICK_RATE } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
-import { PlayerStore } from "../store.js";
 import { doChat, doParty, expireInvites, leaveParty } from "./social.js";
-import { createSimState, type PlayerSlot, type SimState } from "./state.js";
+import { doModeration } from "./moderation.js";
+import { makeSocialSlot, makeSocialState } from "./social.testSupport.js";
+import type { PlayerSlot, SimState } from "./state.js";
 
 /**
  * Unit tests for the social module in isolation (no ws/GameSim layer
@@ -21,63 +12,15 @@ import { createSimState, type PlayerSlot, type SimState } from "./state.js";
  * reference/game-server/sim.test.ts's Epic 7 party/chat cases.
  */
 
-const EMPTY_CONTENT: RawContent = {
-  statuses: [],
-  rules: [],
-  areas: [],
-  items: [],
-  enemies: [],
-  recipes: [],
-};
-
-function makeSlot(name: string, x: number, y: number): PlayerSlot {
-  const entity = makeEntity("player", createBody(x, y, 0), {
-    id: newEntityId("p"),
-    name,
-    hp: 10,
-    maxHp: 10,
-    tags: new Set(["player"]),
-  });
-  return {
-    entity,
-    clientId: `client-${name}`,
-    stored: { slot: 0, name, stash: [], contacts: [] },
-    resumeToken: `token-${name}`,
-    lastSeq: -1,
-    pendingInputs: [],
-    pendingActions: [],
-    connected: true,
-    reapAtTick: Number.MAX_SAFE_INTEGER,
-    known: new Set(),
-    inventory: [],
-    hotbar: [],
-    weapon: null,
-    outbox: [],
-    returnStack: [],
-    partyId: null,
-    respawnAtTick: null,
-    needsFullAreas: true,
-    downedAtTick: null,
-    attackReadyAtTick: 0,
-    attackStartedAtTick: Number.NEGATIVE_INFINITY,
-    god: false,
-    forceDeath: false,
-    chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
-  };
-}
-
 describe("social", () => {
   let sim: SimState;
   let a: PlayerSlot;
   let b: PlayerSlot;
 
   beforeEach(() => {
-    const world = new World(hashString("social-test"), 1, LEVEL.Sandbox);
-    const content = buildContentRegistry(EMPTY_CONTENT);
-    sim = createSimState(world, content, new PlayerStore(null), 1, {});
-    a = makeSlot("A", 10, 10);
-    b = makeSlot("B", 12, 10);
+    sim = makeSocialState();
+    a = makeSocialSlot("A", 10, 10);
+    b = makeSocialSlot("B", 12, 10);
     sim.players.set(a.entity.id, a);
     sim.players.set(b.entity.id, b);
   });
@@ -124,6 +67,45 @@ describe("social", () => {
     });
     doParty(sim, b, "accept");
     expect(b.partyId).toBeNull();
+  });
+
+  it("assigns a leader, restricts invites, and lets the leader kick", () => {
+    const c = makeSocialSlot("C", 11, 10);
+    sim.players.set(c.entity.id, c);
+    doParty(sim, a, "invite", b.entity.id);
+    doParty(sim, b, "accept");
+    const party = sim.parties.get(a.partyId!)!;
+    expect(party.leaderId).toBe(a.entity.id);
+
+    doParty(sim, b, "invite", c.entity.id);
+    expect(sim.invites.has(c.entity.id)).toBe(false);
+    expect(b.outbox).toContainEqual({ t: "toast", msg: "Only the party leader can invite" });
+
+    doParty(sim, a, "kick", b.entity.id);
+    expect(b.partyId).toBeNull();
+    expect(a.partyId).toBeNull();
+    expect(sim.parties.size).toBe(0);
+  });
+
+  it("applies mute, block, and report controls authoritatively", () => {
+    doModeration(sim, b, "mute", a.entity.id);
+    doChat(sim, a, "global", "muted");
+    expect(b.outbox.some((event) => event.t === "chat" && event.text === "muted")).toBe(false);
+
+    doModeration(sim, b, "unmute", a.entity.id);
+    doChat(sim, a, "global", "heard");
+    expect(b.outbox.some((event) => event.t === "chat" && event.text === "heard")).toBe(true);
+
+    doModeration(sim, b, "block", a.entity.id);
+    doParty(sim, a, "invite", b.entity.id);
+    expect(sim.invites.has(b.entity.id)).toBe(false);
+
+    doModeration(sim, b, "report", a.entity.id, "chat abuse");
+    expect(sim.moderationReports.at(-1)).toMatchObject({
+      reporterId: b.entity.id,
+      targetId: a.entity.id,
+      reason: "chat abuse",
+    });
   });
 
   it("party chat reaches every member; local chat is a positional world event", () => {
@@ -185,7 +167,7 @@ describe("social", () => {
     doChat(sim, a, "dm", "hi", "b");
     expect(b.outbox.some((e) => e.t === "chat" && e.channel === "dm")).toBe(true);
 
-    const b2 = makeSlot("B", 12, 10);
+    const b2 = makeSocialSlot("B", 12, 10);
     sim.players.set(b2.entity.id, b2);
     doChat(sim, a, "dm", "hi again", "b");
     expect(a.outbox.some((e) => e.t === "chat" && e.channel === "system" && e.text.includes("Multiple"))).toBe(

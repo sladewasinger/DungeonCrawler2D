@@ -41,6 +41,7 @@ export function buildThreeHudLiveState(
         ? null
         : connection.hotbar[selectedSlot] ?? null,
       weaponId: connection.weapon ?? null,
+      canBlock: connection.canBlock,
     }),
     reconnecting: connection.status !== "connected",
     reconnectAttempts: connection.reconnectAttempts,

@@ -1,6 +1,7 @@
 import {
   HOTBAR_SLOTS,
   PLAYER_MAX_HP,
+  PLAYER_MAX_STAMINA,
   createBody,
   makeEntity,
   newEntityId,
@@ -9,6 +10,7 @@ import {
 import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
+import { sendModerationState } from "./moderation.js";
 import { findSpawn, newToken } from "./spawn.js";
 import { secureSpawnHandoff } from "./spawnSafety.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
@@ -37,7 +39,13 @@ export function addPlayer(
     facing: { x: 0, y: 1 },
   });
   const token = newToken(sim);
-  const slot = newSlot(entity, clientId, sim.store.get(clientId, name), token);
+  const slot = newSlot(
+    entity,
+    clientId,
+    sim.store.get(clientId, name),
+    token,
+    sim.tickCount,
+  );
   sim.players.set(entity.id, slot);
   sim.byToken.set(token, entity.id);
   // Panel round 3b blocker #1: no hostile on/near the entry tile at
@@ -69,7 +77,7 @@ export function addPlayer(
   // when this floor has a StairwayDown at all.
   const stairHint = announceStairwayHint(sim.tickCount, entity.id, sim.world);
   if (stairHint) slot.outbox.push(stairHint);
-  sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
+  sim.store.recordFloor(slot.stored, sim.world.floor);
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false, floor: sim.world.floor };
 }
 
@@ -86,12 +94,10 @@ function newSlot(
   clientId: string,
   stored: PlayerSlot["stored"],
   resumeToken: string,
+  tick: number,
 ): PlayerSlot {
   return {
-    entity,
-    clientId,
-    stored,
-    resumeToken,
+    entity, clientId, stored, resumeToken,
     lastSeq: -1,
     highestReceivedSeq: -1,
     lastProjectedServerTick: -1,
@@ -104,6 +110,7 @@ function newSlot(
     inventory: [],
     hotbar: restoredHotbar(stored),
     weapon: null,
+    ...initialResources(tick),
     outbox: [],
     returnStack: [],
     partyId: null,
@@ -118,6 +125,18 @@ function newSlot(
     lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,
     spawnGraceUntilTick: 0,
     pendingTransfer: null,
+  };
+}
+
+function initialResources(tick: number): Pick<
+  PlayerSlot,
+  "stamina" | "maxStamina" | "blocking" | "lastDamageAtTick"
+> {
+  return {
+    stamina: PLAYER_MAX_STAMINA,
+    maxStamina: PLAYER_MAX_STAMINA,
+    blocking: false,
+    lastDamageAtTick: tick,
   };
 }
 
@@ -153,7 +172,8 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
     if (inviter) slot.outbox.push({ t: "invite", from: inviter.entity.id, name: inviter.entity.name ?? "?" });
   }
   sendContactsUpdated(sim, slot);
-  sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
+  sendModerationState(slot);
+  sim.store.recordFloor(slot.stored, sim.world.floor);
   return {
     playerId: slot.entity.id,
     resumeToken: slot.resumeToken,

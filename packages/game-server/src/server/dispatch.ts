@@ -94,14 +94,14 @@ export function routeAuthenticatedMessage(
 
 /** Which sim a hello lands in: sandbox is unchanged; a dungeon resume
  * reattaches wherever its slot currently lives (any active floor); a
- * fresh dungeon join honors `floor` (clamped), defaulting to 1. */
+ * fresh process/session join restores the server-owned active floor. */
 function resolveJoinSim(msg: ClientHello, floors: FloorRegistry, sandbox: GameSim): GameSim {
   if (msg.level === LEVEL.Sandbox) return sandbox;
   if (msg.resumeToken) {
     const resumed = floors.findByToken(msg.resumeToken);
     if (resumed) return resumed;
   }
-  return floors.ensureFloor(msg.floor ?? 1);
+  return floors.joinSim(msg.clientId);
 }
 
 function handleHello(

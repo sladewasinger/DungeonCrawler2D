@@ -34,6 +34,12 @@ export interface StoredPlayer {
    * every reader treats a missing value as 1, and `get()` always
    * populates a concrete value for records it creates. */
   deepestFloor?: number;
+  /** Floor used for a fresh process/session join. Resume tokens still win
+   * while their live slot exists; hard death records floor 1 immediately. */
+  activeFloor?: number;
+  /** Durable terminal objective. Once the Warden has been defeated with
+   * this player in the arena, it never becomes false again. */
+  descentComplete?: boolean;
 }
 
 export const STASH_CAPACITY = 24;
@@ -44,6 +50,8 @@ const normalizeStoredPlayer = (player: StoredPlayer): StoredPlayer => ({
   xp: player.xp ?? 0,
   level: player.level ?? 1,
   deepestFloor: player.deepestFloor ?? 1,
+  activeFloor: player.activeFloor ?? 1,
+  descentComplete: player.descentComplete ?? false,
   ...(Array.isArray(player.hotbar) ? { hotbar: [...player.hotbar] } : {}),
   ...(player.starterHotbarSchema === undefined
     ? {}
@@ -80,7 +88,17 @@ export class PlayerStore {
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);
     if (!player) {
-      player = { slot: this.nextSlot++, name, stash: [], contacts: [], xp: 0, level: 1, deepestFloor: 1 };
+      player = {
+        slot: this.nextSlot++,
+        name,
+        stash: [],
+        contacts: [],
+        xp: 0,
+        level: 1,
+        deepestFloor: 1,
+        activeFloor: 1,
+        descentComplete: false,
+      };
       this.data.set(clientId, player);
       this.scheduleSave();
     } else if (player.name !== name) {
@@ -88,6 +106,11 @@ export class PlayerStore {
       this.scheduleSave();
     }
     return player;
+  }
+
+  /** Read an existing record without creating one or accepting client-supplied state. */
+  find(clientId: string): StoredPlayer | undefined {
+    return this.data.get(clientId);
   }
 
   /** Merge items into a stash (stacking), respecting capacity. */
@@ -134,6 +157,25 @@ export class PlayerStore {
     if (floor <= (player.deepestFloor ?? 1)) return;
     player.deepestFloor = floor;
     this.scheduleSave();
+  }
+
+  recordActiveFloor(player: StoredPlayer, floor: number): void {
+    if (floor === (player.activeFloor ?? 1)) return;
+    player.activeFloor = floor;
+    this.scheduleSave();
+  }
+
+  recordFloor(player: StoredPlayer, floor: number): void {
+    this.recordActiveFloor(player, floor);
+    this.recordDeepestFloor(player, floor);
+  }
+
+  /** Returns true exactly once, allowing objective rewards to be idempotent. */
+  completeDescent(player: StoredPlayer): boolean {
+    if (player.descentComplete) return false;
+    player.descentComplete = true;
+    this.scheduleSave();
+    return true;
   }
 
   recordHotbar(

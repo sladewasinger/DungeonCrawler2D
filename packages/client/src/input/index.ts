@@ -227,7 +227,7 @@ export class InputController {
       return { moveX: 0, moveY: 0, jump: false, run: false };
     }
     const keyboardMove = readMoveInput(this.state, this.conn);
-    if (!this.touchActive) return withPointerFacing(screenMoveToWorld(keyboardMove, getViewOrientation()), this.scene, this.conn, this.tilePx);
+    if (!this.touchActive) return { ...withPointerFacing(screenMoveToWorld(keyboardMove, getViewOrientation()), this.scene, this.conn, this.tilePx), block: this.scene.input.activePointer.rightButtonDown() };
     const merged = mergeMoveInputs(keyboardMove, touchMoveInput(this.touch));
     updateLastFacing(this.touch, merged.moveX, merged.moveY);
     const move = screenMoveToWorld(merged, getViewOrientation());

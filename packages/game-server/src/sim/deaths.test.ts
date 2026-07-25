@@ -132,7 +132,7 @@ describe("resolveDeaths", () => {
     sim.players.set(b.entity.id, b);
     a.partyId = "p1";
     b.partyId = "p1";
-    sim.parties.set("p1", { id: "p1", members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
+    sim.parties.set("p1", { id: "p1", leaderId: a.entity.id, members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
     a.entity.hp = 0;
 
     resolveDeaths(sim);
@@ -151,7 +151,7 @@ describe("resolveDeaths", () => {
     sim.players.set(b.entity.id, b);
     a.partyId = "p1";
     b.partyId = "p1";
-    sim.parties.set("p1", { id: "p1", members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
+    sim.parties.set("p1", { id: "p1", leaderId: a.entity.id, members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
     a.downedAtTick = 0;
     a.entity.hp = 1;
     sim.tickCount = DOWNED_DURATION * TICK_RATE;
@@ -188,7 +188,7 @@ describe("resolveDeaths", () => {
     sim.players.set(b.entity.id, b);
     a.partyId = "p1";
     b.partyId = "p1";
-    sim.parties.set("p1", { id: "p1", members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
+    sim.parties.set("p1", { id: "p1", leaderId: a.entity.id, members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
     a.entity.hp = 0;
     a.forceDeath = true;
 

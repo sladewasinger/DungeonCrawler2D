@@ -6,7 +6,7 @@ import { WidgetRegistry } from "../registry.js";
 import type { LayoutConfig, WidgetDefinition } from "../state.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
-const HUD_WIDGET_IDS = ["health", "hotbar", "buffs", "weapon", "chat", "interaction", "status", "death", "inventory"];
+const HUD_WIDGET_IDS = ["health", "stamina", "hotbar", "buffs", "weapon", "chat", "interaction", "status", "death", "inventory"];
 
 function stubDefinition(id: string): WidgetDefinition {
   return { id, defaultAnchor: "top-left", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true };

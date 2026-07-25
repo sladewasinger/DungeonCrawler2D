@@ -11,6 +11,13 @@ export type ChatCommand =
   | { kind: "none" }
   | { kind: "send"; channel: ChatSendChannel; text: string; target?: string }
   | { kind: "who" }
+  | { kind: "party"; op: "leave" | "kick"; target?: string }
+  | {
+      kind: "moderation";
+      op: "mute" | "unmute" | "block" | "unblock" | "report";
+      target: string;
+      reason?: string;
+    }
   /** Client-local output (e.g. /help) — rendered as system lines, never sent. */
   | { kind: "local-lines"; lines: string[] }
   | { kind: "error"; message: string }
@@ -19,6 +26,9 @@ export type ChatCommand =
   | { kind: "debug-teleport"; x: number; y: number };
 
 export const HELP_LINES: readonly string[] = [
+  "/party leave | /party kick <name> — manage your party",
+  "/mute|unmute|block|unblock <name> — control contact",
+  "/report <name> [reason] — flag abuse for review",
   "/help — this list",
   "/dm <name> <message> — direct message a contact (/whisper works too)",
   "/r <message> — reply to your latest DM thread",
@@ -63,20 +73,56 @@ function parseTeleport(rest: string): ChatCommand {
   return { kind: "debug-teleport", x, y };
 }
 
+function parseParty(rest: string): ChatCommand {
+  const { cmd, rest: target } = splitCommand(rest);
+  if (cmd === "leave" && !target) return { kind: "party", op: "leave" };
+  if (cmd === "kick" && target) return { kind: "party", op: "kick", target };
+  return { kind: "error", message: "Usage: /party leave | /party kick <name>" };
+}
+
+function parseModeration(
+  op: "mute" | "unmute" | "block" | "unblock" | "report",
+  rest: string,
+): ChatCommand {
+  const { cmd: target, rest: reason } = splitCommand(rest);
+  if (!target) {
+    return {
+      kind: "error",
+      message: `Usage: /${op} <name>${op === "report" ? " [reason]" : ""}`,
+    };
+  }
+  return {
+    kind: "moderation",
+    op,
+    target,
+    ...(op === "report" && reason ? { reason } : {}),
+  };
+}
+
 function parseSlash(trimmed: string, lastDmPartner: string | null): ChatCommand {
   const { cmd, rest } = splitCommand(trimmed);
+  const moderation = ["/mute", "/unmute", "/block", "/unblock", "/report"];
+  if (moderation.includes(cmd)) {
+    return parseModeration(
+      cmd.slice(1) as "mute" | "unmute" | "block" | "unblock" | "report",
+      rest,
+    );
+  }
+  const staticCommands: Record<string, ChatCommand> = {
+    "/help": { kind: "local-lines", lines: [...HELP_LINES] },
+    "/who": { kind: "who" },
+    "/god": { kind: "debug-god" },
+  };
+  const direct = staticCommands[cmd];
+  if (direct) return direct;
   switch (cmd) {
-    case "/help":
-      return { kind: "local-lines", lines: [...HELP_LINES] };
     case "/dm":
     case "/whisper":
       return parseDm(rest);
     case "/r":
       return parseReply(rest, lastDmPartner);
-    case "/who":
-      return { kind: "who" };
-    case "/god":
-      return { kind: "debug-god" };
+    case "/party":
+      return parseParty(rest);
     case "/tp":
       return parseTeleport(rest);
     default:

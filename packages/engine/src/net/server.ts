@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { gameEventSchema } from "./serverEvents.js";
+
+export { gameEventSchema, type GameEvent } from "./serverEvents.js";
 
 /** Zod schemas and types for server→client wire messages (authoritative snapshots and events). */
 
@@ -31,6 +34,9 @@ export type ActiveStatusSnapshot = z.infer<typeof activeStatusSnapshotSchema>;
 export const selfSnapshotSchema = bodySnapshotSchema.extend({
   hp: z.number(),
   maxHp: z.number(),
+  stamina: z.number().nonnegative().optional(),
+  maxStamina: z.number().positive().optional(),
+  blocking: z.boolean().optional(),
   /** Active status ids (HUD icons / tint). */
   fx: z.array(z.string()),
   /** Timed status state for authoritative HUD progress; additive for rolling clients. */
@@ -68,6 +74,7 @@ export const entitySnapshotSchema = z.object({
   faceX: z.number().min(-1).max(1).optional(),
   faceY: z.number().min(-1).max(1).optional(),
   weapon: z.string().nullable().optional(),
+  blocking: z.boolean().optional(),
   /** Present iff airborne — grounded entities render planted on their
    * shadow (interpolating z across height steps must not read as a hop). */
   air: z.literal(true).optional(),
@@ -93,6 +100,7 @@ export type InvSlot = z.infer<typeof invSlotSchema>;
 export const partySnapshotSchema = z
   .object({
     id: z.string(),
+    leaderId: z.string(),
     /** Members incl. off-AOI position pings — they're your people. hp/downed
      * (Epic 7.12) let a party frame show a teammate's status even off-AOI,
      * where entitySnapshot's own hp/downed never reaches this client. */
@@ -113,42 +121,6 @@ export const partySnapshotSchema = z
     ),
   })
   .nullable();
-
-export const gameEventSchema = z.discriminatedUnion("t", [
-  z.object({ t: z.literal("hit"), id: z.string(), amount: z.number() }),
-  z.object({
-    t: z.literal("health"),
-    id: z.string(),
-    delta: z.number(),
-    kind: z.enum(["heal", "damage"]),
-  }),
-  z.object({ t: z.literal("death"), id: z.string() }),
-  z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
-  z.object({
-    t: z.literal("chat"),
-    channel: z.enum(["party", "local", "global", "dm", "system"]),
-    from: z.string(),
-    name: z.string(),
-    text: z.string(),
-    /** The other party's display name — set on "dm" so either side can render
-     * tabs/threads and resolve /r without guessing who "the other end" was. */
-    target: z.string().optional(),
-  }),
-  z.object({ t: z.literal("toast"), msg: z.string() }),
-  z.object({ t: z.literal("invite"), from: z.string(), name: z.string() }),
-  z.object({ t: z.literal("teleported") }),
-  z.object({
-    t: z.literal("stash"),
-    slots: z.array(z.object({ item: z.string(), qty: z.number().int() })),
-  }),
-  /** Full mutual-contact list, sent after any fistbump-created contact and
-   * on join — online resolved live, offline falls back to last-known name. */
-  z.object({
-    t: z.literal("contactsUpdated"),
-    contacts: z.array(z.object({ name: z.string(), online: z.boolean() })),
-  }),
-]);
-export type GameEvent = z.infer<typeof gameEventSchema>;
 
 export const areaTileSchema = z.object({
   x: z.number().int(),

@@ -14,6 +14,7 @@ export class ThreeTouchControls {
   private jump = false; private jumpPressed = false;
   private attack = false; private interactPressed = false;
   private interactHeld = false; private throwItem = false;
+  private run = false; private block = false;
   private yaw = 0; private pitch = 0;
   private stickPointer: number | null = null; private lookPointer: number | null = null;
   private jumpPointer: number | null = null;
@@ -36,7 +37,7 @@ export class ThreeTouchControls {
     root.addEventListener("pointercancel", this.releaseCapturedJump, true);
   }
 
-  read(seconds: number): { forward: number; right: number; jump: boolean; attack: boolean; interactPressed: boolean; interactHeld: boolean; throwItem: boolean; yaw: number; pitch: number } {
+  read(seconds: number): { forward: number; right: number; jump: boolean; run: boolean; block: boolean; attack: boolean; interactPressed: boolean; interactHeld: boolean; throwItem: boolean; yaw: number; pitch: number } {
     const elapsed = clamp(seconds, 0, 0.05);
     this.yaw += -this.aim.x * AIM_TURN_SPEED * elapsed;
     this.pitch += this.aim.z * AIM_TURN_SPEED * elapsed;
@@ -44,6 +45,7 @@ export class ThreeTouchControls {
       forward: this.movement.z,
       right: this.movement.x,
       jump: this.jump,
+      run: this.run, block: this.block,
       attack: this.attack,
       interactPressed: this.interactPressed,
       interactHeld: this.interactHeld,
@@ -73,7 +75,7 @@ export class ThreeTouchControls {
     this.attack = false;
     this.interactPressed = false;
     this.interactHeld = false;
-    this.throwItem = false;
+    this.throwItem = false; this.run = false; this.block = false;
     this.yaw = 0;
     this.pitch = 0;
     this.stickPointer = null;
@@ -120,7 +122,7 @@ export class ThreeTouchControls {
     const attack = createTouchButton("ATTACK", 148, 20);
     const jump = createTouchButton("JUMP", 214, 20);
     const interact = createTouchButton("USE", 181, 86);
-    const throwItem = createTouchButton("THROW", 247, 86);
+    const throwItem = createTouchButton("THROW", 247, 86); const block = createTouchButton("BLOCK", 148, 86); const sprint = createTouchButton("SPRINT", 148, 152);
     bindTouchActionButton(attack, () => this.triggerAction("attack"));
     bindTouchHoldButton(
       interact,
@@ -128,9 +130,10 @@ export class ThreeTouchControls {
       (held) => { this.interactHeld = held; },
     );
     bindTouchActionButton(throwItem, () => this.triggerAction("throw"));
+    bindTouchHoldButton(block, () => {}, (held) => { this.block = held; }); bindTouchHoldButton(sprint, () => {}, (held) => { this.run = held; });
     bindTouchJumpButton(jump, () => this.queueJump(), (held) => { this.jump = held; });
     this.jumpButton = jump;
-    this.layer.append(attack, jump, interact, throwItem);
+    this.layer.append(attack, jump, interact, throwItem, block, sprint);
   }
 
   private beginStick(event: PointerEvent): void {

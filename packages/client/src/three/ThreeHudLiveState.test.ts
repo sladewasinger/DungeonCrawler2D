@@ -20,6 +20,7 @@ const connection = (
   stash: [{ item: "stick", qty: 1 }],
   hotbar,
   weapon,
+  canBlock: weapon !== null,
   entities: new Map(withItem
     ? [["item", { snap: { id: "item", kind: "item", x: 20.4, y: 20.2 } as EntitySnapshot }]]
     : []),
@@ -51,8 +52,6 @@ describe("buildThreeHudLiveState", () => {
       0,
     );
     expect(state.notices.actionHints.map(({ action }) => action))
-      .toEqual(["use", "attack"]);
-    expect(state.notices.actionHints)
-      .not.toContainEqual(expect.objectContaining({ action: "block" }));
+      .toEqual(["use", "attack", "block"]);
   });
 });

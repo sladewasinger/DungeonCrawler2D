@@ -77,6 +77,7 @@ export function applyTouchLayoutOverrides(registry: WidgetRegistry, viewport: Vi
   // margin, crowding straight into the top-right telemetry stack (wave-6 sweep:
   // "mobile-hp-bar-runs-to-screen-edge"). Same step-down as the joystick/buttons cluster.
   registry.setOverride("health", { scale: factor });
+  registry.setOverride("stamina", { scale: factor });
   registry.setOverride("hotbar", { scale: 0.5 });
   registry.setOverride("weapon", { visible: false });
   registry.setOverride("chat", { offset: { x: 16, y: chatOffsetY(viewport, hudScale) } });

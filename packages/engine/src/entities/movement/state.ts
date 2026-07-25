@@ -40,6 +40,9 @@ export interface MoveInput {
   /** Hold-to-run intent (Epic 7.12). Optional so every existing caller (AI,
    * feel-harness, editor bench) that never sets it keeps walking unchanged. */
   run?: boolean;
+  /** Held block intent. The authoritative resource step decides whether the
+   * player has a weapon and enough stamina to enter the blocking state. */
+  block?: boolean | undefined;
 }
 
 export interface StepResult {

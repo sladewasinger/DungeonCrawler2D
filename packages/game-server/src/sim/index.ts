@@ -51,6 +51,7 @@ import {
   type SimState,
 } from "./state.js";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "./statuses.js";
+import { applyHealthRegeneration } from "./combatResources.js";
 import { stepTorches } from "./torches.js";
 import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
 import { PlayerStore } from "../store.js";
@@ -220,10 +221,7 @@ export class GameSim {
 
   // ── main tick ────────────────────────────────────────────────────
 
-  step(): Map<string, ServerSnapshot> {
-    this.advanceTick();
-    return buildSnapshots(this.state);
-  }
+  step(): Map<string, ServerSnapshot> { this.advanceTick(); return buildSnapshots(this.state); }
 
   /** Production transport path: negotiated clients receive revision deltas. */
   stepReplicated(): Map<string, ServerStateSnapshot> {
@@ -267,6 +265,7 @@ export class GameSim {
     sim.areas.tick(TICK_DT, () => sim.rng.next());
     applyAreaContact(sim, effectEvents);
     tickStatuses(sim, effectEvents);
+    applyHealthRegeneration(sim, effectEvents);
     realizeEffectEvents(sim, effectEvents);
     applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
     resolveDeaths(sim);

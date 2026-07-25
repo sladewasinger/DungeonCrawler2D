@@ -26,7 +26,8 @@ export const firstPersonMoveInput = (input: FirstPersonInput): MoveInput => {
     faceX: forwardX,
     faceY: forwardY,
     jump: input.jump,
-    run: false,
+    run: input.run ?? false,
+    block: input.block ?? false,
   };
 };
 

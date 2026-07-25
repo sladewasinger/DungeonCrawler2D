@@ -25,6 +25,7 @@ export class ThreeHudTouchOverlay {
   private readonly stick = document.createElement("div");
   private readonly knob = document.createElement("div");
   private readonly attack = createButton("ATTACK", 24, 80, 40);
+  private readonly block = createButton("BLOCK", 74, 80, 40);
   private readonly jump = createButton("JUMP", 29, 130, 30);
   private readonly interact = createButton("USE", 68, 130, 30);
   private readonly throwItem = createButton("THROW", 107, 130, 30);
@@ -50,6 +51,7 @@ export class ThreeHudTouchOverlay {
     this.element.append(
       this.stick,
       this.attack,
+      this.block,
       this.jump,
       this.interact,
       this.throwItem,
@@ -62,6 +64,7 @@ export class ThreeHudTouchOverlay {
     if (!touch) return;
     this.updateStick(touch);
     this.setPressed(this.attack, touch.buttons.attack);
+    this.setPressed(this.block, touch.buttons.block ?? false);
     this.setPressed(this.jump, touch.buttons.jump);
     this.setPressed(this.interact, touch.buttons.interact);
   }

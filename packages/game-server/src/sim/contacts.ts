@@ -1,5 +1,6 @@
 import { AOI_RADIUS, TICK_RATE, type GameEvent } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "./state.js";
+import { socialPairAllowed } from "./moderation.js";
 
 /** Fistbump contacts (Epic 7.10) and /who — hold-gesture mutual contact,
  * pending-offer bookkeeping, and the shared chat rate-limit helper. */
@@ -42,6 +43,7 @@ export function findOnlineByName(sim: SimState, name: string): PlayerSlot[] {
 export function doFistbump(sim: SimState, slot: PlayerSlot, targetId: string): void {
   const target = sim.players.get(targetId);
   if (!target || !target.connected || target.entity.id === slot.entity.id) return;
+  if (!socialPairAllowed(slot, target)) return;
   const distance = Math.hypot(
     target.entity.body.x - slot.entity.body.x,
     target.entity.body.y - slot.entity.body.y,
@@ -84,10 +86,16 @@ function sealMutualContact(sim: SimState, a: PlayerSlot, b: PlayerSlot): void {
 }
 
 export function sendContactsUpdated(sim: SimState, slot: PlayerSlot): void {
-  const contacts = slot.stored.contacts.map((name) => ({
-    name,
-    online: findOnlineByName(sim, name).length > 0,
-  }));
+  const contacts = slot.stored.contacts.flatMap((name) => {
+    const matches = findOnlineByName(sim, name);
+    const match = matches.length === 1 ? matches[0] : undefined;
+    if (match && !socialPairAllowed(slot, match)) return [];
+    return [{
+      name,
+      online: matches.length > 0,
+      ...(match ? { id: match.entity.id } : {}),
+    }];
+  });
   slot.outbox.push({ t: "contactsUpdated", contacts });
 }
 

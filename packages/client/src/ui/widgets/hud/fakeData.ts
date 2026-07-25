@@ -82,6 +82,7 @@ export interface StairwayTickData {
 
 export interface HudFakeSnapshot {
   health: { hp: number; maxHp: number };
+  stamina: { stamina: number; maxStamina: number; blocking: boolean };
   /** Epic 11 core (character levels), pulled forward — xpBar.ts's progress bar + level numeral. */
   xp: XpBarData;
   hotbar: HotbarSlotData[];
@@ -233,7 +234,7 @@ const FAKE_BUFFS: BuffChipData[] = [
 /** Static fake snapshot: half health, 5 filled hotbar slots (one armed throwable), 2 buffs, one chat line per channel. */
 export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
   return {
-    health: { hp: 24, maxHp: 48 },
+    health: { hp: 24, maxHp: 48 }, stamina: { stamina: 72, maxStamina: 100, blocking: false },
     xp: { xp: 220, level: 3, xpForNext: 80 },
     hotbar: FAKE_HOTBAR,
     selectedSlot: 0,

@@ -11,9 +11,22 @@ export function stepProjectiles(sim: SimState, effectEvents: EffectEvent[]): voi
     if (!directHit && !result.impact) continue;
 
     sim.projectiles.delete(id);
+    if (directHit && directProjectileIsBlocked(
+      projectile.defId,
+      sim.players.get(directHit.id)?.blocking === true,
+    )) continue;
     const point = directHit?.body ?? result.impact ?? projectile.body;
     resolveImpact(sim, projectile, point.x, point.y, directHit, effectEvents);
   }
+}
+
+/** Enemy spit has no item def and is a direct projectile. Authored throwables
+ * still resolve their impact blast/area even when they touch a blocking player. */
+export function directProjectileIsBlocked(
+  projectileDefId: string | undefined,
+  targetBlocking: boolean,
+): boolean {
+  return targetBlocking && projectileDefId === undefined;
 }
 
 /** First living combatant the projectile is touching mid-flight (never the thrower). */

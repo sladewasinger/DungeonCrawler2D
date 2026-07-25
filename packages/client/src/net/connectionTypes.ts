@@ -18,6 +18,7 @@ export interface ChatLine {
 }
 
 export interface ContactInfo {
+  id?: string;
   name: string;
   online: boolean;
 }

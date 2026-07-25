@@ -26,13 +26,21 @@ describe("MovementCadence", () => {
     expect(adaptiveBytes).toBeLessThan(legacyBytes * 0.15);
   });
 
-  it("sends movement, aim, jump, and run changes immediately", () => {
+  it("sends movement, aim, jump, run, and block changes immediately", () => {
     const cadence = new MovementCadence();
     expect(cadence.shouldSend(IDLE)).toBe(true);
     expect(cadence.shouldSend({ ...IDLE, moveX: 1 })).toBe(true);
     expect(cadence.shouldSend({ ...IDLE, moveX: 1, faceY: -1 })).toBe(true);
     expect(cadence.shouldSend({ ...IDLE, moveX: 1, faceY: -1, jump: true })).toBe(true);
     expect(cadence.shouldSend({ ...IDLE, moveX: 1, faceY: -1, jump: true, run: true })).toBe(true);
+    expect(cadence.shouldSend({
+      ...IDLE,
+      moveX: 1,
+      faceY: -1,
+      jump: true,
+      run: false,
+      block: true,
+    })).toBe(true);
   });
 
   it("sends immediately after reconnect reset", () => {

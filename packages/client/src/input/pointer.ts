@@ -138,6 +138,8 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
     // cursorWorldTile uses for mouse aim (LANE W2, docs/ASSUMPTIONS.md).
     const dir = screenDirToWorld(touch.lastFacing, getViewOrientation());
     triggerAttack(state, conn, hooks, dir.x, dir.y, performance.now(), queries.attackCooldownMs(conn.weapon));
+  } else if (uiHit === "touch:block") {
+    pressButton(touch, "block", pointerId);
   } else if (uiHit === "touch:jump") {
     pressButton(touch, "jump", pointerId);
   } else if (uiHit === "touch:interact") {

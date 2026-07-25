@@ -22,6 +22,12 @@ export interface ChatPort {
   readonly chatSeq: number;
   chat(channel: "party" | "local" | "global" | "dm", text: string, target?: string): void;
   who(): void;
+  partyCommand(op: "leave" | "kick", target?: string): void;
+  moderate(
+    op: "mute" | "unmute" | "block" | "unblock" | "report",
+    target: string,
+    reason?: string,
+  ): void;
   debugGod(on?: boolean): void;
   debugTeleport(x: number, y: number): void;
 }
@@ -80,6 +86,10 @@ export class ChatController {
   private dispatch(command: ChatCommand): void {
     if (command.kind === "send") this.port.chat(command.channel, command.text, command.target);
     else if (command.kind === "who") this.port.who();
+    else if (command.kind === "party") this.port.partyCommand(command.op, command.target);
+    else if (command.kind === "moderation") {
+      this.port.moderate(command.op, command.target, command.reason);
+    }
     else if (command.kind === "local-lines") {
       for (const text of command.lines) this.pushSystem(text);
     } else if (command.kind === "error") this.pushSystem(command.message);

@@ -19,6 +19,8 @@ export interface FirstPersonInput {
   right: number;
   jump: boolean;
   yaw: number;
+  run?: boolean;
+  block?: boolean;
 }
 
 export interface FirstPersonConfig {

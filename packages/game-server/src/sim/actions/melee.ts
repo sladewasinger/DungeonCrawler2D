@@ -25,6 +25,7 @@ export function doAttack(
 ): void {
   const attacker = slot.entity;
   faceEntity(attacker, dirX, dirY);
+  if (slot.blocking) return;
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
   const weaponDef = equippedWeapon(sim, slot);
   const cooldownTicks = attackCooldownTicks(weaponDef);

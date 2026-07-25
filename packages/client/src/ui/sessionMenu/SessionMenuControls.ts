@@ -54,6 +54,41 @@ export const createSessionRange = (
   return row;
 };
 
+const createMotionControl = (
+  presentation: LocalPresentationController,
+  currentMotion: "system" | "reduce" | "full",
+): HTMLLabelElement => {
+  const motion = document.createElement("label");
+  motion.style.cssText =
+    "display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center";
+  const motionText = document.createElement("span");
+  motionText.textContent = "Interface motion";
+  const motionSelect = document.createElement("select");
+  motionSelect.setAttribute("aria-label", "Interface motion");
+  motionSelect.style.cssText =
+    "padding:6px;border:1px solid #757a93;background:#292b40;color:#f2f0eb";
+  for (const [value, label] of [
+    ["system", "Follow device"],
+    ["reduce", "Reduce"],
+    ["full", "Full"],
+  ] as const) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    motionSelect.append(option);
+  }
+  motionSelect.value = currentMotion;
+  motionSelect.addEventListener("change", () => {
+    presentation.setMotion(
+      motionSelect.value === "reduce" || motionSelect.value === "full"
+        ? motionSelect.value
+        : "system",
+    );
+  });
+  motion.append(motionText, motionSelect);
+  return motion;
+};
+
 export const createAccessibilityControls = (
   presentation: LocalPresentationController,
 ): HTMLElement[] => {
@@ -75,34 +110,7 @@ export const createAccessibilityControls = (
     current.fontScale,
     (value) => presentation.setFontScale(value),
   );
-  const motion = document.createElement("label");
-  motion.style.cssText =
-    "display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center";
-  const motionText = document.createElement("span");
-  motionText.textContent = "Interface motion";
-  const motionSelect = document.createElement("select");
-  motionSelect.setAttribute("aria-label", "Interface motion");
-  motionSelect.style.cssText =
-    "padding:6px;border:1px solid #757a93;background:#292b40;color:#f2f0eb";
-  for (const [value, label] of [
-    ["system", "Follow device"],
-    ["reduce", "Reduce"],
-    ["full", "Full"],
-  ] as const) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    motionSelect.append(option);
-  }
-  motionSelect.value = current.motion;
-  motionSelect.addEventListener("change", () => {
-    presentation.setMotion(
-      motionSelect.value === "reduce" || motionSelect.value === "full"
-        ? motionSelect.value
-        : "system",
-    );
-  });
-  motion.append(motionText, motionSelect);
+  const motion = createMotionControl(presentation, current.motion);
   const hudTitle = document.createElement("h3");
   hudTitle.textContent = "HUD & view";
   hudTitle.style.cssText = "margin:8px 0 0;color:#aaaec8;font-size:12px";

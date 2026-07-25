@@ -56,5 +56,5 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
   // floor identity line on every arrival — null (skipped) on FLOOR_CAP's boss floor.
   const stairHint = announceStairwayHint(sim.tickCount, slot.entity.id, sim.world);
   if (stairHint) slot.outbox.push(stairHint);
-  sim.store.recordDeepestFloor(slot.stored, sim.world.floor);
+  sim.store.recordFloor(slot.stored, sim.world.floor);
 }

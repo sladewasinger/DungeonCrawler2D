@@ -66,10 +66,10 @@ describe("GameSim: fistbump contacts (Epic 7.10)", () => {
       expect(aEvents).toHaveLength(1); // exactly one seal, no duplicate contact entries
       expect(bEvents).toHaveLength(1);
       expect(aEvents[0]!.t === "contactsUpdated" ? aEvents[0]!.contacts : []).toEqual([
-        { name: "B", online: true },
+        { id: bId, name: "B", online: true },
       ]);
       expect(bEvents[0]!.t === "contactsUpdated" ? bEvents[0]!.contacts : []).toEqual([
-        { name: "A", online: true },
+        { id: aId, name: "A", online: true },
       ]);
     });
 

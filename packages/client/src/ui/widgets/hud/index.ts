@@ -23,6 +23,7 @@ import type { InventoryActions } from "./inventoryWindow.js";
 import { PanelWindows, shouldDismissOnOutsideTap } from "./panelWindows.js";
 import { PartyFramesWidget } from "./partyFrames.js";
 import { ReconnectToastWidget } from "./reconnectToast.js";
+import { StaminaBarWidget } from "./staminaBar.js";
 import { ToastStackWidget } from "./toastStack.js";
 import { TouchButtonsWidget } from "./touchButtons.js";
 import { TouchStickWidget } from "./touchStick.js";
@@ -38,7 +39,7 @@ export class HudWidgets {
   /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
    * after boot) flips this reactively — see handlePointerDown. */
   private touchActive = isTouchDevice();
-  private readonly health: HealthBarWidget;
+  private readonly health: HealthBarWidget; private readonly stamina: StaminaBarWidget;
   private readonly hotbar: HotbarWidget;
   private readonly buffs: BuffChipsWidget;
   private readonly weapon: WeaponChipWidget;
@@ -76,7 +77,7 @@ export class HudWidgets {
     this.registry.loadPersisted();
     if (this.touchActive) applyTouchLayoutOverrides(this.registry, viewport);
     const socialActions = social ?? noopSocialActions();
-    this.health = new HealthBarWidget(scene, this.registry, viewport);
+    this.health = new HealthBarWidget(scene, this.registry, viewport); this.stamina = new StaminaBarWidget(scene, this.registry, viewport);
     this.hotbar = new HotbarWidget(scene, this.registry, viewport);
     this.buffs = new BuffChipsWidget(scene, this.registry, viewport);
     this.weapon = new WeaponChipWidget(scene, this.registry, viewport);
@@ -122,7 +123,7 @@ export class HudWidgets {
 
   /** Drives every widget from one fake/real snapshot; call once per frame. */
   update(snapshot: HudFakeSnapshot, nowMs: number): void {
-    this.health.update(snapshot.health.hp, snapshot.health.maxHp, nowMs);
+    this.health.update(snapshot.health.hp, snapshot.health.maxHp, nowMs); this.stamina.update(snapshot.stamina.stamina, snapshot.stamina.maxStamina, snapshot.stamina.blocking);
     this.hotbar.update(snapshot.hotbar, snapshot.selectedSlot, snapshot.armedThrowableSlot, nowMs);
     this.buffs.update(snapshot.buffs);
     this.weapon.update(snapshot.equippedWeaponId, nowMs);
@@ -149,7 +150,7 @@ export class HudWidgets {
     // narrow axis swapping from width to height — re-derives the narrow-viewport shrink
     // factor instead of freezing whatever the boot/first-touch viewport happened to be.
     if (this.touchActive) applyTouchLayoutOverrides(this.registry, viewport);
-    this.health.resize(this.registry, viewport);
+    this.health.resize(this.registry, viewport); this.stamina.resize(this.registry, viewport);
     this.hotbar.resize(this.registry, viewport);
     this.buffs.resize(this.registry, viewport);
     this.weapon.resize(this.registry, viewport);

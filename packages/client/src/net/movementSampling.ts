@@ -8,6 +8,8 @@ export function sampleMovement(connection: Connection, input: MoveInput): void {
     connection.world,
     connection.body,
     input,
+    connection,
+    connection.weapon !== null,
   );
   if (!connection.movementCadence.shouldSend(input)) return;
   connection.send({
@@ -20,5 +22,6 @@ export function sampleMovement(connection: Connection, input: MoveInput): void {
     ...(input.faceY !== undefined ? { faceY: input.faceY } : {}),
     jump: input.jump,
     run: input.run ?? false,
+    block: input.block ?? false,
   });
 }

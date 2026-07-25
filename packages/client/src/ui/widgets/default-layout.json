@@ -3,6 +3,7 @@
   "hudScale": 2,
   "widgets": {
     "health": { "anchor": "top-left", "offset": { "x": 16, "y": 16 } },
+    "stamina": { "anchor": "top-left", "offset": { "x": 16, "y": 48 } },
     "hotbar": { "anchor": "bottom-center", "offset": { "x": 0, "y": -16 } },
     "buffs": { "anchor": "top-left", "offset": { "x": 16, "y": 64 } },
     "chat": { "anchor": "bottom-left", "offset": { "x": 16, "y": -88 } },

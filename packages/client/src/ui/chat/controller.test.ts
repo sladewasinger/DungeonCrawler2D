@@ -12,6 +12,8 @@ function makePort() {
     },
     chat: (channel, text, target) => sent.push({ intent: "chat", channel, text, target }),
     who: () => sent.push({ intent: "who" }),
+    partyCommand: (op, target) => sent.push({ intent: "party", op, target }),
+    moderate: (op, target, reason) => sent.push({ intent: "moderation", op, target, reason }),
     debugGod: () => sent.push({ intent: "god" }),
     debugTeleport: (x, y) => sent.push({ intent: "tp", x, y }),
     push(line) {
@@ -64,6 +66,21 @@ describe("ChatController", () => {
     expect(port.sent).toEqual([]);
     const model = controller.model(4);
     expect(model.lines.at(-1)).toMatchObject({ channel: "system", text: expect.stringContaining("Unknown command") });
+  });
+
+  it("dispatches party management and moderation commands", () => {
+    const port = makePort();
+    const controller = new ChatController(port);
+    controller.submit("/party leave");
+    controller.submit("/party kick Wren");
+    controller.submit("/block Wren");
+    controller.submit("/report Wren harassment");
+    expect(port.sent).toEqual([
+      { intent: "party", op: "leave", target: undefined },
+      { intent: "party", op: "kick", target: "Wren" },
+      { intent: "moderation", op: "block", target: "wren", reason: undefined },
+      { intent: "moderation", op: "report", target: "wren", reason: "harassment" },
+    ]);
   });
 
   it("model: unread dots on inactive tabs, dm tab dim until first dm traffic", () => {

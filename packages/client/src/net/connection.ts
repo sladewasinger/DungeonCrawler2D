@@ -1,5 +1,6 @@
 import {
   LEVEL,
+  PLAYER_MAX_STAMINA,
   WireMetrics,
   World,
   type BodyState,
@@ -14,28 +15,8 @@ import {
 } from "@dc2d/engine";
 import { closeSocket, openSocket } from "./socket.js";
 import type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
+import { ConnectionActions } from "./ConnectionActions.js";
 import { interpolated, type RemoteEntity } from "./interpolate.js";
-import {
-  assignSlotIntent,
-  attackIntent,
-  chatIntent,
-  craftIntent,
-  debugGodIntent,
-  debugTeleportIntent,
-  descendIntent,
-  dropIntent,
-  equipIntent,
-  fistbumpIntent,
-  interactIntent,
-  partyOpIntent,
-  pickupIntent,
-  stashOpIntent,
-  suicideIntent,
-  throwTorchIntent,
-  useItemIntent,
-  useSlotIntent,
-  whoIntent,
-} from "./intents.js";
 import { sendMeasured } from "./measuredSend.js";
 import { MovementCadence } from "./movementCadence.js";
 import { sampleMovement } from "./movementSampling.js";
@@ -51,7 +32,7 @@ import { SnapshotRevisionState } from "./snapshotState.js";
 
 export type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
 
-export class Connection {
+export class Connection extends ConnectionActions {
   world: World | null = null;
   welcome: ServerWelcome | null = null;
   body: BodyState | null = null;
@@ -70,6 +51,9 @@ export class Connection {
   // Server-authoritative self state.
   hp = 0;
   maxHp = 1;
+  stamina = PLAYER_MAX_STAMINA;
+  maxStamina = PLAYER_MAX_STAMINA;
+  blocking = false;
   fx: string[] = [];
   /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
   statusEffects: ActiveStatusSnapshot[] = [];
@@ -102,6 +86,8 @@ export class Connection {
   chatSeq = 0;
   /** Mutual contacts, refreshed wholesale on every server contactsUpdated event. */
   contacts: ContactInfo[] = [];
+  mutedPlayers = new Set<string>();
+  blockedPlayers = new Set<string>();
   visualEvents: VisualEvent[] = [];
   /** Set when the server teleported us (scene snaps the camera). */
   teleported = false;
@@ -139,7 +125,9 @@ export class Connection {
   updateRequired = false;
   updateRequiredMessage = "";
 
-  constructor(readonly url: string, public name: string, readonly clientId: string) {}
+  constructor(readonly url: string, public name: string, readonly clientId: string) {
+    super();
+  }
 
   onConnected: (() => void) | null = null;
   onSnapshot: (() => void) | null = null;
@@ -150,6 +138,10 @@ export class Connection {
 
   get canAct(): boolean {
     return this.status === "connected" && this.hasReceivedSnapshot && this.hp > 0 && !this.downed;
+  }
+
+  get canBlock(): boolean {
+    return this.canAct && this.weapon !== null && this.stamina > 0;
   }
 
   setName(name: string): void { this.name = name; }
@@ -164,6 +156,8 @@ export class Connection {
     this.welcome = null;
     this.body = null;
     this.hp = 0;
+    this.stamina = PLAYER_MAX_STAMINA;
+    this.blocking = false;
     this.downed = false;
     this.justRespawned = false;
     this.hasReceivedSnapshot = false;
@@ -182,77 +176,11 @@ export class Connection {
 
   // ── intents (bodies live in intents.ts, split out for the file-size cap) ──
 
-  attack(dirX: number, dirY: number): void {
-    attackIntent(this, dirX, dirY);
-  }
-
   /** Throws a hotbar torch toward an aim direction (not a clicked tile) —
    * the dedicated Epic 7.8 torch-throw intent, distinct from useSlot's target-tile throw. */
-  throwTorch(dirX: number, dirY: number): void {
-    throwTorchIntent(this, dirX, dirY);
-  }
-
-  useSlot(slot: number, targetX?: number, targetY?: number): void { useSlotIntent(this, slot, targetX, targetY); }
-
-  useItem(item: string): void { useItemIntent(this, item); }
-  pickup(): void { pickupIntent(this); }
-  drop(item: string): void {
-    dropIntent(this, item);
-  }
-  assignSlot(slot: number, item: string | null): void {
-    assignSlotIntent(this, slot, item);
-  }
-  equip(item: string | null): void {
-    equipIntent(this, item);
-  }
-
-  interact(): void {
-    interactIntent(this);
-  }
-
   /** Descends a nearby one-way stairway; the server validates range. */
-  descend(): void {
-    descendIntent(this);
-  }
-
-  craft(recipe: string): void {
-    craftIntent(this, recipe);
-  }
-
-  stashOp(op: "put" | "take", index: number): void {
-    stashOpIntent(this, op, index);
-  }
-
-  partyOp(op: "invite" | "accept" | "decline" | "leave", target?: string): void {
-    partyOpIntent(this, op, target);
-  }
-
-  chat(channel: "party" | "local" | "global" | "dm", text: string, target?: string): void {
-    chatIntent(this, channel, text, target);
-  }
-
   /** Hold-F contact gesture intent — server gates range/rate/mutuality. */
-  fistbump(targetId: string): void {
-    fistbumpIntent(this, targetId);
-  }
-
-  who(): void {
-    whoIntent(this);
-  }
-
-  suicide(): void {
-    suicideIntent(this);
-  }
-
   // ── dev harness (server drops these unless debugCommands is on) ──
-
-  debugTeleport(x: number, y: number): void {
-    debugTeleportIntent(this, x, y);
-  }
-
-  debugGod(on = true): void {
-    debugGodIntent(this, on);
-  }
 
   drainVisualEvents(): VisualEvent[] {
     const out = this.visualEvents;

@@ -10,14 +10,14 @@ import { dirname } from "node:path";
 import { z } from "zod";
 import type { StoredPlayer } from "./store.js";
 
-export const PLAYER_STORE_VERSION = 1;
+export const PLAYER_STORE_VERSION = 2;
 
 const stashEntrySchema = z.object({
   item: z.string().min(1),
   qty: z.number().int().positive(),
 }).strict();
 
-const storedPlayerSchema = z.object({
+const versionOnePlayerSchema = z.object({
   slot: z.number().int().nonnegative(),
   name: z.string(),
   stash: z.array(stashEntrySchema),
@@ -29,13 +29,23 @@ const storedPlayerSchema = z.object({
   deepestFloor: z.number().int().positive().optional(),
 }).strict();
 
-const playersSchema = z.record(z.string(), storedPlayerSchema);
+const versionTwoPlayerSchema = versionOnePlayerSchema.extend({
+  activeFloor: z.number().int().positive(),
+  descentComplete: z.boolean(),
+}).strict();
+
+const versionOnePlayersSchema = z.record(z.string(), versionOnePlayerSchema);
 const legacyStoreSchema = z.object({
   nextSlot: z.number().int().nonnegative(),
-  players: playersSchema,
+  players: versionOnePlayersSchema,
 }).strict();
-const currentStoreSchema = legacyStoreSchema.extend({
+const versionOneStoreSchema = legacyStoreSchema.extend({
+  version: z.literal(1),
+}).strict();
+const currentStoreSchema = z.object({
   version: z.literal(PLAYER_STORE_VERSION),
+  nextSlot: z.number().int().nonnegative(),
+  players: z.record(z.string(), versionTwoPlayerSchema),
 }).strict();
 
 export interface PlayerStoreFileData {
@@ -89,15 +99,34 @@ const quarantine = (file: string, reason: unknown): void => {
   console.error(`[store] invalid save moved to ${destination}:`, reason);
 };
 
+const descentState = (
+  player: z.infer<typeof versionOnePlayerSchema> | z.infer<typeof versionTwoPlayerSchema>,
+): Pick<StoredPlayer, "activeFloor" | "descentComplete"> => {
+  if (
+    "activeFloor" in player
+    && typeof player.activeFloor === "number"
+    && "descentComplete" in player
+    && typeof player.descentComplete === "boolean"
+  ) {
+    return {
+      activeFloor: player.activeFloor,
+      descentComplete: player.descentComplete,
+    };
+  }
+  return { activeFloor: 1, descentComplete: false };
+};
+
 const decode = (text: string): LoadedPlayerStore => {
   const raw: unknown = JSON.parse(text);
   const version = declaredVersion(raw);
-  if (version !== undefined && version !== PLAYER_STORE_VERSION) {
+  if (version !== undefined && version !== 1 && version !== PLAYER_STORE_VERSION) {
     throw new RangeError(`Unsupported player store version ${String(version)}`);
   }
   const parsed = version === undefined
     ? legacyStoreSchema.parse(raw)
-    : currentStoreSchema.parse(raw);
+    : version === 1
+      ? versionOneStoreSchema.parse(raw)
+      : currentStoreSchema.parse(raw);
   const players = Object.fromEntries(
     Object.entries(parsed.players).map(([id, player]) => [id, {
       slot: player.slot,
@@ -111,12 +140,13 @@ const decode = (text: string): LoadedPlayerStore => {
       ...(player.xp === undefined ? {} : { xp: player.xp }),
       ...(player.level === undefined ? {} : { level: player.level }),
       ...(player.deepestFloor === undefined ? {} : { deepestFloor: player.deepestFloor }),
+      ...descentState(player),
     } satisfies StoredPlayer]),
   );
   return {
     nextSlot: parsed.nextSlot,
     players,
-    migrated: version === undefined,
+    migrated: version !== PLAYER_STORE_VERSION,
   };
 };
 

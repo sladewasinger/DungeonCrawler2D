@@ -34,6 +34,8 @@ export class ThreeInput {
   private readonly touch: ThreeTouchControls;
   private yaw = Math.PI;
   private pitch = -0.08;
+  private mouseAttack = false;
+  private mouseBlocking = false;
   private gameplayBlocked = () => false;
 
   constructor(root: HTMLElement, private readonly canvas: HTMLCanvasElement) {
@@ -46,6 +48,8 @@ export class ThreeInput {
     document.addEventListener("visibilitychange", this.resetWhenHidden);
     document.addEventListener("pointerlockchange", this.resetWhenPointerReleased);
     canvas.addEventListener("pointerdown", this.capturePointer);
+    canvas.addEventListener("pointerup", this.releasePointer);
+    canvas.addEventListener("contextmenu", this.preventContextMenu);
   }
 
   sample(elapsed: number): ThreeInputSample {
@@ -62,11 +66,14 @@ export class ThreeInput {
         right: this.axis("KeyD", "KeyA") + touch.right,
         jump: this.held.has("Space") || touch.jump,
         yaw: this.yaw,
+        run: this.held.has("ShiftLeft") || this.held.has("ShiftRight") ||
+          touch.run,
+        block: this.mouseBlocking || touch.block,
       },
       yaw: this.yaw,
       pitch: this.pitch,
       mouseCaptured: document.pointerLockElement === this.canvas,
-      attack: touch.attack,
+      attack: this.consumeMouseAttack() || touch.attack,
       interactPressed: touch.interactPressed || this.consumePress("KeyE"),
       interactHeld: touch.interactHeld || this.held.has("KeyE"),
       throwItem: touch.throwItem || this.consumePress("KeyG"),
@@ -82,6 +89,8 @@ export class ThreeInput {
     document.removeEventListener("visibilitychange", this.resetWhenHidden);
     document.removeEventListener("pointerlockchange", this.resetWhenPointerReleased);
     this.canvas.removeEventListener("pointerdown", this.capturePointer);
+    this.canvas.removeEventListener("pointerup", this.releasePointer);
+    this.canvas.removeEventListener("contextmenu", this.preventContextMenu);
     this.touch.dispose();
   }
 
@@ -103,7 +112,14 @@ export class ThreeInput {
 
   private blockedSample(): ThreeInputSample {
     return {
-      input: { forward: 0, right: 0, jump: false, yaw: this.yaw },
+      input: {
+        forward: 0,
+        right: 0,
+        jump: false,
+        yaw: this.yaw,
+        run: false,
+        block: false,
+      },
       yaw: this.yaw,
       pitch: this.pitch,
       mouseCaptured: false,
@@ -141,6 +157,8 @@ export class ThreeInput {
     this.pressed.clear();
     this.giveUp.end(performance.now());
     this.touch.reset();
+    this.mouseAttack = false;
+    this.mouseBlocking = false;
   };
 
   private readonly resetWhenHidden = () => {
@@ -158,7 +176,24 @@ export class ThreeInput {
   };
 
   private readonly capturePointer = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse" || document.pointerLockElement === this.canvas) return;
-    void this.canvas.requestPointerLock().catch(ignorePointerLockFailure);
+    if (event.pointerType !== "mouse") return;
+    if (document.pointerLockElement !== this.canvas) {
+      void this.canvas.requestPointerLock().catch(ignorePointerLockFailure);
+      return;
+    }
+    if (event.button === 0) this.mouseAttack = true;
+    if (event.button === 2) this.mouseBlocking = true;
   };
+
+  private readonly releasePointer = (event: PointerEvent) => {
+    if (event.button === 2) this.mouseBlocking = false;
+  };
+
+  private readonly preventContextMenu = (event: Event) => event.preventDefault();
+
+  private consumeMouseAttack(): boolean {
+    const attack = this.mouseAttack;
+    this.mouseAttack = false;
+    return attack;
+  }
 }

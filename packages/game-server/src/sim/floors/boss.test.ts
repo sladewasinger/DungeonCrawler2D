@@ -181,9 +181,15 @@ describe("floors/boss", () => {
     handleBossDeath(sim);
 
     expect(inside.stored.xp).toBe(BOSS_XP_BURST);
+    expect(inside.stored.descentComplete).toBe(true);
     expect(outside.stored.xp).toBe(0);
+    expect(outside.stored.descentComplete).not.toBe(true);
     expect(sim.bossGateSealed).toBe(false);
     expect(sim.bossRespawnAtTick).toBe(sim.tickCount + BOSS_RESPAWN_TICKS);
+
+    handleBossDeath(sim);
+    expect(inside.stored.xp).toBe(BOSS_XP_BURST);
+    expect(inside.outbox).toContainEqual({ t: "toast", msg: "The Warden falls again." });
   });
 
   it("respawns the Warden once the respawn timer elapses", () => {

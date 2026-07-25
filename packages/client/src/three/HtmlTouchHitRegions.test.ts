@@ -8,10 +8,11 @@ describe("HTML touch hit regions", () => {
     expect(regions.hitTest(956, 620, 1000, 720)).toBeNull();
   });
 
-  it("routes all four action-button centers", () => {
+  it("routes every action-button center", () => {
     const regions = new HtmlTouchHitRegions();
     regions.setActive(true);
     expect(regions.hitTest(956, 620, 1000, 720)).toBe("touch:attack");
+    expect(regions.hitTest(906, 620, 1000, 720)).toBe("touch:block");
     expect(regions.hitTest(956, 575, 1000, 720)).toBe("touch:jump");
     expect(regions.hitTest(917, 575, 1000, 720)).toBe("touch:interact");
     expect(regions.hitTest(878, 575, 1000, 720)).toBe("touch:throw");

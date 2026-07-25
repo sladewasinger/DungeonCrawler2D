@@ -46,6 +46,48 @@ describe("PlayerStore file integrity", () => {
       };
       expect(migrated.version).toBe(PLAYER_STORE_VERSION);
       expect(migrated.players["client-1"]?.contacts).toEqual(["B"]);
+      expect(migrated.players["client-1"]).toMatchObject({
+        activeFloor: 1,
+        descentComplete: false,
+      });
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  it("migrates version 1 saves to version 2 descent state defaults", () => {
+    const file = tempFile();
+    try {
+      writeFileSync(file, JSON.stringify({
+        version: 1,
+        nextSlot: 1,
+        players: {
+          "client-1": {
+            slot: 0,
+            name: "A",
+            stash: [],
+            contacts: [],
+            xp: 40,
+            level: 2,
+            deepestFloor: 4,
+          },
+        },
+      }));
+      const store = new PlayerStore(file);
+      expect(store.get("client-1", "A")).toMatchObject({
+        deepestFloor: 4,
+        activeFloor: 1,
+        descentComplete: false,
+      });
+      expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
+        version: 2,
+        players: {
+          "client-1": {
+            activeFloor: 1,
+            descentComplete: false,
+          },
+        },
+      });
     } finally {
       rmSync(file, { force: true });
     }

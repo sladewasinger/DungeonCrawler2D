@@ -18,6 +18,7 @@ export interface TouchButtonState {
   attack: number | null;
   jump: number | null;
   interact: number | null;
+  block: number | null;
 }
 
 export interface TouchInputState {
@@ -31,7 +32,7 @@ export interface TouchInputState {
 export function createTouchInputState(): TouchInputState {
   return {
     stick: null,
-    buttons: { attack: null, jump: null, interact: null },
+    buttons: { attack: null, jump: null, interact: null, block: null },
     lastFacing: { x: 1, y: 0 },
   };
 }

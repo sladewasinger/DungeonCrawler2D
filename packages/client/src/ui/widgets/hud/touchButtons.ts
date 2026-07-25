@@ -53,7 +53,7 @@ export function attackRestAlpha(elapsedMs: number): number {
   return ATTACK_REST_ALPHA + wave * ATTACK_PULSE_AMPLITUDE;
 }
 
-export type TouchButtonKind = "attack" | "jump" | "interact";
+export type TouchButtonKind = "attack" | "block" | "jump" | "interact";
 
 interface ButtonVisual {
   kind: TouchButtonKind;
@@ -73,7 +73,12 @@ function buttonPositions(): Record<TouchButtonKind, { x: number; y: number; size
   const attack = { x: -ATTACK_SIZE / 2, y: -ATTACK_SIZE / 2, size: ATTACK_SIZE };
   const jump = { x: attack.x, y: -(ATTACK_SIZE + GAP + JUMP_SIZE / 2), size: JUMP_SIZE };
   const interact = { x: jump.x - (JUMP_SIZE / 2 + GAP + INTERACT_SIZE / 2), y: jump.y, size: INTERACT_SIZE };
-  return { attack, jump, interact };
+  const block = {
+    x: attack.x - (ATTACK_SIZE + GAP),
+    y: attack.y,
+    size: ATTACK_SIZE,
+  };
+  return { attack, block, jump, interact };
 }
 
 export class TouchButtonsWidget {
@@ -104,6 +109,7 @@ export class TouchButtonsWidget {
     this.container = createWidgetContainer(scene, layout);
     const positions = buttonPositions();
     this.buildButton("attack", positions.attack);
+    this.buildButton("block", positions.block);
     this.buildButton("jump", positions.jump);
     this.buildButton("interact", positions.interact);
   }
@@ -118,7 +124,7 @@ export class TouchButtonsWidget {
 
   private buildGlyph(kind: TouchButtonKind, pos: { x: number; y: number; size: number }): Phaser.GameObjects.GameObject {
     if (kind === "attack") return createItemIcon(this.scene, "sword", pos.size, this.scale).setPosition(pos.x, pos.y);
-    const label = kind === "jump" ? "JUMP" : "USE";
+    const label = kind === "jump" ? "JUMP" : kind === "block" ? "BLOCK" : "USE";
     return this.scene.add.text(pos.x, pos.y, label, uiTextStyle(9, undefined, this.scale)).setOrigin(0.5, 0.5);
   }
 
@@ -130,11 +136,15 @@ export class TouchButtonsWidget {
 
   /** Pressed-state tint per button from this frame's touch snapshot, plus the ATTACK
    * button's first-session idle pulse (attackRestAlpha) while at rest. */
-  update(pressed: { attack: boolean; jump: boolean; interact: boolean }, nowMs: number): void {
+  update(pressed: { attack: boolean; jump: boolean; interact: boolean; block?: boolean }, nowMs: number): void {
     const attackAlpha = attackRestAlpha(nowMs - this.sessionStartMs);
     for (const button of this.buttons) {
       const restAlpha = button.kind === "attack" ? attackAlpha : REST_ALPHA;
-      button.cell.setFillStyle(pressed[button.kind] ? SELECTION_ACCENT : PANEL_FILL, pressed[button.kind] ? PRESSED_ALPHA : restAlpha);
+      const isPressed = pressed[button.kind] ?? false;
+      button.cell.setFillStyle(
+        isPressed ? SELECTION_ACCENT : PANEL_FILL,
+        isPressed ? PRESSED_ALPHA : restAlpha,
+      );
     }
   }
 

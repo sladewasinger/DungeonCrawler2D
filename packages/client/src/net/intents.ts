@@ -45,12 +45,22 @@ export function assignSlotIntent(conn: Connection, slot: number, item: string | 
 
 export function partyOpIntent(
   conn: Connection,
-  op: "invite" | "accept" | "decline" | "leave",
+  op: "invite" | "accept" | "decline" | "leave" | "kick",
   target?: string,
 ): void {
   if (!conn.canAct) return;
   if (op === "accept" || op === "decline") conn.pendingInvite = null;
   conn.send({ type: "party", op, ...(target !== undefined ? { target } : {}) });
+}
+
+export function moderationIntent(
+  conn: Connection,
+  op: "mute" | "unmute" | "block" | "unblock" | "report",
+  target: string,
+  reason?: string,
+): void {
+  if (!conn.canAct) return;
+  conn.send({ type: "moderation", op, target, ...(reason ? { reason } : {}) });
 }
 
 export function chatIntent(

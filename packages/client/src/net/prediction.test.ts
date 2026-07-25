@@ -7,6 +7,7 @@ import {
   cloneBody,
   createBody,
   stepBody,
+  stepPlayerResources,
   type BodyState,
   type MoveInput,
 } from "@dc2d/engine";
@@ -119,6 +120,33 @@ describe("Prediction", () => {
     prediction.reconcile(world, authoritative, 3);
 
     expect(closeBody(authoritative, client)).toBe(true);
+  });
+
+  it("replays the same stamina-limited sprint policy as the server", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const client = createBody(SPAWN_X, SPAWN_Y, 5);
+    const server = createBody(SPAWN_X, SPAWN_Y, 5);
+    const clientResources = {
+      stamina: 1,
+      maxStamina: 100,
+      blocking: false,
+    };
+    const serverResources = { ...clientResources };
+
+    for (let tick = 0; tick < 5; tick++) {
+      prediction.predict(world, client, RUN, clientResources, true);
+      const effective = stepPlayerResources(
+        serverResources,
+        RUN,
+        true,
+        TICK_DT,
+      ).input;
+      stepBody(world, server, effective, TICK_DT);
+    }
+
+    expect(closeBody(client, server)).toBe(true);
+    expect(clientResources.stamina).toBe(serverResources.stamina);
   });
 
   it("uses authoritative tick coverage instead of sparse wire sequence acknowledgements", () => {

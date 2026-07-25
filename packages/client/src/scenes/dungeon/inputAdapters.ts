@@ -104,6 +104,8 @@ export function createChatPort(conn: Connection): {
   chatSeq: number;
   chat: Connection["chat"];
   who: Connection["who"];
+  partyCommand: Connection["partyCommand"];
+  moderate: Connection["moderate"];
   debugGod: Connection["debugGod"];
   debugTeleport: Connection["debugTeleport"];
 } {
@@ -116,6 +118,8 @@ export function createChatPort(conn: Connection): {
     },
     chat: (channel, text, target) => conn.chat(channel, text, target),
     who: () => conn.who(),
+    partyCommand: (op, target) => conn.partyCommand(op, target),
+    moderate: (op, target, reason) => conn.moderate(op, target, reason),
     debugGod: (on) => conn.debugGod(on),
     debugTeleport: (x, y) => conn.debugTeleport(x, y),
   };

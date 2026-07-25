@@ -58,7 +58,7 @@ function enemyFields(
 function playerFields(
   sim: SimState,
   entity: Entity,
-): Pick<EntitySnapshot, "anim" | "downed" | "disconnected" | "weapon"> | Record<string, never> {
+): Pick<EntitySnapshot, "anim" | "blocking" | "downed" | "disconnected" | "weapon"> | Record<string, never> {
   if (entity.kind !== "player") return {};
   const slot = sim.players.get(entity.id);
   if (!slot) return {};
@@ -67,6 +67,7 @@ function playerFields(
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
     ...(slot.connected ? {} : { disconnected: true }),
     weapon: slot.weapon,
+    ...(slot.blocking ? { blocking: true } : {}),
   };
 }
 
@@ -117,7 +118,8 @@ function playerMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot):
   return snapshot.anim === fields.anim &&
     snapshot.downed === fields.downed &&
     snapshot.disconnected === fields.disconnected &&
-    snapshot.weapon === fields.weapon;
+    snapshot.weapon === fields.weapon &&
+    snapshot.blocking === fields.blocking;
 }
 
 function velocityMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {

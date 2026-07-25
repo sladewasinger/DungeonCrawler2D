@@ -1,10 +1,12 @@
 import {
   AOI_RADIUS,
+  PLAYER_MAX_STAMINA,
   xpForLevel,
   type GameEvent,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { versionedEntitySnapshot, type VersionedEntitySnapshot } from "./entitySnapshots.js";
+import { socialDeliveryAllowed } from "./moderation.js";
 import { newSnapshotPendingState, type SnapshotPendingState } from "./snapshotState.js";
 import { type SpatialEntityIndex } from "./spatialEntities.js";
 import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
@@ -46,6 +48,9 @@ function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"]
     ky: self.body.ky,
     hp: self.hp,
     maxHp: self.maxHp,
+    stamina: slot.stamina ?? PLAYER_MAX_STAMINA,
+    maxStamina: slot.maxStamina ?? PLAYER_MAX_STAMINA,
+    blocking: slot.blocking ?? false,
     fx: self.statuses.map((status) => status.defId),
     statusEffects: self.statuses.map((status) => ({
       id: status.defId,
@@ -82,7 +87,7 @@ function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party
       level: member.stored.level ?? 1,
     });
   }
-  return { id: party.id, members };
+  return { id: party.id, leaderId: party.leaderId, members };
 }
 
 function areaSnapshot(
@@ -131,7 +136,9 @@ function snapshotEvents(
   slot: PlayerSlot,
   pending: SnapshotPendingState,
 ): GameEvent[] {
-  return [...slot.outbox, ...pending.events];
+  return [...slot.outbox, ...pending.events].filter(
+    (event) => event.t !== "chat" || socialDeliveryAllowed(slot, event.from),
+  );
 }
 
 function pendingState(sim: SimState, slot: PlayerSlot): SnapshotPendingState {

@@ -134,6 +134,10 @@ export function handleBossDeath(sim: SimState): void {
   broadcastAnnouncement(sim, announceBossKill(sim.tickCount));
   for (const slot of sim.players.values()) {
     if (!isInsideArena(sim, slot.entity.body)) continue;
+    if (!sim.store.completeDescent(slot.stored)) {
+      slot.outbox.push({ t: "toast", msg: "The Warden falls again." });
+      continue;
+    }
     const { level } = sim.store.addXp(slot.stored, BOSS_XP_BURST, levelForXp);
     slot.outbox.push({ t: "toast", msg: `The Warden falls! +${BOSS_XP_BURST} XP (Level ${level})` });
   }

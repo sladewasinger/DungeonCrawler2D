@@ -2,6 +2,7 @@ import type { EffectEvent } from "@dc2d/engine";
 import { doFistbump, doWho } from "../contacts.js";
 import { doCraft, doDrop, doPickup, doStash, invIndex } from "../inventory.js";
 import { doChat, doParty } from "../social.js";
+import { doModeration } from "../moderation.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
 import { doDescend } from "./descend.js";
 import { doInteract, teleport } from "./interact.js";
@@ -122,6 +123,7 @@ function dispatchStandingAction(
     case "party":
     case "chat":
     case "who":
+    case "moderation":
       dispatchSocialAction(sim, slot, action);
       break;
     case "debug":
@@ -134,7 +136,7 @@ function dispatchStandingAction(
 function dispatchSocialAction(
   sim: SimState,
   slot: PlayerSlot,
-  action: Extract<PlayerAction, { type: "party" | "chat" | "who" }>,
+  action: Extract<PlayerAction, { type: "party" | "chat" | "who" | "moderation" }>,
 ): void {
   switch (action.type) {
     case "party":
@@ -145,6 +147,9 @@ function dispatchSocialAction(
       break;
     case "who":
       doWho(sim, slot);
+      break;
+    case "moderation":
+      doModeration(sim, slot, action.op, action.target, action.reason);
       break;
   }
 }

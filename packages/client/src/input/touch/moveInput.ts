@@ -16,10 +16,24 @@ import type { TouchInputState } from "./state.js";
  * held-Shift run (Epic 7.12, ASSUMPTION #65) — mobile has no Shift key. */
 export function touchMoveInput(state: TouchInputState): MoveInput {
   const drag = stickDragVector(state);
-  if (!drag) return { moveX: 0, moveY: 0, jump: isButtonHeld(state, "jump"), run: false };
+  if (!drag) {
+    return {
+      moveX: 0,
+      moveY: 0,
+      jump: isButtonHeld(state, "jump"),
+      run: false,
+      ...(isButtonHeld(state, "block") ? { block: true } : {}),
+    };
+  }
   const { direction, moveX, moveY } = stickMoveVector(drag.dx, drag.dy);
   if (direction.moveX !== 0 || direction.moveY !== 0) updateLastFacing(state, direction.moveX, direction.moveY);
-  return { moveX, moveY, jump: isButtonHeld(state, "jump"), run: stickIsRunning(state) };
+  return {
+    moveX,
+    moveY,
+    jump: isButtonHeld(state, "jump"),
+    run: stickIsRunning(state),
+    ...(isButtonHeld(state, "block") ? { block: true } : {}),
+  };
 }
 
 /** Touch wins on each axis when it's non-neutral; jump/run are held-by-either unions. */
@@ -29,6 +43,7 @@ export function mergeMoveInputs(keyboard: MoveInput, touch: MoveInput): MoveInpu
     moveY: touch.moveY !== 0 ? touch.moveY : keyboard.moveY,
     jump: keyboard.jump || touch.jump,
     run: !!keyboard.run || !!touch.run,
+    ...(keyboard.block || touch.block ? { block: true } : {}),
   };
 }
 

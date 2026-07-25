@@ -98,6 +98,9 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   slot.forceDeath = false;
   delete entity.downedUntil;
   slot.respawnAtTick = sim.tickCount + RESPAWN_DELAY_TICKS;
+  // Persist the terminal death destination immediately. A process crash
+  // during the respawn delay must not resurrect the character downstairs.
+  sim.store.recordActiveFloor(slot.stored, 1);
 }
 
 /** Downed players bleed out to real death once the timer expires. */
@@ -121,6 +124,7 @@ function hasConsciousPartyMember(sim: SimState, slot: PlayerSlot): boolean {
 }
 
 function downPlayer(sim: SimState, slot: PlayerSlot): void {
+  slot.blocking = false;
   slot.downedAtTick = sim.tickCount;
   slot.entity.hp = 1;
   slot.entity.downedUntil = sim.tickCount + DOWNED_DURATION * TICK_RATE;

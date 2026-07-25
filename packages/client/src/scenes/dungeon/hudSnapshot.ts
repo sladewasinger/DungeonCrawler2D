@@ -119,6 +119,7 @@ export function stashSnapshot(inventory: readonly InvStack[], stash: readonly St
 export interface HudSnapshotSource {
   readonly hp: number;
   readonly maxHp: number;
+  readonly stamina: number; readonly maxStamina: number; readonly blocking: boolean;
   /** Epic 11 core (character levels) — see fakeData.ts's HudFakeSnapshot.xp doc comment. */
   readonly xp: number;
   readonly level: number;
@@ -175,6 +176,8 @@ function inventoryFields(
     actionHints: resolveContextualActionHelp({
       selectedItemId,
       weaponId: src.weapon,
+      canBlock: src.weapon !== null && src.stamina > 0 &&
+        !src.downed && !src.dead,
     }),
   };
 }
@@ -219,6 +222,7 @@ export function buildHudSnapshot(
 ): HudFakeSnapshot {
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
+    stamina: { stamina: src.stamina, maxStamina: src.maxStamina, blocking: src.blocking },
     xp: { xp: src.xp, level: src.level, xpForNext: src.xpForNext },
     ...inventoryFields(src, selectedHotbarSlot, armedThrowableSlot),
     lastToast: src.lastToast,

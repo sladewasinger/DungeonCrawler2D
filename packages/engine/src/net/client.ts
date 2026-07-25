@@ -42,6 +42,8 @@ export const clientInputSchema = z.object({
   jump: z.boolean(),
   /** Hold-to-run intent (Epic 7.12); absent from older clients defaults to walking. */
   run: z.boolean().default(false),
+  /** Held defensive intent; absent from older clients defaults to not blocking. */
+  block: z.boolean().optional(),
 });
 
 export const clientAttackSchema = z.object({
@@ -102,8 +104,15 @@ export const clientStashSchema = z.object({
 
 export const clientPartySchema = z.object({
   type: z.literal("party"),
-  op: z.enum(["invite", "accept", "decline", "leave"]),
+  op: z.enum(["invite", "accept", "decline", "leave", "kick"]),
   target: z.string().max(32).optional(),
+});
+
+export const clientModerationSchema = z.object({
+  type: z.literal("moderation"),
+  op: z.enum(["mute", "unmute", "block", "unblock", "report"]),
+  target: z.string().min(1).max(64),
+  reason: z.string().max(200).optional(),
 });
 
 /** target is required for channel "dm" — enforced by the parser/sim, not the
@@ -159,6 +168,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientCraftSchema,
   clientStashSchema,
   clientPartySchema,
+  clientModerationSchema,
   clientChatSchema,
   clientFistbumpSchema,
   clientWhoSchema,

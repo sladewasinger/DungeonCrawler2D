@@ -20,6 +20,7 @@ import type {
   SnapshotEntityState,
   SnapshotPendingState,
 } from "./snapshotState.js";
+import { createEntityCollections, createReplicationCollections } from "./stateCollections.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
@@ -75,11 +76,20 @@ export interface PlayerSlot {
   hotbar: Array<string | null>;
   /** Equipped weapon def; null = fists. Melee swings read this. */
   weapon: string | null;
+  /** GAME-2 resources are optional only for legacy unit-test fixtures. New live
+   * slots initialize them eagerly in join.ts. */
+  stamina?: number;
+  maxStamina?: number;
+  blocking?: boolean;
+  lastDamageAtTick?: number;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];
   /** Where DoorExit leads, innermost last — portals nest (world → safe room → personal). */
   returnStack: Array<{ x: number; y: number; z: number }>;
   partyId: string | null;
+  /** Session-persistent social safety controls, replayed on reconnect. */
+  mutedPlayers?: Set<string>;
+  blockedPlayers?: Set<string>;
   respawnAtTick: number | null;
   /** Send the full area set on next snapshot (join/teleport). */
   needsFullAreas: boolean;
@@ -120,8 +130,16 @@ export interface EnemySlot {
 
 export interface Party {
   id: string;
+  leaderId: string;
   members: Set<string>;
   roomSlot: number | null;
+}
+
+export interface ModerationReport {
+  tick: number;
+  reporterId: string;
+  targetId: string;
+  reason: string;
 }
 
 export interface JoinResult {
@@ -175,6 +193,8 @@ export interface SimState {
   readonly torches: Map<string, Entity>;
   readonly parties: Map<string, Party>;
   readonly invites: Map<string, { from: string; expiresAt: number }>;
+  /** Bounded in-memory audit queue awaiting a production moderation sink. */
+  readonly moderationReports: ModerationReport[];
   /** Pending fistbump offers, keyed by target entity id (Epic 7.10) — 10s window. */
   readonly fistbumpOffers: Map<string, { from: string; expiresAtTick: number }>;
   readonly activatedChunks: Set<string>;
@@ -231,14 +251,9 @@ export function createSimState(
     rng: new Rng(rngSeed),
     effects: new EffectsEngine(content, (x, y) => world.isSanctuary(x, y)),
     areas: new AreaSystem(content, world),
-    players: new Map(),
-    byToken: new Map(),
-    enemies: new Map(),
-    items: new Map(),
-    projectiles: new Map(),
-    torches: new Map(),
-    parties: new Map(),
-    invites: new Map(),
+    ...createEntityCollections(),
+    ...createReplicationCollections(),
+    moderationReports: [],
     fistbumpOffers: new Map(),
     activatedChunks: new Set(),
     exposure: new Map(),
@@ -253,9 +268,5 @@ export function createSimState(
     bossRespawnAtTick: null,
     crossFloorDirectory: [],
     pendingGlobalChat: [],
-    snapshotClients: new Map(),
-    snapshotEntities: new Map(),
-    snapshotPending: new Map(),
-    replicationMotion: new Map(),
   };
 }

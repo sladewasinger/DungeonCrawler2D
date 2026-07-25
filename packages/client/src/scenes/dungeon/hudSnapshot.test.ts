@@ -6,6 +6,9 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
   return {
     hp: 20,
     maxHp: 30,
+    stamina: 100,
+    maxStamina: 100,
+    blocking: false,
     xp: 0,
     level: 1,
     xpForNext: 100,
@@ -77,6 +80,12 @@ describe("buildHudSnapshot", () => {
     const hotbar = [null, "sword", null, null, null, null, null, null, null];
     const snap = snapshotOf(source({ hotbar, weapon: "sword" }), 1);
     expect(snap.selectedSlot).toBe(1);
+  });
+
+  it("publishes authoritative stamina/blocking and matching action help", () => {
+    const snap = snapshotOf(source({ hotbar: ["bandage", null, null, null, null, null, null, null, null], weapon: "sword", stamina: 42, blocking: true }), 0);
+    expect(snap.stamina).toEqual({ stamina: 42, maxStamina: 100, blocking: true });
+    expect(snap.actionHints.map(({ action }) => action)).toEqual(["use", "attack", "block"]);
   });
 
   it("selects -1 when unarmed", () => {

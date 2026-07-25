@@ -1,6 +1,6 @@
 /** Matches the DOM touch overlay's button geometry for Phaser pointer routing. */
 
-export type HtmlTouchAction = "attack" | "jump" | "interact" | "throw";
+export type HtmlTouchAction = "attack" | "block" | "jump" | "interact" | "throw";
 
 interface CircleRegion {
   action: HtmlTouchAction;
@@ -11,6 +11,7 @@ interface CircleRegion {
 
 const REGIONS: readonly CircleRegion[] = [
   { action: "attack", right: 24, bottom: 80, size: 40 },
+  { action: "block", right: 74, bottom: 80, size: 40 },
   { action: "jump", right: 29, bottom: 130, size: 30 },
   { action: "interact", right: 68, bottom: 130, size: 30 },
   { action: "throw", right: 107, bottom: 130, size: 30 },

@@ -81,6 +81,13 @@ export class FloorRegistry {
     return undefined;
   }
 
+  /** Authoritative destination for a non-resume dungeon hello. The client
+   * cannot select a floor; an existing character returns to its durable
+   * active floor and a new character starts on floor 1. */
+  joinSim(clientId: string): GameSim {
+    return this.ensureFloor(this.store.find(clientId)?.activeFloor ?? 1);
+  }
+
   stepAll(): TickResult {
     const active = [...this.sims.values()];
     const snapshots = collectSnapshots(active, (sim) => sim.step());
