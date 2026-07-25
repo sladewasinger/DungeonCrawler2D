@@ -20,6 +20,7 @@ import { buildAreaTileViews } from "./areaViews.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
 import { bucketFrameEntities, type FrameEntityBuckets } from "./frameEntityBuckets.js";
+import { mapFrameInto } from "./frameEntityViews.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
 import { resolveMeleeSwings } from "./meleeSwingEvents.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
@@ -49,19 +50,29 @@ function syncCombatants(
   if (!conn.world || !conn.welcome || !conn.body) return;
   const touchActive = inputController.touchVisual() !== null;
   const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
-  const self = selfPlayerView(
+  const players = state.entityViews.players;
+  players.length = buckets.players.length + 1;
+  players[0] = selfPlayerView(
     { id: conn.welcome.playerId, name: conn.name, x: render.x, y: render.y, z: render.z, air: !conn.body.grounded },
     { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, blocking: conn.blocking, weaponId: conn.weapon },
     state.cosmetics,
     nowMs,
     aimAngle,
   );
-  const players = buckets.players.map(remotePlayerView);
-  const allPlayers = [self, ...players];
-  entityRenderer.syncPlayers(allPlayers, context);
-  entityRenderer.syncMonsters(buckets.enemies.map(monsterView), context);
-  entityRenderer.syncItems(buckets.items.map(itemView), nowMs);
-  spawnMeleeSwings(vfx, state, allPlayers, nowMs);
+  for (let index = 0; index < buckets.players.length; index++) {
+    const remote = buckets.players[index];
+    if (remote) players[index + 1] = remotePlayerView(remote);
+  }
+  entityRenderer.syncPlayers(players, context);
+  entityRenderer.syncMonsters(
+    mapFrameInto(buckets.enemies, state.entityViews.enemies, monsterView),
+    context,
+  );
+  entityRenderer.syncItems(
+    mapFrameInto(buckets.items, state.entityViews.items, itemView),
+    nowMs,
+  );
+  spawnMeleeSwings(vfx, state, players, nowMs);
 }
 
 /** Spawns the wedge telegraph for every swing that just started, and registers each as
@@ -103,7 +114,11 @@ export function syncEntities(
   const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
   syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context);
 
-  entityRenderer.syncProjectiles(buckets.projectiles.map((e) => projectileView(e, state.projectileVelocity, nowMs)));
+  entityRenderer.syncProjectiles(mapFrameInto(
+    buckets.projectiles,
+    state.entityViews.projectiles,
+    (entity) => projectileView(entity, state.projectileVelocity, nowMs),
+  ));
   pruneProjectileVelocity(state.projectileVelocity, buckets.projectileIds);
 
   let torchAccentLights: LightSource[] = [];

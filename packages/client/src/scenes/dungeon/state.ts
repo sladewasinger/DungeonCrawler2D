@@ -11,6 +11,10 @@ import {
   createFrameEntityBuckets,
   type FrameEntityBuckets,
 } from "./frameEntityBuckets.js";
+import {
+  createFrameEntityViews,
+  type FrameEntityViews,
+} from "./frameEntityViews.js";
 
 export interface RenderPose {
   readonly x: number;
@@ -26,6 +30,7 @@ export interface DungeonSceneState {
   readonly cosmetics: SelfCosmeticsState;
   readonly projectileVelocity: ProjectileVelocityState;
   readonly entityBuckets: FrameEntityBuckets;
+  readonly entityViews: FrameEntityViews;
   /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
   readonly attackFlags: Map<string, boolean>;
   /** Panel round 3b item 5 (WHIFF FEEDBACK): swings awaiting a correlating "hit" event,
@@ -44,6 +49,7 @@ export function createDungeonSceneState(): DungeonSceneState {
     cosmetics: createSelfCosmeticsState(),
     projectileVelocity: createProjectileVelocityState(),
     entityBuckets: createFrameEntityBuckets(),
+    entityViews: createFrameEntityViews(),
     attackFlags: new Map(),
     pendingSwings: new Map(),
     wallBump: createWallBumpState(),
