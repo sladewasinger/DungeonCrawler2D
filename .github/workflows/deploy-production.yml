@@ -62,26 +62,59 @@ jobs:
           test "$instance_id" != "None"
           echo "instance_id=$instance_id" >> "$GITHUB_OUTPUT"
 
-      - name: Publish versioned server bundle
-        run: aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/server/main.cjs"
+      - name: Prepare immutable release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous_sha=""
+          if aws s3 cp "s3://$ARTIFACT_BUCKET/releases/current.json" previous-release.json; then
+            previous_sha=$(jq -r '.sha // empty' previous-release.json)
+          fi
+          version=$(node -p "require('./package.json').version")
+          server_key="server/releases/$GITHUB_SHA/main.cjs"
+          client_prefix="client/releases/$GITHUB_SHA"
+          aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/$server_key"
+          aws s3 sync packages/client/dist "s3://$ARTIFACT_BUCKET/$client_prefix" --delete
+          jq -n \
+            --arg sha "$GITHUB_SHA" \
+            --arg version "$version" \
+            --arg serverKey "$server_key" \
+            --arg clientPrefix "$client_prefix" \
+            --arg publishedAt "$(date -u +%FT%TZ)" \
+            '{sha:$sha,version:$version,serverKey:$serverKey,clientPrefix:$clientPrefix,publishedAt:$publishedAt}' \
+            > release.json
+          aws s3 cp release.json "s3://$ARTIFACT_BUCKET/releases/$GITHUB_SHA.json"
+          echo "previous_sha=$previous_sha" >> "$GITHUB_OUTPUT"
+          echo "server_key=$server_key" >> "$GITHUB_OUTPUT"
+          echo "client_prefix=$client_prefix" >> "$GITHUB_OUTPUT"
+
+      - name: Activate server release
+        id: server_activation
+        env:
+          SERVER_KEY: ${{ steps.release.outputs.server_key }}
+        run: aws s3 cp "s3://$ARTIFACT_BUCKET/$SERVER_KEY" "s3://$ARTIFACT_BUCKET/server/main.cjs"
 
       - name: Publish client
+        id: client_activation
+        env:
+          CLIENT_PREFIX: ${{ steps.release.outputs.client_prefix }}
         # Two-pass publish: hashed assets get long immutable caching; the
         # entry documents (index.html, sw.js, manifest) get no-cache so the
         # service worker's build-SHA cache-busting actually reaches players —
         # a cached sw.js would pin clients to a stale build forever.
         run: |
-          aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" --delete \
+          aws s3 sync "s3://$ARTIFACT_BUCKET/$CLIENT_PREFIX" "s3://$FRONTEND_BUCKET" --delete \
             --cache-control "public,max-age=31536000,immutable" \
             --exclude "index.html" --exclude "sw.js" --exclude "manifest.webmanifest"
-          aws s3 cp packages/client/dist/index.html "s3://$FRONTEND_BUCKET/index.html" \
+          aws s3 cp "s3://$ARTIFACT_BUCKET/$CLIENT_PREFIX/index.html" "s3://$FRONTEND_BUCKET/index.html" \
             --cache-control "no-cache"
           if [ -f packages/client/dist/sw.js ]; then
-            aws s3 cp packages/client/dist/sw.js "s3://$FRONTEND_BUCKET/sw.js" \
+            aws s3 cp "s3://$ARTIFACT_BUCKET/$CLIENT_PREFIX/sw.js" "s3://$FRONTEND_BUCKET/sw.js" \
               --cache-control "no-cache"
           fi
           if [ -f packages/client/dist/manifest.webmanifest ]; then
-            aws s3 cp packages/client/dist/manifest.webmanifest "s3://$FRONTEND_BUCKET/manifest.webmanifest" \
+            aws s3 cp "s3://$ARTIFACT_BUCKET/$CLIENT_PREFIX/manifest.webmanifest" "s3://$FRONTEND_BUCKET/manifest.webmanifest" \
               --cache-control "no-cache" --content-type "application/manifest+json"
           fi
 
@@ -119,3 +152,31 @@ jobs:
 
       - name: Smoke-test both game modes
         run: node tools/smoke-production.mjs "$SITE_URL"
+
+      - name: Promote release manifest
+        run: aws s3 cp release.json "s3://$ARTIFACT_BUCKET/releases/current.json"
+
+      - name: Roll back failed activation
+        if: failure() && steps.release.outputs.previous_sha != ''
+        shell: bash
+        env:
+          INSTANCE_ID: ${{ steps.production.outputs.instance_id }}
+          PREVIOUS_SHA: ${{ steps.release.outputs.previous_sha }}
+        run: |
+          set -euo pipefail
+          aws s3 cp \
+            "s3://$ARTIFACT_BUCKET/server/releases/$PREVIOUS_SHA/main.cjs" \
+            "s3://$ARTIFACT_BUCKET/server/main.cjs"
+          aws s3 sync \
+            "s3://$ARTIFACT_BUCKET/client/releases/$PREVIOUS_SHA" \
+            "s3://$FRONTEND_BUCKET" --delete
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=["sudo systemctl restart dungeoncrawler2d","sudo systemctl is-active dungeoncrawler2d"]' \
+            --query Command.CommandId \
+            --output text)
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$INSTANCE_ID"
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/*'

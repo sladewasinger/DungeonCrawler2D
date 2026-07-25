@@ -375,6 +375,22 @@ resource "aws_iam_role" "github_actions_deploy" {
 
 data "aws_iam_policy_document" "github_actions_deploy" {
   statement {
+    sid       = "ReadReleaseArtifacts"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.artifacts.arn]
+  }
+
+  statement {
+    sid       = "PublishReleaseArtifacts"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = [
+      "${aws_s3_bucket.artifacts.arn}/server/*",
+      "${aws_s3_bucket.artifacts.arn}/client/*",
+      "${aws_s3_bucket.artifacts.arn}/releases/*"
+    ]
+  }
+
+  statement {
     sid       = "PublishFrontend"
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.frontend.arn]
@@ -384,12 +400,6 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     sid       = "PublishFrontendObjects"
     actions   = ["s3:DeleteObject", "s3:PutObject"]
     resources = ["${aws_s3_bucket.frontend.arn}/*"]
-  }
-
-  statement {
-    sid       = "PublishServerBundle"
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.artifacts.arn}/${local.server_bundle_object}"]
   }
 
   statement {
