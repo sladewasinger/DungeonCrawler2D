@@ -27,12 +27,10 @@ function findEastWallApproach(world: World): { x: number; y: number; z: number }
 }
 
 describe("projectSelfRenderPose", () => {
-  it("interpolates between the last two simulated poses", () => {
+  it("renders into the unsimulated tick remainder instead of one tick behind", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const body = createBody(SPAWN_X, SPAWN_Y, 5);
-    const previous = cloneBody(body);
-    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
-    const beforeProjection = cloneBody(body);
+    const before = cloneBody(body);
     const resources = { stamina: 100, maxStamina: 100, blocking: false };
 
     const pose = projectSelfRenderPose(
@@ -44,12 +42,11 @@ describe("projectSelfRenderPose", () => {
       false,
       new PredictionCorrection(),
       16,
-      previous,
     );
 
     expect(pose.x).toBeCloseTo(SPAWN_X + MOVE_SPEED * 0.025);
     expect(pose.y).toBeCloseTo(SPAWN_Y);
-    expect(body).toEqual(beforeProjection);
+    expect(body).toEqual(before);
     expect(resources).toEqual({ stamina: 100, maxStamina: 100, blocking: false });
   });
 
@@ -81,14 +78,6 @@ describe("projectSelfRenderPose", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const start = findEastWallApproach(world);
     const body = createBody(start.x, start.y, start.z);
-    const previous = cloneBody(body);
-    stepBody(
-      world,
-      body,
-      { moveX: 1, moveY: 0, jump: false },
-      TICK_DT,
-    );
-    const beforeProjection = cloneBody(body);
 
     const pose = projectSelfRenderPose(
       world,
@@ -99,13 +88,13 @@ describe("projectSelfRenderPose", () => {
       false,
       new PredictionCorrection(),
       16,
-      previous,
     );
 
     expect(pose.x).toBeGreaterThan(start.x);
     expect(pose.x).toBeLessThan(start.x + 0.25);
     expect(pose.y).toBe(start.y);
-    expect(body).toEqual(beforeProjection);
+    expect(body.x).toBe(start.x);
+    expect(body.y).toBe(start.y);
   });
 
   it("stays fixed throughout a blocked sprint tick instead of advancing then snapping back", () => {
