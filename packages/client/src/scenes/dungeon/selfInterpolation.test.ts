@@ -134,4 +134,42 @@ describe("projectSelfRenderPose", () => {
       contactX,
     ]);
   });
+
+  it("discards queued reconciliation motion on the wall-blocked sprint axis", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const wall = findEastWallApproach(world);
+    const run = { moveX: 1, moveY: 0, jump: false, run: true };
+    const body = createBody(wall.x - 0.45, wall.y, wall.z);
+    stepBody(world, body, run, TICK_DT);
+    const correction = new PredictionCorrection();
+    correction.record(
+      { x: body.x + 0.6, y: body.y + 0.2, z: body.z },
+      body,
+    );
+
+    const contactPose = projectSelfRenderPose(
+      world,
+      body,
+      run,
+      25,
+      { stamina: 100, maxStamina: 100, blocking: false },
+      false,
+      correction,
+      16,
+    );
+    const releasedPose = projectSelfRenderPose(
+      world,
+      body,
+      { moveX: 0, moveY: 0, jump: false },
+      0,
+      { stamina: 100, maxStamina: 100, blocking: false },
+      false,
+      correction,
+      0,
+    );
+
+    expect(contactPose.x).toBe(body.x);
+    expect(contactPose.y).toBeCloseTo(body.y + 0.2);
+    expect(releasedPose.x).toBe(body.x);
+  });
 });

@@ -49,15 +49,22 @@ export class PredictionCorrection {
     };
   }
 
-  advance(deltaMs: number): PositionCorrection {
+  advance(
+    deltaMs: number,
+    blockedAxes: { readonly x?: boolean; readonly y?: boolean } = {},
+  ): PositionCorrection {
     const current = this.offset;
     const decay = Math.exp(-Math.max(0, deltaMs) / DECAY_MS);
     this.offset = {
-      x: current.x * decay,
-      y: current.y * decay,
+      x: blockedAxes.x ? 0 : current.x * decay,
+      y: blockedAxes.y ? 0 : current.y * decay,
       z: current.z * decay,
     };
-    return current;
+    return {
+      x: blockedAxes.x ? 0 : current.x,
+      y: blockedAxes.y ? 0 : current.y,
+      z: current.z,
+    };
   }
 
   consumeHardSnap(): boolean {

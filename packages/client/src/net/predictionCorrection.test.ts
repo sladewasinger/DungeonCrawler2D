@@ -21,6 +21,15 @@ describe("PredictionCorrection", () => {
     expect(correction.advance(16)).toEqual({ x: 0, y: 0, z: 0 });
   });
 
+  it("clears correction only on collision-blocked movement axes", () => {
+    const correction = new PredictionCorrection();
+    correction.record({ x: 1.5, y: 2.5, z: 0 }, { x: 1, y: 2, z: 0 });
+
+    expect(correction.advance(16, { x: true })).toEqual({ x: 0, y: 0.5, z: 0 });
+    expect(correction.advance(0).x).toBe(0);
+    expect(correction.advance(0).y).toBeGreaterThan(0);
+  });
+
   it("hard-snaps teleports and invalid divergence without carrying an offset", () => {
     const correction = new PredictionCorrection();
     correction.record(
