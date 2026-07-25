@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EntitySnapshot } from "@dc2d/engine";
 import {
   MAX_EXTRAPOLATION_MS,
+  REMOTE_SAMPLE_HISTORY_MS,
   interpolateInto,
   interpolated,
   recordSample,
@@ -42,6 +43,24 @@ describe("interpolate", () => {
 
     expect(remote.samples).toHaveLength(1);
     expect(remote.samples[0]?.x).toBe(2);
+  });
+
+  it("recycles warmed sample records during sustained snapshot traffic", () => {
+    const remote: RemoteEntity = { snap: snap(0), samples: [] };
+    const identities = new Set<object>();
+    const snapshotIntervalMs = 50;
+    const snapshotCount = 5 * 60 * 20;
+
+    for (let index = 0; index < snapshotCount; index++) {
+      recordSample(remote, index * snapshotIntervalMs, snap(index));
+      for (const sample of remote.samples) identities.add(sample);
+    }
+
+    const warmHistorySize =
+      Math.floor(REMOTE_SAMPLE_HISTORY_MS / snapshotIntervalMs) + 1;
+    expect(remote.samples.length).toBe(warmHistorySize);
+    expect(identities.size).toBe(warmHistorySize);
+    expect(remote.samples.at(-1)?.x).toBe(snapshotCount - 1);
   });
 
   it("extrapolates velocity across jitter without exceeding the safety horizon", () => {

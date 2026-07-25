@@ -26,14 +26,25 @@ export interface InterpolatedEntity {
 }
 
 export const MAX_EXTRAPOLATION_MS = 150;
+export const REMOTE_SAMPLE_HISTORY_MS = 1000;
 
 /** Record a snapshot position, discarding samples older than a second. */
 export function recordSample(remote: RemoteEntity, now: number, snap: EntitySnapshot): void {
   remote.snap = snap;
-  remote.samples.push({ t: now, x: snap.x, y: snap.y, z: snap.z });
-  while (remote.samples[0] && now - remote.samples[0].t > 1000) {
-    remote.samples.shift();
+  let recycled: Sample | undefined;
+  while (
+    remote.samples[0] &&
+    now - remote.samples[0].t > REMOTE_SAMPLE_HISTORY_MS
+  ) {
+    const stale = remote.samples.shift();
+    if (!recycled) recycled = stale;
   }
+  const sample = recycled ?? { t: now, x: snap.x, y: snap.y, z: snap.z };
+  sample.t = now;
+  sample.x = snap.x;
+  sample.y = snap.y;
+  sample.z = snap.z;
+  remote.samples.push(sample);
 }
 
 /** Peer positions rendered `delayMs` in the past, lerped. */
