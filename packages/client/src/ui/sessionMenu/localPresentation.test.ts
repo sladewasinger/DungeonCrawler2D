@@ -7,6 +7,7 @@ import {
   MIN_BRIGHTNESS,
   MIN_FONT_SCALE,
   parseLocalPresentation,
+  reducedMotionEnabled,
 } from "./localPresentation.js";
 
 describe("local presentation preferences", () => {
@@ -31,6 +32,7 @@ describe("local presentation preferences", () => {
       schemaVersion: 1,
       brightness: MAX_BRIGHTNESS,
       fontScale: MIN_FONT_SCALE,
+      motion: "system",
     });
     expect(parseLocalPresentation({
       schemaVersion: 1,
@@ -40,6 +42,34 @@ describe("local presentation preferences", () => {
       schemaVersion: 1,
       brightness: MIN_BRIGHTNESS,
       fontScale: MAX_FONT_SCALE,
+      motion: "system",
     });
+  });
+
+  it("migrates old settings to the device motion preference and validates overrides", () => {
+    expect(parseLocalPresentation({
+      schemaVersion: 1,
+      brightness: 1,
+      fontScale: 1,
+    }).motion).toBe("system");
+    expect(parseLocalPresentation({
+      schemaVersion: 1,
+      brightness: 1,
+      fontScale: 1,
+      motion: "unknown",
+    }).motion).toBe("system");
+    expect(parseLocalPresentation({
+      schemaVersion: 1,
+      brightness: 1,
+      fontScale: 1,
+      motion: "reduce",
+    }).motion).toBe("reduce");
+  });
+
+  it("follows the device by default while allowing explicit reduced or full motion", () => {
+    expect(reducedMotionEnabled({ motion: "system" }, true)).toBe(true);
+    expect(reducedMotionEnabled({ motion: "system" }, false)).toBe(false);
+    expect(reducedMotionEnabled({ motion: "reduce" }, false)).toBe(true);
+    expect(reducedMotionEnabled({ motion: "full" }, true)).toBe(false);
   });
 });

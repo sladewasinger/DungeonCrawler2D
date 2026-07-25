@@ -17,6 +17,7 @@ browser/device, seed, floor, and exact steps.
 - [ ] **Spitter projectile is visible:** In the Effects Bench, spawn/enable a Spitter and let it attack the dummy. **Expected:** wind-up precedes a visible projectile travelling from the Spitter to the target; replacing an area effect with the same id but a different kind updates its visual instead of leaving a stale rig.
 - [ ] **Torch flow and lighting:** Select the starter torch, throw it with G, inspect the landed light, then pick it up if possible. **Expected:** the selected slot is clear, G launches the torch, landing produces a persistent visible light in both renderers, and pickup/burnout removes that light cleanly.
 - [ ] **Mobile controls:** On a touch-sized viewport, move/aim, jump/use/throw, open/close inventory and chat, enter HUD Edit Mode, move/resize a panel, and use fullscreen. **Expected:** controls have reachable non-overlapping targets; chat and inventory capture input; HUD touch editing works; fullscreen works from its explicit control.
+- [ ] **Accessibility preferences persist:** In the game menu, change world brightness, HUD font scale, and Interface motion; reload and check both renderers. **Expected:** values persist, Follow device honors the OS reduced-motion setting, Reduce pauses interface animation, Full permits it, and none of the settings change gameplay timing.
 
 ## Maintenance rule
 

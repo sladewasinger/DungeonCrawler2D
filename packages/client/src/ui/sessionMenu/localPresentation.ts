@@ -12,12 +12,14 @@ export interface LocalPresentation {
   schemaVersion: 1;
   brightness: number;
   fontScale: number;
+  motion: "system" | "reduce" | "full";
 }
 
 export const DEFAULT_LOCAL_PRESENTATION: LocalPresentation = {
   schemaVersion: SCHEMA_VERSION,
   brightness: 1,
   fontScale: 1,
+  motion: "system",
 };
 
 const clamp = (value: number, minimum: number, maximum: number): number =>
@@ -25,6 +27,16 @@ const clamp = (value: number, minimum: number, maximum: number): number =>
 
 const finite = (value: unknown, fallback: number): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+const motionPreference = (value: unknown): LocalPresentation["motion"] =>
+  value === "reduce" || value === "full" ? value : "system";
+
+export const reducedMotionEnabled = (
+  value: Pick<LocalPresentation, "motion">,
+  systemPrefersReducedMotion: boolean,
+): boolean =>
+  value.motion === "reduce" ||
+  (value.motion === "system" && systemPrefersReducedMotion);
 
 export const parseLocalPresentation = (value: unknown): LocalPresentation => {
   if (!value || typeof value !== "object") return { ...DEFAULT_LOCAL_PRESENTATION };
@@ -42,6 +54,7 @@ export const parseLocalPresentation = (value: unknown): LocalPresentation => {
       MIN_FONT_SCALE,
       MAX_FONT_SCALE,
     ),
+    motion: motionPreference(record.motion),
   };
 };
 
@@ -82,6 +95,7 @@ const scaleInlineFonts = (root: HTMLElement): void => {
 export class LocalPresentationController {
   private value = loadLocalPresentation();
   private readonly observer: MutationObserver | null;
+  private readonly pausedAnimations = new Set<Animation>();
 
   constructor(
     private readonly appRoot: HTMLElement,
@@ -96,6 +110,7 @@ export class LocalPresentationController {
             if (node instanceof HTMLElement) scaleInlineFonts(node);
           }
         }
+        this.applyMotion();
       });
     this.observer?.observe(hudRoot, { childList: true, subtree: true });
     this.apply();
@@ -115,8 +130,14 @@ export class LocalPresentationController {
     this.persistAndApply();
   }
 
+  setMotion(motion: LocalPresentation["motion"]): void {
+    this.value = parseLocalPresentation({ ...this.value, motion });
+    this.persistAndApply();
+  }
+
   dispose(): void {
     this.observer?.disconnect();
+    this.resumePausedAnimations();
   }
 
   private persistAndApply(): void {
@@ -130,5 +151,31 @@ export class LocalPresentationController {
     if (canvas instanceof HTMLCanvasElement) {
       canvas.style.filter = `brightness(${this.value.brightness})`;
     }
+    this.applyMotion();
+  }
+
+  private applyMotion(): void {
+    const systemPrefersReducedMotion =
+      typeof globalThis.matchMedia === "function" &&
+      globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = reducedMotionEnabled(this.value, systemPrefersReducedMotion);
+    this.appRoot.dataset.reducedMotion = String(reduce);
+    this.hudRoot.dataset.reducedMotion = String(reduce);
+    if (!reduce) {
+      this.resumePausedAnimations();
+      return;
+    }
+    for (const animation of this.hudRoot.getAnimations?.({ subtree: true }) ?? []) {
+      if (animation.playState !== "running") continue;
+      animation.pause();
+      this.pausedAnimations.add(animation);
+    }
+  }
+
+  private resumePausedAnimations(): void {
+    for (const animation of this.pausedAnimations) {
+      if (animation.playState === "paused") animation.play();
+    }
+    this.pausedAnimations.clear();
   }
 }
