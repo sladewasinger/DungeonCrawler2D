@@ -9,11 +9,11 @@ import { rigIsStale } from "./areaRigStaleness.js";
 export type AreaSpriteKind = "fire" | "wet" | "oil" | "poison" | "smoke" | "steam";
 
 export interface AreaTileView {
-  readonly id: string;
-  readonly effectId: string;
-  readonly x: number;
-  readonly y: number;
-  readonly sprite: AreaSpriteKind;
+  id: string;
+  effectId: string;
+  x: number;
+  y: number;
+  sprite: AreaSpriteKind;
 }
 
 export interface AreaEffectRig {
@@ -31,6 +31,8 @@ const STEAM_LIGHT = { color: 0xd8dde6, radiusTiles: 1.6, kind: "steam" as const,
 
 export class AreaEffectPool {
   private readonly rigs = new Map<string, AreaEffectRig>();
+  private readonly seen = new Set<string>();
+  private readonly lights: LightSource[] = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -39,20 +41,20 @@ export class AreaEffectPool {
 
   /** Rebuilds the tracked rig set to exactly match `tiles`; returns this frame's accent lights. */
   sync(tiles: readonly AreaTileView[]): LightSource[] {
-    const seen = new Set<string>();
-    const lights: LightSource[] = [];
+    this.seen.clear();
+    this.lights.length = 0;
     for (const tile of tiles) {
-      seen.add(tile.id);
+      this.seen.add(tile.id);
       const rig = this.rigFor(tile);
       this.rigs.set(tile.id, rig);
-      if (rig.light) lights.push(rig.light);
+      if (rig.light) this.lights.push(rig.light);
     }
     for (const [id, rig] of this.rigs) {
-      if (seen.has(id)) continue;
+      if (this.seen.has(id)) continue;
       rig.destroy();
       this.rigs.delete(id);
     }
-    return lights;
+    return this.lights;
   }
 
   /** Reuses a rig only when both its recipe and its content effect remain unchanged. */

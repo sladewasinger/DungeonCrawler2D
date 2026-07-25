@@ -37,7 +37,17 @@ export function buildAreaTileViews(
   bounds?: AreaViewBounds,
   marginPx = 0,
 ): AreaTileView[] {
-  const views: AreaTileView[] = [];
+  return buildAreaTileViewsInto(areaTiles, bounds, marginPx, [], []);
+}
+
+export function buildAreaTileViewsInto(
+  areaTiles: ReadonlyMap<string, string>,
+  bounds: AreaViewBounds | undefined,
+  marginPx: number,
+  views: AreaTileView[],
+  records: AreaTileView[],
+): AreaTileView[] {
+  let count = 0;
   for (const [key, defId] of areaTiles) {
     const sprite = spriteByAreaId.get(defId);
     if (!sprite) continue;
@@ -47,7 +57,22 @@ export function buildAreaTileViews(
       if (screen.x < bounds.x - marginPx || screen.x > bounds.right + marginPx ||
         screen.y < bounds.y - marginPx || screen.y > bounds.bottom + marginPx) continue;
     }
-    views.push({ id: key, effectId: defId, x: x + 0.5, y: y + 0.5, sprite });
+    const view = records[count] ?? {
+      id: key,
+      effectId: defId,
+      x: x + 0.5,
+      y: y + 0.5,
+      sprite,
+    };
+    view.id = key;
+    view.effectId = defId;
+    view.x = x + 0.5;
+    view.y = y + 0.5;
+    view.sprite = sprite;
+    records[count] = view;
+    views[count] = view;
+    count++;
   }
+  views.length = count;
   return views;
 }

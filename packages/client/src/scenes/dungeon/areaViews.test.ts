@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAreaTileViews } from "./areaViews.js";
+import { buildAreaTileViews, buildAreaTileViewsInto } from "./areaViews.js";
 
 describe("buildAreaTileViews", () => {
   it("resolves a known area defId to its content-declared sprite kind, centered in the tile", () => {
@@ -42,5 +42,22 @@ describe("buildAreaTileViews", () => {
     );
 
     expect(views.map(({ id }) => id)).toEqual(["0,0"]);
+  });
+
+  it("rewrites one caller-owned array and bounded record set across sustained frames", () => {
+    const output: ReturnType<typeof buildAreaTileViews> = [];
+    const records: ReturnType<typeof buildAreaTileViews> = [];
+    const tiles = new Map([["0,0", "area-fire"]]);
+    buildAreaTileViewsInto(tiles, undefined, 0, output, records);
+    const firstRecord = output[0];
+    const empty = new Map<string, string>();
+
+    for (let frame = 0; frame < 1_000; frame++) {
+      const source = frame % 2 === 0 ? tiles : empty;
+      expect(buildAreaTileViewsInto(source, undefined, 0, output, records))
+        .toBe(output);
+      if (source.size > 0) expect(output[0]).toBe(firstRecord);
+    }
+    expect(records).toHaveLength(1);
   });
 });

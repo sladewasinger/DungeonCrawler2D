@@ -16,7 +16,7 @@ import type { TerrainRenderer } from "../../render/terrain/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
 import { collectExpiredSwings, registerPendingSwing } from "../../vfx/meleeConnect.js";
-import { buildAreaTileViews } from "./areaViews.js";
+import { buildAreaTileViewsInto } from "./areaViews.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, itemView, monsterView, projectileView, remotePlayerView, selfPlayerView } from "./entityViews.js";
 import { bucketFrameEntities, type FrameEntityBuckets } from "./frameEntityBuckets.js";
@@ -176,7 +176,7 @@ export function syncLightingAndVfx(
 ): void {
   if (!lighting || !conn.body) return;
   const areaLights = vfx.syncAreas(
-    buildAreaTileViews(conn.areaTiles, camera.worldView, 2 * SCREEN_TILE_PX),
+    buildAreaTileViewsInto(conn.areaTiles, camera.worldView, 2 * SCREEN_TILE_PX, state.areaViews, state.areaViewRecords),
   );
   const accentLights = state.accentLights;
   accentLights.length = 0;

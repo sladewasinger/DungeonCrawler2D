@@ -12,6 +12,7 @@ import {
 } from "@dc2d/engine";
 import type { PendingSwing } from "../../vfx/meleeConnect.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
+import type { AreaTileView } from "../../vfx/index.js";
 import { createCameraFollowState, type CameraFollowState } from "./cameraFollow.js";
 import { createProjectileVelocityState, type ProjectileVelocityState } from "./projectileVelocity.js";
 import { createSelfCosmeticsState, type SelfCosmeticsState } from "./selfCosmetics.js";
@@ -65,6 +66,8 @@ export interface DungeonSceneState {
   readonly entityBuckets: FrameEntityBuckets;
   readonly entityViews: FrameEntityViews;
   readonly selfProjection: SelfProjectionScratch;
+  readonly areaViews: AreaTileView[];
+  readonly areaViewRecords: AreaTileView[];
   readonly accentLights: LightSource[];
   readonly visibleTorchLights: LightSource[];
   /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
@@ -87,6 +90,8 @@ export function createDungeonSceneState(): DungeonSceneState {
     entityBuckets: createFrameEntityBuckets(),
     entityViews: createFrameEntityViews(),
     selfProjection: createSelfProjectionScratch(),
+    areaViews: [],
+    areaViewRecords: [],
     accentLights: [],
     visibleTorchLights: [],
     attackFlags: new Map(),

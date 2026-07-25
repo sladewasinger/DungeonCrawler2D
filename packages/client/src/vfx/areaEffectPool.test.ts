@@ -33,4 +33,21 @@ describe("AreaEffectPool", () => {
     expect(rigs[0]?.destroy).toHaveBeenCalledTimes(1);
     expect(rigs[1]?.destroy).not.toHaveBeenCalled();
   });
+
+  it("reuses its seen and light output collections across sustained frames", () => {
+    const light = { id: "4,7", x: 4.5, y: 7.5, color: 0, radiusTiles: 1, kind: "fire" as const, seed: 1 };
+    const factory = (): AreaEffectRig => ({
+      sprite: "fire",
+      effectId: "area-fire",
+      light,
+      destroy: vi.fn(),
+    });
+    const pool = new AreaEffectPool({} as Phaser.Scene, factory);
+    const view = { ...tile("area-fire"), sprite: "fire" as const };
+    const output = pool.sync([view]);
+
+    for (let frame = 0; frame < 1_000; frame++) {
+      expect(pool.sync(frame % 2 === 0 ? [view] : [])).toBe(output);
+    }
+  });
 });
