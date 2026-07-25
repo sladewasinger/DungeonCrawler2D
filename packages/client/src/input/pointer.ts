@@ -146,9 +146,6 @@ function handleUiHit(state: InputState, deps: PointerDeps, uiHit: string, pointe
   } else if (uiHit === "touch:block") {
     pressButton(touch, "block", pointerId);
     deps.sendMovementEdge();
-  } else if (uiHit === "touch:sprint") {
-    pressButton(touch, "sprint", pointerId);
-    deps.sendMovementEdge();
   } else if (uiHit === "touch:jump") {
     pressButton(touch, "jump", pointerId);
     deps.sendMovementEdge();

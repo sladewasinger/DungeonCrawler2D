@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Connection } from "../net/connection.js";
 import { readMoveInput } from "./keys.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
-import type { InputState } from "./state.js";
+import type { InputConnection, InputState } from "./state.js";
 
 class FakeKey {
   isDown = false;
@@ -90,11 +90,12 @@ describe("keyboard movement edges", () => {
     vi.stubGlobal("HTMLTextAreaElement", class {});
     const wireSend = vi.fn<(payload: string) => void>();
     const connection = connectedConnection(wireSend);
+    const inputConnection = connection as unknown as InputConnection;
     const w = new FakeKey();
     const state = createInputState(w);
     bindKeyboardMovementEdges(
       state,
-      () => connection.sendInputEdge(readMoveInput(state, connection)),
+      () => connection.sendInputEdge(readMoveInput(state, inputConnection)),
     );
 
     w.press();
