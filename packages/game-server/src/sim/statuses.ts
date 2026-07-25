@@ -66,7 +66,12 @@ export function realizeEffectEvents(sim: SimState, effectEvents: EffectEvent[]):
         break;
       case "hp":
         sim.worldEvents.push({
-          ev: { t: "hit", id: event.id, amount: event.delta },
+          ev: {
+            t: "health",
+            id: event.id,
+            delta: event.delta,
+            kind: event.delta > 0 ? "heal" : "damage",
+          },
           ...positionOf(sim, event.id),
         });
         break;

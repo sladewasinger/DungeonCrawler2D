@@ -4,6 +4,7 @@ import {
   hotbarQuantity,
   inventoryRows,
   nextAvailableHotbarSlot,
+  statusViews,
 } from "./ThreeHudModel.js";
 
 describe("ThreeHudModel", () => {
@@ -36,5 +37,18 @@ describe("ThreeHudModel", () => {
     expect(hotbarQuantity([{ item: "torch", qty: 4 }], "torch")).toBe(4);
     expect(hotbarQuantity([], "torch")).toBe(0);
     expect(hotbarQuantity([], null)).toBe(0);
+  });
+
+  it("uses the same authoritative buff progress as the 2D HUD", () => {
+    expect(statusViews([{
+      id: "bandaged",
+      remainingSeconds: 3.25,
+      durationSeconds: 5,
+    }], ["bandaged"])).toEqual([{
+      id: "bandaged",
+      kind: "buff",
+      remainingSeconds: 3.25,
+      durationSeconds: 5,
+    }]);
   });
 });

@@ -135,3 +135,9 @@ The world has a continuous height axis ([GAME_DESIGN.md](GAME_DESIGN.md) § Vert
 Debuffs: `bleeding`, `poisoned`, `on-fire`, `slowed`, `wet` (contextual), `blinded` (smoke)
 Buffs: `healing`, `regenerating`, `haste`, `resist-fire`, `well-fed`, `feather-fall`, `flying` (rare), `sticky-feet`
 Areas: `area-fire`, `area-wet`, `area-poison-cloud`, `area-oil`, `area-smoke`, `area-steam`
+
+Bandage balance is authored once in the validated, versioned
+`packages/content/src/data/liveTuning.json`. Its `bandaged` status is materialized
+from those values, and refresh replays the immediate heal while restarting both its
+five-second duration and one-second tick cadence. Authoritative snapshots include
+remaining and total status time so renderer HUDs never fabricate buff progress.

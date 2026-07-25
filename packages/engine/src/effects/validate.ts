@@ -34,6 +34,7 @@ export function validateReferences(content: ParsedContent): void {
 
   for (const s of content.statuses.values()) {
     checkPrimitives(s.onApply, `status ${s.id}`);
+    checkPrimitives(s.onRefresh, `status ${s.id}`);
     checkPrimitives(s.onTick, `status ${s.id}`);
     checkPrimitives(s.onExpire, `status ${s.id}`);
   }

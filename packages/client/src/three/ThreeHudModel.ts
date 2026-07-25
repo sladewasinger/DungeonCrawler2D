@@ -1,6 +1,5 @@
 /** Builds renderer-neutral live view models for the browser-native Three.js HUD. */
-import { statusesData } from "@dc2d/content";
-import type { InvStack } from "@dc2d/engine";
+import type { ActiveStatusSnapshot, InvStack } from "@dc2d/engine";
 import {
   isConsumableItem,
   isThrowableItem,
@@ -10,11 +9,7 @@ import {
   itemName,
   type ItemCategory,
 } from "../ui/itemCatalog.js";
-
-interface StatusDefinition {
-  readonly id: string;
-  readonly kind: "buff" | "debuff";
-}
+import { statusPresentations } from "../ui/statusPresentation.js";
 
 export interface ThreeInventoryRow {
   readonly id: string;
@@ -31,19 +26,9 @@ export interface ThreeInventoryRow {
 export interface ThreeStatusView {
   readonly id: string;
   readonly kind: "buff" | "debuff";
+  readonly remainingSeconds: number;
+  readonly durationSeconds: number;
 }
-
-const isStatusDefinition = (value: unknown): value is StatusDefinition => {
-  const status = value as Partial<StatusDefinition>;
-  return typeof status.id === "string" &&
-    (status.kind === "buff" || status.kind === "debuff");
-};
-
-const statuses = new Map<string, StatusDefinition>(
-  (statusesData as readonly unknown[])
-    .filter(isStatusDefinition)
-    .map((status) => [status.id, status]),
-);
 
 export const inventoryRows = (
   inventory: readonly InvStack[],
@@ -64,11 +49,10 @@ export const inventoryRows = (
   };
 }).sort((left, right) => left.name.localeCompare(right.name));
 
-export const statusViews = (active: readonly string[]): ThreeStatusView[] =>
-  active.map((id) => ({
-    id,
-    kind: statuses.get(id)?.kind ?? "debuff",
-  }));
+export const statusViews = (
+  active: readonly ActiveStatusSnapshot[],
+  fallbackIds: readonly string[],
+): ThreeStatusView[] => statusPresentations(active, fallbackIds);
 
 export const hotbarQuantity = (
   inventory: readonly InvStack[],

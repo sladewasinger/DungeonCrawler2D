@@ -108,6 +108,7 @@ export class ThreeHud {
     this.updateCompass(update);
     parts.hotbar.update(connection, update.snapshot?.selectedSlot);
     parts.buffs.update(connection);
+    parts.healthFeedback.update(connection, performance.now());
     parts.weapon.update(connection);
     parts.party.update(connection, player, yaw);
     parts.telemetry.update(connection, world, player, yaw, mouseCaptured);

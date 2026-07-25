@@ -6,6 +6,7 @@ import type { World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import type { LightingSystem } from "../render/lighting/index.js";
 import type { LightSource } from "../render/lighting/lightSource.js";
+import { healthFeedback } from "../ui/healthFeedback.js";
 import { VfxSystem, type AreaTileView } from "../vfx/index.js";
 import { floorAnnouncerLine } from "./dungeon/floorAnnouncer.js";
 import { DEMO_HIT_TICK_MS, demoSkeletonHp, showcaseMonsterSlot, SHOWCASE_ROW } from "./entityShowcaseLayout.js";
@@ -90,7 +91,12 @@ export class VfxShowcase {
     const hpAfter = demoSkeletonHp(nowMs);
     if (hpAfter >= hpBefore) return;
     const slot = showcaseMonsterSlot(0);
-    this.vfx.spawnDamageNumber(slot.x, slot.y - 0.6, hpBefore - hpAfter, nowMs);
+    this.vfx.spawnDamageNumber(
+      slot.x,
+      slot.y - 0.6,
+      healthFeedback(hpAfter - hpBefore),
+      nowMs,
+    );
   }
 
   /** Periodic small "own hit" screen shake, demonstrating the combat-moment juice budget. */

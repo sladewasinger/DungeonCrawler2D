@@ -1,24 +1,18 @@
 /** Constructs the shared HTML HUD components while the ThreeHud facade owns behavior. */
 import type { Connection } from "../net/connection.js";
-import {
-  SessionMenu,
-  type SessionMenuActions,
-} from "../ui/sessionMenu/SessionMenu.js";
+import { SessionMenu, type SessionMenuActions } from "../ui/sessionMenu/SessionMenu.js";
 import { HudWindowManager } from "./HudWindows.js";
 import { ThreeDownedOverlay } from "./ThreeDownedOverlay.js";
 import { ThreeHudBuffs } from "./ThreeHudBuffs.js";
 import { ThreeHudCompass } from "./ThreeHudCompass.js";
 import { ThreeHudHotbar } from "./ThreeHudHotbar.js";
+import { ThreeHealthFeedback } from "./ThreeHealthFeedback.js";
 import { ThreeHudInventory } from "./ThreeHudInventory.js";
 import { ThreeHudNotices } from "./ThreeHudNotices.js";
 import { ThreeHudOverlays } from "./ThreeHudOverlays.js";
 import { createThreeHudPanels, type ThreeHudPanels } from "./ThreeHudPanels.js";
 import { ThreeHudSettings } from "./ThreeHudSettings.js";
-import {
-  createHudSettings,
-  mountHudOverlays,
-  mountHudRoot,
-} from "./ThreeHudSetup.js";
+import { createHudSettings, mountHudOverlays, mountHudRoot } from "./ThreeHudSetup.js";
 import { ThreeHudStatus } from "./ThreeHudStatus.js";
 import { ThreeHudTelemetry } from "./ThreeHudTelemetry.js";
 import { ThreeHudTouchOverlay } from "./ThreeHudTouchOverlay.js";
@@ -48,6 +42,7 @@ export interface ThreeHudComposition {
   settings: ThreeHudSettings;
   touch: ThreeHudTouchOverlay;
   sessionMenu: SessionMenu;
+  healthFeedback: ThreeHealthFeedback;
 }
 
 export interface ThreeHudCompositionOptions {
@@ -93,7 +88,7 @@ type WindowParts = Pick<
 
 type OverlayParts = Pick<
   ThreeHudComposition,
-  "sessionMenu" | "downed" | "invite"
+  "sessionMenu" | "downed" | "invite" | "healthFeedback"
 >;
 
 const createStaticParts = (
@@ -186,14 +181,16 @@ const createOverlayParts = (
   });
   const downed = new ThreeDownedOverlay(options.element);
   const invite = new ThreePartyInvite(options.connection);
+  const healthFeedback = new ThreeHealthFeedback();
   mountHudOverlays(options.element, [
     invite.element,
     statics.tutorials.element,
     windows.touch.element,
     statics.notices.element,
     statics.inventory.element,
+    healthFeedback.element,
   ]);
-  return { sessionMenu, downed, invite };
+  return { sessionMenu, downed, invite, healthFeedback };
 };
 
 export const createThreeHudComposition = (

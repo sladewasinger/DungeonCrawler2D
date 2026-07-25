@@ -110,9 +110,9 @@ export class VfxSystem {
     else spawnFootstepMote(this.scene, screen.x, screen.y);
   }
 
-  spawnDamageNumber(worldX: number, worldY: number, amount: number, nowMs: number, heal = false): void {
+  spawnDamageNumber(worldX: number, worldY: number, feedback: import("../ui/healthFeedback.js").HealthFeedback, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
-    this.damageNumbers.spawn(screen.x, screen.y, amount, nowMs, heal);
+    this.damageNumbers.spawn(screen.x, screen.y, feedback, nowMs);
   }
 
   spawnPickupGlint(worldX: number, worldY: number): void {

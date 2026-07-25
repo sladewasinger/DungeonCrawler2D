@@ -1,8 +1,7 @@
 // Builds the HUD's per-frame snapshot from live Connection state — the "real" source
 // hud/fakeData.ts's doc comment anticipates. Takes a narrow struct (not the whole
 // Connection class) so it stays a pure, table-driven function to test.
-import { statusesData } from "@dc2d/content";
-import { displayCoordinates, type InvStack, type ServerSnapshot } from "@dc2d/engine";
+import { displayCoordinates, type ActiveStatusSnapshot, type InvStack, type ServerSnapshot } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../input/touch/index.js";
 import type { ChatPanelModel } from "../../ui/chat/controller.js";
 import type {
@@ -31,6 +30,7 @@ import {
 } from "./contentQueries.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
 import { resolvePartyNavigation } from "../../ui/partyNavigation.js";
+import { statusPresentations } from "../../ui/statusPresentation.js";
 
 /** A stash entry as the wire/Connection shape carries it — item def id + qty, no index
  * (stashRowViews assigns the display index from array position). */
@@ -38,21 +38,6 @@ export interface StashSlotSource {
   readonly item: string;
   readonly qty: number;
 }
-
-interface StatusDef {
-  readonly id: string;
-  readonly kind: "buff" | "debuff";
-  readonly duration: number;
-}
-
-function isStatusDef(value: unknown): value is StatusDef {
-  const record = value as Partial<StatusDef>;
-  return typeof record?.id === "string" && (record.kind === "buff" || record.kind === "debuff");
-}
-
-const statusById = new Map<string, StatusDef>(
-  (statusesData as readonly unknown[]).filter(isStatusDef).map((def) => [def.id, def]),
-);
 
 function hotbarSlots(hotbar: readonly (string | null)[], inventory: readonly InvStack[]): HotbarSlotData[] {
   return hotbar.map((itemId) => {
@@ -79,17 +64,17 @@ function inventoryRows(inventory: readonly InvStack[], hotbar: readonly (string 
   });
 }
 
-/**
- * The server only sends active status ids, never remaining duration
- * (selfSnapshotSchema.fx is `string[]`) — each chip renders a full pip at
- * the status's authored duration rather than a fabricated countdown.
- */
-function buffChips(fx: readonly string[]): BuffChipData[] {
-  return fx.map((statusId) => {
-    const def = statusById.get(statusId);
-    const durationSec = def?.duration ?? 1;
-    return { statusId, kind: def?.kind ?? "debuff", remainingSec: durationSec, durationSec };
-  });
+/** Uses authoritative status timing when available and keeps `fx` as a legacy fallback. */
+function buffChips(
+  statusEffects: readonly ActiveStatusSnapshot[],
+  fx: readonly string[],
+): BuffChipData[] {
+  return statusPresentations(statusEffects, fx).map((status) => ({
+    statusId: status.id,
+    kind: status.kind,
+    remainingSec: status.remainingSeconds,
+    durationSec: status.durationSeconds,
+  }));
 }
 
 /** Rounds the predicted self body's raw tile position for the telemetry readout — x/y to
@@ -141,6 +126,7 @@ export interface HudSnapshotSource {
   readonly inventory: readonly InvStack[];
   readonly weapon: string | null;
   readonly fx: readonly string[];
+  readonly statusEffects: readonly ActiveStatusSnapshot[];
   readonly pingMs: number;
   readonly connected: boolean;
   readonly reconnecting: boolean;
@@ -177,7 +163,7 @@ function inventoryFields(
     hotbar: hotbarSlots(src.hotbar, src.inventory),
     selectedSlot: selectedHotbarSlot ?? -1,
     armedThrowableSlot,
-    buffs: buffChips(src.fx),
+    buffs: buffChips(src.statusEffects, src.fx),
     equippedWeaponId: src.weapon,
     inventory: inventoryRows(src.inventory, src.hotbar),
     craft: craftSnapshot(src.inventory, src.craftTableNearby),

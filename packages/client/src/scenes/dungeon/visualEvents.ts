@@ -6,6 +6,9 @@ import type { VfxSystem } from "../../vfx/index.js";
 import { resolveHitAgainstPending, type PendingSwing } from "../../vfx/meleeConnect.js";
 import { floorAnnouncerLine } from "./floorAnnouncer.js";
 import type { RenderPose } from "./state.js";
+import { healthFeedback } from "../../ui/healthFeedback.js";
+
+type VisualEvent = ReturnType<Connection["drainVisualEvents"]>[number];
 
 export function applyVisualEvents(
   conn: Connection,
@@ -19,7 +22,8 @@ export function applyVisualEvents(
   vfx.setSelfHp(conn.hp, conn.maxHp);
   const selfId = conn.welcome?.playerId;
   for (const event of conn.drainVisualEvents()) {
-    if (event.t === "hit") applyHit(conn, vfx, render, selfId, event, pendingSwings, nowMs);
+    const healthEvent = resolveHealthEvent(event);
+    if (healthEvent) applyHealthChange(conn, vfx, render, selfId, healthEvent, pendingSwings, nowMs);
     else if (event.t === "death") applyDeath(conn, vfx, render, selfId, event, nowMs);
     else if (event.t === "fistbumpSealed") applyFistbumpSealed(conn, vfx, render, event.partnerName);
     else if (event.t === "xpGained") vfx.spawnXpNumber(event.amount, nowMs);
@@ -27,6 +31,16 @@ export function applyVisualEvents(
     else if (event.t === "floorEntered") vfx.spawnFloorBanner(event.floor, floorAnnouncerLine(event.floor), nowMs);
     else if (event.t === "bossDown") vfx.spawnBossDownFlourish(event.name, nowMs);
   }
+}
+
+function resolveHealthEvent(event: VisualEvent) {
+  if (event.t === "health") return event;
+  if (event.t !== "hit") return null;
+  return {
+    id: event.id,
+    delta: event.amount,
+    kind: event.amount > 0 ? "heal" as const : "damage" as const,
+  };
 }
 
 /** Resolves a visual-event target's rendered position, content defId (enemies only),
@@ -38,19 +52,20 @@ function resolveTarget(conn: Connection, render: RenderPose, isSelf: boolean, id
   return { pos, defId: targetSnap?.defId, kind: targetSnap?.kind, dir };
 }
 
-function applyHit(
+function applyHealthChange(
   conn: Connection,
   vfx: VfxSystem,
   render: RenderPose,
   selfId: string | undefined,
-  event: { id: string; amount: number },
+  event: { id: string; delta: number; kind: "heal" | "damage" },
   pendingSwings: Map<string, PendingSwing>,
   nowMs: number,
 ): void {
   const isSelf = event.id === selfId;
   const { pos, defId, dir } = resolveTarget(conn, render, isSelf, event.id);
   if (pos) {
-    vfx.spawnDamageNumber(pos.x, pos.y - 0.6, event.amount, nowMs);
+    vfx.spawnDamageNumber(pos.x, pos.y - 0.6, healthFeedback(event.delta, event.kind), nowMs);
+    if (event.kind === "heal") return;
     const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
     vfx.spawnBloodHit(pos.x, pos.y, groundHeight, defId, nowMs, dir?.x, dir?.y);
     // Panel round 3b item 5 (WHIFF FEEDBACK): this hit landed somewhere — whichever

@@ -17,6 +17,7 @@ function restack(existing: ActiveStatus, def: StatusDef): boolean {
   if (def.stacking === "ignore") return false;
   if (def.stacking === "refresh") {
     existing.remaining = def.duration;
+    existing.tickAccum = 0;
     return true;
   }
   // stack
@@ -49,7 +50,13 @@ export function applyStatus(
   if (isBlocked(state, entity, def, target)) return false;
 
   const existing = entity.statuses.find((s) => s.defId === statusId);
-  if (existing) return restack(existing, def);
+  if (existing) {
+    const refreshed = restack(existing, def);
+    if (refreshed && def.onRefresh) {
+      runPrimitives(state, entity, def.onRefresh, events, target);
+    }
+    return refreshed;
+  }
 
   entity.statuses.push({ defId: statusId, remaining: def.duration, tickAccum: 0, stacks: 1 });
   events.push({ t: "status", id: entity.id, status: statusId, on: true });

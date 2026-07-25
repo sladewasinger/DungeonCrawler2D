@@ -46,6 +46,13 @@ function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"]
     hp: self.hp,
     maxHp: self.maxHp,
     fx: self.statuses.map((status) => status.defId),
+    statusEffects: self.statuses.map((status) => ({
+      id: status.defId,
+      remainingSeconds: status.remaining === null
+        ? null
+        : Math.max(0, status.remaining),
+      durationSeconds: sim.content.statuses.get(status.defId)?.duration ?? null,
+    })),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
     xp,
     level,

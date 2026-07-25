@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "bandage": {
+    "status": {
+      "id": "bandaged",
+      "name": "Bandaged",
+      "kind": "buff",
+      "tags": ["heal"],
+      "stacking": "refresh"
+    },
+    "immediateHeal": 4,
+    "durationSeconds": 5,
+    "tickEverySeconds": 1,
+    "healPerTick": 2
+  }
+}

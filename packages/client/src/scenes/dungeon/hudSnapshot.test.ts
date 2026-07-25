@@ -13,6 +13,7 @@ function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
     inventory: [],
     weapon: null,
     fx: [],
+    statusEffects: [],
     pingMs: 40,
     connected: true,
     reconnecting: false,
@@ -84,15 +85,29 @@ describe("buildHudSnapshot", () => {
   });
 
   it("resolves buff kind/duration from content, defaulting unknown ids to a debuff", () => {
-    const snap = snapshotOf(source({ fx: ["on-fire", "regenerating", "made-up"] }));
-    expect(snap.buffs).toContainEqual({ statusId: "on-fire", kind: "debuff", remainingSec: 5, durationSec: 5 });
-    expect(snap.buffs).toContainEqual({
+    const snap = snapshotOf(source({
+      fx: ["on-fire", "regenerating", "made-up"],
+      statusEffects: [{
+        id: "on-fire",
+        remainingSeconds: 2.25,
+        durationSeconds: 5,
+      }],
+    }));
+    expect(snap.buffs).toEqual([{
+      statusId: "on-fire",
+      kind: "debuff",
+      remainingSec: 2.25,
+      durationSec: 5,
+    }]);
+    const fallback = snapshotOf(source({ fx: ["on-fire", "regenerating", "made-up"] }));
+    expect(fallback.buffs).toContainEqual({ statusId: "on-fire", kind: "debuff", remainingSec: 5, durationSec: 5 });
+    expect(fallback.buffs).toContainEqual({
       statusId: "regenerating",
       kind: "buff",
       remainingSec: 20,
       durationSec: 20,
     });
-    expect(snap.buffs).toContainEqual({ statusId: "made-up", kind: "debuff", remainingSec: 1, durationSec: 1 });
+    expect(fallback.buffs).toContainEqual({ statusId: "made-up", kind: "debuff", remainingSec: 1, durationSec: 1 });
   });
 
   it("passes the chat model and contacts straight through (owned by ui/chat/controller.ts)", () => {

@@ -19,11 +19,22 @@ export const bodySnapshotSchema = z.object({
   ky: z.number(),
 });
 
+export const activeStatusSnapshotSchema = z.object({
+  id: z.string(),
+  /** Authoritative seconds remaining; null denotes an indefinite status. */
+  remainingSeconds: z.number().nonnegative().nullable(),
+  /** Authored total duration; null denotes an indefinite status. */
+  durationSeconds: z.number().positive().nullable(),
+});
+export type ActiveStatusSnapshot = z.infer<typeof activeStatusSnapshotSchema>;
+
 export const selfSnapshotSchema = bodySnapshotSchema.extend({
   hp: z.number(),
   maxHp: z.number(),
   /** Active status ids (HUD icons / tint). */
   fx: z.array(z.string()),
+  /** Timed status state for authoritative HUD progress; additive for rolling clients. */
+  statusEffects: z.array(activeStatusSnapshotSchema).optional(),
   downed: z.boolean().optional(),
   /** Epic 11 core (character levels), pulled forward into Epic 7.13 —
    * current XP, character level, and XP still needed for the next level.
@@ -105,6 +116,12 @@ export const partySnapshotSchema = z
 
 export const gameEventSchema = z.discriminatedUnion("t", [
   z.object({ t: z.literal("hit"), id: z.string(), amount: z.number() }),
+  z.object({
+    t: z.literal("health"),
+    id: z.string(),
+    delta: z.number(),
+    kind: z.enum(["heal", "damage"]),
+  }),
   z.object({ t: z.literal("death"), id: z.string() }),
   z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
   z.object({

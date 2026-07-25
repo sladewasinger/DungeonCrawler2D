@@ -4,9 +4,8 @@ import type Phaser from "phaser";
 import { uiTextStyle } from "../ui/font.js";
 import { HUD_SCALE } from "../ui/hudScale.js";
 import { damageNumberPose, isExpired } from "./damageNumberMotion.js";
+import type { HealthFeedback } from "../ui/healthFeedback.js";
 
-const DAMAGE_COLOR = "#e04a4a";
-const HEAL_COLOR = "#3dd6c3";
 const FONT_SIZE_PX = 18 * HUD_SCALE;
 const DEPTH = 400_000;
 
@@ -22,11 +21,10 @@ export class DamageNumberPool {
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  /** Spawns one floating number at a screen position; `heal` swaps in the sanctuary-teal accent. */
-  spawn(screenX: number, screenY: number, amount: number, nowMs: number, heal = false): void {
-    const label = `${heal ? "+" : "-"}${Math.abs(Math.round(amount))}`;
+  /** Spawns one authoritative signed health change at a screen position. */
+  spawn(screenX: number, screenY: number, feedback: HealthFeedback, nowMs: number): void {
     const text = this.scene.add
-      .text(screenX, screenY, label, uiTextStyle(FONT_SIZE_PX, heal ? HEAL_COLOR : DAMAGE_COLOR, 1, "emphasis"))
+      .text(screenX, screenY, feedback.label, uiTextStyle(FONT_SIZE_PX, feedback.color, 1, "emphasis"))
       .setOrigin(0.5, 1)
       .setDepth(DEPTH);
     this.active.push({ text, startX: screenX, startY: screenY, spawnMs: nowMs });

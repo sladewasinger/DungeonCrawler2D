@@ -69,6 +69,7 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.hp = snap.self.hp;
   conn.maxHp = snap.self.maxHp;
   conn.fx = snap.self.fx;
+  conn.statusEffects = snapshotStatusEffects(snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
   conn.downed = snap.self.downed ?? false;
   if (conn.hp <= 0 || conn.downed) conn.prediction.reset();
@@ -81,6 +82,14 @@ function applySelfState(conn: Connection, snap: ServerSnapshot, world: World): v
   conn.hotbar = snap.hotbar;
   conn.weapon = snap.weapon;
   conn.party = snap.party;
+}
+
+function snapshotStatusEffects(snap: ServerSnapshot) {
+  return snap.self.statusEffects ?? snap.self.fx.map((id) => ({
+    id,
+    remainingSeconds: null,
+    durationSeconds: null,
+  }));
 }
 
 /** Diffs the new xp/level against Connection's current values (pre-overwrite) and

@@ -25,6 +25,7 @@ export interface ContactInfo {
 /** Visual-only events the scene consumes each frame. */
 export type VisualEvent =
   | { t: "hit"; id: string; amount: number }
+  | { t: "health"; id: string; delta: number; kind: "heal" | "damage" }
   | { t: "death"; id: string }
   | { t: "status"; id: string; status: string; on: boolean }
   /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated

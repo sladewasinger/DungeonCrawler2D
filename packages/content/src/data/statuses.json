@@ -70,18 +70,6 @@
     "onTick": [{ "primitive": "modify_health", "amount": 1 }]
   },
   {
-    "id": "bandaged",
-    "name": "Bandaged",
-    "kind": "buff",
-    "tags": ["heal"],
-    "duration": 1,
-    "stacking": "refresh",
-    "onApply": [
-      { "primitive": "modify_health", "amount": 4 },
-      { "primitive": "remove_status", "tag": "bleed" }
-    ]
-  },
-  {
     "id": "feather-fall",
     "name": "Feather Fall",
     "kind": "buff",

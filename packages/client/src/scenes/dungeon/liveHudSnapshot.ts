@@ -34,6 +34,7 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     inventory: conn.inventory,
     weapon: conn.weapon,
     fx: conn.fx,
+    statusEffects: conn.statusEffects,
     pingMs: conn.rttMs,
     connected: conn.status === "connected",
     reconnecting: conn.status !== "connected",

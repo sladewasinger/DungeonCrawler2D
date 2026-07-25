@@ -3,6 +3,7 @@ import {
   WireMetrics,
   World,
   type BodyState,
+  type ActiveStatusSnapshot,
   type ClientMessage,
   type EntitySnapshot,
   type InvStack,
@@ -70,6 +71,8 @@ export class Connection {
   hp = 0;
   maxHp = 1;
   fx: string[] = [];
+  /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
+  statusEffects: ActiveStatusSnapshot[] = [];
   downed = false;
   /** Epic 11 core (character levels) — current XP, character level, and XP still
    * needed for the next level; live on the wire since protocol 14 (ASSUMPTION #90).

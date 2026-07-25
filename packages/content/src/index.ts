@@ -9,11 +9,18 @@ import items from "./data/items.json" with { type: "json" };
 import enemies from "./data/enemies.json" with { type: "json" };
 import recipes from "./data/recipes.json" with { type: "json" };
 import strings from "./data/strings.json" with { type: "json" };
+import liveTuning from "./data/liveTuning.json" with { type: "json" };
+import { parseLiveTuning, type LiveTuning } from "./data/liveTuning.schema.js";
+import { tunedBandageStatus } from "./data/liveTuning.js";
 import { parseStrings, type Strings } from "./data/strings.schema.js";
 import tileCatalogRaw from "./data/tileCatalog.json" with { type: "json" };
 import { parseTileCatalog, type TileCatalog } from "./data/tileCatalog.schema.js";
 
-export const statusesData: readonly unknown[] = statuses;
+export const liveTuningData: LiveTuning = parseLiveTuning(liveTuning);
+export const statusesData: readonly unknown[] = [
+  ...statuses,
+  tunedBandageStatus(liveTuningData),
+];
 export const rulesData: readonly unknown[] = rules;
 export const areasData: readonly unknown[] = areas;
 export const itemsData: readonly unknown[] = items;

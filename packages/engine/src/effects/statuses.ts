@@ -16,6 +16,8 @@ export const statusDefSchema = z.object({
   /** Tags the bearer gains while this status is active. */
   appliesTags: z.array(z.string()).optional(),
   onApply: z.array(primitiveSchema).optional(),
+  /** Event-like primitives rerun only when a refresh-stacking status is reapplied. */
+  onRefresh: z.array(primitiveSchema).optional(),
   onTick: z.array(primitiveSchema).optional(),
   onExpire: z.array(primitiveSchema).optional(),
   /** Continuous modifiers evaluated while active (modify_stat only). */

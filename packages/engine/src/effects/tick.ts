@@ -5,6 +5,8 @@ import type { EffectTarget } from "./health.js";
 import { runPrimitives } from "./resolve.js";
 import type { EffectsState } from "./state.js";
 
+const STATUS_TIME_EPSILON = 1e-9;
+
 /** Fires onTick primitives as many times as tickAccum allows; true if the entity died from it. */
 function advanceTicking(
   state: EffectsState,
@@ -43,7 +45,7 @@ function advanceExpiry(
 ): void {
   if (status.remaining === null) return;
   status.remaining -= dt;
-  if (status.remaining > 0) return;
+  if (status.remaining > STATUS_TIME_EPSILON) return;
   entity.statuses.splice(index, 1);
   events.push({ t: "status", id: entity.id, status: status.defId, on: false });
   if (def.onExpire) runPrimitives(state, entity, def.onExpire, events, target);
@@ -66,7 +68,10 @@ export function tick(
       entity.statuses.splice(i, 1);
       continue;
     }
-    if (advanceTicking(state, entity, status, def, dt, events, target, rng)) return;
+    const activeDt = status.remaining === null
+      ? dt
+      : Math.min(dt, Math.max(0, status.remaining));
+    if (advanceTicking(state, entity, status, def, activeDt, events, target, rng)) return;
     advanceExpiry(state, entity, status, def, dt, i, events, target);
   }
 }

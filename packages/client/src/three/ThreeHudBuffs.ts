@@ -13,13 +13,17 @@ export class ThreeHudBuffs {
   }
 
   update(connection: Connection): void {
-    const signature = connection.fx.join("|");
+    const signature = connection.statusEffects.length > 0
+      ? connection.statusEffects
+        .map((status) => `${status.id}:${status.remainingSeconds}`)
+        .join("|")
+      : connection.fx.join("|");
     if (signature === this.signature) return;
     this.signature = signature;
     this.element.style.visibility = connection.fx.length > 0 ? "visible" : "hidden";
-    const chips = statusViews(connection.fx).map((status) => {
+    const chips = statusViews(connection.statusEffects, connection.fx).map((status) => {
       const chip = document.createElement("span");
-      chip.textContent = status.id.replaceAll("-", " ");
+      chip.textContent = `${status.id.replaceAll("-", " ")} ${Math.ceil(status.remainingSeconds)}s`;
       chip.style.cssText =
         `padding:4px 6px;border:1px solid ${
           status.kind === "buff" ? "#4f9a72" : "#a44c59"
