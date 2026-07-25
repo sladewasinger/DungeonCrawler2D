@@ -26,6 +26,10 @@ const SNAPSHOT_TIMEOUT_MS = 10_000;
 const INPUT_INTENTS_TO_SEND = 5;
 const INPUT_INTERVAL_MS = 100;
 const CHAT_TIMEOUT_MS = 10_000;
+const rootManifest = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+);
+const APP_VERSION = rootManifest.version;
 
 function fail(message) {
   console.error(`[smoke] FAIL: ${message}`);
@@ -45,6 +49,36 @@ function wsUrlFor(siteUrl) {
   url.search = "";
   url.hash = "";
   return url.toString();
+}
+
+async function assertReleasePage(siteUrl, pathname, marker) {
+  const url = new URL(pathname, siteUrl);
+  const response = await fetch(url, { redirect: "error" });
+  const contentType = response.headers.get("content-type") ?? "";
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`${pathname} returned HTTP ${response.status}`);
+  }
+  if (!contentType.includes("text/html")) {
+    throw new Error(`${pathname} returned ${contentType || "no content type"}`);
+  }
+  if (!body.includes(marker) || body.includes('<div id="app"></div>')) {
+    throw new Error(`${pathname} returned the game shell instead of release notes`);
+  }
+}
+
+async function runReleaseNotesChecks(siteUrl) {
+  await assertReleasePage(
+    siteUrl,
+    "/releases/index.html",
+    "<h1>Release Notes</h1>",
+  );
+  await assertReleasePage(
+    siteUrl,
+    `/releases/v${APP_VERSION}.html`,
+    `<h1>v${APP_VERSION} ·`,
+  );
+  console.log(`[smoke] release index and v${APP_VERSION} page loaded — OK`);
 }
 
 /** Race a promise against a timeout, rejecting with `label` on expiry. */
@@ -197,6 +231,7 @@ async function main() {
   console.log(`[smoke] connecting to ${target}`);
 
   try {
+    await runReleaseNotesChecks(siteUrl);
     await runSoloChecks(target);
     await runChatCrossCheck(target);
   } catch (err) {

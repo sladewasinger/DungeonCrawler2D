@@ -71,9 +71,10 @@ jobs:
         run: |
           aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" --delete \
             --cache-control "public,max-age=31536000,immutable" \
-            --exclude "index.html" --exclude "sw.js" --exclude "manifest.webmanifest"
-          aws s3 cp packages/client/dist/index.html "s3://$FRONTEND_BUCKET/index.html" \
-            --cache-control "no-cache"
+            --exclude "*.html" --exclude "sw.js" --exclude "manifest.webmanifest"
+          aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" \
+            --exclude "*" --include "*.html" \
+            --cache-control "no-cache" --content-type "text/html"
           if [ -f packages/client/dist/sw.js ]; then
             aws s3 cp packages/client/dist/sw.js "s3://$FRONTEND_BUCKET/sw.js" \
               --cache-control "no-cache"

@@ -4,6 +4,7 @@
 // from ui/panel.ts and the monogram font from ui/font.ts.
 import { LEVEL, type LevelId } from "@dc2d/engine";
 import { APP_VERSION } from "../../appVersion.js";
+import { RELEASE_NOTES_INDEX_PATH } from "../../releaseNotesUrl.js";
 
 const PANEL_BG = "#1a1a24";
 const PANEL_BORDER = "#494956";
@@ -110,7 +111,7 @@ export class ConnectForm {
     applyStatusStyle(this.status);
 
     const releaseNotes = document.createElement("a");
-    releaseNotes.href = "/releases/";
+    releaseNotes.href = RELEASE_NOTES_INDEX_PATH;
     releaseNotes.textContent = `Release Notes · v${APP_VERSION}`;
     releaseNotes.style.cssText =
       "color:#c4c4d0;font:16px monogram,monospace;text-underline-offset:3px;pointer-events:auto";

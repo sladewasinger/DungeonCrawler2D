@@ -87,7 +87,7 @@ function noteBody(note: ReleaseNote): string {
     const items = note.sections[name].map((item) => `<li>${escapeHtml(item)}</li>`).join("");
     return `<section><h2>${name}</h2><ul>${items}</ul></section>`;
   }).join("");
-  return `<p><a href="./">← All releases</a></p><article><h1>v${escapeHtml(note.version)} · ${escapeHtml(note.title)}</h1><time datetime="${escapeHtml(note.date)}">${escapeHtml(note.date)}</time>${sections}</article><p><a href="/">Return to DungeonCrawler2D</a></p>`;
+  return `<p><a href="./index.html">← All releases</a></p><article><h1>v${escapeHtml(note.version)} · ${escapeHtml(note.title)}</h1><time datetime="${escapeHtml(note.date)}">${escapeHtml(note.date)}</time>${sections}</article><p><a href="/">Return to DungeonCrawler2D</a></p>`;
 }
 
 export function releaseNotesPlugin(repositoryRoot: string, applicationVersion: string): Plugin {
