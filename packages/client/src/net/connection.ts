@@ -17,6 +17,7 @@ import { closeSocket, openSocket } from "./socket.js";
 import type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
 import { ConnectionActions } from "./ConnectionActions.js";
 import { interpolated, type RemoteEntity } from "./interpolate.js";
+import { InterpolationDelay } from "./interpolationDelay.js";
 import { sendMeasured } from "./measuredSend.js";
 import { MovementCadence } from "./movementCadence.js";
 import { sampleMovement, sendMovementEdge } from "./movementSampling.js";
@@ -110,6 +111,7 @@ export class Connection extends ConnectionActions {
   /** Render-only smoothing keeps authoritative correction out of simulation state. */
   readonly predictionCorrection = new PredictionCorrection();
   readonly serverTimeline = new ServerTimeline();
+  readonly interpolationDelay = new InterpolationDelay();
   /** Live traffic/correction diagnostics expose the roadmap's reproducible baseline. */
   readonly networkMetrics = new WireMetrics();
   // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
@@ -175,6 +177,7 @@ export class Connection extends ConnectionActions {
     this.movementCadence.reset();
     this.predictionCorrection.reset();
     this.serverTimeline.reset();
+    this.interpolationDelay.reset();
   }
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
@@ -201,12 +204,15 @@ export class Connection extends ConnectionActions {
     return out;
   }
 
-  /** Peer positions rendered `delayMs` in the past, lerped. */
+  /** Peer positions rendered behind the server by the adaptive jitter buffer. */
   interpolated(
-    delayMs: number,
     now: number = performance.now(),
   ): Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> {
-    return interpolated(this.entities, delayMs, this.serverTimeline.now(now));
+    return interpolated(
+      this.entities,
+      this.interpolationDelay.currentMs,
+      this.serverTimeline.now(now),
+    );
   }
 
   send(msg: ClientMessage): void {

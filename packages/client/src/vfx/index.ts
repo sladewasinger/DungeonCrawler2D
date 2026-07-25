@@ -139,16 +139,9 @@ export class VfxSystem {
     this.meleeSwingFx.spawnWhiff(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
   }
 
-  /** Wall-bump deny cue (panel round 3b item 4): fires the contact-point flash and starts
-   * the sprite-nudge window — `dirX/dirY` is the blocked move-intent direction. */
+  /** Wall-bump deny cue: flashes the contact point without displacing the player. */
   triggerWallBump(worldX: number, worldY: number, dirX: number, dirY: number, nowMs: number): void {
     this.wallBumpFx.trigger(worldX, worldY, dirX, dirY, nowMs);
-  }
-
-  /** This frame's wall-bump sprite-nudge offset (world tiles) — add to the self view's
-   * x/y only (frameSync.ts), never to the camera or any other entity. */
-  wallBumpNudgeOffset(nowMs: number): { x: number; y: number } {
-    return this.wallBumpFx.offset(nowMs);
   }
 
   /** Splatter + one floor decal for a landed hit (Epic 7.11) — directional when `dirX`/`dirY`

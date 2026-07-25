@@ -1,7 +1,6 @@
 // Wall-bump edge flash: a faint flash at the contact point when sustained blocked
-// movement crosses the throttle in input/wallBump.ts (panel round 3b item 4) — the deny
-// cue's visible half (wallBumpNudge.ts is the sprite-nudge half). One reused Graphics
-// object since only ever one bump is active for the self player at a time.
+// movement crosses the throttle in input/wallBump.ts. One reused Graphics object since
+// only one contact cue is active for the self player at a time.
 import type Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { wallBumpFlashAlpha } from "./wallBumpFlashMotion.js";

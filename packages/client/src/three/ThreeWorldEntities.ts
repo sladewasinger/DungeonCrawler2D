@@ -45,7 +45,7 @@ export class ThreeWorldEntities {
     reducedMotion: boolean,
   ): void {
     const active = new Set<string>();
-    for (const entity of connection.interpolated(100)) {
+    for (const entity of connection.interpolated()) {
       const presentation = threeEntityPresentation(entity.snap);
       if (!presentation) continue;
       active.add(entity.id);

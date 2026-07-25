@@ -32,9 +32,6 @@ export interface EntitySyncResult {
   torchAccentLights: LightSource[];
 }
 
-/** Remote entities render this far in the past, lerped between snapshot samples. */
-const INTERP_DELAY_MS = 100;
-
 /** Players + monsters + items + the melee-swing wedge telegraph. */
 function syncCombatants(
   scene: Phaser.Scene,
@@ -54,12 +51,8 @@ function syncCombatants(
   const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds);
   const touchActive = inputController.touchVisual() !== null;
   const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
-  // Panel round 3b item 4 (WALL-BUMP FEEDBACK): folded into the self view's x/y ONLY —
-  // never into `render` itself, so the camera (which follows `render` directly) and
-  // every other reader stay put; the nudge reads as "you personally bumped".
-  const nudge = vfx.wallBumpNudgeOffset(nowMs);
   const self = selfPlayerView(
-    { id: conn.welcome.playerId, name: conn.name, x: render.x + nudge.x, y: render.y + nudge.y, z: render.z, air: !conn.body.grounded },
+    { id: conn.welcome.playerId, name: conn.name, x: render.x, y: render.y, z: render.z, air: !conn.body.grounded },
     { hp: conn.hp, maxHp: conn.maxHp, fx: conn.fx, downed: conn.downed, blocking: conn.blocking, weaponId: conn.weapon },
     state.cosmetics,
     nowMs,
@@ -107,7 +100,7 @@ export function syncEntities(
   render: RenderPose,
 ): EntitySyncResult {
   if (!conn.world || !conn.welcome || !conn.body) return { interactionPrompt: null, torchAccentLights: [] };
-  const interpolated = conn.interpolated(INTERP_DELAY_MS);
+  const interpolated = conn.interpolated();
   syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, partyIds, nowMs, dtSeconds, render, interpolated);
 
   const projectiles = interpolated.filter((e) => e.snap.kind === "projectile");

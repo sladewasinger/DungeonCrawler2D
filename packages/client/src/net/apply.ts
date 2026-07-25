@@ -22,6 +22,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
 
   const now = performance.now();
   const serverTime = conn.serverTimeline.observe(snap.tick, now);
+  conn.interpolationDelay.observe(snap.tick, now);
   for (const entity of snap.entities) applyEntitySample(conn, serverTime, entity);
   for (const tile of snap.areas) applyAreaTile(conn, tile);
   pruneAreaTiles(conn.areaTiles, snap.self.x, snap.self.y);

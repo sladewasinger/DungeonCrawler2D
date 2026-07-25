@@ -35,6 +35,18 @@ function closeBody(a: BodyState, b: BodyState, eps = 1e-9): boolean {
   return Math.abs(a.x - b.x) < eps && Math.abs(a.y - b.y) < eps && Math.abs(a.z - b.z) < eps;
 }
 
+function findEastWallApproach(world: World): { x: number; y: number; z: number } {
+  for (let tileY = -30; tileY <= 30; tileY++) {
+    for (let tileX = -30; tileX <= 30; tileX++) {
+      if (!world.isWalkable(tileX, tileY) || world.isWalkable(tileX + 1, tileY)) continue;
+      const x = tileX + 0.5;
+      const y = tileY + 0.5;
+      return { x, y, z: world.groundAt(x, y) };
+    }
+  }
+  throw new Error("seed fixture has no east-facing wall approach");
+}
+
 describe("Prediction", () => {
   it("stays in lockstep with an equivalent server-side stepBody run", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
@@ -103,6 +115,26 @@ describe("Prediction", () => {
       stepBody(world, server, WALK, TICK_DT);
     }
     expect(closeBody(corrected, server)).toBe(true);
+  });
+
+  it("stays motionless against a wall through prediction and repeated reconciliation", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const prediction = new Prediction();
+    const start = findEastWallApproach(world);
+    const client = createBody(start.x, start.y, start.z);
+    const server = createBody(start.x, start.y, start.z);
+
+    for (let tick = 1; tick <= 60; tick++) {
+      const predicted = prediction.predict(world, client, WALK);
+      stepBody(world, server, WALK, TICK_DT);
+      const reconciled = cloneBody(server);
+      prediction.reconcile(world, reconciled, predicted.seq, tick);
+      Object.assign(client, reconciled);
+
+      expect(client.x).toBe(start.x);
+      expect(client.y).toBe(start.y);
+      expect(closeBody(client, server)).toBe(true);
+    }
   });
 
   it("replays only inputs newer than the authoritative server tick", () => {

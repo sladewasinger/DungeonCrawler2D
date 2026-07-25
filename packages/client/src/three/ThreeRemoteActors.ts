@@ -68,7 +68,7 @@ export class ThreeRemoteActors {
 
   update(connection: Connection, elapsed: number): void {
     const active = new Set<string>();
-    for (const actor of connection.interpolated(100)) {
+    for (const actor of connection.interpolated()) {
       const kind = visibleKind(actor.snap.kind);
       if (!kind) continue;
       active.add(actor.id);

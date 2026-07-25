@@ -12,6 +12,18 @@ import { projectSelfRenderPose } from "./selfInterpolation.js";
 const SPAWN_X = -6;
 const SPAWN_Y = -13;
 
+function findEastWallApproach(world: World): { x: number; y: number; z: number } {
+  for (let tileY = -30; tileY <= 30; tileY++) {
+    for (let tileX = -30; tileX <= 30; tileX++) {
+      if (!world.isWalkable(tileX, tileY) || world.isWalkable(tileX + 1, tileY)) continue;
+      const x = tileX + 0.5;
+      const y = tileY + 0.5;
+      return { x, y, z: world.groundAt(x, y) };
+    }
+  }
+  throw new Error("seed fixture has no east-facing wall approach");
+}
+
 describe("projectSelfRenderPose", () => {
   it("renders into the unsimulated tick remainder instead of one tick behind", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
@@ -58,5 +70,27 @@ describe("projectSelfRenderPose", () => {
 
     expect(pose.x).toBeCloseTo(body.x + 0.25);
     expect(body.x).toBe(SPAWN_X);
+  });
+
+  it("does not visually project the player through a wall during a partial tick", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const start = findEastWallApproach(world);
+    const body = createBody(start.x, start.y, start.z);
+
+    const pose = projectSelfRenderPose(
+      world,
+      body,
+      { moveX: 1, moveY: 0, jump: false },
+      49,
+      { stamina: 100, maxStamina: 100, blocking: false },
+      false,
+      new PredictionCorrection(),
+      16,
+    );
+
+    expect(pose.x).toBe(start.x);
+    expect(pose.y).toBe(start.y);
+    expect(body.x).toBe(start.x);
+    expect(body.y).toBe(start.y);
   });
 });
