@@ -5,9 +5,12 @@ import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { releaseNotesPlugin } from "./build/releaseNotes.js";
 import { rendererIsolation } from "./build/rendererIsolation.js";
 
 const clientRoot = dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = resolve(clientRoot, "../..");
+const applicationVersion = JSON.parse(readFileSync(resolve(repositoryRoot, "package.json"), "utf8")).version as string;
 const threeModelDirectory = resolve(clientRoot, "../../assets/3D/models/Fantasy_Heroes_Free");
 const threeAssets = new Map([
   ["Knight_Animated.fbx", resolve(threeModelDirectory, "FBX/Characters/Knight_Animated.fbx")],
@@ -53,8 +56,11 @@ function serveThreeAssets() {
 
 export default defineConfig({
   server: { port: 5173 },
-  define: { __BUILD_SHA__: JSON.stringify(gitShortSha()) },
-  plugins: [serveThreeAssets(), rendererIsolation()],
+  define: {
+    __APP_VERSION__: JSON.stringify(applicationVersion),
+    __BUILD_SHA__: JSON.stringify(gitShortSha()),
+  },
+  plugins: [serveThreeAssets(), releaseNotesPlugin(repositoryRoot, applicationVersion), rendererIsolation()],
   build: {
     manifest: true,
     rollupOptions: {

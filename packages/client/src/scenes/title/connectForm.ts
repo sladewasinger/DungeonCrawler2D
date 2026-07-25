@@ -3,6 +3,7 @@
 // chat input proved, matching the panel language (dark fill, thin border, gold accent)
 // from ui/panel.ts and the monogram font from ui/font.ts.
 import { LEVEL, type LevelId } from "@dc2d/engine";
+import { APP_VERSION } from "../../appVersion.js";
 
 const PANEL_BG = "#1a1a24";
 const PANEL_BORDER = "#494956";
@@ -108,7 +109,14 @@ export class ConnectForm {
     this.status = document.createElement("div");
     applyStatusStyle(this.status);
 
-    this.root.append(this.input, choices, this.status);
+    const releaseNotes = document.createElement("a");
+    releaseNotes.href = "/releases/";
+    releaseNotes.textContent = `Release Notes · v${APP_VERSION}`;
+    releaseNotes.style.cssText =
+      "color:#c4c4d0;font:16px monogram,monospace;text-underline-offset:3px;pointer-events:auto";
+    releaseNotes.setAttribute("aria-label", `Read release notes for version ${APP_VERSION}`);
+
+    this.root.append(this.input, choices, this.status, releaseNotes);
     document.body.append(this.root);
   }
 
