@@ -1,5 +1,6 @@
 /** Maps network snapshots and local prediction into renderer entity view models. */
-import type { EntitySnapshot, WorldView } from "@dc2d/engine";
+import type { WorldView } from "@dc2d/engine";
+import type { InterpolatedEntity } from "../../net/interpolate.js";
 import type {
   ItemEntityView,
   MonsterEntityView,
@@ -13,14 +14,7 @@ import { trackProjectileVelocity, type ProjectileVelocityState } from "./project
 import { remotePlayerFields } from "./remotePlayerFields.js";
 import { isSelfAttacking, type SelfCosmeticsState } from "./selfCosmetics.js";
 
-/** One interpolated network entity with a smoothed world position. */
-export interface InterpolatedEntity {
-  readonly id: string;
-  readonly snap: EntitySnapshot;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
+export type { InterpolatedEntity } from "../../net/interpolate.js";
 
 export function buildRenderContext(
   world: WorldView,

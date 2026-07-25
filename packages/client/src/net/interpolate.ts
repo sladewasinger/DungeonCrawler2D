@@ -17,6 +17,14 @@ export interface RemoteEntity {
   samples: Sample[];
 }
 
+export interface InterpolatedEntity {
+  id: string;
+  snap: EntitySnapshot;
+  x: number;
+  y: number;
+  z: number;
+}
+
 export const MAX_EXTRAPOLATION_MS = 150;
 
 /** Record a snapshot position, discarding samples older than a second. */
@@ -33,59 +41,110 @@ export function interpolated(
   entities: ReadonlyMap<string, RemoteEntity>,
   delayMs: number,
   now: number = performance.now(),
-): Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> {
+): InterpolatedEntity[] {
+  return interpolateInto(entities, delayMs, now, []);
+}
+
+/**
+ * Writes one presentation frame into caller-owned storage. Records are reused by
+ * index, so renderers must consume the returned frame synchronously and not retain it.
+ */
+export function interpolateInto(
+  entities: ReadonlyMap<string, RemoteEntity>,
+  delayMs: number,
+  now: number,
+  out: InterpolatedEntity[],
+): InterpolatedEntity[] {
   const t = now - delayMs;
-  const out: Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> = [];
+  let count = 0;
   for (const [id, remote] of entities) {
-    const pos = sampleAtTime(remote.samples, remote.snap, t);
-    if (!pos) continue;
-    out.push({ id, snap: remote.snap, x: pos.x, y: pos.y, z: pos.z });
+    const target = out[count] ?? {
+      id,
+      snap: remote.snap,
+      x: 0,
+      y: 0,
+      z: 0,
+    };
+    if (!sampleInto(remote.samples, remote.snap, t, target)) continue;
+    target.id = id;
+    target.snap = remote.snap;
+    out[count] = target;
+    count++;
   }
+  out.length = count;
   return out;
 }
 
-function sampleAtTime(
+function sampleInto(
   samples: Sample[],
   snap: EntitySnapshot,
   targetTime: number,
-): Sample | null {
+  out: InterpolatedEntity,
+): boolean {
   const newest = samples.at(-1);
-  if (!newest) return null;
+  if (!newest) return false;
   const oldest = samples[0];
-  if (oldest && targetTime < oldest.t) return oldest;
-  const pair = bracketingPair(samples, targetTime);
-  const sample = pair ? lerp(pair[0], pair[1], targetTime) : newest;
-  return targetTime > sample.t ? extrapolate(sample, snap, targetTime) : sample;
+  if (oldest && targetTime < oldest.t) {
+    writePosition(out, oldest.x, oldest.y, oldest.z);
+    return true;
+  }
+
+  const sampleTime = interpolateOrNewestInto(
+    samples,
+    newest,
+    targetTime,
+    out,
+  );
+  extrapolateInto(out, snap, sampleTime, targetTime);
+  return true;
 }
 
-function bracketingPair(samples: Sample[], targetTime: number): [Sample, Sample] | null {
+function interpolateOrNewestInto(
+  samples: Sample[],
+  newest: Sample,
+  targetTime: number,
+  out: InterpolatedEntity,
+): number {
   for (let index = samples.length - 1; index > 0; index--) {
     const left = samples[index - 1];
     const right = samples[index];
-    if (left && right && left.t <= targetTime && targetTime <= right.t) {
-      return [left, right];
-    }
+    if (!left || !right || targetTime < left.t || targetTime > right.t) continue;
+    const amount = right.t === left.t ? 1 : (targetTime - left.t) / (right.t - left.t);
+    writePosition(
+      out,
+      left.x + (right.x - left.x) * amount,
+      left.y + (right.y - left.y) * amount,
+      left.z + (right.z - left.z) * amount,
+    );
+    return targetTime;
   }
-  return null;
+  writePosition(out, newest.x, newest.y, newest.z);
+  return newest.t;
 }
 
-function lerp(left: Sample, right: Sample, targetTime: number): Sample {
-  const amount = right.t === left.t ? 1 : (targetTime - left.t) / (right.t - left.t);
-  return {
-    t: targetTime,
-    x: left.x + (right.x - left.x) * amount,
-    y: left.y + (right.y - left.y) * amount,
-    z: left.z + (right.z - left.z) * amount,
-  };
+function extrapolateInto(
+  out: InterpolatedEntity,
+  snap: EntitySnapshot,
+  sampleTime: number,
+  targetTime: number,
+): void {
+  if (targetTime <= sampleTime) return;
+  const elapsedSeconds = Math.min(
+    targetTime - sampleTime,
+    MAX_EXTRAPOLATION_MS,
+  ) / 1000;
+  out.x += (snap.vx ?? 0) * elapsedSeconds;
+  out.y += (snap.vy ?? 0) * elapsedSeconds;
+  if (snap.air) out.z += (snap.vz ?? 0) * elapsedSeconds;
 }
 
-function extrapolate(sample: Sample, snap: EntitySnapshot, targetTime: number): Sample {
-  const elapsedMs = Math.min(targetTime - sample.t, MAX_EXTRAPOLATION_MS);
-  const elapsedSeconds = elapsedMs / 1000;
-  return {
-    t: sample.t + elapsedMs,
-    x: sample.x + (snap.vx ?? 0) * elapsedSeconds,
-    y: sample.y + (snap.vy ?? 0) * elapsedSeconds,
-    z: sample.z + (snap.air ? (snap.vz ?? 0) * elapsedSeconds : 0),
-  };
+function writePosition(
+  out: InterpolatedEntity,
+  x: number,
+  y: number,
+  z: number,
+): void {
+  out.x = x;
+  out.y = y;
+  out.z = z;
 }

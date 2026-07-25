@@ -1,5 +1,5 @@
 /** Owns remote-player models driven by interpolated authoritative connection snapshots. */
-import type { Connection } from "../net/connection.js";
+import type { InterpolatedEntity } from "../net/interpolate.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as THREE from "three";
@@ -52,6 +52,7 @@ interface ActiveActor {
 export class ThreeRemoteActors {
   private readonly group = new THREE.Group();
   private readonly actors = new Map<string, ActiveActor>();
+  private readonly activeIds = new Set<string>();
   private readonly enemyTexture = createEnemyTexture();
   private readonly enemyMaterial = new THREE.SpriteMaterial({ map: this.enemyTexture, transparent: true, depthWrite: false });
   private readonly fallbackGeometry = new THREE.CapsuleGeometry(0.2, 0.55, 4, 8);
@@ -66,9 +67,10 @@ export class ThreeRemoteActors {
     this.loadTemplate();
   }
 
-  update(connection: Connection, elapsed: number): void {
-    const active = new Set<string>();
-    for (const actor of connection.interpolated()) {
+  update(interpolated: readonly InterpolatedEntity[], elapsed: number): void {
+    const active = this.activeIds;
+    active.clear();
+    for (const actor of interpolated) {
       const kind = visibleKind(actor.snap.kind);
       if (!kind) continue;
       active.add(actor.id);
@@ -117,7 +119,7 @@ export class ThreeRemoteActors {
 
   private syncActor(
     id: string,
-    player: ReturnType<Connection["interpolated"]>[number],
+    player: InterpolatedEntity,
     kind: VisibleKind,
     elapsed: number,
   ): void {

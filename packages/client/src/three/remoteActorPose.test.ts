@@ -34,13 +34,15 @@ describe("remote actor rendering", () => {
     };
     const instance = Object.create(ThreeRemoteActors.prototype) as {
       actors: Map<string, unknown>;
-      update(connection: unknown, elapsed: number): void;
+      activeIds: Set<string>;
+      update(interpolated: unknown[], elapsed: number): void;
     };
     instance.actors = new Map([["p", { kind: "player", object, disconnected: false, disconnectedLabel: label }]]);
+    instance.activeIds = new Set();
     const remote = (disconnected: boolean) => ({ id: "p", x: 1, y: 2, z: 0, snap: { kind: "player", disconnected } });
-    instance.update({ interpolated: () => [remote(true)] }, 0.016);
+    instance.update([remote(true)], 0.016);
     expect({ color: color.value, label: label.visible }).toEqual({ color: "#55555a", label: true });
-    instance.update({ interpolated: () => [remote(false)] }, 0.016);
+    instance.update([remote(false)], 0.016);
     expect({ color: color.value, label: label.visible }).toEqual({ color: "#ffffff", label: false });
   });
 });

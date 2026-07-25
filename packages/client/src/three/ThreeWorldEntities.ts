@@ -1,5 +1,5 @@
 /** Renders authoritative pickups, projectiles, and torches in first person. */
-import type { Connection } from "../net/connection.js";
+import type { InterpolatedEntity } from "../net/interpolate.js";
 import * as THREE from "three";
 import {
   threeEntityPresentation,
@@ -34,18 +34,20 @@ const phaseFor = (id: string): number => {
 export class ThreeWorldEntities {
   private readonly group = new THREE.Group();
   private readonly entities = new Map<string, ActiveEntity>();
+  private readonly activeIds = new Set<string>();
 
   constructor(scene: { add(...objects: unknown[]): void }) {
     scene.add(this.group);
   }
 
   update(
-    connection: Connection,
+    interpolated: readonly InterpolatedEntity[],
     timeMs: number,
     reducedMotion: boolean,
   ): void {
-    const active = new Set<string>();
-    for (const entity of connection.interpolated()) {
+    const active = this.activeIds;
+    active.clear();
+    for (const entity of interpolated) {
       const presentation = threeEntityPresentation(entity.snap);
       if (!presentation) continue;
       active.add(entity.id);

@@ -78,9 +78,10 @@ export class ThreeFirstPersonViewport {
       this.cameraPlanar.z,
     );
     this.camera.rotation.set(frame.pitch, frame.yaw, 0);
-    this.remoteActors.update(frame.connection, frame.elapsed);
+    const interpolated = frame.connection.interpolated(frame.timeMs);
+    this.remoteActors.update(interpolated, frame.elapsed);
     this.worldEntities.update(
-      frame.connection,
+      interpolated,
       frame.timeMs,
       frame.reducedMotion,
     );

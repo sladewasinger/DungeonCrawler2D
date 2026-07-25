@@ -6,7 +6,6 @@ import {
   type BodyState,
   type ActiveStatusSnapshot,
   type ClientMessage,
-  type EntitySnapshot,
   type InvStack,
   type MoveInput,
   type ServerSnapshot,
@@ -16,7 +15,11 @@ import {
 import { closeSocket, openSocket } from "./socket.js";
 import type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
 import { ConnectionActions } from "./ConnectionActions.js";
-import { interpolated, type RemoteEntity } from "./interpolate.js";
+import {
+  interpolateInto,
+  type InterpolatedEntity,
+  type RemoteEntity,
+} from "./interpolate.js";
 import { InterpolationDelay } from "./interpolationDelay.js";
 import { sendMeasured } from "./measuredSend.js";
 import { MovementCadence } from "./movementCadence.js";
@@ -103,6 +106,7 @@ export class Connection extends ConnectionActions {
   justRespawned = false;
 
   readonly entities = new Map<string, RemoteEntity>();
+  private readonly interpolationFrame: InterpolatedEntity[] = [];
   readonly areaTiles = new Map<string, string>();
   /** Local movement prediction; apply.ts reconciles it per snapshot. */
   readonly prediction = new Prediction();
@@ -172,6 +176,7 @@ export class Connection extends ConnectionActions {
     this.hasReceivedSnapshot = false;
     this.snapshotRevisions.reset();
     this.entities.clear();
+    this.interpolationFrame.length = 0;
     this.areaTiles.clear();
     this.prediction.reset();
     this.movementCadence.reset();
@@ -207,11 +212,12 @@ export class Connection extends ConnectionActions {
   /** Peer positions rendered behind the server by the adaptive jitter buffer. */
   interpolated(
     now: number = performance.now(),
-  ): Array<{ id: string; snap: EntitySnapshot; x: number; y: number; z: number }> {
-    return interpolated(
+  ): readonly InterpolatedEntity[] {
+    return interpolateInto(
       this.entities,
       this.interpolationDelay.currentMs,
       this.serverTimeline.now(now),
+      this.interpolationFrame,
     );
   }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EntitySnapshot } from "@dc2d/engine";
 import {
   MAX_EXTRAPOLATION_MS,
+  interpolateInto,
   interpolated,
   recordSample,
   type RemoteEntity,
@@ -77,5 +78,33 @@ describe("interpolate", () => {
     expect(afterJitter.map((actor) => actor.x)).toEqual([0.35, -0.35]);
     expect(afterLongLoss[0]?.x).toBeCloseTo(0.45);
     expect(afterLongLoss[1]?.x).toBeCloseTo(-0.45);
+  });
+
+  it("reuses one bounded set of frame records across sustained rendering", () => {
+    const entities = new Map<string, RemoteEntity>();
+    for (let index = 0; index < 20; index++) {
+      const entitySnap = { ...snap(index), id: `e${index}`, vx: 1 };
+      const remote: RemoteEntity = { snap: entitySnap, samples: [] };
+      recordSample(remote, 0, entitySnap);
+      recordSample(remote, 100, { ...entitySnap, x: index + 0.1 });
+      entities.set(entitySnap.id, remote);
+    }
+    const frame: ReturnType<typeof interpolated> = [];
+    const recordIdentities = new Set<object>();
+
+    for (let renderFrame = 0; renderFrame < 300; renderFrame++) {
+      const result = interpolateInto(
+        entities,
+        75,
+        100 + renderFrame * (1000 / 60),
+        frame,
+      );
+      expect(result).toBe(frame);
+      for (const entity of result) recordIdentities.add(entity);
+    }
+
+    expect(recordIdentities.size).toBe(entities.size);
+    entities.delete("e19");
+    expect(interpolateInto(entities, 75, 200, frame)).toHaveLength(19);
   });
 });
