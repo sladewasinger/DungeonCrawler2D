@@ -1,5 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { loadPlayerStoreFile, savePlayerStoreFile } from "./storeFile.js";
 
 /**
  * Persistent per-player data keyed by anonymous clientId: personal
@@ -58,20 +57,15 @@ export class PlayerStore {
 
   constructor(private readonly file: string | null) {
     if (!file) return;
-    try {
-      const raw = JSON.parse(readFileSync(file, "utf8")) as {
-        nextSlot: number;
-        players: Record<string, StoredPlayer>;
-      };
-      this.nextSlot = raw.nextSlot;
-      // contacts (Epic 7.10), xp/level (Epic 11 core, ASSUMPTION #90), and
-      // deepestFloor (Epic 7.14) are all additive — records saved before
-      // any of them shipped lack them.
-      for (const [id, p] of Object.entries(raw.players)) {
-        this.data.set(id, normalizeStoredPlayer(p));
-      }
-    } catch {
-      // first boot — empty store
+    const loaded = loadPlayerStoreFile(file);
+    if (!loaded) return;
+    this.nextSlot = loaded.nextSlot;
+    // contacts, xp/level, and deepestFloor were additive legacy fields.
+    for (const [id, player] of Object.entries(loaded.players)) {
+      this.data.set(id, normalizeStoredPlayer(player));
+    }
+    if (loaded.migrated) {
+      this.flush();
     }
   }
 
@@ -185,11 +179,10 @@ export class PlayerStore {
   flush(): void {
     if (!this.file) return;
     try {
-      mkdirSync(dirname(this.file), { recursive: true });
-      writeFileSync(
-        this.file,
-        JSON.stringify({ nextSlot: this.nextSlot, players: Object.fromEntries(this.data) }),
-      );
+      savePlayerStoreFile(this.file, {
+        nextSlot: this.nextSlot,
+        players: Object.fromEntries(this.data),
+      });
     } catch (err) {
       console.error("[store] save failed:", err);
     }
