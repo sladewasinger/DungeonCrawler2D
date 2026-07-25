@@ -14,9 +14,9 @@ roadmap is preserved in
   remote interpolation, and bounded extrapolation.
 - [x] Adaptive input/snapshot cadence, transactional snapshot delivery, revisioned
   deltas, full-baseline recovery, reconnect continuity, and transport diagnostics.
-- [ ] Establish an actual-server deterministic JSON benchmark and input-to-ack
+- [x] Establish an actual-server deterministic JSON benchmark and input-to-ack
   timing baseline.
-- [ ] Add projected-server-tick input acknowledgement and prove clean replay of
+- [x] Add projected-server-tick input acknowledgement and prove clean replay of
   unacknowledged inputs under latency, loss, and backpressure.
 - [ ] Benchmark representative JSON, MessagePack, and Protobuf packets before
   deciding whether a negotiated binary protocol is worthwhile.
@@ -36,7 +36,7 @@ roadmap is preserved in
   across both renderers.
 - [x] Shared HTML HUD foundation with chat, inventory workspace, hotbar, status
   effects, compass, party information, and editable layout.
-- [ ] Finish stamina-backed sprinting and blocking, delayed health regeneration,
+- [x] Finish stamina-backed sprinting and blocking, delayed health regeneration,
   contextual action help, and combat-readability polish.
 - [ ] Finish cohesive four-direction character art, item/effect readability,
   terrain-generation decisions, and remaining 2D content polish.
@@ -48,7 +48,7 @@ roadmap is preserved in
 
 - [x] Parties, party chat, local/global chat, contacts, safe rooms, shared stash,
   crafting, and reconnect-preserved social state.
-- [ ] Finish floor identity, stair traversal edge cases, bosses, difficulty,
+- [x] Finish floor identity, stair traversal edge cases, bosses, difficulty,
   progression persistence, and death destinations.
 - [ ] Finish explicit party management, presence/moderation controls, accounts,
   meta progression, and the invention/crafting economy.

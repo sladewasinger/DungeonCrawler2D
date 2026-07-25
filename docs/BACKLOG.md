@@ -17,7 +17,7 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
 
 ### NET-1 — Actual-server deterministic JSON baseline
 
-- **Status:** Planned; first networking task.
+- **Status:** Complete.
 - **Dependencies:** Existing transport metrics, deterministic simulation fixtures,
   and current JSON protocol.
 - **Acceptance criteria:**
@@ -34,12 +34,14 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     player count, runtime/host details, and deterministic seed.
   - Commit a reproducible benchmark command and a machine-readable baseline
     artifact.
-- **Evidence/status:** Synthetic cadence and delta tests plus transport counters
-  exist. They are useful prerequisites, but they are not an actual-server baseline.
+- **Evidence/status:** `npm run benchmark:network` drives three deterministic
+  clients through the real WebSocket game server. The committed JSON baseline and
+  packet corpus include phase-level traffic, codec, step, queue, acknowledgement,
+  correction, loss-recovery, reconnect, runtime, and host measurements.
 
 ### NET-2 — Input timeline and acknowledgement contract
 
-- **Status:** Planned.
+- **Status:** Complete.
 - **Dependencies:** NET-1 baseline and the existing fixed-rate prediction loop.
 - **Acceptance criteria:**
   - Every client movement input carries both a monotonic `seq` and the client's
@@ -54,8 +56,11 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     wrap/invalid cases without cyclic correction or delayed movement.
   - NET-1 reports input-to-ack latency and correction behavior before and after the
     change.
-- **Evidence/status:** Sequence acknowledgement and bounded prediction history are
-  complete today. Projected-server-tick transport and validation still need proof.
+- **Evidence/status:** Protocol v18 carries and validates projected server ticks,
+  acknowledges projected simulation progress, and replays only newer predicted
+  inputs. Deterministic protocol/client/server tests and the NET-1 benchmark cover
+  coalescing, release, direction/jump edges, reordering, loss recovery, reconnect,
+  invalid windows, acknowledgement latency, and correction behavior.
 
 ### NET-3 — Codec assessment from captured packets
 
@@ -126,7 +131,7 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
 
 ### GAME-2 — Stamina, blocking, sprinting, and recovery
 
-- **Status:** Planned.
+- **Status:** Complete.
 - **Dependencies:** Authoritative player stats and shared HUD meters.
 - **Acceptance criteria:**
   - Sprinting and held right-mouse blocking spend server-authoritative stamina.
@@ -134,11 +139,15 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
   - Stamina recovers while walking and faster while idle.
   - Health regenerates slowly only after a meaningful no-damage delay.
   - Prediction, mobile controls, tooltips, and both HUDs reflect the same state.
-- **Evidence/status:** Existing sprint speed is not evidence of a stamina system.
+- **Evidence/status:** Protocol v19, shared engine policy, server simulation,
+  prediction, 2D/Three input adapters, touch controls, action help, and both HUDs
+  use the same authoritative stamina/block state. Focused tests cover resource
+  drain/recovery, delayed health regeneration, prediction, and projectile
+  eligibility.
 
 ### GAME-3 — Contextual controls and combat readability
 
-- **Status:** Planned.
+- **Status:** Complete.
 - **Dependencies:** GAME-2 and shared selected-item/action queries.
 - **Acceptance criteria:**
   - Selected usable and throwable items advertise their actual action keys without
@@ -148,8 +157,10 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     visually distinct at gameplay scale.
   - Blood/splat decals vary by hit and expire within 30 seconds under a bounded
     rendering budget.
-- **Evidence/status:** Bandage feedback and the Effects Bench projectile are useful
-  foundations; the broader presentation pass is open.
+- **Evidence/status:** Shared contextual action queries now drive both renderers;
+  damage/healing/blocking/projectile/area/expiration feedback is distinct, and
+  bounded varied blood decals expire within 30 seconds. Unit and renderer-model
+  coverage protect the shared presentation contracts.
 
 ### GAME-4 — 2D art and terrain completion
 
@@ -183,15 +194,18 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
 
 ### WORLD-1 — Complete The Descent
 
-- **Status:** In progress.
+- **Status:** Complete.
 - **Dependencies:** Stable movement/networking and floor persistence.
 - **Acceptance criteria:**
   - Stair traversal, floor entry/exit, boss gates, difficulty, death destinations,
     and progression persistence form one deterministic loop.
   - Reconnect and party transitions preserve the correct floor and objective state.
   - Every floor has readable identity and an escapable generated route.
-- **Evidence/status:** Multiple floors, stairs, boss foundations, and generation
-  invariants exist. The complete progression loop is not yet proven.
+- **Evidence/status:** One-way stair authority, deterministic floor generation and
+  scaling, boss gates, death-to-floor-one, active-floor restoration, durable
+  completion, reconnect, cross-floor party isolation, and save migrations are
+  covered by focused generation, floor-registry, persistence, boss, death, and
+  restart tests.
 
 ### SOCIAL-1 — Finished party and moderation UX
 
@@ -264,7 +278,7 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
 
 ### RELEASE-2 — Load, deployment, and operations
 
-- **Status:** Planned.
+- **Status:** In progress.
 - **Dependencies:** NET-1, WORLD-1, SOCIAL-1, and release-candidate content.
 - **Acceptance criteria:**
   - Representative concurrency/load tests meet simulation, network, memory, and
@@ -273,6 +287,8 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     actionable client/server diagnostics.
   - Moderation, backup/recovery, abuse response, and post-release ownership are
     documented and exercised.
-- **Evidence/status:** Deployment and diagnostics foundations exist; launch
-  operations are not complete.
-
+- **Evidence/status:** CI/release gates, immutable versioned artifacts, smoke-gated
+  promotion, automatic rollback, monitoring dashboards/alarms, log retention,
+  daily backups, and operating/restore procedures are committed. Representative
+  concurrency, live rollback/restore drills, paging ownership, and production
+  moderation escalation still require an operated environment and named owners.
