@@ -17,8 +17,8 @@ export interface PlayerResourceState {
 }
 
 export interface PlayerResourceStep {
-  readonly input: MoveInput;
-  readonly sprinting: boolean;
+  input: MoveInput;
+  sprinting: boolean;
 }
 
 const clampStamina = (state: PlayerResourceState, value: number): void => {
@@ -91,13 +91,43 @@ function updateStamina(
   }
 }
 
-/** Mutates authoritative/predicted stamina and returns movement with invalid
- * sprint stripped. Blocking requires a weapon and always takes priority. */
-export function stepPlayerResources(
+export function createPlayerResourceStep(): PlayerResourceStep {
+  return {
+    input: {
+      moveX: 0,
+      moveY: 0,
+      faceX: undefined,
+      faceY: undefined,
+      jump: false,
+      run: false,
+      block: false,
+    },
+    sprinting: false,
+  };
+}
+
+function copyEffectiveInput(
+  target: MoveInput,
+  source: MoveInput,
+  sprinting: boolean,
+  blocking: boolean,
+): void {
+  target.moveX = source.moveX;
+  target.moveY = source.moveY;
+  target.faceX = source.faceX;
+  target.faceY = source.faceY;
+  target.jump = source.jump;
+  target.run = sprinting;
+  target.block = blocking;
+}
+
+/** Allocation-free resource step for fixed simulation and render projection hot paths. */
+export function stepPlayerResourcesInto(
   state: PlayerResourceState,
   input: MoveInput,
   canBlock: boolean,
   dt: number,
+  output: PlayerResourceStep,
 ): PlayerResourceStep {
   state.staminaRecoveryDelaySeconds ??= 0;
   state.staminaExhausted ??= false;
@@ -116,13 +146,24 @@ export function stepPlayerResources(
     state.staminaExhausted,
   );
   updateStamina(state, moving, sprinting, dt);
+  copyEffectiveInput(output.input, input, sprinting, state.blocking);
+  output.sprinting = sprinting;
+  return output;
+}
 
-  return {
-    input: {
-      ...input,
-      run: sprinting,
-      block: state.blocking,
-    },
-    sprinting,
-  };
+/** Mutates authoritative/predicted stamina and returns movement with invalid
+ * sprint stripped. Blocking requires a weapon and always takes priority. */
+export function stepPlayerResources(
+  state: PlayerResourceState,
+  input: MoveInput,
+  canBlock: boolean,
+  dt: number,
+): PlayerResourceStep {
+  return stepPlayerResourcesInto(
+    state,
+    input,
+    canBlock,
+    dt,
+    createPlayerResourceStep(),
+  );
 }

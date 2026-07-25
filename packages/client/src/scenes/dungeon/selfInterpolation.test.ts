@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { PredictionCorrection } from "../../net/predictionCorrection.js";
 import { projectSelfRenderPose } from "./selfInterpolation.js";
+import { createSelfProjectionScratch } from "./state.js";
 
 const SPAWN_X = -6;
 const SPAWN_Y = -13;
@@ -166,5 +167,37 @@ describe("projectSelfRenderPose", () => {
     expect(contactPose.x).toBe(body.x);
     expect(contactPose.y).toBeCloseTo(body.y + 0.2);
     expect(releasedPose.x).toBe(body.x);
+  });
+
+  it("reuses its body, resource, input, and pose buffers across rendered frames", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const body = createBody(SPAWN_X, SPAWN_Y, 5);
+    const resources = { stamina: 100, maxStamina: 100, blocking: false };
+    const scratch = createSelfProjectionScratch();
+    const bodyIdentity = scratch.body;
+    const resourceIdentity = scratch.resources;
+    const inputIdentity = scratch.resourceStep.input;
+    const poseIdentity = scratch.pose;
+
+    for (let frame = 0; frame < 1_000; frame++) {
+      const pose = projectSelfRenderPose(
+        world,
+        body,
+        { moveX: 1, moveY: 0, jump: false },
+        frame % 50,
+        resources,
+        false,
+        new PredictionCorrection(),
+        16,
+        scratch,
+      );
+      expect(pose).toBe(poseIdentity);
+    }
+
+    expect(scratch.body).toBe(bodyIdentity);
+    expect(scratch.resources).toBe(resourceIdentity);
+    expect(scratch.resourceStep.input).toBe(inputIdentity);
+    expect(body.x).toBe(SPAWN_X);
+    expect(resources.stamina).toBe(100);
   });
 });

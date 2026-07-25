@@ -1,7 +1,8 @@
 import {
   TICK_DT,
+  createPlayerResourceStep,
   stepBody,
-  stepPlayerResources,
+  stepPlayerResourcesInto,
   type BodyState,
   type MoveInput,
   type PlayerResourceState,
@@ -45,6 +46,7 @@ export class Prediction {
   private projectedServerTick: number | null = null;
   private readonly pending: PredictedStep[] = [];
   private readonly recycled: PredictedStep[] = [];
+  private readonly resourceStep = createPlayerResourceStep();
   private allocatedStepRecords = 0;
 
   reset(): void {
@@ -69,9 +71,7 @@ export class Prediction {
   ): PredictedInputIdentity {
     this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
-    const effective = resources
-      ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
-      : input;
+    const effective = this.effectiveInput(resources, input, canBlock);
     stepBody(world, body, effective, TICK_DT);
     this.pending.push(this.acquireStep(
       this.seq,
@@ -119,9 +119,7 @@ export class Prediction {
     this.pending.length = retainedCount;
     this.projectedServerTick = nextProjectedServerTick;
     for (const p of this.pending) {
-      const effective = resources
-        ? stepPlayerResources(resources, p.input, canBlock, TICK_DT).input
-        : p.input;
+      const effective = this.effectiveInput(resources, p.input, canBlock);
       stepBody(world, body, effective, TICK_DT);
     }
   }
@@ -152,6 +150,21 @@ export class Prediction {
       index++;
     }
     return newestIndex;
+  }
+
+  private effectiveInput(
+    resources: PlayerResourceState | undefined,
+    input: MoveInput,
+    canBlock: boolean,
+  ): MoveInput {
+    if (!resources) return input;
+    return stepPlayerResourcesInto(
+      resources,
+      input,
+      canBlock,
+      TICK_DT,
+      this.resourceStep,
+    ).input;
   }
 
   private acquireStep(

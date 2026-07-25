@@ -8,7 +8,9 @@ import {
   WALK_STAMINA_RECOVERY_PER_SECOND,
 } from "../core/constants.js";
 import {
+  createPlayerResourceStep,
   stepPlayerResources,
+  stepPlayerResourcesInto,
   type PlayerResourceState,
 } from "./playerResources.js";
 
@@ -123,5 +125,28 @@ describe("stepPlayerResources", () => {
       1,
     );
     expect(full.stamina).toBe(100);
+  });
+
+  it("reuses an explicit output record without changing effective controls", () => {
+    const resources = state();
+    const output = createPlayerResourceStep();
+    const input = {
+      moveX: 0.5,
+      moveY: -0.25,
+      faceX: -1,
+      faceY: 0,
+      jump: true,
+      run: true,
+      block: true,
+    };
+    const inputIdentity = output.input;
+
+    for (let tick = 0; tick < 1_000; tick++) {
+      expect(stepPlayerResourcesInto(resources, input, true, 0, output)).toBe(output);
+      expect(output.input).toBe(inputIdentity);
+    }
+
+    expect(output.input).toEqual({ ...input, run: false, block: true });
+    expect(output.sprinting).toBe(false);
   });
 });
