@@ -27,6 +27,7 @@ import {
   type FrameEntityViews,
 } from "./frameEntityViews.js";
 import type { SelfPose, SelfVitals } from "./entityViews.js";
+import type { MeleeSwingSpawn } from "./meleeSwingEvents.js";
 
 export interface RenderPose {
   readonly x: number;
@@ -77,9 +78,13 @@ export interface DungeonSceneState {
   readonly visibleTorchLights: LightSource[];
   /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
   readonly attackFlags: Map<string, boolean>;
+  readonly swingSpawns: MeleeSwingSpawn[];
+  readonly swingSpawnRecords: MeleeSwingSpawn[];
+  readonly swingSeen: Set<string>;
   /** Panel round 3b item 5 (WHIFF FEEDBACK): swings awaiting a correlating "hit" event,
    * keyed by attacker id — see vfx/meleeConnect.ts. */
   readonly pendingSwings: Map<string, PendingSwing>;
+  readonly expiredSwings: PendingSwing[];
   /** Panel round 3b item 4 (WALL-BUMP FEEDBACK): the throttle/edge-trigger tracker fed
    * from real predicted-movement deltas each fixed step — see input/wallBump.ts. */
   readonly wallBump: WallBumpState;
@@ -110,7 +115,11 @@ export function createDungeonSceneState(): DungeonSceneState {
     accentLights: [],
     visibleTorchLights: [],
     attackFlags: new Map(),
+    swingSpawns: [],
+    swingSpawnRecords: [],
+    swingSeen: new Set(),
     pendingSwings: new Map(),
+    expiredSwings: [],
     wallBump: createWallBumpState(),
   };
 }

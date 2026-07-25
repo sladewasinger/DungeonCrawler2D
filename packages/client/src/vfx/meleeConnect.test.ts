@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectExpiredSwings,
+  collectExpiredSwingsInto,
   hitPlausiblyFromSwing,
   registerPendingSwing,
   resolveHitAgainstPending,
@@ -118,5 +119,18 @@ describe("collectExpiredSwings", () => {
     const expired = collectExpiredSwings(pending, 1000 + WHIFF_TIMEOUT_MS);
     expect(expired.map((s) => s.attackerId)).toEqual(["old"]);
     expect(pending.has("fresh")).toBe(true);
+  });
+
+  it("rewrites one caller-owned expiry array across sustained empty frames", () => {
+    const pending = new Map<string, PendingSwing>();
+    const expired: PendingSwing[] = [];
+    for (let frame = 0; frame < 1_000; frame++) {
+      if (frame % 100 === 0) {
+        const next = swing({ attackerId: `a-${frame}`, startedAtMs: frame });
+        pending.set(next.attackerId, next);
+      }
+      expect(collectExpiredSwingsInto(pending, frame + WHIFF_TIMEOUT_MS, expired))
+        .toBe(expired);
+    }
   });
 });

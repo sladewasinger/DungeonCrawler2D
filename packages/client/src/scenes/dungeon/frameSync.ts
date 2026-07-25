@@ -15,7 +15,7 @@ import type { LightingSystem } from "../../render/lighting/index.js";
 import type { TerrainRenderer } from "../../render/terrain/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
-import { collectExpiredSwings } from "../../vfx/meleeConnect.js";
+import { collectExpiredSwingsInto } from "../../vfx/meleeConnect.js";
 import { buildAreaTileViewsInto } from "./areaViews.js";
 import { syncCombatants } from "./combatantSync.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
@@ -149,7 +149,7 @@ export function syncLightingAndVfx(
   // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
   // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush
   // whatever's left over into the whiff cue before this frame's vfx.update fades it.
-  for (const swing of collectExpiredSwings(state.pendingSwings, nowMs)) {
+  for (const swing of collectExpiredSwingsInto(state.pendingSwings, nowMs, state.expiredSwings)) {
     vfx.spawnMeleeWhiff(swing.attackerId, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
   }
   applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);

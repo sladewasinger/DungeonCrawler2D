@@ -10,37 +10,59 @@ import type { PlayerEntityView } from "../../render/entities/index.js";
 const WEDGE_DEPTH_BIAS = 0.05;
 
 export interface MeleeSwingSpawn {
-  readonly id: string;
-  readonly worldX: number;
-  readonly worldY: number;
+  id: string;
+  worldX: number;
+  worldY: number;
   /** The wielder's absolute height — the wedge anchors at their lifted feet. */
-  readonly z: number;
-  readonly angleRad: number;
-  readonly depth: number;
+  z: number;
+  angleRad: number;
+  depth: number;
 }
 
 /** Returns the spawn parameters for every player whose `attacking` flipped false->true this frame; mutates `previousAttacking` to this frame's state and prunes ids no longer present. */
 export function resolveMeleeSwings(players: readonly PlayerEntityView[], previousAttacking: Map<string, boolean>): MeleeSwingSpawn[] {
-  const spawns: MeleeSwingSpawn[] = [];
-  const seen = new Set<string>();
+  return resolveMeleeSwingsInto(
+    players,
+    previousAttacking,
+    [],
+    [],
+    new Set(),
+  );
+}
+
+export function resolveMeleeSwingsInto(
+  players: readonly PlayerEntityView[],
+  previousAttacking: Map<string, boolean>,
+  spawns: MeleeSwingSpawn[],
+  records: MeleeSwingSpawn[],
+  seen: Set<string>,
+): MeleeSwingSpawn[] {
+  spawns.length = 0;
+  seen.clear();
   for (const player of players) {
     seen.add(player.id);
     const wasAttacking = previousAttacking.get(player.id) ?? false;
-    if (player.attacking && !wasAttacking) spawns.push(toSpawn(player));
+    if (player.attacking && !wasAttacking) {
+      const record = toSpawn(player, records[spawns.length]);
+      records[spawns.length] = record;
+      spawns.push(record);
+    }
     previousAttacking.set(player.id, player.attacking);
   }
   for (const id of previousAttacking.keys()) if (!seen.has(id)) previousAttacking.delete(id);
   return spawns;
 }
 
-function toSpawn(player: PlayerEntityView): MeleeSwingSpawn {
-  // ELEVATION-PROJECTION section 5: ENTITY-anchored at the wielder's lifted feet.
-  return {
-    id: player.id,
-    worldX: player.x,
-    worldY: player.y,
-    z: player.z,
-    angleRad: player.attackAngleRad,
-    depth: depthForEntityNow(player.x, player.y) - WEDGE_DEPTH_BIAS,
-  };
+function toSpawn(
+  player: PlayerEntityView,
+  target?: MeleeSwingSpawn,
+): MeleeSwingSpawn {
+  const spawn = target ?? {} as MeleeSwingSpawn;
+  spawn.id = player.id;
+  spawn.worldX = player.x;
+  spawn.worldY = player.y;
+  spawn.z = player.z;
+  spawn.angleRad = player.attackAngleRad;
+  spawn.depth = depthForEntityNow(player.x, player.y) - WEDGE_DEPTH_BIAS;
+  return spawn;
 }

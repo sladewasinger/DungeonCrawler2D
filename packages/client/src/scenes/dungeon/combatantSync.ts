@@ -17,7 +17,7 @@ import {
 } from "./entityViews.js";
 import type { FrameEntityBuckets } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
-import { resolveMeleeSwings } from "./meleeSwingEvents.js";
+import { resolveMeleeSwingsInto } from "./meleeSwingEvents.js";
 import { resolveSelfAimAngle } from "./selfAim.js";
 import type { DungeonSceneState, RenderPose } from "./state.js";
 
@@ -111,7 +111,14 @@ function spawnMeleeSwings(
   players: PlayerEntityView[],
   nowMs: number,
 ): void {
-  for (const swing of resolveMeleeSwings(players, state.attackFlags)) {
+  const swings = resolveMeleeSwingsInto(
+    players,
+    state.attackFlags,
+    state.swingSpawns,
+    state.swingSpawnRecords,
+    state.swingSeen,
+  );
+  for (const swing of swings) {
     vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
     registerPendingSwing(state.pendingSwings, {
       attackerId: swing.id,

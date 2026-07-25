@@ -73,7 +73,15 @@ export function resolveHitAgainstPending(pending: Map<string, PendingSwing>, hit
 /** Removes and returns every pending swing whose WHIFF_TIMEOUT_MS has elapsed without a
  * correlating hit — these are the swings to flash the whiff cue for this frame. */
 export function collectExpiredSwings(pending: Map<string, PendingSwing>, nowMs: number): PendingSwing[] {
-  const expired: PendingSwing[] = [];
+  return collectExpiredSwingsInto(pending, nowMs, []);
+}
+
+export function collectExpiredSwingsInto(
+  pending: Map<string, PendingSwing>,
+  nowMs: number,
+  expired: PendingSwing[],
+): PendingSwing[] {
+  expired.length = 0;
   for (const [id, swing] of pending) {
     if (nowMs - swing.startedAtMs < WHIFF_TIMEOUT_MS) continue;
     expired.push(swing);

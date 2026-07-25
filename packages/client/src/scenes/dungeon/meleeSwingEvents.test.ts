@@ -4,7 +4,11 @@
 import { describe, expect, it } from "vitest";
 import { depthForEntity } from "../../render/entities/depthSort.js";
 import type { PlayerEntityView } from "../../render/entities/index.js";
-import { resolveMeleeSwings } from "./meleeSwingEvents.js";
+import {
+  resolveMeleeSwings,
+  resolveMeleeSwingsInto,
+  type MeleeSwingSpawn,
+} from "./meleeSwingEvents.js";
 
 function view(overrides: Partial<PlayerEntityView> & { id: string }): PlayerEntityView {
   return {
@@ -76,5 +80,28 @@ describe("resolveMeleeSwings", () => {
     expect(spawn?.worldY).toBe(7);
     expect(spawn?.angleRad).toBe(1.2);
     expect(spawn?.depth).toBeLessThan(depthForEntity(7));
+  });
+
+  it("reuses caller-owned spawn, record, and presence collections", () => {
+    const previous = new Map<string, boolean>();
+    const spawns: MeleeSwingSpawn[] = [];
+    const records: MeleeSwingSpawn[] = [];
+    const seen = new Set<string>();
+    const identities = new Set<object>();
+
+    for (let frame = 0; frame < 1_000; frame++) {
+      const attacking = frame % 2 === 1;
+      expect(resolveMeleeSwingsInto(
+        [view({ id: "a", attacking })],
+        previous,
+        spawns,
+        records,
+        seen,
+      )).toBe(spawns);
+      if (spawns[0]) identities.add(spawns[0]);
+    }
+
+    expect(identities.size).toBe(1);
+    expect(records).toHaveLength(1);
   });
 });
