@@ -18,22 +18,7 @@ export const PREDICTION_HISTORY_LIMIT = 64;
 
 interface PredictedStep {
   seq: number;
-  projectedServerTick: number;
   input: MoveInput;
-}
-
-function shouldRetainStep(
-  step: PredictedStep,
-  index: number,
-  acknowledgedFutureIndex: number,
-  lastAckedSeq: number,
-  authoritativeServerTick: number,
-): boolean {
-  const belongsAfterSnapshot =
-    step.projectedServerTick > authoritativeServerTick;
-  const isUnacknowledged = step.seq > lastAckedSeq;
-  return belongsAfterSnapshot &&
-    (isUnacknowledged || index === acknowledgedFutureIndex);
 }
 
 export interface PredictedInputIdentity {
@@ -73,11 +58,7 @@ export class Prediction {
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
     const effective = this.effectiveInput(resources, input, canBlock);
     stepBody(world, body, effective, TICK_DT);
-    this.pending.push(this.acquireStep(
-      this.seq,
-      this.projectedServerTick,
-      input,
-    ));
+    this.pending.push(this.acquireStep(this.seq, input));
     if (this.pending.length > PREDICTION_HISTORY_LIMIT) {
       const evicted = this.pending.shift();
       if (evicted) this.recycleStep(evicted);
@@ -94,30 +75,17 @@ export class Prediction {
     resources?: PlayerResourceState,
     canBlock = false,
   ): void {
-    const acknowledgedFutureIndex =
-      this.findAcknowledgedFuture(lastAckedSeq, authoritativeServerTick);
     let retainedCount = 0;
-    let nextProjectedServerTick = authoritativeServerTick;
-    let index = 0;
     for (const step of this.pending) {
-      const stepIndex = index++;
-      if (!shouldRetainStep(
-        step,
-        stepIndex,
-        acknowledgedFutureIndex,
-        lastAckedSeq,
-        authoritativeServerTick,
-      )) {
+      if (step.seq <= lastAckedSeq) {
         this.recycleStep(step);
         continue;
       }
-      nextProjectedServerTick++;
-      step.projectedServerTick = nextProjectedServerTick;
       this.pending[retainedCount] = step;
       retainedCount++;
     }
     this.pending.length = retainedCount;
-    this.projectedServerTick = nextProjectedServerTick;
+    this.projectedServerTick = authoritativeServerTick + retainedCount;
     for (const p of this.pending) {
       const effective = this.effectiveInput(resources, p.input, canBlock);
       stepBody(world, body, effective, TICK_DT);
@@ -134,21 +102,6 @@ export class Prediction {
 
   get projectedTick(): number | null {
     return this.projectedServerTick;
-  }
-
-  private findAcknowledgedFuture(
-    lastAckedSeq: number,
-    authoritativeServerTick: number,
-  ): number {
-    let index = 0;
-    for (const step of this.pending) {
-      if (step.seq === lastAckedSeq &&
-        step.projectedServerTick > authoritativeServerTick) {
-        return index;
-      }
-      index++;
-    }
-    return -1;
   }
 
   private effectiveInput(
@@ -168,18 +121,16 @@ export class Prediction {
 
   private acquireStep(
     seq: number,
-    projectedServerTick: number,
     input: MoveInput,
   ): PredictedStep {
     const step = this.recycled.pop();
     if (step) {
       step.seq = seq;
-      step.projectedServerTick = projectedServerTick;
       step.input = input;
       return step;
     }
     this.allocatedStepRecords++;
-    return { seq, projectedServerTick, input };
+    return { seq, input };
   }
 
   private recycleStep(step: PredictedStep): void {
