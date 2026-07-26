@@ -5,11 +5,9 @@
  * anything it computes comes back out instead of reaching into `this`.
  */
 import type Phaser from "phaser";
-import { INTERACT_RANGE } from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
-import { nearestLootChest } from "../../net/lootChestQuery.js";
 import type { EntityRenderer } from "../../render/entities/index.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { LightingSystem } from "../../render/lighting/index.js";
@@ -19,11 +17,11 @@ import type { VfxSystem } from "../../vfx/index.js";
 import { collectExpiredSwingsInto } from "../../vfx/meleeConnect.js";
 import { buildAreaTileViewsInto } from "./areaViews.js";
 import { syncCombatants } from "./combatantSync.js";
-import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, projectileView } from "./entityViews.js";
 import { bucketFrameEntities } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
-import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
+import type { InteractionPrompt } from "./interactionPrompt.js";
+import { resolveFrameInteractionPrompt } from "./frameInteractionPrompt.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
 import type { DungeonSceneState, RenderPose } from "./state.js";
 import { syncTorches, type TorchSyncState } from "./torchSync.js";
@@ -74,27 +72,9 @@ export function syncEntities(
   }
 
   return {
-    interactionPrompt: frameInteractionPrompt(conn),
+    interactionPrompt: resolveFrameInteractionPrompt(conn, buckets),
     torchAccentLights,
   };
-}
-
-function frameInteractionPrompt(
-  conn: Connection,
-): InteractionPrompt | null {
-  if (!conn.world || !conn.body) return null;
-  const body = conn.body;
-  const reviveTarget = conn.party
-    ? nearestDownedPartyMember(conn.party.members, body.x, body.y, INTERACT_RANGE)
-    : undefined;
-  return resolveInteractionPrompt(
-    conn.world,
-    body.x,
-    body.y,
-    buckets.pickupTargets,
-    reviveTarget,
-    nearestLootChest(conn) ?? undefined,
-  );
 }
 
 /**
