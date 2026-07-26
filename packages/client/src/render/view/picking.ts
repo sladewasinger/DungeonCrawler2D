@@ -12,13 +12,13 @@ import { viewTileToWorld } from "./viewTransform.js";
 import type { ViewOrientation } from "./viewOrientation.js";
 
 /**
- * Search ceiling for candidate heights: mirrors `render/terrain/ownFace.ts`'s
+ * Search bounds for candidate heights: mirror `render/terrain/ownFace.ts`'s
  * `MAX_FACE_ROWS` (not imported directly — `render/view` is a lower layer than
  * `render/terrain`, which itself depends on `render/view`, and importing "up" would
- * invert that direction; see docs/ASSUMPTIONS.md row 320). No drawn cap climbs higher
- * than that budget, so no real cell's height can exceed it either.
+ * invert that direction; see docs/ASSUMPTIONS.md row 320).
  */
 const MAX_PICK_HEIGHT = 16;
+const MIN_PICK_HEIGHT = -MAX_PICK_HEIGHT;
 
 export interface TallestFirstPick {
   /** The resolved world tile. */
@@ -30,11 +30,11 @@ export interface TallestFirstPick {
 
 /**
  * Resolves the world tile a pointer over view cell (`vx`, `vy`) is really looking at:
- * for `h` from `MAX_PICK_HEIGHT` down to 1, the candidate is the world tile that would
+ * for `h` from `MAX_PICK_HEIGHT` down through negative pit depths, the candidate is the world tile that would
  * display, unshifted, at view row `vy + h` — accept the first whose own `heightAt`
- * equals `h`. Falls back to the flat `h = 0` cell (today's behavior) when nothing
- * taller claims the slot. `vx`/`vy` are integer view-tile indices (already floored by
- * the caller), matching `viewTileToWorld`'s own tile-index convention.
+ * equals `h`. Zero is tested before negative heights, so a flat cap still occludes a
+ * below-base cap. Falls back to the raw `h = 0` cell when no projected cap claims the
+ * slot. `vx`/`vy` are integer view-tile indices (already floored by the caller).
  */
 export function pickTallestFirst(
   vx: number,
@@ -42,7 +42,7 @@ export function pickTallestFirst(
   orientation: ViewOrientation,
   heightAt: (wx: number, wy: number) => number,
 ): TallestFirstPick {
-  for (let h = MAX_PICK_HEIGHT; h >= 1; h--) {
+  for (let h = MAX_PICK_HEIGHT; h >= MIN_PICK_HEIGHT; h--) {
     const world = viewTileToWorld({ x: vx, y: vy + h }, orientation);
     if (heightAt(world.x, world.y) === h) return { wx: world.x, wy: world.y, height: h };
   }

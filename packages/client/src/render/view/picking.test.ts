@@ -63,4 +63,13 @@ describe("pickTallestFirst", () => {
     const heightAt = heightMap({ "2,4": 1, "2,3": 1 });
     expect(pickTallestFirst(2, 2, 0, heightAt)).toEqual({ wx: 2, wy: 3, height: 1 });
   });
+
+  it.each([
+    [0, { "2,5": -1, "2,3": -2 }, { wx: 2, wy: 3, height: -2 }],
+    [90, { "-6,2": -1, "-4,2": -2 }, { wx: -4, wy: 2, height: -2 }],
+    [180, { "-3,-6": -1, "-3,-4": -2 }, { wx: -3, wy: -4, height: -2 }],
+    [270, { "5,-3": -1, "3,-3": -2 }, { wx: 3, wy: -3, height: -2 }],
+  ] as const)("orientation %i: resolves a projected negative-height cap after rejecting the raw below-base cell", (orientation, entries, expected) => {
+    expect(pickTallestFirst(2, 5, orientation, heightMap(entries))).toEqual(expected);
+  });
 });

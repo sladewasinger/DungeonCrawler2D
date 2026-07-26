@@ -62,6 +62,15 @@ describe("cursorWorldTile", () => {
       const heightAt = (wx: number, wy: number) => (wx === 6 && wy === 5 ? 2 : 0);
       expect(cursorWorldTile(camera, { x: 100, y: 50 }, 32, heightAt)).toEqual({ x: 6.25, y: 5.125 });
     });
+
+    it("shifts the aim point onto a below-base cap while preserving sub-tile precision", () => {
+      const heightAt = (wx: number, wy: number) => {
+        if (wx === 6 && wy === 3) return -1;
+        if (wx === 6 && wy === 2) return -1;
+        return 0;
+      };
+      expect(cursorWorldTile(camera, { x: 100, y: 50 }, 32, heightAt)).toEqual({ x: 6.25, y: 2.125 });
+    });
   });
 });
 
