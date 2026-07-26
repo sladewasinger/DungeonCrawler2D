@@ -15,8 +15,7 @@ import { stairVisualAt, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { cliffSidesAt } from "./cliffMask.js";
 import type { CardinalEdges } from "./autotile.js";
-import { pickFloorFrame } from "./debugArt.js";
-import { placeDebugTile, placeWallEdges } from "./debugSprite.js";
+import { placeWallEdges } from "./debugSprite.js";
 import { drawContactShade } from "./drawContactShade.js";
 import { drawStairBase, stairRenderState } from "./drawStairSurface.js";
 import { drawSubtleSlope } from "./drawSubtleSlope.js";
@@ -27,7 +26,11 @@ import { type CapOccluderFor, surfaceContainerFor } from "./occluderBand.js";
 import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
 import { placeFillRect, placeSprite, surfaceLiftBakePx } from "./placeSprite.js";
-import { renderedSurfaceHeight, underlaySurface } from "./stairSurface.js";
+import {
+  drawsVoidUnderlay,
+  northClimbingStairCoversUnderlay,
+  renderedSurfaceHeight,
+} from "./stairSurface.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
@@ -216,13 +219,13 @@ export function drawGroundTile(
   const tint = multiplyTint(heightTint(height), lightTint);
   const liftPx = surfaceLiftBakePx(height);
   // A below-zero cap shifts down into later rows, leaving its raw row behind.
-  // Continue the same floor FRAME and tint into a pit row so a descending stair
-  // cannot expose a false wall. True chasms retain their purple void volume.
-  const underlay = underlaySurface(tile, height);
-  if (underlay === "void") placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
-  if (underlay === "floor") {
-    placeDebugTile(scene, below, wx, wy, pickFloorFrame(), { tint });
-    drawContactShade(scene, below, world, wx, wy, height, 0);
+  // That space is vertical void/wall volume, not a second floor: keep it purple
+  // so the sole gray walkable surface remains the shifted cap below.
+  if (
+    drawsVoidUnderlay(tile, height) &&
+    !northClimbingStairCoversUnderlay(world, wx, wy, height)
+  ) {
+    placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
   }
   const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
 

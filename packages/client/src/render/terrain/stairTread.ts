@@ -3,7 +3,7 @@
 // of the climb — pure math, no Phaser, so a multi-tile run's tread pattern
 // is unit-testable independent of rendering.
 
-export const TREAD_COUNT = 5;
+export const TREAD_COUNT = 4;
 /** How much a riser's OWN position within this one tile nudges its brightness, on top of the run-wide t — kept small so the run-wide gradient still dominates. */
 const GAP_SHRINK = 0.76;
 const RUN_BRIGHTNESS_WEIGHT = 0.2;

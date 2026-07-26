@@ -26,7 +26,6 @@ export interface StairSurfaceBand {
   readonly fillY: readonly [number, number];
   readonly highlightX: readonly [number, number];
   readonly highlightY: readonly [number, number];
-  readonly drawsHighlight: boolean;
 }
 
 export interface SteppedStairSurface {
@@ -124,10 +123,22 @@ export function steppedStairSurface(
         : FULL,
       highlightX: axis === "x" ? edge : FULL,
       highlightY: axis === "y" ? edge : FULL,
-      drawsHighlight: !(direction === 0 && index === sampledBands.length - 1),
     };
   });
   return { axis, highAtStart, bands };
+}
+
+function drawStairBand(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  wx: number,
+  wy: number,
+  band: StairSurfaceBand,
+  fill: number,
+  edge: number,
+): void {
+  placeFractionalRect(scene, container, wx, wy, band.fillX, band.fillY, fill, 1, band.liftBakePx);
+  placeFractionalRect(scene, container, wx, wy, band.highlightX, band.highlightY, edge, 0.9, band.liftBakePx);
 }
 
 export function drawSteppedStairSurface(
@@ -139,32 +150,19 @@ export function drawSteppedStairSurface(
   direction: number,
   lightTint: number,
 ): void {
+  let i = 0;
   for (const band of steppedStairSurface(wx, wy, direction, (x, y) => world.groundAt(x, y)).bands) {
+    i += 2;
     const fill = multiplyTint(heightTint(band.height), lightTint);
-    const edge = multiplyTint(topEdgeHighlightTint(band.height), lightTint);
-    placeFractionalRect(
-      scene,
-      container,
-      wx,
-      wy,
-      band.fillX,
-      band.fillY,
-      fill,
-      1,
-      band.liftBakePx,
-    );
-    if (band.drawsHighlight) {
-      placeFractionalRect(
-        scene,
-        container,
-        wx,
-        wy,
-        band.highlightX,
-        band.highlightY,
-        edge,
-        0.9,
-        band.liftBakePx,
-      );
+    console.log(`drawSteppedStairSurface: band ${i} at (${wx}, ${wy}) with height ${band.height} and fill ${fill.toString(16)}`);
+    let edge = multiplyTint(topEdgeHighlightTint(band.height), lightTint);
+    // change color of edge based on height for debugging (multipled by i to make it darker for lower bands):
+    // convert i to a hex string and pad with zeros to ensure it's 2 characters long
+    // make middle edge green for debugging:
+    if (i == 0.5) {
+      edge = multiplyTint(0x00ff00, lightTint);
     }
+
+    drawStairBand(scene, container, wx, wy, band, fill, edge);
   }
 }
