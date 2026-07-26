@@ -17,6 +17,9 @@ const ROOM_LABELS: Readonly<Record<RoomKind, string>> = {
   personal: "YOUR PERSONAL ROOM",
 };
 
+export const SAFE_ROOM_PRESENTATION_DEPTH = Number.MAX_SAFE_INTEGER - 1;
+export const SAFE_ROOM_BUBBLE_DEPTH = SAFE_ROOM_PRESENTATION_DEPTH + 1;
+
 export function roomFloorLabelPosition(
   kind: RoomKind,
   center: { x: number; y: number },
@@ -123,7 +126,8 @@ export class RoomPresentation {
       headY - 4,
       "Nib, Food Attendant",
       uiTextStyle(11, "#ffd98a", 1, "emphasis"),
-    ).setOrigin(0.5, 1).setStroke("#11111a", 3).setDepth(depth + 0.3);
+    ).setOrigin(0.5, 1).setStroke("#11111a", 3)
+      .setDepth(SAFE_ROOM_PRESENTATION_DEPTH);
   }
 
   private positionObjects(): void {
@@ -141,8 +145,10 @@ export class RoomPresentation {
     objects.attendant.setPosition(screen.x, screen.y).setDepth(depth);
     objects.counter?.setPosition(screen.x, screen.y + SCREEN_TILE_PX * 0.25).setDepth(depth + 0.1);
     const headY = screen.y - objects.attendant.displayHeight;
-    objects.nameplate?.setPosition(screen.x, headY - 4).setDepth(depth + 0.3);
-    objects.bubble?.setPosition(screen.x, headY - 28).setDepth(depth + 0.4);
+    objects.nameplate?.setPosition(screen.x, headY - 4)
+      .setDepth(SAFE_ROOM_PRESENTATION_DEPTH);
+    objects.bubble?.setPosition(screen.x, headY - 28)
+      .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
   }
 
   private updateSpeech(conn: Connection, nowMs: number): void {
@@ -163,9 +169,10 @@ export class RoomPresentation {
       ).setOrigin(0.5, 1).setAlign("center").setPadding(8, 5, 8, 5)
         .setBackgroundColor("rgba(20,20,28,0.92)")
         .setWordWrapWidth(260)
-        .setDepth(objects.attendant.depth + 0.4);
+        .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
     }
-    objects.bubble.setText(speech.text).setVisible(true);
+    objects.bubble.setText(speech.text).setVisible(true)
+      .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
   }
 
   private clear(): void {
