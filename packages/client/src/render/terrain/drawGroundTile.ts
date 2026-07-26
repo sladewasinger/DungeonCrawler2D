@@ -17,7 +17,7 @@ import { cliffSidesAt } from "./cliffMask.js";
 import type { CardinalEdges } from "./autotile.js";
 import { placeWallEdges } from "./debugSprite.js";
 import { drawContactShade } from "./drawContactShade.js";
-import { drawStairBase, drawStairDetails, stairRenderState } from "./drawStairSurface.js";
+import { drawStairBase, stairRenderState } from "./drawStairSurface.js";
 import { drawSubtleSlope } from "./drawSubtleSlope.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { drawEdgeLine } from "./edgeLine.js";
@@ -165,7 +165,7 @@ function drawSurface(
   liftPx: number,
 ): void {
   const isChasm = isChasmDepth(height);
-  const stairState = stairRenderState(tile, stairVisual, world);
+  const stairState = stairRenderState(stairVisual, world);
   drawStairBase(scene, container, world, wx, wy, stairState, tint, lightTint, liftPx);
   // Fake-AO contact shadows (contactShade.ts) go under the white rim outlines:
   // the LOW side darkens here, the HIGH side's lit rim stays crisp above.
@@ -174,10 +174,6 @@ function drawSurface(
   drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
   if (isChasm) placeWallEdges(scene, container, wx, wy, chasmEdgesAt(world, wx, wy), liftPx);
 
-  // Treads stay perpendicular to the SCREEN climb direction (the seam's stairTreadAxis
-  // invariant): remap the real-world climb direction to whichever screen slot it
-  // currently renders toward before handing it to the direction-index-agnostic tread math.
-  drawStairDetails(scene, container, wx, wy, tile, stairVisual, stairState, tint, lightTint, liftPx);
   if (!stairVisual) {
     // Sub-integer height legibility (pockets, repaired-cliff half-steps): a
     // stair run's own tread art above already covers this same visual job.

@@ -23,7 +23,7 @@ export function stacksVertically(direction: number): boolean {
 }
 
 /** True when this direction's high end sits at axisFrac 0 (north or west). */
-function highEndAtStart(direction: number): boolean {
+export function highEndAtStart(direction: number): boolean {
   return direction === 0 || direction === 3;
 }
 
