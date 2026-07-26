@@ -6,7 +6,6 @@ import type { TilePos } from "../lighting/torchPlacement.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { runBuildBudget } from "./buildBudget.js";
 import {
-  buildChunkVisual,
   createChunkVisualBuilder,
   destroyChunkVisual,
   type ChunkVisual,
@@ -23,8 +22,9 @@ import {
   type ViewRect,
 } from "./streaming.js";
 import type { DynamicLightSeed } from "./tileLight.js";
+import { readTerrainDeviceSignals, selectTerrainDeviceProfile, type TerrainDeviceProfile } from "./terrainDeviceProfile.js";
+import { configureTerrainPages } from "./terrainPages.js";
 
-const LOAD_MARGIN_CHUNKS = 1;
 const BUILD_BUDGET_MS = 4;
 const MAX_BUILD_STARTS_PER_FRAME = 2;
 const MAX_MARGIN_BUILD_STARTS_PER_FRAME = 1;
@@ -33,7 +33,7 @@ export class TerrainRenderer {
   private readonly builders = new Map<string, ChunkVisualBuilder>();
   private readonly bakeQueue: ChunkCoord[] = [];
   private readonly settledWindow = new SettledChunkWindow();
-  private drainNextUpdate = false;
+  private readonly pageProfile: TerrainDeviceProfile;
   private dynamicLights: readonly DynamicLightSeed[] = [];
   private tileRevision: number;
   constructor(
@@ -41,12 +41,16 @@ export class TerrainRenderer {
     private readonly world: World,
   ) {
     this.tileRevision = world.tileRevision;
+    this.pageProfile = configureTerrainPages(
+      scene.textures,
+      selectTerrainDeviceProfile(readTerrainDeviceSignals(scene)),
+    );
   }
 
   update(view: ViewRect): void {
     this.invalidateChangedTiles();
     if (this.canSkipSettledWindow(view)) return;
-    const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
+    const desired = desiredChunks(view, this.pageProfile.loadMarginChunks);
     const knownKeys = new Set([
       ...this.visuals.keys(),
       ...this.builders.keys(),
@@ -59,22 +63,16 @@ export class TerrainRenderer {
     const desiredKeys = new Set(desired.map(chunkKey));
     const viewKeys = new Set(desiredChunks(view, 0).map(chunkKey));
     this.cancelUndesiredBuilders(desiredKeys);
-    const drain = this.drainNextUpdate;
-    this.drainNextUpdate = false;
     const { bake, keep } = planBakes(
       this.bakeQueue,
       desiredKeys,
       viewKeys,
-      drain ? Number.POSITIVE_INFINITY : MAX_BUILD_STARTS_PER_FRAME,
-      drain ? Number.POSITIVE_INFINITY : MAX_MARGIN_BUILD_STARTS_PER_FRAME,
+      MAX_BUILD_STARTS_PER_FRAME,
+      MAX_MARGIN_BUILD_STARTS_PER_FRAME,
     );
     this.bakeQueue.length = 0;
     this.bakeQueue.push(...keep);
 
-    if (drain) {
-      for (const coord of bake) this.loadSynchronously(coord);
-      return;
-    }
     for (const coord of bake) this.startBuild(coord);
     runBuildBudget(
       () => this.builders.size > 0,
@@ -94,18 +92,26 @@ export class TerrainRenderer {
   private canSkipSettledWindow(view: ViewRect): boolean {
     return this.settledWindow.canSkip(
       view, this.builders.size, this.bakeQueue.length,
+      this.pageProfile.loadMarginChunks,
     );
   }
 
   private captureSettledWindow(view: ViewRect): void {
     this.settledWindow.captureIfIdle(
       view, this.builders.size, this.bakeQueue.length,
+      this.pageProfile.loadMarginChunks,
     );
   }
 
   rebakeAllNow(): void {
-    this.invalidateAll();
-    this.drainNextUpdate = true;
+    this.settledWindow.reset();
+    for (const builder of this.builders.values()) builder.cancel();
+    this.builders.clear();
+    this.bakeQueue.length = 0;
+    for (const key of this.visuals.keys()) {
+      const [cx, cy] = key.split(",").map(Number) as [number, number];
+      this.startBuild({ cx, cy });
+    }
   }
 
   setDynamicLights(lights: readonly DynamicLightSeed[]): void {
@@ -153,23 +159,6 @@ export class TerrainRenderer {
       if (viewKeys.has(entry[0])) return entry;
     }
     return this.builders.entries().next().value as [string, ChunkVisualBuilder] | undefined;
-  }
-
-  private loadSynchronously(coord: ChunkCoord): void {
-    const key = chunkKey(coord);
-    this.builders.get(key)?.cancel();
-    this.builders.delete(key);
-    const existing = this.visuals.get(key);
-    if (existing) destroyChunkVisual(existing);
-    const visual = buildChunkVisual(
-      this.scene,
-      this.world,
-      coord.cx,
-      coord.cy,
-      getViewOrientation(),
-      this.dynamicLights,
-    );
-    this.visuals.set(key, visual);
   }
 
   private cancelUndesiredBuilders(desiredKeys: ReadonlySet<string>): void {

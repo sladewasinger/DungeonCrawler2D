@@ -49,14 +49,22 @@ describe("chunkWindowKey", () => {
     const view = { x: 10, y: 20, width: 100, height: 80 };
     const settled = new SettledChunkWindow();
 
-    expect(settled.canSkip(view, 0, 0)).toBe(false);
-    settled.captureIfIdle(view, 1, 0);
-    expect(settled.canSkip(view, 0, 0)).toBe(false);
-    settled.captureIfIdle(view, 0, 0);
-    expect(settled.canSkip({ ...view, x: 20 }, 0, 0)).toBe(true);
-    expect(settled.canSkip(view, 1, 0)).toBe(false);
+    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
+    settled.captureIfIdle(view, 1, 0, 1);
+    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
+    settled.captureIfIdle(view, 0, 0, 1);
+    expect(settled.canSkip({ ...view, x: 20 }, 0, 0, 1)).toBe(true);
+    expect(settled.canSkip(view, 1, 0, 1)).toBe(false);
     settled.reset();
-    expect(settled.canSkip(view, 0, 0)).toBe(false);
+    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
+  });
+
+  it("tracks a constrained zero-margin window independently", () => {
+    const view = { x: 10, y: 20, width: 100, height: 80 };
+    const settled = new SettledChunkWindow();
+    settled.captureIfIdle(view, 0, 0, 0);
+    expect(settled.canSkip(view, 0, 0, 0)).toBe(true);
+    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
   });
 });
 

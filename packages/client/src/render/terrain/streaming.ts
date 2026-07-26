@@ -34,9 +34,9 @@ export class SettledChunkWindow {
   private desired = "";
   private strict = "";
 
-  canSkip(view: ViewRect, builderCount: number, queueCount: number): boolean {
+  canSkip(view: ViewRect, builderCount: number, queueCount: number, marginChunks: number): boolean {
     if (builderCount !== 0 || queueCount !== 0) return false;
-    return this.desired === chunkWindowKey(view, 1) &&
+    return this.desired === chunkWindowKey(view, marginChunks) &&
       this.strict === chunkWindowKey(view, 0);
   }
 
@@ -44,9 +44,10 @@ export class SettledChunkWindow {
     view: ViewRect,
     builderCount: number,
     queueCount: number,
+    marginChunks: number,
   ): void {
     if (builderCount !== 0 || queueCount !== 0) return;
-    this.desired = chunkWindowKey(view, 1);
+    this.desired = chunkWindowKey(view, marginChunks);
     this.strict = chunkWindowKey(view, 0);
   }
 

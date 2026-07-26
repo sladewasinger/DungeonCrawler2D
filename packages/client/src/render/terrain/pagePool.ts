@@ -4,6 +4,8 @@
 // harness vs ~150 with reuse), so released pages park in a bounded spare list and
 // the next bake recycles one instead of allocating. Policy only — the Phaser
 // create/recycle/destroy calls are injected, so tests drive it with fakes.
+import type { PageBudget } from "./pageBudget.js";
+
 export interface PagePoolHooks<T> {
   /** Allocates a brand-new page (already blank — no recycle pass needed). */
   create(): T;
@@ -11,9 +13,8 @@ export interface PagePoolHooks<T> {
   recycle(page: T): void;
   /** Really frees a page the spare list has no room for. */
   destroy(page: T): void;
-  /** Spare-list cap: sized to survive a full-view invalidate+redrain (camera
-   * rotation releases every resident page, then reacquires them the same frame). */
-  maxSpare: number;
+  readonly bytesPerPage: number;
+  readonly budget: PageBudget;
 }
 
 export class PagePool<T> {
@@ -22,22 +23,34 @@ export class PagePool<T> {
   constructor(private readonly hooks: PagePoolHooks<T>) {}
 
   /** A blank page: a recycled spare when one is parked, else a fresh allocation. */
-  acquire(): T {
-    const parked = this.spare.pop();
+  acquire(): T | undefined {
+    const parked = this.spare.at(-1);
     if (parked !== undefined) {
+      if (!this.hooks.budget.activateSpare(this.hooks.bytesPerPage)) return undefined;
+      this.spare.pop();
       this.hooks.recycle(parked);
       return parked;
     }
-    return this.hooks.create();
+    if (!this.hooks.budget.activateNew(this.hooks.bytesPerPage)) return undefined;
+    try {
+      return this.hooks.create();
+    } catch (error) {
+      this.hooks.budget.releaseAndDestroy(this.hooks.bytesPerPage);
+      throw error;
+    }
   }
 
   /** Parks `page` for reuse, or destroys it when the spare list is full. */
   release(page: T): void {
-    if (this.spare.length < this.hooks.maxSpare) this.spare.push(page);
+    if (this.hooks.budget.releaseToSpare(this.hooks.bytesPerPage)) this.spare.push(page);
     else this.hooks.destroy(page);
   }
 
   get spareCount(): number {
     return this.spare.length;
+  }
+
+  get spareBytes(): number {
+    return this.spare.length * this.hooks.bytesPerPage;
   }
 }

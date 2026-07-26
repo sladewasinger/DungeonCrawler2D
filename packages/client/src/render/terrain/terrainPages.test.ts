@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pagePoolFor } from "./terrainPages.js";
+import { pagePoolFor, terrainPageMemoryFor } from "./terrainPages.js";
 
 describe("terrain page recycling", () => {
   it("allocates native-resolution base pages with nearest filtering", () => {
@@ -29,12 +29,27 @@ describe("terrain page recycling", () => {
       clear: () => {
         cleared = true;
       },
+      setFilter: () => undefined,
     };
-    const pool = pagePoolFor({} as never, "strip");
+    const textures = { addDynamicTexture: () => page, remove: () => undefined };
+    const pool = pagePoolFor(textures as never, "strip");
+    const acquired = pool.acquire();
+    if (!acquired) throw new Error("expected strip page");
 
-    pool.release(page as never);
+    pool.release(acquired);
     expect(pool.acquire()).toBe(page);
     expect(removed).toEqual(["s0", "s1"]);
     expect(cleared).toBe(true);
+  });
+
+  it("reports active and spare raw bytes across page classes", () => {
+    const page = { setFilter: () => undefined };
+    const textures = { addDynamicTexture: () => page, remove: () => undefined };
+    const pool = pagePoolFor(textures as never, "base");
+    const acquired = pool.acquire();
+    if (!acquired) throw new Error("expected base page");
+    expect(terrainPageMemoryFor(textures as never).activeUsedBytes).toBe(4 * 1024 * 1024);
+    pool.release(acquired);
+    expect(terrainPageMemoryFor(textures as never).spareUsedBytes).toBe(4 * 1024 * 1024);
   });
 });

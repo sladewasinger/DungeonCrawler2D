@@ -39,8 +39,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private strips: PendingStrip[] = [];
   private plan: AtlasPlan = { pageHeights: [], strips: [] };
   private readonly pages: Phaser.Textures.DynamicTexture[] = [];
-  private bakedPages = 0;
-  private nextBakeStrip = 0;
+  private bakedPages = 0; private nextBakeStrip = 0;
   private baseImage: Phaser.GameObjects.Image | null = null; private readonly images: Phaser.GameObjects.Image[] = [];
   private completed = false;
 
@@ -83,7 +82,9 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   }
 
   private acquireBasePage(): null {
-    this.basePage = pagePoolFor(this.scene.textures, "base").acquire();
+    const page = pagePoolFor(this.scene.textures, "base").acquire();
+    if (!page) return null;
+    this.basePage = page;
     this.phase = "structures";
     return null;
   }
@@ -140,7 +141,11 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
 
   private acquirePage(): null {
     const height = this.plan.pageHeights[this.pages.length];
-    if (height !== undefined) this.pages.push(acquireStripPage(this.scene.textures, height));
+    if (height !== undefined) {
+      const page = acquireStripPage(this.scene.textures, height);
+      if (!page) return null;
+      this.pages.push(page);
+    }
     if (this.pages.length === this.plan.pageHeights.length) this.phase = "bake";
     return null;
   }
@@ -184,7 +189,9 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const end = Math.min(this.strips.length, this.images.length + IMAGES_PER_STEP);
     for (let index = this.images.length; index < end; index++) this.createStripImage(index);
     if (end < this.strips.length) return null;
-    return this.finish();
+    const below = required(this.baseImage, "chunk build has no base image");
+    this.completed = true;
+    return finishChunkVisual(this.cx, this.cy, below, required(this.basePage, "chunk build has no base page"), this.images, this.pages);
   }
 
   private createStripImage(index: number): void {
@@ -204,13 +211,5 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
       "terrain-strip",
       `s${index}`,
     ));
-  }
-
-  private finish(): ChunkVisual {
-    const below = required(this.baseImage, "chunk build has no base image");
-    this.completed = true;
-    return finishChunkVisual(
-      this.cx, this.cy, below, required(this.basePage, "chunk build has no base page"), this.images, this.pages,
-    );
   }
 }
