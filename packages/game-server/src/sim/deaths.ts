@@ -15,7 +15,7 @@ import type { PlayerSlot, SimState } from "./state.js";
 
 /**
  * Chasm = death (design ruling): a player standing in a rift dies outright
- * — forceDeath skips the party-revive "downed" window straight to the
+ * — forceDeath skips the shared-revive "downed" window straight to the
  * ordinary full-loot-drop respawn path resolvePlayerDeath already runs
  * below, same as a solo kill.
  */
@@ -122,5 +122,5 @@ function downPlayer(sim: SimState, slot: PlayerSlot): void {
   slot.entity.hp = 1;
   slot.entity.downedUntil = sim.tickCount + DOWNED_DURATION * TICK_RATE;
   slot.entity.statuses = [];
-  slot.outbox.push({ t: "toast", msg: "You're down! A party member can revive you." });
+  slot.outbox.push({ t: "toast", msg: "You're down! Any nearby player can revive you." });
 }
