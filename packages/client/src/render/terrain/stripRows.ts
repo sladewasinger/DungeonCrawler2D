@@ -4,11 +4,11 @@
 // that turn each non-empty row into a PendingStrip for the shared strip atlas
 // (chunkVisual.ts's bakeStripAtlas).
 import type Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { depthForCapOccluder, depthForOccluder } from "../entities/depthSort.js";
 import type { OccluderFor } from "./drawTile.js";
 import type { CapOccluderFor } from "./occluderBand.js";
 import type { StripSpec } from "./stripAtlas.js";
+import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
 
 /**
  * One pending occluder strip: a face column bakes its dynamic rows (see
@@ -80,8 +80,8 @@ export function collectFaceStrips(rows: ReadonlyMap<number, OccluderRow>): Pendi
     }
     strips.push({
       container: row.container,
-      stripTop: (wy - row.overhangTiles) * SCREEN_TILE_PX,
-      stripHeight: (row.overhangTiles + 1) * SCREEN_TILE_PX,
+      stripTopBakePx: (wy - row.overhangTiles) * TERRAIN_BAKE_TILE_PX,
+      stripHeightBakePx: (row.overhangTiles + 1) * TERRAIN_BAKE_TILE_PX,
       depth: depthForOccluder(wy + 1),
     });
   }
@@ -104,8 +104,8 @@ export function collectCapStrips(rows: ReadonlyMap<number, CapRow>): PendingStri
     }
     strips.push({
       container: row.container,
-      stripTop: (vy - row.overhangAbove) * SCREEN_TILE_PX,
-      stripHeight: (row.overhangAbove + 1 + row.overhangBelow) * SCREEN_TILE_PX,
+      stripTopBakePx: (vy - row.overhangAbove) * TERRAIN_BAKE_TILE_PX,
+      stripHeightBakePx: (row.overhangAbove + 1 + row.overhangBelow) * TERRAIN_BAKE_TILE_PX,
       depth: depthForCapOccluder(vy),
     });
   }

@@ -1,12 +1,11 @@
 /** Builds one terrain chunk in bounded stages so streaming never performs a monolithic bake. */
 import { CHUNK_SIZE } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { BASE_TERRAIN_DEPTH } from "../entities/depthSort.js";
-import { CHUNK_PX, IMAGES_PER_STEP, required, ROWS_PER_STEP, STRIPS_PER_BAKE_STEP, type BuildPhase } from "./chunkBuildPolicy.js";
+import { CHUNK_BAKE_PX, IMAGES_PER_STEP, required, ROWS_PER_STEP, STRIPS_PER_BAKE_STEP, type BuildPhase } from "./chunkBuildPolicy.js";
 import { drawTile } from "./drawTile.js";
 import { planStripAtlas, type AtlasPlan } from "./stripAtlas.js";
-import { acquireStripPage, pagePoolFor, releasePage } from "./terrainPages.js";
+import { acquireStripPage, pagePoolFor } from "./terrainPages.js";
 import {
   collectCapStrips,
   collectFaceStrips,
@@ -22,6 +21,9 @@ import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import { viewChunkWorldOrigin, viewWorld, type ViewTerrainWorld } from "./viewWorld.js";
 import type { ChunkVisual, ChunkVisualBuilder } from "./chunkVisualTypes.js";
+import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
+import { createTerrainPageImage } from "./terrainPageImage.js";
+import { cancelChunkVisualBuild, finishChunkVisual } from "./chunkVisualLifecycle.js";
 
 export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private phase: BuildPhase = "page";
@@ -30,20 +32,16 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private readonly occluderFor;
   private readonly capOccluderFor;
   private readonly view: ViewTerrainWorld;
-  private readonly baseVX: number;
-  private readonly baseVY: number;
-  private readonly originX: number; private readonly originY: number;
-  private basePage: Phaser.Textures.DynamicTexture | null = null;
-  private structures: StructureMap | null = null;
-  private light: LightField | null = null;
+  private readonly baseVX: number; private readonly baseVY: number;
+  private readonly originBakeX: number; private readonly originBakeY: number;
+  private basePage: Phaser.Textures.DynamicTexture | null = null; private structures: StructureMap | null = null; private light: LightField | null = null;
   private nextRow = 0;
   private strips: PendingStrip[] = [];
   private plan: AtlasPlan = { pageHeights: [], strips: [] };
   private readonly pages: Phaser.Textures.DynamicTexture[] = [];
   private bakedPages = 0;
   private nextBakeStrip = 0;
-  private baseImage: Phaser.GameObjects.Image | null = null;
-  private readonly images: Phaser.GameObjects.Image[] = [];
+  private baseImage: Phaser.GameObjects.Image | null = null; private readonly images: Phaser.GameObjects.Image[] = [];
   private completed = false;
 
   constructor(
@@ -57,8 +55,8 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     this.view = viewWorld(world, orientation);
     this.baseVX = cx * CHUNK_SIZE;
     this.baseVY = cy * CHUNK_SIZE;
-    this.originX = this.baseVX * SCREEN_TILE_PX;
-    this.originY = this.baseVY * SCREEN_TILE_PX;
+    this.originBakeX = this.baseVX * TERRAIN_BAKE_TILE_PX;
+    this.originBakeY = this.baseVY * TERRAIN_BAKE_TILE_PX;
     this.occluderFor = makeOccluderFor(scene, this.rows);
     this.capOccluderFor = makeCapOccluderFor(scene, this.capRows);
   }
@@ -79,12 +77,8 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
 
   cancel(): void {
     if (this.completed) return;
-    this.baseImage?.destroy();
-    for (const image of this.images) image.destroy();
-    for (const row of this.rows.values()) if (row.container.active) row.container.destroy(true);
-    for (const row of this.capRows.values()) if (row.container.active) row.container.destroy(true);
-    if (this.basePage) releasePage(this.basePage, "base");
-    for (const page of this.pages) releasePage(page, "strip");
+    const containers = [...this.rows.values(), ...this.capRows.values()].map((row) => row.container);
+    cancelChunkVisualBuild(this.baseImage, this.images, containers, this.basePage, this.pages);
     this.completed = true;
   }
 
@@ -125,7 +119,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
         drawTile(this.scene, this.view, this.baseVX + lx, vy, below, this.occluderFor, this.capOccluderFor, structures, light);
       }
     }
-    below.setPosition(-this.originX, -this.originY);
+    below.setPosition(-this.originBakeX, -this.originBakeY);
     page.draw(below);
     below.destroy(true);
     for (const row of this.rows.values()) this.scene.children.remove(row.container);
@@ -139,7 +133,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const structures = required(this.structures, "chunk build has no structures");
     for (const door of structures.doors) drawDoor(this.scene, this.occluderFor(door.wy), door);
     this.strips = [...collectFaceStrips(this.rows), ...collectCapStrips(this.capRows)];
-    this.plan = planStripAtlas(this.strips.map((strip) => strip.stripHeight));
+    this.plan = planStripAtlas(this.strips.map((strip) => strip.stripHeightBakePx));
     this.phase = "pages";
     return null;
   }
@@ -166,8 +160,14 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
       if (!next || next.page !== this.bakedPages) this.bakedPages++;
     }
     if (this.bakedPages === this.pages.length) {
-      this.baseImage = this.scene.add.image(this.originX, this.originY, required(this.basePage, "chunk build has no base page"))
-        .setOrigin(0, 0).setDepth(BASE_TERRAIN_DEPTH).setName("terrain-base").setVisible(false);
+      this.baseImage = createTerrainPageImage(
+        this.scene,
+        this.originBakeX,
+        this.originBakeY,
+        required(this.basePage, "chunk build has no base page"),
+        BASE_TERRAIN_DEPTH,
+        "terrain-base",
+      );
       this.phase = "images";
     }
     return null;
@@ -176,7 +176,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private drawStripOnPage(page: Phaser.Textures.DynamicTexture, strip: PendingStrip, index: number): void {
     const packed = this.plan.strips[index];
     if (!packed || this.pages[packed.page] !== page) return;
-    strip.container.setPosition(-this.originX, packed.bandY - strip.stripTop);
+    strip.container.setPosition(-this.originBakeX, packed.bandY - strip.stripTopBakePx);
     page.batchDraw(strip.container);
   }
 
@@ -194,23 +194,23 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const page = this.pages[packed.page];
     if (!page) return;
     strip.container.destroy(true);
-    page.add(`s${index}`, 0, 0, packed.bandY, CHUNK_PX, strip.stripHeight);
-    this.images.push(this.scene.add.image(this.originX, strip.stripTop, page, `s${index}`)
-      .setOrigin(0, 0).setDepth(strip.depth).setName("terrain-strip").setVisible(false));
+    page.add(`s${index}`, 0, 0, packed.bandY, CHUNK_BAKE_PX, strip.stripHeightBakePx);
+    this.images.push(createTerrainPageImage(
+      this.scene,
+      this.originBakeX,
+      strip.stripTopBakePx,
+      page,
+      strip.depth,
+      "terrain-strip",
+      `s${index}`,
+    ));
   }
 
   private finish(): ChunkVisual {
     const below = required(this.baseImage, "chunk build has no base image");
-    below.setVisible(true);
-    for (const image of this.images) image.setVisible(true);
     this.completed = true;
-    return {
-      cx: this.cx,
-      cy: this.cy,
-      below,
-      belowPage: required(this.basePage, "chunk build has no base page"),
-      occluders: this.images,
-      atlasPages: this.pages,
-    };
+    return finishChunkVisual(
+      this.cx, this.cy, below, required(this.basePage, "chunk build has no base page"), this.images, this.pages,
+    );
   }
 }

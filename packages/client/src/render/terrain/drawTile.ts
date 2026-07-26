@@ -27,7 +27,7 @@ import {
   type CapOccluderFor,
 } from "./occluderBand.js";
 import { ownFaceRowAt, type OwnFaceRow } from "./ownFace.js";
-import { placeFillRect, surfaceLiftPx } from "./placeSprite.js";
+import { placeFillRect, surfaceLiftBakePx } from "./placeSprite.js";
 import { tileKey, type StructureMap } from "./structures.js";
 import type { LightField } from "./tileLight.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
@@ -48,7 +48,7 @@ function drawFaceCell(
 ): void {
   const groundY = wy + face.distanceToGround;
   const lowerHeight = world.heightAt(wx, groundY);
-  const liftPx = surfaceLiftPx(lowerHeight);
+  const liftPx = surfaceLiftBakePx(lowerHeight);
   // Rows high above open ground can never interleave with an entity's depth
   // (occluderBand.ts's proof), so they bake as static backdrop — identical
   // pixels, zero per-frame strip cost. Only the band near the foot stays dynamic.
@@ -81,14 +81,14 @@ function drawSuppressedTile(
   // still shift with their own height, same as any other cap (a door can sit on
   // a raised terrace — structures.ts's own module doc).
   const height = world.heightAt(wx, wy);
-  const liftPx = surfaceLiftPx(height);
+  const liftPx = surfaceLiftBakePx(height);
   const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
   if (world.tileAt(wx, wy) === TILE.Wall) {
     placeFillRect(scene, container, wx, wy, VOID_SURFACE_COLOR, liftPx);
   } else {
     placeDebugTile(scene, container, wx, wy, pickFloorFrame(), {
       tint: multiplyTint(heightTint(height), lightTint),
-      liftPx,
+      liftBakePx: liftPx,
     });
   }
 }
@@ -125,7 +125,7 @@ export function drawTile(
       drawWallTile(scene, world, wx, wy, occluderFor(wy), 0, undefined, {}, southFaceColor(lightTint));
     }
     const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
-    drawWallTile(scene, world, wx, wy, container, surfaceLiftPx(height));
+    drawWallTile(scene, world, wx, wy, container, surfaceLiftBakePx(height));
     // A one-cell-deep W3 has no equally high cells north/south to own its two
     // intermediate face rows. Fill those rows from the authored wall itself so
     // height runs such as W1..W5 are continuous rather than floating caps.
@@ -156,12 +156,12 @@ function drawFreestandingHeightBody(
   // lower northern block would otherwise paint over this column during baking.
   const container = occluderFor(wy, bodyRows.length);
   for (const bodyRow of bodyRows) {
-    placeFillRect(scene, container, wx, wy, southFaceColor(lightTint), surfaceLiftPx(bodyRow));
+    placeFillRect(scene, container, wx, wy, southFaceColor(lightTint), surfaceLiftBakePx(bodyRow));
     placeWallEdges(scene, container, wx, wy, {
       north: false,
       south: false,
       west: world.heightAt(wx - 1, wy) < bodyRow,
       east: world.heightAt(wx + 1, wy) < bodyRow,
-    }, surfaceLiftPx(bodyRow));
+    }, surfaceLiftBakePx(bodyRow));
   }
 }

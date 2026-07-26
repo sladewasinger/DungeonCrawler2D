@@ -4,10 +4,14 @@
 // hand-drawn frame/facade duplicating what drawTile.ts's face/wall art already owns.
 import { TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { uiTextStyle } from "../../ui/font.js";
 import { placeDebugTile } from "./debugSprite.js";
 import { FRAME_DOOR } from "./debugTileset.js";
+import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
+
+const DOOR_LABEL_OFFSET_BAKE_PX = 1;
+const DOOR_LABEL_FONT_BAKE_PX = 3;
+const DOOR_LABEL_STROKE_BAKE_PX = 1;
 
 const DOOR_TINT: Readonly<Record<number, number>> = {
   [TILE.DoorSafeRoom]: 0x68a8ff,
@@ -121,11 +125,11 @@ export function drawDoor(
   if (label) {
     container.add(
       scene.add.text(
-        (door.wx + 0.5) * SCREEN_TILE_PX,
-        door.wy * SCREEN_TILE_PX - 4,
+        (door.wx + 0.5) * TERRAIN_BAKE_TILE_PX,
+        door.wy * TERRAIN_BAKE_TILE_PX - DOOR_LABEL_OFFSET_BAKE_PX,
         label,
-        uiTextStyle(9, "#ffffff", 1, "emphasis"),
-      ).setOrigin(0.5, 1).setStroke("#11111a", 3),
+        uiTextStyle(DOOR_LABEL_FONT_BAKE_PX, "#ffffff", 1, "emphasis"),
+      ).setOrigin(0.5, 1).setStroke("#11111a", DOOR_LABEL_STROKE_BAKE_PX),
     );
   }
 }

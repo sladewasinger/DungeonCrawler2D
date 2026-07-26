@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 import { heightTint, multiplyTint, topEdgeHighlightTint } from "./heightShade.js";
-import { placeFractionalRect, surfaceLiftPx } from "./placeSprite.js";
+import { placeFractionalRect, surfaceLiftBakePx } from "./placeSprite.js";
 import { TREAD_COUNT } from "./stairTread.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
@@ -29,7 +29,7 @@ export function drawSideStair(
 ): void {
   for (const band of sideStairBands()) {
     const height = world.groundAt(wx + band.sample, wy + 0.5);
-    const lift = surfaceLiftPx(height);
+    const lift = surfaceLiftBakePx(height);
     const fill = multiplyTint(heightTint(height), lightTint);
     const edge = multiplyTint(topEdgeHighlightTint(height), lightTint);
     placeFractionalRect(scene, container, wx, wy, [band.start, band.end], [0, 1], fill, 1, lift);

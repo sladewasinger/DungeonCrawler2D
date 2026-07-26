@@ -37,7 +37,7 @@ export function drawStairBase(
   liftPx: number,
 ): void {
   if (state.sideStair) drawSideStair(scene, container, world, wx, wy, lightTint);
-  else placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftPx });
+  else placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftBakePx: liftPx });
 }
 
 export function drawStairDetails(
@@ -53,7 +53,7 @@ export function drawStairDetails(
   liftPx: number,
 ): void {
   if (tile === TILE.Stairs && stairVisual && !state.sideStair) {
-    placeDebugTile(scene, container, wx, wy, pickStairFrame(state.screenDirection), { tint, liftPx });
+    placeDebugTile(scene, container, wx, wy, pickStairFrame(state.screenDirection), { tint, liftBakePx: liftPx });
   }
   if (stairVisual && !state.sideStair) {
     drawStairTreads(scene, container, wx, wy, state.screenDirection, stairVisual.t, lightTint, liftPx);

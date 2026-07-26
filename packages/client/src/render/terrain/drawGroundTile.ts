@@ -25,7 +25,7 @@ import { heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint, VOID_SURF
 import { type CapOccluderFor, surfaceContainerFor } from "./occluderBand.js";
 import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
-import { placeFillRect, placeSprite, surfaceLiftPx } from "./placeSprite.js";
+import { placeFillRect, placeSprite, surfaceLiftBakePx } from "./placeSprite.js";
 import { drawsVoidUnderlay, renderedSurfaceHeight } from "./stairSurface.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
@@ -81,7 +81,7 @@ function drawPitStepFaces(
   lightTint: number,
 ): void {
   for (const face of pitStepFaceRowsAt(world, wx, wy)) {
-    const liftPx = surfaceLiftPx(face.surfaceHeight - face.rowFromTop);
+    const liftPx = surfaceLiftBakePx(face.surfaceHeight - face.rowFromTop);
     const container = capOccluderFor(face.screenY);
     drawWallTile(
       scene,
@@ -186,7 +186,10 @@ function drawSurface(
 
   const prop = propFrame(tile);
   if (prop) {
-    placeSprite(scene, container, wx, wy, prop.frame, { ...(prop.tint !== undefined ? { tint: prop.tint } : {}), liftPx });
+    placeSprite(scene, container, wx, wy, prop.frame, {
+      ...(prop.tint !== undefined ? { tint: prop.tint } : {}),
+      liftBakePx: liftPx,
+    });
   }
 }
 
@@ -214,7 +217,7 @@ export function drawGroundTile(
   const physicalHeight = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
   const height = renderedSurfaceHeight(tile, physicalHeight);
   const tint = multiplyTint(heightTint(height), lightTint);
-  const liftPx = surfaceLiftPx(height);
+  const liftPx = surfaceLiftBakePx(height);
   // A below-zero cap shifts down into later rows, leaving its raw row behind.
   // That space is vertical void/wall volume, not a second floor: keep it purple
   // so the sole gray walkable surface remains the shifted cap below.

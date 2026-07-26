@@ -8,14 +8,15 @@
 // `surfaceLiftPx(height)` (below): positive height subtracts (shifts screen-up);
 // negative height (a pit/chasm floor) subtracts a negative number, i.e. shifts DOWN.
 import type Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX, SOURCE_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { ASSET_KEYS, SOURCE_TILE_PX } from "../../boot/assetManifest.js";
+import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
 
 /** Pixels to shift a terrain surface upward for height `h` — same `h*TILE` axis
  * as entities' `spriteLiftPx` (render/entities/lift.ts), just fed a cell's own
  * surface height instead of an entity's z. Negative height (pit/chasm floor)
  * yields a negative liftPx, i.e. shifts DOWN (spec worked example D). */
-export function surfaceLiftPx(height: number): number {
-  return height * SCREEN_TILE_PX;
+export function surfaceLiftBakePx(height: number): number {
+  return height * TERRAIN_BAKE_TILE_PX;
 }
 
 export interface PlaceSpriteOptions {
@@ -28,7 +29,7 @@ export interface PlaceSpriteOptions {
   /** Faint overlay ghosts (stair treads, depth texture) — defaults to fully opaque. */
   readonly alpha?: number;
   /** Screen-Y pixels to subtract after placement — see `surfaceLiftPx` above. */
-  readonly liftPx?: number;
+  readonly liftBakePx?: number;
 }
 
 /** Adds a tile sprite (atlas frame, world-pixel-scaled) to `container`. */
@@ -40,12 +41,14 @@ export function placeSprite(
   frame: string,
   opts: PlaceSpriteOptions = {},
 ): Phaser.GameObjects.Sprite {
-  const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
+  const cx = wx * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2;
   const originY = opts.originY ?? 0.5;
-  const cy = (originY === 1 ? (wy + 1) * SCREEN_TILE_PX : wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2) - (opts.liftPx ?? 0);
+  const cy = (originY === 1
+    ? (wy + 1) * TERRAIN_BAKE_TILE_PX
+    : wy * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2) - (opts.liftBakePx ?? 0);
   const sprite = scene.add.sprite(cx, cy, ASSET_KEYS.atlas, frame);
   sprite.setOrigin(0.5, originY);
-  sprite.setScale(WORLD_PIXEL_SCALE);
+  sprite.setScale(1);
   if (opts.tint !== undefined) sprite.setTint(opts.tint);
   if (opts.angle !== undefined) sprite.setAngle(opts.angle);
   if (opts.flipY) sprite.setFlipY(true);
@@ -69,12 +72,12 @@ export function placeFractionalRect(
   yFrac: readonly [number, number],
   color: number,
   alpha: number,
-  liftPx = 0,
+  liftBakePx = 0,
 ): void {
-  const left = wx * SCREEN_TILE_PX + xFrac[0] * SCREEN_TILE_PX;
-  const right = wx * SCREEN_TILE_PX + xFrac[1] * SCREEN_TILE_PX;
-  const top = wy * SCREEN_TILE_PX + yFrac[0] * SCREEN_TILE_PX - liftPx;
-  const bottom = wy * SCREEN_TILE_PX + yFrac[1] * SCREEN_TILE_PX - liftPx;
+  const left = wx * TERRAIN_BAKE_TILE_PX + xFrac[0] * TERRAIN_BAKE_TILE_PX;
+  const right = wx * TERRAIN_BAKE_TILE_PX + xFrac[1] * TERRAIN_BAKE_TILE_PX;
+  const top = wy * TERRAIN_BAKE_TILE_PX + yFrac[0] * TERRAIN_BAKE_TILE_PX - liftBakePx;
+  const bottom = wy * TERRAIN_BAKE_TILE_PX + yFrac[1] * TERRAIN_BAKE_TILE_PX - liftBakePx;
   const rect = scene.add.rectangle((left + right) / 2, (top + bottom) / 2, right - left, bottom - top, color, alpha);
   container.add(rect);
 }
@@ -86,11 +89,11 @@ export function placeFillRect(
   wx: number,
   wy: number,
   color: number,
-  liftPx = 0,
+  liftBakePx = 0,
 ): void {
-  const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const cy = wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2 - liftPx;
-  container.add(scene.add.rectangle(cx, cy, SCREEN_TILE_PX, SCREEN_TILE_PX, color, 1));
+  const cx = wx * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2;
+  const cy = wy * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2 - liftBakePx;
+  container.add(scene.add.rectangle(cx, cy, TERRAIN_BAKE_TILE_PX, TERRAIN_BAKE_TILE_PX, color, 1));
 }
 
 /**
@@ -106,10 +109,10 @@ export function placeHalfFaceBand(
   faceFrame: string,
   tint: number,
 ): void {
-  const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const sprite = scene.add.sprite(cx, wy * SCREEN_TILE_PX, ASSET_KEYS.atlas, faceFrame);
+  const cx = wx * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2;
+  const sprite = scene.add.sprite(cx, wy * TERRAIN_BAKE_TILE_PX, ASSET_KEYS.atlas, faceFrame);
   sprite.setOrigin(0.5, 0.5);
-  sprite.setScale(WORLD_PIXEL_SCALE);
+  sprite.setScale(1);
   sprite.setCrop(0, SOURCE_TILE_PX / 2, SOURCE_TILE_PX, SOURCE_TILE_PX / 2);
   sprite.setTint(tint);
   container.add(sprite);
@@ -125,9 +128,9 @@ export function placeBottomBand(
   alpha: number,
   fraction: number,
 ): void {
-  const bandHeight = SCREEN_TILE_PX * fraction;
-  const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const bottomY = (wy + 1) * SCREEN_TILE_PX;
-  const rect = scene.add.rectangle(cx, bottomY - bandHeight / 2, SCREEN_TILE_PX, bandHeight, color, alpha);
+  const bandHeight = TERRAIN_BAKE_TILE_PX * fraction;
+  const cx = wx * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2;
+  const bottomY = (wy + 1) * TERRAIN_BAKE_TILE_PX;
+  const rect = scene.add.rectangle(cx, bottomY - bandHeight / 2, TERRAIN_BAKE_TILE_PX, bandHeight, color, alpha);
   container.add(rect);
 }

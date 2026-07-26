@@ -4,19 +4,19 @@
 // pack-agnostic overlay geometry, not baked sprite variants) rather than combinatorially
 // baking every corner combination into the spritesheet.
 import type Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { CardinalEdges, InnerCorners } from "./autotile.js";
 import { DEBUG_TILE_PX, DEBUG_TILESET_KEY } from "./debugTileset.js";
 import { placeFractionalRect } from "./placeSprite.js";
+import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
 
 /** 1 when the debug tileset's native tile size already equals the world's on-screen tile size. */
-const DEBUG_TILE_SCALE = SCREEN_TILE_PX / DEBUG_TILE_PX;
+const DEBUG_TILE_SCALE = TERRAIN_BAKE_TILE_PX / DEBUG_TILE_PX;
 
 export interface PlaceDebugTileOptions {
   readonly tint?: number;
   readonly alpha?: number;
   /** Screen-Y pixels to subtract after placement (docs/ELEVATION-PROJECTION.md's one shift rule) — see placeSprite.ts's `surfaceLiftPx`. */
-  readonly liftPx?: number;
+  readonly liftBakePx?: number;
 }
 
 /** Adds a debug-tileset frame, centered on (wx, wy), to `container`. */
@@ -28,8 +28,8 @@ export function placeDebugTile(
   frame: number,
   opts: PlaceDebugTileOptions = {},
 ): Phaser.GameObjects.Sprite {
-  const cx = wx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2;
-  const cy = wy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2 - (opts.liftPx ?? 0);
+  const cx = wx * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2;
+  const cy = wy * TERRAIN_BAKE_TILE_PX + TERRAIN_BAKE_TILE_PX / 2 - (opts.liftBakePx ?? 0);
   const sprite = scene.add.sprite(cx, cy, DEBUG_TILESET_KEY, frame);
   sprite.setOrigin(0.5, 0.5);
   sprite.setScale(DEBUG_TILE_SCALE);

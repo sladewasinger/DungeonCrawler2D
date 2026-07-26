@@ -8,13 +8,12 @@
 // frames only ever cover the planned bands, and recycle() re-blanks the pixels
 // and purges old strip frames while preserving Phaser's required base frame, so
 // reuse is visually indistinguishable from a fresh texture.
-import { CHUNK_SIZE } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { PagePool } from "./pagePool.js";
-import { MAX_PAGE_HEIGHT_PX } from "./stripAtlas.js";
+import { MAX_STRIP_PAGE_HEIGHT_BAKE_PX } from "./stripAtlas.js";
+import { assertTerrainTextureDimensions, TERRAIN_BAKE_CHUNK_PX } from "./terrainMetrics.js";
 
-const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
+const TERRAIN_NEAREST_FILTER_MODE: Phaser.Textures.FilterMode = 1;
 
 /** Monotonic texture-key source: a rebaking chunk must never reuse a key an in-flight destroy still owns. */
 let pageGeneration = 0;
@@ -27,8 +26,8 @@ let pageGeneration = 0;
  * rotation pays fresh GL allocations anyway.
  */
 const PAGE_CLASSES = {
-  strip: { height: MAX_PAGE_HEIGHT_PX, maxSpare: 96 },
-  base: { height: CHUNK_PX, maxSpare: 24 },
+  strip: { height: MAX_STRIP_PAGE_HEIGHT_BAKE_PX, maxSpare: 16 },
+  base: { height: TERRAIN_BAKE_CHUNK_PX, maxSpare: 4 },
 } as const;
 export type PageClass = keyof typeof PAGE_CLASSES;
 
@@ -36,8 +35,10 @@ export type PageClass = keyof typeof PAGE_CLASSES;
 const pagePools = new WeakMap<Phaser.Textures.TextureManager, Record<PageClass, PagePool<Phaser.Textures.DynamicTexture>>>();
 
 function createPage(textures: Phaser.Textures.TextureManager, height: number): Phaser.Textures.DynamicTexture {
-  const page = textures.addDynamicTexture(`terrain-page:${pageGeneration++}`, CHUNK_PX, height);
+  assertTerrainTextureDimensions(TERRAIN_BAKE_CHUNK_PX, height);
+  const page = textures.addDynamicTexture(`terrain-page:${pageGeneration++}`, TERRAIN_BAKE_CHUNK_PX, height);
   if (!page) throw new Error("terrain page texture key collision"); // impossible: keys are monotonic
+  page.setFilter(TERRAIN_NEAREST_FILTER_MODE);
   return page;
 }
 
@@ -69,13 +70,13 @@ export function pagePoolFor(textures: Phaser.Textures.TextureManager, cls: PageC
 /** A strip page for one planned page-height: pooled fixed-size normally; a dedicated
  * content-sized texture for the (today impossible) oversized-strip case. */
 export function acquireStripPage(textures: Phaser.Textures.TextureManager, height: number): Phaser.Textures.DynamicTexture {
-  if (height <= MAX_PAGE_HEIGHT_PX) return pagePoolFor(textures, "strip").acquire();
+  if (height <= MAX_STRIP_PAGE_HEIGHT_BAKE_PX) return pagePoolFor(textures, "strip").acquire();
   return createPage(textures, height);
 }
 
 /** Returns a page to its pool — or really removes a dedicated oversized strip page. */
 export function releasePage(page: Phaser.Textures.DynamicTexture, cls: PageClass): void {
-  if (cls === "strip" && page.height > MAX_PAGE_HEIGHT_PX) {
+  if (cls === "strip" && page.height > MAX_STRIP_PAGE_HEIGHT_BAKE_PX) {
     page.manager.remove(page);
     return;
   }

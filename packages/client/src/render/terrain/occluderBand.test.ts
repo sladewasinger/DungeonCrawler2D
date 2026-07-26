@@ -16,7 +16,7 @@ import {
   type SurfaceHeightRead,
 } from "./occluderBand.js";
 import { MAX_FACE_ROWS } from "./ownFace.js";
-import { surfaceLiftPx } from "./placeSprite.js";
+import { surfaceLiftBakePx } from "./placeSprite.js";
 
 describe("bakesIntoStaticBase", () => {
   it("keeps every row of the dynamic band in the occluder strip", () => {
@@ -80,25 +80,25 @@ describe("stripOverhangTiles", () => {
 // C. 2-tall wall (h2): caps shift TWO rows up (screen 8,9 from raw 10,11).
 // D. z-1 pit floor (h=-1): shifts one row DOWN (screen 12,13 from raw 11,12).
 // E. rim-straddle stair, ramp center h=-0.5: shifts HALF a row down (screen 11.5 from raw 11).
-describe("surfaceLiftPx (spec worked examples)", () => {
+describe("surfaceLiftBakePx (spec worked examples)", () => {
   it("A/B: h=1 shifts exactly one tile screen-up", () => {
-    expect(surfaceLiftPx(1)).toBe(48);
+    expect(surfaceLiftBakePx(1)).toBe(16);
   });
 
   it("C: h=2 shifts exactly two tiles screen-up", () => {
-    expect(surfaceLiftPx(2)).toBe(96);
+    expect(surfaceLiftBakePx(2)).toBe(32);
   });
 
   it("D: h=-1 (a pit floor) shifts exactly one tile screen-DOWN", () => {
-    expect(surfaceLiftPx(-1)).toBe(-48);
+    expect(surfaceLiftBakePx(-1)).toBe(-16);
   });
 
   it("E: the ramp-center height -0.5 shifts half a tile screen-down", () => {
-    expect(surfaceLiftPx(-0.5)).toBe(-24);
+    expect(surfaceLiftBakePx(-0.5)).toBe(-8);
   });
 
   it("flat ground (h=0) never shifts", () => {
-    expect(surfaceLiftPx(0)).toBe(0);
+    expect(surfaceLiftBakePx(0)).toBe(0);
   });
 });
 

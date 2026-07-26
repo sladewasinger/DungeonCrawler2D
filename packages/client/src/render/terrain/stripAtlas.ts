@@ -8,10 +8,10 @@
 // framebuffer count drops by an order of magnitude (also directly shrinking the
 // WebKit framebuffer-pressure risk surface from the judge-panel report).
 export interface StripSpec {
-  /** Screen-space y of the strip's top edge, px. */
-  readonly stripTop: number;
-  /** Strip height, px. */
-  readonly stripHeight: number;
+  /** Native-bake y of the strip's top edge. */
+  readonly stripTopBakePx: number;
+  /** Strip height in native-bake pixels. */
+  readonly stripHeightBakePx: number;
   /** Phaser depth the strip's image must render at (depthSort.ts). */
   readonly depth: number;
 }
@@ -36,7 +36,7 @@ export interface AtlasPlan {
  * so the pad only exists to keep a hypothetical stray pixel from landing in a
  * neighbor band; the frame excludes it, reproducing the old RT-edge clipping.
  */
-export const STRIP_PAD_PX = 2;
+export const STRIP_PAD_BAKE_PX = 1;
 
 /**
  * Page height cap, chosen well under the 4096 minimum GL max-texture-size of
@@ -46,7 +46,7 @@ export const STRIP_PAD_PX = 2;
  * medium ones. A single strip taller than the cap (impossible today: tallest =
  * 17 tiles = 816px) would get a page of its own height.
  */
-export const MAX_PAGE_HEIGHT_PX = 512;
+export const MAX_STRIP_PAGE_HEIGHT_BAKE_PX = 288;
 
 const even = (n: number): number => (n % 2 === 0 ? n : n + 1);
 
@@ -58,8 +58,8 @@ const even = (n: number): number => (n % 2 === 0 ? n : n + 1);
  */
 export function planStripAtlas(
   stripHeights: readonly number[],
-  maxPageHeight: number = MAX_PAGE_HEIGHT_PX,
-  pad: number = STRIP_PAD_PX,
+  maxPageHeight: number = MAX_STRIP_PAGE_HEIGHT_BAKE_PX,
+  pad: number = STRIP_PAD_BAKE_PX,
 ): AtlasPlan {
   const pageHeights: number[] = [];
   const strips: PackedStrip[] = [];
