@@ -1,11 +1,13 @@
 import {
   HOTBAR_SLOTS,
+  MOVE_SPEED,
   PLAYER_MAX_HP,
   PLAYER_MAX_STAMINA,
   createBody,
   makeEntity,
   newEntityId,
   type Entity,
+  type PlayerSkin,
 } from "@dc2d/engine";
 import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "./announcer/index.js";
 import { sendContactsUpdated } from "./contacts.js";
@@ -24,22 +26,15 @@ export function addPlayer(
   name: string,
   clientId: string,
   resumeToken?: string,
+  skin?: PlayerSkin,
 ): JoinResult {
   if (resumeToken) {
-    const resumed = tryResume(sim, resumeToken, clientId);
+    const resumed = tryResume(sim, resumeToken, clientId, skin);
     if (resumed) return resumed;
   }
 
   const spawn = findSpawn(sim);
-  const entity = makeEntity("player", createBody(spawn.x, spawn.y, spawn.z), {
-    id: newEntityId("p"),
-    name,
-    hp: PLAYER_MAX_HP,
-    maxHp: PLAYER_MAX_HP,
-    baseSpeed: 8,
-    tags: new Set(["player", "organic"]),
-    facing: { x: 0, y: 1 },
-  });
+  const entity = createPlayerEntity(name, spawn, skin);
   const token = newToken(sim);
   const slot = newSlot(
     entity,
@@ -81,6 +76,23 @@ export function addPlayer(
   if (stairHint) slot.outbox.push(stairHint);
   sim.store.recordFloor(slot.stored, sim.world.floor);
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false, floor: sim.world.floor };
+}
+
+function createPlayerEntity(
+  name: string,
+  spawn: { x: number; y: number; z: number },
+  skin?: PlayerSkin,
+): Entity {
+  return makeEntity("player", createBody(spawn.x, spawn.y, spawn.z), {
+    id: newEntityId("p"),
+    name,
+    ...(skin ? { skin } : {}),
+    hp: PLAYER_MAX_HP,
+    maxHp: PLAYER_MAX_HP,
+    baseSpeed: MOVE_SPEED,
+    tags: new Set(["player", "organic"]),
+    facing: { x: 0, y: 1 },
+  });
 }
 
 /** Default bookkeeping for a freshly-joined player. */
@@ -163,10 +175,16 @@ function restorePausedLifecycle(sim: SimState, slot: PlayerSlot): void {
 }
 
 /** Reattach a disconnected slot to a reconnecting client, if the token still owns one. */
-function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinResult | null {
+function tryResume(
+  sim: SimState,
+  resumeToken: string,
+  clientId: string,
+  skin?: PlayerSkin,
+): JoinResult | null {
   const existingId = sim.byToken.get(resumeToken);
   const slot = existingId ? sim.players.get(existingId) : undefined;
   if (!slot || slot.connected || slot.clientId !== clientId) return null;
+  if (skin) slot.entity.skin = skin;
   restorePausedLifecycle(sim, slot);
   slot.connected = true;
   resetInputTimeline(slot);

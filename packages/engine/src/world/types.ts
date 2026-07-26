@@ -1,6 +1,8 @@
 // Core world data shapes: tile/zone vocabularies and the read-only view movement and AI depend on.
 
-export const CHUNK_SIZE = 32;
+import { SCALED_CHUNK_SIZE } from "./generate/scale.js";
+
+export const CHUNK_SIZE = SCALED_CHUNK_SIZE;
 
 export const TILE = {
   Floor: 0,

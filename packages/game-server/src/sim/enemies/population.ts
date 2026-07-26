@@ -104,7 +104,8 @@ export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
 function spawnRandomEnemies(sim: SimState, cx: number, cy: number): void {
   const bonus = isNearSpawnChunk(sim, cx, cy) ? NEAR_SPAWN_BONUS_ENEMIES : 0;
   const count = 2 + Math.floor(sim.rng.next() * 3) + bonus;
-  for (let n = 0; n < count; n++) {
+  let spawned = 0;
+  for (let attempt = 0; attempt < count * 8 && spawned < count; attempt++) {
     const wx = cx * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     const wy = cy * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
     // isWalkable now excludes TILE.Wall outright (walls are solid) —
@@ -116,5 +117,6 @@ function spawnRandomEnemies(sim: SimState, cx: number, cy: number): void {
     if (sim.world.heightAt(wx, wy) <= CHASM_DEATH_Z) continue;
     if (tooCloseToPlayer(sim, wx, wy)) continue;
     spawnEnemy(sim, pickEnemyDef(sim), wx + 0.5, wy + 0.5);
+    spawned++;
   }
 }

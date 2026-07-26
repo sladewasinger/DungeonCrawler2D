@@ -56,7 +56,7 @@ const createDoor = (): HTMLDivElement => {
   door.style.cssText = [
     "position:absolute",
     "left:50%",
-    "top:54%",
+    "top:45%",
     "translate:-50% -50%",
     "width:192px",
     "height:144px",
@@ -120,7 +120,7 @@ export class StandaloneTitle {
     this.backdrop.append(createSparks(), title, createDoor());
     this.root.append(this.backdrop);
     this.form = new ConnectForm({
-      onConnect: (name, level) => this.connect(name, level),
+      onConnect: (name, level, skin) => this.connect(name, level, skin),
     });
     if (options.initialStatus) this.form.setStatus(options.initialStatus);
   }
@@ -134,11 +134,16 @@ export class StandaloneTitle {
     };
   }
 
-  private connect(name: string, level: LevelId): void {
+  private connect(
+    name: string,
+    level: LevelId,
+    skin: import("@dc2d/engine").PlayerSkin,
+  ): void {
     this.options.beforeConnect?.();
     this.form.setBusy(true);
     this.form.setStatus("Connecting...");
     this.connection.setName(name);
+    this.connection.setSkin(skin);
     this.connection.connect(level);
     this.retryTimer = window.setTimeout(() => {
       if (this.connection.status === "connected") return;

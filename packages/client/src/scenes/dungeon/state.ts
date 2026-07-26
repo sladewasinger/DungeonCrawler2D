@@ -52,9 +52,34 @@ export interface DungeonSceneState {
    * keyed by attacker id — see vfx/meleeConnect.ts. */
   readonly pendingSwings: Map<string, PendingSwing>;
   readonly expiredSwings: PendingSwing[];
+  readonly combatHealth: Map<string, { hp: number }>;
+  readonly combatHealthSeen: Set<string>;
   /** Panel round 3b item 4 (WALL-BUMP FEEDBACK): the throttle/edge-trigger tracker fed
    * from real predicted-movement deltas each fixed step — see input/wallBump.ts. */
   readonly wallBump: WallBumpState;
+}
+
+function createSelfPose(): SelfPose {
+  return {
+    id: "",
+    skin: "knight_f",
+    name: "",
+    x: 0,
+    y: 0,
+    z: 0,
+    air: false,
+  };
+}
+
+function createSelfVitals(): SelfVitals {
+  return {
+    hp: 0,
+    maxHp: 1,
+    fx: [],
+    downed: false,
+    blocking: false,
+    weaponId: null,
+  };
 }
 
 export function createDungeonSceneState(): DungeonSceneState {
@@ -66,15 +91,8 @@ export function createDungeonSceneState(): DungeonSceneState {
     projectileVelocity: createProjectileVelocityState(),
     entityBuckets: createFrameEntityBuckets(),
     entityViews: createFrameEntityViews(),
-    selfPose: { id: "", name: "", x: 0, y: 0, z: 0, air: false },
-    selfVitals: {
-      hp: 0,
-      maxHp: 1,
-      fx: [],
-      downed: false,
-      blocking: false,
-      weaponId: null,
-    },
+    selfPose: createSelfPose(),
+    selfVitals: createSelfVitals(),
     renderContext: null,
     areaViews: [],
     areaViewRecords: [],
@@ -86,6 +104,8 @@ export function createDungeonSceneState(): DungeonSceneState {
     swingSeen: new Set(),
     pendingSwings: new Map(),
     expiredSwings: [],
+    combatHealth: new Map(),
+    combatHealthSeen: new Set(),
     wallBump: createWallBumpState(),
   };
 }

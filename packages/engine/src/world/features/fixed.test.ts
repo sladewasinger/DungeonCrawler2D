@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 import { carveSafeRoomEntrance, KIOSK_HEIGHT } from "./fixed.js";
 
 const CENTER_LX = 10;

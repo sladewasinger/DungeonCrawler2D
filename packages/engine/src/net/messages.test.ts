@@ -45,7 +45,7 @@ describe("protocol", () => {
       { type: "suicide" },
       { type: "descend" },
       { type: "snapshotResync" },
-      { type: "hello", protocol: 8, name: "Crawler", clientId: "client-1", level: "sandbox" },
+      { type: "hello", protocol: 8, name: "Crawler", skin: "lizard_f", clientId: "client-1", level: "sandbox" },
       {
         type: "hello",
         protocol: 8,
@@ -108,6 +108,7 @@ describe("protocol", () => {
           id: "p2",
           kind: "player",
           name: "Ally",
+          skin: "dwarf_m",
           x: 2,
           y: 3,
           z: 0,
@@ -203,8 +204,6 @@ describe("protocol", () => {
       ),
     ).toBeNull();
     // Missing clientId on hello.
-    expect(
-      decodeClientMessage('{"type":"hello","protocol":2,"name":"A"}'),
-    ).toBeNull();
+    expect(decodeClientMessage('{"type":"hello","protocol":2,"name":"A"}')).toBeNull();
   });
 });

@@ -3,7 +3,8 @@
 // expectations — first-site positions worked out on paper from the closest-
 // viable scan order, never read back from the implementation.
 import { describe, expect, it } from "vitest";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "./scale.js";
 import { applyShowcase } from "./showcase.js";
 
 describe("applyShowcase (unit)", () => {

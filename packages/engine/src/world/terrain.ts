@@ -1,6 +1,9 @@
 import { fbm2D } from "../core/noise.js";
 import { hash2D, mixSeeds } from "../core/rng.js";
-import { CHUNK_SIZE } from "./types.js";
+import {
+  GENERATION_CHUNK_SIZE as CHUNK_SIZE,
+  scaleGeneratedPoint,
+} from "./generate/scale.js";
 
 /**
  * Base LAYOUT sampling — pure functions of world coordinates, so chunk
@@ -35,7 +38,7 @@ export function seedsFor(worldSeed: number, floor: number): Seeds {
 }
 
 /** Jittered chunk center in world tile coords — corridor endpoints and spawn anchors. */
-export function chunkCenter(
+export function generatedChunkCenter(
   worldSeed: number,
   floor: number,
   cx: number,
@@ -48,6 +51,16 @@ export function chunkCenter(
     x: cx * CHUNK_SIZE + CHUNK_SIZE / 2 + jx,
     y: cy * CHUNK_SIZE + CHUNK_SIZE / 2 + jy,
   };
+}
+
+/** Physical-world corridor junction after the generated layout is enlarged. */
+export function chunkCenter(
+  worldSeed: number,
+  floor: number,
+  cx: number,
+  cy: number,
+): { x: number; y: number } {
+  return scaleGeneratedPoint(generatedChunkCenter(worldSeed, floor, cx, cy));
 }
 
 /** Distance from point to an axis-aligned segment. */
@@ -93,8 +106,8 @@ export function corridorSegments(
   ];
   const segs: CorridorSegment[] = [];
   for (const [a, b] of pairs) {
-    const A = chunkCenter(worldSeed, floor, a[0], a[1]);
-    const B = chunkCenter(worldSeed, floor, b[0], b[1]);
+    const A = generatedChunkCenter(worldSeed, floor, a[0], a[1]);
+    const B = generatedChunkCenter(worldSeed, floor, b[0], b[1]);
     // L-path: horizontal from A, then vertical up/down into B.
     segs.push([A.x, A.y, B.x, A.y]);
     segs.push([B.x, A.y, B.x, B.y]);

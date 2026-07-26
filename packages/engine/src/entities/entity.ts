@@ -1,4 +1,5 @@
 import type { BodyState } from "./movement/index.js";
+import type { PlayerSkin } from "./playerAppearance.js";
 
 /**
  * The universal entity model. Players, enemies, ground items, and
@@ -25,6 +26,8 @@ export interface Entity {
   /** Content definition id (enemies: enemy def; items/projectiles: item def). */
   defId?: string;
   name?: string;
+  /** Player-selected atlas animation prefix. */
+  skin?: PlayerSkin;
   hp: number;
   maxHp: number;
   /** Base move speed in tiles/s (statuses multiply it). */
@@ -69,6 +72,7 @@ function applyOptionalEntityFields(
 ): void {
   if (opts.defId !== undefined) entity.defId = opts.defId;
   if (opts.name !== undefined) entity.name = opts.name;
+  if (opts.skin !== undefined) entity.skin = opts.skin;
   if (opts.vel !== undefined) entity.vel = opts.vel;
   if (opts.facing !== undefined) entity.facing = opts.facing;
   if (opts.ownerId !== undefined) entity.ownerId = opts.ownerId;

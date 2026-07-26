@@ -3,6 +3,8 @@
 // methods once per frame; this is the only file outside this folder that should import
 // its siblings directly.
 import type Phaser from "phaser";
+import type { Connection } from "../../net/connection.js";
+import { RoomPresentation } from "../rooms/roomPresentation.js";
 import { createItemVisual, updateItemVisual } from "./itemVisual.js";
 import { createMonsterVisual, updateMonsterVisual } from "./monsterVisual.js";
 import { createPlayerVisual, updatePlayerVisual } from "./playerVisual.js";
@@ -17,13 +19,20 @@ export type { RenderContext, PlayerEntityView, MonsterEntityView, ItemEntityView
 export class EntityRenderer {
   private readonly visuals = new Map<string, EntityVisual>();
   private readonly seen = new Set<string>();
+  private readonly rooms: RoomPresentation;
 
-  constructor(private readonly scene: Phaser.Scene) {}
+  constructor(private readonly scene: Phaser.Scene) {
+    this.rooms = new RoomPresentation(scene);
+  }
+
+  syncRoom(conn: Connection, nowMs: number): void {
+    this.rooms.sync(conn, nowMs);
+  }
 
   syncPlayers(views: readonly PlayerEntityView[], ctx: RenderContext): void {
     const seen = this.stepKind(views, (view) => {
       const visual = this.getOrCreate(view.id, "player", () => createPlayerVisual(this.scene, ctx.nowMs));
-      updatePlayerVisual(visual, playerSkinFor(view.playerId), view, ctx);
+      updatePlayerVisual(visual, playerSkinFor(view.playerId, view.skin), view, ctx);
     });
     this.gc(seen, "player");
   }
@@ -91,6 +100,7 @@ export class EntityRenderer {
   }
 
   dispose(): void {
+    this.rooms.dispose();
     for (const visual of this.visuals.values()) destroyEntityVisual(visual);
     this.visuals.clear();
   }

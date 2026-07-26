@@ -6,7 +6,8 @@ import {
   type CorridorSegment,
   type Seeds,
 } from "../terrain.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 
 /**
  * Fixed features placed deterministically per floor: safe-room

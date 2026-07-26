@@ -1,7 +1,12 @@
 /** Owns deterministic Three.js terrain and bounded wall-sconce lighting. */
-import { TILE, type World } from "@dc2d/engine";
+import { TILE, biomeAtWorldTile, type World } from "@dc2d/engine";
 import * as THREE from "three";
 import { environmentProfile } from "./threeEnvironment.js";
+import {
+  createBiomeMaterials,
+  disposeBiomeMaterials,
+  type BiomeMaterials,
+} from "./threeTerrainPalette.js";
 import type { ViewDistance } from "./viewDistance.js";
 
 export const DEFAULT_TERRAIN_VIEW_RADIUS = 26;
@@ -16,12 +21,14 @@ export class ThreeTerrain {
   private readonly edges = new THREE.EdgesGeometry(this.cube);
   private readonly sconcePlate = new THREE.BoxGeometry(0.26, 0.38, 0.06);
   private readonly flame = new THREE.SphereGeometry(0.1, 8, 6);
-  private readonly floors = ["#59606c", "#4b525e", "#3e4550", "#353c48"].map((color) => new THREE.MeshLambertMaterial({ color }));
-  private readonly walls = ["#3b385f", "#332f54", "#292646", "#211f38"].map((color) => new THREE.MeshLambertMaterial({ color }));
+  private readonly biomeMaterials = createBiomeMaterials();
   private readonly borderMaterial = new THREE.LineBasicMaterial({ color: "#0a0a10" });
   private readonly sconceMaterial = new THREE.MeshStandardMaterial({ color: "#5a514a", roughness: 0.72 });
   private readonly flameMaterial = new THREE.MeshStandardMaterial({ color: "#ff9e44", emissive: "#ff5d1a", emissiveIntensity: 3 });
-  private readonly doorMaterial = new THREE.MeshStandardMaterial({ color: "#485d78", emissive: "#1d3854", emissiveIntensity: 0.45 });
+  private readonly safeDoorMaterial = new THREE.MeshStandardMaterial({ color: "#4f7fbd", emissive: "#1d3854", emissiveIntensity: 0.45 });
+  private readonly partyDoorMaterial = new THREE.MeshStandardMaterial({ color: "#c05b9d", emissive: "#592249", emissiveIntensity: 0.45 });
+  private readonly personalDoorMaterial = new THREE.MeshStandardMaterial({ color: "#55a66e", emissive: "#1f5030", emissiveIntensity: 0.45 });
+  private readonly exitDoorMaterial = new THREE.MeshStandardMaterial({ color: "#c19346", emissive: "#59401d", emissiveIntensity: 0.45 });
   private readonly craftMaterial = new THREE.MeshStandardMaterial({ color: "#704c31", roughness: 0.9 });
   private readonly stashMaterial = new THREE.MeshStandardMaterial({ color: "#87662f", roughness: 0.72, metalness: 0.12 });
   private readonly stairMaterial = new THREE.MeshStandardMaterial({ color: "#717987", roughness: 0.88 });
@@ -59,16 +66,18 @@ export class ThreeTerrain {
     this.group.removeFromParent();
     [this.cube, this.edges, this.sconcePlate, this.flame].forEach((geometry) => geometry.dispose());
     [
-      ...this.floors,
-      ...this.walls,
       this.borderMaterial,
       this.sconceMaterial,
       this.flameMaterial,
-      this.doorMaterial,
+      this.safeDoorMaterial,
+      this.partyDoorMaterial,
+      this.personalDoorMaterial,
+      this.exitDoorMaterial,
       this.craftMaterial,
       this.stashMaterial,
       this.stairMaterial,
     ].forEach((material) => material.dispose());
+    disposeBiomeMaterials(this.biomeMaterials);
   }
 
   private populateTiles(origin: { x: number; z: number }): void {
@@ -87,28 +96,31 @@ export class ThreeTerrain {
       this.addWalkableTile(x, z, height, tile);
       return;
     }
-    this.addBlock(x, z, this.solidMaterial(tile, height), height + 1);
+    this.addBlock(x, z, this.solidMaterial(x, z, tile, height), height + 1);
   }
 
   private addWalkableTile(x: number, z: number, height: number, tile: number): void {
     this.addBlock(
       x,
       z,
-      tile === TILE.Stairs ? this.stairMaterial : this.floors[depthIndex(height)],
+      tile === TILE.Stairs ? this.stairMaterial : this.materialsAt(x, z).floors[depthIndex(height)],
       height,
     );
   }
 
-  private solidMaterial(tile: number, height: number): unknown {
+  private solidMaterial(x: number, z: number, tile: number, height: number): unknown {
     if (tile === TILE.CraftingTable) return this.craftMaterial;
     if (tile === TILE.Stash) return this.stashMaterial;
-    if (
-      tile === TILE.DoorPersonal ||
-      tile === TILE.DoorParty ||
-      tile === TILE.DoorExit ||
-      tile === TILE.DoorSafeRoom
-    ) return this.doorMaterial;
-    return this.walls[depthIndex(height)];
+    if (tile === TILE.DoorPersonal) return this.personalDoorMaterial;
+    if (tile === TILE.DoorParty) return this.partyDoorMaterial;
+    if (tile === TILE.DoorExit) return this.exitDoorMaterial;
+    if (tile === TILE.DoorSafeRoom) return this.safeDoorMaterial;
+    return this.materialsAt(x, z).walls[depthIndex(height)];
+  }
+
+  private materialsAt(x: number, z: number): BiomeMaterials {
+    const { biome } = biomeAtWorldTile(this.world.worldSeed, this.world.floor, x, z);
+    return this.biomeMaterials[biome];
   }
 
   private addBlock(x: number, z: number, material: unknown, top: number): void {

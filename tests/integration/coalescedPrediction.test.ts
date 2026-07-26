@@ -29,6 +29,19 @@ function expectSamePosition(connection: Connection, serverX: number, serverY: nu
   expect(connection.body?.y).toBeCloseTo(serverY, 10);
 }
 
+function stepDelayedServer(
+  sim: ReturnType<typeof makeSim>,
+  playerId: string,
+  delayedInputs: Map<number, ClientInput[]>,
+): ServerSnapshot | undefined {
+  for (const message of delayedInputs.get(sim.tick) ?? []) {
+    sim.handleInput(playerId, message);
+  }
+  delayedInputs.delete(sim.tick);
+  const snapshot = sim.stepReplicated().get(playerId);
+  return snapshot?.type === "snapshot" ? snapshot : undefined;
+}
+
 function runDelayedMovement(
   sim: ReturnType<typeof makeSim>,
   playerId: string,
@@ -40,21 +53,22 @@ function runDelayedMovement(
     const input = wallTick <= 25 ? HELD_MOVE : IDLE;
     if (wallTick === 26) connection.sendInputEdge(input);
     connection.sampleInput(input);
-    for (const message of delayedInputs.get(sim.tick) ?? []) {
-      sim.handleInput(playerId, message);
-    }
-    delayedInputs.delete(sim.tick);
-    const snapshot = sim.stepReplicated().get(playerId);
-    if (snapshot?.type === "snapshot") delayedSnapshots.set(wallTick + 2, snapshot);
+    const snapshot = stepDelayedServer(sim, playerId, delayedInputs);
+    if (snapshot) delayedSnapshots.set(wallTick + 2, snapshot);
     const delivered = delayedSnapshots.get(wallTick);
     if (delivered) applySnapshot(connection, delivered);
     delayedSnapshots.delete(wallTick);
+  }
+  delayedSnapshots.clear();
+  for (let drainTick = 0; drainTick < 6; drainTick++) {
+    const snapshot = stepDelayedServer(sim, playerId, delayedInputs);
+    if (snapshot) applySnapshot(connection, snapshot);
   }
 }
 
 describe("prediction integration", () => {
   it("re-anchors movement after a late-session teleport instead of unwinding to spawn", () => {
-    const sim = makeSim(716, { testFixtures: true, freezeEnemies: true });
+    const sim = makeSim(716, { freezeEnemies: true });
     for (let tick = 0; tick < 100; tick++) sim.step();
     const joined = sim.addPlayer("Teleported", "teleported-client");
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
@@ -94,7 +108,7 @@ describe("prediction integration", () => {
   });
 
   it("keeps 1,000 held ticks aligned with monotonic full-rate input", () => {
-    const sim = makeSim(717, { testFixtures: true, freezeEnemies: true });
+    const sim = makeSim(717, { freezeEnemies: true });
     const joined = sim.addPlayer("Predictor", "prediction-client");
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
     if (!serverPlayer) throw new Error("expected joined server player");
@@ -151,7 +165,7 @@ describe("prediction integration", () => {
   });
 
   it("settles at the authoritative endpoint after delayed walking and release", () => {
-    const sim = makeSim(718, { testFixtures: true, freezeEnemies: true });
+    const sim = makeSim(718, { freezeEnemies: true });
     const joined = sim.addPlayer("Delayed", "delayed-client");
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
     if (!serverPlayer) throw new Error("expected joined server player");

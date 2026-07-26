@@ -5,7 +5,7 @@ import {
   TICK_RATE,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { input, makeSim, teleport } from "./integration/support.js";
+import { findFlatArena, input, makeSim, teleport } from "./integration/support.js";
 
 function nextSnapshot(sim: ReturnType<typeof makeSim>, playerId: string) {
   const snapshot = sim.step().get(playerId);
@@ -20,7 +20,7 @@ describe("player input queue", () => {
     const player = sim.addPlayer("Queue tester", "queue-client");
     const entity = sim.getPlayerEntity(player.playerId);
     if (!entity) throw new Error("joined player is missing");
-    const start = { x: 5.5, y: 5.5 };
+    const start = findFlatArena(sim, 5.5, 5.5);
     teleport(entity, start.x, start.y, sim);
 
     sim.handleInput(player.playerId, input(1, 1, 0));
@@ -58,7 +58,7 @@ describe("player input queue", () => {
     const player = sim.addPlayer("Burst tester", "burst-client");
     const entity = sim.getPlayerEntity(player.playerId);
     if (!entity) throw new Error("joined player is missing");
-    const start = { x: 5.5, y: 5.5 };
+    const start = findFlatArena(sim, 5.5, 5.5);
     teleport(entity, start.x, start.y, sim);
 
     sim.handleInput(player.playerId, input(10, 1, 0, false, false, 101));
@@ -89,7 +89,7 @@ describe("player input queue", () => {
     const player = sim.addPlayer("Reversal tester", "reversal-client");
     const entity = sim.getPlayerEntity(player.playerId);
     if (!entity) throw new Error("joined player is missing");
-    const start = { x: 5.5, y: 5.5 };
+    const start = findFlatArena(sim, 5.5, 5.5);
     teleport(entity, start.x, start.y, sim);
 
     sim.handleInput(player.playerId, input(1, 1, 0, false, false, 1));
@@ -120,14 +120,15 @@ describe("player input queue", () => {
     const player = sim.addPlayer("Reorder tester", "reorder-client");
     const entity = sim.getPlayerEntity(player.playerId);
     if (!entity) throw new Error("joined player is missing");
-    teleport(entity, 5.5, 5.5, sim);
+    const start = findFlatArena(sim, 5.5, 5.5);
+    teleport(entity, start.x, start.y, sim);
 
     sim.handleInput(player.playerId, input(10, 1, 0, false, false, sim.tick));
     sim.handleInput(player.playerId, input(9, -1, 0, false, false, sim.tick));
     const snapshot = nextSnapshot(sim, player.playerId);
 
     expect(snapshot.lastSeq).toBe(10);
-    expect(entity.body.x).toBeGreaterThan(5.5);
+    expect(entity.body.x).toBeGreaterThan(start.x);
   });
 
   it("accepts bounded drift, rebases future clock lead, and rejects impossible past ticks", () => {
@@ -193,7 +194,7 @@ describe("player input queue", () => {
     const player = sim.addPlayer("Trace tester", "trace-client");
     const entity = sim.getPlayerEntity(player.playerId);
     if (!entity) throw new Error("joined player is missing");
-    const start = { x: 5.5, y: 5.5 };
+    const start = findFlatArena(sim, 5.5, 5.5);
     teleport(entity, start.x, start.y, sim);
 
     sim.handleInput(

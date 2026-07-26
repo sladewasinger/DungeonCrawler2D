@@ -136,6 +136,14 @@ export class EditorStore {
     resetBenchState(this.bench);
   }
 
+  loadCombatFixture(): void {
+    resetBenchState(this.bench);
+    const center = Math.floor(EDITOR_GRID_SIZE / 2);
+    paintEnemy(this.bench, center + 3, center, "skeleton");
+    this.bench.immortalCombatFixture = true;
+    this.bench.running = true;
+  }
+
   toggleCollision(): void {
     this.showCollision = !this.showCollision;
     this.notify();

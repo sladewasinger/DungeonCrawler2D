@@ -2,6 +2,7 @@
  * Connection's presentation-facing data shapes — split out of connection.ts to keep
  * the state facade under the file-size cap. Pure types only, no behavior.
  */
+import type { PlayerSkin } from "@dc2d/engine";
 
 export interface Toast {
   msg: string;
@@ -23,12 +24,27 @@ export interface ContactInfo {
   online: boolean;
 }
 
+export interface NpcSpeech {
+  npcId: string;
+  name: string;
+  x: number;
+  y: number;
+  text: string;
+  untilMs: number;
+}
+
 interface CapturedCombatTarget {
   x?: number;
   y?: number;
   defId?: string;
   targetKind?: "player" | "enemy";
+  skin?: PlayerSkin;
 }
+
+export type DeathVisualEvent = {
+  t: "death";
+  id: string;
+} & CapturedCombatTarget;
 
 /** Visual-only events the scene consumes each frame. */
 export type VisualEvent =
@@ -40,7 +56,6 @@ export type VisualEvent =
     kind: "heal" | "damage";
     source?: "automatic" | undefined;
   } & CapturedCombatTarget
-  | ({ t: "death"; id: string } & CapturedCombatTarget)
   | ({ t: "status"; id: string; status: string; on: boolean } & CapturedCombatTarget)
   /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated
    * wire event for a sealed contact, only the system chat line this is derived from. */

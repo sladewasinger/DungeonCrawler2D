@@ -11,8 +11,8 @@ import { describe, expect, it } from "vitest";
 import { PredictionCorrection } from "../../net/predictionCorrection.js";
 import { projectSelfRenderPose } from "./selfInterpolation.js";
 
-const SPAWN_X = -6;
-const SPAWN_Y = -13;
+const SPAWN_X = -12;
+const SPAWN_Y = -26;
 
 function findEastWallApproach(world: World): { x: number; y: number; z: number } {
   for (let tileY = -30; tileY <= 30; tileY++) {

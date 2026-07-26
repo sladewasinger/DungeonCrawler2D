@@ -11,6 +11,10 @@ describe("playerSkinFor", () => {
     const skins = new Set(Array.from({ length: 20 }, (_, i) => playerSkinFor(`p${i}`)));
     expect(skins.size).toBeGreaterThan(1);
   });
+
+  it("uses an explicitly selected skin for local and remote players", () => {
+    expect(playerSkinFor("player-42", "dwarf_f")).toBe("dwarf_f");
+  });
 });
 
 describe("monsterSpriteFor", () => {

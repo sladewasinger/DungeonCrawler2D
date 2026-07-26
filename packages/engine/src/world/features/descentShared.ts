@@ -8,7 +8,7 @@
 
 import { hash2D, mixSeeds } from "../../core/rng.js";
 import { seedsFor } from "../terrain.js";
-import { CHUNK_SIZE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 import { isSafeRoomChunk, isStairsChunk } from "./fixed.js";
 
 /** Highest floor this wave generates; floor FLOOR_CAP hosts the boss arena instead of a StairwayDown. */

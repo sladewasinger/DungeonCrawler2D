@@ -83,6 +83,7 @@ function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
     kind: entity.kind,
     ...(entity.defId !== undefined ? { defId: entity.defId } : {}),
     ...(entity.name !== undefined ? { name: entity.name } : {}),
+    ...(entity.skin !== undefined ? { skin: entity.skin } : {}),
     x: entity.body.x,
     y: entity.body.y,
     z: entity.body.z,
@@ -139,6 +140,7 @@ function baseMatches(entity: Entity, snapshot: EntitySnapshot): boolean {
   return snapshot.kind === entity.kind &&
     snapshot.defId === entity.defId &&
     snapshot.name === entity.name &&
+    snapshot.skin === entity.skin &&
     snapshot.x === entity.body.x &&
     snapshot.y === entity.body.y &&
     snapshot.z === entity.body.z;

@@ -1,7 +1,7 @@
 /** Proves reconnect grace pauses dead and downed player lifecycle transitions. */
 import { PLAYER_MAX_HP, TICK_RATE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { makeSim, stepN, teleport } from "./support.js";
+import { findFlatArena, makeSim, stepN, teleport } from "./support.js";
 
 describe("GameSim disconnected lifecycle continuity", () => {
   it("freezes a pending respawn and resumes with its remaining delay", () => {
@@ -31,7 +31,9 @@ describe("GameSim disconnected lifecycle continuity", () => {
     const ally = sim.addPlayer("Ally", "ally-client");
     const player = sim.addPlayer("Downed", "downed-client");
     const entity = sim.getPlayerEntity(player.playerId)!;
-    teleport(entity, ally.spawn.x + 2, ally.spawn.y, sim);
+    const arena = findFlatArena(sim, ally.spawn.x, ally.spawn.y);
+    teleport(sim.getPlayerEntity(ally.playerId)!, arena.x, arena.y, sim);
+    teleport(entity, arena.x + 2, arena.y, sim);
     sim.queueAction(ally.playerId, { type: "party", op: "invite", target: player.playerId });
     sim.step();
     sim.queueAction(player.playerId, { type: "party", op: "accept" });

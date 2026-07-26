@@ -31,6 +31,16 @@ export interface BenchProjectile {
   readonly attack: EnemyDef["attack"];
 }
 
+export interface BenchCombatVfxEvent {
+  readonly t: "hit" | "death";
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight: number;
+  readonly defId?: string;
+  readonly amount?: number;
+}
+
 export interface BenchState {
   readonly content: ContentRegistry;
   readonly world: EditableWorld;
@@ -40,6 +50,8 @@ export interface BenchState {
   readonly enemies: Map<string, BenchEnemy>;
   readonly items: Map<string, BenchItemSpawn>;
   readonly projectiles: Map<string, BenchProjectile>;
+  readonly combatVfxEvents: BenchCombatVfxEvent[];
+  immortalCombatFixture: boolean;
   dummy: Entity;
   running: boolean;
   tickAccumMs: number;
@@ -62,6 +74,8 @@ export function createBenchState(world: EditableWorld): BenchState {
     enemies: new Map(),
     items: new Map(),
     projectiles: new Map(),
+    combatVfxEvents: [],
+    immortalCombatFixture: false,
     dummy: createDummy(center, center),
     running: false,
     tickAccumMs: 0,

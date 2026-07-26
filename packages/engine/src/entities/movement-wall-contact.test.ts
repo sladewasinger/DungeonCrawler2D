@@ -14,8 +14,8 @@ const SPRINT = { moveX: 1, moveY: 0, jump: false, run: true };
 
 describe("wall contact", () => {
   it("sweeps sprint steps to one stable contact from nearby prediction phases", () => {
-    const behind = createBody(7.14, 5.5, 0);
-    const ahead = createBody(7.16, 5.5, 0);
+    const behind = createBody(7.3, 5.5, 0);
+    const ahead = createBody(7.45, 5.5, 0);
 
     stepBody(WORLD, behind, SPRINT, TICK_DT);
     const aheadResult = stepBody(WORLD, ahead, SPRINT, TICK_DT);

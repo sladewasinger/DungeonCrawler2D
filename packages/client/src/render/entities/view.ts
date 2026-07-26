@@ -1,7 +1,7 @@
 // Per-frame input contracts for the entity renderer: shaped to mirror
 // @dc2d/engine's EntitySnapshot/EnemyAnimationState fields 1:1 so wiring a real
 // net.apply()-derived list in later waves is a passthrough, not a rewrite.
-import type { EnemyAnimationState, WorldView } from "@dc2d/engine";
+import type { EnemyAnimationState, PlayerSkin, WorldView } from "@dc2d/engine";
 
 export interface RenderContext {
   world: WorldView;
@@ -15,6 +15,7 @@ export interface RenderContext {
 export interface PlayerEntityView {
   id: string;
   playerId: string;
+  skin?: PlayerSkin;
   name: string;
   x: number;
   y: number;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PLAYER_SKINS } from "../entities/playerAppearance.js";
 import { gameEventSchema } from "./serverEvents.js";
 
 export { gameEventSchema, type GameEvent } from "./serverEvents.js";
@@ -62,6 +63,7 @@ export const entitySnapshotSchema = z.object({
   kind: z.enum(["player", "enemy", "item", "projectile", "torch"]),
   defId: z.string().optional(),
   name: z.string().optional(),
+  skin: z.enum(PLAYER_SKINS).optional(),
   x: z.number(),
   y: z.number(),
   z: z.number(),
@@ -137,6 +139,7 @@ export const safeRoomDoorSnapshotSchema = z.object({
   y: z.number().int(),
   tile: z.union([z.literal(3), z.literal(4)]),
   ownerId: z.string(),
+  label: z.string().optional(),
 });
 export type SafeRoomDoorSnapshot = z.infer<typeof safeRoomDoorSnapshotSchema>;
 

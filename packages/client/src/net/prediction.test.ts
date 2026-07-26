@@ -28,8 +28,8 @@ const RUN: MoveInput = { moveX: 1, moveY: 0, jump: false, run: true };
 // since walls block horizontal movement outright (types.ts's SOLID_TILES),
 // spawning there leaves a body permanently stuck and unable to diverge
 // under knockback. This coordinate is verified open floor nearby.
-const SPAWN_X = -6;
-const SPAWN_Y = -13;
+const SPAWN_X = -12;
+const SPAWN_Y = -26;
 
 function closeBody(a: BodyState, b: BodyState, eps = 1e-9): boolean {
   return Math.abs(a.x - b.x) < eps && Math.abs(a.y - b.y) < eps && Math.abs(a.z - b.z) < eps;

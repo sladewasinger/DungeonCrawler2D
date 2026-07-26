@@ -3,14 +3,18 @@ import { isSafeRoomChunk, isStairsChunk } from "./fixed.js";
 import {
   CORRIDOR_HALF_WIDTH,
   baseSample,
-  chunkCenter,
   corridorSegments,
   distToCorridor,
+  generatedChunkCenter,
   seedsFor,
   type CorridorSegment,
   type Seeds,
 } from "../terrain.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import {
+  GENERATION_CHUNK_SIZE as CHUNK_SIZE,
+  scaleGeneratedPoint,
+} from "../generate/scale.js";
 
 /**
  * Ruin platform clusters — the jump playground of the overworld.
@@ -75,7 +79,7 @@ function clusterCenter(
   cx: number,
   cy: number,
 ): { lx: number; ly: number } {
-  const junction = chunkCenter(worldSeed, floor, cx, cy);
+  const junction = generatedChunkCenter(worldSeed, floor, cx, cy);
   const jlx = junction.x - cx * CHUNK_SIZE;
   const jly = junction.y - cy * CHUNK_SIZE;
   const [ddx, ddy] = DIAG[hash2D(mixSeeds(seeds.layout, 0x9e5b), cx, cy) % 4] ?? [1, 1];
@@ -221,7 +225,7 @@ export function platformLootSpots(
     // Recompute the guard the stamp applied — pure, so it agrees.
     const segs = corridorSegments(worldSeed, floor, cx, cy);
     if (distToCorridor(segs, wx, wy) <= CORRIDOR_CLEAR) continue;
-    spots.push({ x: wx + 0.5, y: wy + 0.5 });
+    spots.push(scaleGeneratedPoint({ x: wx + 0.5, y: wy + 0.5 }));
   }
   return spots;
 }

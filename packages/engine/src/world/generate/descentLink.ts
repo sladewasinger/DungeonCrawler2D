@@ -11,7 +11,8 @@
 // rooms — height.ts keeps variants to ~1 in 4) avoids reintroducing the
 // same cliff at the room's own doorway instead.
 
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "./scale.js";
 import { centerX, centerY, lPathLegs, rectDistance } from "./geometry.js";
 import type { Point, Rect, Room } from "./types.js";
 

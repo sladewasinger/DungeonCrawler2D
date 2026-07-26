@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STEP_UP, TICK_DT } from "../core/constants.js";
+import { MOVE_SPEED, TICK_DT } from "../core/constants.js";
 import { createBody, stepBody } from "../entities/movement/index.js";
 import { entryClimbDir, stairRampAt, type StairView } from "./stairs.js";
 import { TILE, type WorldView } from "./types.js";
@@ -79,9 +79,7 @@ describe("stairs as physical ramps", () => {
     }
     expect(body.z).toBeCloseTo(1, 5);
     expect(roseBeforeTile).toBe(false);
-    // The glide bypasses STEP_UP entirely on a compact stair -- proves
-    // this is really the glide, not the old padded gentle-ramp shape.
-    expect(maxTickRise).toBeGreaterThan(STEP_UP);
+    expect(maxTickRise).toBeCloseTo(MOVE_SPEED * TICK_DT, 5);
   });
 
   it("falls from partial height when leaving the stair's side", () => {

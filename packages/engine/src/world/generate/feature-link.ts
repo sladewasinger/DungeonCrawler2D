@@ -5,7 +5,8 @@
 // carves one more corridor from the nearest room — skipping over the pad's own
 // protected tiles (stairs, doors, furniture) so the connector never erases them.
 
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "./scale.js";
 import { centerX, centerY, lPathLegs, rectDistance } from "./geometry.js";
 import type { Point, Rect, Room } from "./types.js";
 

@@ -15,14 +15,21 @@ const FLOOR = 1;
 const ROOT_SEED = architectSeed(SEED, FLOOR);
 
 describe("district character", () => {
-  it("all four district kinds appear within a modest region", () => {
+  it("all biome district kinds appear within a modest region", () => {
     const seen = new Set<DistrictKind>();
     for (let scx = -6; scx <= 6; scx++) {
       for (let scy = -6; scy <= 6; scy++) {
         seen.add(districtAt(ROOT_SEED, scx * 3, scy * 3));
       }
     }
-    expect(seen).toEqual(new Set([DISTRICT.Warren, DISTRICT.Plaza, DISTRICT.Ruins, DISTRICT.PillarForest]));
+    expect(seen).toEqual(new Set([
+      DISTRICT.Warren,
+      DISTRICT.Plaza,
+      DISTRICT.Ruins,
+      DISTRICT.PillarForest,
+      DISTRICT.Flooded,
+      DISTRICT.Arena,
+    ]));
   });
 
   it("is stable for every chunk within one super-chunk", () => {

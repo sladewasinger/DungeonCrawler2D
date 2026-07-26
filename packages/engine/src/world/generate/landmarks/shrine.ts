@@ -2,7 +2,8 @@
 // courtyard, ringed by a low wall with gates wherever the corridor network
 // crosses it — an intimate plaza at the super-chunk's heart.
 
-import { CHUNK_SIZE, TILE } from "../../types.js";
+import { TILE } from "../../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor } from "./shared.js";
 
 const DAIS_RADIUS = 4;

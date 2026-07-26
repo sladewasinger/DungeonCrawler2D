@@ -1,6 +1,10 @@
 import { World, type AreaTileUpdate, type ServerSnapshot } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 import { applyEvent } from "./applyEvents.js";
+import {
+  captureCombatHealth,
+  inferMissingDamageEvents,
+} from "./combatEventInference.js";
 import { floorChangeEvents } from "./floorEvents.js";
 import { recordSample } from "./interpolate.js";
 import { xpGainEvents } from "./xpEvents.js";
@@ -14,10 +18,11 @@ import { pruneAreaTiles } from "./areaTileRetention.js";
 
 export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   if (!conn.world) return;
+  const combatBefore = captureCombatHealth(conn);
   if (snap.events.some((event) => event.t === "teleported")) prepareTeleport(conn);
   conn.serverTick = snap.tick;
   applySelfState(conn, snap, conn.world);
-  conn.world?.replaceTileOverrides(snap.roomDoors ?? []);
+  applyRoomDoors(conn, snap);
   conn.hasReceivedSnapshot = true;
 
   const now = performance.now();
@@ -29,8 +34,14 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   // Capture visual-event targets before `left` prunes conn.entities. Rendering drains
   // these events later, so queue order alone cannot preserve a dead actor's position.
   for (const event of snap.events) applyEvent(conn, event);
+  inferMissingDamageEvents(conn, snap, combatBefore);
   for (const id of snap.left) conn.entities.delete(id);
   conn.onSnapshot?.();
+}
+
+function applyRoomDoors(conn: Connection, snap: ServerSnapshot): void {
+  conn.world?.replaceTileOverrides(snap.roomDoors ?? []);
+  conn.roomDoors = snap.roomDoors ?? [];
 }
 
 function prepareTeleport(conn: Connection): void {

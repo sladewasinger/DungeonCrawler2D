@@ -3,10 +3,31 @@
 // solid rock so light wraps corners along real paths. Computed once per chunk
 // (with an apron so neighbors' torches shine across seams) and multiplied into
 // the baked tile tints: ZERO per-frame lighting cost.
-import { TILE } from "@dc2d/engine";
+import { BIOME, TILE, biomeAtWorldTile, type BiomeKind } from "@dc2d/engine";
 import type { TerrainRead } from "./faces.js";
 import { doorLightPositions } from "../lighting/doorLights.js";
 import { selectTorchPositions, torchCandidates } from "../lighting/torchPlacement.js";
+import { multiplyTint } from "./heightShade.js";
+
+interface BiomeTerrainRead extends TerrainRead {
+  readonly worldSeed?: number;
+  readonly floor?: number;
+}
+
+const BIOME_GRADES: Readonly<Record<BiomeKind, number>> = {
+  [BIOME.Maze]: 0x9aa2b4,
+  [BIOME.OpenHalls]: 0xc4b99d,
+  [BIOME.Ruins]: 0xa89aa3,
+  [BIOME.Pillars]: 0x91aa90,
+  [BIOME.Pools]: 0x78aeba,
+  [BIOME.Arena]: 0xb49386,
+};
+
+export function terrainBiomeGrade(world: BiomeTerrainRead, wx: number, wy: number): number {
+  if (world.worldSeed === undefined || world.floor === undefined) return 0xffffff;
+  const { biome } = biomeAtWorldTile(world.worldSeed, world.floor, wx, wy);
+  return BIOME_GRADES[biome];
+}
 
 export const LIGHT_MAX = 14;
 const DOOR_LIGHT_LEVEL = 11;
@@ -193,7 +214,8 @@ export function computeLightField(
   return {
     tintAt(wx: number, wy: number): number {
       const level = inGrid(g, wx, wy) ? (g.levels[gridIndex(g, wx, wy)] ?? 0) : 0;
-      return levelTints[level] ?? levelTints[0] ?? 0x2e2e2e;
+      const lightTint = levelTints[level] ?? levelTints[0] ?? 0x2e2e2e;
+      return multiplyTint(lightTint, terrainBiomeGrade(world, wx, wy));
     },
   };
 }

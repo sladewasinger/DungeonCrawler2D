@@ -21,6 +21,7 @@ import { rectHash } from "./hash.js";
 import { rectH, rectW } from "./geometry.js";
 import { TILE } from "../types.js";
 import type { Doorway, Point, Rect, Room, Side } from "./types.js";
+import { DISTRICT, type DistrictKind } from "./district.js";
 
 export const ROOM_RISE = 1;
 export const CHASM_DEPTH = -2;
@@ -37,10 +38,11 @@ const THRESHOLD_RAMP_MAX_WIDTH = 2; // one built staircase reads as a place, not
 
 type Variant = "flat" | "pit" | "dais" | "chasm";
 
-function pickVariant(seed: number, room: Room): Variant {
+function pickVariant(seed: number, room: Room, district: DistrictKind): Variant {
   // Kept deliberately rare: sunken pits, daises, and chasms should read as
   // set-pieces, not wallpaper — roughly one room in four, most stay flat-first.
   const roll = rectHash(seed, room.rect, 0x9007) % 30;
+  if (district === DISTRICT.Flooded && roll < 12) return "pit";
   if (roll < 1 && Math.min(rectW(room.rect), rectH(room.rect)) >= CHASM_MIN_SPAN) return "chasm";
   if (roll < 4) return "pit";
   if (roll < 7) return "dais";
@@ -223,8 +225,9 @@ export function applyRoomHeight(
   chunkSize: number,
   room: Room,
   doorways: Doorway[],
+  district: DistrictKind,
 ): void {
-  const variant = pickVariant(seed, room);
+  const variant = pickVariant(seed, room, district);
   if (variant === "flat") return;
   const value = variantValue(variant);
   stampRingHeight(height, corridorCarved, chunkSize, room.rect, value);

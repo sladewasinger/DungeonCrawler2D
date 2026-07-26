@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AIRBORNE_LEDGE_CLEARANCE, KNOCKBACK_FORCE, STEP_UP, TICK_DT } from "../core/constants.js";
+import {
+  AIRBORNE_LEDGE_CLEARANCE,
+  KNOCKBACK_FORCE,
+  MOVE_SPEED,
+  STEP_UP,
+  TICK_DT,
+} from "../core/constants.js";
 import type { WorldView } from "../world/types.js";
 import { NEUTRAL_INPUT, applyKnockback, createBody, stepBody, type StepResult } from "./movement/index.js";
 
@@ -85,7 +91,7 @@ describe("STEP_UP walking, up and down", () => {
       expect(body.grounded).toBe(true);
     }
     for (let i = 1; i < xs.length; i++) {
-      expect((xs[i] as number) - (xs[i - 1] as number)).toBeCloseTo(0.4, 5);
+      expect((xs[i] as number) - (xs[i - 1] as number)).toBeCloseTo(MOVE_SPEED * TICK_DT, 5);
     }
   });
 
@@ -100,7 +106,7 @@ describe("STEP_UP walking, up and down", () => {
       expect(body.grounded).toBe(true);
     }
     for (let i = 1; i < xs.length; i++) {
-      expect((xs[i] as number) - (xs[i - 1] as number)).toBeCloseTo(0.4, 5);
+      expect((xs[i] as number) - (xs[i - 1] as number)).toBeCloseTo(MOVE_SPEED * TICK_DT, 5);
     }
   });
 });

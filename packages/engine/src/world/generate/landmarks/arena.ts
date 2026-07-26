@@ -2,7 +2,8 @@
 // bounded by a standing wall, with the corridor network punching clean
 // gates through it — the district's meeting-ground/fighting-pit centerpiece.
 
-import { CHUNK_SIZE, TILE } from "../../types.js";
+import { TILE } from "../../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor } from "./shared.js";
 
 const WALL_RADIUS = 10;

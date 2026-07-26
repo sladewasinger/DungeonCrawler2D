@@ -3,7 +3,8 @@
 // clean platform/pit already exist near the entry" finders. Pure reads over
 // chunk-local arrays — the carve half (showcase.ts) owns all mutation.
 import { WALL_FACE_MIN_DROP } from "../../core/constants.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "./scale.js";
 
 /** Chebyshev radius around the entry anchor that bounds "near the floor-1
  * entry" — the ~20-tile brief with a small tolerance (docs/ASSUMPTIONS.md row

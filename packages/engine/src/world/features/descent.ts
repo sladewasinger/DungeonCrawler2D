@@ -14,6 +14,10 @@
 // `reviveDownedPartyMember` already uses) — no new TILE type needed.
 
 import { CHUNK_SIZE, TILE } from "../types.js";
+import {
+  GENERATION_CHUNK_SIZE,
+  scaleGeneratedCoordinate,
+} from "../generate/scale.js";
 import { FLOOR_CAP, pickRingChunk, structureAnchor, type ChunkCoord, type LocalAnchor } from "./descentShared.js";
 
 export { FLOOR_CAP };
@@ -119,8 +123,8 @@ function stampStructure(anchor: LocalAnchor, tiles: Uint8Array, height: Float32A
     for (let dx = -STRUCT_HALF_X; dx <= STRUCT_HALF_X; dx++) {
       const lx = anchor.lx + dx;
       const ly = anchor.ly + dy;
-      if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-      const i = ly * CHUNK_SIZE + lx;
+      if (lx < 0 || ly < 0 || lx >= GENERATION_CHUNK_SIZE || ly >= GENERATION_CHUNK_SIZE) continue;
+      const i = ly * GENERATION_CHUNK_SIZE + lx;
       const cell = classifyCell(dx, dy, tiles[i] !== TILE.Wall);
       tiles[i] = cell.tile;
       height[i] = cell.height;
@@ -131,7 +135,10 @@ function stampStructure(anchor: LocalAnchor, tiles: Uint8Array, height: Float32A
 function positionFor(chunk: ChunkCoord | null, worldSeed: number, floor: number): { x: number; y: number } | null {
   if (!chunk) return null;
   const anchor = anchorFor(worldSeed, floor, chunk.cx, chunk.cy);
-  return { x: chunk.cx * CHUNK_SIZE + anchor.lx, y: chunk.cy * CHUNK_SIZE + anchor.ly };
+  return {
+    x: chunk.cx * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.lx),
+    y: chunk.cy * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.ly),
+  };
 }
 
 /** World position of this floor's StairwayUp anchor (null on floor 1, which has none). */

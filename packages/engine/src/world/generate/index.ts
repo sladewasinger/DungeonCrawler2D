@@ -32,6 +32,22 @@ import type { Point, Room } from "./types.js";
 import { applyShowcase } from "./showcase.js";
 import { resolveShallowPlateaus, resolveThinWalls } from "./verticalExtent.js";
 import { applyWallHeight } from "./wallHeight.js";
+import { GENERATION_CHUNK_SIZE, scaleGeneratedChunk } from "./scale.js";
+
+function createGeneratedGrid(): {
+  tiles: Uint8Array;
+  height: Float32Array;
+  zones: Uint8Array;
+  corridorCarved: Uint8Array;
+} {
+  const cells = GENERATION_CHUNK_SIZE * GENERATION_CHUNK_SIZE;
+  return {
+    tiles: new Uint8Array(cells).fill(TILE.Wall),
+    height: new Float32Array(cells),
+    zones: new Uint8Array(cells),
+    corridorCarved: new Uint8Array(cells),
+  };
+}
 
 /**
  * StairwayUp/StairwayDown (features/descent.ts): stamp, then connect via
@@ -105,33 +121,38 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   // below the playable floor — untouched by the room generator.
   if (isRoomChunk(cy)) return generateRoomChunk(cx, cy);
 
-  const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TILE.Wall);
-  const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
-  const zones = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
-  const corridorCarved = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  const { tiles, height, zones, corridorCarved } = createGeneratedGrid();
 
   const seed = architectSeed(worldSeed, floor);
   const perChunkSeed = chunkSeed(seed, cx, cy);
   const district = districtAt(seed, cx, cy);
-  const { rooms, links } = partitionChunk(perChunkSeed, CHUNK_SIZE, district);
-  for (const room of rooms) stampRoom(tiles, CHUNK_SIZE, room, perChunkSeed);
+  const { rooms, links } = partitionChunk(perChunkSeed, GENERATION_CHUNK_SIZE, district);
+  for (const room of rooms) stampRoom(tiles, GENERATION_CHUNK_SIZE, room, perChunkSeed);
 
-  const anchors = edgeAnchors(seed, cx, cy, CHUNK_SIZE);
-  const doorways = carveCorridors(perChunkSeed, tiles, corridorCarved, CHUNK_SIZE, rooms, links, anchors);
+  const anchors = edgeAnchors(seed, cx, cy, GENERATION_CHUNK_SIZE);
+  const doorways = carveCorridors(
+    perChunkSeed,
+    tiles,
+    corridorCarved,
+    GENERATION_CHUNK_SIZE,
+    rooms,
+    links,
+    anchors,
+  );
 
   for (const room of rooms) {
     // A room the landmark stamp is about to overwrite (or graze) never
     // gets its own pit/dais/chasm ring — see landmarks/guard.ts.
     if (isNearLandmark(worldSeed, floor, cx, cy, room.rect)) continue;
     if (isNearDescent(worldSeed, floor, cx, cy, room.rect)) continue;
-    applyRoomHeight(perChunkSeed, tiles, height, corridorCarved, CHUNK_SIZE, room, doorways);
+    applyRoomHeight(perChunkSeed, tiles, height, corridorCarved, GENERATION_CHUNK_SIZE, room, doorways, district);
   }
 
   stampFixedFeature(worldSeed, floor, cx, cy, tiles, height, zones, corridorCarved, rooms);
   stampDescentFeature(worldSeed, floor, cx, cy, tiles, height, corridorCarved, rooms);
   stampBossArenaFeature(worldSeed, floor, cx, cy, tiles, height, corridorCarved, rooms);
   applyLandmark(district, seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height);
-  repairCliffs(tiles, height, CHUNK_SIZE);
+  repairCliffs(tiles, height, GENERATION_CHUNK_SIZE);
 
   sealInteriorPockets(tiles, corridorCarved, zones);
   // Vertical-extent safety net (docs/VISUAL_DIRECTION.md's z+1 rule), run
@@ -140,16 +161,16 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   // introduced by walling off a single stray tile. resolveThinWalls can
   // open new floor-floor seams (a merged wall meeting a differently-heighted
   // neighbor), so repairCliffs runs once more after it to smooth those.
-  resolveThinWalls(tiles, CHUNK_SIZE);
-  repairCliffs(tiles, height, CHUNK_SIZE);
-  resolveShallowPlateaus(tiles, height, CHUNK_SIZE);
+  resolveThinWalls(tiles, GENERATION_CHUNK_SIZE);
+  repairCliffs(tiles, height, GENERATION_CHUNK_SIZE);
+  resolveShallowPlateaus(tiles, height, GENERATION_CHUNK_SIZE);
 
-  applyWallHeight(tiles, height, CHUNK_SIZE);
+  applyWallHeight(tiles, height, GENERATION_CHUNK_SIZE);
   // Run LAST, after the wall-height raise: a Stairs tile's climb axis can
   // depend on a neighboring Wall's height, which only reaches its real
   // (post-raise) value here — checking any earlier would validate against
   // heights no player ever actually sees (see cliffs.ts's doc comment).
-  demoteOrphanedStairs(tiles, height, CHUNK_SIZE);
+  demoteOrphanedStairs(tiles, height, GENERATION_CHUNK_SIZE);
 
   // Elevation showcase guarantee (PANEL ROUND 3b blocker #3): floor-1 entry
   // chunk (0,0) only — find-or-carve one clean z1 platform and one clean z-1
@@ -158,5 +179,7 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   // introduces nothing the nets police — see showcase.ts's module doc.
   applyShowcase(worldSeed, floor, cx, cy, tiles, height, zones);
 
-  return { cx, cy, tiles, height, zones };
+  const scaled = scaleGeneratedChunk(cx, cy, { tiles, height, zones });
+  demoteOrphanedStairs(scaled.tiles, scaled.height, CHUNK_SIZE);
+  return scaled;
 }

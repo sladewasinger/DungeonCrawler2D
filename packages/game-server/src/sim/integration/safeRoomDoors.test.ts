@@ -27,11 +27,12 @@ describe("dynamic safe room doors", () => {
       ...features.doors[0],
       tile: TILE.DoorPersonal,
       ownerId: player.playerId,
+      label: "A'S ROOM",
     }]);
     expect(sim.world.tileAt(features.exit.x, features.exit.y)).toBe(TILE.DoorExit);
   });
 
-  it("changes each occupant's portal to a party door when they join a party", () => {
+  it("collapses same-party occupants into one shared party portal", () => {
     const sim = bootSim();
     const a = sim.addPlayer("A", "party-safe-a");
     const b = sim.addPlayer("B", "party-safe-b");
@@ -44,11 +45,65 @@ describe("dynamic safe room doors", () => {
     sim.queueAction(b.playerId, { type: "party", op: "accept" });
     const snapshot = sim.step().get(a.playerId)!;
 
-    expect(snapshot.roomDoors).toHaveLength(2);
+    expect(snapshot.roomDoors).toHaveLength(1);
     expect(snapshot.roomDoors?.every((door) => door.tile === TILE.DoorParty)).toBe(true);
-    expect(new Set(snapshot.roomDoors?.map((door) => door.ownerId))).toEqual(
-      new Set([a.playerId, b.playerId]),
+    expect(snapshot.roomDoors?.[0]?.label).toBe("PARTY ROOM");
+  });
+
+  it("gives each party member a private labeled personal door inside the party room", () => {
+    const sim = bootSim();
+    const a = sim.addPlayer("A", "party-private-a");
+    const b = sim.addPlayer("B", "party-private-b");
+    const entrance = findSafeRoomDoor(sim);
+    const spawn = safeRoomSpawn(entrance.doorCx, entrance.doorCy);
+    teleport(sim.getPlayerEntity(a.playerId)!, spawn.x, spawn.y, sim);
+    teleport(sim.getPlayerEntity(b.playerId)!, spawn.x + 1, spawn.y, sim);
+    sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
+    sim.step();
+    sim.queueAction(b.playerId, { type: "party", op: "accept" });
+    const safeSnapshot = sim.step().get(a.playerId)!;
+    const partyDoor = safeSnapshot.roomDoors![0]!;
+    teleport(sim.getPlayerEntity(a.playerId)!, partyDoor.x + 0.5, partyDoor.y + 0.5, sim);
+    sim.queueAction(a.playerId, { type: "interact" });
+    sim.step();
+    teleport(sim.getPlayerEntity(b.playerId)!, partyDoor.x + 0.5, partyDoor.y + 0.5, sim);
+    sim.queueAction(b.playerId, { type: "interact" });
+    const partySnapshot = sim.step().get(a.playerId)!;
+
+    expect(partySnapshot.roomDoors).toHaveLength(2);
+    expect(partySnapshot.roomDoors?.every((door) => door.tile === TILE.DoorPersonal)).toBe(true);
+    expect(new Set(partySnapshot.roomDoors?.map((door) => door.label))).toEqual(
+      new Set(["A'S ROOM", "B'S ROOM"]),
     );
+
+    const aDoor = partySnapshot.roomDoors?.find((door) => door.ownerId === a.playerId);
+    expect(aDoor).toBeDefined();
+    if (!aDoor) throw new Error("missing A's personal-room door");
+    const bEntity = sim.getPlayerEntity(b.playerId)!;
+    teleport(bEntity, aDoor.x + 0.5, aDoor.y + 0.5, sim);
+    sim.queueAction(b.playerId, { type: "interact" });
+    const rejected = sim.step().get(b.playerId)!;
+    expect(rejected.events).toContainEqual({ t: "toast", msg: "That personal room is private" });
+    expect(bEntity.body.x).toBeCloseTo(aDoor.x + 0.5);
+  });
+
+  it("queues a visible food attendant greeting when a crawler enters", () => {
+    const sim = bootSim();
+    const player = sim.addPlayer("Ada", "safe-greeting");
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    const entrance = findSafeRoomDoor(sim);
+    teleport(entity, entrance.x + 0.5, entrance.y + 0.5, sim);
+    sim.queueAction(player.playerId, { type: "interact" });
+    const snapshot = sim.step().get(player.playerId)!;
+    const speech = snapshot.events.find((event) => event.t === "npcSpeech");
+
+    expect(speech).toMatchObject({
+      t: "npcSpeech",
+      npcId: "safe-room-food-attendant",
+      name: "Nib, Food Attendant",
+      durationMs: 4_000,
+    });
+    expect(speech && "text" in speech ? speech.text : "").toContain("Ada");
   });
 
   it("caps a shared safe room at twenty occupants", () => {

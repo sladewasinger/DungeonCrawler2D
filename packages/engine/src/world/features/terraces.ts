@@ -3,12 +3,13 @@ import { isSafeRoomChunk, isStairsChunk } from "./fixed.js";
 import { hasPlatformCluster } from "./platforms.js";
 import {
   CORRIDOR_HALF_WIDTH,
-  chunkCenter,
   distToCorridor,
+  generatedChunkCenter,
   seedsFor,
   type CorridorSegment,
 } from "../terrain.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 
 /**
  * Raised sections — the "height second" feature done the deliberate
@@ -70,7 +71,7 @@ export function terraceSpec(
   const h = (salt: number) => hash2D(mixSeeds(layout, 0x7e50, salt), cx, cy);
   const hx = 8 + (h(1) % 4); // 8..11
   const hy = 8 + (h(2) % 4);
-  const junction = chunkCenter(worldSeed, floor, cx, cy);
+  const junction = generatedChunkCenter(worldSeed, floor, cx, cy);
   const clamp = (v: number, half: number) =>
     Math.max(half, Math.min(CHUNK_SIZE - 1 - half, Math.round(v)));
   return {

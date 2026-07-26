@@ -120,7 +120,7 @@ function handleHello(
     return;
   }
   const sim = resolveJoinSim(msg, floors, sandbox);
-  const join = sim.addPlayer(msg.name, msg.clientId, msg.resumeToken);
+  const join = sim.addPlayer(msg.name, msg.clientId, msg.resumeToken, msg.skin);
   sim.configureSnapshotMode(join.playerId, msg.snapshotMode);
   conn.playerId = join.playerId;
   const previous = sockets.get(join.playerId);

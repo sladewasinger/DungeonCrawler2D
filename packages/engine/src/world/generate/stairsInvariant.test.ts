@@ -13,6 +13,7 @@ import { STEP_UP } from "../../core/constants.js";
 import { entryClimbDir } from "../stairs.js";
 import { TILE } from "../types.js";
 import { World } from "../world.js";
+import { WORLD_GEOMETRY_SCALE } from "./scale.js";
 import { anyFloorTile, bfsChunks, CLIMB_DIRS, scanStairs, type ChunkCache } from "./test-support.js";
 
 export const SEEDS = [
@@ -80,7 +81,7 @@ describe("stair runs stay short (no clusters / fan fills)", () => {
     // budget stays generous (empirically observed up to 10 tiles across the
     // scanned seeds) — the tight, exit-specific guarantee is the footprint
     // check below, which is what actually catches a widened runway.
-    const MAX_CLUSTER = 16;
+    const MAX_CLUSTER = 16 * WORLD_GEOMETRY_SCALE ** 2;
     for (const seed of SEEDS) {
       const stairSet = new Set(scanStairs(seed, FLOOR, CHUNK_RANGE).map((t) => `${t.x},${t.y}`));
       const visited = new Set<string>();
@@ -129,7 +130,7 @@ describe("stair runs stay short (no clusters / fan fills)", () => {
           length,
           `seed ${seed}: pit/dais exit run at (${x},${y}) spans ${span} z but is ${length} tiles long — ` +
             `a compact 1-z exit must be exactly 1 tile`,
-        ).toBe(1);
+        ).toBe(WORLD_GEOMETRY_SCALE);
       }
     }
   });

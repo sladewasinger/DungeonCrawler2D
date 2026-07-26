@@ -7,7 +7,8 @@ import { expect } from "vitest";
 import { STEP_UP } from "../../core/constants.js";
 import { applyTerrace, TERRACE_RISE } from "./terraces.js";
 import { baseSample, corridorSegments, seedsFor } from "../terrain.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { TILE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 
 export interface SyntheticChunk {
   tiles: Uint8Array;

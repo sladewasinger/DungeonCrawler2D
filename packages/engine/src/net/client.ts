@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PLAYER_SKINS } from "../entities/playerAppearance.js";
 
 /** Zod schemas and types for client→server wire messages (intents, never asserted outcomes). */
 
@@ -18,6 +19,7 @@ export const clientHelloSchema = z.object({
   type: z.literal("hello"),
   protocol: z.number().int(),
   name: z.string().min(1).max(16),
+  skin: z.enum(PLAYER_SKINS).optional(),
   /** Persistent anonymous identity (stash/slot ownership). */
   clientId: z.string().min(4).max(64),
   level: level.default("dungeon"),

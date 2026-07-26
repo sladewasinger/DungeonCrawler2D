@@ -2,9 +2,10 @@
 // input, so this uses the same "styled DOM overlay" pattern reference/client/main.ts's
 // chat input proved, matching the panel language (dark fill, thin border, gold accent)
 // from ui/panel.ts and the monogram font from ui/font.ts.
-import { LEVEL, type LevelId } from "@dc2d/engine";
+import { LEVEL, type LevelId, type PlayerSkin } from "@dc2d/engine";
 import { APP_VERSION } from "../../appVersion.js";
 import { RELEASE_NOTES_INDEX_PATH } from "../../releaseNotesUrl.js";
+import { CharacterSelection } from "./characterSelection.js";
 
 const PANEL_BG = "#1a1a24";
 const PANEL_BORDER = "#494956";
@@ -19,7 +20,7 @@ function applyRootStyle(el: HTMLDivElement): void {
   Object.assign(el.style, {
     position: "fixed",
     left: "50%",
-    bottom: "14%",
+    bottom: "3%",
     transform: "translateX(-50%)",
     display: "flex",
     flexDirection: "column",
@@ -67,8 +68,24 @@ function applyStatusStyle(el: HTMLDivElement): void {
   });
 }
 
+function createStatus(): HTMLDivElement {
+  const status = document.createElement("div");
+  applyStatusStyle(status);
+  return status;
+}
+
+function createReleaseNotesLink(): HTMLAnchorElement {
+  const releaseNotes = document.createElement("a");
+  releaseNotes.href = RELEASE_NOTES_INDEX_PATH;
+  releaseNotes.textContent = `Release Notes · v${APP_VERSION}`;
+  releaseNotes.style.cssText =
+    "color:#c4c4d0;font:16px monogram,monospace;text-underline-offset:3px;pointer-events:auto";
+  releaseNotes.setAttribute("aria-label", `Read release notes for version ${APP_VERSION}`);
+  return releaseNotes;
+}
+
 export interface ConnectFormHandlers {
-  onConnect(name: string, level: LevelId): void;
+  onConnect(name: string, level: LevelId, skin: PlayerSkin): void;
 }
 
 export class ConnectForm {
@@ -76,6 +93,7 @@ export class ConnectForm {
   private readonly input: HTMLInputElement;
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly status: HTMLDivElement;
+  private readonly character = new CharacterSelection();
 
   constructor(handlers: ConnectFormHandlers) {
     this.root = document.createElement("div");
@@ -86,39 +104,35 @@ export class ConnectForm {
     this.input.value = loadStoredName();
     applyInputStyle(this.input);
 
-    const choices = document.createElement("div");
-    choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
-    this.buttons.push(
-      this.createButton(
-        "Enter the Dungeon",
-        "Procedural world · enemies · progression",
-        LEVEL.Dungeon,
-        handlers,
-      ),
-      this.createButton(
-        "Enter the Sandbox",
-        "Fixed traversal course · no enemies",
-        LEVEL.Sandbox,
-        handlers,
-      ),
-    );
-    choices.append(...this.buttons);
+    const choices = this.createChoices(handlers);
     this.input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") this.submit(handlers, LEVEL.Dungeon);
     });
 
-    this.status = document.createElement("div");
-    applyStatusStyle(this.status);
-
-    const releaseNotes = document.createElement("a");
-    releaseNotes.href = RELEASE_NOTES_INDEX_PATH;
-    releaseNotes.textContent = `Release Notes · v${APP_VERSION}`;
-    releaseNotes.style.cssText =
-      "color:#c4c4d0;font:16px monogram,monospace;text-underline-offset:3px;pointer-events:auto";
-    releaseNotes.setAttribute("aria-label", `Read release notes for version ${APP_VERSION}`);
-
-    this.root.append(this.input, choices, this.status, releaseNotes);
+    this.status = createStatus();
+    this.root.append(
+      this.character.element,
+      this.input,
+      choices,
+      this.status,
+      createReleaseNotesLink(),
+    );
     document.body.append(this.root);
+  }
+
+  private createChoices(handlers: ConnectFormHandlers): HTMLDivElement {
+    const choices = document.createElement("div");
+    choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
+    this.buttons.push(
+      this.createButton(
+        "Enter the Dungeon", "Procedural world · enemies · progression", LEVEL.Dungeon, handlers,
+      ),
+      this.createButton(
+        "Enter the Sandbox", "Fixed traversal course · no enemies", LEVEL.Sandbox, handlers,
+      ),
+    );
+    choices.append(...this.buttons);
+    return choices;
   }
 
   private createButton(
@@ -143,7 +157,7 @@ export class ConnectForm {
   private submit(handlers: ConnectFormHandlers, level: LevelId): void {
     const name = this.input.value.trim().slice(0, 16) || loadStoredName();
     localStorage.setItem(NAME_STORAGE_KEY, name);
-    handlers.onConnect(name, level);
+    handlers.onConnect(name, level, this.character.skin);
   }
 
   setStatus(text: string): void {
@@ -153,6 +167,7 @@ export class ConnectForm {
   setBusy(busy: boolean): void {
     for (const button of this.buttons) button.disabled = busy;
     this.input.disabled = busy;
+    this.character.setBusy(busy);
   }
 
   dispose(): void {

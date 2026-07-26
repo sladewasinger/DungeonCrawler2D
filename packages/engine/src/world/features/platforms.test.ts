@@ -2,8 +2,19 @@ import { describe, expect, it } from "vitest";
 import { GRAVITY, JUMP_VELOCITY, STEP_UP } from "../../core/constants.js";
 import { hashString } from "../../core/rng.js";
 import { PLATFORM_TIER_STEP, applyPlatformCluster, hasPlatformCluster, platformLootSpots } from "./platforms.js";
-import { CORRIDOR_HALF_WIDTH, baseSample, chunkCenter, corridorSegments, distToCorridor, seedsFor } from "../terrain.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import {
+  CORRIDOR_HALF_WIDTH,
+  baseSample,
+  corridorSegments,
+  distToCorridor,
+  generatedChunkCenter,
+  seedsFor,
+} from "../terrain.js";
+import { TILE } from "../types.js";
+import {
+  GENERATION_CHUNK_SIZE as CHUNK_SIZE,
+  WORLD_GEOMETRY_SCALE,
+} from "../generate/scale.js";
 
 const SEED = hashString("test-world");
 const FLOOR = 1;
@@ -73,7 +84,7 @@ describe("ruin platform clusters", () => {
     for (const [cx, cy] of findClusterChunks(4)) {
       const { height } = buildClusterChunk(cx, cy);
       const segs = corridorSegments(SEED, FLOOR, cx, cy);
-      const center = chunkCenter(SEED, FLOOR, cx, cy);
+      const center = generatedChunkCenter(SEED, FLOOR, cx, cy);
       // Sample along the corridor through this chunk: tiles on the
       // centerline must not carry mesa rises (they may still slope with
       // the base terrain ramps).
@@ -104,8 +115,8 @@ function assertJumpableLootSpot(
   cx: number,
   cy: number,
 ): void {
-  const sx = Math.floor(spot.x) - cx * CHUNK_SIZE;
-  const sy = Math.floor(spot.y) - cy * CHUNK_SIZE;
+  const sx = Math.floor(spot.x / WORLD_GEOMETRY_SCALE) - cx * CHUNK_SIZE;
+  const sy = Math.floor(spot.y / WORLD_GEOMETRY_SCALE) - cy * CHUNK_SIZE;
   const top = height[sy * CHUNK_SIZE + sx] ?? 0;
   let lowest = Infinity;
   let hasStage = false;

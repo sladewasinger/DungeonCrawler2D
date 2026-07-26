@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
 import { hasPlatformCluster } from "./platforms.js";
 import { TERRACE_RISE, hasTerrace, terraceSpec } from "./terraces.js";
-import { chunkCenter } from "../terrain.js";
-import { CHUNK_SIZE } from "../types.js";
+import { generatedChunkCenter } from "../terrain.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 import {
   buildTerraceChunk,
   checkStairEntries,
@@ -64,8 +64,8 @@ describe("raised sections (terraces)", () => {
       [cx - 1, cy],
       [cx, cy],
     ]);
-    const start = snapCenter(world, chunkCenter(SEED, FLOOR, cx - 1, cy));
-    const target = snapCenter(world, chunkCenter(SEED, FLOOR, cx, cy));
+    const start = snapCenter(world, generatedChunkCenter(SEED, FLOOR, cx - 1, cy));
+    const target = snapCenter(world, generatedChunkCenter(SEED, FLOOR, cx, cy));
     // The junction sits inside the terrace, so this walk must climb it.
     expect(world.heightAt(target.x, target.y)).toBeGreaterThanOrEqual(TERRACE_RISE - 0.01);
 

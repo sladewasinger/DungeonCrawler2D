@@ -2,6 +2,7 @@ import type { GameEvent } from "@dc2d/engine";
 import { parseFistbumpSealPartner } from "../ui/chat/fistbumpSeal.js";
 import { isBossDefId } from "./bossDefIds.js";
 import type { Connection } from "./connection.js";
+import { applyNpcSpeech } from "./npcSpeech.js";
 
 const applyChatEvent = (
   conn: Connection,
@@ -49,6 +50,9 @@ const applyPrivateStateEvent = (
     case "toast":
       conn.pushToast(event.msg);
       return true;
+    case "npcSpeech":
+      applyNpcSpeech(conn, event);
+      return true;
     case "chat":
       applyChatEvent(conn, event);
       return true;
@@ -88,7 +92,12 @@ const pushBossDownIfBoss = (conn: Connection, id: string): void => {
 
 function capturedCombatTarget(conn: Connection, id: string) {
   if (id === conn.welcome?.playerId && conn.body) {
-    return { x: conn.body.x, y: conn.body.y, targetKind: "player" as const };
+    return {
+      x: conn.body.x,
+      y: conn.body.y,
+      targetKind: "player" as const,
+      skin: conn.skin,
+    };
   }
   const snap = conn.entities.get(id)?.snap;
   if (!snap || (snap.kind !== "player" && snap.kind !== "enemy")) return {};
@@ -96,6 +105,7 @@ function capturedCombatTarget(conn: Connection, id: string) {
     x: snap.x,
     y: snap.y,
     ...(snap.defId === undefined ? {} : { defId: snap.defId }),
+    ...(snap.skin === undefined ? {} : { skin: snap.skin }),
     targetKind: snap.kind,
   };
 }
@@ -109,13 +119,18 @@ export const applyEvent = (conn: Connection, event: GameEvent): void => {
   if (
     event.t === "hit" ||
     event.t === "health" ||
-    event.t === "death" ||
     event.t === "status"
   ) {
     conn.visualEvents.push({
       ...event,
       ...capturedCombatTarget(conn, event.id),
     });
-    if (event.t === "death") pushBossDownIfBoss(conn, event.id);
+  }
+  if (event.t === "death") {
+    conn.deathVisualEvents.push({
+      ...event,
+      ...capturedCombatTarget(conn, event.id),
+    });
+    pushBossDownIfBoss(conn, event.id);
   }
 };

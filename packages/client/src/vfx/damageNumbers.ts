@@ -1,13 +1,13 @@
 // Floating damage-number pool: spawns a pixel-font Text per hit, colored by kind
 // (accent palette per VISUAL_DIRECTION), rises and fades, then recycles.
 import type Phaser from "phaser";
+import type { HealthFeedback } from "../ui/healthFeedback.js";
 import { uiTextStyle } from "../ui/font.js";
 import { HUD_SCALE } from "../ui/hudScale.js";
+import { COMBAT_TEXT_DEPTH } from "./combatLayer.js";
 import { damageNumberPose, isExpired } from "./damageNumberMotion.js";
-import type { HealthFeedback } from "../ui/healthFeedback.js";
 
 const FONT_SIZE_PX = 18 * HUD_SCALE;
-const DEPTH = 400_000;
 
 interface FloatingNumber {
   readonly text: Phaser.GameObjects.Text;
@@ -26,7 +26,7 @@ export class DamageNumberPool {
     const text = this.scene.add
       .text(screenX, screenY, feedback.label, uiTextStyle(FONT_SIZE_PX, feedback.color, 1, "emphasis"))
       .setOrigin(0.5, 1)
-      .setDepth(DEPTH);
+      .setDepth(COMBAT_TEXT_DEPTH);
     this.active.push({ text, startX: screenX, startY: screenY, spawnMs: nowMs });
   }
 

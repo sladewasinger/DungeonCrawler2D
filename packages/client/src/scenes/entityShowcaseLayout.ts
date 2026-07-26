@@ -2,8 +2,12 @@
 // duo — both the camera presets (galleryCameraPositions.ts) and the showcase builder
 // (entityShowcase.ts) read these so the camera always frames what's actually there.
 
-/** Monster-cycling row + running/jumping player, laid out east of the "rooms" cluster. */
-export const SHOWCASE_ROW = { baseX: 31, baseY: 50 } as const;
+/**
+ * Monster-cycling row + running/jumping player, laid out east of the "rooms" cluster.
+ * The generated world is presented at 2x physical scale, so gallery fixtures use the
+ * matching physical coordinates instead of aiming at the former logical tile.
+ */
+export const SHOWCASE_ROW = { baseX: 62, baseY: 100 } as const;
 
 /** Tile spacing between consecutive monsters in the showcase row (entityShowcase.ts, vfxShowcase.ts). */
 export const SHOWCASE_ROW_SPACING_TILES = 2;

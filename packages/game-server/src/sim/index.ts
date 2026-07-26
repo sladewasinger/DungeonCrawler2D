@@ -24,6 +24,7 @@ import {
 import { drainReadyTransfers, initBossFloor, receiveTransfer, stepBoss } from "./floors/index.js";
 import { spawnEnemy, spawnItem } from "./helpers.js";
 import { addPlayer } from "./join.js";
+import { stepFoodAttendantDialogs } from "./npcs/foodAttendant/index.js";
 import {
   applyGodMode,
   markDisconnected,
@@ -78,17 +79,7 @@ export class GameSim {
     content: ContentRegistry,
     store: PlayerStore = new PlayerStore(null),
     rngSeed = 1,
-    opts: {
-      /** e2e scaffolding: spawn players together at the proving ground. */
-      clusterSpawns?: boolean;
-      /** Gameplay mode: cluster spawns within N tiles of a seed anchor — see state.ts's opts doc. */
-      spawnRadiusTiles?: number | undefined;
-      /** Dev harness: accept debug intents (god, teleport). NEVER in prod. */
-      debugCommands?: boolean;
-      /** Temporary playtest switch: keep populated hostiles visible but inert. */
-      freezeEnemies?: boolean;
-      testFixtures?: boolean;
-    } = {},
+    opts: SimState["opts"] = {},
   ) {
     this.state = createSimState(world, content, store, rngSeed, opts);
     initBossFloor(this.state); // no-op off floor FLOOR_CAP (Epic 7.14)
@@ -102,9 +93,7 @@ export class GameSim {
 
   get tick(): number { return this.state.tickCount; }
 
-  get playerCount(): number {
-    return this.state.players.size;
-  }
+  get playerCount(): number { return this.state.players.size; }
 
   get enemyCount(): number { return this.state.enemies.size; }
 
@@ -116,8 +105,13 @@ export class GameSim {
 
   // ── join / leave / input ─────────────────────────────────────────
 
-  addPlayer(name: string, clientId: string, resumeToken?: string): JoinResult {
-    return addPlayer(this.state, name, clientId, resumeToken);
+  addPlayer(
+    name: string,
+    clientId: string,
+    resumeToken?: string,
+    skin?: import("@dc2d/engine").PlayerSkin,
+  ): JoinResult {
+    return addPlayer(this.state, name, clientId, resumeToken, skin);
   }
 
   markDisconnected(playerId: string): void {
@@ -245,6 +239,7 @@ export class GameSim {
     syncSafeRoomDoors(sim);
     stepPlayers(sim, effectEvents);
     processActions(sim, effectEvents);
+    stepFoodAttendantDialogs(sim);
     activateChunksNearPlayers(sim);
     if (sim.tickCount % REPOPULATE_INTERVAL_TICKS === 0) repopulateNearSpawn(sim);
     if (sim.hazardsActive && sim.tickCount % TEST_ZONE_RESEED_TICKS === 0) {

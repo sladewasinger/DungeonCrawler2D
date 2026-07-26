@@ -7,8 +7,8 @@
 // still reachable from the wider corridor network through that one gate.
 import { describe, expect, it } from "vitest";
 import {
-  ARENA_HALF,
-  RING_THICKNESS,
+  GENERATED_ARENA_HALF,
+  GENERATED_RING_THICKNESS,
   bossArenaChunk,
   bossArenaGatePosition,
   bossArenaSpawnAnchor,
@@ -16,6 +16,7 @@ import {
 import { FLOOR_CAP } from "../features/descentShared.js";
 import { CHUNK_SIZE, TILE } from "../types.js";
 import { generateChunk } from "./index.js";
+import { WORLD_GEOMETRY_SCALE } from "./scale.js";
 import { bfsChunks, keyInChunk, type ChunkCache, type WorldPoint } from "./test-support.js";
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
@@ -28,14 +29,27 @@ function tileAt(seed: number, p: WorldPoint): number {
   return chunk.tiles[i] ?? TILE.Wall;
 }
 
-/** Every cell of the (2-tile-thick) ring wall band, chebyshev distance in [ARENA_HALF-RING_THICKNESS+1, ARENA_HALF] from spawn, in world coords. */
-function ringCells(spawn: WorldPoint): WorldPoint[] {
-  const inner = ARENA_HALF - RING_THICKNESS + 1;
-  const cells: WorldPoint[] = [];
-  for (let dy = -ARENA_HALF; dy <= ARENA_HALF; dy++) {
-    for (let dx = -ARENA_HALF; dx <= ARENA_HALF; dx++) {
+interface RingCell extends WorldPoint {
+  readonly gate: boolean;
+}
+
+function ringCells(spawn: WorldPoint): RingCell[] {
+  const inner = GENERATED_ARENA_HALF - GENERATED_RING_THICKNESS + 1;
+  const cells: RingCell[] = [];
+  for (let dy = -GENERATED_ARENA_HALF; dy <= GENERATED_ARENA_HALF; dy++) {
+    for (let dx = -GENERATED_ARENA_HALF; dx <= GENERATED_ARENA_HALF; dx++) {
       const d = Math.max(Math.abs(dx), Math.abs(dy));
-      if (d >= inner && d <= ARENA_HALF) cells.push({ x: spawn.x + dx, y: spawn.y + dy });
+      if (d < inner || d > GENERATED_ARENA_HALF) continue;
+      const gate = dx === 0 && dy >= inner && dy <= GENERATED_ARENA_HALF;
+      for (let oy = 0; oy < WORLD_GEOMETRY_SCALE; oy++) {
+        for (let ox = 0; ox < WORLD_GEOMETRY_SCALE; ox++) {
+          cells.push({
+            x: spawn.x + dx * WORLD_GEOMETRY_SCALE + ox,
+            y: spawn.y + dy * WORLD_GEOMETRY_SCALE + oy,
+            gate,
+          });
+        }
+      }
     }
   }
   return cells;
@@ -50,19 +64,24 @@ describe("boss arena: exactly one gate", () => {
       expect(spawn).not.toBeNull();
       expect(gate).not.toBeNull();
       if (!spawn || !gate) continue;
+      expect(gate).toEqual({
+        x: spawn.x,
+        y: spawn.y + GENERATED_ARENA_HALF * WORLD_GEOMETRY_SCALE,
+      });
 
       let floorCount = 0;
       for (const cell of ringCells(spawn)) {
         const tile = tileAt(seed, cell);
-        const isGateColumn = cell.x === gate.x && cell.y <= gate.y && cell.y > gate.y - RING_THICKNESS;
-        if (isGateColumn) {
+        if (cell.gate) {
           expect(tile, `seed ${seed}: gate notch cell (${cell.x},${cell.y}) must be walkable`).toBe(TILE.Floor);
           floorCount++;
         } else {
           expect(tile, `seed ${seed}: ring cell (${cell.x},${cell.y}) leaked open`).toBe(TILE.Wall);
         }
       }
-      expect(floorCount, `seed ${seed}: gate notch should be RING_THICKNESS cells deep`).toBe(RING_THICKNESS);
+      expect(floorCount, `seed ${seed}: gate notch must preserve its scaled footprint`).toBe(
+        GENERATED_RING_THICKNESS * WORLD_GEOMETRY_SCALE ** 2,
+      );
       checked++;
     }
     expect(checked).toBeGreaterThan(25);

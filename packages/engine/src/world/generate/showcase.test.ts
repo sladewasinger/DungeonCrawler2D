@@ -12,9 +12,11 @@ import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
 import { CHUNK_SIZE, TILE, type Chunk } from "../types.js";
 import { generateChunk } from "./index.js";
+import { WORLD_GEOMETRY_SCALE } from "./scale.js";
 
 const EPS = 0.01;
-const RADIUS = 24;
+const RADIUS = 24 * WORLD_GEOMETRY_SCALE;
+const BLOCK_SIZE = 2 * WORLD_GEOMETRY_SCALE;
 const SEEDS = Array.from({ length: 10 }, (_, i) => hashString(`showcase-seed-${i}`));
 
 interface Cell {
@@ -44,25 +46,28 @@ function anchorOf(c: Chunk): { ax: number; ay: number } {
 function nearAnchor(c: Chunk, bx: number, by: number): boolean {
   const { ax, ay } = anchorOf(c);
   return (
-    Math.max(Math.abs(bx - ax), Math.abs(bx + 1 - ax)) <= RADIUS &&
-    Math.max(Math.abs(by - ay), Math.abs(by + 1 - ay)) <= RADIUS
+    Math.max(Math.abs(bx - ax), Math.abs(bx + BLOCK_SIZE - 1 - ax)) <= RADIUS &&
+    Math.max(Math.abs(by - ay), Math.abs(by + BLOCK_SIZE - 1 - ay)) <= RADIUS
   );
 }
 
-/** The 8 cells surrounding the 2x2 block at (bx, by). */
+/** The cells surrounding one scaled showcase block at (bx, by). */
 function ring(bx: number, by: number): Array<[number, number]> {
   const out: Array<[number, number]> = [];
-  for (let y = by - 1; y <= by + 2; y++) {
-    for (let x = bx - 1; x <= bx + 2; x++) {
-      if (x < bx || x > bx + 1 || y < by || y > by + 1) out.push([x, y]);
+  for (let y = by - 1; y <= by + BLOCK_SIZE; y++) {
+    for (let x = bx - 1; x <= bx + BLOCK_SIZE; x++) {
+      if (
+        x < bx || x >= bx + BLOCK_SIZE ||
+        y < by || y >= by + BLOCK_SIZE
+      ) out.push([x, y]);
     }
   }
   return out;
 }
 
 function isBlock(c: Chunk, bx: number, by: number, h: number): boolean {
-  for (let y = by; y <= by + 1; y++) {
-    for (let x = bx; x <= bx + 1; x++) {
+  for (let y = by; y < by + BLOCK_SIZE; y++) {
+    for (let x = bx; x < bx + BLOCK_SIZE; x++) {
       const cell = cellAt(c.tiles, c.height, x, y);
       if (cell.t !== TILE.Floor || Math.abs(cell.h - h) > EPS) return false;
     }
@@ -72,8 +77,8 @@ function isBlock(c: Chunk, bx: number, by: number, h: number): boolean {
 
 /** 2x2 Floor at z1, every ring cell open ground at z <= 0.25 (a 0.75+ drop on all sides). */
 function scanPlatform(c: Chunk): { bx: number; by: number } | null {
-  for (let by = 1; by < CHUNK_SIZE - 2; by++) {
-    for (let bx = 1; bx < CHUNK_SIZE - 2; bx++) {
+  for (let by = 1; by < CHUNK_SIZE - BLOCK_SIZE; by++) {
+    for (let bx = 1; bx < CHUNK_SIZE - BLOCK_SIZE; bx++) {
       if (!nearAnchor(c, bx, by) || !isBlock(c, bx, by, 1)) continue;
       const ok = ring(bx, by).every(([x, y]) => {
         const cell = cellAt(c.tiles, c.height, x, y);
@@ -87,14 +92,14 @@ function scanPlatform(c: Chunk): { bx: number; by: number } | null {
 
 /** 2x2 Floor at z-1, open ring, rim near z0 except >= 1 Stairs tread at -0.5. */
 function scanPit(c: Chunk): { bx: number; by: number; tread: [number, number] } | null {
-  for (let by = 1; by < CHUNK_SIZE - 2; by++) {
-    for (let bx = 1; bx < CHUNK_SIZE - 2; bx++) {
+  for (let by = 1; by < CHUNK_SIZE - BLOCK_SIZE; by++) {
+    for (let bx = 1; bx < CHUNK_SIZE - BLOCK_SIZE; bx++) {
       if (!nearAnchor(c, bx, by) || !isBlock(c, bx, by, -1)) continue;
       let tread: [number, number] | null = null;
       const ok = ring(bx, by).every(([x, y]) => {
         const cell = cellAt(c.tiles, c.height, x, y);
         if (cell.t === TILE.Wall) return false;
-        if (cell.t === TILE.Stairs && Math.abs(cell.h + 0.5) <= EPS) {
+        if (cell.t === TILE.Stairs && cell.h > -1 + EPS && cell.h < -EPS) {
           tread = [x, y];
           return true;
         }
@@ -124,17 +129,16 @@ describe("floor-1 entry elevation showcase", () => {
       // pit floor (-1) on one axis — strictly higher one side, lower the other —
       // or demoteOrphanedStairs would have (rightly) deleted it.
       const [tx, ty] = pit.tread;
-      const straddles = (
-        [
-          [1, 0],
-          [0, 1],
-        ] as const
-      ).some(([dx, dy]) => {
-        const a = cellAt(chunk.tiles, chunk.height, tx + dx, ty + dy).h;
-        const b = cellAt(chunk.tiles, chunk.height, tx - dx, ty - dy).h;
-        return (a > -0.5 + EPS && b < -0.5 - EPS) || (b > -0.5 + EPS && a < -0.5 - EPS);
-      });
-      expect(straddles, `seed ${seed} tread has no climb axis`).toBe(true);
+      const neighborHeights = [
+        cellAt(chunk.tiles, chunk.height, tx + 1, ty).h,
+        cellAt(chunk.tiles, chunk.height, tx - 1, ty).h,
+        cellAt(chunk.tiles, chunk.height, tx, ty + 1).h,
+        cellAt(chunk.tiles, chunk.height, tx, ty - 1).h,
+      ];
+      expect(
+        Math.max(...neighborHeights) - Math.min(...neighborHeights),
+        `seed ${seed} tread has no climb gradient`,
+      ).toBeGreaterThan(0.2);
     }
   });
 

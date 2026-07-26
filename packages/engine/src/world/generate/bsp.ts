@@ -25,7 +25,7 @@ export interface BspResult {
 /** Warren subdivides into more, smaller cells; Plaza subdivides less, for grand halls. */
 function maxDepthFor(district: DistrictKind): number {
   if (district === DISTRICT.Warren) return BASE_MAX_DEPTH + 1;
-  if (district === DISTRICT.Plaza) return BASE_MAX_DEPTH - 1;
+  if (district === DISTRICT.Plaza || district === DISTRICT.Arena) return BASE_MAX_DEPTH - 1;
   return BASE_MAX_DEPTH;
 }
 
@@ -107,6 +107,8 @@ const DISTRICT_BIASES: readonly DistrictBias[] = [
   { kind: DISTRICT.PillarForest, threshold: 65, flavor: "pillarHall" },
   { kind: DISTRICT.Ruins, threshold: 50, flavor: "grotto" },
   { kind: DISTRICT.Plaza, threshold: 55, flavor: "plaza", minArea: 50 },
+  { kind: DISTRICT.Flooded, threshold: 60, flavor: "grotto" },
+  { kind: DISTRICT.Arena, threshold: 70, flavor: "plaza", minArea: 50 },
 ];
 
 function districtBiasedFlavor(district: DistrictKind, area: number, roll: number): Flavor | null {

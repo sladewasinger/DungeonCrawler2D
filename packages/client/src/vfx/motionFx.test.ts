@@ -1,4 +1,5 @@
 // Headless tests for jump/land/turn edge-triggers and footstep cadence.
+import { MOVE_SPEED, RUN_SPEED_MULTIPLIER } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   footstepDue,
@@ -67,8 +68,12 @@ describe("isRunning", () => {
   });
 
   it("is false at walk speed, true at run speed", () => {
-    expect(isRunning(grounded(0), grounded(4), 0.5)).toBe(false); // 8 tiles/s
-    expect(isRunning(grounded(0), grounded(6), 0.5)).toBe(true); // 12 tiles/s
+    expect(isRunning(grounded(0), grounded(MOVE_SPEED * 0.5), 0.5)).toBe(false);
+    expect(isRunning(
+      grounded(0),
+      grounded(MOVE_SPEED * RUN_SPEED_MULTIPLIER * 0.5),
+      0.5,
+    )).toBe(true);
   });
 });
 

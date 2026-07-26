@@ -43,6 +43,7 @@ export function buildRenderContext(
 
 export interface SelfPose {
   id: string;
+  skin: import("@dc2d/engine").PlayerSkin;
   name: string;
   x: number;
   y: number;
@@ -70,6 +71,7 @@ export function selfPlayerView(
   const view = target ?? {} as PlayerEntityView;
   view.id = pose.id;
   view.playerId = pose.id;
+  view.skin = pose.skin;
   view.name = pose.name;
   view.x = pose.x;
   view.y = pose.y;
@@ -98,6 +100,8 @@ export function remotePlayerView(
   const view = target ?? {} as PlayerEntityView;
   view.id = e.id;
   view.playerId = e.id;
+  if (e.snap.skin === undefined) delete view.skin;
+  else view.skin = e.snap.skin;
   view.x = e.x;
   view.y = e.y;
   view.z = e.z;

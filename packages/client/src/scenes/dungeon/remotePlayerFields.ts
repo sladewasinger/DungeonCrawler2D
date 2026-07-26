@@ -3,7 +3,7 @@ import type { EntitySnapshot } from "@dc2d/engine";
 import type { PlayerEntityView } from "../../render/entities/index.js";
 
 export type RemotePlayerFields = Pick<PlayerEntityView,
-  "name" | "hp" | "maxHp" | "fx" | "faceX" | "faceY" | "air" | "downed" |
+  "name" | "skin" | "hp" | "maxHp" | "fx" | "faceX" | "faceY" | "air" | "downed" |
   "disconnected" | "attacking" | "blocking" | "weaponId" |
   "weaponAimAngle" | "attackAngleRad">;
 
@@ -51,6 +51,8 @@ export function remotePlayerFieldsInto(
   const faceX = valueOr(snapshot.faceX, REMOTE_DEFAULTS.faceX);
   const faceY = valueOr(snapshot.faceY, REMOTE_DEFAULTS.faceY);
   target.name = valueOr(snapshot.name, REMOTE_DEFAULTS.name);
+  if (snapshot.skin === undefined) delete target.skin;
+  else target.skin = snapshot.skin;
   target.hp = valueOr(snapshot.hp, REMOTE_DEFAULTS.hp);
   target.maxHp = valueOr(snapshot.maxHp, REMOTE_DEFAULTS.maxHp);
   target.fx = valueOr(snapshot.fx, REMOTE_DEFAULTS.fx);

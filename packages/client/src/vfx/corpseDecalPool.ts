@@ -1,4 +1,4 @@
-// Pooled gore-and-bone decals: one per enemy kill, hard-capped, 30s fade
+// Pooled fallen-body decals: one per enemy kill, hard-capped, 60s fade
 // (corpseDecalMotion.ts) — reuses bloodDecalPool.ts's exact grow/recycle shape and
 // bloodDecalSlots.ts's pure cap arithmetic, per the wave-7 "blood-decal pool
 // pattern" brief. A bone-pale cross Shape (not a sprite — no bone art in the atlas),
@@ -7,21 +7,27 @@
 // GROUND-anchored (docs/ELEVATION-PROJECTION.md section 5): shifted by the kill
 // position's `groundAt` height, same `height*TILE` shape the shadow/halo use.
 import Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
-import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
+import {
+  ASSET_KEYS,
+  SCREEN_TILE_PX,
+  WORLD_PIXEL_SCALE,
+} from "../boot/assetManifest.js";
+import { monsterSpriteFor } from "../render/entities/spriteMap.js";
+import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
+import { groundPlaneDepth } from "./groundPlaneDepth.js";
 
 export const CORPSE_DECAL_CAP = 24;
 const BASE_ALPHA = 0.92;
 const BONE_COLOR = 0xd8cdb8;
 const CROSS_LENGTH_PX = 17;
 const CROSS_THICKNESS_PX = 3;
-const DEPTH_BIAS = -0.25;
 
 interface CorpseDecal {
   readonly container: Phaser.GameObjects.Container;
   readonly gore: Phaser.GameObjects.Ellipse[];
+  readonly body: Phaser.GameObjects.Sprite;
   spawnMs: number;
 }
 
@@ -39,10 +45,23 @@ export class CorpseDecalPool {
     worldY: number,
     groundHeight: number,
     tint: number,
+    defId: string | undefined,
     nowMs: number,
+    spritePrefix?: string,
+    bloodEnabled = true,
   ): void {
     const decal = shouldGrowPool(this.decals.length, CORPSE_DECAL_CAP) ? this.grow() : this.recycle();
-    this.place(decal, worldX, worldY, groundHeight, tint, nowMs);
+    this.place(
+      decal,
+      worldX,
+      worldY,
+      groundHeight,
+      tint,
+      defId,
+      nowMs,
+      spritePrefix,
+      bloodEnabled,
+    );
   }
 
   private grow(): CorpseDecal {
@@ -64,14 +83,20 @@ export class CorpseDecalPool {
       this.scene.add.ellipse(5, 1, 13, 10),
       this.scene.add.ellipse(0, -4, 10, 8),
     ];
+    const body = this.scene.add
+      .sprite(0, -4, ASSET_KEYS.atlas)
+      .setName("enemy-corpse-body")
+      .setOrigin(0.5, 0.75)
+      .setScale(WORLD_PIXEL_SCALE);
     const bones = [
       this.scene.add.rectangle(-4, -1, CROSS_THICKNESS_PX, CROSS_LENGTH_PX, BONE_COLOR),
       this.scene.add.rectangle(4, 1, CROSS_LENGTH_PX, CROSS_THICKNESS_PX, BONE_COLOR),
     ];
     const container = this.scene.add
-      .container(0, 0, [...gore, ...bones])
+      .container(0, 0, [...gore, ...bones, body])
+      .setName("enemy-corpse")
       .setBlendMode(Phaser.BlendModes.NORMAL);
-    return { container, gore, spawnMs: -Infinity };
+    return { container, gore, body, spawnMs: -Infinity };
   }
 
   private place(
@@ -80,22 +105,46 @@ export class CorpseDecalPool {
     worldY: number,
     groundHeight: number,
     tint: number,
+    defId: string | undefined,
     nowMs: number,
+    spritePrefix?: string,
+    bloodEnabled = true,
   ): void {
     const screen = worldToScreen(worldX, worldY);
     const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const scatterPx = 6;
     const scatterX = (Math.random() - 0.5) * scatterPx;
     const scatterY = (Math.random() - 0.5) * scatterPx;
-    for (const blob of decal.gore) blob.setFillStyle(tint, 1);
+    for (const blob of decal.gore) {
+      blob
+        .setFillStyle(tint, 0.9)
+        .setStrokeStyle(0, tint, 0)
+        .setVisible(bloodEnabled);
+    }
+    this.placeBody(decal.body, spritePrefix ?? (defId ? monsterSpriteFor(defId) : undefined));
     decal.container
       .setPosition(screen.x + scatterX, shiftedY + scatterY)
-      .setRotation(Math.random() * Math.PI)
-      .setScale(1.15)
+      .setRotation(0)
+      .setScale(1)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
-      .setDepth(depthForEntityNow(worldX, worldY) + DEPTH_BIAS);
+      .setDepth(groundPlaneDepth(screen.y, groundHeight) - 0.3);
     decal.spawnMs = nowMs;
+  }
+
+  private placeBody(
+    body: Phaser.GameObjects.Sprite,
+    animationPrefix: string | undefined,
+  ): void {
+    const animation = animationPrefix
+      ? this.scene.anims.get(`${animationPrefix}_idle`)
+      : undefined;
+    const frame = animation?.frames[0]?.textureFrame;
+    body
+      .setVisible(frame !== undefined)
+      .setAngle(Math.random() < 0.5 ? -90 : 90)
+      .clearTint();
+    if (frame !== undefined) body.setFrame(frame);
   }
 
   /** Fades every live decal, hiding it once past its brief lifetime (the Shape is kept for reuse). */

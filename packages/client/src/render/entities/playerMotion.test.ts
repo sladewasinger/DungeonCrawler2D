@@ -1,4 +1,5 @@
 // Headless tests for inferring a remote player's visual anim state from position deltas.
+import { MOVE_SPEED, RUN_SPEED_MULTIPLIER } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
 
@@ -23,8 +24,12 @@ describe("isRunningPace", () => {
     expect(isRunningPace(5, 0, 0)).toBe(false);
   });
 
-  it("is false at ordinary walk speed (8 tiles/s), true at run speed (12 tiles/s)", () => {
-    expect(isRunningPace(4, 0, 0.5)).toBe(false); // 8 tiles/s
-    expect(isRunningPace(6, 0, 0.5)).toBe(true); // 12 tiles/s
+  it("is false at ordinary walk speed and true at run speed", () => {
+    expect(isRunningPace(MOVE_SPEED * 0.5, 0, 0.5)).toBe(false);
+    expect(isRunningPace(
+      MOVE_SPEED * RUN_SPEED_MULTIPLIER * 0.5,
+      0,
+      0.5,
+    )).toBe(true);
   });
 });

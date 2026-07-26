@@ -44,6 +44,7 @@ export function openSocket(conn: Connection): void {
       type: "hello",
       protocol: PROTOCOL_VERSION,
       name: conn.name,
+      skin: conn.skin,
       clientId: conn.clientId,
       level: conn.level,
       snapshotMode: "delta-v1",

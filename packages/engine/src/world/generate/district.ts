@@ -12,6 +12,8 @@ export const DISTRICT = {
   Plaza: 1,
   Ruins: 2,
   PillarForest: 3,
+  Flooded: 4,
+  Arena: 5,
 } as const;
 export type DistrictKind = (typeof DISTRICT)[keyof typeof DISTRICT];
 
@@ -20,7 +22,28 @@ const DISTRICT_KINDS: readonly DistrictKind[] = [
   DISTRICT.Plaza,
   DISTRICT.Ruins,
   DISTRICT.PillarForest,
+  DISTRICT.Flooded,
+  DISTRICT.Arena,
 ];
+
+export const BIOME = {
+  Maze: "maze",
+  OpenHalls: "open-halls",
+  Ruins: "ruins",
+  Pillars: "pillars",
+  Pools: "pools",
+  Arena: "arena",
+} as const;
+export type BiomeKind = (typeof BIOME)[keyof typeof BIOME];
+
+export function biomeForDistrict(district: DistrictKind): BiomeKind {
+  if (district === DISTRICT.Warren) return BIOME.Maze;
+  if (district === DISTRICT.Plaza) return BIOME.OpenHalls;
+  if (district === DISTRICT.Ruins) return BIOME.Ruins;
+  if (district === DISTRICT.PillarForest) return BIOME.Pillars;
+  if (district === DISTRICT.Flooded) return BIOME.Pools;
+  return BIOME.Arena;
+}
 
 interface ChunkCoord {
   cx: number;

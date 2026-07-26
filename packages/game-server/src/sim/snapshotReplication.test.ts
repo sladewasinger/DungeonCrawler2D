@@ -1,6 +1,6 @@
 import type { EntitySnapshotDeltaEntry, ServerSnapshotDelta } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { makeSim } from "./integration/support.js";
+import { makeSim, teleport } from "./integration/support.js";
 
 function asDelta(value: unknown): ServerSnapshotDelta {
   if (!value || typeof value !== "object" || !("type" in value) || value.type !== "snapshotDelta") {
@@ -24,6 +24,35 @@ function nextDelta(sim: ReturnType<typeof makeSim>, playerId: string): ServerSna
 }
 
 describe("snapshot delta replication", () => {
+  it("replicates the character skin selected during the hello handshake", () => {
+    const sim = makeSim();
+    const observer = sim.addPlayer("Observer", "skin-observer");
+    const styled = sim.addPlayer(
+      "Styled",
+      "skin-styled",
+      undefined,
+      "wizzard_f",
+    );
+    const observerEntity = sim.getPlayerEntity(observer.playerId);
+    const styledEntity = sim.getPlayerEntity(styled.playerId);
+    if (!observerEntity || !styledEntity) throw new Error("missing test player");
+    teleport(
+      styledEntity,
+      observerEntity.body.x + 1,
+      observerEntity.body.y,
+      sim,
+    );
+
+    const snapshot = sim.step().get(observer.playerId);
+    expect(snapshot?.entities).toContainEqual(
+      expect.objectContaining({
+        id: styled.playerId,
+        kind: "player",
+        skin: "wizzard_f",
+      }),
+    );
+  });
+
   it("keeps legacy clients full, then sends revisions, references, and recovery baselines", () => {
     const sim = makeSim();
     const player = sim.addPlayer("A", "client-a");

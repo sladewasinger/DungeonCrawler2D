@@ -18,7 +18,14 @@ import { islandChunkCoords, islandViewCentroid } from "../../render/terrain/isla
 import { LIGHT_MAX, type DynamicLightSeed } from "../../render/terrain/tileLight.js";
 import { getViewOrientation, worldTileToView, type ViewOrientation } from "../../render/view/index.js";
 import { VfxSystem } from "../../vfx/index.js";
-import { advanceBench, benchAreaTileViews, benchItemViews, benchMonsterViews, benchProjectileViews } from "./bench/index.js";
+import {
+  advanceBench,
+  benchAreaTileViews,
+  benchItemViews,
+  benchMonsterViews,
+  benchProjectileViews,
+  drainBenchCombatVfx,
+} from "./bench/index.js";
 import { EDITOR_GRID_SIZE } from "./EditableWorld.js";
 import type { EditorStore } from "./editorStore.js";
 import { wireRenderPanelPointer } from "./renderPanelPointer.js";
@@ -92,7 +99,40 @@ export class EditorScene extends Phaser.Scene {
     this.entityRenderer.syncMonsters(benchMonsterViews(bench), ctx);
     this.entityRenderer.syncItems(benchItemViews(bench), time);
     this.entityRenderer.syncProjectiles(benchProjectileViews(bench));
+    this.syncCombatVfx(drainBenchCombatVfx(bench), time);
     this.vfx.update(time);
+  }
+
+  private syncCombatVfx(
+    events: ReturnType<typeof drainBenchCombatVfx>,
+    time: number,
+  ): void {
+    for (const event of events) {
+      if (event.t === "death") {
+        this.vfx.spawnBloodDeath(
+          event.x,
+          event.y,
+          event.groundHeight,
+          event.defId,
+          time,
+        );
+        this.vfx.spawnKillMoment(
+          event.x,
+          event.y,
+          event.groundHeight,
+          event.defId,
+          time,
+        );
+      } else {
+        this.vfx.spawnBloodHit(
+          event.x,
+          event.y,
+          event.groundHeight,
+          event.defId,
+          time,
+        );
+      }
+    }
   }
 
   private rebuild(): void {

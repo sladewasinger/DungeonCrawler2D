@@ -88,6 +88,15 @@ export function safeRoomSpawn(doorCx: number, doorCy: number): { x: number; y: n
   return { x: c.x + 0.5, y: c.y + 2.5 };
 }
 
+export function roomCenterAt(cx: number, cy: number): { x: number; y: number } {
+  return roomCenter({ cx, cy });
+}
+
+export function safeRoomFoodAttendantPosition(cx: number, cy: number): { x: number; y: number } {
+  const center = roomCenter({ cx, cy });
+  return { x: center.x - 5.5, y: center.y - 3.5 };
+}
+
 /** World tile coords of a safe room's fixtures (tests, UI hints). */
 export function safeRoomFeatures(doorCx: number, doorCy: number): {
   doors: Array<{ x: number; y: number }>;
@@ -182,6 +191,24 @@ export function safeRoomDoorPositions(cx: number, cy: number): Array<{ x: number
   }));
 }
 
+const PARTY_DOOR_LOCAL_POSITIONS: ReadonlyArray<readonly [number, number]> = [
+  [6, 1], [8, 1], [10, 1], [12, 1], [14, 1],
+  [15, 3], [15, 5], [15, 7], [15, 9],
+  [14, 11], [12, 11], [10, 11], [6, 11], [4, 11], [2, 11],
+  [1, 9], [1, 7], [1, 5], [1, 3], [2, 1],
+];
+
+/** One private personal-room portal site per possible party member. */
+export function partyRoomDoorPositions(cx: number, cy: number): Array<{ x: number; y: number }> {
+  if (roomKindAt(cx, cy) !== "party") return [];
+  const left = Math.floor(CHUNK_SIZE / 2 - PARTY_ROOM_W / 2);
+  const top = Math.floor(CHUNK_SIZE / 2 - PARTY_ROOM_H / 2);
+  return PARTY_DOOR_LOCAL_POSITIONS.map(([dx, dy]) => ({
+    x: cx * CHUNK_SIZE + left + dx,
+    y: cy * CHUNK_SIZE + top + dy,
+  }));
+}
+
 type SetTile = (lx: number, ly: number, tile: number, zone?: number) => void;
 
 /** Carve the sanctuary interior; walls stay on the perimeter ring. */
@@ -234,7 +261,7 @@ function placeFixtures(
     // Party room: a personal door on the north wall — each member's
     // own room, one door, different destinations (that's the trick:
     // the door is shared geometry; the server teleports per-player).
-    set(centerLx, top + 1, TILE.DoorPersonal);
+    // Personal portals are dynamic because each party member owns a distinct destination.
   }
 }
 

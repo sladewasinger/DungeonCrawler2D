@@ -56,7 +56,7 @@ export function syncEntities(
   const interpolated = conn.interpolated();
   const buckets = bucketFrameEntities(interpolated, state.entityBuckets);
   const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds, state.renderContext ?? undefined);
-  state.renderContext = context;
+  state.renderContext = context; entityRenderer.syncRoom(conn, nowMs);
   syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context);
 
   entityRenderer.syncProjectiles(mapFrameInto(

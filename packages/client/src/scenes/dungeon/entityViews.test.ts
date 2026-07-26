@@ -24,15 +24,15 @@ describe("selfPlayerView", () => {
     cosmetics.spriteFaceX = -1;
     triggerSelfAttack(cosmetics, 1000, -1, 0);
     const view = selfPlayerView(
-      { id: "p1", name: "Hero", x: 1, y: 2, z: 0, air: false },
+      { id: "p1", skin: "elf_f", name: "Hero", x: 1, y: 2, z: 0, air: false },
       { hp: 10, maxHp: 30, fx: ["on-fire"], downed: false, blocking: true, weaponId: "sword" },
       cosmetics,
       1000,
       Math.PI,
     );
-    expect(view).toMatchObject({ id: "p1", faceX: -1, attacking: true, blocking: true, weaponId: "sword", hp: 10, weaponAimAngle: Math.PI });
+    expect(view).toMatchObject({ id: "p1", skin: "elf_f", faceX: -1, attacking: true, blocking: true, weaponId: "sword", hp: 10, weaponAimAngle: Math.PI });
     expect(selfPlayerView(
-      { id: "p1", name: "Hero", x: 2, y: 3, z: 0, air: false },
+      { id: "p1", skin: "elf_f", name: "Hero", x: 2, y: 3, z: 0, air: false },
       { hp: 11, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
       cosmetics,
       1001,
@@ -46,7 +46,7 @@ describe("selfPlayerView", () => {
     const cosmetics = createSelfCosmeticsState();
     triggerSelfAttack(cosmetics, 1000, 0, 1);
     const view = selfPlayerView(
-      { id: "p1", name: "Hero", x: 0, y: 0, z: 0, air: false },
+      { id: "p1", skin: "knight_m", name: "Hero", x: 0, y: 0, z: 0, air: false },
       { hp: 10, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
       cosmetics,
       1000,
@@ -64,11 +64,13 @@ describe("remotePlayerView", () => {
       name: "Wren",
       anim: "attack",
       weapon: "sword",
+      skin: "dwarf_m",
       blocking: true,
       disconnected: true,
     }));
     expect(view.attacking).toBe(true);
     expect(view.weaponId).toBe("sword");
+    expect(view.skin).toBe("dwarf_m");
     expect(view.blocking).toBe(true);
     expect(view.weaponAimAngle).toBeNull();
     expect(view.disconnected).toBe(true);

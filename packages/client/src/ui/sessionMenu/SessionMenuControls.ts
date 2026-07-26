@@ -6,6 +6,7 @@ import {
   MIN_BRIGHTNESS,
   MIN_FONT_SCALE,
 } from "./localPresentation.js";
+import { createCarnageControls } from "./carnageControls.js";
 
 const BUTTON_STYLE =
   "width:100%;padding:9px;border:1px solid #757a93;background:#292b40;" +
@@ -114,5 +115,12 @@ export const createAccessibilityControls = (
   const hudTitle = document.createElement("h3");
   hudTitle.textContent = "HUD & view";
   hudTitle.style.cssText = "margin:8px 0 0;color:#aaaec8;font-size:12px";
-  return [localTitle, brightness, font, motion, hudTitle];
+  return [
+    localTitle,
+    brightness,
+    font,
+    motion,
+    ...createCarnageControls(),
+    hudTitle,
+  ];
 };

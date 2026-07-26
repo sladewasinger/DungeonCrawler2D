@@ -18,6 +18,7 @@ import {
   safeRoomDoorAt,
   safeRoomHasCapacity,
 } from "../safeRoomDoors.js";
+import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
 
 /** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
 
@@ -70,7 +71,9 @@ function useDoor(
   door: { tile: number; x: number; y: number },
 ): boolean {
   const assigned = safeRoomDoorAt(sim, door.x, door.y);
-  if (assigned) return useAssignedSafeRoomDoor(sim, slot, assigned.ownerId);
+  if (assigned) {
+    return useAssignedRoomDoor(sim, slot, assigned.ownerId, assigned.tile);
+  }
   switch (door.tile) {
     case TILE.DoorSafeRoom: {
       const doorCx = Math.floor(door.x / CHUNK_SIZE);
@@ -81,6 +84,7 @@ function useDoor(
         return true;
       }
       teleport(sim, slot, safeRoomSpawn(doorCx, doorCy), { remember: true });
+      queueFoodAttendantGreeting(sim, slot, room.cx, room.cy);
       slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
       return true;
     }
@@ -99,19 +103,24 @@ function useDoor(
   }
 }
 
-function useAssignedSafeRoomDoor(
+function useAssignedRoomDoor(
   sim: SimState,
   slot: PlayerSlot,
   ownerId: string,
+  tile: number,
 ): boolean {
   const owner = sim.players.get(ownerId);
   if (!owner?.connected) return true;
-  if (!owner.partyId) {
+  if (tile === TILE.DoorPersonal) {
+    if (slot.entity.id !== ownerId) {
+      slot.outbox.push({ t: "toast", msg: "That personal room is private" });
+      return true;
+    }
     teleport(sim, slot, personalRoomSpawn(owner.stored.slot), { remember: true });
-    slot.outbox.push({ t: "toast", msg: `${owner.entity.name ?? "Player"}'s room` });
+    slot.outbox.push({ t: "toast", msg: "Your personal room" });
     return true;
   }
-  if (slot.partyId !== owner.partyId) {
+  if (!owner.partyId || slot.partyId !== owner.partyId) {
     slot.outbox.push({ t: "toast", msg: "That party room is private" });
     return true;
   }

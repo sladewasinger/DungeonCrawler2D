@@ -4,8 +4,8 @@
 // layout itself doesn't otherwise use it), with the existing corridor
 // network (corridorCarved) always winning: a landmark never walls it off.
 
-import { chunkCenter } from "../../terrain.js";
-import { CHUNK_SIZE } from "../../types.js";
+import { generatedChunkCenter } from "../../terrain.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
 
 export interface LandmarkCenter {
   lx: number;
@@ -14,7 +14,7 @@ export interface LandmarkCenter {
 
 /** The landmark's anchor: this chunk's own corridor-junction point, in local coords. */
 export function landmarkCenter(worldSeed: number, floor: number, cx: number, cy: number): LandmarkCenter {
-  const junction = chunkCenter(worldSeed, floor, cx, cy);
+  const junction = generatedChunkCenter(worldSeed, floor, cx, cy);
   return { lx: junction.x - cx * CHUNK_SIZE, ly: junction.y - cy * CHUNK_SIZE };
 }
 

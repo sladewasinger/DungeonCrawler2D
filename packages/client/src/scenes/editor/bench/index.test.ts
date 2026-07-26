@@ -6,7 +6,11 @@ import { describe, expect, it } from "vitest";
 import { EditableWorld } from "../EditableWorld.js";
 import { paintArea, paintEnemy } from "./paint.js";
 import { createBenchState, type BenchState } from "./state.js";
-import { benchProjectileViews, stepBenchTick } from "./index.js";
+import {
+  benchProjectileViews,
+  drainBenchCombatVfx,
+  stepBenchTick,
+} from "./index.js";
 
 /** Fire at (5,5), a 5-tile oil line running east of it — the roadmap's own example. */
 function paintFireOilFixture(state: BenchState): void {
@@ -56,6 +60,12 @@ describe("SIMULATE", () => {
     paintEnemy(state, centerTile + 3, centerTile, "skeleton"); // skeleton: fast + short aggro-safe range
     for (let i = 0; i < 400 && state.dummy.hp >= state.dummy.maxHp; i++) stepBenchTick(state);
     expect(state.dummy.hp).toBeLessThan(state.dummy.maxHp);
+    expect(drainBenchCombatVfx(state)).toContainEqual(expect.objectContaining({
+      t: "hit",
+      id: state.dummy.id,
+      x: state.dummy.body.x,
+      y: state.dummy.body.y,
+    }));
   });
 
   it("renders a spitter projectile before its delayed hit reaches the dummy", () => {

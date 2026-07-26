@@ -12,21 +12,17 @@
 // position's `groundAt` height, same `height*TILE` shape the shadow/halo use.
 import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
-import { depthForEntityNow, worldToScreen } from "../render/entities/worldToScreen.js";
+import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
+import { groundPlaneDepth } from "./groundPlaneDepth.js";
 
 /** Keeps a busy fight readable without allowing the cosmetic pool to grow unbounded. */
 export const DECAL_CAP = 96;
-const BASE_ALPHA = 0.94;
-/** Sized up + NORMAL blend (user 2026-07-20: "I can BARELY see the blood"):
- * MULTIPLY over an already-dark floor multiplied to near-black-on-black. Normal-
- * blend dark red still darkens the scene (no glow) and reads on any floor tone. */
-const MIN_RADIUS_PX = 12;
-const MAX_RADIUS_PX = 27;
-/** Just under a same-row entity's feet depth, mirroring itemVisual's shadow bias. */
-const DEPTH_BIAS = -0.25;
-
+const BASE_ALPHA = 0.88;
+const MIN_DIAMETER_PX = 10;
+const MAX_DIAMETER_PX = 22;
+const SCATTER_RADIUS_PX = 28;
 interface Decal {
   readonly shape: Phaser.GameObjects.Ellipse;
   spawnMs: number;
@@ -60,23 +56,30 @@ export class BloodDecalPool {
   }
 
   private buildShape(): Phaser.GameObjects.Ellipse {
-    return this.scene.add.ellipse(0, 0, 1, 1).setBlendMode(Phaser.BlendModes.NORMAL);
+    return this.scene.add
+      .ellipse(0, 0, 1, 1)
+      .setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
   private place(decal: Decal, worldX: number, worldY: number, groundHeight: number, tint: number, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
     const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
-    const scatterPx = 12;
-    const scatterX = (Math.random() - 0.5) * scatterPx;
-    const scatterY = (Math.random() - 0.5) * scatterPx;
-    const radius = MIN_RADIUS_PX + Math.random() * (MAX_RADIUS_PX - MIN_RADIUS_PX);
+    const scatterAngle = Math.random() * Math.PI * 2;
+    const scatterDistance = Math.sqrt(Math.random()) * SCATTER_RADIUS_PX;
+    const scatterX = Math.cos(scatterAngle) * scatterDistance;
+    const scatterY = Math.sin(scatterAngle) * scatterDistance;
+    const diameter = MIN_DIAMETER_PX +
+      Math.random() * (MAX_DIAMETER_PX - MIN_DIAMETER_PX);
     decal.shape
       .setPosition(screen.x + scatterX, shiftedY + scatterY)
-      .setSize(radius * 2, radius * 1.4)
-      .setFillStyle(tint, 1)
+      .setSize(diameter, diameter)
+      .setFillStyle(tint, 0.92)
+      .setStrokeStyle(0, tint, 0)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
-      .setDepth(depthForEntityNow(worldX, worldY) + DEPTH_BIAS);
+      .setDepth(
+        groundPlaneDepth(screen.y, groundHeight, scatterY) - 0.35,
+      );
     decal.spawnMs = nowMs;
   }
 
@@ -85,7 +88,9 @@ export class BloodDecalPool {
     for (const decal of this.decals) {
       const elapsed = nowMs - decal.spawnMs;
       const expired = isDecalExpired(elapsed);
-      decal.shape.setAlpha(decalAlpha(elapsed, BASE_ALPHA)).setVisible(!expired);
+      decal.shape
+        .setAlpha(decalAlpha(elapsed, BASE_ALPHA))
+        .setVisible(!expired);
     }
   }
 

@@ -39,6 +39,8 @@ export function resetBench(state: BenchState): void {
   state.enemies.clear();
   state.items.clear();
   state.projectiles.clear();
+  state.combatVfxEvents.length = 0;
+  state.immortalCombatFixture = false;
   const center = Math.floor(EDITOR_GRID_SIZE / 2);
   state.dummy = createDummy(center, center);
   state.running = false;

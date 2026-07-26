@@ -4,17 +4,12 @@ import type Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import type { LightSource } from "../render/lighting/lightSource.js";
 import { AreaEffectPool, type AreaTileView } from "./areaEffectPool.js";
-import { bloodTintFor } from "./bloodTint.js";
-import { BloodDecalPool } from "./bloodDecalPool.js";
-import { spawnDeathSplatter, spawnHitSplatter } from "./bloodSplatter.js";
 import { BossDownFlourish } from "./bossDownFlourish.js";
-import { CorpseDecalPool } from "./corpseDecalPool.js";
+import { CombatEffects, type CarnageAppearance } from "./combatEffects.js";
 import { DamageNumberPool } from "./damageNumbers.js";
 import { FloorBanner } from "./floorBanner.js";
 import { spawnFistbumpFlourish } from "./fistbumpFlourish.js";
-import { spawnGibBurst } from "./gibBurst.js";
 import { GraceRing } from "./graceRing.js";
-import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 import { LevelUpFlourish } from "./levelUpFlourish.js";
 import { TeleportFade } from "./teleportFade.js";
 import { lowHpVignetteAlpha } from "./lowHpVignette.js";
@@ -23,7 +18,6 @@ import { MeleeSwingFx } from "./meleeSwingFx.js";
 import { OutOfBreathFx } from "./outOfBreathFx.js";
 import { PlayerMotionFx } from "./playerMotionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
-import { ScreenShakeBudget } from "./screenShake.js";
 import { TorchFlamePool } from "./torchFlames.js";
 import { WallBumpFx } from "./wallBumpFx.js";
 import { XpNumberPool } from "./xpNumbers.js";
@@ -39,9 +33,7 @@ export class VfxSystem {
   private readonly meleeSwingFx: MeleeSwingFx;
   /** Panel round 3b item 4 (WALL-BUMP FEEDBACK): sprite-nudge state + contact-point flash. */
   private readonly wallBumpFx: WallBumpFx;
-  private readonly shake: ScreenShakeBudget;
-  private readonly bloodDecals: BloodDecalPool;
-  private readonly corpseDecals: CorpseDecalPool;
+  private readonly combat: CombatEffects;
   private readonly levelUpFlourish: LevelUpFlourish;
   private readonly lowHpOverlay: LowHpOverlay;
   /** Epic 7.14: floor-entry title card, boss-death celebration, teleport fade-to-black. */
@@ -63,9 +55,7 @@ export class VfxSystem {
     this.xpNumbers = new XpNumberPool(scene);
     this.meleeSwingFx = new MeleeSwingFx(scene);
     this.wallBumpFx = new WallBumpFx(scene);
-    this.shake = new ScreenShakeBudget(scene.cameras.main);
-    this.bloodDecals = new BloodDecalPool(scene);
-    this.corpseDecals = new CorpseDecalPool(scene);
+    this.combat = new CombatEffects(scene);
     this.levelUpFlourish = new LevelUpFlourish(scene);
     this.lowHpOverlay = new LowHpOverlay(scene);
     this.playerMotionFx = new PlayerMotionFx(scene);
@@ -145,29 +135,36 @@ export class VfxSystem {
    * undefined for players) picks the blood tint via bloodTint.ts. `groundHeight` is the hit
    * position's `groundAt` — the decal is GROUND-anchored, shifted by that height (section 5). */
   spawnBloodHit(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number, dirX?: number, dirY?: number): void {
-    const screen = worldToScreen(worldX, worldY);
-    const tint = bloodTintFor(defId);
-    spawnHitSplatter(this.scene, screen.x, screen.y, tint, dirX, dirY);
-    this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
-    this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
+    this.combat.spawnBloodHit(worldX, worldY, groundHeight, defId, nowMs, dirX, dirY);
   }
 
   /** Heavier splatter + a scattered handful of floor decals for a death (Epic 7.11). */
   spawnBloodDeath(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number): void {
-    const screen = worldToScreen(worldX, worldY);
-    const tint = bloodTintFor(defId);
-    spawnDeathSplatter(this.scene, screen.x, screen.y, tint);
-    for (let i = 0; i < 7; i++) {
-      this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
-    }
+    this.combat.spawnBloodDeath(worldX, worldY, groundHeight, defId, nowMs);
+  }
+
+  spawnDeathGore(
+    worldX: number,
+    worldY: number,
+    groundHeight: number,
+    defId: string | undefined,
+    nowMs: number,
+    appearance: CarnageAppearance = {},
+    spritePrefix?: string,
+    impactAngle?: number,
+  ): void {
+    this.combat.spawnDeathGore(
+      worldX, worldY, groundHeight, defId, nowMs,
+      appearance, spritePrefix, impactAngle,
+    );
   }
 
   onOwnHit(nowMs: number): void {
-    this.shake.onOwnHit(nowMs);
+    this.combat.onOwnHit(nowMs);
   }
 
   onOwnDeath(nowMs: number): void {
-    this.shake.onOwnDeath(nowMs);
+    this.combat.onOwnDeath(nowMs);
   }
 
   /** The full kill moment (wave-7 GRINDER demand): a chunkier gib burst than an
@@ -177,20 +174,20 @@ export class VfxSystem {
    * (another lane's file), so this fakes the same snap at the camera layer.
    * Enemy deaths only — call sites gate this to `kind === "enemy"`, ordinary
    * player deaths keep the plain blood-splatter treatment (spawnBloodDeath). */
-  spawnKillMoment(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number): void {
-    const screen = worldToScreen(worldX, worldY);
-    const tint = bloodTintFor(defId);
-    spawnGibBurst(this.scene, screen.x, screen.y, tint);
-    this.corpseDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
-    this.shake.onKillMoment(nowMs);
-    this.punchCamera();
-  }
-
-  private punchCamera(): void {
-    const camera = this.scene.cameras.main;
-    camera.zoomTo(HIT_STOP_ZOOM, HIT_STOP_DURATION_MS / 2, "Sine.easeOut", true, (_cam, progress) => {
-      if (progress === 1) camera.zoomTo(1, HIT_STOP_DURATION_MS / 2, "Sine.easeIn");
-    });
+  spawnKillMoment(
+    worldX: number,
+    worldY: number,
+    groundHeight: number,
+    defId: string | undefined,
+    nowMs: number,
+    appearance: CarnageAppearance = {},
+    spritePrefix?: string,
+    impactAngle?: number,
+  ): void {
+    this.combat.spawnKillMoment(
+      worldX, worldY, groundHeight, defId, nowMs,
+      appearance, spritePrefix, impactAngle,
+    );
   }
 
   /** Floating "+N XP" above the self player — a kill's XP gain has no landed-hit
@@ -233,8 +230,7 @@ export class VfxSystem {
     this.xpNumbers.update(nowMs);
     this.meleeSwingFx.update(nowMs);
     this.wallBumpFx.update(nowMs);
-    this.bloodDecals.update(nowMs);
-    this.corpseDecals.update(nowMs);
+    this.combat.update(nowMs);
     this.levelUpFlourish.update(nowMs);
     this.lowHpOverlay.update(lowHpVignetteAlpha(this.selfHpRatio, nowMs));
     this.floorBanner.update(nowMs);
@@ -249,8 +245,7 @@ export class VfxSystem {
     this.xpNumbers.dispose();
     this.meleeSwingFx.dispose();
     this.wallBumpFx.dispose();
-    this.bloodDecals.dispose();
-    this.corpseDecals.dispose();
+    this.combat.dispose();
     this.levelUpFlourish.dispose();
     this.lowHpOverlay.dispose();
     this.floorBanner.dispose();

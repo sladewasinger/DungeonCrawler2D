@@ -95,12 +95,37 @@ export class VfxShowcase {
     this.lastDamageTickMs = nowMs;
     const hpBefore = demoSkeletonHp(nowMs - 1);
     const hpAfter = demoSkeletonHp(nowMs);
-    if (hpAfter >= hpBefore) return;
     const slot = showcaseMonsterSlot(0);
+    const groundHeight = this.world.groundAt(slot.x, slot.y);
+    if (hpAfter > hpBefore) {
+      this.vfx.spawnBloodDeath(
+        slot.x,
+        slot.y,
+        groundHeight,
+        "skeleton",
+        nowMs,
+      );
+      this.vfx.spawnKillMoment(
+        slot.x,
+        slot.y,
+        groundHeight,
+        "skeleton",
+        nowMs,
+      );
+      return;
+    }
+    if (hpAfter === hpBefore) return;
     this.vfx.spawnDamageNumber(
       slot.x,
       slot.y - 0.6,
       healthFeedback(hpAfter - hpBefore),
+      nowMs,
+    );
+    this.vfx.spawnBloodHit(
+      slot.x,
+      slot.y,
+      groundHeight,
+      "skeleton",
       nowMs,
     );
   }

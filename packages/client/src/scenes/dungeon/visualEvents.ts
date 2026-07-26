@@ -24,7 +24,6 @@ export function applyVisualEvents(
   for (const event of conn.drainVisualEvents()) {
     const healthEvent = resolveHealthEvent(event);
     if (healthEvent) applyHealthChange(conn, vfx, render, selfId, healthEvent, pendingSwings, nowMs);
-    else if (event.t === "death") applyDeath(conn, vfx, render, selfId, event, nowMs);
     else if (event.t === "fistbumpSealed") applyFistbumpSealed(conn, vfx, render, event.partnerName);
     else if (event.t === "xpGained") vfx.spawnXpNumber(event.amount, nowMs);
     else if (event.t === "levelUp") vfx.spawnLevelUpFlourish(event.level, nowMs);
@@ -102,7 +101,7 @@ function applyHealthChange(
   nowMs: number,
 ): void {
   const isSelf = event.id === selfId;
-  const { pos, defId, dir } = resolveTarget(
+  const { pos } = resolveTarget(
     conn,
     render,
     isSelf,
@@ -114,8 +113,6 @@ function applyHealthChange(
       vfx.spawnDamageNumber(pos.x, pos.y - 0.6, healthFeedback(event.delta, event.kind), nowMs);
     }
     if (event.kind === "heal") return;
-    const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
-    vfx.spawnBloodHit(pos.x, pos.y, groundHeight, defId, nowMs, dir?.x, dir?.y);
     // Panel round 3b item 5 (WHIFF FEEDBACK): this hit landed somewhere — whichever
     // pending swing plausibly caused it never gets flagged a whiff (meleeConnect.ts).
     resolveHitAgainstPending(pendingSwings, pos.x, pos.y);
@@ -126,35 +123,6 @@ function applyHealthChange(
 /** Blood burst + decals at a dying entity's last known position, plus the full kill
  * moment (gib burst, corpse decal, hit-stop, kill shake) for an enemy YOU just
  * watched die — self-death keeps the plain blood treatment + its own shake instead. */
-function applyDeath(
-  conn: Connection,
-  vfx: VfxSystem,
-  render: RenderPose,
-  selfId: string | undefined,
-  event: {
-    id: string;
-    x?: number;
-    y?: number;
-    defId?: string;
-    targetKind?: "player" | "enemy";
-  },
-  nowMs: number,
-): void {
-  const isSelf = event.id === selfId;
-  const { pos, defId, kind } = resolveTarget(
-    conn,
-    render,
-    isSelf,
-    event.id,
-    event,
-  );
-  if (!pos) return;
-  const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
-  vfx.spawnBloodDeath(pos.x, pos.y, groundHeight, defId, nowMs);
-  if (isSelf) vfx.onOwnDeath(nowMs);
-  else if (kind === "enemy") vfx.spawnKillMoment(pos.x, pos.y, groundHeight, defId, nowMs);
-}
-
 /** Flourishes both sides of a just-sealed fistbump: our own pose plus whichever
  * nearby entity's name matches the partner the seal line named. */
 function applyFistbumpSealed(conn: Connection, vfx: VfxSystem, render: RenderPose, partnerName: string): void {

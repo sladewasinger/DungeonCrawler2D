@@ -15,6 +15,7 @@ import {
   remotePlayerView,
   selfPlayerView,
 } from "./entityViews.js";
+import { syncDamageVfx } from "./damageVfxTracking.js";
 import type { FrameEntityBuckets } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
 import { resolveMeleeSwingsInto } from "./meleeSwingEvents.js";
@@ -37,11 +38,24 @@ export function syncCombatants(
   const touchActive = inputController.touchVisual() !== null;
   const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
   const players = syncPlayerViews(conn, state, buckets, render, nowMs, aimAngle);
-  entityRenderer.syncPlayers(players, context);
-  entityRenderer.syncMonsters(
-    mapFrameInto(buckets.enemies, state.entityViews.enemies, state.entityViews.enemyRecords, monsterView),
-    context,
+  const monsters = mapFrameInto(
+    buckets.enemies, state.entityViews.enemies, state.entityViews.enemyRecords, monsterView,
   );
+  syncDamageVfx(
+    state.combatHealth,
+    state.combatHealthSeen,
+    conn.world,
+    vfx,
+    players,
+    monsters,
+    state.pendingSwings,
+    conn.welcome.playerId,
+    { x: conn.body.kx, y: conn.body.ky },
+    nowMs,
+    conn.drainDeathVisualEvents(),
+  );
+  entityRenderer.syncPlayers(players, context);
+  entityRenderer.syncMonsters(monsters, context);
   entityRenderer.syncItems(
     mapFrameInto(buckets.items, state.entityViews.items, state.entityViews.itemRecords, itemView),
     nowMs,
@@ -91,6 +105,7 @@ function updateSelfSource(
   if (!conn.welcome || !conn.body) return;
   const pose = state.selfPose;
   pose.id = conn.welcome.playerId;
+  pose.skin = conn.skin;
   pose.name = conn.name;
   pose.x = render.x;
   pose.y = render.y;

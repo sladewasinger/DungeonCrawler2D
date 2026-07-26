@@ -4,10 +4,22 @@
 // hand-drawn frame/facade duplicating what drawTile.ts's face/wall art already owns.
 import { TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { uiTextStyle } from "../../ui/font.js";
 import { placeDebugTile } from "./debugSprite.js";
 import { FRAME_DOOR } from "./debugTileset.js";
 
-const SANCTUARY_TEAL = 0x8fe8db;
+const DOOR_TINT: Readonly<Record<number, number>> = {
+  [TILE.DoorSafeRoom]: 0x68a8ff,
+  [TILE.DoorParty]: 0xff75c8,
+  [TILE.DoorPersonal]: 0x79e89a,
+  [TILE.DoorExit]: 0xffd36a,
+};
+
+const DOOR_LABEL: Readonly<Record<number, string>> = {
+  [TILE.DoorSafeRoom]: "SAFE ROOM",
+  [TILE.DoorExit]: "EXIT",
+};
 
 const DOOR_TILES: ReadonlySet<TileType> = new Set([
   TILE.DoorSafeRoom,
@@ -103,5 +115,17 @@ export function drawDoor(
   container: Phaser.GameObjects.Container,
   door: DoorStructure,
 ): void {
-  placeDebugTile(scene, container, door.wx, door.wy, FRAME_DOOR, { tint: SANCTUARY_TEAL });
+  const tint = DOOR_TINT[door.tile] ?? 0xffffff;
+  placeDebugTile(scene, container, door.wx, door.wy, FRAME_DOOR, { tint });
+  const label = DOOR_LABEL[door.tile];
+  if (label) {
+    container.add(
+      scene.add.text(
+        (door.wx + 0.5) * SCREEN_TILE_PX,
+        door.wy * SCREEN_TILE_PX - 4,
+        label,
+        uiTextStyle(9, "#ffffff", 1, "emphasis"),
+      ).setOrigin(0.5, 1).setStroke("#11111a", 3),
+    );
+  }
 }

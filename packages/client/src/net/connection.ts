@@ -11,9 +11,10 @@ import {
   type ServerSnapshot,
   type ServerWelcome,
   type LevelId,
+  type PlayerSkin,
 } from "@dc2d/engine";
 import { closeSocket, openSocket } from "./socket.js";
-import type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
+import type { ChatLine, ContactInfo, DeathVisualEvent, NpcSpeech, Toast, VisualEvent } from "./connectionTypes.js";
 import { ConnectionActions } from "./ConnectionActions.js";
 import {
   interpolateInto,
@@ -39,7 +40,7 @@ import { ServerTimeline } from "./serverTimeline.js";
  * (apply.ts); remote entities render interpolated (interpolate.ts).
  */
 
-export type { ChatLine, ContactInfo, Toast, VisualEvent } from "./connectionTypes.js";
+export type { ChatLine, ContactInfo, DeathVisualEvent, NpcSpeech, Toast, VisualEvent } from "./connectionTypes.js";
 
 export class Connection extends ConnectionActions {
   world: World | null = null;
@@ -103,6 +104,9 @@ export class Connection extends ConnectionActions {
   mutedPlayers = new Set<string>();
   blockedPlayers = new Set<string>();
   visualEvents: VisualEvent[] = [];
+  deathVisualEvents: DeathVisualEvent[] = [];
+  npcSpeech: NpcSpeech | null = null;
+  roomDoors: ServerSnapshot["roomDoors"] = [];
   /** Set when the server teleported us (scene snaps the camera). */
   teleported = false;
   /** Set when hp climbs back from <=0 (net/apply.ts's respawn detection) — the scene
@@ -133,6 +137,7 @@ export class Connection extends ConnectionActions {
   reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   shouldReconnect = false;
   level: LevelId = LEVEL.Dungeon;
+  skin: PlayerSkin = "knight_f";
   /** Consecutive failed reconnect attempts since the last successful welcome — the
    * reconnect toast's attempt count (Epic 7.12); reset to 0 on every onWelcome. */
   reconnectAttempts = 0;
@@ -164,6 +169,7 @@ export class Connection extends ConnectionActions {
   }
 
   setName(name: string): void { this.name = name; }
+  setSkin(skin: PlayerSkin): void { this.skin = skin; }
   connect(level: LevelId = this.level): void {
     this.level = level;
     openSocket(this);
@@ -189,6 +195,8 @@ export class Connection extends ConnectionActions {
     this.outgoingPartyInvites.clear();
     this.interpolationFrame.length = 0;
     this.areaTiles.clear();
+    this.npcSpeech = null;
+    this.roomDoors = [];
     this.prediction.reset();
     this.movementCadence.reset();
     this.predictionCorrection.reset();
@@ -217,6 +225,12 @@ export class Connection extends ConnectionActions {
   drainVisualEvents(): VisualEvent[] {
     const out = this.visualEvents;
     this.visualEvents = [];
+    return out;
+  }
+
+  drainDeathVisualEvents(): DeathVisualEvent[] {
+    const out = this.deathVisualEvents;
+    this.deathVisualEvents = [];
     return out;
   }
 

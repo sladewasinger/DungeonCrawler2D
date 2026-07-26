@@ -2,9 +2,12 @@
 // hashed hero skins for players (palette-distinct disambiguation), content-driven
 // remap for monsters (never a second hardcoded copy of enemies.json's sprite field).
 import { enemiesData } from "@dc2d/content";
+import {
+  PLAYER_SKINS,
+  type PlayerSkin,
+} from "@dc2d/engine";
 
-const PLAYER_SKINS = ["knight_m", "elf_f", "wizzard_m", "lizard_f"] as const;
-export type PlayerSkin = (typeof PLAYER_SKINS)[number];
+export type { PlayerSkin } from "@dc2d/engine";
 
 const FALLBACK_MONSTER_SPRITE = "skelet";
 
@@ -19,7 +22,11 @@ export function hashString(value: string): number {
 }
 
 /** Picks one of 4 palette-distinct hero classes for a player id — stable across the session. */
-export function playerSkinFor(playerId: string): PlayerSkin {
+export function playerSkinFor(
+  playerId: string,
+  selected?: PlayerSkin,
+): PlayerSkin {
+  if (selected) return selected;
   return PLAYER_SKINS[hashString(playerId) % PLAYER_SKINS.length] ?? PLAYER_SKINS[0];
 }
 

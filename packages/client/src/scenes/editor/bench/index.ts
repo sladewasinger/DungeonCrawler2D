@@ -7,12 +7,58 @@ import type { EditableWorld } from "../EditableWorld.js";
 import { tickDummyRegen } from "./dummy.js";
 import { effectTargetFor, tickEnemyAi } from "./enemySim.js";
 import { stepBenchProjectiles } from "./projectiles.js";
-import { createBenchState, type BenchState } from "./state.js";
+import {
+  createBenchState,
+  type BenchCombatVfxEvent,
+  type BenchState,
+} from "./state.js";
 
 export { AREA_BRUSHES, ENEMY_BRUSH_IDS, GROUND_ITEM_BRUSH_ID, enemyDef } from "./content.js";
 export { eraseBenchCell, paintArea, paintEnemy, paintItem, resetBench, type BenchLayer } from "./paint.js";
 export { benchAreaTileViews, benchItemViews, benchMonsterViews, benchProjectileViews } from "./views.js";
 export type { BenchEnemy, BenchItemSpawn, BenchState } from "./state.js";
+
+function combatTarget(
+  state: BenchState,
+  id: string,
+): { x: number; y: number; defId?: string } | undefined {
+  if (id === state.dummy.id) {
+    return { x: state.dummy.body.x, y: state.dummy.body.y };
+  }
+  const enemy = state.enemies.get(id)?.entity;
+  if (!enemy) return undefined;
+  return {
+    x: enemy.body.x,
+    y: enemy.body.y,
+    ...(enemy.defId === undefined ? {} : { defId: enemy.defId }),
+  };
+}
+
+function queueCombatVfx(
+  state: BenchState,
+  events: readonly EffectEvent[],
+): void {
+  for (const event of events) {
+    if (event.t !== "death" && (event.t !== "hp" || event.delta >= 0)) continue;
+    const target = combatTarget(state, event.id);
+    if (!target) continue;
+    state.combatVfxEvents.push({
+      t: event.t === "death" ? "death" : "hit",
+      id: event.id,
+      x: target.x,
+      y: target.y,
+      groundHeight: state.world.groundAt(target.x, target.y),
+      ...(target.defId === undefined ? {} : { defId: target.defId }),
+      ...(event.t === "hp" ? { amount: event.delta } : {}),
+    });
+  }
+}
+
+export function drainBenchCombatVfx(
+  state: BenchState,
+): BenchCombatVfxEvent[] {
+  return state.combatVfxEvents.splice(0);
+}
 
 export function createBench(world: EditableWorld): BenchState {
   return createBenchState(world);
@@ -65,7 +111,9 @@ export function stepBenchTick(state: BenchState): void {
   realizeEvents(state, events);
   tickEnemyAi(state, TICK_DT, events);
   stepBenchProjectiles(state, events);
+  queueCombatVfx(state, events);
   tickDummyRegen(state.dummy, TICK_DT);
+  if (state.immortalCombatFixture) state.dummy.hp = state.dummy.maxHp;
   reapDeadEnemies(state);
 }
 

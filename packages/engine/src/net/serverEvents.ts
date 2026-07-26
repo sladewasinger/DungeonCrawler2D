@@ -21,6 +21,15 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     target: z.string().optional(),
   }),
   z.object({ t: z.literal("toast"), msg: z.string() }),
+  z.object({
+    t: z.literal("npcSpeech"),
+    npcId: z.string(),
+    name: z.string(),
+    x: z.number(),
+    y: z.number(),
+    text: z.string(),
+    durationMs: z.number().int().positive(),
+  }),
   z.object({ t: z.literal("invite"), from: z.string(), name: z.string() }),
   z.object({
     t: z.literal("partyInviteState"),

@@ -16,7 +16,8 @@
 // exactly the z+1 rule's 2-deep minimum, the tread's climb axis straddles a
 // checked-flat threshold and the pit floor, and no Wall/pocket topology
 // changes at all.
-import { CHUNK_SIZE, TILE, ZONE } from "../types.js";
+import { TILE, ZONE } from "../types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "./scale.js";
 import { isNearDescent, isNearLandmark } from "./landmarks/guard.js";
 import {
   at,

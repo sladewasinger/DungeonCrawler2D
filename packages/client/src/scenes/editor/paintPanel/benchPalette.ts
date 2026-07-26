@@ -47,7 +47,16 @@ function buildBenchControls(store: EditorStore, refresh: () => void): HTMLDivEle
     simulateBtn.style.background = running ? "#2e7d32" : "#1a1a24";
     simulateBtn.textContent = running ? "SIMULATE ⏸" : "SIMULATE ▶";
   });
-  controls.append(simulateBtn, button("RESET BENCH", () => (store.resetBench(), refresh())));
+  controls.append(
+    button("LOAD COMBAT TEST", () => {
+      store.loadCombatFixture();
+      simulateBtn.style.background = "#2e7d32";
+      simulateBtn.textContent = "SIMULATE ⏸";
+      refresh();
+    }),
+    simulateBtn,
+    button("RESET BENCH", () => (store.resetBench(), refresh())),
+  );
   return controls;
 }
 

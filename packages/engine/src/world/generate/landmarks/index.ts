@@ -28,7 +28,9 @@ export function applyLandmark(
   if (isStairwayDownChunk(worldSeed, floor, cx, cy)) return;
   if (isBossArenaChunk(worldSeed, floor, cx, cy)) return;
 
-  if (kind === DISTRICT.Warren) stampShrine(worldSeed, floor, cx, cy, corridorCarved, tiles, height);
+  if (kind === DISTRICT.Warren || kind === DISTRICT.Flooded) {
+    stampShrine(worldSeed, floor, cx, cy, corridorCarved, tiles, height);
+  }
   else if (kind === DISTRICT.Ruins) stampTower(seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height);
-  else stampArena(worldSeed, floor, cx, cy, corridorCarved, tiles, height); // Plaza + PillarForest
+  else stampArena(worldSeed, floor, cx, cy, corridorCarved, tiles, height);
 }
