@@ -9,10 +9,11 @@
 //   frame 0            floor            solid gray
 //   frame 1            stairs-NS        horizontal lines (climbs north/south)
 //   frame 2            stairs-EW        vertical lines (climbs east/west)
-//   frame 3 .. 18       wall mask4 0..15  purple-gray + black 3px border per autotile.ts's edgesForMask4
+//   frame 3 .. 18       wall mask4 0..15  purple-gray + black 1px source border per autotile.ts's edgesForMask4
 //   frame 19            door             brown rounded-rect + darker arch line
 
-export const DEBUG_TILE_PX = 48;
+export const DEBUG_TILE_PX = 16;
+export const DEBUG_WALL_BORDER_PX = 1;
 export const DEBUG_TILESET_COLS = 4;
 export const DEBUG_TILESET_KEY = "debug-tileset";
 export const DEBUG_TILESET_PATH = "assets/debug-tileset.png";

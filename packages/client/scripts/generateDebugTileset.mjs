@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Generates public/assets/debug-tileset.png — the hand-drawn, mostly-solid-color debug
 // tileset (docs/ASSUMPTIONS.md's autotile-debug lane): flat GRAY floors, PURPLE-GRAY
-// walls with a BLACK 3px border on whichever edges the bitmask autotile module says are
+// walls with a BLACK 1px source border on whichever edges the bitmask autotile module says are
 // NOT the same material, HORIZONTAL-LINES stairs (climbs north/south), VERTICAL-LINES
 // stairs (climbs east/west), a BROWN rounded-rect DOOR with a darker arch line (2.5D
 // rotation lane: retires the legacy pack-art door path). Deterministic, no randomness — rerun manually
@@ -22,7 +22,7 @@ import { Canvas } from "../../../tools/lib/png-canvas.mjs";
 const clientDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outPath = path.join(clientDir, "public", "assets", "debug-tileset.png");
 
-const TILE_PX = 48;
+const TILE_PX = 16;
 const COLS = 4;
 const FRAME_COUNT = 3 + 16 + 1; // floor, stairs-NS, stairs-EW, 16 wall mask4 variants, door
 
@@ -32,9 +32,9 @@ const BLACK = [0x00, 0x00, 0x00, 0xff];
 const DOOR_BROWN = [0x8b, 0x5a, 0x2b, 0xff];
 const DOOR_BROWN_DARK = [0x5a, 0x38, 0x1a, 0xff];
 
-const BORDER_PX = 3;
-const LINE_PX = 3;
-const LINE_GAP_PX = 9;
+const BORDER_PX = 1;
+const LINE_PX = 1;
+const LINE_GAP_PX = 3;
 
 /** Mirrors autotile.ts's `edgesForMask4`: a border draws on each edge whose cardinal
  * neighbor bit (bit0=N, bit1=E, bit2=S, bit3=W) is NOT set. */
@@ -92,10 +92,10 @@ function fillRoundedRect(canvas, x, y, w, h, radius, rgba) {
 
 /** A simple brown rounded-rect leaf with a darker arch line near the top (debug-tileset
  * language for doors — flat color + one accent line, same posture as floor/wall/stairs). */
-const DOOR_MARGIN_PX = 4;
-const DOOR_RADIUS_PX = 6;
-const ARCH_RADIUS_PX = 13;
-const ARCH_LINE_PX = 3;
+const DOOR_MARGIN_PX = 1;
+const DOOR_RADIUS_PX = 2;
+const ARCH_RADIUS_PX = 4;
+const ARCH_LINE_PX = 1;
 
 function drawDoor(canvas, ox, oy) {
   canvas.fillRect(ox, oy, TILE_PX, TILE_PX, FLOOR_GRAY);
@@ -104,7 +104,7 @@ function drawDoor(canvas, ox, oy) {
   fillRoundedRect(canvas, ox + DOOR_MARGIN_PX, oy + DOOR_MARGIN_PX, doorW, doorH, DOOR_RADIUS_PX, DOOR_BROWN);
   // Arch line: the upper half of a circle centered a bit below the door's top edge.
   const archCx = ox + TILE_PX / 2;
-  const archCy = oy + DOOR_MARGIN_PX + ARCH_RADIUS_PX + 2;
+  const archCy = oy + DOOR_MARGIN_PX + ARCH_RADIUS_PX + 1;
   for (let dy = -ARCH_RADIUS_PX; dy <= 0; dy++) {
     for (let dx = -ARCH_RADIUS_PX; dx <= ARCH_RADIUS_PX; dx++) {
       const dist = Math.sqrt(dx * dx + dy * dy);

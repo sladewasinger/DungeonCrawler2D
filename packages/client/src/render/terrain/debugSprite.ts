@@ -5,11 +5,11 @@
 // baking every corner combination into the spritesheet.
 import type Phaser from "phaser";
 import type { CardinalEdges, InnerCorners } from "./autotile.js";
-import { DEBUG_TILE_PX, DEBUG_TILESET_KEY } from "./debugTileset.js";
+import { DEBUG_TILE_PX, DEBUG_TILESET_KEY, DEBUG_WALL_BORDER_PX } from "./debugTileset.js";
 import { placeFractionalRect } from "./placeSprite.js";
 import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
 
-/** 1 when the debug tileset's native tile size already equals the world's on-screen tile size. */
+/** 1 when the debug tileset is authored at the terrain bake resolution. */
 const DEBUG_TILE_SCALE = TERRAIN_BAKE_TILE_PX / DEBUG_TILE_PX;
 
 export interface PlaceDebugTileOptions {
@@ -55,7 +55,7 @@ const CORNER_RECT: Readonly<
  * height/light tint (this is an overlay rect, not a tinted sprite, so it needs its own
  * real color rather than a multiply factor). */
 const CORNER_DOT_COLOR = 0x000000;
-const WALL_BORDER_FRAC = 3 / DEBUG_TILE_PX;
+const WALL_BORDER_FRAC = DEBUG_WALL_BORDER_PX / DEBUG_TILE_PX;
 
 /** Draws the same black perimeter as the baked wall tiles, without introducing a second wall-fill color. */
 export function placeWallEdges(
