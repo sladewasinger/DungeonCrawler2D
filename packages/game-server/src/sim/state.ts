@@ -5,9 +5,6 @@ import {
   type ClientInput,
   type ClientMessage,
   type ContentRegistry,
-  type EnemyBrain,
-  type EnemyAnimationState,
-  type EnemyDef,
   type Entity,
   type GameEvent,
   type InvStack,
@@ -15,6 +12,7 @@ import {
   type World,
 } from "@dc2d/engine";
 import { PlayerStore, type StoredPlayer } from "../store.js";
+import type { EnemySlot } from "./enemyState.js";
 import type {
   SnapshotClientState,
   SnapshotEntityState,
@@ -122,17 +120,6 @@ export interface PlayerSlot {
   snapshotMode?: SnapshotMode;
 }
 
-export interface EnemySlot {
-  entity: Entity;
-  brain: EnemyBrain;
-  def: EnemyDef;
-  animation: {
-    state: EnemyAnimationState;
-    ticksRemaining: number;
-    target?: { x: number; y: number; z: number };
-  };
-}
-
 export interface Party {
   id: string;
   leaderId: string;
@@ -216,6 +203,7 @@ export interface SimState {
   /** Pending fistbump offers, keyed by target entity id (Epic 7.10) — 10s window. */
   readonly fistbumpOffers: Map<string, { from: string; expiresAtTick: number }>;
   readonly activatedChunks: Set<string>;
+  readonly defeatedMiniBossRooms: Set<string>;
   /** Fire-exposure seconds per ground item id (items char, then burn away). */
   readonly exposure: Map<string, number>;
   /** Positional events delivered to anyone whose AOI covers (x, y). */
@@ -274,6 +262,7 @@ export function createSimState(
     moderationReports: [],
     fistbumpOffers: new Map(),
     activatedChunks: new Set(),
+    defeatedMiniBossRooms: new Set(),
     exposure: new Map(),
     worldEvents: [],
     tickCount: 0,
@@ -288,3 +277,5 @@ export function createSimState(
     pendingGlobalChat: [],
   };
 }
+
+export type { EnemySlot } from "./enemyState.js";

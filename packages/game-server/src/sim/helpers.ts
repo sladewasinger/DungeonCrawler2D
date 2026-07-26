@@ -1,7 +1,7 @@
 import { CHASM_DEATH_Z, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
 import { scaledEnemyDef } from "./floors/scaling.js";
 import { isSpawnProtected } from "./spawnSafety.js";
-import type { SimState } from "./state.js";
+import type { EnemySlot, SimState } from "./state.js";
 
 /** Small queries and spawners shared across the sim modules. */
 
@@ -68,7 +68,13 @@ export function spawnItem(sim: SimState, defId: string, x: number, y: number, qt
 
 /** Spawn an enemy with a fresh brain. Stats scale with the sim's floor
  * (Epic 7.14) — see floors/scaling.ts; floor 1 is unscaled. */
-export function spawnEnemy(sim: SimState, defId: string, x: number, y: number): Entity {
+export function spawnEnemy(
+  sim: SimState,
+  defId: string,
+  x: number,
+  y: number,
+  home?: EnemySlot["home"],
+): Entity {
   const baseDef = sim.content.enemies.get(defId);
   if (!baseDef) throw new Error(`unknown enemy ${defId}`);
   const def = scaledEnemyDef(baseDef, sim.world.floor);
@@ -90,6 +96,7 @@ export function spawnEnemy(sim: SimState, defId: string, x: number, y: number): 
     entity,
     brain: newBrain(),
     def,
+    ...(home ? { home } : {}),
     animation: { state: "idle", ticksRemaining: 0 },
   });
   return entity;

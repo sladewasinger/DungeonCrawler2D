@@ -17,6 +17,7 @@ export * from "./world/features/terraces.js";
 export * from "./world/generate.js";
 export * from "./world/generate/biome.js";
 export * from "./world/generate/district.js";
+export * from "./world/generate/populationRooms.js";
 export * from "./world/generate/scale.js";
 export * from "./world/features/rooms.js";
 export * from "./world/world.js";

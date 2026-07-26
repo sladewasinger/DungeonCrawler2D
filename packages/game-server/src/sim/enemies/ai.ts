@@ -105,7 +105,11 @@ function moveEnemy(
   stepBody(sim.world, entity.body, move, TICK_DT, {
     speed: entity.baseSpeed * sim.effects.speedMult(entity),
     // Enemies never set foot on sanctuary ground.
-    blocked: (x, y) => sim.world.isSanctuary(x, y),
+    blocked: (x, y) => sim.world.isSanctuary(x, y) ||
+      (enemy.home !== undefined && (
+        x < enemy.home.x0 || x > enemy.home.x1 ||
+        y < enemy.home.y0 || y > enemy.home.y1
+      )),
   });
   // Panel round 4 (spawnSafety.ts guarantee 2): a hostile that was
   // outside a graced player's clearance radius may not end its step

@@ -9,7 +9,10 @@ import {
 import { spawnEnemy } from "../helpers.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
 import type { SimState } from "../state.js";
-import { NEAR_SPAWN_RADIUS_TILES, pickEnemyDef, tooCloseToPlayer } from "./population.js";
+import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
+import { NEAR_SPAWN_RADIUS_TILES } from "./population.js";
+import { tooCloseToPlayer } from "./populationPlacement.js";
+import { pickEnemyDef } from "./populationRoster.js";
 
 /**
  * Chunks populate only once, while their enemies remain allocated after
@@ -40,11 +43,29 @@ export function repopulateNearSpawn(sim: SimState): void {
     Math.max(4, Math.floor(ENEMY_CAP / centers.length)),
   );
   for (const center of centers) {
+    restoreMiniBossEncounters(sim, center);
     const deficit = targetPerCenter -
       countEnemiesWithin(sim, center, NEAR_SPAWN_RADIUS_TILES);
     for (let n = 0; n < deficit && sim.enemies.size < ENEMY_CAP; n++) {
       const spot = randomSpotNear(sim, center, NEAR_SPAWN_RADIUS_TILES);
-      if (spot) spawnEnemy(sim, pickEnemyDef(sim), spot.x + 0.5, spot.y + 0.5);
+      if (spot) {
+        spawnEnemy(
+          sim,
+          pickEnemyDef(sim, spot.x, spot.y),
+          spot.x + 0.5,
+          spot.y + 0.5,
+        );
+      }
+    }
+  }
+}
+
+function restoreMiniBossEncounters(sim: SimState, center: PopulationCenter): void {
+  const ccx = Math.floor(center.x / CHUNK_SIZE);
+  const ccy = Math.floor(center.y / CHUNK_SIZE);
+  for (let cy = ccy - 1; cy <= ccy + 1; cy++) {
+    for (let cx = ccx - 1; cx <= ccx + 1; cx++) {
+      spawnMiniBossEncounter(sim, cx, cy);
     }
   }
 }

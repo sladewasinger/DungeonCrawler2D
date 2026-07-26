@@ -6,6 +6,7 @@ import { handleBossDeath } from "./floors/boss.js";
 import { WARDEN_DEF_ID } from "./floors/constants.js";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { spawnPlayerLootChest } from "./lootChests.js";
+import { markMiniBossDefeated } from "./enemies/miniBossPopulation.js";
 import { awardKillXp } from "./xp.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
@@ -40,6 +41,7 @@ function resolveEnemyDeaths(sim: SimState): void {
     // --- XP award hook (Epic 11 core / Epic 7.13, XP lane) — other lanes
     // touching this file this wave, leave this call alone. ---
     awardKillXp(sim, enemy);
+    markMiniBossDefeated(sim, enemy);
     // --- end XP award hook ---
     // Epic 7.14 (The Descent): the Warden's own XP burst to the whole
     // arena, gate unseal, and respawn timer — additional to (not instead

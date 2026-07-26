@@ -1,62 +1,49 @@
-import { CHASM_DEATH_Z, CHUNK_SIZE, isRoomChunk, LEVEL, platformLootSpots } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  isRoomChunk,
+  LEVEL,
+  platformLootSpots,
+} from "@dc2d/engine";
 import { spawnEnemy, spawnItem } from "../helpers.js";
 import { resolveSpawnAnchor } from "../spawn.js";
 import type { SimState } from "../state.js";
 import { populateTestZoneChunk } from "../testzone.js";
+import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
+import { randomChunkSpot, randomNearbySpot } from "./populationPlacement.js";
+import { pickEnemyDef, pickNativeEnemyDef } from "./populationRoster.js";
 
-/**
- * Enemy/loot population: which chunks get random spawns, and what goes
- * in them. Spawn placement always queries the live World (backed by
- * the BSP room/corridor/district generator), never a cached layout, so
- * it stays correct as worldgen changes.
- */
-
-/**
- * Diagnosis (panel round 2, GRINDER'S BLOCKER, docs/ASSUMPTIONS.md #150):
- * a fresh floor-1 world seeds only ~5-12 enemies within ENEMY_ACTIVE_RADIUS
- * (48 tiles) of the spawn anchor even after a wide sweep — thin enough that
- * a 15-minute hunt can plausibly whiff. This radius (bigger than
- * ENEMY_ACTIVE_RADIUS, matching a realistic walking sweep) is where floor-1
- * chunk population gets a density bonus, and what enemies/repopulation.ts
- * tops back up once other players thin it out.
- */
 export const NEAR_SPAWN_RADIUS_TILES = 60;
-/** Extra enemies per near-spawn floor-1 chunk, on top of the 2-4 base roll. */
 const NEAR_SPAWN_BONUS_ENEMIES = 2;
+const ENEMY_CAP = 150;
+const PLATFORM_LOOT = [
+  "bandage", "torch", "vodka-bottle", "knife", "water-flask",
+];
 
-/** Floor-1 chunks within NEAR_SPAWN_RADIUS_TILES of the spawn anchor get denser spawns. */
 export function isNearSpawnChunk(sim: SimState, cx: number, cy: number): boolean {
   if (sim.world.floor !== 1) return false;
   const anchor = resolveSpawnAnchor(sim);
   const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
   const centerY = cy * CHUNK_SIZE + CHUNK_SIZE / 2;
-  return Math.hypot(centerX - anchor.x, centerY - anchor.y) <= NEAR_SPAWN_RADIUS_TILES;
+  return Math.hypot(centerX - anchor.x, centerY - anchor.y) <=
+    NEAR_SPAWN_RADIUS_TILES;
 }
 
-/** Loot table for ruin-platform tops — a reason to make the jump. */
-const PLATFORM_LOOT: string[] = ["bandage", "torch", "vodka-bottle", "knife", "water-flask"];
-
-/** Enemy weight table: weights sum to 1 and are drawn in order. */
-const ENEMY_TABLE: Array<[string, number]> = [
-  ["slime", 0.4],
-  ["plant-creeper", 0.25],
-  ["skeleton", 0.2],
-  ["spitter", 0.15],
-];
-
-/** Chunk-radius population trigger, run once per player-occupied chunk. */
 export function activateChunksNearPlayers(sim: SimState): void {
   if (sim.world.level === LEVEL.Sandbox && !sim.opts.testFixtures) return;
   for (const slot of sim.players.values()) {
     const ccx = Math.floor(slot.entity.body.x / CHUNK_SIZE);
     const ccy = Math.floor(slot.entity.body.y / CHUNK_SIZE);
-    for (let cy = ccy - 1; cy <= ccy + 1; cy++) {
-      for (let cx = ccx - 1; cx <= ccx + 1; cx++) {
-        const chunkKey = `${cx},${cy}`;
-        if (sim.activatedChunks.has(chunkKey)) continue;
-        sim.activatedChunks.add(chunkKey);
-        populateChunk(sim, cx, cy);
-      }
+    activateChunkSquare(sim, ccx, ccy);
+  }
+}
+
+function activateChunkSquare(sim: SimState, ccx: number, ccy: number): void {
+  for (let cy = ccy - 1; cy <= ccy + 1; cy++) {
+    for (let cx = ccx - 1; cx <= ccx + 1; cx++) {
+      const chunkKey = `${cx},${cy}`;
+      if (sim.activatedChunks.has(chunkKey)) continue;
+      sim.activatedChunks.add(chunkKey);
+      populateChunk(sim, cx, cy);
     }
   }
 }
@@ -67,56 +54,34 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
     if (sim.opts.testFixtures) populateTestZoneChunk(sim, cx, cy);
     return;
   }
-
   spawnPlatformLoot(sim, cx, cy);
-  if (sim.enemies.size >= 150) return;
-  spawnRandomEnemies(sim, cx, cy);
+  if (sim.enemies.size >= ENEMY_CAP) return;
+  spawnMiniBossEncounter(sim, cx, cy);
+  spawnEnemyPack(sim, cx, cy);
 }
 
-/** Ruin platforms carry loot on their tops — climbing pays. */
 function spawnPlatformLoot(sim: SimState, cx: number, cy: number): void {
-  for (const spot of platformLootSpots(sim.world.worldSeed, sim.world.floor, cx, cy)) {
-    if (sim.rng.next() < 0.6) {
-      // rng.next() < 1, so the floor index is always < PLATFORM_LOOT.length.
-      const def = PLATFORM_LOOT[Math.floor(sim.rng.next() * PLATFORM_LOOT.length)]!;
-      spawnItem(sim, def, spot.x, spot.y, 1);
-    }
+  const spots = platformLootSpots(sim.world.worldSeed, sim.world.floor, cx, cy);
+  for (const spot of spots) {
+    if (sim.rng.next() >= 0.6) continue;
+    const index = Math.floor(sim.rng.next() * PLATFORM_LOOT.length);
+    spawnItem(sim, PLATFORM_LOOT[index]!, spot.x, spot.y, 1);
   }
 }
 
-export function pickEnemyDef(sim: SimState): string {
-  let roll = sim.rng.next();
-  for (const [defId, weight] of ENEMY_TABLE) {
-    if (roll < weight) return defId;
-    roll -= weight;
-  }
-  // ENEMY_TABLE's weights sum to 1, so the loop above always returns first.
-  return ENEMY_TABLE[0]![0];
-}
-
-export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
-  for (const slot of sim.players.values()) {
-    if (Math.hypot(slot.entity.body.x - x, slot.entity.body.y - y) < 12) return true;
-  }
-  return false;
-}
-
-function spawnRandomEnemies(sim: SimState, cx: number, cy: number): void {
+export function spawnEnemyPack(sim: SimState, cx: number, cy: number): void {
   const bonus = isNearSpawnChunk(sim, cx, cy) ? NEAR_SPAWN_BONUS_ENEMIES : 0;
   const count = 2 + Math.floor(sim.rng.next() * 3) + bonus;
-  let spawned = 0;
-  for (let attempt = 0; attempt < count * 8 && spawned < count; attempt++) {
-    const wx = cx * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
-    const wy = cy * CHUNK_SIZE + Math.floor(sim.rng.next() * CHUNK_SIZE);
-    // isWalkable now excludes TILE.Wall outright (walls are solid) —
-    // enemies never spawn on/inside one. A rift floor tile passes
-    // isWalkable (it's TILE.Floor, just deep) so it needs its own
-    // height check: never seed an enemy straight into a death-pit —
-    // see helpers.ts's isBodyInChasm for the shared ruling.
-    if (!sim.world.isWalkable(wx, wy) || sim.world.isSanctuary(wx, wy)) continue;
-    if (sim.world.heightAt(wx, wy) <= CHASM_DEATH_Z) continue;
-    if (tooCloseToPlayer(sim, wx, wy)) continue;
-    spawnEnemy(sim, pickEnemyDef(sim), wx + 0.5, wy + 0.5);
-    spawned++;
+  const anchor = randomChunkSpot(sim, cx, cy);
+  if (!anchor) return;
+  const packDef = pickNativeEnemyDef(sim, anchor.x, anchor.y);
+  const outlierIndex = count > 2 && sim.rng.next() < 0.35 ? count - 1 : -1;
+  for (let index = 0; index < count && sim.enemies.size < ENEMY_CAP; index++) {
+    const spot = index === 0 ? anchor : randomNearbySpot(sim, anchor, 5);
+    if (!spot) continue;
+    const defId = index === outlierIndex
+      ? pickEnemyDef(sim, spot.x, spot.y)
+      : packDef;
+    spawnEnemy(sim, defId, spot.x + 0.5, spot.y + 0.5);
   }
 }
