@@ -1,6 +1,6 @@
 // Headless tests for the held-weapon icon lookup.
 import { describe, expect, it } from "vitest";
-import { weaponIconFrame } from "./weaponIcon.js";
+import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
 
 describe("weaponIconFrame", () => {
   it("maps known weapon ids to their atlas icon frame", () => {
@@ -12,5 +12,7 @@ describe("weaponIconFrame", () => {
   it("returns null for fists (no weapon) and unmapped ids", () => {
     expect(weaponIconFrame(null)).toBeNull();
     expect(weaponIconFrame("torch")).toBeNull();
+    expect(FIST_FALLBACK_FRAME).toBe("particle_soft");
+    expect(FIST_FALLBACK_FRAME).not.toContain("knife");
   });
 });
