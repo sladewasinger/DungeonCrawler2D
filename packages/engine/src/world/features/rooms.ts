@@ -72,10 +72,10 @@ export function displayCoordinates(x: number, y: number): { x: number; y: number
   return { x: x - center.x, y: y - center.y };
 }
 
-/** Where a teleport into the room lands you, one row inside the north-wall exit. */
+/** Where a teleport into the room lands you, one row inside the south exit. */
 export function personalRoomSpawn(slot: number): { x: number; y: number } {
   const c = roomCenter(personalRoomChunk(slot));
-  return { x: c.x + 0.5, y: c.y - 2.5 };
+  return { x: c.x + 0.5, y: c.y + 1.5 };
 }
 
 export function partyRoomSpawn(slot: number): { x: number; y: number } {
@@ -131,7 +131,10 @@ export function personalRoomFeatures(slot: number): {
   return {
     stash: { x: baseX + left + 1, y: baseY + top + 1 },
     table: { x: baseX + left + PERSONAL_ROOM_W - 2, y: baseY + top + 1 },
-    exit: { x: baseX + Math.floor(CHUNK_SIZE / 2), y: baseY + top + 1 },
+    exit: {
+      x: baseX + Math.floor(CHUNK_SIZE / 2),
+      y: baseY + top + PERSONAL_ROOM_H - 2,
+    },
   };
 }
 
@@ -246,12 +249,10 @@ function placeFixtures(
   h: number,
 ): void {
   const centerLx = Math.floor(CHUNK_SIZE / 2);
-  // North/back wall by default (docs/ROADMAP.md's filed ruling) — "party"
-  // is the one exception, its north row already spent on DoorPersonal.
-  const exitOnSouth = kind === "party" || kind === "safe";
-  const exitLy = exitOnSouth ? top + h - 2 : top + 1;
+  // Every room uses the same recessed south-hall exit treatment.
+  const exitLy = top + h - 2;
   set(centerLx, exitLy, TILE.DoorExit);
-  if (exitOnSouth) carveSouthAlcove(set, centerLx, top + h - 1);
+  carveSouthAlcove(set, centerLx, top + h - 1);
 
   if (kind === "personal") {
     // Stash on the west wall, crafting table on the east wall.

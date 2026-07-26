@@ -116,7 +116,7 @@ describe("world generation", () => {
     expect(safeRoomChunk(doorCx, doorCy)).toEqual(roomA);
   });
 
-  it("embeds the personal sanctuary exit in the north wall and spawns the player just inside", () => {
+  it("embeds the personal sanctuary exit in a south alcove and spawns the player just inside", () => {
     const world = new World(SEED, FLOOR);
     const chunk = personalRoomChunk(0);
     const baseY = chunk.cy * CHUNK_SIZE;
@@ -124,15 +124,16 @@ describe("world generation", () => {
     const features = personalRoomFeatures(0);
     const spawn = personalRoomSpawn(0);
 
-    expect(features.exit.y).toBe(baseY + top + 1);
+    expect(features.exit.y).toBe(baseY + top + PERSONAL_ROOM_H - 2);
     expect(world.tileAt(features.exit.x, features.exit.y)).toBe(TILE.DoorExit);
     expect(world.tileAt(features.exit.x - 1, features.exit.y)).toBe(TILE.Floor);
     expect(world.tileAt(features.exit.x + 1, features.exit.y)).toBe(TILE.Floor);
-    expect(world.tileAt(features.exit.x - 1, features.exit.y - 1)).toBe(TILE.Wall);
-    expect(world.tileAt(features.exit.x + 1, features.exit.y - 1)).toBe(TILE.Wall);
     expect(world.tileAt(features.exit.x, features.exit.y + 1)).toBe(TILE.Floor);
+    expect(world.tileAt(features.exit.x, features.exit.y + 2)).toBe(TILE.Floor);
+    expect(world.tileAt(features.exit.x - 1, features.exit.y + 1)).toBe(TILE.Wall);
+    expect(world.tileAt(features.exit.x + 1, features.exit.y + 1)).toBe(TILE.Wall);
     expect(Math.floor(spawn.x)).toBe(features.exit.x);
-    expect(Math.floor(spawn.y)).toBe(features.exit.y + 1);
+    expect(Math.floor(spawn.y)).toBe(features.exit.y - 1);
     expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
   });
 

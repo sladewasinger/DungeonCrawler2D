@@ -17,6 +17,13 @@ const ROOM_LABELS: Readonly<Record<RoomKind, string>> = {
   personal: "YOUR PERSONAL ROOM",
 };
 
+export function roomFloorLabelPosition(
+  kind: RoomKind,
+  center: { x: number; y: number },
+): { x: number; y: number } {
+  return { x: center.x, y: center.y - (kind === "personal" ? 1.5 : 0) };
+}
+
 interface RoomObjects {
   kind: RoomKind;
   cx: number;
@@ -79,7 +86,8 @@ export class RoomPresentation {
 
   private create(kind: RoomKind, cx: number, cy: number): RoomObjects {
     const center = roomCenterAt(cx, cy);
-    const floorPosition = worldToScreen(center.x, center.y);
+    const labelPosition = roomFloorLabelPosition(kind, center);
+    const floorPosition = worldToScreen(labelPosition.x, labelPosition.y);
     const floorLabel = this.scene.add.text(
       floorPosition.x,
       floorPosition.y,
@@ -122,9 +130,10 @@ export class RoomPresentation {
     const objects = this.objects;
     if (!objects) return;
     const center = roomCenterAt(objects.cx, objects.cy);
-    const floor = worldToScreen(center.x, center.y);
+    const labelPosition = roomFloorLabelPosition(objects.kind, center);
+    const floor = worldToScreen(labelPosition.x, labelPosition.y);
     objects.floorLabel.setPosition(floor.x, floor.y)
-      .setDepth(depthForEntityNow(center.x, center.y) - 1);
+      .setDepth(depthForEntityNow(labelPosition.x, labelPosition.y) - 1);
     if (!objects.attendant) return;
     const position = safeRoomFoodAttendantPosition(objects.cx, objects.cy);
     const screen = worldToScreen(position.x, position.y);

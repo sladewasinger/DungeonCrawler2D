@@ -4,6 +4,8 @@ import {
   displayCoordinates,
   generateRoomChunk,
   partyRoomChunk,
+  personalRoomChunk,
+  personalRoomFeatures,
   personalRoomSpawn,
   safeRoomChunk,
   safeRoomFeatures,
@@ -61,10 +63,29 @@ describe("party room's south exit alcove", () => {
   });
 });
 
+describe("personal room's south exit alcove", () => {
+  it("matches the recessed exit geometry used by the other rooms", () => {
+    const { cx, cy } = personalRoomChunk(0);
+    const chunk = generateRoomChunk(cx, cy);
+    const exit = personalRoomFeatures(0).exit;
+    expect(tileAt(chunk, exit.x, exit.y)).toBe(TILE.DoorExit);
+    expect(tileAt(chunk, exit.x, exit.y + 1)).toBe(TILE.Floor);
+    expect(tileAt(chunk, exit.x, exit.y + 2)).toBe(TILE.Floor);
+    expect(tileAt(chunk, exit.x - 1, exit.y + 1)).toBe(TILE.Wall);
+    expect(tileAt(chunk, exit.x + 1, exit.y + 1)).toBe(TILE.Wall);
+  });
+
+  it("lands the player one tile inside the exit", () => {
+    const spawn = personalRoomSpawn(0);
+    const exit = personalRoomFeatures(0).exit;
+    expect(spawn).toEqual({ x: exit.x + 0.5, y: exit.y - 0.5 });
+  });
+});
+
 describe("room display coordinates", () => {
   it("keeps overworld positions global and room positions chunk-local", () => {
     expect(displayCoordinates(-17.25, 42.5)).toEqual({ x: -17.25, y: 42.5 });
     const spawn = personalRoomSpawn(3);
-    expect(displayCoordinates(spawn.x, spawn.y)).toEqual({ x: 0.5, y: -2.5 });
+    expect(displayCoordinates(spawn.x, spawn.y)).toEqual({ x: 0.5, y: 1.5 });
   });
 });
