@@ -146,7 +146,8 @@ const createWindowParts = (
     craft: panels.craft.element,
     stash: panels.stash.element,
   }).forEach((window) => manager.add(window));
-  const overlays = new ThreeHudOverlays(manager, panels, options.focusGame);
+  const overlays = new ThreeHudOverlays(manager, panels, options.focusGame,
+    options.connection.closeLootChest.bind(options.connection));
   const touch = new ThreeHudTouchOverlay(actions.toggleInventory);
   const settings = createHudSettings(manager, {
     viewDistance: options.viewDistance,

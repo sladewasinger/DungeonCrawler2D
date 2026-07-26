@@ -94,6 +94,7 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.staminaRecoveryDelaySeconds = 0;
   slot.staminaExhausted = false;
   slot.lastDamageAtTick = sim.tickCount;
+  slot.lastDamagedByPlayerId = null;
   slot.entity.statuses = [];
   slot.downedAtTick = null;
   slot.forceDeath = false;

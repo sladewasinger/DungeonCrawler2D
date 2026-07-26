@@ -9,6 +9,18 @@ function worldWithTileAt(tx: number, ty: number, tile: TileType): PromptWorld {
 }
 
 describe("resolveInteractionPrompt", () => {
+  it("shows named death loot after stairs and revive but before ordinary pickups", () => {
+    const world = worldWithTileAt(5, 5, TILE.Floor);
+    expect(resolveInteractionPrompt(
+      world,
+      5.5,
+      5.5,
+      [{ x: 5.5, y: 5.5 }],
+      undefined,
+      { id: "loot", lootOwnerName: "Crawler 123" },
+    )).toEqual({ key: "E", label: "open [DEAD] Crawler 123's loot" });
+  });
+
   it("returns null with nothing nearby", () => {
     const world = worldWithTileAt(99, 99, TILE.CraftingTable);
     expect(resolveInteractionPrompt(world, 5, 5, [])).toBeNull();

@@ -106,6 +106,13 @@ export const clientStashSchema = z.object({
   index: z.number().int().min(0).max(63),
 });
 
+export const clientLootChestSchema = z.object({
+  type: z.literal("lootChest"),
+  chestId: z.string().max(64),
+  op: z.enum(["take", "takeAll", "close"]),
+  item: z.string().max(64).optional(),
+});
+
 export const clientPartySchema = z.object({
   type: z.literal("party"),
   op: z.enum(["invite", "accept", "decline", "cancel", "leave", "kick"]),
@@ -172,6 +179,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientDescendSchema,
   clientCraftSchema,
   clientStashSchema,
+  clientLootChestSchema,
   clientPartySchema,
   clientModerationSchema,
   clientChatSchema,

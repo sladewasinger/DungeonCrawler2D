@@ -5,7 +5,7 @@ import { ratingForRun } from "./announcer/rating.js";
 import { handleBossDeath } from "./floors/boss.js";
 import { WARDEN_DEF_ID } from "./floors/constants.js";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
-import { dropAllInventory } from "./inventory.js";
+import { spawnPlayerLootChest } from "./lootChests.js";
 import { awardKillXp } from "./xp.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
@@ -92,7 +92,7 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
     sim,
     announceDeath(sim.tickCount, entity.id, entity.name ?? "?", slot.forceDeath, rating),
   );
-  dropAllInventory(sim, slot);
+  spawnPlayerLootChest(sim, slot);
   entity.statuses = [];
   slot.downedAtTick = null;
   slot.forceDeath = false;

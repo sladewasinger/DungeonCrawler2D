@@ -4,6 +4,7 @@ import {
   type World,
 } from "@dc2d/engine";
 import type { Connection } from "../net/connection.js";
+import { activeLootChestNearby, nearestLootChest } from "../net/lootChestQuery.js";
 import { nearestDownedPartyMember } from "../scenes/dungeon/contentQueries.js";
 import {
   craftSnapshot,
@@ -27,11 +28,16 @@ export function buildThreeHudLiveState(
   const body = connection.body;
   const craftNearby = !!body &&
     !!findWorldInteractionTarget(world, body.x, body.y, "craft");
-  const stashNearby = !!body &&
+  const stashNearby = activeLootChestNearby(connection) || !!body &&
     !!findWorldInteractionTarget(world, body.x, body.y, "stash");
   const stations = {
     craft: craftSnapshot(connection.inventory, craftNearby),
-    stash: stashSnapshot(connection.inventory, connection.stash, stashNearby),
+    stash: stashSnapshot(
+      connection.inventory,
+      connection.stash,
+      stashNearby,
+      connection.stashContext?.kind ?? "personal",
+    ),
   };
   const notices: ThreeHudNoticeState = {
     boss: resolveRemoteBossBar(connection.entities.values()),
@@ -76,7 +82,10 @@ function resolvePrompt(
   if (!body) return null;
   const items = [...connection.entities.values()]
     .map(({ snap }) => snap)
-    .filter((snap) => snap.kind === "item" || (snap.kind === "torch" && snap.state === "placed"));
+    .filter((snap) =>
+      (snap.kind === "item" && snap.defId !== "player-loot-chest") ||
+      (snap.kind === "torch" && snap.state === "placed")
+    );
   const reviveTarget = connection.party
     ? nearestDownedPartyMember(
       connection.party.members,
@@ -91,6 +100,7 @@ function resolvePrompt(
     body.y,
     items,
     reviveTarget,
+    nearestLootChest(connection) ?? undefined,
   );
   return prompt ? { ...prompt, key: "E" } : null;
 }

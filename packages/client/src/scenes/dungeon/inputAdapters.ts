@@ -9,6 +9,7 @@ import {
 } from "@dc2d/engine";
 import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
+import { canOpenLootChest, nearestLootChest } from "../../net/lootChestQuery.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
 import {
   isConsumableItem,
@@ -149,9 +150,15 @@ export function createInputQueries(conn: Connection): InputQueries {
       adapter.body
         ? nearestEntityId(positionedEntities(conn), "player", adapter.body.x, adapter.body.y, maxDistance)
         : undefined,
+    nearbyLootChest: () => {
+      const chest = nearestLootChest(conn);
+      return chest ? { id: chest.id, canOpen: canOpenLootChest(conn, chest) } : undefined;
+    },
     isStashNearby: (adapter) =>
-      !!conn.world && !!adapter.body &&
-      !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "stash"),
+      !!nearestLootChest(conn) || (
+        !!conn.world && !!adapter.body &&
+        !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "stash")
+      ),
     isCraftTableNearby: (adapter) =>
       !!conn.world && !!adapter.body &&
       !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "craft"),

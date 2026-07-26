@@ -44,6 +44,7 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     attackCooldownMs: () => 350,
     recipeIdAt: () => undefined,
     nearestPlayerId: () => undefined,
+    nearbyLootChest: () => undefined,
     isStashNearby: () => true,
     isCraftTableNearby: () => true,
     worldInteraction: () => null,

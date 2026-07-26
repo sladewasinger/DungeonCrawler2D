@@ -32,5 +32,8 @@ export interface StationActions {
 }
 
 export function noopStationActions(): StationActions {
-  return { craft: { craft: () => {} }, stash: { put: () => {}, take: () => {} } };
+  return {
+    craft: { craft: () => {} },
+    stash: { put: () => {}, take: () => {}, takeAll: () => {}, close: () => {} },
+  };
 }

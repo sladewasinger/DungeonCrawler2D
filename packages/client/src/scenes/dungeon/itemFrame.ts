@@ -5,8 +5,10 @@
 import { itemIconFrame } from "../../ui/widgets/hud/itemIcon.js";
 
 const FALLBACK_ITEM_FRAME = "skull";
+const LOOT_CHEST_FRAME = "chest_full_open_anim_f0";
 
 export function groundItemFrame(defId: string | undefined): string {
   if (!defId) return FALLBACK_ITEM_FRAME;
+  if (defId === "player-loot-chest") return LOOT_CHEST_FRAME;
   return itemIconFrame(defId) ?? FALLBACK_ITEM_FRAME;
 }

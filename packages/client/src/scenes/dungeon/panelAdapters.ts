@@ -92,7 +92,19 @@ export function createCraftActions(conn: Connection): CraftActions {
 /** The stash window's network intents — both index-addressed (net/connection.ts's stashOp). */
 export function createStashActions(conn: Connection): StashActions {
   return {
-    put: (index) => conn.stashOp("put", index),
-    take: (index) => conn.stashOp("take", index),
+    put: (index) => {
+      if (conn.stashContext.kind === "personal") conn.stashOp("put", index);
+    },
+    take: (index, itemId) => {
+      const chestId = conn.stashContext.chestId;
+      if (conn.stashContext.kind === "loot" && chestId) {
+        conn.lootChestOp(chestId, "take", itemId);
+      } else conn.stashOp("take", index);
+    },
+    takeAll: () => {
+      const chestId = conn.stashContext.chestId;
+      if (chestId) conn.lootChestOp(chestId, "takeAll");
+    },
+    close: () => conn.closeLootChest(),
   };
 }

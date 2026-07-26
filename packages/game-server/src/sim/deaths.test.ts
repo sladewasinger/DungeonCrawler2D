@@ -165,6 +165,7 @@ describe("resolveDeaths", () => {
     // Same tick's death branch fires too: full loot drop + respawn scheduled.
     expect(a.inventory).toHaveLength(0);
     expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
+    expect(sim.lootChests.size).toBe(1);
   });
 
   it("kills outright (full loot drop, distant respawn) when solo or forced", () => {
@@ -180,6 +181,7 @@ describe("resolveDeaths", () => {
     expect(a.entity.statuses).toHaveLength(0);
     expect(a.downedAtTick).toBeNull();
     expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
+    expect(sim.lootChests.size).toBe(1);
     expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
   });
 

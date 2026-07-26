@@ -56,11 +56,25 @@ export function syncCombatants(
   );
   entityRenderer.syncPlayers(players, context);
   entityRenderer.syncMonsters(monsters, context);
-  entityRenderer.syncItems(
-    mapFrameInto(buckets.items, state.entityViews.items, state.entityViews.itemRecords, itemView),
-    nowMs,
-  );
+  syncItemViews(conn, entityRenderer, state, buckets, render, nowMs);
   spawnMeleeSwings(vfx, state, players, nowMs);
+}
+
+function syncItemViews(
+  conn: Connection,
+  renderer: EntityRenderer,
+  state: DungeonSceneState,
+  buckets: FrameEntityBuckets,
+  render: RenderPose,
+  nowMs: number,
+): void {
+  const context = { serverTick: conn.serverTick, selfX: render.x, selfY: render.y };
+  renderer.syncItems(mapFrameInto(
+    buckets.items,
+    state.entityViews.items,
+    state.entityViews.itemRecords,
+    (entity, target) => itemView(entity, target, context),
+  ), nowMs);
 }
 
 function syncPlayerViews(

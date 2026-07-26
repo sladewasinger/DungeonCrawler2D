@@ -84,6 +84,8 @@ export class ThreeFirstPersonViewport {
       interpolated,
       frame.timeMs,
       frame.reducedMotion,
+      frame.connection.serverTick,
+      { x: frame.state.x, y: frame.state.z },
     );
     this.areaEffects.update(
       frame.connection,

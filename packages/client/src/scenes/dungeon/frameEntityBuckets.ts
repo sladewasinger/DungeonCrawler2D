@@ -4,6 +4,7 @@ export interface FrameEntityBuckets {
   readonly players: InterpolatedEntity[];
   readonly enemies: InterpolatedEntity[];
   readonly items: InterpolatedEntity[];
+  readonly lootChests: InterpolatedEntity[];
   readonly projectiles: InterpolatedEntity[];
   readonly projectileIds: Set<string>;
   readonly torches: InterpolatedEntity[];
@@ -15,6 +16,7 @@ export function createFrameEntityBuckets(): FrameEntityBuckets {
     players: [],
     enemies: [],
     items: [],
+    lootChests: [],
     projectiles: [],
     projectileIds: new Set(),
     torches: [],
@@ -37,8 +39,13 @@ export function bucketFrameEntities(
         buckets.enemies.push(entity);
         break;
       case "item":
-        buckets.items.push(entity);
-        buckets.pickupTargets.push(entity);
+        if (entity.snap.defId === "player-loot-chest") {
+          buckets.items.push(entity);
+          buckets.lootChests.push(entity);
+        } else {
+          buckets.items.push(entity);
+          buckets.pickupTargets.push(entity);
+        }
         break;
       case "projectile":
         buckets.projectiles.push(entity);
@@ -57,6 +64,7 @@ function clearBuckets(buckets: FrameEntityBuckets): void {
   buckets.players.length = 0;
   buckets.enemies.length = 0;
   buckets.items.length = 0;
+  buckets.lootChests.length = 0;
   buckets.projectiles.length = 0;
   buckets.projectileIds.clear();
   buckets.torches.length = 0;

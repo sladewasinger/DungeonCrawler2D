@@ -43,7 +43,7 @@ import {
   type PreparedSnapshotDelivery,
 } from "./snapshots.js";
 import { configureSnapshotMode, requestSnapshotBaseline } from "./snapshotReplication.js";
-import { expireInvites } from "./social.js";
+import { expireInvites } from "./social.js"; import { expireLootChests } from "./lootChests.js";
 import { syncSafeRoomDoors } from "./safeRoomDoors.js";
 import {
   injectGlobalChat,
@@ -267,7 +267,7 @@ export class GameSim {
     applyHealthRegeneration(sim, effectEvents);
     realizeEffectEvents(sim, effectEvents);
     applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
-    resolveDeaths(sim);
+    resolveDeaths(sim); expireLootChests(sim);
     stepBoss(sim); // Epic 7.14 — no-op off floor FLOOR_CAP
     expireInvites(sim);
     expireFistbumpOffers(sim);

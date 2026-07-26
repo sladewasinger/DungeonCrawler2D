@@ -41,10 +41,19 @@ export function resolveInteractionPrompt(
   y: number,
   items: readonly PromptTarget[],
   reviveTarget?: { readonly id: string },
+  lootChest?: { readonly id: string; readonly lootOwnerName?: string | undefined },
 ): InteractionPrompt | null {
   const stairway = resolveStairwayPrompt(world, x, y);
   if (stairway) return { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) };
   if (reviveTarget) return { key: "E", label: "hold to revive" };
+  if (lootChest) {
+    return {
+      key: "E",
+      label: lootChest.lootOwnerName
+        ? `open [DEAD] ${lootChest.lootOwnerName}'s loot`
+        : "open death loot",
+    };
+  }
   const worldTarget = resolveWorldInteraction(world, x, y);
   if (worldTarget) return worldPrompt(worldTarget.kind);
   if (hasNearbyItem(items, x, y)) return { key: "R", label: "pick up" };

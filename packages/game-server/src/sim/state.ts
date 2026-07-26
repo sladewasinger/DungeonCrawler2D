@@ -86,6 +86,7 @@ export interface PlayerSlot {
   staminaRecoveryDelaySeconds?: number;
   staminaExhausted?: boolean;
   lastDamageAtTick?: number;
+  lastDamagedByPlayerId?: string | null;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];
   /** Where DoorExit leads, innermost last — portals nest (world → safe room → personal). */
@@ -137,6 +138,18 @@ export interface Party {
   leaderId: string;
   members: Set<string>;
   roomSlot: number | null;
+}
+
+export interface LootChest {
+  entity: Entity;
+  slots: InvStack[];
+  viewerId: string | null;
+  victimId: string;
+  victimName: string;
+  killerId: string | null;
+  killerName: string | null;
+  unlockAtTick: number;
+  expiresAtTick: number;
 }
 
 export interface ModerationReport {
@@ -191,6 +204,7 @@ export interface SimState {
   readonly byToken: Map<string, string>;
   readonly enemies: Map<string, EnemySlot>;
   readonly items: Map<string, Entity>;
+  readonly lootChests: Map<string, LootChest>;
   readonly projectiles: Map<string, Entity>;
   /** Thrown torches, flying and placed — see sim/torches.ts. Ephemeral:
    * ASSUMPTION #41 (docs/ASSUMPTIONS.md), not persisted across restart. */

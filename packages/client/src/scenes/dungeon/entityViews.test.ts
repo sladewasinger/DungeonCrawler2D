@@ -124,6 +124,26 @@ describe("itemView", () => {
       view,
     )).toBe(view);
   });
+
+  it("maps death-chest labels, proximity, and authoritative lock time", () => {
+    const view = itemView(entity({
+      id: "loot",
+      kind: "item",
+      defId: "player-loot-chest",
+      lootOwnerName: "Crawler 123",
+      lootKillerName: "Crawler 456",
+      lootUnlockAtTick: 1_220,
+      x: 1,
+      y: 0,
+    }), undefined, { serverTick: 20, selfX: 0, selfY: 0 });
+    expect(view).toMatchObject({
+      frame: "chest_full_open_anim_f0",
+      lootLabel: "[DEAD] Crawler 123's loot",
+      lootKillerName: "Crawler 456",
+      lootLockSeconds: 60,
+      lootNearby: true,
+    });
+  });
 });
 
 describe("projectileView", () => {

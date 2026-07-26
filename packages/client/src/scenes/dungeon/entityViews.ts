@@ -1,5 +1,5 @@
 /** Maps network snapshots and local prediction into renderer entity view models. */
-import type { WorldView } from "@dc2d/engine";
+import { TICK_RATE, type WorldView } from "@dc2d/engine";
 import type { InterpolatedEntity } from "../../net/interpolate.js";
 import type {
   ItemEntityView,
@@ -132,12 +132,29 @@ export function monsterView(
 export function itemView(
   e: InterpolatedEntity,
   target?: ItemEntityView,
+  context?: { serverTick: number; selfX: number; selfY: number },
 ): ItemEntityView {
   const view = target ?? {} as ItemEntityView;
   view.id = e.id;
   view.x = e.x;
   view.y = e.y;
   view.frame = groundItemFrame(e.snap.defId);
+  if (e.snap.defId === "player-loot-chest" && e.snap.lootOwnerName) {
+    view.lootLabel = `[DEAD] ${e.snap.lootOwnerName}'s loot`;
+    if (e.snap.lootKillerName === undefined) delete view.lootKillerName;
+    else view.lootKillerName = e.snap.lootKillerName;
+    view.lootLockSeconds = Math.ceil(Math.max(
+      0,
+      (e.snap.lootUnlockAtTick ?? 0) - (context?.serverTick ?? 0),
+    ) / TICK_RATE);
+    view.lootNearby = !!context &&
+      Math.hypot(e.x - context.selfX, e.y - context.selfY) <= 3.5;
+  } else {
+    delete view.lootLabel;
+    delete view.lootKillerName;
+    delete view.lootLockSeconds;
+    delete view.lootNearby;
+  }
   return view;
 }
 

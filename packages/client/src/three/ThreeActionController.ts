@@ -3,6 +3,7 @@ import { INTERACT_RANGE, PICKUP_RANGE, type World } from "@dc2d/engine";
 import { RespawnGesture } from "../input/respawn.js";
 import { ReviveGesture } from "../input/revive.js";
 import type { Connection } from "../net/connection.js";
+import { canOpenLootChest, nearestLootChest } from "../net/lootChestQuery.js";
 import { nearestDownedPartyMember } from "../scenes/dungeon/contentQueries.js";
 import { resolveStairwayPrompt } from "../scenes/dungeon/stairwayProximity.js";
 import type { ThreeInputSample } from "./ThreeInput.js";
@@ -81,35 +82,45 @@ export class ThreeActionController {
 
   private publishInteraction(world: World, sample: ThreeInputSample): void {
     const nowMs = performance.now();
-    if (sample.interactPressed) {
-      const body = this.connection.body;
-      if (body && resolveStairwayPrompt(world, body.x, body.y)) {
-        useSelectedOrInteract(this.connection, world, this.selectedSlot, this.panels);
-        return;
-      }
-      const target = body && this.connection.party
-        ? nearestDownedPartyMember(
-          this.connection.party.members,
-          body.x,
-          body.y,
-          INTERACT_RANGE,
-        )
-        : undefined;
-      if (!this.revive.begin(target?.id, nowMs)) {
-        useSelectedOrInteract(
-          this.connection,
-          world,
-          this.selectedSlot,
-          this.panels,
-          this.pickupNearby(),
-        );
-      }
-    }
+    if (sample.interactPressed) this.publishInteractionPress(world, nowMs);
     if (sample.interactHeld) {
       if (this.revive.poll(nowMs)) this.connection.interact();
     } else {
       this.revive.end(nowMs);
     }
+  }
+
+  private publishInteractionPress(world: World, nowMs: number): void {
+    const body = this.connection.body;
+    if (body && resolveStairwayPrompt(world, body.x, body.y)) {
+      useSelectedOrInteract(this.connection, world, this.selectedSlot, this.panels);
+      return;
+    }
+    if (this.publishLootChest()) return;
+    const target = body && this.connection.party
+      ? nearestDownedPartyMember(
+        this.connection.party.members,
+        body.x,
+        body.y,
+        INTERACT_RANGE,
+      )
+      : undefined;
+    if (this.revive.begin(target?.id, nowMs)) return;
+    useSelectedOrInteract(
+      this.connection,
+      world,
+      this.selectedSlot,
+      this.panels,
+      this.pickupNearby(),
+    );
+  }
+
+  private publishLootChest(): boolean {
+    const chest = nearestLootChest(this.connection);
+    if (!chest) return false;
+    this.connection.interact();
+    if (canOpenLootChest(this.connection, chest)) this.panels?.toggleStash();
+    return true;
   }
 
   private pickupNearby(): boolean {

@@ -42,10 +42,23 @@ const applyPartyInviteState = (
   }
 };
 
+const applyStorageEvent = (conn: Connection, event: GameEvent): boolean => {
+  if (event.t === "stash") {
+    conn.stash = event.slots;
+    conn.stashContext = { kind: "personal", chestId: null };
+    return true;
+  }
+  if (event.t !== "lootChest") return false;
+  conn.stash = event.slots;
+  conn.stashContext = { kind: "loot", chestId: event.chestId };
+  return true;
+};
+
 const applyPrivateStateEvent = (
   conn: Connection,
   event: GameEvent,
 ): boolean => {
+  if (applyStorageEvent(conn, event)) return true;
   switch (event.t) {
     case "toast":
       conn.pushToast(event.msg);
@@ -61,9 +74,6 @@ const applyPrivateStateEvent = (
       return true;
     case "partyInviteState":
       applyPartyInviteState(conn, event);
-      return true;
-    case "stash":
-      conn.stash = event.slots;
       return true;
     case "contactsUpdated":
       conn.contacts = event.contacts.map((contact) => ({

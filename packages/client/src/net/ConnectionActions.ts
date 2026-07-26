@@ -12,6 +12,7 @@ import {
   fistbumpIntent,
   interactIntent,
   moderationIntent,
+  lootChestIntent,
   partyOpIntent,
   pickupIntent,
   respawnIntent,
@@ -74,6 +75,16 @@ export class ConnectionActions {
   craft(recipe: string): void { craftIntent(this.connection, recipe); }
   stashOp(op: "put" | "take", index: number): void {
     stashOpIntent(this.connection, op, index);
+  }
+  lootChestOp(chestId: string, op: "take" | "takeAll" | "close", item?: string): void {
+    lootChestIntent(this.connection, chestId, op, item);
+  }
+  closeLootChest(): void {
+    const context = this.connection.stashContext;
+    if (context.kind === "loot" && context.chestId) {
+      this.lootChestOp(context.chestId, "close");
+    }
+    this.connection.stashContext = { kind: "personal", chestId: null };
   }
   partyOp(op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick", target?: string): void {
     partyOpIntent(this.connection, op, target);

@@ -94,8 +94,13 @@ export function craftSnapshot(inventory: readonly InvStack[], nearby: boolean): 
 }
 
 /** Both stash-window columns: your inventory (put source) and the stash (take source). */
-export function stashSnapshot(inventory: readonly InvStack[], stash: readonly StashSlotSource[] | null, nearby: boolean): StashSnapshot {
-  return { nearby, inventory: stashRowViews(inventory, itemName), entries: stashRowViews(stash ?? [], itemName) };
+export function stashSnapshot(
+  inventory: readonly InvStack[],
+  stash: readonly StashSlotSource[] | null,
+  nearby: boolean,
+  kind: "personal" | "loot" = "personal",
+): StashSnapshot {
+  return { kind, nearby, inventory: stashRowViews(inventory, itemName), entries: stashRowViews(stash ?? [], itemName) };
 }
 
 export interface HudSnapshotSource {
@@ -126,6 +131,7 @@ export interface HudSnapshotSource {
   readonly stashNearby: boolean;
   /** The stash's current contents, or null before the first server "stash" event this session. */
   readonly stash: readonly StashSlotSource[] | null;
+  readonly stashKind?: "personal" | "loot";
   /** The latest still-live server toast (net/apply.ts), or null — craft/stash windows'
    * result-feedback line (docs/ROADMAP.md Epic 7.12's "existing toast/system-line pattern"). */
   readonly lastToast: ToastData | null;
@@ -156,7 +162,7 @@ function inventoryFields(
     equippedWeaponId: src.weapon,
     inventory: inventoryRows(src.inventory, src.hotbar),
     craft: craftSnapshot(src.inventory, src.craftTableNearby),
-    stash: stashSnapshot(src.inventory, src.stash, src.stashNearby),
+    stash: stashSnapshot(src.inventory, src.stash, src.stashNearby, src.stashKind),
     actionHints: resolveContextualActionHelp({
       selectedItemId,
       weaponId: src.weapon,

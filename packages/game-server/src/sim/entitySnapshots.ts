@@ -40,6 +40,24 @@ function torchFields(
   };
 }
 
+function lootChestFields(
+  sim: SimState,
+  entity: Entity,
+): Pick<
+  EntitySnapshot,
+  "lootOwnerName" | "lootKillerId" | "lootKillerName" | "lootUnlockAtTick" | "expiresAtTick"
+> | Record<string, never> {
+  const chest = sim.lootChests.get(entity.id);
+  if (!chest) return {};
+  return {
+    lootOwnerName: chest.victimName,
+    ...(chest.killerId ? { lootKillerId: chest.killerId } : {}),
+    ...(chest.killerName ? { lootKillerName: chest.killerName } : {}),
+    lootUnlockAtTick: chest.unlockAtTick,
+    expiresAtTick: chest.expiresAtTick,
+  };
+}
+
 function enemyFields(
   sim: SimState,
   entity: Entity,
@@ -93,6 +111,7 @@ function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
     ...playerFields(sim, entity),
     ...velocityFields(sim, entity),
     ...torchFields(entity),
+    ...lootChestFields(sim, entity),
     ...(entity.facing ? { faceX: entity.facing.x, faceY: entity.facing.y } : {}),
     ...(isAirborne(entity) ? { air: true as const } : {}),
   };
@@ -136,6 +155,19 @@ function torchMatches(entity: Entity, snapshot: EntitySnapshot): boolean {
     snapshot.expiresAtTick === entity.expiresAtTick;
 }
 
+function lootChestMatches(
+  sim: SimState,
+  entity: Entity,
+  snapshot: EntitySnapshot,
+): boolean {
+  const fields = lootChestFields(sim, entity);
+  return snapshot.lootOwnerName === fields.lootOwnerName &&
+    snapshot.lootKillerId === fields.lootKillerId &&
+    snapshot.lootKillerName === fields.lootKillerName &&
+    snapshot.lootUnlockAtTick === fields.lootUnlockAtTick &&
+    snapshot.expiresAtTick === fields.expiresAtTick;
+}
+
 function baseMatches(entity: Entity, snapshot: EntitySnapshot): boolean {
   return snapshot.kind === entity.kind &&
     snapshot.defId === entity.defId &&
@@ -160,7 +192,8 @@ function snapshotMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot
     velocityMatches(sim, entity, snapshot) &&
     enemyMatches(sim, entity, snapshot) &&
     playerMatches(sim, entity, snapshot) &&
-    torchMatches(entity, snapshot);
+    torchMatches(entity, snapshot) &&
+    lootChestMatches(sim, entity, snapshot);
 }
 
 /** Returns the cached payload or replaces it with a new monotonic revision. */

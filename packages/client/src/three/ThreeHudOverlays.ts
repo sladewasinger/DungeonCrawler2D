@@ -9,6 +9,7 @@ export class ThreeHudOverlays {
     private readonly manager: HudWindowManager,
     private readonly panels: ThreeHudPanels,
     private readonly focusGame: () => void,
+    private readonly releaseStash: () => void,
   ) {}
 
   toggleChat(): void { this.toggleWindow("three-chat"); }
@@ -32,7 +33,10 @@ export class ThreeHudOverlays {
     return opening;
   }
 
-  closeStash(): void { this.manager.setVisible("three-stash", false); }
+  closeStash(): void {
+    this.manager.setVisible("three-stash", false);
+    this.releaseStash();
+  }
   stashOpen(): boolean { return this.manager.isVisible("three-stash"); }
 
   closeAll(): boolean {

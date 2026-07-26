@@ -111,6 +111,7 @@ export interface InputQueries {
   attackCooldownMs(weaponId: string | null): number;
   recipeIdAt(index: number): string | undefined;
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
+  nearbyLootChest(conn: InputConnection): { id: string; canOpen: boolean } | undefined;
   isStashNearby(conn: InputConnection): boolean;
   isCraftTableNearby(conn: InputConnection): boolean;
   /** Highest-priority door/stash/craft target under the shared engine range contract. */

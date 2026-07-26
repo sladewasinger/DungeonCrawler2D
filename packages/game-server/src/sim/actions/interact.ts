@@ -19,12 +19,14 @@ import {
   safeRoomHasCapacity,
 } from "../safeRoomDoors.js";
 import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
+import { openLootChest } from "../lootChests.js";
 
 /** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
 
 export function doInteract(sim: SimState, slot: PlayerSlot, effectEvents: EffectEvent[]): void {
   if (slot.partyId && reviveDownedPartyMember(sim, slot, effectEvents)) return;
   if (slot.downedAtTick !== null) return;
+  if (openLootChest(sim, slot)) return;
   const body = slot.entity.body;
   const target = resolveWorldInteraction(sim.world, body.x, body.y);
   if (target?.kind === "door" && useDoor(sim, slot, target)) return;

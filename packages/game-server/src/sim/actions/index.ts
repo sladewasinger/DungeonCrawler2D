@@ -10,6 +10,7 @@ import { dispatchItemAction } from "./items.js";
 import { doAttack } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety.js";
 import { resetInputTimeline } from "../playerInputTimeline.js";
+import { closeLootChest, takeLoot } from "../lootChests.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
@@ -36,6 +37,7 @@ const GATED_ON_STANDING = new Set<PlayerAction["type"]>([
   "drop",
   "craft",
   "stash",
+  "lootChest",
   "fistbump",
   "descend",
 ]);
@@ -49,6 +51,15 @@ const FORFEITS_SPAWN_GRACE = new Set<PlayerAction["type"]>([
 ]);
 
 const ITEM_ACTIONS = new Set<PlayerAction["type"]>(["useSlot", "useItem", "throwTorch"]);
+
+function dispatchLootChest(
+  sim: SimState,
+  slot: PlayerSlot,
+  action: Extract<PlayerAction, { type: "lootChest" }>,
+): void {
+  if (action.op === "close") closeLootChest(sim, slot, action.chestId);
+  else takeLoot(sim, slot, action.chestId, action.op, action.item);
+}
 
 function dispatchAction(
   sim: SimState,
@@ -91,6 +102,9 @@ function dispatchGatedAction(
       break;
     case "stash":
       doStash(sim, slot, action.op, action.index);
+      break;
+    case "lootChest":
+      dispatchLootChest(sim, slot, action);
       break;
     case "fistbump":
       doFistbump(sim, slot, action.targetId);

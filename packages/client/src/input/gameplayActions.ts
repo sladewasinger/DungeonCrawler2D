@@ -30,6 +30,29 @@ function useWorldInteraction(
   return true;
 }
 
+function useLootChest(
+  conn: InputConnection,
+  panels: InputPanels,
+  queries: InputQueries,
+): boolean {
+  const chest = queries.nearbyLootChest(conn);
+  if (!chest) return false;
+  conn.interact();
+  if (chest.canOpen) panels.toggleStash(conn);
+  return true;
+}
+
+function useSelectedConsumable(
+  conn: InputConnection,
+  queries: InputQueries,
+  selectedSlot: number | null,
+): boolean {
+  const item = selectedSlot === null ? undefined : conn.hotbar[selectedSlot];
+  if (selectedSlot === null || !item || !queries.isConsumable(item)) return false;
+  conn.useSlot(selectedSlot);
+  return true;
+}
+
 /** E priority: stairs/revive/world interaction first, then the selected consumable. */
 export function interactOrUse(
   conn: InputConnection,
@@ -41,12 +64,9 @@ export function interactOrUse(
 ): void {
   if (queries.isStairwayNearby(conn)) return conn.descend();
   if (startRevive(queries.downedPartyMemberInRange(conn)?.id)) return;
+  if (useLootChest(conn, panels, queries)) return;
   if (useWorldInteraction(conn, panels, queries)) return;
-  const item = selectedSlot === null ? undefined : conn.hotbar[selectedSlot];
-  if (selectedSlot !== null && item && queries.isConsumable(item)) {
-    conn.useSlot(selectedSlot);
-    return;
-  }
+  if (useSelectedConsumable(conn, queries, selectedSlot)) return;
   useFallback(conn, fallback);
 }
 

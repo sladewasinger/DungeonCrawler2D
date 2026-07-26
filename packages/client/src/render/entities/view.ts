@@ -59,6 +59,10 @@ export interface ItemEntityView {
   x: number;
   y: number;
   frame: string;
+  lootLabel?: string;
+  lootKillerName?: string;
+  lootLockSeconds?: number;
+  lootNearby?: boolean;
 }
 
 export interface ProjectileEntityView {

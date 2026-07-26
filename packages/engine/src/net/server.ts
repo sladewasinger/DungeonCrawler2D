@@ -94,6 +94,10 @@ export const entitySnapshotSchema = z.object({
   state: z.enum(["flying", "placed"]).optional(),
   /** Tick a placed torch despawns (kind === "torch", state "placed"). */
   expiresAtTick: z.number().int().optional(),
+  lootOwnerName: z.string().optional(),
+  lootKillerId: z.string().optional(),
+  lootKillerName: z.string().optional(),
+  lootUnlockAtTick: z.number().int().optional(),
 });
 export type EntitySnapshot = z.infer<typeof entitySnapshotSchema>;
 

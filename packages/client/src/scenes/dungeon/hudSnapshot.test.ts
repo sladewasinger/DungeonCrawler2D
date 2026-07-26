@@ -181,6 +181,7 @@ describe("buildHudSnapshot", () => {
     const stash = [{ item: "bandage", qty: 2 }];
     const snap = snapshotOf(source({ inventory, stash, stashNearby: true }));
     expect(snap.stash).toEqual({
+      kind: "personal",
       nearby: true,
       inventory: [{ index: 0, itemId: "sword", name: "Rusty Sword", qty: 1 }],
       entries: [{ index: 0, itemId: "bandage", name: "Bandage", qty: 2 }],
@@ -190,6 +191,15 @@ describe("buildHudSnapshot", () => {
   it("treats a null stash (no server event yet) as an empty entries column", () => {
     const snap = snapshotOf(source({ stash: null, stashNearby: true }));
     expect(snap.stash.entries).toEqual([]);
+  });
+
+  it("marks death-loot contents so stash panels disable deposits", () => {
+    const snap = snapshotOf(source({
+      stash: [{ item: "rag", qty: 3 }],
+      stashNearby: true,
+      stashKind: "loot",
+    }));
+    expect(snap.stash.kind).toBe("loot");
   });
 
   it("passes the latest toast straight through", () => {

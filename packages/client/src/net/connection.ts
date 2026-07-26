@@ -91,7 +91,7 @@ export class Connection extends ConnectionActions {
   party: ServerSnapshot["party"] = null;
 
   // UI state fed by events.
-  stash: Array<{ item: string; qty: number }> | null = null;
+  stash: Array<{ item: string; qty: number }> | null = null; stashContext: { kind: "personal" | "loot"; chestId: string | null } = { kind: "personal", chestId: null };
   pendingInvite: { from: string; name: string } | null = null;
   readonly outgoingPartyInvites = new Map<string, string>();
   toasts: Toast[] = [];
@@ -196,7 +196,7 @@ export class Connection extends ConnectionActions {
     this.interpolationFrame.length = 0;
     this.areaTiles.clear();
     this.npcSpeech = null;
-    this.roomDoors = [];
+    this.roomDoors = []; this.stashContext = { kind: "personal", chestId: null };
     this.prediction.reset();
     this.movementCadence.reset();
     this.predictionCorrection.reset();

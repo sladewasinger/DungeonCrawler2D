@@ -20,7 +20,7 @@ import { buildAreaTileViewsInto } from "./areaViews.js";
 import { syncCombatants } from "./combatantSync.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, projectileView } from "./entityViews.js";
-import { bucketFrameEntities } from "./frameEntityBuckets.js";
+import { bucketFrameEntities, type FrameEntityBuckets } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
@@ -72,14 +72,29 @@ export function syncEntities(
     torchAccentLights = torchSync.accentLights;
   }
 
+  return {
+    interactionPrompt: frameInteractionPrompt(conn, buckets),
+    torchAccentLights,
+  };
+}
+
+function frameInteractionPrompt(
+  conn: Connection,
+  buckets: FrameEntityBuckets,
+): InteractionPrompt | null {
+  if (!conn.world || !conn.body) return null;
   const body = conn.body;
   const reviveTarget = conn.party
     ? nearestDownedPartyMember(conn.party.members, body.x, body.y, INTERACT_RANGE)
     : undefined;
-  return {
-    interactionPrompt: resolveInteractionPrompt(conn.world, body.x, body.y, buckets.pickupTargets, reviveTarget),
-    torchAccentLights,
-  };
+  return resolveInteractionPrompt(
+    conn.world,
+    body.x,
+    body.y,
+    buckets.pickupTargets,
+    reviveTarget,
+    buckets.lootChests[0]?.snap,
+  );
 }
 
 /**

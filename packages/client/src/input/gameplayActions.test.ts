@@ -17,6 +17,7 @@ const setup = (
     revive?: boolean;
     consumable?: boolean;
     nearby?: string;
+    lootCanOpen?: boolean;
   } = {},
 ) => {
   const calls: string[] = [];
@@ -68,6 +69,9 @@ const setup = (
     attackCooldownMs: () => 0,
     recipeIdAt: () => undefined,
     nearestPlayerId: () => options.nearby,
+    nearbyLootChest: () => options.lootCanOpen === undefined
+      ? undefined
+      : { id: "loot-1", canOpen: options.lootCanOpen },
     isStashNearby: () => interaction?.kind === "stash",
     isCraftTableNearby: () => interaction?.kind === "craft",
     worldInteraction: () => interaction,
@@ -76,6 +80,20 @@ const setup = (
   } satisfies InputQueries;
   return { calls, conn, panels, queries };
 };
+
+describe("loot chest interaction priority", () => {
+  it("opens an eligible chest and still lets the server validate it", () => {
+    const { calls, conn, panels, queries } = setup(null, { lootCanOpen: true });
+    interactOrUse(conn, panels, queries, null, () => false);
+    expect(calls).toEqual(["interact", "toggleStash"]);
+  });
+
+  it("asks the server for lock feedback without opening for a stranger", () => {
+    const { calls, conn, panels, queries } = setup(null, { lootCanOpen: false });
+    interactOrUse(conn, panels, queries, null, () => false);
+    expect(calls).toEqual(["interact"]);
+  });
+});
 
 describe("interactOrUse", () => {
   it("keeps stair and revive ahead of world and selected-item actions", () => {

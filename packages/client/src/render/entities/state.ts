@@ -46,6 +46,8 @@ export interface ItemVisual {
   readonly kind: "item";
   readonly body: Phaser.GameObjects.Sprite;
   readonly shadow: Phaser.GameObjects.Ellipse;
+  readonly label: Phaser.GameObjects.Text;
+  readonly timer: Phaser.GameObjects.Text;
 }
 
 export interface ProjectileVisual {
@@ -78,6 +80,10 @@ export function destroyEntityVisual(visual: EntityVisual): void {
     visual.weapon.destroy();
     visual.guardCone?.destroy();
   }
-  if (visual.kind === "item") visual.shadow.destroy();
+  if (visual.kind === "item") {
+    visual.shadow.destroy();
+    visual.label.destroy();
+    visual.timer.destroy();
+  }
   if (visual.kind === "projectile") visual.trail.destroy();
 }

@@ -47,15 +47,17 @@ export function resolvePanelWidth(viewport: Viewport): number {
 /** The stash intents this window drives — both index-addressed, matching game-server's doStash. */
 export interface StashActions {
   put(index: number): void;
-  take(index: number): void;
+  take(index: number, itemId: string): void;
+  takeAll(): void;
+  close(): void;
 }
 
 /** One column's static chrome: x origin, title, button label/handler. */
 interface ColumnSpec {
   x: number;
   title: string;
-  buttonLabel: string;
-  onClick: (index: number) => void;
+  buttonLabel: string | null;
+  onClick: (index: number, itemId: string) => void;
 }
 
 export class StashWindowWidget {
@@ -66,6 +68,8 @@ export class StashWindowWidget {
   private readonly closeButton: CloseButtonHandle;
   private readonly footer: Phaser.GameObjects.Text;
   private readonly actions: StashActions;
+  private readonly columnTitles: Phaser.GameObjects.Text[] = [];
+  private readonly takeAllButton: Phaser.GameObjects.Text;
   private rowObjects: Phaser.GameObjects.GameObject[] = [];
   private open = false;
   private lastSignature: string | null = null;
@@ -99,18 +103,24 @@ export class StashWindowWidget {
       .text(0, PANEL_HEIGHT / 2 - spacing(1.5), "", uiTextStyle(10, "#c8ecf7", this.scale))
       .setOrigin(0.5, 1);
     this.closeButton = buildCloseButton(scene, this.panelWidth, PANEL_HEIGHT, this.scale, () => this.close());
-    this.panel.add([bg, this.hitArea, this.footer, ...this.closeButton.objects]);
+    this.takeAllButton = scene.add
+      .text(this.panelWidth / 2 - spacing(1), -PANEL_HEIGHT / 2 + TITLE_HEIGHT / 2, "[ Take all ]", uiTextStyle(10, "#ffd86a", this.scale, "emphasis"))
+      .setOrigin(1, 0.5)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.actions.takeAll())
+      .setVisible(false);
+    this.panel.add([bg, this.hitArea, this.footer, this.takeAllButton, ...this.closeButton.objects]);
     this.buildColumnTitles();
     this.panel.setVisible(false);
   }
 
   /** Fixed 2-tuple (not ColumnSpec[]) so callers can destructure without a non-null assertion. */
-  private columns(): [ColumnSpec, ColumnSpec] {
+  private columns(kind: StashSnapshot["kind"] = "personal"): [ColumnSpec, ColumnSpec] {
     const left = -this.panelWidth / 2 + spacing(1);
     const right = spacing(0.5);
     return [
-      { x: left, title: "INVENTORY", buttonLabel: "Put", onClick: (i) => this.actions.put(i) },
-      { x: right, title: "STASH", buttonLabel: "Take", onClick: (i) => this.actions.take(i) },
+      { x: left, title: "INVENTORY", buttonLabel: kind === "loot" ? null : "Put", onClick: (i) => this.actions.put(i) },
+      { x: right, title: kind === "loot" ? "LOOT" : "STASH", buttonLabel: "Take", onClick: (i, item) => this.actions.take(i, item) },
     ];
   }
 
@@ -121,13 +131,14 @@ export class StashWindowWidget {
         .text(column.x + this.columnWidth / 2, y, column.title, uiTextStyle(11, undefined, this.scale, "emphasis"))
         .setOrigin(0.5, 0.5);
       this.panel.add(label);
+      this.columnTitles.push(label);
     }
   }
 
   private rebuildRows(stash: StashSnapshot): void {
     for (const obj of this.rowObjects) obj.destroy();
     this.rowObjects = [];
-    const [inventoryColumn, stashColumn] = this.columns();
+    const [inventoryColumn, stashColumn] = this.columns(stash.kind);
     this.rebuildColumn(inventoryColumn, stash.inventory);
     this.rebuildColumn(stashColumn, stash.entries);
   }
@@ -143,26 +154,28 @@ export class StashWindowWidget {
     const left = column.x;
     const rowBg = this.scene.add.rectangle(left, y, this.columnWidth, ROW_HEIGHT - 2, PANEL_FILL, 0.4).setOrigin(0, 0);
     const icon = createItemIcon(this.scene, view.itemId, ICON_SIZE, this.scale).setPosition(left + ICON_SIZE / 2 + 4, y + (ROW_HEIGHT - 2) / 2);
-    const btnX = left + this.columnWidth - BTN_WIDTH;
+    const btnX = left + this.columnWidth - (column.buttonLabel ? BTN_WIDTH : 0);
     const name = this.scene.add
       .text(left + ICON_SIZE + spacing(1), y + (ROW_HEIGHT - 2) / 2, `${view.name} ×${view.qty}`, uiTextStyle(10, undefined, this.scale))
       .setOrigin(0, 0.5)
       .setFixedSize(btnX - (left + ICON_SIZE + spacing(1)) - 4, 0);
-    const button = this.buildButton(column, view.index, btnX, y + (ROW_HEIGHT - 2 - BTN_HEIGHT) / 2);
+    const button = column.buttonLabel
+      ? this.buildButton(column, view, btnX, y + (ROW_HEIGHT - 2 - BTN_HEIGHT) / 2)
+      : [];
     const objects = [rowBg, icon, name, ...button];
     this.panel.add(objects);
     return objects;
   }
 
-  private buildButton(column: ColumnSpec, index: number, x: number, y: number): Phaser.GameObjects.GameObject[] {
+  private buildButton(column: ColumnSpec, view: StashRowView, x: number, y: number): Phaser.GameObjects.GameObject[] {
     const bg = this.scene.add
       .rectangle(x, y, BTN_WIDTH, BTN_HEIGHT, PANEL_FILL, 0.9)
       .setOrigin(0, 0)
       .setStrokeStyle(1, PANEL_BORDER)
       .setInteractive({ useHandCursor: true });
-    bg.on("pointerdown", () => column.onClick(index));
+    bg.on("pointerdown", () => column.onClick(view.index, view.itemId));
     const text = this.scene.add
-      .text(x + BTN_WIDTH / 2, y + BTN_HEIGHT / 2, column.buttonLabel, uiTextStyle(9, undefined, this.scale))
+      .text(x + BTN_WIDTH / 2, y + BTN_HEIGHT / 2, column.buttonLabel ?? "", uiTextStyle(9, undefined, this.scale))
       .setOrigin(0.5, 0.5);
     return [bg, text];
   }
@@ -180,6 +193,9 @@ export class StashWindowWidget {
     if (signature === this.lastSignature) return;
     this.lastSignature = signature;
     this.footer.setText(toastText);
+    const [, right] = this.columns(stash.kind);
+    this.columnTitles[1]?.setText(right.title);
+    this.takeAllButton.setVisible(stash.kind === "loot" && stash.entries.length > 0);
     this.rebuildRows(stash);
   }
 
@@ -195,6 +211,7 @@ export class StashWindowWidget {
     if (!this.open) return;
     this.open = false;
     this.panel.setVisible(false);
+    this.actions.close();
   }
 
   isOpen(): boolean {

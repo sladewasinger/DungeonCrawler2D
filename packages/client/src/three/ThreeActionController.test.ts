@@ -106,6 +106,39 @@ describe("ThreeActionController interaction gesture", () => {
     expect(conn.respawnNow).toHaveBeenCalledOnce();
   });
 
+  it("opens nearby death loot for the killer but not during another player's lock", () => {
+    const conn = connection();
+    conn.serverTick = 20;
+    conn.welcome = { playerId: "stranger" } as Connection["welcome"];
+    conn.entities.set("loot", {
+      snap: {
+        id: "loot",
+        kind: "item",
+        defId: "player-loot-chest",
+        x: 1,
+        y: 0,
+        z: 0,
+        lootKillerId: "killer",
+        lootUnlockAtTick: 1_220,
+      },
+      samples: [],
+    });
+    const toggleStash = vi.fn(() => true);
+    const controller = new ThreeActionController(conn, {
+      toggleCraft: vi.fn(),
+      toggleStash,
+    });
+    const input = sample({ interactPressed: true, interactHeld: true });
+
+    controller.publish(new World(1, 1), input);
+    expect(conn.interact).toHaveBeenCalledOnce();
+    expect(toggleStash).not.toHaveBeenCalled();
+
+    conn.welcome = { playerId: "killer" } as Connection["welcome"];
+    controller.publish(new World(1, 1), input);
+    expect(toggleStash).toHaveBeenCalledOnce();
+  });
+
   it("uses F to bandage the nearest player when bandages are selected", () => {
     const conn = connection();
     conn.hotbar = ["bandage"];

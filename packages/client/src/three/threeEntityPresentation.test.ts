@@ -38,6 +38,21 @@ describe("Three world entity presentation", () => {
     });
   });
 
+  it("renders death loot as a labelled, grounded chest", () => {
+    expect(threeEntityPresentation({
+      ...snapshot("item", "player-loot-chest"),
+      lootOwnerName: "Crawler 123",
+      lootKillerName: "Crawler 456",
+      lootUnlockAtTick: 1_220,
+    })).toMatchObject({
+      kind: "lootChest",
+      label: "[DEAD] Crawler 123's loot\nKilled by Crawler 456",
+      unlockAtTick: 1_220,
+      bob: false,
+      spin: false,
+    });
+  });
+
   it("leaves players and enemies to the animated actor renderer", () => {
     expect(threeEntityPresentation(snapshot("player"))).toBeNull();
     expect(threeEntityPresentation(snapshot("enemy"))).toBeNull();

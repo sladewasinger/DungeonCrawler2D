@@ -5,6 +5,7 @@
 import { biomeAtWorldTile, findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/engine";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
+import { activeLootChestNearby } from "../../net/lootChestQuery.js";
 import type { ChatController } from "../../ui/chat/controller.js";
 import { resolveRemoteBossBar } from "../../ui/widgets/hud/bossBarView.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
@@ -52,8 +53,9 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     dead: conn.dead,
     party: conn.party,
     craftTableNearby: nearbyStation(conn, "craft"),
-    stashNearby: nearbyStation(conn, "stash"),
+    stashNearby: nearbyStation(conn, "stash") || activeLootChestNearby(conn),
     stash: conn.stash,
+    stashKind: conn.stashContext.kind,
     lastToast: conn.toasts.at(-1) ?? null,
     toasts: conn.toasts,
     seed: conn.welcome ? String(conn.welcome.worldSeed) : null,

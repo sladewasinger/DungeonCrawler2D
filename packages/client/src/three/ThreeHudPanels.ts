@@ -38,8 +38,19 @@ export function createThreeHudPanels(
     contacts: new ThreeHudContacts((name) => chat.startDm(name), actions.closeContacts),
     craft: new ThreeHudCraft((recipe) => connection.craft(recipe), actions.closeCraft),
     stash: new ThreeHudStash(
-      (index) => connection.stashOp("put", index),
-      (index) => connection.stashOp("take", index),
+      (index) => {
+        if (connection.stashContext.kind === "personal") connection.stashOp("put", index);
+      },
+      (index, itemId) => {
+        const chestId = connection.stashContext.chestId;
+        if (connection.stashContext.kind === "loot" && chestId) {
+          connection.lootChestOp(chestId, "take", itemId);
+        } else connection.stashOp("take", index);
+      },
+      () => {
+        const chestId = connection.stashContext.chestId;
+        if (chestId) connection.lootChestOp(chestId, "takeAll");
+      },
       actions.closeStash,
     ),
   };

@@ -44,6 +44,7 @@ export function positionOf(sim: SimState, id: string): { x: number; y: number } 
     sim.players.get(id)?.entity ??
     sim.enemies.get(id)?.entity ??
     sim.items.get(id) ??
+    sim.lootChests.get(id)?.entity ??
     sim.projectiles.get(id) ??
     sim.torches.get(id);
   return entity ? { x: entity.body.x, y: entity.body.y } : { x: 0, y: 0 };

@@ -58,7 +58,7 @@ export interface CraftSnapshot {
 
 /** The stash window's per-frame data: range gate plus both columns' rows. */
 export interface StashSnapshot {
-  nearby: boolean;
+  kind: "personal" | "loot"; nearby: boolean;
   inventory: StashRowView[];
   entries: StashRowView[];
 }
@@ -208,7 +208,7 @@ const FAKE_CRAFT: CraftSnapshot = {
 };
 
 const FAKE_STASH: StashSnapshot = {
-  nearby: true,
+  kind: "personal", nearby: true,
   inventory: [
     { index: 0, itemId: "sword", name: "Rusty Sword", qty: 1 },
     { index: 1, itemId: "rag", name: "Rag", qty: 6 },

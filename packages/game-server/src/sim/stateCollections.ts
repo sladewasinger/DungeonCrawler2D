@@ -2,7 +2,7 @@ import type { SimState } from "./state.js";
 
 export function createEntityCollections(): Pick<
   SimState,
-  "players" | "byToken" | "enemies" | "items" | "projectiles"
+  "players" | "byToken" | "enemies" | "items" | "lootChests" | "projectiles"
   | "torches" | "parties" | "invites"
 > {
   return {
@@ -10,6 +10,7 @@ export function createEntityCollections(): Pick<
     byToken: new Map(),
     enemies: new Map(),
     items: new Map(),
+    lootChests: new Map(),
     projectiles: new Map(),
     torches: new Map(),
     parties: new Map(),

@@ -70,6 +70,7 @@ export function indexSnapshotEntities(sim: SimState): SpatialEntityIndex {
   for (const slot of sim.players.values()) if (slot.entity.hp >= 0) index.add(slot.entity);
   for (const slot of sim.enemies.values()) index.add(slot.entity);
   for (const item of sim.items.values()) index.add(item);
+  for (const chest of sim.lootChests.values()) index.add(chest.entity);
   for (const projectile of sim.projectiles.values()) index.add(projectile);
   for (const torch of sim.torches.values()) index.add(torch);
   return index;

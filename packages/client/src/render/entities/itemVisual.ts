@@ -2,6 +2,7 @@
 // math lives in groundItemMotion.ts / groundItemVisual.ts).
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { uiTextStyle } from "../../ui/font.js";
 import { applyGroundItemMotion } from "./groundItemVisual.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import type { ItemVisual } from "./state.js";
@@ -10,7 +11,11 @@ import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 
 export function createItemVisual(scene: Phaser.Scene): ItemVisual {
   const body = scene.add.sprite(0, 0, ASSET_KEYS.atlas).setOrigin(0.5, 1).setScale(WORLD_PIXEL_SCALE);
-  return { kind: "item", body, shadow: createShadow(scene, 0) };
+  const label = scene.add.text(0, 0, "", uiTextStyle(10, "#f4d7b2", 1, "emphasis"))
+    .setOrigin(0.5, 1).setAlign("center").setVisible(false);
+  const timer = scene.add.text(0, 0, "", uiTextStyle(9, "#ffd86a"))
+    .setOrigin(0.5, 0).setVisible(false);
+  return { kind: "item", body, shadow: createShadow(scene, 0), label, timer };
 }
 
 export function updateItemVisual(visual: ItemVisual, view: ItemEntityView, nowMs: number): void {
@@ -19,5 +24,20 @@ export function updateItemVisual(visual: ItemVisual, view: ItemEntityView, nowMs
   visual.body.setDepth(depthForEntityNow(view.x, view.y));
   visual.shadow.setDepth(visual.body.depth - 0.2);
   updateShadowPosition(visual.shadow, ground.x, ground.y);
-  applyGroundItemMotion(visual.body, ground.x, ground.y, nowMs);
+  if (!view.lootLabel) {
+    visual.label.setVisible(false); visual.timer.setVisible(false);
+    applyGroundItemMotion(visual.body, ground.x, ground.y, nowMs);
+    return;
+  }
+  visual.body.clearTint().setPosition(ground.x, ground.y);
+  visual.label
+    .setText(`${view.lootLabel}${view.lootKillerName ? `\nKilled by ${view.lootKillerName}` : ""}`)
+    .setPosition(ground.x, ground.y - visual.body.displayHeight - 4)
+    .setDepth(visual.body.depth + 1)
+    .setVisible(true);
+  visual.timer
+    .setText(view.lootLockSeconds ? `First dibs: ${view.lootLockSeconds}s` : "Loot unlocked")
+    .setPosition(ground.x, ground.y + 5)
+    .setDepth(visual.body.depth + 1)
+    .setVisible(view.lootNearby ?? false);
 }

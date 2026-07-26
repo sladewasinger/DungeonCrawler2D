@@ -108,6 +108,21 @@ export function stashOpIntent(conn: Connection, op: "put" | "take", index: numbe
   if (conn.canAct) conn.send({ type: "stash", op, index });
 }
 
+export function lootChestIntent(
+  conn: Connection,
+  chestId: string,
+  op: "take" | "takeAll" | "close",
+  item?: string,
+): void {
+  if (!conn.canAct) return;
+  conn.send({
+    type: "lootChest",
+    chestId,
+    op,
+    ...(item === undefined ? {} : { item }),
+  });
+}
+
 export function fistbumpIntent(conn: Connection, targetId: string): void {
   if (conn.canAct) conn.send({ type: "fistbump", targetId });
 }

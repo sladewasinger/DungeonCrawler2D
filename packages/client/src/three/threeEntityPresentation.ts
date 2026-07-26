@@ -1,7 +1,7 @@
 /** Maps authoritative entity snapshots to lightweight first-person visuals. */
 import type { EntitySnapshot } from "@dc2d/engine";
 
-export type ThreeWorldEntityKind = "item" | "projectile" | "torch";
+export type ThreeWorldEntityKind = "item" | "lootChest" | "projectile" | "torch";
 
 export interface ThreeEntityPresentation {
   kind: ThreeWorldEntityKind;
@@ -11,6 +11,8 @@ export interface ThreeEntityPresentation {
   elevation: number;
   bob: boolean;
   spin: boolean;
+  label?: string;
+  unlockAtTick?: number;
 }
 
 const itemColor = (defId = ""): string => {
@@ -21,10 +23,30 @@ const itemColor = (defId = ""): string => {
   return "#d8b66a";
 };
 
+const lootChestPresentation = (
+  snapshot: EntitySnapshot,
+): ThreeEntityPresentation => {
+  const killedBy = snapshot.lootKillerName
+    ? `\nKilled by ${snapshot.lootKillerName}`
+    : "";
+  return {
+    kind: "lootChest",
+    color: "#6f4529",
+    emissive: "#1a0d06",
+    scale: 0.55,
+    elevation: 0.2,
+    bob: false,
+    spin: false,
+    label: `[DEAD] ${snapshot.lootOwnerName ?? "Crawler"}'s loot${killedBy}`,
+    unlockAtTick: snapshot.lootUnlockAtTick ?? 0,
+  };
+};
+
 export const threeEntityPresentation = (
   snapshot: EntitySnapshot,
 ): ThreeEntityPresentation | null => {
   if (snapshot.kind === "item") {
+    if (snapshot.defId === "player-loot-chest") return lootChestPresentation(snapshot);
     const color = itemColor(snapshot.defId);
     return {
       kind: "item",

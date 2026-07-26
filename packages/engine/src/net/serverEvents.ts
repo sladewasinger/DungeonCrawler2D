@@ -49,6 +49,11 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     slots: z.array(z.object({ item: z.string(), qty: z.number().int() })),
   }),
   z.object({
+    t: z.literal("lootChest"),
+    chestId: z.string(),
+    slots: z.array(z.object({ item: z.string(), qty: z.number().int().positive() })),
+  }),
+  z.object({
     t: z.literal("contactsUpdated"),
     contacts: z.array(z.object({
       name: z.string(),

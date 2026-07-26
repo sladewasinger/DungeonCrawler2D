@@ -71,6 +71,10 @@ function resolveHit(
   if (meleeHitIsBlocked(sim, victim, attacker)) return;
   const weapon = weaponDef?.weapon;
   const damage = (weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim);
+  if (attacker.kind === "player" && victim.kind === "player") {
+    const victimSlot = sim.players.get(victim.id);
+    if (victimSlot) victimSlot.lastDamagedByPlayerId = attacker.id;
+  }
   const target = effectTargetFor(sim, victim);
   sim.effects.modifyHealth(victim, -damage, effectEvents, { sourceTags: weaponDef?.tags ?? [] }, target);
   applyWeaponStatuses(sim, victim, weaponDef, target, effectEvents);
