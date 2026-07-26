@@ -2,10 +2,7 @@ import type Phaser from "phaser";
 import { PageBudget, type PageBudgetSnapshot } from "./pageBudget.js";
 import { PagePool } from "./pagePool.js";
 import { MAX_STRIP_PAGE_HEIGHT_BAKE_PX } from "./stripAtlas.js";
-import {
-  DESKTOP_TERRAIN_PROFILE,
-  type TerrainDeviceProfile,
-} from "./terrainDeviceProfile.js";
+import type { TerrainDeviceProfile } from "./terrainDeviceProfile.js";
 import {
   assertTerrainTextureDimensions,
   TERRAIN_BAKE_CHUNK_PX,
@@ -66,7 +63,7 @@ export function acquireStripPage(
   const bytes = terrainPageBytes(TERRAIN_BAKE_CHUNK_PX, height);
   if (!state.budget.activateNew(bytes)) return undefined;
   try {
-    return createPage(textures, height);
+    return createPage(textures, height, state.profile.maximumPreferredPagePx);
   } catch (error) {
     state.budget.releaseAndDestroy(bytes);
     throw error;
@@ -83,11 +80,8 @@ export function releasePage(page: TerrainPage, cls: PageClass): void {
 }
 
 function stateFor(textures: Phaser.Textures.TextureManager): TerrainPageState {
-  let state = pageStates.get(textures);
-  if (!state) {
-    state = makeState(textures, DESKTOP_TERRAIN_PROFILE);
-    pageStates.set(textures, state);
-  }
+  const state = pageStates.get(textures);
+  if (!state) throw new Error("terrain pages must be configured before use");
   return state;
 }
 
@@ -100,8 +94,8 @@ function makeState(
     profile,
     budget,
     pools: {
-      strip: makePool(textures, "strip", budget),
-      base: makePool(textures, "base", budget),
+      strip: makePool(textures, "strip", profile, budget),
+      base: makePool(textures, "base", profile, budget),
     },
   };
 }
@@ -109,11 +103,12 @@ function makeState(
 function makePool(
   textures: Phaser.Textures.TextureManager,
   cls: PageClass,
+  profile: TerrainDeviceProfile,
   budget: PageBudget,
 ): PagePool<TerrainPage> {
   const dimensions = PAGE_CLASSES[cls];
   return new PagePool({
-    create: () => createPage(textures, dimensions.height),
+    create: () => createPage(textures, dimensions.height, profile.maximumPreferredPagePx),
     recycle: recyclePage,
     destroy: (page) => textures.remove(page),
     bytesPerPage: terrainPageBytes(TERRAIN_BAKE_CHUNK_PX, dimensions.height),
@@ -121,8 +116,12 @@ function makePool(
   });
 }
 
-function createPage(textures: Phaser.Textures.TextureManager, height: number): TerrainPage {
-  assertTerrainTextureDimensions(TERRAIN_BAKE_CHUNK_PX, height);
+function createPage(
+  textures: Phaser.Textures.TextureManager,
+  height: number,
+  maximumPreferredPagePx: number,
+): TerrainPage {
+  assertTerrainTextureDimensions(TERRAIN_BAKE_CHUNK_PX, height, maximumPreferredPagePx);
   const page = textures.addDynamicTexture(
     `terrain-page:${pageGeneration++}`,
     TERRAIN_BAKE_CHUNK_PX,

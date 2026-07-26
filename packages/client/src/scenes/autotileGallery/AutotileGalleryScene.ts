@@ -6,7 +6,9 @@
 import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { buildChunkVisual } from "../../render/terrain/chunkVisual.js";
+import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../../render/terrain/terrainDeviceProfile.js";
 import { islandChunkCoords, islandViewCentroid } from "../../render/terrain/islandChunk.js";
+import { configureTerrainPages } from "../../render/terrain/terrainPages.js";
 import { getViewOrientation } from "../../render/view/viewState.js";
 import { worldTileToView } from "../../render/view/viewTransform.js";
 import { pixelTextStyle } from "../../ui/font.js";
@@ -22,6 +24,10 @@ export class AutotileGalleryScene extends Phaser.Scene {
   }
 
   create(): void {
+    configureTerrainPages(
+      this.textures,
+      selectTerrainDeviceProfile(readTerrainDeviceSignals(this)),
+    );
     const world = new EditableWorld();
     paintGallery(world);
     const orientation = getViewOrientation();

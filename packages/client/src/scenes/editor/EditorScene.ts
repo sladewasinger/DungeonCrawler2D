@@ -15,6 +15,8 @@ import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { EntityRenderer, type RenderContext } from "../../render/entities/index.js";
 import { buildChunkVisual, destroyChunkVisual, type ChunkVisual } from "../../render/terrain/chunkVisual.js";
 import { islandChunkCoords, islandViewCentroid } from "../../render/terrain/islandChunk.js";
+import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../../render/terrain/terrainDeviceProfile.js";
+import { configureTerrainPages } from "../../render/terrain/terrainPages.js";
 import { LIGHT_MAX, type DynamicLightSeed } from "../../render/terrain/tileLight.js";
 import { getViewOrientation, worldTileToView, type ViewOrientation } from "../../render/view/index.js";
 import { VfxSystem } from "../../vfx/index.js";
@@ -63,6 +65,10 @@ export class EditorScene extends Phaser.Scene {
   }
 
   create(): void {
+    configureTerrainPages(
+      this.textures,
+      selectTerrainDeviceProfile(readTerrainDeviceSignals(this)),
+    );
     const worldPx = EDITOR_GRID_SIZE * SCREEN_TILE_PX;
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.setZoom(Math.min(this.scale.width, this.scale.height) / worldPx);

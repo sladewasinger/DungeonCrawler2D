@@ -4,7 +4,9 @@ import {
   TERRAIN_BAKE_TILE_PX,
   TERRAIN_DISPLAY_CHUNK_PX,
   TERRAIN_DISPLAY_SCALE,
+  TERRAIN_TEXTURE_DIMENSION_CEILING_PX,
   assertTerrainTextureDimensions,
+  terrainBakeChunkPx,
   terrainBakePxToDisplay,
   terrainPageBytes,
 } from "./terrainMetrics.js";
@@ -26,8 +28,14 @@ describe("terrain renderer metrics", () => {
     expect(terrainBakePxToDisplay(-17)).toBe(-51);
   });
 
-  it("rejects a terrain texture larger than a native chunk page", () => {
-    expect(() => assertTerrainTextureDimensions(1024, 1024)).not.toThrow();
-    expect(() => assertTerrainTextureDimensions(1025, 16)).toThrow(/exceeds 1024px guard/);
+  it("keeps the hard texture ceiling independent of future chunk sizes", () => {
+    expect(TERRAIN_TEXTURE_DIMENSION_CEILING_PX).toBe(1024);
+    expect(terrainBakeChunkPx(65)).toBe(1040);
+    expect(() => assertTerrainTextureDimensions(1040, 16, 2048)).toThrow(/exceeds 1024px limit/);
+  });
+
+  it("enforces a profile preference below the hard texture ceiling", () => {
+    expect(() => assertTerrainTextureDimensions(512, 512, 512)).not.toThrow();
+    expect(() => assertTerrainTextureDimensions(513, 16, 512)).toThrow(/exceeds 512px limit/);
   });
 });
