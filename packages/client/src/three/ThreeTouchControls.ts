@@ -1,21 +1,23 @@
 /** Owns touch-stick, aim-stick, and action control presentation for mobile play. */
-import { isTouchDevice } from "../input/touchDetect.js";
+import {
+  inputModality,
+  type InputModality,
+  type InputModalityStore,
+} from "../input/inputModality.js";
 import { bindTouchActionButton, bindTouchHoldButton, bindTouchJumpButton, createTouchButton, setTouchButtonPressed } from "./ThreeTouchActionButtons.js";
-import { touchVector, type TouchVector } from "./touchMath.js";
+import { ThreeTouchControlState } from "./ThreeTouchControlState.js";
+import { pointerInside, releasePointerCapture } from "./ThreeTouchDom.js";
+import { touchVector } from "./touchMath.js";
 
 const STICK_RADIUS = 54;
-const AIM_TURN_SPEED = 2.4;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 export class ThreeTouchControls {
-  readonly active = isTouchDevice();
-  private movement: TouchVector = { x: 0, z: 0 }; private aim: TouchVector = { x: 0, z: 0 };
-  private jump = false; private jumpPressed = false;
-  private attack = false; private interactPressed = false;
-  private interactHeld = false; private throwItem = false;
-  private run = false; private block = false;
-  private yaw = 0; private pitch = 0;
+  private activeMode = false;
+  private built = false;
+  private readonly stopModality: () => void;
+  private readonly state = new ThreeTouchControlState();
   private stickPointer: number | null = null; private lookPointer: number | null = null;
   private jumpPointer: number | null = null;
   private stickOrigin = { x: 0, y: 0 }; private lookOrigin = { x: 0, y: 0 };
@@ -25,59 +27,61 @@ export class ThreeTouchControls {
   private readonly aimStick = document.createElement("div"); private readonly aimKnob = document.createElement("div");
   private jumpButton: HTMLButtonElement | null = null;
 
-  constructor(private readonly root: HTMLElement) {
-    if (!this.active) return;
+  constructor(
+    private readonly root: HTMLElement,
+    modality: InputModalityStore = inputModality,
+  ) {
+    this.stopModality = modality.subscribe((mode) => this.applyModality(mode));
+    this.applyModality(modality.current);
+  }
+
+  get active(): boolean {
+    return this.activeMode;
+  }
+
+  private build(): void {
     this.layer.style.cssText = "position:absolute;inset:0;z-index:1;pointer-events:none;touch-action:none";
-    root.append(this.layer);
     this.mountStick();
     this.mountLookPad();
     this.mountButtons();
-    root.addEventListener("pointerdown", this.captureJump, true);
-    root.addEventListener("pointerup", this.releaseCapturedJump, true);
-    root.addEventListener("pointercancel", this.releaseCapturedJump, true);
+    this.built = true;
+  }
+
+  private applyModality(mode: InputModality): void {
+    const active = mode === "touch";
+    if (active === this.activeMode) return;
+    this.activeMode = active;
+    if (active) this.mount();
+    else this.unmount();
+  }
+
+  private mount(): void {
+    if (!this.built) this.build();
+    this.root.append(this.layer);
+    this.root.addEventListener("pointerdown", this.captureJump, true);
+    this.root.addEventListener("pointerup", this.releaseCapturedJump, true);
+    this.root.addEventListener("pointercancel", this.releaseCapturedJump, true);
+  }
+
+  private unmount(): void {
+    this.releaseActiveCaptures();
+    this.reset();
+    this.root.removeEventListener("pointerdown", this.captureJump, true);
+    this.root.removeEventListener("pointerup", this.releaseCapturedJump, true);
+    this.root.removeEventListener("pointercancel", this.releaseCapturedJump, true);
+    this.layer.remove();
   }
 
   read(seconds: number): { forward: number; right: number; jump: boolean; run: boolean; block: boolean; attack: boolean; interactPressed: boolean; interactHeld: boolean; throwItem: boolean; yaw: number; pitch: number } {
-    const elapsed = clamp(seconds, 0, 0.05);
-    this.yaw += -this.aim.x * AIM_TURN_SPEED * elapsed;
-    this.pitch += this.aim.z * AIM_TURN_SPEED * elapsed;
-    const result = {
-      forward: this.movement.z,
-      right: this.movement.x,
-      jump: this.jump,
-      run: this.run, block: this.block,
-      attack: this.attack,
-      interactPressed: this.interactPressed,
-      interactHeld: this.interactHeld,
-      throwItem: this.throwItem,
-      yaw: this.yaw,
-      pitch: this.pitch,
-    };
-    this.attack = false;
-    this.interactPressed = false;
-    this.throwItem = false;
-    this.yaw = 0;
-    this.pitch = 0;
-    return result;
+    return this.state.read(seconds);
   }
 
   consumeJumpPress(): boolean {
-    const pressed = this.jumpPressed;
-    this.jumpPressed = false;
-    return pressed;
+    return this.state.consumeJumpPress();
   }
 
   reset(): void {
-    this.movement = { x: 0, z: 0 };
-    this.aim = { x: 0, z: 0 };
-    this.jump = false;
-    this.jumpPressed = false;
-    this.attack = false;
-    this.interactPressed = false;
-    this.interactHeld = false;
-    this.throwItem = false; this.run = false; this.block = false;
-    this.yaw = 0;
-    this.pitch = 0;
+    this.state.reset();
     this.stickPointer = null;
     this.lookPointer = null;
     this.jumpPointer = null;
@@ -87,11 +91,15 @@ export class ThreeTouchControls {
   }
 
   dispose(): void {
-    if (!this.active) return;
-    this.root.removeEventListener("pointerdown", this.captureJump, true);
-    this.root.removeEventListener("pointerup", this.releaseCapturedJump, true);
-    this.root.removeEventListener("pointercancel", this.releaseCapturedJump, true);
-    this.layer.remove();
+    this.stopModality();
+    this.activeMode = false;
+    this.unmount();
+  }
+
+  private releaseActiveCaptures(): void {
+    releasePointerCapture(this.stick, this.stickPointer);
+    releasePointerCapture(this.aimStick, this.lookPointer);
+    releasePointerCapture(this.jumpButton, this.jumpPointer);
   }
 
   private mountStick(): void {
@@ -126,12 +134,12 @@ export class ThreeTouchControls {
     bindTouchActionButton(attack, () => this.triggerAction("attack"));
     bindTouchHoldButton(
       interact,
-      () => { this.interactPressed = true; },
-      (held) => { this.interactHeld = held; },
+      () => { this.state.interactPressed = true; },
+      (held) => { this.state.interactHeld = held; },
     );
     bindTouchActionButton(throwItem, () => this.triggerAction("throw"));
-    bindTouchHoldButton(block, () => {}, (held) => { this.block = held; }); bindTouchHoldButton(sprint, () => {}, (held) => { this.run = held; });
-    bindTouchJumpButton(jump, () => this.queueJump(), (held) => { this.jump = held; });
+    bindTouchHoldButton(block, () => {}, (held) => { this.state.block = held; }); bindTouchHoldButton(sprint, () => {}, (held) => { this.state.run = held; });
+    bindTouchJumpButton(jump, () => this.queueJump(), (held) => { this.state.jump = held; });
     this.jumpButton = jump;
     this.layer.append(attack, jump, interact, throwItem, block, sprint);
   }
@@ -148,14 +156,14 @@ export class ThreeTouchControls {
     if (event.pointerId !== this.stickPointer) return;
     const dx = clamp(event.clientX - this.stickOrigin.x, -STICK_RADIUS, STICK_RADIUS);
     const dy = clamp(event.clientY - this.stickOrigin.y, -STICK_RADIUS, STICK_RADIUS);
-    this.movement = touchVector(dx, dy, STICK_RADIUS);
+    this.state.movement = touchVector(dx, dy, STICK_RADIUS);
     this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
   private endStick(event: PointerEvent): void {
     if (event.pointerId !== this.stickPointer) return;
     this.stickPointer = null;
-    this.movement = { x: 0, z: 0 };
+    this.state.movement = { x: 0, z: 0 };
     this.knob.style.transform = "";
     this.resetStickPosition();
   }
@@ -170,23 +178,24 @@ export class ThreeTouchControls {
     if (event.pointerId !== this.lookPointer) return;
     const dx = clamp(event.clientX - this.lookOrigin.x, -STICK_RADIUS, STICK_RADIUS);
     const dy = clamp(event.clientY - this.lookOrigin.y, -STICK_RADIUS, STICK_RADIUS);
-    this.aim = touchVector(dx, dy, STICK_RADIUS);
+    this.state.aim = touchVector(dx, dy, STICK_RADIUS);
     this.aimKnob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
   private endLook(event: PointerEvent): void {
     if (event.pointerId !== this.lookPointer) return;
     this.lookPointer = null;
-    this.aim = { x: 0, z: 0 };
+    this.state.aim = { x: 0, z: 0 };
     this.aimKnob.style.transform = "";
   }
 
-  private queueJump(): void { this.jumpPressed = true; }
+  private queueJump(): void { this.state.jumpPressed = true; }
 
   private readonly captureJump = (event: PointerEvent): void => {
-    if (event.pointerType !== "touch" || !this.jumpButton || !this.isInsideJump(event)) return;
+    if (event.pointerType !== "touch" || !this.jumpButton ||
+      !pointerInside(this.jumpButton, event)) return;
     this.jumpPointer = event.pointerId;
-    this.jump = true;
+    this.state.jump = true;
     this.queueJump();
     setTouchButtonPressed(this.jumpButton, true);
   };
@@ -194,18 +203,13 @@ export class ThreeTouchControls {
   private readonly releaseCapturedJump = (event: PointerEvent): void => {
     if (event.pointerId !== this.jumpPointer) return;
     this.jumpPointer = null;
-    this.jump = false;
+    this.state.jump = false;
     if (this.jumpButton) setTouchButtonPressed(this.jumpButton, false);
   };
 
-  private isInsideJump(event: PointerEvent): boolean {
-    const bounds = this.jumpButton?.getBoundingClientRect();
-    return bounds !== undefined && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
-  }
-
   private triggerAction(action: "attack" | "throw"): void {
-    if (action === "attack") this.attack = true;
-    else this.throwItem = true;
+    if (action === "attack") this.state.attack = true;
+    else this.state.throwItem = true;
   }
 
   private moveStickTo(clientX: number, clientY: number): void {

@@ -1,6 +1,6 @@
 /** Composes the browser-native first-person HUD and its keyboard focus contract. */
 import type { World } from "@dc2d/engine";
-import { isTouchDevice } from "../input/touchDetect.js";
+import { inputModality } from "../input/inputModality.js";
 import type { Connection } from "../net/connection.js";
 import type { SessionMenuActions } from "../ui/sessionMenu/SessionMenu.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
@@ -57,7 +57,7 @@ export class ThreeHud {
         connection: options.connection,
         focusGame: options.focusGame,
         setTextInputFocused: this.setTextInputFocused,
-        touchDevice: isTouchDevice(),
+        touchDevice: inputModality.current === "touch",
         ...(options.viewDistance === undefined
           ? {}
           : { viewDistance: options.viewDistance }),

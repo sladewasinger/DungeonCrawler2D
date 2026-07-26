@@ -154,4 +154,9 @@ export class TouchButtonsWidget {
     const layout = registry.resolve(viewport).get(WIDGET_ID);
     if (layout) syncWidgetContainer(this.container, layout);
   }
+
+  dispose(registry: WidgetRegistry): void {
+    registry.unregister(WIDGET_ID);
+    this.container.destroy(true);
+  }
 }

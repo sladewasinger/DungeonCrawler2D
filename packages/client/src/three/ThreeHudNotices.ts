@@ -1,6 +1,6 @@
 /** Presents transient toasts, interaction prompts, reconnect state, and boss health above both renderers. */
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { isTouchDevice } from "../input/touchDetect.js";
+import { inputModality } from "../input/inputModality.js";
 import type {
   ContextualAction,
   ContextualActionHint,
@@ -91,7 +91,7 @@ export class ThreeHudNotices {
     const helpText = contextualHelpText(
       snapshot.interactionPrompt,
       visibleActionHints,
-      isTouchDevice(),
+      inputModality.current === "touch",
     );
     this.interaction.hidden = helpText.length === 0;
     this.interaction.textContent = helpText;

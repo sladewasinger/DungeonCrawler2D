@@ -71,6 +71,12 @@ export class WidgetRegistry {
     this.state.overrides.set(id, { ...existing, ...override });
   }
 
+  /** Replaces one override exactly; undefined removes it. */
+  replaceOverride(id: string, override: WidgetOverride | undefined): void {
+    if (override) this.state.overrides.set(id, override);
+    else this.state.overrides.delete(id);
+  }
+
   /** Drops back to the shipped default for one widget, or every widget when id is omitted. */
   resetToDefault(id?: string): void {
     const defaults = shippedDefaultLayout as LayoutConfig;

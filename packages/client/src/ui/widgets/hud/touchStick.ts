@@ -91,4 +91,9 @@ export class TouchStickWidget {
     this.restY = layout.y;
     syncWidgetContainer(this.container, layout);
   }
+
+  dispose(registry: WidgetRegistry): void {
+    registry.unregister(WIDGET_ID);
+    this.container.destroy(true);
+  }
 }

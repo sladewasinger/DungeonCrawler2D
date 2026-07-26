@@ -4,7 +4,7 @@
  * HUD-on state today; a live game wires the same update() from real net/inventory state).
  */
 import type Phaser from "phaser";
-import { isTouchDevice } from "../../../input/touchDetect.js";
+import { inputModality, type InputModality } from "../../../input/inputModality.js";
 import { HudEditMode } from "../../hudEdit/index.js";
 import { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
@@ -18,17 +18,19 @@ import type { HudFakeSnapshot } from "./fakeData.js";
 import { HealthBarWidget } from "./healthBar.js";
 import { HotbarWidget } from "./hotbar.js";
 import { InteractionPromptWidget } from "./interactionPrompt.js";
-import { InventoryToggleButtonWidget } from "./inventoryToggleButton.js";
 import type { InventoryActions } from "./inventoryWindow.js";
 import { PanelWindows, shouldDismissOnOutsideTap } from "./panelWindows.js";
 import { PartyFramesWidget } from "./partyFrames.js";
 import { ReconnectToastWidget } from "./reconnectToast.js";
 import { StaminaBarWidget } from "./staminaBar.js";
 import { ToastStackWidget } from "./toastStack.js";
-import { TouchButtonsWidget } from "./touchButtons.js";
-import { TouchStickWidget } from "./touchStick.js";
-import { TouchSprintWidget } from "./touchSprint.js";
-import { applyTouchLayoutOverrides } from "./touchOverrides.js";
+import { TouchHudControls } from "./touchControls.js";
+import {
+  applyTouchLayoutOverrides,
+  captureTouchLayoutOverrides,
+  restoreTouchLayoutOverrides,
+  type TouchLayoutSnapshot,
+} from "./touchOverrides.js";
 import { WeaponChipWidget } from "./weaponChip.js";
 import { XpBarWidget } from "./xpBar.js";
 
@@ -37,9 +39,9 @@ export type { SocialActions, StationActions } from "./actionBundles.js";
 export class HudWidgets {
   readonly registry = new WidgetRegistry();
   private readonly scene: Phaser.Scene;
-  /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
-   * after boot) flips this reactively — see handlePointerDown. */
-  private touchActive = isTouchDevice();
+  private touchActive = inputModality.current === "touch";
+  private touchLayoutSnapshot: TouchLayoutSnapshot | undefined;
+  private readonly stopModality: () => void;
   private readonly health: HealthBarWidget; private readonly stamina: StaminaBarWidget;
   private readonly hotbar: HotbarWidget; private readonly buffs: BuffChipsWidget; private readonly weapon: WeaponChipWidget;
   /** XP progress + level numeral (Epic 11 core, pulled forward). */
@@ -57,9 +59,7 @@ export class HudWidgets {
   private readonly panels: PanelWindows;
   /** Off-self party member rows (Epic 7.12) — hidden entirely when unpartied. */
   private readonly party: PartyFramesWidget;
-  private touchStick: TouchStickWidget | undefined; private touchSprint: TouchSprintWidget | undefined;
-  private touchButtons: TouchButtonsWidget | undefined;
-  private inventoryToggleButton: InventoryToggleButtonWidget | undefined;
+  private readonly touchControls: TouchHudControls;
   /** Edit-HUD mode (docs/HUD_OS.md Phase 2) — gear chip + [F10], drag-to-move, catalog panel. */
   private readonly editMode: HudEditMode;
   private viewport: Viewport;
@@ -72,7 +72,10 @@ export class HudWidgets {
     // wins over a desktop-saved layout on the fields it touches (docs/HUD_OS.md §6, "Touch-layout
     // overrides interaction" — different physical device, different constraints).
     this.registry.loadPersisted();
-    if (this.touchActive) applyTouchLayoutOverrides(this.registry, viewport);
+    if (this.touchActive) {
+      this.touchLayoutSnapshot = captureTouchLayoutOverrides(this.registry);
+      applyTouchLayoutOverrides(this.registry, viewport);
+    }
     const socialActions = social ?? noopSocialActions();
     this.health = new HealthBarWidget(scene, this.registry, viewport); this.stamina = new StaminaBarWidget(scene, this.registry, viewport);
     this.hotbar = new HotbarWidget(scene, this.registry, viewport);
@@ -88,35 +91,35 @@ export class HudWidgets {
     this.toasts = new ToastStackWidget(scene, this.registry, viewport);
     this.panels = new PanelWindows(scene, this.registry, viewport, actions, social, stations);
     this.party = new PartyFramesWidget(scene, this.registry, viewport);
-    if (this.touchActive) this.buildTouchControls(scene, viewport);
+    this.touchControls = new TouchHudControls(scene, this.registry);
+    if (this.touchActive) this.touchControls.mount(viewport);
     // Constructed last so its drag handles reflect every widget registered above.
     this.editMode = new HudEditMode(scene, this.registry, viewport, () => this.resize(this.viewport));
     scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => this.handlePointerDown(pointer));
+    this.stopModality = inputModality.subscribe((mode) => this.applyModality(mode));
+    scene.events.once("shutdown", this.stopModality);
   }
 
-  private buildTouchControls(scene: Phaser.Scene, viewport: Viewport): void {
-    this.touchStick = new TouchStickWidget(scene, this.registry, viewport);
-    this.touchSprint = new TouchSprintWidget(scene, this.registry, viewport);
-    this.touchButtons = new TouchButtonsWidget(scene, this.registry, viewport);
-    this.inventoryToggleButton = new InventoryToggleButtonWidget(scene, this.registry, viewport);
-  }
-
-  /**
-   * Boot-time isTouchDevice() (checked once, above) is the fast path for real
-   * touch hardware and the ?touch=1 override. It never runs again, so a browser
-   * that only starts reporting touch after boot — Chrome's device toolbar
-   * toggled mid-session, or any other late-arriving touch input — would
-   * otherwise be stuck on the desktop layout with no touch controls forever.
-   * This mounts controls + applies the touch layout live on the first touch
-   * pointer event instead.
-   */
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
-    if (this.touchActive || !pointer.wasTouch) return;
-    this.touchActive = true;
-    const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
-    applyTouchLayoutOverrides(this.registry, viewport);
-    this.buildTouchControls(this.scene, viewport);
-    this.resize(viewport);
+    if (pointer.wasTouch) inputModality.noteTouch(this.scene.time.now);
+  }
+
+  private applyModality(mode: InputModality): void {
+    const touchActive = mode === "touch";
+    if (touchActive === this.touchActive) return;
+    this.touchActive = touchActive;
+    if (touchActive) {
+      this.touchLayoutSnapshot = captureTouchLayoutOverrides(this.registry);
+      applyTouchLayoutOverrides(this.registry, this.viewport);
+      this.touchControls.mount(this.viewport);
+    } else {
+      if (this.touchLayoutSnapshot) {
+        restoreTouchLayoutOverrides(this.registry, this.touchLayoutSnapshot);
+        this.touchLayoutSnapshot = undefined;
+      }
+      this.touchControls.unmount();
+    }
+    this.resize(this.viewport);
   }
 
   /** Drives every widget from one fake/real snapshot; call once per frame. */
@@ -134,11 +137,7 @@ export class HudWidgets {
     this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs); this.death.update(snapshot.downed, snapshot.dead, snapshot.respawnRemainingSec, snapshot.respawnHoldProgress);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
     this.toasts.update(snapshot.toasts, nowMs);
-    if (snapshot.touch) {
-      this.touchStick?.update(snapshot.touch.stick);
-      this.touchSprint?.update(snapshot.touch.buttons.sprint ?? false);
-      this.touchButtons?.update(snapshot.touch.buttons, nowMs);
-    }
+    this.touchControls.update(snapshot.touch, nowMs);
   }
 
   /** Re-resolves every widget's screen position for a new viewport (call on resize). */
@@ -162,10 +161,7 @@ export class HudWidgets {
     this.death.resize(this.registry, viewport);
     this.reconnectToast.resize(this.registry, viewport);
     this.toasts.resize(this.registry, viewport);
-    this.touchStick?.resize(this.registry, viewport);
-    this.touchSprint?.resize(this.registry, viewport);
-    this.touchButtons?.resize(this.registry, viewport);
-    this.inventoryToggleButton?.resize(this.registry, viewport);
+    this.touchControls.resize(viewport);
     this.editMode.resize(viewport);
   }
 
@@ -252,13 +248,7 @@ export class HudWidgets {
 
   /** Keeps only the legacy touch-control hit regions while the visible HUD is DOM-rendered. */
   hitTestTouchOnly(screenX: number, screenY: number): string | null {
-    const button = this.touchButtons?.hitTest(screenX, screenY);
-    if (button) return `touch:${button}`;
-    if (this.touchSprint?.hitTest(screenX, screenY)) return "touch:sprint";
-    if (this.inventoryToggleButton?.hitTest(screenX, screenY)) {
-      return "inventory:toggle";
-    }
-    return null;
+    return this.touchControls.hitTest(screenX, screenY);
   }
 
   /** hitTest()'s ordinary (non-edit-mode) dispatch chain, split out to stay under the

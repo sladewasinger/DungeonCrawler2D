@@ -17,11 +17,11 @@ import { guardedAction } from "./inputGuard.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { LifeGestures } from "./lifeGestures.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
-import { cursorWorldTile, handlePointerDown } from "./pointer.js";
-import { bindPointerMovementEdges } from "./pointerMovementEdges.js";
+import { cursorWorldTile } from "./pointer.js";
+import { bindInputPointerEdges } from "./pointerBindings.js";
+import { inputModality, type InputModality } from "./inputModality.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
-import { createTouchInputState, isButtonHeld, mergeMoveInputs, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
-import { isTouchDevice } from "./touchDetect.js";
+import { createTouchInputState, isButtonHeld, mergeMoveInputs, resetTouchInputState, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { getViewOrientation } from "../render/view/index.js";
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
@@ -36,9 +36,9 @@ export class InputController {
   private touchFistbumpHeld = false;
   /** Hold-E revive gesture (Epic 7.12) — gated by a downed party member in range. */
   private readonly lifeGestures = new LifeGestures();
-  /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
-   * after boot) flips this reactively — see activateTouchIfNeeded. */
-  private touchActive: boolean = isTouchDevice();
+  /** Cached projection of the shared observable, updated only by applyModality. */
+  private touchActive = inputModality.current === "touch";
+  private readonly stopModality: () => void;
   private readonly scene: Phaser.Scene;
   private readonly queries: InputQueries;
   private readonly tilePx: number;
@@ -60,7 +60,17 @@ export class InputController {
     this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null };
     this.bindKeys(keys, queries, hooks);
     bindKeyboardMovementEdges(this.state, () => this.sendCurrentMovementEdge());
-    this.bindPointer(hud, queries, hooks, tilePx);
+    bindInputPointerEdges({
+      scene, state: this.state, conn, hud, queries, hooks, tilePx,
+      touch: this.touch,
+      touchActive: () => this.touchActive,
+      onInteractReleased: () => this.lifeGestures.endInteract(scene.time.now),
+      onContextAction: () => this.handleInteractDown("pickup"),
+      onThrowSelected: () => this.throwSelectedTouch(),
+      onMovementEdge: () => this.sendCurrentMovementEdge(),
+    });
+    this.stopModality = inputModality.subscribe((mode) => this.applyModality(mode));
+    scene.events.once("shutdown", this.stopModality);
   }
 
   private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
@@ -177,45 +187,17 @@ export class InputController {
     return progress > 0 ? { targetId: this.fistbumpTargetId, progress } : null;
   }
 
-  private bindPointer(hud: InputHud, queries: InputQueries, hooks: InputHooks, tilePx: number): void {
-    this.scene.input.mouse?.disableContextMenu();
-    this.scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      this.activateTouchIfNeeded(pointer);
-      const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
-      handlePointerDown(
-        this.state,
-        {
-          conn: this.conn,
-          hud,
-          queries,
-          hooks,
-          tilePx,
-          touch: this.touch,
-          touchActive: this.touchActive,
-          sendMovementEdge: () => this.sendCurrentMovementEdge(),
-          performContextAction: () => this.handleInteractDown("pickup"),
-          throwSelected: () => this.throwSelectedTouch(),
-          viewport,
-          camera: this.scene.cameras.main,
-        },
-        pointer,
-      );
-    });
-    bindPointerMovementEdges(this.scene, this.touch, () => this.touchActive, () => this.lifeGestures.endInteract(this.scene.time.now), () => this.sendCurrentMovementEdge());
-  }
-
-  /**
-   * Boot-time isTouchDevice() (the fast path, above) never runs again, so a
-   * browser that only starts reporting touch after boot — Chrome's device
-   * toolbar toggled mid-session, or any other late-arriving touch input —
-   * would otherwise never get drag/release tracking for the joystick. Flips
-   * touchActive and wires the deferred listeners on the first touch pointer,
-   * before this same pointerdown is routed (so it's handled as touch, not a
-   * desktop click).
-   */
-  private activateTouchIfNeeded(pointer: Phaser.Input.Pointer): void {
-    if (this.touchActive || !pointer.wasTouch) return;
-    this.touchActive = true;
+  /** Clears held touch state before desktop routing can observe it. */
+  private applyModality(mode: InputModality): void {
+    const touchActive = mode === "touch";
+    if (touchActive === this.touchActive) return;
+    if (!touchActive) {
+      resetTouchInputState(this.touch);
+      this.lifeGestures.endInteract(this.scene.time.now);
+      this.touchFistbumpHeld = false;
+    }
+    this.touchActive = touchActive;
+    this.sendCurrentMovementEdge();
   }
 
   private sendCurrentMovementEdge(): void { this.conn.sendInputEdge?.(this.readInput()); }

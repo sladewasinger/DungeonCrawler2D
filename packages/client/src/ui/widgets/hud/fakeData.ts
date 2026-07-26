@@ -1,7 +1,7 @@
 /** Fake HUD data for the gallery's HUD-on state — a presentation demo, not live game state. */
 import type { BiomeKind } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
-import { isTouchDevice } from "../../../input/touchDetect.js";
+import { inputModality } from "../../../input/inputModality.js";
 import type { ChatPanelModel } from "../../chat/controller.js";
 import type { ContextualActionHint } from "../../actionHelp.js";
 import type { ContactData } from "./contactRows.js";
@@ -259,7 +259,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     downed,
     dead: false,
     respawnRemainingSec: 24, respawnHoldProgress: 0.55,
-    touch: isTouchDevice() ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
+    touch: inputModality.current === "touch" ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
     fps: 60,
     coords: { x: 128, y: -64, z: 2.5 },
     compassBearingDeg: 0,

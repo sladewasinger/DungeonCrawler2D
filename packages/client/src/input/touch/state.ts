@@ -37,3 +37,12 @@ export function createTouchInputState(): TouchInputState {
     lastFacing: { x: 1, y: 0 },
   };
 }
+
+export function resetTouchInputState(state: TouchInputState): void {
+  state.stick = null;
+  state.buttons.attack = null;
+  state.buttons.jump = null;
+  state.buttons.interact = null;
+  state.buttons.block = null;
+  state.buttons.sprint = null;
+}

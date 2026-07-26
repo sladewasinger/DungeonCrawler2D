@@ -3,7 +3,41 @@
  * under the file-size cap. Desktop never calls this (isTouchDevice() gates the caller).
  */
 import type { WidgetRegistry } from "../registry.js";
-import type { Viewport } from "../state.js";
+import type { Viewport, WidgetOverride } from "../state.js";
+
+const TOUCH_OVERRIDE_IDS = [
+  "health", "stamina", "hotbar", "weapon", "chat", "inventory", "contacts",
+  "craft", "stash", "bossBar", "status", "party", "touch-stick",
+  "touch-sprint", "touch-buttons", "inventory-toggle",
+] as const;
+
+export type TouchLayoutSnapshot = Map<string, WidgetOverride | undefined>;
+
+const cloneOverride = (
+  override: WidgetOverride | undefined,
+): WidgetOverride | undefined => override
+  ? {
+      ...override,
+      ...(override.offset ? { offset: { ...override.offset } } : {}),
+    }
+  : undefined;
+
+export function captureTouchLayoutOverrides(
+  registry: WidgetRegistry,
+): TouchLayoutSnapshot {
+  return new Map(TOUCH_OVERRIDE_IDS.map(
+    (id) => [id, cloneOverride(registry.getOverride(id))],
+  ));
+}
+
+export function restoreTouchLayoutOverrides(
+  registry: WidgetRegistry,
+  snapshot: TouchLayoutSnapshot,
+): void {
+  for (const [id, override] of snapshot) {
+    registry.replaceOverride(id, cloneOverride(override));
+  }
+}
 
 /**
  * Below this logical viewport width, the joystick/action-buttons/bag-toggle cluster

@@ -7,7 +7,7 @@
  */
 import type { TouchInputState } from "./state.js";
 
-export { createTouchInputState } from "./state.js";
+export { createTouchInputState, resetTouchInputState } from "./state.js";
 export type { TouchButtonState, TouchInputState, TouchStickState } from "./state.js";
 export {
   beginStick,

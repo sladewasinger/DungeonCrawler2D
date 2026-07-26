@@ -1,5 +1,8 @@
 /** Owns persistent, geometry-stable HTML HUD windows and edit-mode manipulation. */
-import { isTouchDevice } from "../input/touchDetect.js";
+import {
+  inputModality,
+  type InputModality,
+} from "../input/inputModality.js";
 import {
   bindHudWindowEditing,
   type EditableHudWindow,
@@ -36,7 +39,8 @@ export class HudWindowManager {
   private readonly records = new Map<string, HudWindowRecord>();
   private readonly editingBindings = new Map<string, HudWindowEditingBinding>();
   private readonly stored: ReturnType<typeof loadWindowLayouts>;
-  private readonly mobile = isTouchDevice();
+  private mobile = inputModality.current === "touch";
+  private readonly stopModality: () => void;
   private readonly listeners = new Set<() => void>();
   private zCounter = 10;
   private editing = false;
@@ -50,6 +54,7 @@ export class HudWindowManager {
       "position:absolute;inset:0;pointer-events:none;overflow:hidden";
     root.append(this.layer);
     window.addEventListener("resize", this.layoutAll);
+    this.stopModality = inputModality.subscribe((mode) => this.applyModality(mode));
   }
 
   add(spec: HudWindowSpec): HTMLElement {
@@ -118,6 +123,7 @@ export class HudWindowManager {
 
   dispose(): void {
     window.removeEventListener("resize", this.layoutAll);
+    this.stopModality();
     this.listeners.clear();
     this.editingBindings.clear();
     this.layer.remove();
@@ -181,6 +187,13 @@ export class HudWindowManager {
   private readonly layoutAll = (): void => {
     for (const record of this.records.values()) this.apply(record);
   };
+
+  private applyModality(mode: InputModality): void {
+    const mobile = mode === "touch";
+    if (mobile === this.mobile) return;
+    this.mobile = mobile;
+    this.layoutAll();
+  }
 
   private persist(): void {
     saveWindowLayouts(Object.fromEntries(
