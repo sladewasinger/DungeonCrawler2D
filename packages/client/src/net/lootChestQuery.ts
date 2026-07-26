@@ -15,6 +15,7 @@ export function nearestLootChest(
       Math.abs(snap.z - body.z) > 1.5) continue;
     const distance = Math.hypot(snap.x - body.x, snap.y - body.y);
     if (distance > nearestDistance) continue;
+    if (nearest && distance === nearestDistance && snap.id >= nearest.id) continue;
     nearest = snap;
     nearestDistance = distance;
   }

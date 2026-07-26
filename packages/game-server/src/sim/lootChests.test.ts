@@ -9,6 +9,7 @@ import {
 import {
   LOOT_CHEST_LIFETIME_TICKS,
   LOOT_CHEST_LOCK_TICKS,
+  TICK_RATE,
   TILE,
   buildContentRegistry,
   createBody,
@@ -108,6 +109,7 @@ describe("player death loot chests", () => {
     expect(chest.entity.name).toBe("[DEAD] Crawler 123's loot");
     expect(chest.killerName).toBe("Crawler 456");
     expect(chest.unlockAtTick).toBe(sim.tickCount + LOOT_CHEST_LOCK_TICKS);
+    expect(LOOT_CHEST_LIFETIME_TICKS).toBe(5 * 60 * TICK_RATE);
     expect(chest.expiresAtTick).toBe(sim.tickCount + LOOT_CHEST_LIFETIME_TICKS);
     expect(versionedEntitySnapshot(sim, chest.entity).snapshot).toMatchObject({
       lootOwnerName: "Crawler 123",

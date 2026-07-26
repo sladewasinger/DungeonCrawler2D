@@ -20,9 +20,12 @@ const chest = (overrides: Partial<EntitySnapshot> = {}): EntitySnapshot => ({
   ...overrides,
 });
 
-const connection = (snapshot = chest()) => ({
+const connection = (...snapshots: EntitySnapshot[]) => ({
   body: { x: 0, y: 0, z: 0 },
-  entities: new Map([[snapshot.id, { snap: snapshot, samples: [] }]]),
+  entities: new Map(
+    (snapshots.length > 0 ? snapshots : [chest()])
+      .map((snapshot) => [snapshot.id, { snap: snapshot, samples: [] }]),
+  ),
   serverTick: 20,
   welcome: { playerId: "stranger" },
   stashContext: { kind: "personal", chestId: null },
@@ -35,12 +38,25 @@ describe("loot chest client query", () => {
     expect(nearestLootChest(connection(chest({ z: 2 })))).toBeNull();
   });
 
+  it("selects the nearest chest with a stable id tie-break", () => {
+    const farther = chest({ id: "loot-a", x: 1.4 });
+    const nearer = chest({ id: "loot-z", x: 0.4 });
+    expect(nearestLootChest(connection(farther, nearer))?.id).toBe("loot-z");
+
+    const tieB = chest({ id: "loot-b", x: 1 });
+    const tieA = chest({ id: "loot-a", x: -1 });
+    expect(nearestLootChest(connection(tieB, tieA))?.id).toBe("loot-a");
+    expect(nearestLootChest(connection(tieA, tieB))?.id).toBe("loot-a");
+  });
+
   it("shows a ceiling-rounded lock while allowing the killer through", () => {
     const conn = connection();
     const snapshot = chest();
     expect(lootChestLockSeconds(snapshot, conn.serverTick)).toBe(60);
     expect(canOpenLootChest(conn, snapshot)).toBe(false);
-    conn.welcome = { ...conn.welcome!, playerId: "killer" };
+    const welcome = conn.welcome;
+    if (!welcome) throw new Error("expected welcome");
+    conn.welcome = { ...welcome, playerId: "killer" };
     expect(canOpenLootChest(conn, snapshot)).toBe(true);
   });
 

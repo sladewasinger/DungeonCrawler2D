@@ -9,6 +9,7 @@ import { INTERACT_RANGE } from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
+import { nearestLootChest } from "../../net/lootChestQuery.js";
 import type { EntityRenderer } from "../../render/entities/index.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { LightingSystem } from "../../render/lighting/index.js";
@@ -20,7 +21,7 @@ import { buildAreaTileViewsInto } from "./areaViews.js";
 import { syncCombatants } from "./combatantSync.js";
 import { nearestDownedPartyMember } from "./contentQueries.js";
 import { buildRenderContext, projectileView } from "./entityViews.js";
-import { bucketFrameEntities, type FrameEntityBuckets } from "./frameEntityBuckets.js";
+import { bucketFrameEntities } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
 import { resolveInteractionPrompt, type InteractionPrompt } from "./interactionPrompt.js";
 import { pruneProjectileVelocity } from "./projectileVelocity.js";
@@ -73,14 +74,13 @@ export function syncEntities(
   }
 
   return {
-    interactionPrompt: frameInteractionPrompt(conn, buckets),
+    interactionPrompt: frameInteractionPrompt(conn),
     torchAccentLights,
   };
 }
 
 function frameInteractionPrompt(
   conn: Connection,
-  buckets: FrameEntityBuckets,
 ): InteractionPrompt | null {
   if (!conn.world || !conn.body) return null;
   const body = conn.body;
@@ -93,7 +93,7 @@ function frameInteractionPrompt(
     body.y,
     buckets.pickupTargets,
     reviveTarget,
-    buckets.lootChests[0]?.snap,
+    nearestLootChest(conn) ?? undefined,
   );
 }
 
