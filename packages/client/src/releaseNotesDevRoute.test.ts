@@ -8,7 +8,7 @@ describe("release notes dev routes", () => {
   it("serves the generated index instead of falling through to the game shell", () => {
     const response = releaseNotesRequest(
       repositoryRoot,
-      "0.3.0",
+      "0.4.0",
       "/releases/index.html",
     );
 
@@ -20,19 +20,19 @@ describe("release notes dev routes", () => {
       },
     });
     expect(response?.body).toContain("<h1>Release Notes</h1>");
-    expect(response?.body).toContain("./v0.3.0.html");
+    expect(response?.body).toContain("./v0.4.0.html");
     expect(response?.body).not.toContain("src/main.ts");
   });
 
   it("serves version pages with query strings and redirects the directory", () => {
     expect(releaseNotesRequest(
       repositoryRoot,
-      "0.3.0",
-      "/releases/v0.3.0.html?from=title",
-    )?.body).toContain("<h1>v0.3.0");
+      "0.4.0",
+      "/releases/v0.4.0.html?from=title",
+    )?.body).toContain("<h1>v0.4.0");
     expect(releaseNotesRequest(
       repositoryRoot,
-      "0.3.0",
+      "0.4.0",
       "/releases/",
     )).toMatchObject({
       status: 302,
@@ -41,10 +41,10 @@ describe("release notes dev routes", () => {
   });
 
   it("leaves game and asset routes to Vite", () => {
-    expect(releaseNotesRequest(repositoryRoot, "0.3.0", "/")).toBeNull();
+    expect(releaseNotesRequest(repositoryRoot, "0.4.0", "/")).toBeNull();
     expect(releaseNotesRequest(
       repositoryRoot,
-      "0.3.0",
+      "0.4.0",
       "/assets/atlas.json",
     )).toBeNull();
   });
