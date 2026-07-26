@@ -11,6 +11,7 @@ import {
   TILE,
   ZONE,
   loadEditorMap,
+  stairRampAt,
   stacksToHeightField,
   type CompiledField,
   type EditorMapV2,
@@ -144,10 +145,8 @@ export class EditableWorld {
   ): StairPlacementPlan | null {
     const plan = planStairPlacement(this, stair, destination);
     if (!plan) return null;
-    const originCap = this.stackAt(plan.originLanding.x, plan.originLanding.y).cap ??
-      DEFAULT_FLOOR_CAP;
-    const destinationCap = this.stackAt(destination.x, destination.y).cap ??
-      DEFAULT_FLOOR_CAP;
+    const originCap = this.stackAt(plan.originLanding.x, plan.originLanding.y).cap ?? DEFAULT_FLOOR_CAP;
+    const destinationCap = this.stackAt(destination.x, destination.y).cap ?? DEFAULT_FLOOR_CAP;
     this.paintFloorHeightAt(
       plan.originLanding.x,
       plan.originLanding.y,
@@ -263,18 +262,15 @@ export class EditableWorld {
   }
 
   groundAt(x: number, y: number): number {
-    return this.heightAt(Math.floor(x), Math.floor(y));
+    return stairRampAt(this, x, y) ?? this.heightAt(Math.floor(x), Math.floor(y));
   }
 
-  /** Ramp height iff (x, y) sits on a Stairs tile, else null — see WorldView's
-   * doc comment. Like groundAt above, this previews as the tile's own flat
-   * scalar height rather than a true ramp (EditableWorld.groundAt doesn't
-   * ramp either — a pre-existing preview-fidelity limitation, out of scope
-   * here; the compiled/shipped World.stairHeightAt is the ramped version). */
+  /** Ramp height iff (x, y) sits on a Stairs tile, matching live World exactly. */
   stairHeightAt(x: number, y: number): number | null {
     const wx = Math.floor(x);
     const wy = Math.floor(y);
-    return this.tileAt(wx, wy) === TILE.Stairs ? this.heightAt(wx, wy) : null;
+    if (this.tileAt(wx, wy) !== TILE.Stairs) return null;
+    return stairRampAt(this, x, y);
   }
 
   /** Own-tile face model: collision is pure height + solid furniture — the face IS the raised tile. */

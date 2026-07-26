@@ -14,7 +14,7 @@ import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { EntityRenderer, type RenderContext } from "../../render/entities/index.js";
 import { buildChunkVisual, destroyChunkVisual, type ChunkVisual } from "../../render/terrain/chunkVisual.js";
-import { islandChunkCoords, islandViewCentroid } from "../../render/terrain/islandChunk.js";
+import { islandChunkCoords } from "../../render/terrain/islandChunk.js";
 import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../../render/terrain/terrainDeviceProfile.js";
 import { configureTerrainPages } from "../../render/terrain/terrainPages.js";
 import { LIGHT_MAX, type DynamicLightSeed } from "../../render/terrain/tileLight.js";
@@ -29,6 +29,7 @@ import {
   drainBenchCombatVfx,
 } from "./bench/index.js";
 import { EDITOR_GRID_SIZE } from "./EditableWorld.js";
+import { editorCameraLayout } from "./editorCameraLayout.js";
 import type { EditorStore } from "./editorStore.js";
 import { wireRenderPanelPointer } from "./renderPanelPointer.js";
 
@@ -69,9 +70,7 @@ export class EditorScene extends Phaser.Scene {
       this.textures,
       selectTerrainDeviceProfile(readTerrainDeviceSignals(this)),
     );
-    const worldPx = EDITOR_GRID_SIZE * SCREEN_TILE_PX;
     this.cameras.main.setRoundPixels(true);
-    this.cameras.main.setZoom(Math.min(this.scale.width, this.scale.height) / worldPx);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
     this.paintPreview = this.add
@@ -162,8 +161,9 @@ export class EditorScene extends Phaser.Scene {
   /** The camera must center on the island's ROTATED centroid, not its fixed world
    * pixel center — the island itself moves under rotation (islandChunk.ts's doc comment). */
   private frameCamera(orientation: ViewOrientation): void {
-    const centroid = islandViewCentroid(orientation, EDITOR_GRID_SIZE);
-    this.cameras.main.centerOn(centroid.x * SCREEN_TILE_PX, centroid.y * SCREEN_TILE_PX);
+    const layout = editorCameraLayout(orientation);
+    this.cameras.main.setZoom(layout.zoom);
+    this.cameras.main.centerOn(layout.centerX, layout.centerY);
   }
 
   private torchSeeds(): DynamicLightSeed[] {
