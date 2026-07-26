@@ -23,6 +23,7 @@ engineering bar.
 | [docs/EFFECTS.md](docs/EFFECTS.md) | The generic effect model: primitives, statuses, areas, interactions |
 | [docs/AI_CRAFTING.md](docs/AI_CRAFTING.md) | AI crafting pipeline: prompt → proposal → validation → shared registry |
 | [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | AWS serverless architecture, Terraform layout, cost model |
+| [docs/RELEASING.md](docs/RELEASING.md) | Versioning, release notes, validation, tagging, publication, and verification |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Epics and release sequencing |
 
 ## Getting started

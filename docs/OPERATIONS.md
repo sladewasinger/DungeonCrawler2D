@@ -1,35 +1,40 @@
 # Production Operations
 
-Production releases are immutable artifacts addressed by the Git commit SHA.
-The deploy workflow uploads the server bundle, complete client build, and a JSON
-manifest before changing either live target. `releases/current.json` advances
-only after the two-renderer smoke test succeeds.
+Production deploys run on every push to `main`. The workflow validates, builds,
+uploads `packages/game-server/dist/main.cjs`, synchronizes the client build to
+the frontend bucket, restarts the game service, invalidates CloudFront, and
+smoke-tests the live release.
 
-## Automatic rollback
+The operator checklist for preparing versions, writing release notes, tagging,
+pushing, and creating the GitHub Release is in [RELEASING.md](RELEASING.md).
 
-If activation, restart, edge invalidation, or smoke testing fails and a previous
-release exists, the workflow restores that release's server bundle and client
-tree, restarts the game service, and invalidates CloudFront.
+## Current rollback limitation
 
-The rollback step deliberately does not advance `releases/current.json`, so the
-last known-good SHA remains the recovery source.
+The current workflow overwrites the live server bundle and frontend tree. It
+does not retain SHA-addressed deployment artifacts, advance a
+`releases/current.json` manifest, or automatically restore the previous
+release. A failure after upload can therefore leave production partially
+updated until another successful deployment completes.
 
-## Manual rollback
+Do not claim that a release is live, push its version tag, or create its GitHub
+Release until the exact deployment run has completed its production smoke test.
 
-Set `SHA` to a previously published release and run the following with production
-AWS credentials:
+## Recovery after a failed deployment
+
+Create a new commit on `main` that restores the last known-good source state,
+then push it so the normal workflow rebuilds and republishes both targets. Use
+`git revert` for a bad change when practical; do not force-push `main`, move a
+published tag, or rewrite released history.
 
 ```bash
-aws s3 cp \
-  "s3://$ARTIFACT_BUCKET/server/releases/$SHA/main.cjs" \
-  "s3://$ARTIFACT_BUCKET/server/main.cjs"
-aws s3 sync \
-  "s3://$ARTIFACT_BUCKET/client/releases/$SHA" \
-  "s3://$FRONTEND_BUCKET" --delete
+git revert BAD_COMMIT
+git push origin main
 ```
 
-Restart `dungeoncrawler2d` through SSM, invalidate the CloudFront distribution,
-and run `node tools/smoke-production.mjs "$SITE_URL"`.
+Watch that deployment with `gh run watch RUN_ID --exit-status`. If the workflow
+cannot run or production is unavailable, stop and coordinate AWS access with an
+operator; there is no safe repository-only command that restores an immutable
+previous artifact today.
 
 ## Player-data backups
 
