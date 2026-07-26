@@ -6,6 +6,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
+import { spawnEnemy } from "../helpers.js";
 import { resolveSpawnAnchor } from "../spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state.js";
 import { activateChunksNearPlayers, NEAR_SPAWN_RADIUS_TILES } from "./population.js";
@@ -92,6 +93,10 @@ describe("repopulateNearSpawn", () => {
     sim = createSimState(world, content, new PlayerStore(null), 42, {});
     anchor = resolveSpawnAnchor(sim);
     sweepNearSpawn(sim, anchor);
+    const player = sim.players.get("p1");
+    if (!player) throw new Error("sweep did not create the test player");
+    player.entity.body.x = anchor.x;
+    player.entity.body.y = anchor.y;
   });
 
   it("tops the near-spawn population back up after everything nearby is cleared", () => {
@@ -119,19 +124,34 @@ describe("repopulateNearSpawn", () => {
     expect(sim.enemies.size).toBeLessThan(before + 10);
   });
 
-  it("is a no-op off floor 1", () => {
+  it("repopulates occupied areas on deeper floors", () => {
     const world2 = new World(hashString("repop-test-world"), 2, LEVEL.Dungeon);
     const sim2 = createSimState(world2, content, new PlayerStore(null), 42, {});
-    const before = sim2.enemies.size;
+    const center = resolveSpawnAnchor(sim2);
+    sim2.players.set("p1", makeSlot(center.x, center.y, world2));
 
     repopulateNearSpawn(sim2);
 
-    expect(sim2.enemies.size).toBe(before);
+    expect(countWithin(sim2, center, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThan(0);
+  });
+
+  it("recycles distant enemies that filled the cap and restores the active area", () => {
+    sim.enemies.clear();
+    for (let index = 0; index < 150; index++) {
+      spawnEnemy(sim, "slime", anchor.x + 500 + index, anchor.y + 500);
+    }
+
+    repopulateNearSpawn(sim);
+
+    expect(sim.enemies.size).toBeLessThanOrEqual(150);
+    expect(countWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThan(0);
   });
 
   it("is a no-op in the Sandbox level", () => {
     const world2 = new World(hashString("repop-test-world"), 1, LEVEL.Sandbox);
     const sim2 = createSimState(world2, content, new PlayerStore(null), 42, {});
+    const center = resolveSpawnAnchor(sim2);
+    sim2.players.set("p1", makeSlot(center.x, center.y, world2));
     const before = sim2.enemies.size;
 
     repopulateNearSpawn(sim2);

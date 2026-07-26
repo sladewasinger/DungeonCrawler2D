@@ -69,7 +69,7 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
   }
 
   spawnPlatformLoot(sim, cx, cy);
-  if (sim.enemies.size > 150) return;
+  if (sim.enemies.size >= 150) return;
   spawnRandomEnemies(sim, cx, cy);
 }
 

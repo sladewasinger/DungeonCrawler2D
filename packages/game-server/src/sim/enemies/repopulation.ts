@@ -1,36 +1,75 @@
-import { CHASM_DEATH_Z, LEVEL, TICK_RATE } from "@dc2d/engine";
+import {
+  AOI_RADIUS,
+  CHASM_DEATH_Z,
+  CHUNK_SIZE,
+  isRoomChunk,
+  LEVEL,
+  TICK_RATE,
+} from "@dc2d/engine";
 import { spawnEnemy } from "../helpers.js";
-import { resolveSpawnAnchor } from "../spawn.js";
+import { WARDEN_DEF_ID } from "../floors/constants.js";
 import type { SimState } from "../state.js";
 import { NEAR_SPAWN_RADIUS_TILES, pickEnemyDef, tooCloseToPlayer } from "./population.js";
 
 /**
- * Periodic near-spawn top-up: `population.ts` seeds each chunk exactly
- * once (`activatedChunks`), so a shared multiplayer floor that gets
- * cleared out near spawn stays empty forever otherwise (GRINDER'S
- * BLOCKER, panel round 2 — "the judges compete for the same spawns").
- * Every REPOPULATE_INTERVAL_TICKS this tops the near-spawn population
- * back up to NEAR_SPAWN_TARGET_COUNT, same placement rules as a fresh
- * spawn (walkable, non-sanctuary, non-chasm, clear of players).
+ * Chunks populate only once, while their enemies remain allocated after
+ * players leave. Recycling inactive hostiles prevents the global cap from
+ * starving occupied areas as the shared world is explored.
  */
-
-/** ~2 minutes at the fixed tick rate — "refill within a couple minutes" (panel round 2). */
-export const REPOPULATE_INTERVAL_TICKS = 2 * 60 * TICK_RATE;
-/** Diagnosed baseline was ~5-15 within this radius on a fresh world (docs/ASSUMPTIONS.md
- * #150); target sits above that band so a cleared-out area reliably refills, not just limps. */
+/** A cleared active area begins recovering within 30 seconds. */
+export const REPOPULATE_INTERVAL_TICKS = 30 * TICK_RATE;
+/** Target density for each occupied area before the shared global cap is divided. */
 const NEAR_SPAWN_TARGET_COUNT = 16;
 const REPOPULATE_ATTEMPTS_PER_ENEMY = 20;
 const ENEMY_CAP = 150;
+const RETAIN_RADIUS_TILES = NEAR_SPAWN_RADIUS_TILES + AOI_RADIUS;
 
-/** Tops up near-spawn floor-1 enemy population — no-op off floor 1 or under the target. */
+interface PopulationCenter {
+  x: number;
+  y: number;
+}
+
+/** Recycles inactive hostiles and tops up occupied overworld areas on every dungeon floor. */
 export function repopulateNearSpawn(sim: SimState): void {
-  if (sim.world.level === LEVEL.Sandbox || sim.world.floor !== 1) return;
-  if (sim.enemies.size >= ENEMY_CAP) return;
-  const anchor = resolveSpawnAnchor(sim);
-  const deficit = NEAR_SPAWN_TARGET_COUNT - countEnemiesWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES);
-  for (let n = 0; n < deficit; n++) {
-    const spot = randomSpotNear(sim, anchor, NEAR_SPAWN_RADIUS_TILES);
-    if (spot) spawnEnemy(sim, pickEnemyDef(sim), spot.x + 0.5, spot.y + 0.5);
+  if (sim.world.level === LEVEL.Sandbox) return;
+  const centers = populationCenters(sim);
+  if (centers.length === 0) return;
+  recycleInactiveEnemies(sim, centers);
+  const targetPerCenter = Math.min(
+    NEAR_SPAWN_TARGET_COUNT,
+    Math.max(4, Math.floor(ENEMY_CAP / centers.length)),
+  );
+  for (const center of centers) {
+    const deficit = targetPerCenter -
+      countEnemiesWithin(sim, center, NEAR_SPAWN_RADIUS_TILES);
+    for (let n = 0; n < deficit && sim.enemies.size < ENEMY_CAP; n++) {
+      const spot = randomSpotNear(sim, center, NEAR_SPAWN_RADIUS_TILES);
+      if (spot) spawnEnemy(sim, pickEnemyDef(sim), spot.x + 0.5, spot.y + 0.5);
+    }
+  }
+}
+
+function populationCenters(sim: SimState): PopulationCenter[] {
+  const centers: PopulationCenter[] = [];
+  for (const slot of sim.players.values()) {
+    if (!slot.connected) continue;
+    const cy = Math.floor(slot.entity.body.y / CHUNK_SIZE);
+    if (isRoomChunk(cy)) continue;
+    centers.push({ x: slot.entity.body.x, y: slot.entity.body.y });
+  }
+  return centers;
+}
+
+function recycleInactiveEnemies(sim: SimState, centers: PopulationCenter[]): void {
+  for (const [id, enemy] of sim.enemies) {
+    if (enemy.def.id === WARDEN_DEF_ID) continue;
+    const retained = centers.some((center) =>
+      Math.hypot(enemy.entity.body.x - center.x, enemy.entity.body.y - center.y) <=
+        RETAIN_RADIUS_TILES
+    );
+    if (retained) continue;
+    sim.enemies.delete(id);
+    sim.replicationMotion.delete(id);
   }
 }
 
