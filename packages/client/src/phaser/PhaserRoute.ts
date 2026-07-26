@@ -56,7 +56,13 @@ function startGame(search: URLSearchParams): void {
   if (!import.meta.env.DEV || search.get("debug") !== "1") return;
   const debugWindow = window as unknown as GameDebugWindow;
   debugWindow.__game = game;
-  debugWindow.__dc2d = { conn, game, buildSha: BUILD_SHA, viewOrientation: getViewOrientation };
+  debugWindow.__dc2d = {
+    conn,
+    game,
+    buildSha: BUILD_SHA,
+    viewOrientation: getViewOrientation,
+    terrainDiagnostics: () => (game.scene.getScene("dungeon") as DungeonScene).terrainDiagnostics(),
+  };
 }
 
 interface EditorDebugWindow {
@@ -72,5 +78,6 @@ interface GameDebugWindow {
     game: Phaser.Game;
     buildSha: string;
     viewOrientation: typeof getViewOrientation;
+    terrainDiagnostics: DungeonScene["terrainDiagnostics"];
   };
 }

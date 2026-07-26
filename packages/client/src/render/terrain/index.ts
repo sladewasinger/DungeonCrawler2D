@@ -23,7 +23,7 @@ import {
 } from "./streaming.js";
 import type { DynamicLightSeed } from "./tileLight.js";
 import { readTerrainDeviceSignals, selectTerrainDeviceProfile, type TerrainDeviceProfile } from "./terrainDeviceProfile.js";
-import { configureTerrainPages } from "./terrainPages.js";
+import { configureTerrainPages, terrainPageMemoryFor } from "./terrainPages.js";
 
 const BUILD_BUDGET_MS = 4;
 const MAX_BUILD_STARTS_PER_FRAME = 2;
@@ -191,6 +191,16 @@ export class TerrainRenderer {
 
   get loadedChunkCount(): number {
     return this.visuals.size;
+  }
+
+  diagnostics() {
+    return {
+      profile: this.pageProfile.kind,
+      loadedChunks: this.visuals.size,
+      buildingChunks: this.builders.size,
+      queuedChunks: this.bakeQueue.length,
+      ...terrainPageMemoryFor(this.scene.textures),
+    };
   }
 
   dispose(): void {

@@ -227,6 +227,16 @@ declare global {
       game: unknown;
       /** LANE W2 read-only observation hook — the seam's live settled ViewOrientation. */
       viewOrientation(): number;
+      terrainDiagnostics(): {
+        profile: "constrained" | "desktop";
+        loadedChunks: number;
+        buildingChunks: number;
+        queuedChunks: number;
+        activeBytes: number;
+        spareBytes: number;
+        activeUsedBytes: number;
+        spareUsedBytes: number;
+      } | null;
     };
   }
 }

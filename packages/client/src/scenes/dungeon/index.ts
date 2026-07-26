@@ -140,6 +140,10 @@ export class DungeonScene extends Phaser.Scene {
     this.interactionPrompt = synced.interactionPrompt;
   }
 
+  terrainDiagnostics(): ReturnType<TerrainRenderer["diagnostics"]> | null {
+    return this.terrain?.diagnostics() ?? null;
+  }
+
   /** Advances the Q/X rotation tween BEFORE input is sampled, so camera-relative
    * movement this same frame already remaps against whatever orientation the tween's
    * one hard content swap (if this frame crosses the 45-degree midpoint) settles on. */
