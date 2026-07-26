@@ -91,7 +91,8 @@ export function nearestLootChest(
       chest.entity.body.x - slot.entity.body.x,
       chest.entity.body.y - slot.entity.body.y,
     );
-    if (distance > nearestDistance) continue;
+    if (distance > nearestDistance ||
+      (nearest && distance === nearestDistance && chest.entity.id >= nearest.entity.id)) continue;
     nearest = chest;
     nearestDistance = distance;
   }
@@ -130,6 +131,14 @@ export function openLootChest(
 ): boolean {
   const chest = nearestLootChest(sim, slot);
   if (!chest) return false;
+  return openResolvedLootChest(sim, slot, chest);
+}
+
+function openResolvedLootChest(
+  sim: SimState,
+  slot: PlayerSlot,
+  chest: LootChest,
+): boolean {
   if (!canLoot(sim, slot, chest)) {
     const seconds = Math.ceil((chest.unlockAtTick - sim.tickCount) / TICK_RATE);
     slot.outbox.push({ t: "toast", msg: `Loot reserved for ${seconds}s` });
@@ -142,6 +151,23 @@ export function openLootChest(
   chest.viewerId = slot.entity.id;
   publishChest(slot, chest);
   return true;
+}
+
+export function openLootChestById(
+  sim: SimState,
+  slot: PlayerSlot,
+  chestId: string,
+): boolean {
+  const chest = sim.lootChests.get(chestId);
+  if (!chest) {
+    slot.outbox.push({ t: "toast", msg: "Loot chest is no longer available" });
+    return true;
+  }
+  if (!inRange(slot, chest)) {
+    slot.outbox.push({ t: "toast", msg: "Too far from loot chest" });
+    return true;
+  }
+  return openResolvedLootChest(sim, slot, chest);
 }
 
 export function closeLootChest(

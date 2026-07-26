@@ -111,7 +111,7 @@ export function stashOpIntent(conn: Connection, op: "put" | "take", index: numbe
 export function lootChestIntent(
   conn: Connection,
   chestId: string,
-  op: "take" | "takeAll" | "close",
+  op: "open" | "take" | "takeAll" | "close",
   item?: string,
 ): void {
   if (!conn.canAct) return;

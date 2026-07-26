@@ -10,7 +10,7 @@ import { dispatchItemAction } from "./items.js";
 import { doAttack } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety.js";
 import { resetInputTimeline } from "../playerInputTimeline.js";
-import { closeLootChest, takeLoot } from "../lootChests.js";
+import { closeLootChest, openLootChestById, takeLoot } from "../lootChests.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
@@ -57,7 +57,8 @@ function dispatchLootChest(
   slot: PlayerSlot,
   action: Extract<PlayerAction, { type: "lootChest" }>,
 ): void {
-  if (action.op === "close") closeLootChest(sim, slot, action.chestId);
+  if (action.op === "open") openLootChestById(sim, slot, action.chestId);
+  else if (action.op === "close") closeLootChest(sim, slot, action.chestId);
   else takeLoot(sim, slot, action.chestId, action.op, action.item);
 }
 

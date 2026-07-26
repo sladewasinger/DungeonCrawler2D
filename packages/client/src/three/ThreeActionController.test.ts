@@ -31,6 +31,7 @@ const connection = (downed = false) => ({
   dead: false,
   attack: vi.fn(),
   interact: vi.fn(),
+  lootChestOp: vi.fn(),
   pickup: vi.fn(),
   throwTorch: vi.fn(),
   useSlot: vi.fn(),
@@ -149,7 +150,8 @@ describe("ThreeActionController interaction gesture", () => {
     const input = sample({ interactPressed: true, interactHeld: true });
 
     controller.publish(new World(1, 1), input);
-    expect(conn.interact).toHaveBeenCalledOnce();
+    expect(conn.lootChestOp).toHaveBeenCalledWith("loot", "open");
+    expect(conn.interact).not.toHaveBeenCalled();
     expect(toggleStash).not.toHaveBeenCalled();
 
     conn.welcome = { playerId: "killer" } as Connection["welcome"];

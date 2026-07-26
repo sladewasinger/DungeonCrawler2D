@@ -37,7 +37,7 @@ function useLootChest(
 ): boolean {
   const chest = queries.nearbyLootChest(conn);
   if (!chest) return false;
-  conn.interact();
+  conn.lootChestOp(chest.id, "open");
   if (chest.canOpen) panels.toggleStash(conn);
   return true;
 }

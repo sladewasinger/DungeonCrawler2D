@@ -40,6 +40,7 @@ const setup = (
     throwTorch: () => calls.push("throwTorch"),
     craft: () => calls.push("craft"),
     stashOp: () => calls.push("stashOp"),
+    lootChestOp: (id, op) => calls.push(`lootChest:${id}:${op}`),
     partyOp: () => calls.push("partyOp"),
     assignSlot: () => calls.push("assignSlot"),
     equip: () => calls.push("equip"),
@@ -85,13 +86,27 @@ describe("loot chest interaction priority", () => {
   it("opens an eligible chest and still lets the server validate it", () => {
     const { calls, conn, panels, queries } = setup(null, { lootCanOpen: true });
     interactOrUse(conn, panels, queries, null, () => false);
-    expect(calls).toEqual(["interact", "toggleStash"]);
+    expect(calls).toEqual(["lootChest:loot-1:open", "toggleStash"]);
+  });
+
+  it("uses a fresh prompt target on the first interaction call", () => {
+    const state = setup(null);
+    let prompted = false;
+    state.queries.nearbyLootChest = () => {
+      prompted = true;
+      return { id: "loot-first", canOpen: true };
+    };
+
+    interactOrUse(state.conn, state.panels, state.queries, null, () => false);
+
+    expect(prompted).toBe(true);
+    expect(state.calls).toEqual(["lootChest:loot-first:open", "toggleStash"]);
   });
 
   it("asks the server for lock feedback without opening for a stranger", () => {
     const { calls, conn, panels, queries } = setup(null, { lootCanOpen: false });
     interactOrUse(conn, panels, queries, null, () => false);
-    expect(calls).toEqual(["interact"]);
+    expect(calls).toEqual(["lootChest:loot-1:open"]);
   });
 });
 

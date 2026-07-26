@@ -34,7 +34,7 @@ describe("protocol", () => {
       { type: "equip", item: null },
       { type: "interact" },
       { type: "craft", recipe: "bandage" },
-      { type: "stash", op: "put", index: 3 }, { type: "lootChest", chestId: "loot-1", op: "takeAll" },
+      { type: "stash", op: "put", index: 3 }, { type: "lootChest", chestId: "loot-1", op: "open" }, { type: "lootChest", chestId: "loot-1", op: "takeAll" },
       { type: "lootChest", chestId: "loot-1", op: "close" }, { type: "party", op: "invite", target: "p2" },
       { type: "party", op: "decline" },
       { type: "chat", channel: "party", text: "behind you" },

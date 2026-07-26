@@ -76,7 +76,7 @@ export class ConnectionActions {
   stashOp(op: "put" | "take", index: number): void {
     stashOpIntent(this.connection, op, index);
   }
-  lootChestOp(chestId: string, op: "take" | "takeAll" | "close", item?: string): void {
+  lootChestOp(chestId: string, op: "open" | "take" | "takeAll" | "close", item?: string): void {
     lootChestIntent(this.connection, chestId, op, item);
   }
   closeLootChest(): void {

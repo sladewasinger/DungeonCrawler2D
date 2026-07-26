@@ -22,6 +22,7 @@ import {
   closeLootChest,
   expireLootChests,
   openLootChest,
+  openLootChestById,
   spawnPlayerLootChest,
   takeLoot,
 } from "./lootChests.js";
@@ -144,6 +145,25 @@ describe("player death loot chests", () => {
     expect(stranger.outbox.at(-1)).toMatchObject({ t: "lootChest" });
   });
 
+  it("opens the requested in-range chest on the first request", () => {
+    const { sim, killer, chest } = setup();
+
+    expect(openLootChestById(sim, killer, chest.entity.id)).toBe(true);
+    expect(killer.outbox).toHaveLength(1);
+    expect(killer.outbox[0]).toMatchObject({
+      t: "lootChest",
+      chestId: chest.entity.id,
+    });
+    expect(chest.viewerId).toBe(killer.entity.id);
+    openLootChestById(sim, killer, chest.entity.id);
+    expect(killer.outbox.at(-1)).toMatchObject({ t: "lootChest", chestId: chest.entity.id });
+    killer.entity.body.x += 10;
+    openLootChestById(sim, killer, chest.entity.id);
+    expect(killer.outbox.at(-1)).toMatchObject({ t: "toast", msg: "Too far from loot chest" });
+    openLootChestById(sim, killer, "missing");
+    expect(killer.outbox.at(-1)).toMatchObject({ t: "toast", msg: "Loot chest is no longer available" });
+  });
+
   it("takes one stack or all stacks and removes an emptied chest", () => {
     const { sim, killer, chest } = setup();
     killer.inventory = [];
@@ -177,7 +197,7 @@ describe("player death loot chests", () => {
     expect(chest.viewerId).toBeNull();
   });
 
-  it("despawns untouched chests after thirty minutes", () => {
+  it("despawns untouched chests at their exact expiry tick", () => {
     const { sim, chest } = setup();
     sim.tickCount = chest.expiresAtTick;
     expireLootChests(sim);

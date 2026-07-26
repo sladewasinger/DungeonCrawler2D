@@ -118,7 +118,7 @@ export class ThreeActionController {
   private publishLootChest(): boolean {
     const chest = nearestLootChest(this.connection);
     if (!chest) return false;
-    this.connection.interact();
+    this.connection.lootChestOp(chest.id, "open");
     if (canOpenLootChest(this.connection, chest)) this.panels?.toggleStash();
     return true;
   }

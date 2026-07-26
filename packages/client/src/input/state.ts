@@ -59,6 +59,7 @@ export interface InputConnection {
   throwTorch(dirX: number, dirY: number): void;
   craft(recipeId: string): void;
   stashOp(op: "put" | "take", index: number): void;
+  lootChestOp(chestId: string, op: "open" | "take" | "takeAll" | "close", item?: string): void;
   partyOp(op: "accept" | "invite", targetId?: string): void;
   assignSlot(slot: number, item: string | null): void;
   equip(item: string | null): void;

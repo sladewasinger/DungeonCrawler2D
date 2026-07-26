@@ -109,7 +109,7 @@ export const clientStashSchema = z.object({
 export const clientLootChestSchema = z.object({
   type: z.literal("lootChest"),
   chestId: z.string().max(64),
-  op: z.enum(["take", "takeAll", "close"]),
+  op: z.enum(["open", "take", "takeAll", "close"]),
   item: z.string().max(64).optional(),
 });
 
