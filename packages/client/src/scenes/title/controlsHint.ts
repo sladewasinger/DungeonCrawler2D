@@ -26,7 +26,7 @@ export class TitleControlsHint {
 
   layout(_width: number, height: number): void {
     const content = titleHintContent(height);
-    this.root.style.top = `${Math.round(height * 0.34)}px`;
+    this.root.style.top = `${Math.round(height * 0.38)}px`;
     this.premise.hidden = !content.premiseVisible;
     this.controls.textContent = content.controlsText;
   }

@@ -7,6 +7,8 @@ const BONE_TINTS = [0xf3ead2, 0xd8cdb8, 0xb8aa91];
 const HIT_CHIP_COUNT = 7;
 const DEATH_CHIP_COUNT = 18;
 const LIFESPAN_MS = { min: 380, max: 920 };
+const HIT_CHIP_SCALE = { start: 1.3, end: 0.35 };
+const DEATH_CHIP_SCALE = { start: 0.9, end: 0.18 };
 
 export function isSkeletalDefId(defId: string | undefined): boolean {
   return defId === "skeleton" || defId === "warden-of-five";
@@ -30,7 +32,7 @@ export function spawnBoneChipBurst(
       lifespan: LIFESPAN_MS,
       speed: { min: 32, max: lethal ? 145 : 90 },
       angle: { min: angle.minDeg, max: angle.maxDeg },
-      scale: { start: lethal ? 0.9 : 0.65, end: 0.18 },
+      scale: lethal ? DEATH_CHIP_SCALE : HIT_CHIP_SCALE,
       alpha: { start: 0.95, end: 0 },
       tint: BONE_TINTS,
       gravityY: 150,

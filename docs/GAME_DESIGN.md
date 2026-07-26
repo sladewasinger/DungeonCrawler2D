@@ -64,8 +64,23 @@ Every layer is the same portal mechanic ("stretch rooms"): rooms manifest as ins
 
 - Formed by **mutual consent only** — an invite/accept flow (natural gateway: the fistbump).
 - Party members: shared party chat, party door in safe rooms, and labeled direction/distance tracking from position pings even outside view range — they're your people. **Friendly fire stays on at half direct melee damage** — partying up is trust, not immunity; the melee targeting aid keeps accidents rare.
-- A lethal hit becomes a **60-second downed window** while a conscious party member remains. Nearby members can revive; holding **K** for 1.5 seconds gives up early and enters the ordinary loot-drop/respawn path.
+- A lethal hit becomes a **60-second downed window** while a conscious party member remains. Nearby members can revive; holding **K** for 1.5 seconds gives up early and enters the ordinary loot-drop/respawn path. The downed overlay is distinct from the full death screen. If the player gives up or bleeds out, the full death flow starts with a **30-second respawn countdown** (or the existing hold-**E** early-respawn gesture).
+
 - Leaving/disbanding is unilateral and instant. Loot sharing rules: open question (default: free-for-all pickup, party etiquette is social, not mechanical).
+
+## Character progression and stats (future)
+
+Character level currently records XP progression and drives the level display/announcement only. It must not be treated as an implicit combat or movement buff until a stat progression design is approved: level 1 behavior remains the compatibility baseline.
+
+When progression bonuses are implemented, use the following contract:
+
+- Store a server-authoritative `CharacterStats` model with explicit attributes such as strength, agility, vitality/endurance, and any later attributes. Derive it from persisted character data, level, and stat allocations rather than scattering level checks through gameplay code.
+- Route every level-sensitive value through a shared deterministic stat resolver: outgoing damage, maximum health, attack cooldown/rate, movement and sprint speed, stamina, defense, healing, jump/fall behavior, and future weapon or ability scaling. Existing constants become named level-1 defaults/configuration, not hardcoded literals at call sites.
+- Keep layers separate: resolve player stats first, then apply weapon/item/enemy modifiers and party or status effects. Weapon base damage and player strength must remain independently testable.
+- The server remains authoritative for resolved stats and final outcomes. Replicate the level/stat inputs (or resolved snapshot) needed for client prediction, and make the client use the same deterministic formulas; never grant a client-only level bonus.
+- Preserve old saves with level-1/default stats and add tests covering stat derivation, level transitions, modifier stacking, and server/client agreement before enabling bonuses in live progression.
+
+This is an architecture requirement for future leveling work, not an immediate balance change.
 
 ## Social fabric
 

@@ -28,6 +28,16 @@ describe("resolveWsUrl", () => {
     expect(url).toBe("ws://192.168.1.20:8787");
   });
 
+  it("uses the compiled local preview server when the page is on port 4001", () => {
+    const url = resolveWsUrl({
+      protocol: "http:",
+      host: "192.168.1.20:4001",
+      hostname: "192.168.1.20",
+      search: "",
+    });
+    expect(url).toBe("ws://192.168.1.20:4002");
+  });
+
   it("lets ?server= override either default, for pointing dev at another server", () => {
     const url = resolveWsUrl({
       protocol: "https:",

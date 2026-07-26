@@ -52,6 +52,7 @@ const atlasPiece = (piece: AtlasPiece): HTMLSpanElement => {
 
 const createDoor = (): HTMLDivElement => {
   const door = document.createElement("div");
+  door.className = "title-door";
   door.setAttribute("aria-hidden", "true");
   door.style.cssText = [
     "position:absolute",
@@ -106,11 +107,12 @@ export class StandaloneTitle {
       "font-family:monogram,monospace",
     ].join(";");
     const title = document.createElement("h1");
+    title.className = "title-heading";
     title.textContent = "DUNGEON CRAWLER";
     title.style.cssText = [
       "position:absolute",
       "left:50%",
-      "top:20%",
+      "top:13%",
       "translate:-50% -50%",
       "margin:0",
       "font-size:clamp(34px,7vw,74px)",

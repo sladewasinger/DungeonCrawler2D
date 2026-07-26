@@ -18,6 +18,31 @@
   animation: title-spark-rise var(--spark-duration) linear var(--spark-delay) infinite;
 }
 
+.title-door {
+  top: 25% !important;
+}
+
+@media (max-height: 650px) {
+  .title-door {
+    scale: .82;
+  }
+
+  .title-connect-form {
+    transform: translateX(-50%) scale(.86) !important;
+    transform-origin: bottom center;
+  }
+}
+
+@media (max-height: 500px) {
+  .title-door {
+    scale: .68;
+  }
+
+  .title-connect-form {
+    transform: translateX(-50%) scale(.76) !important;
+  }
+}
+
 .character-selection {
   display: grid;
   gap: 8px;

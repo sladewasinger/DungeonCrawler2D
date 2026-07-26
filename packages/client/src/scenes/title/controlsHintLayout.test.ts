@@ -19,4 +19,11 @@ describe("title hint content", () => {
       controlsText: COMPACT_CONTROLS_LINE,
     });
   });
+
+  it("uses the compact copy in short landscape viewports", () => {
+    expect(titleHintContent(600)).toEqual({
+      premiseVisible: false,
+      controlsText: COMPACT_CONTROLS_LINE,
+    });
+  });
 });

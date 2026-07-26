@@ -3,7 +3,7 @@ export const CONTROLS_LINE =
 
 export const COMPACT_CONTROLS_LINE = "WASD move · click attack · Enter chat — more in-game (F10)";
 
-export const SHORT_VIEWPORT_HEIGHT = 480;
+export const SHORT_VIEWPORT_HEIGHT = 650;
 
 export const isShortViewport = (height: number): boolean => height < SHORT_VIEWPORT_HEIGHT;
 

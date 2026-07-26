@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "node scripts/build.mjs",
+    "preview-prod": "node -e \"process.env.GAME_PORT='4002'; require('./dist/main.cjs')\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

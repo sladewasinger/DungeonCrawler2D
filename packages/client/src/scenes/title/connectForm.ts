@@ -97,6 +97,7 @@ export class ConnectForm {
 
   constructor(handlers: ConnectFormHandlers) {
     this.root = document.createElement("div");
+    this.root.className = "title-connect-form";
     applyRootStyle(this.root);
 
     this.input = document.createElement("input");
