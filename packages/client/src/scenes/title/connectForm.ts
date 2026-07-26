@@ -123,14 +123,14 @@ export class ConnectForm {
   private createChoices(handlers: ConnectFormHandlers): HTMLDivElement {
     const choices = document.createElement("div");
     choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
-    this.buttons.push(
-      this.createButton(
-        "Enter the Dungeon", "Procedural world · enemies · progression", LEVEL.Dungeon, handlers,
-      ),
-      this.createButton(
+    this.buttons.push(this.createButton(
+      "Enter the Dungeon", "Procedural world · enemies · progression", LEVEL.Dungeon, handlers,
+    ));
+    if (import.meta.env.DEV) {
+      this.buttons.push(this.createButton(
         "Enter the Sandbox", "Fixed traversal course · no enemies", LEVEL.Sandbox, handlers,
-      ),
-    );
+      ));
+    }
     choices.append(...this.buttons);
     return choices;
   }
