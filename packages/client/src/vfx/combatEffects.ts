@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { BloodDecalPool } from "./bloodDecalPool.js";
+import { isSkeletalDefId, spawnBoneChipBurst } from "./boneChipBurst.js";
 import { spawnDeathSplatter, spawnHitSplatter } from "./bloodSplatter.js";
 import { bloodTintFor } from "./bloodTint.js";
 import { loadCarnageSettings } from "./carnageSettings.js";
@@ -35,8 +36,12 @@ export class CombatEffects {
     dirY?: number,
   ): void {
     const settings = loadCarnageSettings();
-    if (!settings.bloodEnabled) return;
     const screen = worldToScreen(worldX, worldY);
+    if (isSkeletalDefId(defId)) {
+      spawnBoneChipBurst(this.scene, screen.x, screen.y, false, dirX, dirY);
+      return;
+    }
+    if (!settings.bloodEnabled) return;
     const tint = bloodTintFor(defId);
     spawnHitSplatter(
       this.scene, screen.x, screen.y, tint, dirX, dirY,
@@ -55,8 +60,12 @@ export class CombatEffects {
     nowMs: number,
   ): void {
     const settings = loadCarnageSettings();
-    if (!settings.bloodEnabled) return;
     const screen = worldToScreen(worldX, worldY);
+    if (isSkeletalDefId(defId)) {
+      spawnBoneChipBurst(this.scene, screen.x, screen.y, true);
+      return;
+    }
+    if (!settings.bloodEnabled) return;
     const tint = bloodTintFor(defId);
     spawnDeathSplatter(
       this.scene, screen.x, screen.y, tint, settings.bloodDropIntensity,
@@ -79,7 +88,7 @@ export class CombatEffects {
     const settings = loadCarnageSettings();
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
-    if (settings.enabled) {
+    if (settings.enabled && !isSkeletalDefId(defId)) {
       spawnGibBurst(this.scene, screen.x, screen.y, tint);
     }
     this.deathCarnage.spawn(

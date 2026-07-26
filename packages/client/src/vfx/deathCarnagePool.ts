@@ -6,6 +6,7 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { loadCarnageSettings } from "./carnageSettings.js";
+import { isSkeletalDefId } from "./boneChipBurst.js";
 import {
   drawCarnageChunks,
   drawCarnageStreaks,
@@ -43,7 +44,7 @@ export class DeathCarnagePool {
     const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const graphics = mark.graphics;
     graphics.clear();
-    if (settings.bloodEnabled) {
+    if (settings.bloodEnabled && !isSkeletalDefId(appearance.defId)) {
       drawCarnageStreaks(
         graphics, settings.streakLimit, settings.intensity,
         tint, worldX, worldY, impactAngle,

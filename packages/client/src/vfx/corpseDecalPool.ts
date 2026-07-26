@@ -15,6 +15,7 @@ import {
 import { monsterSpriteFor } from "../render/entities/spriteMap.js";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
+import { isSkeletalDefId } from "./boneChipBurst.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
 import { groundPlaneDepth } from "./groundPlaneDepth.js";
 
@@ -119,7 +120,7 @@ export class CorpseDecalPool {
       blob
         .setFillStyle(tint, 0.9)
         .setStrokeStyle(0, tint, 0)
-        .setVisible(bloodEnabled);
+        .setVisible(bloodEnabled && !isSkeletalDefId(defId));
     }
     this.placeBody(decal.body, spritePrefix ?? (defId ? monsterSpriteFor(defId) : undefined));
     decal.container
