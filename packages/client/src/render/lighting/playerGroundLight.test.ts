@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   PLAYER_GROUND_LIGHT_MAX_CELLS,
   PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS,
+  playerGroundLightEnabledForProfile,
   playerGroundLightCells,
   shouldUpdatePlayerGroundLight,
   type PlayerGroundLightUpdate,
@@ -56,5 +57,10 @@ describe("shouldUpdatePlayerGroundLight", () => {
     expect(shouldUpdatePlayerGroundLight(previous, update(4, 5, 100 + PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS))).toBe(true);
     expect(shouldUpdatePlayerGroundLight(previous, update(5, 5, 101))).toBe(true);
     expect(shouldUpdatePlayerGroundLight(previous, update(4, 5, 101, 90))).toBe(true);
+  });
+
+  it("falls back to the existing personal halo on constrained devices", () => {
+    expect(playerGroundLightEnabledForProfile("desktop")).toBe(true);
+    expect(playerGroundLightEnabledForProfile("constrained")).toBe(false);
   });
 });

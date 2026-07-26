@@ -6,6 +6,10 @@ export const PLAYER_GROUND_LIGHT_RADIUS = 2;
 export const PLAYER_GROUND_LIGHT_MAX_CELLS = 13;
 export const PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS = 100;
 
+export const playerGroundLightEnabledForProfile = (
+  profile: "constrained" | "desktop",
+): boolean => profile === "desktop";
+
 export interface PlayerGroundLightWorld {
   tileAt(wx: number, wy: number): TileType;
   heightAt(wx: number, wy: number): number;

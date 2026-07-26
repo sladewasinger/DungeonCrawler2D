@@ -14,6 +14,8 @@ import { collectTorchLights, selectFrameLights } from "./frameLights.js";
 import { hashSeed, type LightSource } from "./lightSource.js";
 import { LightSpritePool } from "./pool.js";
 import { PlayerGroundLightPass } from "./playerGroundLightPool.js";
+import { playerGroundLightEnabledForProfile } from "./playerGroundLight.js";
+import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../terrain/terrainDeviceProfile.js";
 import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlacement.js";
 
@@ -57,6 +59,8 @@ export class LightingSystem {
   ) {
     this.pool = new LightSpritePool(scene);
     this.groundLight = new PlayerGroundLightPass(scene, world);
+    const profile = selectTerrainDeviceProfile(readTerrainDeviceSignals(scene));
+    this.groundLight.setEnabled(playerGroundLightEnabledForProfile(profile.kind));
   }
 
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */
