@@ -1,6 +1,6 @@
 /** Renders active buff/debuff chips from authoritative status ids. */
 import type { Connection } from "../net/connection.js";
-import { statusViews } from "./ThreeHudModel.js";
+import { shouldShowAutoHealing, statusViews } from "./ThreeHudModel.js";
 import { HUD_PANEL } from "./ThreeHudStyles.js";
 
 export class ThreeHudBuffs {
@@ -18,7 +18,11 @@ export class ThreeHudBuffs {
         .map((status) => `${status.id}:${status.remainingSeconds}`)
         .join("|")
       : connection.fx.join("|");
-    const showAutoHealing = connection.healthRegenerationDelaySeconds <= 0;
+    const showAutoHealing = shouldShowAutoHealing(
+      connection.hp,
+      connection.maxHp,
+      connection.healthRegenerationDelaySeconds,
+    );
     const signature = `${showAutoHealing}:${statusSignature}`;
     if (signature === this.signature) return;
     this.signature = signature;

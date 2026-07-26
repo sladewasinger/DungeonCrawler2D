@@ -68,3 +68,9 @@ export const nextAvailableHotbarSlot = (
   const existing = hotbar.indexOf(itemId);
   return existing >= 0 ? existing : hotbar.findIndex((item) => item === null);
 };
+
+export const shouldShowAutoHealing = (
+  hp: number,
+  maxHp: number,
+  regenerationDelaySeconds: number,
+): boolean => hp > 0 && hp < maxHp && regenerationDelaySeconds <= 0;

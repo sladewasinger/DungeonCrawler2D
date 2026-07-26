@@ -4,6 +4,7 @@ import {
   hotbarQuantity,
   inventoryRows,
   nextAvailableHotbarSlot,
+  shouldShowAutoHealing,
   statusViews,
 } from "./ThreeHudModel.js";
 
@@ -50,5 +51,12 @@ describe("ThreeHudModel", () => {
       remainingSeconds: 3.25,
       durationSeconds: 5,
     }]);
+  });
+
+  it("shows automatic healing only while an injured living player can regenerate", () => {
+    expect(shouldShowAutoHealing(20, 30, 0)).toBe(true);
+    expect(shouldShowAutoHealing(30, 30, 0)).toBe(false);
+    expect(shouldShowAutoHealing(0, 30, 0)).toBe(false);
+    expect(shouldShowAutoHealing(20, 30, 2)).toBe(false);
   });
 });
