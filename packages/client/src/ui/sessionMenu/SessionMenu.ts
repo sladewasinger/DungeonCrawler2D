@@ -162,9 +162,9 @@ export class SessionMenu {
     title.style.cssText = "margin:0 0 4px;color:#ffd54c;font-size:20px";
     const resume = createSessionButton("Resume", () => this.close());
     this.resumeButton = resume;
-    const quit = createSessionButton("Quit to opening screen", () => this.confirm({
-      title: "Quit to opening screen?",
-      detail: "Your crawler disconnects before the opening screen returns.",
+    const quit = createSessionButton("Quit to title", () => this.confirm({
+      title: "Quit to title?",
+      detail: "Your crawler disconnects before the title screen returns.",
       actionLabel: "Confirm quit",
       action: () => this.actions.quitToTitle(),
     }));
