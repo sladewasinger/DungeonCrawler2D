@@ -32,8 +32,8 @@ export const defaultWindowLayout = (
   z: number,
 ): HudWindowLayout => ({
   anchor: spec.anchor,
-  x: 0,
-  y: 0,
+  xRatio: 0,
+  yRatio: 0,
   width: spec.width,
   height: spec.height,
   z,
@@ -57,8 +57,8 @@ export const shouldUseMobileDefault = (
 ): boolean => {
   if (!mobile || !spec.mobile || !stored) return false;
   return stored.anchor === spec.anchor &&
-    stored.x === 0 &&
-    stored.y === 0 &&
+    stored.xRatio === 0 &&
+    stored.yRatio === 0 &&
     stored.width === spec.width &&
     stored.height === spec.height;
 };
@@ -76,7 +76,12 @@ export const resolveWindowPosition = (
   size: { width: number; height: number },
   root: { width: number; height: number },
 ): { x: number; y: number } => {
-  if (layout.anchor === "free") return { x: layout.x, y: layout.y };
+  if (layout.anchor === "free") {
+    return {
+      x: Math.round(layout.xRatio * Math.max(0, root.width - size.width)),
+      y: Math.round(layout.yRatio * Math.max(0, root.height - size.height)),
+    };
+  }
   return anchoredPosition(
     layout.anchor,
     size.width,

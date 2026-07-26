@@ -35,13 +35,17 @@ export class HudWindowManager {
   private readonly layer = document.createElement("div");
   private readonly records = new Map<string, HudWindowRecord>();
   private readonly editingBindings = new Map<string, HudWindowEditingBinding>();
-  private readonly stored = loadWindowLayouts();
+  private readonly stored: ReturnType<typeof loadWindowLayouts>;
   private readonly mobile = isTouchDevice();
   private readonly listeners = new Set<() => void>();
   private zCounter = 10;
   private editing = false;
 
   constructor(private readonly root: HTMLElement) {
+    this.stored = loadWindowLayouts({
+      width: root.clientWidth || window.innerWidth,
+      height: root.clientHeight || window.innerHeight,
+    });
     this.layer.style.cssText =
       "position:absolute;inset:0;pointer-events:none;overflow:hidden";
     root.append(this.layer);

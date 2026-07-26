@@ -8,7 +8,10 @@ const anchors: Array<Exclude<HudAnchor, "free">> = ["top-left", "top-center", "t
 export const anchoredPosition = (anchor: HudAnchor, width: number, height: number, viewportWidth: number, viewportHeight: number) => {
   const x = anchor.endsWith("left") ? MARGIN : anchor.endsWith("right") ? viewportWidth - width - MARGIN : (viewportWidth - width) / 2;
   const y = anchor.startsWith("top") ? MARGIN : anchor.startsWith("bottom") ? viewportHeight - height - MARGIN : (viewportHeight - height) / 2;
-  return { x: Math.round(x), y: Math.round(y) };
+  return {
+    x: Math.round(Math.min(Math.max(0, x), Math.max(0, viewportWidth - width))),
+    y: Math.round(Math.min(Math.max(0, y), Math.max(0, viewportHeight - height))),
+  };
 };
 
 export const closestAnchor = (x: number, y: number, width: number, height: number, viewportWidth: number, viewportHeight: number): HudAnchor => {

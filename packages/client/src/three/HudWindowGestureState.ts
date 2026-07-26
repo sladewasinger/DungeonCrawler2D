@@ -1,5 +1,6 @@
 /** Defines gesture state and geometry primitives for HTML HUD window editing. */
 import { closestAnchor } from "./HudWindowGeometry.js";
+import { resolveWindowPosition } from "./HudWindowLayout.js";
 import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
@@ -83,14 +84,31 @@ export const snapWindowAnchor = (
   scale: number,
   root: DOMRect,
 ): void => {
+  const size = {
+    width: Math.round(layout.width * scale),
+    height: Math.round(layout.height * scale),
+  };
+  const position = resolveWindowPosition(layout, size, root);
   layout.anchor = closestAnchor(
-    layout.x,
-    layout.y,
-    Math.round(layout.width * scale),
-    Math.round(layout.height * scale),
+    position.x,
+    position.y,
+    size.width,
+    size.height,
     root.width,
     root.height,
   );
+};
+
+export const setRelativeWindowPosition = (
+  layout: HudWindowLayout,
+  point: HudWindowPoint,
+  size: HudWindowSize,
+  root: HudWindowSize,
+): void => {
+  const maxX = Math.max(0, root.width - size.width);
+  const maxY = Math.max(0, root.height - size.height);
+  layout.xRatio = maxX === 0 ? 0 : clampGestureValue(point.x, 0, maxX) / maxX;
+  layout.yRatio = maxY === 0 ? 0 : clampGestureValue(point.y, 0, maxY) / maxY;
 };
 
 export const hudWindowGestureBounds = (
@@ -122,15 +140,11 @@ export const makeHudWindowFree = (
   const root = rootElement.getBoundingClientRect();
   const rect = record.element.getBoundingClientRect();
   record.layout.anchor = "free";
-  record.layout.x = clampGestureValue(
-    Math.round(rect.left - root.left),
-    0,
-    Math.max(0, root.width - record.layout.width * scale),
-  );
-  record.layout.y = clampGestureValue(
-    Math.round(rect.top - root.top),
-    0,
-    Math.max(0, root.height - record.layout.height * scale),
+  setRelativeWindowPosition(
+    record.layout,
+    { x: Math.round(rect.left - root.left), y: Math.round(rect.top - root.top) },
+    { width: record.layout.width * scale, height: record.layout.height * scale },
+    root,
   );
   return root;
 };

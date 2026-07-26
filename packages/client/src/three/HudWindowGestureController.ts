@@ -11,12 +11,12 @@ import {
   type HudWindowSizeBounds,
 } from "./HudWindowEditingGeometry.js";
 import {
-  clampGestureValue,
   hudWindowGestureBounds,
   makeHudWindowFree,
   pointDistance,
   pointerPoint,
   releaseGesturePointers,
+  setRelativeWindowPosition,
   snapWindowAnchor,
   type DragGesture,
   type HudWindowGesture,
@@ -173,15 +173,14 @@ export class HudWindowGestureController {
       width: Math.round(this.record.layout.width * scale),
       height: Math.round(this.record.layout.height * scale),
     };
-    this.record.layout.x = clampGestureValue(
-      Math.round(event.clientX - gesture.rootRect.left - gesture.offset.x),
-      0,
-      Math.max(0, gesture.rootRect.width - size.width),
-    );
-    this.record.layout.y = clampGestureValue(
-      Math.round(event.clientY - gesture.rootRect.top - gesture.offset.y),
-      0,
-      Math.max(0, gesture.rootRect.height - size.height),
+    setRelativeWindowPosition(
+      this.record.layout,
+      {
+        x: Math.round(event.clientX - gesture.rootRect.left - gesture.offset.x),
+        y: Math.round(event.clientY - gesture.rootRect.top - gesture.offset.y),
+      },
+      size,
+      gesture.rootRect,
     );
     this.context.apply(this.record);
   }
