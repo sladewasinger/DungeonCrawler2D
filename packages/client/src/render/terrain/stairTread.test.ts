@@ -2,38 +2,38 @@ import { describe, expect, it } from "vitest";
 import { stacksVertically, treadRisers } from "./stairTread.js";
 
 describe("stacksVertically", () => {
-  it("stacks N/S climbs vertically (horizontal tread lines) and E/W climbs horizontally", () => {
-    expect(stacksVertically(0)).toBe(true); // north
-    expect(stacksVertically(2)).toBe(true); // south
-    expect(stacksVertically(1)).toBe(false); // east
-    expect(stacksVertically(3)).toBe(false); // west
+  it("stacks N/S climbs vertically and E/W climbs horizontally", () => {
+    expect(stacksVertically(0)).toBe(true);
+    expect(stacksVertically(2)).toBe(true);
+    expect(stacksVertically(1)).toBe(false);
+    expect(stacksVertically(3)).toBe(false);
   });
 });
 
 describe("treadRisers", () => {
-  it("returns TREAD_COUNT - 1 evenly spaced interior risers", () => {
+  it("adds a bright high-edge nosing and five perspective-spaced treads", () => {
     const risers = treadRisers(0, 0.5);
-    expect(risers.map((r) => r.axisFrac)).toEqual([1 / 3, 2 / 3]);
+    expect(risers).toHaveLength(5);
+    expect(risers[0]).toEqual({ axisFrac: 0, brightness: 1, nosing: true });
   });
 
-  it("north climb: the riser nearer axisFrac 0 (the high/north edge) is brighter", () => {
-    const [lo, hi] = treadRisers(0, 0.5);
-    expect(lo).toBeDefined();
-    expect(hi).toBeDefined();
-    // axisFrac 1/3 is closer to the north (high) edge than 2/3 is.
-    expect(lo!.brightness).toBeGreaterThan(hi!.brightness);
+  it("north climb leaves the largest visual gap beside the high north edge", () => {
+    const positions = treadRisers(0, 0.5).map(({ axisFrac }) => axisFrac);
+    const gaps = positions.slice(1).map((position, index) =>
+      position - (positions[index] ?? 0));
+    expect(gaps[0]).toBeGreaterThan(gaps[1] ?? 0);
+    expect(gaps[1]).toBeGreaterThan(gaps[2] ?? 0);
   });
 
-  it("south climb: the riser nearer axisFrac 1 (the high/south edge) is brighter — mirrors north", () => {
-    const [lo, hi] = treadRisers(2, 0.5);
-    expect(hi!.brightness).toBeGreaterThan(lo!.brightness);
+  it("south climb mirrors the perspective spacing and high-edge nosing", () => {
+    const north = treadRisers(0, 0.5).map(({ axisFrac }) => axisFrac);
+    const south = treadRisers(2, 0.5).map(({ axisFrac }) => axisFrac);
+    expect(south).toEqual(north.map((position) => 1 - position).reverse());
+    expect(south.at(-1)).toBe(1);
   });
 
-  it("brightness rises with the run-wide t, clamped to [0, 1]", () => {
-    const low = treadRisers(1, 0)[0]!;
-    const high = treadRisers(1, 1)[0]!;
-    expect(low.brightness).toBeGreaterThanOrEqual(0);
-    expect(high.brightness).toBeLessThanOrEqual(1);
-    expect(high.brightness).toBeGreaterThan(low.brightness);
+  it("interior risers brighten toward the high end", () => {
+    const brightness = treadRisers(0, 0.5).slice(1).map((riser) => riser.brightness);
+    expect(brightness[0]).toBeGreaterThan(brightness.at(-1) ?? 0);
   });
 });

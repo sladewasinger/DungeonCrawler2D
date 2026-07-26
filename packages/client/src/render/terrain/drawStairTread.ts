@@ -8,9 +8,10 @@ import { placeFractionalRect } from "./placeSprite.js";
 import { stacksVertically, treadRisers } from "./stairTread.js";
 
 const RISER_COLOR = 0xffffff;
-const RISER_THICKNESS_FRAC = 0.05;
-const RISER_BASE_ALPHA = 0.14;
-const RISER_ALPHA_SPAN = 0.28;
+const RISER_THICKNESS_FRAC = 0.055;
+const RISER_BASE_ALPHA = 0.24;
+const RISER_ALPHA_SPAN = 0.42;
+const NOSING_THICKNESS_FRAC = 0.085;
 
 export function drawStairTreads(
   scene: Phaser.Scene,
@@ -24,10 +25,14 @@ export function drawStairTreads(
 ): void {
   const vertical = stacksVertically(direction);
   const color = multiplyTint(RISER_COLOR, lightTint);
-  const half = RISER_THICKNESS_FRAC / 2;
   for (const riser of treadRisers(direction, t)) {
-    const alpha = RISER_BASE_ALPHA + RISER_ALPHA_SPAN * riser.brightness;
-    const band: [number, number] = [riser.axisFrac - half, riser.axisFrac + half];
+    const thickness = riser.nosing ? NOSING_THICKNESS_FRAC : RISER_THICKNESS_FRAC;
+    const half = thickness / 2;
+    const alpha = riser.nosing ? 0.82 : RISER_BASE_ALPHA + RISER_ALPHA_SPAN * riser.brightness;
+    const band: [number, number] = [
+      Math.max(0, riser.axisFrac - half),
+      Math.min(1, riser.axisFrac + half),
+    ];
     if (vertical) placeFractionalRect(scene, container, wx, wy, [0, 1], band, color, alpha, liftPx);
     else placeFractionalRect(scene, container, wx, wy, band, [0, 1], color, alpha, liftPx);
   }

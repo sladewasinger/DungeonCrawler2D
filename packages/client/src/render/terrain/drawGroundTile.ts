@@ -11,14 +11,13 @@
 // threaded to every placement call below. A pit-interior cell ALSO still draws its
 // own north-wall face BAND (drawPitFaceCell) at its raw, unshifted row — the cap
 // and the band never overlap (the band is the drop rows the cap's shift vacated).
-import { stairVisualAt, TILE, type TileType } from "@dc2d/engine";
+import { stairVisualAt, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { cliffSidesAt } from "./cliffMask.js";
 import type { CardinalEdges } from "./autotile.js";
-import { pickFloorFrame, pickStairFrame } from "./debugArt.js";
-import { placeDebugTile, placeWallEdges } from "./debugSprite.js";
+import { placeWallEdges } from "./debugSprite.js";
 import { drawContactShade } from "./drawContactShade.js";
-import { drawStairTreads } from "./drawStairTread.js";
+import { drawStairBase, drawStairDetails, stairRenderState } from "./drawStairSurface.js";
 import { drawSubtleSlope } from "./drawSubtleSlope.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { drawEdgeLine } from "./edgeLine.js";
@@ -27,7 +26,6 @@ import { type CapOccluderFor, surfaceContainerFor } from "./occluderBand.js";
 import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
 import { placeFillRect, placeSprite, surfaceLiftPx } from "./placeSprite.js";
-import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import { drawsVoidUnderlay, renderedSurfaceHeight } from "./stairSurface.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
@@ -167,11 +165,8 @@ function drawSurface(
   liftPx: number,
 ): void {
   const isChasm = isChasmDepth(height);
-  if (isChasm) {
-    placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftPx });
-  } else {
-    placeDebugTile(scene, container, wx, wy, pickFloorFrame(), { tint, liftPx });
-  }
+  const stairState = stairRenderState(tile, stairVisual, world);
+  drawStairBase(scene, container, world, wx, wy, stairState, tint, lightTint, liftPx);
   // Fake-AO contact shadows (contactShade.ts) go under the white rim outlines:
   // the LOW side darkens here, the HIGH side's lit rim stays crisp above.
   drawContactShade(scene, container, world, wx, wy, height, liftPx);
@@ -182,13 +177,8 @@ function drawSurface(
   // Treads stay perpendicular to the SCREEN climb direction (the seam's stairTreadAxis
   // invariant): remap the real-world climb direction to whichever screen slot it
   // currently renders toward before handing it to the direction-index-agnostic tread math.
-  const screenDirection = stairVisual ? screenClimbDirIndex(stairVisual.direction, world.orientation) : 0;
-  if (tile === TILE.Stairs && stairVisual) {
-    placeDebugTile(scene, container, wx, wy, pickStairFrame(screenDirection), { tint, liftPx });
-  }
-  if (stairVisual) {
-    drawStairTreads(scene, container, wx, wy, screenDirection, stairVisual.t, lightTint, liftPx);
-  } else {
+  drawStairDetails(scene, container, wx, wy, tile, stairVisual, stairState, tint, lightTint, liftPx);
+  if (!stairVisual) {
     // Sub-integer height legibility (pockets, repaired-cliff half-steps): a
     // stair run's own tread art above already covers this same visual job.
     drawSubtleSlope(scene, container, world, wx, wy, liftPx);
