@@ -107,8 +107,13 @@ export const FIST_DAMAGE = 3;
 export const KNOCKBACK_FORCE = 10;
 export const KNOCKBACK_DECAY = 0.72;
 export const PLAYER_MAX_HP = 30;
-export const RESPAWN_DELAY_SECONDS = 15;
-export const RESPAWN_DELAY_TICKS = RESPAWN_DELAY_SECONDS * TICK_RATE;
+export const SOLO_RESPAWN_DELAY_SECONDS = 10;
+export const PARTY_RESPAWN_DELAY_SECONDS = 15;
+export const SOLO_RESPAWN_DELAY_TICKS = SOLO_RESPAWN_DELAY_SECONDS * TICK_RATE;
+export const PARTY_RESPAWN_DELAY_TICKS = PARTY_RESPAWN_DELAY_SECONDS * TICK_RATE;
+/** Compatibility name for the longer party deadline. New death code selects explicitly. */
+export const RESPAWN_DELAY_SECONDS = PARTY_RESPAWN_DELAY_SECONDS;
+export const RESPAWN_DELAY_TICKS = PARTY_RESPAWN_DELAY_TICKS;
 export const LOOT_CHEST_LOCK_TICKS = 60 * TICK_RATE;
 export const LOOT_CHEST_LIFETIME_TICKS = 5 * 60 * TICK_RATE;
 export const DOWNED_DURATION = 30;
