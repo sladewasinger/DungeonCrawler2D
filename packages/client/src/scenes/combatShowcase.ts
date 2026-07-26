@@ -3,7 +3,7 @@
 // (?touch=1) and swing the melee-wedge telegraph on click/space — the harness this repo's
 // docs/client-proofs/combat-*.png verification screenshots are taken against. Mirrors the
 // real self-only orbit/wedge wiring in scenes/dungeon/index.ts, but self-contained (no
-// live Connection) so it can run headless in Playwright without a game-server.
+// live Connection) so it can run without a game-server.
 import type { World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../boot/assetManifest.js";

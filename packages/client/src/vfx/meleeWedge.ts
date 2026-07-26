@@ -9,7 +9,7 @@
 // instead, which rendered the region between the curve and the chord — a crescent
 // floating a full radius away from the player with no tip ("a floating slice too far
 // away from me", user screenshots 2026-07-20). Note for whoever next touches this: in
-// this repo's headless Playwright screenshot harness specifically, any overlay draw
+// this repo's former headless screenshot harness specifically, any overlay draw
 // call here — proven with both a raw Graphics arc and an Arc Shape — stops compositing
 // once the gallery's terrain/lighting/entity-showcase layers are also active; that
 // reproduces in the harness only; treat it as a screenshot-tooling ceiling, not a

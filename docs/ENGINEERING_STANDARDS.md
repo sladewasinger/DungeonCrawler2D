@@ -70,9 +70,8 @@ code in.
 ## Testing
 
 - Every module lands **with its tests in the same commit** — engine logic headless in
-  vitest, protocol flows as in-process server + headless clients, visuals via
-  Playwright against a fixed seed (`e2e-world`) using debug teleport, never by
-  wandering.
+  vitest, protocol flows as in-process server + headless clients, and visuals
+  validated with focused render tests plus explicit playtest evidence.
 - Tests assert behavior, not implementation: through the public facade, never
   reaching into siblings.
 - A red test or type error anywhere fails the task. There is no "mostly done."

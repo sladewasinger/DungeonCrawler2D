@@ -36,7 +36,6 @@ dungeoncrawler2D/
 ├── tools/generate-art.mjs       # Bakes the committed spritesheets + atlas.json from measured pack slices
 ├── tools/render-sample.ts       # Renders docs/art-samples/ proof images via the client's tileframes.ts
 ├── tools/tile-studio/           # In-browser map editor (npm run studio): palette + rule learning + WFC paint → dc2d-map JSON
-├── tests/e2e/                   # Playwright live-browser suite (npm run test:e2e)
 ├── packages/
 │   ├── content/                 # ── DATA, NOT CODE (@dc2d/content) — shared by server & client ──
 │   │   └── src/                 #   statuses/areas/items/enemies/recipes/rules JSON,
@@ -181,10 +180,9 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 ## Testing strategy
 
 - **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation, melee targeting, AI decisions, area buoyancy — all headless engine code
-- **Live-browser e2e (Playwright):** a real chromium drives the real client against a real server — trusted keyboard movement/jumps, two-context AOI + party flows, combat, reload-resume (`npm run test:e2e`)
 - **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, and out-of-range clients receive nothing
 - **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
-- **Dev harness for verification:** fixed seeds everywhere (`e2e-world` for Playwright, `dev-world-1` locally) plus server-gated debug intents — `/god` (no damage, no knockback) and `/tp X Y` — so a feature is verified by teleporting straight to it and asserting, not by wandering a live PvP world. Gated by the server's `debugCommands` option: on for dev/e2e, hard-off in production
+- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (no damage, no knockback) and `/tp X Y` — so a feature can be inspected directly instead of wandering a live PvP world. Gated by the server's `debugCommands` option: on for development, hard-off in production
 - **Manual/playtest:** Phaser layer, feel, latency tuning — every release playtested as a duo minimum
 
 ## Conventions
