@@ -144,6 +144,8 @@ export class LiveHudSnapshotCache {
     snapshot.fps = actualFps;
     snapshot.compassBearingDeg = compassBearingDeg;
     snapshot.headingDeg = aimHeadingDeg;
+    snapshot.respawnRemainingSec = conn.respawnSecondsRemaining;
+    snapshot.respawnHoldProgress = input.respawnHoldProgress();
     snapshot.biome = conn.world
       ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, body.x, body.y).biome
       : null;

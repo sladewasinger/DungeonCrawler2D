@@ -11,7 +11,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 20;
+export const PROTOCOL_VERSION = 21;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 export const PROJECTED_INPUT_MAX_PAST_TICKS = 64;
@@ -107,7 +107,7 @@ export const FIST_DAMAGE = 3;
 export const KNOCKBACK_FORCE = 10;
 export const KNOCKBACK_DECAY = 0.72;
 export const PLAYER_MAX_HP = 30;
-export const RESPAWN_DELAY_TICKS = 40;
+export const RESPAWN_DELAY_TICKS = 30 * TICK_RATE;
 export const DOWNED_DURATION = 60;
 export const REVIVE_HP_FRACTION = 0.3;
 export const PARTY_FRIENDLY_FIRE_SCALE = 0.5;

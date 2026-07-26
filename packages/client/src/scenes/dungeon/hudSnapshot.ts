@@ -182,6 +182,8 @@ function statusFields(
     reconnectAttempts: src.reconnectAttempts,
     downed: src.downed,
     dead: src.dead,
+    respawnRemainingSec: 0,
+    respawnHoldProgress: 0,
     touch,
     fps,
     coords: roundedCoords(bodyPos),

@@ -140,6 +140,7 @@ export const clientWhoSchema = z.object({ type: z.literal("who") });
 
 export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
 export const clientSuicideSchema = z.object({ type: z.literal("suicide") });
+export const clientRespawnSchema = z.object({ type: z.literal("respawn") });
 /** Requests a complete delta baseline after a revision/base-tick mismatch. */
 export const clientSnapshotResyncSchema = z.object({ type: z.literal("snapshotResync") });
 
@@ -178,6 +179,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientWhoSchema,
   clientPingSchema,
   clientSuicideSchema,
+  clientRespawnSchema,
   clientSnapshotResyncSchema,
   clientDebugSchema,
 ]);

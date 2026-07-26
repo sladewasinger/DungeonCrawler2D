@@ -3,6 +3,7 @@ import {
   CHUNK_SIZE,
   LEVEL,
   PLAYER_MAX_HP,
+  RESPAWN_DELAY_TICKS,
   TILE,
   World,
   buildContentRegistry,
@@ -113,7 +114,7 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
     expect(a.downedAtTick).toBeNull(); // never entered the party-revive window
     expect(a.inventory).toHaveLength(0); // full loot drop
     expect(a.weapon).toBeNull();
-    expect(a.respawnAtTick).toBe(sim.tickCount + 40); // RESPAWN_DELAY_TICKS, per spawn rules
+    expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
     expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
   });
 

@@ -1,6 +1,6 @@
 import {
   LEVEL,
-  PLAYER_MAX_STAMINA,
+  PLAYER_MAX_STAMINA, TICK_RATE,
   WireMetrics,
   World,
   type BodyState,
@@ -71,7 +71,7 @@ export class Connection extends ConnectionActions {
   fx: string[] = [];
   /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
   statusEffects: ActiveStatusSnapshot[] = [];
-  downed = false;
+  downed = false; respawnAtTick: number | null = null;
   /** Epic 11 core (character levels) — current XP, character level, and XP still
    * needed for the next level; live on the wire since protocol 14 (ASSUMPTION #90).
    * Named `charLevel` — `level` is already taken by the game LEVEL (dungeon/sandbox). */
@@ -186,7 +186,7 @@ export class Connection extends ConnectionActions {
     this.staminaRecoveryDelaySeconds = 0;
     this.staminaExhausted = false;
     this.healthRegenerationDelaySeconds = 0;
-    this.downed = false;
+    this.downed = false; this.respawnAtTick = null;
     this.justRespawned = false;
     this.hasReceivedSnapshot = false;
     this.snapshotRevisions.reset();
@@ -227,6 +227,8 @@ export class Connection extends ConnectionActions {
     this.visualEvents = [];
     return out;
   }
+
+  get respawnSecondsRemaining(): number { return this.respawnAtTick === null ? 0 : Math.ceil(Math.max(0, this.respawnAtTick - this.serverTick) / TICK_RATE); }
 
   drainDeathVisualEvents(): DeathVisualEvent[] {
     const out = this.deathVisualEvents;

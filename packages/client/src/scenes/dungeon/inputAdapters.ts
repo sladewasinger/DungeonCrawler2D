@@ -32,6 +32,9 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
     get downed() {
       return conn.downed;
     },
+    get dead() {
+      return conn.dead;
+    },
     get hotbar() {
       return conn.hotbar.map((id) => id ?? undefined);
     },
@@ -60,7 +63,7 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
 /** Delegates input intents without exposing the concrete Connection to the controller. */
 function createInputActions(conn: Connection): Omit<
   InputConnection,
-  "body" | "canAct" | "downed" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt"
+  "body" | "canAct" | "downed" | "dead" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt"
 > {
   return {
     interact: () => conn.interact(),
@@ -79,6 +82,7 @@ function createInputActions(conn: Connection): Omit<
     fistbump: (targetId) => conn.fistbump(targetId),
     descend: () => conn.descend(),
     suicide: () => conn.suicide(),
+    respawnNow: () => conn.respawnNow(),
     pushToast: (msg) => conn.pushToast(msg),
   };
 }

@@ -1,5 +1,5 @@
 /** Proves reconnect grace pauses dead and downed player lifecycle transitions. */
-import { PLAYER_MAX_HP, TICK_RATE } from "@dc2d/engine";
+import { PLAYER_MAX_HP, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { findFlatArena, makeSim, stepN, teleport } from "./support.js";
 
@@ -20,7 +20,7 @@ describe("GameSim disconnected lifecycle continuity", () => {
     const resumed = sim.addPlayer("Dead", "dead-client", player.resumeToken);
     expect(resumed).toMatchObject({ resumed: true, spawn: frozen });
     expect(entity.hp).toBe(0);
-    stepN(sim, 39);
+    stepN(sim, RESPAWN_DELAY_TICKS - 1);
     expect(entity.hp).toBe(0);
     sim.step();
     expect(entity.hp).toBe(PLAYER_MAX_HP);

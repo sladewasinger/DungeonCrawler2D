@@ -43,6 +43,7 @@ describe("protocol", () => {
       { type: "fistbump", targetId: "p2" },
       { type: "who" },
       { type: "suicide" },
+      { type: "respawn" },
       { type: "descend" },
       { type: "snapshotResync" },
       { type: "hello", protocol: 8, name: "Crawler", skin: "lizard_f", clientId: "client-1", level: "sandbox" },

@@ -14,6 +14,7 @@ import {
   moderationIntent,
   partyOpIntent,
   pickupIntent,
+  respawnIntent,
   stashOpIntent,
   suicideIntent,
   throwTorchIntent,
@@ -102,6 +103,7 @@ export class ConnectionActions {
   fistbump(targetId: string): void { fistbumpIntent(this.connection, targetId); }
   who(): void { whoIntent(this.connection); }
   suicide(): void { suicideIntent(this.connection); }
+  respawnNow(): void { respawnIntent(this.connection); }
   debugTeleport(x: number, y: number): void { debugTeleportIntent(this.connection, x, y); }
   debugGod(on = true): void { debugGodIntent(this.connection, on); }
 

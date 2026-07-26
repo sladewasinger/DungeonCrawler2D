@@ -50,6 +50,28 @@ describe("Connection.disconnect", () => {
   });
 });
 
+describe("Connection respawn state", () => {
+  it("derives a ceiling-rounded countdown from authoritative server ticks", () => {
+    const conn = freshConnection();
+    conn.serverTick = 41;
+    conn.respawnAtTick = 641;
+    expect(conn.respawnSecondsRemaining).toBe(30);
+    conn.serverTick = 642;
+    expect(conn.respawnSecondsRemaining).toBe(0);
+  });
+
+  it("only sends immediate respawn while connected and authoritatively dead", () => {
+    const conn = freshConnection();
+    const sent: unknown[] = [];
+    conn.send = (message) => sent.push(message);
+    conn.respawnNow();
+    conn.status = "connected";
+    conn.hasReceivedSnapshot = true;
+    conn.respawnNow();
+    expect(sent).toEqual([{ type: "respawn" }]);
+  });
+});
+
 describe("Connection contextual action completion", () => {
   it("records attack and block presses so persistent combat help can dismiss", () => {
     const conn = freshConnection();

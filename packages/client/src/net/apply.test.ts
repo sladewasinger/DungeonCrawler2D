@@ -29,7 +29,11 @@ function freshConnection(floor: number): Connection {
   return conn;
 }
 
-function snapshotAtFloor(floor: number, hp = 10): ServerSnapshot {
+function snapshotAtFloor(
+  floor: number,
+  hp = 10,
+  respawnAtTick: number | null = null,
+): ServerSnapshot {
   return {
     type: "snapshot",
     tick: 1,
@@ -50,6 +54,7 @@ function snapshotAtFloor(floor: number, hp = 10): ServerSnapshot {
       maxHp: 10,
       fx: [],
       floor,
+      respawnAtTick,
     },
     inventory: [],
     hotbar: [],
@@ -89,6 +94,16 @@ describe("applySnapshot floor transfer", () => {
 });
 
 describe("applySnapshot respawn detection (panel round 4, LANE B spawn-grace ring)", () => {
+  it("tracks the authoritative respawn deadline and clears it after respawn", () => {
+    const conn = freshConnection(1);
+    applySnapshot(conn, snapshotAtFloor(1, 0, 601));
+    expect(conn.respawnAtTick).toBe(601);
+    expect(conn.respawnSecondsRemaining).toBe(30);
+
+    applySnapshot(conn, snapshotAtFloor(1, 10));
+    expect(conn.respawnAtTick).toBeNull();
+  });
+
   it("flags justRespawned when hp climbs back from <=0 (respawnSlot's full-hp reset)", () => {
     const conn = freshConnection(1);
     conn.hasReceivedSnapshot = true;

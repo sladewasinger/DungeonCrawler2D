@@ -24,6 +24,7 @@ const setup = (
     body: { x: 0, y: 0 },
     canAct: true,
     downed: false,
+    dead: false,
     hotbar: [options.consumable ? "bandage" : undefined],
     inventory: options.consumable ? [{ item: "bandage", qty: 1 }] : [],
     stash: null,
@@ -45,6 +46,7 @@ const setup = (
     fistbump: () => calls.push("fistbump"),
     descend: () => calls.push("descend"),
     suicide: () => calls.push("suicide"),
+    respawnNow: () => calls.push("respawn"),
     pushToast: () => calls.push("toast"),
   } satisfies InputConnection;
   const panels = {

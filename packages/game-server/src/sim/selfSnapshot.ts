@@ -45,6 +45,7 @@ export function toSelfSnapshot(
     fx: self.statuses.map((status) => status.defId),
     statusEffects: statusEffectSnapshots(sim, slot),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
+    respawnAtTick: slot.respawnAtTick,
     xp,
     level,
     xpForNext: xpForLevel(level + 1) - xp,

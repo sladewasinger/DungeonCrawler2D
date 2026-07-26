@@ -13,12 +13,18 @@ const WIDGET_ID = "death";
 const VIGNETTE_COLOR = 0x0a0a10;
 const VIGNETTE_ALPHA = 0.72;
 const DOWNED_TEXT = "DOWNED\nHold [K] to give up\nA party member can revive you";
-const RESPAWN_TEXT = "YOU DIED\nrespawning...";
+const HOLD_BAR_WIDTH = 220;
+const HOLD_BAR_HEIGHT = 10;
+
+export const deathOverlayText = (remainingSec: number): string =>
+  `YOU DIED\nRespawning in ${Math.max(0, Math.ceil(remainingSec))}s\nHold [E] for 3s to respawn now`;
 
 export class DeathOverlayWidget {
   private readonly container: Phaser.GameObjects.Container;
   private readonly vignette: Phaser.GameObjects.Rectangle;
   private readonly text: Phaser.GameObjects.Text;
+  private readonly holdBar: Phaser.GameObjects.Rectangle;
+  private readonly holdFill: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     registry.register({
@@ -33,16 +39,33 @@ export class DeathOverlayWidget {
     this.container = createWidgetContainer(scene, layout);
     this.vignette = scene.add.rectangle(0, 0, viewport.width, viewport.height, VIGNETTE_COLOR, VIGNETTE_ALPHA);
     this.text = scene.add
-      .text(0, 0, RESPAWN_TEXT, uiTextStyle(20, "#e04a4a", layout.scale, "emphasis"))
+      .text(0, 0, deathOverlayText(30), uiTextStyle(20, "#e04a4a", layout.scale, "emphasis"))
       .setOrigin(0.5, 0.5)
       .setAlign("center");
-    this.container.add([this.vignette, this.text]);
+    this.holdBar = scene.add.rectangle(0, 72, HOLD_BAR_WIDTH, HOLD_BAR_HEIGHT, 0x242436)
+      .setStrokeStyle(2, 0x77778d);
+    this.holdFill = scene.add.rectangle(
+      -HOLD_BAR_WIDTH / 2,
+      72,
+      0,
+      HOLD_BAR_HEIGHT - 2,
+      0xffd23d,
+    ).setOrigin(0, 0.5);
+    this.container.add([this.vignette, this.text, this.holdBar, this.holdFill]);
     this.container.setVisible(false);
   }
 
-  update(downed: boolean, dead: boolean): void {
+  update(
+    downed: boolean,
+    dead: boolean,
+    remainingSec: number,
+    holdProgress: number,
+  ): void {
     this.container.setVisible(downed || dead);
-    this.text.setText(downed ? DOWNED_TEXT : RESPAWN_TEXT);
+    this.text.setText(downed ? DOWNED_TEXT : deathOverlayText(remainingSec));
+    this.holdBar.setVisible(dead);
+    this.holdFill.setVisible(dead)
+      .setDisplaySize(HOLD_BAR_WIDTH * Math.min(1, Math.max(0, holdProgress)), HOLD_BAR_HEIGHT - 2);
   }
 
   /** Resizes the vignette to cover the new viewport, then re-syncs the container position. */

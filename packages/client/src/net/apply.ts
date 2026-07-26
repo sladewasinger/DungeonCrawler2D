@@ -116,6 +116,11 @@ function applyVitals(conn: Connection, snap: ServerSnapshot): void {
   conn.statusEffects = snapshotStatusEffects(snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
   conn.downed = snap.self.downed ?? false;
+  applyRespawnState(conn, snap);
+}
+
+function applyRespawnState(conn: Connection, snap: ServerSnapshot): void {
+  conn.respawnAtTick = snap.self.respawnAtTick ?? null;
 }
 
 function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: World): void {

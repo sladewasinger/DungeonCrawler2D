@@ -46,6 +46,8 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   /** Timed status state for authoritative HUD progress; additive for rolling clients. */
   statusEffects: z.array(activeStatusSnapshotSchema).optional(),
   downed: z.boolean().optional(),
+  /** Authoritative automatic-respawn deadline; null while alive. */
+  respawnAtTick: z.number().int().nullable().optional(),
   /** Epic 11 core (character levels), pulled forward into Epic 7.13 —
    * current XP, character level, and XP still needed for the next level.
    * Additive/optional: protocol 14+ (ASSUMPTION #90, docs/ASSUMPTIONS.md). */

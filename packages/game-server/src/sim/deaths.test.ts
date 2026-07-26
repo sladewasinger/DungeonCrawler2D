@@ -1,6 +1,7 @@
 import {
   DOWNED_DURATION,
   LEVEL,
+  RESPAWN_DELAY_TICKS,
   TICK_RATE,
   World,
   buildContentRegistry,
@@ -15,6 +16,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
 import { resolveDeaths } from "./deaths.js";
+import { requestImmediateRespawn } from "./players.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "./state.js";
 
 /**
@@ -162,7 +164,7 @@ describe("resolveDeaths", () => {
     expect(a.downedAtTick).toBeNull();
     // Same tick's death branch fires too: full loot drop + respawn scheduled.
     expect(a.inventory).toHaveLength(0);
-    expect(a.respawnAtTick).toBe(sim.tickCount + 40);
+    expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
   });
 
   it("kills outright (full loot drop, distant respawn) when solo or forced", () => {
@@ -177,7 +179,7 @@ describe("resolveDeaths", () => {
     expect(a.weapon).toBeNull();
     expect(a.entity.statuses).toHaveLength(0);
     expect(a.downedAtTick).toBeNull();
-    expect(a.respawnAtTick).toBe(sim.tickCount + 40);
+    expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
     expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
   });
 
@@ -208,5 +210,19 @@ describe("resolveDeaths", () => {
     resolveDeaths(sim);
 
     expect(a.inventory).toHaveLength(1); // untouched — death already resolved once
+  });
+
+  it("accepts an immediate-respawn request only for a scheduled corpse", () => {
+    const dead = makeSlot("Dead", 0, 0);
+    const living = makeSlot("Living", 1, 0);
+    sim.players.set(dead.entity.id, dead);
+    sim.players.set(living.entity.id, living);
+    dead.entity.hp = 0;
+    dead.respawnAtTick = sim.tickCount + RESPAWN_DELAY_TICKS;
+
+    requestImmediateRespawn(sim, living.entity.id);
+    expect(living.respawnAtTick).toBeNull();
+    requestImmediateRespawn(sim, dead.entity.id);
+    expect(dead.respawnAtTick).toBe(sim.tickCount);
   });
 });

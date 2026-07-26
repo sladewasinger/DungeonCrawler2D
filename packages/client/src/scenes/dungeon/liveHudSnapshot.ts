@@ -96,6 +96,8 @@ export function buildLiveHudSnapshot(
     ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, bodyPos.x, bodyPos.y).biome
     : null;
   snapshot.headingDeg = aimHeadingDeg;
+  snapshot.respawnRemainingSec = conn.respawnSecondsRemaining;
+  snapshot.respawnHoldProgress = inputController.respawnHoldProgress();
   snapshot.completedContextualActions = [...conn.contextualActionsUsed];
   return snapshot;
 }

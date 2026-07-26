@@ -13,14 +13,12 @@ import { screenDirToWorld, screenMoveToWorld } from "./cameraRelative.js";
 import { bindBandageKey, interactOrUse, throwSelected, withPointerFacing } from "./gameplayActions.js";
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "./fistbump.js";
-import { GiveUpGesture } from "./giveUp.js";
 import { guardedAction } from "./inputGuard.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
-import { cancelHeldGestures } from "./modalGestures.js";
+import { LifeGestures } from "./lifeGestures.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
 import { cursorWorldTile, handlePointerDown } from "./pointer.js";
 import { bindPointerMovementEdges } from "./pointerMovementEdges.js";
-import { ReviveGesture } from "./revive.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
 import { createTouchInputState, isButtonHeld, mergeMoveInputs, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { isTouchDevice } from "./touchDetect.js";
@@ -37,9 +35,7 @@ export class InputController {
   /** Edge-detection for the touch interact button, which has no keydown/keyup events. */
   private touchFistbumpHeld = false;
   /** Hold-E revive gesture (Epic 7.12) — gated by a downed party member in range. */
-  private readonly revive = new ReviveGesture();
-  /** Hold-K surrender gesture, active only while this player is downed. */
-  private readonly giveUp = new GiveUpGesture();
+  private readonly lifeGestures = new LifeGestures();
   /** Not readonly: late/emulated touch (e.g. Chrome's device toolbar toggled
    * after boot) flips this reactively — see activateTouchIfNeeded. */
   private touchActive: boolean = isTouchDevice();
@@ -72,9 +68,9 @@ export class InputController {
     const blocked = () => panels.gameplayBlocked;
     keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
     keys.E.on("down", guardedAction(() => this.handleInteractDown(), blocked));
-    keys.E.on("up", () => this.revive.end(this.scene.time.now));
-    keys.K.on("down", guardedAction(() => this.giveUp.begin(conn.downed, this.scene.time.now), blocked));
-    keys.K.on("up", () => this.giveUp.end(this.scene.time.now));
+    keys.E.on("up", () => this.lifeGestures.endInteract(this.scene.time.now));
+    keys.K.on("down", guardedAction(() => this.lifeGestures.beginGiveUp(conn.downed, this.scene.time.now), blocked));
+    keys.K.on("up", () => this.lifeGestures.endGiveUp(this.scene.time.now));
     keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
     keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
     bindBandageKey(keys.F, conn, queries, () => state.selectedSlot, () => holdDown(this.fistbumpHold, this.scene.time.now), () => this.releaseFistbumpHold(conn, queries), blocked);
@@ -102,26 +98,35 @@ export class InputController {
    * else this mirrors the server's doInteract() gate client-side, purely to toast
    * "nothing happened" rather than assert an outcome — interact() still always fires. */
   private handleInteractDown(fallback: "interact" | "pickup" = "interact"): void {
-    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.revive.begin(targetId, this.scene.time.now), fallback);
+    if (this.conn.dead) {
+      this.lifeGestures.beginRespawn(this.scene.time.now);
+      return;
+    }
+    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.lifeGestures.beginRevive(targetId, this.scene.time.now), fallback);
   }
 
   /** Call once per render frame: fires the revive intent exactly on the tick the hold
    * crosses REVIVE_HOLD_MS. */
   pollReviveHold(): void {
     if (this.cancelModalGestures()) return;
-    if (this.revive.poll(this.scene.time.now)) this.conn.interact();
+    this.lifeGestures.pollRevive(this.conn, this.scene.time.now);
   }
 
   /** Fires the suicide intent once after a complete hold while downed. */
   pollGiveUpHold(): void {
     if (this.cancelModalGestures()) return;
-    if (this.giveUp.poll(this.conn.downed, this.scene.time.now)) this.conn.suicide();
+    this.lifeGestures.pollGiveUp(this.conn, this.scene.time.now);
   }
 
-  /** HUD-facing read: the in-progress revive hold's target + 0..1 ring progress, or null when idle. */
-  reviveHoldView(): { targetId: string; progress: number } | null {
-    return this.revive.holdView(this.scene.time.now);
+  pollRespawnHold(): void {
+    if (this.cancelModalGestures()) return;
+    this.lifeGestures.pollRespawn(this.conn, this.scene.time.now);
   }
+
+  respawnHoldProgress(): number { return this.lifeGestures.respawnProgress(this.conn.dead, this.scene.time.now); }
+
+  /** HUD-facing read: the in-progress revive hold's target + 0..1 ring progress, or null when idle. */
+  reviveHoldView(): { targetId: string; progress: number } | null { return this.lifeGestures.reviveHoldView(this.scene.time.now); }
 
   /** A quick tap keeps today's party invite/accept flow; a hold already fired (or missed
    * its window with no target) and does nothing further here. */
@@ -152,14 +157,14 @@ export class InputController {
 
   private isFistbumpHoldSourceDown(): boolean {
     return this.state.keys.F.isDown ||
-      (this.touchActive && !this.revive.active() && isButtonHeld(this.touch, "interact"));
+      (this.touchActive && !this.lifeGestures.reviveActive() && isButtonHeld(this.touch, "interact"));
   }
 
   /** The touch interact button has no keydown/keyup events, so its hold-vs-tap
    * edges for the fistbump gesture are detected here instead, every frame. */
   private pollTouchFistbumpEdge(nowMs: number): void {
     if (!this.touchActive) return;
-    const held = !this.revive.active() && isButtonHeld(this.touch, "interact");
+    const held = !this.lifeGestures.reviveActive() && isButtonHeld(this.touch, "interact");
     const nextHeld = syncHoldSource(this.fistbumpHold, this.touchFistbumpHeld, held, nowMs);
     if (this.touchFistbumpHeld && !nextHeld) this.fistbumpTargetId = null;
     this.touchFistbumpHeld = nextHeld;
@@ -196,7 +201,7 @@ export class InputController {
         pointer,
       );
     });
-    bindPointerMovementEdges(this.scene, this.touch, () => this.touchActive, () => this.revive.end(this.scene.time.now), () => this.sendCurrentMovementEdge());
+    bindPointerMovementEdges(this.scene, this.touch, () => this.touchActive, () => this.lifeGestures.endInteract(this.scene.time.now), () => this.sendCurrentMovementEdge());
   }
 
   /**
@@ -231,7 +236,7 @@ export class InputController {
 
   private cancelModalGestures(): boolean {
     if (!this.panels.gameplayBlocked) return false;
-    cancelHeldGestures(this.scene.time.now, this.revive, this.giveUp, this.fistbumpHold);
+    this.lifeGestures.cancel(this.scene.time.now, this.fistbumpHold);
     this.fistbumpTargetId = null;
     this.touchFistbumpHeld = this.touchActive && isButtonHeld(this.touch, "interact");
     return true;

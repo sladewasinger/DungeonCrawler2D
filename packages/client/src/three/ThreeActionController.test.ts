@@ -28,6 +28,7 @@ const connection = (downed = false) => ({
   inventory: [],
   entities: new Map(),
   downed: false,
+  dead: false,
   attack: vi.fn(),
   interact: vi.fn(),
   pickup: vi.fn(),
@@ -35,6 +36,7 @@ const connection = (downed = false) => ({
   useSlot: vi.fn(),
   useSlotOnPlayer: vi.fn(),
   suicide: vi.fn(),
+  respawnNow: vi.fn(),
 }) as unknown as Connection;
 
 describe("ThreeActionController interaction gesture", () => {
@@ -83,6 +85,25 @@ describe("ThreeActionController interaction gesture", () => {
 
     expect(conn.descend).toHaveBeenCalledOnce();
     expect(conn.interact).not.toHaveBeenCalled();
+  });
+
+  it("holds E for three seconds before requesting an immediate respawn", () => {
+    const now = vi.spyOn(performance, "now");
+    const conn = connection();
+    Object.defineProperty(conn, "dead", { value: true });
+    const controller = new ThreeActionController(conn);
+    const world = new World(1, 1);
+
+    now.mockReturnValue(0);
+    controller.publish(world, sample({ interactPressed: true, interactHeld: true }));
+    now.mockReturnValue(2_999);
+    controller.publish(world, sample({ interactHeld: true }));
+    expect(conn.respawnNow).not.toHaveBeenCalled();
+    expect(controller.respawnHoldProgress()).toBeCloseTo(2_999 / 3_000);
+
+    now.mockReturnValue(3_000);
+    controller.publish(world, sample({ interactHeld: true }));
+    expect(conn.respawnNow).toHaveBeenCalledOnce();
   });
 
   it("uses F to bandage the nearest player when bandages are selected", () => {

@@ -24,6 +24,7 @@ export interface ThreeHudUpdate {
   player: FirstPersonState;
   yaw: number;
   mouseCaptured: boolean;
+  respawnHoldProgress?: number;
   snapshot?: HudFakeSnapshot;
 }
 export interface ThreeHudOptions {
@@ -113,7 +114,7 @@ export class ThreeHud {
     parts.weapon.update(connection);
     parts.party.update(connection, player, yaw);
     parts.telemetry.update(connection, world, player, yaw, mouseCaptured);
-    parts.downed.update(connection);
+    parts.downed.update(connection, update.respawnHoldProgress);
     parts.invite.update();
     parts.sessionMenu.update(
       connection.status === "connected" && connection.hp > 0,

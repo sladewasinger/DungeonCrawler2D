@@ -32,6 +32,8 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     suicide: () => calls.push("suicide"),
     pushToast: () => calls.push("pushToast"),
     ...overrides,
+    dead: overrides.dead ?? false,
+    respawnNow: overrides.respawnNow ?? (() => calls.push("respawnNow")),
   };
 }
 

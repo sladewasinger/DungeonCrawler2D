@@ -49,6 +49,15 @@ export function queueAction(
   if (slot.pendingActions.length < 16) slot.pendingActions.push(msg);
 }
 
+export function requestImmediateRespawn(
+  sim: SimState,
+  playerId: string,
+): void {
+  const slot = sim.players.get(playerId);
+  if (!slot?.connected || slot.entity.hp > 0 || slot.respawnAtTick === null) return;
+  slot.respawnAtTick = Math.min(slot.respawnAtTick, sim.tickCount);
+}
+
 /** Reap grace-expired disconnects; respawn dead players whose timer elapsed. */
 export function reapAndRespawn(sim: SimState): void {
   for (const [id, slot] of sim.players) {

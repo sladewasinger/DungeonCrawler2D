@@ -35,6 +35,7 @@ export interface InputConnection {
   readonly body: { x: number; y: number } | null | undefined;
   readonly canAct: boolean;
   readonly downed: boolean;
+  readonly dead: boolean;
   readonly hotbar: readonly (string | undefined)[];
   readonly inventory: readonly { item: string; qty: number }[];
   readonly stash: unknown;
@@ -68,6 +69,8 @@ export interface InputConnection {
   descend(): void;
   /** Sends the existing server-authoritative suicide intent after a deliberate hold. */
   suicide(): void;
+  /** Requests the server-authoritative early respawn after the death-screen hold. */
+  respawnNow(): void;
   /**
    * Client-local UI feedback for an action the client can already tell will do
    * nothing (no crafting table nearby, out of torches...) — never a substitute for

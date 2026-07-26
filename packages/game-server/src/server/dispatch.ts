@@ -89,6 +89,7 @@ export function routeAuthenticatedMessage(
   if (!entry) return;
   if (msg.type === "snapshotResync") entry.sim.requestSnapshotBaseline(playerId);
   else if (msg.type === "input") entry.sim.handleInput(playerId, msg);
+  else if (msg.type === "respawn") entry.sim.requestImmediateRespawn(playerId);
   else if (msg.type !== "hello" && msg.type !== "ping") entry.sim.queueAction(playerId, msg);
 }
 
