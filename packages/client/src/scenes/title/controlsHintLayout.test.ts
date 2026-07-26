@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   COMPACT_CONTROLS_LINE,
   CONTROLS_LINE,
+  TITLE_HINT_GUTTER,
   titleHintContent,
+  titleHintLayout,
 } from "./controlsHintLayout.js";
 
 describe("title hint content", () => {
@@ -25,5 +27,31 @@ describe("title hint content", () => {
       premiseVisible: false,
       controlsText: COMPACT_CONTROLS_LINE,
     });
+  });
+});
+
+describe("title hint layout", () => {
+  it("recomputes its door clearance and copy in both resize directions", () => {
+    expect(titleHintLayout(1280, 800)).toMatchObject({
+      topPx: 304,
+      premiseVisible: true,
+      controlsText: CONTROLS_LINE,
+    });
+    expect(titleHintLayout(844, 390)).toMatchObject({
+      topPx: 159,
+      premiseVisible: false,
+      controlsText: COMPACT_CONTROLS_LINE,
+    });
+    expect(titleHintLayout(1280, 800)).toMatchObject({
+      topPx: 304,
+      premiseVisible: true,
+      controlsText: CONTROLS_LINE,
+    });
+  });
+
+  it("keeps narrow layouts inside equal viewport gutters", () => {
+    const layout = titleHintLayout(320, 700);
+    expect(layout.widthPx).toBe(320 - TITLE_HINT_GUTTER * 2);
+    expect((320 - layout.widthPx) / 2).toBe(TITLE_HINT_GUTTER);
   });
 });
