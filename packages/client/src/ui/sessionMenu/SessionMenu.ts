@@ -130,7 +130,8 @@ export class SessionMenu {
     this.card.style.width = "min(92vw,420px)";
     this.gear.setAttribute("aria-expanded", "false");
     this.confirmationReturnFocus = undefined;
-    this.focus.deactivate(focus, this.actions.focusGame);
+    this.focus.deactivate(false, this.actions.focusGame);
+    if (focus) this.actions.focusGame();
   }
 
   dispose(): void {

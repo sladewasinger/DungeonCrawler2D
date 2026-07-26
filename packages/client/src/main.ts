@@ -1,8 +1,10 @@
 /** Selects a renderer before loading either renderer implementation. */
 import { installBootErrorOverlay } from "./boot/errorOverlay.js";
 import { registerServiceWorker } from "./boot/registerServiceWorker.js";
+import { installGameDomPolicy } from "./ui/gameDomPolicy.js";
 
 installBootErrorOverlay(import.meta.env.DEV);
+installGameDomPolicy();
 registerServiceWorker(import.meta.env.PROD);
 
 const search = new URLSearchParams(window.location.search);
