@@ -6,6 +6,12 @@ import { maskHex } from "../../../render/terrain/autotile.js";
 import { ownFaceRowAt } from "../../../render/terrain/ownFace.js";
 import type { EditorStore } from "../editorStore.js";
 
+export interface InspectorFace {
+  readonly rowFromTop: number;
+  readonly totalRows: number;
+  readonly surfaceHeight: number;
+}
+
 function benchText(store: EditorStore, x: number, y: number): string {
   const areaId = store.bench.areas.defAt(x, y);
   const key = `${x},${y}`;
@@ -36,14 +42,16 @@ function autotileText(store: EditorStore, x: number, y: number): string {
   return ` | mask=${maskHex(mask.mask4)} (8-bit ${maskHex(mask.mask8)})`;
 }
 
-export function inspectorText(store: EditorStore, x: number, y: number): string {
+export function inspectorText(store: EditorStore, x: number, y: number, projectedFace?: InspectorFace): string {
   const cell = store.world.cellAt(x, y);
   const face = ownFaceRowAt(store.world, x, y);
-  const faceText = face
-    ? ` | face row ${face.rowFromTop}/${face.distanceToGround + face.rowFromTop - 1} of z${face.surfaceHeight}`
-    : store.world.isWalkable(x, y)
-      ? " | walkable"
-      : " | blocked";
+  const faceText = projectedFace
+    ? ` | face row ${projectedFace.rowFromTop}/${projectedFace.totalRows} of z${projectedFace.surfaceHeight}`
+    : face
+      ? ` | face row ${face.rowFromTop}/${face.distanceToGround + face.rowFromTop - 1} of z${face.surfaceHeight}`
+      : store.world.isWalkable(x, y)
+        ? " | walkable"
+        : " | blocked";
   const torchText = store.world.hasTorch(x, y) ? " | torch" : "";
   const tileName = cell.tile === TILE.Wall ? "Wall" : cell.tile === TILE.DoorSafeRoom ? "Door" : "Floor";
   return `(${x},${y}) ${tileName} z=${cell.height} | ${stackText(store, x, y)}${faceText}${torchText}${autotileText(store, x, y)}${benchText(store, x, y)}`;

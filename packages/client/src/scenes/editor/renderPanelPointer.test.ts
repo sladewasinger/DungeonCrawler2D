@@ -4,7 +4,7 @@
 // only) plus the in-grid boundary.
 import { afterEach, describe, expect, it } from "vitest";
 import { TILE } from "@dc2d/engine";
-import { resetViewOrientation, setViewOrientation, worldTileToView } from "../../render/view/index.js";
+import { resetViewOrientation, setViewOrientation, viewTileToWorld, worldTileToView } from "../../render/view/index.js";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { EditorStore } from "./editorStore.js";
 import { hoveredCellAt } from "./renderPanelPointer.js";
@@ -87,4 +87,41 @@ describe("hoveredCellAt", () => {
     const { worldX, worldY } = screenPointFor(home.x, home.y - 3);
     expect(hoveredCellAt(store, worldX, worldY)).toEqual({ vx: home.x, vy: home.y - 3, wx: 5, wy: 5 });
   });
+
+  it("keeps a raised face owned by its authored tile and supplies its projected face metadata", () => {
+    installFakeLocalStorage();
+    const store = new EditorStore();
+    store.world.setCell(10, 10, TILE.Floor, 1);
+    const { worldX, worldY } = screenPointFor(10, 10);
+    expect(hoveredCellAt(store, worldX, worldY)).toEqual({
+      vx: 10,
+      vy: 10,
+      wx: 10,
+      wy: 10,
+      face: { rowFromTop: 1, totalRows: 1, surfaceHeight: 1 },
+    });
+  });
+
+  it.each([0, 90, 180, 270] as const)(
+    "orientation %i: remaps a raw pit-face slot to its screen-north rim owner",
+    (orientation) => {
+      installFakeLocalStorage();
+      const store = new EditorStore();
+      setViewOrientation(orientation);
+      const owner = { x: 10, y: 10 };
+      const ownerView = worldTileToView(owner, orientation);
+      const pitView = { x: ownerView.x, y: ownerView.y + 1 };
+      const pit = viewTileToWorld(pitView, orientation);
+      store.world.setCell(pit.x, pit.y, TILE.Floor, -1);
+
+      const { worldX, worldY } = screenPointFor(pitView.x, pitView.y);
+      expect(hoveredCellAt(store, worldX, worldY)).toEqual({
+        vx: pitView.x,
+        vy: pitView.y,
+        wx: owner.x,
+        wy: owner.y,
+        face: { rowFromTop: 1, totalRows: 1, surfaceHeight: 0 },
+      });
+    },
+  );
 });

@@ -34,4 +34,13 @@ describe("inspectorText autotile mask readout", () => {
     store.paint(1, 0);
     expect(inspectorText(store, 0, 0)).toContain("mask=0x02"); // E bit set (bit1)
   });
+
+  it("shows projected pit-face metadata for the owning rim instead of calling it walkable", () => {
+    installFakeLocalStorage();
+    const store = new EditorStore();
+    const text = inspectorText(store, 10, 10, { rowFromTop: 1, totalRows: 1, surfaceHeight: 0 });
+    expect(text).toContain("(10,10)");
+    expect(text).toContain("face row 1/1 of z0");
+    expect(text).not.toContain("walkable");
+  });
 });

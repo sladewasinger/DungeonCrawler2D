@@ -7,16 +7,59 @@
 // highlight's own screen position differs, since it lives in view/screen space.
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { getViewOrientation, pickTallestFirst } from "../../render/view/index.js";
+import { ownFaceRowAt } from "../../render/terrain/ownFace.js";
+import { pitFaceRowAt } from "../../render/terrain/pitFace.js";
+import { viewWorld } from "../../render/terrain/viewWorld.js";
+import { getViewOrientation, pickTallestFirst, type ViewOrientation } from "../../render/view/index.js";
 import type { EditorStore } from "./editorStore.js";
 import { paintCell } from "./paintAction.js";
-import { inspectorText } from "./paintPanel/inspector.js";
+import { inspectorText, type InspectorFace } from "./paintPanel/inspector.js";
 
-interface HoveredCell {
+export interface HoveredCell {
   readonly vx: number; // view-space tile (the screen slot the pointer is over)
   readonly vy: number;
   readonly wx: number; // the WORLD cell that screen slot currently displays
   readonly wy: number;
+  readonly face?: InspectorFace;
+}
+
+function projectedFaceAt(store: EditorStore, vx: number, vy: number, orientation: ViewOrientation): HoveredCell | null {
+  const projectedWorld = viewWorld(store.world, orientation);
+  const pitFace = pitFaceRowAt(projectedWorld, vx, vy);
+  if (pitFace) {
+    const owner = projectedWorld.toReal(vx, vy - pitFace.rimDistance);
+    if (!store.world.inGrid(owner.x, owner.y)) return null;
+    return {
+      vx,
+      vy,
+      wx: owner.x,
+      wy: owner.y,
+      face: {
+        rowFromTop: pitFace.rowFromTop,
+        totalRows: pitFace.totalRows,
+        surfaceHeight: pitFace.surfaceHeight,
+      },
+    };
+  }
+
+  const raisedFace = ownFaceRowAt(projectedWorld, vx, vy);
+  const raw = projectedWorld.toReal(vx, vy);
+  if (!store.world.inGrid(raw.x, raw.y)) return null;
+  return {
+    vx,
+    vy,
+    wx: raw.x,
+    wy: raw.y,
+    ...(raisedFace
+      ? {
+          face: {
+            rowFromTop: raisedFace.rowFromTop,
+            totalRows: raisedFace.distanceToGround + raisedFace.rowFromTop - 1,
+            surfaceHeight: raisedFace.surfaceHeight,
+          },
+        }
+      : {}),
+  };
 }
 
 /** Screen (view-pixel) -> world tile at the CURRENT orientation, or null outside the
@@ -38,8 +81,12 @@ export function hoveredCellAt(store: EditorStore, worldX: number, worldY: number
   const vx = Math.floor(worldX / SCREEN_TILE_PX);
   const vy = Math.floor(worldY / SCREEN_TILE_PX);
   const pick = pickTallestFirst(vx, vy, orientation, (wx, wy) => store.world.heightAt(wx, wy));
-  if (!store.world.inGrid(pick.wx, pick.wy)) return null;
-  return { vx, vy, wx: pick.wx, wy: pick.wy };
+  const pickedHeight = store.world.heightAt(pick.wx, pick.wy);
+  if (pickedHeight === pick.height) {
+    if (!store.world.inGrid(pick.wx, pick.wy)) return null;
+    return { vx, vy, wx: pick.wx, wy: pick.wy };
+  }
+  return projectedFaceAt(store, vx, vy, orientation);
 }
 
 export interface RenderPanelPointerHooks {
@@ -58,7 +105,7 @@ function updatePreview(store: EditorStore, preview: Phaser.GameObjects.Rectangle
   }
   preview.setPosition(cell.vx * SCREEN_TILE_PX + SCREEN_TILE_PX / 2, cell.vy * SCREEN_TILE_PX + SCREEN_TILE_PX / 2);
   preview.setVisible(true);
-  hooks.setInspectorText(inspectorText(store, cell.wx, cell.wy));
+  hooks.setInspectorText(inspectorText(store, cell.wx, cell.wy, cell.face));
 }
 
 export function wireRenderPanelPointer(

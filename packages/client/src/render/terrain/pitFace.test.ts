@@ -16,14 +16,14 @@ function terrain(heightsByRow: Record<number, number>): TerrainRead {
 describe("pitFaceRowAt", () => {
   it("a 0 -> -1 edge draws its single row inside the pit's northmost cell", () => {
     const world = terrain({ 4: 0, 5: -1, 6: -1 });
-    expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 1, surfaceHeight: 0 });
+    expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 1, surfaceHeight: 0, rimDistance: 1 });
     // Deeper pit cells keep their dark floor.
     expect(pitFaceRowAt(world, 0, 6)).toBeNull();
   });
 
   it("a 1 -> -1 edge continues the raised row downward as row 2 inside the pit", () => {
     const world = terrain({ 4: 1, 5: -1 });
-    expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 2, surfaceHeight: 1 });
+    expect(pitFaceRowAt(world, 0, 5)).toMatchObject({ rowFromTop: 2, surfaceHeight: 1, rimDistance: 1 });
   });
 
   it("draws a stepped pit face below its own lowered floor cap", () => {
@@ -33,6 +33,17 @@ describe("pitFaceRowAt", () => {
     expect(pitStepFaceRowsAt(world, 0, 5)).toMatchObject([
       { rowFromTop: 1, totalRows: 1, surfaceHeight: -1, screenY: 7, isStep: true, truncated: false },
     ]);
+  });
+
+  it("reports the farther owning rim without changing stepped-face ownership", () => {
+    const world = terrain({ 4: 0, 5: -2, 6: -2 });
+    expect(pitFaceRowAt(world, 0, 6)).toMatchObject({
+      rowFromTop: 2,
+      totalRows: 2,
+      surfaceHeight: 0,
+      rimDistance: 2,
+    });
+    expect(pitStepFaceRowsAt(world, 0, 5)).toEqual([]);
   });
 
   it("a deep chasm edge caps at MAX_FACE_ROWS and fades its deepest row", () => {

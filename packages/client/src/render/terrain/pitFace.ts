@@ -3,14 +3,19 @@ import { WALL_FACE_MIN_DROP } from "@dc2d/engine";
 import type { TerrainRead } from "./faces.js";
 import { faceSplit, MAX_FACE_ROWS } from "./ownFace.js";
 
-export interface PitFaceRow {
+interface PitFaceRowBase {
   readonly rowFromTop: number;
   readonly totalRows: number;
   readonly surfaceHeight: number;
   readonly truncated: boolean;
 }
 
-export interface PitStepFaceRow extends PitFaceRow {
+export interface PitFaceRow extends PitFaceRowBase {
+  /** View-space rows northward to the rim cell that logically owns this face. */
+  readonly rimDistance: number;
+}
+
+export interface PitStepFaceRow extends PitFaceRowBase {
   readonly screenY: number;
   readonly isStep: true;
 }
@@ -55,6 +60,7 @@ export function pitFaceRowAt(world: TerrainRead, wx: number, wy: number): PitFac
     rowFromTop,
     totalRows,
     surfaceHeight: rim.height,
+    rimDistance: rim.distance,
     truncated: rowFromTop === MAX_FACE_ROWS && rawRows > MAX_FACE_ROWS,
   };
 }
