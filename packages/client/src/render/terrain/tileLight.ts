@@ -76,10 +76,12 @@ export interface TileLightConfig {
  * plateau (full from level 4.5) and softened warmth. What every client bakes
  * against unless the editor has overridden it for this session. */
 export const GAMEPLAY_AMBIENT = 0.42;
+/** Light levels at or above this stay fully bright before the S-curve tail. */
+export const LIGHT_CURVE_FULL_LEVEL = 4.5;
 
 export const DEFAULT_TILE_LIGHT_CONFIG: TileLightConfig = {
   ambient: GAMEPLAY_AMBIENT,
-  curveFullLevel: 4.5,
+  curveFullLevel: LIGHT_CURVE_FULL_LEVEL,
   warmth: 0.75,
 };
 

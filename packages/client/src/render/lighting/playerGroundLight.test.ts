@@ -4,11 +4,11 @@ import {
   PLAYER_GROUND_LIGHT_FADE_MS,
   PLAYER_GROUND_LIGHT_MAX_CELLS,
   PLAYER_GROUND_LIGHT_RADIUS,
-  PLAYER_GROUND_LIGHT_STRENGTH_STEPS,
   PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS,
   playerGroundLightFadeAlpha,
   playerGroundLightEnabledForProfile,
   playerGroundLightCells,
+  playerGroundLightStrength,
   shouldUpdatePlayerGroundLight,
   type PlayerGroundLightUpdate,
   type PlayerGroundLightWorld,
@@ -30,26 +30,24 @@ function update(tileX: number, tileY: number, atMs: number, orientation: 0 | 90 
 }
 
 describe("playerGroundLightCells", () => {
-  it("uses a fixed radius with monotonic falloff and a hard object cap", () => {
+  it("covers the full triple-radius diamond with monotonic S-curve falloff", () => {
     const cells = playerGroundLightCells(world(), 0.5, 0.5);
     expect(cells).toHaveLength(PLAYER_GROUND_LIGHT_MAX_CELLS);
     expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
-    expect(cells.find((cell) => cell.tileX === 1 && cell.tileY === 0)?.strength).toBe(0.8);
-    expect(cells.find((cell) => cell.tileX === 4 && cell.tileY === 0)?.strength).toBe(0.2);
+    expect(cells.find((cell) => cell.tileX === PLAYER_GROUND_LIGHT_RADIUS && cell.tileY === 0)?.strength).toBe(0);
     expect(cells.every((cell) =>
       Math.abs(cell.tileX) + Math.abs(cell.tileY) <= PLAYER_GROUND_LIGHT_RADIUS
     )).toBe(true);
   });
 
-  it("assigns one uniform brightness step to every tile in each distance ring", () => {
+  it("assigns one S-curve brightness value to every tile in each distance ring", () => {
     const cells = playerGroundLightCells(world(), 0.5, 0.5);
     for (const cell of cells) {
       const distance = Math.abs(cell.tileX) + Math.abs(cell.tileY);
-      expect(cell.strength).toBe(PLAYER_GROUND_LIGHT_STRENGTH_STEPS[distance]);
+      expect(cell.strength).toBe(playerGroundLightStrength(distance));
     }
-    expect(new Set(cells.map((cell) => cell.strength))).toEqual(
-      new Set(PLAYER_GROUND_LIGHT_STRENGTH_STEPS),
-    );
+    expect(playerGroundLightStrength(PLAYER_GROUND_LIGHT_RADIUS - 5)).toBe(1);
+    expect(playerGroundLightStrength(PLAYER_GROUND_LIGHT_RADIUS - 1)).toBeLessThan(0.2);
   });
 
   it("does not cross a wall or include chasm cells", () => {

@@ -1,12 +1,14 @@
-import { SOLID_TILES, TILE, type TileType } from "@dc2d/engine";
+import { smoothstep01, SOLID_TILES, TILE, type TileType } from "@dc2d/engine";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import { isChasmDepth } from "../terrain/heightShade.js";
+import { LIGHT_CURVE_FULL_LEVEL } from "../terrain/tileLight.js";
 
-export const PLAYER_GROUND_LIGHT_RADIUS = 4;
-export const PLAYER_GROUND_LIGHT_MAX_CELLS = 41;
+export const PLAYER_GROUND_LIGHT_RADIUS = 12;
+/** Full Manhattan-radius diamond: 1 + 2r(r + 1), so the range is never clipped. */
+export const PLAYER_GROUND_LIGHT_MAX_CELLS =
+  1 + 2 * PLAYER_GROUND_LIGHT_RADIUS * (PLAYER_GROUND_LIGHT_RADIUS + 1);
 export const PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS = 100;
 export const PLAYER_GROUND_LIGHT_FADE_MS = 180;
-export const PLAYER_GROUND_LIGHT_STRENGTH_STEPS = [1, 0.8, 0.6, 0.4, 0.2] as const;
 
 export const playerGroundLightEnabledForProfile = (
   profile: "constrained" | "desktop",
@@ -20,6 +22,11 @@ export function playerGroundLightFadeAlpha(
   const progress = Math.max(0, Math.min(1, elapsedMs / PLAYER_GROUND_LIGHT_FADE_MS));
   const eased = progress * progress * (3 - 2 * progress);
   return startAlpha + (targetAlpha - startAlpha) * eased;
+}
+
+/** Matches terrain light's S-curve: a bright core, then a sharply fading tail. */
+export function playerGroundLightStrength(distance: number): number {
+  return smoothstep01((PLAYER_GROUND_LIGHT_RADIUS - distance) / LIGHT_CURVE_FULL_LEVEL);
 }
 
 export interface PlayerGroundLightWorld {
@@ -69,7 +76,7 @@ function addLitGroundCell(
   cells.push({
     tileX,
     tileY,
-    strength: PLAYER_GROUND_LIGHT_STRENGTH_STEPS[distance] ?? 0,
+    strength: playerGroundLightStrength(distance),
     groundHeight: world.groundAt(tileX + 0.5, tileY + 0.5),
   });
 }

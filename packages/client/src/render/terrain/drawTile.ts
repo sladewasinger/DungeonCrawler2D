@@ -64,12 +64,44 @@ function drawFaceCell(
         stripOverhangTiles(face.distanceToGround) + Math.max(0, Math.ceil(lowerHeight)),
       );
   const foot = world.toReal(wx, groundY);
-  drawWallTile(scene, world, wx, wy, container, liftPx, undefined, {}, southFaceColor(light.tintAt(foot.x, foot.y)));
+  drawWallTile(
+    scene,
+    world,
+    wx,
+    wy,
+    container,
+    liftPx,
+    undefined,
+    faceSideEdges(world, wx, wy, face, lowerHeight),
+    southFaceColor(light.tintAt(foot.x, foot.y)),
+  );
   // No white cliff edges here (docs/ROADMAP.md "OUTLINE SCOPE CORRECTION", user
   // ruling 2026-07-20): a face band is wall-material body, and wall bodies keep
   // the black autotile border only. A WALKABLE face cell's white perimeter rides
   // its SHIFTED cap instead — drawGroundTile's drawTopEdges, which the dispatch
   // below always runs for non-Wall cells before overlaying this band.
+}
+
+/**
+ * Face bands are screen-relative: in the rotated view, neighboring face cells
+ * that land on the same projected row are one continuous camera-facing wall.
+ * Suppress their shared vertical border explicitly instead of leaving the
+ * generic wall-volume probe to infer it from source-space height columns.
+ */
+function faceSideEdges(
+  world: ViewTerrainWorld,
+  wx: number,
+  wy: number,
+  face: OwnFaceRow,
+  lowerHeight: number,
+): Pick<CardinalEdges, "east" | "west"> {
+  const connected = (dx: -1 | 1): boolean => {
+    const neighbor = visibleTerrainFaceAt(world, wx + dx, wy);
+    if (neighbor === null) return false;
+    const neighborLowerHeight = world.heightAt(wx + dx, wy + neighbor.distanceToGround);
+    return Math.abs(neighborLowerHeight - lowerHeight) < 0.01;
+  };
+  return { east: !connected(1), west: !connected(-1) };
 }
 
 function drawSuppressedTile(
@@ -123,12 +155,6 @@ export function drawTile(
     // coverage (the row h screen-north, vacated by its own cap's shift) rendering
     // nothing — the scattered black squares of the 2026-07-21 production playtest.
     const height = world.heightAt(wx, wy);
-    // A displaced cap leaves its source row exposed. This is wall volume, not
-    // void: it must use the south-wall material and live in a depth-sorted band
-    // so terrain behind it cannot leak through after the camera rotates.
-    if (height !== 0 && face === null) {
-      drawWallTile(scene, world, wx, wy, occluderFor(wy), 0, undefined, {}, southFaceColor(lightTint));
-    }
     const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
     drawWallTile(scene, world, wx, wy, container, surfaceLiftBakePx(height));
     // A one-cell-deep W3 has no equally high cells north/south to own its two
@@ -144,7 +170,7 @@ export function drawTile(
   drawGroundTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
   drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
   if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
-  drawVerticalStairSideOutlinesOnCap(scene, world, wx, wy, capOccluderFor, lightTint);
+  drawForegroundVerticalStairOutlines(scene, world, wx, wy, occluderFor, lightTint);
 }
 
 function drawFreestandingHeightBody(
@@ -172,12 +198,12 @@ function drawFreestandingHeightBody(
   }
 }
 
-function drawVerticalStairSideOutlinesOnCap(
+function drawForegroundVerticalStairOutlines(
   scene: Phaser.Scene,
   world: ViewTerrainWorld,
   wx: number,
   wy: number,
-  capOccluderFor: CapOccluderFor,
+  occluderFor: OccluderFor,
   lightTint: number,
 ): void {
   const real = world.toReal(wx, wy);
@@ -186,11 +212,11 @@ function drawVerticalStairSideOutlinesOnCap(
   const screenDirection = screenClimbDirIndex(stair.direction, world.orientation);
   if (!stacksVertically(screenDirection)) return;
   const [top, bottom] = verticalStairProjectedRange(world.groundAt(wx + 0.5, wy + 0.5));
-  const above = Math.max(0, Math.ceil(-top));
   const below = Math.max(0, Math.ceil(bottom - 1));
+  const above = below + Math.max(0, Math.ceil(-top));
   drawVerticalStairSideOutlines(
     scene,
-    capOccluderFor(wy, above, below),
+    occluderFor(wy + below, above),
     world,
     wx,
     wy,
