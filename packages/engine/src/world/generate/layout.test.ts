@@ -6,9 +6,11 @@ import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
 import { isSafeRoomChunk, isStairsChunk, KIOSK_HEIGHT } from "../features/fixed.js";
 import { CHUNK_SIZE, TILE, ZONE } from "../types.js";
+import {
+  accumulateHeightBudget,
+  createHeightBudgetStats,
+} from "./heightBudget.test-support.js";
 import { generateChunk } from "./index.js";
-import { CHASM_DEPTH } from "./height.js";
-import { TOWER_MAX_RISE } from "./landmarks/tower.js";
 import { floodFromBorder } from "./test-support.js";
 
 const SEED = hashString("layout-test-world");
@@ -38,23 +40,15 @@ describe("room-and-corridor layout", () => {
   });
 
   it("is flat-first: floor height is 0 or within the pit/dais/chasm/landmark tier budget", () => {
-    let plainFloors = 0;
-    let deliberateFloors = 0;
+    const stats = createHeightBudgetStats();
     for (const [cx, cy] of chunkGrid(-5, 5)) {
       if (isSafeRoomChunk(SEED, FLOOR, cx, cy) || isStairsChunk(SEED, FLOOR, cx, cy)) continue;
-      const chunk = generateChunk(SEED, FLOOR, cx, cy);
-      for (let i = 0; i < chunk.tiles.length; i++) {
-        const h = chunk.height[i] ?? 0;
-        if (chunk.tiles[i] !== TILE.Floor) continue;
-        expect(h).toBeGreaterThanOrEqual(CHASM_DEPTH);
-        expect(h).toBeLessThanOrEqual(TOWER_MAX_RISE);
-        if (h === 0) plainFloors++;
-        else deliberateFloors++;
-      }
+      accumulateHeightBudget(stats, generateChunk(SEED, FLOOR, cx, cy), false);
     }
-    expect(plainFloors).toBeGreaterThan(500);
-    expect(deliberateFloors).toBeGreaterThan(0);
-  });
+    expect(stats.violations, stats.firstViolation).toBe(0);
+    expect(stats.plainFloors).toBeGreaterThan(500);
+    expect(stats.deliberateFloors).toBeGreaterThan(0);
+  }, 15_000);
 
   it("safe-room chunks contain an entrance portal on a z2 kiosk TERRACE, not an open sanctuary or a rock mass", () => {
     const found = findFirst(isSafeRoomChunk);

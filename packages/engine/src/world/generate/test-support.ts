@@ -138,6 +138,35 @@ function canStep(view: StairView, cur: WorldPoint, next: WorldPoint): boolean {
   return groundAt(view, next) - groundAt(view, cur) <= STEP_UP;
 }
 
+export function reachesNeighborChunk(seed: number, floor: number, start: WorldPoint, cache: ChunkCache): boolean {
+  const originCx = Math.floor(start.x / CHUNK_SIZE);
+  const originCy = Math.floor(start.y / CHUNK_SIZE);
+  const view = chunkView(seed, floor, cache);
+  const reached = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  const queue: WorldPoint[] = [start];
+  reached[(start.y - originCy * CHUNK_SIZE) * CHUNK_SIZE +
+    start.x - originCx * CHUNK_SIZE] = 1;
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head++];
+    if (!cur) continue;
+    for (const [dx, dy] of DIRS) {
+      const next = { x: cur.x + dx, y: cur.y + dy };
+      const nextCx = Math.floor(next.x / CHUNK_SIZE);
+      const nextCy = Math.floor(next.y / CHUNK_SIZE);
+      const outside = nextCx !== originCx || nextCy !== originCy;
+      const index = (next.y - originCy * CHUNK_SIZE) * CHUNK_SIZE +
+        next.x - originCx * CHUNK_SIZE;
+      if (!outside && reached[index] === 1) continue;
+      if (!canStep(view, cur, next)) continue;
+      if (outside) return true;
+      reached[index] = 1;
+      queue.push(next);
+    }
+  }
+  return false;
+}
+
 /** BFS over walkable tiles using the real continuous ramp rule (rise <= STEP_UP at tile centers, drops free), bounded to a chunkRange around start's chunk. */
 export function bfsChunks(
   seed: number,

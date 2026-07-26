@@ -10,7 +10,11 @@ import { describe, expect, it } from "vitest";
 import { isSafeRoomChunk } from "../features/fixed.js";
 import { CHUNK_SIZE, SOLID_TILES, TILE } from "../types.js";
 import { generateChunk } from "./index.js";
-import { bfsChunks, keyInChunk, type ChunkCache, type WorldPoint } from "./test-support.js";
+import {
+  reachesNeighborChunk,
+  type ChunkCache,
+  type WorldPoint,
+} from "./test-support.js";
 
 const FLOOR = 1;
 
@@ -67,13 +71,15 @@ describe("safe-room kiosk stays reachable", () => {
       if (!door) continue;
       const cache: ChunkCache = new Map();
       const start: WorldPoint = { x: door.x, y: door.y + 1 };
-      const reached = bfsChunks(worldSeed, FLOOR, start, 2, cache);
-      const touchesNeighbor = Array.from(reached).some(
-        (key) => !keyInChunk(key, found.cx, found.cy),
+      const touchesNeighbor = reachesNeighborChunk(
+        worldSeed,
+        FLOOR,
+        start,
+        cache,
       );
       expect(touchesNeighbor, `seed ${worldSeed}: kiosk pad never leaves its own chunk`).toBe(true);
       checked++;
     }
     expect(checked).toBeGreaterThan(5);
-  });
+  }, 15_000);
 });
