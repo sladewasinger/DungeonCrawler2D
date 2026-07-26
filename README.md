@@ -12,6 +12,15 @@ This is the **v2 rebuild** of the original prototype (frozen in [reference/](ref
 same design, same server-authoritative architecture, rebuilt to a real visual and
 engineering bar.
 
+## Austin's F-Bomb Counter
+
+**5**
+
+<!-- f-bomb-count: 5 -->
+
+Estimated from the project conversation history and incremented whenever Austin
+uses “fuck” or a clear derivative.
+
 ## Documents
 
 | Doc | Purpose |
