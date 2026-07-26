@@ -111,7 +111,7 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
     resolveDeaths(sim);
 
     expect(a.forceDeath).toBe(false); // one-shot flag, consumed
-    expect(a.downedAtTick).toBeNull(); // never entered the party-revive window
+    expect(a.downedAtTick).toBeNull(); // never entered the universal downed window
     expect(a.inventory).toHaveLength(0); // full loot drop
     expect(a.weapon).toBeNull();
     expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);

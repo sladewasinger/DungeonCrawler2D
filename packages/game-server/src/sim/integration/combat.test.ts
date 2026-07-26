@@ -2,12 +2,12 @@ import {
   FIST_DAMAGE,
   PARTY_FRIENDLY_FIRE_SCALE,
   PLAYER_MAX_HP,
-  RESPAWN_DELAY_TICKS,
   TICK_RATE,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { GameSim } from "../index.js";
+import { DEATH_TO_RESPAWN_TICKS } from "../deathTestSupport.js";
 import { SWING_TICKS, findFlatArena, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "./support.js";
 
 /**
@@ -190,7 +190,7 @@ describe("GameSim: combat", () => {
     const deathX = entity.body.x;
     entity.hp = 0;
     sim.step();
-    const respawnSnaps = stepN(sim, RESPAWN_DELAY_TICKS + 2);
+    const respawnSnaps = stepN(sim, DEATH_TO_RESPAWN_TICKS + 2);
     const snap = respawnSnaps.get(a.playerId)!;
     expect(snap.self.hp).toBe(PLAYER_MAX_HP);
     // Full loot drop leaves the player weaponless, so respawn re-grants

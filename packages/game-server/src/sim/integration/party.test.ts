@@ -19,7 +19,7 @@ import { content, SEED, eventsOf, findSafeRoomDoor, makeParty, makeSim, stepN, t
 /**
  * Epic 7 regressions driven through the full GameSim facade (wire-level
  * action dispatch, not just sim/social.ts's unit tests): party
- * proximity/consent, AOI-scoped chat, downed/revive, suicide, and the
+ * proximity/consent, AOI-scoped chat, downed/revive, give-up, and the
  * nested portal/crafting/stash flow — ported from
  * reference/game-server/sim.test.ts.
  */
@@ -70,7 +70,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(eventsOf(snaps, bId).some((e) => e.t === "chat" && e.text === "anyone here?")).toBe(false);
   });
 
-  it("downed party members bleed out unless revived", () => {
+  it("a downed player can be revived by a nearby party member", () => {
     const { aId, bId } = makeParty(sim);
     const aEntity = sim.getPlayerEntity(aId)!;
     const bEntity = sim.getPlayerEntity(bId)!;
@@ -87,7 +87,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(snaps.get(bId)!.self.hp).toBe(Math.round(PLAYER_MAX_HP * 0.3));
   });
 
-  it("a downed party member can give up and respawn", () => {
+  it("a downed player can give up and then waits through the dead screen", () => {
     const { bId } = makeParty(sim);
     const player = sim.getPlayerEntity(bId)!;
     player.hp = 0;

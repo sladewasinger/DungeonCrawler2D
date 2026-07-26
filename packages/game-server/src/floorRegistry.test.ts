@@ -7,7 +7,6 @@ import {
   statusesData,
 } from "@dc2d/content";
 import {
-  RESPAWN_DELAY_TICKS,
   buildContentRegistry,
   hashString,
   stairwayDownPosition,
@@ -17,6 +16,7 @@ import {
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { FloorRegistry } from "./floorRegistry.js";
+import { DEATH_TO_RESPAWN_TICKS } from "./sim/deathTestSupport.js";
 import { PlayerStore } from "./store.js";
 
 /**
@@ -114,8 +114,8 @@ describe("FloorRegistry: the descent chain", () => {
     const entity = sim3.getPlayerEntity(join.playerId)!;
     const itemsBefore = sim3.itemCount;
 
-    entity.hp = 0; // solo player, no party to down-and-revive: this is a hard kill
-    for (let i = 0; i < RESPAWN_DELAY_TICKS + 2; i++) floors.stepAll();
+    entity.hp = 0;
+    for (let i = 0; i < DEATH_TO_RESPAWN_TICKS + 2; i++) floors.stepAll();
 
     expect(sim3.itemCount).toBeGreaterThan(itemsBefore); // starter kit dropped where they died
     expect(sim3.playerCount).toBe(0); // no longer resident on floor 3

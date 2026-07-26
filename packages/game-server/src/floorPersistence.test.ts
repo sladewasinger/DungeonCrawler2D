@@ -19,6 +19,7 @@ import {
 } from "@dc2d/engine";
 import { afterEach, describe, expect, it } from "vitest";
 import { FloorRegistry } from "./floorRegistry.js";
+import { DOWNED_DURATION_TICKS } from "./sim/deathTestSupport.js";
 import { PlayerStore } from "./store.js";
 
 const content: ContentRegistry = buildContentRegistry({
@@ -89,7 +90,9 @@ describe("durable descent lifecycle", () => {
     const floor3 = firstFloors.ensureFloor(3);
     const joined = floor3.addPlayer("A", "client-a");
     floor3.getPlayerEntity(joined.playerId)!.hp = 0;
-    firstFloors.stepAll();
+    for (let tick = 0; tick <= DOWNED_DURATION_TICKS; tick++) {
+      firstFloors.stepAll();
+    }
     firstStore.flush();
 
     const secondStore = new PlayerStore(file);

@@ -16,7 +16,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
-import { resolveDeaths } from "./deaths.js";
+import { downAndResolveDeath } from "./deathTestSupport.js";
 import { invQty } from "./inventory.js";
 import { addPlayer } from "./join.js";
 import { reapAndRespawn } from "./players.js";
@@ -49,10 +49,9 @@ function expectFullKit(slot: PlayerSlot): void {
   expect(slot.hotbar[1]).toBe("bandage");
 }
 
-/** Kill, resolve the death, then jump to the scheduled respawn tick. */
+/** Enter downed, resolve full death, then jump to the scheduled respawn tick. */
 function dieAndRespawn(sim: SimState, slot: PlayerSlot): void {
-  slot.entity.hp = 0;
-  resolveDeaths(sim);
+  downAndResolveDeath(sim, slot);
   // Full-loot death: everything hits the floor, hands go empty.
   expect(slot.weapon).toBeNull();
   expect(slot.inventory).toHaveLength(0);

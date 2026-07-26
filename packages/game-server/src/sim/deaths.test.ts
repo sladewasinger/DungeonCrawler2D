@@ -19,7 +19,7 @@ import { resolveDeaths } from "./deaths.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "./state.js";
 
 /**
- * Unit tests for deaths.ts: enemy loot drops, the party-revive "downed"
+ * Unit tests for deaths.ts: enemy loot drops, the universal "downed"
  * window, bleed-out, and full-loot player death + respawn scheduling.
  * No dedicated reference/game-server test file exists for this module
  * (deaths/spawn are only exercised inside the monolithic v1 sim.test.ts,
@@ -126,14 +126,9 @@ describe("resolveDeaths", () => {
     expect(sim.enemies.has(enemy.entity.id)).toBe(true);
   });
 
-  it("downs (does not kill) a player with a conscious party member", () => {
+  it("downs (does not kill) every player before full death", () => {
     const a = makeSlot("A", 0, 0);
-    const b = makeSlot("B", 1, 0);
     sim.players.set(a.entity.id, a);
-    sim.players.set(b.entity.id, b);
-    a.partyId = "p1";
-    b.partyId = "p1";
-    sim.parties.set("p1", { id: "p1", leaderId: a.entity.id, members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
     a.entity.hp = 0;
 
     resolveDeaths(sim);
@@ -186,14 +181,14 @@ describe("resolveDeaths", () => {
     expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
   });
 
-  it("a menu-requested forceDeath bypasses the party downed state", () => {
+  it("a give-up forceDeath advances a downed player to full death", () => {
     const a = makeSlot("A", 0, 0);
-    const b = makeSlot("B", 1, 0);
     sim.players.set(a.entity.id, a);
-    sim.players.set(b.entity.id, b);
-    a.partyId = "p1";
-    b.partyId = "p1";
-    sim.parties.set("p1", { id: "p1", leaderId: a.entity.id, members: new Set([a.entity.id, b.entity.id]), roomSlot: null });
+    a.entity.hp = 0;
+
+    resolveDeaths(sim);
+
+    expect(a.downedAtTick).toBe(sim.tickCount);
     a.entity.hp = 0;
     a.forceDeath = true;
 

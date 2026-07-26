@@ -10,7 +10,6 @@ import {
   CHASM_DEATH_Z,
   LEVEL,
   PLAYER_MAX_HP,
-  RESPAWN_DELAY_TICKS,
   World,
   buildContentRegistry,
   hashString,
@@ -19,6 +18,7 @@ import {
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
+import { DEATH_TO_RESPAWN_TICKS } from "./deathTestSupport.js";
 import { spawnEnemy } from "./helpers.js";
 import { GameSim } from "./index.js";
 import { addPlayer } from "./join.js";
@@ -156,8 +156,8 @@ describe("spawn safety across seeds", () => {
         me.hp = 0;
         let guard = 0;
         while (
-          sim.getPlayerEntity(join.playerId)!.hp <= 0 &&
-          guard++ < RESPAWN_DELAY_TICKS + 5
+          sim.getPlayerEntity(join.playerId)!.hp !== PLAYER_MAX_HP &&
+          guard++ < DEATH_TO_RESPAWN_TICKS + 5
         ) sim.step();
         expect(sim.getPlayerEntity(join.playerId)!.hp, `seed ${seed}: never respawned`).toBe(PLAYER_MAX_HP);
         expect(sim.getWeapon(join.playerId), `seed ${seed}: respawned unarmed`).toBe("sword");

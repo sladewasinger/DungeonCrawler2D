@@ -1,15 +1,20 @@
 /** Proves reconnect grace pauses dead and downed player lifecycle transitions. */
 import { PLAYER_MAX_HP, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { findFlatArena, makeSim, stepN, teleport } from "./support.js";
+import { DOWNED_DURATION_TICKS } from "../deathTestSupport.js";
+import { makeSim, stepN } from "./support.js";
 
 describe("GameSim disconnected lifecycle continuity", () => {
-  it("freezes a pending respawn and resumes with its remaining delay", () => {
+  it("freezes a pending dead-screen respawn and resumes its remaining delay", () => {
     const sim = makeSim();
     const player = sim.addPlayer("Dead", "dead-client");
     const entity = sim.getPlayerEntity(player.playerId)!;
     entity.hp = 0;
     sim.step();
+    expect(entity.hp).toBe(1);
+    sim.queueAction(player.playerId, { type: "suicide" });
+    sim.step();
+    expect(entity.hp).toBe(0);
     const frozen = { x: entity.body.x, y: entity.body.y, z: entity.body.z };
 
     sim.markDisconnected(player.playerId);
@@ -26,18 +31,10 @@ describe("GameSim disconnected lifecycle continuity", () => {
     expect(entity.hp).toBe(PLAYER_MAX_HP);
   });
 
-  it("freezes party bleedout and continues its remaining minute after resume", () => {
+  it("freezes downed bleedout and continues its remaining 15 seconds after resume", () => {
     const sim = makeSim();
-    const ally = sim.addPlayer("Ally", "ally-client");
     const player = sim.addPlayer("Downed", "downed-client");
     const entity = sim.getPlayerEntity(player.playerId)!;
-    const arena = findFlatArena(sim, ally.spawn.x, ally.spawn.y);
-    teleport(sim.getPlayerEntity(ally.playerId)!, arena.x, arena.y, sim);
-    teleport(entity, arena.x + 2, arena.y, sim);
-    sim.queueAction(ally.playerId, { type: "party", op: "invite", target: player.playerId });
-    sim.step();
-    sim.queueAction(player.playerId, { type: "party", op: "accept" });
-    sim.step();
     entity.hp = 0;
     sim.step();
     expect(entity.hp).toBe(1);
@@ -49,9 +46,9 @@ describe("GameSim disconnected lifecycle continuity", () => {
     expect(entity.body).toMatchObject(frozen);
 
     expect(sim.addPlayer("Downed", "downed-client", player.resumeToken)).toMatchObject({ resumed: true, spawn: frozen });
-    expect(entity.downedUntil).toBe(sim.tick + TICK_RATE * 60);
+    expect(entity.downedUntil).toBe(sim.tick + DOWNED_DURATION_TICKS);
     expect(sim.step().get(player.playerId)?.self).toMatchObject({ hp: 1, downed: true, x: frozen.x, y: frozen.y });
-    stepN(sim, TICK_RATE * 60 - 2);
+    stepN(sim, DOWNED_DURATION_TICKS - 2);
     expect(entity.hp).toBe(1);
     sim.step();
     expect(entity.hp).toBe(0);
