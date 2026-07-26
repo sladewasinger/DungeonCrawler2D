@@ -2,13 +2,25 @@ import { SOLID_TILES, type TileType } from "@dc2d/engine";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import { isChasmDepth } from "../terrain/heightShade.js";
 
-export const PLAYER_GROUND_LIGHT_RADIUS = 2;
-export const PLAYER_GROUND_LIGHT_MAX_CELLS = 13;
+export const PLAYER_GROUND_LIGHT_RADIUS = 4;
+export const PLAYER_GROUND_LIGHT_MAX_CELLS = 41;
 export const PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS = 100;
+export const PLAYER_GROUND_LIGHT_FADE_MS = 180;
+export const PLAYER_GROUND_LIGHT_STRENGTH_STEPS = [1, 0.8, 0.6, 0.4, 0.2] as const;
 
 export const playerGroundLightEnabledForProfile = (
   profile: "constrained" | "desktop",
 ): boolean => profile === "desktop";
+
+export function playerGroundLightFadeAlpha(
+  startAlpha: number,
+  targetAlpha: number,
+  elapsedMs: number,
+): number {
+  const progress = Math.max(0, Math.min(1, elapsedMs / PLAYER_GROUND_LIGHT_FADE_MS));
+  const eased = progress * progress * (3 - 2 * progress);
+  return startAlpha + (targetAlpha - startAlpha) * eased;
+}
 
 export interface PlayerGroundLightWorld {
   tileAt(wx: number, wy: number): TileType;
@@ -60,7 +72,7 @@ export function playerGroundLightCells(
     cells.push({
       tileX,
       tileY,
-      strength: 1 - distance / (PLAYER_GROUND_LIGHT_RADIUS + 1),
+      strength: PLAYER_GROUND_LIGHT_STRENGTH_STEPS[distance] ?? 0,
       groundHeight: world.groundAt(tileX + 0.5, tileY + 0.5),
     });
     if (distance >= PLAYER_GROUND_LIGHT_RADIUS) continue;

@@ -5,7 +5,7 @@ export function selectFrameLights(
   accentLights: readonly LightSource[],
   centerX: number,
   centerY: number,
-  personalLight: LightSource,
+  personalLight: LightSource | null,
   maxLights: number,
   candidates: LightSource[],
   selected: LightSource[],
@@ -20,12 +20,12 @@ export function selectFrameLights(
   );
 
   selected.length = 0;
-  const nonPersonalLimit = Math.max(0, maxLights - 1);
+  const nonPersonalLimit = Math.max(0, maxLights - (personalLight ? 1 : 0));
   for (let index = 0; index < candidates.length && index < nonPersonalLimit; index++) {
     const light = candidates[index];
     if (light) selected.push(light);
   }
-  selected.push(personalLight);
+  if (personalLight) selected.push(personalLight);
   return selected;
 }
 

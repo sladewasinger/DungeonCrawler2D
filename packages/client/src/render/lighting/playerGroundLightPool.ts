@@ -1,69 +1,182 @@
 import Phaser from "phaser";
 import type { World } from "@dc2d/engine";
-import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { depthForCapOccluder } from "../entities/depthSort.js";
 import { worldToScreen } from "../entities/worldToScreen.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { worldTileToView } from "../view/viewTransform.js";
 import {
+  PLAYER_GROUND_LIGHT_FADE_MS,
   PLAYER_GROUND_LIGHT_MAX_CELLS,
+  playerGroundLightFadeAlpha,
   playerGroundLightCells,
   shouldUpdatePlayerGroundLight,
   type PlayerGroundLightCell,
   type PlayerGroundLightUpdate,
 } from "./playerGroundLight.js";
 
-const LIGHT_FRAME = "light_soft";
-const LIGHT_SOURCE_PX = 64;
-const LIGHT_DIAMETER_TILES = 1.75;
 const LIGHT_ALPHA = 0.2;
 const LIGHT_COLOR = 0xffe9c9;
 const FLOOR_LAYER_BIAS = 0.01;
+export const PLAYER_GROUND_LIGHT_MAX_POOL_TILES = PLAYER_GROUND_LIGHT_MAX_CELLS * 2;
+
+export interface PlayerGroundLightTile {
+  setActive(active: boolean): this;
+  setVisible(visible: boolean): this;
+  setPosition(x: number, y: number): this;
+  setDepth(depth: number): this;
+  setAlpha(alpha: number): this;
+  destroy(): void;
+}
+
+interface PlayerGroundLightTileState {
+  readonly tile: PlayerGroundLightTile;
+  alpha: number;
+  startAlpha: number;
+  targetAlpha: number;
+  transitionStartedAtMs: number;
+}
+
+type PlayerGroundLightTileFactory = () => PlayerGroundLightTile;
 
 export class PlayerGroundLightPool {
-  private readonly sprites: Phaser.GameObjects.Sprite[] = [];
+  private readonly active = new Map<string, PlayerGroundLightTileState>();
+  private readonly desiredKeys = new Set<string>();
+  private readonly desiredKeyList: string[] = [];
+  private readonly spare: PlayerGroundLightTile[] = [];
 
-  constructor(private readonly scene: Phaser.Scene) {}
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly tileFactory?: PlayerGroundLightTileFactory,
+  ) {}
 
-  sync(cells: readonly PlayerGroundLightCell[]): void {
+  sync(cells: readonly PlayerGroundLightCell[], nowMs: number): void {
     const count = Math.min(cells.length, PLAYER_GROUND_LIGHT_MAX_CELLS);
+    this.desiredKeys.clear();
+    this.desiredKeyList.length = count;
     for (let index = 0; index < count; index++) {
       const cell = cells[index];
       if (cell === undefined) continue;
-      this.place(this.spriteAt(index), cell);
+      const key = `${cell.tileX},${cell.tileY}`;
+      this.desiredKeys.add(key);
+      this.desiredKeyList[index] = key;
     }
-    for (let index = count; index < this.sprites.length; index++) {
-      this.sprites[index]?.setActive(false).setVisible(false);
+
+    for (const [key, state] of this.active) {
+      if (!this.desiredKeys.has(key)) this.retarget(state, 0, nowMs);
+    }
+
+    for (let index = 0; index < count; index++) {
+      const cell = cells[index];
+      const key = this.desiredKeyList[index];
+      if (cell === undefined || key === undefined) continue;
+      let state = this.active.get(key);
+      if (!state) {
+        this.makeRoomForIncoming();
+        state = this.createState(nowMs);
+        this.active.set(key, state);
+      }
+      this.place(state.tile, cell);
+      this.retarget(state, LIGHT_ALPHA * cell.strength, nowMs);
+    }
+    this.update(nowMs);
+  }
+
+  update(nowMs: number): void {
+    for (const [key, state] of this.active) {
+      state.alpha = playerGroundLightFadeAlpha(
+        state.startAlpha,
+        state.targetAlpha,
+        nowMs - state.transitionStartedAtMs,
+      );
+      state.tile.setAlpha(state.alpha);
+      if (
+        state.targetAlpha === 0 &&
+        nowMs - state.transitionStartedAtMs >= PLAYER_GROUND_LIGHT_FADE_MS
+      ) {
+        this.active.delete(key);
+        this.release(state.tile);
+      }
     }
   }
 
-  private spriteAt(index: number): Phaser.GameObjects.Sprite {
-    const existing = this.sprites[index];
-    if (existing) {
-      existing.setActive(true).setVisible(true);
-      return existing;
-    }
-    const sprite = this.scene.add.sprite(0, 0, ASSET_KEYS.atlas, LIGHT_FRAME)
+  clear(): void {
+    for (const state of this.active.values()) this.release(state.tile);
+    this.active.clear();
+    this.desiredKeys.clear();
+    this.desiredKeyList.length = 0;
+  }
+
+  private createTile(): PlayerGroundLightTile {
+    if (this.tileFactory) return this.tileFactory();
+    return this.scene.add.rectangle(
+      0,
+      0,
+      SCREEN_TILE_PX,
+      SCREEN_TILE_PX,
+      LIGHT_COLOR,
+      1,
+    )
       .setBlendMode(Phaser.BlendModes.ADD)
       .setOrigin(0.5, 0.5);
-    this.sprites.push(sprite);
-    return sprite;
   }
 
-  private place(sprite: Phaser.GameObjects.Sprite, cell: PlayerGroundLightCell): void {
+  private createState(nowMs: number): PlayerGroundLightTileState {
+    const tile = this.spare.pop() ?? this.createTile();
+    tile.setActive(true).setVisible(true).setAlpha(0);
+    return {
+      tile,
+      alpha: 0,
+      startAlpha: 0,
+      targetAlpha: 0,
+      transitionStartedAtMs: nowMs,
+    };
+  }
+
+  private retarget(
+    state: PlayerGroundLightTileState,
+    targetAlpha: number,
+    nowMs: number,
+  ): void {
+    if (state.targetAlpha === targetAlpha) return;
+    state.alpha = playerGroundLightFadeAlpha(
+      state.startAlpha,
+      state.targetAlpha,
+      nowMs - state.transitionStartedAtMs,
+    );
+    state.startAlpha = state.alpha;
+    state.targetAlpha = targetAlpha;
+    state.transitionStartedAtMs = nowMs;
+  }
+
+  private makeRoomForIncoming(): void {
+    if (this.active.size < PLAYER_GROUND_LIGHT_MAX_POOL_TILES) return;
+    for (const [key, state] of this.active) {
+      if (this.desiredKeys.has(key)) continue;
+      this.active.delete(key);
+      this.release(state.tile);
+      return;
+    }
+  }
+
+  private release(tile: PlayerGroundLightTile): void {
+    tile.setActive(false).setVisible(false);
+    this.spare.push(tile);
+  }
+
+  private place(tile: PlayerGroundLightTile, cell: PlayerGroundLightCell): void {
     const screen = worldToScreen(cell.tileX + 0.5, cell.tileY + 0.5);
     const orientation = getViewOrientation();
     const viewTile = worldTileToView({ x: cell.tileX, y: cell.tileY }, orientation);
-    sprite.setPosition(screen.x, screen.y - cell.groundHeight * SCREEN_TILE_PX);
-    sprite.setScale((LIGHT_DIAMETER_TILES * SCREEN_TILE_PX) / LIGHT_SOURCE_PX);
-    sprite.setDepth(depthForCapOccluder(viewTile.y) + FLOOR_LAYER_BIAS);
-    sprite.setTint(LIGHT_COLOR);
-    sprite.setAlpha(LIGHT_ALPHA * cell.strength);
+    tile.setPosition(screen.x, screen.y - cell.groundHeight * SCREEN_TILE_PX);
+    tile.setDepth(depthForCapOccluder(viewTile.y) + FLOOR_LAYER_BIAS);
   }
 
   dispose(): void {
-    for (const sprite of this.sprites) sprite.destroy();
-    this.sprites.length = 0;
+    for (const state of this.active.values()) state.tile.destroy();
+    for (const tile of this.spare) tile.destroy();
+    this.active.clear();
+    this.spare.length = 0;
   }
 }
 
@@ -80,7 +193,7 @@ export class PlayerGroundLightPass {
     if (this.enabled === enabled) return;
     this.enabled = enabled;
     this.previousUpdate = null;
-    if (!enabled) this.pool.sync([]);
+    if (!enabled) this.pool.clear();
   }
 
   update(playerX: number, playerY: number, nowMs: number): void {
@@ -91,9 +204,11 @@ export class PlayerGroundLightPass {
       orientation: getViewOrientation(),
       atMs: nowMs,
     };
-    if (!shouldUpdatePlayerGroundLight(this.previousUpdate, next)) return;
-    this.pool.sync(playerGroundLightCells(this.world, playerX, playerY));
-    this.previousUpdate = next;
+    if (shouldUpdatePlayerGroundLight(this.previousUpdate, next)) {
+      this.pool.sync(playerGroundLightCells(this.world, playerX, playerY), nowMs);
+      this.previousUpdate = next;
+    }
+    this.pool.update(nowMs);
   }
 
   dispose(): void {

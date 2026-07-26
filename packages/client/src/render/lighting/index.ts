@@ -1,7 +1,7 @@
 // Lighting facade: the small dynamic layer over the BAKED tile lighting — a
-// colored halo pool (torch flames, portals, the personal cue) plus accent
-// lights for live effects, and camera post-FX. Ambient darkness lives in the
-// baked tile tints now; there is no screen darkness overlay to maintain.
+// colored halo pool (torch flames, portals, and the constrained-device personal
+// fallback) plus accent lights for live effects and camera post-FX. Ambient darkness
+// lives in the baked tile tints now; there is no screen darkness overlay to maintain.
 import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
@@ -36,6 +36,7 @@ type MutableLightSource = {
 export class LightingSystem {
   private readonly pool: LightSpritePool;
   private readonly groundLight: PlayerGroundLightPass;
+  private personalHaloEnabled = true;
   private readonly chunkLights = new Map<string, LightSource[]>();
   private streamedWindow = "";
   private accentLights: readonly LightSource[] = [];
@@ -60,7 +61,7 @@ export class LightingSystem {
     this.pool = new LightSpritePool(scene);
     this.groundLight = new PlayerGroundLightPass(scene, world);
     const profile = selectTerrainDeviceProfile(readTerrainDeviceSignals(scene));
-    this.groundLight.setEnabled(playerGroundLightEnabledForProfile(profile.kind));
+    this.setPlayerGroundLightEnabled(playerGroundLightEnabledForProfile(profile.kind));
   }
 
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */
@@ -68,9 +69,10 @@ export class LightingSystem {
     this.accentLights = lights;
   }
 
-  /** Performance fallback: disabling the bounded floor pass leaves the personal halo intact. */
+  /** Performance fallback: disabling the bounded floor pass restores the personal halo. */
   setPlayerGroundLightEnabled(enabled: boolean): void {
     this.groundLight.setEnabled(enabled);
+    this.personalHaloEnabled = !enabled;
   }
 
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
@@ -93,7 +95,7 @@ export class LightingSystem {
       this.accentLights,
       centerWorld.x,
       centerWorld.y,
-      this.personalLight,
+      this.personalHaloEnabled ? this.personalLight : null,
       MAX_ACTIVE_LIGHTS,
       this.candidateLights,
       this.frameLights,

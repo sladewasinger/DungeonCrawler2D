@@ -58,6 +58,22 @@ describe("selectFrameLights", () => {
       expect(result.at(-1)).toBe(personal);
     }
   });
+
+  it("uses the full cap without appending a radial personal halo when suppressed", () => {
+    const selected = selectFrameLights(
+      [[light("near", 1), light("middle", 2), light("far", 3)]],
+      [],
+      0,
+      0,
+      null,
+      2,
+      [],
+      [],
+    );
+
+    expect(selected.map(({ id }) => id)).toEqual(["near", "middle"]);
+    expect(selected.some(({ kind }) => kind === "personal")).toBe(false);
+  });
 });
 
 describe("collectTorchLights", () => {

@@ -1,8 +1,12 @@
 import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
+  PLAYER_GROUND_LIGHT_FADE_MS,
   PLAYER_GROUND_LIGHT_MAX_CELLS,
+  PLAYER_GROUND_LIGHT_RADIUS,
+  PLAYER_GROUND_LIGHT_STRENGTH_STEPS,
   PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS,
+  playerGroundLightFadeAlpha,
   playerGroundLightEnabledForProfile,
   playerGroundLightCells,
   shouldUpdatePlayerGroundLight,
@@ -30,13 +34,32 @@ describe("playerGroundLightCells", () => {
     const cells = playerGroundLightCells(world(), 0.5, 0.5);
     expect(cells).toHaveLength(PLAYER_GROUND_LIGHT_MAX_CELLS);
     expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
-    expect(cells.find((cell) => cell.tileX === 1 && cell.tileY === 0)?.strength).toBeCloseTo(2 / 3);
-    expect(cells.find((cell) => cell.tileX === 2 && cell.tileY === 0)?.strength).toBeCloseTo(1 / 3);
-    expect(cells.every((cell) => Math.abs(cell.tileX) + Math.abs(cell.tileY) <= 2)).toBe(true);
+    expect(cells.find((cell) => cell.tileX === 1 && cell.tileY === 0)?.strength).toBe(0.8);
+    expect(cells.find((cell) => cell.tileX === 4 && cell.tileY === 0)?.strength).toBe(0.2);
+    expect(cells.every((cell) =>
+      Math.abs(cell.tileX) + Math.abs(cell.tileY) <= PLAYER_GROUND_LIGHT_RADIUS
+    )).toBe(true);
+  });
+
+  it("assigns one uniform brightness step to every tile in each distance ring", () => {
+    const cells = playerGroundLightCells(world(), 0.5, 0.5);
+    for (const cell of cells) {
+      const distance = Math.abs(cell.tileX) + Math.abs(cell.tileY);
+      expect(cell.strength).toBe(PLAYER_GROUND_LIGHT_STRENGTH_STEPS[distance]);
+    }
+    expect(new Set(cells.map((cell) => cell.strength))).toEqual(
+      new Set(PLAYER_GROUND_LIGHT_STRENGTH_STEPS),
+    );
   });
 
   it("does not cross a wall or include chasm cells", () => {
-    const cells = playerGroundLightCells(world(new Set(["1,0"]), new Set(["0,1"])), 0.5, 0.5);
+    const walls = new Set(
+      Array.from({ length: 9 }, (_, index) => `1,${index - 4}`),
+    );
+    const chasms = new Set(
+      Array.from({ length: 9 }, (_, index) => `${index - 4},1`),
+    );
+    const cells = playerGroundLightCells(world(walls, chasms), 0.5, 0.5);
     const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
     expect(keys.has("1,0")).toBe(false);
     expect(keys.has("2,0")).toBe(false);
@@ -47,6 +70,17 @@ describe("playerGroundLightCells", () => {
   it("records each tile's ground height for projected floor placement", () => {
     const cells = playerGroundLightCells(world(), 2.5, 3.5);
     expect(cells[0]?.groundHeight).toBe(2.3);
+  });
+});
+
+describe("playerGroundLightFadeAlpha", () => {
+  it("smoothly fades both entering and leaving tiles without overshoot", () => {
+    const halfway = PLAYER_GROUND_LIGHT_FADE_MS / 2;
+    expect(playerGroundLightFadeAlpha(0, 0.2, 0)).toBe(0);
+    expect(playerGroundLightFadeAlpha(0, 0.2, halfway)).toBeCloseTo(0.1);
+    expect(playerGroundLightFadeAlpha(0, 0.2, PLAYER_GROUND_LIGHT_FADE_MS)).toBe(0.2);
+    expect(playerGroundLightFadeAlpha(0.2, 0, halfway)).toBeCloseTo(0.1);
+    expect(playerGroundLightFadeAlpha(0.2, 0, PLAYER_GROUND_LIGHT_FADE_MS * 2)).toBe(0);
   });
 });
 
