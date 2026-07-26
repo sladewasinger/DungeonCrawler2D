@@ -1,7 +1,6 @@
 import {
   DOWNED_DURATION,
-  PARTY_RESPAWN_DELAY_TICKS,
-  SOLO_RESPAWN_DELAY_TICKS,
+  RESPAWN_DELAY_TICKS,
   TICK_RATE,
 } from "@dc2d/engine";
 import { announceDeath, broadcastAnnouncement } from "./announcer/index.js";
@@ -106,10 +105,7 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   slot.downedAtTick = null;
   slot.forceDeath = false;
   delete entity.downedUntil;
-  const respawnDelay = slot.partyId === null
-    ? SOLO_RESPAWN_DELAY_TICKS
-    : PARTY_RESPAWN_DELAY_TICKS;
-  slot.respawnAtTick = sim.tickCount + respawnDelay;
+  slot.respawnAtTick = sim.tickCount + RESPAWN_DELAY_TICKS;
   // Persist the terminal death destination immediately. A process crash
   // during the respawn delay must not resurrect the character downstairs.
   sim.store.recordActiveFloor(slot.stored, 1);
@@ -130,5 +126,6 @@ function downPlayer(sim: SimState, slot: PlayerSlot): void {
   slot.entity.hp = 1;
   slot.entity.downedUntil = sim.tickCount + DOWNED_DURATION * TICK_RATE;
   slot.entity.statuses = [];
+  clearEnemyTargetsForPlayer(sim, slot.entity.id);
   slot.outbox.push({ t: "toast", msg: "You're down! Any nearby player can revive you." });
 }

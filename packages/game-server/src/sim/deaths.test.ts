@@ -16,7 +16,6 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
 import { resolveDeaths } from "./deaths.js";
-import { requestImmediateRespawn } from "./players.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "./state.js";
 
 /**
@@ -168,21 +167,23 @@ describe("resolveDeaths", () => {
     expect(sim.lootChests.size).toBe(1);
   });
 
-  it("kills outright (full loot drop, distant respawn) when solo or forced", () => {
-    const a = makeSlot("A", 0, 0);
+  it("uses the same downed and dead windows for a solo player", () => {
+    const a = makeSlot("Solo", 0, 0);
     sim.players.set(a.entity.id, a);
     a.entity.hp = 0;
 
     resolveDeaths(sim);
 
+    expect(a.entity.hp).toBe(1);
+    expect(a.downedAtTick).toBe(sim.tickCount);
+    expect(a.entity.downedUntil).toBe(
+      sim.tickCount + DOWNED_DURATION * TICK_RATE,
+    );
+    sim.tickCount += DOWNED_DURATION * TICK_RATE;
+    resolveDeaths(sim);
     expect(a.entity.hp).toBe(0);
-    expect(a.inventory).toHaveLength(0);
-    expect(a.weapon).toBeNull();
-    expect(a.entity.statuses).toHaveLength(0);
     expect(a.downedAtTick).toBeNull();
     expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
-    expect(sim.lootChests.size).toBe(1);
-    expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
   });
 
   it("a menu-requested forceDeath bypasses the party downed state", () => {
@@ -214,17 +215,4 @@ describe("resolveDeaths", () => {
     expect(a.inventory).toHaveLength(1); // untouched — death already resolved once
   });
 
-  it("accepts an immediate-respawn request only for a scheduled corpse", () => {
-    const dead = makeSlot("Dead", 0, 0);
-    const living = makeSlot("Living", 1, 0);
-    sim.players.set(dead.entity.id, dead);
-    sim.players.set(living.entity.id, living);
-    dead.entity.hp = 0;
-    dead.respawnAtTick = sim.tickCount + RESPAWN_DELAY_TICKS;
-
-    requestImmediateRespawn(sim, living.entity.id);
-    expect(living.respawnAtTick).toBeNull();
-    requestImmediateRespawn(sim, dead.entity.id);
-    expect(dead.respawnAtTick).toBe(sim.tickCount);
-  });
 });

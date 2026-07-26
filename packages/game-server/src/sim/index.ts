@@ -29,7 +29,7 @@ import {
   applyGodMode,
   markDisconnected,
   queueAction,
-  reapAndRespawn, requestImmediateRespawn,
+  reapAndRespawn,
   stepPlayers,
 } from "./players.js";
 import { handleInput } from "./playerInputTimeline.js";
@@ -125,8 +125,6 @@ export class GameSim {
   queueAction(playerId: string, msg: PlayerAction): void {
     queueAction(this.state, playerId, msg);
   }
-
-  requestImmediateRespawn(playerId: string): void { requestImmediateRespawn(this.state, playerId); }
 
   configureSnapshotMode(playerId: string, mode: SnapshotMode | undefined): void {
     configureSnapshotMode(this.state, playerId, mode);

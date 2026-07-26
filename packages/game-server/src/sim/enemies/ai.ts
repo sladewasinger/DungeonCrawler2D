@@ -39,17 +39,28 @@ function isNearAnyPlayer(entity: EnemySlot["entity"], players: readonly EnemySlo
   return false;
 }
 
+function enemyPlayerSets(sim: SimState): {
+  activePlayers: EnemySlot["entity"][];
+  targetablePlayers: EnemySlot["entity"][];
+} {
+  const activePlayers: EnemySlot["entity"][] = [];
+  const targetablePlayers: EnemySlot["entity"][] = [];
+  for (const slot of sim.players.values()) {
+    if (!slot.connected || slot.entity.hp <= 0) continue;
+    if (slot.downedAtTick !== null) {
+      activePlayers.push(slot.entity);
+      continue;
+    }
+    // Spawn-grace players remain invisible to both activation and enemy aggro.
+    if (isSpawnProtected(slot, sim.tickCount)) continue;
+    activePlayers.push(slot.entity);
+    targetablePlayers.push(slot.entity);
+  }
+  return { activePlayers, targetablePlayers };
+}
+
 export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
-  const players = [...sim.players.values()]
-    // Spawn-grace players are invisible to enemy aggro (spawnSafety.ts).
-    .filter(
-      (s) =>
-        s.connected &&
-        s.entity.hp > 0 &&
-        s.downedAtTick === null &&
-        !isSpawnProtected(s, sim.tickCount),
-    )
-    .map((s) => s.entity);
+  const { activePlayers, targetablePlayers } = enemyPlayerSets(sim);
   // Panel round 4 (Grinder's drift-in leak): while a player is graced,
   // hostiles may not MOVE into their clearance radius — moveEnemy clamps
   // at the boundary. Computed once per tick, not per enemy.
@@ -59,7 +70,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     sim.replicationMotion.set(entity.id, { x: 0, y: 0 });
     if (entity.hp <= 0) continue; // corpses don't bite
     revalidateEnemyTarget(sim, enemy);
-    if (!isNearAnyPlayer(entity, players)) continue; // frozen far from everyone
+    if (!isNearAnyPlayer(entity, activePlayers)) continue; // frozen far from everyone
     // Checked before the shoot/melee/wander dispatch, not only inside
     // moveEnemy's post-move check: a ranged decision below `continue`s
     // straight to beginWindup without ever calling moveEnemy, which
@@ -76,7 +87,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
       enemy.brain,
       entity,
       enemy.def,
-      players,
+      targetablePlayers,
       (e) => sim.effects.inSanctuary(e),
       TICK_DT,
       () => sim.rng.next(),

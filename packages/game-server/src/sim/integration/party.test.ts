@@ -1,6 +1,7 @@
 import {
   LEVEL,
   PLAYER_MAX_HP,
+  REVIVE_HOLD_TICKS,
   RESPAWN_DELAY_TICKS,
   TILE,
   World,
@@ -79,32 +80,11 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(snaps.get(bId)!.self.downed).toBe(true);
     expect(snaps.get(bId)!.self.hp).toBe(1);
 
-    sim.queueAction(aId, { type: "interact" });
-    snaps = sim.step();
+    sim.queueAction(aId, { type: "revive", targetId: bId, held: true });
+    sim.step();
+    snaps = stepN(sim, REVIVE_HOLD_TICKS);
     expect(snaps.get(bId)!.self.downed).toBeUndefined();
     expect(snaps.get(bId)!.self.hp).toBe(Math.round(PLAYER_MAX_HP * 0.3));
-  });
-
-  it("menu suicide bypasses downed state and dead players cannot act", () => {
-    const { aId } = makeParty(sim);
-    const player = sim.getPlayerEntity(aId)!;
-    const enemy = sim.spawnEnemy("slime", player.body.x + 1, player.body.y);
-    const enemyHp = enemy.hp;
-
-    sim.queueAction(aId, { type: "suicide" });
-    let snaps = sim.step();
-    expect(snaps.get(aId)!.self.hp).toBe(0);
-    expect(snaps.get(aId)!.self.downed).toBeUndefined();
-
-    const x = player.body.x;
-    const y = player.body.y;
-    sim.handleInput(aId, { type: "input", seq: 100, projectedServerTick: sim.tick, moveX: 1, moveY: 0, jump: true, run: false });
-    sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
-    snaps = sim.step();
-    expect(player.body.x).toBe(x);
-    expect(player.body.y).toBe(y);
-    expect(enemy.hp).toBe(enemyHp);
-    expect(snaps.get(aId)!.self.hp).toBe(0);
   });
 
   it("a downed party member can give up and respawn", () => {

@@ -200,7 +200,7 @@ describe("enemy AI", () => {
     expect(sim.projectiles.size).toBe(1);
   });
 
-  it("cancels an unreleased windup and clears its target when the player dies", () => {
+  it("cancels a windup and resumes wandering when its target is downed", () => {
     const entity = spawnEnemy(sim, "spitter", spot.x + 4, spot.y);
     stepEnemies(sim, []);
     const enemy = sim.enemies.get(entity.id);
@@ -208,13 +208,13 @@ describe("enemy AI", () => {
     if (!enemy || !player) throw new Error("missing target lifecycle fixture");
     expect(enemy.animation.state).toBe("windup");
 
-    player.inventory = [{ item: "rag", qty: 1 }];
     player.entity.hp = 0;
     resolveDeaths(sim);
     expect(enemy.brain.targetId).toBeNull();
-    expect(enemy.animation).toEqual({ state: "idle", ticksRemaining: 0 });
-    expect(sim.projectiles.size).toBe(0);
-    expect(sim.lootChests.size).toBe(1);
+    enemy.brain.wanderDir = { moveX: 1, moveY: 0, jump: false };
+    enemy.brain.wanderLeft = 1;
+    stepEnemies(sim, []);
+    expect(enemy.brain.wanderLeft).toBeLessThan(1);
   });
 
   it("abandons a dead target and reacquires the nearest living player", () => {

@@ -4,10 +4,10 @@ import type { GameSim } from "../sim/index.js";
 import { routeAuthenticatedMessage } from "./dispatch.js";
 import type { SocketMap } from "./types.js";
 
-describe("respawn message dispatch", () => {
-  it("routes an authenticated respawn directly to its authoritative sim", () => {
-    const requestImmediateRespawn = vi.fn();
-    const sim = { requestImmediateRespawn } as unknown as GameSim;
+describe("legacy respawn message dispatch", () => {
+  it("ignores a legacy authenticated respawn message", () => {
+    const queueAction = vi.fn();
+    const sim = { queueAction } as unknown as GameSim;
     const sockets: SocketMap = new Map([
       ["dead-player", { sim, ws: {} as WebSocket }],
     ]);
@@ -18,7 +18,6 @@ describe("respawn message dispatch", () => {
       sockets,
     );
 
-    expect(requestImmediateRespawn).toHaveBeenCalledOnce();
-    expect(requestImmediateRespawn).toHaveBeenCalledWith("dead-player");
+    expect(queueAction).not.toHaveBeenCalled();
   });
 });

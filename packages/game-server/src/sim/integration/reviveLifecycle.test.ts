@@ -6,7 +6,7 @@ import {
   TICK_RATE,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { makeSim, stepN, teleport } from "./support.js";
+import { makeParty, makeSim, stepN, teleport } from "./support.js";
 
 function downPlayer(
   sim: ReturnType<typeof makeSim>,
@@ -56,19 +56,27 @@ describe("authoritative revive lifecycle", () => {
     stepN(sim, REVIVE_HOLD_TICKS);
     expect(targetEntity.hp).toBe(1);
 
-    sim.queueAction(rescuer.playerId, { type: "revive", targetId: target.playerId, held: true });
-    sim.step();
-    teleport(rescuerEntity, targetEntity.body.x + 10, targetEntity.body.y, sim);
-    stepN(sim, REVIVE_HOLD_TICKS + 1);
-    expect(targetEntity.hp).toBe(1);
+    const rangeSim = makeSim();
+    const rangeRescuer = rangeSim.addPlayer("Rescuer", "range-rescuer");
+    const rangeTarget = rangeSim.addPlayer("Target", "range-target");
+    const rangeRescuerEntity = rangeSim.getPlayerEntity(rangeRescuer.playerId);
+    const rangeTargetEntity = rangeSim.getPlayerEntity(rangeTarget.playerId);
+    if (!rangeRescuerEntity || !rangeTargetEntity) throw new Error("missing range fixtures");
+    teleport(rangeTargetEntity, rangeRescuerEntity.body.x + 1, rangeRescuerEntity.body.y, rangeSim);
+    downPlayer(rangeSim, rangeTarget.playerId);
+    rangeSim.queueAction(rangeRescuer.playerId, { type: "revive", targetId: rangeTarget.playerId, held: true });
+    rangeSim.step();
+    teleport(rangeRescuerEntity, rangeTargetEntity.body.x + 10, rangeTargetEntity.body.y, rangeSim);
+    stepN(rangeSim, REVIVE_HOLD_TICKS + 1);
+    expect(rangeTargetEntity.hp).toBe(1);
   });
 
-  it("bleeds out after 30 seconds, then uses the 15-second ordinary respawn", () => {
+  it("keeps the revive window at 15 seconds before its ordinary respawn", () => {
     const sim = makeSim();
-    const target = sim.addPlayer("Target", "timer-target");
-    const entity = sim.getPlayerEntity(target.playerId);
+    const { aId } = makeParty(sim);
+    const entity = sim.getPlayerEntity(aId);
     if (!entity) throw new Error("missing timer fixture");
-    downPlayer(sim, target.playerId);
+    downPlayer(sim, aId);
     stepN(sim, DOWNED_DURATION * TICK_RATE - 1);
     expect(entity.hp).toBe(1);
     sim.step();

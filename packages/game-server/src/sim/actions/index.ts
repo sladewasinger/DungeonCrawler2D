@@ -176,9 +176,9 @@ function dispatchSocialAction(
 }
 
 function doSuicide(slot: PlayerSlot): void { slot.god = false;
-  slot.forceDeath = true;
-  slot.downedAtTick = null;
-  delete slot.entity.downedUntil;
+  slot.forceDeath = slot.downedAtTick !== null;
+  if (slot.forceDeath) slot.downedAtTick = null;
+  if (slot.forceDeath) delete slot.entity.downedUntil;
   slot.entity.hp = 0;
   resetInputTimeline(slot);
 }
