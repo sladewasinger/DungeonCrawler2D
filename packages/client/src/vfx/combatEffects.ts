@@ -79,7 +79,7 @@ export class CombatEffects {
     const settings = loadCarnageSettings();
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
-    if (settings.bloodEnabled) {
+    if (settings.enabled) {
       spawnGibBurst(this.scene, screen.x, screen.y, tint);
     }
     this.deathCarnage.spawn(

@@ -22,7 +22,7 @@ export interface CarnageSettings {
 
 export const DEFAULT_CARNAGE_SETTINGS: CarnageSettings = {
   schemaVersion: SCHEMA_VERSION,
-  enabled: true,
+  enabled: false,
   bloodEnabled: true,
   bloodDropIntensity: 1,
   intensity: 1,

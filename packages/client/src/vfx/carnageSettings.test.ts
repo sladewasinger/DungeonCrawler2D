@@ -7,6 +7,8 @@ import {
 describe("carnage settings", () => {
   it("uses full blood-drop intensity by default", () => {
     expect(parseCarnageSettings(null)).toEqual(DEFAULT_CARNAGE_SETTINGS);
+    expect(DEFAULT_CARNAGE_SETTINGS.enabled).toBe(false);
+    expect(DEFAULT_CARNAGE_SETTINGS.bloodEnabled).toBe(true);
     expect(DEFAULT_CARNAGE_SETTINGS.bloodDropIntensity).toBe(1);
   });
 
