@@ -1,4 +1,4 @@
-import { SOLID_TILES, type TileType } from "@dc2d/engine";
+import { SOLID_TILES, TILE, type TileType } from "@dc2d/engine";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import { isChasmDepth } from "../terrain/heightShade.js";
 
@@ -49,9 +49,29 @@ const ORTHOGONAL: ReadonlyArray<readonly [number, number]> = [
   [0, -1],
 ];
 
-function isValidGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
+function isPassableGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
   return !SOLID_TILES.has(world.tileAt(tileX, tileY)) &&
     !isChasmDepth(world.heightAt(tileX, tileY));
+}
+
+function isLitGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
+  return world.tileAt(tileX, tileY) === TILE.Floor;
+}
+
+function addLitGroundCell(
+  world: PlayerGroundLightWorld,
+  cells: PlayerGroundLightCell[],
+  tileX: number,
+  tileY: number,
+  distance: number,
+): void {
+  if (!isLitGround(world, tileX, tileY)) return;
+  cells.push({
+    tileX,
+    tileY,
+    strength: PLAYER_GROUND_LIGHT_STRENGTH_STEPS[distance] ?? 0,
+    groundHeight: world.groundAt(tileX + 0.5, tileY + 0.5),
+  });
 }
 
 export function playerGroundLightCells(
@@ -61,7 +81,7 @@ export function playerGroundLightCells(
 ): readonly PlayerGroundLightCell[] {
   const originX = Math.floor(playerX);
   const originY = Math.floor(playerY);
-  if (!isValidGround(world, originX, originY)) return [];
+  if (!isPassableGround(world, originX, originY)) return [];
 
   const cells: PlayerGroundLightCell[] = [];
   const visited = new Set<string>([`${originX},${originY}`]);
@@ -69,12 +89,7 @@ export function playerGroundLightCells(
 
   for (let head = 0; head < queue.length && cells.length < PLAYER_GROUND_LIGHT_MAX_CELLS; head++) {
     const [tileX, tileY, distance] = queue[head] ?? [originX, originY, 0];
-    cells.push({
-      tileX,
-      tileY,
-      strength: PLAYER_GROUND_LIGHT_STRENGTH_STEPS[distance] ?? 0,
-      groundHeight: world.groundAt(tileX + 0.5, tileY + 0.5),
-    });
+    addLitGroundCell(world, cells, tileX, tileY, distance);
     if (distance >= PLAYER_GROUND_LIGHT_RADIUS) continue;
 
     for (const [dx, dy] of ORTHOGONAL) {
@@ -83,7 +98,7 @@ export function playerGroundLightCells(
       const key = `${nextX},${nextY}`;
       if (visited.has(key)) continue;
       visited.add(key);
-      if (!isValidGround(world, nextX, nextY)) continue;
+      if (!isPassableGround(world, nextX, nextY)) continue;
       queue.push([nextX, nextY, distance + 1]);
     }
   }

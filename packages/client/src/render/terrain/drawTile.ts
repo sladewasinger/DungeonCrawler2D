@@ -144,7 +144,7 @@ export function drawTile(
   drawGroundTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
   drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
   if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
-  drawForegroundVerticalStairOutlines(scene, world, wx, wy, occluderFor, lightTint);
+  drawVerticalStairSideOutlinesOnCap(scene, world, wx, wy, capOccluderFor, lightTint);
 }
 
 function drawFreestandingHeightBody(
@@ -172,12 +172,12 @@ function drawFreestandingHeightBody(
   }
 }
 
-function drawForegroundVerticalStairOutlines(
+function drawVerticalStairSideOutlinesOnCap(
   scene: Phaser.Scene,
   world: ViewTerrainWorld,
   wx: number,
   wy: number,
-  occluderFor: OccluderFor,
+  capOccluderFor: CapOccluderFor,
   lightTint: number,
 ): void {
   const real = world.toReal(wx, wy);
@@ -186,11 +186,11 @@ function drawForegroundVerticalStairOutlines(
   const screenDirection = screenClimbDirIndex(stair.direction, world.orientation);
   if (!stacksVertically(screenDirection)) return;
   const [top, bottom] = verticalStairProjectedRange(world.groundAt(wx + 0.5, wy + 0.5));
+  const above = Math.max(0, Math.ceil(-top));
   const below = Math.max(0, Math.ceil(bottom - 1));
-  const above = below + Math.max(0, Math.ceil(-top));
   drawVerticalStairSideOutlines(
     scene,
-    occluderFor(wy + below, above),
+    capOccluderFor(wy, above, below),
     world,
     wx,
     wy,

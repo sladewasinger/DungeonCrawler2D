@@ -11,15 +11,15 @@
 // threaded to every placement call below. A pit-interior cell ALSO still draws its
 // own north-wall face BAND (drawPitFaceCell) at its raw, unshifted row — the cap
 // and the band never overlap (the band is the drop rows the cap's shift vacated).
-import { stairVisualAt, type TileType } from "@dc2d/engine";
+import { stairVisualAt, TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { cliffSidesAt } from "./cliffMask.js";
+import { floorEdgeDropsAt, floorEdgeThickness } from "./cliffMask.js";
 import type { CardinalEdges } from "./autotile.js";
 import { placeWallEdges } from "./debugSprite.js";
 import { drawContactShade } from "./drawContactShade.js";
 import { drawStairBase, stairRenderState } from "./drawStairSurface.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
-import { drawEdgeLine } from "./edgeLine.js";
+import { drawEdgeLine, type EdgeSide } from "./edgeLine.js";
 import { heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
 import { type CapOccluderFor, surfaceContainerFor } from "./occluderBand.js";
 import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
@@ -163,12 +163,12 @@ function drawTopEdges(
   lightTint: number,
   liftPx: number,
 ): void {
-  const sides = cliffSidesAt(world, wx, wy);
+  const drops = floorEdgeDropsAt(world, wx, wy);
   const tint = multiplyTint(topEdgeHighlightTint(height), lightTint);
-  if (sides.west) drawEdgeLine(scene, container, wx, wy, "west", tint, 1, liftPx);
-  if (sides.east) drawEdgeLine(scene, container, wx, wy, "east", tint, 1, liftPx);
-  if (sides.north) drawEdgeLine(scene, container, wx, wy, "north", tint, 1, liftPx);
-  if (sides.south) drawEdgeLine(scene, container, wx, wy, "south", tint, 1, liftPx);
+  const edges: ReadonlyArray<readonly [EdgeSide, number]> = Object.entries(drops) as Array<[EdgeSide, number]>;
+  for (const [side, drop] of edges) {
+    if (drop > 0) drawEdgeLine(scene, container, wx, wy, side, tint, 1, liftPx, floorEdgeThickness(drop));
+  }
 }
 
 /**
@@ -195,13 +195,15 @@ function drawSurface(
   const isChasm = isChasmDepth(height);
   const stairState = stairRenderState(stairVisual, world);
   drawStairBase(scene, container, world, wx, wy, stairState, tint, lightTint, liftPx);
-  // Vertical stairs receive a dedicated side-only AO pass that follows their
-  // projected tread/riser faces. Every other surface uses the normal tile AO.
-  if (!(stairState.surface === "stepped" && stacksVertically(stairState.screenDirection))) {
+  // Stairs draw their own projected tread/riser AO. Tile AO would see the
+  // adjacent half of a scaled run as a higher floor and shade its inner seam.
+  if (stairState.surface !== "stepped") {
     drawContactShade(scene, container, world, wx, wy, height, liftPx);
   }
 
-  drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
+  if (tile !== TILE.Stairs) {
+    drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
+  }
   if (isChasm) placeWallEdges(scene, container, wx, wy, chasmEdgesAt(world, wx, wy), liftPx);
 
   const prop = propFrame(tile);

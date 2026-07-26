@@ -89,10 +89,13 @@ export function drawVerticalStairSideShade(
   if (strength <= 0) return;
   const alphas = aoBandAlphas(strength);
   for (const face of faces) {
-    if (wallBesideFace(world, wx, -1, face) || higherSideBesideFace(world, wx, -1, face)) {
+    const row = Math.floor(face.sampleY);
+    const westIsStair = world.tileAt(wx - 1, row) === TILE.Stairs;
+    const eastIsStair = world.tileAt(wx + 1, row) === TILE.Stairs;
+    if (!westIsStair && (wallBesideFace(world, wx, -1, face) || higherSideBesideFace(world, wx, -1, face))) {
       drawSideBands(scene, container, wx, wy, "west", alphas, face.liftPx, face.y);
     }
-    if (wallBesideFace(world, wx, 1, face) || higherSideBesideFace(world, wx, 1, face)) {
+    if (!eastIsStair && (wallBesideFace(world, wx, 1, face) || higherSideBesideFace(world, wx, 1, face))) {
       drawSideBands(scene, container, wx, wy, "east", alphas, face.liftPx, face.y);
     }
   }

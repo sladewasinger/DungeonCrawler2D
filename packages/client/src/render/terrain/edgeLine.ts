@@ -22,8 +22,9 @@ export function drawEdgeLine(
   color: number,
   alpha = 1,
   liftPx = 0,
+  thickness = LINE_THICKNESS_FRAC,
 ): void {
-  const t = LINE_THICKNESS_FRAC;
+  const t = thickness;
   switch (side) {
     case "north":
       placeFractionalRect(scene, container, wx, wy, [0, 1], [0, t], color, alpha, liftPx);

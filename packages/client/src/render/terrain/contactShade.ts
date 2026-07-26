@@ -13,7 +13,7 @@
 // actual rects live in drawContactShade.ts (gradients, not textures — the
 // approved debug style).
 import { TILE } from "@dc2d/engine";
-import { isCliffDrop, type CliffSides } from "./cliffMask.js";
+import { isFloorEdgeDrop, type CliffSides } from "./cliffMask.js";
 import type { TerrainRead } from "./faces.js";
 
 /** AO gradient strength, 0..1 — Austin's dial (docs/ASSUMPTIONS.md row 361). */
@@ -53,13 +53,12 @@ export interface ContactShade {
 /**
  * A neighbor casts onto this tile when it is a Wall (solid mass always reads
  * as above the floor at its base, whatever its painted height — the editor's
- * flat-height walls included) or open ground a full cliff drop higher
- * (isCliffDrop, the one shared threshold — sub-STEP_UP ramps stay shadeless
- * exactly as they stay faceless/outline-less).
+ * flat-height walls included) or ground high enough to carry a visual floor
+ * rim. This keeps partial-height edge AO aligned with its white rim.
  */
 function casts(world: TerrainRead, h: number, nx: number, ny: number): boolean {
   if (world.tileAt(nx, ny) === TILE.Wall) return true;
-  return isCliffDrop(world.heightAt(nx, ny), h);
+  return isFloorEdgeDrop(world.heightAt(nx, ny), h);
 }
 
 /** Which sides/corners of (wx, wy) receive baked contact shade. */

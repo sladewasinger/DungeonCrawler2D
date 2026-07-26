@@ -85,6 +85,10 @@ function drawVerticalStairSideOutline(
   const dx = side === "west" ? -1 : 1;
   const screenY = Math.floor(wy + (face.y[0] + face.y[1]) / 2 - band.height);
   const rawY = Math.floor(band.sampleY);
+  // A generated 2x staircase is two tiles wide. Its shared middle edge is
+  // interior stair surface, not an exposed side, so it must never receive a
+  // manually drawn stair outline.
+  if (world.tileAt(wx + dx, rawY) === TILE.Stairs) return;
   const topDownWall = world.tileAt(wx + dx, rawY) === TILE.Wall;
   const enclosesStair = world.heightAt(wx + dx, rawY) >= band.height + 0.1;
   const wall = topDownWall || (enclosesStair && hasWallMaterialAtScreen(world, wx + dx, screenY));

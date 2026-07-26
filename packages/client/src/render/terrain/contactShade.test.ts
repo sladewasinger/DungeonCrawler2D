@@ -1,6 +1,6 @@
 // Hand-built height fixtures for the fake-AO contact-shade mask — expectations
-// derived on paper from FACE_MIN_DROP (0.75, WALL_FACE_MIN_DROP) and the
-// wall-always-casts rule, never by calling the implementation under test.
+// derived on paper from the visual floor-rim threshold and the wall-always-casts
+// rule, never by calling the implementation under test.
 // Mirrors cliffMask.test.ts's fixture style (same TerrainRead stub shape).
 import { TILE, type TileType } from "@dc2d/engine";
 import { afterEach, describe, expect, it } from "vitest";
@@ -47,9 +47,9 @@ describe("contactShadeAt", () => {
     expect(contactShadeAt(world, 5, 5).sides).toEqual({ north: true, south: true, east: true, west: true });
   });
 
-  it("ignores sub-threshold steps — a 0.5 rise is a ramp, not a shadow-caster", () => {
-    const world = terrain({ "5,4": 0.5 });
-    expect(contactShadeAt(world, 5, 5)).toEqual({ sides: NO_SIDES, corners: NO_CORNERS });
+  it("casts from a partial-height floor edge", () => {
+    const world = terrain({ "5,4": 0.13 });
+    expect(contactShadeAt(world, 5, 5).sides).toEqual({ ...NO_SIDES, north: true });
   });
 
   it("marks a diagonal-only caster as a corner patch", () => {
