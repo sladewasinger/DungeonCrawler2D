@@ -4,6 +4,7 @@
 // from ui/panel.ts and the monogram font from ui/font.ts.
 import { LEVEL, type LevelId, type PlayerSkin } from "@dc2d/engine";
 import { APP_VERSION } from "../../appVersion.js";
+import { loadTabPreference, saveTabPreference } from "../../net/identity.js";
 import { RELEASE_NOTES_INDEX_PATH } from "../../releaseNotesUrl.js";
 import { CharacterSelection } from "./characterSelection.js";
 
@@ -13,7 +14,8 @@ const GOLD = "#ffd23d";
 const NAME_STORAGE_KEY = "dc2d-name";
 
 export function loadStoredName(): string {
-  return localStorage.getItem(NAME_STORAGE_KEY) ?? `Crawler${Math.floor(100 + Math.random() * 900)}`;
+  return loadTabPreference(NAME_STORAGE_KEY) ??
+    `Crawler${Math.floor(100 + Math.random() * 900)}`;
 }
 
 function applyRootStyle(el: HTMLDivElement): void {
@@ -157,7 +159,7 @@ export class ConnectForm {
 
   private submit(handlers: ConnectFormHandlers, level: LevelId): void {
     const name = this.input.value.trim().slice(0, 16) || loadStoredName();
-    localStorage.setItem(NAME_STORAGE_KEY, name);
+    saveTabPreference(NAME_STORAGE_KEY, name);
     handlers.onConnect(name, level, this.character.skin);
   }
 

@@ -10,6 +10,7 @@ import {
   type PlayerSkin,
 } from "@dc2d/engine";
 import { ASSET_PATHS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { loadTabPreference, saveTabPreference } from "../../net/identity.js";
 
 const STORAGE_KEY = "dc2d-player-skin";
 const ATLAS_WIDTH = 512;
@@ -35,7 +36,7 @@ function storedSelection(): {
   gender: PlayerGender;
   model: PlayerModel;
 } {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = loadTabPreference(STORAGE_KEY);
   if (!isPlayerSkin(stored)) {
     return { gender: DEFAULT_PLAYER_GENDER, model: DEFAULT_PLAYER_MODEL };
   }
@@ -131,7 +132,7 @@ export class CharacterSelection {
   }
 
   private persistAndRefresh(): void {
-    localStorage.setItem(STORAGE_KEY, this.skin);
+    saveTabPreference(STORAGE_KEY, this.skin);
     this.refresh();
   }
 
