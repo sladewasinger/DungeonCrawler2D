@@ -91,7 +91,9 @@ supported developer-only block when useful:
 <!-- /developer-only -->
 ```
 
-Mark the matching plan `Status: Released YYYY-MM-DD`.
+Mark the matching plan `Status: Released YYYY-MM-DD`, then move it from
+`docs/releases/` to `docs/archive/`. Keep the release notes in
+`docs/releases/`.
 
 ## 4. Synchronize the version
 
@@ -143,6 +145,7 @@ Commit the notes and synchronized version separately from implementation work:
 
 ```bash
 git add -- docs/releases/vX.Y.Z.md docs/releases/vX.Y.Z-plan.md \
+  docs/archive/vX.Y.Z-plan.md \
   package.json package-lock.json packages/*/package.json \
   packages/client/src/appVersion.ts \
   packages/client/src/releaseNotesDevRoute.test.ts
