@@ -17,17 +17,15 @@ export class ThreeHudSettings {
     private readonly manager: HudWindowManager,
     getViewDistance?: () => ViewDistance,
     setViewDistance?: (viewDistance: ViewDistance) => void,
-    replayTutorials?: () => void,
   ) {
     this.edit = this.createSettingsButton("", () => this.toggleEditing());
     this.catalog = new ThreeHudCatalog(manager);
-    this.configureMenu(getViewDistance, setViewDistance, replayTutorials);
+    this.configureMenu(getViewDistance, setViewDistance);
   }
 
   private configureMenu(
     getViewDistance?: () => ViewDistance,
     setViewDistance?: (viewDistance: ViewDistance) => void,
-    replayTutorials?: () => void,
   ): void {
     this.element.style.cssText = "display:grid;gap:6px";
     this.updateLabel();
@@ -36,18 +34,9 @@ export class ThreeHudSettings {
     if (getViewDistance && setViewDistance) {
       controls.push(createViewDistanceButton(getViewDistance, setViewDistance));
     }
-    if (replayTutorials) {
-      controls.push(this.replayButton(replayTutorials));
-    }
     if (canEnterFullscreen()) controls.push(this.fullscreenButton());
     controls.push(this.catalog.element);
     this.element.append(...controls);
-  }
-
-  private replayButton(replay: () => void): HTMLButtonElement {
-    const button = this.createSettingsButton("Replay tutorial hints", replay);
-    button.style.marginTop = "6px";
-    return button;
   }
 
   private fullscreenButton(): HTMLButtonElement {

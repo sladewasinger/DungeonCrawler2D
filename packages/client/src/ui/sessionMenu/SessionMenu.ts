@@ -2,28 +2,30 @@
 import {
   LocalPresentationController,
 } from "./localPresentation.js";
+import { AdvancedSettingsDialog } from "./AdvancedSettingsDialog.js";
+import { createSessionButton } from "./SessionMenuControls.js";
 import {
-  createAccessibilityControls,
-  createSessionButton,
-} from "./SessionMenuControls.js";
+  quitConfirmation,
+  respawnConfirmation,
+  showSessionMenuConfirmation,
+  type SessionMenuConfirmation,
+} from "./SessionMenuConfirmation.js";
 import { SessionMenuFocus } from "./SessionMenuFocus.js";
+import {
+  buildSessionMenuPrimary,
+  createRespawnButton,
+} from "./SessionMenuPrimary.js";
 
 export interface SessionMenuActions {
   focusGame(): void;
   respawn(): void;
   quitToTitle(): void;
+  replayTutorials?(): void;
 }
 
 interface InternalSessionMenuActions extends SessionMenuActions {
   beforeOpen?(): void;
   onOpenChange?(open: boolean): void;
-}
-
-interface Confirmation {
-  title: string;
-  detail: string;
-  actionLabel: string;
-  action: () => void;
 }
 
 const FOCUSABLE_SELECTOR = [
@@ -41,6 +43,7 @@ export class SessionMenu {
   private readonly card = document.createElement("section");
   private readonly primary = document.createElement("div");
   private readonly confirmation = document.createElement("div");
+  private readonly advanced: AdvancedSettingsDialog;
   private readonly respawnButton: HTMLButtonElement;
   private resumeButton: HTMLButtonElement | undefined;
   private readonly presentation: LocalPresentationController;
@@ -55,6 +58,11 @@ export class SessionMenu {
     private readonly actions: InternalSessionMenuActions,
   ) {
     this.presentation = new LocalPresentationController(appRoot, hudRoot);
+    this.advanced = new AdvancedSettingsDialog({
+      presentation: this.presentation,
+      replayTutorials: actions.replayTutorials,
+      onBack: () => this.closeAdvanced(),
+    });
     this.configureGear();
     this.configureOverlay();
     this.focus = new SessionMenuFocus(
@@ -63,16 +71,22 @@ export class SessionMenu {
       this.overlay,
       () => this.activeFocusables(),
     );
-    this.respawnButton = createSessionButton("Respawn (die)", () => this.confirm({
-      title: "Respawn?",
-      detail: "This kills your crawler. You will lose your current position.",
-      actionLabel: "Confirm respawn",
-      action: () => {
+    this.respawnButton = createRespawnButton(() => this.confirm(
+      respawnConfirmation(() => {
         this.close(false);
         this.actions.respawn();
-      },
-    }));
-    this.buildPrimary(settingsContent);
+      }),
+    ));
+    this.resumeButton = buildSessionMenuPrimary({
+      container: this.primary,
+      respawnButton: this.respawnButton,
+      settingsContent,
+      onResume: () => this.close(),
+      onAdvanced: () => this.openAdvanced(),
+      onQuit: () => this.confirm(quitConfirmation(
+        () => this.actions.quitToTitle(),
+      )),
+    });
     hudRoot.append(this.gear, this.overlay);
   }
 
@@ -98,6 +112,8 @@ export class SessionMenu {
     this.openState = true;
     this.actions.onOpenChange?.(true);
     this.confirmation.replaceChildren();
+    this.advanced.close();
+    this.card.style.width = "min(92vw,420px)";
     this.primary.style.display = "grid";
     this.confirmation.style.display = "none";
     this.overlay.style.display = "grid";
@@ -110,6 +126,8 @@ export class SessionMenu {
     this.openState = false;
     this.actions.onOpenChange?.(false);
     this.overlay.style.display = "none";
+    this.advanced.close();
+    this.card.style.width = "min(92vw,420px)";
     this.gear.setAttribute("aria-expanded", "false");
     this.confirmationReturnFocus = undefined;
     this.focus.deactivate(focus, this.actions.focusGame);
@@ -149,65 +167,47 @@ export class SessionMenu {
       "color:#f2f0eb;font:12px monospace";
     this.primary.style.cssText = "display:grid;gap:9px";
     this.confirmation.style.cssText = "display:none;gap:10px";
-    this.card.append(this.primary, this.confirmation);
+    this.card.append(this.primary, this.confirmation, this.advanced.element);
     this.overlay.append(this.card);
     this.overlay.addEventListener("pointerdown", (event) => {
       if (event.target === this.overlay) this.close();
     });
   }
 
-  private buildPrimary(settingsContent: HTMLElement): void {
-    const title = document.createElement("h2");
-    title.textContent = "Game menu";
-    title.style.cssText = "margin:0 0 4px;color:#ffd54c;font-size:20px";
-    const resume = createSessionButton("Resume", () => this.close());
-    this.resumeButton = resume;
-    const quit = createSessionButton("Quit to title", () => this.confirm({
-      title: "Quit to title?",
-      detail: "Your crawler disconnects before the title screen returns.",
-      actionLabel: "Confirm quit",
-      action: () => this.actions.quitToTitle(),
-    }));
-    this.primary.append(
-      title,
-      resume,
-      this.respawnButton,
-      quit,
-      ...createAccessibilityControls(this.presentation),
-      settingsContent,
-    );
+  private openAdvanced(): void {
+    this.primary.style.display = "none";
+    this.confirmation.style.display = "none";
+    this.card.style.width = "min(96vw,720px)";
+    this.advanced.open();
   }
 
-  private confirm(value: Confirmation): void {
+  private closeAdvanced(): void {
+    this.advanced.close();
+    this.card.style.width = "min(92vw,420px)";
+    this.primary.style.display = "grid";
+    this.resumeButton?.focus({ preventScroll: true });
+  }
+
+  private confirm(value: SessionMenuConfirmation): void {
     this.confirmationReturnFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : undefined;
-    const title = document.createElement("h2");
-    title.textContent = value.title;
-    title.style.cssText = "margin:0;color:#ffd54c;font-size:18px";
-    const detail = document.createElement("p");
-    detail.textContent = value.detail;
-    detail.style.cssText = "margin:0;line-height:1.45;color:#d8d5df";
-    const confirm = createSessionButton(value.actionLabel, value.action);
-    confirm.style.borderColor = "#c45d65";
-    const cancel = createSessionButton("Cancel", () => {
-      this.confirmation.style.display = "none";
-      this.primary.style.display = "grid";
-      const destination = this.confirmationReturnFocus?.isConnected
-        ? this.confirmationReturnFocus
-        : this.resumeButton;
-      destination?.focus({ preventScroll: true });
+    const cancel = showSessionMenuConfirmation({
+      container: this.confirmation,
+      primary: this.primary,
+      value,
+      returnFocus: this.confirmationReturnFocus,
+      fallbackFocus: this.resumeButton,
     });
-    this.confirmation.replaceChildren(title, detail, confirm, cancel);
-    this.primary.style.display = "none";
-    this.confirmation.style.display = "grid";
     cancel.focus();
   }
 
   private activeFocusables(): HTMLElement[] {
-    const container = this.confirmation.style.display === "grid"
-      ? this.confirmation
-      : this.primary;
+    const container = this.advanced.isOpen
+      ? this.advanced.element
+      : this.confirmation.style.display === "grid"
+        ? this.confirmation
+        : this.primary;
     return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
       .filter((element) =>
         !element.hidden &&

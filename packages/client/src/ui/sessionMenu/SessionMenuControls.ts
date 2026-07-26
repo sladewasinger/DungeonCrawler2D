@@ -90,7 +90,7 @@ const createMotionControl = (
   return motion;
 };
 
-export const createAccessibilityControls = (
+export const createGraphicsControls = (
   presentation: LocalPresentationController,
 ): HTMLElement[] => {
   const localTitle = document.createElement("h3");
@@ -112,15 +112,11 @@ export const createAccessibilityControls = (
     (value) => presentation.setFontScale(value),
   );
   const motion = createMotionControl(presentation, current.motion);
-  const hudTitle = document.createElement("h3");
-  hudTitle.textContent = "HUD & view";
-  hudTitle.style.cssText = "margin:8px 0 0;color:#aaaec8;font-size:12px";
   return [
     localTitle,
     brightness,
     font,
     motion,
     ...createCarnageControls(),
-    hudTitle,
   ];
 };

@@ -151,7 +151,6 @@ const createWindowParts = (
   const settings = createHudSettings(manager, {
     viewDistance: options.viewDistance,
     setViewDistance: options.setViewDistance,
-    replayTutorials: () => statics.tutorials.replay(),
   });
   return { panels, manager, overlays, touch, settings };
 };
@@ -168,6 +167,7 @@ const createOverlayParts = (
     {
       focusGame: options.focusGame,
       ...options.session,
+      replayTutorials: () => statics.tutorials.replay(),
       beforeOpen: () => {
         statics.inventory.close();
         windows.overlays.closeAll();
