@@ -8,6 +8,7 @@ import { RoomPresentation } from "../rooms/roomPresentation.js";
 import { createItemVisual, updateItemVisual } from "./itemVisual.js";
 import { createMonsterVisual, updateMonsterVisual } from "./monsterVisual.js";
 import { createPlayerVisual, updatePlayerVisual } from "./playerVisual.js";
+import { shouldRenderLivePlayer } from "./playerVisibility.js";
 import { createProjectileVisual, updateProjectileVisual } from "./projectileEntityVisual.js";
 import { monsterSpriteFor, playerSkinFor } from "./spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "./state.js";
@@ -33,7 +34,7 @@ export class EntityRenderer {
     const seen = this.stepKind(views, (view) => {
       const visual = this.getOrCreate(view.id, "player", () => createPlayerVisual(this.scene, ctx.nowMs));
       updatePlayerVisual(visual, playerSkinFor(view.playerId, view.skin), view, ctx);
-    });
+    }, shouldRenderLivePlayer);
     this.gc(seen, "player");
   }
 
@@ -70,10 +71,15 @@ export class EntityRenderer {
   }
 
   /** Runs `apply` over every view of one kind, returning the set of ids present this frame. */
-  private stepKind<T extends { id: string }>(views: readonly T[], apply: (view: T) => void): Set<string> {
+  private stepKind<T extends { id: string }>(
+    views: readonly T[],
+    apply: (view: T) => void,
+    include?: (view: T) => boolean,
+  ): Set<string> {
     const seen = this.seen;
     seen.clear();
     for (const view of views) {
+      if (include && !include(view)) continue;
       seen.add(view.id);
       apply(view);
     }
