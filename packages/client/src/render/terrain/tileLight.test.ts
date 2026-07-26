@@ -15,8 +15,8 @@ import {
  * comes only from the dynamic sources each test seeds explicitly. */
 function openWorld() {
   return {
-    tileAt: (_wx: number, _wy: number): TileType => TILE.Floor,
-    heightAt: (_wx: number, _wy: number) => 0,
+    tileAt: (): TileType => TILE.Floor,
+    heightAt: () => 0,
   };
 }
 
@@ -36,6 +36,19 @@ afterEach(() => {
 });
 
 describe("setTileLightConfig", () => {
+  it("darkens level zero without changing the previous shipped full-light tint", () => {
+    const world = openWorld();
+    const seedFull = [{ tileX: 2, tileY: 2, level: LIGHT_MAX }];
+    setTileLightConfig({ ...DEFAULT_TILE_LIGHT_CONFIG, ambient: 0.65 });
+    const previousDark = computeLightField(world, 0, 0, 4).tintAt(0, 0);
+    const previousFull = computeLightField(world, 0, 0, 4, seedFull).tintAt(2, 2);
+    setTileLightConfig(DEFAULT_TILE_LIGHT_CONFIG);
+    const currentDark = computeLightField(world, 0, 0, 4).tintAt(0, 0);
+    const currentFull = computeLightField(world, 0, 0, 4, seedFull).tintAt(2, 2);
+    expect(brightness(currentDark)).toBeLessThan(brightness(previousDark));
+    expect(currentFull).toBe(previousFull);
+  });
+
   it("merges partial overrides onto the current config, leaving other knobs untouched", () => {
     setTileLightConfig({ ambient: 0.5 });
     expect(getTileLightConfig()).toEqual({ ...DEFAULT_TILE_LIGHT_CONFIG, ambient: 0.5 });

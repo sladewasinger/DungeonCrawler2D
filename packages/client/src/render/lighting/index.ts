@@ -13,6 +13,7 @@ import { doorLightPositions } from "./doorLights.js";
 import { collectTorchLights, selectFrameLights } from "./frameLights.js";
 import { hashSeed, type LightSource } from "./lightSource.js";
 import { LightSpritePool } from "./pool.js";
+import { PlayerGroundLightPass } from "./playerGroundLightPool.js";
 import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlacement.js";
 
@@ -32,6 +33,7 @@ type MutableLightSource = {
 
 export class LightingSystem {
   private readonly pool: LightSpritePool;
+  private readonly groundLight: PlayerGroundLightPass;
   private readonly chunkLights = new Map<string, LightSource[]>();
   private streamedWindow = "";
   private accentLights: readonly LightSource[] = [];
@@ -54,11 +56,17 @@ export class LightingSystem {
     private readonly world: World,
   ) {
     this.pool = new LightSpritePool(scene);
+    this.groundLight = new PlayerGroundLightPass(scene, world);
   }
 
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */
   setAccentLights(lights: readonly LightSource[]): void {
     this.accentLights = lights;
+  }
+
+  /** Performance fallback: disabling the bounded floor pass leaves the personal halo intact. */
+  setPlayerGroundLightEnabled(enabled: boolean): void {
+    this.groundLight.setEnabled(enabled);
   }
 
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
@@ -67,6 +75,7 @@ export class LightingSystem {
     this.personalLight.x = personalX;
     this.personalLight.y = personalY;
     this.personalLight.groundHeight = this.world.groundAt(personalX, personalY);
+    this.groundLight.update(personalX, personalY, nowMs);
     // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
     // viewed away from the player (gallery, spectate) must still keep its lights.
     // `view` is the camera's on-screen rect, which is in VIEW-pixel space once
@@ -146,6 +155,7 @@ export class LightingSystem {
   }
 
   dispose(): void {
+    this.groundLight.dispose();
     this.pool.dispose();
   }
 }

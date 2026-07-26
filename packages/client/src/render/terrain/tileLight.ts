@@ -62,9 +62,7 @@ const COOL_B = 1.1;
 /** The tunable knobs behind the baked lighting curve — injectable so the editor's
  * lighting workbench can preview tuning changes live. See `setTileLightConfig`. */
 export interface TileLightConfig {
-  /** Brightness of a fully unlit tile (0..1). User has now demanded brighter twice
-   * (0.26 -> 0.42 -> 0.55 -> 0.72, 2026-07-20 "make it way brighter, I can't see
-   * shit"): the dungeon reads fully at a glance; torches add warmth, not visibility. */
+  /** Brightness of a fully unlit tile (0..1). */
   readonly ambient: number;
   /** Levels at/above this render at full brightness (the lit plateau near a torch). */
   readonly curveFullLevel: number;
@@ -77,8 +75,10 @@ export interface TileLightConfig {
  * user-authored tuning: lower ambient than round 4 but a much wider bright
  * plateau (full from level 4.5) and softened warmth. What every client bakes
  * against unless the editor has overridden it for this session. */
+export const GAMEPLAY_AMBIENT = 0.42;
+
 export const DEFAULT_TILE_LIGHT_CONFIG: TileLightConfig = {
-  ambient: 0.65,
+  ambient: GAMEPLAY_AMBIENT,
   curveFullLevel: 4.5,
   warmth: 0.75,
 };
