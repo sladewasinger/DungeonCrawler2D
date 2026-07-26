@@ -14,8 +14,8 @@ export function weaponIconFrame(weaponId: string | null): string | null {
 }
 
 /**
- * Unarmed stand-in for the self player's orbiting weapon: a compact round atlas particle
+ * Unarmed stand-in for every player's orbiting weapon: a compact round atlas particle
  * tinted to skin tone by heldWeapon.ts. It reads as a fist without borrowing a blade
- * silhouette. It remains self-only; remote players with no weapon render empty-handed.
+ * silhouette while preserving aim and block readability for remote observers.
  */
 export const FIST_FALLBACK_FRAME = "particle_soft";

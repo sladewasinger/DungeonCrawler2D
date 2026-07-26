@@ -1,13 +1,19 @@
 /** Verifies the live player visual forwards reconnect state into its rendered nameplate. */
 import { describe, expect, it, vi } from "vitest";
 
-const probes = vi.hoisted(() => ({ nameplate: vi.fn() }));
+const probes = vi.hoisted(() => ({
+  heldWeapon: vi.fn(),
+  nameplate: vi.fn(),
+}));
 
 vi.mock("../../boot/assetManifest.js", () => ({ ASSET_KEYS: { atlas: "atlas" }, WORLD_PIXEL_SCALE: 1 }));
 vi.mock("../view/viewState.js", () => ({ getViewOrientation: () => 0 }));
 vi.mock("../view/viewTransform.js", () => ({ worldAngleToView: (value: number) => value }));
 vi.mock("./animState.js", () => ({ resolveAnimState: () => ({ animKey: "idle" }) }));
-vi.mock("./heldWeapon.js", () => ({ createHeldWeapon: vi.fn(), updateHeldWeapon: vi.fn() }));
+vi.mock("./heldWeapon.js", () => ({
+  createHeldWeapon: vi.fn(),
+  updateHeldWeapon: probes.heldWeapon,
+}));
 vi.mock("./hpBar.js", () => ({ createHpBar: vi.fn(), updateHpBar: vi.fn() }));
 vi.mock("./hpBarVisibility.js", () => ({ resolveHpBarVisibility: () => false }));
 vi.mock("./hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
@@ -17,7 +23,10 @@ vi.mock("./occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), terrainOccl
 vi.mock("./playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
 vi.mock("./shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
 vi.mock("./squash.js", () => ({ squashScale: () => ({ scaleX: 1, scaleY: 1 }) }));
-vi.mock("./weaponIcon.js", () => ({ FIST_FALLBACK_FRAME: 0, weaponIconFrame: () => null }));
+vi.mock("./weaponIcon.js", () => ({
+  FIST_FALLBACK_FRAME: "particle_soft",
+  weaponIconFrame: () => null,
+}));
 vi.mock("./weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
 vi.mock("./worldToScreen.js", () => ({ depthForEntityNow: () => 1, worldToScreen: (x: number, y: number) => ({ x, y }) }));
 
@@ -34,7 +43,7 @@ function sprite() {
 }
 
 describe("updatePlayerVisual", () => {
-  it("shows then clears disconnected state through the actual player visual update", async () => {
+  it("updates remote reconnect state and preserves unarmed combat facing", async () => {
     const { updatePlayerVisual } = await import("./playerVisual.js");
     const body = sprite();
     const visual = {
@@ -48,8 +57,27 @@ describe("updatePlayerVisual", () => {
     updatePlayerVisual(visual as never, "hero", view, context as never);
     expect(body.tint).toBe(0x55555a);
     expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14, expect.any(Number), false, false, true);
-    updatePlayerVisual(visual as never, "hero", { ...view, disconnected: false }, context as never);
+    expect(probes.heldWeapon).toHaveBeenLastCalledWith(
+      visual.weapon,
+      "particle_soft",
+      expect.objectContaining({ isFistFallback: true, orbitAngleRad: 0 }),
+    );
+    updatePlayerVisual(
+      visual as never,
+      "hero",
+      { ...view, disconnected: false, blocking: true },
+      context as never,
+    );
     expect(body.tint).toBeNull();
     expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14, expect.any(Number), false, false, false);
+    expect(probes.heldWeapon).toHaveBeenLastCalledWith(
+      visual.weapon,
+      "particle_soft",
+      expect.objectContaining({
+        blocking: true,
+        isFistFallback: true,
+        orbitAngleRad: 0,
+      }),
+    );
   });
 });

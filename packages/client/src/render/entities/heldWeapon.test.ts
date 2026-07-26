@@ -69,4 +69,21 @@ describe("updateHeldWeapon blocking", () => {
     );
     expect(probe.flipY).toBe(true);
   });
+
+  it("shows the unarmed atlas particle with a skin-tone tint", () => {
+    const probe = weaponProbe();
+    updateHeldWeapon(
+      probe as unknown as Phaser.GameObjects.Sprite,
+      "particle_soft",
+      {
+        ...BLOCKING_POSE,
+        blocking: false,
+        isFistFallback: true,
+        orbitAngleRad: Math.PI / 2,
+      },
+    );
+    expect(probe.visible).toBe(true);
+    expect(probe.frame).toBe("particle_soft");
+    expect(probe.tint).toBe(0xd9a066);
+  });
 });

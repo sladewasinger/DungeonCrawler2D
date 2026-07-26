@@ -192,7 +192,7 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
   updateGuardCone(visual, blocking, guardAngle);
 
   const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
-  const isFistFallback = isSelf && rawFrame === null && !view.downed;
+  const isFistFallback = rawFrame === null && !view.downed;
   updateHeldWeapon(visual.weapon, rawFrame ?? (isFistFallback ? FIST_FALLBACK_FRAME : null), {
     screenX: visual.body.x,
     screenY: visual.body.y,

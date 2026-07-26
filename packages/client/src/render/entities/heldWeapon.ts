@@ -1,9 +1,6 @@
-// Held weapon: for the self player, an equip-hand icon that orbits the live aim angle
-// (mouse-relative on desktop, facing-locked on touch) and snaps through the melee arc on
-// a swing; for everyone else (no live aim to orbit), the legacy fixed hand-offset that
-// just flips to facing, with a small swing-arc flourish — see docs/VISUAL_DIRECTION.md's
-// "attacks have windup/release/recover reads" and the orbit spec in the combat-
-// presentation task notes.
+// Held weapon: the self player's icon orbits live aim while remote players orbit their
+// replicated facing angle. Both paths snap through the melee arc on a swing, preserving
+// weapon, fist, aim, and block reads for every observer.
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import {
@@ -43,7 +40,7 @@ export interface HeldWeaponPose {
   readonly strikeProgress: number;
   /** The wielder body sprite's current Phaser depth, so the weapon can draw near it. */
   readonly wielderDepth: number;
-  /** Self-only live orbit angle (radians, already slew-limited) to idle at; null uses the legacy fixed hand-offset (remote players have no live aim to orbit). */
+  /** Live self aim or replicated remote facing angle in radians; null retains the legacy fixed hand-offset for non-player callers. */
   readonly orbitAngleRad: number | null;
   /** Direction (radians) the current/most-recent swing was aimed — the strike sweep's center, matching the wedge telegraph exactly. */
   readonly attackAngleRad: number;
@@ -117,7 +114,7 @@ function positionLegacyHandOffset(sprite: Phaser.GameObjects.Sprite, pose: HeldW
   sprite.setAngle(facingSign * swing);
 }
 
-/** Self presentation: floats on the orbit circle at the live aim angle, sweeping across the melee wedge while striking. */
+/** Floats on the orbit circle at the available aim/facing angle, sweeping across the melee wedge while striking. */
 function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
   const angle = pose.striking
     ? swingSweepAngle(pose.attackAngleRad, MELEE_HALF_ANGLE_RAD, pose.strikeProgress)
