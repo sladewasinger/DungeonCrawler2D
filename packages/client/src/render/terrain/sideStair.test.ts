@@ -28,30 +28,51 @@ describe("stepped stair surface", () => {
 
   it("samples ground height along x for vertical bands and y for horizontal bands", () => {
     const xSamples: Array<[number, number]> = [];
-    steppedStairSurface(10, 20, 1, (x, y) => {
+    const xSurface = steppedStairSurface(10, 20, 1, (x, y) => {
       xSamples.push([x, y]);
       return 0;
     });
-    expect(xSamples).toEqual([
-      [10.1, 20.5],
-      [10.3, 20.5],
-      [10.5, 20.5],
-      [10.7, 20.5],
-      [10.9, 20.5],
-    ]);
+    expect(xSamples.map(([x]) => x)).toEqual(
+      xSurface.bands.map(({ sample }) => 10 + sample),
+    );
+    expect(xSamples.every(([, y]) => y === 20.5)).toBe(true);
 
     const ySamples: Array<[number, number]> = [];
-    steppedStairSurface(10, 20, 0, (x, y) => {
+    const ySurface = steppedStairSurface(10, 20, 0, (x, y) => {
       ySamples.push([x, y]);
       return 0;
     });
-    expect(ySamples).toEqual([
-      [10.5, 20.1],
-      [10.5, 20.3],
-      [10.5, 20.5],
-      [10.5, 20.7],
-      [10.5, 20.9],
-    ]);
+    expect(ySamples.map(([, y]) => y)).toEqual(
+      ySurface.bands.map(({ sample }) => 20 + sample),
+    );
+    expect(ySamples.every(([x]) => x === 10.5)).toBe(true);
+  });
+
+  it("progressively widens north/south tread depth toward the high end", () => {
+    for (const direction of [0, 2]) {
+      const surface = steppedStairSurface(0, 0, direction, () => 0);
+      const widths = surface.bands.map(({ start, end }) => end - start);
+      const towardHigh = surface.highAtStart ? widths : [...widths].reverse();
+      expect(towardHigh.every((width, index) =>
+        index === 0 || width < (towardHigh[index - 1] ?? 0))).toBe(true);
+    }
+  });
+
+  it("keeps the original equal-width east/west band profile", () => {
+    for (const direction of [1, 3]) {
+      const surface = steppedStairSurface(0, 0, direction, () => 0);
+      expect(surface.bands.map(({ start, end, sample }) => ({
+        start,
+        end,
+        sample,
+      }))).toEqual([
+        { start: 0, end: 0.2, sample: 0.1 },
+        { start: 0.2, end: 0.4, sample: 0.3 },
+        { start: 0.4, end: 0.6, sample: 0.5 },
+        { start: 0.6, end: 0.8, sample: 0.7 },
+        { start: 0.8, end: 1, sample: 0.9 },
+      ]);
+    }
   });
 
   it("mirrors equal height samples and high-facing highlights at opposite ends", () => {

@@ -26,7 +26,8 @@ import {
   surfaceContainerFor,
   type CapOccluderFor,
 } from "./occluderBand.js";
-import { ownFaceRowAt, type OwnFaceRow } from "./ownFace.js";
+import { type OwnFaceRow } from "./ownFace.js";
+import { visibleTerrainFaceAt } from "./stairFace.js";
 import { placeFillRect, surfaceLiftBakePx } from "./placeSprite.js";
 import { tileKey, type StructureMap } from "./structures.js";
 import type { LightField } from "./tileLight.js";
@@ -110,7 +111,7 @@ export function drawTile(
     drawSuppressedTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
     return;
   }
-  const face = ownFaceRowAt(world, wx, wy);
+  const face = visibleTerrainFaceAt(world, wx, wy);
   if (world.tileAt(wx, wy) === TILE.Wall) {
     // EVERY wall cell draws its shifted cap — face owners included (spec section 1:
     // "always draw the shifted cap THEN overlay the band"). Skipping the cap on

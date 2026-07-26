@@ -1,7 +1,12 @@
 import type Phaser from "phaser";
 import { heightTint, multiplyTint, topEdgeHighlightTint } from "./heightShade.js";
 import { placeFractionalRect, surfaceLiftBakePx } from "./placeSprite.js";
-import { highEndAtStart, stacksVertically, TREAD_COUNT } from "./stairTread.js";
+import {
+  highEndAtStart,
+  stacksVertically,
+  TREAD_COUNT,
+  treadRisers,
+} from "./stairTread.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
 const EDGE_THICKNESS = 0.045;
@@ -35,12 +40,24 @@ interface StairBandProfile {
   readonly sample: number;
 }
 
-const stairBandProfile = (): StairBandProfile[] =>
-  Array.from({ length: TREAD_COUNT }, (_, index) => ({
-    start: index / TREAD_COUNT,
-    end: (index + 1) / TREAD_COUNT,
-    sample: (index + 0.5) / TREAD_COUNT,
-  }));
+const stairBandProfile = (direction: number): StairBandProfile[] => {
+  if (!stacksVertically(direction)) {
+    return Array.from({ length: TREAD_COUNT }, (_, index) => ({
+      start: index / TREAD_COUNT,
+      end: (index + 1) / TREAD_COUNT,
+      sample: (index + 0.5) / TREAD_COUNT,
+    }));
+  }
+  const boundaries = [
+    0,
+    ...treadRisers(direction, 0).map(({ axisFrac }) => axisFrac),
+    1,
+  ].filter((value, index, values) => index === 0 || value !== values[index - 1]);
+  return boundaries.slice(0, -1).map((start, index) => {
+    const end = boundaries[index + 1] ?? 1;
+    return { start, end, sample: (start + end) / 2 };
+  });
+};
 
 function edgeRange(start: number, end: number, highAtStart: boolean): readonly [number, number] {
   return highAtStart
@@ -56,7 +73,7 @@ export function steppedStairSurface(
 ): SteppedStairSurface {
   const axis: StairSurfaceAxis = stacksVertically(direction) ? "y" : "x";
   const highAtStart = highEndAtStart(direction);
-  const bands = stairBandProfile().map((band): StairSurfaceBand => {
+  const bands = stairBandProfile(direction).map((band): StairSurfaceBand => {
     const sampleX = axis === "x" ? wx + band.sample : wx + 0.5;
     const sampleY = axis === "y" ? wy + band.sample : wy + 0.5;
     const height = groundAt(sampleX, sampleY);
