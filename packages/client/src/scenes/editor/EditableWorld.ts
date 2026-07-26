@@ -21,6 +21,11 @@ import {
   type ZoneType,
 } from "@dc2d/engine";
 import { stackFromRaw } from "./stackFromRaw.js";
+import {
+  planStairPlacement,
+  type StairPlacementPlan,
+  type StairPlacementPoint,
+} from "./stairPlacement.js";
 
 export const EDITOR_GRID_SIZE = 20;
 const VOID_HEIGHT = -4;
@@ -133,6 +138,32 @@ export class EditableWorld {
     this.setStack(wx, wy, { walls: 0, cap: null, stair: { dir } });
   }
 
+  placeStairTransition(
+    stair: StairPlacementPoint,
+    destination: StairPlacementPoint,
+  ): StairPlacementPlan | null {
+    const plan = planStairPlacement(this, stair, destination);
+    if (!plan) return null;
+    const originCap = this.stackAt(plan.originLanding.x, plan.originLanding.y).cap ??
+      DEFAULT_FLOOR_CAP;
+    const destinationCap = this.stackAt(destination.x, destination.y).cap ??
+      DEFAULT_FLOOR_CAP;
+    this.paintFloorHeightAt(
+      plan.originLanding.x,
+      plan.originLanding.y,
+      plan.originHeight,
+      originCap,
+    );
+    this.paintFloorHeightAt(
+      destination.x,
+      destination.y,
+      plan.destinationHeight,
+      destinationCap,
+    );
+    this.paintStairsAt(stair.x, stair.y, plan.stairDirection);
+    return plan;
+  }
+
   /** Pops exactly one layer: a feature (door) or floor cap first (revealing the wall
    * stack beneath, unchanged in height), then one wall layer, then clears to ground. */
   eraseAt(wx: number, wy: number): void {
@@ -219,11 +250,15 @@ export class EditableWorld {
     return this.cellAt(wx, wy).height;
   }
 
-  zoneAt(_wx: number, _wy: number): ZoneType {
+  zoneAt(wx: number, wy: number): ZoneType {
+    void wx;
+    void wy;
     return ZONE.None;
   }
 
-  isSanctuary(_wx: number, _wy: number): boolean {
+  isSanctuary(wx: number, wy: number): boolean {
+    void wx;
+    void wy;
     return false;
   }
 

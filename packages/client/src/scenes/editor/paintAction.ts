@@ -10,17 +10,30 @@ const isBenchBrush = (store: EditorStore): boolean =>
 const isTorchBrush = (store: EditorStore): boolean => store.brush.kind === "torch";
 const isVoidBrush = (store: EditorStore): boolean => store.brush.kind === "void";
 
+function handleStairClick(
+  store: EditorStore,
+  x: number,
+  y: number,
+  erasing: boolean,
+): boolean {
+  if (store.brush.kind !== "stairs") return false;
+  if (erasing) store.cancelStairPlacement();
+  else store.selectStairCell(x, y);
+  return true;
+}
+
+function eraseSpecialBrush(store: EditorStore, x: number, y: number): boolean {
+  if (isBenchBrush(store)) store.eraseBenchAt(x, y);
+  else if (isTorchBrush(store)) store.eraseTorchAt(x, y);
+  else return false;
+  return true;
+}
+
 /** Raises a terrain cell with left-click and lowers it with right-click. Bench and
  * torch brushes retain their own erase behavior for the legacy effect workbench. */
 export function paintCell(store: EditorStore, x: number, y: number, erasing: boolean): void {
-  if (erasing && isBenchBrush(store)) {
-    store.eraseBenchAt(x, y);
-    return;
-  }
-  if (erasing && isTorchBrush(store)) {
-    store.eraseTorchAt(x, y);
-    return;
-  }
+  if (handleStairClick(store, x, y, erasing)) return;
+  if (erasing && eraseSpecialBrush(store, x, y)) return;
   if (isVoidBrush(store)) {
     if (erasing) store.restoreVoidAt(x, y);
     else store.paint(x, y);

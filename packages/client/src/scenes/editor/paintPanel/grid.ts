@@ -97,6 +97,31 @@ function drawAutotileDebugOverlay(ctx: CanvasRenderingContext2D, store: EditorSt
   ctx.fillText(maskHex(mask4), x * CELL_PX + CELL_PX / 2, y * CELL_PX + CELL_PX - 1);
 }
 
+function drawPendingStairOrigin(
+  ctx: CanvasRenderingContext2D,
+  store: EditorStore,
+): void {
+  const pending = store.pendingStairOrigin;
+  if (!pending) return;
+  ctx.strokeStyle = "#ffd23d";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(
+    pending.x * CELL_PX + 1.5,
+    pending.y * CELL_PX + 1.5,
+    CELL_PX - 4,
+    CELL_PX - 4,
+  );
+  ctx.fillStyle = "#ffd23d";
+  ctx.font = "bold 12px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(
+    "1",
+    pending.x * CELL_PX + CELL_PX / 2,
+    pending.y * CELL_PX + CELL_PX / 2,
+  );
+}
+
 export function drawGrid(canvas: HTMLCanvasElement, store: EditorStore): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -108,4 +133,5 @@ export function drawGrid(canvas: HTMLCanvasElement, store: EditorStore): void {
       if (store.showAutotileDebug) drawAutotileDebugOverlay(ctx, store, x, y);
     }
   }
+  drawPendingStairOrigin(ctx, store);
 }

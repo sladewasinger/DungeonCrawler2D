@@ -32,12 +32,12 @@ export function buildPaintPanel(parent: HTMLElement, store: EditorStore): PaintP
   };
   wirePointerPainting(canvas, store, inspector, refresh);
   parent.append(
+    canvas,
+    inspector,
     buildViewSection(store),
     buildTerrainPalette(store, refresh),
     buildBenchPalette(store, refresh),
     buildLightingPanel(store),
-    canvas,
-    inspector,
   );
   refresh();
   return { refresh, setInspectorText };

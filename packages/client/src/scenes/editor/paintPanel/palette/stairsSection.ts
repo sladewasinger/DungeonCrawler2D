@@ -1,54 +1,51 @@
-// STAIRS: a direction-rotatable brush with the real sprite. The catalog only has
-// climb-north art (medieval-sewer, dragon-cave — docs/ASSUMPTIONS.md row #202), so
-// east/south/west rotate that same sprite via CSS transform rather than inventing art
-// that doesn't exist; @dc2d/engine's compile step interpolates the run's actual height
-// regardless of which way the icon is drawn.
 import { tileCatalog, type StairRef } from "@dc2d/content";
-import type { StackDir } from "@dc2d/engine";
 import type { EditorStore } from "../../editorStore.js";
 import { sectionLabel } from "../domHelpers.js";
 import { spriteSwatch } from "./spriteSwatch.js";
 
-const DIRECTION_LABEL: Readonly<Record<StackDir, string>> = { 0: "N", 1: "E", 2: "S", 3: "W" };
-/** Degrees to rotate the north-climbing sprite so it reads as climbing this direction. */
-const DIRECTION_ROTATION: Readonly<Record<StackDir, number>> = { 0: 0, 1: 90, 2: 180, 3: 270 };
-
 function representativeStairRef(): { packId: string; ref: StairRef } | null {
   for (const [packId, pack] of Object.entries(tileCatalog.packs)) {
-    const ref = pack.stairs.find((s) => s.functional && s.climbDirection === "north");
+    const ref = pack.stairs.find((stair) =>
+      stair.functional && stair.climbDirection === "north");
     if (ref) return { packId, ref };
   }
   return null;
 }
 
-export function buildStairsSection(store: EditorStore): HTMLDivElement {
+export function buildStairsSection(
+  store: EditorStore,
+  refresh: () => void,
+): HTMLDivElement {
   const wrap = document.createElement("div");
   wrap.style.cssText = "margin:8px 0";
   wrap.append(sectionLabel("STAIRS"));
-  const bar = document.createElement("div");
-  bar.style.cssText = "display:flex;align-items:center;gap:6px";
-  const rep = representativeStairRef();
-  const directions: StackDir[] = [0, 1, 2, 3];
-  for (const dir of directions) {
-    const b = document.createElement("button");
-    b.title = `climbs ${DIRECTION_LABEL[dir]}`;
-    b.style.cssText = "background:#1a1a24;border:1px solid #494956;border-radius:4px;padding:3px;cursor:pointer";
-    if (rep) {
-      // A fresh swatch per direction (not a clone — canvas pixel content isn't
-      // cloneNode-able), rotated via CSS to fake the missing off-north art.
-      const sprite = spriteSwatch(rep.packId, rep.ref, 28);
-      sprite.style.transform = `rotate(${DIRECTION_ROTATION[dir]}deg)`;
-      b.append(sprite);
-    } else {
-      b.textContent = DIRECTION_LABEL[dir];
-    }
-    b.addEventListener("click", () => {
-      store.brush = { kind: "stairs", direction: dir };
-      for (const el of bar.querySelectorAll("button")) (el as HTMLButtonElement).style.outline = "";
-      b.style.outline = "2px solid #ffd23d";
-    });
-    bar.append(b);
+  const select = document.createElement("button");
+  select.title = "Place stairs with two adjacent tile clicks.";
+  select.style.cssText =
+    "display:flex;align-items:center;gap:6px;background:#1a1a24;color:#d9d9e4;" +
+    "border:1px solid #494956;border-radius:4px;padding:3px 8px;cursor:pointer;" +
+    "font:12px monospace";
+  const representative = representativeStairRef();
+  if (representative) {
+    select.append(spriteSwatch(representative.packId, representative.ref, 28));
   }
-  wrap.append(bar);
+  select.append("stairs (2 clicks)");
+  const status = document.createElement("div");
+  status.style.cssText =
+    "font:11px/15px monospace;color:#ffd23d;margin-top:4px;min-height:30px";
+  const sync = (): void => {
+    const pending = store.pendingStairOrigin;
+    select.style.outline = store.brush.kind === "stairs" ? "2px solid #ffd23d" : "";
+    status.textContent = pending
+      ? `Start: (${pending.x}, ${pending.y}). Click an adjacent destination; a lower tile descends. Right-click cancels.`
+      : "Click the stair tile, then an adjacent destination. The tool authors a one-level transition.";
+    refresh();
+  };
+  select.addEventListener("click", () => {
+    store.brush = { kind: "stairs" };
+  });
+  store.onChange(sync);
+  wrap.append(select, status);
+  sync();
   return wrap;
 }

@@ -7,7 +7,7 @@
 // Explicit-heights reskin: "no more z buttons" — the terrain brushes are floor/wall/
 // stairs/door/torch/erase, each dispatching straight to EditableWorld's paint-over
 // methods (@dc2d/engine's stack facade owns the actual compile-to-height semantics).
-import { DEFAULT_FLOOR_CAP, type StackDir } from "@dc2d/engine";
+import { DEFAULT_FLOOR_CAP } from "@dc2d/engine";
 import { getViewOrientation, rotateOrientation, setViewOrientation } from "../../render/view/index.js";
 import {
   createBench,
@@ -22,6 +22,7 @@ import {
 } from "./bench/index.js";
 import { AutotileMaskCache } from "./autotileMaskCache.js";
 import { EditableWorld, EDITOR_GRID_SIZE } from "./EditableWorld.js";
+import type { StairPlacementPlan, StairPlacementPoint } from "./stairPlacement.js";
 
 const STORAGE_KEY = "dc2d-editor-map-v2";
 
@@ -29,7 +30,7 @@ export type Brush =
   | { readonly kind: "floor"; readonly capId: string; readonly height?: number }
   | { readonly kind: "void" }
   | { readonly kind: "wall"; readonly height?: number }
-  | { readonly kind: "stairs"; readonly direction: StackDir }
+  | { readonly kind: "stairs" }
   | { readonly kind: "door" }
   | { readonly kind: "torch" }
   | { readonly kind: "erase" }
@@ -52,7 +53,8 @@ export class EditorStore {
    * DEBUG overlay — kept fresh incrementally (paint stroke -> resolveAround), rebuilt
    * whole only on load/import/reset. */
   readonly autotileMasks = new AutotileMaskCache();
-  brush: Brush = { kind: "floor", capId: DEFAULT_FLOOR_CAP, height: 0 };
+  private activeBrush: Brush = { kind: "floor", capId: DEFAULT_FLOOR_CAP, height: 0 };
+  private stairOrigin: StairPlacementPoint | null = null;
   showCollision = false;
   showAutotileDebug = false;
   private readonly listeners = new Set<() => void>();
@@ -61,6 +63,39 @@ export class EditorStore {
     this.bench = createBench(this.world);
     this.loadOrSeed();
     this.autotileMasks.rebuildAll(this.world, EDITOR_GRID_SIZE);
+  }
+
+  get brush(): Brush {
+    return this.activeBrush;
+  }
+
+  set brush(brush: Brush) {
+    this.activeBrush = brush;
+    this.stairOrigin = null;
+    this.notify();
+  }
+
+  get pendingStairOrigin(): StairPlacementPoint | null { return this.stairOrigin; }
+
+  selectStairCell(x: number, y: number): void {
+    if (this.activeBrush.kind !== "stairs" || !this.world.inGrid(x, y)) return;
+    const selected = { x, y };
+    if (!this.stairOrigin) {
+      this.stairOrigin = selected;
+      this.notify();
+      return;
+    }
+    const origin = this.stairOrigin;
+    this.stairOrigin = null;
+    if (this.placeStairTransition(origin, selected)) return;
+    this.stairOrigin = origin;
+    this.notify();
+  }
+
+  cancelStairPlacement(): void {
+    if (!this.stairOrigin) return;
+    this.stairOrigin = null;
+    this.notify();
   }
 
   private loadOrSeed(): void {
@@ -82,6 +117,7 @@ export class EditorStore {
   paint(wx: number, wy: number): void {
     if (!this.world.inGrid(wx, wy)) return;
     const brush = this.brush;
+    if (brush.kind === "stairs") return this.selectStairCell(wx, wy);
     if (brush.kind === "area") return paintArea(this.bench, wx, wy, brush.areaId);
     if (brush.kind === "spawn-enemy") return paintEnemy(this.bench, wx, wy, brush.defId);
     if (brush.kind === "spawn-item") return paintItem(this.bench, wx, wy, brush.defId);
@@ -95,7 +131,6 @@ export class EditorStore {
     else if (brush.kind === "floor") {
       this.paintFloor(wx, wy, brush.capId, brush.height);
     }
-    else if (brush.kind === "stairs") this.world.paintStairsAt(wx, wy, brush.direction);
     else if (brush.kind === "door") this.world.paintDoorAt(wx, wy);
     else if (brush.kind === "erase") this.world.eraseAt(wx, wy);
     else if (brush.kind === "torch") this.world.addTorch(wx, wy);
@@ -176,12 +211,14 @@ export class EditorStore {
   }
 
   importJson(json: string): void {
+    this.stairOrigin = null;
     this.world.load(JSON.parse(json));
     this.autotileMasks.rebuildAll(this.world, EDITOR_GRID_SIZE);
     this.commit();
   }
 
   reset(): void {
+    this.stairOrigin = null;
     this.world.clear();
     this.autotileMasks.rebuildAll(this.world, EDITOR_GRID_SIZE);
     this.commit();
@@ -198,6 +235,19 @@ export class EditorStore {
     this.world.adjustFloorHeightAt(wx, wy, delta, DEFAULT_FLOOR_CAP);
     this.autotileMasks.resolveAround(this.world, wx, wy);
     this.commit();
+  }
+
+  placeStairTransition(
+    stair: StairPlacementPoint,
+    destination: StairPlacementPoint,
+  ): StairPlacementPlan | null {
+    const plan = this.world.placeStairTransition(stair, destination);
+    if (!plan) return null;
+    for (const point of [plan.stair, plan.destination, plan.originLanding]) {
+      this.autotileMasks.resolveAround(this.world, point.x, point.y);
+    }
+    this.commit();
+    return plan;
   }
 
   commit(): void {
