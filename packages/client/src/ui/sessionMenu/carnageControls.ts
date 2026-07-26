@@ -66,10 +66,20 @@ function createToggle(
 
 type SaveSettings = (patch: Partial<CarnageSettings>) => void;
 
+export interface CarnageControlGroups {
+  readonly blood: HTMLElement[];
+  readonly carnage: HTMLElement[];
+}
+
 function createCarnageRanges(
   settings: CarnageSettings,
   save: SaveSettings,
-): HTMLLabelElement[] {
+): [
+  HTMLLabelElement,
+  HTMLLabelElement,
+  HTMLLabelElement,
+  HTMLLabelElement,
+] {
   const bloodDrops = createRange(
     "Blood drop intensity",
     Math.round(MIN_BLOOD_DROP_INTENSITY * 100),
@@ -101,19 +111,20 @@ function createCarnageRanges(
   return [bloodDrops, intensity, streaks, chunks];
 }
 
-export function createCarnageControls(): HTMLElement[] {
+export function createCarnageControlGroups(): CarnageControlGroups {
   let settings = loadCarnageSettings();
   const save: SaveSettings = (patch) => {
     settings = saveCarnageSettings({ ...settings, ...patch });
   };
-  const title = document.createElement("h3");
-  title.textContent = "Carnage controls";
-  title.style.cssText = "margin:8px 0 0;color:#d66b73;font-size:12px";
   const enabled = createToggle("Carnage Enabled?", settings.enabled, (checked) => {
     save({ enabled: checked });
   });
   const blood = createToggle("Blood Enabled?", settings.bloodEnabled, (checked) => {
     save({ bloodEnabled: checked });
   });
-  return [title, enabled, blood, ...createCarnageRanges(settings, save)];
+  const [bloodDrops, intensity, streaks, chunks] = createCarnageRanges(settings, save);
+  return {
+    blood: [blood, bloodDrops],
+    carnage: [enabled, intensity, streaks, chunks],
+  };
 }

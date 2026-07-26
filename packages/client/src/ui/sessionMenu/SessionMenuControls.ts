@@ -6,7 +6,8 @@ import {
   MIN_BRIGHTNESS,
   MIN_FONT_SCALE,
 } from "./localPresentation.js";
-import { createCarnageControls } from "./carnageControls.js";
+import { createCarnageControlGroups } from "./carnageControls.js";
+import { createSettingsSection } from "./settingsSection.js";
 
 const BUTTON_STYLE =
   "width:100%;padding:9px;border:1px solid #757a93;background:#292b40;" +
@@ -93,9 +94,6 @@ const createMotionControl = (
 export const createGraphicsControls = (
   presentation: LocalPresentationController,
 ): HTMLElement[] => {
-  const localTitle = document.createElement("h3");
-  localTitle.textContent = "Accessibility";
-  localTitle.style.cssText = "margin:8px 0 0;color:#aaaec8;font-size:12px";
   const current = presentation.current();
   const brightness = createSessionRange(
     "World brightness",
@@ -112,11 +110,16 @@ export const createGraphicsControls = (
     (value) => presentation.setFontScale(value),
   );
   const motion = createMotionControl(presentation, current.motion);
+  const groups = createCarnageControlGroups();
+  const accessibility = createSettingsSection(
+    "Accessibility",
+    "#aaaec8",
+    [brightness, font, motion],
+  );
+  accessibility.style.gridColumn = "1 / -1";
   return [
-    localTitle,
-    brightness,
-    font,
-    motion,
-    ...createCarnageControls(),
+    accessibility,
+    createSettingsSection("Blood", "#c9414d", groups.blood),
+    createSettingsSection("Carnage", "#d66b73", groups.carnage),
   ];
 };

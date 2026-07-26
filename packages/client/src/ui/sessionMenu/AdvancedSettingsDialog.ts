@@ -72,7 +72,8 @@ export class AdvancedSettingsDialog {
   private configurePanels(options: AdvancedSettingsOptions): void {
     this.graphics.setAttribute("role", "tabpanel");
     this.graphics.style.cssText =
-      "display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px";
+      "display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));" +
+      "gap:12px;align-items:start";
     this.graphics.append(...createGraphicsControls(options.presentation));
     this.gameplay.setAttribute("role", "tabpanel");
     this.gameplay.style.cssText = "display:none;gap:10px";
