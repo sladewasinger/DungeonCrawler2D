@@ -79,8 +79,6 @@ export class InputController {
     const blocked = () => panels.gameplayBlocked;
     keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
     bindInteractKey(keys.E, guardedAction(() => this.handleInteractDown(), blocked), () => this.lifeGestures.endInteract(this.conn, this.scene.time.now));
-    keys.K.on("down", guardedAction(() => this.lifeGestures.beginGiveUp(conn.downed, this.scene.time.now), blocked));
-    keys.K.on("up", () => this.lifeGestures.endGiveUp(this.scene.time.now));
     keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
     keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
     bindBandageKey(keys.F, conn, queries, () => state.selectedSlot, () => holdDown(this.fistbumpHold, this.scene.time.now), () => this.releaseFistbumpHold(conn, queries), blocked);
@@ -108,10 +106,11 @@ export class InputController {
    * else this mirrors the server's doInteract() gate client-side, purely to toast
    * "nothing happened" rather than assert an outcome — interact() still always fires. */
   private handleInteractDown(fallback: "interact" | "pickup" = "interact"): void {
-    if (this.conn.dead) {
-      this.lifeGestures.beginRespawn(this.scene.time.now);
+    if (this.conn.downed) {
+      this.lifeGestures.beginGiveUp(true, this.scene.time.now);
       return;
     }
+    if (this.conn.dead) return;
     interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.lifeGestures.beginRevive(this.conn, targetId, this.scene.time.now), fallback);
   }
 
@@ -128,12 +127,9 @@ export class InputController {
     this.lifeGestures.pollGiveUp(this.conn, this.scene.time.now);
   }
 
-  pollRespawnHold(): void {
-    if (this.cancelModalGestures()) return;
-    this.lifeGestures.pollRespawn(this.conn, this.scene.time.now, this.state.keys.E.isDown);
+  giveUpHoldProgress(): number {
+    return this.lifeGestures.giveUpProgress(this.conn.downed, this.scene.time.now);
   }
-
-  respawnHoldProgress(): number { return this.lifeGestures.respawnProgress(this.conn.dead, this.scene.time.now); }
 
   /** HUD-facing read: the in-progress revive hold's target + 0..1 ring progress, or null when idle. */
   reviveHoldView(): { targetId: string; progress: number } | null { return this.lifeGestures.reviveHoldView(this.scene.time.now); }

@@ -1,7 +1,6 @@
 /** Owns keyboard, mouse, and touch input sampling for the first-person renderer. */
 import type { FirstPersonInput } from "./movement.js";
 import { ThreeTouchControls } from "./ThreeTouchControls.js";
-import { GiveUpGesture } from "../input/giveUp.js";
 
 const LOOK_LIMIT = 1.42;
 const MOUSE_SENSITIVITY = 0.0024;
@@ -38,13 +37,11 @@ export interface ThreeInputSample {
   interactHeld: boolean;
   throwItem: boolean;
   bandageOther: boolean;
-  giveUp: boolean;
 }
 
 export class ThreeInput {
   private readonly held = new Set<string>();
   private readonly pressed = new Set<string>();
-  private readonly giveUp = new GiveUpGesture();
   private readonly touch: ThreeTouchControls;
   private yaw = Math.PI;
   private pitch = -0.08;
@@ -92,7 +89,6 @@ export class ThreeInput {
       interactHeld: touch.interactHeld || this.held.has("KeyE"),
       throwItem: touch.throwItem || this.consumePress("KeyG"),
       bandageOther: this.consumePress("KeyF"),
-      giveUp: this.giveUp.poll(true, performance.now()),
     };
   }
 
@@ -143,7 +139,6 @@ export class ThreeInput {
       interactHeld: false,
       throwItem: false,
       bandageOther: false,
-      giveUp: false,
     };
   }
 
@@ -155,23 +150,20 @@ export class ThreeInput {
   private readonly onKeyDown = (event: KeyboardEvent) => {
     if (this.gameplayBlocked() || editingText(event.target) ||
       inventoryOwnsEvent(event.target)) return;
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyF", "KeyG", "KeyK"].includes(event.code)) {
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyF", "KeyG"].includes(event.code)) {
       event.preventDefault();
     }
     if (!this.held.has(event.code)) this.pressed.add(event.code);
     this.held.add(event.code);
-    if (event.code === "KeyK") this.giveUp.begin(true, performance.now());
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
     this.held.delete(event.code);
-    if (event.code === "KeyK") this.giveUp.end(performance.now());
   };
 
   private readonly reset = () => {
     this.held.clear();
     this.pressed.clear();
-    this.giveUp.end(performance.now());
     this.touch.reset();
     this.mouseAttack = false;
     this.mouseBlocking = false;

@@ -179,7 +179,7 @@ const createOverlayParts = (
   );
   const downed = new ThreeDownedOverlay(
     options.element,
-    () => options.connection.respawnNow(),
+    () => options.connection.suicide(),
   );
   const invite = new ThreePartyInvite(options.connection);
   const healthFeedback = new ThreeHealthFeedback();

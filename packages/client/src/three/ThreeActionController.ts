@@ -1,6 +1,6 @@
 /** Tracks first-person hotbar selection and publishes discrete gameplay actions. */
 import { INTERACT_RANGE, PICKUP_RANGE, type World } from "@dc2d/engine";
-import { RespawnGesture } from "../input/respawn.js";
+import { GiveUpGesture } from "../input/giveUp.js";
 import { ReviveGesture } from "../input/revive.js";
 import type { Connection } from "../net/connection.js";
 import { canOpenLootChest, nearestLootChest } from "../net/lootChestQuery.js";
@@ -28,7 +28,7 @@ const nearestPlayerId = (
 export class ThreeActionController {
   private selectedSlot: number | null = null;
   private readonly revive = new ReviveGesture();
-  private readonly respawn = new RespawnGesture();
+  private readonly giveUp = new GiveUpGesture();
 
   constructor(
     private readonly connection: Connection,
@@ -41,11 +41,15 @@ export class ThreeActionController {
 
   publish(world: World, sample: ThreeInputSample): void {
     if (this.connection.dead) {
-      this.publishRespawn(sample);
+      this.giveUp.end(performance.now());
       return;
     }
-    this.respawn.end(performance.now());
-    const { yaw, attack, throwItem, bandageOther, giveUp } = sample;
+    if (this.connection.downed) {
+      this.publishGiveUp(sample);
+      return;
+    }
+    this.giveUp.end(performance.now());
+    const { yaw, attack, throwItem, bandageOther } = sample;
     if (attack) {
       this.connection.attack(-Math.sin(yaw), -Math.cos(yaw));
     }
@@ -54,21 +58,20 @@ export class ThreeActionController {
       throwSelectedItem(this.connection, this.selectedSlot, yaw);
     }
     if (bandageOther) this.bandageNearestPlayer();
-    if (giveUp && this.connection.downed) this.connection.suicide();
   }
 
-  respawnHoldProgress(): number {
-    return this.respawn.progress(this.connection.dead, performance.now());
+  giveUpHoldProgress(): number {
+    return this.giveUp.progress(this.connection.downed, performance.now());
   }
 
-  private publishRespawn(sample: ThreeInputSample): void {
+  private publishGiveUp(sample: ThreeInputSample): void {
     const nowMs = performance.now();
-    if (sample.interactPressed) this.respawn.begin(true, nowMs);
+    if (sample.interactPressed) this.giveUp.begin(true, nowMs);
     if (!sample.interactHeld) {
-      this.respawn.end(nowMs);
+      this.giveUp.end(nowMs);
       return;
     }
-    if (this.respawn.poll(true, nowMs, sample.interactHeld)) this.connection.respawnNow();
+    if (this.giveUp.poll(true, nowMs)) this.connection.suicide();
   }
 
   private bandageNearestPlayer(): void {

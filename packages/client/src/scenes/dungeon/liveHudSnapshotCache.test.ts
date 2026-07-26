@@ -53,7 +53,7 @@ function inputState() {
   const input = {
     selectedHotbarSlot: () => null,
     armedThrowableSlot: () => null,
-    respawnHoldProgress: () => 0,
+    giveUpHoldProgress: () => 0,
     touchVisual: () => touch,
   } as unknown as InputController;
   return {

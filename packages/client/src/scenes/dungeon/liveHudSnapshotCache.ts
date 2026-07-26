@@ -148,7 +148,7 @@ export class LiveHudSnapshotCache {
     snapshot.downedRemainingSec = conn.downedSecondsRemaining;
     snapshot.reviveProgress = conn.reviveProgress;
     snapshot.reviverName = conn.reviverName;
-    snapshot.respawnHoldProgress = input.respawnHoldProgress();
+    snapshot.giveUpHoldProgress = input.giveUpHoldProgress();
     snapshot.biome = conn.world
       ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, body.x, body.y).biome
       : null;

@@ -189,7 +189,7 @@ function statusFields(
     downed: src.downed,
     dead: src.dead,
     respawnRemainingSec: 0,
-    respawnHoldProgress: 0,
+    giveUpHoldProgress: 0,
     downedRemainingSec: 0,
     reviveProgress: 0,
     reviverName: null,

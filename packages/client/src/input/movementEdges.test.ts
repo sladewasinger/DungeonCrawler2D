@@ -51,7 +51,6 @@ function createInputState(w: FakeKey): InputState {
       TAB: unused,
       ENTER: unused,
       O: unused,
-      K: unused,
     },
     cursors: {
       left: unused,

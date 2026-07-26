@@ -14,7 +14,7 @@ const VIGNETTE_COLOR = 0x0a0a10;
 const VIGNETTE_ALPHA = 0.72;
 const HOLD_BAR_WIDTH = 220;
 const HOLD_BAR_HEIGHT = 10;
-const RESPAWN_BUTTON_HEIGHT = 30;
+const GIVE_UP_BUTTON_HEIGHT = 30;
 export const DEATH_HEADLINE_COLOR = "#ff304f";
 export const DEATH_HEADLINE_OUTLINE = "#240109";
 
@@ -27,7 +27,7 @@ export function deathOverlayPresentation(viewport: Viewport, scale = 1) {
   const headlineHeight = headlineSize * 1.15;
   const detailHeight = detailSize * 1.25;
   const total = headlineHeight + detailHeight * 2 + gap * 4 +
-    HOLD_BAR_HEIGHT + RESPAWN_BUTTON_HEIGHT;
+    HOLD_BAR_HEIGHT + GIVE_UP_BUTTON_HEIGHT;
   const top = -total / 2;
   return {
     headlineSize,
@@ -38,27 +38,35 @@ export function deathOverlayPresentation(viewport: Viewport, scale = 1) {
     barY: top + headlineHeight + gap * 3 + detailHeight * 2 + HOLD_BAR_HEIGHT / 2,
     barWidth: Math.min(HOLD_BAR_WIDTH, Math.max(88, width - 32)),
     buttonY: top + headlineHeight + gap * 4 + detailHeight * 2 +
-      HOLD_BAR_HEIGHT + RESPAWN_BUTTON_HEIGHT / 2,
+      HOLD_BAR_HEIGHT + GIVE_UP_BUTTON_HEIGHT / 2,
     buttonWidth: Math.min(180, Math.max(96, width - 48)),
   };
 }
 
-export const respawnButtonVisible = (downed: boolean, dead: boolean): boolean =>
-  dead && !downed;
+export const giveUpButtonVisible = (downed: boolean, dead: boolean): boolean =>
+  downed && !dead;
 
-function createRespawnButton(
+function createGiveUpButton(
   scene: Phaser.Scene,
   presentation: ReturnType<typeof deathOverlayPresentation>,
   scale: number,
-  onRespawnNow: () => void,
+  onGiveUp: () => void,
 ) {
   const button = scene.add.rectangle(
     0, presentation.buttonY, presentation.buttonWidth,
-    RESPAWN_BUTTON_HEIGHT, 0xb51631,
+    GIVE_UP_BUTTON_HEIGHT, 0xb51631,
   ).setStrokeStyle(2, 0xff6b7f).setInteractive({ useHandCursor: true })
-    .on("pointerup", onRespawnNow);
+    .on("pointerup", (
+      _pointer: Phaser.Input.Pointer,
+      _localX: number,
+      _localY: number,
+      event: { stopPropagation(): void },
+    ) => {
+      event.stopPropagation();
+      onGiveUp();
+    });
   const label = scene.add.text(
-    0, presentation.buttonY, "Respawn Now",
+    0, presentation.buttonY, "Give Up",
     uiTextStyle(presentation.detailSize, "#ffffff", scale, "emphasis"),
   ).setOrigin(0.5);
   return { button, label };
@@ -78,9 +86,9 @@ function createDeathOverlayParts(
     })
     .setOrigin(0.5, 0.5)
     .setAlign("center");
-  const timer = scene.add.text(0, presentation.timerY, deathTimerText(30),
+  const timer = scene.add.text(0, presentation.timerY, deathTimerText(5),
     uiTextStyle(presentation.detailSize, "#f2e9e2", scale, "emphasis")).setOrigin(0.5);
-  const prompt = scene.add.text(0, presentation.promptY, "Hold [E] for 3s to respawn now",
+  const prompt = scene.add.text(0, presentation.promptY, "",
     uiTextStyle(presentation.detailSize, "#f2e9e2", scale)).setOrigin(0.5).setAlign("center");
   const holdBar = scene.add.rectangle(
     0, presentation.barY, presentation.barWidth, HOLD_BAR_HEIGHT, 0x242436,
@@ -91,19 +99,19 @@ function createDeathOverlayParts(
   return { headline, timer, prompt, holdBar, holdFill };
 }
 
-function barPresentation(downed: boolean, dead: boolean, hold: number, revive: number) {
-  const progress = downed ? revive : hold;
-  return { progress, visible: dead || progress > 0 };
+function barPresentation(downed: boolean, _dead: boolean, hold: number, revive: number) {
+  const progress = downed ? Math.max(hold, revive) : 0;
+  return { progress, visible: downed && progress > 0 };
 }
 
 export const deathOverlayText = (remainingSec: number): string =>
-  `YOU DIED\nRespawning in ${Math.max(0, Math.ceil(remainingSec))}s\nHold [E] for 3s to respawn now`;
+  `YOU DIED\nRespawning in ${Math.max(0, Math.ceil(remainingSec))}s`;
 const deathTimerText = (remainingSec: number): string =>
   `Respawning in ${Math.max(0, Math.ceil(remainingSec))}s`;
 
 export const downedOverlayText = (remainingSec: number, reviverName: string | null): string =>
   `DOWNED\nBleeding out in ${Math.max(0, Math.ceil(remainingSec))}s\n` +
-  (reviverName ? `${reviverName} is reviving you` : "Hold [K] to give up\nAny nearby player can revive you");
+  (reviverName ? `${reviverName} is reviving you` : "Hold [E] for 2s to give up\nAny nearby player can revive you");
 
 export class DeathOverlayWidget {
   private readonly container: Phaser.GameObjects.Container;
@@ -113,15 +121,15 @@ export class DeathOverlayWidget {
   private readonly prompt: Phaser.GameObjects.Text;
   private readonly holdBar: Phaser.GameObjects.Rectangle;
   private readonly holdFill: Phaser.GameObjects.Rectangle;
-  private readonly respawnButton: Phaser.GameObjects.Rectangle;
-  private readonly respawnLabel: Phaser.GameObjects.Text;
+  private readonly giveUpButton: Phaser.GameObjects.Rectangle;
+  private readonly giveUpLabel: Phaser.GameObjects.Text;
   private barWidth = HOLD_BAR_WIDTH;
 
   constructor(
     scene: Phaser.Scene,
     registry: WidgetRegistry,
     viewport: Viewport,
-    onRespawnNow: () => void = () => {},
+    onGiveUp: () => void = () => {},
   ) {
     registry.register({
       id: WIDGET_ID,
@@ -143,14 +151,14 @@ export class DeathOverlayWidget {
     this.prompt = parts.prompt;
     this.holdBar = parts.holdBar;
     this.holdFill = parts.holdFill;
-    const respawn = createRespawnButton(
-      scene, presentation, layout.scale, onRespawnNow,
+    const giveUp = createGiveUpButton(
+      scene, presentation, layout.scale, onGiveUp,
     );
-    this.respawnButton = respawn.button;
-    this.respawnLabel = respawn.label;
+    this.giveUpButton = giveUp.button;
+    this.giveUpLabel = giveUp.label;
     this.container.add([
       this.vignette, this.headline, this.timer, this.prompt, this.holdBar,
-      this.holdFill, this.respawnButton, this.respawnLabel,
+      this.holdFill, this.giveUpButton, this.giveUpLabel,
     ]);
     this.container.setVisible(false);
   }
@@ -160,7 +168,7 @@ export class DeathOverlayWidget {
     dead: boolean,
     remainingSec: number,
     holdProgress: number,
-    downedRemainingSec = 30,
+    downedRemainingSec = 15,
     reviveProgress = 0,
     reviverName: string | null = null,
   ): void {
@@ -168,11 +176,11 @@ export class DeathOverlayWidget {
     const downedCopy = downedOverlayText(downedRemainingSec, reviverName).split("\n");
     this.headline.setText(downed ? downedCopy[0] ?? "DOWNED" : "YOU DIED");
     this.timer.setText(downed ? downedCopy[1] ?? "" : deathTimerText(remainingSec));
-    this.prompt.setText(downed ? downedCopy.slice(2).join("\n") : "Hold [E] for 3s to respawn now");
+    this.prompt.setText(downed ? downedCopy.slice(2).join("\n") : "");
     const bar = barPresentation(downed, dead, holdProgress, reviveProgress);
-    const buttonVisible = respawnButtonVisible(downed, dead);
-    this.respawnButton.setVisible(buttonVisible);
-    this.respawnLabel.setVisible(buttonVisible);
+    const buttonVisible = giveUpButtonVisible(downed, dead);
+    this.giveUpButton.setVisible(buttonVisible);
+    this.giveUpLabel.setVisible(buttonVisible);
     this.holdBar.setVisible(bar.visible);
     this.holdFill.setVisible(bar.visible)
       .setDisplaySize(this.barWidth * Math.min(1, Math.max(0, bar.progress)), HOLD_BAR_HEIGHT - 2);
@@ -191,9 +199,9 @@ export class DeathOverlayWidget {
       this.prompt.setFontSize(p.detailSize).setY(p.promptY);
       this.holdBar.setPosition(0, p.barY).setSize(p.barWidth, HOLD_BAR_HEIGHT);
       this.holdFill.setPosition(-p.barWidth / 2, p.barY);
-      this.respawnButton.setPosition(0, p.buttonY)
-        .setSize(p.buttonWidth, RESPAWN_BUTTON_HEIGHT);
-      this.respawnLabel.setPosition(0, p.buttonY).setFontSize(p.detailSize);
+      this.giveUpButton.setPosition(0, p.buttonY)
+        .setSize(p.buttonWidth, GIVE_UP_BUTTON_HEIGHT);
+      this.giveUpLabel.setPosition(0, p.buttonY).setFontSize(p.detailSize);
     }
   }
 }

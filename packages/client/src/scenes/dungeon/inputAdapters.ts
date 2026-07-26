@@ -68,6 +68,7 @@ function createInputActions(conn: Connection): Omit<
 > {
   return {
     interact: () => conn.interact(),
+    revive: (targetId, held) => conn.revive(targetId, held),
     pickup: () => conn.pickup(),
     attack: (dx, dy) => conn.attack(dx, dy),
     useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
@@ -76,6 +77,7 @@ function createInputActions(conn: Connection): Omit<
     throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY),
     craft: (recipeId) => conn.craft(recipeId),
     stashOp: (op, index) => conn.stashOp(op, index),
+    lootChestOp: (chestId, op, item) => conn.lootChestOp(chestId, op, item),
     partyOp: (op, target) => conn.partyOp(op, target),
     assignSlot: (slot, item) => conn.assignSlot(slot, item),
     equip: (item) => conn.equip(item),
@@ -83,7 +85,6 @@ function createInputActions(conn: Connection): Omit<
     fistbump: (targetId) => conn.fistbump(targetId),
     descend: () => conn.descend(),
     suicide: () => conn.suicide(),
-    respawnNow: () => conn.respawnNow(),
     pushToast: (msg) => conn.pushToast(msg),
   };
 }

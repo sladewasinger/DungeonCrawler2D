@@ -5,13 +5,13 @@ import {
   deathOverlayPresentation,
   deathOverlayText,
   downedOverlayText,
-  respawnButtonVisible,
+  giveUpButtonVisible,
 } from "./deathOverlay.js";
 
 describe("death overlay copy", () => {
-  it("shows the authoritative countdown and instant-respawn help", () => {
+  it("shows only the authoritative countdown while dead", () => {
     expect(deathOverlayText(29.2)).toBe(
-      "YOU DIED\nRespawning in 30s\nHold [E] for 3s to respawn now",
+      "YOU DIED\nRespawning in 30s",
     );
   });
 
@@ -34,14 +34,15 @@ describe("death overlay copy", () => {
     }
   });
 
-  it("shows direct respawn only for the fully dead state", () => {
-    expect(respawnButtonVisible(false, true)).toBe(true);
-    expect(respawnButtonVisible(true, false)).toBe(false);
-    expect(respawnButtonVisible(false, false)).toBe(false);
+  it("shows direct give-up only for the downed state", () => {
+    expect(giveUpButtonVisible(true, false)).toBe(true);
+    expect(giveUpButtonVisible(false, true)).toBe(false);
+    expect(giveUpButtonVisible(false, false)).toBe(false);
   });
 
   it("shares authoritative downed countdown and reviver copy", () => {
     expect(downedOverlayText(29.2, null)).toContain("Bleeding out in 30s");
+    expect(downedOverlayText(29.2, null)).toContain("Hold [E] for 2s to give up");
     expect(downedOverlayText(12, "Austin")).toContain("Austin is reviving you");
   });
 });

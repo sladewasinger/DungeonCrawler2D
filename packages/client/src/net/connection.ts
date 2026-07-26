@@ -156,7 +156,7 @@ export class Connection extends ConnectionActions {
   onSnapshot: (() => void) | null = null;
   onUpdateRequired: ((message: string) => void) | null = null;
   get dead(): boolean {
-    return this.status === "connected" && this.hasReceivedSnapshot && this.hp <= 0;
+    return this.status === "connected" && this.hasReceivedSnapshot && this.hp <= 0 && !this.downed && this.respawnAtTick !== null;
   }
 
   get canAct(): boolean {

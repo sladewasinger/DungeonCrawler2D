@@ -10,7 +10,7 @@ import type { MoveInput } from "@dc2d/engine";
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
   | "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB"
-  | "ENTER" | "O" | "K",
+  | "ENTER" | "O",
   Phaser.Input.Keyboard.Key
 >;
 
@@ -71,8 +71,6 @@ export interface InputConnection {
   descend(): void;
   /** Sends the existing server-authoritative suicide intent after a deliberate hold. */
   suicide(): void;
-  /** Requests the server-authoritative early respawn after the death-screen hold. */
-  respawnNow(): void;
   /**
    * Client-local UI feedback for an action the client can already tell will do
    * nothing (no crafting table nearby, out of torches...) — never a substitute for

@@ -1,14 +1,12 @@
 import type { HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
 import { cancelHeldGestures } from "./modalGestures.js";
-import { RespawnGesture } from "./respawn.js";
 import { ReviveGesture } from "./revive.js";
 import type { InputConnection } from "./state.js";
 
 export class LifeGestures {
   private readonly revive = new ReviveGesture();
   private readonly giveUp = new GiveUpGesture();
-  private readonly respawn = new RespawnGesture();
 
   beginRevive(conn: InputConnection, targetId: string | undefined, nowMs: number): boolean {
     if (!this.revive.begin(targetId, nowMs) || !targetId) return false;
@@ -17,9 +15,13 @@ export class LifeGestures {
   }
 
   endInteract(conn: InputConnection, nowMs: number): void {
+    this.endRevive(conn, nowMs);
+    this.giveUp.end(nowMs);
+  }
+
+  private endRevive(conn: InputConnection, nowMs: number): void {
     const targetId = this.revive.end(nowMs);
     if (targetId) conn.revive(targetId, false);
-    this.respawn.end(nowMs);
   }
 
   beginGiveUp(enabled: boolean, nowMs: number): void {
@@ -30,24 +32,16 @@ export class LifeGestures {
     this.giveUp.end(nowMs);
   }
 
-  beginRespawn(nowMs: number): void {
-    this.respawn.begin(true, nowMs);
-  }
-
   pollRevive(conn: InputConnection, nowMs: number): void {
-    if (!conn.canAct) this.endInteract(conn, nowMs);
+    if (!conn.canAct) this.endRevive(conn, nowMs);
   }
 
   pollGiveUp(conn: InputConnection, nowMs: number): void {
     if (this.giveUp.poll(conn.downed, nowMs)) conn.suicide();
   }
 
-  pollRespawn(conn: InputConnection, nowMs: number, sourceHeld = false): void {
-    if (this.respawn.poll(conn.dead, nowMs, sourceHeld)) conn.respawnNow();
-  }
-
-  respawnProgress(dead: boolean, nowMs: number): number {
-    return this.respawn.progress(dead, nowMs);
+  giveUpProgress(downed: boolean, nowMs: number): number {
+    return this.giveUp.progress(downed, nowMs);
   }
 
   reviveHoldView(nowMs: number): { targetId: string; progress: number } | null {
@@ -59,6 +53,6 @@ export class LifeGestures {
   }
 
   cancel(nowMs: number, fistbump: HoldState): void {
-    cancelHeldGestures(nowMs, this.revive, this.giveUp, this.respawn, fistbump);
+    cancelHeldGestures(nowMs, this.revive, this.giveUp, fistbump);
   }
 }

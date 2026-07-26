@@ -4,7 +4,7 @@ import { ThreeDownedOverlay } from "./ThreeDownedOverlay.js";
 interface FakeElement {
   hidden: boolean;
   parentElement: FakeElement | null;
-  style: { cssText: string; width?: string };
+  style: { cssText: string; display?: string; width?: string };
   textContent: string;
   type: string;
   children: FakeElement[];
@@ -46,12 +46,13 @@ const findButton = (root: FakeElement): FakeElement | undefined => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("ThreeDownedOverlay direct respawn", () => {
-  it("shows only while dead and invokes the authoritative action once per click", () => {
-    vi.stubGlobal("document", { createElement: element });
+describe("ThreeDownedOverlay give up", () => {
+  it("shows only while downed and invokes give-up once per click", () => {
+    const exitPointerLock = vi.fn();
+    vi.stubGlobal("document", { createElement: element, exitPointerLock });
     const parent = element();
-    const respawnNow = vi.fn();
-    const overlay = new ThreeDownedOverlay(parent as never, respawnNow);
+    const giveUp = vi.fn();
+    const overlay = new ThreeDownedOverlay(parent as never, giveUp);
     const button = findButton(parent);
     expect(button).toBeDefined();
     overlay.update({
@@ -62,7 +63,11 @@ describe("ThreeDownedOverlay direct respawn", () => {
       respawnSecondsRemaining: 0,
       reviveProgress: 0,
     } as never);
-    expect(button?.hidden).toBe(true);
+    expect(button?.hidden).toBe(false);
+    expect(button?.style.display).toBe("block");
+    expect(exitPointerLock).toHaveBeenCalledOnce();
+    button?.click();
+    expect(giveUp).toHaveBeenCalledOnce();
     overlay.update({
       downed: false,
       dead: true,
@@ -71,8 +76,7 @@ describe("ThreeDownedOverlay direct respawn", () => {
       respawnSecondsRemaining: 10,
       reviveProgress: 0,
     } as never);
-    expect(button?.hidden).toBe(false);
-    button?.click();
-    expect(respawnNow).toHaveBeenCalledOnce();
+    expect(button?.hidden).toBe(true);
+    expect(button?.style.display).toBe("none");
   });
 });

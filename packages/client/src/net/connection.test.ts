@@ -23,12 +23,24 @@ describe("Connection.dead", () => {
     expect(conn.dead).toBe(false);
   });
 
-  it("is true once a real snapshot reported hp <= 0", () => {
+  it("is true only once a real snapshot reports a scheduled corpse", () => {
     const conn = freshConnection();
     conn.status = "connected";
     conn.hasReceivedSnapshot = true;
     conn.hp = 0;
+    expect(conn.dead).toBe(false);
+    conn.respawnAtTick = 100;
     expect(conn.dead).toBe(true);
+  });
+
+  it("does not classify the downed revive window as fully dead", () => {
+    const conn = freshConnection();
+    conn.status = "connected";
+    conn.hasReceivedSnapshot = true;
+    conn.hp = 0;
+    conn.downed = true;
+    conn.respawnAtTick = 100;
+    expect(conn.dead).toBe(false);
   });
 
   it("is false once a real snapshot reported positive hp", () => {
@@ -54,22 +66,12 @@ describe("Connection respawn state", () => {
   it("derives a ceiling-rounded countdown from authoritative server ticks", () => {
     const conn = freshConnection();
     conn.serverTick = 41;
-    conn.respawnAtTick = 641;
-    expect(conn.respawnSecondsRemaining).toBe(30);
-    conn.serverTick = 642;
+    conn.respawnAtTick = 141;
+    expect(conn.respawnSecondsRemaining).toBe(5);
+    conn.serverTick = 142;
     expect(conn.respawnSecondsRemaining).toBe(0);
   });
 
-  it("only sends immediate respawn while connected and authoritatively dead", () => {
-    const conn = freshConnection();
-    const sent: unknown[] = [];
-    conn.send = (message) => sent.push(message);
-    conn.respawnNow();
-    conn.status = "connected";
-    conn.hasReceivedSnapshot = true;
-    conn.respawnNow();
-    expect(sent).toEqual([{ type: "respawn" }]);
-  });
 });
 
 describe("Connection contextual action completion", () => {

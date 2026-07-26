@@ -5,19 +5,31 @@ import {
   DEATH_HEADLINE_OUTLINE,
   deathOverlayText,
   downedOverlayText,
-  respawnButtonVisible,
+  giveUpButtonVisible,
 } from "../ui/widgets/hud/deathOverlay.js";
 
 const HOLD_BAR_WIDTH = 220;
+
+function syncGiveUpButton(
+  button: HTMLButtonElement,
+  visible: boolean,
+  wasVisible: boolean,
+): boolean {
+  button.hidden = !visible;
+  button.style.display = visible ? "block" : "none";
+  if (visible && !wasVisible) document.exitPointerLock?.();
+  return visible;
+}
 
 export class ThreeDownedOverlay {
   readonly element = document.createElement("div");
   private readonly copy = document.createElement("div");
   private readonly headline = document.createElement("div");
   private readonly fill = document.createElement("div");
-  private readonly respawnButton = document.createElement("button");
+  private readonly giveUpButton = document.createElement("button");
+  private giveUpVisible = false;
 
-  constructor(parent: HTMLElement, onRespawnNow: () => void = () => {}) {
+  constructor(parent: HTMLElement, onGiveUp: () => void = () => {}) {
     this.element.style.cssText =
       "position:absolute;inset:0;display:none;place-items:center;text-align:center;" +
       "font:700 18px monospace;color:#f2e9e2;background:rgba(18,4,8,.38);pointer-events:none";
@@ -33,18 +45,18 @@ export class ThreeDownedOverlay {
       "background:#242436;box-sizing:border-box";
     this.fill.style.cssText =
       "height:100%;width:0;background:#ffd23d;transition:width 50ms linear";
-    this.respawnButton.type = "button";
-    this.respawnButton.textContent = "Respawn Now";
-    this.respawnButton.style.cssText =
+    this.giveUpButton.type = "button";
+    this.giveUpButton.textContent = "Give Up";
+    this.giveUpButton.style.cssText =
       "display:block;margin:14px auto 0;min-width:160px;height:38px;padding:0 18px;" +
       "border:2px solid #ff6b7f;background:#b51631;color:#fff;font:700 16px monospace;" +
       "pointer-events:auto;cursor:pointer";
-    this.respawnButton.addEventListener("click", (event) => {
+    this.giveUpButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      onRespawnNow();
+      onGiveUp();
     });
     track.append(this.fill);
-    content.append(this.headline, this.copy, track, this.respawnButton);
+    content.append(this.headline, this.copy, track, this.giveUpButton);
     this.element.append(content);
     this.element.hidden = true;
     parent.append(this.element);
@@ -60,12 +72,19 @@ export class ThreeDownedOverlay {
     const [headline, ...detail] = text.split("\n");
     this.headline.textContent = headline ?? "";
     this.copy.textContent = detail.join("\n");
-    const progress = connection.downed ? connection.reviveProgress : holdProgress;
+    const progress = connection.downed
+      ? Math.max(connection.reviveProgress, holdProgress)
+      : 0;
     const track = this.fill.parentElement;
-    if (track) track.hidden = !connection.dead && progress <= 0;
-    this.respawnButton.hidden = !respawnButtonVisible(
+    if (track) track.hidden = !connection.downed || progress <= 0;
+    const buttonVisible = giveUpButtonVisible(
       connection.downed,
       connection.dead,
+    );
+    this.giveUpVisible = syncGiveUpButton(
+      this.giveUpButton,
+      buttonVisible,
+      this.giveUpVisible,
     );
     this.fill.style.width =
       `${HOLD_BAR_WIDTH * Math.min(1, Math.max(0, progress))}px`;

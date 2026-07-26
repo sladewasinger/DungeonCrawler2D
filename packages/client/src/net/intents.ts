@@ -139,10 +139,6 @@ export function suicideIntent(conn: Connection): void {
   if (conn.status === "connected" && conn.hp > 0) conn.send({ type: "suicide" });
 }
 
-export function respawnIntent(conn: Connection): void {
-  if (conn.status === "connected" && conn.dead) conn.send({ type: "respawn" });
-}
-
 export function debugTeleportIntent(conn: Connection, x: number, y: number): void {
   conn.send({ type: "debug", op: "teleport", x, y });
 }

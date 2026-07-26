@@ -14,7 +14,6 @@ const sample = (overrides: Partial<ThreeInputSample>): ThreeInputSample => ({
   interactHeld: false,
   throwItem: false,
   bandageOther: false,
-  giveUp: false,
   ...overrides,
 });
 
@@ -26,7 +25,18 @@ const connection = (downed = false) => ({
   },
   hotbar: [],
   inventory: [],
-  entities: new Map(),
+  entities: downed
+    ? new Map([["ally", {
+      snap: {
+        id: "ally",
+        kind: "player",
+        x: 1,
+        y: 0,
+        z: 0,
+        downed: true,
+      },
+    }]])
+    : new Map(),
   downed: false,
   dead: false,
   attack: vi.fn(),
@@ -36,8 +46,8 @@ const connection = (downed = false) => ({
   throwTorch: vi.fn(),
   useSlot: vi.fn(),
   useSlotOnPlayer: vi.fn(),
+  revive: vi.fn(),
   suicide: vi.fn(),
-  respawnNow: vi.fn(),
 }) as unknown as Connection;
 
 describe("ThreeActionController interaction gesture", () => {
@@ -52,7 +62,7 @@ describe("ThreeActionController interaction gesture", () => {
     expect(conn.interact).toHaveBeenCalledOnce();
   });
 
-  it("holds near a downed teammate before publishing the revive intent", () => {
+  it("publishes held revive state for a nearby downed teammate", () => {
     const now = vi.spyOn(performance, "now");
     const conn = connection(true);
     const controller = new ThreeActionController(conn);
@@ -60,13 +70,12 @@ describe("ThreeActionController interaction gesture", () => {
 
     now.mockReturnValue(0);
     controller.publish(world, sample({ interactPressed: true, interactHeld: true }));
-    now.mockReturnValue(599);
-    controller.publish(world, sample({ interactHeld: true }));
+    expect(conn.revive).toHaveBeenCalledWith("ally", true);
     expect(conn.interact).not.toHaveBeenCalled();
 
     now.mockReturnValue(600);
-    controller.publish(world, sample({ interactHeld: true }));
-    expect(conn.interact).toHaveBeenCalledOnce();
+    controller.publish(world, sample({ interactHeld: false }));
+    expect(conn.revive).toHaveBeenLastCalledWith("ally", false);
   });
 
   it("keeps stair descent ahead of a nearby revive target", () => {
@@ -74,9 +83,12 @@ describe("ThreeActionController interaction gesture", () => {
     const stairs = stairwayDownPosition(world);
     expect(stairs).not.toBeNull();
     const conn = connection(true);
-    conn.body = { x: stairs!.x, y: stairs!.y } as Connection["body"];
-    conn.party!.members[0]!.x = stairs!.x;
-    conn.party!.members[0]!.y = stairs!.y;
+    if (!stairs || !conn.party || !conn.party.members[0]) {
+      throw new Error("stair and party fixtures are required");
+    }
+    conn.body = { x: stairs.x, y: stairs.y } as Connection["body"];
+    conn.party.members[0].x = stairs.x;
+    conn.party.members[0].y = stairs.y;
     conn.descend = vi.fn();
 
     new ThreeActionController(conn).publish(world, sample({
@@ -88,7 +100,7 @@ describe("ThreeActionController interaction gesture", () => {
     expect(conn.interact).not.toHaveBeenCalled();
   });
 
-  it("holds E for three seconds before requesting an immediate respawn", () => {
+  it("does not accept E as an early-respawn shortcut while dead", () => {
     const now = vi.spyOn(performance, "now");
     const conn = connection();
     Object.defineProperty(conn, "dead", { value: true });
@@ -97,32 +109,9 @@ describe("ThreeActionController interaction gesture", () => {
 
     now.mockReturnValue(0);
     controller.publish(world, sample({ interactPressed: true, interactHeld: true }));
-    now.mockReturnValue(2_999);
+    now.mockReturnValue(5_000);
     controller.publish(world, sample({ interactHeld: true }));
-    expect(conn.respawnNow).not.toHaveBeenCalled();
-    expect(controller.respawnHoldProgress()).toBeCloseTo(2_999 / 3_000);
-
-    now.mockReturnValue(3_000);
-    controller.publish(world, sample({ interactHeld: true }));
-    expect(conn.respawnNow).toHaveBeenCalledOnce();
-  });
-
-  it("recovers when the initial E press edge is missed", () => {
-    const now = vi.spyOn(performance, "now");
-    const conn = connection();
-    Object.defineProperty(conn, "dead", { value: true });
-    const controller = new ThreeActionController(conn);
-    const world = new World(1, 1);
-
-    now.mockReturnValue(0);
-    controller.publish(world, sample({ interactHeld: true }));
-    now.mockReturnValue(2_999);
-    controller.publish(world, sample({ interactHeld: true }));
-    expect(conn.respawnNow).not.toHaveBeenCalled();
-
-    now.mockReturnValue(3_000);
-    controller.publish(world, sample({ interactHeld: true }));
-    expect(conn.respawnNow).toHaveBeenCalledOnce();
+    expect(conn.suicide).not.toHaveBeenCalled();
   });
 
   it("opens nearby death loot for the killer but not during another player's lock", () => {

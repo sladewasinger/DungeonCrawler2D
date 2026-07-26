@@ -1,4 +1,4 @@
-/** Owns the deliberate hold-K gesture that lets a downed player surrender early. */
+/** Owns the deliberate hold-E gesture that lets a downed player surrender early. */
 import {
   createHoldState,
   holdCrossedThreshold,
@@ -8,7 +8,7 @@ import {
   type HoldState,
 } from "./fistbump.js";
 
-export const GIVE_UP_HOLD_MS = 1_500;
+export const GIVE_UP_HOLD_MS = 2_000;
 
 export class GiveUpGesture {
   private readonly hold: HoldState = createHoldState();
