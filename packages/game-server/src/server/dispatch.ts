@@ -13,6 +13,7 @@ import type { GameSim } from "../sim/index.js";
 import type { ConnState, SocketMap } from "./types.js";
 import { sendServerMessage } from "./measuredSend.js";
 import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import { currentSocketOwnsPlayer } from "./socketAuthority.js";
 
 /** Per-connection message routing: hello/resume, protocol check, and
  * handing off input/action messages to whichever sim currently owns
@@ -77,7 +78,9 @@ function dispatchMessage(
     sendServerMessage(ws, conn.playerId, { type: "pong", t: msg.t }, diagnostics);
     return;
   }
-  if (conn.playerId) routeAuthenticatedMessage(msg, conn.playerId, sockets);
+  if (conn.playerId && currentSocketOwnsPlayer(sockets, conn.playerId, ws)) {
+    routeAuthenticatedMessage(msg, conn.playerId, sockets);
+  }
 }
 
 export function routeAuthenticatedMessage(
