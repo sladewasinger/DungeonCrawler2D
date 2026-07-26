@@ -176,9 +176,6 @@ const createOverlayParts = (
       onOpenChange: options.setTextInputFocused,
     },
   );
-  windows.settings.onEditingChange((editing) => {
-    if (editing) sessionMenu.close(false);
-  });
   const downed = new ThreeDownedOverlay(options.element);
   const invite = new ThreePartyInvite(options.connection);
   const healthFeedback = new ThreeHealthFeedback();
