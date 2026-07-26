@@ -40,6 +40,12 @@ interface StairBandProfile {
   readonly sample: number;
 }
 
+interface SampledStairBand extends StairBandProfile {
+  readonly sampleX: number;
+  readonly sampleY: number;
+  readonly height: number;
+}
+
 const stairBandProfile = (direction: number): StairBandProfile[] => {
   if (!stacksVertically(direction)) {
     return Array.from({ length: TREAD_COUNT }, (_, index) => ({
@@ -65,6 +71,31 @@ function edgeRange(start: number, end: number, highAtStart: boolean): readonly [
     : [Math.max(start, end - EDGE_THICKNESS), end];
 }
 
+function coveredVerticalFill(
+  band: SampledStairBand,
+  index: number,
+  bands: readonly SampledStairBand[],
+  startHeight: number,
+  endHeight: number,
+): readonly [number, number] {
+  const projectedStart = band.start - band.height;
+  const projectedEnd = band.end - band.height;
+  const coveredStart = index === 0
+    ? Math.min(projectedStart, -startHeight)
+    : projectedStart;
+  const next = bands[index + 1];
+  const coveredEnd = next
+    ? Math.max(projectedEnd, next.start - next.height)
+    : Math.max(projectedEnd, 1 - endHeight);
+  const fillStart = coveredStart < projectedStart
+    ? coveredStart + band.height
+    : band.start;
+  const fillEnd = coveredEnd > projectedEnd
+    ? coveredEnd + band.height
+    : band.end;
+  return [fillStart, fillEnd];
+}
+
 export function steppedStairSurface(
   wx: number,
   wy: number,
@@ -73,19 +104,23 @@ export function steppedStairSurface(
 ): SteppedStairSurface {
   const axis: StairSurfaceAxis = stacksVertically(direction) ? "y" : "x";
   const highAtStart = highEndAtStart(direction);
-  const bands = stairBandProfile(direction).map((band): StairSurfaceBand => {
+  const sampledBands = stairBandProfile(direction).map((band) => {
     const sampleX = axis === "x" ? wx + band.sample : wx + 0.5;
     const sampleY = axis === "y" ? wy + band.sample : wy + 0.5;
     const height = groundAt(sampleX, sampleY);
+    return { ...band, sampleX, sampleY, height };
+  });
+  const startHeight = axis === "y" ? groundAt(wx + 0.5, wy) : 0;
+  const endHeight = axis === "y" ? groundAt(wx + 0.5, wy + 1) : 0;
+  const bands = sampledBands.map((band, index): StairSurfaceBand => {
     const edge = edgeRange(band.start, band.end, highAtStart);
     return {
       ...band,
-      sampleX,
-      sampleY,
-      height,
-      liftBakePx: surfaceLiftBakePx(height),
+      liftBakePx: surfaceLiftBakePx(band.height),
       fillX: axis === "x" ? [band.start, band.end] : FULL,
-      fillY: axis === "y" ? [band.start, band.end] : FULL,
+      fillY: axis === "y"
+        ? coveredVerticalFill(band, index, sampledBands, startHeight, endHeight)
+        : FULL,
       highlightX: axis === "x" ? edge : FULL,
       highlightY: axis === "y" ? edge : FULL,
     };

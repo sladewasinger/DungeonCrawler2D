@@ -1,9 +1,23 @@
+import { stairRampAt, TILE, type StairView } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { VIEW_ORIENTATIONS } from "../view/viewOrientation.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import { steppedStairSurface } from "./sideStair.js";
 
 const DIRECTIONS = [0, 1, 2, 3] as const;
+
+function singleTileNorthSouthRamp(direction: 0 | 2): (x: number, y: number) => number {
+  const highY = direction === 0 ? -1 : 1;
+  const view: StairView = {
+    tileAt: (wx, wy) => wx === 0 && wy === 0 ? TILE.Stairs : TILE.Floor,
+    heightAt: (wx, wy) => {
+      if (wx === 0 && wy === 0) return -0.5;
+      return wy === highY ? 0 : -1;
+    },
+  };
+  return (x, y) =>
+    stairRampAt(view, x, y) ?? view.heightAt(Math.floor(x), Math.floor(y));
+}
 
 describe("stepped stair surface", () => {
   it("covers the tile with five contiguous filled bands on both axes", () => {
@@ -26,7 +40,7 @@ describe("stepped stair surface", () => {
     }
   });
 
-  it("samples ground height along x for vertical bands and y for horizontal bands", () => {
+  it("samples ground height along x for vertical bands and y plus landing seams for horizontal bands", () => {
     const xSamples: Array<[number, number]> = [];
     const xSurface = steppedStairSurface(10, 20, 1, (x, y) => {
       xSamples.push([x, y]);
@@ -42,9 +56,11 @@ describe("stepped stair surface", () => {
       ySamples.push([x, y]);
       return 0;
     });
-    expect(ySamples.map(([, y]) => y)).toEqual(
-      ySurface.bands.map(({ sample }) => 20 + sample),
-    );
+    expect(ySamples.map(([, y]) => y)).toEqual([
+      ...ySurface.bands.map(({ sample }) => 20 + sample),
+      20,
+      21,
+    ]);
     expect(ySamples.every(([x]) => x === 10.5)).toBe(true);
   });
 
@@ -72,6 +88,53 @@ describe("stepped stair surface", () => {
         { start: 0.6, end: 0.8, sample: 0.7 },
         { start: 0.8, end: 1, sample: 0.9 },
       ]);
+    }
+  });
+
+  it("covers every projected riser gap and both landing seams on north/south pit stairs", () => {
+    for (const direction of [0, 2] as const) {
+      const groundAt = singleTileNorthSouthRamp(direction);
+      const surface = steppedStairSurface(0, 0, direction, groundAt);
+      const projected = surface.bands.map((band) => ({
+        start: band.fillY[0] - band.height,
+        end: band.fillY[1] - band.height,
+      }));
+      const startLanding = -groundAt(0.5, 0);
+      const endLanding = 1 - groundAt(0.5, 1);
+
+      expect(projected[0]?.start).toBeLessThanOrEqual(startLanding);
+      expect(projected[0]?.end).toBeGreaterThanOrEqual(startLanding);
+      expect(projected.at(-1)?.start).toBeLessThanOrEqual(endLanding);
+      expect(projected.at(-1)?.end).toBeGreaterThanOrEqual(endLanding);
+      projected.slice(1).forEach((band, index) => {
+        expect(band.start).toBeLessThanOrEqual(projected[index]?.end ?? Number.NEGATIVE_INFINITY);
+      });
+      if (direction === 0) {
+        expect(projected[0]?.start).toBeCloseTo(0);
+        expect(projected.at(-1)?.end).toBeCloseTo(2);
+      } else {
+        expect(surface.bands.map((band) => band.fillY))
+          .toEqual(surface.bands.map((band) => [band.start, band.end]));
+      }
+    }
+  });
+
+  it("does not alter east/west projected band geometry", () => {
+    for (const direction of [1, 3]) {
+      const surface = steppedStairSurface(0, 0, direction, (x) => x - 0.5);
+      expect(surface.bands.map((band) => ({
+        fillX: band.fillX,
+        fillY: band.fillY,
+        highlightX: band.highlightX,
+        highlightY: band.highlightY,
+      }))).toEqual(surface.bands.map((band) => ({
+        fillX: [band.start, band.end],
+        fillY: [0, 1],
+        highlightX: direction === 1
+          ? [Math.max(band.start, band.end - 0.045), band.end]
+          : [band.start, Math.min(band.end, band.start + 0.045)],
+        highlightY: [0, 1],
+      })));
     }
   });
 
