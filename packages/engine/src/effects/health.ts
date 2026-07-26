@@ -7,6 +7,8 @@ export interface DamageOpts {
   sourceTags?: readonly string[];
   /** Sanctuary suppression bypass (falls, bleed-out — world rules). */
   ignoreSanctuary?: boolean;
+  /** Presentation source for non-hostile health changes. */
+  healthSource?: "automatic";
 }
 
 export interface EffectTarget {
@@ -68,7 +70,15 @@ export function modifyHealth(
   const before = entity.hp;
   entity.hp = Math.max(0, Math.min(entity.maxHp, entity.hp + delta));
   const applied = entity.hp - before;
-  if (applied !== 0) events.push({ t: "hp", id: entity.id, delta: applied, hp: entity.hp });
+  if (applied !== 0) {
+    events.push({
+      t: "hp",
+      id: entity.id,
+      delta: applied,
+      hp: entity.hp,
+      ...(opts.healthSource === undefined ? {} : { source: opts.healthSource }),
+    });
+  }
   if (entity.hp <= 0) events.push({ t: "death", id: entity.id });
   return applied;
 }

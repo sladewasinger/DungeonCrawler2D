@@ -12,6 +12,9 @@ import { HUD_GOLD } from "./ThreeHudStyles.js";
 const STORAGE_KEY = "dc2d.hud.tutorials.v2";
 const HISTORY_STORAGE_KEY = "dc2d.hud.tutorial-history.v2";
 const DISPLAY_MS = 9000;
+const PARTY_TOUCH_DISTANCE = 1.2;
+const PARTY_HINT =
+  "Press [F] when you're touching another player to send them a party invite!";
 
 const loadSeen = (): Set<TutorialId> => {
   try {
@@ -83,6 +86,7 @@ export class ThreeHudTutorials {
     nowMs: number,
   ): void {
     if (!connection.hasReceivedSnapshot) return;
+    if (this.showPartyProximityHint(connection, selectedSlot)) return;
     this.dismissUnavailableLowHealth(connection);
     const messages = advanceTutorials(this.state, {
       inventory: connection.inventory,
@@ -108,6 +112,34 @@ export class ThreeHudTutorials {
     this.element.hidden = false;
     this.active = next;
     this.activeUntil = nowMs + DISPLAY_MS;
+  }
+
+  private showPartyProximityHint(
+    connection: Connection,
+    selectedSlot: number | null,
+  ): boolean {
+    if (
+      this.mode !== "keyboard" ||
+      connection.party !== null ||
+      connection.pendingInvite !== null ||
+      connection.outgoingPartyInvites.size > 0 ||
+      !connection.body
+    ) return false;
+    if (
+      selectedSlot !== null &&
+      connection.hotbar[selectedSlot] === "bandage"
+    ) return false;
+    const nearby = [...connection.entities.values()].some(({ snap }) =>
+      snap.kind === "player" &&
+      Math.hypot(
+        snap.x - connection.body!.x,
+        snap.y - connection.body!.y,
+      ) <= PARTY_TOUCH_DISTANCE
+    );
+    if (!nearby) return false;
+    this.element.textContent = PARTY_HINT;
+    this.element.hidden = false;
+    return true;
   }
 
   replay(): void {

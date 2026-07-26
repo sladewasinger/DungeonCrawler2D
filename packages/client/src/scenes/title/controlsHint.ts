@@ -12,7 +12,7 @@ export class TitleControlsHint {
   constructor() {
     this.root.setAttribute("aria-label", "How to play");
     this.root.style.cssText =
-      `position:fixed;left:50%;translate:-50% 0;z-index:3;width:min(780px,calc(100vw - 48px));` +
+      `position:fixed;left:50%;translate:-50% 0;z-index:12;width:min(780px,calc(100vw - 48px));` +
       `text-align:center;pointer-events:none;font-family:${UI_FONT};`;
     this.tagline.textContent = stringsData.tagline;
     this.tagline.style.cssText = "margin:0 0 10px;color:#ffd23d;font-size:clamp(20px,1.5vw,26px);font-weight:700";

@@ -13,6 +13,7 @@ const sample = (overrides: Partial<ThreeInputSample>): ThreeInputSample => ({
   interactPressed: false,
   interactHeld: false,
   throwItem: false,
+  bandageOther: false,
   giveUp: false,
   ...overrides,
 });
@@ -24,6 +25,7 @@ const connection = (downed = false) => ({
     members: [{ id: "ally", name: "Ally", x: 1, y: 0, hp: 0, maxHp: 30, downed }],
   },
   hotbar: [],
+  inventory: [],
   entities: new Map(),
   downed: false,
   attack: vi.fn(),
@@ -31,6 +33,7 @@ const connection = (downed = false) => ({
   pickup: vi.fn(),
   throwTorch: vi.fn(),
   useSlot: vi.fn(),
+  useSlotOnPlayer: vi.fn(),
   suicide: vi.fn(),
 }) as unknown as Connection;
 
@@ -80,5 +83,25 @@ describe("ThreeActionController interaction gesture", () => {
 
     expect(conn.descend).toHaveBeenCalledOnce();
     expect(conn.interact).not.toHaveBeenCalled();
+  });
+
+  it("uses F to bandage the nearest player when bandages are selected", () => {
+    const conn = connection();
+    conn.hotbar = ["bandage"];
+    conn.inventory = [{ item: "bandage", qty: 1 }];
+    conn.entities.set("near", {
+      snap: { id: "near", kind: "player", x: 1, y: 0 },
+      samples: [],
+    } as never);
+    conn.entities.set("far", {
+      snap: { id: "far", kind: "player", x: 3, y: 0 },
+      samples: [],
+    } as never);
+    const controller = new ThreeActionController(conn);
+    controller.selectHotbar(0);
+
+    controller.publish(new World(1, 1), sample({ bandageOther: true }));
+
+    expect(conn.useSlotOnPlayer).toHaveBeenCalledWith(0, "near");
   });
 });

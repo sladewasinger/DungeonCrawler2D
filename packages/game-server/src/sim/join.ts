@@ -11,6 +11,7 @@ import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnoun
 import { sendContactsUpdated } from "./contacts.js";
 import { ensureStarterKit } from "./inventory.js";
 import { refreshModerationBindings, sendModerationState } from "./moderation.js";
+import { replayPartyInviteState } from "./partyInviteEvents.js";
 import { resetInputTimeline } from "./playerInputTimeline.js";
 import { findSpawn, newToken } from "./spawn.js";
 import { secureSpawnHandoff } from "./spawnSafety.js";
@@ -175,11 +176,7 @@ function tryResume(sim: SimState, resumeToken: string, clientId: string): JoinRe
   slot.needsFullAreas = true;
   // Dead and downed slots retain their paused state until gameplay resumes.
   if (slot.entity.hp > 0) ensureStarterKit(sim, slot);
-  const invite = sim.invites.get(slot.entity.id);
-  if (invite) {
-    const inviter = sim.players.get(invite.from);
-    if (inviter) slot.outbox.push({ t: "invite", from: inviter.entity.id, name: inviter.entity.name ?? "?" });
-  }
+  replayPartyInviteState(sim, slot);
   sendContactsUpdated(sim, slot);
   sendModerationState(slot);
   sim.store.recordFloor(slot.stored, sim.world.floor);

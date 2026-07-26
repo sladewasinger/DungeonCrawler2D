@@ -1,6 +1,6 @@
 import { TILE, type WorldInteractionTarget } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { interactOrUse } from "./gameplayActions.js";
+import { bandageNearbyPlayer, interactOrUse } from "./gameplayActions.js";
 import type { InputConnection, InputPanels, InputQueries } from "./state.js";
 
 const target = (kind: WorldInteractionTarget["kind"]): WorldInteractionTarget => ({
@@ -12,7 +12,12 @@ const target = (kind: WorldInteractionTarget["kind"]): WorldInteractionTarget =>
 
 const setup = (
   interaction: WorldInteractionTarget | null,
-  options: { stair?: boolean; revive?: boolean; consumable?: boolean } = {},
+  options: {
+    stair?: boolean;
+    revive?: boolean;
+    consumable?: boolean;
+    nearby?: string;
+  } = {},
 ) => {
   const calls: string[] = [];
   const conn = {
@@ -20,7 +25,7 @@ const setup = (
     canAct: true,
     downed: false,
     hotbar: [options.consumable ? "bandage" : undefined],
-    inventory: [],
+    inventory: options.consumable ? [{ item: "bandage", qty: 1 }] : [],
     stash: null,
     pendingInvite: false,
     weapon: null,
@@ -28,6 +33,7 @@ const setup = (
     pickup: () => calls.push("pickup"),
     attack: () => calls.push("attack"),
     useSlot: () => calls.push("useSlot"),
+    useSlotOnPlayer: (_slot, id) => calls.push(`bandage:${id}`),
     useItem: () => calls.push("useItem"),
     throwTorch: () => calls.push("throwTorch"),
     craft: () => calls.push("craft"),
@@ -59,7 +65,7 @@ const setup = (
     isConsumable: () => Boolean(options.consumable),
     attackCooldownMs: () => 0,
     recipeIdAt: () => undefined,
-    nearestPlayerId: () => undefined,
+    nearestPlayerId: () => options.nearby,
     isStashNearby: () => interaction?.kind === "stash",
     isCraftTableNearby: () => interaction?.kind === "craft",
     worldInteraction: () => interaction,
@@ -105,5 +111,19 @@ describe("interactOrUse", () => {
     const state = setup(null);
     interactOrUse(state.conn, state.panels, state.queries, null, () => false, "pickup");
     expect(state.calls).toEqual(["pickup"]);
+  });
+
+  it("applies a selected owned bandage to the nearest player", () => {
+    const state = setup(null, { consumable: true, nearby: "ally" });
+
+    expect(bandageNearbyPlayer(state.conn, state.queries, 0)).toBe(true);
+    expect(state.calls).toEqual(["bandage:ally"]);
+  });
+
+  it("leaves F available when no nearby bandage target exists", () => {
+    const state = setup(null, { consumable: true });
+
+    expect(bandageNearbyPlayer(state.conn, state.queries, 0)).toBe(false);
+    expect(state.calls).toEqual([]);
   });
 });

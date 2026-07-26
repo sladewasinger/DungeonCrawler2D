@@ -21,6 +21,20 @@ interface ReleaseAttributes {
   title: string;
 }
 
+const DEVELOPER_BLOCK =
+  /<!--\s*developer-only\s*-->[\s\S]*?<!--\s*\/developer-only\s*-->/gi;
+
+export function publicReleaseNoteSource(body: string, file: string): string {
+  const opening = (body.match(/<!--\s*developer-only\s*-->/gi) ?? []).length;
+  const closing = (body.match(/<!--\s*\/developer-only\s*-->/gi) ?? []).length;
+  if (opening !== closing) {
+    throw new Error(
+      `[release-notes] ${file} has an unmatched developer-only block`,
+    );
+  }
+  return body.replace(DEVELOPER_BLOCK, "");
+}
+
 function parseFrontMatter(
   source: string,
   file: string,
@@ -75,7 +89,7 @@ function emptySections(): ReleaseNote["sections"] {
 function parseSections(body: string, file: string): ReleaseNote["sections"] {
   const sections = emptySections();
   let active: SectionName | undefined;
-  for (const line of body.split(/\r?\n/)) {
+  for (const line of publicReleaseNoteSource(body, file).split(/\r?\n/)) {
     const heading = sectionHeading(line, file);
     if (heading) {
       active = heading;

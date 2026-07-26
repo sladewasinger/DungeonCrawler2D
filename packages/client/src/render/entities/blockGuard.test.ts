@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BLOCK_GUARD_RADIUS_TILES,
+  BLOCK_GUARD_TILT_RAD,
   blockGuardTransform,
 } from "./blockGuard.js";
 
@@ -9,7 +10,7 @@ describe("blockGuardTransform", () => {
     const pose = blockGuardTransform(100, 80, 0, 48, 0);
     expect(pose.x).toBeCloseTo(100 + BLOCK_GUARD_RADIUS_TILES * 48);
     expect(pose.y).toBeCloseTo(80);
-    expect(pose.rotation).toBeCloseTo(Math.PI / 2);
+    expect(pose.rotation).toBeCloseTo(BLOCK_GUARD_TILT_RAD);
   });
 
   it("animates a bounded breathing guard without drifting its center", () => {

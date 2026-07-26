@@ -63,6 +63,20 @@ function normalizeDirection(dirX: number, dirY: number): { nx: number; ny: numbe
   return { nx: dirX / len, ny: dirY / len };
 }
 
+export function isWithinFacingArc(
+  facingX: number,
+  facingY: number,
+  targetX: number,
+  targetY: number,
+  arcCos = MELEE_ARC_COS,
+): boolean {
+  const facing = normalizeDirection(facingX, facingY);
+  const targetLength = Math.hypot(targetX, targetY);
+  if (targetLength <= 0.001) return true;
+  return facing.nx * (targetX / targetLength) +
+      facing.ny * (targetY / targetLength) >= arcCos;
+}
+
 interface BestTargets {
   hostile: TargetCandidate | null;
   friendly: TargetCandidate | null;

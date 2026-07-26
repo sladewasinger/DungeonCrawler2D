@@ -41,7 +41,7 @@ export const threeHudWindowSpecs = (
   content: ThreeHudWindowContents,
 ): HudWindowSpec[] => [
   spec("three-health", "Status", 286, 108, "top-left", content.status),
-  spec("three-compass", "Compass", 82, 82, "top-right", content.compass),
+  spec("three-compass", "Compass", 82, 82, "top-center", content.compass),
   spec("three-buffs", "Buffs and debuffs", 286, 72, "center-left", content.buffs),
   spec("three-hotbar", "Hotbar", 620, 58, "bottom-center", content.hotbar, true),
   spec("three-chat", "Chat", 300, 230, "bottom-left", content.chat, true, {
@@ -50,7 +50,7 @@ export const threeHudWindowSpecs = (
     anchor: "center-left",
   }),
   spec("three-weapon", "Active weapon", 230, 84, "bottom-right", content.weapon),
-  spec("three-party", "Party", 230, 154, "top-center", content.party),
+  spec("three-party", "Party", 260, 230, "top-right", content.party),
   spec("three-telemetry", "World status", 244, 150, "center-right", content.telemetry),
   spec("three-contacts", "Contacts", 260, 340, "center", content.contacts, true, undefined, false),
   spec("three-craft", "Crafting", 390, 420, "center", content.craft, true, undefined, false),

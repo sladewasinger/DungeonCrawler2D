@@ -17,9 +17,6 @@ export const mountHudRoot = (
   element: HTMLElement,
 ): void => {
   root.style.position = "relative";
-  element.style.cssText =
-    "position:absolute;inset:0;z-index:2;pointer-events:none;color:#f2f0eb;" +
-    "font:12px monospace;text-shadow:0 2px 4px #000";
   root.append(element);
 };
 

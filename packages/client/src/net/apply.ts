@@ -1,7 +1,6 @@
-import { World, type AreaTileUpdate, type GameEvent, type ServerSnapshot } from "@dc2d/engine";
-import { parseFistbumpSealPartner } from "../ui/chat/fistbumpSeal.js";
-import { isBossDefId } from "./bossDefIds.js";
+import { World, type AreaTileUpdate, type ServerSnapshot } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
+import { applyEvent } from "./applyEvents.js";
 import { floorChangeEvents } from "./floorEvents.js";
 import { recordSample } from "./interpolate.js";
 import { xpGainEvents } from "./xpEvents.js";
@@ -18,6 +17,7 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   if (snap.events.some((event) => event.t === "teleported")) prepareTeleport(conn);
   conn.serverTick = snap.tick;
   applySelfState(conn, snap, conn.world);
+  conn.world?.replaceTileOverrides(snap.roomDoors ?? []);
   conn.hasReceivedSnapshot = true;
 
   const now = performance.now();
@@ -26,10 +26,8 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   for (const entity of snap.entities) applyEntitySample(conn, serverTime, entity);
   for (const tile of snap.areas) applyAreaTile(conn, tile);
   pruneAreaTiles(conn.areaTiles, snap.self.x, snap.self.y);
-  // Events (incl. a same-tick "death") are applied before `left` prunes conn.entities,
-  // so a dying entity's last known position/defId is still there for the blood-VFX
-  // lookup in scenes/dungeon/visualEvents.ts (its own GameEvent carries no position —
-  // engine/net/server.ts's gameEventSchema — ASSUMPTIONS.md #55).
+  // Capture visual-event targets before `left` prunes conn.entities. Rendering drains
+  // these events later, so queue order alone cannot preserve a dead actor's position.
   for (const event of snap.events) applyEvent(conn, event);
   for (const id of snap.left) conn.entities.delete(id);
   conn.onSnapshot?.();
@@ -100,6 +98,9 @@ function applyVitals(conn: Connection, snap: ServerSnapshot): void {
     snap.self.staminaRecoveryDelaySeconds ?? conn.staminaRecoveryDelaySeconds;
   conn.staminaExhausted =
     snap.self.staminaExhausted ?? conn.staminaExhausted;
+  conn.healthRegenerationDelaySeconds =
+    snap.self.healthRegenerationDelaySeconds ??
+    conn.healthRegenerationDelaySeconds;
   conn.fx = snap.self.fx;
   conn.statusEffects = snapshotStatusEffects(snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
@@ -182,73 +183,4 @@ function applyAreaTile(conn: Connection, tile: AreaTileUpdate): void {
   const key = `${tile.x},${tile.y}`;
   if (tile.defId === null) conn.areaTiles.delete(key);
   else conn.areaTiles.set(key, tile.defId);
-}
-
-/** Appends one chat line and, for the server's exact fistbump-seal phrasing (no
- * dedicated wire event exists — see sim/contacts.ts's sealMutualContact), also
- * queues the local success-flourish visual event. */
-function applyChatEvent(conn: Connection, event: Extract<GameEvent, { t: "chat" }>): void {
-  conn.chatLog.push({
-    channel: event.channel,
-    from: event.from,
-    name: event.name,
-    text: event.text,
-    ...(event.target !== undefined ? { target: event.target } : {}),
-  });
-  conn.chatSeq++;
-  // Deep enough to keep /r's DM-thread lookback working across a busy multi-tab session.
-  if (conn.chatLog.length > 40) conn.chatLog.shift();
-  const sealedWith = parseFistbumpSealPartner(event.channel, event.text);
-  if (sealedWith) conn.visualEvents.push({ t: "fistbumpSealed", partnerName: sealedWith });
-}
-
-function applyEvent(conn: Connection, event: GameEvent): void {
-  switch (event.t) {
-    case "toast":
-      // Routed through Connection.pushToast (net/connection.ts) so server and
-      // client-local toasts (input toasts wiring, Epic 7.13) share one queue/duration.
-      conn.pushToast(event.msg);
-      return;
-    case "chat":
-      applyChatEvent(conn, event);
-      return;
-    case "invite":
-      conn.pendingInvite = { from: event.from, name: event.name };
-      return;
-    case "stash":
-      conn.stash = event.slots;
-      return;
-    case "contactsUpdated":
-      conn.contacts = event.contacts.map((contact) => ({
-        name: contact.name,
-        online: contact.online,
-        ...(contact.id === undefined ? {} : { id: contact.id }),
-      }));
-      return;
-    case "moderationUpdated":
-      conn.mutedPlayers = new Set(event.muted);
-      conn.blockedPlayers = new Set(event.blocked);
-      return;
-    case "teleported":
-      conn.teleported = true;
-      return;
-    case "death":
-      // Applied before `left` prunes conn.entities (see applySnapshot's ordering comment),
-      // so the dying entity's defId/name is still there for the boss-down check below.
-      conn.visualEvents.push(event);
-      pushBossDownIfBoss(conn, event.id);
-      return;
-    default:
-      // Remaining variants (hit/status) are visual-only; the scene drains them.
-      conn.visualEvents.push(event);
-      return;
-  }
-}
-
-/** Epic 7.14 boss-death celebration: the wire has no dedicated "boss defeated" event,
- * so this recognizes it from a plain death whose entity carries a boss content id. */
-function pushBossDownIfBoss(conn: Connection, id: string): void {
-  const snap = conn.entities.get(id)?.snap;
-  if (!isBossDefId(snap?.defId)) return;
-  conn.visualEvents.push({ t: "bossDown", name: snap?.name ?? snap?.defId ?? "The boss" });
 }

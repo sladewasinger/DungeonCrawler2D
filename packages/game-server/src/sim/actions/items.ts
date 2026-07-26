@@ -1,4 +1,5 @@
 import {
+  INTERACT_RANGE,
   MAX_THROW_RANGE,
   THROW_SPEED,
   createBody,
@@ -20,6 +21,7 @@ export function doUseSlot(
   index: number,
   targetX: number | undefined,
   targetY: number | undefined,
+  targetId: string | undefined,
   effectEvents: EffectEvent[],
 ): void {
   const defId = slot.hotbar[index];
@@ -27,12 +29,36 @@ export function doUseSlot(
   const def = sim.content.items.get(defId);
   if (!def || invQty(slot, defId) < 1) return;
 
+  if (targetId !== undefined) {
+    useBandageOnPlayer(sim, slot, defId, targetId, effectEvents);
+    return;
+  }
+
   if (targetX !== undefined && targetY !== undefined && def.throwable) {
     throwItem(sim, slot, defId, def.tags, targetX, targetY);
     return;
   }
 
   consumeItem(sim, slot, defId, effectEvents);
+}
+
+function useBandageOnPlayer(
+  sim: SimState,
+  slot: PlayerSlot,
+  defId: string,
+  targetId: string,
+  effectEvents: EffectEvent[],
+): void {
+  if (defId !== "bandage" || targetId === slot.entity.id) return;
+  const target = sim.players.get(targetId);
+  if (!target?.connected || target.entity.hp <= 0) return;
+  const from = slot.entity.body;
+  const to = target.entity.body;
+  if (Math.hypot(to.x - from.x, to.y - from.y) > INTERACT_RANGE) return;
+  const consumable = sim.content.items.get(defId)?.consumable;
+  if (!consumable) return;
+  sim.effects.runPrimitives(target.entity, consumable.effects, effectEvents, {}, () => sim.rng.next());
+  invRemove(slot, defId, 1);
 }
 
 export function doUseItem(
@@ -99,7 +125,15 @@ export function dispatchItemAction(
 ): void {
   switch (action.type) {
     case "useSlot":
-      doUseSlot(sim, slot, action.slot, action.targetX, action.targetY, effectEvents);
+      doUseSlot(
+        sim,
+        slot,
+        action.slot,
+        action.targetX,
+        action.targetY,
+        action.targetId,
+        effectEvents,
+      );
       break;
     case "useItem":
       doUseItem(sim, slot, action.item, effectEvents);

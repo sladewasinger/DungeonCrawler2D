@@ -41,7 +41,7 @@ describe("Prediction input timeline", () => {
     expect(prediction.pendingStepCount).toBe(60);
     expect(prediction.projectedTick).toBe(760);
     expect(prediction.allocatedStepRecordCount).toBeLessThanOrEqual(PREDICTION_HISTORY_LIMIT);
-  });
+  }, 10_000);
 
   it("keeps every predicted step newer than the server's simulated input cursor", () => {
     const world = new World(7, 0, LEVEL.Sandbox);

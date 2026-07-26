@@ -26,6 +26,14 @@ describe("updateSelfFacing", () => {
     expect(state.faceY).toBe(1);
   });
 
+  it("keeps the last horizontal sprite facing during vertical movement", () => {
+    const state = createSelfCosmeticsState();
+    updateSelfFacing(state, -1, 0);
+    updateSelfFacing(state, 0, -1);
+    expect(state.spriteFaceX).toBe(-1);
+    expect(state.faceY).toBe(-1);
+  });
+
   it("forfeits an active grace ring on real movement input", () => {
     const state = createSelfCosmeticsState();
     startSelfGrace(state, 1000);

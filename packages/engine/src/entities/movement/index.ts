@@ -1,4 +1,8 @@
-import { MOVE_SPEED, RUN_SPEED_MULTIPLIER } from "../../core/constants.js";
+import {
+  BLOCK_SPEED_MULTIPLIER,
+  MOVE_SPEED,
+  RUN_SPEED_MULTIPLIER,
+} from "../../core/constants.js";
 import type { WorldView } from "../../world/types.js";
 import { moveHorizontal } from "./collision.js";
 import { resolveVerticalMotion, updateJumpState } from "./physics.js";
@@ -37,7 +41,9 @@ export function stepBody(
   dt: number,
   opts: StepOpts = {},
 ): StepResult {
-  const speed = (opts.speed ?? MOVE_SPEED) * (input.run ? RUN_SPEED_MULTIPLIER : 1);
+  const speed = (opts.speed ?? MOVE_SPEED) *
+    (input.run ? RUN_SPEED_MULTIPLIER : 1) *
+    (input.block ? BLOCK_SPEED_MULTIPLIER : 1);
 
   updateJumpState(body, input, dt);
   const blockedAxes = moveHorizontal(world, body, input, dt, speed, opts);

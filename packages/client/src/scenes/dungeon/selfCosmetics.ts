@@ -12,6 +12,8 @@ import { SELF_GRACE_DURATION_MS } from "../../vfx/graceRing.js";
 export interface SelfCosmeticsState {
   faceX: number;
   faceY: number;
+  /** Two-direction sprite facing changes only on horizontal input. */
+  spriteFaceX: number;
   attackingUntilMs: number;
   attackDirX: number;
   attackDirY: number;
@@ -20,7 +22,15 @@ export interface SelfCosmeticsState {
 }
 
 export function createSelfCosmeticsState(): SelfCosmeticsState {
-  return { faceX: 1, faceY: 0, attackingUntilMs: 0, attackDirX: 1, attackDirY: 0, graceUntilMs: 0 };
+  return {
+    faceX: 1,
+    faceY: 0,
+    spriteFaceX: 1,
+    attackingUntilMs: 0,
+    attackDirX: 1,
+    attackDirY: 0,
+    graceUntilMs: 0,
+  };
 }
 
 /** Updates facing from the current move intent (holds the last facing while idle) and,
@@ -32,6 +42,7 @@ export function updateSelfFacing(state: SelfCosmeticsState, moveX: number, moveY
   if (moveX === 0 && moveY === 0) return;
   state.faceX = moveX;
   state.faceY = moveY;
+  if (moveX !== 0) state.spriteFaceX = moveX;
 }
 
 /** 3 ticks @ 20Hz — matches game-server/sim/snapshots.ts's playerFields attack-anim window. */

@@ -131,7 +131,10 @@ export class ThreeFirstPersonViewport {
     this.camera.rotation.order = "YXZ";
     const ambient = new THREE.HemisphereLight("#65728d", "#0f0c16", 1.1);
     const moonlight = new THREE.DirectionalLight("#aebde0", 0.6);
+    const playerLight = new THREE.PointLight("#fff0d2", 0.55, 3.2, 2);
+    playerLight.position.set(0, -0.15, 0);
+    this.camera.add(playerLight);
     moonlight.position.set(8, 14, 4);
-    this.scene.add(ambient, moonlight);
+    this.scene.add(ambient, moonlight, this.camera);
   }
 }

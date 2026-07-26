@@ -20,6 +20,7 @@ import type { PlayerEntityView, RenderContext } from "./view.js";
 import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
 import { stepOrbitAngle } from "./weaponOrbit.js";
 import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
+import { updateGuardCone } from "./guardCone.js";
 
 const DOWNED_TINT = 0x7a3d3d;
 const DISCONNECTED_TINT = 0x55555a;
@@ -35,6 +36,7 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     kind: "player",
     body,
     weapon: createHeldWeapon(scene, 0),
+    guardCone: scene.add.graphics(),
     shadow: createShadow(scene, 0),
     hpBar: createHpBar(scene, 0),
     nameplate: createNameplate(scene, 0),
@@ -66,7 +68,7 @@ function updatePlayerBody(
   // exactly on it — see lift.ts's module doc.
   visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
-  visual.body.setFlipX(view.faceX < 0);
+  visual.body.setFlipX(playerFacesLeft(visual, view));
 
   if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = ctx.nowMs;
   applyLandingSquash(visual, view.air, ctx.nowMs);
@@ -165,6 +167,16 @@ function isGuarding(view: PlayerEntityView): boolean {
   return !view.downed && view.blocking;
 }
 
+function playerFacesLeft(
+  visual: PlayerVisual,
+  view: PlayerEntityView,
+): boolean {
+  if (view.weaponId === null || view.weaponAimAngle === null) {
+    return view.faceX < 0;
+  }
+  return Math.cos(visual.weaponAngle) < 0;
+}
+
 function isStriking(view: PlayerEntityView): boolean {
   return !view.downed && !view.blocking && view.attacking;
 }
@@ -175,8 +187,9 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
   applySwingEdge(visual, striking, ctx.nowMs);
   const aimAngle = view.weaponAimAngle;
   const isSelf = aimAngle !== null;
-  if (isSelf) visual.weaponAngle = stepOrbitAngle(visual.weaponAngle, aimAngle, ctx.dtSeconds);
   const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());
+  const guardAngle = isSelf ? visual.weaponAngle : facingAngle;
+  updateGuardCone(visual, blocking, guardAngle);
 
   const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
   const isFistFallback = isSelf && rawFrame === null && !view.downed;
@@ -197,6 +210,13 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
 
 /** Advances one player's full visual for a fresh snapshot sample. */
 export function updatePlayerVisual(visual: PlayerVisual, skinPrefix: string, view: PlayerEntityView, ctx: RenderContext): void {
+  if (view.weaponAimAngle !== null) {
+    visual.weaponAngle = stepOrbitAngle(
+      visual.weaponAngle,
+      view.weaponAimAngle,
+      ctx.dtSeconds,
+    );
+  }
   const groundHeight = ctx.world.groundAt(view.x, view.y);
   const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
   updatePlayerBody(visual, skinPrefix, view, ctx, heightAboveGround);

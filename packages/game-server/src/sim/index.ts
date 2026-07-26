@@ -43,6 +43,7 @@ import {
 } from "./snapshots.js";
 import { configureSnapshotMode, requestSnapshotBaseline } from "./snapshotReplication.js";
 import { expireInvites } from "./social.js";
+import { syncSafeRoomDoors } from "./safeRoomDoors.js";
 import {
   injectGlobalChat,
   listConnectedPlayers,
@@ -238,10 +239,10 @@ export class GameSim {
 
   private advanceTick(): void {
     const sim = this.state;
-    sim.tickCount++;
-    const effectEvents: EffectEvent[] = [];
+    sim.tickCount++; const effectEvents: EffectEvent[] = [];
 
     reapAndRespawn(sim);
+    syncSafeRoomDoors(sim);
     stepPlayers(sim, effectEvents);
     processActions(sim, effectEvents);
     activateChunksNearPlayers(sim);

@@ -11,9 +11,9 @@ const FRAME = "light_soft";
 /** Same particle-layer tier as particleRecipes.ts's PARTICLE_LAYER_DEPTH. */
 const DEPTH = 210_000;
 /** "24+ particles with gravity" per the wave-7 kill-moment brief. */
-export const GIB_PARTICLE_COUNT = 28;
-const LIFESPAN_MS = { min: 320, max: 620 };
-const SPEED_MAX = 160;
+export const GIB_PARTICLE_COUNT = 44;
+const LIFESPAN_MS = { min: 650, max: 1_600 };
+const SPEED_MAX = 190;
 /** Heavier than blood's 60/110 gravityY — chunks arc and land, they don't mist away. */
 const GRAVITY_Y = 260;
 
@@ -25,8 +25,8 @@ export function spawnGibBurst(scene: Phaser.Scene, screenX: number, screenY: num
       lifespan: LIFESPAN_MS,
       speed: { min: SPEED_MAX * 0.2, max: SPEED_MAX },
       angle: { min: 0, max: 360 },
-      scale: { start: 0.26, end: 0.05 },
-      alpha: { start: 0.9, end: 0 },
+      scale: { start: 0.38, end: 0.055 },
+      alpha: { start: 0.98, end: 0 },
       tint: [tint, 0x2a1f1f],
       gravityY: GRAVITY_Y,
       quantity: GIB_PARTICLE_COUNT,

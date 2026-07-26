@@ -34,6 +34,7 @@ class ThreeDungeonClient {
   private previousTime = performance.now();
   private frame = 0;
   private inputClock = 0;
+  private terrainRevision: number;
   private active = false;
 
   constructor(private readonly options: ThreeRouteOptions) {
@@ -45,6 +46,7 @@ class ThreeDungeonClient {
     const spawn = findWalkable(this.world, 0, 0);
     this.state = { x: spawn.x, y: spawn.height, z: spawn.z, verticalVelocity: 0, grounded: true };
     this.terrainOrigin = { x: Math.floor(spawn.x), z: Math.floor(spawn.z) };
+    this.terrainRevision = this.world.tileRevision;
     this.viewport = new ThreeFirstPersonViewport(spawn, this.viewDistance);
     options.root.replaceChildren(this.viewport.renderer.domElement);
     this.releaseMobileDisplay = enableMobileDisplay(options.root);
@@ -148,7 +150,10 @@ class ThreeDungeonClient {
 
   private refreshTerrain(): void {
     const origin = { x: Math.floor(this.state.x), z: Math.floor(this.state.z) };
-    if (!needsTerrainRefresh(this.terrainOrigin, origin, this.viewDistance)) return;
+    const tilesChanged = this.terrainRevision !== this.world.tileRevision;
+    if (!tilesChanged &&
+      !needsTerrainRefresh(this.terrainOrigin, origin, this.viewDistance)) return;
+    this.terrainRevision = this.world.tileRevision;
     this.terrainOrigin = origin;
     this.terrain.rebuild(origin);
   }
@@ -157,6 +162,7 @@ class ThreeDungeonClient {
     const serverWorld = this.options.conn.world;
     if (!serverWorld || serverWorld === this.world) return;
     this.world = serverWorld;
+    this.terrainRevision = this.world.tileRevision;
     this.terrain.dispose();
     this.terrain = new ThreeTerrain(
       this.world,

@@ -25,6 +25,8 @@ export class World implements WorldView {
   // Native number keys skip the per-call template-string allocation + hash that a string
   // key would otherwise pay on every single terrain read.
   private readonly chunks = new Map<number, Map<number, Chunk>>();
+  private tileOverrides = new Map<string, TileType>();
+  tileRevision = 0;
 
   constructor(
     readonly worldSeed: number,
@@ -55,8 +57,31 @@ export class World implements WorldView {
   }
 
   tileAt(wx: number, wy: number): TileType {
+    const overridden = this.tileOverrides.get(`${wx},${wy}`);
+    if (overridden !== undefined) return overridden;
     const { chunk, index } = this.lookup(wx, wy);
     return (chunk.tiles[index] ?? TILE.Wall) as TileType;
+  }
+
+  replaceTileOverrides(
+    overrides: readonly { x: number; y: number; tile: TileType }[],
+  ): void {
+    const next = new Map(overrides.map((entry) => [
+      `${entry.x},${entry.y}`,
+      entry.tile,
+    ]));
+    if (next.size === this.tileOverrides.size) {
+      let equal = true;
+      for (const [key, tile] of next) {
+        if (this.tileOverrides.get(key) !== tile) {
+          equal = false;
+          break;
+        }
+      }
+      if (equal) return;
+    }
+    this.tileOverrides = next;
+    this.tileRevision++;
   }
 
   heightAt(wx: number, wy: number): number {

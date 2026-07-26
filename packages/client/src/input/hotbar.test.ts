@@ -18,6 +18,7 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     pickup: () => calls.push("pickup"),
     attack: () => calls.push("attack"),
     useSlot: () => calls.push("useSlot"),
+    useSlotOnPlayer: () => calls.push("useSlotOnPlayer"),
     useItem: () => calls.push("useItem"),
     throwTorch: () => calls.push("throwTorch"),
     craft: () => calls.push("craft"),

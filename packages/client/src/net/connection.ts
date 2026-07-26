@@ -65,6 +65,7 @@ export class Connection extends ConnectionActions {
   blocking = false;
   staminaRecoveryDelaySeconds = 0;
   staminaExhausted = false;
+  healthRegenerationDelaySeconds = 0;
   readonly contextualActionsUsed = new Set<"attack" | "block">();
   fx: string[] = [];
   /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
@@ -91,6 +92,7 @@ export class Connection extends ConnectionActions {
   // UI state fed by events.
   stash: Array<{ item: string; qty: number }> | null = null;
   pendingInvite: { from: string; name: string } | null = null;
+  readonly outgoingPartyInvites = new Map<string, string>();
   toasts: Toast[] = [];
   chatLog: ChatLine[] = [];
   /** Monotonic count of chat lines ever received — chatLog trims from the front,
@@ -177,11 +179,14 @@ export class Connection extends ConnectionActions {
     this.blocking = false;
     this.staminaRecoveryDelaySeconds = 0;
     this.staminaExhausted = false;
+    this.healthRegenerationDelaySeconds = 0;
     this.downed = false;
     this.justRespawned = false;
     this.hasReceivedSnapshot = false;
     this.snapshotRevisions.reset();
     this.entities.clear();
+    this.pendingInvite = null;
+    this.outgoingPartyInvites.clear();
     this.interpolationFrame.length = 0;
     this.areaTiles.clear();
     this.prediction.reset();

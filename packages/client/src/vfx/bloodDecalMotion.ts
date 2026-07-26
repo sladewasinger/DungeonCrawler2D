@@ -2,8 +2,7 @@
 // object it eventually drives — mirrors damageNumberMotion.ts's split. The bounded
 // lifetime keeps long fights from leaving decals reading as permanent.
 
-/** Blood remains readable during a fight but always disappears within GAME-3's
- * thirty-second combat-readability bound. */
+/** Persistent blood always disappears thirty seconds after it lands. */
 export const DECAL_LIFETIME_MS = 30_000;
 
 /** Decal alpha for elapsed ms since spawn: holds near `baseAlpha` briefly (a fresh

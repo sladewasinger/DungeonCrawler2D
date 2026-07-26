@@ -66,7 +66,10 @@ export class LightSpritePool {
   }
 
   private place(sprite: Phaser.GameObjects.Sprite, light: LightSource, nowMs: number): void {
-    const scale = ((light.radiusTiles * 2 * SCREEN_TILE_PX) / LIGHT_SOURCE_PX) * flickerScale(nowMs, light.seed);
+    const personal = light.kind === "personal";
+    const scale = ((light.radiusTiles * 2 * SCREEN_TILE_PX) / LIGHT_SOURCE_PX) *
+      flickerScale(nowMs, light.seed) *
+      (personal ? 1.65 : 1);
     const screen = worldToScreen(light.x, light.y);
     // GROUND-anchored (ELEVATION-PROJECTION section 5): shift by the light's ground
     // height so a torch/personal halo on a platform glows on the platform, not below it.
@@ -77,7 +80,13 @@ export class LightSpritePool {
     const fade = light.kind === "torch"
       ? torchHaloFade(nowMs, this.visibleSinceMs.get(light.id) ?? nowMs)
       : 1;
-    sprite.setAlpha(Math.min(1, BASE_ALPHA * flickerAlpha(nowMs, light.seed) * fade));
+    sprite.setAlpha(Math.min(
+      1,
+      BASE_ALPHA *
+        (personal ? 0.22 : 1) *
+        flickerAlpha(nowMs, light.seed) *
+        fade,
+    ));
   }
 
   dispose(): void {

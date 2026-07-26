@@ -105,7 +105,7 @@ const createStaticParts = (
     buffs: new ThreeHudBuffs(),
     weapon: new ThreeHudWeapon(),
     telemetry: new ThreeHudTelemetry(),
-    party: new ThreePartyTracker(),
+    party: new ThreePartyTracker(options.connection),
     tutorials,
     notices: new ThreeHudNotices(),
     inventory: new ThreeHudInventory(

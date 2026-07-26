@@ -21,6 +21,7 @@ describe("selfPlayerView", () => {
   it("carries local facing and attack-pulse cosmetics, not server fields", () => {
     const cosmetics = createSelfCosmeticsState();
     cosmetics.faceX = -1;
+    cosmetics.spriteFaceX = -1;
     triggerSelfAttack(cosmetics, 1000, -1, 0);
     const view = selfPlayerView(
       { id: "p1", name: "Hero", x: 1, y: 2, z: 0, air: false },
@@ -85,6 +86,17 @@ describe("remotePlayerView", () => {
 
   it("derives attackAngleRad from reported facing as the best available proxy", () => {
     const view = remotePlayerView(entity({ id: "e3", kind: "player", faceX: 0, faceY: -1 }));
+    expect(view.attackAngleRad).toBeCloseTo(-Math.PI / 2);
+  });
+
+  it("keeps the last horizontal sprite side through vertical movement", () => {
+    const view = remotePlayerView(entity({
+      id: "e4", kind: "player", faceX: -1, faceY: 0,
+    }));
+    remotePlayerView(entity({
+      id: "e4", kind: "player", faceX: 0, faceY: -1,
+    }), view);
+    expect(view.faceX).toBe(-1);
     expect(view.attackAngleRad).toBeCloseTo(-Math.PI / 2);
   });
 });

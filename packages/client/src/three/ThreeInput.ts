@@ -5,8 +5,21 @@ import { GiveUpGesture } from "../input/giveUp.js";
 
 const LOOK_LIMIT = 1.42;
 const MOUSE_SENSITIVITY = 0.0024;
+const MAX_MOUSE_DELTA = 160;
+const POINTER_LOCK_SPIKE_DELTA = 500;
+const FULL_TURN = Math.PI * 2;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+export const safeMouseDelta = (value: number): number => {
+  if (!Number.isFinite(value) || Math.abs(value) > POINTER_LOCK_SPIKE_DELTA) {
+    return 0;
+  }
+  return clamp(value, -MAX_MOUSE_DELTA, MAX_MOUSE_DELTA);
+};
+
+export const normalizedYaw = (value: number): number =>
+  ((value % FULL_TURN) + FULL_TURN) % FULL_TURN;
 
 const editingText = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
@@ -24,6 +37,7 @@ export interface ThreeInputSample {
   interactPressed: boolean;
   interactHeld: boolean;
   throwItem: boolean;
+  bandageOther: boolean;
   giveUp: boolean;
 }
 
@@ -58,7 +72,7 @@ export class ThreeInput {
       return this.blockedSample();
     }
     const touch = this.touch.read(elapsed);
-    this.yaw += touch.yaw;
+    this.yaw = normalizedYaw(this.yaw + touch.yaw);
     this.pitch = clamp(this.pitch + touch.pitch, -LOOK_LIMIT, LOOK_LIMIT);
     return {
       input: {
@@ -77,6 +91,7 @@ export class ThreeInput {
       interactPressed: touch.interactPressed || this.consumePress("KeyE"),
       interactHeld: touch.interactHeld || this.held.has("KeyE"),
       throwItem: touch.throwItem || this.consumePress("KeyG"),
+      bandageOther: this.consumePress("KeyF"),
       giveUp: this.giveUp.poll(true, performance.now()),
     };
   }
@@ -127,6 +142,7 @@ export class ThreeInput {
       interactPressed: false,
       interactHeld: false,
       throwItem: false,
+      bandageOther: false,
       giveUp: false,
     };
   }
@@ -139,7 +155,7 @@ export class ThreeInput {
   private readonly onKeyDown = (event: KeyboardEvent) => {
     if (this.gameplayBlocked() || editingText(event.target) ||
       inventoryOwnsEvent(event.target)) return;
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyG", "KeyK"].includes(event.code)) {
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyE", "KeyF", "KeyG", "KeyK"].includes(event.code)) {
       event.preventDefault();
     }
     if (!this.held.has(event.code)) this.pressed.add(event.code);
@@ -171,8 +187,14 @@ export class ThreeInput {
 
   private readonly onMouseMove = (event: MouseEvent) => {
     if (document.pointerLockElement !== this.canvas) return;
-    this.yaw -= event.movementX * MOUSE_SENSITIVITY;
-    this.pitch = clamp(this.pitch - event.movementY * MOUSE_SENSITIVITY, -LOOK_LIMIT, LOOK_LIMIT);
+    this.yaw = normalizedYaw(
+      this.yaw - safeMouseDelta(event.movementX) * MOUSE_SENSITIVITY,
+    );
+    this.pitch = clamp(
+      this.pitch - safeMouseDelta(event.movementY) * MOUSE_SENSITIVITY,
+      -LOOK_LIMIT,
+      LOOK_LIMIT,
+    );
   };
 
   private readonly capturePointer = (event: PointerEvent) => {

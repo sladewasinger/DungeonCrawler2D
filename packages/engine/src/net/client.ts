@@ -59,6 +59,8 @@ export const clientUseSlotSchema = z.object({
   /** Present = throw at this tile (if throwable); absent = consume. */
   targetX: z.number().optional(),
   targetY: z.number().optional(),
+  /** Nearby player to receive a bandage; ignored for every other item. */
+  targetId: z.string().max(64).optional(),
 });
 
 export const clientUseItemSchema = z.object({
@@ -104,7 +106,7 @@ export const clientStashSchema = z.object({
 
 export const clientPartySchema = z.object({
   type: z.literal("party"),
-  op: z.enum(["invite", "accept", "decline", "leave", "kick"]),
+  op: z.enum(["invite", "accept", "decline", "cancel", "leave", "kick"]),
   target: z.string().max(32).optional(),
 });
 

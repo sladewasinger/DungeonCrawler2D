@@ -104,7 +104,7 @@ describe("shared HTML HUD compass", () => {
     expect(compass).toMatchObject({
       id: "three-compass",
       title: "Compass",
-      anchor: "top-right",
+      anchor: "top-center",
       defaultVisible: true,
     });
     const telemetry = threeHudWindowSpecs(contents()).find((window) => window.id === "three-telemetry");

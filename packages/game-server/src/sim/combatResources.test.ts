@@ -19,9 +19,20 @@ const simAt = (tickCount: number, hp = 20) => {
     tickCount,
     players: new Map([["p", slot]]),
     effects: {
-      modifyHealth(target: typeof entity, amount: number, events: EffectEvent[]) {
+      modifyHealth(
+        target: typeof entity,
+        amount: number,
+        events: EffectEvent[],
+        options: { healthSource?: "automatic" } = {},
+      ) {
         target.hp = Math.min(target.maxHp, target.hp + amount);
-        events.push({ t: "hp", id: target.id, delta: amount, hp: target.hp });
+        events.push({
+          t: "hp",
+          id: target.id,
+          delta: amount,
+          hp: target.hp,
+          ...(options.healthSource === undefined ? {} : { source: options.healthSource }),
+        });
       },
     },
   } as unknown as SimState;
@@ -52,5 +63,18 @@ describe("applyHealthRegeneration", () => {
     expect(current.slot.lastDamageAtTick).toBe(10_000);
     expect(current.entity.hp).toBe(20);
     expect(events).toHaveLength(1);
+  });
+
+  it("marks passive regeneration so clients can suppress floating numbers", () => {
+    const ready = simAt(HEALTH_REGEN_DELAY_SECONDS * TICK_RATE);
+    const events: EffectEvent[] = [];
+    applyHealthRegeneration(ready.sim, events);
+    expect(events).toEqual([{
+      t: "hp",
+      id: "p",
+      delta: 0.5,
+      hp: 20.5,
+      source: "automatic",
+    }]);
   });
 });

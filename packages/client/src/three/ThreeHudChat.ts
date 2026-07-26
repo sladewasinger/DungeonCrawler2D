@@ -6,45 +6,32 @@ import {
   type RenderChatLine,
 } from "../ui/chat/controller.js";
 import type { ChatTabId } from "../ui/chat/chatTabs.js";
-import { HUD_GOLD, HUD_PANEL } from "./ThreeHudStyles.js";
-
-const createInput = (mobile: boolean) => {
-  const input = document.createElement("input");
-  input.placeholder = "press Enter to chat";
-  input.maxLength = 500;
-  input.style.cssText =
-    `width:100%;box-sizing:border-box;padding:${mobile ? 5 : 7}px;` +
-    "background:#131421;color:#f2f0eb;border:1px solid #555a75;font:12px monospace";
-  return input;
-};
+import { HUD_GOLD } from "./ThreeHudStyles.js";
+import { createHudTemplate } from "./hudTemplate.js";
 
 export class ThreeHudChat {
-  readonly element = document.createElement("div");
-  private readonly tabs = document.createElement("div");
-  private readonly lines = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly tabs: HTMLElement;
+  private readonly lines: HTMLElement;
   private readonly input: HTMLInputElement;
   private readonly chat: ChatController;
   private renderedSeq = -1;
 
   constructor(
     private readonly connection: Connection,
-    mobile: boolean,
+    _mobile: boolean,
     private readonly focusGame: () => void,
     setTextInputFocused: (focused: boolean) => void,
     private readonly toggleContacts: () => void,
   ) {
     this.chat = new ChatController(connection);
-    this.input = createInput(mobile);
-    this.element.style.cssText =
-      `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr auto;gap:6px`;
-    this.tabs.style.cssText = "display:grid;grid-template-columns:repeat(5,1fr);gap:3px";
-    this.lines.style.cssText =
-      "min-height:0;overflow-y:auto;display:flex;flex-direction:column;" +
-      "gap:5px;color:#d4d1df;overflow-wrap:anywhere;white-space:pre-wrap";
+    this.element = createHudTemplate<HTMLElement>("hud-chat-template");
+    this.tabs = this.requireElement("[data-hud-chat-tabs]");
+    this.lines = this.requireElement("[data-hud-chat-lines]");
+    this.input = this.requireElement<HTMLInputElement>("[data-hud-chat-input]");
     this.input.addEventListener("keydown", (event) => this.submit(event));
     this.input.addEventListener("focus", () => setTextInputFocused(true));
     this.input.addEventListener("blur", () => setTextInputFocused(false));
-    this.element.append(this.tabs, this.lines, this.input);
     this.render();
   }
 
@@ -98,11 +85,12 @@ export class ThreeHudChat {
     contacts.type = "button";
     contacts.textContent = "contacts";
     contacts.setAttribute("aria-label", "Toggle contacts");
-    contacts.style.cssText =
-      "padding:4px 2px;border:1px solid #555a75;background:#1b1c2c;" +
-      "color:#e6e5ef;font:10px monospace;pointer-events:auto";
+    contacts.className = "hud-chat__tab";
     contacts.addEventListener("click", this.toggleContacts);
-    this.tabs.replaceChildren(...model.tabs.map((tab) => this.createTab(tab)), contacts);
+    this.tabs.replaceChildren(
+      ...model.tabs.map((tab) => this.createTab(tab)),
+      contacts,
+    );
     this.lines.replaceChildren(...model.lines.map((line) => this.createLine(line)));
     this.lines.scrollTop = this.lines.scrollHeight;
   }
@@ -111,12 +99,11 @@ export class ThreeHudChat {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = `${tab.id}${tab.unread ? " •" : ""}`;
-    button.style.cssText =
-      `padding:4px 2px;border:1px solid ${
-        tab.active ? HUD_GOLD : "#555a75"
-      };background:#1b1c2c;color:${
-        tab.active ? HUD_GOLD : "#e6e5ef"
-      };opacity:${tab.dim ? ".45" : "1"};font:10px monospace;pointer-events:auto`;
+    button.className = [
+      "hud-chat__tab",
+      tab.active ? "hud-chat__tab--active" : "",
+      tab.dim ? "hud-chat__tab--dim" : "",
+    ].filter(Boolean).join(" ");
     button.addEventListener("click", () => this.selectTab(tab.id));
     return button;
   }
@@ -133,5 +120,11 @@ export class ThreeHudChat {
     author.style.color = line.author === "system" ? HUD_GOLD : "#f2f0eb";
     entry.append(author, document.createTextNode(line.text));
     return entry;
+  }
+
+  private requireElement<T extends HTMLElement>(selector: string): T {
+    const element = this.element.querySelector<T>(selector);
+    if (!element) throw new Error(`Missing chat HUD element: ${selector}`);
+    return element;
   }
 }

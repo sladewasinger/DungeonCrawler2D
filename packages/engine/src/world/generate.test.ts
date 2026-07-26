@@ -108,16 +108,14 @@ describe("world generation", () => {
     expect(clearFloor).toBeGreaterThan(60);
   });
 
-  it("the instanced safe room has sanctuary, portal doors, and fixtures", () => {
+  it("the instanced safe room has dynamic portal sites and sanctuary", () => {
     const world = new World(SEED, FLOOR);
     const doorCx = 3;
     const doorCy = -2;
     const f = safeRoomFeatures(doorCx, doorCy);
-    expect(world.tileAt(f.doorPersonal.x, f.doorPersonal.y)).toBe(TILE.DoorPersonal);
-    expect(world.tileAt(f.doorParty.x, f.doorParty.y)).toBe(TILE.DoorParty);
+    expect(f.doors).toHaveLength(20);
+    expect(f.doors.every((door) => world.tileAt(door.x, door.y) === TILE.Floor)).toBe(true);
     expect(world.tileAt(f.exit.x, f.exit.y)).toBe(TILE.DoorExit);
-    expect(world.tileAt(f.stash.x, f.stash.y)).toBe(TILE.Stash);
-    expect(world.tileAt(f.table.x, f.table.y)).toBe(TILE.CraftingTable);
 
     const spawn = safeRoomSpawn(doorCx, doorCy);
     expect(world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);

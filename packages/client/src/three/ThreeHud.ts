@@ -17,6 +17,7 @@ import {
   mountHudReticle,
 } from "./ThreeHudSetup.js";
 import type { ViewDistance } from "./viewDistance.js";
+import { createHudTemplate } from "./hudTemplate.js";
 export interface ThreeHudUpdate {
   connection: Connection;
   world: World;
@@ -39,7 +40,7 @@ export interface ThreeHudOptions {
 }
 
 export class ThreeHud {
-  readonly element = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-root-template");
   private readonly parts: ThreeHudComposition;
   private readonly keyboard: ThreeHudKeyboard;
   private readonly focusGame: () => void;

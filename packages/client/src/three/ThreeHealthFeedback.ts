@@ -6,6 +6,7 @@ const VISIBLE_MS = 900;
 
 function feedbackEvent(event: VisualEvent) {
   if (event.t === "health") {
+    if (event.source === "automatic") return null;
     return healthFeedback(event.delta, event.kind);
   }
   if (event.t === "hit") return healthFeedback(event.amount);

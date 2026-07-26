@@ -22,6 +22,7 @@ export const PARTY_ROOM_W = 17;
 export const PARTY_ROOM_H = 13;
 export const SAFE_ROOM_W = 17;
 export const SAFE_ROOM_H = 11;
+export const SAFE_ROOM_MAX_OCCUPANTS = 20;
 
 export function isRoomChunk(cy: number): boolean {
   return cy >= ROOM_REGION_CY;
@@ -89,28 +90,21 @@ export function safeRoomSpawn(doorCx: number, doorCy: number): { x: number; y: n
 
 /** World tile coords of a safe room's fixtures (tests, UI hints). */
 export function safeRoomFeatures(doorCx: number, doorCy: number): {
-  doorPersonal: { x: number; y: number };
-  doorParty: { x: number; y: number };
+  doors: Array<{ x: number; y: number }>;
   exit: { x: number; y: number };
-  stash: { x: number; y: number };
-  table: { x: number; y: number };
 } {
   const chunk = safeRoomChunk(doorCx, doorCy);
   const baseX = chunk.cx * CHUNK_SIZE;
   const baseY = chunk.cy * CHUNK_SIZE;
-  const left = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_W / 2);
   const top = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_H / 2);
   const centerX = baseX + Math.floor(CHUNK_SIZE / 2);
   return {
-    doorPersonal: { x: centerX - 2, y: baseY + top + 1 },
-    doorParty: { x: centerX + 2, y: baseY + top + 1 },
+    doors: safeRoomDoorPositions(chunk.cx, chunk.cy),
     // North wall (docs/ROADMAP.md's filed ruling, 2026-07-20: "exit doors
     // default to the north/back wall" — the safe room's north row has a
     // free center column, DoorPersonal/DoorParty sitting at +-2 either
     // side of it) — see placeFixtures's matching exitLy.
-    exit: { x: centerX, y: baseY + top + 1 },
-    stash: { x: baseX + left + 1, y: baseY + top + 1 },
-    table: { x: baseX + left + SAFE_ROOM_W - 2, y: baseY + top + 1 },
+    exit: { x: centerX, y: baseY + top + SAFE_ROOM_H - 2 },
   };
 }
 
@@ -143,7 +137,7 @@ export function personalRoomFeatures(slot: number): {
  */
 const ROOM_WALL_RISE = 3;
 
-type RoomKind = "personal" | "party" | "safe";
+export type RoomKind = "personal" | "party" | "safe";
 
 interface RoomSlot {
   kind: RoomKind;
@@ -163,6 +157,29 @@ function roomSlotAt(cx: number, cy: number): RoomSlot | null {
     return { kind: "safe", w: SAFE_ROOM_W, h: SAFE_ROOM_H };
   }
   return null;
+}
+
+export function roomKindAt(cx: number, cy: number): RoomKind | null {
+  return roomSlotAt(cx, cy)?.kind ?? null;
+}
+
+const SAFE_DOOR_LOCAL_POSITIONS: ReadonlyArray<readonly [number, number]> = [
+  [8, 1], [10, 1], [12, 1], [14, 1],
+  [15, 2], [15, 4], [15, 6], [15, 8],
+  [14, 9], [12, 9], [10, 9], [6, 9], [4, 9], [2, 9],
+  [1, 8], [1, 6], [1, 4], [1, 2],
+  [2, 1], [4, 1],
+];
+
+/** Twenty clockwise portal positions, beginning at the north-wall center. */
+export function safeRoomDoorPositions(cx: number, cy: number): Array<{ x: number; y: number }> {
+  if (roomKindAt(cx, cy) !== "safe") return [];
+  const left = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_W / 2);
+  const top = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_H / 2);
+  return SAFE_DOOR_LOCAL_POSITIONS.map(([dx, dy]) => ({
+    x: cx * CHUNK_SIZE + left + dx,
+    y: cy * CHUNK_SIZE + top + dy,
+  }));
 }
 
 type SetTile = (lx: number, ly: number, tile: number, zone?: number) => void;
@@ -204,7 +221,7 @@ function placeFixtures(
   const centerLx = Math.floor(CHUNK_SIZE / 2);
   // North/back wall by default (docs/ROADMAP.md's filed ruling) — "party"
   // is the one exception, its north row already spent on DoorPersonal.
-  const exitOnSouth = kind === "party";
+  const exitOnSouth = kind === "party" || kind === "safe";
   const exitLy = exitOnSouth ? top + h - 2 : top + 1;
   set(centerLx, exitLy, TILE.DoorExit);
   if (exitOnSouth) carveSouthAlcove(set, centerLx, top + h - 1);
@@ -213,15 +230,7 @@ function placeFixtures(
     // Stash on the west wall, crafting table on the east wall.
     set(left + 1, top + 1, TILE.Stash);
     set(left + w - 2, top + 1, TILE.CraftingTable);
-  } else if (kind === "safe") {
-    // The shared safe room: personal + party doors flank the now-north-
-    // wall exit (portals — shared geometry, per-player destinations),
-    // with a communal stash and crafting table in the corners.
-    set(centerLx - 2, top + 1, TILE.DoorPersonal);
-    set(centerLx + 2, top + 1, TILE.DoorParty);
-    set(left + 1, top + 1, TILE.Stash);
-    set(left + w - 2, top + 1, TILE.CraftingTable);
-  } else {
+  } else if (kind === "party") {
     // Party room: a personal door on the north wall — each member's
     // own room, one door, different destinations (that's the trick:
     // the door is shared geometry; the server teleports per-player).

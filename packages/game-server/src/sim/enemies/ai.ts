@@ -16,6 +16,7 @@ import {
 import { effectTargetFor, isBodyInChasm } from "../helpers.js";
 import { gracedClearanceCenters, insideGracedClearance, isSpawnProtected } from "../spawnSafety.js";
 import type { EnemySlot, SimState } from "../state.js";
+import { blocksAttackFrom } from "../directionalBlock.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
 
@@ -142,7 +143,7 @@ function resolveStrike(sim: SimState, enemy: EnemySlot, targetId: string, effect
   if (d > enemy.def.attack.range + 0.3) return;
 
   enemy.animation = { state: "attack", ticksRemaining: MELEE_ATTACK_TICKS };
-  if (victimSlot.blocking) return;
+  if (blocksAttackFrom(victimSlot, entity)) return;
   const target = effectTargetFor(sim, victim);
   sim.effects.modifyHealth(victim, -enemy.def.attack.damage, effectEvents, { sourceTags: enemy.def.tags }, target);
   for (const apply of enemy.def.attack.applies ?? []) {

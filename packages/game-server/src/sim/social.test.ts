@@ -69,6 +69,26 @@ describe("social", () => {
     expect(b.partyId).toBeNull();
   });
 
+  it("lets an inviter cancel an outstanding invitation", () => {
+    doParty(sim, a, "invite", b.entity.id);
+    doParty(sim, a, "cancel", b.entity.id);
+    expect(sim.invites.has(b.entity.id)).toBe(false);
+    expect(a.outbox).toContainEqual({
+      t: "partyInviteState",
+      direction: "outgoing",
+      action: "removed",
+      id: b.entity.id,
+      name: "B",
+    });
+    expect(b.outbox).toContainEqual({
+      t: "partyInviteState",
+      direction: "incoming",
+      action: "removed",
+      id: a.entity.id,
+      name: "A",
+    });
+  });
+
   it("assigns a leader, restricts invites, and lets the leader kick", () => {
     const c = makeSocialSlot("C", 11, 10);
     sim.players.set(c.entity.id, c);

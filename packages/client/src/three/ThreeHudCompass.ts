@@ -1,6 +1,6 @@
 import type { World } from "@dc2d/engine";
 import { resolveStairwayTick } from "../scenes/dungeon/stairwayTick.js";
-import { HUD_MUTED, HUD_PANEL } from "./ThreeHudStyles.js";
+import { HUD_MUTED } from "./ThreeHudStyles.js";
 import type { StairwayTickData } from "../ui/widgets/hud/fakeData.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import type { FirstPersonState } from "./movement.js";
@@ -71,7 +71,8 @@ export class ThreeHudCompass {
   constructor() {
     this.element.dataset.compass = "true";
     this.element.setAttribute("role", "img");
-    this.element.style.cssText = `${HUD_PANEL};display:grid;place-items:center;padding:6px`;
+    this.element.style.cssText =
+      "display:grid;place-items:center;padding:6px;background:transparent;border:0";
     const dial = document.createElement("div");
     dial.style.cssText =
       "position:relative;width:58px;height:58px;border:2px solid #5f637c;border-radius:50%;box-sizing:border-box";

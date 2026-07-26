@@ -7,6 +7,7 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     id: z.string(),
     delta: z.number(),
     kind: z.enum(["heal", "damage"]),
+    source: z.literal("automatic").optional(),
   }),
   z.object({ t: z.literal("death"), id: z.string() }),
   z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
@@ -21,6 +22,13 @@ export const gameEventSchema = z.discriminatedUnion("t", [
   }),
   z.object({ t: z.literal("toast"), msg: z.string() }),
   z.object({ t: z.literal("invite"), from: z.string(), name: z.string() }),
+  z.object({
+    t: z.literal("partyInviteState"),
+    direction: z.enum(["incoming", "outgoing"]),
+    action: z.enum(["added", "removed"]),
+    id: z.string(),
+    name: z.string(),
+  }),
   z.object({
     t: z.literal("moderationUpdated"),
     muted: z.array(z.string()),

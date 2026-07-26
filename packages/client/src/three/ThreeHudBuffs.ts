@@ -13,14 +13,23 @@ export class ThreeHudBuffs {
   }
 
   update(connection: Connection): void {
-    const signature = connection.statusEffects.length > 0
+    const statusSignature = connection.statusEffects.length > 0
       ? connection.statusEffects
         .map((status) => `${status.id}:${status.remainingSeconds}`)
         .join("|")
       : connection.fx.join("|");
+    const showAutoHealing = connection.healthRegenerationDelaySeconds <= 0;
+    const signature = `${showAutoHealing}:${statusSignature}`;
     if (signature === this.signature) return;
     this.signature = signature;
-    this.element.style.visibility = connection.fx.length > 0 ? "visible" : "hidden";
+    this.element.style.visibility = "visible";
+    const passive = showAutoHealing
+      ? document.createElement("span")
+      : null;
+    if (passive) {
+      passive.textContent = "basic auto healing";
+      passive.className = "hud-buff hud-buff--positive";
+    }
     const chips = statusViews(connection.statusEffects, connection.fx).map((status) => {
       const chip = document.createElement("span");
       chip.textContent = `${status.id.replaceAll("-", " ")} ${Math.ceil(status.remainingSeconds)}s`;
@@ -32,6 +41,6 @@ export class ThreeHudBuffs {
         };font-size:10px;text-transform:uppercase`;
       return chip;
     });
-    this.element.replaceChildren(...chips);
+    this.element.replaceChildren(...(passive ? [passive] : []), ...chips);
   }
 }

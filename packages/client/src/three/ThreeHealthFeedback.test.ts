@@ -42,4 +42,22 @@ describe("ThreeHealthFeedback", () => {
     feedback.update(connection, 1_000);
     expect(feedback.element.hidden).toBe(true);
   });
+
+  it("does not show passive automatic healing", () => {
+    vi.stubGlobal("document", { createElement: () => element() });
+    const connection = new Connection("ws://test", "Crawler", "client");
+    connection.welcome = { playerId: "self" } as never;
+    connection.visualEvents.push({
+      t: "health",
+      id: "self",
+      delta: 1,
+      kind: "heal",
+      source: "automatic",
+    });
+    const feedback = new ThreeHealthFeedback();
+
+    feedback.update(connection, 100);
+
+    expect(feedback.element.hidden).toBe(true);
+  });
 });

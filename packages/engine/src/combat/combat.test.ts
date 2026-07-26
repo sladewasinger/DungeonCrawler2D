@@ -5,7 +5,7 @@ import type { EnemyDef } from "../effects/types.js";
 import { makeEntity, type Entity } from "../entities/entity.js";
 import { createBody } from "../entities/movement/index.js";
 import { enemyThink, newBrain } from "./ai.js";
-import { pickMeleeTarget } from "./melee.js";
+import { isWithinFacingArc, pickMeleeTarget } from "./melee.js";
 
 function combatant(kind: "player" | "enemy", x: number, y: number, partyId?: string): Entity {
   const e = makeEntity(kind, createBody(x, y, 0), { hp: 20, maxHp: 20 });
@@ -201,5 +201,14 @@ describe("melee cone-vs-body (point-blank playability)", () => {
     const offAxis = enemyAt(1.5, 50);
     expect(pickMeleeTarget(attacker, 1, 0, [offAxis], () => false, 2, 0.7071)).toBe(offAxis);
     expect(pickMeleeTarget(attacker, 1, 0, [offAxis], () => false, 1.6, 0.8)).toBeNull();
+  });
+});
+
+describe("directional guard arc", () => {
+  it("covers the same forward half-angle as melee but leaves the rear exposed", () => {
+    expect(isWithinFacingArc(1, 0, 1, 0)).toBe(true);
+    expect(isWithinFacingArc(1, 0, 1, 1)).toBe(true);
+    expect(isWithinFacingArc(1, 0, 0, 1)).toBe(false);
+    expect(isWithinFacingArc(1, 0, -1, 0)).toBe(false);
   });
 });

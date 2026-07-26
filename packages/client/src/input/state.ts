@@ -52,6 +52,7 @@ export interface InputConnection {
   pickup(): void;
   attack(dx: number, dy: number): void;
   useSlot(index: number, targetX?: number, targetY?: number): void;
+  useSlotOnPlayer(index: number, targetId: string): void;
   useItem(item: string): void;
   /** Throws a hotbar torch toward an aim direction. */
   throwTorch(dirX: number, dirY: number): void;

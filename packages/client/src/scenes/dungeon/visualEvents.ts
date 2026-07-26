@@ -40,16 +40,47 @@ function resolveHealthEvent(event: VisualEvent) {
     id: event.id,
     delta: event.amount,
     kind: event.amount > 0 ? "heal" as const : "damage" as const,
+    ...(event.x === undefined ? {} : { x: event.x }),
+    ...(event.y === undefined ? {} : { y: event.y }),
+    ...(event.defId === undefined ? {} : { defId: event.defId }),
+    ...(event.targetKind === undefined ? {} : { targetKind: event.targetKind }),
   };
 }
 
 /** Resolves a visual-event target's rendered position, content defId (enemies only),
  * entity kind, and (self only) the knockback vector its body exposes — see bloodDirection.ts. */
-function resolveTarget(conn: Connection, render: RenderPose, isSelf: boolean, id: string) {
+interface CapturedTarget {
+  x?: number;
+  y?: number;
+  defId?: string;
+  targetKind?: "player" | "enemy";
+}
+
+function capturedPosition(captured: CapturedTarget) {
+  if (captured.x === undefined || captured.y === undefined) return undefined;
+  return { x: captured.x, y: captured.y };
+}
+
+function selfKnockback(conn: Connection, isSelf: boolean) {
+  if (!isSelf || !conn.body) return undefined;
+  return { x: conn.body.kx, y: conn.body.ky };
+}
+
+function resolveTarget(
+  conn: Connection,
+  render: RenderPose,
+  isSelf: boolean,
+  id: string,
+  captured: CapturedTarget,
+) {
   const targetSnap = isSelf ? undefined : conn.entities.get(id)?.snap;
-  const pos = isSelf ? render : targetSnap;
-  const dir = isSelf && conn.body ? { x: conn.body.kx, y: conn.body.ky } : undefined;
-  return { pos, defId: targetSnap?.defId, kind: targetSnap?.kind, dir };
+  const pos = isSelf ? render : capturedPosition(captured) ?? targetSnap;
+  return {
+    pos,
+    defId: captured.defId ?? targetSnap?.defId,
+    kind: captured.targetKind ?? targetSnap?.kind,
+    dir: selfKnockback(conn, isSelf),
+  };
 }
 
 function applyHealthChange(
@@ -57,14 +88,31 @@ function applyHealthChange(
   vfx: VfxSystem,
   render: RenderPose,
   selfId: string | undefined,
-  event: { id: string; delta: number; kind: "heal" | "damage" },
+  event: {
+    id: string;
+    delta: number;
+    kind: "heal" | "damage";
+    source?: "automatic" | undefined;
+    x?: number;
+    y?: number;
+    defId?: string;
+    targetKind?: "player" | "enemy";
+  },
   pendingSwings: Map<string, PendingSwing>,
   nowMs: number,
 ): void {
   const isSelf = event.id === selfId;
-  const { pos, defId, dir } = resolveTarget(conn, render, isSelf, event.id);
+  const { pos, defId, dir } = resolveTarget(
+    conn,
+    render,
+    isSelf,
+    event.id,
+    event,
+  );
   if (pos) {
-    vfx.spawnDamageNumber(pos.x, pos.y - 0.6, healthFeedback(event.delta, event.kind), nowMs);
+    if (event.source !== "automatic") {
+      vfx.spawnDamageNumber(pos.x, pos.y - 0.6, healthFeedback(event.delta, event.kind), nowMs);
+    }
     if (event.kind === "heal") return;
     const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
     vfx.spawnBloodHit(pos.x, pos.y, groundHeight, defId, nowMs, dir?.x, dir?.y);
@@ -83,11 +131,23 @@ function applyDeath(
   vfx: VfxSystem,
   render: RenderPose,
   selfId: string | undefined,
-  event: { id: string },
+  event: {
+    id: string;
+    x?: number;
+    y?: number;
+    defId?: string;
+    targetKind?: "player" | "enemy";
+  },
   nowMs: number,
 ): void {
   const isSelf = event.id === selfId;
-  const { pos, defId, kind } = resolveTarget(conn, render, isSelf, event.id);
+  const { pos, defId, kind } = resolveTarget(
+    conn,
+    render,
+    isSelf,
+    event.id,
+    event,
+  );
   if (!pos) return;
   const groundHeight = conn.world?.groundAt(pos.x, pos.y) ?? 0;
   vfx.spawnBloodDeath(pos.x, pos.y, groundHeight, defId, nowMs);

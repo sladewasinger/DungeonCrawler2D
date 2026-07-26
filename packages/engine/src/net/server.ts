@@ -39,6 +39,7 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   blocking: z.boolean().optional(),
   staminaRecoveryDelaySeconds: z.number().nonnegative().optional(),
   staminaExhausted: z.boolean().optional(),
+  healthRegenerationDelaySeconds: z.number().nonnegative().optional(),
   /** Active status ids (HUD icons / tint). */
   fx: z.array(z.string()),
   /** Timed status state for authoritative HUD progress; additive for rolling clients. */
@@ -131,6 +132,14 @@ export const areaTileSchema = z.object({
 });
 export type AreaTileUpdate = z.infer<typeof areaTileSchema>;
 
+export const safeRoomDoorSnapshotSchema = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  tile: z.union([z.literal(3), z.literal(4)]),
+  ownerId: z.string(),
+});
+export type SafeRoomDoorSnapshot = z.infer<typeof safeRoomDoorSnapshotSchema>;
+
 export const serverWelcomeSchema = z.object({
   type: z.literal("welcome"),
   protocol: z.number().int(),
@@ -160,6 +169,7 @@ export const serverSnapshotSchema = z.object({
   left: z.array(z.string()),
   events: z.array(gameEventSchema),
   areas: z.array(areaTileSchema),
+  roomDoors: z.array(safeRoomDoorSnapshotSchema).optional(),
 });
 
 export const entitySnapshotRevisionSchema = entitySnapshotSchema.extend({
@@ -195,6 +205,7 @@ export const serverSnapshotDeltaSchema = z.object({
   left: z.array(z.string()),
   events: z.array(gameEventSchema),
   areas: z.array(areaTileSchema),
+  roomDoors: z.array(safeRoomDoorSnapshotSchema).optional(),
 });
 
 export const serverPongSchema = z.object({ type: z.literal("pong"), t: z.number() });

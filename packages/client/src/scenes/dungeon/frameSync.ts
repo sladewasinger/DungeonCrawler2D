@@ -145,7 +145,6 @@ export function syncLightingAndVfx(
       ) visibleTorchLights.push(torch);
   }
   vfx.syncTorchFlames(visibleTorchLights);
-  vfx.trackPlayerMotion(render.x, render.y, !conn.body.grounded, state.cosmetics.faceX, nowMs);
   // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
   // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush
   // whatever's left over into the whiff cue before this frame's vfx.update fades it.
@@ -155,6 +154,21 @@ export function syncLightingAndVfx(
   applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);
   // Panel round 4 (LANE B): shield ring, self-only — countdown itself is driven by
   // selfCosmetics.ts's consumeRespawnGrace/endSelfGrace.
+  syncSelfVfx(conn, vfx, state, render, nowMs);
+}
+
+function syncSelfVfx(
+  conn: Connection,
+  vfx: VfxSystem,
+  state: DungeonSceneState,
+  render: RenderPose,
+  nowMs: number,
+): void {
+  if (!conn.body) return;
+  vfx.trackPlayerMotion(render.x, render.y, !conn.body.grounded, state.cosmetics.faceX, nowMs);
   vfx.graceRing.sync(render.x, render.y, state.cosmetics.graceUntilMs, nowMs);
+  vfx.syncOutOfBreath(
+    render.x, render.y, state.cosmetics.spriteFaceX, conn.staminaExhausted, nowMs,
+  );
   vfx.update(nowMs);
 }

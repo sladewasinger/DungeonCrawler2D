@@ -1,15 +1,14 @@
 import {
   AOI_RADIUS,
-  PLAYER_MAX_STAMINA,
-  xpForLevel,
-  type GameEvent,
-  type ServerSnapshot,
+  type GameEvent, type SafeRoomDoorSnapshot, type ServerSnapshot,
 } from "@dc2d/engine";
 import { versionedEntitySnapshot, type VersionedEntitySnapshot } from "./entitySnapshots.js";
 import { socialDeliveryAllowed } from "./moderation.js";
 import { newSnapshotPendingState, type SnapshotPendingState } from "./snapshotState.js";
 import { type SpatialEntityIndex } from "./spatialEntities.js";
 import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
+import { safeRoomDoorsForSlot } from "./safeRoomDoors.js";
+import { toSelfSnapshot } from "./selfSnapshot.js";
 
 /** Common per-player state collected once before full/delta wire formatting. */
 
@@ -23,50 +22,12 @@ export interface PlayerSnapshotFrame {
   entities: VersionedEntitySnapshot[];
   left: string[];
   events: GameEvent[];
-  areas: ServerSnapshot["areas"];
+  areas: ServerSnapshot["areas"]; roomDoors: SafeRoomDoorSnapshot[];
   visibleIds: Set<string>;
   privateEventCount: number;
   pendingEventCount: number;
   pendingAreaKeys: string[];
   includesFullAreas: boolean;
-}
-
-function toSelfSnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["self"] {
-  const self = slot.entity;
-  const level = slot.stored.level ?? 1;
-  const xp = slot.stored.xp ?? 0;
-  return {
-    x: self.body.x,
-    y: self.body.y,
-    z: self.body.z,
-    zVel: self.body.zVel,
-    grounded: self.body.grounded,
-    coyoteTime: self.body.coyoteTime,
-    jumpBuffer: self.body.jumpBuffer,
-    jumpHeld: self.body.jumpHeld,
-    kx: self.body.kx,
-    ky: self.body.ky,
-    hp: self.hp,
-    maxHp: self.maxHp,
-    stamina: slot.stamina ?? PLAYER_MAX_STAMINA,
-    maxStamina: slot.maxStamina ?? PLAYER_MAX_STAMINA,
-    blocking: slot.blocking ?? false,
-    staminaRecoveryDelaySeconds: slot.staminaRecoveryDelaySeconds ?? 0, staminaExhausted: slot.staminaExhausted ?? false,
-    fx: self.statuses.map((status) => status.defId),
-    statusEffects: self.statuses.map((status) => ({
-      id: status.defId,
-      remainingSeconds: status.remaining === null
-        ? null
-        : Math.max(0, status.remaining),
-      durationSeconds: sim.content.statuses.get(status.defId)?.duration ?? null,
-    })),
-    ...(slot.downedAtTick !== null ? { downed: true } : {}),
-    xp,
-    level,
-    xpForNext: xpForLevel(level + 1) - xp,
-    floor: sim.world.floor,
-    deepestFloor: slot.stored.deepestFloor ?? 1,
-  };
 }
 
 function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party"] {
@@ -190,7 +151,7 @@ export function buildPlayerSnapshotFrame(
     entities: visible.entities,
     left: leavingEntities(slot, visible.ids),
     events: snapshotEvents(slot, pending),
-    areas: area.areas,
+    areas: area.areas, roomDoors: safeRoomDoorsForSlot(sim, slot),
     visibleIds: visible.ids,
     privateEventCount: slot.outbox.length,
     pendingEventCount: pending.events.length,

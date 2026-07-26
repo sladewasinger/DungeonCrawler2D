@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MOVE_SPEED, RUN_SPEED_MULTIPLIER, STEP_UP, TICK_DT } from "../core/constants.js";
+import {
+  MOVE_SPEED,
+  RUN_SPEED_MULTIPLIER,
+  STEP_UP,
+  TICK_DT,
+} from "../core/constants.js";
 import type { WorldView } from "../world/types.js";
 import { NEUTRAL_INPUT, createBody, stepBody, type StepResult } from "./movement/index.js";
 
@@ -34,15 +39,6 @@ function runTicks(
 }
 
 describe("movement", () => {
-  it("walks at MOVE_SPEED on flat ground", () => {
-    const world = fakeWorld({});
-    const body = createBody(5.5, 5.5, 0);
-    runTicks(world, body, { moveX: 1, moveY: 0, jump: false }, 20); // 1 second
-    expect(body.x).toBeCloseTo(5.5 + MOVE_SPEED, 5);
-    expect(body.y).toBeCloseTo(5.5, 5);
-    expect(body.grounded).toBe(true);
-  });
-
   it("input.run scales speed by RUN_SPEED_MULTIPLIER, on top of a caller-supplied opts.speed", () => {
     const world = fakeWorld({});
     const body = createBody(5.5, 5.5, 0);

@@ -11,6 +11,18 @@ import {
   useSelectedOrInteract,
 } from "./ThreeSelectedActions.js";
 
+const nearestPlayerId = (
+  connection: Connection,
+  body: { x: number; y: number },
+): string | undefined => [...connection.entities.values()]
+  .filter(({ snap }) => snap.kind === "player")
+  .map(({ snap }) => ({
+    id: snap.id,
+    distance: Math.hypot(snap.x - body.x, snap.y - body.y),
+  }))
+  .filter(({ distance }) => distance <= INTERACT_RANGE)
+  .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id))[0]?.id;
+
 export class ThreeActionController {
   private selectedSlot: number | null = null;
   private readonly revive = new ReviveGesture();
@@ -25,7 +37,7 @@ export class ThreeActionController {
   };
 
   publish(world: World, sample: ThreeInputSample): void {
-    const { yaw, attack, throwItem, giveUp } = sample;
+    const { yaw, attack, throwItem, bandageOther, giveUp } = sample;
     if (attack) {
       this.connection.attack(-Math.sin(yaw), -Math.cos(yaw));
     }
@@ -33,7 +45,17 @@ export class ThreeActionController {
     if (throwItem) {
       throwSelectedItem(this.connection, this.selectedSlot, yaw);
     }
+    if (bandageOther) this.bandageNearestPlayer();
     if (giveUp && this.connection.downed) this.connection.suicide();
+  }
+
+  private bandageNearestPlayer(): void {
+    const body = this.connection.body;
+    const slot = this.selectedSlot;
+    if (!body || slot === null || this.connection.hotbar[slot] !== "bandage") return;
+    if (!this.connection.inventory.some((stack) => stack.item === "bandage" && stack.qty > 0)) return;
+    const targetId = nearestPlayerId(this.connection, body);
+    if (targetId) this.connection.useSlotOnPlayer(slot, targetId);
   }
 
   private publishInteraction(world: World, sample: ThreeInputSample): void {

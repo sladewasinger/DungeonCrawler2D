@@ -47,6 +47,7 @@ function fullSnapshot(slot: PlayerSlot, frame: PlayerSnapshotFrame): ServerSnaps
     left: frame.left,
     events: frame.events,
     areas: frame.areas,
+    roomDoors: frame.roomDoors,
     inventory: slot.inventory.map((stack) => ({ ...stack })),
     hotbar: [...slot.hotbar],
     entities: frame.entities.map(({ snapshot }) => snapshot),
@@ -77,6 +78,7 @@ function deltaSnapshot(
     left: frame.left,
     events: frame.events,
     areas: frame.areas,
+    roomDoors: frame.roomDoors,
   });
 }
 

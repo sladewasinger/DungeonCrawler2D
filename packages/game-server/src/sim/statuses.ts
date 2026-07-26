@@ -71,6 +71,7 @@ export function realizeEffectEvents(sim: SimState, effectEvents: EffectEvent[]):
             id: event.id,
             delta: event.delta,
             kind: event.delta > 0 ? "heal" : "damage",
+            ...(event.source === undefined ? {} : { source: event.source }),
           },
           ...positionOf(sim, event.id),
         });

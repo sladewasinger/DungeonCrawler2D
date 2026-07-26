@@ -2,7 +2,7 @@
  * Contextual item/interact and aim actions shared by keyboard, mouse, and touch.
  * The controller owns event wiring; this module owns action priority and targeting.
  */
-import { MAX_THROW_RANGE, type MoveInput } from "@dc2d/engine";
+import { INTERACT_RANGE, MAX_THROW_RANGE, type MoveInput } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { screenDirToWorld } from "./cameraRelative.js";
 import { activeThrowableSlot } from "./hotbar.js";
@@ -54,6 +54,41 @@ function useFallback(conn: InputConnection, fallback: "interact" | "pickup"): vo
   if (fallback === "pickup") return conn.pickup();
   conn.pushToast("Nothing to interact with here");
   conn.interact();
+}
+
+/** F applies the selected bandage to the nearest player in interaction range. */
+export function bandageNearbyPlayer(
+  conn: InputConnection,
+  queries: InputQueries,
+  selectedSlot: number | null,
+): boolean {
+  if (selectedSlot === null || conn.hotbar[selectedSlot] !== "bandage") return false;
+  if (!conn.inventory.some((stack) => stack.item === "bandage" && stack.qty > 0)) return false;
+  const targetId = queries.nearestPlayerId(conn, INTERACT_RANGE);
+  if (!targetId) return false;
+  conn.useSlotOnPlayer(selectedSlot, targetId);
+  return true;
+}
+
+export function bindBandageKey(
+  key: Phaser.Input.Keyboard.Key,
+  conn: InputConnection,
+  queries: InputQueries,
+  selectedSlot: () => number | null,
+  fallbackDown: () => void,
+  fallbackUp: () => void,
+  blocked: () => boolean,
+): void {
+  let handled = false;
+  key.on("down", () => {
+    if (blocked() || handled) return;
+    handled = bandageNearbyPlayer(conn, queries, selectedSlot());
+    if (!handled) fallbackDown();
+  });
+  key.on("up", () => {
+    if (!handled) return fallbackUp();
+    handled = false;
+  });
 }
 
 /** Adds normalized cursor aim to the fixed-step movement sample. */

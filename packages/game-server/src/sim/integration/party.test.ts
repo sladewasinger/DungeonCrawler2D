@@ -138,11 +138,10 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(entity.body.y).toBeCloseTo(safe.y, 3);
     expect(sim.world.isSanctuary(Math.floor(safe.x), Math.floor(safe.y))).toBe(true);
     const safeF = safeRoomFeatures(door.doorCx, door.doorCy);
-    expect(sim.world.tileAt(safeF.doorPersonal.x, safeF.doorPersonal.y)).toBe(TILE.DoorPersonal);
+    const personalDoor = safeF.doors[0]!;
     expect(sim.world.tileAt(safeF.exit.x, safeF.exit.y)).toBe(TILE.DoorExit);
-    expect(sim.world.tileAt(safeF.stash.x, safeF.stash.y)).toBe(TILE.Stash);
 
-    teleport(entity, safeF.doorPersonal.x + 0.5, safeF.doorPersonal.y + 0.5, sim);
+    teleport(entity, personalDoor.x + 0.5, personalDoor.y + 0.5, sim);
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
     const spawn = personalRoomSpawn(0); // first client gets slot 0
@@ -153,7 +152,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
     teleport(entity, features.exit.x + 0.5, features.exit.y + 0.5, sim);
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
-    expect(entity.body.x).toBeCloseTo(safeF.doorPersonal.x + 0.5, 3);
+    expect(entity.body.x).toBeCloseTo(personalDoor.x + 0.5, 3);
 
     teleport(entity, safeF.exit.x + 0.5, safeF.exit.y + 0.5, sim);
     sim.queueAction(a.playerId, { type: "interact" });

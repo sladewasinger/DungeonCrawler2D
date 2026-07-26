@@ -1,4 +1,4 @@
-// Pooled corpse/bone decals: one per enemy kill, hard-capped, brief fade
+// Pooled gore-and-bone decals: one per enemy kill, hard-capped, 30s fade
 // (corpseDecalMotion.ts) — reuses bloodDecalPool.ts's exact grow/recycle shape and
 // bloodDecalSlots.ts's pure cap arithmetic, per the wave-7 "blood-decal pool
 // pattern" brief. A bone-pale cross Shape (not a sprite — no bone art in the atlas),
@@ -13,14 +13,15 @@ import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
 
 export const CORPSE_DECAL_CAP = 24;
-const BASE_ALPHA = 0.75;
+const BASE_ALPHA = 0.92;
 const BONE_COLOR = 0xd8cdb8;
-const CROSS_LENGTH_PX = 14;
+const CROSS_LENGTH_PX = 17;
 const CROSS_THICKNESS_PX = 3;
 const DEPTH_BIAS = -0.25;
 
 interface CorpseDecal {
   readonly container: Phaser.GameObjects.Container;
+  readonly gore: Phaser.GameObjects.Ellipse[];
   spawnMs: number;
 }
 
@@ -33,13 +34,19 @@ export class CorpseDecalPool {
   /** Places one bone-cross decal near (worldX, worldY) — grows the pool until
    * CORPSE_DECAL_CAP, then recycles the oldest-cycled slot round-robin. `groundHeight`
    * is the kill position's `groundAt`, GROUND-anchoring the decal (section 5). */
-  spawn(worldX: number, worldY: number, groundHeight: number, nowMs: number): void {
+  spawn(
+    worldX: number,
+    worldY: number,
+    groundHeight: number,
+    tint: number,
+    nowMs: number,
+  ): void {
     const decal = shouldGrowPool(this.decals.length, CORPSE_DECAL_CAP) ? this.grow() : this.recycle();
-    this.place(decal, worldX, worldY, groundHeight, nowMs);
+    this.place(decal, worldX, worldY, groundHeight, tint, nowMs);
   }
 
   private grow(): CorpseDecal {
-    const decal: CorpseDecal = { container: this.buildShape(), spawnMs: -Infinity };
+    const decal = this.buildDecal();
     this.decals.push(decal);
     return decal;
   }
@@ -51,21 +58,40 @@ export class CorpseDecalPool {
     return this.decals[index]!;
   }
 
-  private buildShape(): Phaser.GameObjects.Container {
-    const vertical = this.scene.add.rectangle(0, 0, CROSS_THICKNESS_PX, CROSS_LENGTH_PX, BONE_COLOR);
-    const horizontal = this.scene.add.rectangle(0, 0, CROSS_LENGTH_PX, CROSS_THICKNESS_PX, BONE_COLOR);
-    return this.scene.add.container(0, 0, [vertical, horizontal]).setBlendMode(Phaser.BlendModes.NORMAL);
+  private buildDecal(): CorpseDecal {
+    const gore = [
+      this.scene.add.ellipse(-5, 2, 15, 9),
+      this.scene.add.ellipse(5, 1, 13, 10),
+      this.scene.add.ellipse(0, -4, 10, 8),
+    ];
+    const bones = [
+      this.scene.add.rectangle(-4, -1, CROSS_THICKNESS_PX, CROSS_LENGTH_PX, BONE_COLOR),
+      this.scene.add.rectangle(4, 1, CROSS_LENGTH_PX, CROSS_THICKNESS_PX, BONE_COLOR),
+    ];
+    const container = this.scene.add
+      .container(0, 0, [...gore, ...bones])
+      .setBlendMode(Phaser.BlendModes.NORMAL);
+    return { container, gore, spawnMs: -Infinity };
   }
 
-  private place(decal: CorpseDecal, worldX: number, worldY: number, groundHeight: number, nowMs: number): void {
+  private place(
+    decal: CorpseDecal,
+    worldX: number,
+    worldY: number,
+    groundHeight: number,
+    tint: number,
+    nowMs: number,
+  ): void {
     const screen = worldToScreen(worldX, worldY);
     const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const scatterPx = 6;
     const scatterX = (Math.random() - 0.5) * scatterPx;
     const scatterY = (Math.random() - 0.5) * scatterPx;
+    for (const blob of decal.gore) blob.setFillStyle(tint, 1);
     decal.container
       .setPosition(screen.x + scatterX, shiftedY + scatterY)
       .setRotation(Math.random() * Math.PI)
+      .setScale(1.15)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
       .setDepth(depthForEntityNow(worldX, worldY) + DEPTH_BIAS);

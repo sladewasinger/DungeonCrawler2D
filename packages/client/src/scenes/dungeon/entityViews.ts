@@ -77,7 +77,7 @@ export function selfPlayerView(
   view.hp = vitals.hp;
   view.maxHp = vitals.maxHp;
   view.fx = vitals.fx;
-  view.faceX = cosmetics.faceX;
+  view.faceX = cosmetics.spriteFaceX;
   view.faceY = cosmetics.faceY;
   view.air = pose.air;
   view.downed = vitals.downed;

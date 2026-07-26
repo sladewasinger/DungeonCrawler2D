@@ -67,6 +67,7 @@ function createInputActions(conn: Connection): Omit<
     pickup: () => conn.pickup(),
     attack: (dx, dy) => conn.attack(dx, dy),
     useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
+    useSlotOnPlayer: (slot, targetId) => conn.useSlotOnPlayer(slot, targetId),
     useItem: (item) => conn.useItem(item),
     throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY),
     craft: (recipeId) => conn.craft(recipeId),

@@ -23,12 +23,25 @@ export interface ContactInfo {
   online: boolean;
 }
 
+interface CapturedCombatTarget {
+  x?: number;
+  y?: number;
+  defId?: string;
+  targetKind?: "player" | "enemy";
+}
+
 /** Visual-only events the scene consumes each frame. */
 export type VisualEvent =
-  | { t: "hit"; id: string; amount: number }
-  | { t: "health"; id: string; delta: number; kind: "heal" | "damage" }
-  | { t: "death"; id: string }
-  | { t: "status"; id: string; status: string; on: boolean }
+  | ({ t: "hit"; id: string; amount: number } & CapturedCombatTarget)
+  | {
+    t: "health";
+    id: string;
+    delta: number;
+    kind: "heal" | "damage";
+    source?: "automatic" | undefined;
+  } & CapturedCombatTarget
+  | ({ t: "death"; id: string } & CapturedCombatTarget)
+  | ({ t: "status"; id: string; status: string; on: boolean } & CapturedCombatTarget)
   /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated
    * wire event for a sealed contact, only the system chat line this is derived from. */
   | { t: "fistbumpSealed"; partnerName: string }

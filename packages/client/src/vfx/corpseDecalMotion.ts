@@ -2,7 +2,7 @@
 // (pure, unit-testable apart from the Shape it eventually drives) but "brief" per
 // the wave-7 kill-moment brief: a corpse marks the kill, it isn't a permanent decal.
 
-export const CORPSE_DECAL_LIFETIME_MS = 15_000;
+export const CORPSE_DECAL_LIFETIME_MS = 30_000;
 
 /** Holds near `baseAlpha` briefly, then fades linearly to 0 over the remaining lifetime. */
 export function corpseDecalAlpha(elapsedMs: number, baseAlpha: number): number {

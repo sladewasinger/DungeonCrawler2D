@@ -35,12 +35,16 @@ export class TerrainRenderer {
   private readonly settledWindow = new SettledChunkWindow();
   private drainNextUpdate = false;
   private dynamicLights: readonly DynamicLightSeed[] = [];
+  private tileRevision: number;
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: World,
-  ) {}
+  ) {
+    this.tileRevision = world.tileRevision;
+  }
 
   update(view: ViewRect): void {
+    this.invalidateChangedTiles();
     if (this.canSkipSettledWindow(view)) return;
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const knownKeys = new Set([
@@ -79,6 +83,12 @@ export class TerrainRenderer {
       () => performance.now(),
     );
     this.captureSettledWindow(view);
+  }
+
+  private invalidateChangedTiles(): void {
+    if (this.tileRevision === this.world.tileRevision) return;
+    this.tileRevision = this.world.tileRevision;
+    this.invalidateAll();
   }
 
   private canSkipSettledWindow(view: ViewRect): boolean {

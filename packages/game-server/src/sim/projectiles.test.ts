@@ -14,4 +14,9 @@ describe("directProjectileIsBlocked", () => {
   it("does not suppress direct projectiles when blocking is inactive", () => {
     expect(directProjectileIsBlocked(undefined, false)).toBe(false);
   });
+
+  it("only blocks projectiles arriving inside the guard cone", () => {
+    expect(directProjectileIsBlocked(undefined, true, 1, 0, 1, 0)).toBe(true);
+    expect(directProjectileIsBlocked(undefined, true, 1, 0, -1, 0)).toBe(false);
+  });
 });

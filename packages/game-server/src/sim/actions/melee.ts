@@ -13,6 +13,7 @@ import {
 } from "@dc2d/engine";
 import { combatants, effectTargetFor } from "../helpers.js";
 import type { PlayerSlot, SimState } from "../state.js";
+import { blocksAttackFrom } from "../directionalBlock.js";
 
 /** Melee swing resolution: cooldown gating, targeting-aid, damage, knockback. */
 
@@ -67,13 +68,12 @@ function resolveHit(
   victim: Entity,
   effectEvents: EffectEvent[],
 ): void {
+  if (meleeHitIsBlocked(sim, victim, attacker)) return;
   const weapon = weaponDef?.weapon;
   const damage = (weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim);
   const target = effectTargetFor(sim, victim);
   sim.effects.modifyHealth(victim, -damage, effectEvents, { sourceTags: weaponDef?.tags ?? [] }, target);
-  for (const apply of weapon?.applies ?? []) {
-    if (sim.rng.next() < apply.chance) sim.effects.applyStatus(victim, apply.status, effectEvents, target);
-  }
+  applyWeaponStatuses(sim, victim, weaponDef, target, effectEvents);
   applyKnockback(
     victim.body,
     victim.body.x - attacker.body.x,
@@ -81,6 +81,27 @@ function resolveHit(
     KNOCKBACK_FORCE,
   );
   finishIfDownedPlayer(sim, victim, effectEvents);
+}
+
+function meleeHitIsBlocked(sim: SimState, victim: Entity, attacker: Entity): boolean {
+  const victimSlot = victim.kind === "player"
+    ? sim.players.get(victim.id)
+    : undefined;
+  return blocksAttackFrom(victimSlot, attacker);
+}
+
+function applyWeaponStatuses(
+  sim: SimState,
+  victim: Entity,
+  weaponDef: ItemDef | undefined,
+  target: ReturnType<typeof effectTargetFor>,
+  effectEvents: EffectEvent[],
+): void {
+  for (const apply of weaponDef?.weapon?.applies ?? []) {
+    if (sim.rng.next() < apply.chance) {
+      sim.effects.applyStatus(victim, apply.status, effectEvents, target);
+    }
+  }
 }
 
 /** Partying preserves friendly fire, but halves direct melee damage between members. */

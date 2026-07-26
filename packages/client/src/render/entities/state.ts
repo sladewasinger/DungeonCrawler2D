@@ -16,6 +16,7 @@ interface CombatantParts {
 export interface PlayerVisual extends CombatantParts {
   readonly kind: "player";
   readonly weapon: Phaser.GameObjects.Sprite;
+  readonly guardCone?: Phaser.GameObjects.Graphics;
   lastHp: number | undefined;
   hitFlashStartMs: number | undefined;
   lastX: number;
@@ -73,7 +74,10 @@ export function destroyEntityVisual(visual: EntityVisual): void {
     visual.hpBar.container.destroy();
     visual.nameplate.destroy();
   }
-  if (visual.kind === "player") visual.weapon.destroy();
+  if (visual.kind === "player") {
+    visual.weapon.destroy();
+    visual.guardCone?.destroy();
+  }
   if (visual.kind === "item") visual.shadow.destroy();
   if (visual.kind === "projectile") visual.trail.destroy();
 }

@@ -23,6 +23,8 @@ export const MOVE_SPEED = 8;
 // nothing to port here; the multiplier is a fresh tuning call against the roadmap's
 // own "likely ~1.5x" hint (docs/ASSUMPTIONS.md #65).
 export const RUN_SPEED_MULTIPLIER = 1.5;
+/** A raised guard trades mobility for protection. Shared prediction/server physics apply it once. */
+export const BLOCK_SPEED_MULTIPLIER = 0.5;
 export const PLAYER_MAX_STAMINA = 100;
 export const SPRINT_STAMINA_PER_SECOND = 22;
 export const BLOCK_STAMINA_PER_SECOND = 14;

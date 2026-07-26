@@ -8,11 +8,16 @@ import {
   partyRoomSpawn,
   personalRoomSpawn,
   safeRoomSpawn,
+  safeRoomChunk,
   type EffectEvent,
 } from "@dc2d/engine";
 import { findSpawn } from "../spawn.js";
 import { resetInputTimeline } from "../playerInputTimeline.js";
 import type { PlayerSlot, SimState } from "../state.js";
+import {
+  safeRoomDoorAt,
+  safeRoomHasCapacity,
+} from "../safeRoomDoors.js";
 
 /** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
 
@@ -64,10 +69,17 @@ function useDoor(
   slot: PlayerSlot,
   door: { tile: number; x: number; y: number },
 ): boolean {
+  const assigned = safeRoomDoorAt(sim, door.x, door.y);
+  if (assigned) return useAssignedSafeRoomDoor(sim, slot, assigned.ownerId);
   switch (door.tile) {
     case TILE.DoorSafeRoom: {
       const doorCx = Math.floor(door.x / CHUNK_SIZE);
       const doorCy = Math.floor(door.y / CHUNK_SIZE);
+      const room = safeRoomChunk(doorCx, doorCy);
+      if (!safeRoomHasCapacity(sim, room.cx, room.cy)) {
+        slot.outbox.push({ t: "toast", msg: "That safe room is full" });
+        return true;
+      }
       teleport(sim, slot, safeRoomSpawn(doorCx, doorCy), { remember: true });
       slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
       return true;
@@ -85,6 +97,30 @@ function useDoor(
     default:
       return false;
   }
+}
+
+function useAssignedSafeRoomDoor(
+  sim: SimState,
+  slot: PlayerSlot,
+  ownerId: string,
+): boolean {
+  const owner = sim.players.get(ownerId);
+  if (!owner?.connected) return true;
+  if (!owner.partyId) {
+    teleport(sim, slot, personalRoomSpawn(owner.stored.slot), { remember: true });
+    slot.outbox.push({ t: "toast", msg: `${owner.entity.name ?? "Player"}'s room` });
+    return true;
+  }
+  if (slot.partyId !== owner.partyId) {
+    slot.outbox.push({ t: "toast", msg: "That party room is private" });
+    return true;
+  }
+  const party = sim.parties.get(owner.partyId);
+  if (!party) return true;
+  party.roomSlot ??= sim.nextPartyRoom++;
+  teleport(sim, slot, partyRoomSpawn(party.roomSlot), { remember: true });
+  slot.outbox.push({ t: "toast", msg: "The party room" });
+  return true;
 }
 
 function useDoorParty(sim: SimState, slot: PlayerSlot): void {

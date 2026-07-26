@@ -54,7 +54,9 @@ export function remotePlayerFieldsInto(
   target.hp = valueOr(snapshot.hp, REMOTE_DEFAULTS.hp);
   target.maxHp = valueOr(snapshot.maxHp, REMOTE_DEFAULTS.maxHp);
   target.fx = valueOr(snapshot.fx, REMOTE_DEFAULTS.fx);
-  target.faceX = faceX;
+  target.faceX = faceX === 0
+    ? target.faceX ?? REMOTE_DEFAULTS.faceX
+    : faceX;
   target.faceY = faceY;
   target.air = valueOr(snapshot.air, REMOTE_DEFAULTS.air);
   target.downed = valueOr(snapshot.downed, REMOTE_DEFAULTS.downed);

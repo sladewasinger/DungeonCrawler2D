@@ -51,9 +51,16 @@ export class ThreeHudStatus {
     this.xpFill.style.width = `${xpRatio * 100}%`;
     this.healthLabel.textContent =
       `${Math.ceil(Math.max(0, connection.hp))} / ${connection.maxHp}`;
-    this.staminaLabel.textContent = connection.blocking
-      ? `Blocking · ${Math.ceil(connection.stamina)} stamina`
-      : `${Math.ceil(connection.stamina)} / ${connection.maxStamina} stamina`;
+    this.staminaLabel.textContent = connection.staminaExhausted
+      ? connection.staminaRecoveryDelaySeconds > 0
+        ? `OUT OF BREATH · ${connection.staminaRecoveryDelaySeconds.toFixed(1)}s`
+        : "OUT OF BREATH · recovering"
+      : connection.blocking
+        ? `Blocking · ${Math.ceil(connection.stamina)} stamina`
+        : `${Math.ceil(connection.stamina)} / ${connection.maxStamina} stamina`;
+    this.staminaLabel.style.color = connection.staminaExhausted
+      ? "#ffc46b"
+      : "#9ddbd2";
     this.xpLabel.textContent =
       `Lv ${connection.charLevel} · ${connection.xpForNext} XP to next`;
     this.title.textContent = connection.hp <= 0

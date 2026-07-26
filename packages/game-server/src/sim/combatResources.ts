@@ -13,6 +13,15 @@ import type { PlayerSlot, SimState } from "./state.js";
 
 const REGEN_DELAY_TICKS = Math.ceil(HEALTH_REGEN_DELAY_SECONDS * TICK_RATE);
 
+export const healthRegenerationDelaySeconds = (
+  sim: SimState,
+  slot: PlayerSlot,
+): number => Math.max(
+  0,
+  ((slot.lastDamageAtTick ?? sim.tickCount) + REGEN_DELAY_TICKS -
+    sim.tickCount) / TICK_RATE,
+);
+
 const ensureResourceState = (slot: PlayerSlot) => {
   slot.maxStamina ??= PLAYER_MAX_STAMINA;
   slot.stamina ??= slot.maxStamina;
@@ -74,6 +83,7 @@ export function applyHealthRegeneration(
       slot.entity,
       HEALTH_REGEN_PER_SECOND,
       effectEvents,
+      { healthSource: "automatic" },
     );
   }
 }

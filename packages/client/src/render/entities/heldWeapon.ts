@@ -102,7 +102,7 @@ function positionGuard(
     pose.wielderDepth + Math.sin(facingAngle) * WEAPON_DEPTH_BIAS,
   );
   sprite.setFlipX(false);
-  sprite.setFlipY(false);
+  sprite.setFlipY(Math.cos(facingAngle) < 0);
   sprite.setPosition(guard.x, guard.y);
   sprite.setRotation(guard.rotation);
   sprite.setScale(WORLD_PIXEL_SCALE * guard.scale);

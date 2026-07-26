@@ -10,7 +10,7 @@
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
 import { screenDirToWorld, screenMoveToWorld } from "./cameraRelative.js";
-import { interactOrUse, throwSelected, withPointerFacing } from "./gameplayActions.js";
+import { bindBandageKey, interactOrUse, throwSelected, withPointerFacing } from "./gameplayActions.js";
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "./fistbump.js";
 import { GiveUpGesture } from "./giveUp.js";
@@ -77,8 +77,7 @@ export class InputController {
     keys.K.on("up", () => this.giveUp.end(this.scene.time.now));
     keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
     keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
-    keys.F.on("down", guardedAction(() => holdDown(this.fistbumpHold, this.scene.time.now), blocked));
-    keys.F.on("up", () => this.releaseFistbumpHold(conn, queries));
+    bindBandageKey(keys.F, conn, queries, () => state.selectedSlot, () => holdDown(this.fistbumpHold, this.scene.time.now), () => this.releaseFistbumpHold(conn, queries), blocked);
     keys.ESC.on("down", () => {
       state.selectedSlot = null;
       const panelsWereOpen = panels.inventoryOpen || panels.craftOpen || panels.stashOpen;

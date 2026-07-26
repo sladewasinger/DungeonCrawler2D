@@ -20,6 +20,7 @@ import { TeleportFade } from "./teleportFade.js";
 import { lowHpVignetteAlpha } from "./lowHpVignette.js";
 import { LowHpOverlay } from "./lowHpOverlay.js";
 import { MeleeSwingFx } from "./meleeSwingFx.js";
+import { OutOfBreathFx } from "./outOfBreathFx.js";
 import { PlayerMotionFx } from "./playerMotionFx.js";
 import { spawnPickupGlint } from "./pickupGlint.js";
 import { ScreenShakeBudget } from "./screenShake.js";
@@ -52,6 +53,7 @@ export class VfxSystem {
    * self player's own render pose (no other subsystem needs a raw world position). */
   readonly graceRing: GraceRing;
   private readonly playerMotionFx: PlayerMotionFx;
+  private readonly outOfBreathFx: OutOfBreathFx;
   private selfHpRatio = 1;
 
   constructor(private readonly scene: Phaser.Scene) {
@@ -67,6 +69,7 @@ export class VfxSystem {
     this.levelUpFlourish = new LevelUpFlourish(scene);
     this.lowHpOverlay = new LowHpOverlay(scene);
     this.playerMotionFx = new PlayerMotionFx(scene);
+    this.outOfBreathFx = new OutOfBreathFx(scene);
     this.floorBanner = new FloorBanner(scene);
     this.bossDownFlourish = new BossDownFlourish(scene);
     this.teleportFade = new TeleportFade(scene);
@@ -91,6 +94,16 @@ export class VfxSystem {
     nowMs: number,
   ): void {
     this.playerMotionFx.track(x, y, air, faceX, nowMs);
+  }
+
+  syncOutOfBreath(
+    x: number,
+    y: number,
+    faceX: number,
+    exhausted: boolean,
+    nowMs: number,
+  ): void {
+    this.outOfBreathFx.sync(x, y, faceX, exhausted, nowMs);
   }
 
   spawnDamageNumber(worldX: number, worldY: number, feedback: import("../ui/healthFeedback.js").HealthFeedback, nowMs: number): void {
@@ -136,6 +149,7 @@ export class VfxSystem {
     const tint = bloodTintFor(defId);
     spawnHitSplatter(this.scene, screen.x, screen.y, tint, dirX, dirY);
     this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
+    this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
   }
 
   /** Heavier splatter + a scattered handful of floor decals for a death (Epic 7.11). */
@@ -143,7 +157,9 @@ export class VfxSystem {
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
     spawnDeathSplatter(this.scene, screen.x, screen.y, tint);
-    for (let i = 0; i < 4; i++) this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
+    for (let i = 0; i < 7; i++) {
+      this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
+    }
   }
 
   onOwnHit(nowMs: number): void {
@@ -163,8 +179,9 @@ export class VfxSystem {
    * player deaths keep the plain blood-splatter treatment (spawnBloodDeath). */
   spawnKillMoment(worldX: number, worldY: number, groundHeight: number, defId: string | undefined, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
-    spawnGibBurst(this.scene, screen.x, screen.y, bloodTintFor(defId));
-    this.corpseDecals.spawn(worldX, worldY, groundHeight, nowMs);
+    const tint = bloodTintFor(defId);
+    spawnGibBurst(this.scene, screen.x, screen.y, tint);
+    this.corpseDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
     this.shake.onKillMoment(nowMs);
     this.punchCamera();
   }
@@ -240,5 +257,6 @@ export class VfxSystem {
     this.bossDownFlourish.dispose();
     this.teleportFade.dispose();
     this.graceRing.dispose();
+    this.outOfBreathFx.dispose();
   }
 }

@@ -100,6 +100,7 @@ function materializeSnapshot(
     left: delta.left,
     events: delta.events,
     areas: delta.areas,
+    roomDoors: delta.roomDoors ?? [],
   };
 }
 

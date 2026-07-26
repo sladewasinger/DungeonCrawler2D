@@ -1,6 +1,7 @@
 /** Renders live build, connection, seed, position, and heading telemetry. */
 import { displayCoordinates, type World } from "@dc2d/engine";
 import { BUILD_SHA } from "../buildInfo.js";
+import { APP_VERSION } from "../appVersion.js";
 import type { Connection } from "../net/connection.js";
 import type { FirstPersonState } from "./movement.js";
 import { HUD_PANEL, createHudTitle } from "./ThreeHudStyles.js";
@@ -29,6 +30,7 @@ export class ThreeHudTelemetry {
     const heading = headingDegrees(yaw);
     const display = displayCoordinates(player.x, player.z);
     this.readout.textContent =
+      `version ${APP_VERSION}\n` +
       `build ${BUILD_SHA}\n` +
       `floor ${world.floor} · ${connection.status}\n` +
       `seed ${world.worldSeed}\n` +

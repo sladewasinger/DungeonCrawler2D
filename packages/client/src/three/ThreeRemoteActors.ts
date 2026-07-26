@@ -136,6 +136,13 @@ export class ThreeRemoteActors {
     const object = this.createActor(kind);
     const aura = createRemoteActorAura(kind === "enemy");
     object.add(aura.object);
+    const light = kind === "player"
+      ? new THREE.PointLight("#fff0d2", 0.5, 3.2, 2)
+      : undefined;
+    if (light) {
+      light.position.y = 0.62;
+      object.add(light);
+    }
     const active: ActiveActor = {
       object,
       kind,

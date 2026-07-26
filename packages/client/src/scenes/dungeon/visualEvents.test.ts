@@ -52,4 +52,98 @@ describe("visual health events", () => {
     expect(spawnBloodHit).not.toHaveBeenCalled();
     expect(onOwnHit).not.toHaveBeenCalled();
   });
+
+  it("suppresses floating feedback for basic automatic healing", () => {
+    const spawnDamageNumber = vi.fn();
+    const connection = {
+      hp: 15,
+      maxHp: 30,
+      welcome: { playerId: "player-1" },
+      entities: new Map(),
+      world: null,
+      drainVisualEvents: () => [{
+        t: "health",
+        id: "player-1",
+        delta: 1,
+        kind: "heal",
+        source: "automatic",
+      }],
+    } as unknown as Connection;
+    const vfx = {
+      setSelfHp: vi.fn(),
+      spawnDamageNumber,
+    } as unknown as VfxSystem;
+
+    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+
+    expect(spawnDamageNumber).not.toHaveBeenCalled();
+  });
+
+  it("routes authoritative damage into blood and own-hit feedback", () => {
+    const spawnBloodHit = vi.fn();
+    const onOwnHit = vi.fn();
+    const connection = {
+      hp: 25,
+      maxHp: 30,
+      body: { kx: 1, ky: -0.5 },
+      welcome: { playerId: "player-1" },
+      entities: new Map(),
+      world: { groundAt: () => 0.25 },
+      drainVisualEvents: () => [{
+        t: "health",
+        id: "player-1",
+        delta: -5,
+        kind: "damage",
+      }],
+    } as unknown as Connection;
+    const vfx = {
+      setSelfHp: vi.fn(),
+      spawnDamageNumber: vi.fn(),
+      spawnBloodHit,
+      onOwnHit,
+    } as unknown as VfxSystem;
+
+    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+
+    expect(spawnBloodHit).toHaveBeenCalledWith(
+      2,
+      3,
+      0.25,
+      undefined,
+      100,
+      1,
+      -0.5,
+    );
+    expect(onOwnHit).toHaveBeenCalledWith(100);
+  });
+
+  it("routes enemy death into blood, guts, and the kill moment", () => {
+    const spawnBloodDeath = vi.fn();
+    const spawnKillMoment = vi.fn();
+    const connection = {
+      hp: 30,
+      maxHp: 30,
+      welcome: { playerId: "player-1" },
+      entities: new Map(),
+      world: { groundAt: () => 0.5 },
+      drainVisualEvents: () => [{
+        t: "death",
+        id: "enemy-1",
+        x: 5,
+        y: 6,
+        defId: "slime",
+        targetKind: "enemy",
+      }],
+    } as unknown as Connection;
+    const vfx = {
+      setSelfHp: vi.fn(),
+      spawnBloodDeath,
+      spawnKillMoment,
+    } as unknown as VfxSystem;
+
+    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+
+    expect(spawnBloodDeath).toHaveBeenCalledWith(5, 6, 0.5, "slime", 100);
+    expect(spawnKillMoment).toHaveBeenCalledWith(5, 6, 0.5, "slime", 100);
+  });
 });

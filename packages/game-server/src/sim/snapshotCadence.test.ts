@@ -19,6 +19,7 @@ function frame(tick: number): PlayerSnapshotFrame {
     left: [],
     events: [],
     areas: [],
+    roomDoors: [],
     visibleIds: new Set(),
     privateEventCount: 0,
     pendingEventCount: 0,

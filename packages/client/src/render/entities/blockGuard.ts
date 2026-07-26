@@ -1,5 +1,6 @@
-export const BLOCK_GUARD_RADIUS_TILES = 0.42;
+export const BLOCK_GUARD_RADIUS_TILES = 0.33;
 export const BLOCK_GUARD_TINT = 0x8fd7ff;
+export const BLOCK_GUARD_TILT_RAD = Math.PI / 12;
 
 const BLOCK_BREATHE_PERIOD_MS = 720;
 const BLOCK_BREATHE_RADIUS_TILES = 0.025;
@@ -28,7 +29,7 @@ export const blockGuardTransform = (
   return {
     x: centerX + Math.cos(facingAngle) * radius,
     y: centerY + Math.sin(facingAngle) * radius,
-    rotation: facingAngle + Math.PI / 2,
+    rotation: facingAngle + BLOCK_GUARD_TILT_RAD,
     scale: 1 + wave * BLOCK_BREATHE_SCALE,
   };
 };

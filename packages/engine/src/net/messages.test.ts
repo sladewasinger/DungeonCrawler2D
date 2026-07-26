@@ -23,6 +23,7 @@ describe("protocol", () => {
     const intents: ClientMessage[] = [
       { type: "attack", dirX: 1, dirY: 0 },
       { type: "useSlot", slot: 2, targetX: 10.5, targetY: -3.25 },
+      { type: "useSlot", slot: 1, targetId: "nearby-player" },
       { type: "useItem", item: "bandage" },
       { type: "throwTorch", dirX: 0.6, dirY: -0.8 },
       { type: "pickup" },

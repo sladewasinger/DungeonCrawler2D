@@ -1,7 +1,11 @@
-import { TICK_RATE, type GameEvent } from "@dc2d/engine";
-import { CHAT_LIMIT, RATE_WINDOW_TICKS, findOnlineByName, withinRateLimit } from "./contacts.js";
-import { socialDeliveryAllowed, socialPairAllowed } from "./moderation.js";
+import { TICK_RATE } from "@dc2d/engine";
+import { socialPairAllowed } from "./moderation.js";
+import {
+  partyInviteState,
+  removePartyInviteState,
+} from "./partyInviteEvents.js";
 import type { PlayerSlot, SimState } from "./state.js";
+export { doChat } from "./socialChat.js";
 
 /** Parties, invites, and chat fan-out (party/local/global/dm). Fistbump + /who
  * live in contacts.ts, as does the shared chat/who rate-limit budget. */
@@ -13,33 +17,70 @@ const INVITE_RANGE_TILES = 6;
 export function doParty(
   sim: SimState,
   slot: PlayerSlot,
-  op: "invite" | "accept" | "decline" | "leave" | "kick",
+  op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick",
   target?: string,
 ): void {
   if (op === "invite" && target) invitePlayer(sim, slot, target);
   else if (op === "accept") acceptInvite(sim, slot);
   else if (op === "decline") declineInvite(sim, slot);
+  else if (op === "cancel" && target) cancelInvite(sim, slot, target);
   else if (op === "leave") leaveParty(sim, slot);
   else if (op === "kick" && target) kickMember(sim, slot, target);
 }
 
-function invitePlayer(sim: SimState, slot: PlayerSlot, target: string): void {
+function eligibleInviteTarget(
+  sim: SimState,
+  slot: PlayerSlot,
+  target: string,
+): PlayerSlot | null {
   const other = sim.players.get(target);
-  if (!other || !other.connected) return;
-  if (!socialPairAllowed(slot, other)) return;
+  if (!other || !other.connected || !socialPairAllowed(slot, other)) {
+    return null;
+  }
   if (other.partyId !== null) {
     slot.outbox.push({ t: "toast", msg: `${other.entity.name ?? "Player"} is already in a party` });
-    return;
+    return null;
   }
+  return other;
+}
+
+function invitePlayer(sim: SimState, slot: PlayerSlot, target: string): void {
+  const other = eligibleInviteTarget(sim, slot, target);
+  if (!other) return;
   if (!mayInvite(sim, slot)) return;
   const distance = Math.hypot(
     other.entity.body.x - slot.entity.body.x,
     other.entity.body.y - slot.entity.body.y,
   );
   if (distance > INVITE_RANGE_TILES) return;
+  replacePreviousInvite(sim, slot, other);
   sim.invites.set(target, { from: slot.entity.id, expiresAt: sim.tickCount + INVITE_TTL_TICKS });
   other.outbox.push({ t: "invite", from: slot.entity.id, name: slot.entity.name ?? "?" });
+  other.outbox.push(partyInviteState("incoming", "added", slot));
+  slot.outbox.push(partyInviteState("outgoing", "added", other));
   slot.outbox.push({ t: "toast", msg: `Invited ${other.entity.name} to party` });
+}
+
+function replacePreviousInvite(
+  sim: SimState,
+  slot: PlayerSlot,
+  invitee: PlayerSlot,
+): void {
+  const previous = sim.invites.get(invitee.entity.id);
+  if (!previous || previous.from === slot.entity.id) return;
+  removePartyInviteState(sim.players.get(previous.from), invitee);
+}
+
+function cancelInvite(sim: SimState, slot: PlayerSlot, target: string): void {
+  const invite = sim.invites.get(target);
+  if (!invite || invite.from !== slot.entity.id) return;
+  sim.invites.delete(target);
+  const invitee = sim.players.get(target);
+  removePartyInviteState(slot, invitee);
+  slot.outbox.push({
+    t: "toast",
+    msg: `Cancelled invite to ${invitee?.entity.name ?? "Player"}`,
+  });
 }
 
 function mayInvite(sim: SimState, slot: PlayerSlot): boolean {
@@ -56,6 +97,7 @@ function acceptInvite(sim: SimState, slot: PlayerSlot): void {
   if (!invite || invite.expiresAt < sim.tickCount) return;
   sim.invites.delete(id);
   const inviter = sim.players.get(invite.from);
+  removePartyInviteState(inviter, slot);
   if (!inviter || !inviter.connected || slot.partyId !== null || !socialPairAllowed(slot, inviter)) return;
   const party = partyOf(sim, inviter);
   party.members.add(id);
@@ -74,6 +116,7 @@ function declineInvite(sim: SimState, slot: PlayerSlot): void {
   if (!invite) return;
   sim.invites.delete(slot.entity.id);
   const inviter = sim.players.get(invite.from);
+  removePartyInviteState(inviter, slot);
   if (inviter?.connected) {
     inviter.outbox.push({
       t: "toast",
@@ -132,101 +175,11 @@ function disbandParty(sim: SimState, party: { id: string; members: Set<string> }
   sim.parties.delete(party.id);
 }
 
-export function doChat(
-  sim: SimState,
-  slot: PlayerSlot,
-  channel: "party" | "local" | "global" | "dm",
-  text: string,
-  target?: string,
-): void {
-  if (!withinRateLimit(slot.chatTimestamps, sim.tickCount, RATE_WINDOW_TICKS, CHAT_LIMIT)) {
-    slot.outbox.push(systemLine("You're sending messages too fast — slow down."));
-    return;
-  }
-  if (channel === "party") doPartyChat(sim, slot, text);
-  else if (channel === "local") doLocalChat(sim, slot, text);
-  else if (channel === "global") doGlobalChat(sim, slot, text);
-  else doDmChat(sim, slot, text, target);
-}
-
-function doPartyChat(sim: SimState, slot: PlayerSlot, text: string): void {
-  if (!slot.partyId) return;
-  const party = sim.parties.get(slot.partyId);
-  if (!party) return;
-  const event: GameEvent = { t: "chat", channel: "party", from: slot.entity.id, name: slot.entity.name ?? "?", text };
-  for (const memberId of party.members) {
-    const member = sim.players.get(memberId);
-    if (member && socialDeliveryAllowed(member, slot.entity.id)) member.outbox.push(event);
-  }
-}
-
-function doLocalChat(sim: SimState, slot: PlayerSlot, text: string): void {
-  const event: GameEvent = { t: "chat", channel: "local", from: slot.entity.id, name: slot.entity.name ?? "?", text };
-  sim.worldEvents.push({ ev: event, x: slot.entity.body.x, y: slot.entity.body.y });
-}
-
-/** Truly global (ASSUMPTION #14): every connected socket on THIS sim, plus
- * (Epic 7.14) every OTHER active floor sim of the SAME level — dungeon
- * floors share one global channel; sandbox still never bleeds in, since
- * it isn't under a FloorRegistry and never drains pendingGlobalChat. The
- * cross-floor half relays with a 1-tick delay (ASSUMPTION #130,
- * docs/ASSUMPTIONS.md) — an artifact of aggregating per-sim ticks at the
- * registry level. */
-function doGlobalChat(sim: SimState, slot: PlayerSlot, text: string): void {
-  const event: GameEvent = { t: "chat", channel: "global", from: slot.entity.id, name: slot.entity.name ?? "?", text };
-  for (const other of sim.players.values()) {
-    if (other.connected && socialDeliveryAllowed(other, slot.entity.id)) other.outbox.push(event);
-  }
-  sim.pendingGlobalChat.push(event);
-}
-
-/** DMs require a mutual contact (ASSUMPTION #15); name matching is case-insensitive
- * exact, with an ambiguity error on multiple online matches (ASSUMPTION #17). */
-function doDmChat(sim: SimState, slot: PlayerSlot, text: string, target?: string): void {
-  if (!target) return;
-  const other = resolveDmTarget(sim, slot, target);
-  if (!other) return;
-  // `target` is always "the other side of this thread" relative to
-  // whichever outbox the event lands in, so either client's /r resolves
-  // to the correct partner without knowing who the sender was.
-  const senderName = slot.entity.name ?? "?";
-  const otherName = other.entity.name ?? "?";
-  if (socialDeliveryAllowed(other, slot.entity.id)) {
-    other.outbox.push({ t: "chat", channel: "dm", from: slot.entity.id, name: senderName, text, target: senderName });
-  }
-  slot.outbox.push({ t: "chat", channel: "dm", from: slot.entity.id, name: senderName, text, target: otherName });
-}
-
-function resolveDmTarget(sim: SimState, slot: PlayerSlot, target: string): PlayerSlot | null {
-  if ((slot.entity.name ?? "").toLowerCase() === target.toLowerCase()) {
-    slot.outbox.push(systemLine("You can't DM yourself."));
-    return null;
-  }
-  const matches = findOnlineByName(sim, target);
-  if (matches.length > 1) {
-    slot.outbox.push(systemLine(`Multiple online players named "${target}" — be more specific.`));
-    return null;
-  }
-  const other = matches[0];
-  const isContact = slot.stored.contacts.some((c) => c.toLowerCase() === target.toLowerCase());
-  if (!other || !isContact) {
-    slot.outbox.push(systemLine(`You haven't fistbumped ${target} yet.`));
-    return null;
-  }
-  if (!socialPairAllowed(slot, other)) {
-    slot.outbox.push(systemLine(`Messages with ${target} are blocked.`));
-    return null;
-  }
-  return other;
-}
-
-function systemLine(text: string): GameEvent {
-  return { t: "chat", channel: "system", from: "server", name: "system", text };
-}
-
 /** Drop invites nobody accepted in time — call once per tick. */
 export function expireInvites(sim: SimState): void {
   for (const [invitee, invite] of sim.invites) {
-    if (invite.expiresAt < sim.tickCount) sim.invites.delete(invitee);
+    if (invite.expiresAt >= sim.tickCount) continue;
+    sim.invites.delete(invitee);
+    removePartyInviteState(sim.players.get(invite.from), sim.players.get(invitee));
   }
 }

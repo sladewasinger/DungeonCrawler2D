@@ -18,9 +18,32 @@ import {
   suicideIntent,
   throwTorchIntent,
   useItemIntent,
+  useSlotOnPlayerIntent,
   useSlotIntent,
   whoIntent,
 } from "./intents.js";
+
+const socialTargetId = (
+  connection: Connection,
+  nameOrId: string,
+): string | undefined => {
+  const lower = nameOrId.toLowerCase();
+  const matches = (id: string | undefined, name: string | undefined) =>
+    id === nameOrId || name?.toLowerCase() === lower;
+  const party = connection.party?.members.find((member) =>
+    matches(member.id, member.name)
+  );
+  const entity = [...connection.entities.values()].find((remote) =>
+    matches(remote.snap.id, remote.snap.name)
+  )?.snap;
+  const contact = connection.contacts.find((entry) =>
+    matches(entry.id, entry.name)
+  );
+  const outgoing = [...connection.outgoingPartyInvites].find(([id, name]) =>
+    matches(id, name)
+  );
+  return party?.id ?? entity?.id ?? contact?.id ?? outgoing?.[0];
+};
 
 export class ConnectionActions {
   private get connection(): Connection {
@@ -35,6 +58,9 @@ export class ConnectionActions {
   useSlot(slot: number, targetX?: number, targetY?: number): void {
     useSlotIntent(this.connection, slot, targetX, targetY);
   }
+  useSlotOnPlayer(slot: number, targetId: string): void {
+    useSlotOnPlayerIntent(this.connection, slot, targetId);
+  }
   useItem(item: string): void { useItemIntent(this.connection, item); }
   pickup(): void { pickupIntent(this.connection); }
   drop(item: string): void { dropIntent(this.connection, item); }
@@ -48,15 +74,15 @@ export class ConnectionActions {
   stashOp(op: "put" | "take", index: number): void {
     stashOpIntent(this.connection, op, index);
   }
-  partyOp(op: "invite" | "accept" | "decline" | "leave" | "kick", target?: string): void {
+  partyOp(op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick", target?: string): void {
     partyOpIntent(this.connection, op, target);
   }
 
   partyCommand(
-    op: "invite" | "accept" | "decline" | "leave" | "kick",
+    op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick",
     targetName?: string,
   ): void {
-    const targeted = op === "invite" || op === "kick";
+    const targeted = op === "invite" || op === "cancel" || op === "kick";
     const target = targeted ? this.resolveSocialTarget(targetName) : undefined;
     if (targeted && !target) return;
     this.partyOp(op, target);
@@ -85,17 +111,7 @@ export class ConnectionActions {
       connection.pushToast("Choose a player");
       return undefined;
     }
-    const lower = nameOrId.toLowerCase();
-    const party = connection.party?.members.find(
-      (member) => member.id === nameOrId || member.name.toLowerCase() === lower,
-    );
-    const entity = [...connection.entities.values()].find(
-      (remote) => remote.snap.id === nameOrId || remote.snap.name?.toLowerCase() === lower,
-    )?.snap;
-    const contact = connection.contacts.find(
-      (entry) => entry.id === nameOrId || entry.name.toLowerCase() === lower,
-    );
-    const id = party?.id ?? entity?.id ?? contact?.id;
+    const id = socialTargetId(connection, nameOrId);
     if (!id) connection.pushToast(`Player "${nameOrId}" is not visible or online`);
     return id;
   }

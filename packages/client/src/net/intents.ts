@@ -34,6 +34,10 @@ export function useSlotIntent(conn: Connection, slot: number, targetX?: number, 
   });
 }
 
+export function useSlotOnPlayerIntent(conn: Connection, slot: number, targetId: string): void {
+  if (conn.canAct) conn.send({ type: "useSlot", slot, targetId });
+}
+
 export function useItemIntent(conn: Connection, item: string): void {
   if (conn.canAct) conn.send({ type: "useItem", item });
 }
@@ -45,7 +49,7 @@ export function assignSlotIntent(conn: Connection, slot: number, item: string | 
 
 export function partyOpIntent(
   conn: Connection,
-  op: "invite" | "accept" | "decline" | "leave" | "kick",
+  op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick",
   target?: string,
 ): void {
   if (!conn.canAct) return;

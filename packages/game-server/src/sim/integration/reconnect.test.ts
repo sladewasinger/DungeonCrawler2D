@@ -92,7 +92,8 @@ describe("GameSim reconnect grace", () => {
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
     const safe = safeRoomFeatures(door.doorCx, door.doorCy);
-    teleport(entity, safe.doorPersonal.x + 0.5, safe.doorPersonal.y + 0.5, sim);
+    const personalDoor = safe.doors[0]!;
+    teleport(entity, personalDoor.x + 0.5, personalDoor.y + 0.5, sim);
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
     const personal = { x: entity.body.x, y: entity.body.y };
@@ -106,7 +107,7 @@ describe("GameSim reconnect grace", () => {
     teleport(entity, features.exit.x + 0.5, features.exit.y + 0.5, sim);
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
-    expect(entity.body.x).toBeCloseTo(safe.doorPersonal.x + 0.5, 3);
+    expect(entity.body.x).toBeCloseTo(personalDoor.x + 0.5, 3);
     teleport(entity, safe.exit.x + 0.5, safe.exit.y + 0.5, sim);
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();

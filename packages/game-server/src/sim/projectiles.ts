@@ -1,6 +1,14 @@
-import { TICK_DT, stepProjectile, type EffectEvent, type Entity, type Primitive } from "@dc2d/engine";
+import {
+  MELEE_ARC_COS,
+  TICK_DT,
+  stepProjectile,
+  type EffectEvent,
+  type Entity,
+  type Primitive,
+} from "@dc2d/engine";
 import { combatants, effectTargetFor, spawnItem } from "./helpers.js";
 import type { SimState } from "./state.js";
+import { blocksAttackDirection } from "./directionalBlock.js";
 
 /** Thrown items and enemy spit: flight, direct hits, impact effects. */
 
@@ -11,10 +19,7 @@ export function stepProjectiles(sim: SimState, effectEvents: EffectEvent[]): voi
     if (!directHit && !result.impact) continue;
 
     sim.projectiles.delete(id);
-    if (directHit && directProjectileIsBlocked(
-      projectile.defId,
-      sim.players.get(directHit.id)?.blocking === true,
-    )) continue;
+    if (directHit && projectileBlockedByTarget(sim, projectile, directHit)) continue;
     const point = directHit?.body ?? result.impact ?? projectile.body;
     resolveImpact(sim, projectile, point.x, point.y, directHit, effectEvents);
   }
@@ -25,8 +30,53 @@ export function stepProjectiles(sim: SimState, effectEvents: EffectEvent[]): voi
 export function directProjectileIsBlocked(
   projectileDefId: string | undefined,
   targetBlocking: boolean,
+  facingX = 1,
+  facingY = 0,
+  sourceX = 1,
+  sourceY = 0,
 ): boolean {
-  return targetBlocking && projectileDefId === undefined;
+  if (!targetBlocking || projectileDefId !== undefined) return false;
+  const length = Math.hypot(sourceX, sourceY);
+  if (length <= 0.001) return true;
+  return (facingX * sourceX + facingY * sourceY) /
+    (Math.hypot(facingX, facingY) || 1) / length >= MELEE_ARC_COS;
+}
+
+function projectileSource(
+  sim: SimState,
+  projectile: Entity,
+): { x: number; y: number } {
+  const owner = projectileOwner(sim, projectile.ownerId);
+  if (owner) return { x: owner.body.x, y: owner.body.y };
+  return {
+    x: projectile.body.x - projectileVelocity(projectile, "x"),
+    y: projectile.body.y - projectileVelocity(projectile, "y"),
+  };
+}
+
+function projectileOwner(
+  sim: SimState,
+  ownerId: string | undefined,
+): Entity | undefined {
+  if (!ownerId) return undefined;
+  return sim.enemies.get(ownerId)?.entity ?? sim.players.get(ownerId)?.entity;
+}
+
+function projectileVelocity(projectile: Entity, axis: "x" | "y"): number {
+  return projectile.vel?.[axis] ?? 0;
+}
+
+function projectileBlockedByTarget(
+  sim: SimState,
+  projectile: Entity,
+  target: Entity,
+): boolean {
+  const targetSlot = target.kind === "player"
+    ? sim.players.get(target.id)
+    : undefined;
+  const source = projectileSource(sim, projectile);
+  return projectile.defId === undefined &&
+    blocksAttackDirection(targetSlot, source.x, source.y);
 }
 
 /** First living combatant the projectile is touching mid-flight (never the thrower). */

@@ -14,8 +14,9 @@ import { splatterAngleWindow } from "./bloodDirection.js";
 const FRAME = "light_soft";
 /** Same particle-layer tier as particleRecipes.ts's PARTICLE_LAYER_DEPTH. */
 const DEPTH = 210_000;
-const HIT_COUNT = 7;
-const DEATH_COUNT = 18;
+const HIT_COUNT = 12;
+const DEATH_COUNT = 32;
+const PARTICLE_LIFETIME_MS = { min: 450, max: 1_050 };
 
 function fire(
   scene: Phaser.Scene,
@@ -29,27 +30,27 @@ function fire(
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: FRAME,
-      lifespan: { min: 220, max: 420 },
+      lifespan: PARTICLE_LIFETIME_MS,
       speed: { min: speedMax * 0.25, max: speedMax },
       angle: { min: window.minDeg, max: window.maxDeg },
-      scale: { start: 0.16, end: 0.03 },
-      alpha: { start: 0.85, end: 0 },
+      scale: { start: 0.24, end: 0.035 },
+      alpha: { start: 0.96, end: 0 },
       tint,
-      gravityY: 60,
+      gravityY: 95,
       quantity,
       emitting: false,
     })
     .setDepth(DEPTH);
   emitter.explode(quantity);
-  scene.time.delayedCall(440, () => emitter.destroy());
+  scene.time.delayedCall(PARTICLE_LIFETIME_MS.max + 50, () => emitter.destroy());
 }
 
 /** Small directional (or omnidirectional) spray for a landed hit. */
 export function spawnHitSplatter(scene: Phaser.Scene, screenX: number, screenY: number, tint: number, dirX?: number, dirY?: number): void {
-  fire(scene, screenX, screenY, tint, HIT_COUNT, 70, splatterAngleWindow(dirX, dirY));
+  fire(scene, screenX, screenY, tint, HIT_COUNT, 95, splatterAngleWindow(dirX, dirY));
 }
 
 /** Heavier omnidirectional burst for a death. */
 export function spawnDeathSplatter(scene: Phaser.Scene, screenX: number, screenY: number, tint: number): void {
-  fire(scene, screenX, screenY, tint, DEATH_COUNT, 110, splatterAngleWindow());
+  fire(scene, screenX, screenY, tint, DEATH_COUNT, 150, splatterAngleWindow());
 }
