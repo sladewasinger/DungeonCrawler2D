@@ -5,10 +5,13 @@ export type DesktopInputKind = "keyboard" | "mouse";
 export type InputModalityListener = (mode: InputModality) => void;
 
 export const MOUSE_AFTER_TOUCH_HYSTERESIS_MS = 650;
+export const MOUSE_DEMOTION_CONFIRM_MS = 80;
+const MOUSE_DEMOTION_WINDOW_MS = 1_000;
 
 export class InputModalityStore {
   private mode: InputModality;
   private lastTouchAt = Number.NEGATIVE_INFINITY;
+  private mouseCandidateAt: number | null = null;
   private readonly listeners = new Set<InputModalityListener>();
 
   constructor(initialMode: InputModality) {
@@ -26,14 +29,21 @@ export class InputModalityStore {
 
   noteTouch(nowMs = performance.now()): void {
     this.lastTouchAt = nowMs;
+    this.mouseCandidateAt = null;
     this.transition("touch");
   }
 
   noteDesktop(kind: DesktopInputKind, nowMs = performance.now()): void {
-    if (
-      kind === "mouse" &&
-      nowMs - this.lastTouchAt < MOUSE_AFTER_TOUCH_HYSTERESIS_MS
-    ) return;
+    if (kind === "mouse" && this.mode === "touch") {
+      if (nowMs - this.lastTouchAt < MOUSE_AFTER_TOUCH_HYSTERESIS_MS) return;
+      if (this.mouseCandidateAt === null ||
+        nowMs - this.mouseCandidateAt > MOUSE_DEMOTION_WINDOW_MS) {
+        this.mouseCandidateAt = nowMs;
+        return;
+      }
+      if (nowMs - this.mouseCandidateAt < MOUSE_DEMOTION_CONFIRM_MS) return;
+    }
+    this.mouseCandidateAt = null;
     this.transition("desktop");
   }
 

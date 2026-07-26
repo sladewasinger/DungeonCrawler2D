@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   InputModalityStore,
   MOUSE_AFTER_TOUCH_HYSTERESIS_MS,
+  MOUSE_DEMOTION_CONFIRM_MS,
   initialInputModality,
 } from "./inputModality.js";
 
@@ -29,13 +30,18 @@ describe("InputModalityStore", () => {
     expect(second).toHaveBeenCalledOnce();
   });
 
-  it("ignores compatibility mouse input, then accepts deliberate mouse input", () => {
+  it("ignores compatibility and stray mouse input, then accepts confirmed mouse input", () => {
     const store = new InputModalityStore("desktop");
     store.noteTouch(100);
     store.noteDesktop("mouse", 100 + MOUSE_AFTER_TOUCH_HYSTERESIS_MS - 1);
     expect(store.current).toBe("touch");
 
     store.noteDesktop("mouse", 100 + MOUSE_AFTER_TOUCH_HYSTERESIS_MS);
+    expect(store.current).toBe("touch");
+    store.noteDesktop(
+      "mouse",
+      100 + MOUSE_AFTER_TOUCH_HYSTERESIS_MS + MOUSE_DEMOTION_CONFIRM_MS,
+    );
     expect(store.current).toBe("desktop");
   });
 
