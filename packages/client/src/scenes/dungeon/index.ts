@@ -133,7 +133,7 @@ export class DungeonScene extends Phaser.Scene {
     this.sampleFixedStepInput(deltaMs, time);
 
     const render = interpolateConnectionSelf(conn, this.state, deltaMs);
-    conn.movementTrace.recordFrame(time, this.state.renderInput, render, conn.movementTraceState());
+    conn.movementTrace?.recordFrame(time, this.state.renderInput, render, conn.movementTraceState());
     this.updateCameraFollow(render, deltaMs);
     this.cameras.main.setRotation(this.rotation.cameraRotationRad());
     this.terrain?.update(this.cameras.main.worldView);

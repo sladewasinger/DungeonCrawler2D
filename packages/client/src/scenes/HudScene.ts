@@ -10,7 +10,8 @@ import Phaser from "phaser";
 import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
 import { HudWidgets } from "../ui/widgets/hud/index.js";
-import { MovementTraceControl } from "../ui/movementTraceControl.js";
+import { attachDevelopmentMovementTrace } from "../ui/developmentMovementTrace.js";
+import type { MovementTraceControl } from "../ui/movementTraceControl.js";
 import type { Connection } from "../net/connection.js";
 import { HtmlTouchHitRegions } from "../three/HtmlTouchHitRegions.js";
 import { ThreeHud } from "../three/ThreeHud.js";
@@ -30,7 +31,7 @@ export class HudScene extends Phaser.Scene {
   private social: HudSceneData["social"];
   private stations: HudSceneData["stations"];
   private connection: Connection | undefined;
-  private htmlHud: ThreeHud | undefined; private movementTraceControl: MovementTraceControl | undefined;
+  private htmlHud: ThreeHud | undefined; private movementTraceControl: MovementTraceControl | undefined; private movementTraceGeneration = 0;
   private readonly touchHits = new HtmlTouchHitRegions();
   private onSelectHotbar: ((index: number | null) => void) | undefined;
   private session: HudSceneData["session"];
@@ -200,8 +201,12 @@ export class HudScene extends Phaser.Scene {
         quitToTitle: () => {},
       },
     });
-    this.movementTraceControl = new MovementTraceControl(root, connection, focusGame);
+    const movementTraceGeneration = ++this.movementTraceGeneration;
+    attachDevelopmentMovementTrace(root, connection, focusGame,
+      () => movementTraceGeneration === this.movementTraceGeneration,
+      (control) => { this.movementTraceControl = control; });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.movementTraceGeneration += 1;
       this.movementTraceControl?.dispose();
       this.movementTraceControl = undefined;
       this.htmlHud?.dispose();

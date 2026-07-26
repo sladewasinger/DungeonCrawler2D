@@ -24,9 +24,9 @@ import { InterpolationDelay } from "./interpolationDelay.js";
 import { sendMeasured } from "./measuredSend.js";
 import { MovementCadence } from "./movementCadence.js";
 import { sampleMovement, sendMovementEdge } from "./movementSampling.js";
-import {
+import type {
+  MovementTraceClientState,
   MovementTraceRecorder,
-  type MovementTraceClientState,
 } from "./movementTrace.js";
 import { Prediction } from "./prediction.js";
 import { PredictionCorrection } from "./predictionCorrection.js";
@@ -122,8 +122,8 @@ export class Connection extends ConnectionActions {
   readonly interpolationDelay = new InterpolationDelay();
   /** Live traffic/correction diagnostics expose the roadmap's reproducible baseline. */
   readonly networkMetrics = new WireMetrics();
-  /** Opt-in 2D movement trace; the HUD owns starting, stopping, and downloading it. */
-  readonly movementTrace = new MovementTraceRecorder();
+  /** Development-only movement trace, attached lazily by the dev HUD. */
+  movementTrace: MovementTraceRecorder | null = null;
   // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
   // class delegates its lifecycle to; treat as this facade's internals.
   ws: WebSocket | null = null;
@@ -228,8 +228,8 @@ export class Connection extends ConnectionActions {
   }
 
   send(msg: ClientMessage): void {
-    if (msg.type === "input") {
-      this.movementTrace.recordInput(msg, this.movementTraceState());
+    if (import.meta.env.DEV && msg.type === "input") {
+      this.movementTrace?.recordInput(msg, this.movementTraceState());
     }
     sendMeasured(this.ws, msg, this.networkMetrics);
   }

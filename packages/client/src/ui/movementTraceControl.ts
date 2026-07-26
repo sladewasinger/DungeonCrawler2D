@@ -1,6 +1,7 @@
 import type { Connection } from "../net/connection.js";
 import {
   MOVEMENT_TRACE_MAX_MS,
+  MovementTraceRecorder,
   type MovementTraceFile,
 } from "../net/movementTrace.js";
 
@@ -10,12 +11,14 @@ const IDLE_COLOR = "rgba(18,19,30,.88)";
 
 export class MovementTraceControl {
   private readonly button = document.createElement("button");
+  private readonly recorder = new MovementTraceRecorder();
 
   constructor(
     root: HTMLElement,
     private readonly connection: Connection,
     private readonly focusGame: () => void,
   ) {
+    this.connection.movementTrace = this.recorder;
     this.button.type = "button";
     this.button.textContent = IDLE_LABEL;
     this.button.title =
@@ -29,7 +32,7 @@ export class MovementTraceControl {
   }
 
   update(now = performance.now()): void {
-    const recorder = this.connection.movementTrace;
+    const recorder = this.recorder;
     if (!recorder.recording) return;
     if (recorder.timedOut(now)) {
       this.save("timeout", now);
@@ -41,21 +44,24 @@ export class MovementTraceControl {
 
   dispose(): void {
     this.button.removeEventListener("click", this.toggle);
-    this.connection.movementTrace.cancel();
+    this.recorder.cancel();
+    if (this.connection.movementTrace === this.recorder) {
+      this.connection.movementTrace = null;
+    }
     this.button.remove();
   }
 
   private readonly toggle = (event: MouseEvent): void => {
     event.preventDefault();
     event.stopPropagation();
-    if (this.connection.movementTrace.recording) this.save("manual");
+    if (this.recorder.recording) this.save("manual");
     else this.start();
     this.focusGame();
   };
 
   private start(): void {
     const connection = this.connection;
-    if (!connection.movementTrace.start({
+    if (!this.recorder.start({
       endpoint: connection.url,
       worldSeed: connection.world?.worldSeed ?? null,
       floor: connection.floor,
@@ -70,7 +76,7 @@ export class MovementTraceControl {
     reason: MovementTraceFile["stopReason"],
     now = performance.now(),
   ): void {
-    const trace = this.connection.movementTrace.stop(reason, now);
+    const trace = this.recorder.stop(reason, now);
     if (trace) downloadTrace(trace);
     this.button.style.background = IDLE_COLOR;
     this.button.style.borderColor = "#71758b";
