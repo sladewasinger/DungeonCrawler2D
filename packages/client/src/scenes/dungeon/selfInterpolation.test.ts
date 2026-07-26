@@ -74,6 +74,30 @@ describe("projectSelfRenderPose", () => {
     expect(body.x).toBe(SPAWN_X);
   });
 
+  it("stays on authoritative position while downed input cannot act", () => {
+    const world = new World(7, 0, LEVEL.Sandbox);
+    const body = createBody(SPAWN_X, SPAWN_Y, 5);
+    body.kx = 5;
+    body.ky = -3;
+    const held = { moveX: 1, moveY: 0, jump: false };
+
+    const poses = [0, 10, 25, 49].map((accumulatorMs) =>
+      projectSelfRenderPose(
+        world,
+        body,
+        held,
+        accumulatorMs,
+        { stamina: 100, maxStamina: 100, blocking: false },
+        false,
+        new PredictionCorrection(),
+        0,
+        false,
+      ));
+
+    expect(poses.every(({ x, y, z }) =>
+      x === body.x && y === body.y && z === body.z)).toBe(true);
+  });
+
   it("does not visually project the player through a wall during a partial tick", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const start = findEastWallApproach(world);
