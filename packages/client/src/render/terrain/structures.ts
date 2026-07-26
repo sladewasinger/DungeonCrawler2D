@@ -4,14 +4,16 @@
 // hand-drawn frame/facade duplicating what drawTile.ts's face/wall art already owns.
 import { TILE, type TileType } from "@dc2d/engine";
 import type Phaser from "phaser";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { uiTextStyle } from "../../ui/font.js";
+import { depthForOccluder } from "../entities/depthSort.js";
 import { placeDebugTile } from "./debugSprite.js";
 import { FRAME_DOOR } from "./debugTileset.js";
-import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
 
-const DOOR_LABEL_OFFSET_BAKE_PX = 1;
-const DOOR_LABEL_FONT_BAKE_PX = 3;
-const DOOR_LABEL_STROKE_BAKE_PX = 1;
+const DOOR_LABEL_OFFSET_DISPLAY_PX = 4;
+const DOOR_LABEL_FONT_DISPLAY_PX = 9;
+const DOOR_LABEL_STROKE_DISPLAY_PX = 3;
+const DOOR_LABEL_DEPTH_BIAS = 0.01;
 
 const DOOR_TINT: Readonly<Record<number, number>> = {
   [TILE.DoorSafeRoom]: 0x68a8ff,
@@ -121,15 +123,22 @@ export function drawDoor(
 ): void {
   const tint = DOOR_TINT[door.tile] ?? 0xffffff;
   placeDebugTile(scene, container, door.wx, door.wy, FRAME_DOOR, { tint });
+}
+
+export function createDoorLabel(
+  scene: Phaser.Scene,
+  door: DoorStructure,
+): Phaser.GameObjects.Text | null {
   const label = DOOR_LABEL[door.tile];
-  if (label) {
-    container.add(
-      scene.add.text(
-        (door.wx + 0.5) * TERRAIN_BAKE_TILE_PX,
-        door.wy * TERRAIN_BAKE_TILE_PX - DOOR_LABEL_OFFSET_BAKE_PX,
-        label,
-        uiTextStyle(DOOR_LABEL_FONT_BAKE_PX, "#ffffff", 1, "emphasis"),
-      ).setOrigin(0.5, 1).setStroke("#11111a", DOOR_LABEL_STROKE_BAKE_PX),
-    );
-  }
+  if (!label) return null;
+  return scene.add.text(
+    (door.wx + 0.5) * SCREEN_TILE_PX,
+    door.wy * SCREEN_TILE_PX - DOOR_LABEL_OFFSET_DISPLAY_PX,
+    label,
+    uiTextStyle(DOOR_LABEL_FONT_DISPLAY_PX, "#ffffff", 1, "emphasis"),
+  ).setOrigin(0.5, 1)
+    .setStroke("#11111a", DOOR_LABEL_STROKE_DISPLAY_PX)
+    .setDepth(depthForOccluder(door.wy + 1) + DOOR_LABEL_DEPTH_BIAS)
+    .setName("terrain-door-label")
+    .setVisible(false);
 }

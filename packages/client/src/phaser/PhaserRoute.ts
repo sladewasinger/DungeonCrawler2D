@@ -61,7 +61,6 @@ function startGame(search: URLSearchParams): void {
     game,
     buildSha: BUILD_SHA,
     viewOrientation: getViewOrientation,
-    terrainDiagnostics: () => (game.scene.getScene("dungeon") as DungeonScene).terrainDiagnostics(),
   };
 }
 
@@ -78,6 +77,5 @@ interface GameDebugWindow {
     game: Phaser.Game;
     buildSha: string;
     viewOrientation: typeof getViewOrientation;
-    terrainDiagnostics: DungeonScene["terrainDiagnostics"];
   };
 }

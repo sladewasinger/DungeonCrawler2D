@@ -1,8 +1,13 @@
 // Door structures: no suppression footprint (leaves ordinary terrain art intact
 // underneath), ownership at chunk seams is unambiguous, faceSuppressed is untouched.
 import { TILE, type TileType } from "@dc2d/engine";
-import { describe, expect, it } from "vitest";
-import { buildStructureMap, tileKey } from "./structures.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { depthForOccluder } from "../entities/depthSort.js";
+import { buildStructureMap, createDoorLabel, tileKey } from "./structures.js";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function tiles(
   doorAt: { x: number; y: number },
@@ -45,5 +50,45 @@ describe("buildStructureMap", () => {
     expect(map.doors).toEqual([]);
     expect(map.suppressed.size).toBe(0);
     expect(map.faceSuppressed.size).toBe(0);
+  });
+});
+
+describe("door labels", () => {
+  it("renders labels directly in display space instead of into a scaled terrain page", () => {
+    vi.stubGlobal("window", { devicePixelRatio: 3 });
+    const text = {
+      setOrigin: vi.fn(() => text),
+      setStroke: vi.fn(() => text),
+      setDepth: vi.fn(() => text),
+      setName: vi.fn(() => text),
+      setVisible: vi.fn(() => text),
+    };
+    const add = { text: vi.fn(() => text) };
+
+    const label = createDoorLabel(
+      { add } as never,
+      { wx: 5, wy: 6, tile: TILE.DoorSafeRoom },
+    );
+
+    expect(label).toBe(text);
+    expect(add.text).toHaveBeenCalledWith(
+      264,
+      284,
+      "SAFE ROOM",
+      expect.objectContaining({ fontSize: "9px", resolution: 3 }),
+    );
+    expect(text.setStroke).toHaveBeenCalledWith("#11111a", 3);
+    expect(text.setDepth).toHaveBeenCalledWith(depthForOccluder(7) + 0.01);
+    expect(text.setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("does not allocate a label for an unlabeled door", () => {
+    vi.stubGlobal("window", { devicePixelRatio: 1 });
+    const add = { text: vi.fn() };
+    expect(createDoorLabel(
+      { add } as never,
+      { wx: 5, wy: 6, tile: TILE.DoorPersonal },
+    )).toBeNull();
+    expect(add.text).not.toHaveBeenCalled();
   });
 });

@@ -7,12 +7,14 @@ export interface ChunkVisual {
   readonly below: Phaser.GameObjects.Image;
   readonly belowPage: Phaser.Textures.DynamicTexture;
   readonly occluders: readonly Phaser.GameObjects.Image[];
+  readonly overlays: readonly Phaser.GameObjects.Text[];
   readonly atlasPages: readonly Phaser.Textures.DynamicTexture[];
 }
 
 export interface ChunkVisualBuilder {
   readonly cx: number;
   readonly cy: number;
+  readonly pageBudgetBlocked: boolean;
   step(): ChunkVisual | null;
   cancel(): void;
 }

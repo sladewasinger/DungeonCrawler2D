@@ -6,6 +6,7 @@ import { IncrementalChunkVisualBuilder } from "./chunkVisualBuilder.js";
 import type { DynamicLightSeed } from "./tileLight.js";
 import { releasePage } from "./terrainPages.js";
 import type { ChunkVisual, ChunkVisualBuilder } from "./chunkVisualTypes.js";
+import { completeChunkVisualBuild } from "./completeChunkVisualBuild.js";
 
 export type { ChunkVisual } from "./chunkVisualTypes.js";
 export type { ChunkVisualBuilder } from "./chunkVisualTypes.js";
@@ -30,15 +31,13 @@ export function buildChunkVisual(
   dynamicLights: readonly DynamicLightSeed[] = [],
 ): ChunkVisual {
   const builder = createChunkVisualBuilder(scene, world, cx, cy, orientation, dynamicLights);
-  while (true) {
-    const visual = builder.step();
-    if (visual) return visual;
-  }
+  return completeChunkVisualBuild(builder);
 }
 
 export function destroyChunkVisual(visual: ChunkVisual): void {
   visual.below.destroy();
   for (const row of visual.occluders) row.destroy();
+  for (const overlay of visual.overlays) overlay.destroy();
   releasePage(visual.belowPage, "base");
   for (const page of visual.atlasPages) releasePage(page, "strip");
 }

@@ -2,19 +2,12 @@
 import { CHUNK_SIZE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { BASE_TERRAIN_DEPTH } from "../entities/depthSort.js";
-import { CHUNK_BAKE_PX, IMAGES_PER_STEP, required, ROWS_PER_STEP, STRIPS_PER_BAKE_STEP, type BuildPhase } from "./chunkBuildPolicy.js";
+import { IMAGES_PER_STEP, required, ROWS_PER_STEP, STRIPS_PER_BAKE_STEP, type BuildPhase } from "./chunkBuildPolicy.js";
+import { createStripPageImage, createStructureOverlays } from "./chunkVisualOutput.js";
 import { drawTile } from "./drawTile.js";
 import { planStripAtlas, type AtlasPlan } from "./stripAtlas.js";
 import { acquireStripPage, pagePoolFor } from "./terrainPages.js";
-import {
-  collectCapStrips,
-  collectFaceStrips,
-  makeCapOccluderFor,
-  makeOccluderFor,
-  type CapRow,
-  type OccluderRow,
-  type PendingStrip,
-} from "./stripRows.js";
+import { collectCapStrips, collectFaceStrips, makeCapOccluderFor, makeOccluderFor, type CapRow, type OccluderRow, type PendingStrip } from "./stripRows.js";
 import { buildStructureMap, drawDoor, type StructureMap } from "./structures.js";
 import { computeLightField, type DynamicLightSeed, type LightField } from "./tileLight.js";
 import type { TerrainWorld } from "./terrainWorld.js";
@@ -41,7 +34,8 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private readonly pages: Phaser.Textures.DynamicTexture[] = [];
   private bakedPages = 0; private nextBakeStrip = 0;
   private baseImage: Phaser.GameObjects.Image | null = null; private readonly images: Phaser.GameObjects.Image[] = [];
-  private completed = false;
+  private readonly overlays: Phaser.GameObjects.Text[] = [];
+  private completed = false; private blockedOnPageBudget = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -62,6 +56,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
 
   step(): ChunkVisual | null {
     if (this.completed) return null;
+    this.blockedOnPageBudget = false;
     switch (this.phase) {
       case "page": return this.acquireBasePage();
       case "structures": return this.buildStructures();
@@ -74,16 +69,23 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     }
   }
 
+  get pageBudgetBlocked(): boolean {
+    return this.blockedOnPageBudget;
+  }
+
   cancel(): void {
     if (this.completed) return;
     const containers = [...this.rows.values(), ...this.capRows.values()].map((row) => row.container);
-    cancelChunkVisualBuild(this.baseImage, this.images, containers, this.basePage, this.pages);
+    cancelChunkVisualBuild(this.baseImage, this.images, this.overlays, containers, this.basePage, this.pages);
     this.completed = true;
   }
 
   private acquireBasePage(): null {
     const page = pagePoolFor(this.scene.textures, "base").acquire();
-    if (!page) return null;
+    if (!page) {
+      this.blockedOnPageBudget = true;
+      return null;
+    }
     this.basePage = page;
     this.phase = "structures";
     return null;
@@ -143,7 +145,10 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const height = this.plan.pageHeights[this.pages.length];
     if (height !== undefined) {
       const page = acquireStripPage(this.scene.textures, height);
-      if (!page) return null;
+      if (!page) {
+        this.blockedOnPageBudget = true;
+        return null;
+      }
       this.pages.push(page);
     }
     if (this.pages.length === this.plan.pageHeights.length) this.phase = "bake";
@@ -189,27 +194,23 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const end = Math.min(this.strips.length, this.images.length + IMAGES_PER_STEP);
     for (let index = this.images.length; index < end; index++) this.createStripImage(index);
     if (end < this.strips.length) return null;
+    this.overlays.push(...createStructureOverlays(
+      this.scene, required(this.structures, "chunk build has no structures"),
+    ));
     const below = required(this.baseImage, "chunk build has no base image");
     this.completed = true;
-    return finishChunkVisual(this.cx, this.cy, below, required(this.basePage, "chunk build has no base page"), this.images, this.pages);
+    return finishChunkVisual(
+      this.cx, this.cy, below, required(this.basePage, "chunk build has no base page"),
+      this.images, this.overlays, this.pages,
+    );
   }
 
   private createStripImage(index: number): void {
-    const strip = this.strips[index];
-    const packed = this.plan.strips[index];
+    const strip = this.strips[index]; const packed = this.plan.strips[index];
     if (!strip || !packed) return;
-    const page = this.pages[packed.page];
-    if (!page) return;
-    strip.container.destroy(true);
-    page.add(`s${index}`, 0, 0, packed.bandY, CHUNK_BAKE_PX, strip.stripHeightBakePx);
-    this.images.push(createTerrainPageImage(
-      this.scene,
-      this.originBakeX,
-      strip.stripTopBakePx,
-      page,
-      strip.depth,
-      "terrain-strip",
-      `s${index}`,
+    const page = this.pages[packed.page]; if (!page) return;
+    this.images.push(createStripPageImage(
+      this.scene, this.originBakeX, strip, packed, page, index,
     ));
   }
 }

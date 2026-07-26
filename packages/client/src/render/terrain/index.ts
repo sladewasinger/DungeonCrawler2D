@@ -6,24 +6,18 @@ import type { TilePos } from "../lighting/torchPlacement.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { runBuildBudget } from "./buildBudget.js";
 import {
-  createChunkVisualBuilder,
-  destroyChunkVisual,
-  type ChunkVisual,
-  type ChunkVisualBuilder,
+  createChunkVisualBuilder, destroyChunkVisual, type ChunkVisual, type ChunkVisualBuilder,
 } from "./chunkVisual.js";
 import { affectedChunkKeys } from "./lightRebake.js";
 import {
-  chunkKey,
-  desiredChunks,
-  diffChunks,
-  planBakes,
-  SettledChunkWindow,
-  type ChunkCoord,
-  type ViewRect,
+  chunkKey, desiredChunks, diffChunks, planBakes, SettledChunkWindow, type ChunkCoord, type ViewRect,
 } from "./streaming.js";
 import type { DynamicLightSeed } from "./tileLight.js";
 import { readTerrainDeviceSignals, selectTerrainDeviceProfile, type TerrainDeviceProfile } from "./terrainDeviceProfile.js";
-import { configureTerrainPages, terrainPageMemoryFor } from "./terrainPages.js";
+import { configureTerrainPages } from "./terrainPages.js";
+import {
+  queuePageBudgetRetries, recoverPageBudgetBlockedBuild, resetPageBudgetBlocksForWindow,
+} from "./pageBudgetRecovery.js";
 
 const BUILD_BUDGET_MS = 4;
 const MAX_BUILD_STARTS_PER_FRAME = 2;
@@ -33,7 +27,10 @@ export class TerrainRenderer {
   private readonly builders = new Map<string, ChunkVisualBuilder>();
   private readonly bakeQueue: ChunkCoord[] = [];
   private readonly settledWindow = new SettledChunkWindow();
+  private readonly budgetBlockedKeys = new Set<string>();
+  private readonly capacityReleaseBuildKeys = new Set<string>();
   private readonly pageProfile: TerrainDeviceProfile;
+  private budgetRetryWindow = "";
   private dynamicLights: readonly DynamicLightSeed[] = [];
   private tileRevision: number;
   constructor(
@@ -50,11 +47,15 @@ export class TerrainRenderer {
   update(view: ViewRect): void {
     this.invalidateChangedTiles();
     if (this.canSkipSettledWindow(view)) return;
+    this.budgetRetryWindow = resetPageBudgetBlocksForWindow(
+      view, this.pageProfile.loadMarginChunks, this.budgetRetryWindow, this.budgetBlockedKeys,
+    );
     const desired = desiredChunks(view, this.pageProfile.loadMarginChunks);
     const knownKeys = new Set([
       ...this.visuals.keys(),
       ...this.builders.keys(),
       ...this.bakeQueue.map(chunkKey),
+      ...this.budgetBlockedKeys,
     ]);
     const { toLoad, toUnloadKeys } = diffChunks(desired, knownKeys);
     this.bakeQueue.push(...toLoad);
@@ -105,6 +106,8 @@ export class TerrainRenderer {
 
   rebakeAllNow(): void {
     this.settledWindow.reset();
+    this.budgetBlockedKeys.clear();
+    this.capacityReleaseBuildKeys.clear();
     for (const builder of this.builders.values()) builder.cancel();
     this.builders.clear();
     this.bakeQueue.length = 0;
@@ -129,6 +132,7 @@ export class TerrainRenderer {
   private startBuild(coord: ChunkCoord): void {
     const key = chunkKey(coord);
     this.builders.get(key)?.cancel();
+    this.capacityReleaseBuildKeys.delete(key);
     this.builders.set(
       key,
       createChunkVisualBuilder(
@@ -147,11 +151,22 @@ export class TerrainRenderer {
     if (!entry) return;
     const [key, builder] = entry;
     const visual = builder.step();
-    if (!visual) return;
-    this.builders.delete(key);
+    if (!visual) {
+      if (builder.pageBudgetBlocked) {
+        const released = recoverPageBudgetBlockedBuild(
+          key, builder, this.visuals, this.builders, this.budgetBlockedKeys, viewKeys, destroyChunkVisual,
+        );
+        if (released) this.capacityReleaseBuildKeys.add(key);
+        if (!this.builders.has(key)) this.capacityReleaseBuildKeys.delete(key);
+      }
+      return;
+    }
+    this.builders.delete(key); this.budgetBlockedKeys.delete(key);
     const existing = this.visuals.get(key);
     if (existing) destroyChunkVisual(existing);
     this.visuals.set(key, visual);
+    const releasedDuringBuild = this.capacityReleaseBuildKeys.delete(key); const released = existing !== undefined || releasedDuringBuild;
+    queuePageBudgetRetries(this.budgetBlockedKeys, this.bakeQueue, released);
   }
 
   private nextBuilder(viewKeys: ReadonlySet<string>): [string, ChunkVisualBuilder] | undefined {
@@ -166,10 +181,13 @@ export class TerrainRenderer {
       if (desiredKeys.has(key)) continue;
       builder.cancel();
       this.builders.delete(key);
+      this.capacityReleaseBuildKeys.delete(key);
     }
   }
 
   private unload(key: string): void {
+    this.budgetBlockedKeys.delete(key);
+    this.capacityReleaseBuildKeys.delete(key);
     const builder = this.builders.get(key);
     if (builder) {
       builder.cancel();
@@ -183,6 +201,9 @@ export class TerrainRenderer {
 
   invalidateAll(): void {
     this.settledWindow.reset();
+    this.budgetBlockedKeys.clear();
+    this.capacityReleaseBuildKeys.clear();
+    this.budgetRetryWindow = "";
     for (const builder of this.builders.values()) builder.cancel();
     this.builders.clear();
     this.bakeQueue.length = 0;
@@ -191,16 +212,6 @@ export class TerrainRenderer {
 
   get loadedChunkCount(): number {
     return this.visuals.size;
-  }
-
-  diagnostics() {
-    return {
-      profile: this.pageProfile.kind,
-      loadedChunks: this.visuals.size,
-      buildingChunks: this.builders.size,
-      queuedChunks: this.bakeQueue.length,
-      ...terrainPageMemoryFor(this.scene.textures),
-    };
   }
 
   dispose(): void {
