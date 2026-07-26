@@ -32,6 +32,8 @@ export function addPlayer(
     const resumed = tryResume(sim, resumeToken, clientId, skin);
     if (resumed) return resumed;
   }
+  const reclaimed = reclaimExistingClient(sim, clientId, name, skin);
+  if (reclaimed) return reclaimed;
 
   const spawn = findSpawn(sim);
   const entity = createPlayerEntity(name, spawn, skin);
@@ -184,6 +186,27 @@ function tryResume(
   const existingId = sim.byToken.get(resumeToken);
   const slot = existingId ? sim.players.get(existingId) : undefined;
   if (!slot || slot.connected || slot.clientId !== clientId) return null;
+  return resumeSlot(sim, slot, skin);
+}
+
+function reclaimExistingClient(
+  sim: SimState,
+  clientId: string,
+  name: string,
+  skin?: PlayerSkin,
+): JoinResult | null {
+  const slot = [...sim.players.values()].find((candidate) => candidate.clientId === clientId);
+  if (!slot) return null;
+  slot.entity.name = name;
+  sim.store.get(clientId, name);
+  return resumeSlot(sim, slot, skin);
+}
+
+function resumeSlot(
+  sim: SimState,
+  slot: PlayerSlot,
+  skin?: PlayerSkin,
+): JoinResult {
   if (skin) slot.entity.skin = skin;
   restorePausedLifecycle(sim, slot);
   slot.connected = true;
