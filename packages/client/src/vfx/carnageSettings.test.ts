@@ -5,24 +5,45 @@ import {
 } from "./carnageSettings.js";
 
 describe("carnage settings", () => {
-  it("uses maximum-carnage defaults", () => {
+  it("uses full blood-drop intensity by default", () => {
     expect(parseCarnageSettings(null)).toEqual(DEFAULT_CARNAGE_SETTINGS);
+    expect(DEFAULT_CARNAGE_SETTINGS.bloodDropIntensity).toBe(1);
   });
 
-  it("clamps persisted limits and intensity", () => {
+  it("clamps persisted limits and intensities", () => {
     expect(parseCarnageSettings({
       schemaVersion: 1,
       enabled: false,
       bloodEnabled: false,
+      bloodDropIntensity: -4,
       intensity: 99,
       streakLimit: -4,
       chunkLimit: 99,
     })).toMatchObject({
       enabled: false,
       bloodEnabled: false,
+      bloodDropIntensity: 0,
       intensity: 2,
       streakLimit: 0,
       chunkLimit: 12,
+    });
+  });
+
+  it("migrates existing saved settings without discarding them", () => {
+    expect(parseCarnageSettings({
+      schemaVersion: 1,
+      enabled: false,
+      bloodEnabled: true,
+      intensity: 0.75,
+      streakLimit: 3,
+      chunkLimit: 2,
+    })).toMatchObject({
+      enabled: false,
+      bloodEnabled: true,
+      bloodDropIntensity: 1,
+      intensity: 0.75,
+      streakLimit: 3,
+      chunkLimit: 2,
     });
   });
 });

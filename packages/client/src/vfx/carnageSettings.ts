@@ -3,6 +3,8 @@ const SCHEMA_VERSION = 1;
 
 export const MIN_CARNAGE_INTENSITY = 0.5;
 export const MAX_CARNAGE_INTENSITY = 2;
+export const MIN_BLOOD_DROP_INTENSITY = 0;
+export const MAX_BLOOD_DROP_INTENSITY = 1;
 export const MIN_STREAK_LIMIT = 0;
 export const MAX_STREAK_LIMIT = 16;
 export const MIN_CHUNK_LIMIT = 0;
@@ -12,6 +14,7 @@ export interface CarnageSettings {
   schemaVersion: 1;
   enabled: boolean;
   bloodEnabled: boolean;
+  bloodDropIntensity: number;
   intensity: number;
   streakLimit: number;
   chunkLimit: number;
@@ -21,6 +24,7 @@ export const DEFAULT_CARNAGE_SETTINGS: CarnageSettings = {
   schemaVersion: SCHEMA_VERSION,
   enabled: true,
   bloodEnabled: true,
+  bloodDropIntensity: 1,
   intensity: 1,
   streakLimit: 8,
   chunkLimit: 6,
@@ -44,6 +48,11 @@ export function parseCarnageSettings(value: unknown): CarnageSettings {
     bloodEnabled: typeof record.bloodEnabled === "boolean"
       ? record.bloodEnabled
       : DEFAULT_CARNAGE_SETTINGS.bloodEnabled,
+    bloodDropIntensity: clamp(
+      finite(record.bloodDropIntensity, DEFAULT_CARNAGE_SETTINGS.bloodDropIntensity),
+      MIN_BLOOD_DROP_INTENSITY,
+      MAX_BLOOD_DROP_INTENSITY,
+    ),
     intensity: clamp(
       finite(record.intensity, DEFAULT_CARNAGE_SETTINGS.intensity),
       MIN_CARNAGE_INTENSITY,

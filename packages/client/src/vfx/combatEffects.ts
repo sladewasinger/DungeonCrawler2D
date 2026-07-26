@@ -34,10 +34,14 @@ export class CombatEffects {
     dirX?: number,
     dirY?: number,
   ): void {
-    if (!loadCarnageSettings().bloodEnabled) return;
+    const settings = loadCarnageSettings();
+    if (!settings.bloodEnabled) return;
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
-    spawnHitSplatter(this.scene, screen.x, screen.y, tint, dirX, dirY);
+    spawnHitSplatter(
+      this.scene, screen.x, screen.y, tint, dirX, dirY,
+      settings.bloodDropIntensity,
+    );
     for (let index = 0; index < 3; index++) {
       this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
     }
@@ -50,10 +54,13 @@ export class CombatEffects {
     defId: string | undefined,
     nowMs: number,
   ): void {
-    if (!loadCarnageSettings().bloodEnabled) return;
+    const settings = loadCarnageSettings();
+    if (!settings.bloodEnabled) return;
     const screen = worldToScreen(worldX, worldY);
     const tint = bloodTintFor(defId);
-    spawnDeathSplatter(this.scene, screen.x, screen.y, tint);
+    spawnDeathSplatter(
+      this.scene, screen.x, screen.y, tint, settings.bloodDropIntensity,
+    );
     for (let index = 0; index < 12; index++) {
       this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
     }

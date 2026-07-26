@@ -12,8 +12,12 @@ import { COMBAT_PARTICLE_DEPTH } from "./combatLayer.js";
 
 const FRAME = "particle_soft";
 const HIT_COUNT = 12;
-const DEATH_COUNT = 32;
+const DEATH_COUNT = 28;
 const PARTICLE_LIFETIME_MS = { min: 450, max: 1_050 };
+
+export function bloodDropQuantity(baseCount: number, intensity: number): number {
+  return Math.round(baseCount * Math.min(1, Math.max(0, intensity)));
+}
 
 function fire(
   scene: Phaser.Scene,
@@ -24,6 +28,7 @@ function fire(
   speedMax: number,
   window: { minDeg: number; maxDeg: number },
 ): void {
+  if (quantity === 0) return;
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: FRAME,
@@ -50,9 +55,10 @@ export function spawnHitSplatter(
   tint: number,
   dirX?: number,
   dirY?: number,
+  intensity = 1,
 ): void {
   fire(
-    scene, screenX, screenY, tint, HIT_COUNT, 95,
+    scene, screenX, screenY, tint, bloodDropQuantity(HIT_COUNT, intensity), 95,
     splatterAngleWindow(dirX, dirY),
   );
 }
@@ -63,9 +69,10 @@ export function spawnDeathSplatter(
   screenX: number,
   screenY: number,
   tint: number,
+  intensity = 1,
 ): void {
   fire(
-    scene, screenX, screenY, tint, DEATH_COUNT, 150,
+    scene, screenX, screenY, tint, bloodDropQuantity(DEATH_COUNT, intensity), 150,
     splatterAngleWindow(),
   );
 }

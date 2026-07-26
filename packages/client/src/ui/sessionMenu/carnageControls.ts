@@ -1,12 +1,15 @@
 import {
   loadCarnageSettings,
+  MAX_BLOOD_DROP_INTENSITY,
   MAX_CARNAGE_INTENSITY,
   MAX_CHUNK_LIMIT,
   MAX_STREAK_LIMIT,
+  MIN_BLOOD_DROP_INTENSITY,
   MIN_CARNAGE_INTENSITY,
   MIN_CHUNK_LIMIT,
   MIN_STREAK_LIMIT,
   saveCarnageSettings,
+  type CarnageSettings,
 } from "../../vfx/carnageSettings.js";
 
 function createRange(
@@ -61,17 +64,21 @@ function createToggle(
   return row;
 }
 
-export function createCarnageControls(): HTMLElement[] {
-  let settings = loadCarnageSettings();
-  const title = document.createElement("h3");
-  title.textContent = "Carnage controls";
-  title.style.cssText = "margin:8px 0 0;color:#d66b73;font-size:12px";
-  const enabled = createToggle("Carnage Enabled?", settings.enabled, (checked) => {
-    settings = saveCarnageSettings({ ...settings, enabled: checked });
-  });
-  const blood = createToggle("Blood Enabled?", settings.bloodEnabled, (checked) => {
-    settings = saveCarnageSettings({ ...settings, bloodEnabled: checked });
-  });
+type SaveSettings = (patch: Partial<CarnageSettings>) => void;
+
+function createCarnageRanges(
+  settings: CarnageSettings,
+  save: SaveSettings,
+): HTMLLabelElement[] {
+  const bloodDrops = createRange(
+    "Blood drop intensity",
+    Math.round(MIN_BLOOD_DROP_INTENSITY * 100),
+    Math.round(MAX_BLOOD_DROP_INTENSITY * 100),
+    Math.round(settings.bloodDropIntensity * 100),
+    5,
+    (value) => `${value}%`,
+    (value) => save({ bloodDropIntensity: value / 100 }),
+  );
   const intensity = createRange(
     "Carnage intensity",
     Math.round(MIN_CARNAGE_INTENSITY * 100),
@@ -79,23 +86,34 @@ export function createCarnageControls(): HTMLElement[] {
     Math.round(settings.intensity * 100),
     5,
     (value) => `${value}%`,
-    (value) => {
-      settings = saveCarnageSettings({ ...settings, intensity: value / 100 });
-    },
+    (value) => save({ intensity: value / 100 }),
   );
   const streaks = createRange(
     "Ground splat streak limit", MIN_STREAK_LIMIT, MAX_STREAK_LIMIT,
     settings.streakLimit, 1, String,
-    (value) => {
-      settings = saveCarnageSettings({ ...settings, streakLimit: value });
-    },
+    (value) => save({ streakLimit: value }),
   );
   const chunks = createRange(
     "Gore chunk limit", MIN_CHUNK_LIMIT, MAX_CHUNK_LIMIT,
     settings.chunkLimit, 1, String,
-    (value) => {
-      settings = saveCarnageSettings({ ...settings, chunkLimit: value });
-    },
+    (value) => save({ chunkLimit: value }),
   );
-  return [title, enabled, blood, intensity, streaks, chunks];
+  return [bloodDrops, intensity, streaks, chunks];
+}
+
+export function createCarnageControls(): HTMLElement[] {
+  let settings = loadCarnageSettings();
+  const save: SaveSettings = (patch) => {
+    settings = saveCarnageSettings({ ...settings, ...patch });
+  };
+  const title = document.createElement("h3");
+  title.textContent = "Carnage controls";
+  title.style.cssText = "margin:8px 0 0;color:#d66b73;font-size:12px";
+  const enabled = createToggle("Carnage Enabled?", settings.enabled, (checked) => {
+    save({ enabled: checked });
+  });
+  const blood = createToggle("Blood Enabled?", settings.bloodEnabled, (checked) => {
+    save({ bloodEnabled: checked });
+  });
+  return [title, enabled, blood, ...createCarnageRanges(settings, save)];
 }
