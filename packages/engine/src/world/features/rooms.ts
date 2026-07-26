@@ -1,4 +1,9 @@
 import { CHUNK_SIZE, TILE, ZONE, type Chunk } from "../types.js";
+import {
+  ROOM_WALL_RISE,
+  carveSouthExitHall,
+  type SetRoomTile,
+} from "./roomExitGeometry.js";
 
 /**
  * Stretch rooms (GAME_DESIGN.md § Safe rooms): instanced sub-maps that
@@ -24,9 +29,7 @@ export const SAFE_ROOM_W = 17;
 export const SAFE_ROOM_H = 11;
 export const SAFE_ROOM_MAX_OCCUPANTS = 20;
 
-export function isRoomChunk(cy: number): boolean {
-  return cy >= ROOM_REGION_CY;
-}
+export function isRoomChunk(cy: number): boolean { return cy >= ROOM_REGION_CY; }
 
 /** Personal rooms on row ROOM_REGION_CY; party rooms two rows below. */
 export function personalRoomChunk(slot: number): { cx: number; cy: number } {
@@ -147,8 +150,6 @@ export function personalRoomFeatures(slot: number): {
  * Room walls rise far beyond the jump apex (≈1.07): stretch rooms stay
  * sealed — no hopping the perimeter into the void band.
  */
-const ROOM_WALL_RISE = 3;
-
 export type RoomKind = "personal" | "party" | "safe";
 
 interface RoomSlot {
@@ -212,10 +213,8 @@ export function partyRoomDoorPositions(cx: number, cy: number): Array<{ x: numbe
   }));
 }
 
-type SetTile = (lx: number, ly: number, tile: number, zone?: number) => void;
-
 /** Carve the sanctuary interior; walls stay on the perimeter ring. */
-function carveInterior(set: SetTile, left: number, top: number, w: number, h: number): void {
+function carveInterior(set: SetRoomTile, left: number, top: number, w: number, h: number): void {
   for (let ly = top + 1; ly < top + h - 1; ly++) {
     for (let lx = left + 1; lx < left + w - 1; lx++) {
       set(lx, ly, TILE.Floor);
@@ -233,15 +232,9 @@ function carveInterior(set: SetTile, left: number, top: number, w: number, h: nu
  * doorLights.ts already seeds every DoorExit tile with a teal glow — the
  * alcove's mouth lights itself, no lighting-side change needed here.
  */
-const ALCOVE_DEPTH = 2;
-
-function carveSouthAlcove(set: SetTile, centerLx: number, wallLy: number): void {
-  for (let d = 0; d < ALCOVE_DEPTH; d++) set(centerLx, wallLy + d, TILE.Floor);
-}
-
 /** Place the exit door plus this room kind's fixtures. */
 function placeFixtures(
-  set: SetTile,
+  set: SetRoomTile,
   kind: RoomKind,
   left: number,
   top: number,
@@ -252,7 +245,7 @@ function placeFixtures(
   // Every room uses the same recessed south-hall exit treatment.
   const exitLy = top + h - 2;
   set(centerLx, exitLy, TILE.DoorExit);
-  carveSouthAlcove(set, centerLx, top + h - 1);
+  carveSouthExitHall(set, centerLx, top + h - 1);
 
   if (kind === "personal") {
     // Stash on the west wall, crafting table on the east wall.
@@ -278,11 +271,17 @@ export function generateRoomChunk(cx: number, cy: number): Chunk {
   const left = Math.floor(CHUNK_SIZE / 2 - w / 2);
   const top = Math.floor(CHUNK_SIZE / 2 - h / 2);
 
-  const set: SetTile = (lx, ly, tile, zone = ZONE.Sanctuary) => {
+  const set: SetRoomTile = (
+    lx,
+    ly,
+    tile,
+    zone = ZONE.Sanctuary,
+    tileHeight = 0,
+  ) => {
     const i = ly * CHUNK_SIZE + lx;
     tiles[i] = tile;
     zones[i] = zone;
-    height[i] = 0; // carved interior sits at floor level
+    height[i] = tileHeight;
   };
 
   carveInterior(set, left, top, w, h);
