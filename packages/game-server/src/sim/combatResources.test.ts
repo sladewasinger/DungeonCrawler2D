@@ -12,7 +12,8 @@ const simAt = (tickCount: number, hp = 20) => {
   const slot = {
     entity,
     connected: true,
-    downedAtTick: null,
+    downedAtTick: null as number | null,
+    respawnAtTick: null as number | null,
     lastDamageAtTick: 0,
   };
   const sim = {
@@ -76,5 +77,17 @@ describe("applyHealthRegeneration", () => {
       hp: 20.5,
       source: "automatic",
     }]);
+  });
+
+  it("does not heal a downed player or a scheduled corpse", () => {
+    const downed = simAt(HEALTH_REGEN_DELAY_SECONDS * TICK_RATE, 1);
+    downed.slot.downedAtTick = 1;
+    applyHealthRegeneration(downed.sim, []);
+    expect(downed.entity.hp).toBe(1);
+
+    const dead = simAt(HEALTH_REGEN_DELAY_SECONDS * TICK_RATE, 1);
+    dead.slot.respawnAtTick = dead.sim.tickCount + TICK_RATE;
+    applyHealthRegeneration(dead.sim, []);
+    expect(dead.entity.hp).toBe(1);
   });
 });

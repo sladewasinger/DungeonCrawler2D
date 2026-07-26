@@ -58,5 +58,7 @@ describe("ThreeHudModel", () => {
     expect(shouldShowAutoHealing(30, 30, 0)).toBe(false);
     expect(shouldShowAutoHealing(0, 30, 0)).toBe(false);
     expect(shouldShowAutoHealing(20, 30, 2)).toBe(false);
+    expect(shouldShowAutoHealing(1, 30, 0, false)).toBe(false);
+    expect(shouldShowAutoHealing(20, 30, 0, false)).toBe(false);
   });
 });

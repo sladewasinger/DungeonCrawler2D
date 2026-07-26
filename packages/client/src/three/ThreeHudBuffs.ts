@@ -22,6 +22,7 @@ export class ThreeHudBuffs {
       connection.hp,
       connection.maxHp,
       connection.healthRegenerationDelaySeconds,
+      connection.canAct,
     );
     const signature = `${showAutoHealing}:${statusSignature}`;
     if (signature === this.signature) return;

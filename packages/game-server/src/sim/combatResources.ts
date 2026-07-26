@@ -91,7 +91,8 @@ export function applyHealthRegeneration(
 function canRegenerate(sim: SimState, slot: PlayerSlot): boolean {
   const entity = slot.entity;
   slot.lastDamageAtTick ??= sim.tickCount;
-  if (!slot.connected || entity.hp <= 0 || entity.hp >= entity.maxHp) return false;
+  if (!slot.connected || slot.respawnAtTick !== null) return false;
+  if (entity.hp <= 0 || entity.hp >= entity.maxHp) return false;
   if (slot.downedAtTick !== null) return false;
   if (sim.tickCount - slot.lastDamageAtTick < REGEN_DELAY_TICKS) return false;
   return sim.tickCount % TICK_RATE === 0;

@@ -73,4 +73,6 @@ export const shouldShowAutoHealing = (
   hp: number,
   maxHp: number,
   regenerationDelaySeconds: number,
-): boolean => hp > 0 && hp < maxHp && regenerationDelaySeconds <= 0;
+  actionable = true,
+): boolean =>
+  actionable && hp > 0 && hp < maxHp && regenerationDelaySeconds <= 0;
