@@ -1,19 +1,12 @@
+import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
 import { describe, expect, it } from "vitest";
-import { breathPuffPose } from "./outOfBreathFx.js";
+import { breathScreenAnchor } from "./outOfBreathFx.js";
 
-describe("breathPuffPose", () => {
-  it("drifts away from the remembered sprite-facing side", () => {
-    expect(breathPuffPose(225, 0, 1).x).toBeGreaterThan(0);
-    expect(breathPuffPose(225, 0, -1).x).toBeLessThan(0);
-  });
-
-  it("stays bounded while fading in and out", () => {
-    for (let now = 0; now <= 1800; now += 50) {
-      const pose = breathPuffPose(now, 1, 1);
-      expect(pose.alpha).toBeGreaterThanOrEqual(0);
-      expect(pose.alpha).toBeLessThanOrEqual(0.72);
-      expect(pose.radius).toBeGreaterThanOrEqual(2.5);
-      expect(pose.radius).toBeLessThanOrEqual(6);
-    }
+describe("out-of-breath elevation tracking", () => {
+  it("lifts panting puffs by the player's absolute z height", () => {
+    const ground = breathScreenAnchor(4, 8, 0);
+    const elevated = breathScreenAnchor(4, 8, 2.5);
+    expect(elevated.x).toBe(ground.x);
+    expect(elevated.y).toBeCloseTo(ground.y - 2.5 * SCREEN_TILE_PX);
   });
 });

@@ -168,7 +168,8 @@ function syncSelfVfx(
   vfx.trackPlayerMotion(render.x, render.y, !conn.body.grounded, state.cosmetics.faceX, nowMs);
   vfx.graceRing.sync(render.x, render.y, state.cosmetics.graceUntilMs, nowMs);
   vfx.syncOutOfBreath(
-    render.x, render.y, state.cosmetics.spriteFaceX, conn.staminaExhausted, nowMs,
+    render.x, render.y, render.z,
+    state.cosmetics.spriteFaceX, conn.staminaExhausted, nowMs,
   );
   vfx.update(nowMs);
 }

@@ -89,11 +89,12 @@ export class VfxSystem {
   syncOutOfBreath(
     x: number,
     y: number,
+    z: number,
     faceX: number,
     exhausted: boolean,
     nowMs: number,
   ): void {
-    this.outOfBreathFx.sync(x, y, faceX, exhausted, nowMs);
+    this.outOfBreathFx.sync(x, y, z, faceX, exhausted, nowMs);
   }
 
   spawnDamageNumber(worldX: number, worldY: number, feedback: import("../ui/healthFeedback.js").HealthFeedback, nowMs: number): void {

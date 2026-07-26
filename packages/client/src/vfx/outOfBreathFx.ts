@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { spriteLiftPx } from "../render/entities/lift.js";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 
 const DEPTH = 400_000;
@@ -11,6 +12,15 @@ export interface BreathPuffPose {
   readonly y: number;
   readonly alpha: number;
   readonly radius: number;
+}
+
+export function breathScreenAnchor(
+  worldX: number,
+  worldY: number,
+  worldZ: number,
+): { x: number; y: number } {
+  const screen = worldToScreen(worldX, worldY - 0.85);
+  return { x: screen.x, y: screen.y - spriteLiftPx(worldZ) };
 }
 
 export function breathPuffPose(
@@ -37,6 +47,7 @@ export class OutOfBreathFx {
   sync(
     worldX: number,
     worldY: number,
+    worldZ: number,
     faceX: number,
     exhausted: boolean,
     nowMs: number,
@@ -45,7 +56,7 @@ export class OutOfBreathFx {
       this.graphics.setVisible(false);
       return;
     }
-    const screen = worldToScreen(worldX, worldY - 0.85);
+    const screen = breathScreenAnchor(worldX, worldY, worldZ);
     const facingSign = faceX < 0 ? -1 : 1;
     this.graphics.setVisible(true).clear();
     for (let index = 0; index < PUFF_COUNT; index++) {
