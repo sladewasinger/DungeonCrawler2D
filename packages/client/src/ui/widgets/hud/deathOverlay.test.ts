@@ -5,6 +5,7 @@ import {
   deathOverlayPresentation,
   deathOverlayText,
   downedOverlayText,
+  respawnButtonVisible,
 } from "./deathOverlay.js";
 
 describe("death overlay copy", () => {
@@ -27,8 +28,16 @@ describe("death overlay copy", () => {
       expect(layout.headlineY).toBeLessThan(layout.timerY);
       expect(layout.timerY).toBeLessThan(layout.promptY);
       expect(layout.promptY).toBeLessThan(layout.barY);
+      expect(layout.barY).toBeLessThan(layout.buttonY);
       expect(layout.barWidth * scale).toBeLessThanOrEqual(viewport.width);
+      expect(layout.buttonWidth * scale).toBeLessThanOrEqual(viewport.width);
     }
+  });
+
+  it("shows direct respawn only for the fully dead state", () => {
+    expect(respawnButtonVisible(false, true)).toBe(true);
+    expect(respawnButtonVisible(true, false)).toBe(false);
+    expect(respawnButtonVisible(false, false)).toBe(false);
   });
 
   it("shares authoritative downed countdown and reviver copy", () => {

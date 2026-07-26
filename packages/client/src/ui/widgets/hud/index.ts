@@ -64,7 +64,7 @@ export class HudWidgets {
   private readonly editMode: HudEditMode;
   private viewport: Viewport;
 
-  constructor(scene: Phaser.Scene, viewport: Viewport, actions?: InventoryActions, social?: SocialActions, stations?: StationActions) {
+  constructor(scene: Phaser.Scene, viewport: Viewport, actions?: InventoryActions, social?: SocialActions, stations?: StationActions, onRespawnNow?: () => void) {
     this.scene = scene;
     this.viewport = viewport;
     // Closes the HUD_OS.md Phase 2 prerequisite gap: a saved edit-HUD layout previously had
@@ -86,7 +86,7 @@ export class HudWidgets {
     this.interaction = new InteractionPromptWidget(scene, this.registry, viewport);
     this.connection = this.touchActive ? undefined : new ConnectionStatusWidget(scene, this.registry, viewport);
     this.compass = new CompassWidget(scene, this.registry, viewport);
-    this.death = new DeathOverlayWidget(scene, this.registry, viewport);
+    this.death = new DeathOverlayWidget(scene, this.registry, viewport, onRespawnNow);
     this.reconnectToast = new ReconnectToastWidget(scene, this.registry, viewport);
     this.toasts = new ToastStackWidget(scene, this.registry, viewport);
     this.panels = new PanelWindows(scene, this.registry, viewport, actions, social, stations);

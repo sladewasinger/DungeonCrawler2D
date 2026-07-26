@@ -245,6 +245,7 @@ export class HudScene extends Phaser.Scene {
       this.actions,
       this.social,
       this.stations,
+      this.connection ? () => this.connection?.respawnNow() : undefined,
     );
     this.bossBar = new BossBarWidget(this, this.hud.registry, viewport);
   }

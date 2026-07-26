@@ -177,7 +177,10 @@ const createOverlayParts = (
       onOpenChange: options.setTextInputFocused,
     },
   );
-  const downed = new ThreeDownedOverlay(options.element);
+  const downed = new ThreeDownedOverlay(
+    options.element,
+    () => options.connection.respawnNow(),
+  );
   const invite = new ThreePartyInvite(options.connection);
   const healthFeedback = new ThreeHealthFeedback();
   mountHudOverlays(options.element, [

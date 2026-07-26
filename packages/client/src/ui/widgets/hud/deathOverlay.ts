@@ -14,6 +14,7 @@ const VIGNETTE_COLOR = 0x0a0a10;
 const VIGNETTE_ALPHA = 0.72;
 const HOLD_BAR_WIDTH = 220;
 const HOLD_BAR_HEIGHT = 10;
+const RESPAWN_BUTTON_HEIGHT = 30;
 export const DEATH_HEADLINE_COLOR = "#ff304f";
 export const DEATH_HEADLINE_OUTLINE = "#240109";
 
@@ -25,7 +26,8 @@ export function deathOverlayPresentation(viewport: Viewport, scale = 1) {
   const gap = Math.max(3, Math.min(10, height * 0.04));
   const headlineHeight = headlineSize * 1.15;
   const detailHeight = detailSize * 1.25;
-  const total = headlineHeight + detailHeight * 2 + gap * 3 + HOLD_BAR_HEIGHT;
+  const total = headlineHeight + detailHeight * 2 + gap * 4 +
+    HOLD_BAR_HEIGHT + RESPAWN_BUTTON_HEIGHT;
   const top = -total / 2;
   return {
     headlineSize,
@@ -35,7 +37,58 @@ export function deathOverlayPresentation(viewport: Viewport, scale = 1) {
     promptY: top + headlineHeight + gap * 2 + detailHeight * 1.5,
     barY: top + headlineHeight + gap * 3 + detailHeight * 2 + HOLD_BAR_HEIGHT / 2,
     barWidth: Math.min(HOLD_BAR_WIDTH, Math.max(88, width - 32)),
+    buttonY: top + headlineHeight + gap * 4 + detailHeight * 2 +
+      HOLD_BAR_HEIGHT + RESPAWN_BUTTON_HEIGHT / 2,
+    buttonWidth: Math.min(180, Math.max(96, width - 48)),
   };
+}
+
+export const respawnButtonVisible = (downed: boolean, dead: boolean): boolean =>
+  dead && !downed;
+
+function createRespawnButton(
+  scene: Phaser.Scene,
+  presentation: ReturnType<typeof deathOverlayPresentation>,
+  scale: number,
+  onRespawnNow: () => void,
+) {
+  const button = scene.add.rectangle(
+    0, presentation.buttonY, presentation.buttonWidth,
+    RESPAWN_BUTTON_HEIGHT, 0xb51631,
+  ).setStrokeStyle(2, 0xff6b7f).setInteractive({ useHandCursor: true })
+    .on("pointerup", onRespawnNow);
+  const label = scene.add.text(
+    0, presentation.buttonY, "Respawn Now",
+    uiTextStyle(presentation.detailSize, "#ffffff", scale, "emphasis"),
+  ).setOrigin(0.5);
+  return { button, label };
+}
+
+function createDeathOverlayParts(
+  scene: Phaser.Scene,
+  presentation: ReturnType<typeof deathOverlayPresentation>,
+  scale: number,
+) {
+  const headline = scene.add
+    .text(0, presentation.headlineY, "YOU DIED", {
+      ...uiTextStyle(presentation.headlineSize, DEATH_HEADLINE_COLOR, scale, "emphasis"),
+      stroke: DEATH_HEADLINE_OUTLINE,
+      strokeThickness: 7,
+      shadow: { offsetX: 0, offsetY: 4, color: "#000000", blur: 6, fill: true },
+    })
+    .setOrigin(0.5, 0.5)
+    .setAlign("center");
+  const timer = scene.add.text(0, presentation.timerY, deathTimerText(30),
+    uiTextStyle(presentation.detailSize, "#f2e9e2", scale, "emphasis")).setOrigin(0.5);
+  const prompt = scene.add.text(0, presentation.promptY, "Hold [E] for 3s to respawn now",
+    uiTextStyle(presentation.detailSize, "#f2e9e2", scale)).setOrigin(0.5).setAlign("center");
+  const holdBar = scene.add.rectangle(
+    0, presentation.barY, presentation.barWidth, HOLD_BAR_HEIGHT, 0x242436,
+  ).setStrokeStyle(2, 0x77778d);
+  const holdFill = scene.add.rectangle(
+    -presentation.barWidth / 2, presentation.barY, 0, HOLD_BAR_HEIGHT - 2, 0xffd23d,
+  ).setOrigin(0, 0.5);
+  return { headline, timer, prompt, holdBar, holdFill };
 }
 
 function barPresentation(downed: boolean, dead: boolean, hold: number, revive: number) {
@@ -60,9 +113,16 @@ export class DeathOverlayWidget {
   private readonly prompt: Phaser.GameObjects.Text;
   private readonly holdBar: Phaser.GameObjects.Rectangle;
   private readonly holdFill: Phaser.GameObjects.Rectangle;
+  private readonly respawnButton: Phaser.GameObjects.Rectangle;
+  private readonly respawnLabel: Phaser.GameObjects.Text;
   private barWidth = HOLD_BAR_WIDTH;
 
-  constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
+  constructor(
+    scene: Phaser.Scene,
+    registry: WidgetRegistry,
+    viewport: Viewport,
+    onRespawnNow: () => void = () => {},
+  ) {
     registry.register({
       id: WIDGET_ID,
       defaultAnchor: "center",
@@ -77,29 +137,21 @@ export class DeathOverlayWidget {
     this.barWidth = presentation.barWidth;
     this.container = createWidgetContainer(scene, layout);
     this.vignette = scene.add.rectangle(0, 0, viewport.width, viewport.height, VIGNETTE_COLOR, VIGNETTE_ALPHA);
-    this.headline = scene.add
-      .text(0, presentation.headlineY, "YOU DIED", {
-        ...uiTextStyle(presentation.headlineSize, DEATH_HEADLINE_COLOR, layout.scale, "emphasis"),
-        stroke: DEATH_HEADLINE_OUTLINE,
-        strokeThickness: 7,
-        shadow: { offsetX: 0, offsetY: 4, color: "#000000", blur: 6, fill: true },
-      })
-      .setOrigin(0.5, 0.5)
-      .setAlign("center");
-    this.timer = scene.add.text(0, presentation.timerY, deathTimerText(30),
-      uiTextStyle(presentation.detailSize, "#f2e9e2", layout.scale, "emphasis")).setOrigin(0.5);
-    this.prompt = scene.add.text(0, presentation.promptY, "Hold [E] for 3s to respawn now",
-      uiTextStyle(presentation.detailSize, "#f2e9e2", layout.scale)).setOrigin(0.5).setAlign("center");
-    this.holdBar = scene.add.rectangle(0, presentation.barY, presentation.barWidth, HOLD_BAR_HEIGHT, 0x242436)
-      .setStrokeStyle(2, 0x77778d);
-    this.holdFill = scene.add.rectangle(
-      -presentation.barWidth / 2,
-      presentation.barY,
-      0,
-      HOLD_BAR_HEIGHT - 2,
-      0xffd23d,
-    ).setOrigin(0, 0.5);
-    this.container.add([this.vignette, this.headline, this.timer, this.prompt, this.holdBar, this.holdFill]);
+    const parts = createDeathOverlayParts(scene, presentation, layout.scale);
+    this.headline = parts.headline;
+    this.timer = parts.timer;
+    this.prompt = parts.prompt;
+    this.holdBar = parts.holdBar;
+    this.holdFill = parts.holdFill;
+    const respawn = createRespawnButton(
+      scene, presentation, layout.scale, onRespawnNow,
+    );
+    this.respawnButton = respawn.button;
+    this.respawnLabel = respawn.label;
+    this.container.add([
+      this.vignette, this.headline, this.timer, this.prompt, this.holdBar,
+      this.holdFill, this.respawnButton, this.respawnLabel,
+    ]);
     this.container.setVisible(false);
   }
 
@@ -118,6 +170,9 @@ export class DeathOverlayWidget {
     this.timer.setText(downed ? downedCopy[1] ?? "" : deathTimerText(remainingSec));
     this.prompt.setText(downed ? downedCopy.slice(2).join("\n") : "Hold [E] for 3s to respawn now");
     const bar = barPresentation(downed, dead, holdProgress, reviveProgress);
+    const buttonVisible = respawnButtonVisible(downed, dead);
+    this.respawnButton.setVisible(buttonVisible);
+    this.respawnLabel.setVisible(buttonVisible);
     this.holdBar.setVisible(bar.visible);
     this.holdFill.setVisible(bar.visible)
       .setDisplaySize(this.barWidth * Math.min(1, Math.max(0, bar.progress)), HOLD_BAR_HEIGHT - 2);
@@ -136,6 +191,9 @@ export class DeathOverlayWidget {
       this.prompt.setFontSize(p.detailSize).setY(p.promptY);
       this.holdBar.setPosition(0, p.barY).setSize(p.barWidth, HOLD_BAR_HEIGHT);
       this.holdFill.setPosition(-p.barWidth / 2, p.barY);
+      this.respawnButton.setPosition(0, p.buttonY)
+        .setSize(p.buttonWidth, RESPAWN_BUTTON_HEIGHT);
+      this.respawnLabel.setPosition(0, p.buttonY).setFontSize(p.detailSize);
     }
   }
 }
