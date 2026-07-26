@@ -25,6 +25,18 @@ describe("monsterSpriteFor", () => {
     expect(monsterSpriteFor("plant-creeper")).toBe("plant_creeper");
   });
 
+  it("maps every expanded Dungeon Tileset II monster family", () => {
+    expect([
+      "goblin", "masked-orc", "orc-warrior", "orc-shaman", "orc-warlord",
+      "tiny-zombie", "big-zombie", "chort", "big-demon", "wogol",
+      "pumpkin-fiend", "fallen-angel",
+    ].map(monsterSpriteFor)).toEqual([
+      "goblin", "masked_orc", "orc_warrior", "orc_shaman", "ogre",
+      "tiny_zombie", "big_zombie", "chort", "big_demon", "wogol",
+      "pumpkin_dude", "angel",
+    ]);
+  });
+
   it("falls back for an unknown or missing defId", () => {
     expect(monsterSpriteFor("no-such-enemy")).toBe("skelet");
     expect(monsterSpriteFor(undefined)).toBe("skelet");

@@ -72,6 +72,206 @@
     "epithet": "spat on from a safe, professional distance"
   },
   {
+    "id": "goblin",
+    "name": "Goblin",
+    "tags": ["organic", "goblin"],
+    "hp": 16,
+    "speed": 4.8,
+    "aggroRadius": 10,
+    "attack": { "damage": 4, "range": 1, "cooldown": 0.9 },
+    "drops": [
+      { "item": "knife", "chance": 0.08 },
+      { "item": "rag", "chance": 0.55 }
+    ],
+    "sprite": "goblin",
+    "xp": 9,
+    "epithet": "out-negotiated by a goblin"
+  },
+  {
+    "id": "masked-orc",
+    "name": "Masked Orc",
+    "tags": ["organic", "orc"],
+    "hp": 28,
+    "speed": 4,
+    "aggroRadius": 11,
+    "attack": { "damage": 6, "range": 1.1, "cooldown": 1.1 },
+    "drops": [
+      { "item": "knife", "chance": 0.18 },
+      { "item": "raw-meat", "chance": 0.35 }
+    ],
+    "sprite": "masked_orc",
+    "xp": 16,
+    "epithet": "unmasked by an orc, too late"
+  },
+  {
+    "id": "orc-warrior",
+    "name": "Orc Warrior",
+    "tags": ["organic", "orc"],
+    "hp": 36,
+    "speed": 3.8,
+    "aggroRadius": 12,
+    "attack": { "damage": 7, "range": 1.2, "cooldown": 1.2 },
+    "drops": [
+      { "item": "sword", "chance": 0.12 },
+      { "item": "bandage", "chance": 0.3 }
+    ],
+    "sprite": "orc_warrior",
+    "xp": 20,
+    "epithet": "made briefly shorter by an orc warrior"
+  },
+  {
+    "id": "orc-shaman",
+    "name": "Orc Shaman",
+    "tags": ["organic", "orc"],
+    "hp": 26,
+    "speed": 3.4,
+    "aggroRadius": 12,
+    "attack": {
+      "damage": 5,
+      "range": 7,
+      "cooldown": 2.2,
+      "ranged": true,
+      "applies": [{ "status": "poisoned", "chance": 0.35 }]
+    },
+    "drops": [
+      { "item": "water-flask", "chance": 0.35 },
+      { "item": "stick", "chance": 0.7 }
+    ],
+    "sprite": "orc_shaman",
+    "xp": 22,
+    "epithet": "received an orc shaman's professional opinion"
+  },
+  {
+    "id": "orc-warlord",
+    "name": "Orc Warlord",
+    "tags": ["organic", "orc", "mini-boss"],
+    "hp": 140,
+    "speed": 2.8,
+    "aggroRadius": 13,
+    "attack": { "damage": 11, "range": 1.5, "cooldown": 1.5 },
+    "drops": [
+      { "item": "hammer", "chance": 0.45 },
+      { "item": "sword", "chance": 0.3 },
+      { "item": "bandage", "chance": 1 }
+    ],
+    "sprite": "ogre",
+    "xp": 90,
+    "epithet": "promoted to floor decoration by an orc warlord"
+  },
+  {
+    "id": "tiny-zombie",
+    "name": "Tiny Zombie",
+    "tags": ["undead"],
+    "hp": 18,
+    "speed": 3.6,
+    "aggroRadius": 9,
+    "attack": { "damage": 4, "range": 0.9, "cooldown": 1 },
+    "immunities": ["poison"],
+    "drops": [{ "item": "rag", "chance": 0.65 }],
+    "sprite": "tiny_zombie",
+    "xp": 9,
+    "epithet": "brought down to size by a tiny zombie"
+  },
+  {
+    "id": "big-zombie",
+    "name": "Bloated Zombie",
+    "tags": ["undead"],
+    "hp": 46,
+    "speed": 2.3,
+    "aggroRadius": 10,
+    "attack": { "damage": 8, "range": 1.2, "cooldown": 1.5 },
+    "immunities": ["poison"],
+    "drops": [
+      { "item": "raw-meat", "chance": 0.7 },
+      { "item": "rag", "chance": 0.55 }
+    ],
+    "sprite": "big_zombie",
+    "xp": 24,
+    "epithet": "became part of a bloated zombie's balanced diet"
+  },
+  {
+    "id": "chort",
+    "name": "Chort",
+    "tags": ["organic", "demon"],
+    "hp": 32,
+    "speed": 4.2,
+    "aggroRadius": 12,
+    "attack": { "damage": 7, "range": 1.1, "cooldown": 1 },
+    "drops": [
+      { "item": "raw-meat", "chance": 0.55 },
+      { "item": "vodka-bottle", "chance": 0.12 }
+    ],
+    "sprite": "chort",
+    "xp": 20,
+    "epithet": "learned why chorts are kept underground"
+  },
+  {
+    "id": "big-demon",
+    "name": "Greater Demon",
+    "tags": ["organic", "demon", "elite"],
+    "hp": 90,
+    "speed": 3,
+    "aggroRadius": 14,
+    "attack": { "damage": 10, "range": 1.4, "cooldown": 1.4 },
+    "drops": [
+      { "item": "hammer", "chance": 0.25 },
+      { "item": "vodka-bottle", "chance": 0.45 }
+    ],
+    "sprite": "big_demon",
+    "xp": 50,
+    "epithet": "found the greater demon sufficiently greater"
+  },
+  {
+    "id": "wogol",
+    "name": "Wogol",
+    "tags": ["organic", "beast"],
+    "hp": 30,
+    "speed": 4.5,
+    "aggroRadius": 11,
+    "attack": { "damage": 6, "range": 1.1, "cooldown": 1 },
+    "drops": [
+      { "item": "raw-meat", "chance": 0.8 },
+      { "item": "rag", "chance": 0.25 }
+    ],
+    "sprite": "wogol",
+    "xp": 18,
+    "epithet": "discovered what a wogol does"
+  },
+  {
+    "id": "pumpkin-fiend",
+    "name": "Pumpkin Fiend",
+    "tags": ["organic", "plant", "flammable"],
+    "hp": 25,
+    "speed": 3.7,
+    "aggroRadius": 10,
+    "attack": { "damage": 5, "range": 1, "cooldown": 1.1 },
+    "damageScale": { "fire": 2 },
+    "drops": [
+      { "item": "stick", "chance": 0.75 },
+      { "item": "raw-meat", "chance": 0.4 }
+    ],
+    "sprite": "pumpkin_dude",
+    "xp": 15,
+    "epithet": "carved by a pumpkin fiend"
+  },
+  {
+    "id": "fallen-angel",
+    "name": "Fallen Angel",
+    "tags": ["undead", "corrupted"],
+    "hp": 42,
+    "speed": 4,
+    "aggroRadius": 13,
+    "attack": { "damage": 7, "range": 1.2, "cooldown": 1.1 },
+    "immunities": ["poison"],
+    "drops": [
+      { "item": "bandage", "chance": 0.55 },
+      { "item": "water-flask", "chance": 0.3 }
+    ],
+    "sprite": "angel",
+    "xp": 30,
+    "epithet": "sent upward by a fallen angel"
+  },
+  {
     "id": "warden-of-five",
     "name": "The Warden of Five",
     "tags": ["undead", "boss"],
