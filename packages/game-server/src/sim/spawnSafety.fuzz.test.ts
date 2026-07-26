@@ -10,6 +10,7 @@ import {
   CHASM_DEATH_Z,
   LEVEL,
   PLAYER_MAX_HP,
+  RESPAWN_DELAY_TICKS,
   World,
   buildContentRegistry,
   hashString,
@@ -154,7 +155,10 @@ describe("spawn safety across seeds", () => {
         const me = sim.getPlayerEntity(join.playerId)!;
         me.hp = 0;
         let guard = 0;
-        while (sim.getPlayerEntity(join.playerId)!.hp <= 0 && guard++ < 60) sim.step();
+        while (
+          sim.getPlayerEntity(join.playerId)!.hp <= 0 &&
+          guard++ < RESPAWN_DELAY_TICKS + 5
+        ) sim.step();
         expect(sim.getPlayerEntity(join.playerId)!.hp, `seed ${seed}: never respawned`).toBe(PLAYER_MAX_HP);
         expect(sim.getWeapon(join.playerId), `seed ${seed}: respawned unarmed`).toBe("sword");
         sampleGraceWindow(sim, join.playerId, sim.tick + SPAWN_GRACE_TICKS, `seed ${seed} respawn`);
