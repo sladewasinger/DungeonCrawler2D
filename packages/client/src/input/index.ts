@@ -120,7 +120,7 @@ export class InputController {
 
   pollRespawnHold(): void {
     if (this.cancelModalGestures()) return;
-    this.lifeGestures.pollRespawn(this.conn, this.scene.time.now);
+    this.lifeGestures.pollRespawn(this.conn, this.scene.time.now, this.state.keys.E.isDown);
   }
 
   respawnHoldProgress(): number { return this.lifeGestures.respawnProgress(this.conn.dead, this.scene.time.now); }

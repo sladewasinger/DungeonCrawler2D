@@ -68,7 +68,7 @@ export class ThreeActionController {
       this.respawn.end(nowMs);
       return;
     }
-    if (this.respawn.poll(true, nowMs)) this.connection.respawnNow();
+    if (this.respawn.poll(true, nowMs, sample.interactHeld)) this.connection.respawnNow();
   }
 
   private bandageNearestPlayer(): void {

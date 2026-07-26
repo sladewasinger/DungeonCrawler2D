@@ -106,6 +106,24 @@ describe("ThreeActionController interaction gesture", () => {
     expect(conn.respawnNow).toHaveBeenCalledOnce();
   });
 
+  it("recovers when the initial E press edge is missed", () => {
+    const now = vi.spyOn(performance, "now");
+    const conn = connection();
+    Object.defineProperty(conn, "dead", { value: true });
+    const controller = new ThreeActionController(conn);
+    const world = new World(1, 1);
+
+    now.mockReturnValue(0);
+    controller.publish(world, sample({ interactHeld: true }));
+    now.mockReturnValue(2_999);
+    controller.publish(world, sample({ interactHeld: true }));
+    expect(conn.respawnNow).not.toHaveBeenCalled();
+
+    now.mockReturnValue(3_000);
+    controller.publish(world, sample({ interactHeld: true }));
+    expect(conn.respawnNow).toHaveBeenCalledOnce();
+  });
+
   it("opens nearby death loot for the killer but not during another player's lock", () => {
     const conn = connection();
     conn.serverTick = 20;

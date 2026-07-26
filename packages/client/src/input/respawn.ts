@@ -20,11 +20,12 @@ export class RespawnGesture {
     holdUp(this.hold, nowMs, INSTANT_RESPAWN_HOLD_MS);
   }
 
-  poll(enabled: boolean, nowMs: number): boolean {
+  poll(enabled: boolean, nowMs: number, sourceHeld = false): boolean {
     if (!enabled) {
       this.end(nowMs);
       return false;
     }
+    if (sourceHeld) this.begin(true, nowMs);
     return holdCrossedThreshold(this.hold, nowMs, INSTANT_RESPAWN_HOLD_MS);
   }
 

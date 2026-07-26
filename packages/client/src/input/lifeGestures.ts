@@ -39,8 +39,8 @@ export class LifeGestures {
     if (this.giveUp.poll(conn.downed, nowMs)) conn.suicide();
   }
 
-  pollRespawn(conn: InputConnection, nowMs: number): void {
-    if (this.respawn.poll(conn.dead, nowMs)) conn.respawnNow();
+  pollRespawn(conn: InputConnection, nowMs: number, sourceHeld = false): void {
+    if (this.respawn.poll(conn.dead, nowMs, sourceHeld)) conn.respawnNow();
   }
 
   respawnProgress(dead: boolean, nowMs: number): number {

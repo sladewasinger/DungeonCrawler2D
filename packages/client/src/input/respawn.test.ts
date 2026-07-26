@@ -19,4 +19,11 @@ describe("instant respawn hold", () => {
     gesture.begin(true, 4_000);
     expect(gesture.poll(false, 5_000)).toBe(false);
   });
+
+  it("starts from the held source when the press edge was missed", () => {
+    const gesture = new RespawnGesture();
+    expect(gesture.poll(true, 100, true)).toBe(false);
+    expect(gesture.progress(true, 1_600)).toBe(0.5);
+    expect(gesture.poll(true, 100 + INSTANT_RESPAWN_HOLD_MS, true)).toBe(true);
+  });
 });
