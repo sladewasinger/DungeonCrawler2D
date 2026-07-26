@@ -18,6 +18,6 @@ export interface EnemySlot {
   animation: {
     state: EnemyAnimationState;
     ticksRemaining: number;
-    target?: { x: number; y: number; z: number };
+    target?: { targetId: string; x: number; y: number; z: number };
   };
 }

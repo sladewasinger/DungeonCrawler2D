@@ -22,6 +22,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { spawnEnemy } from "../helpers.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state.js";
 import { PlayerStore } from "../../store.js";
+import { resolveDeaths } from "../deaths.js";
 import { populateTestZoneChunk } from "../testzone.js";
 import { activateChunksNearPlayers, stepEnemies } from "./index.js";
 
@@ -59,37 +60,26 @@ function findOpenFloor(sim: SimState): { x: number; y: number } {
   throw new Error("no open floor found near (200, 200)");
 }
 
-function makePlayerSlot(x: number, y: number, sim: SimState): PlayerSlot {
+function makePlayerSlot(x: number, y: number, sim: SimState, id = "p1"): PlayerSlot {
   const entity = makeEntity("player", createBody(x, y, sim.world.groundAt(x, y)), {
-    id: "p1",
+    id,
     hp: 30,
     maxHp: 30,
     baseSpeed: 8,
   });
   return {
     entity,
-    clientId: "c1",
+    clientId: `c-${id}`,
     stored: { slot: 0, name: "tester", stash: [], contacts: [] },
     resumeToken: "tok",
     lastSeq: 0,
-    pendingInputs: [],
-    pendingActions: [],
-    connected: true,
-    reapAtTick: 0,
-    known: new Set(),
-    inventory: [],
-    hotbar: [],
-    weapon: null,
-    outbox: [],
-    returnStack: [],
-    partyId: null,
-    respawnAtTick: null,
-    needsFullAreas: true,
-    downedAtTick: null,
-    attackReadyAtTick: 0,
-    attackStartedAtTick: -1000,
-    god: false,
-    forceDeath: false,
+    pendingInputs: [], pendingActions: [],
+    connected: true, reapAtTick: 0,
+    known: new Set(), inventory: [], hotbar: [],
+    weapon: null, outbox: [], returnStack: [],
+    partyId: null, respawnAtTick: null, needsFullAreas: true,
+    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: -1000,
+    god: false, forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };
@@ -166,7 +156,9 @@ describe("enemy AI", () => {
 
   it("strikes an adjacent player once in melee range", () => {
     const enemy = spawnEnemy(sim, "skeleton", spot.x + 0.8, spot.y);
-    const player = sim.players.get("p1")!.entity; // set in beforeEach, above
+    const slot = sim.players.get("p1");
+    if (!slot) throw new Error("missing melee player fixture");
+    const player = slot.entity;
     const startHp = player.hp;
 
     stepEnemies(sim, []);
@@ -196,15 +188,46 @@ describe("enemy AI", () => {
   });
 
   it("a spitter winds up, then launches a projectile", () => {
-    spawnEnemy(sim, "spitter", spot.x + 4, spot.y);
-
+    const entity = spawnEnemy(sim, "spitter", spot.x + 4, spot.y);
     stepEnemies(sim, []); // enter windup
-    const enemy = [...sim.enemies.values()][0]!; // the one spawnEnemy call above
+    const enemy = sim.enemies.get(entity.id);
+    if (!enemy) throw new Error("missing spitter fixture");
     expect(enemy.animation.state).toBe("windup");
 
     for (let i = 0; i < 5; i++) stepEnemies(sim, []);
 
     expect(enemy.animation.state).toBe("spit");
     expect(sim.projectiles.size).toBe(1);
+  });
+
+  it("cancels an unreleased windup and clears its target when the player dies", () => {
+    const entity = spawnEnemy(sim, "spitter", spot.x + 4, spot.y);
+    stepEnemies(sim, []);
+    const enemy = sim.enemies.get(entity.id);
+    const player = sim.players.get("p1");
+    if (!enemy || !player) throw new Error("missing target lifecycle fixture");
+    expect(enemy.animation.state).toBe("windup");
+
+    player.inventory = [{ item: "rag", qty: 1 }];
+    player.entity.hp = 0;
+    resolveDeaths(sim);
+    expect(enemy.brain.targetId).toBeNull();
+    expect(enemy.animation).toEqual({ state: "idle", ticksRemaining: 0 });
+    expect(sim.projectiles.size).toBe(0);
+    expect(sim.lootChests.size).toBe(1);
+  });
+
+  it("abandons a dead target and reacquires the nearest living player", () => {
+    const living = makePlayerSlot(spot.x + 3, spot.y, sim, "p2");
+    sim.players.set(living.entity.id, living);
+    const entity = spawnEnemy(sim, "slime", spot.x + 1, spot.y);
+    stepEnemies(sim, []);
+    const enemy = sim.enemies.get(entity.id);
+    const dead = sim.players.get("p1");
+    if (!enemy || !dead) throw new Error("missing reacquisition fixture");
+    expect(enemy.brain.targetId).toBe(dead.entity.id);
+    dead.entity.hp = 0;
+    stepEnemies(sim, []);
+    expect(enemy.brain.targetId).toBe(living.entity.id);
   });
 });

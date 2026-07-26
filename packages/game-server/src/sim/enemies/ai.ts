@@ -17,6 +17,7 @@ import { effectTargetFor, isBodyInChasm } from "../helpers.js";
 import { gracedClearanceCenters, insideGracedClearance, isSpawnProtected } from "../spawnSafety.js";
 import type { EnemySlot, SimState } from "../state.js";
 import { blocksAttackFrom } from "../directionalBlock.js";
+import { revalidateEnemyTarget } from "./targetLifecycle.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
 
@@ -57,6 +58,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     const entity = enemy.entity;
     sim.replicationMotion.set(entity.id, { x: 0, y: 0 });
     if (entity.hp <= 0) continue; // corpses don't bite
+    revalidateEnemyTarget(sim, enemy);
     if (!isNearAnyPlayer(entity, players)) continue; // frozen far from everyone
     // Checked before the shoot/melee/wander dispatch, not only inside
     // moveEnemy's post-move check: a ranged decision below `continue`s
@@ -88,7 +90,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
   }
 }
 
-function beginWindup(enemy: EnemySlot, shoot: { x: number; y: number; z: number }): void {
+function beginWindup(enemy: EnemySlot, shoot: { targetId: string; x: number; y: number; z: number }): void {
   faceEntity(enemy.entity, shoot.x - enemy.entity.body.x, shoot.y - enemy.entity.body.y);
   enemy.animation = { state: "windup", ticksRemaining: SPITTER_WINDUP_TICKS, target: shoot };
 }

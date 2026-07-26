@@ -7,6 +7,7 @@ import { WARDEN_DEF_ID } from "./floors/constants.js";
 import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { spawnPlayerLootChest } from "./lootChests.js";
 import { markMiniBossDefeated } from "./enemies/miniBossPopulation.js";
+import { clearEnemyTargetsForPlayer } from "./enemies/targetLifecycle.js";
 import { awardKillXp } from "./xp.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
@@ -71,6 +72,7 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
     return;
   }
 
+  clearEnemyTargetsForPlayer(sim, entity.id);
   sim.worldEvents.push({ ev: { t: "death", id: entity.id }, x: entity.body.x, y: entity.body.y });
   // The announcer's voice (Epic 7.13, book-fan lane): read forceDeath
   // before it's cleared below so a chasm fall gets its own mocking pool.
