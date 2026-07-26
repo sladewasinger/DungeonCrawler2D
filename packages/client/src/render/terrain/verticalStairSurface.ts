@@ -1,49 +1,31 @@
-import { highEndAtStart, treadRisers } from "./stairTread.js";
+import { highEndAtStart, TREAD_COUNT } from "./stairTread.js";
 import {
   buildSteppedStairSurface,
-  edgeRange,
   FULL,
   sampleStairBands,
-  type SampledStairBand,
   type StairBandProfile,
 } from "./steppedStairGeometry.js";
 import type { SteppedStairSurface } from "./steppedStairSurface.js";
 
-function verticalBandProfile(direction: number): StairBandProfile[] {
-  const boundaries = [
-    0,
-    ...treadRisers(direction, 0).map(({ axisFrac }) => axisFrac),
-    1,
-  ].filter((value, index, values) => index === 0 || value !== values[index - 1]);
-  return boundaries.slice(0, -1).map((start, index) => {
-    const end = boundaries[index + 1] ?? 1;
-    return { start, end, sample: (start + end) / 2 };
-  });
+const RISER_SCREEN_THICKNESS = 0.25;
+const RISER_FACE_SCREEN_DEPTH = 0.25;
+
+function verticalBandProfile(): StairBandProfile[] {
+  return Array.from({ length: TREAD_COUNT }, (_, index) => ({
+    start: index / TREAD_COUNT,
+    end: (index + 1) / TREAD_COUNT,
+    sample: (index + 0.5) / TREAD_COUNT,
+  }));
 }
 
-function coveredVerticalFill(
-  band: SampledStairBand,
-  index: number,
-  bands: readonly SampledStairBand[],
-  startHeight: number,
-  endHeight: number,
-): readonly [number, number] {
-  const projectedStart = band.start - band.height;
-  const projectedEnd = band.end - band.height;
-  const coveredStart = index === 0
-    ? Math.min(projectedStart, -startHeight)
-    : projectedStart;
-  const next = bands[index + 1];
-  const coveredEnd = next
-    ? Math.max(projectedEnd, next.start - next.height)
-    : Math.max(projectedEnd, 1 - endHeight);
-  const fillStart = coveredStart < projectedStart
-    ? coveredStart + band.height
-    : band.start;
-  const fillEnd = coveredEnd > projectedEnd
-    ? coveredEnd + band.height
-    : band.end;
-  return [fillStart, fillEnd];
+/** The screen-Y span a vertical stair owns, relative to its raw tile row. */
+export function verticalStairProjectedRange(centerHeight: number): readonly [number, number] {
+  const center = 0.5 - centerHeight;
+  return [center - 1, center + 1];
+}
+
+function project(range: readonly [number, number], fraction: number): number {
+  return range[0] + (range[1] - range[0]) * fraction;
 }
 
 export function verticalStairSurface(
@@ -54,16 +36,38 @@ export function verticalStairSurface(
 ): SteppedStairSurface {
   const highAtStart = highEndAtStart(direction);
   const bands = sampleStairBands(
-    verticalBandProfile(direction),
-    (sample) => [wx + 0.5, wy + sample],
+    verticalBandProfile(),
+    (sample) => [wx, wy + sample],
     groundAt,
   );
-  const startHeight = groundAt(wx + 0.5, wy);
-  const endHeight = groundAt(wx + 0.5, wy + 1);
-  return buildSteppedStairSurface("y", highAtStart, bands, (band, index, allBands) => ({
-    fillX: FULL,
-    fillY: coveredVerticalFill(band, index, allBands, startHeight, endHeight),
-    highlightX: FULL,
-    highlightY: edgeRange(band.start, band.end, highAtStart),
-  }));
+  const screenRange = verticalStairProjectedRange(groundAt(wx + 0.5, wy + 0.5));
+  return buildSteppedStairSurface("y", highAtStart, bands, (band) => {
+    const projectedStart = project(screenRange, band.start);
+    const projectedEnd = project(screenRange, band.end);
+    const highlightStart = highAtStart
+      ? projectedStart
+      : Math.max(projectedStart, projectedEnd - RISER_SCREEN_THICKNESS);
+    const highlightEnd = highAtStart
+      ? Math.min(projectedEnd, projectedStart + RISER_SCREEN_THICKNESS)
+      : projectedEnd;
+    const riserStart = highAtStart
+      ? highlightEnd
+      : Math.max(projectedStart, highlightStart - RISER_FACE_SCREEN_DEPTH);
+    const riserEnd = highAtStart
+      ? Math.min(projectedEnd, highlightEnd + RISER_FACE_SCREEN_DEPTH)
+      : highlightStart;
+    // Convert the desired projected-space coordinates back to this band's
+    // tile-local coordinates. placeFractionalRect then applies its normal
+    // height lift, putting every fill exactly where the profile says it goes.
+    return {
+      tread: {
+        x: FULL,
+        y: [highlightStart + band.height, highlightEnd + band.height],
+      },
+      riser: {
+        x: FULL,
+        y: [riserStart + band.height, riserEnd + band.height],
+      },
+    };
+  });
 }

@@ -1,13 +1,12 @@
 // Remaps the engine's real-world stair climb direction (stairs.ts's DIRS: 0=N, 1=E, 2=S,
 // 3=W — a physical height-gradient fact, so stairVisualAt itself must always be queried
 // against the REAL world, never the view-space proxy) into the SCREEN-relative direction
-// index stairTread.ts's stacksVertically/highEndAtStart/treadRisers already expect. Those
+// index stairTread.ts's stacksVertically/highEndAtStart already expect. Those
 // functions never cared whether their `direction` was a world or screen compass — they
 // only ever branch on index 0/2 vs 1/3 — so handing them a screen-relative index instead
 // of the raw world one is the entire fix for "stair treads stay perpendicular to the
 // SCREEN climb direction" (the seam's own stairTreadAxis oracle, cross-checked in this
-// file's test): no changes needed to stairTread.ts, drawStairTread.ts, or debugArt.ts's
-// pickStairFrame at all.
+// file's test): no changes needed to stairTread.ts or debugArt.ts's pickStairFrame.
 import { screenSlotFor, type CompassDir } from "../view/directionRemap.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 

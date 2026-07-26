@@ -29,9 +29,7 @@ export function horizontalStairSurface(
     groundAt,
   );
   return buildSteppedStairSurface("x", highAtStart, bands, (band) => ({
-    fillX: [band.start, band.end],
-    fillY: FULL,
-    highlightX: edgeRange(band.start, band.end, highAtStart),
-    highlightY: FULL,
+    floor: { x: [band.start, band.end], y: FULL },
+    tread: { x: edgeRange(band.start, band.end, highAtStart), y: FULL },
   }));
 }

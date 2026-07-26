@@ -5,13 +5,11 @@ import type { EditorStore } from "../../editorStore.js";
 import { buildDoorTorchSection } from "./doorTorchSection.js";
 import { buildFileSection } from "./fileSection.js";
 import { buildTerrainSection } from "./terrainSection.js";
-import { buildStairsSection } from "./stairsSection.js";
 
 export function buildTerrainPalette(store: EditorStore, refresh: () => void): HTMLDivElement {
   const wrap = document.createElement("div");
   wrap.append(
-    buildTerrainSection(store),
-    buildStairsSection(store, refresh),
+    buildTerrainSection(store, refresh),
     buildDoorTorchSection(store),
     buildFileSection(store, refresh),
   );

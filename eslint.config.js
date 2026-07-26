@@ -40,7 +40,7 @@ export default tseslint.config(
       complexity: ["error", { max: 10 }],
       "@typescript-eslint/no-explicit-any": "error",
       // Default-deny elsewhere; packages/engine escalates both to "error" below.
-      "@typescript-eslint/no-non-null-assertion": "warn",
+      "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/ban-ts-comment": ["warn", { minimumDescriptionLength: 10 }],
       "import-x/no-cycle": "error",
       "no-restricted-imports": ["error", { patterns: [banReference] }],

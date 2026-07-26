@@ -18,7 +18,6 @@ import type { CardinalEdges } from "./autotile.js";
 import { placeWallEdges } from "./debugSprite.js";
 import { drawContactShade } from "./drawContactShade.js";
 import { drawStairBase, stairRenderState } from "./drawStairSurface.js";
-import { drawSubtleSlope } from "./drawSubtleSlope.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { drawEdgeLine } from "./edgeLine.js";
 import { heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
@@ -31,6 +30,9 @@ import {
   northClimbingStairCoversUnderlay,
   renderedSurfaceHeight,
 } from "./stairSurface.js";
+import { screenClimbDirIndex } from "./stairScreenDirection.js";
+import { stacksVertically } from "./stairTread.js";
+import { verticalStairProjectedRange } from "./verticalStairSurface.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
@@ -104,6 +106,28 @@ function drawPitStepFaces(
   }
 }
 
+function groundSurfaceContainer(
+  world: ViewTerrainWorld,
+  wx: number,
+  wy: number,
+  height: number,
+  physicalHeight: number,
+  stairDirection: number | null,
+  below: Phaser.GameObjects.Container,
+  capOccluderFor: CapOccluderFor,
+): Phaser.GameObjects.Container {
+  if (stairDirection === null || !stacksVertically(stairDirection)) {
+    return surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+  }
+
+  const [top, bottom] = verticalStairProjectedRange(physicalHeight);
+  return capOccluderFor(
+    wy,
+    Math.max(0, Math.ceil(-top)),
+    Math.max(0, Math.ceil(bottom - 1)),
+  );
+}
+
 function chasmEdgesAt(world: TerrainWorld, wx: number, wy: number) {
   return {
     north: !isChasmDepth(world.heightAt(wx, wy - 1)),
@@ -171,18 +195,14 @@ function drawSurface(
   const isChasm = isChasmDepth(height);
   const stairState = stairRenderState(stairVisual, world);
   drawStairBase(scene, container, world, wx, wy, stairState, tint, lightTint, liftPx);
-  // Fake-AO contact shadows (contactShade.ts) go under the white rim outlines:
-  // the LOW side darkens here, the HIGH side's lit rim stays crisp above.
-  drawContactShade(scene, container, world, wx, wy, height, liftPx);
+  // Vertical stairs receive a dedicated side-only AO pass that follows their
+  // projected tread/riser faces. Every other surface uses the normal tile AO.
+  if (!(stairState.surface === "stepped" && stacksVertically(stairState.screenDirection))) {
+    drawContactShade(scene, container, world, wx, wy, height, liftPx);
+  }
 
   drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
   if (isChasm) placeWallEdges(scene, container, wx, wy, chasmEdgesAt(world, wx, wy), liftPx);
-
-  if (!stairVisual) {
-    // Sub-integer height legibility (pockets, repaired-cliff half-steps): a
-    // stair run's own tread art above already covers this same visual job.
-    drawSubtleSlope(scene, container, world, wx, wy, liftPx);
-  }
 
   const prop = propFrame(tile);
   if (prop) {
@@ -227,7 +247,19 @@ export function drawGroundTile(
   ) {
     placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
   }
-  const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+  const screenStairDirection = stairVisual
+    ? screenClimbDirIndex(stairVisual.direction, world.orientation)
+    : null;
+  const container = groundSurfaceContainer(
+    world,
+    wx,
+    wy,
+    height,
+    physicalHeight,
+    screenStairDirection,
+    below,
+    capOccluderFor,
+  );
 
   drawSurface(scene, world, wx, wy, container, tile, height, stairVisual, tint, lightTint, liftPx);
 

@@ -27,22 +27,24 @@ function bandGeometry(band: ReturnType<typeof steppedStairSurface>["bands"][numb
   const rounded = (value: number) => Math.round(value * 1e12) / 1e12;
   const roundedRange = (range: readonly [number, number]) =>
     range.map(rounded);
+  const roundedFace = (face: typeof band.floor) => face && ({
+    x: roundedRange(face.x), y: roundedRange(face.y),
+  });
   return {
     start: rounded(band.start),
     end: rounded(band.end),
     sample: rounded(band.sample),
     sampleX: rounded(band.sampleX),
     sampleY: rounded(band.sampleY),
-    fillX: roundedRange(band.fillX),
-    fillY: roundedRange(band.fillY),
-    highlightX: roundedRange(band.highlightX),
-    highlightY: roundedRange(band.highlightY),
+    floor: roundedFace(band.floor),
+    tread: roundedFace(band.tread),
+    riser: roundedFace(band.riser),
   };
 }
 
 describe("stepped stair surface", () => {
-  it("covers the tile with contiguous filled bands on both axes", () => {
-    for (const direction of [0, 1]) {
+  it("keeps horizontal bands as contiguous equal-width tile slices", () => {
+    for (const direction of [1, 3]) {
       const surface = steppedStairSurface(0, 0, direction, () => 0);
       expect(surface.bands).toHaveLength(TREAD_COUNT);
       expect(surface.bands[0]?.start).toBe(0);
@@ -50,18 +52,12 @@ describe("stepped stair surface", () => {
       expect(surface.bands.every((band, index) =>
         index === 0 || band.start === surface.bands[index - 1]?.end)).toBe(true);
       for (const band of surface.bands) {
-        if (surface.axis === "x") {
-          expect(band.fillX).toEqual([band.start, band.end]);
-          expect(band.fillY).toEqual([0, 1]);
-        } else {
-          expect(band.fillX).toEqual([0, 1]);
-          expect(band.fillY).toEqual([band.start, band.end]);
-        }
+        expect(band.floor).toEqual({ x: [band.start, band.end], y: [0, 1] });
       }
     }
   });
 
-  it("samples ground height along x for vertical bands and y plus both landings for horizontal bands", () => {
+  it("samples ground height along x for horizontal bands and y plus the center projection for vertical bands", () => {
     const xSamples: Array<[number, number]> = [];
     const xSurface = steppedStairSurface(10, 20, 1, (x, y) => {
       xSamples.push([x, y]);
@@ -79,19 +75,36 @@ describe("stepped stair surface", () => {
     });
     expect(ySamples.map(([, y]) => y)).toEqual([
       ...ySurface.bands.map(({ sample }) => 20 + sample),
-      20,
-      21,
+      20.5,
     ]);
-    expect(ySamples.every(([x]) => x === 10.5)).toBe(true);
+    expect(ySamples.slice(0, ySurface.bands.length).every(([x]) => x === 10)).toBe(true);
+    expect(ySamples.at(-1)?.[0]).toBe(10.5);
   });
 
-  it("progressively widens north/south tread depth toward the high end", () => {
-    for (const direction of [0, 2]) {
+  it("keeps vertical treads linear and gives each one a shaded riser face", () => {
+    for (const direction of [0, 2] as const) {
       const surface = steppedStairSurface(0, 0, direction, () => 0);
       const widths = surface.bands.map(({ start, end }) => end - start);
-      const towardHigh = surface.highAtStart ? widths : [...widths].reverse();
-      expect(towardHigh.every((width, index) =>
-        index === 0 || width < (towardHigh[index - 1] ?? 0))).toBe(true);
+      expect(widths).toEqual(Array.from({ length: TREAD_COUNT }, () => 1 / TREAD_COUNT));
+      for (const band of surface.bands) {
+        const riser = band.riser;
+        if (!riser) throw new Error("vertical tread must include a riser face");
+        expect(band.floor).toBeUndefined();
+        expect(riser.x).toEqual([0, 1]);
+        const projectedHighlight: readonly [number, number] = [
+          band.tread.y[0] - band.height,
+          band.tread.y[1] - band.height,
+        ];
+        const projectedRiser: readonly [number, number] = [
+          riser.y[0] - band.height,
+          riser.y[1] - band.height,
+        ];
+        if (direction === 0) {
+          expect(projectedRiser[0]).toBeCloseTo(projectedHighlight[1]);
+        } else {
+          expect(projectedRiser[1]).toBeCloseTo(projectedHighlight[0]);
+        }
+      }
     }
   });
 
@@ -110,24 +123,13 @@ describe("stepped stair surface", () => {
     }
   });
 
-  it("covers every projected riser gap and both landing seams on north/south pit stairs", () => {
+  it("covers a continuous two-tile projected run with exactly four vertical bands", () => {
     for (const direction of [0, 2] as const) {
       const groundAt = singleTileNorthSouthRamp(direction, -1);
       const surface = steppedStairSurface(0, 0, direction, groundAt);
-      const projected = surface.bands.map((band) => ({
-        start: band.fillY[0] - band.height,
-        end: band.fillY[1] - band.height,
-      }));
-      const startLanding = -groundAt(0.5, 0);
-      const endLanding = 1 - groundAt(0.5, 1);
-
-      expect(projected[0]?.start).toBeLessThanOrEqual(startLanding);
-      expect(projected[0]?.end).toBeGreaterThanOrEqual(startLanding);
-      expect(projected.at(-1)?.start).toBeLessThanOrEqual(endLanding);
-      expect(projected.at(-1)?.end).toBeGreaterThanOrEqual(endLanding);
-      projected.slice(1).forEach((band, index) => {
-        expect(band.start).toBeLessThanOrEqual(projected[index]?.end ?? Number.NEGATIVE_INFINITY);
-      });
+      const projected = surface.bands.flatMap((band) => [band.tread, band.riser].flatMap((face) =>
+        face ? [{ start: face.y[0] - band.height, end: face.y[1] - band.height }] : []));
+      expect(Math.max(...projected.map((face) => face.end)) - Math.min(...projected.map((face) => face.start))).toBeCloseTo(2);
     }
   });
 
@@ -152,31 +154,17 @@ describe("stepped stair surface", () => {
     for (const direction of [1, 3]) {
       const surface = steppedStairSurface(0, 0, direction, (x) => x - 0.5);
       expect(surface.bands.map((band) => ({
-        fillX: band.fillX,
-        fillY: band.fillY,
-        highlightX: band.highlightX,
-        highlightY: band.highlightY,
+        floor: band.floor,
+        tread: band.tread,
       }))).toEqual(surface.bands.map((band) => ({
-        fillX: [band.start, band.end],
-        fillY: [0, 1],
-        highlightX: direction === 1
-          ? [Math.max(band.start, band.end - 0.045), band.end]
-          : [band.start, Math.min(band.end, band.start + 0.045)],
-        highlightY: [0, 1],
+        floor: { x: [band.start, band.end], y: [0, 1] },
+        tread: {
+          x: direction === 1
+            ? [Math.max(band.start, band.end - 0.045), band.end]
+            : [band.start, Math.min(band.end, band.start + 0.045)],
+          y: [0, 1],
+        },
       })));
-    }
-  });
-
-  it("covers the full two-tile projected length for both north-climbing height ranges", () => {
-    for (const lowHeight of [-1, 0]) {
-      const surface = steppedStairSurface(0, 0, 0, singleTileNorthSouthRamp(0, lowHeight));
-      const projected = surface.bands.map((band) => ({
-        start: band.fillY[0] - band.height,
-        end: band.fillY[1] - band.height,
-      }));
-      const start = Math.min(...projected.map((band) => band.start));
-      const end = Math.max(...projected.map((band) => band.end));
-      expect(end - start).toBeCloseTo(2);
     }
   });
 
@@ -189,8 +177,8 @@ describe("stepped stair surface", () => {
     });
     expect(east.highAtStart).toBe(false);
     expect(west.highAtStart).toBe(true);
-    for (const band of east.bands) expect(band.highlightX[1]).toBe(band.end);
-    for (const band of west.bands) expect(band.highlightX[0]).toBe(band.start);
+    for (const band of east.bands) expect(band.tread.x[1]).toBe(band.end);
+    for (const band of west.bands) expect(band.tread.x[0]).toBe(band.start);
   });
 
   it("keeps the axis and high end correct after every camera-direction remap", () => {

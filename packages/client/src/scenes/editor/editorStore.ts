@@ -1,12 +1,6 @@
-// The editor's single mutable home: the painted world, the active brush, and change
-// notification. Persists to localStorage on every stroke and starts blank so each
-// renderer repro contains only deliberately painted cells. Also owns the
-// effects test bench (Epic 7.11): area/enemy/item brushes paint straight into
-// bench/index.ts's live sim, which SIMULATE ticks separately from the terrain canvas.
-//
-// Explicit-heights reskin: "no more z buttons" — the terrain brushes are floor/wall/
-// stairs/door/torch/erase, each dispatching straight to EditableWorld's paint-over
-// methods (@dc2d/engine's stack facade owns the actual compile-to-height semantics).
+// Editor state: painted terrain, active brush, persistence, and the effects bench.
+// Terrain brushes paint through EditableWorld's stack facade; bench brushes paint
+// directly into its live simulation.
 import { DEFAULT_FLOOR_CAP } from "@dc2d/engine";
 import { getViewOrientation, rotateOrientation, setViewOrientation } from "../../render/view/index.js";
 import {
@@ -29,6 +23,7 @@ const STORAGE_KEY = "dc2d-editor-map-v2";
 export type Brush =
   | { readonly kind: "floor"; readonly capId: string; readonly height?: number }
   | { readonly kind: "void" }
+  | { readonly kind: "reset-to-zero" }
   | { readonly kind: "wall"; readonly height?: number }
   | { readonly kind: "stairs" }
   | { readonly kind: "door" }
@@ -65,9 +60,7 @@ export class EditorStore {
     this.autotileMasks.rebuildAll(this.world, EDITOR_GRID_SIZE);
   }
 
-  get brush(): Brush {
-    return this.activeBrush;
-  }
+  get brush(): Brush { return this.activeBrush; }
 
   set brush(brush: Brush) {
     this.activeBrush = brush;
@@ -110,9 +103,7 @@ export class EditorStore {
     }
   }
 
-  onChange(listener: () => void): void {
-    this.listeners.add(listener);
-  }
+  onChange(listener: () => void): void { this.listeners.add(listener); }
 
   paint(wx: number, wy: number): void {
     if (!this.world.inGrid(wx, wy)) return;
@@ -128,6 +119,9 @@ export class EditorStore {
   private paintTerrain(wx: number, wy: number, brush: Brush): void {
     if (brush.kind === "wall") this.paintWall(wx, wy, brush.height);
     else if (brush.kind === "void") this.world.paintVoidAt(wx, wy);
+    else if (brush.kind === "reset-to-zero") {
+      this.world.paintFloorHeightAt(wx, wy, 0, DEFAULT_FLOOR_CAP);
+    }
     else if (brush.kind === "floor") {
       this.paintFloor(wx, wy, brush.capId, brush.height);
     }

@@ -13,11 +13,12 @@
 // shift vacated. A face cell that IS solid Wall terrain keeps exactly today's
 // behavior (raw band only, no separate cap) — it's never walkable, so there is
 // no "surface an entity stands on" to shift; see docs/ASSUMPTIONS.md row 305.
-import { TILE } from "@dc2d/engine";
+import { stairVisualAt, TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { pickFloorFrame } from "./debugArt.js";
 import { placeDebugTile, placeWallEdges } from "./debugSprite.js";
 import { drawGroundTile } from "./drawGroundTile.js";
+import { drawVerticalStairSideOutlines } from "./steppedStairSurface.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { heightTint, multiplyTint, VOID_SURFACE_COLOR } from "./heightShade.js";
 import {
@@ -33,6 +34,9 @@ import { tileKey, type StructureMap } from "./structures.js";
 import type { LightField } from "./tileLight.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 import { freestandingHeightBodyRows } from "./heightColumn.js";
+import { screenClimbDirIndex } from "./stairScreenDirection.js";
+import { stacksVertically } from "./stairTread.js";
+import { verticalStairProjectedRange } from "./verticalStairSurface.js";
 
 /** `overhangTiles` tells the strip how far above its base row this content sits, so it bakes just tall enough. */
 export type OccluderFor = (wy: number, overhangTiles?: number) => Phaser.GameObjects.Container;
@@ -140,6 +144,7 @@ export function drawTile(
   drawGroundTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
   drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
   if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
+  drawForegroundVerticalStairOutlines(scene, world, wx, wy, occluderFor, lightTint);
 }
 
 function drawFreestandingHeightBody(
@@ -165,4 +170,31 @@ function drawFreestandingHeightBody(
       east: world.heightAt(wx + 1, wy) < bodyRow,
     }, surfaceLiftBakePx(bodyRow));
   }
+}
+
+function drawForegroundVerticalStairOutlines(
+  scene: Phaser.Scene,
+  world: ViewTerrainWorld,
+  wx: number,
+  wy: number,
+  occluderFor: OccluderFor,
+  lightTint: number,
+): void {
+  const real = world.toReal(wx, wy);
+  const stair = stairVisualAt(world.real, real.x, real.y);
+  if (!stair) return;
+  const screenDirection = screenClimbDirIndex(stair.direction, world.orientation);
+  if (!stacksVertically(screenDirection)) return;
+  const [top, bottom] = verticalStairProjectedRange(world.groundAt(wx + 0.5, wy + 0.5));
+  const below = Math.max(0, Math.ceil(bottom - 1));
+  const above = below + Math.max(0, Math.ceil(-top));
+  drawVerticalStairSideOutlines(
+    scene,
+    occluderFor(wy + below, above),
+    world,
+    wx,
+    wy,
+    screenDirection,
+    lightTint,
+  );
 }

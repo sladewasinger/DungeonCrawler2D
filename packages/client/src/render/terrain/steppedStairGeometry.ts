@@ -13,11 +13,18 @@ export interface SampledStairBand extends StairBandProfile {
   readonly height: number;
 }
 
+export interface StairBandFace {
+  readonly x: readonly [number, number];
+  readonly y: readonly [number, number];
+}
+
 export interface StairBandRanges {
-  readonly fillX: readonly [number, number];
-  readonly fillY: readonly [number, number];
-  readonly highlightX: readonly [number, number];
-  readonly highlightY: readonly [number, number];
+  /** Flat floor fill used by horizontal stairs. */
+  readonly floor?: StairBandFace;
+  /** Bright horizontal tread face. */
+  readonly tread: StairBandFace;
+  /** Dark vertical face that rises toward the ceiling. */
+  readonly riser?: StairBandFace;
 }
 
 export const FULL: readonly [number, number] = [0, 1];

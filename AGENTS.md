@@ -4,7 +4,7 @@
 
 For every new user message from Austin, count each case-insensitive use of
 “fuck” or a clear derivative such as “fucks,” “fucked,” “fucking,” “fucker,”
-“fuckers,” “motherfucker,” or “motherfuckers.”
+“fuckers,” "fucking," “motherfucker,” or “motherfuckers.”
 
 Before finishing that turn, increment both the visible number and the
 `f-bomb-count` marker in `README.md` by the number of new occurrences.

@@ -6,6 +6,7 @@
 // and bakes into the chunk textures with zero per-frame cost. Unlit black
 // overlay by design — occlusion darkness is the absence of light, so it
 // multiplies visually UNDER the baked torch warmth rather than tinting with it.
+import { TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import {
   AO_BAND_FRACS,
@@ -25,6 +26,33 @@ const SHADE_COLOR = 0x06060c;
 
 const FULL: readonly [number, number] = [0, 1];
 
+export interface ContactShadeFace {
+  readonly y: readonly [number, number];
+  readonly liftPx: number;
+  /** The raw map row of this stair band, before screen projection. */
+  readonly sampleY: number;
+  readonly height: number;
+}
+
+function wallBesideFace(
+  world: TerrainRead,
+  wx: number,
+  dx: -1 | 1,
+  face: ContactShadeFace,
+): boolean {
+  return world.tileAt(wx + dx, Math.floor(face.sampleY)) === TILE.Wall;
+}
+
+/** A top-down side neighbor just above this tread reads as enclosing wall mass. */
+function higherSideBesideFace(
+  world: TerrainRead,
+  wx: number,
+  dx: -1 | 1,
+  face: ContactShadeFace,
+): boolean {
+  return world.heightAt(wx + dx, Math.floor(face.sampleY)) >= face.height + 0.1;
+}
+
 /** One side's nested gradient: three bands hugging that edge, widest faintest. */
 function drawSideBands(
   scene: Phaser.Scene,
@@ -34,6 +62,7 @@ function drawSideBands(
   side: EdgeSide,
   alphas: readonly [number, number, number],
   liftPx: number,
+  yRange = FULL,
 ): void {
   for (let i = 0; i < AO_BAND_FRACS.length; i++) {
     const w = AO_BAND_FRACS[i] ?? 0;
@@ -42,8 +71,30 @@ function drawSideBands(
     const far: readonly [number, number] = [1 - w, 1];
     if (side === "north") placeFractionalRect(scene, container, wx, wy, FULL, near, SHADE_COLOR, alpha, liftPx);
     else if (side === "south") placeFractionalRect(scene, container, wx, wy, FULL, far, SHADE_COLOR, alpha, liftPx);
-    else if (side === "west") placeFractionalRect(scene, container, wx, wy, near, FULL, SHADE_COLOR, alpha, liftPx);
-    else placeFractionalRect(scene, container, wx, wy, far, FULL, SHADE_COLOR, alpha, liftPx);
+    else if (side === "west") placeFractionalRect(scene, container, wx, wy, near, yRange, SHADE_COLOR, alpha, liftPx);
+    else placeFractionalRect(scene, container, wx, wy, far, yRange, SHADE_COLOR, alpha, liftPx);
+  }
+}
+
+/** AO cast by wall material on the left/right of a screen-vertical stair. */
+export function drawVerticalStairSideShade(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  world: TerrainRead,
+  wx: number,
+  wy: number,
+  faces: readonly ContactShadeFace[],
+): void {
+  const strength = getAOStrength();
+  if (strength <= 0) return;
+  const alphas = aoBandAlphas(strength);
+  for (const face of faces) {
+    if (wallBesideFace(world, wx, -1, face) || higherSideBesideFace(world, wx, -1, face)) {
+      drawSideBands(scene, container, wx, wy, "west", alphas, face.liftPx, face.y);
+    }
+    if (wallBesideFace(world, wx, 1, face) || higherSideBesideFace(world, wx, 1, face)) {
+      drawSideBands(scene, container, wx, wy, "east", alphas, face.liftPx, face.y);
+    }
   }
 }
 

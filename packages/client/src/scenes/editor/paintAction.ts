@@ -39,6 +39,10 @@ export function paintCell(store: EditorStore, x: number, y: number, erasing: boo
     else store.paint(x, y);
     return;
   }
+  if (store.brush.kind === "reset-to-zero") {
+    store.paint(x, y);
+    return;
+  }
   if (!isBenchBrush(store) && !isTorchBrush(store)) store.adjustFloorHeight(x, y, erasing ? -1 : 1);
   else store.paint(x, y);
 }
