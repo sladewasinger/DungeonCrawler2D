@@ -2,7 +2,7 @@ import type { StairVisual } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { pickFloorFrame } from "./debugArt.js";
 import { placeDebugTile } from "./debugSprite.js";
-import { drawSteppedStairSurface } from "./sideStair.js";
+import { drawSteppedStairSurface } from "./steppedStairSurface.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 

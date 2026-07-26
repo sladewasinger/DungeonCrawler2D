@@ -2,7 +2,8 @@ import { stairRampAt, TILE, type StairView } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { VIEW_ORIENTATIONS } from "../view/viewOrientation.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
-import { steppedStairSurface } from "./sideStair.js";
+import { TREAD_COUNT } from "./stairTread.js";
+import { steppedStairSurface } from "./steppedStairSurface.js";
 
 const DIRECTIONS = [0, 1, 2, 3] as const;
 
@@ -40,10 +41,10 @@ function bandGeometry(band: ReturnType<typeof steppedStairSurface>["bands"][numb
 }
 
 describe("stepped stair surface", () => {
-  it("covers the tile with five contiguous filled bands on both axes", () => {
+  it("covers the tile with contiguous filled bands on both axes", () => {
     for (const direction of [0, 1]) {
       const surface = steppedStairSurface(0, 0, direction, () => 0);
-      expect(surface.bands).toHaveLength(5);
+      expect(surface.bands).toHaveLength(TREAD_COUNT);
       expect(surface.bands[0]?.start).toBe(0);
       expect(surface.bands.at(-1)?.end).toBe(1);
       expect(surface.bands.every((band, index) =>
@@ -101,13 +102,11 @@ describe("stepped stair surface", () => {
         start,
         end,
         sample,
-      }))).toEqual([
-        { start: 0, end: 0.2, sample: 0.1 },
-        { start: 0.2, end: 0.4, sample: 0.3 },
-        { start: 0.4, end: 0.6, sample: 0.5 },
-        { start: 0.6, end: 0.8, sample: 0.7 },
-        { start: 0.8, end: 1, sample: 0.9 },
-      ]);
+      }))).toEqual(Array.from({ length: TREAD_COUNT }, (_, index) => ({
+        start: index / TREAD_COUNT,
+        end: (index + 1) / TREAD_COUNT,
+        sample: (index + 0.5) / TREAD_COUNT,
+      })));
     }
   });
 
@@ -213,6 +212,8 @@ describe("stepped stair surface", () => {
   it("preserves positive and negative elevation lifts for every sampled band", () => {
     const surface = steppedStairSurface(0, 0, 1, (x) => x < 0.5 ? -1 : 2);
 
-    expect(surface.bands.map((band) => band.liftBakePx)).toEqual([-16, -16, 32, 32, 32]);
+    expect(surface.bands.map((band) => band.liftBakePx)).toEqual(
+      Array.from({ length: TREAD_COUNT }, (_, index) => index < TREAD_COUNT / 2 ? -16 : 32),
+    );
   });
 });

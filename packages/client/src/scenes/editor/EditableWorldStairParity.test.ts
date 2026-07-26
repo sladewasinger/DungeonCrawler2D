@@ -1,6 +1,6 @@
 import { TILE, stairRampAt, type StairView } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { steppedStairSurface } from "../../render/terrain/sideStair.js";
+import { steppedStairSurface } from "../../render/terrain/steppedStairSurface.js";
 import { EditableWorld } from "./EditableWorld.js";
 
 const STAIR_X = 10;
