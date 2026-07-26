@@ -58,6 +58,7 @@ export interface ItemEntityView {
   id: string;
   x: number;
   y: number;
+  z: number;
   frame: string;
   lootLabel?: string;
   lootKillerName?: string;

@@ -58,7 +58,13 @@ export function benchMonsterViews(state: BenchState): MonsterEntityView[] {
 }
 
 export function benchItemViews(state: BenchState): ItemEntityView[] {
-  return [...state.items.values()].map((item) => ({ id: item.id, x: item.x, y: item.y, frame: groundItemFrame(item.defId) }));
+  return [...state.items.values()].map((item) => ({
+    id: item.id,
+    x: item.x,
+    y: item.y,
+    z: 0,
+    frame: groundItemFrame(item.defId),
+  }));
 }
 
 /** Adapts live bench projectiles to the exact view consumed by EntityRenderer.syncProjectiles. */

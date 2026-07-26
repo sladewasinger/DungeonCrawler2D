@@ -34,7 +34,7 @@ const lootChestPresentation = (
     color: "#6f4529",
     emissive: "#1a0d06",
     scale: 0.55,
-    elevation: 0.2,
+    elevation: 0.24,
     bob: false,
     spin: false,
     label: `[DEAD] ${snapshot.lootOwnerName ?? "Crawler"}'s loot${killedBy}`,

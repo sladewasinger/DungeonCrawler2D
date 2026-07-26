@@ -138,6 +138,7 @@ export function itemView(
   view.id = e.id;
   view.x = e.x;
   view.y = e.y;
+  view.z = e.z;
   view.frame = groundItemFrame(e.snap.defId);
   if (e.snap.defId === "player-loot-chest" && e.snap.lootOwnerName) {
     view.lootLabel = `[DEAD] ${e.snap.lootOwnerName}'s loot`;

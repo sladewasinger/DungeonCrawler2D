@@ -1,7 +1,4 @@
 import Phaser from "phaser";
-import {
-  SCREEN_TILE_PX,
-} from "../boot/assetManifest.js";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
@@ -13,7 +10,7 @@ import {
   type CarnageAppearance,
   type CarnageMark,
 } from "./deathCarnageDrawing.js";
-import { groundPlaneDepth } from "./groundPlaneDepth.js";
+import { groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 const CARNAGE_POOL_CAP = 24;
 const BASE_ALPHA = 0.88;
@@ -41,7 +38,7 @@ export class DeathCarnagePool {
       ? this.grow()
       : this.recycle();
     const screen = worldToScreen(worldX, worldY);
-    const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
+    const placement = groundedVisualPlacement(screen.y, groundHeight, "corpseFragment");
     const graphics = mark.graphics;
     graphics.clear();
     if (settings.bloodEnabled && !isSkeletalDefId(appearance.defId)) {
@@ -52,10 +49,15 @@ export class DeathCarnagePool {
     }
     drawCarnageChunks(
       this.scene, mark, settings.chunkLimit, settings.intensity,
-      appearance, screen.x, shiftedY, spritePrefix,
+      appearance, screen.x, placement.projectedScreenY, spritePrefix,
     );
-    const depth = groundPlaneDepth(screen.y, groundHeight) - 0.25;
-    this.placeMark(mark, screen.x, shiftedY, depth, nowMs);
+    this.placeMark(
+      mark,
+      screen.x,
+      placement.projectedScreenY,
+      placement.depth,
+      nowMs,
+    );
   }
 
   private placeMark(

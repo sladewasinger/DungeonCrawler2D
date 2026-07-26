@@ -9,7 +9,6 @@
 import Phaser from "phaser";
 import {
   ASSET_KEYS,
-  SCREEN_TILE_PX,
   WORLD_PIXEL_SCALE,
 } from "../boot/assetManifest.js";
 import { monsterSpriteFor } from "../render/entities/spriteMap.js";
@@ -17,7 +16,7 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { isSkeletalDefId } from "./boneChipBurst.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
-import { groundPlaneDepth } from "./groundPlaneDepth.js";
+import { groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 export const CORPSE_DECAL_CAP = 24;
 const BASE_ALPHA = 0.92;
@@ -112,10 +111,15 @@ export class CorpseDecalPool {
     bloodEnabled = true,
   ): void {
     const screen = worldToScreen(worldX, worldY);
-    const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const scatterPx = 6;
     const scatterX = (Math.random() - 0.5) * scatterPx;
     const scatterY = (Math.random() - 0.5) * scatterPx;
+    const placement = groundedVisualPlacement(
+      screen.y,
+      groundHeight,
+      "corpse",
+      scatterY,
+    );
     for (const blob of decal.gore) {
       blob
         .setFillStyle(tint, 0.9)
@@ -124,12 +128,12 @@ export class CorpseDecalPool {
     }
     this.placeBody(decal.body, spritePrefix ?? (defId ? monsterSpriteFor(defId) : undefined));
     decal.container
-      .setPosition(screen.x + scatterX, shiftedY + scatterY)
+      .setPosition(screen.x + scatterX, placement.projectedScreenY)
       .setRotation(0)
       .setScale(1)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
-      .setDepth(groundPlaneDepth(screen.y, groundHeight) - 0.3);
+      .setDepth(placement.depth);
     decal.spawnMs = nowMs;
   }
 

@@ -7,7 +7,8 @@ import { applyGroundItemMotion } from "./groundItemVisual.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import type { ItemVisual } from "./state.js";
 import type { ItemEntityView } from "./view.js";
-import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
+import { worldToScreen } from "./worldToScreen.js";
+import { groundedVisualPlacement } from "../../vfx/groundPlaneDepth.js";
 
 export function createItemVisual(scene: Phaser.Scene): ItemVisual {
   const body = scene.add.sprite(0, 0, ASSET_KEYS.atlas).setOrigin(0.5, 1).setScale(WORLD_PIXEL_SCALE);
@@ -21,23 +22,24 @@ export function createItemVisual(scene: Phaser.Scene): ItemVisual {
 export function updateItemVisual(visual: ItemVisual, view: ItemEntityView, nowMs: number): void {
   if (visual.body.frame.name !== view.frame) visual.body.setFrame(view.frame);
   const ground = worldToScreen(view.x, view.y);
-  visual.body.setDepth(depthForEntityNow(view.x, view.y));
+  const placement = groundedVisualPlacement(ground.y, view.z, "item");
+  visual.body.setDepth(placement.depth);
   visual.shadow.setDepth(visual.body.depth - 0.2);
-  updateShadowPosition(visual.shadow, ground.x, ground.y);
+  updateShadowPosition(visual.shadow, ground.x, placement.projectedScreenY);
   if (!view.lootLabel) {
     visual.label.setVisible(false); visual.timer.setVisible(false);
-    applyGroundItemMotion(visual.body, ground.x, ground.y, nowMs);
+    applyGroundItemMotion(visual.body, ground.x, placement.projectedScreenY, nowMs);
     return;
   }
-  visual.body.clearTint().setPosition(ground.x, ground.y);
+  visual.body.clearTint().setPosition(ground.x, placement.projectedScreenY);
   visual.label
     .setText(`${view.lootLabel}${view.lootKillerName ? `\nKilled by ${view.lootKillerName}` : ""}`)
-    .setPosition(ground.x, ground.y - visual.body.displayHeight - 4)
+    .setPosition(ground.x, placement.projectedScreenY - visual.body.displayHeight - 4)
     .setDepth(visual.body.depth + 1)
     .setVisible(true);
   visual.timer
     .setText(view.lootLockSeconds ? `First dibs: ${view.lootLockSeconds}s` : "Loot unlocked")
-    .setPosition(ground.x, ground.y + 5)
+    .setPosition(ground.x, placement.projectedScreenY + 5)
     .setDepth(visual.body.depth + 1)
     .setVisible(view.lootNearby ?? false);
 }

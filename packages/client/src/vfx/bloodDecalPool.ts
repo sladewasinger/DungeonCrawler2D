@@ -11,11 +11,10 @@
 // GROUND-anchored (docs/ELEVATION-PROJECTION.md section 5): shifted by the hit
 // position's `groundAt` height, same `height*TILE` shape the shadow/halo use.
 import Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
-import { groundPlaneDepth } from "./groundPlaneDepth.js";
+import { groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 /** Keeps a busy fight readable without allowing the cosmetic pool to grow unbounded. */
 export const DECAL_CAP = 96;
@@ -63,23 +62,26 @@ export class BloodDecalPool {
 
   private place(decal: Decal, worldX: number, worldY: number, groundHeight: number, tint: number, nowMs: number): void {
     const screen = worldToScreen(worldX, worldY);
-    const shiftedY = screen.y - groundHeight * SCREEN_TILE_PX;
     const scatterAngle = Math.random() * Math.PI * 2;
     const scatterDistance = Math.sqrt(Math.random()) * SCATTER_RADIUS_PX;
     const scatterX = Math.cos(scatterAngle) * scatterDistance;
     const scatterY = Math.sin(scatterAngle) * scatterDistance;
     const diameter = MIN_DIAMETER_PX +
       Math.random() * (MAX_DIAMETER_PX - MIN_DIAMETER_PX);
+    const placement = groundedVisualPlacement(
+      screen.y,
+      groundHeight,
+      "blood",
+      scatterY,
+    );
     decal.shape
-      .setPosition(screen.x + scatterX, shiftedY + scatterY)
+      .setPosition(screen.x + scatterX, placement.projectedScreenY)
       .setSize(diameter, diameter)
       .setFillStyle(tint, 0.92)
       .setStrokeStyle(0, tint, 0)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
-      .setDepth(
-        groundPlaneDepth(screen.y, groundHeight, scatterY) - 0.35,
-      );
+      .setDepth(placement.depth);
     decal.spawnMs = nowMs;
   }
 

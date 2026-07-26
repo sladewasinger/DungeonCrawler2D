@@ -50,6 +50,7 @@ describe("Three world entity presentation", () => {
       unlockAtTick: 1_220,
       bob: false,
       spin: false,
+      elevation: 0.24,
     });
   });
 

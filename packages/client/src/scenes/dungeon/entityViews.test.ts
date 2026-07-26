@@ -142,7 +142,18 @@ describe("itemView", () => {
       lootKillerName: "Crawler 456",
       lootLockSeconds: 60,
       lootNearby: true,
+      z: 0,
     });
+  });
+
+  it("preserves interpolated death-chest elevation for grounded rendering", () => {
+    expect(itemView(entity({
+      id: "loot",
+      kind: "item",
+      defId: "player-loot-chest",
+      lootOwnerName: "Crawler 123",
+      z: 0.5,
+    })).z).toBe(0.5);
   });
 });
 

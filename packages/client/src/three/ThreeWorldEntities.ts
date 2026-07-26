@@ -11,6 +11,8 @@ import {
   updateThreeTextSprite,
   type ThreeTextSprite,
 } from "./ThreeTextSprite.js";
+import { threeGroundedDepth } from "./threeGroundedDepth.js";
+import { createThreeLootChest } from "./threeLootChest.js";
 
 interface ActiveEntity {
   object: RenderObject;
@@ -34,7 +36,6 @@ interface RenderNode {
   geometry?: { dispose(): void };
   material?: { dispose(): void } | Array<{ dispose(): void }>;
 }
-
 const phaseFor = (id: string): number => {
   let hash = 0;
   for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) | 0;
@@ -49,7 +50,6 @@ export class ThreeWorldEntities {
   constructor(scene: { add(...objects: unknown[]): void }) {
     scene.add(this.group);
   }
-
   update(
     interpolated: readonly InterpolatedEntity[],
     timeMs: number,
@@ -84,7 +84,6 @@ export class ThreeWorldEntities {
     for (const [id, entity] of this.entities) this.remove(id, entity);
     this.group.removeFromParent();
   }
-
   private add(
     id: string,
     presentation: ThreeEntityPresentation,
@@ -95,10 +94,9 @@ export class ThreeWorldEntities {
     this.group.add(object);
     return entity;
   }
-
   private createObject(presentation: ThreeEntityPresentation): RenderObject {
     if (presentation.kind === "torch") return this.createTorch(presentation);
-    if (presentation.kind === "lootChest") return this.createLootChest(presentation);
+    if (presentation.kind === "lootChest") return createThreeLootChest(presentation);
     const geometry = presentation.kind === "projectile"
       ? new THREE.SphereGeometry(1, 8, 6)
       : new THREE.OctahedronGeometry(1, 0);
@@ -112,26 +110,6 @@ export class ThreeWorldEntities {
     mesh.scale.setScalar(presentation.scale);
     return mesh as RenderObject;
   }
-
-  private createLootChest(presentation: ThreeEntityPresentation): RenderObject {
-    const group = new THREE.Group();
-    const material = new THREE.MeshStandardMaterial({
-      color: presentation.color,
-      emissive: presentation.emissive,
-      roughness: 0.78,
-    });
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.42, 0.56), material);
-    const lid = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.18, 0.6), material.clone());
-    lid.position.y = 0.3;
-    const band = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.64, 0.62),
-      new THREE.MeshStandardMaterial({ color: "#b58b48", metalness: 0.55 }),
-    );
-    band.position.y = 0.08;
-    group.add(base, lid, band);
-    return group as RenderObject;
-  }
-
   private createTorch(
     presentation: ThreeEntityPresentation,
   ): RenderObject {
@@ -192,7 +170,10 @@ export class ThreeWorldEntities {
     const bob = entity.presentation.bob
       ? Math.sin(time * 2.2 + entity.phase) * 0.035
       : 0;
-    entity.object.position.set(x, y + entity.presentation.elevation + bob, z);
+    const vertical = entity.presentation.kind === "lootChest"
+      ? threeGroundedDepth(y, entity.presentation.elevation).worldY
+      : y + entity.presentation.elevation + bob;
+    entity.object.position.set(x, vertical, z);
     if (entity.presentation.spin) entity.object.rotation.y =
       time * 1.8 + entity.phase;
   }
