@@ -1,4 +1,5 @@
 /** Fake HUD data for the gallery's HUD-on state — a presentation demo, not live game state. */
+import type { BiomeKind } from "@dc2d/engine";
 import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
 import { isTouchDevice } from "../../../input/touchDetect.js";
 import type { ChatPanelModel } from "../../chat/controller.js";
@@ -98,10 +99,8 @@ export interface HudFakeSnapshot {
   /** Every still-tracked toast (net/apply.ts + Connection.pushToast) — the top-center
    * toastStack.ts widget's full queue, independent of lastToast's single-line consumers. */
   toasts: ToastData[];
-  /** The connected world's seed, for the telemetry stack — from the welcome handshake. */
-  seed: string | null;
-  /** Current dungeon floor (Epic 7.14), for the telemetry stack + HUD numeral. */
-  floor: number;
+  /** World-status telemetry: handshake seed, floor, current biome, and mouse-aim heading. */
+  seed: string | null; floor: number; biome: BiomeKind | null; headingDeg: number;
   /** The AOI boss entity (Epic 7.14), or null when none is nearby — hides the bar. */
   boss: BossBarData | null;
   /** Off-self party member rows (Epic 7.12) — empty when unpartied, hides the widget. */
@@ -246,8 +245,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     stash: FAKE_STASH,
     lastToast: null,
     toasts: [],
-    seed: "e2e-world",
-    floor: 1,
+    seed: "e2e-world", floor: 1, biome: "ruins", headingDeg: 315,
     boss: null,
     party: FAKE_PARTY, partySelfLeader: false,
     chatModel: FAKE_CHAT_MODEL,

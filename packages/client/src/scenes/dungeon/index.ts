@@ -23,14 +23,9 @@ import { consumeFixedSteps } from "./fixedStep.js";
 import { FistbumpRing } from "./fistbumpRing.js";
 import { syncFistbumpRing } from "./fistbumpRingSync.js";
 import { syncFrame } from "./frameSync.js";
-import {
-  createChatPort,
-  createHudActions,
-  createInputConnectionAdapter,
-  createInputHooks,
-  createInputQueries,
-} from "./inputAdapters.js";
+import { createChatPort, createHudActions, createInputConnectionAdapter, createInputHooks, createInputQueries } from "./inputAdapters.js";
 import { LiveHudSnapshotCache } from "./liveHudSnapshotCache.js";
+import { resolveMouseAimHeading } from "./mouseAimHeading.js";
 import { createCraftActions, createInputPanels, createStashActions } from "./panelAdapters.js";
 import { RotationController } from "./rotationControl.js";
 import { bindRotationKeys } from "./rotationKeys.js";
@@ -232,6 +227,7 @@ export class DungeonScene extends Phaser.Scene {
       // slow clients (judge-panel finding; connectionStatus does its own smoothing).
       1000 / this.game.loop.delta,
       this.rotation.bearingDeg(),
+      resolveMouseAimHeading(this.cameras.main, this.input.activePointer, SCREEN_TILE_PX, this.conn.body, (x, y) => this.conn.world?.heightAt(x, y) ?? 0),
     );
   }
 

@@ -214,6 +214,8 @@ export function buildHudSnapshot(
     toasts: [...src.toasts],
     seed: src.seed,
     floor: src.floor,
+    biome: null,
+    headingDeg: 0,
     boss: src.boss,
     party: party.rows,
     partySelfLeader: party.selfIsLeader,

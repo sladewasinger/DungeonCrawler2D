@@ -1,4 +1,4 @@
-import { displayCoordinates } from "@dc2d/engine";
+import { biomeAtWorldTile, displayCoordinates } from "@dc2d/engine";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { ChatController, ChatPanelModel } from "../../ui/chat/controller.js";
@@ -32,14 +32,13 @@ export class LiveHudSnapshotCache {
     chat: ChatController,
     actualFps: number,
     compassBearingDeg: number,
+    aimHeadingDeg = 0,
   ): LiveHudSnapshot {
     const selectedSlot = input.selectedHotbarSlot();
     const armedSlot = input.armedThrowableSlot();
     const chatModel = chat.model(CHAT_LINES_SHOWN);
     const lastToast = conn.toasts.at(-1);
-    if (this.needsRebuild(
-      conn, selectedSlot, armedSlot, chatModel, lastToast,
-    )) {
+    if (this.needsRebuild(conn, selectedSlot, armedSlot, chatModel, lastToast)) {
       this.snapshot = buildLiveHudSnapshot(
         conn,
         input,
@@ -47,10 +46,9 @@ export class LiveHudSnapshotCache {
         chat,
         actualFps,
         compassBearingDeg,
+        aimHeadingDeg,
       );
-      this.captureFixedState(
-        conn, selectedSlot, armedSlot, chatModel, lastToast,
-      );
+      this.captureFixedState(conn, selectedSlot, armedSlot, chatModel, lastToast);
       return this.snapshot;
     }
     const snapshot = this.snapshot;
@@ -62,6 +60,7 @@ export class LiveHudSnapshotCache {
       interactionPrompt,
       actualFps,
       compassBearingDeg,
+      aimHeadingDeg,
     );
     return snapshot;
   }
@@ -129,6 +128,7 @@ export class LiveHudSnapshotCache {
     interactionPrompt: InteractionPrompt | null,
     actualFps: number,
     compassBearingDeg: number,
+    aimHeadingDeg: number,
   ): void {
     const body = conn.body ?? { x: 0, y: 0, z: 0 };
     const display = displayCoordinates(body.x, body.y);
@@ -143,6 +143,10 @@ export class LiveHudSnapshotCache {
     snapshot.touch = input.touchVisual();
     snapshot.fps = actualFps;
     snapshot.compassBearingDeg = compassBearingDeg;
+    snapshot.headingDeg = aimHeadingDeg;
+    snapshot.biome = conn.world
+      ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, body.x, body.y).biome
+      : null;
     snapshot.stairway = conn.world
       ? resolveStairwayTick(conn.world, body.x, body.y, compassBearingDeg)
       : null;

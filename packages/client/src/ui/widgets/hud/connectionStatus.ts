@@ -8,6 +8,7 @@
  * never even constructed on touch (see ui/widgets/hud/index.ts) and starts
  * closed everywhere else, mirroring ui/hudEdit/index.ts's self-bound [F10].
  */
+import type { BiomeKind } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { BUILD_SHA } from "../../../buildInfo.js";
 import { uiTextStyle } from "../../font.js";
@@ -15,13 +16,14 @@ import { createWidgetContainer, syncWidgetContainer } from "../container.js";
 import type { WidgetRegistry } from "../registry.js";
 import type { Viewport } from "../state.js";
 import type { TileCoords } from "./fakeData.js";
+import { biomeLabel } from "../../../worldStatus.js";
 
 const WIDGET_ID = "status";
 const ROW_HEIGHT = 16;
 const ROW_TEXT_SIZE = 11;
 /** Right-aligned rows sit flush with the widget's anchor point (local x=0). */
 const TEXT_X = 0;
-const ROW_COUNT = 6;
+const ROW_COUNT = 8;
 
 const GOOD_PING_MS = 80;
 const OK_PING_MS = 150;
@@ -99,11 +101,22 @@ export class ConnectionStatusWidget {
     this.container.setVisible(this.telemetryOn);
   }
 
-  update(pingMs: number, connected: boolean, fpsSample: number, coords: TileCoords, seed: string | null, floor: number): void {
+  update(
+    pingMs: number,
+    connected: boolean,
+    fpsSample: number,
+    coords: TileCoords,
+    seed: string | null,
+    floor: number,
+    biome: BiomeKind | null,
+    headingDeg: number,
+  ): void {
     // Still tracked while hidden so the FPS smoothing window isn't cold the moment [F3] opens it.
     const fps = this.smoothedFps(fpsSample);
     if (!this.telemetryOn) return;
-    const [ping, fpsRow, coordsRow, floorRow, seedRow, buildRow] = this.rows as [
+    const [ping, fpsRow, coordsRow, floorRow, biomeRow, headingRow, seedRow, buildRow] = this.rows as [
+      Phaser.GameObjects.Text,
+      Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
@@ -115,6 +128,8 @@ export class ConnectionStatusWidget {
     fpsRow.setText(`${fps}fps`).setColor(colorHex(fpsColor(fps)));
     coordsRow.setText(`x ${coords.x}, y ${coords.y}, z ${coords.z.toFixed(1)}`).setColor(NEUTRAL_TEXT_COLOR);
     floorRow.setText(`floor ${floor}`).setColor(NEUTRAL_TEXT_COLOR);
+    biomeRow.setText(`biome ${biome ? biomeLabel(biome) : "—"}`).setColor(NEUTRAL_TEXT_COLOR);
+    headingRow.setText(`heading ${headingDeg}°`).setColor(NEUTRAL_TEXT_COLOR);
     seedRow.setText(`seed ${seed ?? "—"}`).setColor(DIM_TEXT_COLOR);
     buildRow.setText(`build ${BUILD_SHA}`).setColor(DIM_TEXT_COLOR);
   }

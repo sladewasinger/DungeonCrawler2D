@@ -69,7 +69,7 @@ describe("LiveHudSnapshotCache", () => {
     const input = inputState();
     const cache = new LiveHudSnapshotCache();
     const controller = chat();
-    const first = cache.build(conn, input.input, null, controller, 60, 0);
+    const first = cache.build(conn, input.input, null, controller, 60, 0, 12);
     const body = conn.body;
     if (!body) throw new Error("test connection is missing its body");
     const touch = {
@@ -87,6 +87,7 @@ describe("LiveHudSnapshotCache", () => {
       controller,
       57,
       90,
+      135,
     );
 
     expect(second).toBe(first);
@@ -94,6 +95,8 @@ describe("LiveHudSnapshotCache", () => {
       pingMs: 42,
       fps: 57,
       compassBearingDeg: 90,
+      headingDeg: 135,
+      biome: expect.any(String),
       interactionPrompt: { key: "R", label: "pick up" },
       touch,
     });

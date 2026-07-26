@@ -130,7 +130,7 @@ export class HudWidgets {
     this.chat.update(snapshot.chatModel);
     this.party.update(snapshot.party, snapshot.partySelfLeader);
     this.interaction.update(snapshot.interactionPrompt);
-    this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor);
+    this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor, snapshot.biome, snapshot.headingDeg);
     this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs);
     this.death.update(snapshot.downed, snapshot.dead);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);

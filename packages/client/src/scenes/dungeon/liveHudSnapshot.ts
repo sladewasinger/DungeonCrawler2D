@@ -2,7 +2,7 @@
  * Marshals live Connection + InputController + ChatController state into one
  * HudFakeSnapshot frame — split out of DungeonScene to stay under the file-size cap.
  */
-import { findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/engine";
+import { biomeAtWorldTile, findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/engine";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type { ChatController } from "../../ui/chat/controller.js";
@@ -70,6 +70,7 @@ export function buildLiveHudSnapshot(
   actualFps: number,
   /** LANE W2 HUD compass — 0 = world-north at screen-up (scenes/dungeon/rotationControl.ts). */
   compassBearingDeg: number,
+  aimHeadingDeg: number,
 ): LiveHudSnapshot {
   // conn.body may still be null the first frame or two after boot (HudScene's source()
   // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
@@ -91,6 +92,10 @@ export function buildLiveHudSnapshot(
     compassBearingDeg,
     stairway,
   ) as LiveHudSnapshot;
+  snapshot.biome = conn.world
+    ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, bodyPos.x, bodyPos.y).biome
+    : null;
+  snapshot.headingDeg = aimHeadingDeg;
   snapshot.completedContextualActions = [...conn.contextualActionsUsed];
   return snapshot;
 }
