@@ -14,6 +14,44 @@ import { TILE } from "../types.js";
 // computation. 2 clears it with margin without inventing a new constant
 // this file would have to keep in sync with the physics tuning.
 export const INTERIOR_WALL_RISE = 2;
+const ADJACENT_OFFSETS = [
+  [-1, -1], [0, -1], [1, -1], [-1, 0],
+  [1, 0], [-1, 1], [0, 1], [1, 1],
+] as const;
+
+function highestAdjacentHeight(
+  height: Float32Array,
+  chunkSize: number,
+  x: number,
+  y: number,
+): number | null {
+  let highest: number | null = null;
+  for (const [dx, dy] of ADJACENT_OFFSETS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= chunkSize || ny >= chunkSize) continue;
+    highest = Math.max(highest ?? -Infinity, height[ny * chunkSize + nx] ?? 0);
+  }
+  return highest;
+}
+
+function capVoidTowers(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
+  for (let pass = 0; pass < chunkSize; pass++) {
+    const before = height.slice();
+    let changed = false;
+    for (let y = 0; y < chunkSize; y++) {
+      for (let x = 0; x < chunkSize; x++) {
+        const index = y * chunkSize + x;
+        if (tiles[index] !== TILE.Wall) continue;
+        const adjacent = highestAdjacentHeight(before, chunkSize, x, y);
+        if (adjacent === null || (height[index] ?? 0) <= adjacent + 1) continue;
+        height[index] = adjacent + 1;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+  }
+}
 
 /** True when every one of (x, y)'s 8 neighbors is also Wall (out-of-chunk treated as Wall — a mass rarely ends exactly at a chunk seam). */
 function isInteriorFill(tiles: Uint8Array, chunkSize: number, x: number, y: number): boolean {
@@ -39,4 +77,5 @@ export function applyWallHeight(tiles: Uint8Array, height: Float32Array, chunkSi
       height[i] = (height[i] ?? 0) + rise;
     }
   }
+  capVoidTowers(tiles, height, chunkSize);
 }

@@ -52,4 +52,15 @@ describe("wall height: interior fill vs rim", () => {
     const edge = 0 * SIZE + 2; // (2,0), on the grid's own edge, all real neighbors Wall
     expect(height[edge]).toBeCloseTo(INTERIOR_WALL_RISE, 5);
   });
+
+  it("caps an isolated void tower one level above its highest adjacent tile", () => {
+    const tiles = new Uint8Array(SIZE * SIZE).fill(TILE.Floor);
+    const height = new Float32Array(SIZE * SIZE).fill(1);
+    const center = 2 * SIZE + 2;
+    tiles[center] = TILE.Wall;
+    height[center] = 7;
+    height[center - 1] = 2;
+    applyWallHeight(tiles, height, SIZE);
+    expect(height[center]).toBe(3);
+  });
 });
