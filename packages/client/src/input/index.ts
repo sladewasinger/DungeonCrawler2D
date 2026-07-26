@@ -14,6 +14,7 @@ import { bindBandageKey, interactOrUse, throwSelected, withPointerFacing } from 
 import { createKeys, readMoveInput } from "./keys.js";
 import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "./fistbump.js";
 import { guardedAction } from "./inputGuard.js";
+import { bindInteractKey } from "./interactKey.js";
 import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
 import { LifeGestures } from "./lifeGestures.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
@@ -77,8 +78,7 @@ export class InputController {
     const { conn, panels, state } = this;
     const blocked = () => panels.gameplayBlocked;
     keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
-    keys.E.on("down", guardedAction(() => this.handleInteractDown(), blocked));
-    keys.E.on("up", () => this.lifeGestures.endInteract(this.scene.time.now));
+    bindInteractKey(keys.E, guardedAction(() => this.handleInteractDown(), blocked), () => this.lifeGestures.endInteract(this.scene.time.now));
     keys.K.on("down", guardedAction(() => this.lifeGestures.beginGiveUp(conn.downed, this.scene.time.now), blocked));
     keys.K.on("up", () => this.lifeGestures.endGiveUp(this.scene.time.now));
     keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
