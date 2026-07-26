@@ -32,6 +32,7 @@ const setup = (
     pendingInvite: false,
     weapon: null,
     interact: () => calls.push("interact"),
+    revive: () => calls.push("revive"),
     pickup: () => calls.push("pickup"),
     attack: () => calls.push("attack"),
     useSlot: () => calls.push("useSlot"),

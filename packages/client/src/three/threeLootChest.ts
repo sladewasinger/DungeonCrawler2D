@@ -4,7 +4,7 @@ import { threeGroundedDepth } from "./threeGroundedDepth.js";
 
 export function createThreeLootChest(
   presentation: ThreeEntityPresentation,
-): THREE.Group {
+) {
   const group = new THREE.Group();
   const depth = threeGroundedDepth(0, presentation.elevation);
   const material = new THREE.MeshStandardMaterial({

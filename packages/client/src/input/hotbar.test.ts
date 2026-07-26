@@ -34,6 +34,8 @@ function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
     ...overrides,
     dead: overrides.dead ?? false,
     respawnNow: overrides.respawnNow ?? (() => calls.push("respawnNow")),
+    revive: overrides.revive ?? (() => calls.push("revive")),
+    lootChestOp: overrides.lootChestOp ?? (() => calls.push("lootChestOp")),
   };
 }
 
