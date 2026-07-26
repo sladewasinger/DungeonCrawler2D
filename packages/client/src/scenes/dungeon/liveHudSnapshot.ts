@@ -99,6 +99,9 @@ export function buildLiveHudSnapshot(
     : null;
   snapshot.headingDeg = aimHeadingDeg;
   snapshot.respawnRemainingSec = conn.respawnSecondsRemaining;
+  snapshot.downedRemainingSec = conn.downedSecondsRemaining;
+  snapshot.reviveProgress = conn.reviveProgress;
+  snapshot.reviverName = conn.reviverName;
   snapshot.respawnHoldProgress = inputController.respawnHoldProgress();
   snapshot.completedContextualActions = [...conn.contextualActionsUsed];
   return snapshot;

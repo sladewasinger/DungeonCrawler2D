@@ -1,6 +1,6 @@
 /** Owns the first-person downed/death message without adding layout logic to ThreeHud. */
 import type { Connection } from "../net/connection.js";
-import { deathOverlayText } from "../ui/widgets/hud/deathOverlay.js";
+import { deathOverlayText, downedOverlayText } from "../ui/widgets/hud/deathOverlay.js";
 
 const HOLD_BAR_WIDTH = 220;
 
@@ -33,10 +33,12 @@ export class ThreeDownedOverlay {
     this.element.hidden = !visible;
     this.element.style.display = visible ? "grid" : "none";
     this.copy.textContent = connection.downed
-      ? "DOWNED\nHold [K] to give up\nA party member can revive you"
+      ? downedOverlayText(connection.downedSecondsRemaining, connection.reviverName)
       : deathOverlayText(connection.respawnSecondsRemaining);
-    this.fill.parentElement!.hidden = !connection.dead;
+    const progress = connection.downed ? connection.reviveProgress : holdProgress;
+    const track = this.fill.parentElement;
+    if (track) track.hidden = !connection.dead && progress <= 0;
     this.fill.style.width =
-      `${HOLD_BAR_WIDTH * Math.min(1, Math.max(0, holdProgress))}px`;
+      `${HOLD_BAR_WIDTH * Math.min(1, Math.max(0, progress))}px`;
   }
 }

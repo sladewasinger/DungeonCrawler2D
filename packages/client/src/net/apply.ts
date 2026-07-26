@@ -115,7 +115,14 @@ function applyVitals(conn: Connection, snap: ServerSnapshot): void {
   conn.fx = snap.self.fx;
   conn.statusEffects = snapshotStatusEffects(snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
+  applyLifeState(conn, snap);
+}
+
+function applyLifeState(conn: Connection, snap: ServerSnapshot): void {
   conn.downed = snap.self.downed ?? false;
+  conn.downedUntilTick = snap.self.downedUntilTick ?? null;
+  conn.reviveProgress = snap.self.reviveProgress ?? 0;
+  conn.reviverName = snap.self.reviverName ?? null;
   applyRespawnState(conn, snap);
 }
 

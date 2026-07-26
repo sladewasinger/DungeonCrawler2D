@@ -5,7 +5,7 @@
  */
 import { createHoldState, holdCrossedThreshold, holdDown, holdProgress, holdUp, type HoldState } from "./fistbump.js";
 
-export const REVIVE_HOLD_MS = 600;
+export const REVIVE_HOLD_MS = 4_000;
 
 export interface ReviveHoldState {
   readonly hold: HoldState;
@@ -58,8 +58,10 @@ export class ReviveGesture {
   }
 
   /** [E] up: cancels any in-progress hold. */
-  end(nowMs: number): void {
+  end(nowMs: number): string | null {
+    const targetId = this.state.targetId;
     endRevive(this.state, nowMs);
+    return targetId;
   }
 
   /** Poll each frame while held: true exactly once, the tick the hold crosses REVIVE_HOLD_MS. */

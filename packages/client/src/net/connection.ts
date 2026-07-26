@@ -71,7 +71,7 @@ export class Connection extends ConnectionActions {
   fx: string[] = [];
   /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
   statusEffects: ActiveStatusSnapshot[] = [];
-  downed = false; respawnAtTick: number | null = null;
+  downed = false; downedUntilTick: number | null = null; respawnAtTick: number | null = null; reviveProgress = 0; reviverName: string | null = null;
   /** Epic 11 core (character levels) — current XP, character level, and XP still
    * needed for the next level; live on the wire since protocol 14 (ASSUMPTION #90).
    * Named `charLevel` — `level` is already taken by the game LEVEL (dungeon/sandbox). */
@@ -228,7 +228,7 @@ export class Connection extends ConnectionActions {
     return out;
   }
 
-  get respawnSecondsRemaining(): number { return this.respawnAtTick === null ? 0 : Math.ceil(Math.max(0, this.respawnAtTick - this.serverTick) / TICK_RATE); }
+  get respawnSecondsRemaining(): number { return this.respawnAtTick === null ? 0 : Math.ceil(Math.max(0, this.respawnAtTick - this.serverTick) / TICK_RATE); } get downedSecondsRemaining(): number { return this.downedUntilTick === null ? 0 : Math.ceil(Math.max(0, this.downedUntilTick - this.serverTick) / TICK_RATE); }
 
   drainDeathVisualEvents(): DeathVisualEvent[] {
     const out = this.deathVisualEvents;

@@ -1,7 +1,5 @@
 import {
   CHUNK_SIZE,
-  INTERACT_RANGE,
-  REVIVE_HP_FRACTION,
   TILE,
   createBody,
   resolveWorldInteraction,
@@ -9,7 +7,6 @@ import {
   personalRoomSpawn,
   safeRoomSpawn,
   safeRoomChunk,
-  type EffectEvent,
 } from "@dc2d/engine";
 import { findSpawn } from "../spawn.js";
 import { resetInputTimeline } from "../playerInputTimeline.js";
@@ -23,8 +20,7 @@ import { openLootChest } from "../lootChests.js";
 
 /** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
 
-export function doInteract(sim: SimState, slot: PlayerSlot, effectEvents: EffectEvent[]): void {
-  if (slot.partyId && reviveDownedPartyMember(sim, slot, effectEvents)) return;
+export function doInteract(sim: SimState, slot: PlayerSlot): void {
   if (slot.downedAtTick !== null) return;
   if (openLootChest(sim, slot)) return;
   const body = slot.entity.body;
@@ -33,37 +29,6 @@ export function doInteract(sim: SimState, slot: PlayerSlot, effectEvents: Effect
   if (target?.kind === "stash") {
     slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
   }
-}
-
-/** Revive the nearest downed party member in range; true if one was revived. */
-function reviveDownedPartyMember(
-  sim: SimState,
-  slot: PlayerSlot,
-  effectEvents: EffectEvent[],
-): boolean {
-  const body = slot.entity.body;
-  const candidates = [...sim.players.values()]
-    .filter((other) =>
-      other !== slot &&
-      other.connected &&
-      other.partyId === slot.partyId &&
-      other.downedAtTick !== null
-    )
-    .map((other) => ({
-      other,
-      distance: Math.hypot(other.entity.body.x - body.x, other.entity.body.y - body.y),
-    }))
-    .filter(({ distance }) => distance <= INTERACT_RANGE)
-    .sort((a, b) => a.distance - b.distance || a.other.entity.id.localeCompare(b.other.entity.id));
-  const target = candidates[0]?.other;
-  if (!target) return false;
-  target.downedAtTick = null;
-  delete target.entity.downedUntil;
-  target.entity.hp = Math.max(1, Math.round(target.entity.maxHp * REVIVE_HP_FRACTION));
-  target.outbox.push({ t: "toast", msg: `${slot.entity.name} got you back up!` });
-  slot.outbox.push({ t: "toast", msg: `You revived ${target.entity.name}` });
-  effectEvents.push({ t: "hp", id: target.entity.id, delta: target.entity.hp, hp: target.entity.hp });
-  return true;
 }
 
 /** Doors: use a nearby solid doorway to teleport. */

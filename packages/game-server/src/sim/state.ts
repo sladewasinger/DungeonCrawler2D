@@ -44,6 +44,14 @@ export interface PendingTransfer {
   arrival: FloorArrivalKind;
 }
 
+export interface ReviveAttempt {
+  readonly rescuerId: string;
+  readonly targetId: string;
+  readonly startedAtTick: number;
+  readonly startX: number;
+  readonly startY: number;
+}
+
 /** A transfer ready to leave its source sim, carrying the slot itself
  * (the "same slot-move machinery" — the object just changes which
  * SimState's `players` map holds it). */
@@ -202,6 +210,7 @@ export interface SimState {
   readonly moderationReports: ModerationReport[];
   /** Pending fistbump offers, keyed by target entity id (Epic 7.10) — 10s window. */
   readonly fistbumpOffers: Map<string, { from: string; expiresAtTick: number }>;
+  readonly reviveAttempts: Map<string, ReviveAttempt>;
   readonly activatedChunks: Set<string>;
   readonly defeatedMiniBossRooms: Set<string>;
   /** Fire-exposure seconds per ground item id (items char, then burn away). */
@@ -261,6 +270,7 @@ export function createSimState(
     ...createReplicationCollections(),
     moderationReports: [],
     fistbumpOffers: new Map(),
+    reviveAttempts: new Map(),
     activatedChunks: new Set(),
     defeatedMiniBossRooms: new Set(),
     exposure: new Map(),

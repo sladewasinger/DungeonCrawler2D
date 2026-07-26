@@ -1,10 +1,26 @@
 import {
   PLAYER_MAX_STAMINA,
+  REVIVE_HOLD_TICKS,
   xpForLevel,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { healthRegenerationDelaySeconds } from "./combatResources.js";
 import type { PlayerSlot, SimState } from "./state.js";
+
+function nullable<T>(value: T | undefined): T | null {
+  return value === undefined ? null : value;
+}
+
+function reviveFields(sim: SimState, slot: PlayerSlot) {
+  for (const attempt of sim.reviveAttempts.values()) {
+    if (attempt.targetId !== slot.entity.id) continue;
+    return {
+      reviveProgress: Math.min(1, (sim.tickCount - attempt.startedAtTick) / REVIVE_HOLD_TICKS),
+      reviverName: sim.players.get(attempt.rescuerId)?.entity.name ?? "Someone",
+    };
+  }
+  return {};
+}
 
 function statusEffectSnapshots(sim: SimState, slot: PlayerSlot) {
   return slot.entity.statuses.map((status) => ({
@@ -45,6 +61,8 @@ export function toSelfSnapshot(
     fx: self.statuses.map((status) => status.defId),
     statusEffects: statusEffectSnapshots(sim, slot),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
+    downedUntilTick: nullable(self.downedUntil),
+    ...reviveFields(sim, slot),
     respawnAtTick: slot.respawnAtTick,
     xp,
     level,

@@ -107,10 +107,13 @@ export const FIST_DAMAGE = 3;
 export const KNOCKBACK_FORCE = 10;
 export const KNOCKBACK_DECAY = 0.72;
 export const PLAYER_MAX_HP = 30;
-export const RESPAWN_DELAY_TICKS = 30 * TICK_RATE;
+export const RESPAWN_DELAY_SECONDS = 15;
+export const RESPAWN_DELAY_TICKS = RESPAWN_DELAY_SECONDS * TICK_RATE;
 export const LOOT_CHEST_LOCK_TICKS = 60 * TICK_RATE;
 export const LOOT_CHEST_LIFETIME_TICKS = 5 * 60 * TICK_RATE;
-export const DOWNED_DURATION = 60;
+export const DOWNED_DURATION = 30;
+export const REVIVE_HOLD_SECONDS = 4;
+export const REVIVE_HOLD_TICKS = REVIVE_HOLD_SECONDS * TICK_RATE;
 export const REVIVE_HP_FRACTION = 0.3;
 export const PARTY_FRIENDLY_FIRE_SCALE = 0.5;
 

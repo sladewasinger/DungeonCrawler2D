@@ -95,6 +95,10 @@ export function interactIntent(conn: Connection): void {
   if (conn.canAct) conn.send({ type: "interact" });
 }
 
+export function reviveIntent(conn: Connection, targetId: string, held: boolean): void {
+  if (conn.status === "connected") conn.send({ type: "revive", targetId, held });
+}
+
 /** Descends a nearby one-way stairway; the server validates range. */
 export function descendIntent(conn: Connection): void {
   if (conn.canAct) conn.send({ type: "descend" });

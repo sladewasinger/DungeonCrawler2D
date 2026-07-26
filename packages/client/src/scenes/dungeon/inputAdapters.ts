@@ -169,8 +169,12 @@ export function createInputQueries(conn: Connection): InputQueries {
     isStairwayNearby: (adapter) =>
       !!conn.world && !!adapter.body && !!resolveStairwayPrompt(conn.world, adapter.body.x, adapter.body.y),
     downedPartyMemberInRange: (adapter) => {
-      if (!adapter.body || !conn.party) return undefined;
-      return nearestDownedPartyMember(conn.party.members, adapter.body.x, adapter.body.y, INTERACT_RANGE);
+      if (!adapter.body) return undefined;
+      const players = [...conn.entities.values()]
+        .map(({ snap }) => snap)
+        .filter((snap) => snap.kind === "player" && snap.downed)
+        .map((snap) => ({ id: snap.id, x: snap.x, y: snap.y, downed: true }));
+      return nearestDownedPartyMember(players, adapter.body.x, adapter.body.y, INTERACT_RANGE);
     },
   };
 }

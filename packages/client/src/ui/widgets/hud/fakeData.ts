@@ -117,7 +117,7 @@ export interface HudFakeSnapshot {
   /** Consecutive failed reconnect attempts (net/socket.ts) — the toast's "(attempt N)" suffix. */
   reconnectAttempts: number;
   downed: boolean; dead: boolean;
-  respawnRemainingSec: number; respawnHoldProgress: number;
+  respawnRemainingSec: number; respawnHoldProgress: number; downedRemainingSec: number; reviveProgress: number; reviverName: string | null;
   /** Live joystick/button state for the touch widgets, or null when touch controls aren't mounted. */
   touch: TouchVisualSnapshot | null;
   /** Raw per-frame render fps (Phaser's game.loop.actualFps) — the top-right indicator smooths this itself. */
@@ -258,7 +258,7 @@ export function fakeHudSnapshot(downed: boolean): HudFakeSnapshot {
     reconnectAttempts: 0,
     downed,
     dead: false,
-    respawnRemainingSec: 24, respawnHoldProgress: 0.55,
+    respawnRemainingSec: 24, respawnHoldProgress: 0.55, downedRemainingSec: 30, reviveProgress: 0, reviverName: null,
     touch: inputModality.current === "touch" ? { stick: null, buttons: { attack: false, jump: false, interact: false } } : null,
     fps: 60,
     coords: { x: 128, y: -64, z: 2.5 },

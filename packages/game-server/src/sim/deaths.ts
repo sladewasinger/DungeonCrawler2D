@@ -67,7 +67,7 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   const bledOut = bleedOutIfExpired(sim, slot);
   if (entity.hp > 0 || slot.respawnAtTick !== null) return;
 
-  if (!bledOut && !slot.forceDeath && slot.downedAtTick === null && hasConsciousPartyMember(sim, slot)) {
+  if (!bledOut && !slot.forceDeath && slot.downedAtTick === null) {
     downPlayer(sim, slot);
     return;
   }
@@ -114,17 +114,6 @@ function bleedOutIfExpired(sim: SimState, slot: PlayerSlot): boolean {
   slot.entity.hp = 0;
   slot.downedAtTick = null;
   return true;
-}
-
-function hasConsciousPartyMember(sim: SimState, slot: PlayerSlot): boolean {
-  const party = slot.partyId ? sim.parties.get(slot.partyId) : undefined;
-  if (!party) return false;
-  for (const memberId of party.members) {
-    if (memberId === slot.entity.id) continue;
-    const member = sim.players.get(memberId);
-    if (member?.connected && member.entity.hp > 0 && member.downedAtTick === null) return true;
-  }
-  return false;
 }
 
 function downPlayer(sim: SimState, slot: PlayerSlot): void {

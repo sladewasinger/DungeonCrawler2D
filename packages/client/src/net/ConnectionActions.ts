@@ -16,6 +16,7 @@ import {
   partyOpIntent,
   pickupIntent,
   respawnIntent,
+  reviveIntent,
   stashOpIntent,
   suicideIntent,
   throwTorchIntent,
@@ -71,6 +72,7 @@ export class ConnectionActions {
   }
   equip(item: string | null): void { equipIntent(this.connection, item); }
   interact(): void { interactIntent(this.connection); }
+  revive(targetId: string, held: boolean): void { reviveIntent(this.connection, targetId, held); }
   descend(): void { descendIntent(this.connection); }
   craft(recipe: string): void { craftIntent(this.connection, recipe); }
   stashOp(op: "put" | "take", index: number): void {

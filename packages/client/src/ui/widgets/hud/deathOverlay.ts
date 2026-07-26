@@ -12,12 +12,20 @@ import type { Viewport } from "../state.js";
 const WIDGET_ID = "death";
 const VIGNETTE_COLOR = 0x0a0a10;
 const VIGNETTE_ALPHA = 0.72;
-const DOWNED_TEXT = "DOWNED\nHold [K] to give up\nA party member can revive you";
 const HOLD_BAR_WIDTH = 220;
 const HOLD_BAR_HEIGHT = 10;
 
+function barPresentation(downed: boolean, dead: boolean, hold: number, revive: number) {
+  const progress = downed ? revive : hold;
+  return { progress, visible: dead || progress > 0 };
+}
+
 export const deathOverlayText = (remainingSec: number): string =>
   `YOU DIED\nRespawning in ${Math.max(0, Math.ceil(remainingSec))}s\nHold [E] for 3s to respawn now`;
+
+export const downedOverlayText = (remainingSec: number, reviverName: string | null): string =>
+  `DOWNED\nBleeding out in ${Math.max(0, Math.ceil(remainingSec))}s\n` +
+  (reviverName ? `${reviverName} is reviving you` : "Hold [K] to give up\nAny nearby player can revive you");
 
 export class DeathOverlayWidget {
   private readonly container: Phaser.GameObjects.Container;
@@ -35,7 +43,8 @@ export class DeathOverlayWidget {
       defaultVisible: true,
     });
     // Registered synchronously above, so this id is always present in the resolved map.
-    const layout = registry.resolve(viewport).get(WIDGET_ID)!;
+    const layout = registry.resolve(viewport).get(WIDGET_ID);
+    if (!layout) throw new Error("death widget layout was not registered");
     this.container = createWidgetContainer(scene, layout);
     this.vignette = scene.add.rectangle(0, 0, viewport.width, viewport.height, VIGNETTE_COLOR, VIGNETTE_ALPHA);
     this.text = scene.add
@@ -60,12 +69,16 @@ export class DeathOverlayWidget {
     dead: boolean,
     remainingSec: number,
     holdProgress: number,
+    downedRemainingSec = 30,
+    reviveProgress = 0,
+    reviverName: string | null = null,
   ): void {
     this.container.setVisible(downed || dead);
-    this.text.setText(downed ? DOWNED_TEXT : deathOverlayText(remainingSec));
-    this.holdBar.setVisible(dead);
-    this.holdFill.setVisible(dead)
-      .setDisplaySize(HOLD_BAR_WIDTH * Math.min(1, Math.max(0, holdProgress)), HOLD_BAR_HEIGHT - 2);
+    this.text.setText(downed ? downedOverlayText(downedRemainingSec, reviverName) : deathOverlayText(remainingSec));
+    const bar = barPresentation(downed, dead, holdProgress, reviveProgress);
+    this.holdBar.setVisible(bar.visible);
+    this.holdFill.setVisible(bar.visible)
+      .setDisplaySize(HOLD_BAR_WIDTH * Math.min(1, Math.max(0, bar.progress)), HOLD_BAR_HEIGHT - 2);
   }
 
   /** Resizes the vignette to cover the new viewport, then re-syncs the container position. */

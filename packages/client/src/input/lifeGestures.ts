@@ -10,12 +10,15 @@ export class LifeGestures {
   private readonly giveUp = new GiveUpGesture();
   private readonly respawn = new RespawnGesture();
 
-  beginRevive(targetId: string | undefined, nowMs: number): boolean {
-    return this.revive.begin(targetId, nowMs);
+  beginRevive(conn: InputConnection, targetId: string | undefined, nowMs: number): boolean {
+    if (!this.revive.begin(targetId, nowMs) || !targetId) return false;
+    conn.revive(targetId, true);
+    return true;
   }
 
-  endInteract(nowMs: number): void {
-    this.revive.end(nowMs);
+  endInteract(conn: InputConnection, nowMs: number): void {
+    const targetId = this.revive.end(nowMs);
+    if (targetId) conn.revive(targetId, false);
     this.respawn.end(nowMs);
   }
 
@@ -32,7 +35,7 @@ export class LifeGestures {
   }
 
   pollRevive(conn: InputConnection, nowMs: number): void {
-    if (this.revive.poll(nowMs)) conn.interact();
+    if (!conn.canAct) this.endInteract(conn, nowMs);
   }
 
   pollGiveUp(conn: InputConnection, nowMs: number): void {

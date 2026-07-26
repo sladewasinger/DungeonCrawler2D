@@ -83,10 +83,9 @@ export class ThreeActionController {
   private publishInteraction(world: World, sample: ThreeInputSample): void {
     const nowMs = performance.now();
     if (sample.interactPressed) this.publishInteractionPress(world, nowMs);
-    if (sample.interactHeld) {
-      if (this.revive.poll(nowMs)) this.connection.interact();
-    } else {
-      this.revive.end(nowMs);
+    if (!sample.interactHeld) {
+      const targetId = this.revive.end(nowMs);
+      if (targetId) this.connection.revive(targetId, false);
     }
   }
 
@@ -97,15 +96,21 @@ export class ThreeActionController {
       return;
     }
     if (this.publishLootChest()) return;
-    const target = body && this.connection.party
+    const target = body
       ? nearestDownedPartyMember(
-        this.connection.party.members,
+        [...this.connection.entities.values()]
+          .map(({ snap }) => snap)
+          .filter((snap) => snap.kind === "player" && snap.downed)
+          .map((snap) => ({ id: snap.id, x: snap.x, y: snap.y, downed: true })),
         body.x,
         body.y,
         INTERACT_RANGE,
       )
       : undefined;
-    if (this.revive.begin(target?.id, nowMs)) return;
+    if (this.revive.begin(target?.id, nowMs)) {
+      this.connection.revive(target?.id ?? "", true);
+      return;
+    }
     useSelectedOrInteract(
       this.connection,
       world,

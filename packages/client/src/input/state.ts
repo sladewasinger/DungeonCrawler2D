@@ -50,6 +50,7 @@ export interface InputConnection {
    */
   readonly heightAt?: (wx: number, wy: number) => number;
   interact(): void;
+  revive(targetId: string, held: boolean): void;
   pickup(): void;
   attack(dx: number, dy: number): void;
   useSlot(index: number, targetX?: number, targetY?: number): void;
@@ -120,7 +121,7 @@ export interface InputQueries {
   /** True when a StairwayDown/StairwayUp landmark (Epic 7.14) is within interact
    * range — takes priority over every other [E] action. */
   isStairwayNearby(conn: InputConnection): boolean;
-  /** Nearest downed party member in interact range — gates hold-E revive (Epic 7.12), or undefined. */
+  /** Nearest downed player in interact range, regardless of party. */
   downedPartyMemberInRange(conn: InputConnection): { id: string } | undefined;
 }
 

@@ -11,6 +11,7 @@ import { doAttack } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety.js";
 import { resetInputTimeline } from "../playerInputTimeline.js";
 import { closeLootChest, openLootChestById, takeLoot } from "../lootChests.js";
+import { setReviveHeld, stepRevives } from "../revives.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
@@ -25,6 +26,7 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
       dispatchAction(sim, slot, action, effectEvents);
     }
   }
+  stepRevives(sim, effectEvents);
 }
 
 /** Action types that a downed player (mid-revive, can't act) may not perform. */
@@ -68,13 +70,17 @@ function dispatchAction(
   action: PlayerAction,
   effectEvents: EffectEvent[],
 ): void {
+  if (action.type === "revive") {
+    setReviveHeld(sim, slot, action.targetId, action.held);
+    return;
+  }
   if (GATED_ON_STANDING.has(action.type)) {
     if (slot.downedAtTick !== null) return;
     if (FORFEITS_SPAWN_GRACE.has(action.type)) endSpawnGrace(slot);
     dispatchGatedAction(sim, slot, action, effectEvents);
     return;
   }
-  dispatchStandingAction(sim, slot, action, effectEvents);
+  dispatchStandingAction(sim, slot, action);
 }
 
 /** Combat and item actions — dropped outright while downed. */
@@ -121,7 +127,6 @@ function dispatchStandingAction(
   sim: SimState,
   slot: PlayerSlot,
   action: PlayerAction,
-  effectEvents: EffectEvent[],
 ): void {
   switch (action.type) {
     case "suicide":
@@ -134,7 +139,7 @@ function dispatchStandingAction(
       doEquip(sim, slot, action.item);
       break;
     case "interact":
-      doInteract(sim, slot, effectEvents);
+      doInteract(sim, slot);
       break;
     case "party":
     case "chat":
@@ -170,8 +175,7 @@ function dispatchSocialAction(
   }
 }
 
-function doSuicide(slot: PlayerSlot): void {
-  slot.god = false;
+function doSuicide(slot: PlayerSlot): void { slot.god = false;
   slot.forceDeath = true;
   slot.downedAtTick = null;
   delete slot.entity.downedUntil;

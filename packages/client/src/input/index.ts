@@ -65,7 +65,7 @@ export class InputController {
       scene, state: this.state, conn, hud, queries, hooks, tilePx,
       touch: this.touch,
       touchActive: () => this.touchActive,
-      onInteractReleased: () => this.lifeGestures.endInteract(scene.time.now),
+      onInteractReleased: () => this.lifeGestures.endInteract(this.conn, scene.time.now),
       onContextAction: () => this.handleInteractDown("pickup"),
       onThrowSelected: () => this.throwSelectedTouch(),
       onMovementEdge: () => this.sendCurrentMovementEdge(),
@@ -78,7 +78,7 @@ export class InputController {
     const { conn, panels, state } = this;
     const blocked = () => panels.gameplayBlocked;
     keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
-    bindInteractKey(keys.E, guardedAction(() => this.handleInteractDown(), blocked), () => this.lifeGestures.endInteract(this.scene.time.now));
+    bindInteractKey(keys.E, guardedAction(() => this.handleInteractDown(), blocked), () => this.lifeGestures.endInteract(this.conn, this.scene.time.now));
     keys.K.on("down", guardedAction(() => this.lifeGestures.beginGiveUp(conn.downed, this.scene.time.now), blocked));
     keys.K.on("up", () => this.lifeGestures.endGiveUp(this.scene.time.now));
     keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
@@ -112,7 +112,7 @@ export class InputController {
       this.lifeGestures.beginRespawn(this.scene.time.now);
       return;
     }
-    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.lifeGestures.beginRevive(targetId, this.scene.time.now), fallback);
+    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.lifeGestures.beginRevive(this.conn, targetId, this.scene.time.now), fallback);
   }
 
   /** Call once per render frame: fires the revive intent exactly on the tick the hold
@@ -193,7 +193,7 @@ export class InputController {
     if (touchActive === this.touchActive) return;
     if (!touchActive) {
       resetTouchInputState(this.touch);
-      this.lifeGestures.endInteract(this.scene.time.now);
+      this.lifeGestures.endInteract(this.conn, this.scene.time.now);
       this.touchFistbumpHeld = false;
     }
     this.touchActive = touchActive;
@@ -218,6 +218,7 @@ export class InputController {
 
   private cancelModalGestures(): boolean {
     if (!this.panels.gameplayBlocked) return false;
+    this.lifeGestures.endInteract(this.conn, this.scene.time.now);
     this.lifeGestures.cancel(this.scene.time.now, this.fistbumpHold);
     this.fistbumpTargetId = null;
     this.touchFistbumpHeld = this.touchActive && isButtonHeld(this.touch, "interact");

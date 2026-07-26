@@ -93,6 +93,11 @@ export const clientThrowTorchSchema = z.object({
 });
 
 export const clientInteractSchema = z.object({ type: z.literal("interact") });
+export const clientReviveSchema = z.object({
+  type: z.literal("revive"),
+  targetId: z.string().max(64),
+  held: z.boolean(),
+});
 /** Epic 7.14 (The Descent): valid within interact range of a stairway —
  * near a StairwayDown mouth descends, near a StairwayUp mouth ascends.
  * Server resolves direction from proximity; the client sends the same
@@ -176,6 +181,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientAssignSchema,
   clientEquipSchema,
   clientInteractSchema,
+  clientReviveSchema,
   clientDescendSchema,
   clientCraftSchema,
   clientStashSchema,

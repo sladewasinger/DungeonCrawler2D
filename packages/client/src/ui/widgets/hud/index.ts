@@ -134,7 +134,7 @@ export class HudWidgets {
     this.party.update(snapshot.party, snapshot.partySelfLeader);
     this.interaction.update(snapshot.interactionPrompt);
     this.connection?.update(snapshot.pingMs, snapshot.connected, snapshot.fps, snapshot.coords, snapshot.seed, snapshot.floor, snapshot.biome, snapshot.headingDeg);
-    this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs); this.death.update(snapshot.downed, snapshot.dead, snapshot.respawnRemainingSec, snapshot.respawnHoldProgress);
+    this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs); this.death.update(snapshot.downed, snapshot.dead, snapshot.respawnRemainingSec, snapshot.respawnHoldProgress, snapshot.downedRemainingSec, snapshot.reviveProgress, snapshot.reviverName);
     this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
     this.toasts.update(snapshot.toasts, nowMs);
     this.touchControls.update(snapshot.touch, nowMs);

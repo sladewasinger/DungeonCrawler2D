@@ -145,6 +145,9 @@ export class LiveHudSnapshotCache {
     snapshot.compassBearingDeg = compassBearingDeg;
     snapshot.headingDeg = aimHeadingDeg;
     snapshot.respawnRemainingSec = conn.respawnSecondsRemaining;
+    snapshot.downedRemainingSec = conn.downedSecondsRemaining;
+    snapshot.reviveProgress = conn.reviveProgress;
+    snapshot.reviverName = conn.reviverName;
     snapshot.respawnHoldProgress = input.respawnHoldProgress();
     snapshot.biome = conn.world
       ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, body.x, body.y).biome
