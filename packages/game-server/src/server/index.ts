@@ -1,10 +1,11 @@
-import { LEVEL, TICK_RATE, World, type ContentRegistry, type LevelId } from "@dc2d/engine";
+import { LEVEL, World, type ContentRegistry, type LevelId } from "@dc2d/engine";
 import { WebSocketServer, type WebSocket } from "ws";
 import { FloorRegistry } from "../floorRegistry.js";
 import { GameSim } from "../sim/index.js";
 import { PlayerStore } from "../store.js";
 import { broadcastTick } from "./broadcast.js";
 import { handleConnection } from "./dispatch.js";
+import { startFixedRateLoop } from "./fixedRateLoop.js";
 import { startHeartbeat } from "./heartbeat.js";
 import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
 import type { SocketMap } from "./types.js";
@@ -72,9 +73,8 @@ export function startServer(opts: ServerOptions): RunningServer {
     handleConnection(ws, floors, sandbox, sockets, opts.worldSeed, networkMetrics);
   });
 
-  const interval = setInterval(
+  const stopTickLoop = startFixedRateLoop(
     () => broadcastTick(floors, sandbox, sockets, networkMetrics),
-    1000 / TICK_RATE,
   );
 
   return {
@@ -84,18 +84,18 @@ export function startServer(opts: ServerOptions): RunningServer {
     floors,
     store,
     networkMetrics,
-    stop: () => stopServer(interval, stopHeartbeat, store, wss, sockets),
+    stop: () => stopServer(stopTickLoop, stopHeartbeat, store, wss, sockets),
   };
 }
 
 function stopServer(
-  interval: ReturnType<typeof setInterval>,
+  stopTickLoop: () => void,
   stopHeartbeat: () => void,
   store: PlayerStore,
   wss: WebSocketServer,
   sockets: SocketMap,
 ): void {
-  clearInterval(interval);
+  stopTickLoop();
   stopHeartbeat();
   store.flush();
   wss.close();

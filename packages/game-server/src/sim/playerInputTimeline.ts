@@ -8,9 +8,9 @@ import type { PlayerSlot, SimState } from "./state.js";
 export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
   const slot = sim.players.get(playerId);
   if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
-  if (!isInputTickPlausible(slot, input.projectedServerTick)) return;
   const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
   if (input.seq <= highestReceivedSeq) return;
+  if (!alignInputTimeline(slot, input.projectedServerTick)) return;
   slot.highestReceivedSeq = input.seq;
   queueByProjectedTick(slot.pendingInputs, input);
 }
@@ -32,15 +32,20 @@ export function resetInputTimeline(slot: PlayerSlot): void {
   slot.lastProjectedServerTick = -1;
 }
 
-function isInputTickPlausible(
+function alignInputTimeline(
   slot: PlayerSlot,
   projectedTick: number,
 ): boolean {
   const lastTimelineTick = slot.lastProjectedServerTick ?? -1;
   if (lastTimelineTick < 0) return true;
-  const timelineTick = lastTimelineTick;
-  return projectedTick >= timelineTick - PROJECTED_INPUT_MAX_PAST_TICKS &&
-    projectedTick <= timelineTick + PROJECTED_INPUT_MAX_FUTURE_TICKS;
+  if (projectedTick < lastTimelineTick - PROJECTED_INPUT_MAX_PAST_TICKS) {
+    return false;
+  }
+  if (projectedTick > lastTimelineTick + PROJECTED_INPUT_MAX_FUTURE_TICKS) {
+    slot.pendingInputs.length = 0;
+    slot.lastProjectedServerTick = projectedTick - 1;
+  }
+  return true;
 }
 
 function queueByProjectedTick(queue: ClientInput[], input: ClientInput): void {

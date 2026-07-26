@@ -130,7 +130,7 @@ describe("player input queue", () => {
     expect(entity.body.x).toBeGreaterThan(5.5);
   });
 
-  it("accepts bounded clock drift and rejects impossible projected ticks", () => {
+  it("accepts bounded drift, rebases future clock lead, and rejects impossible past ticks", () => {
     const sim = makeSim();
     const player = sim.addPlayer("Timeline tester", "timeline-client");
 
@@ -163,8 +163,56 @@ describe("player input queue", () => {
     const accepted = nextSnapshot(sim, player.playerId);
     expect(accepted.lastSeq).toBe(2);
 
-    sim.handleInput(player.playerId, input(3, -1, 0, false, false, accepted.lastProjectedServerTick + PROJECTED_INPUT_MAX_FUTURE_TICKS + 1));
-    sim.handleInput(player.playerId, input(4, -1, 0, false, false, accepted.lastProjectedServerTick - PROJECTED_INPUT_MAX_PAST_TICKS - 1));
-    expect(sim.step().get(player.playerId)?.lastSeq).toBe(2);
+    const futureTick =
+      accepted.lastProjectedServerTick + PROJECTED_INPUT_MAX_FUTURE_TICKS + 1;
+    sim.handleInput(
+      player.playerId,
+      input(3, -1, 0, false, false, futureTick),
+    );
+    expect(sim.step().get(player.playerId)).toMatchObject({
+      lastSeq: 3,
+      lastProjectedServerTick: futureTick,
+    });
+
+    sim.handleInput(
+      player.playerId,
+      input(
+        4,
+        -1,
+        0,
+        false,
+        false,
+        futureTick - PROJECTED_INPUT_MAX_PAST_TICKS - 1,
+      ),
+    );
+    expect(sim.step().get(player.playerId)?.lastSeq).toBe(3);
+  });
+
+  it("recovers the 33-tick client lead captured by the movement trace", () => {
+    const sim = makeSim();
+    const player = sim.addPlayer("Trace tester", "trace-client");
+    const entity = sim.getPlayerEntity(player.playerId);
+    if (!entity) throw new Error("joined player is missing");
+    const start = { x: 5.5, y: 5.5 };
+    teleport(entity, start.x, start.y, sim);
+
+    sim.handleInput(
+      player.playerId,
+      input(47, 0, 0, false, false, 625),
+    );
+    expect(sim.step().get(player.playerId)).toMatchObject({
+      lastSeq: 47,
+      lastProjectedServerTick: 625,
+    });
+
+    sim.handleInput(
+      player.playerId,
+      input(206, 1, 0, false, false, 658),
+    );
+    expect(sim.step().get(player.playerId)).toMatchObject({
+      lastSeq: 206,
+      lastProjectedServerTick: 658,
+    });
+    expect(entity.body.x).toBeGreaterThan(start.x);
   });
 });
