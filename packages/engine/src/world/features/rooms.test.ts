@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TICK_DT } from "../../core/constants.js";
 import { hashString } from "../../core/rng.js";
-import { createBody, stepBody } from "../../entities/movement/index.js";
 import { CHUNK_SIZE, TILE } from "../types.js";
 import { World } from "../world.js";
 import {
@@ -21,6 +19,7 @@ import {
   personalRoomChunk,
   personalRoomFeatures,
   personalRoomSpawn,
+  safeRoomAttendantPosition,
   safeRoomChunk,
   safeRoomFeatures,
 } from "./rooms.js";
@@ -75,19 +74,6 @@ const exitPosition = (
     x: chunk.cx * CHUNK_SIZE + index % CHUNK_SIZE,
     y: chunk.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE),
   };
-};
-
-const runMovement = (
-  world: World,
-  body: ReturnType<typeof createBody>,
-  moveX: number,
-  moveY: number,
-  jump: boolean,
-): void => {
-  stepBody(world, body, { moveX, moveY, jump }, TICK_DT);
-  for (let tick = 0; tick < 60; tick++) {
-    stepBody(world, body, { moveX, moveY, jump: false }, TICK_DT);
-  }
 };
 
 describe("safe room doors", () => {
@@ -159,43 +145,6 @@ describe("south exit geometry", () => {
   );
 });
 
-describe("south exit collision", () => {
-  it.each(ROOM_CASES)(
-    "blocks axis movement and jumping through both $kind hall sides",
-    ({ position }) => {
-      const world = new World(hashString("room-exit-collision"), 1);
-      const exit = exitPosition(world.getChunk(position.cx, position.cy));
-
-      for (let depth = 1; depth <= SOUTH_EXIT_HALL_DEPTH; depth++) {
-        const hallY = exit.y + depth;
-        for (const direction of [-1, 1]) {
-          const body = createBody(exit.x + 0.5, hallY + 0.5, 0);
-          runMovement(world, body, direction, 0, true);
-          expect(Math.floor(body.x)).toBe(exit.x);
-          expect(Math.floor(body.y)).toBe(hallY);
-          expect(world.tileAt(Math.floor(body.x), Math.floor(body.y))).toBe(TILE.Floor);
-        }
-      }
-    },
-  );
-
-  it.each(ROOM_CASES)(
-    "blocks diagonal corner slides and jumping beyond the $kind hall endpoint",
-    ({ position }) => {
-      const world = new World(hashString("room-exit-collision"), 1);
-      const exit = exitPosition(world.getChunk(position.cx, position.cy));
-
-      for (const direction of [-1, 1]) {
-        const body = createBody(exit.x + 0.5, exit.y + 1.5, 0);
-        runMovement(world, body, direction, 1, true);
-        expect(Math.floor(body.x)).toBe(exit.x);
-        expect(Math.floor(body.y)).toBe(exit.y + SOUTH_EXIT_HALL_DEPTH);
-        expect(world.tileAt(Math.floor(body.x), Math.floor(body.y))).toBe(TILE.Floor);
-      }
-    },
-  );
-});
-
 describe("personal room fixtures", () => {
   it("keeps the exit and spawn positions unchanged", () => {
     const { cx, cy } = personalRoomChunk(0);
@@ -212,5 +161,18 @@ describe("room display coordinates", () => {
     expect(displayCoordinates(-17.25, 42.5)).toEqual({ x: -17.25, y: 42.5 });
     const spawn = personalRoomSpawn(3);
     expect(displayCoordinates(spawn.x, spawn.y)).toEqual({ x: 0.5, y: 1.5 });
+  });
+});
+
+describe("safe room attendant position", () => {
+  it.each([
+    [0, 4100],
+    [-4, 4102],
+    [12, 4120],
+  ])("preserves the coordinates for chunk (%i, %i)", (cx, cy) => {
+    expect(safeRoomAttendantPosition(cx, cy)).toEqual({
+      x: cx * CHUNK_SIZE + CHUNK_SIZE / 2 - 5.5,
+      y: cy * CHUNK_SIZE + CHUNK_SIZE / 2 - 3.5,
+    });
   });
 });

@@ -1,7 +1,7 @@
 export {
   FOOD_ATTENDANT_BUBBLE_MS,
   FOOD_ATTENDANT_ID,
-  FOOD_ATTENDANT_NAME,
+  SAFE_ROOM_ATTENDANT_NAME,
   queueFoodAttendantGreeting,
   stepFoodAttendantDialogs,
 } from "./dialog.js";

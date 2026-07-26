@@ -1,9 +1,9 @@
-import { CHUNK_SIZE, TICK_RATE, roomKindAt, safeRoomFoodAttendantPosition } from "@dc2d/engine";
+import { CHUNK_SIZE, TICK_RATE, roomKindAt, safeRoomAttendantPosition } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../../state.js";
 import { foodAttendantGreeting } from "./phrases.js";
 
 export const FOOD_ATTENDANT_ID = "safe-room-food-attendant";
-export const FOOD_ATTENDANT_NAME = "Nib, Food Attendant";
+export const SAFE_ROOM_ATTENDANT_NAME = "Nib, Safe Room Attendant";
 export const FOOD_ATTENDANT_BUBBLE_MS = 4_000;
 const GREETING_TICKS = FOOD_ATTENDANT_BUBBLE_MS / 1_000 * TICK_RATE;
 
@@ -59,14 +59,14 @@ export function stepFoodAttendantDialogs(sim: SimState): void {
       if (roomKindAt(state.cx, state.cy) !== "safe") dialogsFor(sim).delete(key);
       continue;
     }
-    const position = safeRoomFoodAttendantPosition(state.cx, state.cy);
+    const position = safeRoomAttendantPosition(state.cx, state.cy);
     const text = foodAttendantGreeting(greeting.playerName, sim.rng.next());
     for (const slot of sim.players.values()) {
       if (!isInRoom(slot, state.cx, state.cy)) continue;
       slot.outbox.push({
         t: "npcSpeech",
         npcId: FOOD_ATTENDANT_ID,
-        name: FOOD_ATTENDANT_NAME,
+        name: SAFE_ROOM_ATTENDANT_NAME,
         ...position,
         text,
         durationMs: FOOD_ATTENDANT_BUBBLE_MS,

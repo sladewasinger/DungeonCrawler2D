@@ -100,7 +100,7 @@ describe("dynamic safe room doors", () => {
     expect(speech).toMatchObject({
       t: "npcSpeech",
       npcId: "safe-room-food-attendant",
-      name: "Nib, Food Attendant",
+      name: "Nib, Safe Room Attendant",
       durationMs: 4_000,
     });
     expect(speech && "text" in speech ? speech.text : "").toContain("Ada");

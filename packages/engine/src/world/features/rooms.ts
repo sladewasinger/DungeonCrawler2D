@@ -95,7 +95,7 @@ export function roomCenterAt(cx: number, cy: number): { x: number; y: number } {
   return roomCenter({ cx, cy });
 }
 
-export function safeRoomFoodAttendantPosition(cx: number, cy: number): { x: number; y: number } {
+export function safeRoomAttendantPosition(cx: number, cy: number): { x: number; y: number } {
   const center = roomCenter({ cx, cy });
   return { x: center.x - 5.5, y: center.y - 3.5 };
 }

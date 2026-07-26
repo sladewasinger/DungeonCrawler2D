@@ -2,7 +2,7 @@ import {
   CHUNK_SIZE,
   roomCenterAt,
   roomKindAt,
-  safeRoomFoodAttendantPosition,
+  safeRoomAttendantPosition,
   type RoomKind,
 } from "@dc2d/engine";
 import type Phaser from "phaser";
@@ -103,7 +103,7 @@ export class RoomPresentation {
   }
 
   private createAttendant(objects: RoomObjects): void {
-    const position = safeRoomFoodAttendantPosition(objects.cx, objects.cy);
+    const position = safeRoomAttendantPosition(objects.cx, objects.cy);
     const screen = worldToScreen(position.x, position.y);
     const depth = depthForEntityNow(position.x, position.y);
     objects.counter = this.scene.add.rectangle(
@@ -124,7 +124,7 @@ export class RoomPresentation {
     objects.nameplate = this.scene.add.text(
       screen.x,
       headY - 4,
-      "Nib, Food Attendant",
+      "Nib, Safe Room Attendant",
       uiTextStyle(11, "#ffd98a", 1, "emphasis"),
     ).setOrigin(0.5, 1).setStroke("#11111a", 3)
       .setDepth(SAFE_ROOM_PRESENTATION_DEPTH);
@@ -139,7 +139,7 @@ export class RoomPresentation {
     objects.floorLabel.setPosition(floor.x, floor.y)
       .setDepth(depthForEntityNow(labelPosition.x, labelPosition.y) - 1);
     if (!objects.attendant) return;
-    const position = safeRoomFoodAttendantPosition(objects.cx, objects.cy);
+    const position = safeRoomAttendantPosition(objects.cx, objects.cy);
     const screen = worldToScreen(position.x, position.y);
     const depth = depthForEntityNow(position.x, position.y);
     objects.attendant.setPosition(screen.x, screen.y).setDepth(depth);
