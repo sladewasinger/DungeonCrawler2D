@@ -198,6 +198,7 @@ export class ThreeHud {
   dispose(): void {
     this.setTextInputFocused(false);
     this.keyboard.dispose();
+    this.parts.panels.chat.dispose();
     this.parts.sessionMenu.dispose();
     this.parts.settings.dispose();
     this.parts.manager.dispose();

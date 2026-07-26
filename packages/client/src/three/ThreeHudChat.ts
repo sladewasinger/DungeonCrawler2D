@@ -32,6 +32,8 @@ export class ThreeHudChat {
     this.input.addEventListener("keydown", (event) => this.submit(event));
     this.input.addEventListener("focus", () => setTextInputFocused(true));
     this.input.addEventListener("blur", () => setTextInputFocused(false));
+    this.input.addEventListener("pointerdown", this.preventIdlePointerFocus);
+    document.addEventListener("pointerdown", this.leaveOnOutsidePointer, true);
     this.render();
   }
 
@@ -62,6 +64,22 @@ export class ThreeHudChat {
     this.input.blur();
     this.focusGame();
   }
+
+  dispose(): void {
+    document.removeEventListener("pointerdown", this.leaveOnOutsidePointer, true);
+    this.input.removeEventListener("pointerdown", this.preventIdlePointerFocus);
+  }
+
+  private readonly preventIdlePointerFocus = (event: PointerEvent): void => {
+    if (this.ownsFocus()) return;
+    event.preventDefault();
+    this.focusGame();
+  };
+
+  private readonly leaveOnOutsidePointer = (event: PointerEvent): void => {
+    if (!this.ownsFocus() || this.element.contains(event.target as Node)) return;
+    this.leave();
+  };
 
   private submit(event: KeyboardEvent): void {
     event.stopPropagation();

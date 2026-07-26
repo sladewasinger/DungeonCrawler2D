@@ -35,6 +35,7 @@ export class ChatInputBox {
         this.close();
       }
     });
+    document.addEventListener("pointerdown", this.closeOnOutsidePointer, true);
     document.body.append(this.input);
   }
 
@@ -59,6 +60,12 @@ export class ChatInputBox {
   }
 
   dispose(): void {
+    document.removeEventListener("pointerdown", this.closeOnOutsidePointer, true);
     this.input.remove();
   }
+
+  private readonly closeOnOutsidePointer = (event: PointerEvent): void => {
+    if (!this.isOpen() || event.target === this.input) return;
+    this.close();
+  };
 }
