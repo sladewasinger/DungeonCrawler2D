@@ -119,6 +119,15 @@ describe("stepped stair surface", () => {
     }
   });
 
+  it("omits only the false low-landing highlight on screen-south descending stairs", () => {
+    const northHigh = steppedStairSurface(0, 0, 0, singleTileNorthSouthRamp(0));
+    const southHigh = steppedStairSurface(0, 0, 2, singleTileNorthSouthRamp(2));
+
+    expect(northHigh.bands.map(({ drawsHighlight }) => drawsHighlight))
+      .toEqual([true, true, true, true, false]);
+    expect(southHigh.bands.every(({ drawsHighlight }) => drawsHighlight)).toBe(true);
+  });
+
   it("does not alter east/west projected band geometry", () => {
     for (const direction of [1, 3]) {
       const surface = steppedStairSurface(0, 0, direction, (x) => x - 0.5);
@@ -127,6 +136,7 @@ describe("stepped stair surface", () => {
         fillY: band.fillY,
         highlightX: band.highlightX,
         highlightY: band.highlightY,
+        drawsHighlight: band.drawsHighlight,
       }))).toEqual(surface.bands.map((band) => ({
         fillX: [band.start, band.end],
         fillY: [0, 1],
@@ -134,6 +144,7 @@ describe("stepped stair surface", () => {
           ? [Math.max(band.start, band.end - 0.045), band.end]
           : [band.start, Math.min(band.end, band.start + 0.045)],
         highlightY: [0, 1],
+        drawsHighlight: true,
       })));
     }
   });

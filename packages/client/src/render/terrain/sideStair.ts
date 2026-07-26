@@ -26,6 +26,7 @@ export interface StairSurfaceBand {
   readonly fillY: readonly [number, number];
   readonly highlightX: readonly [number, number];
   readonly highlightY: readonly [number, number];
+  readonly drawsHighlight: boolean;
 }
 
 export interface SteppedStairSurface {
@@ -123,6 +124,7 @@ export function steppedStairSurface(
         : FULL,
       highlightX: axis === "x" ? edge : FULL,
       highlightY: axis === "y" ? edge : FULL,
+      drawsHighlight: !(direction === 0 && index === sampledBands.length - 1),
     };
   });
   return { axis, highAtStart, bands };
@@ -151,16 +153,18 @@ export function drawSteppedStairSurface(
       1,
       band.liftBakePx,
     );
-    placeFractionalRect(
-      scene,
-      container,
-      wx,
-      wy,
-      band.highlightX,
-      band.highlightY,
-      edge,
-      0.9,
-      band.liftBakePx,
-    );
+    if (band.drawsHighlight) {
+      placeFractionalRect(
+        scene,
+        container,
+        wx,
+        wy,
+        band.highlightX,
+        band.highlightY,
+        edge,
+        0.9,
+        band.liftBakePx,
+      );
+    }
   }
 }
