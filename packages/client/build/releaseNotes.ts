@@ -1,15 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { Plugin } from "vite";
-
-const REQUIRED_SECTIONS = ["Added", "Changed", "Removed", "Fixed"] as const;
-
-interface ReleaseNote {
-  version: string;
-  date: string;
-  title: string;
-  sections: Record<(typeof REQUIRED_SECTIONS)[number], string[]>;
-}
+import {
+  parseNote,
+  REQUIRED_SECTIONS,
+  type ReleaseNote,
+} from "./releaseNotesParser.js";
 
 const escapeHtml = (value: string): string =>
   value
@@ -17,59 +13,6 @@ const escapeHtml = (value: string): string =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
-
-function parseFrontMatter(source: string, file: string): { attributes: Record<string, string>; body: string } {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(source);
-  if (!match) throw new Error(`[release-notes] ${file} is missing YAML front matter`);
-  const attributes: Record<string, string> = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const separator = line.indexOf(":");
-    if (separator <= 0) throw new Error(`[release-notes] invalid front matter in ${file}: ${line}`);
-    attributes[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
-  }
-  return { attributes, body: match[2] };
-}
-
-function parseNote(source: string, file: string): ReleaseNote {
-  const { attributes, body } = parseFrontMatter(source, file);
-  validateAttributes(attributes, file);
-  if (basename(file) !== `v${attributes.version}.md`) {
-    throw new Error(`[release-notes] ${file} does not match version ${attributes.version}`);
-  }
-  return {
-    version: attributes.version,
-    date: attributes.date,
-    title: attributes.title,
-    sections: parseSections(body, file),
-  };
-}
-
-function validateAttributes(attributes: Record<string, string>, file: string): void {
-  for (const field of ["version", "date", "title"]) {
-    if (!attributes[field]) throw new Error(`[release-notes] ${file} is missing ${field}`);
-  }
-}
-
-function parseSections(body: string, file: string): ReleaseNote["sections"] {
-  const sections = Object.fromEntries(REQUIRED_SECTIONS.map((name) => [name, []])) as ReleaseNote["sections"];
-  let active: (typeof REQUIRED_SECTIONS)[number] | undefined;
-  for (const line of body.split(/\r?\n/)) {
-    const heading = /^## (.+)$/.exec(line);
-    if (heading) {
-      if (!REQUIRED_SECTIONS.includes(heading[1] as never)) {
-        throw new Error(`[release-notes] unsupported section "${heading[1]}" in ${file}`);
-      }
-      active = heading[1] as (typeof REQUIRED_SECTIONS)[number];
-      continue;
-    }
-    const item = /^- (.+)$/.exec(line);
-    if (item && active) sections[active].push(item[1]);
-  }
-  for (const name of REQUIRED_SECTIONS) {
-    if (sections[name].length === 0) throw new Error(`[release-notes] ${file} has an empty ${name} section`);
-  }
-  return sections;
-}
 
 const style = `
   :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0d0e16;color:#f2f0eb}
