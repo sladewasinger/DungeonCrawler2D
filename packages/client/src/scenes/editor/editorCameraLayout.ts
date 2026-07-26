@@ -3,6 +3,8 @@ import { islandViewCentroid } from "../../render/terrain/islandChunk.js";
 import type { ViewOrientation } from "../../render/view/index.js";
 import { EDITOR_GRID_SIZE } from "./EditableWorld.js";
 
+export const EDITOR_RENDER_VIEWPORT_PX = EDITOR_GRID_SIZE * SCREEN_TILE_PX;
+
 export interface EditorCameraLayout {
   readonly centerX: number;
   readonly centerY: number;

@@ -9,6 +9,7 @@ import { resolveWsUrl } from "../net/url.js";
 import { getViewOrientation } from "../render/view/index.js";
 import { AutotileGalleryScene } from "../scenes/autotileGallery/AutotileGalleryScene.js";
 import { DungeonScene } from "../scenes/dungeon/index.js";
+import { EDITOR_RENDER_VIEWPORT_PX } from "../scenes/editor/editorCameraLayout.js";
 import { EditorScene, setUpEditorLayout } from "../scenes/editor/index.js";
 import { GalleryScene } from "../scenes/GalleryScene.js";
 import { HudScene } from "../scenes/HudScene.js";
@@ -26,8 +27,8 @@ function startEditor(search: URLSearchParams): void {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: boot.parentId,
-    width: 720,
-    height: 720,
+    width: EDITOR_RENDER_VIEWPORT_PX,
+    height: EDITOR_RENDER_VIEWPORT_PX,
     pixelArt: true,
     scene: [PreloadScene, EditorScene],
   });
