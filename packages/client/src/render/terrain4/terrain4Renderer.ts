@@ -1,6 +1,6 @@
 import { BIOME, TERRAIN, biomeAtWorldTile, type BiomeKind, type World } from "@dc2d/engine";
 import Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { TilePos } from "../lighting/torchPlacement.js";
 import type { DynamicLightSeed } from "../terrain/tileLight.js";
 import { viewTileToWorld } from "../view/viewTransform.js";
@@ -54,6 +54,7 @@ export class Terrain4Renderer {
   private readonly roots = new Map<ViewOrientation, Terrain4Root>();
   private readonly debugMode = typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("terrain4Debug") === "1";
+  private readonly debugLegend: Phaser.GameObjects.Image | null;
   private currentKey = "";
   private dirty = true;
 
@@ -61,6 +62,10 @@ export class Terrain4Renderer {
     private readonly scene: Phaser.Scene,
     private readonly world: World,
   ) {
+    this.debugLegend = this.debugMode
+      ? scene.add.image(8, 8, ASSET_KEYS.terrain4Debug)
+        .setOrigin(0, 0).setScrollFactor(0).setDepth(TERRAIN_DEPTH + 2000).setScale(0.12).setAlpha(0.9)
+      : null;
     this.ensureRoot(getViewOrientation());
   }
 
@@ -120,6 +125,7 @@ export class Terrain4Renderer {
   dispose(): void {
     for (const root of this.roots.values()) root.graphics.destroy();
     this.roots.clear();
+    this.debugLegend?.destroy();
   }
 
   private ensureRoot(orientation: ViewOrientation): Terrain4Root {
@@ -152,7 +158,7 @@ export class Terrain4Renderer {
 const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "south-face", string>> = {
   floor: "F",
   void: "V",
-  "south-face": "D",
+  "south-face": "WF",
 };
 
 function renderDebugLabels(

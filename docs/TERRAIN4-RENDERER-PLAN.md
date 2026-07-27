@@ -71,9 +71,11 @@ Assets:
 - `packages/client/public/assets/terrain4/pillar-forest-atlas.png`
 
 Append `?terrain4Debug=1` to the game URL to enable a live geometry overlay:
-`F` marks Floor caps, `V` marks flat Void caps, and `D` marks a generated
-Floor-to-Floor drop. This is intentionally an overlay in the first backend
-spike, so labels remain readable while the atlas compositor is profiled.
+`F` marks Floor caps, `V` marks flat Void caps, and `WF` marks a renderer-only
+wall face generated between two Floor heights. `WF` is never a stored tile or
+world value. This is intentionally an overlay in the first backend spike, so
+labels remain readable while the atlas compositor is profiled. The generated
+labeled debug atlas is also shown as a small in-game legend.
 
 The shared sheet is intentionally compact; faces and void boundaries are
 generated from the height map, so no per-direction wall atlas is needed.
