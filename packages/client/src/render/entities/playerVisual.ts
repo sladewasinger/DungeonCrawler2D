@@ -108,11 +108,16 @@ function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: Rend
   }
   const elapsed = visual.hitFlashStartMs === undefined ? Infinity : ctx.nowMs - visual.hitFlashStartMs;
   if (flashIntensity(elapsed) > 0) {
-    visual.body.setTintFill(0xffffff);
+    setTintFill(visual.body, 0xffffff);
   } else {
     visual.body.clearTint();
     if (elapsed >= 0) visual.hitFlashStartMs = undefined;
   }
+}
+
+function setTintFill(sprite: Phaser.GameObjects.Sprite, color: number): void {
+  sprite.setTint(color);
+  (sprite as unknown as { setTintMode?: (mode: number) => void }).setTintMode?.(1);
 }
 
 /** Shadow, hp bar, nameplate, held weapon, and occlusion silhouette — everything that

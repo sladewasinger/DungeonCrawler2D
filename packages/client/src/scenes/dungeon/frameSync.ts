@@ -11,7 +11,7 @@ import type { Connection } from "../../net/connection.js";
 import type { EntityRenderer } from "../../render/entities/index.js";
 import type { LightSource } from "../../render/lighting/lightSource.js";
 import type { LightingSystem } from "../../render/lighting/index.js";
-import type { TerrainRenderer } from "../../render/terrain/index.js";
+import type { TerrainRendererLike } from "../../render/terrain4/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { VfxSystem } from "../../vfx/index.js";
 import { collectExpiredSwingsInto } from "../../vfx/meleeConnect.js";
@@ -42,7 +42,7 @@ export function syncEntities(
   conn: Connection,
   entityRenderer: EntityRenderer,
   vfx: VfxSystem,
-  terrain: TerrainRenderer | undefined,
+  terrain: TerrainRendererLike | undefined,
   inputController: InputController,
   state: DungeonSceneState,
   torchSyncState: TorchSyncState,
@@ -87,7 +87,7 @@ export function syncFrame(
   conn: Connection,
   entityRenderer: EntityRenderer,
   vfx: VfxSystem,
-  terrain: TerrainRenderer | undefined,
+  terrain: TerrainRendererLike | undefined,
   lighting: LightingSystem | undefined,
   inputController: InputController,
   state: DungeonSceneState,

@@ -1,16 +1,10 @@
 /**
- * Drives the LANE W2 camera-rotation UX: owns the rotationTween state machine
- * (render/view/rotationTween.ts) and performs the ONE hard content swap — flipping the
- * seam's settled ViewState and forcing a terrain/lighting rebake — at the tween's
- * 45-degree crossfade midpoint (docs/ASSUMPTIONS.md row 253's existing hard-swap
- * default, extended here to the whole terrain pipeline: chunkVisual bakes floor + wall +
- * occluder into one composited texture per chunk, so a floor-only-continuous /
- * wall-only-at-midpoint split would need a larger Phaser-layer refactor out of this
- * pass's scope — see the ASSUMPTIONS log for the full writeup). A short cosmetic camera
- * spin (cameraRotation()) covers the swap with a continuous 250ms visual instead of a
- * jump-cut, compensating exactly at the swap instant so the two halves read as one motion.
+ * Drives the live cardinal camera rotation: owns the rotationTween state machine and
+ * flips the settled ViewState at the midpoint. Terrain4Renderer prewarms the destination
+ * root before this swap, so the old root stays visible until the new one is complete.
+ * A short cosmetic camera lean covers the atomic swap without a blank or flashing frame.
  * Phaser-free by design (like every render/view/* module) — DungeonScene wires it to a
- * real camera and to TerrainRenderer/LightingSystem's invalidateAll().
+ * real camera and to Terrain4Renderer/LightingSystem's invalidation hooks.
  */
 import {
   advanceRotationTween,
@@ -66,10 +60,10 @@ export class RotationController {
   }
 
   /**
-   * Advances the tween by `dtMs`; `invalidate` fires exactly once, the instant progress
-   * crosses the 45-degree midpoint — flips the seam's settled orientation and should
-   * trigger a fresh terrain/lighting rebake there (kept as a callback so this module
-   * never touches Phaser/TerrainRenderer directly).
+   * Advances the tween by `dtMs`; `invalidate` fires exactly once when progress crosses
+   * the midpoint, flipping the seam's settled orientation and refreshing lighting. The
+   * terrain callback is renderer-agnostic; Terrain4's destination root is already
+   * prepared by the key binding.
    */
   update(dtMs: number, invalidate: () => void): void {
     if (!this.tween) return;

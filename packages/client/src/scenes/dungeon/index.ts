@@ -11,7 +11,7 @@ import type { Connection } from "../../net/connection.js";
 import { EntityRenderer } from "../../render/entities/index.js";
 import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import { LightingSystem } from "../../render/lighting/index.js";
-import { TerrainRenderer } from "../../render/terrain/index.js";
+import { Terrain4Renderer, type TerrainRendererLike } from "../../render/terrain4/index.js";
 import { ChatController } from "../../ui/chat/controller.js";
 import { ChatInputBox } from "../../ui/chat/chatInput.js";
 import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
@@ -45,7 +45,7 @@ export class DungeonScene extends Phaser.Scene {
   private vfx!: VfxSystem;
   private inputController!: InputController;
   private hudScene!: HudScene;
-  private terrain: TerrainRenderer | undefined;
+  private terrain: TerrainRendererLike | undefined;
   private lighting: LightingSystem | undefined;
   private boundWorld: World | undefined;
   private interactionPrompt: InteractionPrompt | null = null;
@@ -95,7 +95,10 @@ export class DungeonScene extends Phaser.Scene {
       session: createSessionActions(this, this.conn),
     });
     bindDungeonCameraResize(this);
-    bindRotationKeys(this, this.rotation);
+    bindRotationKeys(this, this.rotation, (direction) => {
+      const terrain = this.terrain as Terrain4Renderer | undefined;
+      terrain?.prewarmRotation(this.cameras.main.worldView, direction);
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
 
@@ -173,7 +176,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.boundWorld === world) return;
     this.terrain?.dispose();
     this.lighting?.dispose();
-    this.terrain = new TerrainRenderer(this, world);
+    this.terrain = new Terrain4Renderer(this, world);
     this.lighting = new LightingSystem(this, world);
     this.boundWorld = world;
   }

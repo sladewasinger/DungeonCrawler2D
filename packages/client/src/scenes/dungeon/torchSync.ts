@@ -13,7 +13,7 @@ import {
 } from "../../render/lighting/placedTorches.js";
 import type { TilePos } from "../../render/lighting/torchPlacement.js";
 import type { TorchEntityView } from "../../render/entities/index.js";
-import type { TerrainRenderer } from "../../render/terrain/index.js";
+import type { TerrainRendererLike } from "../../render/terrain4/index.js";
 import { torchView, type InterpolatedEntity } from "./entityViews.js";
 import { mapFrameInto } from "./frameEntityViews.js";
 
@@ -27,7 +27,7 @@ export interface TorchSyncState {
   readonly flying: TorchEntityView[];
   readonly accentLights: LightSource[];
   readonly result: TorchSyncResult;
-  terrain: TerrainRenderer | null;
+  terrain: TerrainRendererLike | null;
 }
 
 export function createTorchSyncState(): TorchSyncState {
@@ -96,7 +96,7 @@ function buildTorchFrame(
 export function syncTorches(
   state: TorchSyncState,
   torches: readonly InterpolatedEntity[],
-  terrain: TerrainRenderer,
+  terrain: TerrainRendererLike,
   /** The last snapshot's tick — the reference point `expiresAtTick` counts down to,
    * for the fading-ember halo tell in a placed torch's last EMBER_FADE_SECONDS. */
   serverTick: number,

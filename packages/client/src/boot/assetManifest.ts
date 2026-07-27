@@ -3,12 +3,18 @@
 export const ASSET_KEYS = {
   atlas: "atlas",
   animations: "animations-data",
+  terrain4Debug: "terrain4-debug",
+  terrain4Biomes: "terrain4-biomes",
+  terrain4Pillars: "terrain4-pillars",
 } as const;
 
 export const ASSET_PATHS = {
   atlasImage: "assets/atlas.png",
   atlasJson: "assets/atlas.json",
   animationsJson: "assets/animations.json",
+  terrain4DebugImage: "assets/terrain4/debug-atlas.png",
+  terrain4BiomesImage: "assets/terrain4/terrain4-atlas.png",
+  terrain4PillarsImage: "assets/terrain4/pillar-forest-atlas.png",
   fontFile: "assets/fonts/monogram.ttf",
 } as const;
 

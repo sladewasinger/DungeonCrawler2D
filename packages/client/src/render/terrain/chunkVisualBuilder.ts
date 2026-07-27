@@ -158,14 +158,16 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
   private bakePage(): null {
     const page = this.pages[this.bakedPages];
     if (page) {
-      page.beginDraw();
       for (let drawn = 0; drawn < STRIPS_PER_BAKE_STEP; drawn++) {
         const strip = this.strips[this.nextBakeStrip];
         const packed = this.plan.strips[this.nextBakeStrip];
         if (!strip || !packed || packed.page !== this.bakedPages) break;
         this.drawStripOnPage(page, strip, this.nextBakeStrip++);
       }
-      page.endDraw();
+      // Phaser 4 replaced DynamicTexture's beginDraw/endDraw command batch with
+      // draw()+render(). The page remains resident and is rendered once per build
+      // slice, so old pages stay visible until the replacement is complete.
+      page.render();
       const next = this.plan.strips[this.nextBakeStrip];
       if (!next || next.page !== this.bakedPages) this.bakedPages++;
     }
@@ -187,7 +189,7 @@ export class IncrementalChunkVisualBuilder implements ChunkVisualBuilder {
     const packed = this.plan.strips[index];
     if (!packed || this.pages[packed.page] !== page) return;
     strip.container.setPosition(-this.originBakeX, packed.bandY - strip.stripTopBakePx);
-    page.batchDraw(strip.container);
+    page.draw(strip.container);
   }
 
   private createImages(): ChunkVisual | null {

@@ -9,10 +9,9 @@ import { PET_ASSETS } from "./petAssetManifest.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
-/** Dev-only startup ViewOrientation override (e.g. `?vo=90`) — the 2.5D-rotation lane's
- * only way to set orientation this pass; the game itself never changes it mid-session
- * yet (that's the next lane's Q/E input). Exists so the connectivity gallery (and
- * anyone else) can be captured at all 4 orientations for the seam's own regression gate. */
+/** Dev-only startup ViewOrientation override (e.g. `?vo=90`) — useful for gallery
+ * captures and renderer regression checks. The dungeon scene also changes this state
+ * live through its prewarmed Q/X rotation controller. */
 const VIEW_ORIENTATION_PARAM = "vo";
 const GALLERY_SCENE_KEY = "gallery";
 const EDITOR_SCENE_KEY = "editor";
@@ -34,6 +33,9 @@ export class PreloadScene extends Phaser.Scene {
   preload(): void {
     this.load.atlas(ASSET_KEYS.atlas, ASSET_PATHS.atlasImage, ASSET_PATHS.atlasJson);
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
+    this.load.image(ASSET_KEYS.terrain4Debug, ASSET_PATHS.terrain4DebugImage);
+    this.load.image(ASSET_KEYS.terrain4Biomes, ASSET_PATHS.terrain4BiomesImage);
+    this.load.image(ASSET_KEYS.terrain4Pillars, ASSET_PATHS.terrain4PillarsImage);
     this.load.spritesheet(DEBUG_TILESET_KEY, DEBUG_TILESET_PATH, {
       frameWidth: DEBUG_TILE_PX,
       frameHeight: DEBUG_TILE_PX,

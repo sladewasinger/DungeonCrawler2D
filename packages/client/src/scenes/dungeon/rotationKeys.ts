@@ -15,7 +15,11 @@ export const rotationDirectionForKey = (code: string): 1 | -1 | null => {
   return null;
 };
 
-export function bindRotationKeys(scene: Phaser.Scene, rotation: RotationController): void {
+export function bindRotationKeys(
+  scene: Phaser.Scene,
+  rotation: RotationController,
+  beforeRequest?: (direction: 1 | -1) => void,
+): void {
   const rotationWindow = window as RotationWindow;
   if (rotationWindow.__dc2dRotationKeyHandler) {
     window.removeEventListener("keydown", rotationWindow.__dc2dRotationKeyHandler, true);
@@ -24,6 +28,7 @@ export function bindRotationKeys(scene: Phaser.Scene, rotation: RotationControll
     const direction = rotationDirectionForKey(event.code);
     if (direction === null || isTypingInInput()) return;
     event.preventDefault();
+    beforeRequest?.(direction);
     rotation.request(direction);
   };
   rotationWindow.__dc2dRotationKeyHandler = onKeyDown;

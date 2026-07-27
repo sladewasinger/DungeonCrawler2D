@@ -59,7 +59,7 @@ function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<t
 
   const flashElapsed = visual.hitFlashStartMs === undefined ? Infinity : ctx.nowMs - visual.hitFlashStartMs;
   if (flashIntensity(flashElapsed) > 0) {
-    visual.body.setTintFill(0xffffff);
+    setTintFill(visual.body, 0xffffff);
     return;
   }
   if (flashElapsed >= 0) visual.hitFlashStartMs = undefined;
@@ -69,6 +69,13 @@ function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<t
   if (glow !== null) visual.body.setTint(glow);
   else if (status) visual.body.setTint(compositeStatusTint(status));
   else visual.body.clearTint();
+}
+
+/** Phaser 4 split tint color and mode; the optional call keeps headless visual
+ * tests and non-WebGL renderers compatible without importing Phaser at module load. */
+function setTintFill(sprite: Phaser.GameObjects.Sprite, color: number): void {
+  sprite.setTint(color);
+  (sprite as unknown as { setTintMode?: (mode: number) => void }).setTintMode?.(1);
 }
 
 /** Shadow, hp bar, nameplate — everything that hangs off the body's screen position.

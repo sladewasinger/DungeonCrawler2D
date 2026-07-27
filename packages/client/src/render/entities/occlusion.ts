@@ -152,9 +152,10 @@ function createGhost(body: Phaser.GameObjects.Sprite): Phaser.GameObjects.Sprite
   const ghost = body.scene.add
     .sprite(0, 0, ASSET_KEYS.atlas)
     .setOrigin(0.5, 1)
-    .setScale(WORLD_PIXEL_SCALE)
-    .setTintFill(GHOST_TINT)
-    .setAlpha(GHOST_ALPHA);
+    .setScale(WORLD_PIXEL_SCALE);
+  ghost.setTint(GHOST_TINT);
+  (ghost as unknown as { setTintMode?: (mode: number) => void }).setTintMode?.(1);
+  ghost.setAlpha(GHOST_ALPHA);
   body.setData(GHOST_DATA_KEY, ghost);
   body.once("destroy", () => ghost.destroy());
   return ghost;
