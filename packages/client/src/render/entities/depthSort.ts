@@ -7,6 +7,8 @@ const ROW_STEP = 100;
 /** A same-row tie-break only: far smaller than ROW_STEP. */
 const LIFT_STEP = 0.01;
 const OCCLUDER_BIAS = 0.5;
+/** Small presentation lift used by held weapons and attack-cone indicators. */
+export const COMBAT_OVERLAY_BIAS = 0.08;
 
 /** Phaser depth for an entity whose feet are at `feetWorldY`, `liftUnits` above its ground height. */
 export function depthForEntity(feetWorldY: number, liftUnits = 0): number {
@@ -28,6 +30,19 @@ export function depthForOccluder(southEdgeWorldY: number): number {
  */
 export function depthForCapOccluder(capRowY: number): number {
   return depthForEntity(capRowY) - OCCLUDER_BIAS;
+}
+
+/**
+ * Depth for combat visuals that should sit over the player's immediate
+ * screen-south terrain, unless that floor is genuinely higher than the player.
+ */
+export function depthForAdjacentTerrainOverlay(
+  wielderViewY: number,
+  wielderDepth: number,
+  screenSouthFloorHigher: boolean,
+): number {
+  if (screenSouthFloorHigher) return wielderDepth + COMBAT_OVERLAY_BIAS;
+  return depthForOccluder(Math.floor(wielderViewY) + 1) + COMBAT_OVERLAY_BIAS;
 }
 
 export interface DepthKey {

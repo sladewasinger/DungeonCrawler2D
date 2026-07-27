@@ -29,6 +29,7 @@ vi.mock("./weaponIcon.js", () => ({
 }));
 vi.mock("./weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
 vi.mock("./worldToScreen.js", () => ({
+  combatOverlayPosition: () => ({ wielderViewY: 2, screenSouthFloorHigher: false }),
   depthForEntityNow: () => 1,
   depthForScreenY: () => 1,
   worldToScreen: (x: number, y: number) => ({ x, y }),

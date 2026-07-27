@@ -7,15 +7,13 @@ import {
   BLOCK_GUARD_TINT,
   blockGuardTransform,
 } from "./blockGuard.js";
-import { MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
-import { depthForOccluder } from "./depthSort.js";
+import { combatOriginY, MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
+import { depthForAdjacentTerrainOverlay } from "./depthSort.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
 const HAND_OFFSET_Y = -SCREEN_TILE_PX * 0.45;
 const SWING_ARC_DEGREES = 70;
 
-/** Orbit center sits above the feet-anchored screen position, roughly chest height. */
-const ORBIT_CENTER_OFFSET_Y = -SCREEN_TILE_PX * 0.5;
 /** Tinted-knuckle fallback tint for the unarmed fist stand-in (weaponIcon.ts's FIST_FALLBACK_FRAME). */
 const FIST_TINT = 0xd9a066;
 
@@ -53,14 +51,6 @@ export interface HeldWeaponPose {
   readonly isFistFallback: boolean;
 }
 
-/**
- * Fraction of a depth-sort row-step (see depthSort.ts's ROW_STEP) added on top of the
- * wielder's own depth so the legacy-mode weapon always draws in front of their body —
- * the hand offset places it squarely inside the body sprite's own bounding box, so
- * without this it renders fully hidden behind the body at any depth tie.
- */
-const WEAPON_DEPTH_BIAS = 0.08;
-
 /** Positions the weapon at the wielder's hand or orbit, swinging through the strike telegraph while striking. */
 export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: string | null, pose: HeldWeaponPose): void {
   if (!frame) {
@@ -95,7 +85,7 @@ function positionGuard(
     (pose.facingX < 0 ? Math.PI : 0);
   const guard = blockGuardTransform(
     pose.screenX,
-    pose.screenY + ORBIT_CENTER_OFFSET_Y,
+    combatOriginY(pose.screenY, SCREEN_TILE_PX),
     facingAngle,
     SCREEN_TILE_PX,
     pose.nowMs,
@@ -122,7 +112,7 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
   const angle = pose.striking
     ? swingSweepAngle(pose.attackAngleRad, MELEE_HALF_ANGLE_RAD, pose.strikeProgress)
     : (pose.orbitAngleRad as number);
-  const center = orbitPosition(pose.screenX, pose.screenY + ORBIT_CENTER_OFFSET_Y, angle, SCREEN_TILE_PX);
+  const center = orbitPosition(pose.screenX, combatOriginY(pose.screenY, SCREEN_TILE_PX), angle, SCREEN_TILE_PX);
   setWeaponDepth(sprite, pose);
   sprite.setFlipX(false);
   // On the left half of the orbit a pure rotation renders the weapon upside
@@ -140,10 +130,10 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
  * the adjacent camera-facing wall, while the following row can still occlude it.
  */
 function setWeaponDepth(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
-  if (pose.screenSouthFloorHigher) {
-    sprite.setDepth(pose.wielderDepth + WEAPON_DEPTH_BIAS);
-    return;
-  }
-  const immediateSouthCapRow = Math.floor(pose.wielderViewY) + 1;
-  sprite.setDepth(depthForOccluder(immediateSouthCapRow) + WEAPON_DEPTH_BIAS);
+  const overlayDepth = depthForAdjacentTerrainOverlay(
+    pose.wielderViewY,
+    pose.wielderDepth,
+    pose.screenSouthFloorHigher,
+  );
+  sprite.setDepth(overlayDepth);
 }

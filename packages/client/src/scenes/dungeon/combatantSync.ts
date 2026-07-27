@@ -7,6 +7,8 @@ import type {
   PlayerEntityView,
   RenderContext,
 } from "../../render/entities/index.js";
+import { combatOverlayPosition, depthForEntityNow } from "../../render/entities/worldToScreen.js";
+import { depthForAdjacentTerrainOverlay } from "../../render/entities/depthSort.js";
 import type { VfxSystem } from "../../vfx/index.js";
 import { registerPendingSwing } from "../../vfx/meleeConnect.js";
 import {
@@ -60,7 +62,7 @@ export function syncCombatants(
   entityRenderer.syncMonsters(monsters, context);
   entityRenderer.syncPets(pets, context);
   syncItemViews(conn, entityRenderer, state, buckets, render, nowMs);
-  spawnMeleeSwings(vfx, state, players, nowMs);
+  spawnMeleeSwings(vfx, state, players, nowMs, context);
 }
 
 function syncItemViews(
@@ -143,6 +145,7 @@ function spawnMeleeSwings(
   state: DungeonSceneState,
   players: PlayerEntityView[],
   nowMs: number,
+  context: RenderContext,
 ): void {
   const swings = resolveMeleeSwingsInto(
     players,
@@ -152,6 +155,12 @@ function spawnMeleeSwings(
     state.swingSeen,
   );
   for (const swing of swings) {
+    const overlay = combatOverlayPosition(swing.worldX, swing.worldY, swing.z, context.world);
+    swing.depth = depthForAdjacentTerrainOverlay(
+      overlay.wielderViewY,
+      depthForEntityNow(swing.worldX, swing.worldY),
+      overlay.screenSouthFloorHigher,
+    );
     vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
     registerPendingSwing(state.pendingSwings, {
       attackerId: swing.id,

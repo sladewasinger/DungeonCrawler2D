@@ -8,6 +8,11 @@ import { MELEE_ARC_COS } from "@dc2d/engine";
 /** Radius of the self weapon's idle orbit around the player, in tiles (docs spec: "~0.75 tiles"). */
 export const ORBIT_RADIUS_TILES = 0.75;
 
+/** Vertical combat origin shared by the weapon orbit and both melee cones. */
+export function combatOriginY(screenY: number, tilePx: number): number {
+  return screenY - tilePx * 0.5;
+}
+
 /** Slew-rate cap for the orbit angle: at most this many radians per second, so a fast
  * mouse flick sweeps into place over a few frames instead of snapping instantly. */
 export const MAX_ANGULAR_SPEED_RAD_PER_S = 12;

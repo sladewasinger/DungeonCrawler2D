@@ -3,7 +3,7 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { getViewOrientation } from "../view/viewState.js";
-import { viewTileToWorld, worldAngleToView, worldToView } from "../view/viewTransform.js";
+import { worldAngleToView } from "../view/viewTransform.js";
 import { resolveAnimState } from "./animState.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
@@ -19,7 +19,7 @@ import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
 import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
 import { stepOrbitAngle } from "./weaponOrbit.js";
-import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
+import { combatOverlayPosition, depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 import { updateGuardCone } from "./guardCone.js";
 import { updatePlayerReviveRing } from "./player/playerReviveRing.js";
 
@@ -197,7 +197,8 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
   const isSelf = aimAngle !== null;
   const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());
   const guardAngle = isSelf ? visual.weaponAngle : facingAngle;
-  updateGuardCone(visual, blocking, guardAngle);
+  const combatPosition = combatOverlayPosition(view.x, view.y, view.z, ctx.world);
+  updateGuardCone(visual, blocking, guardAngle, { wielderDepth: visual.body.depth, ...combatPosition });
 
   const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
   const isFistFallback = rawFrame === null && !view.downed;
@@ -210,20 +211,11 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
     nowMs: ctx.nowMs,
     strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
     wielderDepth: visual.body.depth,
-    wielderViewY: worldToView({ x: view.x, y: view.y }, getViewOrientation()).y,
-    screenSouthFloorHigher: screenSouthFloorHigher(view, ctx),
+    ...combatPosition,
     orbitAngleRad: isSelf ? visual.weaponAngle : facingAngle,
     attackAngleRad: worldAngleToView(view.attackAngleRad, getViewOrientation()),
     isFistFallback,
   });
-}
-
-function screenSouthFloorHigher(view: PlayerEntityView, ctx: RenderContext): boolean {
-  const orientation = getViewOrientation();
-  const viewPosition = worldToView({ x: view.x, y: view.y }, orientation);
-  const southWorld = viewTileToWorld({ x: Math.floor(viewPosition.x), y: Math.floor(viewPosition.y) + 1 }, orientation);
-  return ctx.world.isWalkable(southWorld.x, southWorld.y) &&
-    ctx.world.heightAt(southWorld.x, southWorld.y) > view.z + 0.01;
 }
 
 /** Advances one player's full visual for a fresh snapshot sample. */
