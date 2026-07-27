@@ -2,6 +2,7 @@ import type { BiomeKind } from "@dc2d/engine";
 import type Phaser from "phaser";
 import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "./phaser4QuadBatch.js";
 import type { Terrain4Batches, Terrain4QuadVertices } from "./terrainPlanner.js";
+import { depthForCapOccluder, depthForOccluder } from "../entities/depthSort.js";
 import {
   TERRAIN4_TILESETS,
   terrain4AtlasFrame,
@@ -19,6 +20,8 @@ export interface Terrain4AtlasDraw {
   readonly role: Terrain4TileRole;
   readonly variant: 0 | 1;
   readonly phase: Terrain4AtlasPhase;
+  /** Exact row depth shared with entity depth sorting. */
+  readonly depth: number;
   readonly points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint];
 }
 
@@ -26,6 +29,7 @@ export interface Terrain4AtlasDraw {
 export interface Terrain4MeshBatch {
   readonly atlas: Terrain4AtlasSet;
   readonly phase: Terrain4AtlasPhase;
+  readonly depth: number;
   readonly vertices: number[];
   readonly indices: number[];
 }
@@ -47,6 +51,7 @@ export function terrain4AtlasDraws(
   const draws: Terrain4AtlasDraw[] = [];
   appendDraws(draws, batches.voids, "void", 0, options);
   appendDraws(draws, batches.floors, "floor", 1, options);
+  appendFeatureDraws(draws, batches.features, options);
   appendDraws(draws, batches.southFaces, "south-face", 2, options);
   return draws.toSorted(compareDraws);
 }
@@ -75,24 +80,21 @@ export function terrain4MeshBatches(
 ): readonly Terrain4MeshBatch[] {
   const batches = new Map<string, Terrain4MeshBatch>();
   for (const draw of draws) {
-    const key = `${draw.phase}:${draw.atlas.key}`;
-    const batch = batches.get(key) ?? { atlas: draw.atlas, phase: draw.phase, vertices: [], indices: [] };
+    const key = `${draw.depth}:${draw.phase}:${draw.atlas.key}`;
+    const batch = batches.get(key) ?? { atlas: draw.atlas, phase: draw.phase, depth: draw.depth, vertices: [], indices: [] };
     if (!batches.has(key)) batches.set(key, batch);
     appendMeshQuad(batch, draw, imageSize(draw.atlas));
   }
   return [...batches.values()];
 }
 
-/** WebGL-only Phaser 4 Mesh2D backend, one UV-batched mesh per atlas/material phase. */
+/** WebGL-only Phaser 4 Mesh2D backend, one UV-batched mesh per atlas/depth row. */
 export class Phaser4TerrainAtlasBatchRenderer {
   private readonly meshes = new Map<string, Phaser.GameObjects.Mesh2D>();
   private active = new Set<string>();
   private visible = false;
 
-  constructor(
-    private readonly scene: Phaser.Scene,
-    private readonly depth: number,
-  ) {}
+  constructor(private readonly scene: Phaser.Scene) {}
 
   render(batches: Terrain4Batches, options: Terrain4AtlasRenderOptions): void {
     const draws = terrain4AtlasDraws(batches, options);
@@ -119,14 +121,14 @@ export class Phaser4TerrainAtlasBatchRenderer {
     mesh.vertices = batch.vertices;
     mesh.indices = batch.indices;
     mesh.buildOrderedIndices(2, true);
-    mesh.setDepth(this.depth + batch.phase).setVisible(this.visible);
+    mesh.setDepth(batch.depth).setVisible(this.visible);
     this.meshes.set(key, mesh);
   }
 }
 
 function appendDraws(
   target: Terrain4AtlasDraw[],
-  quads: readonly { readonly worldTile: { readonly x: number; readonly y: number }; readonly vertices: Terrain4QuadVertices; readonly kind: string; readonly height?: number }[],
+  quads: readonly { readonly worldTile: { readonly x: number; readonly y: number }; readonly viewTile: { readonly x: number; readonly y: number }; readonly vertices: Terrain4QuadVertices; readonly kind: string; readonly height?: number }[],
   defaultRole: Terrain4TileRole,
   phase: Terrain4AtlasPhase,
   options: Terrain4AtlasRenderOptions,
@@ -135,7 +137,31 @@ function appendDraws(
     const role = quad.kind === "floor" && quad.height && quad.height > 0 ? "raised-floor" : defaultRole;
     const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
     const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
-    target.push({ atlas, frame: terrain4AtlasFrameName(atlas, role, variant), role, variant, phase, points: projectQuad(quad.vertices, options.projection) });
+    target.push({
+      atlas, frame: terrain4AtlasFrameName(atlas, role, variant), role, variant, phase,
+      depth: phase === 2 ? depthForOccluder(quad.viewTile.y + 1) : depthForCapOccluder(quad.viewTile.y),
+      points: projectQuad(quad.vertices, options.projection),
+    });
+  }
+}
+
+function appendFeatureDraws(
+  target: Terrain4AtlasDraw[],
+  quads: Terrain4Batches["features"],
+  options: Terrain4AtlasRenderOptions,
+): void {
+  for (const quad of quads) {
+    const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
+    const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
+    target.push({
+      atlas,
+      frame: terrain4AtlasFrameName(atlas, quad.feature, variant),
+      role: quad.feature,
+      variant,
+      phase: 1,
+      depth: depthForCapOccluder(quad.viewTile.y),
+      points: projectQuad(quad.vertices, options.projection),
+    });
   }
 }
 
@@ -168,11 +194,11 @@ function terrain4Variant(x: number, y: number): 0 | 1 {
 }
 
 function compareDraws(left: Terrain4AtlasDraw, right: Terrain4AtlasDraw): number {
-  return left.phase - right.phase || left.atlas.key.localeCompare(right.atlas.key);
+  return left.depth - right.depth || left.phase - right.phase || left.atlas.key.localeCompare(right.atlas.key);
 }
 
-function meshKey(batch: Pick<Terrain4MeshBatch, "atlas" | "phase">): string {
-  return `${batch.phase}:${batch.atlas.key}`;
+function meshKey(batch: Pick<Terrain4MeshBatch, "atlas" | "phase" | "depth">): string {
+  return `${batch.depth}:${batch.phase}:${batch.atlas.key}`;
 }
 
 function textureSize(textures: Phaser.Textures.TextureManager, atlas: Terrain4AtlasSet): { width: number; height: number } {

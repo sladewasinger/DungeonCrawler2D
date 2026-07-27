@@ -1,9 +1,12 @@
 export {
   TERRAIN4,
+  TERRAIN4_FEATURES,
   TERRAIN4_HEIGHT_EPSILON,
   planTerrain4,
   type Terrain4Batches,
   type Terrain4FloorQuad,
+  type Terrain4FeatureQuad,
+  type Terrain4FeatureKind,
   type Terrain4Kind,
   type Terrain4Plan,
   type Terrain4PlanOptions,

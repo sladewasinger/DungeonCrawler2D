@@ -38,6 +38,18 @@ describe("planTerrain4", () => {
     expect(plan.batches.southFaces).toEqual([]);
   });
 
+  it("keeps authored features on a separate overlay batch", () => {
+    const plan = planTerrain4({
+      terrainAt: () => FLOOR,
+      heightAt: () => 1,
+      featureAt: (x, y) => x === 2 && y === 3 ? "stairs" : null,
+    }, { bounds: { x: 2, y: 3, width: 1, height: 1 }, orientation: 0 });
+
+    expect(plan.batches.floors).toEqual([]);
+    expect(plan.batches.features).toHaveLength(1);
+    expect(plan.batches.features[0]).toMatchObject({ kind: "feature", feature: "stairs", height: 1 });
+  });
+
   it("emits a south face only across a descending Floor-to-Floor edge", () => {
     const terrain = new Map<string, Terrain4Kind>([
       [key(0, 0), FLOOR],

@@ -27,13 +27,13 @@ export interface Terrain4DebugHost {
   readonly debugLabels: Phaser.GameObjects.Text[];
 }
 
-const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "south-face", string>> = {
-  floor: "F", void: "V", "south-face": "WF",
+const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "feature" | "south-face", string>> = {
+  floor: "F", void: "V", feature: "FT", "south-face": "WF",
 };
 
 export function materialsFor(world: World, bounds: Terrain4Rect) {
   const palette = BIOME_MATERIALS[worldBiomeAt(world, bounds.x, bounds.y)];
-  return { floor: { color: palette.floor }, void: { color: 0x000000 }, southFace: { color: palette.face } };
+  return { floor: { color: palette.floor }, feature: { color: palette.floor }, void: { color: 0x000000 }, southFace: { color: palette.face } };
 }
 
 export function worldBiomeAt(world: World, x: number, y: number): BiomeKind {
@@ -62,7 +62,7 @@ export function renderDebugLabels(
   plan: Terrain4Batches,
   visible: boolean,
 ): void {
-  const entries = [...plan.floors, ...plan.voids, ...plan.southFaces];
+  const entries = [...plan.floors, ...plan.voids, ...plan.features, ...plan.southFaces];
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index];
     if (!entry) continue;

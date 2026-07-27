@@ -21,11 +21,12 @@ floor cap. This keeps future behaviours from leaking into terrain storage.
 
 ## Batching and rotation
 
-The backend owns a small number of indexed batches grouped by atlas/material
-and depth bucket. It must not allocate one display object per tile. Chunks are
-cached by `(chunk, orientation, terrainRevision, featureRevision, lightRevision)`.
-Edits invalidate the changed chunk and its seam neighbours; feature and light
-changes invalidate only their owning/radius chunks.
+The backend owns indexed Phaser 4 `Mesh2D` batches grouped by atlas, painter
+phase, and the exact view-row depth used by entity sprites. This is the
+interleaving contract: a finite `WF` face can sit in front of a north entity
+and behind a south entity without a per-tile display object. Chunks are cached
+by `(chunk, orientation, terrainRevision)` and a revision change prunes stale
+plans; edits invalidate the changed chunk and its seam neighbours.
 
 Cardinal orientation roots are double-buffered. The adjacent orientation is
 prewarmed while the current view is displayed; rotation keeps the old root
@@ -107,11 +108,12 @@ Assets:
 - `packages/client/public/assets/terrain4/pillar-forest-atlas.png`
 
 Append `?terrain4Debug=1` to the game URL to enable a live geometry overlay:
-`F` marks Floor caps, `V` marks flat Void caps, and `WF` marks a renderer-only
-wall face generated between two Floor heights. `WF` is never a stored tile or
-world value. This is intentionally an overlay in the first backend spike, so
-labels remain readable while the atlas compositor is profiled. The generated
-labeled debug atlas is also shown as a small in-game legend.
+`F` marks Floor caps, `V` marks flat Void caps, `FT` marks feature-plane art,
+and `WF` marks a renderer-only wall face generated between two Floor heights.
+`WF` is never a stored tile or world value. This is intentionally an overlay
+in the first backend spike, so labels remain readable while the atlas
+compositor is profiled. The generated labeled debug atlas is also shown as a
+small in-game legend.
 
 The shared sheet is intentionally compact; faces and void boundaries are
 generated from the height map, so no per-direction wall atlas is needed.
@@ -124,6 +126,9 @@ generated from the height map, so no per-direction wall atlas is needed.
    atlas frame selection and depth interleaving.
 3. Add chunk streaming, dirty revisions, orientation double buffering, and the
    five-tick rotation fixture before switching scenes.
-4. Port stairs/features/lighting and entity interleaving.
+4. Add dedicated furniture art and a terrain light-tint pass. The existing
+   `LightingSystem` remains authoritative for the player ground-light effect,
+   torch halos, and dynamic accent lights; Terrain4 must not replace that pass.
+   Stairs, doors, and generic interactables already use the feature plane.
 5. Run visual regression at all four orientations, switch dungeon/editor to
    Terrain4, and delete the legacy wall/autotile/page path only after parity.

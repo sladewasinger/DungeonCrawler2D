@@ -37,6 +37,7 @@ describe("Phaser4TerrainQuadBatchRenderer", () => {
     const renderer = new Phaser4TerrainQuadBatchRenderer(graphics as unknown as Phaser.GameObjects.Graphics);
     const batches: Terrain4Batches = {
       voids: [],
+      features: [],
       floors: [{
         kind: "floor", worldTile: { x: 0, y: 0 }, viewTile: { x: 0, y: 0 }, height: 3,
         vertices: [{ x: 1, y: 2, z: 3 }, { x: 3, y: 2, z: 3 }, { x: 3, y: 5, z: 3 }, { x: 1, y: 5, z: 3 }],
@@ -64,7 +65,7 @@ describe("Phaser4TerrainQuadBatchRenderer", () => {
     const graphics = new RecordingGraphics();
     const renderer = new Phaser4TerrainQuadBatchRenderer(graphics as unknown as Phaser.GameObjects.Graphics);
 
-    renderer.render({ floors: [], voids: [], southFaces: [] }, screenProjection, materials);
+    renderer.render({ floors: [], voids: [], features: [], southFaces: [] }, screenProjection, materials);
 
     expect(graphics.calls).toEqual([["clear"]]);
   });
@@ -76,6 +77,7 @@ const screenProjection: Terrain4ScreenProjection = {
 
 const materials: Terrain4BatchMaterials = {
   floor: { color: 0x7d9ec0 },
+  feature: { color: 0x7d9ec0 },
   void: { color: 0x000000 },
   southFace: { color: 0x4a4a70, alpha: 0.8 },
 };

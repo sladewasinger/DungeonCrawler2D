@@ -25,6 +25,7 @@ export interface Terrain4QuadMaterial {
 /** One material per pure planner batch. */
 export interface Terrain4BatchMaterials {
   readonly floor: Terrain4QuadMaterial;
+  readonly feature: Terrain4QuadMaterial;
   readonly void: Terrain4QuadMaterial;
   readonly southFace: Terrain4QuadMaterial;
 }
@@ -49,6 +50,7 @@ export class Phaser4TerrainQuadBatchRenderer {
     this.graphics.clear();
     this.drawBatch(batches.voids, projection, materials.void);
     this.drawBatch(batches.floors, projection, materials.floor);
+    this.drawBatch(batches.features, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
   }
 

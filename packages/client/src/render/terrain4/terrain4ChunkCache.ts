@@ -13,8 +13,13 @@ export interface Terrain4ChunkCoord { readonly cx: number; readonly cy: number; 
 /** Reuses immutable planner output per chunk/orientation/revision. */
 export class Terrain4ChunkPlanCache {
   private readonly plans = new Map<string, Terrain4Plan>();
+  private revision: number | null = null;
 
   get(source: Terrain4Source, coord: Terrain4ChunkCoord, orientation: ViewOrientation, revision: number): Terrain4Plan {
+    if (this.revision !== revision) {
+      this.plans.clear();
+      this.revision = revision;
+    }
     const key = cacheKey(coord, orientation, revision);
     const cached = this.plans.get(key);
     if (cached) return cached;
@@ -39,12 +44,12 @@ export class Terrain4ChunkPlanCache {
     }
   }
 
-  clear(): void { this.plans.clear(); }
+  clear(): void { this.plans.clear(); this.revision = null; }
   get size(): number { return this.plans.size; }
 }
 
 export function appendVisibleChunkPlans(
-  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[] },
+  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; features: Terrain4Plan["batches"]["features"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[] },
   cache: Terrain4ChunkPlanCache,
   source: Terrain4Source,
   bounds: Terrain4Rect,
@@ -60,6 +65,7 @@ export function appendVisibleChunkPlans(
       const plan = cache.get(source, { cx, cy }, orientation, revision);
       target.floors.push(...plan.batches.floors);
       target.voids.push(...plan.batches.voids);
+      target.features.push(...plan.batches.features);
       target.southFaces.push(...plan.batches.southFaces);
     }
   }
@@ -68,9 +74,10 @@ export function appendVisibleChunkPlans(
 export function emptyTerrain4Batches(): {
   floors: NonNullable<Terrain4Batches["floors"]>[number][];
   voids: NonNullable<Terrain4Batches["voids"]>[number][];
+  features: NonNullable<Terrain4Batches["features"]>[number][];
   southFaces: NonNullable<Terrain4Batches["southFaces"]>[number][];
 } {
-  return { floors: [], voids: [], southFaces: [] };
+  return { floors: [], voids: [], features: [], southFaces: [] };
 }
 
 function cacheKey(coord: Terrain4ChunkCoord, orientation: ViewOrientation, revision: number): string {

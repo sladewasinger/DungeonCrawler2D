@@ -13,10 +13,21 @@ export const TERRAIN4_HEIGHT_EPSILON = 0.01;
 
 export type Terrain4Kind = (typeof TERRAIN4)[keyof typeof TERRAIN4];
 
-/** A small, engine-agnostic read surface. Feature/tile art is deliberately absent. */
+/** Authored art that lives on the floor plane without becoming terrain. */
+export const TERRAIN4_FEATURES = {
+  Stairs: "stairs",
+  Door: "door",
+  Brazier: "brazier",
+} as const;
+
+export type Terrain4FeatureKind = (typeof TERRAIN4_FEATURES)[keyof typeof TERRAIN4_FEATURES];
+
+/** A small, engine-agnostic read surface. Features are optional so the planner
+ * remains useful for the minimal Floor/Void geometry tests and future worlds. */
 export interface Terrain4Source {
   terrainAt(worldX: number, worldY: number): Terrain4Kind;
   heightAt(worldX: number, worldY: number): number;
+  featureAt?(worldX: number, worldY: number): Terrain4FeatureKind | null;
 }
 
 export interface Terrain4Rect {
@@ -68,6 +79,12 @@ export interface Terrain4VoidQuad extends Terrain4QuadBase {
   readonly kind: "void";
 }
 
+export interface Terrain4FeatureQuad extends Terrain4QuadBase {
+  readonly kind: "feature";
+  readonly feature: Terrain4FeatureKind;
+  readonly height: number;
+}
+
 export interface Terrain4SouthFaceQuad extends Terrain4QuadBase {
   readonly kind: "south-face";
   readonly topHeight: number;
@@ -78,6 +95,7 @@ export interface Terrain4SouthFaceQuad extends Terrain4QuadBase {
 export interface Terrain4Batches {
   readonly floors: readonly Terrain4FloorQuad[];
   readonly voids: readonly Terrain4VoidQuad[];
+  readonly features: readonly Terrain4FeatureQuad[];
   readonly southFaces: readonly Terrain4SouthFaceQuad[];
 }
 
@@ -105,12 +123,13 @@ export function planTerrain4(source: Terrain4Source, options: Terrain4PlanOption
 
   const floors: Terrain4FloorQuad[] = [];
   const voids: Terrain4VoidQuad[] = [];
+  const features: Terrain4FeatureQuad[] = [];
   const southFaces: Terrain4SouthFaceQuad[] = [];
   const { bounds, orientation } = options;
 
   for (let worldY = bounds.y; worldY < bounds.y + bounds.height; worldY += 1) {
     for (let worldX = bounds.x; worldX < bounds.x + bounds.width; worldX += 1) {
-      appendTileGeometry(source, { x: worldX, y: worldY }, orientation, floors, voids, southFaces);
+      appendTileGeometry(source, { x: worldX, y: worldY }, orientation, floors, voids, features, southFaces);
     }
   }
 
@@ -118,7 +137,7 @@ export function planTerrain4(source: Terrain4Source, options: Terrain4PlanOption
     bounds,
     sampleBounds: expandRect(bounds, seamApron),
     orientation,
-    batches: { floors, voids, southFaces },
+    batches: { floors, voids, features, southFaces },
   };
 }
 
@@ -128,6 +147,7 @@ function appendTileGeometry(
   orientation: ViewOrientation,
   floors: Terrain4FloorQuad[],
   voids: Terrain4VoidQuad[],
+  features: Terrain4FeatureQuad[],
   southFaces: Terrain4SouthFaceQuad[],
 ): void {
   const terrain = source.terrainAt(worldTile.x, worldTile.y);
@@ -138,7 +158,12 @@ function appendTileGeometry(
   }
   if (terrain !== TERRAIN4.Floor) return;
   const height = finiteHeight(source, worldTile);
-  floors.push({ kind: "floor", worldTile, viewTile, height, vertices: topQuad(viewTile, height) });
+  const feature = source.featureAt?.(worldTile.x, worldTile.y) ?? null;
+  if (feature) {
+    features.push({ kind: "feature", feature, worldTile, viewTile, height, vertices: topQuad(viewTile, height) });
+  } else {
+    floors.push({ kind: "floor", worldTile, viewTile, height, vertices: topQuad(viewTile, height) });
+  }
 
   // Express the adjacent screen-south cell in view space, then map it back to
   // world space. This is intentionally not `worldY + 1` at 90/180/270.

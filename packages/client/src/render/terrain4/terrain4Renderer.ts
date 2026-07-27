@@ -1,4 +1,4 @@
-import { TERRAIN, type World } from "@dc2d/engine";
+import { TERRAIN, TILE, type World } from "@dc2d/engine";
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { TilePos } from "../lighting/torchPlacement.js";
@@ -60,6 +60,7 @@ export class Terrain4Renderer {
     this.terrainSource = {
       terrainAt: (x, y) => this.world.terrainAt(x, y) === TERRAIN.Void ? TERRAIN4.Void : TERRAIN4.Floor,
       heightAt: (x, y) => this.world.heightAt(x, y),
+      featureAt: (x, y) => featureForTile(this.world.tileAt(x, y)),
     };
     this.debugLegend = this.debugMode
       ? scene.add.image(8, 8, ASSET_KEYS.terrain4Debug)
@@ -131,7 +132,7 @@ export class Terrain4Renderer {
   }
 
   get loadedChunkCount(): number {
-    return this.roots.size;
+    return this.chunkCache.size;
   }
 
   dispose(): void {
@@ -152,7 +153,7 @@ export class Terrain4Renderer {
     const root: Terrain4Root = {
       graphics,
       batch,
-      atlas: new Phaser4TerrainAtlasBatchRenderer(this.scene, TERRAIN_DEPTH),
+      atlas: new Phaser4TerrainAtlasBatchRenderer(this.scene),
       debugLabels: [],
       planKey: "",
       orientation,
@@ -177,4 +178,13 @@ export class Terrain4Renderer {
     if (this.debugMode) renderDebugLabels(this.scene, root, plan, root.orientation === getViewOrientation());
     root.planKey = key;
   }
+}
+
+function featureForTile(tile: number): "stairs" | "door" | "brazier" | null {
+  if (tile === TILE.Stairs) return "stairs";
+  if (tile === TILE.DoorPersonal || tile === TILE.DoorParty || tile === TILE.DoorExit || tile === TILE.DoorSafeRoom) return "door";
+  // The generated atlas has one generic authored-prop role. Keep furniture on
+  // the feature plane until a dedicated workbench/furniture sheet is supplied.
+  if (tile === TILE.CraftingTable || tile === TILE.Stash) return "brazier";
+  return null;
 }

@@ -38,8 +38,8 @@ describe("terrain4AtlasDraws", () => {
     const meshes = terrain4MeshBatches(draws, () => ({ width: 800, height: 880 }));
 
     expect(meshes).toHaveLength(3);
-    expect(meshes.map((mesh) => [mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
-      [0, 16, 8], [1, 32, 16], [2, 16, 8],
+    expect(meshes.map((mesh) => [mesh.depth, mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
+      [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 16, 8],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
       0, 0, 0.5, 1 / 11, 10, 0, 0.625, 1 / 11,
@@ -53,6 +53,7 @@ const batches: Terrain4Batches = {
     kind: "void", worldTile: { x: 0, y: 0 }, viewTile: { x: 0, y: 0 },
     vertices: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0 }],
   }],
+  features: [],
   floors: [{
     kind: "floor", worldTile: { x: 0, y: 1 }, viewTile: { x: 0, y: 1 }, height: 0,
     vertices: [{ x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }, { x: 0, y: 2, z: 0 }],
