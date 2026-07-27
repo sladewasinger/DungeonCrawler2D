@@ -67,6 +67,33 @@ function drawStairFace(
   placeFractionalRect(scene, container, wx, wy, face.x, face.y, tint, 1, band.liftBakePx);
 }
 
+/**
+ * The stepped floor bands intentionally shift by different amounts. Their
+ * union therefore has a sawtooth lower silhouette; without this opaque lowest
+ * tread underneath, the exposed portions are transparent canvas at 2x scale.
+ */
+function drawHorizontalStairBacking(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  wx: number,
+  wy: number,
+  bands: readonly StairSurfaceBand[],
+  lightTint: number,
+): void {
+  const lowest = bands.reduce((current, band) => band.height < current.height ? band : current);
+  placeFractionalRect(
+    scene,
+    container,
+    wx,
+    wy,
+    [0, 1],
+    [0, 1],
+    multiplyTint(heightTint(lowest.height), lightTint),
+    1,
+    lowest.liftBakePx,
+  );
+}
+
 function sideEdgeRange(side: "west" | "east", width: number): readonly [number, number] {
   return side === "west" ? [-width, 0] : [1, 1 + width];
 }
@@ -145,6 +172,7 @@ export function drawSteppedStairSurface(
 ): void {
   const surface = steppedStairSurface(wx, wy, direction, (x, y) => world.groundAt(x, y));
   const { bands } = surface;
+  if (surface.axis === "x") drawHorizontalStairBacking(scene, container, wx, wy, bands, lightTint);
   for (const band of bands) {
     if (band.floor) drawStairFace(scene, container, wx, wy, band, band.floor, multiplyTint(heightTint(band.height), lightTint));
   }

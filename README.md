@@ -14,9 +14,9 @@ engineering bar.
 
 ## Austin's F-Bomb Counter
 
-**6**
+**22**
 
-<!-- f-bomb-count: 6 -->
+<!-- f-bomb-count: 22 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.

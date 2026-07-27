@@ -21,12 +21,7 @@ import { drawGroundTile } from "./drawGroundTile.js";
 import { drawVerticalStairSideOutlines } from "./steppedStairSurface.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { heightTint, multiplyTint, VOID_SURFACE_COLOR } from "./heightShade.js";
-import {
-  bakesIntoStaticBase,
-  stripOverhangTiles,
-  surfaceContainerFor,
-  type CapOccluderFor,
-} from "./occluderBand.js";
+import { bakesIntoStaticBase, stripOverhangTiles, surfaceContainerFor, type CapOccluderFor } from "./occluderBand.js";
 import { type OwnFaceRow } from "./ownFace.js";
 import { visibleTerrainFaceAt } from "./stairFace.js";
 import { placeFillRect, surfaceLiftBakePx } from "./placeSprite.js";
@@ -37,6 +32,7 @@ import { freestandingHeightBodyRows } from "./heightColumn.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import { stacksVertically } from "./stairTread.js";
 import { verticalStairProjectedRange } from "./verticalStairSurface.js";
+import { drawPartialHeightFace, drawWallVolume, wallBehindHorizontalStair } from "./wallProjection.js";
 
 /** `overhangTiles` tells the strip how far above its base row this content sits, so it bakes just tall enough. */
 export type OccluderFor = (wy: number, overhangTiles?: number) => Phaser.GameObjects.Container;
@@ -50,6 +46,7 @@ function drawFaceCell(
   below: Phaser.GameObjects.Container,
   occluderFor: OccluderFor,
   light: LightField,
+  behindHorizontalStair: boolean,
 ): void {
   const groundY = wy + face.distanceToGround;
   const lowerHeight = world.heightAt(wx, groundY);
@@ -57,7 +54,7 @@ function drawFaceCell(
   // Rows high above open ground can never interleave with an entity's depth
   // (occluderBand.ts's proof), so they bake as static backdrop — identical
   // pixels, zero per-frame strip cost. Only the band near the foot stays dynamic.
-  const container = bakesIntoStaticBase(face.distanceToGround) && Math.abs(lowerHeight) < 0.01
+  const container = behindHorizontalStair || (bakesIntoStaticBase(face.distanceToGround) && Math.abs(lowerHeight) < 0.01)
     ? below
     : occluderFor(
         wy + face.distanceToGround - 1,
@@ -72,7 +69,9 @@ function drawFaceCell(
     container,
     liftPx,
     undefined,
-    faceSideEdges(world, wx, wy, face, lowerHeight),
+    behindHorizontalStair
+      ? { north: false, east: false, south: false, west: false }
+      : faceSideEdges(world, wx, wy, face, lowerHeight),
     southFaceColor(light.tintAt(foot.x, foot.y)),
   );
   // No white cliff edges here (docs/ROADMAP.md "OUTLINE SCOPE CORRECTION", user
@@ -130,6 +129,40 @@ function drawSuppressedTile(
   }
 }
 
+function drawWall(
+  scene: Phaser.Scene,
+  world: ViewTerrainWorld,
+  wx: number,
+  wy: number,
+  below: Phaser.GameObjects.Container,
+  occluderFor: OccluderFor,
+  capOccluderFor: CapOccluderFor,
+  face: OwnFaceRow | null,
+  light: LightField,
+  lightTint: number,
+): void {
+  const height = world.heightAt(wx, wy);
+  drawWallVolume(scene, below, wx, wy, height);
+  const behindHorizontalStair = wallBehindHorizontalStair(world, wx, wy, face);
+  const container = behindHorizontalStair
+    ? below
+    : surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+  drawWallTile(
+    scene,
+    world,
+    wx,
+    wy,
+    container,
+    surfaceLiftBakePx(height),
+    undefined,
+    behindHorizontalStair
+      ? { north: false, east: false, south: false, west: false }
+      : {},
+  );
+  drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
+  if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light, behindHorizontalStair);
+}
+
 export function drawTile(
   scene: Phaser.Scene,
   world: ViewTerrainWorld,
@@ -148,20 +181,9 @@ export function drawTile(
     return;
   }
   const face = visibleTerrainFaceAt(world, wx, wy);
+  drawPartialHeightFace(scene, below, world, wx, wy, lightTint);
   if (world.tileAt(wx, wy) === TILE.Wall) {
-    // EVERY wall cell draws its shifted cap — face owners included (spec section 1:
-    // "always draw the shifted cap THEN overlay the band"). Skipping the cap on
-    // face-owning cells left every raw row that DEPENDED on one of those caps for
-    // coverage (the row h screen-north, vacated by its own cap's shift) rendering
-    // nothing — the scattered black squares of the 2026-07-21 production playtest.
-    const height = world.heightAt(wx, wy);
-    const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
-    drawWallTile(scene, world, wx, wy, container, surfaceLiftBakePx(height));
-    // A one-cell-deep W3 has no equally high cells north/south to own its two
-    // intermediate face rows. Fill those rows from the authored wall itself so
-    // height runs such as W1..W5 are continuous rather than floating caps.
-    drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
-    if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
+    drawWall(scene, world, wx, wy, below, occluderFor, capOccluderFor, face, light, lightTint);
     return;
   }
   // Walkable ground ALWAYS draws its shifted cap; a raised platform whose south
@@ -169,7 +191,7 @@ export function drawTile(
   // the rows the cap's shift vacated (module doc above).
   drawGroundTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
   drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
-  if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light);
+  if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light, false);
   drawForegroundVerticalStairOutlines(scene, world, wx, wy, occluderFor, lightTint);
 }
 
@@ -183,9 +205,6 @@ function drawFreestandingHeightBody(
 ): void {
   const bodyRows = freestandingHeightBodyRows(world, wx, wy);
   if (bodyRows.length === 0) return;
-  // A tower body is screen-south of every cap behind it. It therefore belongs
-  // in the face occluder strip, not the static base sheet: a shifted cap from a
-  // lower northern block would otherwise paint over this column during baking.
   const container = occluderFor(wy, bodyRows.length);
   for (const bodyRow of bodyRows) {
     placeFillRect(scene, container, wx, wy, southFaceColor(lightTint), surfaceLiftBakePx(bodyRow));

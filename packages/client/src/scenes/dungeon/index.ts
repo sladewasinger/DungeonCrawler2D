@@ -68,7 +68,8 @@ export class DungeonScene extends Phaser.Scene {
   create(): void {
     this.game.canvas.tabIndex = -1;
     this.game.canvas.focus({ preventScroll: true });
-    this.cameras.main.setBackgroundColor("#14141c");
+    // Projected terrain gaps fall back to the camera-facing wall material.
+    this.cameras.main.setBackgroundColor("#4a4a70");
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
