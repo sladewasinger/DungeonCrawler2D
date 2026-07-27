@@ -8,6 +8,7 @@ import {
   blockGuardTransform,
 } from "./blockGuard.js";
 import { MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
+import { depthForOccluder } from "./depthSort.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
 const HAND_OFFSET_Y = -SCREEN_TILE_PX * 0.45;
@@ -40,6 +41,10 @@ export interface HeldWeaponPose {
   readonly strikeProgress: number;
   /** The wielder body sprite's current Phaser depth, so the weapon can draw near it. */
   readonly wielderDepth: number;
+  /** Continuous view-space feet row used by the weapon's one-row presentation lift. */
+  readonly wielderViewY: number;
+  /** Higher floor immediately screen-south must occlude the weapon. */
+  readonly screenSouthFloorHigher: boolean;
   /** Live self aim or replicated remote facing angle in radians; null retains the legacy fixed hand-offset for non-player callers. */
   readonly orbitAngleRad: number | null;
   /** Direction (radians) the current/most-recent swing was aimed — the strike sweep's center, matching the wedge telegraph exactly. */
@@ -54,7 +59,7 @@ export interface HeldWeaponPose {
  * the hand offset places it squarely inside the body sprite's own bounding box, so
  * without this it renders fully hidden behind the body at any depth tie.
  */
-const WEAPON_DEPTH_BIAS = 0.001;
+const WEAPON_DEPTH_BIAS = 0.08;
 
 /** Positions the weapon at the wielder's hand or orbit, swinging through the strike telegraph while striking. */
 export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: string | null, pose: HeldWeaponPose): void {
@@ -130,10 +135,15 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
 
 /**
  * Weapon screen position includes the absolute-z lift, but Phaser depth does
- * not: terrain rows are sorted by the wielder's feet and height is only a
- * same-row tiebreak. Deriving depth from the lifted sword center moved it
- * hundreds of depth units behind same-z caps at z=1+, making it disappear.
+ * not. Keep the sword in front of the player's immediate screen-south floor
+ * cap/wall layer so the blade reads cleanly over its own surrounding tile and
+ * the adjacent camera-facing wall, while the following row can still occlude it.
  */
 function setWeaponDepth(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
-  sprite.setDepth(pose.wielderDepth + WEAPON_DEPTH_BIAS);
+  if (pose.screenSouthFloorHigher) {
+    sprite.setDepth(pose.wielderDepth + WEAPON_DEPTH_BIAS);
+    return;
+  }
+  const immediateSouthCapRow = Math.floor(pose.wielderViewY) + 1;
+  sprite.setDepth(depthForOccluder(immediateSouthCapRow) + WEAPON_DEPTH_BIAS);
 }

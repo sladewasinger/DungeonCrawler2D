@@ -40,6 +40,8 @@ const BLOCKING_POSE: HeldWeaponPose = {
   nowMs: 0,
   strikeProgress: 0,
   wielderDepth: 10,
+  wielderViewY: 0,
+  screenSouthFloorHigher: false,
   orbitAngleRad: 0,
   attackAngleRad: 0,
   isFistFallback: false,
@@ -94,6 +96,17 @@ describe("updateHeldWeapon blocking", () => {
       probe as unknown as Phaser.GameObjects.Sprite,
       "weapon_sword",
       { ...BLOCKING_POSE, blocking: false, screenY: -200, wielderDepth: 42, orbitAngleRad: 0 },
+    );
+    expect(probe.depth).toBeGreaterThan(100.5);
+    expect(probe.depth).toBeLessThan(101);
+  });
+
+  it("lets a higher screen-south floor occlude the weapon", () => {
+    const probe = weaponProbe();
+    updateHeldWeapon(
+      probe as unknown as Phaser.GameObjects.Sprite,
+      "weapon_sword",
+      { ...BLOCKING_POSE, blocking: false, screenY: -200, wielderDepth: 42, screenSouthFloorHigher: true, orbitAngleRad: 0 },
     );
     expect(probe.depth).toBeGreaterThan(42);
     expect(probe.depth).toBeLessThan(43);

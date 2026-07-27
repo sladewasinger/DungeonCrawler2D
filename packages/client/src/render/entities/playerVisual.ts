@@ -3,7 +3,7 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { getViewOrientation } from "../view/viewState.js";
-import { worldAngleToView } from "../view/viewTransform.js";
+import { viewTileToWorld, worldAngleToView, worldToView } from "../view/viewTransform.js";
 import { resolveAnimState } from "./animState.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
 import { createHpBar, updateHpBar } from "./hpBar.js";
@@ -210,10 +210,20 @@ function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: R
     nowMs: ctx.nowMs,
     strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
     wielderDepth: visual.body.depth,
+    wielderViewY: worldToView({ x: view.x, y: view.y }, getViewOrientation()).y,
+    screenSouthFloorHigher: screenSouthFloorHigher(view, ctx),
     orbitAngleRad: isSelf ? visual.weaponAngle : facingAngle,
     attackAngleRad: worldAngleToView(view.attackAngleRad, getViewOrientation()),
     isFistFallback,
   });
+}
+
+function screenSouthFloorHigher(view: PlayerEntityView, ctx: RenderContext): boolean {
+  const orientation = getViewOrientation();
+  const viewPosition = worldToView({ x: view.x, y: view.y }, orientation);
+  const southWorld = viewTileToWorld({ x: Math.floor(viewPosition.x), y: Math.floor(viewPosition.y) + 1 }, orientation);
+  return ctx.world.isWalkable(southWorld.x, southWorld.y) &&
+    ctx.world.heightAt(southWorld.x, southWorld.y) > view.z + 0.01;
 }
 
 /** Advances one player's full visual for a fresh snapshot sample. */

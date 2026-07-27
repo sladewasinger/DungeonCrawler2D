@@ -45,8 +45,10 @@ type AOPart =
 function groupByDepth(masks: Terrain4Batches["ao"]): Map<number, AOPart[]> {
   const grouped = new Map<number, AOPart[]>();
   const add = (quad: Terrain4AOQuad, region: AOPart["region"]): void => {
-    const boundaryRow = region === "south" || region === "sw" || region === "se" ? quad.viewTile.y + 1 : quad.viewTile.y;
-    const depth = depthForCapOccluder(boundaryRow) + 0.06;
+    // AO is surface content owned by the low receiver tile. Keep every side
+    // and corner at that tile's depth; the raised caster's own cap then sorts
+    // naturally in front when projected overlap needs to be occluded.
+    const depth = depthForCapOccluder(quad.viewTile.y) + 0.06;
     const group = grouped.get(depth) ?? [];
     if (!grouped.has(depth)) grouped.set(depth, group);
     group.push({ quad, region });

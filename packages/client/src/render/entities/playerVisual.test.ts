@@ -56,7 +56,14 @@ describe("updatePlayerVisual", () => {
       lastX: 0, lastY: 0, lastSampleMs: 0, lastAir: false, squashStartMs: undefined,
       weaponAngle: 0, wasAttacking: false, swingStartMs: undefined,
     };
-    const context = { nowMs: 10, dtSeconds: 0.016, selfX: 0, selfY: 0, partyIds: new Set(), world: { groundAt: () => 0 } };
+    const context = {
+      nowMs: 10,
+      dtSeconds: 0.016,
+      selfX: 0,
+      selfY: 0,
+      partyIds: new Set(),
+      world: { groundAt: () => 0, heightAt: () => 0, isWalkable: () => true },
+    };
     const view = { id: "p", playerId: "p", name: "Wren", x: 1, y: 2, z: 0, hp: 30, maxHp: 30, fx: [], faceX: 1, faceY: 0, air: false, downed: false, disconnected: true, attacking: false, blocking: false, weaponId: null, weaponAimAngle: null, attackAngleRad: 0 };
     updatePlayerVisual(visual as never, "hero", view, context as never);
     expect(body.tint).toBe(0x55555a);
