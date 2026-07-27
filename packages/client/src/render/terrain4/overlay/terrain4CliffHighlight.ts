@@ -14,12 +14,14 @@ export class Terrain4CliffHighlightRenderer {
   constructor(private readonly scene: Phaser.Scene) {}
 
   render(edges: Terrain4Batches["cliffEdges"], projection: Terrain4ScreenProjection, visible: boolean): void {
-    const grouped = new Map<number, Terrain4CliffEdgeQuad[]>();
+    const grouped = new Map<number, HighlightPart[]>();
     for (const edge of edges) {
-      const depth = depthForCapOccluder(edge.viewTile.y) + 0.08;
-      const group = grouped.get(depth) ?? [];
-      if (!grouped.has(depth)) grouped.set(depth, group);
-      group.push(edge);
+      for (const side of edge.sides) {
+        const depth = edgeDepth(edge, side);
+        const group = grouped.get(depth) ?? [];
+        if (!grouped.has(depth)) grouped.set(depth, group);
+        group.push({ edge, side });
+      }
     }
     for (const [depth, graphics] of this.layers) {
       const group = grouped.get(depth);
@@ -51,13 +53,25 @@ export class Terrain4CliffHighlightRenderer {
 
 function drawEdges(
   graphics: Phaser.GameObjects.Graphics,
-  edges: Terrain4Batches["cliffEdges"],
+  edges: readonly HighlightPart[],
   projection: Terrain4ScreenProjection,
 ): void {
-  for (const edge of edges) {
+  for (const { edge, side } of edges) {
     const points = projectQuad(edge.vertices, projection);
-    for (const side of edge.sides) fillQuad(graphics, sideBand(points, side, RIM_FRACTION));
+    fillQuad(graphics, sideBand(points, side, RIM_FRACTION));
   }
+}
+
+interface HighlightPart {
+  readonly edge: Terrain4CliffEdgeQuad;
+  readonly side: "north" | "south" | "east" | "west";
+}
+
+function edgeDepth(edge: Terrain4CliffEdgeQuad, side: HighlightPart["side"]): number {
+  // A north/south rim sits on a row boundary. Place it above the lower cap's
+  // AO, rather than depth-sorting it with only the higher source tile.
+  const boundaryRow = side === "south" ? edge.viewTile.y + 1 : edge.viewTile.y;
+  return depthForCapOccluder(boundaryRow) + 0.08;
 }
 
 function projectQuad(vertices: Terrain4QuadVertices, projection: Terrain4ScreenProjection): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
