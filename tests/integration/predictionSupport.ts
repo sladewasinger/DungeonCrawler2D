@@ -7,8 +7,8 @@ import {
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { vi } from "vitest";
-import { applySnapshot } from "../../packages/client/src/net/apply.js";
-import { Connection } from "../../packages/client/src/net/connection.js";
+import { applySnapshot } from "../../packages/client/src/net/sync/apply.js";
+import { Connection } from "../../packages/client/src/net/connection/connection.js";
 import {
   findFlatArena,
   makeSim,
@@ -40,7 +40,7 @@ export function createPredictionContext(options: PredictionSetupOptions): Predic
   const serverPlayer = prepareServerPlayer(sim, joined.playerId, joined.spawn);
   const connection = createConnection(sim, options);
   applyInitialSnapshot(sim, joined.playerId, connection);
-  return { sim, playerId: joined.playerId, serverPlayer, arena: findFlatArena(sim, joined.spawn.x, joined.spawn.y), connection };
+  return { sim, playerId: joined.playerId, serverPlayer, arena: findFlatArena({ sim, anchor: { x: joined.spawn.x, y: joined.spawn.y } }), connection };
 }
 
 function prepareServerPlayer(
@@ -50,8 +50,8 @@ function prepareServerPlayer(
 ): NonNullable<ReturnType<Sim["getPlayerEntity"]>> {
   const serverPlayer = sim.getPlayerEntity(playerId);
   if (!serverPlayer) throw new Error("expected joined server player");
-  const arena = findFlatArena(sim, spawn.x, spawn.y);
-  teleport(serverPlayer, arena.x, arena.y, sim);
+  const arena = findFlatArena({ sim, anchor: { x: spawn.x, y: spawn.y } });
+  teleport({ entity: serverPlayer, x: arena.x, y: arena.y, sim });
   return serverPlayer;
 }
 

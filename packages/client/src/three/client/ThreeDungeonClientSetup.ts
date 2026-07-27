@@ -1,7 +1,7 @@
 import { World } from "@dc2d/engine";
 import { ThreeActionController } from "./ThreeActionController.js";
 import { ThreeFirstPersonViewport } from "../viewport/ThreeFirstPersonViewport.js";
-import { ThreeHud } from "../hud/core/ThreeHud.js";
+import { SharedHtmlHud } from "../../ui/hud/core/SharedHtmlHud.js";
 import { ThreeInput } from "../input/ThreeInput.js";
 import { enableMobileDisplay } from "../viewport/ThreeMobileDisplay.js";
 import type { FirstPersonState } from "../input/movement.js";
@@ -13,7 +13,7 @@ import { findWalkable } from "../world/entities/worldSearch.js";
 export interface ThreeDungeonSetup {
   world: World;
   viewport: ThreeFirstPersonViewport;
-  hud: ThreeHud;
+  hud: SharedHtmlHud;
   actions: ThreeActionController;
   input: ThreeInput;
   terrain: ThreeTerrain;
@@ -35,12 +35,12 @@ export const createThreeDungeonSetup = (
   options.root.replaceChildren(viewport.renderer.domElement);
   const releaseMobileDisplay = enableMobileDisplay(options.root);
   const input = new ThreeInput(options.root, viewport.renderer.domElement);
-  const hudRef: { current: ThreeHud | null } = { current: null };
+  const hudRef: { current: SharedHtmlHud | null } = { current: null };
   const actions = new ThreeActionController(options.conn, {
     toggleCraft: () => hudRef.current?.toggleCraft(),
     toggleStash: () => hudRef.current?.toggleStash() ?? false,
   });
-  const hud = new ThreeHud({
+  const hud = new SharedHtmlHud({
     root: options.root, connection: options.conn, focusGame: () => input.focusGame(),
     viewDistance, setViewDistance, onSelectHotbar: actions.selectHotbar,
     session: { respawn: () => options.conn.suicide(), quitToTitle: options.onQuitToTitle },

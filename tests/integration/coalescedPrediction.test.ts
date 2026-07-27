@@ -1,8 +1,8 @@
 /** Exercises full-rate client prediction against real authoritative simulation snapshots. */
 import { type ClientInput, type ClientMessage, type MoveInput, type ServerSnapshot } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
-import { applySnapshot } from "../../packages/client/src/net/apply.js";
-import { Connection } from "../../packages/client/src/net/connection.js";
+import { applySnapshot } from "../../packages/client/src/net/sync/apply.js";
+import { Connection } from "../../packages/client/src/net/connection/connection.js";
 import {
   applyReplicatedStep,
   applyStep,

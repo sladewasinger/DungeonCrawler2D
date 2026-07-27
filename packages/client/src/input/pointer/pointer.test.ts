@@ -84,6 +84,7 @@ describe("touch context action", () => {
       touch,
       touchActive: true,
       performContextAction,
+      hooks: { onToggleChat: vi.fn(), onToggleInventory: vi.fn() },
     } as unknown as PointerDeps;
     const pointer = { id: 4, x: 0, y: 0, rightButtonDown: () => false };
     handlePointerDown({} as InputState, deps, pointer as unknown as Phaser.Input.Pointer);

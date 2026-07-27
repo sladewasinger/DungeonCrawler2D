@@ -40,7 +40,7 @@ describe("authoritative revive lifecycle", () => {
   });
 
   it("cancels on release and range loss", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { freezeEnemies: true });
     const rescuer = sim.addPlayer({ name: "Rescuer", clientId: "cancel-rescuer" });
     const target = sim.addPlayer({ name: "Target", clientId: "cancel-target" });
     const rescuerEntity = sim.getPlayerEntity(rescuer.playerId);
@@ -72,7 +72,7 @@ describe("authoritative revive lifecycle", () => {
   });
 
   it("keeps the revive window at 15 seconds before its ordinary respawn", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { freezeEnemies: true });
     const { aId } = makeParty(sim);
     const entity = sim.getPlayerEntity(aId);
     if (!entity) throw new Error("missing timer fixture");

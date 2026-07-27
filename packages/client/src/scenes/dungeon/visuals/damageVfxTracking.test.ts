@@ -115,16 +115,16 @@ describe("live dungeon damage VFX tracking", () => {
       }],
     );
 
-    expect(spawnDeathGore).toHaveBeenCalledWith(
-      4,
-      5,
-      0.75,
-      undefined,
-      200,
-      { targetKind: "player" },
-      "wizzard_f",
-      undefined,
-    );
+    expect(spawnDeathGore).toHaveBeenCalledWith({
+      x: 4,
+      y: 5,
+      groundHeight: 0.75,
+      defId: undefined,
+      nowMs: 200,
+      appearance: { targetKind: "player" },
+      spritePrefix: "wizzard_f",
+      impactAngle: undefined,
+    });
     expect(onOwnDeath).toHaveBeenCalledWith(200);
   });
 });

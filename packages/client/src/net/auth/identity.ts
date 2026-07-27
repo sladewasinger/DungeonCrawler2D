@@ -61,7 +61,9 @@ function resolveSessionClientId(storage: IdentityStorageContext, sessionId: stri
 
 function persistGeneratedClientId(storage: IdentityStorageContext, clearResume: boolean): string {
   const generated = generateClientId();
-  if (write(storage.sessionStorage, CLIENT_ID_KEY, generated) || storage.tabMarker?.write(generated)) {
+  const sessionPersisted = write(storage.sessionStorage, CLIENT_ID_KEY, generated);
+  const markerPersisted = storage.tabMarker?.write(generated) ?? false;
+  if (sessionPersisted || markerPersisted) {
     if (clearResume) clearCopiedResumeTokens(storage.sessionStorage);
     return generated;
   }

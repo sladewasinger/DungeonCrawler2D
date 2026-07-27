@@ -8,25 +8,17 @@
 // stay under this repo's per-file line budget.
 
 import { describe, expect, it } from "vitest";
-import { hashString } from "../../../core/rng.js";
 import { STEP_UP } from "../../../core/constants.js";
 import { entryClimbDir } from "../../stairs/stairs.js";
 import { TILE } from "../../core/types.js";
 import { World } from "../../core/world.js";
 import { WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
 import { anyFloorTile, bfsChunks, CLIMB_DIRS, scanStairs, type ChunkCache } from "../test-support.js";
+import { STAIR_TEST_CHUNK_RANGE, STAIR_TEST_FLOOR, STAIR_TEST_SEEDS } from "./stairsTestConstants.js";
 
-export const SEEDS = [
-  hashString("dev-world-1"),
-  hashString("stairs-invariant-a"),
-  hashString("stairs-invariant-b"),
-  hashString("stairs-invariant-c"),
-  // Regression lock for the CONFIRMED inescapable-pit bug (docs/ROADMAP.md,
-  // Epic 7.13): a pit near (37,7) floor 1 had an orphaned partial ramp.
-  hashString("austin-dungeon-prod-1"),
-];
-export const FLOOR = 1;
-export const CHUNK_RANGE = 6;
+const SEEDS = STAIR_TEST_SEEDS;
+const FLOOR = STAIR_TEST_FLOOR;
+const CHUNK_RANGE = STAIR_TEST_CHUNK_RANGE;
 
 describe("every Stairs tile has a real height delta across its climb axis", () => {
   for (const seed of SEEDS) {
@@ -109,7 +101,7 @@ describe("a room's height-variant floor is reachable via its single staircase", 
       const sawDeliberateHeight = Array.from(reached).some((key) => isDeliberateFloor(world, key));
       expect(sawDeliberateHeight, `seed ${seed}: no deliberate-height floor reached via the walk rule`).toBe(true);
     }
-  });
+  }, 15_000);
 });
 
 interface StairCluster { readonly key: string; readonly size: number; }

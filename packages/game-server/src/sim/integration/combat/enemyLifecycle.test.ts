@@ -19,7 +19,11 @@ describe("GameSim: enemy lifecycle", () => {
     const deathX = entity.body.x;
     entity.hp = 0;
     sim.step();
-    const snapshot = stepN(sim, DEATH_TO_RESPAWN_TICKS + 2).get(player.playerId)!;
+    let snapshot = sim.step().get(player.playerId);
+    for (let tick = 0; tick < DEATH_TO_RESPAWN_TICKS + 2 && !snapshot?.events.some((event) => event.t === "teleported"); tick++) {
+      snapshot = sim.step().get(player.playerId);
+    }
+    if (!snapshot) throw new Error("missing respawn snapshot");
     expect(snapshot.self.hp).toBe(PLAYER_MAX_HP);
     expectStarterKit(sim, player.playerId);
     expect(Math.abs(snapshot.self.x - deathX)).toBeGreaterThan(1);

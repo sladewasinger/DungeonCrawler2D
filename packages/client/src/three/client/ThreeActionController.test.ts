@@ -19,7 +19,7 @@ const sample = (overrides: Partial<ThreeInputSample>): ThreeInputSample => ({
 });
 
 const connection = (downed = false) => ({
-  body: { x: 0, y: 0 },
+  body: { x: 0, y: 0, z: 0 },
   party: {
     id: "party",
     members: [{ id: "ally", name: "Ally", x: 1, y: 0, hp: 0, maxHp: 30, downed }],

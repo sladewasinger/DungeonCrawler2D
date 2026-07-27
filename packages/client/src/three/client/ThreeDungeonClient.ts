@@ -3,7 +3,7 @@
 import type { World } from "@dc2d/engine";
 import { ThreeActionController } from "./ThreeActionController.js";
 import { ThreeFirstPersonViewport } from "../viewport/ThreeFirstPersonViewport.js";
-import { ThreeHud } from "../hud/core/ThreeHud.js";
+import { SharedHtmlHud } from "../../ui/hud/core/SharedHtmlHud.js";
 import { ThreeInput } from "../input/ThreeInput.js";
 import { advanceInputClock, firstPersonMoveInput } from "../viewport/firstPersonNetworking.js";
 import { presentFirstPerson } from "../viewport/firstPersonPresentation.js";
@@ -19,7 +19,7 @@ export const startThreeDungeon = (options: ThreeRouteOptions) => new ThreeDungeo
 class ThreeDungeonClient {
   private world: World;
   private readonly viewport: ThreeFirstPersonViewport;
-  private readonly hud: ThreeHud;
+  private readonly hud: SharedHtmlHud;
   private readonly actions: ThreeActionController;
   private readonly input: ThreeInput;
   private terrain: ThreeTerrain;

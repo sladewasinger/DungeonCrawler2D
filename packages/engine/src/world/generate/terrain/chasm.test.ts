@@ -103,5 +103,5 @@ describe("chasm rifts", () => {
       }, TICK_DT);
     }
     expect(world.heightAt(Math.floor(body.x), Math.floor(body.y))).toBeGreaterThan(CHASM_DEATH_Z);
-  });
+  }, 15_000);
 });

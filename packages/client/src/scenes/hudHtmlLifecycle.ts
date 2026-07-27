@@ -2,13 +2,13 @@ import Phaser from "phaser";
 import { attachDevelopmentMovementTrace } from "../ui/movement/developmentMovementTrace.js";
 import type { MovementTraceControl } from "../ui/movement/movementTraceControl.js";
 import type { Connection } from "../net/connection/connection.js";
-import { ThreeHud } from "../three/hud/core/ThreeHud.js";
+import { SharedHtmlHud } from "../ui/hud/core/SharedHtmlHud.js";
 import { createLiveHtmlHud } from "./hudHtml.js";
 import type { HudSceneData } from "./hudSceneData.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/core/fakeData.js";
 
 export interface HtmlHudLifecycle {
-  readonly hud: ThreeHud;
+  readonly hud: SharedHtmlHud;
   update(snapshot: HudFakeSnapshot): void;
   dispose(): void;
 }
@@ -45,7 +45,7 @@ function createMovementTrace(root: HTMLElement, connection: Connection, canvas: 
   return trace;
 }
 
-function updateHtmlHud({ hud, trace, connection, snapshot }: { hud: ThreeHud; trace: MovementTraceControl | undefined; connection: Connection; snapshot: HudFakeSnapshot }): void {
+function updateHtmlHud({ hud, trace, connection, snapshot }: { hud: SharedHtmlHud; trace: MovementTraceControl | undefined; connection: Connection; snapshot: HudFakeSnapshot }): void {
   if (!connection.world) return;
   hud.update({ connection, world: connection.world, player: { x: snapshot.coords.x, y: snapshot.coords.z, z: snapshot.coords.y, verticalVelocity: 0, grounded: true }, yaw: -(snapshot.compassBearingDeg * Math.PI) / 180, mouseCaptured: true, snapshot });
   trace?.update();

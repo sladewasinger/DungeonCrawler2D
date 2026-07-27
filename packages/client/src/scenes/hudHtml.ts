@@ -1,6 +1,6 @@
 /** Constructs the shared live HTML HUD from renderer-specific focus callbacks. */
 import type { Connection } from "../net/connection/connection.js";
-import { ThreeHud } from "../three/hud/core/ThreeHud.js";
+import { SharedHtmlHud } from "../ui/hud/core/SharedHtmlHud.js";
 
 export interface LiveHtmlHudOptions {
   root: HTMLElement;
@@ -14,8 +14,8 @@ export interface LiveHtmlHudOptions {
   };
 }
 
-export const createLiveHtmlHud = (options: LiveHtmlHudOptions): ThreeHud =>
-  new ThreeHud({
+export const createLiveHtmlHud = (options: LiveHtmlHudOptions): SharedHtmlHud =>
+  new SharedHtmlHud({
     root: options.root,
     connection: options.connection,
     focusGame: options.focusGame,

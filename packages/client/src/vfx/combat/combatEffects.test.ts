@@ -8,26 +8,26 @@ const probes = vi.hoisted(() => ({
   hitBlood: vi.fn(),
 }));
 
-vi.mock("../render/entities/worldToScreen.js", () => ({
+vi.mock("../../render/entities/geometry/worldToScreen.js", () => ({
   worldToScreen: (x: number, y: number) => ({ x, y }),
 }));
-vi.mock("./boneChipBurst.js", () => ({
+vi.mock("../death/boneChipBurst.js", () => ({
   isSkeletalDefId: (id: string | undefined) =>
     id === "skeleton" || id === "warden-of-five",
   spawnBoneChipBurst: probes.bone,
 }));
-vi.mock("./bloodDecalPool.js", () => ({
+vi.mock("../blood/bloodDecalPool.js", () => ({
   BloodDecalPool: class {
     spawn = probes.decal;
     update() {}
     dispose() {}
   },
 }));
-vi.mock("./bloodSplatter.js", () => ({
+vi.mock("../blood/bloodSplatter.js", () => ({
   spawnDeathSplatter: probes.deathBlood,
   spawnHitSplatter: probes.hitBlood,
 }));
-vi.mock("./bloodTint.js", () => ({ bloodTintFor: () => 0xe04a4a }));
+vi.mock("../blood/bloodTint.js", () => ({ bloodTintFor: () => 0xe04a4a }));
 vi.mock("../system/carnageSettings.js", () => ({
   loadCarnageSettings: () => ({
     enabled: true,
@@ -35,22 +35,22 @@ vi.mock("../system/carnageSettings.js", () => ({
     bloodDropIntensity: 1,
   }),
 }));
-vi.mock("./corpseDecalPool.js", () => ({
+vi.mock("../death/corpseDecalPool.js", () => ({
   CorpseDecalPool: class {
     spawn() {}
     update() {}
     dispose() {}
   },
 }));
-vi.mock("./deathCarnagePool.js", () => ({
+vi.mock("../death/deathCarnagePool.js", () => ({
   DeathCarnagePool: class {
     spawn() {}
     update() {}
     dispose() {}
   },
 }));
-vi.mock("./gibBurst.js", () => ({ spawnGibBurst: vi.fn() }));
-vi.mock("./screenShake.js", () => ({
+vi.mock("../death/gibBurst.js", () => ({ spawnGibBurst: vi.fn() }));
+vi.mock("../particles/screenShake.js", () => ({
   ScreenShakeBudget: class {
     onKillMoment() {}
     onOwnHit() {}
@@ -71,9 +71,12 @@ describe("CombatEffects skeletal impacts", () => {
       cameras: { main: {} },
     } as Phaser.Scene);
     effects.spawnBloodHit({ x: 2, y: 3, groundHeight: 0, defId: "skeleton", nowMs: 100, direction: { x: 1, y: 0 } });
-    expect(probes.bone).toHaveBeenCalledWith(
-      expect.anything(), 2, 3, false, 1, 0,
-    );
+    expect(probes.bone).toHaveBeenCalledWith(expect.anything(), {
+      x: 2,
+      y: 3,
+      lethal: false,
+      direction: { x: 1, y: 0 },
+    });
     expect(probes.hitBlood).not.toHaveBeenCalled();
     expect(probes.decal).not.toHaveBeenCalled();
   });
@@ -84,9 +87,11 @@ describe("CombatEffects skeletal impacts", () => {
       cameras: { main: {} },
     } as Phaser.Scene);
     effects.spawnBloodDeath({ x: 2, y: 3, groundHeight: 0, defId: "warden-of-five", nowMs: 100 });
-    expect(probes.bone).toHaveBeenCalledWith(
-      expect.anything(), 2, 3, true,
-    );
+    expect(probes.bone).toHaveBeenCalledWith(expect.anything(), {
+      x: 2,
+      y: 3,
+      lethal: true,
+    });
     expect(probes.deathBlood).not.toHaveBeenCalled();
     expect(probes.decal).not.toHaveBeenCalled();
   });

@@ -31,7 +31,7 @@ vi.mock("../net/connection/connection.js", () => ({ Connection: class {} }));
 vi.mock("../net/auth/identity.js", () => ({ persistentClientId: () => "client" }));
 vi.mock("../net/connection/url.js", () => ({ resolveWsUrl: () => "ws://test" }));
 vi.mock("../render/view/index.js", () => ({ getViewOrientation: vi.fn() }));
-vi.mock("../scenes/dungeon/index.js", () => ({ DungeonScene: class {} }));
+vi.mock("../scenes/dungeon/orchestration/index.js", () => ({ DungeonScene: class {} }));
 vi.mock("../scenes/editor/index.js", () => ({
   EditorScene: class {},
   setUpEditorLayout: vi.fn(() => ({ parentId: "editor-canvas", store: {} })),

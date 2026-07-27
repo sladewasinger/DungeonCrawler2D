@@ -14,7 +14,7 @@ interface RouteEvidence {
 const MODULE_SUFFIX = {
   main: "/src/main.ts",
   phaser: "/src/phaser/PhaserRoute.ts",
-  three: "/src/three/ThreeRoute.ts",
+  three: "/src/three/client/ThreeRoute.ts",
 } as const;
 
 export function rendererIsolation(): Plugin {

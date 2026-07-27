@@ -13,7 +13,7 @@ import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { World } from "../../core/world.js";
 import { generateChunk } from "../index.js";
 import { CLIMB_DIRS, forEachChunkCoord, scanStairs, type WorldPoint } from "../test-support.js";
-import { CHUNK_RANGE, FLOOR, SEEDS } from "./stairsInvariant.test.js";
+import { STAIR_TEST_CHUNK_RANGE as CHUNK_RANGE, STAIR_TEST_FLOOR as FLOOR, STAIR_TEST_SEEDS as SEEDS } from "./stairsTestConstants.js";
 
 /** Any floor at or below this sits in a deliberate sunken (pit) variant, not a small lip. */
 const SUNKEN_THRESHOLD = -STEP_UP;

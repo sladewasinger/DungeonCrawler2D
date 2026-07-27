@@ -1,7 +1,7 @@
 import { LEVEL, World, type ClientMessage, type MoveInput } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
-import { applySnapshot } from "../../packages/client/src/net/apply.js";
-import { Connection } from "../../packages/client/src/net/connection.js";
+import { applySnapshot } from "../../packages/client/src/net/sync/apply.js";
+import { Connection } from "../../packages/client/src/net/connection/connection.js";
 import { fixedRateStepPlan } from "../../packages/game-server/src/server/fixedRateLoop.js";
 import {
   findFlatArena,
@@ -58,7 +58,7 @@ function stepDriftServer(options: DriftServerStepOptions): {
   nextServerTickAt: number;
   serverSteps: number;
 } {
-  const plan = fixedRateStepPlan(options.wallTime, options.nextServerTickAt, 50);
+  const plan = fixedRateStepPlan({ now: options.wallTime, nextTickAt: options.nextServerTickAt, tickMilliseconds: 50 });
   for (let step = 0; step < plan.steps; step++) {
     const snapshot = options.sim.step().get(options.playerId);
     if (snapshot) applySnapshot(options.connection, snapshot);
@@ -72,8 +72,8 @@ describe("prediction under host timer drift", () => {
     const joined = sim.addPlayer({ name: "Clock drift", clientId: "clock-drift-client" });
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
     if (!serverPlayer) throw new Error("expected joined server player");
-    const arena = findFlatArena(sim, joined.spawn.x, joined.spawn.y);
-    teleport(serverPlayer, arena.x, arena.y, sim);
+    const arena = findFlatArena({ sim, anchor: { x: joined.spawn.x, y: joined.spawn.y } });
+    teleport({ entity: serverPlayer, x: arena.x, y: arena.y, sim });
     const connection = new Connection(
       "ws://integration.test",
       "Clock drift",

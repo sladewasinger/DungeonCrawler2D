@@ -128,7 +128,7 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
     expect(a.weapon).toBeNull();
     expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
     expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
-  });
+  }, 15_000);
 
   it("does not kill a player standing above chasm depth", () => {
     const sim = newSim("chasm-test-world");

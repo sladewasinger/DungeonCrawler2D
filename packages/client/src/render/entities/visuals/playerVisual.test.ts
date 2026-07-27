@@ -19,35 +19,35 @@ vi.mock("../../boot/assetManifest.js", () => ({
 vi.mock("../view/transform/viewState.js", () => ({ getViewOrientation: () => 0 }));
 vi.mock("../view/transform/viewTransform.js", () => ({ worldAngleToView: (value: number) => value }));
 vi.mock("./animState.js", () => ({ resolveAnimState: () => ({ animKey: "idle" }) }));
-vi.mock("./heldWeapon.js", () => ({
+vi.mock("../combat/heldWeapon.js", () => ({
   createHeldWeapon: vi.fn(),
   updateHeldWeapon: probes.heldWeapon,
 }));
-vi.mock("./hpBar.js", () => ({
+vi.mock("../presentation/hpBar.js", () => ({
   createHpBar: vi.fn(),
   HP_BAR_DISPLAY_HEIGHT_PX: probes.hpBarDisplayHeightPx,
   updateHpBar: vi.fn(),
 }));
-vi.mock("./hpBarVisibility.js", () => ({ resolveHpBarVisibility: () => false }));
-vi.mock("./hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
-vi.mock("./lift.js", () => ({ airborneHeightAboveGround: () => 0, spriteLiftPx: () => 0 }));
-vi.mock("./nameplate.js", () => ({
+vi.mock("../presentation/hpBarVisibility.js", () => ({ resolveHpBarVisibility: () => false }));
+vi.mock("../presentation/hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
+vi.mock("../motion/lift.js", () => ({ airborneHeightAboveGround: () => 0, spriteLiftPx: () => 0 }));
+vi.mock("../presentation/nameplate.js", () => ({
   createNameplate: vi.fn(),
   LABEL_LINE_GAP_PX: probes.labelLineGapPx,
   NAMEPLATE_GAP_PX: probes.nameplateGapPx,
   NAMEPLATE_LINE_HEIGHT_PX: probes.nameplateLineHeightPx,
   updateNameplate: probes.nameplate,
 }));
-vi.mock("./occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), terrainOcclusionAhead: () => false }));
-vi.mock("./playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
-vi.mock("./shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
-vi.mock("./squash.js", () => ({ squashScale: () => ({ scaleX: 1, scaleY: 1 }) }));
-vi.mock("./weaponIcon.js", () => ({
+vi.mock("../geometry/occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), terrainOcclusionAhead: () => false }));
+vi.mock("../motion/playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
+vi.mock("../geometry/shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
+vi.mock("../motion/squash.js", () => ({ squashScale: () => ({ scaleX: 1, scaleY: 1 }) }));
+vi.mock("../presentation/weaponIcon.js", () => ({
   FIST_FALLBACK_FRAME: "particle_soft",
   weaponIconFrame: () => null,
 }));
-vi.mock("./weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
-vi.mock("./worldToScreen.js", () => ({
+vi.mock("../motion/weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
+vi.mock("../geometry/worldToScreen.js", () => ({
   combatOverlayPosition: () => ({ wielderViewY: 2, screenSouthFloorHigher: false }),
   depthForEntityNow: () => 1,
   depthForScreenY: () => 1,
@@ -108,7 +108,12 @@ describe("updatePlayerVisual", () => {
     const view = { id: "p", playerId: "p", name: "Wren", x: 1, y: 2, z: 0, hp: 30, maxHp: 30, fx: [], faceX: 1, faceY: 0, air: false, downed: false, disconnected: true, attacking: false, blocking: false, weaponId: null, weaponAimAngle: null, attackAngleRad: 0 };
     updatePlayerVisual({ visual: visual as never, skinPrefix: "hero", view, context: context as never });
     expect(body.tint).toBe(0x55555a);
-    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14 + probes.screenTilePx / 3, expect.any(Number), false, false, true);
+    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.objectContaining({
+      name: "Wren",
+      headScreenX: expect.any(Number),
+      headScreenY: expect.any(Number),
+      disconnected: true,
+    }));
     expect(probes.heldWeapon).toHaveBeenLastCalledWith(
       visual.weapon,
       "particle_soft",
@@ -121,7 +126,12 @@ describe("updatePlayerVisual", () => {
       context: context as never,
     });
     expect(body.tint).toBeNull();
-    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14 + probes.screenTilePx / 3, expect.any(Number), false, false, false);
+    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.objectContaining({
+      name: "Wren",
+      headScreenX: expect.any(Number),
+      headScreenY: expect.any(Number),
+      disconnected: false,
+    }));
     expect(probes.heldWeapon).toHaveBeenLastCalledWith(
       visual.weapon,
       "particle_soft",

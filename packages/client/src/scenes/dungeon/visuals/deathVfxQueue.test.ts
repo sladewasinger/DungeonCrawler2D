@@ -91,18 +91,22 @@ describe("live enemy death VFX queue", () => {
     );
 
     const groundHeight = connection.world.groundAt(5, 6);
-    expect(spawnBloodDeath).toHaveBeenCalledWith(
-      5, 6, groundHeight, "slime", 100,
-    );
-    expect(spawnKillMoment).toHaveBeenCalledWith(
-      5,
-      6,
+    expect(spawnBloodDeath).toHaveBeenCalledWith({
+      x: 5,
+      y: 6,
       groundHeight,
-      "slime",
-      100,
-      { targetKind: "enemy" },
-      undefined,
-      undefined,
-    );
+      defId: "slime",
+      nowMs: 100,
+    });
+    expect(spawnKillMoment).toHaveBeenCalledWith({
+      x: 5,
+      y: 6,
+      groundHeight,
+      defId: "slime",
+      nowMs: 100,
+      appearance: { targetKind: "enemy" },
+      spritePrefix: undefined,
+      impactAngle: undefined,
+    });
   });
 });

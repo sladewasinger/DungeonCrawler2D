@@ -1,6 +1,6 @@
 /** Owns the settings-menu control used to switch deterministic terrain view ranges. */
 import { nextViewDistance, type ViewDistance } from "./viewDistance.js";
-import { createHudButton } from "../../hud/styles/ThreeHudStyles.js";
+import { createHudButton } from "../../../ui/hud/styles/HudStyles.js";
 
 export const createViewDistanceButton = (getDistance: () => ViewDistance, setDistance: (distance: ViewDistance) => void): HTMLButtonElement => {
   const button = createHudButton("", () => {
