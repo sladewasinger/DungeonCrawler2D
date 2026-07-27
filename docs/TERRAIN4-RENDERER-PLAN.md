@@ -44,7 +44,7 @@ prewarmed cache; it must never clear the currently visible root first. The
 performance fixture records input time, first complete new-orientation frame,
 and dropped/blank frames.
 
-## Golden pixel regression gate
+## Visual regression gate
 
 Terrain4 must have a deterministic visual fixture before the renderer is
 considered release-ready. The fixture is a small editor-style scene, not a
@@ -68,7 +68,10 @@ visual comparison, with the intended suite using one golden per orientation
 and biome-material pass. A mismatch writes a diff image and a machine-readable
 list of changed pixels for review.
 
-Golden files live beside the Terrain4 visual tests under
+The current branch provides a deterministic headless fixture under
+`packages/client/src/render/terrain4/tests/terrain4VisualFixture.test.ts` plus
+the browser gallery harness described below. Golden files, when the renderer
+is promoted toward a release, live beside the Terrain4 visual tests under
 `packages/client/src/render/terrain4/__golden__/`. The test must never
 auto-update them. Any divergence, including a one-pixel change, fails CI and
 must be shown to Austin for approval before updating the golden image. An

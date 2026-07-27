@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getViewOrientation, resetViewOrientation } from "../../render/view/viewState.js";
+import { ROTATION_TWEEN_MS } from "../../render/view/rotationTween.js";
 import { RotationController } from "./rotationControl.js";
 
 afterEach(() => resetViewOrientation());
 
 describe("RotationController", () => {
+  it("meets the five-tick rotation budget", () => {
+    expect(ROTATION_TWEEN_MS).toBeLessThan(5 * 50);
+  });
+
   it("does nothing until requested", () => {
     const controller = new RotationController();
     const invalidate = vi.fn();
