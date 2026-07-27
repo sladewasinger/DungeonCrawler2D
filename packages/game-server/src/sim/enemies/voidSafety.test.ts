@@ -102,24 +102,27 @@ function assertNoEnemyInVoid(sim: SimState, label: string): void {
 /** Any explicit void tile at or below chasm depth, scanning outward from the
  * origin (mirrors sim/chasmDeath.test.ts's findChasmFloor). */
 function findChasmFloor(world: World): { x: number; y: number } | null {
-  for (let cx = -24; cx <= 24; cx++) {
-    for (let cy = -24; cy <= 24; cy++) {
-      for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          const x = cx * CHUNK_SIZE + lx;
-          const y = cy * CHUNK_SIZE + ly;
-          if (world.tileAt(x, y) === TILE.Void) return { x, y };
-        }
-      }
-    }
-  }
-  return null;
+  return chunkCoordinates().flatMap((chunk) => tilesInChunk(chunk)).find((tile) => world.tileAt(tile.x, tile.y) === TILE.Void) ?? null;
+}
+
+function chunkCoordinates(): Array<{ x: number; y: number }> {
+  return Array.from({ length: 49 * 49 }, (_, index) => ({
+    x: Math.floor(index / 49) - 24,
+    y: index % 49 - 24,
+  }));
+}
+
+function tilesInChunk(chunk: { x: number; y: number }): Array<{ x: number; y: number }> {
+  return Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, (_, index) => ({
+    x: chunk.x * CHUNK_SIZE + index % CHUNK_SIZE,
+    y: chunk.y * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE),
+  }));
 }
 
 describe("enemy void safety: population placement (multi-seed sweep)", () => {
   it.each(SEEDS)("never seeds an enemy onto a non-walkable or chasm tile — seed %s", (seed) => {
     const world = new World(hashString(seed), 1, LEVEL.Dungeon);
-    const sim = createSimState(world, content, new PlayerStore(null), 99, {});
+    const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 99, opts: {} });
     const scout = makeScoutSlot(0, 0, sim);
     sim.players.set(scout.entity.id, scout);
 
@@ -142,7 +145,7 @@ describe("enemy void safety: population placement (multi-seed sweep)", () => {
 describe("enemy void safety: a ranged enemy locked into shooting still dies in a chasm", () => {
   it("a spitter placed directly in a rift, in range of a stationary player, dies on its first active tick", () => {
     const world = new World(hashString("void-safety-spitter"), 1, LEVEL.Dungeon);
-    const sim = createSimState(world, content, new PlayerStore(null), 7, {});
+    const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 7, opts: {} });
     const rift = findChasmFloor(world);
     expect(rift, "no chasm floor found in scan range").not.toBeNull();
     if (!rift) return;
@@ -154,7 +157,7 @@ describe("enemy void safety: a ranged enemy locked into shooting still dies in a
     const scout = makeScoutSlot(rift.x + 3.5, rift.y + 0.5, sim);
     sim.players.set(scout.entity.id, scout);
 
-    const spitter = spawnEnemy(sim, "spitter", rift.x + 0.5, rift.y + 0.5);
+    const spitter = spawnEnemy(sim, { defId: "spitter", x: rift.x + 0.5, y: rift.y + 0.5 });
     spitter.body.z = sim.world.heightAt(rift.x, rift.y);
     spitter.body.grounded = true;
 

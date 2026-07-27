@@ -15,13 +15,14 @@ const SPEED_MAX = 190;
 /** Heavier than blood's 60/110 gravityY — chunks arc and land, they don't mist away. */
 const GRAVITY_Y = 260;
 
+export interface GibBurstInput {
+  readonly x: number;
+  readonly y: number;
+  readonly tint: number;
+}
+
 /** Fires a heavy omnidirectional chunk burst at a kill; self-destroys once spent. */
-export function spawnGibBurst(
-  scene: Phaser.Scene,
-  screenX: number,
-  screenY: number,
-  tint: number,
-): void {
+export function spawnGibBurst(scene: Phaser.Scene, { x: screenX, y: screenY, tint }: GibBurstInput): void {
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: FRAME,

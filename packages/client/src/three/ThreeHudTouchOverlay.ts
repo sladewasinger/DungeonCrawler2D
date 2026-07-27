@@ -38,28 +38,10 @@ export class ThreeHudTouchOverlay {
     this.element.hidden = true;
     this.element.style.cssText =
       "position:absolute;inset:0;z-index:1050;pointer-events:none;touch-action:none";
-    this.stick.style.cssText =
-      `${circleStyle};width:${HTML_TOUCH_STICK.width}px;` +
-      `height:${HTML_TOUCH_STICK.height}px;left:${HTML_TOUCH_STICK.left}px;` +
-      `bottom:${HTML_TOUCH_STICK.bottom}px`;
-    this.knob.style.cssText =
-      `${circleStyle};width:34px;height:34px;left:30px;top:30px;` +
-      "background:rgba(220,220,230,.22)";
-    this.bag.type = "button";
-    this.bag.textContent = "BAG";
-    this.bag.style.cssText =
-      `position:absolute;left:50%;bottom:${HTML_TOUCH_BAG.bottom}px;` +
-      `width:${HTML_TOUCH_BAG.width}px;height:${HTML_TOUCH_BAG.height}px;` +
-      "translate:-50% 0;" +
-      "border:1px solid #555a75;background:rgba(27,28,44,.82);" +
-      "color:#f2f0eb;font:10px monospace;pointer-events:auto";
-    this.bag.addEventListener("click", toggleInventory);
+    configureTouchStick(this.stick, this.knob);
+    configureTouchBag(this.bag, toggleInventory);
     this.stick.append(this.knob);
-    this.element.append(
-      this.stick,
-      ...this.buttons.values(),
-      this.bag,
-    );
+    this.element.append(this.stick, ...this.buttons.values(), this.bag);
   }
 
   update(touch: TouchVisualSnapshot | null): void {
@@ -74,13 +56,7 @@ export class ThreeHudTouchOverlay {
 
   private updateStick(touch: TouchVisualSnapshot): void {
     const stick = touch.stick;
-    if (!stick) {
-      this.stick.style.left = "20px";
-      this.stick.style.top = "auto";
-      this.stick.style.bottom = "20px";
-      this.knob.style.transform = "";
-      return;
-    }
+    if (!stick) return resetTouchStick(this.stick, this.knob);
     this.stick.style.left = `${stick.x - 48}px`;
     this.stick.style.top = `${stick.y - 48}px`;
     this.stick.style.bottom = "auto";
@@ -98,3 +74,32 @@ export class ThreeHudTouchOverlay {
       : "rgba(28,29,45,.45)";
   }
 }
+
+const configureTouchStick = (stick: HTMLDivElement, knob: HTMLDivElement): void => {
+  stick.style.cssText =
+    `${circleStyle};width:${HTML_TOUCH_STICK.width}px;` +
+    `height:${HTML_TOUCH_STICK.height}px;left:${HTML_TOUCH_STICK.left}px;` +
+    `bottom:${HTML_TOUCH_STICK.bottom}px`;
+  knob.style.cssText =
+      `${circleStyle};width:34px;height:34px;left:30px;top:30px;` +
+      "background:rgba(220,220,230,.22)";
+};
+
+const configureTouchBag = (bag: HTMLButtonElement, toggleInventory: () => void): void => {
+  bag.type = "button";
+  bag.textContent = "BAG";
+  bag.style.cssText =
+      `position:absolute;left:50%;bottom:${HTML_TOUCH_BAG.bottom}px;` +
+      `width:${HTML_TOUCH_BAG.width}px;height:${HTML_TOUCH_BAG.height}px;` +
+      "translate:-50% 0;" +
+      "border:1px solid #555a75;background:rgba(27,28,44,.82);" +
+      "color:#f2f0eb;font:10px monospace;pointer-events:auto";
+  bag.addEventListener("click", toggleInventory);
+};
+
+const resetTouchStick = (stick: HTMLDivElement, knob: HTMLDivElement): void => {
+  stick.style.left = "20px";
+  stick.style.top = "auto";
+  stick.style.bottom = "20px";
+  knob.style.transform = "";
+};

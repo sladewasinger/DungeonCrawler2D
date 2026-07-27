@@ -17,7 +17,7 @@ describe("HTML touch hit regions", () => {
     );
     if (!attack) throw new Error("Missing attack touch region");
     const center = touchActionCenter(attack, WIDTH, HEIGHT);
-    expect(regions.hitTest(center.x, center.y, WIDTH, HEIGHT)).toBeNull();
+    expect(regions.hitTest({ x: center.x, y: center.y, width: WIDTH, height: HEIGHT })).toBeNull();
   });
 
   it("routes every action-button center", () => {
@@ -25,7 +25,7 @@ describe("HTML touch hit regions", () => {
     regions.setActive(true);
     for (const region of HTML_TOUCH_ACTIONS) {
       const center = touchActionCenter(region, WIDTH, HEIGHT);
-      expect(regions.hitTest(center.x, center.y, WIDTH, HEIGHT))
+      expect(regions.hitTest({ x: center.x, y: center.y, width: WIDTH, height: HEIGHT }))
         .toBe(`touch:${region.action}`);
     }
   });
@@ -33,6 +33,6 @@ describe("HTML touch hit regions", () => {
   it("does not claim the world between controls", () => {
     const regions = new HtmlTouchHitRegions();
     regions.setActive(true);
-    expect(regions.hitTest(500, 300, WIDTH, HEIGHT)).toBeNull();
+    expect(regions.hitTest({ x: 500, y: 300, width: WIDTH, height: HEIGHT })).toBeNull();
   });
 });

@@ -62,7 +62,7 @@ describe("contacts", () => {
   beforeEach(() => {
     const world = new World(hashString("contacts-test"), 1, LEVEL.Sandbox);
     const content = buildContentRegistry(EMPTY_CONTENT);
-    sim = createSimState(world, content, new PlayerStore(null), 1, {});
+    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
     a = makeSlot("A", 10, 10);
     b = makeSlot("B", 11, 10);
     sim.players.set(a.entity.id, a);
@@ -136,15 +136,15 @@ describe("contacts", () => {
 
   it("withinRateLimit prunes the window and enforces the cap", () => {
     const stamps: number[] = [];
-    expect(withinRateLimit(stamps, 0, 100, 2)).toBe(true);
-    expect(withinRateLimit(stamps, 1, 100, 2)).toBe(true);
-    expect(withinRateLimit(stamps, 2, 100, 2)).toBe(false);
-    expect(withinRateLimit(stamps, 100, 100, 2)).toBe(true);
+    expect(withinRateLimit({ timestamps: stamps, nowTick: 0, windowTicks: 100, limit: 2 })).toBe(true);
+    expect(withinRateLimit({ timestamps: stamps, nowTick: 1, windowTicks: 100, limit: 2 })).toBe(true);
+    expect(withinRateLimit({ timestamps: stamps, nowTick: 2, windowTicks: 100, limit: 2 })).toBe(false);
+    expect(withinRateLimit({ timestamps: stamps, nowTick: 100, windowTicks: 100, limit: 2 })).toBe(true);
   });
 
   it("recovers when a floor transfer moves the slot to an earlier tick clock", () => {
     const stamps = [80, 81, 82];
-    expect(withinRateLimit(stamps, 5, 100, 5)).toBe(true);
+    expect(withinRateLimit({ timestamps: stamps, nowTick: 5, windowTicks: 100, limit: 5 })).toBe(true);
     expect(stamps).toEqual([5]);
   });
 });

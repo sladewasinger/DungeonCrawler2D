@@ -1,20 +1,16 @@
 /** Exercises full-rate client prediction against real authoritative simulation snapshots. */
-import {
-  LEVEL,
-  World,
-  type ClientInput,
-  type ClientMessage,
-  type MoveInput,
-  type ServerSnapshot,
-} from "@dc2d/engine";
+import { type ClientInput, type ClientMessage, type MoveInput, type ServerSnapshot } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
 import { applySnapshot } from "../../packages/client/src/net/apply.js";
 import { Connection } from "../../packages/client/src/net/connection.js";
 import {
-  findFlatArena,
-  makeSim,
-  teleport,
-} from "../../packages/game-server/src/sim/integration/support.js";
+  applyReplicatedStep,
+  applyStep,
+  createPredictionContext,
+  runDelayedInputMovement,
+  sendInputsDirectly,
+  type PredictionContext,
+} from "./predictionSupport.js";
 
 const HELD_MOVE: MoveInput = {
   moveX: 1,
@@ -29,169 +25,109 @@ function expectSamePosition(connection: Connection, serverX: number, serverY: nu
   expect(connection.body?.y).toBeCloseTo(serverY, 10);
 }
 
-function stepDelayedServer(
-  sim: ReturnType<typeof makeSim>,
-  playerId: string,
-  delayedInputs: Map<number, ClientInput[]>,
-): ServerSnapshot | undefined {
-  for (const message of delayedInputs.get(sim.tick) ?? []) {
-    sim.handleInput(playerId, message);
-  }
-  delayedInputs.delete(sim.tick);
-  const snapshot = sim.stepReplicated().get(playerId);
-  return snapshot?.type === "snapshot" ? snapshot : undefined;
-}
-
-function runDelayedMovement(
-  sim: ReturnType<typeof makeSim>,
-  playerId: string,
-  connection: Connection,
-  delayedInputs: Map<number, ClientInput[]>,
-  delayedSnapshots: Map<number, ServerSnapshot>,
-): void {
-  for (let wallTick = 1; wallTick <= 100; wallTick++) {
-    const input = wallTick <= 25 ? HELD_MOVE : IDLE;
-    if (wallTick === 26) connection.sendInputEdge(input);
-    connection.sampleInput(input);
-    const snapshot = stepDelayedServer(sim, playerId, delayedInputs);
-    if (snapshot) delayedSnapshots.set(wallTick + 2, snapshot);
-    const delivered = delayedSnapshots.get(wallTick);
-    if (delivered) applySnapshot(connection, delivered);
-    delayedSnapshots.delete(wallTick);
-  }
-  delayedSnapshots.clear();
-  for (let drainTick = 0; drainTick < 6; drainTick++) {
-    const snapshot = stepDelayedServer(sim, playerId, delayedInputs);
-    if (snapshot) applySnapshot(connection, snapshot);
-  }
-}
-
 describe("prediction integration", () => {
   it("re-anchors movement after a late-session teleport instead of unwinding to spawn", () => {
-    const sim = makeSim(716, { freezeEnemies: true });
-    for (let tick = 0; tick < 100; tick++) sim.step();
-    const joined = sim.addPlayer("Teleported", "teleported-client");
-    const serverPlayer = sim.getPlayerEntity(joined.playerId);
-    if (!serverPlayer) throw new Error("expected joined server player");
-    const arena = findFlatArena(sim, joined.spawn.x, joined.spawn.y);
-    teleport(serverPlayer, arena.x, arena.y, sim);
-    const connection = new Connection("ws://integration.test", "Teleported", "teleported-client");
-    connection.status = "connected";
-    connection.world = new World(sim.world.worldSeed, sim.world.floor, LEVEL.Sandbox);
-
-    const initial = sim.step().get(joined.playerId);
-    if (!initial) throw new Error("expected initial authoritative snapshot");
-    applySnapshot(connection, {
-      ...initial,
-      events: [...initial.events, { t: "teleported" }],
+    const context = createPredictionContext({ seed: 716, name: "Teleported", clientId: "teleported-client", warmupTicks: 100 });
+    applySnapshot(context.connection, {
+      ...context.sim.step().get(context.playerId)!,
+      events: [{ t: "teleported" }],
     });
+    sendInputsDirectly(context);
+    moveForTicks(context, HELD_MOVE, 10);
+    context.connection.sendInputEdge(IDLE);
+    moveForTicks(context, IDLE, 70);
 
-    vi.spyOn(connection, "send").mockImplementation((message: ClientMessage) => {
-      if (message.type === "input") sim.handleInput(joined.playerId, message);
-    });
-    connection.sendInputEdge(HELD_MOVE);
-    for (let tick = 0; tick < 10; tick++) {
-      connection.sampleInput(HELD_MOVE);
-      const snapshot = sim.step().get(joined.playerId);
-      if (snapshot) applySnapshot(connection, snapshot);
-    }
-    connection.sendInputEdge(IDLE);
-    for (let tick = 0; tick < 70; tick++) {
-      connection.sampleInput(IDLE);
-      const snapshot = sim.step().get(joined.playerId);
-      if (snapshot) applySnapshot(connection, snapshot);
-    }
-
-    expect(serverPlayer.body.x).toBeGreaterThan(arena.x + 1);
-    expectSamePosition(connection, serverPlayer.body.x, serverPlayer.body.y);
-    expect(connection.prediction.pendingStepCount).toBeLessThanOrEqual(1);
+    expect(context.serverPlayer.body.x).toBeGreaterThan(context.arena.x + 1);
+    expectSamePosition(context.connection, context.serverPlayer.body.x, context.serverPlayer.body.y);
+    expect(context.connection.prediction.pendingStepCount).toBeLessThanOrEqual(1);
   });
 
   it("keeps 1,000 held ticks aligned with monotonic full-rate input", () => {
-    const sim = makeSim(717, { freezeEnemies: true });
-    const joined = sim.addPlayer("Predictor", "prediction-client");
-    const serverPlayer = sim.getPlayerEntity(joined.playerId);
-    if (!serverPlayer) throw new Error("expected joined server player");
-    const arena = findFlatArena(sim, joined.spawn.x, joined.spawn.y);
-    teleport(serverPlayer, arena.x, arena.y, sim);
-    const connection = new Connection("ws://integration.test", "Predictor", "prediction-client");
-    connection.status = "connected";
-    connection.world = new World(sim.world.worldSeed, sim.world.floor, LEVEL.Sandbox);
-
-    const initial = sim.step().get(joined.playerId);
-    if (!initial) throw new Error("expected initial authoritative snapshot");
-    applySnapshot(connection, initial);
-
-    const sentInputs: ClientInput[] = [];
-    vi.spyOn(connection, "send").mockImplementation((message: ClientMessage) => {
-      if (message.type !== "input") return;
-      sentInputs.push(message);
-      sim.handleInput(joined.playerId, message);
-    });
-    connection.sendInputEdge(HELD_MOVE);
-
-    let deliveredSnapshots = 0;
-    let droppedSnapshot = false;
-    for (let localTick = 1; localTick <= 1_000; localTick++) {
-      connection.sampleInput(HELD_MOVE);
-      const snapshot = sim.stepReplicated().get(joined.playerId);
-      if (!snapshot || snapshot.type !== "snapshot") continue;
-      if (!droppedSnapshot && deliveredSnapshots === 4) {
-        droppedSnapshot = true;
-        continue;
-      }
-      deliveredSnapshots++;
-      applySnapshot(connection, snapshot);
-      expectSamePosition(connection, serverPlayer.body.x, serverPlayer.body.y);
-    }
-    connection.sendInputEdge(IDLE);
-    connection.sampleInput(IDLE);
-    const stopped = sim.stepReplicated().get(joined.playerId);
-    if (stopped?.type === "snapshot") applySnapshot(connection, stopped);
+    const context = createPredictionContext({ seed: 717, name: "Predictor", clientId: "prediction-client" });
+    const sentInputs = captureSentInputs(context);
+    const result = runHeldMovement(context);
 
     expect(sentInputs).toHaveLength(1_003);
-    expect(sentInputs.every((input, index) => input.seq === index + 1))
-      .toBe(true);
-    expect(sentInputs.every((input, index) =>
-      index === 0 ||
-      input.projectedServerTick >=
-        (sentInputs[index - 1]?.projectedServerTick ?? 0)))
-      .toBe(true);
-    expect(droppedSnapshot).toBe(true);
-    expect(deliveredSnapshots).toBeGreaterThanOrEqual(499);
-    expect(deliveredSnapshots).toBeLessThan(1_000);
-    expect(connection.networkMetrics.snapshot(performance.now()).maximumCorrectionError)
-      .toBeLessThan(1e-9);
+    expectMonotonicInputs(sentInputs);
+    expect(result).toEqual({ droppedSnapshot: true, deliveredSnapshots: expect.any(Number) });
+    expect(result.deliveredSnapshots).toBeGreaterThanOrEqual(499);
+    expect(result.deliveredSnapshots).toBeLessThan(1_000);
+    expect(context.connection.networkMetrics.snapshot(performance.now()).maximumCorrectionError).toBeLessThan(1e-9);
   });
 
   it("settles at the authoritative endpoint after delayed walking and release", () => {
-    const sim = makeSim(718, { freezeEnemies: true });
-    const joined = sim.addPlayer("Delayed", "delayed-client");
-    const serverPlayer = sim.getPlayerEntity(joined.playerId);
-    if (!serverPlayer) throw new Error("expected joined server player");
-    const arena = findFlatArena(sim, joined.spawn.x, joined.spawn.y);
-    teleport(serverPlayer, arena.x, arena.y, sim);
-    const connection = new Connection("ws://integration.test", "Delayed", "delayed-client");
-    connection.status = "connected";
-    connection.world = new World(sim.world.worldSeed, sim.world.floor, LEVEL.Sandbox);
-    const initial = sim.step().get(joined.playerId);
-    if (!initial) throw new Error("expected initial authoritative snapshot");
-    applySnapshot(connection, initial);
-
+    const context = createPredictionContext({ seed: 718, name: "Delayed", clientId: "delayed-client" });
     const delayedInputs = new Map<number, ClientInput[]>();
     const delayedSnapshots = new Map<number, ServerSnapshot>();
-    vi.spyOn(connection, "send").mockImplementation((message: ClientMessage) => {
-      if (message.type !== "input") return;
-      const deliveryTick = sim.tick + 2;
-      const queued = delayedInputs.get(deliveryTick) ?? [];
-      queued.push(message);
-      delayedInputs.set(deliveryTick, queued);
-    });
-    connection.sendInputEdge(HELD_MOVE);
-    runDelayedMovement(sim, joined.playerId, connection, delayedInputs, delayedSnapshots);
+    queueInputDelivery(context, delayedInputs);
+    context.connection.sendInputEdge(HELD_MOVE);
+    runDelayedInputMovement({ context, delayedInputs, delayedSnapshots, heldInput: HELD_MOVE, idleInput: IDLE });
 
-    expect(serverPlayer.body.x).toBeGreaterThan(arena.x + 1);
-    expectSamePosition(connection, serverPlayer.body.x, serverPlayer.body.y);
-    expect(connection.prediction.pendingStepCount).toBeLessThanOrEqual(4);
+    expect(context.serverPlayer.body.x).toBeGreaterThan(context.arena.x + 1);
+    expectSamePosition(context.connection, context.serverPlayer.body.x, context.serverPlayer.body.y);
+    expect(context.connection.prediction.pendingStepCount).toBeLessThanOrEqual(4);
   });
 });
+
+function moveForTicks(context: PredictionContext, input: MoveInput, count: number): void {
+  context.connection.sendInputEdge(input);
+  for (let tick = 0; tick < count; tick++) {
+    context.connection.sampleInput(input);
+    applyStep(context);
+  }
+}
+
+function captureSentInputs(context: PredictionContext): ClientInput[] {
+  const sentInputs: ClientInput[] = [];
+  vi.spyOn(context.connection, "send").mockImplementation((message: ClientMessage) => {
+    if (message.type !== "input") return;
+    sentInputs.push(message);
+    context.sim.handleInput(context.playerId, message);
+  });
+  return sentInputs;
+}
+
+function runHeldMovement(context: PredictionContext) {
+  let deliveredSnapshots = 0;
+  let droppedSnapshot = false;
+  context.connection.sendInputEdge(HELD_MOVE);
+  for (let tick = 1; tick <= 1_000; tick++) {
+    const result = applyHeldMovementStep(context, deliveredSnapshots, droppedSnapshot);
+    deliveredSnapshots = result.deliveredSnapshots;
+    droppedSnapshot = result.droppedSnapshot;
+  }
+  context.connection.sendInputEdge(IDLE);
+  context.connection.sampleInput(IDLE);
+  applyReplicatedSnapshot(context);
+  return { droppedSnapshot, deliveredSnapshots };
+}
+
+function applyHeldMovementStep(context: PredictionContext, deliveredSnapshots: number, droppedSnapshot: boolean) {
+  context.connection.sampleInput(HELD_MOVE);
+  const snapshot = applyReplicatedStep(context);
+  if (!snapshot) return { deliveredSnapshots, droppedSnapshot };
+  if (!droppedSnapshot && deliveredSnapshots === 4) return { deliveredSnapshots, droppedSnapshot: true };
+  applySnapshot(context.connection, snapshot);
+  expectSamePosition(context.connection, context.serverPlayer.body.x, context.serverPlayer.body.y);
+  return { deliveredSnapshots: deliveredSnapshots + 1, droppedSnapshot };
+}
+
+function applyReplicatedSnapshot(context: PredictionContext): void {
+  const snapshot = applyReplicatedStep(context);
+  if (snapshot) applySnapshot(context.connection, snapshot);
+}
+
+function expectMonotonicInputs(inputs: ClientInput[]): void {
+  expect(inputs.every((input, index) => input.seq === index + 1)).toBe(true);
+  expect(inputs.every((input, index) => index === 0 || input.projectedServerTick >= (inputs[index - 1]?.projectedServerTick ?? 0))).toBe(true);
+}
+
+function queueInputDelivery(context: PredictionContext, delayedInputs: Map<number, ClientInput[]>): void {
+  vi.spyOn(context.connection, "send").mockImplementation((message: ClientMessage) => {
+    if (message.type !== "input") return;
+    const deliveryTick = context.sim.tick + 2;
+    const queued = delayedInputs.get(deliveryTick) ?? [];
+    queued.push(message);
+    delayedInputs.set(deliveryTick, queued);
+  });
+}

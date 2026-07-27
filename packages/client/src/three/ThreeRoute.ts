@@ -14,7 +14,7 @@ export function startThreeRoute(search: URLSearchParams): void {
   bindVersionRefreshOverlay(conn);
   const showTitle = (): void => {
     let stopDungeon: (() => void) | null = null;
-    const title = new StandaloneTitle(conn, root, () => {
+    const title = new StandaloneTitle(conn, root, { onReady: () => {
       stopDungeon = startThreeDungeon({
         root,
         search,
@@ -25,7 +25,7 @@ export function startThreeRoute(search: URLSearchParams): void {
           showTitle();
         },
       });
-    });
+    }});
     title.start();
   };
   showTitle();

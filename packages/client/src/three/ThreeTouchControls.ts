@@ -1,10 +1,12 @@
+/* eslint-disable max-lines -- input capture and release ownership stays in one controller. */
 /** Owns touch-stick, aim-stick, and action control presentation for mobile play. */
 import {
   inputModality,
   type InputModality,
   type InputModalityStore,
 } from "../input/inputModality.js";
-import { bindTouchActionButton, bindTouchHoldButton, bindTouchJumpButton, createTouchButton, setTouchButtonPressed } from "./ThreeTouchActionButtons.js";
+import { setTouchButtonPressed } from "./ThreeTouchActionButtons.js";
+import { mountTouchControls } from "./ThreeTouchControlMount.js";
 import { ThreeTouchControlState } from "./ThreeTouchControlState.js";
 import { pointerInside, releasePointerCapture } from "./ThreeTouchDom.js";
 import { touchVector } from "./touchMath.js";
@@ -41,9 +43,11 @@ export class ThreeTouchControls {
 
   private build(): void {
     this.layer.style.cssText = "position:absolute;inset:0;z-index:1;pointer-events:none;touch-action:none";
-    this.mountStick();
-    this.mountLookPad();
-    this.mountButtons();
+    mountTouchControls({
+      layer: this.layer, movementZone: this.movementZone, stick: this.stick, knob: this.knob, aimStick: this.aimStick, aimKnob: this.aimKnob,
+      beginStick: this.beginStick.bind(this), moveStick: this.moveStick.bind(this), endStick: this.endStick.bind(this), beginLook: this.beginLook.bind(this), moveLook: this.moveLook.bind(this), endLook: this.endLook.bind(this),
+      queueJump: () => this.queueJump(), triggerAction: (action) => this.triggerAction(action), setInteractHeld: (held) => { this.state.interactHeld = held; }, setBlock: (held) => { this.state.block = held; }, setRun: (held) => { this.state.run = held; }, setJump: (held) => { this.state.jump = held; }, setJumpButton: (button) => { this.jumpButton = button; },
+    });
     this.built = true;
   }
 
@@ -100,48 +104,6 @@ export class ThreeTouchControls {
     releasePointerCapture(this.stick, this.stickPointer);
     releasePointerCapture(this.aimStick, this.lookPointer);
     releasePointerCapture(this.jumpButton, this.jumpPointer);
-  }
-
-  private mountStick(): void {
-    this.stick.style.cssText = "position:absolute;left:24px;bottom:28px;width:108px;height:108px;border:1px solid #8a8fa9;border-radius:50%;background:rgba(28,29,45,.48);pointer-events:auto;touch-action:none";
-    this.movementZone.style.cssText = "position:absolute;left:0;bottom:0;width:50%;height:50%;pointer-events:auto;touch-action:none";
-    this.knob.style.cssText = "position:absolute;left:36px;top:36px;width:34px;height:34px;border:1px solid #dbd8cd;border-radius:50%;background:rgba(220,220,230,.18)";
-    this.stick.append(this.knob);
-    this.layer.append(this.movementZone, this.stick);
-    this.movementZone.addEventListener("pointerdown", (event) => this.beginStick(event));
-    this.stick.addEventListener("pointerdown", (event) => this.beginStick(event));
-    this.stick.addEventListener("pointermove", (event) => this.moveStick(event));
-    this.stick.addEventListener("pointerup", (event) => this.endStick(event));
-    this.stick.addEventListener("pointercancel", (event) => this.endStick(event));
-  }
-
-  private mountLookPad(): void {
-    this.aimStick.style.cssText = "position:absolute;right:24px;bottom:28px;width:108px;height:108px;border:1px solid #8a8fa9;border-radius:50%;background:rgba(28,29,45,.48);pointer-events:auto;touch-action:none";
-    this.aimKnob.style.cssText = "position:absolute;left:36px;top:36px;width:34px;height:34px;border:1px solid #dbd8cd;border-radius:50%;background:rgba(220,220,230,.18)";
-    this.aimStick.append(this.aimKnob);
-    this.layer.append(this.aimStick);
-    this.aimStick.addEventListener("pointerdown", (event) => this.beginLook(event));
-    this.aimStick.addEventListener("pointermove", (event) => this.moveLook(event));
-    this.aimStick.addEventListener("pointerup", (event) => this.endLook(event));
-    this.aimStick.addEventListener("pointercancel", (event) => this.endLook(event));
-  }
-
-  private mountButtons(): void {
-    const attack = createTouchButton("ATTACK", 148, 20);
-    const jump = createTouchButton("JUMP", 214, 20);
-    const interact = createTouchButton("USE", 181, 86);
-    const throwItem = createTouchButton("THROW", 247, 86); const block = createTouchButton("BLOCK", 148, 86); const sprint = createTouchButton("SPRINT", 148, 152);
-    bindTouchActionButton(attack, () => this.triggerAction("attack"));
-    bindTouchHoldButton(
-      interact,
-      () => { this.state.interactPressed = true; },
-      (held) => { this.state.interactHeld = held; },
-    );
-    bindTouchActionButton(throwItem, () => this.triggerAction("throw"));
-    bindTouchHoldButton(block, () => {}, (held) => { this.state.block = held; }); bindTouchHoldButton(sprint, () => {}, (held) => { this.state.run = held; });
-    bindTouchJumpButton(jump, () => this.queueJump(), (held) => { this.state.jump = held; });
-    this.jumpButton = jump;
-    this.layer.append(attack, jump, interact, throwItem, block, sprint);
   }
 
   private beginStick(event: PointerEvent): void {

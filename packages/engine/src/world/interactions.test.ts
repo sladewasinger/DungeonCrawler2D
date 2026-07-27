@@ -24,7 +24,7 @@ describe("world interactions", () => {
       ["0,0", TILE.Stash],
       ["2,0", TILE.Stash],
     ]));
-    expect(findWorldInteractionTarget(world, 0.5 - INTERACT_RANGE, 0.5, "stash")?.x).toBe(0);
-    expect(findWorldInteractionTarget(world, 1.5, 0.5, "stash")?.x).toBe(0);
+    expect(findWorldInteractionTarget({ world, x: 0.5 - INTERACT_RANGE, y: 0.5, kind: "stash" })?.x).toBe(0);
+    expect(findWorldInteractionTarget({ world, x: 1.5, y: 0.5, kind: "stash" })?.x).toBe(0);
   });
 });

@@ -82,25 +82,41 @@ export type EntityVisual = PlayerVisual | MonsterVisual | PetVisual | ItemVisual
 /** Tears down every Phaser object owned by one tracked entity's visual. */
 export function destroyEntityVisual(visual: EntityVisual): void {
   visual.body.destroy();
-  if (visual.kind === "player" || visual.kind === "enemy") {
-    visual.shadow.destroy();
-    visual.hpBar.container.destroy();
-    visual.nameplate.destroy();
-  }
-  if (visual.kind === "pet") {
-    visual.shadow.destroy();
-    visual.nameplate.destroy();
-    visual.ownerLabel.destroy();
-  }
-  if (visual.kind === "player") {
-    visual.weapon.destroy();
-    visual.guardCone?.destroy();
-    visual.reviveRing?.destroy();
-  }
-  if (visual.kind === "item") {
-    visual.shadow.destroy();
-    visual.label.destroy();
-    visual.timer.destroy();
-  }
-  if (visual.kind === "projectile") visual.trail.destroy();
+  ATTACHMENT_DESTROYERS[visual.kind](visual);
+}
+
+type AttachmentDestroyer = (visual: EntityVisual) => void;
+
+const ATTACHMENT_DESTROYERS: Record<EntityVisual["kind"], AttachmentDestroyer> = {
+  player: (visual) => destroyPlayerAttachments(visual as PlayerVisual),
+  enemy: (visual) => destroyCombatantParts(visual as MonsterVisual),
+  pet: (visual) => destroyPetAttachments(visual as PetVisual),
+  item: (visual) => destroyItemAttachments(visual as ItemVisual),
+  projectile: (visual) => (visual as ProjectileVisual).trail.destroy(),
+  torch: () => undefined,
+};
+
+function destroyPlayerAttachments(visual: PlayerVisual): void {
+  destroyCombatantParts(visual);
+  visual.weapon.destroy();
+  visual.guardCone?.destroy();
+  visual.reviveRing?.destroy();
+}
+
+function destroyPetAttachments(visual: PetVisual): void {
+  visual.shadow.destroy();
+  visual.nameplate.destroy();
+  visual.ownerLabel.destroy();
+}
+
+function destroyItemAttachments(visual: ItemVisual): void {
+  visual.shadow.destroy();
+  visual.label.destroy();
+  visual.timer.destroy();
+}
+
+function destroyCombatantParts(visual: CombatantParts): void {
+  visual.shadow.destroy();
+  visual.hpBar.container.destroy();
+  visual.nameplate.destroy();
 }

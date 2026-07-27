@@ -45,15 +45,19 @@ async function waitForServer(url, proc, timeoutMs = 20000) {
   });
   while (Date.now() - start < timeoutMs) {
     if (exited) throw new Error("vite exited before becoming ready");
-    try {
-      const res = await fetch(url);
-      if (res.ok || res.status === 404) return;
-    } catch {
-      // not up yet
-    }
+    if (await serverResponded(url)) return;
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error(`vite did not become ready within ${timeoutMs}ms`);
+}
+
+async function serverResponded(url) {
+  try {
+    const response = await fetch(url);
+    return response.ok || response.status === 404;
+  } catch {
+    return false;
+  }
 }
 
 async function screenshot(args) {
@@ -62,19 +66,28 @@ async function screenshot(args) {
   const page = await browser.newPage({
     viewport: { width: Number(args.width), height: Number(args.height) },
   });
-  const consoleErrors = [];
-  page.on("pageerror", (err) => consoleErrors.push(String(err)));
-  page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text());
-  });
+  const consoleErrors = collectConsoleErrors(page);
   await page.goto(url, { waitUntil: "load" });
   await page.waitForTimeout(Number(args.waitMs));
   await page.screenshot({ path: args.out });
   await browser.close();
-  if (consoleErrors.length > 0) {
-    console.error("console errors during screenshot:\n" + consoleErrors.join("\n"));
-  }
+  reportConsoleErrors(consoleErrors);
   console.log(`screenshot written to ${args.out}`);
+}
+
+function collectConsoleErrors(page) {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  page.on("console", (message) => recordConsoleError(errors, message));
+  return errors;
+}
+
+function recordConsoleError(errors, message) {
+  if (message.type() === "error") errors.push(message.text());
+}
+
+function reportConsoleErrors(errors) {
+  if (errors.length > 0) console.error("console errors during screenshot:\n" + errors.join("\n"));
 }
 
 async function main() {

@@ -1,5 +1,6 @@
 import { PICKUP_RANGE, findWorldInteractionTarget, type Entity } from "@dc2d/engine";
 import { spawnItem } from "./helpers.js";
+export { ensureStarterKit, grantRespawnKit } from "./inventory/starterKit.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
 /**
@@ -27,7 +28,7 @@ export function invQty(slot: PlayerSlot, defId: string): number {
  * hotbar bindings are the player's own — pickups never touch them
  * (bind from the inventory panel: click a row, press 1-9).
  */
-export function invAdd(sim: SimState, slot: PlayerSlot, defId: string, qty: number): void {
+export function invAdd(sim: SimState, slot: PlayerSlot, ...[defId, qty]: [string, number]): void {
   const i = invIndex(slot, defId);
   // i >= 0 guarantees slot.inventory[i] exists (found by invIndex above).
   if (i >= 0) slot.inventory[i]!.qty += qty;
@@ -38,89 +39,6 @@ export function invAdd(sim: SimState, slot: PlayerSlot, defId: string, qty: numb
   if (def.weapon && slot.weapon === null) {
     slot.weapon = defId;
     slot.outbox.push({ t: "toast", msg: `Equipped ${def.name}` });
-  }
-}
-
-const STARTER_SWORD_DEF = "sword";
-const STARTER_TORCH_DEF = "torch";
-const STARTER_BANDAGE_DEF = "bandage";
-const STARTER_TORCH_QTY = 3;
-const STARTER_BANDAGE_QTY = 2;
-const STARTER_TORCH_SLOT = 0;
-const STARTER_BANDAGE_SLOT = 1;
-const STARTER_HOTBAR_SCHEMA = 1;
-
-function bindStarterItems(slot: PlayerSlot): void {
-  slot.hotbar[STARTER_TORCH_SLOT] = STARTER_TORCH_DEF;
-  slot.hotbar[STARTER_BANDAGE_SLOT] = STARTER_BANDAGE_DEF;
-}
-
-function migrateStarterItems(sim: SimState, slot: PlayerSlot): void {
-  if ((slot.stored.starterHotbarSchema ?? 0) >= STARTER_HOTBAR_SCHEMA) return;
-  if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
-    invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
-  }
-  bindStarterItems(slot);
-  sim.store.recordHotbar(
-    slot.stored,
-    slot.hotbar,
-    STARTER_HOTBAR_SCHEMA,
-  );
-}
-
-/** True once a player has neither an equipped weapon nor a starter
- * sword/torch anywhere they own — inventory OR stash. Checking the
- * stash is what keeps the re-grant farm-safe: a player who tucked a
- * spare sword away before dying still "has" the kit and gets nothing. */
-function lacksStarterKit(slot: PlayerSlot): boolean {
-  if (slot.weapon !== null) return false;
-  if (invQty(slot, STARTER_SWORD_DEF) > 0 || invQty(slot, STARTER_TORCH_DEF) > 0) return false;
-  return !slot.stored.stash.some((e) => e.item === STARTER_SWORD_DEF || e.item === STARTER_TORCH_DEF);
-}
-
-/**
- * ASSUMPTION #87 (docs/ASSUMPTIONS.md): re-grant the starter kit (1
- * rusty sword, auto-equipped by invAdd's first-weapon rule, + 3
- * torches) whenever a player is genuinely kit-less — no weapon
- * equipped and no sword/torch in inventory or stash. Called on every
- * respawn (players.ts) and on join for a returning clientId whose
- * fresh in-memory slot has nothing (players.ts's join.ts caller),
- * closing the "died once, permanently Unarmed" hole the exactly-once
- * grant left. Anti-farm: items from a player's OWN death-drop corpse
- * remain lootable exactly as before this fix — a farmer gains nothing
- * by dying since the fresh grant plus the dropped corpse only ever
- * nets what the exactly-once rule already handed out once, and the
- * live inventory is bounded to one kit at a time (this only fires
- * while completely kit-less).
- */
-export function ensureStarterKit(sim: SimState, slot: PlayerSlot): void {
-  if (lacksStarterKit(slot)) {
-    invAdd(sim, slot, STARTER_SWORD_DEF, 1);
-    invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
-    if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
-      invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
-    }
-  }
-  migrateStarterItems(sim, slot);
-}
-
-/**
- * Panel round 4 (BookFan: "respawn comes back UNARMED"), ASSUMPTION #381
- * (docs/ASSUMPTIONS.md): a RESPAWN re-grants the starter kit
- * unconditionally — sword in hand, torches in the bag — exactly like a
- * genuinely fresh join. ensureStarterKit's stash check (#87's farm-safety
- * for join/resume) is what left BookFan weaponless: a spare sword or
- * torch sitting in a stash they aren't standing at counted as "has the
- * kit". The full-loot death drop has already emptied the live inventory
- * by the time this runs, so each grant fires at most once per death;
- * the explicit equip below also never depends on a content lookup.
- */
-export function grantRespawnKit(sim: SimState, slot: PlayerSlot): void {
-  if (invQty(slot, STARTER_SWORD_DEF) === 0) invAdd(sim, slot, STARTER_SWORD_DEF, 1);
-  if (slot.weapon === null) slot.weapon = STARTER_SWORD_DEF;
-  if (invQty(slot, STARTER_TORCH_DEF) === 0) invAdd(sim, slot, STARTER_TORCH_DEF, STARTER_TORCH_QTY);
-  if (invQty(slot, STARTER_BANDAGE_DEF) === 0) {
-    invAdd(sim, slot, STARTER_BANDAGE_DEF, STARTER_BANDAGE_QTY);
   }
 }
 
@@ -151,34 +69,54 @@ function nearestPlacedTorch(sim: SimState, body: Entity["body"], maxDistance: nu
 /** Pick up the nearest ground item or still-burning placed torch on the same level. */
 export function doPickup(sim: SimState, slot: PlayerSlot): void {
   const body = slot.entity.body;
-  let best: Entity | null = null;
-  let bestDist = PICKUP_RANGE;
-  for (const item of sim.items.values()) {
-    // Same level only — no grabbing loot off a mesa top from below.
-    if (Math.abs(item.body.z - body.z) > 1.5) continue;
-    const d = Math.hypot(item.body.x - body.x, item.body.y - body.y);
-    if (d <= bestDist) {
-      bestDist = d;
-      best = item;
-    }
-  }
-  best = nearestPlacedTorch(sim, body, bestDist) ?? best;
+  const best = nearestPlacedTorch(sim, body, nearestItemDistance(sim, body)) ?? nearestGroundItem(sim, body);
   if (!best) return;
-  if (best.kind === "torch" && best.torchState === "placed") {
-    sim.torches.delete(best.id);
-    invAdd(sim, slot, "torch", 1);
-    return;
+  pickUpEntity(sim, slot, best);
+}
+
+function nearestGroundItem(sim: SimState, body: Entity["body"]): Entity | null {
+  return nearestEntity([...sim.items.values()], body, PICKUP_RANGE);
+}
+
+function nearestItemDistance(sim: SimState, body: Entity["body"]): number {
+  const item = nearestGroundItem(sim, body);
+  return item ? Math.hypot(item.body.x - body.x, item.body.y - body.y) : PICKUP_RANGE;
+}
+
+function nearestEntity(items: Entity[], body: Entity["body"], maxDistance: number): Entity | null {
+  let best: Entity | null = null;
+  let bestDistance = maxDistance;
+  for (const item of items) {
+    const distance = entityDistanceAtLevel(item, body);
+    if (distance === null || distance > bestDistance) continue;
+    best = item;
+    bestDistance = distance;
   }
-  if (!best.defId) return;
-  invAdd(sim, slot, best.defId, best.qty);
-  sim.items.delete(best.id);
-  sim.exposure.delete(best.id);
+  return best;
+}
+
+function entityDistanceAtLevel(entity: Entity, body: Entity["body"]): number | null {
+  if (Math.abs(entity.body.z - body.z) > 1.5) return null;
+  return Math.hypot(entity.body.x - body.x, entity.body.y - body.y);
+}
+
+function pickUpEntity(sim: SimState, slot: PlayerSlot, entity: Entity): void {
+  if (entity.kind === "torch" && entity.torchState === "placed") return pickUpTorch(sim, slot, entity);
+  if (!entity.defId) return;
+  invAdd(sim, slot, entity.defId, entity.qty);
+  sim.items.delete(entity.id);
+  sim.exposure.delete(entity.id);
+}
+
+function pickUpTorch(sim: SimState, slot: PlayerSlot, torch: Entity): void {
+  sim.torches.delete(torch.id);
+  invAdd(sim, slot, "torch", 1);
 }
 
 /** Drop one item by def; equipment clears only when its final copy leaves. */
 export function doDrop(sim: SimState, slot: PlayerSlot, defId: string): void {
   if (!invRemove(slot, defId, 1)) return;
-  spawnItem(sim, defId, slot.entity.body.x, slot.entity.body.y, 1);
+  spawnItem(sim, { defId, x: slot.entity.body.x, y: slot.entity.body.y, qty: 1 });
   if (slot.weapon === defId && invQty(slot, defId) === 0) slot.weapon = null;
 }
 
@@ -187,7 +125,7 @@ export function dropAllInventory(sim: SimState, slot: PlayerSlot): void {
     // Scatter a little so stacks are visible/lootable.
     const jx = (sim.rng.next() - 0.5) * 1.5;
     const jy = (sim.rng.next() - 0.5) * 1.5;
-    spawnItem(sim, stack.item, slot.entity.body.x + jx, slot.entity.body.y + jy, stack.qty);
+    spawnItem(sim, { defId: stack.item, x: slot.entity.body.x + jx, y: slot.entity.body.y + jy, qty: stack.qty });
   }
   slot.inventory = [];
   slot.weapon = null;
@@ -197,45 +135,38 @@ export function doCraft(sim: SimState, slot: PlayerSlot, recipeId: string): void
   const recipe = sim.content.recipes.get(recipeId);
   if (!recipe) return;
   const body = slot.entity.body;
-  if (!findWorldInteractionTarget(sim.world, body.x, body.y, "craft")) {
+  if (!findWorldInteractionTarget({ world: sim.world, x: body.x, y: body.y, kind: "craft" })) {
     slot.outbox.push({ t: "toast", msg: "You need a crafting table" });
     return;
   }
-  for (const input of recipe.inputs) {
-    if (invQty(slot, input.item) < input.qty) {
-      slot.outbox.push({ t: "toast", msg: `Missing ${input.item}` });
-      return;
-    }
-  }
+  const missing = recipe.inputs.find((input) => invQty(slot, input.item) < input.qty);
+  if (missing) return void slot.outbox.push({ t: "toast", msg: `Missing ${missing.item}` });
   for (const input of recipe.inputs) invRemove(slot, input.item, input.qty);
   invAdd(sim, slot, recipe.output.item, recipe.output.qty);
   sim.store.recordCraft(slot.stored, recipe.id);
   slot.outbox.push({ t: "toast", msg: `Crafted ${recipe.output.item}` });
 }
 
-export function doStash(
-  sim: SimState,
-  slot: PlayerSlot,
-  op: "put" | "take",
-  index: number,
-): void {
+export function doStash(sim: SimState, slot: PlayerSlot, request: { op: "put" | "take"; index: number }): void {
   const body = slot.entity.body;
-  if (!findWorldInteractionTarget(sim.world, body.x, body.y, "stash")) return;
-  if (op === "put") {
-    const stack = slot.inventory[index];
-    if (!stack) return;
-    const def = sim.content.items.get(stack.item);
-    if (!def) return;
-    if (sim.store.stashAdd(slot.stored, stack.item, stack.qty, def.maxStack)) {
-      if (slot.weapon === stack.item) slot.weapon = null;
-      slot.inventory.splice(index, 1);
-    } else {
-      slot.outbox.push({ t: "toast", msg: "Stash full" });
-    }
-  } else {
-    const entry = sim.store.stashTake(slot.stored, index);
-    if (!entry) return;
-    invAdd(sim, slot, entry.item, entry.qty);
-  }
+  if (!findWorldInteractionTarget({ world: sim.world, x: body.x, y: body.y, kind: "stash" })) return;
+  if (request.op === "put") stashInventory(sim, slot, request.index);
+  else unstashInventory(sim, slot, request.index);
   slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
+}
+
+function stashInventory(sim: SimState, slot: PlayerSlot, index: number): void {
+  const stack = slot.inventory[index];
+  const def = stack && sim.content.items.get(stack.item);
+  if (!stack || !def) return;
+  if (!sim.store.stashAdd(slot.stored, { item: stack.item, qty: stack.qty, maxStack: def.maxStack })) {
+    return void slot.outbox.push({ t: "toast", msg: "Stash full" });
+  }
+  if (slot.weapon === stack.item) slot.weapon = null;
+  slot.inventory.splice(index, 1);
+}
+
+function unstashInventory(sim: SimState, slot: PlayerSlot, index: number): void {
+  const entry = sim.store.stashTake(slot.stored, index);
+  if (entry) invAdd(sim, slot, entry.item, entry.qty);
 }

@@ -49,7 +49,7 @@ export class WeaponChipWidget {
     this.container = createWidgetContainer(scene, layout);
     const bg = drawPanelBackground(scene, CHIP_WIDTH, CHIP_HEIGHT).setPosition(-CHIP_WIDTH, -CHIP_HEIGHT);
     this.label = scene.add
-      .text(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2, "", uiTextStyle(12, undefined, layout.scale, "emphasis"))
+      .text(-CHIP_WIDTH + ICON_SIZE + spacing(2), -CHIP_HEIGHT / 2, "", uiTextStyle(12, undefined, { scale: layout.scale, weight: "emphasis" }))
       .setOrigin(0, 0.5);
     this.container.add([bg, this.label]);
   }
@@ -66,7 +66,7 @@ export class WeaponChipWidget {
       this.label.setOrigin(0.5, 0.5).setPosition(-CHIP_WIDTH / 2, -CHIP_HEIGHT / 2).setText("Unarmed");
       return;
     }
-    this.icon = createItemIcon(this.scene, displayId, ICON_SIZE, this.scale).setPosition(
+    this.icon = createItemIcon({ scene: this.scene, itemId: displayId, size: ICON_SIZE, containerScale: this.scale }).setPosition(
       -CHIP_WIDTH + spacing(1) + ICON_SIZE / 2,
       -CHIP_HEIGHT / 2,
     );

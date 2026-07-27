@@ -12,21 +12,25 @@ import { FLOOR_CAP } from "./descentShared.js";
 
 const SEEDS = Array.from({ length: 30 }, (_, i) => i * 7919 + 13);
 
+function world(seed: number, floor: number, location = { cx: 0, cy: 0 }) {
+  return { worldSeed: seed, floor, ...location };
+}
+
 describe("boss arena chunk selection", () => {
   it("exists on FLOOR_CAP only", () => {
     for (const seed of SEEDS) {
-      for (let floor = 1; floor < FLOOR_CAP; floor++) expect(bossArenaChunk(seed, floor)).toBeNull();
-      expect(bossArenaChunk(seed, FLOOR_CAP)).not.toBeNull();
+      for (let floor = 1; floor < FLOOR_CAP; floor++) expect(bossArenaChunk(world(seed, floor))).toBeNull();
+      expect(bossArenaChunk(world(seed, FLOOR_CAP))).not.toBeNull();
     }
   });
 
   it("isBossArenaChunk agrees with the chunk getter, and only that one chunk", () => {
     const seed = SEEDS[0] as number;
-    const chunk = bossArenaChunk(seed, FLOOR_CAP);
+    const chunk = bossArenaChunk(world(seed, FLOOR_CAP));
     expect(chunk).not.toBeNull();
     if (!chunk) return;
-    expect(isBossArenaChunk(seed, FLOOR_CAP, chunk.cx, chunk.cy)).toBe(true);
-    expect(isBossArenaChunk(seed, FLOOR_CAP, chunk.cx, chunk.cy + 1)).toBe(false);
+    expect(isBossArenaChunk(world(seed, FLOOR_CAP, chunk))).toBe(true);
+    expect(isBossArenaChunk(world(seed, FLOOR_CAP, { cx: chunk.cx, cy: chunk.cy + 1 }))).toBe(false);
   });
 
   it("gate and spawn-anchor positions land inside the arena's own chunk, and are null off FLOOR_CAP", () => {
@@ -34,7 +38,7 @@ describe("boss arena chunk selection", () => {
       expect(bossArenaGatePosition({ worldSeed: seed, floor: 1 })).toBeNull();
       expect(bossArenaSpawnAnchor({ worldSeed: seed, floor: 1 })).toBeNull();
 
-      const chunk = bossArenaChunk(seed, FLOOR_CAP);
+      const chunk = bossArenaChunk(world(seed, FLOOR_CAP));
       const gate = bossArenaGatePosition({ worldSeed: seed, floor: FLOOR_CAP });
       const spawn = bossArenaSpawnAnchor({ worldSeed: seed, floor: FLOOR_CAP });
       expect(chunk).not.toBeNull();

@@ -25,9 +25,19 @@ import type { RenderPose } from "./state.js";
  * widget's own orbit angle is a SCREEN-space visual, so the touch branch routes it through
  * worldToView (the forward half of the seam) before handing it to weaponOrbit's atan2.
  */
-export function resolveSelfAimAngle(touchActive: boolean, faceX: number, faceY: number, render: RenderPose, camera: Phaser.Cameras.Scene2D.Camera, pointer: Phaser.Input.Pointer): number {
-  const source: AimSource = touchActive ? touchFacingSource(faceX, faceY) : mouseAimSource(render, camera, pointer);
-  return resolveAimAngle(source);
+export interface SelfAimSource {
+  readonly touchActive: boolean;
+  readonly faceX: number;
+  readonly faceY: number;
+  readonly render: RenderPose;
+  readonly camera: Phaser.Cameras.Scene2D.Camera;
+  readonly pointer: Phaser.Input.Pointer;
+}
+
+export function resolveSelfAimAngle(source: SelfAimSource): number {
+  const { touchActive, faceX, faceY, render, camera, pointer } = source;
+  const aimSource: AimSource = touchActive ? touchFacingSource(faceX, faceY) : mouseAimSource(render, camera, pointer);
+  return resolveAimAngle(aimSource);
 }
 
 function touchFacingSource(faceX: number, faceY: number): AimSource {

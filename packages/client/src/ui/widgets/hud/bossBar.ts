@@ -33,7 +33,7 @@ export class BossBarWidget {
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
     this.nameLabel = scene.add
-      .text(0, -spacing(0.5), "", uiTextStyle(13, "#e8e8e8", layout.scale, "emphasis"))
+      .text(0, -spacing(0.5), "", uiTextStyle(13, "#e8e8e8", { scale: layout.scale, weight: "emphasis" }))
       .setOrigin(0.5, 1);
     const bg = scene.add
       .rectangle(-BAR_WIDTH / 2, 0, BAR_WIDTH, BAR_HEIGHT, PANEL_FILL)

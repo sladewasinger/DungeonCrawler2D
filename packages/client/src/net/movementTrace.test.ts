@@ -66,13 +66,13 @@ describe("MovementTraceRecorder", () => {
     }, 1_000)).toBe(true);
 
     recorder.recordInput(input, state());
-    recorder.recordSnapshot(snapshot, createBody(4, 5, 0), createBody(3.75, 5, 0), state());
-    recorder.recordFrame(
-      1_050,
-      input,
-      { x: 4.1, y: 5, z: 0 },
-      state(),
-    );
+    recorder.recordSnapshot({
+      snapshot,
+      predictedBefore: createBody(4, 5, 0),
+      predictedAfter: createBody(3.75, 5, 0),
+      client: state(),
+    });
+    recorder.recordFrame({ time: 1_050, input, render: { x: 4.1, y: 5, z: 0 }, client: state() });
     const trace = recorder.stop("manual", 1_100);
 
     expect(trace).toMatchObject({

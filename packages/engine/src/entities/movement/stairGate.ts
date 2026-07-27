@@ -13,8 +13,17 @@ import type { BodyState } from "./state.js";
 const STAIR_RIM_PROBE = 0.01;
 
 /** True when (x1,y1) and (x2,y2) fall in the same tile — an intra-tile move never crosses a boundary. */
-function sameTile(x1: number, y1: number, x2: number, y2: number): boolean {
-  return Math.floor(x1) === Math.floor(x2) && Math.floor(y1) === Math.floor(y2);
+interface StairMove {
+  world: WorldView;
+  body: BodyState;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+}
+
+function sameTile(body: BodyState, x: number, y: number): boolean {
+  return Math.floor(body.x) === Math.floor(x) && Math.floor(body.y) === Math.floor(y);
 }
 
 /**
@@ -31,7 +40,7 @@ function sameTile(x1: number, y1: number, x2: number, y2: number): boolean {
  * (correctly blocked, a real wall); stepping off the ramp's side onto lower
  * flanking floor reads negative (drops are free).
  */
-function stairRimBlocks(world: WorldView, body: BodyState, dx: number, dy: number): boolean {
+function stairRimBlocks({ world, body, dx, dy }: StairMove): boolean {
   const sign = Math.sign(dx !== 0 ? dx : dy);
   const axisPos = dx !== 0 ? body.x : body.y;
   const boundary = sign > 0 ? Math.floor(axisPos) + 1 : Math.floor(axisPos);
@@ -47,14 +56,7 @@ function stairRimBlocks(world: WorldView, body: BodyState, dx: number, dy: numbe
  * stair rule, given the body is currently on a stair or moving onto one.
  * An intra-tile move never crosses a boundary, so it's always allowed here.
  */
-export function stairGateBlocks(
-  world: WorldView,
-  body: BodyState,
-  cx: number,
-  cy: number,
-  dx: number,
-  dy: number,
-): boolean {
-  if (sameTile(body.x, body.y, cx, cy)) return false;
-  return stairRimBlocks(world, body, dx, dy);
+export function stairGateBlocks(move: StairMove): boolean {
+  if (sameTile(move.body, move.x, move.y)) return false;
+  return stairRimBlocks(move);
 }

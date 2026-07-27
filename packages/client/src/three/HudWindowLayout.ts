@@ -31,16 +31,24 @@ export interface HudWindowViewport {
   height: number;
 }
 
+export interface DefaultWindowLayoutInput {
+  spec: HudWindowSpec;
+  visible: boolean;
+  z: number;
+  viewport?: HudWindowViewport;
+  scale?: number;
+}
+
 const viewportRatio = (size: number, viewportSize: number, scale: number): number =>
   Math.min(1, Math.max(0, size * scale / Math.max(1, viewportSize)));
 
-export const defaultWindowLayout = (
-  spec: HudWindowSpec,
-  visible: boolean,
-  z: number,
-  viewport: HudWindowViewport = { width: spec.width, height: spec.height },
+export const defaultWindowLayout = ({
+  spec,
+  visible,
+  z,
+  viewport = { width: spec.width, height: spec.height },
   scale = 1,
-): HudWindowLayout => ({
+}: DefaultWindowLayoutInput): HudWindowLayout => ({
   anchor: spec.anchor,
   xRatio: 0,
   yRatio: 0,
@@ -60,19 +68,28 @@ export const restoreStoredLayout = (
   visible: stored.visible ?? defaults.visible ?? true,
 });
 
-export const shouldUseMobileDefault = (
-  mobile: boolean,
-  spec: HudWindowSpec,
-  stored: HudWindowLayout | undefined,
-  desktopDefaults: HudWindowLayout | undefined = undefined,
-): boolean => {
+export interface MobileDefaultInput {
+  mobile: boolean;
+  spec: HudWindowSpec;
+  stored?: HudWindowLayout | undefined;
+  desktopDefaults?: HudWindowLayout | undefined;
+}
+
+export const shouldUseMobileDefault = ({
+  mobile,
+  spec,
+  stored,
+  desktopDefaults,
+}: MobileDefaultInput): boolean => {
   if (!mobile || !spec.mobile || !stored || !desktopDefaults) return false;
-  return stored.anchor === spec.anchor &&
-    stored.xRatio === 0 &&
-    stored.yRatio === 0 &&
-    stored.widthRatio === desktopDefaults.widthRatio &&
-    stored.heightRatio === desktopDefaults.heightRatio;
+  return matchesDefaultPosition(stored, spec) && matchesDefaultSize(stored, desktopDefaults);
 };
+
+const matchesDefaultPosition = (stored: HudWindowLayout, spec: HudWindowSpec): boolean =>
+  stored.anchor === spec.anchor && stored.xRatio === 0 && stored.yRatio === 0;
+
+const matchesDefaultSize = (stored: HudWindowLayout, defaults: HudWindowLayout): boolean =>
+  stored.widthRatio === defaults.widthRatio && stored.heightRatio === defaults.heightRatio;
 
 export const resolveWindowSize = (
   layout: HudWindowLayout,
@@ -93,11 +110,5 @@ export const resolveWindowPosition = (
       y: Math.round(layout.yRatio * Math.max(0, root.height - size.height)),
     };
   }
-  return anchoredPosition(
-    layout.anchor,
-    size.width,
-    size.height,
-    root.width,
-    root.height,
-  );
+  return anchoredPosition({ anchor: layout.anchor, size, viewport: root });
 };

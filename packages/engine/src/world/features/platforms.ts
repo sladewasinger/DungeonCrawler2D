@@ -5,227 +5,113 @@ import {
   baseSample,
   corridorSegments,
   distToCorridor,
-  generatedChunkCenter,
   seedsFor,
   type CorridorSegment,
   type Seeds,
 } from "../terrain.js";
 import { TILE } from "../types.js";
-import {
-  GENERATION_CHUNK_SIZE as CHUNK_SIZE,
-  scaleGeneratedPoint,
-} from "../generate/scale.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE, scaleGeneratedPoint } from "../generate/scale.js";
+import { clusterCenter, mesasFor, mesaRiseAt, type LocalPoint, type Mesa } from "./platforms/geometry.js";
 
-/**
- * Ruin platform clusters — the jump playground of the overworld.
- * Roughly one chunk in four grows a flattened pad holding a handful of
- * mesas raised in +1 steps: +1 is exactly jumpable (jump apex ≈ 1.07),
- * so you hop pad → mesa → across 1–3 tile gaps — and the tall central
- * mesa adds a second +1 step to +2. The server drops loot on the tops;
- * knockback near an edge is exactly as dangerous as it sounds.
- *
- * Everything derives from (worldSeed, floor, chunk) hashes and stays
- * inside the chunk interior, so seams and determinism are untouched.
- * The cluster anchors diagonally OFF the chunk's corridor junction and
- * mesas never rise onto the corridor itself, so the corridor network
- * (and the connectivity guarantee it carries) walks straight through.
- */
-
-const PLATFORM_MODULUS = 4; // ~1 in 4 eligible chunks
-export const PLATFORM_TIER_STEP = 1; // jumpable rise per tier
-const PAD = 8; // flattened pad half-size (chebyshev)
-const PAD_MARGIN = 2; // height-blend apron around the pad
+const PLATFORM_MODULUS = 4;
+const PAD = 8;
+const PAD_MARGIN = 2;
 const REACH = PAD + PAD_MARGIN;
-/** Mesas keep this far from corridor centerlines (walk-through stays). */
 const CORRIDOR_CLEAR = CORRIDOR_HALF_WIDTH + 1;
+export { PLATFORM_TIER_STEP } from "./platforms/geometry.js";
 
-interface Mesa {
-  dx: number;
-  dy: number;
-  /** Half-sizes: mesa spans (dx±hx, dy±hy) around the cluster center. */
-  hx: number;
-  hy: number;
-  /** 1 → +1, 2 → +2 (as a second step on top of a tier-1 skirt). */
-  tier: 1 | 2;
+export interface WorldChunkCoordinate {
+  worldSeed: number;
+  floor: number;
+  cx: number;
+  cy: number;
 }
 
-export function hasPlatformCluster(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): boolean {
-  // The proving ground (chunks 0..1) is authored; feature chunks keep
-  // their clearings for the safe-room kiosk / stairway pad.
-  if (cx >= 0 && cx <= 1 && cy >= 0 && cy <= 1) return false;
-  if (isSafeRoomChunk(worldSeed, floor, cx, cy)) return false;
-  if (isStairsChunk(worldSeed, floor, cx, cy)) return false;
-  const layout = seedsFor(worldSeed, floor).layout;
-  return hash2D(mixSeeds(layout, 0x9e5a), cx, cy) % PLATFORM_MODULUS === 0;
+export interface PlatformApplication {
+  chunk: WorldChunkCoordinate;
+  seeds: Seeds;
+  segs: CorridorSegment[];
+  tiles: Uint8Array;
+  height: Float32Array;
 }
 
-const DIAG: ReadonlyArray<readonly [number, number]> = [
-  [1, 1],
-  [1, -1],
-  [-1, 1],
-  [-1, -1],
-];
-
-/** Cluster center in chunk-local coords — diagonally off the corridor junction (pure). */
-function clusterCenter(
-  worldSeed: number,
-  floor: number,
-  seeds: Seeds,
-  cx: number,
-  cy: number,
-): { lx: number; ly: number } {
-  const junction = generatedChunkCenter(worldSeed, floor, cx, cy);
-  const jlx = junction.x - cx * CHUNK_SIZE;
-  const jly = junction.y - cy * CHUNK_SIZE;
-  const [ddx, ddy] = DIAG[hash2D(mixSeeds(seeds.layout, 0x9e5b), cx, cy) % 4] ?? [1, 1];
-  const clamp = (v: number) => Math.max(REACH, Math.min(CHUNK_SIZE - 1 - REACH, Math.round(v)));
-  return { lx: clamp(jlx + ddx * 8), ly: clamp(jly + ddy * 8) };
+export function hasPlatformCluster(chunk: WorldChunkCoordinate): boolean {
+  if (isProvingGround(chunk) || isSafeRoomChunk(chunk) || isStairsChunk(chunk)) return false;
+  return hash2D(mixSeeds(seedsFor(chunk.worldSeed, chunk.floor).layout, 0x9e5a), chunk.cx, chunk.cy) % PLATFORM_MODULUS === 0;
 }
 
-/** Deterministic mesa layout for a cluster (pure). */
-function mesasFor(seeds: Seeds, cx: number, cy: number): Mesa[] {
-  // salt as its own mix part: additive salts correlate hash2D outputs
-  // across salts, which stacked every mesa on the same offset.
-  const h = (salt: number) => hash2D(mixSeeds(seeds.layout, 0x9e60, salt), cx, cy);
-  const count = 3 + (h(0) % 3); // 3..5 mesas
-  const mesas: Mesa[] = [];
-  // The first mesa is the tall centerpiece: a tier-1 skirt with a
-  // tier-2 core (handled in mesaRiseAt); the rest ring it at hop-able
-  // offsets. hx/hy=3 (not 2) so the tier-1 skirt is TIER2_SHELL_WIDTH=2
-  // deep on every side — a skirt only 1 deep, front-to-back, would be
-  // "all face, no platform" (docs/VISUAL_DIRECTION.md's z+1 vertical-
-  // extent rule: z1 needs >=2 deep).
-  mesas.push({ dx: 0, dy: 0, hx: 3, hy: 3, tier: 2 });
-  for (let k = 1; k < count; k++) {
-    const angle = ((h(k * 3 + 1) % 8) / 8) * Math.PI * 2;
-    const dist = 5 + (h(k * 3 + 2) % 2); // 5..6 tiles out — gaps of 1..3
-    mesas.push({
-      dx: Math.round(Math.cos(angle) * dist),
-      dy: Math.round(Math.sin(angle) * dist),
-      hx: 1 + (h(k * 3 + 3) % 2), // half-sizes 1..2 → mesas 3..5 wide
-      hy: 1 + (h(k * 3 + 4) % 2),
-      tier: 1,
-    });
+function isProvingGround({ cx, cy }: WorldChunkCoordinate): boolean {
+  return cx >= 0 && cx <= 1 && cy >= 0 && cy <= 1;
+}
+
+interface PadStamp {
+  input: PlatformApplication;
+  center: LocalPoint;
+  mesas: Mesa[];
+  padHeight: number;
+}
+
+function platformHeight(stamp: PadStamp, point: LocalPoint): number {
+  const { input, center, mesas, padHeight } = stamp;
+  const { cx, cy } = input.chunk;
+  const worldX = cx * CHUNK_SIZE + point.lx;
+  const worldY = cy * CHUNK_SIZE + point.ly;
+  if (distToCorridor(input.segs, worldX, worldY) <= CORRIDOR_CLEAR) return padHeight;
+  return padHeight + mesaRiseAt(mesas, point.lx - center.lx, point.ly - center.ly);
+}
+
+function stampPadCell(stamp: PadStamp, point: LocalPoint): void {
+  const { input, center, padHeight } = stamp;
+  const index = point.ly * CHUNK_SIZE + point.lx;
+  const distance = Math.max(Math.abs(point.lx - center.lx), Math.abs(point.ly - center.ly));
+  if (distance <= PAD) {
+    input.tiles[index] = TILE.Floor;
+    input.height[index] = platformHeight(stamp, point);
+    return;
   }
-  return mesas;
+  const progress = (distance - PAD) / PAD_MARGIN;
+  const smooth = progress * progress * (3 - 2 * progress);
+  input.height[index] = padHeight + ((input.height[index] ?? 0) - padHeight) * smooth;
 }
 
-// Gap (in half-extent units) between a tier-2 core's boundary and its tier-1
-// skirt's outer boundary — the skirt's own front-to-back depth on every
-// side, so it must be >=2 to satisfy z+1 for a tier-1 (z1) rise.
-const TIER2_SHELL_WIDTH = 2;
-
-/** Raised height (0, +1, or +2) this cluster adds at a local offset. */
-function mesaRiseAt(mesas: Mesa[], ox: number, oy: number): number {
-  let rise = 0;
-  for (const m of mesas) {
-    const inX = Math.abs(ox - m.dx) <= m.hx;
-    const inY = Math.abs(oy - m.dy) <= m.hy;
-    if (!inX || !inY) continue;
-    let tier = 1;
-    const coreX = Math.abs(ox - m.dx) <= m.hx - TIER2_SHELL_WIDTH;
-    const coreY = Math.abs(oy - m.dy) <= m.hy - TIER2_SHELL_WIDTH;
-    if (m.tier === 2 && coreX && coreY) {
-      tier = 2; // inner core one more jump up
-    }
-    rise = Math.max(rise, tier * PLATFORM_TIER_STEP);
-  }
-  return rise;
+function stampPad(stamp: PadStamp): void {
+  const { center } = stamp;
+  for (let ly = center.ly - REACH; ly <= center.ly + REACH; ly++) stampPadRow(stamp, ly);
 }
 
-/**
- * Stamp a platform cluster over a chunk's generated data (runs after
- * the flattened features, before pocket sealing).
- */
-/** Cluster height at one chunk-local tile: pad-level inside the corridor guard, mesa rise elsewhere. */
-function padTileHeight(
-  mesas: Mesa[],
-  segs: CorridorSegment[],
-  cx: number,
-  cy: number,
-  centerLx: number,
-  centerLy: number,
-  padH: number,
-  lx: number,
-  ly: number,
-): number {
-  const wx = cx * CHUNK_SIZE + lx;
-  const wy = cy * CHUNK_SIZE + ly;
-  // Corridors stay at pad level — the walk-through guarantee.
-  const nearCorridor = distToCorridor(segs, wx, wy) <= CORRIDOR_CLEAR;
-  const rise = nearCorridor ? 0 : mesaRiseAt(mesas, lx - centerLx, ly - centerLy);
-  return padH + rise;
-}
-
-export function applyPlatformCluster(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  seeds: Seeds,
-  segs: CorridorSegment[],
-  tiles: Uint8Array,
-  height: Float32Array,
-): void {
-  if (!hasPlatformCluster(worldSeed, floor, cx, cy)) return;
-  const { lx: centerLx, ly: centerLy } = clusterCenter(worldSeed, floor, seeds, cx, cy);
-  const mesas = mesasFor(seeds, cx, cy);
-  const padH = baseSample(
-    seeds,
-    segs,
-    cx * CHUNK_SIZE + centerLx,
-    cy * CHUNK_SIZE + centerLy,
-  ).height;
-
-  for (let ly = centerLy - REACH; ly <= centerLy + REACH; ly++) {
-    for (let lx = centerLx - REACH; lx <= centerLx + REACH; lx++) {
-      if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-      const i = ly * CHUNK_SIZE + lx;
-      const d = Math.max(Math.abs(lx - centerLx), Math.abs(ly - centerLy));
-      if (d <= PAD) {
-        // The pad clears cave walls so the ruins stand in the open.
-        tiles[i] = TILE.Floor;
-        height[i] = padTileHeight(mesas, segs, cx, cy, centerLx, centerLy, padH, lx, ly);
-      } else {
-        const t = (d - PAD) / PAD_MARGIN;
-        const smooth = t * t * (3 - 2 * t);
-        height[i] = padH + ((height[i] ?? 0) - padH) * smooth;
-      }
-    }
+function stampPadRow(stamp: PadStamp, ly: number): void {
+  for (let lx = stamp.center.lx - REACH; lx <= stamp.center.lx + REACH; lx++) {
+    if (isInChunk(lx, ly)) stampPadCell(stamp, { lx, ly });
   }
 }
 
-/**
- * World-coordinate tops of this chunk's mesas — loot spots for the
- * server. Only mesas whose top actually rose count (a mesa the
- * corridor guard flattened isn't a platform). Empty when the chunk has
- * no cluster.
- */
-export function platformLootSpots(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): Array<{ x: number; y: number }> {
-  if (!hasPlatformCluster(worldSeed, floor, cx, cy)) return [];
-  const seeds = seedsFor(worldSeed, floor);
-  const { lx, ly } = clusterCenter(worldSeed, floor, seeds, cx, cy);
-  const spots: Array<{ x: number; y: number }> = [];
-  for (const m of mesasFor(seeds, cx, cy)) {
-    const tlx = lx + m.dx;
-    const tly = ly + m.dy;
-    if (tlx < 0 || tly < 0 || tlx >= CHUNK_SIZE || tly >= CHUNK_SIZE) continue;
-    const wx = cx * CHUNK_SIZE + tlx;
-    const wy = cy * CHUNK_SIZE + tly;
-    // Recompute the guard the stamp applied — pure, so it agrees.
-    const segs = corridorSegments(worldSeed, floor, cx, cy);
-    if (distToCorridor(segs, wx, wy) <= CORRIDOR_CLEAR) continue;
-    spots.push(scaleGeneratedPoint({ x: wx + 0.5, y: wy + 0.5 }));
-  }
-  return spots;
+function isInChunk(lx: number, ly: number): boolean {
+  return lx >= 0 && ly >= 0 && lx < CHUNK_SIZE && ly < CHUNK_SIZE;
+}
+
+export function applyPlatformCluster(input: PlatformApplication): void {
+  if (!hasPlatformCluster(input.chunk)) return;
+  const center = clusterCenter(input.chunk, input.seeds, REACH);
+  const mesas = mesasFor(input.seeds, input.chunk.cx, input.chunk.cy);
+  const { cx, cy } = input.chunk;
+  const padHeight = baseSample(input.seeds, input.segs, cx * CHUNK_SIZE + center.lx, cy * CHUNK_SIZE + center.ly).height;
+  stampPad({ input, center, mesas, padHeight });
+}
+
+function isRaisedMesa(chunk: WorldChunkCoordinate, segs: CorridorSegment[], point: LocalPoint): boolean {
+  const x = chunk.cx * CHUNK_SIZE + point.lx;
+  const y = chunk.cy * CHUNK_SIZE + point.ly;
+  return distToCorridor(segs, x, y) > CORRIDOR_CLEAR;
+}
+
+export function platformLootSpots(chunk: WorldChunkCoordinate): Array<{ x: number; y: number }> {
+  if (!hasPlatformCluster(chunk)) return [];
+  const seeds = seedsFor(chunk.worldSeed, chunk.floor);
+  const center = clusterCenter(chunk, seeds, REACH);
+  const segs = corridorSegments(chunk.worldSeed, chunk.floor, chunk.cx, chunk.cy);
+  return mesasFor(seeds, chunk.cx, chunk.cy)
+    .map(({ dx, dy }) => ({ lx: center.lx + dx, ly: center.ly + dy }))
+    .filter((point) => point.lx >= 0 && point.ly >= 0 && point.lx < CHUNK_SIZE && point.ly < CHUNK_SIZE)
+    .filter((point) => isRaisedMesa(chunk, segs, point))
+    .map((point) => scaleGeneratedPoint({ x: chunk.cx * CHUNK_SIZE + point.lx + 0.5, y: chunk.cy * CHUNK_SIZE + point.ly + 0.5 }));
 }

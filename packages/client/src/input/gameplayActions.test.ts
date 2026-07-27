@@ -85,7 +85,7 @@ const setup = (
 describe("loot chest interaction priority", () => {
   it("opens an eligible chest and still lets the server validate it", () => {
     const { calls, conn, panels, queries } = setup(null, { lootCanOpen: true });
-    interactOrUse(conn, panels, queries, null, () => false);
+    interactOrUse({ conn, panels, queries, selectedSlot: null, startRevive: () => false });
     expect(calls).toEqual(["lootChest:loot-1:open", "toggleStash"]);
   });
 
@@ -97,7 +97,7 @@ describe("loot chest interaction priority", () => {
       return { id: "loot-first", canOpen: true };
     };
 
-    interactOrUse(state.conn, state.panels, state.queries, null, () => false);
+    interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: null, startRevive: () => false });
 
     expect(prompted).toBe(true);
     expect(state.calls).toEqual(["lootChest:loot-first:open", "toggleStash"]);
@@ -105,7 +105,7 @@ describe("loot chest interaction priority", () => {
 
   it("asks the server for lock feedback without opening for a stranger", () => {
     const { calls, conn, panels, queries } = setup(null, { lootCanOpen: false });
-    interactOrUse(conn, panels, queries, null, () => false);
+    interactOrUse({ conn, panels, queries, selectedSlot: null, startRevive: () => false });
     expect(calls).toEqual(["lootChest:loot-1:open"]);
   });
 });
@@ -113,14 +113,14 @@ describe("loot chest interaction priority", () => {
 describe("interactOrUse", () => {
   it("keeps stair and revive ahead of world and selected-item actions", () => {
     const stair = setup(target("door"), { stair: true, consumable: true });
-    interactOrUse(stair.conn, stair.panels, stair.queries, 0, () => false);
+    interactOrUse({ conn: stair.conn, panels: stair.panels, queries: stair.queries, selectedSlot: 0, startRevive: () => false });
     expect(stair.calls).toEqual(["descend"]);
 
     const revive = setup(target("door"), { revive: true, consumable: true });
-    interactOrUse(revive.conn, revive.panels, revive.queries, 0, (id) => {
+    interactOrUse({ conn: revive.conn, panels: revive.panels, queries: revive.queries, selectedSlot: 0, startRevive: (id) => {
       revive.calls.push(`revive:${id}`);
       return true;
-    });
+    } });
     expect(revive.calls).toEqual(["revive:ally"]);
   });
 
@@ -131,20 +131,20 @@ describe("interactOrUse", () => {
       ["craft", ["toggleCraft"]],
     ] as const) {
       const state = setup(target(kind));
-      interactOrUse(state.conn, state.panels, state.queries, null, () => false);
+      interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: null, startRevive: () => false });
       expect(state.calls).toEqual(expected);
     }
   });
 
   it("uses a selected consumable only when no higher-priority context exists", () => {
     const state = setup(null, { consumable: true });
-    interactOrUse(state.conn, state.panels, state.queries, 0, () => false);
+    interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: 0, startRevive: () => false });
     expect(state.calls).toEqual(["useSlot"]);
   });
 
   it("uses pickup as the touch fallback without false failure feedback", () => {
     const state = setup(null);
-    interactOrUse(state.conn, state.panels, state.queries, null, () => false, "pickup");
+    interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: null, startRevive: () => false, fallback: "pickup" });
     expect(state.calls).toEqual(["pickup"]);
   });
 

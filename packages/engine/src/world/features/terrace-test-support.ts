@@ -10,42 +10,37 @@ import { baseSample, corridorSegments, seedsFor } from "../terrain.js";
 import { TILE, TOPOLOGY } from "../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 
-export interface SyntheticChunk {
-  tiles: Uint8Array;
-  height: Float32Array;
-}
+export interface SyntheticChunk { tiles: Uint8Array; height: Float32Array }
+type ChunkCoordinate = { worldSeed: number; floor: number; cx: number; cy: number }; type Cell = { x: number; y: number };
 
 /** A chunk-local base layout (the same flat-first sampling the generators run) with the terrace applied on top. */
-export function buildTerraceChunk(seed: number, floor: number, cx: number, cy: number): SyntheticChunk {
-  const seeds = seedsFor(seed, floor);
-  const segs = corridorSegments(seed, floor, cx, cy);
+export function buildTerraceChunk(chunk: ChunkCoordinate): SyntheticChunk {
+  const { worldSeed, floor, cx, cy } = chunk;
+  const seeds = seedsFor(worldSeed, floor);
+  const segs = corridorSegments(worldSeed, floor, cx, cy);
   const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
   const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
   const baseX = cx * CHUNK_SIZE;
   const baseY = cy * CHUNK_SIZE;
-  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const sample = baseSample(seeds, segs, baseX + lx, baseY + ly);
-      tiles[ly * CHUNK_SIZE + lx] = sample.wall ? TOPOLOGY.Uncarved : TILE.Floor;
-      height[ly * CHUNK_SIZE + lx] = sample.height;
-    }
+  for (let index = 0; index < tiles.length; index++) {
+    const lx = index % CHUNK_SIZE;
+    const ly = Math.floor(index / CHUNK_SIZE);
+    const sample = baseSample(seeds, segs, baseX + lx, baseY + ly);
+    tiles[index] = sample.wall ? TOPOLOGY.Uncarved : TILE.Floor;
+    height[index] = sample.height;
   }
-  applyTerrace(seed, floor, cx, cy, segs, tiles, height);
+  applyTerrace({ chunk, segs, tiles, height });
   return { tiles, height };
 }
 
-export interface ChunkLookup {
-  tileAt(wx: number, wy: number): number;
-  heightAt(wx: number, wy: number): number;
-  isWalkable(wx: number, wy: number): boolean;
-}
+export interface ChunkLookup { tileAt(wx: number, wy: number): number; heightAt(wx: number, wy: number): number; isWalkable(wx: number, wy: number): boolean }
 
 /** A minimal multi-chunk lookup, built from synthetic terrace chunks, for the cross-chunk walk test. */
 export class TwoChunkView implements ChunkLookup {
   private readonly chunks = new Map<string, SyntheticChunk>();
 
   constructor(seed: number, floor: number, coords: Array<[number, number]>) {
-    for (const [cx, cy] of coords) this.chunks.set(`${cx},${cy}`, buildTerraceChunk(seed, floor, cx, cy));
+    for (const [cx, cy] of coords) this.chunks.set(`${cx},${cy}`, buildTerraceChunk({ worldSeed: seed, floor, cx, cy }));
   }
 
   private cell(wx: number, wy: number): { chunk: SyntheticChunk; i: number } | null {
@@ -74,40 +69,33 @@ export class TwoChunkView implements ChunkLookup {
 }
 
 export function snapCenter(world: ChunkLookup, center: { x: number; y: number }): { x: number; y: number } {
-  for (let r = 0; r < 4; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const x = Math.round(center.x) + dx;
-        const y = Math.round(center.y) + dy;
-        if (world.isWalkable(x, y) && world.tileAt(x, y) !== TOPOLOGY.Uncarved) return { x, y };
-      }
-    }
-  }
+  const cell = nearbyCells(center, 3).find(({ x, y }) => world.isWalkable(x, y) && world.tileAt(x, y) !== TOPOLOGY.Uncarved);
+  if (cell) return cell;
   throw new Error(`no walkable tile near center ${center.x},${center.y}`);
 }
 
-export interface TerraceRectSpec {
-  lx: number;
-  ly: number;
-  hx: number;
-  hy: number;
+function nearbyCells(center: Cell, radius: number): Cell[] {
+  const width = radius * 2 + 1;
+  return Array.from({ length: width ** 2 }, (_, index) => ({
+    x: Math.round(center.x) + index % width - radius,
+    y: Math.round(center.y) + Math.floor(index / width) - radius,
+  }));
 }
+
+export interface TerraceRectSpec { lx: number; ly: number; hx: number; hy: number }
 
 /** Count of raised-district floor tiles at TERRACE_RISE inside spec's rect (asserts as it counts). */
 export function countRaisedFloors(tiles: Uint8Array, height: Float32Array, spec: TerraceRectSpec): number {
-  let raisedFloors = 0;
-  for (let dy = -spec.hy + 1; dy <= spec.hy - 1; dy++) {
-    for (let dx = -spec.hx + 1; dx <= spec.hx - 1; dx++) {
-      const x = spec.lx + dx;
-      const y = spec.ly + dy;
-      if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) continue;
-      const i = y * CHUNK_SIZE + x;
-      if (tiles[i] !== TILE.Floor) continue;
-      expect(height[i]).toBe(TERRACE_RISE);
-      raisedFloors++;
-    }
-  }
-  return raisedFloors;
+  return terraceCells(spec).filter((cell) => tiles[cell.y * CHUNK_SIZE + cell.x] === TILE.Floor).reduce((count, cell) => {
+    expect(height[cell.y * CHUNK_SIZE + cell.x]).toBe(TERRACE_RISE);
+    return count + 1;
+  }, 0);
+}
+
+function terraceCells(spec: TerraceRectSpec): Cell[] {
+  return nearbyCells({ x: spec.lx, y: spec.ly }, Math.max(spec.hx, spec.hy) - 1)
+    .filter(({ x, y }) => Math.abs(x - spec.lx) < spec.hx && Math.abs(y - spec.ly) < spec.hy)
+    .filter(({ x, y }) => inBounds(x, y));
 }
 
 const NEIGHBOR_DIRS: ReadonlyArray<readonly [number, number]> = [
@@ -121,23 +109,17 @@ function inBounds(x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE;
 }
 
-function neighborHeights(tiles: Uint8Array, height: Float32Array, x: number, y: number): number[] {
-  const heights: number[] = [];
-  for (const [ddx, ddy] of NEIGHBOR_DIRS) {
-    const nx = x + ddx;
-    const ny = y + ddy;
-    if (!inBounds(nx, ny)) continue;
-    const i = ny * CHUNK_SIZE + nx;
-    if (tiles[i] !== TOPOLOGY.Uncarved) heights.push(height[i] ?? 0);
-  }
-  return heights;
+function neighborHeights(input: { tiles: Uint8Array; height: Float32Array; cell: Cell }): number[] {
+  return NEIGHBOR_DIRS.map(([dx, dy]) => ({ x: input.cell.x + dx, y: input.cell.y + dy }))
+    .filter((cell) => inBounds(cell.x, cell.y))
+    .filter(({ x, y }) => input.tiles[y * CHUNK_SIZE + x] !== TOPOLOGY.Uncarved)
+    .map(({ x, y }) => input.height[y * CHUNK_SIZE + x] ?? 0);
 }
 
 /** Whether a stair tile at (x, y) touches both a low tile and the terrace top. */
-function isLinkedEntry(tiles: Uint8Array, height: Float32Array, x: number, y: number): boolean {
-  const heights = neighborHeights(tiles, height, x, y);
-  const low = heights.some((h) => h <= 0.01);
-  const high = heights.some((h) => Math.abs(h - TERRACE_RISE) < 0.01);
+function isLinkedEntry(input: { tiles: Uint8Array; height: Float32Array; cell: Cell }): boolean {
+  const heights = neighborHeights(input);
+  const [low, high] = [heights.some((h) => h <= 0.01), heights.some((h) => Math.abs(h - TERRACE_RISE) < 0.01)];
   return low && high;
 }
 
@@ -147,52 +129,43 @@ export function checkStairEntries(
   height: Float32Array,
   spec: TerraceRectSpec,
 ): { stairs: number; linked: number } {
-  let stairs = 0;
-  let linked = 0;
-  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const i = ly * CHUNK_SIZE + lx;
-      if (tiles[i] !== TILE.Stairs) continue;
-      stairs++;
-      expect(height[i]).toBe(TERRACE_RISE / 2);
-      const dx = Math.abs(lx - spec.lx);
-      const dy = ly - spec.ly;
-      const outsideEdge =
-        (dx === spec.hx + 1 && Math.abs(dy) < spec.hy) || // east/west
-        (dy === spec.hy + 1 && dx < spec.hx); // south
-      expect(outsideEdge, `step at ${lx},${ly} hugs an entry edge`).toBe(true);
-      expect(dy, "no steps on the north side").not.toBe(-(spec.hy + 1));
-      if (isLinkedEntry(tiles, height, lx, ly)) linked++;
-    }
-  }
-  return { stairs, linked };
+  const stairs = allChunkCells().filter(({ x, y }) => tiles[y * CHUNK_SIZE + x] === TILE.Stairs);
+  const linked = stairs.filter((cell) => assertStairEntry({ tiles, height, spec, cell })).length;
+  return { stairs: stairs.length, linked };
 }
 
-export interface WalkBounds {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
+function allChunkCells(): Cell[] { return Array.from({ length: CHUNK_SIZE ** 2 }, (_, index) => ({ x: index % CHUNK_SIZE, y: Math.floor(index / CHUNK_SIZE) })); }
+
+function assertStairEntry(input: { tiles: Uint8Array; height: Float32Array; spec: TerraceRectSpec; cell: Cell }): boolean {
+  const { tiles, height, spec, cell } = input;
+  const index = cell.y * CHUNK_SIZE + cell.x;
+  const dx = Math.abs(cell.x - spec.lx);
+  const dy = cell.y - spec.ly;
+  const outsideEdge = (dx === spec.hx + 1 && Math.abs(dy) < spec.hy) || (dy === spec.hy + 1 && dx < spec.hx);
+  expect(height[index]).toBe(TERRACE_RISE / 2);
+  expect(outsideEdge, `step at ${cell.x},${cell.y} hugs an entry edge`).toBe(true);
+  expect(dy, "no steps on the north side").not.toBe(-(spec.hy + 1));
+  return isLinkedEntry({ tiles, height, cell });
 }
+
+export interface WalkBounds { minX: number; maxX: number; minY: number; maxY: number }
 
 /** Whether (nx, ny) is a valid walking step from height curH (no wall-hop, rise capped).
  * A Stairs tile at either end ramps continuously in real physics
  * (stairRampAt), so this discrete per-tile check — which only sees a
  * tile's own resting height — must not gate on STEP_UP there: the real
  * body walks it smoothly regardless of the raw height delta. */
-function canWalkOnto(
-  world: ChunkLookup,
-  bounds: WalkBounds,
-  curH: number,
-  curStairs: boolean,
-  nx: number,
-  ny: number,
-): boolean {
-  if (nx < bounds.minX || ny < bounds.minY || nx > bounds.maxX || ny > bounds.maxY) return false;
-  if (!world.isWalkable(nx, ny)) return false;
-  if (world.tileAt(nx, ny) === TOPOLOGY.Uncarved) return false; // walking, not jumping
-  if (curStairs || world.tileAt(nx, ny) === TILE.Stairs) return true;
-  return world.heightAt(nx, ny) - curH <= STEP_UP;
+function canWalkOnto(input: { world: ChunkLookup; bounds: WalkBounds; current: Cell; next: Cell }): boolean {
+  const { world, bounds, current, next } = input;
+  if (!isInWalkBounds(bounds, next) || !world.isWalkable(next.x, next.y)) return false;
+  const nextTile = world.tileAt(next.x, next.y);
+  if (nextTile === TOPOLOGY.Uncarved) return false;
+  if (world.tileAt(current.x, current.y) === TILE.Stairs || nextTile === TILE.Stairs) return true;
+  return world.heightAt(next.x, next.y) - world.heightAt(current.x, current.y) <= STEP_UP;
+}
+
+function isInWalkBounds(bounds: WalkBounds, cell: Cell): boolean {
+  return cell.x >= bounds.minX && cell.y >= bounds.minY && cell.x <= bounds.maxX && cell.y <= bounds.maxY;
 }
 
 export function walkableReachable(world: ChunkLookup, start: { x: number; y: number }, bounds: WalkBounds): Set<string> {
@@ -202,16 +175,16 @@ export function walkableReachable(world: ChunkLookup, start: { x: number; y: num
   while (head < queue.length) {
     const cur = queue[head++];
     if (!cur) continue;
-    const curH = world.heightAt(cur.x, cur.y);
-    const curStairs = world.tileAt(cur.x, cur.y) === TILE.Stairs;
-    for (const [dx, dy] of NEIGHBOR_DIRS) {
-      const nx = cur.x + dx;
-      const ny = cur.y + dy;
-      const key = `${nx},${ny}`;
-      if (reached.has(key) || !canWalkOnto(world, bounds, curH, curStairs, nx, ny)) continue;
-      reached.add(key);
-      queue.push({ x: nx, y: ny });
+    for (const next of reachableNeighbors({ world, bounds, current: cur, reached })) {
+      reached.add(`${next.x},${next.y}`);
+      queue.push(next);
     }
   }
   return reached;
+}
+
+function reachableNeighbors(input: { world: ChunkLookup; bounds: WalkBounds; current: Cell; reached: Set<string> }): Cell[] {
+  return NEIGHBOR_DIRS.map(([dx, dy]) => ({ x: input.current.x + dx, y: input.current.y + dy }))
+    .filter((next) => !input.reached.has(`${next.x},${next.y}`))
+    .filter((next) => canWalkOnto({ ...input, next }));
 }

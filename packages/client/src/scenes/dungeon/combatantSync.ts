@@ -1,5 +1,4 @@
 import type Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import type {
@@ -7,10 +6,7 @@ import type {
   PlayerEntityView,
   RenderContext,
 } from "../../render/entities/index.js";
-import { combatOverlayPosition, depthForEntityNow } from "../../render/entities/worldToScreen.js";
-import { depthForAdjacentTerrainOverlay } from "../../render/entities/depthSort.js";
 import type { VfxSystem } from "../../vfx/index.js";
-import { registerPendingSwing } from "../../vfx/meleeConnect.js";
 import {
   itemView,
   monsterView,
@@ -21,89 +17,99 @@ import {
 import { syncDamageVfx } from "./damageVfxTracking.js";
 import type { FrameEntityBuckets } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "./frameEntityViews.js";
-import { resolveMeleeSwingsInto } from "./meleeSwingEvents.js";
 import { resolveSelfAimAngle } from "./selfAim.js";
 import type { DungeonSceneState, RenderPose } from "./state.js";
+import { syncMeleeSwings } from "./combat/meleeSwingSync.js";
 
-export function syncCombatants(
-  scene: Phaser.Scene,
-  conn: Connection,
-  entityRenderer: EntityRenderer,
-  vfx: VfxSystem,
-  inputController: InputController,
-  state: DungeonSceneState,
-  nowMs: number,
-  render: RenderPose,
-  buckets: FrameEntityBuckets,
-  context: RenderContext,
-): void {
+export interface CombatantSyncFrame {
+  readonly scene: Phaser.Scene;
+  readonly conn: Connection;
+  readonly entityRenderer: EntityRenderer;
+  readonly vfx: VfxSystem;
+  readonly inputController: InputController;
+  readonly state: DungeonSceneState;
+  readonly nowMs: number;
+  readonly render: RenderPose;
+  readonly buckets: FrameEntityBuckets;
+  readonly context: RenderContext;
+}
+
+export function syncCombatants(frame: CombatantSyncFrame): void {
+  const { scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context } = frame;
   if (!conn.world || !conn.welcome || !conn.body) return;
   const touchActive = inputController.touchVisual() !== null;
-  const aimAngle = resolveSelfAimAngle(touchActive, state.cosmetics.faceX, state.cosmetics.faceY, render, scene.cameras.main, scene.input.activePointer);
-  const players = syncPlayerViews(conn, state, buckets, render, nowMs, aimAngle);
-  const monsters = mapFrameInto(
-    buckets.enemies, state.entityViews.enemies, state.entityViews.enemyRecords, monsterView,
-  );
-  const pets = mapFrameInto(buckets.pets, state.entityViews.pets, state.entityViews.petRecords, petView);
-  syncDamageVfx(
-    state.combatHealth,
-    state.combatHealthSeen,
-    conn.world,
+  const aimAngle = resolveSelfAimAngle({ touchActive, faceX: state.cosmetics.faceX, faceY: state.cosmetics.faceY, render, camera: scene.cameras.main, pointer: scene.input.activePointer });
+  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle });
+  const monsters = mapFrameInto({ source: buckets.enemies, out: state.entityViews.enemies, records: state.entityViews.enemyRecords, map: monsterView });
+  const pets = mapFrameInto({ source: buckets.pets, out: state.entityViews.pets, records: state.entityViews.petRecords, map: petView });
+  syncDamageVfx({
+    tracked: state.combatHealth,
+    seen: state.combatHealthSeen,
+    world: conn.world,
     vfx,
     players,
     monsters,
-    state.pendingSwings,
-    conn.welcome.playerId,
+    pendingSwings: state.pendingSwings,
+    selfId: conn.welcome.playerId,
     nowMs,
-    conn.drainDeathVisualEvents(),
-  );
-  entityRenderer.syncPlayers(players, context);
-  entityRenderer.syncMonsters(monsters, context);
+    deaths: conn.drainDeathVisualEvents(),
+  });
+  syncRenderedCombatants({ entityRenderer, players, monsters, pets, context });
+  syncItemViews({ conn, renderer: entityRenderer, state, buckets, render, nowMs });
+  syncMeleeSwings({ vfx, state, players, nowMs, context });
+}
+
+function syncRenderedCombatants(input: {
+  readonly entityRenderer: EntityRenderer; readonly players: PlayerEntityView[];
+  readonly monsters: ReturnType<typeof monsterView>[]; readonly pets: ReturnType<typeof petView>[];
+  readonly context: RenderContext;
+}): void {
+  const { entityRenderer, players, monsters, pets, context } = input;
+  entityRenderer.syncPlayers(players, context); entityRenderer.syncMonsters(monsters, context);
   entityRenderer.syncPets(pets, context);
-  syncItemViews(conn, entityRenderer, state, buckets, render, nowMs);
-  spawnMeleeSwings(vfx, state, players, nowMs, context);
 }
 
-function syncItemViews(
-  conn: Connection,
-  renderer: EntityRenderer,
-  state: DungeonSceneState,
-  buckets: FrameEntityBuckets,
-  render: RenderPose,
-  nowMs: number,
-): void {
+interface ItemViewSyncInput {
+  readonly conn: Connection; readonly renderer: EntityRenderer; readonly state: DungeonSceneState;
+  readonly buckets: FrameEntityBuckets; readonly render: RenderPose; readonly nowMs: number;
+}
+
+function syncItemViews(input: ItemViewSyncInput): void {
+  const { conn, renderer, state, buckets, render, nowMs } = input;
   const context = { serverTick: conn.serverTick, selfX: render.x, selfY: render.y };
-  renderer.syncItems(mapFrameInto(
-    buckets.items,
-    state.entityViews.items,
-    state.entityViews.itemRecords,
-    (entity, target) => itemView(entity, target, context),
-  ), nowMs);
+  renderer.syncItems(mapFrameInto({
+    source: buckets.items, out: state.entityViews.items, records: state.entityViews.itemRecords,
+    map: (entity, target) => itemView({ e: entity, target, context }),
+  }), nowMs);
 }
 
-function syncPlayerViews(
-  conn: Connection,
-  state: DungeonSceneState,
-  buckets: FrameEntityBuckets,
-  render: RenderPose,
-  nowMs: number,
-  aimAngle: number,
-): PlayerEntityView[] {
+interface PlayerViewSyncInput {
+  readonly conn: Connection; readonly state: DungeonSceneState; readonly buckets: FrameEntityBuckets;
+  readonly render: RenderPose; readonly nowMs: number; readonly aimAngle: number;
+}
+
+function syncPlayerViews(input: PlayerViewSyncInput): PlayerEntityView[] {
+  const { conn, state, buckets, render, nowMs, aimAngle } = input;
   if (!conn.welcome || !conn.body) return state.entityViews.players;
   const players = state.entityViews.players;
   const records = state.entityViews.playerRecords;
   players.length = buckets.players.length + 1;
   updateSelfSource(conn, state, render);
-  const self = selfPlayerView(
-    state.selfPose,
-    state.selfVitals,
-    state.cosmetics,
-    nowMs,
-    aimAngle,
-    records[0],
-  );
+  const self = selfPlayerView({
+    pose: state.selfPose, vitals: state.selfVitals, cosmetics: state.cosmetics,
+    nowMs, weaponAimAngle: aimAngle, target: records[0],
+  });
   records[0] = self;
   players[0] = self;
+  syncRemotePlayers(buckets, players, records);
+  return players;
+}
+
+function syncRemotePlayers(
+  buckets: FrameEntityBuckets,
+  players: PlayerEntityView[],
+  records: PlayerEntityView[],
+): void {
   for (let index = 0; index < buckets.players.length; index++) {
     const remote = buckets.players[index];
     if (!remote) continue;
@@ -112,7 +118,6 @@ function syncPlayerViews(
     records[recordIndex] = view;
     players[recordIndex] = view;
   }
-  return players;
 }
 
 function updateSelfSource(
@@ -137,38 +142,4 @@ function updateSelfSource(
   vitals.reviveProgress = conn.reviveProgress;
   vitals.blocking = conn.blocking;
   vitals.weaponId = conn.weapon;
-}
-
-function spawnMeleeSwings(
-  vfx: VfxSystem,
-  state: DungeonSceneState,
-  players: PlayerEntityView[],
-  nowMs: number,
-  context: RenderContext,
-): void {
-  const swings = resolveMeleeSwingsInto(
-    players,
-    state.attackFlags,
-    state.swingSpawns,
-    state.swingSpawnRecords,
-    state.swingSeen,
-  );
-  for (const swing of swings) {
-    const overlay = combatOverlayPosition(swing.worldX, swing.worldY, swing.z, context.world);
-    swing.depth = depthForAdjacentTerrainOverlay(
-      overlay.wielderViewY,
-      depthForEntityNow(swing.worldX, swing.worldY),
-      overlay.screenSouthFloorHigher,
-    );
-    vfx.spawnMeleeSwing(swing.id, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
-    registerPendingSwing(state.pendingSwings, {
-      attackerId: swing.id,
-      worldX: swing.worldX,
-      worldY: swing.worldY,
-      z: swing.z,
-      angleRad: swing.angleRad,
-      depth: swing.depth,
-      startedAtMs: nowMs,
-    });
-  }
 }

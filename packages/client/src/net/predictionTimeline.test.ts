@@ -15,6 +15,14 @@ const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
 const SPAWN_X = -6;
 const SPAWN_Y = -13;
 
+function predict(prediction: Prediction, world: World, body: BodyState): void {
+  prediction.predict({ world, body, input: WALK });
+}
+
+function reconcile(prediction: Prediction, request: { world: World; body: BodyState; tick: number; serverTick: number }): void {
+  prediction.reconcile({ ...request, lastSimulatedProjectedTick: request.tick, authoritativeServerTick: request.serverTick });
+}
+
 function bodiesMatch(left: BodyState, right: BodyState): boolean {
   return Math.abs(left.x - right.x) < 1e-9 &&
     Math.abs(left.y - right.y) < 1e-9 &&
@@ -27,14 +35,14 @@ describe("Prediction input timeline", () => {
     const prediction = new Prediction();
     const client = createBody(SPAWN_X, SPAWN_Y, 5);
     const server = createBody(SPAWN_X, SPAWN_Y, 5);
-    prediction.reconcile(world, client, -1, 100);
+    reconcile(prediction, { world, body: client, tick: -1, serverTick: 100 });
 
     for (let tick = 101; tick <= 700; tick++) {
-      prediction.predict(world, client, WALK);
-      if (tick % 10 === 0) prediction.predict(world, client, WALK);
+      predict(prediction, world, client);
+      if (tick % 10 === 0) predict(prediction, world, client);
       stepBody(world, server, WALK, TICK_DT);
       const authoritative = cloneBody(server);
-      prediction.reconcile(world, authoritative, tick, tick);
+      reconcile(prediction, { world, body: authoritative, tick, serverTick: tick });
       Object.assign(client, authoritative);
     }
 
@@ -47,16 +55,16 @@ describe("Prediction input timeline", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
     const client = createBody(SPAWN_X, SPAWN_Y, 5);
-    prediction.reconcile(world, client, -1, 100);
-    prediction.predict(world, client, WALK);
-    prediction.predict(world, client, WALK);
+    reconcile(prediction, { world, body: client, tick: -1, serverTick: 100 });
+    predict(prediction, world, client);
+    predict(prediction, world, client);
     prediction.nextInputIdentity();
 
     const authoritative = createBody(SPAWN_X, SPAWN_Y, 5);
     stepBody(world, authoritative, WALK, TICK_DT);
     const expected = cloneBody(authoritative);
     stepBody(world, expected, WALK, TICK_DT);
-    prediction.reconcile(world, authoritative, 101, 103);
+    reconcile(prediction, { world, body: authoritative, tick: 101, serverTick: 103 });
 
     expect(bodiesMatch(authoritative, expected)).toBe(true);
     expect(prediction.pendingStepCount).toBe(1);
@@ -68,9 +76,9 @@ describe("Prediction input timeline", () => {
     const prediction = new Prediction();
     const body = createBody(SPAWN_X, SPAWN_Y, 5);
 
-    prediction.reconcile(world, body, -1, 100);
-    prediction.reconcile(world, body, -1, 500);
-    const identity = prediction.predict(world, body, WALK);
+    reconcile(prediction, { world, body, tick: -1, serverTick: 100 });
+    reconcile(prediction, { world, body, tick: -1, serverTick: 500 });
+    const identity = prediction.predict({ world, body, input: WALK });
 
     expect(identity.projectedServerTick).toBe(501);
   });
@@ -79,11 +87,11 @@ describe("Prediction input timeline", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();
     const client = createBody(SPAWN_X, SPAWN_Y, 5);
-    prediction.reconcile(world, client, -1, 100);
-    prediction.predict(world, client, WALK);
+    reconcile(prediction, { world, body: client, tick: -1, serverTick: 100 });
+    predict(prediction, world, client);
     const authoritative = createBody(SPAWN_X, SPAWN_Y, 5);
 
-    prediction.reconcile(world, authoritative, -1, 103);
+    reconcile(prediction, { world, body: authoritative, tick: -1, serverTick: 103 });
 
     expect(bodiesMatch(authoritative, client)).toBe(true);
     expect(prediction.pendingStepCount).toBe(1);

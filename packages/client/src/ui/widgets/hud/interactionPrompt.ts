@@ -30,9 +30,9 @@ export class InteractionPromptWidget {
     this.bg = scene.add.graphics();
     const keyColor = `#${SELECTION_ACCENT.toString(16).padStart(6, "0")}`;
     this.keyText = scene.add
-      .text(0, PANEL_HEIGHT / 2, "", uiTextStyle(13, keyColor, layout.scale, "emphasis"))
+      .text(0, PANEL_HEIGHT / 2, "", uiTextStyle(13, keyColor, { scale: layout.scale, weight: "emphasis" }))
       .setOrigin(0, 0.5);
-    this.labelText = scene.add.text(0, PANEL_HEIGHT / 2, "", uiTextStyle(13, undefined, layout.scale)).setOrigin(0, 0.5);
+    this.labelText = scene.add.text(0, PANEL_HEIGHT / 2, "", uiTextStyle(13, undefined, { scale: layout.scale })).setOrigin(0, 0.5);
     this.container.add([this.bg, this.keyText, this.labelText]);
     this.container.setVisible(false);
   }

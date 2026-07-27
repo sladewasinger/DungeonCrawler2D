@@ -47,16 +47,16 @@ export function showSessionMenuConfirmation(
     options.value.action,
   );
   confirm.style.borderColor = "#c45d65";
-  const cancel = createSessionButton("Cancel", () => {
-    options.container.style.display = "none";
-    options.primary.style.display = "grid";
-    const destination = options.returnFocus?.isConnected
-      ? options.returnFocus
-      : options.fallbackFocus;
-    destination?.focus({ preventScroll: true });
-  });
+  const cancel = createSessionButton("Cancel", () => cancelConfirmation(options));
   options.container.replaceChildren(title, detail, confirm, cancel);
   options.primary.style.display = "none";
   options.container.style.display = "grid";
   return cancel;
+}
+
+function cancelConfirmation(options: ConfirmationViewOptions): void {
+  options.container.style.display = "none";
+  options.primary.style.display = "grid";
+  const destination = options.returnFocus?.isConnected ? options.returnFocus : options.fallbackFocus;
+  destination?.focus({ preventScroll: true });
 }

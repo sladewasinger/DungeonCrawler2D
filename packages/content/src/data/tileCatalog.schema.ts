@@ -66,6 +66,12 @@ export const tileCatalogSchema = z.object({
 });
 export type TileCatalog = z.infer<typeof tileCatalogSchema>;
 
+interface RefValidationContext {
+  readonly packId: string;
+  readonly pack: TilePack;
+  readonly category: string;
+}
+
 export function parseTileCatalog(raw: unknown): TileCatalog {
   return tileCatalogSchema.parse(raw);
 }
@@ -84,27 +90,29 @@ function categoriesOf(pack: TilePack): Record<string, readonly TileRef[]> {
   };
 }
 
+function validateRef(context: RefValidationContext, ref: TileRef): string[] {
+  const { packId, pack, category } = context;
+  const sheet = pack.sheets[ref.sheet];
+  const where = `${packId}.${category}[${ref.label}]`;
+  if (!sheet) return [`${where}: unknown sheet "${ref.sheet}"`];
+  const exceedsWidth = ref.col + ref.w > sheet.cols;
+  const exceedsHeight = ref.row + ref.h > sheet.rows;
+  if (exceedsWidth || exceedsHeight) {
+    return [`${where}: rect (${ref.col},${ref.row},${ref.w}x${ref.h}) exceeds sheet "${ref.sheet}" (${sheet.cols}x${sheet.rows})`];
+  }
+  return [];
+}
+
+function validatePackRefs(packId: string, pack: TilePack): string[] {
+  return Object.entries(categoriesOf(pack)).flatMap(([category, refs]) =>
+    refs.flatMap((ref) => validateRef({ packId, pack, category }, ref)));
+}
+
 /**
  * Cross-reference check zod alone can't express: every ref's `sheet` must name a sheet
  * the pack declares, and its (col,row,w,h) rect must fit inside that sheet's (cols,rows).
  * Returns an empty array when the catalog is internally consistent.
  */
 export function validateTileCatalogRefs(catalog: TileCatalog): string[] {
-  const errors: string[] = [];
-  for (const [packId, pack] of Object.entries(catalog.packs)) {
-    for (const [category, refs] of Object.entries(categoriesOf(pack))) {
-      for (const ref of refs) {
-        const sheet = pack.sheets[ref.sheet];
-        const where = `${packId}.${category}[${ref.label}]`;
-        if (!sheet) {
-          errors.push(`${where}: unknown sheet "${ref.sheet}"`);
-          continue;
-        }
-        if (ref.col + ref.w > sheet.cols || ref.row + ref.h > sheet.rows) {
-          errors.push(`${where}: rect (${ref.col},${ref.row},${ref.w}x${ref.h}) exceeds sheet "${ref.sheet}" (${sheet.cols}x${sheet.rows})`);
-        }
-      }
-    }
-  }
-  return errors;
+  return Object.entries(catalog.packs).flatMap(([packId, pack]) => validatePackRefs(packId, pack));
 }

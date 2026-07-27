@@ -15,15 +15,15 @@ export class ThreeHudChat {
   private readonly lines: HTMLElement;
   private readonly input: HTMLInputElement;
   private readonly chat: ChatController;
+  private readonly connection: Connection;
+  private readonly focusGame: () => void;
+  private readonly toggleContacts: () => void;
   private renderedSeq = -1;
 
-  constructor(
-    private readonly connection: Connection,
-    _mobile: boolean,
-    private readonly focusGame: () => void,
-    setTextInputFocused: (focused: boolean) => void,
-    private readonly toggleContacts: () => void,
-  ) {
+  constructor({ connection, focusGame, setTextInputFocused, toggleContacts }: ThreeHudChatOptions) {
+    this.connection = connection;
+    this.focusGame = focusGame;
+    this.toggleContacts = toggleContacts;
     this.chat = new ChatController(connection);
     this.element = createHudTemplate<HTMLElement>("hud-chat-template");
     this.tabs = this.requireElement("[data-hud-chat-tabs]");
@@ -145,4 +145,11 @@ export class ThreeHudChat {
     if (!element) throw new Error(`Missing chat HUD element: ${selector}`);
     return element;
   }
+}
+
+export interface ThreeHudChatOptions {
+  connection: Connection;
+  focusGame: () => void;
+  setTextInputFocused: (focused: boolean) => void;
+  toggleContacts: () => void;
 }

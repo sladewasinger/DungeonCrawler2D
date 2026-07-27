@@ -75,6 +75,11 @@ export function pixelTextStyle(
  * system stack's own regular weight) for everyday labels and body text. */
 export type UiTextWeight = "normal" | "emphasis";
 
+export interface UiTextStyleOptions {
+  scale?: number;
+  weight?: UiTextWeight;
+}
+
 /**
  * The everyday UI Text style — HUD widgets, nameplates, damage numbers. Plain
  * system sans, pinned to the device pixel ratio (times any ancestor container
@@ -90,8 +95,7 @@ export type UiTextWeight = "normal" | "emphasis";
 export function uiTextStyle(
   sizePx: number,
   color = "#e8e8e8",
-  scale = 1,
-  weight: UiTextWeight = "normal",
+  { scale = 1, weight = "normal" }: UiTextStyleOptions = {},
 ): Phaser.Types.GameObjects.Text.TextStyle {
   const resolution = Math.max(1, (window.devicePixelRatio || 1) * scale);
   return {

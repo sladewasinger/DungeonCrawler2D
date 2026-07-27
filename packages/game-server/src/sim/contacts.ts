@@ -19,12 +19,14 @@ export const RATE_WINDOW_TICKS = 3 * TICK_RATE;
  * records+allows iff still under `limit`. A slot can cross between floor
  * simulations with different tick origins, so future timestamps reset the old
  * clock domain instead of permanently locking that player out. */
-export function withinRateLimit(
-  timestamps: number[],
-  nowTick: number,
-  windowTicks: number,
-  limit: number,
-): boolean {
+interface RateLimitRequest {
+  timestamps: number[];
+  nowTick: number;
+  windowTicks: number;
+  limit: number;
+}
+
+export function withinRateLimit({ timestamps, nowTick, windowTicks, limit }: RateLimitRequest): boolean {
   if (timestamps.some((timestamp) => timestamp > nowTick)) timestamps.length = 0;
   while (timestamps.length > 0 && timestamps[0]! <= nowTick - windowTicks) timestamps.shift();
   if (timestamps.length >= limit) return false;
@@ -41,14 +43,8 @@ export function findOnlineByName(sim: SimState, name: string): PlayerSlot[] {
 }
 
 export function doFistbump(sim: SimState, slot: PlayerSlot, targetId: string): void {
-  const target = sim.players.get(targetId);
-  if (!target || !target.connected || target.entity.id === slot.entity.id) return;
-  if (!socialPairAllowed(slot, target)) return;
-  const distance = Math.hypot(
-    target.entity.body.x - slot.entity.body.x,
-    target.entity.body.y - slot.entity.body.y,
-  );
-  if (distance > FISTBUMP_RANGE_TILES) return;
+  const target = fistbumpTarget(sim, slot, targetId);
+  if (!target) return;
 
   const incoming = sim.fistbumpOffers.get(slot.entity.id);
   if (incoming && incoming.from === target.entity.id && incoming.expiresAtTick >= sim.tickCount) {
@@ -56,6 +52,17 @@ export function doFistbump(sim: SimState, slot: PlayerSlot, targetId: string): v
     return;
   }
   offerFistbump(sim, slot, target);
+}
+
+function fistbumpTarget(sim: SimState, slot: PlayerSlot, targetId: string): PlayerSlot | null {
+  const target = sim.players.get(targetId);
+  if (!target || !target.connected || target.entity.id === slot.entity.id) return null;
+  if (!socialPairAllowed(slot, target)) return null;
+  const distance = Math.hypot(
+    target.entity.body.x - slot.entity.body.x,
+    target.entity.body.y - slot.entity.body.y,
+  );
+  return distance <= FISTBUMP_RANGE_TILES ? target : null;
 }
 
 function offerFistbump(sim: SimState, slot: PlayerSlot, target: PlayerSlot): void {
@@ -106,34 +113,48 @@ export function sendContactsUpdated(sim: SimState, slot: PlayerSlot): void {
  * under a registry (sandbox, bare unit tests) fall back to their own
  * `players` map, tagged with their own floor. */
 export function doWho(sim: SimState, slot: PlayerSlot): void {
-  if (!withinRateLimit(slot.chatTimestamps, sim.tickCount, RATE_WINDOW_TICKS, CHAT_LIMIT)) {
+  if (!withinRateLimit({
+    timestamps: slot.chatTimestamps,
+    nowTick: sim.tickCount,
+    windowTicks: RATE_WINDOW_TICKS,
+    limit: CHAT_LIMIT,
+  })) {
     slot.outbox.push(systemLine("You're sending messages too fast — slow down."));
     return;
   }
-  const connectedHere = [...sim.players.values()].filter((p) => p.connected);
-  const directory =
-    sim.crossFloorDirectory.length > 0
-      ? sim.crossFloorDirectory
-      : connectedHere.map((p) => ({
-        name: p.entity.name ?? "?",
-        floor: sim.world.floor,
-        profileId: p.stored.localProfileId,
-      }));
-  const nearby = connectedHere.filter(
-    (p) =>
-      p !== slot &&
-      Math.hypot(p.entity.body.x - slot.entity.body.x, p.entity.body.y - slot.entity.body.y) <= AOI_RADIUS,
-  ).length;
-  const blockedProfiles = new Set(slot.stored.blockedProfileIds ?? []);
-  const visibleDirectory = directory.filter(
-    (player) => !player.profileId || !blockedProfiles.has(player.profileId),
-  );
+  const connectedHere = connectedPlayers(sim);
+  const visibleDirectory = visibleDirectoryFor(sim, slot, connectedHere);
+  const nearby = nearbyPlayerCount(slot, connectedHere);
   const names = [...visibleDirectory]
     .sort((x, y) => x.name.localeCompare(y.name))
     .map((p) => `${p.name} (F${p.floor})`);
   slot.outbox.push(
     systemLine(`Online (${visibleDirectory.length}, ${nearby} nearby): ${names.join(", ")}`),
   );
+}
+
+function connectedPlayers(sim: SimState): PlayerSlot[] {
+  return [...sim.players.values()].filter((player) => player.connected);
+}
+
+function visibleDirectoryFor(sim: SimState, slot: PlayerSlot, connectedHere: PlayerSlot[]) {
+  const directory = sim.crossFloorDirectory.length > 0
+    ? sim.crossFloorDirectory
+    : connectedHere.map((player) => ({
+      name: player.entity.name ?? "?",
+      floor: sim.world.floor,
+      profileId: player.stored.localProfileId,
+    }));
+  const blocked = new Set(slot.stored.blockedProfileIds ?? []);
+  return directory.filter((player) => !player.profileId || !blocked.has(player.profileId));
+}
+
+function nearbyPlayerCount(slot: PlayerSlot, players: PlayerSlot[]): number {
+  return players.filter((player) => player !== slot && distanceTo(slot, player) <= AOI_RADIUS).length;
+}
+
+function distanceTo(a: PlayerSlot, b: PlayerSlot): number {
+  return Math.hypot(a.entity.body.x - b.entity.body.x, a.entity.body.y - b.entity.body.y);
 }
 
 /** Drop offers nobody sealed in time — call once per tick, mirrors expireInvites. */

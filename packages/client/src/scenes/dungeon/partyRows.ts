@@ -7,12 +7,15 @@ export interface PartyRowsView {
   selfIsLeader: boolean;
 }
 
-export function partyRowsView(
-  party: ServerSnapshot["party"],
-  selfId: string | null,
-  bodyPos: { x: number; y: number },
-  viewBearingDeg: number,
-): PartyRowsView {
+export interface PartyRowsSource {
+  readonly party: ServerSnapshot["party"];
+  readonly selfId: string | null;
+  readonly bodyPos: { x: number; y: number };
+  readonly viewBearingDeg: number;
+}
+
+export function partyRowsView(source: PartyRowsSource): PartyRowsView {
+  const { party, selfId, bodyPos, viewBearingDeg } = source;
   if (!party) return { rows: [], selfIsLeader: false };
   return {
     selfIsLeader: party.leaderId === selfId,

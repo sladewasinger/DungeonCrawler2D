@@ -32,7 +32,7 @@ describe("every Stairs tile has a real height delta across its climb axis", () =
   for (const seed of SEEDS) {
     it(`holds for seed ${seed}`, () => {
       const world = new World(seed, FLOOR);
-      const stairs = scanStairs(seed, FLOOR, CHUNK_RANGE);
+      const stairs = scanStairs({ seed, floor: FLOOR, chunkRange: CHUNK_RANGE });
       expect(stairs.length).toBeGreaterThan(0);
       for (const { x, y } of stairs) {
         expect(entryClimbDir(world, x, y), `stairs tile (${x},${y}) has no valid climb axis`).not.toBeNull();
@@ -51,22 +51,24 @@ describe("every Stairs tile has a real height delta across its climb axis", () =
  * runway" regression probe should measure directly, independent of the
  * ramp/physics implementation it's guarding.
  */
-function runFootprint(world: World, x: number, y: number, dir: number): { length: number; hi: number; lo: number } {
-  const [dx, dy] = CLIMB_DIRS[dir] as [number, number];
-  let topX = x;
-  let topY = y;
-  while (world.tileAt(topX + dx, topY + dy) === TILE.Stairs) {
-    topX += dx;
-    topY += dy;
-  }
-  let botX = x;
-  let botY = y;
-  while (world.tileAt(botX - dx, botY - dy) === TILE.Stairs) {
-    botX -= dx;
-    botY -= dy;
-  }
-  const length = (topX - botX) * dx + (topY - botY) * dy + 1;
-  return { length, hi: world.heightAt(topX + dx, topY + dy), lo: world.heightAt(botX - dx, botY - dy) };
+function runFootprint(input: { readonly world: World; readonly point: { readonly x: number; readonly y: number }; readonly dir: number }): StairRun {
+  const direction = CLIMB_DIRS[input.dir] as [number, number];
+  const top = stairEnd({ world: input.world, start: input.point, direction, sign: 1 });
+  const bottom = stairEnd({ world: input.world, start: input.point, direction, sign: -1 });
+  return runMetrics({ world: input.world, top, bottom, direction });
+}
+
+interface StairRun { readonly length: number; readonly hi: number; readonly lo: number; }
+function stairEnd(input: { readonly world: World; readonly start: { readonly x: number; readonly y: number }; readonly direction: [number, number]; readonly sign: number }): { x: number; y: number } {
+  const delta = { x: input.direction[0] * input.sign, y: input.direction[1] * input.sign };
+  const end = { ...input.start };
+  while (input.world.tileAt(end.x + delta.x, end.y + delta.y) === TILE.Stairs) { end.x += delta.x; end.y += delta.y; }
+  return end;
+}
+function runMetrics(input: { readonly world: World; readonly top: { readonly x: number; readonly y: number }; readonly bottom: { readonly x: number; readonly y: number }; readonly direction: [number, number] }): StairRun {
+  const [dx, dy] = input.direction;
+  const length = (input.top.x - input.bottom.x) * dx + (input.top.y - input.bottom.y) * dy + 1;
+  return { length, hi: input.world.heightAt(input.top.x + dx, input.top.y + dy), lo: input.world.heightAt(input.bottom.x - dx, input.bottom.y - dy) };
 }
 
 describe("stair runs stay short (no clusters / fan fills)", () => {
@@ -83,56 +85,14 @@ describe("stair runs stay short (no clusters / fan fills)", () => {
     // check below, which is what actually catches a widened runway.
     const MAX_CLUSTER = 16 * WORLD_GEOMETRY_SCALE ** 2;
     for (const seed of SEEDS) {
-      const stairSet = new Set(scanStairs(seed, FLOOR, CHUNK_RANGE).map((t) => `${t.x},${t.y}`));
-      const visited = new Set<string>();
-      for (const key of stairSet) {
-        if (visited.has(key)) continue;
-        const [sx, sy] = key.split(",").map(Number) as [number, number];
-        const queue = [{ x: sx, y: sy }];
-        visited.add(key);
-        let size = 0;
-        while (queue.length) {
-          const cur = queue.pop();
-          if (!cur) break;
-          size++;
-          for (const [dx, dy] of [
-            [1, 0],
-            [-1, 0],
-            [0, 1],
-            [0, -1],
-          ] as const) {
-            const nk = `${cur.x + dx},${cur.y + dy}`;
-            if (stairSet.has(nk) && !visited.has(nk)) {
-              visited.add(nk);
-              queue.push({ x: cur.x + dx, y: cur.y + dy });
-            }
-          }
-        }
-        expect(size, `seed ${seed}: cluster at ${key} has ${size} tiles`).toBeLessThanOrEqual(MAX_CLUSTER);
+      for (const cluster of stairClusters(scanStairs({ seed, floor: FLOOR, chunkRange: CHUNK_RANGE }))) {
+        expect(cluster.size, `seed ${seed}: cluster at ${cluster.key} has ${cluster.size} tiles`).toBeLessThanOrEqual(MAX_CLUSTER);
       }
     }
   });
 
   it("a pit/dais exit's own stair footprint stays at exactly |depth| treads (catches a regression widening it back into a runway)", () => {
-    for (const seed of SEEDS) {
-      const world = new World(seed, FLOOR);
-      const stairs = scanStairs(seed, FLOOR, CHUNK_RANGE);
-      for (const { x, y } of stairs) {
-        const dir = entryClimbDir(world, x, y);
-        if (dir === null) continue;
-        const { length, hi, lo } = runFootprint(world, x, y, dir);
-        const span = Math.abs(hi - lo);
-        // Only a pit/dais-shaped deliberate exit (~1 z total span across the
-        // whole run, ROOM_RISE): a genuine cliffs.ts sub-tier repair chain
-        // elsewhere can have any smaller span and is out of scope here.
-        if (span <= 0.9 || span >= 1.1) continue;
-        expect(
-          length,
-          `seed ${seed}: pit/dais exit run at (${x},${y}) spans ${span} z but is ${length} tiles long — ` +
-            `a compact 1-z exit must be exactly 1 tile`,
-        ).toBe(WORLD_GEOMETRY_SCALE);
-      }
-    }
+    for (const seed of SEEDS) assertCompactPitRuns(seed);
   });
 });
 
@@ -140,20 +100,56 @@ describe("a room's height-variant floor is reachable via its single staircase", 
   it("finds at least one non-flat (deliberate height) floor tile reachable by the STEP_UP walk rule from a corridor", () => {
     for (const seed of SEEDS) {
       const cache: ChunkCache = new Map();
-      const start = anyFloorTile(seed, FLOOR, 0, 0, cache);
+      const scope = { seed, floor: FLOOR, cache };
+      const start = anyFloorTile(scope, { cx: 0, cy: 0 });
       expect(start, `seed ${seed}: origin chunk has no floor`).not.toBeNull();
       if (!start) continue;
-      const reached = bfsChunks(seed, FLOOR, start, 3, cache);
+      const reached = bfsChunks(scope, start, 3);
       const world = new World(seed, FLOOR);
-      let sawDeliberateHeight = false;
-      for (const key of reached) {
-        const [wx, wy] = key.split(",").map(Number) as [number, number];
-        if (world.tileAt(wx, wy) === TILE.Floor && Math.abs(world.heightAt(wx, wy)) > STEP_UP) {
-          sawDeliberateHeight = true;
-          break;
-        }
-      }
+      const sawDeliberateHeight = Array.from(reached).some((key) => isDeliberateFloor(world, key));
       expect(sawDeliberateHeight, `seed ${seed}: no deliberate-height floor reached via the walk rule`).toBe(true);
     }
   });
 });
+
+interface StairCluster { readonly key: string; readonly size: number; }
+function stairClusters(points: ReadonlyArray<{ readonly x: number; readonly y: number }>): StairCluster[] {
+  const stairs = new Set(points.map(pointKey));
+  const visited = new Set<string>();
+  return Array.from(stairs).flatMap((key) => visited.has(key) ? [] : [measureCluster({ key, stairs, visited })]);
+}
+function measureCluster(input: { readonly key: string; readonly stairs: Set<string>; readonly visited: Set<string> }): StairCluster {
+  const queue = [pointFromKey(input.key)];
+  input.visited.add(input.key);
+  for (let head = 0; head < queue.length; head++) {
+    const point = queue[head];
+    if (point) addStairNeighbors({ point, queue, ...input });
+  }
+  return { key: input.key, size: queue.length };
+}
+function addStairNeighbors(input: { readonly point: { readonly x: number; readonly y: number }; readonly queue: Array<{ x: number; y: number }>; readonly stairs: Set<string>; readonly visited: Set<string> }): void {
+  for (const [x, y] of CARDINAL_DIRECTIONS) addStairNeighbor({ ...input, candidate: { x: input.point.x + x, y: input.point.y + y } });
+}
+function addStairNeighbor(input: { readonly candidate: { x: number; y: number }; readonly queue: Array<{ x: number; y: number }>; readonly stairs: Set<string>; readonly visited: Set<string> }): void {
+  const key = pointKey(input.candidate);
+  if (!input.stairs.has(key) || input.visited.has(key)) return;
+  input.visited.add(key);
+  input.queue.push(input.candidate);
+}
+function assertCompactPitRuns(seed: number): void {
+  const world = new World(seed, FLOOR);
+  for (const point of scanStairs({ seed, floor: FLOOR, chunkRange: CHUNK_RANGE })) assertCompactPitRun({ seed, world, point });
+}
+function assertCompactPitRun(input: { readonly seed: number; readonly world: World; readonly point: { readonly x: number; readonly y: number } }): void {
+  const dir = entryClimbDir(input.world, input.point.x, input.point.y);
+  if (dir === null) return;
+  const run = runFootprint({ world: input.world, point: input.point, dir });
+  if (!isPitDaisSpan(run)) return;
+  expect(run.length, pitRunMessage(input, run)).toBe(WORLD_GEOMETRY_SCALE);
+}
+function isPitDaisSpan(run: StairRun): boolean { const span = Math.abs(run.hi - run.lo); return span > 0.9 && span < 1.1; }
+function pitRunMessage(input: { readonly seed: number; readonly point: { readonly x: number; readonly y: number } }, run: StairRun): string { return `seed ${input.seed}: pit/dais exit run at (${input.point.x},${input.point.y}) spans ${Math.abs(run.hi - run.lo)} z but is ${run.length} tiles long — a compact 1-z exit must be exactly 1 tile`; }
+function isDeliberateFloor(world: World, key: string): boolean { const point = pointFromKey(key); return world.tileAt(point.x, point.y) === TILE.Floor && Math.abs(world.heightAt(point.x, point.y)) > STEP_UP; }
+function pointKey(point: { readonly x: number; readonly y: number }): string { return `${point.x},${point.y}`; }
+function pointFromKey(key: string): { x: number; y: number } { const [x, y] = key.split(",").map(Number); return { x: x ?? 0, y: y ?? 0 }; }
+const CARDINAL_DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;

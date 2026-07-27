@@ -25,21 +25,25 @@ export function buildThreeHudLiveState(
   world: World,
   selectedSlot: number,
 ) {
+  return { ...stationState(connection, world), contacts: connection.contacts, notices: noticeState(connection, world, selectedSlot) };
+}
+
+function stationState(connection: Connection, world: World) {
   const body = connection.body;
-  const craftNearby = !!body &&
-    !!findWorldInteractionTarget(world, body.x, body.y, "craft");
-  const stashNearby = activeLootChestNearby(connection) || !!body &&
-    !!findWorldInteractionTarget(world, body.x, body.y, "stash");
-  const stations = {
+  const craftNearby = isStationNearby(world, body, "craft");
+  const stashNearby = activeLootChestNearby(connection) || isStationNearby(world, body, "stash");
+  return {
     craft: craftSnapshot(connection.inventory, craftNearby),
-    stash: stashSnapshot(
-      connection.inventory,
-      connection.stash,
-      stashNearby,
-      connection.stashContext?.kind ?? "personal",
-    ),
+    stash: stashSnapshot({ inventory: connection.inventory, stash: connection.stash, nearby: stashNearby, kind: connection.stashContext?.kind ?? "personal" }),
   };
-  const notices: ThreeHudNoticeState = {
+}
+
+function isStationNearby(world: World, body: Connection["body"], kind: "craft" | "stash"): boolean {
+  return !!body && !!findWorldInteractionTarget({ world, x: body.x, y: body.y, kind });
+}
+
+function noticeState(connection: Connection, world: World, selectedSlot: number): ThreeHudNoticeState {
+  return {
     boss: resolveRemoteBossBar(connection.entities.values()),
     interactionPrompt: resolvePrompt(connection, world),
     actionHints: resolveContextualActionHelp({
@@ -54,18 +58,20 @@ export function buildThreeHudLiveState(
     reconnectAttempts: connection.reconnectAttempts,
     toasts: connection.toasts,
   };
-  return { ...stations, contacts: connection.contacts, notices };
 }
 
-export function syncThreeHudLiveState(
-  connection: Connection,
-  world: World,
-  selectedSlot: number,
-  panels: ThreeHudPanels,
-  notices: ThreeHudNotices,
-  closeCraft: () => void,
-  closeStash: () => void,
-): void {
+export interface ThreeHudLiveStateSyncRequest {
+  readonly connection: Connection;
+  readonly world: World;
+  readonly selectedSlot: number;
+  readonly panels: ThreeHudPanels;
+  readonly notices: ThreeHudNotices;
+  readonly closeCraft: () => void;
+  readonly closeStash: () => void;
+}
+
+export function syncThreeHudLiveState(request: ThreeHudLiveStateSyncRequest): void {
+  const { connection, world, selectedSlot, panels, notices, closeCraft, closeStash } = request;
   const state = buildThreeHudLiveState(connection, world, selectedSlot);
   panels.contacts.update(state.contacts);
   panels.craft.update(state.craft); panels.stash.update(state.stash);
@@ -87,20 +93,11 @@ function resolvePrompt(
       (snap.kind === "torch" && snap.state === "placed")
     );
   const reviveTarget = connection.party
-    ? nearestDownedPartyMember(
-      connection.party.members,
-      body.x,
-      body.y,
-      INTERACT_RANGE,
-    )
+    ? nearestDownedPartyMember({ members: connection.party.members, fromX: body.x, fromY: body.y, maxDistance: INTERACT_RANGE })
     : undefined;
-  const prompt = resolveInteractionPrompt(
-    world,
-    body.x,
-    body.y,
-    items,
-    reviveTarget,
-    nearestLootChest(connection) ?? undefined,
-  );
+  const prompt = resolveInteractionPrompt({
+    world, x: body.x, y: body.y, items, reviveTarget,
+    lootChest: nearestLootChest(connection) ?? undefined,
+  });
   return prompt ? { ...prompt, key: "E" } : null;
 }

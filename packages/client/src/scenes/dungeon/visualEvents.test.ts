@@ -30,25 +30,9 @@ describe("visual health events", () => {
       onOwnHit,
     } as unknown as VfxSystem;
 
-    applyVisualEvents(
-      connection,
-      vfx,
-      { x: 2, y: 3, z: 0 },
-      new Map(),
-      100,
-    );
+    applyVisualEvents({ conn: connection, vfx, render: { x: 2, y: 3, z: 0 }, pendingSwings: new Map(), nowMs: 100 });
 
-    expect(spawnDamageNumber).toHaveBeenCalledWith(
-      2,
-      2.4,
-      {
-        kind: "heal",
-        delta: 4,
-        label: "+4",
-        color: HEAL_FEEDBACK_COLOR,
-      },
-      100,
-    );
+    expect(spawnDamageNumber).toHaveBeenCalledWith({ x: 2, y: 2.4, feedback: { kind: "heal", delta: 4, label: "+4", color: HEAL_FEEDBACK_COLOR }, nowMs: 100 });
     expect(spawnBloodHit).not.toHaveBeenCalled();
     expect(onOwnHit).not.toHaveBeenCalled();
   });
@@ -74,7 +58,7 @@ describe("visual health events", () => {
       spawnDamageNumber,
     } as unknown as VfxSystem;
 
-    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+    applyVisualEvents({ conn: connection, vfx, render: { x: 2, y: 3, z: 0 }, pendingSwings: new Map(), nowMs: 100 });
 
     expect(spawnDamageNumber).not.toHaveBeenCalled();
   });
@@ -103,11 +87,9 @@ describe("visual health events", () => {
       onOwnHit,
     } as unknown as VfxSystem;
 
-    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+    applyVisualEvents({ conn: connection, vfx, render: { x: 2, y: 3, z: 0 }, pendingSwings: new Map(), nowMs: 100 });
 
-    expect(spawnBloodHit).toHaveBeenCalledWith(
-      2, 3, 0.25, undefined, 100, 1, -0.5,
-    );
+    expect(spawnBloodHit).toHaveBeenCalledWith({ x: 2, y: 3, groundHeight: 0.25, defId: undefined, nowMs: 100, direction: { x: 1, y: -0.5 } });
     expect(onOwnHit).toHaveBeenCalledWith(100);
   });
 
@@ -133,17 +115,9 @@ describe("visual health events", () => {
       onOwnHit: vi.fn(),
     } as unknown as VfxSystem;
 
-    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+    applyVisualEvents({ conn: connection, vfx, render: { x: 2, y: 3, z: 0 }, pendingSwings: new Map(), nowMs: 100 });
 
-    expect(spawnBloodHit).toHaveBeenCalledWith(
-      2,
-      3,
-      0.25,
-      undefined,
-      100,
-      0.5,
-      -1,
-    );
+    expect(spawnBloodHit).toHaveBeenCalledWith({ x: 2, y: 3, groundHeight: 0.25, defId: undefined, nowMs: 100, direction: { x: 0.5, y: -1 } });
     expect(vfx.onOwnHit).toHaveBeenCalledWith(100);
   });
 
@@ -168,7 +142,7 @@ describe("visual health events", () => {
       onOwnHit: vi.fn(),
     } as unknown as VfxSystem;
 
-    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+    applyVisualEvents({ conn: connection, vfx, render: { x: 2, y: 3, z: 0 }, pendingSwings: new Map(), nowMs: 100 });
 
     expect(spawnBloodHit).toHaveBeenCalledTimes(1);
     expect(vfx.onOwnHit).toHaveBeenCalledTimes(1);

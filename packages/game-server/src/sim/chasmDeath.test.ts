@@ -68,23 +68,35 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
 function newSim(seed: string): SimState {
   const world = new World(hashString(seed), 1, LEVEL.Dungeon);
   const content = buildContentRegistry(EMPTY_CONTENT);
-  return createSimState(world, content, new PlayerStore(null), 1, {});
+  return createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
 }
 
 /** Any explicit void tile at or below chasm depth, scanning outward from origin. */
 function findChasmFloor(world: World): { x: number; y: number } | null {
-  for (let cx = -24; cx <= 24; cx++) {
-    for (let cy = -24; cy <= 24; cy++) {
-      for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          const x = cx * CHUNK_SIZE + lx;
-          const y = cy * CHUNK_SIZE + ly;
-          if (world.tileAt(x, y) === TILE.Void) return { x, y };
-        }
-      }
-    }
-  }
-  return null;
+  return chunkCoordinates()
+    .map((chunk) => chasmInChunk(world, chunk))
+    .find((chasm) => chasm !== null) ?? null;
+}
+
+function chasmInChunk(world: World, chunk: { cx: number; cy: number }): { x: number; y: number } | null {
+  return localCoordinates()
+    .map(({ x, y }) => ({ x: chunk.cx * CHUNK_SIZE + x, y: chunk.cy * CHUNK_SIZE + y }))
+    .find(({ x, y }) => world.tileAt(x, y) === TILE.Void) ?? null;
+}
+
+function chunkCoordinates(): Array<{ cx: number; cy: number }> {
+  return coordinateRange(24).flatMap((cx) => coordinateRange(24).map((cy) => ({ cx, cy })));
+}
+
+function localCoordinates(): Array<{ x: number; y: number }> {
+  return Array.from({ length: CHUNK_SIZE ** 2 }, (_, index) => ({
+    x: index % CHUNK_SIZE,
+    y: Math.floor(index / CHUNK_SIZE),
+  }));
+}
+
+function coordinateRange(limit: number): number[] {
+  return Array.from({ length: limit * 2 + 1 }, (_, index) => index - limit);
 }
 
 describe("chasm = death (knockback-death-pit ruling)", () => {

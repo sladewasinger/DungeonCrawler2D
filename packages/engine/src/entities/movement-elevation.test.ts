@@ -28,7 +28,7 @@ function fakeWorld(opts: {
   };
 }
 
-function runTicks(world: WorldView, body: ReturnType<typeof createBody>, input: Parameters<typeof stepBody>[2], ticks: number): StepResult[] {
+function runTicks(...[world, body, input, ticks]: [WorldView, ReturnType<typeof createBody>, Parameters<typeof stepBody>[2], number]): StepResult[] {
   const results: StepResult[] = [];
   for (let i = 0; i < ticks; i++) results.push(stepBody(world, body, input, TICK_DT));
   return results;
@@ -156,7 +156,7 @@ describe("knockback off ledges", () => {
   it("knocks a body off a ledge and lands it correctly, exactly once", () => {
     const world = fakeWorld({ heightFn: (x) => (x < 8 ? 3 : 0) });
     const body = createBody(7.9, 5.5, 3);
-    applyKnockback(body, 1, 0, KNOCKBACK_FORCE);
+    applyKnockback(body, { dirX: 1, dirY: 0, force: KNOCKBACK_FORCE });
     let landings = 0;
     let fallHeight = -1;
     for (let i = 0; i < 60; i++) {

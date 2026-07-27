@@ -58,33 +58,49 @@ function nearestCell(cells: Point[], from: Point): Point {
   return best;
 }
 
-function carveLegsSafe(tiles: Uint8Array, corridorCarved: Uint8Array, legs: Rect[]): void {
-  for (const leg of legs) {
-    for (let y = leg.y0; y <= leg.y1; y++) {
-      for (let x = leg.x0; x <= leg.x1; x++) {
-        if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) continue;
-        const i = y * CHUNK_SIZE + x;
-        corridorCarved[i] = 1;
-        if (PROTECTED.has(tiles[i] as number)) continue;
-        tiles[i] = TILE.Floor;
-      }
-    }
+interface SafeCarveContext {
+  tiles: Uint8Array;
+  corridorCarved: Uint8Array;
+  legs: readonly Rect[];
+}
+
+function carveLegsSafe(context: SafeCarveContext): void {
+  for (const leg of context.legs) carveSafeLeg(context, leg);
+}
+
+function carveSafeLeg(context: SafeCarveContext, leg: Rect): void {
+  for (let y = leg.y0; y <= leg.y1; y++) {
+    for (let x = leg.x0; x <= leg.x1; x++) carveSafeCell(context, x, y);
   }
 }
 
+function carveSafeCell(context: SafeCarveContext, x: number, y: number): void {
+  if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) return;
+  const index = y * CHUNK_SIZE + x;
+  context.corridorCarved[index] = 1;
+  if (PROTECTED.has(context.tiles[index] as number)) return;
+  context.tiles[index] = TILE.Floor;
+}
+
 /** Connect the fixed feature the caller just stamped (diffed via `before`) to the nearest room. */
-export function connectFixedFeaturePad(
-  tiles: Uint8Array,
-  corridorCarved: Uint8Array,
-  before: Uint8Array,
-  rooms: Room[],
-): void {
-  if (rooms.length === 0) return;
-  const candidates = diffFloorCells(before, tiles);
+export interface FixedFeatureLinkContext extends Omit<SafeCarveContext, "legs"> {
+  before: Uint8Array;
+  rooms: Room[];
+}
+
+export function connectFixedFeaturePad(context: FixedFeatureLinkContext): void {
+  if (context.rooms.length === 0) return;
+  const candidates = diffFloorCells(context.before, context.tiles);
   if (candidates.length === 0) return;
-  const room = nearestRoom(rooms, candidates[0] as Point);
+  const room = nearestRoom(context.rooms, candidates[0] as Point);
   const from: Point = { x: centerX(room.rect), y: centerY(room.rect) };
   const target = nearestCell(candidates, from);
-  const legs = lPathLegs(from, Math.abs(target.x - from.x) < Math.abs(target.y - from.y), target, LINK_WIDTH, CHUNK_SIZE);
-  carveLegsSafe(tiles, corridorCarved, legs);
+  const legs = lPathLegs({
+    from,
+    fromVertical: Math.abs(target.x - from.x) < Math.abs(target.y - from.y),
+    to: target,
+    width: LINK_WIDTH,
+    size: CHUNK_SIZE,
+  });
+  carveLegsSafe({ ...context, legs });
 }

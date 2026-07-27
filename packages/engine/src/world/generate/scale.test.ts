@@ -8,6 +8,32 @@ import {
   scaleGeneratedChunk,
 } from "./scale.js";
 
+function sourceCells(): Array<{ x: number; y: number }> {
+  return Array.from({ length: GENERATION_CHUNK_SIZE ** 2 }, (_, index) => ({ x: index % GENERATION_CHUNK_SIZE, y: Math.floor(index / GENERATION_CHUNK_SIZE) }));
+}
+
+function scaledOffsets(): Array<{ x: number; y: number }> {
+  return Array.from({ length: WORLD_GEOMETRY_SCALE ** 2 }, (_, index) => ({ x: index % WORLD_GEOMETRY_SCALE, y: Math.floor(index / WORLD_GEOMETRY_SCALE) }));
+}
+
+function assertScaledCell(source: { tiles: Uint8Array; height: Float32Array; zones: Uint8Array }, chunk: ReturnType<typeof scaleGeneratedChunk>, cell: { x: number; y: number }): void {
+  const sourceIndex = cell.y * GENERATION_CHUNK_SIZE + cell.x;
+  const expectedTile = source.tiles[sourceIndex] === 1 ? TILE.Floor : source.tiles[sourceIndex];
+  for (const offset of scaledOffsets()) {
+    const index = (cell.y * WORLD_GEOMETRY_SCALE + offset.y) * CHUNK_SIZE + cell.x * WORLD_GEOMETRY_SCALE + offset.x;
+    expect(chunk.tiles[index]).toBe(expectedTile);
+    expect(chunk.terrain[index]).toBe(expectedTile === TILE.Void ? 1 : 0);
+    expect(chunk.height[index]).toBe(source.height[sourceIndex]);
+    expect(chunk.zones[index]).toBe(source.zones[sourceIndex]);
+  }
+}
+
+function assertGeneratedBlock(chunk: ReturnType<typeof generateChunk>, index: number): void {
+  const neighbors = [index + 1, index + CHUNK_SIZE, index + CHUNK_SIZE + 1];
+  for (const neighbor of neighbors) expect(chunk.tiles[neighbor]).toBe(chunk.tiles[index]);
+  if (chunk.tiles[index] !== TILE.Stairs) for (const neighbor of neighbors) expect(chunk.height[neighbor]).toBe(chunk.height[index]);
+}
+
 describe("world geometry scale", () => {
   it("expands every generated cell into a coherent 2x2 block", () => {
     const source = {
@@ -19,41 +45,15 @@ describe("world geometry scale", () => {
     const chunk = scaleGeneratedChunk(4, -2, source);
 
     expect(CHUNK_SIZE).toBe(GENERATION_CHUNK_SIZE * WORLD_GEOMETRY_SCALE);
-    for (let sy = 0; sy < GENERATION_CHUNK_SIZE; sy++) {
-      for (let sx = 0; sx < GENERATION_CHUNK_SIZE; sx++) {
-        const sourceIndex = sy * GENERATION_CHUNK_SIZE + sx;
-        for (let oy = 0; oy < WORLD_GEOMETRY_SCALE; oy++) {
-          for (let ox = 0; ox < WORLD_GEOMETRY_SCALE; ox++) {
-            const tx = sx * WORLD_GEOMETRY_SCALE + ox;
-            const ty = sy * WORLD_GEOMETRY_SCALE + oy;
-            const targetIndex = ty * CHUNK_SIZE + tx;
-            const expectedTile = source.tiles[sourceIndex] === 1 ? TILE.Floor : source.tiles[sourceIndex];
-            expect(chunk.tiles[targetIndex]).toBe(expectedTile);
-            expect(chunk.terrain[targetIndex]).toBe(expectedTile === TILE.Void ? 1 : 0);
-            expect(chunk.height[targetIndex]).toBe(source.height[sourceIndex]);
-            expect(chunk.zones[targetIndex]).toBe(source.zones[sourceIndex]);
-          }
-        }
-      }
-    }
+    for (const cell of sourceCells()) assertScaledCell(source, chunk, cell);
   });
 
   it("applies the transform to complete deterministic dungeon chunks", () => {
-    const chunk = generateChunk(hashString("scaled-topology"), 2, 7, -3);
+    const chunk = generateChunk({ worldSeed: hashString("scaled-topology"), floor: 2, cx: 7, cy: -3 });
     for (let y = 0; y < CHUNK_SIZE; y += WORLD_GEOMETRY_SCALE) {
       for (let x = 0; x < CHUNK_SIZE; x += WORLD_GEOMETRY_SCALE) {
         const index = y * CHUNK_SIZE + x;
-        const east = index + 1;
-        const south = index + CHUNK_SIZE;
-        const southeast = south + 1;
-        expect(chunk.tiles[east]).toBe(chunk.tiles[index]);
-        expect(chunk.tiles[south]).toBe(chunk.tiles[index]);
-        expect(chunk.tiles[southeast]).toBe(chunk.tiles[index]);
-        if (chunk.tiles[index] !== TILE.Stairs) {
-          expect(chunk.height[east]).toBe(chunk.height[index]);
-          expect(chunk.height[south]).toBe(chunk.height[index]);
-          expect(chunk.height[southeast]).toBe(chunk.height[index]);
-        }
+        assertGeneratedBlock(chunk, index);
       }
     }
   });

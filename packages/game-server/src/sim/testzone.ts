@@ -25,25 +25,22 @@ import type { SimState } from "./state.js";
  * post-snap location instead of asserting against the literal
  * (possibly-blocked) anchor. Areas key by this integer tile directly.
  */
-export function snapToFloorTile(
-  sim: Pick<SimState, "world">,
-  x: number,
-  y: number,
-  claimed: Set<string> = new Set(),
-): { x: number; y: number } {
-  const tile = findWalkableNear(sim, x, y, 16, claimed) ?? { x: Math.floor(x), y: Math.floor(y) };
+interface SnapRequest {
+  sim: Pick<SimState, "world">;
+  x: number;
+  y: number;
+  claimed?: Set<string> | undefined;
+}
+
+export function snapToFloorTile({ sim, x, y, claimed = new Set() }: SnapRequest): { x: number; y: number } {
+  const tile = findWalkableNear({ sim, x, y, maxRadius: 16, avoid: claimed }) ?? { x: Math.floor(x), y: Math.floor(y) };
   claimed.add(`${tile.x},${tile.y}`);
   return tile;
 }
 
 /** Same snap, centered for an entity body position. */
-export function snapToFloor(
-  sim: Pick<SimState, "world">,
-  x: number,
-  y: number,
-  claimed?: Set<string>,
-): { x: number; y: number } {
-  const tile = snapToFloorTile(sim, x, y, claimed);
+export function snapToFloor({ sim, x, y, claimed }: SnapRequest): { x: number; y: number } {
+  const tile = snapToFloorTile({ sim, x, y, claimed });
   return { x: tile.x + 0.5, y: tile.y + 0.5 };
 }
 
@@ -94,9 +91,9 @@ export const TEST_ZONE_RESEED_TICKS = 2 * TICK_RATE;
  * default to their own. */
 export function seedTestZoneHazards(sim: SimState, claimed: Set<string> = new Set()): void {
   for (const hazard of TEST_ZONE_HAZARDS) {
-    const { x, y } = snapToFloorTile(sim, hazard.x, hazard.y, claimed);
+    const { x, y } = snapToFloorTile({ sim, x: hazard.x, y: hazard.y, claimed });
     if (sim.areas.defAt(x, y) === null) {
-      sim.areas.spawn(hazard.def, x, y, hazard.radius);
+      sim.areas.spawn({ defId: hazard.def, x, y, radius: hazard.radius });
     }
   }
 }
@@ -104,11 +101,11 @@ export function seedTestZoneHazards(sim: SimState, claimed: Set<string> = new Se
 /** Keep canonical pickup examples available across long dev/e2e sessions. */
 export function seedTestZoneItems(sim: SimState, claimed: Set<string> = new Set()): void {
   for (const fixture of TEST_ZONE_ITEMS) {
-    const { x, y } = snapToFloor(sim, fixture.x, fixture.y, claimed);
+    const { x, y } = snapToFloor({ sim, x: fixture.x, y: fixture.y, claimed });
     const exists = [...sim.items.values()].some(
       (item) => item.defId === fixture.def && Math.hypot(item.body.x - x, item.body.y - y) < 0.25,
     );
-    if (!exists) spawnItem(sim, fixture.def, x, y, fixture.qty ?? 1);
+    if (!exists) spawnItem(sim, { defId: fixture.def, x, y, qty: fixture.qty ?? 1 });
   }
 }
 
@@ -119,7 +116,7 @@ export function seedTestZoneItems(sim: SimState, claimed: Set<string> = new Set(
 export function populateTestZoneChunk(sim: SimState, cx: number, cy: number): boolean {
   if (cx < 0 || cx > 1 || cy < 0 || cy > 1) return false;
   const claimed = new Set<string>();
-  spawnChunkFixtures(sim, cx, cy, claimed);
+  spawnChunkFixtures({ sim, cx, cy, claimed });
   if (cx === 0 && cy === 0) {
     sim.hazardsActive = true;
     seedTestZoneHazards(sim, claimed);
@@ -127,17 +124,34 @@ export function populateTestZoneChunk(sim: SimState, cx: number, cy: number): bo
   return true;
 }
 
-function spawnChunkFixtures(sim: SimState, cx: number, cy: number, claimed: Set<string>): void {
-  const inChunk = (f: { x: number; y: number }) =>
-    Math.floor(f.x / CHUNK_SIZE) === cx && Math.floor(f.y / CHUNK_SIZE) === cy;
-  for (const f of TEST_ZONE_ENEMIES) {
-    if (!inChunk(f)) continue;
-    const { x, y } = snapToFloor(sim, f.x, f.y, claimed);
-    spawnEnemy(sim, f.def, x, y);
+interface ChunkFixtures {
+  sim: SimState;
+  cx: number;
+  cy: number;
+  claimed: Set<string>;
+}
+
+function spawnChunkFixtures(context: ChunkFixtures): void {
+  spawnEnemyFixtures(context);
+  spawnItemFixtures(context);
+}
+
+function spawnEnemyFixtures(context: ChunkFixtures): void {
+  for (const fixture of TEST_ZONE_ENEMIES) {
+    if (!isInChunk(fixture, context)) continue;
+    const { x, y } = snapToFloor({ ...context, x: fixture.x, y: fixture.y });
+    spawnEnemy(context.sim, { defId: fixture.def, x, y });
   }
-  for (const f of TEST_ZONE_ITEMS) {
-    if (!inChunk(f)) continue;
-    const { x, y } = snapToFloor(sim, f.x, f.y, claimed);
-    spawnItem(sim, f.def, x, y, f.qty ?? 1);
+}
+
+function spawnItemFixtures(context: ChunkFixtures): void {
+  for (const fixture of TEST_ZONE_ITEMS) {
+    if (!isInChunk(fixture, context)) continue;
+    const { x, y } = snapToFloor({ ...context, x: fixture.x, y: fixture.y });
+    spawnItem(context.sim, { defId: fixture.def, x, y, qty: fixture.qty ?? 1 });
   }
+}
+
+function isInChunk(fixture: { x: number; y: number }, { cx, cy }: ChunkFixtures): boolean {
+  return Math.floor(fixture.x / CHUNK_SIZE) === cx && Math.floor(fixture.y / CHUNK_SIZE) === cy;
 }

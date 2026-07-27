@@ -4,11 +4,12 @@ import type { ResolvedWidgetLayout, Viewport, WidgetDefinition, WidgetOverride, 
 
 /** Merges a widget's shipped default with any config override (override wins per-field). */
 export function effectiveWidget(definition: WidgetDefinition, override: WidgetOverride | undefined) {
+  const values = override ?? {};
   return {
-    anchor: override?.anchor ?? definition.defaultAnchor,
-    offset: override?.offset ?? definition.defaultOffset,
-    scale: override?.scale ?? definition.defaultScale,
-    visible: override?.visible ?? definition.defaultVisible,
+    anchor: values.anchor ?? definition.defaultAnchor,
+    offset: values.offset ?? definition.defaultOffset,
+    scale: values.scale ?? definition.defaultScale,
+    visible: values.visible ?? definition.defaultVisible,
   };
 }
 

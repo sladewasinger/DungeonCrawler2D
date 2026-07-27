@@ -18,7 +18,14 @@ import {
   GENERATION_CHUNK_SIZE,
   scaleGeneratedCoordinate,
 } from "../generate/scale.js";
-import { FLOOR_CAP, pickRingChunk, structureAnchor, type ChunkCoord, type LocalAnchor } from "./descentShared.js";
+import {
+  FLOOR_CAP,
+  pickRingChunk,
+  structureAnchor,
+  type ChunkCoord,
+  type LocalAnchor,
+  type WorldChunk,
+} from "./descentShared.js";
 
 export { FLOOR_CAP };
 
@@ -51,43 +58,42 @@ const STRUCT_CLEARANCE = Math.max(STRUCT_HALF_X, STRUCT_BACK, STRUCT_FRONT) + 1;
  */
 export const STAIRWAY_HEIGHT = 0.5;
 
-export function stairwayUpChunk(worldSeed: number, floor: number): ChunkCoord | null {
-  if (floor < 2 || floor > FLOOR_CAP) return null;
-  return pickRingChunk(worldSeed, floor, UP_SALT, UP_RADIUS);
+export function stairwayUpChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
+  if (world.floor < 2 || world.floor > FLOOR_CAP) return null;
+  return pickRingChunk(world, { salt: UP_SALT, radius: UP_RADIUS });
 }
 
-export function stairwayDownChunk(worldSeed: number, floor: number): ChunkCoord | null {
-  if (floor < 1 || floor >= FLOOR_CAP) return null; // FLOOR_CAP has the boss arena instead
-  return pickRingChunk(worldSeed, floor, DOWN_SALT, DOWN_RADIUS);
+export function stairwayDownChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
+  if (world.floor < 1 || world.floor >= FLOOR_CAP) return null; // FLOOR_CAP has the boss arena instead
+  return pickRingChunk(world, { salt: DOWN_SALT, radius: DOWN_RADIUS });
 }
 
-export function isStairwayUpChunk(worldSeed: number, floor: number, cx: number, cy: number): boolean {
-  const target = stairwayUpChunk(worldSeed, floor);
-  return !!target && target.cx === cx && target.cy === cy;
+export function isStairwayUpChunk(chunk: WorldChunk): boolean {
+  const target = stairwayUpChunk(chunk);
+  return !!target && target.cx === chunk.cx && target.cy === chunk.cy;
 }
 
-export function isStairwayDownChunk(worldSeed: number, floor: number, cx: number, cy: number): boolean {
-  const target = stairwayDownChunk(worldSeed, floor);
-  return !!target && target.cx === cx && target.cy === cy;
+export function isStairwayDownChunk(chunk: WorldChunk): boolean {
+  const target = stairwayDownChunk(chunk);
+  return !!target && target.cx === chunk.cx && target.cy === chunk.cy;
 }
 
-function anchorFor(worldSeed: number, floor: number, cx: number, cy: number): LocalAnchor {
-  return structureAnchor(worldSeed, floor, cx, cy, ANCHOR_SALT, STRUCT_CLEARANCE);
+function anchorFor(chunk: WorldChunk): LocalAnchor {
+  return structureAnchor(chunk, { salt: ANCHOR_SALT, clearance: STRUCT_CLEARANCE });
 }
 
 /** Stamp the shared StairwayUp/StairwayDown structure into this chunk, if it's this floor's chosen chunk for either role. Returns the open front threshold's LOCAL coords for generate/descentLink.ts's connector, or null if this chunk isn't either role. */
-export function applyDescentStructure(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-): LocalAnchor | null {
-  const isRole = isStairwayUpChunk(worldSeed, floor, cx, cy) || isStairwayDownChunk(worldSeed, floor, cx, cy);
+export interface DescentStructureContext {
+  chunk: WorldChunk;
+  tiles: Uint8Array;
+  height: Float32Array;
+}
+
+export function applyDescentStructure(context: DescentStructureContext): LocalAnchor | null {
+  const isRole = isStairwayUpChunk(context.chunk) || isStairwayDownChunk(context.chunk);
   if (!isRole) return null;
-  const anchor = anchorFor(worldSeed, floor, cx, cy);
-  stampStructure(anchor, tiles, height);
+  const anchor = anchorFor(context.chunk);
+  stampStructure(anchor, context.tiles, context.height);
   return { lx: anchor.lx, ly: anchor.ly + STRUCT_FRONT };
 }
 
@@ -121,20 +127,36 @@ function classifyCell(dx: number, dy: number, alreadyOpen: boolean): CellKind {
 function stampStructure(anchor: LocalAnchor, tiles: Uint8Array, height: Float32Array): void {
   for (let dy = -STRUCT_BACK; dy <= STRUCT_FRONT; dy++) {
     for (let dx = -STRUCT_HALF_X; dx <= STRUCT_HALF_X; dx++) {
-      const lx = anchor.lx + dx;
-      const ly = anchor.ly + dy;
-      if (lx < 0 || ly < 0 || lx >= GENERATION_CHUNK_SIZE || ly >= GENERATION_CHUNK_SIZE) continue;
-      const i = ly * GENERATION_CHUNK_SIZE + lx;
-      const cell = classifyCell(dx, dy, tiles[i] !== TOPOLOGY.Uncarved);
-      tiles[i] = cell.tile;
-      height[i] = cell.height;
+      stampStructureCell({ anchor, dx, dy, tiles, height });
     }
   }
 }
 
-function positionFor(chunk: ChunkCoord | null, worldSeed: number, floor: number): { x: number; y: number } | null {
+interface StructureCellContext {
+  anchor: LocalAnchor;
+  dx: number;
+  dy: number;
+  tiles: Uint8Array;
+  height: Float32Array;
+}
+
+function stampStructureCell(context: StructureCellContext): void {
+  const lx = context.anchor.lx + context.dx;
+  const ly = context.anchor.ly + context.dy;
+  if (!isChunkCell(lx, ly)) return;
+  const index = ly * GENERATION_CHUNK_SIZE + lx;
+  const cell = classifyCell(context.dx, context.dy, context.tiles[index] !== TOPOLOGY.Uncarved);
+  context.tiles[index] = cell.tile;
+  context.height[index] = cell.height;
+}
+
+function isChunkCell(lx: number, ly: number): boolean {
+  return lx >= 0 && ly >= 0 && lx < GENERATION_CHUNK_SIZE && ly < GENERATION_CHUNK_SIZE;
+}
+
+function positionFor(chunk: ChunkCoord | null, world: Pick<WorldChunk, "worldSeed" | "floor">): { x: number; y: number } | null {
   if (!chunk) return null;
-  const anchor = anchorFor(worldSeed, floor, chunk.cx, chunk.cy);
+  const anchor = anchorFor({ ...world, ...chunk });
   return {
     x: chunk.cx * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.lx),
     y: chunk.cy * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.ly),
@@ -143,23 +165,18 @@ function positionFor(chunk: ChunkCoord | null, worldSeed: number, floor: number)
 
 /** World position of this floor's StairwayUp anchor (null on floor 1, which has none). */
 export function stairwayUpPosition(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  return positionFor(stairwayUpChunk(world.worldSeed, world.floor), world.worldSeed, world.floor);
+  return positionFor(stairwayUpChunk(world), world);
 }
 
 /** World position of this floor's StairwayDown landmark (null on FLOOR_CAP, which has the boss arena instead). */
 export function stairwayDownPosition(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  return positionFor(stairwayDownChunk(world.worldSeed, world.floor), world.worldSeed, world.floor);
+  return positionFor(stairwayDownChunk(world), world);
 }
 
 /** Local-anchor + reach for the room-height guard (generate/landmarks/guard.ts): keeps ordinary pit/dais variance away from either role's footprint in its own chunk. */
-export function descentGuardAnchor(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): { lx: number; ly: number; reach: number } | null {
-  const isRole = isStairwayUpChunk(worldSeed, floor, cx, cy) || isStairwayDownChunk(worldSeed, floor, cx, cy);
+export function descentGuardAnchor(chunk: WorldChunk): { lx: number; ly: number; reach: number } | null {
+  const isRole = isStairwayUpChunk(chunk) || isStairwayDownChunk(chunk);
   if (!isRole) return null;
-  const anchor = anchorFor(worldSeed, floor, cx, cy);
+  const anchor = anchorFor(chunk);
   return { ...anchor, reach: Math.max(STRUCT_HALF_X, STRUCT_BACK, STRUCT_FRONT) + 2 };
 }

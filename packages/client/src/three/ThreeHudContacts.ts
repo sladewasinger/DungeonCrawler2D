@@ -21,20 +21,7 @@ export class ThreeHudContacts {
     const signature = JSON.stringify(contacts);
     if (signature === this.signature) return;
     this.signature = signature;
-    const rows = contactRowViews(contacts).map((contact) => {
-      const row = document.createElement("div");
-      row.style.cssText =
-        "display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px";
-      const dot = document.createElement("span");
-      dot.textContent = "●";
-      dot.style.color = contact.online ? "#4ade80" : HUD_MUTED;
-      row.append(
-        dot,
-        document.createTextNode(contact.name),
-        createHudButton("DM", () => this.startDm(contact.name)),
-      );
-      return row;
-    });
+    const rows = contactRowViews(contacts).map((contact) => this.createRow(contact));
     if (rows.length === 0) {
       const empty = document.createElement("div");
       empty.textContent = "No contacts yet — hold F near someone.";
@@ -42,6 +29,16 @@ export class ThreeHudContacts {
       rows.push(empty);
     }
     this.list.replaceChildren(...rows);
+  }
+
+  private createRow(contact: ReturnType<typeof contactRowViews>[number]): HTMLDivElement {
+    const row = document.createElement("div");
+    row.style.cssText = "display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px";
+    const dot = document.createElement("span");
+    dot.textContent = "●";
+    dot.style.color = contact.online ? "#4ade80" : HUD_MUTED;
+    row.append(dot, document.createTextNode(contact.name), createHudButton("DM", () => this.startDm(contact.name)));
+    return row;
   }
 
   private readonly startDm: (name: string) => void;

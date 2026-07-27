@@ -1,4 +1,5 @@
 import type { Connection } from "./connection.js";
+import { ConnectionState } from "./connectionState.js";
 import {
   assignSlotIntent,
   attackIntent,
@@ -30,24 +31,37 @@ const socialTargetId = (
   nameOrId: string,
 ): string | undefined => {
   const lower = nameOrId.toLowerCase();
-  const matches = (id: string | undefined, name: string | undefined) =>
-    id === nameOrId || name?.toLowerCase() === lower;
-  const party = connection.party?.members.find((member) =>
-    matches(member.id, member.name)
-  );
-  const entity = [...connection.entities.values()].find((remote) =>
-    matches(remote.snap.id, remote.snap.name)
-  )?.snap;
-  const contact = connection.contacts.find((entry) =>
-    matches(entry.id, entry.name)
-  );
-  const outgoing = [...connection.outgoingPartyInvites].find(([id, name]) =>
-    matches(id, name)
-  );
-  return party?.id ?? entity?.id ?? contact?.id ?? outgoing?.[0];
+  const matches = socialTargetMatcher(nameOrId, lower);
+  return partyTargetId(connection, matches)
+    ?? entityTargetId(connection, matches)
+    ?? contactTargetId(connection, matches)
+    ?? outgoingTargetId(connection, matches);
 };
 
-export class ConnectionActions {
+function socialTargetMatcher(nameOrId: string, lower: string) {
+  return (id: string | undefined, name: string | undefined): boolean =>
+    id === nameOrId || name?.toLowerCase() === lower;
+}
+
+type SocialTargetMatcher = ReturnType<typeof socialTargetMatcher>;
+
+function partyTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
+  return connection.party?.members.find(({ id, name }) => matches(id, name))?.id;
+}
+
+function entityTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
+  return [...connection.entities.values()].find(({ snap }) => matches(snap.id, snap.name))?.snap.id;
+}
+
+function contactTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
+  return connection.contacts.find(({ id, name }) => matches(id, name))?.id;
+}
+
+function outgoingTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
+  return [...connection.outgoingPartyInvites].find(([id, name]) => matches(id, name))?.[0];
+}
+
+export class ConnectionActions extends ConnectionState {
   private get connection(): Connection {
     return this as unknown as Connection;
   }
@@ -58,7 +72,7 @@ export class ConnectionActions {
   }
   throwTorch(dirX: number, dirY: number): void { throwTorchIntent(this.connection, dirX, dirY); }
   useSlot(slot: number, targetX?: number, targetY?: number): void {
-    useSlotIntent(this.connection, slot, targetX, targetY);
+    useSlotIntent({ conn: this.connection, slot, targetX, targetY });
   }
   useSlotOnPlayer(slot: number, targetId: string): void {
     useSlotOnPlayerIntent(this.connection, slot, targetId);
@@ -78,7 +92,7 @@ export class ConnectionActions {
     stashOpIntent(this.connection, op, index);
   }
   lootChestOp(chestId: string, op: "open" | "take" | "takeAll" | "close", item?: string): void {
-    lootChestIntent(this.connection, chestId, op, item);
+    lootChestIntent({ conn: this.connection, chestId, op, item });
   }
   closeLootChest(): void {
     const context = this.connection.stashContext;
@@ -106,11 +120,11 @@ export class ConnectionActions {
     targetName: string,
     reason?: string,
   ): void {
-    moderationIntent(this.connection, op, targetName, reason);
+    moderationIntent({ conn: this.connection, op, target: targetName, reason });
   }
 
   chat(channel: "party" | "local" | "global" | "dm", text: string, target?: string): void {
-    chatIntent(this.connection, channel, text, target);
+    chatIntent({ conn: this.connection, channel, text, target });
   }
   fistbump(targetId: string): void { fistbumpIntent(this.connection, targetId); }
   who(): void { whoIntent(this.connection); }

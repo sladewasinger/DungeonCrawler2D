@@ -28,7 +28,7 @@ function corridorWorld(axis: "x" | "y", wallAt: number, gapAt: number): WorldVie
   };
 }
 
-function crossedWall(axis: "x" | "y", move: { moveX: number; moveY: number }, wallAt: number, body: ReturnType<typeof createBody>): boolean {
+function crossedWall(...[axis, move, wallAt, body]: ["x" | "y", { moveX: number; moveY: number }, number, ReturnType<typeof createBody>]): boolean {
   const along = axis === "x" ? body.x : body.y;
   const throughWall = axis === "x" ? move.moveX > 0 : move.moveY > 0;
   return throughWall ? along > wallAt + 1 : along < wallAt;
@@ -48,24 +48,22 @@ describe("corner-slide assist (1-tile corridor entry)", () => {
   // Past even the assist's reach — must stay blocked.
   const BEYOND_WINDOW = NATURAL_TOLERANCE + CORNER_SLIDE_WINDOW + 0.2;
 
-  it.each([
-    ["east", "x", { moveX: 1, moveY: 0 }, 5.5, GAP_CENTER + WITHIN_WINDOW] as const,
-    ["west", "x", { moveX: -1, moveY: 0 }, 11.5, GAP_CENTER - WITHIN_WINDOW] as const,
-    ["south", "y", { moveX: 0, moveY: 1 }, GAP_CENTER + WITHIN_WINDOW, 5.5] as const,
-    ["north", "y", { moveX: 0, moveY: -1 }, GAP_CENTER - WITHIN_WINDOW, 11.5] as const,
-  ])("%s: off-center within the window slides through the gap", (_dir, axis, move, sx, sy) => {
+  interface CorridorCase { dir: string; axis: "x" | "y"; move: { moveX: number; moveY: number }; sx: number; sy: number }
+  const casesFor = (offset: number): CorridorCase[] => [
+    { dir: "east", axis: "x", move: { moveX: 1, moveY: 0 }, sx: 5.5, sy: GAP_CENTER + offset },
+    { dir: "west", axis: "x", move: { moveX: -1, moveY: 0 }, sx: 11.5, sy: GAP_CENTER - offset },
+    { dir: "south", axis: "y", move: { moveX: 0, moveY: 1 }, sx: GAP_CENTER + offset, sy: 5.5 },
+    { dir: "north", axis: "y", move: { moveX: 0, moveY: -1 }, sx: GAP_CENTER - offset, sy: 11.5 },
+  ];
+
+  it.each(casesFor(WITHIN_WINDOW))("$dir: off-center within the window slides through the gap", ({ axis, move, sx, sy }) => {
     const world = corridorWorld(axis, WALL_AT, GAP_AT);
     const body = createBody(sx, sy, 0);
     for (let i = 0; i < 60; i++) stepBody(world, body, { ...move, jump: false }, TICK_DT);
     expect(crossedWall(axis, move, WALL_AT, body)).toBe(true);
   });
 
-  it.each([
-    ["east", "x", { moveX: 1, moveY: 0 }, 5.5, GAP_CENTER + BEYOND_WINDOW] as const,
-    ["west", "x", { moveX: -1, moveY: 0 }, 11.5, GAP_CENTER - BEYOND_WINDOW] as const,
-    ["south", "y", { moveX: 0, moveY: 1 }, GAP_CENTER + BEYOND_WINDOW, 5.5] as const,
-    ["north", "y", { moveX: 0, moveY: -1 }, GAP_CENTER - BEYOND_WINDOW, 11.5] as const,
-  ])("%s: off-center beyond the window stays blocked", (_dir, axis, move, sx, sy) => {
+  it.each(casesFor(BEYOND_WINDOW))("$dir: off-center beyond the window stays blocked", ({ axis, move, sx, sy }) => {
     const world = corridorWorld(axis, WALL_AT, GAP_AT);
     const body = createBody(sx, sy, 0);
     for (let i = 0; i < 60; i++) stepBody(world, body, { ...move, jump: false }, TICK_DT);

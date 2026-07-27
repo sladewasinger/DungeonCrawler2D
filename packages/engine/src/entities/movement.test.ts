@@ -27,15 +27,50 @@ function fakeWorld(opts: {
   };
 }
 
-function runTicks(
-  world: WorldView,
-  body: ReturnType<typeof createBody>,
-  input: Parameters<typeof stepBody>[2],
-  ticks: number,
-): StepResult[] {
+function runTicks(...[world, body, input, ticks]: [WorldView, ReturnType<typeof createBody>, Parameters<typeof stepBody>[2], number]): StepResult[] {
   const results: StepResult[] = [];
   for (let i = 0; i < ticks; i++) results.push(stepBody(world, body, input, TICK_DT));
   return results;
+}
+
+function advanceUntilGrounded({ world, body, input, height, budget }: { world: WorldView; body: ReturnType<typeof createBody>; input: Parameters<typeof stepBody>[2]; height: number; budget: number }): void {
+  for (let tick = 0; tick < budget; tick++) {
+    if (body.grounded && body.z === height) return;
+    stepBody(world, body, input, TICK_DT);
+  }
+}
+
+function steppedHeight(progress: number): number {
+  if (progress >= 11) return 2;
+  return progress >= 8 ? 1 : 0;
+}
+
+function assertCardinalChain({ dx, dy }: { dx: number; dy: number }): void {
+  const progress = (x: number, y: number): number => dx ? x * dx : y * dy;
+  const world = fakeWorld({ heightFn: (x, y) => steppedHeight(progress(x, y)), groundFn: (x, y) => steppedHeight(progress(x, y)) });
+  const body = createBody(dx * 7.2 || 5.5, dy * 7.2 || 5.5, 0);
+  const move = { moveX: dx, moveY: dy, jump: false };
+  stepBody(world, body, { ...move, jump: true }, TICK_DT);
+  advanceUntilGrounded({ world, body, input: move, height: 1, budget: 20 });
+  expect(body).toMatchObject({ grounded: true, z: 1 });
+  stepBody(world, body, move, TICK_DT);
+  stepBody(world, body, { ...move, jump: true }, TICK_DT);
+  advanceUntilGrounded({ world, body, input: move, height: 2, budget: 24 });
+  expect(body).toMatchObject({ grounded: true, z: 2 });
+}
+
+function assertDiagonalChain(): void {
+  const heightAt = (x: number, y: number): number => x >= 11 && y >= 11 ? 2 : x >= 8 && y >= 8 ? 1 : 0;
+  const world = fakeWorld({ heightFn: heightAt, groundFn: heightAt });
+  const body = createBody(7.2, 7.2, 0);
+  const move = { moveX: 1, moveY: 1, jump: false };
+  stepBody(world, body, { ...move, jump: true }, TICK_DT);
+  advanceUntilGrounded({ world, body, input: move, height: 1, budget: 28 });
+  expect(body.z).toBe(1);
+  stepBody(world, body, move, TICK_DT);
+  stepBody(world, body, { ...move, jump: true }, TICK_DT);
+  advanceUntilGrounded({ world, body, input: move, height: 2, budget: 32 });
+  expect(body.z).toBe(2);
 }
 
 describe("movement", () => {
@@ -102,51 +137,14 @@ describe("movement", () => {
   });
 
   it.each([
-    ["east", 1, 0],
-    ["west", -1, 0],
-    ["south", 0, 1],
-    ["north", 0, -1],
-  ] as const)("reliably chains h0→h1→h2 when approaching %s", (_name, dirX, dirY) => {
-    const progress = (x: number, y: number) => (dirX !== 0 ? x * dirX : y * dirY);
-    const world = fakeWorld({
-      heightFn: (x, y) => {
-        const p = progress(x, y);
-        return p >= 11 ? 2 : p >= 8 ? 1 : 0;
-      },
-      groundFn: (x, y) => {
-        const p = progress(x, y);
-        return p >= 11 ? 2 : p >= 8 ? 1 : 0;
-      },
-    });
-    const body = createBody(dirX * 7.2 || 5.5, dirY * 7.2 || 5.5, 0);
-    const move = { moveX: dirX, moveY: dirY, jump: false };
-
-    stepBody(world, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 20 && !(body.grounded && body.z === 1); i++) stepBody(world, body, move, TICK_DT);
-    expect(body.grounded).toBe(true);
-    expect(body.z).toBe(1);
-
-    stepBody(world, body, move, TICK_DT);
-    stepBody(world, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 24 && !(body.grounded && body.z === 2); i++) stepBody(world, body, move, TICK_DT);
-    expect(body.grounded).toBe(true);
-    expect(body.z).toBe(2);
+    { direction: "east", dx: 1, dy: 0 }, { direction: "west", dx: -1, dy: 0 },
+    { direction: "south", dx: 0, dy: 1 }, { direction: "north", dx: 0, dy: -1 },
+  ])("reliably chains h0→h1→h2 when approaching $direction", ({ dx, dy }) => {
+    assertCardinalChain({ dx, dy });
   });
 
   it("chains diagonal platform corners without bypassing a too-tall rise", () => {
-    const diagonal = fakeWorld({
-      heightFn: (x, y) => (x >= 11 && y >= 11 ? 2 : x >= 8 && y >= 8 ? 1 : 0),
-      groundFn: (x, y) => (x >= 11 && y >= 11 ? 2 : x >= 8 && y >= 8 ? 1 : 0),
-    });
-    const body = createBody(7.2, 7.2, 0);
-    const move = { moveX: 1, moveY: 1, jump: false };
-    stepBody(diagonal, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 28 && !(body.grounded && body.z === 1); i++) stepBody(diagonal, body, move, TICK_DT);
-    expect(body.z).toBe(1);
-    stepBody(diagonal, body, move, TICK_DT);
-    stepBody(diagonal, body, { ...move, jump: true }, TICK_DT);
-    for (let i = 0; i < 32 && !(body.grounded && body.z === 2); i++) stepBody(diagonal, body, move, TICK_DT);
-    expect(body.z).toBe(2);
+    assertDiagonalChain();
 
     const tooTall = fakeWorld({ heightFn: (x) => (x >= 8 ? 3 : 0) });
     const blocked = createBody(7.2, 5.5, 0);
@@ -156,63 +154,4 @@ describe("movement", () => {
     expect(blocked.z).toBe(0);
   });
 
-  it("buffers a jump pressed just before landing", () => {
-    const world = fakeWorld({});
-    const body = createBody(5.5, 5.5, 0.15);
-    body.grounded = false;
-    body.zVel = -1;
-    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
-    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
-    expect(body.grounded).toBe(true);
-    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
-    expect(body.grounded).toBe(false);
-    expect(body.zVel).toBeGreaterThan(0);
-  });
-
-  it("walking off a ledge falls and reports fall height on landing", () => {
-    const world = fakeWorld({ heightFn: (x) => (x < 8 ? 5 : 0) });
-    const body = createBody(7.5, 5.5, 5);
-    const results = runTicks(world, body, { moveX: 1, moveY: 0, jump: false }, 40);
-    const landing = results.find((r) => r.landed);
-    expect(landing).toBeDefined();
-    expect(landing?.landed?.fallHeight).toBeCloseTo(5, 1);
-    expect(body.grounded).toBe(true);
-    expect(body.z).toBe(0);
-  });
-
-  it("allows a brief coyote jump after stepping off a ledge", () => {
-    const world = fakeWorld({ heightFn: (x) => (x < 8 ? 2 : 0) });
-    const body = createBody(7.5, 5.5, 2);
-    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
-    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
-    expect(body.grounded).toBe(false);
-    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
-    expect(body.zVel).toBeGreaterThan(0);
-    expect(body.z).toBeGreaterThan(2);
-  });
-
-  it("does not allow a jump after the coyote window expires", () => {
-    const world = fakeWorld({ heightFn: (x) => (x < 8 ? 2 : 0) });
-    const body = createBody(7.5, 5.5, 2);
-    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
-    stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
-    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
-    stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
-    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
-    expect(body.zVel).toBeLessThanOrEqual(0);
-  });
-
-  it("gravity applies even with neutral input (server coasting)", () => {
-    const world = fakeWorld({ heightFn: () => 0 });
-    const body = createBody(5.5, 5.5, 0);
-    stepBody(world, body, { moveX: 0, moveY: 0, jump: true }, TICK_DT);
-    expect(body.grounded).toBe(false);
-    let ticks = 0;
-    while (!body.grounded && ticks < 100) {
-      stepBody(world, body, NEUTRAL_INPUT, TICK_DT);
-      ticks++;
-    }
-    expect(body.grounded).toBe(true);
-    expect(ticks).toBeLessThan(40); // lands well under two seconds
-  });
 });

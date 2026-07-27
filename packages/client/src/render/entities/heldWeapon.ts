@@ -57,13 +57,28 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
     sprite.setVisible(false);
     return;
   }
-  sprite.setVisible(true);
-  sprite.setFrame(frame);
-  if (pose.blocking) sprite.setTint(BLOCK_GUARD_TINT);
-  else if (pose.isFistFallback) sprite.setTint(FIST_TINT);
-  else sprite.clearTint();
-  sprite.setScale(WORLD_PIXEL_SCALE);
+  prepareHeldWeapon(sprite, frame, pose);
+  positionHeldWeapon(sprite, pose);
+}
 
+function prepareHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: string, pose: HeldWeaponPose): void {
+  sprite.setVisible(true).setFrame(frame).setScale(WORLD_PIXEL_SCALE);
+  applyHeldWeaponTint(sprite, pose);
+}
+
+function applyHeldWeaponTint(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
+  if (pose.blocking) {
+    sprite.setTint(BLOCK_GUARD_TINT);
+    return;
+  }
+  if (pose.isFistFallback) {
+    sprite.setTint(FIST_TINT);
+    return;
+  }
+  sprite.clearTint();
+}
+
+function positionHeldWeapon(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
   if (pose.blocking) {
     positionGuard(sprite, pose);
     return;
@@ -83,13 +98,13 @@ function positionGuard(
 ): void {
   const facingAngle = pose.orbitAngleRad ??
     (pose.facingX < 0 ? Math.PI : 0);
-  const guard = blockGuardTransform(
-    pose.screenX,
-    combatOriginY(pose.screenY, SCREEN_TILE_PX),
+  const guard = blockGuardTransform({
+    centerX: pose.screenX,
+    centerY: combatOriginY(pose.screenY, SCREEN_TILE_PX),
     facingAngle,
-    SCREEN_TILE_PX,
-    pose.nowMs,
-  );
+    tilePx: SCREEN_TILE_PX,
+    nowMs: pose.nowMs,
+  });
   sprite.setFlipX(false);
   sprite.setFlipY(Math.cos(facingAngle) < 0);
   sprite.setPosition(guard.x, guard.y);
@@ -112,7 +127,12 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
   const angle = pose.striking
     ? swingSweepAngle(pose.attackAngleRad, MELEE_HALF_ANGLE_RAD, pose.strikeProgress)
     : (pose.orbitAngleRad as number);
-  const center = orbitPosition(pose.screenX, combatOriginY(pose.screenY, SCREEN_TILE_PX), angle, SCREEN_TILE_PX);
+  const center = orbitPosition({
+    centerX: pose.screenX,
+    centerY: combatOriginY(pose.screenY, SCREEN_TILE_PX),
+    angle,
+    tilePx: SCREEN_TILE_PX,
+  });
   setWeaponDepth(sprite, pose);
   sprite.setFlipX(false);
   // On the left half of the orbit a pure rotation renders the weapon upside

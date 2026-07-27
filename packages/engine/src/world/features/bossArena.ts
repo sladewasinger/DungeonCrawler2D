@@ -18,7 +18,14 @@ import {
   WORLD_GEOMETRY_SCALE,
   scaleGeneratedCoordinate,
 } from "../generate/scale.js";
-import { FLOOR_CAP, pickRingChunk, structureAnchor, type ChunkCoord, type LocalAnchor } from "./descentShared.js";
+import {
+  FLOOR_CAP,
+  pickRingChunk,
+  structureAnchor,
+  type ChunkCoord,
+  type LocalAnchor,
+  type WorldChunk,
+} from "./descentShared.js";
 
 const ARENA_RADIUS = 2;
 const ARENA_SALT = 0xde5e;
@@ -47,18 +54,18 @@ const ARENA_CLEARANCE = GENERATED_ARENA_HALF + 1 + ARENA_THROAT_LENGTH;
 const GATE_DX = 0;
 const GATE_DY = GENERATED_ARENA_HALF;
 
-export function bossArenaChunk(worldSeed: number, floor: number): ChunkCoord | null {
-  if (floor !== FLOOR_CAP) return null;
-  return pickRingChunk(worldSeed, floor, ARENA_SALT, ARENA_RADIUS);
+export function bossArenaChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
+  if (world.floor !== FLOOR_CAP) return null;
+  return pickRingChunk(world, { salt: ARENA_SALT, radius: ARENA_RADIUS });
 }
 
-export function isBossArenaChunk(worldSeed: number, floor: number, cx: number, cy: number): boolean {
-  const target = bossArenaChunk(worldSeed, floor);
-  return !!target && target.cx === cx && target.cy === cy;
+export function isBossArenaChunk(chunk: WorldChunk): boolean {
+  const target = bossArenaChunk(chunk);
+  return !!target && target.cx === chunk.cx && target.cy === chunk.cy;
 }
 
-function anchorFor(worldSeed: number, floor: number, cx: number, cy: number): LocalAnchor {
-  return structureAnchor(worldSeed, floor, cx, cy, ANCHOR_SALT, ARENA_CLEARANCE);
+function anchorFor(chunk: WorldChunk): LocalAnchor {
+  return structureAnchor(chunk, { salt: ANCHOR_SALT, clearance: ARENA_CLEARANCE });
 }
 
 export interface BossArenaStamp {
@@ -69,17 +76,16 @@ export interface BossArenaStamp {
 }
 
 /** Stamp the sealed ring + interior into this chunk if it's FLOOR_CAP's arena chunk. Returns the center/gate LOCAL coords for generate/bossArenaLink.ts's connector, or null if this chunk isn't the arena. */
-export function applyBossArena(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-): BossArenaStamp | null {
-  if (!isBossArenaChunk(worldSeed, floor, cx, cy)) return null;
-  const anchor = anchorFor(worldSeed, floor, cx, cy);
-  stampRing(anchor, tiles, height);
+export interface BossArenaContext {
+  chunk: WorldChunk;
+  tiles: Uint8Array;
+  height: Float32Array;
+}
+
+export function applyBossArena(context: BossArenaContext): BossArenaStamp | null {
+  if (!isBossArenaChunk(context.chunk)) return null;
+  const anchor = anchorFor(context.chunk);
+  stampRing(anchor, context.tiles, context.height);
   return { center: anchor, gate: { lx: anchor.lx + GATE_DX, ly: anchor.ly + GATE_DY } };
 }
 
@@ -91,46 +97,59 @@ function isGateCell(dx: number, dy: number): boolean {
 function stampRing(anchor: LocalAnchor, tiles: Uint8Array, height: Float32Array): void {
   for (let dy = -GENERATED_ARENA_HALF; dy <= GENERATED_ARENA_HALF; dy++) {
     for (let dx = -GENERATED_ARENA_HALF; dx <= GENERATED_ARENA_HALF; dx++) {
-      const lx = anchor.lx + dx;
-      const ly = anchor.ly + dy;
-      if (lx < 0 || ly < 0 || lx >= GENERATION_CHUNK_SIZE || ly >= GENERATION_CHUNK_SIZE) continue;
-      const i = ly * GENERATION_CHUNK_SIZE + lx;
-      const d = Math.max(Math.abs(dx), Math.abs(dy));
-      const isWall = d >= RING_INNER_EDGE && !isGateCell(dx, dy);
-      tiles[i] = isWall ? TOPOLOGY.Uncarved : TILE.Floor;
-      height[i] = 0;
+      stampRingCell({ anchor, dx, dy, tiles, height });
     }
   }
 }
 
-function worldPoint(anchor: LocalAnchor, chunk: ChunkCoord, dx: number, dy: number): { x: number; y: number } {
+interface RingCellContext {
+  anchor: LocalAnchor;
+  dx: number;
+  dy: number;
+  tiles: Uint8Array;
+  height: Float32Array;
+}
+
+function stampRingCell(context: RingCellContext): void {
+  const lx = context.anchor.lx + context.dx;
+  const ly = context.anchor.ly + context.dy;
+  if (!isChunkCell(lx, ly)) return;
+  const index = ly * GENERATION_CHUNK_SIZE + lx;
+  context.tiles[index] = isRingWall(context.dx, context.dy) ? TOPOLOGY.Uncarved : TILE.Floor;
+  context.height[index] = 0;
+}
+
+function isChunkCell(lx: number, ly: number): boolean {
+  return lx >= 0 && ly >= 0 && lx < GENERATION_CHUNK_SIZE && ly < GENERATION_CHUNK_SIZE;
+}
+
+function isRingWall(dx: number, dy: number): boolean {
+  return Math.max(Math.abs(dx), Math.abs(dy)) >= RING_INNER_EDGE && !isGateCell(dx, dy);
+}
+
+function worldPoint(anchor: LocalAnchor, chunk: ChunkCoord, offset: LocalAnchor): { x: number; y: number } {
   return {
-    x: chunk.cx * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.lx + dx),
-    y: chunk.cy * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.ly + dy),
+    x: chunk.cx * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.lx + offset.lx),
+    y: chunk.cy * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.ly + offset.ly),
   };
 }
 
 /** World position of FLOOR_CAP's arena gate (null off FLOOR_CAP). */
 export function bossArenaGatePosition(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  const chunk = bossArenaChunk(world.worldSeed, world.floor);
+  const chunk = bossArenaChunk(world);
   if (!chunk) return null;
-  return worldPoint(anchorFor(world.worldSeed, world.floor, chunk.cx, chunk.cy), chunk, GATE_DX, GATE_DY);
+  return worldPoint(anchorFor({ ...world, ...chunk }), chunk, { lx: GATE_DX, ly: GATE_DY });
 }
 
 /** World position of FLOOR_CAP's boss spawn anchor: the arena's own center (null off FLOOR_CAP). */
 export function bossArenaSpawnAnchor(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  const chunk = bossArenaChunk(world.worldSeed, world.floor);
+  const chunk = bossArenaChunk(world);
   if (!chunk) return null;
-  return worldPoint(anchorFor(world.worldSeed, world.floor, chunk.cx, chunk.cy), chunk, 0, 0);
+  return worldPoint(anchorFor({ ...world, ...chunk }), chunk, { lx: 0, ly: 0 });
 }
 
 /** Local-anchor + reach for the room-height guard (generate/landmarks/guard.ts): keeps ordinary pit/dais variance away from the arena's own footprint in its chunk. */
-export function bossArenaGuardAnchor(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): { lx: number; ly: number; reach: number } | null {
-  if (!isBossArenaChunk(worldSeed, floor, cx, cy)) return null;
-  return { ...anchorFor(worldSeed, floor, cx, cy), reach: GENERATED_ARENA_HALF + 2 };
+export function bossArenaGuardAnchor(chunk: WorldChunk): { lx: number; ly: number; reach: number } | null {
+  if (!isBossArenaChunk(chunk)) return null;
+  return { ...anchorFor(chunk), reach: GENERATED_ARENA_HALF + 2 };
 }

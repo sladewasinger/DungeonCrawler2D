@@ -9,18 +9,19 @@ const FRAME = "light_soft";
 /** Above every terrain/entity depth, below the darkness overlay (render/lighting/darkness.ts) — atmospheric, not occluded by walls. */
 const PARTICLE_LAYER_DEPTH = 210_000;
 
-function baseEmitter(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  config: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig,
-): Phaser.GameObjects.Particles.ParticleEmitter {
+interface EmitterInput {
+  readonly x: number;
+  readonly y: number;
+  readonly config: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig;
+}
+
+function baseEmitter(scene: Phaser.Scene, { x, y, config }: EmitterInput): Phaser.GameObjects.Particles.ParticleEmitter {
   return scene.add.particles(x, y, ASSET_KEYS.atlas, { frame: FRAME, ...config }).setDepth(PARTICLE_LAYER_DEPTH);
 }
 
 /** Layered flame core + slower rising embers over a ground fire tile. */
 export function createFireEmitters(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Particles.ParticleEmitter[] {
-  const flame = baseEmitter(scene, x, y, {
+  const flame = baseEmitter(scene, { x, y, config: {
     lifespan: 380,
     speed: { min: 6, max: 18 },
     angle: { min: 260, max: 280 },
@@ -29,8 +30,8 @@ export function createFireEmitters(scene: Phaser.Scene, x: number, y: number): P
     tint: [0xffd23d, 0xff9e3d, 0xe04a4a],
     frequency: 45,
     blendMode: "ADD",
-  });
-  const embers = baseEmitter(scene, x, y, {
+  }});
+  const embers = baseEmitter(scene, { x, y, config: {
     lifespan: 700,
     speed: { min: 4, max: 14 },
     angle: { min: 250, max: 290 },
@@ -39,13 +40,13 @@ export function createFireEmitters(scene: Phaser.Scene, x: number, y: number): P
     tint: 0xff9e3d,
     frequency: 140,
     blendMode: "ADD",
-  });
+  }});
   return [flame, embers];
 }
 
 /** A tighter, cheaper flame lick for wall torches — many can be on screen at once. */
 export function createTorchFlame(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Particles.ParticleEmitter {
-  return baseEmitter(scene, x, y, {
+  return baseEmitter(scene, { x, y, config: {
     lifespan: 320,
     speed: { min: 4, max: 12 },
     angle: { min: 260, max: 280 },
@@ -54,12 +55,12 @@ export function createTorchFlame(scene: Phaser.Scene, x: number, y: number): Pha
     tint: [0xffd23d, 0xff9e3d],
     frequency: 70,
     blendMode: "ADD",
-  });
+  }});
 }
 
 /** Slow drifting bubbles over a poison tile. */
 export function createPoisonEmitter(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Particles.ParticleEmitter {
-  return baseEmitter(scene, x, y, {
+  return baseEmitter(scene, { x, y, config: {
     lifespan: 1100,
     speed: { min: 3, max: 9 },
     angle: { min: 260, max: 280 },
@@ -68,12 +69,12 @@ export function createPoisonEmitter(scene: Phaser.Scene, x: number, y: number): 
     tint: 0x7bd44a,
     frequency: 160,
     blendMode: "ADD",
-  });
+  }});
 }
 
 /** Wide, fast-fading steam billow. */
 export function createSteamEmitter(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Particles.ParticleEmitter {
-  return baseEmitter(scene, x, y, {
+  return baseEmitter(scene, { x, y, config: {
     lifespan: 650,
     speed: { min: 8, max: 22 },
     angle: { min: 255, max: 285 },
@@ -82,14 +83,14 @@ export function createSteamEmitter(scene: Phaser.Scene, x: number, y: number): P
     tint: 0xd8dde6,
     frequency: 90,
     blendMode: "ADD",
-  });
+  }});
 }
 
 const OIL_TINT = 0x1a1420;
 const WET_TINT = 0x3d5a66;
 
 /** Static glossy overlay for an unlit hazard puddle (oil/wet) — a subtle sheen, no particles. */
-export function createSheenOverlay(scene: Phaser.Scene, x: number, y: number, wet: boolean): Phaser.GameObjects.Image {
+export function createSheenOverlay(scene: Phaser.Scene, { x, y, wet }: { readonly x: number; readonly y: number; readonly wet: boolean }): Phaser.GameObjects.Image {
   return scene.add
     .image(x, y, ASSET_KEYS.atlas, FRAME)
     .setTint(wet ? WET_TINT : OIL_TINT)

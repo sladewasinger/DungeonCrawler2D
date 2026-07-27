@@ -19,12 +19,13 @@ const ADJACENT_OFFSETS = [
   [1, 0], [-1, 1], [0, 1], [1, 1],
 ] as const;
 
-function highestAdjacentHeight(
-  height: Float32Array,
-  chunkSize: number,
-  x: number,
-  y: number,
-): number | null {
+interface HeightGrid {
+  tiles: Uint8Array;
+  height: Float32Array;
+  chunkSize: number;
+}
+
+function highestAdjacentHeight({ height, chunkSize, x, y }: Pick<HeightGrid, "height" | "chunkSize"> & { x: number; y: number }): number | null {
   let highest: number | null = null;
   for (const [dx, dy] of ADJACENT_OFFSETS) {
     const nx = x + dx;
@@ -35,47 +36,57 @@ function highestAdjacentHeight(
   return highest;
 }
 
-function capVoidTowers(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
+function capVoidTowers({ tiles, height, chunkSize }: HeightGrid): void {
   for (let pass = 0; pass < chunkSize; pass++) {
-    const before = height.slice();
-    let changed = false;
-    for (let y = 0; y < chunkSize; y++) {
-      for (let x = 0; x < chunkSize; x++) {
-        const index = y * chunkSize + x;
-        if (tiles[index] !== TOPOLOGY.Uncarved) continue;
-        const adjacent = highestAdjacentHeight(before, chunkSize, x, y);
-        if (adjacent === null || (height[index] ?? 0) <= adjacent + 1) continue;
-        height[index] = adjacent + 1;
-        changed = true;
-      }
-    }
-    if (!changed) return;
+    if (!capVoidTowerPass({ tiles, height, chunkSize })) return;
   }
 }
 
-/** True when every one of (x, y)'s 8 neighbors is also Wall (out-of-chunk treated as Wall — a mass rarely ends exactly at a chunk seam). */
-function isInteriorFill(tiles: Uint8Array, chunkSize: number, x: number, y: number): boolean {
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= chunkSize || ny >= chunkSize) continue;
-      if (tiles[ny * chunkSize + nx] !== TOPOLOGY.Uncarved) return false;
-    }
-  }
+function capVoidTowerPass({ tiles, height, chunkSize }: HeightGrid): boolean {
+  const before = height.slice();
+  let changed = false;
+  for (let y = 0; y < chunkSize; y++) changed = capVoidTowerRow({ tiles, height, before, chunkSize, y }) || changed;
+  return changed;
+}
+
+function capVoidTowerRow({ tiles, height, before, chunkSize, y }: HeightGrid & { before: Float32Array; y: number }): boolean {
+  let changed = false;
+  for (let x = 0; x < chunkSize; x++) changed = capVoidTowerCell({ tiles, height, before, chunkSize, x, y }) || changed;
+  return changed;
+}
+
+function capVoidTowerCell({ tiles, height, before, chunkSize, x, y }: HeightGrid & { before: Float32Array; x: number; y: number }): boolean {
+  const index = y * chunkSize + x;
+  if (tiles[index] !== TOPOLOGY.Uncarved) return false;
+  const adjacent = highestAdjacentHeight({ height: before, chunkSize, x, y });
+  if (adjacent === null || (height[index] ?? 0) <= adjacent + 1) return false;
+  height[index] = adjacent + 1;
   return true;
+}
+
+/** True when every one of (x, y)'s 8 neighbors is also Wall (out-of-chunk treated as Wall — a mass rarely ends exactly at a chunk seam). */
+function isInteriorFill({ tiles, chunkSize, x, y }: Pick<HeightGrid, "tiles" | "chunkSize"> & { x: number; y: number }): boolean {
+  return ADJACENT_OFFSETS.every(([dx, dy]) => isWallOrOutside({ tiles, chunkSize, x: x + dx, y: y + dy }));
+}
+
+function isWallOrOutside({ tiles, chunkSize, x, y }: Pick<HeightGrid, "tiles" | "chunkSize"> & { x: number; y: number }): boolean {
+  if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) return true;
+  return tiles[y * chunkSize + x] === TOPOLOGY.Uncarved;
 }
 
 /** Raise every Wall tile: WALL_RISE for a rim/thin wall, INTERIOR_WALL_RISE for a fully-enclosed fill cell. */
 export function applyWallHeight(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
-  for (let y = 0; y < chunkSize; y++) {
-    for (let x = 0; x < chunkSize; x++) {
-      const i = y * chunkSize + x;
-      if (tiles[i] !== TOPOLOGY.Uncarved) continue;
-      const rise = isInteriorFill(tiles, chunkSize, x, y) ? INTERIOR_WALL_RISE : WALL_RISE;
-      height[i] = (height[i] ?? 0) + rise;
-    }
-  }
-  capVoidTowers(tiles, height, chunkSize);
+  for (let y = 0; y < chunkSize; y++) applyWallHeightRow({ tiles, height, chunkSize, y });
+  capVoidTowers({ tiles, height, chunkSize });
+}
+
+function applyWallHeightRow({ tiles, height, chunkSize, y }: HeightGrid & { y: number }): void {
+  for (let x = 0; x < chunkSize; x++) applyWallHeightCell({ tiles, height, chunkSize, x, y });
+}
+
+function applyWallHeightCell({ tiles, height, chunkSize, x, y }: HeightGrid & { x: number; y: number }): void {
+  const index = y * chunkSize + x;
+  if (tiles[index] !== TOPOLOGY.Uncarved) return;
+  const rise = isInteriorFill({ tiles, chunkSize, x, y }) ? INTERIOR_WALL_RISE : WALL_RISE;
+  height[index] = (height[index] ?? 0) + rise;
 }

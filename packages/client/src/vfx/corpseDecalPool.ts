@@ -31,6 +31,22 @@ interface CorpseDecal {
   spawnMs: number;
 }
 
+export interface CorpseDecalInput {
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight: number;
+  readonly tint: number;
+  readonly defId?: string | undefined;
+  readonly nowMs: number;
+  readonly spritePrefix?: string | undefined;
+  readonly bloodEnabled: boolean;
+}
+
+interface CorpsePlacement {
+  readonly decal: CorpseDecal;
+  readonly input: CorpseDecalInput;
+}
+
 export class CorpseDecalPool {
   private readonly decals: CorpseDecal[] = [];
   private cursor = 0;
@@ -40,28 +56,9 @@ export class CorpseDecalPool {
   /** Places one bone-cross decal near (worldX, worldY) — grows the pool until
    * CORPSE_DECAL_CAP, then recycles the oldest-cycled slot round-robin. `groundHeight`
    * is the kill position's `groundAt`, GROUND-anchoring the decal (section 5). */
-  spawn(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    tint: number,
-    defId: string | undefined,
-    nowMs: number,
-    spritePrefix?: string,
-    bloodEnabled = true,
-  ): void {
+  spawn(input: CorpseDecalInput): void {
     const decal = shouldGrowPool(this.decals.length, CORPSE_DECAL_CAP) ? this.grow() : this.recycle();
-    this.place(
-      decal,
-      worldX,
-      worldY,
-      groundHeight,
-      tint,
-      defId,
-      nowMs,
-      spritePrefix,
-      bloodEnabled,
-    );
+    this.place({ decal, input });
   }
 
   private grow(): CorpseDecal {
@@ -99,33 +96,19 @@ export class CorpseDecalPool {
     return { container, gore, body, spawnMs: -Infinity };
   }
 
-  private place(
-    decal: CorpseDecal,
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    tint: number,
-    defId: string | undefined,
-    nowMs: number,
-    spritePrefix?: string,
-    bloodEnabled = true,
-  ): void {
-    const screen = worldToScreen(worldX, worldY);
+  private place({ decal, input }: CorpsePlacement): void {
+    const { x, y, groundHeight, tint, defId, nowMs, spritePrefix, bloodEnabled } = input;
+    const screen = worldToScreen(x, y);
     const scatterPx = 6;
     const scatterX = (Math.random() - 0.5) * scatterPx;
     const scatterY = (Math.random() - 0.5) * scatterPx;
-    const placement = groundedVisualPlacement(
-      screen.y,
+    const placement = groundedVisualPlacement({
+      rawScreenY: screen.y,
       groundHeight,
-      "corpse",
-      scatterY,
-    );
-    for (const blob of decal.gore) {
-      blob
-        .setFillStyle(tint, 0.96)
-        .setStrokeStyle(0, tint, 0)
-        .setVisible(bloodEnabled && !isSkeletalDefId(defId));
-    }
+      layer: "corpse",
+      scatterScreenY: scatterY,
+    });
+    this.configureGore({ decal, tint, bloodEnabled, defId });
     this.placeBody(decal.body, spritePrefix ?? (defId ? monsterSpriteFor(defId) : undefined));
     decal.container
       .setPosition(screen.x + scatterX, placement.projectedScreenY)
@@ -135,6 +118,17 @@ export class CorpseDecalPool {
       .setVisible(true)
       .setDepth(placement.depth);
     decal.spawnMs = nowMs;
+  }
+
+  private configureGore({ decal, tint, bloodEnabled, defId }: {
+    readonly decal: CorpseDecal;
+    readonly tint: number;
+    readonly bloodEnabled: boolean;
+    readonly defId?: string | undefined;
+  }): void {
+    for (const blob of decal.gore) {
+      blob.setFillStyle(tint, 0.96).setStrokeStyle(0, tint, 0).setVisible(bloodEnabled && !isSkeletalDefId(defId));
+    }
   }
 
   private placeBody(

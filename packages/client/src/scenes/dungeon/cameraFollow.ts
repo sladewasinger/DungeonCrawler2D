@@ -22,12 +22,14 @@ export function requestCameraSnap(state: CameraFollowState): void {
 const EASE_RATE_PER_SEC = 10;
 
 /** Advances the eased camera position one frame toward (targetX, targetY). */
-export function stepCameraFollow(
-  state: CameraFollowState,
-  targetX: number,
-  targetY: number,
-  deltaMs: number,
-): void {
+export interface CameraFollowStep {
+  readonly targetX: number;
+  readonly targetY: number;
+  readonly deltaMs: number;
+}
+
+export function stepCameraFollow(state: CameraFollowState, step: CameraFollowStep): void {
+  const { targetX, targetY, deltaMs } = step;
   if (state.snap) {
     state.x = targetX;
     state.y = targetY;

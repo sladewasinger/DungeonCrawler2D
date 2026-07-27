@@ -2,12 +2,10 @@ import {
   FIST_DAMAGE,
   PARTY_FRIENDLY_FIRE_SCALE,
   PLAYER_MAX_HP,
-  TICK_RATE,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { GameSim } from "../index.js";
-import { DEATH_TO_RESPAWN_TICKS } from "../deathTestSupport.js";
 import { SWING_TICKS, findFlatArena, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "./support.js";
 
 /**
@@ -25,36 +23,36 @@ describe("GameSim: combat", () => {
 
   beforeEach(() => {
     sim = makeSim();
-    arena = findFlatArena(sim, 28, 28);
+    arena = findFlatArena({ sim: sim, anchor: { x: 28, y: 28 } });
   });
 
   it("melee swings gate on a cooldown — spam clicks land exactly one hit", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const aEntity = sim.getPlayerEntity(a.playerId)!;
-    teleport(aEntity, arena.x, arena.y, sim);
+    teleport({ entity: aEntity, x: arena.x, y: arena.y, sim: sim });
     const slime = sim.spawnEnemy("slime", aEntity.body.x + 1, aEntity.body.y);
     sim.queueAction(a.playerId, { type: "equip", item: null }); // fists: the starter sword auto-equips
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
-    teleport(slime, aEntity.body.x + 1, aEntity.body.y, sim); // undo knockback
+    teleport({ entity: slime, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim }); // undo knockback
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
     expect(slime.hp).toBe(12 - 3);
 
     stepN(sim, SWING_TICKS);
-    teleport(slime, aEntity.body.x + 1, aEntity.body.y, sim);
+    teleport({ entity: slime, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
     expect(slime.hp).toBe(12 - 6);
   });
 
   it("replicates a short peer attack pose for every accepted swing", () => {
-    const a = sim.addPlayer("A", "client-a");
-    const b = sim.addPlayer("B", "client-b");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
-    teleport(bEntity, aEntity.body.x, aEntity.body.y + 3, sim);
+    teleport({ entity: bEntity, x: aEntity.body.x, y: aEntity.body.y + 3, sim: sim });
 
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     let snapshots = sim.step();
@@ -72,10 +70,10 @@ describe("GameSim: combat", () => {
     sim.endSpawnGrace(bId); // hand-placed victim, not a fresh spawn (spawnSafety.ts)
     const aEntity = sim.getPlayerEntity(aId)!;
     const bEntity = sim.getPlayerEntity(bId)!;
-    teleport(aEntity, arena.x, arena.y, sim);
+    teleport({ entity: aEntity, x: arena.x, y: arena.y, sim: sim });
     // Friend closer than the slime, both in the swing arc; the slime
     // sits just outside its own bite range so it can't muddy the test.
-    teleport(bEntity, aEntity.body.x + 0.5, aEntity.body.y, sim);
+    teleport({ entity: bEntity, x: aEntity.body.x + 0.5, y: aEntity.body.y, sim: sim });
     const slime = sim.spawnEnemy("slime", aEntity.body.x + 1.5, aEntity.body.y);
     sim.queueAction(aId, { type: "equip", item: null }); // fists: the starter sword auto-equips
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
@@ -87,20 +85,20 @@ describe("GameSim: combat", () => {
     slime.hp = 0;
     sim.step(); // reap the corpse
     stepN(sim, SWING_TICKS); // let the swing cooldown recover
-    teleport(bEntity, aEntity.body.x + 0.5, aEntity.body.y, sim);
+    teleport({ entity: bEntity, x: aEntity.body.x + 0.5, y: aEntity.body.y, sim: sim });
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
     expect(bEntity.hp).toBe(PLAYER_MAX_HP - FIST_DAMAGE * PARTY_FRIENDLY_FIRE_SCALE);
   });
 
   it("weapons carry damage, statuses, and source tags (knife bleeds a player)", () => {
-    const a = sim.addPlayer("A", "client-a");
-    const b = sim.addPlayer("B", "client-b");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
     sim.endSpawnGrace(b.playerId); // hand-placed victim, not a fresh spawn (spawnSafety.ts)
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
-    teleport(aEntity, arena.x, arena.y, sim);
-    teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
+    teleport({ entity: aEntity, x: arena.x, y: arena.y, sim: sim });
+    teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
     sim.getInventory(a.playerId)!.push({ item: "knife", qty: 1 });
     sim.queueAction(a.playerId, { type: "equip", item: "knife" });
     sim.step();
@@ -110,19 +108,19 @@ describe("GameSim: combat", () => {
     for (let i = 0; i < 10 && !bEntity.statuses.some((s) => s.defId === "bleeding"); i++) {
       sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
       sim.step();
-      teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim); // undo knockback
+      teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim }); // undo knockback
       stepN(sim, SWING_TICKS);
-      teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
+      teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
     }
     expect(bEntity.hp).toBeLessThan(PLAYER_MAX_HP);
     expect(bEntity.statuses.some((s) => s.defId === "bleeding")).toBe(true);
   });
 
   it("spitters broadcast windup, release, and recovery states around a delayed projectile", () => {
-    const player = sim.addPlayer("Target", "spitter-target");
+    const player = sim.addPlayer({ name: "Target", clientId: "spitter-target" });
     sim.endSpawnGrace(player.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
     const entity = sim.getPlayerEntity(player.playerId)!;
-    teleport(entity, arena.x, arena.y, sim);
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
     const spitter = sim.spawnEnemy("spitter", entity.body.x + 6, entity.body.y);
 
     let snapshots = sim.step();
@@ -140,10 +138,10 @@ describe("GameSim: combat", () => {
   });
 
   it("melee enemies hold a replicated attack pose after landing a hit", () => {
-    const player = sim.addPlayer("Target", "melee-target");
+    const player = sim.addPlayer({ name: "Target", clientId: "melee-target" });
     sim.endSpawnGrace(player.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
     const entity = sim.getPlayerEntity(player.playerId)!;
-    teleport(entity, arena.x, arena.y, sim);
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
     const skeleton = sim.spawnEnemy("skeleton", entity.body.x + 0.8, entity.body.y);
 
     const first = sim.step().get(player.playerId)!;
@@ -157,64 +155,18 @@ describe("GameSim: combat", () => {
   });
 
   it("sanctuary suppresses PvP entirely", () => {
-    const a = sim.addPlayer("A", "client-a");
-    const b = sim.addPlayer("B", "client-b");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
     const door = findSafeRoomDoor(sim);
-    teleport(aEntity, door.x + 0.5, door.y + 0.5, sim);
+    teleport({ entity: aEntity, x: door.x + 0.5, y: door.y + 0.5, sim: sim });
     sim.queueAction(a.playerId, { type: "interact" }); // steps into the shared safe room
     sim.step();
-    teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
+    teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
     sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();
     expect(bEntity.hp).toBe(PLAYER_MAX_HP);
   });
 
-  it("enemies chase and hurt players; kills drop loot and respawn far away", () => {
-    const a = sim.addPlayer("A", "client-a");
-    sim.endSpawnGrace(a.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
-    const entity = sim.getPlayerEntity(a.playerId)!;
-    // A wider clearance than the shared `arena`: the enemy spawns 3
-    // tiles out and must walk the whole gap to reach the player, so the
-    // approach path itself (not just the two endpoints) has to be real,
-    // wall-free floor.
-    const wideArena = findFlatArena(sim, 28, 28, 3);
-    teleport(entity, wideArena.x, wideArena.y, sim);
-    sim.spawnEnemy("skeleton", entity.body.x + 3, entity.body.y);
-    stepN(sim, TICK_RATE * 4); // it closes in and swings
-    expect(entity.hp).toBeLessThan(PLAYER_MAX_HP);
-
-    // Force the kill: full loot drop where they fell, then respawn.
-    sim.getInventory(a.playerId)!.push({ item: "torch", qty: 2 });
-    const deathX = entity.body.x;
-    entity.hp = 0;
-    sim.step();
-    const respawnSnaps = stepN(sim, DEATH_TO_RESPAWN_TICKS + 2);
-    const snap = respawnSnaps.get(a.playerId)!;
-    expect(snap.self.hp).toBe(PLAYER_MAX_HP);
-    // Full loot drop leaves the player weaponless, so respawn re-grants
-    // the starter kit (Epic 7.13 starter-kit famine fix, ASSUMPTION #87)
-    // instead of leaving them permanently Unarmed.
-    const inv = sim.getInventory(a.playerId)!;
-    expect(inv.find((s) => s.item === "sword")?.qty).toBe(1);
-    expect(inv.find((s) => s.item === "torch")?.qty).toBe(3);
-    expect(inv.find((s) => s.item === "bandage")?.qty).toBe(2);
-    expect(inv.length).toBe(3);
-    expect(sim.getWeapon(a.playerId)).toBe("sword");
-    expect(Math.abs(snap.self.x - deathX)).toBeGreaterThan(1); // moved elsewhere
-  });
-
-  it("dead enemies roll their drop table", () => {
-    const a = sim.addPlayer("A", "client-a");
-    const entity = sim.getPlayerEntity(a.playerId)!;
-    teleport(entity, arena.x, arena.y, sim);
-    // plant-creeper drops stick @90% — kill a few to see one.
-    for (let i = 0; i < 3; i++) {
-      const plant = sim.spawnEnemy("plant-creeper", entity.body.x + 2 + i, entity.body.y);
-      plant.hp = 0;
-    }
-    const snap = sim.step().get(a.playerId)!;
-    expect(snap.entities.some((e) => e.kind === "item" && e.defId === "stick")).toBe(true);
-  });
 });

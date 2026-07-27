@@ -76,15 +76,15 @@ describe("nearestEntityId", () => {
   ];
 
   it("finds the nearest entity of the requested kind within range", () => {
-    expect(nearestEntityId(entities, "player", 0, 0, 10)).toBe("a");
+    expect(nearestEntityId({ entities, kind: "player", fromX: 0, fromY: 0, maxDistance: 10 })).toBe("a");
   });
 
   it("ignores entities of other kinds", () => {
-    expect(nearestEntityId(entities, "enemy", 0, 0, 10)).toBe("c");
+    expect(nearestEntityId({ entities, kind: "enemy", fromX: 0, fromY: 0, maxDistance: 10 })).toBe("c");
   });
 
   it("returns undefined when nothing is within range", () => {
-    expect(nearestEntityId(entities, "player", 0, 0, 0.5)).toBeUndefined();
+    expect(nearestEntityId({ entities, kind: "player", fromX: 0, fromY: 0, maxDistance: 0.5 })).toBeUndefined();
   });
 });
 
@@ -96,15 +96,15 @@ describe("nearestDownedPartyMember", () => {
   ];
 
   it("ignores conscious members even when closer", () => {
-    expect(nearestDownedPartyMember(members, 0, 0, 10)?.id).toBe("b");
+    expect(nearestDownedPartyMember({ members, fromX: 0, fromY: 0, maxDistance: 10 })?.id).toBe("b");
   });
 
   it("returns undefined when no downed member is within range", () => {
-    expect(nearestDownedPartyMember(members, 0, 0, 1)).toBeUndefined();
+    expect(nearestDownedPartyMember({ members, fromX: 0, fromY: 0, maxDistance: 1 })).toBeUndefined();
   });
 
   it("returns undefined with no party members at all", () => {
-    expect(nearestDownedPartyMember([], 0, 0, 10)).toBeUndefined();
+    expect(nearestDownedPartyMember({ members: [], fromX: 0, fromY: 0, maxDistance: 10 })).toBeUndefined();
   });
 
   it("breaks equal-distance ties by stable member id", () => {
@@ -112,6 +112,6 @@ describe("nearestDownedPartyMember", () => {
       { id: "later", x: -1, y: 0, downed: true },
       { id: "earlier", x: 1, y: 0, downed: true },
     ];
-    expect(nearestDownedPartyMember(tied, 0, 0, 10)?.id).toBe("earlier");
+    expect(nearestDownedPartyMember({ members: tied, fromX: 0, fromY: 0, maxDistance: 10 })?.id).toBe("earlier");
   });
 });

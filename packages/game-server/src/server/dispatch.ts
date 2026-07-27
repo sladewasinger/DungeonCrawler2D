@@ -1,81 +1,99 @@
 import {
   LEVEL,
   PROTOCOL_VERSION,
-  TICK_RATE,
   decodeClientMessage,
   type ClientHello,
   type ClientMessage,
-  type LevelId,
 } from "@dc2d/engine";
 import type { WebSocket } from "ws";
 import type { FloorRegistry } from "../floorRegistry.js";
 import type { GameSim } from "../sim/index.js";
 import type { ConnState, SocketMap } from "./types.js";
+import { routeAuthenticatedMessage } from "./authenticatedMessage.js";
 import { sendServerMessage } from "./measuredSend.js";
 import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
 import { currentSocketOwnsPlayer } from "./socketAuthority.js";
+import { sendWelcome } from "./welcome.js";
+
+interface ConnectionContext {
+  floors: FloorRegistry;
+  sandbox: GameSim;
+  sockets: SocketMap;
+  worldSeed: number;
+  diagnostics: ServerNetworkDiagnostics;
+}
+
+interface ConnectionMessageContext extends ConnectionContext {
+  ws: WebSocket;
+  conn: ConnState;
+}
 
 /** Per-connection message routing: hello/resume, protocol check, and
  * handing off input/action messages to whichever sim currently owns
  * this player (which can change mid-session — Epic 7.14 floor transfers). */
 
-export function handleConnection(
-  ws: WebSocket,
-  floors: FloorRegistry,
-  sandbox: GameSim,
-  sockets: SocketMap,
-  worldSeed: number,
-  diagnostics: ServerNetworkDiagnostics,
-): void {
+export function handleConnection(ws: WebSocket, context: ConnectionContext): void {
   const conn: ConnState = { playerId: null };
+  const messageContext = { ws, conn, ...context };
+  ws.on("message", (data) => receiveMessage(data.toString(), messageContext));
+  ws.on("close", () => disconnectSocket({ ws, conn, sockets: context.sockets, diagnostics: context.diagnostics }));
+}
 
-  ws.on("message", (data) => {
-    const raw = data.toString();
-    const startedAt = performance.now();
-    const msg = decodeClientMessage(raw);
-    const decodedAt = performance.now();
-    diagnostics.record(
-      conn.playerId,
-      "inbound",
-      raw,
-      decodedAt - startedAt,
-      ws.bufferedAmount,
-      decodedAt,
-    );
-    if (!msg) {
-      if (conn.playerId === null) ws.close(1002, "bad message");
-      return;
-    }
-    dispatchMessage(ws, msg, conn, floors, sandbox, sockets, worldSeed, diagnostics);
-  });
+function receiveMessage(raw: string, context: ConnectionMessageContext): void {
+  const startedAt = performance.now();
+  const msg = decodeClientMessage(raw);
+  const decodedAt = performance.now();
+  recordInbound({ raw, codecMilliseconds: decodedAt - startedAt, nowMs: decodedAt, context });
+  if (msg) dispatchMessage(msg, context);
+  else closeUnauthenticatedSocket(context.ws, context.conn);
+}
 
-  ws.on("close", () => {
-    if (!conn.playerId) return;
-    const entry = sockets.get(conn.playerId);
-    if (entry?.ws === ws) {
-      sockets.delete(conn.playerId);
-      entry.sim.markDisconnected(conn.playerId);
-      diagnostics.removeClient(conn.playerId);
-    }
+interface InboundRecord {
+  raw: string;
+  codecMilliseconds: number;
+  nowMs: number;
+  context: ConnectionMessageContext;
+}
+
+function recordInbound({ raw, codecMilliseconds, nowMs, context }: InboundRecord): void {
+  context.diagnostics.record({
+    playerId: context.conn.playerId,
+    direction: "inbound",
+    payload: raw,
+    codecMilliseconds,
+    queueBytes: context.ws.bufferedAmount,
+    nowMs,
   });
 }
 
-function dispatchMessage(
-  ws: WebSocket,
-  msg: ClientMessage,
-  conn: ConnState,
-  floors: FloorRegistry,
-  sandbox: GameSim,
-  sockets: SocketMap,
-  worldSeed: number,
-  diagnostics: ServerNetworkDiagnostics,
-): void {
+function closeUnauthenticatedSocket(ws: WebSocket, conn: ConnState): void {
+  if (conn.playerId === null) ws.close(1002, "bad message");
+}
+
+interface DisconnectContext {
+  ws: WebSocket;
+  conn: ConnState;
+  sockets: SocketMap;
+  diagnostics: ServerNetworkDiagnostics;
+}
+
+function disconnectSocket({ ws, conn, sockets, diagnostics }: DisconnectContext): void {
+  if (!conn.playerId) return;
+  const entry = sockets.get(conn.playerId);
+  if (entry?.ws !== ws) return;
+  sockets.delete(conn.playerId);
+  entry.sim.markDisconnected(conn.playerId);
+  diagnostics.removeClient(conn.playerId);
+}
+
+function dispatchMessage(msg: ClientMessage, context: ConnectionMessageContext): void {
+  const { ws, conn, sockets, diagnostics } = context;
   if (msg.type === "hello") {
-    handleHello(ws, msg, conn, floors, sandbox, sockets, worldSeed, diagnostics);
+    handleHello(msg, context);
     return;
   }
   if (msg.type === "ping") {
-    sendServerMessage(ws, conn.playerId, { type: "pong", t: msg.t }, diagnostics);
+    sendServerMessage({ socket: ws, playerId: conn.playerId, message: { type: "pong", t: msg.t }, diagnostics });
     return;
   }
   if (conn.playerId && currentSocketOwnsPlayer(sockets, conn.playerId, ws)) {
@@ -83,18 +101,7 @@ function dispatchMessage(
   }
 }
 
-export function routeAuthenticatedMessage(
-  msg: ClientMessage,
-  playerId: string,
-  sockets: SocketMap,
-): void {
-  const entry = sockets.get(playerId);
-  if (!entry) return;
-  if (msg.type === "snapshotResync") entry.sim.requestSnapshotBaseline(playerId);
-  else if (msg.type === "input") entry.sim.handleInput(playerId, msg);
-  else if (msg.type === "respawn") return;
-  else if (msg.type !== "hello" && msg.type !== "ping") entry.sim.queueAction(playerId, msg);
-}
+export { routeAuthenticatedMessage } from "./authenticatedMessage.js";
 
 /** Which sim a hello lands in: sandbox is unchanged; a dungeon resume
  * reattaches wherever its slot currently lives (any active floor); a
@@ -108,69 +115,33 @@ function resolveJoinSim(msg: ClientHello, floors: FloorRegistry, sandbox: GameSi
   return floors.joinSim(msg.clientId);
 }
 
-function handleHello(
-  ws: WebSocket,
-  msg: ClientHello,
-  conn: ConnState,
-  floors: FloorRegistry,
-  sandbox: GameSim,
-  sockets: SocketMap,
-  worldSeed: number,
-  diagnostics: ServerNetworkDiagnostics,
-): void {
+function handleHello(msg: ClientHello, context: ConnectionMessageContext): void {
+  const { ws, conn, floors, sandbox, sockets, worldSeed, diagnostics } = context;
   if (conn.playerId !== null) return;
   if (msg.protocol !== PROTOCOL_VERSION) {
     rejectProtocolMismatch(ws, diagnostics);
     return;
   }
   const sim = resolveJoinSim(msg, floors, sandbox);
-  const join = sim.addPlayer(msg.name, msg.clientId, msg.resumeToken, msg.skin);
+  const join = sim.addPlayer({ name: msg.name, clientId: msg.clientId, resumeToken: msg.resumeToken, skin: msg.skin });
   sim.configureSnapshotMode(join.playerId, msg.snapshotMode);
   conn.playerId = join.playerId;
   const previous = sockets.get(join.playerId);
   sockets.set(join.playerId, { ws, sim });
   if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");
-  sendWelcome(ws, join, msg.level, worldSeed, diagnostics);
+  sendWelcome({ ws, join, level: msg.level, worldSeed, diagnostics });
 }
 
-function rejectProtocolMismatch(
-  ws: WebSocket,
-  diagnostics: ServerNetworkDiagnostics,
-): void {
-  sendServerMessage(
-    ws,
-    null,
-    {
+function rejectProtocolMismatch(ws: WebSocket, diagnostics: ServerNetworkDiagnostics): void {
+  sendServerMessage({
+    socket: ws,
+    playerId: null,
+    message: {
       type: "error",
       code: "protocol_mismatch",
       message: `server speaks protocol ${PROTOCOL_VERSION}`,
     },
     diagnostics,
-  );
+  });
   ws.close(1002, "protocol mismatch");
-}
-
-function sendWelcome(
-  ws: WebSocket,
-  join: ReturnType<GameSim["addPlayer"]>,
-  level: LevelId,
-  worldSeed: number,
-  diagnostics: ServerNetworkDiagnostics,
-): void {
-  sendServerMessage(
-    ws,
-    join.playerId,
-    {
-      type: "welcome",
-      protocol: PROTOCOL_VERSION,
-      playerId: join.playerId,
-      resumeToken: join.resumeToken,
-      worldSeed,
-      floor: join.floor,
-      level,
-      tickRate: TICK_RATE,
-      spawn: join.spawn,
-    },
-    diagnostics,
-  );
 }

@@ -25,6 +25,23 @@ export interface PredictedInputIdentity {
   readonly projectedServerTick: number;
 }
 
+export interface PredictionRequest {
+  world: World;
+  body: BodyState;
+  input: MoveInput;
+  resources?: PlayerResourceState;
+  canBlock?: boolean;
+}
+
+export interface ReconciliationRequest {
+  world: World;
+  body: BodyState;
+  lastSimulatedProjectedTick: number;
+  authoritativeServerTick: number;
+  resources?: PlayerResourceState;
+  canBlock?: boolean;
+}
+
 export class Prediction {
   private seq = 0;
   private projectedServerTick: number | null = null;
@@ -45,17 +62,12 @@ export class Prediction {
   }
 
   /** Advance one local tick and bind it to the sequence sent for this prediction. */
-  predict(
-    world: World,
-    body: BodyState,
-    input: MoveInput,
-    resources?: PlayerResourceState,
-    canBlock = false,
-  ): PredictedInputIdentity {
+  predict(request: PredictionRequest): PredictedInputIdentity {
+    const { world, body, input, resources, canBlock = false } = request;
     this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
     const effective = resources
-      ? stepPlayerResources(resources, input, canBlock, TICK_DT).input
+      ? stepPlayerResources({ state: resources, input, canBlock, dt: TICK_DT }).input
       : input;
     stepBody(world, body, effective, TICK_DT);
     this.pending.push(this.acquireStep(this.projectedServerTick, input));
@@ -67,14 +79,8 @@ export class Prediction {
   }
 
   /** Drop ticks the server actually simulated, then replay only the newer local steps. */
-  reconcile(
-    world: World,
-    body: BodyState,
-    lastSimulatedProjectedTick: number,
-    authoritativeServerTick: number,
-    resources?: PlayerResourceState,
-    canBlock = false,
-  ): void {
+  reconcile(request: ReconciliationRequest): void {
+    const { world, body, lastSimulatedProjectedTick, authoritativeServerTick, resources, canBlock = false } = request;
     const acknowledgedTick = this.resolveAcknowledgedTick(
       lastSimulatedProjectedTick,
       authoritativeServerTick,
@@ -86,7 +92,7 @@ export class Prediction {
     }
     for (const p of this.pending) {
       const effective = resources
-        ? stepPlayerResources(resources, p.input, canBlock, TICK_DT).input
+        ? stepPlayerResources({ state: resources, input: p.input, canBlock, dt: TICK_DT }).input
         : p.input;
       stepBody(world, body, effective, TICK_DT);
     }

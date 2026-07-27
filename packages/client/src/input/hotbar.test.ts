@@ -66,23 +66,20 @@ function makeState(): InputState {
 
 describe("activateHotbar", () => {
   it("selects a throwable slot instead of using it immediately", () => {
-    const state = makeState();
-    const conn = makeConn();
+    const state = makeState(); const conn = makeConn();
     activateHotbar(state, conn, 1);
     expect(state.selectedSlot).toBe(1);
   });
 
   it("toggles the same throwable slot off on a second press", () => {
-    const state = makeState();
-    const conn = makeConn();
+    const state = makeState(); const conn = makeConn();
     activateHotbar(state, conn, 1);
     activateHotbar(state, conn, 1);
     expect(state.selectedSlot).toBeNull();
   });
 
   it("selects a non-throwable slot without using it", () => {
-    const state = makeState();
-    const used: number[] = [];
+    const state = makeState(); const used: number[] = [];
     const conn = makeConn({ useSlot: (i) => used.push(i) });
     activateHotbar(state, conn, 0);
     expect(used).toEqual([]);
@@ -90,8 +87,7 @@ describe("activateHotbar", () => {
   });
 
   it("does nothing for an empty slot", () => {
-    const state = makeState();
-    const conn = makeConn();
+    const state = makeState(); const conn = makeConn();
     activateHotbar(state, conn, 2);
     expect(state.selectedSlot).toBeNull();
   });
@@ -99,25 +95,22 @@ describe("activateHotbar", () => {
 
 describe("activeThrowableSlot / throwPreview", () => {
   it("returns null if the selected item is no longer throwable", () => {
-    const state = makeState();
-    state.selectedSlot = 1;
+    const state = makeState(); state.selectedSlot = 1;
     const conn = makeConn({ hotbar: ["sword", undefined, undefined] });
     expect(activeThrowableSlot(state, conn, makeQueries())).toBeNull();
     expect(state.selectedSlot).toBe(1);
   });
 
   it("builds a world-space preview for an armed throwable", () => {
-    const state = makeState();
-    state.selectedSlot = 1;
+    const state = makeState(); state.selectedSlot = 1;
     const conn = makeConn();
-    const preview = throwPreview(state, conn, makeQueries(), { x: 3.5, y: 2 });
+    const preview = throwPreview({ state, conn, queries: makeQueries(), pointerWorld: { x: 3.5, y: 2 } });
     expect(preview).toEqual({ slot: 1, targetX: 3.5, targetY: 2 });
   });
 
   it("returns null when no slot is armed", () => {
-    const state = makeState();
-    const conn = makeConn();
-    expect(throwPreview(state, conn, makeQueries(), { x: 0, y: 0 })).toBeNull();
+    const state = makeState(); const conn = makeConn();
+    expect(throwPreview({ state, conn, queries: makeQueries(), pointerWorld: { x: 0, y: 0 } })).toBeNull();
   });
 });
 
@@ -134,59 +127,39 @@ describe("onNumberKey", () => {
   };
 
   it("binds the selected inventory row to that slot when the inventory window is open with a row selected", () => {
-    const state = makeState();
-    const bound: Array<[number, string | null]> = [];
-    const conn = makeConn({ assignSlot: (slot, item) => bound.push([slot, item]) });
-    const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: "bomb" };
-    onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: false } } as Keys, 3);
+    const state = makeState(); const bound: Array<[number, string | null]> = []; const conn = makeConn({ assignSlot: (slot, item) => bound.push([slot, item]) });
+    const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: "bomb" }; onNumberKey({ state, conn, panels, queries: makeQueries(), keys: { SHIFT: { isDown: false } } as Keys, number: 3 });
     expect(bound).toEqual([[2, "bomb"]]);
   });
 
   it("falls back to hotbar activation when the inventory is open but nothing is selected", () => {
-    const state = makeState();
-    const conn = makeConn();
-    const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: null };
-    onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: false } } as Keys, 1);
+    const state = makeState(); const conn = makeConn();
+    const panels: InputPanels = { ...panelsClosed, inventoryOpen: true, selectedInventoryItem: null }; onNumberKey({ state, conn, panels, queries: makeQueries(), keys: { SHIFT: { isDown: false } } as Keys, number: 1 });
     expect(state.selectedSlot).toBe(0);
   });
 
   it("falls back to hotbar activation when no panel is open", () => {
-    const state = makeState();
-    const conn = makeConn();
-    onNumberKey(state, conn, panelsClosed, makeQueries(), { SHIFT: { isDown: false } } as Keys, 1);
+    const state = makeState(); const conn = makeConn(); onNumberKey({ state, conn, panels: panelsClosed, queries: makeQueries(), keys: { SHIFT: { isDown: false } } as Keys, number: 1 });
     expect(state.selectedSlot).toBe(0);
   });
 
   it("crafts the recipe at that slot when the craft panel is open near a table", () => {
-    const state = makeState();
-    const crafted: string[] = [];
-    const conn = makeConn({ craft: (id) => crafted.push(id) });
-    const panels: InputPanels = { ...panelsClosed, craftOpen: true };
-    const queries = makeQueries({ recipeIdAt: () => "recipe-1" });
-    onNumberKey(state, conn, panels, queries, { SHIFT: { isDown: false } } as Keys, 1);
+    const state = makeState(); const crafted: string[] = []; const conn = makeConn({ craft: (id) => crafted.push(id) });
+    const panels: InputPanels = { ...panelsClosed, craftOpen: true }; const queries = makeQueries({ recipeIdAt: () => "recipe-1" });
+    onNumberKey({ state, conn, panels, queries, keys: { SHIFT: { isDown: false } } as Keys, number: 1 });
     expect(crafted).toEqual(["recipe-1"]);
   });
 
   it("takes from the stash on a plain number when the stash panel is open near a stash", () => {
-    const state = makeState();
-    const ops: Array<[string, number]> = [];
-    const conn = makeConn({ stash: {}, stashOp: (op, i) => ops.push([op, i]) });
-    const panels: InputPanels = { ...panelsClosed, stashOpen: true };
-    onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: false } } as Keys, 2);
+    const state = makeState(); const ops: Array<[string, number]> = []; const conn = makeConn({ stash: {}, stashOp: (op, i) => ops.push([op, i]) }); const panels: InputPanels = { ...panelsClosed, stashOpen: true };
+    onNumberKey({ state, conn, panels, queries: makeQueries(), keys: { SHIFT: { isDown: false } } as Keys, number: 2 });
     expect(ops).toEqual([["take", 1]]);
   });
 
   it("puts the matching inventory stack into the stash on shift+number", () => {
-    const state = makeState();
-    const ops: Array<[string, number]> = [];
-    const conn = makeConn({
-      stash: {},
-      hotbar: ["sword", undefined, undefined],
-      inventory: [{ item: "bomb", qty: 1 }, { item: "sword", qty: 1 }],
-      stashOp: (op, i) => ops.push([op, i]),
-    });
-    const panels: InputPanels = { ...panelsClosed, stashOpen: true };
-    onNumberKey(state, conn, panels, makeQueries(), { SHIFT: { isDown: true } } as Keys, 1);
+    const state = makeState(); const ops: Array<[string, number]> = [];
+    const conn = makeConn({ stash: {}, hotbar: ["sword", undefined, undefined], inventory: [{ item: "bomb", qty: 1 }, { item: "sword", qty: 1 }], stashOp: (op, i) => ops.push([op, i]) });
+    const panels: InputPanels = { ...panelsClosed, stashOpen: true }; onNumberKey({ state, conn, panels, queries: makeQueries(), keys: { SHIFT: { isDown: true } } as Keys, number: 1 });
     expect(ops).toEqual([["put", 1]]);
   });
 });

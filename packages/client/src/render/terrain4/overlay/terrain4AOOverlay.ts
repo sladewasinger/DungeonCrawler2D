@@ -44,24 +44,24 @@ type AOPart =
 
 function groupByDepth(masks: Terrain4Batches["ao"]): Map<number, AOPart[]> {
   const grouped = new Map<number, AOPart[]>();
-  const add = (quad: Terrain4AOQuad, region: AOPart["region"]): void => {
-    // AO is surface content owned by the low receiver tile. Keep every side
-    // and corner at that tile's depth; the raised caster's own cap then sorts
-    // naturally in front when projected overlap needs to be occluded.
-    const depth = depthForCapOccluder(quad.viewTile.y) + 0.06;
-    const group = grouped.get(depth) ?? [];
-    if (!grouped.has(depth)) grouped.set(depth, group);
-    group.push({ quad, region });
-  };
-  for (const mask of masks) {
-    for (const side of ["north", "east", "south", "west"] as const) {
-      if (mask.mask[side]) add(mask, side);
-    }
-    for (const corner of ["nw", "ne", "sw", "se"] as const) {
-      if (mask.mask[corner]) add(mask, corner);
-    }
-  }
+  for (const mask of masks) appendMaskParts(grouped, mask);
   return grouped;
+}
+
+function appendMaskParts(grouped: Map<number, AOPart[]>, quad: Terrain4AOQuad): void {
+  appendRegions(grouped, quad, ["north", "east", "south", "west"]);
+  appendRegions(grouped, quad, ["nw", "ne", "sw", "se"]);
+}
+
+function appendRegions(grouped: Map<number, AOPart[]>, quad: Terrain4AOQuad, regions: readonly AOPart["region"][]): void {
+  for (const region of regions) if (quad.mask[region]) appendPart(grouped, quad, region);
+}
+
+function appendPart(grouped: Map<number, AOPart[]>, quad: Terrain4AOQuad, region: AOPart["region"]): void {
+  const depth = depthForCapOccluder(quad.viewTile.y) + 0.06;
+  const group = grouped.get(depth) ?? [];
+  if (!grouped.has(depth)) grouped.set(depth, group);
+  group.push({ quad, region });
 }
 
 function drawGroup(
@@ -70,33 +70,41 @@ function drawGroup(
   projection: Terrain4ScreenProjection,
 ): void {
   const alphas = aoBandAlphas(getAOStrength());
-  for (const part of parts) drawPart(graphics, part, projection, alphas);
+  for (const part of parts) drawPart({ graphics, part, projection, alphas });
 }
 
-function drawPart(
-  graphics: Phaser.GameObjects.Graphics,
-  part: AOPart,
-  projection: Terrain4ScreenProjection,
-  alphas: readonly number[],
-): void {
-  const points = projectQuad(part.quad.vertices, projection);
-  if (part.region === "nw" || part.region === "ne" || part.region === "sw" || part.region === "se") {
-    graphics.fillStyle(0x06060c, aoCornerAlpha(getAOStrength()));
-    fillQuad(graphics, cornerPatch(points, part.region, AO_CORNER_FRAC));
-    return;
-  }
+interface DrawPartInput { readonly graphics: Phaser.GameObjects.Graphics; readonly part: AOPart; readonly projection: Terrain4ScreenProjection; readonly alphas: readonly number[]; }
+
+function drawPart(input: DrawPartInput): void {
+  const points = projectQuad(input.part.quad.vertices, input.projection);
+  if (isCorner(input.part.region)) return drawCorner(input.graphics, points, input.part.region);
+  drawSideBands({ graphics: input.graphics, points, side: input.part.region, alphas: input.alphas });
+}
+
+function isCorner(region: AOPart["region"]): region is AOCorner { return region.length === 2; }
+
+function drawCorner(graphics: Phaser.GameObjects.Graphics, points: Terrain4Points, corner: AOCorner): void {
+  graphics.fillStyle(0x06060c, aoCornerAlpha(getAOStrength()));
+  fillQuad(graphics, cornerPatch(points, corner, AO_CORNER_FRAC));
+}
+
+function drawSideBands(input: DrawSideBandsInput): void {
   for (let band = 0; band < AO_BAND_FRACS.length; band += 1) {
-    graphics.fillStyle(0x06060c, alphas[band] ?? 0);
+    input.graphics.fillStyle(0x06060c, input.alphas[band] ?? 0);
     const fraction = AO_BAND_FRACS[band] ?? 0;
-    fillQuad(graphics, sideBand(points, part.region, fraction));
+    fillQuad(input.graphics, sideBand(input.points, input.side, fraction));
   }
 }
 
-function projectQuad(vertices: Terrain4QuadVertices, projection: Terrain4ScreenProjection): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
+interface DrawSideBandsInput { readonly graphics: Phaser.GameObjects.Graphics; readonly points: Terrain4Points; readonly side: AOSide; readonly alphas: readonly number[]; }
+
+type Terrain4Points = readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint];
+
+function projectQuad(vertices: Terrain4QuadVertices, projection: Terrain4ScreenProjection): Terrain4Points {
   return [projection.project(vertices[0]), projection.project(vertices[1]), projection.project(vertices[2]), projection.project(vertices[3])];
 }
 
-function sideBand(points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint], side: "north" | "south" | "east" | "west", fraction: number): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
+function sideBand(points: Terrain4Points, side: AOSide, fraction: number): Terrain4Points {
   const [tl, tr, br, bl] = points;
   // Keep the polygon perimeter ordered clockwise. A self-crossing north band
   // can rasterize as a blinking half-strip while the camera moves.
@@ -104,24 +112,26 @@ function sideBand(points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Te
   const bottom = [lerp(tl, bl, 1 - fraction), lerp(tr, br, 1 - fraction), br, bl] as const;
   const left = [tl, lerp(tl, tr, fraction), lerp(bl, br, fraction), bl] as const;
   const right = [lerp(tl, tr, 1 - fraction), tr, br, lerp(bl, br, 1 - fraction)] as const;
-  return side === "north" ? top : side === "south" ? bottom : side === "east" ? right : left;
+  return { north: top, south: bottom, east: right, west: left }[side];
 }
 
-function cornerPatch(points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint], corner: "nw" | "ne" | "sw" | "se", fraction: number): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
+function cornerPatch(points: Terrain4Points, corner: AOCorner, fraction: number): Terrain4Points {
   const [tl, tr, br, bl] = points;
   const at = (u: number, v: number): Terrain4ScreenPoint => lerp(lerp(tl, tr, u), lerp(bl, br, u), v);
-  const u0 = corner.includes("w") ? 0 : 1 - fraction;
-  const u1 = corner.includes("w") ? fraction : 1;
-  const v0 = corner.includes("n") ? 0 : 1 - fraction;
-  const v1 = corner.includes("n") ? fraction : 1;
+  const [u0, u1] = cornerAxis(corner, "w", fraction);
+  const [v0, v1] = cornerAxis(corner, "n", fraction);
   return [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)];
+}
+
+function cornerAxis(corner: AOCorner, direction: "w" | "n", fraction: number): readonly [number, number] {
+  return corner.includes(direction) ? [0, fraction] : [1 - fraction, 1];
 }
 
 function lerp(a: Terrain4ScreenPoint, b: Terrain4ScreenPoint, amount: number): Terrain4ScreenPoint {
   return { x: a.x + (b.x - a.x) * amount, y: a.y + (b.y - a.y) * amount };
 }
 
-function fillQuad(graphics: Phaser.GameObjects.Graphics, points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint]): void {
+function fillQuad(graphics: Phaser.GameObjects.Graphics, points: Terrain4Points): void {
   const [a, b, c, d] = points;
   // One path avoids a visible diagonal seam where two translucent triangles
   // would otherwise rasterize/alpha-blend independently while the camera

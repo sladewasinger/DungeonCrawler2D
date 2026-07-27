@@ -35,73 +35,65 @@ export interface RowBuilderContext {
 }
 
 /** Builds one row's full object set at local y, left..right — caller adds them to its panel container. */
-export function buildInventoryRow(ctx: RowBuilderContext, view: InventoryRowView, left: number, right: number, y: number): Phaser.GameObjects.GameObject[] {
+interface InventoryRowPlacement { left: number; right: number; y: number; }
+interface RowLabelOptions { ctx: RowBuilderContext; view: InventoryRowView; left: number; y: number; height: number; }
+interface RowButtonOptions { ctx: RowBuilderContext; view: InventoryRowView; right: number; y: number; height: number; }
+interface ButtonOptions { ctx: RowBuilderContext; x: number; y: number; width: number; label: string; active: boolean; onClick: () => void; }
+
+export function buildInventoryRow(ctx: RowBuilderContext, view: InventoryRowView, { left, right, y }: InventoryRowPlacement): Phaser.GameObjects.GameObject[] {
   const height = ctx.rowHeight - 2;
   const rowBg = ctx.scene.add.rectangle(left, y, right - left, height, PANEL_FILL, 0.4).setOrigin(0, 0).setInteractive({ useHandCursor: true });
   rowBg.on("pointerdown", () => ctx.onSelect(view.itemId));
-  const icon = createItemIcon(ctx.scene, view.itemId, ctx.iconSize, ctx.scale).setPosition(left + ctx.iconSize / 2 + 4, y + height / 2);
-  const labels = buildRowLabels(ctx, view, left, y, height);
-  const buttons = buildRowButtons(ctx, view, right, y, height);
+  const icon = createItemIcon({ scene: ctx.scene, itemId: view.itemId, size: ctx.iconSize, containerScale: ctx.scale }).setPosition(left + ctx.iconSize / 2 + 4, y + height / 2);
+  const labels = buildRowLabels({ ctx, view, left, y, height });
+  const buttons = buildRowButtons({ ctx, view, right, y, height });
   // Drawn LAST (on top of the buttons) — Epic 7.13's z-order fix (inventoryWindow.ts's history).
   const accent = drawSelectionAccent(ctx.scene, right - left, height).setPosition(left, y).setVisible(view.itemId === ctx.selectedItemId);
   return [rowBg, icon, ...labels, ...buttons, accent];
 }
 
 /** Name (+ hotbar tag) on one line, dimmed flavor line beneath — Epic 7.14 §4. */
-function buildRowLabels(ctx: RowBuilderContext, view: InventoryRowView, left: number, y: number, height: number): Phaser.GameObjects.Text[] {
+function buildRowLabels({ ctx, view, left, y, height }: RowLabelOptions): Phaser.GameObjects.Text[] {
   const tag = view.boundSlot !== null ? `  [${view.boundSlot + 1}]` : "";
   const x = left + ctx.iconSize + 12;
   const nameLabel = ctx.scene.add
-    .text(x, y + height / 2 + (view.flavor ? NAME_LINE_Y_OFFSET : 0), `${view.name} ×${view.qty}${tag}`, uiTextStyle(11, undefined, ctx.scale))
+    .text(x, y + height / 2 + (view.flavor ? NAME_LINE_Y_OFFSET : 0), `${view.name} ×${view.qty}${tag}`, uiTextStyle(11, undefined, { scale: ctx.scale }))
     .setOrigin(0, 0.5);
   if (!view.flavor) return [nameLabel];
   const flavorLabel = ctx.scene.add
-    .text(x, y + height / 2 + FLAVOR_LINE_Y_OFFSET, view.flavor, uiTextStyle(9, FLAVOR_COLOR, ctx.scale))
+    .text(x, y + height / 2 + FLAVOR_LINE_Y_OFFSET, view.flavor, uiTextStyle(9, FLAVOR_COLOR, { scale: ctx.scale }))
     .setOrigin(0, 0.5);
   return [nameLabel, flavorLabel];
 }
 
-function buildRowButtons(ctx: RowBuilderContext, view: InventoryRowView, right: number, y: number, height: number): Phaser.GameObjects.GameObject[] {
+function buildRowButtons({ ctx, view, right, y, height }: RowButtonOptions): Phaser.GameObjects.GameObject[] {
   const btnY = y + (height - BTN_HEIGHT) / 2;
   const dropX = right - DROP_WIDTH;
-  const drop = buildButton(ctx, dropX, btnY, DROP_WIDTH, "Drop", true, () => ctx.onDrop(view.itemId));
-  if (view.isWeapon) return [...buildEquipButton(ctx, view, dropX, btnY), ...drop];
+  const drop = buildButton({ ctx, x: dropX, y: btnY, width: DROP_WIDTH, label: "Drop", active: true, onClick: () => ctx.onDrop(view.itemId) });
+  if (view.isWeapon) return [...buildEquipButton({ ctx, view, dropX, btnY }), ...drop];
   const buttons = [...drop];
   let cursor = dropX;
   if (view.canHotbar) {
     cursor -= BTN_GAP + HOTBAR_WIDTH;
-    buttons.unshift(...buildButton(ctx, cursor, btnY, HOTBAR_WIDTH, view.boundSlot === null ? "Hotbar" : `[${view.boundSlot + 1}]`, true, () => ctx.onHotbar(view.itemId)));
+    buttons.unshift(...buildButton({ ctx, x: cursor, y: btnY, width: HOTBAR_WIDTH, label: view.boundSlot === null ? "Hotbar" : `[${view.boundSlot + 1}]`, active: true, onClick: () => ctx.onHotbar(view.itemId) }));
   }
   if (view.canUse) {
     cursor -= BTN_GAP + USE_WIDTH;
-    buttons.unshift(...buildButton(ctx, cursor, btnY, USE_WIDTH, "Use", true, () => ctx.onUse(view.itemId)));
+    buttons.unshift(...buildButton({ ctx, x: cursor, y: btnY, width: USE_WIDTH, label: "Use", active: true, onClick: () => ctx.onUse(view.itemId) }));
   }
   return buttons;
 }
 
-function buildEquipButton(
-  ctx: RowBuilderContext,
-  view: InventoryRowView,
-  dropX: number,
-  btnY: number,
-): Phaser.GameObjects.GameObject[] {
+function buildEquipButton({ ctx, view, dropX, btnY }: Pick<RowButtonOptions, "ctx" | "view"> & { dropX: number; btnY: number }): Phaser.GameObjects.GameObject[] {
   const equippedHere = ctx.currentWeaponId === view.itemId;
   const equipX = dropX - BTN_GAP - EQUIP_WIDTH;
-  return buildButton(
-    ctx,
-    equipX,
-    btnY,
-    EQUIP_WIDTH,
-    equippedHere ? "Equipped" : "Equip",
-    !equippedHere,
-    () => ctx.onEquip(view.itemId),
-  );
+  return buildButton({ ctx, x: equipX, y: btnY, width: EQUIP_WIDTH, label: equippedHere ? "Equipped" : "Equip", active: !equippedHere, onClick: () => ctx.onEquip(view.itemId) });
 }
 
-function buildButton(ctx: RowBuilderContext, x: number, y: number, width: number, label: string, active: boolean, onClick: () => void): Phaser.GameObjects.GameObject[] {
+function buildButton({ ctx, x, y, width, label, active, onClick }: ButtonOptions): Phaser.GameObjects.GameObject[] {
   const bg = ctx.scene.add.rectangle(x, y, width, BTN_HEIGHT, PANEL_FILL, 0.9).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
   const text = ctx.scene.add
-    .text(x + width / 2, y + BTN_HEIGHT / 2, label, uiTextStyle(9, active ? "#e8e8e8" : "#6b6b7e", ctx.scale))
+    .text(x + width / 2, y + BTN_HEIGHT / 2, label, uiTextStyle(9, active ? "#e8e8e8" : "#6b6b7e", { scale: ctx.scale }))
     .setOrigin(0.5, 0.5);
   if (active) {
     bg.setInteractive({ useHandCursor: true });

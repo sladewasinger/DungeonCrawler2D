@@ -1,5 +1,10 @@
-import { CHASM_DEATH_Z, TICK_RATE, createBody } from "@dc2d/engine";
+import { TICK_RATE, createBody } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "./state.js";
+import { insideGracedClearance } from "./spawnSafety/clearance.js";
+import { findRelocationTile } from "./spawnSafety/relocation.js";
+
+export { SPAWN_CLEARANCE_RADIUS } from "./spawnSafety/constants.js";
+export { insideGracedClearance } from "./spawnSafety/clearance.js";
 
 /**
  * Spawn-safety (panel round 3b blocker #1, hardened for round 4's
@@ -28,14 +33,9 @@ import type { PlayerSlot, SimState } from "./state.js";
  * "scatter the mob pack" button (docs/ASSUMPTIONS.md #362).
  */
 
-/** Vetoable (docs/ASSUMPTIONS.md #360): no-hostile radius, in tiles. */
-export const SPAWN_CLEARANCE_RADIUS = 6;
 /** Vetoable (docs/ASSUMPTIONS.md #361): grace window, in seconds. */
 export const SPAWN_GRACE_SECONDS = 2;
 export const SPAWN_GRACE_TICKS = SPAWN_GRACE_SECONDS * TICK_RATE;
-// Spiral extent for relocation: enough to escape the clearance circle
-// from its very center and still find real floor beyond it.
-const RELOCATE_SEARCH_RADIUS = SPAWN_CLEARANCE_RADIUS + 10;
 
 /** The whole handoff guarantee: grace armed FIRST (so the sweep sees
  * this player among the graced centers), then clearance around every
@@ -66,19 +66,6 @@ export function gracedClearanceCenters(sim: SimState): Array<{ x: number; y: num
   return centers;
 }
 
-/** Is (x, y) strictly inside any protected radius? Shared by the sweep
- * below and the enemy movement clamp (enemies/ai.ts moveEnemy). */
-export function insideGracedClearance(
-  centers: ReadonlyArray<{ x: number; y: number }>,
-  x: number,
-  y: number,
-): boolean {
-  for (const c of centers) {
-    if (Math.hypot(c.x - x, c.y - y) < SPAWN_CLEARANCE_RADIUS) return true;
-  }
-  return false;
-}
-
 /** Round-4 per-tick maintenance: re-sweep every graced radius. Runs in
  * GameSim.step() AFTER anything that can add or move enemies into place
  * this tick (chunk population, near-spawn repopulation, hazard reseeds)
@@ -99,48 +86,36 @@ export function enforceSpawnClearance(
   if (centers.length === 0) return;
   const claimed = new Set<string>();
   for (const [id, enemy] of sim.enemies) {
-    const body = enemy.entity.body;
-    if (enemy.entity.hp <= 0) continue;
-    if (!insideGracedClearance(centers, body.x, body.y)) continue;
-    const tile = findRelocationTile(sim, body.x, body.y, centers, claimed);
-    if (!tile) {
-      // Degenerate world with no valid floor in reach: despawn rather
-      // than ever hand control over into an ambush.
-      sim.enemies.delete(id);
-      continue;
-    }
-    claimed.add(`${tile.x},${tile.y}`);
-    const cx = tile.x + 0.5;
-    const cy = tile.y + 0.5;
-    enemy.entity.body = createBody(cx, cy, sim.world.groundAt(cx, cy));
+    relocateHostile({ sim, id, enemy, centers, claimed });
   }
 }
 
-/** Nearest-to-the-enemy walkable, non-sanctuary, non-chasm tile whose
- * center sits outside every graced radius (spiral search, same ring
- * order as spawn.ts's findWalkableNear). */
-function findRelocationTile(
-  sim: SimState,
-  fromX: number,
-  fromY: number,
-  centers: ReadonlyArray<{ x: number; y: number }>,
-  claimed: ReadonlySet<string>,
-): { x: number; y: number } | null {
-  const originX = Math.floor(fromX);
-  const originY = Math.floor(fromY);
-  for (let radius = 1; radius <= RELOCATE_SEARCH_RADIUS; radius++) {
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
-        const tx = originX + dx;
-        const ty = originY + dy;
-        if (claimed.has(`${tx},${ty}`)) continue;
-        if (insideGracedClearance(centers, tx + 0.5, ty + 0.5)) continue;
-        if (!sim.world.isWalkable(tx, ty) || sim.world.isSanctuary(tx, ty)) continue;
-        if (sim.world.heightAt(tx, ty) <= CHASM_DEATH_Z) continue;
-        return { x: tx, y: ty };
-      }
-    }
+interface RelocationRequest {
+  sim: SimState;
+  id: string;
+  enemy: SimState["enemies"] extends Map<string, infer T> ? T : never;
+  centers: ReadonlyArray<{ x: number; y: number }>;
+  claimed: Set<string>;
+}
+
+function relocateHostile({ sim, id, enemy, centers, claimed }: RelocationRequest): void {
+  const body = enemy.entity.body;
+  if (enemy.entity.hp <= 0 || !insideGracedClearance(centers, body.x, body.y)) return;
+  const tile = findRelocationTile({ sim, from: body, centers, claimed });
+  if (!tile) {
+    sim.enemies.delete(id);
+    return;
   }
-  return null;
+  claimed.add(`${tile.x},${tile.y}`);
+  moveHostileToTile(sim, enemy, tile);
+}
+
+function moveHostileToTile(
+  sim: SimState,
+  enemy: RelocationRequest["enemy"],
+  tile: { x: number; y: number },
+): void {
+  const x = tile.x + 0.5;
+  const y = tile.y + 0.5;
+  enemy.entity.body = createBody(x, y, sim.world.groundAt(x, y));
 }

@@ -7,11 +7,8 @@ import { Connection } from "../net/connection.js";
 import { persistentClientId } from "../net/identity.js";
 import { resolveWsUrl } from "../net/url.js";
 import { getViewOrientation } from "../render/view/index.js";
-import { AutotileGalleryScene } from "../scenes/autotileGallery/AutotileGalleryScene.js";
 import { DungeonScene } from "../scenes/dungeon/index.js";
-import { EDITOR_RENDER_VIEWPORT_PX } from "../scenes/editor/editorCameraLayout.js";
 import { EditorScene, setUpEditorLayout } from "../scenes/editor/index.js";
-import { GalleryScene } from "../scenes/GalleryScene.js";
 import { HudScene } from "../scenes/HudScene.js";
 import { TitleScene } from "../scenes/title/index.js";
 import { loadStoredName } from "../scenes/title/connectForm.js";
@@ -27,15 +24,15 @@ function startEditor(search: URLSearchParams): void {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: boot.parentId,
-    width: EDITOR_RENDER_VIEWPORT_PX,
-    height: EDITOR_RENDER_VIEWPORT_PX,
+    width: 960,
+    height: 960,
     pixelArt: true,
+    disableContextMenu: true,
     scene: [PreloadScene, EditorScene],
   });
   game.registry.set("editorBoot", boot);
   if (!import.meta.env.DEV || search.get("debug") !== "1") return;
   const debugWindow = window as unknown as EditorDebugWindow;
-  debugWindow.__editorStore = boot.store;
   debugWindow.__game = game;
   debugWindow.__editorViewOrientation = getViewOrientation;
 }
@@ -51,7 +48,7 @@ function startGame(search: URLSearchParams): void {
     pixelArt: true,
     scale: { mode: Phaser.Scale.RESIZE },
     input: { activePointers: 3, touch: true },
-    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), GalleryScene, AutotileGalleryScene, HudScene],
+    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), HudScene],
   });
   installPhaserFullscreenRetry(game.canvas);
   if (!import.meta.env.DEV || search.get("debug") !== "1") return;
@@ -66,7 +63,6 @@ function startGame(search: URLSearchParams): void {
 }
 
 interface EditorDebugWindow {
-  __editorStore: ReturnType<typeof setUpEditorLayout>["store"];
   __game: Phaser.Game;
   __editorViewOrientation: typeof getViewOrientation;
 }

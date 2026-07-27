@@ -49,32 +49,40 @@ export class SpatialEntityIndex {
   }
 
   private candidatesInBounds(x: number, y: number, radius: number): IndexedEntity[] {
-    const minX = Math.floor((x - radius) / ENTITY_BUCKET_SIZE);
-    const maxX = Math.floor((x + radius) / ENTITY_BUCKET_SIZE);
-    const minY = Math.floor((y - radius) / ENTITY_BUCKET_SIZE);
-    const maxY = Math.floor((y + radius) / ENTITY_BUCKET_SIZE);
-    const candidates: IndexedEntity[] = [];
-    for (let bucketY = minY; bucketY <= maxY; bucketY++) {
-      for (let bucketX = minX; bucketX <= maxX; bucketX++) {
-        const bucket = this.buckets.get(bucketKey(bucketX, bucketY));
-        if (bucket) candidates.push(...bucket);
-      }
-    }
-    return candidates;
+    return bucketPositions(x, y, radius)
+      .flatMap(({ x: bucketX, y: bucketY }) => this.buckets.get(bucketKey(bucketX, bucketY)) ?? []);
   }
 }
 
 /** Builds one tick-local index in the legacy snapshot ordering. */
 export function indexSnapshotEntities(sim: SimState): SpatialEntityIndex {
   const index = new SpatialEntityIndex();
-  for (const slot of sim.players.values()) if (slot.entity.hp >= 0) index.add(slot.entity);
-  for (const slot of sim.enemies.values()) index.add(slot.entity);
-  for (const pet of sim.pets.values()) index.add(pet.entity);
-  for (const item of sim.items.values()) index.add(item);
-  for (const chest of sim.lootChests.values()) index.add(chest.entity);
-  for (const projectile of sim.projectiles.values()) index.add(projectile);
-  for (const torch of sim.torches.values()) index.add(torch);
+  snapshotEntities(sim).forEach((entity) => index.add(entity));
   return index;
+}
+
+function snapshotEntities(sim: SimState): Entity[] {
+  return [
+    ...[...sim.players.values()].filter((slot) => slot.entity.hp >= 0).map((slot) => slot.entity),
+    ...[...sim.enemies.values()].map((enemy) => enemy.entity),
+    ...[...sim.pets.values()].map((pet) => pet.entity),
+    ...sim.items.values(),
+    ...[...sim.lootChests.values()].map((chest) => chest.entity),
+    ...sim.projectiles.values(),
+    ...sim.torches.values(),
+  ];
+}
+
+function bucketPositions(x: number, y: number, radius: number): Array<{ x: number; y: number }> {
+  const minX = Math.floor((x - radius) / ENTITY_BUCKET_SIZE);
+  const maxX = Math.floor((x + radius) / ENTITY_BUCKET_SIZE);
+  const minY = Math.floor((y - radius) / ENTITY_BUCKET_SIZE);
+  const maxY = Math.floor((y + radius) / ENTITY_BUCKET_SIZE);
+  return Array.from({ length: maxY - minY + 1 }, (_, row) => minY + row)
+    .flatMap((bucketY) => Array.from({ length: maxX - minX + 1 }, (_, column) => ({
+      x: minX + column,
+      y: bucketY,
+    })));
 }
 
 function bucketKey(x: number, y: number): string {

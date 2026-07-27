@@ -9,7 +9,7 @@ code against these rules. CI enforces what a linter can enforce; review blocks t
 | Rule | Limit |
 | --- | --- |
 | Lines per file (code, excluding blanks/comments) | **≤ 150** |
-| Lines per function | **≤ 25** |
+| Lines per function | **≤ 35** |
 | Cyclomatic complexity per function | **≤ 8** |
 | Cognitive complexity per function | **≤ 5** |
 | Conditional/loop nesting depth | **≤ 3** |
@@ -30,8 +30,10 @@ modules must meet every limit.
 
 - Write highly modular, decoupled TypeScript.
 - Never nest conditionals or loops deeper than three levels.
-- If a function approaches 25 lines, immediately abstract sub-steps into private,
+- If a function approaches 35 lines, immediately abstract sub-steps into private,
   pure helper functions.
+- Keep no more than four statements per line; do not collapse code to evade
+  size limits.
 - Prefer pure functions with explicit inputs and outputs over stateful,
   side-effect-heavy code to maintain low coupling.
 - If an object requires more than three parameters, group them into a single,

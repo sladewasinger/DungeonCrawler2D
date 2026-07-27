@@ -19,21 +19,38 @@ export interface ChunkCoord {
   cy: number;
 }
 
+/** A chunk paired with the world identity that deterministically selects it. */
+export interface WorldChunk extends ChunkCoord {
+  worldSeed: number;
+  floor: number;
+}
+
+export interface RingSelection {
+  salt: number;
+  radius: number;
+}
+
+export interface AnchorPlacement {
+  salt: number;
+  clearance: number;
+}
+
 /** Every chunk at exact chebyshev distance `radius` from the origin chunk. */
 function ringPerimeter(radius: number): ChunkCoord[] {
   if (radius <= 0) return [{ cx: 0, cy: 0 }];
-  const cells: ChunkCoord[] = [];
-  for (let cx = -radius; cx <= radius; cx++) {
-    for (let cy = -radius; cy <= radius; cy++) {
-      if (Math.max(Math.abs(cx), Math.abs(cy)) === radius) cells.push({ cx, cy });
-    }
-  }
-  return cells;
+  return Array.from({ length: radius * 2 + 1 }, (_, index) => index - radius)
+    .flatMap((cx) => ringColumn(radius, cx));
+}
+
+function ringColumn(radius: number, cx: number): ChunkCoord[] {
+  return Array.from({ length: radius * 2 + 1 }, (_, index) => index - radius)
+    .filter((cy) => Math.max(Math.abs(cx), Math.abs(cy)) === radius)
+    .map((cy) => ({ cx, cy }));
 }
 
 /** True where a chunk is already claimed by a safe room or a stairway ramp — descent landmarks never displace those. */
-function isReserved(worldSeed: number, floor: number, cx: number, cy: number): boolean {
-  return isSafeRoomChunk(worldSeed, floor, cx, cy) || isStairsChunk(worldSeed, floor, cx, cy);
+function isReserved(chunk: WorldChunk): boolean {
+  return isSafeRoomChunk(chunk) || isStairsChunk(chunk);
 }
 
 /**
@@ -44,18 +61,18 @@ function isReserved(worldSeed: number, floor: number, cx: number, cy: number): b
  * resolve to the same chunk, even coincidentally — different radius means
  * different ring, full stop, before any hashing even happens.
  */
-export function pickRingChunk(worldSeed: number, floor: number, salt: number, radius: number): ChunkCoord {
-  const seed = mixSeeds(seedsFor(worldSeed, floor).layout, salt);
-  const perimeter = ringPerimeter(radius);
+export function pickRingChunk(world: Pick<WorldChunk, "worldSeed" | "floor">, selection: RingSelection): ChunkCoord {
+  const seed = mixSeeds(seedsFor(world.worldSeed, world.floor).layout, selection.salt);
+  const perimeter = ringPerimeter(selection.radius);
   const start = hash2D(seed, 1, 0) % perimeter.length;
   for (let step = 0; step < perimeter.length; step++) {
     const candidate = perimeter[(start + step) % perimeter.length];
-    if (candidate && !isReserved(worldSeed, floor, candidate.cx, candidate.cy)) return candidate;
+    if (candidate && !isReserved({ ...world, ...candidate })) return candidate;
   }
   // Every ring cell reserved — astronomically unlikely (would need a safe
   // room or stairway ramp on EVERY chunk of the ring); fall back to the
   // hashed start rather than throwing out of a pure generator function.
-  return perimeter[start] ?? { cx: radius, cy: 0 };
+  return perimeter[start] ?? { cx: selection.radius, cy: 0 };
 }
 
 export interface LocalAnchor {
@@ -70,17 +87,10 @@ export interface LocalAnchor {
  * throat — see bossArena.ts's ARENA_CLEARANCE) never spills into a
  * neighboring chunk this generator pass can't touch.
  */
-export function structureAnchor(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  salt: number,
-  clearance: number,
-): LocalAnchor {
-  const layout = seedsFor(worldSeed, floor).layout;
-  const range = CHUNK_SIZE / 2 - clearance;
-  const jx = (hash2D(mixSeeds(layout, salt), cx, cy) % (range * 2 + 1)) - range;
-  const jy = (hash2D(mixSeeds(layout, salt + 1), cx, cy) % (range * 2 + 1)) - range;
+export function structureAnchor(chunk: WorldChunk, placement: AnchorPlacement): LocalAnchor {
+  const layout = seedsFor(chunk.worldSeed, chunk.floor).layout;
+  const range = CHUNK_SIZE / 2 - placement.clearance;
+  const jx = (hash2D(mixSeeds(layout, placement.salt), chunk.cx, chunk.cy) % (range * 2 + 1)) - range;
+  const jy = (hash2D(mixSeeds(layout, placement.salt + 1), chunk.cx, chunk.cy) % (range * 2 + 1)) - range;
   return { lx: CHUNK_SIZE / 2 + jx, ly: CHUNK_SIZE / 2 + jy };
 }

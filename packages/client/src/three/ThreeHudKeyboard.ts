@@ -32,19 +32,29 @@ export class ThreeHudKeyboard {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.defaultPrevented) return;
-    if (this.captureChatEvent(event)) return;
-    if (this.captureTextEntryEvent(event)) return;
-    if (this.captureSessionMenuEvent(event)) return;
-    if (this.captureTabEvent(event)) return;
-    if (this.captureInventoryToggleEvent(event)) return;
-    if (this.captureInventoryEvent(event)) return;
+    if (this.captureOverlayEvent(event)) return;
+    this.captureGameplayEvent(event);
+  };
+
+  private captureOverlayEvent(event: KeyboardEvent): boolean {
+    return [
+      this.captureChatEvent,
+      this.captureTextEntryEvent,
+      this.captureSessionMenuEvent,
+      this.captureTabEvent,
+      this.captureInventoryToggleEvent,
+      this.captureInventoryEvent,
+    ].some((capture) => capture(event));
+  }
+
+  private captureGameplayEvent(event: KeyboardEvent): void {
     if (event.code.startsWith("Digit")) this.selectHotbar(event);
     if (event.code === "Enter") {
       event.preventDefault();
       this.actions.focusChat();
     }
     this.captureEscapeEvent(event);
-  };
+  }
 
   /** Text entry owns every game-level shortcut while its browser input is focused. */
   private captureChatEvent(event: KeyboardEvent): boolean {

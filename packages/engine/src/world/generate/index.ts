@@ -65,18 +65,28 @@ function finalizeScaledChunk(chunk: Chunk): Chunk {
  * TILE type, which is provably insufficient here (descentLink.ts's own doc
  * comment; regression-locked by generate/descentInvariant.test.ts).
  */
-function stampDescentFeature(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-  corridorCarved: Uint8Array,
-  rooms: Room[],
-): void {
-  const exit = applyDescentStructure(worldSeed, floor, cx, cy, tiles, height);
-  if (exit) connectDescentStructure(tiles, corridorCarved, height, { x: exit.lx, y: exit.ly }, rooms);
+interface FeatureStampContext {
+  worldSeed: number;
+  floor: number;
+  cx: number;
+  cy: number;
+  tiles: Uint8Array;
+  height: Float32Array;
+  corridorCarved: Uint8Array;
+  rooms: Room[];
+}
+
+function stampDescentFeature(context: FeatureStampContext): void {
+  const exit = applyDescentStructure({ chunk: context, tiles: context.tiles, height: context.height });
+  if (exit) {
+    connectDescentStructure({
+      tiles: context.tiles,
+      corridorCarved: context.corridorCarved,
+      height: context.height,
+      exit: { x: exit.lx, y: exit.ly },
+      rooms: context.rooms,
+    });
+  }
 }
 
 /**
@@ -87,112 +97,96 @@ function stampDescentFeature(
  * (harmless; already floor), and this guarantees the boundary ring itself
  * ends exactly where the first stamp put it regardless.
  */
-function stampBossArenaFeature(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-  corridorCarved: Uint8Array,
-  rooms: Room[],
-): void {
-  const arena = applyBossArena(worldSeed, floor, cx, cy, tiles, height);
+function stampBossArenaFeature(context: FeatureStampContext): void {
+  const arena = applyBossArena({ chunk: context, tiles: context.tiles, height: context.height });
   if (!arena) return;
   const gate: Point = { x: arena.gate.lx, y: arena.gate.ly };
   const center: Point = { x: arena.center.lx, y: arena.center.ly };
-  connectBossArenaGate(tiles, corridorCarved, height, gate, center, rooms);
-  applyBossArena(worldSeed, floor, cx, cy, tiles, height);
+  connectBossArenaGate({ tiles: context.tiles, corridorCarved: context.corridorCarved, height: context.height, gate, center, rooms: context.rooms });
+  applyBossArena({ chunk: context, tiles: context.tiles, height: context.height });
 }
 
-function stampFixedFeature(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-  zones: Uint8Array,
-  corridorCarved: Uint8Array,
-  rooms: Room[],
-): void {
-  if (!isSafeRoomChunk(worldSeed, floor, cx, cy) && !isStairsChunk(worldSeed, floor, cx, cy)) return;
-  const before = tiles.slice();
+function stampFixedFeature(context: FeatureStampContext): void {
+  const chunk = context;
+  if (!isSafeRoomChunk(chunk) && !isStairsChunk(chunk)) return;
+  const before = context.tiles.slice();
   // Default fixed-feature helper only reads seeds.layout and never the
   // corridor segments (its height sample is always 0 — flat-first here
   // too), so an empty segment list is a legitimate read-only reuse.
-  applyFlattenedFeature(worldSeed, floor, cx, cy, seedsFor(worldSeed, floor), [], tiles, height, zones);
-  connectFixedFeaturePad(tiles, corridorCarved, before, rooms);
+  applyFlattenedFeature({ chunk, seeds: seedsFor(context.worldSeed, context.floor), segs: [], tiles: context.tiles, height: context.height });
+  connectFixedFeaturePad({ tiles: context.tiles, corridorCarved: context.corridorCarved, before, rooms: context.rooms });
 }
 
-export function generateChunk(worldSeed: number, floor: number, cx: number, cy: number): Chunk {
-  // Stretch rooms (personal/party/safe) are reserved instanced geometry far
-  // below the playable floor — untouched by the room generator.
-  if (isRoomChunk(cy)) return generateRoomChunk(cx, cy);
+export interface ChunkGenerationRequest {
+  worldSeed: number; floor: number; cx: number; cy: number;
+}
 
+interface GenerationState extends FeatureStampContext {
+  seed: number; perChunkSeed: number; district: ReturnType<typeof districtAt>;
+  zones: Uint8Array; doorways: ReturnType<typeof carveCorridors>;
+}
+
+export function generateChunk(request: ChunkGenerationRequest): Chunk {
+  if (isRoomChunk(request.cy)) return generateRoomChunk(request.cx, request.cy);
+  const state = createGenerationState(request);
+  stampRoomsAndCorridors(state);
+  applyRoomHeights(state);
+  stampFeatures(state);
+  finishTerrain(state);
+  return buildRuntimeChunk(state);
+}
+
+function createGenerationState(request: ChunkGenerationRequest): GenerationState {
   const { tiles, height, zones, corridorCarved } = createGeneratedGrid();
+  const seed = architectSeed(request.worldSeed, request.floor);
+  return {
+    ...request, tiles, height, zones, corridorCarved, seed,
+    perChunkSeed: chunkSeed(seed, request.cx, request.cy),
+    district: districtAt(seed, request.cx, request.cy),
+    rooms: [], doorways: [],
+  };
+}
 
-  const seed = architectSeed(worldSeed, floor);
-  const perChunkSeed = chunkSeed(seed, cx, cy);
-  const district = districtAt(seed, cx, cy);
-  const { rooms, links } = partitionChunk(perChunkSeed, GENERATION_CHUNK_SIZE, district);
-  for (const room of rooms) stampRoom(tiles, GENERATION_CHUNK_SIZE, room, perChunkSeed);
+function stampRoomsAndCorridors(state: GenerationState): void {
+  const layout = partitionChunk(state.perChunkSeed, GENERATION_CHUNK_SIZE, state.district);
+  state.rooms = layout.rooms;
+  for (const room of state.rooms) stampRoom({ tiles: state.tiles, chunkSize: GENERATION_CHUNK_SIZE, room, seed: state.perChunkSeed });
+  state.doorways = carveCorridors({
+    seed: state.perChunkSeed, tiles: state.tiles, corridorCarved: state.corridorCarved,
+    chunkSize: GENERATION_CHUNK_SIZE, rooms: state.rooms, links: layout.links,
+    anchors: edgeAnchors({ seed: state.seed, cx: state.cx, cy: state.cy, chunkSize: GENERATION_CHUNK_SIZE }),
+  });
+}
 
-  const anchors = edgeAnchors(seed, cx, cy, GENERATION_CHUNK_SIZE);
-  const doorways = carveCorridors(
-    perChunkSeed,
-    tiles,
-    corridorCarved,
-    GENERATION_CHUNK_SIZE,
-    rooms,
-    links,
-    anchors,
-  );
+function applyRoomHeights(state: GenerationState): void {
+  for (const room of state.rooms) applyHeightIfUngarded(state, room);
+}
 
-  for (const room of rooms) {
-    // A room the landmark stamp is about to overwrite (or graze) never
-    // gets its own pit/dais/chasm ring — see landmarks/guard.ts.
-    if (isNearLandmark(worldSeed, floor, cx, cy, room.rect)) continue;
-    if (isNearDescent(worldSeed, floor, cx, cy, room.rect)) continue;
-    applyRoomHeight(perChunkSeed, tiles, height, corridorCarved, GENERATION_CHUNK_SIZE, room, doorways, district);
-  }
+function applyHeightIfUngarded(state: GenerationState, room: Room): void {
+  const guard = { worldSeed: state.worldSeed, floor: state.floor, cx: state.cx, cy: state.cy, rect: room.rect };
+  if (isNearLandmark(guard) || isNearDescent(guard)) return;
+  applyRoomHeight({ ...state, room, doorways: state.doorways, seed: state.perChunkSeed, chunkSize: GENERATION_CHUNK_SIZE });
+}
 
-  stampFixedFeature(worldSeed, floor, cx, cy, tiles, height, zones, corridorCarved, rooms);
-  stampDescentFeature(worldSeed, floor, cx, cy, tiles, height, corridorCarved, rooms);
-  stampBossArenaFeature(worldSeed, floor, cx, cy, tiles, height, corridorCarved, rooms);
-  applyLandmark(district, seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height);
-  repairCliffs(tiles, height, GENERATION_CHUNK_SIZE);
+function stampFeatures(state: GenerationState): void {
+  stampFixedFeature(state);
+  stampDescentFeature(state);
+  stampBossArenaFeature(state);
+  applyLandmark({ ...state, kind: state.district });
+  repairCliffs(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+}
 
-  sealInteriorPockets(tiles, corridorCarved, zones);
-  // Vertical-extent safety net (docs/VISUAL_DIRECTION.md's z+1 rule), run
-  // last on the final tile/height layout so it catches violations from
-  // every earlier source at once — including ones sealInteriorPockets just
-  // introduced by walling off a single stray tile. resolveThinWalls can
-  // open new floor-floor seams (a merged wall meeting a differently-heighted
-  // neighbor), so repairCliffs runs once more after it to smooth those.
-  resolveThinWalls(tiles, GENERATION_CHUNK_SIZE);
-  repairCliffs(tiles, height, GENERATION_CHUNK_SIZE);
-  resolveShallowPlateaus(tiles, height, GENERATION_CHUNK_SIZE);
+function finishTerrain(state: GenerationState): void {
+  sealInteriorPockets(state.tiles, state.corridorCarved, state.zones);
+  resolveThinWalls(state.tiles, GENERATION_CHUNK_SIZE);
+  repairCliffs(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+  resolveShallowPlateaus(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+  markVoidTiles(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+  applyWallHeight(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+  demoteOrphanedStairs(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+}
 
-  // Finalize the entire chasm footprint—including its lowered wall ring—as
-  // heightless Void after terrain repair, but before wall-height finishing.
-  // Otherwise applyWallHeight raises that ring from -2 to -1 and leaves the
-  // purple camera-facing shell that used to connect a pit floor to its rim.
-  markVoidTiles(tiles, height, GENERATION_CHUNK_SIZE);
-
-  applyWallHeight(tiles, height, GENERATION_CHUNK_SIZE);
-  // Run LAST, after the wall-height raise: a Stairs tile's climb axis can
-  // depend on a neighboring Wall's height, which only reaches its real
-  // (post-raise) value here — checking any earlier would validate against
-  // heights no player ever actually sees (see cliffs.ts's doc comment).
-  demoteOrphanedStairs(tiles, height, GENERATION_CHUNK_SIZE);
-
-  // Elevation showcase guarantee (PANEL ROUND 3b blocker #3): floor-1 entry
-  // chunk (0,0) only — find-or-carve one clean z1 platform and one clean z-1
-  // pit near spawn. AFTER every safety net (an earlier slot let the nets
-  // rework a natural feature the find phase had accepted); the carve itself
-  // introduces nothing the nets police — see showcase.ts's module doc.
-  applyShowcase(worldSeed, floor, cx, cy, tiles, height, zones);
-
-  return finalizeScaledChunk(scaleGeneratedChunk(cx, cy, { tiles, height, zones }));
+function buildRuntimeChunk(state: GenerationState): Chunk {
+  applyShowcase(state.worldSeed, state.floor, state.cx, state.cy, state.tiles, state.height, state.zones);
+  return finalizeScaledChunk(scaleGeneratedChunk(state.cx, state.cy, state));
 }

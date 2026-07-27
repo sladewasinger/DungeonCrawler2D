@@ -28,13 +28,13 @@ export function sendMovementEdge(connection: Connection, input: MoveInput): void
 
 export function sampleMovement(connection: Connection, input: MoveInput): void {
   if (!connection.world || !connection.body || !connection.canAct) return;
-  const identity = connection.prediction.predict(
-    connection.world,
-    connection.body,
+  const identity = connection.prediction.predict({
+    world: connection.world,
+    body: connection.body,
     input,
-    connection,
-    connection.weapon !== null,
-  );
+    resources: connection,
+    canBlock: connection.weapon !== null,
+  });
   if (!connection.movementCadence.shouldSend(input)) return;
   sendMovement(connection, input, identity);
 }

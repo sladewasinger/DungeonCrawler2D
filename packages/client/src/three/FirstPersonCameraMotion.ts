@@ -11,21 +11,15 @@ export class FirstPersonCameraMotion {
   private landing = 0;
   private offset = 0;
 
-  update(
-    state: FirstPersonState,
-    elapsed: number,
-    reducedMotion: boolean,
-  ): number {
+  update(input: CameraMotionUpdate): number {
+    const { state, elapsed, reducedMotion } = input;
     if (!this.previous || reducedMotion) {
       this.previous = state;
       this.offset = 0;
       this.landing = 0;
       return 0;
     }
-    const distance = Math.hypot(
-      state.x - this.previous.x,
-      state.z - this.previous.z,
-    );
+    const distance = this.distanceFromPrevious(state);
     this.phase += distance * 8.5;
     if (!this.previous.grounded && state.grounded) this.landing = LANDING_DIP;
     const target = state.grounded && distance > 0.0001
@@ -37,4 +31,16 @@ export class FirstPersonCameraMotion {
     this.previous = state;
     return this.offset;
   }
+
+  private distanceFromPrevious(state: FirstPersonState): number {
+    const previous = this.previous;
+    if (!previous) return 0;
+    return Math.hypot(state.x - previous.x, state.z - previous.z);
+  }
+}
+
+export interface CameraMotionUpdate {
+  state: FirstPersonState;
+  elapsed: number;
+  reducedMotion: boolean;
 }

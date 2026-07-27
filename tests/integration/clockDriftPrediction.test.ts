@@ -30,27 +30,46 @@ function runDriftSchedule(
   let nextServerTickAt = 50;
   let serverSteps = 0;
   for (let wallTime = 10; wallTime <= 5_000; wallTime += 10) {
-    if (wallTime % 50 === 0) {
-      const input = wallTime <= 2_000 ? WALK : IDLE;
-      if (wallTime === 2_050) connection.sendInputEdge(input);
-      connection.sampleInput(input);
-    }
+    sampleDriftInput(connection, wallTime);
     if (wallTime % 60 !== 0) continue;
-    const plan = fixedRateStepPlan(wallTime, nextServerTickAt, 50);
-    nextServerTickAt = plan.nextTickAt;
-    for (let step = 0; step < plan.steps; step++) {
-      const snapshot = sim.step().get(playerId);
-      if (snapshot) applySnapshot(connection, snapshot);
-      serverSteps++;
-    }
+    const stepped = stepDriftServer({ sim, playerId, connection, wallTime, nextServerTickAt });
+    nextServerTickAt = stepped.nextServerTickAt;
+    serverSteps += stepped.serverSteps;
   }
   return serverSteps;
+}
+
+function sampleDriftInput(connection: Connection, wallTime: number): void {
+  if (wallTime % 50 !== 0) return;
+  const input = wallTime <= 2_000 ? WALK : IDLE;
+  if (wallTime === 2_050) connection.sendInputEdge(input);
+  connection.sampleInput(input);
+}
+
+interface DriftServerStepOptions {
+  sim: ReturnType<typeof makeSim>;
+  playerId: string;
+  connection: Connection;
+  wallTime: number;
+  nextServerTickAt: number;
+}
+
+function stepDriftServer(options: DriftServerStepOptions): {
+  nextServerTickAt: number;
+  serverSteps: number;
+} {
+  const plan = fixedRateStepPlan(options.wallTime, options.nextServerTickAt, 50);
+  for (let step = 0; step < plan.steps; step++) {
+    const snapshot = options.sim.step().get(options.playerId);
+    if (snapshot) applySnapshot(options.connection, snapshot);
+  }
+  return { nextServerTickAt: plan.nextTickAt, serverSteps: plan.steps };
 }
 
 describe("prediction under host timer drift", () => {
   it("keeps a 20 Hz client aligned when server callbacks arrive at 17 Hz", () => {
     const sim = makeSim(719, { testFixtures: true, freezeEnemies: true });
-    const joined = sim.addPlayer("Clock drift", "clock-drift-client");
+    const joined = sim.addPlayer({ name: "Clock drift", clientId: "clock-drift-client" });
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
     if (!serverPlayer) throw new Error("expected joined server player");
     const arena = findFlatArena(sim, joined.spawn.x, joined.spawn.y);

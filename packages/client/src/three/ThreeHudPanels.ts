@@ -19,39 +19,45 @@ export interface ThreeHudPanels {
   stash: ThreeHudStash;
 }
 
-export function createThreeHudPanels(
-  connection: Connection,
-  mobile: boolean,
-  focusGame: () => void,
-  setTextInputFocused: (focused: boolean) => void,
-  actions: ThreeHudPanelActions,
-): ThreeHudPanels {
-  const chat = new ThreeHudChat(
+export interface ThreeHudPanelRequest {
+  readonly connection: Connection;
+  readonly mobile: boolean;
+  readonly focusGame: () => void;
+  readonly setTextInputFocused: (focused: boolean) => void;
+  readonly actions: ThreeHudPanelActions;
+}
+
+export function createThreeHudPanels(request: ThreeHudPanelRequest): ThreeHudPanels {
+  const { connection, focusGame, setTextInputFocused, actions } = request;
+  const chat = new ThreeHudChat({
     connection,
-    mobile,
     focusGame,
     setTextInputFocused,
-    actions.toggleContacts,
-  );
+    toggleContacts: actions.toggleContacts,
+  });
   return {
     chat,
     contacts: new ThreeHudContacts((name) => chat.startDm(name), actions.closeContacts),
     craft: new ThreeHudCraft((recipe) => connection.craft(recipe), actions.closeCraft),
-    stash: new ThreeHudStash(
-      (index) => {
+    stash: createStashPanel(connection, actions.closeStash),
+  };
+}
+
+function createStashPanel(connection: Connection, close: () => void): ThreeHudStash {
+  return new ThreeHudStash({
+      put: (index) => {
         if (connection.stashContext.kind === "personal") connection.stashOp("put", index);
       },
-      (index, itemId) => {
+      take: (index, itemId) => {
         const chestId = connection.stashContext.chestId;
         if (connection.stashContext.kind === "loot" && chestId) {
           connection.lootChestOp(chestId, "take", itemId);
         } else connection.stashOp("take", index);
       },
-      () => {
+      takeAll: () => {
         const chestId = connection.stashContext.chestId;
         if (chestId) connection.lootChestOp(chestId, "takeAll");
       },
-      actions.closeStash,
-    ),
-  };
+    close,
+  });
 }

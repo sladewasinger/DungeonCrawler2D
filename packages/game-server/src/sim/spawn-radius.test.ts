@@ -67,7 +67,7 @@ function makeSlotAt(x: number, y: number): PlayerSlot {
 function makeRadiusSim(radiusTiles: number, seedText = "spawn-radius-test", rngSeed = 42): SimState {
   const world = new World(hashString(seedText), 1, LEVEL.Dungeon);
   const content = buildContentRegistry(EMPTY_CONTENT);
-  return createSimState(world, content, new PlayerStore(null), rngSeed, { spawnRadiusTiles: radiusTiles });
+  return createSimState({ world, content, store: new PlayerStore(null), rngSeed, opts: { spawnRadiusTiles: radiusTiles } });
 }
 
 /** Tile-space distance from a returned (tile-center) spawn point to a tile-space anchor. */
@@ -130,7 +130,7 @@ describe("findSpawn with spawnRadiusTiles", () => {
 
   it("respawn after death lands within spawnRadiusTiles of the anchor too", () => {
     const anchor = resolveSpawnAnchor(sim);
-    const join = addPlayer(sim, "Respawner", "client-respawn");
+    const join = addPlayer(sim, { name: "Respawner", clientId: "client-respawn" });
     const slot = sim.players.get(join.playerId);
     expect(slot).toBeDefined();
     slot!.respawnAtTick = sim.tickCount;

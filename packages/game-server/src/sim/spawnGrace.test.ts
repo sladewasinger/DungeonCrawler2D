@@ -7,7 +7,6 @@ import {
   statusesData,
 } from "@dc2d/content";
 import {
-  CHASM_DEATH_Z,
   LEVEL,
   PLAYER_MAX_HP,
   World,
@@ -26,6 +25,7 @@ import { handleInput, queueAction, stepPlayers } from "./players.js";
 import { processActions } from "./actions/index.js";
 import { DEFAULT_HANDICAP, GOD_MODE_DAMAGE_MULTIPLIER } from "./handicap.js";
 import { isSpawnProtected } from "./spawnSafety.js";
+import { openFloorNear } from "./spawnSafety/testSupport.js";
 import { createSimState, type PlayerSlot, type SimState } from "./state.js";
 
 /**
@@ -45,23 +45,6 @@ const content: ContentRegistry = buildContentRegistry({
   recipes: [...recipesData],
 });
 
-/** Nearest walkable, non-sanctuary, non-chasm tile CENTER near (ax, ay). */
-function openFloorNear(sim: SimState, ax: number, ay: number): { x: number; y: number } {
-  for (let radius = 0; radius < 64; radius++) {
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
-        const x = ax + dx;
-        const y = ay + dy;
-        if (!sim.world.isWalkable(x, y) || sim.world.isSanctuary(x, y)) continue;
-        if (sim.world.heightAt(x, y) <= CHASM_DEATH_Z) continue;
-        return { x: x + 0.5, y: y + 0.5 };
-      }
-    }
-  }
-  throw new Error(`no open floor near (${ax}, ${ay})`);
-}
-
 describe("spawn grace", () => {
   let sim: SimState;
   let playerId: string;
@@ -69,12 +52,12 @@ describe("spawn grace", () => {
 
   beforeEach(() => {
     const world = new World(hashString("spawn-grace-test"), 1, LEVEL.Dungeon);
-    sim = createSimState(world, content, new PlayerStore(null), 5, { spawnRadiusTiles: 12 });
-    playerId = addPlayer(sim, "Newborn", "client-g").playerId;
+    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 5, opts: { spawnRadiusTiles: 12 } });
+    playerId = addPlayer(sim, { name: "Newborn", clientId: "client-g" }).playerId;
     slot = sim.players.get(playerId)!;
     // Damage paths sanctuary-suppress independently of grace — park the
     // body on known NON-sanctuary floor so every assertion isolates grace.
-    const spot = openFloorNear(sim, 200, 200);
+    const spot = openFloorNear(sim, { x: 200, y: 200 });
     slot.entity.body = createBody(spot.x, spot.y, sim.world.groundAt(spot.x, spot.y));
   });
 
@@ -84,8 +67,8 @@ describe("spawn grace", () => {
 
     const events: EffectEvent[] = [];
     const target = effectTargetFor(sim, slot.entity);
-    expect(sim.effects.modifyHealth(slot.entity, -5, events, { sourceTags: ["physical"] }, target)).toBe(0);
-    expect(sim.effects.applyStatus(slot.entity, "poisoned", events, target)).toBe(false);
+    expect(sim.effects.modifyHealth({ entity: slot.entity, amount: -5, events, opts: { sourceTags: ["physical"] }, target })).toBe(0);
+    expect(sim.effects.applyStatus({ entity: slot.entity, statusId: "poisoned", events, target })).toBe(false);
     expect(slot.entity.hp).toBe(PLAYER_MAX_HP);
     expect(events).toHaveLength(0);
 
@@ -94,7 +77,7 @@ describe("spawn grace", () => {
     expect(isSpawnProtected(slot, sim.tickCount)).toBe(false);
     const after = effectTargetFor(sim, slot.entity);
     expect(after).toEqual({});
-    expect(sim.effects.modifyHealth(slot.entity, -5, events, { sourceTags: ["physical"] }, after)).toBe(-5);
+    expect(sim.effects.modifyHealth({ entity: slot.entity, amount: -5, events, opts: { sourceTags: ["physical"] }, target: after })).toBe(-5);
     expect(slot.entity.hp).toBe(PLAYER_MAX_HP - 5);
   });
 
@@ -116,7 +99,7 @@ describe("spawn grace", () => {
 
   it("hides the player from enemy aggro until it lapses", () => {
     const body = slot.entity.body;
-    const skeleton = spawnEnemy(sim, "skeleton", body.x + 0.8, body.y);
+    const skeleton = spawnEnemy(sim, { defId: "skeleton", x: body.x + 0.8, y: body.y });
     const brain = sim.enemies.get(skeleton.id)!.brain;
 
     stepEnemies(sim, []);
@@ -130,7 +113,7 @@ describe("spawn grace", () => {
   });
 
   it("applies the name-based handicap after spawn grace expires", () => {
-    const handicappedId = addPlayer(sim, "ELLIE-the-crawler", "client-ellie").playerId;
+    const handicappedId = addPlayer(sim, { name: "ELLIE-the-crawler", clientId: "client-ellie" }).playerId;
     const handicapped = sim.players.get(handicappedId)!;
     sim.tickCount = handicapped.spawnGraceUntilTick;
     const events: EffectEvent[] = [];
@@ -139,13 +122,13 @@ describe("spawn grace", () => {
     expect(effectTargetFor(sim, handicapped.entity)).toEqual({
       damageTakenMultiplier: DEFAULT_HANDICAP.damageTakenMultiplier,
     });
-    expect(sim.effects.modifyHealth(
-      handicapped.entity,
-      -5,
+    expect(sim.effects.modifyHealth({
+      entity: handicapped.entity,
+      amount: -5,
       events,
-      { sourceTags: ["physical"] },
-      effectTargetFor(sim, handicapped.entity),
-    )).toBe(expectedDamage);
+      opts: { sourceTags: ["physical"] },
+      target: effectTargetFor(sim, handicapped.entity),
+    })).toBe(expectedDamage);
     expect(handicapped.entity.hp).toBe(PLAYER_MAX_HP + expectedDamage);
     expect(damageGivenMultiplierFor(sim, handicapped.entity)).toBe(
       DEFAULT_HANDICAP.damageGivenMultiplier,

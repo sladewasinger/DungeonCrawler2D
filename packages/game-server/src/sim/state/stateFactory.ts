@@ -12,13 +12,13 @@ import type { SimState } from "../state.js";
 
 /** Builds the mutable floor state. Kept separate from state.ts's contract so
  * adding a new feature collection does not turn the contract into a god file. */
-export function createSimState(
-  world: World,
-  content: ContentRegistry,
-  store: PlayerStore,
-  rngSeed: number,
-  opts: SimState["opts"],
-): SimState {
+export function createSimState({ world, content, store, rngSeed, opts }: {
+  world: World;
+  content: ContentRegistry;
+  store: PlayerStore;
+  rngSeed: number;
+  opts: SimState["opts"];
+}): SimState {
   const state: SimState = {
     world, content, store, opts,
     rng: new Rng(rngSeed),
@@ -26,6 +26,19 @@ export function createSimState(
     areas: new AreaSystem(content, world),
     ...createEntityCollections(),
     ...createReplicationCollections(),
+    ...createRuntimeCollections(),
+  };
+  seedPets(state);
+  return state;
+}
+
+function createRuntimeCollections(): Pick<SimState,
+  "moderationReports" | "fistbumpOffers" | "reviveAttempts" | "activatedChunks" |
+  "defeatedMiniBossRooms" | "exposure" | "worldEvents" | "tickCount" | "nextPartyId" |
+  "nextPartyRoom" | "hazardsActive" | "outgoingTransfers" | "bossGateSealed" |
+  "bossArenaOccupants" | "bossRespawnAtTick" | "crossFloorDirectory" | "pendingGlobalChat"
+> {
+  return {
     moderationReports: [],
     fistbumpOffers: new Map(),
     reviveAttempts: new Map(),
@@ -38,12 +51,16 @@ export function createSimState(
     nextPartyRoom: 0,
     hazardsActive: false,
     outgoingTransfers: [],
-    bossGateSealed: false,
-    bossArenaOccupants: new Set(),
-    bossRespawnAtTick: null,
+    ...createBossCollections(),
     crossFloorDirectory: [],
-    pendingGlobalChat: [],
+    ...createChatCollections(),
   };
-  seedPets(state);
-  return state;
+}
+
+function createBossCollections(): Pick<SimState, "bossGateSealed" | "bossArenaOccupants" | "bossRespawnAtTick"> {
+  return { bossGateSealed: false, bossArenaOccupants: new Set(), bossRespawnAtTick: null };
+}
+
+function createChatCollections(): Pick<SimState, "pendingGlobalChat"> {
+  return { pendingGlobalChat: [] };
 }

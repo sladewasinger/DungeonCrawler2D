@@ -21,77 +21,89 @@ const VIEW_SIDES: readonly { readonly side: Terrain4CliffSide; readonly dx: numb
   { side: "west", dx: -1, dy: 0 },
 ];
 
+interface Terrain4TileContext {
+  readonly source: Terrain4Source;
+  readonly worldTile: Point;
+  readonly viewTile: Point;
+  readonly orientation: ViewOrientation;
+  readonly height: number;
+}
+
 export function appendTerrain4CliffEdges(
-  source: Terrain4Source,
-  worldTile: Point,
-  viewTile: Point,
-  orientation: ViewOrientation,
-  height: number,
+  context: Terrain4TileContext,
   target: Terrain4CliffEdgeQuad[],
 ): void {
-  const sides = VIEW_SIDES.filter(({ dx, dy }) => {
-    const neighbor = viewTileToWorld({ x: viewTile.x + dx, y: viewTile.y + dy }, orientation);
-    return isLowerFloor(source, neighbor.x, neighbor.y, height);
-  }).map(({ side }) => side);
+  const sides = lowerFloorSides(context);
   if (sides.length === 0) return;
-  const vertices = topQuad(viewTile, height);
+  const vertices = topQuad(context.viewTile, context.height);
   if (sides.length === 2 && areAdjacentSides(sides[0]!, sides[1]!)) {
-    target.push({
-      kind: "cliff-edge", cliff: "corner", rotation: cornerRotation(sides[0]!, sides[1]!),
-      worldTile, viewTile, height, sides, vertices,
-    });
+    target.push(cornerEdge(context, sides, vertices));
     return;
   }
   for (const side of sides) {
-    target.push({
-      kind: "cliff-edge", cliff: "middle", rotation: middleRotation(side),
-      worldTile, viewTile, height, sides: [side], vertices,
-    });
+    target.push(middleEdge(context, side, vertices));
   }
 }
 
 export function appendTerrain4AmbientOcclusion(
-  source: Terrain4Source,
-  worldTile: Point,
-  viewTile: Point,
-  orientation: ViewOrientation,
-  height: number,
+  context: Terrain4TileContext,
   target: Terrain4AOQuad[],
 ): void {
-  const sideAt = (dx: number, dy: number): boolean => {
-    const neighbor = viewTileToWorld({ x: viewTile.x + dx, y: viewTile.y + dy }, orientation);
-    return isHigherFloor(source, neighbor.x, neighbor.y, height);
-  };
-  const north = sideAt(0, -1);
-  const south = sideAt(0, 1);
-  const east = sideAt(1, 0);
-  const west = sideAt(-1, 0);
-  const diagonalAt = (dx: number, dy: number, blockedA: boolean, blockedB: boolean): boolean => {
-    if (blockedA || blockedB) return false;
-    const neighbor = viewTileToWorld({ x: viewTile.x + dx, y: viewTile.y + dy }, orientation);
-    return isHigherFloor(source, neighbor.x, neighbor.y, height);
-  };
-  const mask: Terrain4AOMask = {
-    north, south, east, west,
-    nw: diagonalAt(-1, -1, north, west),
-    ne: diagonalAt(1, -1, north, east),
-    sw: diagonalAt(-1, 1, south, west),
-    se: diagonalAt(1, 1, south, east),
-  };
+  const mask = aoMask(context);
   if (!Object.values(mask).some(Boolean)) return;
-  target.push({ kind: "ao", worldTile, viewTile, height, mask, vertices: topQuad(viewTile, height) });
+  target.push({ ...context, kind: "ao", mask, vertices: topQuad(context.viewTile, context.height) });
 }
 
-function isHigherFloor(source: Terrain4Source, x: number, y: number, height: number): boolean {
-  if (source.terrainAt(x, y) !== FLOOR) return false;
-  const neighborHeight = source.heightAt(x, y);
-  return Number.isFinite(neighborHeight) && neighborHeight - height >= FLOOR_EDGE_MIN_DROP;
+function lowerFloorSides(context: Terrain4TileContext): Terrain4CliffSide[] {
+  return VIEW_SIDES.filter(({ dx, dy }) => isLowerFloor(context, { x: dx, y: dy })).map(({ side }) => side);
 }
 
-function isLowerFloor(source: Terrain4Source, x: number, y: number, height: number): boolean {
-  if (source.terrainAt(x, y) !== FLOOR) return false;
-  const neighborHeight = source.heightAt(x, y);
-  return Number.isFinite(neighborHeight) && height - neighborHeight >= FLOOR_EDGE_MIN_DROP;
+function cornerEdge(
+  context: Terrain4TileContext, sides: Terrain4CliffSide[], vertices: Terrain4QuadVertices,
+): Terrain4CliffEdgeQuad {
+  return { ...context, kind: "cliff-edge", cliff: "corner", rotation: cornerRotation(sides[0]!, sides[1]!), sides, vertices };
+}
+
+function middleEdge(
+  context: Terrain4TileContext, side: Terrain4CliffSide, vertices: Terrain4QuadVertices,
+): Terrain4CliffEdgeQuad {
+  return { ...context, kind: "cliff-edge", cliff: "middle", rotation: middleRotation(side), sides: [side], vertices };
+}
+
+function aoMask(context: Terrain4TileContext): Terrain4AOMask {
+  const north = isHigherFloor(context, { x: 0, y: -1 });
+  const south = isHigherFloor(context, { x: 0, y: 1 });
+  const east = isHigherFloor(context, { x: 1, y: 0 });
+  const west = isHigherFloor(context, { x: -1, y: 0 });
+  return {
+    north, south, east, west,
+    nw: diagonalHigherFloor(context, { offset: { x: -1, y: -1 }, blockedA: north, blockedB: west }),
+    ne: diagonalHigherFloor(context, { offset: { x: 1, y: -1 }, blockedA: north, blockedB: east }),
+    sw: diagonalHigherFloor(context, { offset: { x: -1, y: 1 }, blockedA: south, blockedB: west }),
+    se: diagonalHigherFloor(context, { offset: { x: 1, y: 1 }, blockedA: south, blockedB: east }),
+  };
+}
+
+function diagonalHigherFloor(
+  context: Terrain4TileContext,
+  { offset, blockedA, blockedB }: { readonly offset: Point; readonly blockedA: boolean; readonly blockedB: boolean },
+): boolean {
+  return !blockedA && !blockedB && isHigherFloor(context, offset);
+}
+
+function isHigherFloor(context: Terrain4TileContext, offset: Point): boolean {
+  return hasHeightDifference(context, offset, 1);
+}
+
+function isLowerFloor(context: Terrain4TileContext, offset: Point): boolean {
+  return hasHeightDifference(context, offset, -1);
+}
+
+function hasHeightDifference(context: Terrain4TileContext, offset: Point, sign: 1 | -1): boolean {
+  const neighbor = viewTileToWorld({ x: context.viewTile.x + offset.x, y: context.viewTile.y + offset.y }, context.orientation);
+  if (context.source.terrainAt(neighbor.x, neighbor.y) !== FLOOR) return false;
+  const difference = (context.source.heightAt(neighbor.x, neighbor.y) - context.height) * sign;
+  return Number.isFinite(difference) && difference >= FLOOR_EDGE_MIN_DROP;
 }
 
 function areAdjacentSides(a: Terrain4CliffSide, b: Terrain4CliffSide): boolean {

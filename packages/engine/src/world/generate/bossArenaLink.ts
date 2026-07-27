@@ -33,38 +33,38 @@ import type { Point, Room } from "./types.js";
 
 const FLAT_TOLERANCE = 0.01;
 
-function carveBand(
-  tiles: Uint8Array,
-  corridorCarved: Uint8Array,
-  height: Float32Array,
-  x0: number,
-  x1: number,
-  y0: number,
-  y1: number,
-): void {
+interface CarveMap {
+  tiles: Uint8Array;
+  corridorCarved: Uint8Array;
+  height: Float32Array;
+}
+
+function carveBand({ tiles, corridorCarved, height, x0, x1, y0, y1 }: CarveMap & { x0: number; x1: number; y0: number; y1: number }): void {
   for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) continue;
-      const i = y * CHUNK_SIZE + x;
-      tiles[i] = TILE.Floor;
-      height[i] = 0;
-      corridorCarved[i] = 1;
-    }
+    for (let x = x0; x <= x1; x++) carveCell({ tiles, corridorCarved, height, x, y });
   }
 }
 
-function carveHorizontal(tiles: Uint8Array, corridorCarved: Uint8Array, height: Float32Array, y: number, xa: number, xb: number): void {
-  carveBand(tiles, corridorCarved, height, Math.min(xa, xb), Math.max(xa, xb), y - 1, y);
+function carveCell({ tiles, corridorCarved, height, x, y }: CarveMap & Point): void {
+  if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) return;
+  const index = y * CHUNK_SIZE + x;
+  tiles[index] = TILE.Floor;
+  height[index] = 0;
+  corridorCarved[index] = 1;
 }
 
-function carveVertical(tiles: Uint8Array, corridorCarved: Uint8Array, height: Float32Array, x: number, ya: number, yb: number): void {
-  carveBand(tiles, corridorCarved, height, x - 1, x, Math.min(ya, yb), Math.max(ya, yb));
+function carveHorizontal({ y, xa, xb, ...map }: CarveMap & { y: number; xa: number; xb: number }): void {
+  carveBand({ ...map, x0: Math.min(xa, xb), x1: Math.max(xa, xb), y0: y - 1, y1: y });
+}
+
+function carveVertical({ x, ya, yb, ...map }: CarveMap & { x: number; ya: number; yb: number }): void {
+  carveBand({ ...map, x0: x - 1, x1: x, y0: Math.min(ya, yb), y1: Math.max(ya, yb) });
 }
 
 /** Straight exit south of the gate, clearing the ring's whole footprint (every row within ARENA_HALF of center). Returns the throat's far end. */
-function carveThroat(tiles: Uint8Array, corridorCarved: Uint8Array, height: Float32Array, gate: Point): Point {
+function carveThroat({ gate, ...map }: CarveMap & { gate: Point }): Point {
   const end: Point = { x: gate.x, y: gate.y + ARENA_THROAT_LENGTH };
-  carveVertical(tiles, corridorCarved, height, gate.x, gate.y, end.y);
+  carveVertical({ ...map, x: gate.x, ya: gate.y, yb: end.y });
   return end;
 }
 
@@ -106,16 +106,14 @@ function nearestRoom(rooms: readonly Room[], p: Point): Room {
 }
 
 /** Route a corridor from the arena's gate to the nearest already-flat BSP room whose own center isn't inside the ring, via a throat + two guaranteed-safe legs (see this file's doc comment for the safety argument). */
-export function connectBossArenaGate(
-  tiles: Uint8Array,
-  corridorCarved: Uint8Array,
-  height: Float32Array,
-  gate: Point,
-  center: Point,
-  rooms: readonly Room[],
-): void {
+export function connectBossArenaGate({ tiles, corridorCarved, height, gate, center, rooms }: CarveMap & {
+  gate: Point;
+  center: Point;
+  rooms: readonly Room[];
+}): void {
   if (rooms.length === 0) return;
-  const throatEnd = carveThroat(tiles, corridorCarved, height, gate);
+  const map = { tiles, corridorCarved, height };
+  const throatEnd = carveThroat({ ...map, gate });
   const candidates = rooms.filter((r) => !insideRing({ x: centerX(r.rect), y: centerY(r.rect) }, center));
   const flat = candidates.filter((r) => Math.abs(roomHeight(height, r)) <= FLAT_TOLERANCE);
   const pool = flat.length > 0 ? flat : candidates.length > 0 ? candidates : rooms;
@@ -123,7 +121,7 @@ export function connectBossArenaGate(
   const roomCenter: Point = { x: centerX(room.rect), y: centerY(room.rect) };
   const corner = safeColumn(roomCenter.x, center.x);
 
-  carveHorizontal(tiles, corridorCarved, height, throatEnd.y, throatEnd.x, corner); // leg 1: along the safe throat row
-  carveVertical(tiles, corridorCarved, height, corner, throatEnd.y, roomCenter.y); // leg 2: along a column outside the ring
-  carveHorizontal(tiles, corridorCarved, height, roomCenter.y, corner, roomCenter.x); // leg 3: into the (non-ring) room
+  carveHorizontal({ ...map, y: throatEnd.y, xa: throatEnd.x, xb: corner }); // leg 1: along the safe throat row
+  carveVertical({ ...map, x: corner, ya: throatEnd.y, yb: roomCenter.y }); // leg 2: along a column outside the ring
+  carveHorizontal({ ...map, y: roomCenter.y, xa: corner, xb: roomCenter.x }); // leg 3: into the (non-ring) room
 }

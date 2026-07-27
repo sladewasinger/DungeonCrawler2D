@@ -71,14 +71,24 @@ export function releaseNotesRequest(
   requestUrl: string,
 ): ReleaseNotesHttpResponse | null {
   const path = new URL(requestUrl, "http://release-notes.local").pathname;
-  if (path === "/releases" || path === "/releases/") {
-    return {
-      status: 302,
-      headers: { location: "/releases/index.html", "cache-control": "no-store" },
-      body: "",
-    };
-  }
+  if (path === "/releases" || path === "/releases/") return releasesRedirect();
   if (!path.startsWith("/releases/") || !path.endsWith(".html")) return null;
+  return releasePageResponse(repositoryRoot, applicationVersion, path);
+}
+
+function releasesRedirect(): ReleaseNotesHttpResponse {
+  return {
+    status: 302,
+    headers: { location: "/releases/index.html", "cache-control": "no-store" },
+    body: "",
+  };
+}
+
+function releasePageResponse(
+  repositoryRoot: string,
+  applicationVersion: string,
+  path: string,
+): ReleaseNotesHttpResponse | null {
   validateManifestVersions(repositoryRoot, applicationVersion);
   const fileName = path.slice(1);
   const asset = releaseAssets(

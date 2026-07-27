@@ -31,7 +31,14 @@ export function createWallBumpState(): WallBumpState {
  * should play the deny cue — the sustain threshold crossing, then not again until the
  * throttle clears.
  */
-export function stepWallBump(state: WallBumpState, moving: boolean, deltaDist: number, nowMs: number): boolean {
+export interface WallBumpStep {
+  moving: boolean;
+  deltaDist: number;
+  nowMs: number;
+}
+
+export function stepWallBump(state: WallBumpState, step: WallBumpStep | boolean, ...legacy: [number, number] | []): boolean {
+  const { moving, deltaDist, nowMs } = resolveWallBumpStep(step, legacy);
   const blocked = moving && deltaDist < STILL_EPSILON_TILES;
   if (!blocked) {
     state.blockedSinceMs = null;
@@ -42,4 +49,9 @@ export function stepWallBump(state: WallBumpState, moving: boolean, deltaDist: n
   if (nowMs - state.lastCueAtMs < THROTTLE_MS) return false;
   state.lastCueAtMs = nowMs;
   return true;
+}
+
+function resolveWallBumpStep(step: WallBumpStep | boolean, legacy: [number, number] | []): WallBumpStep {
+  if (typeof step !== "boolean") return step;
+  return { moving: step, deltaDist: legacy[0]!, nowMs: legacy[1]! };
 }

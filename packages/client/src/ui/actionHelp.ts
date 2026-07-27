@@ -21,31 +21,34 @@ export interface ContextualActionContext {
   readonly canBlock?: boolean;
 }
 
-const hint = (
-  action: ContextualAction,
-  key: string,
-  touchKey: string,
-  label: string,
-): ContextualActionHint => ({ action, key, touchKey, label });
+interface HintInput {
+  readonly action: ContextualAction;
+  readonly key: string;
+  readonly touchKey: string;
+  readonly label: string;
+}
+
+const hint = (input: HintInput): ContextualActionHint => input;
 
 /** Returns only actions that are valid for the current item/weapon context. */
 export function resolveContextualActionHelp(
   context: ContextualActionContext,
 ): ContextualActionHint[] {
   const hints: ContextualActionHint[] = [];
-  const selected = context.selectedItemId;
-  if (selected && isConsumableItem(selected)) {
-    hints.push(hint("use", "E", "USE", `Use ${itemName(selected)}`));
-  }
-  if (selected && isThrowableItem(selected)) {
-    hints.push(hint("throw", "G", "THROW", `Throw ${itemName(selected)}`));
-  }
-  if (context.weaponId) {
-    const weaponName = itemName(context.weaponId);
-    hints.push(hint("attack", "LMB", "ATTACK", `Attack with ${weaponName}`));
-    if (context.canBlock === true) {
-      hints.push(hint("block", "RMB", "BLOCK", `Block with ${weaponName}`));
-    }
-  }
+  addSelectedItemHints(hints, context.selectedItemId);
+  addWeaponHints(hints, context.weaponId, context.canBlock === true);
   return hints;
+}
+
+function addSelectedItemHints(hints: ContextualActionHint[], selected: string | null): void {
+  if (!selected) return;
+  if (isConsumableItem(selected)) hints.push(hint({ action: "use", key: "E", touchKey: "USE", label: `Use ${itemName(selected)}` }));
+  if (isThrowableItem(selected)) hints.push(hint({ action: "throw", key: "G", touchKey: "THROW", label: `Throw ${itemName(selected)}` }));
+}
+
+function addWeaponHints(hints: ContextualActionHint[], weaponId: string | null, canBlock: boolean): void {
+  if (!weaponId) return;
+  const weaponName = itemName(weaponId);
+  hints.push(hint({ action: "attack", key: "LMB", touchKey: "ATTACK", label: `Attack with ${weaponName}` }));
+  if (canBlock) hints.push(hint({ action: "block", key: "RMB", touchKey: "BLOCK", label: `Block with ${weaponName}` }));
 }

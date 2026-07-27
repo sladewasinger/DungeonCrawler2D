@@ -19,6 +19,7 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { getViewOrientation, worldAngleToView } from "../render/view/index.js";
 import { wedgeAlpha, wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
 import { combatOriginY } from "../render/entities/weaponOrbit.js";
+import type { MeleeVfxInput } from "./vfxSystemTypes.js";
 
 /** Warm white-orange fill, per docs/VISUAL_DIRECTION.md's fire/torch accent. */
 const FILL_COLOR = 0xffb37a;
@@ -41,7 +42,7 @@ export class MeleeWedgePool {
   constructor(private readonly scene: Phaser.Scene) {}
 
   /** (Re)shapes `id`'s wedge at world (x,y,z) aimed at `angleRad`, starting its fade now. Reuses the id's Graphics object across swings instead of allocating a new one each time. */
-  spawn(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+  spawn({ id, x: worldX, y: worldY, z, angleRad, depth, tilePx, nowMs }: MeleeVfxInput): void {
     const swing = this.swings.get(id) ?? { gfx: this.scene.add.graphics(), startedAtMs: -Infinity };
     this.swings.set(id, swing);
     // ELEVATION-PROJECTION section 5: ENTITY-anchored at the wielder's LIFTED feet
@@ -49,7 +50,7 @@ export class MeleeWedgePool {
     // telegraph tracks the body, not the ground, when the wielder is airborne.
     const screen = worldToScreen(worldX, worldY);
     const originY = combatOriginY(screen.y - z * tilePx, tilePx);
-    drawWedge(swing.gfx, screen.x, originY, wedgeGeometry(worldAngleToView(angleRad, getViewOrientation()), tilePx));
+    drawWedge({ gfx: swing.gfx, tipX: screen.x, tipY: originY, geo: wedgeGeometry(worldAngleToView(angleRad, getViewOrientation()), tilePx) });
     swing.gfx.setDepth(depth).setVisible(true).setAlpha(1);
     swing.startedAtMs = nowMs;
   }
@@ -76,7 +77,7 @@ export class MeleeWedgePool {
 }
 
 /** The pie: tip at (tipX, tipY), fanning out to the geometry's arc — fill plus rim stroke. */
-function drawWedge(gfx: Phaser.GameObjects.Graphics, tipX: number, tipY: number, geo: WedgeGeometry): void {
+function drawWedge({ gfx, tipX, tipY, geo }: { readonly gfx: Phaser.GameObjects.Graphics; readonly tipX: number; readonly tipY: number; readonly geo: WedgeGeometry }): void {
   gfx.clear();
   gfx.fillStyle(FILL_COLOR, FILL_ALPHA);
   gfx.slice(tipX, tipY, geo.radiusPx, geo.startAngle, geo.endAngle, false);

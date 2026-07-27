@@ -50,11 +50,5 @@ export function bindInputPointerEdges(options: PointerBindingOptions): void {
       camera: scene.cameras.main,
     }, pointer);
   });
-  bindPointerMovementEdges(
-    scene,
-    touch,
-    touchActive,
-    onInteractReleased,
-    onMovementEdge,
-  );
+  bindPointerMovementEdges({ scene, touch, touchActive, onInteractReleased, onMovementEdge });
 }

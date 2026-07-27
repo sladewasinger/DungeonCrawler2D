@@ -20,6 +20,27 @@ import type {
 } from "./snapshotState.js";
 import type { HandicapGrant } from "./handicap.js";
 import type { PetSlot } from "./pets/types.js";
+import type {
+  FloorTransferRequest,
+  LootChest,
+  ModerationReport,
+  Party,
+  PendingTransfer,
+  ReviveAttempt,
+  WorldEvent,
+} from "./state/domainTypes.js";
+
+export type {
+  FloorArrivalKind,
+  FloorTransferRequest,
+  JoinResult,
+  LootChest,
+  ModerationReport,
+  Party,
+  PendingTransfer,
+  ReviveAttempt,
+  WorldEvent,
+} from "./state/domainTypes.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
@@ -32,35 +53,6 @@ export type PlayerAction = Exclude<
   ClientMessage,
   ClientInput | { type: "hello" } | { type: "ping" } | { type: "snapshotResync" }
 >;
-
-/**
- * Epic 7.14 (The Descent) — how a slot is arriving at its target floor:
- * at the target's up-stair after one-way descent, or a fresh death
- * respawn (always floor 1, ignores stairways entirely).
- */
-export type FloorArrivalKind = "stairUp" | "deathSpawn";
-
-export interface PendingTransfer {
-  targetFloor: number;
-  arrival: FloorArrivalKind;
-}
-
-export interface ReviveAttempt {
-  readonly rescuerId: string;
-  readonly targetId: string;
-  readonly startedAtTick: number;
-  readonly startX: number;
-  readonly startY: number;
-}
-
-/** A transfer ready to leave its source sim, carrying the slot itself
- * (the "same slot-move machinery" — the object just changes which
- * SimState's `players` map holds it). */
-export interface FloorTransferRequest extends PendingTransfer {
-  slot: PlayerSlot;
-  /** Pets travel with their owner between floor sims. */
-  pets: PetSlot[];
-}
 
 export interface PlayerSlot {
   entity: Entity;
@@ -131,49 +123,6 @@ export interface PlayerSlot {
   pendingTransfer: PendingTransfer | null;
   /** Negotiated wire mode follows this slot across floor transfers. */
   snapshotMode?: SnapshotMode;
-}
-
-export interface Party {
-  id: string;
-  leaderId: string;
-  members: Set<string>;
-  roomSlot: number | null;
-}
-
-export interface LootChest {
-  entity: Entity;
-  slots: InvStack[];
-  viewerId: string | null;
-  victimId: string;
-  victimName: string;
-  killerId: string | null;
-  killerName: string | null;
-  unlockAtTick: number;
-  expiresAtTick: number;
-}
-
-export interface ModerationReport {
-  tick: number;
-  reporterId: string;
-  targetId: string;
-  reason: string;
-}
-
-export interface JoinResult {
-  playerId: string;
-  resumeToken: string;
-  spawn: { x: number; y: number; z: number };
-  resumed: boolean;
-  /** Epic 7.14 (The Descent): the floor this join/resume landed on — the
-   * server.ts caller reads this into the welcome message's `floor`. */
-  floor: number;
-}
-
-/** A game event pinned to a world position for AOI-scoped delivery. */
-export interface WorldEvent {
-  ev: GameEvent;
-  x: number;
-  y: number;
 }
 
 export interface SimState {

@@ -10,23 +10,50 @@ const LIFESPAN_MS = { min: 380, max: 920 };
 const HIT_CHIP_SCALE = { start: 1.3, end: 0.35 };
 const DEATH_CHIP_SCALE = { start: 0.9, end: 0.18 };
 
+export interface BoneChipBurstInput {
+  readonly x: number;
+  readonly y: number;
+  readonly lethal: boolean;
+  readonly direction?: { x: number; y: number } | undefined;
+}
+
 export function isSkeletalDefId(defId: string | undefined): boolean {
   return defId === "skeleton" || defId === "warden-of-five";
 }
 
-export function spawnBoneChipBurst(
-  scene: Phaser.Scene,
-  screenX: number,
-  screenY: number,
-  lethal: boolean,
-  dirX?: number,
-  dirY?: number,
-): void {
+export function spawnBoneChipBurst(scene: Phaser.Scene, {
+  x: screenX,
+  y: screenY,
+  lethal,
+  direction,
+}: BoneChipBurstInput): void {
   const quantity = lethal ? DEATH_CHIP_COUNT : HIT_CHIP_COUNT;
-  const angle = lethal
-    ? { minDeg: 0, maxDeg: 360 }
-    : splatterAngleWindow(dirX, dirY);
-  const emitter = scene.add
+  const angle = boneChipAngle(lethal, direction);
+  const emitter = createBoneChipEmitter(scene, { screenX, screenY, lethal, quantity, angle });
+  emitter.explode(quantity);
+  scene.time.delayedCall(LIFESPAN_MS.max + 50, () => emitter.destroy());
+}
+
+interface BoneChipEmitterInput {
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly lethal: boolean;
+  readonly quantity: number;
+  readonly angle: { minDeg: number; maxDeg: number };
+}
+
+function boneChipAngle(lethal: boolean, direction: BoneChipBurstInput["direction"]) {
+  return lethal ? { minDeg: 0, maxDeg: 360 } : splatterAngleWindow(direction?.x, direction?.y);
+}
+
+function createBoneChipEmitter(scene: Phaser.Scene, {
+  screenX,
+  screenY,
+  lethal,
+  quantity,
+  angle,
+}: BoneChipEmitterInput) {
+  return scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: "particle_soft",
       lifespan: LIFESPAN_MS,
@@ -42,6 +69,4 @@ export function spawnBoneChipBurst(
     })
     .setName("bone-chip-burst")
     .setDepth(COMBAT_PARTICLE_DEPTH);
-  emitter.explode(quantity);
-  scene.time.delayedCall(LIFESPAN_MS.max + 50, () => emitter.destroy());
 }

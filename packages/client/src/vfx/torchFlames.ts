@@ -18,12 +18,22 @@ export class TorchFlamePool {
   sync(torches: readonly LightSource[]): void {
     const seen = this.seen;
     seen.clear();
-    for (const torch of torches) {
-      seen.add(torch.id);
-      if (this.emitters.has(torch.id)) continue;
-      const screen = worldToScreen(torch.x, torch.y);
-      this.emitters.set(torch.id, this.acquire(screen.x, screen.y));
-    }
+    this.syncTorches(torches);
+    this.releaseUnseen(seen);
+  }
+
+  private syncTorches(torches: readonly LightSource[]): void {
+    for (const torch of torches) this.syncTorch(torch);
+  }
+
+  private syncTorch(torch: LightSource): void {
+    this.seen.add(torch.id);
+    if (this.emitters.has(torch.id)) return;
+    const screen = worldToScreen(torch.x, torch.y);
+    this.emitters.set(torch.id, this.acquire(screen.x, screen.y));
+  }
+
+  private releaseUnseen(seen: ReadonlySet<string>): void {
     for (const [id, emitter] of this.emitters) {
       if (seen.has(id)) continue;
       this.release(emitter);

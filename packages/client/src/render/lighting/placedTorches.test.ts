@@ -111,30 +111,15 @@ describe("diffPlacedTorches", () => {
 describe("updatePlacedTorchTiles", () => {
   it("mutates bounded state only for landing, movement, and removal", () => {
     const placed = new Map<string, { wx: number; wy: number }>();
-    const seen = new Set<string>();
     const changed: Array<{ wx: number; wy: number }> = [];
+    const state = { placedTiles: placed, seenPlacedIds: new Set<string>(), changedTiles: changed };
 
-    expect(updatePlacedTorchTiles(
-      placed,
-      [{ id: "t", tileX: 1, tileY: 2 }],
-      seen,
-      changed,
-    )).toEqual([{ wx: 1, wy: 2 }]);
+    expect(updatePlacedTorchTiles(state, [{ id: "t", tileX: 1, tileY: 2 }])).toEqual([{ wx: 1, wy: 2 }]);
     const stableTile = placed.get("t");
-    expect(updatePlacedTorchTiles(
-      placed,
-      [{ id: "t", tileX: 1, tileY: 2 }],
-      seen,
-      changed,
-    )).toEqual([]);
+    expect(updatePlacedTorchTiles(state, [{ id: "t", tileX: 1, tileY: 2 }])).toEqual([]);
     expect(placed.get("t")).toBe(stableTile);
-    expect(updatePlacedTorchTiles(
-      placed,
-      [{ id: "t", tileX: 2, tileY: 2 }],
-      seen,
-      changed,
-    )).toEqual([{ wx: 2, wy: 2 }]);
-    expect(updatePlacedTorchTiles(placed, [], seen, changed))
+    expect(updatePlacedTorchTiles(state, [{ id: "t", tileX: 2, tileY: 2 }])).toEqual([{ wx: 2, wy: 2 }]);
+    expect(updatePlacedTorchTiles(state, []))
       .toEqual([{ wx: 2, wy: 2 }]);
     expect(placed).toHaveLength(0);
   });

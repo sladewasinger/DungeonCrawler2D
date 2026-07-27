@@ -21,9 +21,10 @@ const CHUNK_COORDS: ReadonlyArray<readonly [number, number]> = [
   [-2, 3],
 ];
 
-function assertRoundtrip(worldSeed: number, floor: number, cx: number, cy: number): void {
-  const chunk = generateChunk(worldSeed, floor, cx, cy);
-  const stacks = heightFieldToStacks(chunk.tiles, chunk.height, CHUNK_SIZE, CHUNK_SIZE);
+function assertRoundtrip(request: { worldSeed: number; floor: number; cx: number; cy: number }): void {
+  const { worldSeed, floor, cx, cy } = request;
+  const chunk = generateChunk(request);
+  const stacks = heightFieldToStacks({ tiles: chunk.tiles, height: chunk.height, width: CHUNK_SIZE, rows: CHUNK_SIZE });
   const compiled = stacksToHeightField(stacks, CHUNK_SIZE, CHUNK_SIZE);
   expect(compiled.tiles, `seed ${worldSeed} floor ${floor} chunk (${cx},${cy}): tiles`).toEqual(chunk.tiles);
   for (let i = 0; i < chunk.height.length; i++) {
@@ -42,7 +43,7 @@ describe("stack compile round-trip: byte-identical to today's generated height f
       let checked = 0;
       for (const worldSeed of SEEDS) {
         for (const [cx, cy] of CHUNK_COORDS) {
-          assertRoundtrip(worldSeed, 1, cx, cy);
+          assertRoundtrip({ worldSeed, floor: 1, cx, cy });
           checked++;
         }
       }
@@ -51,17 +52,17 @@ describe("stack compile round-trip: byte-identical to today's generated height f
   );
 
   it("floor 3 (deliberate height + descent structures) round-trips too", { timeout: 120_000 }, () => {
-    for (const worldSeed of SEEDS) assertRoundtrip(worldSeed, 3, 0, 0);
+    for (const worldSeed of SEEDS) assertRoundtrip({ worldSeed, floor: 3, cx: 0, cy: 0 });
   });
 
   it("FLOOR_CAP's boss arena round-trips", { timeout: 120_000 }, () => {
-    for (const worldSeed of SEEDS) assertRoundtrip(worldSeed, FLOOR_CAP, 0, 0);
+    for (const worldSeed of SEEDS) assertRoundtrip({ worldSeed, floor: FLOOR_CAP, cx: 0, cy: 0 });
   });
 
   it("an instanced personal stretch room round-trips", { timeout: 60_000 }, () => {
     for (const worldSeed of SEEDS.slice(0, 10)) {
       const { cx, cy } = personalRoomChunk(0);
-      assertRoundtrip(worldSeed, 1, cx, cy);
+      assertRoundtrip({ worldSeed, floor: 1, cx, cy });
     }
   });
 });

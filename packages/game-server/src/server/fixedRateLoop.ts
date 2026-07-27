@@ -7,12 +7,15 @@ export interface FixedRateStepPlan {
   nextTickAt: number;
 }
 
-export function fixedRateStepPlan(
-  now: number,
-  nextTickAt: number,
-  tickMilliseconds: number,
-  maxSteps = MAX_SERVER_CATCH_UP_TICKS,
-): FixedRateStepPlan {
+export interface FixedRateStepInput {
+  now: number;
+  nextTickAt: number;
+  tickMilliseconds: number;
+  maxSteps?: number;
+}
+
+export function fixedRateStepPlan(input: FixedRateStepInput): FixedRateStepPlan {
+  const { now, nextTickAt, tickMilliseconds, maxSteps = MAX_SERVER_CATCH_UP_TICKS } = input;
   if (now < nextTickAt) return { steps: 0, nextTickAt };
   const owed = Math.floor((now - nextTickAt) / tickMilliseconds) + 1;
   const steps = Math.min(owed, maxSteps);
@@ -28,11 +31,7 @@ export function startFixedRateLoop(step: () => void): () => void {
   const tickMilliseconds = 1000 / TICK_RATE;
   let nextTickAt = performance.now() + tickMilliseconds;
   const timer = setInterval(() => {
-    const plan = fixedRateStepPlan(
-      performance.now(),
-      nextTickAt,
-      tickMilliseconds,
-    );
+    const plan = fixedRateStepPlan({ now: performance.now(), nextTickAt, tickMilliseconds });
     nextTickAt = plan.nextTickAt;
     for (let index = 0; index < plan.steps; index++) step();
   }, tickMilliseconds / 2);

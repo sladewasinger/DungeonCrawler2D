@@ -40,18 +40,23 @@ export function createRemoteActorAnimation(
   return { mixer, idle, run, current: "idle", x: object.position.x, z: object.position.z };
 }
 
-export function updateRemoteActorAnimation(
-  animation: RemoteActorAnimation | undefined,
-  x: number,
-  z: number,
-  elapsed: number,
-): void {
+export interface RemoteActorAnimationUpdate {
+  animation: RemoteActorAnimation | undefined;
+  position: Pick<RemoteActorAnimation, "x" | "z">;
+  elapsed: number;
+}
+
+export function updateRemoteActorAnimation({
+  animation,
+  position,
+  elapsed,
+}: RemoteActorAnimationUpdate): void {
   if (!animation) return;
-  const speed = Math.hypot(x - animation.x, z - animation.z) / Math.max(elapsed, 0.001);
+  const speed = Math.hypot(position.x - animation.x, position.z - animation.z) / Math.max(elapsed, 0.001);
   const next = speed > RUN_SPEED ? "run" : "idle";
   if (next !== animation.current) swapAnimation(animation, next);
-  animation.x = x;
-  animation.z = z;
+  animation.x = position.x;
+  animation.z = position.z;
   animation.mixer.update(elapsed);
 }
 

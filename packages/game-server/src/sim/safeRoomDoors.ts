@@ -25,10 +25,7 @@ const roomCoordinates = (slot: PlayerSlot): RoomCoordinates | null => {
 
 const roomKey = (cx: number, cy: number): string => `${cx},${cy}`;
 
-const snapshotCache = new WeakMap<
-  SimState,
-  { tick: number; assignments: Map<string, SafeRoomDoorSnapshot[]> }
->();
+const snapshotCache = new WeakMap<SimState, { tick: number; assignments: Map<string, SafeRoomDoorSnapshot[]> }>();
 
 function safeRoomDestinations(group: PlayerSlot[]): PlayerSlot[] {
   const destinations = new Map<string, PlayerSlot>();
@@ -89,9 +86,13 @@ function partyRoomAssignments(
     });
 }
 
-function buildRoomDoorAssignments(
-  sim: SimState,
-): Map<string, SafeRoomDoorSnapshot[]> {
+function buildRoomDoorAssignments(sim: SimState): Map<string, SafeRoomDoorSnapshot[]> {
+  return assignmentsForOccupants(sim, collectRoomOccupants(sim));
+}
+
+type RoomOccupants = Map<string, { room: RoomCoordinates; slots: PlayerSlot[] }>;
+
+function collectRoomOccupants(sim: SimState): RoomOccupants {
   const occupants = new Map<string, { room: RoomCoordinates; slots: PlayerSlot[] }>();
   for (const slot of sim.players.values()) {
     if (!slot.connected) continue;
@@ -102,6 +103,10 @@ function buildRoomDoorAssignments(
     entry.slots.push(slot);
     occupants.set(key, entry);
   }
+  return occupants;
+}
+
+function assignmentsForOccupants(sim: SimState, occupants: RoomOccupants): Map<string, SafeRoomDoorSnapshot[]> {
   const assignments = new Map<string, SafeRoomDoorSnapshot[]>();
   for (const [key, entry] of occupants) {
     const { cx, cy, kind } = entry.room;
@@ -150,11 +155,12 @@ export function safeRoomDoorAt(
 }
 
 export function safeRoomHasCapacity(sim: SimState, cx: number, cy: number): boolean {
-  let occupants = 0;
-  for (const slot of sim.players.values()) {
-    if (!slot.connected) continue;
-    const room = roomCoordinates(slot);
-    if (room?.cx === cx && room.cy === cy) occupants++;
-  }
-  return occupants < SAFE_ROOM_MAX_OCCUPANTS;
+  return [...sim.players.values()]
+    .filter((slot) => slot.connected && isInRoom(slot, cx, cy))
+    .length < SAFE_ROOM_MAX_OCCUPANTS;
+}
+
+function isInRoom(slot: PlayerSlot, cx: number, cy: number): boolean {
+  const room = roomCoordinates(slot);
+  return room?.cx === cx && room.cy === cy;
 }

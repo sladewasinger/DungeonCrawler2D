@@ -32,33 +32,37 @@ const kindOf = (tile: TileType): WorldInteractionKind | null => {
 const targetOrder = (a: WorldInteractionTarget, b: WorldInteractionTarget): number =>
   a.y - b.y || a.x - b.x;
 
-export function findWorldInteractionTarget(
-  world: WorldInteractionWorld,
-  x: number,
-  y: number,
-  kind: WorldInteractionKind,
-): WorldInteractionTarget | null {
+export interface WorldInteractionQuery {
+  world: WorldInteractionWorld;
+  x: number;
+  y: number;
+  kind: WorldInteractionKind;
+}
+
+export function findWorldInteractionTarget({ world, x, y, kind }: WorldInteractionQuery): WorldInteractionTarget | null {
   const radius = Math.ceil(INTERACT_RANGE);
   const cx = Math.floor(x);
   const cy = Math.floor(y);
   let best: WorldInteractionTarget | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
-      const tx = cx + dx;
-      const ty = cy + dy;
-      const tile = world.tileAt(tx, ty);
-      if (kindOf(tile) !== kind) continue;
-      const distance = Math.hypot(tx + 0.5 - x, ty + 0.5 - y);
-      if (distance > INTERACT_RANGE) continue;
-      const candidate = { kind, tile, x: tx, y: ty } satisfies WorldInteractionTarget;
-      if (distance < bestDistance || (distance === bestDistance && best && targetOrder(candidate, best) < 0)) {
-        best = candidate;
-        bestDistance = distance;
-      }
-    }
+    for (let dx = -radius; dx <= radius; dx++) ({ best, bestDistance } = findBetterTarget({ world, x, y, kind, cx, cy, dx, dy, best, bestDistance }));
   }
   return best;
+}
+
+function findBetterTarget({ world, x, y, kind, cx, cy, dx, dy, best, bestDistance }: WorldInteractionQuery & { cx: number; cy: number; dx: number; dy: number; best: WorldInteractionTarget | null; bestDistance: number }): { best: WorldInteractionTarget | null; bestDistance: number } {
+  const tx = cx + dx;
+  const ty = cy + dy;
+  const tile = world.tileAt(tx, ty);
+  const distance = Math.hypot(tx + 0.5 - x, ty + 0.5 - y);
+  const candidate = { kind, tile, x: tx, y: ty } satisfies WorldInteractionTarget;
+  if (kindOf(tile) !== kind || distance > INTERACT_RANGE || !isPreferredTarget({ candidate, distance, best, bestDistance })) return { best, bestDistance };
+  return { best: candidate, bestDistance: distance };
+}
+
+function isPreferredTarget({ candidate, distance, best, bestDistance }: { candidate: WorldInteractionTarget; distance: number; best: WorldInteractionTarget | null; bestDistance: number }): boolean {
+  return distance < bestDistance || (distance === bestDistance && best !== null && targetOrder(candidate, best) < 0);
 }
 
 export function resolveWorldInteraction(
@@ -66,7 +70,7 @@ export function resolveWorldInteraction(
   x: number,
   y: number,
 ): WorldInteractionTarget | null {
-  return findWorldInteractionTarget(world, x, y, "door")
-    ?? findWorldInteractionTarget(world, x, y, "stash")
-    ?? findWorldInteractionTarget(world, x, y, "craft");
+  return findWorldInteractionTarget({ world, x, y, kind: "door" })
+    ?? findWorldInteractionTarget({ world, x, y, kind: "stash" })
+    ?? findWorldInteractionTarget({ world, x, y, kind: "craft" });
 }

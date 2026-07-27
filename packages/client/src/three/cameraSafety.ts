@@ -43,12 +43,19 @@ const clampAgainstWalls = (
   };
 };
 
-export const safeCameraPosition = (
-  world: CameraSafetyWorld,
-  current: PlanarPosition,
-  desired: PlanarPosition,
+export interface SafeCameraPositionInput {
+  world: CameraSafetyWorld;
+  current: PlanarPosition;
+  desired: PlanarPosition;
+  clearance?: number;
+}
+
+export const safeCameraPosition = ({
+  world,
+  current,
+  desired,
   clearance = CAMERA_WALL_CLEARANCE,
-): PlanarPosition => {
+}: SafeCameraPositionInput): PlanarPosition => {
   const candidate = axisSafeCandidate(world, current, desired);
   if (!walkableAt(world, candidate)) return current;
   return clampAgainstWalls(world, candidate, Math.max(0, clearance));

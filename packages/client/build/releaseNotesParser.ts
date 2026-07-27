@@ -90,13 +90,7 @@ function parseSections(body: string, file: string): ReleaseNote["sections"] {
   const sections = emptySections();
   let active: SectionName | undefined;
   for (const line of publicReleaseNoteSource(body, file).split(/\r?\n/)) {
-    const heading = sectionHeading(line, file);
-    if (heading) {
-      active = heading;
-      continue;
-    }
-    const item = /^- (.+)$/.exec(line)?.[1];
-    if (item && active) sections[active].push(item);
+    active = parseSectionLine({ line, file, active, sections });
   }
   for (const name of REQUIRED_SECTIONS) {
     if (sections[name].length === 0) {
@@ -104,6 +98,21 @@ function parseSections(body: string, file: string): ReleaseNote["sections"] {
     }
   }
   return sections;
+}
+
+interface SectionLineInput {
+  line: string;
+  file: string;
+  active: SectionName | undefined;
+  sections: ReleaseNote["sections"];
+}
+
+function parseSectionLine({ line, file, active, sections }: SectionLineInput): SectionName | undefined {
+  const heading = sectionHeading(line, file);
+  if (heading) return heading;
+  const item = /^- (.+)$/.exec(line)?.[1];
+  if (item && active) sections[active].push(item);
+  return active;
 }
 
 export function parseNote(source: string, file: string): ReleaseNote {

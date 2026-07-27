@@ -1,6 +1,5 @@
 import type {
   ServerSnapshot,
-  ServerSnapshotDelta,
   ServerStateSnapshot,
 } from "@dc2d/engine";
 import {
@@ -10,15 +9,12 @@ import {
 } from "./playerSnapshot.js";
 import { shouldSendSnapshot } from "./snapshotCadence.js";
 import {
-  deltaEntityEntries,
-  finishDeltaSnapshot,
   needsSnapshotBaseline,
   pruneSnapshotClients,
   snapshotClientState,
-  syncHotbarRevision,
-  syncInventoryRevision,
 } from "./snapshotReplication.js";
-import { cloneSnapshotClientState, type SnapshotClientState } from "./snapshotState.js";
+import { cloneSnapshotClientState } from "./snapshotState.js";
+import { deltaSnapshot } from "./snapshots/delta.js";
 import { indexSnapshotEntities, type SpatialEntityIndex } from "./spatialEntities.js";
 import type { PlayerSlot, SimState, WorldEvent } from "./state.js";
 
@@ -54,34 +50,6 @@ function fullSnapshot(slot: PlayerSlot, frame: PlayerSnapshotFrame): ServerSnaps
   };
 }
 
-function deltaSnapshot(
-  slot: PlayerSlot,
-  frame: PlayerSnapshotFrame,
-  state: SnapshotClientState,
-): ServerSnapshotDelta {
-  const baseline = needsSnapshotBaseline(state);
-  const inventoryChanged = syncInventoryRevision(state, slot.inventory);
-  const hotbarChanged = syncHotbarRevision(state, slot.hotbar);
-  return finishDeltaSnapshot(state, {
-    type: "snapshotDelta",
-    tick: frame.tick,
-    lastSeq: frame.lastSeq,
-    lastProjectedServerTick: frame.lastProjectedServerTick,
-    self: frame.self,
-    inventoryRevision: state.inventoryRevision,
-    ...(baseline || inventoryChanged ? { inventory: state.inventory } : {}),
-    hotbarRevision: state.hotbarRevision,
-    ...(baseline || hotbarChanged ? { hotbar: state.hotbar } : {}),
-    weapon: frame.weapon,
-    party: frame.party,
-    entities: deltaEntityEntries(state, frame.entities, baseline),
-    left: frame.left,
-    events: frame.events,
-    areas: frame.areas,
-    roomDoors: frame.roomDoors,
-  });
-}
-
 function tickContext(sim: SimState): SnapshotTickContext {
   const context = {
     index: indexSnapshotEntities(sim),
@@ -97,13 +65,13 @@ function snapshotFrame(
   slot: PlayerSlot,
   context: SnapshotTickContext,
 ): PlayerSnapshotFrame {
-  return buildPlayerSnapshotFrame(
+  return buildPlayerSnapshotFrame({
     sim,
     slot,
-    context.dirty,
-    context.worldEvents,
-    context.index,
-  );
+    dirty: context.dirty,
+    worldEvents: context.worldEvents,
+    index: context.index,
+  });
 }
 
 function pruneEntityCache(sim: SimState, index: SpatialEntityIndex): void {
@@ -138,7 +106,7 @@ function preparedDelivery(
 ): PreparedSnapshotDelivery {
   const current = slot.snapshotMode ? snapshotClientState(sim, slot) : null;
   const next = current ? cloneSnapshotClientState(current) : null;
-  const snapshot = next ? deltaSnapshot(slot, frame, next) : fullSnapshot(slot, frame);
+  const snapshot = next ? deltaSnapshot({ slot, frame, state: next }) : fullSnapshot(slot, frame);
   let committed = false;
   return {
     snapshot,
@@ -157,20 +125,30 @@ export function buildPreparedReplicatedSnapshots(
 ): Map<string, PreparedSnapshotDelivery> {
   const snapshots = new Map<string, PreparedSnapshotDelivery>();
   const context = tickContext(sim);
-  for (const slot of sim.players.values()) {
-    if (!slot.connected) {
-      slot.outbox.length = 0;
-      sim.snapshotPending.delete(slot.entity.id);
-      continue;
-    }
-    const frame = snapshotFrame(sim, slot, context);
-    const state = slot.snapshotMode ? snapshotClientState(sim, slot) : null;
-    if (!shouldSendSnapshot(frame, state ? needsSnapshotBaseline(state) : false)) continue;
-    snapshots.set(slot.entity.id, preparedDelivery(sim, slot, frame));
-  }
+  for (const slot of sim.players.values()) addPreparedDelivery({ sim, snapshots, slot, context });
   pruneEntityCache(sim, context.index);
   pruneSnapshotClients(sim);
   return snapshots;
+}
+
+interface PreparedDeliveryRequest {
+  sim: SimState;
+  snapshots: Map<string, PreparedSnapshotDelivery>;
+  slot: PlayerSlot;
+  context: SnapshotTickContext;
+}
+
+function addPreparedDelivery({ sim, snapshots, slot, context }: PreparedDeliveryRequest): void {
+  if (!slot.connected) return discardDisconnectedSlot(sim, slot);
+  const frame = snapshotFrame(sim, slot, context);
+  const state = slot.snapshotMode ? snapshotClientState(sim, slot) : null;
+  if (!shouldSendSnapshot(frame, state ? needsSnapshotBaseline(state) : false)) return;
+  snapshots.set(slot.entity.id, preparedDelivery(sim, slot, frame));
+}
+
+function discardDisconnectedSlot(sim: SimState, slot: PlayerSlot): void {
+  slot.outbox.length = 0;
+  sim.snapshotPending.delete(slot.entity.id);
 }
 
 /** Transport-free compatibility path: every prepared delivery is accepted immediately. */

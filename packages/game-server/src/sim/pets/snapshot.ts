@@ -10,10 +10,18 @@ export function petSnapshotFields(
   if (entity.kind !== "pet") return {};
   const pet = sim.pets.get(entity.id);
   if (!pet) return {};
-  const owner = pet.ownerId ? sim.players.get(pet.ownerId) : undefined;
-  const motion = sim.replicationMotion.get(entity.id);
   return {
-    anim: motion && Math.hypot(motion.x, motion.y) > 0.05 ? "walk" : "idle",
-    ...(owner?.entity.name ? { petOwnerName: owner.entity.name } : {}),
+    anim: petAnimation(sim, entity.id),
+    ...petOwnerName(sim, pet.ownerId),
   };
+}
+
+function petAnimation(sim: SimState, id: string): "walk" | "idle" {
+  const motion = sim.replicationMotion.get(id);
+  return motion && Math.hypot(motion.x, motion.y) > 0.05 ? "walk" : "idle";
+}
+
+function petOwnerName(sim: SimState, ownerId: string | null): Pick<EntitySnapshot, "petOwnerName"> {
+  const name = ownerId ? sim.players.get(ownerId)?.entity.name : undefined;
+  return name ? { petOwnerName: name } : {};
 }

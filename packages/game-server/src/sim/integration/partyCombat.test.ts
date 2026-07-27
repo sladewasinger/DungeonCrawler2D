@@ -17,7 +17,7 @@ describe("GameSim: party combat", () => {
     const bEntity = sim.getPlayerEntity(bId)!;
     sim.endSpawnGrace(aId);
     sim.endSpawnGrace(bId);
-    teleport(bEntity, aEntity.body.x + 1, aEntity.body.y, sim);
+    teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
 
     sim.queueAction(aId, { type: "attack", dirX: 1, dirY: 0 });
     sim.step();

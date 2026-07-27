@@ -15,12 +15,18 @@ const MOVING_EPS_TILES_PER_SEC = 0.4;
 const RUNNING_EPS_TILES_PER_SEC = (MOVE_SPEED + MOVE_SPEED * RUN_SPEED_MULTIPLIER) / 2;
 
 /** idle/walk/attack for a player entity, from its position delta since the last sample. */
-export function inferPlayerAnimState(
-  dxTiles: number,
-  dyTiles: number,
-  dtSeconds: number,
-  attacking: boolean,
-): EnemyAnimationState {
+export interface PlayerMotionInput {
+  readonly dxTiles: number;
+  readonly dyTiles: number;
+  readonly dtSeconds: number;
+}
+
+export function inferPlayerAnimState({
+  dxTiles,
+  dyTiles,
+  dtSeconds,
+  attacking,
+}: PlayerMotionInput & { readonly attacking: boolean }): EnemyAnimationState {
   if (attacking) return "attack";
   if (dtSeconds <= 0) return "idle";
   const speed = Math.hypot(dxTiles, dyTiles) / dtSeconds;
@@ -28,7 +34,7 @@ export function inferPlayerAnimState(
 }
 
 /** True when the position delta since the last sample reads as running, not walking. */
-export function isRunningPace(dxTiles: number, dyTiles: number, dtSeconds: number): boolean {
+export function isRunningPace({ dxTiles, dyTiles, dtSeconds }: PlayerMotionInput): boolean {
   if (dtSeconds <= 0) return false;
   return Math.hypot(dxTiles, dyTiles) / dtSeconds > RUNNING_EPS_TILES_PER_SEC;
 }

@@ -28,6 +28,8 @@ interface SlotVisual {
   count: Phaser.GameObjects.Text;
 }
 
+interface HotbarUpdate { slotsData: HotbarSlotData[]; selectedSlot: number; armedThrowableSlot: number | null; nowMs: number; }
+
 export class HotbarWidget {
   private readonly scene: Phaser.Scene;
   private readonly container: Phaser.GameObjects.Container;
@@ -61,10 +63,10 @@ export class HotbarWidget {
     const cell = this.scene.add.rectangle(x, y, SLOT_SIZE, SLOT_SIZE, PANEL_FILL).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
     const accent = drawSelectionAccent(this.scene, SLOT_SIZE, SLOT_SIZE).setPosition(x, y).setVisible(false);
     const count = this.scene.add
-      .text(x + SLOT_SIZE - 3, y + SLOT_SIZE - 3, "", uiTextStyle(11, undefined, this.scale, "emphasis"))
+      .text(x + SLOT_SIZE - 3, y + SLOT_SIZE - 3, "", uiTextStyle(11, undefined, { scale: this.scale, weight: "emphasis" }))
       .setOrigin(1, 1);
     const keybind = this.scene.add
-      .text(x + 2, y + 1, String(index + 1), uiTextStyle(9, "#8f8fa3", this.scale))
+      .text(x + 2, y + 1, String(index + 1), uiTextStyle(9, "#8f8fa3", { scale: this.scale }))
       .setOrigin(0, 0);
     this.container.add([cell, accent, count, keybind]);
     return { index, x: x + SLOT_SIZE / 2, y: y + SLOT_SIZE / 2, cell, accent, icon: null, count };
@@ -78,7 +80,7 @@ export class HotbarWidget {
     return null;
   }
 
-  update(slotsData: HotbarSlotData[], selectedSlot: number, armedThrowableSlot: number | null, nowMs: number): void {
+  update({ slotsData, selectedSlot, armedThrowableSlot, nowMs }: HotbarUpdate): void {
     const views = hotbarSlotViews(slotsData, selectedSlot, armedThrowableSlot);
     for (const view of views) {
       const visual = this.slots[view.index];
@@ -90,7 +92,7 @@ export class HotbarWidget {
     visual.icon?.destroy();
     visual.icon = null;
     if (view.itemId) {
-      visual.icon = createItemIcon(this.scene, view.itemId, SLOT_SIZE, this.scale).setPosition(visual.x, visual.y);
+      visual.icon = createItemIcon({ scene: this.scene, itemId: view.itemId, size: SLOT_SIZE, containerScale: this.scale }).setPosition(visual.x, visual.y);
       this.container.add(visual.icon);
     }
     visual.count.setText(view.count > 1 ? String(view.count) : "");

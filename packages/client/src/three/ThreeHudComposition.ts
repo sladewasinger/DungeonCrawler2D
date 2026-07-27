@@ -10,18 +10,18 @@ import { ThreeHealthFeedback } from "./ThreeHealthFeedback.js";
 import { ThreeHudInventory } from "./ThreeHudInventory.js";
 import { ThreeHudNotices } from "./ThreeHudNotices.js";
 import { ThreeHudOverlays } from "./ThreeHudOverlays.js";
-import { createThreeHudPanels, type ThreeHudPanels } from "./ThreeHudPanels.js";
+import { type ThreeHudPanels } from "./ThreeHudPanels.js";
 import { ThreeHudSettings } from "./ThreeHudSettings.js";
-import { createHudSettings, mountHudOverlays, mountHudRoot } from "./ThreeHudSetup.js";
+import { mountHudOverlays, mountHudRoot } from "./ThreeHudSetup.js";
 import { ThreeHudStatus } from "./ThreeHudStatus.js";
 import { ThreeHudTelemetry } from "./ThreeHudTelemetry.js";
 import { ThreeHudTouchOverlay } from "./ThreeHudTouchOverlay.js";
 import { ThreeHudTutorials } from "./ThreeHudTutorials.js";
 import { ThreeHudWeapon } from "./ThreeHudWeapon.js";
-import { threeHudWindowSpecs } from "./ThreeHudWindowSpecs.js";
 import { ThreePartyInvite } from "./ThreePartyInvite.js";
 import { ThreePartyTracker } from "./ThreePartyTracker.js";
 import type { ViewDistance } from "./viewDistance.js";
+import { createStaticParts, createWindowParts } from "./ThreeHudCompositionWindowParts.js";
 
 export interface ThreeHudComposition {
   manager: HudWindowManager;
@@ -67,7 +67,7 @@ export interface ThreeHudCompositionActions {
   toggleInventory(): void;
 }
 
-type StaticParts = Pick<
+export type StaticParts = Pick<
   ThreeHudComposition,
   | "status"
   | "compass"
@@ -81,7 +81,7 @@ type StaticParts = Pick<
   | "inventory"
 >;
 
-type WindowParts = Pick<
+export type WindowParts = Pick<
   ThreeHudComposition,
   "panels" | "manager" | "overlays" | "touch" | "settings"
 >;
@@ -91,82 +91,17 @@ type OverlayParts = Pick<
   "sessionMenu" | "downed" | "invite" | "healthFeedback"
 >;
 
-const createStaticParts = (
-  options: ThreeHudCompositionOptions,
-  actions: ThreeHudCompositionActions,
-): StaticParts => {
-  const tutorials = new ThreeHudTutorials(
-    options.touchDevice ? "touch" : "keyboard",
-  );
-  return {
-    status: new ThreeHudStatus(),
-    compass: new ThreeHudCompass(),
-    hotbar: new ThreeHudHotbar(options.onSelectHotbar),
-    buffs: new ThreeHudBuffs(),
-    weapon: new ThreeHudWeapon(),
-    telemetry: new ThreeHudTelemetry(),
-    party: new ThreePartyTracker(options.connection),
-    tutorials,
-    notices: new ThreeHudNotices(),
-    inventory: new ThreeHudInventory(
-      options.connection,
-      actions.closeInventory,
-      options.touchDevice,
-    ),
-  };
-};
-
-const createWindowParts = (
-  options: ThreeHudCompositionOptions,
-  actions: ThreeHudCompositionActions,
-  statics: StaticParts,
-): WindowParts => {
-  const panels = createThreeHudPanels(
-    options.connection,
-    options.touchDevice,
-    options.focusGame,
-    options.setTextInputFocused,
-    {
-      toggleContacts: actions.toggleContacts,
-      closeContacts: actions.closeContacts,
-      closeCraft: actions.closeCraft,
-      closeStash: actions.closeStash,
-    },
-  );
-  const manager = new HudWindowManager(options.element);
-  threeHudWindowSpecs({
-    status: statics.status.element,
-    compass: statics.compass.element,
-    buffs: statics.buffs.element,
-    hotbar: statics.hotbar.element,
-    chat: panels.chat.element,
-    weapon: statics.weapon.element,
-    party: statics.party.element,
-    telemetry: statics.telemetry.element,
-    contacts: panels.contacts.element,
-    craft: panels.craft.element,
-    stash: panels.stash.element,
-  }).forEach((window) => manager.add(window));
-  const overlays = new ThreeHudOverlays(manager, panels, options.focusGame,
-    options.connection.closeLootChest.bind(options.connection));
-  const touch = new ThreeHudTouchOverlay(actions.toggleInventory);
-  const settings = createHudSettings(manager, {
-    viewDistance: options.viewDistance,
-    setViewDistance: options.setViewDistance,
-  });
-  return { panels, manager, overlays, touch, settings };
-};
 
 const createOverlayParts = (
   options: ThreeHudCompositionOptions,
   statics: StaticParts,
   windows: WindowParts,
 ): OverlayParts => {
-  const sessionMenu = new SessionMenu(
-    options.root,
-    options.element,
-    windows.settings.element,
-    {
+  const sessionMenu = new SessionMenu({
+    appRoot: options.root,
+    hudRoot: options.element,
+    settingsContent: windows.settings.element,
+    actions: {
       focusGame: options.focusGame,
       ...options.session,
       replayTutorials: () => statics.tutorials.replay(),
@@ -177,23 +112,28 @@ const createOverlayParts = (
       },
       onOpenChange: options.setTextInputFocused,
     },
-  );
+  });
   const downed = new ThreeDownedOverlay(
     options.element,
     () => options.connection.suicide(),
   );
   const invite = new ThreePartyInvite(options.connection);
   const healthFeedback = new ThreeHealthFeedback();
-  mountHudOverlays(options.element, [
-    invite.element,
-    statics.tutorials.element,
-    windows.touch.element,
-    statics.notices.element,
-    statics.inventory.element,
-    healthFeedback.element,
-  ]);
+  mountCompositionOverlays({ element: options.element, statics, windows, invite, healthFeedback });
   return { sessionMenu, downed, invite, healthFeedback };
 };
+
+interface CompositionOverlayMount {
+  element: HTMLElement;
+  statics: StaticParts;
+  windows: WindowParts;
+  invite: ThreePartyInvite;
+  healthFeedback: ThreeHealthFeedback;
+}
+
+function mountCompositionOverlays({ element, statics, windows, invite, healthFeedback }: CompositionOverlayMount): void {
+  mountHudOverlays(element, [invite.element, statics.tutorials.element, windows.touch.element, statics.notices.element, statics.inventory.element, healthFeedback.element]);
+}
 
 export const createThreeHudComposition = (
   options: ThreeHudCompositionOptions,

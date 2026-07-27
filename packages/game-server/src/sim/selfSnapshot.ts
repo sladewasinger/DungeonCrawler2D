@@ -36,38 +36,45 @@ export function toSelfSnapshot(
   sim: SimState,
   slot: PlayerSlot,
 ): ServerSnapshot["self"] {
-  const self = slot.entity;
-  const level = slot.stored.level ?? 1;
-  const xp = slot.stored.xp ?? 0;
   return {
-    x: self.body.x,
-    y: self.body.y,
-    z: self.body.z,
-    zVel: self.body.zVel,
-    grounded: self.body.grounded,
-    coyoteTime: self.body.coyoteTime,
-    jumpBuffer: self.body.jumpBuffer,
-    jumpHeld: self.body.jumpHeld,
-    kx: self.body.kx,
-    ky: self.body.ky,
-    hp: self.hp,
-    maxHp: self.maxHp,
+    ...bodySnapshot(slot),
+    ...resourceSnapshot(sim, slot),
+    ...effectSnapshot(sim, slot),
+    ...downedSnapshot(slot),
+    ...reviveFields(sim, slot),
+    respawnAtTick: slot.respawnAtTick,
+    ...progressionSnapshot(slot),
+    floor: sim.world.floor,
+    deepestFloor: slot.stored.deepestFloor ?? 1,
+  };
+}
+
+function bodySnapshot(slot: PlayerSlot): Pick<ServerSnapshot["self"], "x" | "y" | "z" | "zVel" | "grounded" | "coyoteTime" | "jumpBuffer" | "jumpHeld" | "kx" | "ky" | "hp" | "maxHp"> {
+  const { body, hp, maxHp } = slot.entity;
+  return { x: body.x, y: body.y, z: body.z, zVel: body.zVel, grounded: body.grounded, coyoteTime: body.coyoteTime, jumpBuffer: body.jumpBuffer, jumpHeld: body.jumpHeld, kx: body.kx, ky: body.ky, hp, maxHp };
+}
+
+function resourceSnapshot(sim: SimState, slot: PlayerSlot): Pick<ServerSnapshot["self"], "stamina" | "maxStamina" | "blocking" | "staminaRecoveryDelaySeconds" | "staminaExhausted" | "healthRegenerationDelaySeconds"> {
+  return {
     stamina: slot.stamina ?? PLAYER_MAX_STAMINA,
     maxStamina: slot.maxStamina ?? PLAYER_MAX_STAMINA,
     blocking: slot.blocking ?? false,
     staminaRecoveryDelaySeconds: slot.staminaRecoveryDelaySeconds ?? 0,
     staminaExhausted: slot.staminaExhausted ?? false,
     healthRegenerationDelaySeconds: healthRegenerationDelaySeconds(sim, slot),
-    fx: self.statuses.map((status) => status.defId),
-    statusEffects: statusEffectSnapshots(sim, slot),
-    ...(slot.downedAtTick !== null ? { downed: true } : {}),
-    downedUntilTick: nullable(self.downedUntil),
-    ...reviveFields(sim, slot),
-    respawnAtTick: slot.respawnAtTick,
-    xp,
-    level,
-    xpForNext: xpForLevel(level + 1) - xp,
-    floor: sim.world.floor,
-    deepestFloor: slot.stored.deepestFloor ?? 1,
   };
+}
+
+function effectSnapshot(sim: SimState, slot: PlayerSlot): Pick<ServerSnapshot["self"], "fx" | "statusEffects"> {
+  return { fx: slot.entity.statuses.map((status) => status.defId), statusEffects: statusEffectSnapshots(sim, slot) };
+}
+
+function downedSnapshot(slot: PlayerSlot): Pick<ServerSnapshot["self"], "downed" | "downedUntilTick"> {
+  return { ...(slot.downedAtTick === null ? {} : { downed: true }), downedUntilTick: nullable(slot.entity.downedUntil) };
+}
+
+function progressionSnapshot(slot: PlayerSlot): Pick<ServerSnapshot["self"], "xp" | "level" | "xpForNext"> {
+  const level = slot.stored.level ?? 1;
+  const xp = slot.stored.xp ?? 0;
+  return { xp, level, xpForNext: xpForLevel(level + 1) - xp };
 }

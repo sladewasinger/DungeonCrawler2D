@@ -25,6 +25,14 @@ export interface FloorRegistryOptions {
   testFixtures?: boolean;
 }
 
+export interface FloorRegistryCreation {
+  worldSeed: number;
+  content: ContentRegistry;
+  store: PlayerStore;
+  rngSeedBase: number;
+  opts: FloorRegistryOptions;
+}
+
 export interface TickResult {
   snapshots: Map<string, ServerSnapshot>;
   /** Players whose socket must now route to a different sim. */
@@ -44,15 +52,20 @@ export interface PreparedReplicationTickResult {
 export class FloorRegistry {
   private readonly sims = new Map<number, GameSim>();
 
-  constructor(
-    private readonly worldSeed: number,
-    private readonly content: ContentRegistry,
-    private readonly store: PlayerStore,
-    private readonly rngSeedBase: number,
-    private readonly opts: FloorRegistryOptions,
-  ) {
+  constructor({ worldSeed, content, store, rngSeedBase, opts }: FloorRegistryCreation) {
+    this.worldSeed = worldSeed;
+    this.content = content;
+    this.store = store;
+    this.rngSeedBase = rngSeedBase;
+    this.opts = opts;
     this.ensureFloor(1);
   }
+
+  private readonly worldSeed: number;
+  private readonly content: ContentRegistry;
+  private readonly store: PlayerStore;
+  private readonly rngSeedBase: number;
+  private readonly opts: FloorRegistryOptions;
 
   /** The always-existing floor-1 sim — RunningServer.sims.dungeon aliases this. */
   get base(): GameSim {
@@ -63,12 +76,7 @@ export class FloorRegistry {
     const clamped = Math.min(Math.max(Math.floor(floor), 1), FLOOR_CAP);
     let sim = this.sims.get(clamped);
     if (!sim) {
-      sim = new GameSim(
-        new World(this.worldSeed, clamped, LEVEL.Dungeon),
-        this.content,
-        this.store,
-        this.rngSeedBase + clamped,
-        this.opts,
+      sim = new GameSim({ world: new World(this.worldSeed, clamped, LEVEL.Dungeon), content: this.content, store: this.store, rngSeed: this.rngSeedBase + clamped, opts: this.opts }
       );
       this.sims.set(clamped, sim);
     }
@@ -141,17 +149,26 @@ function collectSnapshots<T>(
 function relayGlobalChat(active: GameSim[]): void {
   const perSim = active.map((sim) => ({ sim, events: sim.takePendingGlobalChat() }));
   for (const origin of perSim) {
-    if (origin.events.length === 0) continue;
-    for (const other of perSim) {
-      if (other.sim === origin.sim) continue;
-      for (const event of origin.events) {
-        const senderProfileId = event.t === "chat"
-          ? origin.sim.profileIdForPlayer(event.from)
-          : undefined;
-        other.sim.injectGlobalChat(event, senderProfileId);
-      }
-    }
+    relayOriginChat(origin, perSim);
   }
+}
+
+type ChatRelaySource = { sim: GameSim; events: ReturnType<GameSim["takePendingGlobalChat"]> };
+
+function relayOriginChat(origin: ChatRelaySource, destinations: ChatRelaySource[]): void {
+  if (origin.events.length === 0) return;
+  for (const destination of destinations) relayToOtherSim(origin, destination);
+}
+
+function relayToOtherSim(origin: ChatRelaySource, destination: ChatRelaySource): void {
+  if (destination.sim === origin.sim) return;
+  for (const event of origin.events) {
+    destination.sim.injectGlobalChat(event, senderProfileIdFor(origin.sim, event));
+  }
+}
+
+function senderProfileIdFor(sim: GameSim, event: ChatRelaySource["events"][number]): string | undefined {
+  return event.t === "chat" ? sim.profileIdForPlayer(event.from) : undefined;
 }
 
 /** Refresh every active floor's cross-floor /who directory. */

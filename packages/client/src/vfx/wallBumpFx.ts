@@ -2,6 +2,7 @@
 // its repeated push-and-return looked exactly like prediction reconciliation jitter.
 import type Phaser from "phaser";
 import { WallBumpFlashPool } from "./wallBumpFlash.js";
+import type { WallBumpVfxInput } from "./vfxSystemTypes.js";
 
 export class WallBumpFx {
   private readonly flash: WallBumpFlashPool;
@@ -11,8 +12,8 @@ export class WallBumpFx {
   }
 
   /** Fires feedback at the contact point without moving the player presentation. */
-  trigger(worldX: number, worldY: number, dirX: number, dirY: number, nowMs: number): void {
-    this.flash.spawn(worldX, worldY, dirX, dirY, nowMs);
+  trigger(input: WallBumpVfxInput): void {
+    this.flash.spawn(input);
   }
 
   update(nowMs: number): void {

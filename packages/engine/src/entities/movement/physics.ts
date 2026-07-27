@@ -33,23 +33,37 @@ function applyJumpCut(body: BodyState, input: MoveInput): void {
   }
 }
 
+function updateJumpBuffer(body: BodyState, input: MoveInput, dt: number): void {
+  body.jumpBuffer = input.jump && !body.jumpHeld
+    ? JUMP_BUFFER_TIME
+    : Math.max(0, body.jumpBuffer - dt);
+  body.jumpHeld = input.jump;
+}
+
+function updateCoyoteTime(body: BodyState, dt: number): void {
+  body.coyoteTime = body.grounded
+    ? COYOTE_TIME
+    : Math.max(0, body.coyoteTime - dt);
+}
+
+function canStartJump(body: BodyState): boolean {
+  return body.jumpBuffer > 0 && (body.grounded || body.coyoteTime > 0);
+}
+
+function startJump(body: BodyState): void {
+  body.zVel = JUMP_VELOCITY;
+  body.grounded = false;
+  body.coyoteTime = 0;
+  body.jumpBuffer = 0;
+  body.fallStart = body.z;
+}
+
 /** Buffer/consume jump presses and trigger a jump if grounded or within coyote time. */
 export function updateJumpState(body: BodyState, input: MoveInput, dt: number): void {
   applyJumpCut(body, input);
-  if (input.jump && !body.jumpHeld) body.jumpBuffer = JUMP_BUFFER_TIME;
-  else body.jumpBuffer = Math.max(0, body.jumpBuffer - dt);
-  body.jumpHeld = input.jump;
-
-  if (body.grounded) body.coyoteTime = COYOTE_TIME;
-  else body.coyoteTime = Math.max(0, body.coyoteTime - dt);
-
-  if (body.jumpBuffer > 0 && (body.grounded || body.coyoteTime > 0)) {
-    body.zVel = JUMP_VELOCITY;
-    body.grounded = false;
-    body.coyoteTime = 0;
-    body.jumpBuffer = 0;
-    body.fallStart = body.z;
-  }
+  updateJumpBuffer(body, input, dt);
+  updateCoyoteTime(body, dt);
+  if (canStartJump(body)) startJump(body);
 }
 
 // Ascent is GRAVITY; descent is steeper (GRAVITY_DESCENT_MULT) for a
@@ -94,12 +108,15 @@ function resolveGroundedZ(body: BodyState, terrain: number): void {
   }
 }
 
-function applyGravityAndLand(
-  body: BodyState,
-  terrain: number,
-  dt: number,
-  result: StepResult,
-): void {
+interface VerticalMotion {
+  body: BodyState;
+  terrain: number;
+  dt: number;
+  onStair: boolean;
+  result: StepResult;
+}
+
+function applyGravityAndLand({ body, terrain, dt, result }: VerticalMotion): void {
   if (body.grounded) return;
   body.z += body.zVel * dt;
   body.zVel -= effectiveGravity(body.zVel) * dt;
@@ -136,16 +153,11 @@ function applyStairGlide(body: BodyState, terrain: number): boolean {
 }
 
 /** After horizontal movement, resolve grounded/airborne z against `terrain`. */
-export function resolveVerticalMotion(
-  body: BodyState,
-  terrain: number,
-  dt: number,
-  onStair: boolean,
-): StepResult {
+export function resolveVerticalMotion({ body, terrain, dt, onStair }: Omit<VerticalMotion, "result">): StepResult {
   const result: StepResult = {};
   if (onStair && applyStairGlide(body, terrain)) return result;
   tryLandOnLedge(body, terrain, result);
   resolveGroundedZ(body, terrain);
-  applyGravityAndLand(body, terrain, dt, result);
+  applyGravityAndLand({ body, terrain, dt, onStair, result });
   return result;
 }

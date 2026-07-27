@@ -44,7 +44,7 @@ export class HealthBarWidget {
     const bg = scene.add.rectangle(0, 0, totalWidth, totalHeight, PANEL_FILL).setOrigin(0, 0).setStrokeStyle(1, PANEL_BORDER);
     this.flash = scene.add.rectangle(0, 0, totalWidth, totalHeight, 0xffffff, 0).setOrigin(0, 0);
     this.label = scene.add
-      .text(spacing(0.5), totalHeight + spacing(0.2), "", uiTextStyle(12, undefined, layout.scale, "emphasis"))
+      .text(spacing(0.5), totalHeight + spacing(0.2), "", uiTextStyle(12, undefined, { scale: layout.scale, weight: "emphasis" }))
       .setOrigin(0, 0);
     this.container.add([bg, ...this.buildSegments(scene), this.flash, this.label]);
   }

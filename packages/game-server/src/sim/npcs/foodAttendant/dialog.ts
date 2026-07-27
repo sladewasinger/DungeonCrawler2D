@@ -33,12 +33,11 @@ function dialogsFor(sim: SimState): Map<string, AttendantDialogState> {
 export function queueFoodAttendantGreeting(
   sim: SimState,
   slot: PlayerSlot,
-  cx: number,
-  cy: number,
+  room: { cx: number; cy: number },
 ): void {
   const dialogs = dialogsFor(sim);
-  const key = roomKey(cx, cy);
-  const state = dialogs.get(key) ?? { cx, cy, queue: [], activeUntilTick: 0 };
+  const key = roomKey(room.cx, room.cy);
+  const state = dialogs.get(key) ?? { ...room, queue: [], activeUntilTick: 0 };
   if (!state.queue.some((entry) => entry.playerId === slot.entity.id)) {
     state.queue.push({ playerId: slot.entity.id, playerName: slot.entity.name ?? "Crawler" });
   }
@@ -53,25 +52,27 @@ function isInRoom(slot: PlayerSlot, cx: number, cy: number): boolean {
 
 export function stepFoodAttendantDialogs(sim: SimState): void {
   for (const [key, state] of dialogsFor(sim)) {
-    if (sim.tickCount < state.activeUntilTick) continue;
-    const greeting = state.queue.shift();
-    if (!greeting) {
-      if (roomKindAt(state.cx, state.cy) !== "safe") dialogsFor(sim).delete(key);
-      continue;
-    }
-    const position = safeRoomAttendantPosition(state.cx, state.cy);
-    const text = foodAttendantGreeting(greeting.playerName, sim.rng.next());
-    for (const slot of sim.players.values()) {
-      if (!isInRoom(slot, state.cx, state.cy)) continue;
-      slot.outbox.push({
-        t: "npcSpeech",
-        npcId: FOOD_ATTENDANT_ID,
-        name: SAFE_ROOM_ATTENDANT_NAME,
-        ...position,
-        text,
-        durationMs: FOOD_ATTENDANT_BUBBLE_MS,
-      });
-    }
-    state.activeUntilTick = sim.tickCount + GREETING_TICKS;
+    stepFoodAttendantDialog({ sim, key, state });
+  }
+}
+
+function stepFoodAttendantDialog(input: { sim: SimState; key: string; state: AttendantDialogState }): void {
+  if (input.sim.tickCount < input.state.activeUntilTick) return;
+  const greeting = input.state.queue.shift();
+  if (!greeting) return removeClosedRoomDialog(input);
+  broadcastGreeting(input.sim, input.state, greeting);
+  input.state.activeUntilTick = input.sim.tickCount + GREETING_TICKS;
+}
+
+function removeClosedRoomDialog(input: { sim: SimState; key: string; state: AttendantDialogState }): void {
+  if (roomKindAt(input.state.cx, input.state.cy) !== "safe") dialogsFor(input.sim).delete(input.key);
+}
+
+function broadcastGreeting(sim: SimState, state: AttendantDialogState, greeting: PendingGreeting): void {
+  const position = safeRoomAttendantPosition(state.cx, state.cy);
+  const text = foodAttendantGreeting(greeting.playerName, sim.rng.next());
+  for (const slot of sim.players.values()) {
+    if (!isInRoom(slot, state.cx, state.cy)) continue;
+    slot.outbox.push({ t: "npcSpeech", npcId: FOOD_ATTENDANT_ID, name: SAFE_ROOM_ATTENDANT_NAME, ...position, text, durationMs: FOOD_ATTENDANT_BUBBLE_MS });
   }
 }

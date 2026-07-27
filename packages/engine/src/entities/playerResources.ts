@@ -21,6 +21,24 @@ export interface PlayerResourceStep {
   sprinting: boolean;
 }
 
+export interface PlayerResourceInput {
+  state: PlayerResourceState;
+  input: MoveInput;
+  canBlock: boolean;
+  dt: number;
+}
+
+export interface PlayerResourceStepIntoInput extends PlayerResourceInput {
+  output: PlayerResourceStep;
+}
+
+interface StaminaUpdate {
+  state: PlayerResourceState;
+  moving: boolean;
+  sprinting: boolean;
+  dt: number;
+}
+
 const clampStamina = (state: PlayerResourceState, value: number): void => {
   state.stamina = Math.max(0, Math.min(state.maxStamina, value));
 };
@@ -38,55 +56,57 @@ const drainStamina = (state: PlayerResourceState, amount: number): void => {
 const isMoving = (input: MoveInput): boolean =>
   input.moveX !== 0 || input.moveY !== 0;
 
-const wantsBlock = (
-  input: MoveInput,
-  canBlock: boolean,
-  stamina: number,
-  exhausted: boolean,
-): boolean =>
+const wantsBlock = ({ input, canBlock, stamina, exhausted }: {
+  input: MoveInput;
+  canBlock: boolean;
+  stamina: number;
+  exhausted: boolean;
+}): boolean =>
   Boolean(input.block) && canBlock && stamina > 0 && !exhausted;
 
-const wantsSprint = (
-  input: MoveInput,
-  moving: boolean,
-  blocking: boolean,
-  stamina: number,
-  exhausted: boolean,
-): boolean =>
+const wantsSprint = ({ input, moving, blocking, stamina, exhausted }: {
+  input: MoveInput;
+  moving: boolean;
+  blocking: boolean;
+  stamina: number;
+  exhausted: boolean;
+}): boolean =>
   Boolean(input.run) && moving && !blocking && stamina > 0 && !exhausted;
 
-function updateStamina(
-  state: PlayerResourceState,
-  moving: boolean,
-  sprinting: boolean,
-  dt: number,
-): void {
+function updateStamina({ state, moving, sprinting, dt }: StaminaUpdate): void {
   state.staminaRecoveryDelaySeconds ??= 0;
-  if (state.blocking) {
-    drainStamina(state, BLOCK_STAMINA_PER_SECOND * dt);
-    if (state.stamina === 0) state.blocking = false;
-    return;
-  }
-  if (sprinting) {
-    drainStamina(state, SPRINT_STAMINA_PER_SECOND * dt);
-    return;
-  }
-  if (state.staminaRecoveryDelaySeconds > 0) {
-    state.staminaRecoveryDelaySeconds = Math.max(
-      0,
-      state.staminaRecoveryDelaySeconds - dt,
-    );
-    return;
-  }
+  if (drainBlockingStamina(state, dt)) return;
+  if (drainSprintStamina(state, sprinting, dt)) return;
+  if (waitForExhaustionRecovery(state, dt)) return;
+  recoverStamina(state, moving, dt);
+}
+
+function drainBlockingStamina(state: PlayerResourceState, dt: number): boolean {
+  if (!state.blocking) return false;
+  drainStamina(state, BLOCK_STAMINA_PER_SECOND * dt);
+  if (state.stamina === 0) state.blocking = false;
+  return true;
+}
+
+function drainSprintStamina(state: PlayerResourceState, sprinting: boolean, dt: number): boolean {
+  if (!sprinting) return false;
+  drainStamina(state, SPRINT_STAMINA_PER_SECOND * dt);
+  return true;
+}
+
+function waitForExhaustionRecovery(state: PlayerResourceState, dt: number): boolean {
+  const delay = state.staminaRecoveryDelaySeconds ?? 0;
+  if (delay === 0) return false;
+  state.staminaRecoveryDelaySeconds = Math.max(0, delay - dt);
+  return true;
+}
+
+function recoverStamina(state: PlayerResourceState, moving: boolean, dt: number): void {
   const recovery = moving
     ? WALK_STAMINA_RECOVERY_PER_SECOND
     : IDLE_STAMINA_RECOVERY_PER_SECOND;
   clampStamina(state, state.stamina + recovery * dt);
-  if (
-    state.staminaExhausted &&
-    state.stamina >=
-      state.maxStamina * STAMINA_EXHAUSTION_RECOVERY_FRACTION
-  ) {
+  if (state.staminaExhausted && state.stamina >= state.maxStamina * STAMINA_EXHAUSTION_RECOVERY_FRACTION) {
     state.staminaExhausted = false;
   }
 }
@@ -106,12 +126,12 @@ export function createPlayerResourceStep(): PlayerResourceStep {
   };
 }
 
-function copyEffectiveInput(
-  target: MoveInput,
-  source: MoveInput,
-  sprinting: boolean,
-  blocking: boolean,
-): void {
+function copyEffectiveInput({ target, source, sprinting, blocking }: {
+  target: MoveInput;
+  source: MoveInput;
+  sprinting: boolean;
+  blocking: boolean;
+}): void {
   target.moveX = source.moveX;
   target.moveY = source.moveY;
   target.faceX = source.faceX;
@@ -122,48 +142,20 @@ function copyEffectiveInput(
 }
 
 /** Allocation-free resource step for fixed simulation and render projection hot paths. */
-export function stepPlayerResourcesInto(
-  state: PlayerResourceState,
-  input: MoveInput,
-  canBlock: boolean,
-  dt: number,
-  output: PlayerResourceStep,
-): PlayerResourceStep {
+export function stepPlayerResourcesInto({ state, input, canBlock, dt, output }: PlayerResourceStepIntoInput): PlayerResourceStep {
   state.staminaRecoveryDelaySeconds ??= 0;
   state.staminaExhausted ??= false;
   const moving = isMoving(input);
-  state.blocking = wantsBlock(
-    input,
-    canBlock,
-    state.stamina,
-    state.staminaExhausted,
-  );
-  const sprinting = wantsSprint(
-    input,
-    moving,
-    state.blocking,
-    state.stamina,
-    state.staminaExhausted,
-  );
-  updateStamina(state, moving, sprinting, dt);
-  copyEffectiveInput(output.input, input, sprinting, state.blocking);
+  state.blocking = wantsBlock({ input, canBlock, stamina: state.stamina, exhausted: state.staminaExhausted });
+  const sprinting = wantsSprint({ input, moving, blocking: state.blocking, stamina: state.stamina, exhausted: state.staminaExhausted });
+  updateStamina({ state, moving, sprinting, dt });
+  copyEffectiveInput({ target: output.input, source: input, sprinting, blocking: state.blocking });
   output.sprinting = sprinting;
   return output;
 }
 
 /** Mutates authoritative/predicted stamina and returns movement with invalid
  * sprint stripped. Blocking requires a weapon and always takes priority. */
-export function stepPlayerResources(
-  state: PlayerResourceState,
-  input: MoveInput,
-  canBlock: boolean,
-  dt: number,
-): PlayerResourceStep {
-  return stepPlayerResourcesInto(
-    state,
-    input,
-    canBlock,
-    dt,
-    createPlayerResourceStep(),
-  );
+export function stepPlayerResources(input: PlayerResourceInput): PlayerResourceStep {
+  return stepPlayerResourcesInto({ ...input, output: createPlayerResourceStep() });
 }

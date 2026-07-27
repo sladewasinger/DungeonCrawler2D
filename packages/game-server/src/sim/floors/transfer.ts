@@ -39,6 +39,13 @@ export function drainReadyTransfers(sim: SimState): void {
 /** Place an arriving slot into `sim` (the destination) and resolve its
  * landing spot per `req.arrival`. */
 export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void {
+  establishTransfer(sim, req);
+  placeTransferredPlayer(sim, req);
+  placeTransferredPets(sim, req);
+  announceArrival(sim, req);
+}
+
+function establishTransfer(sim: SimState, req: FloorTransferRequest): void {
   const { slot } = req;
   sim.players.set(slot.entity.id, slot);
   sim.byToken.set(slot.resumeToken, slot.entity.id);
@@ -47,7 +54,10 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
   slot.known.clear();
   slot.needsFullAreas = true;
   resetInputTimeline(slot);
+}
 
+function placeTransferredPlayer(sim: SimState, req: FloorTransferRequest): void {
+  const { slot } = req;
   if (req.arrival === "deathSpawn") {
     // Full reset (hp/body/statuses/starter-kit) at THIS sim's own spawn —
     // same machinery every floor-1 in-place death already used.
@@ -58,6 +68,10 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
     slot.entity.body = createBody(target.x, target.y, target.z);
     slot.outbox.push({ t: "teleported" });
   }
+}
+
+function placeTransferredPets(sim: SimState, req: FloorTransferRequest): void {
+  const { slot } = req;
   for (const pet of req.pets) {
     const x = slot.entity.body.x - 1;
     const y = slot.entity.body.y;
@@ -66,6 +80,10 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
     pet.driftTarget = undefined;
     clearPetPath(pet);
   }
+}
+
+function announceArrival(sim: SimState, req: FloorTransferRequest): void {
+  const { slot } = req;
   slot.outbox.push(announceFloorEntry(sim.world.floor));
   // LANE W (panel R3 blocker #2): the stairway-exists hint rides right behind the
   // floor identity line on every arrival — null (skipped) on FLOOR_CAP's boss floor.

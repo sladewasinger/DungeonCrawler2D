@@ -25,7 +25,15 @@ export function createHpBar(scene: Phaser.Scene, depth: number): HpBar {
 }
 
 /** Repositions the bar at the supplied center point and resizes its fill to hp/maxHp. */
-export function updateHpBar(bar: HpBar, screenX: number, screenY: number, hp: number, maxHp: number): void {
+export interface HpBarUpdate {
+  readonly bar: HpBar;
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly hp: number;
+  readonly maxHp: number;
+}
+
+export function updateHpBar({ bar, screenX, screenY, hp, maxHp }: HpBarUpdate): void {
   bar.container.setPosition(screenX, screenY);
   const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
   bar.fill.width = BAR_WIDTH * ratio;

@@ -1,14 +1,12 @@
 /** Renders labeled party bearings and distances inside a managed HUD window. */
-import { INTERACT_RANGE } from "@dc2d/engine";
 import type { Connection } from "../net/connection.js";
-import { resolvePartyNavigation } from "../ui/partyNavigation.js";
-import { partyPresence } from "../ui/partyPresence.js";
 import type { FirstPersonState } from "./movement.js";
 import {
   HUD_PANEL,
   createHudButton,
   createHudTitle,
 } from "./ThreeHudStyles.js";
+import { partyHeader, updatePartyRows } from "./ThreePartyPresentation.js";
 
 const MAX_VISIBLE_MEMBERS = 6;
 
@@ -47,53 +45,18 @@ export class ThreePartyTracker {
     const members = connection.party?.members.slice(0, MAX_VISIBLE_MEMBERS) ?? [];
     this.updateHeader(connection, members.length);
     this.updateInvites();
-    this.updateMemberRows(connection, members, player, yaw);
+    this.updateMemberRows({ connection, members, player, yaw });
   }
 
   private updateHeader(connection: Connection, memberCount: number): void {
-    this.title.textContent = connection.party?.leaderId === connection.welcome?.playerId
-      ? "Party · You lead"
-      : "Party";
-    const hasInvites = connection.pendingInvite !== null ||
-      connection.outgoingPartyInvites.size > 0;
-    this.element.style.visibility =
-      memberCount > 0 || hasInvites ? "visible" : "hidden";
-    this.inviteButton.textContent = hasInvites
-      ? `Invites (${connection.outgoingPartyInvites.size +
-        (connection.pendingInvite ? 1 : 0)})`
-      : "Invites";
+    const header = partyHeader(connection, memberCount);
+    this.title.textContent = header.title;
+    this.element.style.visibility = header.visible ? "visible" : "hidden";
+    this.inviteButton.textContent = header.invites;
   }
 
-  private updateMemberRows(
-    connection: Connection,
-    members: NonNullable<Connection["party"]>["members"],
-    player: FirstPersonState,
-    yaw: number,
-  ): void {
-    const viewBearingDeg = (-yaw * 180) / Math.PI;
-    this.rows.forEach((row, index) => {
-      const member = members[index];
-      row.hidden = !member;
-      if (!member) return;
-      const presence = partyPresence(member.name, member.disconnected === true);
-      if (member.disconnected) {
-        row.textContent = presence.label;
-        row.style.color = presence.color ?? "";
-        return;
-      }
-      const navigation = resolvePartyNavigation(
-        { x: player.x, y: player.z },
-        member,
-        viewBearingDeg,
-      );
-      const leader = connection.party?.leaderId === member.id ? " · LEADER" : "";
-      const downed = member.downed
-        ? navigation.distance <= INTERACT_RANGE ? " · REVIVE [E]" : " · DOWNED"
-        : "";
-      row.textContent =
-        `${navigation.arrow} ${presence.label} · ${navigation.distance}m${leader}${downed}`;
-      row.style.color = member.downed ? "#e96a6a" : "";
-    });
+  private updateMemberRows(request: Omit<Parameters<typeof updatePartyRows>[0], "rows">): void {
+    updatePartyRows({ rows: this.rows, ...request });
   }
 
   private updateInvites(): void {
@@ -106,33 +69,33 @@ export class ThreePartyTracker {
     ].join("|");
     if (signature === this.inviteSignature) return;
     this.inviteSignature = signature;
-    const rows: HTMLElement[] = [];
-    if (incoming) {
-      rows.push(this.actionRow(
-        `${incoming.name} invited you`,
-        ["Accept", () => this.connection.partyOp("accept")],
-        ["Decline", () => this.connection.partyOp("decline")],
-      ));
-    }
-    for (const [id, name] of outgoing) {
-      rows.push(this.actionRow(
-        `Waiting for ${name}`,
-        ["Cancel", () => this.connection.partyOp("cancel", id)],
-      ));
-    }
-    if (this.connection.party) {
-      rows.push(this.actionRow(
-        "Current party",
-        ["Leave", () => this.connection.partyOp("leave")],
-      ));
-    }
-    if (rows.length === 0) {
-      const empty = document.createElement("span");
-      empty.textContent = "No active invitations";
-      empty.className = "hud-muted";
-      rows.push(empty);
-    }
+    const rows = this.inviteRows(incoming, outgoing);
     this.invites.replaceChildren(...rows);
+  }
+
+  private inviteRows(incoming: Connection["pendingInvite"], outgoing: Array<[string, string]>): HTMLElement[] {
+    const rows = [...this.incomingRows(incoming), ...this.outgoingRows(outgoing), ...this.partyRows()];
+    return rows.length > 0 ? rows : [this.emptyInviteRow()];
+  }
+
+  private incomingRows(incoming: Connection["pendingInvite"]): HTMLDivElement[] {
+    if (!incoming) return [];
+    return [this.actionRow(`${incoming.name} invited you`, ["Accept", () => this.connection.partyOp("accept")], ["Decline", () => this.connection.partyOp("decline")])];
+  }
+
+  private outgoingRows(outgoing: Array<[string, string]>): HTMLDivElement[] {
+    return outgoing.map(([id, name]) => this.actionRow(`Waiting for ${name}`, ["Cancel", () => this.connection.partyOp("cancel", id)]));
+  }
+
+  private partyRows(): HTMLDivElement[] {
+    return this.connection.party ? [this.actionRow("Current party", ["Leave", () => this.connection.partyOp("leave")])] : [];
+  }
+
+  private emptyInviteRow(): HTMLSpanElement {
+    const empty = document.createElement("span");
+    empty.textContent = "No active invitations";
+    empty.className = "hud-muted";
+    return empty;
   }
 
   private actionRow(

@@ -21,74 +21,78 @@ import { claimNearestPet } from "../pets/index.js";
 
 /** The interact intent: revive, pet claims, doors, stash, and floor exits. */
 
-export function doInteract(sim: SimState, slot: PlayerSlot): void {
+interface InteractContext {
+  sim: SimState;
+  slot: PlayerSlot;
+}
+
+interface DoorContext extends InteractContext {
+  door: { tile: number; x: number; y: number };
+}
+
+export function doInteract({ sim, slot }: InteractContext): void {
   if (slot.downedAtTick !== null) return;
-  if (claimNearestPet(sim, slot)) return;
-  if (openLootChest(sim, slot)) return;
+  if (claimNearestPet(sim, slot) || openLootChest(sim, slot)) return;
   const body = slot.entity.body;
   const target = resolveWorldInteraction(sim.world, body.x, body.y);
-  if (target?.kind === "door" && useDoor(sim, slot, target)) return;
-  if (target?.kind === "stash") {
-    slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
-  }
+  if (target?.kind === "door") return void useDoor({ sim, slot, door: target });
+  if (target?.kind === "stash") sendStash(slot);
+}
+
+function sendStash(slot: PlayerSlot): void {
+  slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
 }
 
 /** Doors: use a nearby solid doorway to teleport. */
-function useDoor(
-  sim: SimState,
-  slot: PlayerSlot,
-  door: { tile: number; x: number; y: number },
-): boolean {
+function useDoor({ sim, slot, door }: DoorContext): boolean {
   const assigned = safeRoomDoorAt(sim, door.x, door.y);
-  if (assigned) {
-    return useAssignedRoomDoor(sim, slot, assigned.ownerId, assigned.tile);
-  }
+  if (assigned) return useAssignedRoomDoor({ sim, slot, ownerId: assigned.ownerId, tile: assigned.tile });
   switch (door.tile) {
-    case TILE.DoorSafeRoom: {
-      const doorCx = Math.floor(door.x / CHUNK_SIZE);
-      const doorCy = Math.floor(door.y / CHUNK_SIZE);
-      const room = safeRoomChunk(doorCx, doorCy);
-      if (!safeRoomHasCapacity(sim, room.cx, room.cy)) {
-        slot.outbox.push({ t: "toast", msg: "That safe room is full" });
-        return true;
-      }
-      teleport(sim, slot, safeRoomSpawn(doorCx, doorCy), { remember: true });
-      queueFoodAttendantGreeting(sim, slot, room.cx, room.cy);
-      slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
-      return true;
-    }
-    case TILE.DoorPersonal:
-      teleport(sim, slot, personalRoomSpawn(slot.stored.slot), { remember: true });
-      slot.outbox.push({ t: "toast", msg: "Your room. Stash and crafting table inside." });
-      return true;
-    case TILE.DoorParty:
-      useDoorParty(sim, slot);
-      return true;
-    case TILE.DoorExit:
-      teleport(sim, slot, slot.returnStack.pop() ?? findSpawn(sim), { remember: false });
-      return true;
+    case TILE.DoorSafeRoom: return useSafeRoomDoor({ sim, slot, door });
+    case TILE.DoorPersonal: return usePersonalDoor({ sim, slot });
+    case TILE.DoorParty: return usePartyDoor({ sim, slot });
+    case TILE.DoorExit: return useExitDoor({ sim, slot });
     default:
       return false;
   }
 }
 
-function useAssignedRoomDoor(
-  sim: SimState,
-  slot: PlayerSlot,
-  ownerId: string,
-  tile: number,
-): boolean {
+function useSafeRoomDoor({ sim, slot, door }: DoorContext): boolean {
+  const doorCx = Math.floor(door.x / CHUNK_SIZE);
+  const doorCy = Math.floor(door.y / CHUNK_SIZE);
+  const room = safeRoomChunk(doorCx, doorCy);
+  if (!safeRoomHasCapacity(sim, room.cx, room.cy)) return notifyFullSafeRoom(slot);
+  teleport({ sim, slot, to: safeRoomSpawn(doorCx, doorCy), remember: true });
+  queueFoodAttendantGreeting(sim, slot, room);
+  slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
+  return true;
+}
+
+function notifyFullSafeRoom(slot: PlayerSlot): true {
+  slot.outbox.push({ t: "toast", msg: "That safe room is full" });
+  return true;
+}
+
+function usePersonalDoor({ sim, slot }: InteractContext): true {
+  teleport({ sim, slot, to: personalRoomSpawn(slot.stored.slot), remember: true });
+  slot.outbox.push({ t: "toast", msg: "Your room. Stash and crafting table inside." });
+  return true;
+}
+
+function usePartyDoor(context: InteractContext): true {
+  useDoorParty(context);
+  return true;
+}
+
+function useExitDoor({ sim, slot }: InteractContext): true {
+  teleport({ sim, slot, to: slot.returnStack.pop() ?? findSpawn(sim), remember: false });
+  return true;
+}
+
+function useAssignedRoomDoor({ sim, slot, ownerId, tile }: InteractContext & { ownerId: string; tile: number }): boolean {
   const owner = sim.players.get(ownerId);
   if (!owner?.connected) return true;
-  if (tile === TILE.DoorPersonal) {
-    if (slot.entity.id !== ownerId) {
-      slot.outbox.push({ t: "toast", msg: "That personal room is private" });
-      return true;
-    }
-    teleport(sim, slot, personalRoomSpawn(owner.stored.slot), { remember: true });
-    slot.outbox.push({ t: "toast", msg: "Your personal room" });
-    return true;
-  }
+  if (tile === TILE.DoorPersonal) return useOwnedPersonalDoor({ sim, slot, ownerId, owner });
   if (!owner.partyId || slot.partyId !== owner.partyId) {
     slot.outbox.push({ t: "toast", msg: "That party room is private" });
     return true;
@@ -96,12 +100,22 @@ function useAssignedRoomDoor(
   const party = sim.parties.get(owner.partyId);
   if (!party) return true;
   party.roomSlot ??= sim.nextPartyRoom++;
-  teleport(sim, slot, partyRoomSpawn(party.roomSlot), { remember: true });
+  teleport({ sim, slot, to: partyRoomSpawn(party.roomSlot), remember: true });
   slot.outbox.push({ t: "toast", msg: "The party room" });
   return true;
 }
 
-function useDoorParty(sim: SimState, slot: PlayerSlot): void {
+function useOwnedPersonalDoor({ sim, slot, ownerId, owner }: InteractContext & { ownerId: string; owner: PlayerSlot }): true {
+  if (slot.entity.id !== ownerId) {
+    slot.outbox.push({ t: "toast", msg: "That personal room is private" });
+    return true;
+  }
+  teleport({ sim, slot, to: personalRoomSpawn(owner.stored.slot), remember: true });
+  slot.outbox.push({ t: "toast", msg: "Your personal room" });
+  return true;
+}
+
+function useDoorParty({ sim, slot }: InteractContext): void {
   if (!slot.partyId) {
     slot.outbox.push({ t: "toast", msg: "You're not in a party" });
     return;
@@ -109,17 +123,12 @@ function useDoorParty(sim: SimState, slot: PlayerSlot): void {
   const party = sim.parties.get(slot.partyId);
   if (!party) return;
   party.roomSlot ??= sim.nextPartyRoom++;
-  teleport(sim, slot, partyRoomSpawn(party.roomSlot), { remember: true });
+  teleport({ sim, slot, to: partyRoomSpawn(party.roomSlot), remember: true });
   slot.outbox.push({ t: "toast", msg: "The party room" });
 }
 
-export function teleport(
-  sim: SimState,
-  slot: PlayerSlot,
-  to: { x: number; y: number; z?: number },
-  opts: { remember: boolean },
-): void {
-  if (opts.remember) {
+export function teleport({ sim, slot, to, remember }: InteractContext & { to: { x: number; y: number; z?: number }; remember: boolean }): void {
+  if (remember) {
     slot.returnStack.push({ x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z });
     if (slot.returnStack.length > 4) slot.returnStack.shift();
   }

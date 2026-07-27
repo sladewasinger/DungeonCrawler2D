@@ -26,9 +26,11 @@ does not appear.
 
 - Write highly modular, decoupled TypeScript.
 - Never nest conditionals or loops deeper than 3 levels.
-- If a function is approaching 25 lines, immediately abstract sub-steps into
+- If a function is approaching 35 lines, immediately abstract sub-steps into
   private, pure helper functions.
 - Prefer pure functions with explicit inputs and outputs over stateful,
   side-effect-heavy code to maintain low coupling.
 - If an object requires more than 3 parameters, group them into a single,
   cohesive TypeScript interface or type.
+- Keep no more than four statements per line; never collapse whole modules
+  onto one line to evade file/function size limits.

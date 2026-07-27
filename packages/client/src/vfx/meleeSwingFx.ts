@@ -6,6 +6,7 @@
 import type Phaser from "phaser";
 import { MeleeWedgePool } from "./meleeWedge.js";
 import { WhiffFadePool } from "./whiffFade.js";
+import type { MeleeVfxInput } from "./vfxSystemTypes.js";
 
 export class MeleeSwingFx {
   private readonly wedge: MeleeWedgePool;
@@ -16,13 +17,13 @@ export class MeleeSwingFx {
     this.whiff = new WhiffFadePool(scene);
   }
 
-  spawnSwing(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
-    this.wedge.spawn(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
+  spawnSwing(input: MeleeVfxInput): void {
+    this.wedge.spawn(input);
   }
 
   /** The whiff arc-fade — fired once a swing's correlation window elapses with no connect. */
-  spawnWhiff(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
-    this.whiff.spawn(id, worldX, worldY, z, angleRad, depth, tilePx, nowMs);
+  spawnWhiff(input: MeleeVfxInput): void {
+    this.whiff.spawn(input);
   }
 
   update(nowMs: number): void {

@@ -43,14 +43,7 @@ export function partitionChunk(chunkSeed: number, chunkSize: number, district: D
 }
 
 /** Recurse, collecting every leaf's room and every split's connecting edge; returns a representative room for the caller to link further up the tree. */
-function partition(
-  seed: number,
-  rect: Rect,
-  depth: number,
-  district: DistrictKind,
-  rooms: Room[],
-  links: Array<[Room, Room]>,
-): Room {
+function partition(...[seed, rect, depth, district, rooms, links]: [number, Rect, number, DistrictKind, Room[], Array<[Room, Room]>]): Room {
   const canX = rectW(rect) >= MIN_LEAF * 2 + 1;
   const canY = rectH(rect) >= MIN_LEAF * 2 + 1;
   if (depth <= 0 || (!canX && !canY)) {
@@ -113,19 +106,25 @@ const DISTRICT_BIASES: readonly DistrictBias[] = [
 
 function districtBiasedFlavor(district: DistrictKind, area: number, roll: number): Flavor | null {
   for (const bias of DISTRICT_BIASES) {
-    if (bias.kind !== district) continue;
-    if (bias.minArea !== undefined && area < bias.minArea) continue;
-    if (roll < bias.threshold) return bias.flavor;
+    if (matchesDistrictBias(bias, district, area, roll)) return bias.flavor;
   }
   return null;
 }
 
+function matchesDistrictBias(...[bias, district, area, roll]: [DistrictBias, DistrictKind, number, number]): boolean {
+  return bias.kind === district && (bias.minArea === undefined || area >= bias.minArea) && roll < bias.threshold;
+}
+
 /** The generic, district-agnostic roll every leaf falls back to. */
 function areaBiasedFlavor(area: number, roll: number): Flavor {
-  if (area >= 90 && roll < 20) return "pillarHall";
-  if (area >= 60 && roll < 40) return "plaza";
-  if (area >= 70 && roll < 55) return "grotto";
+  if (matchesAreaFlavor(area, roll, 90, 20)) return "pillarHall";
+  if (matchesAreaFlavor(area, roll, 60, 40)) return "plaza";
+  if (matchesAreaFlavor(area, roll, 70, 55)) return "grotto";
   return "chamber";
+}
+
+function matchesAreaFlavor(...[area, roll, minArea, threshold]: [number, number, number, number]): boolean {
+  return area >= minArea && roll < threshold;
 }
 
 /** District bends the flavor roll toward its signature room family; galleries (aspect) always win first. */

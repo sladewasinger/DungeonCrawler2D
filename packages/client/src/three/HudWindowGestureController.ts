@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- gesture event handlers remain co-located for pointer-capture ownership. */
 /** Implements drag, corner-resize, and touch-pinch gestures for one HUD window. */
 import {
   isResizeHandle,
@@ -7,21 +8,23 @@ import {
   type HudWindowEditingBinding,
   type HudWindowEditingContext,
   type HudWindowPoint,
-  type HudWindowSize,
-  type HudWindowSizeBounds,
 } from "./HudWindowEditingGeometry.js";
 import {
-  hudWindowGestureBounds,
-  makeHudWindowFree,
   pointDistance,
   pointerPoint,
   releaseGesturePointers,
-  setRelativeWindowPosition,
   snapWindowAnchor,
   type DragGesture,
   type HudWindowGesture,
   type PinchGesture,
 } from "./HudWindowGestureState.js";
+import {
+  applyHudWindowSize,
+  hudWindowBounds,
+  hudWindowSize,
+  makeFreeHudWindow,
+  moveHudWindow,
+} from "./HudWindowGestureLayout.js";
 import {
   createHudWindowResizeGrip,
   isHudWindowResizeGrip,
@@ -50,35 +53,6 @@ export class HudWindowGestureController {
     this.grip.style.display = editing ? "block" : "none";
   }
 
-  private size(): HudWindowSize {
-    const scale = this.context.scale();
-    const rect = this.record.element.getBoundingClientRect();
-    return { width: rect.width / scale, height: rect.height / scale };
-  }
-
-  private bounds(): HudWindowSizeBounds {
-    return hudWindowGestureBounds(
-      this.record,
-      this.context.root,
-      this.context.scale(),
-    );
-  }
-
-  private makeFree(): DOMRect {
-    return makeHudWindowFree(
-      this.record,
-      this.context.root,
-    );
-  }
-
-  private applySize(size: HudWindowSize): void {
-    const root = this.context.root.getBoundingClientRect();
-    const scale = this.context.scale();
-    this.record.layout.widthRatio = Math.min(1, Math.max(0, size.width * scale / Math.max(1, root.width)));
-    this.record.layout.heightRatio = Math.min(1, Math.max(0, size.height * scale / Math.max(1, root.height)));
-    this.context.apply(this.record);
-  }
-
   private readonly begin = (event: PointerEvent): void => {
     if (!this.context.editing()) return;
     const gripTarget = isHudWindowResizeGrip(event.target, this.grip);
@@ -86,20 +60,29 @@ export class HudWindowGestureController {
     if (this.gesture) return;
     event.preventDefault();
     event.stopPropagation();
-    const root = this.makeFree();
+    const root = makeFreeHudWindow(this.layoutRequest);
     this.context.raise(this.record);
     this.record.element.setPointerCapture(event.pointerId);
-    if (gripTarget || isResizeHandle(this.record.element.getBoundingClientRect(), event.clientX, event.clientY)) {
-      this.gesture = {
-        kind: "resize",
-        pointerId: event.pointerId,
-        origin: pointerPoint(event),
-        point: pointerPoint(event),
-        start: this.size(),
-        bounds: this.bounds(),
-      };
-      return;
-    }
+    if (gripTarget || this.pointerIsResizeHandle(event)) return this.beginResize(event);
+    this.beginDrag(event, root);
+  };
+
+  private pointerIsResizeHandle(event: PointerEvent): boolean {
+    return isResizeHandle({ rect: this.record.element.getBoundingClientRect(), point: pointerPoint(event) });
+  }
+
+  private beginResize(event: PointerEvent): void {
+    this.gesture = {
+      kind: "resize",
+      pointerId: event.pointerId,
+      origin: pointerPoint(event),
+      point: pointerPoint(event),
+      start: hudWindowSize(this.layoutRequest),
+      bounds: hudWindowBounds(this.layoutRequest),
+    };
+  }
+
+  private beginDrag(event: PointerEvent, root: DOMRect): void {
     const rect = this.record.element.getBoundingClientRect();
     this.gesture = {
       kind: "drag",
@@ -111,7 +94,7 @@ export class HudWindowGestureController {
       point: pointerPoint(event),
       rootRect: root,
     };
-  };
+  }
 
   private beginPinch(event: PointerEvent): void {
     event.preventDefault();
@@ -125,15 +108,15 @@ export class HudWindowGestureController {
     const first = points.get(current.pointerId);
     const second = points.get(event.pointerId);
     if (!first || !second) return;
-    this.makeFree();
+    makeFreeHudWindow(this.layoutRequest);
     this.record.element.setPointerCapture(event.pointerId);
     this.gesture = {
       kind: "pinch",
       pointerIds: [current.pointerId, event.pointerId],
       points,
       startDistance: pointDistance(first, second),
-      start: this.size(),
-      bounds: this.bounds(),
+      start: hudWindowSize(this.layoutRequest),
+      bounds: hudWindowBounds(this.layoutRequest),
     };
   }
 
@@ -144,14 +127,14 @@ export class HudWindowGestureController {
     if (event.pointerId !== gesture.pointerId) return;
     gesture.point = pointerPoint(event);
     if (gesture.kind === "resize") {
-      return this.applySize(resizeWindowFromPointer(
+      return applyHudWindowSize({ ...this.layoutRequest, size: resizeWindowFromPointer(
         gesture.start,
         {
           x: (event.clientX - gesture.origin.x) / this.context.scale(),
           y: (event.clientY - gesture.origin.y) / this.context.scale(),
         },
         gesture.bounds,
-      ));
+      ) });
     }
     this.moveDrag(gesture, event);
   };
@@ -163,27 +146,17 @@ export class HudWindowGestureController {
     const first = gesture.points.get(firstId);
     const second = gesture.points.get(secondId);
     if (first && second) {
-      this.applySize(resizeWindowFromPinch(
-        gesture.start,
-        gesture.startDistance,
-        pointDistance(first, second),
-        gesture.bounds,
-      ));
+      applyHudWindowSize({ ...this.layoutRequest, size: resizeWindowFromPinch({
+        start: gesture.start,
+        startDistance: gesture.startDistance,
+        distance: pointDistance(first, second),
+        bounds: gesture.bounds,
+      }) });
     }
   }
 
   private moveDrag(gesture: DragGesture, event: PointerEvent): void {
-    const rect = this.record.element.getBoundingClientRect();
-    setRelativeWindowPosition(
-      this.record.layout,
-      {
-        x: Math.round(event.clientX - gesture.rootRect.left - gesture.offset.x),
-        y: Math.round(event.clientY - gesture.rootRect.top - gesture.offset.y),
-      },
-      { width: rect.width, height: rect.height },
-      gesture.rootRect,
-    );
-    this.context.apply(this.record);
+    moveHudWindow({ ...this.layoutRequest, gesture, event });
   }
 
   private readonly end = (event: PointerEvent): void => {
@@ -191,6 +164,10 @@ export class HudWindowGestureController {
     const ownsPointer = gesture?.kind === "pinch" ? gesture.pointerIds.includes(event.pointerId) : gesture?.pointerId === event.pointerId;
     if (ownsPointer) this.finish();
   };
+
+  private get layoutRequest(): { record: EditableHudWindow; context: HudWindowEditingContext } {
+    return { record: this.record, context: this.context };
+  }
 
   private finish(): void {
     const completed = this.gesture;

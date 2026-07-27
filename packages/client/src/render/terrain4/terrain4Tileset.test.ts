@@ -31,7 +31,7 @@ describe("Terrain4 atlas contract", () => {
   it("keeps cliff middle/corner roles in a two-column biome sheet", () => {
     expect(TERRAIN4_CLIFF_ROLES).toEqual(["cliff-middle", "cliff-corner"]);
     expect(TERRAIN4_CLIFF_TILESETS[BIOME.Arena].rowStart).toBe(12);
-    expect(terrain4CliffAtlasFrame(TERRAIN4_CLIFF_TILESETS[BIOME.Maze], "cliff-corner", 1, 1060, 1484)).toMatchObject({
+    expect(terrain4CliffAtlasFrame({ set: TERRAIN4_CLIFF_TILESETS[BIOME.Maze], role: "cliff-corner", variant: 1, image: { width: 1060, height: 1484 } })).toMatchObject({
       x: 530, y: 318, width: 530, height: 106,
     });
   });

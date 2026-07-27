@@ -17,14 +17,14 @@ import { FLOOR_CAP } from "../features/descentShared.js";
 import { CHUNK_SIZE, TILE } from "../types.js";
 import { generateChunk } from "./index.js";
 import { WORLD_GEOMETRY_SCALE } from "./scale.js";
-import { bfsChunks, keyInChunk, type ChunkCache, type WorldPoint } from "./test-support.js";
+import { bfsChunks, keyInChunk, type WorldPoint } from "./test-support.js";
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
 
 function tileAt(seed: number, p: WorldPoint): number {
   const cx = Math.floor(p.x / CHUNK_SIZE);
   const cy = Math.floor(p.y / CHUNK_SIZE);
-  const chunk = generateChunk(seed, FLOOR_CAP, cx, cy);
+  const chunk = generateChunk({ worldSeed: seed, floor: FLOOR_CAP, cx: cx, cy: cy });
   const i = (p.y - cy * CHUNK_SIZE) * CHUNK_SIZE + (p.x - cx * CHUNK_SIZE);
   return chunk.tiles[i] ?? TILE.Void;
 }
@@ -33,26 +33,41 @@ interface RingCell extends WorldPoint {
   readonly gate: boolean;
 }
 
+function arenaOffsets(): Array<{ x: number; y: number }> {
+  const width = GENERATED_ARENA_HALF * 2 + 1;
+  const inner = GENERATED_ARENA_HALF - GENERATED_RING_THICKNESS + 1;
+  return Array.from({ length: width ** 2 }, (_, index) => ({ x: index % width - GENERATED_ARENA_HALF, y: Math.floor(index / width) - GENERATED_ARENA_HALF }))
+    .filter(({ x, y }) => {
+      const distance = Math.max(Math.abs(x), Math.abs(y));
+      return distance >= inner && distance <= GENERATED_ARENA_HALF;
+    });
+}
+
+function scaledOffsets(): Array<{ x: number; y: number }> {
+  return Array.from({ length: WORLD_GEOMETRY_SCALE ** 2 }, (_, index) => ({ x: index % WORLD_GEOMETRY_SCALE, y: Math.floor(index / WORLD_GEOMETRY_SCALE) }));
+}
+
 function ringCells(spawn: WorldPoint): RingCell[] {
   const inner = GENERATED_ARENA_HALF - GENERATED_RING_THICKNESS + 1;
-  const cells: RingCell[] = [];
-  for (let dy = -GENERATED_ARENA_HALF; dy <= GENERATED_ARENA_HALF; dy++) {
-    for (let dx = -GENERATED_ARENA_HALF; dx <= GENERATED_ARENA_HALF; dx++) {
-      const d = Math.max(Math.abs(dx), Math.abs(dy));
-      if (d < inner || d > GENERATED_ARENA_HALF) continue;
-      const gate = dx === 0 && dy >= inner && dy <= GENERATED_ARENA_HALF;
-      for (let oy = 0; oy < WORLD_GEOMETRY_SCALE; oy++) {
-        for (let ox = 0; ox < WORLD_GEOMETRY_SCALE; ox++) {
-          cells.push({
-            x: spawn.x + dx * WORLD_GEOMETRY_SCALE + ox,
-            y: spawn.y + dy * WORLD_GEOMETRY_SCALE + oy,
-            gate,
-          });
-        }
-      }
-    }
-  }
-  return cells;
+  return arenaOffsets().flatMap((offset) => scaledOffsets().map((scale) => ({
+    x: spawn.x + offset.x * WORLD_GEOMETRY_SCALE + scale.x,
+    y: spawn.y + offset.y * WORLD_GEOMETRY_SCALE + scale.y,
+    gate: offset.x === 0 && offset.y >= inner,
+  })));
+}
+
+function assertRing(seed: number, spawn: WorldPoint): number {
+  const cells = ringCells(spawn);
+  for (const cell of cells) expect(tileAt(seed, cell), `seed ${seed}: ring cell (${cell.x},${cell.y}) must be Floor`).toBe(TILE.Floor);
+  return cells.filter((cell) => cell.gate).length;
+}
+
+function hasArenaExit(seed: number): boolean {
+  const chunk = bossArenaChunk({ worldSeed: seed, floor: FLOOR_CAP });
+  const spawn = bossArenaSpawnAnchor({ worldSeed: seed, floor: FLOOR_CAP });
+  if (!chunk || !spawn || tileAt(seed, spawn) !== TILE.Floor) return false;
+  const reached = bfsChunks({ seed, floor: FLOOR_CAP, cache: new Map() }, spawn, 3);
+  return Array.from(reached).some((key) => !keyInChunk(key, chunk));
 }
 
 describe("boss arena: exactly one gate", () => {
@@ -69,16 +84,7 @@ describe("boss arena: exactly one gate", () => {
         y: spawn.y + GENERATED_ARENA_HALF * WORLD_GEOMETRY_SCALE,
       });
 
-      let floorCount = 0;
-      for (const cell of ringCells(spawn)) {
-        const tile = tileAt(seed, cell);
-        if (cell.gate) {
-          expect(tile, `seed ${seed}: gate notch cell (${cell.x},${cell.y}) must be walkable`).toBe(TILE.Floor);
-          floorCount++;
-        } else {
-          expect(tile, `seed ${seed}: ring cell (${cell.x},${cell.y}) must be finite Floor`).toBe(TILE.Floor);
-        }
-      }
+      const floorCount = assertRing(seed, spawn);
       expect(floorCount, `seed ${seed}: gate notch must preserve its scaled footprint`).toBe(
         GENERATED_RING_THICKNESS * WORLD_GEOMETRY_SCALE ** 2,
       );
@@ -90,17 +96,7 @@ describe("boss arena: exactly one gate", () => {
   it("the spawn anchor sits inside the ring and reaches the wider corridor network through the gate", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS.slice(0, 35)) {
-      const chunk = bossArenaChunk(seed, FLOOR_CAP);
-      const spawn = bossArenaSpawnAnchor({ worldSeed: seed, floor: FLOOR_CAP });
-      expect(chunk).not.toBeNull();
-      expect(spawn).not.toBeNull();
-      if (!chunk || !spawn) continue;
-      expect(tileAt(seed, spawn), `seed ${seed}: spawn anchor itself must be walkable`).toBe(TILE.Floor);
-
-      const cache: ChunkCache = new Map();
-      const reached = bfsChunks(seed, FLOOR_CAP, spawn, 3, cache);
-      const touchesNeighbor = Array.from(reached).some((key) => !keyInChunk(key, chunk.cx, chunk.cy));
-      expect(touchesNeighbor, `seed ${seed}: arena interior never leaves its own chunk`).toBe(true);
+      expect(hasArenaExit(seed), `seed ${seed}: arena interior never leaves its own chunk`).toBe(true);
       checked++;
     }
     expect(checked).toBeGreaterThan(25);

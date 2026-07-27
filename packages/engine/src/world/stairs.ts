@@ -63,12 +63,15 @@ export function entryClimbDir(world: StairView, wx: number, wy: number): number 
   const h = world.heightAt(wx, wy);
   for (let direction = 0; direction < DIRS.length; direction++) {
     const dir = DIRS[direction];
-    if (!dir) continue;
-    const rise = world.heightAt(wx + dir.dx, wy + dir.dy) - h;
-    const drop = world.heightAt(wx - dir.dx, wy - dir.dy) - h;
-    if (rise > DELTA_EPSILON && drop < -DELTA_EPSILON) return direction;
+    if (dir && directionStraddlesStair(world, wx, wy, h, dir)) return direction;
   }
   return null;
+}
+
+function directionStraddlesStair(...[world, x, y, height, dir]: [StairView, number, number, number, Dir]): boolean {
+  const rise = world.heightAt(x + dir.dx, y + dir.dy) - height;
+  const drop = world.heightAt(x - dir.dx, y - dir.dy) - height;
+  return rise > DELTA_EPSILON && drop < -DELTA_EPSILON;
 }
 
 interface StairRun {
@@ -82,7 +85,7 @@ interface StairRun {
 }
 
 /** Expand one confirmed chain tile to the run's full physical extent by walking while neighbors stay Stairs. */
-function buildRun(world: StairView, x: number, y: number, direction: number): StairRun {
+function buildRun(...[world, x, y, direction]: [StairView, number, number, number]): StairRun {
   const dir = DIRS[direction];
   if (!dir) return { topX: x, topY: y, direction, length: 1 };
   let topX = x;
@@ -107,14 +110,30 @@ function buildRun(world: StairView, x: number, y: number, direction: number): St
 
 /** Find the nearest run reachable from (tx, ty), searching outward along each candidate axis. */
 function stairRunAt(world: StairView, tx: number, ty: number): StairRun | null {
-  for (let direction = 0; direction < DIRS.length; direction++) {
-    const dir = DIRS[direction];
-    if (!dir) continue;
-    for (let offset = 0; offset <= RUN_SEARCH_RADIUS; offset++) {
-      const sx = tx + dir.dx * offset;
-      const sy = ty + dir.dy * offset;
-      if (entryClimbDir(world, sx, sy) === direction) return buildRun(world, sx, sy, direction);
-    }
+  for (const [direction, dir] of climbDirections()) {
+    const run = runAlongDirection({ world, x: tx, y: ty, direction, dir });
+    if (run) return run;
+  }
+  return null;
+}
+
+function climbDirections(): Array<[number, Dir]> {
+  return DIRS.flatMap((dir, direction) => dir ? [[direction, dir] as [number, Dir]] : []);
+}
+
+interface RunSearch {
+  world: StairView;
+  x: number;
+  y: number;
+  direction: number;
+  dir: Dir;
+}
+
+function runAlongDirection({ world, x, y, direction, dir }: RunSearch): StairRun | null {
+  for (let offset = 0; offset <= RUN_SEARCH_RADIUS; offset++) {
+    const sx = x + dir.dx * offset;
+    const sy = y + dir.dy * offset;
+    if (entryClimbDir(world, sx, sy) === direction) return buildRun(world, sx, sy, direction);
   }
   return null;
 }

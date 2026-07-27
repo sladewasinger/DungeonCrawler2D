@@ -124,10 +124,7 @@ export function diffPlacedTorches(
   const next = new Map<string, TilePos>();
   const changedTiles: TilePos[] = [];
   for (const torch of current) {
-    const tile = { wx: torch.tileX, wy: torch.tileY };
-    next.set(torch.id, tile);
-    const prior = previous.get(torch.id);
-    if (!prior || prior.wx !== tile.wx || prior.wy !== tile.wy) changedTiles.push(tile);
+    appendChangedTorch({ previous, next, changedTiles, torch });
   }
   for (const [id, tile] of previous) {
     if (!next.has(id)) changedTiles.push(tile);
@@ -135,30 +132,58 @@ export function diffPlacedTorches(
   return { changedTiles, next };
 }
 
+function appendChangedTorch(input: ChangedTorchInput): void {
+  const tile = { wx: input.torch.tileX, wy: input.torch.tileY };
+  input.next.set(input.torch.id, tile);
+  const prior = input.previous.get(input.torch.id);
+  if (!prior || prior.wx !== tile.wx || prior.wy !== tile.wy) input.changedTiles.push(tile);
+}
+
+interface ChangedTorchInput {
+  readonly previous: ReadonlyMap<string, TilePos>;
+  readonly next: Map<string, TilePos>;
+  readonly changedTiles: TilePos[];
+  readonly torch: PlacedTorch;
+}
+
 /**
  * In-place variant for the frame loop. Existing tile records survive unchanged
  * frames; only land, move, and removal events allocate persistent tile values.
  */
 export function updatePlacedTorchTiles(
-  placedTiles: Map<string, TilePos>,
+  state: PlacedTorchTileState,
   current: readonly PlacedTorch[],
-  seenIds: Set<string>,
-  changedTiles: TilePos[],
 ): TilePos[] {
-  seenIds.clear();
-  changedTiles.length = 0;
-  for (const torch of current) {
-    seenIds.add(torch.id);
-    const prior = placedTiles.get(torch.id);
-    if (prior && prior.wx === torch.tileX && prior.wy === torch.tileY) continue;
-    const tile = { wx: torch.tileX, wy: torch.tileY };
-    placedTiles.set(torch.id, tile);
-    changedTiles.push(tile);
+  state.seenPlacedIds.clear();
+  state.changedTiles.length = 0;
+  updateCurrentPlacedTiles(state, current);
+  removeMissingPlacedTiles(state);
+  return state.changedTiles;
+}
+
+function updateCurrentPlacedTiles(state: PlacedTorchTileState, current: readonly PlacedTorch[]): void {
+  for (const torch of current) updatePlacedTorchTile(state, torch);
+}
+
+function updatePlacedTorchTile(state: PlacedTorchTileState, torch: PlacedTorch): void {
+  state.seenPlacedIds.add(torch.id);
+  const prior = state.placedTiles.get(torch.id);
+  if (prior && prior.wx === torch.tileX && prior.wy === torch.tileY) return;
+  const tile = { wx: torch.tileX, wy: torch.tileY };
+  state.placedTiles.set(torch.id, tile);
+  state.changedTiles.push(tile);
+}
+
+function removeMissingPlacedTiles(state: PlacedTorchTileState): void {
+  for (const [id, tile] of state.placedTiles) {
+    if (state.seenPlacedIds.has(id)) continue;
+    state.placedTiles.delete(id);
+    state.changedTiles.push(tile);
   }
-  for (const [id, tile] of placedTiles) {
-    if (seenIds.has(id)) continue;
-    placedTiles.delete(id);
-    changedTiles.push(tile);
-  }
-  return changedTiles;
+}
+
+export interface PlacedTorchTileState {
+  readonly placedTiles: Map<string, TilePos>;
+  readonly seenPlacedIds: Set<string>;
+  readonly changedTiles: TilePos[];
 }

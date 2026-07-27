@@ -16,6 +16,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
 import { resolveDeaths } from "./deaths.js";
+import { makeSocialSlot } from "./social.testSupport.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "./state.js";
 
 /**
@@ -49,40 +50,10 @@ const slimeDef: EnemyDef = {
 };
 
 function makeSlot(name: string, x: number, y: number): PlayerSlot {
-  const entity = makeEntity("player", createBody(x, y, 0), {
-    id: newEntityId("p"),
-    name,
-    hp: 10,
-    maxHp: 10,
-    tags: new Set(["player"]),
-  });
-  return {
-    entity,
-    clientId: `client-${name}`,
-    stored: { slot: 0, name, stash: [], contacts: [] },
-    resumeToken: `token-${name}`,
-    lastSeq: -1,
-    pendingInputs: [],
-    pendingActions: [],
-    connected: true,
-    reapAtTick: Number.MAX_SAFE_INTEGER,
-    known: new Set(),
-    inventory: [{ item: "rag", qty: 3 }],
-    hotbar: [],
-    weapon: "dagger",
-    outbox: [],
-    returnStack: [],
-    partyId: null,
-    respawnAtTick: null,
-    needsFullAreas: true,
-    downedAtTick: null,
-    attackReadyAtTick: 0,
-    attackStartedAtTick: Number.NEGATIVE_INFINITY,
-    god: false,
-    forceDeath: false,
-    chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
-  };
+  const slot = makeSocialSlot(name, x, y);
+  slot.inventory = [{ item: "rag", qty: 3 }];
+  slot.weapon = "dagger";
+  return slot;
 }
 
 function makeEnemySlot(x: number, y: number, hp: number): EnemySlot {
@@ -103,7 +74,7 @@ describe("resolveDeaths", () => {
   beforeEach(() => {
     const world = new World(hashString("deaths-test"), 1, LEVEL.Dungeon);
     const content = buildContentRegistry(EMPTY_CONTENT);
-    sim = createSimState(world, content, new PlayerStore(null), 1, {});
+    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
   });
 
   it("removes a dead enemy, emits a death event, and rolls its drops", () => {

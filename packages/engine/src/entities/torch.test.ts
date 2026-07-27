@@ -28,7 +28,7 @@ function flyingTorch(vel: { x: number; y: number; z: number }) {
 
 describe("launchTorch", () => {
   it("normalizes the aim direction and arcs toward a point MAX_THROW_RANGE away", () => {
-    const { vel } = launchTorch(flatWorld(), { x: 0, y: 0, z: 1 }, 3, 4); // 3-4-5 triangle
+    const { vel } = launchTorch({ world: flatWorld(), from: { x: 0, y: 0, z: 1 }, direction: { x: 3, y: 4 } }); // 3-4-5 triangle
     expect(Math.hypot(vel.x, vel.y)).toBeGreaterThan(0);
     // Direction preserved: vel.x/vel.y ratio matches the normalized (3/5, 4/5) input.
     expect(vel.x / vel.y).toBeCloseTo(3 / 4, 5);
@@ -36,7 +36,7 @@ describe("launchTorch", () => {
   });
 
   it("defaults a zero-length vector to a sane forward throw instead of nowhere", () => {
-    const { vel } = launchTorch(flatWorld(), { x: 0, y: 0, z: 1 }, 0, 0);
+    const { vel } = launchTorch({ world: flatWorld(), from: { x: 0, y: 0, z: 1 }, direction: { x: 0, y: 0 } });
     expect(Math.hypot(vel.x, vel.y)).toBeGreaterThan(0);
   });
 });
@@ -84,7 +84,7 @@ describe("stepTorch", () => {
 
   it("launched torch flight reaches roughly the intended MAX_THROW_RANGE distance", () => {
     const from = { x: 0.5, y: 0.5, z: 0 };
-    const { vel } = launchTorch(flatWorld(), from, 1, 0);
+    const { vel } = launchTorch({ world: flatWorld(), from, direction: { x: 1, y: 0 } });
     const torch = makeEntity("torch", createBody(from.x, from.y, from.z), {
       torchState: "flying",
       vel,

@@ -13,13 +13,21 @@ export interface BlockGuardTransform {
   readonly scale: number;
 }
 
-export const blockGuardTransform = (
-  centerX: number,
-  centerY: number,
-  facingAngle: number,
-  tilePx: number,
-  nowMs: number,
-): BlockGuardTransform => {
+export interface BlockGuardTransformInput {
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly facingAngle: number;
+  readonly tilePx: number;
+  readonly nowMs: number;
+}
+
+export const blockGuardTransform = ({
+  centerX,
+  centerY,
+  facingAngle,
+  tilePx,
+  nowMs,
+}: BlockGuardTransformInput): BlockGuardTransform => {
   const phase = (nowMs / BLOCK_BREATHE_PERIOD_MS) * Math.PI * 2;
   const wave = Math.sin(phase);
   const radius = (

@@ -30,6 +30,8 @@ interface ToastRow {
   text: Phaser.GameObjects.Text;
 }
 
+interface ToastBackgroundOptions { bg: Phaser.GameObjects.Graphics; y: number; alpha: number; text: Phaser.GameObjects.Text; }
+
 export class ToastStackWidget {
   private readonly scene: Phaser.Scene;
   private readonly container: Phaser.GameObjects.Container;
@@ -57,7 +59,7 @@ export class ToastStackWidget {
   private buildRow(): ToastRow {
     const bg = this.scene.add.graphics().setVisible(false);
     const text = this.scene.add
-      .text(0, 0, "", { ...uiTextStyle(11, undefined, this.scale), align: "center" })
+      .text(0, 0, "", { ...uiTextStyle(11, undefined, { scale: this.scale }), align: "center" })
       .setOrigin(0.5, 0)
       .setVisible(false);
     this.container.add([bg, text]);
@@ -76,14 +78,14 @@ export class ToastStackWidget {
       }
       row.text.setStyle({ wordWrap: { width: this.wrapWidth } });
       row.text.setPosition(0, y + PANEL_V_PADDING / 2).setText(view.msg).setAlpha(view.alpha).setVisible(true);
-      this.redrawBackground(row.bg, y, view.alpha, row.text.width, row.text.height);
+      this.redrawBackground({ bg: row.bg, y, alpha: view.alpha, text: row.text });
       y += row.text.height + PANEL_V_PADDING + ROW_GAP;
     }
   }
 
-  private redrawBackground(bg: Phaser.GameObjects.Graphics, y: number, alpha: number, textWidth: number, textHeight: number): void {
-    const width = textWidth + spacing(3);
-    const height = textHeight + PANEL_V_PADDING;
+  private redrawBackground({ bg, y, alpha, text }: ToastBackgroundOptions): void {
+    const width = text.width + spacing(3);
+    const height = text.height + PANEL_V_PADDING;
     bg.clear();
     bg.fillStyle(0x14141c, 0.75 * alpha);
     bg.fillRoundedRect(-width / 2, y, width, height, 4);

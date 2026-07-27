@@ -65,23 +65,19 @@ export class CompassWidget {
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
-    const ring = scene.add.graphics();
-    ring.lineStyle(2, RING_COLOR, 1);
-    ring.strokeCircle(0, 0, RADIUS);
-    ring.fillStyle(FORWARD_TICK_COLOR, 1);
-    ring.fillTriangle(-4, -RADIUS - 2, 4, -RADIUS - 2, 0, -RADIUS + 6);
-    this.stairwayTick = scene.add.graphics();
-    // Drawn pointing screen-up (outward at bearing 0); update() rotates it in place.
-    this.stairwayTick.fillStyle(STAIRWAY_COLOR, 1);
-    this.stairwayTick.fillTriangle(-3, 3, 3, 3, 0, -4);
-    this.stairwayTick.setVisible(false);
+    const ring = createCompassRing(scene);
+    this.stairwayTick = createStairwayTick(scene);
     this.container.add([ring, this.stairwayTick]);
+    this.addCardinalLetters(scene, layout.scale);
+    this.update(0, null, 0);
+  }
+
+  private addCardinalLetters(scene: Phaser.Scene, scale: number): void {
     for (const cardinal of CARDINALS) {
-      const text = scene.add.text(0, 0, cardinal.letter, uiTextStyle(9, cardinal.color, layout.scale)).setOrigin(0.5, 0.5);
+      const text = scene.add.text(0, 0, cardinal.letter, uiTextStyle(9, cardinal.color, { scale })).setOrigin(0.5, 0.5);
       this.letters.push({ text, offsetDeg: cardinal.offsetDeg });
       this.container.add(text);
     }
-    this.update(0, null, 0);
   }
 
   /** `bearingDeg`: 0 = world-north currently renders at screen-up, clockwise-positive
@@ -110,4 +106,13 @@ export class CompassWidget {
     const layout = registry.resolve(viewport).get(WIDGET_ID);
     if (layout) syncWidgetContainer(this.container, layout);
   }
+}
+
+function createCompassRing(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
+  return scene.add.graphics().lineStyle(2, RING_COLOR, 1).strokeCircle(0, 0, RADIUS)
+    .fillStyle(FORWARD_TICK_COLOR, 1).fillTriangle(-4, -RADIUS - 2, 4, -RADIUS - 2, 0, -RADIUS + 6);
+}
+
+function createStairwayTick(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
+  return scene.add.graphics().fillStyle(STAIRWAY_COLOR, 1).fillTriangle(-3, 3, 3, 3, 0, -4).setVisible(false);
 }

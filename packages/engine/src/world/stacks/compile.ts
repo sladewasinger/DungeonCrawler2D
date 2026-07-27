@@ -15,6 +15,18 @@ const DIR_STEP: ReadonlyArray<{ readonly dx: number; readonly dy: number }> = [
   { dx: -1, dy: 0 },
 ];
 
+interface StackGrid {
+  stacks: readonly StackTile[];
+  width: number;
+  rows: number;
+}
+
+interface CompilingFields {
+  tiles: Uint8Array;
+  height: Float32Array;
+  resolved: Uint8Array;
+}
+
 /**
  * Non-stair (or explicit-height stair) tile: `cap` alone decides
  * walkability — a floor variant on top makes it a walkable Floor at height
@@ -29,7 +41,7 @@ function compileBase(stack: StackTile): { tile: number; height: number } {
   return { tile: TILE.Void, height: stack.height };
 }
 
-function inGrid(x: number, y: number, width: number, rows: number): boolean {
+function inGrid({ x, y, width, rows }: { x: number; y: number; width: number; rows: number }): boolean {
   return x >= 0 && y >= 0 && x < width && y < rows;
 }
 
@@ -40,29 +52,27 @@ function continuesRun(stack: StackTile | undefined, dir: StackDir): boolean {
 }
 
 /** Walk from `start` along `dir` while every tile is a stair (no explicit height) sharing `dir`; returns the count and the first non-matching index (may be out of grid). */
-function walkRun(
-  stacks: readonly StackTile[],
-  width: number,
-  rows: number,
-  start: number,
-  dir: StackDir,
-  sign: 1 | -1,
-): { steps: number; anchorIndex: number } {
+function walkRun({ stacks, width, rows, start, dir, sign }: StackGrid & { start: number; dir: StackDir; sign: 1 | -1 }): { steps: number; anchorIndex: number } {
   const step = DIR_STEP[dir];
   if (!step) return { steps: 0, anchorIndex: start };
   let x = start % width;
   let y = Math.floor(start / width);
   let steps = 0;
   for (;;) {
-    const nx = x + step.dx * sign;
-    const ny = y + step.dy * sign;
-    if (!inGrid(nx, ny, width, rows)) return { steps, anchorIndex: -1 };
-    const next = ny * width + nx;
-    if (!continuesRun(stacks[next], dir)) return { steps, anchorIndex: next };
-    x = nx;
-    y = ny;
+    const next = nextRunTile({ stacks, width, rows, x, y, step, dir, sign });
+    if (next.anchorIndex !== null) return { steps, anchorIndex: next.anchorIndex };
+    x = next.x;
+    y = next.y;
     steps++;
   }
+}
+
+function nextRunTile({ stacks, width, rows, x, y, step, dir, sign }: StackGrid & { x: number; y: number; step: { readonly dx: number; readonly dy: number }; dir: StackDir; sign: 1 | -1 }): { x: number; y: number; anchorIndex: number | null } {
+  const nextX = x + step.dx * sign;
+  const nextY = y + step.dy * sign;
+  if (!inGrid({ x: nextX, y: nextY, width, rows })) return { x: nextX, y: nextY, anchorIndex: -1 };
+  const index = nextY * width + nextX;
+  return { x: nextX, y: nextY, anchorIndex: continuesRun(stacks[index], dir) ? null : index };
 }
 
 /** An anchor's already-compiled base height, or 0 (neutral ground) for a run that reaches the grid edge without one. */
@@ -78,13 +88,7 @@ function anchorHeight(anchorIndex: number, height: Float32Array): number {
  * identical to the old even-split formula there; only multi-tile runs
  * move, from even-split to per-tile midpoints).
  */
-function writeTreads(
-  fields: { tiles: Uint8Array; height: Float32Array; resolved: Uint8Array },
-  width: number,
-  step: { readonly dx: number; readonly dy: number },
-  origin: { readonly x: number; readonly y: number },
-  run: { readonly stepCount: number; readonly low: number; readonly delta: number },
-): void {
+function writeTreads({ fields, width, step, origin, run }: { fields: CompilingFields; width: number; step: { readonly dx: number; readonly dy: number }; origin: { readonly x: number; readonly y: number }; run: { readonly stepCount: number; readonly low: number; readonly delta: number } }): void {
   for (let n = 1; n <= run.stepCount; n++) {
     const i = (origin.y + step.dy * (n - 1)) * width + (origin.x + step.dx * (n - 1));
     fields.tiles[i] = TILE.Stairs;
@@ -102,19 +106,13 @@ function writeTreads(
  * falls back to height 0 there (neutral ground); this only matters for
  * hand-authored content missing a far anchor entirely.
  */
-function resolveRun(
-  stacks: readonly StackTile[],
-  fields: { tiles: Uint8Array; height: Float32Array; resolved: Uint8Array },
-  width: number,
-  rows: number,
-  seedIndex: number,
-): void {
+function resolveRun({ stacks, fields, width, rows, seedIndex }: StackGrid & { fields: CompilingFields; seedIndex: number }): void {
   const dir = stacks[seedIndex]?.stair?.dir;
   if (dir === undefined || fields.resolved[seedIndex]) return;
   const step = DIR_STEP[dir];
   if (!step) return;
-  const back = walkRun(stacks, width, rows, seedIndex, dir, -1);
-  const fwd = walkRun(stacks, width, rows, seedIndex, dir, 1);
+  const back = walkRun({ stacks, width, rows, start: seedIndex, dir, sign: -1 });
+  const fwd = walkRun({ stacks, width, rows, start: seedIndex, dir, sign: 1 });
   const low = anchorHeight(back.anchorIndex, fields.height);
   const high = anchorHeight(fwd.anchorIndex, fields.height);
   const origin = {
@@ -122,7 +120,7 @@ function resolveRun(
     y: Math.floor(seedIndex / width) - step.dy * back.steps,
   };
   const stepCount = back.steps + fwd.steps + 1;
-  writeTreads(fields, width, step, origin, { stepCount, low, delta: high - low });
+  writeTreads({ fields, width, step, origin, run: { stepCount, low, delta: high - low } });
 }
 
 /**
@@ -133,7 +131,7 @@ function resolveRun(
  * pass two's resolveRun to overwrite. See compileBase's doc comment for
  * every other tile kind.
  */
-function compileFirstPass(fields: { tiles: Uint8Array; height: Float32Array; resolved: Uint8Array }, i: number, stack: StackTile): void {
+function compileFirstPass(fields: CompilingFields, i: number, stack: StackTile): void {
   if (stack.stair) {
     fields.tiles[i] = TILE.Stairs;
     fields.height[i] = stack.stair.height ?? 0;
@@ -156,6 +154,6 @@ export function stacksToHeightField(stacks: readonly StackTile[], width: number,
     const stack = stacks[i];
     if (stack) compileFirstPass(fields, i, stack);
   }
-  for (let i = 0; i < stacks.length; i++) resolveRun(stacks, fields, width, rows, i);
+  for (let i = 0; i < stacks.length; i++) resolveRun({ stacks, fields, width, rows, seedIndex: i });
   return { tiles: fields.tiles, height: fields.height };
 }

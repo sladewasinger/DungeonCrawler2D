@@ -1,32 +1,24 @@
 // Player body visual: feet-anchored hero sprite, held weapon following facing, hit
 // flash, downed pose, plus the shared combatant chrome (shadow/hp/nameplate).
 import type Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
-import { getViewOrientation } from "../view/viewState.js";
-import { worldAngleToView } from "../view/viewTransform.js";
+import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { resolveAnimState } from "./animState.js";
-import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
-import { createHpBar, HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "./hpBar.js";
-import { resolveHpBarVisibility } from "./hpBarVisibility.js";
+import { createHpBar } from "./hpBar.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
-import { createNameplate, LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "./nameplate.js";
-import { syncOcclusionSilhouette, terrainOcclusionAhead } from "./occlusion.js";
+import { createNameplate } from "./nameplate.js";
 import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
-import { createShadow, updateShadowPosition } from "./shadow.js";
+import { createShadow } from "./shadow.js";
 import { squashScale } from "./squash.js";
 import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
-import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
 import { stepOrbitAngle } from "./weaponOrbit.js";
-import { combatOverlayPosition, depthForEntityNow, worldToScreen } from "./worldToScreen.js";
-import { updateGuardCone } from "./guardCone.js";
+import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 import { updatePlayerReviveRing } from "./player/playerReviveRing.js";
+import { updatePlayerChrome } from "./player/playerChrome.js";
+import { createHeldWeapon, updatePlayerWeapon } from "./player/playerWeaponVisual.js";
 
-const DOWNED_TINT = 0x7a3d3d;
-const DISCONNECTED_TINT = 0x55555a;
-const DOWNED_ANGLE = 78;
-const STRIKE_DURATION_MS = 160;
+const DOWNED_TINT = 0x7a3d3d; const DISCONNECTED_TINT = 0x55555a; const DOWNED_ANGLE = 78;
 /** Epic 7.12: no dedicated run frames exist, so running plays the same walk loop
  * faster instead — see playerMotion.ts's isRunningPace doc comment. */
 const RUN_ANIM_TIMESCALE = 1.35;
@@ -57,13 +49,28 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
 }
 
 /** Body pose: position, feet-anchored depth, animation, hit-flash/downed tint. */
-function updatePlayerBody(
-  visual: PlayerVisual,
-  skinPrefix: string,
-  view: PlayerEntityView,
-  ctx: RenderContext,
-  heightAboveGround: number,
-): void {
+interface PlayerBodyUpdate {
+  readonly visual: PlayerVisual;
+  readonly skinPrefix: string;
+  readonly view: PlayerEntityView;
+  readonly context: RenderContext;
+  readonly heightAboveGround: number;
+}
+
+function updatePlayerBody({
+  visual,
+  skinPrefix,
+  view,
+  context,
+  heightAboveGround,
+}: PlayerBodyUpdate): void {
+  positionPlayerBody({ visual, view, heightAboveGround });
+  updatePlayerAnimation({ visual, skinPrefix, view, context });
+  applyPlayerTint(visual, view, context);
+  visual.body.setAngle(view.downed ? DOWNED_ANGLE : 0);
+}
+
+function positionPlayerBody({ visual, view, heightAboveGround }: Omit<PlayerBodyUpdate, "skinPrefix" | "context">): void {
   const screen = worldToScreen(view.x, view.y);
   // ELEVATION-PROJECTION section 3: absolute-z lift. Terrain now bakes the matching
   // shift into its own drawn cap (wave E2), so a grounded body (z === groundAt) lands
@@ -72,21 +79,40 @@ function updatePlayerBody(
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   updatePlayerReviveRing(visual.reviveRing, visual.body, view);
   visual.body.setFlipX(playerFacesLeft(visual, view));
+}
 
-  if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = ctx.nowMs;
-  applyLandingSquash(visual, view.air, ctx.nowMs);
+function updatePlayerAnimation({ visual, skinPrefix, view, context }: Omit<PlayerBodyUpdate, "heightAboveGround">): void {
+  applyPlayerDamageAndSquash(visual, view, context.nowMs);
+  applyPlayerAnimationFrame({ visual, skinPrefix, view, nowMs: context.nowMs });
+}
 
-  const dt = (ctx.nowMs - visual.lastSampleMs) / 1000;
+function applyPlayerDamageAndSquash(visual: PlayerVisual, view: PlayerEntityView, nowMs: number): void {
+  if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = nowMs;
+  applyLandingSquash(visual, view.air, nowMs);
+}
+
+interface PlayerAnimationFrameUpdate {
+  readonly visual: PlayerVisual;
+  readonly skinPrefix: string;
+  readonly view: PlayerEntityView;
+  readonly nowMs: number;
+}
+
+function applyPlayerAnimationFrame({
+  visual,
+  skinPrefix,
+  view,
+  nowMs,
+}: PlayerAnimationFrameUpdate): void {
+  const dt = (nowMs - visual.lastSampleMs) / 1000;
   const dxTiles = view.x - visual.lastX;
   const dyTiles = view.y - visual.lastY;
-  const anim = inferPlayerAnimState(dxTiles, dyTiles, dt, view.attacking);
+  const motion = { dxTiles, dyTiles, dtSeconds: dt };
+  const anim = inferPlayerAnimState({ ...motion, attacking: view.attacking });
   const resolved = resolveAnimState(skinPrefix, view.downed ? "idle" : anim);
   if (visual.body.anims.currentAnim?.key !== resolved.animKey) visual.body.play(resolved.animKey);
-  const running = anim === "walk" && isRunningPace(dxTiles, dyTiles, dt);
+  const running = anim === "walk" && isRunningPace(motion);
   visual.body.anims.timeScale = running ? RUN_ANIM_TIMESCALE : 1;
-
-  applyPlayerTint(visual, view, ctx);
-  visual.body.setAngle(view.downed ? DOWNED_ANGLE : 0);
 }
 
 /** Landing-squash edge trigger + scale application, split out of updatePlayerBody to keep its complexity down. */
@@ -98,21 +124,17 @@ function applyLandingSquash(visual: PlayerVisual, airborne: boolean, nowMs: numb
 }
 
 function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
-  if (view.disconnected) {
-    visual.body.setTint(DISCONNECTED_TINT);
-    return;
-  }
-  if (view.downed) {
-    visual.body.setTint(DOWNED_TINT);
-    return;
-  }
+  const fixedTint = playerStateTint(view);
+  if (fixedTint !== null) return void visual.body.setTint(fixedTint);
   const elapsed = visual.hitFlashStartMs === undefined ? Infinity : ctx.nowMs - visual.hitFlashStartMs;
-  if (flashIntensity(elapsed) > 0) {
-    setTintFill(visual.body, 0xffffff);
-  } else {
-    visual.body.clearTint();
-    if (elapsed >= 0) visual.hitFlashStartMs = undefined;
-  }
+  if (flashIntensity(elapsed) > 0) return setTintFill(visual.body, 0xffffff);
+  visual.body.clearTint();
+  if (elapsed >= 0) visual.hitFlashStartMs = undefined;
+}
+
+function playerStateTint(view: PlayerEntityView): number | null {
+  if (view.disconnected) return DISCONNECTED_TINT;
+  return view.downed ? DOWNED_TINT : null;
 }
 
 function setTintFill(sprite: Phaser.GameObjects.Sprite, color: number): void {
@@ -120,120 +142,35 @@ function setTintFill(sprite: Phaser.GameObjects.Sprite, color: number): void {
   (sprite as unknown as { setTintMode?: (mode: number) => void }).setTintMode?.(1);
 }
 
-/** Shadow, hp bar, nameplate, held weapon, and occlusion silhouette — everything that
- * hangs off the body's screen position. Shadow is GROUND-anchored (section 5): fed the
- * SHIFTED ground screen point (`worldToScreen(...).y - groundAt*TILE`, reusing
- * spriteLiftPx's identical `height*TILE` shape), which coincides with the sprite's own
- * absolute-z lift once grounded — both land on the same drawn cap. Nameplate/hp bar
- * are ENTITY-anchored: they just follow the already-lifted body position. */
-function updatePlayerChrome(
-  visual: PlayerVisual,
-  view: PlayerEntityView,
-  ctx: RenderContext,
-  heightAboveGround: number,
-  groundHeight: number,
-): void {
-  const ground = worldToScreen(view.x, view.y);
-  const shiftedGroundY = ground.y - spriteLiftPx(groundHeight);
-  const bodyDepth = visual.body.depth;
-  visual.shadow.setDepth(bodyDepth - 0.2);
-  visual.hpBar.container.setDepth(bodyDepth + 0.2);
-  visual.nameplate.setDepth(bodyDepth + 0.2);
-  updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
-  const headY = visual.body.y - visual.body.displayHeight;
-  const healthBarY = headY + SCREEN_TILE_PX / 3 - NAMEPLATE_GAP_PX - NAMEPLATE_LINE_HEIGHT_PX - LABEL_LINE_GAP_PX - HP_BAR_DISPLAY_HEIGHT_PX / 2;
-  updateHpBar(visual.hpBar, visual.body.x, healthBarY, view.hp, view.maxHp);
-  visual.hpBarRevealed = resolveHpBarVisibility(
-    visual.lastHp,
-    view.hp,
-    view.maxHp,
-    visual.hpBarRevealed,
-  );
-  visual.hpBar.container.setVisible(visual.hpBarRevealed);
-
-  const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
-  updateNameplate(visual.nameplate, view.name, visual.body.x, headY + SCREEN_TILE_PX / 3, distance, ctx.partyIds.has(view.id), view.downed, view.disconnected);
-
-  const occlusion = terrainOcclusionAhead(ctx.world, view.x, view.y, view.z, getViewOrientation());
-  syncOcclusionSilhouette(visual.body, view.y, occlusion);
-  updateWeaponVisual(visual, view, ctx);
-}
-
-/** Edge-triggers the strike-sweep clock when `attacking` flips false->true (mirrors hitFlash.ts's tookDamage edge). */
-function applySwingEdge(visual: PlayerVisual, attacking: boolean, nowMs: number): void {
-  if (attacking && !visual.wasAttacking) visual.swingStartMs = nowMs;
-  visual.wasAttacking = attacking;
-}
-
-/** 0..1 progress through STRIKE_DURATION_MS since this swing's edge-triggered start; 0 when not striking. */
-function strikeProgress(visual: PlayerVisual, attacking: boolean, nowMs: number): number {
-  if (!attacking || visual.swingStartMs === undefined) return 0;
-  return Math.min(1, (nowMs - visual.swingStartMs) / STRIKE_DURATION_MS);
-}
-
-/** Weapon sprite: local aim or replicated remote facing drives the same orbit. */
-function isGuarding(view: PlayerEntityView): boolean {
-  return !view.downed && view.blocking;
-}
-
-function playerFacesLeft(
-  visual: PlayerVisual,
-  view: PlayerEntityView,
-): boolean {
+function playerFacesLeft(visual: PlayerVisual, view: PlayerEntityView): boolean {
   if (view.weaponId === null || view.weaponAimAngle === null) {
     return view.faceX < 0;
   }
   return Math.cos(visual.weaponAngle) < 0;
 }
 
-function isStriking(view: PlayerEntityView): boolean {
-  return !view.downed && !view.blocking && view.attacking;
-}
-
-function updateWeaponVisual(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
-  const blocking = isGuarding(view);
-  const striking = isStriking(view);
-  applySwingEdge(visual, striking, ctx.nowMs);
-  const aimAngle = view.weaponAimAngle;
-  const isSelf = aimAngle !== null;
-  const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());
-  const guardAngle = isSelf ? visual.weaponAngle : facingAngle;
-  const combatPosition = combatOverlayPosition(view.x, view.y, view.z, ctx.world);
-  updateGuardCone(visual, blocking, guardAngle, { wielderDepth: visual.body.depth, ...combatPosition });
-
-  const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
-  const isFistFallback = rawFrame === null && !view.downed;
-  updateHeldWeapon(visual.weapon, rawFrame ?? (isFistFallback ? FIST_FALLBACK_FRAME : null), {
-    screenX: visual.body.x,
-    screenY: visual.body.y,
-    facingX: view.faceX,
-    striking,
-    blocking,
-    nowMs: ctx.nowMs,
-    strikeProgress: strikeProgress(visual, striking, ctx.nowMs),
-    wielderDepth: visual.body.depth,
-    ...combatPosition,
-    orbitAngleRad: isSelf ? visual.weaponAngle : facingAngle,
-    attackAngleRad: worldAngleToView(view.attackAngleRad, getViewOrientation()),
-    isFistFallback,
-  });
-}
-
 /** Advances one player's full visual for a fresh snapshot sample. */
-export function updatePlayerVisual(visual: PlayerVisual, skinPrefix: string, view: PlayerEntityView, ctx: RenderContext): void {
+export interface PlayerVisualUpdate {
+  readonly visual: PlayerVisual;
+  readonly skinPrefix: string;
+  readonly view: PlayerEntityView;
+  readonly context: RenderContext;
+}
+
+export function updatePlayerVisual({ visual, skinPrefix, view, context }: PlayerVisualUpdate): void {
   if (view.weaponAimAngle !== null) {
     visual.weaponAngle = stepOrbitAngle(
       visual.weaponAngle,
       view.weaponAimAngle,
-      ctx.dtSeconds,
+      context.dtSeconds,
     );
   }
-  const groundHeight = ctx.world.groundAt(view.x, view.y);
+  const groundHeight = context.world.groundAt(view.x, view.y);
   const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
-  updatePlayerBody(visual, skinPrefix, view, ctx, heightAboveGround);
-  updatePlayerChrome(visual, view, ctx, heightAboveGround, groundHeight);
-  visual.lastHp = view.hp;
-  visual.lastX = view.x;
+  updatePlayerBody({ visual, skinPrefix, view, context, heightAboveGround });
+  updatePlayerChrome({ visual, view, context, heightAboveGround, groundHeight });
+  updatePlayerWeapon({ visual, view, context });
+  visual.lastHp = view.hp; visual.lastX = view.x;
   visual.lastY = view.y;
-  visual.lastSampleMs = ctx.nowMs;
+  visual.lastSampleMs = context.nowMs;
 }

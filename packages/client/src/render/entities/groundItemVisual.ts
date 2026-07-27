@@ -4,12 +4,19 @@ import type Phaser from "phaser";
 import { bobOffsetPx, glintStrength } from "./groundItemMotion.js";
 
 /** Applies this frame's bob offset and glint tint to a ground-item sprite anchored at (baseX, baseY). */
-export function applyGroundItemMotion(
-  sprite: Phaser.GameObjects.Sprite,
-  baseX: number,
-  baseY: number,
-  elapsedMs: number,
-): void {
+export interface GroundItemMotionInput {
+  readonly sprite: Phaser.GameObjects.Sprite;
+  readonly baseX: number;
+  readonly baseY: number;
+  readonly elapsedMs: number;
+}
+
+export function applyGroundItemMotion({
+  sprite,
+  baseX,
+  baseY,
+  elapsedMs,
+}: GroundItemMotionInput): void {
   sprite.setPosition(baseX, baseY + bobOffsetPx(elapsedMs));
   const glint = glintStrength(elapsedMs);
   const channelValue = Math.round(215 + glint * 40);

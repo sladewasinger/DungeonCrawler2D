@@ -24,12 +24,13 @@ describe("cross-chunk connectivity", () => {
   it("holds at all four seams of the origin chunk, for 5 seeds", () => {
     for (const seed of SEEDS) {
       const cache: ChunkCache = new Map();
-      const start = anyFloorTile(seed, FLOOR, 0, 0, cache);
+      const scope = { seed, floor: FLOOR, cache };
+      const start = anyFloorTile(scope, { cx: 0, cy: 0 });
       expect(start, `seed ${seed}: origin chunk has no floor`).not.toBeNull();
       if (!start) continue;
-      const reached = bfsChunks(seed, FLOOR, start, 1, cache);
+      const reached = bfsChunks(scope, start, 1);
       for (const [cx, cy] of SEAMS) {
-        const touchesNeighbor = Array.from(reached).some((key) => keyInChunk(key, cx, cy));
+        const touchesNeighbor = Array.from(reached).some((key) => keyInChunk(key, { cx, cy }));
         expect(touchesNeighbor, `seed ${seed}: seam to chunk ${cx},${cy} unreachable`).toBe(true);
       }
     }
@@ -38,13 +39,14 @@ describe("cross-chunk connectivity", () => {
   it("holds across a wider region, including super-chunk (district/avenue) seams", () => {
     const seed = SEEDS[0] as number;
     const cache: ChunkCache = new Map();
-    const start = anyFloorTile(seed, FLOOR, 0, 0, cache);
+    const scope = { seed, floor: FLOOR, cache };
+    const start = anyFloorTile(scope, { cx: 0, cy: 0 });
     expect(start).not.toBeNull();
     if (!start) return;
-    const reached = bfsChunks(seed, FLOOR, start, 4, cache);
+    const reached = bfsChunks(scope, start, 4);
     // Chunks (3,0) and (4,0) straddle a super-chunk boundary (SUPERCHUNK_SIZE
     // = 3): an avenue seam. Both sides must be reachable from the origin.
-    expect(Array.from(reached).some((key) => keyInChunk(key, 3, 0))).toBe(true);
-    expect(Array.from(reached).some((key) => keyInChunk(key, 4, 0))).toBe(true);
+    expect(Array.from(reached).some((key) => keyInChunk(key, { cx: 3, cy: 0 }))).toBe(true);
+    expect(Array.from(reached).some((key) => keyInChunk(key, { cx: 4, cy: 0 }))).toBe(true);
   });
 });

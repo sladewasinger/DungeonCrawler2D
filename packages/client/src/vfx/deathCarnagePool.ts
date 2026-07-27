@@ -17,60 +17,78 @@ const BASE_ALPHA = 0.88;
 const GROUND_FRAGMENT_BIAS = 0.01;
 export type { CarnageAppearance } from "./deathCarnageDrawing.js";
 
+export interface DeathCarnageInput {
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight: number;
+  readonly tint: number;
+  readonly appearance: CarnageAppearance;
+  readonly nowMs: number;
+  readonly impactAngle?: number | undefined;
+  readonly spritePrefix?: string | undefined;
+}
+
+interface MarkPlacement {
+  readonly mark: CarnageMark;
+  readonly x: number;
+  readonly y: number;
+  readonly depth: number;
+  readonly nowMs: number;
+}
+
 export class DeathCarnagePool {
   private readonly marks: CarnageMark[] = [];
   private cursor = 0;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  spawn(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    tint: number,
-    appearance: CarnageAppearance,
-    nowMs: number,
-    impactAngle?: number,
-    spritePrefix?: string,
-  ): void {
+  spawn(input: DeathCarnageInput): void {
     const settings = loadCarnageSettings();
     if (!settings.enabled) return;
     const mark = shouldGrowPool(this.marks.length, CARNAGE_POOL_CAP)
       ? this.grow()
       : this.recycle();
-    const screen = worldToScreen(worldX, worldY);
-    const placement = groundedVisualPlacement(screen.y, groundHeight, "corpseFragment");
-    const graphics = mark.graphics;
-    graphics.clear();
-    if (settings.bloodEnabled && !isSkeletalDefId(appearance.defId)) {
-      drawCarnageStreaks(
-        graphics, settings.streakLimit, settings.intensity,
-        tint, worldX, worldY, impactAngle,
-      );
-    }
-    drawCarnageChunks(
-      this.scene, mark, settings.chunkLimit, settings.intensity,
-      appearance, screen.x, placement.projectedScreenY, spritePrefix,
-    );
-    this.placeMark(
-      mark,
-      screen.x,
-      placement.projectedScreenY,
-      placement.depth,
-      nowMs,
-    );
+    const screen = worldToScreen(input.x, input.y);
+    const placement = groundedVisualPlacement({ rawScreenY: screen.y, groundHeight: input.groundHeight, layer: "corpseFragment" });
+    this.drawMark({ mark, input, settings, screen, placement });
+    this.placeMark({ mark, x: screen.x, y: placement.projectedScreenY, depth: placement.depth, nowMs: input.nowMs });
   }
 
-  private placeMark(
-    mark: CarnageMark,
-    screenX: number,
-    screenY: number,
-    depth: number,
-    nowMs: number,
-  ): void {
+  private drawMark({ mark, input, settings, screen, placement }: {
+    readonly mark: CarnageMark;
+    readonly input: DeathCarnageInput;
+    readonly settings: ReturnType<typeof loadCarnageSettings>;
+    readonly screen: { x: number; y: number };
+    readonly placement: ReturnType<typeof groundedVisualPlacement>;
+  }): void {
+    mark.graphics.clear();
+    if (settings.bloodEnabled && !isSkeletalDefId(input.appearance.defId)) {
+      drawCarnageStreaks({
+        graphics: mark.graphics,
+        count: settings.streakLimit,
+        intensity: settings.intensity,
+        tint: input.tint,
+        world: { x: input.x, y: input.y },
+        impactAngle: input.impactAngle,
+      });
+    }
+    this.drawChunks({ mark, input, settings, screen, placement });
+  }
+
+  private drawChunks({ mark, input, settings, screen, placement }: {
+    readonly mark: CarnageMark;
+    readonly input: DeathCarnageInput;
+    readonly settings: ReturnType<typeof loadCarnageSettings>;
+    readonly screen: { x: number; y: number };
+    readonly placement: ReturnType<typeof groundedVisualPlacement>;
+  }): void {
+    drawCarnageChunks({ scene: this.scene, mark, count: settings.chunkLimit, intensity: settings.intensity, appearance: input.appearance, screen: { x: screen.x, y: placement.projectedScreenY }, spritePrefix: input.spritePrefix });
+  }
+
+  private placeMark({ mark, x, y, depth, nowMs }: MarkPlacement): void {
     const graphics = mark.graphics;
     graphics
-      .setPosition(screenX, screenY)
+      .setPosition(x, y)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
       .setDepth(depth);

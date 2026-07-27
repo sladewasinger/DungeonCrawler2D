@@ -36,22 +36,24 @@ export function effectTargetFor(
   entity: Entity,
   options: { spawnProtection?: boolean } = {},
 ) {
-  if (entity.kind === "enemy") {
-    const def = sim.enemies.get(entity.id)?.def;
-    return {
-      ...(def?.immunities ? { immunities: def.immunities } : {}),
-      ...(def?.damageScale ? { damageScale: def.damageScale } : {}),
-    };
-  }
-  const slot = sim.players.get(entity.id);
-  return slot ? playerEffectTarget(sim, slot, options) : {};
+  if (entity.kind === "enemy") return enemyEffectTarget(sim, entity.id);
+  return playerEffectTarget(sim, sim.players.get(entity.id), options);
+}
+
+function enemyEffectTarget(sim: SimState, id: string) {
+  const def = sim.enemies.get(id)?.def;
+  return {
+    ...(def?.immunities ? { immunities: def.immunities } : {}),
+    ...(def?.damageScale ? { damageScale: def.damageScale } : {}),
+  };
 }
 
 function playerEffectTarget(
   sim: SimState,
-  slot: PlayerSlot,
+  slot: PlayerSlot | undefined,
   options: { spawnProtection?: boolean },
 ) {
+  if (!slot) return {};
   if (options.spawnProtection !== false && isSpawnProtected(slot, sim.tickCount)) {
     return { invulnerable: true };
   }
@@ -83,7 +85,15 @@ export function positionOf(sim: SimState, id: string): { x: number; y: number } 
 }
 
 /** Spawn an item entity on the ground. */
-export function spawnItem(sim: SimState, defId: string, x: number, y: number, qty = 1): Entity {
+export interface ItemSpawn {
+  defId: string;
+  x: number;
+  y: number;
+  qty?: number;
+}
+
+export function spawnItem(sim: SimState, spawn: ItemSpawn): Entity {
+  const { defId, x, y, qty = 1 } = spawn;
   const item = makeEntity(
     "item",
     createBody(x, y, sim.world.groundAt(x, y)),
@@ -100,16 +110,25 @@ export function spawnItem(sim: SimState, defId: string, x: number, y: number, qt
 
 /** Spawn an enemy with a fresh brain. Stats scale with the sim's floor
  * (Epic 7.14) — see floors/scaling.ts; floor 1 is unscaled. */
-export function spawnEnemy(
-  sim: SimState,
-  defId: string,
-  x: number,
-  y: number,
-  home?: EnemySlot["home"],
-): Entity {
+export interface EnemySpawn {
+  defId: string;
+  x: number;
+  y: number;
+  home?: EnemySlot["home"];
+}
+
+export function spawnEnemy(sim: SimState, spawn: EnemySpawn): Entity {
+  const { defId } = spawn;
   const baseDef = sim.content.enemies.get(defId);
   if (!baseDef) throw new Error(`unknown enemy ${defId}`);
   const def = scaledEnemyDef(baseDef, sim.world.floor);
+  const entity = createEnemyEntity(sim, spawn, def);
+  sim.enemies.set(entity.id, enemySlot(entity, def, spawn.home));
+  return entity;
+}
+
+function createEnemyEntity(sim: SimState, spawn: EnemySpawn, def: ReturnType<typeof scaledEnemyDef>): Entity {
+  const { x, y, defId } = spawn;
   const entity = makeEntity(
     "enemy",
     createBody(x, y, sim.world.groundAt(x, y)),
@@ -124,12 +143,15 @@ export function spawnEnemy(
       facing: { x: 0, y: 1 },
     },
   );
-  sim.enemies.set(entity.id, {
+  return entity;
+}
+
+function enemySlot(entity: Entity, def: ReturnType<typeof scaledEnemyDef>, home: EnemySlot["home"] | undefined): EnemySlot {
+  return {
     entity,
     brain: newBrain(),
     def,
     ...(home ? { home } : {}),
     animation: { state: "idle", ticksRemaining: 0 },
-  });
-  return entity;
+  };
 }

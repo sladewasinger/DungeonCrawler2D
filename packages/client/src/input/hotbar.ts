@@ -4,6 +4,30 @@
  */
 import type { InputConnection, InputPanels, InputQueries, InputState, Keys, ThrowPreview } from "./state.js";
 
+export interface ThrowPreviewRequest {
+  readonly state: InputState;
+  readonly conn: InputConnection;
+  readonly queries: InputQueries;
+  readonly pointerWorld: { readonly x: number; readonly y: number };
+}
+
+export interface NumberKeyRequest {
+  readonly state: InputState;
+  readonly conn: InputConnection;
+  readonly panels: InputPanels;
+  readonly queries: InputQueries;
+  readonly keys: Keys;
+  readonly number: number;
+}
+
+interface PanelNumberRequest {
+  readonly conn: InputConnection;
+  readonly panels: InputPanels;
+  readonly queries: InputQueries;
+  readonly keys: Keys;
+  readonly number: number;
+}
+
 /** Current selected throwable slot, or null when no throwable is selected. */
 export function activeThrowableSlot(state: InputState, conn: InputConnection, queries: InputQueries): number | null {
   if (state.selectedSlot === null) return null;
@@ -12,12 +36,8 @@ export function activeThrowableSlot(state: InputState, conn: InputConnection, qu
 }
 
 /** Builds the world-space throw preview from the active pointer, if any slot is armed. */
-export function throwPreview(
-  state: InputState,
-  conn: InputConnection,
-  queries: InputQueries,
-  pointerWorld: { x: number; y: number },
-): ThrowPreview | null {
+export function throwPreview(request: ThrowPreviewRequest): ThrowPreview | null {
+  const { state, conn, queries, pointerWorld } = request;
   const slot = activeThrowableSlot(state, conn, queries);
   if (slot === null) return null;
   return { slot, targetX: pointerWorld.x, targetY: pointerWorld.y };
@@ -42,26 +62,36 @@ function handleStashNumberKey(conn: InputConnection, keys: Keys, n: number): voi
 }
 
 /** Numbers act on the open panel first, then select their matching hotbar slot. */
-export function onNumberKey(
-  state: InputState,
-  conn: InputConnection,
-  panels: InputPanels,
-  queries: InputQueries,
-  keys: Keys,
-  n: number,
-): void {
+export function onNumberKey(request: NumberKeyRequest): void {
+  const { state, conn, panels, queries, keys, number: n } = request;
+  const panelRequest = { conn, panels, queries, keys, number: n };
+  if (assignSelectedInventoryItem(panelRequest)) return;
+  if (craftSelectedRecipe(panelRequest)) return;
+  if (useStashNumberKey(panelRequest)) return;
+  activateHotbar(state, conn, n - 1);
+}
+
+function assignSelectedInventoryItem({ conn, panels, number: n }: PanelNumberRequest): boolean {
   if (panels.inventoryOpen && panels.selectedInventoryItem) {
     conn.assignSlot(n - 1, panels.selectedInventoryItem);
-    return;
+    return true;
   }
+  return false;
+}
+
+function craftSelectedRecipe({ conn, panels, queries, number: n }: PanelNumberRequest): boolean {
   if (panels.craftOpen && queries.isCraftTableNearby(conn)) {
     const recipeId = queries.recipeIdAt(n - 1);
     if (recipeId) conn.craft(recipeId);
-    return;
+    return true;
   }
+  return false;
+}
+
+function useStashNumberKey({ conn, panels, queries, keys, number: n }: PanelNumberRequest): boolean {
   if (panels.stashOpen && conn.stash && queries.isStashNearby(conn)) {
     handleStashNumberKey(conn, keys, n);
-    return;
+    return true;
   }
-  activateHotbar(state, conn, n - 1);
+  return false;
 }

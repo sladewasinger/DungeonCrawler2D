@@ -6,15 +6,14 @@ const FRAME_LINE = /^(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/;
 const ANIM_SUFFIX = /^(.+?)_(?:anim_)?f(\d+)$/;
 
 export function parseFrameList(text) {
-  const frames = [];
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    const match = FRAME_LINE.exec(line.trim());
-    if (!match) continue;
-    const [, name, x, y, w, h] = match;
-    frames.push({ name, x: Number(x), y: Number(y), w: Number(w), h: Number(h) });
-  }
-  return frames;
+  return text.split(/\r?\n/).flatMap(parseFrameLine);
+}
+
+function parseFrameLine(line) {
+  const match = FRAME_LINE.exec(line.trim());
+  if (!match) return [];
+  const [, name, x, y, w, h] = match;
+  return [{ name, x: Number(x), y: Number(y), w: Number(w), h: Number(h) }];
 }
 
 /**
@@ -24,18 +23,16 @@ export function parseFrameList(text) {
  */
 export function groupFrames(frames) {
   const groups = new Map();
-  for (const frame of frames) {
-    const match = ANIM_SUFFIX.exec(frame.name);
-    if (!match) continue;
-    const [, prefix, num] = match;
-    if (!groups.has(prefix)) groups.set(prefix, []);
-    groups.get(prefix).push({ num: Number(num), name: frame.name });
-  }
-  const ordered = new Map();
-  for (const [prefix, entries] of groups) {
-    ordered.set(prefix, orderGroupFrames(entries));
-  }
-  return ordered;
+  frames.forEach((frame) => addFrameToGroup(groups, frame));
+  return new Map([...groups].map(([prefix, entries]) => [prefix, orderGroupFrames(entries)]));
+}
+
+function addFrameToGroup(groups, frame) {
+  const match = ANIM_SUFFIX.exec(frame.name);
+  if (!match) return;
+  const [, prefix, num] = match;
+  if (!groups.has(prefix)) groups.set(prefix, []);
+  groups.get(prefix).push({ num: Number(num), name: frame.name });
 }
 
 /**

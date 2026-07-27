@@ -4,23 +4,23 @@ import { resolveHpBarVisibility } from "./hpBarVisibility.js";
 
 describe("resolveHpBarVisibility", () => {
   it("keeps a freshly observed full-health combatant hidden", () => {
-    expect(resolveHpBarVisibility(undefined, 30, 30, false)).toBe(false);
+    expect(resolveHpBarVisibility({ previousHp: undefined, hp: 30, maxHp: 30, revealed: false })).toBe(false);
   });
 
   it("shows after a real damage edge", () => {
-    expect(resolveHpBarVisibility(30, 24, 30, false)).toBe(true);
+    expect(resolveHpBarVisibility({ previousHp: 30, hp: 24, maxHp: 30, revealed: false })).toBe(true);
   });
 
   it("stays visible while injured after being revealed and hides at full health", () => {
-    expect(resolveHpBarVisibility(24, 24, 30, true)).toBe(true);
-    expect(resolveHpBarVisibility(24, 30, 30, true)).toBe(false);
+    expect(resolveHpBarVisibility({ previousHp: 24, hp: 24, maxHp: 30, revealed: true })).toBe(true);
+    expect(resolveHpBarVisibility({ previousHp: 24, hp: 30, maxHp: 30, revealed: true })).toBe(false);
   });
 
   it("does not treat the first injured sample as a damage event", () => {
-    expect(resolveHpBarVisibility(undefined, 24, 30, false)).toBe(false);
+    expect(resolveHpBarVisibility({ previousHp: undefined, hp: 24, maxHp: 30, revealed: false })).toBe(false);
   });
 
   it("hides dead combatants", () => {
-    expect(resolveHpBarVisibility(5, 0, 30, true)).toBe(false);
+    expect(resolveHpBarVisibility({ previousHp: 5, hp: 0, maxHp: 30, revealed: true })).toBe(false);
   });
 });

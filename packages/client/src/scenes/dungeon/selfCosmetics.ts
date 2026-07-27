@@ -37,7 +37,14 @@ export function createSelfCosmeticsState(): SelfCosmeticsState {
  * on any REAL movement/jump input, forfeits an active grace ring early — mirrors
  * spawnSafety.ts's own forfeit rule (neutral coasting between fixed steps does not
  * count), folded in here since both react to the exact same per-step move intent. */
-export function updateSelfFacing(state: SelfCosmeticsState, moveX: number, moveY: number, jump = false): void {
+export interface SelfMoveIntent {
+  readonly moveX: number;
+  readonly moveY: number;
+  readonly jump?: boolean;
+}
+
+export function updateSelfFacing(state: SelfCosmeticsState, intent: SelfMoveIntent): void {
+  const { moveX, moveY, jump = false } = intent;
   if (moveX !== 0 || moveY !== 0 || jump) endSelfGrace(state);
   if (moveX === 0 && moveY === 0) return;
   state.faceX = moveX;
@@ -49,7 +56,14 @@ export function updateSelfFacing(state: SelfCosmeticsState, moveX: number, moveY
 const SELF_ATTACK_PULSE_MS = 150;
 
 /** Call from the input controller's onSwing hook: starts the self attack telegraph, aimed at (dirX, dirY). */
-export function triggerSelfAttack(state: SelfCosmeticsState, nowMs: number, dirX: number, dirY: number): void {
+export interface SelfAttackIntent {
+  readonly nowMs: number;
+  readonly dirX: number;
+  readonly dirY: number;
+}
+
+export function triggerSelfAttack(state: SelfCosmeticsState, intent: SelfAttackIntent): void {
+  const { nowMs, dirX, dirY } = intent;
   state.attackingUntilMs = nowMs + SELF_ATTACK_PULSE_MS;
   state.attackDirX = dirX;
   state.attackDirY = dirY;

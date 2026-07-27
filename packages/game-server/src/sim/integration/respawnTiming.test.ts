@@ -14,7 +14,7 @@ describe("authoritative respawn timing", () => {
 
   it("snapshots a five-second deadline after a solo player gives up", () => {
     const sim = makeSim();
-    const player = sim.addPlayer("Solo", "solo-respawn-timing");
+    const player = sim.addPlayer({ name: "Solo", clientId: "solo-respawn-timing" });
     sim.getPlayerEntity(player.playerId)!.hp = 0;
     sim.step();
     sim.queueAction(player.playerId, { type: "suicide" });

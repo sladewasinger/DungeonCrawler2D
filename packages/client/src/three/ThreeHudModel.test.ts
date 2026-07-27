@@ -54,11 +54,11 @@ describe("ThreeHudModel", () => {
   });
 
   it("shows automatic healing only while an injured living player can regenerate", () => {
-    expect(shouldShowAutoHealing(20, 30, 0)).toBe(true);
-    expect(shouldShowAutoHealing(30, 30, 0)).toBe(false);
-    expect(shouldShowAutoHealing(0, 30, 0)).toBe(false);
-    expect(shouldShowAutoHealing(20, 30, 2)).toBe(false);
-    expect(shouldShowAutoHealing(1, 30, 0, false)).toBe(false);
-    expect(shouldShowAutoHealing(20, 30, 0, false)).toBe(false);
+    expect(shouldShowAutoHealing({ hp: 20, maxHp: 30, regenerationDelaySeconds: 0 })).toBe(true);
+    expect(shouldShowAutoHealing({ hp: 30, maxHp: 30, regenerationDelaySeconds: 0 })).toBe(false);
+    expect(shouldShowAutoHealing({ hp: 0, maxHp: 30, regenerationDelaySeconds: 0 })).toBe(false);
+    expect(shouldShowAutoHealing({ hp: 20, maxHp: 30, regenerationDelaySeconds: 2 })).toBe(false);
+    expect(shouldShowAutoHealing({ hp: 1, maxHp: 30, regenerationDelaySeconds: 0, actionable: false })).toBe(false);
+    expect(shouldShowAutoHealing({ hp: 20, maxHp: 30, regenerationDelaySeconds: 0, actionable: false })).toBe(false);
   });
 });

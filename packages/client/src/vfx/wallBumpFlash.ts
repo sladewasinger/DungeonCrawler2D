@@ -4,6 +4,7 @@
 import type Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { wallBumpFlashAlpha } from "./wallBumpFlashMotion.js";
+import type { WallBumpVfxInput } from "./vfxSystemTypes.js";
 
 const FLASH_COLOR = 0xe8e8e8;
 const FLASH_RADIUS_PX = 10;
@@ -22,7 +23,8 @@ export class WallBumpFlashPool {
 
   /** (Re)draws the flash at (worldX, worldY) offset toward (dirX, dirY) — the direction
    * the player was pushing into the wall. */
-  spawn(worldX: number, worldY: number, dirX: number, dirY: number, nowMs: number): void {
+  spawn({ x: worldX, y: worldY, direction, nowMs }: WallBumpVfxInput): void {
+    const { x: dirX, y: dirY } = direction;
     const len = Math.hypot(dirX, dirY);
     const nx = len > 0 ? dirX / len : 0;
     const ny = len > 0 ? dirY / len : 0;

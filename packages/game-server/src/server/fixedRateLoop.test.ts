@@ -11,7 +11,7 @@ describe("fixedRateStepPlan", () => {
     let simulatedTicks = 0;
 
     for (let now = 60; now <= 6_000; now += 60) {
-      const plan = fixedRateStepPlan(now, nextTickAt, tickMilliseconds);
+      const plan = fixedRateStepPlan({ now, nextTickAt, tickMilliseconds });
       nextTickAt = plan.nextTickAt;
       simulatedTicks += plan.steps;
     }
@@ -21,7 +21,7 @@ describe("fixedRateStepPlan", () => {
   });
 
   it("bounds a long stall and drops only the excess backlog", () => {
-    const plan = fixedRateStepPlan(10_000, 50, 50);
+    const plan = fixedRateStepPlan({ now: 10_000, nextTickAt: 50, tickMilliseconds: 50 });
 
     expect(plan).toEqual({
       steps: MAX_SERVER_CATCH_UP_TICKS,

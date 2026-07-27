@@ -8,6 +8,7 @@ import {
 } from "../terrain.js";
 import { TILE } from "../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
+import type { WorldChunk } from "./descentShared.js";
 
 /**
  * Fixed features placed deterministically per floor: safe-room
@@ -25,27 +26,17 @@ function posMod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
 
-export function isSafeRoomChunk(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): boolean {
-  const layout = seedsFor(worldSeed, floor).layout;
+export function isSafeRoomChunk(chunk: WorldChunk): boolean {
+  const layout = seedsFor(chunk.worldSeed, chunk.floor).layout;
   const offX = hash2D(mixSeeds(layout, 0x5afe), 1, 0) % SAFE_ROOM_SPACING;
   const offY = hash2D(mixSeeds(layout, 0x5afe), 0, 1) % SAFE_ROOM_SPACING;
-  return posMod(cx, SAFE_ROOM_SPACING) === offX && posMod(cy, SAFE_ROOM_SPACING) === offY;
+  return posMod(chunk.cx, SAFE_ROOM_SPACING) === offX && posMod(chunk.cy, SAFE_ROOM_SPACING) === offY;
 }
 
-export function isStairsChunk(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): boolean {
-  if (isSafeRoomChunk(worldSeed, floor, cx, cy)) return false;
-  const layout = seedsFor(worldSeed, floor).layout;
-  return hash2D(mixSeeds(layout, 0x57a1), cx, cy) % STAIRS_MODULUS === 0;
+export function isStairsChunk(chunk: WorldChunk): boolean {
+  if (isSafeRoomChunk(chunk)) return false;
+  const layout = seedsFor(chunk.worldSeed, chunk.floor).layout;
+  return hash2D(mixSeeds(layout, 0x57a1), chunk.cx, chunk.cy) % STAIRS_MODULUS === 0;
 }
 
 interface FeatureLayout {
@@ -57,75 +48,83 @@ interface FeatureLayout {
 }
 
 /** Where the feature sits and how tall its flattened pad is (pure). */
-function featureLayout(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  seeds: Seeds,
-  segs: CorridorSegment[],
-): FeatureLayout | null {
-  const safeRoom = isSafeRoomChunk(worldSeed, floor, cx, cy);
-  const stairs = isStairsChunk(worldSeed, floor, cx, cy);
+interface FeatureContext {
+  chunk: WorldChunk;
+  seeds: Seeds;
+  segs: CorridorSegment[];
+}
+
+function featureLayout(context: FeatureContext): FeatureLayout | null {
+  const { chunk, seeds, segs } = context;
+  const safeRoom = isSafeRoomChunk(chunk);
+  const stairs = isStairsChunk(chunk);
   if (!safeRoom && !stairs) return null;
 
   const jitterRange = safeRoom ? 3 : 6;
-  const jx = (hash2D(mixSeeds(seeds.layout, 0xf1a7), cx, cy) % (jitterRange * 2 + 1)) - jitterRange;
-  const jy = (hash2D(mixSeeds(seeds.layout, 0xf1a8), cx, cy) % (jitterRange * 2 + 1)) - jitterRange;
+  const jx = (hash2D(mixSeeds(seeds.layout, 0xf1a7), chunk.cx, chunk.cy) % (jitterRange * 2 + 1)) - jitterRange;
+  const jy = (hash2D(mixSeeds(seeds.layout, 0xf1a8), chunk.cx, chunk.cy) % (jitterRange * 2 + 1)) - jitterRange;
   const centerLx = CHUNK_SIZE / 2 + jx;
   const centerLy = CHUNK_SIZE / 2 + jy;
-  const featureH = baseSample(seeds, segs, cx * CHUNK_SIZE + centerLx, cy * CHUNK_SIZE + centerLy)
+  const featureH = baseSample(seeds, segs, chunk.cx * CHUNK_SIZE + centerLx, chunk.cy * CHUNK_SIZE + centerLy)
     .height;
 
   return { safeRoom, half: safeRoom ? SAFE_ROOM_HALF : 1, centerLx, centerLy, featureH };
 }
 
 /** Stamp the flattened pad and its height-blend apron into `tiles`/`height`. */
-function stampFeaturePad(layout: FeatureLayout, tiles: Uint8Array, height: Float32Array): void {
+interface FeatureBuffers {
+  tiles: Uint8Array;
+  height: Float32Array;
+}
+
+function stampFeaturePad(layout: FeatureLayout, buffers: FeatureBuffers): void {
+  const { tiles, height } = buffers;
   const { half, centerLx, centerLy, featureH } = layout;
   const margin = SAFE_ROOM_MARGIN;
   const reach = half + margin;
   for (let ly = centerLy - reach; ly <= centerLy + reach; ly++) {
     for (let lx = centerLx - reach; lx <= centerLx + reach; lx++) {
-      if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-      const i = ly * CHUNK_SIZE + lx;
-      const d = Math.max(Math.abs(lx - centerLx), Math.abs(ly - centerLy));
-      tiles[i] = TILE.Floor;
-      if (d <= half) {
-        // featureH samples terrain.ts's baseSample, which is height 0
-        // everywhere by design (flat-first) — this pad is genuinely flat,
-        // never Stairs-tagged. A Stairs tile with no real height delta
-        // across its climb axis is the "flavor without height" bug the
-        // worldgen redesign brief calls out: a tile flavored as a
-        // staircase that ramps nothing. See world/stairs.ts's
-        // entryClimbDir and stairsInvariant.test.ts, which assert every
-        // TILE.Stairs tile has one.
-        height[i] = featureH;
-      } else {
-        const t = smoothstep01((d - half) / margin);
-        height[i] = featureH + ((height[i] ?? 0) - featureH) * t;
-      }
+      stampFeatureCell({ lx, ly, centerLx, centerLy, half, margin, featureH, tiles, height });
     }
   }
 }
 
+interface FeatureCell extends FeatureBuffers {
+  lx: number;
+  ly: number;
+  centerLx: number;
+  centerLy: number;
+  half: number;
+  margin: number;
+  featureH: number;
+}
+
+function stampFeatureCell(cell: FeatureCell): void {
+  if (!isChunkCell(cell.lx, cell.ly)) return;
+  const index = cell.ly * CHUNK_SIZE + cell.lx;
+  const distance = Math.max(Math.abs(cell.lx - cell.centerLx), Math.abs(cell.ly - cell.centerLy));
+  cell.tiles[index] = TILE.Floor;
+  cell.height[index] = blendedFeatureHeight(cell, index, distance);
+}
+
+function isChunkCell(lx: number, ly: number): boolean {
+  return lx >= 0 && ly >= 0 && lx < CHUNK_SIZE && ly < CHUNK_SIZE;
+}
+
+function blendedFeatureHeight(cell: FeatureCell, index: number, distance: number): number {
+  if (distance <= cell.half) return cell.featureH;
+  const blend = smoothstep01((distance - cell.half) / cell.margin);
+  return cell.featureH + ((cell.height[index] ?? 0) - cell.featureH) * blend;
+}
+
 /** Safe rooms and stairways: cleared, flattened, height-blended into terrain. */
-export function applyFlattenedFeature(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  seeds: Seeds,
-  segs: CorridorSegment[],
-  tiles: Uint8Array,
-  height: Float32Array,
-  zones: Uint8Array,
-): void {
-  void zones; // unused here; kept so this apply* function's signature matches its generate.ts call site
-  const layout = featureLayout(worldSeed, floor, cx, cy, seeds, segs);
+export interface FlattenedFeatureContext extends FeatureContext, FeatureBuffers {}
+
+export function applyFlattenedFeature(context: FlattenedFeatureContext): void {
+  const layout = featureLayout(context);
   if (!layout) return;
 
-  stampFeaturePad(layout, tiles, height);
+  stampFeaturePad(layout, context);
 
   if (layout.safeRoom) {
     // The safe room itself is an instanced stretch room (rooms.ts); the
@@ -133,7 +132,7 @@ export function applyFlattenedFeature(
     // floor, not a TOPOLOGY.Uncarved mass — user-decreed 2026-07-19, see
     // VISUAL_DIRECTION.md's wall vertical-extent rule) whose south face
     // carries a portal door (GAME_DESIGN.md § Safe rooms).
-    carveSafeRoomEntrance(tiles, height, layout.centerLx, layout.centerLy);
+    carveSafeRoomEntrance({ ...context, ...layout });
   }
 }
 
@@ -173,20 +172,16 @@ const TERRACE_NORTH_REACH = KIOSK_HEIGHT + TERRACE_TOP_ROWS - 1;
  * notch cut down to the ground, same as any ordinary wall door, not a face
  * cell at reduced height.
  */
-export function carveSafeRoomEntrance(
-  tiles: Uint8Array,
-  height: Float32Array,
-  centerLx: number,
-  centerLy: number,
-): void {
+interface SafeRoomEntrance extends FeatureBuffers {
+  centerLx: number;
+  centerLy: number;
+}
+
+export function carveSafeRoomEntrance(entrance: SafeRoomEntrance): void {
+  const { tiles, height, centerLx, centerLy } = entrance;
   for (let dy = -TERRACE_NORTH_REACH; dy <= 1; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
-      const lx = centerLx + dx;
-      const ly = centerLy + dy;
-      if (lx < 0 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-      const i = ly * CHUNK_SIZE + lx;
-      tiles[i] = TILE.Floor;
-      height[i] = KIOSK_HEIGHT;
+      stampTerraceCell({ tiles, height, lx: centerLx + dx, ly: centerLy + dy });
     }
   }
   const doorLy = centerLy + 1;
@@ -195,4 +190,11 @@ export function carveSafeRoomEntrance(
     tiles[doorIndex] = TILE.DoorSafeRoom;
     height[doorIndex] = KIOSK_HEIGHT;
   }
+}
+
+function stampTerraceCell(cell: FeatureBuffers & { lx: number; ly: number }): void {
+  if (!isChunkCell(cell.lx, cell.ly)) return;
+  const index = cell.ly * CHUNK_SIZE + cell.lx;
+  cell.tiles[index] = TILE.Floor;
+  cell.height[index] = KIOSK_HEIGHT;
 }

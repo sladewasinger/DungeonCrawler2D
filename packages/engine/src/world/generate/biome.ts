@@ -12,12 +12,12 @@ export interface WorldBiome {
   readonly biome: BiomeKind;
 }
 
-export function biomeAtWorldTile(
-  worldSeed: number,
-  floor: number,
-  wx: number,
-  wy: number,
-): WorldBiome {
+export function biomeAtWorldTile({ worldSeed, floor, wx, wy }: {
+  worldSeed: number;
+  floor: number;
+  wx: number;
+  wy: number;
+}): WorldBiome {
   const cx = Math.floor(wx / CHUNK_SIZE);
   const cy = Math.floor(wy / CHUNK_SIZE);
   const district = districtAt(architectSeed(worldSeed, floor), cx, cy);

@@ -19,9 +19,9 @@ describe("GameSim: chat channels (Epic 7.9)", () => {
   });
 
   it("global reaches a player far outside local AOI; local does not", () => {
-    const a = sim.addPlayer("A", "client-a");
-    const b = sim.addPlayer("B", "client-b");
-    teleport(sim.getPlayerEntity(b.playerId)!, a.spawn.x + AOI_RADIUS * 3, a.spawn.y, sim);
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
+    teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: a.spawn.x + AOI_RADIUS * 3, y: a.spawn.y, sim: sim });
 
     sim.queueAction(a.playerId, { type: "chat", channel: "local", text: "can't hear this" });
     let snaps = sim.step();
@@ -37,8 +37,8 @@ describe("GameSim: chat channels (Epic 7.9)", () => {
   });
 
   it("dm to a non-contact is denied with a system line; nothing is delivered", () => {
-    const a = sim.addPlayer("A", "client-a");
-    const b = sim.addPlayer("B", "client-b");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
 
     sim.queueAction(a.playerId, { type: "chat", channel: "dm", text: "psst", target: "B" });
     const snaps = sim.step();
@@ -47,7 +47,7 @@ describe("GameSim: chat channels (Epic 7.9)", () => {
   });
 
   it("malformed dm intents are rejected: self-target and an unknown recipient", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
 
     sim.queueAction(a.playerId, { type: "chat", channel: "dm", text: "hi me", target: "A" });
     let snaps = sim.step();
@@ -63,7 +63,7 @@ describe("GameSim: chat channels (Epic 7.9)", () => {
   });
 
   it("rate limit boundary: the 5th chat of any channel is fine, the 6th is denied", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     // Flush the announcer's own join system line (Epic 7.13) before
     // asserting on the chat rate limit's system-line output below.
     sim.step();

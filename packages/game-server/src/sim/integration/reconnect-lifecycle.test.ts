@@ -7,7 +7,7 @@ import { makeSim, stepN } from "./support.js";
 describe("GameSim disconnected lifecycle continuity", () => {
   it("freezes a pending dead-screen respawn and resumes its remaining delay", () => {
     const sim = makeSim();
-    const player = sim.addPlayer("Dead", "dead-client");
+    const player = sim.addPlayer({ name: "Dead", clientId: "dead-client" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     entity.hp = 0;
     sim.step();
@@ -22,7 +22,7 @@ describe("GameSim disconnected lifecycle continuity", () => {
     expect(entity.hp).toBe(0);
     expect(entity.body).toMatchObject(frozen);
 
-    const resumed = sim.addPlayer("Dead", "dead-client", player.resumeToken);
+    const resumed = sim.addPlayer({ name: "Dead", clientId: "dead-client", resumeToken: player.resumeToken });
     expect(resumed).toMatchObject({ resumed: true, spawn: frozen });
     expect(entity.hp).toBe(0);
     stepN(sim, RESPAWN_DELAY_TICKS - 1);
@@ -33,7 +33,7 @@ describe("GameSim disconnected lifecycle continuity", () => {
 
   it("freezes downed bleedout and continues its remaining 15 seconds after resume", () => {
     const sim = makeSim();
-    const player = sim.addPlayer("Downed", "downed-client");
+    const player = sim.addPlayer({ name: "Downed", clientId: "downed-client" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     entity.hp = 0;
     sim.step();
@@ -45,7 +45,7 @@ describe("GameSim disconnected lifecycle continuity", () => {
     expect(entity.hp).toBe(1);
     expect(entity.body).toMatchObject(frozen);
 
-    expect(sim.addPlayer("Downed", "downed-client", player.resumeToken)).toMatchObject({ resumed: true, spawn: frozen });
+    expect(sim.addPlayer({ name: "Downed", clientId: "downed-client", resumeToken: player.resumeToken })).toMatchObject({ resumed: true, spawn: frozen });
     expect(entity.downedUntil).toBe(sim.tick + DOWNED_DURATION_TICKS);
     expect(sim.step().get(player.playerId)?.self).toMatchObject({ hp: 1, downed: true, x: frozen.x, y: frozen.y });
     stepN(sim, DOWNED_DURATION_TICKS - 2);

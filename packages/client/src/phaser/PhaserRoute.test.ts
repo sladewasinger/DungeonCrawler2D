@@ -31,13 +31,11 @@ vi.mock("../net/connection.js", () => ({ Connection: class {} }));
 vi.mock("../net/identity.js", () => ({ persistentClientId: () => "client" }));
 vi.mock("../net/url.js", () => ({ resolveWsUrl: () => "ws://test" }));
 vi.mock("../render/view/index.js", () => ({ getViewOrientation: vi.fn() }));
-vi.mock("../scenes/autotileGallery/AutotileGalleryScene.js", () => ({ AutotileGalleryScene: class {} }));
 vi.mock("../scenes/dungeon/index.js", () => ({ DungeonScene: class {} }));
 vi.mock("../scenes/editor/index.js", () => ({
   EditorScene: class {},
   setUpEditorLayout: vi.fn(() => ({ parentId: "editor-canvas", store: {} })),
 }));
-vi.mock("../scenes/GalleryScene.js", () => ({ GalleryScene: class {} }));
 vi.mock("../scenes/HudScene.js", () => ({ HudScene: class {} }));
 vi.mock("../scenes/title/index.js", () => ({ TitleScene: class {} }));
 vi.mock("../scenes/title/connectForm.js", () => ({ loadStoredName: () => "Wren" }));

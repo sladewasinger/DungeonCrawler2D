@@ -42,33 +42,26 @@ export function parseCarnageSettings(value: unknown): CarnageSettings {
   if (record.schemaVersion !== SCHEMA_VERSION) return { ...DEFAULT_CARNAGE_SETTINGS };
   return {
     schemaVersion: SCHEMA_VERSION,
-    enabled: typeof record.enabled === "boolean"
-      ? record.enabled
-      : DEFAULT_CARNAGE_SETTINGS.enabled,
-    bloodEnabled: typeof record.bloodEnabled === "boolean"
-      ? record.bloodEnabled
-      : DEFAULT_CARNAGE_SETTINGS.bloodEnabled,
-    bloodDropIntensity: clamp(
-      finite(record.bloodDropIntensity, DEFAULT_CARNAGE_SETTINGS.bloodDropIntensity),
-      MIN_BLOOD_DROP_INTENSITY,
-      MAX_BLOOD_DROP_INTENSITY,
-    ),
-    intensity: clamp(
-      finite(record.intensity, DEFAULT_CARNAGE_SETTINGS.intensity),
-      MIN_CARNAGE_INTENSITY,
-      MAX_CARNAGE_INTENSITY,
-    ),
-    streakLimit: Math.round(clamp(
-      finite(record.streakLimit, DEFAULT_CARNAGE_SETTINGS.streakLimit),
-      MIN_STREAK_LIMIT,
-      MAX_STREAK_LIMIT,
-    )),
-    chunkLimit: Math.round(clamp(
-      finite(record.chunkLimit, DEFAULT_CARNAGE_SETTINGS.chunkLimit),
-      MIN_CHUNK_LIMIT,
-      MAX_CHUNK_LIMIT,
-    )),
+    enabled: booleanSetting(record.enabled, DEFAULT_CARNAGE_SETTINGS.enabled),
+    bloodEnabled: booleanSetting(record.bloodEnabled, DEFAULT_CARNAGE_SETTINGS.bloodEnabled),
+    bloodDropIntensity: numericSetting({ value: record.bloodDropIntensity, fallback: DEFAULT_CARNAGE_SETTINGS.bloodDropIntensity, minimum: MIN_BLOOD_DROP_INTENSITY, maximum: MAX_BLOOD_DROP_INTENSITY }),
+    intensity: numericSetting({ value: record.intensity, fallback: DEFAULT_CARNAGE_SETTINGS.intensity, minimum: MIN_CARNAGE_INTENSITY, maximum: MAX_CARNAGE_INTENSITY }),
+    streakLimit: Math.round(numericSetting({ value: record.streakLimit, fallback: DEFAULT_CARNAGE_SETTINGS.streakLimit, minimum: MIN_STREAK_LIMIT, maximum: MAX_STREAK_LIMIT })),
+    chunkLimit: Math.round(numericSetting({ value: record.chunkLimit, fallback: DEFAULT_CARNAGE_SETTINGS.chunkLimit, minimum: MIN_CHUNK_LIMIT, maximum: MAX_CHUNK_LIMIT })),
   };
+}
+
+function booleanSetting(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function numericSetting({ value, fallback, minimum, maximum }: {
+  readonly value: unknown;
+  readonly fallback: number;
+  readonly minimum: number;
+  readonly maximum: number;
+}): number {
+  return clamp(finite(value, fallback), minimum, maximum);
 }
 
 export function loadCarnageSettings(): CarnageSettings {

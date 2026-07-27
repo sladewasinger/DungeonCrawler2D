@@ -3,7 +3,7 @@
  * existing warm/cool tileLight constants — floor 2 cooler, 3 greener, 4 redder, 5
  * near-black-warm. Knob-level, pure data + a getter so it's unit-testable on its own.
  *
- * DEVIATION (docs/ASSUMPTIONS.md #12x): render/terrain/tileLight.ts (WARM_R/G/B,
+ * DEVIATION (docs/ASSUMPTIONS.md #12x): shared terrain light palette values
  * COOL_R/G/B, AMBIENT) is outside this lane's ownership (worldgen/terrain lane's
  * files) — this table is ready for that lane to multiply in at LEVEL_TINTS build
  * time, keyed by the connected floor, but isn't wired into the actual bake yet.

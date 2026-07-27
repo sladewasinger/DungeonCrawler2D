@@ -3,11 +3,14 @@ import {
   HUD_PANEL,
   createHudButton,
 } from "./ThreeHudStyles.js";
+import { createInventoryContent } from "./ThreeInventoryShellContent.js";
 
 export type InventoryTab = "all" | "weapons" | "usables" | "materials";
 export type InventoryFolder = "all" | "equipped" | "hotbar";
 
 const TABS: readonly InventoryTab[] = ["all", "weapons", "usables", "materials"];
+const INVENTORY_LABEL = "Inventory";
+const ARIA_LABEL = "aria-label";
 const FOLDERS: ReadonlyArray<{ id: InventoryFolder; label: string }> = [
   { id: "all", label: "All items" },
   { id: "equipped", label: "Equipped" },
@@ -36,7 +39,7 @@ const workspace = (): { element: HTMLDivElement; shell: HTMLElement } => {
   element.dataset.inventoryWorkspace = "true";
   element.setAttribute("role", "dialog");
   element.setAttribute("aria-modal", "true");
-  element.setAttribute("aria-label", "Inventory");
+  element.setAttribute(ARIA_LABEL, INVENTORY_LABEL);
   element.style.cssText =
     "position:absolute;inset:0;z-index:2400;display:none;place-items:center;" +
     "padding:clamp(10px,4vw,48px);box-sizing:border-box;pointer-events:auto;" +
@@ -58,20 +61,22 @@ const header = (
   element.style.cssText =
     "display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px";
   const title = document.createElement("strong");
-  title.textContent = "Inventory";
+  title.textContent = INVENTORY_LABEL;
   title.style.cssText = "font-size:17px;letter-spacing:.08em";
   const closeButton = createHudButton("close", close);
-  closeButton.setAttribute("aria-label", "Close inventory");
+  closeButton.setAttribute(ARIA_LABEL, "Close inventory");
   element.append(title, summary, closeButton);
   return element;
 };
 
-const navigationButton = (
-  label: string,
-  dataKey: "inventoryTab" | "inventoryFolder",
-  id: string,
-  action: () => void,
-): HTMLButtonElement => {
+interface NavigationButtonInput {
+  label: string;
+  dataKey: "inventoryTab" | "inventoryFolder";
+  id: string;
+  action: () => void;
+}
+
+const navigationButton = ({ label, dataKey, id, action }: NavigationButtonInput): HTMLButtonElement => {
   const button = createHudButton(label, action);
   button.dataset[dataKey] = id;
   return button;
@@ -83,16 +88,16 @@ const navigation = (
   const tabs = document.createElement("div");
   tabs.style.cssText = "display:flex;gap:4px;flex-wrap:wrap";
   tabs.append(...TABS.map((tab) =>
-    navigationButton(tab, "inventoryTab", tab, () => callbacks.selectTab(tab))));
+    navigationButton({ label: tab, dataKey: "inventoryTab", id: tab, action: () => callbacks.selectTab(tab) })));
   const folders = document.createElement("nav");
   folders.style.cssText = "display:grid;align-content:start;gap:5px";
   folders.append(...FOLDERS.map((folder) => {
-    const button = navigationButton(
-      folder.label,
-      "inventoryFolder",
-      folder.id,
-      () => callbacks.selectFolder(folder.id),
-    );
+    const button = navigationButton({
+      label: folder.label,
+      dataKey: "inventoryFolder",
+      id: folder.id,
+      action: () => callbacks.selectFolder(folder.id),
+    });
     button.style.textAlign = "left";
     return button;
   }));
@@ -103,7 +108,7 @@ const filterInput = (search: () => void): HTMLInputElement => {
   const input = document.createElement("input");
   input.type = "search";
   input.placeholder = "Filter items";
-  input.setAttribute("aria-label", "Filter inventory items");
+  input.setAttribute(ARIA_LABEL, "Filter inventory items");
   input.style.cssText =
     "min-width:140px;padding:6px 8px;border:1px solid #555a75;" +
     "background:#11121d;color:#f2f0eb;font:11px monospace";
@@ -119,20 +124,7 @@ export const createInventoryShell = (
   const search = filterInput(callbacks.search);
   const summary = document.createElement("span");
   summary.style.color = "#aaaec8";
-  const toolbar = document.createElement("div");
-  toolbar.style.cssText =
-    "display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,260px);" +
-    "align-items:center;gap:10px";
-  toolbar.append(tabs, search);
-  const list = document.createElement("div");
-  list.style.cssText =
-    "min-height:0;overflow-y:auto;display:grid;align-content:start;gap:6px;" +
-    "padding-right:4px;scrollbar-color:#555a75 #171827";
-  const body = document.createElement("div");
-  body.style.cssText =
-    "min-height:0;display:grid;grid-template-columns:minmax(110px,170px) " +
-    "minmax(0,1fr);gap:10px";
-  body.append(folders, list);
+  const { toolbar, body, list } = createInventoryContent(tabs, folders, search);
   shell.append(header(summary, callbacks.close), toolbar, body);
   return {
     element, tabs, folders, search, list, summary,

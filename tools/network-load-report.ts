@@ -48,11 +48,7 @@ export const buildNetworkLoadResult = (
 ) => {
   const durationSeconds = LOAD_MEASURED_TICKS / TICK_RATE;
   const serverStepMilliseconds = summarizeSteps(measuredSteps);
-  const budgets = {
-    serverStepP95Milliseconds: 25,
-    maximumClientQueueBytes: 65_536,
-    decodeFailures: 0,
-  };
+  const budgets = loadBudgets();
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -66,16 +62,20 @@ export const buildNetworkLoadResult = (
     transport: transport(metrics, durationSeconds),
     heap: heap(memory),
     budgets,
-    passed: serverStepMilliseconds.p95 <=
-      budgets.serverStepP95Milliseconds &&
-      metrics.maximumQueueBytes <= budgets.maximumClientQueueBytes &&
-      metrics.decodeFailures === budgets.decodeFailures,
-    limitations: [
-      "Loopback WebSockets do not model WAN latency or packet loss.",
-      "Heap delta includes ordinary runtime allocation and is evidence, not a leak proof.",
-      "Clients exercise movement replication but do not render frames.",
-    ],
+    passed: passesBudgets(serverStepMilliseconds.p95, metrics, budgets),
+    limitations: limitations(),
   };
 };
+
+const loadBudgets = () => ({ serverStepP95Milliseconds: 25, maximumClientQueueBytes: 65_536, decodeFailures: 0 });
+
+const passesBudgets = (p95: number, metrics: LoadClientMetrics, budgets: ReturnType<typeof loadBudgets>) =>
+  p95 <= budgets.serverStepP95Milliseconds && metrics.maximumQueueBytes <= budgets.maximumClientQueueBytes && metrics.decodeFailures === budgets.decodeFailures;
+
+const limitations = () => [
+  "Loopback WebSockets do not model WAN latency or packet loss.",
+  "Heap delta includes ordinary runtime allocation and is evidence, not a leak proof.",
+  "Clients exercise movement replication but do not render frames.",
+];
 
 export type NetworkLoadResult = ReturnType<typeof buildNetworkLoadResult>;

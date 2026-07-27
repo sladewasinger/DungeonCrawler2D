@@ -112,18 +112,18 @@ describe("interpolate", () => {
     const recordIdentities = new Set<object>();
 
     for (let renderFrame = 0; renderFrame < 300; renderFrame++) {
-      const result = interpolateInto(
+      const result = interpolateInto({
         entities,
-        75,
-        100 + renderFrame * (1000 / 60),
-        frame,
-      );
+        delayMs: 75,
+        now: 100 + renderFrame * (1000 / 60),
+        out: frame,
+      });
       expect(result).toBe(frame);
       for (const entity of result) recordIdentities.add(entity);
     }
 
     expect(recordIdentities.size).toBe(entities.size);
     entities.delete("e19");
-    expect(interpolateInto(entities, 75, 200, frame)).toHaveLength(19);
+    expect(interpolateInto({ entities, delayMs: 75, now: 200, out: frame })).toHaveLength(19);
   });
 });

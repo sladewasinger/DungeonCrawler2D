@@ -21,7 +21,7 @@ function corridorWorld(x0: number, x1: number) {
 describe("torchCandidates", () => {
   it("finds only the wall cells that front open ground to their south", () => {
     const world = corridorWorld(5, 15);
-    const candidates = torchCandidates(world, 0, 0, 20, 4);
+    const candidates = torchCandidates(world, { x0: 0, y0: 0, x1: 20, y1: 4 });
     expect(candidates.every((c) => c.wy === 1 && c.wx >= 5 && c.wx < 15)).toBe(true);
     expect(candidates).toHaveLength(10);
   });
@@ -32,7 +32,7 @@ describe("selectTorchPositions", () => {
     // Run spans 3 spacing buckets, so at least 3 torches regardless of the tuning value.
     const runStart = TORCH_SPACING_TILES;
     const world = corridorWorld(runStart, runStart + TORCH_SPACING_TILES * 3);
-    const picked = selectTorchPositions(torchCandidates(world, 0, 0, runStart + TORCH_SPACING_TILES * 4, 4));
+    const picked = selectTorchPositions(torchCandidates(world, { x0: 0, y0: 0, x1: runStart + TORCH_SPACING_TILES * 4, y1: 4 }));
     expect(picked.length).toBeGreaterThanOrEqual(3);
     const xs = [...picked.map((p) => p.wx)].sort((a, b) => a - b);
     for (let i = 1; i < xs.length; i++) {
@@ -44,7 +44,7 @@ describe("selectTorchPositions", () => {
   });
 
   it("is deterministic across repeated calls with the same input", () => {
-    const candidates = torchCandidates(corridorWorld(0, 30), 0, 0, 30, 4);
+    const candidates = torchCandidates(corridorWorld(0, 30), { x0: 0, y0: 0, x1: 30, y1: 4 });
     expect(selectTorchPositions(candidates)).toEqual(selectTorchPositions(candidates));
   });
 

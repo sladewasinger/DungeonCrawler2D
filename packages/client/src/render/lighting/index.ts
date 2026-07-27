@@ -5,7 +5,7 @@
 import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { viewChunkWorldOrigin } from "../terrain/viewWorld.js";
+import { viewChunkWorldOrigin } from "./viewChunkOrigin.js";
 import { chunkKey, chunkWindowKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { viewToWorld } from "../view/viewTransform.js";
@@ -13,11 +13,11 @@ import { doorLightPositions } from "./doorLights.js";
 import { collectTorchLights, selectFrameLights } from "./frameLights.js";
 import { hashSeed, type LightSource } from "./lightSource.js";
 import { LightSpritePool } from "./pool.js";
-import { PlayerGroundLightPass } from "./playerGroundLightPool.js";
+import { PlayerGroundLightPass } from "./playerGroundLightPass.js";
 import { playerGroundLightEnabledForProfile } from "./playerGroundLight.js";
 import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../terrain/terrainDeviceProfile.js";
 import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
-import { selectTorchPositions, torchCandidates, type TilePos } from "./torchPlacement.js";
+import { selectTorchPositions, torchCandidates, type TilePos, type TileRect } from "./torchPlacement.js";
 
 const LOAD_MARGIN_CHUNKS = 1;
 /** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
@@ -76,31 +76,24 @@ export class LightingSystem {
   }
 
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
-  update(view: ViewRect, personalX: number, personalY: number, nowMs: number): void {
-    this.streamChunks(view);
-    this.personalLight.x = personalX;
-    this.personalLight.y = personalY;
-    this.personalLight.groundHeight = this.world.groundAt(personalX, personalY);
-    this.groundLight.update(personalX, personalY, nowMs);
+  update(input: LightingFrame): void {
+    this.streamChunks(input.view);
+    this.updatePersonalLight(input.personal);
+    this.groundLight.update(input.personal.x, input.personal.y, input.nowMs);
     // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
     // viewed away from the player (gallery, spectate) must still keep its lights.
     // `view` is the camera's on-screen rect, which is in VIEW-pixel space once
     // worldToScreen routes through the seam — convert its center back to a REAL world
     // tile position before comparing against light.x/y, which stay real-world (torch/
     // door positions are scanned straight off the real world in scanChunk below).
-    const centerView = { x: (view.x + view.width / 2) / SCREEN_TILE_PX, y: (view.y + view.height / 2) / SCREEN_TILE_PX };
+    const centerView = { x: (input.view.x + input.view.width / 2) / SCREEN_TILE_PX, y: (input.view.y + input.view.height / 2) / SCREEN_TILE_PX };
     const centerWorld = viewToWorld(centerView, getViewOrientation());
-    const lights = selectFrameLights(
-      this.chunkLights.values(),
-      this.accentLights,
-      centerWorld.x,
-      centerWorld.y,
-      this.personalHaloEnabled ? this.personalLight : null,
-      MAX_ACTIVE_LIGHTS,
-      this.candidateLights,
-      this.frameLights,
-    );
-    this.pool.sync(lights, nowMs);
+    const lights = selectFrameLights({
+      chunkLights: this.chunkLights.values(), accentLights: this.accentLights,
+      center: centerWorld, personalLight: this.personalHaloEnabled ? this.personalLight : null,
+      maxLights: MAX_ACTIVE_LIGHTS, candidates: this.candidateLights, selected: this.frameLights,
+    });
+    this.pool.sync(lights, input.nowMs);
   }
 
   /** Torch positions currently resident (authored wall torches + placed thrown
@@ -137,13 +130,15 @@ export class LightingSystem {
     // TerrainRenderer, off the camera's view-pixel rect) — torch/door positions are a
     // real-world scan (torchCandidates/doorLightPositions read the real World), so this
     // needs the chunk's real-world footprint, not its view-space one.
-    const origin = viewChunkWorldOrigin(coord.cx * CHUNK_SIZE, coord.cy * CHUNK_SIZE, CHUNK_SIZE, getViewOrientation());
-    const x0 = origin.x;
-    const y0 = origin.y;
-    const x1 = x0 + CHUNK_SIZE;
-    const y1 = y0 + CHUNK_SIZE;
-    const torches = selectTorchPositions(torchCandidates(this.world, x0, y0, x1, y1)).map((p) => this.torchLight(p));
-    const doors = doorLightPositions(this.world, x0, y0, x1, y1).map((p) => this.doorLight(p));
+    const origin = viewChunkWorldOrigin({
+      baseVX: coord.cx * CHUNK_SIZE,
+      baseVY: coord.cy * CHUNK_SIZE,
+      size: CHUNK_SIZE,
+      orientation: getViewOrientation(),
+    });
+    const bounds: TileRect = { x0: origin.x, y0: origin.y, x1: origin.x + CHUNK_SIZE, y1: origin.y + CHUNK_SIZE };
+    const torches = selectTorchPositions(torchCandidates(this.world, bounds)).map((p) => this.torchLight(p));
+    const doors = doorLightPositions(this.world, bounds).map((p) => this.doorLight(p));
     return [...torches, ...doors];
   }
 
@@ -160,10 +155,22 @@ export class LightingSystem {
     return { id, x: p.wx + 0.5, y: p.wy + 0.5, color: PORTAL_COLOR, radiusTiles: PORTAL_RADIUS_TILES, kind: "portal", seed: hashSeed(id), groundHeight };
   }
 
+  private updatePersonalLight(personal: Readonly<{ x: number; y: number }>): void {
+    this.personalLight.x = personal.x;
+    this.personalLight.y = personal.y;
+    this.personalLight.groundHeight = this.world.groundAt(personal.x, personal.y);
+  }
+
   dispose(): void {
     this.groundLight.dispose();
     this.pool.dispose();
   }
+}
+
+export interface LightingFrame {
+  readonly view: ViewRect;
+  readonly personal: Readonly<{ x: number; y: number }>;
+  readonly nowMs: number;
 }
 
 export type { LightKind, LightSource } from "./lightSource.js";

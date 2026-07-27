@@ -92,17 +92,18 @@ export class ChatController {
   }
 
   private dispatch(command: ChatCommand): void {
-    if (command.kind === "send") this.port.chat(command.channel, command.text, command.target);
-    else if (command.kind === "who") this.port.who();
-    else if (command.kind === "party") this.port.partyCommand(command.op, command.target);
-    else if (command.kind === "moderation") {
-      this.port.moderate(command.op, command.target, command.reason);
-    }
-    else if (command.kind === "local-lines") {
-      for (const text of command.lines) this.pushSystem(text);
-    } else if (command.kind === "error") this.pushSystem(command.message);
-    else if (command.kind === "debug-god") this.port.debugGod();
-    else if (command.kind === "debug-teleport") this.port.debugTeleport(command.x, command.y);
+    const handlers: { [Kind in ChatCommand["kind"]]: (value: Extract<ChatCommand, { kind: Kind }>) => void } = {
+      send: (value) => this.port.chat(value.channel, value.text, value.target),
+      none: () => {},
+      who: () => this.port.who(),
+      party: (value) => this.port.partyCommand(value.op, value.target),
+      moderation: (value) => this.port.moderate(value.op, value.target, value.reason),
+      "local-lines": (value) => value.lines.forEach((text) => this.pushSystem(text)),
+      error: (value) => this.pushSystem(value.message),
+      "debug-god": () => this.port.debugGod(),
+      "debug-teleport": (value) => this.port.debugTeleport(value.x, value.y),
+    };
+    dispatchChatCommand(handlers, command);
   }
 
   selectTab(tab: ChatTabId): void {
@@ -145,4 +146,11 @@ export class ChatController {
     if (this.display.length > DISPLAY_CAP) this.display.shift();
     this.modelRevision++;
   }
+}
+
+function dispatchChatCommand(
+  handlers: { [Kind in ChatCommand["kind"]]: (value: Extract<ChatCommand, { kind: Kind }>) => void },
+  command: ChatCommand,
+): void {
+  (handlers[command.kind] as (value: ChatCommand) => void)(command);
 }

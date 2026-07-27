@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { hashString } from "../../core/rng.js";
 import { CHUNK_SIZE, TERRAIN, TILE } from "../types.js";
-import { World } from "../world.js";
-import {
-  ROOM_WALL_RISE,
-  SOUTH_EXIT_HALL_DEPTH,
-} from "./roomExitGeometry.js";
+import { SOUTH_EXIT_HALL_DEPTH } from "./roomExitGeometry.js";
 import {
   PARTY_ROOM_H,
   PARTY_ROOM_W,
@@ -40,17 +35,22 @@ const countTile = (tiles: Uint8Array, tile: number): number =>
 const within = (value: number, start: number, length: number): boolean =>
   value >= start && value < start + length;
 
-function isCarvedRoomCell(
-  lx: number,
-  ly: number,
-  centerLx: number,
-  top: number,
-  width: number,
-  height: number,
-): boolean {
-  const inRoom = within(lx, Math.floor(CHUNK_SIZE / 2 - width / 2), width) && within(ly, top, height);
-  const inHall = within(lx, centerLx - 1, 3) && within(ly, top + height - 1, SOUTH_EXIT_HALL_DEPTH + 1);
+function isCarvedRoomCell(input: { lx: number; ly: number; room: RoomCase }): boolean {
+  const { lx, ly, room } = input;
+  const top = Math.floor(CHUNK_SIZE / 2 - room.height / 2);
+  const centerLx = Math.floor(CHUNK_SIZE / 2);
+  const inRoom = within(lx, Math.floor(CHUNK_SIZE / 2 - room.width / 2), room.width) && within(ly, top, room.height);
+  const inHall = within(lx, centerLx - 1, 3) && within(ly, top + room.height - 1, SOUTH_EXIT_HALL_DEPTH + 1);
   return inRoom || inHall;
+}
+
+function assertCarvedMask(chunk: ReturnType<typeof generateRoomChunk>, room: RoomCase): void {
+  for (let index = 0; index < chunk.terrain.length; index++) {
+    const lx = index % CHUNK_SIZE;
+    const ly = Math.floor(index / CHUNK_SIZE);
+    const expected = isCarvedRoomCell({ lx, ly, room }) ? TERRAIN.Floor : TERRAIN.Void;
+    expect(chunk.terrain[index]).toBe(expected);
+  }
 }
 
 interface RoomCase {
@@ -81,17 +81,6 @@ const ROOM_CASES: readonly RoomCase[] = [
   },
 ];
 
-const exitPosition = (
-  chunk: ReturnType<typeof generateRoomChunk>,
-): { x: number; y: number } => {
-  const index = chunk.tiles.findIndex((tile) => tile === TILE.DoorExit);
-  if (index < 0) throw new Error("room exit is missing");
-  return {
-    x: chunk.cx * CHUNK_SIZE + index % CHUNK_SIZE,
-    y: chunk.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE),
-  };
-};
-
 describe("safe room doors", () => {
   it("keeps occupant portal sites as floor until replicated overrides arrive", () => {
     const { cx, cy } = safeRoomChunk(4, 7);
@@ -114,44 +103,7 @@ describe("south exit geometry", () => {
     "keeps the $kind room interior and hall as the complete carved mask",
     ({ position, width, height }) => {
       const chunk = generateRoomChunk(position.cx, position.cy);
-      const top = Math.floor(CHUNK_SIZE / 2 - height / 2);
-      const centerLx = Math.floor(CHUNK_SIZE / 2);
-
-      for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          const index = ly * CHUNK_SIZE + lx;
-          expect(chunk.terrain[index]).toBe(
-            isCarvedRoomCell(lx, ly, centerLx, top, width, height) ? TERRAIN.Floor : TERRAIN.Void,
-          );
-        }
-      }
-    },
-  );
-
-  it.each(ROOM_CASES)(
-    "stamps every $kind hall side and endpoint as a raised Floor boundary",
-    ({ position }) => {
-      const world = new World(hashString("room-exit-collision"), 1);
-      const exit = exitPosition(world.getChunk(position.cx, position.cy));
-
-      expect(world.tileAt(exit.x, exit.y)).toBe(TILE.DoorExit);
-      expect(world.isWalkable(exit.x, exit.y)).toBe(false);
-      for (let depth = 1; depth <= SOUTH_EXIT_HALL_DEPTH; depth++) {
-        const hallY = exit.y + depth;
-        expect(world.tileAt(exit.x, hallY)).toBe(TILE.Floor);
-        expect(world.isWalkable(exit.x, hallY)).toBe(true);
-        for (const sideX of [exit.x - 1, exit.x + 1]) {
-          expect(world.tileAt(sideX, hallY)).toBe(TILE.Floor);
-          expect(world.heightAt(sideX, hallY)).toBeGreaterThanOrEqual(ROOM_WALL_RISE);
-          expect(world.isWalkable(sideX, hallY)).toBe(true);
-        }
-      }
-      const endY = exit.y + SOUTH_EXIT_HALL_DEPTH + 1;
-      for (const endX of [exit.x - 1, exit.x, exit.x + 1]) {
-        expect(world.tileAt(endX, endY)).toBe(TILE.Floor);
-        expect(world.heightAt(endX, endY)).toBeGreaterThanOrEqual(ROOM_WALL_RISE);
-        expect(world.isWalkable(endX, endY)).toBe(true);
-      }
+      assertCarvedMask(chunk, { position, width, height, kind: "room" });
     },
   );
 });

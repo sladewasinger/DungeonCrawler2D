@@ -53,6 +53,8 @@ afterEach(() => {
 });
 
 describe("ThreeHudTutorials", () => {
+  const keyboardHint = "[1–9]";
+  const lowHealth = "Health low";
   it("renders a polite borderless hint above the hotbar with gentle motion", () => {
     const { animate } = installBrowser();
     const tutorials = new ThreeHudTutorials("keyboard");
@@ -76,14 +78,14 @@ describe("ThreeHudTutorials", () => {
     tutorials.update(connection(false) as never, null, 20_000);
     tutorials.update(connection(true) as never, null, 20_001);
     expect(tutorials.element.hidden).toBe(false);
-    expect(tutorials.element.textContent).toContain("[1–9]");
+    expect(tutorials.element.textContent).toContain(keyboardHint);
   });
 
   it("replaces generic guidance only after a populated slot is selected", () => {
     installBrowser();
     const tutorials = new ThreeHudTutorials("keyboard");
     tutorials.update(connection(true) as never, null, 0);
-    expect(tutorials.element.textContent).toContain("[1–9]");
+    expect(tutorials.element.textContent).toContain(keyboardHint);
     tutorials.update(connection(true) as never, 0, 1);
     expect(tutorials.element.textContent).toContain("[G]");
     tutorials.update(connection(true) as never, 1, 2);
@@ -95,18 +97,18 @@ describe("ThreeHudTutorials", () => {
     const tutorials = new ThreeHudTutorials("keyboard");
     tutorials.update(connection(true) as never, null, 0);
     tutorials.update(connection(true, { hp: 8 }) as never, null, 1);
-    expect(tutorials.element.textContent).toContain("Health low");
+    expect(tutorials.element.textContent).toContain(lowHealth);
     tutorials.update(connection(true, {
       hp: 8,
       inventory: [{ item: "torch", qty: 3 }],
     }) as never, null, 2);
-    expect(tutorials.element.textContent).not.toContain("Health low");
+    expect(tutorials.element.textContent).not.toContain(lowHealth);
 
     const recovered = new ThreeHudTutorials("keyboard");
     recovered.update(connection(true) as never, null, 0);
     recovered.update(connection(true, { hp: 8 }) as never, null, 1);
     recovered.update(connection(true) as never, null, 2);
-    expect(recovered.element.textContent).not.toContain("Health low");
+    expect(recovered.element.textContent).not.toContain(lowHealth);
   });
 
   it("replays persisted hydration and selected-action hints", () => {
@@ -121,7 +123,7 @@ describe("ThreeHudTutorials", () => {
     expect(reloadedHud.element.hidden).toBe(true);
     reloadedHud.replay();
     reloadedHud.update(connection(true) as never, 0, 11_001);
-    expect(reloadedHud.element.textContent).toContain("[1–9]");
+    expect(reloadedHud.element.textContent).toContain(keyboardHint);
     reloadedHud.update(connection(true) as never, 0, 21_001);
     expect(reloadedHud.element.textContent).toContain("[G]");
   });

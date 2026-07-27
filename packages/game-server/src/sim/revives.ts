@@ -20,14 +20,22 @@ function inRange(a: PlayerSlot, b: PlayerSlot): boolean {
 function attemptIsValid(sim: SimState, attempt: ReviveAttempt): boolean {
   const rescuer = sim.players.get(attempt.rescuerId);
   const target = sim.players.get(attempt.targetId);
-  if (!rescuer?.connected || rescuer.entity.hp <= 0 || rescuer.downedAtTick !== null) return false;
-  if (!target?.connected || target.downedAtTick === null) return false;
-  if (sim.tickCount - target.downedAtTick >= DOWNED_DURATION * TICK_RATE) return false;
-  if (!inRange(rescuer, target)) return false;
-  return Math.hypot(
-    rescuer.entity.body.x - attempt.startX,
-    rescuer.entity.body.y - attempt.startY,
-  ) <= MOVEMENT_EPSILON;
+  if (!rescuer || !target) return false;
+  return rescuerCanRevive(rescuer) && targetCanBeRevived(sim, target) &&
+    inRange(rescuer, target) && rescuerStayedStill(rescuer, attempt);
+}
+
+function rescuerCanRevive(slot: PlayerSlot): boolean {
+  return slot.connected && slot.entity.hp > 0 && slot.downedAtTick === null;
+}
+
+function targetCanBeRevived(sim: SimState, slot: PlayerSlot): boolean {
+  return slot.connected && slot.downedAtTick !== null &&
+    sim.tickCount - slot.downedAtTick < DOWNED_DURATION * TICK_RATE;
+}
+
+function rescuerStayedStill(rescuer: PlayerSlot, attempt: ReviveAttempt): boolean {
+  return Math.hypot(rescuer.entity.body.x - attempt.startX, rescuer.entity.body.y - attempt.startY) <= MOVEMENT_EPSILON;
 }
 
 function targetAlreadyClaimed(sim: SimState, rescuerId: string, targetId: string): boolean {
@@ -37,15 +45,16 @@ function targetAlreadyClaimed(sim: SimState, rescuerId: string, targetId: string
   return false;
 }
 
-export function setReviveHeld(
-  sim: SimState,
-  rescuer: PlayerSlot,
-  targetId: string,
-  held: boolean,
-): void {
+interface ReviveHeldRequest {
+  sim: SimState;
+  rescuer: PlayerSlot;
+  targetId: string;
+  held: boolean;
+}
+
+export function setReviveHeld({ sim, rescuer, targetId, held }: ReviveHeldRequest): void {
   if (!held) {
-    const attempt = sim.reviveAttempts.get(rescuer.entity.id);
-    if (attempt?.targetId === targetId) sim.reviveAttempts.delete(rescuer.entity.id);
+    clearMatchingAttempt(sim, rescuer.entity.id, targetId);
     return;
   }
   if (targetAlreadyClaimed(sim, rescuer.entity.id, targetId)) return;
@@ -60,6 +69,10 @@ export function setReviveHeld(
   };
   if (!attemptIsValid(sim, attempt)) return;
   sim.reviveAttempts.set(rescuer.entity.id, attempt);
+}
+
+function clearMatchingAttempt(sim: SimState, rescuerId: string, targetId: string): void {
+  if (sim.reviveAttempts.get(rescuerId)?.targetId === targetId) sim.reviveAttempts.delete(rescuerId);
 }
 
 function completeRevive(

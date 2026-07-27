@@ -15,19 +15,35 @@ const HIT_COUNT = 12;
 const DEATH_COUNT = 28;
 const PARTICLE_LIFETIME_MS = { min: 450, max: 1_050 };
 
+interface SplatterInput {
+  readonly x: number;
+  readonly y: number;
+  readonly tint: number;
+  readonly quantity: number;
+  readonly speedMax: number;
+  readonly window: { minDeg: number; maxDeg: number };
+}
+
+export interface HitSplatterInput {
+  readonly x: number;
+  readonly y: number;
+  readonly tint: number;
+  readonly direction?: { x: number; y: number } | undefined;
+  readonly intensity?: number;
+}
+
+export interface DeathSplatterInput {
+  readonly x: number;
+  readonly y: number;
+  readonly tint: number;
+  readonly intensity?: number;
+}
+
 export function bloodDropQuantity(baseCount: number, intensity: number): number {
   return Math.round(baseCount * Math.min(1, Math.max(0, intensity)));
 }
 
-function fire(
-  scene: Phaser.Scene,
-  screenX: number,
-  screenY: number,
-  tint: number,
-  quantity: number,
-  speedMax: number,
-  window: { minDeg: number; maxDeg: number },
-): void {
+function fire(scene: Phaser.Scene, { x: screenX, y: screenY, tint, quantity, speedMax, window }: SplatterInput): void {
   if (quantity === 0) return;
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
@@ -48,31 +64,28 @@ function fire(
 }
 
 /** Small directional (or omnidirectional) spray for a landed hit. */
-export function spawnHitSplatter(
-  scene: Phaser.Scene,
-  screenX: number,
-  screenY: number,
-  tint: number,
-  dirX?: number,
-  dirY?: number,
+export function spawnHitSplatter(scene: Phaser.Scene, {
+  x,
+  y,
+  tint,
+  direction,
   intensity = 1,
-): void {
-  fire(
-    scene, screenX, screenY, tint, bloodDropQuantity(HIT_COUNT, intensity), 95,
-    splatterAngleWindow(dirX, dirY),
-  );
+}: HitSplatterInput): void {
+  fire(scene, {
+    x, y, tint, quantity: bloodDropQuantity(HIT_COUNT, intensity), speedMax: 95,
+    window: splatterAngleWindow(direction?.x, direction?.y),
+  });
 }
 
 /** Heavier omnidirectional burst for a death. */
-export function spawnDeathSplatter(
-  scene: Phaser.Scene,
-  screenX: number,
-  screenY: number,
-  tint: number,
+export function spawnDeathSplatter(scene: Phaser.Scene, {
+  x,
+  y,
+  tint,
   intensity = 1,
-): void {
-  fire(
-    scene, screenX, screenY, tint, bloodDropQuantity(DEATH_COUNT, intensity), 150,
-    splatterAngleWindow(),
-  );
+}: DeathSplatterInput): void {
+  fire(scene, {
+    x, y, tint, quantity: bloodDropQuantity(DEATH_COUNT, intensity), speedMax: 150,
+    window: splatterAngleWindow(),
+  });
 }

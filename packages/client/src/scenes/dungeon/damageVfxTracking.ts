@@ -66,36 +66,45 @@ function trackViews(
   }
 }
 
-function spawnDeathVfx(
-  death: DeathVisualEvent,
-  context: DamageVfxContext,
-): void {
+function spawnDeathVfx(death: DeathVisualEvent, context: DamageVfxContext): void {
   const x = death.x;
   const y = death.y;
   if (x === undefined || y === undefined) return;
   const groundHeight = context.world.groundAt(x, y);
   const impactAngle = impactAngleFor(context.pendingSwings, x, y);
   const trackedTarget = context.tracked.get(death.id);
-  const targetKind = death.targetKind ?? (trackedTarget ? "enemy" : undefined);
-  const spritePrefix = targetKind === "player"
-    ? playerSkinFor(death.id, death.skin)
-    : undefined;
-  context.vfx.spawnBloodDeath(x, y, groundHeight, death.defId, context.nowMs);
-  if (death.id === context.selfId) {
-    context.vfx.spawnDeathGore(
-      x, y, groundHeight, death.defId, context.nowMs,
-      { targetKind: "player" },
-      spritePrefix ?? playerSkinFor(death.id, death.skin),
-      impactAngle,
-    );
-    context.vfx.onOwnDeath(context.nowMs);
-  } else if (targetKind !== undefined) {
-    context.vfx.spawnKillMoment(
-      x, y, groundHeight, death.defId, context.nowMs,
-      { targetKind }, spritePrefix, impactAngle,
-    );
-  }
+  const presentation = deathPresentation(death, trackedTarget);
+  context.vfx.spawnBloodDeath({ x, y, groundHeight, defId: death.defId, nowMs: context.nowMs });
+  spawnDeathPresentation({ death, context, x, y, groundHeight, impactAngle, ...presentation });
   resolveHitAgainstPending(context.pendingSwings, x, y);
+}
+
+function deathPresentation(death: DeathVisualEvent, trackedTarget: TrackedHealth | undefined) {
+  const targetKind = death.targetKind ?? (trackedTarget ? "enemy" : undefined);
+  return { targetKind, spritePrefix: targetKind === "player" ? playerSkinFor(death.id, death.skin) : undefined };
+}
+
+interface DeathPresentationRequest {
+  readonly death: DeathVisualEvent;
+  readonly context: DamageVfxContext;
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight: number;
+  readonly impactAngle: number | undefined;
+  readonly targetKind: "player" | "enemy" | undefined;
+  readonly spritePrefix: string | undefined;
+}
+
+function spawnDeathPresentation(request: DeathPresentationRequest): void {
+  const { death, context, x, y, groundHeight, impactAngle, targetKind, spritePrefix } = request;
+  if (death.id === context.selfId) return spawnOwnDeath({ death, context, x, y, groundHeight, impactAngle, spritePrefix });
+  if (targetKind !== undefined) context.vfx.spawnKillMoment({ x, y, groundHeight, defId: death.defId, nowMs: context.nowMs, appearance: { targetKind }, spritePrefix, impactAngle });
+}
+
+function spawnOwnDeath(request: Omit<DeathPresentationRequest, "targetKind">): void {
+  const { death, context, x, y, groundHeight, impactAngle, spritePrefix } = request;
+  context.vfx.spawnDeathGore({ x, y, groundHeight, defId: death.defId, nowMs: context.nowMs, appearance: { targetKind: "player" }, spritePrefix: spritePrefix ?? playerSkinFor(death.id, death.skin), impactAngle });
+  context.vfx.onOwnDeath(context.nowMs);
 }
 
 function removeMissingHealth(context: DamageVfxContext): void {
@@ -104,18 +113,24 @@ function removeMissingHealth(context: DamageVfxContext): void {
   }
 }
 
-export function syncDamageVfx(
-  tracked: Map<string, TrackedHealth>,
-  seen: Set<string>,
-  world: GroundReader,
-  vfx: VfxSystem,
-  players: readonly PlayerEntityView[],
-  monsters: readonly MonsterEntityView[],
-  pendingSwings: Map<string, PendingSwing>,
-  selfId: string,
-  nowMs: number,
-  deaths: readonly DeathVisualEvent[] = [],
-): void {
+export interface DamageVfxSyncRequest {
+  readonly tracked: Map<string, TrackedHealth>;
+  readonly seen: Set<string>;
+  readonly world: GroundReader;
+  readonly vfx: VfxSystem;
+  readonly players: readonly PlayerEntityView[];
+  readonly monsters: readonly MonsterEntityView[];
+  readonly pendingSwings: Map<string, PendingSwing>;
+  readonly selfId: string;
+  readonly nowMs: number;
+  readonly deaths?: readonly DeathVisualEvent[];
+}
+
+type LegacyDamageVfxArgs = [Map<string, TrackedHealth>, Set<string>, GroundReader, VfxSystem, readonly PlayerEntityView[], readonly MonsterEntityView[], Map<string, PendingSwing>, string, number, ReadonlyArray<DeathVisualEvent>?];
+
+export function syncDamageVfx(...args: [DamageVfxSyncRequest] | LegacyDamageVfxArgs): void {
+  const request = normalizeDamageVfxRequest(args);
+  const { tracked, seen, world, vfx, players, monsters, pendingSwings, selfId, nowMs, deaths = [] } = request;
   const context: DamageVfxContext = {
     tracked,
     seen,
@@ -130,4 +145,11 @@ export function syncDamageVfx(
   trackViews(monsters, context);
   for (const death of deaths) spawnDeathVfx(death, context);
   removeMissingHealth(context);
+}
+
+function normalizeDamageVfxRequest(args: [DamageVfxSyncRequest] | LegacyDamageVfxArgs): DamageVfxSyncRequest {
+  const [first] = args;
+  if ("tracked" in first) return first;
+  const [tracked, seen, world, vfx, players, monsters, pendingSwings, selfId, nowMs, deaths] = args as LegacyDamageVfxArgs;
+  return { tracked, seen, world, vfx, players, monsters, pendingSwings, selfId, nowMs, ...(deaths === undefined ? {} : { deaths }) };
 }

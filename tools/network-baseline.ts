@@ -296,68 +296,60 @@ class ScriptedClient {
     decodedAt: number,
   ): void {
     if (!this.world) return;
-    if (message.events.some((event) => event.t === "teleported")) {
-      this.prediction.reset();
-      this.correction.reset(true);
-    }
+    this.resetForTeleport(message);
     const predictedBefore = this.body ? { ...this.body } : null;
+    this.applySnapshotState(message);
+    this.reconcilePrediction(message);
+    this.recordCorrection(predictedBefore, decodedAt);
+    this.latestServerTick = message.tick;
+    this.recordBaseline(message);
+    this.requestResync(message);
+    this.recordAcknowledgements(message, decodedAt);
+  }
+
+  private resetForTeleport(message: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>): void {
+    if (!message.events.some((event) => event.t === "teleported")) return;
+    this.prediction.reset();
+    this.correction.reset(true);
+  }
+
+  private applySnapshotState(message: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>): void {
     this.resources.stamina = message.self.stamina ?? this.resources.stamina;
     this.resources.maxStamina = message.self.maxStamina ?? this.resources.maxStamina;
     this.resources.blocking = message.self.blocking ?? false;
     this.weapon = message.weapon;
-    this.body = {
-      x: message.self.x,
-      y: message.self.y,
-      z: message.self.z,
-      zVel: message.self.zVel,
-      grounded: message.self.grounded,
-      coyoteTime: message.self.coyoteTime,
-      jumpBuffer: message.self.jumpBuffer,
-      jumpHeld: message.self.jumpHeld,
-      fallStart: message.self.z,
-      kx: message.self.kx,
-      ky: message.self.ky,
-    };
-    this.prediction.reconcile(
-      this.world,
-      this.body,
-      message.lastSeq,
-      message.tick,
-      this.resources,
-      message.weapon !== null,
-    );
-    if (predictedBefore) {
-      this.correction.record(predictedBefore, this.body);
-      const error = this.correction.lastError;
-      correctionSamples.push({
-        client: this.label,
-        phase: currentPhase,
-        milliseconds: decodedAt,
-        error,
-        kind: error >= CORRECTION_HARD_THRESHOLD
-          ? "hard"
-          : error >= CORRECTION_SMOOTH_THRESHOLD
-            ? "smooth"
-            : "none",
-      });
-      this.correction.consumeHardSnap();
-    }
-    this.latestServerTick = message.tick;
-    if (message.type === "snapshotDelta" && message.baseline) {
-      this.baselineCount++;
-      if (currentPhase === "lossRecovery" || currentPhase === "reconnect") {
-        this.recoveryBaselineCount++;
-      }
-    }
-    if (
-      message.type === "snapshotDelta" &&
-      !message.baseline &&
-      this.ignoreNextIncrementalDelta
-    ) {
-      this.ignoreNextIncrementalDelta = false;
-      this.ignoredDeltaCount++;
-      this.send({ type: "snapshotResync" }, false);
-    }
+    this.body = { ...message.self, fallStart: message.self.z };
+  }
+
+  private reconcilePrediction(message: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>): void {
+    this.prediction.reconcile(this.world!, this.body!, message.lastSeq, message.tick, this.resources, message.weapon !== null);
+  }
+
+  private recordCorrection(predictedBefore: BodyState | null, decodedAt: number): void {
+    if (!predictedBefore || !this.body) return;
+    this.correction.record(predictedBefore, this.body);
+    const error = this.correction.lastError;
+    correctionSamples.push({ client: this.label, phase: currentPhase, milliseconds: decodedAt, error, kind: correctionKind(error) });
+    this.correction.consumeHardSnap();
+  }
+
+  private recordBaseline(message: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>): void {
+    if (message.type !== "snapshotDelta" || !message.baseline) return;
+    this.baselineCount++;
+    if (currentPhase === "lossRecovery" || currentPhase === "reconnect") this.recoveryBaselineCount++;
+  }
+
+  private requestResync(message: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>): void {
+    if (message.type !== "snapshotDelta" || message.baseline || !this.ignoreNextIncrementalDelta) return;
+    this.ignoreNextIncrementalDelta = false;
+    this.ignoredDeltaCount++;
+    this.send({ type: "snapshotResync" }, false);
+  }
+
+  private recordAcknowledgements(
+    message: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>,
+    decodedAt: number,
+  ): void {
     for (const [seq, pending] of this.pendingAcks) {
       if (seq > message.lastSeq) continue;
       ackSamples.push({
@@ -371,6 +363,11 @@ class ScriptedClient {
       this.pendingAcks.delete(seq);
     }
   }
+}
+
+function correctionKind(error: number): CorrectionSample["kind"] {
+  if (error >= CORRECTION_HARD_THRESHOLD) return "hard";
+  return error >= CORRECTION_SMOOTH_THRESHOLD ? "smooth" : "none";
 }
 
 function percentile(values: number[], percentileValue: number): number {
@@ -464,15 +461,17 @@ const IDLE_INPUT: MoveInput = {
   block: false,
 };
 
-async function sampleClientsUntil(
-  server: RunningServer,
-  clients: ScriptedClient[],
-  targetTick: number,
-  inputFor: (client: ScriptedClient) => MoveInput = () => IDLE_INPUT,
-): Promise<void> {
-  while (server.sims.sandbox.tick < targetTick) {
-    for (const client of clients) client.sampleInput(inputFor(client));
-    await waitForTick(server, server.sims.sandbox.tick + 1);
+interface ClientSamplingOptions {
+  server: RunningServer;
+  clients: ScriptedClient[];
+  targetTick: number;
+  inputFor?: (client: ScriptedClient) => MoveInput;
+}
+
+async function sampleClientsUntil(options: ClientSamplingOptions): Promise<void> {
+  while (options.server.sims.sandbox.tick < options.targetTick) {
+    for (const client of options.clients) client.sampleInput(options.inputFor?.(client) ?? IDLE_INPUT);
+    await waitForTick(options.server, options.server.sims.sandbox.tick + 1);
   }
 }
 
@@ -564,29 +563,29 @@ async function run(): Promise<void> {
     const measuredStartTick = server.sims.sandbox.tick;
 
     await phase(server, "idle", async (startTick) => {
-      await sampleClientsUntil(server, clients, startTick + PHASE_TICKS.idle);
+      await sampleClientsUntil({ server, clients, targetTick: startTick + PHASE_TICKS.idle });
     });
 
     await phase(server, "movement", async (startTick) => {
       const primary = clients[0];
       if (!primary) throw new Error("missing movement client");
-      await sampleClientsUntil(server, clients, startTick + 5, (client) =>
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 5, inputFor: (client) =>
         client === primary
           ? { moveX: 1, moveY: 0, jump: false, run: true, block: false }
-          : IDLE_INPUT);
-      await sampleClientsUntil(server, clients, startTick + 10, (client) =>
+          : IDLE_INPUT });
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 10, inputFor: (client) =>
         client === primary
           ? { moveX: 0, moveY: 1, jump: false, run: false, block: false }
-          : IDLE_INPUT);
-      await sampleClientsUntil(server, clients, startTick + 11, (client) =>
+          : IDLE_INPUT });
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 11, inputFor: (client) =>
         client === primary
           ? { moveX: -1, moveY: 0, jump: true, run: false, block: false }
-          : IDLE_INPUT);
-      await sampleClientsUntil(server, clients, startTick + 15, (client) =>
+          : IDLE_INPUT });
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 15, inputFor: (client) =>
         client === primary
           ? { moveX: -1, moveY: 0, jump: false, run: false, block: false }
-          : IDLE_INPUT);
-      await sampleClientsUntil(server, clients, startTick + PHASE_TICKS.movement);
+          : IDLE_INPUT });
+      await sampleClientsUntil({ server, clients, targetTick: startTick + PHASE_TICKS.movement });
     });
 
     await phase(server, "gameplay", async (startTick) => {
@@ -603,13 +602,13 @@ async function run(): Promise<void> {
         x: firstSpawn.x + 1,
         y: firstSpawn.y,
       }, false);
-      await sampleClientsUntil(server, clients, startTick + 3);
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 3 });
       first.send({ type: "attack", dirX: 1, dirY: 0 }, false);
       second.send({ type: "throwTorch", dirX: 0, dirY: 1 }, false);
-      await sampleClientsUntil(server, clients, startTick + 10);
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 10 });
       first.send({ type: "pickup" }, false);
       first.send({ type: "drop", item: "torch" }, false);
-      await sampleClientsUntil(server, clients, startTick + PHASE_TICKS.gameplay);
+      await sampleClientsUntil({ server, clients, targetTick: startTick + PHASE_TICKS.gameplay });
     });
 
     await phase(server, "aoiChunkCrossing", async (startTick) => {
@@ -622,35 +621,27 @@ async function run(): Promise<void> {
         x: spawn.x + AOI_RADIUS * 3,
         y: spawn.y,
       }, false);
-      await sampleClientsUntil(server, clients, startTick + 6);
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 6 });
       third.send({
         type: "debug",
         op: "teleport",
         x: spawn.x + CHUNK_SIZE + 1,
         y: spawn.y + CHUNK_SIZE + 1,
       }, false);
-      await sampleClientsUntil(server, clients, startTick + 12);
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 12 });
       third.send({ type: "debug", op: "teleport", x: spawn.x, y: spawn.y }, false);
-      await sampleClientsUntil(
-        server,
-        clients,
-        startTick + PHASE_TICKS.aoiChunkCrossing,
-      );
+      await sampleClientsUntil({ server, clients, targetTick: startTick + PHASE_TICKS.aoiChunkCrossing });
     });
 
     await phase(server, "lossRecovery", async (startTick) => {
       const first = clients[0];
       if (!first) throw new Error("missing recovery client");
       first.ignoreNextIncrementalDelta = true;
-      await sampleClientsUntil(server, clients, startTick + 5, (client) =>
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 5, inputFor: (client) =>
         client === first
           ? { moveX: 1, moveY: 0, jump: false, run: false, block: false }
-          : IDLE_INPUT);
-      await sampleClientsUntil(
-        server,
-        clients,
-        startTick + PHASE_TICKS.lossRecovery,
-      );
+          : IDLE_INPUT });
+      await sampleClientsUntil({ server, clients, targetTick: startTick + PHASE_TICKS.lossRecovery });
     });
 
     await phase(server, "reconnect", async (startTick) => {
@@ -658,11 +649,7 @@ async function run(): Promise<void> {
       const welcome = second?.welcome;
       if (!second || !welcome) throw new Error("missing reconnect client");
       await second.close();
-      await sampleClientsUntil(
-        server,
-        clients.filter((client) => client !== second),
-        startTick + 4,
-      );
+      await sampleClientsUntil({ server, clients: clients.filter((client) => client !== second), targetTick: startTick + 4 });
       const replacement = new ScriptedClient(
         second.label,
         url,
@@ -673,15 +660,11 @@ async function run(): Promise<void> {
       while (replacement.latestServerTick === 0) {
         await new Promise((resolvePromise) => setTimeout(resolvePromise, 2));
       }
-      await sampleClientsUntil(server, clients, startTick + 10, (client) =>
+      await sampleClientsUntil({ server, clients, targetTick: startTick + 10, inputFor: (client) =>
         client === replacement
           ? { moveX: 0, moveY: -1, jump: false, run: false, block: false }
-          : IDLE_INPUT);
-      await sampleClientsUntil(
-        server,
-        clients,
-        startTick + PHASE_TICKS.reconnect,
-      );
+          : IDLE_INPUT });
+      await sampleClientsUntil({ server, clients, targetTick: startTick + PHASE_TICKS.reconnect });
     });
 
     const measuredEndTick = server.sims.sandbox.tick;

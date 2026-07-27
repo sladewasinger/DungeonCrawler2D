@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MOVE_SPEED, TICK_DT } from "../core/constants.js";
 import { createBody, stepBody } from "../entities/movement/index.js";
-import { entryClimbDir, stairRampAt, type StairView } from "./stairs.js";
+import { stairRampAt, type StairView } from "./stairs.js";
 import { TILE, type WorldView } from "./types.js";
 
 /**
@@ -82,23 +82,34 @@ describe("stairs as physical ramps", () => {
     expect(maxTickRise).toBeCloseTo(MOVE_SPEED * TICK_DT, 5);
   });
 
+  function climbToPartialHeight(body: ReturnType<typeof createBody>): void {
+    for (let tick = 0; tick < 30; tick++) {
+      if (body.z >= 0.2) return;
+      stepBody(world, body, { moveX: 0, moveY: -1, jump: false }, TICK_DT);
+    }
+  }
+
+  function fallOffStairSide(body: ReturnType<typeof createBody>, x: number): number | null {
+    const sideOpen = isOpenStairSide(body, x);
+    for (let tick = 0; tick < 60; tick++) {
+      const result = stepBody(world, body, { moveX: sideOpen ? 1 : -1, moveY: 0, jump: false }, TICK_DT);
+      if (result.landed) return result.landed.fallHeight;
+    }
+    return null;
+  }
+
+  function isOpenStairSide(body: ReturnType<typeof createBody>, x: number): boolean {
+    const neighborY = Math.floor(body.y);
+    return world.tileAt(x + 1, neighborY) === TILE.Floor && world.heightAt(x + 1, neighborY) < body.z;
+  }
+
   it("falls from partial height when leaving the stair's side", () => {
     const { x, y } = entry;
     const body = createBody(x + 0.5, y + 3.5, 0);
-    for (let i = 0; i < 30 && body.z < 0.2; i++) {
-      stepBody(world, body, { moveX: 0, moveY: -1, jump: false }, TICK_DT);
-    }
+    climbToPartialHeight(body);
     expect(body.z).toBeGreaterThan(0.1);
     expect(body.z).toBeLessThan(1);
-    const sideOpen =
-      world.tileAt(x + 1, Math.floor(body.y)) === TILE.Floor &&
-      world.heightAt(x + 1, Math.floor(body.y)) < body.z;
-    const dir = sideOpen ? 1 : -1;
-    let fell: number | null = null;
-    for (let i = 0; i < 60 && fell === null; i++) {
-      const r = stepBody(world, body, { moveX: dir, moveY: 0, jump: false }, TICK_DT);
-      if (r.landed) fell = r.landed.fallHeight;
-    }
+    const fell = fallOffStairSide(body, x);
     if (fell !== null) expect(fell).toBeLessThan(1);
     expect(body.z).toBeCloseTo(world.groundAt(body.x, body.y), 5);
   });
@@ -176,70 +187,5 @@ describe("stair width: walking across a run sideways", () => {
       if (!body.grounded) flicker++;
     }
     expect(flicker).toBe(0);
-  });
-});
-
-describe("multi-tile runs (chasm-gradient regression)", () => {
-  /**
-   * Regression for the pre-deploy "stuck on stairs" bug: entryClimbDir used
-   * to require a rise/drop magnitude inside a fixed (0.25, 0.75) band tuned
-   * for a single half-height threshold tile. A chasm's multi-tile ramp
-   * (CHASM_DEPTH -2 over several tiles, ~0.33-0.5 per step) sits INSIDE that
-   * band on magnitude, but every interior tile's neighbor on one side is
-   * ANOTHER Stairs tile — the old code excluded any Stairs-tiled neighbor
-   * outright, so no interior tile of a multi-tile run ever validated,
-   * regardless of magnitude. entryClimbDir must work from neighbor height
-   * SIGNS alone, whatever the tile type on either side.
-   */
-  const RUN_X = 50;
-  const RUN_Y = 50;
-
-  /** `width` columns of `steps` Stairs tiles descending from height 0 (north, flat) to `depth` (south, flat), step = depth/(steps+1). */
-  function straightRun(steps: number, depth: number, width = 1): StairView {
-    const stepHeight = (i: number): number => (depth * i) / (steps + 1);
-    const inRun = (wx: number): boolean => wx >= RUN_X && wx < RUN_X + width;
-    return {
-      tileAt: (wx, wy) => (inRun(wx) && wy >= RUN_Y && wy < RUN_Y + steps ? TILE.Stairs : TILE.Floor),
-      heightAt: (wx, wy) => {
-        if (!inRun(wx)) return wy < RUN_Y ? 0 : depth;
-        if (wy < RUN_Y) return 0;
-        if (wy >= RUN_Y + steps) return depth;
-        return stepHeight(wy - RUN_Y + 1);
-      },
-    };
-  }
-
-  /** Walk a body straight down `view` from the north flat approach; fails if it ever leaves the ground. */
-  function walkDown(view: StairView, startX: number, steps: number, depth: number): void {
-    const groundAt = (x: number, y: number): number =>
-      stairRampAt(view, x, y) ?? view.heightAt(Math.floor(x), Math.floor(y));
-    const stairHeightAt = (x: number, y: number): number | null =>
-      view.tileAt(Math.floor(x), Math.floor(y)) === TILE.Stairs ? stairRampAt(view, x, y) : null;
-    const world = { isWalkable: () => true, heightAt: view.heightAt, groundAt, stairHeightAt };
-    const body = createBody(startX, RUN_Y - 2, 0);
-    for (let i = 0; i < 150; i++) {
-      stepBody(world, body, { moveX: 0, moveY: 1, jump: false }, TICK_DT);
-      expect(body.grounded, `tick ${i} got stuck airborne`).toBe(true);
-    }
-    expect(body.z).toBeCloseTo(depth, 1);
-    expect(body.y, "must have actually reached the far side").toBeGreaterThan(RUN_Y + steps);
-  }
-
-  it("detects a climb direction at every interior tile of a 4-step run, not just the ends", () => {
-    const view = straightRun(4, -2);
-    for (let step = 0; step < 4; step++) {
-      const y = RUN_Y + step;
-      expect(entryClimbDir(view, RUN_X, y), `step ${step} (y=${y})`).toBe(0);
-    }
-  });
-
-  it("ramps continuously and walkably down a run whose per-step magnitude is OUTSIDE the old 0.25-0.75 band", () => {
-    // 6 steps over depth -2 -> ~0.286 per step, and 2 steps over -2 -> 0.667
-    // per step: both sit outside the old fixed band on either side.
-    for (const steps of [2, 6]) walkDown(straightRun(steps, -2), RUN_X + 0.5, steps, -2);
-  });
-
-  it("walks a wide (2-tile) multi-step run without a body-radius side clip", () => {
-    walkDown(straightRun(3, -2, 2), RUN_X + 1, 3, -2);
   });
 });

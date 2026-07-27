@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChatPanelModel } from "../../ui/chat/controller.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 
-function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
+export function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
   return {
     playerId: "self",
     hp: 20,
@@ -46,8 +46,19 @@ const CONTACTS: never[] = [];
 const COMPASS = 0;
 const STAIRWAY = null;
 
-function snapshotOf(src: HudSnapshotSource, selectedSlot = null as number | null, fps = FPS, bodyPos = BODY_POS) {
-  return buildHudSnapshot(src, selectedSlot, null, null, null, fps, bodyPos, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
+interface SnapshotTestOptions {
+  readonly selectedSlot?: number | null;
+  readonly fps?: number;
+  readonly bodyPos?: typeof BODY_POS;
+}
+
+export function snapshotOf(src: HudSnapshotSource, options: SnapshotTestOptions = {}) {
+  const { selectedSlot = null, fps = FPS, bodyPos = BODY_POS } = options;
+  return buildHudSnapshot({
+    src, selectedHotbarSlot: selectedSlot, armedThrowableSlot: null, interactionPrompt: null,
+    touch: null, fps, bodyPos, chatModel: CHAT_MODEL, contacts: CONTACTS,
+    compassBearingDeg: COMPASS, stairway: STAIRWAY,
+  });
 }
 
 describe("buildHudSnapshot", () => {
@@ -69,12 +80,12 @@ describe("buildHudSnapshot", () => {
 
   it("highlights the explicitly selected hotbar slot", () => {
     const hotbar = [null, "sword", null, null, null, null, null, null, null];
-    const snap = snapshotOf(source({ hotbar, weapon: "sword" }), 1);
+    const snap = snapshotOf(source({ hotbar, weapon: "sword" }), { selectedSlot: 1 });
     expect(snap.selectedSlot).toBe(1);
   });
 
   it("publishes authoritative stamina/blocking and matching action help", () => {
-    const snap = snapshotOf(source({ hotbar: ["bandage", null, null, null, null, null, null, null, null], weapon: "sword", stamina: 42, blocking: true }), 0);
+    const snap = snapshotOf(source({ hotbar: ["bandage", null, null, null, null, null, null, null, null], weapon: "sword", stamina: 42, blocking: true }), { selectedSlot: 0 });
     expect(snap.stamina).toEqual({ stamina: 42, maxStamina: 100, blocking: true });
     expect(snap.actionHints.map(({ action }) => action)).toEqual(["use", "attack", "block"]);
   });
@@ -119,7 +130,7 @@ describe("buildHudSnapshot", () => {
       lines: [{ channel: "global", author: "server", text: "welcome" }],
     };
     const contacts = [{ name: "Wren", online: true }];
-    const snap = buildHudSnapshot(source(), null, null, null, null, FPS, BODY_POS, chatModel, contacts, COMPASS, STAIRWAY);
+    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: null, armedThrowableSlot: null, interactionPrompt: null, touch: null, fps: FPS, bodyPos: BODY_POS, chatModel, contacts, compassBearingDeg: COMPASS, stairway: STAIRWAY });
     expect(snap.chatModel).toBe(chatModel);
     expect(snap.contacts).toEqual(contacts);
   });
@@ -127,7 +138,7 @@ describe("buildHudSnapshot", () => {
   it("passes through armedThrowableSlot, interactionPrompt, and touch unchanged", () => {
     const prompt = { key: "E", label: "interact" };
     const touch = { stick: null, buttons: { attack: false, jump: false, interact: false } };
-    const snap = buildHudSnapshot(source(), 3, 3, prompt, touch, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, STAIRWAY);
+    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: 3, armedThrowableSlot: 3, interactionPrompt: prompt, touch, fps: FPS, bodyPos: BODY_POS, chatModel: CHAT_MODEL, contacts: CONTACTS, compassBearingDeg: COMPASS, stairway: STAIRWAY });
     expect(snap.armedThrowableSlot).toBe(3);
     expect(snap.interactionPrompt).toBe(prompt);
     expect(snap.touch).toBe(touch);
@@ -135,92 +146,19 @@ describe("buildHudSnapshot", () => {
 
   it("passes the stairway tick straight through for the compass widget (LANE W)", () => {
     const tick = { screenBearingDeg: 135, near: true };
-    const snap = buildHudSnapshot(source(), null, null, null, null, FPS, BODY_POS, CHAT_MODEL, CONTACTS, COMPASS, tick);
+    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: null, armedThrowableSlot: null, interactionPrompt: null, touch: null, fps: FPS, bodyPos: BODY_POS, chatModel: CHAT_MODEL, contacts: CONTACTS, compassBearingDeg: COMPASS, stairway: tick });
     expect(snap.stairway).toBe(tick);
     expect(snapshotOf(source()).stairway).toBeNull();
   });
 
   it("passes fps straight through for the top-right indicator's own smoothing", () => {
-    const snap = snapshotOf(source(), null, 47);
+    const snap = snapshotOf(source(), { fps: 47 });
     expect(snap.fps).toBe(47);
   });
 
   it("rounds the predicted body position into whole-tile x/y and one-decimal z", () => {
-    const snap = snapshotOf(source(), null, FPS, { x: 128.4, y: -63.6, z: 2.34 });
+    const snap = snapshotOf(source(), { bodyPos: { x: 128.4, y: -63.6, z: 2.34 } });
     expect(snap.coords).toEqual({ x: 128, y: -64, z: 2.3 });
   });
 
-  it("builds one inventory row per InvStack, tagging its hotbar-bound slot (or null when unbound)", () => {
-    const hotbar = ["sword", null, null, null, null, null, null, null, null];
-    const inventory = [
-      { item: "sword", qty: 1 },
-      { item: "rag", qty: 6 },
-    ];
-    const snap = snapshotOf(source({ hotbar, inventory }));
-    expect(snap.inventory).toEqual([
-      { itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, canUse: false, canHotbar: false, flavor: expect.any(String) },
-      { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, canUse: false, canHotbar: false, flavor: expect.any(String) },
-    ]);
-  });
-
-  it("builds the craft window's have/need rows from live inventory, gated on nearby", () => {
-    const snap = snapshotOf(source({ inventory: [{ item: "rag", qty: 6 }], craftTableNearby: true }));
-    expect(snap.craft.nearby).toBe(true);
-    const bandage = snap.craft.recipes.find((r) => r.recipeId === "bandage");
-    expect(bandage?.craftable).toBe(true);
-    expect(snap.craft.recipes.length).toBeGreaterThan(0);
-  });
-
-  it("reports the craft window as not nearby when no table is in range", () => {
-    const snap = snapshotOf(source({ craftTableNearby: false }));
-    expect(snap.craft.nearby).toBe(false);
-  });
-
-  it("builds the stash window's two columns from inventory and the live stash", () => {
-    const inventory = [{ item: "sword", qty: 1 }];
-    const stash = [{ item: "bandage", qty: 2 }];
-    const snap = snapshotOf(source({ inventory, stash, stashNearby: true }));
-    expect(snap.stash).toEqual({
-      kind: "personal",
-      nearby: true,
-      inventory: [{ index: 0, itemId: "sword", name: "Rusty Sword", qty: 1 }],
-      entries: [{ index: 0, itemId: "bandage", name: "Bandage", qty: 2 }],
-    });
-  });
-
-  it("treats a null stash (no server event yet) as an empty entries column", () => {
-    const snap = snapshotOf(source({ stash: null, stashNearby: true }));
-    expect(snap.stash.entries).toEqual([]);
-  });
-
-  it("marks death-loot contents so stash panels disable deposits", () => {
-    const snap = snapshotOf(source({
-      stash: [{ item: "rag", qty: 3 }],
-      stashNearby: true,
-      stashKind: "loot",
-    }));
-    expect(snap.stash.kind).toBe("loot");
-  });
-
-  it("passes the latest toast straight through", () => {
-    const toast = { msg: "Crafted bandage", until: 12345 };
-    const snap = snapshotOf(source({ lastToast: toast }));
-    expect(snap.lastToast).toBe(toast);
-  });
-
-  it("passes the full toast queue and seed straight through", () => {
-    const toasts = [{ msg: "Missing rag", until: 999 }];
-    const snap = snapshotOf(source({ toasts, seed: "e2e-world" }));
-    expect(snap.toasts).toEqual(toasts);
-    expect(snap.seed).toBe("e2e-world");
-  });
-
-  it("defaults seed to null when the connection carries none", () => {
-    expect(snapshotOf(source()).seed).toBeNull();
-  });
-
-  it("maps xp/level/xpForNext straight through to the xp-bar widget's data", () => {
-    const snap = snapshotOf(source({ xp: 220, level: 3, xpForNext: 80 }));
-    expect(snap.xp).toEqual({ xp: 220, level: 3, xpForNext: 80 });
-  });
 });

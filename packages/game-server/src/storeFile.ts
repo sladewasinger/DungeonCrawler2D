@@ -1,22 +1,20 @@
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   renameSync,
-  rmSync,
-  writeFileSync,
 } from "node:fs";
-import { dirname } from "node:path";
 import type { StoredPlayer } from "./store.js";
+import { storedPlayer } from "./storeFilePlayer.js";
+import { writePlayerStoreFile } from "./storeFileWrite.js";
 import {
   currentStoreSchema,
   legacyStoreSchema,
   versionOneStoreSchema,
   versionTwoStoreSchema,
-  type StoredFilePlayer,
 } from "./storeFileSchemas.js";
 
 export const PLAYER_STORE_VERSION = 3;
+const SUPPORTED_STORE_VERSIONS = new Set<number | undefined>([undefined, 1, 2, PLAYER_STORE_VERSION]);
 
 export interface PlayerStoreFileData {
   nextSlot: number;
@@ -69,75 +67,13 @@ const quarantine = (file: string, reason: unknown): void => {
   console.error(`[store] invalid save moved to ${destination}:`, reason);
 };
 
-const descentState = (
-  player: StoredFilePlayer,
-): Pick<StoredPlayer, "activeFloor" | "descentComplete"> => {
-  if (
-    "activeFloor" in player
-    && typeof player.activeFloor === "number"
-    && "descentComplete" in player
-    && typeof player.descentComplete === "boolean"
-  ) {
-    return {
-      activeFloor: player.activeFloor,
-      descentComplete: player.descentComplete,
-    };
-  }
-  return { activeFloor: 1, descentComplete: false };
-};
-
-const profileState = (
-  player: StoredFilePlayer,
-): Pick<
-  StoredPlayer,
-  "localProfileId" | "craftedRecipes" | "mutedProfileIds" | "blockedProfileIds"
-> => {
-  if ("localProfileId" in player && typeof player.localProfileId === "string") {
-    return {
-      localProfileId: player.localProfileId,
-      craftedRecipes: player.craftedRecipes,
-      mutedProfileIds: player.mutedProfileIds,
-      blockedProfileIds: player.blockedProfileIds,
-    };
-  }
-  return {
-    localProfileId: `local-profile-${player.slot}`,
-    craftedRecipes: {},
-    mutedProfileIds: [],
-    blockedProfileIds: [],
-  };
-};
-
 const decode = (text: string): LoadedPlayerStore => {
   const raw: unknown = JSON.parse(text);
   const version = declaredVersion(raw);
-  if (version !== undefined && version !== 1 && version !== 2 && version !== PLAYER_STORE_VERSION) {
-    throw new RangeError(`Unsupported player store version ${String(version)}`);
-  }
-  const parsed = version === undefined
-    ? legacyStoreSchema.parse(raw)
-    : version === 1
-      ? versionOneStoreSchema.parse(raw)
-      : version === 2
-        ? versionTwoStoreSchema.parse(raw)
-        : currentStoreSchema.parse(raw);
-  const players = Object.fromEntries(
-    Object.entries(parsed.players).map(([id, player]) => [id, {
-      slot: player.slot,
-      name: player.name,
-      stash: player.stash,
-      contacts: player.contacts ?? [],
-      ...(player.hotbar === undefined ? {} : { hotbar: player.hotbar }),
-      ...(player.starterHotbarSchema === undefined
-        ? {}
-        : { starterHotbarSchema: player.starterHotbarSchema }),
-      ...(player.xp === undefined ? {} : { xp: player.xp }),
-      ...(player.level === undefined ? {} : { level: player.level }),
-      ...(player.deepestFloor === undefined ? {} : { deepestFloor: player.deepestFloor }),
-      ...descentState(player),
-      ...profileState(player),
-    } satisfies StoredPlayer]),
-  );
+  assertSupportedVersion(version);
+  const parsed = parseVersionedStore(raw, version);
+  const players = Object.fromEntries(Object.entries(parsed.players)
+    .map(([id, player]) => [id, storedPlayer(player)]));
   return {
     nextSlot: parsed.nextSlot,
     players,
@@ -145,14 +81,34 @@ const decode = (text: string): LoadedPlayerStore => {
   };
 };
 
+function assertSupportedVersion(version: number | undefined): void {
+  if (!SUPPORTED_STORE_VERSIONS.has(version)) {
+    throw new RangeError(`Unsupported player store version ${String(version)}`);
+  }
+}
+
+function parseVersionedStore(raw: unknown, version: number | undefined) {
+  if (version === undefined) return legacyStoreSchema.parse(raw);
+  if (version === 1) return versionOneStoreSchema.parse(raw);
+  if (version === 2) return versionTwoStoreSchema.parse(raw);
+  return currentStoreSchema.parse(raw);
+}
+
 export const loadPlayerStoreFile = (file: string): LoadedPlayerStore | null => {
-  let text: string;
+  const text = readPlayerStoreText(file);
+  return text === null ? null : decodeOrQuarantine(file, text);
+};
+
+function readPlayerStoreText(file: string): string | null {
   try {
-    text = readFileSync(file, "utf8");
+    return readFileSync(file, "utf8");
   } catch (error) {
     if (nodeErrorCode(error) === "ENOENT") return null;
     throw error;
   }
+}
+
+function decodeOrQuarantine(file: string, text: string): LoadedPlayerStore | null {
   try {
     return validateSlots(decode(text));
   } catch (error) {
@@ -162,25 +118,5 @@ export const loadPlayerStoreFile = (file: string): LoadedPlayerStore | null => {
   }
 };
 
-export const savePlayerStoreFile = (
-  file: string,
-  data: PlayerStoreFileData,
-): void => {
-  const temporary = `${file}.${process.pid}.tmp`;
-  mkdirSync(dirname(file), { recursive: true });
-  try {
-    writeFileSync(
-      temporary,
-      JSON.stringify({
-        version: PLAYER_STORE_VERSION,
-        nextSlot: data.nextSlot,
-        players: data.players,
-      }),
-      { encoding: "utf8", mode: 0o600 },
-    );
-    renameSync(temporary, file);
-  } catch (error) {
-    rmSync(temporary, { force: true });
-    throw error;
-  }
-};
+export const savePlayerStoreFile = (file: string, data: PlayerStoreFileData): void =>
+  writePlayerStoreFile(file, data, PLAYER_STORE_VERSION);

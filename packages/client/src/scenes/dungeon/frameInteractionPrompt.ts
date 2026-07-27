@@ -17,13 +17,22 @@ function nearestDownedPlayer(
   for (const player of buckets.players) {
     if (!player.snap.downed) continue;
     const distance = Math.hypot(player.x - x, player.y - y);
-    if (distance < bestDistance ||
-      (distance === bestDistance && (!best || player.id < best.id))) {
+    if (isNearerPlayer({ player, best, distance, bestDistance })) {
       best = { id: player.id };
       bestDistance = distance;
     }
   }
   return best;
+}
+
+function isNearerPlayer(input: {
+  readonly player: { readonly id: string };
+  readonly best: { readonly id: string } | undefined;
+  readonly distance: number;
+  readonly bestDistance: number;
+}): boolean {
+  const { player, best, distance, bestDistance } = input;
+  return distance < bestDistance || (distance === bestDistance && (!best || player.id < best.id));
 }
 
 function nearestPet(
@@ -53,13 +62,10 @@ export function resolveFrameInteractionPrompt(
 ): InteractionPrompt | null {
   if (!conn.world || !conn.body) return null;
   const { x, y } = conn.body;
-  return resolveInteractionPrompt(
-    conn.world,
-    x,
-    y,
-    buckets.pickupTargets,
-    nearestDownedPlayer(buckets, x, y),
-    nearestLootChest(conn) ?? undefined,
-    nearestPet(buckets, x, y),
-  );
+  return resolveInteractionPrompt({
+    world: conn.world, x, y, items: buckets.pickupTargets,
+    reviveTarget: nearestDownedPlayer(buckets, x, y),
+    lootChest: nearestLootChest(conn) ?? undefined,
+    pet: nearestPet(buckets, x, y),
+  });
 }

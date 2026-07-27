@@ -16,15 +16,22 @@ interface FloatingNumber {
   readonly spawnMs: number;
 }
 
+export interface DamageNumberInput {
+  readonly x: number;
+  readonly y: number;
+  readonly feedback: HealthFeedback;
+  readonly nowMs: number;
+}
+
 export class DamageNumberPool {
   private readonly active: FloatingNumber[] = [];
 
   constructor(private readonly scene: Phaser.Scene) {}
 
   /** Spawns one authoritative signed health change at a screen position. */
-  spawn(screenX: number, screenY: number, feedback: HealthFeedback, nowMs: number): void {
+  spawn({ x: screenX, y: screenY, feedback, nowMs }: DamageNumberInput): void {
     const text = this.scene.add
-      .text(screenX, screenY, feedback.label, uiTextStyle(FONT_SIZE_PX, feedback.color, 1, "emphasis"))
+      .text(screenX, screenY, feedback.label, uiTextStyle(FONT_SIZE_PX, feedback.color, { scale: 1, weight: "emphasis" }))
       .setOrigin(0.5, 1)
       .setDepth(COMBAT_TEXT_DEPTH);
     this.active.push({ text, startX: screenX, startY: screenY, spawnMs: nowMs });

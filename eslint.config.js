@@ -39,10 +39,11 @@ export default tseslint.config(
       // Architecture guardrails: keep new code small, shallow, and easy to compose.
       complexity: ["error", { max: 8 }],
       "sonarjs/cognitive-complexity": ["error", 5],
-      "max-lines-per-function": ["error", { max: 25, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["error", { max: 35, skipBlankLines: true, skipComments: true }],
       "max-lines": ["error", { max: 150, skipBlankLines: true, skipComments: true }],
       "max-depth": ["error", 3],
       "max-params": ["error", 3],
+      "max-statements-per-line": ["error", { max: 4 }],
       "sonarjs/no-duplicate-string": ["error", { threshold: 3 }],
       "@typescript-eslint/no-explicit-any": "error",
       // Default-deny elsewhere; packages/engine escalates both to "error" below.

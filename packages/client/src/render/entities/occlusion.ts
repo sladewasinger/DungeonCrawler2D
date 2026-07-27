@@ -1,5 +1,5 @@
 // Occlusion silhouette: terrain whose art climbs north of its own base row (see
-// render/terrain/chunkVisual.ts's occluder strips) can paint over an entity
+// terrain geometry can paint over an entity
 // standing near it. This module detects that case and keeps a flat-tint duplicate
 // of the sprite drawn above every layer that could be covering it, so a player never
 // loses track of where they are (docs/ROADMAP.md: "Walk-behind + occlusion outline").
@@ -38,9 +38,7 @@ const GHOST_TINT = 0xe4e4e4;
 const GHOST_ALPHA = 0.42;
 /**
  * Search ceiling for how many rows ahead a tall occluder could still reach: mirrors
- * `render/terrain/ownFace.ts`'s `MAX_FACE_ROWS` (not imported directly — that module
- * lives in the terrain layer, which itself depends on `render/view`, and this file
- * sits beside `render/view`'s own consumers; duplicating the one constant keeps the
+ * the terrain renderer's maximum face-row budget (not imported directly to keep the
  * dependency direction one-way). No drawn cap/face ever climbs higher than that
  * budget, so no cell taller than it could occlude further north than this many rows
  * regardless — see docs/ASSUMPTIONS.md row 320. Also bounds the loop when `z` is very
@@ -63,17 +61,25 @@ export interface TerrainOcclusion {
   readonly screenY: number;
 }
 
+export interface TerrainOcclusionInput {
+  readonly world: WorldView;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly orientation: ViewOrientation;
+}
+
 /** Finds the foremost terrain face that actually crosses the entity's row. The returned
  * screen-space seam is used to crop the ghost duplicate to the exact hidden portion;
  * this is deliberately richer than a boolean because an all-or-nothing duplicate makes
  * an unobscured head read as a ghost as well. */
-export function terrainOcclusionAhead(
-  world: WorldView,
-  x: number,
-  y: number,
-  z: number,
-  orientation: ViewOrientation,
-): TerrainOcclusion | null {
+export function terrainOcclusionAhead({
+  world,
+  x,
+  y,
+  z,
+  orientation,
+}: TerrainOcclusionInput): TerrainOcclusion | null {
   const tileX = Math.floor(x);
   const tileY = Math.floor(y);
   const { dx, dy } = WORLD_STEP[screenSouthWorldDirection(orientation)];
@@ -98,14 +104,8 @@ export function terrainOcclusionAhead(
  * face would (WAVE R2). `orientation` picks which real world direction is currently
  * screen-south (directionRemap.ts), so the check reads through the same seam as every
  * other neighbor-direction decision in this lane. */
-export function isOccludedByTerrainAhead(
-  world: WorldView,
-  x: number,
-  y: number,
-  z: number,
-  orientation: ViewOrientation,
-): boolean {
-  return terrainOcclusionAhead(world, x, y, z, orientation) !== null;
+export function isOccludedByTerrainAhead(input: TerrainOcclusionInput): boolean {
+  return terrainOcclusionAhead(input) !== null;
 }
 
 /** Depth guaranteed above any occluder strip that could plausibly cover a sprite whose
@@ -129,23 +129,42 @@ export function syncOcclusionSilhouette(
     return;
   }
   const ghost = existing ?? createGhost(body);
+  syncGhostPose(ghost, body);
+  if (!cropGhostToOcclusion(ghost, body, occlusion)) return;
+  ghost.setVisible(true);
+  ghost.setDepth(ghostDepth(Math.floor(worldY)));
+}
+
+function syncGhostPose(ghost: Phaser.GameObjects.Sprite, body: Phaser.GameObjects.Sprite): void {
   ghost.setPosition(body.x, body.y);
   if (body.frame.name !== ghost.frame.name) ghost.setFrame(body.frame.name);
-  ghost.setFlipX(body.flipX);
-  ghost.setScale(body.scaleX, body.scaleY);
-  ghost.setAngle(body.angle);
-  const bodyTop = body.y - body.displayHeight;
-  const displayCropTop = Math.min(body.displayHeight, Math.max(0, occlusion.screenY - bodyTop));
+  ghost.setFlipX(body.flipX).setScale(body.scaleX, body.scaleY).setAngle(body.angle);
+}
+
+function cropGhostToOcclusion(
+  ghost: Phaser.GameObjects.Sprite,
+  body: Phaser.GameObjects.Sprite,
+  occlusion: TerrainOcclusion,
+): boolean {
   const sourceHeight = ghost.frame.height;
-  const sourceCropTop = Math.min(sourceHeight, displayCropTop / Math.abs(body.scaleY));
+  const sourceCropTop = sourceCropTopAtOcclusion(ghost, body, occlusion);
   if (sourceCropTop >= sourceHeight) {
     ghost.setVisible(false);
-    return;
+    return false;
   }
   if (sourceCropTop <= 0) ghost.setCrop();
   else ghost.setCrop(0, sourceCropTop, ghost.frame.width, sourceHeight - sourceCropTop);
-  ghost.setVisible(true);
-  ghost.setDepth(ghostDepth(Math.floor(worldY)));
+  return true;
+}
+
+function sourceCropTopAtOcclusion(
+  ghost: Phaser.GameObjects.Sprite,
+  body: Phaser.GameObjects.Sprite,
+  occlusion: TerrainOcclusion,
+): number {
+  const bodyTop = body.y - body.displayHeight;
+  const displayCropTop = Math.min(body.displayHeight, Math.max(0, occlusion.screenY - bodyTop));
+  return Math.min(ghost.frame.height, displayCropTop / Math.abs(body.scaleY));
 }
 
 function createGhost(body: Phaser.GameObjects.Sprite): Phaser.GameObjects.Sprite {

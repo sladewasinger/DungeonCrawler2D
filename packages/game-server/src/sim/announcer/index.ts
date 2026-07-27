@@ -40,7 +40,36 @@ export function broadcastAnnouncement(sim: SimState, event: GameEvent): void {
   for (const slot of sim.players.values()) if (slot.connected) slot.outbox.push(event);
 }
 
-export function announceJoin(tick: number, playerId: string, name: string, ordinal: number): GameEvent {
+interface JoinAnnouncement {
+  tick: number;
+  playerId: string;
+  name: string;
+  ordinal: number;
+}
+
+interface DeathAnnouncement {
+  tick: number;
+  playerId: string;
+  name: string;
+  chasm: boolean;
+  rating: number;
+}
+
+interface LevelUpAnnouncement {
+  tick: number;
+  playerId: string;
+  name: string;
+  level: number;
+}
+
+interface FistbumpAnnouncement {
+  tick: number;
+  playerId: string;
+  playerName: string;
+  targetName: string;
+}
+
+export function announceJoin({ tick, playerId, name, ordinal }: JoinAnnouncement): GameEvent {
   const line = pick(JOIN_LINES, tick, `join:${playerId}`);
   return systemLine(line(name, ordinal));
 }
@@ -52,24 +81,13 @@ export function announceJoin(tick: number, playerId: string, name: string, ordin
  * sentence is appended to EVERY death line, ordinary and chasm pools alike, so no
  * rotation ever drops the number.
  */
-export function announceDeath(
-  tick: number,
-  playerId: string,
-  name: string,
-  chasm: boolean,
-  rating: number,
-): GameEvent {
+export function announceDeath({ tick, playerId, name, chasm, rating }: DeathAnnouncement): GameEvent {
   const pool = chasm ? CHASM_DEATH_LINES : DEATH_LINES;
   const line = pick(pool, tick, `death:${playerId}`);
   return systemLine(`${line(name)} ${ratingSentence(rating)}`);
 }
 
-export function announceLevelUp(
-  tick: number,
-  playerId: string,
-  name: string,
-  level: number,
-): GameEvent {
+export function announceLevelUp({ tick, playerId, name, level }: LevelUpAnnouncement): GameEvent {
   const line = pick(LEVEL_UP_LINES, tick, `level:${playerId}:${level}`);
   return systemLine(line(name, level));
 }
@@ -94,9 +112,9 @@ export function announceKill(tick: number, killerId: string, def: EnemyDef): Gam
   return systemLine(line(verbPhrase));
 }
 
-export function announceFistbump(tick: number, aId: string, aName: string, bName: string): GameEvent {
-  const line = pick(FISTBUMP_LINES, tick, `fistbump:${aId}`);
-  return systemLine(line(aName, bName));
+export function announceFistbump({ tick, playerId, playerName, targetName }: FistbumpAnnouncement): GameEvent {
+  const line = pick(FISTBUMP_LINES, tick, `fistbump:${playerId}`);
+  return systemLine(line(playerName, targetName));
 }
 
 export function announceFirstTorchThrow(tick: number, playerId: string, name: string): GameEvent {
@@ -128,7 +146,7 @@ export function announceStairwayHint(
   playerId: string,
   world: { worldSeed: number; floor: number },
 ): GameEvent | null {
-  if (!stairwayDownChunk(world.worldSeed, world.floor)) return null;
+  if (!stairwayDownChunk(world)) return null;
   return systemLine(pick(STAIRWAY_HINT_LINES, tick, `stairs:${playerId}:${world.floor}`)());
 }
 

@@ -32,8 +32,8 @@ export class TitleScene extends Phaser.Scene {
     this.title = new StandaloneTitle(
       this.conn,
       root,
-      () => this.scene.start("dungeon"),
       {
+        onReady: () => this.scene.start("dungeon"),
         onNameInputFocusChange: (focused) => {
           const keyboard = this.input.keyboard;
           if (focused) keyboard?.disableGlobalCapture();

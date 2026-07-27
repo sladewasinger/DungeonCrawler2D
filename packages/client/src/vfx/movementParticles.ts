@@ -10,8 +10,21 @@ const PARTICLE_DEPTH = 210_000;
 const DUST_TINT = 0xb8b8c8;
 const MOTE_TINT = 0xd8d0b0;
 
+export interface ParticlePosition {
+  readonly x: number;
+  readonly y: number;
+}
+
+interface DustPuffInput extends ParticlePosition {
+  readonly quantity?: number;
+}
+
 /** A small ground-hugging dust puff at a screen position — jump push-off, landing impact, or a sharp turn. */
-export function spawnDustPuff(scene: Phaser.Scene, screenX: number, screenY: number, quantity = 6): void {
+export function spawnDustPuff(scene: Phaser.Scene, {
+  x: screenX,
+  y: screenY,
+  quantity = 6,
+}: DustPuffInput): void {
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: FRAME,
@@ -32,7 +45,7 @@ export function spawnDustPuff(scene: Phaser.Scene, screenX: number, screenY: num
 /** A subtle low puff at a running foot's screen position — heavier than a footstep
  * mote but lighter than the jump/land dust, so held-run reads as a distinct gait
  * without competing with the jump/land beats (Epic 7.12). */
-export function spawnRunDust(scene: Phaser.Scene, screenX: number, screenY: number): void {
+export function spawnRunDust(scene: Phaser.Scene, { x: screenX, y: screenY }: ParticlePosition): void {
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: FRAME,
@@ -51,7 +64,7 @@ export function spawnRunDust(scene: Phaser.Scene, screenX: number, screenY: numb
 }
 
 /** A single faint footstep mote at a sprinting foot's screen position. */
-export function spawnFootstepMote(scene: Phaser.Scene, screenX: number, screenY: number): void {
+export function spawnFootstepMote(scene: Phaser.Scene, { x: screenX, y: screenY }: ParticlePosition): void {
   const emitter = scene.add
     .particles(screenX, screenY, ASSET_KEYS.atlas, {
       frame: FRAME,

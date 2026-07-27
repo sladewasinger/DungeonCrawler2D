@@ -13,43 +13,46 @@ export function applyAreaContact(sim: SimState, effectEvents: EffectEvent[]): vo
 
 /** Entities standing on a status-tagged ground area (fire, poison gas…) catch it. */
 function applyGroundStatuses(sim: SimState, effectEvents: EffectEvent[]): void {
-  for (const entity of combatants(sim)) {
-    if (entity.hp <= 0 || !entity.body.grounded) continue; // fly over ground effects
-    const tileX = Math.floor(entity.body.x);
-    const tileY = Math.floor(entity.body.y);
-    const defId = sim.areas.defAt(tileX, tileY);
-    if (!defId) continue;
-    const area = sim.content.areas.get(defId);
-    if (!area?.onEnterStatus) continue;
-    sim.effects.applyStatus(entity, area.onEnterStatus, effectEvents, effectTargetFor(sim, entity));
-  }
+  for (const entity of combatants(sim)) applyGroundStatus(sim, entity, effectEvents);
+}
+
+function applyGroundStatus(sim: SimState, entity: ReturnType<typeof combatants>[number], effectEvents: EffectEvent[]): void {
+  if (entity.hp <= 0) return;
+  if (!entity.body.grounded) return;
+  const statusId = groundStatusAt(sim, entity.body.x, entity.body.y);
+  if (statusId) sim.effects.applyStatus({ entity, statusId, events: effectEvents, target: effectTargetFor(sim, entity) });
+}
+
+function groundStatusAt(sim: SimState, x: number, y: number): string | undefined {
+  const defId = sim.areas.defAt(Math.floor(x), Math.floor(y));
+  return defId === null ? undefined : sim.content.areas.get(defId)?.onEnterStatus;
 }
 
 /** Ground items exposed to fire char over time, then are destroyed. */
 function charItemsInFire(sim: SimState): void {
-  for (const [id, item] of sim.items) {
-    const burning = sim.areas.hasTagAt(Math.floor(item.body.x), Math.floor(item.body.y), "fire");
-    if (!burning) {
-      sim.exposure.delete(id);
-      continue;
-    }
-    const total = (sim.exposure.get(id) ?? 0) + TICK_DT;
-    if (total >= ITEM_CHAR_SECONDS) {
-      sim.items.delete(id);
-      sim.exposure.delete(id);
-    } else {
-      sim.exposure.set(id, total);
-    }
+  for (const [id, item] of sim.items) charItemIfBurning(sim, id, item);
+}
+
+function charItemIfBurning(sim: SimState, id: string, item: SimState["items"] extends Map<string, infer Item> ? Item : never): void {
+  if (!sim.areas.hasTagAt(Math.floor(item.body.x), Math.floor(item.body.y), "fire")) {
+    sim.exposure.delete(id);
+    return;
   }
+  const total = (sim.exposure.get(id) ?? 0) + TICK_DT;
+  if (total >= ITEM_CHAR_SECONDS) return destroyCharredItem(sim, id);
+  sim.exposure.set(id, total);
+}
+
+function destroyCharredItem(sim: SimState, id: string): void {
+  sim.items.delete(id);
+  sim.exposure.delete(id);
 }
 
 export function tickStatuses(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const entity of combatants(sim)) {
     if (entity.hp <= 0) continue;
-    sim.effects.tick(entity, TICK_DT, effectEvents, effectTargetFor(sim, entity), () =>
-      sim.rng.next(),
-    );
-    sim.effects.runInteractionRules(entity, effectEvents);
+    sim.effects.tick({ entity, dt: TICK_DT, events: effectEvents, target: effectTargetFor(sim, entity), rng: () => sim.rng.next() });
+    sim.effects.runInteractionRules({ entity, events: effectEvents });
   }
 }
 
@@ -82,7 +85,7 @@ export function realizeEffectEvents(sim: SimState, effectEvents: EffectEvent[]):
   for (const event of effectEvents) {
     switch (event.t) {
       case "spawnArea":
-        sim.areas.spawn(event.area, event.x, event.y, event.radius);
+        sim.areas.spawn({ defId: event.area, x: event.x, y: event.y, radius: event.radius });
         break;
       case "destroy":
         sim.items.delete(event.id);

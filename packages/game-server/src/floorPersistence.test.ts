@@ -40,7 +40,7 @@ function tempFile(): string {
 }
 
 function registry(store: PlayerStore): FloorRegistry {
-  return new FloorRegistry(SEED, content, store, 1, {});
+  return new FloorRegistry({ worldSeed: SEED, content, store, rngSeedBase: 1, opts: {} });
 }
 
 function place(entity: Entity, x: number, y: number): void {
@@ -66,7 +66,7 @@ describe("durable descent lifecycle", () => {
     const file = tempFile();
     const firstStore = new PlayerStore(file);
     const firstFloors = registry(firstStore);
-    const joined = firstFloors.base.addPlayer("A", "client-a");
+    const joined = firstFloors.base.addPlayer({ name: "A", clientId: "client-a" });
     descend(firstFloors, joined.resumeToken, joined.playerId);
     descend(firstFloors, joined.resumeToken, joined.playerId);
     firstStore.flush();
@@ -75,9 +75,9 @@ describe("durable descent lifecycle", () => {
     const secondFloors = registry(secondStore);
     const restoredFloor = secondFloors.joinSim("client-a");
     expect(restoredFloor.world.floor).toBe(3);
-    const restored = restoredFloor.addPlayer("A", "client-a");
+    const restored = restoredFloor.addPlayer({ name: "A", clientId: "client-a" });
     restoredFloor.markDisconnected(restored.playerId);
-    expect(restoredFloor.addPlayer("A", "client-a", restored.resumeToken)).toMatchObject({
+    expect(restoredFloor.addPlayer({ name: "A", clientId: "client-a", resumeToken: restored.resumeToken })).toMatchObject({
       resumed: true,
       floor: 3,
     });
@@ -88,7 +88,7 @@ describe("durable descent lifecycle", () => {
     const firstStore = new PlayerStore(file);
     const firstFloors = registry(firstStore);
     const floor3 = firstFloors.ensureFloor(3);
-    const joined = floor3.addPlayer("A", "client-a");
+    const joined = floor3.addPlayer({ name: "A", clientId: "client-a" });
     floor3.getPlayerEntity(joined.playerId)!.hp = 0;
     for (let tick = 0; tick <= DOWNED_DURATION_TICKS; tick++) {
       firstFloors.stepAll();
@@ -119,8 +119,8 @@ describe("durable descent lifecycle", () => {
 
   it("dissolves a party when one member descends so no party spans floor sims", () => {
     const floors = registry(new PlayerStore(null));
-    const a = floors.base.addPlayer("A", "client-a");
-    const b = floors.base.addPlayer("B", "client-b");
+    const a = floors.base.addPlayer({ name: "A", clientId: "client-a" });
+    const b = floors.base.addPlayer({ name: "B", clientId: "client-b" });
     const aEntity = floors.base.getPlayerEntity(a.playerId)!;
     const bEntity = floors.base.getPlayerEntity(b.playerId)!;
     place(aEntity, 10, 10);

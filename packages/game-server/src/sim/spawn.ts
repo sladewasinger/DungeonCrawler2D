@@ -1,5 +1,7 @@
 import { LEVEL, MIN_SPAWN_DIST, SPAWN_CHUNK_RANGE, chunkCenter } from "@dc2d/engine";
 import type { SimState } from "./state.js";
+export { findWalkableNear } from "./spawn/search.js";
+import { findWalkableNear } from "./spawn/search.js";
 
 /**
  * Spawn-point selection: candidates are floor tiles inside the BSP
@@ -55,7 +57,8 @@ function findClusteredSpawn(sim: SimState): { x: number; y: number; z: number } 
   const index = sim.players.size;
   const ox = SANDBOX_ANCHOR.x + (index % SANDBOX_CLUSTER_COLUMNS) * SANDBOX_CLUSTER_SPACING;
   const oy = SANDBOX_ANCHOR.y + Math.floor(index / SANDBOX_CLUSTER_COLUMNS) * SANDBOX_CLUSTER_SPACING;
-  const tile = findWalkableNear(sim, ox, oy) ?? findWalkableNear(sim, SANDBOX_ANCHOR.x, SANDBOX_ANCHOR.y) ?? SANDBOX_ANCHOR;
+  const tile = findWalkableNear({ sim, x: ox, y: oy }) ??
+    findWalkableNear({ sim, ...SANDBOX_ANCHOR }) ?? SANDBOX_ANCHOR;
   const x = tile.x + 0.5;
   const y = tile.y + 0.5;
   return { x, y, z: sim.world.groundAt(x, y) };
@@ -78,7 +81,7 @@ function findRadiusSpawn(sim: SimState, radiusTiles: number): { x: number; y: nu
  */
 export function resolveSpawnAnchor(sim: SimState): { x: number; y: number } {
   return (
-    findWalkableNear(sim, PLAYTEST_SPAWN_ANCHOR.x, PLAYTEST_SPAWN_ANCHOR.y, ANCHOR_SEARCH_RADIUS) ??
+    findWalkableNear({ sim, ...PLAYTEST_SPAWN_ANCHOR, maxRadius: ANCHOR_SEARCH_RADIUS }) ??
     PLAYTEST_SPAWN_ANCHOR
   );
 }
@@ -92,19 +95,45 @@ function pickRadiusTile(
   let best: { x: number; y: number } | null = null;
   let bestDistance = -1;
   for (let spacing = RADIUS_SPAWN_MIN_SPACING; spacing >= RADIUS_SPAWN_SPACING_FLOOR; spacing /= 2) {
-    for (let attempt = 0; attempt < RADIUS_SPAWN_ATTEMPTS; attempt++) {
-      const sample = sampleWithinRadius(sim, anchor, radiusTiles);
-      const tile = findWalkableNear(sim, sample.x, sample.y);
-      if (!tile || Math.hypot(tile.x - anchor.x, tile.y - anchor.y) > radiusTiles) continue;
-      const nearest = nearestPlayerDistance(sim, tile);
-      if (nearest >= spacing) return tile;
-      if (nearest > bestDistance) {
-        bestDistance = nearest;
-        best = tile;
-      }
-    }
+    const result = sampleRadiusCandidates({ sim, anchor, radiusTiles, spacing });
+    if (result.spaced) return result.spaced;
+    if (result.bestDistance > bestDistance) ({ best, bestDistance } = result);
   }
   return best;
+}
+
+function sampleRadiusCandidates(input: { sim: SimState; anchor: { x: number; y: number }; radiusTiles: number; spacing: number }): {
+  spaced: { x: number; y: number } | null;
+  best: { x: number; y: number } | null;
+  bestDistance: number;
+} {
+  let best: { x: number; y: number } | null = null;
+  let bestDistance = -1;
+  for (let attempt = 0; attempt < RADIUS_SPAWN_ATTEMPTS; attempt++) {
+    const result = evaluateRadiusCandidate(input);
+    if (result.spaced) return { spaced: result.spaced, best, bestDistance };
+    if (result.bestDistance > bestDistance) ({ best, bestDistance } = result);
+  }
+  return { spaced: null, best, bestDistance };
+}
+
+function evaluateRadiusCandidate(input: Parameters<typeof sampleRadiusCandidates>[0]): {
+  spaced: { x: number; y: number } | null;
+  best: { x: number; y: number } | null;
+  bestDistance: number;
+} {
+  const candidate = sampledRadiusCandidate(input);
+  if (!candidate) return { spaced: null, best: null, bestDistance: -1 };
+  const bestDistance = nearestPlayerDistance(input.sim, candidate);
+  return bestDistance >= input.spacing
+    ? { spaced: candidate, best: null, bestDistance }
+    : { spaced: null, best: candidate, bestDistance };
+}
+
+function sampledRadiusCandidate({ sim, anchor, radiusTiles }: Pick<Parameters<typeof sampleRadiusCandidates>[0], "sim" | "anchor" | "radiusTiles">): { x: number; y: number } | null {
+  const sample = sampleWithinRadius(sim, anchor, radiusTiles);
+  const tile = findWalkableNear({ sim, ...sample });
+  return tile && Math.hypot(tile.x - anchor.x, tile.y - anchor.y) <= radiusTiles ? tile : null;
 }
 
 /** Uniform-area random point within radiusTiles of the anchor. */
@@ -122,19 +151,27 @@ function pickSpawnTile(sim: SimState): { x: number; y: number } | null {
   let best: { x: number; y: number } | null = null;
   let bestDistance = -1;
   for (let attempt = 0; attempt < 40; attempt++) {
-    const cx = sim.rng.int(-SPAWN_CHUNK_RANGE, SPAWN_CHUNK_RANGE);
-    const cy = sim.rng.int(-SPAWN_CHUNK_RANGE, SPAWN_CHUNK_RANGE);
-    const center = chunkCenter(sim.world.worldSeed, sim.world.floor, cx, cy);
-    const tile = findWalkableNear(sim, center.x, center.y);
-    if (!tile) continue;
-    const nearest = nearestPlayerDistance(sim, tile);
-    if (nearest >= MIN_SPAWN_DIST) return tile;
-    if (nearest > bestDistance) {
-      bestDistance = nearest;
-      best = tile;
-    }
+    const result = evaluateSpawnCandidate(sim);
+    if (result.spaced) return result.spaced;
+    if (result.bestDistance > bestDistance) ({ best, bestDistance } = result);
   }
   return best;
+}
+
+function evaluateSpawnCandidate(sim: SimState): { spaced: { x: number; y: number } | null; best: { x: number; y: number } | null; bestDistance: number } {
+  const chunkX = sim.rng.int(-SPAWN_CHUNK_RANGE, SPAWN_CHUNK_RANGE);
+  const chunkY = sim.rng.int(-SPAWN_CHUNK_RANGE, SPAWN_CHUNK_RANGE);
+  const candidate = spawnCandidate(sim, chunkX, chunkY);
+  if (!candidate) return { spaced: null, best: null, bestDistance: -1 };
+  return candidate.distance >= MIN_SPAWN_DIST
+    ? { spaced: candidate.tile, best: null, bestDistance: candidate.distance }
+    : { spaced: null, best: candidate.tile, bestDistance: candidate.distance };
+}
+
+function spawnCandidate(sim: SimState, chunkX: number, chunkY: number): { tile: { x: number; y: number }; distance: number } | null {
+  const center = chunkCenter(sim.world.worldSeed, sim.world.floor, chunkX, chunkY);
+  const tile = findWalkableNear({ sim, ...center });
+  return tile ? { tile, distance: nearestPlayerDistance(sim, tile) } : null;
 }
 
 function nearestPlayerDistance(sim: SimState, tile: { x: number; y: number }): number {
@@ -152,27 +189,6 @@ function nearestPlayerDistance(sim: SimState, tile: { x: number; y: number }): n
  * testzone.ts snapping several tightly-packed fixtures without stacking
  * them onto the same lone floor tile).
  */
-export function findWalkableNear(
-  sim: Pick<SimState, "world">,
-  wx: number,
-  wy: number,
-  maxRadius = 6,
-  avoid?: ReadonlySet<string>,
-): { x: number; y: number } | null {
-  for (let radius = 0; radius < maxRadius; radius++) {
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
-        const x = Math.round(wx) + dx;
-        const y = Math.round(wy) + dy;
-        if (avoid?.has(`${x},${y}`)) continue;
-        if (sim.world.isWalkable(x, y)) return { x, y };
-      }
-    }
-  }
-  return null;
-}
-
 export function newToken(sim: SimState): string {
   let token = "";
   for (let i = 0; i < 4; i++) token += sim.rng.next().toString(36).slice(2, 10);

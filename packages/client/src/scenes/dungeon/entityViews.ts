@@ -1,5 +1,5 @@
 /** Maps network snapshots and local prediction into renderer entity view models. */
-import { TICK_RATE, type WorldView } from "@dc2d/engine";
+import { TICK_RATE } from "@dc2d/engine";
 import type { InterpolatedEntity } from "../../net/interpolate.js";
 import type {
   ItemEntityView,
@@ -10,7 +10,9 @@ import type {
 } from "../../render/entities/index.js";
 import { groundItemFrame } from "./itemFrame.js";
 import { remotePlayerFieldsInto } from "./remotePlayerFields.js";
-import { isSelfAttacking, type SelfCosmeticsState } from "./selfCosmetics.js";
+import { isSelfAttacking } from "./selfCosmetics.js";
+import type { ItemViewSource, RenderContextSource, SelfPlayerViewSource } from "./entities/viewTypes.js";
+export type { SelfPose, SelfVitals, ItemViewSource, RenderContextSource, SelfPlayerViewSource } from "./entities/viewTypes.js";
 export { projectileView, torchView } from "./projectiles/projectileViews.js";
 
 export type { InterpolatedEntity } from "../../net/interpolate.js";
@@ -21,15 +23,8 @@ function valueOr<T>(value: T | undefined, fallback: T): T {
   return value === undefined ? fallback : value;
 }
 
-export function buildRenderContext(
-  world: WorldView,
-  nowMs: number,
-  dtSeconds: number,
-  selfX: number,
-  selfY: number,
-  partyIds: ReadonlySet<string>,
-  target?: RenderContext,
-): RenderContext {
+export function buildRenderContext(source: RenderContextSource): RenderContext {
+  const { world, nowMs, dtSeconds, selfX, selfY, partyIds, target } = source;
   const context = target ?? {} as RenderContext;
   context.world = world;
   context.nowMs = nowMs;
@@ -40,37 +35,10 @@ export function buildRenderContext(
   return context;
 }
 
-export interface SelfPose {
-  id: string;
-  skin: import("@dc2d/engine").PlayerSkin;
-  name: string;
-  x: number;
-  y: number;
-  z: number;
-  air: boolean;
-}
-
-export interface SelfVitals {
-  hp: number;
-  maxHp: number;
-  fx: readonly string[];
-  downed: boolean;
-  reviveProgress?: number;
-  blocking: boolean;
-  weaponId: string | null;
-}
-
-export function selfPlayerView(
-  pose: SelfPose,
-  vitals: SelfVitals,
-  cosmetics: SelfCosmeticsState,
-  nowMs: number,
-  weaponAimAngle: number,
-  target?: PlayerEntityView,
-): PlayerEntityView {
+export function selfPlayerView(source: SelfPlayerViewSource): PlayerEntityView {
+  const { pose, vitals, cosmetics, nowMs, weaponAimAngle, target } = source;
   const view = target ?? {} as PlayerEntityView;
-  view.id = pose.id;
-  view.playerId = pose.id;
+  view.id = pose.id; view.playerId = pose.id;
   view.skin = pose.skin;
   view.name = pose.name;
   view.x = pose.x;
@@ -149,18 +117,19 @@ export function petView(
   return view;
 }
 
-export function itemView(
-  e: InterpolatedEntity,
-  target?: ItemEntityView,
-  context?: { serverTick: number; selfX: number; selfY: number },
-): ItemEntityView {
+export function itemView(source: ItemViewSource): ItemEntityView {
+  const { e, target, context } = source;
   const view = target ?? {} as ItemEntityView;
   view.id = e.id;
   view.x = e.x;
   view.y = e.y;
   view.z = e.z;
   view.frame = groundItemFrame(e.snap.defId);
-  if (e.snap.defId === "player-loot-chest" && e.snap.lootOwnerName) {
+  if (!isPlayerLootChest(e)) {
+    clearLootView(view);
+    return view;
+  }
+  {
     view.lootLabel = `[DEAD] ${e.snap.lootOwnerName}'s loot`;
     if (e.snap.lootKillerName === undefined) delete view.lootKillerName;
     else view.lootKillerName = e.snap.lootKillerName;
@@ -170,11 +139,15 @@ export function itemView(
     ) / TICK_RATE);
     view.lootNearby = !!context &&
       Math.hypot(e.x - context.selfX, e.y - context.selfY) <= 3.5;
-  } else {
-    delete view.lootLabel;
-    delete view.lootKillerName;
-    delete view.lootLockSeconds;
-    delete view.lootNearby;
   }
   return view;
+}
+
+function isPlayerLootChest(e: InterpolatedEntity): boolean {
+  return e.snap.defId === "player-loot-chest" && e.snap.lootOwnerName !== undefined;
+}
+
+function clearLootView(view: ItemEntityView): void {
+  delete view.lootLabel; delete view.lootKillerName;
+  delete view.lootLockSeconds; delete view.lootNearby;
 }

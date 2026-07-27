@@ -18,19 +18,31 @@ export function createNameplate(scene: Phaser.Scene, depth: number): Phaser.Game
     .setDepth(depth);
 }
 
-export function updateNameplate(
-  text: Phaser.GameObjects.Text,
-  name: string,
-  headScreenX: number,
-  headScreenY: number,
-  distanceTiles: number,
-  isParty: boolean,
+export interface NameplateUpdate {
+  readonly text: Phaser.GameObjects.Text;
+  readonly name: string;
+  readonly headScreenX: number;
+  readonly headScreenY: number;
+  readonly distanceTiles: number;
+  readonly isParty: boolean;
+  readonly downed?: boolean;
+  readonly disconnected?: boolean;
+  readonly additionalOffsetPx?: number;
+}
+
+export function updateNameplate({
+  text,
+  name,
+  headScreenX,
+  headScreenY,
+  distanceTiles,
+  isParty,
   downed = false,
   disconnected = false,
   additionalOffsetPx = 0,
-): void {
+}: NameplateUpdate): void {
   void isParty;
-  const presentation = resolveNameplatePresentation(name, distanceTiles, downed, disconnected);
+  const presentation = resolveNameplatePresentation({ name, distanceTiles, downed, disconnected });
   if (text.text !== presentation.label) text.setText(presentation.label);
   text.setPosition(headScreenX, headScreenY - NAMEPLATE_GAP_PX - additionalOffsetPx);
   text.setColor("#ffffff");

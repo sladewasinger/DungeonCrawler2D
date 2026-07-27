@@ -2,29 +2,38 @@
 // strictly in-pack. Each region below is a real sprite on the sheet; colors are picked by
 // rank-by-frequency within that region (not hardcoded hex) so the values trace to real pixels.
 
-function dominantColors(sheet, x, y, w, h) {
+function countPixel({ counts, sheet, x, y }) {
+  const [r, g, b, a] = sheet.getPixel(x, y);
+  if (a === 0) return;
+  const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  counts.set(hex, (counts.get(hex) || 0) + 1);
+}
+
+function dominantColors(sheet, { x, y, w, h }) {
   const counts = new Map();
   for (let yy = y; yy < y + h; yy++) {
-    for (let xx = x; xx < x + w; xx++) {
-      const [r, g, b, a] = sheet.getPixel(xx, yy);
-      if (a === 0) continue;
-      const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-      counts.set(hex, (counts.get(hex) || 0) + 1);
-    }
+    for (let xx = x; xx < x + w; xx++) countPixel({ counts, sheet, x: xx, y: yy });
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([hex]) => hex);
 }
 
+function sampleRegions(sheet) {
+  const sample = (region) => dominantColors(sheet, region);
+  return {
+    crate: sample({ x: 288, y: 408, w: 16, h: 24 }),
+    banner: sample({ x: 16, y: 32, w: 16, h: 16 }),
+    skull: sample({ x: 288, y: 432, w: 16, h: 16 }),
+    chest: sample({ x: 304, y: 416, w: 16, h: 16 }),
+    goblin: sample({ x: 368, y: 40, w: 16, h: 16 }),
+    wallGoo: sample({ x: 64, y: 96, w: 16, h: 16 }),
+    swampy: sample({ x: 432, y: 112, w: 16, h: 16 }),
+    floor: sample({ x: 16, y: 64, w: 16, h: 16 }),
+    heart: sample({ x: 289, y: 370, w: 13, h: 12 }),
+  };
+}
+
 export function buildPalette(sheet) {
-  const crate = dominantColors(sheet, 288, 408, 16, 24); // crate: wood browns
-  const banner = dominantColors(sheet, 16, 32, 16, 16); // wall_banner_red: cloth + red accent
-  const skull = dominantColors(sheet, 288, 432, 16, 16); // skull: bone tones
-  const chest = dominantColors(sheet, 304, 416, 16, 16); // chest_full_open_f0: ember/gold tones
-  const goblin = dominantColors(sheet, 368, 40, 16, 16); // goblin_idle_f0: base green + white eye
-  const wallGoo = dominantColors(sheet, 64, 96, 16, 16); // wall_goo_base: leafy green family
-  const swampy = dominantColors(sheet, 432, 112, 16, 16); // swampy_anim_f0: poison-green highlight
-  const floor = dominantColors(sheet, 16, 64, 16, 16); // floor_1: stone tones to retint teal
-  const heart = dominantColors(sheet, 289, 370, 13, 12); // ui_heart_full: pack red + white
+  const { crate, banner, skull, chest, goblin, wallGoo, swampy, floor, heart } = sampleRegions(sheet);
 
   return {
     OUTLINE: crate[1], // #222222 — shared outline ink across the whole pack

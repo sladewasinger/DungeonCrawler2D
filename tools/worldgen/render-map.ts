@@ -39,9 +39,9 @@ async function main(): Promise<void> {
     }
   }
 
-  drawChunkHairlines(canvas, args.chunks, TILE_PX, mapPx);
-  drawStairGlyphs(canvas, cache, args.chunks, TILE_PX);
-  drawLegend(canvas, mapPx, width);
+  drawChunkHairlines({ canvas, chunks: args.chunks, tilePx: TILE_PX, mapPx });
+  drawStairGlyphs({ canvas, cache, chunks: args.chunks, tilePx: TILE_PX });
+  drawLegend({ canvas, top: mapPx, panelWidth: width });
 
   canvas.write(args.outPng);
   console.log(

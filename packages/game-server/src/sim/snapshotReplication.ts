@@ -73,16 +73,22 @@ export function deltaEntityEntries(
   visible: VersionedEntitySnapshot[],
   baseline: boolean,
 ): EntitySnapshotDeltaEntry[] {
-  const entries = visible.map(({ revision, snapshot }) => {
-    if (!baseline && state.entityRevisions.get(snapshot.id) === revision) {
-      return { id: snapshot.id, revision, unchanged: true as const };
-    }
-    return { ...snapshot, revision };
-  });
+  const entries = visible.map((entity) => deltaEntry(state, entity, baseline));
   state.entityRevisions = new Map(
     visible.map(({ revision, snapshot }) => [snapshot.id, revision]),
   );
   return entries;
+}
+
+function deltaEntry(
+  state: SnapshotClientState,
+  { revision, snapshot }: VersionedEntitySnapshot,
+  baseline: boolean,
+): EntitySnapshotDeltaEntry {
+  if (!baseline && state.entityRevisions.get(snapshot.id) === revision) {
+    return { id: snapshot.id, revision, unchanged: true };
+  }
+  return { ...snapshot, revision };
 }
 
 export function finishDeltaSnapshot(
@@ -101,12 +107,12 @@ export function finishDeltaSnapshot(
 }
 
 export function pruneSnapshotClients(sim: SimState): void {
-  for (const id of sim.snapshotClients.keys()) {
-    const slot = sim.players.get(id);
-    if (!slot?.connected) sim.snapshotClients.delete(id);
-  }
-  for (const id of sim.snapshotPending.keys()) {
-    const slot = sim.players.get(id);
-    if (!slot?.connected) sim.snapshotPending.delete(id);
+  pruneDisconnectedEntries(sim, sim.snapshotClients);
+  pruneDisconnectedEntries(sim, sim.snapshotPending);
+}
+
+function pruneDisconnectedEntries<T>(sim: SimState, entries: Map<string, T>): void {
+  for (const id of entries.keys()) {
+    if (!sim.players.get(id)?.connected) entries.delete(id);
   }
 }

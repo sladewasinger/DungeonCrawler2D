@@ -38,9 +38,11 @@ const content: ContentRegistry = buildContentRegistry({
   recipes: [...recipesData],
 });
 const SEED = hashString("floor-registry-test-world");
+const CHAT_EVENT = "chat";
+const HELLO_FLOOR = "hello floor";
 
 function makeRegistry(store = new PlayerStore(null)): FloorRegistry {
-  return new FloorRegistry(SEED, content, store, 1, {});
+  return new FloorRegistry({ worldSeed: SEED, content, store, rngSeedBase: 1, opts: {} });
 }
 
 function placeAt(entity: Entity, x: number, y: number): void {
@@ -52,7 +54,7 @@ function placeAt(entity: Entity, x: number, y: number): void {
 describe("FloorRegistry: the descent chain", () => {
   it("walks 1 -> 5 via real descend intents, arriving at each up-stair, deepestFloor tracked", () => {
     const floors = makeRegistry();
-    const join = floors.base.addPlayer("A", "client-a");
+    const join = floors.base.addPlayer({ name: "A", clientId: "client-a" });
     expect(join.floor).toBe(1);
     const entity = floors.base.getPlayerEntity(join.playerId)!;
 
@@ -78,7 +80,7 @@ describe("FloorRegistry: the descent chain", () => {
 
   it("does not accept a descend intent at an arrival stairway", () => {
     const floors = makeRegistry();
-    const join = floors.base.addPlayer("A", "client-a");
+    const join = floors.base.addPlayer({ name: "A", clientId: "client-a" });
     const entity = floors.base.getPlayerEntity(join.playerId)!;
     const down = stairwayDownPosition({ worldSeed: SEED, floor: 1 })!;
     placeAt(entity, down.x, down.y);
@@ -110,7 +112,7 @@ describe("FloorRegistry: the descent chain", () => {
   it("death on floor 3 returns the player to floor 1, loot stays on floor 3", () => {
     const floors = makeRegistry();
     const sim3 = floors.ensureFloor(3);
-    const join = sim3.addPlayer("A", "client-a");
+    const join = sim3.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim3.getPlayerEntity(join.playerId)!;
     const itemsBefore = sim3.itemCount;
 
@@ -126,24 +128,24 @@ describe("FloorRegistry: the descent chain", () => {
 
   it("global chat relays across floors with the store's registry, one tick of delay", () => {
     const floors = makeRegistry();
-    const onFloor1 = floors.base.addPlayer("A", "client-a");
-    const onFloor4 = floors.ensureFloor(4).addPlayer("B", "client-b");
+    const onFloor1 = floors.base.addPlayer({ name: "A", clientId: "client-a" });
+    const onFloor4 = floors.ensureFloor(4).addPlayer({ name: "B", clientId: "client-b" });
 
-    floors.base.queueAction(onFloor1.playerId, { type: "chat", channel: "global", text: "hello floor" });
+    floors.base.queueAction(onFloor1.playerId, { type: CHAT_EVENT, channel: "global", text: HELLO_FLOOR });
     const first = floors.stepAll().snapshots.get(onFloor4.playerId)!;
-    expect(first.events.some((e) => e.t === "chat" && e.text === "hello floor")).toBe(false);
+    expect(first.events.some((e) => e.t === CHAT_EVENT && e.text === HELLO_FLOOR)).toBe(false);
 
     const second = floors.stepAll().snapshots.get(onFloor4.playerId)!;
-    expect(second.events.some((e) => e.t === "chat" && e.channel === "global" && e.text === "hello floor")).toBe(
+    expect(second.events.some((e) => e.t === CHAT_EVENT && e.channel === "global" && e.text === HELLO_FLOOR)).toBe(
       true,
     );
   });
 
   it("applies durable mute controls to cross-floor global chat", () => {
     const floors = makeRegistry();
-    const onFloor1 = floors.base.addPlayer("A", "client-a");
+    const onFloor1 = floors.base.addPlayer({ name: "A", clientId: "client-a" });
     const floor4 = floors.ensureFloor(4);
-    const onFloor4 = floor4.addPlayer("B", "client-b");
+    const onFloor4 = floor4.addPlayer({ name: "B", clientId: "client-b" });
     floor4.queueAction(onFloor4.playerId, {
       type: "moderation",
       op: "mute",
@@ -165,8 +167,8 @@ describe("FloorRegistry: the descent chain", () => {
 
   it("/who lists players across every active floor with their floor number", () => {
     const floors = makeRegistry();
-    const onFloor1 = floors.base.addPlayer("A", "client-a");
-    floors.ensureFloor(2).addPlayer("B", "client-b");
+    const onFloor1 = floors.base.addPlayer({ name: "A", clientId: "client-a" });
+    floors.ensureFloor(2).addPlayer({ name: "B", clientId: "client-b" });
     floors.stepAll(); // let the cross-floor directory settle (refreshed at the tail of stepAll)
 
     floors.base.queueAction(onFloor1.playerId, { type: "who" });

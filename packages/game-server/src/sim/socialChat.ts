@@ -16,29 +16,38 @@ const systemLine = (text: string): GameEvent => ({
   text,
 });
 
-export function doChat(
-  sim: SimState,
-  slot: PlayerSlot,
-  channel: "party" | "local" | "global" | "dm",
-  text: string,
-  target?: string,
-): void {
-  if (!withinRateLimit(
-    slot.chatTimestamps,
-    sim.tickCount,
-    RATE_WINDOW_TICKS,
-    CHAT_LIMIT,
-  )) {
+interface ChatRequest {
+  sim: SimState;
+  slot: PlayerSlot;
+  channel: "party" | "local" | "global" | "dm";
+  text: string;
+  target?: string | undefined;
+}
+
+type ChatHandler = (request: ChatRequest) => void;
+
+export function doChat(request: ChatRequest): void {
+  const { sim, slot } = request;
+  if (!withinRateLimit({
+    timestamps: slot.chatTimestamps,
+    nowTick: sim.tickCount,
+    windowTicks: RATE_WINDOW_TICKS,
+    limit: CHAT_LIMIT,
+  })) {
     slot.outbox.push(systemLine("You're sending messages too fast — slow down."));
     return;
   }
-  if (channel === "party") doPartyChat(sim, slot, text);
-  else if (channel === "local") doLocalChat(sim, slot, text);
-  else if (channel === "global") doGlobalChat(sim, slot, text);
-  else doDmChat(sim, slot, text, target);
+  chatHandlers[request.channel](request);
 }
 
-function doPartyChat(sim: SimState, slot: PlayerSlot, text: string): void {
+const chatHandlers: Record<ChatRequest["channel"], ChatHandler> = {
+  party: doPartyChat,
+  local: doLocalChat,
+  global: doGlobalChat,
+  dm: doDmChat,
+};
+
+function doPartyChat({ sim, slot, text }: ChatRequest): void {
   if (!slot.partyId) return;
   const party = sim.parties.get(slot.partyId);
   if (!party) return;
@@ -50,14 +59,15 @@ function doPartyChat(sim: SimState, slot: PlayerSlot, text: string): void {
     text,
   };
   for (const memberId of party.members) {
-    const member = sim.players.get(memberId);
-    if (member && socialDeliveryAllowed(member, slot.entity.id)) {
-      member.outbox.push(event);
-    }
+    deliverPartyChat(sim.players.get(memberId), slot.entity.id, event);
   }
 }
 
-function doLocalChat(sim: SimState, slot: PlayerSlot, text: string): void {
+function deliverPartyChat(recipient: PlayerSlot | undefined, senderId: string, event: GameEvent): void {
+  if (recipient && socialDeliveryAllowed(recipient, senderId)) recipient.outbox.push(event);
+}
+
+function doLocalChat({ sim, slot, text }: ChatRequest): void {
   const event: GameEvent = {
     t: "chat",
     channel: "local",
@@ -72,7 +82,7 @@ function doLocalChat(sim: SimState, slot: PlayerSlot, text: string): void {
   });
 }
 
-function doGlobalChat(sim: SimState, slot: PlayerSlot, text: string): void {
+function doGlobalChat({ sim, slot, text }: ChatRequest): void {
   const event: GameEvent = {
     t: "chat",
     channel: "global",
@@ -88,34 +98,24 @@ function doGlobalChat(sim: SimState, slot: PlayerSlot, text: string): void {
   sim.pendingGlobalChat.push(event);
 }
 
-function doDmChat(
-  sim: SimState,
-  slot: PlayerSlot,
-  text: string,
-  target?: string,
-): void {
+function doDmChat({ sim, slot, text, target }: ChatRequest): void {
   if (!target) return;
   const other = resolveDmTarget(sim, slot, target);
   if (!other) return;
-  const senderName = slot.entity.name ?? "?";
-  const otherName = other.entity.name ?? "?";
-  if (socialDeliveryAllowed(other, slot.entity.id)) {
-    other.outbox.push({
-      t: "chat",
-      channel: "dm",
-      from: slot.entity.id,
-      name: senderName,
-      text,
-      target: senderName,
-    });
-  }
-  slot.outbox.push({
-    t: "chat",
-    channel: "dm",
-    from: slot.entity.id,
-    name: senderName,
-    text,
-    target: otherName,
+  sendDmToRecipient(slot, other, text);
+  sendDmConfirmation(slot, other, text);
+}
+
+function sendDmToRecipient(sender: PlayerSlot, recipient: PlayerSlot, text: string): void {
+  if (!socialDeliveryAllowed(recipient, sender.entity.id)) return;
+  const senderName = sender.entity.name ?? "?";
+  recipient.outbox.push({ t: "chat", channel: "dm", from: sender.entity.id, name: senderName, text, target: senderName });
+}
+
+function sendDmConfirmation(sender: PlayerSlot, recipient: PlayerSlot, text: string): void {
+  sender.outbox.push({
+    t: "chat", channel: "dm", from: sender.entity.id, name: sender.entity.name ?? "?", text,
+    target: recipient.entity.name ?? "?",
   });
 }
 
@@ -124,28 +124,24 @@ function resolveDmTarget(
   slot: PlayerSlot,
   target: string,
 ): PlayerSlot | null {
-  if ((slot.entity.name ?? "").toLowerCase() === target.toLowerCase()) {
-    slot.outbox.push(systemLine("You can't DM yourself."));
-    return null;
-  }
+  if (isSelfDm(slot, target)) return rejectDm(slot, "You can't DM yourself.");
   const matches = findOnlineByName(sim, target);
-  if (matches.length > 1) {
-    slot.outbox.push(systemLine(
-      `Multiple online players named "${target}" — be more specific.`,
-    ));
-    return null;
-  }
+  if (matches.length > 1) return rejectDm(slot, `Multiple online players named "${target}" — be more specific.`);
   const other = matches[0];
-  const isContact = slot.stored.contacts.some((contact) =>
-    contact.toLowerCase() === target.toLowerCase()
-  );
-  if (!other || !isContact) {
-    slot.outbox.push(systemLine(`You haven't fistbumped ${target} yet.`));
-    return null;
-  }
-  if (!socialPairAllowed(slot, other)) {
-    slot.outbox.push(systemLine(`Messages with ${target} are blocked.`));
-    return null;
-  }
+  if (!other || !isContact(slot, target)) return rejectDm(slot, `You haven't fistbumped ${target} yet.`);
+  if (!socialPairAllowed(slot, other)) return rejectDm(slot, `Messages with ${target} are blocked.`);
   return other;
+}
+
+function isSelfDm(slot: PlayerSlot, target: string): boolean {
+  return (slot.entity.name ?? "").toLowerCase() === target.toLowerCase();
+}
+
+function isContact(slot: PlayerSlot, target: string): boolean {
+  return slot.stored.contacts.some((contact) => contact.toLowerCase() === target.toLowerCase());
+}
+
+function rejectDm(slot: PlayerSlot, message: string): null {
+  slot.outbox.push(systemLine(message));
+  return null;
 }

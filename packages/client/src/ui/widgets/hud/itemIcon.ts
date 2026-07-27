@@ -23,6 +23,8 @@ const ITEM_ICON_FRAMES: Readonly<Record<string, string>> = {
 
 const FALLBACK_TINT = 0x6b6b7e;
 
+interface ItemIconOptions { scene: Phaser.Scene; itemId: string; size: number; containerScale?: number; }
+
 /** The atlas frame mapped to an item id, or null when it falls back to the generated chip. */
 export function itemIconFrame(itemId: string): string | null {
   return ITEM_ICON_FRAMES[itemId] ?? null;
@@ -34,10 +36,10 @@ export function itemIconFrame(itemId: string): string | null {
  * enclosing widget's `layout.scale` (font.ts's uiTextStyle header comment) — needed only
  * by the fallback's letter Text so it stays crisp under the widget container's transform.
  */
-export function createItemIcon(scene: Phaser.Scene, itemId: string, size: number, containerScale = 1): Phaser.GameObjects.Container {
+export function createItemIcon({ scene, itemId, size, containerScale = 1 }: ItemIconOptions): Phaser.GameObjects.Container {
   const frame = itemIconFrame(itemId);
   if (frame) return createSpriteIcon(scene, frame, size);
-  return createFallbackIcon(scene, itemId, size, containerScale);
+  return createFallbackIcon({ scene, itemId, size, containerScale });
 }
 
 function createSpriteIcon(scene: Phaser.Scene, frame: string, size: number): Phaser.GameObjects.Container {
@@ -47,8 +49,8 @@ function createSpriteIcon(scene: Phaser.Scene, frame: string, size: number): Pha
   return scene.add.container(0, 0, [sprite]);
 }
 
-function createFallbackIcon(scene: Phaser.Scene, itemId: string, size: number, containerScale: number): Phaser.GameObjects.Container {
+function createFallbackIcon({ scene, itemId, size, containerScale }: Required<ItemIconOptions>): Phaser.GameObjects.Container {
   const box = scene.add.rectangle(0, 0, size * 0.6, size * 0.6, FALLBACK_TINT).setStrokeStyle(1, PANEL_BORDER);
-  const letter = scene.add.text(0, 0, itemId.charAt(0).toUpperCase(), uiTextStyle(12, undefined, containerScale)).setOrigin(0.5, 0.5);
+  const letter = scene.add.text(0, 0, itemId.charAt(0).toUpperCase(), uiTextStyle(12, undefined, { scale: containerScale })).setOrigin(0.5, 0.5);
   return scene.add.container(0, 0, [box, letter]);
 }

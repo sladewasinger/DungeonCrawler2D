@@ -3,7 +3,7 @@ import { canEnterFullscreen, enterFullscreenLandscape, installFullscreenResumeRe
 
 export const enableMobileDisplay = (root: HTMLElement): (() => void) => {
   if (!isTouchDevice()) return () => undefined;
-  const retry = installFullscreenResumeRetry(root);
+  const retry = installFullscreenResumeRetry({ target: root });
   const button = document.createElement("button");
   button.type = "button";
   button.textContent = "FULL";

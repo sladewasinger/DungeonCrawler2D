@@ -1,22 +1,18 @@
+/* eslint-disable max-lines -- frame-loop ownership requires a cohesive client facade. */
 /** Owns Three.js client composition, lifecycle, frame order, and renderer configuration. */
-import { World } from "@dc2d/engine";
+import type { World } from "@dc2d/engine";
 import { ThreeActionController } from "./ThreeActionController.js";
 import { ThreeFirstPersonViewport } from "./ThreeFirstPersonViewport.js";
 import { ThreeHud } from "./ThreeHud.js";
 import { ThreeInput } from "./ThreeInput.js";
-import { enableMobileDisplay } from "./ThreeMobileDisplay.js";
 import { advanceInputClock, firstPersonMoveInput } from "./firstPersonNetworking.js";
 import { presentFirstPerson } from "./firstPersonPresentation.js";
 import type { FirstPersonState } from "./movement.js";
 import { ThreeTerrain } from "./ThreeTerrain.js";
 import { needsTerrainRefresh } from "./terrainStreaming.js";
-import {
-  queryRouteNumber,
-  queryViewDistance,
-  type ThreeRouteOptions,
-} from "./threeRouteConfig.js";
+import type { ThreeRouteOptions } from "./threeRouteConfig.js";
 import type { ViewDistance } from "./viewDistance.js";
-import { findWalkable } from "./worldSearch.js";
+import { createThreeDungeonSetup } from "./ThreeDungeonClientSetup.js";
 
 export const startThreeDungeon = (options: ThreeRouteOptions) => new ThreeDungeonClient(options).start();
 
@@ -38,40 +34,18 @@ class ThreeDungeonClient {
   private active = false;
 
   constructor(private readonly options: ThreeRouteOptions) {
-    this.world = new World(
-      queryRouteNumber(options.search, "seed", 228182761),
-      queryRouteNumber(options.search, "floor", 1),
-    );
-    this.viewDistance = queryViewDistance(options.search);
-    const spawn = findWalkable(this.world, 0, 0);
-    this.state = { x: spawn.x, y: spawn.height, z: spawn.z, verticalVelocity: 0, grounded: true };
-    this.terrainOrigin = { x: Math.floor(spawn.x), z: Math.floor(spawn.z) };
-    this.terrainRevision = this.world.tileRevision;
-    this.viewport = new ThreeFirstPersonViewport(spawn, this.viewDistance);
-    options.root.replaceChildren(this.viewport.renderer.domElement);
-    this.releaseMobileDisplay = enableMobileDisplay(options.root);
-    this.input = new ThreeInput(options.root, this.viewport.renderer.domElement);
-    this.actions = new ThreeActionController(options.conn, {
-      toggleCraft: () => this.hud.toggleCraft(), toggleStash: () => this.hud.toggleStash(),
-    });
-    this.hud = new ThreeHud({
-      root: options.root,
-      connection: options.conn,
-      focusGame: () => this.input.focusGame(),
-      viewDistance: this.viewDistance,
-      setViewDistance: this.setViewDistance,
-      onSelectHotbar: this.actions.selectHotbar,
-      session: {
-        respawn: () => options.conn.suicide(),
-        quitToTitle: options.onQuitToTitle,
-      },
-    });
-    this.input.setGameplayBlocked(() => this.hud.blocksGameplay());
-    this.terrain = new ThreeTerrain(
-      this.world,
-      this.viewport.scene,
-      this.viewDistance,
-    );
+    const setup = createThreeDungeonSetup(options, this.setViewDistance);
+    this.world = setup.world;
+    this.viewport = setup.viewport;
+    this.hud = setup.hud;
+    this.actions = setup.actions;
+    this.input = setup.input;
+    this.terrain = setup.terrain;
+    this.releaseMobileDisplay = setup.releaseMobileDisplay;
+    this.terrainOrigin = setup.terrainOrigin;
+    this.viewDistance = setup.viewDistance;
+    this.state = setup.state;
+    this.terrainRevision = setup.world.tileRevision;
   }
 
   start(): () => void {

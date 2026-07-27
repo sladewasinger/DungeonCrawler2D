@@ -22,7 +22,7 @@ const BIOME_MATERIALS: Readonly<Record<BiomeKind, { floor: number; face: number 
   [BIOME.Arena]: { floor: 0x9d5b43, face: 0x5b2c2a },
 };
 
-export function materialsFor(world: World, bounds: Terrain4Rect) {
+export function materialsFor(world: Partial<World>, bounds: Terrain4Rect) {
   const palette = BIOME_MATERIALS[worldBiomeAt(world, bounds.x, bounds.y)];
   return {
     floor: { color: palette.floor }, feature: { color: palette.floor }, void: { color: 0x000000 },
@@ -30,8 +30,9 @@ export function materialsFor(world: World, bounds: Terrain4Rect) {
   };
 }
 
-export function worldBiomeAt(world: World, x: number, y: number): BiomeKind {
-  return biomeAtWorldTile(world.worldSeed, world.floor, x, y).biome;
+export function worldBiomeAt(world: Partial<World>, x: number, y: number): BiomeKind {
+  if (world.worldSeed === undefined || world.floor === undefined) return BIOME.Maze;
+  return biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: x, wy: y }).biome;
 }
 
 export function worldBoundsForView(view: ViewRect, orientation: ViewOrientation): Terrain4Rect {

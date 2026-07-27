@@ -33,7 +33,7 @@ function playerEntity(sim: GameSim, playerId: string) {
 
 function collectLegacyIdle(): ServerStateSnapshot[] {
   const sim = makeSim(101, {});
-  const player = sim.addPlayer("Legacy", "legacy-client");
+  const player = sim.addPlayer({ name: "Legacy", clientId: "legacy-client" });
   return Array.from({ length: 20 }, () => {
     const snapshot = sim.step().get(player.playerId);
     if (!snapshot) throw new Error("legacy snapshot cadence skipped a tick");
@@ -43,7 +43,7 @@ function collectLegacyIdle(): ServerStateSnapshot[] {
 
 function collectAdaptiveIdle(): ServerStateSnapshot[] {
   const sim = makeSim(101, {});
-  const player = sim.addPlayer("Adaptive", "adaptive-client");
+  const player = sim.addPlayer({ name: "Adaptive", clientId: "adaptive-client" });
   sim.configureSnapshotMode(player.playerId, "delta-v1");
   const snapshots = [];
   for (let tick = 0; tick < 20; tick++) {
@@ -65,18 +65,18 @@ describe("network cadence release", () => {
 
   it("bursts moving actors to observers and recovers one dropped delta independently", () => {
     const sim = makeSim(202, {});
-    const mover = sim.addPlayer("Mover", "client-mover");
-    const observerA = sim.addPlayer("ObserverA", "client-a");
-    const observerB = sim.addPlayer("ObserverB", "client-b");
-    const arena = findFlatArena(sim, mover.spawn.x, mover.spawn.y);
-    teleport(playerEntity(sim, mover.playerId), arena.x, arena.y, sim);
-    teleport(playerEntity(sim, observerA.playerId), arena.x + 1, arena.y, sim);
-    teleport(playerEntity(sim, observerB.playerId), arena.x - 1, arena.y, sim);
+    const mover = sim.addPlayer({ name: "Mover", clientId: "client-mover" });
+    const observerA = sim.addPlayer({ name: "ObserverA", clientId: "client-a" });
+    const observerB = sim.addPlayer({ name: "ObserverB", clientId: "client-b" });
+    const arena = findFlatArena({ sim: sim, anchor: { x: mover.spawn.x, y: mover.spawn.y } });
+    teleport({ entity: playerEntity(sim, mover.playerId), x: arena.x, y: arena.y, sim: sim });
+    teleport({ entity: playerEntity(sim, observerA.playerId), x: arena.x + 1, y: arena.y, sim: sim });
+    teleport({ entity: playerEntity(sim, observerB.playerId), x: arena.x - 1, y: arena.y, sim: sim });
     for (const id of [mover.playerId, observerA.playerId, observerB.playerId]) {
       sim.configureSnapshotMode(id, "delta-v1");
     }
     sim.stepReplicated();
-    sim.handleInput(mover.playerId, input(1, 1, 0, true));
+    sim.handleInput(mover.playerId, input({ seq: 1, moveX: 1, moveY: 0, jump: true }));
 
     const beforeMove = playerEntity(sim, mover.playerId).body.x;
     const beforeJump = playerEntity(sim, mover.playerId).body.z;

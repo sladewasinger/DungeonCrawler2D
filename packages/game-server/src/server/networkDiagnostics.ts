@@ -4,21 +4,24 @@ import { Buffer } from "node:buffer";
 
 const HANDSHAKE_CLIENT = "handshake";
 
+export interface NetworkMetricRecord {
+  playerId: string | null;
+  direction: WireDirection;
+  payload: string;
+  codecMilliseconds: number;
+  queueBytes: number;
+  nowMs: number;
+}
+
 export class ServerNetworkDiagnostics {
   private readonly aggregate = new WireMetrics();
   private readonly clients = new Map<string, WireMetrics>();
 
-  record(
-    playerId: string | null,
-    direction: WireDirection,
-    payload: string,
-    codecMilliseconds: number,
-    queueBytes: number,
-    nowMs: number,
-  ): void {
+  record(record: NetworkMetricRecord): void {
+    const { playerId, direction, payload, codecMilliseconds, queueBytes, nowMs } = record;
     const bytes = Buffer.byteLength(payload, "utf8");
-    this.aggregate.record(direction, bytes, codecMilliseconds, queueBytes, nowMs);
-    this.client(playerId).record(direction, bytes, codecMilliseconds, queueBytes, nowMs);
+    this.aggregate.record({ direction, bytes, codecMilliseconds, queueBytes, nowMs });
+    this.client(playerId).record({ direction, bytes, codecMilliseconds, queueBytes, nowMs });
   }
 
   snapshot(nowMs: number): {

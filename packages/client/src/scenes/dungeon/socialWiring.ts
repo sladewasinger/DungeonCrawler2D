@@ -21,12 +21,15 @@ export function openChatInputAt(box: ChatInputBox, viewportHeight: number, prefi
 }
 
 /** Chat-tab clicks, the contacts chip beside them, and the contacts window's per-row DM button. */
-export function buildSocialActions(
-  chatController: ChatController,
-  box: ChatInputBox,
-  viewportHeight: () => number,
-  hudScene: HudScene,
-): SocialActions {
+export interface SocialActionSource {
+  readonly chatController: ChatController;
+  readonly box: ChatInputBox;
+  readonly viewportHeight: () => number;
+  readonly hudScene: HudScene;
+}
+
+export function buildSocialActions(source: SocialActionSource): SocialActions {
+  const { chatController, box, viewportHeight, hudScene } = source;
   return {
     chat: {
       onSelectTab: (tab) => chatController.selectTab(tab),

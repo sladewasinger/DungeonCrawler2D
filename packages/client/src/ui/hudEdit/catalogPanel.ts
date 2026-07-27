@@ -28,6 +28,22 @@ export interface CatalogActions {
   onReset(): void;
 }
 
+interface CatalogPanelOptions {
+  scene: Phaser.Scene;
+  depth: number;
+  listDefinitions: () => WidgetDefinition[];
+  overrideFor: (id: string) => WidgetOverride | undefined;
+  actions: CatalogActions;
+}
+
+interface CatalogButtonOptions {
+  x: number;
+  y: number;
+  width: number;
+  label: string;
+  onClick: () => void;
+}
+
 export class CatalogPanel {
   readonly container: Phaser.GameObjects.Container;
   private readonly scene: Phaser.Scene;
@@ -35,13 +51,7 @@ export class CatalogPanel {
   private readonly overrideFor: (id: string) => WidgetOverride | undefined;
   private readonly actions: CatalogActions;
 
-  constructor(
-    scene: Phaser.Scene,
-    depth: number,
-    listDefinitions: () => WidgetDefinition[],
-    overrideFor: (id: string) => WidgetOverride | undefined,
-    actions: CatalogActions,
-  ) {
+  constructor({ scene, depth, listDefinitions, overrideFor, actions }: CatalogPanelOptions) {
     this.scene = scene;
     this.listDefinitions = listDefinitions;
     this.overrideFor = overrideFor;
@@ -66,11 +76,11 @@ export class CatalogPanel {
 
   private buildButtons(): void {
     const width = (PANEL_WIDTH - spacing(3)) / 2;
-    this.buildButton(spacing(1), HEADER_HEIGHT, width, "Save", () => this.actions.onSave());
-    this.buildButton(spacing(1) * 2 + width, HEADER_HEIGHT, width, "Reset", () => this.actions.onReset());
+    this.buildButton({ x: spacing(1), y: HEADER_HEIGHT, width, label: "Save", onClick: () => this.actions.onSave() });
+    this.buildButton({ x: spacing(1) * 2 + width, y: HEADER_HEIGHT, width, label: "Reset", onClick: () => this.actions.onReset() });
   }
 
-  private buildButton(x: number, y: number, width: number, label: string, onClick: () => void): void {
+  private buildButton({ x, y, width, label, onClick }: CatalogButtonOptions): void {
     const bg = this.scene.add
       .rectangle(x, y, width, BUTTON_HEIGHT - 4, PANEL_FILL, 0.9)
       .setOrigin(0, 0)

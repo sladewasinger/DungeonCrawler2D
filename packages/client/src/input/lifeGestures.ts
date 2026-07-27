@@ -53,6 +53,6 @@ export class LifeGestures {
   }
 
   cancel(nowMs: number, fistbump: HoldState): void {
-    cancelHeldGestures(nowMs, this.revive, this.giveUp, fistbump);
+    cancelHeldGestures(nowMs, { revive: this.revive, giveUp: this.giveUp, fistbump });
   }
 }

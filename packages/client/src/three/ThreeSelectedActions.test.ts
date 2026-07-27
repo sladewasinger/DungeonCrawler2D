@@ -31,14 +31,14 @@ const world = (tile: TileType = TILE.Floor): World => ({
 describe("Three.js selected item actions", () => {
   it("uses a selected bandage when no world interaction wins", () => {
     const port = connection("bandage");
-    useSelectedOrInteract(port, world(), 0);
+    useSelectedOrInteract({ connection: port, world: world(), slot: 0 });
     expect(port.useSlot).toHaveBeenCalledWith(0);
     expect(port.interact).not.toHaveBeenCalled();
   });
 
   it("gives a nearby door priority over a selected bandage", () => {
     const port = connection("bandage");
-    useSelectedOrInteract(port, world(TILE.DoorExit), 0);
+    useSelectedOrInteract({ connection: port, world: world(TILE.DoorExit), slot: 0 });
     expect(port.interact).toHaveBeenCalledOnce();
     expect(port.useSlot).not.toHaveBeenCalled();
   });
@@ -58,7 +58,7 @@ describe("Three.js selected item actions", () => {
 
   it("uses pickup as the no-context fallback when an item is nearby", () => {
     const port = connection(null);
-    useSelectedOrInteract(port, world(), null, undefined, true);
+    useSelectedOrInteract({ connection: port, world: world(), slot: null, pickupNearby: true });
     expect(port.pickup).toHaveBeenCalledOnce();
     expect(port.interact).not.toHaveBeenCalled();
   });

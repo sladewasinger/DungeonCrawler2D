@@ -72,7 +72,7 @@ describe("floor-1 near-spawn density", () => {
     "seeds >= %s enemies reachable within NEAR_SPAWN_RADIUS_TILES for seed %s",
     (seedStr) => {
       const world = new World(hashString(seedStr), 1, LEVEL.Dungeon);
-      const sim = createSimState(world, content, new PlayerStore(null), 42, {});
+      const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
       const anchor = resolveSpawnAnchor(sim);
 
       sweepNearSpawn(sim, anchor);
@@ -85,12 +85,13 @@ describe("floor-1 near-spawn density", () => {
 });
 
 describe("repopulateNearSpawn", () => {
+  const REPPOP_TEST_WORLD = "repop-test-world";
   let sim: SimState;
   let anchor: { x: number; y: number };
 
   beforeEach(() => {
-    const world = new World(hashString("repop-test-world"), 1, LEVEL.Dungeon);
-    sim = createSimState(world, content, new PlayerStore(null), 42, {});
+    const world = new World(hashString(REPPOP_TEST_WORLD), 1, LEVEL.Dungeon);
+    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
     anchor = resolveSpawnAnchor(sim);
     sweepNearSpawn(sim, anchor);
     const player = sim.players.get("p1");
@@ -125,8 +126,8 @@ describe("repopulateNearSpawn", () => {
   });
 
   it("repopulates occupied areas on deeper floors", () => {
-    const world2 = new World(hashString("repop-test-world"), 2, LEVEL.Dungeon);
-    const sim2 = createSimState(world2, content, new PlayerStore(null), 42, {});
+    const world2 = new World(hashString(REPPOP_TEST_WORLD), 2, LEVEL.Dungeon);
+    const sim2 = createSimState({ world: world2, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
     const center = resolveSpawnAnchor(sim2);
     sim2.players.set("p1", makeSlot(center.x, center.y, world2));
 
@@ -138,7 +139,7 @@ describe("repopulateNearSpawn", () => {
   it("recycles distant enemies that filled the cap and restores the active area", () => {
     sim.enemies.clear();
     for (let index = 0; index < 150; index++) {
-      spawnEnemy(sim, "slime", anchor.x + 500 + index, anchor.y + 500);
+      spawnEnemy(sim, { defId: "slime", x: anchor.x + 500 + index, y: anchor.y + 500 });
     }
 
     repopulateNearSpawn(sim);
@@ -148,8 +149,8 @@ describe("repopulateNearSpawn", () => {
   });
 
   it("is a no-op in the Sandbox level", () => {
-    const world2 = new World(hashString("repop-test-world"), 1, LEVEL.Sandbox);
-    const sim2 = createSimState(world2, content, new PlayerStore(null), 42, {});
+    const world2 = new World(hashString(REPPOP_TEST_WORLD), 1, LEVEL.Sandbox);
+    const sim2 = createSimState({ world: world2, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
     const center = resolveSpawnAnchor(sim2);
     sim2.players.set("p1", makeSlot(center.x, center.y, world2));
     const before = sim2.enemies.size;

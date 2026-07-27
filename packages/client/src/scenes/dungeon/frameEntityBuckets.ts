@@ -32,37 +32,28 @@ export function bucketFrameEntities(
   buckets: FrameEntityBuckets,
 ): FrameEntityBuckets {
   clearBuckets(buckets);
-  for (const entity of entities) {
-    switch (entity.snap.kind) {
-      case "player":
-        buckets.players.push(entity);
-        break;
-      case "enemy":
-        buckets.enemies.push(entity);
-        break;
-      case "pet":
-        buckets.pets.push(entity);
-        break;
-      case "item":
-        if (entity.snap.defId === "player-loot-chest") {
-          buckets.items.push(entity);
-          buckets.lootChests.push(entity);
-        } else {
-          buckets.items.push(entity);
-          buckets.pickupTargets.push(entity);
-        }
-        break;
-      case "projectile":
-        buckets.projectiles.push(entity);
-        buckets.projectileIds.add(entity.id);
-        break;
-      case "torch":
-        buckets.torches.push(entity);
-        if (entity.snap.state === "placed") buckets.pickupTargets.push(entity);
-        break;
-    }
-  }
+  for (const entity of entities) bucketEntity(buckets, entity);
   return buckets;
+}
+
+function bucketEntity(buckets: FrameEntityBuckets, entity: InterpolatedEntity): void {
+  const handlers: Record<InterpolatedEntity["snap"]["kind"], () => void> = {
+    player: () => buckets.players.push(entity), enemy: () => buckets.enemies.push(entity),
+    pet: () => buckets.pets.push(entity), item: () => bucketItem(buckets, entity),
+    projectile: () => { buckets.projectiles.push(entity); buckets.projectileIds.add(entity.id); },
+    torch: () => bucketTorch(buckets, entity),
+  };
+  handlers[entity.snap.kind]();
+}
+
+function bucketItem(buckets: FrameEntityBuckets, entity: InterpolatedEntity): void {
+  buckets.items.push(entity);
+  (entity.snap.defId === "player-loot-chest" ? buckets.lootChests : buckets.pickupTargets).push(entity);
+}
+
+function bucketTorch(buckets: FrameEntityBuckets, entity: InterpolatedEntity): void {
+  buckets.torches.push(entity);
+  if (entity.snap.state === "placed") buckets.pickupTargets.push(entity);
 }
 
 function clearBuckets(buckets: FrameEntityBuckets): void {

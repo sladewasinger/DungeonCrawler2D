@@ -16,12 +16,19 @@ const GUARD_RIM_COLOR = 0xb7e8ff;
 const GUARD_RIM_ALPHA = 0.9;
 const GUARD_RIM_WIDTH_PX = 2;
 
-export const updateGuardCone = (
-  visual: PlayerVisual,
-  blocking: boolean,
-  facingAngle: number,
-  depth: GuardConeDepth,
-): void => {
+export interface GuardConeUpdate {
+  readonly visual: PlayerVisual;
+  readonly blocking: boolean;
+  readonly facingAngle: number;
+  readonly depth: GuardConeDepth;
+}
+
+export const updateGuardCone = ({
+  visual,
+  blocking,
+  facingAngle,
+  depth,
+}: GuardConeUpdate): void => {
   const cone = visual.guardCone;
   if (!cone) return;
   if (!blocking) {
@@ -30,7 +37,7 @@ export const updateGuardCone = (
   }
   const geometry = wedgeGeometry(facingAngle, SCREEN_TILE_PX);
   const originY = combatOriginY(visual.body.y, SCREEN_TILE_PX);
-  drawGuardCone(cone, visual.body.x, originY, geometry);
+  drawGuardCone({ cone, originX: visual.body.x, originY, geometry });
   const overlayDepth = depthForAdjacentTerrainOverlay(
     depth.wielderViewY,
     depth.wielderDepth,
@@ -39,12 +46,14 @@ export const updateGuardCone = (
   cone.setDepth(overlayDepth - 0.02).setVisible(true);
 };
 
-function drawGuardCone(
-  cone: Phaser.GameObjects.Graphics,
-  originX: number,
-  originY: number,
-  geometry: ReturnType<typeof wedgeGeometry>,
-): void {
+interface GuardConeDrawing {
+  readonly cone: Phaser.GameObjects.Graphics;
+  readonly originX: number;
+  readonly originY: number;
+  readonly geometry: ReturnType<typeof wedgeGeometry>;
+}
+
+function drawGuardCone({ cone, originX, originY, geometry }: GuardConeDrawing): void {
   cone.clear();
   cone.fillStyle(GUARD_FILL_COLOR, GUARD_FILL_ALPHA);
   cone.slice(originX, originY, geometry.radiusPx, geometry.startAngle, geometry.endAngle, false);

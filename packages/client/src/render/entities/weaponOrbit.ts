@@ -57,7 +57,14 @@ export interface OrbitPosition {
 }
 
 /** Screen position on the orbit circle (radius ORBIT_RADIUS_TILES) around (centerX, centerY) at `angle`. */
-export function orbitPosition(centerX: number, centerY: number, angle: number, tilePx: number): OrbitPosition {
+export interface OrbitPositionInput {
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly angle: number;
+  readonly tilePx: number;
+}
+
+export function orbitPosition({ centerX, centerY, angle, tilePx }: OrbitPositionInput): OrbitPosition {
   const radiusPx = ORBIT_RADIUS_TILES * tilePx;
   return { x: centerX + Math.cos(angle) * radiusPx, y: centerY + Math.sin(angle) * radiusPx, rotation: angle };
 }

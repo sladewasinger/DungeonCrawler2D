@@ -20,80 +20,16 @@ const SANCTUARY_ZONE = { minX: 100, maxX: 120 };
 
 const FIXTURE: RawContent = {
   statuses: [
-    {
-      id: "bleeding",
-      name: "Bleeding",
-      kind: "debuff",
-      tags: ["bleed", "physical"],
-      duration: 8,
-      tickEvery: 2,
-      stacking: "refresh",
-      onTick: [{ primitive: "modify_health", amount: -2 }],
-    },
-    {
-      id: "poisoned",
-      name: "Poisoned",
-      kind: "debuff",
-      tags: ["poison"],
-      duration: 10,
-      tickEvery: 2,
-      stacking: "refresh",
-      onTick: [{ primitive: "modify_health", amount: -1 }],
-    },
-    {
-      id: "on-fire",
-      name: "On Fire",
-      kind: "debuff",
-      tags: ["fire"],
-      duration: 5,
-      tickEvery: 1,
-      stacking: "refresh",
-      appliesTags: ["burning"],
-      onTick: [{ primitive: "modify_health", amount: -3 }],
-    },
-    {
-      id: "slowed",
-      name: "Slowed",
-      kind: "debuff",
-      tags: ["slow"],
-      duration: 4,
-      stacking: "refresh",
-      whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.6 }],
-    },
-    {
-      id: "wet",
-      name: "Wet",
-      kind: "debuff",
-      tags: ["wet"],
-      duration: 6,
-      stacking: "refresh",
-      appliesTags: ["wet"],
-      whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.85 }],
-    },
-    {
-      id: "bandaged",
-      name: "Bandaged",
-      kind: "buff",
-      tags: ["heal"],
-      duration: 1,
-      stacking: "refresh",
-      onApply: [
-        { primitive: "modify_health", amount: 4 },
-        { primitive: "remove_status", tag: "bleed" },
-      ],
-    },
+    { id: "bleeding", name: "Bleeding", kind: "debuff", tags: ["bleed", "physical"], duration: 8, tickEvery: 2, stacking: "refresh", onTick: [{ primitive: "modify_health", amount: -2 }] },
+    { id: "poisoned", name: "Poisoned", kind: "debuff", tags: ["poison"], duration: 10, tickEvery: 2, stacking: "refresh", onTick: [{ primitive: "modify_health", amount: -1 }] },
+    { id: "on-fire", name: "On Fire", kind: "debuff", tags: ["fire"], duration: 5, tickEvery: 1, stacking: "refresh", appliesTags: ["burning"], onTick: [{ primitive: "modify_health", amount: -3 }] },
+    { id: "slowed", name: "Slowed", kind: "debuff", tags: ["slow"], duration: 4, stacking: "refresh", whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.6 }] },
+    { id: "wet", name: "Wet", kind: "debuff", tags: ["wet"], duration: 6, stacking: "refresh", appliesTags: ["wet"], whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.85 }] },
+    { id: "bandaged", name: "Bandaged", kind: "buff", tags: ["heal"], duration: 1, stacking: "refresh", onApply: [{ primitive: "modify_health", amount: 4 }, { primitive: "remove_status", tag: "bleed" }] },
   ],
   rules: [{ when: ["burning", "wet"], removeTags: ["fire", "wet"] }],
   areas: [],
-  items: [
-    {
-      id: "bandage",
-      name: "Bandage",
-      tags: ["cloth"],
-      maxStack: 5,
-      consumable: { effects: [{ primitive: "apply_status", status: "bandaged" }] },
-    },
-  ],
+  items: [{ id: "bandage", name: "Bandage", tags: ["cloth"], maxStack: 5, consumable: { effects: [{ primitive: "apply_status", status: "bandaged" }] } }],
   enemies: [],
   recipes: [],
 };
@@ -112,11 +48,11 @@ describe("effects engine", () => {
     const engine = makeEngine();
     const target = player();
     const events: EffectEvent[] = [];
-    expect(engine.applyStatus(target, "bleeding", events)).toBe(true);
+    expect(engine.applyStatus({ entity: target, statusId: "bleeding", events })).toBe(true);
     expect(events).toContainEqual({ t: "status", id: target.id, status: "bleeding", on: true });
 
     // bleeding: -2 every 2s for 8s ⇒ -8 total.
-    for (let i = 0; i < 100; i++) engine.tick(target, 0.1, events);
+    for (let i = 0; i < 100; i++) engine.tick({ entity: target, dt: 0.1, events });
     expect(target.hp).toBe(22);
     expect(target.statuses).toHaveLength(0); // expired
     expect(events).toContainEqual({ t: "status", id: target.id, status: "bleeding", on: false });
@@ -126,9 +62,9 @@ describe("effects engine", () => {
     const engine = makeEngine();
     const target = player();
     const events: EffectEvent[] = [];
-    engine.applyStatus(target, "bleeding", events);
-    for (let i = 0; i < 30; i++) engine.tick(target, 0.1, events); // 3s in
-    engine.applyStatus(target, "bleeding", events); // refresh
+    engine.applyStatus({ entity: target, statusId: "bleeding", events });
+    for (let i = 0; i < 30; i++) engine.tick({ entity: target, dt: 0.1, events }); // 3s in
+    engine.applyStatus({ entity: target, statusId: "bleeding", events }); // refresh
     expect(target.statuses).toHaveLength(1);
     expect(target.statuses[0]?.remaining).toBe(8);
   });
@@ -138,8 +74,8 @@ describe("effects engine", () => {
     const target = player();
     target.hp = 3;
     const events: EffectEvent[] = [];
-    engine.applyStatus(target, "on-fire", events); // -3/s
-    for (let i = 0; i < 20; i++) engine.tick(target, 0.1, events);
+    engine.applyStatus({ entity: target, statusId: "on-fire", events }); // -3/s
+    for (let i = 0; i < 20; i++) engine.tick({ entity: target, dt: 0.1, events });
     expect(target.hp).toBe(0);
     expect(events.filter((e) => e.t === "death")).toHaveLength(1);
   });
@@ -148,8 +84,8 @@ describe("effects engine", () => {
     const engine = makeEngine();
     const target = player();
     const events: EffectEvent[] = [];
-    engine.applyStatus(target, "wet", events);
-    engine.applyStatus(target, "on-fire", events);
+    engine.applyStatus({ entity: target, statusId: "wet", events });
+    engine.applyStatus({ entity: target, statusId: "on-fire", events });
     // Applying on-fire while wet triggers the rule immediately.
     expect(target.statuses.map((s) => s.defId)).not.toContain("on-fire");
     expect(target.statuses.map((s) => s.defId)).not.toContain("wet");
@@ -160,10 +96,10 @@ describe("effects engine", () => {
     const target = player(110); // inside sanctuary band
     target.hp = 10;
     const events: EffectEvent[] = [];
-    expect(engine.modifyHealth(target, -5, events)).toBe(0);
+    expect(engine.modifyHealth({ entity: target, amount: -5, events })).toBe(0);
     expect(target.hp).toBe(10);
-    expect(engine.applyStatus(target, "poisoned", events)).toBe(false);
-    expect(engine.modifyHealth(target, 5, events)).toBe(5);
+    expect(engine.applyStatus({ entity: target, statusId: "poisoned", events })).toBe(false);
+    expect(engine.modifyHealth({ entity: target, amount: 5, events })).toBe(5);
     expect(target.hp).toBe(15);
   });
 
@@ -171,16 +107,16 @@ describe("effects engine", () => {
     const engine = makeEngine();
     const slime = makeEntity("enemy", createBody(0, 0, 0), { hp: 12, maxHp: 12 });
     const events: EffectEvent[] = [];
-    expect(engine.applyStatus(slime, "bleeding", events, { immunities: ["bleed"] })).toBe(false);
-    expect(engine.applyStatus(slime, "on-fire", events, { immunities: ["bleed"] })).toBe(true);
+    expect(engine.applyStatus({ entity: slime, statusId: "bleeding", events, target: { immunities: ["bleed"] } })).toBe(false);
+    expect(engine.applyStatus({ entity: slime, statusId: "on-fire", events, target: { immunities: ["bleed"] } })).toBe(true);
   });
 
   it("damageScale amplifies tagged damage (flammable plants burn 2x)", () => {
     const engine = makeEngine();
     const plant = makeEntity("enemy", createBody(0, 0, 0), { hp: 18, maxHp: 18 });
     const events: EffectEvent[] = [];
-    engine.applyStatus(plant, "on-fire", events, { damageScale: { fire: 2 } });
-    engine.tick(plant, 1.0, events, { damageScale: { fire: 2 } });
+    engine.applyStatus({ entity: plant, statusId: "on-fire", events, target: { damageScale: { fire: 2 } } });
+    engine.tick({ entity: plant, dt: 1.0, events, target: { damageScale: { fire: 2 } } });
     // on-fire ticks -3, scaled ×2 ⇒ -6.
     expect(plant.hp).toBe(12);
   });
@@ -189,8 +125,8 @@ describe("effects engine", () => {
     const engine = makeEngine();
     const target = player();
     const events: EffectEvent[] = [];
-    engine.applyStatus(target, "slowed", events); // ×0.6
-    engine.applyStatus(target, "wet", events); // ×0.85
+    engine.applyStatus({ entity: target, statusId: "slowed", events }); // ×0.6
+    engine.applyStatus({ entity: target, statusId: "wet", events }); // ×0.85
     expect(engine.speedMult(target)).toBeCloseTo(0.6 * 0.85, 5);
   });
 
@@ -199,9 +135,9 @@ describe("effects engine", () => {
     const target = player();
     target.hp = 20;
     const events: EffectEvent[] = [];
-    engine.applyStatus(target, "bleeding", events);
+    engine.applyStatus({ entity: target, statusId: "bleeding", events });
     const bandage = buildContentRegistry(FIXTURE).items.get("bandage");
-    engine.runPrimitives(target, bandage?.consumable?.effects ?? [], events, {}, () => 0);
+    engine.runPrimitives({ entity: target, primitives: bandage?.consumable?.effects ?? [], events, target: {}, rng: () => 0 });
     expect(target.hp).toBe(24);
     expect(target.statuses.map((s) => s.defId)).not.toContain("bleeding");
   });
@@ -214,7 +150,7 @@ describe("effects engine", () => {
       tags: new Set(["player"]),
     });
     const events: EffectEvent[] = [];
-    engine.applyStatus(target, "wet", events);
+    engine.applyStatus({ entity: target, statusId: "wet", events });
     expect(engine.tagsOf(target)).toContain("wet");
     expect(engine.tagsOf(target)).toContain("player");
     target.body.grounded = false;

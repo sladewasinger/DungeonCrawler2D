@@ -5,39 +5,34 @@
 // only sequences them in one readable order per frame.
 import type { World } from "@dc2d/engine";
 import Phaser from "phaser";
-import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { InputController } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
 import { EntityRenderer } from "../../render/entities/index.js";
-import { worldToScreen } from "../../render/entities/worldToScreen.js";
 import { LightingSystem } from "../../render/lighting/index.js";
 import { Terrain4Renderer, type TerrainRendererLike } from "../../render/terrain4/index.js";
 import { ChatController } from "../../ui/chat/controller.js";
 import { ChatInputBox } from "../../ui/chat/chatInput.js";
-import type { HudFakeSnapshot } from "../../ui/widgets/hud/fakeData.js";
 import { VfxSystem } from "../../vfx/index.js";
 import type { HudScene } from "../HudScene.js";
-import { requestCameraSnap, stepCameraFollow } from "./cameraFollow.js";
+import { requestCameraSnap } from "./cameraFollow.js";
 import { bindDungeonCameraResize } from "./cameraResize.js";
-import { consumeFixedSteps } from "./fixedStep.js";
 import { FistbumpRing } from "./fistbumpRing.js";
 import { syncFistbumpRing } from "./fistbumpRingSync.js";
 import { syncFrame } from "./frameSync.js";
-import { createChatPort, createHudActions, createInputConnectionAdapter, createInputHooks, createInputQueries } from "./inputAdapters.js";
+import { createChatPort, createHudActions } from "./inputAdapters.js";
 import { LiveHudSnapshotCache } from "./liveHudSnapshotCache.js";
-import { resolveMouseAimHeading } from "./mouseAimHeading.js";
-import { createCraftActions, createInputPanels, createStashActions } from "./panelAdapters.js";
+import { createCraftActions, createStashActions } from "./panelAdapters.js";
 import { RotationController } from "./rotationControl.js";
 import { bindRotationKeys } from "./rotationKeys.js";
 import { syncReviveRing } from "./reviveRingSync.js";
 import { createSessionActions } from "./sessionActions.js";
-import { buildSocialActions, buildSocialHooks } from "./socialWiring.js";
+import { buildSocialActions } from "./socialWiring.js";
 import type { InteractionPrompt } from "./interactionPrompt.js";
-import { consumeRespawnGrace, updateSelfFacing } from "./selfCosmetics.js";
+import { consumeRespawnGrace } from "./selfCosmetics.js";
 import { interpolateConnectionSelf } from "./selfInterpolation.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
 import { createTorchSyncState, type TorchSyncState } from "./torchSync.js";
-import { trackWallBump } from "./wallBumpTracking.js";
+import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputController, consumeDungeonTeleport, replaceDungeonWorldSystems, sampleDungeonInput, updateDungeonCamera } from "./dungeonSceneHelpers.js";
 
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
@@ -80,20 +75,12 @@ export class DungeonScene extends Phaser.Scene {
     this.reviveRing = new FistbumpRing(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
-    this.chatInputBox = new ChatInputBox({
-      onSubmit: (text) => this.chatController.submit(text),
-      onFocusChange: (focused) => {
-        const keyboard = this.input.keyboard;
-        if (!keyboard) return;
-        if (focused) keyboard.disableGlobalCapture();
-        else keyboard.enableGlobalCapture();
-      },
-    });
-    this.inputController = this.buildInputController();
+    this.chatInputBox = this.createChatInputBox();
+    this.inputController = buildDungeonInputController({ scene: this, conn: this.conn, hudScene: this.hudScene, cosmetics: this.state.cosmetics, chatInputBox: this.chatInputBox });
     this.scene.launch("hud", {
-      source: () => this.buildHudSnapshotNow(), connection: this.conn,
+      source: () => buildDungeonHudSnapshot({ scene: this, conn: this.conn, inputController: this.inputController, interactionPrompt: this.interactionPrompt, chatController: this.chatController, cache: this.hudSnapshotCache, rotation: this.rotation }), connection: this.conn,
       onSelectHotbar: (index: number | null) => this.inputController.setHotbarSlot(index), actions: createHudActions(this.conn),
-      social: buildSocialActions(this.chatController, this.chatInputBox, () => this.scale.height, this.hudScene),
+      social: buildSocialActions({ chatController: this.chatController, box: this.chatInputBox, viewportHeight: () => this.scale.height, hudScene: this.hudScene }),
       stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
       session: createSessionActions(this, this.conn),
     });
@@ -108,130 +95,79 @@ export class DungeonScene extends Phaser.Scene {
     // body/welcome are still the last-known stale state, not null, so this check must
     // run before the guard below or the scene would render a dead world forever
     // instead of a clean path back to title (Epic 7.12).
-    if (conn.sessionExpired) {
-      conn.sessionExpired = false;
-      this.scene.stop("hud");
-      this.scene.start("title", { expired: true });
-      return;
-    }
+    if (this.redirectExpiredSession()) return;
     this.chatController.sync();
     if (!conn.world || !conn.body || !conn.welcome) return;
 
-    this.inputController.pollFistbumpHold();
-    syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
-    this.inputController.pollReviveHold();
-    this.inputController.pollGiveUpHold();
-    syncReviveRing(this.reviveRing, this.inputController, conn);
-    this.ensureWorldBoundSystems(conn.world);
-    this.consumeTeleport(time);
-    this.consumeHardCorrection();
-    consumeRespawnGrace(conn, this.state.cosmetics, time);
-    this.advanceRotation(deltaMs);
+    this.syncInputHolds(conn);
+    this.prepareFrame(conn, time, deltaMs);
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
     // that occurred this frame (matches reference/client's proven fixed-step order).
-    this.sampleFixedStepInput(deltaMs, time);
+    sampleDungeonInput({ conn, state: this.state, inputController: this.inputController, vfx: this.vfx, deltaMs, nowMs: time });
 
     const render = interpolateConnectionSelf(conn, this.state, deltaMs);
-    conn.movementTrace?.recordFrame(time, this.state.renderInput, render, conn.movementTraceState());
-    this.updateCameraFollow(render, deltaMs);
-    this.cameras.main.setRotation(this.rotation.cameraRotationRad());
-    this.terrain?.update(this.cameras.main.worldView);
-    this.partyIds.clear();
-    for (const member of conn.party?.members ?? []) this.partyIds.add(member.id);
-
-    const synced = syncFrame(this, conn, this.entityRenderer, this.vfx, this.terrain, this.lighting, this.inputController, this.state, this.torchSyncState, this.partyIds, time, deltaMs / 1000, render);
+    conn.movementTrace?.recordFrame({
+      time,
+      input: this.state.renderInput,
+      render,
+      client: conn.movementTraceState(),
+    });
+    updateDungeonCamera({ scene: this, state: this.state, render, deltaMs });
+    this.syncTerrainAndParty(conn);
+    const synced = this.syncRenderFrame({ conn, time, deltaMs, render });
     this.interactionPrompt = synced.interactionPrompt;
   }
 
-  /** Advances the Q/X rotation tween BEFORE input is sampled, so camera-relative
-   * movement this same frame already remaps against whatever orientation the tween's
-   * one hard content swap (if this frame crosses the 45-degree midpoint) settles on. */
-  private advanceRotation(deltaMs: number): void {
-    this.rotation.update(deltaMs, () => {
-      // Keep completed pages visible while their rotated replacements bake, avoiding
-      // both piecewise blanking and a full-view allocation burst.
-      this.terrain?.rebakeAllNow();
-      this.lighting?.invalidateAll();
-      // An orientation swap teleports the player's VIEW position, and the eased
-      // follow would otherwise pan dozens of tiles from the old view coords back
-      // to the player ("I'm literally off-screen after the rotation" — user).
-      // The camera contract's own rule applies: snaps on teleport.
-      requestCameraSnap(this.state.camera);
-    });
+  private createChatInputBox(): ChatInputBox {
+    return new ChatInputBox({ onSubmit: (text) => this.chatController.submit(text), onFocusChange: (focused) => this.toggleKeyboardCapture(focused) });
   }
 
-  private buildInputController(): InputController {
-    const connAdapter = createInputConnectionAdapter(this.conn);
-    const queries = createInputQueries(this.conn);
-    const panels = createInputPanels(this.hudScene, queries);
-    const hooks = createInputHooks(
-      this.state.cosmetics,
-      buildSocialHooks(this.hudScene, this.chatInputBox),
-    );
-    return new InputController(this, connAdapter, panels, this.hudScene, queries, hooks, SCREEN_TILE_PX);
+  private toggleKeyboardCapture(focused: boolean): void {
+    const keyboard = this.input.keyboard;
+    if (!keyboard) return;
+    if (focused) keyboard.disableGlobalCapture(); else keyboard.enableGlobalCapture();
+  }
+
+  private redirectExpiredSession(): boolean {
+    if (!this.conn.sessionExpired) return false;
+    this.conn.sessionExpired = false; this.scene.stop("hud"); this.scene.start("title", { expired: true });
+    return true;
+  }
+
+  private syncInputHolds(conn: Connection): void {
+    this.inputController.pollFistbumpHold(); syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
+    this.inputController.pollReviveHold(); this.inputController.pollGiveUpHold(); syncReviveRing(this.reviveRing, this.inputController, conn);
+  }
+
+  private prepareFrame(conn: Connection, time: number, deltaMs: number): void {
+    this.ensureWorldBoundSystems(conn.world!); consumeDungeonTeleport({ conn, state: this.state, vfx: this.vfx, nowMs: time });
+    this.consumeHardCorrection(); consumeRespawnGrace(conn, this.state.cosmetics, time);
+    advanceDungeonRotation({ rotation: this.rotation, terrain: this.terrain, lighting: this.lighting, state: this.state, deltaMs });
+  }
+
+  private syncTerrainAndParty(conn: Connection): void {
+    this.cameras.main.setRotation(this.rotation.cameraRotationRad()); this.terrain?.update(this.cameras.main.worldView);
+    this.partyIds.clear(); for (const member of conn.party?.members ?? []) this.partyIds.add(member.id);
+  }
+
+  private syncRenderFrame({ conn, time, deltaMs, render }: { readonly conn: Connection; readonly time: number; readonly deltaMs: number; readonly render: RenderPose }) {
+    return syncFrame({ scene: this, conn, entityRenderer: this.entityRenderer, vfx: this.vfx, terrain: this.terrain, lighting: this.lighting, inputController: this.inputController, state: this.state, torchSyncState: this.torchSyncState, partyIds: this.partyIds, nowMs: time, dtSeconds: deltaMs / 1000, render });
   }
 
   /** (Re)builds the World-bound renderers whenever Connection hands out a new World (initial connect or reconnect). */
   private ensureWorldBoundSystems(world: World): void {
-    if (this.boundWorld === world) return;
-    this.terrain?.dispose();
-    this.lighting?.dispose();
-    this.terrain = new Terrain4Renderer(this, world);
-    this.lighting = new LightingSystem(this, world);
+    const systems = replaceDungeonWorldSystems({ scene: this, current: this.boundWorld, terrain: this.terrain, lighting: this.lighting, world });
+    if (!systems) return;
+    this.terrain = systems.terrain;
+    this.lighting = systems.lighting;
     this.boundWorld = world;
   }
 
   /** Server-flagged teleport (welcome, respawn, debug tp, Epic 7.14 stairways once wired):
    * reset local render state, snap the camera, and fade through black over the cut. */
-  private consumeTeleport(nowMs: number): void {
-    if (!this.conn.teleported) return;
-    this.conn.teleported = false;
-    this.state.accumulatorMs = 0;
-    requestCameraSnap(this.state.camera);
-    this.vfx.spawnTeleportFade(nowMs);
-  }
-
   private consumeHardCorrection(): void {
     if (!this.conn.predictionCorrection.consumeHardSnap()) return;
     requestCameraSnap(this.state.camera);
-  }
-
-  private sampleFixedStepInput(deltaMs: number, nowMs: number): void {
-    const { conn, state } = this;
-    const { steps, accumulatorMs } = consumeFixedSteps(state.accumulatorMs, deltaMs);
-    state.accumulatorMs = accumulatorMs;
-    const move = this.inputController.readInput();
-    state.renderInput = move;
-    for (let i = 0; i < steps; i++) {
-      const body = conn.body;
-      updateSelfFacing(state.cosmetics, move.moveX, move.moveY, move.jump);
-      const preX = body?.x ?? 0;
-      const preY = body?.y ?? 0;
-      conn.sampleInput(move);
-      // Panel round 3b item 4 (WALL-BUMP FEEDBACK) — see wallBumpTracking.ts's doc comment.
-      trackWallBump(conn, state, this.vfx, move, preX, preY, nowMs);
-    }
-  }
-
-  private updateCameraFollow(render: RenderPose, deltaMs: number): void {
-    const screen = worldToScreen(render.x, render.y);
-    stepCameraFollow(this.state.camera, screen.x, screen.y, deltaMs);
-    this.cameras.main.centerOn(this.state.camera.x, this.state.camera.y);
-  }
-
-  private buildHudSnapshotNow(): HudFakeSnapshot {
-    return this.hudSnapshotCache.build(
-      this.conn,
-      this.inputController,
-      this.interactionPrompt,
-      this.chatController,
-      // Instantaneous rate, NOT loop.actualFps: that EMA is seeded at 60 and
-      // converges over ~90s, which fabricated a "monotonic fps collapse" for
-      // slow clients (judge-panel finding; connectionStatus does its own smoothing).
-      1000 / this.game.loop.delta,
-      this.rotation.bearingDeg(),
-      resolveMouseAimHeading(this.cameras.main, this.input.activePointer, SCREEN_TILE_PX, this.conn.body, (x, y) => this.conn.world?.heightAt(x, y) ?? 0),
-    );
   }
 
   private dispose(): void {

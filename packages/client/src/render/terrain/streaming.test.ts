@@ -49,22 +49,22 @@ describe("chunkWindowKey", () => {
     const view = { x: 10, y: 20, width: 100, height: 80 };
     const settled = new SettledChunkWindow();
 
-    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
-    settled.captureIfIdle(view, 1, 0, 1);
-    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
-    settled.captureIfIdle(view, 0, 0, 1);
-    expect(settled.canSkip({ ...view, x: 20 }, 0, 0, 1)).toBe(true);
-    expect(settled.canSkip(view, 1, 0, 1)).toBe(false);
+    expect(settled.canSkip({ view, builderCount: 0, queueCount: 0, marginChunks: 1 })).toBe(false);
+    settled.captureIfIdle({ view, builderCount: 1, queueCount: 0, marginChunks: 1 });
+    expect(settled.canSkip({ view, builderCount: 0, queueCount: 0, marginChunks: 1 })).toBe(false);
+    settled.captureIfIdle({ view, builderCount: 0, queueCount: 0, marginChunks: 1 });
+    expect(settled.canSkip({ view: { ...view, x: 20 }, builderCount: 0, queueCount: 0, marginChunks: 1 })).toBe(true);
+    expect(settled.canSkip({ view, builderCount: 1, queueCount: 0, marginChunks: 1 })).toBe(false);
     settled.reset();
-    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
+    expect(settled.canSkip({ view, builderCount: 0, queueCount: 0, marginChunks: 1 })).toBe(false);
   });
 
   it("tracks a constrained zero-margin window independently", () => {
     const view = { x: 10, y: 20, width: 100, height: 80 };
     const settled = new SettledChunkWindow();
-    settled.captureIfIdle(view, 0, 0, 0);
-    expect(settled.canSkip(view, 0, 0, 0)).toBe(true);
-    expect(settled.canSkip(view, 0, 0, 1)).toBe(false);
+    settled.captureIfIdle({ view, builderCount: 0, queueCount: 0, marginChunks: 0 });
+    expect(settled.canSkip({ view, builderCount: 0, queueCount: 0, marginChunks: 0 })).toBe(true);
+    expect(settled.canSkip({ view, builderCount: 0, queueCount: 0, marginChunks: 1 })).toBe(false);
   });
 });
 
@@ -99,7 +99,7 @@ describe("planBakes", () => {
     // Hand-derived: 3 margin chunks queued, maxVisible 2 / maxMargin 1 → exactly
     // the head bakes; the other two stay, order preserved.
     const queue = [c(2, 0), c(3, 0), c(4, 0)];
-    const { bake, keep } = planBakes(queue, keysOf(queue), new Set(), 2, 1);
+    const { bake, keep } = planBakes({ queue, desiredKeys: keysOf(queue), viewKeys: new Set(), maxVisible: 2, maxMargin: 1 });
     expect(bake).toEqual([c(2, 0)]);
     expect(keep).toEqual([c(3, 0), c(4, 0)]);
   });
@@ -109,7 +109,7 @@ describe("planBakes", () => {
     // bake (budget 2), margin head waits (visible spend consumed the frame).
     const queue = [c(9, 9), c(1, 0), c(1, 1)];
     const viewKeys = keysOf([c(1, 0), c(1, 1)]);
-    const { bake, keep } = planBakes(queue, keysOf(queue), viewKeys, 2, 1);
+    const { bake, keep } = planBakes({ queue, desiredKeys: keysOf(queue), viewKeys, maxVisible: 2, maxMargin: 1 });
     expect(bake).toEqual([c(1, 0), c(1, 1)]);
     expect(keep).toEqual([c(9, 9)]);
   });
@@ -118,24 +118,27 @@ describe("planBakes", () => {
     // One visible + margin behind: visible bakes, then min(maxMargin, 2-1)=1 margin.
     const queue = [c(5, 5), c(1, 0)];
     const viewKeys = keysOf([c(1, 0)]);
-    const { bake, keep } = planBakes(queue, keysOf(queue), viewKeys, 2, 1);
+    const { bake, keep } = planBakes({ queue, desiredKeys: keysOf(queue), viewKeys, maxVisible: 2, maxMargin: 1 });
     expect(bake).toEqual([c(1, 0), c(5, 5)]);
     expect(keep).toEqual([]);
   });
 
   it("drops queued chunks that are no longer desired", () => {
     const queue = [c(0, 0), c(8, 8)];
-    const { bake, keep } = planBakes(queue, keysOf([c(0, 0)]), new Set(), 2, 1);
+    const { bake, keep } = planBakes({ queue, desiredKeys: keysOf([c(0, 0)]), viewKeys: new Set(), maxVisible: 2, maxMargin: 1 });
     expect(bake).toEqual([c(0, 0)]);
     expect(keep).toEqual([]);
   });
 
   it("drains everything when both budgets are unbounded (the rotation snap)", () => {
     const queue = [c(0, 0), c(1, 0), c(2, 0), c(3, 0)];
-    const { bake, keep } = planBakes(
-      queue, keysOf(queue), keysOf([c(0, 0)]),
-      Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY,
-    );
+    const { bake, keep } = planBakes({
+      queue,
+      desiredKeys: keysOf(queue),
+      viewKeys: keysOf([c(0, 0)]),
+      maxVisible: Number.POSITIVE_INFINITY,
+      maxMargin: Number.POSITIVE_INFINITY,
+    });
     // Visible-first ordering: the one in-view chunk leads, the rest follow in order.
     expect(bake).toEqual([c(0, 0), c(1, 0), c(2, 0), c(3, 0)]);
     expect(keep).toEqual([]);

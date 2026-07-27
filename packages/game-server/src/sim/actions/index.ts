@@ -1,32 +1,38 @@
 import type { EffectEvent } from "@dc2d/engine";
-import { doFistbump, doWho } from "../contacts.js";
-import { doCraft, doDrop, doPickup, doStash, invIndex } from "../inventory.js";
-import { doChat, doParty } from "../social.js";
-import { doModeration } from "../moderation.js";
+import { doFistbump } from "../contacts.js";
+import { doCraft, doDrop, doPickup, doStash } from "../inventory.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
 import { doDescend } from "./descend.js";
-import { doInteract, teleport } from "./interact.js";
 import { dispatchItemAction } from "./items.js";
 import { doAttack } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety.js";
-import { resetInputTimeline } from "../playerInputTimeline.js";
 import { closeLootChest, openLootChestById, takeLoot } from "../lootChests.js";
 import { setReviveHeld, stepRevives } from "../revives.js";
+import { dispatchStandingAction } from "./standing.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to
  * inventory/social modules. Downed players can only interact (revive
  * flows) and manage party/chat. */
 
+interface ActionContext {
+  sim: SimState;
+  slot: PlayerSlot;
+  action: PlayerAction;
+  effectEvents: EffectEvent[];
+}
+
 export function processActions(sim: SimState, effectEvents: EffectEvent[]): void {
-  for (const slot of sim.players.values()) {
-    const actions = slot.pendingActions.splice(0);
-    if (!slot.connected || slot.entity.hp <= 0) continue;
-    for (const action of actions) {
-      if (slot.entity.hp <= 0) break;
-      dispatchAction(sim, slot, action, effectEvents);
-    }
-  }
+  for (const slot of sim.players.values()) processSlotActions(sim, slot, effectEvents);
   stepRevives(sim, effectEvents);
+}
+
+function processSlotActions(sim: SimState, slot: PlayerSlot, effectEvents: EffectEvent[]): void {
+  const actions = slot.pendingActions.splice(0);
+  if (!slot.connected || slot.entity.hp <= 0) return;
+  for (const action of actions) {
+    if (slot.entity.hp <= 0) return;
+    dispatchAction({ sim, slot, action, effectEvents });
+  }
 }
 
 /** Action types that a downed player (mid-revive, can't act) may not perform. */
@@ -61,167 +67,64 @@ function dispatchLootChest(
 ): void {
   if (action.op === "open") openLootChestById(sim, slot, action.chestId);
   else if (action.op === "close") closeLootChest(sim, slot, action.chestId);
-  else takeLoot(sim, slot, action.chestId, action.op, action.item);
+  else takeLoot(sim, slot, { chestId: action.chestId, op: action.op, item: action.item });
 }
 
-function dispatchAction(
-  sim: SimState,
-  slot: PlayerSlot,
-  action: PlayerAction,
-  effectEvents: EffectEvent[],
-): void {
-  if (action.type === "revive") {
-    setReviveHeld(sim, slot, action.targetId, action.held);
-    return;
-  }
-  if (GATED_ON_STANDING.has(action.type)) {
-    if (slot.downedAtTick !== null) return;
-    if (FORFEITS_SPAWN_GRACE.has(action.type)) endSpawnGrace(slot);
-    dispatchGatedAction(sim, slot, action, effectEvents);
-    return;
-  }
-  dispatchStandingAction(sim, slot, action);
+function dispatchAction({ sim, slot, action, effectEvents }: ActionContext): void {
+  if (action.type === "revive") return setReviveHeld({ sim, rescuer: slot, targetId: action.targetId, held: action.held });
+  if (isGatedAction(action)) return dispatchStandingGatedAction({ sim, slot, action, effectEvents });
+  dispatchStandingAction({ sim, slot, action });
+}
+
+function isGatedAction(action: PlayerAction): boolean {
+  return GATED_ON_STANDING.has(action.type);
+}
+
+function dispatchStandingGatedAction(context: ActionContext): void {
+  if (context.slot.downedAtTick !== null) return;
+  if (FORFEITS_SPAWN_GRACE.has(context.action.type)) endSpawnGrace(context.slot);
+  dispatchGatedAction(context);
 }
 
 /** Combat and item actions — dropped outright while downed. */
-function dispatchGatedAction(
-  sim: SimState,
-  slot: PlayerSlot,
-  action: PlayerAction,
-  effectEvents: EffectEvent[],
-): void {
-  if (ITEM_ACTIONS.has(action.type)) {
-    dispatchItemAction(sim, slot, action, effectEvents);
-    return;
-  }
-  switch (action.type) {
-    case "attack":
-      doAttack(sim, slot, action.dirX, action.dirY, effectEvents);
-      break;
-    case "pickup":
-      doPickup(sim, slot);
-      break;
-    case "drop":
-      doDrop(sim, slot, action.item);
-      break;
-    case "craft":
-      doCraft(sim, slot, action.recipe);
-      break;
-    case "stash":
-      doStash(sim, slot, action.op, action.index);
-      break;
-    case "lootChest":
-      dispatchLootChest(sim, slot, action);
-      break;
-    case "fistbump":
-      doFistbump(sim, slot, action.targetId);
-      break;
-    case "descend":
-      doDescend(sim, slot);
-      break;
-  }
+function dispatchGatedAction({ sim, slot, action, effectEvents }: ActionContext): void {
+  if (ITEM_ACTIONS.has(action.type)) return dispatchItemAction({ sim, slot, action, effectEvents });
+  gatedHandlers[action.type]?.({ sim, slot, action, effectEvents });
 }
 
-/** Menu/social actions and revive-flow interact — allowed even while downed. */
-function dispatchStandingAction(
-  sim: SimState,
-  slot: PlayerSlot,
-  action: PlayerAction,
-): void {
-  switch (action.type) {
-    case "suicide":
-      doSuicide(slot);
-      break;
-    case "assign":
-      doAssign(sim, slot, action.slot, action.item);
-      break;
-    case "equip":
-      doEquip(sim, slot, action.item);
-      break;
-    case "interact":
-      doInteract(sim, slot);
-      break;
-    case "party":
-    case "chat":
-    case "who":
-    case "moderation":
-      dispatchSocialAction(sim, slot, action);
-      break;
-    case "debug":
-      doDebug(sim, slot, action);
-      break;
-  }
+type GatedHandler = (context: ActionContext) => void;
+
+const gatedHandlers: Partial<Record<PlayerAction["type"], GatedHandler>> = {
+  attack: (context) => dispatchAttack(context),
+  pickup: ({ sim, slot }) => doPickup(sim, slot),
+  drop: (context) => dispatchDrop(context),
+  craft: (context) => dispatchCraft(context),
+  stash: (context) => dispatchStash(context),
+  lootChest: (context) => dispatchChest(context),
+  fistbump: (context) => dispatchFistbump(context),
+  descend: ({ sim, slot }) => doDescend(sim, slot),
+};
+
+function dispatchAttack({ sim, slot, action, effectEvents }: ActionContext): void {
+  if (action.type === "attack") doAttack({ sim, slot, dirX: action.dirX, dirY: action.dirY, effectEvents });
 }
 
-/** Chat/party/who — split out of dispatchStandingAction to stay under the complexity cap. */
-function dispatchSocialAction(
-  sim: SimState,
-  slot: PlayerSlot,
-  action: Extract<PlayerAction, { type: "party" | "chat" | "who" | "moderation" }>,
-): void {
-  switch (action.type) {
-    case "party":
-      doParty(sim, slot, action.op, action.target);
-      break;
-    case "chat":
-      doChat(sim, slot, action.channel, action.text, action.target);
-      break;
-    case "who":
-      doWho(sim, slot);
-      break;
-    case "moderation":
-      doModeration(sim, slot, action.op, action.target, action.reason);
-      break;
-  }
+function dispatchDrop({ sim, slot, action }: ActionContext): void {
+  if (action.type === "drop") doDrop(sim, slot, action.item);
 }
 
-function doSuicide(slot: PlayerSlot): void { slot.god = false;
-  slot.forceDeath = slot.downedAtTick !== null;
-  if (slot.forceDeath) slot.downedAtTick = null;
-  if (slot.forceDeath) delete slot.entity.downedUntil;
-  slot.entity.hp = 0;
-  resetInputTimeline(slot);
+function dispatchCraft({ sim, slot, action }: ActionContext): void {
+  if (action.type === "craft") doCraft(sim, slot, action.recipe);
 }
 
-/** Bind an owned def (or clear) — the hotbar holds references. */
-function doAssign(sim: SimState, slot: PlayerSlot, hotbarSlot: number, item: string | null): void {
-  if (item === null) {
-    slot.hotbar[hotbarSlot] = null;
-    sim.store.recordHotbar(slot.stored, slot.hotbar);
-    return;
-  }
-  const def = sim.content.items.get(item);
-  if (invIndex(slot, item) >= 0 && !def?.weapon && (def?.consumable || def?.throwable)) {
-    slot.hotbar[hotbarSlot] = item;
-    sim.store.recordHotbar(slot.stored, slot.hotbar);
-  }
+function dispatchStash({ sim, slot, action }: ActionContext): void {
+  if (action.type === "stash") doStash(sim, slot, { op: action.op, index: action.index });
 }
 
-function doEquip(sim: SimState, slot: PlayerSlot, item: string | null): void {
-  if (item === null) {
-    slot.weapon = null;
-  } else if (invIndex(slot, item) >= 0 && sim.content.items.get(item)?.weapon) {
-    slot.weapon = item;
-  }
+function dispatchChest({ sim, slot, action }: ActionContext): void {
+  if (action.type === "lootChest") dispatchLootChest(sim, slot, action);
 }
 
-/** Dev harness only — a production shard drops these outright. */
-function doDebug(
-  sim: SimState,
-  slot: PlayerSlot,
-  action: Extract<PlayerAction, { type: "debug" }>,
-): void {
-  if (!sim.opts.debugCommands) return;
-  if (action.op === "god") {
-    // An omitted value is the chat command's toggle form. Explicit values are
-    // retained for scripted harnesses that need to force a known state.
-    slot.god = action.on ?? !slot.god;
-    slot.outbox.push({ t: "toast", msg: slot.god ? "God mode ON" : "God mode off" });
-    return;
-  }
-  const { x, y } = action;
-  // Number.isFinite rejects undefined/NaN but doesn't narrow the optional type for TS.
-  if (action.op === "teleport" && Number.isFinite(x) && Number.isFinite(y)) {
-    teleport(sim, slot, { x: x as number, y: y as number }, { remember: false });
-  }
+function dispatchFistbump({ sim, slot, action }: ActionContext): void {
+  if (action.type === "fistbump") doFistbump(sim, slot, action.targetId);
 }

@@ -16,12 +16,6 @@ export function sendMeasured(
   } catch {
     return false;
   }
-  metrics.record(
-    "outbound",
-    wireByteLength(payload),
-    encodedAt - startedAt,
-    ws.bufferedAmount,
-    encodedAt,
-  );
+  metrics.record({ direction: "outbound", bytes: wireByteLength(payload), codecMilliseconds: encodedAt - startedAt, queueBytes: ws.bufferedAmount, nowMs: encodedAt });
   return true;
 }

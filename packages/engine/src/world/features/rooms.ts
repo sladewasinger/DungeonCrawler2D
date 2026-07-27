@@ -1,9 +1,6 @@
-import { CHUNK_SIZE, TERRAIN, TILE, ZONE, type Chunk } from "../types.js";
-import {
-  ROOM_WALL_RISE,
-  carveSouthExitHall,
-  type SetRoomTile,
-} from "./roomExitGeometry.js";
+import { CHUNK_SIZE } from "../types.js";
+
+export { generateRoomChunk } from "./rooms/roomChunkBuilder.js";
 
 /**
  * Stretch rooms (GAME_DESIGN.md § Safe rooms): instanced sub-maps that
@@ -148,24 +145,27 @@ export function personalRoomFeatures(slot: number): {
  */
 export type RoomKind = "personal" | "party" | "safe";
 
-interface RoomSlot {
+export interface RoomSlot {
   kind: RoomKind;
   w: number;
   h: number;
 }
 
 /** Which room template (if any) occupies this chunk (pure). */
-function roomSlotAt(cx: number, cy: number): RoomSlot | null {
+export function roomSlotAt(cx: number, cy: number): RoomSlot | null {
   const isSlotColumn = cx % SLOT_STRIDE_CHUNKS === 0 && cx >= 0;
   if (!isSlotColumn) return null;
+  return roomSlotForRow(cy);
+}
+
+function roomSlotForRow(cy: number): RoomSlot | null {
   if (cy === ROOM_REGION_CY) return { kind: "personal", w: PERSONAL_ROOM_W, h: PERSONAL_ROOM_H };
-  if (cy === ROOM_REGION_CY + SLOT_STRIDE_CHUNKS) {
-    return { kind: "party", w: PARTY_ROOM_W, h: PARTY_ROOM_H };
-  }
-  if (cy >= SAFE_ROOM_BASE_CY && (cy - SAFE_ROOM_BASE_CY) % SLOT_STRIDE_CHUNKS === 0) {
-    return { kind: "safe", w: SAFE_ROOM_W, h: SAFE_ROOM_H };
-  }
-  return null;
+  if (cy === ROOM_REGION_CY + SLOT_STRIDE_CHUNKS) return { kind: "party", w: PARTY_ROOM_W, h: PARTY_ROOM_H };
+  return isSafeRoomRow(cy) ? { kind: "safe", w: SAFE_ROOM_W, h: SAFE_ROOM_H } : null;
+}
+
+function isSafeRoomRow(cy: number): boolean {
+  return cy >= SAFE_ROOM_BASE_CY && (cy - SAFE_ROOM_BASE_CY) % SLOT_STRIDE_CHUNKS === 0;
 }
 
 export function roomKindAt(cx: number, cy: number): RoomKind | null {
@@ -207,81 +207,4 @@ export function partyRoomDoorPositions(cx: number, cy: number): Array<{ x: numbe
     x: cx * CHUNK_SIZE + left + dx,
     y: cy * CHUNK_SIZE + top + dy,
   }));
-}
-
-/** Carve the sanctuary interior; walls stay on the perimeter ring. */
-function carveInterior(set: SetRoomTile, left: number, top: number, w: number, h: number): void {
-  for (let ly = top + 1; ly < top + h - 1; ly++) for (let lx = left + 1; lx < left + w - 1; lx++) set(lx, ly, TILE.Floor);
-}
-
-/**
- * A south exit is a plain doorway floating flush on the wall line — no
- * passage beyond it, since these rooms are sealed dead ends (see
- * ROOM_WALL_RISE's doc comment). docs/ROADMAP.md's filed ruling (2026-07-20,
- * "Safe-room SOUTH exit door reads wrong"): where north is unavailable, cut
- * a short 2-tile inset alcove past the south wall instead, so the doorway
- * reads as a real recess from this top-down PoV, not a decal on flat floor.
- * doorLights.ts already seeds every DoorExit tile with a teal glow — the
- * alcove's mouth lights itself, no lighting-side change needed here.
- */
-/** Place the exit door plus this room kind's fixtures. */
-function placeFixtures(
-  set: SetRoomTile,
-  kind: RoomKind,
-  left: number,
-  top: number,
-  w: number,
-  h: number,
-): void {
-  const centerLx = Math.floor(CHUNK_SIZE / 2);
-  // Every room uses the same recessed south-hall exit treatment.
-  const exitLy = top + h - 2;
-  set(centerLx, exitLy, TILE.DoorExit);
-  carveSouthExitHall(set, centerLx, top + h - 1);
-
-  if (kind === "personal") {
-    // Stash on the west wall, crafting table on the east wall.
-    set(left + 1, top + 1, TILE.Stash);
-    set(left + w - 2, top + 1, TILE.CraftingTable);
-  } else if (kind === "party") {
-    // Party room: a personal door on the north wall — each member's
-    // own room, one door, different destinations (that's the trick:
-    // the door is shared geometry; the server teleports per-player).
-    // Personal portals are dynamic because each party member owns a distinct destination.
-  }
-}
-
-export function generateRoomChunk(cx: number, cy: number): Chunk {
-  // The perimeter is high Floor; its height creates the derived boundary and blocks
-  // traversal through the normal height gate.
-  const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TILE.Void);
-  const terrain = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TERRAIN.Void);
-  const features = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
-  const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
-  const zones = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
-  const slot = roomSlotAt(cx, cy);
-  if (!slot) return { cx, cy, tiles, terrain, features, height, zones };
-
-  const { kind, w, h } = slot;
-  const left = Math.floor(CHUNK_SIZE / 2 - w / 2);
-  const top = Math.floor(CHUNK_SIZE / 2 - h / 2);
-  const set: SetRoomTile = (lx, ly, tile, zone = ZONE.Sanctuary, tileHeight = 0) => {
-    const i = ly * CHUNK_SIZE + lx;
-    tiles[i] = tile;
-    terrain[i] = TERRAIN.Floor;
-    zones[i] = zone;
-    height[i] = tileHeight;
-  };
-
-  for (let ly = top; ly < top + h; ly++) for (let lx = left; lx < left + w; lx++) {
-    set(lx, ly, TILE.Floor, ZONE.Sanctuary, ROOM_WALL_RISE);
-  }
-  carveInterior(set, left, top, w, h);
-  placeFixtures(set, kind, left, top, w, h);
-  for (let i = 0; i < tiles.length; i++) {
-    const tile = tiles[i] ?? TILE.Floor;
-    features[i] = terrain[i] === TERRAIN.Floor && tile !== TILE.Floor ? tile : TILE.Floor;
-  }
-
-  return { cx, cy, tiles, terrain, features, height, zones };
 }

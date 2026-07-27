@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- manager lifecycle is intentionally a single ownership boundary. */
 /** Owns persistent, geometry-stable HTML HUD windows and edit-mode manipulation. */
 import {
   inputModality,
@@ -9,21 +10,16 @@ import {
   type HudWindowEditingBinding,
 } from "./HudWindowEditing.js";
 import {
-  defaultWindowLayout,
   resolveWindowSize,
   resolveWindowPosition,
-  restoreStoredLayout,
-  shouldUseMobileDefault,
   type HudWindowSpec,
 } from "./HudWindowLayout.js";
-import {
-  buildHudWindow,
-  type HudWindowRecord,
-} from "./HudWindowRecord.js";
+import { type HudWindowRecord } from "./HudWindowRecord.js";
 import {
   loadWindowLayouts,
   saveWindowLayouts,
 } from "./hudWindowStorage.js";
+import { applyHudWindowChrome, buildManagedHudWindow } from "./HudWindowManagerSupport.js";
 export type { HudAnchor, HudWindowSpec } from "./HudWindowLayout.js";
 
 export interface HudWindowView {
@@ -59,39 +55,13 @@ export class HudWindowManager {
   }
 
   add(spec: HudWindowSpec): HTMLElement {
-    const effective = this.mobile && spec.mobile ? { ...spec, ...spec.mobile } : spec;
-    const stored = this.stored[spec.id];
-    const defaultVisible = spec.defaultVisible ?? true;
-    const viewport = this.viewport();
-    const defaults = defaultWindowLayout(
-      effective,
-      defaultVisible,
-      ++this.zCounter,
-      viewport,
-      this.scale,
-    );
-    const desktopDefaults = defaultWindowLayout(
-      spec,
-      defaultVisible,
-      defaults.z,
-      viewport,
-    );
-    const layout = shouldUseMobileDefault(this.mobile, spec, stored, desktopDefaults)
-      ? defaults
-      : stored
-        ? restoreStoredLayout(stored, defaults)
-        : defaults;
-    const built = buildHudWindow(effective);
-    const record = {
-      ...built,
-      id: spec.id,
-      title: spec.title,
-      layout,
-      interactive: Boolean(spec.interactive),
-    };
+    const record = buildManagedHudWindow({
+      spec, mobile: this.mobile, stored: this.stored[spec.id], z: ++this.zCounter,
+      viewport: this.viewport(), scale: this.scale,
+    });
     this.layer.append(record.element);
     this.records.set(spec.id, record);
-    this.zCounter = Math.max(this.zCounter, layout.z);
+    this.zCounter = Math.max(this.zCounter, record.layout.z);
     this.bindWindow(record);
     this.apply(record);
     return record.content;
@@ -180,16 +150,7 @@ export class HudWindowManager {
   }
 
   private applyChrome(record: HudWindowRecord): void {
-    record.element.style.resize = "none";
-    record.element.style.pointerEvents = "auto";
-    record.element.style.outline = this.editing ? "1px solid rgba(112,118,148,.9)" : "none";
-    record.element.style.background = this.editing ? "rgba(17,18,29,.22)" : "transparent";
-    record.element.style.boxShadow = this.editing ? "0 10px 24px rgba(0,0,0,.28)" : "none";
-    record.element.style.touchAction = this.editing
-      ? "none"
-      : record.interactive
-        ? "auto"
-        : "manipulation";
+    applyHudWindowChrome(record, this.editing);
   }
 
   private readonly layoutAll = (): void => {

@@ -17,32 +17,29 @@ import {
 const SEED = hashString("test-world");
 const FLOOR = 1;
 
-function findTerraces(range: number): Array<[number, number]> {
-  const out: Array<[number, number]> = [];
-  for (let cy = -range; cy <= range; cy++) {
-    for (let cx = -range; cx <= range; cx++) {
-      if (hasTerrace(SEED, FLOOR, cx, cy)) out.push([cx, cy]);
-    }
-  }
-  return out;
+function findTerraces(range: number): Array<{ cx: number; cy: number }> {
+  const width = range * 2 + 1;
+  return Array.from({ length: width ** 2 }, (_, index) => ({ cx: index % width - range, cy: Math.floor(index / width) - range }))
+    .filter((chunk) => hasTerrace({ worldSeed: SEED, floor: FLOOR, ...chunk }));
 }
 
 describe("raised sections (terraces)", () => {
   it("appear at a meaningful rate and never share a chunk with platform clusters", () => {
     const terraces = findTerraces(6); // 13×13 chunks
     expect(terraces.length).toBeGreaterThan(8);
-    for (const [cx, cy] of terraces) {
-      expect(hasPlatformCluster(SEED, FLOOR, cx, cy)).toBe(false);
+    for (const chunk of terraces) {
+      expect(hasPlatformCluster({ worldSeed: SEED, floor: FLOOR, ...chunk })).toBe(false);
     }
   });
 
   it("raises a hard-edged district one level, with stair entries only on the corridor", () => {
     const first = findTerraces(6)[0];
     if (!first) throw new Error("no terrace found in scan range");
-    const [cx, cy] = first;
-    const spec = terraceSpec(SEED, FLOOR, cx, cy);
+    const { cx, cy } = first;
+    const chunk = { worldSeed: SEED, floor: FLOOR, cx, cy };
+    const spec = terraceSpec(chunk);
     if (!spec) throw new Error("terraceSpec returned null for a hasTerrace chunk");
-    const { tiles, height } = buildTerraceChunk(SEED, FLOOR, cx, cy);
+    const { tiles, height } = buildTerraceChunk(chunk);
 
     const raisedFloors = countRaisedFloors(tiles, height, spec);
     expect(raisedFloors).toBeGreaterThan(40);
@@ -59,7 +56,7 @@ describe("raised sections (terraces)", () => {
   it("the junction atop the section is reachable on foot from the neighbor chunk", () => {
     const first = findTerraces(6)[0];
     if (!first) throw new Error("no terrace found in scan range");
-    const [cx, cy] = first;
+    const { cx, cy } = first;
     const world = new TwoChunkView(SEED, FLOOR, [
       [cx - 1, cy],
       [cx, cy],

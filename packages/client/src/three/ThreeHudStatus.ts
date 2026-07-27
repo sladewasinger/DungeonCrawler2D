@@ -34,30 +34,24 @@ export class ThreeHudStatus {
   }
 
   update(connection: Connection, floor: number): void {
-    const healthRatio = connection.maxHp > 0
-      ? connection.hp / connection.maxHp
-      : 0;
-    const xpRatio = xpProgressRatio({
+    this.updateBars(connection);
+    this.updateLabels(connection, floor);
+  }
+
+  private updateBars(connection: Connection): void {
+    this.healthFill.style.width = percentage(connection.hp, connection.maxHp);
+    this.staminaFill.style.width = percentage(connection.stamina, connection.maxStamina);
+    this.xpFill.style.width = `${xpProgressRatio({
       xp: connection.xp,
       level: connection.charLevel,
       xpForNext: connection.xpForNext,
-    });
-    this.healthFill.style.width = `${Math.max(0, Math.min(1, healthRatio)) * 100}%`;
-    const staminaRatio = connection.maxStamina > 0
-      ? connection.stamina / connection.maxStamina
-      : 0;
-    this.staminaFill.style.width =
-      `${Math.max(0, Math.min(1, staminaRatio)) * 100}%`;
-    this.xpFill.style.width = `${xpRatio * 100}%`;
+    }) * 100}%`;
+  }
+
+  private updateLabels(connection: Connection, floor: number): void {
     this.healthLabel.textContent =
       `${Math.ceil(Math.max(0, connection.hp))} / ${connection.maxHp}`;
-    this.staminaLabel.textContent = connection.staminaExhausted
-      ? connection.staminaRecoveryDelaySeconds > 0
-        ? `OUT OF BREATH · ${connection.staminaRecoveryDelaySeconds.toFixed(1)}s`
-        : "OUT OF BREATH · recovering"
-      : connection.blocking
-        ? `Blocking · ${Math.ceil(connection.stamina)} stamina`
-        : `${Math.ceil(connection.stamina)} / ${connection.maxStamina} stamina`;
+    this.staminaLabel.textContent = staminaText(connection);
     this.staminaLabel.style.color = connection.staminaExhausted
       ? "#ffc46b"
       : "#9ddbd2";
@@ -82,3 +76,16 @@ export class ThreeHudStatus {
     return track;
   }
 }
+
+const percentage = (value: number, maximum: number): string =>
+  `${Math.max(0, Math.min(1, maximum > 0 ? value / maximum : 0)) * 100}%`;
+
+const staminaText = (connection: Connection): string => {
+  if (!connection.staminaExhausted && !connection.blocking) {
+    return `${Math.ceil(connection.stamina)} / ${connection.maxStamina} stamina`;
+  }
+  if (connection.blocking) return `Blocking · ${Math.ceil(connection.stamina)} stamina`;
+  return connection.staminaRecoveryDelaySeconds > 0
+    ? `OUT OF BREATH · ${connection.staminaRecoveryDelaySeconds.toFixed(1)}s`
+    : "OUT OF BREATH · recovering";
+};

@@ -12,28 +12,24 @@ export class HtmlTouchHitRegions {
     this.active = active;
   }
 
-  hitTest(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-  ): string | null {
+  hitTest(input: TouchHitTest): string | null {
     if (!this.active) return null;
     const hit = HTML_TOUCH_ACTIONS.find((region) =>
-      insideCircle(x, y, width, height, region)
+      insideCircle(input, region)
     );
     return hit ? `touch:${hit.action}` : null;
   }
 }
 
-const insideCircle = (
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  region: HtmlTouchActionRegion,
-): boolean => {
+export interface TouchHitTest {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const insideCircle = (input: TouchHitTest, region: HtmlTouchActionRegion): boolean => {
   const radius = region.size / 2;
-  const center = touchActionCenter(region, width, height);
-  return Math.hypot(x - center.x, y - center.y) <= radius;
+  const center = touchActionCenter(region, input.width, input.height);
+  return Math.hypot(input.x - center.x, input.y - center.y) <= radius;
 };

@@ -21,7 +21,7 @@ function enterSharedSafeRoom(
 ): void {
   const entity = sim.getPlayerEntity(playerId);
   if (!entity) throw new Error(`missing player ${playerId}`);
-  teleport(entity, entrance.x + 0.5, entrance.y + 0.5, sim);
+  teleport({ entity: entity, x: entrance.x + 0.5, y: entrance.y + 0.5, sim: sim });
   sim.queueAction(playerId, { type: "interact" });
   sim.step();
 }
@@ -48,8 +48,8 @@ function sees(snapshot: ServerSnapshot, entityId: string): boolean {
 describe("personal room isolation", () => {
   it("routes distinct owners to separate rooms and private entity state", () => {
     const sim = makeSim();
-    const a = sim.addPlayer("A", "private-owner-a");
-    const b = sim.addPlayer("B", "private-owner-b");
+    const a = sim.addPlayer({ name: "A", clientId: "private-owner-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "private-owner-b" });
     const entrance = findSafeRoomDoor(sim);
     enterSharedSafeRoom(sim, a.playerId, entrance);
     enterSharedSafeRoom(sim, b.playerId, entrance);
@@ -63,8 +63,8 @@ describe("personal room isolation", () => {
     expect(aDoor.tile).toBe(TILE.DoorPersonal);
     expect(bDoor.tile).toBe(TILE.DoorPersonal);
 
-    teleport(playerEntity(sim, a.playerId), aDoor.x + 0.5, aDoor.y + 0.5, sim);
-    teleport(playerEntity(sim, b.playerId), bDoor.x + 0.5, bDoor.y + 0.5, sim);
+    teleport({ entity: playerEntity(sim, a.playerId), x: aDoor.x + 0.5, y: aDoor.y + 0.5, sim: sim });
+    teleport({ entity: playerEntity(sim, b.playerId), x: bDoor.x + 0.5, y: bDoor.y + 0.5, sim: sim });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.queueAction(b.playerId, { type: "interact" });
     const privateSnapshots = sim.step();
@@ -75,7 +75,7 @@ describe("personal room isolation", () => {
     expect(sees(playerSnapshot(privateSnapshots, b.playerId), a.playerId)).toBe(false);
 
     const aPosition = playerEntity(sim, a.playerId).body;
-    const privateItem = sim.spawnItem("rag", aPosition.x + 1, aPosition.y);
+    const privateItem = sim.spawnItem({ defId: "rag", x: aPosition.x + 1, y: aPosition.y });
     const itemSnapshots = sim.step();
     expect(sees(playerSnapshot(itemSnapshots, a.playerId), privateItem.id)).toBe(true);
     expect(sees(playerSnapshot(itemSnapshots, b.playerId), privateItem.id)).toBe(false);
@@ -83,8 +83,8 @@ describe("personal room isolation", () => {
 
   it("reclaims one authoritative entity for duplicate owner sessions", () => {
     const sim = makeSim();
-    const first = sim.addPlayer("A", "same-private-owner");
-    const replacement = sim.addPlayer("A", "same-private-owner");
+    const first = sim.addPlayer({ name: "A", clientId: "same-private-owner" });
+    const replacement = sim.addPlayer({ name: "A", clientId: "same-private-owner" });
 
     expect(replacement).toMatchObject({
       playerId: first.playerId,
@@ -99,8 +99,8 @@ describe("personal room isolation", () => {
     const { aId, bId } = makeParty(sim);
     const entrance = findSafeRoomDoor(sim);
     const safeSpawn = safeRoomSpawn(entrance.doorCx, entrance.doorCy);
-    teleport(playerEntity(sim, aId), safeSpawn.x, safeSpawn.y, sim);
-    teleport(playerEntity(sim, bId), safeSpawn.x + 1, safeSpawn.y, sim);
+    teleport({ entity: playerEntity(sim, aId), x: safeSpawn.x, y: safeSpawn.y, sim: sim });
+    teleport({ entity: playerEntity(sim, bId), x: safeSpawn.x + 1, y: safeSpawn.y, sim: sim });
     const sharedSafe = sim.step();
 
     expect(sees(playerSnapshot(sharedSafe, aId), bId)).toBe(true);
@@ -109,7 +109,7 @@ describe("personal room isolation", () => {
     );
     if (!partyDoor) throw new Error("missing shared party-room assignment");
     for (const playerId of [aId, bId]) {
-      teleport(playerEntity(sim, playerId), partyDoor.x + 0.5, partyDoor.y + 0.5, sim);
+      teleport({ entity: playerEntity(sim, playerId), x: partyDoor.x + 0.5, y: partyDoor.y + 0.5, sim: sim });
       sim.queueAction(playerId, { type: "interact" });
     }
     const sharedParty = sim.step();

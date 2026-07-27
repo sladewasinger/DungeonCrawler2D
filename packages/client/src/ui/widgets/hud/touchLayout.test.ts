@@ -7,6 +7,9 @@ import type { WidgetDefinition } from "../state.js";
 import { applyTouchLayoutOverrides } from "./touchOverrides.js";
 
 const VIEWPORT = { width: 844, height: 390 };
+const TOUCH_STICK = "touch-stick";
+const TOUCH_BUTTONS = "touch-buttons";
+const INVENTORY_TOGGLE = "inventory-toggle";
 
 function stubDefinition(id: string): WidgetDefinition {
   return { id, defaultAnchor: "top-left", defaultOffset: { x: 0, y: 0 }, defaultScale: 1, defaultVisible: true };
@@ -15,38 +18,38 @@ function stubDefinition(id: string): WidgetDefinition {
 describe("touch widget layout entries", () => {
   it("registers both touch-stick and touch-buttons in the shipped default layout", () => {
     const registry = new WidgetRegistry();
-    registry.register(stubDefinition("touch-stick"));
-    registry.register(stubDefinition("touch-buttons"));
+    registry.register(stubDefinition(TOUCH_STICK));
+    registry.register(stubDefinition(TOUCH_BUTTONS));
     const resolved = registry.resolve(VIEWPORT);
-    expect(resolved.has("touch-stick")).toBe(true);
-    expect(resolved.has("touch-buttons")).toBe(true);
+    expect(resolved.has(TOUCH_STICK)).toBe(true);
+    expect(resolved.has(TOUCH_BUTTONS)).toBe(true);
   });
 
   it("anchors the joystick bottom-left and the action buttons bottom-right", () => {
     const registry = new WidgetRegistry();
-    registry.register(stubDefinition("touch-stick"));
-    registry.register(stubDefinition("touch-buttons"));
+    registry.register(stubDefinition(TOUCH_STICK));
+    registry.register(stubDefinition(TOUCH_BUTTONS));
     const resolved = registry.resolve(VIEWPORT);
-    expect(resolved.get("touch-stick")?.anchor).toBe("bottom-left");
-    expect(resolved.get("touch-buttons")?.anchor).toBe("bottom-right");
+    expect(resolved.get(TOUCH_STICK)?.anchor).toBe("bottom-left");
+    expect(resolved.get(TOUCH_BUTTONS)?.anchor).toBe("bottom-right");
   });
 
   it("resolves the joystick to the left half of the screen and the buttons to the right half", () => {
     const registry = new WidgetRegistry();
-    registry.register(stubDefinition("touch-stick"));
-    registry.register(stubDefinition("touch-buttons"));
+    registry.register(stubDefinition(TOUCH_STICK));
+    registry.register(stubDefinition(TOUCH_BUTTONS));
     const resolved = registry.resolve(VIEWPORT);
-    expect(resolved.get("touch-stick")?.x).toBeLessThan(VIEWPORT.width / 2);
-    expect(resolved.get("touch-buttons")?.x).toBeGreaterThan(VIEWPORT.width / 2);
+    expect(resolved.get(TOUCH_STICK)?.x).toBeLessThan(VIEWPORT.width / 2);
+    expect(resolved.get(TOUCH_BUTTONS)?.x).toBeGreaterThan(VIEWPORT.width / 2);
   });
 
   it("keeps both controls in the bottom half of the screen, clear of the top HUD", () => {
     const registry = new WidgetRegistry();
-    registry.register(stubDefinition("touch-stick"));
-    registry.register(stubDefinition("touch-buttons"));
+    registry.register(stubDefinition(TOUCH_STICK));
+    registry.register(stubDefinition(TOUCH_BUTTONS));
     const resolved = registry.resolve(VIEWPORT);
-    expect(resolved.get("touch-stick")?.y).toBeGreaterThan(VIEWPORT.height / 2);
-    expect(resolved.get("touch-buttons")?.y).toBeGreaterThan(VIEWPORT.height / 2);
+    expect(resolved.get(TOUCH_STICK)?.y).toBeGreaterThan(VIEWPORT.height / 2);
+    expect(resolved.get(TOUCH_BUTTONS)?.y).toBeGreaterThan(VIEWPORT.height / 2);
   });
 });
 
@@ -55,9 +58,9 @@ describe("touch widget layout entries", () => {
 describe("applyTouchLayoutOverrides' narrow-viewport shrink", () => {
   function registryWithControls(): WidgetRegistry {
     const registry = new WidgetRegistry();
-    registry.register(stubDefinition("touch-stick"));
-    registry.register(stubDefinition("touch-buttons"));
-    registry.register(stubDefinition("inventory-toggle"));
+    registry.register(stubDefinition(TOUCH_STICK));
+    registry.register(stubDefinition(TOUCH_BUTTONS));
+    registry.register(stubDefinition(INVENTORY_TOGGLE));
     return registry;
   }
 
@@ -66,9 +69,9 @@ describe("applyTouchLayoutOverrides' narrow-viewport shrink", () => {
     const wide = { width: 1280, height: 800 };
     applyTouchLayoutOverrides(registry, wide);
     const resolved = registry.resolve(wide);
-    expect(resolved.get("touch-stick")?.scale).toBe(2);
-    expect(resolved.get("touch-buttons")?.scale).toBe(2);
-    expect(resolved.get("inventory-toggle")?.scale).toBe(2);
+    expect(resolved.get(TOUCH_STICK)?.scale).toBe(2);
+    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(2);
+    expect(resolved.get(INVENTORY_TOGGLE)?.scale).toBe(2);
   });
 
   it("shrinks the controls a further step on a narrow phone-portrait viewport", () => {
@@ -76,9 +79,9 @@ describe("applyTouchLayoutOverrides' narrow-viewport shrink", () => {
     const narrowPortrait = { width: 390, height: 844 };
     applyTouchLayoutOverrides(registry, narrowPortrait);
     const resolved = registry.resolve(narrowPortrait);
-    expect(resolved.get("touch-stick")?.scale).toBe(1);
-    expect(resolved.get("touch-buttons")?.scale).toBe(1);
-    expect(resolved.get("inventory-toggle")?.scale).toBe(1);
+    expect(resolved.get(TOUCH_STICK)?.scale).toBe(1);
+    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(1);
+    expect(resolved.get(INVENTORY_TOGGLE)?.scale).toBe(1);
   });
 
   it("applies the same shrink to the equivalent landscape viewport — height, not width, is the tight axis", () => {
@@ -86,8 +89,8 @@ describe("applyTouchLayoutOverrides' narrow-viewport shrink", () => {
     const narrowLandscape = { width: 844, height: 390 };
     applyTouchLayoutOverrides(registry, narrowLandscape);
     const resolved = registry.resolve(narrowLandscape);
-    expect(resolved.get("touch-stick")?.scale).toBe(1);
-    expect(resolved.get("touch-buttons")?.scale).toBe(1);
+    expect(resolved.get(TOUCH_STICK)?.scale).toBe(1);
+    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(1);
   });
 
   it("never touches a window panel's own scale override — the base 0.5 (touch) value is untouched at any viewport", () => {

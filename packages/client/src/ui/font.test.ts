@@ -21,12 +21,12 @@ describe("uiTextStyle", () => {
 
   it("folds a widget container's scale into resolution, not just devicePixelRatio", () => {
     stubDevicePixelRatio(1);
-    expect(uiTextStyle(12, undefined, 2).resolution).toBe(2);
+    expect(uiTextStyle(12, undefined, { scale: 2 }).resolution).toBe(2);
   });
 
   it("stacks devicePixelRatio and container scale for the phone + hudScale case", () => {
     stubDevicePixelRatio(3);
-    expect(uiTextStyle(12, undefined, 2).resolution).toBe(6);
+    expect(uiTextStyle(12, undefined, { scale: 2 }).resolution).toBe(6);
   });
 
   it("never drops resolution below 1 even if devicePixelRatio reads 0", () => {
@@ -41,7 +41,7 @@ describe("uiTextStyle", () => {
 
   it("requests 600 weight for emphasis text (readouts, section titles)", () => {
     stubDevicePixelRatio(1);
-    expect(uiTextStyle(12, undefined, 1, "emphasis").fontStyle).toBe("600");
+    expect(uiTextStyle(12, undefined, { scale: 1, weight: "emphasis" }).fontStyle).toBe("600");
   });
 
   it("keeps the system-sans stack, never the pixel font, for HUD text", () => {

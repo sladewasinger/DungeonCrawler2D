@@ -79,12 +79,12 @@ describe("isRunning", () => {
 
 describe("footstepDue", () => {
   it("is false unless grounded and moving", () => {
-    expect(footstepDue(0, 1000, false, true)).toBe(false);
-    expect(footstepDue(0, 1000, true, false)).toBe(false);
+    expect(footstepDue({ previousMs: 0, nowMs: 1000, grounded: false, moving: true })).toBe(false);
+    expect(footstepDue({ previousMs: 0, nowMs: 1000, grounded: true, moving: false })).toBe(false);
   });
 
   it("fires once per interval boundary crossed", () => {
-    expect(footstepDue(0, 260, true, true)).toBe(true);
-    expect(footstepDue(0, 100, true, true)).toBe(false);
+    expect(footstepDue({ previousMs: 0, nowMs: 260, grounded: true, moving: true })).toBe(true);
+    expect(footstepDue({ previousMs: 0, nowMs: 100, grounded: true, moving: true })).toBe(false);
   });
 });

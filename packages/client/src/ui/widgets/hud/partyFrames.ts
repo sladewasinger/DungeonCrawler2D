@@ -43,6 +43,9 @@ interface RowVisual {
   hpFill: Phaser.GameObjects.Rectangle;
   downedTag: Phaser.GameObjects.Text;
 }
+function hpRatio(data: PartyRowData): number {
+  return data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0;
+}
 
 export class PartyFramesWidget {
   private readonly scene: Phaser.Scene;
@@ -65,7 +68,7 @@ export class PartyFramesWidget {
     this.scale = layout.scale;
     this.root = createWidgetContainer(scene, layout);
     this.title = scene.add
-      .text(0, -18, "PARTY", uiTextStyle(10, "#d8bd72", this.scale, "emphasis"))
+      .text(0, -18, "PARTY", uiTextStyle(10, "#d8bd72", { scale: this.scale, weight: "emphasis" }))
       .setOrigin(0, 0);
     this.root.add(this.title);
     for (let i = 0; i < MAX_ROWS; i++) this.rows.push(this.buildRow(i));
@@ -77,12 +80,12 @@ export class PartyFramesWidget {
       .rectangle(0, y, ROW_WIDTH, ROW_HEIGHT, PANEL_FILL, 0.85)
       .setOrigin(0, 0)
       .setStrokeStyle(1, PANEL_BORDER);
-    const label = this.scene.add.text(spacing(0.5), y + 2, "", uiTextStyle(10, undefined, this.scale)).setOrigin(0, 0);
+    const label = this.scene.add.text(spacing(0.5), y + 2, "", uiTextStyle(10, undefined, { scale: this.scale })).setOrigin(0, 0);
     const barY = y + ROW_HEIGHT - HP_BAR_HEIGHT - 3;
     const hpBg = this.scene.add.rectangle(spacing(0.5), barY, HP_BAR_WIDTH, HP_BAR_HEIGHT, 0x1a1a24).setOrigin(0, 0);
     const hpFill = this.scene.add.rectangle(spacing(0.5), barY, HP_BAR_WIDTH, HP_BAR_HEIGHT, HP_COLOR).setOrigin(0, 0);
     const downedTag = this.scene.add
-      .text(ROW_WIDTH - spacing(0.5), y + 2, "DOWNED", uiTextStyle(9, "#e04a4a", this.scale, "emphasis"))
+      .text(ROW_WIDTH - spacing(0.5), y + 2, "DOWNED", uiTextStyle(9, "#e04a4a", { scale: this.scale, weight: "emphasis" }))
       .setOrigin(1, 0);
     const container = this.scene.add.container(0, 0, [bg, label, hpBg, hpFill, downedTag]).setVisible(false);
     this.root.add(container);
@@ -99,19 +102,18 @@ export class PartyFramesWidget {
     row.container.setVisible(!!data);
     if (!data) return;
     const presence = partyPresence(data.name, data.disconnected === true);
-    if (data.disconnected) {
-      row.label.setText(presence.label);
-      row.hpFill.width = HP_BAR_WIDTH * (data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0);
-      row.hpFill.setFillStyle(0x777780);
-      row.downedTag.setVisible(false);
-      return;
-    }
+    if (data.disconnected) return this.applyDisconnectedRow(row, data, presence.label);
     const leader = data.leader ? " LEADER" : "";
     row.label.setText(`${data.arrow} ${presence.label}${leader} · ${data.distance}m`);
-    const ratio = data.maxHp > 0 ? Math.max(0, Math.min(1, data.hp / data.maxHp)) : 0;
-    row.hpFill.width = HP_BAR_WIDTH * ratio;
+    row.hpFill.width = HP_BAR_WIDTH * hpRatio(data);
     row.hpFill.setFillStyle(data.downed ? DOWNED_COLOR : HP_COLOR);
     row.downedTag.setText(data.revive ? "REVIVE [E]" : "DOWNED").setVisible(data.downed);
+  }
+  private applyDisconnectedRow(row: RowVisual, data: PartyRowData, label: string): void {
+    row.label.setText(label);
+    row.hpFill.width = HP_BAR_WIDTH * hpRatio(data);
+    row.hpFill.setFillStyle(0x777780);
+    row.downedTag.setVisible(false);
   }
 
   /** Re-resolves this widget's screen position for a new viewport (call on resize). */

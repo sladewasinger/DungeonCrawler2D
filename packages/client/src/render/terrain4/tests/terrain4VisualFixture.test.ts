@@ -50,8 +50,20 @@ describe("Terrain4 deterministic visual fixture", () => {
 
 function fixtureSource(): Terrain4Source {
   return {
-    terrainAt: (x, y): Terrain4Kind => x === 3 || y === 5 ? VOID : FLOOR,
-    heightAt: (x, y) => x === 1 && y === 1 ? 2 : x === 2 && y === 1 ? 0 : 0,
-    featureAt: (x, y) => x === 0 && y === 0 ? "stairs" : x === 1 && y === 0 ? "door" : x === 2 && y === 0 ? "brazier" : null,
+    terrainAt: (x, y): Terrain4Kind => (x === 3 || y === 5 ? VOID : FLOOR),
+    heightAt: (x, y) => heightAtFixture({ x, y }),
+    featureAt: (x, y) => featureAtFixture({ x, y }),
   };
+}
+
+function heightAtFixture(tile: { readonly x: number; readonly y: number }): number {
+  return tile.x === 1 && tile.y === 1 ? 2 : 0;
+}
+
+function featureAtFixture(tile: { readonly x: number; readonly y: number }): "stairs" | "door" | "brazier" | null {
+  return fixtureFeatures().get(`${tile.x},${tile.y}`) ?? null;
+}
+
+function fixtureFeatures(): ReadonlyMap<string, "stairs" | "door" | "brazier"> {
+  return new Map([["0,0", "stairs"], ["1,0", "door"], ["2,0", "brazier"]]);
 }

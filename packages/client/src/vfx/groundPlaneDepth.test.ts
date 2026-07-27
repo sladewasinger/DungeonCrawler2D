@@ -13,11 +13,7 @@ describe("groundedVisualPlacement", () => {
     "projects a z=%s corpse without changing its grounded depth row",
     (groundHeight) => {
       const rawRow = 10;
-      const placement = groundedVisualPlacement(
-        rawRow * SCREEN_TILE_PX,
-        groundHeight,
-        "corpse",
-      );
+      const placement = groundedVisualPlacement({ rawScreenY: rawRow * SCREEN_TILE_PX, groundHeight, layer: "corpse" });
       expect(placement).toMatchObject({
         groundedRow: rawRow,
         projectedScreenY: (rawRow - groundHeight) * SCREEN_TILE_PX,
@@ -38,23 +34,19 @@ describe("groundedVisualPlacement", () => {
       "corpseFragment",
       "item",
     ] as const) {
-      const depth = groundedVisualPlacement(
-        row * SCREEN_TILE_PX,
-        1,
-        layer,
-      ).depth;
+      const depth = groundedVisualPlacement({ rawScreenY: row * SCREEN_TILE_PX, groundHeight: 1, layer }).depth;
       expect(depth, layer).toBeGreaterThan(cap);
       expect(depth, layer).toBeLessThan(wall);
     }
   });
 
   it("keeps screen-space scatter inside the same ground-effect row", () => {
-    const placement = groundedVisualPlacement(
-      10 * SCREEN_TILE_PX,
-      1,
-      "blood",
-      SCREEN_TILE_PX / 2,
-    );
+    const placement = groundedVisualPlacement({
+      rawScreenY: 10 * SCREEN_TILE_PX,
+      groundHeight: 1,
+      layer: "blood",
+      scatterScreenY: SCREEN_TILE_PX / 2,
+    });
     expect(placement.projectedScreenY).toBe(9.5 * SCREEN_TILE_PX);
     expect(placement.depth).toBe(depthForGroundEffect(10));
   });
@@ -70,11 +62,7 @@ describe("groundedVisualPlacement", () => {
     const rawRow = 14.25;
     const heights = [-1, -0.5, 0, 0.5, 1];
     const placements = heights.map((height) =>
-      groundedVisualPlacement(
-        rawRow * SCREEN_TILE_PX,
-        height,
-        "corpseFragment",
-      ));
+      groundedVisualPlacement({ rawScreenY: rawRow * SCREEN_TILE_PX, groundHeight: height, layer: "corpseFragment" }));
     expect(placements.map(({ depth }) => depth))
       .toEqual(heights.map(() => depthForGroundEffect(rawRow)));
     expect(placements.map(({ projectedScreenY }) => projectedScreenY))

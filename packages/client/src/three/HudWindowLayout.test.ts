@@ -36,7 +36,7 @@ describe("responsive HUD window layout", () => {
   });
 
   it("keeps anchored panels on-screen in undersized viewports", () => {
-    expect(anchoredPosition("bottom-right", 280, 180, 200, 100))
+    expect(anchoredPosition({ anchor: "bottom-right", size: { width: 280, height: 180 }, viewport: { width: 200, height: 100 } }))
       .toEqual({ x: 0, y: 0 });
   });
 });

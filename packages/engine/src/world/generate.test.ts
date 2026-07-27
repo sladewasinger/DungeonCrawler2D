@@ -11,6 +11,7 @@ import {
   createHeightBudgetStats,
 } from "./generate/heightBudget.test-support.js";
 import { generateChunk } from "./generate.js";
+import { floodFromBorder } from "./generate/test-support.js";
 import {
   PERSONAL_ROOM_H,
   personalRoomChunk,
@@ -33,8 +34,8 @@ describe("world generation", () => {
       [-3, 7],
       [12, -12],
     ] as const) {
-      const a = generateChunk(SEED, FLOOR, cx, cy);
-      const b = generateChunk(SEED, FLOOR, cx, cy);
+      const a = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
+      const b = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
       expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
       expect(Array.from(a.terrain)).toEqual(Array.from(b.terrain));
       expect(Array.from(a.features)).toEqual(Array.from(b.features));
@@ -44,9 +45,9 @@ describe("world generation", () => {
   });
 
   it("differs across seeds and floors", () => {
-    const a = generateChunk(SEED, FLOOR, 5, 5);
-    const b = generateChunk(hashString("other-world"), FLOOR, 5, 5);
-    const c = generateChunk(SEED, FLOOR + 1, 5, 5);
+    const a = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: 5, cy: 5 });
+    const b = generateChunk({ worldSeed: hashString("other-world"), floor: FLOOR, cx: 5, cy: 5 });
+    const c = generateChunk({ worldSeed: SEED, floor: FLOOR + 1, cx: 5, cy: 5 });
     expect(Array.from(a.tiles)).not.toEqual(Array.from(b.tiles));
     expect(Array.from(a.tiles)).not.toEqual(Array.from(c.tiles));
     expect(Array.from(a.tiles)).not.toContain(1);
@@ -56,8 +57,9 @@ describe("world generation", () => {
   it("is flat-first: floor height is 0 or within the pit/dais/chasm/landmark tier budget", () => {
     const stats = createHeightBudgetStats();
     for (const [cx, cy] of chunkGrid(-5, 5)) {
-      if (isSafeRoomChunk(SEED, FLOOR, cx, cy) || isStairsChunk(SEED, FLOOR, cx, cy)) continue;
-      accumulateHeightBudget(stats, generateChunk(SEED, FLOOR, cx, cy), true);
+      const worldChunk = { worldSeed: SEED, floor: FLOOR, cx, cy };
+      if (isSafeRoomChunk(worldChunk) || isStairsChunk(worldChunk)) continue;
+      accumulateHeightBudget(stats, generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy }), true);
     }
     expect(stats.violations, stats.firstViolation).toBe(0);
     expect(stats.plainFloors).toBeGreaterThan(500);
@@ -68,7 +70,7 @@ describe("world generation", () => {
     const found = findFirst(isSafeRoomChunk);
     expect(found).not.toBeNull();
     if (!found) return;
-    const chunk = generateChunk(SEED, FLOOR, found.cx, found.cy);
+    const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: found.cx, cy: found.cy });
     let doors = 0;
     let doorIndex = -1;
     for (let i = 0; i < chunk.tiles.length; i++) {
@@ -95,7 +97,7 @@ describe("world generation", () => {
     const found = findFirst(isStairsChunk);
     expect(found).not.toBeNull();
     if (!found) return;
-    const chunk = generateChunk(SEED, FLOOR, found.cx, found.cy);
+    const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: found.cx, cy: found.cy });
     const clearFloor = Array.from(chunk.tiles).filter((t) => t === TILE.Floor).length;
     expect(clearFloor).toBeGreaterThan(60);
   });
@@ -143,71 +145,35 @@ describe("world generation", () => {
 
   it("has no unreachable interior floor pockets (pocket sealing)", () => {
     for (const [cx, cy] of chunkGrid(-2, 2)) {
-      const chunk = generateChunk(SEED, FLOOR, cx, cy);
-      const reached = floodFromBorder(chunk.tiles);
-      for (let i = 0; i < chunk.tiles.length; i++) {
-        if (chunk.tiles[i] === TILE.Void) continue;
-        expect(reached[i], `chunk ${cx},${cy} tile ${i} is an orphan pocket`).toBe(1);
-      }
+      const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
+      assertNoPockets(chunk.tiles, cx, cy);
     }
   });
 });
 
 function chunkGrid(min: number, max: number): Array<[number, number]> {
   const out: Array<[number, number]> = [];
-  for (let cx = min; cx <= max; cx++) {
-    for (let cy = min; cy <= max; cy++) out.push([cx, cy]);
-  }
+  for (let cx = min; cx <= max; cx++) for (let cy = min; cy <= max; cy++) out.push([cx, cy]);
   return out;
 }
 
 function findFirst(
-  predicate: (seed: number, floor: number, cx: number, cy: number) => boolean,
+  predicate: (chunk: { worldSeed: number; floor: number; cx: number; cy: number }) => boolean,
 ): { cx: number; cy: number } | null {
   for (let cx = -6; cx <= 6; cx++) {
-    for (let cy = -6; cy <= 6; cy++) {
-      if (predicate(SEED, FLOOR, cx, cy)) return { cx, cy };
-    }
+    const found = findInColumn(cx, predicate);
+    if (found) return found;
   }
   return null;
 }
 
-/** Mirrors pockets.ts's own reach seeds: border, stairs, or a safe-room door. */
-function isReachSeed(tiles: Uint8Array, i: number): boolean {
-  const lx = i % CHUNK_SIZE;
-  const ly = (i - lx) / CHUNK_SIZE;
-  const onBorder = lx === 0 || ly === 0 || lx === CHUNK_SIZE - 1 || ly === CHUNK_SIZE - 1;
-  return onBorder || tiles[i] === TILE.Stairs || tiles[i] === TILE.DoorSafeRoom;
+function findInColumn(cx: number, predicate: (chunk: { worldSeed: number; floor: number; cx: number; cy: number }) => boolean): { cx: number; cy: number } | null {
+  for (let cy = -6; cy <= 6; cy++) {
+    if (predicate({ worldSeed: SEED, floor: FLOOR, cx, cy })) return { cx, cy };
+  }
+  return null;
 }
 
-function orthoNeighbors(i: number): number[] {
-  const lx = i % CHUNK_SIZE;
-  const ly = (i - lx) / CHUNK_SIZE;
-  return [
-    lx > 0 ? i - 1 : -1,
-    lx < CHUNK_SIZE - 1 ? i + 1 : -1,
-    ly > 0 ? i - CHUNK_SIZE : -1,
-    ly < CHUNK_SIZE - 1 ? i + CHUNK_SIZE : -1,
-  ];
-}
+function assertNoPockets(tiles: Uint8Array, cx: number, cy: number): void { const reached = floodFromBorder(tiles); for (let index = 0; index < tiles.length; index++) assertReachedTile({ tiles, reached, index, cx, cy }); }
 
-/** Reachability from every chunk-border/stairs/door tile, ignoring wall topology only. */
-function floodFromBorder(tiles: Uint8Array): Uint8Array {
-  const reached = new Uint8Array(tiles.length);
-  const queue: number[] = [];
-  for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i] === TILE.Void || !isReachSeed(tiles, i)) continue;
-    reached[i] = 1;
-    queue.push(i);
-  }
-  while (queue.length > 0) {
-    const i = queue.pop();
-    if (i === undefined) break;
-    for (const n of orthoNeighbors(i)) {
-      if (n < 0 || reached[n] === 1 || tiles[n] === TILE.Void) continue;
-      reached[n] = 1;
-      queue.push(n);
-    }
-  }
-  return reached;
-}
+function assertReachedTile(input: { readonly tiles: Uint8Array; readonly reached: Uint8Array; readonly index: number; readonly cx: number; readonly cy: number }): void { if (input.tiles[input.index] !== TILE.Void) expect(input.reached[input.index], `chunk ${input.cx},${input.cy} tile ${input.index} is an orphan pocket`).toBe(1); }

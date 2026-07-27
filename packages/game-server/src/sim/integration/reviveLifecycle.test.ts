@@ -22,12 +22,12 @@ function downPlayer(
 describe("authoritative revive lifecycle", () => {
   it("allows an unrelated nearby player to revive after four continuous seconds", () => {
     const sim = makeSim();
-    const rescuer = sim.addPlayer("Rescuer", "revive-rescuer");
-    const target = sim.addPlayer("Target", "revive-target");
+    const rescuer = sim.addPlayer({ name: "Rescuer", clientId: "revive-rescuer" });
+    const target = sim.addPlayer({ name: "Target", clientId: "revive-target" });
     const rescuerEntity = sim.getPlayerEntity(rescuer.playerId);
     const targetEntity = sim.getPlayerEntity(target.playerId);
     if (!rescuerEntity || !targetEntity) throw new Error("missing revive fixtures");
-    teleport(targetEntity, rescuerEntity.body.x + 1, rescuerEntity.body.y, sim);
+    teleport({ entity: targetEntity, x: rescuerEntity.body.x + 1, y: rescuerEntity.body.y, sim: sim });
     downPlayer(sim, target.playerId);
 
     sim.queueAction(rescuer.playerId, { type: "revive", targetId: target.playerId, held: true });
@@ -41,12 +41,12 @@ describe("authoritative revive lifecycle", () => {
 
   it("cancels on release and range loss", () => {
     const sim = makeSim();
-    const rescuer = sim.addPlayer("Rescuer", "cancel-rescuer");
-    const target = sim.addPlayer("Target", "cancel-target");
+    const rescuer = sim.addPlayer({ name: "Rescuer", clientId: "cancel-rescuer" });
+    const target = sim.addPlayer({ name: "Target", clientId: "cancel-target" });
     const rescuerEntity = sim.getPlayerEntity(rescuer.playerId);
     const targetEntity = sim.getPlayerEntity(target.playerId);
     if (!rescuerEntity || !targetEntity) throw new Error("missing cancellation fixtures");
-    teleport(targetEntity, rescuerEntity.body.x + 1, rescuerEntity.body.y, sim);
+    teleport({ entity: targetEntity, x: rescuerEntity.body.x + 1, y: rescuerEntity.body.y, sim: sim });
     downPlayer(sim, target.playerId);
 
     sim.queueAction(rescuer.playerId, { type: "revive", targetId: target.playerId, held: true });
@@ -57,16 +57,16 @@ describe("authoritative revive lifecycle", () => {
     expect(targetEntity.hp).toBe(1);
 
     const rangeSim = makeSim();
-    const rangeRescuer = rangeSim.addPlayer("Rescuer", "range-rescuer");
-    const rangeTarget = rangeSim.addPlayer("Target", "range-target");
+    const rangeRescuer = rangeSim.addPlayer({ name: "Rescuer", clientId: "range-rescuer" });
+    const rangeTarget = rangeSim.addPlayer({ name: "Target", clientId: "range-target" });
     const rangeRescuerEntity = rangeSim.getPlayerEntity(rangeRescuer.playerId);
     const rangeTargetEntity = rangeSim.getPlayerEntity(rangeTarget.playerId);
     if (!rangeRescuerEntity || !rangeTargetEntity) throw new Error("missing range fixtures");
-    teleport(rangeTargetEntity, rangeRescuerEntity.body.x + 1, rangeRescuerEntity.body.y, rangeSim);
+    teleport({ entity: rangeTargetEntity, x: rangeRescuerEntity.body.x + 1, y: rangeRescuerEntity.body.y, sim: rangeSim });
     downPlayer(rangeSim, rangeTarget.playerId);
     rangeSim.queueAction(rangeRescuer.playerId, { type: "revive", targetId: rangeTarget.playerId, held: true });
     rangeSim.step();
-    teleport(rangeRescuerEntity, rangeTargetEntity.body.x + 10, rangeTargetEntity.body.y, rangeSim);
+    teleport({ entity: rangeRescuerEntity, x: rangeTargetEntity.body.x + 10, y: rangeTargetEntity.body.y, sim: rangeSim });
     stepN(rangeSim, REVIVE_HOLD_TICKS + 1);
     expect(rangeTargetEntity.hp).toBe(1);
   });

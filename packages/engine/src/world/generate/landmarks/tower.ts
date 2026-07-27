@@ -10,7 +10,7 @@
 import { hash2D, mixSeeds } from "../../../core/rng.js";
 import { TILE, TOPOLOGY } from "../../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
-import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkCenter } from "./shared.js";
+import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkCenter, type LandmarkStamp } from "./shared.js";
 
 const OUTER_RADIUS = 9;
 const RING_STEP = 3; // tiles per tier
@@ -27,8 +27,8 @@ const DIAG: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
 ];
 
-function towerCenter(seed: number, worldSeed: number, floor: number, cx: number, cy: number): LandmarkCenter {
-  const junction = landmarkCenter(worldSeed, floor, cx, cy);
+function towerCenter({ seed, worldSeed, floor, cx, cy }: { seed: number; worldSeed: number; floor: number; cx: number; cy: number }): LandmarkCenter {
+  const junction = landmarkCenter({ worldSeed, floor, cx, cy });
   const pick = hash2D(mixSeeds(seed, 0x7012), cx, cy) % DIAG.length;
   const [ddx, ddy] = DIAG[pick] ?? [1, 1];
   const clamp = (v: number) => Math.max(1, Math.min(CHUNK_SIZE - 2, v));
@@ -58,22 +58,13 @@ function isRubble(seed: number, wx: number, wy: number): boolean {
   return hash2D(mixSeeds(seed, 0x7011), wx, wy) % RUBBLE_CHANCE_DENOM === 0;
 }
 
-export function stampTower(
-  seed: number,
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  corridorCarved: Uint8Array,
-  tiles: Uint8Array,
-  height: Float32Array,
-): void {
-  const center = towerCenter(seed, worldSeed, floor, cx, cy);
-  forEachLandmarkTile(center, OUTER_RADIUS, (lx, ly, dx, dy) => {
+export function stampTower({ seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkStamp): void {
+  const center = towerCenter({ seed, worldSeed, floor, cx, cy });
+  forEachLandmarkTile(center, OUTER_RADIUS, ({ lx, ly, dx, dy }) => {
     const i = ly * CHUNK_SIZE + lx;
     const d = Math.max(Math.abs(dx), Math.abs(dy));
     if (d > OUTER_RADIUS) return;
-    const carved = onCorridor(corridorCarved, CHUNK_SIZE, lx, ly);
+    const carved = onCorridor({ corridorCarved, chunkSize: CHUNK_SIZE, lx, ly });
     const wx = cx * CHUNK_SIZE + lx;
     const wy = cy * CHUNK_SIZE + ly;
     const rubble = !carved && d < OUTER_RADIUS - RING_STEP && isRubble(seed, wx, wy);

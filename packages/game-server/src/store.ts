@@ -1,5 +1,6 @@
 import { loadPlayerStoreFile, savePlayerStoreFile } from "./storeFile.js";
-import { localProfileIdForSlot, normalizeStoredPlayer } from "./storedPlayer.js";
+import { addToStash, addPlayerXp, createStoredPlayer, updateHotbar, updateModerationProfile, type StashAddRequest } from "./storeOperations.js";
+import { normalizeStoredPlayer } from "./storedPlayer.js";
 
 /**
  * Persistent per-player data keyed by anonymous clientId: personal
@@ -8,10 +9,7 @@ import { localProfileIdForSlot, normalizeStoredPlayer } from "./storedPlayer.js"
  * contract. Pass file=null for memory-only (tests).
  */
 
-export interface StashEntry {
-  item: string;
-  qty: number;
-}
+export interface StashEntry { item: string; qty: number }
 
 export interface StoredPlayer {
   slot: number;
@@ -58,8 +56,7 @@ export const STASH_CAPACITY = 24;
 
 export class PlayerStore {
   private readonly data = new Map<string, StoredPlayer>();
-  private nextSlot = 0;
-  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private nextSlot = 0; private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly file: string | null) {
     if (!file) return;
@@ -86,22 +83,7 @@ export class PlayerStore {
   get(clientId: string, name: string): StoredPlayer {
     let player = this.data.get(clientId);
     if (!player) {
-      const slot = this.nextSlot++;
-      player = {
-        slot,
-        name,
-        stash: [],
-        contacts: [],
-        xp: 0,
-        level: 1,
-        deepestFloor: 1,
-        activeFloor: 1,
-        descentComplete: false,
-        localProfileId: localProfileIdForSlot(slot),
-        craftedRecipes: {},
-        mutedProfileIds: [],
-        blockedProfileIds: [],
-      };
+      player = createStoredPlayer(this.nextSlot++, name);
       this.data.set(clientId, player);
       this.scheduleSave();
     } else if (player.name !== name) {
@@ -125,26 +107,10 @@ export class PlayerStore {
   }
 
   /** Merge items into a stash (stacking), respecting capacity. */
-  stashAdd(player: StoredPlayer, item: string, qty: number, maxStack: number): boolean {
-    let remaining = qty;
-    for (const entry of player.stash) {
-      if (entry.item !== item || entry.qty >= maxStack) continue;
-      const take = Math.min(maxStack - entry.qty, remaining);
-      entry.qty += take;
-      remaining -= take;
-      if (remaining === 0) break;
-    }
-    while (remaining > 0) {
-      if (player.stash.length >= STASH_CAPACITY) {
-        this.scheduleSave();
-        return false;
-      }
-      const take = Math.min(maxStack, remaining);
-      player.stash.push({ item, qty: take });
-      remaining -= take;
-    }
+  stashAdd(player: StoredPlayer, request: StashAddRequest): boolean {
+    const added = addToStash(player, request, STASH_CAPACITY);
     this.scheduleSave();
-    return true;
+    return added;
   }
 
   stashTake(player: StoredPlayer, index: number): StashEntry | null {
@@ -197,49 +163,26 @@ export class PlayerStore {
 
   recordModerationProfile(
     player: StoredPlayer,
-    kind: "mutedProfileIds" | "blockedProfileIds",
-    profileId: string,
-    enabled: boolean,
+    change: { kind: "mutedProfileIds" | "blockedProfileIds"; profileId: string; enabled: boolean },
   ): void {
-    const values = (player[kind] ??= []);
-    const index = values.indexOf(profileId);
-    if (enabled && index < 0) values.push(profileId);
-    else if (!enabled && index >= 0) values.splice(index, 1);
-    else return;
-    values.sort();
+    if (!updateModerationProfile(player, change)) return;
     this.scheduleSave();
   }
 
-  recordHotbar(
-    player: StoredPlayer,
-    hotbar: readonly (string | null)[],
-    starterHotbarSchema = player.starterHotbarSchema,
-  ): void {
-    player.hotbar = [...hotbar];
-    if (starterHotbarSchema !== undefined) {
-      player.starterHotbarSchema = starterHotbarSchema;
-    }
+  recordHotbar(player: StoredPlayer, hotbar: readonly (string | null)[], starterHotbarSchema = player.starterHotbarSchema): void {
+    updateHotbar(player, hotbar, starterHotbarSchema);
     this.scheduleSave();
   }
 
-  /**
-   * Add XP and recompute level via the caller-supplied curve (kept out of
-   * this persistence-only file — see sim/xp.ts's `levelForXp`). Death never
-   * calls this in reverse: XP is never removed (ASSUMPTION #90). No level
-   * cap, so `leveledUp` can fire on every call in principle.
-   */
+  /** Add irreversible XP and recompute level with the caller-supplied curve. */
   addXp(
     player: StoredPlayer,
     amount: number,
     levelForXp: (xp: number) => number,
   ): { level: number; leveledUp: boolean } {
-    const beforeLevel = player.level ?? 1;
-    const xp = (player.xp ?? 0) + amount;
-    const level = levelForXp(xp);
-    player.xp = xp;
-    player.level = level;
+    const result = addPlayerXp(player, amount, levelForXp);
     this.scheduleSave();
-    return { level, leveledUp: level > beforeLevel };
+    return result;
   }
 
   scheduleSave(): void {

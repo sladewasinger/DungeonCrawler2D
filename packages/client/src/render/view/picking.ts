@@ -7,15 +7,13 @@
 // and accepting the first whose own recorded height matches the candidate.
 //
 // Shared by game aim (`input/pointer.ts` cursorWorldTile) and the editor's render-panel
-// picker (`scenes/editor/renderPanelPointer.ts` hoveredCellAt) so the two never drift.
+// picker so the two never drift.
 import { viewTileToWorld } from "./viewTransform.js";
 import type { ViewOrientation } from "./viewOrientation.js";
 
 /**
- * Search bounds for candidate heights: mirror `render/terrain/ownFace.ts`'s
- * `MAX_FACE_ROWS` (not imported directly — `render/view` is a lower layer than
- * `render/terrain`, which itself depends on `render/view`, and importing "up" would
- * invert that direction; see docs/ASSUMPTIONS.md row 320).
+ * Search bounds for candidate heights. It remains local to preserve the renderer's
+ * one-way dependency direction.
  */
 const MAX_PICK_HEIGHT = 16;
 const MIN_PICK_HEIGHT = -MAX_PICK_HEIGHT;
@@ -28,6 +26,13 @@ export interface TallestFirstPick {
   readonly height: number;
 }
 
+export interface TallestFirstPickRequest {
+  readonly vx: number;
+  readonly vy: number;
+  readonly orientation: ViewOrientation;
+  readonly heightAt: (wx: number, wy: number) => number;
+}
+
 /**
  * Resolves the world tile a pointer over view cell (`vx`, `vy`) is really looking at:
  * for `h` from `MAX_PICK_HEIGHT` down through negative pit depths, the candidate is the world tile that would
@@ -36,16 +41,21 @@ export interface TallestFirstPick {
  * below-base cap. Falls back to the raw `h = 0` cell when no projected cap claims the
  * slot. `vx`/`vy` are integer view-tile indices (already floored by the caller).
  */
-export function pickTallestFirst(
-  vx: number,
-  vy: number,
-  orientation: ViewOrientation,
-  heightAt: (wx: number, wy: number) => number,
-): TallestFirstPick {
+type LegacyTallestFirstPickArgs = [number, number, ViewOrientation, (wx: number, wy: number) => number];
+
+export function pickTallestFirst(...args: [TallestFirstPickRequest] | LegacyTallestFirstPickArgs): TallestFirstPick {
+  const { vx, vy, orientation, heightAt } = normalizeTallestFirstPickRequest(args);
   for (let h = MAX_PICK_HEIGHT; h >= MIN_PICK_HEIGHT; h--) {
     const world = viewTileToWorld({ x: vx, y: vy + h }, orientation);
     if (heightAt(world.x, world.y) === h) return { wx: world.x, wy: world.y, height: h };
   }
   const flat = viewTileToWorld({ x: vx, y: vy }, orientation);
   return { wx: flat.x, wy: flat.y, height: 0 };
+}
+
+function normalizeTallestFirstPickRequest(args: [TallestFirstPickRequest] | LegacyTallestFirstPickArgs): TallestFirstPickRequest {
+  const [first] = args;
+  if (typeof first === "object") return first;
+  const [vx, vy, orientation, heightAt] = args as LegacyTallestFirstPickArgs;
+  return { vx, vy, orientation, heightAt };
 }

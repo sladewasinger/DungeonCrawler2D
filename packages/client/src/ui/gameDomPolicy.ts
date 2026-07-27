@@ -15,12 +15,12 @@ export function installGameDomPolicy(): void {
   document.documentElement.style.webkitUserSelect = "none";
   document.addEventListener("selectstart", (event) => event.preventDefault());
   disableTabStops(document);
-  const observer = new MutationObserver((records) => {
-    for (const record of records) {
-      for (const node of record.addedNodes) {
-        if (node instanceof HTMLElement) disableTabStops(node);
-      }
-    }
-  });
+  const observer = new MutationObserver(disableAddedTabStops);
   observer.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+function disableAddedTabStops(records: MutationRecord[]): void {
+  records.flatMap((record) => [...record.addedNodes])
+    .filter((node): node is HTMLElement => node instanceof HTMLElement)
+    .forEach(disableTabStops);
 }

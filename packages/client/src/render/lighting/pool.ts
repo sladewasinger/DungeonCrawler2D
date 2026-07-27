@@ -25,15 +25,24 @@ export class LightSpritePool {
 
   /** Syncs the pool to exactly the given light sources — creates/updates/destroys sprites to match. */
   sync(lights: readonly LightSource[], nowMs: number): void {
-    const seen = this.seen;
-    seen.clear();
-    for (const light of lights) {
-      seen.add(light.id);
-      if (!this.visibleSinceMs.has(light.id)) this.visibleSinceMs.set(light.id, nowMs);
-      this.place(this.getOrCreate(light.id), light, nowMs);
-    }
+    this.syncIncoming(lights, nowMs);
+    this.releaseAbsent();
+  }
+
+  private syncIncoming(lights: readonly LightSource[], nowMs: number): void {
+    this.seen.clear();
+    for (const light of lights) this.syncLight(light, nowMs);
+  }
+
+  private syncLight(light: LightSource, nowMs: number): void {
+    this.seen.add(light.id);
+    if (!this.visibleSinceMs.has(light.id)) this.visibleSinceMs.set(light.id, nowMs);
+    this.place(this.getOrCreate(light.id), light, nowMs);
+  }
+
+  private releaseAbsent(): void {
     for (const [id, sprite] of this.sprites) {
-      if (seen.has(id)) continue;
+      if (this.seen.has(id)) continue;
       this.release(sprite);
       this.sprites.delete(id);
       this.visibleSinceMs.delete(id);

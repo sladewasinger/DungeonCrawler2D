@@ -3,11 +3,14 @@
 import type { AreaSpriteKind } from "./areaEffectPool.js";
 
 /** True when a cached rig was built for a different visual recipe or content effect. */
+export interface AreaRigIdentity {
+  readonly sprite: AreaSpriteKind;
+  readonly effectId: string;
+}
+
 export function rigIsStale(
-  cachedSprite: AreaSpriteKind | undefined,
-  cachedEffectId: string | undefined,
-  currentSprite: AreaSpriteKind,
-  currentEffectId: string,
+  cached: AreaRigIdentity | undefined,
+  current: AreaRigIdentity,
 ): boolean {
-  return cachedSprite !== currentSprite || cachedEffectId !== currentEffectId;
+  return cached?.sprite !== current.sprite || cached.effectId !== current.effectId;
 }

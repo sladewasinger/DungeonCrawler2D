@@ -34,6 +34,13 @@ const RING_DEPTH = 100000;
  * instead of sitting flat at the ground contact point. */
 const VERTICAL_OFFSET_PX = 30;
 
+export interface GraceRingInput {
+  readonly x: number;
+  readonly y: number;
+  readonly graceUntilMs: number;
+  readonly nowMs: number;
+}
+
 export class GraceRing {
   private readonly graphics: Phaser.GameObjects.Graphics;
 
@@ -42,7 +49,7 @@ export class GraceRing {
   }
 
   /** One call per frame with the self player's own world pose + grace countdown. */
-  sync(worldX: number, worldY: number, graceUntilMs: number, nowMs: number): void {
+  sync({ x: worldX, y: worldY, graceUntilMs, nowMs }: GraceRingInput): void {
     const alpha = graceRingAlpha(graceUntilMs, nowMs);
     if (alpha <= 0) {
       this.graphics.setVisible(false);

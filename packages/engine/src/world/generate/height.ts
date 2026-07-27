@@ -36,12 +36,30 @@ const THRESHOLD_RAMP_MAX_WIDTH = 2; // one built staircase reads as a place, not
 
 type Variant = "flat" | "pit" | "dais" | "chasm";
 
-function pickVariant(seed: number, room: Room, district: DistrictKind): Variant {
+interface VariantInput {
+  seed: number;
+  room: Room;
+  district: DistrictKind;
+}
+
+function pickVariant({ seed, room, district }: VariantInput): Variant {
   // Kept deliberately rare: sunken pits, daises, and chasms should read as
   // set-pieces, not wallpaper — roughly one room in four, most stay flat-first.
   const roll = rectHash(seed, room.rect, 0x9007) % 30;
-  if (district === DISTRICT.Flooded && roll < 12) return "pit";
-  if (roll < 1 && Math.min(rectW(room.rect), rectH(room.rect)) >= CHASM_MIN_SPAN) return "chasm";
+  if (isFloodedPit(district, roll)) return "pit";
+  if (isChasmRoom(room, roll)) return "chasm";
+  return ordinaryVariant(roll);
+}
+
+function isFloodedPit(district: DistrictKind, roll: number): boolean {
+  return district === DISTRICT.Flooded && roll < 12;
+}
+
+function isChasmRoom(room: Room, roll: number): boolean {
+  return roll < 1 && Math.min(rectW(room.rect), rectH(room.rect)) >= CHASM_MIN_SPAN;
+}
+
+function ordinaryVariant(roll: number): Variant {
   if (roll < 4) return "pit";
   if (roll < 7) return "dais";
   return "flat";
@@ -74,32 +92,37 @@ function ring(rect: Rect): Rect {
  * stays walkable straight through, exactly like a ring pass-through
  * already did — only cells this room actually owns sink into its variant.
  */
-function stampRingHeight(
-  height: Float32Array,
-  corridorCarved: Uint8Array,
-  chunkSize: number,
-  interior: Rect,
-  value: number,
-): void {
-  const bounds = ring(interior);
+interface HeightStamp {
+  height: Float32Array; corridorCarved: Uint8Array; chunkSize: number; interior: Rect; value: number;
+}
+
+function stampRingHeight(stamp: HeightStamp): void {
+  const bounds = ring(stamp.interior);
   for (let y = bounds.y0; y <= bounds.y1; y++) {
-    for (let x = bounds.x0; x <= bounds.x1; x++) {
-      if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) continue;
-      const i = y * chunkSize + x;
-      if (corridorCarved[i] === 1) continue;
-      height[i] = value;
-    }
+    stampRingRow(stamp, bounds, y);
   }
+}
+
+function stampRingRow(stamp: HeightStamp, bounds: Rect, y: number): void {
+  for (let x = bounds.x0; x <= bounds.x1; x++) stampHeightCell(stamp, x, y);
+}
+
+function stampHeightCell({ height, corridorCarved, chunkSize, value }: HeightStamp, x: number, y: number): void {
+  if (!inChunk(x, y, chunkSize)) return;
+  const index = y * chunkSize + x;
+  if (corridorCarved[index] !== 1) height[index] = value;
 }
 
 /** The chasm's one guaranteed flat crossing, centered on the room — everywhere else in the pit is a real drop. */
 function stampBridge(height: Float32Array, chunkSize: number, interior: Rect): void {
   const bridgeX = Math.round((interior.x0 + interior.x1) / 2);
-  for (let y = interior.y0; y <= interior.y1; y++) {
-    for (let x = bridgeX - CHASM_BRIDGE_HALF; x <= bridgeX + CHASM_BRIDGE_HALF; x++) {
-      if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) continue;
-      height[y * chunkSize + x] = 0;
-    }
+  const bridge = { height, chunkSize, bridgeX };
+  for (let y = interior.y0; y <= interior.y1; y++) stampBridgeRow(bridge, y);
+}
+
+function stampBridgeRow({ height, chunkSize, bridgeX }: { height: Float32Array; chunkSize: number; bridgeX: number }, y: number): void {
+  for (let x = bridgeX - CHASM_BRIDGE_HALF; x <= bridgeX + CHASM_BRIDGE_HALF; x++) {
+    if (inChunk(x, y, chunkSize)) height[y * chunkSize + x] = 0;
   }
 }
 
@@ -142,16 +165,13 @@ function inChunk(x: number, y: number, chunkSize: number): boolean {
  * threshold) at one edge and the pit floor (the landing, one past the
  * last tread) at the other.
  */
-function carveRampColumn(
-  tiles: Uint8Array,
-  height: Float32Array,
-  chunkSize: number,
-  origin: Point,
-  step: { dx: number; dy: number },
-  stepCount: number,
-  fromHeight: number,
-  toHeight: number,
-): void {
+interface RampColumn {
+  tiles: Uint8Array; height: Float32Array; chunkSize: number; origin: Point;
+  step: { dx: number; dy: number }; stepCount: number; fromHeight: number; toHeight: number;
+}
+
+function carveRampColumn(column: RampColumn): void {
+  const { tiles, height, chunkSize, origin, step, stepCount, fromHeight, toHeight } = column;
   if (inChunk(origin.x, origin.y, chunkSize)) height[origin.y * chunkSize + origin.x] = fromHeight;
   const sign = Math.sign(toHeight - fromHeight);
   for (let n = 1; n <= stepCount; n++) {
@@ -192,18 +212,16 @@ function carveRampColumn(
  * unclimbable Floor by demoteOrphanedStairs. This ramp is the room's
  * WHOLE reason either cell exists; it always wins that tug-of-war.
  */
-function carveRamp(
-  tiles: Uint8Array,
-  height: Float32Array,
-  chunkSize: number,
-  doorway: Doorway,
-  fromHeight: number,
-  toHeight: number,
-): void {
+interface Ramp {
+  tiles: Uint8Array; height: Float32Array; chunkSize: number; doorway: Doorway; fromHeight: number; toHeight: number;
+}
+
+function carveRamp(ramp: Ramp): void {
+  const { doorway, fromHeight, toHeight } = ramp;
   const step = inwardStep(doorway.side);
   const stepCount = Math.round(Math.abs(toHeight - fromHeight));
-  for (const origin of thresholdCells(doorway.room, doorway.side, doorway.center, doorway.width)) {
-    carveRampColumn(tiles, height, chunkSize, origin, step, stepCount, fromHeight, toHeight);
+  for (const origin of thresholdCells(doorway)) {
+    carveRampColumn({ ...ramp, origin, step, stepCount });
   }
 }
 
@@ -231,20 +249,17 @@ function pickPrimaryDoorway(seed: number, room: Room, roomDoorways: Doorway[]): 
  * anywhere (unreachable by corridor; connectivity is guaranteed by the
  * corridor network, not by this pass).
  */
-export function applyRoomHeight(
-  seed: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-  corridorCarved: Uint8Array,
-  chunkSize: number,
-  room: Room,
-  doorways: Doorway[],
-  district: DistrictKind,
-): void {
-  const variant = pickVariant(seed, room, district);
+export interface RoomHeightApplication {
+  seed: number; tiles: Uint8Array; height: Float32Array; corridorCarved: Uint8Array;
+  chunkSize: number; room: Room; doorways: Doorway[]; district: DistrictKind;
+}
+
+export function applyRoomHeight(input: RoomHeightApplication): void {
+  const { seed, tiles, height, corridorCarved, chunkSize, room, doorways, district } = input;
+  const variant = pickVariant({ seed, room, district });
   if (variant === "flat") return;
   const value = variantValue(variant);
-  stampRingHeight(height, corridorCarved, chunkSize, room.rect, value);
+  stampRingHeight({ height, corridorCarved, chunkSize, interior: room.rect, value });
   if (variant === "chasm") {
     stampBridge(height, chunkSize, room.rect);
     return;
@@ -253,5 +268,5 @@ export function applyRoomHeight(
   const primary = pickPrimaryDoorway(seed, room, roomDoorways);
   if (!primary) return;
   const ramp = { ...primary, width: Math.min(primary.width, THRESHOLD_RAMP_MAX_WIDTH) };
-  carveRamp(tiles, height, chunkSize, ramp, 0, value);
+  carveRamp({ tiles, height, chunkSize, doorway: ramp, fromHeight: 0, toHeight: value });
 }

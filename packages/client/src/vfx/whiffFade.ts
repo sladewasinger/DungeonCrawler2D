@@ -10,6 +10,7 @@ import { getViewOrientation, worldAngleToView } from "../render/view/index.js";
 import { wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
 import { whiffAlpha } from "./whiffFadeMotion.js";
 import { combatOriginY } from "../render/entities/weaponOrbit.js";
+import type { MeleeVfxInput } from "./vfxSystemTypes.js";
 
 const ARC_COLOR = 0x9aa0a6;
 const ARC_WIDTH_PX = 3;
@@ -26,12 +27,12 @@ export class WhiffFadePool {
 
   /** (Re)draws `id`'s whiff arc at world (x,y,z) aimed at `angleRad` — same geometry
    * inputs as MeleeWedgePool.spawn, so the miss cue traces exactly the swing that missed. */
-  spawn(id: string, worldX: number, worldY: number, z: number, angleRad: number, depth: number, tilePx: number, nowMs: number): void {
+  spawn({ id, x: worldX, y: worldY, z, angleRad, depth, tilePx, nowMs }: MeleeVfxInput): void {
     const arc = this.arcs.get(id) ?? { gfx: this.scene.add.graphics(), startedAtMs: -Infinity };
     this.arcs.set(id, arc);
     const screen = worldToScreen(worldX, worldY);
     const originY = combatOriginY(screen.y - z * tilePx, tilePx);
-    drawArc(arc.gfx, screen.x, originY, wedgeGeometry(worldAngleToView(angleRad, getViewOrientation()), tilePx));
+    drawArc({ gfx: arc.gfx, tipX: screen.x, tipY: originY, geo: wedgeGeometry(worldAngleToView(angleRad, getViewOrientation()), tilePx) });
     arc.gfx.setDepth(depth).setVisible(true).setAlpha(whiffAlpha(0));
     arc.startedAtMs = nowMs;
   }
@@ -51,7 +52,7 @@ export class WhiffFadePool {
 
 /** Strokes just the outer arc edge (no fill, no radius lines) — a silhouette distinct
  * from the connect wedge's filled pie + rim. */
-function drawArc(gfx: Phaser.GameObjects.Graphics, tipX: number, tipY: number, geo: WedgeGeometry): void {
+function drawArc({ gfx, tipX, tipY, geo }: { readonly gfx: Phaser.GameObjects.Graphics; readonly tipX: number; readonly tipY: number; readonly geo: WedgeGeometry }): void {
   gfx.clear();
   gfx.lineStyle(ARC_WIDTH_PX, ARC_COLOR, 1);
   gfx.beginPath();

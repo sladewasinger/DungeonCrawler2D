@@ -5,16 +5,11 @@ import { makeSim, teleport } from "./support.js";
 describe("bandaging another player", () => {
   it("heals a nearby living target and consumes the healer's bandage", () => {
     const sim = makeSim(1234, { testFixtures: true, freezeEnemies: true });
-    const healer = sim.addPlayer("Healer", "bandage-healer");
-    const patient = sim.addPlayer("Patient", "bandage-patient");
+    const healer = sim.addPlayer({ name: "Healer", clientId: "bandage-healer" });
+    const patient = sim.addPlayer({ name: "Patient", clientId: "bandage-patient" });
     const healerEntity = sim.getPlayerEntity(healer.playerId)!;
     const patientEntity = sim.getPlayerEntity(patient.playerId)!;
-    teleport(
-      patientEntity,
-      healerEntity.body.x + INTERACT_RANGE - 0.1,
-      healerEntity.body.y,
-      sim,
-    );
+    teleport({ entity: patientEntity, x: healerEntity.body.x + INTERACT_RANGE - 0.1, y: healerEntity.body.y, sim: sim });
     patientEntity.hp = 10;
 
     sim.queueAction(healer.playerId, {
@@ -38,16 +33,11 @@ describe("bandaging another player", () => {
 
   it("rejects an out-of-range target without consuming the bandage", () => {
     const sim = makeSim(1234, { testFixtures: true, freezeEnemies: true });
-    const healer = sim.addPlayer("Healer", "far-bandage-healer");
-    const patient = sim.addPlayer("Patient", "far-bandage-patient");
+    const healer = sim.addPlayer({ name: "Healer", clientId: "far-bandage-healer" });
+    const patient = sim.addPlayer({ name: "Patient", clientId: "far-bandage-patient" });
     const healerEntity = sim.getPlayerEntity(healer.playerId)!;
     const patientEntity = sim.getPlayerEntity(patient.playerId)!;
-    teleport(
-      patientEntity,
-      healerEntity.body.x + INTERACT_RANGE + 1,
-      healerEntity.body.y,
-      sim,
-    );
+    teleport({ entity: patientEntity, x: healerEntity.body.x + INTERACT_RANGE + 1, y: healerEntity.body.y, sim: sim });
     patientEntity.hp = 10;
 
     sim.queueAction(healer.playerId, {

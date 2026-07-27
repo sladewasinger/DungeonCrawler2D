@@ -29,6 +29,7 @@ const EMPTY_CONTENT: RawContent = {
   enemies: [],
   recipes: [],
 };
+const SPAWN_TEST_SEED = "spawn-test";
 
 function makeSlotAt(x: number, y: number): PlayerSlot {
   const entity = makeEntity("player", createBody(x, y, 0), {
@@ -70,9 +71,9 @@ describe("findSpawn", () => {
   let sim: SimState;
 
   beforeEach(() => {
-    const world = new World(hashString("spawn-test"), 1, LEVEL.Dungeon);
+    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.Dungeon);
     const content = buildContentRegistry(EMPTY_CONTENT);
-    sim = createSimState(world, content, new PlayerStore(null), 42, {});
+    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
   });
 
   it("lands on a walkable, non-void room/corridor tile at the tile's ground height", () => {
@@ -109,21 +110,21 @@ describe("findSpawn", () => {
 
 describe("findWalkableNear", () => {
   it("returns the queried tile itself when it is already walkable floor", () => {
-    const world = new World(hashString("spawn-test"), 1, LEVEL.Dungeon);
+    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.Dungeon);
     const content = buildContentRegistry(EMPTY_CONTENT);
-    const sim = createSimState(world, content, new PlayerStore(null), 1, {});
+    const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
     const seed = findSpawn(sim);
 
-    const found = findWalkableNear(sim, Math.floor(seed.x), Math.floor(seed.y));
+    const found = findWalkableNear({ sim, x: Math.floor(seed.x), y: Math.floor(seed.y) });
     expect(found).toEqual({ x: Math.floor(seed.x), y: Math.floor(seed.y) });
   });
 });
 
 describe("newToken", () => {
   it("produces distinct non-empty tokens on successive calls", () => {
-    const world = new World(hashString("spawn-test"), 1, LEVEL.Dungeon);
+    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.Dungeon);
     const content = buildContentRegistry(EMPTY_CONTENT);
-    const sim = createSimState(world, content, new PlayerStore(null), 7, {});
+    const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 7, opts: {} });
 
     const a = newToken(sim);
     const b = newToken(sim);

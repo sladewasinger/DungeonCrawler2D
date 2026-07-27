@@ -4,25 +4,17 @@
 
 import { TILE, TOPOLOGY } from "../../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
-import { forEachLandmarkTile, landmarkCenter, onCorridor } from "./shared.js";
+import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkStamp } from "./shared.js";
 
 const WALL_RADIUS = 10;
 
-export function stampArena(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  corridorCarved: Uint8Array,
-  tiles: Uint8Array,
-  height: Float32Array,
-): void {
-  const center = landmarkCenter(worldSeed, floor, cx, cy);
-  forEachLandmarkTile(center, WALL_RADIUS, (lx, ly, dx, dy) => {
+export function stampArena({ worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkStamp): void {
+  const center = landmarkCenter({ worldSeed, floor, cx, cy });
+  forEachLandmarkTile(center, WALL_RADIUS, ({ lx, ly, dx, dy }) => {
     const i = ly * CHUNK_SIZE + lx;
     const d = Math.max(Math.abs(dx), Math.abs(dy));
     if (d > WALL_RADIUS) return;
-    const carved = onCorridor(corridorCarved, CHUNK_SIZE, lx, ly);
+    const carved = onCorridor({ corridorCarved, chunkSize: CHUNK_SIZE, lx, ly });
     const isRingWall = d === WALL_RADIUS && !carved;
     tiles[i] = isRingWall ? TOPOLOGY.Uncarved : TILE.Floor;
     height[i] = 0;

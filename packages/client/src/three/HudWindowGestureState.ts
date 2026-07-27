@@ -85,22 +85,22 @@ export const snapWindowAnchor = (
 ): void => {
   const size = resolveWindowSize(layout, root);
   const position = resolveWindowPosition(layout, size, root);
-  layout.anchor = closestAnchor(
-    position.x,
-    position.y,
-    size.width,
-    size.height,
-    root.width,
-    root.height,
-  );
+  layout.anchor = closestAnchor({ position, size, viewport: root });
 };
 
-export const setRelativeWindowPosition = (
-  layout: HudWindowLayout,
-  point: HudWindowPoint,
-  size: HudWindowSize,
-  root: HudWindowSize,
-): void => {
+export interface RelativeWindowPositionInput {
+  layout: HudWindowLayout;
+  point: HudWindowPoint;
+  size: HudWindowSize;
+  root: HudWindowSize;
+}
+
+export const setRelativeWindowPosition = ({
+  layout,
+  point,
+  size,
+  root,
+}: RelativeWindowPositionInput): void => {
   const maxX = Math.max(0, root.width - size.width);
   const maxY = Math.max(0, root.height - size.height);
   layout.xRatio = maxX === 0 ? 0 : clampGestureValue(point.x, 0, maxX) / maxX;
@@ -135,11 +135,11 @@ export const makeHudWindowFree = (
   const root = rootElement.getBoundingClientRect();
   const rect = record.element.getBoundingClientRect();
   record.layout.anchor = "free";
-  setRelativeWindowPosition(
-    record.layout,
-    { x: Math.round(rect.left - root.left), y: Math.round(rect.top - root.top) },
-    { width: rect.width, height: rect.height },
+  setRelativeWindowPosition({
+    layout: record.layout,
+    point: { x: Math.round(rect.left - root.left), y: Math.round(rect.top - root.top) },
+    size: { width: rect.width, height: rect.height },
     root,
-  );
+  });
   return root;
 };

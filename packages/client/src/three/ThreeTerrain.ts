@@ -1,20 +1,17 @@
 /** Owns deterministic Three.js terrain and bounded wall-sconce lighting. */
-import { CHASM_DEATH_Z, TILE, biomeAtWorldTile, type World } from "@dc2d/engine";
+import { TILE, biomeAtWorldTile, type World } from "@dc2d/engine";
 import * as THREE from "three";
 import { environmentProfile } from "./threeEnvironment.js";
-import {
-  createBiomeMaterials,
-  disposeBiomeMaterials,
-  type BiomeMaterials,
-} from "./threeTerrainPalette.js";
+import { createBiomeMaterials, disposeBiomeMaterials, type BiomeMaterials } from "./threeTerrainPalette.js";
 import type { ViewDistance } from "./viewDistance.js";
+import { visibleSconceLocations } from "./terrain/sconceLocations.js";
+import type { TerrainBlock, TerrainCell, TerrainTile } from "./terrain/types.js";
 
 export const DEFAULT_TERRAIN_VIEW_RADIUS = 26;
 const MIN_HEIGHT = -3;
 /** 3D voids are rendered as a tall black volume; this keeps them effectively
  * infinite for the bounded view without creating unbounded geometry. */
 const VOID_RENDER_TOP = 10;
-const SCONCE_CELL_SIZE = 12;
 
 const depthIndex = (height: number) => Math.min(3, Math.max(0, Math.round(-height)));
 
@@ -36,6 +33,14 @@ export class ThreeTerrain {
   private readonly stashMaterial = new THREE.MeshStandardMaterial({ color: "#87662f", roughness: 0.72, metalness: 0.12 });
   private readonly stairMaterial = new THREE.MeshStandardMaterial({ color: "#717987", roughness: 0.88 });
   private readonly voidMaterial = new THREE.MeshStandardMaterial({ color: "#000000", roughness: 1 });
+  private readonly specialTerrainMaterials: Partial<Record<number, unknown>> = {
+    [TILE.CraftingTable]: this.craftMaterial,
+    [TILE.Stash]: this.stashMaterial,
+    [TILE.DoorPersonal]: this.personalDoorMaterial,
+    [TILE.DoorParty]: this.partyDoorMaterial,
+    [TILE.DoorExit]: this.exitDoorMaterial,
+    [TILE.DoorSafeRoom]: this.safeDoorMaterial,
+  };
   private readonly sconces: Array<{
     flame: { scale: { set(x: number, y: number, z: number): void } };
     light?: { intensity: number };
@@ -99,41 +104,35 @@ export class ThreeTerrain {
     const height = Math.max(MIN_HEIGHT + 0.25, Math.min(7, rawHeight));
     const tile = this.world.tileAt(x, z);
     if (tile === TILE.Void) {
-      this.addBlock(x, z, this.voidMaterial, VOID_RENDER_TOP);
+      this.addBlock({ x, z, material: this.voidMaterial, top: VOID_RENDER_TOP });
       return;
     }
     if (this.world.isWalkable(x, z)) {
-      this.addWalkableTile(x, z, height, tile);
+      this.addWalkableTile({ x, z, height, tile });
       return;
     }
-    this.addBlock(x, z, this.solidMaterial(x, z, tile, height), height + 1);
+    this.addBlock({ x, z, material: this.solidMaterial({ x, z, height, tile }), top: height + 1 });
   }
 
-  private addWalkableTile(x: number, z: number, height: number, tile: number): void {
-    this.addBlock(
-      x,
-      z,
-      tile === TILE.Stairs ? this.stairMaterial : this.materialsAt(x, z).floors[depthIndex(height)],
-      height,
-    );
+  private addWalkableTile({ x, z, height, tile }: TerrainTile): void {
+    const material = tile === TILE.Stairs
+      ? this.stairMaterial
+      : this.materialsAt({ x, z }).floors[depthIndex(height)];
+    this.addBlock({ x, z, material, top: height });
   }
 
-  private solidMaterial(x: number, z: number, tile: number, height: number): unknown {
-    if (tile === TILE.CraftingTable) return this.craftMaterial;
-    if (tile === TILE.Stash) return this.stashMaterial;
-    if (tile === TILE.DoorPersonal) return this.personalDoorMaterial;
-    if (tile === TILE.DoorParty) return this.partyDoorMaterial;
-    if (tile === TILE.DoorExit) return this.exitDoorMaterial;
-    if (tile === TILE.DoorSafeRoom) return this.safeDoorMaterial;
-    return this.materialsAt(x, z).walls[depthIndex(height)];
+  private solidMaterial({ x, z, tile, height }: TerrainTile): unknown {
+    const special = this.specialTerrainMaterials[tile];
+    if (special) return special;
+    return this.materialsAt({ x, z }).walls[depthIndex(height)];
   }
 
-  private materialsAt(x: number, z: number): BiomeMaterials {
-    const { biome } = biomeAtWorldTile(this.world.worldSeed, this.world.floor, x, z);
+  private materialsAt({ x, z }: TerrainCell): BiomeMaterials {
+    const { biome } = biomeAtWorldTile({ worldSeed: this.world.worldSeed, floor: this.world.floor, wx: x, wy: z });
     return this.biomeMaterials[biome];
   }
 
-  private addBlock(x: number, z: number, material: unknown, top: number): void {
+  private addBlock({ x, z, material, top }: TerrainBlock): void {
     const mesh = new THREE.Mesh(this.cube, material);
     mesh.position.set(x + 0.5, (MIN_HEIGHT + top) / 2, z + 0.5);
     mesh.scale.set(1, Math.max(0.08, top - MIN_HEIGHT), 1);
@@ -146,39 +145,9 @@ export class ThreeTerrain {
   }
 
   private populateSconces(origin: { x: number; z: number }): void {
-    const min = { x: origin.x - this.viewRadius, z: origin.z - this.viewRadius };
-    const max = { x: origin.x + this.viewRadius, z: origin.z + this.viewRadius };
-    const firstX = Math.floor(min.x / SCONCE_CELL_SIZE);
-    const firstZ = Math.floor(min.z / SCONCE_CELL_SIZE);
-    const lastX = Math.floor(max.x / SCONCE_CELL_SIZE);
-    const lastZ = Math.floor(max.z / SCONCE_CELL_SIZE);
-    const locations: Array<{ x: number; z: number }> = [];
-    for (let z = firstZ; z <= lastZ; z += 1) for (let x = firstX; x <= lastX; x += 1) {
-      const location = this.findSconceLocation(x, z);
-      if (location && location.x >= min.x && location.x <= max.x &&
-        location.z >= min.z && location.z <= max.z) locations.push(location);
-    }
-    locations.sort((a, b) =>
-      Math.hypot(a.x - origin.x, a.z - origin.z) -
-      Math.hypot(b.x - origin.x, b.z - origin.z));
     const maxLights = environmentProfile(this.viewRadius).maxSconceLights;
-    locations.forEach((location, index) =>
+    visibleSconceLocations(this.world, origin, this.viewRadius).forEach((location, index) =>
       this.addSconce(location.x, location.z, index < maxLights));
-  }
-
-  private findSconceLocation(cellX: number, cellZ: number): { x: number; z: number } | null {
-    const start = Math.abs(cellX * 31 + cellZ * 17) % (SCONCE_CELL_SIZE ** 2);
-    for (let index = 0; index < SCONCE_CELL_SIZE ** 2; index += 1) {
-      const offset = (start + index) % (SCONCE_CELL_SIZE ** 2);
-      const x = cellX * SCONCE_CELL_SIZE + (offset % SCONCE_CELL_SIZE);
-      const z = cellZ * SCONCE_CELL_SIZE + Math.floor(offset / SCONCE_CELL_SIZE);
-      if (
-        !this.world.isWalkable(x, z) &&
-        this.world.tileAt(x, z) !== TILE.Void &&
-        this.world.heightAt(x, z) > CHASM_DEATH_Z
-      ) return { x, z };
-    }
-    return null;
   }
 
   private addSconce(x: number, z: number, lit: boolean): void {

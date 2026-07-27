@@ -38,12 +38,7 @@ export function seedsFor(worldSeed: number, floor: number): Seeds {
 }
 
 /** Jittered chunk center in world tile coords — corridor endpoints and spawn anchors. */
-export function generatedChunkCenter(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): { x: number; y: number } {
+export function generatedChunkCenter(...[worldSeed, floor, cx, cy]: [number, number, number, number]): { x: number; y: number } {
   const layout = seedsFor(worldSeed, floor).layout;
   const jx = (hash2D(layout, cx, cy) % 13) - 6;
   const jy = (hash2D(mixSeeds(layout, 0x0aa1), cx, cy) % 13) - 6;
@@ -54,24 +49,12 @@ export function generatedChunkCenter(
 }
 
 /** Physical-world corridor junction after the generated layout is enlarged. */
-export function chunkCenter(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): { x: number; y: number } {
+export function chunkCenter(...[worldSeed, floor, cx, cy]: [number, number, number, number]): { x: number; y: number } {
   return scaleGeneratedPoint(generatedChunkCenter(worldSeed, floor, cx, cy));
 }
 
 /** Distance from point to an axis-aligned segment. */
-function distToSegment(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): number {
+function distToSegment(...[px, py, ax, ay, bx, by]: [number, number, number, number, number, number]): number {
   const dx = bx - ax;
   const dy = by - ay;
   const lenSq = dx * dx + dy * dy;
@@ -92,12 +75,7 @@ export type CorridorSegment = [number, number, number, number];
  * from this chunk's center to its east and south neighbors, plus the
  * ones arriving from the west and north neighbors.
  */
-export function corridorSegments(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): CorridorSegment[] {
+export function corridorSegments(...[worldSeed, floor, cx, cy]: [number, number, number, number]): CorridorSegment[] {
   const pairs: Array<[[number, number], [number, number]]> = [
     [[cx - 1, cy], [cx, cy]],
     [[cx, cy], [cx + 1, cy]],
@@ -133,14 +111,9 @@ export function distToCorridor(segs: CorridorSegment[], wx: number, wy: number):
  * Layout sample at a world tile, before feature overlays. Height is
  * always 0 here by design — see the module doc.
  */
-export function baseSample(
-  seeds: Seeds,
-  segs: CorridorSegment[],
-  wx: number,
-  wy: number,
-): { wall: boolean; height: number } {
+export function baseSample(...[seeds, segs, wx, wy]: [Seeds, CorridorSegment[], number, number]): { wall: boolean; height: number } {
   const carved = distToCorridor(segs, wx, wy) <= CORRIDOR_HALF_WIDTH;
-  const cave = fbm2D(seeds.cave, wx * CAVE_FREQ, wy * CAVE_FREQ, 3);
+  const cave = fbm2D({ seed: seeds.cave, x: wx * CAVE_FREQ, y: wy * CAVE_FREQ, octaves: 3 });
   const wall = !carved && cave > CAVE_WALL_THRESHOLD;
   return { wall, height: 0 };
 }

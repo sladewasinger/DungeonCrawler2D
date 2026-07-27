@@ -90,13 +90,16 @@ export interface PositionedEntity {
 }
 
 /** Nearest entity of `kind` within `maxDistance`, or undefined — used for party-invite targeting. */
-export function nearestEntityId(
-  entities: readonly PositionedEntity[],
-  kind: string,
-  fromX: number,
-  fromY: number,
-  maxDistance: number,
-): string | undefined {
+export interface NearestEntityQuery {
+  readonly entities: readonly PositionedEntity[];
+  readonly kind: string;
+  readonly fromX: number;
+  readonly fromY: number;
+  readonly maxDistance: number;
+}
+
+export function nearestEntityId(query: NearestEntityQuery): string | undefined {
+  const { entities, kind, fromX, fromY, maxDistance } = query;
   let bestId: string | undefined;
   let bestDistance = maxDistance;
   for (const entity of entities) {
@@ -120,23 +123,38 @@ export interface PartyMemberPosition {
 
 /** Nearest connected DOWNED player within `maxDistance` — the hold-E revive
  * gesture's target gate; party membership is not required. */
-export function nearestDownedPartyMember(
-  members: readonly PartyMemberPosition[],
-  fromX: number,
-  fromY: number,
-  maxDistance: number,
-): PartyMemberPosition | undefined {
+export interface NearestDownedMemberQuery {
+  readonly members: readonly PartyMemberPosition[];
+  readonly fromX: number;
+  readonly fromY: number;
+  readonly maxDistance: number;
+}
+
+export function nearestDownedPartyMember(query: NearestDownedMemberQuery): PartyMemberPosition | undefined {
+  const { members, fromX, fromY, maxDistance } = query;
   let best: PartyMemberPosition | undefined;
   let bestDistance = maxDistance;
   for (const member of members) {
     if (!member.downed || member.disconnected) continue;
-    const distance = Math.hypot(member.x - fromX, member.y - fromY);
-    const closer = distance < bestDistance;
-    const deterministicTie = distance === bestDistance && (!best || member.id < best.id);
-    if (closer || deterministicTie) {
+    if (shouldReplaceNearest({ member, best, bestDistance, fromX, fromY })) {
+      const distance = Math.hypot(member.x - fromX, member.y - fromY);
       bestDistance = distance;
       best = member;
     }
   }
   return best;
+}
+
+interface NearestReplacementCheck {
+  readonly member: PartyMemberPosition;
+  readonly best: PartyMemberPosition | undefined;
+  readonly bestDistance: number;
+  readonly fromX: number;
+  readonly fromY: number;
+}
+
+function shouldReplaceNearest(check: NearestReplacementCheck): boolean {
+  const { member, best, bestDistance, fromX, fromY } = check;
+  const distance = Math.hypot(member.x - fromX, member.y - fromY);
+  return distance < bestDistance || (distance === bestDistance && (!best || member.id < best.id));
 }

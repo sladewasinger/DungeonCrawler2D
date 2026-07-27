@@ -53,13 +53,21 @@ export function holdUp(state: HoldState, nowMs: number, holdMs = FISTBUMP_HOLD_M
   return elapsed < holdMs ? "tap" : "held";
 }
 
-export function syncHoldSource(
-  state: HoldState,
-  wasHeld: boolean,
-  held: boolean,
-  nowMs: number,
-): boolean {
+export interface HoldSourceSync {
+  state: HoldState;
+  wasHeld: boolean;
+  held: boolean;
+  nowMs: number;
+}
+
+export function syncHoldSource(source: HoldSourceSync | HoldState, ...legacy: [boolean, boolean, number] | []): boolean {
+  const { state, wasHeld, held, nowMs } = resolveHoldSource(source, legacy);
   if (held && !wasHeld) holdDown(state, nowMs);
   else if (!held && wasHeld) holdUp(state, nowMs);
   return held;
+}
+
+function resolveHoldSource(source: HoldSourceSync | HoldState, legacy: [boolean, boolean, number] | []): HoldSourceSync {
+  if ("state" in source) return source;
+  return { state: source, wasHeld: legacy[0]!, held: legacy[1]!, nowMs: legacy[2]! };
 }

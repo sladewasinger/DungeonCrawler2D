@@ -17,16 +17,7 @@ describe("selectFrameLights", () => {
       ["b", [light("middle", 4)]],
     ]);
     const personal = light("personal", 100, "personal");
-    const selected = selectFrameLights(
-      chunks.values(),
-      [light("accent", 2)],
-      0,
-      0,
-      personal,
-      3,
-      [],
-      [],
-    );
+    const selected = selectFrameLights({ chunkLights: chunks.values(), accentLights: [light("accent", 2)], center: { x: 0, y: 0 }, personalLight: personal, maxLights: 3, candidates: [], selected: [] });
 
     expect(selected.map(({ id }) => id)).toEqual([
       "near",
@@ -43,16 +34,7 @@ describe("selectFrameLights", () => {
     const selectedIdentity = selected;
 
     for (let frame = 0; frame < 300; frame++) {
-      const result = selectFrameLights(
-        [[light(`torch-${frame}`, frame, "torch")]],
-        [],
-        frame,
-        0,
-        personal,
-        24,
-        candidates,
-        selected,
-      );
+      const result = selectFrameLights({ chunkLights: [[light(`torch-${frame}`, frame, "torch")]], accentLights: [], center: { x: frame, y: 0 }, personalLight: personal, maxLights: 24, candidates, selected });
       expect(result).toBe(selectedIdentity);
       expect(candidates).toBe(candidateIdentity);
       expect(result.at(-1)).toBe(personal);
@@ -60,16 +42,7 @@ describe("selectFrameLights", () => {
   });
 
   it("uses the full cap without appending a radial personal halo when suppressed", () => {
-    const selected = selectFrameLights(
-      [[light("near", 1), light("middle", 2), light("far", 3)]],
-      [],
-      0,
-      0,
-      null,
-      2,
-      [],
-      [],
-    );
+    const selected = selectFrameLights({ chunkLights: [[light("near", 1), light("middle", 2), light("far", 3)]], accentLights: [], center: { x: 0, y: 0 }, personalLight: null, maxLights: 2, candidates: [], selected: [] });
 
     expect(selected.map(({ id }) => id)).toEqual(["near", "middle"]);
     expect(selected.some(({ kind }) => kind === "personal")).toBe(false);

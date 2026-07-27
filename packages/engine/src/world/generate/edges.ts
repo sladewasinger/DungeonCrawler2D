@@ -28,44 +28,42 @@ export interface EdgeAnchor {
   readonly width: number;
 }
 
-function edgeJitter(seed: number, ex: number, ey: number, salt: number, span: number): number {
-  return MARGIN + (hash2D(mixSeeds(seed, salt), ex, ey) % span);
+interface EdgeCoordinate {
+  x: number;
+  y: number;
 }
 
-function edgeWidth(seed: number, ex: number, ey: number, salt: number, avenue: boolean): number {
+interface EdgeHash extends EdgeCoordinate {
+  seed: number;
+  salt: number;
+}
+
+function edgeJitter({ seed, x, y, salt, span }: EdgeHash & { span: number }): number {
+  return MARGIN + (hash2D(mixSeeds(seed, salt), x, y) % span);
+}
+
+function edgeWidth({ seed, x, y, salt, avenue }: EdgeHash & { avenue: boolean }): number {
   const min = avenue ? AVENUE_WIDTH_MIN : WIDTH_MIN;
   const max = avenue ? AVENUE_WIDTH_MAX : WIDTH_MAX;
-  return min + (hash2D(mixSeeds(seed, salt ^ 0x7777), ex, ey) % (max - min + 1));
+  return min + (hash2D(mixSeeds(seed, salt ^ 0x7777), x, y) % (max - min + 1));
 }
 
 /** The four border anchors for chunk (cx, cy), in chunk-local coordinates. */
-export function edgeAnchors(seed: number, cx: number, cy: number, chunkSize: number): EdgeAnchor[] {
+export function edgeAnchors({ seed, cx, cy, chunkSize }: { seed: number; cx: number; cy: number; chunkSize: number }): EdgeAnchor[] {
   const span = chunkSize - 2 * MARGIN;
-  const westY = edgeJitter(seed, cx - 1, cy, V_SALT, span);
-  const eastY = edgeJitter(seed, cx, cy, V_SALT, span);
-  const northX = edgeJitter(seed, cx, cy - 1, H_SALT, span);
-  const southX = edgeJitter(seed, cx, cy, H_SALT, span);
+  return buildAnchors({ seed, cx, cy, chunkSize, span });
+}
+
+function buildAnchors({ seed, cx, cy, chunkSize, span }: { seed: number; cx: number; cy: number; chunkSize: number; span: number }): EdgeAnchor[] {
+  const westY = edgeJitter({ seed, x: cx - 1, y: cy, salt: V_SALT, span });
+  const eastY = edgeJitter({ seed, x: cx, y: cy, salt: V_SALT, span });
+  const northX = edgeJitter({ seed, x: cx, y: cy - 1, salt: H_SALT, span });
+  const southX = edgeJitter({ seed, x: cx, y: cy, salt: H_SALT, span });
   const here = { cx, cy };
   return [
-    {
-      side: 0,
-      point: { x: northX, y: 0 },
-      width: edgeWidth(seed, cx, cy - 1, H_SALT, avenueBetween({ cx, cy: cy - 1 }, here)),
-    },
-    {
-      side: 1,
-      point: { x: chunkSize - 1, y: eastY },
-      width: edgeWidth(seed, cx, cy, V_SALT, avenueBetween(here, { cx: cx + 1, cy })),
-    },
-    {
-      side: 2,
-      point: { x: southX, y: chunkSize - 1 },
-      width: edgeWidth(seed, cx, cy, H_SALT, avenueBetween(here, { cx, cy: cy + 1 })),
-    },
-    {
-      side: 3,
-      point: { x: 0, y: westY },
-      width: edgeWidth(seed, cx - 1, cy, V_SALT, avenueBetween({ cx: cx - 1, cy }, here)),
-    },
+    { side: 0, point: { x: northX, y: 0 }, width: edgeWidth({ seed, x: cx, y: cy - 1, salt: H_SALT, avenue: avenueBetween({ cx, cy: cy - 1 }, here) }) },
+    { side: 1, point: { x: chunkSize - 1, y: eastY }, width: edgeWidth({ seed, x: cx, y: cy, salt: V_SALT, avenue: avenueBetween(here, { cx: cx + 1, cy }) }) },
+    { side: 2, point: { x: southX, y: chunkSize - 1 }, width: edgeWidth({ seed, x: cx, y: cy, salt: H_SALT, avenue: avenueBetween(here, { cx, cy: cy + 1 }) }) },
+    { side: 3, point: { x: 0, y: westY }, width: edgeWidth({ seed, x: cx - 1, y: cy, salt: V_SALT, avenue: avenueBetween({ cx: cx - 1, cy }, here) }) },
   ];
 }

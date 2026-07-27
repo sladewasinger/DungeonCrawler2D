@@ -59,21 +59,9 @@ function toggleStash(hud: PanelSource, queries: InputQueries, conn: InputConnect
 
 export function createInputPanels(hud: PanelSource, queries: InputQueries): InputPanels {
   return {
-    get craftOpen() {
-      return hud.craftOpen();
-    },
-    get stashOpen() {
-      return hud.stashOpen();
-    },
-    get inventoryOpen() {
-      return hud.inventoryOpen();
-    },
-    get gameplayBlocked() {
-      return hud.blocksGameplay();
-    },
-    get selectedInventoryItem() {
-      return hud.selectedInventoryItem();
-    },
+    get craftOpen() { return hud.craftOpen(); }, get stashOpen() { return hud.stashOpen(); },
+    get inventoryOpen() { return hud.inventoryOpen(); }, get gameplayBlocked() { return hud.blocksGameplay(); },
+    get selectedInventoryItem() { return hud.selectedInventoryItem(); },
     toggleStash: (conn) => toggleStash(hud, queries, conn),
     toggleCraft: (conn) => toggleCraft(hud, queries, conn),
     closeAll: () => {

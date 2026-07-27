@@ -34,7 +34,7 @@ export class EntityRenderer {
   syncPlayers(views: readonly PlayerEntityView[], ctx: RenderContext): void {
     const seen = this.stepKind(views, (view) => {
       const visual = this.getOrCreate(view.id, "player", () => createPlayerVisual(this.scene, ctx.nowMs));
-      updatePlayerVisual(visual, playerSkinFor(view.playerId, view.skin), view, ctx);
+      updatePlayerVisual({ visual, skinPrefix: playerSkinFor(view.playerId, view.skin), view, context: ctx });
     }, shouldRenderLivePlayer);
     this.gc(seen, "player");
   }

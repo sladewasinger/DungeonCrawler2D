@@ -18,14 +18,21 @@ interface FloatingXpNumber {
   readonly spawnMs: number;
 }
 
+export interface XpNumberInput {
+  readonly x: number;
+  readonly y: number;
+  readonly amount: number;
+  readonly nowMs: number;
+}
+
 export class XpNumberPool {
   private readonly active: FloatingXpNumber[] = [];
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  spawn(screenX: number, screenY: number, amount: number, nowMs: number): void {
+  spawn({ x: screenX, y: screenY, amount, nowMs }: XpNumberInput): void {
     const text = this.scene.add
-      .text(screenX, screenY, `+${Math.round(amount)} XP`, uiTextStyle(FONT_SIZE_PX, XP_COLOR, 1, "emphasis"))
+      .text(screenX, screenY, `+${Math.round(amount)} XP`, uiTextStyle(FONT_SIZE_PX, XP_COLOR, { scale: 1, weight: "emphasis" }))
       .setOrigin(0.5, 1)
       .setDepth(DEPTH);
     this.active.push({ text, startX: screenX, startY: screenY, spawnMs: nowMs });

@@ -13,23 +13,23 @@ import {
 describe("updateSelfFacing", () => {
   it("adopts a nonzero move direction", () => {
     const state = createSelfCosmeticsState();
-    updateSelfFacing(state, -1, 0);
+    updateSelfFacing(state, { moveX: -1, moveY: 0 });
     expect(state.faceX).toBe(-1);
     expect(state.faceY).toBe(0);
   });
 
   it("holds the last facing while idle", () => {
     const state = createSelfCosmeticsState();
-    updateSelfFacing(state, -1, 1);
-    updateSelfFacing(state, 0, 0);
+    updateSelfFacing(state, { moveX: -1, moveY: 1 });
+    updateSelfFacing(state, { moveX: 0, moveY: 0 });
     expect(state.faceX).toBe(-1);
     expect(state.faceY).toBe(1);
   });
 
   it("keeps the last horizontal sprite facing during vertical movement", () => {
     const state = createSelfCosmeticsState();
-    updateSelfFacing(state, -1, 0);
-    updateSelfFacing(state, 0, -1);
+    updateSelfFacing(state, { moveX: -1, moveY: 0 });
+    updateSelfFacing(state, { moveX: 0, moveY: -1 });
     expect(state.spriteFaceX).toBe(-1);
     expect(state.faceY).toBe(-1);
   });
@@ -37,21 +37,21 @@ describe("updateSelfFacing", () => {
   it("forfeits an active grace ring on real movement input", () => {
     const state = createSelfCosmeticsState();
     startSelfGrace(state, 1000);
-    updateSelfFacing(state, 1, 0);
+    updateSelfFacing(state, { moveX: 1, moveY: 0 });
     expect(state.graceUntilMs).toBe(0);
   });
 
   it("forfeits an active grace ring on jump alone, even with neutral move axes", () => {
     const state = createSelfCosmeticsState();
     startSelfGrace(state, 1000);
-    updateSelfFacing(state, 0, 0, true);
+    updateSelfFacing(state, { moveX: 0, moveY: 0, jump: true });
     expect(state.graceUntilMs).toBe(0);
   });
 
   it("does not forfeit grace on neutral coasting (no move, no jump)", () => {
     const state = createSelfCosmeticsState();
     startSelfGrace(state, 1000);
-    updateSelfFacing(state, 0, 0);
+    updateSelfFacing(state, { moveX: 0, moveY: 0 });
     expect(state.graceUntilMs).toBeGreaterThan(1000);
   });
 });
@@ -59,7 +59,7 @@ describe("updateSelfFacing", () => {
 describe("attack pulse", () => {
   it("reads as attacking immediately after trigger, and not once it elapses", () => {
     const state = createSelfCosmeticsState();
-    triggerSelfAttack(state, 1000, 1, 0);
+    triggerSelfAttack(state, { nowMs: 1000, dirX: 1, dirY: 0 });
     expect(isSelfAttacking(state, 1000)).toBe(true);
     expect(isSelfAttacking(state, 1100)).toBe(true);
     expect(isSelfAttacking(state, 1200)).toBe(false);
@@ -72,7 +72,7 @@ describe("attack pulse", () => {
 
   it("records the swing's exact aim direction, for the wedge/weapon-sweep telegraph to match", () => {
     const state = createSelfCosmeticsState();
-    triggerSelfAttack(state, 1000, 0, -1);
+    triggerSelfAttack(state, { nowMs: 1000, dirX: 0, dirY: -1 });
     expect(state.attackDirX).toBe(0);
     expect(state.attackDirY).toBe(-1);
   });

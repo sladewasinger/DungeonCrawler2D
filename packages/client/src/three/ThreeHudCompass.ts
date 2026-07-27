@@ -21,21 +21,18 @@ export interface ThreeCompassState {
   stairway: StairwayTickData | null;
 }
 
-export const resolveThreeCompassState = (
-  world: World,
-  player: Pick<FirstPersonState, "x" | "z">,
-  yaw: number,
-  snapshot?: Pick<HudFakeSnapshot, "compassBearingDeg" | "stairway">,
-): ThreeCompassState => {
+export interface ThreeCompassStateRequest {
+  readonly world: World;
+  readonly player: Pick<FirstPersonState, "x" | "z">;
+  readonly yaw: number;
+  readonly snapshot?: Pick<HudFakeSnapshot, "compassBearingDeg" | "stairway"> | undefined;
+}
+
+export const resolveThreeCompassState = ({ world, player, yaw, snapshot }: ThreeCompassStateRequest): ThreeCompassState => {
   const bearingDeg = snapshot?.compassBearingDeg ?? headingDegrees(yaw);
   return {
     bearingDeg,
-    stairway: snapshot?.stairway ?? resolveStairwayTick(
-      world,
-      player.x,
-      player.z,
-      bearingDeg,
-    ),
+    stairway: snapshot?.stairway ?? resolveStairwayTick({ world, x: player.x, y: player.z, viewBearingDeg: bearingDeg }),
   };
 };
 
@@ -73,6 +70,12 @@ export class ThreeHudCompass {
     this.element.setAttribute("role", "img");
     this.element.style.cssText =
       "display:grid;place-items:center;padding:6px;background:transparent;border:0";
+    const dial = this.createDial();
+    this.element.append(dial);
+    this.update(0);
+  }
+
+  private createDial(): HTMLDivElement {
     const dial = document.createElement("div");
     dial.style.cssText =
       "position:relative;width:58px;height:58px;border:2px solid #5f637c;border-radius:50%;box-sizing:border-box";
@@ -91,8 +94,7 @@ export class ThreeHudCompass {
     this.stairway.style.cssText =
       "position:absolute;left:50%;top:50%;translate:-50% -50%;color:#ffd54c;font:10px monospace;display:none";
     dial.append(this.stairway);
-    this.element.append(dial);
-    this.update(0);
+    return dial;
   }
 
   update(bearingDeg: number, stairway: StairwayTickData | null = null): void {

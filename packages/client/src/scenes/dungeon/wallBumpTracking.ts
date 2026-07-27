@@ -11,19 +11,25 @@ import type { DungeonSceneState } from "./state.js";
 
 /** Skipped while the player can't act (dead/downed): `conn.sampleInput` no-ops then,
  * which would otherwise misread as "blocked" for the whole downed window. */
-export function trackWallBump(
-  conn: Connection,
-  state: DungeonSceneState,
-  vfx: VfxSystem,
-  move: MoveInput,
-  preX: number,
-  preY: number,
-  nowMs: number,
-): void {
+export interface WallBumpTrackingInput {
+  readonly conn: Connection;
+  readonly state: DungeonSceneState;
+  readonly vfx: VfxSystem;
+  readonly move: MoveInput;
+  readonly previousPosition: { x: number; y: number };
+  readonly nowMs: number;
+}
+
+export function trackWallBump({ conn, state, vfx, move, previousPosition, nowMs }: WallBumpTrackingInput): void {
   if (!conn.canAct || !conn.body) return;
   const moving = move.moveX !== 0 || move.moveY !== 0;
-  const deltaDist = Math.hypot(conn.body.x - preX, conn.body.y - preY);
-  if (stepWallBump(state.wallBump, moving, deltaDist, nowMs)) {
-    vfx.triggerWallBump(conn.body.x, conn.body.y, move.moveX, move.moveY, nowMs);
+  const deltaDist = Math.hypot(conn.body.x - previousPosition.x, conn.body.y - previousPosition.y);
+  if (stepWallBump(state.wallBump, { moving, deltaDist, nowMs })) {
+    vfx.triggerWallBump({
+      x: conn.body.x,
+      y: conn.body.y,
+      direction: { x: move.moveX, y: move.moveY },
+      nowMs,
+    });
   }
 }

@@ -44,12 +44,14 @@ export const MIN_WINDOW_HEIGHT = 72;
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
-export const isResizeHandle = (
-  rect: Pick<DOMRect, "right" | "bottom">,
-  x: number,
-  y: number,
-): boolean => x <= rect.right && y <= rect.bottom &&
-  rect.right - x <= RESIZE_HANDLE_PX && rect.bottom - y <= RESIZE_HANDLE_PX;
+export interface ResizeHandleHitTest {
+  rect: Pick<DOMRect, "right" | "bottom">;
+  point: HudWindowPoint;
+}
+
+export const isResizeHandle = ({ rect, point }: ResizeHandleHitTest): boolean =>
+  point.x <= rect.right && point.y <= rect.bottom &&
+  rect.right - point.x <= RESIZE_HANDLE_PX && rect.bottom - point.y <= RESIZE_HANDLE_PX;
 
 export const clampWindowSize = (
   size: HudWindowSize,
@@ -72,12 +74,19 @@ export const resizeWindowFromPointer = (
   height: start.height + delta.y,
 }, bounds);
 
-export const resizeWindowFromPinch = (
-  start: HudWindowSize,
-  startDistance: number,
-  distance: number,
-  bounds: HudWindowSizeBounds,
-): HudWindowSize => {
+export interface PinchResizeInput {
+  start: HudWindowSize;
+  startDistance: number;
+  distance: number;
+  bounds: HudWindowSizeBounds;
+}
+
+export const resizeWindowFromPinch = ({
+  start,
+  startDistance,
+  distance,
+  bounds,
+}: PinchResizeInput): HudWindowSize => {
   const factor = startDistance <= 0 ? 1 : distance / startDistance;
   return clampWindowSize(
     {

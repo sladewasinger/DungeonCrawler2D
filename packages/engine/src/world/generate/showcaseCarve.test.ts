@@ -62,7 +62,7 @@ describe("applyShowcase (unit)", () => {
 
   it("leaves a chunk untouched when a clean platform and pit already exist in-window", () => {
     const g = flatChunk();
-    const set = (x: number, y: number, tile: number, height: number): void => {
+    const set = ({ x, y, tile, height }: { x: number; y: number; tile: number; height: number }): void => {
       g.tiles[y * CHUNK_SIZE + x] = tile;
       g.height[y * CHUNK_SIZE + x] = height;
     };
@@ -73,7 +73,7 @@ describe("applyShowcase (unit)", () => {
       [10, 11],
       [11, 11],
     ] as const) {
-      set(x, y, TILE.Floor, 1);
+      set({ x, y, tile: TILE.Floor, height: 1 });
     }
     // Natural pit: 2x2 z-1 at (14,10)..(15,11), rim tread at (14,9).
     for (const [x, y] of [
@@ -82,9 +82,9 @@ describe("applyShowcase (unit)", () => {
       [14, 11],
       [15, 11],
     ] as const) {
-      set(x, y, TILE.Floor, -1);
+      set({ x, y, tile: TILE.Floor, height: -1 });
     }
-    set(14, 9, TILE.Stairs, -0.5);
+    set({ x: 14, y: 9, tile: TILE.Stairs, height: -0.5 });
     const tilesBefore = Array.from(g.tiles);
     const heightBefore = Array.from(g.height);
     applyShowcase(1, 1, 0, 0, g.tiles, g.height, g.zones);

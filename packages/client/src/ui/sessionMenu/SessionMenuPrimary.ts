@@ -12,18 +12,14 @@ interface SessionMenuPrimaryOptions {
 export function buildSessionMenuPrimary(
   options: SessionMenuPrimaryOptions,
 ): HTMLButtonElement {
-  const title = document.createElement("h2");
-  title.textContent = "Game menu";
-  title.style.cssText = "margin:0 0 4px;color:#ffd54c;font-size:20px";
+  const title = heading("h2", "Game menu", "margin:0 0 4px;color:#ffd54c;font-size:20px");
   const resume = createSessionButton("Resume", options.onResume);
   const quit = createSessionButton("Quit to title", options.onQuit);
   const advanced = createSessionButton(
     "Advanced settings",
     options.onAdvanced,
   );
-  const hudTitle = document.createElement("h3");
-  hudTitle.textContent = "HUD & view";
-  hudTitle.style.cssText = "margin:8px 0 0;color:#aaaec8;font-size:12px";
+  const hudTitle = heading("h3", "HUD & view", "margin:8px 0 0;color:#aaaec8;font-size:12px");
   options.container.append(
     title,
     resume,
@@ -34,6 +30,13 @@ export function buildSessionMenuPrimary(
     options.settingsContent,
   );
   return resume;
+}
+
+function heading(tag: "h2" | "h3", text: string, style: string): HTMLHeadingElement {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  element.style.cssText = style;
+  return element;
 }
 
 export const createRespawnButton = (

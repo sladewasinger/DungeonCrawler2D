@@ -70,7 +70,7 @@ describe("CombatEffects skeletal impacts", () => {
     const effects = new CombatEffects({
       cameras: { main: {} },
     } as Phaser.Scene);
-    effects.spawnBloodHit(2, 3, 0, "skeleton", 100, 1, 0);
+    effects.spawnBloodHit({ x: 2, y: 3, groundHeight: 0, defId: "skeleton", nowMs: 100, direction: { x: 1, y: 0 } });
     expect(probes.bone).toHaveBeenCalledWith(
       expect.anything(), 2, 3, false, 1, 0,
     );
@@ -83,7 +83,7 @@ describe("CombatEffects skeletal impacts", () => {
     const effects = new CombatEffects({
       cameras: { main: {} },
     } as Phaser.Scene);
-    effects.spawnBloodDeath(2, 3, 0, "warden-of-five", 100);
+    effects.spawnBloodDeath({ x: 2, y: 3, groundHeight: 0, defId: "warden-of-five", nowMs: 100 });
     expect(probes.bone).toHaveBeenCalledWith(
       expect.anything(), 2, 3, true,
     );

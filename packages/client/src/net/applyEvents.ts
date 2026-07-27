@@ -3,6 +3,7 @@ import { parseFistbumpSealPartner } from "../ui/chat/fistbumpSeal.js";
 import { isBossDefId } from "./bossDefIds.js";
 import type { Connection } from "./connection.js";
 import { applyNpcSpeech } from "./npcSpeech.js";
+import { applyContactsEvent, applyModerationEvent } from "./applyContactEvents.js";
 
 const applyChatEvent = (
   conn: Connection,
@@ -27,20 +28,19 @@ const applyPartyInviteState = (
   conn: Connection,
   event: Extract<GameEvent, { t: "partyInviteState" }>,
 ): void => {
-  if (event.direction === "incoming") {
-    conn.pendingInvite = event.action === "added"
-      ? { from: event.id, name: event.name }
-      : conn.pendingInvite?.from === event.id
-        ? null
-        : conn.pendingInvite;
-    return;
-  }
-  if (event.action === "added") {
-    conn.outgoingPartyInvites.set(event.id, event.name);
-  } else {
-    conn.outgoingPartyInvites.delete(event.id);
-  }
+  if (event.direction === "incoming") return applyIncomingInviteState(conn, event);
+  applyOutgoingInviteState(conn, event);
 };
+
+function applyIncomingInviteState(conn: Connection, event: Extract<GameEvent, { t: "partyInviteState" }>): void {
+  if (event.action === "added") conn.pendingInvite = { from: event.id, name: event.name };
+  else if (conn.pendingInvite?.from === event.id) conn.pendingInvite = null;
+}
+
+function applyOutgoingInviteState(conn: Connection, event: Extract<GameEvent, { t: "partyInviteState" }>): void {
+  if (event.action === "added") conn.outgoingPartyInvites.set(event.id, event.name);
+  else conn.outgoingPartyInvites.delete(event.id);
+}
 
 const applyStorageEvent = (conn: Connection, event: GameEvent): boolean => {
   if (event.t === "stash") {
@@ -59,37 +59,50 @@ const applyPrivateStateEvent = (
   event: GameEvent,
 ): boolean => {
   if (applyStorageEvent(conn, event)) return true;
-  switch (event.t) {
-    case "toast":
-      conn.pushToast(event.msg);
-      return true;
-    case "npcSpeech":
-      applyNpcSpeech(conn, event);
-      return true;
-    case "chat":
-      applyChatEvent(conn, event);
-      return true;
-    case "invite":
-      conn.pendingInvite = { from: event.from, name: event.name };
-      return true;
-    case "partyInviteState":
-      applyPartyInviteState(conn, event);
-      return true;
-    case "contactsUpdated":
-      conn.contacts = event.contacts.map((contact) => ({
-        name: contact.name,
-        online: contact.online,
-        ...(contact.id === undefined ? {} : { id: contact.id }),
-      }));
-      return true;
-    case "moderationUpdated":
-      conn.mutedPlayers = new Set(event.muted);
-      conn.blockedPlayers = new Set(event.blocked);
-      return true;
-    default:
-      return false;
-  }
+  return PRIVATE_EVENT_HANDLERS.some((handler) => handler(conn, event));
 };
+
+type PrivateEventHandler = (conn: Connection, event: GameEvent) => boolean;
+
+const PRIVATE_EVENT_HANDLERS: readonly PrivateEventHandler[] = [
+  applyToastEvent,
+  applyNpcSpeechEvent,
+  applyChatLogEvent,
+  applyInviteEvent,
+  applyPartyInviteEvent,
+  applyContactsEvent,
+  applyModerationEvent,
+];
+
+function applyToastEvent(conn: Connection, event: GameEvent): boolean {
+  if (event.t !== "toast") return false;
+  conn.pushToast(event.msg);
+  return true;
+}
+
+function applyNpcSpeechEvent(conn: Connection, event: GameEvent): boolean {
+  if (event.t !== "npcSpeech") return false;
+  applyNpcSpeech(conn, event);
+  return true;
+}
+
+function applyChatLogEvent(conn: Connection, event: GameEvent): boolean {
+  if (event.t !== "chat") return false;
+  applyChatEvent(conn, event);
+  return true;
+}
+
+function applyInviteEvent(conn: Connection, event: GameEvent): boolean {
+  if (event.t !== "invite") return false;
+  conn.pendingInvite = { from: event.from, name: event.name };
+  return true;
+}
+
+function applyPartyInviteEvent(conn: Connection, event: GameEvent): boolean {
+  if (event.t !== "partyInviteState") return false;
+  applyPartyInviteState(conn, event);
+  return true;
+}
 
 const pushBossDownIfBoss = (conn: Connection, id: string): void => {
   const snap = conn.entities.get(id)?.snap;
@@ -101,14 +114,15 @@ const pushBossDownIfBoss = (conn: Connection, id: string): void => {
 };
 
 function capturedCombatTarget(conn: Connection, id: string) {
-  if (id === conn.welcome?.playerId && conn.body) {
-    return {
-      x: conn.body.x,
-      y: conn.body.y,
-      targetKind: "player" as const,
-      skin: conn.skin,
-    };
-  }
+  return selfCombatTarget(conn, id) ?? remoteCombatTarget(conn, id) ?? {};
+}
+
+function selfCombatTarget(conn: Connection, id: string) {
+  if (id !== conn.welcome?.playerId || !conn.body) return undefined;
+  return { x: conn.body.x, y: conn.body.y, targetKind: "player" as const, skin: conn.skin };
+}
+
+function remoteCombatTarget(conn: Connection, id: string) {
   const snap = conn.entities.get(id)?.snap;
   if (!snap || (snap.kind !== "player" && snap.kind !== "enemy")) return {};
   return {
@@ -126,22 +140,24 @@ export const applyEvent = (conn: Connection, event: GameEvent): void => {
     conn.teleported = true;
     return;
   }
-  if (
-    event.t === "hit" ||
-    event.t === "health" ||
-    event.t === "damageImpact" ||
-    event.t === "status"
-  ) {
-    conn.visualEvents.push({
-      ...event,
-      ...capturedCombatTarget(conn, event.id),
-    });
-  }
-  if (event.t === "death") {
-    conn.deathVisualEvents.push({
-      ...event,
-      ...capturedCombatTarget(conn, event.id),
-    });
-    pushBossDownIfBoss(conn, event.id);
-  }
+  if (isCombatEvent(event)) applyCombatVisualEvent(conn, event);
+  if (event.t === "death") applyDeathVisualEvent(conn, event);
 };
+
+type CombatVisualEvent = Extract<GameEvent, { t: "hit" }>
+  | Extract<GameEvent, { t: "health" }>
+  | Extract<GameEvent, { t: "damageImpact" }>
+  | Extract<GameEvent, { t: "status" }>;
+
+function isCombatEvent(event: GameEvent): event is CombatVisualEvent {
+  return ["hit", "health", "damageImpact", "status"].includes(event.t);
+}
+
+function applyCombatVisualEvent(conn: Connection, event: CombatVisualEvent): void {
+  conn.visualEvents.push({ ...event, ...capturedCombatTarget(conn, event.id) });
+}
+
+function applyDeathVisualEvent(conn: Connection, event: Extract<GameEvent, { t: "death" }>): void {
+  conn.deathVisualEvents.push({ ...event, ...capturedCombatTarget(conn, event.id) });
+  pushBossDownIfBoss(conn, event.id);
+}

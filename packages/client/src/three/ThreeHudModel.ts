@@ -69,10 +69,17 @@ export const nextAvailableHotbarSlot = (
   return existing >= 0 ? existing : hotbar.findIndex((item) => item === null);
 };
 
-export const shouldShowAutoHealing = (
-  hp: number,
-  maxHp: number,
-  regenerationDelaySeconds: number,
+export interface AutoHealingVisibilityInput {
+  hp: number;
+  maxHp: number;
+  regenerationDelaySeconds: number;
+  actionable?: boolean;
+}
+
+export const shouldShowAutoHealing = ({
+  hp,
+  maxHp,
+  regenerationDelaySeconds,
   actionable = true,
-): boolean =>
+}: AutoHealingVisibilityInput): boolean =>
   actionable && hp > 0 && hp < maxHp && regenerationDelaySeconds <= 0;

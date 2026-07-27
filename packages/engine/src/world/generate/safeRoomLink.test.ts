@@ -19,7 +19,7 @@ import {
 const FLOOR = 1;
 
 function findSafeRoomDoor(seed: number, cx: number, cy: number): WorldPoint | null {
-  const chunk = generateChunk(seed, FLOOR, cx, cy);
+  const chunk = generateChunk({ worldSeed: seed, floor: FLOOR, cx: cx, cy: cy });
   for (let i = 0; i < chunk.tiles.length; i++) {
     if (chunk.tiles[i] !== TILE.DoorSafeRoom) continue;
     const lx = i % CHUNK_SIZE;
@@ -30,34 +30,18 @@ function findSafeRoomDoor(seed: number, cx: number, cy: number): WorldPoint | nu
 }
 
 function findFirstSafeRoomChunk(seed: number, range: number): { cx: number; cy: number } | null {
-  for (let cx = -range; cx <= range; cx++) {
-    for (let cy = -range; cy <= range; cy++) {
-      if (isSafeRoomChunk(seed, FLOOR, cx, cy)) return { cx, cy };
-    }
-  }
-  return null;
+  return coordinateSquare(range).find(({ cx, cy }) => isSafeRoomChunk({ worldSeed: seed, floor: FLOOR, cx, cy })) ?? null;
+}
+
+function coordinateSquare(range: number): Array<{ cx: number; cy: number }> {
+  return Array.from({ length: range * 2 + 1 }, (_, x) => x - range)
+    .flatMap((cx) => Array.from({ length: range * 2 + 1 }, (_, y) => ({ cx, cy: y - range })));
 }
 
 describe("safe-room kiosk stays reachable", () => {
   it("the door sits within STEP_UP of the pad tile just south of it — a real grounded step, not a stranded ledge", () => {
-    let checked = 0;
-    for (let seed = 1; seed <= 40; seed++) {
-      const worldSeed = seed * 7919 + 13;
-      const found = findFirstSafeRoomChunk(worldSeed, 5);
-      if (!found) continue;
-      const door = findSafeRoomDoor(worldSeed, found.cx, found.cy);
-      if (!door) continue;
-      const south: WorldPoint = { x: door.x, y: door.y + 1 };
-      const chunk = generateChunk(worldSeed, FLOOR, found.cx, found.cy);
-      const doorIndex = (door.y - found.cy * CHUNK_SIZE) * CHUNK_SIZE + (door.x - found.cx * CHUNK_SIZE);
-      const southIndex = (south.y - found.cy * CHUNK_SIZE) * CHUNK_SIZE + (south.x - found.cx * CHUNK_SIZE);
-      const doorTile = chunk.tiles[doorIndex];
-      if (doorTile === undefined) throw new Error(`Missing door tile for seed ${worldSeed}`);
-      expect(SOLID_TILES.has(doorTile)).toBe(true);
-      expect(chunk.height[doorIndex]).toBe(2);
-      expect(chunk.height[southIndex]).toBe(0);
-      checked++;
-    }
+    const checked = Array.from({ length: 40 }, (_, index) => index + 1)
+      .filter((seed) => assertSafeRoomDoor(seed * 7919 + 13)).length;
     expect(checked).toBeGreaterThan(20);
   });
 
@@ -71,15 +55,30 @@ describe("safe-room kiosk stays reachable", () => {
       if (!door) continue;
       const cache: ChunkCache = new Map();
       const start: WorldPoint = { x: door.x, y: door.y + 1 };
-      const touchesNeighbor = reachesNeighborChunk(
-        worldSeed,
-        FLOOR,
-        start,
-        cache,
-      );
+      const touchesNeighbor = reachesNeighborChunk({ seed: worldSeed, floor: FLOOR, cache }, start);
       expect(touchesNeighbor, `seed ${worldSeed}: kiosk pad never leaves its own chunk`).toBe(true);
       checked++;
     }
     expect(checked).toBeGreaterThan(5);
   }, 15_000);
 });
+
+function assertSafeRoomDoor(worldSeed: number): boolean {
+  const found = findFirstSafeRoomChunk(worldSeed, 5);
+  if (!found) return false;
+  const door = findSafeRoomDoor(worldSeed, found.cx, found.cy);
+  if (!door) return false;
+  const chunk = generateChunk({ worldSeed, floor: FLOOR, ...found });
+  const doorIndex = localIndex(door, found);
+  const southIndex = localIndex({ x: door.x, y: door.y + 1 }, found);
+  const doorTile = chunk.tiles[doorIndex];
+  if (doorTile === undefined) throw new Error(`Missing door tile for seed ${worldSeed}`);
+  expect(SOLID_TILES.has(doorTile)).toBe(true);
+  expect(chunk.height[doorIndex]).toBe(2);
+  expect(chunk.height[southIndex]).toBe(0);
+  return true;
+}
+
+function localIndex(point: WorldPoint, chunk: { cx: number; cy: number }): number {
+  return (point.y - chunk.cy * CHUNK_SIZE) * CHUNK_SIZE + (point.x - chunk.cx * CHUNK_SIZE);
+}

@@ -1,9 +1,3 @@
-/**
- * Per-frame entity/lighting/vfx sync — split out of DungeonScene to stay under the
- * file-size cap. Pure orchestration over the same render/vfx/terrain systems
- * DungeonScene already owns; every mutable bit it needs travels in as a param and
- * anything it computes comes back out instead of reaching into `this`.
- */
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { InputController } from "../../input/index.js";
@@ -32,44 +26,36 @@ export interface EntitySyncResult {
   torchAccentLights: LightSource[];
 }
 
-/** Players + monsters + items + the melee-swing wedge telegraph. */
-/** Spawns the wedge telegraph for every swing that just started, and registers each as
- * pending a correlating hit (panel round 3b item 5, WHIFF FEEDBACK) — syncLightingAndVfx
- * later flushes whichever ones time out into the whiff cue (meleeConnect.ts). */
-/** Rebuilds every rendered entity (players/monsters/items/projectiles/torches) for this frame. */
-export function syncEntities(
-  scene: Phaser.Scene,
-  conn: Connection,
-  entityRenderer: EntityRenderer,
-  vfx: VfxSystem,
-  terrain: TerrainRendererLike | undefined,
-  inputController: InputController,
-  state: DungeonSceneState,
-  torchSyncState: TorchSyncState,
-  partyIds: ReadonlySet<string>,
-  nowMs: number,
-  dtSeconds: number,
-  render: RenderPose,
-): EntitySyncResult {
+export interface FrameSyncContext {
+  readonly scene: Phaser.Scene;
+  readonly conn: Connection;
+  readonly entityRenderer: EntityRenderer;
+  readonly vfx: VfxSystem;
+  readonly terrain: TerrainRendererLike | undefined;
+  readonly lighting: LightingSystem | undefined;
+  readonly inputController: InputController;
+  readonly state: DungeonSceneState;
+  readonly torchSyncState: TorchSyncState;
+  readonly partyIds: ReadonlySet<string>;
+  readonly nowMs: number;
+  readonly dtSeconds: number;
+  readonly render: RenderPose;
+}
+
+export function syncEntities(context: FrameSyncContext): EntitySyncResult {
+  const { scene, conn, entityRenderer, vfx, terrain, inputController, state, torchSyncState, partyIds, nowMs, dtSeconds, render } = context;
   if (!conn.world || !conn.welcome || !conn.body) return { interactionPrompt: null, torchAccentLights: [] };
   const interpolated = conn.interpolated();
   const buckets = bucketFrameEntities(interpolated, state.entityBuckets);
-  const context = buildRenderContext(conn.world, nowMs, dtSeconds, render.x, render.y, partyIds, state.renderContext ?? undefined);
-  state.renderContext = context; entityRenderer.syncRoom(conn, nowMs);
-  syncCombatants(scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context);
+  const renderContext = buildRenderContext({
+    world: conn.world, nowMs, dtSeconds, selfX: render.x, selfY: render.y,
+    partyIds, target: state.renderContext ?? undefined,
+  });
+  state.renderContext = renderContext; entityRenderer.syncRoom(conn, nowMs);
+  syncCombatants({ scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context: renderContext });
 
-  entityRenderer.syncProjectiles(mapFrameInto(
-    buckets.projectiles, state.entityViews.projectiles, state.entityViews.projectileRecords,
-    (entity, target) => projectileView(entity, state.projectileVelocity, nowMs, target),
-  ));
-  pruneProjectileVelocity(state.projectileVelocity, buckets.projectileIds);
-
-  let torchAccentLights: LightSource[] = [];
-  if (terrain) {
-    const torchSync = syncTorches(torchSyncState, buckets.torches, terrain, conn.serverTick);
-    entityRenderer.syncTorches(torchSync.views, context);
-    torchAccentLights = torchSync.accentLights;
-  }
+  syncProjectiles(context, buckets);
+  const torchAccentLights = syncFrameTorches({ terrain, torchSyncState, torches: buckets.torches, serverTick: conn.serverTick, entityRenderer, renderContext });
 
   return {
     interactionPrompt: resolveFrameInteractionPrompt(conn, buckets),
@@ -77,97 +63,93 @@ export function syncEntities(
   };
 }
 
-/**
- * The full per-frame entity + lighting/vfx sync, composed — DungeonScene.update()'s own
- * length-cap split: it just calls this and assigns the two returned fields, rather than
- * inlining both syncEntities and syncLightingAndVfx calls itself.
- */
-export function syncFrame(
-  scene: Phaser.Scene,
-  conn: Connection,
-  entityRenderer: EntityRenderer,
-  vfx: VfxSystem,
-  terrain: TerrainRendererLike | undefined,
-  lighting: LightingSystem | undefined,
-  inputController: InputController,
-  state: DungeonSceneState,
-  torchSyncState: TorchSyncState,
-  partyIds: ReadonlySet<string>,
-  nowMs: number,
-  dtSeconds: number,
-  render: RenderPose,
-): EntitySyncResult {
-  const synced = syncEntities(scene, conn, entityRenderer, vfx, terrain, inputController, state, torchSyncState, partyIds, nowMs, dtSeconds, render);
-  syncLightingAndVfx(conn, lighting, vfx, scene.cameras.main, synced.torchAccentLights, state, nowMs, render);
+function syncProjectiles(context: FrameSyncContext, buckets: ReturnType<typeof bucketFrameEntities>): void {
+  const { entityRenderer, state, nowMs } = context;
+  entityRenderer.syncProjectiles(mapFrameInto({
+    source: buckets.projectiles, out: state.entityViews.projectiles, records: state.entityViews.projectileRecords,
+    map: (entity, target) => projectileView({ e: entity, velocity: state.projectileVelocity, nowMs, target }),
+  }));
+  pruneProjectileVelocity(state.projectileVelocity, buckets.projectileIds);
+}
+
+interface TorchFrameSyncRequest {
+  readonly terrain: TerrainRendererLike | undefined;
+  readonly torchSyncState: TorchSyncState;
+  readonly torches: ReturnType<typeof bucketFrameEntities>["torches"];
+  readonly serverTick: number;
+  readonly entityRenderer: EntityRenderer;
+  readonly renderContext: ReturnType<typeof buildRenderContext>;
+}
+
+function syncFrameTorches(request: TorchFrameSyncRequest): LightSource[] {
+  const { terrain, torchSyncState, torches, serverTick, entityRenderer, renderContext } = request;
+  if (!terrain) return [];
+  const torchSync = syncTorches({ state: torchSyncState, torches, terrain, serverTick });
+  entityRenderer.syncTorches(torchSync.views, renderContext);
+  return torchSync.accentLights;
+}
+
+export function syncFrame(context: FrameSyncContext): EntitySyncResult {
+  const synced = syncEntities(context);
+  syncLightingAndVfx(context, synced.torchAccentLights);
   return synced;
 }
 
-/** Feeds this frame's lighting/vfx systems from the connection + accumulated accent lights. */
-export function syncLightingAndVfx(
-  conn: Connection,
-  lighting: LightingSystem | undefined,
-  vfx: VfxSystem,
-  camera: Phaser.Cameras.Scene2D.Camera,
-  torchAccentLights: LightSource[],
-  state: DungeonSceneState,
-  nowMs: number,
-  render: RenderPose,
-): void {
-  // Drain event-driven VFX independently of lighting. Damage impacts are a
-  // presentation signal separate from health state, so god-mode restoration
-  // cannot suppress blood and it must not depend on the optional lighting system.
-  applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);
-  if (!lighting || !conn.body) return;
-  const areaLights = vfx.syncAreas(
-    buildAreaTileViewsInto(conn.areaTiles, camera.worldView, 2 * SCREEN_TILE_PX, state.areaViews, state.areaViewRecords),
-  );
-  const accentLights = state.accentLights;
-  accentLights.length = 0;
-  accentLights.push(...areaLights, ...torchAccentLights);
-  lighting.setAccentLights(accentLights);
-  lighting.update(camera.worldView, render.x, render.y, nowMs);
-  // Flame emitters only for torches near the camera view: uncapped, every
-  // resident torch (~140) ran a continuous ParticleEmitter — a large slice of
-  // baseline frame cost on weak hardware (leak-hunt probe, 2026-07-20).
-  const view = camera.worldView;
+export function syncLightingAndVfx(context: FrameSyncContext, torchAccentLights: LightSource[]): void {
+  applyVisualEvents({ ...context, pendingSwings: context.state.pendingSwings });
+  if (!context.lighting || !context.conn.body) return;
+  updateLighting(context, torchAccentLights);
+  syncVisibleTorchFlames(context);
+  syncExpiredWhiffs(context);
+  syncSelfVfx(context);
+}
+
+function updateLighting(context: FrameSyncContext, torchAccentLights: LightSource[]): void {
+  const { conn, lighting, vfx, scene, state, nowMs, render } = context;
+  if (!lighting) return;
+  const areaLights = vfx.syncAreas(buildAreaTileViewsInto({ areaTiles: conn.areaTiles, bounds: scene.cameras.main.worldView, marginPx: 2 * SCREEN_TILE_PX, views: state.areaViews, records: state.areaViewRecords }));
+  state.accentLights.length = 0;
+  state.accentLights.push(...areaLights, ...torchAccentLights);
+  lighting.setAccentLights(state.accentLights);
+  lighting.update({ view: scene.cameras.main.worldView, personal: render, nowMs });
+}
+
+function syncVisibleTorchFlames(context: FrameSyncContext): void {
+  const { lighting, scene, state, vfx } = context;
+  if (!lighting) return;
+  const view = scene.cameras.main.worldView;
   const marginPx = 2 * SCREEN_TILE_PX;
   const visibleTorchLights = state.visibleTorchLights;
   visibleTorchLights.length = 0;
   for (const torch of lighting.activeTorches()) {
-      // t.x/t.y are real world tile units (LightSource's own contract) — route through
-      // the seam so this margin-cull compares like-with-like against camera.worldView,
-      // which is itself in view-pixel space once worldToScreen (below) is oriented.
       const { x: sx, y: sy } = worldToScreen(torch.x, torch.y);
-      if (
-        sx >= view.x - marginPx && sx <= view.right + marginPx &&
-        sy >= view.y - marginPx && sy <= view.bottom + marginPx
-      ) visibleTorchLights.push(torch);
+      if (sx >= view.x - marginPx && sx <= view.right + marginPx && sy >= view.y - marginPx && sy <= view.bottom + marginPx) visibleTorchLights.push(torch);
   }
   vfx.syncTorchFlames(visibleTorchLights);
+}
+
+function syncExpiredWhiffs({ state, nowMs, vfx }: FrameSyncContext): void {
   // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
   // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush
   // whatever's left over into the whiff cue before this frame's vfx.update fades it.
   for (const swing of collectExpiredSwingsInto(state.pendingSwings, nowMs, state.expiredSwings)) {
-    vfx.spawnMeleeWhiff(swing.attackerId, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
+    vfx.spawnMeleeWhiff({
+      id: swing.attackerId,
+      x: swing.worldX,
+      y: swing.worldY,
+      z: swing.z,
+      angleRad: swing.angleRad,
+      depth: swing.depth,
+      tilePx: SCREEN_TILE_PX,
+      nowMs,
+    });
   }
-  // Panel round 4 (LANE B): shield ring, self-only — countdown itself is driven by
-  // selfCosmetics.ts's consumeRespawnGrace/endSelfGrace.
-  syncSelfVfx(conn, vfx, state, render, nowMs);
 }
 
-function syncSelfVfx(
-  conn: Connection,
-  vfx: VfxSystem,
-  state: DungeonSceneState,
-  render: RenderPose,
-  nowMs: number,
-): void {
+function syncSelfVfx({ conn, vfx, state, render, nowMs }: FrameSyncContext): void {
   if (!conn.body) return;
-  vfx.trackPlayerMotion(render.x, render.y, !conn.body.grounded, state.cosmetics.faceX, nowMs);
-  vfx.graceRing.sync(render.x, render.y, state.cosmetics.graceUntilMs, nowMs);
-  vfx.syncOutOfBreath(
-    render.x, render.y, render.z,
-    state.cosmetics.spriteFaceX, conn.staminaExhausted, nowMs,
-  );
+  vfx.trackPlayerMotion({ x: render.x, y: render.y, air: !conn.body.grounded, faceX: state.cosmetics.faceX, nowMs });
+  vfx.graceRing.sync({ x: render.x, y: render.y, graceUntilMs: state.cosmetics.graceUntilMs, nowMs });
+  vfx.syncOutOfBreath({ x: render.x, y: render.y, z: render.z, faceX: state.cosmetics.spriteFaceX, exhausted: conn.staminaExhausted, nowMs });
   vfx.update(nowMs);
 }

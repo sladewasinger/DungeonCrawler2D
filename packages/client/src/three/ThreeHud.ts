@@ -10,14 +10,13 @@ import {
   type ThreeHudComposition,
 } from "./ThreeHudComposition.js";
 import { ThreeHudKeyboard } from "./ThreeHudKeyboard.js";
-import { syncThreeHudLiveState } from "./ThreeHudLiveState.js";
-import { resolveThreeCompassState } from "./ThreeHudCompass.js";
 import {
   createHudKeyboard,
   mountHudReticle,
 } from "./ThreeHudSetup.js";
 import type { ViewDistance } from "./viewDistance.js";
 import { createHudTemplate } from "./hudTemplate.js";
+import { updateThreeHud } from "./ThreeHudUpdate.js";
 export interface ThreeHudUpdate {
   connection: Connection;
   world: World;
@@ -45,7 +44,7 @@ export interface ThreeHudOptions {
 
 export class ThreeHud {
   readonly element = createHudTemplate<HTMLDivElement>("hud-root-template");
-  private readonly parts: ThreeHudComposition;
+  readonly parts: ThreeHudComposition;
   private readonly keyboard: ThreeHudKeyboard;
   private readonly focusGame: () => void;
   private readonly setTextInputFocused: (focused: boolean) => void;
@@ -107,54 +106,7 @@ export class ThreeHud {
     }, options);
   }
   update(update: ThreeHudUpdate): void {
-    const { connection, world, player, yaw, mouseCaptured } = update;
-    const { parts } = this;
-    parts.panels.chat.update();
-    parts.inventory.update();
-    parts.status.update(connection, world.floor);
-    this.updateCompass(update);
-    parts.hotbar.update(connection, update.snapshot?.selectedSlot);
-    parts.buffs.update(connection);
-    if (this.showHealthFeedback) {
-      parts.healthFeedback.update(connection, performance.now());
-    }
-    parts.weapon.update(connection);
-    parts.party.update(connection, player, yaw);
-    parts.telemetry.update(connection, world, player, yaw, mouseCaptured);
-    parts.downed.update(connection, update.giveUpHoldProgress);
-    parts.invite.update();
-    parts.sessionMenu.update(
-      connection.status === "connected" && connection.hp > 0,
-    );
-    const selectedSlot = parts.hotbar.selectedSlot();
-    parts.tutorials.update(
-      connection,
-      selectedSlot >= 0 ? selectedSlot : null,
-      performance.now(),
-    );
-    parts.touch.update(update.snapshot?.touch ?? null);
-    if (update.snapshot) this.updateSnapshotPanels(update.snapshot);
-    else {
-      syncThreeHudLiveState(
-        connection,
-        world,
-        parts.hotbar.selectedSlot(),
-        parts.panels,
-        parts.notices,
-        () => this.closeCraft(),
-        () => this.closeStash(),
-      );
-    }
-  }
-
-  private updateCompass(update: ThreeHudUpdate): void {
-    const compass = resolveThreeCompassState(
-      update.world,
-      update.player,
-      update.yaw,
-      update.snapshot,
-    );
-    this.parts.compass.update(compass.bearingDeg, compass.stairway);
+    updateThreeHud({ hud: this, update, showHealthFeedback: this.showHealthFeedback });
   }
 
   toggleInventory(): void {
@@ -213,7 +165,4 @@ export class ThreeHud {
     this.element.remove();
   }
 
-  private updateSnapshotPanels(snapshot: HudFakeSnapshot): void {
-    this.parts.overlays.update(snapshot, this.parts.notices);
-  }
 }

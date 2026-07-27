@@ -35,12 +35,15 @@ export function createFrameEntityViews(): FrameEntityViews {
 }
 
 /** Rewrites caller-owned frame storage without replacing its array identity. */
-export function mapFrameInto<T, U>(
-  source: readonly T[],
-  out: U[],
-  records: U[],
-  map: (value: T, target: U | undefined) => U,
-): U[] {
+export interface FrameMap<T, U> {
+  readonly source: readonly T[];
+  readonly out: U[];
+  readonly records: U[];
+  readonly map: (value: T, target: U | undefined) => U;
+}
+
+export function mapFrameInto<T, U>(input: FrameMap<T, U>): U[] {
+  const { source, out, records, map } = input;
   out.length = source.length;
   for (let index = 0; index < source.length; index++) {
     const value = source[index];

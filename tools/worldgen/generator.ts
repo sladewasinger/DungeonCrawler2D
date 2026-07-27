@@ -2,12 +2,14 @@
 
 import type { Chunk } from "../../packages/engine/src/world/types.js";
 
-export type GenerateChunkFn = (
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-) => Chunk;
+export interface GenerateChunkArgs {
+  readonly worldSeed: number;
+  readonly floor: number;
+  readonly cx: number;
+  readonly cy: number;
+}
+
+export type GenerateChunkFn = (args: GenerateChunkArgs) => Chunk;
 
 export async function loadGenerator(): Promise<GenerateChunkFn> {
   const mod: unknown = await import("../../packages/engine/src/world/generate.js");
@@ -15,5 +17,6 @@ export async function loadGenerator(): Promise<GenerateChunkFn> {
   if (typeof fn !== "function") {
     throw new Error("no generateChunk export found at packages/engine/src/world/generate.js");
   }
-  return fn as GenerateChunkFn;
+  const generateChunk = fn as (...values: number[]) => Chunk;
+  return (args) => generateChunk(...[args.worldSeed, args.floor, args.cx, args.cy]);
 }

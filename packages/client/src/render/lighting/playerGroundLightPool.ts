@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import type { World } from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { depthForCapOccluder } from "../entities/depthSort.js";
 import { worldToScreen } from "../entities/worldToScreen.js";
@@ -9,10 +8,7 @@ import {
   PLAYER_GROUND_LIGHT_FADE_MS,
   PLAYER_GROUND_LIGHT_MAX_CELLS,
   playerGroundLightFadeAlpha,
-  playerGroundLightCells,
-  shouldUpdatePlayerGroundLight,
   type PlayerGroundLightCell,
-  type PlayerGroundLightUpdate,
 } from "./playerGroundLight.js";
 
 const LIGHT_ALPHA = 0.2;
@@ -20,22 +16,9 @@ const LIGHT_COLOR = 0xffe9c9;
 const FLOOR_LAYER_BIAS = 0.01;
 export const PLAYER_GROUND_LIGHT_MAX_POOL_TILES = PLAYER_GROUND_LIGHT_MAX_CELLS * 2;
 
-export interface PlayerGroundLightTile {
-  setActive(active: boolean): this;
-  setVisible(visible: boolean): this;
-  setPosition(x: number, y: number): this;
-  setDepth(depth: number): this;
-  setAlpha(alpha: number): this;
-  destroy(): void;
-}
+export interface PlayerGroundLightTile { setActive(active: boolean): this; setVisible(visible: boolean): this; setPosition(x: number, y: number): this; setDepth(depth: number): this; setAlpha(alpha: number): this; destroy(): void; }
 
-interface PlayerGroundLightTileState {
-  readonly tile: PlayerGroundLightTile;
-  alpha: number;
-  startAlpha: number;
-  targetAlpha: number;
-  transitionStartedAtMs: number;
-}
+interface PlayerGroundLightTileState { readonly tile: PlayerGroundLightTile; alpha: number; startAlpha: number; targetAlpha: number; transitionStartedAtMs: number; }
 
 type PlayerGroundLightTileFactory = () => PlayerGroundLightTile;
 
@@ -45,41 +28,51 @@ export class PlayerGroundLightPool {
   private readonly desiredKeyList: string[] = [];
   private readonly spare: PlayerGroundLightTile[] = [];
 
-  constructor(
-    private readonly scene: Phaser.Scene,
-    private readonly tileFactory?: PlayerGroundLightTileFactory,
-  ) {}
+  constructor(private readonly scene: Phaser.Scene, private readonly tileFactory?: PlayerGroundLightTileFactory) {}
 
   sync(cells: readonly PlayerGroundLightCell[], nowMs: number): void {
     const count = Math.min(cells.length, PLAYER_GROUND_LIGHT_MAX_CELLS);
+    this.collectDesiredCells(cells, count);
+    this.fadeDepartedCells(nowMs);
+    this.syncDesiredCells(cells, count, nowMs);
+    this.update(nowMs);
+  }
+
+  private collectDesiredCells(cells: readonly PlayerGroundLightCell[], count: number): void {
     this.desiredKeys.clear();
     this.desiredKeyList.length = count;
-    for (let index = 0; index < count; index++) {
-      const cell = cells[index];
-      if (cell === undefined) continue;
-      const key = `${cell.tileX},${cell.tileY}`;
-      this.desiredKeys.add(key);
-      this.desiredKeyList[index] = key;
-    }
+    for (let index = 0; index < count; index++) this.collectDesiredCell(cells[index], index);
+  }
 
+  private collectDesiredCell(cell: PlayerGroundLightCell | undefined, index: number): void {
+    if (!cell) return;
+    const key = `${cell.tileX},${cell.tileY}`;
+    this.desiredKeys.add(key);
+    this.desiredKeyList[index] = key;
+  }
+
+  private fadeDepartedCells(nowMs: number): void {
     for (const [key, state] of this.active) {
       if (!this.desiredKeys.has(key)) this.retarget(state, 0, nowMs);
     }
+  }
 
-    for (let index = 0; index < count; index++) {
-      const cell = cells[index];
-      const key = this.desiredKeyList[index];
-      if (cell === undefined || key === undefined) continue;
-      let state = this.active.get(key);
-      if (!state) {
-        this.makeRoomForIncoming();
-        state = this.createState(nowMs);
-        this.active.set(key, state);
-      }
-      this.place(state.tile, cell);
-      this.retarget(state, LIGHT_ALPHA * cell.strength, nowMs);
-    }
-    this.update(nowMs);
+  private syncDesiredCells(cells: readonly PlayerGroundLightCell[], count: number, nowMs: number): void {
+    for (let index = 0; index < count; index++) this.syncDesiredCell(cells[index], this.desiredKeyList[index], nowMs);
+  }
+
+  private syncDesiredCell(cell: PlayerGroundLightCell | undefined, key: string | undefined, nowMs: number): void {
+    if (!cell || !key) return;
+    const state = this.active.get(key) ?? this.addState(key, nowMs);
+    this.place(state.tile, cell);
+    this.retarget(state, LIGHT_ALPHA * cell.strength, nowMs);
+  }
+
+  private addState(key: string, nowMs: number): PlayerGroundLightTileState {
+    this.makeRoomForIncoming();
+    const state = this.createState(nowMs);
+    this.active.set(key, state);
+    return state;
   }
 
   update(nowMs: number): void {
@@ -109,14 +102,7 @@ export class PlayerGroundLightPool {
 
   private createTile(): PlayerGroundLightTile {
     if (this.tileFactory) return this.tileFactory();
-    return this.scene.add.rectangle(
-      0,
-      0,
-      SCREEN_TILE_PX,
-      SCREEN_TILE_PX,
-      LIGHT_COLOR,
-      1,
-    )
+    return this.scene.add.rectangle(0, 0, SCREEN_TILE_PX, SCREEN_TILE_PX, LIGHT_COLOR, 1)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setOrigin(0.5, 0.5);
   }
@@ -124,20 +110,10 @@ export class PlayerGroundLightPool {
   private createState(nowMs: number): PlayerGroundLightTileState {
     const tile = this.spare.pop() ?? this.createTile();
     tile.setActive(true).setVisible(true).setAlpha(0);
-    return {
-      tile,
-      alpha: 0,
-      startAlpha: 0,
-      targetAlpha: 0,
-      transitionStartedAtMs: nowMs,
-    };
+    return { tile, alpha: 0, startAlpha: 0, targetAlpha: 0, transitionStartedAtMs: nowMs };
   }
 
-  private retarget(
-    state: PlayerGroundLightTileState,
-    targetAlpha: number,
-    nowMs: number,
-  ): void {
+  private retarget(state: PlayerGroundLightTileState, targetAlpha: number, nowMs: number): void {
     if (state.targetAlpha === targetAlpha) return;
     state.alpha = playerGroundLightFadeAlpha(
       state.startAlpha,
@@ -177,41 +153,5 @@ export class PlayerGroundLightPool {
     for (const tile of this.spare) tile.destroy();
     this.active.clear();
     this.spare.length = 0;
-  }
-}
-
-export class PlayerGroundLightPass {
-  private readonly pool: PlayerGroundLightPool;
-  private previousUpdate: PlayerGroundLightUpdate | null = null;
-  private enabled = true;
-
-  constructor(scene: Phaser.Scene, private readonly world: World) {
-    this.pool = new PlayerGroundLightPool(scene);
-  }
-
-  setEnabled(enabled: boolean): void {
-    if (this.enabled === enabled) return;
-    this.enabled = enabled;
-    this.previousUpdate = null;
-    if (!enabled) this.pool.clear();
-  }
-
-  update(playerX: number, playerY: number, nowMs: number): void {
-    if (!this.enabled) return;
-    const next: PlayerGroundLightUpdate = {
-      tileX: Math.floor(playerX),
-      tileY: Math.floor(playerY),
-      orientation: getViewOrientation(),
-      atMs: nowMs,
-    };
-    if (shouldUpdatePlayerGroundLight(this.previousUpdate, next)) {
-      this.pool.sync(playerGroundLightCells(this.world, playerX, playerY), nowMs);
-      this.previousUpdate = next;
-    }
-    this.pool.update(nowMs);
-  }
-
-  dispose(): void {
-    this.pool.dispose();
   }
 }

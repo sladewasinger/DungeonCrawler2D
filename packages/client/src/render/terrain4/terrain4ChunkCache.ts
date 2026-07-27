@@ -15,32 +15,26 @@ export class Terrain4ChunkPlanCache {
   private readonly plans = new Map<string, Terrain4Plan>();
   private revision: number | null = null;
 
-  get(source: Terrain4Source, coord: Terrain4ChunkCoord, orientation: ViewOrientation, revision: number): Terrain4Plan {
-    if (this.revision !== revision) {
-      this.plans.clear();
-      this.revision = revision;
-    }
-    const key = cacheKey(coord, orientation, revision);
+  get(input: Terrain4ChunkPlanInput): Terrain4Plan {
+    this.syncRevision(input.revision);
+    const key = cacheKey(input.coord, input.orientation, input.revision);
     const cached = this.plans.get(key);
     if (cached) return cached;
-    const bounds = {
-      x: coord.cx * CHUNK_SIZE,
-      y: coord.cy * CHUNK_SIZE,
-      width: CHUNK_SIZE,
-      height: CHUNK_SIZE,
-    } satisfies Terrain4Rect;
-    const plan = planTerrain4(source, { bounds, orientation, seamApron: 1 });
+    const plan = planTerrain4(input.source, { bounds: chunkBounds(input.coord), orientation: input.orientation, seamApron: 1 });
     this.plans.set(key, plan);
     return plan;
   }
 
+  private syncRevision(revision: number): void {
+    if (this.revision === revision) return;
+    this.plans.clear();
+    this.revision = revision;
+  }
+
   invalidateTile(wx: number, wy: number): void {
-    const cx = Math.floor(wx / CHUNK_SIZE);
-    const cy = Math.floor(wy / CHUNK_SIZE);
+    const target = { cx: Math.floor(wx / CHUNK_SIZE), cy: Math.floor(wy / CHUNK_SIZE) };
     for (const key of [...this.plans.keys()]) {
-      const [keyCx, keyCy] = key.split(":", 3).map(Number);
-      if (keyCx === undefined || keyCy === undefined) continue;
-      if (Math.abs(keyCx - cx) <= 1 && Math.abs(keyCy - cy) <= 1) this.plans.delete(key);
+      if (isNeighborChunk(key, target)) this.plans.delete(key);
     }
   }
 
@@ -48,41 +42,38 @@ export class Terrain4ChunkPlanCache {
   get size(): number { return this.plans.size; }
 }
 
+function isNeighborChunk(key: string, target: Terrain4ChunkCoord): boolean {
+  const [cx, cy] = key.split(":", 3).map(Number);
+  return cx !== undefined && cy !== undefined && Math.abs(cx - target.cx) <= 1 && Math.abs(cy - target.cy) <= 1;
+}
+
+export interface Terrain4ChunkPlanInput { readonly source: Terrain4Source; readonly coord: Terrain4ChunkCoord; readonly orientation: ViewOrientation; readonly revision: number; }
+type MutableTerrain4Batches = { [Key in keyof Terrain4Batches]-?: NonNullable<Terrain4Batches[Key]> extends readonly (infer Value)[] ? Value[] : never; };
+
+function chunkBounds(coord: Terrain4ChunkCoord): Terrain4Rect {
+  return { x: coord.cx * CHUNK_SIZE, y: coord.cy * CHUNK_SIZE, width: CHUNK_SIZE, height: CHUNK_SIZE };
+}
+
 export function appendVisibleChunkPlans(
-  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; features: Terrain4Plan["batches"]["features"] extends readonly (infer T)[] ? T[] : never[]; props: Terrain4Plan["batches"]["props"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[]; cliffEdges: Terrain4Plan["batches"]["cliffEdges"] extends readonly (infer T)[] ? T[] : never[]; ao: Terrain4Plan["batches"]["ao"] extends readonly (infer T)[] ? T[] : never[] },
-  cache: Terrain4ChunkPlanCache,
-  source: Terrain4Source,
-  bounds: Terrain4Rect,
-  orientation: ViewOrientation,
-  revision: number,
+  input: VisibleChunkPlanInput,
 ): void {
-  const minCx = Math.floor(bounds.x / CHUNK_SIZE);
-  const minCy = Math.floor(bounds.y / CHUNK_SIZE);
-  const maxCx = Math.floor((bounds.x + bounds.width - 1) / CHUNK_SIZE);
-  const maxCy = Math.floor((bounds.y + bounds.height - 1) / CHUNK_SIZE);
+  const { bounds } = input;
+  const minCx = Math.floor(bounds.x / CHUNK_SIZE); const minCy = Math.floor(bounds.y / CHUNK_SIZE);
+  const maxCx = Math.floor((bounds.x + bounds.width - 1) / CHUNK_SIZE); const maxCy = Math.floor((bounds.y + bounds.height - 1) / CHUNK_SIZE);
   for (let cy = minCy; cy <= maxCy; cy++) {
     for (let cx = minCx; cx <= maxCx; cx++) {
-      const plan = cache.get(source, { cx, cy }, orientation, revision);
-      target.floors.push(...plan.batches.floors);
-      target.voids.push(...plan.batches.voids);
-      target.features.push(...plan.batches.features);
-      target.props.push(...plan.batches.props);
-      target.southFaces.push(...plan.batches.southFaces);
-      target.cliffEdges.push(...plan.batches.cliffEdges);
-      target.ao.push(...plan.batches.ao);
+      appendPlan(input.target, input.cache.get({ source: input.source, coord: { cx, cy }, orientation: input.orientation, revision: input.revision }));
     }
   }
 }
 
-export function emptyTerrain4Batches(): {
-  floors: NonNullable<Terrain4Batches["floors"]>[number][];
-  voids: NonNullable<Terrain4Batches["voids"]>[number][];
-  features: NonNullable<Terrain4Batches["features"]>[number][];
-  props: NonNullable<Terrain4Batches["props"]>[number][];
-  southFaces: NonNullable<Terrain4Batches["southFaces"]>[number][];
-  cliffEdges: NonNullable<Terrain4Batches["cliffEdges"]>[number][];
-  ao: NonNullable<Terrain4Batches["ao"]>[number][];
-} {
+export interface VisibleChunkPlanInput { readonly target: MutableTerrain4Batches; readonly cache: Terrain4ChunkPlanCache; readonly source: Terrain4Source; readonly bounds: Terrain4Rect; readonly orientation: ViewOrientation; readonly revision: number; }
+
+function appendPlan(target: MutableTerrain4Batches, plan: Terrain4Plan): void {
+  target.floors.push(...plan.batches.floors); target.voids.push(...plan.batches.voids); target.features.push(...plan.batches.features); target.props.push(...plan.batches.props); target.southFaces.push(...plan.batches.southFaces); target.cliffEdges.push(...plan.batches.cliffEdges); target.ao.push(...plan.batches.ao);
+}
+
+export function emptyTerrain4Batches(): MutableTerrain4Batches {
   return { floors: [], voids: [], features: [], props: [], southFaces: [], cliffEdges: [], ao: [] };
 }
 

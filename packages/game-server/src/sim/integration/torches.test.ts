@@ -19,20 +19,21 @@ function torchesIn(snaps: Map<string, ServerSnapshot>, playerId: string): Entity
   return (snaps.get(playerId)?.entities ?? []).filter((e) => e.kind === "torch");
 }
 
+function expectStarterKit(sim: GameSim, playerId: string): void {
+  const inventory = sim.getInventory(playerId)!;
+  expect(inventory.find((slot) => slot.item === "sword")?.qty).toBe(1);
+  expect(inventory.find((slot) => slot.item === "torch")?.qty).toBe(3);
+  expect(inventory.find((slot) => slot.item === "bandage")?.qty).toBe(2);
+  expect(sim.getHotbar(playerId)?.slice(0, 2)).toEqual(["torch", "bandage"]);
+  expect(sim.getWeapon(playerId)).toBe("sword");
+}
+
 describe("GameSim: starter kit", () => {
   it("grants sword, torches, and bandages on first join and after a kit-less restart", () => {
     const store = new PlayerStore(null);
-    const sim1 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 1234, { testFixtures: true });
-    const a = sim1.addPlayer("A", "client-a");
-    const inv1 = sim1.getInventory(a.playerId)!;
-    expect(inv1.find((s) => s.item === "sword")?.qty).toBe(1);
-    expect(inv1.find((s) => s.item === "torch")?.qty).toBe(3);
-    expect(inv1.find((s) => s.item === "bandage")?.qty).toBe(2);
-    expect(sim1.getHotbar(a.playerId)?.slice(0, 2)).toEqual([
-      "torch",
-      "bandage",
-    ]);
-    expect(sim1.getWeapon(a.playerId)).toBe("sword"); // first-weapon auto-equip
+    const sim1 = new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: 1234, opts: { testFixtures: true } });
+    const a = sim1.addPlayer({ name: "A", clientId: "client-a" });
+    expectStarterKit(sim1, a.playerId);
 
     // Simulate a server restart: a fresh GameSim sharing the durable
     // store, but with no in-memory slot or resume token to reattach to.
@@ -40,26 +41,18 @@ describe("GameSim: starter kit", () => {
     // clientId is genuinely kit-less again — ensureStarterKit re-grants
     // it exactly like a brand-new join would (Epic 7.13 starter-kit
     // famine fix, ASSUMPTION #87, supersedes #2's "never re-granted").
-    const sim2 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 99, { testFixtures: true });
-    const again = sim2.addPlayer("A", "client-a");
-    const inv2 = sim2.getInventory(again.playerId)!;
-    expect(inv2.find((s) => s.item === "sword")?.qty).toBe(1);
-    expect(inv2.find((s) => s.item === "torch")?.qty).toBe(3);
-    expect(inv2.find((s) => s.item === "bandage")?.qty).toBe(2);
-    expect(sim2.getHotbar(again.playerId)?.slice(0, 2)).toEqual([
-      "torch",
-      "bandage",
-    ]);
-    expect(sim2.getWeapon(again.playerId)).toBe("sword");
+    const sim2 = new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: 99, opts: { testFixtures: true } });
+    const again = sim2.addPlayer({ name: "A", clientId: "client-a" });
+    expectStarterKit(sim2, again.playerId);
   });
 
   it("does not re-grant the kit across an in-process reconnect (same resume token)", () => {
     const sim = makeSim();
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const inv = sim.getInventory(a.playerId)!;
     inv.length = 0; // spend the starter kit down to nothing
     sim.markDisconnected(a.playerId);
-    const resumed = sim.addPlayer("A", "client-a", a.resumeToken);
+    const resumed = sim.addPlayer({ name: "A", clientId: "client-a", resumeToken: a.resumeToken });
     expect(resumed.resumed).toBe(true);
     expect(sim.getInventory(a.playerId)).toEqual([]); // not refilled
   });
@@ -73,10 +66,10 @@ describe("GameSim: throwTorch", () => {
   });
 
   it("consumes one torch per throw and rejects the intent once none remain", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
-    const arena = findFlatArena(sim, entity.body.x, entity.body.y, 4);
-    teleport(entity, arena.x, arena.y, sim);
+    const arena = findFlatArena({ sim: sim, anchor: { x: entity.body.x, y: entity.body.y }, clearance: 4 });
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
     const inv = sim.getInventory(a.playerId)!;
     expect(inv.find((s) => s.item === "torch")?.qty).toBe(3);
 
@@ -99,10 +92,10 @@ describe("GameSim: throwTorch", () => {
   });
 
   it("flies a ballistic arc, lands as a placed light source, and burns out after TORCH_BURN_TICKS", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
-    const arena = findFlatArena(sim, entity.body.x, entity.body.y, 4);
-    teleport(entity, arena.x, arena.y, sim);
+    const arena = findFlatArena({ sim: sim, anchor: { x: entity.body.x, y: entity.body.y }, clearance: 4 });
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
 
     sim.queueAction(a.playerId, { type: "throwTorch", dirX: 1, dirY: 0 });
     let snaps = sim.step();
@@ -128,16 +121,16 @@ describe("GameSim: throwTorch", () => {
   });
 
   it("picks up a still-burning placed torch as one full inventory torch", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
-    const arena = findFlatArena(sim, entity.body.x, entity.body.y, 4);
-    teleport(entity, arena.x, arena.y, sim);
+    const arena = findFlatArena({ sim: sim, anchor: { x: entity.body.x, y: entity.body.y }, clearance: 4 });
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
 
     sim.queueAction(a.playerId, { type: "throwTorch", dirX: 1, dirY: 0 });
     const snaps = stepN(sim, 30);
     const torch = torchesIn(snaps, a.playerId).find((candidate) => candidate.state === "placed");
     expect(torch).toBeDefined();
-    teleport(entity, torch!.x, torch!.y, sim);
+    teleport({ entity: entity, x: torch!.x, y: torch!.y, sim: sim });
     sim.queueAction(a.playerId, { type: "pickup" });
     const afterPickup = sim.step();
 
@@ -146,7 +139,7 @@ describe("GameSim: throwTorch", () => {
   });
 
   it("reserves the floor torch budget before consuming inventory", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const inventory = sim.getInventory(a.playerId)!;
     inventory.find((stack) => stack.item === "torch")!.qty = MAX_ACTIVE_TORCHES_PER_FLOOR + 1;
     let snapshots = new Map<string, ServerSnapshot>();

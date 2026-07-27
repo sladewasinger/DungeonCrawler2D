@@ -31,17 +31,35 @@ interface Decal {
   spawnMs: number;
 }
 
+export interface BloodDecalInput {
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight: number;
+  readonly tint: number;
+  readonly nowMs: number;
+}
+
+interface ScatterInput {
+  readonly screen: { x: number; y: number };
+  readonly offset: { x: number; y: number };
+  readonly diameter: number;
+}
+
+interface DecalShapeInput {
+  readonly shape: Phaser.GameObjects.Ellipse;
+  readonly screenX: number;
+  readonly diameter: number;
+  readonly tint: number;
+  readonly placement: ReturnType<typeof groundedVisualPlacement>;
+}
+
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function containedScatter(
-  screenX: number,
-  screenY: number,
-  scatterX: number,
-  scatterY: number,
-  diameter: number,
-): { readonly x: number; readonly y: number } {
+function containedScatter({ screen, offset, diameter }: ScatterInput): { readonly x: number; readonly y: number } {
+  const { x: screenX, y: screenY } = screen;
+  const { x: scatterX, y: scatterY } = offset;
   const tileLeft = Math.floor(screenX / SCREEN_TILE_PX) * SCREEN_TILE_PX;
   const tileTop = Math.floor(screenY / SCREEN_TILE_PX) * SCREEN_TILE_PX;
   const halfWidth = diameter / 2;
@@ -52,14 +70,7 @@ function containedScatter(
   };
 }
 
-function configureDecalShape(
-  shape: Phaser.GameObjects.Ellipse,
-  screenX: number,
-  diameter: number,
-  tint: number,
-  placement: ReturnType<typeof groundedVisualPlacement>,
-  depth: number,
-): void {
+function configureDecalShape({ shape, screenX, diameter, tint, placement }: DecalShapeInput): void {
   shape
     .setPosition(screenX, placement.projectedScreenY)
     .setSize(diameter, diameter * GROUND_DECAL_VERTICAL_SCALE)
@@ -67,7 +78,7 @@ function configureDecalShape(
     .setStrokeStyle(0, tint, 0)
     .setAlpha(BASE_ALPHA)
     .setVisible(true)
-    .setDepth(depth);
+    .setDepth(placement.depth);
 }
 
 export class BloodDecalPool {
@@ -79,15 +90,9 @@ export class BloodDecalPool {
   /** Places one decal near (worldX, worldY), growing the pool until DECAL_CAP then
    * recycling the oldest-cycled slot round-robin. `groundHeight` is the hit position's
    * `groundAt` — GROUND-anchored (ELEVATION-PROJECTION section 5), shifted by it. */
-  spawn(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    tint: number,
-    nowMs: number,
-  ): void {
+  spawn(input: BloodDecalInput): void {
     const decal = shouldGrowPool(this.decals.length, DECAL_CAP) ? this.grow() : this.recycle();
-    this.place(decal, worldX, worldY, groundHeight, tint, nowMs);
+    this.place({ decal, input });
   }
 
   private grow(): Decal {
@@ -109,35 +114,25 @@ export class BloodDecalPool {
       .setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
-  private place(
-    decal: Decal,
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    tint: number,
-    nowMs: number,
-  ): void {
-    const screen = worldToScreen(worldX, worldY);
+  private place({ decal, input }: { readonly decal: Decal; readonly input: BloodDecalInput }): void {
+    const { x, y, groundHeight, tint, nowMs } = input;
+    const screen = worldToScreen(x, y);
     const scatterAngle = Math.random() * Math.PI * 2;
     const scatterDistance = Math.sqrt(Math.random()) * SCATTER_RADIUS_PX;
     const diameter = MIN_DIAMETER_PX +
       Math.random() * (MAX_DIAMETER_PX - MIN_DIAMETER_PX);
-    const scatter = containedScatter(
-      screen.x,
-      screen.y,
-      Math.cos(scatterAngle) * scatterDistance,
-      Math.sin(scatterAngle) * scatterDistance,
+    const scatter = containedScatter({
+      screen,
+      offset: { x: Math.cos(scatterAngle) * scatterDistance, y: Math.sin(scatterAngle) * scatterDistance },
       diameter,
-    );
-    const placement = groundedVisualPlacement(screen.y, groundHeight, "blood", scatter.y);
-    configureDecalShape(
-      decal.shape,
-      screen.x + scatter.x,
-      diameter,
-      tint,
-      placement,
-      placement.depth,
-    );
+    });
+    const placement = groundedVisualPlacement({
+      rawScreenY: screen.y,
+      groundHeight,
+      layer: "blood",
+      scatterScreenY: scatter.y,
+    });
+    configureDecalShape({ shape: decal.shape, screenX: screen.x + scatter.x, diameter, tint, placement });
     decal.spawnMs = nowMs;
   }
 

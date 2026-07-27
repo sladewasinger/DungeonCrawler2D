@@ -14,12 +14,6 @@ export function decodeMeasuredServerMessage(
   const startedAt = performance.now();
   const message = decodeServerMessage(payload);
   const decodedAt = performance.now();
-  metrics.record(
-    "inbound",
-    wireByteLength(payload),
-    decodedAt - startedAt,
-    queueBytes,
-    decodedAt,
-  );
+  metrics.record({ direction: "inbound", bytes: wireByteLength(payload), codecMilliseconds: decodedAt - startedAt, queueBytes, nowMs: decodedAt });
   return message;
 }

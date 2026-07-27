@@ -48,12 +48,12 @@ describe("landmark set-pieces", () => {
     // claimed by a safe-room kiosk or stairway pad.
     let cx = 1;
     let cy = 1;
-    while (isSafeRoomChunk(SEED, FLOOR, cx, cy) || isStairsChunk(SEED, FLOOR, cx, cy)) {
+    while (isSafeRoomChunk({ worldSeed: SEED, floor: FLOOR, cx, cy }) || isStairsChunk({ worldSeed: SEED, floor: FLOOR, cx, cy })) {
       cx += 3;
       cy += 3;
     }
     expect(isLandmarkChunk(cx, cy)).toBe(true);
-    const chunk = generateChunk(SEED, FLOOR, cx, cy);
+    const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
     // Every landmark stamps at least one raised Floor ring/gate around its
     // center — a landmark chunk is never indistinguishable from a plain
     // one, and its own gates keep it internally walkable.
@@ -68,16 +68,16 @@ describe("avenues", () => {
   it("a corridor crossing a super-chunk boundary is wider than one that doesn't", () => {
     // Chunks (2,0)|(3,0) straddle a super-chunk seam; (0,0)|(1,0) don't
     // (SUPERCHUNK_SIZE = 3). Measure carved width along each shared border.
-    const inSeamWidth = corridorWidthAtBorder(SEED, 0, 0, 1, 0);
-    const avenueWidth = corridorWidthAtBorder(SEED, 2, 0, 3, 0);
+    const inSeamWidth = corridorWidthAtBorder({ seed: SEED, left: { cx: 0, cy: 0 }, right: { cx: 1, cy: 0 } });
+    const avenueWidth = corridorWidthAtBorder({ seed: SEED, left: { cx: 2, cy: 0 }, right: { cx: 3, cy: 0 } });
     expect(avenueWidth).toBeGreaterThanOrEqual(inSeamWidth);
   });
 });
 
 /** Widest run of carved (non-wall) tiles along the shared vertical border between two east/west-adjacent chunks. */
-function corridorWidthAtBorder(seed: number, cxA: number, cy: number, cxB: number, cyB: number): number {
-  const a = generateChunk(seed, FLOOR, cxA, cy);
-  const b = generateChunk(seed, FLOOR, cxB, cyB);
+function corridorWidthAtBorder({ seed, left, right }: { seed: number; left: { cx: number; cy: number }; right: { cx: number; cy: number } }): number {
+  const a = generateChunk({ worldSeed: seed, floor: FLOOR, ...left });
+  const b = generateChunk({ worldSeed: seed, floor: FLOOR, ...right });
   let best = 0;
   let run = 0;
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {

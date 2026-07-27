@@ -52,38 +52,36 @@ export interface TorchSyncResult {
   readonly accentLights: LightSource[];
 }
 
-function buildTorchFrame(
-  state: TorchSyncState,
-  torches: readonly InterpolatedEntity[],
-  serverTick: number,
-): void {
-  const views = mapFrameInto(
-    torches,
-    state.views,
-    state.viewRecords,
-    torchView,
-  );
+interface TorchFrameRequest {
+  readonly state: TorchSyncState;
+  readonly torches: readonly InterpolatedEntity[];
+  readonly serverTick: number;
+}
+
+function buildTorchFrame({ state, torches, serverTick }: TorchFrameRequest): void {
+  const views = mapFrameInto({ source: torches, out: state.views, records: state.viewRecords, map: torchView });
   state.placed.length = 0;
   state.flying.length = 0;
   for (let index = 0; index < views.length; index++) {
     const view = views[index];
     if (!view) continue;
-    if (view.state === "flying") {
-      state.flying.push(view);
-      continue;
-    }
-    if (view.state !== "placed") continue;
-    const expiresAtTick = torches[index]?.snap.expiresAtTick;
-    const ticksRemaining = expiresAtTick === undefined
-      ? Number.POSITIVE_INFINITY
-      : expiresAtTick - serverTick;
-    state.placed.push({
-      id: view.id,
-      tileX: Math.floor(view.x),
-      tileY: Math.floor(view.y),
-      emberFade: torchEmberFade(ticksRemaining, TICK_RATE),
-    });
+    appendTorchView({ view, entity: torches[index], serverTick, placed: state.placed, flying: state.flying });
   }
+}
+
+interface TorchViewAppendRequest {
+  readonly view: TorchEntityView;
+  readonly entity: InterpolatedEntity | undefined;
+  readonly serverTick: number;
+  readonly placed: PlacedTorch[];
+  readonly flying: TorchEntityView[];
+}
+
+function appendTorchView({ view, entity, serverTick, placed, flying }: TorchViewAppendRequest): void {
+  if (view.state === "flying") return void flying.push(view);
+  if (view.state !== "placed") return;
+  const ticksRemaining = (entity?.snap.expiresAtTick ?? Number.POSITIVE_INFINITY) - serverTick;
+  placed.push({ id: view.id, tileX: Math.floor(view.x), tileY: Math.floor(view.y), emberFade: torchEmberFade(ticksRemaining, TICK_RATE) });
 }
 
 /**
@@ -93,21 +91,18 @@ function buildTorchFrame(
  * same "entity removed/changed" shape, no bespoke event needed), and returns the
  * halo/flame accent lights for LightingSystem.setAccentLights.
  */
-export function syncTorches(
-  state: TorchSyncState,
-  torches: readonly InterpolatedEntity[],
-  terrain: TerrainRendererLike,
+export interface TorchSyncRequest {
+  readonly state: TorchSyncState;
+  readonly torches: readonly InterpolatedEntity[];
+  readonly terrain: TerrainRendererLike;
   /** The last snapshot's tick — the reference point `expiresAtTick` counts down to,
    * for the fading-ember halo tell in a placed torch's last EMBER_FADE_SECONDS. */
-  serverTick: number,
-): TorchSyncResult {
-  buildTorchFrame(state, torches, serverTick);
-  const changedTiles = updatePlacedTorchTiles(
-    state.placedTiles,
-    state.placed,
-    state.seenPlacedIds,
-    state.changedTiles,
-  );
+  readonly serverTick: number;
+}
+
+export function syncTorches({ state, torches, terrain, serverTick }: TorchSyncRequest): TorchSyncResult {
+  buildTorchFrame({ state, torches, serverTick });
+  const changedTiles = updatePlacedTorchTiles(state, state.placed);
   const terrainChanged = state.terrain !== terrain;
   state.terrain = terrain;
   if (terrainChanged || changedTiles.length > 0) {

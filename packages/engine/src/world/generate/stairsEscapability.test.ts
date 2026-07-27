@@ -17,6 +17,26 @@ import { CHUNK_RANGE, FLOOR, SEEDS } from "./stairsInvariant.test.js";
 
 /** Any floor at or below this sits in a deliberate sunken (pit) variant, not a small lip. */
 const SUNKEN_THRESHOLD = -STEP_UP;
+type GridPoint = readonly [number, number];
+const GRID_DIRECTIONS: GridPoint[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+function pitLandingsInChunk(input: { seed: number; world: World; cx: number; cy: number }): WorldPoint[] {
+  const { seed, world, cx, cy } = input;
+  const chunk = generateChunk({ worldSeed: seed, floor: FLOOR, cx, cy });
+  return Array.from(chunk.tiles).flatMap((tile, index) => landingAtStair({ tile, index, world, cx, cy }));
+}
+
+function landingAtStair(input: { tile: number; index: number; world: World; cx: number; cy: number }): WorldPoint[] {
+  if (input.tile !== TILE.Stairs) return [];
+  const x = input.cx * CHUNK_SIZE + input.index % CHUNK_SIZE;
+  const y = input.cy * CHUNK_SIZE + Math.floor(input.index / CHUNK_SIZE);
+  const direction = entryClimbDir(input.world, x, y);
+  if (direction === null) return [];
+  const [dx, dy] = CLIMB_DIRS[direction] as GridPoint;
+  const landing = { x: x - dx, y: y - dy };
+  const height = input.world.heightAt(landing.x, landing.y);
+  return height < SUNKEN_THRESHOLD && height > CHASM_DEATH_Z ? [landing] : [];
+}
 
 /**
  * The low-side landing of every pit ramp found in the scanned region: for
@@ -37,25 +57,12 @@ const SUNKEN_THRESHOLD = -STEP_UP;
 function findPitRampLandings(seed: number, world: World): WorldPoint[] {
   const landings: WorldPoint[] = [];
   const seen = new Set<string>();
-  forEachChunkCoord(CHUNK_RANGE, (cx, cy) => {
-    if (isSafeRoomChunk(seed, FLOOR, cx, cy) || isStairsChunk(seed, FLOOR, cx, cy)) return;
-    const chunk = generateChunk(seed, FLOOR, cx, cy);
-    for (let i = 0; i < chunk.tiles.length; i++) {
-      if (chunk.tiles[i] !== TILE.Stairs) continue;
-      const lx = i % CHUNK_SIZE;
-      const ly = (i - lx) / CHUNK_SIZE;
-      const wx = cx * CHUNK_SIZE + lx;
-      const wy = cy * CHUNK_SIZE + ly;
-      const dir = entryClimbDir(world, wx, wy);
-      if (dir === null) continue;
-      const [dx, dy] = CLIMB_DIRS[dir] as [number, number];
-      const landing = { x: wx - dx, y: wy - dy };
-      const h = world.heightAt(landing.x, landing.y);
-      if (h >= SUNKEN_THRESHOLD || h <= CHASM_DEATH_Z) continue;
+  forEachChunkCoord(CHUNK_RANGE, ({ cx, cy }) => {
+    const worldChunk = { worldSeed: seed, floor: FLOOR, cx, cy };
+    if (isSafeRoomChunk(worldChunk) || isStairsChunk(worldChunk)) return;
+    for (const landing of pitLandingsInChunk({ seed, world, cx, cy })) {
       const key = `${landing.x},${landing.y}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      landings.push(landing);
+      if (!seen.has(key)) { seen.add(key); landings.push(landing); }
     }
   });
   return landings;
@@ -63,6 +70,25 @@ function findPitRampLandings(seed: number, world: World): WorldPoint[] {
 
 const ESCAPE_STEP = 0.2; // sub-tile resolution: coarse whole-tile hops miss a real single-tile ramp's climb
 const ESCAPE_RADIUS = 16; // tiles: a pit's escape route is always local (one room + its doorway)
+
+function gridToWorld(start: WorldPoint, [x, y]: GridPoint): WorldPoint {
+  return { x: start.x + 0.5 + x * ESCAPE_STEP, y: start.y + 0.5 + y * ESCAPE_STEP };
+}
+
+function canEnterGridPoint(input: { world: World; start: WorldPoint; currentHeight: number; max: number; visited: Set<string>; point: GridPoint }): boolean {
+  const [x, y] = input.point;
+  if (input.visited.has(`${x},${y}`) || Math.abs(x) > input.max || Math.abs(y) > input.max) return false;
+  const point = gridToWorld(input.start, input.point);
+  const tileX = Math.floor(point.x);
+  const tileY = Math.floor(point.y);
+  if (!input.world.isWalkable(tileX, tileY)) return false;
+  return input.world.tileAt(tileX, tileY) === TILE.Stairs || input.world.groundAt(point.x, point.y) - input.currentHeight <= STEP_UP;
+}
+
+function escapeNeighbors(input: { world: World; start: WorldPoint; currentHeight: number; max: number; visited: Set<string>; point: GridPoint }): GridPoint[] {
+  const [x, y] = input.point;
+  return GRID_DIRECTIONS.map(([dx, dy]) => [x + dx, y + dy] as GridPoint).filter((point) => canEnterGridPoint({ ...input, point }));
+}
 
 /**
  * Fine-grained flood-fill from `start` using the REAL continuous ground
@@ -82,37 +108,18 @@ const ESCAPE_RADIUS = 16; // tiles: a pit's escape route is always local (one ro
  * rule a future coarser probe or a steeper authored slope would need.
  */
 function canEscapeSunken(world: World, start: WorldPoint, targetHeight: number): boolean {
-  const toWorld = (gx: number, gy: number): WorldPoint => ({
-    x: start.x + 0.5 + gx * ESCAPE_STEP,
-    y: start.y + 0.5 + gy * ESCAPE_STEP,
-  });
   const maxG = Math.round(ESCAPE_RADIUS / ESCAPE_STEP);
   const visited = new Set<string>(["0,0"]);
-  const queue: Array<[number, number]> = [[0, 0]];
+  const queue: GridPoint[] = [[0, 0]];
   let head = 0;
   while (head < queue.length) {
-    const [gx, gy] = queue[head++] as [number, number];
-    const p = toWorld(gx, gy);
+    const current = queue[head++] as GridPoint;
+    const p = gridToWorld(start, current);
     const h = world.groundAt(p.x, p.y);
     if (h >= targetHeight) return true;
-    for (const [dx, dy] of [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ] as const) {
-      const ngx = gx + dx;
-      const ngy = gy + dy;
-      const key = `${ngx},${ngy}`;
-      if (visited.has(key) || Math.abs(ngx) > maxG || Math.abs(ngy) > maxG) continue;
-      const np = toWorld(ngx, ngy);
-      const ntx = Math.floor(np.x);
-      const nty = Math.floor(np.y);
-      if (!world.isWalkable(ntx, nty)) continue;
-      const glued = world.tileAt(ntx, nty) === TILE.Stairs;
-      if (!glued && world.groundAt(np.x, np.y) - h > STEP_UP) continue;
-      visited.add(key);
-      queue.push([ngx, ngy]);
+    for (const next of escapeNeighbors({ world, start, currentHeight: h, max: maxG, visited, point: current })) {
+      visited.add(`${next[0]},${next[1]}`);
+      queue.push(next);
     }
   }
   return false;
@@ -155,7 +162,7 @@ describe("no walkable stair's low anchor sits at or below CHASM_DEATH_Z", () => 
   for (const seed of SEEDS) {
     it(`holds for seed ${seed}`, () => {
       const world = new World(seed, FLOOR);
-      for (const { x, y } of scanStairs(seed, FLOOR, CHUNK_RANGE)) {
+      for (const { x, y } of scanStairs({ seed, floor: FLOOR, chunkRange: CHUNK_RANGE })) {
         const dir = entryClimbDir(world, x, y);
         if (dir === null) continue;
         const [dx, dy] = CLIMB_DIRS[dir] as [number, number];

@@ -59,6 +59,15 @@ export function hitPlausiblyFromSwing(swing: PendingSwing, hitX: number, hitY: n
  * timeout later elapses. Prefers the most recently started matching swing.
  */
 export function resolveHitAgainstPending(pending: Map<string, PendingSwing>, hitX: number, hitY: number): void {
+  const bestId = latestPlausibleSwingId(pending, hitX, hitY);
+  if (bestId !== null) pending.delete(bestId);
+}
+
+function latestPlausibleSwingId(
+  pending: ReadonlyMap<string, PendingSwing>,
+  hitX: number,
+  hitY: number,
+): string | null {
   let bestId: string | null = null;
   let bestStart = -Infinity;
   for (const [id, swing] of pending) {
@@ -67,7 +76,7 @@ export function resolveHitAgainstPending(pending: Map<string, PendingSwing>, hit
     bestId = id;
     bestStart = swing.startedAtMs;
   }
-  if (bestId !== null) pending.delete(bestId);
+  return bestId;
 }
 
 /** Removes and returns every pending swing whose WHIFF_TIMEOUT_MS has elapsed without a

@@ -71,23 +71,26 @@ export class RotationController {
     if (!this.tween) return;
     this.tween = advanceRotationTween(this.tween, dtMs);
     if (!this.swapped && isPastCrossfadeMidpoint(this.tween)) {
-      // Lean-then-SNAP: the swap ends the whole tween in the same instant — camera
-      // rotation returns to exactly 0, the content lands in the new orientation, and
-      // there is no post-swap animation to unwind (user directive; the old second
-      // half read as a "crazy twister").
-      this.swapped = true;
-      setViewOrientation(this.tween.to);
-      invalidate();
-      this.tween = null;
-      // Chain the queued step immediately — held-key continuous spin.
-      if (this.pendingDir !== null) {
-        const dir = this.pendingDir;
-        this.pendingDir = null;
-        this.request(dir);
-      }
+      this.completeSwap(invalidate);
       return;
     }
     if (isRotationTweenDone(this.tween)) this.tween = null;
+  }
+
+  private completeSwap(invalidate: () => void): void {
+    if (!this.tween) return;
+    this.swapped = true;
+    setViewOrientation(this.tween.to);
+    invalidate();
+    this.tween = null;
+    this.startPendingRotation();
+  }
+
+  private startPendingRotation(): void {
+    if (this.pendingDir === null) return;
+    const direction = this.pendingDir;
+    this.pendingDir = null;
+    this.request(direction);
   }
 
   /** This frame's cosmetic camera spin, in radians — 0 while idle. */

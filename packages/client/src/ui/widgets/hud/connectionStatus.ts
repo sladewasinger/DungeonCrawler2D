@@ -39,6 +39,17 @@ const BAD_COLOR = 0xe04a4a; // blood/damage
 const NEUTRAL_TEXT_COLOR = "#e8e8e8";
 const DIM_TEXT_COLOR = "#9a9aae";
 
+export interface ConnectionStatusUpdate {
+  pingMs: number;
+  connected: boolean;
+  fpsSample: number;
+  coords: TileCoords;
+  seed: string | null;
+  floor: number;
+  biome: BiomeKind | null;
+  headingDeg: number;
+}
+
 function colorHex(color: number): string {
   return `#${color.toString(16).padStart(6, "0")}`;
 }
@@ -93,7 +104,7 @@ export class ConnectionStatusWidget {
   }
 
   private buildRow(scene: Phaser.Scene, index: number, scale: number): Phaser.GameObjects.Text {
-    return scene.add.text(TEXT_X, rowY(index), "", uiTextStyle(ROW_TEXT_SIZE, undefined, scale)).setOrigin(1, 0.5);
+    return scene.add.text(TEXT_X, rowY(index), "", uiTextStyle(ROW_TEXT_SIZE, undefined, { scale })).setOrigin(1, 0.5);
   }
 
   toggle(): void {
@@ -101,19 +112,14 @@ export class ConnectionStatusWidget {
     this.container.setVisible(this.telemetryOn);
   }
 
-  update(
-    pingMs: number,
-    connected: boolean,
-    fpsSample: number,
-    coords: TileCoords,
-    seed: string | null,
-    floor: number,
-    biome: BiomeKind | null,
-    headingDeg: number,
-  ): void {
+  update(input: ConnectionStatusUpdate): void {
     // Still tracked while hidden so the FPS smoothing window isn't cold the moment [F3] opens it.
-    const fps = this.smoothedFps(fpsSample);
+    const fps = this.smoothedFps(input.fpsSample);
     if (!this.telemetryOn) return;
+    this.updateRows(input, fps);
+  }
+
+  private updateRows({ pingMs, connected, coords, seed, floor, biome, headingDeg }: ConnectionStatusUpdate, fps: number): void {
     const [ping, fpsRow, coordsRow, floorRow, biomeRow, headingRow, seedRow, buildRow] = this.rows as [
       Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,

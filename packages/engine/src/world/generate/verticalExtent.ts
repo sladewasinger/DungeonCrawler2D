@@ -13,6 +13,12 @@ import { TILE, TOPOLOGY } from "../types.js";
 const HEIGHT_EPS = 0.01;
 const MAX_PASSES = 4;
 
+interface HeightGrid {
+  tiles: Uint8Array;
+  height: Float32Array;
+  chunkSize: number;
+}
+
 const DOOR_TILES: ReadonlySet<number> = new Set([
   TILE.DoorSafeRoom,
   TILE.DoorPersonal,
@@ -20,7 +26,7 @@ const DOOR_TILES: ReadonlySet<number> = new Set([
   TILE.DoorExit,
 ]);
 
-function tileAt(tiles: Uint8Array, chunkSize: number, x: number, y: number): number {
+function tileAt({ tiles, chunkSize, x, y }: Pick<HeightGrid, "tiles" | "chunkSize"> & { x: number; y: number }): number {
   return tiles[y * chunkSize + x] ?? TOPOLOGY.Uncarved;
 }
 
@@ -30,9 +36,9 @@ function isRunBreak(tile: number): boolean {
 }
 
 /** The last row (inclusive) of the contiguous TOPOLOGY.Uncarved run starting at (x, y). */
-function wallRunEnd(tiles: Uint8Array, chunkSize: number, x: number, y: number): number {
+function wallRunEnd({ tiles, chunkSize, x, y }: Pick<HeightGrid, "tiles" | "chunkSize"> & { x: number; y: number }): number {
   let y2 = y;
-  while (y2 + 1 < chunkSize && tileAt(tiles, chunkSize, x, y2 + 1) === TOPOLOGY.Uncarved) y2++;
+  while (y2 + 1 < chunkSize && tileAt({ tiles, chunkSize, x, y: y2 + 1 }) === TOPOLOGY.Uncarved) y2++;
   return y2;
 }
 
@@ -46,45 +52,46 @@ function wallRunEnd(tiles: Uint8Array, chunkSize: number, x: number, y: number):
  * can't sever a room or corridor.
  */
 export function resolveThinWalls(tiles: Uint8Array, chunkSize: number): void {
-  for (let x = 0; x < chunkSize; x++) {
-    let y = 0;
-    while (y < chunkSize) {
-      if (tileAt(tiles, chunkSize, x, y) !== TOPOLOGY.Uncarved) {
-        y++;
-        continue;
-      }
-      const y2 = wallRunEnd(tiles, chunkSize, x, y);
-      const northOpen = y > 0 && tileAt(tiles, chunkSize, x, y - 1) !== TOPOLOGY.Uncarved;
-      const southOpen = y2 < chunkSize - 1 && tileAt(tiles, chunkSize, x, y2 + 1) !== TOPOLOGY.Uncarved;
-      const isThin = y2 - y + 1 < 2;
-      if (isThin && northOpen && southOpen) {
-        for (let yy = y; yy <= y2; yy++) tiles[yy * chunkSize + x] = TILE.Floor;
-      }
-      y = y2 + 1;
-    }
+  for (let x = 0; x < chunkSize; x++) resolveThinWallsColumn({ tiles, chunkSize, x });
+}
+
+function resolveThinWallsColumn({ tiles, chunkSize, x }: { tiles: Uint8Array; chunkSize: number; x: number }): void {
+  for (let y = 0; y < chunkSize;) {
+    const run = thinWallRunAt({ tiles, chunkSize, x, y });
+    if (run) replaceWallRunWithFloor({ tiles, chunkSize, x, y, y2: run.y2 });
+    y = run ? run.y2 + 1 : y + 1;
   }
 }
 
+function thinWallRunAt({ tiles, chunkSize, x, y }: { tiles: Uint8Array; chunkSize: number; x: number; y: number }): { y2: number } | null {
+  if (tileAt({ tiles, chunkSize, x, y }) !== TOPOLOGY.Uncarved) return null;
+  const y2 = wallRunEnd({ tiles, chunkSize, x, y });
+  return isThinWallRun({ tiles, chunkSize, x, y, y2 }) ? { y2 } : null;
+}
+
+function isThinWallRun({ tiles, chunkSize, x, y, y2 }: { tiles: Uint8Array; chunkSize: number; x: number; y: number; y2: number }): boolean {
+  const northOpen = y > 0 && tileAt({ tiles, chunkSize, x, y: y - 1 }) !== TOPOLOGY.Uncarved;
+  const southOpen = y2 < chunkSize - 1 && tileAt({ tiles, chunkSize, x, y: y2 + 1 }) !== TOPOLOGY.Uncarved;
+  return y2 === y && northOpen && southOpen;
+}
+
+function replaceWallRunWithFloor({ tiles, chunkSize, x, y, y2 }: { tiles: Uint8Array; chunkSize: number; x: number; y: number; y2: number }): void {
+  for (let yy = y; yy <= y2; yy++) tiles[yy * chunkSize + x] = TILE.Floor;
+}
+
 /** True when (x, y) can START a floor-plateau run: real floor, a whole-number height >= 1. */
-function startsPlateau(tiles: Uint8Array, height: Float32Array, chunkSize: number, x: number, y: number): boolean {
-  const t = tileAt(tiles, chunkSize, x, y);
+function startsPlateau({ tiles, height, chunkSize, x, y }: HeightGrid & { x: number; y: number }): boolean {
+  const t = tileAt({ tiles, chunkSize, x, y });
   const h = height[y * chunkSize + x] ?? 0;
   const rounded = Math.round(h);
   return !isRunBreak(t) && rounded >= 1 && Math.abs(h - rounded) <= HEIGHT_EPS;
 }
 
 /** The last row (inclusive) of the same-height plateau run starting at (x, y0) with height h. */
-function plateauRunEnd(
-  tiles: Uint8Array,
-  height: Float32Array,
-  chunkSize: number,
-  x: number,
-  y0: number,
-  h: number,
-): number {
+function plateauRunEnd({ tiles, height, chunkSize, x, y0, h }: HeightGrid & { x: number; y0: number; h: number }): number {
   let y2 = y0;
   while (y2 + 1 < chunkSize) {
-    const nt = tileAt(tiles, chunkSize, x, y2 + 1);
+    const nt = tileAt({ tiles, chunkSize, x, y: y2 + 1 });
     const nh = height[(y2 + 1) * chunkSize + x] ?? 0;
     if (isRunBreak(nt) || Math.abs(nh - h) > HEIGHT_EPS) break;
     y2++;
@@ -93,31 +100,18 @@ function plateauRunEnd(
 }
 
 /** One column's next same-height plateau run at/after `y0`, or null past the chunk edge. */
-function nextFloorRun(
-  tiles: Uint8Array,
-  height: Float32Array,
-  chunkSize: number,
-  x: number,
-  y0: number,
-): { y: number; y2: number; h: number } | null {
+function nextFloorRun({ tiles, height, chunkSize, x, y0 }: HeightGrid & { x: number; y0: number }): { y: number; y2: number; h: number } | null {
   let y = y0;
-  while (y < chunkSize && !startsPlateau(tiles, height, chunkSize, x, y)) y++;
+  while (y < chunkSize && !startsPlateau({ tiles, height, chunkSize, x, y })) y++;
   if (y >= chunkSize) return null;
   const rounded = Math.round(height[y * chunkSize + x] ?? 0);
-  return { y, y2: plateauRunEnd(tiles, height, chunkSize, x, y, rounded), h: rounded };
+  return { y, y2: plateauRunEnd({ tiles, height, chunkSize, x, y0: y, h: rounded }), h: rounded };
 }
 
 /** Whether a run of height `h` ending at `y2` drops to genuinely open ground just south of it. */
-function dropsToOpenGround(
-  tiles: Uint8Array,
-  height: Float32Array,
-  chunkSize: number,
-  x: number,
-  y2: number,
-  h: number,
-): boolean {
+function dropsToOpenGround({ tiles, height, chunkSize, x, y2, h }: HeightGrid & { x: number; y2: number; h: number }): boolean {
   if (y2 >= chunkSize - 1) return false; // chunk-edge truncated: true depth unknown, leave it
-  const southT = tileAt(tiles, chunkSize, x, y2 + 1);
+  const southT = tileAt({ tiles, chunkSize, x, y: y2 + 1 });
   const southH = height[(y2 + 1) * chunkSize + x] ?? 0;
   return !isRunBreak(southT) && h - southH >= WALL_FACE_MIN_DROP;
 }
@@ -135,22 +129,27 @@ function dropsToOpenGround(
  */
 function resolveShallowPlateausOnce(tiles: Uint8Array, height: Float32Array, chunkSize: number): boolean {
   let changed = false;
-  for (let x = 0; x < chunkSize; x++) {
-    let y = 0;
-    let run = nextFloorRun(tiles, height, chunkSize, x, y);
-    while (run) {
-      const depth = run.y2 - run.y + 1;
-      const shallow = depth < run.h + 1 && dropsToOpenGround(tiles, height, chunkSize, x, run.y2, run.h);
-      if (shallow) {
-        const capped = Math.max(0, depth - 1);
-        for (let yy = run.y; yy <= run.y2; yy++) height[yy * chunkSize + x] = capped;
-        changed = true;
-      }
-      y = run.y2 + 1;
-      run = nextFloorRun(tiles, height, chunkSize, x, y);
-    }
+  for (let x = 0; x < chunkSize; x++) changed = resolveShallowPlateausColumn({ tiles, height, chunkSize, x }) || changed;
+  return changed;
+}
+
+function resolveShallowPlateausColumn({ tiles, height, chunkSize, x }: HeightGrid & { x: number }): boolean {
+  let changed = false;
+  for (let y = 0; y < chunkSize;) {
+    const run = nextFloorRun({ tiles, height, chunkSize, x, y0: y });
+    if (!run) return changed;
+    changed = capShallowRun({ tiles, height, chunkSize, x, run }) || changed;
+    y = run.y2 + 1;
   }
   return changed;
+}
+
+function capShallowRun({ tiles, height, chunkSize, x, run }: HeightGrid & { x: number; run: { y: number; y2: number; h: number } }): boolean {
+  const depth = run.y2 - run.y + 1;
+  if (depth >= run.h + 1 || !dropsToOpenGround({ tiles, height, chunkSize, x, y2: run.y2, h: run.h })) return false;
+  const capped = Math.max(0, depth - 1);
+  for (let y = run.y; y <= run.y2; y++) height[y * chunkSize + x] = capped;
+  return true;
 }
 
 export function resolveShallowPlateaus(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {

@@ -1,32 +1,40 @@
 import type { LightSource } from "./lightSource.js";
 
 export function selectFrameLights(
-  chunkLights: Iterable<readonly LightSource[]>,
-  accentLights: readonly LightSource[],
-  centerX: number,
-  centerY: number,
-  personalLight: LightSource | null,
-  maxLights: number,
-  candidates: LightSource[],
-  selected: LightSource[],
+  input: FrameLightSelectionInput,
 ): LightSource[] {
-  candidates.length = 0;
-  for (const lights of chunkLights) candidates.push(...lights);
-  candidates.push(...accentLights);
-  candidates.sort(
-    (left, right) =>
-      distanceSquared(left, centerX, centerY) -
-      distanceSquared(right, centerX, centerY),
-  );
+  collectCandidates(input);
+  sortCandidates(input);
+  return selectCappedLights(input);
+}
 
-  selected.length = 0;
-  const nonPersonalLimit = Math.max(0, maxLights - (personalLight ? 1 : 0));
-  for (let index = 0; index < candidates.length && index < nonPersonalLimit; index++) {
-    const light = candidates[index];
-    if (light) selected.push(light);
-  }
-  if (personalLight) selected.push(personalLight);
-  return selected;
+export interface FrameLightSelectionInput {
+  readonly chunkLights: Iterable<readonly LightSource[]>;
+  readonly accentLights: readonly LightSource[];
+  readonly center: Readonly<{ x: number; y: number }>;
+  readonly personalLight: LightSource | null;
+  readonly maxLights: number;
+  readonly candidates: LightSource[];
+  readonly selected: LightSource[];
+}
+
+function collectCandidates(input: FrameLightSelectionInput): void {
+  input.candidates.length = 0;
+  for (const lights of input.chunkLights) input.candidates.push(...lights);
+  input.candidates.push(...input.accentLights);
+}
+
+function sortCandidates(input: FrameLightSelectionInput): void {
+  input.candidates.sort((left, right) =>
+    distanceSquared(left, input.center) - distanceSquared(right, input.center));
+}
+
+function selectCappedLights(input: FrameLightSelectionInput): LightSource[] {
+  input.selected.length = 0;
+  const limit = Math.max(0, input.maxLights - Number(Boolean(input.personalLight)));
+  for (const light of input.candidates.slice(0, limit)) input.selected.push(light);
+  if (input.personalLight) input.selected.push(input.personalLight);
+  return input.selected;
 }
 
 export function collectTorchLights(
@@ -51,10 +59,9 @@ function appendTorches(
 
 function distanceSquared(
   light: LightSource,
-  centerX: number,
-  centerY: number,
+  center: Readonly<{ x: number; y: number }>,
 ): number {
-  const dx = light.x - centerX;
-  const dy = light.y - centerY;
+  const dx = light.x - center.x;
+  const dy = light.y - center.y;
   return dx * dx + dy * dy;
 }

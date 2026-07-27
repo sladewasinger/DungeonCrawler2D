@@ -28,12 +28,19 @@ export interface DisconnectedActorLabel extends RemoteActorLabelView {
   scale: { set(x: number, y: number, z: number): void };
 }
 
-export function syncReconnectPresentation(
-  actor: ReconnectActor,
-  existingLabel: DisconnectedActorLabel | undefined,
-  disconnected: boolean,
-  height: number,
-): DisconnectedActorLabel {
+export interface ReconnectPresentationInput {
+  actor: ReconnectActor;
+  existingLabel: DisconnectedActorLabel | undefined;
+  disconnected: boolean;
+  height: number;
+}
+
+export function syncReconnectPresentation({
+  actor,
+  existingLabel,
+  disconnected,
+  height,
+}: ReconnectPresentationInput): DisconnectedActorLabel {
   const label = existingLabel ?? createDisconnectedLabel(height);
   actor.traverse((node) => applyReconnectMaterial(node, label, disconnected));
   if (!label.parent) actor.add(label);

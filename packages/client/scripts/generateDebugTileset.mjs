@@ -52,7 +52,7 @@ function drawFloor(canvas, ox, oy) {
 }
 
 /** Crisp `thickness`-px lines every LINE_GAP_PX, spanning the tile perpendicular to `axis`. */
-function drawStairLines(canvas, ox, oy, axis) {
+function drawStairLines(canvas, { ox, oy, axis }) {
   canvas.fillRect(ox, oy, TILE_PX, TILE_PX, FLOOR_GRAY);
   for (let pos = LINE_GAP_PX; pos < TILE_PX; pos += LINE_GAP_PX) {
     if (axis === "horizontal") canvas.fillRect(ox, oy + pos, TILE_PX, LINE_PX, BLACK);
@@ -60,7 +60,7 @@ function drawStairLines(canvas, ox, oy, axis) {
   }
 }
 
-function drawWallVariant(canvas, ox, oy, mask4) {
+function drawWallVariant(canvas, { ox, oy, mask4 }) {
   canvas.fillRect(ox, oy, TILE_PX, TILE_PX, WALL_PURPLE_GRAY);
   const edges = edgesForMask4(mask4);
   if (edges.north) canvas.fillRect(ox, oy, TILE_PX, BORDER_PX, BLACK);
@@ -72,21 +72,33 @@ function drawWallVariant(canvas, ox, oy, mask4) {
 /** True when (rx, ry) — coordinates relative to a `w`x`h` box — falls inside a rect
  * whose corners are rounded to `radius`: the plus-shaped core, or within `radius` of
  * whichever corner circle center is nearest. */
-function insideRoundedRect(rx, ry, w, h, radius) {
-  if (rx >= radius && rx < w - radius) return true;
-  if (ry >= radius && ry < h - radius) return true;
-  const cx = rx < radius ? radius : w - radius - 1;
-  const cy = ry < radius ? radius : h - radius - 1;
+function insideRoundedRect({ rx, ry, width, height, radius }) {
+  if (isInsideRoundedCore({ rx, ry, width, height, radius })) return true;
+  const cx = nearestCornerCoordinate(rx, width, radius);
+  const cy = nearestCornerCoordinate(ry, height, radius);
   const dx = rx - cx;
   const dy = ry - cy;
   return dx * dx + dy * dy <= radius * radius;
 }
 
-function fillRoundedRect(canvas, x, y, w, h, radius, rgba) {
-  for (let ry = 0; ry < h; ry++) {
-    for (let rx = 0; rx < w; rx++) {
-      if (insideRoundedRect(rx, ry, w, h, radius)) canvas.setPixel(x + rx, y + ry, rgba);
-    }
+function isInsideRoundedCore({ rx, ry, width, height, radius }) {
+  return (rx >= radius && rx < width - radius) ||
+    (ry >= radius && ry < height - radius);
+}
+
+function nearestCornerCoordinate(value, length, radius) {
+  return value < radius ? radius : length - radius - 1;
+}
+
+function fillRoundedRect(canvas, { x, y, width, height, radius, rgba }) {
+  for (let ry = 0; ry < height; ry++) {
+    fillRoundedRow(canvas, { x, y: y + ry, width, ry, height, radius, rgba });
+  }
+}
+
+function fillRoundedRow(canvas, { x, y, width, ry, height, radius, rgba }) {
+  for (let rx = 0; rx < width; rx++) {
+    if (insideRoundedRect({ rx, ry, width, height, radius })) canvas.setPixel(x + rx, y, rgba);
   }
 }
 
@@ -101,18 +113,21 @@ function drawDoor(canvas, ox, oy) {
   canvas.fillRect(ox, oy, TILE_PX, TILE_PX, FLOOR_GRAY);
   const doorW = TILE_PX - DOOR_MARGIN_PX * 2;
   const doorH = TILE_PX - DOOR_MARGIN_PX * 2;
-  fillRoundedRect(canvas, ox + DOOR_MARGIN_PX, oy + DOOR_MARGIN_PX, doorW, doorH, DOOR_RADIUS_PX, DOOR_BROWN);
-  // Arch line: the upper half of a circle centered a bit below the door's top edge.
-  const archCx = ox + TILE_PX / 2;
-  const archCy = oy + DOOR_MARGIN_PX + ARCH_RADIUS_PX + 1;
+  fillRoundedRect(canvas, { x: ox + DOOR_MARGIN_PX, y: oy + DOOR_MARGIN_PX, width: doorW, height: doorH, radius: DOOR_RADIUS_PX, rgba: DOOR_BROWN });
+  drawDoorArch(canvas, { x: ox + TILE_PX / 2, y: oy + DOOR_MARGIN_PX + ARCH_RADIUS_PX + 1 });
+}
+
+function drawDoorArch(canvas, { x, y }) {
   for (let dy = -ARCH_RADIUS_PX; dy <= 0; dy++) {
     for (let dx = -ARCH_RADIUS_PX; dx <= ARCH_RADIUS_PX; dx++) {
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (Math.abs(dist - ARCH_RADIUS_PX) <= ARCH_LINE_PX / 2) {
-        canvas.setPixel(Math.round(archCx + dx), Math.round(archCy + dy), DOOR_BROWN_DARK);
-      }
+      setDoorArchPixel(canvas, { x, y, dx, dy });
     }
   }
+}
+
+function setDoorArchPixel(canvas, { x, y, dx, dy }) {
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  if (Math.abs(distance - ARCH_RADIUS_PX) <= ARCH_LINE_PX / 2) canvas.setPixel(Math.round(x + dx), Math.round(y + dy), DOOR_BROWN_DARK);
 }
 
 function frameOrigin(index) {
@@ -129,14 +144,14 @@ function run() {
   drawFloor(canvas, floorX, floorY);
 
   const { ox: nsX, oy: nsY } = frameOrigin(1);
-  drawStairLines(canvas, nsX, nsY, "horizontal");
+  drawStairLines(canvas, { ox: nsX, oy: nsY, axis: "horizontal" });
 
   const { ox: ewX, oy: ewY } = frameOrigin(2);
-  drawStairLines(canvas, ewX, ewY, "vertical");
+  drawStairLines(canvas, { ox: ewX, oy: ewY, axis: "vertical" });
 
   for (let mask4 = 0; mask4 <= 15; mask4++) {
     const { ox, oy } = frameOrigin(3 + mask4);
-    drawWallVariant(canvas, ox, oy, mask4);
+    drawWallVariant(canvas, { ox, oy, mask4 });
   }
 
   const { ox: doorX, oy: doorY } = frameOrigin(3 + 16);

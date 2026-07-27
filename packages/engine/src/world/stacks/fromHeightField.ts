@@ -11,14 +11,21 @@ import { entryClimbDir, type StairView } from "../stairs.js";
 import { TILE, type TileType } from "../types.js";
 import { DEFAULT_FLOOR_CAP, TILE_FEATURE, type StackDir, type StackTile } from "./types.js";
 
-function stairView(tiles: Uint8Array, height: Float32Array, width: number, rows: number): StairView {
-  const at = (arr: Uint8Array | Float32Array, x: number, y: number, fallback: number): number => {
+interface HeightFieldInput {
+  tiles: Uint8Array;
+  height: Float32Array;
+  width: number;
+  rows: number;
+}
+
+function stairView({ tiles, height, width, rows }: HeightFieldInput): StairView {
+  const at = ({ array, x, y, fallback }: { array: Uint8Array | Float32Array; x: number; y: number; fallback: number }): number => {
     if (x < 0 || y < 0 || x >= width || y >= rows) return fallback;
-    return arr[y * width + x] ?? fallback;
+    return array[y * width + x] ?? fallback;
   };
   return {
-    tileAt: (x, y) => at(tiles, x, y, TILE.Void),
-    heightAt: (x, y) => at(height, x, y, 0),
+    tileAt: (x, y) => at({ array: tiles, x, y, fallback: TILE.Void }),
+    heightAt: (x, y) => at({ array: height, x, y, fallback: 0 }),
   };
 }
 
@@ -43,27 +50,22 @@ function stairDirAt(view: StairView, x: number, y: number): StackDir {
  * caught this). Interpolation stays available for the editor's fresh,
  * height-less paintStairsAt authoring only.
  */
-function tileToStack(tile: number, h: number, view: StairView, x: number, y: number): StackTile {
+function tileToStack({ tile, height, view, x, y }: { tile: number; height: number; view: StairView; x: number; y: number }): StackTile {
   const feature = TILE_FEATURE.get(tile as TileType);
-  if (feature) return { height: h, cap: DEFAULT_FLOOR_CAP, stair: null, feature };
-  if (tile === TILE.Stairs) return { height: h, cap: null, stair: { dir: stairDirAt(view, x, y), height: h } };
-  if (tile === TILE.Void) return { height: h, cap: null, stair: null };
-  return { height: h, cap: DEFAULT_FLOOR_CAP, stair: null };
+  if (feature) return { height, cap: DEFAULT_FLOOR_CAP, stair: null, feature };
+  if (tile === TILE.Stairs) return { height, cap: null, stair: { dir: stairDirAt(view, x, y), height } };
+  if (tile === TILE.Void) return { height, cap: null, stair: null };
+  return { height, cap: DEFAULT_FLOOR_CAP, stair: null };
 }
 
 /** Mechanical reverse mapping: finite floor at h -> height=h+cap, Void at h -> height=h no cap, stairs -> stair tiles. */
-export function heightFieldToStacks(
-  tiles: Uint8Array,
-  height: Float32Array,
-  width: number,
-  rows: number,
-): StackTile[] {
-  const view = stairView(tiles, height, width, rows);
+export function heightFieldToStacks({ tiles, height, width, rows }: HeightFieldInput): StackTile[] {
+  const view = stairView({ tiles, height, width, rows });
   const stacks: StackTile[] = new Array(width * rows);
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
-      stacks[i] = tileToStack(tiles[i] ?? TILE.Floor, height[i] ?? 0, view, x, y);
+      stacks[i] = tileToStack({ tile: tiles[i] ?? TILE.Floor, height: height[i] ?? 0, view, x, y });
     }
   }
   return stacks;

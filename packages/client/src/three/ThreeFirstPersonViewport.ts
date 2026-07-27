@@ -62,43 +62,55 @@ export class ThreeFirstPersonViewport {
   }
 
   render(frame: ViewportFrame): void {
-    this.cameraPlanar = safeCameraPosition(
-      frame.world,
-      this.cameraPlanar,
-      frame.state,
-    );
-    const cameraOffset = this.cameraMotion.update(
-      frame.state,
-      frame.elapsed,
-      frame.reducedMotion,
-    );
+    this.updateCamera(frame);
+    this.updateActors(frame);
+    this.updateEffects(frame);
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  private updateCamera(frame: ViewportFrame): void {
+    this.cameraPlanar = safeCameraPosition({
+      world: frame.world,
+      current: this.cameraPlanar,
+      desired: frame.state,
+    });
+    const cameraOffset = this.cameraMotion.update({
+      state: frame.state,
+      elapsed: frame.elapsed,
+      reducedMotion: frame.reducedMotion,
+    });
     this.camera.position.set(
       this.cameraPlanar.x,
       frame.state.y + EYE_HEIGHT + cameraOffset,
       this.cameraPlanar.z,
     );
     this.camera.rotation.set(frame.pitch, frame.yaw, 0);
+  }
+
+  private updateActors(frame: ViewportFrame): void {
     const interpolated = frame.connection.interpolated(frame.timeMs);
     this.remoteActors.update(interpolated, frame.elapsed);
-    this.worldEntities.update(
+    this.worldEntities.update({
       interpolated,
-      frame.timeMs,
-      frame.reducedMotion,
-      frame.connection.serverTick,
-      { x: frame.state.x, y: frame.state.z },
-    );
-    this.areaEffects.update(
-      frame.connection,
-      frame.world,
-      frame.timeMs,
-      frame.reducedMotion,
-    );
+      timeMs: frame.timeMs,
+      reducedMotion: frame.reducedMotion,
+      serverTick: frame.connection.serverTick,
+      self: { x: frame.state.x, y: frame.state.z },
+    });
+  }
+
+  private updateEffects(frame: ViewportFrame): void {
+    this.areaEffects.update({
+      connection: frame.connection,
+      world: frame.world,
+      timeMs: frame.timeMs,
+      reducedMotion: frame.reducedMotion,
+    });
     this.ambientMotes.update(
       frame.timeMs,
       this.camera.position,
       frame.reducedMotion,
     );
-    this.renderer.render(this.scene, this.camera);
   }
 
   setViewDistance(viewDistance: ViewDistance): void {

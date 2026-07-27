@@ -14,8 +14,8 @@ import type { Terrain4QuarterTurn, Terrain4QuadVertices } from "./terrainPlanner
 
 export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw, image: { readonly width: number; readonly height: number }): void {
   const frame = "columns" in draw.atlas
-    ? terrain4CliffAtlasFrame(draw.atlas, draw.role as Terrain4CliffTileRole, draw.variant, image.width, image.height)
-    : terrain4AtlasFrame(draw.atlas, draw.role as Terrain4TileRole, draw.variant, image.width, image.height);
+    ? terrain4CliffAtlasFrame({ set: draw.atlas, role: draw.role as Terrain4CliffTileRole, variant: draw.variant, image })
+    : terrain4AtlasFrame({ set: draw.atlas, role: draw.role as Terrain4TileRole, variant: draw.variant, image });
   const base = batch.vertices.length / 4;
   const u0 = frame.x / image.width;
   // Phaser's Mesh2D samples V from the opposite edge of a PNG frame. Keep the
@@ -28,7 +28,7 @@ export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw
   const u1 = (frame.x + frame.width) / image.width;
   const v1 = (frame.y + frame.height * (1 - cropBottom)) / image.height;
   const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
-  const uv = rotatedUVs(u0, v0, u1, v1, draw.rotation ?? 0);
+  const uv = rotatedUVs({ u0, v0, u1, v1, rotation: draw.rotation ?? 0 });
   batch.vertices.push(
     topLeft.x, topLeft.y, uv[0]![0], uv[0]![1], topRight.x, topRight.y, uv[1]![0], uv[1]![1],
     bottomRight.x, bottomRight.y, uv[2]![0], uv[2]![1], bottomLeft.x, bottomLeft.y, uv[3]![0], uv[3]![1],
@@ -37,16 +37,16 @@ export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw
 }
 
 export function appendCliffDraws(target: Terrain4AtlasDraw[], quads: Terrain4Batches["cliffEdges"], options: Terrain4AtlasRenderOptions): void {
-  for (const quad of quads) {
-    const set = options.debug ? TERRAIN4_CLIFF_TILESETS.debug : TERRAIN4_CLIFF_TILESETS[options.biomeAt(quad.worldTile)];
-    const role: Terrain4CliffTileRole = quad.cliff === TERRAIN4_CLIFFS.Corner ? "cliff-corner" : "cliff-middle";
-    const variant = set.rowCount === 1 ? 0 : terrain4Variant(quad.worldTile.x, quad.worldTile.y);
-    target.push({
-      atlas: set, frame: terrain4CliffAtlasFrameName(set, role, variant), role, variant, phase: 1,
-      depth: depthForCapOccluder(quad.viewTile.y), rotation: quad.rotation,
-      points: projectQuad(quad.vertices, options.projection),
-    });
-  }
+  for (const quad of quads) appendCliffDraw(target, quad, options);
+}
+
+function appendCliffDraw(target: Terrain4AtlasDraw[], quad: Terrain4Batches["cliffEdges"][number], options: Terrain4AtlasRenderOptions): void {
+  const set = options.debug ? TERRAIN4_CLIFF_TILESETS.debug : TERRAIN4_CLIFF_TILESETS[options.biomeAt(quad.worldTile)];
+  const role: Terrain4CliffTileRole = quad.cliff === TERRAIN4_CLIFFS.Corner ? "cliff-corner" : "cliff-middle";
+  const variant = set.rowCount === 1 ? 0 : terrain4Variant(quad.worldTile.x, quad.worldTile.y);
+  target.push({ atlas: set, frame: terrain4CliffAtlasFrameName(set, role, variant), role, variant, phase: 1,
+    depth: depthForCapOccluder(quad.viewTile.y), rotation: quad.rotation,
+    points: projectQuad(quad.vertices, options.projection) });
 }
 
 const FACE_TILE_HEIGHT_EPSILON = 1e-6;
@@ -57,29 +57,36 @@ export function appendSouthFaceDraws(
   quads: Terrain4Batches["southFaces"],
   options: Terrain4AtlasRenderOptions,
 ): void {
-  for (const quad of quads) {
-    const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
-    const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
-    const span = quad.topHeight - quad.bottomHeight;
-    let segmentBottom = quad.bottomHeight;
-    let remaining = span;
-    while (remaining > FACE_TILE_HEIGHT_EPSILON) {
-      const segmentHeight = Math.min(1, remaining);
-      const segmentTop = segmentBottom + segmentHeight;
-      target.push({
-        atlas,
-        frame: terrain4AtlasFrameName(atlas, "south-face", variant),
-        role: "south-face",
-        variant,
-        phase: 2,
-        depth: depthForOccluder(quad.viewTile.y + 1),
-        uvCrop: segmentHeight >= 1 - FACE_TILE_HEIGHT_EPSILON ? undefined : { top: 0, bottom: segmentHeight },
-        points: projectQuad(southFaceSegment(quad.vertices, segmentTop, segmentBottom), options.projection),
-      });
-      segmentBottom = segmentTop;
-      remaining -= segmentHeight;
-    }
+  for (const quad of quads) appendSouthFaceQuad(target, quad, options);
+}
+
+function appendSouthFaceQuad(target: Terrain4AtlasDraw[], quad: Terrain4Batches["southFaces"][number], options: Terrain4AtlasRenderOptions): void {
+  const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
+  const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
+  let bottom = quad.bottomHeight;
+  for (let remaining = quad.topHeight - bottom; remaining > FACE_TILE_HEIGHT_EPSILON;) {
+    const height = Math.min(1, remaining);
+    appendSouthFaceSegment(target, { quad, atlas, variant, bottom, height, projection: options.projection });
+    bottom += height;
+    remaining -= height;
   }
+}
+
+interface SouthFaceSegmentRequest {
+  readonly quad: Terrain4Batches["southFaces"][number];
+  readonly atlas: (typeof TERRAIN4_TILESETS)[keyof typeof TERRAIN4_TILESETS];
+  readonly variant: 0 | 1;
+  readonly bottom: number;
+  readonly height: number;
+  readonly projection: Terrain4ScreenProjection;
+}
+
+function appendSouthFaceSegment(target: Terrain4AtlasDraw[], request: SouthFaceSegmentRequest): void {
+  const { quad, atlas, variant, bottom, height, projection } = request;
+  const uvCrop = height >= 1 - FACE_TILE_HEIGHT_EPSILON ? undefined : { top: 0, bottom: height };
+  target.push({ atlas, frame: terrain4AtlasFrameName(atlas, "south-face", variant), role: "south-face", variant,
+    phase: 2, depth: depthForOccluder(quad.viewTile.y + 1), ...(uvCrop === undefined ? {} : { uvCrop }),
+    points: projectQuad(southFaceSegment(quad.vertices, bottom + height, bottom), projection) });
 }
 
 function southFaceSegment(
@@ -95,7 +102,15 @@ function southFaceSegment(
   ];
 }
 
-function rotatedUVs(u0: number, v0: number, u1: number, v1: number, rotation: Terrain4QuarterTurn): readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]] {
+interface UvBounds {
+  readonly u0: number;
+  readonly v0: number;
+  readonly u1: number;
+  readonly v1: number;
+  readonly rotation: Terrain4QuarterTurn;
+}
+
+function rotatedUVs({ u0, v0, u1, v1, rotation }: UvBounds): readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]] {
   switch (rotation) {
     case 90: return [[u0, v1], [u0, v0], [u1, v0], [u1, v1]];
     case 180: return [[u1, v1], [u0, v1], [u0, v0], [u1, v0]];

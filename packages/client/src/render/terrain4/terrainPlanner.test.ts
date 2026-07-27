@@ -160,18 +160,11 @@ describe("planTerrain4", () => {
   });
 });
 
-function raisedAndViewSouth(orientation: ViewOrientation): {
-  raised: { x: number; y: number };
-  south: { x: number; y: number };
-} {
+function raisedAndViewSouth(orientation: ViewOrientation): { raised: { x: number; y: number }; south: { x: number; y: number } } {
   switch (orientation) {
-    case 0:
-      return { raised: { x: 10, y: 10 }, south: { x: 10, y: 11 } };
-    case 90:
-      return { raised: { x: 10, y: 10 }, south: { x: 9, y: 10 } };
-    case 180:
-      return { raised: { x: 10, y: 10 }, south: { x: 10, y: 9 } };
-    case 270:
-      return { raised: { x: 10, y: 10 }, south: { x: 11, y: 10 } };
+    case 0: return { raised: { x: 10, y: 10 }, south: { x: 10, y: 11 } };
+    case 90: return { raised: { x: 10, y: 10 }, south: { x: 9, y: 10 } };
+    case 180: return { raised: { x: 10, y: 10 }, south: { x: 10, y: 9 } };
+    case 270: return { raised: { x: 10, y: 10 }, south: { x: 11, y: 10 } };
   }
 }

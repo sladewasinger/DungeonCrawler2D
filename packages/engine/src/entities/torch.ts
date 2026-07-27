@@ -21,12 +21,12 @@ export interface TorchLaunch {
  * A zero-length vector defaults to straight "north" rather than throwing
  * nowhere.
  */
-export function launchTorch(
-  world: WorldView,
-  from: { x: number; y: number; z: number },
-  dirX: number,
-  dirY: number,
-): TorchLaunch {
+export function launchTorch({ world, from, direction }: {
+  world: WorldView;
+  from: { x: number; y: number; z: number };
+  direction: { x: number; y: number };
+}): TorchLaunch {
+  const { x: dirX, y: dirY } = direction;
   const length = Math.hypot(dirX, dirY);
   const nx = length > 0 ? dirX / length : 0;
   const ny = length > 0 ? dirY / length : -1;

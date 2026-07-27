@@ -36,7 +36,10 @@ export function openSocket(conn: Connection): void {
   if (previous && previous.readyState < WebSocket.CLOSING) previous.close();
   const ws = new WebSocket(conn.url);
   conn.ws = ws;
+  attachSocketHandlers(conn, ws);
+}
 
+function attachSocketHandlers(conn: Connection, ws: WebSocket): void {
   ws.onopen = () => {
     if (conn.ws !== ws) return;
     const resumeToken = loadResumeToken(conn.level);

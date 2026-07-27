@@ -7,7 +7,7 @@ describe("MotionSampleBuffer", () => {
     const identities = new Set<object>();
 
     for (let frame = 0; frame < 1_000; frame++) {
-      const current = buffer.begin(frame, -frame, frame % 2 === 0, 1);
+      const current = buffer.begin({ x: frame, y: -frame, air: frame % 2 === 0, faceX: 1 });
       identities.add(current);
       if (frame > 0) {
         expect(buffer.previous?.x).toBe(frame - 1);

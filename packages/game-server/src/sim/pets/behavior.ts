@@ -25,34 +25,41 @@ const PET_SPAWN_OFFSETS = [
 
 /** Seed one of each current companion around floor 1's shared spawn area. */
 export function seedPets(sim: SimState): void {
-  if (sim.world.floor !== 1 || sim.world.level !== LEVEL.Dungeon) return;
+  if (!isPetSpawnFloor(sim)) return;
   const anchor = resolveSpawnAnchor(sim);
   const occupied = new Set<string>();
   for (const [index, definition] of PET_DEFINITIONS.entries()) {
-    const offset = PET_SPAWN_OFFSETS[index] ?? {
-      x: PET_SPAWN_DISTANCE_TILES + index * 8,
-      y: 0,
-    };
-    const spawn = findWalkableNear(
-      sim,
-      anchor.x + offset.x,
-      anchor.y + offset.y,
-      index === 0 ? 8 : 12,
-      occupied,
-    );
-    if (!spawn) continue;
-    occupied.add(`${spawn.x},${spawn.y}`);
-    spawnPet(sim, definition, spawn.x + 0.5, spawn.y + 0.5);
+    seedPet({ sim, definition, index, anchor, occupied });
   }
 }
 
-export function spawnPet(
-  sim: SimState,
-  definition: PetDefinition,
-  x: number,
-  y: number,
-): Entity {
-  const entity = makeEntity("pet", createBody(x, y, sim.world.groundAt(x, y)), {
+function isPetSpawnFloor(sim: SimState): boolean {
+  return sim.world.floor === 1 && sim.world.level === LEVEL.Dungeon;
+}
+
+function seedPet(input: {
+  sim: SimState;
+  definition: PetDefinition;
+  index: number;
+  anchor: { x: number; y: number };
+  occupied: Set<string>;
+}): void {
+  const offset = PET_SPAWN_OFFSETS[input.index] ?? { x: PET_SPAWN_DISTANCE_TILES + input.index * 8, y: 0 };
+  const spawn = findWalkableNear({ sim: input.sim, x: input.anchor.x + offset.x, y: input.anchor.y + offset.y, maxRadius: input.index === 0 ? 8 : 12, avoid: input.occupied });
+  if (!spawn) return;
+  input.occupied.add(`${spawn.x},${spawn.y}`);
+  spawnPet(input.sim, { definition: input.definition, position: { x: spawn.x + 0.5, y: spawn.y + 0.5 } });
+}
+
+export function spawnPet(sim: SimState, input: { definition: PetDefinition; position: { x: number; y: number } }): Entity {
+  const entity = createPetEntity(sim, input);
+  sim.pets.set(entity.id, petSlot(sim, entity, input));
+  return entity;
+}
+
+function createPetEntity(sim: SimState, input: { definition: PetDefinition; position: { x: number; y: number } }): Entity {
+  const { definition, position } = input;
+  return makeEntity("pet", createBody(position.x, position.y, sim.world.groundAt(position.x, position.y)), {
     id: newEntityId("t"),
     defId: definition.id,
     name: definition.name,
@@ -62,10 +69,13 @@ export function spawnPet(
     tags: new Set(["pet", "friendly", "organic"]),
     facing: { x: 1, y: 0 },
   });
-  sim.pets.set(entity.id, {
+}
+
+function petSlot(sim: SimState, entity: Entity, input: { definition: PetDefinition; position: { x: number; y: number } }): PetSlot {
+  return {
     entity,
-    definition,
-    home: { x, y },
+    definition: input.definition,
+    home: input.position,
     ownerId: null,
     mode: "available",
     abilities: { attack: false, collectLoot: false },
@@ -77,8 +87,7 @@ export function spawnPet(
     pathIndex: 0,
     nextPathTick: sim.tickCount,
     pathGoal: undefined,
-  });
-  return entity;
+  };
 }
 
 /** The first nearby player to send interact owns an unclaimed pet. */
@@ -116,8 +125,7 @@ function nearestAvailablePet(sim: SimState, slot: PlayerSlot): PetSlot | undefin
       pet.entity.body.x - slot.entity.body.x,
       pet.entity.body.y - slot.entity.body.y,
     );
-    if (distance < bestDistance ||
-      (distance === bestDistance && (!best || pet.entity.id < best.entity.id))) {
+    if (isCloserPet({ pet, best, distance, bestDistance })) {
       best = pet;
       bestDistance = distance;
     }
@@ -125,21 +133,31 @@ function nearestAvailablePet(sim: SimState, slot: PlayerSlot): PetSlot | undefin
   return best;
 }
 
+function isCloserPet(input: { pet: PetSlot; best: PetSlot | undefined; distance: number; bestDistance: number }): boolean {
+  return input.distance < input.bestDistance
+    || (input.distance === input.bestDistance && (!input.best || input.pet.entity.id < input.best.entity.id));
+}
+
 export function stepPets(sim: SimState): void {
   for (const pet of sim.pets.values()) {
-    sim.replicationMotion.set(pet.entity.id, { x: 0, y: 0 });
-    const owner = pet.ownerId ? sim.players.get(pet.ownerId) : undefined;
-    if (!owner) {
-      pet.mode = "available";
-      pet.ownerId = null;
-      delete pet.entity.ownerId;
-      pet.ownerStillTicks = 0;
-      pet.driftTarget = undefined;
-      clearPetPath(pet);
-      continue;
-    }
-    if (!owner.connected || owner.entity.hp <= 0) continue;
-    pet.mode = "following";
-    stepPetTowardOwner(sim, pet, owner);
+    stepPet(sim, pet);
   }
+}
+
+function stepPet(sim: SimState, pet: PetSlot): void {
+  sim.replicationMotion.set(pet.entity.id, { x: 0, y: 0 });
+  const owner = pet.ownerId ? sim.players.get(pet.ownerId) : undefined;
+  if (!owner) return releasePet(pet);
+  if (!owner.connected || owner.entity.hp <= 0) return;
+  pet.mode = "following";
+  stepPetTowardOwner(sim, pet, owner);
+}
+
+function releasePet(pet: PetSlot): void {
+  pet.mode = "available";
+  pet.ownerId = null;
+  delete pet.entity.ownerId;
+  pet.ownerStillTicks = 0;
+  pet.driftTarget = undefined;
+  clearPetPath(pet);
 }

@@ -2,45 +2,12 @@
 import type { InterpolatedEntity } from "../net/interpolate.js";
 import { TICK_RATE } from "@dc2d/engine";
 import * as THREE from "three";
-import {
-  threeEntityPresentation,
-  type ThreeEntityPresentation,
-} from "./threeEntityPresentation.js";
-import {
-  createThreeTextSprite,
-  updateThreeTextSprite,
-  type ThreeTextSprite,
-} from "./ThreeTextSprite.js";
+import { threeEntityPresentation, type ThreeEntityPresentation } from "./threeEntityPresentation.js";
+import { createThreeTextSprite, updateThreeTextSprite } from "./ThreeTextSprite.js";
 import { threeGroundedDepth } from "./threeGroundedDepth.js";
 import { createThreeLootChest } from "./threeLootChest.js";
-
-interface ActiveEntity {
-  object: RenderObject;
-  presentation: ThreeEntityPresentation;
-  phase: number;
-  label?: ThreeTextSprite;
-  timer?: ThreeTextSprite;
-  timerText?: string;
-}
-
-interface RenderObject {
-  position: { set(x: number, y: number, z: number): void };
-  rotation: { y: number };
-  scale: { setScalar(value: number): void };
-  add(...objects: unknown[]): void;
-  traverse(callback: (object: RenderNode) => void): void;
-  removeFromParent(): void;
-}
-
-interface RenderNode {
-  geometry?: { dispose(): void };
-  material?: { dispose(): void } | Array<{ dispose(): void }>;
-}
-const phaseFor = (id: string): number => {
-  let hash = 0;
-  for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) | 0;
-  return (Math.abs(hash) % 628) / 100;
-};
+import { phaseFor } from "./worldEntities/types.js";
+import type { ActiveEntity, LootLabelUpdate, RenderNode, RenderObject, TransformUpdate, WorldEntityUpdate } from "./worldEntities/types.js";
 
 export class ThreeWorldEntities {
   private readonly group = new THREE.Group();
@@ -50,30 +17,11 @@ export class ThreeWorldEntities {
   constructor(scene: { add(...objects: unknown[]): void }) {
     scene.add(this.group);
   }
-  update(
-    interpolated: readonly InterpolatedEntity[],
-    timeMs: number,
-    reducedMotion: boolean,
-    serverTick = 0,
-    self = { x: 0, y: 0 },
-  ): void {
+  update({ interpolated, timeMs, reducedMotion, serverTick, self }: WorldEntityUpdate): void {
     const active = this.activeIds;
     active.clear();
     for (const entity of interpolated) {
-      const presentation = threeEntityPresentation(entity.snap);
-      if (!presentation) continue;
-      active.add(entity.id);
-      const rendered = this.entities.get(entity.id) ??
-        this.add(entity.id, presentation);
-      rendered.presentation = presentation;
-      this.updateTransform(
-        rendered,
-        entity.x,
-        entity.z,
-        entity.y,
-        reducedMotion ? 0 : timeMs / 1000,
-      );
-      this.updateLootLabel(rendered, presentation, entity, serverTick, self);
+      this.syncEntity(entity, { timeMs, reducedMotion, serverTick, self }, active);
     }
     for (const [id, entity] of this.entities) {
       if (!active.has(id)) this.remove(id, entity);
@@ -93,6 +41,24 @@ export class ThreeWorldEntities {
     this.entities.set(id, entity);
     this.group.add(object);
     return entity;
+  }
+
+  private syncEntity(
+    source: InterpolatedEntity,
+    frame: Omit<WorldEntityUpdate, "interpolated">,
+    active: Set<string>,
+  ): void {
+    const presentation = threeEntityPresentation(source.snap);
+    if (!presentation) return;
+    active.add(source.id);
+    const entity = this.entities.get(source.id) ?? this.add(source.id, presentation);
+    entity.presentation = presentation;
+    this.updateTransform({
+      entity,
+      position: { x: source.x, y: source.z, z: source.y },
+      time: frame.reducedMotion ? 0 : frame.timeMs / 1000,
+    });
+    this.updateLootLabel({ entity, presentation, source, ...frame });
   }
   private createObject(presentation: ThreeEntityPresentation): RenderObject {
     if (presentation.kind === "torch") return this.createTorch(presentation);
@@ -132,48 +98,47 @@ export class ThreeWorldEntities {
     return group as RenderObject;
   }
 
-  private updateLootLabel(
-    entity: ActiveEntity,
-    presentation: ThreeEntityPresentation,
-    source: InterpolatedEntity,
-    serverTick: number,
-    self: { x: number; y: number },
-  ): void {
+  private updateLootLabel({ entity, presentation, source, serverTick, self }: LootLabelUpdate): void {
     if (presentation.kind !== "lootChest") return;
-    if (!entity.label) {
-      entity.label = createThreeTextSprite(presentation.label ?? "Death loot", "#f4d7b2");
-      entity.label.position.y = 1.05;
-      entity.object.add(entity.label);
-    }
-    if (!entity.timer) {
-      entity.timer = createThreeTextSprite("", "#ffd86a");
-      entity.timer.position.y = -0.28;
-      entity.object.add(entity.timer);
-    }
+    this.ensureLootLabel(entity, presentation);
+    const timer = this.ensureLootTimer(entity);
     const nearby = Math.hypot(source.x - self.x, source.y - self.y) <= 3.5;
-    entity.timer.visible = nearby;
+    timer.visible = nearby;
     if (!nearby) return;
     const seconds = Math.ceil(Math.max(0, (presentation.unlockAtTick ?? 0) - serverTick) / TICK_RATE);
     const text = seconds > 0 ? `First dibs: ${seconds}s` : "Loot unlocked";
-    if (text === entity.timerText) return;
-    entity.timerText = text;
-    updateThreeTextSprite(entity.timer, text, "#ffd86a");
+    this.updateLootTimerText(entity, timer, text);
   }
 
-  private updateTransform(
-    entity: ActiveEntity,
-    x: number,
-    y: number,
-    z: number,
-    time: number,
-  ): void {
+  private ensureLootLabel(entity: ActiveEntity, presentation: ThreeEntityPresentation): void {
+    if (entity.label) return;
+    entity.label = createThreeTextSprite(presentation.label ?? "Death loot", "#f4d7b2");
+    entity.label.position.y = 1.05;
+    entity.object.add(entity.label);
+  }
+
+  private ensureLootTimer(entity: ActiveEntity): NonNullable<ActiveEntity["timer"]> {
+    if (entity.timer) return entity.timer;
+    entity.timer = createThreeTextSprite("", "#ffd86a");
+    entity.timer.position.y = -0.28;
+    entity.object.add(entity.timer);
+    return entity.timer;
+  }
+
+  private updateLootTimerText(entity: ActiveEntity, timer: NonNullable<ActiveEntity["timer"]>, text: string): void {
+    if (text === entity.timerText) return;
+    entity.timerText = text;
+    updateThreeTextSprite(timer, text, "#ffd86a");
+  }
+
+  private updateTransform({ entity, position, time }: TransformUpdate): void {
     const bob = entity.presentation.bob
       ? Math.sin(time * 2.2 + entity.phase) * 0.035
       : 0;
     const vertical = entity.presentation.kind === "lootChest"
-      ? threeGroundedDepth(y, entity.presentation.elevation).worldY
-      : y + entity.presentation.elevation + bob;
-    entity.object.position.set(x, vertical, z);
+      ? threeGroundedDepth(position.y, entity.presentation.elevation).worldY
+      : position.y + entity.presentation.elevation + bob;
+    entity.object.position.set(position.x, vertical, position.z);
     if (entity.presentation.spin) entity.object.rotation.y =
       time * 1.8 + entity.phase;
   }

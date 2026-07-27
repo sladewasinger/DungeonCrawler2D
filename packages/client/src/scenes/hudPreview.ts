@@ -24,8 +24,13 @@ export const applyHudPreviewAids = (
   snapshot: HudFakeSnapshot | undefined,
   hud: HudWidgets | undefined,
 ): void => {
-  if (snapshot && params.get("boss") === "1") snapshot.boss = FAKE_BOSS;
+  applyBossPreview(params, snapshot);
   if (params.get("inventory") === "1") hud?.toggleInventory();
   if (params.get("craft") === "1") hud?.toggleCraftPanel();
   if (params.get("stash") === "1") hud?.openStashPanel();
 };
+
+function applyBossPreview(params: URLSearchParams, snapshot: HudFakeSnapshot | undefined): void {
+  if (params.get("boss") !== "1" || !snapshot) return;
+  snapshot.boss = FAKE_BOSS;
+}

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- versioned layout migrations are one persistence boundary. */
 /** Owns browser persistence and validation for HUD window layouts. */
 import type { HudAnchor } from "./HudWindowLayout.js";
 
@@ -154,11 +155,11 @@ const migrateSizedLayouts = (
 ): Record<string, HudWindowLayout> | null => {
   const parsed = JSON.parse(raw) as Partial<LegacySizedPersistedWindows>;
   if (parsed.version !== 3 || typeof parsed.windows !== "object" || parsed.windows === null) return null;
-  return Object.fromEntries(
-    Object.entries(parsed.windows)
-      .filter((entry): entry is [string, LegacySizedHudWindowLayout] => isLegacySizedLayout(entry[1]))
-      .map(([id, layout]) => [id, migrateSizedWindowLayout(layout, viewport)]),
-  );
+  const layouts: Record<string, HudWindowLayout> = {};
+  for (const [id, layout] of Object.entries(parsed.windows)) {
+    if (isLegacySizedLayout(layout)) layouts[id] = migrateSizedWindowLayout(layout, viewport);
+  }
+  return layouts;
 };
 
 export const loadWindowLayouts = (
@@ -167,20 +168,22 @@ export const loadWindowLayouts = (
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) return parseLayouts(raw) ?? {};
-    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacy) {
-      const migrated = migrateSizedLayouts(legacy, viewport) ?? {};
-      saveWindowLayouts(migrated);
-      return migrated;
-    }
-    const oldest = window.localStorage.getItem(LEGACY_POSITION_STORAGE_KEY);
-    if (!oldest) return {};
-    const migrated = migrateLegacyLayouts(oldest, viewport) ?? {};
-    saveWindowLayouts(migrated);
-    return migrated;
+    return loadLegacyWindowLayouts(viewport);
   } catch {
     return {};
   }
+};
+
+const loadLegacyWindowLayouts = (viewport: HudViewport): Record<string, HudWindowLayout> => {
+  const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (legacy) return persistMigratedLayouts(migrateSizedLayouts(legacy, viewport) ?? {});
+  const oldest = window.localStorage.getItem(LEGACY_POSITION_STORAGE_KEY);
+  return oldest ? persistMigratedLayouts(migrateLegacyLayouts(oldest, viewport) ?? {}) : {};
+};
+
+const persistMigratedLayouts = (layouts: Record<string, HudWindowLayout>): Record<string, HudWindowLayout> => {
+  saveWindowLayouts(layouts);
+  return layouts;
 };
 
 export const saveWindowLayouts = (windows: Record<string, HudWindowLayout>): void => {

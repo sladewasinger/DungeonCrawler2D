@@ -21,6 +21,13 @@ import { createHudEditState, type HudEditState } from "./state.js";
 /** Above every ordinary HUD widget so edit-mode chrome always draws on top. */
 const EDIT_DEPTH = WIDGET_DEPTH + 1000;
 
+interface HudEditModeOptions {
+  scene: Phaser.Scene;
+  registry: WidgetRegistry;
+  viewport: Viewport;
+  onLayoutChanged: () => void;
+}
+
 export class HudEditMode {
   private readonly state: HudEditState = createHudEditState();
   private readonly scene: Phaser.Scene;
@@ -31,19 +38,19 @@ export class HudEditMode {
   private readonly handles = new Map<string, DragHandle>();
   private viewport: Viewport;
 
-  constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport, onLayoutChanged: () => void) {
+  constructor({ scene, registry, viewport, onLayoutChanged }: HudEditModeOptions) {
     this.scene = scene;
     this.registry = registry;
     this.viewport = viewport;
     this.onLayoutChanged = onLayoutChanged;
-    this.gearChip = new GearChip(scene, viewport, EDIT_DEPTH, () => this.toggle());
-    this.catalogPanel = new CatalogPanel(
+    this.gearChip = new GearChip({ scene, viewport, depth: EDIT_DEPTH, onToggle: () => this.toggle() });
+    this.catalogPanel = new CatalogPanel({
       scene,
-      EDIT_DEPTH,
-      () => this.registry.listDefinitions(),
-      (id) => this.registry.getOverride(id),
-      { onToggleVisible: (id) => this.toggleVisible(id), onSave: () => this.save(), onReset: () => this.reset() },
-    );
+      depth: EDIT_DEPTH,
+      listDefinitions: () => this.registry.listDefinitions(),
+      overrideFor: (id) => this.registry.getOverride(id),
+      actions: { onToggleVisible: (id) => this.toggleVisible(id), onSave: () => this.save(), onReset: () => this.reset() },
+    });
     this.catalogPanel.container.setVisible(false);
     this.catalogPanel.reposition(viewport);
     scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => this.handlePointerMove(pointer));
@@ -91,7 +98,7 @@ export class HudEditMode {
       const layout = resolved.get(definition.id);
       if (!layout?.visible) continue;
       const id = definition.id;
-      const handle = new DragHandle(this.scene, id, { x: layout.x, y: layout.y }, EDIT_DEPTH, (pointer) => this.beginDrag(id, pointer, layout));
+      const handle = new DragHandle({ scene: this.scene, id, point: { x: layout.x, y: layout.y }, depth: EDIT_DEPTH, onGrab: (pointer) => this.beginDrag(id, pointer, layout) });
       this.handles.set(id, handle);
     }
   }

@@ -27,10 +27,18 @@ export function motionEventsInto(
 ): MotionEvent[] {
   output.length = 0;
   if (!prev) return output;
+  appendAirEvents(prev, curr, output);
+  appendTurnEvent(prev, curr, output);
+  return output;
+}
+
+function appendAirEvents(prev: MotionSample, curr: MotionSample, output: MotionEvent[]): void {
   if (!prev.air && curr.air) output.push("jumped");
   if (prev.air && !curr.air) output.push("landed");
+}
+
+function appendTurnEvent(prev: MotionSample, curr: MotionSample, output: MotionEvent[]): void {
   if (turned(prev.faceX, curr.faceX)) output.push("turned");
-  return output;
 }
 
 function turned(prevFaceX: number, currFaceX: number): boolean {
@@ -44,9 +52,16 @@ export function isMoving(prev: MotionSample | undefined, curr: MotionSample, dtS
 }
 
 /** True on the frame that crosses a FOOTSTEP_INTERVAL_MS boundary while grounded and moving — a fixed cadence. */
-export function footstepDue(prevFrameMs: number, nowMs: number, grounded: boolean, moving: boolean): boolean {
+export interface FootstepCadence {
+  readonly previousMs: number;
+  readonly nowMs: number;
+  readonly grounded: boolean;
+  readonly moving: boolean;
+}
+
+export function footstepDue({ previousMs, nowMs, grounded, moving }: FootstepCadence): boolean {
   if (!grounded || !moving) return false;
-  return Math.floor(prevFrameMs / FOOTSTEP_INTERVAL_MS) !== Math.floor(nowMs / FOOTSTEP_INTERVAL_MS);
+  return Math.floor(previousMs / FOOTSTEP_INTERVAL_MS) !== Math.floor(nowMs / FOOTSTEP_INTERVAL_MS);
 }
 
 /** True once the ground speed between two samples reads as running, not walking (Epic 7.12) —
@@ -54,5 +69,5 @@ export function footstepDue(prevFrameMs: number, nowMs: number, grounded: boolea
  * the dust and the faster loop always agree on what counts as "running". */
 export function isRunning(prev: MotionSample | undefined, curr: MotionSample, dtSeconds: number): boolean {
   if (!prev) return false;
-  return isRunningPace(curr.x - prev.x, curr.y - prev.y, dtSeconds);
+  return isRunningPace({ dxTiles: curr.x - prev.x, dyTiles: curr.y - prev.y, dtSeconds });
 }

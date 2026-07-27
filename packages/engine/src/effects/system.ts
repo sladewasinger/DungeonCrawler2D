@@ -1,13 +1,26 @@
 import type { Entity } from "../entities/entity.js";
-import type { Primitive, ContentRegistry } from "./types.js";
+import type { ContentRegistry } from "./types.js";
 import type { EffectEvent } from "./events.js";
-import { modifyHealth, type DamageOpts, type EffectTarget } from "./health.js";
-import { applyStatus, removeStatusesByTag, runInteractionRules, runPrimitives } from "./resolve.js";
+import { modifyHealth, type EffectTarget, type HealthChange } from "./health.js";
+import { applyStatus, removeStatusesByTag, runInteractionRules, runPrimitives, type PrimitiveRun } from "./resolve.js";
 import { inSanctuary, tagsOf, type EffectsState } from "./state.js";
-import { speedMult, tick } from "./tick.js";
+import { speedMult, tick, type EffectsTick } from "./tick.js";
 
 export type { EffectEvent } from "./events.js";
 export type { DamageOpts, EffectTarget } from "./health.js";
+
+export interface StatusChange {
+  readonly entity: Entity;
+  readonly statusId: string;
+  readonly events: EffectEvent[];
+  readonly target?: EffectTarget;
+}
+
+export interface StatusRemoval {
+  readonly entity: Entity;
+  readonly tag: string;
+  readonly events: EffectEvent[];
+}
 
 /**
  * The server-authoritative effects engine (Epic 3) facade. Statuses
@@ -32,55 +45,31 @@ export class EffectsEngine {
     return inSanctuary(this.state, entity);
   }
 
-  modifyHealth(
-    entity: Entity,
-    amount: number,
-    events: EffectEvent[],
-    opts: DamageOpts = {},
-    target: EffectTarget = {},
-  ): number {
-    return modifyHealth(this.state, entity, amount, events, opts, target);
+  modifyHealth(change: HealthChange): number {
+    return modifyHealth(this.state, change);
   }
 
-  applyStatus(
-    entity: Entity,
-    statusId: string,
-    events: EffectEvent[],
-    target: EffectTarget = {},
-  ): boolean {
-    return applyStatus(this.state, entity, statusId, events, target);
+  applyStatus(change: StatusChange): boolean {
+    return applyStatus(this.state, change);
   }
 
-  removeStatusesByTag(entity: Entity, tag: string, events: EffectEvent[]): void {
-    removeStatusesByTag(this.state, entity, tag, events);
+  removeStatusesByTag(removal: StatusRemoval): void {
+    removeStatusesByTag(this.state, removal);
   }
 
-  tick(
-    entity: Entity,
-    dt: number,
-    events: EffectEvent[],
-    target: EffectTarget = {},
-    rng: () => number = Math.random,
-  ): void {
-    tick(this.state, entity, dt, events, target, rng);
+  tick(request: EffectsTick): void {
+    tick(this.state, request);
   }
 
   speedMult(entity: Entity): number {
     return speedMult(this.state, entity);
   }
 
-  runInteractionRules(entity: Entity, events: EffectEvent[]): void {
-    runInteractionRules(this.state, entity, events);
+  runInteractionRules(request: Pick<StatusRemoval, "entity" | "events">): void {
+    runInteractionRules(this.state, request);
   }
 
-  runPrimitives(
-    entity: Entity,
-    primitives: readonly Primitive[],
-    events: EffectEvent[],
-    target: EffectTarget = {},
-    rng: () => number = Math.random,
-    sourceTags?: readonly string[],
-  ): void {
-    runPrimitives(this.state, entity, primitives, events, target, rng, sourceTags);
+  runPrimitives(request: PrimitiveRun): void {
+    runPrimitives(this.state, request);
   }
 }

@@ -23,12 +23,19 @@ export type LiveHudSnapshot = HudFakeSnapshot & {
  * prompt rendering, and the authoritative server. */
 function nearbyStation(conn: Connection, kind: WorldInteractionKind): boolean {
   return !!conn.world && !!conn.body &&
-    !!findWorldInteractionTarget(conn.world, conn.body.x, conn.body.y, kind);
+    !!findWorldInteractionTarget({ world: conn.world, x: conn.body.x, y: conn.body.y, kind });
 }
 
 /** Everything buildHudSnapshot's `src` needs, read straight off the live Connection —
  * split out so buildLiveHudSnapshot itself stays under the function-length cap. */
 function buildSnapshotSource(conn: Connection): HudSnapshotSource {
+  return {
+    ...snapshotVitals(conn),
+    ...snapshotWorldState(conn),
+  };
+}
+
+function snapshotVitals(conn: Connection) {
   return {
     playerId: conn.welcome?.playerId ?? null,
     hp: conn.hp,
@@ -51,6 +58,11 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
     reconnectAttempts: conn.reconnectAttempts,
     downed: conn.downed,
     dead: conn.dead,
+  };
+}
+
+function snapshotWorldState(conn: Connection) {
+  return {
     party: conn.party,
     craftTableNearby: nearbyStation(conn, "craft"),
     stashNearby: nearbyStation(conn, "stash") || activeLootChestNearby(conn),
@@ -64,38 +76,34 @@ function buildSnapshotSource(conn: Connection): HudSnapshotSource {
   };
 }
 
-export function buildLiveHudSnapshot(
-  conn: Connection,
-  inputController: InputController,
-  interactionPrompt: InteractionPrompt | null,
-  chatController: ChatController,
-  actualFps: number,
-  /** LANE W2 HUD compass — 0 = world-north at screen-up (scenes/dungeon/rotationControl.ts). */
-  compassBearingDeg: number,
-  aimHeadingDeg: number,
-): LiveHudSnapshot {
+export interface LiveHudSnapshotInput {
+  readonly conn: Connection;
+  readonly inputController: InputController;
+  readonly interactionPrompt: InteractionPrompt | null;
+  readonly chatController: ChatController;
+  readonly actualFps: number;
+  readonly compassBearingDeg: number;
+  readonly aimHeadingDeg: number;
+}
+
+export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapshot {
+  const { conn, inputController, interactionPrompt, chatController, actualFps, compassBearingDeg, aimHeadingDeg } = input;
   // conn.body may still be null the first frame or two after boot (HudScene's source()
   // callback runs every frame regardless of DungeonScene's own !conn.body update() guard).
   const bodyPos = conn.body ? { x: conn.body.x, y: conn.body.y, z: conn.body.z } : { x: 0, y: 0, z: 0 };
   // LANE W: conn.world tracks floor changes live (net/apply.ts's applyFloorState
   // rebuilds it on every transfer), so the tick re-aims at the NEW floor's stairway
   // the same frame the descent lands.
-  const stairway = conn.world ? resolveStairwayTick(conn.world, bodyPos.x, bodyPos.y, compassBearingDeg) : null;
-  const snapshot = buildHudSnapshot(
-    buildSnapshotSource(conn),
-    inputController.selectedHotbarSlot(),
-    inputController.armedThrowableSlot(),
-    interactionPrompt,
-    inputController.touchVisual(),
-    actualFps,
-    bodyPos,
-    chatController.model(CHAT_LINES_SHOWN),
-    conn.contacts,
-    compassBearingDeg,
-    stairway,
-  ) as LiveHudSnapshot;
+  const stairway = conn.world ? resolveStairwayTick({ world: conn.world, x: bodyPos.x, y: bodyPos.y, viewBearingDeg: compassBearingDeg }) : null;
+  const snapshot = buildHudSnapshot({
+    src: buildSnapshotSource(conn), selectedHotbarSlot: inputController.selectedHotbarSlot(),
+    armedThrowableSlot: inputController.armedThrowableSlot(), interactionPrompt,
+    touch: inputController.touchVisual(), fps: actualFps, bodyPos,
+    chatModel: chatController.model(CHAT_LINES_SHOWN), contacts: conn.contacts,
+    compassBearingDeg, stairway,
+  }) as LiveHudSnapshot;
   snapshot.biome = conn.world
-    ? biomeAtWorldTile(conn.world.worldSeed, conn.floor, bodyPos.x, bodyPos.y).biome
+    ? biomeAtWorldTile({ worldSeed: conn.world.worldSeed, floor: conn.floor, wx: bodyPos.x, wy: bodyPos.y }).biome
     : null;
   snapshot.headingDeg = aimHeadingDeg;
   snapshot.respawnRemainingSec = conn.respawnSecondsRemaining;

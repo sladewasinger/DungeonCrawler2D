@@ -7,12 +7,10 @@ export const blocksAttackFrom = (
 ): boolean => {
   if (!slot?.blocking) return false;
   const victim = slot.entity;
-  return isWithinFacingArc(
-    victim.facing?.x ?? 1,
-    victim.facing?.y ?? 0,
-    source.body.x - victim.body.x,
-    source.body.y - victim.body.y,
-  );
+  return isWithinFacingArc({
+    facing: victim.facing ?? { x: 1, y: 0 },
+    target: { x: source.body.x - victim.body.x, y: source.body.y - victim.body.y },
+  });
 };
 
 export const blocksAttackDirection = (
@@ -22,10 +20,8 @@ export const blocksAttackDirection = (
 ): boolean => {
   if (!slot?.blocking) return false;
   const victim = slot.entity;
-  return isWithinFacingArc(
-    victim.facing?.x ?? 1,
-    victim.facing?.y ?? 0,
-    sourceX - victim.body.x,
-    sourceY - victim.body.y,
-  );
+  return isWithinFacingArc({
+    facing: victim.facing ?? { x: 1, y: 0 },
+    target: { x: sourceX - victim.body.x, y: sourceY - victim.body.y },
+  });
 };

@@ -31,21 +31,36 @@ export function rectDistance(rect: Rect, p: Point): number {
 }
 
 /** `w` tiles centered on `c`, clamped into [lo, hi]. */
-export function band(c: number, w: number, lo: number, hi: number): { a: number; b: number } {
-  const half0 = Math.floor((w - 1) / 2);
-  const a = clampInt(c - half0, lo, hi);
-  const b = clampInt(a + w - 1, lo, hi);
+export interface BandRequest {
+  center: number;
+  width: number;
+  min: number;
+  max: number;
+}
+
+export function band(request: BandRequest): { a: number; b: number } {
+  const half0 = Math.floor((request.width - 1) / 2);
+  const a = clampInt(request.center - half0, request.min, request.max);
+  const b = clampInt(a + request.width - 1, request.min, request.max);
   return { a, b };
 }
 
-function hBand(y: number, xA: number, xB: number, w: number, size: number): Rect {
-  const { a, b } = band(y, w, 0, size - 1);
-  return { x0: Math.min(xA, xB), x1: Math.max(xA, xB), y0: a, y1: b };
+interface PathBand {
+  fixed: number;
+  start: number;
+  end: number;
+  width: number;
+  size: number;
 }
 
-function vBand(x: number, yA: number, yB: number, w: number, size: number): Rect {
-  const { a, b } = band(x, w, 0, size - 1);
-  return { y0: Math.min(yA, yB), y1: Math.max(yA, yB), x0: a, x1: b };
+function hBand(bandRequest: PathBand): Rect {
+  const { a, b } = band({ center: bandRequest.fixed, width: bandRequest.width, min: 0, max: bandRequest.size - 1 });
+  return { x0: Math.min(bandRequest.start, bandRequest.end), x1: Math.max(bandRequest.start, bandRequest.end), y0: a, y1: b };
+}
+
+function vBand(bandRequest: PathBand): Rect {
+  const { a, b } = band({ center: bandRequest.fixed, width: bandRequest.width, min: 0, max: bandRequest.size - 1 });
+  return { y0: Math.min(bandRequest.start, bandRequest.end), y1: Math.max(bandRequest.start, bandRequest.end), x0: a, x1: b };
 }
 
 /**
@@ -54,11 +69,25 @@ function vBand(x: number, yA: number, yB: number, w: number, size: number): Rect
  * bending; otherwise it leaves along x (E/W-facing) — corridors exit a
  * threshold perpendicular to the wall, then bend toward the target.
  */
-export function lPathLegs(a: Point, aVertical: boolean, b: Point, w: number, size: number): [Rect, Rect] {
-  if (aVertical) {
-    const bend: Point = { x: a.x, y: b.y };
-    return [vBand(a.x, a.y, bend.y, w, size), hBand(bend.y, bend.x, b.x, w, size)];
+export interface LPathRequest {
+  from: Point;
+  fromVertical: boolean;
+  to: Point;
+  width: number;
+  size: number;
+}
+
+export function lPathLegs(request: LPathRequest): [Rect, Rect] {
+  if (request.fromVertical) {
+    const bend: Point = { x: request.from.x, y: request.to.y };
+    return [
+      vBand({ fixed: request.from.x, start: request.from.y, end: bend.y, width: request.width, size: request.size }),
+      hBand({ fixed: bend.y, start: bend.x, end: request.to.x, width: request.width, size: request.size }),
+    ];
   }
-  const bend: Point = { x: b.x, y: a.y };
-  return [hBand(a.y, a.x, bend.x, w, size), vBand(bend.x, bend.y, b.y, w, size)];
+  const bend: Point = { x: request.to.x, y: request.from.y };
+  return [
+    hBand({ fixed: request.from.y, start: request.from.x, end: bend.x, width: request.width, size: request.size }),
+    vBand({ fixed: bend.x, start: bend.y, end: request.to.y, width: request.width, size: request.size }),
+  ];
 }

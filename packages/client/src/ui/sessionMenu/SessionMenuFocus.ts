@@ -5,17 +5,29 @@ interface BackgroundState {
   ariaHidden: string | null;
 }
 
+interface SessionMenuFocusOptions {
+  appRoot: HTMLElement;
+  hudRoot: HTMLElement;
+  overlay: HTMLElement;
+  activeFocusables: () => HTMLElement[];
+}
+
+const ARIA_HIDDEN = "aria-hidden";
+
 export class SessionMenuFocus {
+  private readonly appRoot: HTMLElement;
+  private readonly hudRoot: HTMLElement;
+  private readonly overlay: HTMLElement;
+  private readonly activeFocusables: () => HTMLElement[];
   private readonly backgroundState: BackgroundState[] = [];
   private previousFocus: HTMLElement | undefined;
   private active = false;
 
-  constructor(
-    private readonly appRoot: HTMLElement,
-    private readonly hudRoot: HTMLElement,
-    private readonly overlay: HTMLElement,
-    private readonly activeFocusables: () => HTMLElement[],
-  ) {
+  constructor({ appRoot, hudRoot, overlay, activeFocusables }: SessionMenuFocusOptions) {
+    this.appRoot = appRoot;
+    this.hudRoot = hudRoot;
+    this.overlay = overlay;
+    this.activeFocusables = activeFocusables;
     document.addEventListener("focusin", this.containFocus, true);
     overlay.addEventListener("keydown", this.trapKeyboardFocus);
   }
@@ -56,35 +68,35 @@ export class SessionMenuFocus {
 
   private disableBackground(): void {
     this.restoreBackground();
-    const elements = new Set<HTMLElement>();
-    for (const child of this.appRoot.children) {
-      if (child instanceof HTMLElement && child !== this.hudRoot) {
-        elements.add(child);
-      }
-    }
-    for (const child of this.hudRoot.children) {
-      if (child instanceof HTMLElement && child !== this.overlay) {
-        elements.add(child);
-      }
-    }
-    for (const element of elements) {
+    for (const element of this.backgroundElements()) {
       this.backgroundState.push({
         element,
         inert: element.inert,
-        ariaHidden: element.getAttribute("aria-hidden"),
+        ariaHidden: element.getAttribute(ARIA_HIDDEN),
       });
       element.inert = true;
-      element.setAttribute("aria-hidden", "true");
+      element.setAttribute(ARIA_HIDDEN, "true");
     }
   }
 
   private restoreBackground(): void {
     for (const state of this.backgroundState) {
       state.element.inert = state.inert;
-      if (state.ariaHidden === null) state.element.removeAttribute("aria-hidden");
-      else state.element.setAttribute("aria-hidden", state.ariaHidden);
+      if (state.ariaHidden === null) state.element.removeAttribute(ARIA_HIDDEN);
+      else state.element.setAttribute(ARIA_HIDDEN, state.ariaHidden);
     }
     this.backgroundState.length = 0;
+  }
+
+  private backgroundElements(): Set<HTMLElement> {
+    return new Set([
+      ...this.backgroundChildren(this.appRoot, this.hudRoot),
+      ...this.backgroundChildren(this.hudRoot, this.overlay),
+    ]);
+  }
+
+  private backgroundChildren(root: HTMLElement, excluded: HTMLElement): HTMLElement[] {
+    return [...root.children].filter((child): child is HTMLElement => child instanceof HTMLElement && child !== excluded);
   }
 
   private readonly containFocus = (event: FocusEvent): void => {
@@ -101,11 +113,7 @@ export class SessionMenuFocus {
       event.preventDefault();
       return;
     }
-    const currentIndex = focusables.indexOf(document.activeElement as HTMLElement);
-    const offset = event.shiftKey ? -1 : 1;
-    const nextIndex = currentIndex < 0
-      ? (event.shiftKey ? focusables.length - 1 : 0)
-      : (currentIndex + offset + focusables.length) % focusables.length;
+    const nextIndex = nextFocusableIndex(focusables, event.shiftKey);
     event.preventDefault();
     focusables[nextIndex]?.focus({ preventScroll: true });
   };
@@ -118,4 +126,10 @@ export class SessionMenuFocus {
     event.target.click();
     return true;
   }
+}
+
+function nextFocusableIndex(focusables: HTMLElement[], reverse: boolean): number {
+  const currentIndex = focusables.indexOf(document.activeElement as HTMLElement);
+  if (currentIndex < 0) return reverse ? focusables.length - 1 : 0;
+  return (currentIndex + (reverse ? -1 : 1) + focusables.length) % focusables.length;
 }

@@ -1,0 +1,32 @@
+import { PROTOCOL_VERSION, TICK_RATE, type LevelId } from "@dc2d/engine";
+import type { WebSocket } from "ws";
+import type { GameSim } from "../sim/index.js";
+import { sendServerMessage } from "./measuredSend.js";
+import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+
+export interface WelcomeContext {
+  ws: WebSocket;
+  join: ReturnType<GameSim["addPlayer"]>;
+  level: LevelId;
+  worldSeed: number;
+  diagnostics: ServerNetworkDiagnostics;
+}
+
+export function sendWelcome({ ws, join, level, worldSeed, diagnostics }: WelcomeContext): void {
+  sendServerMessage({
+    socket: ws,
+    playerId: join.playerId,
+    message: {
+      type: "welcome",
+      protocol: PROTOCOL_VERSION,
+      playerId: join.playerId,
+      resumeToken: join.resumeToken,
+      worldSeed,
+      floor: join.floor,
+      level,
+      tickRate: TICK_RATE,
+      spawn: join.spawn,
+    },
+    diagnostics,
+  });
+}

@@ -39,24 +39,45 @@ function pickAxis(rng: () => number): -1 | 0 | 1 {
   return AXIS[Math.floor(rng() * 3)] ?? 0;
 }
 
-function findAggroTarget(
-  enemy: Entity,
-  def: EnemyDef,
-  players: readonly Entity[],
-  inSanctuary: (e: Entity) => boolean,
-): Entity | null {
+interface AggroSearch {
+  enemy: Entity;
+  def: EnemyDef;
+  players: readonly Entity[];
+  inSanctuary: (entity: Entity) => boolean;
+}
+
+interface EnemyThinkInput extends AggroSearch {
+  brain: EnemyBrain;
+  dt: number;
+  rng: () => number;
+}
+
+interface AttackInput {
+  brain: EnemyBrain;
+  enemy: Entity;
+  def: EnemyDef;
+  target: Entity;
+}
+
+function findAggroTarget({ enemy, def, players, inSanctuary }: AggroSearch): Entity | null {
   let target: Entity | null = null;
   let bestDist = def.aggroRadius;
   for (const player of players) {
-    if (player.hp <= 0 || player.downedUntil !== undefined) continue;
-    if (inSanctuary(player)) continue;
-    const d = Math.hypot(player.body.x - enemy.body.x, player.body.y - enemy.body.y);
-    if (d <= bestDist) {
-      bestDist = d;
-      target = player;
-    }
+    const distance = eligibleAggroDistance({ enemy, player, inSanctuary });
+    if (distance === null || distance > bestDist) continue;
+    bestDist = distance;
+    target = player;
   }
   return target;
+}
+
+function eligibleAggroDistance({ enemy, player, inSanctuary }: {
+  enemy: Entity;
+  player: Entity;
+  inSanctuary: (entity: Entity) => boolean;
+}): number | null {
+  if (player.hp <= 0 || player.downedUntil !== undefined || inSanctuary(player)) return null;
+  return Math.hypot(player.body.x - enemy.body.x, player.body.y - enemy.body.y);
 }
 
 function wander(brain: EnemyBrain, dt: number, rng: () => number): EnemyDecision {
@@ -68,56 +89,45 @@ function wander(brain: EnemyBrain, dt: number, rng: () => number): EnemyDecision
   return { move: brain.wanderDir };
 }
 
-function attackOrChase(
-  brain: EnemyBrain,
-  enemy: Entity,
-  def: EnemyDef,
-  target: Entity,
-): EnemyDecision {
+function attackOrChase({ brain, enemy, def, target }: AttackInput): EnemyDecision {
   const dx = target.body.x - enemy.body.x;
   const dy = target.body.y - enemy.body.y;
   const dist = Math.hypot(dx, dy);
+  const attack = tryAttack({ brain, def, target, dist });
+  if (attack) return attack;
+  if (shouldHoldRangedPosition(def, dist)) return { move: idleMove() };
+  return { move: chaseMove(dx, dy) };
+}
 
-  if (def.attack.ranged) {
-    if (dist <= def.attack.range && brain.attackCooldown <= 0) {
-      brain.attackCooldown = def.attack.cooldown;
-      return {
-        move: { moveX: 0, moveY: 0, jump: false },
-        shoot: { targetId: target.id, x: target.body.x, y: target.body.y, z: target.body.z },
-      };
-    }
-    // Keep some distance: advance only when out of range.
-    if (dist <= def.attack.range * 0.7) return { move: { moveX: 0, moveY: 0, jump: false } };
-  } else if (dist <= def.attack.range && brain.attackCooldown <= 0) {
-    brain.attackCooldown = def.attack.cooldown;
-    return { move: { moveX: 0, moveY: 0, jump: false }, strike: { targetId: target.id } };
-  }
+function tryAttack({ brain, def, target, dist }: Omit<AttackInput, "enemy"> & { dist: number }): EnemyDecision | null {
+  if (dist > def.attack.range || brain.attackCooldown > 0) return null;
+  brain.attackCooldown = def.attack.cooldown;
+  if (!def.attack.ranged) return { move: idleMove(), strike: { targetId: target.id } };
+  return { move: idleMove(), shoot: { targetId: target.id, ...target.body } };
+}
 
-  // Chase: cardinal-ish pursuit through the shared movement physics —
-  // enemies obey terrain like everyone else (cliffs, jumps excluded).
+function shouldHoldRangedPosition(def: EnemyDef, distance: number): boolean {
+  return Boolean(def.attack.ranged) && distance <= def.attack.range * 0.7;
+}
+
+function idleMove(): MoveInput {
+  return { moveX: 0, moveY: 0, jump: false };
+}
+
+function chaseMove(dx: number, dy: number): MoveInput {
   return {
-    move: {
-      moveX: Math.abs(dx) > 0.3 ? (Math.sign(dx) as -1 | 0 | 1) : 0,
-      moveY: Math.abs(dy) > 0.3 ? (Math.sign(dy) as -1 | 0 | 1) : 0,
-      jump: false,
-    },
+    moveX: Math.abs(dx) > 0.3 ? (Math.sign(dx) as -1 | 0 | 1) : 0,
+    moveY: Math.abs(dy) > 0.3 ? (Math.sign(dy) as -1 | 0 | 1) : 0,
+    jump: false,
   };
 }
 
-export function enemyThink(
-  brain: EnemyBrain,
-  enemy: Entity,
-  def: EnemyDef,
-  players: readonly Entity[],
-  inSanctuary: (e: Entity) => boolean,
-  dt: number,
-  rng: () => number,
-): EnemyDecision {
+export function enemyThink({ brain, enemy, def, players, inSanctuary, dt, rng }: EnemyThinkInput): EnemyDecision {
   brain.attackCooldown = Math.max(0, brain.attackCooldown - dt);
 
-  const target = findAggroTarget(enemy, def, players, inSanctuary);
+  const target = findAggroTarget({ enemy, def, players, inSanctuary });
   brain.targetId = target?.id ?? null;
 
   if (!target) return wander(brain, dt, rng);
-  return attackOrChase(brain, enemy, def, target);
+  return attackOrChase({ brain, enemy, def, target });
 }

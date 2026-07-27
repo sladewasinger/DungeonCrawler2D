@@ -15,14 +15,7 @@ export class Terrain4CliffHighlightRenderer {
 
   render(edges: Terrain4Batches["cliffEdges"], projection: Terrain4ScreenProjection, visible: boolean): void {
     const grouped = new Map<number, HighlightPart[]>();
-    for (const edge of edges) {
-      for (const side of edge.sides) {
-        const depth = edgeDepth(edge, side);
-        const group = grouped.get(depth) ?? [];
-        if (!grouped.has(depth)) grouped.set(depth, group);
-        group.push({ edge, side });
-      }
-    }
+    for (const edge of edges) appendEdgeParts(grouped, edge);
     for (const graphics of this.layers.values()) graphics.clear().setVisible(false);
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
@@ -45,6 +38,16 @@ export class Terrain4CliffHighlightRenderer {
     this.layers.set(depth, graphics);
     return graphics;
   }
+}
+
+function appendEdgeParts(grouped: Map<number, HighlightPart[]>, edge: Terrain4CliffEdgeQuad): void {
+  for (const side of edge.sides) appendEdgePart(grouped, edge, side);
+}
+
+function appendEdgePart(grouped: Map<number, HighlightPart[]>, edge: Terrain4CliffEdgeQuad, side: HighlightPart["side"]): void {
+  const depth = edgeDepth(edge, side); const group = grouped.get(depth) ?? [];
+  if (!grouped.has(depth)) grouped.set(depth, group);
+  group.push({ edge, side });
 }
 
 function drawEdges(
@@ -83,7 +86,7 @@ function sideBand(points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Te
   const bottom = [lerp(tl, bl, 1 - fraction), lerp(tr, br, 1 - fraction), br, bl] as const;
   const left = [tl, lerp(tl, tr, fraction), lerp(bl, br, fraction), bl] as const;
   const right = [lerp(tl, tr, 1 - fraction), tr, br, lerp(bl, br, 1 - fraction)] as const;
-  return side === "north" ? top : side === "south" ? bottom : side === "east" ? right : left;
+  return { north: top, south: bottom, east: right, west: left }[side];
 }
 
 function lerp(a: Terrain4ScreenPoint, b: Terrain4ScreenPoint, amount: number): Terrain4ScreenPoint {

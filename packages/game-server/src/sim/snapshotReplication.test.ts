@@ -26,22 +26,13 @@ function nextDelta(sim: ReturnType<typeof makeSim>, playerId: string): ServerSna
 describe("snapshot delta replication", () => {
   it("replicates the character skin selected during the hello handshake", () => {
     const sim = makeSim();
-    const observer = sim.addPlayer("Observer", "skin-observer");
-    const styled = sim.addPlayer(
-      "Styled",
-      "skin-styled",
-      undefined,
-      "wizzard_f",
+    const observer = sim.addPlayer({ name: "Observer", clientId: "skin-observer" });
+    const styled = sim.addPlayer({ name: "Styled", clientId: "skin-styled", skin: "wizzard_f" }
     );
     const observerEntity = sim.getPlayerEntity(observer.playerId);
     const styledEntity = sim.getPlayerEntity(styled.playerId);
     if (!observerEntity || !styledEntity) throw new Error("missing test player");
-    teleport(
-      styledEntity,
-      observerEntity.body.x + 1,
-      observerEntity.body.y,
-      sim,
-    );
+    teleport({ entity: styledEntity, x: observerEntity.body.x + 1, y: observerEntity.body.y, sim: sim });
 
     const snapshot = sim.step().get(observer.playerId);
     expect(snapshot?.entities).toContainEqual(
@@ -55,8 +46,8 @@ describe("snapshot delta replication", () => {
 
   it("keeps legacy clients full, then sends revisions, references, and recovery baselines", () => {
     const sim = makeSim();
-    const player = sim.addPlayer("A", "client-a");
-    const item = sim.spawnItem("rag", player.spawn.x + 1, player.spawn.y);
+    const player = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const item = sim.spawnItem({ defId: "rag", x: player.spawn.x + 1, y: player.spawn.y });
 
     const legacy = sim.stepReplicated().get(player.playerId);
     expect(legacy?.type).toBe("snapshot");
@@ -95,7 +86,7 @@ describe("snapshot delta replication", () => {
 
     const areaX = Math.floor(player.spawn.x);
     const areaY = Math.floor(player.spawn.y);
-    sim.areas.spawn("area-wet", areaX, areaY, 0);
+    sim.areas.spawn({ defId: "area-wet", x: areaX, y: areaY, radius: 0 });
     const areaDelta = nextDelta(sim, player.playerId);
     expect(areaDelta.areas).toContainEqual({ x: areaX, y: areaY, defId: "area-wet" });
     sim.stepReplicated();

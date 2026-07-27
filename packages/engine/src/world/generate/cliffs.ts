@@ -43,23 +43,28 @@ export function repairCliffs(tiles: Uint8Array, height: Float32Array, chunkSize:
  */
 export function demoteOrphanedStairs(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
   const view = localView(tiles, height, chunkSize);
+  forEachCell(chunkSize, (x, y, index) => demoteIfOrphaned({ tiles, view, x, y, index }));
+}
+
+function forEachCell(chunkSize: number, visit: (x: number, y: number, index: number) => void): void {
   for (let y = 0; y < chunkSize; y++) {
-    for (let x = 0; x < chunkSize; x++) {
-      const i = y * chunkSize + x;
-      if (tiles[i] === TILE.Stairs && entryClimbDir(view, x, y) === null) tiles[i] = TILE.Floor;
-    }
+    for (let x = 0; x < chunkSize; x++) visit(x, y, y * chunkSize + x);
   }
+}
+
+function demoteIfOrphaned({ tiles, view, x, y, index }: { tiles: Uint8Array; view: StairView; x: number; y: number; index: number }): void {
+  if (tiles[index] === TILE.Stairs && entryClimbDir(view, x, y) === null) tiles[index] = TILE.Floor;
 }
 
 /** Read-only chunk-local StairView so an edge already smoothed by an authored ramp's virtual padding (world/stairs.ts's RUN_PADDING) isn't re-flagged. */
 function localView(tiles: Uint8Array, height: Float32Array, chunkSize: number): StairView {
-  const at = (arr: Uint8Array | Float32Array, x: number, y: number, fallback: number): number => {
+  const at = ({ arr, x, y, fallback }: { arr: Uint8Array | Float32Array; x: number; y: number; fallback: number }): number => {
     if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) return fallback;
     return arr[y * chunkSize + x] ?? fallback;
   };
   return {
-    tileAt: (x, y) => at(tiles, x, y, TOPOLOGY.Uncarved),
-    heightAt: (x, y) => at(height, x, y, 0),
+    tileAt: (x, y) => at({ arr: tiles, x, y, fallback: TOPOLOGY.Uncarved }),
+    heightAt: (x, y) => at({ arr: height, x, y, fallback: 0 }),
   };
 }
 
@@ -67,15 +72,17 @@ function localView(tiles: Uint8Array, height: Float32Array, chunkSize: number): 
 function sweep(tiles: Uint8Array, height: Float32Array, chunkSize: number): boolean {
   let changed = false;
   const view = localView(tiles, height, chunkSize);
-  for (let y = 0; y < chunkSize; y++) {
-    for (let x = 0; x < chunkSize; x++) {
-      const i = y * chunkSize + x;
-      if (tiles[i] === TOPOLOGY.Uncarved) continue;
-      if (x + 1 < chunkSize && ramp(tiles, height, view, i, i + 1, x + 1, y)) changed = true;
-      if (y + 1 < chunkSize && ramp(tiles, height, view, i, i + chunkSize, x, y + 1)) changed = true;
-    }
-  }
+  forEachCell(chunkSize, (x, y, i) => {
+    if (tiles[i] === TOPOLOGY.Uncarved) return;
+    changed = repairCellEdges({ tiles, height, view, chunkSize, i, x, y }) || changed;
+  });
   return changed;
+}
+
+function repairCellEdges({ tiles, height, view, chunkSize, i, x, y }: Omit<RampEdge, "neighbor"> & { chunkSize: number }): boolean {
+  const east = repairEdge({ tiles, height, view, i, neighbor: i + 1, x: x + 1, y, inBounds: x + 1 < chunkSize });
+  const south = repairEdge({ tiles, height, view, i, neighbor: i + chunkSize, x, y: y + 1, inBounds: y + 1 < chunkSize });
+  return east || south;
 }
 
 /**
@@ -108,31 +115,48 @@ function edgeTouchesWallOrStairs(tiles: Uint8Array, i: number, n: number): boole
   return blocks(tiles[i]) || blocks(tiles[n]);
 }
 
-function ramp(
-  tiles: Uint8Array,
-  height: Float32Array,
-  view: StairView,
-  i: number,
-  n: number,
-  nx: number,
-  ny: number,
-): boolean {
-  if (edgeTouchesWallOrStairs(tiles, i, n)) return false;
-  const hi = height[i] ?? 0;
-  const hn = height[n] ?? 0;
-  const delta = hn - hi;
+interface RampEdge {
+  tiles: Uint8Array;
+  height: Float32Array;
+  view: StairView;
+  i: number;
+  neighbor: number;
+  x: number;
+  y: number;
+}
+
+interface RepairEdge extends RampEdge {
+  inBounds: boolean;
+}
+
+function repairEdge({ inBounds, ...edge }: RepairEdge): boolean {
+  return inBounds && ramp(edge);
+}
+
+function repairableDelta(hi: number, neighborHeight: number): number | null {
+  const delta = neighborHeight - hi;
   const magnitude = Math.abs(delta);
+  return magnitude > STEP_UP && magnitude > MAX_STAIR_SLOPE && magnitude < MAX_AUTO_RAMP_DELTA ? delta : null;
+}
+
+function duplicatesExistingRamp({ view, x, y }: Pick<RampEdge, "view" | "x" | "y">, height: number): boolean {
+  const rampHeight = stairRampAt(view, x + 0.5, y + 0.5);
+  return rampHeight !== null && Math.abs(rampHeight - height) <= STEP_UP;
+}
+
+function ramp({ tiles, height, view, i, neighbor, x, y }: RampEdge): boolean {
+  if (edgeTouchesWallOrStairs(tiles, i, neighbor)) return false;
+  const hi = height[i] ?? 0;
+  const delta = repairableDelta(hi, height[neighbor] ?? 0);
   // A gap already at or under one slope-step needs no ramp: a single
   // MAX_STAIR_SLOPE-sized step (over STEP_UP but a small graceful fall,
   // well under SAFE_FALL_HEIGHT) is fine left sheer. Tagging it Stairs
   // here would move `n` to EXACTLY its own pre-existing height (a no-op)
   // — a Stairs tile with no real delta on its far side, the same "flavor
   // without height" bug this net must not introduce.
-  if (magnitude <= STEP_UP || magnitude <= MAX_STAIR_SLOPE || magnitude >= MAX_AUTO_RAMP_DELTA) return false;
-  const alreadyRamped = stairRampAt(view, nx + 0.5, ny + 0.5);
-  if (alreadyRamped !== null && Math.abs(alreadyRamped - hi) <= STEP_UP) return false;
+  if (delta === null || duplicatesExistingRamp({ view, x, y }, hi)) return false;
   const step = Math.sign(delta) * MAX_STAIR_SLOPE;
-  height[n] = hi + step;
-  tiles[n] = TILE.Stairs;
+  height[neighbor] = hi + step;
+  tiles[neighbor] = TILE.Stairs;
   return true;
 }

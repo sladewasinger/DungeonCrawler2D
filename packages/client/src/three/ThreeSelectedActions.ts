@@ -19,64 +19,78 @@ export interface ThreeInteractionPanels {
   toggleStash(): boolean;
 }
 
+export interface SelectedInteraction {
+  readonly connection: ThreeActionPort;
+  readonly world: World;
+  readonly slot: number | null;
+  readonly panels?: ThreeInteractionPanels | undefined;
+  readonly pickupNearby?: boolean;
+}
+
 const useWorldTarget = (
   target: ReturnType<typeof resolveWorldInteraction>,
   connection: ThreeActionPort,
   panels?: ThreeInteractionPanels,
 ): boolean => {
   if (!target) return false;
-  if (target.kind === "craft" && panels) {
-    panels.toggleCraft();
-    return true;
-  }
-  if (target.kind === "stash" && panels) {
-    if (panels.toggleStash()) connection.interact();
-    return true;
-  }
+  if (panels && usePanelTarget(target.kind, panels, connection)) return true;
   connection.interact();
   return true;
 };
+
+function usePanelTarget(
+  kind: NonNullable<ReturnType<typeof resolveWorldInteraction>>["kind"],
+  panels: ThreeInteractionPanels,
+  connection: ThreeActionPort,
+): boolean {
+  const actions: Partial<Record<typeof kind, () => boolean>> = {
+    craft: () => { panels.toggleCraft(); return true; },
+    stash: () => { if (panels.toggleStash()) connection.interact(); return true; },
+  };
+  return actions[kind]?.() ?? false;
+}
 
 const selectedItem = (
   connection: ThreeActionPort,
   slot: number | null,
 ): string | null => slot === null ? null : connection.hotbar[slot] ?? null;
 
-export const useSelectedOrInteract = (
-  connection: ThreeActionPort,
-  world: World,
-  slot: number | null,
-  panels?: ThreeInteractionPanels,
-  pickupNearby = false,
-): void => {
+export const useSelectedOrInteract = ({ connection, world, slot, panels, pickupNearby = false }: SelectedInteraction): void => {
   const body = connection.body;
   if (!body) return;
+  if (useLocationInteraction({ connection, world, panels, body })) return;
+  useItemOrFallback({ connection, slot, pickupNearby });
+};
+
+function useLocationInteraction({ connection, world, panels, body }: {
+  readonly connection: ThreeActionPort;
+  readonly world: World;
+  readonly panels?: ThreeInteractionPanels | undefined;
+  readonly body: NonNullable<ThreeActionPort["body"]>;
+}): boolean {
   if (resolveStairwayPrompt(world, body.x, body.y)) {
     connection.descend();
-    return;
+    return true;
   }
-  const target = resolveWorldInteraction(world, body.x, body.y);
-  if (useWorldTarget(target, connection, panels)) return;
+  return useWorldTarget(resolveWorldInteraction(world, body.x, body.y), connection, panels);
+}
+
+function useItemOrFallback({ connection, slot, pickupNearby }: Pick<SelectedInteraction, "connection" | "slot" | "pickupNearby">): void {
   const item = selectedItem(connection, slot);
-  if (slot !== null && item && isConsumableItem(item)) {
-    connection.useSlot(slot);
-    return;
-  }
-  if (pickupNearby) {
-    connection.pickup();
-    return;
-  }
+  if (slot !== null && item && isConsumableItem(item)) return connection.useSlot(slot);
+  if (pickupNearby) return connection.pickup();
   connection.interact();
-};
+}
 
 export const throwSelectedItem = (
   connection: ThreeActionPort,
   slot: number | null,
   yaw: number,
 ): void => {
-  const body = connection.body;
   const item = selectedItem(connection, slot);
-  if (!body || slot === null || !item || !isThrowableItem(item)) return;
+  if (!canThrowSelected(connection.body, slot, item)) return;
+  const body = connection.body;
+  if (!body || slot === null) return;
   const dirX = -Math.sin(yaw);
   const dirY = -Math.cos(yaw);
   if (item === "torch") {
@@ -89,3 +103,7 @@ export const throwSelectedItem = (
     body.y + dirY * MAX_THROW_RANGE,
   );
 };
+
+function canThrowSelected(body: ThreeActionPort["body"], slot: number | null, item: string | null): boolean {
+  return body !== null && slot !== null && item !== null && isThrowableItem(item);
+}

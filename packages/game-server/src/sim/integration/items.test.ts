@@ -12,6 +12,8 @@ import {
   teleport,
 } from "./support.js";
 
+const PERSISTENT_HOTBAR_CLIENT = "persistent-hotbar";
+
 /**
  * Epic 4 regressions: pickup/stack/drop, explicit hotbar binding, and
  * throwables — ported from reference/game-server/sim.test.ts. Positions
@@ -30,19 +32,19 @@ describe("GameSim: items and inventory", () => {
   });
 
   it("picks up, stacks, drops — pickups never touch the hotbar; binding is explicit", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
-    const arena = findFlatArena(sim, 28, 28, 1);
-    teleport(entity, arena.x, arena.y, sim);
+    const arena = findFlatArena({ sim: sim, anchor: { x: 28, y: 28 }, clearance: 1 });
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
     sim.getInventory(a.playerId)!.length = 0; // clear the starter kit for a clean slate
     sim.getHotbar(a.playerId)!.fill(null);
-    sim.spawnItem("rag", entity.body.x + 0.5, entity.body.y, 2);
+    sim.spawnItem({ defId: "rag", x: entity.body.x + 0.5, y: entity.body.y, qty: 2 });
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
     const inv = sim.getInventory(a.playerId)!;
     expect(inv).toEqual([{ item: "rag", qty: 2 }]);
 
-    sim.spawnItem("rag", entity.body.x + 0.5, entity.body.y, 3);
+    sim.spawnItem({ defId: "rag", x: entity.body.x + 0.5, y: entity.body.y, qty: 3 });
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
     expect(inv).toEqual([{ item: "rag", qty: 5 }]); // stacked, unlimited
@@ -54,11 +56,11 @@ describe("GameSim: items and inventory", () => {
 
     // Picking a bandage up does NOT touch the hotbar (bindings are the
     // player's own); binding explicitly via assign makes 1-9 use it.
-    const arena2 = findFlatArena(sim, arena.x + 40, arena.y + 40, 1); // clear of the rag we just dropped
-    teleport(entity, arena2.x, arena2.y, sim);
+    const arena2 = findFlatArena({ sim: sim, anchor: { x: arena.x + 40, y: arena.y + 40 }, clearance: 1 }); // clear of the rag we just dropped
+    teleport({ entity: entity, x: arena2.x, y: arena2.y, sim: sim });
     entity.hp = 20;
-    sim.effects.applyStatus(entity, "bleeding", []);
-    sim.spawnItem("bandage", entity.body.x + 0.5, entity.body.y, 1);
+    sim.effects.applyStatus({ entity, statusId: "bleeding", events: [] });
+    sim.spawnItem({ defId: "bandage", x: entity.body.x + 0.5, y: entity.body.y, qty: 1 });
     sim.queueAction(a.playerId, { type: "pickup" });
     sim.step();
     const hotbar = sim.getHotbar(a.playerId)!;
@@ -75,13 +77,13 @@ describe("GameSim: items and inventory", () => {
   });
 
   it("a thrown vodka bottle leaves an oil slick; a torch onto it ignites", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
     // The throw travels 4 tiles: the whole flight path (not just the
     // player's own tile) has to be real, wall-free floor for the arc to
     // land where the test expects instead of stopping short at a wall.
-    const arena = findFlatArena(sim, entity.body.x, entity.body.y, 4);
-    teleport(entity, arena.x, arena.y, sim);
+    const arena = findFlatArena({ sim: sim, anchor: { x: entity.body.x, y: entity.body.y }, clearance: 4 });
+    teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
     const inv = sim.getInventory(a.playerId)!;
     const hotbar = sim.getHotbar(a.playerId)!;
     inv.push({ item: "vodka-bottle", qty: 1 });
@@ -90,21 +92,21 @@ describe("GameSim: items and inventory", () => {
     const ty = entity.body.y;
     sim.queueAction(a.playerId, { type: "useSlot", slot: 0, targetX: tx, targetY: ty });
     stepN(sim, 30); // flight + impact
-    const oilTile = nearbyAreaTile(sim, tx, ty, "oil");
+    const oilTile = nearbyAreaTile({ sim: sim, x: tx, y: ty, tag: "oil" });
     expect(oilTile).not.toBeNull();
 
     inv.push({ item: "torch", qty: 1 });
     hotbar[0] = "torch";
     sim.queueAction(a.playerId, { type: "useSlot", slot: 0, targetX: tx, targetY: ty });
     stepN(sim, 30);
-    expect(nearbyAreaTile(sim, tx, ty, "fire")).not.toBeNull();
+    expect(nearbyAreaTile({ sim: sim, x: tx, y: ty, tag: "fire" })).not.toBeNull();
   });
 
   it("uses consumables directly while rejecting invalid equip and hotbar assignments", () => {
-    const a = sim.addPlayer("A", "client-a");
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
     entity.hp = 20;
-    sim.effects.applyStatus(entity, "bleeding", []);
+    sim.effects.applyStatus({ entity, statusId: "bleeding", events: [] });
     sim.queueAction(a.playerId, { type: "useItem", item: "bandage" });
     sim.step();
     expect(entity.hp).toBe(24);
@@ -124,15 +126,10 @@ describe("GameSim: items and inventory", () => {
   it("restores queued hotbar assignment and unbind actions from the store", () => {
     const store = new PlayerStore(null);
     const createSim = (seed: number) =>
-      new GameSim(
-        new World(SEED, 1, LEVEL.Sandbox),
-        content,
-        store,
-        seed,
-        { testFixtures: true },
+      new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: seed, opts: { testFixtures: true } }
       );
     const first = createSim(1);
-    const joined = first.addPlayer("A", "persistent-hotbar");
+    const joined = first.addPlayer({ name: "A", clientId: PERSISTENT_HOTBAR_CLIENT });
     first.queueAction(joined.playerId, {
       type: "assign",
       slot: 4,
@@ -141,7 +138,7 @@ describe("GameSim: items and inventory", () => {
     first.step();
 
     const second = createSim(2);
-    const rejoined = second.addPlayer("A", "persistent-hotbar");
+    const rejoined = second.addPlayer({ name: "A", clientId: PERSISTENT_HOTBAR_CLIENT });
     expect(second.getHotbar(rejoined.playerId)?.[4]).toBe("torch");
     second.queueAction(rejoined.playerId, {
       type: "assign",
@@ -151,7 +148,7 @@ describe("GameSim: items and inventory", () => {
     second.step();
 
     const third = createSim(3);
-    const restored = third.addPlayer("A", "persistent-hotbar");
+    const restored = third.addPlayer({ name: "A", clientId: PERSISTENT_HOTBAR_CLIENT });
     expect(third.getHotbar(restored.playerId)?.[0]).toBeNull();
     expect(third.getHotbar(restored.playerId)?.[4]).toBe("torch");
   });

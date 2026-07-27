@@ -28,11 +28,32 @@ export function makeSocialSlot(name: string, x: number, y: number): PlayerSlot {
     maxHp: 10,
     tags: new Set(["player"]),
   });
+  return { entity, ...socialSlotState(name) };
+}
+
+function socialSlotState(name: string): Omit<PlayerSlot, "entity"> {
   return {
-    entity,
+    ...socialIdentity(name),
+    ...socialSessionState(),
+    ...socialGameplayState(),
+  };
+}
+
+function socialIdentity(name: string): Pick<PlayerSlot, "clientId" | "stored" | "resumeToken"> {
+  return {
     clientId: `client-${name}`,
     stored: { slot: 0, name, stash: [], contacts: [], localProfileId: `local-test-${name}` },
     resumeToken: `token-${name}`,
+  };
+}
+
+function socialSessionState(): Pick<
+  PlayerSlot,
+  "lastSeq" | "pendingInputs" | "pendingActions" | "connected" | "reapAtTick" | "known" |
+  "inventory" | "hotbar" | "weapon" | "outbox" | "returnStack" | "partyId" | "respawnAtTick" |
+  "needsFullAreas" | "downedAtTick"
+> {
+  return {
     lastSeq: -1,
     pendingInputs: [],
     pendingActions: [],
@@ -48,6 +69,15 @@ export function makeSocialSlot(name: string, x: number, y: number): PlayerSlot {
     respawnAtTick: null,
     needsFullAreas: true,
     downedAtTick: null,
+  };
+}
+
+function socialGameplayState(): Pick<
+  PlayerSlot,
+  "attackReadyAtTick" | "attackStartedAtTick" | "god" | "forceDeath" | "chatTimestamps" |
+  "lastFistbumpOfferAtTick" | "spawnGraceUntilTick" | "pendingTransfer"
+> {
+  return {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
@@ -62,5 +92,5 @@ export function makeSocialSlot(name: string, x: number, y: number): PlayerSlot {
 export function makeSocialState(): SimState {
   const world = new World(hashString("social-test"), 1, LEVEL.Sandbox);
   const content = buildContentRegistry(EMPTY_CONTENT);
-  return createSimState(world, content, new PlayerStore(null), 1, {});
+  return createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
 }

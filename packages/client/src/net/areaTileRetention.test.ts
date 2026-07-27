@@ -9,7 +9,7 @@ describe("pruneAreaTiles", () => {
       for (let offset = -20; offset <= 20; offset++) {
         areas.set(`${centerX},${offset}`, "area-fire");
       }
-      pruneAreaTiles(areas, centerX, 0, 40);
+      pruneAreaTiles({ areaTiles: areas, centerX, centerY: 0, radius: 40 });
       maximumRetained = Math.max(maximumRetained, areas.size);
     }
 

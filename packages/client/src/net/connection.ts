@@ -1,38 +1,23 @@
 import {
-  LEVEL,
-  PLAYER_MAX_STAMINA, TICK_RATE,
-  WireMetrics,
-  World,
-  type BodyState,
-  type ActiveStatusSnapshot,
   type ClientMessage,
-  type InvStack,
   type MoveInput,
-  type ServerSnapshot,
-  type ServerWelcome,
   type LevelId,
   type PlayerSkin,
+  TICK_RATE,
 } from "@dc2d/engine";
 import { closeSocket, openSocket } from "./socket.js";
-import type { ChatLine, ContactInfo, DeathVisualEvent, NpcSpeech, Toast, VisualEvent } from "./connectionTypes.js";
+import type { DeathVisualEvent, VisualEvent } from "./connectionTypes.js";
 import { ConnectionActions } from "./ConnectionActions.js";
 import {
   interpolateInto,
   type InterpolatedEntity,
-  type RemoteEntity,
 } from "./interpolate.js";
-import { InterpolationDelay } from "./interpolationDelay.js";
 import { sendMeasured } from "./measuredSend.js";
-import { MovementCadence } from "./movementCadence.js";
 import { sampleMovement, sendMovementEdge } from "./movementSampling.js";
 import type {
   MovementTraceClientState,
-  MovementTraceRecorder,
 } from "./movementTrace.js";
-import { Prediction } from "./prediction.js";
-import { PredictionCorrection } from "./predictionCorrection.js";
-import { SnapshotRevisionState } from "./snapshotState.js";
-import { ServerTimeline } from "./serverTimeline.js";
+import { resetDisconnectedConnection } from "./connectionReset.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -43,114 +28,7 @@ import { ServerTimeline } from "./serverTimeline.js";
 export type { ChatLine, ContactInfo, DeathVisualEvent, NpcSpeech, Toast, VisualEvent } from "./connectionTypes.js";
 
 export class Connection extends ConnectionActions {
-  world: World | null = null;
-  welcome: ServerWelcome | null = null;
-  body: BodyState | null = null;
-  rttMs = 0;
-  status: "connecting" | "connected" | "closed" = "closed";
-  /** The last applied snapshot's server tick — placed-torch ember-fade math
-   * (scenes/dungeon/torchSync.ts) counts down against this. */
-  serverTick = 0;
-  readonly snapshotRevisions = new SnapshotRevisionState();
-  /** Set true the first time applySnapshot ever runs — gates `dead` below so the
-   * default `hp = 0` never reads as a real death before server truth has arrived
-   * (docs/ASSUMPTIONS.md #88's client-side gap: welcome sets status "connected"
-   * before hp is known). */
-  hasReceivedSnapshot = false;
-
-  // Server-authoritative self state.
-  hp = 0;
-  maxHp = 1;
-  stamina = PLAYER_MAX_STAMINA;
-  maxStamina = PLAYER_MAX_STAMINA;
-  blocking = false;
-  staminaRecoveryDelaySeconds = 0;
-  staminaExhausted = false;
-  healthRegenerationDelaySeconds = 0;
-  readonly contextualActionsUsed = new Set<"attack" | "block">();
-  fx: string[] = [];
-  /** Authoritative remaining/total status time, parallel to fx for HUD progress. */
-  statusEffects: ActiveStatusSnapshot[] = [];
-  downed = false; downedUntilTick: number | null = null; respawnAtTick: number | null = null; reviveProgress = 0; reviverName: string | null = null;
-  /** Epic 11 core (character levels) — current XP, character level, and XP still
-   * needed for the next level; live on the wire since protocol 14 (ASSUMPTION #90).
-   * Named `charLevel` — `level` is already taken by the game LEVEL (dungeon/sandbox). */
-  xp = 0;
-  charLevel = 1;
-  xpForNext = 0;
-  /** Epic 7.14 (The Descent) — current floor (net/apply.ts's applyFloorState reads
-   * snap.self.floor, welcome.floor before the first snapshot); net/floorEvents.ts
-   * diffs this for the floor banner. */
-  floor = 1;
-  /** Unlimited inventory: one stack per item def. */
-  inventory: InvStack[] = [];
-  /** Hotbar bindings (item defs); qty lives in inventory. */
-  hotbar: Array<string | null> = [];
-  /** Equipped weapon def; null = fists. */
-  weapon: string | null = null;
-  party: ServerSnapshot["party"] = null;
-
-  // UI state fed by events.
-  stash: Array<{ item: string; qty: number }> | null = null; stashContext: { kind: "personal" | "loot"; chestId: string | null } = { kind: "personal", chestId: null };
-  pendingInvite: { from: string; name: string } | null = null;
-  readonly outgoingPartyInvites = new Map<string, string>();
-  toasts: Toast[] = [];
-  chatLog: ChatLine[] = [];
-  /** Monotonic count of chat lines ever received — chatLog trims from the front,
-   * so consumers (ui/chat/controller.ts) diff against this to find new lines. */
-  chatSeq = 0;
-  /** Mutual contacts, refreshed wholesale on every server contactsUpdated event. */
-  contacts: ContactInfo[] = [];
-  mutedPlayers = new Set<string>();
-  blockedPlayers = new Set<string>();
-  visualEvents: VisualEvent[] = [];
-  deathVisualEvents: DeathVisualEvent[] = [];
-  npcSpeech: NpcSpeech | null = null;
-  roomDoors: ServerSnapshot["roomDoors"] = [];
-  /** Set when the server teleported us (scene snaps the camera). */
-  teleported = false;
-  /** Set when hp climbs back from <=0 (net/apply.ts's respawn detection) — the scene
-   * consumes this to start the client-local spawn-grace shield ring (selfCosmetics.ts's
-   * startSelfGrace); see docs/ASSUMPTIONS.md row 380 for why this is an approximation,
-   * not real server-driven grace state. */
-  justRespawned = false;
-
-  readonly entities = new Map<string, RemoteEntity>();
   private readonly interpolationFrame: InterpolatedEntity[] = [];
-  readonly areaTiles = new Map<string, string>();
-  /** Local movement prediction; apply.ts reconciles it per snapshot. */
-  readonly prediction = new Prediction();
-  /** Wire cadence is independent from the fixed prediction cadence. */
-  readonly movementCadence = new MovementCadence();
-  /** Render-only smoothing keeps authoritative correction out of simulation state. */
-  readonly predictionCorrection = new PredictionCorrection();
-  readonly serverTimeline = new ServerTimeline();
-  readonly interpolationDelay = new InterpolationDelay();
-  /** Live traffic/correction diagnostics expose the roadmap's reproducible baseline. */
-  readonly networkMetrics = new WireMetrics();
-  /** Development-only movement trace, attached lazily by the dev HUD. */
-  movementTrace: MovementTraceRecorder | null = null;
-  // Wire/reconnect bookkeeping. Mutated only from socket.ts, which the
-  // class delegates its lifecycle to; treat as this facade's internals.
-  ws: WebSocket | null = null;
-  pingTimer: ReturnType<typeof setInterval> | null = null;
-  reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  shouldReconnect = false;
-  level: LevelId = LEVEL.Dungeon;
-  skin: PlayerSkin = "knight_f";
-  /** Consecutive failed reconnect attempts since the last successful welcome — the
-   * reconnect toast's attempt count (Epic 7.12); reset to 0 on every onWelcome. */
-  reconnectAttempts = 0;
-  /** Set once retries give up past RECONNECT_GRACE_MS worth of attempts — the scene
-   * routes to title instead of leaving a dead "Reconnecting..." spinner forever. */
-  sessionExpired = false;
-  /** Terminal wire incompatibility: reconnecting cannot succeed until the page reloads. */
-  updateRequired = false;
-  updateRequiredMessage = "";
-
-  constructor(readonly url: string, public name: string, readonly clientId: string) {
-    super();
-  }
 
   onConnected: (() => void) | null = null;
   onSnapshot: (() => void) | null = null;
@@ -177,32 +55,10 @@ export class Connection extends ConnectionActions {
 
   disconnect(): void {
     closeSocket(this);
-    this.world = null;
-    this.welcome = null;
-    this.body = null;
-    this.hp = 0;
-    this.stamina = PLAYER_MAX_STAMINA;
-    this.blocking = false;
-    this.staminaRecoveryDelaySeconds = 0;
-    this.staminaExhausted = false;
-    this.healthRegenerationDelaySeconds = 0;
-    this.downed = false; this.respawnAtTick = null;
-    this.justRespawned = false;
-    this.hasReceivedSnapshot = false;
-    this.snapshotRevisions.reset();
-    this.entities.clear();
-    this.pendingInvite = null;
-    this.outgoingPartyInvites.clear();
-    this.interpolationFrame.length = 0;
-    this.areaTiles.clear();
-    this.npcSpeech = null;
-    this.roomDoors = []; this.stashContext = { kind: "personal", chestId: null };
-    this.prediction.reset();
-    this.movementCadence.reset();
-    this.predictionCorrection.reset();
-    this.serverTimeline.reset();
-    this.interpolationDelay.reset();
+    resetDisconnectedConnection(this);
   }
+
+  clearInterpolationFrame(): void { this.interpolationFrame.length = 0; }
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
@@ -240,12 +96,12 @@ export class Connection extends ConnectionActions {
   interpolated(
     now: number = performance.now(),
   ): readonly InterpolatedEntity[] {
-    return interpolateInto(
-      this.entities,
-      this.interpolationDelay.currentMs,
-      this.serverTimeline.now(now),
-      this.interpolationFrame,
-    );
+    return interpolateInto({
+      entities: this.entities,
+      delayMs: this.interpolationDelay.currentMs,
+      now: this.serverTimeline.now(now),
+      out: this.interpolationFrame,
+    });
   }
 
   send(msg: ClientMessage): void {

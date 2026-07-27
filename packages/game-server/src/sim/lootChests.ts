@@ -1,83 +1,7 @@
-import {
-  INTERACT_RANGE,
-  LOOT_CHEST_LIFETIME_TICKS,
-  LOOT_CHEST_LOCK_TICKS,
-  TICK_RATE,
-  createBody,
-  makeEntity,
-  newEntityId,
-} from "@dc2d/engine";
+import { INTERACT_RANGE, TICK_RATE } from "@dc2d/engine";
 import { invAdd } from "./inventory.js";
 import type { LootChest, PlayerSlot, SimState } from "./state.js";
-
-export const PLAYER_LOOT_CHEST_DEF_ID = "player-loot-chest";
-
-const OFFSETS = [
-  [1, 0], [0, 1], [-1, 0], [0, -1],
-  [1, 1], [-1, 1], [-1, -1], [1, -1],
-  [2, 0], [0, 2], [-2, 0], [0, -2],
-] as const;
-
-function chestPosition(
-  sim: SimState,
-  slot: PlayerSlot,
-): { x: number; y: number; z: number } {
-  const originX = Math.floor(slot.entity.body.x);
-  const originY = Math.floor(slot.entity.body.y);
-  const start = Math.floor(sim.rng.next() * OFFSETS.length);
-  for (let step = 0; step < OFFSETS.length; step++) {
-    const offset = OFFSETS[(start + step) % OFFSETS.length]!;
-    const tileX = originX + offset[0];
-    const tileY = originY + offset[1];
-    if (!sim.world.isWalkable(tileX, tileY)) continue;
-    const x = tileX + 0.5;
-    const y = tileY + 0.5;
-    const z = sim.world.groundAt(x, y);
-    if (Math.abs(z - slot.entity.body.z) <= 1.5) return { x, y, z };
-  }
-  return {
-    x: slot.entity.body.x,
-    y: slot.entity.body.y,
-    z: sim.world.groundAt(slot.entity.body.x, slot.entity.body.y),
-  };
-}
-
-export function spawnPlayerLootChest(
-  sim: SimState,
-  slot: PlayerSlot,
-): LootChest | null {
-  if (slot.inventory.length === 0) {
-    slot.weapon = null;
-    return null;
-  }
-  const position = chestPosition(sim, slot);
-  const killer = slot.lastDamagedByPlayerId
-    ? sim.players.get(slot.lastDamagedByPlayerId)
-    : undefined;
-  const killerId = killer?.entity.id ?? null;
-  const entity = makeEntity("item", createBody(position.x, position.y, position.z), {
-    id: newEntityId("loot"),
-    defId: PLAYER_LOOT_CHEST_DEF_ID,
-    name: `[DEAD] ${slot.entity.name ?? "Crawler"}'s loot`,
-    expiresAtTick: sim.tickCount + LOOT_CHEST_LIFETIME_TICKS,
-    tags: new Set(["loot-chest"]),
-  });
-  const chest: LootChest = {
-    entity,
-    slots: slot.inventory.map((stack) => ({ ...stack })),
-    viewerId: null,
-    victimId: slot.entity.id,
-    victimName: slot.entity.name ?? "Crawler",
-    killerId,
-    killerName: killer?.entity.name ?? null,
-    unlockAtTick: killerId ? sim.tickCount + LOOT_CHEST_LOCK_TICKS : sim.tickCount,
-    expiresAtTick: sim.tickCount + LOOT_CHEST_LIFETIME_TICKS,
-  };
-  slot.inventory = [];
-  slot.weapon = null;
-  sim.lootChests.set(entity.id, chest);
-  return chest;
-}
+export { PLAYER_LOOT_CHEST_DEF_ID, spawnPlayerLootChest } from "./lootChests/spawn.js";
 
 export function nearestLootChest(
   sim: SimState,
@@ -86,17 +10,28 @@ export function nearestLootChest(
   let nearest: LootChest | null = null;
   let nearestDistance = INTERACT_RANGE;
   for (const chest of sim.lootChests.values()) {
-    if (Math.abs(chest.entity.body.z - slot.entity.body.z) > 1.5) continue;
-    const distance = Math.hypot(
-      chest.entity.body.x - slot.entity.body.x,
-      chest.entity.body.y - slot.entity.body.y,
-    );
-    if (distance > nearestDistance ||
-      (nearest && distance === nearestDistance && chest.entity.id >= nearest.entity.id)) continue;
+    const distance = chestDistance(slot, chest);
+    if (!isNearestCandidate({ chest, distance, nearest, nearestDistance })) continue;
     nearest = chest;
     nearestDistance = distance;
   }
   return nearest;
+}
+
+function chestDistance(slot: PlayerSlot, chest: LootChest): number {
+  if (Math.abs(chest.entity.body.z - slot.entity.body.z) > 1.5) return Infinity;
+  return Math.hypot(chest.entity.body.x - slot.entity.body.x, chest.entity.body.y - slot.entity.body.y);
+}
+
+function isNearestCandidate(request: {
+  chest: LootChest;
+  distance: number;
+  nearest: LootChest | null;
+  nearestDistance: number;
+}): boolean {
+  const { chest, distance, nearest, nearestDistance } = request;
+  if (distance > nearestDistance) return false;
+  return distance !== nearestDistance || !nearest || chest.entity.id < nearest.entity.id;
 }
 
 function inRange(slot: PlayerSlot, chest: LootChest): boolean {
@@ -179,34 +114,36 @@ export function closeLootChest(
   if (chest?.viewerId === slot.entity.id) chest.viewerId = null;
 }
 
-export function takeLoot(
-  sim: SimState,
-  slot: PlayerSlot,
-  chestId: string,
-  op: "take" | "takeAll",
-  item?: string,
-): void {
-  const chest = sim.lootChests.get(chestId);
-  if (!chest || chest.viewerId !== slot.entity.id || !inRange(slot, chest) ||
-    !canLoot(sim, slot, chest)) return;
-  const stacks = op === "takeAll"
+export function takeLoot(sim: SimState, slot: PlayerSlot, request: { chestId: string; op: "take" | "takeAll"; item?: string | undefined }): void {
+  const chest = sim.lootChests.get(request.chestId);
+  if (!canTakeLoot(sim, slot, chest)) return;
+  const stacks = request.op === "takeAll"
     ? chest.slots.splice(0)
-    : takeOneStack(chest, item);
+    : takeOneStack(chest, request.item);
   for (const stack of stacks) invAdd(sim, slot, stack.item, stack.qty);
   publishChest(slot, chest);
-  if (chest.slots.length === 0) sim.lootChests.delete(chestId);
+  if (chest.slots.length === 0) sim.lootChests.delete(request.chestId);
+}
+
+function canTakeLoot(sim: SimState, slot: PlayerSlot, chest: LootChest | undefined): chest is LootChest {
+  return !!chest && chest.viewerId === slot.entity.id && inRange(slot, chest) && canLoot(sim, slot, chest);
 }
 
 export function expireLootChests(sim: SimState): void {
   for (const [id, chest] of sim.lootChests) {
-    if (sim.tickCount >= chest.expiresAtTick) {
-      sim.lootChests.delete(id);
-      continue;
-    }
-    if (chest.viewerId === null) continue;
-    const viewer = sim.players.get(chest.viewerId);
-    if (!viewer?.connected || viewer.entity.hp <= 0 || !inRange(viewer, chest)) {
-      chest.viewerId = null;
-    }
+    expireLootChest(sim, id, chest);
   }
+}
+
+function expireLootChest(sim: SimState, id: string, chest: LootChest): void {
+  if (sim.tickCount >= chest.expiresAtTick) {
+    sim.lootChests.delete(id);
+    return;
+  }
+  if (chest.viewerId !== null && shouldReleaseViewer(sim, chest)) chest.viewerId = null;
+}
+
+function shouldReleaseViewer(sim: SimState, chest: LootChest): boolean {
+  const viewer = sim.players.get(chest.viewerId!);
+  return !viewer?.connected || viewer.entity.hp <= 0 || !inRange(viewer, chest);
 }

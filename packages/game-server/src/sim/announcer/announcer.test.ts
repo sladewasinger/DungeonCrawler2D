@@ -47,18 +47,19 @@ describe("pickLineIndex", () => {
 
 describe("announcer line builders", () => {
   it("announceJoin embeds the name and system channel", () => {
-    const event = announceJoin(10, "p1", "Rowan", 3);
+    const event = announceJoin({ tick: 10, playerId: "p1", name: "Rowan", ordinal: 3 });
     expect(event).toMatchObject({ t: "chat", channel: "system", from: "server", name: "system" });
     expect(event.t === "chat" && event.text).toContain("Rowan");
   });
 
   it("announceJoin is deterministic for the same inputs", () => {
-    expect(announceJoin(10, "p1", "Rowan", 3)).toEqual(announceJoin(10, "p1", "Rowan", 3));
+    const input = { tick: 10, playerId: "p1", name: "Rowan", ordinal: 3 };
+    expect(announceJoin(input)).toEqual(announceJoin(input));
   });
 
   it("announceDeath picks a distinct pool for chasm vs ordinary deaths", () => {
-    const ordinary = announceDeath(10, "p1", "Rowan", false, 6);
-    const chasm = announceDeath(10, "p1", "Rowan", true, 6);
+    const ordinary = announceDeath({ tick: 10, playerId: "p1", name: "Rowan", chasm: false, rating: 6 });
+    const chasm = announceDeath({ tick: 10, playerId: "p1", name: "Rowan", chasm: true, rating: 6 });
     expect(ordinary.t === "chat" && ordinary.text).not.toBe(chasm.t === "chat" ? chasm.text : "");
   });
 
@@ -68,7 +69,7 @@ describe("announcer line builders", () => {
     // coverage test above) — the rating sentence must survive all of them.
     for (let tick = 0; tick < 40; tick++) {
       for (const chasm of [false, true]) {
-        const event = announceDeath(tick, "p1", "Rowan", chasm, 6);
+        const event = announceDeath({ tick, playerId: "p1", name: "Rowan", chasm, rating: 6 });
         expect(event.t === "chat" && event.text, `tick ${tick} chasm=${String(chasm)}`).toContain(
           "a 6 out of 10",
         );
@@ -77,23 +78,23 @@ describe("announcer line builders", () => {
   });
 
   it("announceDeath amplifies only the scale's extremes with extra flavor", () => {
-    const harsh = announceDeath(12, "p1", "Rowan", false, 2);
+    const harsh = announceDeath({ tick: 12, playerId: "p1", name: "Rowan", chasm: false, rating: 2 });
     expect(harsh.t === "chat" && harsh.text).toContain("Brutal, even by house standards.");
-    const generous = announceDeath(12, "p1", "Rowan", false, 9);
+    const generous = announceDeath({ tick: 12, playerId: "p1", name: "Rowan", chasm: false, rating: 9 });
     expect(generous.t === "chat" && generous.text).toContain("A surprisingly generous crowd tonight.");
-    const middle = announceDeath(12, "p1", "Rowan", false, 5);
+    const middle = announceDeath({ tick: 12, playerId: "p1", name: "Rowan", chasm: false, rating: 5 });
     const middleText = middle.t === "chat" ? middle.text : "";
     expect(middleText).not.toContain("Brutal");
     expect(middleText).not.toContain("generous");
   });
 
   it("announceLevelUp embeds the level number", () => {
-    const event = announceLevelUp(5, "p1", "Rowan", 7);
+    const event = announceLevelUp({ tick: 5, playerId: "p1", name: "Rowan", level: 7 });
     expect(event.t === "chat" && event.text).toContain("7");
   });
 
   it("announceFistbump embeds both names", () => {
-    const event = announceFistbump(5, "p1", "Rowan", "Sable");
+    const event = announceFistbump({ tick: 5, playerId: "p1", playerName: "Rowan", targetName: "Sable" });
     const text = event.t === "chat" ? event.text : "";
     expect(text).toContain("Rowan");
     expect(text).toContain("Sable");
@@ -167,7 +168,7 @@ describe("broadcastAnnouncement", () => {
       // Minimal SimState shape — broadcastAnnouncement only reads `players`.
     } as unknown as Parameters<typeof broadcastAnnouncement>[0];
 
-    const event = announceJoin(1, "a", "Rowan", 1);
+    const event = announceJoin({ tick: 1, playerId: "a", name: "Rowan", ordinal: 1 });
     broadcastAnnouncement(sim, event);
 
     expect(connected.outbox).toEqual([event]);

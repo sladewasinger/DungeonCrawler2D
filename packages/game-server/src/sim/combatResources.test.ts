@@ -22,12 +22,17 @@ const simAt = (tickCount: number, hp = 20) => {
     tickCount,
     players: new Map([["p", slot]]),
     effects: {
-      modifyHealth(
-        target: typeof entity,
-        amount: number,
-        events: EffectEvent[],
-        options: { healthSource?: "automatic" } = {},
-      ) {
+      modifyHealth({
+        entity: target,
+        amount,
+        events,
+        opts: options = {},
+      }: {
+        entity: typeof entity;
+        amount: number;
+        events: EffectEvent[];
+        opts?: { healthSource?: "automatic" };
+      }) {
         target.hp = Math.min(target.maxHp, target.hp + amount);
         events.push({
           t: "hp",

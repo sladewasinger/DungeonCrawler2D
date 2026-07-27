@@ -70,7 +70,7 @@ describe("stepOrbitAngle", () => {
 describe("orbitPosition", () => {
   it("places the sprite ORBIT_RADIUS_TILES tiles from center along the angle, rotated outward", () => {
     const tilePx = 48;
-    const pos = orbitPosition(0, 0, 0, tilePx);
+    const pos = orbitPosition({ centerX: 0, centerY: 0, angle: 0, tilePx });
     expect(pos.x).toBeCloseTo(ORBIT_RADIUS_TILES * tilePx);
     expect(pos.y).toBeCloseTo(0);
     expect(pos.rotation).toBe(0);
@@ -79,7 +79,7 @@ describe("orbitPosition", () => {
   it("derives radius from ORBIT_RADIUS_TILES * tilePx, not a hardcoded pixel constant", () => {
     const tilePx = 48;
     const angle = Math.PI / 4;
-    const pos = orbitPosition(10, 20, angle, tilePx);
+    const pos = orbitPosition({ centerX: 10, centerY: 20, angle, tilePx });
     const radiusPx = ORBIT_RADIUS_TILES * tilePx;
     expect(pos.x).toBeCloseTo(10 + Math.cos(angle) * radiusPx);
     expect(pos.y).toBeCloseTo(20 + Math.sin(angle) * radiusPx);

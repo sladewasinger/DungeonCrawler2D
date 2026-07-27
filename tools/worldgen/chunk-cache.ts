@@ -19,7 +19,7 @@ export class ChunkCache {
     const key = `${cx},${cy}`;
     let chunk = this.chunks.get(key);
     if (!chunk) {
-      chunk = this.generate(this.worldSeed, this.floor, cx, cy);
+      chunk = this.generate({ worldSeed: this.worldSeed, floor: this.floor, cx, cy });
       this.chunks.set(key, chunk);
     }
     return chunk;

@@ -26,11 +26,7 @@ export const createSessionButton = (
 };
 
 export const createSessionRange = (
-  label: string,
-  minimum: number,
-  maximum: number,
-  value: number,
-  change: (value: number) => void,
+  { label, minimum, maximum, value, change }: { label: string; minimum: number; maximum: number; value: number; change: (value: number) => void },
 ): HTMLLabelElement => {
   const row = document.createElement("label");
   row.style.cssText = "display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center";
@@ -45,16 +41,19 @@ export const createSessionRange = (
   input.step = "5";
   input.value = String(Math.round(value * 100));
   input.style.cssText = "grid-column:1/-1;width:100%;accent-color:#ffd54c";
-  const update = () => {
-    const next = Number(input.value) / 100;
-    output.value = `${Math.round(next * 100)}%`;
-    change(next);
-  };
-  input.addEventListener("input", update);
+  bindRangeInput(input, output, change);
   output.value = `${Math.round(value * 100)}%`;
   row.append(text, output, input);
   return row;
 };
+
+function bindRangeInput(input: HTMLInputElement, output: HTMLOutputElement, change: (value: number) => void): void {
+  input.addEventListener("input", () => {
+    const next = Number(input.value) / 100;
+    output.value = `${Math.round(next * 100)}%`;
+    change(next);
+  });
+}
 
 const createMotionControl = (
   presentation: LocalPresentationController,
@@ -69,46 +68,34 @@ const createMotionControl = (
   motionSelect.setAttribute("aria-label", "Interface motion");
   motionSelect.style.cssText =
     "padding:6px;border:1px solid #757a93;background:#292b40;color:#f2f0eb";
-  for (const [value, label] of [
-    ["system", "Follow device"],
-    ["reduce", "Reduce"],
-    ["full", "Full"],
-  ] as const) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    motionSelect.append(option);
-  }
+  addMotionOptions(motionSelect);
   motionSelect.value = currentMotion;
-  motionSelect.addEventListener("change", () => {
-    presentation.setMotion(
-      motionSelect.value === "reduce" || motionSelect.value === "full"
-        ? motionSelect.value
-        : "system",
-    );
-  });
+  bindMotionChange(motionSelect, presentation);
   motion.append(motionText, motionSelect);
   return motion;
 };
+
+function addMotionOptions(select: HTMLSelectElement): void {
+  for (const [value, label] of [["system", "Follow device"], ["reduce", "Reduce"], ["full", "Full"]] as const) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.append(option);
+  }
+}
+
+function bindMotionChange(select: HTMLSelectElement, presentation: LocalPresentationController): void {
+  select.addEventListener("change", () => presentation.setMotion(
+    select.value === "reduce" || select.value === "full" ? select.value : "system",
+  ));
+}
 
 export const createGraphicsControls = (
   presentation: LocalPresentationController,
 ): HTMLElement[] => {
   const current = presentation.current();
-  const brightness = createSessionRange(
-    "World brightness",
-    MIN_BRIGHTNESS,
-    MAX_BRIGHTNESS,
-    current.brightness,
-    (value) => presentation.setBrightness(value),
-  );
-  const font = createSessionRange(
-    "HUD font scale",
-    MIN_FONT_SCALE,
-    MAX_FONT_SCALE,
-    current.fontScale,
-    (value) => presentation.setFontScale(value),
-  );
+  const brightness = createSessionRange({ label: "World brightness", minimum: MIN_BRIGHTNESS, maximum: MAX_BRIGHTNESS, value: current.brightness, change: (value) => presentation.setBrightness(value) });
+  const font = createSessionRange({ label: "HUD font scale", minimum: MIN_FONT_SCALE, maximum: MAX_FONT_SCALE, value: current.fontScale, change: (value) => presentation.setFontScale(value) });
   const motion = createMotionControl(presentation, current.motion);
   const groups = createCarnageControlGroups();
   const accessibility = createSettingsSection(

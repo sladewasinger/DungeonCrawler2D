@@ -18,6 +18,13 @@ export interface GroundedVisualPlacement {
   readonly layer: GroundedVisualLayer;
 }
 
+export interface GroundedVisualInput {
+  readonly rawScreenY: number;
+  readonly groundHeight: number;
+  readonly layer: GroundedVisualLayer;
+  readonly scatterScreenY?: number;
+}
+
 /**
  * One inspectable contract for ground-anchored visuals.
  *
@@ -25,12 +32,12 @@ export interface GroundedVisualPlacement {
  * corpses, and fragments use the row-local ground-effect band so their geometry
  * stays behind every entity standing on that floor. Items retain entity ordering.
  */
-export function groundedVisualPlacement(
-  rawScreenY: number,
-  groundHeight: number,
-  layer: GroundedVisualLayer,
+export function groundedVisualPlacement({
+  rawScreenY,
+  groundHeight,
+  layer,
   scatterScreenY = 0,
-): GroundedVisualPlacement {
+}: GroundedVisualInput): GroundedVisualPlacement {
   const groundedScreenY = rawScreenY + scatterScreenY;
   const groundedRow = groundedScreenY / SCREEN_TILE_PX;
   return {

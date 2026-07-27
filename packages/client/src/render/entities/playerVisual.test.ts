@@ -85,7 +85,7 @@ describe("updatePlayerVisual", () => {
       world: { groundAt: () => 0, heightAt: () => 0, isWalkable: () => true },
     };
     const view = { id: "p", playerId: "p", name: "Wren", x: 1, y: 2, z: 0, hp: 30, maxHp: 30, fx: [], faceX: 1, faceY: 0, air: false, downed: false, disconnected: true, attacking: false, blocking: false, weaponId: null, weaponAimAngle: null, attackAngleRad: 0 };
-    updatePlayerVisual(visual as never, "hero", view, context as never);
+    updatePlayerVisual({ visual: visual as never, skinPrefix: "hero", view, context: context as never });
     expect(body.tint).toBe(0x55555a);
     expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14 + probes.screenTilePx / 3, expect.any(Number), false, false, true);
     expect(probes.heldWeapon).toHaveBeenLastCalledWith(
@@ -93,12 +93,12 @@ describe("updatePlayerVisual", () => {
       "particle_soft",
       expect.objectContaining({ isFistFallback: true, orbitAngleRad: 0 }),
     );
-    updatePlayerVisual(
-      visual as never,
-      "hero",
-      { ...view, disconnected: false, blocking: true },
-      context as never,
-    );
+    updatePlayerVisual({
+      visual: visual as never,
+      skinPrefix: "hero",
+      view: { ...view, disconnected: false, blocking: true },
+      context: context as never,
+    });
     expect(body.tint).toBeNull();
     expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14 + probes.screenTilePx / 3, expect.any(Number), false, false, false);
     expect(probes.heldWeapon).toHaveBeenLastCalledWith(

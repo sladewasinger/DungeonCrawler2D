@@ -64,11 +64,11 @@ describe("shared HTML HUD compass", () => {
     const stairs = stairwayDownPosition(world);
     if (!stairs) throw new Error("expected a floor-one stairway");
 
-    const compass = resolveThreeCompassState(
+    const compass = resolveThreeCompassState({
       world,
-      { x: stairs.x, z: stairs.y + 12 },
-      -Math.PI / 2,
-    );
+      player: { x: stairs.x, z: stairs.y + 12 },
+      yaw: -Math.PI / 2,
+    });
 
     expect(compass.bearingDeg).toBe(90);
     expect(compass.stairway).toEqual({ screenBearingDeg: 90, near: false });

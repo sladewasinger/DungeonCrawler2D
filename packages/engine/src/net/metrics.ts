@@ -39,7 +39,13 @@ export class WireMetrics {
   private correctionTotal = 0;
   private maximumCorrectionError = 0;
 
-  record(direction: WireDirection, bytes: number, codecMilliseconds: number, queueBytes: number, nowMs: number): void {
+  record({ direction, bytes, codecMilliseconds, queueBytes, nowMs }: {
+    direction: WireDirection;
+    bytes: number;
+    codecMilliseconds: number;
+    queueBytes: number;
+    nowMs: number;
+  }): void {
     this.startedAtMs ??= nowMs;
     const totals = direction === "inbound" ? this.inbound : this.outbound;
     totals.messages++;

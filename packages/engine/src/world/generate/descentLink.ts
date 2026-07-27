@@ -19,23 +19,29 @@ import type { Point, Rect, Room } from "./types.js";
 const LINK_WIDTH = 2;
 const FLAT_TOLERANCE = 0.01;
 
-function carveFlatLegs(
-  tiles: Uint8Array,
-  corridorCarved: Uint8Array,
-  height: Float32Array,
-  legs: readonly Rect[],
-): void {
-  for (const leg of legs) {
-    for (let y = leg.y0; y <= leg.y1; y++) {
-      for (let x = leg.x0; x <= leg.x1; x++) {
-        if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) continue;
-        const i = y * CHUNK_SIZE + x;
-        tiles[i] = TILE.Floor;
-        height[i] = 0;
-        corridorCarved[i] = 1;
-      }
-    }
+interface FlatCarveContext {
+  tiles: Uint8Array;
+  corridorCarved: Uint8Array;
+  height: Float32Array;
+  legs: readonly Rect[];
+}
+
+function carveFlatLegs(context: FlatCarveContext): void {
+  for (const leg of context.legs) carveFlatLeg(context, leg);
+}
+
+function carveFlatLeg(context: FlatCarveContext, leg: Rect): void {
+  for (let y = leg.y0; y <= leg.y1; y++) {
+    for (let x = leg.x0; x <= leg.x1; x++) stampFlatCell(context, x, y);
   }
+}
+
+function stampFlatCell(context: FlatCarveContext, x: number, y: number): void {
+  if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) return;
+  const index = y * CHUNK_SIZE + x;
+  context.tiles[index] = TILE.Floor;
+  context.height[index] = 0;
+  context.corridorCarved[index] = 1;
 }
 
 function roomHeight(height: Float32Array, rect: Rect): number {
@@ -57,18 +63,17 @@ function nearestRoom(rooms: readonly Room[], p: Point): Room {
 }
 
 /** Route a flat (height-0) corridor from `exit` (the structure's own open threshold) to the nearest already-flat BSP room, falling back to any room if none is flat. */
-export function connectDescentStructure(
-  tiles: Uint8Array,
-  corridorCarved: Uint8Array,
-  height: Float32Array,
-  exit: Point,
-  rooms: readonly Room[],
-): void {
-  if (rooms.length === 0) return;
-  const flat = rooms.filter((r) => Math.abs(roomHeight(height, r.rect)) <= FLAT_TOLERANCE);
-  const room = nearestRoom(flat.length > 0 ? flat : rooms, exit);
+export interface DescentLinkContext extends Omit<FlatCarveContext, "legs"> {
+  exit: Point;
+  rooms: readonly Room[];
+}
+
+export function connectDescentStructure(context: DescentLinkContext): void {
+  if (context.rooms.length === 0) return;
+  const flat = context.rooms.filter((room) => Math.abs(roomHeight(context.height, room.rect)) <= FLAT_TOLERANCE);
+  const room = nearestRoom(flat.length > 0 ? flat : context.rooms, context.exit);
   const from: Point = { x: centerX(room.rect), y: centerY(room.rect) };
-  const aVertical = Math.abs(exit.x - from.x) < Math.abs(exit.y - from.y);
-  const legs = lPathLegs(from, aVertical, exit, LINK_WIDTH, CHUNK_SIZE);
-  carveFlatLegs(tiles, corridorCarved, height, legs);
+  const aVertical = Math.abs(context.exit.x - from.x) < Math.abs(context.exit.y - from.y);
+  const legs = lPathLegs({ from, fromVertical: aVertical, to: context.exit, width: LINK_WIDTH, size: CHUNK_SIZE });
+  carveFlatLegs({ ...context, legs });
 }

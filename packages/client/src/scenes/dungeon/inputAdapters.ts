@@ -1,63 +1,26 @@
 // Thin glue between input/index.ts's InputController contracts and DungeonScene's real
 // Connection + self cosmetics. Inventory (HUD_OS.md Phase 1) and craft/stash (Epic 7.12,
 // panelAdapters.ts) are both real: InputPanels reads every field live from HudScene.
-import {
-  ATTACK_COOLDOWN_MS,
-  INTERACT_RANGE,
-  findWorldInteractionTarget,
-  resolveWorldInteraction,
-} from "@dc2d/engine";
-import type { InputConnection, InputHooks, InputQueries } from "../../input/index.js";
+import type { InputConnection, InputHooks } from "../../input/index.js";
 import type { Connection } from "../../net/connection.js";
-import { canOpenLootChest, nearestLootChest } from "../../net/lootChestQuery.js";
 import type { InventoryActions } from "../../ui/widgets/hud/inventoryWindow.js";
-import {
-  isConsumableItem,
-  isThrowableItem,
-  nearestDownedPartyMember,
-  nearestEntityId,
-  recipeIdAtIndex,
-  weaponCooldownMs,
-} from "./contentQueries.js";
 import { endSelfGrace, triggerSelfAttack, type SelfCosmeticsState } from "./selfCosmetics.js";
-import { resolveStairwayPrompt } from "./stairwayProximity.js";
+export { createInputQueries } from "./inputQueries.js";
 
 export function createInputConnectionAdapter(conn: Connection): InputConnection {
   return {
-    get body() {
-      return conn.body;
-    },
-    get canAct() {
-      return conn.canAct;
-    },
-    get downed() {
-      return conn.downed;
-    },
-    get dead() {
-      return conn.dead;
-    },
-    get hotbar() {
-      return conn.hotbar.map((id) => id ?? undefined);
-    },
-    get inventory() {
-      return conn.inventory;
-    },
-    get stash() {
-      return conn.stash;
-    },
-    get pendingInvite() {
-      return conn.pendingInvite !== null;
-    },
-    get weapon() {
-      return conn.weapon;
-    },
-    // WAVE E3 aim pick (docs/ELEVATION-PROJECTION.md section 4): reads `conn.world`
-    // LIVE on every call (never snapshotted at adapter-construction time, since a
-    // reconnect can bind `conn.world` well after this adapter is built) — reports flat
-    // (height 0 everywhere) while no world is bound yet, which is exactly the input
-    // pickTallestFirst's own flat fallback needs to behave byte-identically to pre-E3 aim.
-    heightAt: (wx, wy) => conn.world?.heightAt(wx, wy) ?? 0,
+    ...inputConnectionState(conn),
     ...createInputActions(conn),
+  };
+}
+
+function inputConnectionState(conn: Connection): Omit<InputConnection, keyof ReturnType<typeof createInputActions>> {
+  return {
+    get body() { return conn.body; }, get canAct() { return conn.canAct; }, get downed() { return conn.downed; },
+    get dead() { return conn.dead; }, get hotbar() { return conn.hotbar.map((id) => id ?? undefined); },
+    get inventory() { return conn.inventory; }, get stash() { return conn.stash; },
+    get pendingInvite() { return conn.pendingInvite !== null; }, get weapon() { return conn.weapon; },
+    heightAt: (wx, wy) => conn.world?.heightAt(wx, wy) ?? 0,
   };
 }
 
@@ -67,24 +30,19 @@ function createInputActions(conn: Connection): Omit<
   "body" | "canAct" | "downed" | "dead" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt"
 > {
   return {
-    interact: () => conn.interact(),
-    revive: (targetId, held) => conn.revive(targetId, held),
-    pickup: () => conn.pickup(),
-    attack: (dx, dy) => conn.attack(dx, dy),
-    useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
-    useSlotOnPlayer: (slot, targetId) => conn.useSlotOnPlayer(slot, targetId),
-    useItem: (item) => conn.useItem(item),
-    throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY),
-    craft: (recipeId) => conn.craft(recipeId),
-    stashOp: (op, index) => conn.stashOp(op, index),
-    lootChestOp: (chestId, op, item) => conn.lootChestOp(chestId, op, item),
-    partyOp: (op, target) => conn.partyOp(op, target),
-    assignSlot: (slot, item) => conn.assignSlot(slot, item),
-    equip: (item) => conn.equip(item),
-    drop: (item) => conn.drop(item),
-    fistbump: (targetId) => conn.fistbump(targetId),
-    descend: () => conn.descend(),
-    suicide: () => conn.suicide(),
+    interact: () => conn.interact(), revive: (targetId, held) => conn.revive(targetId, held), pickup: () => conn.pickup(),
+    attack: (dx, dy) => conn.attack(dx, dy), useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
+    useSlotOnPlayer: (slot, targetId) => conn.useSlotOnPlayer(slot, targetId), useItem: (item) => conn.useItem(item),
+    throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY), craft: (recipeId) => conn.craft(recipeId), stashOp: (op, index) => conn.stashOp(op, index),
+    lootChestOp: (chestId, op, item) => conn.lootChestOp(chestId, op, item), partyOp: (op, target) => conn.partyOp(op, target),
+    assignSlot: (slot, item) => conn.assignSlot(slot, item), equip: (item) => conn.equip(item), drop: (item) => conn.drop(item),
+    fistbump: (targetId) => conn.fistbump(targetId), descend: () => conn.descend(), suicide: () => conn.suicide(),
+    ...createDebugActions(conn),
+  };
+}
+
+function createDebugActions(conn: Connection): Pick<InputConnection, "pushToast" | "debugGod"> {
+  return {
     pushToast: (msg) => conn.pushToast(msg),
     debugGod: () => conn.debugGod(),
   };
@@ -133,53 +91,6 @@ export function createChatPort(conn: Connection): {
   };
 }
 
-function positionedEntities(conn: Connection): Array<{ id: string; kind: string; x: number; y: number }> {
-  return [...conn.entities.entries()].map(([id, remote]) => ({
-    id,
-    kind: remote.snap.kind,
-    x: remote.snap.x,
-    y: remote.snap.y,
-  }));
-}
-
-export function createInputQueries(conn: Connection): InputQueries {
-  return {
-    isThrowable: isThrowableItem,
-    isConsumable: isConsumableItem,
-    attackCooldownMs: (weaponId) => weaponCooldownMs(weaponId, ATTACK_COOLDOWN_MS),
-    recipeIdAt: recipeIdAtIndex,
-    nearestPlayerId: (adapter, maxDistance) =>
-      adapter.body
-        ? nearestEntityId(positionedEntities(conn), "player", adapter.body.x, adapter.body.y, maxDistance)
-        : undefined,
-    nearbyLootChest: () => {
-      const chest = nearestLootChest(conn);
-      return chest ? { id: chest.id, canOpen: canOpenLootChest(conn, chest) } : undefined;
-    },
-    isStashNearby: (adapter) =>
-      !!nearestLootChest(conn) || (
-        !!conn.world && !!adapter.body &&
-        !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "stash")
-      ),
-    isCraftTableNearby: (adapter) =>
-      !!conn.world && !!adapter.body &&
-      !!findWorldInteractionTarget(conn.world, adapter.body.x, adapter.body.y, "craft"),
-    worldInteraction: (adapter) =>
-      conn.world && adapter.body
-        ? resolveWorldInteraction(conn.world, adapter.body.x, adapter.body.y)
-        : null,
-    isStairwayNearby: (adapter) =>
-      !!conn.world && !!adapter.body && !!resolveStairwayPrompt(conn.world, adapter.body.x, adapter.body.y),
-    downedPartyMemberInRange: (adapter) => {
-      if (!adapter.body) return undefined;
-      const players = [...conn.entities.values()]
-        .map(({ snap }) => snap)
-        .filter((snap) => snap.kind === "player" && snap.downed)
-        .map((snap) => ({ id: snap.id, x: snap.x, y: snap.y, downed: true }));
-      return nearestDownedPartyMember(players, adapter.body.x, adapter.body.y, INTERACT_RANGE);
-    },
-  };
-}
 
 export interface SocialHookCallbacks {
   toggleChat(): void;
@@ -196,10 +107,9 @@ export function createInputHooks(cosmetics: SelfCosmeticsState, social: SocialHo
       // Any offensive action forfeits spawn grace early (spawnSafety.ts's own
       // forfeit rule) — see selfCosmetics.ts's grace-ring doc comment.
       endSelfGrace(cosmetics);
-      triggerSelfAttack(cosmetics, performance.now(), dx, dy);
+      triggerSelfAttack(cosmetics, { nowMs: performance.now(), dirX: dx, dirY: dy });
     },
-    // Chunk-grid debug overlay isn't built in this wave — GalleryScene's coordinate
-    // readout (render/terrain debugging) covers it for now.
+    // Chunk-grid debug overlay is not part of this input lane.
     onToggleBorders: () => {},
     onToggleChat: social.toggleChat,
     onToggleInventory: social.toggleInventory,

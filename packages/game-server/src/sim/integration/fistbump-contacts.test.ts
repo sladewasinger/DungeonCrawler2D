@@ -13,16 +13,16 @@ import { content, SEED, eventsOf, makeSim, stepN, teleport } from "./support.js"
  */
 
 function nearbyPair(sim: GameSim): { aId: string; bId: string } {
-  const a = sim.addPlayer("A", "client-a");
-  const b = sim.addPlayer("B", "client-b");
-  teleport(sim.getPlayerEntity(b.playerId)!, sim.getPlayerEntity(a.playerId)!.body.x + 1, sim.getPlayerEntity(a.playerId)!.body.y, sim);
+  const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+  const b = sim.addPlayer({ name: "B", clientId: "client-b" });
+  teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: sim.getPlayerEntity(a.playerId)!.body.x + 1, y: sim.getPlayerEntity(a.playerId)!.body.y, sim: sim });
   return { aId: a.playerId, bId: b.playerId };
 }
 
 describe("GameSim: fistbump contacts (Epic 7.10)", () => {
   it("a mutual fistbump seals a contact that survives a restart, then unlocks DMs", () => {
     const store = new PlayerStore(null);
-    const sim1 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 1234, { testFixtures: true });
+    const sim1 = new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: 1234, opts: { testFixtures: true } });
     const { aId, bId } = nearbyPair(sim1);
 
     sim1.queueAction(aId, { type: "fistbump", targetId: bId });
@@ -39,9 +39,9 @@ describe("GameSim: fistbump contacts (Epic 7.10)", () => {
 
     // Restart: a fresh GameSim (new in-memory players) over the SAME
     // store still knows A and B are contacts, so a DM goes straight through.
-    const sim2 = new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 99, { testFixtures: true });
-    const a2 = sim2.addPlayer("A", "client-a");
-    const b2 = sim2.addPlayer("B", "client-b");
+    const sim2 = new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: 99, opts: { testFixtures: true } });
+    const a2 = sim2.addPlayer({ name: "A", clientId: "client-a" });
+    const b2 = sim2.addPlayer({ name: "B", clientId: "client-b" });
     sim2.queueAction(a2.playerId, { type: "chat", channel: "dm", text: "still contacts?", target: "B" });
     const snaps2 = sim2.step();
     expect(eventsOf(snaps2, b2.playerId).some((e) => e.t === "chat" && e.channel === "dm")).toBe(true);
@@ -87,7 +87,7 @@ describe("GameSim: fistbump contacts (Epic 7.10)", () => {
     });
 
     it("a self-targeted fistbump is a rejected no-op", () => {
-      const a = sim.addPlayer("A", "client-a");
+      const a = sim.addPlayer({ name: "A", clientId: "client-a" });
       sim.step(); // drain the join's own contactsUpdated first
       sim.queueAction(a.playerId, { type: "fistbump", targetId: a.playerId });
       const snaps = sim.step();

@@ -26,13 +26,11 @@ export interface CloseButtonHandle {
   hitArea: Phaser.GameObjects.Rectangle;
 }
 
+interface CloseButtonOptions { scene: Phaser.Scene; panelWidth: number; panelHeight: number; containerScale: number; onClose: () => void; }
+
 /** Builds the close control at a panel's top-right corner, in the panel's own local space. */
 export function buildCloseButton(
-  scene: Phaser.Scene,
-  panelWidth: number,
-  panelHeight: number,
-  containerScale: number,
-  onClose: () => void,
+  { scene, panelWidth, panelHeight, containerScale, onClose }: CloseButtonOptions,
 ): CloseButtonHandle {
   const x = panelWidth / 2 - VISUAL_SIZE / 2;
   const y = -panelHeight / 2 - HIT_SIZE / 2 - CLEARANCE;
@@ -43,6 +41,6 @@ export function buildCloseButton(
     .setStrokeStyle(1, PANEL_BORDER);
   // `scale` folds in the panel's container transform (font.ts's uiTextStyle header
   // comment) so the × glyph stays crisp — every other window control already does this.
-  const label = scene.add.text(x, y, "×", uiTextStyle(14, undefined, containerScale)).setOrigin(0.5, 0.5);
+  const label = scene.add.text(x, y, "×", uiTextStyle(14, undefined, { scale: containerScale })).setOrigin(0.5, 0.5);
   return { objects: [hitArea, glyph, label], hitArea };
 }

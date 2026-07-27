@@ -26,30 +26,16 @@ const VOID_COLOR = "#14141c";
 const GLOW_COLOR = "#ff9e3d";
 
 function buildHtml(atlasDataUrl, size) {
+  return `<!doctype html><html><body style="margin:0">${iconCanvas(size)}<script>${iconScript(atlasDataUrl, size)}</script></body></html>`;
+}
+
+function iconCanvas(size) {
+  return `<canvas id="c" width="${size}" height="${size}"></canvas>`;
+}
+
+function iconScript(atlasDataUrl, size) {
   const scale = size / 64;
-  return `<!doctype html><html><body style="margin:0"><canvas id="c" width="${size}" height="${size}"></canvas>
-<script>
-const img = new Image();
-img.onload = () => {
-  const ctx = document.getElementById("c").getContext("2d");
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "${VOID_COLOR}";
-  ctx.fillRect(0, 0, ${size}, ${size});
-  const grad = ctx.createRadialGradient(${size / 2}, ${size * 0.42}, 2, ${size / 2}, ${size * 0.42}, ${size * 0.42});
-  grad.addColorStop(0, "${GLOW_COLOR}88");
-  grad.addColorStop(1, "${GLOW_COLOR}00");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, ${size}, ${size});
-  const draw = (f, dx, dy) => ctx.drawImage(img, f.x, f.y, f.w, f.h, dx * ${scale}, dy * ${scale}, f.w * ${scale}, f.h * ${scale});
-  const cx = ${size} / ${scale} / 2;
-  draw(${JSON.stringify(FRAMES.leafClosed)}, cx - 16, 16);
-  draw(${JSON.stringify(FRAMES.frameLeft)}, cx - 24, 16);
-  draw(${JSON.stringify(FRAMES.frameRight)}, cx + 8, 16);
-  draw(${JSON.stringify(FRAMES.frameTop)}, cx - 16, 8);
-  window.__done = true;
-};
-img.src = "${atlasDataUrl}";
-</script></body></html>`;
+  return `const img = new Image();img.onload = () => {const ctx = document.getElementById("c").getContext("2d");ctx.imageSmoothingEnabled = false;ctx.fillStyle = "${VOID_COLOR}";ctx.fillRect(0, 0, ${size}, ${size});const grad = ctx.createRadialGradient(${size / 2}, ${size * 0.42}, 2, ${size / 2}, ${size * 0.42}, ${size * 0.42});grad.addColorStop(0, "${GLOW_COLOR}88");grad.addColorStop(1, "${GLOW_COLOR}00");ctx.fillStyle = grad;ctx.fillRect(0, 0, ${size}, ${size});const draw = (f, dx, dy) => ctx.drawImage(img, f.x, f.y, f.w, f.h, dx * ${scale}, dy * ${scale}, f.w * ${scale}, f.h * ${scale});const cx = ${size} / ${scale} / 2;draw(${JSON.stringify(FRAMES.leafClosed)}, cx - 16, 16);draw(${JSON.stringify(FRAMES.frameLeft)}, cx - 24, 16);draw(${JSON.stringify(FRAMES.frameRight)}, cx + 8, 16);draw(${JSON.stringify(FRAMES.frameTop)}, cx - 16, 8);window.__done = true;};img.src = "${atlasDataUrl}";`;
 }
 
 async function renderIcon(browser, size, outPath) {

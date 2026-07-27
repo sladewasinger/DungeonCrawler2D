@@ -9,6 +9,13 @@ export interface TilePos {
   readonly wy: number;
 }
 
+export interface TileRect {
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+}
+
 /** Grid-bucket size in tiles — big enough that torch pools read as distinct "islands of firelight", not one continuous glow. */
 export const TORCH_SPACING_TILES = 10;
 
@@ -20,15 +27,21 @@ function hash2(wx: number, wy: number): number {
 }
 
 /** Every raised Floor cell in [x0,x1) x [y0,y1) that fronts open ground south of it — torch-mountable. */
-export function torchCandidates(world: TerrainRead, x0: number, y0: number, x1: number, y1: number): TilePos[] {
+export function torchCandidates(world: TerrainRead, bounds: TileRect): TilePos[] {
   const out: TilePos[] = [];
-  for (let wy = y0; wy < y1; wy++) {
-    for (let wx = x0; wx < x1; wx++) {
-      if (hasSouthFace(world, wx, wy)) out.push({ wx, wy });
-    }
+  for (let wy = bounds.y0; wy < bounds.y1; wy++) {
+    appendTorchCandidates(world, out, { x0: bounds.x0, x1: bounds.x1, y: wy });
   }
   return out;
 }
+
+function appendTorchCandidates(world: TerrainRead, out: TilePos[], row: TorchCandidateRow): void {
+  for (let wx = row.x0; wx < row.x1; wx++) {
+    if (hasSouthFace(world, wx, row.y)) out.push({ wx, wy: row.y });
+  }
+}
+
+interface TorchCandidateRow { readonly x0: number; readonly x1: number; readonly y: number; }
 
 /**
  * Picks at most one torch per TORCH_SPACING_TILES-sized grid bucket, keeping the

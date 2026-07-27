@@ -25,7 +25,7 @@ export class TouchSprintWidget {
     this.container = createWidgetContainer(scene, layout);
     this.cell = scene.add.circle(0, 0, SIZE / 2, PANEL_FILL, REST_ALPHA)
       .setStrokeStyle(1, PANEL_BORDER);
-    const label = scene.add.text(0, 0, "RUN", uiTextStyle(9, undefined, layout.scale))
+    const label = scene.add.text(0, 0, "RUN", uiTextStyle(9, undefined, { scale: layout.scale }))
       .setOrigin(0.5);
     this.container.add([this.cell, label]);
   }

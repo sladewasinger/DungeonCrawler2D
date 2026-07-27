@@ -78,6 +78,11 @@ export function awardKillXp(sim: SimState, enemy: EnemySlot): void {
   if (!leveledUp) return;
   broadcastAnnouncement(
     sim,
-    announceLevelUp(sim.tickCount, killer.entity.id, killer.entity.name ?? "?", level),
+    announceLevelUp({
+      tick: sim.tickCount,
+      playerId: killer.entity.id,
+      name: killer.entity.name ?? "?",
+      level,
+    }),
   );
 }

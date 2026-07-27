@@ -15,12 +15,7 @@ export interface PopulationRoom {
   readonly area: number;
 }
 
-export function populationRoomsForChunk(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-): PopulationRoom[] {
+export function populationRoomsForChunk(...[worldSeed, floor, cx, cy]: [number, number, number, number]): PopulationRoom[] {
   const seed = architectSeed(worldSeed, floor);
   const district = districtAt(seed, cx, cy);
   const rooms = partitionChunk(

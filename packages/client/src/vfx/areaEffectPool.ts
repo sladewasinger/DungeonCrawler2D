@@ -43,24 +43,34 @@ export class AreaEffectPool {
   sync(tiles: readonly AreaTileView[]): LightSource[] {
     this.seen.clear();
     this.lights.length = 0;
-    for (const tile of tiles) {
-      this.seen.add(tile.id);
-      const rig = this.rigFor(tile);
-      this.rigs.set(tile.id, rig);
-      if (rig.light) this.lights.push(rig.light);
-    }
+    this.syncTiles(tiles);
+    this.removeUnseenRigs();
+    return this.lights;
+  }
+
+  private syncTiles(tiles: readonly AreaTileView[]): void {
+    for (const tile of tiles) this.syncTile(tile);
+  }
+
+  private syncTile(tile: AreaTileView): void {
+    this.seen.add(tile.id);
+    const rig = this.rigFor(tile);
+    this.rigs.set(tile.id, rig);
+    if (rig.light) this.lights.push(rig.light);
+  }
+
+  private removeUnseenRigs(): void {
     for (const [id, rig] of this.rigs) {
       if (this.seen.has(id)) continue;
       rig.destroy();
       this.rigs.delete(id);
     }
-    return this.lights;
   }
 
   /** Reuses a rig only when both its recipe and its content effect remain unchanged. */
   private rigFor(tile: AreaTileView): AreaEffectRig {
     const existing = this.rigs.get(tile.id);
-    if (existing && !rigIsStale(existing.sprite, existing.effectId, tile.sprite, tile.effectId)) return existing;
+    if (existing && !rigIsStale(existing, tile)) return existing;
     existing?.destroy();
     return this.build(tile);
   }
@@ -71,7 +81,7 @@ export class AreaEffectPool {
     if (tile.sprite === "fire") return this.buildFire(tile, screen);
     if (tile.sprite === "poison") return this.buildPoison(tile, screen);
     if (tile.sprite === "steam") return this.buildSteam(tile, screen);
-    if (tile.sprite === "oil" || tile.sprite === "wet") return this.buildSheen(tile, screen);
+    if (isSheenTile(tile)) return this.buildSheen(tile, screen);
     return { destroy: () => {}, light: null, sprite: tile.sprite, effectId: tile.effectId };
   }
 
@@ -106,7 +116,7 @@ export class AreaEffectPool {
   }
 
   private buildSheen(tile: AreaTileView, screen: { x: number; y: number }): AreaEffectRig {
-    const image = createSheenOverlay(this.scene, screen.x, screen.y, tile.sprite === "wet");
+    const image = createSheenOverlay(this.scene, { x: screen.x, y: screen.y, wet: tile.sprite === "wet" });
     return { destroy: () => image.destroy(), light: null, sprite: tile.sprite, effectId: tile.effectId };
   }
 
@@ -114,4 +124,8 @@ export class AreaEffectPool {
     for (const rig of this.rigs.values()) rig.destroy();
     this.rigs.clear();
   }
+}
+
+function isSheenTile(tile: AreaTileView): boolean {
+  return tile.sprite === "oil" || tile.sprite === "wet";
 }

@@ -1,18 +1,12 @@
 /** Verifies inventory stacks, starter migration, drops, crafting, and stash behavior. */
 import {
-  areasData, enemiesData, itemsData,
-  recipesData, rulesData, statusesData,
-} from "@dc2d/content";
-import {
-  TILE, buildContentRegistry, createBody, makeEntity,
-  newEntityId, resetEntityIds, type World,
+  TILE, createBody, makeEntity, newEntityId, resetEntityIds,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   doCraft,
   doDrop,
   doPickup,
-  doStash,
   dropAllInventory,
   ensureStarterKit,
   invAdd,
@@ -20,52 +14,12 @@ import {
   invQty,
   invRemove,
 } from "./inventory.js";
-import { createSimState, type PlayerSlot, type SimState } from "./state.js";
-import { PlayerStore } from "../store.js";
+import { buildSim, buildSlot, fakeWorld } from "./inventory.testSupport.js";
 
 /**
  * Headless tests for the inventory sim module, exercised directly
  * against SimState (no GameSim facade — that's the integration layer).
  */
-
-const registry = buildContentRegistry({
-  statuses: [...statusesData],
-  rules: [...rulesData],
-  areas: [...areasData],
-  items: [...itemsData],
-  enemies: [...enemiesData],
-  recipes: [...recipesData],
-});
-
-/**
- * Minimal stand-in for World: inventory.ts only ever reaches `groundAt`
- * (item spawning) and `tileAt` (crafting-table/stash proximity) via
- * helpers.ts, so a fake covering those two is behaviorally complete.
- * Cast to World (a nominally-typed class) since SimState demands it.
- */
-function fakeWorld(special: { x: number; y: number; tile: number } | null = null): World {
-  const fake = {
-    groundAt: () => 0,
-    tileAt: (x: number, y: number) =>
-      special && x === special.x && y === special.y ? special.tile : TILE.Floor,
-  };
-  return fake as unknown as World;
-}
-
-function buildSim(world: World): SimState {
-  return createSimState(world, registry, new PlayerStore(null), 1, {});
-}
-
-function buildSlot(x: number, y: number, z = 0): PlayerSlot {
-  const entity = makeEntity("player", createBody(x, y, z), { id: newEntityId("p"), hp: 100, maxHp: 100 });
-  return {
-    entity, clientId: "client-a", stored: { slot: 0, name: "A", stash: [], contacts: [] }, resumeToken: "t",
-    lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: 0,
-    known: new Set(), inventory: [], hotbar: Array(9).fill(null), weapon: null, outbox: [],
-    returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: false,
-    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
-  };
-}
 
 beforeEach(() => {
   resetEntityIds();
@@ -195,39 +149,5 @@ describe("inventory: crafting", () => {
     doCraft(sim, slot, "bandage");
     expect(invQty(slot, "bandage")).toBe(1);
     expect(slot.outbox.at(-1)).toEqual({ t: "toast", msg: "Missing rag" });
-  });
-});
-
-describe("inventory: stash", () => {
-  it("puts a stack into the stash and takes it back out", () => {
-    const sim = buildSim(fakeWorld({ x: 0, y: 0, tile: TILE.Stash }));
-    const slot = buildSlot(0, 1); // adjacent to the stash tile
-    invAdd(sim, slot, "rag", 4);
-
-    doStash(sim, slot, "put", invIndex(slot, "rag"));
-    expect(invQty(slot, "rag")).toBe(0);
-    expect(slot.stored.stash).toEqual([{ item: "rag", qty: 4 }]);
-    expect(slot.outbox.at(-1)).toEqual({ t: "stash", slots: [{ item: "rag", qty: 4 }] });
-
-    doStash(sim, slot, "take", 0);
-    expect(invQty(slot, "rag")).toBe(4);
-    expect(slot.stored.stash).toEqual([]);
-  });
-
-  it("clears the weapon slot when the equipped weapon is stashed", () => {
-    const sim = buildSim(fakeWorld({ x: 0, y: 0, tile: TILE.Stash }));
-    const slot = buildSlot(0, 1);
-    invAdd(sim, slot, "sword", 1);
-    doStash(sim, slot, "put", invIndex(slot, "sword"));
-    expect(slot.weapon).toBeNull();
-  });
-
-  it("does nothing when not adjacent to a stash tile", () => {
-    const sim = buildSim(fakeWorld(null));
-    const slot = buildSlot(0, 1);
-    invAdd(sim, slot, "rag", 1);
-    doStash(sim, slot, "put", invIndex(slot, "rag"));
-    expect(invQty(slot, "rag")).toBe(1);
-    expect(slot.outbox).toEqual([]);
   });
 });

@@ -23,14 +23,23 @@ export function createProjectileTrail(scene: Phaser.Scene, depth: number): Phase
 }
 
 /** Points the sprite along (vx, vy) and keeps the trail emitter glued to its current position. */
-export function updateProjectileMotion(
-  sprite: Phaser.GameObjects.Sprite,
-  trail: Phaser.GameObjects.Particles.ParticleEmitter,
-  x: number,
-  y: number,
-  vx: number,
-  vy: number,
-): void {
+export interface ProjectileMotionVisualInput {
+  readonly sprite: Phaser.GameObjects.Sprite;
+  readonly trail: Phaser.GameObjects.Particles.ParticleEmitter;
+  readonly x: number;
+  readonly y: number;
+  readonly vx: number;
+  readonly vy: number;
+}
+
+export function updateProjectileMotion({
+  sprite,
+  trail,
+  x,
+  y,
+  vx,
+  vy,
+}: ProjectileMotionVisualInput): void {
   sprite.setPosition(x, y);
   sprite.setAngle(velocityAngleDegrees(vx, vy));
   trail.setPosition(x, y);

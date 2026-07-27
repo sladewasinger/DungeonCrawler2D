@@ -26,21 +26,22 @@ export const replayPartyInviteState = (
   sim: SimState,
   slot: PlayerSlot,
 ): void => {
-  const incoming = sim.invites.get(slot.entity.id);
-  const inviter = incoming ? sim.players.get(incoming.from) : undefined;
-  if (inviter) {
-    slot.outbox.push({
-      t: "invite",
-      from: inviter.entity.id,
-      name: inviter.entity.name ?? "?",
-    });
-    slot.outbox.push(partyInviteState("incoming", "added", inviter));
-  }
+  replayIncomingInvite(sim, slot);
+  replayOutgoingInvites(sim, slot);
+};
+
+function replayIncomingInvite(sim: SimState, slot: PlayerSlot): void {
+  const inviterId = sim.invites.get(slot.entity.id)?.from;
+  const inviter = inviterId ? sim.players.get(inviterId) : undefined;
+  if (!inviter) return;
+  slot.outbox.push({ t: "invite", from: inviter.entity.id, name: inviter.entity.name ?? "?" });
+  slot.outbox.push(partyInviteState("incoming", "added", inviter));
+}
+
+function replayOutgoingInvites(sim: SimState, slot: PlayerSlot): void {
   for (const [inviteeId, outgoing] of sim.invites) {
     if (outgoing.from !== slot.entity.id) continue;
     const invitee = sim.players.get(inviteeId);
-    if (invitee) {
-      slot.outbox.push(partyInviteState("outgoing", "added", invitee));
-    }
+    if (invitee) slot.outbox.push(partyInviteState("outgoing", "added", invitee));
   }
-};
+}

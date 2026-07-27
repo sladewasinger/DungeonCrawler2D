@@ -17,9 +17,9 @@ function fakeText() {
 describe("updateNameplate", () => {
   it("shows a disconnected label and clears it when the player resumes", () => {
     const text = fakeText();
-    updateNameplate(text as never, "Wren", 0, 0, 1, false, false, true);
+    updateNameplate({ text: text as never, name: "Wren", headScreenX: 0, headScreenY: 0, distanceTiles: 1, isParty: false, downed: false, disconnected: true });
     expect(text).toMatchObject({ text: "Wren Disconnected", color: "#ffffff" });
-    updateNameplate(text as never, "Wren", 0, 0, 1, false, false, false);
+    updateNameplate({ text: text as never, name: "Wren", headScreenX: 0, headScreenY: 0, distanceTiles: 1, isParty: false, downed: false, disconnected: false });
     expect(text.text).toBe("Wren");
   });
 });

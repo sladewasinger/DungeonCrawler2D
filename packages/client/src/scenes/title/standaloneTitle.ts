@@ -10,6 +10,7 @@ import "./title.css";
 const RETRY_HINT_DELAY_MS = 4000;
 const ATLAS_WIDTH = 512;
 const ATLAS_HEIGHT = 577;
+const ABSOLUTE_POSITION = "position:absolute";
 
 interface AtlasPiece {
   x: number;
@@ -26,7 +27,6 @@ const DOOR_PIECES: readonly AtlasPiece[] = [
   { x: 64, y: 240, width: 16, height: 32, left: 144, top: 48 },
   { x: 32, y: 224, width: 32, height: 16, left: 48, top: 0 },
 ];
-
 export interface StandaloneTitleOptions {
   initialStatus?: string;
   beforeConnect?: () => void;
@@ -34,11 +34,15 @@ export interface StandaloneTitleOptions {
   onNameInputFocusChange?: (focused: boolean) => void;
 }
 
+export interface StandaloneTitleConfig extends StandaloneTitleOptions {
+  readonly onReady: () => void;
+}
+
 const atlasPiece = (piece: AtlasPiece): HTMLSpanElement => {
   const element = document.createElement("span");
   const scale = WORLD_PIXEL_SCALE;
   element.style.cssText = [
-    "position:absolute",
+    ABSOLUTE_POSITION,
     `left:${piece.left}px`,
     `top:${piece.top}px`,
     `width:${piece.width * scale}px`,
@@ -56,7 +60,7 @@ const createDoor = (): HTMLDivElement => {
   door.className = "title-door";
   door.setAttribute("aria-hidden", "true");
   door.style.cssText = [
-    "position:absolute",
+    ABSOLUTE_POSITION,
     "left:50%",
     "top:45%",
     "translate:-50% -50%",
@@ -94,49 +98,28 @@ export class StandaloneTitle {
   constructor(
     private readonly connection: Connection,
     private readonly root: HTMLElement,
-    private readonly onReady: () => void,
-    private readonly options: StandaloneTitleOptions = {},
+    private readonly config: StandaloneTitleConfig,
   ) {
-    this.backdrop.style.cssText = [
-      "position:fixed",
-      "inset:0",
-      "z-index:10",
-      "overflow:hidden",
-      "pointer-events:none",
-      "background:radial-gradient(circle at 50% 58%,#292338 0,#10101a 48%,#07080d 100%)",
-      "color:#ffd23d",
-      "font-family:monogram,monospace",
-    ].join(";");
-    const title = document.createElement("h1");
-    title.className = "title-heading";
-    title.textContent = "DUNGEON CRAWLER";
-    title.style.cssText = [
-      "position:absolute",
-      "left:50%",
-      "top:13%",
-      "translate:-50% -50%",
-      "margin:0",
-      "font-size:clamp(34px,7vw,74px)",
-      "letter-spacing:.08em",
-      "white-space:nowrap",
-    ].join(";");
-    this.backdrop.append(createSparks(), title, createDoor());
+    configureBackdrop(this.backdrop);
     this.root.append(this.backdrop);
-    this.form = new ConnectForm({
+    this.form = this.createForm();
+    if (config.initialStatus) this.form.setStatus(config.initialStatus);
+  }
+
+  private createForm(): ConnectForm {
+    const { onNameInputFocusChange } = this.config;
+    return new ConnectForm({
       onConnect: (name, level, skin) => this.connect(name, level, skin),
-      ...(options.onNameInputFocusChange
-        ? { onNameInputFocusChange: options.onNameInputFocusChange }
-        : {}),
+      ...(onNameInputFocusChange ? { onNameInputFocusChange } : {}),
     });
-    if (options.initialStatus) this.form.setStatus(options.initialStatus);
   }
 
   start(): void {
     this.connection.onConnected = () => {
       this.connection.onConnected = null;
-      this.options.beforeReady?.();
+      this.config.beforeReady?.();
       this.dispose();
-      this.onReady();
+      this.config.onReady();
     };
   }
 
@@ -145,7 +128,7 @@ export class StandaloneTitle {
     level: LevelId,
     skin: import("@dc2d/engine").PlayerSkin,
   ): void {
-    this.options.beforeConnect?.();
+    this.config.beforeConnect?.();
     this.form.setBusy(true);
     this.form.setStatus("Connecting...");
     this.connection.setName(name);
@@ -160,9 +143,15 @@ export class StandaloneTitle {
 
   dispose(): void {
     if (this.retryTimer !== undefined) window.clearTimeout(this.retryTimer);
-    this.form.dispose();
-    this.controls.dispose();
-    this.fullscreen.dispose();
-    this.backdrop.remove();
+    this.form.dispose(); this.controls.dispose(); this.fullscreen.dispose(); this.backdrop.remove();
   }
+}
+
+function configureBackdrop(backdrop: HTMLDivElement): void {
+  backdrop.style.cssText = ["position:fixed", "inset:0", "z-index:10", "overflow:hidden", "pointer-events:none", "background:radial-gradient(circle at 50% 58%,#292338 0,#10101a 48%,#07080d 100%)", "color:#ffd23d", "font-family:monogram,monospace"].join(";");
+  const title = document.createElement("h1");
+  title.className = "title-heading";
+  title.textContent = "DUNGEON CRAWLER";
+  title.style.cssText = [ABSOLUTE_POSITION, "left:50%", "top:13%", "translate:-50% -50%", "margin:0", "font-size:clamp(34px,7vw,74px)", "letter-spacing:.08em", "white-space:nowrap"].join(";");
+  backdrop.append(createSparks(), title, createDoor());
 }

@@ -92,6 +92,7 @@ describe("tile-index mapping (worldTileToView / viewTileToWorld)", () => {
     { x: 15, y: 40 },
   ];
   const INTERIOR_OFFSETS = [0.01, 0.25, 0.5, 0.99];
+  const INTERIOR_POINTS = INTERIOR_OFFSETS.flatMap((ox) => INTERIOR_OFFSETS.map((oy) => ({ ox, oy })));
 
   it("is the identity at orientation 0", () => {
     for (const t of SAMPLE_TILES) expect(worldTileToView(t, 0)).toEqual(t);
@@ -103,13 +104,7 @@ describe("tile-index mapping (worldTileToView / viewTileToWorld)", () => {
     // a bare index through the pure rotation lands in the neighboring cell's interior.
     for (const orientation of VIEW_ORIENTATIONS) {
       for (const t of SAMPLE_TILES) {
-        const cell = worldTileToView(t, orientation);
-        for (const ox of INTERIOR_OFFSETS) {
-          for (const oy of INTERIOR_OFFSETS) {
-            const v = worldToView({ x: t.x + ox, y: t.y + oy }, orientation);
-            expect({ x: Math.floor(v.x), y: Math.floor(v.y) }).toEqual(cell);
-          }
-        }
+        expectTileInteriorPoints(t, orientation, INTERIOR_POINTS);
       }
     }
   });
@@ -123,3 +118,11 @@ describe("tile-index mapping (worldTileToView / viewTileToWorld)", () => {
     }
   });
 });
+
+function expectTileInteriorPoints(tile: Point, orientation: (typeof VIEW_ORIENTATIONS)[number], offsets: readonly { ox: number; oy: number }[]): void {
+  const cell = worldTileToView(tile, orientation);
+  for (const { ox, oy } of offsets) {
+    const view = worldToView({ x: tile.x + ox, y: tile.y + oy }, orientation);
+    expect({ x: Math.floor(view.x), y: Math.floor(view.y) }).toEqual(cell);
+  }
+}

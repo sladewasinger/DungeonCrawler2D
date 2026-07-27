@@ -1,10 +1,12 @@
 import { TICK_RATE } from "@dc2d/engine";
 import { socialPairAllowed } from "./moderation.js";
+import { acceptInvite } from "./social/membership.js";
 import {
   partyInviteState,
   removePartyInviteState,
 } from "./partyInviteEvents.js";
 import type { PlayerSlot, SimState } from "./state.js";
+export { expireInvites } from "./social/invites.js";
 export { doChat } from "./socialChat.js";
 
 /** Parties, invites, and chat fan-out (party/local/global/dm). Fistbump + /who
@@ -14,18 +16,25 @@ const INVITE_TTL_TICKS = 30 * TICK_RATE;
 /** Proximity gate for inviting: roughly fistbump range, not sight range. */
 const INVITE_RANGE_TILES = 6;
 
-export function doParty(
-  sim: SimState,
-  slot: PlayerSlot,
-  op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick",
-  target?: string,
-): void {
-  if (op === "invite" && target) invitePlayer(sim, slot, target);
-  else if (op === "accept") acceptInvite(sim, slot);
-  else if (op === "decline") declineInvite(sim, slot);
-  else if (op === "cancel" && target) cancelInvite(sim, slot, target);
-  else if (op === "leave") leaveParty(sim, slot);
-  else if (op === "kick" && target) kickMember(sim, slot, target);
+export function doParty({ sim, slot, op, target }: {
+  sim: SimState;
+  slot: PlayerSlot;
+  op: "invite" | "accept" | "decline" | "cancel" | "leave" | "kick";
+  target?: string;
+}): void {
+  partyActionFor({ sim, slot, op })(target);
+}
+
+function partyActionFor({ sim, slot, op }: Omit<Parameters<typeof doParty>[0], "target">): (target?: string) => void {
+  const actions = {
+    invite: (target?: string) => { if (target) invitePlayer(sim, slot, target); },
+    accept: () => acceptInvite(sim, slot),
+    decline: () => declineInvite(sim, slot),
+    cancel: (target?: string) => { if (target) cancelInvite(sim, slot, target); },
+    leave: () => leaveParty(sim, slot),
+    kick: (target?: string) => { if (target) kickMember(sim, slot, target); },
+  };
+  return actions[op];
 }
 
 function eligibleInviteTarget(
@@ -91,26 +100,6 @@ function mayInvite(sim: SimState, slot: PlayerSlot): boolean {
   return false;
 }
 
-function acceptInvite(sim: SimState, slot: PlayerSlot): void {
-  const id = slot.entity.id;
-  const invite = sim.invites.get(id);
-  if (!invite || invite.expiresAt < sim.tickCount) return;
-  sim.invites.delete(id);
-  const inviter = sim.players.get(invite.from);
-  removePartyInviteState(inviter, slot);
-  if (!inviter || !inviter.connected || slot.partyId !== null || !socialPairAllowed(slot, inviter)) return;
-  const party = partyOf(sim, inviter);
-  party.members.add(id);
-  slot.partyId = party.id;
-  slot.entity.partyId = party.id;
-  for (const memberId of party.members) {
-    sim.players.get(memberId)?.outbox.push({
-      t: "toast",
-      msg: `${slot.entity.name} joined the party`,
-    });
-  }
-}
-
 function declineInvite(sim: SimState, slot: PlayerSlot): void {
   const invite = sim.invites.get(slot.entity.id);
   if (!invite) return;
@@ -123,17 +112,6 @@ function declineInvite(sim: SimState, slot: PlayerSlot): void {
       msg: `${slot.entity.name ?? "Player"} declined the party invite`,
     });
   }
-}
-
-/** The inviter's existing party, or a freshly minted one containing them. */
-function partyOf(sim: SimState, inviter: PlayerSlot) {
-  if (inviter.partyId) return sim.parties.get(inviter.partyId)!;
-  const id = `party${sim.nextPartyId++}`;
-  const party = { id, leaderId: inviter.entity.id, members: new Set([inviter.entity.id]), roomSlot: null };
-  sim.parties.set(id, party);
-  inviter.partyId = id;
-  inviter.entity.partyId = id;
-  return party;
 }
 
 export function leaveParty(sim: SimState, slot: PlayerSlot): void {
@@ -173,13 +151,4 @@ function disbandParty(sim: SimState, party: { id: string; members: Set<string> }
     member.outbox.push({ t: "toast", msg: "Party disbanded" });
   }
   sim.parties.delete(party.id);
-}
-
-/** Drop invites nobody accepted in time — call once per tick. */
-export function expireInvites(sim: SimState): void {
-  for (const [invitee, invite] of sim.invites) {
-    if (invite.expiresAt >= sim.tickCount) continue;
-    sim.invites.delete(invitee);
-    removePartyInviteState(sim.players.get(invite.from), sim.players.get(invitee));
-  }
 }

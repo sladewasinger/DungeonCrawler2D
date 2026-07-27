@@ -25,8 +25,8 @@ class RecordingGraphics {
     return this;
   }
 
-  fillTriangle(x0: number, y0: number, x1: number, y1: number, x2: number, y2: number): this {
-    this.calls.push(["fillTriangle", x0, y0, x1, y1, x2, y2]);
+  fillTriangle(...points: readonly [number, number, number, number, number, number]): this {
+    this.calls.push(["fillTriangle", ...points]);
     return this;
   }
 }

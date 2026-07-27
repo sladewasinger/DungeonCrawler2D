@@ -49,12 +49,19 @@ export function shadowScaleForHeight(heightAboveGround: number): number {
 /** Repositions a shadow at an entity's (already-shifted) ground-plane screen position —
  * that IS the drawn floor beneath it at every terrain height (section 5) — scaling it
  * down the further off that ground the entity currently is (0 while standing on it). */
-export function updateShadowPosition(
-  shadow: Phaser.GameObjects.Ellipse,
-  groundScreenX: number,
-  groundScreenY: number,
+export interface ShadowPositionInput {
+  readonly shadow: Phaser.GameObjects.Ellipse;
+  readonly groundScreenX: number;
+  readonly groundScreenY: number;
+  readonly heightAboveGround?: number;
+}
+
+export function updateShadowPosition({
+  shadow,
+  groundScreenX,
+  groundScreenY,
   heightAboveGround = 0,
-): void {
+}: ShadowPositionInput): void {
   shadow.setPosition(groundScreenX, groundScreenY + SHADOW_Y_OFFSET);
   shadow.setScale(shadowScaleForHeight(heightAboveGround));
 }

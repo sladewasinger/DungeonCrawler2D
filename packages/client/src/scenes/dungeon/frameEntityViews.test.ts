@@ -10,19 +10,19 @@ describe("mapFrameInto", () => {
 
     for (let frame = 0; frame < 300; frame++) {
       const source = frame % 2 === 0 ? [frame, frame + 1] : [frame];
-      const result = mapFrameInto(source, output, records, (value, target) => {
+      const result = mapFrameInto({ source, out: output, records, map: (value, target) => {
         const record = target ?? { value };
         record.value = value;
         recordIdentities.add(record);
         return record;
-      });
+      } });
       expect(result).toBe(identity);
       expect(result).toEqual(source.map((value) => ({ value })));
     }
 
     expect(recordIdentities.size).toBe(2);
     expect(output).toHaveLength(1);
-    expect(mapFrameInto([], output, records, (value: number) => ({ value })))
+    expect(mapFrameInto({ source: [], out: output, records, map: (value: number) => ({ value }) }))
       .toBe(identity);
     expect(output).toHaveLength(0);
   });

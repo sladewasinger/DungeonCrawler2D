@@ -8,19 +8,34 @@ export function nearestLootChest(
 ): EntitySnapshot | null {
   const body = connection.body;
   if (!body) return null;
-  let nearest: EntitySnapshot | null = null;
-  let nearestDistance = INTERACT_RANGE;
-  for (const { snap } of connection.entities.values()) {
-    if (snap.kind !== "item" || snap.defId !== PLAYER_LOOT_CHEST_DEF_ID ||
-      Math.abs(snap.z - body.z) > 1.5) continue;
-    const distance = Math.hypot(snap.x - body.x, snap.y - body.y);
-    if (distance > nearestDistance) continue;
-    if (nearest && distance === nearestDistance && snap.id >= nearest.id) continue;
-    nearest = snap;
-    nearestDistance = distance;
-  }
-  return nearest;
+  return lootChestCandidates(connection, body).reduce(selectNearestChest, null)?.snapshot ?? null;
 }
+
+interface ChestCandidate {
+  readonly snapshot: EntitySnapshot;
+  readonly distance: number;
+}
+
+function lootChestCandidates(connection: Pick<Connection, "entities">, body: NonNullable<Connection["body"]>): ChestCandidate[] {
+  return [...connection.entities.values()]
+    .map(({ snap }) => ({ snapshot: snap, distance: Math.hypot(snap.x - body.x, snap.y - body.y) }))
+    .filter(({ snapshot, distance }) => isNearbyLootChest(snapshot, body) && distance <= INTERACT_RANGE);
+}
+
+function selectNearestChest(nearest: ChestCandidate | null, candidate: ChestCandidate): ChestCandidate {
+  if (!nearest || candidate.distance < nearest.distance) return candidate;
+  return candidate.distance === nearest.distance && candidate.snapshot.id < nearest.snapshot.id ? candidate : nearest;
+}
+
+function isNearbyLootChest(
+  snapshot: EntitySnapshot,
+  body: NonNullable<Connection["body"]>,
+): boolean {
+  return snapshot.kind === "item"
+    && snapshot.defId === PLAYER_LOOT_CHEST_DEF_ID
+    && Math.abs(snapshot.z - body.z) <= 1.5;
+}
+
 
 export function lootChestLockSeconds(
   chest: EntitySnapshot,

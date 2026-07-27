@@ -12,6 +12,7 @@ import { isBodyInChasm, spawnItem } from "./helpers.js";
 import { spawnPlayerLootChest } from "./lootChests.js";
 import { markMiniBossDefeated } from "./enemies/miniBossPopulation.js";
 import { clearEnemyTargetsForPlayer } from "./enemies/targetLifecycle.js";
+import type { EnemySlot } from "./enemyState.js";
 import { awardKillXp } from "./xp.js";
 import type { PlayerSlot, SimState } from "./state.js";
 
@@ -36,27 +37,25 @@ export function resolveDeaths(sim: SimState): void {
 function resolveEnemyDeaths(sim: SimState): void {
   for (const [id, enemy] of sim.enemies) {
     if (enemy.entity.hp > 0) continue;
-    sim.enemies.delete(id);
-    sim.worldEvents.push({
-      ev: { t: "death", id },
-      x: enemy.entity.body.x,
-      y: enemy.entity.body.y,
-    });
-    // --- XP award hook (Epic 11 core / Epic 7.13, XP lane) — other lanes
-    // touching this file this wave, leave this call alone. ---
-    awardKillXp(sim, enemy);
-    markMiniBossDefeated(sim, enemy);
-    // --- end XP award hook ---
-    // Epic 7.14 (The Descent): the Warden's own XP burst to the whole
-    // arena, gate unseal, and respawn timer — additional to (not instead
-    // of) the ordinary awardKillXp last-hit award above (ASSUMPTION #129).
-    if (enemy.def.id === WARDEN_DEF_ID) handleBossDeath(sim);
-    for (const drop of enemy.def.drops) {
-      if (sim.rng.next() >= drop.chance) continue;
-      const jx = (sim.rng.next() - 0.5) * 1.2;
-      const jy = (sim.rng.next() - 0.5) * 1.2;
-      spawnItem(sim, drop.item, enemy.entity.body.x + jx, enemy.entity.body.y + jy, 1);
-    }
+    resolveEnemyDeath(sim, id, enemy);
+  }
+}
+
+function resolveEnemyDeath(sim: SimState, id: string, enemy: EnemySlot): void {
+  sim.enemies.delete(id);
+  sim.worldEvents.push({ ev: { t: "death", id }, x: enemy.entity.body.x, y: enemy.entity.body.y });
+  awardKillXp(sim, enemy);
+  markMiniBossDefeated(sim, enemy);
+  if (enemy.def.id === WARDEN_DEF_ID) handleBossDeath(sim);
+  spawnEnemyDrops(sim, enemy);
+}
+
+function spawnEnemyDrops(sim: SimState, enemy: EnemySlot): void {
+  for (const drop of enemy.def.drops) {
+    if (sim.rng.next() >= drop.chance) continue;
+    const x = enemy.entity.body.x + (sim.rng.next() - 0.5) * 1.2;
+    const y = enemy.entity.body.y + (sim.rng.next() - 0.5) * 1.2;
+    spawnItem(sim, { defId: drop.item, x, y, qty: 1 });
   }
 }
 
@@ -75,6 +74,10 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
     return;
   }
 
+  finalizePlayerDeath(sim, slot, entity);
+}
+
+function finalizePlayerDeath(sim: SimState, slot: PlayerSlot, entity: PlayerSlot["entity"]): void {
   clearEnemyTargetsForPlayer(sim, entity.id);
   sim.worldEvents.push({ ev: { t: "death", id: entity.id }, x: entity.body.x, y: entity.body.y });
   // The announcer's voice (Epic 7.13, book-fan lane): read forceDeath
@@ -82,32 +85,36 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
   // Panel round 3b, "Small" item: derive the audience rating from this life's own
   // kills/floor/survival-time instead of a hard-coded "6" — takeLifeStats resets the
   // tracking for whatever life starts next.
-  const { killsThisLife, survivalTicks } = takeLifeStats(slot, sim.tickCount);
-  // Panel round 4: a small deterministic per-death wobble from the seeded
-  // sim Rng — {-1, 0, +1} — so two similar scrub deaths don't both read
-  // "5 out of 10" (rating.ts clamps it; ASSUMPTION #382).
-  const jitter = Math.floor(sim.rng.next() * 3) - 1;
-  const rating = ratingForRun(
-    {
-      killsThisLife,
-      floor: sim.world.floor,
-      survivalSeconds: survivalTicks / TICK_RATE,
-    },
-    jitter,
-  );
-  broadcastAnnouncement(
-    sim,
-    announceDeath(sim.tickCount, entity.id, entity.name ?? "?", slot.forceDeath, rating),
-  );
+  announcePlayerDeath(sim, slot);
   spawnPlayerLootChest(sim, slot);
+  resetDeadPlayer(sim, slot, entity);
+  // Persist the terminal death destination immediately. A process crash
+  // during the respawn delay must not resurrect the character downstairs.
+  sim.store.recordActiveFloor(slot.stored, 1);
+}
+
+function announcePlayerDeath(sim: SimState, slot: PlayerSlot): void {
+  const { killsThisLife, survivalTicks } = takeLifeStats(slot, sim.tickCount);
+  const rating = ratingForRun({
+    killsThisLife,
+    floor: sim.world.floor,
+    survivalSeconds: survivalTicks / TICK_RATE,
+  }, Math.floor(sim.rng.next() * 3) - 1);
+  broadcastAnnouncement(sim, announceDeath({
+    tick: sim.tickCount,
+    playerId: slot.entity.id,
+    name: slot.entity.name ?? "?",
+    chasm: slot.forceDeath,
+    rating,
+  }));
+}
+
+function resetDeadPlayer(sim: SimState, slot: PlayerSlot, entity: PlayerSlot["entity"]): void {
   entity.statuses = [];
   slot.downedAtTick = null;
   slot.forceDeath = false;
   delete entity.downedUntil;
   slot.respawnAtTick = sim.tickCount + RESPAWN_DELAY_TICKS;
-  // Persist the terminal death destination immediately. A process crash
-  // during the respawn delay must not resurrect the character downstairs.
-  sim.store.recordActiveFloor(slot.stored, 1);
 }
 
 /** Downed players bleed out to real death once the timer expires. */

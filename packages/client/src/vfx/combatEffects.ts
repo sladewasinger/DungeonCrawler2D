@@ -10,8 +10,27 @@ import { DeathCarnagePool, type CarnageAppearance } from "./deathCarnagePool.js"
 import { spawnGibBurst } from "./gibBurst.js";
 import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 import { ScreenShakeBudget } from "./screenShake.js";
+import { deathDecalInputs } from "./deathDecalInputs.js";
 
 export type { CarnageAppearance } from "./deathCarnagePool.js";
+
+export interface CombatEffectTarget {
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight: number;
+  readonly defId?: string | undefined;
+  readonly nowMs: number;
+}
+
+export interface BloodHitInput extends CombatEffectTarget {
+  readonly direction?: { x: number; y: number } | undefined;
+}
+
+export interface DeathGoreInput extends CombatEffectTarget {
+  readonly appearance?: CarnageAppearance | undefined;
+  readonly spritePrefix?: string | undefined;
+  readonly impactAngle?: number | undefined;
+}
 
 export class CombatEffects {
   private readonly shake: ScreenShakeBudget;
@@ -26,102 +45,60 @@ export class CombatEffects {
     this.deathCarnage = new DeathCarnagePool(scene);
   }
 
-  spawnBloodHit(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    defId: string | undefined,
-    nowMs: number,
-    dirX?: number,
-    dirY?: number,
-  ): void {
+  spawnBloodHit({ x, y, groundHeight, defId, nowMs, direction }: BloodHitInput): void {
     const settings = loadCarnageSettings();
-    const screen = worldToScreen(worldX, worldY);
+    const screen = worldToScreen(x, y);
     if (isSkeletalDefId(defId)) {
-      spawnBoneChipBurst(this.scene, screen.x, screen.y, false, dirX, dirY);
+      spawnBoneChipBurst(this.scene, { ...screen, lethal: false, direction });
       return;
     }
     if (!settings.bloodEnabled) return;
     const tint = bloodTintFor(defId);
-    spawnHitSplatter(
-      this.scene, screen.x, screen.y, tint, dirX, dirY,
-      settings.bloodDropIntensity,
-    );
+    spawnHitSplatter(this.scene, { ...screen, tint, direction, intensity: settings.bloodDropIntensity });
     for (let index = 0; index < 3; index++) {
-      this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
+      this.bloodDecals.spawn({ x, y, groundHeight, tint, nowMs });
     }
   }
 
-  spawnBloodDeath(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    defId: string | undefined,
-    nowMs: number,
-  ): void {
+  spawnBloodDeath({ x, y, groundHeight, defId, nowMs }: CombatEffectTarget): void {
     const settings = loadCarnageSettings();
-    const screen = worldToScreen(worldX, worldY);
+    const screen = worldToScreen(x, y);
     if (isSkeletalDefId(defId)) {
-      spawnBoneChipBurst(this.scene, screen.x, screen.y, true);
+      spawnBoneChipBurst(this.scene, { ...screen, lethal: true });
       return;
     }
     if (!settings.bloodEnabled) return;
     const tint = bloodTintFor(defId);
-    spawnDeathSplatter(
-      this.scene, screen.x, screen.y, tint, settings.bloodDropIntensity,
-    );
+    spawnDeathSplatter(this.scene, { ...screen, tint, intensity: settings.bloodDropIntensity });
     for (let index = 0; index < 12; index++) {
-      this.bloodDecals.spawn(worldX, worldY, groundHeight, tint, nowMs);
+      this.bloodDecals.spawn({ x, y, groundHeight, tint, nowMs });
     }
   }
 
-  spawnDeathGore(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    defId: string | undefined,
-    nowMs: number,
-    appearance: CarnageAppearance = {},
-    spritePrefix?: string,
-    impactAngle?: number,
-  ): void {
+  spawnDeathGore({
+    x,
+    y,
+    groundHeight,
+    defId,
+    nowMs,
+    appearance = {},
+    spritePrefix,
+    impactAngle,
+  }: DeathGoreInput): void {
     const settings = loadCarnageSettings();
-    const screen = worldToScreen(worldX, worldY);
+    const screen = worldToScreen(x, y);
     const tint = bloodTintFor(defId);
-    if (settings.enabled && !isSkeletalDefId(defId)) {
-      spawnGibBurst(this.scene, screen.x, screen.y, tint);
-    }
-    this.deathCarnage.spawn(
-      worldX,
-      worldY,
-      groundHeight,
+    this.spawnGibBurst({ screen, tint, defId, enabled: settings.enabled });
+    this.spawnDeathDecals({
+      input: { x, y, groundHeight, defId, nowMs, appearance, spritePrefix, impactAngle },
       tint,
-      { ...appearance, ...(defId === undefined ? {} : { defId }) },
-      nowMs,
-      impactAngle,
-      spritePrefix,
-    );
-    this.corpseDecals.spawn(
-      worldX, worldY, groundHeight, tint, defId, nowMs,
-      spritePrefix, settings.bloodEnabled,
-    );
+      bloodEnabled: settings.bloodEnabled,
+    });
   }
 
-  spawnKillMoment(
-    worldX: number,
-    worldY: number,
-    groundHeight: number,
-    defId: string | undefined,
-    nowMs: number,
-    appearance: CarnageAppearance = {},
-    spritePrefix?: string,
-    impactAngle?: number,
-  ): void {
-    this.spawnDeathGore(
-      worldX, worldY, groundHeight, defId, nowMs,
-      appearance, spritePrefix, impactAngle,
-    );
-    this.shake.onKillMoment(nowMs);
+  spawnKillMoment(input: DeathGoreInput): void {
+    this.spawnDeathGore(input);
+    this.shake.onKillMoment(input.nowMs);
     this.punchCamera();
   }
 
@@ -150,5 +127,24 @@ export class CombatEffects {
     camera.zoomTo(HIT_STOP_ZOOM, HIT_STOP_DURATION_MS / 2, "Sine.easeOut", true, (_cam, progress) => {
       if (progress === 1) camera.zoomTo(1, HIT_STOP_DURATION_MS / 2, "Sine.easeIn");
     });
+  }
+
+  private spawnGibBurst({ screen, tint, defId, enabled }: {
+    readonly screen: { x: number; y: number };
+    readonly tint: number;
+    readonly defId?: string | undefined;
+    readonly enabled: boolean;
+  }): void {
+    if (enabled && !isSkeletalDefId(defId)) spawnGibBurst(this.scene, { ...screen, tint });
+  }
+
+  private spawnDeathDecals({ input, tint, bloodEnabled }: {
+    readonly input: DeathGoreInput;
+    readonly tint: number;
+    readonly bloodEnabled: boolean;
+  }): void {
+    const decals = deathDecalInputs({ input, tint, bloodEnabled });
+    this.deathCarnage.spawn(decals.carnage);
+    this.corpseDecals.spawn(decals.corpse);
   }
 }

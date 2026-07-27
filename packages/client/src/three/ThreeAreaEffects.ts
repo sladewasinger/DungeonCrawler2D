@@ -13,6 +13,18 @@ interface AreaTile {
   y: number;
 }
 
+interface AreaEffectsUpdate {
+  connection: Connection;
+  world: World;
+  timeMs: number;
+  reducedMotion: boolean;
+}
+
+interface AreaEffectBucket {
+  presentation: ThreeAreaPresentation;
+  tiles: AreaTile[];
+}
+
 const tileKey = (key: string): { x: number; z: number } | null => {
   const x = Number(key.split(",")[0]);
   const z = Number(key.split(",")[1]);
@@ -32,12 +44,7 @@ export class ThreeAreaEffects {
     scene.add(this.group);
   }
 
-  update(
-    connection: Connection,
-    world: World,
-    timeMs: number,
-    reducedMotion: boolean,
-  ): void {
+  update({ connection, world, timeMs, reducedMotion }: AreaEffectsUpdate): void {
     const signature = JSON.stringify([...connection.areaTiles]);
     if (signature !== this.signature) {
       this.signature = signature;
@@ -57,10 +64,7 @@ export class ThreeAreaEffects {
 
   private rebuild(tiles: ReadonlyMap<string, string>, world: World): void {
     this.clear();
-    const buckets = new Map<string, {
-      presentation: ThreeAreaPresentation;
-      tiles: AreaTile[];
-    }>();
+    const buckets = new Map<string, AreaEffectBucket>();
     for (const [key, effectId] of tiles) {
       const point = tileKey(key);
       if (!point) continue;
@@ -77,10 +81,7 @@ export class ThreeAreaEffects {
     for (const bucket of buckets.values()) this.addBucket(bucket);
   }
 
-  private addBucket(bucket: {
-    presentation: ThreeAreaPresentation;
-    tiles: AreaTile[];
-  }): void {
+  private addBucket(bucket: AreaEffectBucket): void {
     const material = new THREE.MeshStandardMaterial({
       color: bucket.presentation.color,
       emissive: bucket.presentation.emissive,
@@ -95,21 +96,19 @@ export class ThreeAreaEffects {
       material,
       bucket.tiles.length,
     );
-    const matrix = new THREE.Matrix4();
-    const rotation = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(-Math.PI / 2, 0, 0),
-    );
-    for (const [index, tile] of bucket.tiles.entries()) {
-      matrix.compose(
-        new THREE.Vector3(tile.x, tile.y, tile.z),
-        rotation,
-        new THREE.Vector3(1, 1, 1),
-      );
-      mesh.setMatrixAt(index, matrix);
-    }
+    this.placeBucketTiles(mesh, bucket.tiles);
     mesh.instanceMatrix.needsUpdate = true;
     this.materials.push(material);
     this.group.add(mesh);
+  }
+
+  private placeBucketTiles(mesh: { setMatrixAt(index: number, matrix: unknown): void }, tiles: readonly AreaTile[]): void {
+    const matrix = new THREE.Matrix4();
+    const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+    for (const [index, tile] of tiles.entries()) {
+      matrix.compose(new THREE.Vector3(tile.x, tile.y, tile.z), rotation, new THREE.Vector3(1, 1, 1));
+      mesh.setMatrixAt(index, matrix);
+    }
   }
 
   private clear(): void {

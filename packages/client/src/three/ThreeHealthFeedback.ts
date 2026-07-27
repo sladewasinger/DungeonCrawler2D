@@ -5,12 +5,13 @@ import { healthFeedback } from "../ui/healthFeedback.js";
 const VISIBLE_MS = 900;
 
 function feedbackEvent(event: VisualEvent) {
-  if (event.t === "health") {
-    if (event.source === "automatic") return null;
-    return healthFeedback(event.delta, event.kind);
-  }
   if (event.t === "hit") return healthFeedback(event.amount);
-  return null;
+  return healthEventFeedback(event);
+}
+
+function healthEventFeedback(event: VisualEvent) {
+  if (event.t !== "health" || event.source === "automatic") return null;
+  return healthFeedback(event.delta, event.kind);
 }
 
 export class ThreeHealthFeedback {
@@ -26,16 +27,27 @@ export class ThreeHealthFeedback {
   }
 
   update(connection: Connection, nowMs: number): void {
-    const selfId = connection.welcome?.playerId;
-    for (const event of connection.drainVisualEvents()) {
-      if (!selfId || !("id" in event) || event.id !== selfId) continue;
-      const feedback = feedbackEvent(event);
-      if (!feedback) continue;
-      this.element.textContent = feedback.label;
-      this.element.style.color = feedback.color;
-      this.element.hidden = false;
-      this.hideAt = nowMs + VISIBLE_MS;
-    }
+    this.showFeedbacks(connection, nowMs);
     if (nowMs >= this.hideAt) this.element.hidden = true;
   }
+
+  private showFeedbacks(connection: Connection, nowMs: number): void {
+    for (const feedback of selfFeedbacks(connection)) this.show(feedback, nowMs);
+  }
+
+  private show(feedback: NonNullable<ReturnType<typeof feedbackEvent>>, nowMs: number): void {
+    this.element.textContent = feedback.label;
+    this.element.style.color = feedback.color;
+    this.element.hidden = false;
+    this.hideAt = nowMs + VISIBLE_MS;
+  }
 }
+
+const selfFeedbacks = (connection: Connection): NonNullable<ReturnType<typeof feedbackEvent>>[] => {
+  const selfId = connection.welcome?.playerId;
+  if (!selfId) return [];
+  return connection.drainVisualEvents()
+    .filter((event) => "id" in event && event.id === selfId)
+    .map(feedbackEvent)
+    .filter((feedback): feedback is NonNullable<typeof feedback> => feedback !== null);
+};

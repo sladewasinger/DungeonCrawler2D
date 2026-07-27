@@ -34,18 +34,15 @@ export class SettledChunkWindow {
   private desired = "";
   private strict = "";
 
-  canSkip(view: ViewRect, builderCount: number, queueCount: number, marginChunks: number): boolean {
+  canSkip(request: SettledWindowRequest): boolean {
+    const { view, builderCount, queueCount, marginChunks } = request;
     if (builderCount !== 0 || queueCount !== 0) return false;
     return this.desired === chunkWindowKey(view, marginChunks) &&
       this.strict === chunkWindowKey(view, 0);
   }
 
-  captureIfIdle(
-    view: ViewRect,
-    builderCount: number,
-    queueCount: number,
-    marginChunks: number,
-  ): void {
+  captureIfIdle(request: SettledWindowRequest): void {
+    const { view, builderCount, queueCount, marginChunks } = request;
     if (builderCount !== 0 || queueCount !== 0) return;
     this.desired = chunkWindowKey(view, marginChunks);
     this.strict = chunkWindowKey(view, 0);
@@ -55,6 +52,13 @@ export class SettledChunkWindow {
     this.desired = "";
     this.strict = "";
   }
+}
+
+export interface SettledWindowRequest {
+  readonly view: ViewRect;
+  readonly builderCount: number;
+  readonly queueCount: number;
+  readonly marginChunks: number;
 }
 
 /** Chunk coords whose bounds intersect the view rect expanded by `marginChunks` on every side. */
@@ -91,13 +95,16 @@ export function diffChunks(
  * visible cost. Non-desired queue entries (scrolled back out before their
  * turn) are dropped. Returns the picks plus the queue's survivors, in order.
  */
-export function planBakes(
-  queue: readonly ChunkCoord[],
-  desiredKeys: ReadonlySet<string>,
-  viewKeys: ReadonlySet<string>,
-  maxVisible: number,
-  maxMargin: number,
-): { bake: ChunkCoord[]; keep: ChunkCoord[] } {
+export interface BakePlanRequest {
+  readonly queue: readonly ChunkCoord[];
+  readonly desiredKeys: ReadonlySet<string>;
+  readonly viewKeys: ReadonlySet<string>;
+  readonly maxVisible: number;
+  readonly maxMargin: number;
+}
+
+export function planBakes(request: BakePlanRequest): { bake: ChunkCoord[]; keep: ChunkCoord[] } {
+  const { queue, desiredKeys, viewKeys, maxVisible, maxMargin } = request;
   const still = queue.filter((c) => desiredKeys.has(chunkKey(c)));
   const visible = still.filter((c) => viewKeys.has(chunkKey(c)));
   const margin = still.filter((c) => !viewKeys.has(chunkKey(c)));

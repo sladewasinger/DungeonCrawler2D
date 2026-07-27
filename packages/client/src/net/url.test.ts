@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { resolveWsUrl } from "./url.js";
 
+const PRODUCTION_HOST = "dungeoncrawl2d.austinwasinger.com";
+
 describe("resolveWsUrl", () => {
   it("uses same-origin wss when the page is https (prod, CloudFront -> /ws)", () => {
     const url = resolveWsUrl({
       protocol: "https:",
-      host: "dungeoncrawl2d.austinwasinger.com",
-      hostname: "dungeoncrawl2d.austinwasinger.com",
+      host: PRODUCTION_HOST,
+      hostname: PRODUCTION_HOST,
       search: "",
     });
     expect(url).toBe("wss://dungeoncrawl2d.austinwasinger.com/ws");
@@ -41,8 +43,8 @@ describe("resolveWsUrl", () => {
   it("lets ?server= override either default, for pointing dev at another server", () => {
     const url = resolveWsUrl({
       protocol: "https:",
-      host: "dungeoncrawl2d.austinwasinger.com",
-      hostname: "dungeoncrawl2d.austinwasinger.com",
+      host: PRODUCTION_HOST,
+      hostname: PRODUCTION_HOST,
       search: "?server=ws://192.168.1.5:8787",
     });
     expect(url).toBe("ws://192.168.1.5:8787");

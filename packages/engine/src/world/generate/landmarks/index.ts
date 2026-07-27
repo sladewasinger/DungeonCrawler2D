@@ -10,27 +10,33 @@ import { stampArena } from "./arena.js";
 import { stampShrine } from "./shrine.js";
 import { stampTower } from "./tower.js";
 
-export function applyLandmark(
-  kind: DistrictKind,
-  seed: number,
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  corridorCarved: Uint8Array,
-  tiles: Uint8Array,
-  height: Float32Array,
-): void {
-  if (!isLandmarkChunk(cx, cy)) return;
-  if (isSafeRoomChunk(worldSeed, floor, cx, cy)) return;
-  if (isStairsChunk(worldSeed, floor, cx, cy)) return;
-  if (isStairwayUpChunk(worldSeed, floor, cx, cy)) return;
-  if (isStairwayDownChunk(worldSeed, floor, cx, cy)) return;
-  if (isBossArenaChunk(worldSeed, floor, cx, cy)) return;
+export interface LandmarkApplication {
+  kind: DistrictKind;
+  seed: number;
+  worldSeed: number;
+  floor: number;
+  cx: number;
+  cy: number;
+  corridorCarved: Uint8Array;
+  tiles: Uint8Array;
+  height: Float32Array;
+}
 
-  if (kind === DISTRICT.Warren || kind === DISTRICT.Flooded) {
-    stampShrine(worldSeed, floor, cx, cy, corridorCarved, tiles, height);
-  }
-  else if (kind === DISTRICT.Ruins) stampTower(seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height);
-  else stampArena(worldSeed, floor, cx, cy, corridorCarved, tiles, height);
+export function applyLandmark(input: LandmarkApplication): void {
+  const { kind, seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height } = input;
+  if (!isLandmarkChunk(cx, cy)) return;
+  const chunk = { worldSeed, floor, cx, cy };
+  if (isClaimedChunk(chunk)) return;
+  stampDistrictLandmark({ kind, seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height });
+}
+
+function isClaimedChunk(chunk: { worldSeed: number; floor: number; cx: number; cy: number }): boolean {
+  return isSafeRoomChunk(chunk) || isStairsChunk(chunk) || isStairwayUpChunk(chunk) || isStairwayDownChunk(chunk) || isBossArenaChunk(chunk);
+}
+
+function stampDistrictLandmark({ kind, seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkApplication): void {
+  const stamp = { seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height };
+  if (kind === DISTRICT.Warren || kind === DISTRICT.Flooded) return stampShrine(stamp);
+  if (kind === DISTRICT.Ruins) return stampTower(stamp);
+  stampArena(stamp);
 }

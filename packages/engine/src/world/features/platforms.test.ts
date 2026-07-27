@@ -18,15 +18,18 @@ import {
 
 const SEED = hashString("test-world");
 const FLOOR = 1;
+type ChunkPosition = { cx: number; cy: number };
+type ClusterChunk = { tiles: Uint8Array; height: Float32Array };
 
-function findClusterChunks(range: number): Array<[number, number]> {
-  const out: Array<[number, number]> = [];
-  for (let cy = -range; cy <= range; cy++) {
-    for (let cx = -range; cx <= range; cx++) {
-      if (hasPlatformCluster(SEED, FLOOR, cx, cy)) out.push([cx, cy]);
-    }
-  }
-  return out;
+function squareCoordinates(range: number): ChunkPosition[] {
+  return Array.from({ length: (range * 2 + 1) ** 2 }, (_, index) => ({
+    cx: index % (range * 2 + 1) - range,
+    cy: Math.floor(index / (range * 2 + 1)) - range,
+  }));
+}
+
+function findClusterChunks(range: number): ChunkPosition[] {
+  return squareCoordinates(range).filter((chunk) => hasPlatformCluster({ worldSeed: SEED, floor: FLOOR, ...chunk }));
 }
 
 /**
@@ -35,22 +38,65 @@ function findClusterChunks(range: number): Array<[number, number]> {
  * platforms.ts directly, independent of which generator is wired in as
  * the engine's default (see world/generate/index.ts).
  */
-function buildClusterChunk(cx: number, cy: number): { tiles: Uint8Array; height: Float32Array } {
+function buildClusterChunk({ cx, cy }: ChunkPosition): ClusterChunk {
   const seeds = seedsFor(SEED, FLOOR);
   const segs = corridorSegments(SEED, FLOOR, cx, cy);
   const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
   const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
   const baseX = cx * CHUNK_SIZE;
   const baseY = cy * CHUNK_SIZE;
-  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const sample = baseSample(seeds, segs, baseX + lx, baseY + ly);
-      tiles[ly * CHUNK_SIZE + lx] = sample.wall ? TOPOLOGY.Uncarved : TILE.Floor;
-      height[ly * CHUNK_SIZE + lx] = sample.height;
-    }
+  for (let index = 0; index < tiles.length; index++) {
+    const lx = index % CHUNK_SIZE;
+    const ly = Math.floor(index / CHUNK_SIZE);
+    const sample = baseSample(seeds, segs, baseX + lx, baseY + ly);
+    tiles[index] = sample.wall ? TOPOLOGY.Uncarved : TILE.Floor;
+    height[index] = sample.height;
   }
-  applyPlatformCluster(SEED, FLOOR, cx, cy, seeds, segs, tiles, height);
+  applyPlatformCluster({ chunk: { worldSeed: SEED, floor: FLOOR, cx, cy }, seeds, segs, tiles, height });
   return { tiles, height };
+}
+
+function localSpot(spot: { x: number; y: number }, chunk: ChunkPosition): { x: number; y: number } {
+  return {
+    x: Math.floor(spot.x / WORLD_GEOMETRY_SCALE) - chunk.cx * CHUNK_SIZE,
+    y: Math.floor(spot.y / WORLD_GEOMETRY_SCALE) - chunk.cy * CHUNK_SIZE,
+  };
+}
+
+function heightsAround(height: Float32Array, center: { x: number; y: number }): number[] {
+  return Array.from({ length: 81 }, (_, index) => {
+    const x = center.x + index % 9 - 4;
+    const y = center.y + Math.floor(index / 9) - 4;
+    return x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE ? 0 : (height[y * CHUNK_SIZE + x] ?? 0);
+  });
+}
+
+function assertJumpableLootSpot(input: { height: Float32Array; spot: { x: number; y: number }; chunk: ChunkPosition }): void {
+  const center = localSpot(input.spot, input.chunk);
+  const top = input.height[center.y * CHUNK_SIZE + center.x] ?? 0;
+  const heights = heightsAround(input.height, center);
+  expect(top - Math.min(...heights)).toBeGreaterThanOrEqual(PLATFORM_TIER_STEP - 1e-6);
+  expect(heights.some((height) => Math.abs(top - PLATFORM_TIER_STEP - height) < 0.11)).toBe(true);
+}
+
+function corridorHeightIsSmooth(height: Float32Array, chunk: ChunkPosition): void {
+  const segs = corridorSegments(SEED, FLOOR, chunk.cx, chunk.cy);
+  const center = generatedChunkCenter(SEED, FLOOR, chunk.cx, chunk.cy);
+  for (let t = -CHUNK_SIZE / 2; t <= CHUNK_SIZE / 2; t += 2) {
+    const wx = Math.round(center.x) + t;
+    const wy = Math.round(center.y);
+    if (distToCorridor(segs, wx, wy) <= CORRIDOR_HALF_WIDTH) assertCorridorHeight({ height, chunk, wx, wy });
+  }
+}
+
+function assertCorridorHeight(input: { height: Float32Array; chunk: ChunkPosition; wx: number; wy: number }): void {
+  const { height, chunk, wx, wy } = input;
+  const lx = wx - chunk.cx * CHUNK_SIZE;
+  const ly = wy - chunk.cy * CHUNK_SIZE;
+  if (lx < 1 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) return;
+  const current = height[ly * CHUNK_SIZE + lx] ?? 0;
+  const west = height[ly * CHUNK_SIZE + lx - 1] ?? 0;
+  expect(Math.abs(current - west)).toBeLessThanOrEqual(PLATFORM_TIER_STEP);
 }
 
 describe("ruin platform clusters", () => {
@@ -69,10 +115,10 @@ describe("ruin platform clusters", () => {
 
   it("loot spots sit on tops that rise a jumpable +2 from nearby ground", () => {
     let checked = 0;
-    for (const [cx, cy] of findClusterChunks(6)) {
-      const { height } = buildClusterChunk(cx, cy);
-      for (const spot of platformLootSpots(SEED, FLOOR, cx, cy)) {
-        assertJumpableLootSpot(height, spot, cx, cy);
+    for (const chunk of findClusterChunks(6)) {
+      const { height } = buildClusterChunk(chunk);
+      for (const spot of platformLootSpots({ worldSeed: SEED, floor: FLOOR, ...chunk })) {
+        assertJumpableLootSpot({ height, spot, chunk });
         checked++;
       }
       if (checked > 8) break;
@@ -81,55 +127,9 @@ describe("ruin platform clusters", () => {
   });
 
   it("never raises the corridor itself (connectivity guarantee)", () => {
-    for (const [cx, cy] of findClusterChunks(4)) {
-      const { height } = buildClusterChunk(cx, cy);
-      const segs = corridorSegments(SEED, FLOOR, cx, cy);
-      const center = generatedChunkCenter(SEED, FLOOR, cx, cy);
-      // Sample along the corridor through this chunk: tiles on the
-      // centerline must not carry mesa rises (they may still slope with
-      // the base terrain ramps).
-      for (let t = -CHUNK_SIZE / 2; t <= CHUNK_SIZE / 2; t += 2) {
-        const wx = Math.round(center.x) + t;
-        const wy = Math.round(center.y);
-        if (distToCorridor(segs, wx, wy) > CORRIDOR_HALF_WIDTH) continue;
-        const lx = wx - cx * CHUNK_SIZE;
-        const ly = wy - cy * CHUNK_SIZE;
-        if (lx < 1 || ly < 0 || lx >= CHUNK_SIZE || ly >= CHUNK_SIZE) continue;
-        const h = height[ly * CHUNK_SIZE + lx] ?? 0;
-        const west = height[ly * CHUNK_SIZE + (lx - 1)] ?? 0;
-        // A mesa edge on the corridor would be a sudden +2 wall.
-        expect(Math.abs(h - west)).toBeLessThanOrEqual(PLATFORM_TIER_STEP);
-      }
+    for (const chunk of findClusterChunks(4)) {
+      const { height } = buildClusterChunk(chunk);
+      corridorHeightIsSmooth(height, chunk);
     }
   });
 });
-
-/**
- * The top must be a real platform (something lower to jump from) AND a
- * stage exactly one jumpable tier below must sit within hop distance —
- * the climb works stage by stage.
- */
-function assertJumpableLootSpot(
-  height: Float32Array,
-  spot: { x: number; y: number },
-  cx: number,
-  cy: number,
-): void {
-  const sx = Math.floor(spot.x / WORLD_GEOMETRY_SCALE) - cx * CHUNK_SIZE;
-  const sy = Math.floor(spot.y / WORLD_GEOMETRY_SCALE) - cy * CHUNK_SIZE;
-  const top = height[sy * CHUNK_SIZE + sx] ?? 0;
-  let lowest = Infinity;
-  let hasStage = false;
-  for (let dy = -4; dy <= 4; dy++) {
-    for (let dx = -4; dx <= 4; dx++) {
-      const nx = sx + dx;
-      const ny = sy + dy;
-      if (nx < 0 || ny < 0 || nx >= CHUNK_SIZE || ny >= CHUNK_SIZE) continue;
-      const nh = height[ny * CHUNK_SIZE + nx] ?? 0;
-      lowest = Math.min(lowest, nh);
-      if (Math.abs(top - PLATFORM_TIER_STEP - nh) < 0.11) hasStage = true;
-    }
-  }
-  expect(top - lowest).toBeGreaterThanOrEqual(PLATFORM_TIER_STEP - 1e-6);
-  expect(hasStage).toBe(true);
-}

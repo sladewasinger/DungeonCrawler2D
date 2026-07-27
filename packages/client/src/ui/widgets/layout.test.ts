@@ -7,6 +7,9 @@ import { WidgetRegistry } from "./registry.js";
 import { createRegistryState, type WidgetDefinition, type WidgetRegistryState } from "./state.js";
 
 const VIEWPORT = { width: 1280, height: 720 };
+const HEALTH_LAYOUT = { anchor: "top-left", x: 16, y: 16, scale: 1, visible: true };
+const HEALTH_ID = "health";
+const BOTTOM_RIGHT = "bottom-right";
 
 function healthDefinition(): WidgetDefinition {
   return { id: "health", defaultAnchor: "top-left", defaultOffset: { x: 16, y: 16 }, defaultScale: 1, defaultVisible: true };
@@ -15,7 +18,7 @@ function healthDefinition(): WidgetDefinition {
 describe("anchorPoint", () => {
   it("resolves all nine anchors against the viewport", () => {
     expect(anchorPoint("top-left", VIEWPORT)).toEqual({ x: 0, y: 0 });
-    expect(anchorPoint("bottom-right", VIEWPORT)).toEqual({ x: 1280, y: 720 });
+    expect(anchorPoint(BOTTOM_RIGHT, VIEWPORT)).toEqual({ x: 1280, y: 720 });
     expect(anchorPoint("center", VIEWPORT)).toEqual({ x: 640, y: 360 });
     expect(anchorPoint("bottom-center", VIEWPORT)).toEqual({ x: 640, y: 720 });
   });
@@ -29,23 +32,23 @@ describe("resolveLayout", () => {
   });
 
   it("adds a widget's offset to its anchor point", () => {
-    state.definitions.set("health", healthDefinition());
+    state.definitions.set(HEALTH_ID, healthDefinition());
     const resolved = resolveLayout(state, VIEWPORT);
-    expect(resolved.get("health")).toEqual({ anchor: "top-left", x: 16, y: 16, scale: 1, visible: true });
+    expect(resolved.get(HEALTH_ID)).toEqual(HEALTH_LAYOUT);
   });
 
   it("an override replaces only the fields it sets, keeping the rest at default", () => {
     state.definitions.set("health", healthDefinition());
     state.overrides.set("health", { scale: 2 });
     const resolved = resolveLayout(state, VIEWPORT);
-    expect(resolved.get("health")).toEqual({ anchor: "top-left", x: 16, y: 16, scale: 2, visible: true });
+    expect(resolved.get("health")).toEqual({ ...HEALTH_LAYOUT, scale: 2 });
   });
 
   it("an override can move a widget to a different anchor entirely", () => {
     state.definitions.set("health", healthDefinition());
-    state.overrides.set("health", { anchor: "bottom-right", offset: { x: -16, y: -16 } });
+    state.overrides.set("health", { anchor: BOTTOM_RIGHT, offset: { x: -16, y: -16 } });
     const resolved = resolveLayout(state, VIEWPORT);
-    expect(resolved.get("health")).toEqual({ anchor: "bottom-right", x: 1264, y: 704, scale: 1, visible: true });
+    expect(resolved.get("health")).toEqual({ anchor: BOTTOM_RIGHT, x: 1264, y: 704, scale: 1, visible: true });
   });
 
   it("a hidden override suppresses the widget without unregistering it", () => {

@@ -15,8 +15,19 @@ export function createThreeLootChest(
     depthWrite: depth.depthWrite,
   });
   const base = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.42, 0.56), material);
+  const lid = createChestLid(material);
+  const band = createChestBand(depth);
+  group.add(base, lid, band);
+  return group;
+}
+
+function createChestLid(material: { clone(): unknown }) {
   const lid = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.18, 0.6), material.clone());
   lid.position.y = 0.3;
+  return lid;
+}
+
+function createChestBand(depth: { depthTest: boolean; depthWrite: boolean }) {
   const band = new THREE.Mesh(
     new THREE.BoxGeometry(0.12, 0.64, 0.62),
     new THREE.MeshStandardMaterial({
@@ -27,6 +38,5 @@ export function createThreeLootChest(
     }),
   );
   band.position.y = 0.08;
-  group.add(base, lid, band);
-  return group;
+  return band;
 }

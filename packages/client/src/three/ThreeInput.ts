@@ -1,24 +1,13 @@
 /** Owns keyboard, mouse, and touch input sampling for the first-person renderer. */
-import type { FirstPersonInput } from "./movement.js";
 import { ThreeTouchControls } from "./ThreeTouchControls.js";
+import { clampInputValue, normalizedYaw, safeMouseDelta } from "./ThreeInputMath.js";
+import { blockedInputSample, type ThreeInputSample } from "./ThreeInputTypes.js";
+
+export type { ThreeInputSample } from "./ThreeInputTypes.js";
+export { normalizedYaw, safeMouseDelta } from "./ThreeInputMath.js";
 
 const LOOK_LIMIT = 1.42;
 const MOUSE_SENSITIVITY = 0.0024;
-const MAX_MOUSE_DELTA = 160;
-const POINTER_LOCK_SPIKE_DELTA = 500;
-const FULL_TURN = Math.PI * 2;
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-export const safeMouseDelta = (value: number): number => {
-  if (!Number.isFinite(value) || Math.abs(value) > POINTER_LOCK_SPIKE_DELTA) {
-    return 0;
-  }
-  return clamp(value, -MAX_MOUSE_DELTA, MAX_MOUSE_DELTA);
-};
-
-export const normalizedYaw = (value: number): number =>
-  ((value % FULL_TURN) + FULL_TURN) % FULL_TURN;
 
 const editingText = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
@@ -27,17 +16,6 @@ const inventoryOwnsEvent = (target: EventTarget | null) =>
 
 const ignorePointerLockFailure = () => undefined;
 
-export interface ThreeInputSample {
-  input: FirstPersonInput;
-  yaw: number;
-  pitch: number;
-  mouseCaptured: boolean;
-  attack: boolean;
-  interactPressed: boolean;
-  interactHeld: boolean;
-  throwItem: boolean;
-  bandageOther: boolean;
-}
 
 export class ThreeInput {
   private readonly held = new Set<string>();
@@ -66,24 +44,41 @@ export class ThreeInput {
   sample(elapsed: number): ThreeInputSample {
     if (this.gameplayBlocked()) {
       this.reset();
-      return this.blockedSample();
+      return blockedInputSample(this.yaw, this.pitch);
     }
+    return this.activeSample(this.readTouch(elapsed));
+  }
+
+  private readTouch(elapsed: number): ReturnType<ThreeTouchControls["read"]> {
     const touch = this.touch.read(elapsed);
     this.yaw = normalizedYaw(this.yaw + touch.yaw);
-    this.pitch = clamp(this.pitch + touch.pitch, -LOOK_LIMIT, LOOK_LIMIT);
+    this.pitch = clampInputValue(this.pitch + touch.pitch, -LOOK_LIMIT, LOOK_LIMIT);
+    return touch;
+  }
+
+  private activeSample(touch: ReturnType<ThreeTouchControls["read"]>): ThreeInputSample {
     return {
-      input: {
-        forward: this.axis("KeyW", "KeyS") + touch.forward,
-        right: this.axis("KeyD", "KeyA") + touch.right,
-        jump: this.held.has("Space") || touch.jump,
-        yaw: this.yaw,
-        run: this.held.has("ShiftLeft") || this.held.has("ShiftRight") ||
-          touch.run,
-        block: this.mouseBlocking || touch.block,
-      },
+      input: this.activeMovement(touch),
       yaw: this.yaw,
       pitch: this.pitch,
       mouseCaptured: document.pointerLockElement === this.canvas,
+      ...this.activeActions(touch),
+    };
+  }
+
+  private activeMovement(touch: ReturnType<ThreeTouchControls["read"]>): ThreeInputSample["input"] {
+    return {
+      forward: this.axis("KeyW", "KeyS") + touch.forward,
+      right: this.axis("KeyD", "KeyA") + touch.right,
+      jump: this.held.has("Space") || touch.jump,
+      yaw: this.yaw,
+      run: this.held.has("ShiftLeft") || this.held.has("ShiftRight") || touch.run,
+      block: this.mouseBlocking || touch.block,
+    };
+  }
+
+  private activeActions(touch: ReturnType<ThreeTouchControls["read"]>): Omit<ThreeInputSample, "input" | "yaw" | "pitch" | "mouseCaptured"> {
+    return {
       attack: this.consumeMouseAttack() || touch.attack,
       interactPressed: touch.interactPressed || this.consumePress("KeyE"),
       interactHeld: touch.interactHeld || this.held.has("KeyE"),
@@ -117,30 +112,7 @@ export class ThreeInput {
     return this.touch.consumeJumpPress();
   }
 
-  private axis(positive: string, negative: string): number {
-    return Number(this.held.has(positive)) - Number(this.held.has(negative));
-  }
-
-  private blockedSample(): ThreeInputSample {
-    return {
-      input: {
-        forward: 0,
-        right: 0,
-        jump: false,
-        yaw: this.yaw,
-        run: false,
-        block: false,
-      },
-      yaw: this.yaw,
-      pitch: this.pitch,
-      mouseCaptured: false,
-      attack: false,
-      interactPressed: false,
-      interactHeld: false,
-      throwItem: false,
-      bandageOther: false,
-    };
-  }
+  private axis(positive: string, negative: string): number { return Number(this.held.has(positive)) - Number(this.held.has(negative)); }
 
   private consumePress(code: string): boolean {
     const pressed = this.pressed.delete(code);
@@ -157,9 +129,7 @@ export class ThreeInput {
     this.held.add(event.code);
   };
 
-  private readonly onKeyUp = (event: KeyboardEvent) => {
-    this.held.delete(event.code);
-  };
+  private readonly onKeyUp = (event: KeyboardEvent) => { this.held.delete(event.code); };
 
   private readonly reset = () => {
     this.held.clear();
@@ -169,20 +139,16 @@ export class ThreeInput {
     this.mouseBlocking = false;
   };
 
-  private readonly resetWhenHidden = () => {
-    if (document.hidden) this.reset();
-  };
+  private readonly resetWhenHidden = () => { if (document.hidden) this.reset(); };
 
-  private readonly resetWhenPointerReleased = () => {
-    if (document.pointerLockElement !== this.canvas) this.reset();
-  };
+  private readonly resetWhenPointerReleased = () => { if (document.pointerLockElement !== this.canvas) this.reset(); };
 
   private readonly onMouseMove = (event: MouseEvent) => {
     if (document.pointerLockElement !== this.canvas) return;
     this.yaw = normalizedYaw(
       this.yaw - safeMouseDelta(event.movementX) * MOUSE_SENSITIVITY,
     );
-    this.pitch = clamp(
+    this.pitch = clampInputValue(
       this.pitch - safeMouseDelta(event.movementY) * MOUSE_SENSITIVITY,
       -LOOK_LIMIT,
       LOOK_LIMIT,

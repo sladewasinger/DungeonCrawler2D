@@ -12,15 +12,13 @@ import {
   bossArenaGatePosition,
   bossArenaSpawnAnchor,
   buildContentRegistry,
-  createBody,
   hashString,
-  makeEntity,
-  newEntityId,
   type ContentRegistry,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state.js";
+import { makeSocialSlot } from "../social.testSupport.js";
 import { handleBossDeath, initBossFloor, stepBoss } from "./boss.js";
 import { BOSS_RESPAWN_TICKS, BOSS_XP_BURST, WARDEN_DEF_ID } from "./constants.js";
 
@@ -44,47 +42,17 @@ const content: ContentRegistry = buildContentRegistry({
 const SEED = hashString("boss-test-world");
 
 function makeSlot(name: string, x: number, y: number): PlayerSlot {
-  const entity = makeEntity("player", createBody(x, y, 0), {
-    id: newEntityId("p"),
-    name,
-    hp: 30,
-    maxHp: 30,
-    tags: new Set(["player"]),
-  });
-  return {
-    entity,
-    clientId: `client-${name}`,
-    stored: { slot: 0, name, stash: [], contacts: [], xp: 0, level: 1 },
-    resumeToken: `token-${name}`,
-    lastSeq: -1,
-    pendingInputs: [],
-    pendingActions: [],
-    connected: true,
-    reapAtTick: Number.MAX_SAFE_INTEGER,
-    known: new Set(),
-    inventory: [],
-    hotbar: [],
-    weapon: null,
-    outbox: [],
-    returnStack: [],
-    partyId: null,
-    respawnAtTick: null,
-    needsFullAreas: true,
-    downedAtTick: null,
-    attackReadyAtTick: 0,
-    attackStartedAtTick: Number.NEGATIVE_INFINITY,
-    god: false,
-    forceDeath: false,
-    chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity,
-    spawnGraceUntilTick: 0,
-    pendingTransfer: null,
-  };
+  const slot = makeSocialSlot(name, x, y);
+  slot.entity.hp = 30;
+  slot.entity.maxHp = 30;
+  slot.stored.xp = 0;
+  slot.stored.level = 1;
+  return slot;
 }
 
 function bossFloorSim(): SimState {
   const world = new World(SEED, 5, LEVEL.Dungeon);
-  return createSimState(world, content, new PlayerStore(null), 1, {});
+  return createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
 }
 
 describe("floors/boss", () => {
@@ -99,7 +67,7 @@ describe("floors/boss", () => {
     const bosses = [...sim.enemies.values()].filter((e) => e.def.id === WARDEN_DEF_ID);
     expect(bosses).toHaveLength(1);
 
-    const floor3 = createSimState(new World(SEED, 3, LEVEL.Dungeon), content, new PlayerStore(null), 1, {});
+    const floor3 = createSimState({ world: new World(SEED, 3, LEVEL.Dungeon), content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
     initBossFloor(floor3);
     expect(floor3.enemies.size).toBe(0);
   });

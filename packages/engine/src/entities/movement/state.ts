@@ -98,7 +98,13 @@ export function cloneBody(body: BodyState): BodyState {
 }
 
 /** Shove a body (melee knockback, explosions). sticky-feet resists at step time. */
-export function applyKnockback(body: BodyState, dirX: number, dirY: number, force: number): void {
+export interface Knockback {
+  dirX: number;
+  dirY: number;
+  force: number;
+}
+
+export function applyKnockback(body: BodyState, { dirX, dirY, force }: Knockback): void {
   const len = Math.hypot(dirX, dirY);
   if (len === 0) return;
   body.kx += (dirX / len) * force;

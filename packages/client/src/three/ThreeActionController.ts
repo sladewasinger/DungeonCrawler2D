@@ -95,32 +95,39 @@ export class ThreeActionController {
   private publishInteractionPress(world: World, nowMs: number): void {
     const body = this.connection.body;
     if (body && resolveStairwayPrompt(world, body.x, body.y)) {
-      useSelectedOrInteract(this.connection, world, this.selectedSlot, this.panels);
+      useSelectedOrInteract({ connection: this.connection, world, slot: this.selectedSlot, panels: this.panels });
       return;
     }
     if (this.publishLootChest()) return;
-    const target = body
-      ? nearestDownedPartyMember(
-        [...this.connection.entities.values()]
-          .map(({ snap }) => snap)
-          .filter((snap) => snap.kind === "player" && snap.downed)
-          .map((snap) => ({ id: snap.id, x: snap.x, y: snap.y, downed: true })),
-        body.x,
-        body.y,
-        INTERACT_RANGE,
-      )
-      : undefined;
-    if (this.revive.begin(target?.id, nowMs)) {
-      this.connection.revive(target?.id ?? "", true);
-      return;
-    }
-    useSelectedOrInteract(
-      this.connection,
+    if (this.beginRevive(nowMs)) return;
+    useSelectedOrInteract({
+      connection: this.connection,
       world,
-      this.selectedSlot,
-      this.panels,
-      this.pickupNearby(),
-    );
+      slot: this.selectedSlot,
+      panels: this.panels,
+      pickupNearby: this.pickupNearby(),
+    });
+  }
+
+  private beginRevive(nowMs: number): boolean {
+    const target = this.nearbyDownedPartyMember();
+    if (!this.revive.begin(target?.id, nowMs)) return false;
+    this.connection.revive(target?.id ?? "", true);
+    return true;
+  }
+
+  private nearbyDownedPartyMember(): { id: string; x: number; y: number; downed: boolean } | undefined {
+    const body = this.connection.body;
+    if (!body) return undefined;
+    return nearestDownedPartyMember({
+      members: [...this.connection.entities.values()]
+        .map(({ snap }) => snap)
+        .filter((snap) => snap.kind === "player" && snap.downed)
+        .map((snap) => ({ id: snap.id, x: snap.x, y: snap.y, downed: true })),
+      fromX: body.x,
+      fromY: body.y,
+      maxDistance: INTERACT_RANGE,
+    });
   }
 
   private publishLootChest(): boolean {

@@ -40,7 +40,7 @@ export class XpBarWidget {
 
     const badgeX = 0;
     this.levelLabel = scene.add
-      .text(badgeX + LEVEL_BADGE_WIDTH / 2, BAR_HEIGHT / 2 + spacing(0.5), "Lv 1", uiTextStyle(11, undefined, layout.scale, "emphasis"))
+      .text(badgeX + LEVEL_BADGE_WIDTH / 2, BAR_HEIGHT / 2 + spacing(0.5), "Lv 1", uiTextStyle(11, undefined, { scale: layout.scale, weight: "emphasis" }))
       .setOrigin(0.5, 0.5);
 
     const barX = LEVEL_BADGE_WIDTH + spacing(1);
@@ -50,7 +50,7 @@ export class XpBarWidget {
       .setStrokeStyle(1, PANEL_BORDER);
     this.fill = scene.add.rectangle(barX, 0, BAR_WIDTH, BAR_HEIGHT, FILL_COLOR).setOrigin(0, 0);
     this.floorLabel = scene.add
-      .text(barX + BAR_WIDTH + FLOOR_LABEL_GAP, BAR_HEIGHT / 2 + spacing(0.5), "", uiTextStyle(11, "#9a9aae", layout.scale))
+      .text(barX + BAR_WIDTH + FLOOR_LABEL_GAP, BAR_HEIGHT / 2 + spacing(0.5), "", uiTextStyle(11, "#9a9aae", { scale: layout.scale }))
       .setOrigin(0, 0.5);
     this.container.add([this.levelLabel, bg, this.fill, this.floorLabel]);
   }

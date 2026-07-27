@@ -55,30 +55,62 @@ export interface ContactShade {
  * flat-height walls included) or ground high enough to carry a visual floor
  * rim. This keeps partial-height edge AO aligned with its white rim.
  */
-function casts(world: TerrainRead, h: number, nx: number, ny: number): boolean {
-  if (isVoidCellAt(world, nx, ny)) return false;
-  return isFloorEdgeDrop(world.heightAt(nx, ny), h);
+interface ContactPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+function casts(world: TerrainRead, h: number, point: ContactPoint): boolean {
+  if (isVoidCellAt(world, point.x, point.y)) return false;
+  return isFloorEdgeDrop(world.heightAt(point.x, point.y), h);
 }
 
 /** Which sides/corners of (wx, wy) receive baked contact shade. */
 export function contactShadeAt(world: TerrainRead, wx: number, wy: number): ContactShade {
-  if (isVoidCellAt(world, wx, wy)) {
-    return { sides: { north: false, south: false, east: false, west: false }, corners: { nw: false, ne: false, sw: false, se: false } };
-  }
+  if (isVoidCellAt(world, wx, wy)) return emptyContactShade();
   const h = world.heightAt(wx, wy);
-  const north = casts(world, h, wx, wy - 1);
-  const south = casts(world, h, wx, wy + 1);
-  const east = casts(world, h, wx + 1, wy);
-  const west = casts(world, h, wx - 1, wy);
+  const sides = contactSides(world, h, { x: wx, y: wy });
   return {
-    sides: { north, south, east, west },
-    corners: {
-      nw: !north && !west && casts(world, h, wx - 1, wy - 1),
-      ne: !north && !east && casts(world, h, wx + 1, wy - 1),
-      sw: !south && !west && casts(world, h, wx - 1, wy + 1),
-      se: !south && !east && casts(world, h, wx + 1, wy + 1),
-    },
+    sides,
+    corners: contactCorners(world, h, { point: { x: wx, y: wy }, sides }),
   };
+}
+
+function emptyContactShade(): ContactShade {
+  return { sides: { north: false, south: false, east: false, west: false }, corners: { nw: false, ne: false, sw: false, se: false } };
+}
+
+function contactSides(world: TerrainRead, h: number, point: ContactPoint): CliffSides {
+  return {
+    north: casts(world, h, { x: point.x, y: point.y - 1 }),
+    south: casts(world, h, { x: point.x, y: point.y + 1 }),
+    east: casts(world, h, { x: point.x + 1, y: point.y }),
+    west: casts(world, h, { x: point.x - 1, y: point.y }),
+  };
+}
+
+interface CornerContactRequest {
+  readonly point: ContactPoint;
+  readonly sides: CliffSides;
+}
+
+function contactCorners(world: TerrainRead, h: number, request: CornerContactRequest): ContactCorners {
+  const { point, sides } = request;
+  return {
+    nw: diagonalContact(world, h, { point: { x: point.x - 1, y: point.y - 1 }, blocked: sides.north || sides.west }),
+    ne: diagonalContact(world, h, { point: { x: point.x + 1, y: point.y - 1 }, blocked: sides.north || sides.east }),
+    sw: diagonalContact(world, h, { point: { x: point.x - 1, y: point.y + 1 }, blocked: sides.south || sides.west }),
+    se: diagonalContact(world, h, { point: { x: point.x + 1, y: point.y + 1 }, blocked: sides.south || sides.east }),
+  };
+}
+
+interface DiagonalContactRequest {
+  readonly point: ContactPoint;
+  readonly blocked: boolean;
+}
+
+function diagonalContact(world: TerrainRead, h: number, request: DiagonalContactRequest): boolean {
+  return !request.blocked && casts(world, h, request.point);
 }
 
 /** Nested band widths (fraction of a tile, all starting at the casting edge):

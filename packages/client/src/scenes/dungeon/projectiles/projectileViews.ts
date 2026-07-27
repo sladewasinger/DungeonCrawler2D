@@ -3,13 +3,16 @@ import type { ProjectileEntityView, TorchEntityView } from "../../../render/enti
 import { groundItemFrame } from "../itemFrame.js";
 import { trackProjectileVelocity, type ProjectileVelocityState } from "../projectileVelocity.js";
 
-export function projectileView(
-  e: InterpolatedEntity,
-  velocity: ProjectileVelocityState,
-  nowMs: number,
-  target?: ProjectileEntityView,
-): ProjectileEntityView {
-  const { vx, vy } = trackProjectileVelocity(velocity, e.id, e.x, e.y, nowMs);
+export interface ProjectileViewInput {
+  readonly e: InterpolatedEntity;
+  readonly velocity: ProjectileVelocityState;
+  readonly nowMs: number;
+  readonly target?: ProjectileEntityView | undefined;
+}
+
+export function projectileView(input: ProjectileViewInput): ProjectileEntityView {
+  const { e, velocity, nowMs, target } = input;
+  const { vx, vy } = trackProjectileVelocity(velocity, { id: e.id, x: e.x, y: e.y, nowMs });
   const view = target ?? {} as ProjectileEntityView;
   view.id = e.id;
   view.x = e.x;

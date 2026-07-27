@@ -22,12 +22,15 @@ export const STAIRWAY_NEAR_TILES = 8;
  * `viewBearingDeg` is compassBearingDeg's output: the screen bearing world-north
  * currently renders at (0 = north-up), clockwise-positive.
  */
-export function resolveStairwayTick(
-  world: StairwayWorld,
-  x: number,
-  y: number,
-  viewBearingDeg: number,
-): StairwayTickData | null {
+export interface StairwayTickSource {
+  readonly world: StairwayWorld;
+  readonly x: number;
+  readonly y: number;
+  readonly viewBearingDeg: number;
+}
+
+export function resolveStairwayTick(source: StairwayTickSource): StairwayTickData | null {
+  const { world, x, y, viewBearingDeg } = source;
   const target = stairwayDownPosition(world);
   if (!target) return null;
   const dx = target.x - x;

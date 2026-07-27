@@ -40,29 +40,53 @@ export interface InteractionPrompt {
 }
 
 /** The contextual prompt for the player's current position, or null when nothing is in range. */
-export function resolveInteractionPrompt(
-  world: PromptWorld,
-  x: number,
-  y: number,
-  items: readonly PromptTarget[],
-  reviveTarget?: { readonly id: string },
-  lootChest?: { readonly id: string; readonly lootOwnerName?: string | undefined },
-  pet?: PetPromptTarget,
-): InteractionPrompt | null {
+export interface InteractionPromptSource {
+  readonly world: PromptWorld;
+  readonly x: number;
+  readonly y: number;
+  readonly items: readonly PromptTarget[];
+  readonly reviveTarget?: { readonly id: string } | undefined;
+  readonly lootChest?: { readonly id: string; readonly lootOwnerName?: string | undefined } | undefined;
+  readonly pet?: PetPromptTarget | undefined;
+}
+
+export function resolveInteractionPrompt(source: InteractionPromptSource): InteractionPrompt | null {
+  const { world, x, y, items, reviveTarget, lootChest, pet } = source;
+  return stairwayPrompt(world, x, y)
+    ?? revivePrompt(reviveTarget)
+    ?? lootChestPrompt(lootChest)
+    ?? petPrompt(pet)
+    ?? nearbyWorldPrompt(world, x, y)
+    ?? itemPrompt(items, x, y)
+    ?? null;
+}
+
+function stairwayPrompt(world: PromptWorld, x: number, y: number): InteractionPrompt | undefined {
   const stairway = resolveStairwayPrompt(world, x, y);
-  if (stairway) return { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) };
-  if (reviveTarget) return { key: "E", label: "hold to revive" };
-  if (lootChest) {
-    return {
-      key: "E",
-      label: lootChest.lootOwnerName
-        ? `open [DEAD] ${lootChest.lootOwnerName}'s loot`
-        : "open death loot",
-    };
-  }
-  if (pet && !pet.ownerName) return { key: "E", label: `adopt ${pet.name}` };
-  const worldTarget = resolveWorldInteraction(world, x, y);
-  if (worldTarget) return worldPrompt(worldTarget.kind);
-  if (hasNearbyItem(items, x, y)) return { key: "R", label: "pick up" };
-  return null;
+  return stairway ? { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) } : undefined;
+}
+
+function revivePrompt(target: InteractionPromptSource["reviveTarget"]): InteractionPrompt | undefined {
+  return target ? { key: "E", label: "hold to revive" } : undefined;
+}
+
+function petPrompt(pet: InteractionPromptSource["pet"]): InteractionPrompt | undefined {
+  return pet && !pet.ownerName ? { key: "E", label: `adopt ${pet.name}` } : undefined;
+}
+
+function nearbyWorldPrompt(world: PromptWorld, x: number, y: number): InteractionPrompt | undefined {
+  const target = resolveWorldInteraction(world, x, y);
+  return target ? worldPrompt(target.kind) : undefined;
+}
+
+function itemPrompt(items: readonly PromptTarget[], x: number, y: number): InteractionPrompt | undefined {
+  return hasNearbyItem(items, x, y) ? { key: "R", label: "pick up" } : undefined;
+}
+
+function lootChestPrompt(
+  lootChest: { readonly id: string; readonly lootOwnerName?: string | undefined } | undefined,
+): InteractionPrompt | undefined {
+  if (!lootChest) return undefined;
+  const label = lootChest.lootOwnerName ? `open [DEAD] ${lootChest.lootOwnerName}'s loot` : "open death loot";
+  return { key: "E", label };
 }

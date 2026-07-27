@@ -98,12 +98,20 @@ export function stickMoveVector(
 }
 
 /** Summons the floating stick at the touch point — the pointerdown that starts a drag. */
-export function beginStick(state: TouchInputState, pointerId: number, x: number, y: number): void {
+export interface StickPointer {
+  pointerId: number;
+  x: number;
+  y: number;
+}
+
+export function beginStick(state: TouchInputState, pointer: StickPointer | number, ...legacy: [number, number] | []): void {
+  const { pointerId, x, y } = typeof pointer === "number" ? { pointerId: pointer, x: legacy[0]!, y: legacy[1]! } : pointer;
   state.stick = { pointerId, originX: x, originY: y, curX: x, curY: y };
 }
 
 /** Updates the live drag position; ignored for any pointer that isn't the active stick's. */
-export function moveStick(state: TouchInputState, pointerId: number, x: number, y: number): void {
+export function moveStick(state: TouchInputState, pointer: StickPointer | number, ...legacy: [number, number] | []): void {
+  const { pointerId, x, y } = typeof pointer === "number" ? { pointerId: pointer, x: legacy[0]!, y: legacy[1]! } : pointer;
   if (!state.stick || state.stick.pointerId !== pointerId) return;
   state.stick.curX = x;
   state.stick.curY = y;

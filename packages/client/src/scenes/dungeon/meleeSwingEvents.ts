@@ -22,36 +22,41 @@ export interface MeleeSwingSpawn {
 
 /** Returns the spawn parameters for every player whose `attacking` flipped false->true this frame; mutates `previousAttacking` to this frame's state and prunes ids no longer present. */
 export function resolveMeleeSwings(players: readonly PlayerEntityView[], previousAttacking: Map<string, boolean>): MeleeSwingSpawn[] {
-  return resolveMeleeSwingsInto(
-    players,
-    previousAttacking,
-    [],
-    [],
-    new Set(),
-  );
+  return resolveMeleeSwingsInto({ players, previousAttacking, spawns: [], records: [], seen: new Set() });
 }
 
-export function resolveMeleeSwingsInto(
-  players: readonly PlayerEntityView[],
-  previousAttacking: Map<string, boolean>,
-  spawns: MeleeSwingSpawn[],
-  records: MeleeSwingSpawn[],
-  seen: Set<string>,
-): MeleeSwingSpawn[] {
+export interface MeleeSwingFrame {
+  readonly players: readonly PlayerEntityView[];
+  readonly previousAttacking: Map<string, boolean>;
+  readonly spawns: MeleeSwingSpawn[];
+  readonly records: MeleeSwingSpawn[];
+  readonly seen: Set<string>;
+}
+
+export function resolveMeleeSwingsInto(frame: MeleeSwingFrame): MeleeSwingSpawn[] {
+  const { players, previousAttacking, spawns, records, seen } = frame;
   spawns.length = 0;
   seen.clear();
-  for (const player of players) {
-    seen.add(player.id);
-    const wasAttacking = previousAttacking.get(player.id) ?? false;
-    if (player.attacking && !wasAttacking) {
-      const record = toSpawn(player, records[spawns.length]);
-      records[spawns.length] = record;
-      spawns.push(record);
-    }
-    previousAttacking.set(player.id, player.attacking);
-  }
-  for (const id of previousAttacking.keys()) if (!seen.has(id)) previousAttacking.delete(id);
+  for (const player of players) updateSwingRecord({ player, previousAttacking, spawns, records, seen });
+  pruneMissingPlayers(previousAttacking, seen);
   return spawns;
+}
+
+function updateSwingRecord(input: {
+  readonly player: PlayerEntityView; readonly previousAttacking: Map<string, boolean>;
+  readonly spawns: MeleeSwingSpawn[]; readonly records: MeleeSwingSpawn[]; readonly seen: Set<string>;
+}): void {
+  const { player, previousAttacking, spawns, records, seen } = input;
+  seen.add(player.id);
+  if (player.attacking && !previousAttacking.get(player.id)) {
+    const record = toSpawn(player, records[spawns.length]);
+    records[spawns.length] = record; spawns.push(record);
+  }
+  previousAttacking.set(player.id, player.attacking);
+}
+
+function pruneMissingPlayers(previousAttacking: Map<string, boolean>, seen: Set<string>): void {
+  for (const id of previousAttacking.keys()) if (!seen.has(id)) previousAttacking.delete(id);
 }
 
 function toSpawn(

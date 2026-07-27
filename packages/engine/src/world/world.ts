@@ -45,7 +45,7 @@ export class World implements WorldView {
     }
     let chunk = row.get(cy);
     if (!chunk) {
-      chunk = generateChunk(this.worldSeed, this.floor, cx, cy, this.level);
+      chunk = generateChunk({ worldSeed: this.worldSeed, floor: this.floor, cx, cy, level: this.level });
       row.set(cy, chunk);
     }
     return chunk;
@@ -81,18 +81,15 @@ export class World implements WorldView {
       `${entry.x},${entry.y}`,
       entry.tile,
     ]));
-    if (next.size === this.tileOverrides.size) {
-      let equal = true;
-      for (const [key, tile] of next) {
-        if (this.tileOverrides.get(key) !== tile) {
-          equal = false;
-          break;
-        }
-      }
-      if (equal) return;
-    }
+    if (this.hasSameOverrides(next)) return;
     this.tileOverrides = next;
     this.tileRevision++;
+  }
+
+  private hasSameOverrides(next: ReadonlyMap<string, TileType>): boolean {
+    if (next.size !== this.tileOverrides.size) return false;
+    for (const [key, tile] of next) if (this.tileOverrides.get(key) !== tile) return false;
+    return true;
   }
 
   heightAt(wx: number, wy: number): number {

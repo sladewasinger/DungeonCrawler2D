@@ -36,7 +36,19 @@ export interface CombatOverlayPosition {
 }
 
 /** Samples the immediate screen-south floor for combat overlays that share the player's terrain ordering. */
-export function combatOverlayPosition(worldX: number, worldY: number, z: number, world: WorldView): CombatOverlayPosition {
+export interface CombatOverlayPositionInput {
+  readonly worldX: number;
+  readonly worldY: number;
+  readonly z: number;
+  readonly world: WorldView;
+}
+
+export function combatOverlayPosition({
+  worldX,
+  worldY,
+  z,
+  world,
+}: CombatOverlayPositionInput): CombatOverlayPosition {
   const orientation = getViewOrientation();
   const viewPosition = worldToView({ x: worldX, y: worldY }, orientation);
   const southWorld = viewTileToWorld({ x: Math.floor(viewPosition.x), y: Math.floor(viewPosition.y) + 1 }, orientation);

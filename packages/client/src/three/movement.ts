@@ -37,53 +37,77 @@ export const FIRST_PERSON_CONFIG: FirstPersonConfig = {
   maxStepHeight: 0.5,
 };
 
-const length = (x: number, z: number) => Math.hypot(x, z);
+export interface FirstPersonStepRequest {
+  state: FirstPersonState;
+  input: FirstPersonInput;
+  world: FirstPersonWorld;
+  seconds: number;
+  config?: FirstPersonConfig;
+}
 
-const canEnter = (world: FirstPersonWorld, x: number, z: number, y: number, maxStepHeight: number) => {
-  if (!world.isWalkable(Math.floor(x), Math.floor(z))) return false;
-  return world.groundAt(x, z) - y <= maxStepHeight;
+interface PlanarMovement {
+  x: number;
+  z: number;
+}
+
+interface EnterCheck {
+  world: FirstPersonWorld;
+  position: PlanarMovement;
+  y: number;
+  maxStepHeight: number;
+}
+
+export const stepFirstPerson = ({
+  state,
+  input,
+  world,
+  seconds,
+  config = FIRST_PERSON_CONFIG,
+}: FirstPersonStepRequest): FirstPersonState => {
+  const dt = Math.min(Math.max(seconds, 0), 0.05);
+  const position = stepPlanarPosition({ state, input, world, dt, config });
+  return stepVerticalPosition({ state, input, world, position, dt, config });
 };
 
-export const stepFirstPerson = (
-  state: FirstPersonState,
-  input: FirstPersonInput,
-  world: FirstPersonWorld,
-  seconds: number,
-  config: FirstPersonConfig = FIRST_PERSON_CONFIG,
-): FirstPersonState => {
-  const dt = Math.min(Math.max(seconds, 0), 0.05);
-  const directionLength = length(input.forward, input.right);
-  const forward = directionLength > 1 ? input.forward / directionLength : input.forward;
-  const right = directionLength > 1 ? input.right / directionLength : input.right;
-  const forwardX = -Math.sin(input.yaw);
-  const forwardZ = -Math.cos(input.yaw);
-  const rightX = Math.cos(input.yaw);
-  const rightZ = -Math.sin(input.yaw);
-  const dx = (forwardX * forward + rightX * right) * config.walkSpeed * dt;
-  const dz = (forwardZ * forward + rightZ * right) * config.walkSpeed * dt;
-  let x = state.x;
-  let z = state.z;
-  let y = state.y;
-  let verticalVelocity = state.verticalVelocity;
-  let grounded = state.grounded;
+interface ResolvedStepInput {
+  state: FirstPersonState;
+  input: FirstPersonInput;
+  world: FirstPersonWorld;
+  config: FirstPersonConfig;
+  dt: number;
+}
 
-  if (canEnter(world, x + dx, z, y, config.maxStepHeight)) x += dx;
-  if (canEnter(world, x, z + dz, y, config.maxStepHeight)) z += dz;
-  const ground = world.groundAt(x, z);
+const stepPlanarPosition = ({ state, input, world, dt, config }: ResolvedStepInput): PlanarMovement => {
+  const delta = movementDelta({ input, dt, walkSpeed: config.walkSpeed });
+  const x = canEnter({ world, position: { x: state.x + delta.x, z: state.z }, y: state.y, maxStepHeight: config.maxStepHeight })
+    ? state.x + delta.x
+    : state.x;
+  const z = canEnter({ world, position: { x, z: state.z + delta.z }, y: state.y, maxStepHeight: config.maxStepHeight })
+    ? state.z + delta.z
+    : state.z;
+  return { x, z };
+};
 
-  if (grounded && input.jump) {
-    verticalVelocity = config.jumpSpeed;
-    grounded = false;
-  }
+const movementDelta = ({ input, dt, walkSpeed }: { input: FirstPersonInput; dt: number; walkSpeed: number }): PlanarMovement => {
+  const length = Math.hypot(input.forward, input.right);
+  const scale = length > 1 ? 1 / length : 1;
+  const forward = input.forward * scale;
+  const right = input.right * scale;
+  return {
+    x: (-Math.sin(input.yaw) * forward + Math.cos(input.yaw) * right) * walkSpeed * dt,
+    z: (-Math.cos(input.yaw) * forward - Math.sin(input.yaw) * right) * walkSpeed * dt,
+  };
+};
 
-  verticalVelocity -= config.gravity * dt;
-  y += verticalVelocity * dt;
+const canEnter = ({ world, position, y, maxStepHeight }: EnterCheck): boolean =>
+  world.isWalkable(Math.floor(position.x), Math.floor(position.z)) &&
+  world.groundAt(position.x, position.z) - y <= maxStepHeight;
 
-  if (y <= ground) {
-    y = ground;
-    verticalVelocity = 0;
-    grounded = true;
-  }
-
-  return { x, y, z, verticalVelocity, grounded };
+const stepVerticalPosition = ({ state, input, world, position, dt, config }: ResolvedStepInput & { position: PlanarMovement }): FirstPersonState => {
+  const launched = state.grounded && input.jump;
+  const velocity = (launched ? config.jumpSpeed : state.verticalVelocity) - config.gravity * dt;
+  const y = state.y + velocity * dt;
+  const ground = world.groundAt(position.x, position.z);
+  if (y > ground) return { ...position, y, verticalVelocity: velocity, grounded: false };
+  return { ...position, y: ground, verticalVelocity: 0, grounded: true };
 };

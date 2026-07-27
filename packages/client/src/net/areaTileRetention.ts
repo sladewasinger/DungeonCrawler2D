@@ -1,11 +1,18 @@
 import { AOI_RADIUS } from "@dc2d/engine";
 
-export function pruneAreaTiles(
-  areaTiles: Map<string, string>,
-  centerX: number,
-  centerY: number,
-  radius: number = AOI_RADIUS,
-): void {
+export interface AreaTileRetentionInput {
+  readonly areaTiles: Map<string, string>;
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly radius?: number;
+}
+
+export function pruneAreaTiles({
+  areaTiles,
+  centerX,
+  centerY,
+  radius = AOI_RADIUS,
+}: AreaTileRetentionInput): void {
   const radiusSquared = radius * radius;
   for (const key of areaTiles.keys()) {
     const [x, y] = key.split(",").map(Number) as [number, number];

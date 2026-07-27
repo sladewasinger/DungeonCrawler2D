@@ -15,11 +15,11 @@ export class MotionSampleBuffer {
   };
   private hasPrevious = false;
 
-  begin(x: number, y: number, air: boolean, faceX: number): MotionSample {
-    this.currentRecord.x = x;
-    this.currentRecord.y = y;
-    this.currentRecord.air = air;
-    this.currentRecord.faceX = faceX;
+  begin(sample: MotionSample): MotionSample {
+    this.currentRecord.x = sample.x;
+    this.currentRecord.y = sample.y;
+    this.currentRecord.air = sample.air;
+    this.currentRecord.faceX = sample.faceX;
     return this.currentRecord;
   }
 

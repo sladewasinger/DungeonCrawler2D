@@ -17,46 +17,50 @@ interface Violation {
 }
 
 /** Last row (inclusive) of the run starting at (x, y0) — TOPOLOGY.Uncarved rows if `wantWall`, else same-height floor rows. */
-function runEnd(tiles: Uint8Array, height: Float32Array, x: number, y0: number, wantWall: boolean): number {
-  const h0 = height[y0 * CHUNK_SIZE + x] ?? 0;
-  let y2 = y0;
+interface ScanInput { readonly tiles: Uint8Array; readonly height: Float32Array; readonly x: number; readonly y: number; }
+
+function runEnd(input: ScanInput & { readonly wantWall: boolean }): number {
+  const h0 = heightAt(input, input.y);
+  let y2 = input.y;
   while (y2 + 1 < CHUNK_SIZE) {
-    const t = tiles[(y2 + 1) * CHUNK_SIZE + x];
-    if (wantWall ? t !== TOPOLOGY.Uncarved : t === TOPOLOGY.Uncarved || t === TILE.Stairs) break;
-    if (!wantWall && Math.abs((height[(y2 + 1) * CHUNK_SIZE + x] ?? 0) - h0) > 0.01) break;
+    if (!continuesRun({ ...input, y: y2 + 1, h0 })) break;
     y2++;
   }
   return y2;
 }
 
+function continuesRun(input: ScanInput & { readonly wantWall: boolean; readonly h0: number }): boolean {
+  const tile = tileAt(input, input.y);
+  if (input.wantWall) return tile === TOPOLOGY.Uncarved;
+  return tile !== TOPOLOGY.Uncarved && tile !== TILE.Stairs && Math.abs(heightAt(input, input.y) - input.h0) <= 0.01;
+}
+
 /** A TOPOLOGY.Uncarved run shallower than z+1 (z=1), open to real floor on both its north and south. */
-function wallRunViolation(tiles: Uint8Array, height: Float32Array, x: number, y0: number): Violation | null {
-  const y2 = runEnd(tiles, height, x, y0, true);
-  const northOpen = y0 > 0 && tiles[(y0 - 1) * CHUNK_SIZE + x] !== TOPOLOGY.Uncarved;
-  const southOpen = y2 < CHUNK_SIZE - 1 && tiles[(y2 + 1) * CHUNK_SIZE + x] !== TOPOLOGY.Uncarved;
-  const depth = y2 - y0 + 1;
-  if (depth < 2 && northOpen && southOpen) return { x, y: y0, kind: "wall", z: 1, depth };
+function wallRunViolation(input: ScanInput): Violation | null {
+  const y2 = runEnd({ ...input, wantWall: true });
+  const depth = y2 - input.y + 1;
+  if (depth < 2 && openOnBothSides({ ...input, y2 })) return { x: input.x, y: input.y, kind: "wall", z: 1, depth };
   return null;
 }
 
 /** A same-height FLOOR run shallower than z+1, where z is its own height and it drops to open ground south. */
-function floorRunViolation(tiles: Uint8Array, height: Float32Array, x: number, y0: number): Violation | null {
-  const h0 = height[y0 * CHUNK_SIZE + x] ?? 0;
-  const y2 = runEnd(tiles, height, x, y0, false);
+function floorRunViolation(input: ScanInput): Violation | null {
+  const h0 = heightAt(input, input.y);
+  const y2 = runEnd({ ...input, wantWall: false });
   if (y2 >= CHUNK_SIZE - 1) return null; // chunk-edge truncated: true depth unknown
-  const southT = tiles[(y2 + 1) * CHUNK_SIZE + x];
-  const southH = height[(y2 + 1) * CHUNK_SIZE + x] ?? 0;
+  const southT = tileAt(input, y2 + 1);
+  const southH = heightAt(input, y2 + 1);
   const dropsToOpen = southT === TILE.Floor && h0 - southH >= WALL_FACE_MIN_DROP;
-  const depth = y2 - y0 + 1;
+  const depth = y2 - input.y + 1;
   const z = Math.round(h0);
-  if (dropsToOpen && depth < z + 1) return { x, y: y0, kind: "floor", z, depth };
+  if (dropsToOpen && depth < z + 1) return { x: input.x, y: input.y, kind: "floor", z, depth };
   return null;
 }
 
 /** True when (x, y) can start a floor-plateau run worth checking: real floor, a whole-number height >= 1. */
-function startsFloorPlateau(tiles: Uint8Array, height: Float32Array, x: number, y: number): boolean {
-  const t = tiles[y * CHUNK_SIZE + x];
-  const h = height[y * CHUNK_SIZE + x] ?? 0;
+function startsFloorPlateau(input: ScanInput): boolean {
+  const t = tileAt(input, input.y);
+  const h = heightAt(input, input.y);
   const rounded = Math.round(h);
   return t === TILE.Floor && rounded >= 1 && Math.abs(h - rounded) <= 0.01;
 }
@@ -65,18 +69,23 @@ function scanColumn(tiles: Uint8Array, height: Float32Array, x: number): Violati
   const found: Violation[] = [];
   let y = 0;
   while (y < CHUNK_SIZE) {
-    const isWall = tiles[y * CHUNK_SIZE + x] === TOPOLOGY.Uncarved;
-    const isPlateauStart = !isWall && startsFloorPlateau(tiles, height, x, y);
-    if (!isWall && !isPlateauStart) {
-      y++;
-      continue;
-    }
-    const v = isWall ? wallRunViolation(tiles, height, x, y) : floorRunViolation(tiles, height, x, y);
-    if (v) found.push(v);
-    y = runEnd(tiles, height, x, y, isWall) + 1;
+    const scan = scanRunAt({ tiles, height, x, y });
+    if (scan.violation) found.push(scan.violation);
+    y = scan.nextY;
   }
   return found;
 }
+
+function scanRunAt(input: ScanInput): { readonly violation: Violation | null; readonly nextY: number } {
+  const wantWall = tileAt(input, input.y) === TOPOLOGY.Uncarved;
+  if (!wantWall && !startsFloorPlateau(input)) return { violation: null, nextY: input.y + 1 };
+  const violation = wantWall ? wallRunViolation(input) : floorRunViolation(input);
+  return { violation, nextY: runEnd({ ...input, wantWall }) + 1 };
+}
+
+function tileAt(input: ScanInput, y: number): number { return input.tiles[y * CHUNK_SIZE + input.x] ?? TOPOLOGY.Uncarved; }
+function heightAt(input: ScanInput, y: number): number { return input.height[y * CHUNK_SIZE + input.x] ?? 0; }
+function openOnBothSides(input: ScanInput & { readonly y2: number }): boolean { return input.y > 0 && input.y2 < CHUNK_SIZE - 1 && tileAt(input, input.y - 1) !== TOPOLOGY.Uncarved && tileAt(input, input.y2 + 1) !== TOPOLOGY.Uncarved; }
 
 function scanChunk(tiles: Uint8Array, height: Float32Array): Violation[] {
   const found: Violation[] = [];
@@ -94,18 +103,25 @@ function reportViolations(violations: Array<{ seed: number; floor: number; cx: n
 
 describe("generator vertical-extent invariant", () => {
   it("zero shallow raised regions across many seeds, floors, and chunk coordinates", { timeout: 120_000 }, () => {
-    const violations: Array<{ seed: number; floor: number; cx: number; cy: number; v: Violation }> = [];
-    for (let seed = 1; seed <= 20; seed++) {
-      for (let floor = 0; floor <= 1; floor++) {
-        for (let cx = -5; cx <= 5; cx++) {
-          for (let cy = -5; cy <= 5; cy++) {
-            const chunk = generateChunk(seed * 7919 + 13, floor, cx, cy);
-            for (const v of scanChunk(chunk.tiles, chunk.height)) violations.push({ seed, floor, cx, cy, v });
-          }
-        }
-      }
-    }
+    const violations = collectViolations();
     if (violations.length > 0) reportViolations(violations);
     expect(violations).toHaveLength(0);
   });
 });
+
+interface LocatedViolation { readonly seed: number; readonly floor: number; readonly cx: number; readonly cy: number; readonly v: Violation; }
+function collectViolations(): LocatedViolation[] {
+  return testCoordinates().flatMap(scanGeneratedChunk);
+}
+function testCoordinates(): Array<{ seed: number; floor: number; cx: number; cy: number }> {
+  const coordinates: Array<{ seed: number; floor: number; cx: number; cy: number }> = [];
+  for (let seed = 1; seed <= 20; seed++) for (let floor = 0; floor <= 1; floor++) addChunkCoordinates(coordinates, seed, floor);
+  return coordinates;
+}
+function addChunkCoordinates(coordinates: Array<{ seed: number; floor: number; cx: number; cy: number }>, seed: number, floor: number): void {
+  for (let cx = -5; cx <= 5; cx++) for (let cy = -5; cy <= 5; cy++) coordinates.push({ seed, floor, cx, cy });
+}
+function scanGeneratedChunk(coordinate: { seed: number; floor: number; cx: number; cy: number }): LocatedViolation[] {
+  const chunk = generateChunk({ worldSeed: coordinate.seed * 7919 + 13, floor: coordinate.floor, cx: coordinate.cx, cy: coordinate.cy });
+  return scanChunk(chunk.tiles, chunk.height).map((v) => ({ ...coordinate, v }));
+}

@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import { spriteLiftPx } from "../render/entities/lift.js";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
+import type { OutOfBreathVfxInput } from "./vfxSystemTypes.js";
 
 const DEPTH = 400_000;
 const PERIOD_MS = 900;
@@ -44,14 +45,7 @@ export class OutOfBreathFx {
     this.graphics = scene.add.graphics().setDepth(DEPTH).setVisible(false);
   }
 
-  sync(
-    worldX: number,
-    worldY: number,
-    worldZ: number,
-    faceX: number,
-    exhausted: boolean,
-    nowMs: number,
-  ): void {
+  sync({ x: worldX, y: worldY, z: worldZ, faceX, exhausted, nowMs }: OutOfBreathVfxInput): void {
     if (!exhausted) {
       this.graphics.setVisible(false);
       return;

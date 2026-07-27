@@ -52,12 +52,29 @@ export function remotePlayerFieldsInto(
 ): RemotePlayerFields {
   const faceX = valueOr(snapshot.faceX, REMOTE_DEFAULTS.faceX);
   const faceY = valueOr(snapshot.faceY, REMOTE_DEFAULTS.faceY);
+  applyIdentityFields(snapshot, target);
+  applyPoseFields({ snapshot, target, faceX, faceY });
+  applyCombatFields({ snapshot, target, faceX, faceY });
+  return target;
+}
+
+function applyIdentityFields(snapshot: EntitySnapshot, target: RemotePlayerFields): void {
   target.name = valueOr(snapshot.name, REMOTE_DEFAULTS.name);
   if (snapshot.skin === undefined) delete target.skin;
   else target.skin = snapshot.skin;
   target.hp = valueOr(snapshot.hp, REMOTE_DEFAULTS.hp);
   target.maxHp = valueOr(snapshot.maxHp, REMOTE_DEFAULTS.maxHp);
   target.fx = valueOr(snapshot.fx, REMOTE_DEFAULTS.fx);
+}
+
+interface RemotePoseFieldsRequest {
+  snapshot: EntitySnapshot;
+  target: RemotePlayerFields;
+  faceX: number;
+  faceY: number;
+}
+
+function applyPoseFields({ snapshot, target, faceX, faceY }: RemotePoseFieldsRequest): void {
   target.faceX = faceX === 0
     ? target.faceX ?? REMOTE_DEFAULTS.faceX
     : faceX;
@@ -65,6 +82,9 @@ export function remotePlayerFieldsInto(
   target.air = valueOr(snapshot.air, REMOTE_DEFAULTS.air);
   target.downed = valueOr(snapshot.downed, REMOTE_DEFAULTS.downed);
   target.reviveProgress = valueOr(snapshot.reviveProgress, REMOTE_DEFAULTS.reviveProgress);
+}
+
+function applyCombatFields({ snapshot, target, faceX, faceY }: RemotePoseFieldsRequest): void {
   target.disconnected = valueOr(
     snapshot.disconnected,
     REMOTE_DEFAULTS.disconnected,
@@ -74,5 +94,4 @@ export function remotePlayerFieldsInto(
   target.weaponId = valueOr(snapshot.weapon, REMOTE_DEFAULTS.weapon);
   target.weaponAimAngle = null;
   target.attackAngleRad = Math.atan2(faceY, faceX);
-  return target;
 }

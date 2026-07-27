@@ -21,15 +21,20 @@ export function contextualHelpText(
   actionHints: readonly ContextualActionHint[],
   touchDevice: boolean,
 ): string {
-  let text = prompt
-    ? `[${touchDevice ? "USE" : prompt.key}] ${prompt.label}`
-    : "";
-  for (const hint of actionHints) {
-    if (text.length > 0) text += "   ·   ";
-    text += `[${touchDevice ? hint.touchKey : hint.key}] ${hint.label}`;
-  }
-  return text;
+  const promptText = prompt ? actionText(prompt, touchDevice) : "";
+  return [promptText, ...actionHints.map((hint) => actionText(hint, touchDevice))]
+    .filter(Boolean)
+    .join("   ·   ");
 }
+
+interface NoticeActionHint {
+  key: string;
+  label: string;
+  touchKey?: string;
+}
+
+const actionText = (hint: NoticeActionHint, touchDevice: boolean): string =>
+  `[${touchDevice ? hint.touchKey ?? "USE" : hint.key}] ${hint.label}`;
 
 export function latestVisibleToast(
   toasts: ThreeHudNoticeState["toasts"],
@@ -76,13 +81,20 @@ export class ThreeHudNotices {
 
   update(snapshot: ThreeHudNoticeState, nowMs: number): void {
     this.updateBoss(snapshot);
+    this.updateToast(snapshot, nowMs);
+    this.updateInteraction(snapshot, nowMs);
+    this.updateReconnect(snapshot);
+  }
+
+  private updateToast(snapshot: ThreeHudNoticeState, nowMs: number): void {
     const toast = latestVisibleToast(snapshot.toasts, nowMs);
     this.toast.hidden = !toast;
     this.toast.textContent = toast?.msg ?? "";
+  }
+
+  private updateInteraction(snapshot: ThreeHudNoticeState, nowMs: number): void {
     this.completedActions.clear();
-    for (const action of snapshot.completedContextualActions ?? []) {
-      this.completedActions.add(action);
-    }
+    for (const action of snapshot.completedContextualActions ?? []) this.completedActions.add(action);
     const visibleActionHints = this.actionHelp.visibleHints(
       snapshot.actionHints,
       this.completedActions,
@@ -95,6 +107,9 @@ export class ThreeHudNotices {
     );
     this.interaction.hidden = helpText.length === 0;
     this.interaction.textContent = helpText;
+  }
+
+  private updateReconnect(snapshot: ThreeHudNoticeState): void {
     this.reconnect.hidden = !snapshot.reconnecting;
     this.reconnect.textContent =
       `Reconnecting${snapshot.reconnectAttempts > 0

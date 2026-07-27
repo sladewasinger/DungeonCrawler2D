@@ -21,21 +21,33 @@ const FLOOR = 1;
  */
 
 /** A floor tile with a raised Floor immediately to its east. */
+function raisedPairAt(world: World, x: number, y: number): { floor: { x: number; y: number }; raised: { x: number; y: number } } | null {
+  if (world.tileAt(x, y) !== TILE.Floor || world.tileAt(x + 1, y) !== TILE.Floor) return null;
+  if (world.heightAt(x + 1, y) - world.heightAt(x, y) < WALL_FACE_MIN_DROP) return null;
+  return { floor: { x, y }, raised: { x: x + 1, y } };
+}
+
+function interiorCoordinates(cx: number, cy: number): Array<[number, number]> {
+  return Array.from({ length: CHUNK_SIZE - 4 }, (_, row) =>
+    Array.from({ length: CHUNK_SIZE - 4 }, (_, column) => [cx * CHUNK_SIZE + column + 2, cy * CHUNK_SIZE + row + 2] as [number, number]),
+  ).flat();
+}
+
+function scanChunkForRaisedPair(world: World, cx: number, cy: number) {
+  const coordinate = interiorCoordinates(cx, cy).find(([x, y]) => raisedPairAt(world, x, y));
+  return coordinate ? raisedPairAt(world, ...coordinate) : null;
+}
+
+function searchChunks(world: World): { floor: { x: number; y: number }; raised: { x: number; y: number } } | null {
+  return Array.from({ length: 8 }, (_, row) => row + 2)
+    .flatMap((cy) => Array.from({ length: 8 }, (_, column) => [column + 2, cy] as [number, number]))
+    .map(([cx, cy]) => scanChunkForRaisedPair(world, cx, cy))
+    .find((pair) => pair !== null) ?? null;
+}
+
 function findFloorRaisedPair(world: World): { floor: { x: number; y: number }; raised: { x: number; y: number } } {
-  for (let cy = 2; cy < 10; cy++) {
-    for (let cx = 2; cx < 10; cx++) {
-      for (let ly = 2; ly < CHUNK_SIZE - 2; ly++) {
-        for (let lx = 2; lx < CHUNK_SIZE - 2; lx++) {
-          const x = cx * CHUNK_SIZE + lx;
-          const y = cy * CHUNK_SIZE + ly;
-          if (world.tileAt(x, y) !== TILE.Floor) continue;
-          if (world.tileAt(x + 1, y) !== TILE.Floor) continue;
-          if (world.heightAt(x + 1, y) - world.heightAt(x, y) < WALL_FACE_MIN_DROP) continue;
-          return { floor: { x, y }, raised: { x: x + 1, y } };
-        }
-      }
-    }
-  }
+  const pair = searchChunks(world);
+  if (pair) return pair;
   throw new Error("no floor→raised-floor pair found in scan range");
 }
 
@@ -66,23 +78,21 @@ describe("height-derived terrain boundaries", () => {
     expect(apex).toBeGreaterThan(1); // comfortably above WALL_RISE (1)
   });
 
-  it("stretch-room perimeters remain raised Floor terrain", () => {
-    const world = new World(SEED, FLOOR);
+  function raisedRoomPerimeter(world: World): number {
     const room = personalRoomChunk(0);
-    const spawn = personalRoomSpawn(0);
-    let raised = 0;
     const left = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_W / 2);
     const top = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_H / 2);
-    for (let ly = top; ly < top + PERSONAL_ROOM_H; ly++) {
-      for (let lx = left; lx < left + PERSONAL_ROOM_W; lx++) {
-        if (lx > left && lx < left + PERSONAL_ROOM_W - 1 &&
-            ly > top && ly < top + PERSONAL_ROOM_H - 1) continue;
-        const x = room.cx * CHUNK_SIZE + lx;
-        const y = room.cy * CHUNK_SIZE + ly;
-        if (world.tileAt(x, y) === TILE.Floor && world.heightAt(x, y) >= 3) raised++;
-      }
-    }
-    expect(raised).toBeGreaterThan(10);
+    return Array.from({ length: PERSONAL_ROOM_H }, (_, row) => row + top)
+      .flatMap((ly) => Array.from({ length: PERSONAL_ROOM_W }, (_, column) => [left + column, ly] as [number, number]))
+      .filter(([lx, ly]) => lx === left || lx === left + PERSONAL_ROOM_W - 1 || ly === top || ly === top + PERSONAL_ROOM_H - 1)
+      .filter(([lx, ly]) => world.tileAt(room.cx * CHUNK_SIZE + lx, room.cy * CHUNK_SIZE + ly) === TILE.Floor)
+      .filter(([lx, ly]) => world.heightAt(room.cx * CHUNK_SIZE + lx, room.cy * CHUNK_SIZE + ly) >= 3).length;
+  }
+
+  it("stretch-room perimeters remain raised Floor terrain", () => {
+    const world = new World(SEED, FLOOR);
+    const spawn = personalRoomSpawn(0);
+    expect(raisedRoomPerimeter(world)).toBeGreaterThan(10);
     // Sanity: the room interior itself is walkable floor.
     expect(world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
   });

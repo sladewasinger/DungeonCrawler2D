@@ -85,6 +85,13 @@ function createSelfVitals(): SelfVitals {
 
 export function createDungeonSceneState(): DungeonSceneState {
   return {
+    ...baseDungeonSceneState(),
+    ...combatDungeonSceneState(),
+  };
+}
+
+function baseDungeonSceneState(): Omit<DungeonSceneState, "attackFlags" | "swingSpawns" | "swingSpawnRecords" | "swingSeen" | "pendingSwings" | "expiredSwings" | "combatHealth" | "combatHealthSeen" | "wallBump"> {
+  return {
     accumulatorMs: 0,
     renderInput: NEUTRAL_INPUT,
     camera: createCameraFollowState(),
@@ -99,6 +106,11 @@ export function createDungeonSceneState(): DungeonSceneState {
     areaViewRecords: [],
     accentLights: [],
     visibleTorchLights: [],
+  };
+}
+
+function combatDungeonSceneState(): Pick<DungeonSceneState, "attackFlags" | "swingSpawns" | "swingSpawnRecords" | "swingSeen" | "pendingSwings" | "expiredSwings" | "combatHealth" | "combatHealthSeen" | "wallBump"> {
+  return {
     attackFlags: new Map(),
     swingSpawns: [],
     swingSpawnRecords: [],

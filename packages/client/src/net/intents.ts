@@ -25,7 +25,14 @@ export function throwTorchIntent(conn: Connection, dirX: number, dirY: number): 
   conn.send({ type: "throwTorch", dirX: x, dirY: y });
 }
 
-export function useSlotIntent(conn: Connection, slot: number, targetX?: number, targetY?: number): void {
+interface UseSlotIntentInput {
+  readonly conn: Connection;
+  readonly slot: number;
+  readonly targetX?: number | undefined;
+  readonly targetY?: number | undefined;
+}
+
+export function useSlotIntent({ conn, slot, targetX, targetY }: UseSlotIntentInput): void {
   if (!conn.canAct) return;
   conn.send({
     type: "useSlot",
@@ -57,22 +64,26 @@ export function partyOpIntent(
   conn.send({ type: "party", op, ...(target !== undefined ? { target } : {}) });
 }
 
-export function moderationIntent(
-  conn: Connection,
-  op: "mute" | "unmute" | "block" | "unblock" | "report",
-  target: string,
-  reason?: string,
-): void {
+interface ModerationIntentInput {
+  readonly conn: Connection;
+  readonly op: "mute" | "unmute" | "block" | "unblock" | "report";
+  readonly target: string;
+  readonly reason?: string | undefined;
+}
+
+export function moderationIntent({ conn, op, target, reason }: ModerationIntentInput): void {
   if (!conn.canAct) return;
   conn.send({ type: "moderation", op, target, ...(reason ? { reason } : {}) });
 }
 
-export function chatIntent(
-  conn: Connection,
-  channel: "party" | "local" | "global" | "dm",
-  text: string,
-  target?: string,
-): void {
+interface ChatIntentInput {
+  readonly conn: Connection;
+  readonly channel: "party" | "local" | "global" | "dm";
+  readonly text: string;
+  readonly target?: string | undefined;
+}
+
+export function chatIntent({ conn, channel, text, target }: ChatIntentInput): void {
   if (!conn.canAct) return;
   conn.send({ type: "chat", channel, text, ...(target !== undefined ? { target } : {}) });
 }
@@ -112,12 +123,14 @@ export function stashOpIntent(conn: Connection, op: "put" | "take", index: numbe
   if (conn.canAct) conn.send({ type: "stash", op, index });
 }
 
-export function lootChestIntent(
-  conn: Connection,
-  chestId: string,
-  op: "open" | "take" | "takeAll" | "close",
-  item?: string,
-): void {
+interface LootChestIntentInput {
+  readonly conn: Connection;
+  readonly chestId: string;
+  readonly op: "open" | "take" | "takeAll" | "close";
+  readonly item?: string | undefined;
+}
+
+export function lootChestIntent({ conn, chestId, op, item }: LootChestIntentInput): void {
   if (!conn.canAct) return;
   conn.send({
     type: "lootChest",

@@ -91,13 +91,10 @@ describe("resolveMeleeSwings", () => {
 
     for (let frame = 0; frame < 1_000; frame++) {
       const attacking = frame % 2 === 1;
-      expect(resolveMeleeSwingsInto(
-        [view({ id: "a", attacking })],
-        previous,
-        spawns,
-        records,
-        seen,
-      )).toBe(spawns);
+      expect(resolveMeleeSwingsInto({
+        players: [view({ id: "a", attacking })], previousAttacking: previous,
+        spawns, records, seen,
+      })).toBe(spawns);
       if (spawns[0]) identities.add(spawns[0]);
     }
 

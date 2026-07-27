@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- interaction gesture scenarios share one fixture. */
 import { World, stairwayDownPosition } from "@dc2d/engine";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Connection } from "../net/connection.js";

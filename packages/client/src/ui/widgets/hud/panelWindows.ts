@@ -25,37 +25,25 @@ export function shouldDismissOnOutsideTap(touchActive: boolean, anyWindowOpen: b
   return touchActive && anyWindowOpen;
 }
 
+interface PanelWindowsOptions { scene: Phaser.Scene; registry: WidgetRegistry; viewport: Viewport; actions?: InventoryActions; social?: SocialActions; stations?: StationActions; }
+interface PanelWindowsUpdate { inventory: readonly InventoryRowData[]; weaponId: string | null; contacts: readonly ContactData[]; craft: CraftSnapshot; stash: StashSnapshot; lastToast: ToastData | null; nowMs: number; }
+
 export class PanelWindows {
   private readonly inventory: InventoryWindowWidget;
   private readonly contacts: ContactsWindowWidget;
   private readonly craft: CraftWindowWidget;
   private readonly stash: StashWindowWidget;
 
-  constructor(
-    scene: Phaser.Scene,
-    registry: WidgetRegistry,
-    viewport: Viewport,
-    actions?: InventoryActions,
-    social?: SocialActions,
-    stations?: StationActions,
-  ) {
+  constructor({ scene, registry, viewport, actions, social, stations }: PanelWindowsOptions) {
     const socialActions = social ?? noopSocialActions();
     const stationActions = stations ?? noopStationActions();
-    this.inventory = new InventoryWindowWidget(scene, registry, viewport, actions ?? noopInventoryActions());
-    this.contacts = new ContactsWindowWidget(scene, registry, viewport, socialActions.contacts);
-    this.craft = new CraftWindowWidget(scene, registry, viewport, stationActions.craft);
-    this.stash = new StashWindowWidget(scene, registry, viewport, stationActions.stash);
+    this.inventory = new InventoryWindowWidget({ scene, registry, viewport, actions: actions ?? noopInventoryActions() });
+    this.contacts = new ContactsWindowWidget({ scene, registry, viewport, actions: socialActions.contacts });
+    this.craft = new CraftWindowWidget({ scene, registry, viewport, actions: stationActions.craft });
+    this.stash = new StashWindowWidget({ scene, registry, viewport, actions: stationActions.stash });
   }
 
-  update(
-    inventory: readonly InventoryRowData[],
-    weaponId: string | null,
-    contacts: readonly ContactData[],
-    craft: CraftSnapshot,
-    stash: StashSnapshot,
-    lastToast: ToastData | null,
-    nowMs: number,
-  ): void {
+  update({ inventory, weaponId, contacts, craft, stash, lastToast, nowMs }: PanelWindowsUpdate): void {
     this.inventory.update(inventory, weaponId);
     this.contacts.update(contacts);
     this.craft.update(craft, lastToast, nowMs);

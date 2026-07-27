@@ -16,13 +16,15 @@ export interface Velocity {
 }
 
 /** Records this frame's position and returns the velocity implied since the last one (zero on first sight). */
-export function trackProjectileVelocity(
-  state: ProjectileVelocityState,
-  id: string,
-  x: number,
-  y: number,
-  nowMs: number,
-): Velocity {
+export interface ProjectilePositionSample {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly nowMs: number;
+}
+
+export function trackProjectileVelocity(state: ProjectileVelocityState, sample: ProjectilePositionSample): Velocity {
+  const { id, x, y, nowMs } = sample;
   const previous = state.samples.get(id);
   state.samples.set(id, { x, y, t: nowMs });
   if (!previous) return { vx: 0, vy: 0 };

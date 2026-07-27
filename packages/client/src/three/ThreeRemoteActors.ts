@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- actor resource ownership and lifecycle must stay co-located. */
 /** Owns remote-player models driven by interpolated authoritative connection snapshots. */
 import type { InterpolatedEntity } from "../net/interpolate.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
@@ -68,15 +69,23 @@ export class ThreeRemoteActors {
   }
 
   update(interpolated: readonly InterpolatedEntity[], elapsed: number): void {
+    this.syncActors(interpolated, elapsed);
+    this.removeInactiveActors();
+  }
+
+  private syncActors(interpolated: readonly InterpolatedEntity[], elapsed: number): void {
     const active = this.activeIds;
     active.clear();
     for (const actor of interpolated) {
       const kind = visibleKind(actor.snap.kind);
       if (!kind) continue;
       active.add(actor.id);
-      this.syncActor(actor.id, actor, kind, elapsed);
+      this.syncActor({ id: actor.id, player: actor, kind, elapsed });
     }
-    for (const [id, actor] of this.actors) if (!active.has(id)) this.removeActor(id, actor);
+  }
+
+  private removeInactiveActors(): void {
+    for (const [id, actor] of this.actors) if (!this.activeIds.has(id)) this.removeActor(id, actor);
   }
 
   dispose(): void {
@@ -117,17 +126,16 @@ export class ThreeRemoteActors {
     for (const [id, actor] of this.actors) if (actor.kind === "player") this.replaceFallback(id, actor.object);
   }
 
-  private syncActor(
-    id: string,
-    player: InterpolatedEntity,
-    kind: VisibleKind,
-    elapsed: number,
-  ): void {
+  private syncActor({ id, player, kind, elapsed }: SyncActorInput): void {
     const active = this.actors.get(id) ?? this.addActor(id, kind);
     const pose = remoteActorPose(player);
     active.object.position.set(pose.x, pose.y + (kind === "enemy" || kind === "pet" ? 0.5 : 0), pose.z);
     active.object.rotation.y = pose.yaw;
-    updateRemoteActorAnimation(active.animation, pose.x, pose.z, elapsed);
+    updateRemoteActorAnimation({
+      animation: active.animation,
+      position: pose,
+      elapsed,
+    });
     if (active.aura) syncRemoteActorAura(active.aura, player.snap);
     this.syncDisconnectedPresentation(active, player.snap.disconnected === true);
   }
@@ -177,12 +185,12 @@ export class ThreeRemoteActors {
   private syncDisconnectedPresentation(active: ActiveActor, disconnected: boolean): void {
     if (active.kind !== "player" || active.disconnected === disconnected) return;
     active.disconnected = disconnected;
-    active.disconnectedLabel = syncReconnectPresentation(
-      active.object as unknown as ReconnectActor,
-      active.disconnectedLabel,
+    active.disconnectedLabel = syncReconnectPresentation({
+      actor: active.object as unknown as ReconnectActor,
+      existingLabel: active.disconnectedLabel,
       disconnected,
-      KNIGHT_HEIGHT,
-    );
+      height: KNIGHT_HEIGHT,
+    });
   }
 
   private replaceFallback(id: string, actor: ActorObject): void {
@@ -201,6 +209,13 @@ export class ThreeRemoteActors {
     this.group.remove(actor.object);
     this.actors.delete(id);
   }
+}
+
+interface SyncActorInput {
+  id: string;
+  player: InterpolatedEntity;
+  kind: VisibleKind;
+  elapsed: number;
 }
 
 const visibleKind = (kind: string): VisibleKind | null => {

@@ -1,7 +1,6 @@
 import type { EntitySnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
-  buildRenderContext,
   itemView,
   monsterView,
   projectileView,
@@ -22,36 +21,29 @@ describe("selfPlayerView", () => {
     const cosmetics = createSelfCosmeticsState();
     cosmetics.faceX = -1;
     cosmetics.spriteFaceX = -1;
-    triggerSelfAttack(cosmetics, 1000, -1, 0);
-    const view = selfPlayerView(
-      { id: "p1", skin: "elf_f", name: "Hero", x: 1, y: 2, z: 0, air: false },
-      { hp: 10, maxHp: 30, fx: ["on-fire"], downed: false, blocking: true, weaponId: "sword" },
-      cosmetics,
-      1000,
-      Math.PI,
-    );
+    triggerSelfAttack(cosmetics, { nowMs: 1000, dirX: -1, dirY: 0 });
+    const view = selfPlayerView({
+      pose: { id: "p1", skin: "elf_f", name: "Hero", x: 1, y: 2, z: 0, air: false },
+      vitals: { hp: 10, maxHp: 30, fx: ["on-fire"], downed: false, blocking: true, weaponId: "sword" },
+      cosmetics, nowMs: 1000, weaponAimAngle: Math.PI,
+    });
     expect(view).toMatchObject({ id: "p1", skin: "elf_f", faceX: -1, attacking: true, blocking: true, weaponId: "sword", hp: 10, weaponAimAngle: Math.PI });
-    expect(selfPlayerView(
-      { id: "p1", skin: "elf_f", name: "Hero", x: 2, y: 3, z: 0, air: false },
-      { hp: 11, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
-      cosmetics,
-      1001,
-      0,
-      view,
-    )).toBe(view);
+    expect(selfPlayerView({
+      pose: { id: "p1", skin: "elf_f", name: "Hero", x: 2, y: 3, z: 0, air: false },
+      vitals: { hp: 11, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
+      cosmetics, nowMs: 1001, weaponAimAngle: 0, target: view,
+    })).toBe(view);
     expect(view).toMatchObject({ x: 2, y: 3, hp: 11, blocking: false });
   });
 
   it("centers attackAngleRad on the swing's captured direction, not live facing", () => {
     const cosmetics = createSelfCosmeticsState();
-    triggerSelfAttack(cosmetics, 1000, 0, 1);
-    const view = selfPlayerView(
-      { id: "p1", skin: "knight_m", name: "Hero", x: 0, y: 0, z: 0, air: false },
-      { hp: 10, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
-      cosmetics,
-      1000,
-      0,
-    );
+    triggerSelfAttack(cosmetics, { nowMs: 1000, dirX: 0, dirY: 1 });
+    const view = selfPlayerView({
+      pose: { id: "p1", skin: "knight_m", name: "Hero", x: 0, y: 0, z: 0, air: false },
+      vitals: { hp: 10, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
+      cosmetics, nowMs: 1000, weaponAimAngle: 0,
+    });
     expect(view.attackAngleRad).toBeCloseTo(Math.PI / 2);
   });
 });
@@ -117,16 +109,13 @@ describe("monsterView", () => {
 
 describe("itemView", () => {
   it("resolves the ground-item frame from defId", () => {
-    const view = itemView(entity({ id: "i1", kind: "item", defId: "sword" }));
+    const view = itemView({ e: entity({ id: "i1", kind: "item", defId: "sword" }) });
     expect(view.frame).toBe("weapon_rusty_sword");
-    expect(itemView(
-      entity({ id: "i1", kind: "item", defId: "torch" }),
-      view,
-    )).toBe(view);
+    expect(itemView({ e: entity({ id: "i1", kind: "item", defId: "torch" }), target: view })).toBe(view);
   });
 
   it("maps death-chest labels, proximity, and authoritative lock time", () => {
-    const view = itemView(entity({
+    const view = itemView({ e: entity({
       id: "loot",
       kind: "item",
       defId: "player-loot-chest",
@@ -135,7 +124,7 @@ describe("itemView", () => {
       lootUnlockAtTick: 1_220,
       x: 1,
       y: 0,
-    }), undefined, { serverTick: 20, selfX: 0, selfY: 0 });
+    }), context: { serverTick: 20, selfX: 0, selfY: 0 } });
     expect(view).toMatchObject({
       frame: "chest_full_open_anim_f0",
       lootLabel: "[DEAD] Crawler 123's loot",
@@ -147,13 +136,13 @@ describe("itemView", () => {
   });
 
   it("preserves interpolated death-chest elevation for grounded rendering", () => {
-    expect(itemView(entity({
+    expect(itemView({ e: entity({
       id: "loot",
       kind: "item",
       defId: "player-loot-chest",
       lootOwnerName: "Crawler 123",
       z: 0.5,
-    })).z).toBe(0.5);
+    }) }).z).toBe(0.5);
   });
 });
 
@@ -162,33 +151,10 @@ describe("projectileView", () => {
     const velocity = createProjectileVelocityState();
     const e1 = entity({ id: "pr1", kind: "projectile", defId: "torch", x: 0, y: 0 });
     const e2: InterpolatedEntity = { ...e1, x: 1, y: 0 };
-    projectileView(e1, velocity, 0);
-    const view = projectileView(e2, velocity, 1000);
+    projectileView({ e: e1, velocity, nowMs: 0 });
+    const view = projectileView({ e: e2, velocity, nowMs: 1000 });
     expect(view.vx).toBeCloseTo(1);
     expect(view.vy).toBeCloseTo(0);
-    expect(projectileView(e2, velocity, 1100, view)).toBe(view);
-  });
+    expect(projectileView({ e: e2, velocity, nowMs: 1100, target: view })).toBe(view);
 });
-
-describe("buildRenderContext", () => {
-  it("rewrites a caller-owned frame context", () => {
-    const world = { groundAt: () => 0 } as never;
-    const context = buildRenderContext(world, 1, 0.016, 2, 3, new Set());
-
-    expect(buildRenderContext(
-      world,
-      2,
-      0.02,
-      4,
-      5,
-      new Set(["p"]),
-      context,
-    )).toBe(context);
-    expect(context).toMatchObject({
-      nowMs: 2,
-      dtSeconds: 0.02,
-      selfX: 4,
-      selfY: 5,
-    });
-  });
 });

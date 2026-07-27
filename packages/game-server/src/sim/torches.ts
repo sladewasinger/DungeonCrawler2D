@@ -21,13 +21,20 @@ import type { PlayerSlot, SimState } from "./state.js";
 
 const TORCH_ITEM = "torch";
 
+export interface TorchThrow {
+  sim: SimState;
+  slot: PlayerSlot;
+  dirX: number;
+  dirY: number;
+}
+
 /**
  * Throws one torch from inventory toward an aim direction. Rejected
  * outright (no-op) if the player is out of torches, or if the torch
  * item def isn't configured to place — content data is the source of
  * truth, not a hardcoded id check.
  */
-export function doThrowTorch(sim: SimState, slot: PlayerSlot, dirX: number, dirY: number): void {
+export function doThrowTorch({ sim, slot, dirX, dirY }: TorchThrow): void {
   if (invQty(slot, TORCH_ITEM) < 1) return;
   const def = sim.content.items.get(TORCH_ITEM);
   if (def?.throwable?.placesEntity !== "torch") return;
@@ -39,7 +46,7 @@ export function doThrowTorch(sim: SimState, slot: PlayerSlot, dirX: number, dirY
   const thrower = slot.entity;
   faceEntity(thrower, dirX, dirY);
   const from = { x: thrower.body.x, y: thrower.body.y, z: thrower.body.z + 1 };
-  const { vel } = launchTorch(sim.world, from, dirX, dirY);
+  const { vel } = launchTorch({ world: sim.world, from, direction: { x: dirX, y: dirY } });
   const body = createBody(from.x, from.y, from.z);
   body.grounded = false;
   const torch = makeEntity("torch", body, {
@@ -60,13 +67,16 @@ export function doThrowTorch(sim: SimState, slot: PlayerSlot, dirX: number, dirY
  */
 export function stepTorches(sim: SimState): void {
   for (const [id, torch] of sim.torches) {
-    if (torch.torchState === "flying") {
-      const result = stepTorch(sim.world, torch, TICK_DT);
-      if (result.landed) torch.expiresAtTick = sim.tickCount + TORCH_BURN_TICKS;
-      continue;
-    }
-    if (torch.expiresAtTick !== undefined && sim.tickCount >= torch.expiresAtTick) {
-      sim.torches.delete(id);
-    }
+    if (torch.torchState === "flying") advanceFlyingTorch(sim, torch);
+    else removeExpiredTorch(sim, id, torch);
   }
+}
+
+function advanceFlyingTorch(sim: SimState, torch: PlayerSlot["entity"]): void {
+  const result = stepTorch(sim.world, torch, TICK_DT);
+  if (result.landed) torch.expiresAtTick = sim.tickCount + TORCH_BURN_TICKS;
+}
+
+function removeExpiredTorch(sim: SimState, id: string, torch: PlayerSlot["entity"]): void {
+  if (torch.expiresAtTick !== undefined && sim.tickCount >= torch.expiresAtTick) sim.torches.delete(id);
 }

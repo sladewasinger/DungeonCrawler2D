@@ -43,15 +43,21 @@ export const at = (a: Uint8Array | Float32Array, x: number, y: number): number =
  * spiral spawn.ts's findWalkableNear walks (out-of-chunk candidates skipped). */
 export function entryAnchor(tiles: Uint8Array): Cell {
   for (let radius = 0; radius < CHUNK_SIZE; radius++) {
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
-        if (dx < 0 || dy < 0) continue;
-        if ((tiles[dy * CHUNK_SIZE + dx] ?? TOPOLOGY.Uncarved) !== TOPOLOGY.Uncarved) return [dx, dy];
-      }
-    }
+    const anchor = ringOffsets(radius).find(([x, y]) => isWalkableInChunk(tiles, x, y));
+    if (anchor) return anchor;
   }
   return [0, 0];
+}
+
+function ringOffsets(radius: number): Cell[] {
+  const cells: Cell[] = [];
+  for (let x = -radius; x <= radius; x++) cells.push([x, -radius], [x, radius]);
+  for (let y = -radius + 1; y < radius; y++) cells.push([-radius, y], [radius, y]);
+  return cells;
+}
+
+function isWalkableInChunk(tiles: Uint8Array, x: number, y: number): boolean {
+  return x >= 0 && y >= 0 && (tiles[y * CHUNK_SIZE + x] ?? TOPOLOGY.Uncarved) !== TOPOLOGY.Uncarved;
 }
 
 /** Chebyshev distance from the anchor to the farthest cell of the 2x2 block. */
@@ -67,66 +73,76 @@ export function blockDistance(anchor: Cell, bx: number, by: number): number {
 
 /** The 8 ring cells around the 2x2 block whose top-left is (bx, by). */
 export function ringCells(bx: number, by: number): Cell[] {
+  return squareCells(bx - 1, by - 1, BLOCK + 2).filter(([x, y]) => !inBlock(x, y, bx, by));
+}
+
+function squareCells(x0: number, y0: number, size: number): Cell[] {
   const cells: Cell[] = [];
-  for (let y = by - 1; y <= by + BLOCK; y++) {
-    for (let x = bx - 1; x <= bx + BLOCK; x++) {
-      const inBlock = x >= bx && x < bx + BLOCK && y >= by && y < by + BLOCK;
-      if (!inBlock) cells.push([x, y]);
-    }
+  for (let y = y0; y < y0 + size; y++) {
+    for (let x = x0; x < x0 + size; x++) cells.push([x, y]);
   }
   return cells;
 }
 
+function inBlock(...[x, y, bx, by]: [number, number, number, number]): boolean {
+  return x >= bx && x < bx + BLOCK && y >= by && y < by + BLOCK;
+}
+
 export function blockCells(bx: number, by: number): Cell[] {
-  return [
-    [bx, by],
-    [bx + 1, by],
-    [bx, by + 1],
-    [bx + 1, by + 1],
-  ];
+  return squareCells(bx, by, BLOCK);
 }
 
 /** All 4 block cells are Floor within EPS of `h`, ring fully inside the chunk. */
-function blockAt(g: Grid, bx: number, by: number, h: number): boolean {
+function blockAt({ g, bx, by, height }: { g: Grid; bx: number; by: number; height: number }): boolean {
   if (bx < 1 || by < 1 || bx + BLOCK > CHUNK_SIZE - 1 || by + BLOCK > CHUNK_SIZE - 1) return false;
   return blockCells(bx, by).every(
-    ([x, y]) => at(g.tiles, x, y) === TILE.Floor && Math.abs(at(g.height, x, y) - h) <= EPS,
+    ([x, y]) => at(g.tiles, x, y) === TILE.Floor && Math.abs(at(g.height, x, y) - height) <= EPS,
   );
+}
+
+function blockCandidates(anchor: Cell): Cell[] {
+  return squareCells(1, 1, CHUNK_SIZE - 1).filter(([bx, by]) => blockDistance(anchor, bx, by) <= SHOWCASE_RADIUS);
+}
+
+function hasCleanBlock(anchor: Cell, matches: (bx: number, by: number) => boolean): boolean {
+  return blockCandidates(anchor).some(([bx, by]) => matches(bx, by));
 }
 
 /** A clean z1 platform: 2x2 Floor at z1 whose whole ring is lower open ground. */
 export function hasCleanPlatform(g: Grid, anchor: Cell): boolean {
-  for (let by = 1; by < CHUNK_SIZE; by++) {
-    for (let bx = 1; bx < CHUNK_SIZE; bx++) {
-      if (blockDistance(anchor, bx, by) > SHOWCASE_RADIUS) continue;
-      if (!blockAt(g, bx, by, SHOWCASE_RISE)) continue;
-      const ok = ringCells(bx, by).every(
-        ([x, y]) => at(g.tiles, x, y) !== TOPOLOGY.Uncarved && at(g.height, x, y) <= RING_MAX_H + EPS,
-      );
-      if (ok) return true;
-    }
-  }
-  return false;
+  return hasCleanBlock(anchor, (bx, by) => platformAt(g, bx, by));
+}
+
+function platformAt(g: Grid, bx: number, by: number): boolean {
+  return blockAt({ g, bx, by, height: SHOWCASE_RISE }) && ringCells(bx, by).every(
+    ([x, y]) => at(g.tiles, x, y) !== TOPOLOGY.Uncarved && at(g.height, x, y) <= RING_MAX_H + EPS,
+  );
 }
 
 /** A clean z-1 pit: 2x2 Floor at z-1, ring open, near-flat rim, >=1 rim stair tread. */
 export function hasCleanPit(g: Grid, anchor: Cell): boolean {
-  for (let by = 1; by < CHUNK_SIZE; by++) {
-    for (let bx = 1; bx < CHUNK_SIZE; bx++) {
-      if (blockDistance(anchor, bx, by) > SHOWCASE_RADIUS) continue;
-      if (!blockAt(g, bx, by, SHOWCASE_DEPTH)) continue;
-      let treads = 0;
-      const ok = ringCells(bx, by).every(([x, y]) => {
-        const t = at(g.tiles, x, y);
-        if (t === TOPOLOGY.Uncarved) return false;
-        if (t === TILE.Stairs && Math.abs(at(g.height, x, y) - TREAD_H) <= EPS) {
-          treads++;
-          return true;
-        }
-        return at(g.height, x, y) >= RIM_MIN_H - EPS;
-      });
-      if (ok && treads >= 1) return true;
-    }
+  return hasCleanBlock(anchor, (bx, by) => pitAt(g, bx, by));
+}
+
+function pitAt(g: Grid, bx: number, by: number): boolean {
+  if (!blockAt({ g, bx, by, height: SHOWCASE_DEPTH })) return false;
+  const rim = inspectPitRim(g, bx, by);
+  return rim.open && rim.treads >= 1;
+}
+
+function inspectPitRim(g: Grid, bx: number, by: number): { open: boolean; treads: number } {
+  let treads = 0;
+  for (const cell of ringCells(bx, by)) {
+    const state = pitRimCell(g, cell);
+    if (!state.open) return { open: false, treads };
+    if (state.tread) treads++;
   }
-  return false;
+  return { open: true, treads };
+}
+
+function pitRimCell(g: Grid, [x, y]: Cell): { open: boolean; tread: boolean } {
+  const tile = at(g.tiles, x, y);
+  if (tile === TOPOLOGY.Uncarved) return { open: false, tread: false };
+  const tread = tile === TILE.Stairs && Math.abs(at(g.height, x, y) - TREAD_H) <= EPS;
+  return { open: tread || at(g.height, x, y) >= RIM_MIN_H - EPS, tread };
 }

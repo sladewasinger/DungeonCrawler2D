@@ -34,17 +34,24 @@ export class InputModalityStore {
   }
 
   noteDesktop(kind: DesktopInputKind, nowMs = performance.now()): void {
-    if (kind === "mouse" && this.mode === "touch") {
-      if (nowMs - this.lastTouchAt < MOUSE_AFTER_TOUCH_HYSTERESIS_MS) return;
-      if (this.mouseCandidateAt === null ||
-        nowMs - this.mouseCandidateAt > MOUSE_DEMOTION_WINDOW_MS) {
-        this.mouseCandidateAt = nowMs;
-        return;
-      }
-      if (nowMs - this.mouseCandidateAt < MOUSE_DEMOTION_CONFIRM_MS) return;
-    }
+    if (this.shouldDeferMouseDemotion(kind, nowMs)) return;
     this.mouseCandidateAt = null;
     this.transition("desktop");
+  }
+
+  private shouldDeferMouseDemotion(kind: DesktopInputKind, nowMs: number): boolean {
+    if (kind !== "mouse" || this.mode !== "touch") return false;
+    if (nowMs - this.lastTouchAt < MOUSE_AFTER_TOUCH_HYSTERESIS_MS) return true;
+    return this.needsMouseConfirmation(nowMs);
+  }
+
+  private needsMouseConfirmation(nowMs: number): boolean {
+    const candidateAt = this.mouseCandidateAt;
+    if (candidateAt === null || nowMs - candidateAt > MOUSE_DEMOTION_WINDOW_MS) {
+      this.mouseCandidateAt = nowMs;
+      return true;
+    }
+    return nowMs - candidateAt < MOUSE_DEMOTION_CONFIRM_MS;
   }
 
   private transition(mode: InputModality): void {
@@ -57,29 +64,62 @@ export class InputModalityStore {
 const eventTime = (event: Event): number =>
   event.timeStamp > 0 ? event.timeStamp : performance.now();
 
+interface InputModalityEventHandlers {
+  onKeyDown(event: KeyboardEvent): void;
+  onPointerDown(event: PointerEvent): void;
+  onMouseMove(event: MouseEvent): void;
+}
+
+function createInputEventHandlers(store: InputModalityStore): InputModalityEventHandlers {
+  return {
+    onKeyDown: (event) => noteTrustedKeyboard(store, event),
+    onPointerDown: (event) => noteTrustedPointer(store, event),
+    onMouseMove: (event) => noteTrustedMouse(store, event),
+  };
+}
+
+function noteTrustedKeyboard(store: InputModalityStore, event: KeyboardEvent): void {
+  if (event.isTrusted) store.noteDesktop("keyboard", eventTime(event));
+}
+
+function noteTrustedPointer(store: InputModalityStore, event: PointerEvent): void {
+  if (!event.isTrusted) return;
+  if (event.pointerType === "touch") store.noteTouch(eventTime(event));
+  if (event.pointerType === "mouse") store.noteDesktop("mouse", eventTime(event));
+}
+
+function noteTrustedMouse(store: InputModalityStore, event: MouseEvent): void {
+  if (event.isTrusted) store.noteDesktop("mouse", eventTime(event));
+}
+
+function reevaluatePointerModality(store: InputModalityStore, coarse: MediaQueryList | undefined, fine: MediaQueryList | undefined): void {
+  const pointerMode = preferredPointerMode(coarse, fine);
+  if (pointerMode === "touch") store.noteTouch();
+  if (pointerMode === "desktop") store.noteDesktop("mouse");
+}
+
+function preferredPointerMode(coarse: MediaQueryList | undefined, fine: MediaQueryList | undefined): InputModality | null {
+  if (isTouchOnlyPointer(coarse, fine)) return "touch";
+  if (isFineOnlyPointer(coarse, fine)) return "desktop";
+  return null;
+}
+
+function isTouchOnlyPointer(coarse: MediaQueryList | undefined, fine: MediaQueryList | undefined): boolean {
+  return coarse?.matches === true && fine?.matches !== true;
+}
+
+function isFineOnlyPointer(coarse: MediaQueryList | undefined, fine: MediaQueryList | undefined): boolean {
+  return fine?.matches === true && coarse?.matches !== true;
+}
+
 export function bindInputModalityEvents(
   store: InputModalityStore,
   win: Window = window,
 ): () => void {
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.isTrusted) store.noteDesktop("keyboard", eventTime(event));
-  };
-  const onPointerDown = (event: PointerEvent) => {
-    if (!event.isTrusted) return;
-    if (event.pointerType === "touch") store.noteTouch(eventTime(event));
-    else if (event.pointerType === "mouse") {
-      store.noteDesktop("mouse", eventTime(event));
-    }
-  };
-  const onMouseMove = (event: MouseEvent) => {
-    if (event.isTrusted) store.noteDesktop("mouse", eventTime(event));
-  };
+  const { onKeyDown, onPointerDown, onMouseMove } = createInputEventHandlers(store);
   const coarse = win.matchMedia?.("(pointer: coarse)");
   const fine = win.matchMedia?.("(pointer: fine)");
-  const reevaluatePointer = () => {
-    if (coarse?.matches && !fine?.matches) store.noteTouch();
-    else if (fine?.matches && !coarse?.matches) store.noteDesktop("mouse");
-  };
+  const reevaluatePointer = () => reevaluatePointerModality(store, coarse, fine);
 
   win.addEventListener("keydown", onKeyDown, true);
   win.addEventListener("pointerdown", onPointerDown, true);

@@ -4,7 +4,7 @@ import {
   WORLD_PIXEL_SCALE,
 } from "../boot/assetManifest.js";
 import { monsterSpriteFor } from "../render/entities/spriteMap.js";
-import { worldToScreen } from "../render/entities/worldToScreen.js";
+import { drawCarnageStreak, screenAngle } from "./deathCarnageStreak.js";
 
 const BASE_ALPHA = 0.88;
 const BONE_TINT = 0xd8cdb8;
@@ -20,50 +20,52 @@ export interface CarnageAppearance {
   targetKind?: "player" | "enemy";
 }
 
-export function drawCarnageStreaks(
-  graphics: Phaser.GameObjects.Graphics,
-  count: number,
-  intensity: number,
-  tint: number,
-  worldX: number,
-  worldY: number,
-  impactAngle?: number,
-): void {
+interface CarnageStreakInput {
+  readonly graphics: Phaser.GameObjects.Graphics;
+  readonly count: number;
+  readonly intensity: number;
+  readonly tint: number;
+  readonly world: { x: number; y: number };
+  readonly impactAngle?: number | undefined;
+}
+
+interface CarnageChunkInput {
+  readonly scene: Phaser.Scene;
+  readonly mark: CarnageMark;
+  readonly count: number;
+  readonly intensity: number;
+  readonly appearance: CarnageAppearance;
+  readonly screen: { x: number; y: number };
+  readonly spritePrefix?: string | undefined;
+}
+
+interface BoneInput {
+  readonly graphics: Phaser.GameObjects.Graphics;
+  readonly position: { x: number; y: number };
+  readonly angle: number;
+  readonly size: number;
+}
+
+interface SpriteFragmentInput {
+  readonly scene: Phaser.Scene;
+  readonly mark: CarnageMark;
+  readonly index: number;
+  readonly frame: string | number;
+  readonly position: { x: number; y: number };
+  readonly intensity: number;
+}
+
+export function drawCarnageStreaks({ graphics, count, intensity, tint, world, impactAngle }: CarnageStreakInput): void {
   const directional = impactAngle === undefined
     ? undefined
-    : screenAngle(worldX, worldY, impactAngle);
+    : screenAngle(world.x, world.y, impactAngle);
   for (let index = 0; index < count; index++) {
-    const angle = directional !== undefined && index < Math.ceil(count * 0.65)
-      ? directional + (Math.random() - 0.5) * 1.25
-      : Math.random() * Math.PI * 2;
-    const start = 5 + Math.random() * 5;
-    const length = (18 + Math.random() * 38) * intensity;
-    const width = (1.2 + Math.random() * 2.8) * Math.min(intensity, 1.5);
-    const end = start + length;
-    graphics.lineStyle(width, tint, 0.72 + Math.random() * 0.2);
-    graphics.beginPath();
-    graphics.moveTo(Math.cos(angle) * start, Math.sin(angle) * start);
-    graphics.lineTo(Math.cos(angle) * end, Math.sin(angle) * end);
-    graphics.strokePath();
-    graphics.fillStyle(tint, 0.72);
-    graphics.fillCircle(
-      Math.cos(angle) * (end + 2 + Math.random() * 6),
-      Math.sin(angle) * (end + 2 + Math.random() * 6),
-      1.5 + Math.random() * 2.5,
-    );
+    drawCarnageStreak({ graphics, count, intensity, tint, directional, index });
   }
 }
 
-export function drawCarnageChunks(
-  scene: Phaser.Scene,
-  mark: CarnageMark,
-  count: number,
-  intensity: number,
-  appearance: CarnageAppearance,
-  screenX: number,
-  screenY: number,
-  spritePrefix?: string,
-): void {
+
+export function drawCarnageChunks({ scene, mark, count, intensity, appearance, screen, spritePrefix }: CarnageChunkInput): void {
   resetFragments(mark.fragments);
   const bones = isBoneAppearance(appearance);
   const frame = resolveFragmentFrame(scene, appearance, spritePrefix);
@@ -71,14 +73,11 @@ export function drawCarnageChunks(
   for (let index = 0; index < count; index++) {
     const angle = Math.random() * Math.PI * 2;
     const distance = (7 + Math.random() * radius) * intensity;
-    const x = Math.cos(angle) * distance;
-    const y = Math.sin(angle) * distance;
+    const position = { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance };
     const size = (2.5 + Math.random() * 4.5) * Math.min(intensity, 1.6);
-    if (bones) drawBone(mark.graphics, x, y, angle, size);
+    if (bones) drawBone({ graphics: mark.graphics, position, angle, size });
     else if (frame !== undefined) {
-      placeSpriteFragment(
-        scene, mark, index, frame, screenX + x, screenY + y, intensity,
-      );
+      placeSpriteFragment({ scene, mark, index, frame, position: { x: screen.x + position.x, y: screen.y + position.y }, intensity });
     }
   }
 }
@@ -105,13 +104,8 @@ function resolveFragmentFrame(
     : undefined;
 }
 
-function drawBone(
-  graphics: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  angle: number,
-  size: number,
-): void {
+function drawBone({ graphics, position, angle, size }: BoneInput): void {
+  const { x, y } = position;
   graphics.lineStyle(Math.max(2, size * 0.45), BONE_TINT, 0.9);
   graphics.beginPath();
   graphics.moveTo(
@@ -125,15 +119,8 @@ function drawBone(
   graphics.strokePath();
 }
 
-function placeSpriteFragment(
-  scene: Phaser.Scene,
-  mark: CarnageMark,
-  index: number,
-  frame: string | number,
-  x: number,
-  y: number,
-  intensity: number,
-): void {
+function placeSpriteFragment({ scene, mark, index, frame, position, intensity }: SpriteFragmentInput): void {
+  const { x, y } = position;
   const fragment = mark.fragments[index] ?? growFragment(scene, mark);
   fragment.setFrame(frame);
   const width = fragment.frame.realWidth;
@@ -170,13 +157,4 @@ function growFragment(
     .setVisible(false);
   mark.fragments.push(fragment);
   return fragment;
-}
-
-function screenAngle(worldX: number, worldY: number, worldAngle: number): number {
-  const origin = worldToScreen(worldX, worldY);
-  const endpoint = worldToScreen(
-    worldX + Math.cos(worldAngle),
-    worldY + Math.sin(worldAngle),
-  );
-  return Math.atan2(endpoint.y - origin.y, endpoint.x - origin.x);
 }

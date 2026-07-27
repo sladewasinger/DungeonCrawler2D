@@ -10,7 +10,7 @@ import type { InputController } from "../../input/index.js";
 import { Connection } from "../../net/connection.js";
 import { ChatController, type ChatPort } from "../../ui/chat/controller.js";
 import type { TouchVisualSnapshot } from "../../input/touch/index.js";
-import { LiveHudSnapshotCache } from "./liveHudSnapshotCache.js";
+import { LiveHudSnapshotCache, type LiveHudCacheInput } from "./liveHudSnapshotCache.js";
 
 function connection(): Connection {
   const conn = new Connection("ws://test", "Tester", "client");
@@ -64,13 +64,25 @@ function inputState() {
   };
 }
 
+interface CacheFixture {
+  readonly conn: Connection;
+  readonly input: InputController;
+  readonly chat: ChatController;
+  readonly overrides?: Partial<LiveHudCacheInput>;
+}
+
+function cacheInput(fixture: CacheFixture): LiveHudCacheInput {
+  const { conn, input, chat, overrides = {} } = fixture;
+  return { conn, input, chat, interactionPrompt: null, actualFps: 60, compassBearingDeg: 0, ...overrides };
+}
+
 describe("LiveHudSnapshotCache", () => {
   it("reuses fixed HUD derivation while refreshing render-frequency fields", () => {
     const conn = connection();
     const input = inputState();
     const cache = new LiveHudSnapshotCache();
     const controller = chat();
-    const first = cache.build(conn, input.input, null, controller, 60, 0, 12);
+    const first = cache.build(cacheInput({ conn, input: input.input, chat: controller, overrides: { aimHeadingDeg: 12 } }));
     const body = conn.body;
     if (!body) throw new Error("test connection is missing its body");
     const touch = {
@@ -81,15 +93,10 @@ describe("LiveHudSnapshotCache", () => {
     conn.rttMs = 42;
     body.x = 6.4;
     input.setTouch(touch);
-    const second = cache.build(
-      conn,
-      input.input,
-      { key: "R", label: "pick up" },
-      controller,
-      57,
-      90,
-      135,
-    );
+    const second = cache.build(cacheInput({ conn, input: input.input, chat: controller, overrides: {
+      interactionPrompt: { key: "R", label: "pick up" }, actualFps: 57,
+      compassBearingDeg: 90, aimHeadingDeg: 135,
+    } }));
 
     expect(second).toBe(first);
     expect(second).toMatchObject({
@@ -109,7 +116,7 @@ describe("LiveHudSnapshotCache", () => {
     const input = inputState();
     const cache = new LiveHudSnapshotCache();
     const controller = chat();
-    const first = cache.build(conn, input.input, null, controller, 60, 0);
+    const first = cache.build(cacheInput({ conn, input: input.input, chat: controller }));
     const neutral: MoveInput = {
       moveX: 0,
       moveY: 0,
@@ -120,11 +127,11 @@ describe("LiveHudSnapshotCache", () => {
     const body = conn.body;
     if (!world || !body) throw new Error("test connection is not initialized");
 
-    conn.prediction.predict(world, body, neutral, conn, false);
-    const next = cache.build(conn, input.input, null, controller, 60, 0);
+    conn.prediction.predict({ world, body, input: neutral, resources: conn, canBlock: false });
+    const next = cache.build(cacheInput({ conn, input: input.input, chat: controller }));
 
     expect(next).not.toBe(first);
-    expect(cache.build(conn, input.input, null, controller, 60, 0)).toBe(next);
+    expect(cache.build(cacheInput({ conn, input: input.input, chat: controller }))).toBe(next);
   });
 
   it("invalidates when 2D combat help is completed", () => {
@@ -132,12 +139,10 @@ describe("LiveHudSnapshotCache", () => {
     const input = inputState();
     const cache = new LiveHudSnapshotCache();
     const controller = chat();
-    const initial = cache.build(conn, input.input, null, controller, 60, 0);
+    const initial = cache.build(cacheInput({ conn, input: input.input, chat: controller }));
 
     conn.contextualActionsUsed.add("attack");
-    const completed = cache.build(
-      conn, input.input, null, controller, 60, 0,
-    );
+    const completed = cache.build(cacheInput({ conn, input: input.input, chat: controller }));
 
     expect(completed).not.toBe(initial);
     expect(completed.completedContextualActions).toEqual(["attack"]);

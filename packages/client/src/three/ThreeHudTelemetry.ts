@@ -21,16 +21,10 @@ export class ThreeHudTelemetry {
     this.element.append(createHudTitle("World status"), this.readout);
   }
 
-  update(
-    connection: Connection,
-    world: World,
-    player: FirstPersonState,
-    yaw: number,
-    mouseCaptured: boolean,
-  ): void {
+  update({ connection, world, player, yaw, mouseCaptured }: ThreeHudTelemetryUpdate): void {
     const heading = headingDegrees(yaw);
     const display = displayCoordinates(player.x, player.z);
-    const biome = biomeAtWorldTile(world.worldSeed, world.floor, player.x, player.z).biome;
+    const biome = biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: player.x, wy: player.z }).biome;
     this.readout.textContent =
       `version ${APP_VERSION}\n` +
       `build ${BUILD_SHA}\n` +
@@ -43,4 +37,12 @@ export class ThreeHudTelemetry {
         ? "mouse captured"
         : "click the world to capture mouse");
   }
+}
+
+export interface ThreeHudTelemetryUpdate {
+  readonly connection: Connection;
+  readonly world: World;
+  readonly player: FirstPersonState;
+  readonly yaw: number;
+  readonly mouseCaptured: boolean;
 }

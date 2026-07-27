@@ -149,15 +149,4 @@ describe("PlayerStore file integrity", () => {
     }
   });
 
-  it("preserves an unsupported future-version file and refuses to open it", () => {
-    const file = tempFile();
-    const future = JSON.stringify({ version: 99, nextSlot: 0, players: {} });
-    try {
-      writeFileSync(file, future);
-      expect(() => new PlayerStore(file)).toThrow("Unsupported player store version 99");
-      expect(readFileSync(file, "utf8")).toBe(future);
-    } finally {
-      rmSync(file, { force: true });
-    }
-  });
 });

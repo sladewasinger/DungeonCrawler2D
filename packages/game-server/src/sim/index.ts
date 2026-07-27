@@ -1,9 +1,6 @@
 import {
-  TICK_DT,
   type AreaSystem,
   type ClientInput,
-  type ContentRegistry,
-  type EffectEvent,
   type EffectsEngine,
   type Entity,
   type GameEvent,
@@ -13,30 +10,15 @@ import {
   type SnapshotMode,
   type World,
 } from "@dc2d/engine";
-import { processActions } from "./actions/index.js";
-import { resolveDeaths } from "./deaths.js";
+import { initBossFloor, receiveTransfer } from "./floors/index.js";
+import { spawnEnemy, spawnItem, type ItemSpawn } from "./helpers.js";
+import { addPlayer, type PlayerJoinRequest } from "./join.js";
 import {
-  activateChunksNearPlayers,
-  REPOPULATE_INTERVAL_TICKS,
-  repopulateNearSpawn,
-  stepEnemies,
-} from "./enemies/index.js";
-import { drainReadyTransfers, initBossFloor, receiveTransfer, stepBoss } from "./floors/index.js";
-import { spawnEnemy, spawnItem } from "./helpers.js";
-import { addPlayer } from "./join.js";
-import { stepFoodAttendantDialogs } from "./npcs/foodAttendant/index.js";
-import { stepPets } from "./pets/index.js";
-import {
-  applyGodMode,
   markDisconnected,
   queueAction,
-  reapAndRespawn,
-  stepPlayers,
 } from "./players.js";
 import { handleInput } from "./playerInputTimeline.js";
-import { expireFistbumpOffers } from "./contacts.js";
-import { stepProjectiles } from "./projectiles.js";
-import { endSpawnGrace, maintainSpawnClearance } from "./spawnSafety.js";
+import { endSpawnGrace } from "./spawnSafety.js";
 import {
   buildPreparedReplicatedSnapshots,
   buildReplicatedSnapshots,
@@ -44,8 +26,6 @@ import {
   type PreparedSnapshotDelivery,
 } from "./snapshots.js";
 import { configureSnapshotMode, requestSnapshotBaseline } from "./snapshotReplication.js";
-import { expireInvites } from "./social.js"; import { expireLootChests } from "./lootChests.js";
-import { syncSafeRoomDoors } from "./safeRoomDoors.js";
 import {
   injectGlobalChat,
   listConnectedPlayers,
@@ -58,11 +38,9 @@ import {
   type PlayerAction,
   type SimState,
 } from "./state.js";
-import { applyAreaContact, realizeEffectEvents, tickStatuses } from "./statuses.js";
-import { applyHealthRegeneration } from "./combatResources.js";
-import { stepTorches } from "./torches.js";
-import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
+import { advanceSimTick } from "./step.js";
 import { PlayerStore } from "../store.js";
+import type { GameSimOptions } from "./gameSimOptions.js";
 
 export type { JoinResult, PlayerAction, FloorTransferRequest } from "./state.js";
 
@@ -75,14 +53,14 @@ export type { JoinResult, PlayerAction, FloorTransferRequest } from "./state.js"
 export class GameSim {
   private readonly state: SimState;
 
-  constructor(
-    world: World,
-    content: ContentRegistry,
-    store: PlayerStore = new PlayerStore(null),
+  constructor({
+    world,
+    content,
+    store = new PlayerStore(null),
     rngSeed = 1,
-    opts: SimState["opts"] = {},
-  ) {
-    this.state = createSimState(world, content, store, rngSeed, opts);
+    opts = {},
+  }: GameSimOptions) {
+    this.state = createSimState({ world, content, store, rngSeed, opts });
     initBossFloor(this.state); // no-op off floor FLOOR_CAP (Epic 7.14)
   }
 
@@ -108,13 +86,8 @@ export class GameSim {
 
   // ── join / leave / input ─────────────────────────────────────────
 
-  addPlayer(
-    name: string,
-    clientId: string,
-    resumeToken?: string,
-    skin?: import("@dc2d/engine").PlayerSkin,
-  ): JoinResult {
-    return addPlayer(this.state, name, clientId, resumeToken, skin);
+  addPlayer(request: PlayerJoinRequest): JoinResult {
+    return addPlayer(this.state, request);
   }
 
   markDisconnected(playerId: string): void {
@@ -152,13 +125,13 @@ export class GameSim {
   }
 
   /** Test access: spawn an item entity on the ground. */
-  spawnItem(defId: string, x: number, y: number, qty = 1): Entity {
-    return spawnItem(this.state, defId, x, y, qty);
+  spawnItem(request: ItemSpawn): Entity {
+    return spawnItem(this.state, request);
   }
 
   /** Test access: spawn an enemy. */
   spawnEnemy(defId: string, x: number, y: number): Entity {
-    return spawnEnemy(this.state, defId, x, y);
+    return spawnEnemy(this.state, { defId, x, y });
   }
 
   /** Test access: forfeit a player's spawn grace (sim/spawnSafety.ts) —
@@ -235,42 +208,6 @@ export class GameSim {
   }
 
   private advanceTick(): void {
-    const sim = this.state;
-    sim.tickCount++; const effectEvents: EffectEvent[] = [];
-
-    reapAndRespawn(sim);
-    syncSafeRoomDoors(sim);
-    stepPlayers(sim, effectEvents);
-    processActions(sim, effectEvents);
-    stepFoodAttendantDialogs(sim); stepPets(sim);
-    activateChunksNearPlayers(sim);
-    if (sim.tickCount % REPOPULATE_INTERVAL_TICKS === 0) repopulateNearSpawn(sim);
-    if (sim.hazardsActive && sim.tickCount % TEST_ZONE_RESEED_TICKS === 0) {
-      const claimed = new Set<string>();
-      seedTestZoneHazards(sim, claimed);
-      seedTestZoneItems(sim, claimed);
-    }
-    // Panel round 4 ordering fix (adjacency-at-first-frame race): every
-    // enemy population/relocation path this tick — chunk activation,
-    // near-spawn repopulation, hazard reseeds, melee knockback from
-    // processActions — has run by here, so the graced-radius sweep sees
-    // the final pre-movement enemy set. It MUST precede stepEnemies:
-    // an evicted camper never gets to think, move, or strike.
-    maintainSpawnClearance(sim);
-    if (!sim.opts.freezeEnemies) {
-      stepEnemies(sim, effectEvents);
-      stepProjectiles(sim, effectEvents);
-    }
-    stepTorches(sim);
-    sim.areas.tick(TICK_DT, () => sim.rng.next());
-    applyAreaContact(sim, effectEvents);
-    tickStatuses(sim, effectEvents);
-    applyHealthRegeneration(sim, effectEvents);
-    realizeEffectEvents(sim, effectEvents);
-    applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
-    resolveDeaths(sim); expireLootChests(sim);
-    stepBoss(sim); // Epic 7.14 — no-op off floor FLOOR_CAP
-    expireInvites(sim); expireFistbumpOffers(sim);
-    drainReadyTransfers(sim); // Epic 7.14 — tail of the tick, after everything that could queue one
+    advanceSimTick(this.state);
   }
 }

@@ -70,32 +70,45 @@ export function validateInventionProposal(
 ): InventionValidation {
   const parsed = inventionProposalSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, errors: parseErrors(parsed.error) };
-  const { proposalId, item, recipe, provenance } = parsed.data;
-  const errors: string[] = [];
-  if (content.items.has(item.id)) errors.push(`item id "${item.id}" already exists`);
-  if (content.recipes.has(recipe.id)) errors.push(`recipe id "${recipe.id}" already exists`);
-  if (recipe.output.item !== item.id) {
-    errors.push("recipe output must be the proposed item");
-  }
-  if (recipe.inputs.length === 0) errors.push("recipe must consume at least one existing item");
-  for (const input of recipe.inputs) {
-    if (!content.items.has(input.item)) errors.push(`recipe input "${input.item}" is unknown`);
-  }
-  const referenceError = validateRegistryReferences(content, item, recipe);
-  if (referenceError) errors.push(referenceError);
+  const { item, recipe } = parsed.data;
+  const errors = proposalErrors(content, item, recipe);
   if (errors.length > 0) return { ok: false, errors: [...new Set(errors)] };
-  return {
-    ok: true,
-    invention: {
-      proposalId,
-      item,
-      recipe,
-      provenance,
-      state: "pending_review",
-      craftable: false,
-      requiredReviews: ["moderation", "balance", "economy"],
-    },
-  };
+  return { ok: true, invention: pendingInvention(parsed.data) };
+}
+
+function proposalErrors(content: ContentRegistry, item: ItemDef, recipe: RecipeDef): string[] {
+  return [
+    ...duplicateIdErrors(content, item, recipe),
+    ...recipeErrors(content, item, recipe),
+    ...referenceErrors(content, item, recipe),
+  ];
+}
+
+function duplicateIdErrors(content: ContentRegistry, item: ItemDef, recipe: RecipeDef): string[] {
+  return [
+    ...(content.items.has(item.id) ? [`item id "${item.id}" already exists`] : []),
+    ...(content.recipes.has(recipe.id) ? [`recipe id "${recipe.id}" already exists`] : []),
+  ];
+}
+
+function recipeErrors(content: ContentRegistry, item: ItemDef, recipe: RecipeDef): string[] {
+  const errors = recipe.output.item === item.id ? [] : ["recipe output must be the proposed item"];
+  if (recipe.inputs.length === 0) errors.push("recipe must consume at least one existing item");
+  return [...errors, ...unknownInputErrors(content, recipe)];
+}
+
+function unknownInputErrors(content: ContentRegistry, recipe: RecipeDef): string[] {
+  return recipe.inputs.filter((input) => !content.items.has(input.item)).map((input) => `recipe input "${input.item}" is unknown`);
+}
+
+function referenceErrors(content: ContentRegistry, item: ItemDef, recipe: RecipeDef): string[] {
+  const error = validateRegistryReferences(content, item, recipe);
+  return error ? [error] : [];
+}
+
+function pendingInvention(proposal: InventionProposal): PendingInvention {
+  const { proposalId, item, recipe, provenance } = proposal;
+  return { proposalId, item, recipe, provenance, state: "pending_review", craftable: false, requiredReviews: ["moderation", "balance", "economy"] };
 }
 
 export class InventionReviewQueue {

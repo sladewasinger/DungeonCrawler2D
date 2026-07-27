@@ -3,6 +3,14 @@ import { Canvas } from '../png-canvas.mjs';
 import { drawThickLine, addOutline } from './shapes.mjs';
 import { scaleColor, opaque } from '../color.mjs';
 
+function remapPixel({ canvas, remap, x, y }) {
+  const [r, g, b, a] = canvas.getPixel(x, y);
+  if (a === 0) return;
+  const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  const replacement = remap.get(hex);
+  if (replacement) canvas.setPixel(x, y, replacement);
+}
+
 /** Recolors floor_1 toward the doc's sanctuary teal, kept dark/desaturated (scaled, not raw accent). */
 export function drawFloorSanctuary(sheet, palette) {
   const c = Canvas.fromRegion(sheet, 16, 64, 16, 16); // floor_1
@@ -13,13 +21,7 @@ export function drawFloorSanctuary(sheet, palette) {
     [palette.FLOOR_MID, opaque(tealMid)],
   ]);
   for (let y = 0; y < c.height; y++) {
-    for (let x = 0; x < c.width; x++) {
-      const [r, g, b, a] = c.getPixel(x, y);
-      if (a === 0) continue;
-      const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-      const replacement = remap.get(hex);
-      if (replacement) c.setPixel(x, y, replacement);
-    }
+    for (let x = 0; x < c.width; x++) remapPixel({ canvas: c, remap, x, y });
   }
   return c;
 }

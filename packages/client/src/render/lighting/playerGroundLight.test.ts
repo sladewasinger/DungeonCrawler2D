@@ -25,8 +25,8 @@ function world(
   };
 }
 
-function update(tileX: number, tileY: number, atMs: number, orientation: 0 | 90 | 180 | 270 = 0): PlayerGroundLightUpdate {
-  return { tileX, tileY, atMs, orientation };
+function update(input: Omit<PlayerGroundLightUpdate, "orientation"> & { orientation?: 0 | 90 | 180 | 270 }): PlayerGroundLightUpdate {
+  return { ...input, orientation: input.orientation ?? 0 };
 }
 
 describe("playerGroundLightCells", () => {
@@ -85,11 +85,11 @@ describe("playerGroundLightFadeAlpha", () => {
 
 describe("shouldUpdatePlayerGroundLight", () => {
   it("throttles same-tile motion but refreshes immediately on tile crossing or rotation", () => {
-    const previous = update(4, 5, 100);
-    expect(shouldUpdatePlayerGroundLight(previous, update(4, 5, 199))).toBe(false);
-    expect(shouldUpdatePlayerGroundLight(previous, update(4, 5, 100 + PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS))).toBe(true);
-    expect(shouldUpdatePlayerGroundLight(previous, update(5, 5, 101))).toBe(true);
-    expect(shouldUpdatePlayerGroundLight(previous, update(4, 5, 101, 90))).toBe(true);
+    const previous = update({ tileX: 4, tileY: 5, atMs: 100 });
+    expect(shouldUpdatePlayerGroundLight(previous, update({ tileX: 4, tileY: 5, atMs: 199 }))).toBe(false);
+    expect(shouldUpdatePlayerGroundLight(previous, update({ tileX: 4, tileY: 5, atMs: 100 + PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS }))).toBe(true);
+    expect(shouldUpdatePlayerGroundLight(previous, update({ tileX: 5, tileY: 5, atMs: 101 }))).toBe(true);
+    expect(shouldUpdatePlayerGroundLight(previous, update({ tileX: 4, tileY: 5, atMs: 101, orientation: 90 }))).toBe(true);
   });
 
   it("falls back to the existing personal halo on constrained devices", () => {

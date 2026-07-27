@@ -2,70 +2,10 @@
 // integration gate): conn.world must track the CURRENT floor, not just the
 // join-time one, or every post-transfer prediction/terrain/stairway-proximity
 // read silently uses the wrong floor's chunk geometry.
-import { LEVEL, World, type ServerSnapshot, type ServerSnapshotDelta } from "@dc2d/engine";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { LEVEL } from "@dc2d/engine";
 import { applySnapshot } from "./apply.js";
-import { Connection } from "./connection.js";
-import { applySnapshotDelta } from "./snapshotDelta.js";
-
-const WORLD_SEED = 12345;
-
-function freshConnection(floor: number): Connection {
-  const conn = new Connection("wss://example.test", "Tester", "client-1");
-  conn.world = new World(WORLD_SEED, floor, LEVEL.Dungeon);
-  conn.body = {
-    x: 0,
-    y: 0,
-    z: 0,
-    zVel: 0,
-    grounded: true,
-    coyoteTime: 0,
-    jumpBuffer: 0,
-    jumpHeld: false,
-    fallStart: 0,
-    kx: 0,
-    ky: 0,
-  };
-  return conn;
-}
-
-function snapshotAtFloor(
-  floor: number,
-  hp = 10,
-  respawnAtTick: number | null = null,
-): ServerSnapshot {
-  return {
-    type: "snapshot",
-    tick: 1,
-    lastSeq: 0,
-    lastProjectedServerTick: 0,
-    self: {
-      x: 0,
-      y: 0,
-      z: 0,
-      zVel: 0,
-      grounded: true,
-      coyoteTime: 0,
-      jumpBuffer: 0,
-      jumpHeld: false,
-      kx: 0,
-      ky: 0,
-      hp,
-      maxHp: 10,
-      fx: [],
-      floor,
-      respawnAtTick,
-    },
-    inventory: [],
-    hotbar: [],
-    weapon: null,
-    party: null,
-    entities: [],
-    left: [],
-    events: [],
-    areas: [],
-  };
-}
+import { freshConnection, snapshotAtFloor, WORLD_SEED } from "./applyTestSupport.js";
 
 describe("applySnapshot floor transfer", () => {
   it("rebuilds conn.world with the new floor (same seed/level) when self.floor changes", () => {
@@ -149,78 +89,5 @@ describe("applySnapshot prediction correction", () => {
     expect(conn.predictionCorrection.advance(0)).toEqual({ x: 0.5, y: -0.25, z: 0.1 });
     expect(conn.networkMetrics.snapshot(performance.now()).maximumCorrectionError)
       .toBeCloseTo(Math.hypot(0.5, -0.25, 0.1));
-  });
-});
-
-function deltaAt(
-  tick: number,
-  baseTick: number | null,
-  baseline: boolean,
-  areas: ServerSnapshotDelta["areas"] = [],
-): ServerSnapshotDelta {
-  const full = snapshotAtFloor(1, 10);
-  return {
-    type: "snapshotDelta",
-    tick,
-    baseTick,
-    baseline,
-    lastSeq: full.lastSeq,
-    lastProjectedServerTick: full.lastProjectedServerTick,
-    self: full.self,
-    inventoryRevision: 1,
-    ...(baseline ? { inventory: [{ item: "bandage", qty: 2 }] } : {}),
-    hotbarRevision: 1,
-    ...(baseline ? { hotbar: ["bandage"] } : {}),
-    weapon: full.weapon,
-    party: full.party,
-    entities: baseline
-      ? [{ id: "item-1", kind: "item", defId: "rag", x: 1, y: 2, z: 0, revision: 3 }]
-      : [{ id: "item-1", revision: 3, unchanged: true }],
-    left: [],
-    events: [],
-    areas,
-  };
-}
-
-describe("applySnapshotDelta", () => {
-  it("applies known revisions, rejects a missed tick, and recovers from a baseline", () => {
-    const conn = freshConnection(1);
-    const send = vi.spyOn(conn, "send").mockImplementation(() => undefined);
-    applySnapshotDelta(conn, deltaAt(10, null, true, [
-      { x: 0, y: 0, defId: "area-fire" },
-    ]));
-    expect(conn.inventory).toEqual([{ item: "bandage", qty: 2 }]);
-    expect(conn.entities.get("item-1")?.snap.defId).toBe("rag");
-    expect(conn.areaTiles.get("0,0")).toBe("area-fire");
-
-    applySnapshotDelta(conn, deltaAt(11, 10, false));
-    expect(conn.serverTick).toBe(11);
-
-    applySnapshotDelta(conn, deltaAt(13, 12, false, [
-      { x: 0, y: 0, defId: null },
-      { x: 1, y: 0, defId: "area-wet" },
-    ]));
-    expect(conn.serverTick).toBe(11);
-    expect(conn.snapshotRevisions.awaitingBaseline).toBe(true);
-    expect(conn.networkMetrics.snapshot(performance.now()).recoveryRequests).toBe(1);
-    expect(conn.areaTiles.get("0,0")).toBe("area-fire");
-    expect(conn.areaTiles.has("1,0")).toBe(false);
-    applySnapshotDelta(conn, deltaAt(14, 13, false, [
-      { x: 2, y: 0, defId: "area-oil" },
-    ]));
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({ type: "snapshotResync" });
-    expect(conn.serverTick).toBe(11);
-    expect(conn.entities.get("item-1")?.snap.defId).toBe("rag");
-    expect(conn.areaTiles.get("0,0")).toBe("area-fire");
-    expect(conn.areaTiles.has("1,0")).toBe(false);
-    expect(conn.areaTiles.has("2,0")).toBe(false);
-
-    applySnapshotDelta(conn, deltaAt(15, null, true, [
-      { x: 1, y: 0, defId: "area-wet" },
-    ]));
-    expect(conn.serverTick).toBe(15);
-    expect(conn.snapshotRevisions.awaitingBaseline).toBe(false);
-    expect([...conn.areaTiles]).toEqual([["1,0", "area-wet"]]);
   });
 });

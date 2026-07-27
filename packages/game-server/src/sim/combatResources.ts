@@ -52,7 +52,19 @@ export function advancePlayerResources(
 ): MoveInput {
   const resources = ensureResourceState(slot);
   if (slot.god) refillGodStamina(resources);
-  const normalized: MoveInput = {
+  const step = stepPlayerResources({
+    state: resources,
+    input: normalizeInput(input),
+    canBlock: slot.weapon !== null,
+    dt: TICK_DT,
+  });
+  if (slot.god) refillGodStamina(resources);
+  commitResourceState(slot, resources);
+  return step.input;
+}
+
+function normalizeInput(input: ClientInput | MoveInput): MoveInput {
+  return {
     moveX: input.moveX,
     moveY: input.moveY,
     ...(input.faceX !== undefined ? { faceX: input.faceX } : {}),
@@ -61,19 +73,14 @@ export function advancePlayerResources(
     run: input.run ?? false,
     block: input.block ?? false,
   };
-  const step = stepPlayerResources(
-    resources,
-    normalized,
-    slot.weapon !== null,
-    TICK_DT,
-  );
-  if (slot.god) refillGodStamina(resources);
+}
+
+function commitResourceState(slot: PlayerSlot, resources: ReturnType<typeof ensureResourceState>): void {
   slot.stamina = resources.stamina;
   slot.maxStamina = resources.maxStamina;
   slot.blocking = resources.blocking;
   slot.staminaRecoveryDelaySeconds = resources.staminaRecoveryDelaySeconds;
   slot.staminaExhausted = resources.staminaExhausted;
-  return step.input;
 }
 
 /** Records hostile health loss before applying slow post-combat regeneration. */
@@ -81,20 +88,29 @@ export function applyHealthRegeneration(
   sim: SimState,
   effectEvents: EffectEvent[],
 ): void {
-  for (const event of effectEvents) {
-    if (event.t !== "hp" || event.delta >= 0) continue;
-    const slot = sim.players.get(event.id);
-    if (slot) slot.lastDamageAtTick = sim.tickCount;
-  }
+  recordDamageTimes(sim, effectEvents);
+  regenerateEligiblePlayers(sim, effectEvents);
+}
 
+function recordDamageTimes(sim: SimState, effectEvents: EffectEvent[]): void {
+  for (const event of effectEvents) recordDamageTime(sim, event);
+}
+
+function recordDamageTime(sim: SimState, event: EffectEvent): void {
+  if (event.t !== "hp" || event.delta >= 0) return;
+  const slot = sim.players.get(event.id);
+  if (slot) slot.lastDamageAtTick = sim.tickCount;
+}
+
+function regenerateEligiblePlayers(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const slot of sim.players.values()) {
     if (!canRegenerate(sim, slot)) continue;
-    sim.effects.modifyHealth(
-      slot.entity,
-      HEALTH_REGEN_PER_SECOND,
-      effectEvents,
-      { healthSource: "automatic" },
-    );
+    sim.effects.modifyHealth({
+      entity: slot.entity,
+      amount: HEALTH_REGEN_PER_SECOND,
+      events: effectEvents,
+      opts: { healthSource: "automatic" },
+    });
   }
 }
 

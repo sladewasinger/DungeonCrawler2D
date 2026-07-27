@@ -66,8 +66,8 @@ describe("respawn starter kit (panel round 4)", () => {
 
   beforeEach(() => {
     const world = new World(hashString("respawn-kit-test"), 1, LEVEL.Dungeon);
-    sim = createSimState(world, content, new PlayerStore(null), 9, { spawnRadiusTiles: 12 });
-    const join = addPlayer(sim, "Kit", "client-kit");
+    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 9, opts: { spawnRadiusTiles: 12 } });
+    const join = addPlayer(sim, { name: "Kit", clientId: "client-kit" });
     slot = sim.players.get(join.playerId)!;
   });
 

@@ -11,7 +11,7 @@ const tempFile = (): string =>
   join(tmpdir(), `dc2d-moderation-${Date.now()}-${Math.random()}.json`);
 
 function sim(store: PlayerStore): GameSim {
-  return new GameSim(new World(SEED, 1, LEVEL.Sandbox), content, store, 1, {});
+  return new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: 1, opts: {} });
 }
 
 describe("durable local-profile moderation", () => {
@@ -20,16 +20,16 @@ describe("durable local-profile moderation", () => {
     try {
       const firstStore = new PlayerStore(file);
       const first = sim(firstStore);
-      const a = first.addPlayer("A", "client-a");
-      const b = first.addPlayer("B", "client-b");
+      const a = first.addPlayer({ name: "A", clientId: "client-a" });
+      const b = first.addPlayer({ name: "B", clientId: "client-b" });
       first.queueAction(b.playerId, { type: "moderation", op: "mute", target: a.playerId });
       first.step();
       firstStore.flush();
 
       const secondStore = new PlayerStore(file);
       const second = sim(secondStore);
-      const restoredB = second.addPlayer("B", "client-b");
-      const restoredA = second.addPlayer("A", "client-a");
+      const restoredB = second.addPlayer({ name: "B", clientId: "client-b" });
+      const restoredA = second.addPlayer({ name: "A", clientId: "client-a" });
       expect(restoredA.playerId).not.toBe(a.playerId);
       second.queueAction(restoredA.playerId, {
         type: "chat",

@@ -64,13 +64,14 @@ function cellsCarvable(g: Grid, cells: readonly Cell[]): boolean {
   });
 }
 
-function guardsClear(worldSeed: number, floor: number, bx: number, by: number): boolean {
+function guardsClear(...[worldSeed, floor, bx, by]: [number, number, number, number]): boolean {
   const r: Rect = { x0: bx - 1, y0: by - 1, x1: bx + BLOCK, y1: by + BLOCK };
-  return !isNearLandmark(worldSeed, floor, 0, 0, r) && !isNearDescent(worldSeed, floor, 0, 0, r);
+  const context = { worldSeed, floor, cx: 0, cy: 0, rect: r };
+  return !isNearLandmark(context) && !isNearDescent(context);
 }
 
 /** A 2x2-plus-ring clearing at (bx, by) this pass may carve into (no mutation). */
-function platformViable(g: Grid, worldSeed: number, floor: number, bx: number, by: number): boolean {
+function platformViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number, number, number]): boolean {
   const block = blockCells(bx, by);
   if (!cellsCarvable(g, [...block, ...ringCells(bx, by)])) return false;
   return guardsClear(worldSeed, floor, bx, by);
@@ -84,26 +85,32 @@ function carvePlatformAt(g: Grid, bx: number, by: number): void {
 /** The ring cell a pit's tread occupies for stair side (dx, dy), and the
  * threshold cell one further out (kept z0 so the climb axis is real —
  * height.ts's carveRamp shape). */
-function pitStair(bx: number, by: number, dx: number, dy: number): { tread: Cell; threshold: Cell } {
-  const tread: Cell = [bx + (dx === 1 ? BLOCK : dx === -1 ? -1 : 0), by + (dy === 1 ? BLOCK : dy === -1 ? -1 : 0)];
+function stairOffset(direction: number): number {
+  if (direction === 1) return BLOCK;
+  if (direction === -1) return -1;
+  return 0;
+}
+
+function pitStair({ bx, by, dx, dy }: { bx: number; by: number; dx: number; dy: number }): { tread: Cell; threshold: Cell } {
+  const tread: Cell = [bx + stairOffset(dx), by + stairOffset(dy)];
   return { tread, threshold: [tread[0] + dx, tread[1] + dy] };
 }
 
 /** First workable stair side for a pit at (bx, by), or null if none (no mutation). */
-function pitViable(g: Grid, worldSeed: number, floor: number, bx: number, by: number): Cell | null {
+function pitViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number, number, number]): Cell | null {
   const block = blockCells(bx, by);
   if (!cellsCarvable(g, [...block, ...ringCells(bx, by)]) || !guardsClear(worldSeed, floor, bx, by)) return null;
   for (const [dx, dy] of STAIR_DIRS) {
-    const { threshold } = pitStair(bx, by, dx, dy);
+    const { threshold } = pitStair({ bx, by, dx, dy });
     if (cellsCarvable(g, [threshold])) return [dx, dy];
   }
   return null;
 }
 
 /** Sink the 2x2 to z-1 with one compact rim-stair tread at -0.5 on side `dir`. */
-function carvePitAt(g: Grid, bx: number, by: number, dir: Cell): void {
+function carvePitAt(...[g, bx, by, dir]: [Grid, number, number, Cell]): void {
   for (const [x, y] of blockCells(bx, by)) g.height[y * CHUNK_SIZE + x] = SHOWCASE_DEPTH;
-  const { tread } = pitStair(bx, by, dir[0], dir[1]);
+  const { tread } = pitStair({ bx, by, dx: dir[0], dy: dir[1] });
   g.tiles[tread[1] * CHUNK_SIZE + tread[0]] = TILE.Stairs;
   g.height[tread[1] * CHUNK_SIZE + tread[0]] = TREAD_H;
 }
@@ -113,40 +120,51 @@ function carvePitAt(g: Grid, bx: number, by: number, dir: Cell): void {
 function closestViable(anchor: Cell, viable: (bx: number, by: number) => boolean): Cell | null {
   let best: Cell | null = null;
   let bestDist = Infinity;
-  for (let by = 1; by < CHUNK_SIZE; by++) {
-    for (let bx = 1; bx < CHUNK_SIZE; bx++) {
-      const d = blockDistance(anchor, bx, by);
-      if (d >= bestDist) continue;
-      if (!viable(bx, by)) continue;
-      best = [bx, by];
-      bestDist = d;
+  for (const candidate of blockCandidates()) {
+    const distance = blockDistance(anchor, candidate[0], candidate[1]);
+    if (distance < bestDist && viable(candidate[0], candidate[1])) {
+      best = candidate;
+      bestDist = distance;
     }
   }
   return best;
 }
 
+function blockCandidates(): Cell[] {
+  const cells: Cell[] = [];
+  for (let by = 1; by < CHUNK_SIZE; by++) {
+    for (let bx = 1; bx < CHUNK_SIZE; bx++) cells.push([bx, by]);
+  }
+  return cells;
+}
+
 /** Find-or-carve the floor-1 entry showcase (module doc). Chunk (0,0) floor 1 only. */
-export function applyShowcase(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  tiles: Uint8Array,
-  height: Float32Array,
-  zones: Uint8Array,
-): void {
+interface ShowcaseContext {
+  g: Grid;
+  anchor: Cell;
+  worldSeed: number;
+  floor: number;
+}
+
+function ensurePlatform({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
+  if (hasCleanPlatform(g, anchor)) return;
+  const spot = closestViable(anchor, (bx, by) => platformViable(g, worldSeed, floor, bx, by));
+  if (spot) carvePlatformAt(g, spot[0], spot[1]);
+}
+
+function ensurePit({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
+  if (hasCleanPit(g, anchor)) return;
+  const spot = closestViable(anchor, (bx, by) => pitViable(g, worldSeed, floor, bx, by) !== null);
+  if (!spot) return;
+  const direction = pitViable(g, worldSeed, floor, spot[0], spot[1]);
+  if (direction) carvePitAt(g, spot[0], spot[1], direction);
+}
+
+export function applyShowcase(...[worldSeed, floor, cx, cy, tiles, height, zones]: [number, number, number, number, Uint8Array, Float32Array, Uint8Array]): void {
   if (floor !== 1 || cx !== 0 || cy !== 0) return;
   const g: Grid = { tiles, height, zones };
   const anchor = entryAnchor(tiles);
-  if (!hasCleanPlatform(g, anchor)) {
-    const spot = closestViable(anchor, (bx, by) => platformViable(g, worldSeed, floor, bx, by));
-    if (spot) carvePlatformAt(g, spot[0], spot[1]);
-  }
-  if (!hasCleanPit(g, anchor)) {
-    const spot = closestViable(anchor, (bx, by) => pitViable(g, worldSeed, floor, bx, by) !== null);
-    if (spot) {
-      const dir = pitViable(g, worldSeed, floor, spot[0], spot[1]);
-      if (dir) carvePitAt(g, spot[0], spot[1], dir);
-    }
-  }
+  const context = { g, anchor, worldSeed, floor };
+  ensurePlatform(context);
+  ensurePit(context);
 }

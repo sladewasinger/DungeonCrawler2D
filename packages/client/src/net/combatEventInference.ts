@@ -17,18 +17,8 @@ export interface CombatHealthFrame {
 function remoteCombatHealth(conn: Connection): Map<string, CombatHealthTarget> {
   const targets = new Map<string, CombatHealthTarget>();
   for (const [id, remote] of conn.entities) {
-    const snap = remote.snap;
-    if (
-      (snap.kind !== "player" && snap.kind !== "enemy") ||
-      snap.hp === undefined
-    ) continue;
-    targets.set(id, {
-      hp: snap.hp,
-      x: snap.x,
-      y: snap.y,
-      ...(snap.defId === undefined ? {} : { defId: snap.defId }),
-      targetKind: snap.kind,
-    });
+    const target = combatHealthTarget(remote.snap);
+    if (target) targets.set(id, target);
   }
   return targets;
 }
@@ -74,17 +64,8 @@ function snapshotCombatHealth(
     });
   }
   for (const entity of snap.entities) {
-    if (
-      (entity.kind !== "player" && entity.kind !== "enemy") ||
-      entity.hp === undefined
-    ) continue;
-    targets.set(entity.id, {
-      hp: entity.hp,
-      x: entity.x,
-      y: entity.y,
-      ...(entity.defId === undefined ? {} : { defId: entity.defId }),
-      targetKind: entity.kind,
-    });
+    const target = combatHealthTarget(entity);
+    if (target) targets.set(entity.id, target);
   }
   return targets;
 }
@@ -100,36 +81,43 @@ export function inferMissingDamageEvents(
   snap: ServerSnapshot,
   before: CombatHealthFrame,
 ): void {
-  if (
-    !before.initialized ||
-    snap.events.some((event) => event.t === "teleported")
-  ) return;
+  if (!canInferDamage(before, snap)) return;
   const explicitHealth = explicitHealthTargetIds(snap.events);
   const explicitImpacts = explicitImpactTargetIds(snap.events);
   for (const [id, next] of snapshotCombatHealth(conn, snap)) {
     const previous = before.targets.get(id);
     if (!previous || next.hp >= previous.hp) continue;
-    const captured = {
-      id,
-      x: next.x,
-      y: next.y,
-      ...(next.defId === undefined ? {} : { defId: next.defId }),
-      targetKind: next.targetKind,
-    };
-    if (!explicitHealth.has(id)) {
-      conn.visualEvents.push({
-        t: "health",
-        delta: next.hp - previous.hp,
-        kind: "damage",
-        ...captured,
-      });
-    }
-    if (!explicitImpacts.has(id)) {
-      conn.visualEvents.push({
-        t: "damageImpact",
-        amount: previous.hp - next.hp,
-        ...captured,
-      });
-    }
+    const captured = capturedTarget(id, next);
+    inferHealthEvent({ conn, explicit: explicitHealth, target: captured, before: previous, next });
+    inferImpactEvent({ conn, explicit: explicitImpacts, target: captured, before: previous, next });
   }
+}
+
+function combatHealthTarget(snapshot: ServerSnapshot["entities"][number]): CombatHealthTarget | undefined {
+  if ((snapshot.kind !== "player" && snapshot.kind !== "enemy") || snapshot.hp === undefined) return undefined;
+  return { hp: snapshot.hp, x: snapshot.x, y: snapshot.y, ...(snapshot.defId === undefined ? {} : { defId: snapshot.defId }), targetKind: snapshot.kind };
+}
+
+function canInferDamage(before: CombatHealthFrame, snap: ServerSnapshot): boolean {
+  return before.initialized && !snap.events.some((event) => event.t === "teleported");
+}
+
+function capturedTarget(id: string, next: CombatHealthTarget) {
+  return { id, x: next.x, y: next.y, ...(next.defId === undefined ? {} : { defId: next.defId }), targetKind: next.targetKind };
+}
+
+interface InferredEventInput {
+  readonly conn: Connection;
+  readonly explicit: Set<string>;
+  readonly target: ReturnType<typeof capturedTarget>;
+  readonly before: CombatHealthTarget;
+  readonly next: CombatHealthTarget;
+}
+
+function inferHealthEvent({ conn, explicit, target, before, next }: InferredEventInput): void {
+  if (!explicit.has(target.id)) conn.visualEvents.push({ t: "health", delta: next.hp - before.hp, kind: "damage", ...target });
+}
+
+function inferImpactEvent({ conn, explicit, target, before, next }: InferredEventInput): void {
+  if (!explicit.has(target.id)) conn.visualEvents.push({ t: "damageImpact", amount: before.hp - next.hp, ...target });
 }

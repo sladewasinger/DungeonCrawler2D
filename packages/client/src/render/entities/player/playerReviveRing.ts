@@ -18,18 +18,29 @@ export function updatePlayerReviveRing(
     return;
   }
   const ringY = body.y - body.displayHeight - 5;
+  drawReviveRing({ ring, x: body.x, ringY, progress });
+  ring.setDepth(depthForScreenY(ringY) + REVIVE_RING_DEPTH_BIAS).setVisible(true);
+}
+
+interface ReviveRingDrawing {
+  readonly ring: Phaser.GameObjects.Graphics;
+  readonly x: number;
+  readonly ringY: number;
+  readonly progress: number;
+}
+
+function drawReviveRing({ ring, x, ringY, progress }: ReviveRingDrawing): void {
   ring.clear();
   ring.lineStyle(2, 0x8fffc1, 0.3);
-  ring.strokeCircle(body.x, ringY, REVIVE_RING_RADIUS_PX);
+  ring.strokeCircle(x, ringY, REVIVE_RING_RADIUS_PX);
   ring.lineStyle(2, 0x8fffc1, 0.95);
   ring.beginPath();
   ring.arc(
-    body.x,
+    x,
     ringY,
     REVIVE_RING_RADIUS_PX,
     -Math.PI / 2,
     -Math.PI / 2 + progress * Math.PI * 2,
   );
   ring.strokePath();
-  ring.setDepth(depthForScreenY(ringY) + REVIVE_RING_DEPTH_BIAS).setVisible(true);
 }

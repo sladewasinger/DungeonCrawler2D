@@ -15,17 +15,19 @@ export interface ThreeHudWindowContents {
   stash: HTMLElement;
 }
 
-const spec = (
-  id: string,
-  title: string,
-  width: number,
-  height: number,
-  anchor: HudWindowSpec["anchor"],
-  content: HTMLElement,
+type WindowSpecInput = Pick<HudWindowSpec, "id" | "title" | "width" | "height" | "anchor" | "content" | "interactive" | "mobile" | "defaultVisible">;
+
+const spec = ({
+  id,
+  title,
+  width,
+  height,
+  anchor,
+  content,
   interactive = false,
-  mobile?: HudWindowSpec["mobile"],
+  mobile,
   defaultVisible = true,
-): HudWindowSpec => ({
+}: WindowSpecInput): HudWindowSpec => ({
   id,
   title,
   width,
@@ -40,19 +42,19 @@ const spec = (
 export const threeHudWindowSpecs = (
   content: ThreeHudWindowContents,
 ): HudWindowSpec[] => [
-  spec("three-health", "Status", 286, 108, "top-left", content.status),
-  spec("three-compass", "Compass", 82, 82, "top-center", content.compass),
-  spec("three-buffs", "Buffs and debuffs", 286, 72, "center-left", content.buffs),
-  spec("three-hotbar", "Hotbar", 620, 58, "bottom-center", content.hotbar, true),
-  spec("three-chat", "Chat", 300, 230, "bottom-left", content.chat, true, {
+  spec({ id: "three-health", title: "Status", width: 286, height: 108, anchor: "top-left", content: content.status }),
+  spec({ id: "three-compass", title: "Compass", width: 82, height: 82, anchor: "top-center", content: content.compass }),
+  spec({ id: "three-buffs", title: "Buffs and debuffs", width: 286, height: 72, anchor: "center-left", content: content.buffs }),
+  spec({ id: "three-hotbar", title: "Hotbar", width: 620, height: 58, anchor: "bottom-center", content: content.hotbar, interactive: true }),
+  spec({ id: "three-chat", title: "Chat", width: 300, height: 230, anchor: "bottom-left", content: content.chat, interactive: true, mobile: {
     width: 280,
     height: 190,
     anchor: "center-left",
-  }),
-  spec("three-weapon", "Active weapon", 230, 84, "bottom-right", content.weapon),
-  spec("three-party", "Party", 260, 230, "top-right", content.party),
-  spec("three-telemetry", "World status", 244, 150, "center-right", content.telemetry),
-  spec("three-contacts", "Contacts", 260, 340, "center", content.contacts, true, undefined, false),
-  spec("three-craft", "Crafting", 390, 420, "center", content.craft, true, undefined, false),
-  spec("three-stash", "Stash", 460, 420, "center", content.stash, true, undefined, false),
+  } }),
+  spec({ id: "three-weapon", title: "Active weapon", width: 230, height: 84, anchor: "bottom-right", content: content.weapon }),
+  spec({ id: "three-party", title: "Party", width: 260, height: 230, anchor: "top-right", content: content.party }),
+  spec({ id: "three-telemetry", title: "World status", width: 244, height: 150, anchor: "center-right", content: content.telemetry }),
+  spec({ id: "three-contacts", title: "Contacts", width: 260, height: 340, anchor: "center", content: content.contacts, interactive: true, defaultVisible: false }),
+  spec({ id: "three-craft", title: "Crafting", width: 390, height: 420, anchor: "center", content: content.craft, interactive: true, defaultVisible: false }),
+  spec({ id: "three-stash", title: "Stash", width: 460, height: 420, anchor: "center", content: content.stash, interactive: true, defaultVisible: false }),
 ];

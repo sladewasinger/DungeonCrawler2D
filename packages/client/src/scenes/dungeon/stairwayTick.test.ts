@@ -22,7 +22,7 @@ describe("resolveStairwayTick", () => {
     [180, 180],
     [90, 90],
   ])("stairs due north, view bearing %i -> screen bearing %i", (view, expected) => {
-    const tick = resolveStairwayTick(WORLD, TARGET.x, TARGET.y + 20, view);
+    const tick = resolveStairwayTick({ world: WORLD, x: TARGET.x, y: TARGET.y + 20, viewBearingDeg: view });
     expect(tick?.screenBearingDeg).toBeCloseTo(expected, 6);
   });
 
@@ -38,27 +38,27 @@ describe("resolveStairwayTick", () => {
     [180, 270],
     [90, 180],
   ])("stairs due east, view bearing %i -> screen bearing %i", (view, expected) => {
-    const tick = resolveStairwayTick(WORLD, TARGET.x - 20, TARGET.y, view);
+    const tick = resolveStairwayTick({ world: WORLD, x: TARGET.x - 20, y: TARGET.y, viewBearingDeg: view });
     expect(tick?.screenBearingDeg).toBeCloseTo(expected, 6);
   });
 
   it("resolves a diagonal: 3 east + 4 north of the player is atan2(3,4) = 36.87 degrees at north-up", () => {
     // Player at (target.x - 3, target.y + 4): dx=3, dy=-4 — the 3-4-5 triangle.
-    const tick = resolveStairwayTick(WORLD, TARGET.x - 3, TARGET.y + 4, 0);
+    const tick = resolveStairwayTick({ world: WORLD, x: TARGET.x - 3, y: TARGET.y + 4, viewBearingDeg: 0 });
     expect(tick?.screenBearingDeg).toBeCloseTo((Math.atan2(3, 4) * 180) / Math.PI, 6);
     expect(tick?.near).toBe(true); // hypot(3,4) = 5 <= 8
   });
 
   it("pulses exactly at the near threshold and not one step beyond", () => {
     // Due south at exactly 8 tiles: hypot = 8 <= 8 -> near.
-    expect(resolveStairwayTick(WORLD, TARGET.x, TARGET.y + STAIRWAY_NEAR_TILES, 0)?.near).toBe(true);
+    expect(resolveStairwayTick({ world: WORLD, x: TARGET.x, y: TARGET.y + STAIRWAY_NEAR_TILES, viewBearingDeg: 0 })?.near).toBe(true);
     // Diagonal 6+6: hypot = 8.485... > 8 -> not near.
-    expect(resolveStairwayTick(WORLD, TARGET.x + 6, TARGET.y + 6, 0)?.near).toBe(false);
+    expect(resolveStairwayTick({ world: WORLD, x: TARGET.x + 6, y: TARGET.y + 6, viewBearingDeg: 0 })?.near).toBe(false);
     // 20 tiles out: far.
-    expect(resolveStairwayTick(WORLD, TARGET.x, TARGET.y + 20, 0)?.near).toBe(false);
+    expect(resolveStairwayTick({ world: WORLD, x: TARGET.x, y: TARGET.y + 20, viewBearingDeg: 0 })?.near).toBe(false);
   });
 
   it("returns null on the boss floor (FLOOR_CAP has no StairwayDown)", () => {
-    expect(resolveStairwayTick({ worldSeed: SEED, floor: 5 }, 0, 0, 0)).toBeNull();
+    expect(resolveStairwayTick({ world: { worldSeed: SEED, floor: 5 }, x: 0, y: 0, viewBearingDeg: 0 })).toBeNull();
   });
 });
