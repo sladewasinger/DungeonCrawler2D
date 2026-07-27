@@ -27,6 +27,8 @@ export interface PlayerEntityView {
   faceY: number;
   air: boolean;
   downed: boolean;
+  /** Authoritative 0..1 hold progress while this crawler is being revived. */
+  reviveProgress?: number;
   disconnected?: boolean;
   attacking: boolean;
   blocking: boolean;
@@ -52,6 +54,21 @@ export interface MonsterEntityView {
   anim: EnemyAnimationState;
   faceX: number;
   air: boolean;
+}
+
+export type PetAnimationState = "idle" | "walk";
+
+export interface PetEntityView {
+  id: string;
+  defId: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  anim: PetAnimationState;
+  faceX: number;
+  air: boolean;
+  ownerName?: string;
 }
 
 export interface ItemEntityView {

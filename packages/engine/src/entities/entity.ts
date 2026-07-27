@@ -8,7 +8,7 @@ import type { PlayerSkin } from "./playerAppearance.js";
  * interaction rules and AI never reference specific ids, only tags.
  */
 
-export type EntityKind = "player" | "enemy" | "item" | "projectile" | "torch";
+export type EntityKind = "player" | "enemy" | "pet" | "item" | "projectile" | "torch";
 
 export interface ActiveStatus {
   defId: string;

@@ -4,13 +4,14 @@ import type { PlayerEntityView } from "../../render/entities/index.js";
 
 export type RemotePlayerFields = Pick<PlayerEntityView,
   "name" | "skin" | "hp" | "maxHp" | "fx" | "faceX" | "faceY" | "air" | "downed" |
-  "disconnected" | "attacking" | "blocking" | "weaponId" |
+  "reviveProgress" | "disconnected" | "attacking" | "blocking" | "weaponId" |
   "weaponAimAngle" | "attackAngleRad">;
 
 const REMOTE_DEFAULTS = {
   air: false,
   disconnected: false,
   downed: false,
+  reviveProgress: 0,
   faceX: 1,
   faceY: 0,
   fx: [] as readonly string[],
@@ -35,6 +36,7 @@ export function remotePlayerFields(snapshot: EntitySnapshot): RemotePlayerFields
     faceY: REMOTE_DEFAULTS.faceY,
     air: REMOTE_DEFAULTS.air,
     downed: REMOTE_DEFAULTS.downed,
+    reviveProgress: REMOTE_DEFAULTS.reviveProgress,
     disconnected: REMOTE_DEFAULTS.disconnected,
     attacking: false,
     blocking: REMOTE_DEFAULTS.blocking,
@@ -62,6 +64,7 @@ export function remotePlayerFieldsInto(
   target.faceY = faceY;
   target.air = valueOr(snapshot.air, REMOTE_DEFAULTS.air);
   target.downed = valueOr(snapshot.downed, REMOTE_DEFAULTS.downed);
+  target.reviveProgress = valueOr(snapshot.reviveProgress, REMOTE_DEFAULTS.reviveProgress);
   target.disconnected = valueOr(
     snapshot.disconnected,
     REMOTE_DEFAULTS.disconnected,

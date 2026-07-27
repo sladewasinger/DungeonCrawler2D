@@ -111,6 +111,7 @@ const createStaticParts = (
     inventory: new ThreeHudInventory(
       options.connection,
       actions.closeInventory,
+      options.touchDevice,
     ),
   };
 };

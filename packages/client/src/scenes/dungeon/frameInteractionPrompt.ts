@@ -26,6 +26,27 @@ function nearestDownedPlayer(
   return best;
 }
 
+function nearestPet(
+  buckets: FrameEntityBuckets,
+  x: number,
+  y: number,
+): { x: number; y: number; name: string } | undefined {
+  let best: { x: number; y: number; name: string } | undefined;
+  let bestDistance = INTERACT_RANGE;
+  for (const pet of buckets.pets) {
+    if (pet.snap.petOwnerName !== undefined) continue;
+    const distance = Math.hypot(pet.x - x, pet.y - y);
+    if (distance >= bestDistance) continue;
+    bestDistance = distance;
+    best = {
+      x: pet.x,
+      y: pet.y,
+      name: pet.snap.name ?? "pet",
+    };
+  }
+  return best;
+}
+
 export function resolveFrameInteractionPrompt(
   conn: Connection,
   buckets: FrameEntityBuckets,
@@ -39,5 +60,6 @@ export function resolveFrameInteractionPrompt(
     buckets.pickupTargets,
     nearestDownedPlayer(buckets, x, y),
     nearestLootChest(conn) ?? undefined,
+    nearestPet(buckets, x, y),
   );
 }

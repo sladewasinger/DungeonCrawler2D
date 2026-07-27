@@ -37,12 +37,21 @@ const ensureResourceState = (slot: PlayerSlot) => {
   };
 };
 
+function refillGodStamina(
+  resources: ReturnType<typeof ensureResourceState>,
+): void {
+  resources.stamina = resources.maxStamina;
+  resources.staminaRecoveryDelaySeconds = 0;
+  resources.staminaExhausted = false;
+}
+
 /** Resolves held sprint/block intent and commits the authoritative stamina step. */
 export function advancePlayerResources(
   slot: PlayerSlot,
   input: ClientInput | MoveInput,
 ): MoveInput {
   const resources = ensureResourceState(slot);
+  if (slot.god) refillGodStamina(resources);
   const normalized: MoveInput = {
     moveX: input.moveX,
     moveY: input.moveY,
@@ -58,6 +67,7 @@ export function advancePlayerResources(
     slot.weapon !== null,
     TICK_DT,
   );
+  if (slot.god) refillGodStamina(resources);
   slot.stamina = resources.stamina;
   slot.maxStamina = resources.maxStamina;
   slot.blocking = resources.blocking;

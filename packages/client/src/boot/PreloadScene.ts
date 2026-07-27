@@ -5,6 +5,7 @@ import { registerAnimations, type AnimationManifest } from "./registerAnimations
 import { waitForPixelFontReady } from "../ui/font.js";
 import { DEBUG_TILE_PX, DEBUG_TILESET_KEY, DEBUG_TILESET_PATH } from "../render/terrain/debugTileset.js";
 import { setViewOrientation } from "../render/view/viewState.js";
+import { PET_ASSETS } from "./petAssetManifest.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
@@ -37,6 +38,12 @@ export class PreloadScene extends Phaser.Scene {
       frameWidth: DEBUG_TILE_PX,
       frameHeight: DEBUG_TILE_PX,
     });
+    for (const spec of Object.values(PET_ASSETS)) {
+      this.load.spritesheet(spec.textureKey, spec.path, {
+        frameWidth: spec.frameWidth,
+        frameHeight: spec.frameHeight,
+      });
+    }
     waitForPixelFontReady().then(() => {
       this.fontReady = true;
     });
@@ -45,6 +52,7 @@ export class PreloadScene extends Phaser.Scene {
   create(): void {
     const manifest = this.cache.json.get(ASSET_KEYS.animations) as AnimationManifest;
     registerAnimations(this.anims, manifest);
+    registerPetAnimations(this.anims);
     this.bootStartedAtMs = this.time.now;
     this.waitThenHandOff();
   }
@@ -78,4 +86,27 @@ export class PreloadScene extends Phaser.Scene {
     }
     this.scene.start("title");
   }
+}
+
+function registerPetAnimations(anims: Phaser.Animations.AnimationManager): void {
+  for (const [id, spec] of Object.entries(PET_ASSETS)) {
+    createPetAnimation(anims, `pet:${id}:idle`, spec.textureKey, spec.idleFrames, 5);
+    createPetAnimation(anims, `pet:${id}:walk`, spec.textureKey, spec.walkFrames, 9);
+  }
+}
+
+function createPetAnimation(
+  anims: Phaser.Animations.AnimationManager,
+  key: string,
+  textureKey: string,
+  frames: readonly number[],
+  frameRate: number,
+): void {
+  if (anims.exists(key)) return;
+  anims.create({
+    key,
+    frames: frames.map((frame) => ({ key: textureKey, frame })),
+    frameRate,
+    repeat: -1,
+  });
 }

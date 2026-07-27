@@ -50,6 +50,10 @@ describe("GameSim: join, spawn, and AOI", () => {
     for (let index = 0; index < TICK_RATE * 4; index += 1) dev.step();
     expect(bEntity.hp).toBe(PLAYER_MAX_HP);
     expect(bEntity.body.kx).toBe(0);
+
+    dev.queueAction(b.playerId, { type: "debug", op: "god" });
+    const toggleOff = dev.step().get(b.playerId);
+    expect(toggleOff?.events).toContainEqual({ t: "toast", msg: "God mode off" });
   });
 
   it("reseeds canonical dev pickups after another player consumes them", () => {

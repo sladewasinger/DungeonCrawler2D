@@ -12,6 +12,7 @@ import { registerPendingSwing } from "../../vfx/meleeConnect.js";
 import {
   itemView,
   monsterView,
+  petView,
   remotePlayerView,
   selfPlayerView,
 } from "./entityViews.js";
@@ -41,6 +42,7 @@ export function syncCombatants(
   const monsters = mapFrameInto(
     buckets.enemies, state.entityViews.enemies, state.entityViews.enemyRecords, monsterView,
   );
+  const pets = mapFrameInto(buckets.pets, state.entityViews.pets, state.entityViews.petRecords, petView);
   syncDamageVfx(
     state.combatHealth,
     state.combatHealthSeen,
@@ -56,6 +58,7 @@ export function syncCombatants(
   );
   entityRenderer.syncPlayers(players, context);
   entityRenderer.syncMonsters(monsters, context);
+  entityRenderer.syncPets(pets, context);
   syncItemViews(conn, entityRenderer, state, buckets, render, nowMs);
   spawnMeleeSwings(vfx, state, players, nowMs);
 }
@@ -130,6 +133,7 @@ function updateSelfSource(
   vitals.maxHp = conn.maxHp;
   vitals.fx = conn.fx;
   vitals.downed = conn.downed;
+  vitals.reviveProgress = conn.reviveProgress;
   vitals.blocking = conn.blocking;
   vitals.weaponId = conn.weapon;
 }

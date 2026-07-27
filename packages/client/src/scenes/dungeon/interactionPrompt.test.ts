@@ -71,4 +71,17 @@ describe("resolveInteractionPrompt", () => {
     });
   });
 
+  it("prompts to adopt an unclaimed pet", () => {
+    const world = worldWithTileAt(99, 99, TILE.CraftingTable);
+    expect(resolveInteractionPrompt(
+      world,
+      5,
+      5,
+      [],
+      undefined,
+      undefined,
+      { x: 5.5, y: 5, name: "Doux" },
+    )).toEqual({ key: "E", label: "adopt Doux" });
+  });
+
 });

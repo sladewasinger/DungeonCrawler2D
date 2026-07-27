@@ -17,11 +17,13 @@ import {
 } from "../safeRoomDoors.js";
 import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
 import { openLootChest } from "../lootChests.js";
+import { claimNearestPet } from "../pets/index.js";
 
 /** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
 
 export function doInteract(sim: SimState, slot: PlayerSlot): void {
   if (slot.downedAtTick !== null) return;
+  if (claimNearestPet(sim, slot)) return;
   if (openLootChest(sim, slot)) return;
   const body = slot.entity.body;
   const target = resolveWorldInteraction(sim.world, body.x, body.y);

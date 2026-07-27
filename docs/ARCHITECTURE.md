@@ -61,7 +61,7 @@ dungeoncrawler2D/
 │   ├── game-server/             # ── NODE + ws ──
 │   │   ├── sim/                 #   The authoritative sim — one module per concern over a shared
 │   │   │                        #   SimState (state.ts): players, actions, inventory, social,
-│   │   │                        #   enemies, projectiles, statuses, deaths, spawn, snapshots,
+│   │   │                        #   enemies, pets, projectiles, statuses, deaths, spawn, snapshots,
 │   │   │                        #   testzone; GameSim facade + tick order in index.ts
 │   │   ├── server.ts            #   ws transport: decode/zod-validate → sim; snapshots out
 │   │   ├── store.ts             #   File-backed player store (stash, identity) → DynamoDB in v0.8
@@ -135,6 +135,10 @@ An `Entity` is an id + position `(x, y, z)` + stat block + **tag set** + active 
 
 - Material/state tags: `flammable`, `liquid`, `wet`, `metal`, `organic`, `sharp`
 - Behavioral tags: `enemy`, `player`, `item`, `container`
+- Pets are a separate `pet` entity kind. The server keeps their owner and
+  behavior state in `sim/pets/`; claiming is an authoritative `interact` action,
+  while follow/drift movement is isolated from enemy AI so future abilities
+  (combat help, loot retrieval) can grow without making pets hostile entities.
 - Effect-owned tags: being on fire adds `burning`; standing in water adds `wet`
 - Zone tags on map regions: `sanctuary` (safe rooms — hostile primitives suppressed); later biome tags like `flooded`, `overgrown`
 
@@ -182,7 +186,7 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 - **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation, melee targeting, AI decisions, area buoyancy — all headless engine code
 - **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, and out-of-range clients receive nothing
 - **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
-- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (no damage, no knockback) and `/tp X Y` — so a feature can be inspected directly instead of wandering a live PvP world. Gated by the server's `debugCommands` option: on for development, hard-off in production
+- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (no damage, no knockback, 4× outgoing damage) and `/tp X Y` — so a feature can be inspected directly instead of wandering a live PvP world. Gated by the server's `debugCommands` option: on for development, hard-off in production
 - **Manual/playtest:** Phaser layer, feel, latency tuning — every release playtested as a duo minimum
 
 ## Conventions

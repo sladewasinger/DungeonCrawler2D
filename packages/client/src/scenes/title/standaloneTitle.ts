@@ -31,6 +31,7 @@ export interface StandaloneTitleOptions {
   initialStatus?: string;
   beforeConnect?: () => void;
   beforeReady?: () => void;
+  onNameInputFocusChange?: (focused: boolean) => void;
 }
 
 const atlasPiece = (piece: AtlasPiece): HTMLSpanElement => {
@@ -123,6 +124,9 @@ export class StandaloneTitle {
     this.root.append(this.backdrop);
     this.form = new ConnectForm({
       onConnect: (name, level, skin) => this.connect(name, level, skin),
+      ...(options.onNameInputFocusChange
+        ? { onNameInputFocusChange: options.onNameInputFocusChange }
+        : {}),
     });
     if (options.initialStatus) this.form.setStatus(options.initialStatus);
   }

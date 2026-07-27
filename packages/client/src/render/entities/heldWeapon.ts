@@ -8,6 +8,7 @@ import {
   blockGuardTransform,
 } from "./blockGuard.js";
 import { MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
+import { depthForScreenY } from "./worldToScreen.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
 const HAND_OFFSET_Y = -SCREEN_TILE_PX * 0.45;
@@ -75,8 +76,8 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
   }
 
   if (pose.orbitAngleRad === null) {
-    sprite.setDepth(pose.wielderDepth + WEAPON_DEPTH_BIAS);
     positionLegacyHandOffset(sprite, pose);
+    sprite.setDepth(depthForScreenY(sprite.y) + WEAPON_DEPTH_BIAS);
     return;
   }
   positionOrbiting(sprite, pose);
@@ -95,12 +96,10 @@ function positionGuard(
     SCREEN_TILE_PX,
     pose.nowMs,
   );
-  sprite.setDepth(
-    pose.wielderDepth + Math.sin(facingAngle) * WEAPON_DEPTH_BIAS,
-  );
   sprite.setFlipX(false);
   sprite.setFlipY(Math.cos(facingAngle) < 0);
   sprite.setPosition(guard.x, guard.y);
+  sprite.setDepth(depthForScreenY(guard.y) + WEAPON_DEPTH_BIAS);
   sprite.setRotation(guard.rotation);
   sprite.setScale(WORLD_PIXEL_SCALE * guard.scale);
 }
@@ -119,11 +118,11 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
   const angle = pose.striking
     ? swingSweepAngle(pose.attackAngleRad, MELEE_HALF_ANGLE_RAD, pose.strikeProgress)
     : (pose.orbitAngleRad as number);
-  // South-ward (positive sin, screen-down) orbit points draw in front of the wielder;
-  // north-ward points draw behind — the same "further south draws in front" convention
-  // depthSort.ts uses for whole entities, applied at orbit-weapon scale.
-  sprite.setDepth(pose.wielderDepth + Math.sin(angle) * WEAPON_DEPTH_BIAS);
   const center = orbitPosition(pose.screenX, pose.screenY + ORBIT_CENTER_OFFSET_Y, angle, SCREEN_TILE_PX);
+  // Sort by the weapon's actual projected attachment point. This keeps a sword
+  // visible when a player is standing below Z:0 and their sprite/weapon has
+  // shifted screen-south into the next terrain row.
+  sprite.setDepth(depthForScreenY(center.y) + WEAPON_DEPTH_BIAS);
   sprite.setFlipX(false);
   // On the left half of the orbit a pure rotation renders the weapon upside
   // down; a vertical flip mirrors the blade back upright — the standard ARPG

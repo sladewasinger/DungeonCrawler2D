@@ -19,6 +19,7 @@ export class ThreeHudInventory {
   constructor(
     private readonly connection: Connection,
     close: () => void,
+    private readonly touchDevice: boolean,
   ) {
     this.shell = createInventoryShell({
       close,
@@ -39,6 +40,9 @@ export class ThreeHudInventory {
     this.element.hidden = false;
     this.element.style.display = "grid";
     this.invalidate();
+    // Do not summon the mobile keyboard just for opening the inventory. The
+    // player can still tap the filter field when they actually want to type.
+    if (this.touchDevice) return;
     this.shell.search.focus({ preventScroll: true });
     requestAnimationFrame(() => {
       if (this.isOpen()) this.shell.search.focus({ preventScroll: true });

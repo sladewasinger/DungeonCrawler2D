@@ -28,7 +28,11 @@ vi.mock("./weaponIcon.js", () => ({
   weaponIconFrame: () => null,
 }));
 vi.mock("./weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
-vi.mock("./worldToScreen.js", () => ({ depthForEntityNow: () => 1, worldToScreen: (x: number, y: number) => ({ x, y }) }));
+vi.mock("./worldToScreen.js", () => ({
+  depthForEntityNow: () => 1,
+  depthForScreenY: () => 1,
+  worldToScreen: (x: number, y: number) => ({ x, y }),
+}));
 
 function sprite() {
   const anims = { currentAnim: { key: "idle" }, timeScale: 1 };

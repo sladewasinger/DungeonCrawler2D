@@ -1,8 +1,8 @@
 # Asset Licenses
 
-All art acquired for v2 is CC0-1.0 (public domain dedication) or an
-equivalently permissive license. Anything that doesn't clear this bar does
-not belong in this folder — delete rather than ship.
+Most art acquired for v2 is CC0-1.0 (public domain dedication) or an
+equivalently permissive license. The dino pet sprites are the exception:
+they are CC BY 4.0 and ship with the attribution below.
 
 Per `docs/VISUAL_DIRECTION.md`, the 0x72 DungeonTileset II is the primary
 (only) world-art pack for v1.0: one resolution, one palette family. Nothing
@@ -38,6 +38,21 @@ still missing and why it isn't being patched with a second art pack.
 | Verification | (1) Downloaded size (10,468 bytes) matches the GitHub API's reported size and matches the "10 kB" size itch.io itself lists for `monogram.ttf`. (2) File opens with a valid TrueType `sfnt` header (`00 01 00 00`) and `file` identifies it as `TrueType Font data, 14 tables` — not disguised as anything else. (3) Cross-checked: git blob SHA `aceaebab76d4ccb69d59241d154216f6f53d7e8d` is byte-identical to the same file in a second, unrelated repo (`IronGremlin/moar_ants`), whose own `assets/licenses_and_attributions.txt` independently credits: `"monogram" data goblin (datagoblin.itch.io) — Marked with CC0 1.0 Universal`. |
 | Download date | 2026-07-18 |
 | Automation-directed text found? | None. Same routine "No generative AI was used" disclosure as above; not an instruction. |
+
+## Pet sprites
+
+### Dino Character Sprites
+
+The four `assets/packs/pet_dino/DinoSprites - *.png` sheets are by Arks and are
+licensed CC BY 4.0. Keep this credit with any redistribution:
+
+> Dino Character Sprites by Arks, licensed CC BY 4.0.
+
+### Enchanted Forest Characters
+
+`assets/packs/0x72_DungeonTilesetII_v1.7/Enchanted Forest Characters with
+animations.png` is by Superdark and is CC0. The pet dog uses the dire-wolf row
+from this sheet; no additional attribution is required.
 
 ## Particle / VFX sprites (torch flicker, embers, poison bubbles, smoke, sparks)
 

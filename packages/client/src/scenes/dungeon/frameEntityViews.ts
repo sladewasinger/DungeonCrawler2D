@@ -1,6 +1,7 @@
 import type {
   ItemEntityView,
   MonsterEntityView,
+  PetEntityView,
   PlayerEntityView,
   ProjectileEntityView,
 } from "../../render/entities/index.js";
@@ -10,6 +11,8 @@ export interface FrameEntityViews {
   readonly playerRecords: PlayerEntityView[];
   readonly enemies: MonsterEntityView[];
   readonly enemyRecords: MonsterEntityView[];
+  readonly pets: PetEntityView[];
+  readonly petRecords: PetEntityView[];
   readonly items: ItemEntityView[];
   readonly itemRecords: ItemEntityView[];
   readonly projectiles: ProjectileEntityView[];
@@ -22,6 +25,8 @@ export function createFrameEntityViews(): FrameEntityViews {
     playerRecords: [],
     enemies: [],
     enemyRecords: [],
+    pets: [],
+    petRecords: [],
     items: [],
     itemRecords: [],
     projectiles: [],

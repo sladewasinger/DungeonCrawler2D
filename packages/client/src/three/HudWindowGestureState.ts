@@ -1,6 +1,6 @@
 /** Defines gesture state and geometry primitives for HTML HUD window editing. */
 import { closestAnchor } from "./HudWindowGeometry.js";
-import { resolveWindowPosition } from "./HudWindowLayout.js";
+import { resolveWindowPosition, resolveWindowSize } from "./HudWindowLayout.js";
 import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
@@ -81,13 +81,9 @@ export const releaseGesturePointers = (
 
 export const snapWindowAnchor = (
   layout: HudWindowLayout,
-  scale: number,
   root: DOMRect,
 ): void => {
-  const size = {
-    width: Math.round(layout.width * scale),
-    height: Math.round(layout.height * scale),
-  };
+  const size = resolveWindowSize(layout, root);
   const position = resolveWindowPosition(layout, size, root);
   layout.anchor = closestAnchor(
     position.x,
@@ -135,7 +131,6 @@ export const hudWindowGestureBounds = (
 export const makeHudWindowFree = (
   record: EditableHudWindow,
   rootElement: HTMLElement,
-  scale: number,
 ): DOMRect => {
   const root = rootElement.getBoundingClientRect();
   const rect = record.element.getBoundingClientRect();
@@ -143,7 +138,7 @@ export const makeHudWindowFree = (
   setRelativeWindowPosition(
     record.layout,
     { x: Math.round(rect.left - root.left), y: Math.round(rect.top - root.top) },
-    { width: record.layout.width * scale, height: record.layout.height * scale },
+    { width: rect.width, height: rect.height },
     root,
   );
   return root;

@@ -68,7 +68,7 @@ restores the vast-world scatter).
 ### Controls
 
 WASD/arrows move · Space jumps · mouse aims, click attacks · `R` picks up ·
-number keys `1–9` use hotbar · `Enter` chats (`/god`, `/tp x y` in dev builds only) ·
+number keys `1–9` use hotbar · `Enter` chats (`/god` toggles god mode; `/tp x y` in dev builds only) ·
 touch devices get a floating joystick + attack/jump/use buttons automatically.
 Inventory window (`I`/`Tab`) is landing next — see [docs/HUD_OS.md](docs/HUD_OS.md).
 

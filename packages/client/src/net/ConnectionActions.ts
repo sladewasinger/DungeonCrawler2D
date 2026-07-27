@@ -116,7 +116,7 @@ export class ConnectionActions {
   who(): void { whoIntent(this.connection); }
   suicide(): void { suicideIntent(this.connection); }
   debugTeleport(x: number, y: number): void { debugTeleportIntent(this.connection, x, y); }
-  debugGod(on = true): void { debugGodIntent(this.connection, on); }
+  debugGod(on?: boolean): void { debugGodIntent(this.connection, on); }
 
   private resolveSocialTarget(nameOrId?: string): string | undefined {
     const connection = this.connection;

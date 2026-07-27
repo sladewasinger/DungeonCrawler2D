@@ -65,7 +65,7 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
 
 export const entitySnapshotSchema = z.object({
   id: z.string(),
-  kind: z.enum(["player", "enemy", "item", "projectile", "torch"]),
+  kind: z.enum(["player", "enemy", "pet", "item", "projectile", "torch"]),
   defId: z.string().optional(),
   name: z.string().optional(),
   skin: z.enum(PLAYER_SKINS).optional(),
@@ -77,8 +77,12 @@ export const entitySnapshotSchema = z.object({
   fx: z.array(z.string()).optional(),
   qty: z.number().optional(),
   downed: z.boolean().optional(),
+  /** Public AOI-scoped revive hold state for rendering the progress ring over a downed crawler. */
+  reviveProgress: z.number().min(0).max(1).optional(),
   disconnected: z.boolean().optional(),
   anim: enemyAnimationStateSchema.optional(),
+  /** Pet owner display name, present only after a pet has been claimed. */
+  petOwnerName: z.string().optional(),
   aimX: z.number().min(-1).max(1).optional(),
   aimY: z.number().min(-1).max(1).optional(),
   faceX: z.number().min(-1).max(1).optional(),

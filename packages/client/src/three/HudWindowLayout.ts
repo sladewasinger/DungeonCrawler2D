@@ -26,16 +26,26 @@ export interface HudWindowSpec {
   defaultVisible?: boolean;
 }
 
+export interface HudWindowViewport {
+  width: number;
+  height: number;
+}
+
+const viewportRatio = (size: number, viewportSize: number, scale: number): number =>
+  Math.min(1, Math.max(0, size * scale / Math.max(1, viewportSize)));
+
 export const defaultWindowLayout = (
   spec: HudWindowSpec,
   visible: boolean,
   z: number,
+  viewport: HudWindowViewport = { width: spec.width, height: spec.height },
+  scale = 1,
 ): HudWindowLayout => ({
   anchor: spec.anchor,
   xRatio: 0,
   yRatio: 0,
-  width: spec.width,
-  height: spec.height,
+  widthRatio: viewportRatio(spec.width, viewport.width, scale),
+  heightRatio: viewportRatio(spec.height, viewport.height, scale),
   z,
   visible,
 });
@@ -45,8 +55,8 @@ export const restoreStoredLayout = (
   defaults: HudWindowLayout,
 ): HudWindowLayout => ({
   ...stored,
-  width: stored.width > 0 ? stored.width : defaults.width,
-  height: stored.height > 0 ? stored.height : defaults.height,
+  widthRatio: stored.widthRatio > 0 ? stored.widthRatio : defaults.widthRatio,
+  heightRatio: stored.heightRatio > 0 ? stored.heightRatio : defaults.heightRatio,
   visible: stored.visible ?? defaults.visible ?? true,
 });
 
@@ -54,21 +64,22 @@ export const shouldUseMobileDefault = (
   mobile: boolean,
   spec: HudWindowSpec,
   stored: HudWindowLayout | undefined,
+  desktopDefaults: HudWindowLayout | undefined = undefined,
 ): boolean => {
-  if (!mobile || !spec.mobile || !stored) return false;
+  if (!mobile || !spec.mobile || !stored || !desktopDefaults) return false;
   return stored.anchor === spec.anchor &&
     stored.xRatio === 0 &&
     stored.yRatio === 0 &&
-    stored.width === spec.width &&
-    stored.height === spec.height;
+    stored.widthRatio === desktopDefaults.widthRatio &&
+    stored.heightRatio === desktopDefaults.heightRatio;
 };
 
-export const scaledWindowSize = (
+export const resolveWindowSize = (
   layout: HudWindowLayout,
-  scale: number,
+  viewport: HudWindowViewport,
 ): { width: number; height: number } => ({
-  width: Math.round(layout.width * scale),
-  height: Math.round(layout.height * scale),
+  width: Math.max(1, Math.round(layout.widthRatio * viewport.width)),
+  height: Math.max(1, Math.round(layout.heightRatio * viewport.height)),
 });
 
 export const resolveWindowPosition = (

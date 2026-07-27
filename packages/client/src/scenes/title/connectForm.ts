@@ -88,6 +88,8 @@ function createReleaseNotesLink(): HTMLAnchorElement {
 
 export interface ConnectFormHandlers {
   onConnect(name: string, level: LevelId, skin: PlayerSkin): void;
+  /** Lets the renderer suspend global gameplay-key capture while the name field owns typing. */
+  onNameInputFocusChange?(focused: boolean): void;
 }
 
 export class ConnectForm {
@@ -108,8 +110,13 @@ export class ConnectForm {
     applyInputStyle(this.input);
 
     const choices = this.createChoices(handlers);
+    this.input.addEventListener("focus", () => handlers.onNameInputFocusChange?.(true));
+    this.input.addEventListener("blur", () => handlers.onNameInputFocusChange?.(false));
     this.input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") this.submit(handlers, LEVEL.Dungeon);
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.submit(handlers, LEVEL.Dungeon);
     });
 
     this.status = createStatus();
@@ -121,6 +128,7 @@ export class ConnectForm {
       createReleaseNotesLink(),
     );
     document.body.append(this.root);
+    this.input.focus();
   }
 
   private createChoices(handlers: ConnectFormHandlers): HTMLDivElement {
@@ -174,6 +182,9 @@ export class ConnectForm {
   }
 
   dispose(): void {
+    // Removing a focused DOM node does not consistently dispatch blur across
+    // browsers; release the renderer's keyboard-capture suspension explicitly.
+    this.input.blur();
     this.root.remove();
   }
 }

@@ -1,8 +1,7 @@
 # Asset Licenses — the 7 explicit-heights-reskin tile packs
 
-Companion to [`assets/LICENSES.md`](../assets/LICENSES.md) (which covers the 0x72
-character/enemy set and the pixel font — both still in active use per Austin's decree
-to keep 0x72 creatures for now). This file covers only the 7 new RPG-Maker-MV-format
+Companion to [`assets/LICENSES.md`](../assets/LICENSES.md), which also records the
+pet sprite credits. This file covers only the 7 new RPG-Maker-MV-format
 dungeon tile packs added under `assets/packs/` for the "explicit heights reskin" pivot
 and copied into `packages/client/public/assets/packs/` by the asset-foundry lane.
 

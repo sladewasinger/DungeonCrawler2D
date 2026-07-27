@@ -145,8 +145,9 @@ function stepPlayerBody(
 
 /**
  * Dev-harness god mode: whatever the tick did to a god player, undo it
- * before deaths resolve — full heal, statuses stripped, knockback
- * zeroed. One choke point instead of guards in every damage path.
+ * before deaths resolve — full heal, stamina restored by the resource step,
+ * statuses stripped, knockback zeroed. One choke point instead of guards in
+ * every damage path.
  */
 export function applyGodMode(sim: SimState): void {
   for (const slot of sim.players.values()) {

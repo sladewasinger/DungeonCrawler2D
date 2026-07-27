@@ -3,6 +3,7 @@ import type { InterpolatedEntity } from "../../net/interpolate.js";
 export interface FrameEntityBuckets {
   readonly players: InterpolatedEntity[];
   readonly enemies: InterpolatedEntity[];
+  readonly pets: InterpolatedEntity[];
   readonly items: InterpolatedEntity[];
   readonly lootChests: InterpolatedEntity[];
   readonly projectiles: InterpolatedEntity[];
@@ -15,6 +16,7 @@ export function createFrameEntityBuckets(): FrameEntityBuckets {
   return {
     players: [],
     enemies: [],
+    pets: [],
     items: [],
     lootChests: [],
     projectiles: [],
@@ -37,6 +39,9 @@ export function bucketFrameEntities(
         break;
       case "enemy":
         buckets.enemies.push(entity);
+        break;
+      case "pet":
+        buckets.pets.push(entity);
         break;
       case "item":
         if (entity.snap.defId === "player-loot-chest") {
@@ -63,6 +68,7 @@ export function bucketFrameEntities(
 function clearBuckets(buckets: FrameEntityBuckets): void {
   buckets.players.length = 0;
   buckets.enemies.length = 0;
+  buckets.pets.length = 0;
   buckets.items.length = 0;
   buckets.lootChests.length = 0;
   buckets.projectiles.length = 0;

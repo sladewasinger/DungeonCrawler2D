@@ -1,5 +1,7 @@
 import type { Entity, EntitySnapshot } from "@dc2d/engine";
 import type { SimState } from "./state.js";
+import { petSnapshotFields } from "./pets/snapshot.js";
+import { reviveSnapshotFields } from "./players/playerSnapshotFields.js";
 
 /** Materializes entity payloads only when their replicated fields change. */
 
@@ -76,7 +78,7 @@ function enemyFields(
 function playerFields(
   sim: SimState,
   entity: Entity,
-): Pick<EntitySnapshot, "anim" | "blocking" | "downed" | "disconnected" | "weapon"> | Record<string, never> {
+): Pick<EntitySnapshot, "anim" | "blocking" | "downed" | "disconnected" | "weapon" | "reviveProgress"> | Record<string, never> {
   if (entity.kind !== "player") return {};
   const slot = sim.players.get(entity.id);
   if (!slot) return {};
@@ -86,6 +88,7 @@ function playerFields(
     ...(slot.connected ? {} : { disconnected: true }),
     weapon: slot.weapon,
     ...(slot.blocking ? { blocking: true } : {}),
+    ...reviveSnapshotFields(sim, entity.id),
   };
 }
 
@@ -108,6 +111,7 @@ function toEntitySnapshot(sim: SimState, entity: Entity): EntitySnapshot {
     ...combatantFields(entity),
     ...(entity.kind === "item" && entity.qty > 1 ? { qty: entity.qty } : {}),
     ...enemyFields(sim, entity),
+    ...petSnapshotFields(sim, entity),
     ...playerFields(sim, entity),
     ...velocityFields(sim, entity),
     ...torchFields(entity),
@@ -132,6 +136,12 @@ function enemyMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): 
     snapshot.aimY === fields.aimY;
 }
 
+function petMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {
+  if (entity.kind !== "pet") return true;
+  const fields = petSnapshotFields(sim, entity);
+  return snapshot.anim === fields.anim && snapshot.petOwnerName === fields.petOwnerName;
+}
+
 function playerMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {
   if (entity.kind !== "player") return true;
   const fields = playerFields(sim, entity);
@@ -139,7 +149,8 @@ function playerMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot):
     snapshot.downed === fields.downed &&
     snapshot.disconnected === fields.disconnected &&
     snapshot.weapon === fields.weapon &&
-    snapshot.blocking === fields.blocking;
+    snapshot.blocking === fields.blocking &&
+    snapshot.reviveProgress === fields.reviveProgress;
 }
 
 function velocityMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {
@@ -191,8 +202,8 @@ function snapshotMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot
     statusesMatch(entity, snapshot) &&
     velocityMatches(sim, entity, snapshot) &&
     enemyMatches(sim, entity, snapshot) &&
-    playerMatches(sim, entity, snapshot) &&
-    torchMatches(entity, snapshot) &&
+    petMatches(sim, entity, snapshot) &&
+    playerMatches(sim, entity, snapshot) && torchMatches(entity, snapshot) &&
     lootChestMatches(sim, entity, snapshot);
 }
 

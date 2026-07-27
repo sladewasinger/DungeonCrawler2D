@@ -21,6 +21,7 @@ import { FIST_FALLBACK_FRAME, weaponIconFrame } from "./weaponIcon.js";
 import { stepOrbitAngle } from "./weaponOrbit.js";
 import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
 import { updateGuardCone } from "./guardCone.js";
+import { updatePlayerReviveRing } from "./player/playerReviveRing.js";
 
 const DOWNED_TINT = 0x7a3d3d;
 const DISCONNECTED_TINT = 0x55555a;
@@ -37,6 +38,7 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     body,
     weapon: createHeldWeapon(scene, 0),
     guardCone: scene.add.graphics(),
+    reviveRing: scene.add.graphics(),
     shadow: createShadow(scene, 0),
     hpBar: createHpBar(scene, 0),
     nameplate: createNameplate(scene, 0),
@@ -68,6 +70,7 @@ function updatePlayerBody(
   // exactly on it — see lift.ts's module doc.
   visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
+  updatePlayerReviveRing(visual.reviveRing, visual.body, view);
   visual.body.setFlipX(playerFacesLeft(visual, view));
 
   if (visual.hitFlashStartMs === undefined && tookDamage(visual.lastHp, view.hp)) visual.hitFlashStartMs = ctx.nowMs;

@@ -1,25 +1,25 @@
 import {
-  AreaSystem,
-  EffectsEngine,
-  Rng,
+  type AreaSystem,
   type ClientInput,
   type ClientMessage,
   type ContentRegistry,
   type Entity,
+  type EffectsEngine,
   type GameEvent,
   type InvStack,
+  type Rng,
   type SnapshotMode,
   type World,
 } from "@dc2d/engine";
-import { PlayerStore, type StoredPlayer } from "../store.js";
+import type { PlayerStore, StoredPlayer } from "../store.js";
 import type { EnemySlot } from "./enemyState.js";
 import type {
   SnapshotClientState,
   SnapshotEntityState,
   SnapshotPendingState,
 } from "./snapshotState.js";
-import { createEntityCollections, createReplicationCollections } from "./stateCollections.js";
 import type { HandicapGrant } from "./handicap.js";
+import type { PetSlot } from "./pets/types.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
@@ -58,6 +58,8 @@ export interface ReviveAttempt {
  * SimState's `players` map holds it). */
 export interface FloorTransferRequest extends PendingTransfer {
   slot: PlayerSlot;
+  /** Pets travel with their owner between floor sims. */
+  pets: PetSlot[];
 }
 
 export interface PlayerSlot {
@@ -201,6 +203,8 @@ export interface SimState {
   readonly players: Map<string, PlayerSlot>;
   readonly byToken: Map<string, string>;
   readonly enemies: Map<string, EnemySlot>;
+  /** Friendly, non-combat companions; behavior lives in sim/pets. */
+  readonly pets: Map<string, PetSlot>;
   readonly items: Map<string, Entity>;
   readonly lootChests: Map<string, LootChest>;
   readonly projectiles: Map<string, Entity>;
@@ -257,38 +261,5 @@ export interface SimState {
   readonly replicationMotion: Map<string, { x: number; y: number }>;
 }
 
-export function createSimState(
-  world: World,
-  content: ContentRegistry,
-  store: PlayerStore,
-  rngSeed: number,
-  opts: SimState["opts"],
-): SimState {
-  return {
-    world, content, store, opts,
-    rng: new Rng(rngSeed),
-    effects: new EffectsEngine(content, (x, y) => world.isSanctuary(x, y)),
-    areas: new AreaSystem(content, world),
-    ...createEntityCollections(),
-    ...createReplicationCollections(),
-    moderationReports: [],
-    fistbumpOffers: new Map(),
-    reviveAttempts: new Map(),
-    activatedChunks: new Set(),
-    defeatedMiniBossRooms: new Set(),
-    exposure: new Map(),
-    worldEvents: [],
-    tickCount: 0,
-    nextPartyId: 1,
-    nextPartyRoom: 0,
-    hazardsActive: false,
-    outgoingTransfers: [],
-    bossGateSealed: false,
-    bossArenaOccupants: new Set(),
-    bossRespawnAtTick: null,
-    crossFloorDirectory: [],
-    pendingGlobalChat: [],
-  };
-}
-
 export type { EnemySlot } from "./enemyState.js";
+export { createSimState } from "./state/stateFactory.js";

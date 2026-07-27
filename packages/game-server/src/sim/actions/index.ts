@@ -213,7 +213,9 @@ function doDebug(
 ): void {
   if (!sim.opts.debugCommands) return;
   if (action.op === "god") {
-    slot.god = action.on ?? true;
+    // An omitted value is the chat command's toggle form. Explicit values are
+    // retained for scripted harnesses that need to force a known state.
+    slot.god = action.on ?? !slot.god;
     slot.outbox.push({ t: "toast", msg: slot.god ? "God mode ON" : "God mode off" });
     return;
   }

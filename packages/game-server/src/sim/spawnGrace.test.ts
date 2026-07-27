@@ -24,7 +24,7 @@ import { damageGivenMultiplierFor, effectTargetFor, spawnEnemy } from "./helpers
 import { addPlayer } from "./join.js";
 import { handleInput, queueAction, stepPlayers } from "./players.js";
 import { processActions } from "./actions/index.js";
-import { DEFAULT_HANDICAP } from "./handicap.js";
+import { DEFAULT_HANDICAP, GOD_MODE_DAMAGE_MULTIPLIER } from "./handicap.js";
 import { isSpawnProtected } from "./spawnSafety.js";
 import { createSimState, type PlayerSlot, type SimState } from "./state.js";
 
@@ -150,5 +150,10 @@ describe("spawn grace", () => {
     expect(damageGivenMultiplierFor(sim, handicapped.entity)).toBe(
       DEFAULT_HANDICAP.damageGivenMultiplier,
     );
+  });
+
+  it("uses the configured god-mode outgoing damage multiplier", () => {
+    slot.god = true;
+    expect(damageGivenMultiplierFor(sim, slot.entity)).toBe(GOD_MODE_DAMAGE_MULTIPLIER);
   });
 });

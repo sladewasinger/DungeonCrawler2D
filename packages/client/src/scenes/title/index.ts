@@ -34,6 +34,11 @@ export class TitleScene extends Phaser.Scene {
       root,
       () => this.scene.start("dungeon"),
       {
+        onNameInputFocusChange: (focused) => {
+          const keyboard = this.input.keyboard;
+          if (focused) keyboard?.disableGlobalCapture();
+          else keyboard?.enableGlobalCapture();
+        },
         ...(this.expired
           ? { initialStatus: "Session expired — reconnect below" }
           : {}),

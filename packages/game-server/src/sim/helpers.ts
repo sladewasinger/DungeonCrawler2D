@@ -1,7 +1,11 @@
 import { CHASM_DEATH_Z, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
 import { scaledEnemyDef } from "./floors/scaling.js";
 import { isSpawnProtected } from "./spawnSafety.js";
-import { handicapForPlayer, type HandicapGrant } from "./handicap.js";
+import {
+  GOD_MODE_DAMAGE_MULTIPLIER,
+  handicapForPlayer,
+  type HandicapGrant,
+} from "./handicap.js";
 import type { EnemySlot, PlayerSlot, SimState } from "./state.js";
 
 /** Small queries and spawners shared across the sim modules. */
@@ -59,7 +63,9 @@ function playerEffectTarget(
 export function damageGivenMultiplierFor(sim: SimState, entity: Entity): number {
   if (entity.kind !== "player") return 1;
   const slot = sim.players.get(entity.id);
-  return playerHandicap(slot)?.damageGivenMultiplier ?? 1;
+  const handicapMultiplier = playerHandicap(slot)?.damageGivenMultiplier ?? 1;
+  const godMultiplier = slot?.god ? GOD_MODE_DAMAGE_MULTIPLIER : 1;
+  return handicapMultiplier * godMultiplier;
 }
 
 function playerHandicap(slot: PlayerSlot | undefined): HandicapGrant | undefined {
@@ -69,13 +75,10 @@ function playerHandicap(slot: PlayerSlot | undefined): HandicapGrant | undefined
 }
 
 export function positionOf(sim: SimState, id: string): { x: number; y: number } {
-  const entity =
-    sim.players.get(id)?.entity ??
-    sim.enemies.get(id)?.entity ??
-    sim.items.get(id) ??
-    sim.lootChests.get(id)?.entity ??
-    sim.projectiles.get(id) ??
-    sim.torches.get(id);
+  const entity = [
+    sim.players.get(id)?.entity, sim.enemies.get(id)?.entity, sim.pets.get(id)?.entity,
+    sim.items.get(id), sim.lootChests.get(id)?.entity, sim.projectiles.get(id), sim.torches.get(id),
+  ].find((candidate): candidate is Entity => candidate !== undefined);
   return entity ? { x: entity.body.x, y: entity.body.y } : { x: 0, y: 0 };
 }
 

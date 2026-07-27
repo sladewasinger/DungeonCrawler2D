@@ -38,7 +38,7 @@ interface KnightModel extends ActorObject {
   traverse(callback: (object: KnightMesh) => void): void;
 }
 
-type VisibleKind = "player" | "enemy";
+type VisibleKind = "player" | "enemy" | "pet";
 
 interface ActiveActor {
   object: ActorObject;
@@ -125,7 +125,7 @@ export class ThreeRemoteActors {
   ): void {
     const active = this.actors.get(id) ?? this.addActor(id, kind);
     const pose = remoteActorPose(player);
-    active.object.position.set(pose.x, pose.y + (kind === "enemy" ? 0.5 : 0), pose.z);
+    active.object.position.set(pose.x, pose.y + (kind === "enemy" || kind === "pet" ? 0.5 : 0), pose.z);
     active.object.rotation.y = pose.yaw;
     updateRemoteActorAnimation(active.animation, pose.x, pose.z, elapsed);
     if (active.aura) syncRemoteActorAura(active.aura, player.snap);
@@ -156,7 +156,7 @@ export class ThreeRemoteActors {
   }
 
   private createActor(kind: VisibleKind): ActorObject {
-    if (kind === "enemy") return this.createEnemySprite();
+    if (kind === "enemy" || kind === "pet") return this.createEnemySprite();
     if (this.template) return cloneSkinned(this.template as never) as unknown as ActorObject;
     return this.createFallback();
   }
@@ -204,6 +204,6 @@ export class ThreeRemoteActors {
 }
 
 const visibleKind = (kind: string): VisibleKind | null => {
-  if (kind === "player" || kind === "enemy") return kind;
+  if (kind === "player" || kind === "enemy" || kind === "pet") return kind;
   return null;
 };

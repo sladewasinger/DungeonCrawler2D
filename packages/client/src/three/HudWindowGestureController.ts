@@ -50,7 +50,11 @@ export class HudWindowGestureController {
     this.grip.style.display = editing ? "block" : "none";
   }
 
-  private size(): HudWindowSize { return { width: this.record.layout.width, height: this.record.layout.height }; }
+  private size(): HudWindowSize {
+    const scale = this.context.scale();
+    const rect = this.record.element.getBoundingClientRect();
+    return { width: rect.width / scale, height: rect.height / scale };
+  }
 
   private bounds(): HudWindowSizeBounds {
     return hudWindowGestureBounds(
@@ -64,13 +68,14 @@ export class HudWindowGestureController {
     return makeHudWindowFree(
       this.record,
       this.context.root,
-      this.context.scale(),
     );
   }
 
   private applySize(size: HudWindowSize): void {
-    this.record.layout.width = size.width;
-    this.record.layout.height = size.height;
+    const root = this.context.root.getBoundingClientRect();
+    const scale = this.context.scale();
+    this.record.layout.widthRatio = Math.min(1, Math.max(0, size.width * scale / Math.max(1, root.width)));
+    this.record.layout.heightRatio = Math.min(1, Math.max(0, size.height * scale / Math.max(1, root.height)));
     this.context.apply(this.record);
   }
 
@@ -168,18 +173,14 @@ export class HudWindowGestureController {
   }
 
   private moveDrag(gesture: DragGesture, event: PointerEvent): void {
-    const scale = this.context.scale();
-    const size = {
-      width: Math.round(this.record.layout.width * scale),
-      height: Math.round(this.record.layout.height * scale),
-    };
+    const rect = this.record.element.getBoundingClientRect();
     setRelativeWindowPosition(
       this.record.layout,
       {
         x: Math.round(event.clientX - gesture.rootRect.left - gesture.offset.x),
         y: Math.round(event.clientY - gesture.rootRect.top - gesture.offset.y),
       },
-      size,
+      { width: rect.width, height: rect.height },
       gesture.rootRect,
     );
     this.context.apply(this.record);
@@ -199,7 +200,6 @@ export class HudWindowGestureController {
     if (completed.kind === "drag" && !this.context.mobile) {
       snapWindowAnchor(
         this.record.layout,
-        this.context.scale(),
         completed.rootRect,
       );
     }

@@ -1,11 +1,13 @@
 import {
   HEALTH_REGEN_DELAY_SECONDS,
+  PLAYER_MAX_STAMINA,
   TICK_RATE,
   type EffectEvent,
+  type MoveInput,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { applyHealthRegeneration } from "./combatResources.js";
-import type { SimState } from "./state.js";
+import { advancePlayerResources, applyHealthRegeneration } from "./combatResources.js";
+import type { PlayerSlot, SimState } from "./state.js";
 
 const simAt = (tickCount: number, hp = 20) => {
   const entity = { id: "p", hp, maxHp: 30 };
@@ -89,5 +91,27 @@ describe("applyHealthRegeneration", () => {
     dead.slot.respawnAtTick = dead.sim.tickCount + TICK_RATE;
     applyHealthRegeneration(dead.sim, []);
     expect(dead.entity.hp).toBe(1);
+  });
+});
+
+describe("advancePlayerResources", () => {
+  it("keeps god-mode stamina full while sprinting and blocking", () => {
+    const slot = {
+      god: true,
+      weapon: "sword",
+      stamina: 1,
+      maxStamina: PLAYER_MAX_STAMINA,
+      blocking: false,
+      staminaRecoveryDelaySeconds: 3,
+      staminaExhausted: true,
+    } as unknown as PlayerSlot;
+    const sprint: MoveInput = { moveX: 1, moveY: 0, jump: false, run: true };
+    const block: MoveInput = { moveX: 0, moveY: 0, jump: false, block: true };
+
+    expect(advancePlayerResources(slot, sprint).run).toBe(true);
+    expect(advancePlayerResources(slot, block).block).toBe(true);
+    expect(slot.stamina).toBe(PLAYER_MAX_STAMINA);
+    expect(slot.staminaRecoveryDelaySeconds).toBe(0);
+    expect(slot.staminaExhausted).toBe(false);
   });
 });

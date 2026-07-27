@@ -10,9 +10,9 @@ import {
 } from "./HudWindowEditing.js";
 import {
   defaultWindowLayout,
+  resolveWindowSize,
   resolveWindowPosition,
   restoreStoredLayout,
-  scaledWindowSize,
   shouldUseMobileDefault,
   type HudWindowSpec,
 } from "./HudWindowLayout.js";
@@ -49,6 +49,7 @@ export class HudWindowManager {
     this.stored = loadWindowLayouts({
       width: root.clientWidth || window.innerWidth,
       height: root.clientHeight || window.innerHeight,
+      scale: this.scale,
     });
     this.layer.style.cssText =
       "position:absolute;inset:0;pointer-events:none;overflow:hidden";
@@ -61,12 +62,21 @@ export class HudWindowManager {
     const effective = this.mobile && spec.mobile ? { ...spec, ...spec.mobile } : spec;
     const stored = this.stored[spec.id];
     const defaultVisible = spec.defaultVisible ?? true;
+    const viewport = this.viewport();
     const defaults = defaultWindowLayout(
       effective,
       defaultVisible,
       ++this.zCounter,
+      viewport,
+      this.scale,
     );
-    const layout = shouldUseMobileDefault(this.mobile, spec, stored)
+    const desktopDefaults = defaultWindowLayout(
+      spec,
+      defaultVisible,
+      defaults.z,
+      viewport,
+    );
+    const layout = shouldUseMobileDefault(this.mobile, spec, stored, desktopDefaults)
       ? defaults
       : stored
         ? restoreStoredLayout(stored, defaults)
@@ -154,11 +164,9 @@ export class HudWindowManager {
   }
 
   private apply(record: HudWindowRecord): void {
-    const size = scaledWindowSize(record.layout, this.scale);
-    const position = resolveWindowPosition(record.layout, size, {
-      width: this.root.clientWidth,
-      height: this.root.clientHeight,
-    });
+    const viewport = this.viewport();
+    const size = resolveWindowSize(record.layout, viewport);
+    const position = resolveWindowPosition(record.layout, size, viewport);
     const visible = record.layout.visible !== false;
     Object.assign(record.element.style, {
       display: visible ? "block" : "none",
@@ -187,6 +195,13 @@ export class HudWindowManager {
   private readonly layoutAll = (): void => {
     for (const record of this.records.values()) this.apply(record);
   };
+
+  private viewport(): { width: number; height: number } {
+    return {
+      width: this.root.clientWidth || window.innerWidth,
+      height: this.root.clientHeight || window.innerHeight,
+    };
+  }
 
   private applyModality(mode: InputModality): void {
     const mobile = mode === "touch";

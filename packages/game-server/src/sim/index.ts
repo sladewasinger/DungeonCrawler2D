@@ -25,6 +25,7 @@ import { drainReadyTransfers, initBossFloor, receiveTransfer, stepBoss } from ".
 import { spawnEnemy, spawnItem } from "./helpers.js";
 import { addPlayer } from "./join.js";
 import { stepFoodAttendantDialogs } from "./npcs/foodAttendant/index.js";
+import { stepPets } from "./pets/index.js";
 import {
   applyGodMode,
   markDisconnected,
@@ -96,6 +97,8 @@ export class GameSim {
   get playerCount(): number { return this.state.players.size; }
 
   get enemyCount(): number { return this.state.enemies.size; }
+
+  get petCount(): number { return this.state.pets.size; }
 
   /** Test access: ground-item entities currently in this sim (e.g. a
    * death's full-loot drop, which stays on the floor it happened on). */
@@ -239,7 +242,7 @@ export class GameSim {
     syncSafeRoomDoors(sim);
     stepPlayers(sim, effectEvents);
     processActions(sim, effectEvents);
-    stepFoodAttendantDialogs(sim);
+    stepFoodAttendantDialogs(sim); stepPets(sim);
     activateChunksNearPlayers(sim);
     if (sim.tickCount % REPOPULATE_INTERVAL_TICKS === 0) repopulateNearSpawn(sim);
     if (sim.hazardsActive && sim.tickCount % TEST_ZONE_RESEED_TICKS === 0) {
@@ -267,9 +270,7 @@ export class GameSim {
     applyGodMode(sim); // dev harness — undoes the tick's damage before deaths
     resolveDeaths(sim); expireLootChests(sim);
     stepBoss(sim); // Epic 7.14 — no-op off floor FLOOR_CAP
-    expireInvites(sim);
-    expireFistbumpOffers(sim);
+    expireInvites(sim); expireFistbumpOffers(sim);
     drainReadyTransfers(sim); // Epic 7.14 — tail of the tick, after everything that could queue one
-
   }
 }

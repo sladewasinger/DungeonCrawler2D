@@ -7,15 +7,16 @@ import type { Connection } from "../../net/connection.js";
 import { RoomPresentation } from "../rooms/roomPresentation.js";
 import { createItemVisual, updateItemVisual } from "./itemVisual.js";
 import { createMonsterVisual, updateMonsterVisual } from "./monsterVisual.js";
+import { createPetVisual, updatePetVisual } from "./pets/petVisual.js";
 import { createPlayerVisual, updatePlayerVisual } from "./playerVisual.js";
 import { shouldRenderLivePlayer } from "./playerVisibility.js";
 import { createProjectileVisual, updateProjectileVisual } from "./projectileEntityVisual.js";
 import { monsterSpriteFor, playerSkinFor } from "./spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "./state.js";
 import { createTorchVisual, updateTorchVisual } from "./torchEntityVisual.js";
-import type { ItemEntityView, MonsterEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "./view.js";
+import type { ItemEntityView, MonsterEntityView, PetEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "./view.js";
 
-export type { RenderContext, PlayerEntityView, MonsterEntityView, ItemEntityView, ProjectileEntityView, TorchEntityView } from "./view.js";
+export type { RenderContext, PlayerEntityView, MonsterEntityView, PetEntityView, ItemEntityView, ProjectileEntityView, TorchEntityView } from "./view.js";
 
 export class EntityRenderer {
   private readonly visuals = new Map<string, EntityVisual>();
@@ -52,6 +53,14 @@ export class EntityRenderer {
       updateItemVisual(visual, view, nowMs);
     });
     this.gc(seen, "item");
+  }
+
+  syncPets(views: readonly PetEntityView[], ctx: RenderContext): void {
+    const seen = this.stepKind(views, (view) => {
+      const visual = this.getOrCreate(view.id, "pet", () => createPetVisual(this.scene, view.defId));
+      updatePetVisual(visual, view, ctx);
+    });
+    this.gc(seen, "pet");
   }
 
   syncProjectiles(views: readonly ProjectileEntityView[]): void {

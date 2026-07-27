@@ -27,6 +27,7 @@ export * from "./entities/movement/index.js";
 export * from "./entities/projectile.js";
 export * from "./entities/playerResources.js";
 export * from "./entities/torch.js";
+export * from "./navigation/gridPath.js";
 export * from "./effects/types.js";
 export * from "./effects/system.js";
 export * from "./areas/system.js";

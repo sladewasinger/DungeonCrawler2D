@@ -17,6 +17,7 @@ export interface PlayerVisual extends CombatantParts {
   readonly kind: "player";
   readonly weapon: Phaser.GameObjects.Sprite;
   readonly guardCone?: Phaser.GameObjects.Graphics;
+  readonly reviveRing?: Phaser.GameObjects.Graphics;
   lastHp: number | undefined;
   hitFlashStartMs: number | undefined;
   lastX: number;
@@ -40,6 +41,16 @@ export interface MonsterVisual extends CombatantParts {
   hitFlashStartMs: number | undefined;
   lastAnim: string | undefined;
   telegraphStartMs: number | undefined;
+}
+
+export interface PetVisual {
+  readonly kind: "pet";
+  readonly body: Phaser.GameObjects.Sprite;
+  readonly shadow: Phaser.GameObjects.Ellipse;
+  readonly nameplate: Phaser.GameObjects.Text;
+  readonly ownerLabel: Phaser.GameObjects.Text;
+  readonly assetId: string;
+  lastAnim: string | undefined;
 }
 
 export interface ItemVisual {
@@ -66,7 +77,7 @@ export interface TorchVisual {
   readonly body: Phaser.GameObjects.Sprite;
 }
 
-export type EntityVisual = PlayerVisual | MonsterVisual | ItemVisual | ProjectileVisual | TorchVisual;
+export type EntityVisual = PlayerVisual | MonsterVisual | PetVisual | ItemVisual | ProjectileVisual | TorchVisual;
 
 /** Tears down every Phaser object owned by one tracked entity's visual. */
 export function destroyEntityVisual(visual: EntityVisual): void {
@@ -76,9 +87,15 @@ export function destroyEntityVisual(visual: EntityVisual): void {
     visual.hpBar.container.destroy();
     visual.nameplate.destroy();
   }
+  if (visual.kind === "pet") {
+    visual.shadow.destroy();
+    visual.nameplate.destroy();
+    visual.ownerLabel.destroy();
+  }
   if (visual.kind === "player") {
     visual.weapon.destroy();
     visual.guardCone?.destroy();
+    visual.reviveRing?.destroy();
   }
   if (visual.kind === "item") {
     visual.shadow.destroy();

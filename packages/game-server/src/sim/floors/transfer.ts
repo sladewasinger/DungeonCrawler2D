@@ -5,6 +5,7 @@ import { refreshModerationBindings } from "../moderation.js";
 import { resetInputTimeline } from "../playerInputTimeline.js";
 import { leaveParty } from "../social.js";
 import { findSpawn } from "../spawn.js";
+import { clearPetPath } from "../pets/index.js";
 import type { FloorTransferRequest, SimState } from "../state.js";
 
 /**
@@ -29,7 +30,9 @@ export function drainReadyTransfers(sim: SimState): void {
     leaveParty(sim, slot);
     sim.players.delete(id);
     sim.byToken.delete(slot.resumeToken);
-    sim.outgoingTransfers.push({ slot, ...transfer });
+    const pets = [...sim.pets.values()].filter((pet) => pet.ownerId === id);
+    for (const pet of pets) sim.pets.delete(pet.entity.id);
+    sim.outgoingTransfers.push({ slot, pets, ...transfer });
   }
 }
 
@@ -39,6 +42,7 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
   const { slot } = req;
   sim.players.set(slot.entity.id, slot);
   sim.byToken.set(slot.resumeToken, slot.entity.id);
+  for (const pet of req.pets) sim.pets.set(pet.entity.id, pet);
   refreshModerationBindings(sim);
   slot.known.clear();
   slot.needsFullAreas = true;
@@ -53,6 +57,14 @@ export function receiveTransfer(sim: SimState, req: FloorTransferRequest): void 
     const target = landing ? { ...landing, z: sim.world.groundAt(landing.x, landing.y) } : findSpawn(sim);
     slot.entity.body = createBody(target.x, target.y, target.z);
     slot.outbox.push({ t: "teleported" });
+  }
+  for (const pet of req.pets) {
+    const x = slot.entity.body.x - 1;
+    const y = slot.entity.body.y;
+    pet.entity.body = createBody(x, y, sim.world.groundAt(x, y));
+    pet.lastOwnerPosition = { x: slot.entity.body.x, y: slot.entity.body.y };
+    pet.driftTarget = undefined;
+    clearPetPath(pet);
   }
   slot.outbox.push(announceFloorEntry(sim.world.floor));
   // LANE W (panel R3 blocker #2): the stairway-exists hint rides right behind the

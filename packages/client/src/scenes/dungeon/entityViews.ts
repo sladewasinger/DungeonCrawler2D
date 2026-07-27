@@ -4,15 +4,14 @@ import type { InterpolatedEntity } from "../../net/interpolate.js";
 import type {
   ItemEntityView,
   MonsterEntityView,
+  PetEntityView,
   PlayerEntityView,
-  ProjectileEntityView,
   RenderContext,
-  TorchEntityView,
 } from "../../render/entities/index.js";
 import { groundItemFrame } from "./itemFrame.js";
-import { trackProjectileVelocity, type ProjectileVelocityState } from "./projectileVelocity.js";
 import { remotePlayerFieldsInto } from "./remotePlayerFields.js";
 import { isSelfAttacking, type SelfCosmeticsState } from "./selfCosmetics.js";
+export { projectileView, torchView } from "./projectiles/projectileViews.js";
 
 export type { InterpolatedEntity } from "../../net/interpolate.js";
 
@@ -56,6 +55,7 @@ export interface SelfVitals {
   maxHp: number;
   fx: readonly string[];
   downed: boolean;
+  reviveProgress?: number;
   blocking: boolean;
   weaponId: string | null;
 }
@@ -83,6 +83,7 @@ export function selfPlayerView(
   view.faceY = cosmetics.faceY;
   view.air = pose.air;
   view.downed = vitals.downed;
+  view.reviveProgress = vitals.reviveProgress ?? 0;
   view.disconnected = false;
   view.attacking = isSelfAttacking(cosmetics, nowMs);
   view.blocking = vitals.blocking;
@@ -129,6 +130,25 @@ export function monsterView(
   return view;
 }
 
+export function petView(
+  e: InterpolatedEntity,
+  target?: PetEntityView,
+): PetEntityView {
+  const view = target ?? {} as PetEntityView;
+  view.id = e.id;
+  view.defId = valueOr(e.snap.defId, "pet-dog");
+  view.name = valueOr(e.snap.name, "Pet");
+  view.x = e.x;
+  view.y = e.y;
+  view.z = e.z;
+  view.anim = e.snap.anim === "walk" ? "walk" : "idle";
+  view.faceX = valueOr(e.snap.faceX, 1);
+  view.air = valueOr(e.snap.air, false);
+  if (e.snap.petOwnerName === undefined) delete view.ownerName;
+  else view.ownerName = e.snap.petOwnerName;
+  return view;
+}
+
 export function itemView(
   e: InterpolatedEntity,
   target?: ItemEntityView,
@@ -156,40 +176,5 @@ export function itemView(
     delete view.lootLockSeconds;
     delete view.lootNearby;
   }
-  return view;
-}
-
-export function projectileView(
-  e: InterpolatedEntity,
-  velocity: ProjectileVelocityState,
-  nowMs: number,
-  target?: ProjectileEntityView,
-): ProjectileEntityView {
-  const { vx, vy } = trackProjectileVelocity(velocity, e.id, e.x, e.y, nowMs);
-  const view = target ?? {} as ProjectileEntityView;
-  view.id = e.id;
-  view.x = e.x;
-  view.y = e.y;
-  view.frame = groundItemFrame(e.snap.defId);
-  view.vx = vx;
-  view.vy = vy;
-  return view;
-}
-
-/** Torch snapshots carry state server-side; flying is only a stale-sample fallback. */
-export function torchView(
-  e: InterpolatedEntity,
-  target?: TorchEntityView,
-): TorchEntityView {
-  const view = target ?? {} as TorchEntityView;
-  view.id = e.id;
-  view.x = e.x;
-  view.y = e.y;
-  view.z = e.z;
-  view.air = e.snap.air ?? false;
-  view.state = e.snap.state ?? "flying";
-  view.frame = groundItemFrame(e.snap.defId);
-  view.vx = e.snap.vx ?? 0;
-  view.vy = e.snap.vy ?? 0;
   return view;
 }

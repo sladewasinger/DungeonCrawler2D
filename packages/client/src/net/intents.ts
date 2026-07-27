@@ -143,6 +143,10 @@ export function debugTeleportIntent(conn: Connection, x: number, y: number): voi
   conn.send({ type: "debug", op: "teleport", x, y });
 }
 
-export function debugGodIntent(conn: Connection, on: boolean): void {
-  conn.send({ type: "debug", op: "god", on });
+export function debugGodIntent(conn: Connection, on?: boolean): void {
+  conn.send({
+    type: "debug",
+    op: "god",
+    ...(on === undefined ? {} : { on }),
+  });
 }

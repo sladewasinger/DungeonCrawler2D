@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { anchoredPosition } from "./HudWindowGeometry.js";
-import { resolveWindowPosition } from "./HudWindowLayout.js";
+import { resolveWindowPosition, resolveWindowSize } from "./HudWindowLayout.js";
 import type { HudWindowLayout } from "./hudWindowStorage.js";
 
 const freeLayout = (xRatio: number, yRatio: number): HudWindowLayout => ({
   anchor: "free",
   xRatio,
   yRatio,
-  width: 280,
-  height: 180,
+  widthRatio: 280 / 1280,
+  heightRatio: 180 / 720,
   z: 10,
 });
 
@@ -25,6 +25,14 @@ describe("responsive HUD window layout", () => {
     const layout = freeLayout(0.25, 0.75);
     expect(resolveWindowPosition(layout, { width: 200, height: 100 }, { width: 1000, height: 500 }))
       .toEqual({ x: 200, y: 300 });
+  });
+
+  it("resolves stored size percentages against the current viewport", () => {
+    const layout = freeLayout(0, 0);
+    expect(resolveWindowSize(layout, { width: 1280, height: 720 }))
+      .toEqual({ width: 280, height: 180 });
+    expect(resolveWindowSize(layout, { width: 640, height: 360 }))
+      .toEqual({ width: 140, height: 90 });
   });
 
   it("keeps anchored panels on-screen in undersized viewports", () => {

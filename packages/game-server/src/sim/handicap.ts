@@ -1,5 +1,5 @@
 /**
- * Player handicap grants. The name check is deliberately isolated here so a
+ * Player combat grants. The name check is deliberately isolated here so a
  * future admin panel can replace it with a persisted grant without touching
  * combat code.
  */
@@ -12,9 +12,12 @@ export interface HandicapGrant {
 }
 
 export const DEFAULT_HANDICAP: HandicapGrant = Object.freeze({
-  damageTakenMultiplier: 0.1,
+  damageTakenMultiplier: 0.3,
   damageGivenMultiplier: 3,
 });
+
+/** Outgoing-damage multiplier for the dev-only god-mode toggle. */
+export const GOD_MODE_DAMAGE_MULTIPLIER = 4;
 
 const NAME_GRANTS = ["josiah", "ellie"] as const;
 

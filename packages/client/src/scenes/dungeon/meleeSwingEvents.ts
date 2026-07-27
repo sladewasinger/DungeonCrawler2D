@@ -3,7 +3,8 @@
 // state) and resolves each swing's wedge-telegraph spawn parameters — the one seam both
 // the self and remote presentation paths share, since PlayerEntityView.attackAngleRad
 // already carries the right angle for either case (entityViews.ts).
-import { depthForEntityNow } from "../../render/entities/worldToScreen.js";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { depthForScreenY, worldToScreen } from "../../render/entities/worldToScreen.js";
 import type { PlayerEntityView } from "../../render/entities/index.js";
 
 /** Draws the wedge just under the wielder's feet-depth, so it reads as a ground telegraph rather than floating in front of the body. */
@@ -63,6 +64,7 @@ function toSpawn(
   spawn.worldY = player.y;
   spawn.z = player.z;
   spawn.angleRad = player.attackAngleRad;
-  spawn.depth = depthForEntityNow(player.x, player.y) - WEDGE_DEPTH_BIAS;
+  const screen = worldToScreen(player.x, player.y);
+  spawn.depth = depthForScreenY(screen.y - player.z * SCREEN_TILE_PX) - WEDGE_DEPTH_BIAS;
   return spawn;
 }

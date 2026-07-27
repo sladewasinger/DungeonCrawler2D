@@ -1,6 +1,7 @@
 import type { PlayerVisual } from "./state.js";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { wedgeGeometry } from "../../vfx/meleeWedgeGeometry.js";
+import { depthForScreenY } from "./worldToScreen.js";
 
 export const updateGuardCone = (
   visual: PlayerVisual,
@@ -25,5 +26,5 @@ export const updateGuardCone = (
     false,
   );
   cone.fillPath();
-  cone.setDepth(visual.body.depth - 0.15).setVisible(true);
+  cone.setDepth(depthForScreenY(visual.body.y + geometry.radiusPx) - 0.15).setVisible(true);
 };

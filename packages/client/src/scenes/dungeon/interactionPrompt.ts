@@ -19,6 +19,11 @@ export interface PromptTarget {
   readonly y: number;
 }
 
+export interface PetPromptTarget extends PromptTarget {
+  readonly name: string;
+  readonly ownerName?: string;
+}
+
 function hasNearbyItem(items: readonly PromptTarget[], x: number, y: number): boolean {
   return items.some((item) => Math.hypot(item.x - x, item.y - y) <= PICKUP_RANGE);
 }
@@ -42,6 +47,7 @@ export function resolveInteractionPrompt(
   items: readonly PromptTarget[],
   reviveTarget?: { readonly id: string },
   lootChest?: { readonly id: string; readonly lootOwnerName?: string | undefined },
+  pet?: PetPromptTarget,
 ): InteractionPrompt | null {
   const stairway = resolveStairwayPrompt(world, x, y);
   if (stairway) return { key: "E", label: descentPromptLabel(stairway.direction, stairway.floor) };
@@ -54,6 +60,7 @@ export function resolveInteractionPrompt(
         : "open death loot",
     };
   }
+  if (pet && !pet.ownerName) return { key: "E", label: `adopt ${pet.name}` };
   const worldTarget = resolveWorldInteraction(world, x, y);
   if (worldTarget) return worldPrompt(worldTarget.kind);
   if (hasNearbyItem(items, x, y)) return { key: "R", label: "pick up" };

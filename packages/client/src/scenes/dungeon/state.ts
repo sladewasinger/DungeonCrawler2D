@@ -77,6 +77,7 @@ function createSelfVitals(): SelfVitals {
     maxHp: 1,
     fx: [],
     downed: false,
+    reviveProgress: 0,
     blocking: false,
     weaponId: null,
   };
