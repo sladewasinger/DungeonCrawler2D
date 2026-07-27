@@ -59,7 +59,10 @@ export class DungeonScene extends Phaser.Scene {
   private reviveRing!: FistbumpRing;
   /** LANE W2: Q/X camera rotation (see rotationControl.ts's doc comment for the Q/E-vs-Q/X
    * key deviation) — owns the tween + the hard content swap + the cosmetic camera spin. */
-  private readonly rotation = new RotationController();
+  private readonly rotation = new RotationController((direction) => {
+    const terrain = this.terrain as Terrain4Renderer | undefined;
+    terrain?.prewarmRotation(this.cameras.main.worldView, direction);
+  });
 
   constructor(private readonly conn: Connection) {
     super("dungeon");
@@ -95,10 +98,7 @@ export class DungeonScene extends Phaser.Scene {
       session: createSessionActions(this, this.conn),
     });
     bindDungeonCameraResize(this);
-    bindRotationKeys(this, this.rotation, (direction) => {
-      const terrain = this.terrain as Terrain4Renderer | undefined;
-      terrain?.prewarmRotation(this.cameras.main.worldView, direction);
-    });
+    bindRotationKeys(this, this.rotation);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
 

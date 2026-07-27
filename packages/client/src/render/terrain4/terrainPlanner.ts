@@ -8,6 +8,9 @@ export const TERRAIN4 = {
   Void: "void",
 } as const;
 
+/** Ignore sub-pixel noise so generated Float32 heights do not create hairline faces. */
+export const TERRAIN4_HEIGHT_EPSILON = 0.01;
+
 export type Terrain4Kind = (typeof TERRAIN4)[keyof typeof TERRAIN4];
 
 /** A small, engine-agnostic read surface. Feature/tile art is deliberately absent. */
@@ -142,7 +145,7 @@ function appendTileGeometry(
   const southWorld = viewTileToWorld({ x: viewTile.x, y: viewTile.y + 1 }, orientation);
   if (source.terrainAt(southWorld.x, southWorld.y) !== TERRAIN4.Floor) return;
   const southHeight = finiteHeight(source, southWorld);
-  if (height <= southHeight) return;
+  if (height - southHeight <= TERRAIN4_HEIGHT_EPSILON) return;
   southFaces.push({
     kind: "south-face", worldTile, viewTile, topHeight: height, bottomHeight: southHeight,
     vertices: southFaceQuad(viewTile, height, southHeight),

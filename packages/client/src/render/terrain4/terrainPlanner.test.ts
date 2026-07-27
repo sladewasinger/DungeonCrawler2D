@@ -72,6 +72,17 @@ describe("planTerrain4", () => {
     expect(plan.batches.southFaces).toEqual([]);
   });
 
+  it("ignores sub-pixel height noise at a Floor-to-Floor seam", () => {
+    const terrain = new Map<string, Terrain4Kind>([
+      [key(0, 0), FLOOR], [key(0, 1), FLOOR],
+    ]);
+    const plan = planTerrain4(
+      source(terrain, new Map([[key(0, 0), 1], [key(0, 1), 0.995]])),
+      { bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0 },
+    );
+    expect(plan.batches.southFaces).toEqual([]);
+  });
+
   it.each(VIEW_ORIENTATIONS)("uses the view-space south neighbor at orientation %i", (orientation) => {
     const { raised, south } = raisedAndViewSouth(orientation);
     const plan = planTerrain4(

@@ -41,6 +41,7 @@ function cameraFxDeg(tween: RotationTween): number {
 }
 
 export class RotationController {
+  constructor(private readonly beforeStep?: (direction: 1 | -1) => void) {}
   private tween: RotationTween | null = null;
   private swapped = false;
   /** One-deep chain: a request landing mid-tween starts the moment the current step
@@ -55,6 +56,7 @@ export class RotationController {
       this.pendingDir = dir;
       return;
     }
+    this.beforeStep?.(dir);
     this.tween = startRotationTween(getViewOrientation(), dir);
     this.swapped = false;
   }

@@ -41,6 +41,42 @@ prewarmed cache; it must never clear the currently visible root first. The
 performance fixture records input time, first complete new-orientation frame,
 and dropped/blank frames.
 
+## Golden pixel regression gate
+
+Terrain4 must have a deterministic visual fixture before the renderer is
+considered release-ready. The fixture is a small editor-style scene, not a
+random dungeon capture, so every important rule is visible in one image:
+
+- flat Floor, raised Floor at 0.5/1/2/3 heights, and adjacent height drops
+  that produce `WF` faces;
+- Void surrounded by Floor, including every cardinal edge (no Void wall or
+  cap lift);
+- stairs in all four climb directions, a stair beside a ledge, and door/
+  brazier feature anchors;
+- chunk seams/aprons and entity-depth interleaving representatives;
+- representative patches for Maze, Open Halls, Ruins, Pillars, Pools, and
+  Arena atlas sets.
+
+The fixture is rendered at a fixed canvas size, device pixel ratio, seed,
+orientation, and disabled antialiasing. The test captures the complete RGBA
+canvas and compares it pixel-for-pixel with a committed golden PNG. It must
+run at all four cardinal orientations; the minimum required gate is one exact
+visual comparison, with the intended suite using one golden per orientation
+and biome-material pass. A mismatch writes a diff image and a machine-readable
+list of changed pixels for review.
+
+Golden files live beside the Terrain4 visual tests under
+`packages/client/src/render/terrain4/__golden__/`. The test must never
+auto-update them. Any divergence, including a one-pixel change, fails CI and
+must be shown to Austin for approval before updating the golden image. An
+approved update is a separate commit containing both the reviewed diff and the
+new golden PNG; renderer changes may not hide regressions by rewriting goldens
+in the same step.
+
+The gate records the renderer/atlas contract version and Phaser major version
+in fixture metadata, making an intentional rendering-engine upgrade an
+explicit review event rather than an unexplained mass pixel change.
+
 ## Generated atlas contract
 
 All Terrain4 art uses the same eight logical columns, in this exact order:

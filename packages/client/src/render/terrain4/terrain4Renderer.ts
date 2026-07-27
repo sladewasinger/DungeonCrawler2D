@@ -1,21 +1,22 @@
-import { BIOME, TERRAIN, biomeAtWorldTile, type BiomeKind, type World } from "@dc2d/engine";
+import { TERRAIN, type World } from "@dc2d/engine";
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { TilePos } from "../lighting/torchPlacement.js";
 import type { DynamicLightSeed } from "../terrain/tileLight.js";
-import { viewTileToWorld } from "../view/viewTransform.js";
+import { viewToWorld, worldToView } from "../view/viewTransform.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { rotateOrientation, type ViewOrientation } from "../view/viewOrientation.js";
 import type { ViewRect } from "../terrain/streaming.js";
 import {
   createPhaser4TerrainQuadBatchRenderer,
   type Phaser4TerrainQuadBatchRenderer,
-  type Terrain4ScreenProjection,
 } from "./phaser4QuadBatch.js";
+import { Phaser4TerrainAtlasBatchRenderer } from "./phaser4AtlasBatch.js";
 import { planTerrain4, TERRAIN4, type Terrain4Rect } from "./terrainPlanner.js";
-
-const VIEW_MARGIN_TILES = 2;
-const TERRAIN_DEPTH = -1000;
+import {
+  materialsFor, renderDebugLabels, screenProjection, worldBiomeAt, worldBoundsForView, TERRAIN_DEPTH,
+  type Terrain4DebugHost,
+} from "./terrain4RenderSupport.js";
 
 /** Public terrain seam consumed by dungeon orchestration and torch syncing. */
 export interface TerrainRendererLike {
@@ -27,18 +28,10 @@ export interface TerrainRendererLike {
   dispose(): void;
 }
 
-const BIOME_MATERIALS: Readonly<Record<BiomeKind, { floor: number; face: number }>> = {
-  [BIOME.Maze]: { floor: 0x526579, face: 0x2d3c4d },
-  [BIOME.OpenHalls]: { floor: 0xb28a52, face: 0x6e4d2d },
-  [BIOME.Ruins]: { floor: 0x68715b, face: 0x3c4536 },
-  [BIOME.Pillars]: { floor: 0x687458, face: 0x3a4537 },
-  [BIOME.Pools]: { floor: 0x3c91aa, face: 0x20536c },
-  [BIOME.Arena]: { floor: 0x9d5b43, face: 0x5b2c2a },
-};
-
-interface Terrain4Root {
+interface Terrain4Root extends Terrain4DebugHost {
   readonly graphics: Phaser.GameObjects.Graphics;
   readonly batch: Phaser4TerrainQuadBatchRenderer;
+  readonly atlas: Phaser4TerrainAtlasBatchRenderer;
   readonly debugLabels: Phaser.GameObjects.Text[];
   planKey: string;
   orientation: ViewOrientation;
@@ -55,7 +48,6 @@ export class Terrain4Renderer {
   private readonly debugMode = typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("terrain4Debug") === "1";
   private readonly debugLegend: Phaser.GameObjects.Image | null;
-  private currentKey = "";
   private dirty = true;
 
   constructor(
@@ -74,13 +66,13 @@ export class Terrain4Renderer {
     const root = this.ensureRoot(orientation);
     const bounds = worldBoundsForView(view, orientation);
     const key = `${orientation}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
-    if (this.dirty || key !== this.currentKey || root.planKey !== key) {
+    if (this.dirty || root.planKey !== key) {
       this.renderRoot(root, bounds, key);
-      this.currentKey = key;
       this.dirty = false;
     }
     for (const [candidate, candidateRoot] of this.roots) {
-      candidateRoot.graphics.setVisible(candidate === orientation);
+      candidateRoot.graphics.setVisible(candidate === orientation && !this.scene.textures.exists("terrain4-biomes"));
+      candidateRoot.atlas.setVisible(candidate === orientation);
       for (const label of candidateRoot.debugLabels) {
         label.setVisible(this.debugMode && candidate === orientation);
       }
@@ -89,9 +81,22 @@ export class Terrain4Renderer {
 
   /** Builds the next orientation while the current root remains visible. */
   prewarmRotation(view: ViewRect, direction: 1 | -1): void {
-    const next = rotateOrientation(getViewOrientation(), direction);
+    const current = getViewOrientation();
+    const next = rotateOrientation(current, direction);
     const root = this.ensureRoot(next);
-    const bounds = worldBoundsForView(view, next);
+    const centerView = {
+      x: (view.x + view.width / 2) / SCREEN_TILE_PX,
+      y: (view.y + view.height / 2) / SCREEN_TILE_PX,
+    };
+    const centerWorld = viewToWorld(centerView, current);
+    const nextCenterView = worldToView(centerWorld, next);
+    const nextView = {
+      x: nextCenterView.x * SCREEN_TILE_PX - view.width / 2,
+      y: nextCenterView.y * SCREEN_TILE_PX - view.height / 2,
+      width: view.width,
+      height: view.height,
+    };
+    const bounds = worldBoundsForView(nextView, next);
     const key = `${next}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (root.planKey !== key) this.renderRoot(root, bounds, key);
   }
@@ -114,7 +119,6 @@ export class Terrain4Renderer {
 
   invalidateAll(): void {
     this.dirty = true;
-    this.currentKey = "";
     for (const root of this.roots.values()) root.planKey = "";
   }
 
@@ -123,7 +127,11 @@ export class Terrain4Renderer {
   }
 
   dispose(): void {
-    for (const root of this.roots.values()) root.graphics.destroy();
+    for (const root of this.roots.values()) {
+      root.graphics.destroy();
+      root.atlas.destroy();
+      for (const label of root.debugLabels) label.destroy();
+    }
     this.roots.clear();
     this.debugLegend?.destroy();
   }
@@ -136,6 +144,7 @@ export class Terrain4Renderer {
     const root: Terrain4Root = {
       graphics,
       batch,
+      atlas: new Phaser4TerrainAtlasBatchRenderer(this.scene, TERRAIN_DEPTH),
       debugLabels: [],
       planKey: "",
       orientation,
@@ -149,87 +158,17 @@ export class Terrain4Renderer {
       terrainAt: (x, y) => this.world.terrainAt(x, y) === TERRAIN.Void ? TERRAIN4.Void : TERRAIN4.Floor,
       heightAt: (x, y) => this.world.heightAt(x, y),
     }, { bounds, orientation: root.orientation, seamApron: 1 });
-    root.batch.render(plan.batches, screenProjection, materialsFor(this.world, bounds));
-    if (this.debugMode) renderDebugLabels(this.scene, root, plan);
+    if (this.scene.textures.exists("terrain4-biomes")) {
+      root.atlas.render(plan.batches, {
+        projection: screenProjection,
+        biomeAt: (tile) => worldBiomeAt(this.world, tile.x, tile.y),
+        debug: this.debugMode,
+      });
+      root.graphics.setVisible(false);
+    } else {
+      root.batch.render(plan.batches, screenProjection, materialsFor(this.world, bounds));
+    }
+    if (this.debugMode) renderDebugLabels(this.scene, root, plan, root.orientation === getViewOrientation());
     root.planKey = key;
   }
-}
-
-const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "south-face", string>> = {
-  floor: "F",
-  void: "V",
-  "south-face": "WF",
-};
-
-function renderDebugLabels(
-  scene: Phaser.Scene,
-  root: Terrain4Root,
-  plan: ReturnType<typeof planTerrain4>,
-): void {
-  const entries = [...plan.batches.floors, ...plan.batches.voids, ...plan.batches.southFaces];
-  for (let index = 0; index < entries.length; index++) {
-    const entry = entries[index];
-    if (!entry) continue;
-    const label = root.debugLabels[index] ?? createDebugLabel(scene, root);
-    const center = entry.vertices.reduce(
-      (sum, vertex) => ({ x: sum.x + vertex.x / 4, y: sum.y + vertex.y / 4, z: sum.z + vertex.z / 4 }),
-      { x: 0, y: 0, z: 0 },
-    );
-    const screen = screenProjection.project(center);
-    label.setText(DEBUG_LABELS[entry.kind]).setPosition(screen.x, screen.y).setVisible(true);
-  }
-  for (let index = entries.length; index < root.debugLabels.length; index++) {
-    root.debugLabels[index]?.setVisible(false);
-  }
-}
-
-function createDebugLabel(scene: Phaser.Scene, root: Terrain4Root): Phaser.GameObjects.Text {
-  const label = scene.add.text(0, 0, "", {
-    color: "#ffffff",
-    fontFamily: "monospace",
-    fontSize: "12px",
-    stroke: "#000000",
-    strokeThickness: 3,
-  }).setOrigin(0.5).setDepth(TERRAIN_DEPTH + 1);
-  root.debugLabels.push(label);
-  return label;
-}
-
-const screenProjection: Terrain4ScreenProjection = {
-  project: ({ x, y, z }) => ({
-    x: x * SCREEN_TILE_PX,
-    y: y * SCREEN_TILE_PX - z * SCREEN_TILE_PX,
-  }),
-};
-
-function materialsFor(world: World, bounds: Terrain4Rect) {
-  const biome = worldBiomeAt(world, bounds.x, bounds.y);
-  const palette = BIOME_MATERIALS[biome];
-  return {
-    floor: { color: palette.floor },
-    void: { color: 0x000000 },
-    southFace: { color: palette.face },
-  };
-}
-
-function worldBiomeAt(world: World, x: number, y: number): BiomeKind {
-  return biomeAtWorldTile(world.worldSeed, world.floor, x, y).biome;
-}
-
-function worldBoundsForView(view: ViewRect, orientation: ViewOrientation): Terrain4Rect {
-  const minVX = Math.floor(view.x / SCREEN_TILE_PX) - VIEW_MARGIN_TILES;
-  const minVY = Math.floor(view.y / SCREEN_TILE_PX) - VIEW_MARGIN_TILES;
-  const maxVX = Math.ceil((view.x + view.width) / SCREEN_TILE_PX) + VIEW_MARGIN_TILES;
-  const maxVY = Math.ceil((view.y + view.height) / SCREEN_TILE_PX) + VIEW_MARGIN_TILES;
-  const corners = [
-    viewTileToWorld({ x: minVX, y: minVY }, orientation),
-    viewTileToWorld({ x: maxVX, y: minVY }, orientation),
-    viewTileToWorld({ x: minVX, y: maxVY }, orientation),
-    viewTileToWorld({ x: maxVX, y: maxVY }, orientation),
-  ];
-  const minX = Math.min(...corners.map((corner) => corner.x)) - VIEW_MARGIN_TILES;
-  const minY = Math.min(...corners.map((corner) => corner.y)) - VIEW_MARGIN_TILES;
-  const maxX = Math.max(...corners.map((corner) => corner.x)) + VIEW_MARGIN_TILES;
-  const maxY = Math.max(...corners.map((corner) => corner.y)) + VIEW_MARGIN_TILES;
-  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }

@@ -27,6 +27,15 @@ export interface Terrain4AtlasSet {
   readonly rowCount: number;
 }
 
+/** A named crop registered on the loaded Phaser texture. */
+export interface Terrain4AtlasFrame {
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
  * The generated shared sheet contains a debug legend row followed by five
  * biome sets. Pillar Forest has its own generated sheet, but uses the exact
@@ -42,21 +51,21 @@ export const TERRAIN4_TILESETS: Readonly<Record<"debug" | BiomeKind, Terrain4Atl
     rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
   },
   [BIOME.Maze]: {
-    key: "terrain4-maze",
+    key: "terrain4-biomes",
     path: "assets/terrain4/terrain4-atlas.png",
     rows: 11,
     rowStart: 1,
     rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
   },
   [BIOME.OpenHalls]: {
-    key: "terrain4-open-halls",
+    key: "terrain4-biomes",
     path: "assets/terrain4/terrain4-atlas.png",
     rows: 11,
     rowStart: 3,
     rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
   },
   [BIOME.Ruins]: {
-    key: "terrain4-ruins",
+    key: "terrain4-biomes",
     path: "assets/terrain4/terrain4-atlas.png",
     rows: 11,
     rowStart: 5,
@@ -70,14 +79,14 @@ export const TERRAIN4_TILESETS: Readonly<Record<"debug" | BiomeKind, Terrain4Atl
     rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
   },
   [BIOME.Pools]: {
-    key: "terrain4-pools",
+    key: "terrain4-biomes",
     path: "assets/terrain4/terrain4-atlas.png",
     rows: 11,
     rowStart: 7,
     rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
   },
   [BIOME.Arena]: {
-    key: "terrain4-arena",
+    key: "terrain4-biomes",
     path: "assets/terrain4/terrain4-atlas.png",
     rows: 11,
     rowStart: 9,
@@ -89,9 +98,62 @@ export function terrain4TileRoleIndex(role: Terrain4TileRole): number {
   return TERRAIN4_TILE_ROLES.indexOf(role);
 }
 
-export function terrain4FrameFor(role: Terrain4TileRole, row = 0): number {
-  if (!Number.isInteger(row) || row < 0 || row >= TERRAIN4_ATLAS_ROWS_PER_SET) {
-    throw new Error(`Terrain4 atlas row must be 0 or 1; received ${row}`);
-  }
+export function terrain4FrameFor(role: Terrain4TileRole, row?: number): number;
+export function terrain4FrameFor(set: Terrain4AtlasSet, role: Terrain4TileRole, row?: number): number;
+export function terrain4FrameFor(
+  setOrRole: Terrain4AtlasSet | Terrain4TileRole,
+  roleOrRow: Terrain4TileRole | number = 0,
+  variant = 0,
+): number {
+  if (typeof setOrRole === "string") return frameAtRow(setOrRole, roleOrRow as number);
+  return frameAtSet(setOrRole, roleOrRow as Terrain4TileRole, variant);
+}
+
+function frameAtRow(role: Terrain4TileRole, row: number): number {
+  assertVariant(row);
   return row * TERRAIN4_ATLAS_COLUMNS + terrain4TileRoleIndex(role);
+}
+
+function frameAtSet(set: Terrain4AtlasSet, role: Terrain4TileRole, row: number): number {
+  assertVariant(row);
+  return (set.rowStart + row) * TERRAIN4_ATLAS_COLUMNS + terrain4TileRoleIndex(role);
+}
+
+/** Unique Phaser frame name for a role in one biome/debug atlas set. */
+export function terrain4AtlasFrameName(
+  set: Terrain4AtlasSet,
+  role: Terrain4TileRole,
+  variant = 0,
+): string {
+  assertVariant(variant);
+  return `terrain4:${set.key}:${set.rowStart + variant}:${role}`;
+}
+
+/** Maps the stable logical grid to a crop in an atlas image of the given size. */
+export function terrain4AtlasFrame(
+  set: Terrain4AtlasSet,
+  role: Terrain4TileRole,
+  variant: number,
+  imageWidth: number,
+  imageHeight: number,
+): Terrain4AtlasFrame {
+  assertVariant(variant);
+  if (!Number.isFinite(imageWidth) || !Number.isFinite(imageHeight) || imageWidth <= 0 || imageHeight <= 0) {
+    throw new Error("Terrain4 atlas image dimensions must be positive");
+  }
+  const width = imageWidth / TERRAIN4_ATLAS_COLUMNS;
+  const height = imageHeight / set.rows;
+  return {
+    name: terrain4AtlasFrameName(set, role, variant),
+    x: terrain4TileRoleIndex(role) * width,
+    y: (set.rowStart + variant) * height,
+    width,
+    height,
+  };
+}
+
+function assertVariant(variant: number): void {
+  if (!Number.isInteger(variant) || variant < 0 || variant >= TERRAIN4_ATLAS_ROWS_PER_SET) {
+    throw new Error(`Terrain4 atlas row must be 0 or 1; received ${variant}`);
+  }
 }

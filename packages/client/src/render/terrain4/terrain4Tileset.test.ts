@@ -22,5 +22,6 @@ describe("Terrain4 atlas contract", () => {
     expect(terrain4FrameFor("floor", 0)).toBe(0);
     expect(terrain4FrameFor("void", 0)).toBe(4);
     expect(terrain4FrameFor("brazier", 1)).toBe(15);
+    expect(terrain4FrameFor(TERRAIN4_TILESETS[BIOME.Pools], "floor", 0)).toBe(56);
   });
 });
