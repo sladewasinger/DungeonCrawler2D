@@ -103,7 +103,7 @@ export class EditableWorld {
     this.setStack(wx, wy, { walls: height, cap: capId, stair: null });
   }
 
-  /** Makes this height cell a solid, non-walkable void wall with no floor cap. */
+  /** Makes this height cell a solid, non-walkable void with no floor cap. */
   paintVoidAt(wx: number, wy: number): void {
     this.setStack(wx, wy, { walls: this.heightAt(wx, wy), cap: null, stair: null });
   }

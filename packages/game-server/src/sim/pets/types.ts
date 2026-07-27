@@ -1,4 +1,4 @@
-import type { Entity } from "@dc2d/engine";
+import { MOVE_SPEED, type Entity } from "@dc2d/engine";
 
 /** Pet content is deliberately independent from enemy definitions. New
  * abilities can hang off this state without turning pets into combatants. */
@@ -10,11 +10,11 @@ export interface PetDefinition {
 }
 
 export const PET_DEFINITIONS: readonly PetDefinition[] = [
-  { id: "pet-dino-doux", name: "Doux", species: "dino", speed: 5.2 },
-  { id: "pet-dino-mort", name: "Mort", species: "dino", speed: 5.2 },
-  { id: "pet-dino-tard", name: "Tard", species: "dino", speed: 5.2 },
-  { id: "pet-dino-vita", name: "Vita", species: "dino", speed: 5.2 },
-  { id: "pet-dog", name: "Dungeon Dog", species: "dog", speed: 5.8 },
+  { id: "pet-dino-doux", name: "Doux", species: "dino", speed: MOVE_SPEED },
+  { id: "pet-dino-mort", name: "Mort", species: "dino", speed: MOVE_SPEED },
+  { id: "pet-dino-tard", name: "Tard", species: "dino", speed: MOVE_SPEED },
+  { id: "pet-dino-vita", name: "Vita", species: "dino", speed: MOVE_SPEED },
+  { id: "pet-dog", name: "Dungeon Dog", species: "dog", speed: MOVE_SPEED },
 ];
 
 export type PetMode = "available" | "following";

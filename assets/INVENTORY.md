@@ -120,6 +120,16 @@ all 4, don't assume a clean `f0..f3` string pattern), `ice_zombie` (16×16),
 match** for the game's `skeleton` enemy (`reference/content/enemies.json`) —
 use as-is, no recolor needed.
 
+## Companion pets
+
+Pet sheets are intentionally separate from the terrain atlas. The four
+`assets/packs/pet_dino/DinoSprites - *.png` files are 240×24 sheets of 24×24
+animated dino frames (idle followed by walk). The dog uses the dire-wolf row in
+`assets/packs/0x72_DungeonTilesetII_v1.7/Enchanted Forest Characters with
+animations.png`; the client extracts its 32×32 idle/walk frames through
+`packages/client/src/boot/petAssetManifest.ts`. Attribution and licenses are
+recorded in [assets/LICENSES.md](LICENSES.md).
+
 ## Items / props
 
 **Potions (static, 16×16):** `flask_big_blue/red/green/yellow` (large),

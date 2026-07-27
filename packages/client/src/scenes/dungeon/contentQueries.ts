@@ -118,8 +118,8 @@ export interface PartyMemberPosition {
   readonly disconnected?: boolean | undefined;
 }
 
-/** Nearest DOWNED party member within `maxDistance` — the hold-E revive gesture's
- * target gate (Epic 7.12); undefined when no downed teammate is close enough. */
+/** Nearest connected DOWNED player within `maxDistance` — the hold-E revive
+ * gesture's target gate; party membership is not required. */
 export function nearestDownedPartyMember(
   members: readonly PartyMemberPosition[],
   fromX: number,

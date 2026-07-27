@@ -15,20 +15,35 @@ import { PET_DEFINITIONS, type PetDefinition, type PetSlot } from "./types.js";
 
 export { PET_DRIFT_IDLE_TICKS, PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
 
-/** Seed the initial pet population once per floor sim. The first pet is near
- * the shared spawn anchor; additional pets can use the same seam later. */
+const PET_SPAWN_OFFSETS = [
+  { x: 20, y: 0 },
+  { x: -24, y: 12 },
+  { x: 8, y: -32 },
+  { x: 36, y: 24 },
+  { x: -40, y: -28 },
+] as const;
+
+/** Seed one of each current companion around floor 1's shared spawn area. */
 export function seedPets(sim: SimState): void {
   if (sim.world.floor !== 1 || sim.world.level !== LEVEL.Dungeon) return;
   const anchor = resolveSpawnAnchor(sim);
-  const spawn = findWalkableNear(
-    sim,
-    anchor.x + PET_SPAWN_DISTANCE_TILES,
-    anchor.y,
-    8,
-  );
-  if (!spawn) return;
-  const definition = PET_DEFINITIONS[Math.floor(sim.rng.next() * PET_DEFINITIONS.length)] ?? PET_DEFINITIONS[0]!;
-  spawnPet(sim, definition, spawn.x + 0.5, spawn.y + 0.5);
+  const occupied = new Set<string>();
+  for (const [index, definition] of PET_DEFINITIONS.entries()) {
+    const offset = PET_SPAWN_OFFSETS[index] ?? {
+      x: PET_SPAWN_DISTANCE_TILES + index * 8,
+      y: 0,
+    };
+    const spawn = findWalkableNear(
+      sim,
+      anchor.x + offset.x,
+      anchor.y + offset.y,
+      index === 0 ? 8 : 12,
+      occupied,
+    );
+    if (!spawn) continue;
+    occupied.add(`${spawn.x},${spawn.y}`);
+    spawnPet(sim, definition, spawn.x + 0.5, spawn.y + 0.5);
+  }
 }
 
 export function spawnPet(
@@ -68,6 +83,10 @@ export function spawnPet(
 
 /** The first nearby player to send interact owns an unclaimed pet. */
 export function claimNearestPet(sim: SimState, slot: PlayerSlot): boolean {
+  if (simHasPet(sim, slot.entity.id)) {
+    slot.outbox.push({ t: "toast", msg: "You already have a pet." });
+    return true;
+  }
   const target = nearestAvailablePet(sim, slot);
   if (!target) return false;
   target.ownerId = slot.entity.id;
@@ -82,6 +101,10 @@ export function claimNearestPet(sim: SimState, slot: PlayerSlot): boolean {
     msg: `${target.definition.name} is now your pet! It will follow you around the dungeon.`,
   });
   return true;
+}
+
+function simHasPet(sim: SimState, playerId: string): boolean {
+  return [...sim.pets.values()].some((pet) => pet.ownerId === playerId);
 }
 
 function nearestAvailablePet(sim: SimState, slot: PlayerSlot): PetSlot | undefined {

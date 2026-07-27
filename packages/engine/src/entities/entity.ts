@@ -46,7 +46,7 @@ export interface Entity {
    * targeting aid deprioritizes them. Kept on the entity for AOI-free
    * lookups. */
   partyId?: string;
-  /** Downed players bleed out unless revived (party feature). */
+  /** Downed players bleed out unless revived by a nearby crawler. */
   downedUntil?: number;
   /** Flight/placement state (kind === "torch"): mid-arc, or planted and burning. */
   torchState?: "flying" | "placed";

@@ -21,14 +21,20 @@ Release until the exact deployment run has completed its production smoke test.
 
 ## Recovery after a failed deployment
 
-Create a new commit on `main` that restores the last known-good source state,
-then push it so the normal workflow rebuilds and republishes both targets. Use
-`git revert` for a bad change when practical; do not force-push `main`, move a
-published tag, or rewrite released history.
+Create a new recovery commit on `develop`, validate it there, then fast-forward
+merge it into `main` and push so the normal workflow rebuilds and republishes
+both targets. Use `git revert` for a bad change when practical; do not
+force-push `main`, move a published tag, or rewrite released history.
 
 ```bash
+git switch develop
 git revert BAD_COMMIT
+git push origin develop
+git switch main
+git pull --ff-only origin main
+git merge --ff-only develop
 git push origin main
+git switch develop
 ```
 
 Watch that deployment with `gh run watch RUN_ID --exit-status`. If the workflow

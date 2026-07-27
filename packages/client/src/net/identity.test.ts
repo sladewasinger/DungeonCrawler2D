@@ -23,12 +23,36 @@ class MemoryStorage implements IdentityStorage {
   removeItem(key: string): void {
     this.values.delete(key);
   }
+
+  clone(): MemoryStorage {
+    const copy = new MemoryStorage();
+    for (const [key, value] of this.values) copy.values.set(key, value);
+    return copy;
+  }
+}
+
+class MemoryTabMarker {
+  constructor(private value: string | null = null) {}
+
+  read(): string | null {
+    return this.value;
+  }
+
+  write(value: string): boolean {
+    this.value = value;
+    return true;
+  }
 }
 
 const context = (
   sessionStorage: IdentityStorage | null,
   localStorage: IdentityStorage,
-): IdentityStorageContext => ({ sessionStorage, localStorage });
+  tabMarker?: MemoryTabMarker,
+): IdentityStorageContext => ({
+  sessionStorage,
+  localStorage,
+  ...(tabMarker ? { tabMarker } : {}),
+});
 
 describe("tab-scoped connection identity", () => {
   it("keeps two tabs on distinct client and resume identities across reconnects", () => {
@@ -66,6 +90,37 @@ describe("tab-scoped connection identity", () => {
     expect(persistentClientId(fallback)).toBe("local-fallback-client");
     saveResumeToken("fallback-token", "sandbox", fallback);
     expect(loadResumeToken("sandbox", fallback)).toBe("fallback-token");
+  });
+
+  it("keeps local-storage resume tokens tab-scoped when session storage is unavailable", () => {
+    const sharedLocal = new MemoryStorage();
+    const source = context(null, sharedLocal, new MemoryTabMarker());
+    const sourceClient = persistentClientId(source);
+    saveResumeToken("source-token", "dungeon", source);
+
+    const duplicate = context(null, sharedLocal, new MemoryTabMarker());
+    const duplicateClient = persistentClientId(duplicate);
+
+    expect(duplicateClient).not.toBe(sourceClient);
+    expect(loadResumeToken("dungeon", source)).toBe("source-token");
+    expect(loadResumeToken("dungeon", duplicate)).toBeUndefined();
+  });
+
+  it("rotates a duplicated session identity and does not resume the source tab", () => {
+    const sharedLocal = new MemoryStorage();
+    const sourceSession = new MemoryStorage();
+    const source = context(sourceSession, sharedLocal, new MemoryTabMarker());
+    const sourceClient = persistentClientId(source);
+    saveResumeToken("source-token", "dungeon", source);
+
+    const duplicatedSession = sourceSession.clone();
+    const duplicate = context(duplicatedSession, sharedLocal, new MemoryTabMarker());
+    const duplicateClient = persistentClientId(duplicate);
+
+    expect(duplicateClient).not.toBe(sourceClient);
+    expect(persistentClientId(source)).toBe(sourceClient);
+    expect(loadResumeToken("dungeon", source)).toBe("source-token");
+    expect(loadResumeToken("dungeon", duplicate)).toBeUndefined();
   });
 });
 

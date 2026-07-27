@@ -1,17 +1,19 @@
 # Release Runbook
 
-Use this checklist for every versioned release. Releases are prepared on
-`main`, deployed by the push to `main`, and identified by an annotated
-`vX.Y.Z` tag. GitHub Release creation is a separate final step.
+Use this checklist for every versioned release. Daily work lands on `develop`
+and is pushed after each commit. Releases are validated on `develop`, merged
+fast-forward to `main` for deployment, and identified by an annotated `vX.Y.Z`
+tag. GitHub Release creation is a separate final step.
 
 ## 1. Prepare the repository
 
 1. Confirm the intended version and title from the matching release plan.
-2. Start from a clean, current `main`:
+2. Start from a clean, current `develop`:
 
    ```bash
    git status -sb
-   git pull --ff-only origin main
+   git switch develop
+   git pull --ff-only origin develop
    gh auth status
    ```
 
@@ -29,17 +31,12 @@ Use this checklist for every versioned release. Releases are prepared on
 ## 2. Commit implementation work in small chunks
 
 Commit each independently reviewable change as it becomes complete. Keep tests
-with the behavior they cover. Before each implementation commit, run ESLint
-only on the source files changed by that commit:
-
-```powershell
-$changedSource = git diff --name-only --diff-filter=ACMR |
-  Where-Object { $_ -match '\.[cm]?[jt]sx?$' }
-if ($changedSource) { npx eslint -- $changedSource }
-```
-
-Run the focused tests and typecheck relevant to the chunk. Do not wait until
-the release commit to divide a large worktree into meaningful history.
+with the behavior they cover, but do not run the test suite during iterative
+implementation. Run `npm run lint:working-tree` while working; it lints changed
+and untracked JavaScript/TypeScript files and checks changed folder sizes. Push
+each non-release commit to `origin/develop` so the shared branch stays current.
+Reserve the full lint, typecheck, build, and test gates for the final release
+checkpoint, with `npm test` run immediately before the release commit.
 
 Stage explicit paths, inspect the staged diff, and then commit:
 
@@ -91,8 +88,8 @@ supported developer-only block when useful:
 <!-- /developer-only -->
 ```
 
-Mark the matching plan `Status: Released YYYY-MM-DD`, then move it from
-`docs/releases/` to `docs/archive/`. Keep the release notes in
+If a matching plan exists, mark it `Status: Released YYYY-MM-DD`, then move it
+from `docs/releases/` to `docs/archive/`. Keep the release notes in
 `docs/releases/`.
 
 ## 4. Synchronize the version
@@ -121,13 +118,14 @@ package records changed.
 ## 5. Run the release gate
 
 Run the complete non-browser gate at the final pre-commit/release checkpoint,
-immediately before committing the release work and then tagging it:
+with tests last immediately before committing the release work and then tagging
+it:
 
 ```bash
 npm run lint
-npm test
 npm run typecheck
 npm run build
+npm test
 git diff --check
 git status -sb
 ```
@@ -142,7 +140,8 @@ The production build must contain `releases/vX.Y.Z.html` and list it from
 
 ## 6. Commit and start deployment
 
-Commit the notes and synchronized version separately from implementation work:
+Commit the notes and synchronized version separately from implementation work on
+`develop`:
 
 ```bash
 git add -- docs/releases/vX.Y.Z.md docs/releases/vX.Y.Z-plan.md \
@@ -155,11 +154,16 @@ git commit -m "chore(release): prepare vX.Y.Z"
 ```
 
 Create an annotated local tag using the established title format, then push
-`main` without pushing the tag yet:
+the release merge to `main` without pushing the tag yet:
 
 ```bash
 git tag -a vX.Y.Z -m "DungeonCrawler2D vX.Y.Z - Release Title"
+git push origin develop
+git switch main
+git pull --ff-only origin main
+git merge --ff-only develop
 git push origin main
+git switch develop
 ```
 
 The `main` push starts the production deployment. Keeping the tag local until

@@ -1,13 +1,14 @@
-# Asset Licenses — the 7 explicit-heights-reskin tile packs
+# Asset Licenses — terrain packs and companion sprites
 
-Companion to [`assets/LICENSES.md`](../assets/LICENSES.md), which also records the
-pet sprite credits. This file covers only the 7 new RPG-Maker-MV-format
-dungeon tile packs added under `assets/packs/` for the "explicit heights reskin" pivot
-and copied into `packages/client/public/assets/packs/` by the asset-foundry lane.
+Companion to [`assets/LICENSES.md`](../assets/LICENSES.md), which records the
+verified upstream licenses and the pet sprite credits. This file covers the 7
+new RPG-Maker-MV-format dungeon tile packs added under `assets/packs/` for the
+"explicit heights reskin" pivot and copied into
+`packages/client/public/assets/packs/` by the asset-foundry lane.
 
 ## The honest note
 
-**None of the 7 pack folders contain a license file, readme, or any accompanying text
+**None of the 7 terrain pack folders contain a license file, readme, or any accompanying text
 of any kind** — each folder is exactly N flat PNG sheets (`tile-B-01.png` … and, for two
 packs, an `Auto-tile-A4-*.png` wall-autotile sheet), nothing else. Cross-checked against
 the original download in the user's own `Downloads/medieval sewer/` folder (an
@@ -44,6 +45,14 @@ cols × 16 rows (768×768px); the `_A4` wall-autotile sheets are 16 cols × 15 r
 (768×720px). Full per-pack breakdown (floor/wall/stair/door/torch/prop/hazard/water
 piece coordinates) is in `packages/content/src/data/tileCatalog.json`, validated by
 `tileCatalog.schema.ts`.
+
+## Companion sprite files
+
+The pet sprite files are not part of the seven commercial terrain packs and are
+tracked in `assets/LICENSES.md`: four CC BY 4.0 dino sheets by Arks and the CC0
+enchanted-forest sheet by Superdark used for the dog. They are copied into
+`packages/client/public/assets/pets/` and loaded through the data-driven pet asset
+manifest rather than the terrain catalog.
 
 ## Note on prompt-injection screening
 

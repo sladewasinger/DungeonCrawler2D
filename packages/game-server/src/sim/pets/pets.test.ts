@@ -1,4 +1,4 @@
-import { LEVEL, World, buildContentRegistry, hashString } from "@dc2d/engine";
+import { LEVEL, MOVE_SPEED, World, buildContentRegistry, hashString } from "@dc2d/engine";
 import {
   areasData,
   enemiesData,
@@ -42,14 +42,18 @@ function dungeonState() {
 }
 
 describe("pets", () => {
-  it("seeds one available pet about twenty tiles from the shared spawn anchor", () => {
+  it("uses the shared player movement speed", () => {
+    expect(PET_DEFINITIONS.every((definition) => definition.speed === MOVE_SPEED)).toBe(true);
+  });
+
+  it("seeds one of each pet around the shared spawn anchor", () => {
     const sim = dungeonState();
-    expect(sim.pets.size).toBe(1);
-    const pet = [...sim.pets.values()][0]!.entity;
+    expect(sim.pets.size).toBe(PET_DEFINITIONS.length);
+    const pets = [...sim.pets.values()];
     const anchor = resolveSpawnAnchor(sim);
-    const distance = Math.hypot(pet.body.x - anchor.x, pet.body.y - anchor.y);
-    expect(distance).toBeGreaterThan(10);
-    expect(distance).toBeLessThan(30);
+    const distances = pets.map((pet) => Math.hypot(pet.entity.body.x - anchor.x, pet.entity.body.y - anchor.y));
+    expect(distances.some((distance) => distance > 10 && distance < 30)).toBe(true);
+    expect(new Set(pets.map((pet) => `${pet.entity.body.x},${pet.entity.body.y}`)).size).toBe(pets.length);
   });
 
   it("lets only the first nearby player claim a pet, then follows their movement", () => {
@@ -71,6 +75,21 @@ describe("pets", () => {
     owner.entity.body.x += 5;
     stepPets(sim);
     expect(pet.body.x).toBeGreaterThan(before);
+  });
+
+  it("allows each player to claim at most one pet", () => {
+    const sim = dungeonState();
+    sim.pets.clear();
+    const player = addPlayer(sim, "Ellie", "pet-client-one");
+    const first = spawnPet(sim, PET_DEFINITIONS[0]!, player.spawn.x + 1, player.spawn.y);
+    const second = spawnPet(sim, PET_DEFINITIONS[1]!, player.spawn.x + 2, player.spawn.y);
+    const slot = sim.players.get(player.playerId)!;
+
+    expect(claimNearestPet(sim, slot)).toBe(true);
+    expect(claimNearestPet(sim, slot)).toBe(true);
+    expect(sim.pets.get(first.id)?.ownerId).toBe(player.playerId);
+    expect(sim.pets.get(second.id)?.ownerId).toBeNull();
+    expect(slot.outbox.at(-1)).toMatchObject({ t: "toast", msg: "You already have a pet." });
   });
 
   it("does not seed pets on sandbox simulations", () => {

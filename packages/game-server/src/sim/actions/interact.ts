@@ -19,7 +19,7 @@ import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
 import { openLootChest } from "../lootChests.js";
 import { claimNearestPet } from "../pets/index.js";
 
-/** The interact intent: party revive, doors (safe room / personal / party / exit), stash. */
+/** The interact intent: revive, pet claims, doors, stash, and floor exits. */
 
 export function doInteract(sim: SimState, slot: PlayerSlot): void {
   if (slot.downedAtTick !== null) return;

@@ -84,9 +84,10 @@ code in.
 ## Definition of done (for any task, any agent)
 
 1. During implementation, use `npm run lint:working-tree` for fast feedback.
-   Run `npm run typecheck`, the full `npm run lint`, and `npm test` together
-   only at the final validation checkpoint immediately before committing
-   (unless the user asks for an earlier test run); all must be green.
+   At the final validation checkpoint, run `npm run typecheck`, the full
+   `npm run lint`, and the production build, then run `npm test` last
+   immediately before committing (unless the user asks for an earlier test
+   run); all must be green.
 2. New behavior has tests; changed behavior has updated tests.
 3. Every touched file obeys the hard limits and opens with its doc comment.
 4. Gameplay data went into `content/`, not into code.

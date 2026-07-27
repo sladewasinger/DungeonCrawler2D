@@ -4,10 +4,11 @@ Most art acquired for v2 is CC0-1.0 (public domain dedication) or an
 equivalently permissive license. The dino pet sprites are the exception:
 they are CC BY 4.0 and ship with the attribution below.
 
-Per `docs/VISUAL_DIRECTION.md`, the 0x72 DungeonTileset II is the primary
-(only) world-art pack for v1.0: one resolution, one palette family. Nothing
-else was added — see the GAPS section of `assets/INVENTORY.md` for what's
-still missing and why it isn't being patched with a second art pack.
+Per `docs/VISUAL_DIRECTION.md`, the 0x72 DungeonTileset II remains the primary
+world-art pack for v1.0: one terrain resolution and one palette family. The
+companion pets are an explicit exception: their separate animated sheets are
+used only for friendly NPC sprites and do not replace or mix into terrain art.
+See the GAPS section of `assets/INVENTORY.md` for other missing art.
 
 ---
 
