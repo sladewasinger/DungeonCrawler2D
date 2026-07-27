@@ -4,6 +4,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import importXPlugin from "eslint-plugin-import-x";
+import sonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
 
 const banReference = {
@@ -26,7 +27,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    plugins: { "import-x": importXPlugin },
+    plugins: { "import-x": importXPlugin, sonarjs },
     settings: {
       "import-x/resolver": { node: { extensions: [".js", ".ts", ".mjs"] } },
     },
@@ -35,9 +36,14 @@ export default tseslint.config(
       "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "warn",
-      "max-lines": ["error", { max: 200, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 40, skipBlankLines: true, skipComments: true }],
-      complexity: ["error", { max: 10 }],
+      // Architecture guardrails: keep new code small, shallow, and easy to compose.
+      complexity: ["error", { max: 8 }],
+      "sonarjs/cognitive-complexity": ["error", 5],
+      "max-lines-per-function": ["error", { max: 25, skipBlankLines: true, skipComments: true }],
+      "max-lines": ["error", { max: 150, skipBlankLines: true, skipComments: true }],
+      "max-depth": ["error", 3],
+      "max-params": ["error", 3],
+      "sonarjs/no-duplicate-string": ["error", { threshold: 3 }],
       "@typescript-eslint/no-explicit-any": "error",
       // Default-deny elsewhere; packages/engine escalates both to "error" below.
       "@typescript-eslint/no-non-null-assertion": "off",

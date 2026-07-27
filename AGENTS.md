@@ -21,3 +21,14 @@ does not appear.
 - Do not run tests during implementation iterations. Run `npm test` only at the
   final validation checkpoint immediately before committing, unless Austin asks
   for an earlier test run.
+
+## Critical code quality rules
+
+- Write highly modular, decoupled TypeScript.
+- Never nest conditionals or loops deeper than 3 levels.
+- If a function is approaching 25 lines, immediately abstract sub-steps into
+  private, pure helper functions.
+- Prefer pure functions with explicit inputs and outputs over stateful,
+  side-effect-heavy code to maintain low coupling.
+- If an object requires more than 3 parameters, group them into a single,
+  cohesive TypeScript interface or type.
