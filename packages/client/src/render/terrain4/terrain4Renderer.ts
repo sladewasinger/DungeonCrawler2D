@@ -12,7 +12,8 @@ import {
   type Phaser4TerrainQuadBatchRenderer,
 } from "./phaser4QuadBatch.js";
 import { Phaser4TerrainAtlasBatchRenderer } from "./phaser4AtlasBatch.js";
-import { planTerrain4, TERRAIN4, type Terrain4Rect } from "./terrainPlanner.js";
+import { TERRAIN4, type Terrain4Rect, type Terrain4Source } from "./terrainPlanner.js";
+import { appendVisibleChunkPlans, emptyTerrain4Batches, Terrain4ChunkPlanCache } from "./terrain4ChunkCache.js";
 import {
   materialsFor, renderDebugLabels, screenProjection, worldBiomeAt, worldBoundsForView, TERRAIN_DEPTH,
   type Terrain4DebugHost,
@@ -48,12 +49,18 @@ export class Terrain4Renderer {
   private readonly debugMode = typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("terrain4Debug") === "1";
   private readonly debugLegend: Phaser.GameObjects.Image | null;
+  private readonly chunkCache = new Terrain4ChunkPlanCache();
+  private readonly terrainSource: Terrain4Source;
   private dirty = true;
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: World,
   ) {
+    this.terrainSource = {
+      terrainAt: (x, y) => this.world.terrainAt(x, y) === TERRAIN.Void ? TERRAIN4.Void : TERRAIN4.Floor,
+      heightAt: (x, y) => this.world.heightAt(x, y),
+    };
     this.debugLegend = this.debugMode
       ? scene.add.image(8, 8, ASSET_KEYS.terrain4Debug)
         .setOrigin(0, 0).setScrollFactor(0).setDepth(TERRAIN_DEPTH + 2000).setScale(0.12).setAlpha(0.9)
@@ -106,7 +113,7 @@ export class Terrain4Renderer {
   }
 
   rebuildAffected(tiles: readonly TilePos[]): void {
-    void tiles;
+    for (const tile of tiles) this.chunkCache.invalidateTile(tile.wx, tile.wy);
     this.dirty = true;
   }
 
@@ -119,6 +126,7 @@ export class Terrain4Renderer {
 
   invalidateAll(): void {
     this.dirty = true;
+    this.chunkCache.clear();
     for (const root of this.roots.values()) root.planKey = "";
   }
 
@@ -154,19 +162,17 @@ export class Terrain4Renderer {
   }
 
   private renderRoot(root: Terrain4Root, bounds: Terrain4Rect, key: string): void {
-    const plan = planTerrain4({
-      terrainAt: (x, y) => this.world.terrainAt(x, y) === TERRAIN.Void ? TERRAIN4.Void : TERRAIN4.Floor,
-      heightAt: (x, y) => this.world.heightAt(x, y),
-    }, { bounds, orientation: root.orientation, seamApron: 1 });
+    const plan = emptyTerrain4Batches();
+    appendVisibleChunkPlans(plan, this.chunkCache, this.terrainSource, bounds, root.orientation, this.world.tileRevision);
     if (this.scene.textures.exists("terrain4-biomes")) {
-      root.atlas.render(plan.batches, {
+      root.atlas.render(plan, {
         projection: screenProjection,
         biomeAt: (tile) => worldBiomeAt(this.world, tile.x, tile.y),
         debug: this.debugMode,
       });
       root.graphics.setVisible(false);
     } else {
-      root.batch.render(plan.batches, screenProjection, materialsFor(this.world, bounds));
+      root.batch.render(plan, screenProjection, materialsFor(this.world, bounds));
     }
     if (this.debugMode) renderDebugLabels(this.scene, root, plan, root.orientation === getViewOrientation());
     root.planKey = key;

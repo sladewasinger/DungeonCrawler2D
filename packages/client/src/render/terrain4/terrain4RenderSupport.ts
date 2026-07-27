@@ -5,7 +5,7 @@ import type { ViewRect } from "../terrain/streaming.js";
 import { viewTileToWorld } from "../view/viewTransform.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import type { Terrain4ScreenProjection } from "./phaser4QuadBatch.js";
-import type { Terrain4Plan, Terrain4Rect } from "./terrainPlanner.js";
+import type { Terrain4Batches, Terrain4Rect } from "./terrainPlanner.js";
 
 export const VIEW_MARGIN_TILES = 2;
 export const TERRAIN_DEPTH = -1000;
@@ -59,10 +59,10 @@ export function worldBoundsForView(view: ViewRect, orientation: ViewOrientation)
 export function renderDebugLabels(
   scene: Phaser.Scene,
   root: Terrain4DebugHost,
-  plan: Terrain4Plan,
+  plan: Terrain4Batches,
   visible: boolean,
 ): void {
-  const entries = [...plan.batches.floors, ...plan.batches.voids, ...plan.batches.southFaces];
+  const entries = [...plan.floors, ...plan.voids, ...plan.southFaces];
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index];
     if (!entry) continue;
