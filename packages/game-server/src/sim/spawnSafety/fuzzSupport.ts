@@ -1,9 +1,9 @@
 import { CHASM_DEATH_Z, LEVEL, PLAYER_MAX_HP, World, hashString, type ContentRegistry, type ServerSnapshot } from "@dc2d/engine";
 import { expect } from "vitest";
 import { PlayerStore } from "../../store.js";
-import { DEATH_TO_RESPAWN_TICKS } from "../deathTestSupport.js";
-import { GameSim } from "../index.js";
-import { SPAWN_CLEARANCE_RADIUS, SPAWN_GRACE_TICKS } from "../spawnSafety.js";
+import { DEATH_TO_RESPAWN_TICKS } from "../combat/deathTestSupport.js";
+import { GameSim } from "../core/index.js";
+import { SPAWN_CLEARANCE_RADIUS, SPAWN_GRACE_TICKS } from "./spawnSafety.js";
 
 interface LiveGraceCase {
   content: ContentRegistry;

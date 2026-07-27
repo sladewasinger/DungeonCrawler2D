@@ -1,8 +1,6 @@
-/** Persists and applies renderer-neutral local accessibility presentation settings. */
 const STORAGE_KEY = "dc2d-local-presentation";
 const SCHEMA_VERSION = 1;
-export const MIN_BRIGHTNESS = 0.6, MAX_BRIGHTNESS = 1.4;
-export const MIN_FONT_SCALE = 0.8, MAX_FONT_SCALE = 1.4;
+export const MIN_BRIGHTNESS = 0.6, MAX_BRIGHTNESS = 1.4; export const MIN_FONT_SCALE = 0.8, MAX_FONT_SCALE = 1.4;
 export interface LocalPresentation {
   schemaVersion: 1;
   brightness: number;
@@ -15,8 +13,7 @@ export const DEFAULT_LOCAL_PRESENTATION: LocalPresentation = {
   fontScale: 1,
   motion: "system",
 };
-const clamp = (value: number, minimum: number, maximum: number): number =>
-  Math.min(maximum, Math.max(minimum, value));
+const clamp = (value: number, minimum: number, maximum: number): number => Math.min(maximum, Math.max(minimum, value));
 const finite = (value: unknown, fallback: number): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 const motionPreference = (value: unknown): LocalPresentation["motion"] =>

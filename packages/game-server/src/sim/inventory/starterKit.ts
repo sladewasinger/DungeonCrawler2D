@@ -1,5 +1,5 @@
-import type { PlayerSlot, SimState } from "../state.js";
-import { invAdd, invQty } from "../inventory.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
+import { invAdd, invQty } from "./inventory.js";
 
 const STARTER_SWORD_DEF = "sword";
 const STARTER_TORCH_DEF = "torch";

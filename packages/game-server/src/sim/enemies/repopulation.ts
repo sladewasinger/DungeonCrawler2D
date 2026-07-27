@@ -6,9 +6,9 @@ import {
   LEVEL,
   TICK_RATE,
 } from "@dc2d/engine";
-import { spawnEnemy } from "../helpers.js";
+import { spawnEnemy } from "../core/helpers.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
 import { NEAR_SPAWN_RADIUS_TILES } from "./population.js";
 import { tooCloseToPlayer } from "./populationPlacement.js";

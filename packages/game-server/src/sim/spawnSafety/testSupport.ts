@@ -1,7 +1,7 @@
 import { CHASM_DEATH_Z } from "@dc2d/engine";
-import { spawnEnemy } from "../helpers.js";
-import { resolveSpawnAnchor } from "../spawn.js";
-import type { SimState } from "../state.js";
+import { spawnEnemy } from "../core/helpers.js";
+import { resolveSpawnAnchor } from "../spawn/spawn.js";
+import type { SimState } from "../state/state.js";
 
 type Tile = { x: number; y: number };
 

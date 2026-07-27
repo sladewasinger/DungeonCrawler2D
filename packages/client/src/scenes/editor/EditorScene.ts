@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { depthForEntity } from "../../render/entities/depthSort.js";
+import { depthForEntity } from "../../render/entities/presentation/depthSort.js";
 import { Terrain4Renderer } from "../../render/terrain4/index.js";
-import { getViewOrientation } from "../../render/view/viewState.js";
-import { viewTileToWorld, worldToView } from "../../render/view/viewTransform.js";
+import { getViewOrientation } from "../../render/view/transform/viewState.js";
+import { viewTileToWorld, worldToView } from "../../render/view/transform/viewTransform.js";
 import { EDITOR_GRID_SIZE, EditorTerrainWorld, type EditorPoint } from "./EditorTerrainWorld.js";
 
 interface EditorSceneState {

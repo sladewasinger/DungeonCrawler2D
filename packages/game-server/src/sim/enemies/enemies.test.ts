@@ -8,9 +8,9 @@ import {
 } from "@dc2d/content";
 import { buildContentRegistry, CHASM_DEATH_Z, hashString, LEVEL, makeEntity, World, createBody, type ContentRegistry } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createSimState, type PlayerSlot, type SimState } from "../state.js";
+import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { PlayerStore } from "../../store.js";
-import { populateTestZoneChunk } from "../testzone.js";
+import { populateTestZoneChunk } from "../core/testzone.js";
 import { activateChunksNearPlayers } from "./index.js";
 
 /** Headless tests for the enemy subsystem: population placement and per-tick AI. */

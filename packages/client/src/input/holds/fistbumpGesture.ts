@@ -1,5 +1,5 @@
-import { FISTBUMP_RANGE_TILES, createHoldState, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "../fistbump.js";
-import type { InputConnection, InputQueries } from "../state.js";
+import { FISTBUMP_RANGE_TILES, createHoldState, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "../gestures/fistbump.js";
+import type { InputConnection, InputQueries } from "../controls/state.js";
 import { isButtonHeld, type TouchInputState } from "../touch/index.js";
 
 export interface FistbumpPollRequest {

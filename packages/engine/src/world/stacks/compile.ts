@@ -4,7 +4,7 @@
 // simulate — stepBody/collision/lighting consume this output completely
 // unaware stacks ever existed.
 
-import { TILE } from "../types.js";
+import { TILE } from "../core/types.js";
 import { FEATURE_TILE, type CompiledField, type StackDir, type StackTile } from "./types.js";
 
 /** Matches world/stairs.ts's DIRS convention: 0=N, 1=E, 2=S, 3=W. */

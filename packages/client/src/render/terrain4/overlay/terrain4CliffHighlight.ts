@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
-import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../phaser4QuadBatch.js";
+import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../batch/phaser4QuadBatch.js";
 import type { Terrain4Batches, Terrain4CliffEdgeQuad, Terrain4QuadVertices } from "../geometry/terrainPlannerModel.js";
-import { depthForCapOccluder } from "../../entities/depthSort.js";
+import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
 
 const RIM_FRACTION = 0.05;
 const RIM_COLOR = 0xf7f0c9;

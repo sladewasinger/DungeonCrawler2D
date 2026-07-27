@@ -1,11 +1,11 @@
-import { CHUNK_SIZE } from "../types.js";
-import { partitionChunk } from "./bsp.js";
-import { districtAt } from "./district.js";
-import { architectSeed, chunkSeed } from "./hash.js";
+import { CHUNK_SIZE } from "../core/types.js";
+import { partitionChunk } from "./layout/bsp.js";
+import { districtAt } from "./layout/district.js";
+import { architectSeed, chunkSeed } from "./layout/hash.js";
 import {
   GENERATION_CHUNK_SIZE,
   scaleGeneratedCoordinate,
-} from "./scale.js";
+} from "./layout/scale.js";
 
 export interface PopulationRoom {
   readonly x0: number;

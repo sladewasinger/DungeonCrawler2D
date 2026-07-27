@@ -8,31 +8,31 @@
 // machinery into one chunk. Same contract as world/generate.ts: pure,
 // chunk-local, byte-deterministic.
 
-import { applyBossArena } from "../features/bossArena.js";
-import { applyDescentStructure } from "../features/descent.js";
-import { applyFlattenedFeature, isSafeRoomChunk, isStairsChunk } from "../features/fixed.js";
-import { generateRoomChunk, isRoomChunk } from "../features/rooms.js";
-import { sealInteriorPockets } from "../pockets.js";
-import { seedsFor } from "../terrain.js";
-import { CHUNK_SIZE, TOPOLOGY, type Chunk } from "../types.js";
-import { partitionChunk } from "./bsp.js";
-import { connectBossArenaGate } from "./bossArenaLink.js";
-import { demoteOrphanedStairs, repairCliffs } from "./cliffs.js";
-import { carveCorridors } from "./corridors.js";
-import { connectDescentStructure } from "./descentLink.js";
-import { districtAt } from "./district.js";
-import { edgeAnchors } from "./edges.js";
-import { connectFixedFeaturePad } from "./feature-link.js";
-import { applyRoomHeight, markVoidTiles } from "./height.js";
-import { architectSeed, chunkSeed } from "./hash.js";
+import { applyBossArena } from "../features/bossArena/bossArena.js";
+import { applyDescentStructure } from "../features/descent/descent.js";
+import { applyFlattenedFeature, isSafeRoomChunk, isStairsChunk } from "../features/fixed/fixed.js";
+import { generateRoomChunk, isRoomChunk } from "../features/rooms/rooms.js";
+import { sealInteriorPockets } from "../core/pockets.js";
+import { seedsFor } from "../core/terrain.js";
+import { CHUNK_SIZE, TOPOLOGY, type Chunk } from "../core/types.js";
+import { partitionChunk } from "./layout/bsp.js";
+import { connectBossArenaGate } from "./connections/bossArenaLink.js";
+import { demoteOrphanedStairs, repairCliffs } from "./terrain/cliffs.js";
+import { carveCorridors } from "./connections/corridors.js";
+import { connectDescentStructure } from "./connections/descentLink.js";
+import { districtAt } from "./layout/district.js";
+import { edgeAnchors } from "./layout/edges.js";
+import { connectFixedFeaturePad } from "./connections/feature-link.js";
+import { applyRoomHeight, markVoidTiles } from "./terrain/height.js";
+import { architectSeed, chunkSeed } from "./layout/hash.js";
 import { applyLandmark } from "./landmarks/index.js";
 import { isNearDescent, isNearLandmark } from "./landmarks/guard.js";
-import { stampRoom } from "./rooms.js";
+import { stampRoom } from "./layout/rooms.js";
 import type { Point, Room } from "./types.js";
-import { applyShowcase } from "./showcase.js";
-import { resolveShallowPlateaus, resolveThinWalls } from "./verticalExtent.js";
-import { applyWallHeight } from "./wallHeight.js";
-import { GENERATION_CHUNK_SIZE, scaleGeneratedChunk } from "./scale.js";
+import { applyShowcase } from "./showcase/showcase.js";
+import { resolveShallowPlateaus, resolveThinWalls } from "./terrain/verticalExtent.js";
+import { applyWallHeight } from "./terrain/wallHeight.js";
+import { GENERATION_CHUNK_SIZE, scaleGeneratedChunk } from "./layout/scale.js";
 
 function createGeneratedGrid(): {
   tiles: Uint8Array;

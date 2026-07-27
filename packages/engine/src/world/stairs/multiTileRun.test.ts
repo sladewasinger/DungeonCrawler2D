@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { TICK_DT } from "../../core/constants.js";
 import { createBody, stepBody } from "../../entities/movement/index.js";
-import { entryClimbDir, stairRampAt, type StairView } from "../stairs.js";
-import { TILE } from "../types.js";
+import { entryClimbDir, stairRampAt, type StairView } from "./stairs.js";
+import { TILE } from "../core/types.js";
 
 const RUN_X = 50;
 const RUN_Y = 50;

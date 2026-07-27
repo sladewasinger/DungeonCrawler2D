@@ -9,9 +9,9 @@ import {
 } from "@dc2d/content";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
-import { addPlayer } from "../join.js";
-import { resolveSpawnAnchor } from "../spawn.js";
-import { createSimState } from "../state.js";
+import { addPlayer } from "../players/join.js";
+import { resolveSpawnAnchor } from "../spawn/spawn.js";
+import { createSimState } from "../state/state.js";
 import {
   claimNearestPet,
   PET_DEFINITIONS,

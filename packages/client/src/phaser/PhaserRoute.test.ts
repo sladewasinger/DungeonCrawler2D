@@ -27,9 +27,9 @@ vi.mock("phaser", () => ({
 vi.mock("../boot/PreloadScene.js", () => ({ PreloadScene: class {} }));
 vi.mock("../boot/versionRefreshOverlay.js", () => ({ bindVersionRefreshOverlay: vi.fn() }));
 vi.mock("../buildInfo.js", () => ({ BUILD_SHA: "test" }));
-vi.mock("../net/connection.js", () => ({ Connection: class {} }));
-vi.mock("../net/identity.js", () => ({ persistentClientId: () => "client" }));
-vi.mock("../net/url.js", () => ({ resolveWsUrl: () => "ws://test" }));
+vi.mock("../net/connection/connection.js", () => ({ Connection: class {} }));
+vi.mock("../net/auth/identity.js", () => ({ persistentClientId: () => "client" }));
+vi.mock("../net/connection/url.js", () => ({ resolveWsUrl: () => "ws://test" }));
 vi.mock("../render/view/index.js", () => ({ getViewOrientation: vi.fn() }));
 vi.mock("../scenes/dungeon/index.js", () => ({ DungeonScene: class {} }));
 vi.mock("../scenes/editor/index.js", () => ({

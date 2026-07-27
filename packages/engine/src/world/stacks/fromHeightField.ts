@@ -7,8 +7,8 @@
 // picks, which this mechanical layer has no way to know — every generated
 // Floor tile gets the same DEFAULT_FLOOR_CAP placeholder.
 
-import { entryClimbDir, type StairView } from "../stairs.js";
-import { TILE, type TileType } from "../types.js";
+import { entryClimbDir, type StairView } from "../stairs/stairs.js";
+import { TILE, type TileType } from "../core/types.js";
 import { DEFAULT_FLOOR_CAP, TILE_FEATURE, type StackDir, type StackTile } from "./types.js";
 
 interface HeightFieldInput {

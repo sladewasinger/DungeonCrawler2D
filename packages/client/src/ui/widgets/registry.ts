@@ -4,7 +4,7 @@
  * element registers here instead of positioning itself — "no fixed-position
  * UI, ever" (docs/VISUAL_DIRECTION.md).
  */
-import { HUD_SCALE } from "../hudScale.js";
+import { HUD_SCALE } from "../foundation/hudScale.js";
 import shippedDefaultLayout from "./default-layout.json" with { type: "json" };
 import { resolveLayout } from "./layout.js";
 import { mergeLayoutConfigs } from "./mergeLayout.js";

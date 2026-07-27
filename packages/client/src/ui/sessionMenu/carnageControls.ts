@@ -10,7 +10,7 @@ import {
   MIN_STREAK_LIMIT,
   saveCarnageSettings,
   type CarnageSettings,
-} from "../../vfx/carnageSettings.js";
+} from "../../vfx/system/carnageSettings.js";
 
 interface RangeOptions { label: string; minimum: number; maximum: number; value: number; step: number; format: (value: number) => string; change: (value: number) => void; }
 interface PercentRangeOptions { label: string; value: number; minimum: number; maximum: number; change: (next: number) => void; }

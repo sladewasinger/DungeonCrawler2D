@@ -6,12 +6,12 @@ import {
   type ClientMessage,
 } from "@dc2d/engine";
 import type { WebSocket } from "ws";
-import type { FloorRegistry } from "../floorRegistry.js";
-import type { GameSim } from "../sim/index.js";
+import type { FloorRegistry } from "../floors/floorRegistry.js";
+import type { GameSim } from "../sim/core/index.js";
 import type { ConnState, SocketMap } from "./types.js";
 import { routeAuthenticatedMessage } from "./authenticatedMessage.js";
-import { sendServerMessage } from "./measuredSend.js";
-import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import { sendServerMessage } from "./telemetry/measuredSend.js";
+import type { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 import { currentSocketOwnsPlayer } from "./socketAuthority.js";
 import { sendWelcome } from "./welcome.js";
 

@@ -1,6 +1,6 @@
 import { type EffectEvent, type Entity, type Primitive } from "@dc2d/engine";
-import { combatants, damageGivenMultiplierFor, effectTargetFor, spawnItem } from "../helpers.js";
-import type { SimState } from "../state.js";
+import { combatants, damageGivenMultiplierFor, effectTargetFor, spawnItem } from "../core/helpers.js";
+import type { SimState } from "../state/state.js";
 
 export interface ProjectileImpactContext {
   sim: SimState;

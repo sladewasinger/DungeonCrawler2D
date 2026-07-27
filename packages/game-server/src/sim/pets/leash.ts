@@ -1,6 +1,6 @@
 import { createBody } from "@dc2d/engine";
-import { findWalkableNear } from "../spawn.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import { findWalkableNear } from "../spawn/spawn.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 import type { PetSlot } from "./types.js";
 
 export const PET_FOLLOW_DISTANCE_TILES = 2.2;

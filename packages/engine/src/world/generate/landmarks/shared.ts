@@ -4,8 +4,8 @@
 // layout itself doesn't otherwise use it), with the existing corridor
 // network (corridorCarved) always winning: a landmark never walls it off.
 
-import { generatedChunkCenter } from "../../terrain.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
+import { generatedChunkCenter } from "../../core/terrain.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
 
 export interface LandmarkCenter {
   lx: number;

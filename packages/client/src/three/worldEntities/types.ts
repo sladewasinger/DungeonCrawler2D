@@ -1,6 +1,6 @@
-import type { InterpolatedEntity } from "../../net/interpolate.js";
-import type { ThreeEntityPresentation } from "../threeEntityPresentation.js";
-import type { ThreeTextSprite } from "../ThreeTextSprite.js";
+import type { InterpolatedEntity } from "../../net/interpolation/interpolate.js";
+import type { ThreeEntityPresentation } from "../world/entities/threeEntityPresentation.js";
+import type { ThreeTextSprite } from "../world/entities/ThreeTextSprite.js";
 
 export interface RenderObject {
   position: { set(x: number, y: number, z: number): void };

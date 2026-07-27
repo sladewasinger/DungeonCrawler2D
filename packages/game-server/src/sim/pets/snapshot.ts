@@ -1,5 +1,5 @@
 import type { Entity, EntitySnapshot } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 
 /** Pet-only replicated fields; kept outside the general snapshot module so
  * future ability/status fields can grow with the pet subsystem. */

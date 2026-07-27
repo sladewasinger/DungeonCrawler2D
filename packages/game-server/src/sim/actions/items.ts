@@ -9,9 +9,9 @@ import {
   newEntityId,
   type EffectEvent,
 } from "@dc2d/engine";
-import { invQty, invRemove } from "../inventory.js";
-import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
-import { doThrowTorch } from "../torches.js";
+import { invQty, invRemove } from "../inventory/inventory.js";
+import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
+import { doThrowTorch } from "../combat/torches.js";
 
 /** Hotbar item use: throwables launch a projectile, consumables run their effects. */
 

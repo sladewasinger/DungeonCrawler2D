@@ -6,9 +6,9 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
-import { spawnEnemy } from "../helpers.js";
-import { resolveSpawnAnchor } from "../spawn.js";
-import { createSimState, type PlayerSlot, type SimState } from "../state.js";
+import { spawnEnemy } from "../core/helpers.js";
+import { resolveSpawnAnchor } from "../spawn/spawn.js";
+import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { activateChunksNearPlayers, NEAR_SPAWN_RADIUS_TILES } from "./population.js";
 import { REPOPULATE_INTERVAL_TICKS, repopulateNearSpawn } from "./repopulation.js";
 

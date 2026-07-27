@@ -14,7 +14,7 @@ import {
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
-import { createSimState } from "../state.js";
+import { createSimState } from "../state/state.js";
 import { spawnEnemyPack } from "./population.js";
 import { enemyRosterForBiome } from "./populationRoster.js";
 

@@ -1,6 +1,6 @@
 import type { WebSocket } from "ws";
 import { describe, expect, it } from "vitest";
-import type { GameSim } from "../sim/index.js";
+import type { GameSim } from "../sim/core/index.js";
 import { currentSocketOwnsPlayer } from "./socketAuthority.js";
 import type { SocketMap } from "./types.js";
 

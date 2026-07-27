@@ -1,4 +1,4 @@
-import type { GameSim } from "../../index.js";
+import type { GameSim } from "../../core/index.js";
 
 export interface NearbyAreaSearch {
   sim: GameSim;

@@ -2,8 +2,8 @@
 import {
   fakeHudSnapshot,
   type HudFakeSnapshot,
-} from "../ui/widgets/hud/fakeData.js";
-import type { HudWidgets } from "../ui/widgets/hud/index.js";
+} from "../ui/widgets/hud/core/fakeData.js";
+import type { HudWidgets } from "../ui/widgets/hud/core/index.js";
 
 const FAKE_BOSS = {
   name: "The Warden of Five",

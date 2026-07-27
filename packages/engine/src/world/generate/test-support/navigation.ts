@@ -1,6 +1,6 @@
 import { STEP_UP } from "../../../core/constants.js";
-import { stairRampAt, type StairView } from "../../stairs.js";
-import { CHUNK_SIZE, TILE, TOPOLOGY, type Chunk } from "../../types.js";
+import { stairRampAt, type StairView } from "../../stairs/stairs.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY, type Chunk } from "../../core/types.js";
 import { type ChunkCoordinate, type GenerationScope, type WorldPoint } from "./types.js";
 import { generateChunk } from "../index.js";
 

@@ -1,7 +1,7 @@
 import type { ServerSnapshotDelta } from "@dc2d/engine";
 import { WebSocket } from "ws";
 import { makeSim } from "../../sim/integration/support.js";
-import type { PreparedSnapshotDelivery } from "../../sim/snapshots.js";
+import type { PreparedSnapshotDelivery } from "../../sim/snapshots/snapshots.js";
 import type { SocketMap } from "../types.js";
 
 export interface FakeSocket {

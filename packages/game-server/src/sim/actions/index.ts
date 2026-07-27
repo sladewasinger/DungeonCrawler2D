@@ -1,13 +1,13 @@
 import type { EffectEvent } from "@dc2d/engine";
-import { doFistbump } from "../contacts.js";
-import { doCraft, doDrop, doPickup, doStash } from "../inventory.js";
-import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
+import { doFistbump } from "../combat/contacts.js";
+import { doCraft, doDrop, doPickup, doStash } from "../inventory/inventory.js";
+import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
 import { doDescend } from "./descend.js";
 import { dispatchItemAction } from "./items.js";
 import { doAttack } from "./melee.js";
-import { endSpawnGrace } from "../spawnSafety.js";
-import { closeLootChest, openLootChestById, takeLoot } from "../lootChests.js";
-import { setReviveHeld, stepRevives } from "../revives.js";
+import { endSpawnGrace } from "../spawnSafety/spawnSafety.js";
+import { closeLootChest, openLootChestById, takeLoot } from "../lootChests/lootChests.js";
+import { setReviveHeld, stepRevives } from "../players/revives.js";
 import { dispatchStandingAction } from "./standing.js";
 
 /** Queued player actions: combat, item use, doors, and delegation to

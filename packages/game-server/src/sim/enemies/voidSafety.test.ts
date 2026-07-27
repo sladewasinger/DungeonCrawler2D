@@ -19,9 +19,9 @@ import {
   type ContentRegistry,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { resolveDeaths } from "../deaths.js";
-import { spawnEnemy } from "../helpers.js";
-import { createSimState, type PlayerSlot, type SimState } from "../state.js";
+import { resolveDeaths } from "../combat/deaths.js";
+import { spawnEnemy } from "../core/helpers.js";
+import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { PlayerStore } from "../../store.js";
 import { activateChunksNearPlayers, stepEnemies } from "./index.js";
 

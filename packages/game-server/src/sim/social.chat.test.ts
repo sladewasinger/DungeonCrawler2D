@@ -1,9 +1,9 @@
 import { TICK_RATE } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
-import { doChat, doParty } from "./social.js";
+import { doChat, doParty } from "./social/social.js";
 import { doModeration } from "./moderation.js";
-import { makeSocialSlot, makeSocialState } from "./social.testSupport.js";
-import type { PlayerSlot, SimState } from "./state.js";
+import { makeSocialSlot, makeSocialState } from "./social/social.testSupport.js";
+import type { PlayerSlot, SimState } from "./state/state.js";
 
 describe("social chat", () => {
   let sim: SimState;

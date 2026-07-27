@@ -1,7 +1,7 @@
-import type { InterpolatedEntity } from "../../../net/interpolate.js";
-import type { ProjectileEntityView, TorchEntityView } from "../../../render/entities/index.js";
-import { groundItemFrame } from "../itemFrame.js";
-import { trackProjectileVelocity, type ProjectileVelocityState } from "../projectileVelocity.js";
+import type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
+import type { ProjectileEntityView, TorchEntityView } from "../../../render/entities/geometry/index.js";
+import { groundItemFrame } from "../entities/itemFrame.js";
+import { trackProjectileVelocity, type ProjectileVelocityState } from "../player/projectileVelocity.js";
 
 export interface ProjectileViewInput {
   readonly e: InterpolatedEntity;

@@ -1,9 +1,9 @@
-import { screenDirToWorld } from "../cameraRelative.js";
-import { activateHotbar } from "../hotbar.js";
-import { cursorWorldTile, triggerAttack, type PointerDeps, type WorldPointCamera } from "../pointer.js";
+import { screenDirToWorld } from "../controls/cameraRelative.js";
+import { activateHotbar } from "../gameplay/hotbar.js";
+import { cursorWorldTile, triggerAttack, type PointerDeps, type WorldPointCamera } from "../pointer/pointer.js";
 import { getViewOrientation } from "../../render/view/index.js";
 import { beginStick, isInLowerLeftQuadrant, pressButton } from "../touch/index.js";
-import type { InputConnection, InputHooks, InputHud, InputState } from "../state.js";
+import type { InputConnection, InputHooks, InputHud, InputState } from "../controls/state.js";
 import type Phaser from "phaser";
 import type { TouchInputState } from "../touch/index.js";
 

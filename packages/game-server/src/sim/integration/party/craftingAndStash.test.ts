@@ -1,7 +1,7 @@
 import { LEVEL, World, personalRoomFeatures } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
-import { GameSim } from "../../index.js";
+import { GameSim } from "../../core/index.js";
 import { SEED, content, eventsOf, makeSim, teleport } from "../support.js";
 
 describe("GameSim: crafting and stash", () => {

@@ -1,6 +1,6 @@
 import { TICK_DT, faceEntity, stepBody } from "@dc2d/engine";
-import { findWalkableNear } from "../spawn.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import { findWalkableNear } from "../spawn/spawn.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 import {
   PET_DRIFT_IDLE_TICKS,
   PET_DRIFT_INTERVAL_TICKS,

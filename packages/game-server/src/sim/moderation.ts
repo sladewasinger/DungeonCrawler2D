@@ -1,7 +1,7 @@
 import type { GameEvent } from "@dc2d/engine";
-import { leaveParty } from "./social.js";
+import { leaveParty } from "./social/social.js";
 import { recordReport } from "./moderation/report.js";
-import type { PlayerSlot, SimState } from "./state.js";
+import type { PlayerSlot, SimState } from "./state/state.js";
 
 export type ModerationOp = "mute" | "unmute" | "block" | "unblock" | "report";
 

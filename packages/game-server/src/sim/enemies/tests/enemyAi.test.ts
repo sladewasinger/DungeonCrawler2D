@@ -2,9 +2,9 @@ import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData
 import { buildContentRegistry, createBody, hashString, LEVEL, makeEntity, World, type EffectEvent } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
-import { resolveDeaths } from "../../deaths.js";
-import { spawnEnemy } from "../../helpers.js";
-import { createSimState, type PlayerSlot, type SimState } from "../../state.js";
+import { resolveDeaths } from "../../combat/deaths.js";
+import { spawnEnemy } from "../../core/helpers.js";
+import { createSimState, type PlayerSlot, type SimState } from "../../state/state.js";
 import { stepEnemies } from "../index.js";
 
 const content = buildContentRegistry({

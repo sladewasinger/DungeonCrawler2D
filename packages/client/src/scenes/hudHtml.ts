@@ -1,6 +1,6 @@
 /** Constructs the shared live HTML HUD from renderer-specific focus callbacks. */
-import type { Connection } from "../net/connection.js";
-import { ThreeHud } from "../three/ThreeHud.js";
+import type { Connection } from "../net/connection/connection.js";
+import { ThreeHud } from "../three/hud/core/ThreeHud.js";
 
 export interface LiveHtmlHudOptions {
   root: HTMLElement;

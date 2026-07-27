@@ -1,6 +1,6 @@
 // Tile-region area effects: ground hazards/buffs that spread, decay, and interact with height and each other.
 import type { AreaDef, ContentRegistry } from "../effects/types.js";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import {
   AREA_MEETS,
   type AreaMeetingApplication,

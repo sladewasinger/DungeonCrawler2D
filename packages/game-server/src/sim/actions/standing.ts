@@ -1,9 +1,9 @@
-import { doWho } from "../contacts.js";
-import { invIndex } from "../inventory.js";
+import { doWho } from "../combat/contacts.js";
+import { invIndex } from "../inventory/inventory.js";
 import { doModeration } from "../moderation.js";
-import { resetInputTimeline } from "../playerInputTimeline.js";
-import { doChat, doParty } from "../social.js";
-import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
+import { resetInputTimeline } from "../players/playerInputTimeline.js";
+import { doChat, doParty } from "../social/social.js";
+import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
 import { doInteract, teleport } from "./interact.js";
 
 export interface StandingActionContext {

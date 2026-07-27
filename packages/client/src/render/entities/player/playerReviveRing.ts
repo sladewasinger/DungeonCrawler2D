@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
-import type { PlayerEntityView } from "../view.js";
-import { depthForScreenY } from "../worldToScreen.js";
+import type { PlayerEntityView } from "../visuals/view.js";
+import { depthForScreenY } from "../geometry/worldToScreen.js";
 
 const REVIVE_RING_RADIUS_PX = 11;
 const REVIVE_RING_DEPTH_BIAS = 0.5;

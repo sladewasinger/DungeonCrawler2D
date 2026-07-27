@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { makeSim } from "../sim/integration/support.js";
 import { deliverSnapshots } from "./broadcast.js";
-import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 import { asDelta, nearbyWalkable, nextPrepared, socket, socketsFor } from "./testSupport/broadcast.js";
 
 const QUEUED_EVENT = "queued-event";

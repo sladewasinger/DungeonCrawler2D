@@ -1,10 +1,10 @@
 import { BIOME } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { viewTileToWorld } from "../../view/viewTransform.js";
-import { VIEW_ORIENTATIONS } from "../../view/viewOrientation.js";
-import { terrain4AtlasDraws, terrain4MeshBatches } from "../phaser4AtlasBatch.js";
-import { screenProjection } from "../terrain4RenderSupport.js";
-import { TERRAIN4, planTerrain4, type Terrain4Kind, type Terrain4Source } from "../terrainPlanner.js";
+import { viewTileToWorld } from "../../view/transform/viewTransform.js";
+import { VIEW_ORIENTATIONS } from "../../view/orientation/viewOrientation.js";
+import { terrain4AtlasDraws, terrain4MeshBatches } from "../batch/phaser4AtlasBatch.js";
+import { screenProjection } from "../runtime/terrain4RenderSupport.js";
+import { TERRAIN4, planTerrain4, type Terrain4Kind, type Terrain4Source } from "../planning/terrainPlanner.js";
 
 const FLOOR = TERRAIN4.Floor;
 const VOID = TERRAIN4.Void;

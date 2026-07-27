@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import type { InputState } from "./state.js";
+import type { InputState } from "./controls/state.js";
 
 /** Emits immediately when a keyboard movement control changes; prediction remains fixed-step. */
 export function bindKeyboardMovementEdges(

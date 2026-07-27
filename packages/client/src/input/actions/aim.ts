@@ -1,9 +1,9 @@
 import { MAX_THROW_RANGE, type MoveInput } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { screenDirToWorld } from "../cameraRelative.js";
-import { activeThrowableSlot } from "../hotbar.js";
-import { cursorWorldTile } from "../pointer.js";
-import type { InputConnection, InputQueries, InputState } from "../state.js";
+import { screenDirToWorld } from "../controls/cameraRelative.js";
+import { activeThrowableSlot } from "../gameplay/hotbar.js";
+import { cursorWorldTile } from "../pointer/pointer.js";
+import type { InputConnection, InputQueries, InputState } from "../controls/state.js";
 import type { TouchInputState } from "../touch/index.js";
 import { getViewOrientation } from "../../render/view/index.js";
 

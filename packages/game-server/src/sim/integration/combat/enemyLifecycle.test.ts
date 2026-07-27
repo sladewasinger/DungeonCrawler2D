@@ -1,6 +1,6 @@
 import { PLAYER_MAX_HP, TICK_RATE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { DEATH_TO_RESPAWN_TICKS } from "../../deathTestSupport.js";
+import { DEATH_TO_RESPAWN_TICKS } from "../../combat/deathTestSupport.js";
 import { findFlatArena, makeSim, stepN, teleport } from "../support.js";
 
 describe("GameSim: enemy lifecycle", () => {

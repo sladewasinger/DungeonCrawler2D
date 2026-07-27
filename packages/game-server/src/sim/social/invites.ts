@@ -1,5 +1,5 @@
-import { removePartyInviteState } from "../partyInviteEvents.js";
-import type { SimState } from "../state.js";
+import { removePartyInviteState } from "./partyInviteEvents.js";
+import type { SimState } from "../state/state.js";
 
 export function expireInvites(sim: SimState): void {
   for (const [invitee, invite] of sim.invites) {

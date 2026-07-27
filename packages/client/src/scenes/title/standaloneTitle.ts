@@ -1,7 +1,7 @@
 /** Renderer-neutral HTML opening screen shared by the Phaser and Three.js routes. */
 import type { LevelId } from "@dc2d/engine";
 import { ASSET_PATHS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
-import type { Connection } from "../../net/connection.js";
+import type { Connection } from "../../net/connection/connection.js";
 import { ConnectForm } from "./connectForm.js";
 import { TitleControlsHint } from "./controlsHint.js";
 import { FullscreenChip } from "./fullscreenChip.js";

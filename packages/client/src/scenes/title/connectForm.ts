@@ -4,7 +4,7 @@
 // from ui/panel.ts and the monogram font from ui/font.ts.
 import { LEVEL, type LevelId, type PlayerSkin } from "@dc2d/engine";
 import { APP_VERSION } from "../../appVersion.js";
-import { loadTabPreference, saveTabPreference } from "../../net/identity.js";
+import { loadTabPreference, saveTabPreference } from "../../net/auth/identity.js";
 import { RELEASE_NOTES_INDEX_PATH } from "../../releaseNotesUrl.js";
 import { CharacterSelection } from "./characterSelection.js";
 

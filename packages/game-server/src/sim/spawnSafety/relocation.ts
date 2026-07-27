@@ -1,5 +1,5 @@
 import { CHASM_DEATH_Z } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 import { SPAWN_CLEARANCE_RADIUS } from "./constants.js";
 import { insideGracedClearance } from "./clearance.js";
 

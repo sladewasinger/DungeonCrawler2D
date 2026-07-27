@@ -1,0 +1,146 @@
+import {
+  CHASM_DEATH_Z,
+  CHUNK_SIZE,
+  LEVEL,
+  PLAYER_MAX_HP,
+  RESPAWN_DELAY_TICKS,
+  TILE,
+  World,
+  buildContentRegistry,
+  createBody,
+  hashString,
+  makeEntity,
+  newEntityId,
+  type RawContent,
+} from "@dc2d/engine";
+import { describe, expect, it } from "vitest";
+import { PlayerStore } from "../../store.js";
+import { resolveDeaths } from "./deaths.js";
+import { stepPlayers } from "../players/players.js";
+import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+
+/**
+ * Sim test for the chasm = death design ruling (2026-07-19): rifts are
+ * knockback death-pits, not inescapable holes. Split out from deaths.test.ts
+ * — this exercises the stepPlayers -> killIfInChasm integration, not
+ * resolveDeaths' own branching, which deaths.test.ts already covers.
+ */
+
+const EMPTY_CONTENT: RawContent = { statuses: [], rules: [], areas: [], items: [], enemies: [], recipes: [] };
+
+function makeSlot(name: string, x: number, y: number): PlayerSlot {
+  const entity = makeEntity("player", createBody(x, y, 0), {
+    id: newEntityId("p"),
+    name,
+    hp: PLAYER_MAX_HP,
+    maxHp: PLAYER_MAX_HP,
+    tags: new Set(["player"]),
+  });
+  return {
+    entity,
+    clientId: `client-${name}`,
+    stored: { slot: 0, name, stash: [], contacts: [] },
+    resumeToken: `token-${name}`,
+    lastSeq: -1,
+    pendingInputs: [],
+    pendingActions: [],
+    connected: true,
+    reapAtTick: Number.MAX_SAFE_INTEGER,
+    known: new Set(),
+    inventory: [{ item: "rag", qty: 3 }],
+    hotbar: [],
+    weapon: "dagger",
+    outbox: [],
+    returnStack: [],
+    partyId: null,
+    respawnAtTick: null,
+    needsFullAreas: true,
+    downedAtTick: null,
+    attackReadyAtTick: 0,
+    attackStartedAtTick: Number.NEGATIVE_INFINITY,
+    god: false,
+    forceDeath: false,
+    chatTimestamps: [],
+    lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
+  };
+}
+
+function newSim(seed: string): SimState {
+  const world = new World(hashString(seed), 1, LEVEL.Dungeon);
+  const content = buildContentRegistry(EMPTY_CONTENT);
+  return createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
+}
+
+/** Any explicit void tile at or below chasm depth, scanning outward from origin. */
+function findChasmFloor(world: World): { x: number; y: number } | null {
+  return chunkCoordinates()
+    .map((chunk) => chasmInChunk(world, chunk))
+    .find((chasm) => chasm !== null) ?? null;
+}
+
+function chasmInChunk(world: World, chunk: { cx: number; cy: number }): { x: number; y: number } | null {
+  return localCoordinates()
+    .map(({ x, y }) => ({ x: chunk.cx * CHUNK_SIZE + x, y: chunk.cy * CHUNK_SIZE + y }))
+    .find(({ x, y }) => world.tileAt(x, y) === TILE.Void) ?? null;
+}
+
+function chunkCoordinates(): Array<{ cx: number; cy: number }> {
+  return coordinateRange(24).flatMap((cx) => coordinateRange(24).map((cy) => ({ cx, cy })));
+}
+
+function localCoordinates(): Array<{ x: number; y: number }> {
+  return Array.from({ length: CHUNK_SIZE ** 2 }, (_, index) => ({
+    x: index % CHUNK_SIZE,
+    y: Math.floor(index / CHUNK_SIZE),
+  }));
+}
+
+function coordinateRange(limit: number): number[] {
+  return Array.from({ length: limit * 2 + 1 }, (_, index) => index - limit);
+}
+
+describe("chasm = death (knockback-death-pit ruling)", () => {
+  it("a player whose grounded z lands at/below chasm depth dies: full loot drop, respawn scheduled", () => {
+    const sim = newSim("chasm-test-world");
+    const spot = findChasmFloor(sim.world);
+    expect(spot, "no chasm floor found in scan range").not.toBeNull();
+    if (!spot) return;
+
+    const a = makeSlot("A", spot.x + 0.5, spot.y + 0.5);
+    // Simulate a knockback/fall that has JUST settled the body onto the
+    // chasm floor, grounded — the same state stepBody leaves a body in
+    // after landing, whatever pushed it there (fall, ledge shove, ramp
+    // walk).
+    a.entity.body.z = sim.world.heightAt(spot.x, spot.y);
+    a.entity.body.grounded = true;
+    sim.players.set(a.entity.id, a);
+
+    stepPlayers(sim, []);
+
+    expect(a.entity.hp).toBe(0);
+    expect(a.forceDeath).toBe(true);
+
+    resolveDeaths(sim);
+
+    expect(a.forceDeath).toBe(false); // one-shot flag, consumed
+    expect(a.downedAtTick).toBeNull(); // never entered the universal downed window
+    expect(a.inventory).toHaveLength(0); // full loot drop
+    expect(a.weapon).toBeNull();
+    expect(a.respawnAtTick).toBe(sim.tickCount + RESPAWN_DELAY_TICKS);
+    expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
+  });
+
+  it("does not kill a player standing above chasm depth", () => {
+    const sim = newSim("chasm-test-world");
+    const a = makeSlot("A", 0.5, 0.5);
+    const startingHp = a.entity.hp;
+    a.entity.body.z = CHASM_DEATH_Z + 1; // well clear of the death band
+    a.entity.body.grounded = true;
+    sim.players.set(a.entity.id, a);
+
+    stepPlayers(sim, []);
+
+    expect(a.entity.hp).toBe(startingHp);
+    expect(a.forceDeath).toBe(false);
+  });
+});

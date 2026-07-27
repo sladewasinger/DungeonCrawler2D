@@ -5,19 +5,19 @@
 import { CHUNK_SIZE, type World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { viewChunkWorldOrigin } from "./viewChunkOrigin.js";
-import { chunkKey, chunkWindowKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming.js";
-import { getViewOrientation } from "../view/viewState.js";
-import { viewToWorld } from "../view/viewTransform.js";
-import { doorLightPositions } from "./doorLights.js";
-import { collectTorchLights, selectFrameLights } from "./frameLights.js";
-import { hashSeed, type LightSource } from "./lightSource.js";
-import { LightSpritePool } from "./pool.js";
-import { PlayerGroundLightPass } from "./playerGroundLightPass.js";
-import { playerGroundLightEnabledForProfile } from "./playerGroundLight.js";
-import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../terrain/terrainDeviceProfile.js";
-import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
-import { selectTorchPositions, torchCandidates, type TilePos, type TileRect } from "./torchPlacement.js";
+import { viewChunkWorldOrigin } from "./core/viewChunkOrigin.js";
+import { chunkKey, chunkWindowKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming/streaming.js";
+import { getViewOrientation } from "../view/transform/viewState.js";
+import { viewToWorld } from "../view/transform/viewTransform.js";
+import { doorLightPositions } from "./torches/doorLights.js";
+import { collectTorchLights, selectFrameLights } from "./torches/frameLights.js";
+import { hashSeed, type LightSource } from "./core/lightSource.js";
+import { LightSpritePool } from "./core/pool.js";
+import { PlayerGroundLightPass } from "./ground/playerGroundLightPass.js";
+import { playerGroundLightEnabledForProfile } from "./ground/playerGroundLight.js";
+import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../terrain/streaming/terrainDeviceProfile.js";
+import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torches/torchLightStyle.js";
+import { selectTorchPositions, torchCandidates, type TilePos, type TileRect } from "./torches/torchPlacement.js";
 
 const LOAD_MARGIN_CHUNKS = 1;
 /** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
@@ -173,4 +173,4 @@ export interface LightingFrame {
   readonly nowMs: number;
 }
 
-export type { LightKind, LightSource } from "./lightSource.js";
+export type { LightKind, LightSource } from "./core/lightSource.js";

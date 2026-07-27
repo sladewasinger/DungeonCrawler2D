@@ -5,11 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import { hashString } from "../core/rng.js";
-import { isSafeRoomChunk, isStairsChunk, KIOSK_HEIGHT } from "./features/fixed.js";
+import { isSafeRoomChunk, isStairsChunk, KIOSK_HEIGHT } from "./features/fixed/fixed.js";
 import {
   accumulateHeightBudget,
   createHeightBudgetStats,
-} from "./generate/heightBudget.test-support.js";
+} from "./generate/terrain/heightBudget.test-support.js";
 import { generateChunk } from "./generate.js";
 import { floodFromBorder } from "./generate/test-support.js";
 import {
@@ -20,9 +20,9 @@ import {
   safeRoomChunk,
   safeRoomFeatures,
   safeRoomSpawn,
-} from "./features/rooms.js";
-import { CHUNK_SIZE, TERRAIN, TILE, ZONE } from "./types.js";
-import { World } from "./world.js";
+} from "./features/rooms/rooms.js";
+import { CHUNK_SIZE, TERRAIN, TILE, ZONE } from "./core/types.js";
+import { World } from "./core/world.js";
 
 const SEED = hashString("test-world");
 const FLOOR = 1;

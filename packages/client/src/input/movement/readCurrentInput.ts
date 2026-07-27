@@ -1,9 +1,9 @@
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
-import { screenDirToWorld, screenMoveToWorld } from "../cameraRelative.js";
-import { withPointerFacing } from "../gameplayActions.js";
-import { readMoveInput } from "../keys.js";
-import type { InputConnection, InputPanels, InputState } from "../state.js";
+import { screenDirToWorld, screenMoveToWorld } from "../controls/cameraRelative.js";
+import { withPointerFacing } from "../gameplay/gameplayActions.js";
+import { readMoveInput } from "../controls/keys.js";
+import type { InputConnection, InputPanels, InputState } from "../controls/state.js";
 import { mergeMoveInputs, touchMoveInput, updateLastFacing, type TouchInputState } from "../touch/index.js";
 import { getViewOrientation } from "../../render/view/index.js";
 

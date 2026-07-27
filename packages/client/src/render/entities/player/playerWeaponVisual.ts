@@ -1,11 +1,11 @@
-import { updateGuardCone } from "../guardCone.js";
-import { createHeldWeapon, updateHeldWeapon } from "../heldWeapon.js";
-import type { PlayerVisual } from "../state.js";
-import type { PlayerEntityView, RenderContext } from "../view.js";
-import { FIST_FALLBACK_FRAME, weaponIconFrame } from "../weaponIcon.js";
-import { combatOverlayPosition } from "../worldToScreen.js";
-import { getViewOrientation } from "../../view/viewState.js";
-import { worldAngleToView } from "../../view/viewTransform.js";
+import { updateGuardCone } from "../combat/guardCone.js";
+import { createHeldWeapon, updateHeldWeapon } from "../combat/heldWeapon.js";
+import type { PlayerVisual } from "../visuals/state.js";
+import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
+import { FIST_FALLBACK_FRAME, weaponIconFrame } from "../combat/weaponIcon.js";
+import { combatOverlayPosition } from "../geometry/worldToScreen.js";
+import { getViewOrientation } from "../../view/transform/viewState.js";
+import { worldAngleToView } from "../../view/transform/viewTransform.js";
 
 const STRIKE_DURATION_MS = 160;
 

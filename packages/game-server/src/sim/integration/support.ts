@@ -19,7 +19,7 @@ import {
   type GameEvent,
   type ServerSnapshot,
 } from "@dc2d/engine";
-import { GameSim } from "../index.js";
+import { GameSim } from "../core/index.js";
 import { PlayerStore } from "../../store.js";
 export { findSafeRoomDoor } from "./support/safeRoomSearch.js";
 export { findFlatArena, findFlatFloor, nearbyAreaTile, type NearbyAreaSearch } from "./support/terrainSearch.js";

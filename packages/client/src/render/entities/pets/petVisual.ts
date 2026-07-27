@@ -1,14 +1,14 @@
 import type Phaser from "phaser";
 import { WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { petAssetFor } from "../../../boot/petAssetManifest.js";
-import { uiTextStyle } from "../../../ui/font.js";
-import { HUD_SCALE } from "../../../ui/hudScale.js";
-import { airborneHeightAboveGround, spriteLiftPx } from "../lift.js";
-import { createNameplate, LABEL_LINE_GAP_PX, updateNameplate } from "../nameplate.js";
-import { createShadow, updateShadowPosition } from "../shadow.js";
-import type { PetVisual } from "../state.js";
-import type { PetEntityView, RenderContext } from "../view.js";
-import { depthForEntityNow, worldToScreen } from "../worldToScreen.js";
+import { uiTextStyle } from "../../../ui/foundation/font.js";
+import { HUD_SCALE } from "../../../ui/foundation/hudScale.js";
+import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
+import { createNameplate, LABEL_LINE_GAP_PX, updateNameplate } from "../presentation/nameplate.js";
+import { createShadow, updateShadowPosition } from "../geometry/shadow.js";
+import type { PetVisual } from "../visuals/state.js";
+import type { PetEntityView, RenderContext } from "../visuals/view.js";
+import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
 
 /** The source sheets leave a transparent foot pad; this keeps visible feet
  * planted on the same ground point as the shadow. */

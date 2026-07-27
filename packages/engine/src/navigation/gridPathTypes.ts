@@ -1,4 +1,4 @@
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 
 export interface GridPoint {
   x: number;

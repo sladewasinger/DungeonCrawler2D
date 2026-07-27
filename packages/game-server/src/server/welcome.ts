@@ -1,8 +1,8 @@
 import { PROTOCOL_VERSION, TICK_RATE, type LevelId } from "@dc2d/engine";
 import type { WebSocket } from "ws";
-import type { GameSim } from "../sim/index.js";
-import { sendServerMessage } from "./measuredSend.js";
-import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import type { GameSim } from "../sim/core/index.js";
+import { sendServerMessage } from "./telemetry/measuredSend.js";
+import type { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 
 export interface WelcomeContext {
   ws: WebSocket;

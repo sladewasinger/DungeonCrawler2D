@@ -2,21 +2,21 @@ import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import {
   HP_BAR_DISPLAY_HEIGHT_PX,
   updateHpBar,
-} from "../hpBar.js";
-import { resolveHpBarVisibility } from "../hpBarVisibility.js";
+} from "../presentation/hpBar.js";
+import { resolveHpBarVisibility } from "../presentation/hpBarVisibility.js";
 import {
   LABEL_LINE_GAP_PX,
   NAMEPLATE_GAP_PX,
   NAMEPLATE_LINE_HEIGHT_PX,
   updateNameplate,
-} from "../nameplate.js";
-import { syncOcclusionSilhouette, terrainOcclusionAhead } from "../occlusion.js";
-import { updateShadowPosition } from "../shadow.js";
-import type { PlayerVisual } from "../state.js";
-import type { PlayerEntityView, RenderContext } from "../view.js";
-import { spriteLiftPx } from "../lift.js";
-import { worldToScreen } from "../worldToScreen.js";
-import { getViewOrientation } from "../../view/viewState.js";
+} from "../presentation/nameplate.js";
+import { syncOcclusionSilhouette, terrainOcclusionAhead } from "../geometry/occlusion.js";
+import { updateShadowPosition } from "../geometry/shadow.js";
+import type { PlayerVisual } from "../visuals/state.js";
+import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
+import { spriteLiftPx } from "../motion/lift.js";
+import { worldToScreen } from "../geometry/worldToScreen.js";
+import { getViewOrientation } from "../../view/transform/viewState.js";
 
 export interface PlayerChromeUpdate {
   readonly visual: PlayerVisual;

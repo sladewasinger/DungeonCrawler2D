@@ -1,5 +1,5 @@
 import { REVIVE_HOLD_TICKS, type EntitySnapshot } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 
 /** Public, AOI-scoped progress for a downed player's active revive attempt. */
 export function reviveSnapshotFields(

@@ -1,7 +1,7 @@
 import { enemyThink, faceEntity, TICK_DT, ENEMY_ACTIVE_RADIUS, type EffectEvent } from "@dc2d/engine";
-import { isBodyInChasm } from "../helpers.js";
-import { gracedClearanceCenters, isSpawnProtected } from "../spawnSafety.js";
-import type { EnemySlot, PlayerSlot, SimState } from "../state.js";
+import { isBodyInChasm } from "../core/helpers.js";
+import { gracedClearanceCenters, isSpawnProtected } from "../spawnSafety/spawnSafety.js";
+import type { EnemySlot, PlayerSlot, SimState } from "../state/state.js";
 import { revalidateEnemyTarget } from "./targetLifecycle.js";
 import { launchSpit, moveEnemy, resolveEnemyStrike } from "./ai/combat.js";
 

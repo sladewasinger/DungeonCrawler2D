@@ -1,9 +1,9 @@
-import type { FloorRegistry } from "../floorRegistry.js";
-import type { GameSim } from "../sim/index.js";
-import type { PreparedSnapshotDelivery } from "../sim/snapshots.js";
-import { sendServerMessage } from "./measuredSend.js";
+import type { FloorRegistry } from "../floors/floorRegistry.js";
+import type { GameSim } from "../sim/core/index.js";
+import type { PreparedSnapshotDelivery } from "../sim/snapshots/snapshots.js";
+import { sendServerMessage } from "./telemetry/measuredSend.js";
 import type { SocketMap } from "./types.js";
-import type { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import type { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 
 export interface BroadcastContext {
   floors: FloorRegistry;

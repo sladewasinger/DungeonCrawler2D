@@ -11,10 +11,10 @@ import {
   TICK_DT,
   type EffectEvent,
 } from "@dc2d/engine";
-import { effectTargetFor, isBodyInChasm } from "../../helpers.js";
-import { blocksAttackFrom } from "../../directionalBlock.js";
-import type { EnemySlot, SimState } from "../../state.js";
-import { insideGracedClearance } from "../../spawnSafety.js";
+import { effectTargetFor, isBodyInChasm } from "../../core/helpers.js";
+import { blocksAttackFrom } from "../../players/directionalBlock.js";
+import type { EnemySlot, SimState } from "../../state/state.js";
+import { insideGracedClearance } from "../../spawnSafety/spawnSafety.js";
 
 export interface EnemyMoveInput {
   sim: SimState;

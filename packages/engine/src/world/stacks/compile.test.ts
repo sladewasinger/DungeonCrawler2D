@@ -1,6 +1,6 @@
 // Unit coverage for stacksToHeightField()'s literal compile rule per tile kind.
 import { describe, expect, it } from "vitest";
-import { TILE } from "../types.js";
+import { TILE } from "../core/types.js";
 import { stacksToHeightField } from "./compile.js";
 import type { StackTile } from "./types.js";
 

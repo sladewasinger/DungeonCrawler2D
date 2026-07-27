@@ -2,8 +2,8 @@
 import Phaser from "phaser";
 import { ASSET_KEYS, ASSET_PATHS } from "./assetManifest.js";
 import { registerAnimations, type AnimationManifest } from "./registerAnimations.js";
-import { waitForPixelFontReady } from "../ui/font.js";
-import { setViewOrientation } from "../render/view/viewState.js";
+import { waitForPixelFontReady } from "../ui/foundation/font.js";
+import { setViewOrientation } from "../render/view/transform/viewState.js";
 import { PET_ASSETS } from "./petAssetManifest.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */

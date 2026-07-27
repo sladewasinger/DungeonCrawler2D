@@ -1,12 +1,12 @@
 import { createBody, stairwayUpPosition } from "@dc2d/engine";
 import { announceFloorEntry, announceStairwayHint } from "../announcer/index.js";
-import { respawnSlot } from "../players.js";
+import { respawnSlot } from "../players/players.js";
 import { refreshModerationBindings } from "../moderation.js";
-import { resetInputTimeline } from "../playerInputTimeline.js";
-import { leaveParty } from "../social.js";
-import { findSpawn } from "../spawn.js";
+import { resetInputTimeline } from "../players/playerInputTimeline.js";
+import { leaveParty } from "../social/social.js";
+import { findSpawn } from "../spawn/spawn.js";
 import { clearPetPath } from "../pets/index.js";
-import type { FloorTransferRequest, SimState } from "../state.js";
+import type { FloorTransferRequest, SimState } from "../state/state.js";
 
 /**
  * Cross-sim slot transfer (Epic 7.14): the same PlayerSlot object moves

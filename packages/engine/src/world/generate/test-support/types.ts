@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, TILE, type Chunk } from "../../types.js";
+import { CHUNK_SIZE, TILE, type Chunk } from "../../core/types.js";
 import { generateChunk } from "../index.js";
 
 export type ChunkCache = Map<string, Chunk>;

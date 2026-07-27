@@ -1,14 +1,14 @@
 import type { ServerSnapshotDelta } from "@dc2d/engine";
-import type { PlayerSlot } from "../state.js";
-import type { PlayerSnapshotFrame } from "../playerSnapshot.js";
+import type { PlayerSlot } from "../state/state.js";
+import type { PlayerSnapshotFrame } from "./playerSnapshot.js";
 import {
   deltaEntityEntries,
   finishDeltaSnapshot,
   needsSnapshotBaseline,
   syncHotbarRevision,
   syncInventoryRevision,
-} from "../snapshotReplication.js";
-import type { SnapshotClientState } from "../snapshotState.js";
+} from "./snapshotReplication.js";
+import type { SnapshotClientState } from "../state/snapshotState.js";
 
 interface DeltaSnapshotRequest {
   slot: PlayerSlot;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { TERRAIN4, type Terrain4Source } from "../terrainPlanner.js";
-import { Terrain4ChunkPlanCache, appendVisibleChunkPlans, emptyTerrain4Batches } from "../terrain4ChunkCache.js";
+import { TERRAIN4, type Terrain4Source } from "../planning/terrainPlanner.js";
+import { Terrain4ChunkPlanCache, appendVisibleChunkPlans, emptyTerrain4Batches } from "../planning/terrain4ChunkCache.js";
 
 const source: Terrain4Source = {
   terrainAt: () => TERRAIN4.Floor,

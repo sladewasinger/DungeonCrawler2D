@@ -1,11 +1,11 @@
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
-import type { PlayerEntityView, RenderContext } from "../../../render/entities/index.js";
-import { combatOverlayPosition, depthForEntityNow } from "../../../render/entities/worldToScreen.js";
-import { depthForAdjacentTerrainOverlay } from "../../../render/entities/depthSort.js";
-import type { VfxSystem } from "../../../vfx/index.js";
-import { registerPendingSwing } from "../../../vfx/meleeConnect.js";
-import { resolveMeleeSwingsInto } from "../meleeSwingEvents.js";
-import type { DungeonSceneState } from "../state.js";
+import type { PlayerEntityView, RenderContext } from "../../../render/entities/geometry/index.js";
+import { combatOverlayPosition, depthForEntityNow } from "../../../render/entities/geometry/worldToScreen.js";
+import { depthForAdjacentTerrainOverlay } from "../../../render/entities/presentation/depthSort.js";
+import type { VfxSystem } from "../../../vfx/system/index.js";
+import { registerPendingSwing } from "../../../vfx/combat/meleeConnect.js";
+import { resolveMeleeSwingsInto } from "./meleeSwingEvents.js";
+import type { DungeonSceneState } from "../orchestration/state.js";
 
 export interface MeleeSwingSyncInput {
   readonly vfx: VfxSystem;

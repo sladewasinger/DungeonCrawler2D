@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../types.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
 
 export function floodFromBorder(tiles: Uint8Array): Uint8Array {
   const reached = new Uint8Array(tiles.length);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TICK_DT } from "../../core/constants.js";
-import type { WorldView } from "../../world/types.js";
+import type { WorldView } from "../../world/core/types.js";
 import { NEUTRAL_INPUT, createBody, stepBody } from "./index.js";
 
 function flatWorld(heightAt: (x: number) => number = () => 0): WorldView {

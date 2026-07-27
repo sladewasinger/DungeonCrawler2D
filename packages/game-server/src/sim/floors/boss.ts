@@ -4,9 +4,9 @@ import {
   bossArenaSpawnAnchor,
 } from "@dc2d/engine";
 import { announceBossIntro, announceBossKill, broadcastAnnouncement } from "../announcer/index.js";
-import { spawnEnemy } from "../helpers.js";
-import { levelForXp } from "../xp.js";
-import type { EnemySlot, SimState } from "../state.js";
+import { spawnEnemy } from "../core/helpers.js";
+import { levelForXp } from "../progression/xp.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 import { BOSS_RESPAWN_TICKS, BOSS_XP_BURST, FLOOR_CAP, WARDEN_DEF_ID } from "./constants.js";
 
 /**

@@ -8,15 +8,15 @@ import {
   safeRoomSpawn,
   safeRoomChunk,
 } from "@dc2d/engine";
-import { findSpawn } from "../spawn.js";
-import { resetInputTimeline } from "../playerInputTimeline.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import { findSpawn } from "../spawn/spawn.js";
+import { resetInputTimeline } from "../players/playerInputTimeline.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 import {
   safeRoomDoorAt,
   safeRoomHasCapacity,
-} from "../safeRoomDoors.js";
+} from "../core/safeRoomDoors.js";
 import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
-import { openLootChest } from "../lootChests.js";
+import { openLootChest } from "../lootChests/lootChests.js";
 import { claimNearestPet } from "../pets/index.js";
 
 /** The interact intent: revive, pet claims, doors, stash, and floor exits. */

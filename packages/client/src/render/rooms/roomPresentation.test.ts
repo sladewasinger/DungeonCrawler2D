@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE, ROOM_REGION_CY } from "@dc2d/engine";
-import { depthForEntity } from "../entities/depthSort.js";
+import { depthForEntity } from "../entities/presentation/depthSort.js";
 import {
   roomFloorLabelPosition,
   SAFE_ROOM_BUBBLE_DEPTH,

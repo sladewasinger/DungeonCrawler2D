@@ -1,6 +1,6 @@
 // Headless tests for widget layout resolution — no Phaser/DOM involved.
 import { beforeEach, describe, expect, it } from "vitest";
-import { HUD_SCALE } from "../hudScale.js";
+import { HUD_SCALE } from "../foundation/hudScale.js";
 import { anchorPoint } from "./anchors.js";
 import { resolveLayout } from "./layout.js";
 import { WidgetRegistry } from "./registry.js";

@@ -1,6 +1,6 @@
 import { INTERACT_RANGE } from "@dc2d/engine";
 import type Phaser from "phaser";
-import type { InputConnection, InputPanels, InputQueries } from "../state.js";
+import type { InputConnection, InputPanels, InputQueries } from "../controls/state.js";
 
 export interface InteractRequest {
   readonly conn: InputConnection;

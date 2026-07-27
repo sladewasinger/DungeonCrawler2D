@@ -1,13 +1,13 @@
 import { LEVEL, World, type ContentRegistry, type LevelId } from "@dc2d/engine";
 import { WebSocketServer, type WebSocket } from "ws";
-import { FloorRegistry } from "../floorRegistry.js";
-import { GameSim } from "../sim/index.js";
+import { FloorRegistry } from "../floors/floorRegistry.js";
+import { GameSim } from "../sim/core/index.js";
 import { PlayerStore } from "../store.js";
 import { broadcastTick } from "./broadcast.js";
 import { handleConnection } from "./dispatch.js";
 import { startFixedRateLoop } from "./fixedRateLoop.js";
-import { startHeartbeat } from "./heartbeat.js";
-import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import { startHeartbeat } from "./telemetry/heartbeat.js";
+import { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 import type { SocketMap } from "./types.js";
 
 /** WebSocket transport facade: decodes/validates inbound messages,

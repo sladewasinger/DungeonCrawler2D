@@ -6,11 +6,11 @@ export {
   type StatusDef,
   interactionRuleSchema,
   type InteractionRule,
-} from "./statuses.js";
-export { areaDefSchema, type AreaDef } from "./areas.js";
-export { itemDefSchema, type ItemDef } from "./items.js";
-export { enemyDefSchema, type EnemyDef } from "./enemies.js";
-export { recipeDefSchema, type RecipeDef } from "./recipes.js";
+} from "./content/statuses.js";
+export { areaDefSchema, type AreaDef } from "./content/areas.js";
+export { itemDefSchema, type ItemDef } from "./content/items.js";
+export { enemyDefSchema, type EnemyDef } from "./content/enemies.js";
+export { recipeDefSchema, type RecipeDef } from "./content/recipes.js";
 export {
   inventionProvenanceSchema,
   inventionProposalSchema,
@@ -19,5 +19,5 @@ export {
   type InventionProposal,
   type InventionValidation,
   type PendingInvention,
-} from "./inventions.js";
-export { type ContentRegistry, type RawContent, buildContentRegistry } from "./registry.js";
+} from "./content/inventions.js";
+export { type ContentRegistry, type RawContent, buildContentRegistry } from "./content/registry.js";

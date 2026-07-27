@@ -7,8 +7,8 @@
  * pattern) rather than diffing — the catalog is small and only changes on user action.
  */
 import type Phaser from "phaser";
-import { uiTextStyle } from "../font.js";
-import { drawPanelBackground, PANEL_BORDER, PANEL_FILL, spacing } from "../panel.js";
+import { uiTextStyle } from "../foundation/font.js";
+import { drawPanelBackground, PANEL_BORDER, PANEL_FILL, spacing } from "../foundation/panel.js";
 import type { WidgetDefinition, WidgetOverride } from "../widgets/state.js";
 import { buildCatalogRows } from "./catalog.js";
 

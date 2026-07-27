@@ -10,7 +10,7 @@ import {
   type PlayerSkin,
 } from "@dc2d/engine";
 import { ASSET_PATHS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
-import { loadTabPreference, saveTabPreference } from "../../net/identity.js";
+import { loadTabPreference, saveTabPreference } from "../../net/auth/identity.js";
 
 const STORAGE_KEY = "dc2d-player-skin";
 const ATLAS_WIDTH = 512;

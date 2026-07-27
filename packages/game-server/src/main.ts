@@ -8,7 +8,7 @@ import {
 } from "@dc2d/content";
 import { buildContentRegistry, hashString } from "@dc2d/engine";
 import { join } from "node:path";
-import { enemiesAreFrozen } from "./runtimeOptions.js";
+import { enemiesAreFrozen } from "./runtime/runtimeOptions.js";
 import { startServer } from "./server/index.js";
 
 /**

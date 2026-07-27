@@ -8,8 +8,8 @@
 // still braid through its rubble apron, but the peak stands intact.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
-import { TILE, TOPOLOGY } from "../../types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
+import { TILE, TOPOLOGY } from "../../core/types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkCenter, type LandmarkStamp } from "./shared.js";
 
 const OUTER_RADIUS = 9;

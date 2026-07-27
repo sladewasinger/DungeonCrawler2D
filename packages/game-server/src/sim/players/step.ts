@@ -9,12 +9,12 @@ import {
   type Entity,
   type MoveInput,
 } from "@dc2d/engine";
-import { killIfInChasm } from "../deaths.js";
-import { effectTargetFor } from "../helpers.js";
-import { advancePlayerResources } from "../combatResources.js";
-import { advanceInputTimeline } from "../playerInputTimeline.js";
-import { endSpawnGrace } from "../spawnSafety.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import { killIfInChasm } from "../combat/deaths.js";
+import { effectTargetFor } from "../core/helpers.js";
+import { advancePlayerResources } from "../progression/combatResources.js";
+import { advanceInputTimeline } from "./playerInputTimeline.js";
+import { endSpawnGrace } from "../spawnSafety/spawnSafety.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 
 interface PlayerStepContext {
   sim: SimState;

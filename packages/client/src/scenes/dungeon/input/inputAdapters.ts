@@ -1,0 +1,121 @@
+// Thin glue between input/index.ts's InputController contracts and DungeonScene's real
+// Connection + self cosmetics. Inventory (HUD_OS.md Phase 1) and craft/stash (Epic 7.12,
+// panelAdapters.ts) are both real: InputPanels reads every field live from HudScene.
+import type { InputConnection, InputHooks } from "../../../input/index.js";
+import type { Connection } from "../../../net/connection/connection.js";
+import type { InventoryActions } from "../../../ui/widgets/hud/inventory/inventoryWindow.js";
+import { endSelfGrace, triggerSelfAttack, type SelfCosmeticsState } from "../player/selfCosmetics.js";
+export { createInputQueries } from "./inputQueries.js";
+
+export function createInputConnectionAdapter(conn: Connection): InputConnection {
+  return {
+    ...inputConnectionState(conn),
+    ...createInputActions(conn),
+  };
+}
+
+function inputConnectionState(conn: Connection): Omit<InputConnection, keyof ReturnType<typeof createInputActions>> {
+  return {
+    get body() { return conn.body; }, get canAct() { return conn.canAct; }, get downed() { return conn.downed; },
+    get dead() { return conn.dead; }, get hotbar() { return conn.hotbar.map((id) => id ?? undefined); },
+    get inventory() { return conn.inventory; }, get stash() { return conn.stash; },
+    get pendingInvite() { return conn.pendingInvite !== null; }, get weapon() { return conn.weapon; },
+    heightAt: (wx, wy) => conn.world?.heightAt(wx, wy) ?? 0,
+  };
+}
+
+/** Delegates input intents without exposing the concrete Connection to the controller. */
+function createInputActions(conn: Connection): Omit<
+  InputConnection,
+  "body" | "canAct" | "downed" | "dead" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt"
+> {
+  return {
+    interact: () => conn.interact(), revive: (targetId, held) => conn.revive(targetId, held), pickup: () => conn.pickup(),
+    attack: (dx, dy) => conn.attack(dx, dy), useSlot: (slot, targetX, targetY) => conn.useSlot(slot, targetX, targetY),
+    useSlotOnPlayer: (slot, targetId) => conn.useSlotOnPlayer(slot, targetId), useItem: (item) => conn.useItem(item),
+    throwTorch: (dirX, dirY) => conn.throwTorch(dirX, dirY), craft: (recipeId) => conn.craft(recipeId), stashOp: (op, index) => conn.stashOp(op, index),
+    lootChestOp: (chestId, op, item) => conn.lootChestOp(chestId, op, item), partyOp: (op, target) => conn.partyOp(op, target),
+    assignSlot: (slot, item) => conn.assignSlot(slot, item), equip: (item) => conn.equip(item), drop: (item) => conn.drop(item),
+    fistbump: (targetId) => conn.fistbump(targetId), descend: () => conn.descend(), suicide: () => conn.suicide(),
+    ...createDebugActions(conn),
+  };
+}
+
+function createDebugActions(conn: Connection): Pick<InputConnection, "pushToast" | "debugGod"> {
+  return {
+    pushToast: (msg) => conn.pushToast(msg),
+    debugGod: () => conn.debugGod(),
+  };
+}
+
+/** The inventory window's network intents (HudSceneData.actions), bound straight to the real Connection. */
+export function createHudActions(conn: Connection): InventoryActions {
+  return {
+    assignSlot: (slot, item) => conn.assignSlot(slot, item),
+    assignNext: (item) => {
+      const existing = conn.hotbar.indexOf(item);
+      const slot = existing >= 0 ? existing : conn.hotbar.findIndex((entry) => !entry);
+      if (slot >= 0) conn.assignSlot(slot, item);
+      else conn.pushToast("Hotbar is full");
+    },
+    equip: (item) => conn.equip(item),
+    use: (item) => conn.useItem(item),
+    drop: (item) => conn.drop(item),
+  };
+}
+
+/** The live Connection surface ui/chat/controller.ts's ChatController needs (its ChatPort contract). */
+export function createChatPort(conn: Connection): {
+  chatLog: Connection["chatLog"];
+  chatSeq: number;
+  chat: Connection["chat"];
+  who: Connection["who"];
+  partyCommand: Connection["partyCommand"];
+  moderate: Connection["moderate"];
+  debugGod: Connection["debugGod"];
+  debugTeleport: Connection["debugTeleport"];
+} {
+  return {
+    get chatLog() {
+      return conn.chatLog;
+    },
+    get chatSeq() {
+      return conn.chatSeq;
+    },
+    chat: (channel, text, target) => conn.chat(channel, text, target),
+    who: () => conn.who(),
+    partyCommand: (op, target) => conn.partyCommand(op, target),
+    moderate: (op, target, reason) => conn.moderate(op, target, reason),
+    debugGod: (on) => conn.debugGod(on),
+    debugTeleport: (x, y) => conn.debugTeleport(x, y),
+  };
+}
+
+
+export interface SocialHookCallbacks {
+  toggleChat(): void;
+  toggleInventory(): void;
+  openChat(): void;
+  toggleContacts(): void;
+  closeOverlays(): boolean;
+  toggleSessionMenu(): void;
+}
+
+export function createInputHooks(cosmetics: SelfCosmeticsState, social: SocialHookCallbacks): InputHooks {
+  return {
+    onSwing: (dx, dy) => {
+      // Any offensive action forfeits spawn grace early (spawnSafety.ts's own
+      // forfeit rule) — see selfCosmetics.ts's grace-ring doc comment.
+      endSelfGrace(cosmetics);
+      triggerSelfAttack(cosmetics, { nowMs: performance.now(), dirX: dx, dirY: dy });
+    },
+    // Chunk-grid debug overlay is not part of this input lane.
+    onToggleBorders: () => {},
+    onToggleChat: social.toggleChat,
+    onToggleInventory: social.toggleInventory,
+    onOpenChat: social.openChat,
+    onToggleContacts: social.toggleContacts,
+    onCloseOverlays: social.closeOverlays,
+    onToggleSessionMenu: social.toggleSessionMenu,
+  };
+}

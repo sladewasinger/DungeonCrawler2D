@@ -8,8 +8,8 @@
  * near the action-button cluster can't drop a player into edit mode mid-combat.
  */
 import type Phaser from "phaser";
-import { uiTextStyle } from "../font.js";
-import { drawPanelBackground } from "../panel.js";
+import { uiTextStyle } from "../foundation/font.js";
+import { drawPanelBackground } from "../foundation/panel.js";
 import type { Viewport } from "../widgets/state.js";
 
 const CHIP_SIZE = 28;

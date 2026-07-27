@@ -1,5 +1,5 @@
 import { LOOT_CHEST_LIFETIME_TICKS, LOOT_CHEST_LOCK_TICKS, createBody, makeEntity, newEntityId } from "@dc2d/engine";
-import type { LootChest, PlayerSlot, SimState } from "../state.js";
+import type { LootChest, PlayerSlot, SimState } from "../state/state.js";
 
 export const PLAYER_LOOT_CHEST_DEF_ID = "player-loot-chest";
 

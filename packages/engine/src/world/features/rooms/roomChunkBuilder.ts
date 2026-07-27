@@ -1,6 +1,6 @@
-import { CHUNK_SIZE, TERRAIN, TILE, ZONE, type Chunk } from "../../types.js";
-import { ROOM_WALL_RISE, carveSouthExitHall, type RoomTile, type SetRoomTile } from "../roomExitGeometry.js";
-import { roomSlotAt, type RoomSlot } from "../rooms.js";
+import { CHUNK_SIZE, TERRAIN, TILE, ZONE, type Chunk } from "../../core/types.js";
+import { ROOM_WALL_RISE, carveSouthExitHall, type RoomTile, type SetRoomTile } from "./roomExitGeometry.js";
+import { roomSlotAt, type RoomSlot } from "./rooms.js";
 
 interface RoomRect { left: number; top: number; w: number; h: number; }
 interface RoomGrid { tiles: Uint8Array; terrain: Uint8Array; features: Uint8Array; height: Float32Array; zones: Uint8Array; }

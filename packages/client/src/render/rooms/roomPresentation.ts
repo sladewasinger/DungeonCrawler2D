@@ -1,9 +1,9 @@
 import { CHUNK_SIZE, roomCenterAt, roomKindAt, safeRoomAttendantPosition, type RoomKind } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import type { Connection } from "../../net/connection.js";
-import { depthForEntityNow, worldToScreen } from "../entities/worldToScreen.js";
-import { uiTextStyle } from "../../ui/font.js";
+import type { Connection } from "../../net/connection/connection.js";
+import { depthForEntityNow, worldToScreen } from "../entities/geometry/worldToScreen.js";
+import { uiTextStyle } from "../../ui/foundation/font.js";
 import { syncRoomDoorLabels } from "./roomDoorLabels.js";
 import { createSafeRoomAttendant } from "./safeRoomAttendant.js";
 

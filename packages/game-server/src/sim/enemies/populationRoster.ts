@@ -3,7 +3,7 @@ import {
   biomeAtWorldTile,
   type BiomeKind,
 } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 
 const ORC_WARRIOR = "orc-warrior";
 const SKELETON = "skeleton";

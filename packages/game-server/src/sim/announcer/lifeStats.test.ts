@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { recordKill } from "./killCounts.js";
 import { ensureLifeTracked, takeLifeStats } from "./lifeStats.js";
-import type { PlayerSlot } from "../state.js";
+import type { PlayerSlot } from "../state/state.js";
 
 /** Unit tests for the per-life kill/duration bookkeeping (panel round 3b, "Small" item). */
 

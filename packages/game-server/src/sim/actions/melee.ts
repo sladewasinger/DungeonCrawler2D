@@ -11,9 +11,9 @@ import {
   type EffectEvent,
   type ItemDef,
 } from "@dc2d/engine";
-import { combatants, damageGivenMultiplierFor, effectTargetFor } from "../helpers.js";
-import type { PlayerSlot, SimState } from "../state.js";
-import { blocksAttackFrom } from "../directionalBlock.js";
+import { combatants, damageGivenMultiplierFor, effectTargetFor } from "../core/helpers.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
+import { blocksAttackFrom } from "../players/directionalBlock.js";
 
 /** Melee swing resolution: cooldown gating, targeting-aid, damage, knockback. */
 

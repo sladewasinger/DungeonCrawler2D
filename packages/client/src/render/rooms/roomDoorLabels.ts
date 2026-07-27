@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
-import type { Connection } from "../../net/connection.js";
-import { uiTextStyle } from "../../ui/font.js";
-import { depthForEntityNow, worldToScreen } from "../entities/worldToScreen.js";
+import type { Connection } from "../../net/connection/connection.js";
+import { uiTextStyle } from "../../ui/foundation/font.js";
+import { depthForEntityNow, worldToScreen } from "../entities/geometry/worldToScreen.js";
 
 export function syncRoomDoorLabels(
   scene: Phaser.Scene,

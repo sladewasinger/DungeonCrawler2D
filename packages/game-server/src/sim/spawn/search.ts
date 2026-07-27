@@ -1,4 +1,4 @@
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 
 export function findWalkableNear({ sim, x, y, maxRadius = 6, avoid }: {
   sim: Pick<SimState, "world">;

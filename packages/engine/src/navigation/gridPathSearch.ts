@@ -1,4 +1,4 @@
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import { transitionAt } from "./gridPathTransition.js";
 import type { GridPathOptions, GridPathRequest, GridPathStep } from "./gridPathTypes.js";
 

@@ -1,15 +1,15 @@
-import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../phaser4QuadBatch.js";
+import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../batch/phaser4QuadBatch.js";
 import {
   terrain4AtlasFrame,
   terrain4CliffAtlasFrame,
   type Terrain4CliffTileRole,
   type Terrain4TileRole,
-} from "../terrain4Tileset.js";
-import type { Terrain4AtlasDraw, Terrain4MeshBatch } from "../phaser4AtlasBatch.js";
-import type { Terrain4AtlasRenderOptions } from "../phaser4AtlasBatch.js";
-import { depthForCapOccluder, depthForOccluder } from "../../entities/depthSort.js";
+} from "../planning/terrain4Tileset.js";
+import type { Terrain4AtlasDraw, Terrain4MeshBatch } from "../batch/phaser4AtlasBatch.js";
+import type { Terrain4AtlasRenderOptions } from "../batch/phaser4AtlasBatch.js";
+import { depthForCapOccluder, depthForOccluder } from "../../entities/presentation/depthSort.js";
 import { TERRAIN4_CLIFFS, type Terrain4Batches } from "./terrainPlannerModel.js";
-import { TERRAIN4_CLIFF_TILESETS, TERRAIN4_TILESETS, terrain4AtlasFrameName, terrain4CliffAtlasFrameName } from "../terrain4Tileset.js";
+import { TERRAIN4_CLIFF_TILESETS, TERRAIN4_TILESETS, terrain4AtlasFrameName, terrain4CliffAtlasFrameName } from "../planning/terrain4Tileset.js";
 import type { Terrain4QuarterTurn, Terrain4QuadVertices } from "./terrainPlannerModel.js";
 
 export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw, image: { readonly width: number; readonly height: number }): void {

@@ -2,10 +2,10 @@
 // chunk, skipped where a safe-room kiosk or stairway pad already claimed
 // the chunk (features/fixed.ts owns those, same as the plain layout).
 
-import { isBossArenaChunk } from "../../features/bossArena.js";
-import { isStairwayDownChunk, isStairwayUpChunk } from "../../features/descent.js";
-import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed.js";
-import { DISTRICT, isLandmarkChunk, type DistrictKind } from "../district.js";
+import { isBossArenaChunk } from "../../features/bossArena/bossArena.js";
+import { isStairwayDownChunk, isStairwayUpChunk } from "../../features/descent/descent.js";
+import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed/fixed.js";
+import { DISTRICT, isLandmarkChunk, type DistrictKind } from "../layout/district.js";
 import { stampArena } from "./arena.js";
 import { stampShrine } from "./shrine.js";
 import { stampTower } from "./tower.js";

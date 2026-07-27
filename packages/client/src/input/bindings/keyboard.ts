@@ -1,8 +1,8 @@
-import { bindBandageKey } from "../gameplayActions.js";
-import { onNumberKey } from "../hotbar.js";
-import { guardedAction } from "../inputGuard.js";
-import { bindInteractKey } from "../interactKey.js";
-import type { InputConnection, InputHooks, InputPanels, InputQueries, InputState } from "../state.js";
+import { bindBandageKey } from "../gameplay/gameplayActions.js";
+import { onNumberKey } from "../gameplay/hotbar.js";
+import { guardedAction } from "../controls/inputGuard.js";
+import { bindInteractKey } from "../gestures/interactKey.js";
+import type { InputConnection, InputHooks, InputPanels, InputQueries, InputState } from "../controls/state.js";
 
 export interface ControllerKeyBindings {
   readonly keys: InputState["keys"];

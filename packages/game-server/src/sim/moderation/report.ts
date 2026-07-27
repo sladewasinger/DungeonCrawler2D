@@ -1,4 +1,4 @@
-import type { PlayerSlot, SimState } from "../state.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 
 const MAX_REPORTS = 500;
 

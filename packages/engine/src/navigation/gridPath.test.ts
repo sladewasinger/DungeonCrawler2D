@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { findGridPath } from "./gridPath.js";
-import { LEVEL } from "../world/level.js";
-import type { WorldView } from "../world/types.js";
-import { World } from "../world/world.js";
+import { LEVEL } from "../world/core/level.js";
+import type { WorldView } from "../world/core/types.js";
+import { World } from "../world/core/world.js";
 
 function halfHeightBlockWorld(): WorldView {
   const groundAt = (x: number): number => x >= 1 ? 0.5 : 0;

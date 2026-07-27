@@ -1,4 +1,4 @@
-import type { WorldView } from "../../world/types.js";
+import type { WorldView } from "../../world/core/types.js";
 
 /** Flat/stepped world built from a tile-height function for movement feel tests. */
 export function fixtureWorld(

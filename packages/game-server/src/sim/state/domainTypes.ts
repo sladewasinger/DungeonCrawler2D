@@ -1,6 +1,6 @@
 import type { Entity, GameEvent, InvStack } from "@dc2d/engine";
 import type { PetSlot } from "../pets/types.js";
-import type { PlayerSlot } from "../state.js";
+import type { PlayerSlot } from "./state.js";
 
 export type FloorArrivalKind = "stairUp" | "deathSpawn";
 

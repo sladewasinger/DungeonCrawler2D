@@ -1,7 +1,7 @@
 // Headless test: the HUD widget set's ids all resolve from the shipped default layout,
 // and a full layout config round-trips through persist/loadPersisted unchanged.
 import { beforeEach, describe, expect, it } from "vitest";
-import { HUD_SCALE } from "../../hudScale.js";
+import { HUD_SCALE } from "../../foundation/hudScale.js";
 import { WidgetRegistry } from "../registry.js";
 import type { LayoutConfig, WidgetDefinition } from "../state.js";
 

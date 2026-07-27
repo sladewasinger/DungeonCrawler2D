@@ -4,10 +4,10 @@ import {
   type World,
 } from "@dc2d/engine";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Connection } from "../net/connection.js";
-import { readMoveInput } from "./keys.js";
+import { Connection } from "../net/connection/connection.js";
+import { readMoveInput } from "./controls/keys.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
-import type { InputConnection, InputState } from "./state.js";
+import type { InputConnection, InputState } from "./controls/state.js";
 
 class FakeKey {
   isDown = false;

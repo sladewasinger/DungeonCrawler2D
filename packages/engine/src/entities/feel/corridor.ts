@@ -1,5 +1,5 @@
 import { TICK_DT } from "../../core/constants.js";
-import type { WorldView } from "../../world/types.js";
+import type { WorldView } from "../../world/core/types.js";
 import { createBody, stepBody } from "../movement/index.js";
 import { dirVector, type CardinalDirection } from "./worldFixture.js";
 

@@ -9,18 +9,18 @@
  */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
-import { interactOrUse, throwSelected } from "./gameplayActions.js";
-import { createKeys } from "./keys.js";
-import { activeThrowableSlot, throwPreview as resolveThrowPreview } from "./hotbar.js";
-import { LifeGestures } from "./lifeGestures.js";
-import { cursorWorldTile } from "./pointer.js";
+import { interactOrUse, throwSelected } from "./gameplay/gameplayActions.js";
+import { createKeys } from "./controls/keys.js";
+import { activeThrowableSlot, throwPreview as resolveThrowPreview } from "./gameplay/hotbar.js";
+import { LifeGestures } from "./gestures/lifeGestures.js";
+import { cursorWorldTile } from "./pointer/pointer.js";
 import { bindControllerEvents } from "./bindings/controllerEvents.js";
 import { FistbumpGesture } from "./holds/fistbumpGesture.js";
-import { inputModality, type InputModality } from "./inputModality.js";
-import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
+import { inputModality, type InputModality } from "./controls/inputModality.js";
+import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./controls/state.js";
 import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { readCurrentInput } from "./movement/readCurrentInput.js";
-export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./state.js";
+export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
 
 export interface InputControllerOptions {

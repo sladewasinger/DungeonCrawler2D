@@ -4,8 +4,8 @@ import {
   populationRoomsForChunk,
   type PopulationRoom,
 } from "@dc2d/engine";
-import { spawnEnemy } from "../helpers.js";
-import type { EnemySlot, SimState } from "../state.js";
+import { spawnEnemy } from "../core/helpers.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 import { validEnemySpawn } from "./populationPlacement.js";
 
 export const MINI_BOSS_MIN_ROOM_AREA = 220;

@@ -1,8 +1,8 @@
-import { CORRIDOR_HALF_WIDTH, distToCorridor, type CorridorSegment } from "../../terrain.js";
-import { TILE } from "../../types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/scale.js";
-import type { WorldChunkCoordinate } from "../platforms.js";
-import { TERRACE_RISE } from "../terraces.js";
+import { CORRIDOR_HALF_WIDTH, distToCorridor, type CorridorSegment } from "../../core/terrain.js";
+import { TILE } from "../../core/types.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/layout/scale.js";
+import type { WorldChunkCoordinate } from "../platforms/platforms.js";
+import { TERRACE_RISE } from "./terraces.js";
 
 export interface TerraceRect {
   x0: number;

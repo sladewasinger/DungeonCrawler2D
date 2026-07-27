@@ -1,5 +1,5 @@
 import { CHASM_DEATH_Z, TILE, type World } from "@dc2d/engine";
-import type { ViewDistance } from "../viewDistance.js";
+import type { ViewDistance } from "./view/viewDistance.js";
 
 const SCONCE_CELL_SIZE = 12;
 

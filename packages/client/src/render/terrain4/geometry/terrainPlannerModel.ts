@@ -1,5 +1,5 @@
-import type { Point } from "../../view/viewTransform.js";
-import type { ViewOrientation } from "../../view/viewOrientation.js";
+import type { Point } from "../../view/transform/viewTransform.js";
+import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 
 export const TERRAIN4 = { Floor: "floor", Void: "void" } as const;
 export const TERRAIN4_HEIGHT_EPSILON = 0.01;

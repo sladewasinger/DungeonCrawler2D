@@ -1,6 +1,6 @@
-import { removePartyInviteState } from "../partyInviteEvents.js";
+import { removePartyInviteState } from "./partyInviteEvents.js";
 import { socialPairAllowed } from "../moderation.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 
 export function acceptInvite(sim: SimState, slot: PlayerSlot): void {
   const invite = takeActiveInvite(sim, slot);

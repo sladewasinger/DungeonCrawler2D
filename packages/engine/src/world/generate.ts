@@ -8,8 +8,8 @@
 // every level generates the same dungeon layout).
 
 import { generateChunk as generateLayoutChunk, type ChunkGenerationRequest } from "./generate/index.js";
-import { LEVEL, type LevelId } from "./level.js";
-import type { Chunk } from "./types.js";
+import { LEVEL, type LevelId } from "./core/level.js";
+import type { Chunk } from "./core/types.js";
 
 export interface WorldGenerationRequest extends ChunkGenerationRequest {
   level?: LevelId;

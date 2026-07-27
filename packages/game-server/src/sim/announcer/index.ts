@@ -3,7 +3,7 @@
 // (Epic 7.13). Every line rides the existing "system" chat channel, so
 // no client changes are required to see them.
 import { stairwayDownChunk, type EnemyDef, type GameEvent } from "@dc2d/engine";
-import type { PlayerSlot, SimState } from "../state.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 import { killVerbPhrase } from "./killLine.js";
 import {
   BOSS_INTRO_LINES,

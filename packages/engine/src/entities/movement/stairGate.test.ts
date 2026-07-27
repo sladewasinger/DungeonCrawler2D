@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MOVE_SPEED, RUN_SPEED_MULTIPLIER, STEP_UP, TICK_DT } from "../../core/constants.js";
-import { stairRampAt, type StairView } from "../../world/stairs.js";
-import { TILE, type WorldView } from "../../world/types.js";
+import { stairRampAt, type StairView } from "../../world/stairs/stairs.js";
+import { TILE, type WorldView } from "../../world/core/types.js";
 import { createBody, stepBody } from "./index.js";
 import type { BodyState } from "./state.js";
 import { stairGateBlocks } from "./stairGate.js";

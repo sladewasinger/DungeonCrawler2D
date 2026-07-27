@@ -4,10 +4,10 @@ import {
   LEVEL,
   platformLootSpots,
 } from "@dc2d/engine";
-import { spawnEnemy, spawnItem } from "../helpers.js";
-import { resolveSpawnAnchor } from "../spawn.js";
-import type { SimState } from "../state.js";
-import { populateTestZoneChunk } from "../testzone.js";
+import { spawnEnemy, spawnItem } from "../core/helpers.js";
+import { resolveSpawnAnchor } from "../spawn/spawn.js";
+import type { SimState } from "../state/state.js";
+import { populateTestZoneChunk } from "../core/testzone.js";
 import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
 import { randomChunkSpot, randomNearbySpot } from "./populationPlacement.js";
 import { pickEnemyDef, pickNativeEnemyDef } from "./populationRoster.js";

@@ -1,7 +1,7 @@
 import type { WorldView } from "@dc2d/engine";
-import type { SelfCosmeticsState } from "../selfCosmetics.js";
-import type { ItemEntityView, PlayerEntityView, RenderContext } from "../../../render/entities/index.js";
-import type { InterpolatedEntity } from "../../../net/interpolate.js";
+import type { SelfCosmeticsState } from "../player/selfCosmetics.js";
+import type { ItemEntityView, PlayerEntityView, RenderContext } from "../../../render/entities/geometry/index.js";
+import type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
 
 export interface RenderContextSource {
   readonly world: WorldView; readonly nowMs: number; readonly dtSeconds: number;

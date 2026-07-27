@@ -27,7 +27,7 @@ export {
   type Terrain4QuarterTurn,
   type Terrain4AOQuad,
   type Terrain4AOMask,
-} from "./terrainPlanner.js";
+} from "./planning/terrainPlanner.js";
 
 export {
   TERRAIN4_ATLAS_COLUMNS,
@@ -45,9 +45,9 @@ export {
   type Terrain4TileRole,
   type Terrain4CliffTileRole,
   type Terrain4CliffAtlasSet,
-} from "./terrain4Tileset.js";
+} from "./planning/terrain4Tileset.js";
 
-export { Terrain4Renderer, type TerrainRendererLike } from "./terrain4Renderer.js";
+export { Terrain4Renderer, type TerrainRendererLike } from "./runtime/terrain4Renderer.js";
 
 export {
   Phaser4TerrainAtlasBatchRenderer,
@@ -57,4 +57,4 @@ export {
   type Terrain4AtlasDraw,
   type Terrain4AtlasRenderOptions,
   type Terrain4MeshBatch,
-} from "./phaser4AtlasBatch.js";
+} from "./batch/phaser4AtlasBatch.js";

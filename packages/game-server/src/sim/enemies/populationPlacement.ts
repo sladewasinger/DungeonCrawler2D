@@ -1,5 +1,5 @@
 import { CHASM_DEATH_Z, CHUNK_SIZE } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 
 export interface SpawnBounds {
   readonly x0: number;

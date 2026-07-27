@@ -1,8 +1,8 @@
 import type Phaser from "phaser";
 import { bindKeyboardMovementEdges } from "../movementEdges.js";
-import { bindInputPointerEdges } from "../pointerBindings.js";
-import { inputModality, type InputModality } from "../inputModality.js";
-import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState } from "../state.js";
+import { bindInputPointerEdges } from "../pointer/pointerBindings.js";
+import { inputModality, type InputModality } from "../controls/inputModality.js";
+import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState } from "../controls/state.js";
 import type { TouchInputState } from "../touch/index.js";
 import { bindControllerKeys } from "./keyboard.js";
 

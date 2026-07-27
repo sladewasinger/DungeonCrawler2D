@@ -6,8 +6,8 @@ import {
   newEntityId,
   type Entity,
 } from "@dc2d/engine";
-import { findWalkableNear, resolveSpawnAnchor } from "../spawn.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import { findWalkableNear, resolveSpawnAnchor } from "../spawn/spawn.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 import { stepPetTowardOwner } from "./follow.js";
 import { clearPetPath } from "./navigation.js";
 import { PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";

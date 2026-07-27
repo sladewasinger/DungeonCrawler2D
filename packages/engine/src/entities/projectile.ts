@@ -1,5 +1,5 @@
 import { GRAVITY } from "../core/constants.js";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import type { Entity } from "./entity.js";
 
 /**

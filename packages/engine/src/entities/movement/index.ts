@@ -3,7 +3,7 @@ import {
   MOVE_SPEED,
   RUN_SPEED_MULTIPLIER,
 } from "../../core/constants.js";
-import type { WorldView } from "../../world/types.js";
+import type { WorldView } from "../../world/core/types.js";
 import { moveHorizontal } from "./collision.js";
 import { resolveVerticalMotion, updateJumpState } from "./physics.js";
 

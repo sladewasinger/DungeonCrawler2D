@@ -2,8 +2,8 @@ import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData
 import { CHUNK_SIZE, buildContentRegistry, createBody, hashString, makeEntity, populationRoomsForChunk, World } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
-import { resolveDeaths } from "../../deaths.js";
-import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "../../state.js";
+import { resolveDeaths } from "../../combat/deaths.js";
+import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "../../state/state.js";
 import { stepEnemies } from "../ai.js";
 import { MINI_BOSS_MIN_ROOM_AREA, spawnMiniBossEncounter } from "../miniBossPopulation.js";
 

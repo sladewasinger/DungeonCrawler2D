@@ -1,6 +1,6 @@
-import type { Point } from "../../view/viewTransform.js";
-import { viewTileToWorld } from "../../view/viewTransform.js";
-import type { ViewOrientation } from "../../view/viewOrientation.js";
+import type { Point } from "../../view/transform/viewTransform.js";
+import { viewTileToWorld } from "../../view/transform/viewTransform.js";
+import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import {
   type Terrain4AOQuad,
   type Terrain4AOMask,

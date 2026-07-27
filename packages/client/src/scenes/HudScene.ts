@@ -1,10 +1,10 @@
 import Phaser from "phaser";
-import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
-import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { HudWidgets } from "../ui/widgets/hud/index.js";
-import type { Connection } from "../net/connection.js";
-import { HtmlTouchHitRegions } from "../three/HtmlTouchHitRegions.js";
-import { ThreeHud } from "../three/ThreeHud.js";
+import { BossBarWidget } from "../ui/widgets/hud/bars/bossBar.js";
+import type { HudFakeSnapshot } from "../ui/widgets/hud/core/fakeData.js";
+import { HudWidgets } from "../ui/widgets/hud/core/index.js";
+import type { Connection } from "../net/connection/connection.js";
+import { HtmlTouchHitRegions } from "../three/input/touch-html/HtmlTouchHitRegions.js";
+import { ThreeHud } from "../three/hud/core/ThreeHud.js";
 import { createHtmlHudLifecycle, type HtmlHudLifecycle } from "./hudHtmlLifecycle.js";
 import { applyHudPreviewAids, resolveHudPreview } from "./hudPreview.js";
 import type { HudSceneData } from "./hudSceneData.js";

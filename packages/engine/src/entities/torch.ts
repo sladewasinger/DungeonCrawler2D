@@ -1,5 +1,5 @@
 import { MAX_THROW_RANGE, THROW_SPEED } from "../core/constants.js";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import type { Entity } from "./entity.js";
 import { launchVelocity, stepProjectile } from "./projectile.js";
 

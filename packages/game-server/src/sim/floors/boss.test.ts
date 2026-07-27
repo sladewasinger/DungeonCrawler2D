@@ -17,8 +17,8 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
-import { createSimState, type PlayerSlot, type SimState } from "../state.js";
-import { makeSocialSlot } from "../social.testSupport.js";
+import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { makeSocialSlot } from "../social/social.testSupport.js";
 import { handleBossDeath, initBossFloor, stepBoss } from "./boss.js";
 import { BOSS_RESPAWN_TICKS, BOSS_XP_BURST, WARDEN_DEF_ID } from "./constants.js";
 

@@ -1,6 +1,6 @@
 /** Derives contextual first-time HUD guidance from successive inventory and health snapshots. */
 import type { InvStack } from "@dc2d/engine";
-import { isConsumableItem, isThrowableItem } from "../itemCatalog.js";
+import { isConsumableItem, isThrowableItem } from "../presentation/itemCatalog.js";
 
 export type TutorialId =
   | "hotbar"

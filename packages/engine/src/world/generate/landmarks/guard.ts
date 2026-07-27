@@ -7,11 +7,11 @@
 // nearby rooms flat means the landmark's own (already-graduated) height
 // meets ordinary ground with nothing more than the usual WALL_RISE step.
 
-import { bossArenaGuardAnchor } from "../../features/bossArena.js";
-import { descentGuardAnchor } from "../../features/descent.js";
-import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed.js";
+import { bossArenaGuardAnchor } from "../../features/bossArena/bossArena.js";
+import { descentGuardAnchor } from "../../features/descent/descent.js";
+import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed/fixed.js";
 import type { Rect } from "../types.js";
-import { isLandmarkChunk } from "../district.js";
+import { isLandmarkChunk } from "../layout/district.js";
 import { landmarkCenter } from "./shared.js";
 
 // Covers every landmark kind's own reach (arena's WALL_RADIUS = 10 is the

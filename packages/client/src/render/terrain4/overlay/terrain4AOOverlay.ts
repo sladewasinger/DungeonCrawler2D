@@ -1,8 +1,8 @@
 import type Phaser from "phaser";
-import { AO_BAND_FRACS, AO_CORNER_FRAC, aoBandAlphas, aoCornerAlpha, getAOStrength } from "../../terrain/contactShade.js";
-import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../phaser4QuadBatch.js";
+import { AO_BAND_FRACS, AO_CORNER_FRAC, aoBandAlphas, aoCornerAlpha, getAOStrength } from "../../terrain/shading/contactShade.js";
+import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../batch/phaser4QuadBatch.js";
 import type { Terrain4AOQuad, Terrain4Batches, Terrain4QuadVertices } from "../geometry/terrainPlannerModel.js";
-import { depthForCapOccluder } from "../../entities/depthSort.js";
+import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
 
 /** One Graphics object per depth row keeps AO batched while preserving entity ordering. */
 export class Terrain4AOOverlayRenderer {

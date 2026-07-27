@@ -5,8 +5,8 @@
  * HudEditMode (index.ts) owns the actual drag state machine and registry writes.
  */
 import type Phaser from "phaser";
-import { uiTextStyle } from "../font.js";
-import { drawPanelBackground, drawSelectionAccent } from "../panel.js";
+import { uiTextStyle } from "../foundation/font.js";
+import { drawPanelBackground, drawSelectionAccent } from "../foundation/panel.js";
 
 const HANDLE_WIDTH = 116;
 const HANDLE_HEIGHT = 20;

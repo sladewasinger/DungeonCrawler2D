@@ -1,7 +1,7 @@
 import { hash2D, mixSeeds } from "../../../core/rng.js";
-import { generatedChunkCenter, type Seeds } from "../../terrain.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/scale.js";
-import type { WorldChunkCoordinate } from "../platforms.js";
+import { generatedChunkCenter, type Seeds } from "../../core/terrain.js";
+import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/layout/scale.js";
+import type { WorldChunkCoordinate } from "./platforms.js";
 
 export const PLATFORM_TIER_STEP = 1;
 

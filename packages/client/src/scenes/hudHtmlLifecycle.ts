@@ -1,11 +1,11 @@
 import Phaser from "phaser";
-import { attachDevelopmentMovementTrace } from "../ui/developmentMovementTrace.js";
-import type { MovementTraceControl } from "../ui/movementTraceControl.js";
-import type { Connection } from "../net/connection.js";
-import { ThreeHud } from "../three/ThreeHud.js";
+import { attachDevelopmentMovementTrace } from "../ui/movement/developmentMovementTrace.js";
+import type { MovementTraceControl } from "../ui/movement/movementTraceControl.js";
+import type { Connection } from "../net/connection/connection.js";
+import { ThreeHud } from "../three/hud/core/ThreeHud.js";
 import { createLiveHtmlHud } from "./hudHtml.js";
 import type { HudSceneData } from "./hudSceneData.js";
-import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
+import type { HudFakeSnapshot } from "../ui/widgets/hud/core/fakeData.js";
 
 export interface HtmlHudLifecycle {
   readonly hud: ThreeHud;

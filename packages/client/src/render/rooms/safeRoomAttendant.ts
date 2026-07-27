@@ -1,8 +1,8 @@
 import { safeRoomAttendantPosition } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
-import { uiTextStyle } from "../../ui/font.js";
-import { depthForEntityNow, worldToScreen } from "../entities/worldToScreen.js";
+import { uiTextStyle } from "../../ui/foundation/font.js";
+import { depthForEntityNow, worldToScreen } from "../entities/geometry/worldToScreen.js";
 import { SAFE_ROOM_PRESENTATION_DEPTH } from "./roomPresentation.js";
 
 export interface SafeRoomAttendantObjects {

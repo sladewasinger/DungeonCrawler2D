@@ -2,7 +2,7 @@
 // floor varieties, height, stairs") and the door/interactable feature vocabulary a
 // stack tile can carry, plus the two editor-map JSON versions this contract bridges.
 
-import { TILE, type TileType } from "../types.js";
+import { TILE, type TileType } from "../core/types.js";
 
 /** Climb-direction convention matches world/stairs.ts's DIRS: 0=N, 1=E, 2=S, 3=W. */
 export type StackDir = 0 | 1 | 2 | 3;

@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, TICK_RATE, roomKindAt, safeRoomAttendantPosition } from "@dc2d/engine";
-import type { PlayerSlot, SimState } from "../../state.js";
+import type { PlayerSlot, SimState } from "../../state/state.js";
 import { foodAttendantGreeting } from "./phrases.js";
 
 export const FOOD_ATTENDANT_ID = "safe-room-food-attendant";

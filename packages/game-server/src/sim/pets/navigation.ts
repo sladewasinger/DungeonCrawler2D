@@ -5,7 +5,7 @@ import {
   STEP_UP,
   findGridPath,
 } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 import { PET_FOLLOW_DISTANCE_TILES } from "./leash.js";
 import type { PetPathStep, PetSlot } from "./types.js";
 

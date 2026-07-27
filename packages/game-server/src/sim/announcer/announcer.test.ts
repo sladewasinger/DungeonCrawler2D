@@ -13,7 +13,7 @@ import {
   broadcastAnnouncement,
 } from "./index.js";
 import { pickLineIndex } from "./pick.js";
-import type { PlayerSlot } from "../state.js";
+import type { PlayerSlot } from "../state/state.js";
 
 describe("pickLineIndex", () => {
   it("is deterministic for the same (tick, salt, poolSize)", () => {
