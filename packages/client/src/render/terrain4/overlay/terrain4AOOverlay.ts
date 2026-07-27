@@ -12,11 +12,7 @@ export class Terrain4AOOverlayRenderer {
 
   render(masks: Terrain4Batches["ao"], projection: Terrain4ScreenProjection, visible: boolean): void {
     const grouped = groupByDepth(masks);
-    for (const [depth, graphics] of this.layers) {
-      const group = grouped.get(depth);
-      graphics.clear().setVisible(visible && Boolean(group));
-      if (group) drawGroup(graphics, group, projection);
-    }
+    for (const graphics of this.layers.values()) graphics.clear().setVisible(false);
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
       graphics.clear().setVisible(visible).fillStyle(0x06060c, 1);
@@ -40,43 +36,57 @@ export class Terrain4AOOverlayRenderer {
   }
 }
 
-function groupByDepth(masks: Terrain4Batches["ao"]): Map<number, Terrain4Batches["ao"]> {
-  const grouped = new Map<number, Terrain4AOQuad[]>();
-  for (const mask of masks) {
-    const depth = depthForCapOccluder(mask.viewTile.y) + 0.06;
+type AOSide = "north" | "east" | "south" | "west";
+type AOCorner = "nw" | "ne" | "sw" | "se";
+type AOPart =
+  | { readonly quad: Terrain4AOQuad; readonly region: AOSide }
+  | { readonly quad: Terrain4AOQuad; readonly region: AOCorner };
+
+function groupByDepth(masks: Terrain4Batches["ao"]): Map<number, AOPart[]> {
+  const grouped = new Map<number, AOPart[]>();
+  const add = (quad: Terrain4AOQuad, region: AOPart["region"]): void => {
+    const boundaryRow = region === "south" || region === "sw" || region === "se" ? quad.viewTile.y + 1 : quad.viewTile.y;
+    const depth = depthForCapOccluder(boundaryRow) + 0.06;
     const group = grouped.get(depth) ?? [];
     if (!grouped.has(depth)) grouped.set(depth, group);
-    group.push(mask);
+    group.push({ quad, region });
+  };
+  for (const mask of masks) {
+    for (const side of ["north", "east", "south", "west"] as const) {
+      if (mask.mask[side]) add(mask, side);
+    }
+    for (const corner of ["nw", "ne", "sw", "se"] as const) {
+      if (mask.mask[corner]) add(mask, corner);
+    }
   }
   return grouped;
 }
 
 function drawGroup(
   graphics: Phaser.GameObjects.Graphics,
-  masks: Terrain4Batches["ao"],
+  parts: readonly AOPart[],
   projection: Terrain4ScreenProjection,
 ): void {
   const alphas = aoBandAlphas(getAOStrength());
-  for (const mask of masks) drawMask(graphics, mask.vertices, mask.mask, projection, alphas);
+  for (const part of parts) drawPart(graphics, part, projection, alphas);
 }
 
-function drawMask(
+function drawPart(
   graphics: Phaser.GameObjects.Graphics,
-  vertices: Terrain4QuadVertices,
-  mask: Terrain4Batches["ao"][number]["mask"],
+  part: AOPart,
   projection: Terrain4ScreenProjection,
   alphas: readonly number[],
 ): void {
-  const points = projectQuad(vertices, projection);
-  const sides = ["north", "east", "south", "west"] as const;
+  const points = projectQuad(part.quad.vertices, projection);
+  if (part.region === "nw" || part.region === "ne" || part.region === "sw" || part.region === "se") {
+    graphics.fillStyle(0x06060c, aoCornerAlpha(getAOStrength()));
+    fillQuad(graphics, cornerPatch(points, part.region, AO_CORNER_FRAC));
+    return;
+  }
   for (let band = 0; band < AO_BAND_FRACS.length; band += 1) {
     graphics.fillStyle(0x06060c, alphas[band] ?? 0);
     const fraction = AO_BAND_FRACS[band] ?? 0;
-    for (const side of sides) if (mask[side]) fillQuad(graphics, sideBand(points, side, fraction));
-  }
-  graphics.fillStyle(0x06060c, aoCornerAlpha(getAOStrength()));
-  for (const corner of ["nw", "ne", "sw", "se"] as const) {
-    if (mask[corner]) fillQuad(graphics, cornerPatch(points, corner, AO_CORNER_FRAC));
+    fillQuad(graphics, sideBand(points, part.region, fraction));
   }
 }
 
@@ -86,7 +96,9 @@ function projectQuad(vertices: Terrain4QuadVertices, projection: Terrain4ScreenP
 
 function sideBand(points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint], side: "north" | "south" | "east" | "west", fraction: number): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
   const [tl, tr, br, bl] = points;
-  const top = [tl, tr, lerp(tl, bl, fraction), lerp(tr, br, fraction)] as const;
+  // Keep the polygon perimeter ordered clockwise. A self-crossing north band
+  // can rasterize as a blinking half-strip while the camera moves.
+  const top = [tl, tr, lerp(tr, br, fraction), lerp(tl, bl, fraction)] as const;
   const bottom = [lerp(tl, bl, 1 - fraction), lerp(tr, br, 1 - fraction), br, bl] as const;
   const left = [tl, lerp(tl, tr, fraction), lerp(bl, br, fraction), bl] as const;
   const right = [lerp(tl, tr, 1 - fraction), tr, br, lerp(bl, br, 1 - fraction)] as const;
@@ -109,6 +121,14 @@ function lerp(a: Terrain4ScreenPoint, b: Terrain4ScreenPoint, amount: number): T
 
 function fillQuad(graphics: Phaser.GameObjects.Graphics, points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint]): void {
   const [a, b, c, d] = points;
-  graphics.fillTriangle(a.x, a.y, b.x, b.y, c.x, c.y);
-  graphics.fillTriangle(a.x, a.y, c.x, c.y, d.x, d.y);
+  // One path avoids a visible diagonal seam where two translucent triangles
+  // would otherwise rasterize/alpha-blend independently while the camera
+  // scrolls between pixels.
+  graphics.beginPath();
+  graphics.moveTo(a.x, a.y);
+  graphics.lineTo(b.x, b.y);
+  graphics.lineTo(c.x, c.y);
+  graphics.lineTo(d.x, d.y);
+  graphics.closePath();
+  graphics.fillPath();
 }

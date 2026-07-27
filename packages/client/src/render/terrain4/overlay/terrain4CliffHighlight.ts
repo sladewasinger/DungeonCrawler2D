@@ -23,11 +23,7 @@ export class Terrain4CliffHighlightRenderer {
         group.push({ edge, side });
       }
     }
-    for (const [depth, graphics] of this.layers) {
-      const group = grouped.get(depth);
-      graphics.clear().setVisible(visible && Boolean(group)).fillStyle(RIM_COLOR, RIM_ALPHA);
-      if (group) drawEdges(graphics, group, projection);
-    }
+    for (const graphics of this.layers.values()) graphics.clear().setVisible(false);
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
       graphics.clear().setVisible(visible).fillStyle(RIM_COLOR, RIM_ALPHA);
@@ -80,7 +76,10 @@ function projectQuad(vertices: Terrain4QuadVertices, projection: Terrain4ScreenP
 
 function sideBand(points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint], side: "north" | "south" | "east" | "west", fraction: number): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
   const [tl, tr, br, bl] = points;
-  const top = [tl, tr, lerp(tl, bl, fraction), lerp(tr, br, fraction)] as const;
+  // Keep the polygon perimeter ordered clockwise. The previous north order
+  // ended with BL, BR, producing a self-crossing bow-tie and a moving
+  // left-biased half-fill as the camera scrolled.
+  const top = [tl, tr, lerp(tr, br, fraction), lerp(tl, bl, fraction)] as const;
   const bottom = [lerp(tl, bl, 1 - fraction), lerp(tr, br, 1 - fraction), br, bl] as const;
   const left = [tl, lerp(tl, tr, fraction), lerp(bl, br, fraction), bl] as const;
   const right = [lerp(tl, tr, 1 - fraction), tr, br, lerp(bl, br, 1 - fraction)] as const;
@@ -93,6 +92,14 @@ function lerp(a: Terrain4ScreenPoint, b: Terrain4ScreenPoint, amount: number): T
 
 function fillQuad(graphics: Phaser.GameObjects.Graphics, points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint]): void {
   const [a, b, c, d] = points;
-  graphics.fillTriangle(a.x, a.y, b.x, b.y, c.x, c.y);
-  graphics.fillTriangle(a.x, a.y, c.x, c.y, d.x, d.y);
+  // Keep the rim as one path. Two independently rasterized triangles share a
+  // diagonal that can shimmer or alpha-stack as the camera scrolls by
+  // sub-pixels, making half of a north rim or AO band appear to blink.
+  graphics.beginPath();
+  graphics.moveTo(a.x, a.y);
+  graphics.lineTo(b.x, b.y);
+  graphics.lineTo(c.x, c.y);
+  graphics.lineTo(d.x, d.y);
+  graphics.closePath();
+  graphics.fillPath();
 }
