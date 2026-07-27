@@ -91,8 +91,8 @@ describe("PlayerGroundLightPool", () => {
       Array.from({ length: batchSize }, (_, index) => cell(offset + index));
 
     pool.sync(batch(0), 0);
-    pool.sync(batch(100), 90);
-    pool.sync(batch(200), 100);
+    pool.sync(batch(batchSize), 90);
+    pool.sync(batch(batchSize * 2), 100);
 
     expect(tiles).toHaveLength(PLAYER_GROUND_LIGHT_MAX_POOL_TILES);
     expect(tiles.filter(({ active }) => active)).toHaveLength(

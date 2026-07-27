@@ -23,6 +23,8 @@ import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
  * screen-Y term (docs/ELEVATION-PROJECTION.md section 5).
  */
 export function spriteLiftPx(z: number, _groundHeight?: number, _airborne?: boolean): number {
+  void _groundHeight;
+  void _airborne;
   return z * SCREEN_TILE_PX;
 }
 

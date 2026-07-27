@@ -65,6 +65,37 @@ function isLitGround(world: PlayerGroundLightWorld, tileX: number, tileY: number
   return world.tileAt(tileX, tileY) === TILE.Floor;
 }
 
+/** Walls and chasms cast a direct grid-space shadow; light cannot route around
+ * the end of a blocker and illuminate a tile behind its opaque face. */
+function hasClearGroundLine(
+  world: PlayerGroundLightWorld,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+): boolean {
+  let x = fromX;
+  let y = fromY;
+  const dx = Math.abs(toX - fromX);
+  const dy = Math.abs(toY - fromY);
+  const stepX = Math.sign(toX - fromX);
+  const stepY = Math.sign(toY - fromY);
+  let error = dx - dy;
+  while (x !== toX || y !== toY) {
+    const doubledError = error * 2;
+    if (doubledError > -dy) {
+      error -= dy;
+      x += stepX;
+    }
+    if (doubledError < dx) {
+      error += dx;
+      y += stepY;
+    }
+    if (!isPassableGround(world, x, y)) return false;
+  }
+  return true;
+}
+
 function addLitGroundCell(
   world: PlayerGroundLightWorld,
   cells: PlayerGroundLightCell[],
@@ -106,6 +137,7 @@ export function playerGroundLightCells(
       if (visited.has(key)) continue;
       visited.add(key);
       if (!isPassableGround(world, nextX, nextY)) continue;
+      if (!hasClearGroundLine(world, originX, originY, nextX, nextY)) continue;
       queue.push([nextX, nextY, distance + 1]);
     }
   }

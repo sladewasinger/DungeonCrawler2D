@@ -18,5 +18,6 @@ export function generateChunk(
   cy: number,
   _level: LevelId = LEVEL.Dungeon,
 ): Chunk {
+  void _level;
   return generateLayoutChunk(worldSeed, floor, cx, cy);
 }

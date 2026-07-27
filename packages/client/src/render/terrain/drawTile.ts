@@ -141,24 +141,28 @@ function drawWall(
   light: LightField,
   lightTint: number,
 ): void {
-  const height = world.heightAt(wx, wy);
-  drawWallVolume(scene, below, wx, wy, height);
+  const height = world.heightAt(wx, wy); drawWallVolume(scene, below, wx, wy, height);
   const behindHorizontalStair = wallBehindHorizontalStair(world, wx, wy, face);
-  const container = behindHorizontalStair
-    ? below
-    : surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
-  drawWallTile(
-    scene,
-    world,
-    wx,
-    wy,
-    container,
-    surfaceLiftBakePx(height),
-    undefined,
-    behindHorizontalStair
-      ? { north: false, east: false, south: false, west: false }
-      : {},
-  );
+  // A face-owning wall already has its visible camera-facing material below.
+  // Its shifted cap would be a second independently-autotiled square on top of
+  // that face, producing the isolated black-outlined cell in rotated views.
+  if (face === null) {
+    const container = behindHorizontalStair
+      ? below
+      : surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
+    drawWallTile(
+      scene,
+      world,
+      wx,
+      wy,
+      container,
+      surfaceLiftBakePx(height),
+      undefined,
+      behindHorizontalStair
+        ? { north: false, east: false, south: false, west: false }
+        : {},
+    );
+  }
   drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
   if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light, behindHorizontalStair);
 }
@@ -174,8 +178,7 @@ export function drawTile(
   structures: StructureMap,
   light: LightField,
 ): void {
-  const real = world.toReal(wx, wy);
-  const lightTint = light.tintAt(real.x, real.y);
+  const real = world.toReal(wx, wy); const lightTint = light.tintAt(real.x, real.y);
   if (structures.suppressed.has(tileKey(wx, wy))) {
     drawSuppressedTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
     return;
