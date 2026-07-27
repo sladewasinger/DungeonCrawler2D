@@ -6,7 +6,7 @@ import type {
   ContextualActionHint,
 } from "../../../ui/actionHelp/actionHelp.js";
 import { ActionHelpLifecycle } from "../../../ui/actionHelp/actionHelpLifecycle.js";
-import { HUD_GOLD } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export type HudNoticeState = Pick<
   HudFakeSnapshot,
@@ -48,35 +48,18 @@ export function latestVisibleToast(
 }
 
 export class HudNotices {
-  readonly element = document.createElement("div");
-  private readonly boss = document.createElement("div");
-  private readonly bossFill = document.createElement("div");
-  private readonly bossLabel = document.createElement("div");
-  private readonly toast = document.createElement("div");
-  private readonly interaction = document.createElement("div");
-  private readonly reconnect = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-notices-template");
+  private readonly boss = requireHudElement<HTMLDivElement>(this.element, "[data-hud-notice-boss]");
+  private readonly bossFill = requireHudElement<HTMLDivElement>(this.element, "[data-hud-notice-boss-fill]");
+  private readonly bossLabel = requireHudElement<HTMLDivElement>(this.element, "[data-hud-notice-boss-label]");
+  private readonly toast = requireHudElement<HTMLDivElement>(this.element, "[data-hud-notice-toast]");
+  private readonly interaction = requireHudElement<HTMLDivElement>(this.element, "[data-hud-notice-prompt]");
+  private readonly reconnect = requireHudElement<HTMLDivElement>(this.element, "[data-hud-notice-reconnect]");
   private readonly actionHelp = new ActionHelpLifecycle();
   private readonly completedActions = new Set<ContextualAction>();
 
   constructor() {
-    this.element.style.cssText =
-      "position:absolute;inset:0;z-index:1080;pointer-events:none";
-    this.configureBoss();
-    this.toast.style.cssText =
-      "position:absolute;left:50%;top:12%;translate:-50% 0;max-width:70vw;" +
-      "padding:6px 10px;background:rgba(17,18,29,.82);text-align:center";
-    this.interaction.style.cssText =
-      "position:absolute;left:50%;bottom:25%;translate:-50% 0;padding:5px 9px;" +
-      "max-width:min(720px,88vw);box-sizing:border-box;text-align:center;" +
-      "background:rgba(17,18,29,.72);border:1px solid #555a75";
-    this.reconnect.style.cssText =
-      `position:absolute;left:50%;top:5%;translate:-50% 0;color:${HUD_GOLD}`;
-    this.element.append(
-      this.boss,
-      this.toast,
-      this.interaction,
-      this.reconnect,
-    );
+    this.boss.hidden = true;
   }
 
   update(snapshot: HudNoticeState, nowMs: number): void {
@@ -115,19 +98,6 @@ export class HudNotices {
       `Reconnecting${snapshot.reconnectAttempts > 0
         ? ` - attempt ${snapshot.reconnectAttempts}`
         : "..."}`;
-  }
-
-  private configureBoss(): void {
-    this.boss.style.cssText =
-      "position:absolute;left:50%;top:4%;translate:-50% 0;width:min(420px,54vw);" +
-      "height:28px;padding:4px;border:1px solid #6a6071;background:#17131d;" +
-      "box-sizing:border-box;text-align:center";
-    this.bossFill.style.cssText =
-      "position:absolute;inset:4px;width:0;background:#a53343";
-    this.bossLabel.style.cssText =
-      "position:absolute;inset:0;display:grid;place-items:center;" +
-      "font-weight:700;text-shadow:0 1px 3px #000";
-    this.boss.append(this.bossFill, this.bossLabel);
   }
 
   private updateBoss(snapshot: HudNoticeState): void {

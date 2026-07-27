@@ -1,7 +1,8 @@
 /** Builds inventory item rows while keeping authoritative item actions at the DOM edge. */
 import type { Connection } from "../../../net/connection/connection.js";
 import { type InventoryRow, nextAvailableHotbarSlot } from "../model/HudModel.js";
-import { HUD_MUTED, createHudButton } from "../styles/HudStyles.js";
+import { createHudButton } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 const equipButton = (
   connection: Connection,
@@ -30,8 +31,7 @@ const rowActions = (
   connection: Connection,
   row: InventoryRow,
 ): HTMLDivElement => {
-  const actions = document.createElement("div");
-  actions.style.cssText = "display:flex;gap:4px;flex-wrap:wrap";
+  const actions = createHudTemplate<HTMLDivElement>("hud-inventory-actions-template");
   if (row.canEquip) actions.append(equipButton(connection, row.id));
   if (row.canUse) {
     actions.append(createHudButton("use", () => connection.useItem(row.id)));
@@ -45,21 +45,15 @@ export const createInventoryRow = (
   connection: Connection,
   row: InventoryRow,
 ): HTMLDivElement => {
-  const element = document.createElement("div");
-  element.style.cssText =
-    "padding:8px;border:1px solid #454960;background:rgba(24,25,39,.86)";
-  const heading = document.createElement("div");
-  heading.style.cssText =
-    "display:flex;justify-content:space-between;gap:8px;font-weight:700";
+  const element = createHudTemplate<HTMLDivElement>("hud-inventory-row-template");
+  const name = requireHudElement<HTMLElement>(element, "[data-hud-inventory-name]");
+  const quantity = requireHudElement<HTMLElement>(element, "[data-hud-inventory-quantity]");
+  const flavor = requireHudElement<HTMLElement>(element, "[data-hud-inventory-flavor]");
+  name.textContent = row.name;
   const binding = row.boundSlot === null ? "" : ` [${row.boundSlot + 1}]`;
-  heading.append(
-    document.createTextNode(`${row.name}${binding}`),
-    document.createTextNode(`×${row.quantity}`),
-  );
-  const flavor = document.createElement("div");
+  name.textContent += binding;
+  quantity.textContent = `×${row.quantity}`;
   flavor.textContent = row.flavor ?? row.category;
-  flavor.style.cssText =
-    `color:${HUD_MUTED};font-size:10px;margin:4px 0 6px;overflow-wrap:anywhere`;
-  element.append(heading, flavor, rowActions(connection, row));
+  requireHudElement(element, "[data-hud-inventory-actions]").replaceChildren(...rowActions(connection, row).children);
   return element;
 };

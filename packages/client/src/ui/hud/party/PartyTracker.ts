@@ -1,38 +1,30 @@
 /** Renders labeled party bearings and distances inside a managed HUD window. */
 import type { Connection } from "../../../net/connection/connection.js";
-import {
-  HUD_PANEL,
-  createHudButton,
-  createHudTitle,
-} from "../../../ui/hud/styles/HudStyles.js";
+import { createHudButton } from "../../../ui/hud/styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 import { partyHeader, updatePartyRows, type HudPlayerPosition } from "./PartyPresentation.js";
 
 const MAX_VISIBLE_MEMBERS = 6;
 
 export class PartyTracker {
-  readonly element = document.createElement("div");
-  private readonly title = createHudTitle("Party");
-  private readonly invites = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-party-tracker-template");
+  private readonly title = requireHudElement<HTMLDivElement>(this.element, "[data-hud-party-title]");
+  private readonly invites = requireHudElement<HTMLDivElement>(this.element, "[data-hud-party-invites]");
+  private readonly members = requireHudElement<HTMLDivElement>(this.element, "[data-hud-party-members]");
   private readonly inviteButton: HTMLButtonElement;
   private readonly rows: HTMLDivElement[] = [];
   private inviteSignature = "\0";
 
   constructor(private readonly connection: Connection) {
-    this.element.style.cssText = `${HUD_PANEL};display:grid;align-content:start;gap:4px`;
-    const header = document.createElement("div");
-    header.className = "hud-party-header";
-    this.inviteButton = createHudButton("Invites", () => {
+    this.inviteButton = requireHudElement<HTMLButtonElement>(this.element, "[data-hud-party-invites-button]");
+    this.inviteButton.addEventListener("click", () => {
       this.invites.hidden = !this.invites.hidden;
     });
-    header.append(this.title, this.inviteButton);
-    this.invites.className = "hud-party-config";
-    this.invites.hidden = true;
-    this.element.append(header, this.invites);
     for (let index = 0; index < MAX_VISIBLE_MEMBERS; index += 1) {
-      const row = document.createElement("div");
+      const row = createHudTemplate<HTMLDivElement>("hud-party-member-row-template");
       row.hidden = true;
       this.rows.push(row);
-      this.element.append(row);
+      this.members.append(row);
     }
   }
 
@@ -50,7 +42,7 @@ export class PartyTracker {
   private updateHeader(connection: Connection, memberCount: number): void {
     const header = partyHeader(connection, memberCount);
     this.title.textContent = header.title;
-    this.element.style.visibility = header.visible ? "visible" : "hidden";
+    this.element.hidden = !header.visible;
     this.inviteButton.textContent = header.invites;
   }
 
@@ -91,23 +83,18 @@ export class PartyTracker {
   }
 
   private emptyInviteRow(): HTMLSpanElement {
-    const empty = document.createElement("span");
-    empty.textContent = "No active invitations";
-    empty.className = "hud-muted";
-    return empty;
+    return createHudTemplate<HTMLSpanElement>("hud-party-empty-template");
   }
 
   private actionRow(
     label: string,
     ...actions: Array<[string, () => void]>
   ): HTMLDivElement {
-    const row = document.createElement("div");
-    row.className = "hud-party-invite-row";
-    const text = document.createElement("span");
+    const row = createHudTemplate<HTMLDivElement>("hud-party-action-row-template");
+    const text = requireHudElement<HTMLSpanElement>(row, "[data-hud-party-action-label]");
+    const buttons = requireHudElement<HTMLDivElement>(row, "[data-hud-party-action-buttons]");
     text.textContent = label;
-    row.append(text, ...actions.map(([name, action]) =>
-      createHudButton(name, action)
-    ));
+    buttons.append(...actions.map(([name, action]) => createHudButton(name, action)));
     return row;
   }
 }

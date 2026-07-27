@@ -1,4 +1,5 @@
 import { createSessionButton } from "./SessionMenuControls.js";
+import { createHudTemplate } from "../hud/styles/hudTemplate.js";
 
 export interface SessionMenuConfirmation {
   readonly title: string;
@@ -36,12 +37,10 @@ export const quitConfirmation = (
 export function showSessionMenuConfirmation(
   options: ConfirmationViewOptions,
 ): HTMLButtonElement {
-  const title = document.createElement("h2");
+  const title = createHudTemplate<HTMLHeadingElement>("hud-session-heading-template");
   title.textContent = options.value.title;
-  title.style.cssText = "margin:0;color:#ffd54c;font-size:18px";
-  const detail = document.createElement("p");
+  const detail = createHudTemplate<HTMLParagraphElement>("hud-session-confirmation-copy-template");
   detail.textContent = options.value.detail;
-  detail.style.cssText = "margin:0;line-height:1.45;color:#d8d5df";
   const confirm = createSessionButton(
     options.value.actionLabel,
     options.value.action,

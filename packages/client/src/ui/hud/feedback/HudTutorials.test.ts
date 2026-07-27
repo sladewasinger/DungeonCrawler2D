@@ -71,9 +71,8 @@ describe("HudTutorials", () => {
     expect(tutorials.element.getAttribute("role")).toBe("status");
     expect(tutorials.element.getAttribute("aria-live")).toBe("polite");
     expect(tutorials.element.getAttribute("aria-atomic")).toBe("true");
-    expect(tutorials.element.style.cssText).toContain("bottom:78px");
-    expect(tutorials.element.style.cssText).toContain("background:transparent");
-    expect(tutorials.element.style.cssText).toContain("border:0");
+    expect((tutorials.element as unknown as { dataset: Record<string, string> }).dataset.inputMode)
+      .toBe("keyboard");
     expect(animate).toHaveBeenCalledWith(
       expect.any(Array),
       expect.objectContaining({ duration: 2400, iterations: Infinity }),

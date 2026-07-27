@@ -44,7 +44,9 @@ describe("PartyTracker", () => {
     const member = { id: "p", name: "Wren", hp: 10, maxHp: 30, downed: false, x: 2, y: 0 };
     connection.party = { id: "party", leaderId: "other", members: [{ ...member, disconnected: true }] } as never;
     tracker.update(connection as never, { x: 0, z: 0 } as never, 0);
-    const row = tracker.element.children[2]!;
+    const row = (tracker.element as unknown as { querySelector(selector: string): FakeElement | null })
+      .querySelector("[data-hud-party-member]");
+    if (!row) throw new Error("missing party member row");
     expect(row.textContent).toBe("Wren Disconnected");
     connection.party = { id: "party", leaderId: "other", members: [{ ...member, disconnected: false }] } as never;
     tracker.update(connection as never, { x: 0, z: 0 } as never, 0);

@@ -1,36 +1,27 @@
 /** Renders live health, level, and XP using the established 2D HUD palette. */
 import type { Connection } from "../../../net/connection/connection.js";
 import { xpProgressRatio } from "../../../ui/widgets/hud/bars/xpBarView.js";
-import { HUD_GOLD, HUD_PANEL, createHudTitle } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudStatus {
-  readonly element = document.createElement("div");
-  private readonly title = createHudTitle("Crawler");
-  private readonly healthFill = document.createElement("div");
-  private readonly healthLabel = document.createElement("div");
-  private readonly staminaFill = document.createElement("div");
-  private readonly staminaLabel = document.createElement("div");
-  private readonly xpFill = document.createElement("div");
-  private readonly xpLabel = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly title: HTMLElement;
+  private readonly healthFill: HTMLElement;
+  private readonly healthLabel: HTMLElement;
+  private readonly staminaFill: HTMLElement;
+  private readonly staminaLabel: HTMLElement;
+  private readonly xpFill: HTMLElement;
+  private readonly xpLabel: HTMLElement;
 
   constructor() {
-    this.element.style.cssText = HUD_PANEL;
-    const healthTrack = this.createTrack(18, "#db4c4d", this.healthFill);
-    const staminaTrack = this.createTrack(9, "#59b5a8", this.staminaFill);
-    const xpTrack = this.createTrack(7, HUD_GOLD, this.xpFill);
-    this.healthLabel.style.cssText = "font-size:15px;font-weight:700;margin:4px 0 3px";
-    this.staminaLabel.style.cssText =
-      "color:#9ddbd2;font-size:10px;margin:2px 0 3px";
-    this.xpLabel.style.cssText = "color:#d8d5df;font-size:10px";
-    this.element.append(
-      this.title,
-      healthTrack,
-      this.healthLabel,
-      staminaTrack,
-      this.staminaLabel,
-      xpTrack,
-      this.xpLabel,
-    );
+    this.element = createHudTemplate<HTMLElement>("hud-status-template");
+    this.title = requireHudElement(this.element, "[data-hud-status-title]");
+    this.healthFill = requireHudElement(this.element, "[data-hud-health-fill]");
+    this.healthLabel = requireHudElement(this.element, "[data-hud-health-label]");
+    this.staminaFill = requireHudElement(this.element, "[data-hud-stamina-fill]");
+    this.staminaLabel = requireHudElement(this.element, "[data-hud-stamina-label]");
+    this.xpFill = requireHudElement(this.element, "[data-hud-xp-fill]");
+    this.xpLabel = requireHudElement(this.element, "[data-hud-xp-label]");
   }
 
   update(connection: Connection, floor: number): void {
@@ -52,9 +43,7 @@ export class HudStatus {
     this.healthLabel.textContent =
       `${Math.ceil(Math.max(0, connection.hp))} / ${connection.maxHp}`;
     this.staminaLabel.textContent = staminaText(connection);
-    this.staminaLabel.style.color = connection.staminaExhausted
-      ? "#ffc46b"
-      : "#9ddbd2";
+    this.staminaLabel.dataset.exhausted = String(connection.staminaExhausted);
     this.xpLabel.textContent =
       `Lv ${connection.charLevel} · ${connection.xpForNext} XP to next`;
     this.title.textContent = connection.hp <= 0
@@ -62,19 +51,6 @@ export class HudStatus {
       : `Crawler · Floor ${floor}`;
   }
 
-  private createTrack(
-    height: number,
-    color: string,
-    fill: HTMLDivElement,
-  ): HTMLDivElement {
-    const track = document.createElement("div");
-    track.style.cssText =
-      `height:${height}px;border:1px solid #666b80;background:#282535;` +
-      "padding:2px;box-sizing:border-box";
-    fill.style.cssText = `height:100%;width:0;background:${color}`;
-    track.append(fill);
-    return track;
-  }
 }
 
 const percentage = (value: number, maximum: number): string =>

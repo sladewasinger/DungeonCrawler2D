@@ -1,6 +1,7 @@
 import type { World } from "@dc2d/engine";
 import { resolveStairwayTick } from "../../../scenes/dungeon/world/stairwayTick.js";
 import { HUD_MUTED } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 import type { StairwayTickData } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { HudFakeSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { FirstPersonState } from "../../../three/input/movement.js";
@@ -58,43 +59,21 @@ export const stairwayTickCoordinates = (bearingDeg: number) => {
 };
 
 export class HudCompass {
-  readonly element = document.createElement("div");
-  private readonly letters = CARDINALS.map((cardinal) => ({
-    ...cardinal,
-    element: document.createElement("span"),
-  }));
-  private readonly stairway = document.createElement("span");
+  readonly element: HTMLElement;
+  private readonly letters: Array<typeof CARDINALS[number] & { element: HTMLElement }>;
+  private readonly stairway: HTMLElement;
 
   constructor() {
-    this.element.dataset.compass = "true";
-    this.element.setAttribute("role", "img");
-    this.element.style.cssText =
-      "display:grid;place-items:center;padding:6px;background:transparent;border:0";
-    const dial = this.createDial();
-    this.element.append(dial);
+    this.element = createHudTemplate<HTMLElement>("hud-compass-template");
+    this.letters = CARDINALS.map((cardinal) => ({
+      ...cardinal,
+      element: requireHudElement<HTMLElement>(
+        this.element,
+        `[data-compass-letter="${cardinal.label}"]`,
+      ),
+    }));
+    this.stairway = requireHudElement(this.element, "[data-hud-compass-stairway]");
     this.update(0);
-  }
-
-  private createDial(): HTMLDivElement {
-    const dial = document.createElement("div");
-    dial.style.cssText =
-      "position:relative;width:58px;height:58px;border:2px solid #5f637c;border-radius:50%;box-sizing:border-box";
-    const forward = document.createElement("span");
-    forward.textContent = "▲";
-    forward.style.cssText =
-      "position:absolute;left:50%;top:-10px;translate:-50% 0;color:#c4c6d3;font:10px monospace";
-    dial.append(forward);
-    for (const letter of this.letters) {
-      letter.element.textContent = letter.label;
-      letter.element.style.cssText =
-        `position:absolute;left:50%;top:50%;translate:-50% -50%;color:${letter.color};font:13px monospace;font-weight:700`;
-      dial.append(letter.element);
-    }
-    this.stairway.textContent = "◆";
-    this.stairway.style.cssText =
-      "position:absolute;left:50%;top:50%;translate:-50% -50%;color:#ffd54c;font:10px monospace;display:none";
-    dial.append(this.stairway);
-    return dial;
   }
 
   update(bearingDeg: number, stairway: StairwayTickData | null = null): void {

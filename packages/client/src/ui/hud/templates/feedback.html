@@ -1,0 +1,27 @@
+<template id="hud-notices-template">
+  <div class="hud-notices" data-hud-notices aria-live="polite">
+    <div class="hud-notices__boss" data-hud-notice-boss><div class="hud-notices__boss-fill" data-hud-notice-boss-fill></div><div class="hud-notices__boss-label" data-hud-notice-boss-label></div></div>
+    <div class="hud-notices__toast" data-hud-notice-toast></div>
+    <div class="hud-notices__prompt" data-hud-notice-prompt></div>
+    <div class="hud-notices__reconnect" data-hud-notice-reconnect></div>
+  </div>
+</template>
+
+<template id="hud-downed-template">
+  <div class="hud-downed" data-hud-downed>
+    <div class="hud-downed__content">
+      <div class="hud-downed__headline" data-hud-downed-headline></div>
+      <div class="hud-downed__copy" data-hud-downed-copy></div>
+      <div class="hud-downed__track"><div class="hud-downed__fill" data-hud-downed-fill></div></div>
+      <button class="hud-button hud-downed__give-up" type="button" data-hud-downed-give-up>Give up</button>
+    </div>
+  </div>
+</template>
+
+<template id="hud-health-feedback-template">
+  <div class="hud-health-feedback" data-hud-health-feedback aria-live="polite"></div>
+</template>
+
+<template id="hud-tutorial-template">
+  <div class="hud-tutorial" data-hud-tutorial role="status" aria-live="polite" aria-atomic="true"></div>
+</template>

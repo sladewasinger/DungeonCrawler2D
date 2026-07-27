@@ -1,27 +1,18 @@
 /** Owns an explicit yes/no party-invite prompt for the Three.js renderer. */
 import type { Connection } from "../../../net/connection/connection.js";
-import { HUD_GOLD, createHudButton } from "../../../ui/hud/styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class PartyInvite {
-  readonly element = document.createElement("div");
-  private readonly message = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-party-invite-template");
+  private readonly message = requireHudElement<HTMLSpanElement>(this.element, "[data-hud-party-invite-message]");
   private currentFrom: string | null = null;
 
   constructor(private readonly connection: Connection) {
     this.element.hidden = true;
-    this.element.style.cssText =
-      "position:absolute;left:50%;top:18%;translate:-50% 0;z-index:1200;" +
-      "min-width:260px;max-width:min(420px,80vw);padding:12px;" +
-      "background:rgba(17,18,29,.96);border:1px solid #777c96;" +
-      "box-shadow:0 12px 34px rgba(0,0,0,.62);pointer-events:auto;text-align:center";
-    this.message.style.cssText = `margin-bottom:10px;color:${HUD_GOLD}`;
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;justify-content:center;gap:8px";
-    actions.append(
-      createHudButton("Yes — join party", () => this.respond("accept")),
-      createHudButton("No — decline", () => this.respond("decline")),
-    );
-    this.element.append(this.message, actions);
+    const accept = requireHudElement<HTMLButtonElement>(this.element, "[data-hud-party-accept]");
+    const decline = requireHudElement<HTMLButtonElement>(this.element, "[data-hud-party-decline]");
+    accept.addEventListener("click", () => this.respond("accept"));
+    decline.addEventListener("click", () => this.respond("decline"));
   }
 
   update(): void {

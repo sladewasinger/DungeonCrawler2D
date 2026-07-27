@@ -31,17 +31,18 @@ const updatePartyRow = ({ row, member, connection, player, bearing }: {
   row.hidden = !member;
   if (!member) return;
   const presence = partyPresence(member.name, member.disconnected === true);
+  row.dataset.disconnected = String(Boolean(member.disconnected));
+  row.dataset.downed = String(Boolean(member.downed));
   if (member.disconnected) return showDisconnectedRow(row, presence);
   const navigation = resolvePartyNavigation({ x: player.x, y: player.z }, member, bearing);
   const leader = connection.party?.leaderId === member.id ? " · LEADER" : "";
   const downed = member.downed ? downedText(navigation.distance) : "";
   row.textContent = `${navigation.arrow} ${presence.label} · ${navigation.distance}m${leader}${downed}`;
-  row.style.color = member.downed ? "#e96a6a" : "";
 };
 
 const showDisconnectedRow = (row: HTMLDivElement, presence: ReturnType<typeof partyPresence>): void => {
   row.textContent = presence.label;
-  row.style.color = presence.color ?? "";
+  row.dataset.disconnected = "true";
 };
 
 const downedText = (distance: number): string => distance <= INTERACT_RANGE ? " · REVIVE [E]" : " · DOWNED";

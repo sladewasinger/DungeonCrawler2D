@@ -1,0 +1,22 @@
+.hud-session { position: absolute; inset: 0; z-index: 2500; display: none; place-items: center; padding: 16px; box-sizing: border-box; background: rgb(6 7 12 / 76%); pointer-events: auto; text-shadow: none; }
+.hud-session__card { width: min(92vw,420px); max-height: min(88vh,680px); overflow-y: auto; padding: 18px; box-sizing: border-box; background: rgb(17 18 29 / 98%); border: 1px solid #686d86; box-shadow: 0 18px 60px rgb(0 0 0 / 68%); color: var(--hud-text); font: 12px monospace; }
+.hud-session__primary { display: grid; gap: 9px; }
+.hud-session__confirmation { display: none; gap: 10px; }
+.hud-session__gear { position: absolute; right: 12px; top: 12px; z-index: 2501; width: 40px; height: 40px; border: 1px solid #71758b; background: rgb(18 19 30 / 84%); color: var(--hud-text); font: 20px sans-serif; pointer-events: auto; cursor: pointer; }
+.hud-session__heading { margin: 0 0 4px; color: var(--hud-gold); font-size: 20px; }
+.hud-session__subheading { margin: 8px 0 0; color: var(--hud-muted); font-size: 12px; }
+.hud-session__detail { margin: 0; line-height: 1.45; color: #d8d5df; }
+.hud-session__button { width: 100%; padding: 9px; border: 1px solid #757a93; background: #292b40; color: var(--hud-text); font: 12px monospace; cursor: pointer; }
+.hud-session__range, .hud-session__motion { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.hud-session__range-input { grid-column: 1 / -1; width: 100%; accent-color: var(--hud-gold); }
+.hud-session__select { padding: 6px; border: 1px solid #757a93; background: #292b40; color: var(--hud-text); }
+.hud-session__advanced { display: none; gap: 14px; }
+.hud-session__advanced-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.hud-session__tabs { display: flex; gap: 8px; border-bottom: 1px solid #4d5168; padding-bottom: 8px; }
+.hud-session__tab { width: auto; min-width: 120px; }
+.hud-session__panel--graphics { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 12px; align-items: start; }
+.hud-session__panel--gameplay { display: none; gap: 10px; }
+.hud-session__toggle { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.hud-session__range-input--blood { accent-color: #c9414d; }
+.hud-session__settings-section { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 12px 12px 14px; border: 1px solid var(--hud-session-accent); border-radius: 4px; background: rgb(30 31 48 / 55%); }
+.hud-session__settings-legend { padding: 0 7px; color: var(--hud-session-accent); font-size: 13px; font-weight: 700; letter-spacing: .02em; }

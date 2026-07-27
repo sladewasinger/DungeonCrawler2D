@@ -1,19 +1,18 @@
 /** Renders the HTML contacts list and opens direct-message composition from a row. */
 import type { ContactData } from "../../../ui/widgets/hud/social/contactRows.js";
 import { contactRowViews } from "../../../ui/widgets/hud/social/contactRows.js";
-import { HUD_MUTED, HUD_PANEL, createHudButton, createHudPanelHeader } from "../styles/HudStyles.js";
+import { createHudPanelHeader } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudContacts {
-  readonly element = document.createElement("div");
-  private readonly list = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly list: HTMLElement;
   private signature = "";
 
   constructor(startDm: (name: string) => void, close: () => void) {
-    this.element.style.cssText =
-      `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:5px`;
-    this.list.style.cssText =
-      "min-height:0;overflow-y:auto;display:grid;align-content:start;gap:5px";
-    this.element.append(createHudPanelHeader("Contacts", close), this.list);
+    this.element = createHudTemplate<HTMLElement>("hud-contacts-template");
+    this.list = requireHudElement(this.element, "[data-hud-contacts-list]");
+    this.element.replaceChildren(createHudPanelHeader("Contacts", close), this.list);
     this.startDm = startDm;
   }
 
@@ -21,23 +20,24 @@ export class HudContacts {
     const signature = JSON.stringify(contacts);
     if (signature === this.signature) return;
     this.signature = signature;
-    const rows = contactRowViews(contacts).map((contact) => this.createRow(contact));
+    const rows: HTMLElement[] = contactRowViews(contacts).map((contact) => this.createRow(contact));
     if (rows.length === 0) {
-      const empty = document.createElement("div");
+      const empty = createHudTemplate<HTMLElement>("hud-empty-template");
       empty.textContent = "No contacts yet — hold F near someone.";
-      empty.style.color = HUD_MUTED;
       rows.push(empty);
     }
     this.list.replaceChildren(...rows);
   }
 
   private createRow(contact: ReturnType<typeof contactRowViews>[number]): HTMLDivElement {
-    const row = document.createElement("div");
-    row.style.cssText = "display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px";
-    const dot = document.createElement("span");
-    dot.textContent = "●";
-    dot.style.color = contact.online ? "#4ade80" : HUD_MUTED;
-    row.append(dot, document.createTextNode(contact.name), createHudButton("DM", () => this.startDm(contact.name)));
+    const row = createHudTemplate<HTMLDivElement>("hud-contact-row-template");
+    const name = requireHudElement(row, "[data-hud-contact-name]");
+    const presence = requireHudElement(row, "[data-hud-contact-presence]");
+    const button = requireHudElement<HTMLButtonElement>(row, "[data-hud-contact-message]");
+    name.textContent = contact.name;
+    presence.textContent = contact.online ? "online" : "offline";
+    row.dataset.online = String(contact.online);
+    button.addEventListener("click", () => this.startDm(contact.name));
     return row;
   }
 

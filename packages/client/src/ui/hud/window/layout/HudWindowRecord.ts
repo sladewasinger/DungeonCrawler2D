@@ -1,6 +1,7 @@
 /** Builds the stable DOM shell and mutable record for one HUD window. */
 import type { HudWindowLayout } from "./hudWindowStorage.js";
 import type { HudWindowSpec } from "./HudWindows.js";
+import { createHudTemplate, requireHudElement } from "../../styles/hudTemplate.js";
 
 export interface HudWindowRecord {
   id: string;
@@ -12,17 +13,10 @@ export interface HudWindowRecord {
 }
 
 export const buildHudWindow = (spec: HudWindowSpec) => {
-  const element = document.createElement("div");
+  const element = createHudTemplate<HTMLDivElement>("hud-window-template");
   element.dataset.hudWindow = spec.id;
   element.setAttribute("aria-label", spec.title);
-  element.style.cssText =
-    "position:absolute;min-width:0;min-height:0;overflow:hidden;" +
-    "color:#f2f0eb;font:12px monospace;box-sizing:border-box";
-  const content = document.createElement("div");
-  content.style.cssText =
-    "width:100%;height:100%;min-width:0;min-height:0;" +
-    "overflow:hidden;box-sizing:border-box";
+  const content = requireHudElement<HTMLDivElement>(element, "[data-hud-window-content]");
   content.append(spec.content);
-  element.append(content);
   return { element, content };
 };

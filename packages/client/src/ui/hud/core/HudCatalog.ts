@@ -1,15 +1,12 @@
 /** Renders the settings menu's scrollable HUD window visibility catalog. */
 import type { HudWindowManager } from "../window/layout/HudWindows.js";
-import { HUD_GOLD } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudCatalog {
-  readonly element = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-catalog-template");
   private readonly release: () => void;
 
   constructor(private readonly manager: HudWindowManager) {
-    this.element.style.cssText =
-      "max-height:220px;margin-top:8px;padding-top:8px;border-top:1px solid #454960;" +
-      "overflow-y:auto;display:grid;gap:5px;scrollbar-color:#555a75 #171827";
     this.release = manager.onChange(() => this.render());
     this.render();
   }
@@ -24,19 +21,17 @@ export class HudCatalog {
 
   private render(): void {
     const rows = this.manager.windows().map((window) => {
-      const label = document.createElement("label");
-      label.style.cssText =
-        "display:flex;align-items:center;gap:7px;padding:3px;color:#e6e5ef";
-      const input = document.createElement("input");
+      const label = createHudTemplate<HTMLLabelElement>("hud-catalog-row-template");
+      const input = requireHudElement<HTMLInputElement>(label, "[data-hud-catalog-toggle]");
+      const copy = requireHudElement<HTMLSpanElement>(label, "[data-hud-catalog-label]");
       input.type = "checkbox";
       input.checked = window.visible;
-      input.style.accentColor = HUD_GOLD;
+      copy.textContent = window.title;
       input.addEventListener("input", (event) => {
         event.stopPropagation();
         const visible = (event.currentTarget as HTMLInputElement).checked;
         this.manager.setVisible(window.id, visible);
       });
-      label.append(input, document.createTextNode(window.title));
       return label;
     });
     this.element.replaceChildren(...rows);

@@ -1,0 +1,75 @@
+.hud-compass {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  background: transparent;
+  border: 0;
+}
+
+.hud-compass__dial {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border: 2px solid #5f637c;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.hud-compass__forward,
+.hud-compass__letter,
+.hud-compass__stairway {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+}
+
+.hud-compass__forward {
+  top: -10px;
+  translate: -50% 0;
+  color: #c4c6d3;
+  font: 10px monospace;
+}
+
+.hud-compass__letter {
+  color: var(--hud-muted);
+  font: 13px monospace;
+  font-weight: 700;
+}
+
+.hud-compass__letter[data-compass-letter="N"] {
+  color: #e04a4a;
+}
+
+.hud-compass__stairway {
+  display: none;
+  color: var(--hud-gold);
+  font: 10px monospace;
+}
+
+.hud-meter {
+  border: 1px solid #666b80;
+  background: #282535;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.hud-meter__fill {
+  height: 100%;
+  width: 0;
+}
+
+.hud-meter--health { height: 18px; }
+.hud-meter--health .hud-meter__fill { background: #db4c4d; }
+.hud-meter--stamina { height: 9px; }
+.hud-meter--stamina .hud-meter__fill { background: #59b5a8; }
+.hud-meter--xp { height: 7px; }
+.hud-meter--xp .hud-meter__fill { background: var(--hud-gold); }
+.hud-status__health { font-size: 15px; font-weight: 700; margin: 4px 0 3px; }
+.hud-status__stamina { color: #9ddbd2; font-size: 10px; margin: 2px 0 3px; }
+.hud-status__stamina[data-exhausted="true"] { color: #ffc46b; }
+.hud-status__xp { color: #d8d5df; font-size: 10px; }
+
+.hud-telemetry__readout { white-space: pre-wrap; }
+.hud-weapon { display: grid; align-content: center; }
+.hud-weapon__name { font-size: 16px; font-weight: 700; text-align: center; }

@@ -6,8 +6,7 @@ import {
   type RenderChatLine,
 } from "../../../ui/chat/controller.js";
 import type { ChatTabId } from "../../../ui/chat/chatTabs.js";
-import { HUD_GOLD } from "../styles/HudStyles.js";
-import { createHudTemplate } from "../styles/hudTemplate.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudChat {
   readonly element: HTMLElement;
@@ -26,9 +25,9 @@ export class HudChat {
     this.toggleContacts = toggleContacts;
     this.chat = new ChatController(connection);
     this.element = createHudTemplate<HTMLElement>("hud-chat-template");
-    this.tabs = this.requireElement("[data-hud-chat-tabs]");
-    this.lines = this.requireElement("[data-hud-chat-lines]");
-    this.input = this.requireElement<HTMLInputElement>("[data-hud-chat-input]");
+    this.tabs = requireHudElement(this.element, "[data-hud-chat-tabs]");
+    this.lines = requireHudElement(this.element, "[data-hud-chat-lines]");
+    this.input = requireHudElement<HTMLInputElement>(this.element, "[data-hud-chat-input]");
     this.input.addEventListener("keydown", (event) => this.submit(event));
     this.input.addEventListener("focus", () => setTextInputFocused(true));
     this.input.addEventListener("blur", () => setTextInputFocused(false));
@@ -99,8 +98,7 @@ export class HudChat {
 
   private render(): void {
     const model = this.chat.model(60);
-    const contacts = document.createElement("button");
-    contacts.type = "button";
+    const contacts = createHudTemplate<HTMLButtonElement>("hud-chat-tab-template");
     contacts.textContent = "contacts";
     contacts.setAttribute("aria-label", "Toggle contacts");
     contacts.className = "hud-chat__tab";
@@ -114,8 +112,7 @@ export class HudChat {
   }
 
   private createTab(tab: ChatTabView): HTMLButtonElement {
-    const button = document.createElement("button");
-    button.type = "button";
+    const button = createHudTemplate<HTMLButtonElement>("hud-chat-tab-template");
     button.textContent = `${tab.id}${tab.unread ? " •" : ""}`;
     button.className = [
       "hud-chat__tab",
@@ -132,18 +129,13 @@ export class HudChat {
   }
 
   private createLine(line: RenderChatLine): HTMLDivElement {
-    const entry = document.createElement("div");
-    const author = document.createElement("strong");
+    const entry = createHudTemplate<HTMLDivElement>("hud-chat-line-template");
+    const author = requireHudElement(entry, "[data-hud-chat-author]");
+    const text = requireHudElement(entry, "[data-hud-chat-text]");
     author.textContent = `${line.author}: `;
-    author.style.color = line.author === "system" ? HUD_GOLD : "#f2f0eb";
-    entry.append(author, document.createTextNode(line.text));
+    entry.dataset.author = line.author;
+    text.textContent = line.text;
     return entry;
-  }
-
-  private requireElement<T extends HTMLElement>(selector: string): T {
-    const element = this.element.querySelector<T>(selector);
-    if (!element) throw new Error(`Missing chat HUD element: ${selector}`);
-    return element;
   }
 }
 

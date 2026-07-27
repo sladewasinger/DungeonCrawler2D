@@ -1,15 +1,16 @@
 /** Renders active buff/debuff chips from authoritative status ids. */
 import type { Connection } from "../../../net/connection/connection.js";
 import { shouldShowAutoHealing, statusViews } from "../model/HudModel.js";
-import { HUD_PANEL } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudBuffs {
-  readonly element = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly list: HTMLElement;
   private signature = "\0";
 
   constructor() {
-    this.element.style.cssText =
-      `${HUD_PANEL};display:flex;gap:5px;align-items:center;flex-wrap:wrap`;
+    this.element = createHudTemplate<HTMLElement>("hud-buffs-template");
+    this.list = requireHudElement(this.element, "[data-hud-buffs-list]");
   }
 
   update(connection: Connection): void {
@@ -18,10 +19,10 @@ export class HudBuffs {
     const signature = `${showAutoHealing}:${statusSignature}`;
     if (signature === this.signature) return;
     this.signature = signature;
-    this.element.style.visibility = "visible";
+    this.element.hidden = false;
     const passive = showAutoHealing ? autoHealingChip() : null;
     const chips = statusViews(connection.statusEffects, connection.fx).map(statusChip);
-    this.element.replaceChildren(...(passive ? [passive] : []), ...chips);
+    this.list.replaceChildren(...(passive ? [passive] : []), ...chips);
   }
 }
 
@@ -37,15 +38,14 @@ const statusSignatureFor = (connection: Connection): string => connection.status
   : connection.fx.join("|");
 
 const autoHealingChip = (): HTMLSpanElement => {
-  const chip = document.createElement("span");
+  const chip = createHudTemplate<HTMLSpanElement>("hud-buff-template");
   chip.textContent = "basic auto healing";
-  chip.className = "hud-buff hud-buff--positive";
   return chip;
 };
 
 const statusChip = (status: ReturnType<typeof statusViews>[number]): HTMLSpanElement => {
-  const chip = document.createElement("span");
+  const chip = createHudTemplate<HTMLSpanElement>("hud-buff-template");
   chip.textContent = `${status.id.replaceAll("-", " ")} ${Math.ceil(status.remainingSeconds)}s`;
-  chip.style.cssText = `padding:4px 6px;border:1px solid ${status.kind === "buff" ? "#4f9a72" : "#a44c59"};background:${status.kind === "buff" ? "rgba(42,92,67,.78)" : "rgba(103,39,51,.78)"};font-size:10px;text-transform:uppercase`;
+  chip.dataset.kind = status.kind === "buff" ? "buff" : "debuff";
   return chip;
 };

@@ -8,19 +8,16 @@ import {
 } from "./localPresentation.js";
 import { createCarnageControlGroups } from "./carnageControls.js";
 import { createSettingsSection } from "./settingsSection.js";
-
-const BUTTON_STYLE =
-  "width:100%;padding:9px;border:1px solid #757a93;background:#292b40;" +
-  "color:#f2f0eb;font:12px monospace;cursor:pointer";
+import { createHudTemplate } from "../hud/styles/hudTemplate.js";
 
 export const createSessionButton = (
   label: string,
   action: () => void,
 ): HTMLButtonElement => {
-  const button = document.createElement("button");
+  const button = createHudTemplate<HTMLButtonElement>("hud-button-template");
+  button.classList.add("hud-session__button");
   button.type = "button";
   button.textContent = label;
-  button.style.cssText = BUTTON_STYLE;
   button.addEventListener("click", action);
   return button;
 };
@@ -29,7 +26,7 @@ export const createSessionRange = (
   { label, minimum, maximum, value, change }: { label: string; minimum: number; maximum: number; value: number; change: (value: number) => void },
 ): HTMLLabelElement => {
   const row = document.createElement("label");
-  row.style.cssText = "display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center";
+  row.className = "hud-session__range";
   const text = document.createElement("span");
   text.textContent = label;
   const output = document.createElement("output");
@@ -40,7 +37,7 @@ export const createSessionRange = (
   input.max = String(Math.round(maximum * 100));
   input.step = "5";
   input.value = String(Math.round(value * 100));
-  input.style.cssText = "grid-column:1/-1;width:100%;accent-color:#ffd54c";
+  input.className = "hud-session__range-input";
   bindRangeInput(input, output, change);
   output.value = `${Math.round(value * 100)}%`;
   row.append(text, output, input);
@@ -60,14 +57,12 @@ const createMotionControl = (
   currentMotion: "system" | "reduce" | "full",
 ): HTMLLabelElement => {
   const motion = document.createElement("label");
-  motion.style.cssText =
-    "display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center";
+  motion.className = "hud-session__motion";
   const motionText = document.createElement("span");
   motionText.textContent = "Interface motion";
   const motionSelect = document.createElement("select");
   motionSelect.setAttribute("aria-label", "Interface motion");
-  motionSelect.style.cssText =
-    "padding:6px;border:1px solid #757a93;background:#292b40;color:#f2f0eb";
+  motionSelect.className = "hud-session__select";
   addMotionOptions(motionSelect);
   motionSelect.value = currentMotion;
   bindMotionChange(motionSelect, presentation);

@@ -5,9 +5,10 @@ import type { ViewDistance } from "../../../three/terrain/view/viewDistance.js";
 import { createViewDistanceButton } from "../../../three/terrain/view/viewDistanceButton.js";
 import { canEnterFullscreen, enterFullscreenLandscape } from "../../../ui/fullscreen/mobileFullscreen.js";
 import { createHudButton } from "../styles/HudStyles.js";
+import { createHudTemplate } from "../styles/hudTemplate.js";
 
 export class HudSettings {
-  readonly element = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-settings-template");
   private readonly edit: HTMLButtonElement;
   private readonly catalog: HudCatalog;
   private readonly editingListeners = new Set<(editing: boolean) => void>();
@@ -27,7 +28,6 @@ export class HudSettings {
     getViewDistance?: () => ViewDistance,
     setViewDistance?: (viewDistance: ViewDistance) => void,
   ): void {
-    this.element.style.cssText = "display:grid;gap:6px";
     this.updateLabel();
     this.catalog.setEditing(false);
     const controls: HTMLElement[] = [this.edit];
@@ -50,13 +50,7 @@ export class HudSettings {
     action: () => void,
   ): HTMLButtonElement {
     const button = createHudButton(label, action);
-    Object.assign(button.style, {
-      width: "100%",
-      padding: "7px",
-      borderColor: "#757a93",
-      background: "#292b40",
-      fontSize: "12px",
-    });
+    button.classList.add("hud-settings__button");
     return button;
   }
 

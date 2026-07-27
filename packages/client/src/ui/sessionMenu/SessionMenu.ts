@@ -1,10 +1,11 @@
 import { LocalPresentationController } from "./localPresentation.js";
 import { AdvancedSettingsDialog } from "./AdvancedSettingsDialog.js";
-import { createSessionButton } from "./SessionMenuControls.js";
 import { quitConfirmation, respawnConfirmation, showSessionMenuConfirmation, type SessionMenuConfirmation } from "./SessionMenuConfirmation.js";
 import { SessionMenuFocus } from "./SessionMenuFocus.js";
 import { configureSessionMenuView } from "./SessionMenuView.js";
 import { buildSessionMenuPrimary, createRespawnButton } from "./SessionMenuPrimary.js";
+import { createHudTemplate, requireHudElement } from "../hud/styles/hudTemplate.js";
+import { activeFocusables } from "./sessionMenuFocusables.js";
 
 export interface SessionMenuActions {
   focusGame(): void;
@@ -18,7 +19,6 @@ interface InternalSessionMenuActions extends SessionMenuActions {
   onOpenChange?(open: boolean): void;
 }
 
-const FOCUSABLE_SELECTOR = "button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex='-1'])";
 const CARD_WIDTH = "min(92vw,420px)";
 
 interface SessionMenuOptions {
@@ -30,11 +30,11 @@ interface SessionMenuOptions {
 
 export class SessionMenu {
   private readonly actions: InternalSessionMenuActions;
-  private readonly gear = createSessionButton("⚙", () => this.toggle());
-  private readonly overlay = document.createElement("div");
-  private readonly card = document.createElement("section");
-  private readonly primary = document.createElement("div");
-  private readonly confirmation = document.createElement("div");
+  private readonly gear = createHudTemplate<HTMLButtonElement>("hud-session-gear-template");
+  private readonly overlay = createHudTemplate<HTMLDivElement>("hud-session-overlay-template");
+  private readonly card = requireHudElement<HTMLElement>(this.overlay, "[data-hud-session-card]");
+  private readonly primary = requireHudElement<HTMLDivElement>(this.overlay, "[data-hud-session-primary]");
+  private readonly confirmation = requireHudElement<HTMLDivElement>(this.overlay, "[data-hud-session-confirmation]");
   private readonly advanced: AdvancedSettingsDialog;
   private readonly respawnButton: HTMLButtonElement;
   private resumeButton: HTMLButtonElement | undefined;
@@ -45,10 +45,11 @@ export class SessionMenu {
 
   constructor({ appRoot, hudRoot, settingsContent, actions }: SessionMenuOptions) {
     this.actions = actions;
+    this.gear.addEventListener("click", () => this.toggle());
     this.presentation = new LocalPresentationController(appRoot, hudRoot);
     this.advanced = this.createAdvancedDialog(actions);
     configureSessionMenuView({ gear: this.gear, overlay: this.overlay, card: this.card, primary: this.primary, confirmation: this.confirmation, advanced: this.advanced, onOutsideClick: () => this.close() });
-    this.focus = new SessionMenuFocus({ appRoot, hudRoot, overlay: this.overlay, activeFocusables: () => this.activeFocusables() });
+    this.focus = new SessionMenuFocus({ appRoot, hudRoot, overlay: this.overlay, activeFocusables: () => activeFocusables(this.advanced, this.confirmation, this.primary) });
     this.respawnButton = createRespawnButton(() => this.confirm(respawnConfirmation(() => this.respawn())));
     this.resumeButton = buildSessionMenuPrimary({
       container: this.primary,
@@ -153,16 +154,4 @@ export class SessionMenu {
     cancel.focus();
   }
 
-  private activeFocusables(): HTMLElement[] {
-    const container = this.advanced.isOpen
-      ? this.advanced.element
-      : this.confirmation.style.display === "grid"
-        ? this.confirmation
-        : this.primary;
-    return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-      .filter((element) =>
-        !element.hidden &&
-        element.tabIndex >= 0 &&
-        element.getClientRects().length > 0);
-  }
 }

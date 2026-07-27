@@ -2,12 +2,10 @@
 import type { StashSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { StashRowView } from "../../../ui/widgets/hud/windows/stashRows.js";
 import {
-  HUD_MUTED,
-  HUD_PANEL,
   createHudButton,
   createHudPanelHeader,
-  createHudTitle,
 } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 interface StashColumnOptions {
   readonly title: string;
@@ -24,31 +22,63 @@ interface HudStashOptions {
 }
 
 const createColumn = ({ title, rows, action, onAction }: StashColumnOptions): HTMLDivElement => {
-  const column = document.createElement("div");
-  column.style.cssText =
-    "min-width:0;overflow-y:auto;display:grid;align-content:start;gap:5px";
-  column.append(createHudTitle(title));
-  if (rows.length === 0) {
-    const empty = document.createElement("div");
-    empty.textContent = "Empty";
-    empty.style.color = HUD_MUTED;
-    column.append(empty);
-  }
-  for (const item of rows) {
-    const row = document.createElement("div");
-    row.style.cssText =
-      "display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px";
-    row.append(document.createTextNode(`${item.name} ×${item.qty}`));
-    if (action && onAction) {
-      row.append(createHudButton(action, () => onAction(item.index, item.itemId)));
-    }
-    column.append(row);
-  }
+  const column = createHudTemplate<HTMLDivElement>("hud-stash-column-template");
+  requireHudElement(column, "[data-hud-stash-column-title]").textContent = title;
+  const list = requireHudElement(column, "[data-hud-stash-rows]");
+  appendStashRows(list, { rows, action, onAction });
   return column;
 };
 
+const appendStashRows = (
+  list: Element,
+  { rows, action, onAction }: {
+    rows: readonly StashRowView[];
+    action: string | null;
+    onAction?: StashColumnOptions["onAction"];
+  },
+): void => {
+  if (rows.length === 0) return list.append(createEmptyStashRow());
+  list.append(...rows.map((item) => createStashRow(item, action, onAction)));
+};
+
+const createEmptyStashRow = (): HTMLElement => {
+  const empty = createHudTemplate<HTMLElement>("hud-empty-template");
+  empty.textContent = "Empty";
+  return empty;
+};
+
+const createStashRow = (
+  item: StashRowView,
+  action: string | null,
+  onAction: StashColumnOptions["onAction"],
+): HTMLDivElement => {
+  const row = createHudTemplate<HTMLDivElement>("hud-contact-row-template");
+  requireHudElement(row, "[data-hud-contact-name]").textContent = `${item.name} ×${item.qty}`;
+  requireHudElement(row, "[data-hud-contact-presence]").textContent = "";
+  configureStashAction({
+    button: requireHudElement<HTMLButtonElement>(row, "[data-hud-contact-message]"),
+    item,
+    action,
+    onAction,
+  });
+  return row;
+};
+
+const configureStashAction = ({
+  button, item, action, onAction,
+}: {
+  button: HTMLButtonElement;
+  item: StashRowView;
+  action: string | null;
+  onAction: StashColumnOptions["onAction"];
+}): void => {
+  if (!action || !onAction) return button.remove();
+  button.textContent = action;
+  button.addEventListener("click", () => onAction(item.index, item.itemId));
+};
+
 export class HudStash {
-  readonly element = document.createElement("div");
+  readonly element: HTMLElement;
   private signature = "";
   private readonly put: (index: number) => void;
   private readonly take: (index: number, itemId: string) => void;
@@ -60,20 +90,19 @@ export class HudStash {
     this.take = take;
     this.takeAll = takeAll;
     this.close = close;
-    this.element.style.cssText =
-      `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:8px`;
+    this.element = createHudTemplate<HTMLElement>("hud-stash-template");
   }
 
   update(snapshot: StashSnapshot): void {
     const signature = JSON.stringify(snapshot);
     if (signature === this.signature) return;
     this.signature = signature;
-    this.element.replaceChildren(this.createHeader(snapshot), this.createColumns(snapshot));
+    const columns = this.createColumns(snapshot);
+    this.element.replaceChildren(this.createHeader(snapshot), columns);
   }
 
   private createColumns(snapshot: StashSnapshot): HTMLDivElement {
-    const columns = document.createElement("div");
-    columns.style.cssText = "min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:10px";
+    const columns = createHudTemplate<HTMLDivElement>("hud-stash-columns-template");
     columns.append(
       createColumn({ title: "Inventory", rows: snapshot.inventory, action: snapshot.kind === "loot" ? null : "put", onAction: this.put }),
       createColumn({ title: snapshot.kind === "loot" ? "Loot" : "Stash", rows: snapshot.entries, action: "take", onAction: this.take }),

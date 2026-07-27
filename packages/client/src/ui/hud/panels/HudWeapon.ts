@@ -1,17 +1,16 @@
 /** Renders the currently equipped weapon as a compact live HUD chip. */
 import type { Connection } from "../../../net/connection/connection.js";
 import { itemName } from "../../../ui/presentation/itemCatalog.js";
-import { HUD_PANEL, createHudTitle } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudWeapon {
-  readonly element = document.createElement("div");
-  private readonly name = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly name: HTMLElement;
   private current: string | null | undefined;
 
   constructor() {
-    this.element.style.cssText = `${HUD_PANEL};display:grid;align-content:center`;
-    this.name.style.cssText = "font-size:16px;font-weight:700;text-align:center";
-    this.element.append(createHudTitle("Active weapon"), this.name);
+    this.element = createHudTemplate<HTMLElement>("hud-weapon-template");
+    this.name = requireHudElement(this.element, "[data-hud-weapon-name]");
   }
 
   update(connection: Connection): void {

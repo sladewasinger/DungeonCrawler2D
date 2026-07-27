@@ -47,8 +47,7 @@ export class HudWindowManager {
       height: root.clientHeight || window.innerHeight,
       scale: this.scale,
     });
-    this.layer.style.cssText =
-      "position:absolute;inset:0;pointer-events:none;overflow:hidden";
+    this.layer.className = "hud-window-layer";
     root.append(this.layer);
     window.addEventListener("resize", this.layoutAll);
     this.stopModality = inputModality.subscribe((mode) => this.applyModality(mode));

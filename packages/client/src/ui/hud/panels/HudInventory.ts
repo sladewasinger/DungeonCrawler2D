@@ -7,7 +7,6 @@ import {
   type InventoryTab,
 } from "../inventory/InventoryShell.js";
 import { createInventoryRow } from "../inventory/InventoryRows.js";
-import { HUD_GOLD } from "../styles/HudStyles.js";
 
 export class HudInventory {
   private readonly shell;
@@ -131,8 +130,7 @@ export class HudInventory {
     for (const element of parent.children) {
       const button = element as HTMLButtonElement;
       const active = button.dataset[key] === selected;
-      button.style.borderColor = active ? HUD_GOLD : "#555a75";
-      button.style.color = active ? HUD_GOLD : "#f2f0eb";
+      button.dataset.selected = String(active);
     }
   }
 

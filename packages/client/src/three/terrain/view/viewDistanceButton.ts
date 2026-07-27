@@ -7,14 +7,7 @@ export const createViewDistanceButton = (getDistance: () => ViewDistance, setDis
     setDistance(nextViewDistance(getDistance()));
     updateLabel();
   });
-  Object.assign(button.style, {
-    width: "100%",
-    marginTop: "8px",
-    padding: "7px",
-    borderColor: "#757a93",
-    background: "#292b40",
-    fontSize: "12px",
-  });
+  button.classList.add("hud-settings__button", "hud-settings__view-distance");
   const updateLabel = () => { button.textContent = `View Distance: ${getDistance()}`; };
   updateLabel();
   return button;

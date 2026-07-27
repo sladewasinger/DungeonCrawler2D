@@ -2,27 +2,20 @@
 import type { Connection } from "../../../net/connection/connection.js";
 import { itemName } from "../../../ui/presentation/itemCatalog.js";
 import { hotbarQuantity } from "../model/HudModel.js";
-import { HUD_GOLD } from "../styles/HudStyles.js";
+import { createHudTemplate } from "../styles/hudTemplate.js";
 
 const SLOT_COUNT = 9;
 
 export class HudHotbar {
-  readonly element = document.createElement("div");
+  readonly element: HTMLElement;
   private readonly slots: HTMLButtonElement[] = [];
   private selected = -1;
   private signature = "";
 
   constructor(private readonly onSelect?: (index: number | null) => void) {
-    this.element.style.cssText =
-      "width:100%;height:100%;display:grid;" +
-      "grid-template-columns:repeat(9,minmax(30px,1fr));gap:4px;align-items:end";
+    this.element = createHudTemplate<HTMLElement>("hud-hotbar-template");
     for (let index = 0; index < SLOT_COUNT; index += 1) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.style.cssText =
-        "min-height:48px;padding:3px;border:1px solid #555a75;" +
-        "background:rgba(27,28,44,.88);color:#e6e5ef;font:10px monospace;" +
-        "white-space:pre-line;overflow:hidden;pointer-events:auto";
+      const button = createHudTemplate<HTMLButtonElement>("hud-hotbar-slot-template");
       button.addEventListener("click", () => this.select(index));
       this.slots.push(button);
       this.element.append(button);
@@ -61,10 +54,7 @@ export class HudHotbar {
 
   private applySelection(): void {
     this.slots.forEach((slot, index) => {
-      slot.style.outline = index === this.selected
-        ? `2px solid ${HUD_GOLD}`
-        : "none";
-      slot.style.outlineOffset = "-2px";
+      slot.dataset.selected = String(index === this.selected);
     });
   }
 }

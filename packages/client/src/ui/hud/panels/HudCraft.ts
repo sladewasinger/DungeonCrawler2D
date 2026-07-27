@@ -1,21 +1,20 @@
 /** Renders the HTML crafting list and emits authoritative craft intents. */
 import type { CraftSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
-import { HUD_MUTED, HUD_PANEL, createHudButton, createHudPanelHeader } from "../styles/HudStyles.js";
+import { createHudPanelHeader } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
 export class HudCraft {
-  readonly element = document.createElement("div");
-  private readonly list = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly list: HTMLElement;
   private signature = "";
 
   constructor(
     private readonly craft: (recipeId: string) => void,
     close: () => void,
   ) {
-    this.element.style.cssText =
-      `${HUD_PANEL};display:grid;grid-template-rows:auto 1fr;gap:5px`;
-    this.list.style.cssText =
-      "min-height:0;overflow-y:auto;display:grid;align-content:start;gap:6px";
-    this.element.append(createHudPanelHeader("Crafting", close), this.list);
+    this.element = createHudTemplate<HTMLElement>("hud-craft-template");
+    this.list = requireHudElement(this.element, "[data-hud-craft-list]");
+    this.element.replaceChildren(createHudPanelHeader("Crafting", close), this.list);
   }
 
   update(snapshot: CraftSnapshot): void {
@@ -23,21 +22,18 @@ export class HudCraft {
     if (signature === this.signature) return;
     this.signature = signature;
     this.list.replaceChildren(...snapshot.recipes.map((recipe) => {
-      const row = document.createElement("div");
-      row.style.cssText =
-        "display:grid;grid-template-columns:1fr auto;gap:5px;padding:6px;" +
-        "border:1px solid #454960;background:rgba(24,25,39,.86)";
-      const description = document.createElement("div");
+      const row = createHudTemplate<HTMLDivElement>("hud-craft-row-template");
+      const name = requireHudElement(row, "[data-hud-craft-name]");
+      const description = requireHudElement(row, "[data-hud-craft-description]");
+      const button = requireHudElement<HTMLButtonElement>(row, "[data-hud-craft-action]");
       const ingredients = recipe.ingredients.map((item) =>
         `${item.need}× ${item.name} (${item.have}/${item.need})`
       ).join(" · ");
-      description.textContent =
-        `${recipe.outputName} ×${recipe.outputQty}\n${ingredients}`;
-      description.style.cssText =
-        `white-space:pre-wrap;color:${recipe.craftable ? "#f2f0eb" : HUD_MUTED}`;
-      const button = createHudButton("craft", () => this.craft(recipe.recipeId));
+      name.textContent = `${recipe.outputName} ×${recipe.outputQty}`;
+      description.textContent = ingredients;
+      row.dataset.craftable = String(recipe.craftable);
+      button.addEventListener("click", () => this.craft(recipe.recipeId));
       button.disabled = !recipe.craftable;
-      row.append(description, button);
       return row;
     }));
   }

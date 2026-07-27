@@ -4,7 +4,7 @@ import { BUILD_SHA } from "../../../buildInfo.js";
 import { APP_VERSION } from "../../../appVersion.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { FirstPersonState } from "../../../three/input/movement.js";
-import { HUD_PANEL, createHudTitle } from "../styles/HudStyles.js";
+import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 import { biomeLabel } from "../../../worldStatus.js";
 
 export const headingDegrees = (yaw: number): number => Math.round(
@@ -12,13 +12,12 @@ export const headingDegrees = (yaw: number): number => Math.round(
 );
 
 export class HudTelemetry {
-  readonly element = document.createElement("div");
-  private readonly readout = document.createElement("div");
+  readonly element: HTMLElement;
+  private readonly readout: HTMLElement;
 
   constructor() {
-    this.element.style.cssText = HUD_PANEL;
-    this.readout.style.whiteSpace = "pre-wrap";
-    this.element.append(createHudTitle("World status"), this.readout);
+    this.element = createHudTemplate<HTMLElement>("hud-telemetry-template");
+    this.readout = requireHudElement(this.element, "[data-hud-telemetry-readout]");
   }
 
   update({ connection, world, player, yaw, mouseCaptured }: HudTelemetryUpdate): void {

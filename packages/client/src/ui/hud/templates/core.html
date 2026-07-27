@@ -1,0 +1,82 @@
+<template id="hud-root-template">
+  <div class="dc2d-hud" data-hud-root></div>
+</template>
+
+<template id="hud-reticle-template">
+  <div class="hud-reticle" data-hud-reticle aria-hidden="true"></div>
+</template>
+
+<template id="hud-compass-template">
+  <div class="hud-compass" data-hud-compass role="img">
+    <div class="hud-compass__dial" data-hud-compass-dial>
+      <span class="hud-compass__forward" aria-hidden="true">▲</span>
+      <span class="hud-compass__letter" data-compass-letter="N">N</span>
+      <span class="hud-compass__letter" data-compass-letter="E">E</span>
+      <span class="hud-compass__letter" data-compass-letter="S">S</span>
+      <span class="hud-compass__letter" data-compass-letter="W">W</span>
+      <span class="hud-compass__stairway" data-hud-compass-stairway aria-label="Stairway">◆</span>
+    </div>
+  </div>
+</template>
+
+<template id="hud-status-template">
+  <div class="hud-status" data-hud-status>
+    <div class="hud-title" data-hud-status-title>Crawler</div>
+    <div class="hud-meter hud-meter--health"><div class="hud-meter__fill" data-hud-health-fill></div></div>
+    <div class="hud-status__health" data-hud-health-label></div>
+    <div class="hud-meter hud-meter--stamina"><div class="hud-meter__fill" data-hud-stamina-fill></div></div>
+    <div class="hud-status__stamina" data-hud-stamina-label></div>
+    <div class="hud-meter hud-meter--xp"><div class="hud-meter__fill" data-hud-xp-fill></div></div>
+    <div class="hud-status__xp" data-hud-xp-label></div>
+  </div>
+</template>
+
+<template id="hud-telemetry-template">
+  <div class="hud-panel hud-telemetry" data-hud-telemetry>
+    <div class="hud-title">Telemetry</div>
+    <div class="hud-telemetry__readout" data-hud-telemetry-readout></div>
+  </div>
+</template>
+
+<template id="hud-weapon-template">
+  <div class="hud-panel hud-weapon" data-hud-weapon>
+    <div class="hud-weapon__name" data-hud-weapon-name></div>
+  </div>
+</template>
+
+<template id="hud-window-template">
+  <div class="hud-window" data-hud-window>
+    <div class="hud-window__content" data-hud-window-content></div>
+  </div>
+</template>
+
+<template id="hud-window-resize-grip-template">
+  <div class="hud-window__resize-grip" data-hud-resize-grip="true" aria-label="Resize window"></div>
+</template>
+
+<template id="hud-panel-title-template">
+  <div class="hud-title" data-hud-title></div>
+</template>
+
+<template id="hud-button-template">
+  <button class="hud-button" type="button" data-hud-button></button>
+</template>
+
+<template id="hud-panel-header-template">
+  <div class="hud-panel__header" data-hud-panel-header>
+    <div class="hud-title" data-hud-title></div>
+    <button class="hud-button hud-button--close" type="button" data-hud-close aria-label="Close">×</button>
+  </div>
+</template>
+
+<template id="hud-close-button-template">
+  <button class="hud-button hud-button--close" type="button" data-hud-close aria-label="Close">×</button>
+</template>
+
+<template id="hud-catalog-template">
+  <div class="hud-catalog" data-hud-catalog></div>
+</template>
+
+<template id="hud-catalog-row-template">
+  <label class="hud-catalog__row"><input type="checkbox" data-hud-catalog-toggle><span data-hud-catalog-label></span></label>
+</template>

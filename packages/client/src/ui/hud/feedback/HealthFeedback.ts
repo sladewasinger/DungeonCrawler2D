@@ -1,6 +1,7 @@
 /** Presents authoritative signed self-health events in the shared HTML HUD. */
 import type { Connection, VisualEvent } from "../../../net/connection/connection.js";
 import { healthFeedback } from "../../../ui/presentation/healthFeedback.js";
+import { createHudTemplate } from "../styles/hudTemplate.js";
 
 const VISIBLE_MS = 900;
 
@@ -15,15 +16,11 @@ function healthEventFeedback(event: VisualEvent) {
 }
 
 export class HealthFeedback {
-  readonly element = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-health-feedback-template");
   private hideAt = 0;
 
   constructor() {
     this.element.hidden = true;
-    this.element.style.cssText =
-      "position:absolute;left:50%;top:44%;translate:-50% -50%;" +
-      "font-size:24px;font-weight:800;text-shadow:0 2px 3px #000;" +
-      "pointer-events:none;z-index:1090";
   }
 
   update(connection: Connection, nowMs: number): void {
@@ -37,7 +34,11 @@ export class HealthFeedback {
 
   private show(feedback: NonNullable<ReturnType<typeof feedbackEvent>>, nowMs: number): void {
     this.element.textContent = feedback.label;
-    this.element.style.color = feedback.color;
+    if (typeof this.element.style.setProperty === "function") {
+      this.element.style.setProperty("--hud-feedback-color", feedback.color);
+    } else {
+      this.element.style.color = feedback.color;
+    }
     this.element.hidden = false;
     this.hideAt = nowMs + VISIBLE_MS;
   }

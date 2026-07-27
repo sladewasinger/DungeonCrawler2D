@@ -17,7 +17,7 @@ interface PercentRangeOptions { label: string; value: number; minimum: number; m
 
 function createRange({ label, minimum, maximum, value, step, format, change }: RangeOptions): HTMLLabelElement {
   const row = document.createElement("label");
-  row.style.cssText = "display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center";
+  row.className = "hud-session__range";
   const text = document.createElement("span");
   text.textContent = label;
   const output = document.createElement("output");
@@ -28,7 +28,7 @@ function createRange({ label, minimum, maximum, value, step, format, change }: R
   input.max = String(maximum);
   input.step = String(step);
   input.value = String(value);
-  input.style.cssText = "grid-column:1/-1;width:100%;accent-color:#c9414d";
+  input.className = "hud-session__range-input hud-session__range-input--blood";
   const update = () => {
     const next = Number(input.value);
     output.value = format(next);
@@ -46,8 +46,7 @@ function createToggle(
   change: (checked: boolean) => void,
 ): HTMLLabelElement {
   const row = document.createElement("label");
-  row.style.cssText =
-    "display:flex;justify-content:space-between;gap:8px;align-items:center";
+  row.className = "hud-session__toggle";
   const text = document.createElement("span");
   text.textContent = label;
   const checkbox = document.createElement("input");
