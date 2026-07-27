@@ -9,14 +9,14 @@ function fakeWorld(tileAt: (wx: number, wy: number) => TileType): TerrainWorld {
     heightAt: (wx, wy) => wx + wy * 100, // distinguishable per-cell scalar
     zoneAt: () => ZONE.None,
     isSanctuary: () => false,
-    isWalkable: (wx, wy) => tileAt(wx, wy) !== TILE.Wall,
+    isWalkable: (wx, wy) => tileAt(wx, wy) !== TILE.Floor,
     groundAt: (wx, wy) => wx + wy * 100,
   };
 }
 
 describe("viewWorld at orientation 0", () => {
   it("is a pure passthrough — identical results to the real world at every cell", () => {
-    const world = fakeWorld((wx, wy) => (wx === 5 && wy === 5 ? TILE.Wall : TILE.Floor));
+    const world = fakeWorld((wx, wy) => (wx === 5 && wy === 5 ? TILE.Floor : TILE.Floor));
     const vw = viewWorld(world, 0);
     for (let wy = 0; wy < 10; wy++) {
       for (let wx = 0; wx < 10; wx++) {
@@ -32,9 +32,9 @@ describe("viewWorld at orientation 90", () => {
     // viewTileToWorld({x:5,y:5}, 90) = floor(viewToWorld(5.5, 5.5)) = (-6, 5), and the
     // view-space "one step south" neighbor — view (5,6) — maps to (-7, 5): exactly one
     // step WEST of (5,5)'s own real cell, matching screenSouthWorldDirection(90) === "W".
-    const world = fakeWorld((wx, wy) => (wx === -7 && wy === 5 ? TILE.Wall : TILE.Floor));
+    const world = fakeWorld((wx, wy) => (wx === -7 && wy === 5 ? TILE.Floor : TILE.Floor));
     const vw = viewWorld(world, 90);
-    expect(vw.tileAt(5, 6)).toBe(TILE.Wall); // view-space "one south" of (5,5)
+    expect(vw.tileAt(5, 6)).toBe(TILE.Floor); // view-space "one south" of (5,5)
     expect(vw.tileAt(5, 5)).toBe(TILE.Floor);
   });
 

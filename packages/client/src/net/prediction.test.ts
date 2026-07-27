@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LEVEL,
+  STEP_UP,
   TICK_DT,
   World,
   applyKnockback,
@@ -24,10 +25,8 @@ import { PREDICTION_HISTORY_LIMIT, Prediction } from "./prediction.js";
 const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
 const RUN: MoveInput = { moveX: 1, moveY: 0, jump: false, run: true };
 
-// Seed 7's origin chunk is a solid TILE.Wall mass (a landmark's footprint) —
-// since walls block horizontal movement outright (types.ts's SOLID_TILES),
-// spawning there leaves a body permanently stuck and unable to diverge
-// under knockback. This coordinate is verified open floor nearby.
+// This coordinate is verified open floor nearby. The collision fixture below
+// finds a finite-height boundary rather than relying on a removed Wall tile.
 const SPAWN_X = -12;
 const SPAWN_Y = -26;
 
@@ -38,7 +37,8 @@ function closeBody(a: BodyState, b: BodyState, eps = 1e-9): boolean {
 function findEastWallApproach(world: World): { x: number; y: number; z: number } {
   for (let tileY = -30; tileY <= 30; tileY++) {
     for (let tileX = -30; tileX <= 30; tileX++) {
-      if (!world.isWalkable(tileX, tileY) || world.isWalkable(tileX + 1, tileY)) continue;
+      if (!world.isWalkable(tileX, tileY) || !world.isWalkable(tileX + 1, tileY)) continue;
+      if (world.heightAt(tileX + 1, tileY) - world.heightAt(tileX, tileY) <= STEP_UP) continue;
       const x = tileX + 0.5;
       const y = tileY + 0.5;
       return { x, y, z: world.groundAt(x, y) };

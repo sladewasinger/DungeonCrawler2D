@@ -1,9 +1,9 @@
 // Baked Minecraft-style tile lighting: BFS flood from deterministic torch/door
 // sources — level 14 at a source, minus one per orthogonal step, stopped by
-// solid rock so light wraps corners along real paths. Computed once per chunk
+// raised terrain so light wraps corners along real paths. Computed once per chunk
 // (with an apron so neighbors' torches shine across seams) and multiplied into
 // the baked tile tints: ZERO per-frame lighting cost.
-import { BIOME, TILE, biomeAtWorldTile, type BiomeKind } from "@dc2d/engine";
+import { BIOME, TILE, WALL_FACE_MIN_DROP, biomeAtWorldTile, type BiomeKind } from "@dc2d/engine";
 import type { TerrainRead } from "./faces.js";
 import { doorLightPositions } from "../lighting/doorLights.js";
 import { selectTorchPositions, torchCandidates } from "../lighting/torchPlacement.js";
@@ -167,10 +167,17 @@ const ORTHOGONAL: ReadonlyArray<readonly [number, number]> = [
 ];
 
 function spread(g: LightGrid, world: TerrainRead, wx: number, wy: number, level: number): void {
+  const sourceHeight = world.heightAt(wx, wy);
   for (const [dx, dy] of ORTHOGONAL) {
     const nx = wx + dx;
     const ny = wy + dy;
-    if (inGrid(g, nx, ny) && world.tileAt(nx, ny) !== TILE.Wall) seed(g, nx, ny, level - 1);
+    if (!inGrid(g, nx, ny)) continue;
+    if (world.tileAt(nx, ny) === TILE.Void) continue;
+    // A derived terrain face is also a lighting barrier. This keeps the
+    // light model aligned with the height-map collision/rendering model
+    // instead of relying on a legacy Wall category.
+    if (Math.abs(world.heightAt(nx, ny) - sourceHeight) >= WALL_FACE_MIN_DROP) continue;
+    seed(g, nx, ny, level - 1);
   }
 }
 

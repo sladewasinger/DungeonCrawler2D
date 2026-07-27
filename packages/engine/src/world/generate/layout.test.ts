@@ -26,6 +26,8 @@ describe("room-and-corridor layout", () => {
       const a = generateChunk(SEED, FLOOR, cx, cy);
       const b = generateChunk(SEED, FLOOR, cx, cy);
       expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
+      expect(Array.from(a.terrain)).toEqual(Array.from(b.terrain));
+      expect(Array.from(a.features)).toEqual(Array.from(b.features));
       expect(Array.from(a.height)).toEqual(Array.from(b.height));
       expect(Array.from(a.zones)).toEqual(Array.from(b.zones));
     }
@@ -50,7 +52,7 @@ describe("room-and-corridor layout", () => {
     expect(stats.deliberateFloors).toBeGreaterThan(0);
   }, 15_000);
 
-  it("safe-room chunks contain an entrance portal on a z2 kiosk TERRACE, not an open sanctuary or a rock mass", () => {
+  it("safe-room chunks contain an entrance portal on a z2 kiosk TERRACE, not an open sanctuary", () => {
     const found = findFirst(isSafeRoomChunk);
     expect(found).not.toBeNull();
     if (!found) return;
@@ -66,7 +68,7 @@ describe("room-and-corridor layout", () => {
     }
     expect(doors).toBe(1);
     // The kiosk terrace's walkable top platform sits north of the door
-    // (KIOSK_HEIGHT, not TILE.Wall rock — VISUAL_DIRECTION.md's z+1 rule);
+    // (KIOSK_HEIGHT, not a flat floor — VISUAL_DIRECTION.md's z+1 rule);
     // ordinary pad ground continues south of it.
     expect(chunk.tiles[doorIndex - CHUNK_SIZE]).toBe(TILE.Floor);
     expect(chunk.height[doorIndex - CHUNK_SIZE]).toBe(KIOSK_HEIGHT);
@@ -91,7 +93,7 @@ describe("room-and-corridor layout", () => {
       const chunk = generateChunk(SEED, FLOOR, cx, cy);
       const reached = floodFromBorder(chunk.tiles);
       for (let i = 0; i < chunk.tiles.length; i++) {
-        if (chunk.tiles[i] === TILE.Wall) continue;
+        if (chunk.tiles[i] === TILE.Void) continue;
         expect(reached[i], `chunk ${cx},${cy} tile ${i} is an orphan pocket`).toBe(1);
       }
     }

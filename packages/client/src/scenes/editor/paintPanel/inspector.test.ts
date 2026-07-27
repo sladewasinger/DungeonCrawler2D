@@ -21,7 +21,7 @@ describe("inspectorText autotile mask readout", () => {
   it("shows mask=0x00 (8-bit 0x00) for an isolated painted wall", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    store.brush = { kind: "wall" };
+    store.brush = { kind: "height" };
     store.paint(0, 0); // untouched by the seeded demo pattern
     expect(inspectorText(store, 0, 0)).toContain("mask=0x00 (8-bit 0x00)");
   });
@@ -29,7 +29,7 @@ describe("inspectorText autotile mask readout", () => {
   it("shows an updated mask once a neighbor wall is painted beside it", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    store.brush = { kind: "wall" };
+    store.brush = { kind: "height" };
     store.paint(0, 0);
     store.paint(1, 0);
     expect(inspectorText(store, 0, 0)).toContain("mask=0x02"); // E bit set (bit1)

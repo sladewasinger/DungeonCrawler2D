@@ -14,7 +14,7 @@
 
 import { STEP_UP, WALL_RISE } from "../../core/constants.js";
 import { entryClimbDir, stairRampAt, type StairView } from "../stairs.js";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import { MAX_STAIR_SLOPE } from "./height.js";
 
 const MAX_PASSES = 8;
@@ -58,7 +58,7 @@ function localView(tiles: Uint8Array, height: Float32Array, chunkSize: number): 
     return arr[y * chunkSize + x] ?? fallback;
   };
   return {
-    tileAt: (x, y) => at(tiles, x, y, TILE.Wall),
+    tileAt: (x, y) => at(tiles, x, y, TOPOLOGY.Uncarved),
     heightAt: (x, y) => at(height, x, y, 0),
   };
 }
@@ -70,7 +70,7 @@ function sweep(tiles: Uint8Array, height: Float32Array, chunkSize: number): bool
   for (let y = 0; y < chunkSize; y++) {
     for (let x = 0; x < chunkSize; x++) {
       const i = y * chunkSize + x;
-      if (tiles[i] === TILE.Wall) continue;
+      if (tiles[i] === TOPOLOGY.Uncarved) continue;
       if (x + 1 < chunkSize && ramp(tiles, height, view, i, i + 1, x + 1, y)) changed = true;
       if (y + 1 < chunkSize && ramp(tiles, height, view, i, i + chunkSize, x, y + 1)) changed = true;
     }
@@ -104,7 +104,7 @@ function sweep(tiles: Uint8Array, height: Float32Array, chunkSize: number): bool
  * widening a compact 1-tile exit back into a 2-tile runway.
  */
 function edgeTouchesWallOrStairs(tiles: Uint8Array, i: number, n: number): boolean {
-  const blocks = (t: number | undefined): boolean => t === TILE.Wall || t === TILE.Stairs;
+  const blocks = (t: number | undefined): boolean => t === TOPOLOGY.Uncarved || t === TILE.Stairs;
   return blocks(tiles[i]) || blocks(tiles[n]);
 }
 

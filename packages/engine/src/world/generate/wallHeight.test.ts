@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { GRAVITY, JUMP_VELOCITY, WALL_RISE } from "../../core/constants.js";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import { applyWallHeight, INTERIOR_WALL_RISE } from "./wallHeight.js";
 
 const SIZE = 5;
 
 /** A SIZE×SIZE grid, all Wall, except the listed local (x, y) cells carved to Floor. */
 function grid(openCells: Array<[number, number]>): { tiles: Uint8Array; height: Float32Array } {
-  const tiles = new Uint8Array(SIZE * SIZE).fill(TILE.Wall);
+  const tiles = new Uint8Array(SIZE * SIZE).fill(TOPOLOGY.Uncarved);
   for (const [x, y] of openCells) tiles[y * SIZE + x] = TILE.Floor;
   return { tiles, height: new Float32Array(SIZE * SIZE) };
 }
@@ -57,7 +57,7 @@ describe("wall height: interior fill vs rim", () => {
     const tiles = new Uint8Array(SIZE * SIZE).fill(TILE.Floor);
     const height = new Float32Array(SIZE * SIZE).fill(1);
     const center = 2 * SIZE + 2;
-    tiles[center] = TILE.Wall;
+    tiles[center] = TOPOLOGY.Uncarved;
     height[center] = 7;
     height[center - 1] = 2;
     applyWallHeight(tiles, height, SIZE);

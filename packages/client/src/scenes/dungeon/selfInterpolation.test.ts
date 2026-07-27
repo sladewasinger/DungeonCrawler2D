@@ -1,5 +1,6 @@
 import {
   LEVEL,
+  STEP_UP,
   MOVE_SPEED,
   TICK_DT,
   World,
@@ -17,7 +18,8 @@ const SPAWN_Y = -26;
 function findEastWallApproach(world: World): { x: number; y: number; z: number } {
   for (let tileY = -30; tileY <= 30; tileY++) {
     for (let tileX = -30; tileX <= 30; tileX++) {
-      if (!world.isWalkable(tileX, tileY) || world.isWalkable(tileX + 1, tileY)) continue;
+      if (!world.isWalkable(tileX, tileY) || !world.isWalkable(tileX + 1, tileY)) continue;
+      if (world.heightAt(tileX + 1, tileY) - world.heightAt(tileX, tileY) <= STEP_UP) continue;
       const x = tileX + 0.5;
       const y = tileY + 0.5;
       return { x, y, z: world.groundAt(x, y) };

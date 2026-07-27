@@ -17,7 +17,7 @@ export interface GalleryFixture {
 }
 
 function wallsAt(world: EditableWorld, ox: number, oy: number, offsets: ReadonlyArray<readonly [number, number]>): void {
-  for (const [dx, dy] of offsets) world.paintWallAt(ox + dx, oy + dy);
+  for (const [dx, dy] of offsets) world.paintHeightAt(ox + dx, oy + dy);
 }
 
 export const GALLERY_FIXTURES: readonly GalleryFixture[] = [

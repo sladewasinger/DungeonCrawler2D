@@ -19,9 +19,11 @@ Everything moves that should move.
 - **One tileset family, one resolution.** All world art is 16 px source, integer-scaled
   ×3 (48 px on screen) with `pixelArt: true`. Mixed source resolutions are forbidden —
   that's the #1 tell of asset soup. Primary pack: 0x72 DungeonTileset II (CC0) for
-  terrain, props, heroes, monsters; anything added must match its scale and palette.
+  terrain, props, heroes, and monsters. Companion pets are the deliberate exception:
+  their separate animated sheets are NPC-only, cropped to stable feet/shadows, and
+  must still preserve crisp nearest-neighbor rendering and the world palette.
 - **Palette discipline.** Base world: dark desaturated (stone `#2e2e3a`→`#494956`
-  range, near-black `#14141c` voids). Accents are reserved and consistent:
+  range, flat black `#000000` voids with black borders). Accents are reserved and consistent:
   fire/torch `#ff9e3d`, poison `#7bd44a`, sanctuary/portal teal `#3dd6c3`,
   blood/damage `#e04a4a`, arcane `#8a6cff`, loot/gold `#ffd23d`. UI reuses these.
   No new hues without updating this doc.
@@ -40,7 +42,8 @@ Everything moves that should move.
   to control animation scope and keep the sprite set coherent.
 
 - **No static entities.** Everything alive has idle + run animations minimum (the 0x72
-  pack ships them); attacks have windup/release/recover reads. Items on the ground
+  pack and the pet sheets provide them); attacks have windup/release/recover reads.
+  Items on the ground
   bob and glint. Torches flicker. The portal swirls.
 - **Hits feel like hits:** white hit-flash on the sprite, 2–3 px directional knockback
   visual, floating damage numbers in the accent palette, brief particle burst, tiny
@@ -112,7 +115,7 @@ north-to-south** — z rows of visible south face plus at least one walkable top
 row. A 1-deep z1 wall is malformed (all face, no platform); z2 needs 3 deep.
 Width is unconstrained (any width ≥ 1). This is a hard worldgen invariant, not a renderer
 courtesy: the generator may never emit a raised region too shallow to show its
-own top. Corollaries: safe-room kiosks are z2 terraces (not rock masses) deep
+own top. Corollaries: safe-room kiosks are z2 terraces (not uncarved masses) deep
 enough to carry their door in the face with an intact platform above; doors
 render as the standalone leaf drawn over ordinary wall rows (no frame-post
 pieces reading as half-walls, no masonry recolor, no suppression gap in the
@@ -125,7 +128,7 @@ frame pieces + leaf/body assembled the way the pack intends, punched INTO the wa
 face — never assembled loosely from tiles, never interleaved with or overdrawn by
 masonry rows. A door sliced by brick courses is an automatic audit fail. Wall grammar:
 brick faces appear only on south-facing boundary rows; wall tops are dark stone caps;
-deep solid rock is near-black mass — walls read as solid volume, not wallpapered face
+deep raised terrain is near-black mass — derived faces read as solid volume, not wallpapered face
 texture. A projected south face owns the full lower visual cell and its collision span:
 the underlying surface may still be floor, but grounded feet stop at the visible base.
 Raised wall-top surfaces use their own height tint, never the lower neighbor's tint.

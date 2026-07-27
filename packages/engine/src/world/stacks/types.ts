@@ -1,5 +1,5 @@
 // Authored per-tile stack shape (Austin's reskin decree: "no more z buttons, just
-// floor varieties, walls, stairs") and the door/interactable feature vocabulary a
+// floor varieties, height, stairs") and the door/interactable feature vocabulary a
 // stack tile can carry, plus the two editor-map JSON versions this contract bridges.
 
 import { TILE, type TileType } from "../types.js";
@@ -34,23 +34,23 @@ export const TILE_FEATURE: ReadonlyMap<TileType, StackFeature> = new Map(
 );
 
 /**
- * One authored tile. `walls` is the stacked wall-segment count — non-negative by
- * construction in the editor's paint-over-stacking UI, but a plain `number` here
+ * One authored tile. `height` is the finite floor elevation — non-negative by
+ * construction in the editor's paint-over UI, but a plain `number` here
  * (not narrowed) because worldgen's mechanical (tiles,height)->stacks conversion
  * (fromHeightField.ts) must round-trip a generated pit/chasm floor (height < 0),
- * or a wall ring sunk to height <= 0 by a neighboring pit, through this exact
+ * or a raised boundary sunk to height <= 0 by a neighboring pit, through this exact
  * same field rather than inventing a second one. `cap` ALONE decides
  * walkability: any non-null floor-variant id makes the tile a walkable Floor
- * at height `walls`; null makes it a solid Wall at height `walls`, regardless
- * of `walls`'s sign (see compile.ts's compileBase doc comment — the editor's
- * "nothing painted here" ground state is walls=0 WITH a default cap, not a
- * capless wall). `feature` overrides the compiled TileType entirely (a
- * door/table/stash punched into a wall of that height).
+ * at height `height`; null makes it an empty Void at height `height`, regardless
+ * of `height`'s sign (see compile.ts's compileBase doc comment — the editor's
+ * "nothing painted here" ground state is height=0 WITH a default cap; capless
+ * state is reserved for intentionally empty cells. `feature` overrides
+ * the compiled TileType entirely (a door/table/stash on that floor).
  *
  * `stair.dir` orients the climb (which neighbor the author intends as the
  * higher side). `stair.height` is an optional exact override: when present
- * (always true of worldgen's mechanical conversion and v1->v2 migration,
- * both of which already know the real height and must reproduce it
+ * (always true of worldgen's mechanical conversion, which already knows the
+ * real height and must reproduce it
  * byte-for-byte — see compile.ts's doc comment on why a generic formula
  * can't always re-derive it), compile uses it verbatim. When absent —
  * freshly authored in the editor via paintStairsAt, which has no height to
@@ -65,7 +65,7 @@ export const TILE_FEATURE: ReadonlyMap<TileType, StackFeature> = new Map(
  * compiled scalar; the two only need to agree at tile center.
  */
 export interface StackTile {
-  readonly walls: number;
+  readonly height: number;
   readonly cap: string | null;
   readonly stair: { readonly dir: StackDir; readonly height?: number | undefined } | null;
   readonly feature?: StackFeature | undefined;
@@ -77,20 +77,13 @@ export interface CompiledField {
   readonly height: Float32Array;
 }
 
-/** Editor-authored torch overlay position — unchanged across v1/v2 (additive, not height/tile-affecting). */
+/** Editor-authored torch overlay position — additive, not height/tile-affecting. */
 export interface TorchTile {
   readonly wx: number;
   readonly wy: number;
 }
 
-/** v1 editor-map JSON: the format shipped before this pivot (no version key at all). */
-export interface EditorMapV1 {
-  readonly tiles: readonly number[];
-  readonly heights: readonly number[];
-  readonly torches?: readonly TorchTile[] | undefined;
-}
-
-/** v2 editor-map JSON: explicit stacks replace the flat tiles/heights pair. */
+/** Current editor-map JSON: explicit stacks are the sole persisted representation. */
 export interface EditorMapV2 {
   readonly version: 2;
   readonly width: number;

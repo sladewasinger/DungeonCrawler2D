@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, TILE, ZONE, type Chunk } from "../types.js";
+import { CHUNK_SIZE, TERRAIN, TILE, ZONE, type Chunk } from "../types.js";
 import {
   ROOM_WALL_RISE,
   carveSouthExitHall,
@@ -141,14 +141,10 @@ export function personalRoomFeatures(slot: number): {
   };
 }
 
-/**
- * Generate a chunk in the room region: solid wall/void except where a
- * room template is carved. Every room interior is sanctuary — no
- * fighting in anyone's home.
- */
-/**
- * Room walls rise far beyond the jump apex (≈1.07): stretch rooms stay
- * sealed — no hopping the perimeter into the void band.
+/** Generate a chunk in the room region: Void except where a room template is carved.
+ * Every room interior is sanctuary — no fighting in anyone's home.
+ *
+ * Room boundaries rise far beyond the jump apex (≈1.07): stretch rooms stay sealed.
  */
 export type RoomKind = "personal" | "party" | "safe";
 
@@ -215,11 +211,7 @@ export function partyRoomDoorPositions(cx: number, cy: number): Array<{ x: numbe
 
 /** Carve the sanctuary interior; walls stay on the perimeter ring. */
 function carveInterior(set: SetRoomTile, left: number, top: number, w: number, h: number): void {
-  for (let ly = top + 1; ly < top + h - 1; ly++) {
-    for (let lx = left + 1; lx < left + w - 1; lx++) {
-      set(lx, ly, TILE.Floor);
-    }
-  }
+  for (let ly = top + 1; ly < top + h - 1; ly++) for (let lx = left + 1; lx < left + w - 1; lx++) set(lx, ly, TILE.Floor);
 }
 
 /**
@@ -228,7 +220,7 @@ function carveInterior(set: SetRoomTile, left: number, top: number, w: number, h
  * ROOM_WALL_RISE's doc comment). docs/ROADMAP.md's filed ruling (2026-07-20,
  * "Safe-room SOUTH exit door reads wrong"): where north is unavailable, cut
  * a short 2-tile inset alcove past the south wall instead, so the doorway
- * reads as a real recess from this top-down PoV, not a decal on flat rock.
+ * reads as a real recess from this top-down PoV, not a decal on flat floor.
  * doorLights.ts already seeds every DoorExit tile with a teal glow — the
  * alcove's mouth lights itself, no lighting-side change needed here.
  */
@@ -260,32 +252,36 @@ function placeFixtures(
 }
 
 export function generateRoomChunk(cx: number, cy: number): Chunk {
-  const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TILE.Wall);
-  const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE).fill(ROOM_WALL_RISE);
+  // The perimeter is high Floor; its height creates the derived boundary and blocks
+  // traversal through the normal height gate.
+  const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TILE.Void);
+  const terrain = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TERRAIN.Void);
+  const features = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
   const zones = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
-
   const slot = roomSlotAt(cx, cy);
-  if (!slot) return { cx, cy, tiles, height, zones };
+  if (!slot) return { cx, cy, tiles, terrain, features, height, zones };
 
   const { kind, w, h } = slot;
   const left = Math.floor(CHUNK_SIZE / 2 - w / 2);
   const top = Math.floor(CHUNK_SIZE / 2 - h / 2);
-
-  const set: SetRoomTile = (
-    lx,
-    ly,
-    tile,
-    zone = ZONE.Sanctuary,
-    tileHeight = 0,
-  ) => {
+  const set: SetRoomTile = (lx, ly, tile, zone = ZONE.Sanctuary, tileHeight = 0) => {
     const i = ly * CHUNK_SIZE + lx;
     tiles[i] = tile;
+    terrain[i] = TERRAIN.Floor;
     zones[i] = zone;
     height[i] = tileHeight;
   };
 
+  for (let ly = top; ly < top + h; ly++) for (let lx = left; lx < left + w; lx++) {
+    set(lx, ly, TILE.Floor, ZONE.Sanctuary, ROOM_WALL_RISE);
+  }
   carveInterior(set, left, top, w, h);
   placeFixtures(set, kind, left, top, w, h);
+  for (let i = 0; i < tiles.length; i++) {
+    const tile = tiles[i] ?? TILE.Floor;
+    features[i] = terrain[i] === TERRAIN.Floor && tile !== TILE.Floor ? tile : TILE.Floor;
+  }
 
-  return { cx, cy, tiles, height, zones };
+  return { cx, cy, tiles, terrain, features, height, zones };
 }

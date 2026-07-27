@@ -27,7 +27,9 @@ describe("world geometry scale", () => {
             const tx = sx * WORLD_GEOMETRY_SCALE + ox;
             const ty = sy * WORLD_GEOMETRY_SCALE + oy;
             const targetIndex = ty * CHUNK_SIZE + tx;
-            expect(chunk.tiles[targetIndex]).toBe(source.tiles[sourceIndex]);
+            const expectedTile = source.tiles[sourceIndex] === 1 ? TILE.Floor : source.tiles[sourceIndex];
+            expect(chunk.tiles[targetIndex]).toBe(expectedTile);
+            expect(chunk.terrain[targetIndex]).toBe(expectedTile === TILE.Void ? 1 : 0);
             expect(chunk.height[targetIndex]).toBe(source.height[sourceIndex]);
             expect(chunk.zones[targetIndex]).toBe(source.zones[sourceIndex]);
           }

@@ -18,9 +18,9 @@ persistence, and the playability fixes listed in the release notes.
 
 ## Austin's F-Bomb Counter
 
-**29**
+**31**
 
-<!-- f-bomb-count: 29 -->
+<!-- f-bomb-count: 31 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.
@@ -77,7 +77,7 @@ take over the first crawler.
 | URL | What it is |
 | --- | --- |
 | `http://localhost:5173` | The game (title screen → live multiplayer dungeon) |
-| `…/?scene=editor` | **Map editor**: paint heights `z-1…z8`, rock, doors on a 20×20 grid; right panel renders through the real game pipeline; `import`/`export` round-trip JSON; `collision` overlay; hover inspector |
+| `…/?scene=editor` | **Map editor**: paint finite floor heights `z-1…z8`, void, and doors on a 20×20 grid; right panel renders through the real game pipeline; `import`/`export` round-trip JSON; `collision` overlay; hover inspector |
 | `…/?scene=gallery&camera=<name>` | Render showcases: `rooms`, `door`, `corridor`, `chasm`, `sanctuary`, `entities`, `effects`, `combat`, `pillar`, `platform`, `solidmass` (+ `&hud=1`, `&debugTerrain=1`) |
 | `…/?touch=1` | Force mobile touch controls on desktop (joystick + action buttons) |
 | `…/?server=ws://host:port` | Point the client at a specific game server |

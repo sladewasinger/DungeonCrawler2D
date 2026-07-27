@@ -7,7 +7,7 @@ import { expect } from "vitest";
 import { STEP_UP } from "../../core/constants.js";
 import { applyTerrace, TERRACE_RISE } from "./terraces.js";
 import { baseSample, corridorSegments, seedsFor } from "../terrain.js";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../generate/scale.js";
 
 export interface SyntheticChunk {
@@ -26,7 +26,7 @@ export function buildTerraceChunk(seed: number, floor: number, cx: number, cy: n
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const sample = baseSample(seeds, segs, baseX + lx, baseY + ly);
-      tiles[ly * CHUNK_SIZE + lx] = sample.wall ? TILE.Wall : TILE.Floor;
+      tiles[ly * CHUNK_SIZE + lx] = sample.wall ? TOPOLOGY.Uncarved : TILE.Floor;
       height[ly * CHUNK_SIZE + lx] = sample.height;
     }
   }
@@ -60,7 +60,7 @@ export class TwoChunkView implements ChunkLookup {
 
   tileAt(wx: number, wy: number): number {
     const c = this.cell(wx, wy);
-    return c ? (c.chunk.tiles[c.i] ?? TILE.Wall) : TILE.Wall;
+    return c ? (c.chunk.tiles[c.i] ?? TOPOLOGY.Uncarved) : TOPOLOGY.Uncarved;
   }
 
   heightAt(wx: number, wy: number): number {
@@ -69,7 +69,7 @@ export class TwoChunkView implements ChunkLookup {
   }
 
   isWalkable(wx: number, wy: number): boolean {
-    return this.tileAt(wx, wy) !== TILE.Wall;
+    return this.tileAt(wx, wy) !== TOPOLOGY.Uncarved;
   }
 }
 
@@ -79,7 +79,7 @@ export function snapCenter(world: ChunkLookup, center: { x: number; y: number })
       for (let dx = -r; dx <= r; dx++) {
         const x = Math.round(center.x) + dx;
         const y = Math.round(center.y) + dy;
-        if (world.isWalkable(x, y) && world.tileAt(x, y) !== TILE.Wall) return { x, y };
+        if (world.isWalkable(x, y) && world.tileAt(x, y) !== TOPOLOGY.Uncarved) return { x, y };
       }
     }
   }
@@ -128,7 +128,7 @@ function neighborHeights(tiles: Uint8Array, height: Float32Array, x: number, y: 
     const ny = y + ddy;
     if (!inBounds(nx, ny)) continue;
     const i = ny * CHUNK_SIZE + nx;
-    if (tiles[i] !== TILE.Wall) heights.push(height[i] ?? 0);
+    if (tiles[i] !== TOPOLOGY.Uncarved) heights.push(height[i] ?? 0);
   }
   return heights;
 }
@@ -190,7 +190,7 @@ function canWalkOnto(
 ): boolean {
   if (nx < bounds.minX || ny < bounds.minY || nx > bounds.maxX || ny > bounds.maxY) return false;
   if (!world.isWalkable(nx, ny)) return false;
-  if (world.tileAt(nx, ny) === TILE.Wall) return false; // walking, not jumping
+  if (world.tileAt(nx, ny) === TOPOLOGY.Uncarved) return false; // walking, not jumping
   if (curStairs || world.tileAt(nx, ny) === TILE.Stairs) return true;
   return world.heightAt(nx, ny) - curH <= STEP_UP;
 }

@@ -1,12 +1,15 @@
+import { CHASM_DEATH_Z } from "../core/constants.js";
 import { generateChunk } from "./generate.js";
 import { LEVEL, type LevelId } from "./level.js";
 import { stairRampAt } from "./stairs.js";
 import {
   CHUNK_SIZE,
   SOLID_TILES,
+  TERRAIN,
   TILE,
   ZONE,
   type Chunk,
+  type TerrainType,
   type TileType,
   type WorldView,
   type ZoneType,
@@ -60,7 +63,15 @@ export class World implements WorldView {
     const overridden = this.tileOverrides.get(`${wx},${wy}`);
     if (overridden !== undefined) return overridden;
     const { chunk, index } = this.lookup(wx, wy);
-    return (chunk.tiles[index] ?? TILE.Wall) as TileType;
+    if (chunk.terrain[index] === TERRAIN.Void) return TILE.Void;
+    return (chunk.features[index] ?? chunk.tiles[index] ?? TILE.Floor) as TileType;
+  }
+
+  terrainAt(wx: number, wy: number): TerrainType {
+    const overridden = this.tileOverrides.get(`${wx},${wy}`);
+    if (overridden !== undefined) return overridden === TILE.Void ? TERRAIN.Void : TERRAIN.Floor;
+    const { chunk, index } = this.lookup(wx, wy);
+    return (chunk.terrain[index] ?? TERRAIN.Floor) as TerrainType;
   }
 
   replaceTileOverrides(
@@ -95,7 +106,12 @@ export class World implements WorldView {
   }
 
   isWalkable(wx: number, wy: number): boolean {
-    return !SOLID_TILES.has(this.tileAt(wx, wy));
+    // A generated void/chasm is an infinite-height collision boundary, not a
+    // low floor. Keeping this check here makes movement, jumping, landing,
+    // and navigation agree without special cases in each caller.
+    return this.terrainAt(wx, wy) !== TERRAIN.Void &&
+      !SOLID_TILES.has(this.tileAt(wx, wy)) &&
+      this.heightAt(wx, wy) > CHASM_DEATH_Z;
   }
 
   /** Continuous ground height: stair tiles ramp with position. */

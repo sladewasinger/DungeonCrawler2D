@@ -1,27 +1,26 @@
 // One-tile dispatch under the own-tile face model: face rows draw on the raised
 // cells themselves (into the occluder row of their face's BOTTOM, so the whole
-// face shares one depth); walls that aren't face are plain autotiled wall cells;
-// everything else is ground. Baked tile lighting multiplies into every layer here.
+// face shares one depth); raised terrain without a face is a plain derived-face
+// body; everything else is ground. Baked tile lighting multiplies into every layer here.
 // Art comes from the debug tileset + autotile.ts's bitmask solve (debugArt.ts) —
 // borders draw from 2D map-space material adjacency, never per-row, so a face row
 // and a plain wall cell at the same (x, y) always agree on where the border is.
 //
 // docs/ELEVATION-PROJECTION.md's whole-scene shift (section 1): a face row no
-// longer REPLACES its cell's rendering — a WALKABLE (non-Wall) face cell always
+// longer REPLACES its cell's rendering — every finite Floor face cell always
 // ALSO draws its normal shifted ground/cap (drawGroundTile), then this module
 // overlays the raw, unshifted brick BAND on top, filling the rows the cap's
-// shift vacated. A face cell that IS solid Wall terrain keeps exactly today's
-// behavior (raw band only, no separate cap) — it's never walkable, so there is
-// no "surface an entity stands on" to shift; see docs/ASSUMPTIONS.md row 305.
-import { stairVisualAt, TILE } from "@dc2d/engine";
+// shift vacated. A face cell always owns its finite surface and derived band;
+// Void cells bypass this path entirely.
+import { stairVisualAt } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { pickFloorFrame } from "./debugArt.js";
 import type { CardinalEdges } from "./autotile.js";
 import { placeDebugTile, placeWallEdges } from "./debugSprite.js";
-import { drawGroundTile } from "./drawGroundTile.js";
+import { drawGroundTile, drawVoidTile } from "./drawGroundTile.js";
 import { drawVerticalStairSideOutlines } from "./steppedStairSurface.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
-import { heightTint, multiplyTint, VOID_SURFACE_COLOR } from "./heightShade.js";
+import { heightTint, multiplyTint } from "./heightShade.js";
 import { bakesIntoStaticBase, stripOverhangTiles, surfaceContainerFor, type CapOccluderFor } from "./occluderBand.js";
 import { type OwnFaceRow } from "./ownFace.js";
 import { visibleTerrainFaceAt } from "./stairFace.js";
@@ -33,7 +32,8 @@ import { freestandingHeightBodyRows } from "./heightColumn.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import { stacksVertically } from "./stairTread.js";
 import { verticalStairProjectedRange } from "./verticalStairSurface.js";
-import { drawPartialHeightFace, drawWallVolume, wallBehindHorizontalStair } from "./wallProjection.js";
+import { drawPartialHeightFace } from "./wallProjection.js";
+import { hasVoidNeighborAt, isVoidCellAt } from "./faces.js";
 
 /** `overhangTiles` tells the strip how far above its base row this content sits, so it bakes just tall enough. */
 export type OccluderFor = (wy: number, overhangTiles?: number) => Phaser.GameObjects.Container;
@@ -50,6 +50,10 @@ function drawFaceCell(
   behindHorizontalStair: boolean,
 ): void {
   const groundY = wy + face.distanceToGround;
+  // A face may only bridge real terrain. If its lower anchor is a void cell,
+  // the black void owns that row and no purple camera-facing material may be
+  // projected into it.
+  if (hasVoidNeighborAt(world, wx, wy) || isVoidCellAt(world, wx, groundY)) return;
   const lowerHeight = world.heightAt(wx, groundY);
   const liftPx = surfaceLiftBakePx(lowerHeight);
   // Rows high above open ground can never interleave with an entity's depth
@@ -79,7 +83,7 @@ function drawFaceCell(
   // ruling 2026-07-20): a face band is wall-material body, and wall bodies keep
   // the black autotile border only. A WALKABLE face cell's white perimeter rides
   // its SHIFTED cap instead — drawGroundTile's drawTopEdges, which the dispatch
-  // below always runs for non-Wall cells before overlaying this band.
+  // below always runs for finite Floor cells before overlaying this band.
 }
 
 /**
@@ -119,52 +123,10 @@ function drawSuppressedTile(
   const height = world.heightAt(wx, wy);
   const liftPx = surfaceLiftBakePx(height);
   const container = surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
-  if (world.tileAt(wx, wy) === TILE.Wall) {
-    placeFillRect(scene, container, wx, wy, VOID_SURFACE_COLOR, liftPx);
-  } else {
-    placeDebugTile(scene, container, wx, wy, pickFloorFrame(), {
-      tint: multiplyTint(heightTint(height), lightTint),
-      liftBakePx: liftPx,
-    });
-  }
-}
-
-function drawWall(
-  scene: Phaser.Scene,
-  world: ViewTerrainWorld,
-  wx: number,
-  wy: number,
-  below: Phaser.GameObjects.Container,
-  occluderFor: OccluderFor,
-  capOccluderFor: CapOccluderFor,
-  face: OwnFaceRow | null,
-  light: LightField,
-  lightTint: number,
-): void {
-  const height = world.heightAt(wx, wy); drawWallVolume(scene, below, wx, wy, height);
-  const behindHorizontalStair = wallBehindHorizontalStair(world, wx, wy, face);
-  // A face-owning wall already has its visible camera-facing material below.
-  // Its shifted cap would be a second independently-autotiled square on top of
-  // that face, producing the isolated black-outlined cell in rotated views.
-  if (face === null) {
-    const container = behindHorizontalStair
-      ? below
-      : surfaceContainerFor(world, wx, wy, height, below, capOccluderFor);
-    drawWallTile(
-      scene,
-      world,
-      wx,
-      wy,
-      container,
-      surfaceLiftBakePx(height),
-      undefined,
-      behindHorizontalStair
-        ? { north: false, east: false, south: false, west: false }
-        : {},
-    );
-  }
-  drawFreestandingHeightBody(scene, world, wx, wy, occluderFor, lightTint);
-  if (face !== null) drawFaceCell(scene, world, wx, wy, face, below, occluderFor, light, behindHorizontalStair);
+  placeDebugTile(scene, container, wx, wy, pickFloorFrame(), {
+    tint: multiplyTint(heightTint(height), lightTint),
+    liftBakePx: liftPx,
+  });
 }
 
 export function drawTile(
@@ -179,16 +141,10 @@ export function drawTile(
   light: LightField,
 ): void {
   const real = world.toReal(wx, wy); const lightTint = light.tintAt(real.x, real.y);
-  if (structures.suppressed.has(tileKey(wx, wy))) {
-    drawSuppressedTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
-    return;
-  }
+  if (isVoidCellAt(world, wx, wy)) return drawVoidTile(scene, world, wx, wy, below);
+  if (structures.suppressed.has(tileKey(wx, wy))) return drawSuppressedTile(scene, world, wx, wy, below, capOccluderFor, lightTint);
   const face = visibleTerrainFaceAt(world, wx, wy);
   drawPartialHeightFace(scene, below, world, wx, wy, lightTint);
-  if (world.tileAt(wx, wy) === TILE.Wall) {
-    drawWall(scene, world, wx, wy, below, occluderFor, capOccluderFor, face, light, lightTint);
-    return;
-  }
   // Walkable ground ALWAYS draws its shifted cap; a raised platform whose south
   // edge also drops (face !== null) additionally overlays the raw band on top —
   // the rows the cap's shift vacated (module doc above).
@@ -206,6 +162,7 @@ function drawFreestandingHeightBody(
   occluderFor: OccluderFor,
   lightTint: number,
 ): void {
+  if (hasVoidNeighborAt(world, wx, wy)) return;
   const bodyRows = freestandingHeightBodyRows(world, wx, wy);
   if (bodyRows.length === 0) return;
   const container = occluderFor(wy, bodyRows.length);

@@ -9,8 +9,8 @@ import type { SimState } from "./state.js";
  * (28.5, 28.5) so every mechanic is testable without hunting. Also the
  * e2e fixture set — positions stay stable across worldgen changes since
  * every authored anchor is snapped to the nearest real WALKABLE tile
- * (`snapToFloor`) rather than trusted literally: since walls are solid
- * (2026-07-19), an anchor that happens to land on wall rock would
+ * (`snapToFloor`) rather than trusted literally: since height boundaries are solid
+ * (2026-07-19), an anchor that happens to land on an uncarved cell would
  * otherwise spawn an unreachable, physically-impossible fixture.
  */
 
@@ -23,7 +23,7 @@ import type { SimState } from "./state.js";
  * walkable turns up at all — that means the anchor needs re-authoring,
  * not a silent drop. Exported so tests can resolve a fixture's real,
  * post-snap location instead of asserting against the literal
- * (possibly-wall) anchor. Areas key by this integer tile directly.
+ * (possibly-blocked) anchor. Areas key by this integer tile directly.
  */
 export function snapToFloorTile(
   sim: Pick<SimState, "world">,

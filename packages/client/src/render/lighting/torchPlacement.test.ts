@@ -9,7 +9,7 @@ function corridorWorld(x0: number, x1: number) {
   return {
     tileAt(wx: number, wy: number) {
       if (wx < x0 || wx >= x1) return TILE.Floor;
-      return wy === 1 ? TILE.Wall : TILE.Floor;
+      return wy === 1 ? TILE.Floor : TILE.Floor;
     },
     heightAt(wx: number, wy: number) {
       if (wx < x0 || wx >= x1) return 0;

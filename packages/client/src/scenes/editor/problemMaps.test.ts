@@ -32,7 +32,7 @@ describe("raised platform projection repro", () => {
     store.importJson(problemMapById("raised-platform-projection").exportJson());
 
     expect(store.world.cellAt(5, 5)).toEqual({ tile: TILE.Floor, height: 3 });
-    expect(store.world.stackAt(5, 5)).toMatchObject({ walls: 3, cap: DEFAULT_FLOOR_CAP, stair: null });
+    expect(store.world.stackAt(5, 5)).toMatchObject({ height: 3, cap: DEFAULT_FLOOR_CAP, stair: null });
     expect(JSON.parse(store.exportJson())).toEqual(JSON.parse(problemMapById("raised-platform-projection").exportJson()));
 
     for (const orientation of [0, 90, 180, 270] as const) {

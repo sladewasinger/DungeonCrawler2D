@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import { resolveShallowPlateaus, resolveThinWalls } from "./verticalExtent.js";
 
 const SIZE = 8;
 
 function wallGrid(wallRows: number[], x = 3): Uint8Array {
   const tiles = new Uint8Array(SIZE * SIZE).fill(TILE.Floor);
-  for (let y = 0; y < SIZE; y++) tiles[y * SIZE + x] = wallRows.includes(y) ? TILE.Wall : TILE.Floor;
+  for (let y = 0; y < SIZE; y++) tiles[y * SIZE + x] = wallRows.includes(y) ? TOPOLOGY.Uncarved : TILE.Floor;
   return tiles;
 }
 
@@ -20,20 +20,20 @@ describe("resolveThinWalls", () => {
   it("leaves a 2-deep wall run alone — already satisfies z+1 for z1", () => {
     const tiles = wallGrid([3, 4], 3);
     resolveThinWalls(tiles, SIZE);
-    expect(tiles[3 * SIZE + 3]).toBe(TILE.Wall);
-    expect(tiles[4 * SIZE + 3]).toBe(TILE.Wall);
+    expect(tiles[3 * SIZE + 3]).toBe(TOPOLOGY.Uncarved);
+    expect(tiles[4 * SIZE + 3]).toBe(TOPOLOGY.Uncarved);
   });
 
   it("leaves a 1-deep wall touching the chunk's north edge alone — true depth may continue into the neighbor chunk", () => {
     const tiles = wallGrid([0], 3);
     resolveThinWalls(tiles, SIZE);
-    expect(tiles[0 * SIZE + 3]).toBe(TILE.Wall);
+    expect(tiles[0 * SIZE + 3]).toBe(TOPOLOGY.Uncarved);
   });
 
   it("leaves a 1-deep wall touching the chunk's south edge alone, for the same reason", () => {
     const tiles = wallGrid([SIZE - 1], 3);
     resolveThinWalls(tiles, SIZE);
-    expect(tiles[(SIZE - 1) * SIZE + 3]).toBe(TILE.Wall);
+    expect(tiles[(SIZE - 1) * SIZE + 3]).toBe(TOPOLOGY.Uncarved);
   });
 });
 

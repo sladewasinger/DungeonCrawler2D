@@ -90,7 +90,7 @@ describe("findSpawn with spawnRadiusTiles", () => {
       const tileX = Math.floor(spawn.x);
       const tileY = Math.floor(spawn.y);
       expect(sim.world.isWalkable(tileX, tileY)).toBe(true);
-      expect(sim.world.tileAt(tileX, tileY)).not.toBe(TILE.Wall);
+      expect(sim.world.tileAt(tileX, tileY)).not.toBe(TILE.Void);
       expect(tileDistanceFromAnchor(spawn, anchor)).toBeLessThanOrEqual(radiusTiles);
       sim.players.set(`p${i}`, makeSlotAt(spawn.x, spawn.y));
     }
@@ -155,10 +155,10 @@ describe("resolveSpawnAnchor", () => {
     expect(resolveSpawnAnchor(simA)).toEqual(resolveSpawnAnchor(simB));
   });
 
-  it("resolves to a walkable, non-wall floor tile", () => {
+  it("resolves to a walkable, non-void floor tile", () => {
     const sim = makeRadiusSim(50);
     const anchor = resolveSpawnAnchor(sim);
     expect(sim.world.isWalkable(anchor.x, anchor.y)).toBe(true);
-    expect(sim.world.tileAt(anchor.x, anchor.y)).not.toBe(TILE.Wall);
+    expect(sim.world.tileAt(anchor.x, anchor.y)).not.toBe(TILE.Void);
   });
 });

@@ -1,12 +1,10 @@
 // Core world data shapes: tile/zone vocabularies and the read-only view movement and AI depend on.
 
-import { SCALED_CHUNK_SIZE } from "./generate/scale.js";
-
-export const CHUNK_SIZE = SCALED_CHUNK_SIZE;
+/** Runtime chunks are generated at 32 cells and doubled for gameplay space. */
+export const CHUNK_SIZE = 64;
 
 export const TILE = {
   Floor: 0,
-  Wall: 1,
   Stairs: 2,
   /** Safe-room door to your personal stretch room. */
   DoorPersonal: 3,
@@ -19,26 +17,42 @@ export const TILE = {
   Stash: 7,
   /** Overworld portal into the region's shared safe room. */
   DoorSafeRoom: 8,
+  /** Infinite-height void cell; it has no walkable surface. */
+  Void: 9,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
+/** Generator-only uncarved mask value. It is never written to a runtime Chunk. */
+export const TOPOLOGY = { Uncarved: 1 } as const;
+
 /**
- * Solid tiles that block movement outright: furniture, doors, and walls.
- * TILE.Wall's collision is figuratively infinite — nothing walks into
- * it, jumps onto it, or lands on its top, regardless of the visual
- * height difference; high-ground tactics live exclusively on raised
- * FLOOR terraces (terraces.ts, platforms.ts), which stay walkable/
- * jumpable. A wall's visual height is unaffected — only collision
- * changed. Projectiles are the one exception: see entities/projectile.ts.
+ * Authoritative terrain plane. A runtime cell has either a finite Floor
+ * surface (whose z comes from Chunk.height) or no surface at all (Void).
+ * Stairs, doors, and other authored content remain overlays during this
+ * migration; they do not create a third terrain kind.
+ */
+export const TERRAIN = {
+  Floor: 0,
+  Void: 1,
+} as const;
+export type TerrainType = (typeof TERRAIN)[keyof typeof TERRAIN];
+
+/**
+ * Solid feature tiles that block movement outright: furniture and doors. A raised Floor is blocked by the height
+ * transition in movement/collision, while Void is an
+ * infinite-height boundary.
+ * Generated void cells are also blocked by World.isWalkable; they are an
+ * infinite-height collision boundary even though they render flat in 2D.
+ * Projectiles use the same terrain plane and height barriers as movement.
  */
 export const SOLID_TILES: ReadonlySet<number> = new Set([
-  TILE.Wall,
   TILE.CraftingTable,
   TILE.Stash,
   TILE.DoorPersonal,
   TILE.DoorParty,
   TILE.DoorExit,
   TILE.DoorSafeRoom,
+  TILE.Void,
 ]);
 
 export const ZONE = {
@@ -53,6 +67,10 @@ export interface Chunk {
   readonly cy: number;
   /** TileType per tile. */
   readonly tiles: Uint8Array;
+  /** Authoritative Floor/Void terrain plane; never contains a Wall value. */
+  readonly terrain: Uint8Array;
+  /** Feature plane: zero for no feature, otherwise Stairs/door/interactable code. */
+  readonly features: Uint8Array;
   /** Continuous terrain height per tile. */
   readonly height: Float32Array;
   /** ZoneType per tile (sanctuary etc.). */

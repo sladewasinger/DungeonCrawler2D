@@ -12,7 +12,6 @@ import {
   hashString,
   LEVEL,
   makeEntity,
-  TILE,
   World,
   createBody,
   type ContentRegistry,
@@ -38,7 +37,7 @@ const content: ContentRegistry = buildContentRegistry({
 });
 const SEED = hashString("enemies-test-world");
 
-/** Scan outward from (0,0) for a walkable, non-wall, non-sanctuary tile —
+/** Scan outward from (0,0) for a walkable, non-sanctuary tile —
  * robust to worldgen changes, unlike hardcoded coordinates. */
 function findOpenFloor(sim: SimState): { x: number; y: number } {
   for (let radius = 0; radius < 64; radius++) {
@@ -49,7 +48,6 @@ function findOpenFloor(sim: SimState): { x: number; y: number } {
         const y = 200 + dy;
         if (
           sim.world.isWalkable(x, y) &&
-          sim.world.tileAt(x, y) !== TILE.Wall &&
           !sim.world.isSanctuary(x, y)
         ) {
           return { x: x + 0.5, y: y + 0.5 };
@@ -105,7 +103,6 @@ describe("enemy population", () => {
       const ty = Math.floor(enemy.entity.body.y);
       expect(sim.world.isWalkable(tx, ty)).toBe(true);
       expect(sim.world.isSanctuary(tx, ty)).toBe(false);
-      expect(sim.world.tileAt(tx, ty)).not.toBe(TILE.Wall);
       expect(sim.world.heightAt(tx, ty)).toBeGreaterThan(CHASM_DEATH_Z);
     }
   });

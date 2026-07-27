@@ -12,7 +12,7 @@ import { BOSS_RESPAWN_TICKS, BOSS_XP_BURST, FLOOR_CAP, WARDEN_DEF_ID } from "./c
 /**
  * The Warden of Five (Epic 7.14): spawn-on-floor-creation, and the
  * death -> XP burst -> respawn cycle. The arena's WALLS are real,
- * generator-placed TILE.Wall geometry (world/features/bossArena.ts,
+ * generator-placed TILE.Floor geometry (world/features/bossArena.ts,
  * the worldgen lane) — already solid via the engine's own "walls are
  * solid, period" collision, so this module only has to guard the ONE
  * open gate cell, not a whole boundary. That guard is a server-side

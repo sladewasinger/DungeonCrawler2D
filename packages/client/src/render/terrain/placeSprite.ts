@@ -1,6 +1,6 @@
 // Shared tile-sprite placement: terrain sprites center on their tile (rotation
 // pivots correctly), with variants for bottom-anchoring (pillars), flat fill
-// rects (solid-rock interior), half-face cliff bands, and occlusion bands.
+// rects (deep raised-terrain interior), half-face cliff bands, and occlusion bands.
 // Every placement function takes an optional `liftPx` (docs/ELEVATION-PROJECTION.md
 // section 0/1): a scalar screen-Y offset SUBTRACTED after ordinary tile-position
 // math, never folded into world coordinates — the one shift rule, applied at the
@@ -82,7 +82,7 @@ export function placeFractionalRect(
   container.add(rect);
 }
 
-/** A flat filled rect covering one tile — the quiet treatment for solid-rock interior. */
+/** A flat filled rect covering one tile — the quiet treatment for deep raised terrain. */
 export function placeFillRect(
   scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,

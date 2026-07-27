@@ -23,7 +23,7 @@ import { pickEnemyDef } from "./populationRoster.js";
 export const REPOPULATE_INTERVAL_TICKS = 30 * TICK_RATE;
 /** Target density for each occupied area before the shared global cap is divided. */
 const NEAR_SPAWN_TARGET_COUNT = 16;
-const REPOPULATE_ATTEMPTS_PER_ENEMY = 20;
+const REPOPULATE_ATTEMPTS_PER_ENEMY = 40;
 const ENEMY_CAP = 150;
 const RETAIN_RADIUS_TILES = NEAR_SPAWN_RADIUS_TILES + AOI_RADIUS;
 

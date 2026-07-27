@@ -87,19 +87,19 @@ function makeScoutSlot(x: number, y: number, sim: SimState): PlayerSlot {
   };
 }
 
-/** Every live enemy's tile must be walkable, non-wall, and above chasm depth. */
+/** Every live enemy's tile must be walkable, non-void, and above chasm depth. */
 function assertNoEnemyInVoid(sim: SimState, label: string): void {
   for (const enemy of sim.enemies.values()) {
     const tx = Math.floor(enemy.entity.body.x);
     const ty = Math.floor(enemy.entity.body.y);
     const where = `${label}: enemy=${enemy.def.name} at (${tx},${ty})`;
     expect(sim.world.isWalkable(tx, ty), `${where}: not walkable`).toBe(true);
-    expect(sim.world.tileAt(tx, ty), `${where}: on a wall`).not.toBe(TILE.Wall);
+    expect(sim.world.tileAt(tx, ty), `${where}: on void`).not.toBe(TILE.Void);
     expect(sim.world.heightAt(tx, ty), `${where}: at/below chasm depth`).toBeGreaterThan(CHASM_DEATH_Z);
   }
 }
 
-/** Any Floor tile at or below chasm depth, scanning outward from the
+/** Any explicit void tile at or below chasm depth, scanning outward from the
  * origin (mirrors sim/chasmDeath.test.ts's findChasmFloor). */
 function findChasmFloor(world: World): { x: number; y: number } | null {
   for (let cx = -24; cx <= 24; cx++) {
@@ -108,7 +108,7 @@ function findChasmFloor(world: World): { x: number; y: number } | null {
         for (let lx = 0; lx < CHUNK_SIZE; lx++) {
           const x = cx * CHUNK_SIZE + lx;
           const y = cy * CHUNK_SIZE + ly;
-          if (world.tileAt(x, y) === TILE.Floor && world.heightAt(x, y) <= CHASM_DEATH_Z) return { x, y };
+          if (world.tileAt(x, y) === TILE.Void) return { x, y };
         }
       }
     }

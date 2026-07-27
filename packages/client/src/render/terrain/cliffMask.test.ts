@@ -10,7 +10,7 @@ import type { TerrainRead } from "./faces.js";
 function terrain(heights: Record<string, number>, walls: ReadonlySet<string> = new Set()): TerrainRead {
   return {
     heightAt: (x, y) => heights[`${x},${y}`] ?? 0,
-    tileAt: (x, y): TileType => (walls.has(`${x},${y}`) ? TILE.Wall : TILE.Floor),
+    tileAt: (x, y): TileType => walls.has(`${x},${y}`) ? TILE.Void : TILE.Floor,
   };
 }
 

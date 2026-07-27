@@ -4,7 +4,7 @@
 // simulate — stepBody/collision/lighting consume this output completely
 // unaware stacks ever existed.
 
-import { TILE, type TileType } from "../types.js";
+import { TILE } from "../types.js";
 import { FEATURE_TILE, type CompiledField, type StackDir, type StackTile } from "./types.js";
 
 /** Matches world/stairs.ts's DIRS convention: 0=N, 1=E, 2=S, 3=W. */
@@ -18,17 +18,15 @@ const DIR_STEP: ReadonlyArray<{ readonly dx: number; readonly dy: number }> = [
 /**
  * Non-stair (or explicit-height stair) tile: `cap` alone decides
  * walkability — a floor variant on top makes it a walkable Floor at height
- * `walls`; no cap makes it a solid Wall at height `walls`, full stop,
- * regardless of `walls`'s sign or magnitude. "Nothing painted" in the
- * editor is authored as walls=0 WITH a default floor cap, not as a capless
- * wall — see stacksRoundtrip.test.ts's discovery of this exact edge case
- * (a room's wall ring sunk by a neighboring pit can legitimately raise to
- * exactly height 0 after WALL_RISE, still a real solid wall).
+ * `height`; no cap makes it an empty Void at height `height`, full stop,
+ * regardless of `height`'s sign or magnitude. "Nothing painted" in the
+ * editor is authored as height=0 WITH a default floor cap; capless state is
+ * reserved for intentionally empty cells.
  */
-function compileBase(stack: StackTile): { tile: TileType; height: number } {
-  if (stack.feature) return { tile: FEATURE_TILE[stack.feature], height: stack.walls };
-  if (stack.cap !== null) return { tile: TILE.Floor, height: stack.walls };
-  return { tile: TILE.Wall, height: stack.walls };
+function compileBase(stack: StackTile): { tile: number; height: number } {
+  if (stack.feature) return { tile: FEATURE_TILE[stack.feature], height: stack.height };
+  if (stack.cap !== null) return { tile: TILE.Floor, height: stack.height };
+  return { tile: TILE.Void, height: stack.height };
 }
 
 function inGrid(x: number, y: number, width: number, rows: number): boolean {
@@ -129,7 +127,7 @@ function resolveRun(
 
 /**
  * First pass, one tile: a stair's explicit height (worldgen's mechanical
- * conversion, v1->v2 migration — both already know the real height and
+ * conversion already knows the real height and
  * must reproduce it byte-for-byte) always wins over interpolation, marking
  * it resolved immediately; a height-less stair gets a 0 placeholder for
  * pass two's resolveRun to overwrite. See compileBase's doc comment for

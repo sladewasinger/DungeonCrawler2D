@@ -4,7 +4,7 @@
 // above the base plane (z0); a drop continuing below z0 renders its remaining
 // rows INSIDE the pit (pitFace.ts), so flat z0 ground beside a dig stays flat.
 import { WALL_FACE_MIN_DROP } from "@dc2d/engine";
-import type { TerrainRead } from "./faces.js";
+import { isVoidCellAt, type TerrainRead } from "./faces.js";
 
 /**
  * Cap on drawn face rows for a stack of any height (user decree: "as many walls
@@ -48,13 +48,15 @@ export interface OwnFaceRow {
 
 /**
  * The face row this RAISED cell renders instead of its top art, or null when it
- * is interior enough to stay a walkable top / rim. Works identically for rock
+ * is interior enough to stay a walkable top / rim. Works identically for raised
  * masses and raised floors — the face is a height phenomenon. Cells at or below
  * the base plane never own face rows (rowsOnRaised is 0 there).
  */
 export function ownFaceRowAt(world: TerrainRead, wx: number, wy: number): OwnFaceRow | null {
+  if (isVoidCellAt(world, wx, wy)) return null;
   const surfaceHeight = world.heightAt(wx, wy);
   for (let d = 1; d <= MAX_FACE_ROWS; d++) {
+    if (isVoidCellAt(world, wx, wy + d)) return null;
     const southHeight = world.heightAt(wx, wy + d);
     const drop = surfaceHeight - southHeight;
     if (drop >= WALL_FACE_MIN_DROP) {
@@ -73,4 +75,3 @@ export function ownFaceRowAt(world: TerrainRead, wx: number, wy: number): OwnFac
   }
   return null;
 }
-

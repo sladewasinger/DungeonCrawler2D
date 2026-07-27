@@ -3,17 +3,15 @@
 // in the engine, apex ~1.07 — see core/constants.ts's JUMP_VELOCITY/GRAVITY;
 // 1 z-unit = 1 tile edge per that file's doctrine comment). A rarer "chasm"
 // variant (grafted from the "caverns" candidate) drops a large room to -2
-// with one guaranteed flat bridge deck — a real knockback-off-ledge kill
-// zone. A pit/dais room gets EXACTLY ONE built staircase, at one
+// with one guaranteed flat bridge deck. A pit/dais room gets EXACTLY ONE
+// built staircase, at one
 // deliberately-chosen doorway (carveRamp); every OTHER doorway meets the
 // room at a plain, un-ramped edge — a real cliff you jump or fall, not a
 // second staircase (docs/PORT_PLAN.md's "one straight run per transition,
 // no clusters" stair redesign). A chasm room gets NO staircase at all —
-// docs/R2-STAIRS-SPEC.md Open Question 1, resolved: a walkable-both-ways
-// stair's low anchor must sit above CHASM_DEATH_Z, which a ramp descending
-// to -2 cannot satisfy, so every chasm rim is a sheer, un-ramped edge;
-// the guaranteed bridge (stampBridge) is the one crossing, and falling off
-// the rim is the intended knockback-death ruling, not a climbable descent.
+// every chasm rim is an infinite-height void boundary with no staircase;
+// the guaranteed bridge (stampBridge) is the one crossing, and falling or
+// being knocked into the void remains a server-side death.
 // Everything else stays flat, flat-first.
 
 import { thresholdCells } from "./corridors.js";
@@ -101,6 +99,23 @@ function stampBridge(height: Float32Array, chunkSize: number, interior: Rect): v
     for (let x = bridgeX - CHASM_BRIDGE_HALF; x <= bridgeX + CHASM_BRIDGE_HALF; x++) {
       if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) continue;
       height[y * chunkSize + x] = 0;
+    }
+  }
+}
+
+/**
+ * Finalize the complete deep-chasm footprint as explicit, heightless void.
+ * This includes the generated boundary cells so no finite terrain shell is
+ * left around the black void.
+ *
+ * Call after terrain repair but before wall-height finishing so no physical
+ * wall material survives inside the nothingness.
+ */
+export function markVoidTiles(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
+  for (let i = 0; i < chunkSize * chunkSize; i++) {
+    if ((height[i] ?? 0) <= CHASM_DEPTH) {
+      tiles[i] = TILE.Void;
+      height[i] = 0;
     }
   }
 }
@@ -209,10 +224,9 @@ function pickPrimaryDoorway(seed: number, room: Room, roomDoorways: Doorway[]): 
  * consolidated ramp at one deliberately-chosen doorway (carveRamp), capped
  * to THRESHOLD_RAMP_MAX_WIDTH; every other doorway meets the room at a
  * plain, un-ramped edge — a real cliff you jump. A chasm gets NO ramp at
- * any doorway — every rim is sheer, crossed only by its guaranteed bridge
- * (stampBridge); falling off is the knockback-death ruling, not a climbable
- * descent (docs/R2-STAIRS-SPEC.md Open Question 1: a walkable-both-ways
- * stair's low anchor must sit above CHASM_DEATH_Z, which -2 cannot). A room
+ * any doorway — every rim is an infinite-height void boundary, crossed only
+ * by its guaranteed bridge (stampBridge); falling off remains a server-side
+ * death, not a climbable descent. A room
  * with no doorways at all just keeps its stamped height with no ramp
  * anywhere (unreachable by corridor; connectivity is guaranteed by the
  * corridor network, not by this pass).

@@ -31,11 +31,13 @@ only by the shift (§6).
 
 ## 1. The one shift rule
 
-**Surface rule (every cell's TOP/cap/floor/pit-floor/tread layer):** cell `(vx,vy)` draws
-its surface — floor frame or chasm fill, chasm ghost, subtle-slope, stair tread + frame,
-top-edge outlines, surface props — at view row `vy` shifted screen-up by `h(vx,vy)·TILE`.
-Negative height (pit/chasm floor) shifts DOWN — a z-1 pit floor renders one tile
-down-screen of its world row (ruling 2 realized directly).
+**Surface rule (every walkable cell's TOP/cap/floor/pit-floor/tread layer):** cell
+`(vx,vy)` draws its surface — floor frame, subtle-slope, stair tread + frame, top-edge
+outlines, and surface props — at view row `vy` shifted screen-up by `h(vx,vy)·TILE`.
+Negative height (ordinary pit floor) shifts DOWN. A void/chasm cell is the exception:
+it draws a flat black square with a black border at its raw row, with no lift and no
+camera-facing wall projection. Its height field is flat/empty; collision uses the
+explicit tile identity as an infinite-height blocker.
 
 **Face rule (fills the vacated gap):** a cell whose **screen-south** neighbor is lower by
 `>= WALL_FACE_MIN_DROP (0.75)` draws a brick FACE BAND of `round(h - h_south)` rows in the
@@ -158,7 +160,7 @@ meleeWedge + blood/corpse decal pools; lighting LightSource.groundHeight.
 
 **Wave E2 — terrain surface shift (the core, atomic with E1's expectations):** drawTile
 (no face-cell early return; surfaceLiftPx on cap layer); placeDebugTile/placeFillRect
-accept optional screen-Y lift; drawGroundTile (floor/chasm/ghost/slope/tread/top-edges
+accept optional screen-Y lift; drawGroundTile (floor/slope/tread/top-edges
 shift by groundAt center; pit-face band raw); ownFace/pitFace repurposed to band emission;
 drawWallTile cap shift; occluderBand/chunkVisual strip overhang + base-vs-strip classifier
 + row-scaled depth; streaming margin.

@@ -1,4 +1,4 @@
-import { CHASM_DEATH_Z, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
+import { CHASM_DEATH_Z, TILE, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
 import { scaledEnemyDef } from "./floors/scaling.js";
 import { isSpawnProtected } from "./spawnSafety.js";
 import {
@@ -11,14 +11,14 @@ import type { EnemySlot, PlayerSlot, SimState } from "./state.js";
 /** Small queries and spawners shared across the sim modules. */
 
 /**
- * Design ruling: rifts are knockback death-pits, not inescapable holes. A
- * grounded body resting at or below chasm depth is standing in one —
- * whether it fell in, was knocked back into one, or walked down a ramp
- * that bottoms out there. Used by both players.ts and enemies/ai.ts so the
- * one ruling can't drift between them.
+ * A grounded body whose tile is explicitly void is standing in a void — with
+ * the old negative-z check retained for legacy/teleported bodies. Used by
+ * players.ts and enemies/ai.ts so the death ruling cannot drift.
  */
-export function isBodyInChasm(body: BodyState): boolean {
-  return body.grounded && body.z <= CHASM_DEATH_Z;
+export function isBodyInChasm(world: { tileAt(x: number, y: number): number }, body: BodyState): boolean {
+  return body.grounded && (
+    world.tileAt(Math.floor(body.x), Math.floor(body.y)) === TILE.Void || body.z <= CHASM_DEATH_Z
+  );
 }
 
 /** Every entity that can take damage or trigger effects. */

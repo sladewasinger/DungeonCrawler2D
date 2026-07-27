@@ -13,8 +13,7 @@
 // like autotile.ts's masks. World-space and orientation-ignorant: a caller that
 // wants the SCREEN-relative sides feeds this the view-space proxy (viewWorld.ts)
 // instead of rotating anything here (viewWorld.ts's module doc, invariant 1).
-import { TILE } from "@dc2d/engine";
-import { FACE_MIN_DROP, type TerrainRead } from "./faces.js";
+import { FACE_MIN_DROP, isVoidCellAt, type TerrainRead } from "./faces.js";
 
 export interface CliffSides {
   readonly north: boolean;
@@ -41,7 +40,7 @@ export function isFloorEdgeDrop(height: number, neighbor: number): boolean {
 }
 
 function isOpenGround(world: TerrainRead, wx: number, wy: number): boolean {
-  return world.tileAt(wx, wy) !== TILE.Wall;
+  return !isVoidCellAt(world, wx, wy);
 }
 
 /**
@@ -75,6 +74,7 @@ export interface FloorEdgeDrops {
 export function floorEdgeDropsAt(world: TerrainRead, wx: number, wy: number): FloorEdgeDrops {
   const height = world.heightAt(wx, wy);
   const drop = (nx: number, ny: number): number => {
+    if (isVoidCellAt(world, wx, wy) || isVoidCellAt(world, nx, ny)) return 0;
     const amount = height - world.heightAt(nx, ny);
     return isFloorEdgeDrop(height, world.heightAt(nx, ny)) ? amount : 0;
   };

@@ -71,7 +71,7 @@ function newSim(seed: string): SimState {
   return createSimState(world, content, new PlayerStore(null), 1, {});
 }
 
-/** Any Floor tile at or below chasm depth, scanning outward from the origin (mirrors world/generate/chasm.test.ts's findChasmChunk). */
+/** Any explicit void tile at or below chasm depth, scanning outward from origin. */
 function findChasmFloor(world: World): { x: number; y: number } | null {
   for (let cx = -24; cx <= 24; cx++) {
     for (let cy = -24; cy <= 24; cy++) {
@@ -79,7 +79,7 @@ function findChasmFloor(world: World): { x: number; y: number } | null {
         for (let lx = 0; lx < CHUNK_SIZE; lx++) {
           const x = cx * CHUNK_SIZE + lx;
           const y = cy * CHUNK_SIZE + ly;
-          if (world.tileAt(x, y) === TILE.Floor && world.heightAt(x, y) <= CHASM_DEATH_Z) return { x, y };
+          if (world.tileAt(x, y) === TILE.Void) return { x, y };
         }
       }
     }

@@ -19,7 +19,7 @@ function world(
   chasms: ReadonlySet<string> = new Set(),
 ): PlayerGroundLightWorld {
   return {
-    tileAt: (x, y): TileType => walls.has(`${x},${y}`) ? TILE.Wall : TILE.Floor,
+    tileAt: (x, y): TileType => walls.has(`${x},${y}`) || chasms.has(`${x},${y}`) ? TILE.Void : TILE.Floor,
     heightAt: (x, y) => chasms.has(`${x},${y}`) ? -2 : 0,
     groundAt: (x, y) => Math.floor(x) + Math.floor(y) / 10,
   };

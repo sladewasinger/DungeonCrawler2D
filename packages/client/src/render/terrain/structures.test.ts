@@ -13,7 +13,7 @@ function tiles(
   doorAt: { x: number; y: number },
   doorTile: TileType = TILE.DoorSafeRoom,
 ): (wx: number, wy: number) => TileType {
-  return (wx, wy) => (wx === doorAt.x && wy === doorAt.y ? doorTile : TILE.Wall);
+  return (wx, wy) => (wx === doorAt.x && wy === doorAt.y ? doorTile : TILE.Floor);
 }
 
 describe("buildStructureMap", () => {
@@ -39,14 +39,14 @@ describe("buildStructureMap", () => {
   it("leaves a north-wall face intact when a room door sits one row inside it", () => {
     const tileAt = (wx: number, wy: number) => {
       if (wx === 5 && wy === 6) return TILE.DoorExit;
-      return wy === 5 ? TILE.Wall : TILE.Floor;
+      return wy === 6 ? TILE.Void : TILE.Floor;
     };
     const map = buildStructureMap(tileAt, 0, 0, 10, 10);
     expect(map.faceSuppressed.size).toBe(0);
   });
 
   it("no doors, no suppression", () => {
-    const map = buildStructureMap(() => TILE.Wall, 0, 0, 32, 32);
+    const map = buildStructureMap(() => TILE.Floor, 0, 0, 32, 32);
     expect(map.doors).toEqual([]);
     expect(map.suppressed.size).toBe(0);
     expect(map.faceSuppressed.size).toBe(0);

@@ -1,13 +1,12 @@
 // Debug-tileset tile picks for the production terrain renderer. Floors/stairs are a
 // straight lookup; walls run autotile.ts's pure bitmask solver against 2D map-space
-// material adjacency (TILE.Wall equality) — the SAME solid-neighbor test regardless
+// material adjacency (same-height finite-floor equality) — the SAME solid-neighbor test regardless
 // of whether the caller is a plain wall cell, a raised face row, or a pit-interior
 // face row, per the decree: "the border logic applies in 2D map-space (material
 // adjacency), not per-row."
-import { TILE } from "@dc2d/engine";
 import { solveWallAutotile, type SolidAt, type WallAutotile } from "./autotile.js";
 import { FRAME_FLOOR, FRAME_STAIRS_EW, FRAME_STAIRS_NS, wallFrameFor } from "./debugTileset.js";
-import type { TerrainRead } from "./faces.js";
+import { isVoidCellAt, type TerrainRead } from "./faces.js";
 import { stacksVertically } from "./stairTread.js";
 
 /** Always the flat gray floor frame — the debug tileset has exactly one floor variant. */
@@ -20,9 +19,13 @@ export function pickStairFrame(direction: number): number {
   return stacksVertically(direction) ? FRAME_STAIRS_NS : FRAME_STAIRS_EW;
 }
 
-/** The `solid` probe for wall-material adjacency at (wx, wy): is the neighbor ALSO a Wall tile? */
+/** The `solid` probe for derived wall-material adjacency at the same finite height. */
 export function wallSolidAt(world: TerrainRead, wx: number, wy: number): SolidAt {
-  return (dx, dy) => world.tileAt(wx + dx, wy + dy) === TILE.Wall;
+  const height = world.heightAt(wx, wy);
+  const hasRaisedSurface = Math.abs(height) >= 0.01;
+  return (dx, dy) => hasRaisedSurface && !isVoidCellAt(world, wx + dx, wy + dy) &&
+    Math.abs(world.heightAt(wx + dx, wy + dy)) >= 0.01 &&
+    Math.abs(world.heightAt(wx + dx, wy + dy) - height) < 0.01;
 }
 
 /** Full autotile solve (mask8/mask4/edges/corners) for the wall material at (wx, wy). */

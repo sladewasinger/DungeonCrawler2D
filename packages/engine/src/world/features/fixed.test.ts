@@ -9,7 +9,7 @@ const CENTER_LY = 10;
 const REQUIRED_FLAT_TOP_ROWS = KIOSK_HEIGHT;
 
 describe("carveSafeRoomEntrance", () => {
-  it("builds a broad 5-wide kiosk TERRACE (walkable raised floor, not rock) with one portal in its south face", () => {
+  it("builds a broad 5-wide kiosk TERRACE (walkable raised floor) with one portal in its south face", () => {
     const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE).fill(TILE.Floor);
     const height = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
     carveSafeRoomEntrance(tiles, height, CENTER_LX, CENTER_LY);

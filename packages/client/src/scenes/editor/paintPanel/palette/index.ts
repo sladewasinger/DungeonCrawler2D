@@ -1,6 +1,5 @@
-// The terrain palette facade: FLOOR/WALL/STAIRS/DOOR-TORCH brush sections plus file
-// controls — Austin's decreed vocabulary ("no more z buttons, just floor varieties,
-// walls, stairs"). Consumers (paintPanel/index.ts) import only this file.
+// The terrain palette facade: finite floor height, void, stairs, doors/torches, and
+// file controls. Consumers (paintPanel/index.ts) import only this file.
 import type { EditorStore } from "../../editorStore.js";
 import { buildDoorTorchSection } from "./doorTorchSection.js";
 import { buildFileSection } from "./fileSection.js";

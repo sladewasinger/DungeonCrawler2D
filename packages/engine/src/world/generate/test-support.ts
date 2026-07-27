@@ -10,10 +10,12 @@
 
 import { STEP_UP } from "../../core/constants.js";
 import { stairRampAt, type StairView } from "../stairs.js";
-import { CHUNK_SIZE, TILE, type Chunk } from "../types.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY, type Chunk } from "../types.js";
 import { generateChunk } from "./index.js";
 
 export type ChunkCache = Map<string, Chunk>;
+
+const isBlockedTile = (tile: number | undefined): boolean => tile === TILE.Void || tile === TOPOLOGY.Uncarved;
 
 export interface WorldPoint {
   x: number;
@@ -69,7 +71,7 @@ export function anyFloorTile(
 ): WorldPoint | null {
   const chunk = chunkAt(seed, floor, cx, cy, cache);
   for (let i = 0; i < chunk.tiles.length; i++) {
-    if (chunk.tiles[i] === TILE.Wall) continue;
+    if (isBlockedTile(chunk.tiles[i])) continue;
     const lx = i % CHUNK_SIZE;
     const ly = (i - lx) / CHUNK_SIZE;
     return { x: cx * CHUNK_SIZE + lx, y: cy * CHUNK_SIZE + ly };
@@ -123,7 +125,7 @@ function chunkView(seed: number, floor: number, cache: ChunkCache): StairView {
     return arr(chunk)[i] ?? fallback;
   };
   return {
-    tileAt: (wx, wy) => at((c) => c.tiles, wx, wy, TILE.Wall),
+    tileAt: (wx, wy) => at((c) => c.tiles, wx, wy, TILE.Void),
     heightAt: (wx, wy) => at((c) => c.height, wx, wy, 0),
   };
 }
@@ -134,7 +136,7 @@ function groundAt(view: StairView, p: WorldPoint): number {
 }
 
 function canStep(view: StairView, cur: WorldPoint, next: WorldPoint): boolean {
-  if (view.tileAt(next.x, next.y) === TILE.Wall) return false;
+  if (isBlockedTile(view.tileAt(next.x, next.y))) return false;
   return groundAt(view, next) - groundAt(view, cur) <= STEP_UP;
 }
 
@@ -215,12 +217,12 @@ function orthoNeighbors(i: number): number[] {
   ];
 }
 
-/** Reachability from every chunk-border/stairs/door tile, ignoring wall topology only. */
+/** Reachability from every chunk-border/stairs/door tile, treating walls and void as blocked. */
 export function floodFromBorder(tiles: Uint8Array): Uint8Array {
   const reached = new Uint8Array(tiles.length);
   const queue: number[] = [];
   for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i] === TILE.Wall || !isReachSeed(tiles, i)) continue;
+    if (isBlockedTile(tiles[i]) || !isReachSeed(tiles, i)) continue;
     reached[i] = 1;
     queue.push(i);
   }
@@ -228,7 +230,7 @@ export function floodFromBorder(tiles: Uint8Array): Uint8Array {
     const i = queue.pop();
     if (i === undefined) break;
     for (const n of orthoNeighbors(i)) {
-      if (n < 0 || reached[n] === 1 || tiles[n] === TILE.Wall) continue;
+      if (n < 0 || reached[n] === 1 || isBlockedTile(tiles[n])) continue;
       reached[n] = 1;
       queue.push(n);
     }

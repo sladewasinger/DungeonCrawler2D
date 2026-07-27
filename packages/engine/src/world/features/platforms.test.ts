@@ -10,7 +10,7 @@ import {
   generatedChunkCenter,
   seedsFor,
 } from "../terrain.js";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import {
   GENERATION_CHUNK_SIZE as CHUNK_SIZE,
   WORLD_GEOMETRY_SCALE,
@@ -45,7 +45,7 @@ function buildClusterChunk(cx: number, cy: number): { tiles: Uint8Array; height:
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const sample = baseSample(seeds, segs, baseX + lx, baseY + ly);
-      tiles[ly * CHUNK_SIZE + lx] = sample.wall ? TILE.Wall : TILE.Floor;
+      tiles[ly * CHUNK_SIZE + lx] = sample.wall ? TOPOLOGY.Uncarved : TILE.Floor;
       height[ly * CHUNK_SIZE + lx] = sample.height;
     }
   }

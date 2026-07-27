@@ -69,9 +69,11 @@ function doorFaceFootprint(
   door: DoorStructure,
   tileAt: (wx: number, wy: number) => TileType,
 ): string[] {
+  // Faces are derived from adjacent finite Floor heights; doors do not need
+  // a categorical wall footprint to suppress them.
   if (door.tile === TILE.DoorSafeRoom) return [];
   return [-2, -1, 1, 2]
-    .filter((dx) => tileAt(door.wx + dx, door.wy) === TILE.Wall)
+    .filter((dx) => tileAt(door.wx + dx, door.wy) !== TILE.Void)
     .map((dx) => tileKey(door.wx + dx, door.wy));
 }
 

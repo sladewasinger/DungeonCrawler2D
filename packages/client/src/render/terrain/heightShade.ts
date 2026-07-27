@@ -4,13 +4,16 @@
 // (z0/z1/z2 each a distinct, at-a-glance step — not one flat "raised" plateau,
 // the "single walls"/floating-strip legibility bug: a 2-deep z1 ridge's own top
 // row used to render identical to plain z0 floor once both hit the same
-// brightness clamp), pits darkening, chasms near-black. Elevation reads from
+// brightness clamp), ordinary pit darkening. Elevation reads from
 // this relative shading plus faces/edges/shadows — never from per-tile
 // highlight rectangles (they wallpaper the grid, the exact defect this module
-// used to cause).
+// used to cause). Void cells are handled as a flat black tile by
+// drawGroundTile/drawTile; the chasm tint remains exported for compatibility
+// with callers that use height-based grading for non-surface effects.
+
+import { CHASM_DEATH_Z, TILE, type TileType } from "@dc2d/engine";
 
 const LOW_HEIGHT = -1; // a sunken pit floor (1z = 1 tile)
-const CHASM_THRESHOLD = -1.5; // below this reads as void, not "deep pit"
 
 /** Cools the pack's native warm-brown stone toward the doc's #2e2e3a..#494956 blue-grey. */
 const PALETTE_GRADE = 0xb0b0b0;
@@ -28,22 +31,15 @@ const NEUTRAL_FACTOR = 0xffffff;
 // the user's "pitch black room" repro (austin-dungeon-prod-1, x-13,y18) is
 // exactly this — a legible, walkable -1 pit reading as an unrendered hole.
 // Lifted to stay visibly darker than floor (still reads as sunken) without
-// crushing readability the same way the chasm hole sprite's own factor
-// (CHASM_FACTOR, below) was tuned not to.
+// crushing readability. Explicit void surfaces are flat black; this factor is
+// only for non-surface height grading.
 const PIT_FACTOR = 0x9a9a9a;
-// Multiply factor for chasm-depth ground tiles (the "hole" sprite). Tuned so
-// the result reads as VISUAL_DIRECTION's "near-black #14141c void" on
-// AVERAGE while keeping the sprite's own cave-mouth shading visible: the
-// previous 0x30303c crushed the hole art's already-dark palette (RGB
-// 34..119) down to single-digit channel values indistinguishable from flat
-// black — a void with real texture rendering as a pure black square, the
-// pre-deploy "chasm renders pure near-black, no texture" bug. This factor's
-// darkest sprite pixel lands near #0a0a0e; the lit rim near #232329 — dark,
-// but no longer flat.
+// Grading factor for non-surface callers at chasm depth. Terrain surfaces use
+// VOID_SURFACE_COLOR directly and do not project a camera-facing wall.
 const CHASM_FACTOR = 0x707070;
 export const CHASM_TINT = multiplyColor(PALETTE_GRADE, CHASM_FACTOR);
-/** Flat, unlit purple for every non-walkable void surface and its exposed underlay. */
-export const VOID_SURFACE_COLOR = 0x202036;
+/** Flat, unlit black for every void surface and its exposed underlay. */
+export const VOID_SURFACE_COLOR = 0x000000;
 function clamp01(t: number): number {
   return Math.min(1, Math.max(0, t));
 }
@@ -71,7 +67,7 @@ function multiplyColor(a: number, b: number): number {
 }
 
 function heightFactor(height: number): number {
-  if (height <= CHASM_THRESHOLD) return CHASM_FACTOR;
+  if (height <= CHASM_DEATH_Z) return CHASM_FACTOR;
   if (height < 0) return lerpColor(PIT_FACTOR, FLOOR_FACTOR, clamp01((height - LOW_HEIGHT) / -LOW_HEIGHT));
   if (height < 1) return lerpColor(FLOOR_FACTOR, TIER1_FACTOR, clamp01(height));
   return lerpColor(TIER1_FACTOR, NEUTRAL_FACTOR, clamp01(height - 1));
@@ -87,9 +83,13 @@ export function heightTint(height: number): number {
   return multiplyColor(PALETTE_GRADE, heightFactor(height));
 }
 
-/** Chasm-depth tiles render as the pack's void art instead of a floor variant. */
+/** A cell is void only when its explicit terrain tile says so. */
 export function isChasmDepth(height: number): boolean {
-  return height <= CHASM_THRESHOLD;
+  return height <= CHASM_DEATH_Z;
+}
+
+export function isVoidTile(tile: TileType): boolean {
+  return tile === TILE.Void;
 }
 
 /** How far toward full white a top's edge-outline sprite lifts, relative to its own fill tint. */

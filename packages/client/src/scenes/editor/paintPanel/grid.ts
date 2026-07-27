@@ -2,7 +2,7 @@
 // StackTile fields directly for the stack-count badge and cap/stair/door glyphs), plus
 // small bench overlay glyphs (Epic 7.11) so painted areas/enemies/items are visible
 // without switching to the right (real-renderer) panel.
-import { TILE, type StackDir, type StackTile } from "@dc2d/engine";
+import { type StackDir, type StackTile } from "@dc2d/engine";
 import { maskHex } from "../../../render/terrain/autotile.js";
 import type { BenchState } from "../bench/index.js";
 import type { EditableWorld, EditorCell } from "../EditableWorld.js";
@@ -27,14 +27,13 @@ function heightColor(h: number): string {
   return `rgb(${c},${c},${Math.round(58 + t * 120)})`;
 }
 
-/** Fill + label for one cell: an uncapped wall stack shows its layer-count badge
- * ("W2"), a stair shows a direction arrow, a door shows "D"; everything else (bare
+/** Fill + label for one cell: an uncapped void shows a VOID badge, a stair shows a
+ * direction arrow, a door shows "D"; everything else (bare
  * ground or a capped platform) shows its compiled height, same as the pre-reskin grid. */
 function cellStyle(stack: StackTile, cell: EditorCell): { fill: string; label: string } {
   if (stack.stair) return { fill: heightColor(cell.height), label: STAIR_ARROW[stack.stair.dir] };
   if (stack.feature) return { fill: "#3dd6c3", label: "D" };
-  if (cell.tile === TILE.Wall && stack.cap === null) return { fill: "#202036", label: `V${cell.height}` };
-  if (stack.cap === null && stack.walls > 0) return { fill: "#6b6b7e", label: `W${stack.walls}` };
+  if (stack.cap === null) return { fill: "#05050b", label: "VOID" };
   return { fill: heightColor(cell.height), label: String(cell.height) };
 }
 
@@ -71,9 +70,8 @@ function drawCell(ctx: CanvasRenderingContext2D, world: EditableWorld, x: number
   const { fill, label } = cellStyle(stack, cell);
   ctx.fillStyle = fill;
   ctx.fillRect(x * CELL_PX, y * CELL_PX, CELL_PX - 1, CELL_PX - 1);
-  // A floor cap atop a wall stack (walkable platform) gets a thin bright bottom
-  // border — the "capped" tell the count badge alone can't show once it's gone.
-  if (stack.cap !== null && stack.walls > 0) {
+  // A floor cap on a raised cell gets a thin bright bottom border.
+  if (stack.cap !== null && stack.height > 0) {
     ctx.fillStyle = "#ffd23d";
     ctx.fillRect(x * CELL_PX, y * CELL_PX + CELL_PX - 3, CELL_PX - 1, 2);
   }
@@ -84,10 +82,10 @@ function drawCell(ctx: CanvasRenderingContext2D, world: EditableWorld, x: number
   ctx.fillText(label, x * CELL_PX + CELL_PX / 2, y * CELL_PX + CELL_PX / 2);
 }
 
-/** AUTOTILE DEBUG toggle: every wall tile's cardinal mask, in hex, straight from the
+/** AUTOTILE DEBUG toggle: every uncapped cell's cardinal mask, in hex, straight from the
  * store's live-resolved cache — lets the user verify the bitmask by hand, tile by tile. */
 function drawAutotileDebugOverlay(ctx: CanvasRenderingContext2D, store: EditorStore, x: number, y: number): void {
-  if (store.world.cellAt(x, y).tile !== TILE.Wall) return;
+  if (store.world.stackAt(x, y).cap !== null) return;
   const mask4 = store.autotileMasks.get(x, y)?.mask4;
   if (mask4 === undefined) return;
   ctx.fillStyle = "#ffd23d";

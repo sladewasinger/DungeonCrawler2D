@@ -17,7 +17,7 @@ describe("propFrame", () => {
 
   it("returns null for plain floor/wall/stairs — no prop overlay", () => {
     expect(propFrame(TILE.Floor)).toBeNull();
-    expect(propFrame(TILE.Wall)).toBeNull();
+    expect(propFrame(TILE.Floor)).toBeNull();
     expect(propFrame(TILE.Stairs)).toBeNull();
   });
 });

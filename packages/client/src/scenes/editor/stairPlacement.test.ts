@@ -108,7 +108,7 @@ describe("EditorStore stair transition", () => {
     expect(store.pendingStairOrigin).toBeNull();
     expect(writes).toBe(1);
     expect(JSON.parse(store.exportJson()).stacks[8 * 20 + 8]).toEqual({
-      walls: 0,
+      height: 0,
       cap: null,
       stair: { dir: 0 },
     });

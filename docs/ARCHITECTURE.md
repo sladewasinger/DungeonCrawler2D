@@ -32,8 +32,8 @@ Everything that defines *what the game is* — effect primitives, interaction ru
 ```
 dungeoncrawler2D/
 ├── docs/                        # This documentation
-├── assets/pack/                 # Source art (Craftpix asset pack + license), pre-pipeline
-├── tools/generate-art.mjs       # Bakes the committed spritesheets + atlas.json from measured pack slices
+├── assets/                      # Source art, companion sprites, fonts, and license records
+├── tools/generate-art.mjs       # Bakes the committed terrain spritesheets + atlas.json
 ├── tools/render-sample.ts       # Renders docs/art-samples/ proof images via the client's tileframes.ts
 ├── tools/tile-studio/           # In-browser map editor (npm run studio): palette + rule learning + WFC paint → dc2d-map JSON
 ├── packages/
@@ -45,6 +45,7 @@ dungeoncrawler2D/
 │   │   ├── world/               #   Layout pipeline: types, terrain (caves+corridors), generate, pockets, world cache
 │   │   │   └── features/        #   Deliberate stamps: fixed kiosks/stairways, platforms, terraces, rooms, testzone, custommap
 │   │   ├── entities/            #   Entity model, stats, tags
+│   │   ├── navigation/          #   Shared bounded grid pathfinding and stair-rim traversal
 │   │   ├── effects/             #   Primitives, StatusEffect, interaction rules (EFFECTS.md)
 │   │   ├── areas/               #   Tile-region area effects, spread/decay sim
 │   │   ├── items/               #   ItemDefinition schema, inventory, validation
@@ -53,11 +54,11 @@ dungeoncrawler2D/
 │   │   └── net/                 #   Protocol types: intents, events, snapshots (shared contract)
 │   ├── client/                  # ── PHASER + VITE ──
 │   │   ├── scenes/              #   Scene orchestration: frame loop, fixed-step sampling, camera
-│   │   ├── render/              #   Phaser TerrainRenderer, EntityRenderer, AreaRenderer, atlas constants
+│   │   ├── render/              #   TerrainRenderer, entities (players/enemies/pets/projectiles), AreaRenderer
 │   │   ├── net/                 #   connection (socket + intents), prediction, apply (server truth), interpolate, identity
 │   │   ├── input/               #   Keyboard/mouse → intents (controller.ts)
 │   │   ├── three/               #   Three.js renderer plus the shared renderer-neutral HTML HUD
-│   │   └── ui/                  #   HUD models, tutorials, item catalog, and legacy Phaser input hit regions
+│   │   └── ui/                  #   HUD widgets, edit mode, tutorials, item catalog, and input hit regions
 │   ├── game-server/             # ── NODE + ws ──
 │   │   ├── sim/                 #   The authoritative sim — one module per concern over a shared
 │   │   │                        #   SimState (state.ts): players, actions, inventory, social,
@@ -66,9 +67,9 @@ dungeoncrawler2D/
 │   │   ├── server.ts            #   ws transport: decode/zod-validate → sim; snapshots out
 │   │   ├── store.ts             #   File-backed player store (stash, identity) → DynamoDB in v0.8
 │   │   └── main.ts
-│   └── services/                # ── (v0.5+) LAMBDA HANDLERS ──
-│       ├── craft/               #   AI crafting proxy
-│       └── registry/            #   Item registry (v0.6)
+│   └── services/                # ── PLANNED: Lambda handlers, not in this checkout yet ──
+│       ├── craft/               #   AI crafting proxy (planned)
+│       └── registry/            #   Item registry (planned)
 ├── infra/                       # Terraform — see INFRASTRUCTURE.md
 └── tests/                       # Vitest: engine units + headless client/server sim tests
 ```
@@ -110,16 +111,29 @@ Key decisions:
 - **Network metrics are first-class diagnostics.** Client and server transport paths aggregate messages/sec, bytes/sec, codec time, and maximum send-queue depth; the client also records RTT/jitter, baseline-recovery requests, and reconciliation error. Deterministic protocol benchmarks cover idle reduction and independent full-baseline recovery after a dropped client delta.
 - **Area-of-interest (AOI) replication.** The floor is vast and shared, so full-world broadcast is impossible by design: each client receives entity/effect deltas only within a view radius around its player. AOI is simultaneously the bandwidth cap (per-player traffic is constant regardless of world size), the *fog of dread* (you genuinely don't know who's out there), and what makes stumbling onto a stranger an event.
 - **Geometry ships as seeds.** Chunks are deterministic from `(worldSeed, floor, chunkCoord)`, so the server sends coordinates, never tiles; a joining client gets its position + an AOI entity snapshot and generates everything else locally.
+- **Navigation is shared and bounded.** `packages/engine/src/navigation/gridPath.ts` owns
+  the small deterministic grid search used by server-side actors. It checks
+  walkability, terrain height, void safety, jump reach, and stair direction; the
+  game-server pet adapter adds the pet-specific jump threshold and retry budget.
+  Future enemies and companions should call this module rather than grow separate
+  pathfinding implementations.
 - **Chat rides the same socket** as lightweight channel messages (global / party / DM / proximity), fanned out server-side with mute/block lists enforced *before* delivery — a blocked player's messages never reach your client.
 - **Protocol lives in `engine/net`** as typed messages (zod-validated on the server — never trust the client, doubly so in PvP), JSON-encoded first. Binary encoding (msgpack) is a v0.9 optimization if profiling demands it.
+- **HUD layout is viewport-relative where panels need resizing.** The Three.js HTML HUD stores window position and width/height as ratios in storage schema v4, migrating older pixel layouts; resize and edit gestures write ratios back. The Phaser widget registry keeps its anchor/offset contract and loads persisted layouts before construction. Mobile inventory deliberately leaves its filter unfocused when opened.
+- **Browser connection identity is tab-scoped.** Session storage carries the
+  client ID and resume token; a per-browsing-context marker detects Chrome's
+  duplicated session storage and rotates the copied identity. If session
+  storage is unavailable, local fallback resume tokens are namespaced by that
+  marker, while name and character defaults remain shared preferences.
 - **Shards are server-owned.** No player is "host"; disconnects get a grace period and the floor keeps simulating. One game-server process hosts one or more floor shards.
 
 ### World model: floors, chunks, stretch rooms
 
 - A **floor is exactly one shard, and floors never interact.** No shared space, no cross-floor effects — a floor is a self-contained world with its own difficulty, biome, and lifecycle. Descent through a stairway is a one-way handoff: the shard broker moves the player's connection (and state) to the next floor's shard. This makes sharding trivially clean — nothing ever spans a shard boundary.
 - **Floors run indefinitely for now** (see [GAME_DESIGN.md](GAME_DESIGN.md)): one global world, stairways open, new players start on floor 1. The timed **Seasons** lifecycle (post-v1.0) will add a lightweight controller (scheduled Lambda or the broker) that opens stairways on each floor's time gate and closes seasons to new joins.
-- **Terrain is heightmapped.** Each chunk carries a continuous height field alongside its tile/zone data; entities live at `(x, y, z)`. Gravity, jump arcs, and landings are part of the engine's physics step from v0.1 — retrofitting z into a shipped protocol and generator would be miserable, so it's in the data model from the first commit.
-- **Walls are raised terrain with a derived visible facade.** A logical wall tile is the local ground raised `WALL_RISE` (2 — above STEP_UP, under the jump apex): its top is a walkable platform you can jump onto, walk across, and fall off, and projectiles clear it only if their arc does. Because the angled top-down projection draws the wall's south face into the lower neighboring cell, `World.wallFaceAt(x, y)` derives that occupied vertical span from the raised tile to the north. The lower cell keeps its real floor surface and height, but grounded bodies, pathing, and low projectiles stop at the visible facade base; sufficiently high airborne bodies and arcs can clear its top. Portal-door tiles are deliberate openings and do not derive a facade. Stretch-room perimeters rise +6 — beyond the jump apex — so instanced rooms stay sealed.
+- **Terrain is a height map with a separate feature plane.** Each chunk carries a continuous height field, a Floor/Void terrain plane, and feature overlays (stairs, doors, furniture) alongside its zone data; entities live at `(x, y, z)`. Gravity, jump arcs, and landings are part of the engine's physics step from v0.1.
+- **Raised floors create derived faces.** There is no runtime Wall tile. A finite Floor's height controls movement and the renderer derives camera-facing faces only where neighboring finite floors differ. Portal-door and furniture features are separate overlays. Stretch-room perimeters remain raised and sealed.
+- **Voids are infinite-height collision boundaries.** Generated chasm cells are finalized as explicit `TILE.Void` terrain with no height/surface, so players and navigation cannot walk or jump onto them from any platform height. The Phaser renderer draws each void as a flat black square with a black border and no projected wall; the Three.js renderer uses a bounded tall black volume (currently 10 world units) so the first-person view still reads as an impassable drop.
 - The server keeps **active chunks** (near players) hot in the tick loop and **hibernates** the rest, persisting their deltas (looted items, burned/charred tiles, opened doors) so the world stays consistent when someone wanders back.
 - **Fixed features** — safe rooms, stairways, biome regions — are placed deterministically per floor, identical for every player.
 - Map regions carry **zone tags** (`sanctuary` on safe rooms) that the effects engine reads like any other tag — sanctuary is data plus one interaction rule, not special-case code (see [EFFECTS.md](EFFECTS.md)).
@@ -137,8 +151,18 @@ An `Entity` is an id + position `(x, y, z)` + stat block + **tag set** + active 
 - Behavioral tags: `enemy`, `player`, `item`, `container`
 - Pets are a separate `pet` entity kind. The server keeps their owner and
   behavior state in `sim/pets/`; claiming is an authoritative `interact` action,
-  while follow/drift movement is isolated from enemy AI so future abilities
-  (combat help, loot retrieval) can grow without making pets hostile entities.
+  while follow/drift movement is isolated from enemy AI. Floor 1 seeds one of
+  each current pet definition around the shared spawn anchor; the first nearby
+  crawler to press `E` claims an unowned pet, and each crawler may own only one.
+  Pets use a long leash with teleport recovery, bounded A* for ledges/stairs,
+  and an expandable ability record so future combat help or loot retrieval does
+  not turn pets into hostile entities.
+- Temporary handicaps are grants, not combat special cases. Join-time name
+  matching currently grants `damageTakenMultiplier: 0.3` and
+  `damageGivenMultiplier: 3` to names containing `josiah` or `ellie`, ignoring
+  case. The isolated `HandicapGrant` contract also accepts a persisted/admin
+  grant, so an admin panel can replace the temporary matcher without rewriting
+  damage resolution.
 - Effect-owned tags: being on fire adds `burning`; standing in water adds `wet`
 - Zone tags on map regions: `sanctuary` (safe rooms — hostile primitives suppressed); later biome tags like `flooded`, `overgrown`
 
@@ -153,7 +177,7 @@ Every effect, item, and enemy is a JSON file in `content/`, validated against a 
 `generateChunk(worldSeed, floor, chunkCoord) → DungeonChunk` — a pure function over seeded hashes, built **layout first, height second**:
 
 1. **Flat layout.** Cave-noise walls + the corridor network (long hallways between jittered chunk centers — the global connectivity guarantee) + fixed features (safe-room kiosks, stairway pads) + a reachability pass that seals orphan pockets. Everything at height 0, so the dungeon reads as a dungeon on its own.
-2. **Deliberate height.** Verticality is only ever *added by features that make sense as places*: wall tiles rise `WALL_RISE` (+2 — jumpable platforms with real collision at their base), ruin platform clusters stamp tiered mesas with loot on top, and the authored proving ground carries its own geometry. There is **no noise heightfield** — a height change exists because something was built there, never because a contour happened to cross a hallway. (Tried the other order first; it produces staircases splitting hallways that are mathematically valid and conceptually meaningless.)
+2. **Deliberate height.** Verticality is only ever *added by features that make sense as places*: raised floor regions use `WALL_RISE`/derived face geometry, ruin platform clusters stamp tiered mesas with loot on top, and the authored proving ground carries its own geometry. There is **no noise heightfield** — a height change exists because something was built there, never because a contour happened to cross a hallway.
 
 **Wave-function collapse is the planned decoration layer** (v0.8 biomes/ruins): the noise + corridor skeleton stays structural — it owns connectivity, determinism, and chunk-locality, none of which WFC provides naturally — while seeded WFC textures constrained regions (room interiors, ruin patches) whose border cells the skeleton pins, so per-chunk solving can't contradict neighbors. Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry and heights on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities (enemies, loot, players) are placed by the server and sent as events, so only static geometry and zones rely on determinism. The generator's contract and test suite cover cross-chunk connectivity, the flat-base invariant, and platform-tier jumpability.
 
@@ -161,7 +185,7 @@ Every effect, item, and enemy is a JSON file in `content/`, validated against a 
 
 - **64×64 pixel tiles**, `pixelArt: true` (nearest-neighbor); top-down view; Don't Starve-adjacent mood via palette and silhouette, not detail
 - **Assets are baked binaries**: `tools/generate-art.mjs` (`npm run art`) composes the tile atlas from the Craftpix top-down dungeon pack in `assets/pack/` (16×16 source tiles upscaled 4×, sanctuary recolored teal, cliff faces reusing the pack masonry) plus procedural pieces (stair treads, rim overlays, player sprites), writing committed PNGs + `atlas.json` (frame indices) that the client imports — one source of truth. New/replacement art slots in behind the same atlas contract
-- **Chunks render as Phaser tilemap layers** (base terrain + overlay for wall tops, cliff faces, ledge rims, and stair treads) sharing the single atlas texture on the GPU — at 64px/tile, per-chunk canvases would be 2048² textures; tilemaps keep memory flat. Height shading is a per-tile elevation tint spanning the full height range (higher = brighter/warmer, depths darker/cooler); treads draw wherever the height field forms a walkable ramp, so climb routes are readable without any extra tile data. Walls render as a raised horizontal top plus a south-facing masonry facade projected into the lower neighboring cell. The top uses its owning wall tile's raised-height tint; the facade owns the full visible vertical span and matches the derived `wallFaceAt` collision span. The lower cell remains real floor rather than being rewritten as another wall tile. Variant selection is `hash2D(wx, wy)`, so every client draws the identical world
+- **Chunks render as Phaser tilemap layers** (base terrain + overlays for derived faces, cliff rims, and stair treads) sharing the single atlas texture on the GPU — at 64px/tile, per-chunk canvases would be 2048² textures; tilemaps keep memory flat. Height shading is a per-tile elevation tint spanning the walkable height range (higher = brighter/warmer, ordinary pits darker/cooler); treads draw wherever the height field forms a walkable ramp, so climb routes are readable without extra tile data. Void cells bypass the height projection entirely and draw a flat black square plus black border; no face is derived beside them. Variant selection is `hash2D(wx, wy)`, so every client draws the identical world
 - **Verticality rendering:** a shadow blob anchors every entity's ground position; the sprite lifts off the shadow by its height **above the local terrain** (`z − heightAt(x, y)`) — zero when grounded on any plateau, growing only mid-jump/mid-fall. (Lifting by absolute z is wrong: terrain art doesn't shift with height in top-down, so grounded players on high ground would float.) Cliff-face and rim tiles make elevation legible at a glance
 - Player characters get palette-swap variants so players are distinguishable at a glance
 - Effect VFX (fire, poison bubbles, splashes) are small particle configs keyed by effect tags — an AI item tagged `fire` automatically gets fire VFX
@@ -183,11 +207,13 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 
 ## Testing strategy
 
-- **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation, melee targeting, AI decisions, area buoyancy — all headless engine code
-- **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, and out-of-range clients receive nothing
+- **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation, melee targeting, AI decisions, bounded navigation, pet leash/path behavior, and area buoyancy — all headless engine code
+- **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, non-party revives replicate to everyone, pets claim/follow, and out-of-range clients receive nothing
 - **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
-- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (no damage, no knockback, 4× outgoing damage) and `/tp X Y` — so a feature can be inspected directly instead of wandering a live PvP world. Gated by the server's `debugCommands` option: on for development, hard-off in production
-- **Manual/playtest:** Phaser layer, feel, latency tuning — every release playtested as a duo minimum
+- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (no damage, no knockback, 4× outgoing damage, unlimited stamina) and `/tp X Y` — so a feature can be inspected directly instead of wandering a live PvP world. `/god` is a toggle, and `DEBUG_COMMANDS` gates both commands: on for development, hard-off in production
+- **Manual/playtest:** Phaser and Three.js layers, pet claiming/following, HUD
+  editing, mobile focus ownership, and latency tuning are covered by the release
+  checklist; every release still needs a duo minimum for multiplayer behavior.
 
 ## Conventions
 

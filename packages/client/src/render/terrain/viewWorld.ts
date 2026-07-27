@@ -19,6 +19,7 @@
 // lighting (computeLightField's BFS is a real-world light-flow simulation) and the
 // engine's stair climb-direction detection (a real height-gradient fact).
 import type { ViewOrientation } from "../view/viewOrientation.js";
+import { TERRAIN } from "@dc2d/engine";
 import { viewTileToWorld, viewToWorld, type Point } from "../view/viewTransform.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 
@@ -45,6 +46,7 @@ export function viewWorld(world: TerrainWorld, orientation: ViewOrientation): Vi
     orientation,
     toReal,
     tileAt: (vx, vy) => world.tileAt(...toRealArgs(toReal, vx, vy)),
+    terrainAt: (vx, vy) => world.terrainAt?.(...toRealArgs(toReal, vx, vy)) ?? TERRAIN.Floor,
     heightAt: (vx, vy) => world.heightAt(...toRealArgs(toReal, vx, vy)),
     zoneAt: (vx, vy) => world.zoneAt(...toRealArgs(toReal, vx, vy)),
     isSanctuary: (vx, vy) => world.isSanctuary(...toRealArgs(toReal, vx, vy)),

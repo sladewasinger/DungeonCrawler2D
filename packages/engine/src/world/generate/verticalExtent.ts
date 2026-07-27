@@ -8,36 +8,36 @@
 // both passes treat door tiles as a run boundary, never as something to fix.
 
 import { WALL_FACE_MIN_DROP } from "../../core/constants.js";
-import { TILE, type TileType } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 
 const HEIGHT_EPS = 0.01;
 const MAX_PASSES = 4;
 
-const DOOR_TILES: ReadonlySet<TileType> = new Set([
+const DOOR_TILES: ReadonlySet<number> = new Set([
   TILE.DoorSafeRoom,
   TILE.DoorPersonal,
   TILE.DoorParty,
   TILE.DoorExit,
 ]);
 
-function tileAt(tiles: Uint8Array, chunkSize: number, x: number, y: number): TileType {
-  return (tiles[y * chunkSize + x] ?? TILE.Wall) as TileType;
+function tileAt(tiles: Uint8Array, chunkSize: number, x: number, y: number): number {
+  return tiles[y * chunkSize + x] ?? TOPOLOGY.Uncarved;
 }
 
 /** True for a tile a north-south run never spans across — a wall, a ramp, or a door cutout. */
-function isRunBreak(tile: TileType): boolean {
-  return tile === TILE.Wall || tile === TILE.Stairs || DOOR_TILES.has(tile);
+function isRunBreak(tile: number): boolean {
+  return tile === TOPOLOGY.Uncarved || tile === TILE.Void || tile === TILE.Stairs || DOOR_TILES.has(tile);
 }
 
-/** The last row (inclusive) of the contiguous TILE.Wall run starting at (x, y). */
+/** The last row (inclusive) of the contiguous TOPOLOGY.Uncarved run starting at (x, y). */
 function wallRunEnd(tiles: Uint8Array, chunkSize: number, x: number, y: number): number {
   let y2 = y;
-  while (y2 + 1 < chunkSize && tileAt(tiles, chunkSize, x, y2 + 1) === TILE.Wall) y2++;
+  while (y2 + 1 < chunkSize && tileAt(tiles, chunkSize, x, y2 + 1) === TOPOLOGY.Uncarved) y2++;
   return y2;
 }
 
 /**
- * Thin free-standing walls merge into floor: a TILE.Wall run less than 2
+ * Thin free-standing walls merge into floor: a TOPOLOGY.Uncarved run less than 2
  * deep, open to both its north AND south (strictly inside the chunk — a run
  * touching the chunk edge may continue, unknown, into the neighbor chunk, so
  * it's left alone), can never show a top cap distinct from its own face —
@@ -49,13 +49,13 @@ export function resolveThinWalls(tiles: Uint8Array, chunkSize: number): void {
   for (let x = 0; x < chunkSize; x++) {
     let y = 0;
     while (y < chunkSize) {
-      if (tileAt(tiles, chunkSize, x, y) !== TILE.Wall) {
+      if (tileAt(tiles, chunkSize, x, y) !== TOPOLOGY.Uncarved) {
         y++;
         continue;
       }
       const y2 = wallRunEnd(tiles, chunkSize, x, y);
-      const northOpen = y > 0 && tileAt(tiles, chunkSize, x, y - 1) !== TILE.Wall;
-      const southOpen = y2 < chunkSize - 1 && tileAt(tiles, chunkSize, x, y2 + 1) !== TILE.Wall;
+      const northOpen = y > 0 && tileAt(tiles, chunkSize, x, y - 1) !== TOPOLOGY.Uncarved;
+      const southOpen = y2 < chunkSize - 1 && tileAt(tiles, chunkSize, x, y2 + 1) !== TOPOLOGY.Uncarved;
       const isThin = y2 - y + 1 < 2;
       if (isThin && northOpen && southOpen) {
         for (let yy = y; yy <= y2; yy++) tiles[yy * chunkSize + x] = TILE.Floor;

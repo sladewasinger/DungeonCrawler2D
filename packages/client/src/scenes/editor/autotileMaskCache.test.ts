@@ -5,7 +5,7 @@ import { EditableWorld } from "./EditableWorld.js";
 describe("AutotileMaskCache", () => {
   it("rebuildAll reads an isolated wall as fully bordered (mask4 = 0)", () => {
     const world = new EditableWorld();
-    world.paintWallAt(5, 5);
+    world.paintHeightAt(5, 5);
     const cache = new AutotileMaskCache();
     cache.rebuildAll(world, 20);
     expect(cache.get(5, 5)?.mask4).toBe(0);
@@ -14,8 +14,8 @@ describe("AutotileMaskCache", () => {
 
   it("rebuildAll reads a 2-wide horizontal run's shared edge as open on both sides", () => {
     const world = new EditableWorld();
-    world.paintWallAt(5, 5);
-    world.paintWallAt(6, 5);
+    world.paintHeightAt(5, 5);
+    world.paintHeightAt(6, 5);
     const cache = new AutotileMaskCache();
     cache.rebuildAll(world, 20);
     expect(cache.get(5, 5)?.edges.east).toBe(false);
@@ -28,8 +28,8 @@ describe("AutotileMaskCache", () => {
     const cache = new AutotileMaskCache();
     cache.rebuildAll(world, 20); // all bare floor
 
-    world.paintWallAt(5, 5);
-    world.paintWallAt(6, 5); // inside (5,5)'s 8-neighborhood
+    world.paintHeightAt(5, 5);
+    world.paintHeightAt(6, 5); // inside (5,5)'s 8-neighborhood
     cache.resolveAround(world, 5, 5);
 
     expect(cache.get(5, 5)?.mask4).toBe(0b0010); // E neighbor is now wall
@@ -41,9 +41,9 @@ describe("AutotileMaskCache", () => {
     const cache = new AutotileMaskCache();
     cache.rebuildAll(world, 20); // all bare floor: every cell reads mask4=0
 
-    world.paintWallAt(5, 5);
-    world.paintWallAt(15, 15);
-    world.paintWallAt(16, 15); // gives (15,15) a real east wall neighbor once resolved
+    world.paintHeightAt(5, 5);
+    world.paintHeightAt(15, 15);
+    world.paintHeightAt(16, 15); // gives (15,15) a real east height neighbor once resolved
 
     cache.resolveAround(world, 5, 5); // nowhere near (15,15)/(16,15)
 

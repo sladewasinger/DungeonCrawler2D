@@ -1,6 +1,6 @@
 // A hand-painted 20x20 world satisfying the terrain renderer's read surface — the
 // editor's model. Cells are @dc2d/engine's StackTile (the stack lane's contract:
-// walls/cap/stair/feature), always reduced to the engine's (tile, height) pair through
+// height/cap/stair/feature), always reduced to the engine's (tile, height) pair through
 // stacksToHeightField — the single source of truth this file never re-derives. Outside
 // the grid reads as chasm void, so the painted map renders as an island. Also owns the
 // editor's own torch overlay: tile positions serialized alongside the stacks, additive
@@ -8,15 +8,17 @@
 import {
   DEFAULT_FLOOR_CAP,
   STACK_FEATURE,
+  TERRAIN,
   TILE,
   ZONE,
-  loadEditorMap,
+  editorMapV2Schema,
   stairRampAt,
   stacksToHeightField,
   type CompiledField,
   type EditorMapV2,
   type StackDir,
   type StackTile,
+  type TerrainType,
   type TileType,
   type TorchTile,
   type ZoneType,
@@ -29,18 +31,14 @@ import {
 } from "./stairPlacement.js";
 
 export const EDITOR_GRID_SIZE = 20;
-const VOID_HEIGHT = -4;
 const CELL_COUNT = EDITOR_GRID_SIZE * EDITOR_GRID_SIZE;
-
-/** Bare, unpainted ground — walls=0 WITH a cap, per stacks/compile.ts's contract
- * (capless walls=0 is a real, if unusual, zero-height solid wall, not open ground). */
-const GROUND_STACK: StackTile = { walls: 0, cap: DEFAULT_FLOOR_CAP, stair: null };
+/** Bare, unpainted ground — a finite Floor at height 0 with the default cap. */
+const GROUND_STACK: StackTile = { height: 0, cap: DEFAULT_FLOOR_CAP, stair: null };
 
 export interface EditorCell {
   readonly tile: TileType;
   readonly height: number;
 }
-
 export type { TorchTile };
 
 export class EditableWorld {
@@ -65,14 +63,13 @@ export class EditableWorld {
     this.stacks[this.indexOf(wx, wy)] = stack;
     this.compiled = undefined; // invalidated; stair-run interpolation needs a whole-grid recompile anyway
   }
-
   private ensureCompiled(): CompiledField {
     if (!this.compiled) this.compiled = stacksToHeightField(this.stacks, EDITOR_GRID_SIZE, EDITOR_GRID_SIZE);
     return this.compiled;
   }
 
   cellAt(wx: number, wy: number): EditorCell {
-    if (!this.inGrid(wx, wy)) return { tile: TILE.Floor, height: VOID_HEIGHT };
+    if (!this.inGrid(wx, wy)) return { tile: TILE.Void, height: 0 };
     const i = this.indexOf(wx, wy);
     const c = this.ensureCompiled();
     return { tile: c.tiles[i] as TileType, height: c.height[i] ?? 0 };
@@ -84,28 +81,24 @@ export class EditableWorld {
     this.setStack(wx, wy, stackFromRaw(tile, height));
   }
 
-  /** Stacks +1: builds on top of whatever was there, clearing any cap/door/stair — the
-   * decreed "paint on an existing wall STACKS +1" vocabulary. */
-  paintWallAt(wx: number, wy: number): void {
+  /** Raises the finite floor height by one, clearing any feature or stair override. */
+  paintHeightAt(wx: number, wy: number): void {
     const s = this.stackAt(wx, wy);
-    this.setStack(wx, wy, { walls: (s.stair ? 0 : s.walls) + 1, cap: null, stair: null });
-  }
-
-  /** Stamps one solid wall at an explicit rendered height. This is the terrain-debug
-   * tool's direct authoring path: a click always means exactly the height shown in
-   * the left panel, not "add another invisible stack and count it mentally." */
-  paintWallHeightAt(wx: number, wy: number, height: number): void {
-    this.setStack(wx, wy, { walls: height, cap: null, stair: null });
+    this.setStack(wx, wy, {
+      height: (s.stair ? 0 : s.height) + 1,
+      cap: s.cap ?? DEFAULT_FLOOR_CAP,
+      stair: null,
+    });
   }
 
   /** Writes the editor's primary terrain datum: a walkable floor at an exact z height. */
   paintFloorHeightAt(wx: number, wy: number, height: number, capId: string): void {
-    this.setStack(wx, wy, { walls: height, cap: capId, stair: null });
+    this.setStack(wx, wy, { height: height, cap: capId, stair: null });
   }
 
-  /** Makes this height cell a solid, non-walkable void with no floor cap. */
+  /** Makes this cell an empty, non-walkable void with no finite floor cap. */
   paintVoidAt(wx: number, wy: number): void {
-    this.setStack(wx, wy, { walls: this.heightAt(wx, wy), cap: null, stair: null });
+    this.setStack(wx, wy, { height: this.heightAt(wx, wy), cap: null, stair: null });
   }
 
   /** Restores an explicit walkable floor cap at the void cell's existing height. */
@@ -118,25 +111,28 @@ export class EditableWorld {
     this.paintFloorHeightAt(wx, wy, this.heightAt(wx, wy) + delta, capId);
   }
 
-  /** Caps an existing wall stack walkable at the same height, or just re-textures bare
-   * ground (walls 0) — `capId` is the art lane's floor-variant id (`"<packId>:<index>"`). */
+  /** Applies a floor art cap while preserving the authored finite height. */
   paintFloorAt(wx: number, wy: number, capId: string): void {
     const s = this.stackAt(wx, wy);
-    this.setStack(wx, wy, { walls: s.stair ? 0 : s.walls, cap: capId, stair: null });
+    this.setStack(wx, wy, { height: s.stair ? 0 : s.height, cap: capId, stair: null });
   }
 
-  /** A door punches into an existing, uncapped, positive wall stack only — a no-op on
-   * bare ground or an already-capped platform. */
+  /** Adds a door feature to a raised finite floor. */
   paintDoorAt(wx: number, wy: number): void {
     const s = this.stackAt(wx, wy);
-    if (s.stair || s.cap !== null || s.walls <= 0) return;
-    this.setStack(wx, wy, { walls: s.walls, cap: null, stair: null, feature: STACK_FEATURE.DoorSafeRoom });
+    if (s.stair || s.height <= 0 || s.cap === null) return;
+    this.setStack(wx, wy, {
+      height: s.height,
+      cap: s.cap,
+      stair: null,
+      feature: STACK_FEATURE.DoorSafeRoom,
+    });
   }
 
   /** A stair tile carries no authored height of its own — compile.ts's run
    * interpolation derives it from the flanking non-stair anchors at compile time. */
   paintStairsAt(wx: number, wy: number, dir: StackDir): void {
-    this.setStack(wx, wy, { walls: 0, cap: null, stair: { dir } });
+    this.setStack(wx, wy, { height: 0, cap: null, stair: { dir } });
   }
 
   placeStairTransition(
@@ -163,19 +159,13 @@ export class EditableWorld {
     return plan;
   }
 
-  /** Pops exactly one layer: a feature (door) or floor cap first (revealing the wall
-   * stack beneath, unchanged in height), then one wall layer, then clears to ground. */
+  /** Removes a feature/cap, then lowers the finite floor height one step at a time. */
   eraseAt(wx: number, wy: number): void {
     const s = this.stackAt(wx, wy);
     if (s.stair) return this.setStack(wx, wy, GROUND_STACK);
-    if (s.feature) return this.setStack(wx, wy, { walls: s.walls, cap: null, stair: null });
-    if (s.cap !== null) {
-      if (s.walls <= 0) return this.setStack(wx, wy, GROUND_STACK); // bare ground: nothing to reveal
-      return this.setStack(wx, wy, { walls: s.walls, cap: null, stair: null });
-    }
-    if (s.walls > 1) return this.setStack(wx, wy, { walls: s.walls - 1, cap: null, stair: null });
-    // The last wall layer pops to bare ground, not a capless (solid, invisible)
-    // walls=0 wall — that shape is only valid for legacy pit-adjacent imports.
+    if (s.feature) return this.setStack(wx, wy, { height: s.height, cap: s.cap ?? DEFAULT_FLOOR_CAP, stair: null });
+    if (s.cap === null) return this.setStack(wx, wy, GROUND_STACK);
+    if (s.height > 0) return this.setStack(wx, wy, { height: s.height - 1, cap: s.cap, stair: null });
     this.setStack(wx, wy, GROUND_STACK);
   }
 
@@ -224,12 +214,10 @@ export class EditableWorld {
     };
   }
 
-  /** Transparent v1 import: `loadEditorMap` (the stack lane's contract) migrates a v1
-   * `{tiles,heights[,torches]}` save to v2 stacks via the same mechanical reverse
-   * mapping worldgen's output layer uses — lossless, and further painting still
-   * stacks correctly on the reconstructed cells. */
+  /** Loads the current editor-map format. Old flat tile/height saves are intentionally
+   * rejected: the project has no persisted worlds that need a compatibility path. */
   load(data: unknown): void {
-    const map = loadEditorMap(data);
+    const map = editorMapV2Schema.parse(data);
     this.stacks =
       map.stacks.length === CELL_COUNT
         ? [...map.stacks]
@@ -239,8 +227,6 @@ export class EditableWorld {
     for (const t of map.torches ?? []) this.addTorch(t.wx, t.wy);
   }
 
-  // ── TerrainWorld surface ─────────────────────────────────────────
-
   tileAt(wx: number, wy: number): TileType {
     return this.cellAt(wx, wy).tile;
   }
@@ -249,16 +235,12 @@ export class EditableWorld {
     return this.cellAt(wx, wy).height;
   }
 
-  zoneAt(wx: number, wy: number): ZoneType {
-    void wx;
-    void wy;
-    return ZONE.None;
-  }
+  zoneAt(wx: number, wy: number): ZoneType { void wx; void wy; return ZONE.None; }
 
-  isSanctuary(wx: number, wy: number): boolean {
-    void wx;
-    void wy;
-    return false;
+  isSanctuary(wx: number, wy: number): boolean { void wx; void wy; return false; }
+
+  terrainAt(wx: number, wy: number): TerrainType {
+    return this.tileAt(wx, wy) === TILE.Void ? TERRAIN.Void : TERRAIN.Floor;
   }
 
   groundAt(x: number, y: number): number {
@@ -273,9 +255,7 @@ export class EditableWorld {
     return stairRampAt(this, x, y);
   }
 
-  /** Own-tile face model: collision is pure height + solid furniture — the face IS the raised tile. */
   isWalkable(wx: number, wy: number): boolean {
-    const tile = this.tileAt(wx, wy);
-    return tile !== TILE.Wall && tile !== TILE.CraftingTable && tile !== TILE.Stash;
+    const tile = this.tileAt(wx, wy); return tile !== TILE.Void && tile !== TILE.CraftingTable && tile !== TILE.Stash;
   }
 }

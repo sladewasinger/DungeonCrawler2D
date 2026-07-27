@@ -5,7 +5,7 @@
 // safeRoomLink.test.ts already established for the safe-room kiosk.
 import { describe, expect, it } from "vitest";
 import { stairwayDownChunk, stairwayDownPosition, stairwayUpChunk, stairwayUpPosition } from "../features/descent.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../types.js";
 import { generateChunk } from "./index.js";
 import { bfsChunks, keyInChunk, type ChunkCache, type WorldPoint } from "./test-support.js";
 
@@ -16,7 +16,7 @@ function tileAt(seed: number, floor: number, p: WorldPoint): number {
   const cy = Math.floor(p.y / CHUNK_SIZE);
   const chunk = generateChunk(seed, floor, cx, cy);
   const i = (p.y - cy * CHUNK_SIZE) * CHUNK_SIZE + (p.x - cx * CHUNK_SIZE);
-  return chunk.tiles[i] ?? TILE.Wall;
+  return chunk.tiles[i] ?? TOPOLOGY.Uncarved;
 }
 
 describe("StairwayDown/StairwayUp reachability", () => {

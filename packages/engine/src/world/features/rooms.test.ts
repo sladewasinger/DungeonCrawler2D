@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { CHUNK_SIZE, TERRAIN, TILE } from "../types.js";
 import { World } from "../world.js";
 import {
   ROOM_WALL_RISE,
@@ -36,6 +36,22 @@ const tileAt = (
 
 const countTile = (tiles: Uint8Array, tile: number): number =>
   [...tiles].filter((entry) => entry === tile).length;
+
+const within = (value: number, start: number, length: number): boolean =>
+  value >= start && value < start + length;
+
+function isCarvedRoomCell(
+  lx: number,
+  ly: number,
+  centerLx: number,
+  top: number,
+  width: number,
+  height: number,
+): boolean {
+  const inRoom = within(lx, Math.floor(CHUNK_SIZE / 2 - width / 2), width) && within(ly, top, height);
+  const inHall = within(lx, centerLx - 1, 3) && within(ly, top + height - 1, SOUTH_EXIT_HALL_DEPTH + 1);
+  return inRoom || inHall;
+}
 
 interface RoomCase {
   kind: string;
@@ -98,27 +114,22 @@ describe("south exit geometry", () => {
     "keeps the $kind room interior and hall as the complete carved mask",
     ({ position, width, height }) => {
       const chunk = generateRoomChunk(position.cx, position.cy);
-      const left = Math.floor(CHUNK_SIZE / 2 - width / 2);
       const top = Math.floor(CHUNK_SIZE / 2 - height / 2);
       const centerLx = Math.floor(CHUNK_SIZE / 2);
 
       for (let ly = 0; ly < CHUNK_SIZE; ly++) {
         for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          const insideRoom = lx > left && lx < left + width - 1 &&
-            ly > top && ly < top + height - 1;
-          const insideHall = lx === centerLx &&
-            ly >= top + height - 1 &&
-            ly < top + height - 1 + SOUTH_EXIT_HALL_DEPTH;
-          if (!insideRoom && !insideHall) {
-            expect(chunk.tiles[ly * CHUNK_SIZE + lx]).toBe(TILE.Wall);
-          }
+          const index = ly * CHUNK_SIZE + lx;
+          expect(chunk.terrain[index]).toBe(
+            isCarvedRoomCell(lx, ly, centerLx, top, width, height) ? TERRAIN.Floor : TERRAIN.Void,
+          );
         }
       }
     },
   );
 
   it.each(ROOM_CASES)(
-    "stamps every $kind hall side and endpoint as an authoritative raised wall",
+    "stamps every $kind hall side and endpoint as a raised Floor boundary",
     ({ position }) => {
       const world = new World(hashString("room-exit-collision"), 1);
       const exit = exitPosition(world.getChunk(position.cx, position.cy));
@@ -130,16 +141,16 @@ describe("south exit geometry", () => {
         expect(world.tileAt(exit.x, hallY)).toBe(TILE.Floor);
         expect(world.isWalkable(exit.x, hallY)).toBe(true);
         for (const sideX of [exit.x - 1, exit.x + 1]) {
-          expect(world.tileAt(sideX, hallY)).toBe(TILE.Wall);
+          expect(world.tileAt(sideX, hallY)).toBe(TILE.Floor);
           expect(world.heightAt(sideX, hallY)).toBeGreaterThanOrEqual(ROOM_WALL_RISE);
-          expect(world.isWalkable(sideX, hallY)).toBe(false);
+          expect(world.isWalkable(sideX, hallY)).toBe(true);
         }
       }
       const endY = exit.y + SOUTH_EXIT_HALL_DEPTH + 1;
       for (const endX of [exit.x - 1, exit.x, exit.x + 1]) {
-        expect(world.tileAt(endX, endY)).toBe(TILE.Wall);
+        expect(world.tileAt(endX, endY)).toBe(TILE.Floor);
         expect(world.heightAt(endX, endY)).toBeGreaterThanOrEqual(ROOM_WALL_RISE);
-        expect(world.isWalkable(endX, endY)).toBe(false);
+        expect(world.isWalkable(endX, endY)).toBe(true);
       }
     },
   );

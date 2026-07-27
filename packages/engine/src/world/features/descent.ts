@@ -13,7 +13,7 @@
 // `stairwayUpPosition` within INTERACT_RANGE, the same pattern
 // `reviveDownedPartyMember` already uses) — no new TILE type needed.
 
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../types.js";
 import {
   GENERATION_CHUNK_SIZE,
   scaleGeneratedCoordinate,
@@ -33,7 +33,7 @@ const STRUCT_BACK = 3; // rows behind the anchor
 const STRUCT_FRONT = 1; // rows in front, open approach
 // Every wall run (back rim, mouth notch, side rim) must be >= 2 tiles deep:
 // generate/verticalExtent.ts's resolveThinWalls merges any freestanding
-// TILE.Wall run under 2 tiles deep straight into Floor whenever both its
+// TOPOLOGY.Uncarved run under 2 tiles deep straight into Floor whenever both its
 // north and south neighbors are open — confirmed live (bossArenaInvariant's
 // first version) eating a 1-thick rim entirely. 2 back rows keep the rim
 // AND the mouth notch both above that threshold.
@@ -112,9 +112,9 @@ interface CellKind {
 function classifyCell(dx: number, dy: number, alreadyOpen: boolean): CellKind {
   if (alreadyOpen) return { tile: TILE.Floor, height: 0 };
   const isBackWall = dy <= -STRUCT_BACK + BACK_WALL_DEPTH - 1;
-  if (isBackWall && dx === 0) return { tile: TILE.Wall, height: 0 }; // the mouth notch — lower rim, reads as a shadowed opening
+  if (isBackWall && dx === 0) return { tile: TOPOLOGY.Uncarved, height: 0 }; // the mouth notch — lower rim, reads as a shadowed opening
   const isSideWall = (dx === -STRUCT_HALF_X || dx === STRUCT_HALF_X) && dy < STRUCT_FRONT;
-  if (isBackWall || isSideWall) return { tile: TILE.Wall, height: STAIRWAY_HEIGHT };
+  if (isBackWall || isSideWall) return { tile: TOPOLOGY.Uncarved, height: STAIRWAY_HEIGHT };
   return { tile: TILE.Floor, height: 0 }; // flush with the ground it's blended into — see STAIRWAY_HEIGHT's doc comment
 }
 
@@ -125,7 +125,7 @@ function stampStructure(anchor: LocalAnchor, tiles: Uint8Array, height: Float32A
       const ly = anchor.ly + dy;
       if (lx < 0 || ly < 0 || lx >= GENERATION_CHUNK_SIZE || ly >= GENERATION_CHUNK_SIZE) continue;
       const i = ly * GENERATION_CHUNK_SIZE + lx;
-      const cell = classifyCell(dx, dy, tiles[i] !== TILE.Wall);
+      const cell = classifyCell(dx, dy, tiles[i] !== TOPOLOGY.Uncarved);
       tiles[i] = cell.tile;
       height[i] = cell.height;
     }

@@ -13,7 +13,7 @@ import { randomChunkSpot, randomNearbySpot } from "./populationPlacement.js";
 import { pickEnemyDef, pickNativeEnemyDef } from "./populationRoster.js";
 
 export const NEAR_SPAWN_RADIUS_TILES = 60;
-const NEAR_SPAWN_BONUS_ENEMIES = 2;
+const NEAR_SPAWN_BONUS_ENEMIES = 3;
 const ENEMY_CAP = 150;
 const PLATFORM_LOOT = [
   "bandage", "torch", "vodka-bottle", "knife", "water-flask",

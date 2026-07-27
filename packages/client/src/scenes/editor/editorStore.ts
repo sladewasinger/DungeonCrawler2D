@@ -24,7 +24,7 @@ export type Brush =
   | { readonly kind: "floor"; readonly capId: string; readonly height?: number }
   | { readonly kind: "void" }
   | { readonly kind: "reset-to-zero" }
-  | { readonly kind: "wall"; readonly height?: number }
+  | { readonly kind: "height"; readonly height?: number }
   | { readonly kind: "stairs" }
   | { readonly kind: "door" }
   | { readonly kind: "torch" }
@@ -117,7 +117,7 @@ export class EditorStore {
   }
 
   private paintTerrain(wx: number, wy: number, brush: Brush): void {
-    if (brush.kind === "wall") this.paintWall(wx, wy, brush.height);
+    if (brush.kind === "height") this.paintHeight(wx, wy, brush.height);
     else if (brush.kind === "void") this.world.paintVoidAt(wx, wy);
     else if (brush.kind === "reset-to-zero") {
       this.world.paintFloorHeightAt(wx, wy, 0, DEFAULT_FLOOR_CAP);
@@ -128,14 +128,14 @@ export class EditorStore {
     else if (brush.kind === "door") this.world.paintDoorAt(wx, wy);
     else if (brush.kind === "erase") this.world.eraseAt(wx, wy);
     else if (brush.kind === "torch") this.world.addTorch(wx, wy);
-    // A terrain brush can only ever change wall-adjacency for the painted cell and its
+    // A terrain brush can only ever change height adjacency for the painted cell and its
     // 8 neighbors — the live re-solve this lane asks for, never a full-map recompute.
     if (brush.kind !== "torch") this.autotileMasks.resolveAround(this.world, wx, wy);
   }
 
-  private paintWall(wx: number, wy: number, height: number | undefined): void {
-    if (height === undefined) this.world.paintWallAt(wx, wy);
-    else this.world.paintWallHeightAt(wx, wy, height);
+  private paintHeight(wx: number, wy: number, height: number | undefined): void {
+    if (height === undefined) this.world.paintHeightAt(wx, wy);
+    else this.world.paintFloorHeightAt(wx, wy, height, DEFAULT_FLOOR_CAP);
   }
 
   private paintFloor(wx: number, wy: number, capId: string, height: number | undefined): void {

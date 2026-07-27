@@ -37,7 +37,7 @@ export const RADIUS_SPAWN_SPACING_FLOOR = 1.5;
 const RADIUS_SPAWN_ATTEMPTS = 40;
 // Spiral search radius (tiles) for the one-time origin anchor — generously
 // bigger than one chunk so it finds real corridor floor even if (0,0)
-// itself lands inside solid rock between rooms.
+// itself lands inside an uncarved generator cell between rooms.
 const ANCHOR_SEARCH_RADIUS = 48;
 
 export function findSpawn(sim: SimState): { x: number; y: number; z: number } {

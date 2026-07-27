@@ -12,7 +12,7 @@
 // (generate/bossArenaLink.ts) may route without breaching the ring
 // anywhere else.
 
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../types.js";
 import {
   GENERATION_CHUNK_SIZE,
   WORLD_GEOMETRY_SCALE,
@@ -29,7 +29,7 @@ export const ARENA_HALF = GENERATED_ARENA_HALF * WORLD_GEOMETRY_SCALE;
 /**
  * The ring wall is 2 tiles thick (d in [ARENA_HALF - RING_THICKNESS + 1,
  * ARENA_HALF]), not 1: generate/verticalExtent.ts's resolveThinWalls merges
- * any freestanding TILE.Wall run under 2 tiles deep straight into Floor
+ * any freestanding TOPOLOGY.Uncarved run under 2 tiles deep straight into Floor
  * wherever both its north and south neighbors are open — a 1-thick ring's
  * north/south spans (its east/west spans are naturally >=2*ARENA_HALF deep
  * already) hit exactly that case and got silently eaten, confirmed live by
@@ -97,7 +97,7 @@ function stampRing(anchor: LocalAnchor, tiles: Uint8Array, height: Float32Array)
       const i = ly * GENERATION_CHUNK_SIZE + lx;
       const d = Math.max(Math.abs(dx), Math.abs(dy));
       const isWall = d >= RING_INNER_EDGE && !isGateCell(dx, dy);
-      tiles[i] = isWall ? TILE.Wall : TILE.Floor;
+      tiles[i] = isWall ? TOPOLOGY.Uncarved : TILE.Floor;
       height[i] = 0;
     }
   }

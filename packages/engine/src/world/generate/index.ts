@@ -14,7 +14,7 @@ import { applyFlattenedFeature, isSafeRoomChunk, isStairsChunk } from "../featur
 import { generateRoomChunk, isRoomChunk } from "../features/rooms.js";
 import { sealInteriorPockets } from "../pockets.js";
 import { seedsFor } from "../terrain.js";
-import { CHUNK_SIZE, TILE, type Chunk } from "../types.js";
+import { CHUNK_SIZE, TOPOLOGY, type Chunk } from "../types.js";
 import { partitionChunk } from "./bsp.js";
 import { connectBossArenaGate } from "./bossArenaLink.js";
 import { demoteOrphanedStairs, repairCliffs } from "./cliffs.js";
@@ -23,7 +23,7 @@ import { connectDescentStructure } from "./descentLink.js";
 import { districtAt } from "./district.js";
 import { edgeAnchors } from "./edges.js";
 import { connectFixedFeaturePad } from "./feature-link.js";
-import { applyRoomHeight } from "./height.js";
+import { applyRoomHeight, markVoidTiles } from "./height.js";
 import { architectSeed, chunkSeed } from "./hash.js";
 import { applyLandmark } from "./landmarks/index.js";
 import { isNearDescent, isNearLandmark } from "./landmarks/guard.js";
@@ -42,11 +42,20 @@ function createGeneratedGrid(): {
 } {
   const cells = GENERATION_CHUNK_SIZE * GENERATION_CHUNK_SIZE;
   return {
-    tiles: new Uint8Array(cells).fill(TILE.Wall),
+    tiles: new Uint8Array(cells).fill(TOPOLOGY.Uncarved),
     height: new Float32Array(cells),
     zones: new Uint8Array(cells),
     corridorCarved: new Uint8Array(cells),
   };
+}
+
+function finalizeScaledChunk(chunk: Chunk): Chunk {
+  demoteOrphanedStairs(chunk.tiles, chunk.height, CHUNK_SIZE);
+  // Uncarved source cells become ordinary Floor surfaces at runtime; enforce
+  // the same z+1 depth rule after that topology-to-height-map conversion.
+  resolveShallowPlateaus(chunk.tiles, chunk.height, CHUNK_SIZE);
+  demoteOrphanedStairs(chunk.tiles, chunk.height, CHUNK_SIZE);
+  return chunk;
 }
 
 /**
@@ -165,6 +174,12 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   repairCliffs(tiles, height, GENERATION_CHUNK_SIZE);
   resolveShallowPlateaus(tiles, height, GENERATION_CHUNK_SIZE);
 
+  // Finalize the entire chasm footprint—including its lowered wall ring—as
+  // heightless Void after terrain repair, but before wall-height finishing.
+  // Otherwise applyWallHeight raises that ring from -2 to -1 and leaves the
+  // purple camera-facing shell that used to connect a pit floor to its rim.
+  markVoidTiles(tiles, height, GENERATION_CHUNK_SIZE);
+
   applyWallHeight(tiles, height, GENERATION_CHUNK_SIZE);
   // Run LAST, after the wall-height raise: a Stairs tile's climb axis can
   // depend on a neighboring Wall's height, which only reaches its real
@@ -179,7 +194,5 @@ export function generateChunk(worldSeed: number, floor: number, cx: number, cy: 
   // introduces nothing the nets police — see showcase.ts's module doc.
   applyShowcase(worldSeed, floor, cx, cy, tiles, height, zones);
 
-  const scaled = scaleGeneratedChunk(cx, cy, { tiles, height, zones });
-  demoteOrphanedStairs(scaled.tiles, scaled.height, CHUNK_SIZE);
-  return scaled;
+  return finalizeScaledChunk(scaleGeneratedChunk(cx, cy, { tiles, height, zones }));
 }

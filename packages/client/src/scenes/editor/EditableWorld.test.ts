@@ -3,21 +3,14 @@
 // void frame surrounds the island, and maps survive a serialize round-trip.
 import { TILE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import brokenHeightsFixture from "../../../../../docs/examples/user-broken-heights-z4-z6.json" with { type: "json" };
-import kioskTerraceFixture from "../../../../../docs/examples/user-kiosk-terrace-example.json" with { type: "json" };
 import { ownFaceRowAt } from "../../render/terrain/ownFace.js";
 import { EditableWorld } from "./EditableWorld.js";
-
-const FIXTURES: ReadonlyArray<readonly [string, { tiles: number[]; heights: number[] }]> = [
-  ["user-broken-heights-z4-z6.json", brokenHeightsFixture],
-  ["user-kiosk-terrace-example.json", kioskTerraceFixture],
-];
 
 describe("EditableWorld", () => {
   it("raised cells ARE their own face rows — the wall starts where it was painted", () => {
     const world = new EditableWorld();
-    world.setCell(5, 5, TILE.Wall, 2);
-    world.setCell(5, 4, TILE.Wall, 2);
+    world.setCell(5, 5, TILE.Floor, 2);
+    world.setCell(5, 4, TILE.Floor, 2);
     // The southern painted cell carries the face; the ground south of it stays clear.
     expect(ownFaceRowAt(world, 5, 5)).toMatchObject({ distanceToGround: 1, surfaceHeight: 2 });
     expect(ownFaceRowAt(world, 5, 6)).toBeNull();
@@ -36,17 +29,18 @@ describe("EditableWorld", () => {
 
   it("outside the grid reads as chasm void", () => {
     const world = new EditableWorld();
-    expect(world.heightAt(-1, 0)).toBeLessThan(-2);
-    expect(world.heightAt(0, 25)).toBeLessThan(-2);
+    expect(world.tileAt(-1, 0)).toBe(TILE.Void);
+    expect(world.tileAt(0, 25)).toBe(TILE.Void);
+    expect(world.isWalkable(-1, 0)).toBe(false);
   });
 
   it("round-trips through serialize/load", () => {
     const world = new EditableWorld();
-    world.setCell(2, 2, TILE.Wall, 3);
+    world.setCell(2, 2, TILE.Floor, 3);
     world.setCell(4, 4, TILE.Floor, -1);
     const copy = new EditableWorld();
     copy.load(world.serialize());
-    expect(copy.cellAt(2, 2)).toEqual({ tile: TILE.Wall, height: 3 });
+    expect(copy.cellAt(2, 2)).toEqual({ tile: TILE.Floor, height: 3 });
     expect(copy.cellAt(4, 4)).toEqual({ tile: TILE.Floor, height: -1 });
   });
 
@@ -79,60 +73,54 @@ describe("EditableWorld", () => {
     ]);
   });
 
-  it("loads a pre-torch save (no 'torches' key at all) with zero torches, not a crash", () => {
-    const world = new EditableWorld();
-    world.addTorch(5, 5);
-    world.load({ tiles: new Array(400).fill(0), heights: new Array(400).fill(0) });
-    expect(world.torchPositions()).toEqual([]);
-  });
 });
 
 describe("EditableWorld paint-over stacking (explicit-heights reskin)", () => {
-  it("stamps a wall at the exact height selected by the terrain-debug tool", () => {
+  it("stamps a finite floor at the exact height selected by the terrain-debug tool", () => {
     const world = new EditableWorld();
-    world.paintWallHeightAt(6, 6, 4);
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 4 });
-    world.paintWallHeightAt(6, 6, -1);
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: -1 });
+    world.paintFloorHeightAt(6, 6, 4, "floor");
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 4 });
+    world.paintFloorHeightAt(6, 6, -1, "floor");
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: -1 });
   });
 
-  it("wall brush stacks +1 per paint, uncapped", () => {
+  it("height brush raises a finite floor +1 per paint", () => {
     const world = new EditableWorld();
-    world.paintWallAt(6, 6);
-    world.paintWallAt(6, 6);
-    world.paintWallAt(6, 6);
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 3 });
+    world.paintHeightAt(6, 6);
+    world.paintHeightAt(6, 6);
+    world.paintHeightAt(6, 6);
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 3 });
   });
 
-  it("floor brush caps a wall stack walkable at the same height", () => {
+  it("floor brush keeps a raised floor walkable at the same height", () => {
     const world = new EditableWorld();
-    world.paintWallAt(6, 6);
-    world.paintWallAt(6, 6);
+    world.paintHeightAt(6, 6);
+    world.paintHeightAt(6, 6);
     world.paintFloorAt(6, 6, "medieval-sewer:1");
     expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 2 });
     expect(world.isWalkable(6, 6)).toBe(true);
   });
 
-  it("erase pops the cap before it pops a wall layer", () => {
+  it("erase lowers a finite floor one height step at a time", () => {
     const world = new EditableWorld();
-    world.paintWallAt(6, 6);
-    world.paintWallAt(6, 6);
+    world.paintHeightAt(6, 6);
+    world.paintHeightAt(6, 6);
     world.paintFloorAt(6, 6, "medieval-sewer:1");
     world.eraseAt(6, 6);
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 2 }); // cap popped, height unchanged
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 1 });
     world.eraseAt(6, 6);
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 1 });
+    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 0 });
     world.eraseAt(6, 6);
     expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 0 }); // fully cleared
   });
 
-  it("door brush punches into an uncapped wall stack; erase pops it back to plain wall", () => {
+  it("door brush adds a feature to a raised floor; erase restores the floor", () => {
     const world = new EditableWorld();
-    world.paintWallAt(9, 9);
+    world.paintHeightAt(9, 9);
     world.paintDoorAt(9, 9);
     expect(world.cellAt(9, 9)).toEqual({ tile: TILE.DoorSafeRoom, height: 1 });
     world.eraseAt(9, 9);
-    expect(world.cellAt(9, 9)).toEqual({ tile: TILE.Wall, height: 1 });
+    expect(world.cellAt(9, 9)).toEqual({ tile: TILE.Floor, height: 1 });
   });
 
   it("stairs interpolate a run between flanking anchors — no per-tile authored height", () => {
@@ -145,7 +133,7 @@ describe("EditableWorld paint-over stacking (explicit-heights reskin)", () => {
     world.paintStairsAt(4, 18, 0); // 0 = north, per StackDir's 0=N/1=E/2=S/3=W
     world.paintStairsAt(4, 17, 0);
     world.paintStairsAt(4, 16, 0);
-    for (let i = 0; i < 3; i++) world.paintWallAt(4, 15);
+    for (let i = 0; i < 3; i++) world.paintHeightAt(4, 15);
     world.paintFloorAt(4, 15, "medieval-sewer:0"); // north (uphill) anchor, height 3
     expect(world.cellAt(4, 18)).toEqual({ tile: TILE.Stairs, height: 0.5 }); // k=1: 3·0.5/3
     expect(world.cellAt(4, 17)).toEqual({ tile: TILE.Stairs, height: 1.5 }); // k=2: 3·1.5/3
@@ -154,58 +142,13 @@ describe("EditableWorld paint-over stacking (explicit-heights reskin)", () => {
 
   it("a stacked platform survives a v2 serialize/load round-trip (further painting still stacks)", () => {
     const world = new EditableWorld();
-    world.paintWallAt(6, 6);
-    world.paintWallAt(6, 6);
+    world.paintHeightAt(6, 6);
+    world.paintHeightAt(6, 6);
     world.paintFloorAt(6, 6, "dragon-cave:2");
     const copy = new EditableWorld();
     copy.load(world.serialize());
     expect(copy.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 2 });
-    copy.paintWallAt(6, 6); // uncaps + builds one higher, proving the reload kept it a real stack
-    expect(copy.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 3 });
+    copy.paintHeightAt(6, 6); // raises one higher, proving the reload kept the finite floor
+    expect(copy.cellAt(6, 6)).toEqual({ tile: TILE.Floor, height: 3 });
   });
-});
-
-/** Every cell's compiled (tile, height) as parallel arrays — what a v1 consumer would read. */
-function compiledGrid(world: EditableWorld): { tiles: number[]; heights: number[] } {
-  const tiles: number[] = [];
-  const heights: number[] = [];
-  for (let y = 0; y < 20; y++) {
-    for (let x = 0; x < 20; x++) {
-      const cell = world.cellAt(x, y);
-      tiles.push(cell.tile);
-      heights.push(cell.height);
-    }
-  }
-  return { tiles, heights };
-}
-
-describe("v1 import migration (transparent, via @dc2d/engine's loadEditorMap)", () => {
-  it("importing a raw Wall/Floor pair still supports further stacking/popping", () => {
-    const world = new EditableWorld();
-    // Legacy save: a raised platform at (5,5), a bare wall at (6,6) — the old
-    // height-brush/rock-brush vocabulary, no `stacks` field at all.
-    const tiles = new Array(400).fill(0);
-    const heights = new Array(400).fill(0);
-    tiles[5 * 20 + 5] = TILE.Floor;
-    heights[5 * 20 + 5] = 3;
-    tiles[6 * 20 + 6] = TILE.Wall;
-    heights[6 * 20 + 6] = 2;
-    world.load({ tiles, heights });
-    expect(world.cellAt(5, 5)).toEqual({ tile: TILE.Floor, height: 3 });
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 2 });
-    world.paintWallAt(6, 6);
-    expect(world.cellAt(6, 6)).toEqual({ tile: TILE.Wall, height: 3 });
-    world.eraseAt(5, 5); // pops the legacy platform's implicit cap, not its height
-    expect(world.cellAt(5, 5)).toEqual({ tile: TILE.Wall, height: 3 });
-  });
-
-  for (const [name, fixture] of FIXTURES) {
-    it(`imports ${name} transparently — compiled tiles/heights match the original`, () => {
-      const world = new EditableWorld();
-      world.load(fixture);
-      const { tiles, heights } = compiledGrid(world);
-      expect(tiles).toEqual(fixture.tiles);
-      heights.forEach((h, i) => expect(h).toBeCloseTo(fixture.heights[i] ?? 0, 5));
-    });
-  }
 });

@@ -3,7 +3,7 @@
 // clean platform/pit already exist near the entry" finders. Pure reads over
 // chunk-local arrays — the carve half (showcase.ts) owns all mutation.
 import { WALL_FACE_MIN_DROP } from "../../core/constants.js";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "./scale.js";
 
 /** Chebyshev radius around the entry anchor that bounds "near the floor-1
@@ -47,7 +47,7 @@ export function entryAnchor(tiles: Uint8Array): Cell {
       for (let dx = -radius; dx <= radius; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
         if (dx < 0 || dy < 0) continue;
-        if ((tiles[dy * CHUNK_SIZE + dx] ?? TILE.Wall) !== TILE.Wall) return [dx, dy];
+        if ((tiles[dy * CHUNK_SIZE + dx] ?? TOPOLOGY.Uncarved) !== TOPOLOGY.Uncarved) return [dx, dy];
       }
     }
   }
@@ -101,7 +101,7 @@ export function hasCleanPlatform(g: Grid, anchor: Cell): boolean {
       if (blockDistance(anchor, bx, by) > SHOWCASE_RADIUS) continue;
       if (!blockAt(g, bx, by, SHOWCASE_RISE)) continue;
       const ok = ringCells(bx, by).every(
-        ([x, y]) => at(g.tiles, x, y) !== TILE.Wall && at(g.height, x, y) <= RING_MAX_H + EPS,
+        ([x, y]) => at(g.tiles, x, y) !== TOPOLOGY.Uncarved && at(g.height, x, y) <= RING_MAX_H + EPS,
       );
       if (ok) return true;
     }
@@ -118,7 +118,7 @@ export function hasCleanPit(g: Grid, anchor: Cell): boolean {
       let treads = 0;
       const ok = ringCells(bx, by).every(([x, y]) => {
         const t = at(g.tiles, x, y);
-        if (t === TILE.Wall) return false;
+        if (t === TOPOLOGY.Uncarved) return false;
         if (t === TILE.Stairs && Math.abs(at(g.height, x, y) - TREAD_H) <= EPS) {
           treads++;
           return true;

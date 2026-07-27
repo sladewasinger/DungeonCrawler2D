@@ -75,12 +75,12 @@ describe("findSpawn", () => {
     sim = createSimState(world, content, new PlayerStore(null), 42, {});
   });
 
-  it("lands on a walkable, non-wall room/corridor tile at the tile's ground height", () => {
+  it("lands on a walkable, non-void room/corridor tile at the tile's ground height", () => {
     const spawn = findSpawn(sim);
     const tileX = Math.floor(spawn.x);
     const tileY = Math.floor(spawn.y);
     expect(sim.world.isWalkable(tileX, tileY)).toBe(true);
-    expect(sim.world.tileAt(tileX, tileY)).not.toBe(TILE.Wall);
+    expect(sim.world.tileAt(tileX, tileY)).not.toBe(TILE.Void);
     expect(spawn.z).toBe(sim.world.groundAt(spawn.x, spawn.y));
   });
 

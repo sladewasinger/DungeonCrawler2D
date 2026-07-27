@@ -26,7 +26,7 @@ function tileAt(seed: number, p: WorldPoint): number {
   const cy = Math.floor(p.y / CHUNK_SIZE);
   const chunk = generateChunk(seed, FLOOR_CAP, cx, cy);
   const i = (p.y - cy * CHUNK_SIZE) * CHUNK_SIZE + (p.x - cx * CHUNK_SIZE);
-  return chunk.tiles[i] ?? TILE.Wall;
+  return chunk.tiles[i] ?? TILE.Void;
 }
 
 interface RingCell extends WorldPoint {
@@ -56,7 +56,7 @@ function ringCells(spawn: WorldPoint): RingCell[] {
 }
 
 describe("boss arena: exactly one gate", () => {
-  it("every ring-wall cell is Wall except the gate's full-thickness notch", { timeout: 120_000 }, () => {
+  it("every ring cell is raised Floor except the gate's full-thickness notch", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS) {
       const spawn = bossArenaSpawnAnchor({ worldSeed: seed, floor: FLOOR_CAP });
@@ -76,7 +76,7 @@ describe("boss arena: exactly one gate", () => {
           expect(tile, `seed ${seed}: gate notch cell (${cell.x},${cell.y}) must be walkable`).toBe(TILE.Floor);
           floorCount++;
         } else {
-          expect(tile, `seed ${seed}: ring cell (${cell.x},${cell.y}) leaked open`).toBe(TILE.Wall);
+          expect(tile, `seed ${seed}: ring cell (${cell.x},${cell.y}) must be finite Floor`).toBe(TILE.Floor);
         }
       }
       expect(floorCount, `seed ${seed}: gate notch must preserve its scaled footprint`).toBe(

@@ -1,6 +1,6 @@
 import { smoothstep01, SOLID_TILES, TILE, type TileType } from "@dc2d/engine";
 import type { ViewOrientation } from "../view/viewOrientation.js";
-import { isChasmDepth } from "../terrain/heightShade.js";
+import { isVoidTile } from "../terrain/heightShade.js";
 import { LIGHT_CURVE_FULL_LEVEL } from "../terrain/tileLight.js";
 
 export const PLAYER_GROUND_LIGHT_RADIUS = 12;
@@ -57,15 +57,15 @@ const ORTHOGONAL: ReadonlyArray<readonly [number, number]> = [
 ];
 
 function isPassableGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
-  return !SOLID_TILES.has(world.tileAt(tileX, tileY)) &&
-    !isChasmDepth(world.heightAt(tileX, tileY));
+  const tile = world.tileAt(tileX, tileY);
+  return !SOLID_TILES.has(tile) && !isVoidTile(tile);
 }
 
 function isLitGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
   return world.tileAt(tileX, tileY) === TILE.Floor;
 }
 
-/** Walls and chasms cast a direct grid-space shadow; light cannot route around
+/** Walls and voids cast a direct grid-space shadow; light cannot route around
  * the end of a blocker and illuminate a tile behind its opaque face. */
 function hasClearGroundLine(
   world: PlayerGroundLightWorld,

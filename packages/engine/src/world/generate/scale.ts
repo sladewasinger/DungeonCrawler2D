@@ -1,10 +1,10 @@
-import type { Chunk } from "../types.js";
+import { TERRAIN, TILE, TOPOLOGY, type Chunk } from "../types.js";
 
 export const WORLD_GEOMETRY_SCALE = 2;
 export const GENERATION_CHUNK_SIZE = 32;
 export const SCALED_CHUNK_SIZE = GENERATION_CHUNK_SIZE * WORLD_GEOMETRY_SCALE;
 const FLOOR_TILE = 0;
-const WALL_TILE = 1;
+const DEFAULT_SOURCE_TILE = TILE.Floor;
 const STAIRS_TILE = 2;
 const FIRST_DISCRETE_FEATURE_TILE = 3;
 const LAST_DISCRETE_FEATURE_TILE = 8;
@@ -33,18 +33,27 @@ export function scaleGeneratedChunk(
 ): Chunk {
   const size = SCALED_CHUNK_SIZE;
   const tiles = new Uint8Array(size * size);
+  const terrain = new Uint8Array(size * size);
+  const features = new Uint8Array(size * size);
   const height = new Float32Array(size * size);
   const zones = new Uint8Array(size * size);
   for (let sy = 0; sy < GENERATION_CHUNK_SIZE; sy++) {
     for (let sx = 0; sx < GENERATION_CHUNK_SIZE; sx++) {
       const sourceIndex = sy * GENERATION_CHUNK_SIZE + sx;
-      const tile = source.tiles[sourceIndex] ?? WALL_TILE;
+      const tile = source.tiles[sourceIndex] ?? DEFAULT_SOURCE_TILE;
+      // `source.tiles` is the generator's private carving mask. Its uncarved
+      // value is not a runtime terrain kind. Final chunks expose only
+      // Floor/Void terrain (plus feature overlays); finite-floor elevation
+      // carries the generated boundary geometry.
+      const runtimeTile = runtimeTileFor(tile);
       for (let oy = 0; oy < WORLD_GEOMETRY_SCALE; oy++) {
         for (let ox = 0; ox < WORLD_GEOMETRY_SCALE; ox++) {
           const tx = sx * WORLD_GEOMETRY_SCALE + ox;
           const ty = sy * WORLD_GEOMETRY_SCALE + oy;
           const targetIndex = ty * size + tx;
-          tiles[targetIndex] = isDiscreteFeature(tile) ? FLOOR_TILE : tile;
+          tiles[targetIndex] = isDiscreteFeature(tile) ? FLOOR_TILE : runtimeTile;
+          terrain[targetIndex] = terrainKindFor(tile);
+          features[targetIndex] = tile === TILE.Stairs ? TILE.Stairs : TILE.Floor;
           height[targetIndex] = scaledHeightAt(source, sx, sy, ox, oy, tile);
           zones[targetIndex] = source.zones[sourceIndex] ?? 0;
         }
@@ -52,11 +61,12 @@ export function scaleGeneratedChunk(
       if (isDiscreteFeature(tile)) {
         const anchorX = sx * WORLD_GEOMETRY_SCALE;
         const anchorY = sy * WORLD_GEOMETRY_SCALE + WORLD_GEOMETRY_SCALE - 1;
-        tiles[anchorY * size + anchorX] = tile;
+        tiles[anchorY * size + anchorX] = runtimeTile;
+        features[anchorY * size + anchorX] = featureFor(tile);
       }
     }
   }
-  return { cx, cy, tiles, height, zones };
+  return { cx, cy, tiles, terrain, features, height, zones };
 }
 
 function scaledHeightAt(
@@ -103,4 +113,16 @@ function generatedHeightAt(
 
 function isDiscreteFeature(tile: number): boolean {
   return tile >= FIRST_DISCRETE_FEATURE_TILE && tile <= LAST_DISCRETE_FEATURE_TILE;
+}
+
+function runtimeTileFor(tile: number): number {
+  return tile === TOPOLOGY.Uncarved ? TILE.Floor : tile;
+}
+
+function terrainKindFor(tile: number): number {
+  return tile === TILE.Void ? TERRAIN.Void : TERRAIN.Floor;
+}
+
+function featureFor(tile: number): number {
+  return tile === TILE.Stairs || isDiscreteFeature(tile) ? tile : TILE.Floor;
 }

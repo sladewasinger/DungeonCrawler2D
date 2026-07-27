@@ -1,4 +1,4 @@
-import { TILE, ZONE } from "./types.js";
+import { TILE, TOPOLOGY, ZONE } from "./types.js";
 import { GENERATION_CHUNK_SIZE } from "./generate/scale.js";
 
 /**
@@ -31,7 +31,7 @@ function seedIndices(
 ): number[] {
   const seeds: number[] = [];
   for (let i = 0; i < size * size; i++) {
-    if (tiles[i] === TILE.Wall) continue;
+    if (tiles[i] === TOPOLOGY.Uncarved) continue;
     if (isReachSeed(tiles, corridorCarved, zones, size, i)) seeds.push(i);
   }
   return seeds;
@@ -57,7 +57,7 @@ function visitNeighbors(
   queue: number[],
 ): void {
   for (const n of orthoNeighbors(size, i)) {
-    if (n < 0 || reached[n] === 1 || tiles[n] === TILE.Wall) continue;
+    if (n < 0 || reached[n] === 1 || tiles[n] === TOPOLOGY.Uncarved) continue;
     reached[n] = 1;
     queue.push(n);
   }
@@ -85,6 +85,6 @@ export function sealInteriorPockets(
   floodFill(tiles, reached, size, queue);
 
   for (let i = 0; i < size * size; i++) {
-    if (tiles[i] !== TILE.Wall && reached[i] === 0) tiles[i] = TILE.Wall;
+    if (tiles[i] !== TOPOLOGY.Uncarved && reached[i] === 0) tiles[i] = TOPOLOGY.Uncarved;
   }
 }

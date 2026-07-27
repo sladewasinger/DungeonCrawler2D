@@ -3,7 +3,7 @@
 // `tiles`; height and corridors are separate passes.
 
 import { hash2D, mixSeeds } from "../../core/rng.js";
-import { TILE } from "../types.js";
+import { TILE, TOPOLOGY } from "../types.js";
 import { clampInt } from "./geometry.js";
 import type { Room } from "./types.js";
 
@@ -39,7 +39,7 @@ function stampPillars(tiles: Uint8Array, chunkSize: number, room: Room, seed: nu
       const px = clampInt(x + jx, x0 + 1, x1 - 1);
       const py = clampInt(y + jy, y0 + 1, y1 - 1);
       if (px < 0 || py < 0 || px >= chunkSize || py >= chunkSize) continue;
-      tiles[py * chunkSize + px] = TILE.Wall;
+      tiles[py * chunkSize + px] = TOPOLOGY.Uncarved;
     }
   }
 }
@@ -51,7 +51,7 @@ function stampGrotto(tiles: Uint8Array, chunkSize: number, room: Room, seed: num
     for (let x = x0 + RUBBLE_INSET; x <= x1 - RUBBLE_INSET; x++) {
       if (x < 0 || y < 0 || x >= chunkSize || y >= chunkSize) continue;
       if (hash2D(mixSeeds(seed, 0x6f01), x, y) % RUBBLE_CHANCE_DENOM !== 0) continue;
-      tiles[y * chunkSize + x] = TILE.Wall;
+      tiles[y * chunkSize + x] = TOPOLOGY.Uncarved;
     }
   }
 }

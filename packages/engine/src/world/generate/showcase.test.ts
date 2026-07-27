@@ -25,17 +25,17 @@ interface Cell {
 }
 
 function cellAt(tiles: Uint8Array, height: Float32Array, x: number, y: number): Cell {
-  return { t: tiles[y * CHUNK_SIZE + x] ?? TILE.Wall, h: height[y * CHUNK_SIZE + x] ?? 0 };
+  return { t: tiles[y * CHUNK_SIZE + x] ?? TILE.Void, h: height[y * CHUNK_SIZE + x] ?? 0 };
 }
 
-/** The entry anchor per spawn.ts's spiral: nearest non-Wall cell to (0,0),
+/** The entry anchor per spawn.ts's spiral: nearest non-Void cell to (0,0),
  * expanding Chebyshev rings, dy-then-dx order, in-chunk cells only. */
 function anchorOf(c: Chunk): { ax: number; ay: number } {
   for (let radius = 0; radius < CHUNK_SIZE; radius++) {
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius || dx < 0 || dy < 0) continue;
-        if (cellAt(c.tiles, c.height, dx, dy).t !== TILE.Wall) return { ax: dx, ay: dy };
+        if (cellAt(c.tiles, c.height, dx, dy).t !== TILE.Void) return { ax: dx, ay: dy };
       }
     }
   }
@@ -82,7 +82,7 @@ function scanPlatform(c: Chunk): { bx: number; by: number } | null {
       if (!nearAnchor(c, bx, by) || !isBlock(c, bx, by, 1)) continue;
       const ok = ring(bx, by).every(([x, y]) => {
         const cell = cellAt(c.tiles, c.height, x, y);
-        return cell.t !== TILE.Wall && cell.h <= 0.25 + EPS;
+        return cell.t !== TILE.Void && cell.h <= 0.25 + EPS;
       });
       if (ok) return { bx, by };
     }
@@ -98,7 +98,7 @@ function scanPit(c: Chunk): { bx: number; by: number; tread: [number, number] } 
       let tread: [number, number] | null = null;
       const ok = ring(bx, by).every(([x, y]) => {
         const cell = cellAt(c.tiles, c.height, x, y);
-        if (cell.t === TILE.Wall) return false;
+        if (cell.t === TILE.Void) return false;
         if (cell.t === TILE.Stairs && cell.h > -1 + EPS && cell.h < -EPS) {
           tread = [x, y];
           return true;

@@ -5,7 +5,7 @@
 // passes) so a regression in either the fix or this test can't hide the other's bug.
 import { describe, expect, it } from "vitest";
 import { WALL_FACE_MIN_DROP } from "../../core/constants.js";
-import { CHUNK_SIZE, TILE } from "../types.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../types.js";
 import { generateChunk } from "./index.js";
 
 interface Violation {
@@ -16,24 +16,24 @@ interface Violation {
   readonly depth: number;
 }
 
-/** Last row (inclusive) of the run starting at (x, y0) — TILE.Wall rows if `wantWall`, else same-height floor rows. */
+/** Last row (inclusive) of the run starting at (x, y0) — TOPOLOGY.Uncarved rows if `wantWall`, else same-height floor rows. */
 function runEnd(tiles: Uint8Array, height: Float32Array, x: number, y0: number, wantWall: boolean): number {
   const h0 = height[y0 * CHUNK_SIZE + x] ?? 0;
   let y2 = y0;
   while (y2 + 1 < CHUNK_SIZE) {
     const t = tiles[(y2 + 1) * CHUNK_SIZE + x];
-    if (wantWall ? t !== TILE.Wall : t === TILE.Wall || t === TILE.Stairs) break;
+    if (wantWall ? t !== TOPOLOGY.Uncarved : t === TOPOLOGY.Uncarved || t === TILE.Stairs) break;
     if (!wantWall && Math.abs((height[(y2 + 1) * CHUNK_SIZE + x] ?? 0) - h0) > 0.01) break;
     y2++;
   }
   return y2;
 }
 
-/** A TILE.Wall run shallower than z+1 (z=1), open to real floor on both its north and south. */
+/** A TOPOLOGY.Uncarved run shallower than z+1 (z=1), open to real floor on both its north and south. */
 function wallRunViolation(tiles: Uint8Array, height: Float32Array, x: number, y0: number): Violation | null {
   const y2 = runEnd(tiles, height, x, y0, true);
-  const northOpen = y0 > 0 && tiles[(y0 - 1) * CHUNK_SIZE + x] !== TILE.Wall;
-  const southOpen = y2 < CHUNK_SIZE - 1 && tiles[(y2 + 1) * CHUNK_SIZE + x] !== TILE.Wall;
+  const northOpen = y0 > 0 && tiles[(y0 - 1) * CHUNK_SIZE + x] !== TOPOLOGY.Uncarved;
+  const southOpen = y2 < CHUNK_SIZE - 1 && tiles[(y2 + 1) * CHUNK_SIZE + x] !== TOPOLOGY.Uncarved;
   const depth = y2 - y0 + 1;
   if (depth < 2 && northOpen && southOpen) return { x, y: y0, kind: "wall", z: 1, depth };
   return null;
@@ -65,7 +65,7 @@ function scanColumn(tiles: Uint8Array, height: Float32Array, x: number): Violati
   const found: Violation[] = [];
   let y = 0;
   while (y < CHUNK_SIZE) {
-    const isWall = tiles[y * CHUNK_SIZE + x] === TILE.Wall;
+    const isWall = tiles[y * CHUNK_SIZE + x] === TOPOLOGY.Uncarved;
     const isPlateauStart = !isWall && startsFloorPlateau(tiles, height, x, y);
     if (!isWall && !isPlateauStart) {
       y++;

@@ -8,7 +8,7 @@
 // still braid through its rubble apron, but the peak stands intact.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
-import { TILE } from "../../types.js";
+import { TILE, TOPOLOGY } from "../../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkCenter } from "./shared.js";
 
@@ -77,7 +77,7 @@ export function stampTower(
     const wx = cx * CHUNK_SIZE + lx;
     const wy = cy * CHUNK_SIZE + ly;
     const rubble = !carved && d < OUTER_RADIUS - RING_STEP && isRubble(seed, wx, wy);
-    tiles[i] = rubble ? TILE.Wall : TILE.Floor;
+    tiles[i] = rubble ? TOPOLOGY.Uncarved : TILE.Floor;
     height[i] = carved ? 0 : tierRise(d);
   });
 }

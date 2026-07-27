@@ -1,6 +1,6 @@
 // The safe-room kiosk's door must stay walkable from its own pad now that the
 // kiosk is a z2 FLOOR terrace (VISUAL_DIRECTION.md's wall vertical-extent
-// rule), not TILE.Wall rock: STEP_UP gates grounded movement onto any raised
+// rule), not an uncarved generator cell: STEP_UP gates grounded movement onto any raised
 // cell (movement/collision.ts's cornerBlocksMove) with no door exemption, so
 // the door itself must sit at a walkable height relative to its threshold —
 // carveSafeRoomEntrance's fix (fixed.ts). And the pad it fronts must still

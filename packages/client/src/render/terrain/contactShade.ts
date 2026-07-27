@@ -12,9 +12,8 @@
 // free, exactly like the outlines. Pure facts + tunable strength here; the
 // actual rects live in drawContactShade.ts (gradients, not textures — the
 // approved debug style).
-import { TILE } from "@dc2d/engine";
 import { isFloorEdgeDrop, type CliffSides } from "./cliffMask.js";
-import type { TerrainRead } from "./faces.js";
+import { isVoidCellAt, type TerrainRead } from "./faces.js";
 
 /** AO gradient strength, 0..1 — Austin's dial (docs/ASSUMPTIONS.md row 361). */
 export const DEFAULT_AO_STRENGTH = 0.5;
@@ -57,12 +56,15 @@ export interface ContactShade {
  * rim. This keeps partial-height edge AO aligned with its white rim.
  */
 function casts(world: TerrainRead, h: number, nx: number, ny: number): boolean {
-  if (world.tileAt(nx, ny) === TILE.Wall) return true;
+  if (isVoidCellAt(world, nx, ny)) return false;
   return isFloorEdgeDrop(world.heightAt(nx, ny), h);
 }
 
 /** Which sides/corners of (wx, wy) receive baked contact shade. */
 export function contactShadeAt(world: TerrainRead, wx: number, wy: number): ContactShade {
+  if (isVoidCellAt(world, wx, wy)) {
+    return { sides: { north: false, south: false, east: false, west: false }, corners: { nw: false, ne: false, sw: false, se: false } };
+  }
   const h = world.heightAt(wx, wy);
   const north = casts(world, h, wx, wy - 1);
   const south = casts(world, h, wx, wy + 1);

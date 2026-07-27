@@ -140,7 +140,7 @@ function stepPlayerBody(
     y: (entity.body.y - beforeY) / TICK_DT,
   });
   if (result.landed) handleLanding(sim, entity, result.landed.fallHeight, tags, effectEvents);
-  killIfInChasm(slot);
+  killIfInChasm(slot, sim.world);
 }
 
 /**

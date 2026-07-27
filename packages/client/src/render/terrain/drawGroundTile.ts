@@ -5,10 +5,10 @@
 // and pit-face art come from the debug tileset + autotile.ts's bitmask solve
 // (debugArt.ts); boundary lines are generic (edgeLine.ts), not baked sprites.
 //
-// docs/ELEVATION-PROJECTION.md section 1: every surface layer here (floor/chasm
-// fill, chasm ghost, subtle-slope, stair tread + frame, top-edge outlines, props)
-// draws shifted screen-up by `surfaceLiftPx(height)` — computed ONCE per cell and
-// threaded to every placement call below. A pit-interior cell ALSO still draws its
+// docs/ELEVATION-PROJECTION.md section 1: walkable surface layers here draw
+// shifted screen-up by `surfaceLiftPx(height)` — computed ONCE per cell and
+// threaded to every placement call below. Void cells take a separate flat-black
+// path and never receive a lift. A pit-interior cell ALSO still draws its
 // own north-wall face BAND (drawPitFaceCell) at its raw, unshifted row — the cap
 // and the band never overlap (the band is the drop rows the cap's shift vacated).
 import { stairVisualAt, TILE, type TileType } from "@dc2d/engine";
@@ -20,7 +20,7 @@ import { drawContactShade } from "./drawContactShade.js";
 import { drawStairBase, stairRenderState } from "./drawStairSurface.js";
 import { drawWallTile, southFaceColor } from "./drawWallTile.js";
 import { drawEdgeLine, type EdgeSide } from "./edgeLine.js";
-import { heightTint, isChasmDepth, multiplyTint, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
+import { heightTint, multiplyTint, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
 import { type CapOccluderFor, surfaceContainerFor } from "./occluderBand.js";
 import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { propFrame } from "./propFrame.js";
@@ -33,6 +33,7 @@ import {
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import { stacksVertically } from "./stairTread.js";
 import { verticalStairProjectedRange } from "./verticalStairSurface.js";
+import { hasVoidNeighborAt, isVoidCellAt } from "./faces.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
@@ -128,15 +129,6 @@ function groundSurfaceContainer(
   );
 }
 
-function chasmEdgesAt(world: TerrainWorld, wx: number, wy: number) {
-  return {
-    north: !isChasmDepth(world.heightAt(wx, wy - 1)),
-    east: !isChasmDepth(world.heightAt(wx + 1, wy)),
-    south: !isChasmDepth(world.heightAt(wx, wy + 1)),
-    west: !isChasmDepth(world.heightAt(wx - 1, wy)),
-  };
-}
-
 /**
  * The white perimeter outline around a walkable cap's dropping edges — RAISED
  * WALKABLE FLOOR surfaces ONLY (docs/ROADMAP.md "OUTLINE SCOPE CORRECTION",
@@ -173,8 +165,9 @@ function drawTopEdges(
 
 /**
  * Every SURFACE layer this cell owns, drawn into `container` shifted screen-up
- * by `liftPx` (docs/ELEVATION-PROJECTION.md section 1) — floor/chasm fill,
- * chasm ghost, subtle-slope, stair tread + frame, top-edge outlines, and props.
+ * by `liftPx` (docs/ELEVATION-PROJECTION.md section 1) — walkable floor,
+ * subtle-slope, stair tread + frame, top-edge outlines, and props. Void cells
+ * bypass this surface path and draw a flat black square at their raw row.
  * `height`/`liftPx`/`tint` are already resolved by the caller (the ramp-center
  * height for a stair tile, or plain `heightAt` otherwise) so this never
  * re-derives them.
@@ -192,7 +185,6 @@ function drawSurface(
   lightTint: number,
   liftPx: number,
 ): void {
-  const isChasm = isChasmDepth(height);
   const stairState = stairRenderState(stairVisual, world);
   drawStairBase(scene, container, world, wx, wy, stairState, tint, lightTint, liftPx);
   // Stairs draw their own projected tread/riser AO. Tile AO would see the
@@ -204,8 +196,6 @@ function drawSurface(
   if (tile !== TILE.Stairs) {
     drawTopEdges(scene, container, world, wx, wy, height, lightTint, liftPx);
   }
-  if (isChasm) placeWallEdges(scene, container, wx, wy, chasmEdgesAt(world, wx, wy), liftPx);
-
   const prop = propFrame(tile);
   if (prop) {
     placeSprite(scene, container, wx, wy, prop.frame, {
@@ -213,6 +203,19 @@ function drawSurface(
       liftBakePx: liftPx,
     });
   }
+}
+
+const VOID_EDGES: CardinalEdges = { north: true, east: true, south: true, west: true };
+
+export function drawVoidTile(
+  scene: Phaser.Scene,
+  _world: ViewTerrainWorld,
+  wx: number,
+  wy: number,
+  below: Phaser.GameObjects.Container,
+): void {
+  placeFillRect(scene, below, wx, wy, VOID_SURFACE_COLOR);
+  placeWallEdges(scene, below, wx, wy, VOID_EDGES);
 }
 
 export function drawGroundTile(
@@ -226,6 +229,8 @@ export function drawGroundTile(
 ): void {
   const tile = world.tileAt(wx, wy);
 
+  if (isVoidCellAt(world, wx, wy)) return drawVoidTile(scene, world, wx, wy, below);
+
   // A run's physical Stairs tiles AND its flanking RUN_PADDING Floor tiles
   // share one continuous groundAt ramp — draw both from that same continuous
   // height, or a padding tile's real slope renders as flat floor (the "I only
@@ -238,10 +243,9 @@ export function drawGroundTile(
   const stairVisual = stairVisualAt(world.real, real.x, real.y);
   const physicalHeight = stairVisual ? world.groundAt(wx + 0.5, wy + 0.5) : world.heightAt(wx, wy);
   const height = renderedSurfaceHeight(tile, physicalHeight);
-  const tint = multiplyTint(heightTint(height), lightTint);
-  const liftPx = surfaceLiftBakePx(height);
+  const tint = multiplyTint(heightTint(height), lightTint); const liftPx = surfaceLiftBakePx(height);
   // A below-zero cap shifts down into later rows, leaving its raw row behind.
-  // That space is vertical void/wall volume, not a second floor: keep it purple
+  // That space is vertical void/wall volume, not a second floor: keep it black
   // so the sole gray walkable surface remains the shifted cap below.
   if (
     drawsVoidUnderlay(tile, height) &&
@@ -271,7 +275,7 @@ export function drawGroundTile(
   // (docs/ELEVATION-PROJECTION.md section 1's face rule). `below` here, not
   // `container`: the band never moves, so it always fits the flat base sheet
   // exactly like today, regardless of which container the shifted cap used.
-  const pit = pitFaceRowAt(world, wx, wy);
+  const pit = hasVoidNeighborAt(world, wx, wy) ? null : pitFaceRowAt(world, wx, wy);
   if (pit !== null) drawPitFaceCell(scene, container, world, wx, wy, pit, lightTint);
-  drawPitStepFaces(scene, world, wx, wy, capOccluderFor, lightTint);
+  if (!hasVoidNeighborAt(world, wx, wy)) drawPitStepFaces(scene, world, wx, wy, capOccluderFor, lightTint);
 }

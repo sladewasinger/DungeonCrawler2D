@@ -137,7 +137,6 @@ function scanChunkForDoor(sim: GameSim, cx: number, cy: number): { x: number; y:
 function isFlatFloor(sim: GameSim, x: number, y: number): boolean {
   return (
     sim.world.isWalkable(x, y) &&
-    sim.world.tileAt(x, y) !== TILE.Wall &&
     sim.world.heightAt(x, y) === 0 &&
     !sim.world.isSanctuary(x, y)
   );

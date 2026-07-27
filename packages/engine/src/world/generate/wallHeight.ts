@@ -3,12 +3,12 @@
 // doctrine) — EXCEPT a fully-enclosed interior fill cell (all 8 neighbors
 // also Wall), which has no ground-facing side a player could ever stand
 // against or jump onto. Those rise further, above the jump apex, so they
-// read (and generate) as solid rock, not a secret rooftop. Rim/thin walls
+// read (and generate) as deep raised terrain, not a secret rooftop. Rim/thin boundaries
 // — anything with at least one open neighbor — keep the ordinary,
 // jumpable WALL_RISE.
 
 import { WALL_RISE } from "../../core/constants.js";
-import { TILE } from "../types.js";
+import { TOPOLOGY } from "../types.js";
 
 // Apex is ~1.07 (JUMP_VELOCITY^2 / 2*GRAVITY) — see walls.test.ts's own
 // computation. 2 clears it with margin without inventing a new constant
@@ -42,7 +42,7 @@ function capVoidTowers(tiles: Uint8Array, height: Float32Array, chunkSize: numbe
     for (let y = 0; y < chunkSize; y++) {
       for (let x = 0; x < chunkSize; x++) {
         const index = y * chunkSize + x;
-        if (tiles[index] !== TILE.Wall) continue;
+        if (tiles[index] !== TOPOLOGY.Uncarved) continue;
         const adjacent = highestAdjacentHeight(before, chunkSize, x, y);
         if (adjacent === null || (height[index] ?? 0) <= adjacent + 1) continue;
         height[index] = adjacent + 1;
@@ -61,7 +61,7 @@ function isInteriorFill(tiles: Uint8Array, chunkSize: number, x: number, y: numb
       const nx = x + dx;
       const ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= chunkSize || ny >= chunkSize) continue;
-      if (tiles[ny * chunkSize + nx] !== TILE.Wall) return false;
+      if (tiles[ny * chunkSize + nx] !== TOPOLOGY.Uncarved) return false;
     }
   }
   return true;
@@ -72,7 +72,7 @@ export function applyWallHeight(tiles: Uint8Array, height: Float32Array, chunkSi
   for (let y = 0; y < chunkSize; y++) {
     for (let x = 0; x < chunkSize; x++) {
       const i = y * chunkSize + x;
-      if (tiles[i] !== TILE.Wall) continue;
+      if (tiles[i] !== TOPOLOGY.Uncarved) continue;
       const rise = isInteriorFill(tiles, chunkSize, x, y) ? INTERIOR_WALL_RISE : WALL_RISE;
       height[i] = (height[i] ?? 0) + rise;
     }

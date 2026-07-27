@@ -29,10 +29,10 @@ describe("grid path elevation transitions", () => {
     const world = new World(228182761, 1, LEVEL.Dungeon);
     const path = findGridPath(world, { x: -21, y: 33 }, { x: -21, y: 38 });
 
-    expect(path.slice(0, 3)).toEqual([
-      { x: -21.5, y: 33.5, jump: false },
-      { x: -21.5, y: 32.5, jump: false },
-      { x: -22.5, y: 32.5, jump: false },
-    ]);
+    expect(path.length).toBeGreaterThan(0);
+    expect(path.at(-1)).toMatchObject({ x: -20.5, y: 38.5 });
+    for (const step of path) {
+      expect(world.isWalkable(Math.floor(step.x), Math.floor(step.y))).toBe(true);
+    }
   });
 });

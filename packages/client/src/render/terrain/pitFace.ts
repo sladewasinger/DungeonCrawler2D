@@ -1,6 +1,6 @@
 // Pit faces stay attached to the highest reachable rim while the terrain rises northward.
 import { WALL_FACE_MIN_DROP } from "@dc2d/engine";
-import type { TerrainRead } from "./faces.js";
+import { isVoidCellAt, type TerrainRead } from "./faces.js";
 import { faceSplit, MAX_FACE_ROWS } from "./ownFace.js";
 
 interface PitFaceRowBase {
@@ -23,6 +23,7 @@ export interface PitStepFaceRow extends PitFaceRowBase {
 /** Rows owned by a below-base floor that drops further south. They begin below that
  * floor's shifted cap, rather than occupying the next pit floor's screen row. */
 export function pitStepFaceRowsAt(world: TerrainRead, wx: number, wy: number): readonly PitStepFaceRow[] {
+  if (isVoidCellAt(world, wx, wy) || isVoidCellAt(world, wx, wy + 1)) return [];
   const height = world.heightAt(wx, wy);
   const southHeight = world.heightAt(wx, wy + 1);
   if (height >= 0 || southHeight >= 0 || height - southHeight < WALL_FACE_MIN_DROP) return [];
@@ -43,6 +44,7 @@ export function pitStepFaceRowsAt(world: TerrainRead, wx: number, wy: number): r
 }
 
 export function pitFaceRowAt(world: TerrainRead, wx: number, wy: number): PitFaceRow | null {
+  if (isVoidCellAt(world, wx, wy)) return null;
   const floorHeight = world.heightAt(wx, wy);
   if (floorHeight >= 0) return null;
 
@@ -71,6 +73,7 @@ const highestNorthRim = (world: TerrainRead, wx: number, wy: number, floorHeight
   let previousNorthHeight = floorHeight;
 
   for (let distance = 1; distance <= MAX_FACE_ROWS; distance += 1) {
+    if (isVoidCellAt(world, wx, wy - distance)) break;
     const northHeight = world.heightAt(wx, wy - distance);
     if (northHeight < previousNorthHeight) break;
     previousNorthHeight = northHeight;

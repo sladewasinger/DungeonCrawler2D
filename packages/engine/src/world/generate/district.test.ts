@@ -54,12 +54,12 @@ describe("landmark set-pieces", () => {
     }
     expect(isLandmarkChunk(cx, cy)).toBe(true);
     const chunk = generateChunk(SEED, FLOOR, cx, cy);
-    // Every landmark stamps at least one wall ring/gate around its
+    // Every landmark stamps at least one raised Floor ring/gate around its
     // center — a landmark chunk is never indistinguishable from a plain
     // one, and its own gates keep it internally walkable.
-    const wallCount = Array.from(chunk.tiles).filter((t) => t === TILE.Wall).length;
+    const raisedCount = Array.from(chunk.height).filter((h) => h > 0).length;
     const floorCount = Array.from(chunk.tiles).filter((t) => t === TILE.Floor).length;
-    expect(wallCount).toBeGreaterThan(0);
+    expect(raisedCount).toBeGreaterThan(0);
     expect(floorCount).toBeGreaterThan(0);
   });
 });
@@ -83,7 +83,7 @@ function corridorWidthAtBorder(seed: number, cxA: number, cy: number, cxB: numbe
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     const eastEdge = a.tiles[ly * CHUNK_SIZE + (CHUNK_SIZE - 1)];
     const westEdge = b.tiles[ly * CHUNK_SIZE];
-    const carved = eastEdge !== TILE.Wall && westEdge !== TILE.Wall;
+    const carved = eastEdge !== TILE.Void && westEdge !== TILE.Void;
     run = carved ? run + 1 : 0;
     best = Math.max(best, run);
   }

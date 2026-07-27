@@ -18,13 +18,12 @@ import type { PlayerSlot, SimState } from "./state.js";
 /** Enemy deaths (drops), downed-state flow, and player death/respawn. */
 
 /**
- * Chasm = death (design ruling): a player standing in a rift dies outright
- * — forceDeath skips the shared-revive "downed" window straight to the
- * ordinary full-loot-drop respawn path resolvePlayerDeath already runs
- * below, same as a solo kill.
+ * A body that is already standing in a void dies outright — forceDeath skips
+ * the shared-revive "downed" window straight to the ordinary full-loot-drop
+ * respawn path resolvePlayerDeath already runs below, same as a solo kill.
  */
-export function killIfInChasm(slot: PlayerSlot): void {
-  if (slot.entity.hp <= 0 || !isBodyInChasm(slot.entity.body)) return;
+export function killIfInChasm(slot: PlayerSlot, world: SimState["world"]): void {
+  if (slot.entity.hp <= 0 || !isBodyInChasm(world, slot.entity.body)) return;
   slot.entity.hp = 0;
   slot.forceDeath = true;
 }

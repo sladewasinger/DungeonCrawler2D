@@ -7,6 +7,7 @@ import { placeFractionalRect } from "./placeSprite.js";
 import { screenClimbDirIndex } from "./stairScreenDirection.js";
 import { steppedStairSurface } from "./steppedStairSurface.js";
 import { stacksVertically } from "./stairTread.js";
+import { hasVoidNeighborAt, isVoidCellAt } from "./faces.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
 
 /** True when a wall primitive projects into a horizontal stair's tread area. */
@@ -67,7 +68,7 @@ export function drawPartialHeightFace(
   wy: number,
   lightTint: number,
 ): void {
-  if (world.tileAt(wx, wy) === TILE.Stairs) return;
+  if (world.tileAt(wx, wy) === TILE.Stairs || hasVoidNeighborAt(world, wx, wy) || isVoidCellAt(world, wx, wy) || isVoidCellAt(world, wx, wy + 1)) return;
   const height = world.heightAt(wx, wy);
   const southHeight = world.heightAt(wx, wy + 1);
   const drop = height - southHeight;

@@ -1,8 +1,9 @@
 // Headless tests for height-based tint shading — no Phaser involved. Elevation
 // reads as RELATIVE light: floor slightly dimmed, raised ground brighter, pits
-// darker, chasm near-black. No overlay-rectangle path exists anymore.
+// darker. Void surfaces use a flat black tile path.
 import { describe, expect, it } from "vitest";
-import { CHASM_TINT, heightTint, isChasmDepth, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
+import { TILE } from "@dc2d/engine";
+import { CHASM_TINT, heightTint, isChasmDepth, isVoidTile, topEdgeHighlightTint, VOID_SURFACE_COLOR } from "./heightShade.js";
 
 function luminance(tint: number): number {
   return ((tint >> 16) & 0xff) + ((tint >> 8) & 0xff) + (tint & 0xff);
@@ -45,18 +46,12 @@ describe("heightTint", () => {
     expect(deep).toBeLessThan(shallow);
   });
 
-  it("goes near-black at chasm depth", () => {
+  it("keeps the legacy chasm tint dark at void depth", () => {
     expect(heightTint(-2)).toBe(CHASM_TINT);
     expect(heightTint(-1.5)).toBe(CHASM_TINT);
   });
 
-  it("chasm tint stays dark but isn't crushed to pure black (the 'hole' sprite's own texture must survive the multiply)", () => {
-    // Regression: a prior factor (0x30303c) multiplied the hole sprite's
-    // already-dark palette down to single-digit channel values — visually
-    // indistinguishable from flat black, the pre-deploy "chasm renders
-    // pure near-black, no texture" bug. A non-trivial tint (every channel
-    // above a visibility floor, but still reading dark) keeps the sprite's
-    // cave-mouth shading visible.
+  it("keeps the legacy chasm tint available for non-surface callers", () => {
     const [r, g, b] = [(CHASM_TINT >> 16) & 0xff, (CHASM_TINT >> 8) & 0xff, CHASM_TINT & 0xff];
     expect(r).toBeGreaterThan(20);
     expect(g).toBeGreaterThan(20);
@@ -72,8 +67,8 @@ describe("heightTint", () => {
 });
 
 describe("void surface color", () => {
-  it("is the single fixed color used by every void surface and wall-material row", () => {
-    expect(VOID_SURFACE_COLOR).toBe(0x202036);
+  it("is flat black for every void surface and border", () => {
+    expect(VOID_SURFACE_COLOR).toBe(0x000000);
   });
 });
 
@@ -82,6 +77,13 @@ describe("isChasmDepth", () => {
     expect(isChasmDepth(-1.5)).toBe(true);
     expect(isChasmDepth(-1.4)).toBe(false);
     expect(isChasmDepth(0)).toBe(false);
+  });
+});
+
+describe("isVoidTile", () => {
+  it("recognizes explicit void identity even when its render height is flat", () => {
+    expect(isVoidTile(TILE.Void)).toBe(true);
+    expect(isVoidTile(TILE.Floor)).toBe(false);
   });
 });
 

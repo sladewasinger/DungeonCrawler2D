@@ -13,23 +13,29 @@ function terrain(cells: Record<string, { h: number; t?: TileType }>): TerrainRea
 
 describe("hasSouthFace", () => {
   it("true over a real drop to open ground", () => {
-    const t = terrain({ "0,0": { h: 2, t: TILE.Wall }, "0,1": { h: 0 } });
+    const t = terrain({ "0,0": { h: 2, t: TILE.Floor }, "0,1": { h: 0 } });
     expect(hasSouthFace(t, 0, 0)).toBe(true);
   });
 
   it("false when the south neighbor is wall — internal steps never face", () => {
-    const t = terrain({ "0,0": { h: 4, t: TILE.Wall }, "0,1": { h: 2, t: TILE.Wall } });
+    const t = terrain({ "0,0": { h: 4, t: TILE.Floor }, "0,1": { h: 2, t: TILE.Void } });
     expect(hasSouthFace(t, 0, 0)).toBe(false);
   });
 
   it("false when the drop is below the threshold (ramps, STEP_UP ledges)", () => {
-    const t = terrain({ "0,0": { h: 1, t: TILE.Wall }, "0,1": { h: 1 - FACE_MIN_DROP + 0.2 } });
+    const t = terrain({ "0,0": { h: 1, t: TILE.Floor }, "0,1": { h: 1 - FACE_MIN_DROP + 0.2 } });
     expect(hasSouthFace(t, 0, 0)).toBe(false);
   });
 
   it("false for a wall level with its southern neighbor, regardless of tile types", () => {
-    const t = terrain({ "0,0": { h: 2, t: TILE.Wall }, "0,1": { h: 2 } });
+    const t = terrain({ "0,0": { h: 2, t: TILE.Floor }, "0,1": { h: 2 } });
     expect(hasSouthFace(t, 0, 0)).toBe(false);
+  });
+
+  it("never creates a projected face for or against a void tile", () => {
+    const t = terrain({ "0,0": { h: 1 }, "0,1": { h: 0, t: TILE.Void } });
+    expect(hasSouthFace(t, 0, 0)).toBe(false);
+    expect(hasSouthFace(t, 0, 1)).toBe(false);
   });
 });
 
@@ -37,7 +43,7 @@ describe("hasPlatformSouthFace", () => {
   it("a raised walkable dais fronts a cliff band; wall terrain does not qualify", () => {
     const dais = terrain({ "0,0": { h: 2 }, "0,1": { h: 0 } });
     expect(hasPlatformSouthFace(dais, 0, 0)).toBe(true);
-    const wall = terrain({ "0,0": { h: 2, t: TILE.Wall }, "0,1": { h: 0 } });
+    const wall = terrain({ "0,0": { h: 2, t: TILE.Void }, "0,1": { h: 0 } });
     expect(hasPlatformSouthFace(wall, 0, 0)).toBe(false);
   });
 });

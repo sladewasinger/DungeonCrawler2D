@@ -1,5 +1,4 @@
-// zod schemas for both editor-map JSON versions this contract bridges — every
-// load crosses one of these before touching migration or compile logic
+// zod schema for the current editor-map JSON contract — every load crosses it
 // (ENGINEERING_STANDARDS.md: "all input crosses a zod schema before touching logic").
 
 import { z } from "zod";
@@ -21,20 +20,13 @@ const stackFeatureSchema = z.enum([
 ]);
 
 const stackTileSchema = z.object({
-  walls: z.number(),
+  height: z.number(),
   cap: z.string().nullable(),
   stair: z.object({ dir: stackDirSchema, height: z.number().optional() }).nullable(),
   feature: stackFeatureSchema.optional(),
 });
 
-/** v1: the format shipped before this pivot — no "version" key at all. */
-export const editorMapV1Schema = z.object({
-  tiles: z.array(z.number()),
-  heights: z.array(z.number()),
-  torches: z.array(torchSchema).optional(),
-});
-
-/** v2: explicit stacks replace the flat tiles/heights pair. */
+/** Explicit stacks are the only supported editor-map representation. */
 export const editorMapV2Schema = z.object({
   version: z.literal(2),
   width: z.number().int().positive(),
@@ -43,5 +35,4 @@ export const editorMapV2Schema = z.object({
   torches: z.array(torchSchema).optional(),
 });
 
-export type EditorMapV1Input = z.infer<typeof editorMapV1Schema>;
 export type EditorMapV2Input = z.infer<typeof editorMapV2Schema>;

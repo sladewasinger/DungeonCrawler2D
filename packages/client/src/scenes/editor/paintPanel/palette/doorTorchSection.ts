@@ -1,5 +1,5 @@
-// DOOR + TORCH: door punches into an existing uncapped wall stack (EditableWorld
-// enforces the guard); torch is the editor-only light source, stampable anywhere.
+// DOOR + TORCH: door adds a feature to an existing raised floor; torch is the
+// editor-only light source, stampable anywhere.
 // Real sprite icons where the catalog has one — door does, torches vary by pack.
 import { tileCatalog, type TileRef } from "@dc2d/content";
 import type { EditorStore } from "../../editorStore.js";

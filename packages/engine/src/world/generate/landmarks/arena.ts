@@ -2,7 +2,7 @@
 // bounded by a standing wall, with the corridor network punching clean
 // gates through it — the district's meeting-ground/fighting-pit centerpiece.
 
-import { TILE } from "../../types.js";
+import { TILE, TOPOLOGY } from "../../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor } from "./shared.js";
 
@@ -24,7 +24,7 @@ export function stampArena(
     if (d > WALL_RADIUS) return;
     const carved = onCorridor(corridorCarved, CHUNK_SIZE, lx, ly);
     const isRingWall = d === WALL_RADIUS && !carved;
-    tiles[i] = isRingWall ? TILE.Wall : TILE.Floor;
+    tiles[i] = isRingWall ? TOPOLOGY.Uncarved : TILE.Floor;
     height[i] = 0;
   });
 }

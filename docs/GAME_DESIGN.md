@@ -15,11 +15,29 @@ The multiplayer fantasy: you spawn alone somewhere in a vast dungeon floor. You 
 Top-down with a real, **continuous height axis** (CrossCode-style) — not discrete layers:
 
 - **Terrain is heightmapped.** Chunks carry a continuous height field: terraces, cliffs, plateaus, chasms. Entities live at `(x, y, z)`. (Sky-scale set pieces — a DCC-style **floating castle** that crawlers must figure out how to reach via rope, flight, teleportation, maybe someday a vehicle — are deferred post-v1.0, but the height model is built to allow them.)
-- **Wall tops are upper floors; wall faces are projected occupancy.** A raised wall tile can be stood on at its upper height. Its visible south face is drawn into the lower neighboring floor cell because of the camera projection, so that cell keeps its floor height but also carries a derived vertical facade. Grounded feet stop at the visible base; jumping, flight, and projectiles cross only when their z clears the facade top. Door openings are explicit exceptions.
+- **Raised floors are height-collidable.** The runtime stores only finite Floor or Void terrain plus feature overlays; it does not store Wall tiles. Height differences block walking, jumping, landing, and navigation, while derived faces provide the 2.5D presentation. Door features are explicit overlays.
+- **Voids are flat-black but collision-infinite.** A `TILE.Void` cell has no terrain height or walkable surface: it is drawn as one black square with a black border in the 2D view (no projected wall). In 3D it uses a bounded tall black volume. The engine blocks the tile at every platform height, including jumps, while preserving the existing server death path for a body knocked or teleported into one.
 - **Rendering:** an entity's shadow blob anchors its ground position; the sprite offsets upward by z. The shadow is what makes height readable in top-down — players parse it instantly. Elevation-readable cliff tiles are a first-class art requirement.
 - **Movement:** jumping, falling (**fall damage** scales with the drop), knockback off ledges (fall damage is a weapon), updrafts, and **flight** — z above terrain, shadow gliding over the chasm below.
 - **Effects obey height** (see [EFFECTS.md](EFFECTS.md)): heavy gases sink into pits and low ground, smoke rises, liquids flow downhill, ground-bound areas can't touch airborne entities. Poison poured off a high ledge rains onto the terraces below — within the same floor.
 - **Movement capabilities are data:** `flying`, `feather-fall`, `sticky-feet` (cliff traversal, ledge-grip, knockback immunity) are statuses composed from primitives — which makes them **AI-craftable**. Glue + boots = something.
+
+## Companion pets (v0.5.2)
+
+The dungeon seeds a small number of friendly pets on floor 1: one of each current
+companion definition, with the first pet placed about 20 tiles from the shared
+spawn area and the others distributed around it. Available companions currently
+include four dinos and a dog. The first nearby crawler to press `E` claims an
+unowned pet; each crawler may own at most one pet. The server owns that claim and
+replicates the pet to nearby players. A claimed pet follows
+its owner, drifts a little when the owner stands still, uses the shared bounded
+pathfinder to route around corners and up stairs, jumps onto half-height-or-taller
+ledges when needed, and teleports close after a long separation. Pet labels use
+the pet name plus a smaller `pet of <crawler>` owner line.
+
+Pet state deliberately has an ability seam. Pets do not attack or collect loot in
+this release, but future behaviors can add those capabilities without changing
+the entity kind, ownership protocol, or follow loop.
 
 ## PvPvE rules
 
@@ -64,7 +82,16 @@ Every layer is the same portal mechanic ("stretch rooms"): rooms manifest as ins
 
 - Formed by **mutual consent only** — an invite/accept flow (natural gateway: the fistbump).
 - Party members: shared party chat, party door in safe rooms, and labeled direction/distance tracking from position pings even outside view range — they're your people. **Friendly fire stays on at half direct melee damage** — partying up is trust, not immunity; the melee targeting aid keeps accidents rare.
-- A lethal hit becomes a **60-second downed window** while a conscious party member remains. Nearby members can revive; holding **K** for 1.5 seconds gives up early and enters the ordinary loot-drop/respawn path. The downed overlay is distinct from the full death screen. If the player gives up or bleeds out, the full death flow starts with a **30-second respawn countdown** (or the existing hold-**E** early-respawn gesture).
+- A lethal hit becomes a **60-second downed window** while a conscious nearby player remains. Any nearby crawler can hold **E** for four seconds to revive; the progress ring is replicated to every nearby observer, whether or not they are in the target's party. The downed overlay is distinct from the full death screen. Holding **E** for two seconds gives up early and enters the ordinary loot-drop/respawn path. If the player gives up or bleeds out, the full death flow starts with a **15-second respawn countdown** (or the existing hold-**E** early-respawn gesture on the dead screen).
+
+### Temporary playtest handicaps
+
+For the current family playtest, a crawler whose name contains `josiah` or
+`ellie` (case-insensitive) receives a server-authoritative handicap: incoming
+damage is multiplied by `0.3`, outgoing damage by `3`, and no other player is
+affected. The grant is represented by an isolated `HandicapGrant` so a future
+admin panel can issue or revoke the same grant without coupling administration
+to combat resolution.
 
 - Leaving/disbanding is unilateral and instant. Loot sharing rules: open question (default: free-for-all pickup, party etiquette is social, not mechanical).
 
@@ -96,11 +123,23 @@ The loop: *see a stranger → tense standoff → fistbump → friends*.
 
 ## Editable HUD
 
-Full HUD customization ships late (v0.8), but the **architecture is a day-one constraint** so nothing needs rewriting:
+The shared HUD registry and explicit edit mode are shipped. The Phaser HUD stores
+anchor-relative widget offsets and visibility in `dc2d.hud.layout`; the Three.js
+HTML HUD stores position and panel width/height as viewport ratios in storage
+schema v4, migrating older pixel layouts. Both load persisted state before
+constructing the live widgets, and touch-specific overrides are applied after
+desktop layouts so controls remain reachable.
 
-- Every HUD element — health, hotbar, buff icons, chat, party frames, minimap, ping/status — is a **widget**: a self-contained component registered with an id, default anchor/offset/scale, and visibility flag.
-- The HUD renders from a **layout config** (JSON), shipped with defaults, persisted per user (localStorage → account save in v0.8).
-- The eventual editor is then just UI over the config: drag, resize, toggle, reset-to-default. Hiding any widget (including chat) is the same mechanism as muting — the toggleable-everything principle applied to screen space.
+- Every HUD element — health, stamina, XP, hotbar, buff icons, chat, party frames,
+  inventory, compass, prompts, and status — is a registered widget/window.
+- Edit mode supports deliberate drag, re-anchoring, visibility toggles, save, and
+  reset. Three.js windows also support resize and pinch-resize, with percentage
+  sizes preserved across viewport changes.
+- Inventory search/filter remains available, but opening it on mobile leaves the
+  filter unfocused so the on-screen keyboard does not obscure the game.
+- Account-synced layouts remain future work; browser-local persistence is the
+  current contract. New HUD work must still use the registry/window model rather
+  than fixed screen coordinates.
 
 New HUD work in any epic must be built as a widget from the start; PRs adding fixed-position UI get bounced.
 

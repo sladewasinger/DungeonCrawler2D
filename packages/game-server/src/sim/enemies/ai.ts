@@ -77,7 +77,7 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
     // used to let a spitter parked in a rift (bad spawn, or chased/
     // knocked in) keep winding up and firing forever without this
     // ruling ever re-checking it.
-    if (isBodyInChasm(entity.body)) {
+    if (isBodyInChasm(sim.world, entity.body)) {
       entity.hp = 0;
       continue;
     }
@@ -140,10 +140,9 @@ function moveEnemy(
     x: (entity.body.x - before.x) / TICK_DT,
     y: (entity.body.y - before.y) / TICK_DT,
   });
-  // Chasm = death applies to enemies too (same knockback-death-pit ruling
-  // as players): resolveEnemyDeaths (deaths.ts) already removes any
-  // hp<=0 enemy and rolls its drops, so this is the whole of it.
-  if (isBodyInChasm(entity.body)) entity.hp = 0;
+  // Void death applies to enemies too: resolveEnemyDeaths (deaths.ts) already
+  // removes any hp<=0 enemy and rolls its drops, so this is the whole of it.
+  if (isBodyInChasm(sim.world, entity.body)) entity.hp = 0;
   enemy.animation = {
     state: move.moveX !== 0 || move.moveY !== 0 ? "walk" : "idle",
     ticksRemaining: 0,

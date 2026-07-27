@@ -2,7 +2,7 @@
 // derived on paper from the visual floor-rim threshold and the wall-always-casts
 // rule, never by calling the implementation under test.
 // Mirrors cliffMask.test.ts's fixture style (same TerrainRead stub shape).
-import { TILE, type TileType } from "@dc2d/engine";
+import { TILE } from "@dc2d/engine";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   aoBandAlphas,
@@ -17,8 +17,8 @@ import type { TerrainRead } from "./faces.js";
 /** heights keyed "x,y"; missing cells default to 0 height / Floor tile. */
 function terrain(heights: Record<string, number>, walls: ReadonlySet<string> = new Set()): TerrainRead {
   return {
-    heightAt: (x, y) => heights[`${x},${y}`] ?? 0,
-    tileAt: (x, y): TileType => (walls.has(`${x},${y}`) ? TILE.Wall : TILE.Floor),
+    heightAt: (x, y) => walls.has(`${x},${y}`) ? 1 : (heights[`${x},${y}`] ?? 0),
+    tileAt: () => TILE.Floor,
   };
 }
 

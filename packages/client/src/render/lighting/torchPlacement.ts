@@ -2,7 +2,6 @@
 // wall faces (the only cells that render brick, per VISUAL_DIRECTION's wall grammar) and
 // hash-buckets them into evenly spaced torch positions. No two torches crowd one bucket,
 // but placement never depends on load order or Math.random, so it's identical every run.
-import { TILE } from "@dc2d/engine";
 import { hasSouthFace, type TerrainRead } from "../terrain/faces.js";
 
 export interface TilePos {
@@ -20,12 +19,12 @@ function hash2(wx: number, wy: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-/** Every wall cell in [x0,x1) x [y0,y1) that fronts open ground south of it — torch-mountable. */
+/** Every raised Floor cell in [x0,x1) x [y0,y1) that fronts open ground south of it — torch-mountable. */
 export function torchCandidates(world: TerrainRead, x0: number, y0: number, x1: number, y1: number): TilePos[] {
   const out: TilePos[] = [];
   for (let wy = y0; wy < y1; wy++) {
     for (let wx = x0; wx < x1; wx++) {
-      if (world.tileAt(wx, wy) === TILE.Wall && hasSouthFace(world, wx, wy)) out.push({ wx, wy });
+      if (hasSouthFace(world, wx, wy)) out.push({ wx, wy });
     }
   }
   return out;

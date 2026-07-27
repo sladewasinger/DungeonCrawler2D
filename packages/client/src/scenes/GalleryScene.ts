@@ -169,7 +169,7 @@ export class GalleryScene extends Phaser.Scene {
     const tile = this.world.tileAt(tileX, tileY);
     const tileName = TILE_NAMES.get(tile) ?? `tile-${tile}`;
     const height = this.world.heightAt(tileX, tileY);
-    const surfaceName = tile === TILE.Wall ? "raised-top" : tileName;
+    const surfaceName = tileName;
     const face = ownFaceRowAt(this.world, tileX, tileY);
     const faceText = face ? ` | face row ${face.rowFromTop} of z${face.surfaceHeight} surface` : "";
     this.coordinateReadout.setText(

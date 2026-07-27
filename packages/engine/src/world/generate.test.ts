@@ -20,7 +20,7 @@ import {
   safeRoomFeatures,
   safeRoomSpawn,
 } from "./features/rooms.js";
-import { CHUNK_SIZE, TILE, ZONE } from "./types.js";
+import { CHUNK_SIZE, TERRAIN, TILE, ZONE } from "./types.js";
 import { World } from "./world.js";
 
 const SEED = hashString("test-world");
@@ -36,6 +36,8 @@ describe("world generation", () => {
       const a = generateChunk(SEED, FLOOR, cx, cy);
       const b = generateChunk(SEED, FLOOR, cx, cy);
       expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
+      expect(Array.from(a.terrain)).toEqual(Array.from(b.terrain));
+      expect(Array.from(a.features)).toEqual(Array.from(b.features));
       expect(Array.from(a.height)).toEqual(Array.from(b.height));
       expect(Array.from(a.zones)).toEqual(Array.from(b.zones));
     }
@@ -47,6 +49,8 @@ describe("world generation", () => {
     const c = generateChunk(SEED, FLOOR + 1, 5, 5);
     expect(Array.from(a.tiles)).not.toEqual(Array.from(b.tiles));
     expect(Array.from(a.tiles)).not.toEqual(Array.from(c.tiles));
+    expect(Array.from(a.tiles)).not.toContain(1);
+    expect(Array.from(a.terrain).every((value) => value === TERRAIN.Floor || value === TERRAIN.Void)).toBe(true);
   });
 
   it("is flat-first: floor height is 0 or within the pit/dais/chasm/landmark tier budget", () => {
@@ -60,7 +64,7 @@ describe("world generation", () => {
     expect(stats.deliberateFloors).toBeGreaterThan(0);
   }, 15_000);
 
-  it("safe-room chunks contain an entrance portal on a z2 kiosk TERRACE, not an open sanctuary or a rock mass", () => {
+  it("safe-room chunks contain an entrance portal on a z2 kiosk TERRACE, not an open sanctuary", () => {
     const found = findFirst(isSafeRoomChunk);
     expect(found).not.toBeNull();
     if (!found) return;
@@ -76,7 +80,7 @@ describe("world generation", () => {
     }
     expect(doors).toBe(1);
     // The kiosk terrace's walkable top platform sits north of the door
-    // (KIOSK_HEIGHT, not TILE.Wall rock — VISUAL_DIRECTION.md's z+1 rule);
+    // (KIOSK_HEIGHT, not a flat floor — VISUAL_DIRECTION.md's z+1 rule);
     // ordinary pad ground continues south of it.
     expect(chunk.tiles[doorIndex - CHUNK_SIZE]).toBe(TILE.Floor);
     expect(chunk.height[doorIndex - CHUNK_SIZE]).toBe(KIOSK_HEIGHT);
@@ -130,8 +134,8 @@ describe("world generation", () => {
     expect(world.tileAt(features.exit.x + 1, features.exit.y)).toBe(TILE.Floor);
     expect(world.tileAt(features.exit.x, features.exit.y + 1)).toBe(TILE.Floor);
     expect(world.tileAt(features.exit.x, features.exit.y + 2)).toBe(TILE.Floor);
-    expect(world.tileAt(features.exit.x - 1, features.exit.y + 1)).toBe(TILE.Wall);
-    expect(world.tileAt(features.exit.x + 1, features.exit.y + 1)).toBe(TILE.Wall);
+    expect(world.tileAt(features.exit.x - 1, features.exit.y + 1)).toBe(TILE.Floor);
+    expect(world.tileAt(features.exit.x + 1, features.exit.y + 1)).toBe(TILE.Floor);
     expect(Math.floor(spawn.x)).toBe(features.exit.x);
     expect(Math.floor(spawn.y)).toBe(features.exit.y - 1);
     expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
@@ -142,7 +146,7 @@ describe("world generation", () => {
       const chunk = generateChunk(SEED, FLOOR, cx, cy);
       const reached = floodFromBorder(chunk.tiles);
       for (let i = 0; i < chunk.tiles.length; i++) {
-        if (chunk.tiles[i] === TILE.Wall) continue;
+        if (chunk.tiles[i] === TILE.Void) continue;
         expect(reached[i], `chunk ${cx},${cy} tile ${i} is an orphan pocket`).toBe(1);
       }
     }
@@ -192,7 +196,7 @@ function floodFromBorder(tiles: Uint8Array): Uint8Array {
   const reached = new Uint8Array(tiles.length);
   const queue: number[] = [];
   for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i] === TILE.Wall || !isReachSeed(tiles, i)) continue;
+    if (tiles[i] === TILE.Void || !isReachSeed(tiles, i)) continue;
     reached[i] = 1;
     queue.push(i);
   }
@@ -200,7 +204,7 @@ function floodFromBorder(tiles: Uint8Array): Uint8Array {
     const i = queue.pop();
     if (i === undefined) break;
     for (const n of orthoNeighbors(i)) {
-      if (n < 0 || reached[n] === 1 || tiles[n] === TILE.Wall) continue;
+      if (n < 0 || reached[n] === 1 || tiles[n] === TILE.Void) continue;
       reached[n] = 1;
       queue.push(n);
     }

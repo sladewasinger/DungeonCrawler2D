@@ -1,5 +1,5 @@
 /** Owns deterministic Three.js terrain and bounded wall-sconce lighting. */
-import { TILE, biomeAtWorldTile, type World } from "@dc2d/engine";
+import { CHASM_DEATH_Z, TILE, biomeAtWorldTile, type World } from "@dc2d/engine";
 import * as THREE from "three";
 import { environmentProfile } from "./threeEnvironment.js";
 import {
@@ -11,6 +11,9 @@ import type { ViewDistance } from "./viewDistance.js";
 
 export const DEFAULT_TERRAIN_VIEW_RADIUS = 26;
 const MIN_HEIGHT = -3;
+/** 3D voids are rendered as a tall black volume; this keeps them effectively
+ * infinite for the bounded view without creating unbounded geometry. */
+const VOID_RENDER_TOP = 10;
 const SCONCE_CELL_SIZE = 12;
 
 const depthIndex = (height: number) => Math.min(3, Math.max(0, Math.round(-height)));
@@ -32,6 +35,7 @@ export class ThreeTerrain {
   private readonly craftMaterial = new THREE.MeshStandardMaterial({ color: "#704c31", roughness: 0.9 });
   private readonly stashMaterial = new THREE.MeshStandardMaterial({ color: "#87662f", roughness: 0.72, metalness: 0.12 });
   private readonly stairMaterial = new THREE.MeshStandardMaterial({ color: "#717987", roughness: 0.88 });
+  private readonly voidMaterial = new THREE.MeshStandardMaterial({ color: "#000000", roughness: 1 });
   private readonly sconces: Array<{
     flame: { scale: { set(x: number, y: number, z: number): void } };
     light?: { intensity: number };
@@ -76,6 +80,7 @@ export class ThreeTerrain {
       this.craftMaterial,
       this.stashMaterial,
       this.stairMaterial,
+      this.voidMaterial,
     ].forEach((material) => material.dispose());
     disposeBiomeMaterials(this.biomeMaterials);
   }
@@ -90,8 +95,13 @@ export class ThreeTerrain {
   }
 
   private populateTile(x: number, z: number): void {
-    const height = Math.max(MIN_HEIGHT + 0.25, Math.min(7, this.world.heightAt(x, z)));
+    const rawHeight = this.world.heightAt(x, z);
+    const height = Math.max(MIN_HEIGHT + 0.25, Math.min(7, rawHeight));
     const tile = this.world.tileAt(x, z);
+    if (tile === TILE.Void) {
+      this.addBlock(x, z, this.voidMaterial, VOID_RENDER_TOP);
+      return;
+    }
     if (this.world.isWalkable(x, z)) {
       this.addWalkableTile(x, z, height, tile);
       return;
@@ -162,7 +172,11 @@ export class ThreeTerrain {
       const offset = (start + index) % (SCONCE_CELL_SIZE ** 2);
       const x = cellX * SCONCE_CELL_SIZE + (offset % SCONCE_CELL_SIZE);
       const z = cellZ * SCONCE_CELL_SIZE + Math.floor(offset / SCONCE_CELL_SIZE);
-      if (!this.world.isWalkable(x, z)) return { x, z };
+      if (
+        !this.world.isWalkable(x, z) &&
+        this.world.tileAt(x, z) !== TILE.Void &&
+        this.world.heightAt(x, z) > CHASM_DEATH_Z
+      ) return { x, z };
     }
     return null;
   }

@@ -4,13 +4,12 @@
 // so a connectivity mistake anywhere in the mask math shows up as a wrong border, the
 // whole point of this lane. Face rows (the own-tile face model) draw the same wall
 // material through drawTile.ts's drawFaceCell instead; this module only ever sees
-// wall cells that are NOT currently rendering as someone's face row — a solid rock
+// raised-terrain cells that are NOT currently rendering as someone's face row — a solid
 // mass that never faces any lower ground within scan range (drawTile.ts's dispatch
 // already resolved `container` for its cell's own height before calling here, and
 // `liftPx` shifts this cell's cap the same as any other surface —
 // docs/ELEVATION-PROJECTION.md's "one shift rule" — so a same-height wall plateau
 // stays seamless with itself wherever it eventually does meet a drop).
-import { TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { placeWallEdges } from "./debugSprite.js";
 import type { CardinalEdges } from "./autotile.js";
@@ -19,7 +18,7 @@ import { freestandingHeightBodyRows } from "./heightColumn.js";
 import { MAX_FACE_ROWS, ownFaceRowAt } from "./ownFace.js";
 import { pitFaceRowAt, pitStepFaceRowsAt } from "./pitFace.js";
 import { placeFillRect } from "./placeSprite.js";
-import type { TerrainRead } from "./faces.js";
+import { isVoidCellAt, type TerrainRead } from "./faces.js";
 import type { TerrainWorld } from "./terrainWorld.js";
 import { TERRAIN_BAKE_TILE_PX } from "./terrainMetrics.js";
 
@@ -32,7 +31,6 @@ export function hasWallMaterialAtScreen(world: TerrainRead, wx: number, screenY:
     if (pitFaceRowAt(world, wx, sourceY) !== null && Math.abs(sourceY - screenY) < 0.01) return true;
     if (pitStepFaceRowsAt(world, wx, sourceY).some((row) => Math.abs(row.screenY - screenY) < 0.01)) return true;
     if (freestandingHeightBodyRows(world, wx, sourceY).some((row) => Math.abs(sourceY - row - screenY) < 0.01)) return true;
-    if (world.tileAt(wx, sourceY) === TILE.Wall && Math.abs(sourceY - world.heightAt(wx, sourceY) - screenY) < 0.01) return true;
   }
   return false;
 }
@@ -135,6 +133,7 @@ export function drawWallTile(
   edgeOverrides: Partial<CardinalEdges> = {},
   materialColor = VOID_SURFACE_COLOR,
 ): void {
+  if (isVoidCellAt(world, wx, wy)) return;
   placeFillRect(scene, container, wx, wy, materialColor, liftPx);
   if (pitFaceShade) drawPitFaceShade(scene, container, wx, wy, liftPx, pitFaceShade);
   placeWallEdges(scene, container, wx, wy, { ...voidEdgesAt(world, wx, wy, liftPx), ...edgeOverrides }, liftPx);

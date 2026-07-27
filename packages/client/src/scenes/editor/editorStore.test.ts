@@ -41,8 +41,8 @@ describe("EditorStore torch brush", () => {
   it("right-click erase with the torch brush removes only the torch, leaving the tile untouched", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    // Three stacked wall strokes make a height-3 wall on the blank editor map.
-    store.brush = { kind: "wall" };
+    // Three height strokes make a raised floor on the blank editor map.
+    store.brush = { kind: "height" };
     store.paint(0, 0);
     store.paint(0, 0);
     store.paint(0, 0);
@@ -62,7 +62,7 @@ describe("EditorStore void brush", () => {
     store.adjustFloorHeight(5, 5, 2);
     store.brush = { kind: "void" };
     store.paint(5, 5);
-    expect(store.world.cellAt(5, 5)).toEqual({ tile: TILE.Wall, height: 2 });
+    expect(store.world.cellAt(5, 5)).toEqual({ tile: TILE.Void, height: 2 });
     expect(store.world.isWalkable(5, 5)).toBe(false);
     store.restoreVoidAt(5, 5);
     expect(store.world.cellAt(5, 5)).toEqual({ tile: TILE.Floor, height: 2 });
@@ -80,18 +80,18 @@ describe("EditorStore autotile mask cache", () => {
     expect(store.world.cellAt(3, 3)).toEqual({ tile: TILE.Floor, height: 1 });
   });
 
-  it("uses an explicit-height wall brush for a direct rendering repro", () => {
+  it("uses an explicit-height brush for a direct rendering repro", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    store.brush = { kind: "wall", height: 3 };
+    store.brush = { kind: "height", height: 3 };
     store.paint(3, 3);
-    expect(store.world.cellAt(3, 3)).toEqual({ tile: TILE.Wall, height: 3 });
+    expect(store.world.cellAt(3, 3)).toEqual({ tile: TILE.Floor, height: 3 });
   });
 
-  it("resolves an isolated painted wall's mask immediately (no full-map recompute needed to see it)", () => {
+    it("resolves an isolated raised floor's mask immediately (no full-map recompute needed to see it)", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    store.brush = { kind: "wall" };
+    store.brush = { kind: "height" };
     store.paint(0, 0);
     expect(store.autotileMasks.get(0, 0)?.mask4).toBe(0);
     expect(store.autotileMasks.get(0, 0)?.edges).toEqual({ north: true, east: true, south: true, west: true });
@@ -100,7 +100,7 @@ describe("EditorStore autotile mask cache", () => {
   it("updates a neighbor's mask when a second wall is painted beside it", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    store.brush = { kind: "wall" };
+    store.brush = { kind: "height" };
     store.paint(0, 0);
     store.paint(1, 0);
     expect(store.autotileMasks.get(0, 0)?.edges.east).toBe(false);
@@ -121,7 +121,7 @@ describe("EditorStore autotile mask cache", () => {
   it("rebuilds the whole mask cache on import", () => {
     installFakeLocalStorage();
     const store = new EditorStore();
-    store.brush = { kind: "wall" };
+    store.brush = { kind: "height" };
     store.paint(3, 3);
     store.paint(4, 3);
     const reloaded = new EditorStore();

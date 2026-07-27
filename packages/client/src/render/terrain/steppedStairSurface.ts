@@ -1,4 +1,4 @@
-import { TILE } from "@dc2d/engine";
+import { TILE, WALL_FACE_MIN_DROP } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { DEBUG_TILE_PX, DEBUG_WALL_BORDER_PX } from "./debugTileset.js";
 import { drawVerticalStairSideShade } from "./drawContactShade.js";
@@ -10,6 +10,7 @@ import { stacksVertically } from "./stairTread.js";
 import { renderedSurfaceHeight } from "./stairSurface.js";
 import type { StairBandFace } from "./steppedStairGeometry.js";
 import type { ViewTerrainWorld } from "./viewWorld.js";
+import { hasVoidNeighborAt, isVoidCellAt } from "./faces.js";
 import { verticalStairSurface } from "./verticalStairSurface.js";
 
 export type {
@@ -112,13 +113,15 @@ function drawVerticalStairSideOutline(
   const dx = side === "west" ? -1 : 1;
   const screenY = Math.floor(wy + (face.y[0] + face.y[1]) / 2 - band.height);
   const rawY = Math.floor(band.sampleY);
+  if (isVoidCellAt(world, wx + dx, rawY) || isVoidCellAt(world, wx + dx, screenY)) return;
   // A generated 2x staircase is two tiles wide. Its shared middle edge is
   // interior stair surface, not an exposed side, so it must never receive a
   // manually drawn stair outline.
   if (world.tileAt(wx + dx, rawY) === TILE.Stairs) return;
-  const topDownWall = world.tileAt(wx + dx, rawY) === TILE.Wall;
-  const enclosesStair = world.heightAt(wx + dx, rawY) >= band.height + 0.1;
-  const wall = topDownWall || (enclosesStair && hasWallMaterialAtScreen(world, wx + dx, screenY));
+  const neighborHeight = world.heightAt(wx + dx, rawY);
+  const enclosesStair = neighborHeight >= band.height + 0.1;
+  const derivedFace = neighborHeight - band.height >= WALL_FACE_MIN_DROP;
+  const wall = derivedFace || (enclosesStair && hasWallMaterialAtScreen(world, wx + dx, screenY));
   const floor = world.tileAt(wx + dx, screenY) === TILE.Floor;
   if (wall) {
     placeFractionalRect(scene, container, wx, wy, sideEdgeRange(side, PROJECTED_WALL_EDGE_THICKNESS), face.y, PROJECTED_WALL_EDGE_COLOR, 1, band.liftBakePx);
@@ -154,6 +157,7 @@ export function drawVerticalStairSideOutlines(
   direction: number,
   lightTint: number,
 ): void {
+  if (hasVoidNeighborAt(world, wx, wy)) return;
   const surface = steppedStairSurface(wx, wy, direction, (x, y) => world.groundAt(x, y));
   if (surface.axis !== "y") return;
   const height = renderedSurfaceHeight(TILE.Stairs, world.groundAt(wx + 0.5, wy + 0.5));

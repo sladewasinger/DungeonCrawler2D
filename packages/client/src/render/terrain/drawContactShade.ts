@@ -34,15 +34,6 @@ export interface ContactShadeFace {
   readonly height: number;
 }
 
-function wallBesideFace(
-  world: TerrainRead,
-  wx: number,
-  dx: -1 | 1,
-  face: ContactShadeFace,
-): boolean {
-  return world.tileAt(wx + dx, Math.floor(face.sampleY)) === TILE.Wall;
-}
-
 /** A top-down side neighbor just above this tread reads as enclosing wall mass. */
 function higherSideBesideFace(
   world: TerrainRead,
@@ -92,10 +83,10 @@ export function drawVerticalStairSideShade(
     const row = Math.floor(face.sampleY);
     const westIsStair = world.tileAt(wx - 1, row) === TILE.Stairs;
     const eastIsStair = world.tileAt(wx + 1, row) === TILE.Stairs;
-    if (!westIsStair && (wallBesideFace(world, wx, -1, face) || higherSideBesideFace(world, wx, -1, face))) {
+    if (!westIsStair && higherSideBesideFace(world, wx, -1, face)) {
       drawSideBands(scene, container, wx, wy, "west", alphas, face.liftPx, face.y);
     }
-    if (!eastIsStair && (wallBesideFace(world, wx, 1, face) || higherSideBesideFace(world, wx, 1, face))) {
+    if (!eastIsStair && higherSideBesideFace(world, wx, 1, face)) {
       drawSideBands(scene, container, wx, wy, "east", alphas, face.liftPx, face.y);
     }
   }
@@ -123,8 +114,8 @@ function drawCornerPatches(
  * Bakes this cell's contact-shadow treatment into `container` (the same
  * shifted surface container as its floor art): a gradient band along every
  * side with a wall/cliff above it, plus small corner patches where only a
- * diagonal caster touches. Chasm-depth cells skip — they are already the
- * near-black void, and more darkness there is pure overdraw.
+ * diagonal caster touches. Void cells skip — they are already flat black, and
+ * more darkness there is pure overdraw.
  */
 export function drawContactShade(
   scene: Phaser.Scene,

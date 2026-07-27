@@ -2,7 +2,7 @@
 // courtyard, ringed by a low wall with gates wherever the corridor network
 // crosses it — an intimate plaza at the super-chunk's heart.
 
-import { TILE } from "../../types.js";
+import { TILE, TOPOLOGY } from "../../types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../scale.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor } from "./shared.js";
 
@@ -35,7 +35,7 @@ export function stampShrine(
       tiles[i] = TILE.Floor;
       height[i] = 0;
     } else if (d === RING_RADIUS && !carved) {
-      tiles[i] = TILE.Wall;
+      tiles[i] = TOPOLOGY.Uncarved;
       height[i] = 0;
     }
   });

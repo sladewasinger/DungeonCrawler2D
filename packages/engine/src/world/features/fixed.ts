@@ -130,7 +130,7 @@ export function applyFlattenedFeature(
   if (layout.safeRoom) {
     // The safe room itself is an instanced stretch room (rooms.ts); the
     // overworld only gets its entrance: a raised kiosk TERRACE (walkable
-    // floor, not a TILE.Wall rock mass — user-decreed 2026-07-19, see
+    // floor, not a TOPOLOGY.Uncarved mass — user-decreed 2026-07-19, see
     // VISUAL_DIRECTION.md's wall vertical-extent rule) whose south face
     // carries a portal door (GAME_DESIGN.md § Safe rooms).
     carveSafeRoomEntrance(tiles, height, layout.centerLx, layout.centerLy);
@@ -159,12 +159,12 @@ const TERRACE_NORTH_REACH = KIOSK_HEIGHT + TERRACE_TOP_ROWS - 1;
 
 /**
  * 5-wide x 5-deep kiosk TERRACE: a raised, walkable floor dais (not solid
- * rock) whose southernmost KIOSK_HEIGHT rows are its face, with
+ * raised terrain) whose southernmost KIOSK_HEIGHT rows are its face, with
  * TERRACE_TOP_ROWS more of genuine flat top behind that at
  * EVERY column, door column included — never short a full z+1 of walkable
  * top the way a too-shallow terrace leaves the door's own column with
- * zero (docs/examples/user-kiosk-terrace-example.json is the hand-authored
- * acceptance fixture this shape matches). The door replaces the center
+ * zero (the authored terrace regression is covered by the feature tests). The
+ * door replaces the center
  * cell of the south face row AND drops that one cell to height 0 (flush
  * with the pad outside): STEP_UP gates grounded movement onto any raised
  * cell (movement/collision.ts's cornerBlocksMove), doors get no ramp/jump

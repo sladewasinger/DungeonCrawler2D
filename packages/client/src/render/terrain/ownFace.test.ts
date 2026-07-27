@@ -9,7 +9,7 @@ import { MAX_FACE_ROWS, ownFaceRowAt } from "./ownFace.js";
 function terrain(heightsByRow: Record<number, number>, walls: ReadonlySet<number> = new Set()): TerrainRead {
   return {
     heightAt: (_x, y) => heightsByRow[y] ?? 0,
-    tileAt: (_x, y): TileType => (walls.has(y) ? TILE.Wall : TILE.Floor),
+    tileAt: (_x, y): TileType => (walls.has(y) ? TILE.Floor : TILE.Floor),
   };
 }
 

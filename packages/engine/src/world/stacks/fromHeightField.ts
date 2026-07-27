@@ -17,7 +17,7 @@ function stairView(tiles: Uint8Array, height: Float32Array, width: number, rows:
     return arr[y * width + x] ?? fallback;
   };
   return {
-    tileAt: (x, y) => at(tiles, x, y, TILE.Wall),
+    tileAt: (x, y) => at(tiles, x, y, TILE.Void),
     heightAt: (x, y) => at(height, x, y, 0),
   };
 }
@@ -43,15 +43,15 @@ function stairDirAt(view: StairView, x: number, y: number): StackDir {
  * caught this). Interpolation stays available for the editor's fresh,
  * height-less paintStairsAt authoring only.
  */
-function tileToStack(tile: TileType, h: number, view: StairView, x: number, y: number): StackTile {
-  const feature = TILE_FEATURE.get(tile);
-  if (feature) return { walls: h, cap: null, stair: null, feature };
-  if (tile === TILE.Stairs) return { walls: h, cap: null, stair: { dir: stairDirAt(view, x, y), height: h } };
-  if (tile === TILE.Wall) return { walls: h, cap: null, stair: null };
-  return { walls: h, cap: DEFAULT_FLOOR_CAP, stair: null };
+function tileToStack(tile: number, h: number, view: StairView, x: number, y: number): StackTile {
+  const feature = TILE_FEATURE.get(tile as TileType);
+  if (feature) return { height: h, cap: DEFAULT_FLOOR_CAP, stair: null, feature };
+  if (tile === TILE.Stairs) return { height: h, cap: null, stair: { dir: stairDirAt(view, x, y), height: h } };
+  if (tile === TILE.Void) return { height: h, cap: null, stair: null };
+  return { height: h, cap: DEFAULT_FLOOR_CAP, stair: null };
 }
 
-/** Mechanical reverse mapping: floor at h -> walls=h+cap, Wall at h -> walls=h no cap, stairs -> stair tiles. */
+/** Mechanical reverse mapping: finite floor at h -> height=h+cap, Void at h -> height=h no cap, stairs -> stair tiles. */
 export function heightFieldToStacks(
   tiles: Uint8Array,
   height: Float32Array,
@@ -63,7 +63,7 @@ export function heightFieldToStacks(
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
-      stacks[i] = tileToStack(tiles[i] as TileType, height[i] ?? 0, view, x, y);
+      stacks[i] = tileToStack(tiles[i] ?? TILE.Floor, height[i] ?? 0, view, x, y);
     }
   }
   return stacks;
