@@ -7,6 +7,8 @@ const ROW_STEP = 100;
 /** A same-row tie-break only: far smaller than ROW_STEP. */
 const LIFT_STEP = 0.01;
 const OCCLUDER_BIAS = 0.5;
+/** Ground effects sit just above their floor cap, but below every entity in that row. */
+export const GROUND_EFFECT_BIAS = 0.04;
 /** Small presentation lift used by held weapons and attack-cone indicators. */
 export const COMBAT_OVERLAY_BIAS = 0.08;
 
@@ -30,6 +32,18 @@ export function depthForOccluder(southEdgeWorldY: number): number {
  */
 export function depthForCapOccluder(capRowY: number): number {
   return depthForEntity(capRowY) - OCCLUDER_BIAS;
+}
+
+/**
+ * Depth band for decals and other visuals that lie on a tile's ground surface.
+ *
+ * This is intentionally a row-local band rather than a global Phaser layer: the
+ * floor cap must be behind the effect, while every entity standing in that same
+ * row must remain in front of it. A whole decal must therefore stay within its
+ * owner row; callers that span rows must split into row-local fragments.
+ */
+export function depthForGroundEffect(rowY: number): number {
+  return depthForCapOccluder(Math.floor(rowY)) + GROUND_EFFECT_BIAS;
 }
 
 /**

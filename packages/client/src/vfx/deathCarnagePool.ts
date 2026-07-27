@@ -14,6 +14,7 @@ import { groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 const CARNAGE_POOL_CAP = 24;
 const BASE_ALPHA = 0.88;
+const GROUND_FRAGMENT_BIAS = 0.01;
 export type { CarnageAppearance } from "./deathCarnageDrawing.js";
 
 export class DeathCarnagePool {
@@ -73,7 +74,8 @@ export class DeathCarnagePool {
       .setAlpha(BASE_ALPHA)
       .setVisible(true)
       .setDepth(depth);
-    for (const fragment of mark.fragments) fragment.setDepth(depth + 0.02);
+    // Keep fragments distinct from the streak graphics without entering the AO band.
+    for (const fragment of mark.fragments) fragment.setDepth(depth + GROUND_FRAGMENT_BIAS);
     mark.spawnMs = nowMs;
   }
 

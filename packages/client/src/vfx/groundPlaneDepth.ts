@@ -1,5 +1,5 @@
 import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
-import { depthForEntity } from "../render/entities/depthSort.js";
+import { depthForEntity, depthForGroundEffect } from "../render/entities/depthSort.js";
 
 export type GroundedVisualLayer =
   | "blood"
@@ -9,13 +9,6 @@ export type GroundedVisualLayer =
 
 /** Screen-space Y foreshortening for circular marks lying on a floor viewed at ~45°. */
 export const GROUND_DECAL_VERTICAL_SCALE = Math.SQRT1_2;
-
-const LAYER_DEPTH_BIAS: Readonly<Record<GroundedVisualLayer, number>> = {
-  blood: -0.35,
-  corpse: -0.3,
-  corpseFragment: -0.25,
-  item: 0,
-};
 
 export interface GroundedVisualPlacement {
   readonly groundedRow: number;
@@ -28,9 +21,9 @@ export interface GroundedVisualPlacement {
 /**
  * One inspectable contract for ground-anchored visuals.
  *
- * Elevation shifts the drawn position onto the projected terrain surface, but never
- * changes its painter row. Terrain caps and wall facades are keyed to the grounded
- * footprint, so subtracting elevation from depth can incorrectly bury raised effects.
+ * Elevation shifts the drawn position onto the projected terrain surface. Blood,
+ * corpses, and fragments use the row-local ground-effect band so their geometry
+ * stays behind every entity standing on that floor. Items retain entity ordering.
  */
 export function groundedVisualPlacement(
   rawScreenY: number,
@@ -43,7 +36,9 @@ export function groundedVisualPlacement(
   return {
     groundedRow,
     projectedScreenY: groundedScreenY - groundHeight * SCREEN_TILE_PX,
-    depth: depthForEntity(groundedRow) + LAYER_DEPTH_BIAS[layer],
+    depth: layer === "item"
+      ? depthForEntity(groundedRow)
+      : depthForGroundEffect(groundedRow),
     groundHeight,
     layer,
   };

@@ -3,6 +3,7 @@ import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
 import {
   depthForCapOccluder,
   depthForEntity,
+  depthForGroundEffect,
   depthForOccluder,
 } from "../render/entities/depthSort.js";
 import { groundedVisualPlacement } from "./groundPlaneDepth.js";
@@ -20,7 +21,7 @@ describe("groundedVisualPlacement", () => {
       expect(placement).toMatchObject({
         groundedRow: rawRow,
         projectedScreenY: (rawRow - groundHeight) * SCREEN_TILE_PX,
-        depth: depthForEntity(rawRow) - 0.3,
+        depth: depthForGroundEffect(rawRow),
         groundHeight,
         layer: "corpse",
       });
@@ -47,7 +48,7 @@ describe("groundedVisualPlacement", () => {
     }
   });
 
-  it("applies screen-space scatter to both the projected footprint and its depth", () => {
+  it("keeps screen-space scatter inside the same ground-effect row", () => {
     const placement = groundedVisualPlacement(
       10 * SCREEN_TILE_PX,
       1,
@@ -55,7 +56,14 @@ describe("groundedVisualPlacement", () => {
       SCREEN_TILE_PX / 2,
     );
     expect(placement.projectedScreenY).toBe(9.5 * SCREEN_TILE_PX);
-    expect(placement.depth).toBe(depthForEntity(10.5) - 0.35);
+    expect(placement.depth).toBe(depthForGroundEffect(10));
+  });
+
+  it("keeps a ground effect behind entities anywhere in its owner row", () => {
+    const row = 10;
+    const depth = depthForGroundEffect(row + 0.99);
+    expect(depth).toBeLessThan(depthForEntity(row));
+    expect(depth).toBeLessThan(depthForEntity(row + 0.99));
   });
 
   it("handles stairs, chasms, and teleports as projection changes, not depth changes", () => {
@@ -68,7 +76,7 @@ describe("groundedVisualPlacement", () => {
         "corpseFragment",
       ));
     expect(placements.map(({ depth }) => depth))
-      .toEqual(heights.map(() => depthForEntity(rawRow) - 0.25));
+      .toEqual(heights.map(() => depthForGroundEffect(rawRow)));
     expect(placements.map(({ projectedScreenY }) => projectedScreenY))
       .toEqual(heights.map((height) => (rawRow - height) * SCREEN_TILE_PX));
   });

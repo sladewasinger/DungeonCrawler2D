@@ -11,10 +11,14 @@
 // GROUND-anchored (docs/ELEVATION-PROJECTION.md section 5): shifted by the hit
 // position's `groundAt` height, same `height*TILE` shape the shadow/halo use.
 import Phaser from "phaser";
+import { SCREEN_TILE_PX } from "../boot/assetManifest.js";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
-import { GROUND_DECAL_VERTICAL_SCALE, groundedVisualPlacement } from "./groundPlaneDepth.js";
+import {
+  GROUND_DECAL_VERTICAL_SCALE,
+  groundedVisualPlacement,
+} from "./groundPlaneDepth.js";
 
 /** Keeps a busy fight readable without allowing the cosmetic pool to grow unbounded. */
 export const DECAL_CAP = 96;
@@ -27,6 +31,45 @@ interface Decal {
   spawnMs: number;
 }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function containedScatter(
+  screenX: number,
+  screenY: number,
+  scatterX: number,
+  scatterY: number,
+  diameter: number,
+): { readonly x: number; readonly y: number } {
+  const tileLeft = Math.floor(screenX / SCREEN_TILE_PX) * SCREEN_TILE_PX;
+  const tileTop = Math.floor(screenY / SCREEN_TILE_PX) * SCREEN_TILE_PX;
+  const halfWidth = diameter / 2;
+  const halfHeight = diameter * GROUND_DECAL_VERTICAL_SCALE / 2;
+  return {
+    x: clamp(scatterX, tileLeft + halfWidth - screenX, tileLeft + SCREEN_TILE_PX - halfWidth - screenX),
+    y: clamp(scatterY, tileTop + halfHeight - screenY, tileTop + SCREEN_TILE_PX - halfHeight - screenY),
+  };
+}
+
+function configureDecalShape(
+  shape: Phaser.GameObjects.Ellipse,
+  screenX: number,
+  diameter: number,
+  tint: number,
+  placement: ReturnType<typeof groundedVisualPlacement>,
+  depth: number,
+): void {
+  shape
+    .setPosition(screenX, placement.projectedScreenY)
+    .setSize(diameter, diameter * GROUND_DECAL_VERTICAL_SCALE)
+    .setFillStyle(tint, 0.96)
+    .setStrokeStyle(0, tint, 0)
+    .setAlpha(BASE_ALPHA)
+    .setVisible(true)
+    .setDepth(depth);
+}
+
 export class BloodDecalPool {
   private readonly decals: Decal[] = [];
   private cursor = 0;
@@ -36,7 +79,13 @@ export class BloodDecalPool {
   /** Places one decal near (worldX, worldY), growing the pool until DECAL_CAP then
    * recycling the oldest-cycled slot round-robin. `groundHeight` is the hit position's
    * `groundAt` — GROUND-anchored (ELEVATION-PROJECTION section 5), shifted by it. */
-  spawn(worldX: number, worldY: number, groundHeight: number, tint: number, nowMs: number): void {
+  spawn(
+    worldX: number,
+    worldY: number,
+    groundHeight: number,
+    tint: number,
+    nowMs: number,
+  ): void {
     const decal = shouldGrowPool(this.decals.length, DECAL_CAP) ? this.grow() : this.recycle();
     this.place(decal, worldX, worldY, groundHeight, tint, nowMs);
   }
@@ -60,28 +109,35 @@ export class BloodDecalPool {
       .setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
-  private place(decal: Decal, worldX: number, worldY: number, groundHeight: number, tint: number, nowMs: number): void {
+  private place(
+    decal: Decal,
+    worldX: number,
+    worldY: number,
+    groundHeight: number,
+    tint: number,
+    nowMs: number,
+  ): void {
     const screen = worldToScreen(worldX, worldY);
     const scatterAngle = Math.random() * Math.PI * 2;
     const scatterDistance = Math.sqrt(Math.random()) * SCATTER_RADIUS_PX;
-    const scatterX = Math.cos(scatterAngle) * scatterDistance;
-    const scatterY = Math.sin(scatterAngle) * scatterDistance;
     const diameter = MIN_DIAMETER_PX +
       Math.random() * (MAX_DIAMETER_PX - MIN_DIAMETER_PX);
-    const placement = groundedVisualPlacement(
+    const scatter = containedScatter(
+      screen.x,
       screen.y,
-      groundHeight,
-      "blood",
-      scatterY,
+      Math.cos(scatterAngle) * scatterDistance,
+      Math.sin(scatterAngle) * scatterDistance,
+      diameter,
     );
-    decal.shape
-      .setPosition(screen.x + scatterX, placement.projectedScreenY)
-      .setSize(diameter, diameter * GROUND_DECAL_VERTICAL_SCALE)
-      .setFillStyle(tint, 0.96)
-      .setStrokeStyle(0, tint, 0)
-      .setAlpha(BASE_ALPHA)
-      .setVisible(true)
-      .setDepth(placement.depth);
+    const placement = groundedVisualPlacement(screen.y, groundHeight, "blood", scatter.y);
+    configureDecalShape(
+      decal.shape,
+      screen.x + scatter.x,
+      diameter,
+      tint,
+      placement,
+      placement.depth,
+    );
     decal.spawnMs = nowMs;
   }
 
