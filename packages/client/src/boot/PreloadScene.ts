@@ -36,6 +36,8 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(ASSET_KEYS.terrain4Debug, ASSET_PATHS.terrain4DebugImage);
     this.load.image(ASSET_KEYS.terrain4Biomes, ASSET_PATHS.terrain4BiomesImage);
     this.load.image(ASSET_KEYS.terrain4Pillars, ASSET_PATHS.terrain4PillarsImage);
+    this.load.image(ASSET_KEYS.terrain4Cliffs, ASSET_PATHS.terrain4CliffsImage);
+    this.load.image(ASSET_KEYS.terrain4CliffsDebug, ASSET_PATHS.terrain4CliffsDebugImage);
     this.load.spritesheet(DEBUG_TILESET_KEY, DEBUG_TILESET_PATH, {
       frameWidth: DEBUG_TILE_PX,
       frameHeight: DEBUG_TILE_PX,

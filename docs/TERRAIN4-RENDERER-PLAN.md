@@ -15,8 +15,8 @@ higher than the screen-south neighbor. The planner transforms screen-south
 through the four cardinal view orientations, so the rule is identical at
 0/90/180/270 degrees.
 
-The pure planner is Phaser-free. It emits typed floor, face, atlas-feature, and
-sprite-prop quads; feature art (stairs, doors, brazier, pets, entities) is a
+The pure planner is Phaser-free. It emits typed floor, face, cliff-edge,
+ambient-occlusion, atlas-feature, and sprite-prop quads; feature art (stairs, doors, brazier, pets, entities) is a
 separate pass anchored to a floor cap. Crafting tables and stashes retain their
 existing atlas sprites through the prop plane rather than being approximated by
 brazier art. This keeps future behaviours from leaking into terrain storage.
@@ -109,17 +109,15 @@ Pillar Forest sheet using this exact contract.
 Assets:
 
 - `packages/client/public/assets/terrain4/debug-atlas.png`
+- `packages/client/public/assets/terrain4/cliffs-debug-atlas.png`
 - `packages/client/public/assets/terrain4/terrain4-atlas.png` (shared biome sheet)
 - `packages/client/public/assets/terrain4/pillar-forest-atlas.png`
 
-Append `?terrain4Debug=1` to the game URL to enable a live geometry overlay:
-`F` marks Floor caps, `V` marks flat Void caps, `FT` marks feature-plane art,
-and `WF` marks a renderer-only wall face generated between two Floor heights.
-`PT` marks sprite-backed props. `WF` is never a stored tile or world value.
-This is intentionally an overlay
-in the first backend spike, so labels remain readable while the atlas
-compositor is profiled. The generated labeled debug atlas is also shown as a
-small in-game legend.
+Append `?terrain4Debug=1` to the game URL to select the generated labeled debug
+sprites directly. The labels are baked into those sprites (`FLOOR`, `VOID`,
+`WF`, feature names, and the cliff roles); Terrain4 does not create a runtime
+text object per tile. `WF` remains renderer-only and is never a stored tile or
+world value. The labeled debug atlas is also shown as a small in-game legend.
 
 For a deterministic, server-free browser pass, use
 `?scene=gallery&terrain4=1&terrain4Debug=1`. The existing GalleryScene then
@@ -127,7 +125,22 @@ drives the same Terrain4 renderer against its fixed generated world, which is
 useful for screenshots and rotation/biome checks without connecting a player.
 
 The shared sheet is intentionally compact; faces and void boundaries are
-generated from the height map, so no per-direction wall atlas is needed.
+generated from the height map, so no per-direction wall atlas is needed. Floor
+cliff edges use a separate two-column sheet: `cliff-middle` is a single-side
+rim and `cliff-corner` is a rotatable L-corner. The planner emits the edge on
+the higher Floor side, chooses corner art for adjacent edge pairs, and rotates
+the UVs for all four view-space cardinal sides. Void neighbors never create a
+cliff edge or AO mask. Low Floors beside higher Floors receive three nested
+screen-space contact bands plus diagonal corner patches, grouped by depth row
+so AO remains below entities while retaining the old `contactShade` strength
+dial.
+
+The cliff sheet follows the same biome order as the main atlas and includes a
+debug pair in rows 0–1:
+
+- `packages/client/public/assets/terrain4/terrain4-cliffs.png`
+- column 0: `CLIFF-MIDDLE` (straight rim)
+- column 1: `CLIFF-CORNER` (rotatable 90-degree corner)
 
 ## Delivery sequence
 

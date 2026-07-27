@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { VIEW_ORIENTATIONS, type ViewOrientation } from "../view/viewOrientation.js";
+import { viewTileToWorld, worldTileToView } from "../view/viewTransform.js";
 import { TERRAIN4, planTerrain4, type Terrain4Kind, type Terrain4Source } from "./terrainPlanner.js";
 
 const FLOOR = TERRAIN4.Floor;
@@ -105,6 +106,29 @@ describe("planTerrain4", () => {
       { bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0 },
     );
     expect(plan.batches.southFaces).toEqual([]);
+  });
+
+  it.each(VIEW_ORIENTATIONS)("emits a rotated corner tile in view space at orientation %i", (orientation) => {
+    const high = { x: 4, y: 4 };
+    const highView = worldTileToView(high, orientation);
+    const lowerSouth = viewTileToWorld({ x: highView.x, y: highView.y + 1 }, orientation);
+    const lowerEast = viewTileToWorld({ x: highView.x + 1, y: highView.y }, orientation);
+    const terrain = new Map<string, Terrain4Kind>([
+      [key(high.x, high.y), FLOOR], [key(lowerSouth.x, lowerSouth.y), FLOOR], [key(lowerEast.x, lowerEast.y), FLOOR],
+    ]);
+    const heights = new Map([[key(high.x, high.y), 2], [key(lowerSouth.x, lowerSouth.y), 0], [key(lowerEast.x, lowerEast.y), 0]]);
+    const plan = planTerrain4(source(terrain, heights), { bounds: { x: high.x, y: high.y, width: 1, height: 1 }, orientation });
+    expect(plan.batches.cliffEdges).toHaveLength(1);
+    expect(plan.batches.cliffEdges[0]).toMatchObject({ cliff: "corner", rotation: 0, sides: ["east", "south"] });
+  });
+
+  it("restores low-side contact AO without treating Void as a caster", () => {
+    const terrain = new Map<string, Terrain4Kind>([[key(0, 0), FLOOR], [key(0, 1), FLOOR], [key(1, 0), VOID]]);
+    const heights = new Map([[key(0, 0), 2], [key(0, 1), 0]]);
+    const plan = planTerrain4(source(terrain, heights), { bounds: { x: 0, y: 1, width: 1, height: 1 }, orientation: 0 });
+    expect(plan.batches.cliffEdges).toEqual([]);
+    expect(plan.batches.ao).toHaveLength(1);
+    expect(plan.batches.ao[0]?.mask).toMatchObject({ north: true, east: false, west: false, south: false });
   });
 
   it.each(VIEW_ORIENTATIONS)("uses the view-space south neighbor at orientation %i", (orientation) => {

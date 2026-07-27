@@ -16,8 +16,7 @@ import { Phaser4TerrainAtlasBatchRenderer } from "./phaser4AtlasBatch.js";
 import { TERRAIN4, type Terrain4Rect, type Terrain4Source } from "./terrainPlanner.js";
 import { appendVisibleChunkPlans, emptyTerrain4Batches, Terrain4ChunkPlanCache } from "./terrain4ChunkCache.js";
 import {
-  materialsFor, renderDebugLabels, screenProjection, worldBiomeAt, worldBoundsForView, TERRAIN_DEPTH,
-  type Terrain4DebugHost,
+  materialsFor, screenProjection, worldBiomeAt, worldBoundsForView, TERRAIN_DEPTH,
 } from "./terrain4RenderSupport.js";
 
 /** Public terrain seam consumed by dungeon orchestration and torch syncing. */
@@ -30,11 +29,10 @@ export interface TerrainRendererLike {
   dispose(): void;
 }
 
-interface Terrain4Root extends Terrain4DebugHost {
+interface Terrain4Root {
   readonly graphics: Phaser.GameObjects.Graphics;
   readonly batch: Phaser4TerrainQuadBatchRenderer;
   readonly atlas: Phaser4TerrainAtlasBatchRenderer;
-  readonly debugLabels: Phaser.GameObjects.Text[];
   readonly props: Map<string, Phaser.GameObjects.Sprite>;
   planKey: string;
   orientation: ViewOrientation;
@@ -75,6 +73,7 @@ export class Terrain4Renderer {
   update(view: ViewRect): void {
     const orientation = getViewOrientation();
     const root = this.ensureRoot(orientation);
+    const hasAtlasAssets = this.scene.textures.exists(ASSET_KEYS.terrain4Biomes) && this.scene.textures.exists(ASSET_KEYS.terrain4Cliffs);
     const bounds = worldBoundsForView(view, orientation);
     const key = `${orientation}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (this.dirty || root.planKey !== key) {
@@ -82,11 +81,8 @@ export class Terrain4Renderer {
       this.dirty = false;
     }
     for (const [candidate, candidateRoot] of this.roots) {
-      candidateRoot.graphics.setVisible(candidate === orientation && !this.scene.textures.exists("terrain4-biomes"));
+      candidateRoot.graphics.setVisible(candidate === orientation && !hasAtlasAssets);
       candidateRoot.atlas.setVisible(candidate === orientation);
-      for (const label of candidateRoot.debugLabels) {
-        label.setVisible(this.debugMode && candidate === orientation);
-      }
       for (const prop of candidateRoot.props.values()) prop.setVisible(candidate === orientation);
     }
   }
@@ -143,7 +139,6 @@ export class Terrain4Renderer {
     for (const root of this.roots.values()) {
       root.graphics.destroy();
       root.atlas.destroy();
-      for (const label of root.debugLabels) label.destroy();
       for (const prop of root.props.values()) prop.destroy();
     }
     this.roots.clear();
@@ -159,7 +154,6 @@ export class Terrain4Renderer {
       graphics,
       batch,
       atlas: new Phaser4TerrainAtlasBatchRenderer(this.scene),
-      debugLabels: [],
       props: new Map(),
       planKey: "",
       orientation,
@@ -171,7 +165,7 @@ export class Terrain4Renderer {
   private renderRoot(root: Terrain4Root, bounds: Terrain4Rect, key: string): void {
     const plan = emptyTerrain4Batches();
     appendVisibleChunkPlans(plan, this.chunkCache, this.terrainSource, bounds, root.orientation, this.world.tileRevision);
-    if (this.scene.textures.exists("terrain4-biomes")) {
+    if (this.scene.textures.exists(ASSET_KEYS.terrain4Biomes) && this.scene.textures.exists(ASSET_KEYS.terrain4Cliffs)) {
       root.atlas.render(plan, {
         projection: screenProjection,
         biomeAt: (tile) => worldBiomeAt(this.world, tile.x, tile.y),
@@ -182,9 +176,9 @@ export class Terrain4Renderer {
       root.batch.render(plan, screenProjection, materialsFor(this.world, bounds));
     }
     syncProps(this.scene, root, plan.props);
-    if (this.debugMode) renderDebugLabels(this.scene, root, plan, root.orientation === getViewOrientation());
     root.planKey = key;
   }
+
 }
 
 function featureForTile(tile: number): "stairs" | "door" | "brazier" | null {

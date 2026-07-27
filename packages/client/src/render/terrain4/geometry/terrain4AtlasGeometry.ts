@@ -1,0 +1,72 @@
+import type { Terrain4ScreenPoint, Terrain4ScreenProjection } from "../phaser4QuadBatch.js";
+import {
+  terrain4AtlasFrame,
+  terrain4CliffAtlasFrame,
+  type Terrain4CliffTileRole,
+  type Terrain4TileRole,
+} from "../terrain4Tileset.js";
+import type { Terrain4AtlasDraw, Terrain4MeshBatch } from "../phaser4AtlasBatch.js";
+import type { Terrain4AtlasRenderOptions } from "../phaser4AtlasBatch.js";
+import { depthForCapOccluder } from "../../entities/depthSort.js";
+import { TERRAIN4_CLIFFS, type Terrain4Batches } from "./terrainPlannerModel.js";
+import { TERRAIN4_CLIFF_TILESETS, terrain4CliffAtlasFrameName } from "../terrain4Tileset.js";
+import type { Terrain4QuarterTurn, Terrain4QuadVertices } from "./terrainPlannerModel.js";
+
+export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw, image: { readonly width: number; readonly height: number }): void {
+  const frame = "columns" in draw.atlas
+    ? terrain4CliffAtlasFrame(draw.atlas, draw.role as Terrain4CliffTileRole, draw.variant, image.width, image.height)
+    : terrain4AtlasFrame(draw.atlas, draw.role as Terrain4TileRole, draw.variant, image.width, image.height);
+  const base = batch.vertices.length / 4;
+  const u0 = frame.x / image.width;
+  // Phaser's Mesh2D samples V from the opposite edge of a PNG frame. Keep the
+  // logical top/bottom names used by rotatedUVs, but invert the normalized
+  // frame coordinates once here so every atlas role is upright.
+  const v0 = (frame.y + frame.height) / image.height;
+  const u1 = (frame.x + frame.width) / image.width;
+  const v1 = frame.y / image.height;
+  const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
+  const uv = rotatedUVs(u0, v0, u1, v1, draw.rotation ?? 0);
+  batch.vertices.push(
+    topLeft.x, topLeft.y, uv[0]![0], uv[0]![1], topRight.x, topRight.y, uv[1]![0], uv[1]![1],
+    bottomRight.x, bottomRight.y, uv[2]![0], uv[2]![1], bottomLeft.x, bottomLeft.y, uv[3]![0], uv[3]![1],
+  );
+  batch.indices.push(base, base + 1, base + 2, 0, base, base + 2, base + 3, 0);
+}
+
+export function appendCliffDraws(target: Terrain4AtlasDraw[], quads: Terrain4Batches["cliffEdges"], options: Terrain4AtlasRenderOptions): void {
+  for (const quad of quads) {
+    const set = options.debug ? TERRAIN4_CLIFF_TILESETS.debug : TERRAIN4_CLIFF_TILESETS[options.biomeAt(quad.worldTile)];
+    const role: Terrain4CliffTileRole = quad.cliff === TERRAIN4_CLIFFS.Corner ? "cliff-corner" : "cliff-middle";
+    const variant = set.rowCount === 1 ? 0 : terrain4Variant(quad.worldTile.x, quad.worldTile.y);
+    target.push({
+      atlas: set, frame: terrain4CliffAtlasFrameName(set, role, variant), role, variant, phase: 1,
+      depth: depthForCapOccluder(quad.viewTile.y), rotation: quad.rotation,
+      points: projectQuad(quad.vertices, options.projection),
+    });
+  }
+}
+
+function rotatedUVs(u0: number, v0: number, u1: number, v1: number, rotation: Terrain4QuarterTurn): readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]] {
+  switch (rotation) {
+    case 90: return [[u0, v1], [u0, v0], [u1, v0], [u1, v1]];
+    case 180: return [[u1, v1], [u0, v1], [u0, v0], [u1, v0]];
+    case 270: return [[u1, v0], [u1, v1], [u0, v1], [u0, v0]];
+    default: return [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+  }
+}
+
+export function projectQuad(vertices: Terrain4QuadVertices, projection: Terrain4ScreenProjection): readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint] {
+  return [projection.project(vertices[0]), projection.project(vertices[1]), projection.project(vertices[2]), projection.project(vertices[3])];
+}
+
+export function terrain4Variant(x: number, y: number): 0 | 1 {
+  return Math.abs(x * 31 + y * 17) % 2 as 0 | 1;
+}
+
+export function compareDraws(left: Terrain4AtlasDraw, right: Terrain4AtlasDraw): number {
+  return left.depth - right.depth || left.phase - right.phase || left.atlas.key.localeCompare(right.atlas.key);
+}
+
+export function meshKey(batch: Pick<Terrain4MeshBatch, "atlas" | "phase" | "depth">): string {
+  return `${batch.depth}:${batch.phase}:${batch.atlas.key}`;
+}

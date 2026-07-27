@@ -37,7 +37,7 @@ describe("Terrain4 deterministic visual fixture", () => {
     });
     const atlasKeys = new Set(draws.map((draw) => draw.atlas.key));
 
-    expect(atlasKeys).toEqual(new Set(["terrain4-biomes", "terrain4-pillars"]));
+    expect(atlasKeys).toEqual(new Set(["terrain4-biomes", "terrain4-pillars", "terrain4-cliffs"]));
     expect(draws.some((draw) => draw.role === "stairs")).toBe(true);
     expect(draws.some((draw) => draw.role === "door")).toBe(true);
     expect(draws.some((draw) => draw.role === "brazier")).toBe(true);

@@ -49,7 +49,7 @@ export class Terrain4ChunkPlanCache {
 }
 
 export function appendVisibleChunkPlans(
-  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; features: Terrain4Plan["batches"]["features"] extends readonly (infer T)[] ? T[] : never[]; props: Terrain4Plan["batches"]["props"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[] },
+  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; features: Terrain4Plan["batches"]["features"] extends readonly (infer T)[] ? T[] : never[]; props: Terrain4Plan["batches"]["props"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[]; cliffEdges: Terrain4Plan["batches"]["cliffEdges"] extends readonly (infer T)[] ? T[] : never[]; ao: Terrain4Plan["batches"]["ao"] extends readonly (infer T)[] ? T[] : never[] },
   cache: Terrain4ChunkPlanCache,
   source: Terrain4Source,
   bounds: Terrain4Rect,
@@ -68,6 +68,8 @@ export function appendVisibleChunkPlans(
       target.features.push(...plan.batches.features);
       target.props.push(...plan.batches.props);
       target.southFaces.push(...plan.batches.southFaces);
+      target.cliffEdges.push(...plan.batches.cliffEdges);
+      target.ao.push(...plan.batches.ao);
     }
   }
 }
@@ -78,8 +80,10 @@ export function emptyTerrain4Batches(): {
   features: NonNullable<Terrain4Batches["features"]>[number][];
   props: NonNullable<Terrain4Batches["props"]>[number][];
   southFaces: NonNullable<Terrain4Batches["southFaces"]>[number][];
+  cliffEdges: NonNullable<Terrain4Batches["cliffEdges"]>[number][];
+  ao: NonNullable<Terrain4Batches["ao"]>[number][];
 } {
-  return { floors: [], voids: [], features: [], props: [], southFaces: [] };
+  return { floors: [], voids: [], features: [], props: [], southFaces: [], cliffEdges: [], ao: [] };
 }
 
 function cacheKey(coord: Terrain4ChunkCoord, orientation: ViewOrientation, revision: number): string {

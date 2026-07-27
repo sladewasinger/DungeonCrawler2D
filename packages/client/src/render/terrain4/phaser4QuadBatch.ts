@@ -28,6 +28,8 @@ export interface Terrain4BatchMaterials {
   readonly feature: Terrain4QuadMaterial;
   readonly void: Terrain4QuadMaterial;
   readonly southFace: Terrain4QuadMaterial;
+  readonly cliffEdge?: Terrain4QuadMaterial;
+  readonly ao?: Terrain4QuadMaterial;
 }
 
 /**
@@ -53,6 +55,8 @@ export class Phaser4TerrainQuadBatchRenderer {
     this.drawBatch(batches.features, projection, materials.feature);
     this.drawBatch(batches.props, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
+    this.drawBatch(batches.cliffEdges, projection, materials.cliffEdge ?? materials.southFace);
+    this.drawBatch(batches.ao, projection, materials.ao ?? { color: 0x06060c, alpha: 0.22 });
   }
 
   private drawBatch(

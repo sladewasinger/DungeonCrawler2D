@@ -42,9 +42,26 @@ describe("terrain4AtlasDraws", () => {
       [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 16, 8],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
-      0, 0, 0.5, 1 / 11, 10, 0, 0.625, 1 / 11,
-      10, 10, 0.625, 2 / 11, 0, 10, 0.5, 2 / 11,
+      0, 0, 0.5, 2 / 11, 10, 0, 0.625, 2 / 11,
+      10, 10, 0.625, 1 / 11, 0, 10, 0.5, 1 / 11,
     ]);
+  });
+
+  it("rotates cliff UVs without changing the floor quad geometry", () => {
+    const draws = terrain4AtlasDraws({
+      ...batches,
+      cliffEdges: [{
+        kind: "cliff-edge", cliff: "middle", rotation: 90, height: 0,
+        worldTile: { x: 2, y: 2 }, viewTile: { x: 2, y: 2 }, sides: ["west"],
+        vertices: [{ x: 2, y: 2, z: 0 }, { x: 3, y: 2, z: 0 }, { x: 3, y: 3, z: 0 }, { x: 2, y: 3, z: 0 }],
+      }],
+    }, { projection, biomeAt: () => BIOME.Maze, debug: false });
+    const cliff = draws.find((draw) => draw.role === "cliff-middle");
+    expect(cliff?.rotation).toBe(90);
+    const mesh = terrain4MeshBatches(draws, (atlas) => "columns" in atlas ? { width: 1060, height: 1484 } : { width: 800, height: 880 })
+      .find((candidate) => candidate.atlas.key === "terrain4-cliffs");
+    expect(mesh ? [mesh.vertices[2], mesh.vertices[3], mesh.vertices[6], mesh.vertices[7], mesh.vertices[10], mesh.vertices[11], mesh.vertices[14], mesh.vertices[15]] : undefined)
+      .toEqual([0, 2 / 14, 0, 3 / 14, 1 / 2, 3 / 14, 1 / 2, 2 / 14]);
   });
 });
 
@@ -55,6 +72,8 @@ const batches: Terrain4Batches = {
   }],
   features: [],
   props: [],
+  cliffEdges: [],
+  ao: [],
   floors: [{
     kind: "floor", worldTile: { x: 0, y: 1 }, viewTile: { x: 0, y: 1 }, height: 0,
     vertices: [{ x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }, { x: 0, y: 2, z: 0 }],

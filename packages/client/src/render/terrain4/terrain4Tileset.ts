@@ -36,6 +36,29 @@ export interface Terrain4AtlasFrame {
   readonly height: number;
 }
 
+export const TERRAIN4_CLIFF_ROLES = ["cliff-middle", "cliff-corner"] as const;
+export type Terrain4CliffTileRole = (typeof TERRAIN4_CLIFF_ROLES)[number];
+
+export interface Terrain4CliffAtlasSet {
+  readonly key: string;
+  readonly path: string;
+  readonly columns: 2;
+  readonly rows: number;
+  readonly rowStart: number;
+  readonly rowCount: number;
+}
+
+/** The cliff sheet keeps a two-column role contract and two variants per biome. */
+export const TERRAIN4_CLIFF_TILESETS: Readonly<Record<"debug" | BiomeKind, Terrain4CliffAtlasSet>> = {
+  debug: { key: "terrain4-cliffs-debug", path: "assets/terrain4/cliffs-debug-atlas.png", columns: 2, rows: 1, rowStart: 0, rowCount: 1 },
+  [BIOME.Maze]: { key: "terrain4-cliffs", path: "assets/terrain4/terrain4-cliffs.png", columns: 2, rows: 14, rowStart: 2, rowCount: 2 },
+  [BIOME.OpenHalls]: { key: "terrain4-cliffs", path: "assets/terrain4/terrain4-cliffs.png", columns: 2, rows: 14, rowStart: 4, rowCount: 2 },
+  [BIOME.Ruins]: { key: "terrain4-cliffs", path: "assets/terrain4/terrain4-cliffs.png", columns: 2, rows: 14, rowStart: 6, rowCount: 2 },
+  [BIOME.Pillars]: { key: "terrain4-cliffs", path: "assets/terrain4/terrain4-cliffs.png", columns: 2, rows: 14, rowStart: 8, rowCount: 2 },
+  [BIOME.Pools]: { key: "terrain4-cliffs", path: "assets/terrain4/terrain4-cliffs.png", columns: 2, rows: 14, rowStart: 10, rowCount: 2 },
+  [BIOME.Arena]: { key: "terrain4-cliffs", path: "assets/terrain4/terrain4-cliffs.png", columns: 2, rows: 14, rowStart: 12, rowCount: 2 },
+};
+
 /**
  * The generated shared sheet contains a debug legend row followed by five
  * biome sets. Pillar Forest has its own generated sheet, but uses the exact
@@ -150,6 +173,43 @@ export function terrain4AtlasFrame(
     width,
     height,
   };
+}
+
+export function terrain4CliffAtlasFrameName(
+  set: Terrain4CliffAtlasSet,
+  role: Terrain4CliffTileRole,
+  variant = 0,
+): string {
+  assertSetVariant(set, variant);
+  return `terrain4-cliff:${set.key}:${set.rowStart + variant}:${role}`;
+}
+
+export function terrain4CliffAtlasFrame(
+  set: Terrain4CliffAtlasSet,
+  role: Terrain4CliffTileRole,
+  variant: number,
+  imageWidth: number,
+  imageHeight: number,
+): Terrain4AtlasFrame {
+  assertSetVariant(set, variant);
+  if (!Number.isFinite(imageWidth) || !Number.isFinite(imageHeight) || imageWidth <= 0 || imageHeight <= 0) {
+    throw new Error("Terrain4 cliff atlas image dimensions must be positive");
+  }
+  const width = imageWidth / set.columns;
+  const height = imageHeight / set.rows;
+  return {
+    name: terrain4CliffAtlasFrameName(set, role, variant),
+    x: TERRAIN4_CLIFF_ROLES.indexOf(role) * width,
+    y: (set.rowStart + variant) * height,
+    width,
+    height,
+  };
+}
+
+function assertSetVariant(set: Terrain4CliffAtlasSet, variant: number): void {
+  if (!Number.isInteger(variant) || variant < 0 || variant >= set.rowCount) {
+    throw new Error(`Terrain4 cliff atlas row must be below ${set.rowCount}; received ${variant}`);
+  }
 }
 
 function assertVariant(variant: number): void {

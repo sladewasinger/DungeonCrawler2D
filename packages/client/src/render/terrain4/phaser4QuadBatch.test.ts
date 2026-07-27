@@ -39,6 +39,8 @@ describe("Phaser4TerrainQuadBatchRenderer", () => {
       voids: [],
       features: [],
       props: [],
+      cliffEdges: [],
+      ao: [],
       floors: [{
         kind: "floor", worldTile: { x: 0, y: 0 }, viewTile: { x: 0, y: 0 }, height: 3,
         vertices: [{ x: 1, y: 2, z: 3 }, { x: 3, y: 2, z: 3 }, { x: 3, y: 5, z: 3 }, { x: 1, y: 5, z: 3 }],
@@ -66,7 +68,7 @@ describe("Phaser4TerrainQuadBatchRenderer", () => {
     const graphics = new RecordingGraphics();
     const renderer = new Phaser4TerrainQuadBatchRenderer(graphics as unknown as Phaser.GameObjects.Graphics);
 
-    renderer.render({ floors: [], voids: [], features: [], props: [], southFaces: [] }, screenProjection, materials);
+    renderer.render({ floors: [], voids: [], features: [], props: [], southFaces: [], cliffEdges: [], ao: [] }, screenProjection, materials);
 
     expect(graphics.calls).toEqual([["clear"]]);
   });

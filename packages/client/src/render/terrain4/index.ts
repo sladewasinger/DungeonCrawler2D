@@ -3,6 +3,8 @@ export {
   TERRAIN4_FEATURES,
   TERRAIN4_PROPS,
   TERRAIN4_HEIGHT_EPSILON,
+  TERRAIN4_FLOOR_EDGE_MIN_DROP,
+  TERRAIN4_CLIFFS,
   planTerrain4,
   type Terrain4Batches,
   type Terrain4FloorQuad,
@@ -19,6 +21,12 @@ export {
   type Terrain4VoidQuad,
   type Terrain4Source,
   type Terrain4Vertex,
+  type Terrain4CliffEdgeQuad,
+  type Terrain4CliffKind,
+  type Terrain4CliffSide,
+  type Terrain4QuarterTurn,
+  type Terrain4AOQuad,
+  type Terrain4AOMask,
 } from "./terrainPlanner.js";
 
 export {
@@ -26,6 +34,8 @@ export {
   TERRAIN4_ATLAS_ROWS_PER_SET,
   TERRAIN4_TILE_ROLES,
   TERRAIN4_TILESETS,
+  TERRAIN4_CLIFF_ROLES,
+  TERRAIN4_CLIFF_TILESETS,
   terrain4AtlasFrame,
   terrain4AtlasFrameName,
   terrain4FrameFor,
@@ -33,6 +43,8 @@ export {
   type Terrain4AtlasSet,
   type Terrain4AtlasFrame,
   type Terrain4TileRole,
+  type Terrain4CliffTileRole,
+  type Terrain4CliffAtlasSet,
 } from "./terrain4Tileset.js";
 
 export { Terrain4Renderer, type TerrainRendererLike } from "./terrain4Renderer.js";

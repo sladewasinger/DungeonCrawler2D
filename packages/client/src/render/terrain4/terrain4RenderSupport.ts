@@ -1,11 +1,10 @@
 import { BIOME, biomeAtWorldTile, type BiomeKind, type World } from "@dc2d/engine";
-import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import type { ViewRect } from "../terrain/streaming.js";
 import { viewTileToWorld } from "../view/viewTransform.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
 import type { Terrain4ScreenProjection } from "./phaser4QuadBatch.js";
-import type { Terrain4Batches, Terrain4Rect } from "./terrainPlanner.js";
+import type { Terrain4Rect } from "./terrainPlanner.js";
 
 export const VIEW_MARGIN_TILES = 2;
 export const TERRAIN_DEPTH = -1000;
@@ -23,17 +22,12 @@ const BIOME_MATERIALS: Readonly<Record<BiomeKind, { floor: number; face: number 
   [BIOME.Arena]: { floor: 0x9d5b43, face: 0x5b2c2a },
 };
 
-export interface Terrain4DebugHost {
-  readonly debugLabels: Phaser.GameObjects.Text[];
-}
-
-const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "feature" | "prop" | "south-face", string>> = {
-  floor: "F", void: "V", feature: "FT", prop: "PT", "south-face": "WF",
-};
-
 export function materialsFor(world: World, bounds: Terrain4Rect) {
   const palette = BIOME_MATERIALS[worldBiomeAt(world, bounds.x, bounds.y)];
-  return { floor: { color: palette.floor }, feature: { color: palette.floor }, void: { color: 0x000000 }, southFace: { color: palette.face } };
+  return {
+    floor: { color: palette.floor }, feature: { color: palette.floor }, void: { color: 0x000000 },
+    southFace: { color: palette.face }, cliffEdge: { color: palette.face }, ao: { color: 0x06060c, alpha: 0.22 },
+  };
 }
 
 export function worldBiomeAt(world: World, x: number, y: number): BiomeKind {
@@ -54,32 +48,4 @@ export function worldBoundsForView(view: ViewRect, orientation: ViewOrientation)
   const maxX = Math.max(...corners.map((corner) => corner.x)) + VIEW_MARGIN_TILES;
   const maxY = Math.max(...corners.map((corner) => corner.y)) + VIEW_MARGIN_TILES;
   return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
-}
-
-export function renderDebugLabels(
-  scene: Phaser.Scene,
-  root: Terrain4DebugHost,
-  plan: Terrain4Batches,
-  visible: boolean,
-): void {
-  const entries = [...plan.floors, ...plan.voids, ...plan.features, ...plan.props, ...plan.southFaces];
-  for (let index = 0; index < entries.length; index++) {
-    const entry = entries[index];
-    if (!entry) continue;
-    const label = root.debugLabels[index] ?? createDebugLabel(scene, root);
-    const center = entry.vertices.reduce((sum, vertex) => ({
-      x: sum.x + vertex.x / 4, y: sum.y + vertex.y / 4, z: sum.z + vertex.z / 4,
-    }), { x: 0, y: 0, z: 0 });
-    const screen = screenProjection.project(center);
-    label.setText(DEBUG_LABELS[entry.kind]).setPosition(screen.x, screen.y).setVisible(visible);
-  }
-  for (let index = entries.length; index < root.debugLabels.length; index++) root.debugLabels[index]?.setVisible(false);
-}
-
-function createDebugLabel(scene: Phaser.Scene, root: Terrain4DebugHost): Phaser.GameObjects.Text {
-  const label = scene.add.text(0, 0, "", {
-    color: "#ffffff", fontFamily: "monospace", fontSize: "12px", stroke: "#000000", strokeThickness: 3,
-  }).setOrigin(0.5).setDepth(TERRAIN_DEPTH + 1);
-  root.debugLabels.push(label);
-  return label;
 }

@@ -1,126 +1,15 @@
 import type { Point } from "../view/viewTransform.js";
 import { viewTileToWorld, worldTileToView } from "../view/viewTransform.js";
 import type { ViewOrientation } from "../view/viewOrientation.js";
+import { appendTerrain4AmbientOcclusion, appendTerrain4CliffEdges } from "./geometry/terrain4CliffGeometry.js";
 
-/** The only two terrain-plane values understood by the height-map renderer. */
-export const TERRAIN4 = {
-  Floor: "floor",
-  Void: "void",
-} as const;
-
-/** Ignore sub-pixel noise so generated Float32 heights do not create hairline faces. */
-export const TERRAIN4_HEIGHT_EPSILON = 0.01;
-
-export type Terrain4Kind = (typeof TERRAIN4)[keyof typeof TERRAIN4];
-
-/** Authored art that lives on the floor plane without becoming terrain. */
-export const TERRAIN4_FEATURES = {
-  Stairs: "stairs",
-  Door: "door",
-  Brazier: "brazier",
-} as const;
-
-export type Terrain4FeatureKind = (typeof TERRAIN4_FEATURES)[keyof typeof TERRAIN4_FEATURES];
-
-/** Sprite-backed interactables stay separate from atlas terrain features. */
-export const TERRAIN4_PROPS = {
-  CraftingTable: "crafting-table",
-  Stash: "stash",
-} as const;
-
-export type Terrain4PropKind = (typeof TERRAIN4_PROPS)[keyof typeof TERRAIN4_PROPS];
-
-/** A small, engine-agnostic read surface. Features are optional so the planner
- * remains useful for the minimal Floor/Void geometry tests and future worlds. */
-export interface Terrain4Source {
-  terrainAt(worldX: number, worldY: number): Terrain4Kind;
-  heightAt(worldX: number, worldY: number): number;
-  featureAt?(worldX: number, worldY: number): Terrain4FeatureKind | null;
-  propAt?(worldX: number, worldY: number): Terrain4PropKind | null;
-}
-
-export interface Terrain4Rect {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface Terrain4PlanOptions {
-  /** World-space tiles whose geometry belongs to this plan. */
-  readonly bounds: Terrain4Rect;
-  /** Settled camera direction. Geometry is emitted in this direction's view space. */
-  readonly orientation: ViewOrientation;
-  /**
-   * Extra cells the source promises to make available around `bounds`.
-   * The planner never emits those cells, but it may read them to resolve an
-   * edge at a chunk seam. One cell is enough for the current south-face rule.
-   */
-  readonly seamApron?: number;
-}
-
-export interface Terrain4Vertex {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
-/** A consistently wound, view-space rectangle. */
-export type Terrain4QuadVertices = readonly [
-  Terrain4Vertex,
-  Terrain4Vertex,
-  Terrain4Vertex,
-  Terrain4Vertex,
-];
-
-interface Terrain4QuadBase {
-  readonly worldTile: Point;
-  readonly viewTile: Point;
-  readonly vertices: Terrain4QuadVertices;
-}
-
-export interface Terrain4FloorQuad extends Terrain4QuadBase {
-  readonly kind: "floor";
-  readonly height: number;
-}
-
-export interface Terrain4VoidQuad extends Terrain4QuadBase {
-  readonly kind: "void";
-}
-
-export interface Terrain4FeatureQuad extends Terrain4QuadBase {
-  readonly kind: "feature";
-  readonly feature: Terrain4FeatureKind;
-  readonly height: number;
-}
-
-export interface Terrain4PropQuad extends Terrain4QuadBase {
-  readonly kind: "prop";
-  readonly prop: Terrain4PropKind;
-  readonly height: number;
-}
-
-export interface Terrain4SouthFaceQuad extends Terrain4QuadBase {
-  readonly kind: "south-face";
-  readonly topHeight: number;
-  readonly bottomHeight: number;
-}
-
-/** Renderer-ready geometry, separated so material selection never needs a Phaser type. */
-export interface Terrain4Batches {
-  readonly floors: readonly Terrain4FloorQuad[];
-  readonly voids: readonly Terrain4VoidQuad[];
-  readonly features: readonly Terrain4FeatureQuad[];
-  readonly props: readonly Terrain4PropQuad[];
-  readonly southFaces: readonly Terrain4SouthFaceQuad[];
-}
-
-export interface Terrain4Plan {
-  readonly bounds: Terrain4Rect;
-  readonly sampleBounds: Terrain4Rect;
-  readonly orientation: ViewOrientation;
-  readonly batches: Terrain4Batches;
-}
+export * from "./geometry/terrainPlannerModel.js";
+import { TERRAIN4, TERRAIN4_HEIGHT_EPSILON } from "./geometry/terrainPlannerModel.js";
+import type {
+  Terrain4AOQuad, Terrain4CliffEdgeQuad, Terrain4FeatureQuad, Terrain4FloorQuad,
+  Terrain4Plan, Terrain4PlanOptions, Terrain4PropQuad, Terrain4QuadVertices, Terrain4Rect, Terrain4Source,
+  Terrain4SouthFaceQuad, Terrain4VoidQuad,
+} from "./geometry/terrainPlannerModel.js";
 
 /**
  * Produces the height-map renderer's minimal geometry in view space.
@@ -142,11 +31,13 @@ export function planTerrain4(source: Terrain4Source, options: Terrain4PlanOption
   const features: Terrain4FeatureQuad[] = [];
   const props: Terrain4PropQuad[] = [];
   const southFaces: Terrain4SouthFaceQuad[] = [];
+  const cliffEdges: Terrain4CliffEdgeQuad[] = [];
+  const ao: Terrain4AOQuad[] = [];
   const { bounds, orientation } = options;
 
   for (let worldY = bounds.y; worldY < bounds.y + bounds.height; worldY += 1) {
     for (let worldX = bounds.x; worldX < bounds.x + bounds.width; worldX += 1) {
-      appendTileGeometry(source, { x: worldX, y: worldY }, orientation, floors, voids, features, props, southFaces);
+      appendTileGeometry(source, { x: worldX, y: worldY }, orientation, floors, voids, features, props, southFaces, cliffEdges, ao);
     }
   }
 
@@ -154,7 +45,7 @@ export function planTerrain4(source: Terrain4Source, options: Terrain4PlanOption
     bounds,
     sampleBounds: expandRect(bounds, seamApron),
     orientation,
-    batches: { floors, voids, features, props, southFaces },
+    batches: { floors, voids, features, props, southFaces, cliffEdges, ao },
   };
 }
 
@@ -167,6 +58,8 @@ function appendTileGeometry(
   features: Terrain4FeatureQuad[],
   props: Terrain4PropQuad[],
   southFaces: Terrain4SouthFaceQuad[],
+  cliffEdges: Terrain4CliffEdgeQuad[],
+  ao: Terrain4AOQuad[],
 ): void {
   const terrain = source.terrainAt(worldTile.x, worldTile.y);
   const viewTile = worldTileToView(worldTile, orientation);
@@ -177,6 +70,8 @@ function appendTileGeometry(
   if (terrain !== TERRAIN4.Floor) return;
   const height = finiteHeight(source, worldTile);
   appendFloorArt(source, worldTile, viewTile, height, floors, features, props);
+  appendTerrain4CliffEdges(source, worldTile, viewTile, orientation, height, cliffEdges);
+  appendTerrain4AmbientOcclusion(source, worldTile, viewTile, orientation, height, ao);
 
   // Express the adjacent screen-south cell in view space, then map it back to
   // world space. This is intentionally not `worldY + 1` at 90/180/270.
