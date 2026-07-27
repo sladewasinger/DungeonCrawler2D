@@ -4,9 +4,9 @@ import { isVoidTile } from "../terrain/heightShade.js";
 import { LIGHT_CURVE_FULL_LEVEL } from "../terrain/tileLight.js";
 
 export const PLAYER_GROUND_LIGHT_RADIUS = 12;
-/** Full Manhattan-radius diamond: 1 + 2r(r + 1), so the range is never clipped. */
+/** Conservative disk bound for a tile-centered circle at any player sub-tile position. */
 export const PLAYER_GROUND_LIGHT_MAX_CELLS =
-  1 + 2 * PLAYER_GROUND_LIGHT_RADIUS * (PLAYER_GROUND_LIGHT_RADIUS + 1);
+  Math.ceil(Math.PI * (PLAYER_GROUND_LIGHT_RADIUS + 0.5) ** 2);
 export const PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS = 100;
 export const PLAYER_GROUND_LIGHT_FADE_MS = 180;
 
@@ -123,12 +123,15 @@ export function playerGroundLightCells(
 
   const cells: PlayerGroundLightCell[] = [];
   const visited = new Set<string>([`${originX},${originY}`]);
-  const queue: Array<readonly [number, number, number]> = [[originX, originY, 0]];
+  const queue: Array<readonly [number, number]> = [[originX, originY]];
+  const distanceToPlayer = (tileX: number, tileY: number): number =>
+    Math.hypot(tileX + 0.5 - playerX, tileY + 0.5 - playerY);
+  const withinRadius = (tileX: number, tileY: number): boolean =>
+    distanceToPlayer(tileX, tileY) <= PLAYER_GROUND_LIGHT_RADIUS + 1e-6;
 
   for (let head = 0; head < queue.length && cells.length < PLAYER_GROUND_LIGHT_MAX_CELLS; head++) {
-    const [tileX, tileY, distance] = queue[head] ?? [originX, originY, 0];
-    addLitGroundCell(world, cells, tileX, tileY, distance);
-    if (distance >= PLAYER_GROUND_LIGHT_RADIUS) continue;
+    const [tileX, tileY] = queue[head] ?? [originX, originY];
+    addLitGroundCell(world, cells, tileX, tileY, distanceToPlayer(tileX, tileY));
 
     for (const [dx, dy] of ORTHOGONAL) {
       const nextX = tileX + dx;
@@ -136,9 +139,10 @@ export function playerGroundLightCells(
       const key = `${nextX},${nextY}`;
       if (visited.has(key)) continue;
       visited.add(key);
+      if (!withinRadius(nextX, nextY)) continue;
       if (!isPassableGround(world, nextX, nextY)) continue;
       if (!hasClearGroundLine(world, originX, originY, nextX, nextY)) continue;
-      queue.push([nextX, nextY, distance + 1]);
+      queue.push([nextX, nextY]);
     }
   }
 

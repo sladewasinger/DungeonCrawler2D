@@ -7,9 +7,9 @@ import {
 } from "../terrain4Tileset.js";
 import type { Terrain4AtlasDraw, Terrain4MeshBatch } from "../phaser4AtlasBatch.js";
 import type { Terrain4AtlasRenderOptions } from "../phaser4AtlasBatch.js";
-import { depthForCapOccluder } from "../../entities/depthSort.js";
+import { depthForCapOccluder, depthForOccluder } from "../../entities/depthSort.js";
 import { TERRAIN4_CLIFFS, type Terrain4Batches } from "./terrainPlannerModel.js";
-import { TERRAIN4_CLIFF_TILESETS, terrain4CliffAtlasFrameName } from "../terrain4Tileset.js";
+import { TERRAIN4_CLIFF_TILESETS, TERRAIN4_TILESETS, terrain4AtlasFrameName, terrain4CliffAtlasFrameName } from "../terrain4Tileset.js";
 import type { Terrain4QuarterTurn, Terrain4QuadVertices } from "./terrainPlannerModel.js";
 
 export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw, image: { readonly width: number; readonly height: number }): void {
@@ -21,9 +21,11 @@ export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw
   // Phaser's Mesh2D samples V from the opposite edge of a PNG frame. Keep the
   // logical top/bottom names used by rotatedUVs, but invert the normalized
   // frame coordinates once here so every atlas role is upright.
-  const v0 = (frame.y + frame.height) / image.height;
+  const cropTop = draw.uvCrop?.top ?? 0;
+  const cropBottom = draw.uvCrop?.bottom ?? 1;
+  const v0 = (frame.y + frame.height * cropBottom) / image.height;
   const u1 = (frame.x + frame.width) / image.width;
-  const v1 = frame.y / image.height;
+  const v1 = (frame.y + frame.height * cropTop) / image.height;
   const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
   const uv = rotatedUVs(u0, v0, u1, v1, draw.rotation ?? 0);
   batch.vertices.push(
@@ -44,6 +46,52 @@ export function appendCliffDraws(target: Terrain4AtlasDraw[], quads: Terrain4Bat
       points: projectQuad(quad.vertices, options.projection),
     });
   }
+}
+
+const FACE_TILE_HEIGHT_EPSILON = 1e-6;
+
+/** Emits one source tile per vertical wall unit, cropping only the final partial tile. */
+export function appendSouthFaceDraws(
+  target: Terrain4AtlasDraw[],
+  quads: Terrain4Batches["southFaces"],
+  options: Terrain4AtlasRenderOptions,
+): void {
+  for (const quad of quads) {
+    const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
+    const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
+    const span = quad.topHeight - quad.bottomHeight;
+    let segmentBottom = quad.bottomHeight;
+    let remaining = span;
+    while (remaining > FACE_TILE_HEIGHT_EPSILON) {
+      const segmentHeight = Math.min(1, remaining);
+      const segmentTop = segmentBottom + segmentHeight;
+      target.push({
+        atlas,
+        frame: terrain4AtlasFrameName(atlas, "south-face", variant),
+        role: "south-face",
+        variant,
+        phase: 2,
+        depth: depthForOccluder(quad.viewTile.y + 1),
+        uvCrop: segmentHeight >= 1 - FACE_TILE_HEIGHT_EPSILON ? undefined : { top: 0, bottom: segmentHeight },
+        points: projectQuad(southFaceSegment(quad.vertices, segmentTop, segmentBottom), options.projection),
+      });
+      segmentBottom = segmentTop;
+      remaining -= segmentHeight;
+    }
+  }
+}
+
+function southFaceSegment(
+  vertices: Terrain4QuadVertices,
+  topHeight: number,
+  bottomHeight: number,
+): Terrain4QuadVertices {
+  return [
+    { ...vertices[0], z: topHeight },
+    { ...vertices[1], z: topHeight },
+    { ...vertices[2], z: bottomHeight },
+    { ...vertices[3], z: bottomHeight },
+  ];
 }
 
 function rotatedUVs(u0: number, v0: number, u1: number, v1: number, rotation: Terrain4QuarterTurn): readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]] {

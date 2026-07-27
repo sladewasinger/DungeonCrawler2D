@@ -8,7 +8,6 @@ import {
   blockGuardTransform,
 } from "./blockGuard.js";
 import { MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "./weaponOrbit.js";
-import { depthForScreenY } from "./worldToScreen.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
 const HAND_OFFSET_Y = -SCREEN_TILE_PX * 0.45;
@@ -77,7 +76,7 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
 
   if (pose.orbitAngleRad === null) {
     positionLegacyHandOffset(sprite, pose);
-    sprite.setDepth(depthForScreenY(sprite.y) + WEAPON_DEPTH_BIAS);
+    setWeaponDepth(sprite, pose);
     return;
   }
   positionOrbiting(sprite, pose);
@@ -99,7 +98,7 @@ function positionGuard(
   sprite.setFlipX(false);
   sprite.setFlipY(Math.cos(facingAngle) < 0);
   sprite.setPosition(guard.x, guard.y);
-  sprite.setDepth(depthForScreenY(guard.y) + WEAPON_DEPTH_BIAS);
+  setWeaponDepth(sprite, pose);
   sprite.setRotation(guard.rotation);
   sprite.setScale(WORLD_PIXEL_SCALE * guard.scale);
 }
@@ -119,10 +118,7 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
     ? swingSweepAngle(pose.attackAngleRad, MELEE_HALF_ANGLE_RAD, pose.strikeProgress)
     : (pose.orbitAngleRad as number);
   const center = orbitPosition(pose.screenX, pose.screenY + ORBIT_CENTER_OFFSET_Y, angle, SCREEN_TILE_PX);
-  // Sort by the weapon's actual projected attachment point. This keeps a sword
-  // visible when a player is standing below Z:0 and their sprite/weapon has
-  // shifted screen-south into the next terrain row.
-  sprite.setDepth(depthForScreenY(center.y) + WEAPON_DEPTH_BIAS);
+  setWeaponDepth(sprite, pose);
   sprite.setFlipX(false);
   // On the left half of the orbit a pure rotation renders the weapon upside
   // down; a vertical flip mirrors the blade back upright — the standard ARPG
@@ -130,4 +126,14 @@ function positionOrbiting(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPos
   sprite.setFlipY(Math.cos(angle) < 0);
   sprite.setPosition(center.x, center.y);
   sprite.setRotation(center.rotation);
+}
+
+/**
+ * Weapon screen position includes the absolute-z lift, but Phaser depth does
+ * not: terrain rows are sorted by the wielder's feet and height is only a
+ * same-row tiebreak. Deriving depth from the lifted sword center moved it
+ * hundreds of depth units behind same-z caps at z=1+, making it disappear.
+ */
+function setWeaponDepth(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
+  sprite.setDepth(pose.wielderDepth + WEAPON_DEPTH_BIAS);
 }

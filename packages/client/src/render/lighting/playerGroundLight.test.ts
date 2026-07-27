@@ -30,20 +30,21 @@ function update(tileX: number, tileY: number, atMs: number, orientation: 0 | 90 
 }
 
 describe("playerGroundLightCells", () => {
-  it("covers the full triple-radius diamond with monotonic S-curve falloff", () => {
+  it("covers a circular radius with monotonic S-curve falloff", () => {
     const cells = playerGroundLightCells(world(), 0.5, 0.5);
-    expect(cells).toHaveLength(PLAYER_GROUND_LIGHT_MAX_CELLS);
+    expect(cells.length).toBeLessThanOrEqual(PLAYER_GROUND_LIGHT_MAX_CELLS);
     expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
     expect(cells.find((cell) => cell.tileX === PLAYER_GROUND_LIGHT_RADIUS && cell.tileY === 0)?.strength).toBe(0);
     expect(cells.every((cell) =>
-      Math.abs(cell.tileX) + Math.abs(cell.tileY) <= PLAYER_GROUND_LIGHT_RADIUS
+      Math.hypot(cell.tileX, cell.tileY) <= PLAYER_GROUND_LIGHT_RADIUS + 1e-6
     )).toBe(true);
+    expect(cells.some((cell) => cell.tileX === 8 && cell.tileY === 8)).toBe(true);
   });
 
-  it("assigns one S-curve brightness value to every tile in each distance ring", () => {
+  it("assigns one S-curve brightness value to every tile at its Euclidean distance", () => {
     const cells = playerGroundLightCells(world(), 0.5, 0.5);
     for (const cell of cells) {
-      const distance = Math.abs(cell.tileX) + Math.abs(cell.tileY);
+      const distance = Math.hypot(cell.tileX, cell.tileY);
       expect(cell.strength).toBe(playerGroundLightStrength(distance));
     }
     expect(playerGroundLightStrength(PLAYER_GROUND_LIGHT_RADIUS - 5)).toBe(1);

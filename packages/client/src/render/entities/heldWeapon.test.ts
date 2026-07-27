@@ -15,13 +15,14 @@ function weaponProbe() {
     y: 0,
     rotation: 0,
     scale: 0,
+    depth: 0,
     flipY: false,
     setVisible(value: boolean) { this.visible = value; return this; },
     setFrame(value: string) { this.frame = value; return this; },
     setTint(value: number) { this.tint = value; return this; },
     clearTint() { this.tint = 0; return this; },
     setScale(value: number) { this.scale = value; return this; },
-    setDepth() { return this; },
+    setDepth(value: number) { this.depth = value; return this; },
     setFlipX() { return this; },
     setFlipY(value: boolean) { this.flipY = value; return this; },
     setPosition(x: number, y: number) { this.x = x; this.y = y; return this; },
@@ -85,5 +86,16 @@ describe("updateHeldWeapon blocking", () => {
     expect(probe.visible).toBe(true);
     expect(probe.frame).toBe("particle_soft");
     expect(probe.tint).toBe(0xd9a066);
+  });
+
+  it("keeps elevated weapons in the wielder's terrain depth row", () => {
+    const probe = weaponProbe();
+    updateHeldWeapon(
+      probe as unknown as Phaser.GameObjects.Sprite,
+      "weapon_sword",
+      { ...BLOCKING_POSE, blocking: false, screenY: -200, wielderDepth: 42, orbitAngleRad: 0 },
+    );
+    expect(probe.depth).toBeGreaterThan(42);
+    expect(probe.depth).toBeLessThan(43);
   });
 });

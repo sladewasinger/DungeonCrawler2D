@@ -19,7 +19,7 @@ import {
   type Terrain4CliffTileRole,
   type Terrain4TileRole,
 } from "./terrain4Tileset.js";
-import { appendCliffDraws, appendMeshQuad, compareDraws, meshKey, projectQuad, terrain4Variant } from "./geometry/terrain4AtlasGeometry.js";
+import { appendCliffDraws, appendMeshQuad, appendSouthFaceDraws, compareDraws, meshKey, projectQuad, terrain4Variant } from "./geometry/terrain4AtlasGeometry.js";
 
 type Terrain4AtlasPhase = 0 | 1 | 2;
 
@@ -33,6 +33,8 @@ export interface Terrain4AtlasDraw {
   /** Exact row depth shared with entity depth sorting. */
   readonly depth: number;
   readonly rotation?: Terrain4QuarterTurn;
+  /** Optional top-to-bottom crop within the source frame (used by a partial wall tile). */
+  readonly uvCrop?: { readonly top: number; readonly bottom: number };
   readonly points: readonly [Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint, Terrain4ScreenPoint];
 }
 
@@ -64,7 +66,7 @@ export function terrain4AtlasDraws(
   appendDraws(draws, batches.floors, "floor", 1, options);
   appendFeatureDraws(draws, batches.features, options);
   appendCliffDraws(draws, batches.cliffEdges, options);
-  appendDraws(draws, batches.southFaces, "south-face", 2, options);
+  appendSouthFaceDraws(draws, batches.southFaces, options);
   return draws.toSorted(compareDraws);
 }
 

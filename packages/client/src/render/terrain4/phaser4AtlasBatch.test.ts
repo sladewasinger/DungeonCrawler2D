@@ -17,8 +17,10 @@ describe("terrain4AtlasDraws", () => {
       { frame: "terrain4:terrain4-biomes:2:floor", phase: 1 },
       { frame: "terrain4:terrain4-biomes:1:raised-floor", phase: 1 },
       { frame: "terrain4:terrain4-biomes:1:south-face", phase: 2 },
+      { frame: "terrain4:terrain4-biomes:1:south-face", phase: 2 },
     ]);
-    expect(draws[3]?.points).toEqual([{ x: 0, y: 5 }, { x: 10, y: 5 }, { x: 10, y: 15 }, { x: 0, y: 15 }]);
+    expect(draws[3]?.points).toEqual([{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 15 }, { x: 0, y: 15 }]);
+    expect(draws[4]?.points).toEqual([{ x: 0, y: 5 }, { x: 10, y: 5 }, { x: 10, y: 10 }, { x: 0, y: 10 }]);
   });
 
   it("groups by biome material and switches every draw to the debug atlas on request", () => {
@@ -39,7 +41,7 @@ describe("terrain4AtlasDraws", () => {
 
     expect(meshes).toHaveLength(3);
     expect(meshes.map((mesh) => [mesh.depth, mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
-      [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 16, 8],
+      [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
       0, 0, 0.5, 2 / 11, 10, 0, 0.625, 2 / 11,
@@ -62,6 +64,24 @@ describe("terrain4AtlasDraws", () => {
       .find((candidate) => candidate.atlas.key === "terrain4-cliffs");
     expect(mesh ? [mesh.vertices[2], mesh.vertices[3], mesh.vertices[6], mesh.vertices[7], mesh.vertices[10], mesh.vertices[11], mesh.vertices[14], mesh.vertices[15]] : undefined)
       .toEqual([0, 2 / 14, 0, 3 / 14, 1 / 2, 3 / 14, 1 / 2, 2 / 14]);
+  });
+
+  it("tiles multi-height faces and crops only a partial top tile", () => {
+    const face = batches.southFaces[0]!;
+    const draws = terrain4AtlasDraws({
+      ...batches,
+      voids: [], floors: [],
+      southFaces: [{ ...face, topHeight: 2.5, bottomHeight: 0.0, vertices: [
+        { x: 0, y: 1, z: 2.5 }, { x: 1, y: 1, z: 2.5 },
+        { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0 },
+      ] }],
+    }, { projection, biomeAt: () => BIOME.Maze, debug: false }).filter((draw) => draw.role === "south-face");
+
+    expect(draws).toHaveLength(3);
+    expect(draws[0]?.uvCrop).toBeUndefined();
+    expect(draws[1]?.uvCrop).toBeUndefined();
+    expect(draws[2]?.uvCrop).toEqual({ top: 0, bottom: 0.5 });
+    expect(draws.map((draw) => draw.points[0]?.y)).toEqual([5, 0, -2.5]);
   });
 });
 
