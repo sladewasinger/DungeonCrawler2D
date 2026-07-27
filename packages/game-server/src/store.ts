@@ -50,6 +50,8 @@ export interface StoredPlayer {
   /** Social safety bindings use stable local profile ids, never transient entities. */
   mutedProfileIds?: string[];
   blockedProfileIds?: string[];
+  /** Future admin-panel grant; temporary name grants are resolved at runtime. */
+  handicapGranted?: boolean;
 }
 
 export const STASH_CAPACITY = 24;

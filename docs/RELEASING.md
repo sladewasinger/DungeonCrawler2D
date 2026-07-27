@@ -120,7 +120,8 @@ package records changed.
 
 ## 5. Run the release gate
 
-Run the complete non-browser gate before tagging:
+Run the complete non-browser gate at the final pre-commit/release checkpoint,
+immediately before committing the release work and then tagging it:
 
 ```bash
 npm run lint

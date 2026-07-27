@@ -11,7 +11,7 @@ import {
   type EffectEvent,
   type ItemDef,
 } from "@dc2d/engine";
-import { combatants, effectTargetFor } from "../helpers.js";
+import { combatants, damageGivenMultiplierFor, effectTargetFor } from "../helpers.js";
 import type { PlayerSlot, SimState } from "../state.js";
 import { blocksAttackFrom } from "../directionalBlock.js";
 
@@ -70,7 +70,8 @@ function resolveHit(
 ): void {
   if (meleeHitIsBlocked(sim, victim, attacker)) return;
   const weapon = weaponDef?.weapon;
-  const damage = (weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim);
+  const damage = (weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim)
+    * damageGivenMultiplierFor(sim, attacker);
   if (attacker.kind === "player" && victim.kind === "player") {
     const victimSlot = sim.players.get(victim.id);
     if (victimSlot) victimSlot.lastDamagedByPlayerId = attacker.id;

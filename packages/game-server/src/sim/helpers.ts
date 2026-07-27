@@ -1,7 +1,8 @@
 import { CHASM_DEATH_Z, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
 import { scaledEnemyDef } from "./floors/scaling.js";
 import { isSpawnProtected } from "./spawnSafety.js";
-import type { EnemySlot, SimState } from "./state.js";
+import { handicapForPlayer, type HandicapGrant } from "./handicap.js";
+import type { EnemySlot, PlayerSlot, SimState } from "./state.js";
 
 /** Small queries and spawners shared across the sim modules. */
 
@@ -24,9 +25,13 @@ export function combatants(sim: SimState): Entity[] {
   return out;
 }
 
-/** Per-entity effect modifiers (enemy immunities / damage scaling,
- * player spawn-grace invulnerability). */
-export function effectTargetFor(sim: SimState, entity: Entity) {
+/** Per-entity effect modifiers (enemy scaling, player spawn-grace,
+ * and player handicap damage reduction). */
+export function effectTargetFor(
+  sim: SimState,
+  entity: Entity,
+  options: { spawnProtection?: boolean } = {},
+) {
   if (entity.kind === "enemy") {
     const def = sim.enemies.get(entity.id)?.def;
     return {
@@ -35,8 +40,32 @@ export function effectTargetFor(sim: SimState, entity: Entity) {
     };
   }
   const slot = sim.players.get(entity.id);
-  if (slot && isSpawnProtected(slot, sim.tickCount)) return { invulnerable: true };
-  return {};
+  return slot ? playerEffectTarget(sim, slot, options) : {};
+}
+
+function playerEffectTarget(
+  sim: SimState,
+  slot: PlayerSlot,
+  options: { spawnProtection?: boolean },
+) {
+  if (options.spawnProtection !== false && isSpawnProtected(slot, sim.tickCount)) {
+    return { invulnerable: true };
+  }
+  const handicap = playerHandicap(slot);
+  return handicap ? { damageTakenMultiplier: handicap.damageTakenMultiplier } : {};
+}
+
+/** Returns the active grant for a player, including future admin grants. */
+export function damageGivenMultiplierFor(sim: SimState, entity: Entity): number {
+  if (entity.kind !== "player") return 1;
+  const slot = sim.players.get(entity.id);
+  return playerHandicap(slot)?.damageGivenMultiplier ?? 1;
+}
+
+function playerHandicap(slot: PlayerSlot | undefined): HandicapGrant | undefined {
+  return slot?.handicap ?? (slot
+    ? handicapForPlayer(slot.entity.name ?? "", slot.stored.handicapGranted)
+    : undefined);
 }
 
 export function positionOf(sim: SimState, id: string): { x: number; y: number } {

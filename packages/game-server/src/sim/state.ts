@@ -19,6 +19,7 @@ import type {
   SnapshotPendingState,
 } from "./snapshotState.js";
 import { createEntityCollections, createReplicationCollections } from "./stateCollections.js";
+import type { HandicapGrant } from "./handicap.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
@@ -111,6 +112,8 @@ export interface PlayerSlot {
   attackStartedAtTick: number;
   /** Dev harness: full heal + no knockback every tick (debugCommands only). */
   god: boolean;
+  /** Optional incoming-damage grant; name/admin resolution lives in handicap.ts. */
+  handicap?: HandicapGrant;
   /** Menu-requested death bypasses the party downed state. */
   forceDeath: boolean;
   /** Tick timestamps of recent chat sends, rolling-window rate limit (social.ts). */

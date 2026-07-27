@@ -1,0 +1,23 @@
+{
+  "packages/client/src/input": 31,
+  "packages/client/src/net": 49,
+  "packages/client/src/render/entities": 54,
+  "packages/client/src/render/lighting": 18,
+  "packages/client/src/render/terrain": 96,
+  "packages/client/src/render/view": 15,
+  "packages/client/src/scenes/dungeon": 74,
+  "packages/client/src/scenes/editor": 21,
+  "packages/client/src/three": 120,
+  "packages/client/src/ui": 19,
+  "packages/client/src/ui/widgets/hud": 63,
+  "packages/client/src/vfx": 81,
+  "packages/engine/src/effects": 21,
+  "packages/engine/src/entities": 18,
+  "packages/engine/src/world": 13,
+  "packages/engine/src/world/features": 16,
+  "packages/engine/src/world/generate": 41,
+  "packages/game-server/src": 14,
+  "packages/game-server/src/server": 15,
+  "packages/game-server/src/sim": 61,
+  "packages/game-server/src/sim/integration": 21
+}

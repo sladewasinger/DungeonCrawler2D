@@ -16,6 +16,7 @@
 import { stairVisualAt, TILE } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { pickFloorFrame } from "./debugArt.js";
+import type { CardinalEdges } from "./autotile.js";
 import { placeDebugTile, placeWallEdges } from "./debugSprite.js";
 import { drawGroundTile } from "./drawGroundTile.js";
 import { drawVerticalStairSideOutlines } from "./steppedStairSurface.js";
@@ -71,7 +72,7 @@ function drawFaceCell(
     undefined,
     behindHorizontalStair
       ? { north: false, east: false, south: false, west: false }
-      : faceSideEdges(world, wx, wy, face, lowerHeight),
+      : faceSideEdges(world, wx, wy, lowerHeight),
     southFaceColor(light.tintAt(foot.x, foot.y)),
   );
   // No white cliff edges here (docs/ROADMAP.md "OUTLINE SCOPE CORRECTION", user
@@ -91,7 +92,6 @@ function faceSideEdges(
   world: ViewTerrainWorld,
   wx: number,
   wy: number,
-  face: OwnFaceRow,
   lowerHeight: number,
 ): Pick<CardinalEdges, "east" | "west"> {
   const connected = (dx: -1 | 1): boolean => {

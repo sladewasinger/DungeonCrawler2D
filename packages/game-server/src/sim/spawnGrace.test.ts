@@ -20,10 +20,11 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../store.js";
 import { stepEnemies } from "./enemies/index.js";
-import { effectTargetFor, spawnEnemy } from "./helpers.js";
+import { damageGivenMultiplierFor, effectTargetFor, spawnEnemy } from "./helpers.js";
 import { addPlayer } from "./join.js";
 import { handleInput, queueAction, stepPlayers } from "./players.js";
 import { processActions } from "./actions/index.js";
+import { DEFAULT_HANDICAP } from "./handicap.js";
 import { isSpawnProtected } from "./spawnSafety.js";
 import { createSimState, type PlayerSlot, type SimState } from "./state.js";
 
@@ -126,5 +127,28 @@ describe("spawn grace", () => {
     stepEnemies(sim, []);
     expect(brain.targetId).toBe(playerId);
     expect(slot.entity.hp).toBeLessThan(PLAYER_MAX_HP); // now it bites
+  });
+
+  it("applies the name-based handicap after spawn grace expires", () => {
+    const handicappedId = addPlayer(sim, "ELLIE-the-crawler", "client-ellie").playerId;
+    const handicapped = sim.players.get(handicappedId)!;
+    sim.tickCount = handicapped.spawnGraceUntilTick;
+    const events: EffectEvent[] = [];
+
+    const expectedDamage = -5 * DEFAULT_HANDICAP.damageTakenMultiplier;
+    expect(effectTargetFor(sim, handicapped.entity)).toEqual({
+      damageTakenMultiplier: DEFAULT_HANDICAP.damageTakenMultiplier,
+    });
+    expect(sim.effects.modifyHealth(
+      handicapped.entity,
+      -5,
+      events,
+      { sourceTags: ["physical"] },
+      effectTargetFor(sim, handicapped.entity),
+    )).toBe(expectedDamage);
+    expect(handicapped.entity.hp).toBe(PLAYER_MAX_HP + expectedDamage);
+    expect(damageGivenMultiplierFor(sim, handicapped.entity)).toBe(
+      DEFAULT_HANDICAP.damageGivenMultiplier,
+    );
   });
 });

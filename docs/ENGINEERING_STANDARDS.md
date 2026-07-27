@@ -32,6 +32,11 @@ code against these rules. CI enforces what a linter can enforce; review blocks t
   the domain tells you *where*.
 - **New features add modules, not length.** A feature landing as +150 lines to an
   existing file is the drift this document forbids.
+- **Feature folders stay narrow.** A folder may contain at most 12 direct source
+  files. When a slice needs file 13, split it into subfolders by feature slice;
+  do not flatten unrelated modules into one directory. Existing oversized
+  folders are recorded in `scripts/folder-size-baseline.json`; the check prevents
+  them from growing and rejects any new oversized folder.
 
 ## Code style
 
@@ -78,7 +83,10 @@ code in.
 
 ## Definition of done (for any task, any agent)
 
-1. `npm run typecheck`, `npm run lint`, `npm test` all green — run them, don't assume.
+1. During implementation, use `npm run lint:working-tree` for fast feedback.
+   Run `npm run typecheck`, the full `npm run lint`, and `npm test` together
+   only at the final validation checkpoint immediately before committing
+   (unless the user asks for an earlier test run); all must be green.
 2. New behavior has tests; changed behavior has updated tests.
 3. Every touched file obeys the hard limits and opens with its doc comment.
 4. Gameplay data went into `content/`, not into code.

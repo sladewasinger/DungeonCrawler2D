@@ -16,6 +16,8 @@ export interface EffectTarget {
   immunities?: readonly string[];
   /** Damage multipliers by source tag. */
   damageScale?: Readonly<Record<string, number>>;
+  /** Uniform multiplier for hostile health damage, independent of source tags. */
+  damageTakenMultiplier?: number;
   /** Full hostile suppression (spawn grace): damage and debuffs are
    * dropped outright — heals and buffs still land. The server sim
    * decides who is protected (game-server sim/spawnSafety.ts). */
@@ -48,13 +50,14 @@ function resolveDelta(
   if (amount >= 0) return amount;
   if (target.invulnerable) return null;
   if (!opts.ignoreSanctuary && inSanctuary(state, entity)) return null;
-  return scaleDamage(amount, opts.sourceTags, target.damageScale);
+  const scaled = scaleDamage(amount, opts.sourceTags, target.damageScale);
+  return scaled * (target.damageTakenMultiplier ?? 1);
 }
 
 /**
  * Damage/heal an entity. Hostile amounts are suppressed in sanctuary
- * and scaled by the target's damageScale per source tag. Emits hp
- * and death events. Returns the applied delta.
+ * and scaled by the target's damageScale per source tag or uniform
+ * damageTakenMultiplier. Emits hp and death events. Returns the applied delta.
  */
 export function modifyHealth(
   state: EffectsState,

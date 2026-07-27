@@ -12,3 +12,12 @@ Before finishing that turn, increment both the visible number and the
 Count Austin's new wording only. Do not recount quoted history, attachments,
 code, tool output, or the phrases “f word” and “f bomb” when the word itself
 does not appear.
+
+## Validation workflow
+
+- During iterative work, run `npm run lint:working-tree`; it lints only changed
+  and untracked JavaScript/TypeScript files and checks changed folder sizes.
+  Reserve `npm run lint` for the pre-commit/release gate.
+- Do not run tests during implementation iterations. Run `npm test` only at the
+  final validation checkpoint immediately before committing, unless Austin asks
+  for an earlier test run.

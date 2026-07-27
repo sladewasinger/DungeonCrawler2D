@@ -14,6 +14,7 @@ import {
   type Entity,
 } from "@dc2d/engine";
 import { killIfInChasm } from "./deaths.js";
+import { effectTargetFor } from "./helpers.js";
 import { advancePlayerResources } from "./combatResources.js";
 import { grantRespawnKit } from "./inventory.js";
 import { findSpawn } from "./spawn.js";
@@ -171,5 +172,13 @@ function handleLanding(
   // Landing in liquid (wet/oil pools) breaks the fall.
   if (sim.areas.hasTagAt(Math.floor(entity.body.x), Math.floor(entity.body.y), "liquid")) return;
   const damage = -(fallHeight - SAFE_FALL_HEIGHT) * FALL_DAMAGE_PER_UNIT;
-  sim.effects.modifyHealth(entity, damage, effectEvents, { sourceTags: ["fall"] });
+  sim.effects.modifyHealth(
+    entity,
+    damage,
+    effectEvents,
+    { sourceTags: ["fall"] },
+    // Keep the pre-existing fall-damage behavior during spawn grace while
+    // still applying any durable handicap grant.
+    effectTargetFor(sim, entity, { spawnProtection: false }),
+  );
 }

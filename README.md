@@ -14,9 +14,9 @@ engineering bar.
 
 ## Austin's F-Bomb Counter
 
-**22**
+**23**
 
-<!-- f-bomb-count: 22 -->
+<!-- f-bomb-count: 23 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.
@@ -42,7 +42,8 @@ npm install
 npm run dev        # Vite client (LAN-exposed) + local game server together
 npm run test       # headless engine + protocol + client tests (vitest)
 npm run typecheck  # strict TS across all packages
-npm run lint       # standards enforcement (200-line cap, boundaries)
+npm run lint:working-tree # fast lint + folder-size check for changed source
+npm run lint       # full-repository standards gate, normally before commit/release
 npm run build      # production artifacts: client dist/ + server main.cjs
 ```
 

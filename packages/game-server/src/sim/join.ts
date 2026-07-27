@@ -17,6 +17,7 @@ import { replayPartyInviteState } from "./partyInviteEvents.js";
 import { resetInputTimeline } from "./playerInputTimeline.js";
 import { findSpawn, newToken } from "./spawn.js";
 import { secureSpawnHandoff } from "./spawnSafety.js";
+import { handicapForPlayer } from "./handicap.js";
 import type { JoinResult, PlayerSlot, SimState } from "./state.js";
 
 /** Player join and reconnect-resume: the entity/slot a fresh or returning client gets. */
@@ -117,6 +118,7 @@ function newSlot(
   resumeToken: string,
   tick: number,
 ): PlayerSlot {
+  const handicap = handicapForPlayer(entity.name ?? "", stored.handicapGranted);
   return {
     entity, clientId, stored, resumeToken,
     lastSeq: -1,
@@ -141,6 +143,7 @@ function newSlot(
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    ...(handicap ? { handicap } : {}),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,
@@ -199,6 +202,9 @@ function reclaimExistingClient(
   if (!slot) return null;
   slot.entity.name = name;
   sim.store.get(clientId, name);
+  const handicap = handicapForPlayer(name, slot.stored.handicapGranted);
+  if (handicap) slot.handicap = handicap;
+  else delete slot.handicap;
   return resumeSlot(sim, slot, skin);
 }
 

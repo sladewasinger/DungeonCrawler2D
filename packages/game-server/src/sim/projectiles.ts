@@ -6,7 +6,7 @@ import {
   type Entity,
   type Primitive,
 } from "@dc2d/engine";
-import { combatants, effectTargetFor, spawnItem } from "./helpers.js";
+import { combatants, damageGivenMultiplierFor, effectTargetFor, spawnItem } from "./helpers.js";
 import type { SimState } from "./state.js";
 import { blocksAttackDirection } from "./directionalBlock.js";
 
@@ -145,11 +145,18 @@ function resolveThrowableImpact(
       sim.areas.spawn(primitive.area, tileX, tileY, primitive.radius);
       continue;
     }
-    applyPrimitiveInBlastRadius(sim, projectile, primitive, x, y, effectEvents);
+    applyPrimitiveInBlastRadius(sim, projectile, scaleThrowableDamage(sim, projectile, primitive), x, y, effectEvents);
   }
   if (sim.rng.next() >= def.throwable.breakChance) {
     spawnItem(sim, projectile.defId ?? "", x, y, 1);
   }
+}
+
+function scaleThrowableDamage(sim: SimState, projectile: Entity, primitive: Primitive): Primitive {
+  if (primitive.primitive !== "modify_health" || primitive.amount >= 0) return primitive;
+  const owner = projectileOwner(sim, projectile.ownerId);
+  const multiplier = owner ? damageGivenMultiplierFor(sim, owner) : 1;
+  return multiplier === 1 ? primitive : { ...primitive, amount: primitive.amount * multiplier };
 }
 
 /** Runs one entity-targeted onImpact primitive against everything within a tile of (x, y). */

@@ -94,4 +94,19 @@ describe("EffectTarget.invulnerable", () => {
     expect(engine.modifyHealth(target, -5, events, { sourceTags: ["physical"] }, {})).toBe(-5);
     expect(target.hp).toBe(25);
   });
+
+  it("supports a uniform damage-taken multiplier", () => {
+    const engine = makeEngine();
+    const target = player();
+    const events: EffectEvent[] = [];
+
+    expect(engine.modifyHealth(
+      target,
+      -5,
+      events,
+      { sourceTags: ["physical"] },
+      { damageTakenMultiplier: 0.5 },
+    )).toBe(-2.5);
+    expect(target.hp).toBe(27.5);
+  });
 });
