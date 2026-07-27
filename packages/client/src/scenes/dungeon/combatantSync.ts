@@ -54,7 +54,6 @@ export function syncCombatants(
     monsters,
     state.pendingSwings,
     conn.welcome.playerId,
-    { x: conn.body.kx, y: conn.body.ky },
     nowMs,
     conn.drainDeathVisualEvents(),
   );

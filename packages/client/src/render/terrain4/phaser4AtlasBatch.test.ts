@@ -82,6 +82,10 @@ describe("terrain4AtlasDraws", () => {
     expect(draws[1]?.uvCrop).toBeUndefined();
     expect(draws[2]?.uvCrop).toEqual({ top: 0, bottom: 0.5 });
     expect(draws.map((draw) => draw.points[0]?.y)).toEqual([5, 0, -2.5]);
+
+    const partialMesh = terrain4MeshBatches(draws, () => ({ width: 800, height: 880 }))[0]!;
+    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.25, 2 / 11]);
+    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.25, 1.5 / 11]);
   });
 });
 

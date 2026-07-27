@@ -47,7 +47,7 @@ function monster(hp: number): MonsterEntityView {
 }
 
 describe("live dungeon damage VFX tracking", () => {
-  it("spawns blood from the same authoritative HP decrease the renderer sees", () => {
+  it("does not infer impact presentation from rendered HP snapshots", () => {
     const spawnBloodHit = vi.fn();
     const vfx = { spawnBloodHit } as unknown as VfxSystem;
     const tracked = new Map();
@@ -56,19 +56,14 @@ describe("live dungeon damage VFX tracking", () => {
 
     syncDamageVfx(
       tracked, seen, world, vfx, [player(30)], [monster(10)],
-      new Map(), "self", { x: 0, y: 0 }, 100,
+      new Map(), "self", 100,
     );
     syncDamageVfx(
       tracked, seen, world, vfx, [player(26)], [monster(7)],
-      new Map(), "self", { x: 1, y: -0.5 }, 150,
+      new Map(), "self", 150,
     );
 
-    expect(spawnBloodHit).toHaveBeenNthCalledWith(
-      1, 4, 5, 0.5, undefined, 150, 1, -0.5,
-    );
-    expect(spawnBloodHit).toHaveBeenNthCalledWith(
-      2, 7, 8, 0.5, "skeleton", 150, undefined, undefined,
-    );
+    expect(spawnBloodHit).not.toHaveBeenCalled();
   });
 
   it("does not spawn on initialization, healing, or unchanged HP", () => {
@@ -80,11 +75,11 @@ describe("live dungeon damage VFX tracking", () => {
 
     syncDamageVfx(
       tracked, seen, world, vfx, [player(20)], [],
-      new Map(), "self", { x: 0, y: 0 }, 100,
+      new Map(), "self", 100,
     );
     syncDamageVfx(
       tracked, seen, world, vfx, [player(21)], [],
-      new Map(), "self", { x: 0, y: 0 }, 150,
+      new Map(), "self", 150,
     );
 
     expect(spawnBloodHit).not.toHaveBeenCalled();
@@ -109,7 +104,6 @@ describe("live dungeon damage VFX tracking", () => {
       [],
       new Map(),
       "self",
-      { x: 0, y: 0 },
       200,
       [{
         t: "death",

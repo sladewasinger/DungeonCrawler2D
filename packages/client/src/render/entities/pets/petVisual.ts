@@ -4,7 +4,7 @@ import { petAssetFor } from "../../../boot/petAssetManifest.js";
 import { uiTextStyle } from "../../../ui/font.js";
 import { HUD_SCALE } from "../../../ui/hudScale.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../lift.js";
-import { createNameplate, updateNameplate } from "../nameplate.js";
+import { createNameplate, LABEL_LINE_GAP_PX, updateNameplate } from "../nameplate.js";
 import { createShadow, updateShadowPosition } from "../shadow.js";
 import type { PetVisual } from "../state.js";
 import type { PetEntityView, RenderContext } from "../view.js";
@@ -14,7 +14,7 @@ import { depthForEntityNow, worldToScreen } from "../worldToScreen.js";
  * planted on the same ground point as the shadow. */
 const PET_BASELINE_OFFSET_PX = 2;
 const DINO_BASELINE_OFFSET_PX = PET_BASELINE_OFFSET_PX + 2;
-const OWNER_LABEL_OFFSET_PX = 10 * HUD_SCALE;
+const OWNER_LABEL_HEIGHT_PX = 8 * HUD_SCALE;
 const baselineOffsetFor = (assetId: string): number => assetId.startsWith("pet-dino-")
   ? DINO_BASELINE_OFFSET_PX
   : PET_BASELINE_OFFSET_PX;
@@ -30,7 +30,9 @@ export function createPetVisual(scene: Phaser.Scene, defId: string): PetVisual {
     body,
     shadow: createShadow(scene, 0),
     nameplate: createNameplate(scene, 0),
-    ownerLabel: scene.add.text(0, 0, "", uiTextStyle(8 * HUD_SCALE)).setOrigin(0.5, 1),
+    ownerLabel: scene.add.text(0, 0, "", uiTextStyle(8 * HUD_SCALE, "#ffffff"))
+      .setOrigin(0.5, 1)
+      .setStroke("#000000", 2),
     assetId: defId,
     lastAnim: undefined,
   };
@@ -58,6 +60,7 @@ export function updatePetVisual(visual: PetVisual, view: PetEntityView, ctx: Ren
   visual.shadow.setDepth(depth - 0.2);
   visual.nameplate.setDepth(depth + 0.2);
   const headY = visual.body.y - visual.body.displayHeight;
+  const hasOwner = view.ownerName !== undefined; visual.ownerLabel.setText(hasOwner ? `pet of ${view.ownerName}` : "");
   updateNameplate(
     visual.nameplate,
     view.name,
@@ -65,11 +68,12 @@ export function updatePetVisual(visual: PetVisual, view: PetEntityView, ctx: Ren
     headY,
     Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY),
     false,
+    false,
+    hasOwner ? OWNER_LABEL_HEIGHT_PX + LABEL_LINE_GAP_PX : 0,
   );
   visual.ownerLabel
-    .setText(view.ownerName ? `pet of ${view.ownerName}` : "")
-    .setPosition(visual.nameplate.x, visual.nameplate.y + OWNER_LABEL_OFFSET_PX)
-    .setColor("#9a9aae")
+    .setPosition(visual.nameplate.x, visual.nameplate.y + LABEL_LINE_GAP_PX + OWNER_LABEL_HEIGHT_PX)
+    .setColor("#d5d5d5")
     .setAlpha(visual.nameplate.alpha)
     .setDepth(depth + 0.2)
     .setVisible(view.ownerName !== undefined);

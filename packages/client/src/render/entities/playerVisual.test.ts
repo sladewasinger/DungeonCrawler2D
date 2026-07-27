@@ -4,9 +4,18 @@ import { describe, expect, it, vi } from "vitest";
 const probes = vi.hoisted(() => ({
   heldWeapon: vi.fn(),
   nameplate: vi.fn(),
+  screenTilePx: 64,
+  nameplateGapPx: 4,
+  nameplateLineHeightPx: 20,
+  labelLineGapPx: 4,
+  hpBarDisplayHeightPx: 14,
 }));
 
-vi.mock("../../boot/assetManifest.js", () => ({ ASSET_KEYS: { atlas: "atlas" }, WORLD_PIXEL_SCALE: 1 }));
+vi.mock("../../boot/assetManifest.js", () => ({
+  ASSET_KEYS: { atlas: "atlas" },
+  SCREEN_TILE_PX: probes.screenTilePx,
+  WORLD_PIXEL_SCALE: 1,
+}));
 vi.mock("../view/viewState.js", () => ({ getViewOrientation: () => 0 }));
 vi.mock("../view/viewTransform.js", () => ({ worldAngleToView: (value: number) => value }));
 vi.mock("./animState.js", () => ({ resolveAnimState: () => ({ animKey: "idle" }) }));
@@ -14,11 +23,21 @@ vi.mock("./heldWeapon.js", () => ({
   createHeldWeapon: vi.fn(),
   updateHeldWeapon: probes.heldWeapon,
 }));
-vi.mock("./hpBar.js", () => ({ createHpBar: vi.fn(), updateHpBar: vi.fn() }));
+vi.mock("./hpBar.js", () => ({
+  createHpBar: vi.fn(),
+  HP_BAR_DISPLAY_HEIGHT_PX: probes.hpBarDisplayHeightPx,
+  updateHpBar: vi.fn(),
+}));
 vi.mock("./hpBarVisibility.js", () => ({ resolveHpBarVisibility: () => false }));
 vi.mock("./hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
 vi.mock("./lift.js", () => ({ airborneHeightAboveGround: () => 0, spriteLiftPx: () => 0 }));
-vi.mock("./nameplate.js", () => ({ createNameplate: vi.fn(), updateNameplate: probes.nameplate }));
+vi.mock("./nameplate.js", () => ({
+  createNameplate: vi.fn(),
+  LABEL_LINE_GAP_PX: probes.labelLineGapPx,
+  NAMEPLATE_GAP_PX: probes.nameplateGapPx,
+  NAMEPLATE_LINE_HEIGHT_PX: probes.nameplateLineHeightPx,
+  updateNameplate: probes.nameplate,
+}));
 vi.mock("./occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), terrainOcclusionAhead: () => false }));
 vi.mock("./playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
 vi.mock("./shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
@@ -68,7 +87,7 @@ describe("updatePlayerVisual", () => {
     const view = { id: "p", playerId: "p", name: "Wren", x: 1, y: 2, z: 0, hp: 30, maxHp: 30, fx: [], faceX: 1, faceY: 0, air: false, downed: false, disconnected: true, attacking: false, blocking: false, weaponId: null, weaponAimAngle: null, attackAngleRad: 0 };
     updatePlayerVisual(visual as never, "hero", view, context as never);
     expect(body.tint).toBe(0x55555a);
-    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14, expect.any(Number), false, false, true);
+    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14 + probes.screenTilePx / 3, expect.any(Number), false, false, true);
     expect(probes.heldWeapon).toHaveBeenLastCalledWith(
       visual.weapon,
       "particle_soft",
@@ -81,7 +100,7 @@ describe("updatePlayerVisual", () => {
       context as never,
     );
     expect(body.tint).toBeNull();
-    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14, expect.any(Number), false, false, false);
+    expect(probes.nameplate).toHaveBeenLastCalledWith(expect.anything(), "Wren", 1, -14 + probes.screenTilePx / 3, expect.any(Number), false, false, false);
     expect(probes.heldWeapon).toHaveBeenLastCalledWith(
       visual.weapon,
       "particle_soft",

@@ -36,7 +36,7 @@ function fire(
       speed: { min: speedMax * 0.25, max: speedMax },
       angle: { min: window.minDeg, max: window.maxDeg },
       scale: { start: 1.25, end: 0.3 },
-      alpha: { start: 0.96, end: 0 },
+      alpha: { start: 1, end: 0 },
       tint,
       gravityY: 95,
       quantity,

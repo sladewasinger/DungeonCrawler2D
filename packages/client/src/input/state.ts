@@ -81,6 +81,8 @@ export interface InputConnection {
   pushToast(msg: string): void;
   /** Sends a changed movement/control state immediately, outside the fixed prediction tick. */
   sendInputEdge?(input: MoveInput): void;
+  /** Dev-only god-mode toggle; the controller gates the keyboard shortcut to Vite dev builds. */
+  debugGod?(): void;
 }
 
 /** Resolves whether the HUD's own layer consumed a pointer event. */

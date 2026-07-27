@@ -129,6 +129,7 @@ export const applyEvent = (conn: Connection, event: GameEvent): void => {
   if (
     event.t === "hit" ||
     event.t === "health" ||
+    event.t === "damageImpact" ||
     event.t === "status"
   ) {
     conn.visualEvents.push({

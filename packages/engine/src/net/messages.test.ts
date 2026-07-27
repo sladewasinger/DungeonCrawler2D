@@ -150,7 +150,7 @@ describe("protocol", () => {
       ],
       left: ["p3"],
       events: [
-        { t: "hit", id: "e1", amount: -6 },
+        { t: "damageImpact", id: "e1", amount: 6 },
         { t: "toast", msg: "Crafted bandage" },
         { t: "chat", channel: "party", from: "p2", name: "Ally", text: "hi" },
         { t: "chat", channel: "dm", from: "p2", name: "Ally", text: "hi", target: "Crawler" },
@@ -204,7 +204,6 @@ describe("protocol", () => {
         `{"type":"chat","channel":"local","text":"${"x".repeat(500)}"}`,
       ),
     ).toBeNull();
-    // Missing clientId on hello.
     expect(decodeClientMessage('{"type":"hello","protocol":2,"name":"A"}')).toBeNull();
   });
 });

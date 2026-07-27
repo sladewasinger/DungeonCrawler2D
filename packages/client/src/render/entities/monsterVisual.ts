@@ -4,11 +4,11 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { resolveAnimState, telegraphScale, telegraphTint } from "./animState.js";
-import { createHpBar, updateHpBar } from "./hpBar.js";
+import { createHpBar, HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "./hpBar.js";
 import { resolveHpBarVisibility } from "./hpBarVisibility.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
-import { createNameplate, updateNameplate } from "./nameplate.js";
+import { createNameplate, LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "./nameplate.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
 import type { MonsterVisual } from "./state.js";
 import { compositeStatusTint, statusTintFor } from "./statusTint.js";
@@ -96,7 +96,8 @@ function updateMonsterChrome(
   visual.nameplate.setDepth(bodyDepth + 0.2);
   updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
   const headY = visual.body.y - visual.body.displayHeight;
-  updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
+  const healthBarY = headY - NAMEPLATE_GAP_PX - NAMEPLATE_LINE_HEIGHT_PX - LABEL_LINE_GAP_PX - HP_BAR_DISPLAY_HEIGHT_PX / 2;
+  updateHpBar(visual.hpBar, visual.body.x, healthBarY, view.hp, view.maxHp);
   visual.hpBarRevealed = resolveHpBarVisibility(
     visual.lastHp,
     view.hp,

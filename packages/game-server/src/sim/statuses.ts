@@ -53,6 +53,30 @@ export function tickStatuses(sim: SimState, effectEvents: EffectEvent[]): void {
   }
 }
 
+function healthEventFor(event: Extract<EffectEvent, { t: "hp" }>) {
+  return {
+    t: "health" as const,
+    id: event.id,
+    delta: event.delta,
+    kind: event.delta > 0 ? "heal" as const : "damage" as const,
+    ...(event.source === undefined ? {} : { source: event.source }),
+  };
+}
+
+function realizeHealthEvent(
+  sim: SimState,
+  event: Extract<EffectEvent, { t: "hp" }>,
+): void {
+  const position = positionOf(sim, event.id);
+  sim.worldEvents.push({ ev: healthEventFor(event), ...position });
+  if (event.delta < 0) {
+    sim.worldEvents.push({
+      ev: { t: "damageImpact", id: event.id, amount: -event.delta },
+      ...position,
+    });
+  }
+}
+
 /** Turn engine effect events into world state changes + replicated events. */
 export function realizeEffectEvents(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const event of effectEvents) {
@@ -65,16 +89,7 @@ export function realizeEffectEvents(sim: SimState, effectEvents: EffectEvent[]):
         sim.projectiles.delete(event.id);
         break;
       case "hp":
-        sim.worldEvents.push({
-          ev: {
-            t: "health",
-            id: event.id,
-            delta: event.delta,
-            kind: event.delta > 0 ? "heal" : "damage",
-            ...(event.source === undefined ? {} : { source: event.source }),
-          },
-          ...positionOf(sim, event.id),
-        });
+        realizeHealthEvent(sim, event);
         break;
       case "status":
         sim.worldEvents.push({

@@ -79,7 +79,7 @@ describe("visual health events", () => {
     expect(spawnDamageNumber).not.toHaveBeenCalled();
   });
 
-  it("routes authoritative damage into own-hit feedback", () => {
+  it("gives old-server damage health events the same impact presentation", () => {
     const spawnBloodHit = vi.fn();
     const onOwnHit = vi.fn();
     const connection = {
@@ -105,8 +105,73 @@ describe("visual health events", () => {
 
     applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
 
-    expect(spawnBloodHit).not.toHaveBeenCalled();
+    expect(spawnBloodHit).toHaveBeenCalledWith(
+      2, 3, 0.25, undefined, 100, 1, -0.5,
+    );
     expect(onOwnHit).toHaveBeenCalledWith(100);
+  });
+
+  it("spawns impact blood even when HP did not change", () => {
+    const spawnBloodHit = vi.fn();
+    const connection = {
+      hp: 30,
+      maxHp: 30,
+      body: { kx: 0.5, ky: -1 },
+      welcome: { playerId: "player-1" },
+      entities: new Map(),
+      world: { groundAt: () => 0.25 },
+      drainVisualEvents: () => [{
+        t: "damageImpact",
+        id: "player-1",
+        amount: 6,
+      }],
+    } as unknown as Connection;
+    const vfx = {
+      setSelfHp: vi.fn(),
+      spawnDamageNumber: vi.fn(),
+      spawnBloodHit,
+      onOwnHit: vi.fn(),
+    } as unknown as VfxSystem;
+
+    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+
+    expect(spawnBloodHit).toHaveBeenCalledWith(
+      2,
+      3,
+      0.25,
+      undefined,
+      100,
+      0.5,
+      -1,
+    );
+    expect(vfx.onOwnHit).toHaveBeenCalledWith(100);
+  });
+
+  it("does not duplicate blood for a paired health and impact event", () => {
+    const spawnBloodHit = vi.fn();
+    const connection = {
+      hp: 30,
+      maxHp: 30,
+      body: { kx: 0, ky: 0 },
+      welcome: { playerId: "player-1" },
+      entities: new Map(),
+      world: { groundAt: () => 0 },
+      drainVisualEvents: () => [
+        { t: "health", id: "player-1", delta: -6, kind: "damage" },
+        { t: "damageImpact", id: "player-1", amount: 6 },
+      ],
+    } as unknown as Connection;
+    const vfx = {
+      setSelfHp: vi.fn(),
+      spawnDamageNumber: vi.fn(),
+      spawnBloodHit,
+      onOwnHit: vi.fn(),
+    } as unknown as VfxSystem;
+
+    applyVisualEvents(connection, vfx, { x: 2, y: 3, z: 0 }, new Map(), 100);
+
+    expect(spawnBloodHit).toHaveBeenCalledTimes(1);
+    expect(vfx.onOwnHit).toHaveBeenCalledTimes(1);
   });
 
 });

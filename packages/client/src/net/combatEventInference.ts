@@ -53,6 +53,12 @@ function explicitHealthTargetIds(events: readonly GameEvent[]): Set<string> {
   ));
 }
 
+function explicitImpactTargetIds(events: readonly GameEvent[]): Set<string> {
+  return new Set(events.flatMap((event) =>
+    event.t === "damageImpact" || event.t === "hit" ? [event.id] : []
+  ));
+}
+
 function snapshotCombatHealth(
   conn: Connection,
   snap: ServerSnapshot,
@@ -84,9 +90,10 @@ function snapshotCombatHealth(
 }
 
 /**
- * Reliable fallback for rolling deploys and missing combat packets: infer only damage
- * from authoritative HP transitions. Explicit wire events always win, so the normal
- * path never double-spawns blood or numbers.
+ * Reliable fallback for rolling deploys and missing combat packets: infer damage
+ * feedback and impact presentation independently from authoritative HP transitions.
+ * Each explicit wire event suppresses only its own concern, so an old server that
+ * sends health without damageImpact still produces blood without duplicating numbers.
  */
 export function inferMissingDamageEvents(
   conn: Connection,
@@ -97,19 +104,32 @@ export function inferMissingDamageEvents(
     !before.initialized ||
     snap.events.some((event) => event.t === "teleported")
   ) return;
-  const explicit = explicitHealthTargetIds(snap.events);
+  const explicitHealth = explicitHealthTargetIds(snap.events);
+  const explicitImpacts = explicitImpactTargetIds(snap.events);
   for (const [id, next] of snapshotCombatHealth(conn, snap)) {
     const previous = before.targets.get(id);
-    if (!previous || next.hp >= previous.hp || explicit.has(id)) continue;
-    conn.visualEvents.push({
-      t: "health",
+    if (!previous || next.hp >= previous.hp) continue;
+    const captured = {
       id,
-      delta: next.hp - previous.hp,
-      kind: "damage",
       x: next.x,
       y: next.y,
       ...(next.defId === undefined ? {} : { defId: next.defId }),
       targetKind: next.targetKind,
-    });
+    };
+    if (!explicitHealth.has(id)) {
+      conn.visualEvents.push({
+        t: "health",
+        delta: next.hp - previous.hp,
+        kind: "damage",
+        ...captured,
+      });
+    }
+    if (!explicitImpacts.has(id)) {
+      conn.visualEvents.push({
+        t: "damageImpact",
+        amount: previous.hp - next.hp,
+        ...captured,
+      });
+    }
   }
 }

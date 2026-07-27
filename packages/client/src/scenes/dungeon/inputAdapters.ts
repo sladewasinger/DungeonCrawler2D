@@ -86,6 +86,7 @@ function createInputActions(conn: Connection): Omit<
     descend: () => conn.descend(),
     suicide: () => conn.suicide(),
     pushToast: (msg) => conn.pushToast(msg),
+    debugGod: () => conn.debugGod(),
   };
 }
 

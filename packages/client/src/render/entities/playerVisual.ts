@@ -1,16 +1,16 @@
 // Player body visual: feet-anchored hero sprite, held weapon following facing, hit
 // flash, downed pose, plus the shared combatant chrome (shadow/hp/nameplate).
 import type Phaser from "phaser";
-import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
+import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { worldAngleToView } from "../view/viewTransform.js";
 import { resolveAnimState } from "./animState.js";
 import { createHeldWeapon, updateHeldWeapon } from "./heldWeapon.js";
-import { createHpBar, updateHpBar } from "./hpBar.js";
+import { createHpBar, HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "./hpBar.js";
 import { resolveHpBarVisibility } from "./hpBarVisibility.js";
 import { flashIntensity, tookDamage } from "./hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "./lift.js";
-import { createNameplate, updateNameplate } from "./nameplate.js";
+import { createNameplate, LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "./nameplate.js";
 import { syncOcclusionSilhouette, terrainOcclusionAhead } from "./occlusion.js";
 import { inferPlayerAnimState, isRunningPace } from "./playerMotion.js";
 import { createShadow, updateShadowPosition } from "./shadow.js";
@@ -141,7 +141,8 @@ function updatePlayerChrome(
   visual.nameplate.setDepth(bodyDepth + 0.2);
   updateShadowPosition(visual.shadow, ground.x, shiftedGroundY, heightAboveGround);
   const headY = visual.body.y - visual.body.displayHeight;
-  updateHpBar(visual.hpBar, visual.body.x, headY, view.hp, view.maxHp);
+  const healthBarY = headY + SCREEN_TILE_PX / 3 - NAMEPLATE_GAP_PX - NAMEPLATE_LINE_HEIGHT_PX - LABEL_LINE_GAP_PX - HP_BAR_DISPLAY_HEIGHT_PX / 2;
+  updateHpBar(visual.hpBar, visual.body.x, healthBarY, view.hp, view.maxHp);
   visual.hpBarRevealed = resolveHpBarVisibility(
     visual.lastHp,
     view.hp,
@@ -151,7 +152,7 @@ function updatePlayerChrome(
   visual.hpBar.container.setVisible(visual.hpBarRevealed);
 
   const distance = Math.hypot(view.x - ctx.selfX, view.y - ctx.selfY);
-  updateNameplate(visual.nameplate, view.name, visual.body.x, headY, distance, ctx.partyIds.has(view.id), view.downed, view.disconnected);
+  updateNameplate(visual.nameplate, view.name, visual.body.x, headY + SCREEN_TILE_PX / 3, distance, ctx.partyIds.has(view.id), view.downed, view.disconnected);
 
   const occlusion = terrainOcclusionAhead(ctx.world, view.x, view.y, view.z, getViewOrientation());
   syncOcclusionSilhouette(visual.body, view.y, occlusion);

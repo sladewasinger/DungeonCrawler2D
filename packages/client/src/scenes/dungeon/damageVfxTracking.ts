@@ -12,6 +12,10 @@ import {
   type PendingSwing,
 } from "../../vfx/meleeConnect.js";
 
+// Death presentation keeps a small combatant registry so a just-removed target can
+// still be classified. Hit blood deliberately does not live here: visualEvents.ts
+// consumes the authoritative damageImpact signal for both ordinary and god-mode hits.
+
 interface TrackedHealth {
   hp: number;
 }
@@ -26,12 +30,7 @@ interface DamageVfxContext {
   readonly vfx: VfxSystem;
   readonly pendingSwings: Map<string, PendingSwing>;
   readonly selfId: string;
-  readonly selfKnockback: { x: number; y: number };
   readonly nowMs: number;
-}
-
-function monsterDefId(view: CombatantView): string | undefined {
-  return "defId" in view ? view.defId : undefined;
 }
 
 function impactAngleFor(
@@ -51,29 +50,9 @@ function trackCombatant(
   view: CombatantView,
   tracked: Map<string, TrackedHealth>,
   seen: Set<string>,
-  world: GroundReader,
-  vfx: VfxSystem,
-  pendingSwings: Map<string, PendingSwing>,
-  selfId: string,
-  selfKnockback: { x: number; y: number },
-  nowMs: number,
 ): void {
   seen.add(view.id);
   const previous = tracked.get(view.id);
-  if (previous && view.hp < previous.hp) {
-    const groundHeight = world.groundAt(view.x, view.y);
-    const direction = view.id === selfId ? selfKnockback : undefined;
-    vfx.spawnBloodHit(
-      view.x,
-      view.y,
-      groundHeight,
-      monsterDefId(view),
-      nowMs,
-      direction?.x,
-      direction?.y,
-    );
-    resolveHitAgainstPending(pendingSwings, view.x, view.y);
-  }
   if (previous) previous.hp = view.hp;
   else tracked.set(view.id, { hp: view.hp });
 }
@@ -83,17 +62,7 @@ function trackViews(
   context: DamageVfxContext,
 ): void {
   for (const view of views) {
-    trackCombatant(
-      view,
-      context.tracked,
-      context.seen,
-      context.world,
-      context.vfx,
-      context.pendingSwings,
-      context.selfId,
-      context.selfKnockback,
-      context.nowMs,
-    );
+    trackCombatant(view, context.tracked, context.seen);
   }
 }
 
@@ -144,7 +113,6 @@ export function syncDamageVfx(
   monsters: readonly MonsterEntityView[],
   pendingSwings: Map<string, PendingSwing>,
   selfId: string,
-  selfKnockback: { x: number; y: number },
   nowMs: number,
   deaths: readonly DeathVisualEvent[] = [],
 ): void {
@@ -155,7 +123,6 @@ export function syncDamageVfx(
     vfx,
     pendingSwings,
     selfId,
-    selfKnockback,
     nowMs,
   };
   seen.clear();

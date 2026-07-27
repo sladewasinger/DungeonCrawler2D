@@ -35,6 +35,9 @@ export interface ThreeHudOptions {
   setViewDistance?: (viewDistance: ViewDistance) => void;
   bindKeyboard?: boolean;
   showReticle?: boolean;
+  /** The Three route owns Connection.visualEvents itself. Phaser's shared HTML HUD
+   * must leave that queue for DungeonScene's world-space VFX consumer. */
+  showHealthFeedback?: boolean;
   onSelectHotbar?: (index: number | null) => void;
   setTextInputFocused?: (focused: boolean) => void;
   session: Omit<SessionMenuActions, "focusGame">;
@@ -46,10 +49,12 @@ export class ThreeHud {
   private readonly keyboard: ThreeHudKeyboard;
   private readonly focusGame: () => void;
   private readonly setTextInputFocused: (focused: boolean) => void;
+  private readonly showHealthFeedback: boolean;
 
   constructor(options: ThreeHudOptions) {
     this.focusGame = options.focusGame;
     this.setTextInputFocused = options.setTextInputFocused ?? (() => {});
+    this.showHealthFeedback = options.showHealthFeedback !== false;
     this.parts = createThreeHudComposition(
       {
         root: options.root,
@@ -110,7 +115,9 @@ export class ThreeHud {
     this.updateCompass(update);
     parts.hotbar.update(connection, update.snapshot?.selectedSlot);
     parts.buffs.update(connection);
-    parts.healthFeedback.update(connection, performance.now());
+    if (this.showHealthFeedback) {
+      parts.healthFeedback.update(connection, performance.now());
+    }
     parts.weapon.update(connection);
     parts.party.update(connection, player, yaw);
     parts.telemetry.update(connection, world, player, yaw, mouseCaptured);

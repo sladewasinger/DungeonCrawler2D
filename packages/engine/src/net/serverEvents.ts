@@ -9,6 +9,14 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     kind: z.enum(["heal", "damage"]),
     source: z.literal("automatic").optional(),
   }),
+  /** Presentation signal for a resolved damaging impact. Kept separate from
+   * health state so invulnerability systems may restore HP without suppressing
+   * blood, hit reactions, or melee-connect feedback. */
+  z.object({
+    t: z.literal("damageImpact"),
+    id: z.string(),
+    amount: z.number().positive(),
+  }),
   z.object({ t: z.literal("death"), id: z.string() }),
   z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
   z.object({

@@ -14,11 +14,11 @@ import Phaser from "phaser";
 import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
-import { groundedVisualPlacement } from "./groundPlaneDepth.js";
+import { GROUND_DECAL_VERTICAL_SCALE, groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 /** Keeps a busy fight readable without allowing the cosmetic pool to grow unbounded. */
 export const DECAL_CAP = 96;
-const BASE_ALPHA = 0.88;
+const BASE_ALPHA = 0.96;
 const MIN_DIAMETER_PX = 10;
 const MAX_DIAMETER_PX = 22;
 const SCATTER_RADIUS_PX = 28;
@@ -76,8 +76,8 @@ export class BloodDecalPool {
     );
     decal.shape
       .setPosition(screen.x + scatterX, placement.projectedScreenY)
-      .setSize(diameter, diameter)
-      .setFillStyle(tint, 0.92)
+      .setSize(diameter, diameter * GROUND_DECAL_VERTICAL_SCALE)
+      .setFillStyle(tint, 0.96)
       .setStrokeStyle(0, tint, 0)
       .setAlpha(BASE_ALPHA)
       .setVisible(true)

@@ -8,7 +8,7 @@ const BAR_HEIGHT = 7;
 const BG_COLOR = 0x14141c;
 const FILL_COLOR = 0xe04a4a; // blood/damage accent doubles as the low-hp read
 const BORDER_COLOR = 0x494956;
-const Y_OFFSET = -10 * HUD_SCALE;
+export const HP_BAR_DISPLAY_HEIGHT_PX = BAR_HEIGHT * HUD_SCALE;
 
 export interface HpBar {
   readonly container: Phaser.GameObjects.Container;
@@ -24,9 +24,9 @@ export function createHpBar(scene: Phaser.Scene, depth: number): HpBar {
   return { container, fill };
 }
 
-/** Repositions the bar above an entity's head and resizes its fill to hp/maxHp. */
-export function updateHpBar(bar: HpBar, headScreenX: number, headScreenY: number, hp: number, maxHp: number): void {
-  bar.container.setPosition(headScreenX, headScreenY + Y_OFFSET);
+/** Repositions the bar at the supplied center point and resizes its fill to hp/maxHp. */
+export function updateHpBar(bar: HpBar, screenX: number, screenY: number, hp: number, maxHp: number): void {
+  bar.container.setPosition(screenX, screenY);
   const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
   bar.fill.width = BAR_WIDTH * ratio;
 }

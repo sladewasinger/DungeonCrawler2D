@@ -1,10 +1,10 @@
-// Enemy-blood tint lookup: default blood-red per VISUAL_DIRECTION's damage accent
-// (`#e04a4a`), overridden only where content data clearly reads as a different
+// Enemy-blood tint lookup: a deep, slightly desaturated blood-red, overridden only
+// where content data clearly reads as a different
 // substance — today just the slime, whose ooze is its defining trait (ASSUMPTIONS.md
 // #56). Keeps the palette closed: reuses the existing poison-green accent rather than
 // inventing a new hue, per VISUAL_DIRECTION's "no new hues without updating this doc".
 
-const BLOOD_RED = 0xe04a4a;
+const BLOOD_RED = 0xb52f3f;
 const SLIME_GREEN = 0x7bd44a;
 
 /** enemy defId -> its splatter/decal tint override; anything unmapped (including players) uses blood-red. */

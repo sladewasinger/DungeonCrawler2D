@@ -19,13 +19,14 @@ export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw
   const base = batch.vertices.length / 4;
   const u0 = frame.x / image.width;
   // Phaser's Mesh2D samples V from the opposite edge of a PNG frame. Keep the
-  // logical top/bottom names used by rotatedUVs, but invert the normalized
-  // frame coordinates once here so every atlas role is upright.
+  // logical top/bottom crop names, but invert the normalized frame coordinates
+  // once here so every atlas role is upright. This also makes a partial face
+  // show the source tile's top portion, truncating its bottom.
   const cropTop = draw.uvCrop?.top ?? 0;
   const cropBottom = draw.uvCrop?.bottom ?? 1;
-  const v0 = (frame.y + frame.height * cropBottom) / image.height;
+  const v0 = (frame.y + frame.height * (1 - cropTop)) / image.height;
   const u1 = (frame.x + frame.width) / image.width;
-  const v1 = (frame.y + frame.height * cropTop) / image.height;
+  const v1 = (frame.y + frame.height * (1 - cropBottom)) / image.height;
   const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
   const uv = rotatedUVs(u0, v0, u1, v1, draw.rotation ?? 0);
   batch.vertices.push(

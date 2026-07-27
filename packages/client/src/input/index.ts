@@ -77,7 +77,7 @@ export class InputController {
   private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
     const { conn, panels, state } = this;
     const blocked = () => panels.gameplayBlocked;
-    keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
+    keys.G.on("down", guardedAction(() => this.handleGDown(), blocked));
     bindInteractKey(keys.E, guardedAction(() => this.handleInteractDown(), blocked), () => this.lifeGestures.endInteract(this.conn, this.scene.time.now));
     keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
     keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
@@ -99,6 +99,17 @@ export class InputController {
       keyboard.addKey(48 + i).on("down",
         guardedAction(() => onNumberKey(state, conn, panels, queries, keys, i), blocked));
     }
+  }
+
+  /** [G] is a localhost/dev convenience when no hotbar slot is armed. A selected
+   * slot retains the existing throw action, and production bundles never expose
+   * the shortcut; the server-side /god command remains unchanged. */
+  private handleGDown(): void {
+    if (import.meta.env.DEV && this.state.selectedSlot === null) {
+      this.conn.debugGod?.();
+      return;
+    }
+    throwSelected(this.scene, this.conn, this.queries, this.state, this.touch, this.touchActive, this.tilePx);
   }
 
   /** [E]: a nearby stairway (Epic 7.14) takes priority and sends descend() instead;

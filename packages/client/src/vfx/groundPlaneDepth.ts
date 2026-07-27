@@ -7,6 +7,9 @@ export type GroundedVisualLayer =
   | "corpseFragment"
   | "item";
 
+/** Screen-space Y foreshortening for circular marks lying on a floor viewed at ~45°. */
+export const GROUND_DECAL_VERTICAL_SCALE = Math.SQRT1_2;
+
 const LAYER_DEPTH_BIAS: Readonly<Record<GroundedVisualLayer, number>> = {
   blood: -0.35,
   corpse: -0.3,

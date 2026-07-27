@@ -16,10 +16,10 @@ import { worldToScreen } from "../render/entities/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "./bloodDecalSlots.js";
 import { isSkeletalDefId } from "./boneChipBurst.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
-import { groundedVisualPlacement } from "./groundPlaneDepth.js";
+import { GROUND_DECAL_VERTICAL_SCALE, groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 export const CORPSE_DECAL_CAP = 24;
-const BASE_ALPHA = 0.92;
+const BASE_ALPHA = 0.96;
 const BONE_COLOR = 0xd8cdb8;
 const CROSS_LENGTH_PX = 17;
 const CROSS_THICKNESS_PX = 3;
@@ -79,9 +79,9 @@ export class CorpseDecalPool {
 
   private buildDecal(): CorpseDecal {
     const gore = [
-      this.scene.add.ellipse(-5, 2, 15, 9),
-      this.scene.add.ellipse(5, 1, 13, 10),
-      this.scene.add.ellipse(0, -4, 10, 8),
+      this.scene.add.ellipse(-5, 2, 15, 9 * GROUND_DECAL_VERTICAL_SCALE),
+      this.scene.add.ellipse(5, 1, 13, 10 * GROUND_DECAL_VERTICAL_SCALE),
+      this.scene.add.ellipse(0, -4, 10, 8 * GROUND_DECAL_VERTICAL_SCALE),
     ];
     const body = this.scene.add
       .sprite(0, -4, ASSET_KEYS.atlas)
@@ -122,7 +122,7 @@ export class CorpseDecalPool {
     );
     for (const blob of decal.gore) {
       blob
-        .setFillStyle(tint, 0.9)
+        .setFillStyle(tint, 0.96)
         .setStrokeStyle(0, tint, 0)
         .setVisible(bloodEnabled && !isSkeletalDefId(defId));
     }

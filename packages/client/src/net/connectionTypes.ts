@@ -56,6 +56,7 @@ export type VisualEvent =
     kind: "heal" | "damage";
     source?: "automatic" | undefined;
   } & CapturedCombatTarget
+  | ({ t: "damageImpact"; id: string; amount: number } & CapturedCombatTarget)
   | ({ t: "status"; id: string; status: string; on: boolean } & CapturedCombatTarget)
   /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated
    * wire event for a sealed contact, only the system chat line this is derived from. */

@@ -86,7 +86,6 @@ describe("live enemy death VFX queue", () => {
       [],
       new Map(),
       "player-1",
-      { x: 0, y: 0 },
       100,
       connection.drainDeathVisualEvents(),
     );

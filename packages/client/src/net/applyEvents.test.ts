@@ -100,9 +100,18 @@ describe("combat visual event capture", () => {
       defId: "slime",
       targetKind: "enemy",
     });
+    expect(connection.visualEvents).toContainEqual({
+      t: "damageImpact",
+      id: "enemy-1",
+      amount: 4,
+      x: 5,
+      y: 6,
+      defId: "slime",
+      targetKind: "enemy",
+    });
   });
 
-  it("does not infer a second event when the wire already carries damage", () => {
+  it("fills only the missing impact when an old server carries health alone", () => {
     const connection = {
       welcome: { playerId: "player-1" },
       body: { x: 1, y: 2 },
@@ -126,6 +135,14 @@ describe("combat visual event capture", () => {
       before,
     );
 
-    expect(connection.visualEvents).toEqual([]);
+    expect(connection.visualEvents).toEqual([{
+      t: "damageImpact",
+      id: "enemy-1",
+      amount: 4,
+      x: 5,
+      y: 6,
+      defId: "slime",
+      targetKind: "enemy",
+    }]);
   });
 });

@@ -113,6 +113,10 @@ export function syncLightingAndVfx(
   nowMs: number,
   render: RenderPose,
 ): void {
+  // Drain event-driven VFX independently of lighting. Damage impacts are a
+  // presentation signal separate from health state, so god-mode restoration
+  // cannot suppress blood and it must not depend on the optional lighting system.
+  applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);
   if (!lighting || !conn.body) return;
   const areaLights = vfx.syncAreas(
     buildAreaTileViewsInto(conn.areaTiles, camera.worldView, 2 * SCREEN_TILE_PX, state.areaViews, state.areaViewRecords),
@@ -146,7 +150,6 @@ export function syncLightingAndVfx(
   for (const swing of collectExpiredSwingsInto(state.pendingSwings, nowMs, state.expiredSwings)) {
     vfx.spawnMeleeWhiff(swing.attackerId, swing.worldX, swing.worldY, swing.z, swing.angleRad, swing.depth, SCREEN_TILE_PX, nowMs);
   }
-  applyVisualEvents(conn, vfx, render, state.pendingSwings, nowMs);
   // Panel round 4 (LANE B): shield ring, self-only — countdown itself is driven by
   // selfCosmetics.ts's consumeRespawnGrace/endSelfGrace.
   syncSelfVfx(conn, vfx, state, render, nowMs);

@@ -120,6 +120,7 @@ Key decisions:
 - **Chat rides the same socket** as lightweight channel messages (global / party / DM / proximity), fanned out server-side with mute/block lists enforced *before* delivery — a blocked player's messages never reach your client.
 - **Protocol lives in `engine/net`** as typed messages (zod-validated on the server — never trust the client, doubly so in PvP), JSON-encoded first. Binary encoding (msgpack) is a v0.9 optimization if profiling demands it.
 - **HUD layout is viewport-relative where panels need resizing.** The Three.js HTML HUD stores window position and width/height as ratios in storage schema v4, migrating older pixel layouts; resize and edit gestures write ratios back. The Phaser widget registry keeps its anchor/offset contract and loads persisted layouts before construction. Mobile inventory deliberately leaves its filter unfocused when opened.
+- **Presentation event queues have one owner per renderer route.** `Connection.visualEvents` is a single-consumer queue. In the Phaser route, `DungeonScene` owns it and feeds world-space damage numbers, blood, hit reactions, and other VFX; the shared HTML HUD must not drain it. The Three.js route has no DungeonScene, so its `ThreeHealthFeedback` consumer remains enabled there. Route-specific options make that ownership explicit (`createLiveHtmlHud` disables the Three-only health consumer). When adding a presentation consumer, first decide whether it is the route owner or a fan-out subscriber; never let two live scenes call `drainVisualEvents()` on the same connection.
 - **Browser connection identity is tab-scoped.** Session storage carries the
   client ID and resume token; a per-browsing-context marker detects Chrome's
   duplicated session storage and rotates the copied identity. If session
@@ -181,6 +182,12 @@ Every effect, item, and enemy is a JSON file in `content/`, validated against a 
 
 **Wave-function collapse is the planned decoration layer** (v0.8 biomes/ruins): the noise + corridor skeleton stays structural — it owns connectivity, determinism, and chunk-locality, none of which WFC provides naturally — while seeded WFC textures constrained regions (room interiors, ruin patches) whose border cells the skeleton pins, so per-chunk solving can't contradict neighbors. Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry and heights on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities (enemies, loot, players) are placed by the server and sent as events, so only static geometry and zones rely on determinism. The generator's contract and test suite cover cross-chunk connectivity, the flat-base invariant, and platform-tier jumpability.
 
+**Next planned world-generation migration (not implemented):** remove the
+blanket 2× logical-cell expansion and use 32×32 runtime chunks directly. Corridor
+and avenue widths, room/feature footprints, and stair authoring will be retuned in
+runtime tile units; stairs become one tile. The staged plan and affected modules
+are recorded in [WORLDGEN-SCALE-REMOVAL.md](WORLDGEN-SCALE-REMOVAL.md).
+
 ## Rendering & art pipeline
 
 - **64×64 pixel tiles**, `pixelArt: true` (nearest-neighbor); top-down view; Don't Starve-adjacent mood via palette and silhouette, not detail
@@ -210,7 +217,7 @@ Crafting is request/response and not latency-sensitive, so it stays on Lambda ev
 - **Unit (majority):** effect primitives, interaction rules, stacking, dungeon connectivity/determinism, item validation, melee targeting, AI decisions, bounded navigation, pet leash/path behavior, and area buoyancy — all headless engine code
 - **Protocol/sim tests:** in-process game server + several headless clients exchanging real protocol messages; scripted scenarios ("A throws a molotov at B near a safe-room door while C watches from outside AOI range") run for N ticks, asserting observers converge, sanctuary suppresses, non-party revives replicate to everyone, pets claim/follow, and out-of-range clients receive nothing
 - **Determinism tests:** same `(worldSeed, floor, chunkCoord)` ⇒ byte-identical chunk, run in CI on Linux + local on Windows to catch platform drift
-- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (no damage, no knockback, 4× outgoing damage, unlimited stamina) and `/tp X Y` — so a feature can be inspected directly instead of wandering a live PvP world. `/god` is a toggle, and `DEBUG_COMMANDS` gates both commands: on for development, hard-off in production
+- **Dev harness for verification:** fixed local seeds plus server-gated debug intents — `/god` (or `[G]` with no hotbar slot selected in a Vite dev build) toggles no damage, no knockback, 4× outgoing damage, and unlimited stamina; `/tp X Y` remains the teleport command — so a feature can be inspected directly instead of wandering a live PvP world. `/god` is a toggle, and `DEBUG_COMMANDS` gates both commands: on for development, hard-off in production
 - **Manual/playtest:** Phaser and Three.js layers, pet claiming/following, HUD
   editing, mobile focus ownership, and latency tuning are covered by the release
   checklist; every release still needs a duo minimum for multiplayer behavior.

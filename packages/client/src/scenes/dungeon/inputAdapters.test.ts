@@ -23,6 +23,7 @@ const REQUIRED_ACTIONS = [
   "descend",
   "suicide",
   "pushToast",
+  "debugGod",
 ] as const satisfies readonly (keyof InputConnection)[];
 
 describe("production InputConnection adapter", () => {

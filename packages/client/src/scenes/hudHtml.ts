@@ -21,6 +21,9 @@ export const createLiveHtmlHud = (options: LiveHtmlHudOptions): ThreeHud =>
     focusGame: options.focusGame,
     setTextInputFocused: options.setTextInputFocused,
     showReticle: false,
+    // DungeonScene owns the renderer event queue in Phaser. The shared HTML HUD's
+    // Three-only feedback consumer would otherwise drain damage before blood VFX.
+    showHealthFeedback: false,
     ...(options.onSelectHotbar
       ? { onSelectHotbar: options.onSelectHotbar }
       : {}),

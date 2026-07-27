@@ -25,7 +25,9 @@ Everything moves that should move.
 - **Palette discipline.** Base world: dark desaturated (stone `#2e2e3a`→`#494956`
   range, flat black `#000000` voids with black borders). Accents are reserved and consistent:
   fire/torch `#ff9e3d`, poison `#7bd44a`, sanctuary/portal teal `#3dd6c3`,
-  blood/damage `#e04a4a`, arcane `#8a6cff`, loot/gold `#ffd23d`. UI reuses these.
+  blood material `#b52f3f`, damage UI `#e04a4a`, arcane `#8a6cff`, loot/gold `#ffd23d`.
+  UI and floor blood intentionally use separate values: the deeper material red reads
+  as wet blood without making the whole combat HUD glow red.
   No new hues without updating this doc.
 - **Darkness is the canvas.** The world renders under a darkness layer; lights punch
   through it. Ambient ≈ 15–25% so unlit corridors read as genuinely dark. Every torch,
