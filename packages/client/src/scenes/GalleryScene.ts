@@ -5,6 +5,7 @@ import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../boot/assetManifest.js";
 import { isTouchDevice } from "../input/touchDetect.js";
 import { LightingSystem } from "../render/lighting/index.js";
+import { Terrain4Renderer } from "../render/terrain4/index.js";
 import { ownFaceRowAt } from "../render/terrain/ownFace.js";
 import { TerrainRenderer } from "../render/terrain/index.js";
 import { pixelTextStyle } from "../ui/font.js";
@@ -21,6 +22,8 @@ import {
 import { showcasePlayerPose } from "./showcasePlayerMotion.js";
 import { VfxShowcase } from "./vfxShowcase.js";
 import { SHOWCASE_ROW } from "./entityShowcaseLayout.js";
+import { getViewOrientation } from "../render/view/viewState.js";
+import { worldToView } from "../render/view/viewTransform.js";
 
 /** ?combat=1 harness (docs/client-proofs/combat-*.png): two static demo players east of
  * the entity-showcase row, clear of its running player/monster cycle, proven-open floor
@@ -60,6 +63,7 @@ function feetPosition(tileX: number, tileY: number): { x: number; y: number } {
 
 export class GalleryScene extends Phaser.Scene {
   private terrain: TerrainRenderer | undefined;
+  private terrain4: Terrain4Renderer | undefined;
   private showcase: EntityShowcase | undefined;
   private lighting: LightingSystem | undefined;
   private vfxShowcase: VfxShowcase | undefined;
@@ -78,17 +82,17 @@ export class GalleryScene extends Phaser.Scene {
     const seed = finiteQueryNumber(params, GALLERY_SEED_QUERY_PARAM) ?? GALLERY_WORLD_SEED;
     const centerTileX = finiteQueryNumber(params, GALLERY_CENTER_X_QUERY_PARAM) ?? preset.centerTileX;
     const centerTileY = finiteQueryNumber(params, GALLERY_CENTER_Y_QUERY_PARAM) ?? preset.centerTileY;
+    const useTerrain4 = params.get("terrain4") === "1";
     this.world = new World(seed, 1);
-    this.terrain = new TerrainRenderer(this, this.world);
+    if (useTerrain4) this.terrain4 = new Terrain4Renderer(this, this.world);
+    else this.terrain = new TerrainRenderer(this, this.world);
     this.showcase = new EntityShowcase(this, this.world);
     this.lighting = new LightingSystem(this, this.world);
     this.vfxShowcase = new VfxShowcase(this, this.world, this.lighting);
 
     this.cameras.main.setRoundPixels(true);
-    this.cameras.main.centerOn(
-      centerTileX * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
-      centerTileY * SCREEN_TILE_PX + SCREEN_TILE_PX / 2,
-    );
+    const center = worldToView({ x: centerTileX + 0.5, y: centerTileY + 0.5 }, getViewOrientation());
+    this.cameras.main.centerOn(center.x * SCREEN_TILE_PX, center.y * SCREEN_TILE_PX);
 
     // Skip the raw marker where EntityShowcase already renders a fully-featured
     // (shadow/hp/nameplate/depth-sort) skeleton on the same tile — see
@@ -107,6 +111,10 @@ export class GalleryScene extends Phaser.Scene {
     // HudScene self-gates on ?hud=1|death and renders on its own postFX-free camera.
     this.scene.launch("hud");
     this.setUpCameraResize();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.terrain4?.dispose();
+      this.terrain4 = undefined;
+    });
   }
 
   /** ?combat=1: builds the weapon-orbit/melee-wedge demo and recenters the camera on it, overriding whatever ?camera=... preset was resolved above. */
@@ -150,6 +158,7 @@ export class GalleryScene extends Phaser.Scene {
   /** Streams terrain + the entity/vfx/lighting showcases every frame from the camera's up-to-date view — `camera.worldView` is only valid after Phaser's own render pass has run once, not synchronously after `centerOn` in `create()`. */
   update(time: number, delta: number): void {
     this.terrain?.update(this.cameras.main.worldView);
+    this.terrain4?.update(this.cameras.main.worldView);
     this.showcase?.update(time, delta / 1000);
     this.vfxShowcase?.update(time);
     this.combatShowcase?.update(time, delta / 1000);

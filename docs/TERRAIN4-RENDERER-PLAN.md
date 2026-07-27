@@ -115,6 +115,11 @@ in the first backend spike, so labels remain readable while the atlas
 compositor is profiled. The generated labeled debug atlas is also shown as a
 small in-game legend.
 
+For a deterministic, server-free browser pass, use
+`?scene=gallery&terrain4=1&terrain4Debug=1`. The existing GalleryScene then
+drives the same Terrain4 renderer against its fixed generated world, which is
+useful for screenshots and rotation/biome checks without connecting a player.
+
 The shared sheet is intentionally compact; faces and void boundaries are
 generated from the height map, so no per-direction wall atlas is needed.
 
