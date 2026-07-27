@@ -27,8 +27,8 @@ export interface Terrain4DebugHost {
   readonly debugLabels: Phaser.GameObjects.Text[];
 }
 
-const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "feature" | "south-face", string>> = {
-  floor: "F", void: "V", feature: "FT", "south-face": "WF",
+const DEBUG_LABELS: Readonly<Record<"floor" | "void" | "feature" | "prop" | "south-face", string>> = {
+  floor: "F", void: "V", feature: "FT", prop: "PT", "south-face": "WF",
 };
 
 export function materialsFor(world: World, bounds: Terrain4Rect) {
@@ -62,7 +62,7 @@ export function renderDebugLabels(
   plan: Terrain4Batches,
   visible: boolean,
 ): void {
-  const entries = [...plan.floors, ...plan.voids, ...plan.features, ...plan.southFaces];
+  const entries = [...plan.floors, ...plan.voids, ...plan.features, ...plan.props, ...plan.southFaces];
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index];
     if (!entry) continue;

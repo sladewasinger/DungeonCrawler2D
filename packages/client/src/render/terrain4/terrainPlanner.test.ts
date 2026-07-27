@@ -50,6 +50,18 @@ describe("planTerrain4", () => {
     expect(plan.batches.features[0]).toMatchObject({ kind: "feature", feature: "stairs", height: 1 });
   });
 
+  it("keeps sprite-backed furniture out of the terrain atlas batches", () => {
+    const plan = planTerrain4({
+      terrainAt: () => FLOOR,
+      heightAt: () => 0,
+      propAt: () => "stash",
+    }, { bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0 });
+
+    expect(plan.batches.floors).toEqual([]);
+    expect(plan.batches.props).toHaveLength(1);
+    expect(plan.batches.props[0]).toMatchObject({ kind: "prop", prop: "stash" });
+  });
+
   it("emits a south face only across a descending Floor-to-Floor edge", () => {
     const terrain = new Map<string, Terrain4Kind>([
       [key(0, 0), FLOOR],

@@ -51,6 +51,7 @@ export class Phaser4TerrainQuadBatchRenderer {
     this.drawBatch(batches.voids, projection, materials.void);
     this.drawBatch(batches.floors, projection, materials.floor);
     this.drawBatch(batches.features, projection, materials.feature);
+    this.drawBatch(batches.props, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
   }
 

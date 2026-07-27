@@ -1,12 +1,13 @@
 import { TERRAIN, TILE, type World } from "@dc2d/engine";
 import Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import type { TilePos } from "../lighting/torchPlacement.js";
 import type { DynamicLightSeed } from "../terrain/tileLight.js";
 import { viewToWorld, worldToView } from "../view/viewTransform.js";
 import { getViewOrientation } from "../view/viewState.js";
 import { rotateOrientation, type ViewOrientation } from "../view/viewOrientation.js";
 import type { ViewRect } from "../terrain/streaming.js";
+import { depthForCapOccluder } from "../entities/depthSort.js";
 import {
   createPhaser4TerrainQuadBatchRenderer,
   type Phaser4TerrainQuadBatchRenderer,
@@ -34,6 +35,7 @@ interface Terrain4Root extends Terrain4DebugHost {
   readonly batch: Phaser4TerrainQuadBatchRenderer;
   readonly atlas: Phaser4TerrainAtlasBatchRenderer;
   readonly debugLabels: Phaser.GameObjects.Text[];
+  readonly props: Map<string, Phaser.GameObjects.Sprite>;
   planKey: string;
   orientation: ViewOrientation;
 }
@@ -61,6 +63,7 @@ export class Terrain4Renderer {
       terrainAt: (x, y) => this.world.terrainAt(x, y) === TERRAIN.Void ? TERRAIN4.Void : TERRAIN4.Floor,
       heightAt: (x, y) => this.world.heightAt(x, y),
       featureAt: (x, y) => featureForTile(this.world.tileAt(x, y)),
+      propAt: (x, y) => propForTile(this.world.tileAt(x, y)),
     };
     this.debugLegend = this.debugMode
       ? scene.add.image(8, 8, ASSET_KEYS.terrain4Debug)
@@ -84,6 +87,7 @@ export class Terrain4Renderer {
       for (const label of candidateRoot.debugLabels) {
         label.setVisible(this.debugMode && candidate === orientation);
       }
+      for (const prop of candidateRoot.props.values()) prop.setVisible(candidate === orientation);
     }
   }
 
@@ -140,6 +144,7 @@ export class Terrain4Renderer {
       root.graphics.destroy();
       root.atlas.destroy();
       for (const label of root.debugLabels) label.destroy();
+      for (const prop of root.props.values()) prop.destroy();
     }
     this.roots.clear();
     this.debugLegend?.destroy();
@@ -155,6 +160,7 @@ export class Terrain4Renderer {
       batch,
       atlas: new Phaser4TerrainAtlasBatchRenderer(this.scene),
       debugLabels: [],
+      props: new Map(),
       planKey: "",
       orientation,
     };
@@ -175,6 +181,7 @@ export class Terrain4Renderer {
     } else {
       root.batch.render(plan, screenProjection, materialsFor(this.world, bounds));
     }
+    syncProps(this.scene, root, plan.props);
     if (this.debugMode) renderDebugLabels(this.scene, root, plan, root.orientation === getViewOrientation());
     root.planKey = key;
   }
@@ -183,8 +190,39 @@ export class Terrain4Renderer {
 function featureForTile(tile: number): "stairs" | "door" | "brazier" | null {
   if (tile === TILE.Stairs) return "stairs";
   if (tile === TILE.DoorPersonal || tile === TILE.DoorParty || tile === TILE.DoorExit || tile === TILE.DoorSafeRoom) return "door";
-  // The generated atlas has one generic authored-prop role. Keep furniture on
-  // the feature plane until a dedicated workbench/furniture sheet is supplied.
-  if (tile === TILE.CraftingTable || tile === TILE.Stash) return "brazier";
   return null;
 }
+
+function propForTile(tile: number): "crafting-table" | "stash" | null {
+  if (tile === TILE.CraftingTable) return "crafting-table";
+  if (tile === TILE.Stash) return "stash";
+  return null;
+}
+
+function syncProps(
+  scene: Phaser.Scene,
+  root: Terrain4Root,
+  props: Terrain4BatchesProps,
+): void {
+  const active = new Set<string>();
+  for (const prop of props) {
+    const key = `${prop.worldTile.x},${prop.worldTile.y}`;
+    active.add(key);
+    const frame = prop.prop === "crafting-table" ? "crafting_table" : "chest_full_open_anim_f0";
+    const sprite = root.props.get(key) ?? scene.add.sprite(0, 0, ASSET_KEYS.atlas, frame);
+    sprite.setTexture(ASSET_KEYS.atlas, frame)
+      .setOrigin(0.5, 1)
+      .setScale(WORLD_PIXEL_SCALE)
+      .setPosition((prop.viewTile.x + 0.5) * SCREEN_TILE_PX, (prop.viewTile.y + 1) * SCREEN_TILE_PX - prop.height * SCREEN_TILE_PX)
+      .setDepth(depthForCapOccluder(prop.viewTile.y) + 0.1)
+      .setVisible(root.orientation === getViewOrientation());
+    root.props.set(key, sprite);
+  }
+  for (const [key, sprite] of root.props) {
+    if (active.has(key)) continue;
+    sprite.destroy();
+    root.props.delete(key);
+  }
+}
+
+type Terrain4BatchesProps = ReturnType<typeof emptyTerrain4Batches>["props"];

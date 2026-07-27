@@ -15,9 +15,11 @@ higher than the screen-south neighbor. The planner transforms screen-south
 through the four cardinal view orientations, so the rule is identical at
 0/90/180/270 degrees.
 
-The pure planner is Phaser-free. It emits typed floor and face quads; feature
-art (stairs, doors, brazier, pets, entities) is a separate pass anchored to a
-floor cap. This keeps future behaviours from leaking into terrain storage.
+The pure planner is Phaser-free. It emits typed floor, face, atlas-feature, and
+sprite-prop quads; feature art (stairs, doors, brazier, pets, entities) is a
+separate pass anchored to a floor cap. Crafting tables and stashes retain their
+existing atlas sprites through the prop plane rather than being approximated by
+brazier art. This keeps future behaviours from leaking into terrain storage.
 
 ## Batching and rotation
 
@@ -110,7 +112,8 @@ Assets:
 Append `?terrain4Debug=1` to the game URL to enable a live geometry overlay:
 `F` marks Floor caps, `V` marks flat Void caps, `FT` marks feature-plane art,
 and `WF` marks a renderer-only wall face generated between two Floor heights.
-`WF` is never a stored tile or world value. This is intentionally an overlay
+`PT` marks sprite-backed props. `WF` is never a stored tile or world value.
+This is intentionally an overlay
 in the first backend spike, so labels remain readable while the atlas
 compositor is profiled. The generated labeled debug atlas is also shown as a
 small in-game legend.

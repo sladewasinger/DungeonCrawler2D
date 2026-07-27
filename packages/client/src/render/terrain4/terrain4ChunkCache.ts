@@ -49,7 +49,7 @@ export class Terrain4ChunkPlanCache {
 }
 
 export function appendVisibleChunkPlans(
-  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; features: Terrain4Plan["batches"]["features"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[] },
+  target: { floors: Terrain4Plan["batches"]["floors"] extends readonly (infer T)[] ? T[] : never[]; voids: Terrain4Plan["batches"]["voids"] extends readonly (infer T)[] ? T[] : never[]; features: Terrain4Plan["batches"]["features"] extends readonly (infer T)[] ? T[] : never[]; props: Terrain4Plan["batches"]["props"] extends readonly (infer T)[] ? T[] : never[]; southFaces: Terrain4Plan["batches"]["southFaces"] extends readonly (infer T)[] ? T[] : never[] },
   cache: Terrain4ChunkPlanCache,
   source: Terrain4Source,
   bounds: Terrain4Rect,
@@ -66,6 +66,7 @@ export function appendVisibleChunkPlans(
       target.floors.push(...plan.batches.floors);
       target.voids.push(...plan.batches.voids);
       target.features.push(...plan.batches.features);
+      target.props.push(...plan.batches.props);
       target.southFaces.push(...plan.batches.southFaces);
     }
   }
@@ -75,9 +76,10 @@ export function emptyTerrain4Batches(): {
   floors: NonNullable<Terrain4Batches["floors"]>[number][];
   voids: NonNullable<Terrain4Batches["voids"]>[number][];
   features: NonNullable<Terrain4Batches["features"]>[number][];
+  props: NonNullable<Terrain4Batches["props"]>[number][];
   southFaces: NonNullable<Terrain4Batches["southFaces"]>[number][];
 } {
-  return { floors: [], voids: [], features: [], southFaces: [] };
+  return { floors: [], voids: [], features: [], props: [], southFaces: [] };
 }
 
 function cacheKey(coord: Terrain4ChunkCoord, orientation: ViewOrientation, revision: number): string {

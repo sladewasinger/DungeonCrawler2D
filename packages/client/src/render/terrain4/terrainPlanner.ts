@@ -22,12 +22,21 @@ export const TERRAIN4_FEATURES = {
 
 export type Terrain4FeatureKind = (typeof TERRAIN4_FEATURES)[keyof typeof TERRAIN4_FEATURES];
 
+/** Sprite-backed interactables stay separate from atlas terrain features. */
+export const TERRAIN4_PROPS = {
+  CraftingTable: "crafting-table",
+  Stash: "stash",
+} as const;
+
+export type Terrain4PropKind = (typeof TERRAIN4_PROPS)[keyof typeof TERRAIN4_PROPS];
+
 /** A small, engine-agnostic read surface. Features are optional so the planner
  * remains useful for the minimal Floor/Void geometry tests and future worlds. */
 export interface Terrain4Source {
   terrainAt(worldX: number, worldY: number): Terrain4Kind;
   heightAt(worldX: number, worldY: number): number;
   featureAt?(worldX: number, worldY: number): Terrain4FeatureKind | null;
+  propAt?(worldX: number, worldY: number): Terrain4PropKind | null;
 }
 
 export interface Terrain4Rect {
@@ -85,6 +94,12 @@ export interface Terrain4FeatureQuad extends Terrain4QuadBase {
   readonly height: number;
 }
 
+export interface Terrain4PropQuad extends Terrain4QuadBase {
+  readonly kind: "prop";
+  readonly prop: Terrain4PropKind;
+  readonly height: number;
+}
+
 export interface Terrain4SouthFaceQuad extends Terrain4QuadBase {
   readonly kind: "south-face";
   readonly topHeight: number;
@@ -96,6 +111,7 @@ export interface Terrain4Batches {
   readonly floors: readonly Terrain4FloorQuad[];
   readonly voids: readonly Terrain4VoidQuad[];
   readonly features: readonly Terrain4FeatureQuad[];
+  readonly props: readonly Terrain4PropQuad[];
   readonly southFaces: readonly Terrain4SouthFaceQuad[];
 }
 
@@ -124,12 +140,13 @@ export function planTerrain4(source: Terrain4Source, options: Terrain4PlanOption
   const floors: Terrain4FloorQuad[] = [];
   const voids: Terrain4VoidQuad[] = [];
   const features: Terrain4FeatureQuad[] = [];
+  const props: Terrain4PropQuad[] = [];
   const southFaces: Terrain4SouthFaceQuad[] = [];
   const { bounds, orientation } = options;
 
   for (let worldY = bounds.y; worldY < bounds.y + bounds.height; worldY += 1) {
     for (let worldX = bounds.x; worldX < bounds.x + bounds.width; worldX += 1) {
-      appendTileGeometry(source, { x: worldX, y: worldY }, orientation, floors, voids, features, southFaces);
+      appendTileGeometry(source, { x: worldX, y: worldY }, orientation, floors, voids, features, props, southFaces);
     }
   }
 
@@ -137,7 +154,7 @@ export function planTerrain4(source: Terrain4Source, options: Terrain4PlanOption
     bounds,
     sampleBounds: expandRect(bounds, seamApron),
     orientation,
-    batches: { floors, voids, features, southFaces },
+    batches: { floors, voids, features, props, southFaces },
   };
 }
 
@@ -148,6 +165,7 @@ function appendTileGeometry(
   floors: Terrain4FloorQuad[],
   voids: Terrain4VoidQuad[],
   features: Terrain4FeatureQuad[],
+  props: Terrain4PropQuad[],
   southFaces: Terrain4SouthFaceQuad[],
 ): void {
   const terrain = source.terrainAt(worldTile.x, worldTile.y);
@@ -158,12 +176,7 @@ function appendTileGeometry(
   }
   if (terrain !== TERRAIN4.Floor) return;
   const height = finiteHeight(source, worldTile);
-  const feature = source.featureAt?.(worldTile.x, worldTile.y) ?? null;
-  if (feature) {
-    features.push({ kind: "feature", feature, worldTile, viewTile, height, vertices: topQuad(viewTile, height) });
-  } else {
-    floors.push({ kind: "floor", worldTile, viewTile, height, vertices: topQuad(viewTile, height) });
-  }
+  appendFloorArt(source, worldTile, viewTile, height, floors, features, props);
 
   // Express the adjacent screen-south cell in view space, then map it back to
   // world space. This is intentionally not `worldY + 1` at 90/180/270.
@@ -175,6 +188,23 @@ function appendTileGeometry(
     kind: "south-face", worldTile, viewTile, topHeight: height, bottomHeight: southHeight,
     vertices: southFaceQuad(viewTile, height, southHeight),
   });
+}
+
+function appendFloorArt(
+  source: Terrain4Source,
+  worldTile: Point,
+  viewTile: Point,
+  height: number,
+  floors: Terrain4FloorQuad[],
+  features: Terrain4FeatureQuad[],
+  props: Terrain4PropQuad[],
+): void {
+  const vertices = topQuad(viewTile, height);
+  const feature = source.featureAt?.(worldTile.x, worldTile.y) ?? null;
+  const prop = source.propAt?.(worldTile.x, worldTile.y) ?? null;
+  if (feature) features.push({ kind: "feature", feature, worldTile, viewTile, height, vertices });
+  else if (prop) props.push({ kind: "prop", prop, worldTile, viewTile, height, vertices });
+  else floors.push({ kind: "floor", worldTile, viewTile, height, vertices });
 }
 
 function finiteHeight(source: Terrain4Source, tile: Point): number {
