@@ -8,10 +8,11 @@ import { endSelfGrace, triggerSelfAttack, type SelfCosmeticsState } from "../pla
 export { createInputQueries } from "./inputQueries.js";
 
 export function createInputConnectionAdapter(conn: Connection): InputConnection {
-  return {
-    ...inputConnectionState(conn),
-    ...createInputActions(conn),
-  };
+  const actions = createInputActions(conn);
+  return Object.defineProperties(
+    actions,
+    Object.getOwnPropertyDescriptors(inputConnectionState(conn)),
+  ) as InputConnection;
 }
 
 function inputConnectionState(conn: Connection): Omit<InputConnection, keyof ReturnType<typeof createInputActions>> {
