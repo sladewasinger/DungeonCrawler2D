@@ -122,6 +122,17 @@ describe("HudKeyboard", () => {
     expect(state.actions.toggleInventory).not.toHaveBeenCalled();
   });
 
+  it("leaves F12 completely untouched for browser developer tools", () => {
+    const state = model();
+    const listener = install(state);
+    const event = keyboardEvent("F12");
+
+    listener(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.stopImmediatePropagation).not.toHaveBeenCalled();
+  });
+
   it("closes an open inventory with Tab instead of focus-cycling its controls", () => {
     const state = model();
     state.setInventoryOpen(true);

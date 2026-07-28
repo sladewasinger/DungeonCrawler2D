@@ -8,6 +8,13 @@
   text-shadow: 0 2px 4px #000;
 }
 
+/* The HTML hidden attribute is state, not merely an accessibility hint. Some
+ * HUD components intentionally set display:grid/flex for their visible form,
+ * which would otherwise override the browser's weaker default hidden rule. */
+.dc2d-hud [hidden] {
+  display: none !important;
+}
+
 .hud-panel,
 .hud-status {
   width: 100%;

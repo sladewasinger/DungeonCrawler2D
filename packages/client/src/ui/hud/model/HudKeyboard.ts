@@ -31,6 +31,7 @@ export class HudKeyboard {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (event.code === "F12") return;
     if (event.defaultPrevented) return;
     if (this.captureOverlayEvent(event)) return;
     this.captureGameplayEvent(event);

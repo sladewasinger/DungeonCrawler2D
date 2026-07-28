@@ -29,6 +29,7 @@ export class DownedOverlay {
   private giveUpVisible = false;
 
   constructor(parent: HTMLElement, onGiveUp: () => void = () => {}) {
+    this.element.hidden = true;
     this.giveUpButton.addEventListener("click", (event) => {
       event.stopPropagation();
       onGiveUp();
@@ -39,6 +40,7 @@ export class DownedOverlay {
   update(connection: Connection, holdProgress = 0): void {
     const visible = connection.downed || connection.dead;
     this.element.hidden = !visible;
+    if (!visible) return this.hideContents();
     const text = overlayText(connection);
     const [headline, ...detail] = text.split("\n");
     this.headline.textContent = headline ?? "";
@@ -56,6 +58,12 @@ export class DownedOverlay {
       this.giveUpVisible,
     );
     this.fill.style.width = `${HOLD_BAR_WIDTH * Math.min(1, Math.max(0, progress))}px`;
+  }
+
+  private hideContents(): void {
+    this.copy.textContent = "";
+    this.headline.textContent = "";
+    this.giveUpVisible = syncGiveUpButton(this.giveUpButton, false, this.giveUpVisible);
   }
 }
 

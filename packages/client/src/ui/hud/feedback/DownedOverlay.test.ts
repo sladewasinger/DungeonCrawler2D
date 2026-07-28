@@ -44,6 +44,12 @@ const findButton = (root: FakeElement): FakeElement | undefined => {
   return undefined;
 };
 
+const firstChild = (element: FakeElement): FakeElement => {
+  const child = element.children[0];
+  if (!child) throw new Error("Missing overlay element");
+  return child;
+};
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("DownedOverlay give up", () => {
@@ -54,7 +60,19 @@ describe("DownedOverlay give up", () => {
     const giveUp = vi.fn();
     const overlay = new DownedOverlay(parent as never, giveUp);
     const button = findButton(parent);
+    const overlayElement = firstChild(parent);
     expect(button).toBeDefined();
+    expect(overlayElement.hidden).toBe(true);
+    overlay.update({
+      downed: false,
+      dead: false,
+      downedSecondsRemaining: 0,
+      reviverName: null,
+      respawnSecondsRemaining: 0,
+      reviveProgress: 0,
+    } as never);
+    expect(overlayElement.hidden).toBe(true);
+    expect(overlayElement.textContent).toBe("");
     overlay.update({
       downed: true,
       dead: false,

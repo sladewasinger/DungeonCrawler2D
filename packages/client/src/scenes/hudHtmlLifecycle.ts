@@ -24,6 +24,7 @@ interface HtmlHudLifecycleRequest {
 export function createHtmlHudLifecycle(request: HtmlHudLifecycleRequest): HtmlHudLifecycle {
   const root = document.getElementById("app");
   if (!root) throw new Error("Missing #app root for HTML HUD.");
+  request.keyboard?.removeCapture("F12");
   const hud = createLiveHtmlHud(htmlHudOptions(root, request));
   const trace = createMovementTrace(root, request.connection, request.canvas);
   return { hud, update: (snapshot) => updateHtmlHud({ hud, trace, connection: request.connection, snapshot }), dispose: () => { trace?.dispose(); hud.dispose(); } };

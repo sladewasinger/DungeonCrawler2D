@@ -24,8 +24,16 @@ export const buildManagedHudWindow = ({ spec, mobile, stored, z, viewport, scale
   const layout = shouldUseMobileDefault({ mobile, spec, stored, desktopDefaults })
     ? defaults
     : stored ? restoreStoredLayout(stored, defaults) : defaults;
-  return { ...buildHudWindow(effective), id: spec.id, title: spec.title, layout, interactive: Boolean(spec.interactive) };
+  const startupLayout = enforceStartupVisibility(layout, spec.defaultVisible);
+  return { ...buildHudWindow(effective), id: spec.id, title: spec.title, layout: startupLayout, interactive: Boolean(spec.interactive) };
 };
+
+const enforceStartupVisibility = (
+  layout: HudWindowLayout,
+  defaultVisible: boolean | undefined,
+): HudWindowLayout => defaultVisible === false
+  ? { ...layout, visible: false }
+  : layout;
 
 export const applyHudWindowChrome = (record: HudWindowRecord, editing: boolean): void => {
   const style = chromeStyle(editing, record.interactive);
