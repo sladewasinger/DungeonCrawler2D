@@ -16,8 +16,8 @@ export type Terrain4TileRole = (typeof TERRAIN4_TILE_ROLES)[number];
 
 export const TERRAIN4_ATLAS_COLUMNS = TERRAIN4_TILE_ROLES.length;
 export const TERRAIN4_ATLAS_ROWS_PER_SET = 1;
-const UNIFORM_ATLAS_KEY = "terrain4-uniform";
-const UNIFORM_ATLAS_PATH = "assets/terrain4/terrain4-uniform-atlas.png";
+const SHARED_ATLAS_KEY = "shared-atlas";
+const SHARED_ATLAS_PATH = "assets/terrain/shared-atlas.png";
 
 export interface Terrain4AtlasSet { readonly key: string; readonly path: string; /** Number of logical rows in the image. */ readonly rows: number; /** First logical row containing this set. */ readonly rowStart: number; readonly rowCount: number; }
 
@@ -31,14 +31,14 @@ export interface Terrain4AtlasFrame { readonly name: string; readonly x: number;
  */
 export const TERRAIN4_TILESETS: Readonly<Record<"debug" | BiomeKind, Terrain4AtlasSet>> = {
   debug: {
-    key: "terrain4-debug",
-    path: "assets/terrain4/debug-atlas.png",
+    key: "debug-atlas",
+    path: "assets/terrain/debug-atlas.png",
     rows: TERRAIN4_ATLAS_ROWS_PER_SET,
     rowStart: 0,
     rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
   },
-  [BIOME.Maze]: uniformSet(), [BIOME.OpenHalls]: uniformSet(), [BIOME.Ruins]: uniformSet(),
-  [BIOME.Pillars]: uniformSet(), [BIOME.Pools]: uniformSet(), [BIOME.Arena]: uniformSet(),
+  [BIOME.Maze]: sharedSet(), [BIOME.OpenHalls]: sharedSet(), [BIOME.Ruins]: sharedSet(),
+  [BIOME.Pillars]: sharedSet(), [BIOME.Pools]: sharedSet(), [BIOME.Arena]: sharedSet(),
 };
 
 export function terrain4TileRoleIndex(role: Terrain4TileRole): number {
@@ -103,8 +103,8 @@ function isValidImageSize(image: ImageSize): boolean {
   return Number.isFinite(image.width) && Number.isFinite(image.height) && image.width > 0 && image.height > 0;
 }
 
-function uniformSet(): Terrain4AtlasSet {
-  return { key: UNIFORM_ATLAS_KEY, path: UNIFORM_ATLAS_PATH, rows: TERRAIN4_ATLAS_ROWS_PER_SET, rowStart: 0, rowCount: TERRAIN4_ATLAS_ROWS_PER_SET };
+function sharedSet(): Terrain4AtlasSet {
+  return { key: SHARED_ATLAS_KEY, path: SHARED_ATLAS_PATH, rows: TERRAIN4_ATLAS_ROWS_PER_SET, rowStart: 0, rowCount: TERRAIN4_ATLAS_ROWS_PER_SET };
 }
 
 function assertSetVariant(set: Terrain4AtlasSet, variant: number): void {

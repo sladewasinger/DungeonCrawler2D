@@ -34,3 +34,14 @@ does not appear.
   cohesive TypeScript interface or type.
 - Keep no more than four statements per line; never collapse whole modules
   onto one line to evade file/function size limits.
+
+## Domain-based names
+
+- Name new or renamed folders, files, functions, variables, exported symbols,
+  assets, manifest keys, and other shared identifiers after the feature or
+  domain concept they represent.
+- Do not bleed branch names, renderer names, version numbers, or temporary
+  pipeline labels such as `terrain4` or `phaser4` into those names.
+- Keep implementation-specific details scoped to the smallest necessary
+  architectural boundary. Preserve an existing external name only when it is
+  a compatibility entry point, such as a documented URL query parameter.

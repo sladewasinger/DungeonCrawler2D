@@ -15,7 +15,7 @@ describe("Terrain4 atlas contract", () => {
     expect(TERRAIN4_ATLAS_ROWS_PER_SET).toBe(1);
     for (const biome of Object.values(BIOME)) {
       expect(TERRAIN4_TILESETS[biome].rowCount).toBe(TERRAIN4_ATLAS_ROWS_PER_SET);
-      expect(TERRAIN4_TILESETS[biome].key).toBe("terrain4-uniform");
+      expect(TERRAIN4_TILESETS[biome].key).toBe("shared-atlas");
     }
   });
 

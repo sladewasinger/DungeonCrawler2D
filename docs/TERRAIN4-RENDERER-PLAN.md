@@ -105,8 +105,8 @@ sheet for every biome, including Pillars.
 
 Runtime assets:
 
-- `packages/client/public/assets/terrain4/debug-atlas.png`
-- `packages/client/public/assets/terrain4/terrain4-uniform-atlas.png`
+- `packages/client/public/assets/terrain/debug-atlas.png`
+- `packages/client/public/assets/terrain/shared-atlas.png`
 
 Append `?terrain4Debug=1` to the game URL to select the generated labeled debug
 sprites directly. The labels are baked into those sprites (`FLOOR`, `VOID`,

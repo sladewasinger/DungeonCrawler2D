@@ -3,16 +3,16 @@
 export const ASSET_KEYS = {
   atlas: "atlas",
   animations: "animations-data",
-  terrain4Debug: "terrain4-debug",
-  terrain4Uniform: "terrain4-uniform",
+  debugAtlas: "debug-atlas",
+  sharedAtlas: "shared-atlas",
 } as const;
 
 export const ASSET_PATHS = {
   atlasImage: "assets/atlas.png",
   atlasJson: "assets/atlas.json",
   animationsJson: "assets/animations.json",
-  terrain4DebugImage: "assets/terrain4/debug-atlas.png",
-  terrain4UniformImage: "assets/terrain4/terrain4-uniform-atlas.png",
+  debugAtlasImage: "assets/terrain/debug-atlas.png",
+  sharedAtlasImage: "assets/terrain/shared-atlas.png",
   fontFile: "assets/fonts/monogram.ttf",
 } as const;
 

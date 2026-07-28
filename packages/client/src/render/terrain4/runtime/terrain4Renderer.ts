@@ -146,7 +146,7 @@ export class Terrain4Renderer {
   }
 
   private hasAtlasAsset(): boolean {
-    const key = this.debugMode ? ASSET_KEYS.terrain4Debug : ASSET_KEYS.terrain4Uniform;
+    const key = this.debugMode ? ASSET_KEYS.debugAtlas : ASSET_KEYS.sharedAtlas;
     return this.scene.textures.exists(key);
   }
 }

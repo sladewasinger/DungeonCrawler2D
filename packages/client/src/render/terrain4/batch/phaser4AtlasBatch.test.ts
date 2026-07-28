@@ -13,11 +13,11 @@ describe("terrain4AtlasDraws", () => {
     const draws = terrain4AtlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
 
     expect(draws.map(({ frame, phase }) => ({ frame, phase }))).toEqual([
-      { frame: "terrain4:terrain4-uniform:0:void", phase: 0 },
-      { frame: "terrain4:terrain4-uniform:0:floor", phase: 1 },
-      { frame: "terrain4:terrain4-uniform:0:raised-floor", phase: 1 },
-      { frame: "terrain4:terrain4-uniform:0:south-face", phase: 2 },
-      { frame: "terrain4:terrain4-uniform:0:south-face", phase: 2 },
+      { frame: "terrain4:shared-atlas:0:void", phase: 0 },
+      { frame: "terrain4:shared-atlas:0:floor", phase: 1 },
+      { frame: "terrain4:shared-atlas:0:raised-floor", phase: 1 },
+      { frame: "terrain4:shared-atlas:0:south-face", phase: 2 },
+      { frame: "terrain4:shared-atlas:0:south-face", phase: 2 },
     ]);
     expect(draws[3]?.points).toEqual([{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 15 }, { x: 0, y: 15 }]);
     expect(draws[4]?.points).toEqual([{ x: 0, y: 5 }, { x: 10, y: 5 }, { x: 10, y: 10 }, { x: 0, y: 10 }]);
@@ -31,8 +31,8 @@ describe("terrain4AtlasDraws", () => {
     });
     const debugDraws = terrain4AtlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: true });
 
-    expect(new Set(biomeDraws.map((draw) => draw.atlas.key))).toEqual(new Set(["terrain4-uniform"]));
-    expect(debugDraws.every((draw) => draw.atlas.key === "terrain4-debug")).toBe(true);
+    expect(new Set(biomeDraws.map((draw) => draw.atlas.key))).toEqual(new Set(["shared-atlas"]));
+    expect(debugDraws.every((draw) => draw.atlas.key === "debug-atlas")).toBe(true);
   });
 
   it("packs each texture/phase as UV quads for one Mesh2D submission", () => {
@@ -64,7 +64,7 @@ describe("terrain4AtlasDraws", () => {
       biomeAt: () => BIOME.Maze,
       debug: false,
     }).length);
-    expect(draws.every((draw) => draw.atlas.key === "terrain4-uniform")).toBe(true);
+    expect(draws.every((draw) => draw.atlas.key === "shared-atlas")).toBe(true);
   });
 
   it("hides and restores procedural overlays with an orientation root", () => {
