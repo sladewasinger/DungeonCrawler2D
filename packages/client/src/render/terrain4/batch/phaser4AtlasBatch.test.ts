@@ -44,8 +44,8 @@ describe("terrain4AtlasDraws", () => {
       [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
-      0, 0, 0.5, 1, 10, 0, 0.625, 1,
-      10, 10, 0.625, 0, 0, 10, 0.5, 0,
+      0, 0, 0.5009765625, 0.9921875, 10, 0, 0.6240234375, 0.9921875,
+      10, 10, 0.6240234375, 0.0078125, 0, 10, 0.5009765625, 0.0078125,
     ]);
   });
 
@@ -110,8 +110,8 @@ describe("terrain4AtlasDraws", () => {
     expect(draws.map((draw) => draw.points[0]?.y)).toEqual([5, 0, -2.5]);
 
     const partialMesh = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }))[0]!;
-    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.25, 1]);
-    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.25, 0.5]);
+    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.2509765625, 0.9921875]);
+    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.2509765625, 0.5078125]);
   });
 });
 

@@ -6,19 +6,21 @@ import { depthForOccluder } from "../../entities/presentation/depthSort.js";
 import type { Terrain4Batches, Terrain4QuadVertices } from "./terrainPlannerModel.js";
 import { TERRAIN4_TILESETS, terrain4AtlasFrameName } from "../planning/terrain4Tileset.js";
 
+const ATLAS_UV_INSET_PX = 0.5;
+
 export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw, image: { readonly width: number; readonly height: number }): void {
   const frame = terrain4AtlasFrame({ set: draw.atlas, role: draw.role, variant: draw.variant, image });
   const base = batch.vertices.length / 4;
-  const u0 = frame.x / image.width;
+  const u0 = (frame.x + ATLAS_UV_INSET_PX) / image.width;
   // Phaser's Mesh2D samples V from the opposite edge of a PNG frame. Keep the
   // logical top/bottom crop names, but invert the normalized frame coordinates
   // once here so every atlas role is upright. This also makes a partial face
   // show the source tile's top portion, truncating its bottom.
   const cropTop = draw.uvCrop?.top ?? 0;
   const cropBottom = draw.uvCrop?.bottom ?? 1;
-  const v0 = (frame.y + frame.height * (1 - cropTop)) / image.height;
-  const u1 = (frame.x + frame.width) / image.width;
-  const v1 = (frame.y + frame.height * (1 - cropBottom)) / image.height;
+  const v0 = (frame.y + frame.height * (1 - cropTop) - ATLAS_UV_INSET_PX) / image.height;
+  const u1 = (frame.x + frame.width - ATLAS_UV_INSET_PX) / image.width;
+  const v1 = (frame.y + frame.height * (1 - cropBottom) + ATLAS_UV_INSET_PX) / image.height;
   const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
   batch.vertices.push(
     topLeft.x, topLeft.y, u0, v0, topRight.x, topRight.y, u1, v0,
