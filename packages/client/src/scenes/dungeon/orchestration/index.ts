@@ -10,6 +10,7 @@ import type { Connection } from "../../../net/connection/connection.js";
 import { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
 import { Terrain4Renderer, type TerrainRendererLike } from "../../../render/terrain4/index.js";
+import { TERRAIN4_CAMERA_BACKGROUND } from "../../../render/terrain4/runtime/terrain4RenderSupport.js";
 import { ChatController } from "../../../ui/chat/controller.js";
 import { ChatInputBox } from "../../../ui/chat/chatInput.js";
 import { VfxSystem } from "../../../vfx/system/index.js";
@@ -69,8 +70,7 @@ export class DungeonScene extends Phaser.Scene {
     this.input.keyboard?.enableGlobalCapture();
     this.game.canvas.tabIndex = -1;
     this.game.canvas.focus({ preventScroll: true });
-    // Projected terrain gaps fall back to the camera-facing wall material.
-    this.cameras.main.setBackgroundColor("#2c2943");
+    this.cameras.main.setBackgroundColor(TERRAIN4_CAMERA_BACKGROUND);
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);

@@ -30,7 +30,6 @@ export class Terrain4Renderer {
   private readonly roots = new Map<ViewOrientation, Terrain4Root>();
   private readonly debugMode = typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("terrain4Debug") === "1";
-  private readonly debugLegend: Phaser.GameObjects.Image | null;
   private readonly chunkCache = new Terrain4ChunkPlanCache();
   private readonly terrainSource: Terrain4Source;
   private dirty = true;
@@ -44,16 +43,12 @@ export class Terrain4Renderer {
       featureAt: (x, y) => terrain4FeatureForTile(this.world.tileAt(x, y)),
       propAt: (x, y) => terrain4PropForTile(this.world.tileAt(x, y)),
     };
-    this.debugLegend = this.debugMode
-      ? scene.add.image(8, 8, ASSET_KEYS.terrain4Debug)
-        .setOrigin(0, 0).setScrollFactor(0).setDepth(TERRAIN_DEPTH + 2000).setScale(0.12).setAlpha(0.9)
-      : null;
     this.ensureRoot(getViewOrientation());
   }
   update(view: ViewRect): void {
     const orientation = getViewOrientation();
     const root = this.ensureRoot(orientation);
-    const hasAtlasAssets = this.scene.textures.exists(ASSET_KEYS.terrain4Biomes) && this.scene.textures.exists(ASSET_KEYS.terrain4Cliffs);
+    const hasAtlasAssets = this.hasAtlasAsset();
     const bounds = worldBoundsForView(view, orientation);
     const key = `${orientation}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (this.dirty || root.planKey !== key) {
@@ -116,7 +111,6 @@ export class Terrain4Renderer {
       for (const prop of root.props.values()) prop.destroy();
     }
     this.roots.clear();
-    this.debugLegend?.destroy();
   }
   private ensureRoot(orientation: ViewOrientation): Terrain4Root {
     const existing = this.roots.get(orientation);
@@ -137,7 +131,7 @@ export class Terrain4Renderer {
   private renderRoot(root: Terrain4Root, bounds: Terrain4Rect, key: string): void {
     const plan = emptyTerrain4Batches();
     appendVisibleChunkPlans({ target: plan, cache: this.chunkCache, source: this.terrainSource, bounds, orientation: root.orientation, revision: this.world.tileRevision });
-    if (this.scene.textures.exists(ASSET_KEYS.terrain4Biomes) && this.scene.textures.exists(ASSET_KEYS.terrain4Cliffs)) {
+    if (this.hasAtlasAsset()) {
       root.atlas.render(plan, {
         projection: screenProjection,
         biomeAt: (tile) => worldBiomeAt(this.world, tile.x, tile.y),
@@ -149,5 +143,10 @@ export class Terrain4Renderer {
     }
     syncTerrain4Props({ scene: this.scene, root, props: plan.props });
     root.planKey = key;
+  }
+
+  private hasAtlasAsset(): boolean {
+    const key = this.debugMode ? ASSET_KEYS.terrain4Debug : ASSET_KEYS.terrain4Uniform;
+    return this.scene.textures.exists(key);
   }
 }

@@ -1,5 +1,5 @@
 import { depthForCapOccluder, depthForOccluder } from "../../entities/presentation/depthSort.js";
-import { projectQuad, terrain4Variant } from "../geometry/terrain4AtlasGeometry.js";
+import { projectQuad } from "../geometry/terrain4AtlasGeometry.js";
 import { TERRAIN4_TILESETS, terrain4AtlasFrameName, type Terrain4TileRole } from "../planning/terrain4Tileset.js";
 import type { Terrain4Batches, Terrain4QuadVertices } from "../planning/terrainPlanner.js";
 import type { Terrain4AtlasDraw, Terrain4AtlasPhase, Terrain4AtlasRenderOptions } from "./phaser4AtlasBatch.js";
@@ -14,8 +14,7 @@ export interface Terrain4DrawQuad { readonly worldTile: { readonly x: number; re
 function appendDraw(input: AppendDrawsInput, quad: Terrain4DrawQuad): void {
   const role = quad.kind === "floor" && quad.height && quad.height > 0 ? "raised-floor" : input.defaultRole;
   const atlas = input.options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[input.options.biomeAt(quad.worldTile)];
-  const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
-  input.target.push({ atlas, frame: terrain4AtlasFrameName(atlas, role, variant), role, variant, phase: input.phase, depth: drawDepth(input.phase, quad.viewTile.y), points: projectQuad(quad.vertices, input.options.projection) });
+  input.target.push({ atlas, frame: terrain4AtlasFrameName(atlas, role, 0), role, variant: 0, phase: input.phase, depth: drawDepth(input.phase, quad.viewTile.y), points: projectQuad(quad.vertices, input.options.projection) });
 }
 
 export function appendFeatureDraws(target: Terrain4AtlasDraw[], quads: Terrain4Batches["features"], options: Terrain4AtlasRenderOptions): void {
@@ -24,8 +23,7 @@ export function appendFeatureDraws(target: Terrain4AtlasDraw[], quads: Terrain4B
 
 function appendFeatureDraw(target: Terrain4AtlasDraw[], quad: Terrain4Batches["features"][number], options: Terrain4AtlasRenderOptions): void {
   const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
-  const variant = terrain4Variant(quad.worldTile.x, quad.worldTile.y);
-  target.push({ atlas, frame: terrain4AtlasFrameName(atlas, quad.feature, variant), role: quad.feature, variant, phase: 1, depth: depthForCapOccluder(quad.viewTile.y), points: projectQuad(quad.vertices, options.projection) });
+  target.push({ atlas, frame: terrain4AtlasFrameName(atlas, quad.feature, 0), role: quad.feature, variant: 0, phase: 1, depth: depthForCapOccluder(quad.viewTile.y), points: projectQuad(quad.vertices, options.projection) });
 }
 
 function drawDepth(phase: Terrain4AtlasPhase, viewY: number): number { return phase === 2 ? depthForOccluder(viewY + 1) : depthForCapOccluder(viewY); }

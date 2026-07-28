@@ -1,6 +1,6 @@
 import { BIOME } from "@dc2d/engine";
-import { describe, expect, it } from "vitest";
-import { terrain4AtlasDraws, terrain4MeshBatches } from "./phaser4AtlasBatch.js";
+import { describe, expect, it, vi } from "vitest";
+import { Phaser4TerrainAtlasBatchRenderer, terrain4AtlasDraws, terrain4MeshBatches } from "./phaser4AtlasBatch.js";
 import type { Terrain4ScreenProjection } from "./phaser4QuadBatch.js";
 import type { Terrain4Batches } from "../planning/terrainPlanner.js";
 
@@ -13,11 +13,11 @@ describe("terrain4AtlasDraws", () => {
     const draws = terrain4AtlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
 
     expect(draws.map(({ frame, phase }) => ({ frame, phase }))).toEqual([
-      { frame: "terrain4:terrain4-biomes:1:void", phase: 0 },
-      { frame: "terrain4:terrain4-biomes:2:floor", phase: 1 },
-      { frame: "terrain4:terrain4-biomes:1:raised-floor", phase: 1 },
-      { frame: "terrain4:terrain4-biomes:1:south-face", phase: 2 },
-      { frame: "terrain4:terrain4-biomes:1:south-face", phase: 2 },
+      { frame: "terrain4:terrain4-uniform:0:void", phase: 0 },
+      { frame: "terrain4:terrain4-uniform:0:floor", phase: 1 },
+      { frame: "terrain4:terrain4-uniform:0:raised-floor", phase: 1 },
+      { frame: "terrain4:terrain4-uniform:0:south-face", phase: 2 },
+      { frame: "terrain4:terrain4-uniform:0:south-face", phase: 2 },
     ]);
     expect(draws[3]?.points).toEqual([{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 15 }, { x: 0, y: 15 }]);
     expect(draws[4]?.points).toEqual([{ x: 0, y: 5 }, { x: 10, y: 5 }, { x: 10, y: 10 }, { x: 0, y: 10 }]);
@@ -31,25 +31,25 @@ describe("terrain4AtlasDraws", () => {
     });
     const debugDraws = terrain4AtlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: true });
 
-    expect(new Set(biomeDraws.map((draw) => draw.atlas.key))).toEqual(new Set(["terrain4-biomes", "terrain4-pillars"]));
+    expect(new Set(biomeDraws.map((draw) => draw.atlas.key))).toEqual(new Set(["terrain4-uniform"]));
     expect(debugDraws.every((draw) => draw.atlas.key === "terrain4-debug")).toBe(true);
   });
 
   it("packs each texture/phase as UV quads for one Mesh2D submission", () => {
     const draws = terrain4AtlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
-    const meshes = terrain4MeshBatches(draws, () => ({ width: 800, height: 880 }));
+    const meshes = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }));
 
     expect(meshes).toHaveLength(3);
     expect(meshes.map((mesh) => [mesh.depth, mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
       [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
-      0, 0, 0.5, 2 / 11, 10, 0, 0.625, 2 / 11,
-      10, 10, 0.625, 1 / 11, 0, 10, 0.5, 1 / 11,
+      0, 0, 0.5, 1, 10, 0, 0.625, 1,
+      10, 10, 0.625, 0, 0, 10, 0.5, 0,
     ]);
   });
 
-  it("rotates cliff UVs without changing the floor quad geometry", () => {
+  it("keeps cliff geometry out of atlas texture draws", () => {
     const draws = terrain4AtlasDraws({
       ...batches,
       cliffEdges: [{
@@ -58,12 +58,38 @@ describe("terrain4AtlasDraws", () => {
         vertices: [{ x: 2, y: 2, z: 0 }, { x: 3, y: 2, z: 0 }, { x: 3, y: 3, z: 0 }, { x: 2, y: 3, z: 0 }],
       }],
     }, { projection, biomeAt: () => BIOME.Maze, debug: false });
-    const cliff = draws.find((draw) => draw.role === "cliff-middle");
-    expect(cliff?.rotation).toBe(90);
-    const mesh = terrain4MeshBatches(draws, (atlas) => "columns" in atlas ? { width: 1060, height: 1484 } : { width: 800, height: 880 })
-      .find((candidate) => candidate.atlas.key === "terrain4-cliffs");
-    expect(mesh ? [mesh.vertices[2], mesh.vertices[3], mesh.vertices[6], mesh.vertices[7], mesh.vertices[10], mesh.vertices[11], mesh.vertices[14], mesh.vertices[15]] : undefined)
-      .toEqual([0, 2 / 14, 0, 3 / 14, 1 / 2, 3 / 14, 1 / 2, 2 / 14]);
+
+    expect(draws).toHaveLength(terrain4AtlasDraws(batches, {
+      projection,
+      biomeAt: () => BIOME.Maze,
+      debug: false,
+    }).length);
+    expect(draws.every((draw) => draw.atlas.key === "terrain4-uniform")).toBe(true);
+  });
+
+  it("hides and restores procedural overlays with an orientation root", () => {
+    const activeMesh = { setVisible: vi.fn() };
+    const inactiveMesh = { setVisible: vi.fn() };
+    const aoOverlay = { setVisible: vi.fn() };
+    const cliffHighlight = { setVisible: vi.fn() };
+    const batch = {
+      visible: true,
+      meshes: new Map([["active", activeMesh], ["inactive", inactiveMesh]]),
+      active: new Set(["active"]),
+      aoOverlay,
+      cliffHighlight,
+    };
+
+    Phaser4TerrainAtlasBatchRenderer.prototype.setVisible.call(batch, false);
+    Phaser4TerrainAtlasBatchRenderer.prototype.setVisible.call(batch, true);
+
+    expect(activeMesh.setVisible).toHaveBeenNthCalledWith(1, false);
+    expect(activeMesh.setVisible).toHaveBeenNthCalledWith(2, true);
+    expect(inactiveMesh.setVisible).toHaveBeenCalledWith(false);
+    expect(aoOverlay.setVisible).toHaveBeenNthCalledWith(1, false);
+    expect(aoOverlay.setVisible).toHaveBeenNthCalledWith(2, true);
+    expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(1, false);
+    expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(2, true);
   });
 
   it("tiles multi-height faces and crops only a partial top tile", () => {
@@ -83,9 +109,9 @@ describe("terrain4AtlasDraws", () => {
     expect(draws[2]?.uvCrop).toEqual({ top: 0, bottom: 0.5 });
     expect(draws.map((draw) => draw.points[0]?.y)).toEqual([5, 0, -2.5]);
 
-    const partialMesh = terrain4MeshBatches(draws, () => ({ width: 800, height: 880 }))[0]!;
-    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.25, 2 / 11]);
-    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.25, 1.5 / 11]);
+    const partialMesh = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }))[0]!;
+    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.25, 1]);
+    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.25, 0.5]);
   });
 });
 

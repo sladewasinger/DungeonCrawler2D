@@ -98,26 +98,21 @@ All Terrain4 art uses the same eight logical columns, in this exact order:
 | 6 | `door` | door feature |
 | 7 | `brazier` | light/decoration feature |
 
-Each set has two rows (an alternate variant can be selected without changing
-the frame IDs). The debug sheet labels every cell on the image itself:
+Each set has one row. The debug sheet labels every cell on the image itself:
 `FLOOR`, `RAISED`, `FACE`, `CORNER`, `VOID`, `STAIRS`, `DOOR`, `BRAZIER`.
-Biome art follows the same columns and rows, allowing the renderer to select a
-biome by material key rather than by geometry branch. The current generated
-art covers Maze, Open Halls, Ruins, Flooded Pools, Arena, and a separate
-Pillar Forest sheet using this exact contract.
+The current runtime uses an identical, separately named copy of that one-row
+sheet for every biome, including Pillars.
 
-Assets:
+Runtime assets:
 
 - `packages/client/public/assets/terrain4/debug-atlas.png`
-- `packages/client/public/assets/terrain4/cliffs-debug-atlas.png`
-- `packages/client/public/assets/terrain4/terrain4-atlas.png` (shared biome sheet)
-- `packages/client/public/assets/terrain4/pillar-forest-atlas.png`
+- `packages/client/public/assets/terrain4/terrain4-uniform-atlas.png`
 
 Append `?terrain4Debug=1` to the game URL to select the generated labeled debug
 sprites directly. The labels are baked into those sprites (`FLOOR`, `VOID`,
-`WF`, feature names, and the cliff roles); Terrain4 does not create a runtime
-text object per tile. `WF` remains renderer-only and is never a stored tile or
-world value. The labeled debug atlas is also shown as a small in-game legend.
+`WF`, and feature names); Terrain4 does not create a runtime text object per
+tile or a separate debug legend. `WF` remains renderer-only and is never a
+stored tile or world value.
 
 For a deterministic, server-free browser pass, use
 `?scene=gallery&terrain4=1&terrain4Debug=1`. The existing GalleryScene then
@@ -125,22 +120,15 @@ drives the same Terrain4 renderer against its fixed generated world, which is
 useful for screenshots and rotation/biome checks without connecting a player.
 
 The shared sheet is intentionally compact; faces and void boundaries are
-generated from the height map, so no per-direction wall atlas is needed. Floor
-cliff edges use a separate two-column sheet: `cliff-middle` is a single-side
-rim and `cliff-corner` is a rotatable L-corner. The planner emits the edge on
-the higher Floor side, chooses corner art for adjacent edge pairs, and rotates
-the UVs for all four view-space cardinal sides. Void neighbors never create a
-cliff edge or AO mask. Low Floors beside higher Floors receive three nested
-screen-space contact bands plus diagonal corner patches, grouped by depth row
-so AO remains below entities while retaining the old `contactShade` strength
-dial.
-
-The cliff sheet follows the same biome order as the main atlas and includes a
-debug pair in rows 0–1:
-
-- `packages/client/public/assets/terrain4/terrain4-cliffs.png`
-- column 0: `CLIFF-MIDDLE` (straight rim)
-- column 1: `CLIFF-CORNER` (rotatable 90-degree corner)
+generated from the height map, so no per-direction wall atlas is needed.
+Cliff edges do not select atlas tiles; they receive a cheap procedural white
+Graphics rim overlay in both debug and normal modes. Height-map planning
+retains its cliff-edge geometry for that overlay and the non-atlas fallback,
+while ambient occlusion remains an independent height-derived pass. Void
+neighbors never create a cliff edge or AO mask. Low Floors beside higher Floors
+receive three nested screen-space contact bands plus diagonal corner patches,
+grouped by depth row so AO remains below entities while retaining the old
+`contactShade` strength dial.
 
 ## Delivery sequence
 

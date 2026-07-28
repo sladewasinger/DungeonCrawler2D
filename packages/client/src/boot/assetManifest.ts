@@ -4,10 +4,7 @@ export const ASSET_KEYS = {
   atlas: "atlas",
   animations: "animations-data",
   terrain4Debug: "terrain4-debug",
-  terrain4Biomes: "terrain4-biomes",
-  terrain4Pillars: "terrain4-pillars",
-  terrain4Cliffs: "terrain4-cliffs",
-  terrain4CliffsDebug: "terrain4-cliffs-debug",
+  terrain4Uniform: "terrain4-uniform",
 } as const;
 
 export const ASSET_PATHS = {
@@ -15,10 +12,7 @@ export const ASSET_PATHS = {
   atlasJson: "assets/atlas.json",
   animationsJson: "assets/animations.json",
   terrain4DebugImage: "assets/terrain4/debug-atlas.png",
-  terrain4BiomesImage: "assets/terrain4/terrain4-atlas.png",
-  terrain4PillarsImage: "assets/terrain4/pillar-forest-atlas.png",
-  terrain4CliffsImage: "assets/terrain4/terrain4-cliffs.png",
-  terrain4CliffsDebugImage: "assets/terrain4/cliffs-debug-atlas.png",
+  terrain4UniformImage: "assets/terrain4/terrain4-uniform-atlas.png",
   fontFile: "assets/fonts/monogram.ttf",
 } as const;
 

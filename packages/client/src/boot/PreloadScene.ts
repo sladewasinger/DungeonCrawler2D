@@ -31,10 +31,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.atlas(ASSET_KEYS.atlas, ASSET_PATHS.atlasImage, ASSET_PATHS.atlasJson);
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
     this.load.image(ASSET_KEYS.terrain4Debug, ASSET_PATHS.terrain4DebugImage);
-    this.load.image(ASSET_KEYS.terrain4Biomes, ASSET_PATHS.terrain4BiomesImage);
-    this.load.image(ASSET_KEYS.terrain4Pillars, ASSET_PATHS.terrain4PillarsImage);
-    this.load.image(ASSET_KEYS.terrain4Cliffs, ASSET_PATHS.terrain4CliffsImage);
-    this.load.image(ASSET_KEYS.terrain4CliffsDebug, ASSET_PATHS.terrain4CliffsDebugImage);
+    this.load.image(ASSET_KEYS.terrain4Uniform, ASSET_PATHS.terrain4UniformImage);
     for (const spec of Object.values(PET_ASSETS)) {
       this.load.spritesheet(spec.textureKey, spec.path, {
         frameWidth: spec.frameWidth,

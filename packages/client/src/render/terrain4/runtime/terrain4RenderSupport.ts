@@ -8,6 +8,7 @@ import type { Terrain4Rect } from "../planning/terrainPlanner.js";
 
 export const VIEW_MARGIN_TILES = 2;
 export const TERRAIN_DEPTH = -1000;
+export const TERRAIN4_CAMERA_BACKGROUND = "#14141c";
 
 export const screenProjection: Terrain4ScreenProjection = {
   project: ({ x, y, z }) => ({ x: x * SCREEN_TILE_PX, y: y * SCREEN_TILE_PX - z * SCREEN_TILE_PX }),

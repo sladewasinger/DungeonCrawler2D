@@ -34,8 +34,6 @@ export {
   TERRAIN4_ATLAS_ROWS_PER_SET,
   TERRAIN4_TILE_ROLES,
   TERRAIN4_TILESETS,
-  TERRAIN4_CLIFF_ROLES,
-  TERRAIN4_CLIFF_TILESETS,
   terrain4AtlasFrame,
   terrain4AtlasFrameName,
   terrain4FrameFor,
@@ -43,8 +41,6 @@ export {
   type Terrain4AtlasSet,
   type Terrain4AtlasFrame,
   type Terrain4TileRole,
-  type Terrain4CliffTileRole,
-  type Terrain4CliffAtlasSet,
 } from "./planning/terrain4Tileset.js";
 
 export { Terrain4Renderer, type TerrainRendererLike } from "./runtime/terrain4Renderer.js";

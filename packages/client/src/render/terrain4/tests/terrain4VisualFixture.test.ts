@@ -37,13 +37,13 @@ describe("Terrain4 deterministic visual fixture", () => {
     });
     const atlasKeys = new Set(draws.map((draw) => draw.atlas.key));
 
-    expect(atlasKeys).toEqual(new Set(["terrain4-biomes", "terrain4-pillars", "terrain4-cliffs"]));
+    expect(atlasKeys).toEqual(new Set(["terrain4-uniform"]));
     expect(draws.some((draw) => draw.role === "stairs")).toBe(true);
     expect(draws.some((draw) => draw.role === "door")).toBe(true);
     expect(draws.some((draw) => draw.role === "brazier")).toBe(true);
     expect(draws.every((draw, index) => index === 0 || (draw.depth ?? 0) >= (draws[index - 1]?.depth ?? 0))).toBe(true);
 
-    const meshes = terrain4MeshBatches(draws, () => ({ width: 800, height: 880 }));
+    const meshes = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }));
     expect(meshes.every((mesh) => mesh.vertices.length % 4 === 0 && mesh.indices.length % 4 === 0)).toBe(true);
   });
 });
