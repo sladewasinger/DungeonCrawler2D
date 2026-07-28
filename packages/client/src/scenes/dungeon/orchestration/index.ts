@@ -16,6 +16,7 @@ import { ChatInputBox } from "../../../ui/chat/chatInput.js";
 import { VfxSystem } from "../../../vfx/system/index.js";
 import type { HudScene } from "../../HudScene.js";
 import { requestCameraSnap } from "../camera/cameraFollow.js";
+import { DEFAULT_CAMERA_ZOOM } from "../camera/cameraDefaults.js";
 import { bindDungeonCameraResize } from "../camera/cameraResize.js";
 import { FistbumpRing } from "../visuals/fistbumpRing.js";
 import { syncFistbumpRing } from "../visuals/fistbumpRingSync.js";
@@ -68,9 +69,8 @@ export class DungeonScene extends Phaser.Scene {
     // Title text entry temporarily suspends Phaser capture; every dungeon entry
     // restores the gameplay keyboard contract for quit-to-title/rejoin cycles.
     this.input.keyboard?.enableGlobalCapture();
-    this.game.canvas.tabIndex = -1;
-    this.game.canvas.focus({ preventScroll: true });
-    this.cameras.main.setBackgroundColor(TERRAIN4_CAMERA_BACKGROUND);
+    this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true });
+    this.cameras.main.setBackgroundColor(TERRAIN4_CAMERA_BACKGROUND); this.cameras.main.setZoom(DEFAULT_CAMERA_ZOOM);
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
@@ -120,43 +120,35 @@ export class DungeonScene extends Phaser.Scene {
     const synced = this.syncRenderFrame({ conn, time, deltaMs, render });
     this.interactionPrompt = synced.interactionPrompt;
   }
-
   private createChatInputBox(): ChatInputBox {
     return new ChatInputBox({ onSubmit: (text) => this.chatController.submit(text), onFocusChange: (focused) => this.toggleKeyboardCapture(focused) });
   }
-
   private toggleKeyboardCapture(focused: boolean): void {
     const keyboard = this.input.keyboard;
     if (!keyboard) return;
     if (focused) keyboard.disableGlobalCapture(); else keyboard.enableGlobalCapture();
   }
-
   private redirectExpiredSession(): boolean {
     if (!this.conn.sessionExpired) return false;
     this.conn.sessionExpired = false; this.scene.stop("hud"); this.scene.start("title", { expired: true });
     return true;
   }
-
   private syncInputHolds(conn: Connection): void {
     this.inputController.pollFistbumpHold(); syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
     this.inputController.pollReviveHold(); this.inputController.pollGiveUpHold(); syncReviveRing(this.reviveRing, this.inputController, conn);
   }
-
   private prepareFrame(conn: Connection, time: number, deltaMs: number): void {
     this.ensureWorldBoundSystems(conn.world!); consumeDungeonTeleport({ conn, state: this.state, vfx: this.vfx, nowMs: time });
     this.consumeHardCorrection(); consumeRespawnGrace(conn, this.state.cosmetics, time);
     advanceDungeonRotation({ rotation: this.rotation, terrain: this.terrain, lighting: this.lighting, state: this.state, deltaMs });
   }
-
   private syncTerrainAndParty(conn: Connection): void {
     this.cameras.main.setRotation(this.rotation.cameraRotationRad()); this.terrain?.update(this.cameras.main.worldView);
     this.partyIds.clear(); for (const member of conn.party?.members ?? []) this.partyIds.add(member.id);
   }
-
   private syncRenderFrame({ conn, time, deltaMs, render }: { readonly conn: Connection; readonly time: number; readonly deltaMs: number; readonly render: RenderPose }) {
     return syncFrame({ scene: this, conn, entityRenderer: this.entityRenderer, vfx: this.vfx, terrain: this.terrain, lighting: this.lighting, inputController: this.inputController, state: this.state, torchSyncState: this.torchSyncState, partyIds: this.partyIds, nowMs: time, dtSeconds: deltaMs / 1000, render });
   }
-
   /** (Re)builds the World-bound renderers whenever Connection hands out a new World (initial connect or reconnect). */
   private ensureWorldBoundSystems(world: World): void {
     const systems = replaceDungeonWorldSystems({ scene: this, current: this.boundWorld, terrain: this.terrain, lighting: this.lighting, world });
@@ -165,14 +157,12 @@ export class DungeonScene extends Phaser.Scene {
     this.lighting = systems.lighting;
     this.boundWorld = world;
   }
-
   /** Server-flagged teleport (welcome, respawn, debug tp, Epic 7.14 stairways once wired):
    * reset local render state, snap the camera, and fade through black over the cut. */
   private consumeHardCorrection(): void {
     if (!this.conn.predictionCorrection.consumeHardSnap()) return;
     requestCameraSnap(this.state.camera);
   }
-
   private dispose(): void {
     this.terrain?.dispose();
     this.lighting?.dispose();

@@ -7,6 +7,7 @@ import type { Terrain4Batches } from "../planning/terrainPlanner.js";
 const projection: Terrain4ScreenProjection = {
   project: ({ x, y, z }) => ({ x: x * 10, y: y * 10 - z * 5 }),
 };
+const atlasImage = { width: 576, height: 320 };
 
 describe("terrain4AtlasDraws", () => {
   it("uses the stable floor, raised-floor, void, and south-face roles", () => {
@@ -35,17 +36,30 @@ describe("terrain4AtlasDraws", () => {
     expect(debugDraws.every((draw) => draw.atlas.key === "debug-atlas")).toBe(true);
   });
 
+  it("uses the distinct stair wall role for a stair south face", () => {
+    const draws = terrain4AtlasDraws({
+      ...batches,
+      voids: [], floors: [],
+      southFaces: [{ ...batches.southFaces[0]!, stairWall: true }],
+    }, { projection, biomeAt: () => BIOME.Maze, debug: true });
+
+    expect(draws.map(({ role, frame }) => ({ role, frame }))).toEqual([
+      { role: "stair-wall-face", frame: "terrain4:debug-atlas:0:stair-wall-face" },
+      { role: "stair-wall-face", frame: "terrain4:debug-atlas:0:stair-wall-face" },
+    ]);
+  });
+
   it("packs each texture/phase as UV quads for one Mesh2D submission", () => {
     const draws = terrain4AtlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
-    const meshes = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }));
+    const meshes = terrain4MeshBatches(draws, () => atlasImage);
 
     expect(meshes).toHaveLength(3);
     expect(meshes.map((mesh) => [mesh.depth, mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
       [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
-      0, 0, 0.5009765625, 0.9921875, 10, 0, 0.6240234375, 0.9921875,
-      10, 10, 0.6240234375, 0.0078125, 0, 10, 0.5009765625, 0.0078125,
+      0, 0, 0.11197916666666667, 0.19843750000000004, 10, 0, 0.22135416666666666, 0.19843750000000004,
+      10, 10, 0.22135416666666666, 0.0015625000000000222, 0, 10, 0.11197916666666667, 0.0015625000000000222,
     ]);
   });
 
@@ -109,9 +123,9 @@ describe("terrain4AtlasDraws", () => {
     expect(draws[2]?.uvCrop).toEqual({ top: 0, bottom: 0.5 });
     expect(draws.map((draw) => draw.points[0]?.y)).toEqual([5, 0, -2.5]);
 
-    const partialMesh = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }))[0]!;
-    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.2509765625, 0.9921875]);
-    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.2509765625, 0.5078125]);
+    const partialMesh = terrain4MeshBatches(draws, () => atlasImage)[0]!;
+    expect(partialMesh.vertices.slice(34, 36)).toEqual([0.11197916666666667, 0.7984375]);
+    expect(partialMesh.vertices.slice(46, 48)).toEqual([0.11197916666666667, 0.7015625]);
   });
 });
 

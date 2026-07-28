@@ -34,7 +34,10 @@ export interface Terrain4FloorQuad extends Terrain4QuadBase { readonly kind: "fl
 export interface Terrain4VoidQuad extends Terrain4QuadBase { readonly kind: "void"; }
 export interface Terrain4FeatureQuad extends Terrain4QuadBase { readonly kind: "feature"; readonly feature: Terrain4FeatureKind; readonly height: number; }
 export interface Terrain4PropQuad extends Terrain4QuadBase { readonly kind: "prop"; readonly prop: Terrain4PropKind; readonly height: number; }
-export interface Terrain4SouthFaceQuad extends Terrain4QuadBase { readonly kind: "south-face"; readonly topHeight: number; readonly bottomHeight: number; }
+export interface Terrain4SouthFaceQuad extends Terrain4QuadBase {
+  readonly kind: "south-face"; readonly topHeight: number; readonly bottomHeight: number;
+  readonly stairWall?: boolean; readonly southNeighborIsStair?: boolean;
+}
 export interface Terrain4CliffEdgeQuad extends Terrain4QuadBase {
   readonly kind: "cliff-edge"; readonly cliff: Terrain4CliffKind; readonly rotation: Terrain4QuarterTurn;
   readonly height: number; readonly sides: readonly Terrain4CliffSide[];

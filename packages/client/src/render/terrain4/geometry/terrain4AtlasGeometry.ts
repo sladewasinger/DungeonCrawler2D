@@ -12,15 +12,14 @@ export function appendMeshQuad(batch: Terrain4MeshBatch, draw: Terrain4AtlasDraw
   const frame = terrain4AtlasFrame({ set: draw.atlas, role: draw.role, variant: draw.variant, image });
   const base = batch.vertices.length / 4;
   const u0 = (frame.x + ATLAS_UV_INSET_PX) / image.width;
-  // Phaser's Mesh2D samples V from the opposite edge of a PNG frame. Keep the
-  // logical top/bottom crop names, but invert the normalized frame coordinates
-  // once here so every atlas role is upright. This also makes a partial face
-  // show the source tile's top portion, truncating its bottom.
   const cropTop = draw.uvCrop?.top ?? 0;
   const cropBottom = draw.uvCrop?.bottom ?? 1;
-  const v0 = (frame.y + frame.height * (1 - cropTop) - ATLAS_UV_INSET_PX) / image.height;
+  const topPixel = frame.y + frame.height * cropTop + ATLAS_UV_INSET_PX;
+  const bottomPixel = frame.y + frame.height * cropBottom - ATLAS_UV_INSET_PX;
+  // Phaser's WebGL frame convention measures V upward from the PNG's bottom.
+  const v0 = 1 - topPixel / image.height;
   const u1 = (frame.x + frame.width - ATLAS_UV_INSET_PX) / image.width;
-  const v1 = (frame.y + frame.height * (1 - cropBottom) + ATLAS_UV_INSET_PX) / image.height;
+  const v1 = 1 - bottomPixel / image.height;
   const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
   batch.vertices.push(
     topLeft.x, topLeft.y, u0, v0, topRight.x, topRight.y, u1, v0,
@@ -42,10 +41,38 @@ export function appendSouthFaceDraws(
 
 function appendSouthFaceQuad(target: Terrain4AtlasDraw[], quad: Terrain4Batches["southFaces"][number], options: Terrain4AtlasRenderOptions): void {
   const atlas = options.debug ? TERRAIN4_TILESETS.debug : TERRAIN4_TILESETS[options.biomeAt(quad.worldTile)];
+  const request = { target, quad, atlas, projection: options.projection };
+  if (quad.southNeighborIsStair === true) {
+    appendTopAlignedSegments(request);
+    return;
+  }
+  appendBottomAlignedSegments(request);
+}
+
+interface SouthFaceDrawRequest {
+  readonly target: Terrain4AtlasDraw[];
+  readonly quad: Terrain4Batches["southFaces"][number];
+  readonly atlas: SouthFaceSegmentRequest["atlas"];
+  readonly projection: Terrain4ScreenProjection;
+}
+
+function appendTopAlignedSegments(request: SouthFaceDrawRequest): void {
+  const { target, quad, atlas, projection } = request;
+  let top = quad.topHeight;
+  for (let remaining = top - quad.bottomHeight; remaining > FACE_TILE_HEIGHT_EPSILON;) {
+    const height = Math.min(1, remaining);
+    appendSouthFaceSegment(target, { quad, atlas, bottom: top - height, height, projection });
+    top -= height;
+    remaining -= height;
+  }
+}
+
+function appendBottomAlignedSegments(request: SouthFaceDrawRequest): void {
+  const { target, quad, atlas, projection } = request;
   let bottom = quad.bottomHeight;
   for (let remaining = quad.topHeight - bottom; remaining > FACE_TILE_HEIGHT_EPSILON;) {
     const height = Math.min(1, remaining);
-    appendSouthFaceSegment(target, { quad, atlas, bottom, height, projection: options.projection });
+    appendSouthFaceSegment(target, { quad, atlas, bottom, height, projection });
     bottom += height;
     remaining -= height;
   }
@@ -62,7 +89,8 @@ interface SouthFaceSegmentRequest {
 function appendSouthFaceSegment(target: Terrain4AtlasDraw[], request: SouthFaceSegmentRequest): void {
   const { quad, atlas, bottom, height, projection } = request;
   const uvCrop = height >= 1 - FACE_TILE_HEIGHT_EPSILON ? undefined : { top: 0, bottom: height };
-  target.push({ atlas, frame: terrain4AtlasFrameName(atlas, "south-face", 0), role: "south-face", variant: 0,
+  const role = quad.stairWall === true ? "stair-wall-face" : "south-face";
+  target.push({ atlas, frame: terrain4AtlasFrameName(atlas, role, 0), role, variant: 0,
     phase: 2, depth: depthForOccluder(quad.viewTile.y + 1), ...(uvCrop === undefined ? {} : { uvCrop }),
     points: projectQuad(southFaceSegment(quad.vertices, bottom + height, bottom), projection) });
 }

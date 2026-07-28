@@ -1,21 +1,36 @@
 import { BIOME, type BiomeKind } from "@dc2d/engine";
 
-/** Stable column order shared by every Terrain4 atlas. Do not reorder these IDs. */
+/** Stable role IDs shared by every Terrain4 atlas. Do not remove or rename used roles. */
 export const TERRAIN4_TILE_ROLES = [
   "floor",
   "raised-floor",
   "south-face",
-  "corner-face",
   "void",
   "stairs",
+  "stair-wall-face",
   "door",
   "brazier",
 ] as const;
 
 export type Terrain4TileRole = (typeof TERRAIN4_TILE_ROLES)[number];
 
-export const TERRAIN4_ATLAS_COLUMNS = TERRAIN4_TILE_ROLES.length;
-export const TERRAIN4_ATLAS_ROWS_PER_SET = 1;
+interface Terrain4AtlasSlot { readonly row: number; readonly column: number; }
+
+/** Column zero is reserved for non-functional row labels in the debug atlas. */
+const TERRAIN4_ATLAS_LAYOUT: Readonly<Record<Terrain4TileRole, Terrain4AtlasSlot>> = {
+  floor: { row: 0, column: 1 },
+  "raised-floor": { row: 0, column: 2 },
+  "south-face": { row: 1, column: 1 },
+  stairs: { row: 2, column: 1 },
+  "stair-wall-face": { row: 2, column: 2 },
+  door: { row: 3, column: 1 },
+  brazier: { row: 3, column: 2 },
+  void: { row: 4, column: 1 },
+};
+
+export const TERRAIN4_ATLAS_COLUMNS = 9;
+export const TERRAIN4_ATLAS_ROWS_PER_SET = 5;
+const TERRAIN4_ATLAS_VARIANTS_PER_SET = 1;
 const SHARED_ATLAS_KEY = "shared-atlas";
 const SHARED_ATLAS_PATH = "assets/terrain/shared-atlas.png";
 
@@ -25,8 +40,8 @@ export interface Terrain4AtlasSet { readonly key: string; readonly path: string;
 export interface Terrain4AtlasFrame { readonly name: string; readonly x: number; readonly y: number; readonly width: number; readonly height: number; }
 
 /**
- * Non-debug rendering intentionally uses one shared copy of the labeled debug
- * sheet for every biome. Keeping this metadata separate from geometry lets the
+ * Non-debug rendering intentionally uses one shared atlas and the same logical
+ * slots for every biome. Keeping this metadata separate from geometry lets the
  * art source change without touching the height-map planner.
  */
 export const TERRAIN4_TILESETS: Readonly<Record<"debug" | BiomeKind, Terrain4AtlasSet>> = {
@@ -35,14 +50,14 @@ export const TERRAIN4_TILESETS: Readonly<Record<"debug" | BiomeKind, Terrain4Atl
     path: "assets/terrain/debug-atlas.png",
     rows: TERRAIN4_ATLAS_ROWS_PER_SET,
     rowStart: 0,
-    rowCount: TERRAIN4_ATLAS_ROWS_PER_SET,
+    rowCount: TERRAIN4_ATLAS_VARIANTS_PER_SET,
   },
   [BIOME.Maze]: sharedSet(), [BIOME.OpenHalls]: sharedSet(), [BIOME.Ruins]: sharedSet(),
   [BIOME.Pillars]: sharedSet(), [BIOME.Pools]: sharedSet(), [BIOME.Arena]: sharedSet(),
 };
 
 export function terrain4TileRoleIndex(role: Terrain4TileRole): number {
-  return TERRAIN4_TILE_ROLES.indexOf(role);
+  return TERRAIN4_ATLAS_LAYOUT[role].column;
 }
 
 export function terrain4FrameFor(role: Terrain4TileRole, row?: number): number;
@@ -58,12 +73,12 @@ export function terrain4FrameFor(
 
 function frameAtRow(role: Terrain4TileRole, row: number): number {
   assertVariant(row);
-  return row * TERRAIN4_ATLAS_COLUMNS + terrain4TileRoleIndex(role);
+  return atlasFrameIndex(TERRAIN4_ATLAS_LAYOUT[role], 0);
 }
 
 function frameAtSet(set: Terrain4AtlasSet, role: Terrain4TileRole, row: number): number {
   assertVariant(row);
-  return (set.rowStart + row) * TERRAIN4_ATLAS_COLUMNS + terrain4TileRoleIndex(role);
+  return atlasFrameIndex(TERRAIN4_ATLAS_LAYOUT[role], set.rowStart);
 }
 
 /** Unique Phaser frame name for a role in one biome/debug atlas set. */
@@ -73,7 +88,7 @@ export function terrain4AtlasFrameName(
   variant = 0,
 ): string {
   assertSetVariant(set, variant);
-  return `terrain4:${set.key}:${set.rowStart + variant}:${role}`;
+  return `terrain4:${set.key}:${set.rowStart}:${role}`;
 }
 
 /** Maps the stable logical grid to a crop in an atlas image of the given size. */
@@ -87,10 +102,11 @@ export function terrain4AtlasFrame(
   }
   const width = image.width / TERRAIN4_ATLAS_COLUMNS;
   const height = image.height / set.rows;
+  const slot = TERRAIN4_ATLAS_LAYOUT[role];
   return {
     name: terrain4AtlasFrameName(set, role, variant),
-    x: terrain4TileRoleIndex(role) * width,
-    y: (set.rowStart + variant) * height,
+    x: slot.column * width,
+    y: (set.rowStart + slot.row) * height,
     width,
     height,
   };
@@ -104,7 +120,11 @@ function isValidImageSize(image: ImageSize): boolean {
 }
 
 function sharedSet(): Terrain4AtlasSet {
-  return { key: SHARED_ATLAS_KEY, path: SHARED_ATLAS_PATH, rows: TERRAIN4_ATLAS_ROWS_PER_SET, rowStart: 0, rowCount: TERRAIN4_ATLAS_ROWS_PER_SET };
+  return { key: SHARED_ATLAS_KEY, path: SHARED_ATLAS_PATH, rows: TERRAIN4_ATLAS_ROWS_PER_SET, rowStart: 0, rowCount: TERRAIN4_ATLAS_VARIANTS_PER_SET };
+}
+
+function atlasFrameIndex(slot: Terrain4AtlasSlot, rowStart: number): number {
+  return (rowStart + slot.row) * TERRAIN4_ATLAS_COLUMNS + slot.column;
 }
 
 function assertSetVariant(set: Terrain4AtlasSet, variant: number): void {
@@ -114,7 +134,7 @@ function assertSetVariant(set: Terrain4AtlasSet, variant: number): void {
 }
 
 function assertVariant(variant: number): void {
-  if (!Number.isInteger(variant) || variant < 0 || variant >= TERRAIN4_ATLAS_ROWS_PER_SET) {
+  if (!Number.isInteger(variant) || variant < 0 || variant >= TERRAIN4_ATLAS_VARIANTS_PER_SET) {
     throw new Error(`Terrain4 atlas row must be 0; received ${variant}`);
   }
 }

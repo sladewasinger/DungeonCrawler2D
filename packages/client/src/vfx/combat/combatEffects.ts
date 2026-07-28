@@ -124,8 +124,9 @@ export class CombatEffects {
 
   private punchCamera(): void {
     const camera = this.scene.cameras.main;
-    camera.zoomTo(HIT_STOP_ZOOM, HIT_STOP_DURATION_MS / 2, "Sine.easeOut", true, (_cam, progress) => {
-      if (progress === 1) camera.zoomTo(1, HIT_STOP_DURATION_MS / 2, "Sine.easeIn");
+    const baseZoom = camera.zoom;
+    camera.zoomTo(baseZoom * HIT_STOP_ZOOM, HIT_STOP_DURATION_MS / 2, "Sine.easeOut", true, (_cam, progress) => {
+      if (progress === 1) camera.zoomTo(baseZoom, HIT_STOP_DURATION_MS / 2, "Sine.easeIn");
     });
   }
 

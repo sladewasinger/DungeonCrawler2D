@@ -3,7 +3,7 @@ import { viewTileToWorld, worldTileToView } from "../../view/transform/viewTrans
 import { appendTerrain4AmbientOcclusion, appendTerrain4CliffEdges } from "../geometry/terrain4CliffGeometry.js";
 import { TERRAIN4, TERRAIN4_HEIGHT_EPSILON } from "../geometry/terrainPlannerModel.js";
 import type {
-  Terrain4AOQuad, Terrain4CliffEdgeQuad, Terrain4FeatureQuad, Terrain4FloorQuad,
+  Terrain4AOQuad, Terrain4CliffEdgeQuad, Terrain4FeatureKind, Terrain4FeatureQuad, Terrain4FloorQuad,
   Terrain4PropQuad, Terrain4QuadVertices, Terrain4SouthFaceQuad, Terrain4VoidQuad,
 } from "../geometry/terrainPlannerModel.js";
 import type { Terrain4PlanningContext } from "./terrainPlanner.js";
@@ -54,12 +54,22 @@ function appendFloorArt(context: Terrain4TileContext): void {
 function appendSouthFace(context: Terrain4TileContext): void {
   const southWorld = viewTileToWorld({ x: context.viewTile.x, y: context.viewTile.y + 1 }, context.orientation);
   if (context.source.terrainAt(southWorld.x, southWorld.y) !== TERRAIN4.Floor) return;
+  const currentFeature = featureAt(context, context.worldTile);
+  const southFeature = featureAt(context, southWorld);
+  if (currentFeature === "stairs" && southFeature === "stairs") return;
   const bottomHeight = finiteHeight(context, southWorld);
   if (context.height - bottomHeight <= TERRAIN4_HEIGHT_EPSILON) return;
+  const stairWall = currentFeature === "stairs";
   context.batches.southFaces.push({
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
-    topHeight: context.height, bottomHeight, vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
+    topHeight: context.height, bottomHeight, stairWall,
+    southNeighborIsStair: southFeature === "stairs",
+    vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
   });
+}
+
+function featureAt(context: Terrain4PlanningContext, tile: Point): Terrain4FeatureKind | null {
+  return context.source.featureAt ? context.source.featureAt(tile.x, tile.y) : null;
 }
 
 function finiteHeight(context: Terrain4PlanningContext, tile: Point): number {

@@ -43,7 +43,7 @@ describe("Terrain4 deterministic visual fixture", () => {
     expect(draws.some((draw) => draw.role === "brazier")).toBe(true);
     expect(draws.every((draw, index) => index === 0 || (draw.depth ?? 0) >= (draws[index - 1]?.depth ?? 0))).toBe(true);
 
-    const meshes = terrain4MeshBatches(draws, () => ({ width: 512, height: 64 }));
+    const meshes = terrain4MeshBatches(draws, () => ({ width: 576, height: 320 }));
     expect(meshes.every((mesh) => mesh.vertices.length % 4 === 0 && mesh.indices.length % 4 === 0)).toBe(true);
   });
 });

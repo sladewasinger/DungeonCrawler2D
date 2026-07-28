@@ -6,6 +6,7 @@ import { Terrain4AOOverlayRenderer } from "../overlay/terrain4AOOverlay.js";
 import { Terrain4CliffHighlightRenderer } from "../overlay/terrain4CliffHighlight.js";
 import {
   terrain4AtlasFrame,
+  TERRAIN4_TILE_ROLES,
   type Terrain4AtlasSet,
   type Terrain4TileRole,
 } from "../planning/terrain4Tileset.js";
@@ -48,7 +49,7 @@ export function installTerrain4AtlasFrames(
   set: Terrain4AtlasSet,
 ): void {
   const { texture, source } = atlasTexture(textures, set);
-  for (const role of ["floor", "raised-floor", "south-face", "corner-face", "void", "stairs", "door", "brazier"] as const) {
+  for (const role of TERRAIN4_TILE_ROLES) {
     for (let variant = 0; variant < set.rowCount; variant += 1) {
       const frame = terrain4AtlasFrame({ set, role, variant, image: source });
       addFrame(texture, frame);
