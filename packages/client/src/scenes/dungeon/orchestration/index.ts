@@ -64,6 +64,9 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Title text entry temporarily suspends Phaser capture; every dungeon entry
+    // restores the gameplay keyboard contract for quit-to-title/rejoin cycles.
+    this.input.keyboard?.enableGlobalCapture();
     this.game.canvas.tabIndex = -1;
     this.game.canvas.focus({ preventScroll: true });
     // Projected terrain gaps fall back to the camera-facing wall material.

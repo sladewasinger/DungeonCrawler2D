@@ -77,8 +77,10 @@ export class ConnectForm {
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly status: HTMLDivElement;
   private readonly character = new CharacterSelection();
+  private readonly onNameInputFocusChange?: ConnectFormHandlers["onNameInputFocusChange"];
 
   constructor(handlers: ConnectFormHandlers) {
+    this.onNameInputFocusChange = handlers.onNameInputFocusChange;
     this.root = document.createElement("div");
     this.root.className = "title-connect-form";
     applyRootStyle(this.root);
@@ -139,6 +141,7 @@ export class ConnectForm {
   private submit(handlers: ConnectFormHandlers, level: LevelId): void {
     const name = this.input.value.trim().slice(0, 16) || loadStoredName();
     saveTabPreference(NAME_STORAGE_KEY, name);
+    this.releaseInputFocus();
     handlers.onConnect(name, level, this.character.skin);
   }
 
@@ -155,8 +158,13 @@ export class ConnectForm {
   dispose(): void {
     // Removing a focused DOM node does not consistently dispatch blur across
     // browsers; release the renderer's keyboard-capture suspension explicitly.
-    this.input.blur();
+    this.releaseInputFocus();
     this.root.remove();
+  }
+
+  private releaseInputFocus(): void {
+    this.input.blur();
+    this.onNameInputFocusChange?.(false);
   }
 }
 

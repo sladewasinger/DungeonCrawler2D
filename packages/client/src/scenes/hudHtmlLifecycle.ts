@@ -25,7 +25,12 @@ export function createHtmlHudLifecycle(request: HtmlHudLifecycleRequest): HtmlHu
   const root = document.getElementById("app");
   if (!root) throw new Error("Missing #app root for HTML HUD.");
   request.keyboard?.removeCapture("F12");
-  const hud = createLiveHtmlHud(htmlHudOptions(root, request));
+  const options = htmlHudOptions(root, request);
+  const hud = createLiveHtmlHud(options);
+  // The title's name field is focused by design. Restore the canvas only after
+  // the HUD has mounted its own focusable controls, otherwise `isTypingInInput`
+  // can continue to suppress movement until the player presses Tab.
+  options.focusGame();
   const trace = createMovementTrace(root, request.connection, request.canvas);
   return { hud, update: (snapshot) => updateHtmlHud({ hud, trace, connection: request.connection, snapshot }), dispose: () => { trace?.dispose(); hud.dispose(); } };
 }

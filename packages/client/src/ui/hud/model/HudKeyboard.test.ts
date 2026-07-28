@@ -1,76 +1,11 @@
 /** Guards the shared HUD shortcut boundary independently of browser rendering. */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HudKeyboard, type HudKeyboardActions } from "./HudKeyboard.js";
-
-type KeyListener = (event: KeyboardEvent) => void;
-
-interface KeyboardModel {
-  actions: HudKeyboardActions;
-  setChatFocused(value: boolean): void;
-  setInventoryOpen(value: boolean): void;
-}
-
-function model(): KeyboardModel {
-  let chatFocused = false;
-  let inventoryOpen = false;
-  return {
-    actions: {
-      toggleInventory: vi.fn(),
-      closeInventory: vi.fn(),
-      inventoryOpen: () => inventoryOpen,
-      selectHotbar: vi.fn(),
-      focusChat: vi.fn(),
-      leaveChat: vi.fn(),
-      chatOwnsFocus: () => chatFocused,
-      closeOverlays: () => false,
-      sessionMenuOpen: () => false,
-      toggleSessionMenu: vi.fn(),
-      closeSessionMenu: vi.fn(),
-    },
-    setChatFocused: (value) => { chatFocused = value; },
-    setInventoryOpen: (value) => { inventoryOpen = value; },
-  };
-}
-
-function keyboardEvent(
-  code: string,
-  target?: EventTarget,
-): KeyboardEvent {
-  return {
-    code,
-    target,
-    defaultPrevented: false,
-    preventDefault: vi.fn(),
-    stopImmediatePropagation: vi.fn(),
-  } as unknown as KeyboardEvent;
-}
-
-class TextEntryTarget {
-  constructor(private readonly insideInventory: boolean) {}
-
-  matches(selector: string): boolean {
-    return selector.includes("input");
-  }
-
-  closest(selector: string): TextEntryTarget | null {
-    return selector === "[data-inventory-workspace]" && this.insideInventory
-      ? this
-      : null;
-  }
-}
-
-function install(modelValue: KeyboardModel): KeyListener {
-  let listener: KeyListener | undefined;
-  vi.stubGlobal("window", {
-    addEventListener: (_type: string, candidate: KeyListener) => {
-      listener = candidate;
-    },
-    removeEventListener: vi.fn(),
-  });
-  new HudKeyboard(modelValue.actions, true);
-  if (!listener) throw new Error("keyboard listener was not installed");
-  return listener;
-}
+import {
+  TextEntryTarget,
+  install,
+  keyboardEvent,
+  model,
+} from "./HudKeyboard.testSupport.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -89,7 +24,7 @@ describe("HudKeyboard", () => {
     expect(state.actions.focusChat).not.toHaveBeenCalled();
   });
 
-  it("keeps Tab in focused chat instead of passing it to inventory", () => {
+  it("uses Tab for inventory even when chat owns focus", () => {
     const state = model();
     state.setChatFocused(true);
     const listener = install(state);
@@ -98,8 +33,20 @@ describe("HudKeyboard", () => {
     listener(event);
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(state.actions.toggleInventory).not.toHaveBeenCalled();
+    expect(state.actions.toggleInventory).toHaveBeenCalledOnce();
     expect(state.actions.closeInventory).not.toHaveBeenCalled();
+  });
+
+  it("prevents browser focus traversal from ordinary HUD elements", () => {
+    const state = model();
+    const listener = install(state);
+    const event = keyboardEvent("Tab", {} as EventTarget);
+
+    listener(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopImmediatePropagation).toHaveBeenCalledOnce();
+    expect(state.actions.toggleInventory).toHaveBeenCalledOnce();
   });
 
   it("opens the session menu when Escape is pressed outside an overlay", () => {

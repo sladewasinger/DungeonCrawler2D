@@ -33,6 +33,7 @@ export class HudInventory {
       search: () => this.invalidate(),
     });
     this.element = this.shell.element;
+    this.close();
   }
 
   open(): void {
@@ -55,7 +56,7 @@ export class HudInventory {
   }
 
   isOpen(): boolean {
-    return this.element.style.display !== "none";
+    return !this.element.hidden;
   }
 
   toggle(focusGame: () => void): void {

@@ -38,10 +38,10 @@ export class HudKeyboard {
   };
 
   private captureOverlayEvent(event: KeyboardEvent): boolean {
-    return this.captureChatEvent(event) ||
+    return this.captureTabEvent(event) ||
+      this.captureChatEvent(event) ||
       this.captureTextEntryEvent(event) ||
       this.captureSessionMenuEvent(event) ||
-      this.captureTabEvent(event) ||
       this.captureInventoryToggleEvent(event) ||
       this.captureInventoryEvent(event);
   }
@@ -61,9 +61,6 @@ export class HudKeyboard {
     if (event.code === "Escape") {
       event.preventDefault();
       this.actions.leaveChat();
-    } else if (event.code === "Tab") {
-      // Keep browser focus inside chat; Tab toggles inventory after chat closes.
-      event.preventDefault();
     }
     return true;
   }
@@ -74,9 +71,7 @@ export class HudKeyboard {
       !target.matches("input,textarea,[contenteditable='true']")) {
       return false;
     }
-    return event.code !== "Tab" ||
-      !this.actions.inventoryOpen() ||
-      !target.closest?.("[data-inventory-workspace]");
+    return true;
   }
 
   private captureSessionMenuEvent(event: KeyboardEvent): boolean {
