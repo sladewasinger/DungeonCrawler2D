@@ -54,7 +54,10 @@ export interface TerrainCliffEdgeQuad extends TerrainQuadBase {
   readonly height: number; readonly sides: readonly TerrainCliffSide[]; readonly voidBoundary?: boolean;
 }
 export interface TerrainAOMask { readonly north: boolean; readonly south: boolean; readonly east: boolean; readonly west: boolean; readonly nw: boolean; readonly ne: boolean; readonly sw: boolean; readonly se: boolean; }
-export interface TerrainAOQuad extends TerrainQuadBase { readonly kind: "ao"; readonly height: number; readonly mask: TerrainAOMask; }
+export interface TerrainAOQuad extends TerrainQuadBase {
+  readonly kind: "ao"; readonly surface: "floor" | "wall";
+  readonly height: number; readonly mask: TerrainAOMask;
+}
 export interface TerrainBatches {
   readonly floors: readonly TerrainFloorQuad[]; readonly voids: readonly TerrainVoidQuad[];
   readonly features: readonly TerrainFeatureQuad[]; readonly props: readonly TerrainPropQuad[];

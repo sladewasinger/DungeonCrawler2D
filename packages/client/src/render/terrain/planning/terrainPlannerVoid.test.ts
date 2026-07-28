@@ -61,7 +61,15 @@ describe("VOID terrain planning", () => {
       });
       expect(plan.batches.cliffEdges).toHaveLength(1);
       expect(plan.batches.cliffEdges[0]).toMatchObject({ voidBoundary: true, sides: ["south"] });
-      expect(plan.batches.ao).toEqual([]);
+      expect(plan.batches.ao).toHaveLength(2);
+      expect(plan.batches.ao.map(({ surface, mask }) => ({
+        surface, west: mask.west, east: mask.east,
+      }))).toEqual([
+        { surface: "wall", west: true, east: false },
+        { surface: "wall", west: false, east: true },
+      ]);
+      expect(plan.batches.ao.every(({ vertices }) =>
+        vertices.map(({ z }) => z).join() === `${height},${height},${height - 1},${height - 1}`)).toBe(true);
     }
   });
 

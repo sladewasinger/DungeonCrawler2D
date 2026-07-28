@@ -62,7 +62,8 @@ export class TerrainQuadBatchRenderer {
     this.drawBatch(batches.props, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
     this.drawBatch(batches.cliffEdges, projection, materials.cliffEdge ?? materials.southFace);
-    this.drawBatch(batches.ao, projection, materials.ao ?? DEFAULT_AO_MATERIAL);
+    const floorAO = batches.ao.filter(({ surface }) => surface === "floor");
+    this.drawBatch(floorAO, projection, materials.ao ?? DEFAULT_AO_MATERIAL);
   }
 
   private drawBatch(

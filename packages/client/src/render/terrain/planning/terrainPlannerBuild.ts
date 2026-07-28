@@ -6,6 +6,7 @@ import {
   voidWallFeatureQuad,
   wallFeatureForFace,
 } from "../geometry/wallFeatureGeometry.js";
+import { appendWallAmbientOcclusion } from "../geometry/wallAmbientOcclusion.js";
 import { TERRAIN_KINDS, TERRAIN_HEIGHT_EPSILON } from "../geometry/terrainPlannerModel.js";
 import type {
   TerrainAOQuad, TerrainCliffEdgeQuad, TerrainFeatureKind, TerrainFeatureQuad, TerrainFloorQuad,
@@ -82,11 +83,13 @@ function appendScreenSouthFace(context: TerrainTileContext): void {
 function appendVoidSouthFace(context: TerrainTileContext): void {
   if (context.source.voidBoundaryAt?.(context.worldTile.x, context.worldTile.y) === "flat") return;
   const bottomHeight = context.height - VOID_FACE_DEPTH;
-  context.batches.southFaces.push({
+  const face: TerrainSouthFaceQuad = {
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
     topHeight: context.height, bottomHeight, voidWall: true,
     vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
-  });
+  };
+  context.batches.southFaces.push(face);
+  appendWallAmbientOcclusion({ source: context.source, orientation: context.orientation, face }, context.batches.ao);
 }
 
 function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): void {
@@ -102,13 +105,15 @@ function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): v
     terrainBottom: bottomHeight,
     orientation: context.orientation,
   });
-  context.batches.southFaces.push({
+  const face: TerrainSouthFaceQuad = {
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
     topHeight: context.height, bottomHeight, stairWall,
     southNeighborIsStair: southFeature === "stairs",
     ...(wallFeature ? { wallFeature } : {}),
     vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
-  });
+  };
+  context.batches.southFaces.push(face);
+  appendWallAmbientOcclusion({ source: context.source, orientation: context.orientation, face }, context.batches.ao);
 }
 
 function featureAt(context: TerrainPlanningContext, tile: Point): TerrainFeatureKind | null {

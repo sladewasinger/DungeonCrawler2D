@@ -50,7 +50,7 @@ export function appendTerrainAmbientOcclusion(
 ): void {
   const mask = aoMask(context);
   if (!Object.values(mask).some(Boolean)) return;
-  target.push({ ...context, kind: "ao", mask, vertices: topQuad(context.viewTile, context.height) });
+  target.push({ ...context, kind: "ao", surface: "floor", mask, vertices: topQuad(context.viewTile, context.height) });
 }
 
 function boundarySides(context: TerrainTileContext): BoundarySide[] {

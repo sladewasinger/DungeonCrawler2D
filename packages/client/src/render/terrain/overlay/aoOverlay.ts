@@ -2,8 +2,8 @@ import type Phaser from "phaser";
 import { AO_BAND_FRACS, AO_CORNER_FRAC, aoBandAlphas, aoCornerAlpha, getAOStrength } from "../../terrain/shading/contactShade.js";
 import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadBatch.js";
 import type { TerrainAOQuad, TerrainBatches, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
-import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
+import { ambientOcclusionDepth } from "./ambientOcclusionDepth.js";
 
 const AO_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color);
 
@@ -61,7 +61,7 @@ function appendRegions(grouped: Map<number, AOPart[]>, quad: TerrainAOQuad, regi
 }
 
 function appendPart(grouped: Map<number, AOPart[]>, quad: TerrainAOQuad, region: AOPart["region"]): void {
-  const depth = depthForCapOccluder(quad.viewTile.y) + 0.06;
+  const depth = ambientOcclusionDepth(quad);
   const group = grouped.get(depth) ?? [];
   if (!grouped.has(depth)) grouped.set(depth, group);
   group.push({ quad, region });
