@@ -8,7 +8,7 @@ import { spawnEnemy } from "../core/helpers.js";
 import type { EnemySlot, SimState } from "../state/state.js";
 import { validEnemySpawn } from "./populationPlacement.js";
 
-export const MINI_BOSS_MIN_ROOM_AREA = 220;
+export const MINI_BOSS_MIN_ROOM_AREA = 55;
 const ENCOUNTER_SIZE = 4;
 const ORC_WARLORD = "orc-warlord";
 const ORC_WARRIOR = "orc-warrior";

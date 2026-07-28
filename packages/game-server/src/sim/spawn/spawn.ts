@@ -26,7 +26,7 @@ import { findWalkableNear } from "./search.js";
  *     centers out to SPAWN_CHUNK_RANGE, scored by MIN_SPAWN_DIST from
  *     other players.
  */
-const SANDBOX_ANCHOR = { x: 28, y: 28 };
+const SANDBOX_ANCHOR = { x: 23, y: 24 };
 const PLAYTEST_SPAWN_ANCHOR = { x: 14, y: 10 };
 const SANDBOX_CLUSTER_SPACING = 2;
 const SANDBOX_CLUSTER_COLUMNS = 4;

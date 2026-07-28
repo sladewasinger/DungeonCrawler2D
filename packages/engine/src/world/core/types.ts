@@ -1,7 +1,7 @@
 // Core world data shapes: tile/zone vocabularies and the read-only view movement and AI depend on.
 
-/** Runtime chunks are generated at 32 cells and doubled for gameplay space. */
-export const CHUNK_SIZE = 64;
+/** Runtime and generated chunks share one 32×32 tile grid. */
+export const CHUNK_SIZE = 32;
 
 export const TILE = {
   Floor: 0,
@@ -83,6 +83,8 @@ export interface Chunk {
  */
 export interface WorldView {
   isWalkable(wx: number, wy: number): boolean;
+  /** Optional authoritative terrain kind for render-only occlusion decisions. */
+  terrainAt?: (wx: number, wy: number) => TerrainType;
   heightAt(wx: number, wy: number): number;
   /**
    * Continuous ground height at a POSITION (not a tile): flat tiles

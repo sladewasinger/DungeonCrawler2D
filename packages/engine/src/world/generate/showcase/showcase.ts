@@ -45,6 +45,8 @@ const STAIR_DIRS: ReadonlyArray<readonly [number, number]> = [
   [-1, 0],
   [1, 0],
 ];
+const VOID_NEIGHBOR_OFFSETS: ReadonlyArray<Cell> = [-1, 0, 1]
+  .flatMap((dy) => [-1, 0, 1].map((dx) => [dx, dy] as const));
 
 /** Every cell is in-chunk, plain FLAT open floor, outside reserved zones — flat
  * is non-negotiable (this runs after every repair net, so carving against
@@ -104,10 +106,15 @@ function pitViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number, numb
   const block = blockCells(bx, by);
   if (!cellsCarvable(g, [...block, ...ringCells(bx, by)]) || !guardsClear(worldSeed, floor, bx, by)) return null;
   for (const [dx, dy] of STAIR_DIRS) {
-    const { threshold } = pitStair({ bx, by, dx, dy });
-    if (cellsCarvable(g, [threshold])) return [dx, dy];
+    const { tread, threshold } = pitStair({ bx, by, dx, dy });
+    if (cellsCarvable(g, [threshold]) && !touchesVoid(g, tread)) return [dx, dy];
   }
   return null;
+}
+
+function touchesVoid(g: Grid, [x, y]: Cell): boolean {
+  return VOID_NEIGHBOR_OFFSETS.some(([dx, dy]) =>
+    at(g.tiles, x + dx, y + dy) === TILE.Void);
 }
 
 /** Sink the 2x2 to z-1 with one compact rim-stair tread at -0.5 on side `dir`. */

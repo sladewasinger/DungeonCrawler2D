@@ -25,10 +25,10 @@ describe("grid path elevation transitions", () => {
 
   it("approaches a side-facing stair through its low end", () => {
     const world = new World(228182761, 1, LEVEL.Dungeon);
-    const path = findGridPath({ world, start: { x: -21, y: 33 }, goal: { x: -21, y: 38 } });
+    const path = findGridPath({ world, start: { x: -11, y: 16 }, goal: { x: -11, y: 19 } });
 
     expect(path.length).toBeGreaterThan(0);
-    expect(path.at(-1)).toMatchObject({ x: -20.5, y: 38.5 });
+    expect(path.at(-1)).toMatchObject({ x: -10.5, y: 19.5 });
     for (const step of path) {
       expect(world.isWalkable(Math.floor(step.x), Math.floor(step.y))).toBe(true);
     }

@@ -3,8 +3,10 @@
 // now also carrying avenue-widened seams at district boundaries.
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../../core/rng.js";
+import { CHUNK_SIZE } from "../../core/types.js";
 import { GENERATION_CHUNK_SIZE, WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
 import { edgeAnchors, type EdgeAnchor } from "../layout/edges.js";
+import { architectSeed } from "../layout/hash.js";
 import { reachesNeighborChunk, type ChunkCache, type WorldPoint } from "../test-support.js";
 
 const FLOOR = 1;
@@ -20,8 +22,8 @@ describe("cross-chunk connectivity", () => {
     for (const seed of SEEDS) {
       const cache: ChunkCache = new Map();
       const scope = { seed, floor: FLOOR, cache };
-      for (const anchor of edgeAnchors({ seed, cx: 0, cy: 0, chunkSize: GENERATION_CHUNK_SIZE })) {
-        const start = scaledAnchor(anchor);
+      for (const anchor of edgeAnchors({ seed: architectSeed(seed, FLOOR), cx: 0, cy: 0, chunkSize: GENERATION_CHUNK_SIZE })) {
+        const start = runtimeAnchor(anchor, 0, 0);
         expect(reachesNeighborChunk(scope, start), `seed ${seed}: ${anchorName(anchor)} anchor is isolated`).toBe(true);
       }
     }
@@ -31,19 +33,19 @@ describe("cross-chunk connectivity", () => {
     const seed = SEEDS[0] as number;
     const cache: ChunkCache = new Map();
     const scope = { seed, floor: FLOOR, cache };
-    const eastAnchor = edgeAnchors({ seed, cx: 2, cy: 0, chunkSize: GENERATION_CHUNK_SIZE })
+    const eastAnchor = edgeAnchors({ seed: architectSeed(seed, FLOOR), cx: 2, cy: 0, chunkSize: GENERATION_CHUNK_SIZE })
       .find((anchor) => anchor.side === 1);
     expect(eastAnchor).toBeDefined();
     if (!eastAnchor) return;
     expect(eastAnchor.width).toBeGreaterThan(3);
-    expect(reachesNeighborChunk(scope, scaledAnchor(eastAnchor))).toBe(true);
+    expect(reachesNeighborChunk(scope, runtimeAnchor(eastAnchor, 2, 0))).toBe(true);
   });
 });
 
-function scaledAnchor(anchor: EdgeAnchor): WorldPoint {
+function runtimeAnchor(anchor: EdgeAnchor, cx: number, cy: number): WorldPoint {
   return {
-    x: anchor.point.x * WORLD_GEOMETRY_SCALE,
-    y: anchor.point.y * WORLD_GEOMETRY_SCALE,
+    x: cx * CHUNK_SIZE + anchor.point.x * WORLD_GEOMETRY_SCALE,
+    y: cy * CHUNK_SIZE + anchor.point.y * WORLD_GEOMETRY_SCALE,
   };
 }
 

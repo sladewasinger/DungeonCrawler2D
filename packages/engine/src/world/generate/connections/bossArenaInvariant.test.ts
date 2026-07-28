@@ -14,7 +14,6 @@ import {
   bossArenaSpawnAnchor,
 } from "../../features/bossArena/bossArena.js";
 import { FLOOR_CAP } from "../../features/descent/descentShared.js";
-import { STEP_UP } from "../../../core/constants.js";
 import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { generateChunk } from "../index.js";
 import { WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
@@ -56,9 +55,13 @@ function assertRing(seed: number, chunk: { cx: number; cy: number }, spawn: Worl
     const index = localIndex(chunk, cell);
     const height = generated.height[index];
     const tile = generated.tiles[index];
-    expect(tile, `seed ${seed}: ring cell (${cell.x},${cell.y}) must exist`).toBe(TILE.Floor);
-    if (cell.gate) expect(height, `seed ${seed}: gate must be flat`).toBe(0);
-    else expect(height, `seed ${seed}: wall ring must be raised`).toBeGreaterThan(STEP_UP);
+    if (cell.gate) {
+      expect(tile, `seed ${seed}: gate cell (${cell.x},${cell.y}) must be Floor`).toBe(TILE.Floor);
+      expect(height, `seed ${seed}: gate must be flat`).toBe(0);
+    } else {
+      expect(tile, `seed ${seed}: ring cell (${cell.x},${cell.y}) must be VOID`).toBe(TILE.Void);
+      expect(height, `seed ${seed}: VOID ring must be heightless`).toBe(0);
+    }
   }
   return cells.filter((cell) => cell.gate).length;
 }
@@ -80,7 +83,7 @@ function localIndex(chunk: { cx: number; cy: number }, point: WorldPoint): numbe
 }
 
 describe("boss arena: exactly one gate", () => {
-  it("every ring cell is raised Floor except the gate's full-thickness notch", { timeout: 120_000 }, () => {
+  it("every ring cell is VOID except the gate's full-thickness notch", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS) {
       const chunk = bossArenaChunk({ worldSeed: seed, floor: FLOOR_CAP });

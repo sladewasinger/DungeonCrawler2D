@@ -5,6 +5,7 @@ import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
 
 const RIM_FRACTION = 0.05;
 const RIM_COLOR = 0xf7f0c9;
+const VOID_RIM_COLOR = 0xb67cff;
 const RIM_ALPHA = 1;
 
 /** Cheap post-process rim: one Graphics layer per depth row, no per-tile sprites. */
@@ -57,6 +58,7 @@ function drawEdges(
 ): void {
   for (const { edge, side } of edges) {
     const points = projectQuad(edge.vertices, projection);
+    graphics.fillStyle(edge.voidBoundary === true ? VOID_RIM_COLOR : RIM_COLOR, RIM_ALPHA);
     fillQuad(graphics, sideBand(points, side, RIM_FRACTION));
   }
 }

@@ -25,7 +25,7 @@
 // The duplicate is stored on the body sprite's own Phaser data store rather than a new
 // field on PlayerVisual (state.ts is a different lane's file) and self-destroys off the
 // body's "destroy" event, so callers don't need a teardown hook either.
-import type { WorldView } from "@dc2d/engine";
+import { TERRAIN, type WorldView } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { screenSouthWorldDirection, type CompassDir } from "../../view/orientation/directionRemap.js";
@@ -87,12 +87,16 @@ export function terrainOcclusionAhead({
   for (let step = 1; step <= MAX_OCCLUDING_ROWS_AHEAD; step++) {
     const checkX = tileX + dx * step;
     const checkY = tileY + dy * step;
-    const height = world.heightAt(checkX, checkY);
-    if (height - z < step) continue;
+    if (!isOccludingTerrain({ world, x: checkX, y: checkY, z, step })) continue;
     const viewTile = worldTileToView({ x: checkX, y: checkY }, orientation);
-    closestSeamY = Math.min(closestSeamY, (viewTile.y - height) * SCREEN_TILE_PX);
+    closestSeamY = Math.min(closestSeamY, (viewTile.y - world.heightAt(checkX, checkY)) * SCREEN_TILE_PX);
   }
   return Number.isFinite(closestSeamY) ? { screenY: closestSeamY } : null;
+}
+
+function isOccludingTerrain({ world, x, y, z, step }: { world: WorldView; x: number; y: number; z: number; step: number }): boolean {
+  if (world.terrainAt?.(x, y) === TERRAIN.Void) return false;
+  return world.heightAt(x, y) - z >= step;
 }
 
 /** True when terrain toward the camera (screen-south) of (x, y) stands tall enough

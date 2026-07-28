@@ -1,4 +1,4 @@
-import { depthForCapOccluder, depthForOccluder } from "../../entities/presentation/depthSort.js";
+import { depthForCapOccluder, depthForEntity, depthForOccluder } from "../../entities/presentation/depthSort.js";
 import { projectQuad } from "../geometry/atlasGeometry.js";
 import { TERRAIN_TILESETS, terrainAtlasFrameName, type TerrainTileRole } from "../planning/tileset.js";
 import type { TerrainBatches, TerrainQuadVertices } from "../planning/terrainPlanner.js";
@@ -14,7 +14,7 @@ export interface TerrainDrawQuad { readonly worldTile: { readonly x: number; rea
 function appendDraw(input: AppendDrawsInput, quad: TerrainDrawQuad): void {
   const role = input.defaultRole;
   const atlas = input.options.debug ? TERRAIN_TILESETS.debug : TERRAIN_TILESETS[input.options.biomeAt(quad.worldTile)];
-  input.target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0, phase: input.phase, depth: drawDepth(input.phase, quad.viewTile.y), points: projectQuad(quad.vertices, input.options.projection) });
+  input.target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0, phase: input.phase, depth: drawDepth(role, input.phase, quad.viewTile.y), points: projectQuad(quad.vertices, input.options.projection) });
 }
 
 export function appendFeatureDraws(target: TerrainAtlasDraw[], quads: TerrainBatches["features"], options: TerrainAtlasRenderOptions): void {
@@ -26,4 +26,7 @@ function appendFeatureDraw(target: TerrainAtlasDraw[], quad: TerrainBatches["fea
   target.push({ atlas, frame: terrainAtlasFrameName(atlas, quad.feature, 0), role: quad.feature, variant: 0, phase: 1, depth: depthForCapOccluder(quad.viewTile.y), points: projectQuad(quad.vertices, options.projection) });
 }
 
-function drawDepth(phase: TerrainAtlasPhase, viewY: number): number { return phase === 2 ? depthForOccluder(viewY + 1) : depthForCapOccluder(viewY); }
+function drawDepth(role: TerrainTileRole, phase: TerrainAtlasPhase, viewY: number): number {
+  if (role === "void") return depthForEntity(viewY - 1) - 0.5;
+  return phase === 2 ? depthForOccluder(viewY + 1) : depthForCapOccluder(viewY);
+}

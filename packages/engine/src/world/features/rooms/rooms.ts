@@ -13,7 +13,7 @@ export { generateRoomChunk } from "./roomChunkBuilder.js";
 
 /** Chunk rows at/below this cy are room space, not floor terrain. */
 export const ROOM_REGION_CY = 4096;
-/** One room slot every 2 chunks — 64 tiles > AOI_RADIUS. */
+/** One room slot every 2 chunks — 64 tiles remain beyond AOI_RADIUS. */
 const SLOT_STRIDE_CHUNKS = 2;
 /** Safe-room rows start below the personal/party rows (see safeRoomChunk). */
 const SAFE_ROOM_BASE_CY = ROOM_REGION_CY + 2 * SLOT_STRIDE_CHUNKS;

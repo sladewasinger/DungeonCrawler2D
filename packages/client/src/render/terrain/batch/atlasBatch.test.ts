@@ -54,7 +54,7 @@ describe("atlasDraws", () => {
     const meshes = terrainMeshBatches(draws, () => atlasImage);
     expect(meshes).toHaveLength(3);
     expect(meshes.map((mesh) => [mesh.depth, mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
-      [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
+      [-100.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
     ]);
     expect(meshes[0]?.vertices.slice(0, 16)).toEqual([
       0, 0, 0.11197916666666667, 0.19843750000000004, 10, 0, 0.22135416666666666, 0.19843750000000004,

@@ -33,16 +33,14 @@ export function appendTerrainCliffEdges(
   context: TerrainTileContext,
   target: TerrainCliffEdgeQuad[],
 ): void {
-  const sides = lowerFloorSides(context);
-  if (sides.length === 0) return;
+  const edges = boundarySides(context);
+  if (edges.length === 0) return;
   const vertices = topQuad(context.viewTile, context.height);
-  if (sides.length === 2 && areAdjacentSides(sides[0]!, sides[1]!)) {
-    target.push(cornerEdge(context, sides, vertices));
+  if (edges.length === 2 && areAdjacentSides(edges[0]!.side, edges[1]!.side) && edges[0]!.voidBoundary === edges[1]!.voidBoundary) {
+    target.push(cornerEdge(context, edges, vertices));
     return;
   }
-  for (const side of sides) {
-    target.push(middleEdge(context, side, vertices));
-  }
+  for (const edge of edges) target.push(middleEdge(context, edge, vertices));
 }
 
 export function appendTerrainAmbientOcclusion(
@@ -54,21 +52,30 @@ export function appendTerrainAmbientOcclusion(
   target.push({ ...context, kind: "ao", mask, vertices: topQuad(context.viewTile, context.height) });
 }
 
-function lowerFloorSides(context: TerrainTileContext): TerrainCliffSide[] {
-  return VIEW_SIDES.filter(({ dx, dy }) => isLowerFloor(context, { x: dx, y: dy })).map(({ side }) => side);
+function boundarySides(context: TerrainTileContext): BoundarySide[] {
+  return VIEW_SIDES.flatMap(({ side, dx, dy }) => {
+    if (isVoidNeighbor(context, { x: dx, y: dy })) return [{ side, voidBoundary: true }];
+    if (isLowerFloor(context, { x: dx, y: dy })) return [{ side, voidBoundary: false }];
+    return [];
+  });
 }
 
 function cornerEdge(
-  context: TerrainTileContext, sides: TerrainCliffSide[], vertices: TerrainQuadVertices,
+  context: TerrainTileContext, edges: BoundarySide[], vertices: TerrainQuadVertices,
 ): TerrainCliffEdgeQuad {
-  return { ...context, kind: "cliff-edge", cliff: "corner", rotation: cornerRotation(sides[0]!, sides[1]!), sides, vertices };
+  return {
+    ...context, kind: "cliff-edge", cliff: "corner", rotation: cornerRotation(edges[0]!.side, edges[1]!.side),
+    sides: edges.map(({ side }) => side), voidBoundary: edges[0]!.voidBoundary, vertices,
+  };
 }
 
 function middleEdge(
-  context: TerrainTileContext, side: TerrainCliffSide, vertices: TerrainQuadVertices,
+  context: TerrainTileContext, edge: BoundarySide, vertices: TerrainQuadVertices,
 ): TerrainCliffEdgeQuad {
-  return { ...context, kind: "cliff-edge", cliff: "middle", rotation: middleRotation(side), sides: [side], vertices };
+  return { ...context, kind: "cliff-edge", cliff: "middle", rotation: middleRotation(edge.side), sides: [edge.side], voidBoundary: edge.voidBoundary, vertices };
 }
+
+interface BoundarySide { readonly side: TerrainCliffSide; readonly voidBoundary: boolean; }
 
 function aoMask(context: TerrainTileContext): TerrainAOMask {
   const north = isHigherFloor(context, { x: 0, y: -1 });
@@ -97,6 +104,11 @@ function isHigherFloor(context: TerrainTileContext, offset: Point): boolean {
 
 function isLowerFloor(context: TerrainTileContext, offset: Point): boolean {
   return hasHeightDifference(context, offset, -1);
+}
+
+function isVoidNeighbor(context: TerrainTileContext, offset: Point): boolean {
+  const neighbor = viewTileToWorld({ x: context.viewTile.x + offset.x, y: context.viewTile.y + offset.y }, context.orientation);
+  return context.source.terrainAt(neighbor.x, neighbor.y) === "void";
 }
 
 function hasHeightDifference(context: TerrainTileContext, offset: Point, sign: 1 | -1): boolean {

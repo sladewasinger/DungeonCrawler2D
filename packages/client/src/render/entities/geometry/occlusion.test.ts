@@ -1,7 +1,7 @@
 // Headless tests for the occlusion heuristic — no Phaser involved (syncOcclusionSilhouette's
 // Phaser glue is exercised via the manual zoomed screenshot proof instead).
 import { describe, expect, it } from "vitest";
-import type { WorldView } from "@dc2d/engine";
+import { TERRAIN, type WorldView } from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import type { ViewOrientation } from "../../view/index.js";
 import { isOccludedByTerrainAhead, terrainOcclusionAhead } from "./occlusion.js";
@@ -14,11 +14,12 @@ function isOccludedAt(world: WorldView, z: number, orientation: ViewOrientation 
   return isOccludedByTerrainAhead({ world, x: 5.5, y: 5.5, z, orientation });
 }
 
-function fakeWorld(heights: Record<string, number>): WorldView {
+function fakeWorld(heights: Record<string, number>, voids: readonly string[] = []): WorldView {
   return {
     // isWalkable is irrelevant to isOccludedByTerrainAhead now — WAVE R2's whole point
     // is that a walkable floor rim occludes exactly like an unwalkable wall face does.
     isWalkable: () => true,
+    terrainAt: (x, y) => voids.includes(`${x},${y}`) ? TERRAIN.Void : TERRAIN.Floor,
     heightAt: (x, y) => heights[`${x},${y}`] ?? 0,
     groundAt: () => 0,
     stairHeightAt: () => null,
@@ -40,6 +41,10 @@ describe("isOccludedByTerrainAhead", () => {
 
   it("is true for a z1 wall one row south (its body reaches this row)", () => {
     expect(isOccludedAt(fakeWorld({ "5,6": 1 }), 0)).toBe(true);
+  });
+
+  it("does not occlude from a VOID cell with a height-map value", () => {
+    expect(isOccludedAt(fakeWorld({ "5,6": 1 }, ["5,6"]), 0)).toBe(false);
   });
 
   it("is FALSE for a z1 wall two rows south — its art can't reach this far north (user false-positive, 2026-07-20)", () => {

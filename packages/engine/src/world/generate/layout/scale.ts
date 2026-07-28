@@ -1,14 +1,12 @@
 import { TERRAIN, TILE, TOPOLOGY, type Chunk } from "../../core/types.js";
 
-export const WORLD_GEOMETRY_SCALE = 2;
+export const WORLD_GEOMETRY_SCALE = 1;
 export const GENERATION_CHUNK_SIZE = 32;
 export const SCALED_CHUNK_SIZE = GENERATION_CHUNK_SIZE * WORLD_GEOMETRY_SCALE;
 const FLOOR_TILE = 0;
 const DEFAULT_SOURCE_TILE = TILE.Floor;
-const STAIRS_TILE = 2;
 const FIRST_DISCRETE_FEATURE_TILE = 3;
 const LAST_DISCRETE_FEATURE_TILE = 8;
-const VOID_PLATEAU_MIN_HEIGHT = 2;
 
 interface GeneratedChunkData {
   readonly tiles: Uint8Array;
@@ -70,10 +68,11 @@ function scaleGeneratedCell({ source, buffers, sx, sy, ox, oy, tile, sourceIndex
   const sourceHeight = source.height[sourceIndex] ?? 0;
   const anchor = isFeatureAnchor(tile, ox, oy);
   const cellTile = sourceTileForCell(tile, anchor);
-  buffers.tiles[targetIndex] = runtimeTileForCell({ tile, cellTile, anchor, height: sourceHeight });
-  buffers.terrain[targetIndex] = terrainKindFor(cellTile, sourceHeight);
+  const voidCell = isHeightlessSource(cellTile);
+  buffers.tiles[targetIndex] = runtimeTileForCell({ tile, cellTile, anchor, voidCell });
+  buffers.terrain[targetIndex] = voidCell ? TERRAIN.Void : TERRAIN.Floor;
   buffers.features[targetIndex] = featureForCell(tile, cellTile, anchor);
-  buffers.height[targetIndex] = scaledHeightAt({ source, sx, sy, ox, oy, tile: cellTile });
+  buffers.height[targetIndex] = voidCell ? 0 : sourceHeight;
   buffers.zones[targetIndex] = source.zones[sourceIndex] ?? 0;
 }
 
@@ -81,10 +80,11 @@ function sourceTileForCell(tile: number, anchor: boolean): number {
   return anchor || !isDiscreteFeature(tile) ? tile : FLOOR_TILE;
 }
 
-function runtimeTileForCell({ tile, cellTile, anchor, height }: { tile: number; cellTile: number; anchor: boolean; height: number }): number {
-  if (anchor) return runtimeTileFor(tile, 0);
+function runtimeTileForCell({ tile, cellTile, anchor, voidCell }: { tile: number; cellTile: number; anchor: boolean; voidCell: boolean }): number {
+  if (voidCell) return TILE.Void;
+  if (anchor) return runtimeTileFor(tile);
   if (isDiscreteFeature(tile)) return FLOOR_TILE;
-  return runtimeTileFor(cellTile, height);
+  return cellTile;
 }
 
 function featureForCell(tile: number, cellTile: number, anchor: boolean): number {
@@ -99,61 +99,20 @@ function placeFeatureAnchor({ buffers, sx, sy, tile }: { buffers: ScaledChunkBuf
   const anchorX = sx * WORLD_GEOMETRY_SCALE;
   const anchorY = sy * WORLD_GEOMETRY_SCALE + WORLD_GEOMETRY_SCALE - 1;
   const index = anchorY * buffers.size + anchorX;
-  buffers.tiles[index] = runtimeTileFor(tile, 0);
+  buffers.tiles[index] = runtimeTileFor(tile);
   buffers.features[index] = featureFor(tile);
-}
-
-function scaledHeightAt({ source, sx, sy, ox, oy, tile }: { source: GeneratedChunkData; sx: number; sy: number; ox: number; oy: number; tile: number }): number {
-  const sourceHeight = source.height[sy * GENERATION_CHUNK_SIZE + sx] ?? 0;
-  if (isHeightlessSource(tile, sourceHeight)) return 0;
-  return scaledFiniteHeight({ source, sx, sy, ox, oy, tile });
-}
-
-function scaledFiniteHeight({ source, sx, sy, ox, oy, tile }: { source: GeneratedChunkData; sx: number; sy: number; ox: number; oy: number; tile: number }): number {
-  const center = source.height[sy * GENERATION_CHUNK_SIZE + sx] ?? 0;
-  if (tile !== STAIRS_TILE) return center;
-  const west = generatedHeightAt({ height: source.height, x: sx - 1, y: sy, fallback: center });
-  const east = generatedHeightAt({ height: source.height, x: sx + 1, y: sy, fallback: center });
-  const north = generatedHeightAt({ height: source.height, x: sx, y: sy - 1, fallback: center });
-  const south = generatedHeightAt({ height: source.height, x: sx, y: sy + 1, fallback: center });
-  const horizontalDelta = straddlingDelta(west, center, east);
-  const verticalDelta = straddlingDelta(north, center, south);
-  if (horizontalDelta !== 0 || verticalDelta === 0) {
-    return ox === 0
-      ? center + (west - center) * 0.25
-      : center + (east - center) * 0.25;
-  }
-  return oy === 0
-    ? center + (north - center) * 0.25
-    : center + (south - center) * 0.25;
-}
-
-function straddlingDelta(lowSide: number, center: number, highSide: number): number {
-  const a = lowSide - center;
-  const b = highSide - center;
-  return a * b < 0 ? highSide - lowSide : 0;
-}
-
-function generatedHeightAt({ height, x, y, fallback }: { height: Float32Array; x: number; y: number; fallback: number }): number {
-  if (x < 0 || y < 0 || x >= GENERATION_CHUNK_SIZE || y >= GENERATION_CHUNK_SIZE) return fallback;
-  return height[y * GENERATION_CHUNK_SIZE + x] ?? fallback;
 }
 
 function isDiscreteFeature(tile: number): boolean {
   return tile >= FIRST_DISCRETE_FEATURE_TILE && tile <= LAST_DISCRETE_FEATURE_TILE;
 }
 
-function runtimeTileFor(tile: number, height: number): number {
-  return isHeightlessSource(tile, height) ? TILE.Void : tile;
+function runtimeTileFor(tile: number): number {
+  return isHeightlessSource(tile) ? TILE.Void : tile;
 }
 
-function terrainKindFor(tile: number, height: number): number {
-  return isHeightlessSource(tile, height) ? TERRAIN.Void : TERRAIN.Floor;
-}
-
-function isHeightlessSource(tile: number, height: number): boolean {
-  return tile === TOPOLOGY.Uncarved || tile === TILE.Void ||
-    (tile === TILE.Floor && height >= VOID_PLATEAU_MIN_HEIGHT);
+function isHeightlessSource(tile: number): boolean {
+  return tile === TOPOLOGY.Uncarved || tile === TILE.Void;
 }
 
 function featureFor(tile: number): number {

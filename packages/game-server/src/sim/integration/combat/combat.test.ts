@@ -6,7 +6,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { GameSim } from "../../core/index.js";
-import { SWING_TICKS, findFlatArena, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "../support.js";
+import { SWING_TICKS, findFlatArena, findFlatFloor, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "../support.js";
 
 /**
  * Epic 6 regressions: melee cooldown/targeting/damage, ranged enemies,
@@ -121,7 +121,8 @@ describe("GameSim: combat", () => {
     sim.endSpawnGrace(player.playerId); // hand-placed bait, not a fresh spawn (spawnSafety.ts)
     const entity = sim.getPlayerEntity(player.playerId)!;
     teleport({ entity: entity, x: arena.x, y: arena.y, sim: sim });
-    const spitter = sim.spawnEnemy("spitter", entity.body.x + 6, entity.body.y);
+    const spitterSpot = findFlatFloor(sim, entity.body.x + 6, entity.body.y);
+    const spitter = sim.spawnEnemy("spitter", spitterSpot.x, spitterSpot.y);
 
     let snapshots = sim.step();
     const findSpitter = (state: Map<string, ServerSnapshot>) =>

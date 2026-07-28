@@ -40,10 +40,11 @@ describe("GameSim: join, spawn, and AOI", () => {
     const dev = makeSim(99, { debugCommands: true, testFixtures: true });
     const b = dev.addPlayer({ name: "B", clientId: "client-b" });
     const bEntity = dev.getPlayerEntity(b.playerId)!;
-    dev.queueAction(b.playerId, { type: "debug", op: "teleport", x: 10.5, y: 30.5 });
+    const debugTarget = snapToFloor({ sim: dev, x: 10.5, y: 30.5 });
+    dev.queueAction(b.playerId, { type: "debug", op: "teleport", ...debugTarget });
     dev.step();
-    expect(bEntity.body.x).toBeCloseTo(10.5, 3);
-    expect(bEntity.body.y).toBeCloseTo(30.5, 3);
+    expect(bEntity.body.x).toBeCloseTo(debugTarget.x, 3);
+    expect(bEntity.body.y).toBeCloseTo(debugTarget.y, 3);
     dev.queueAction(b.playerId, { type: "debug", op: "god", on: true });
     dev.step();
     dev.spawnEnemy("skeleton", bEntity.body.x + 1, bEntity.body.y);

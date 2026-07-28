@@ -29,7 +29,8 @@ function perimeterTiles(radius: number): Array<{ x: number; y: number }> {
 }
 
 function isOpenFloor(sim: SimState, tile: { x: number; y: number }): boolean {
-  return sim.world.isWalkable(tile.x, tile.y) && !sim.world.isSanctuary(tile.x, tile.y);
+  return Array.from({ length: 5 }, (_, offset) => tile.x + offset).every((x) =>
+    sim.world.isWalkable(x, tile.y) && !sim.world.isSanctuary(x, tile.y));
 }
 
 function makePlayerSlot(sim: SimState, spot: { x: number; y: number }, id = "p1"): PlayerSlot {
