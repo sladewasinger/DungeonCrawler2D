@@ -1,0 +1,56 @@
+export {
+  TERRAIN_KINDS,
+  TERRAIN_FEATURES,
+  TERRAIN_PROPS,
+  TERRAIN_HEIGHT_EPSILON,
+  TERRAIN_FLOOR_EDGE_MIN_DROP,
+  TERRAIN_CLIFFS,
+  planTerrain,
+  type TerrainBatches,
+  type TerrainFloorQuad,
+  type TerrainFeatureQuad,
+  type TerrainFeatureKind,
+  type TerrainPropQuad,
+  type TerrainPropKind,
+  type TerrainKind,
+  type TerrainPlan,
+  type TerrainPlanOptions,
+  type TerrainQuadVertices,
+  type TerrainRect,
+  type TerrainSouthFaceQuad,
+  type TerrainVoidQuad,
+  type TerrainSource,
+  type TerrainVertex,
+  type TerrainCliffEdgeQuad,
+  type TerrainCliffKind,
+  type TerrainCliffSide,
+  type TerrainQuarterTurn,
+  type TerrainAOQuad,
+  type TerrainAOMask,
+} from "./planning/terrainPlanner.js";
+
+export {
+  TERRAIN_ATLAS_COLUMNS,
+  TERRAIN_ATLAS_ROWS_PER_SET,
+  TERRAIN_TILE_ROLES,
+  TERRAIN_TILESETS,
+  terrainAtlasFrame,
+  terrainAtlasFrameName,
+  terrainFrameFor,
+  terrainTileRoleIndex,
+  type TerrainAtlasSet,
+  type TerrainAtlasFrame,
+  type TerrainTileRole,
+} from "./planning/tileset.js";
+
+export { TerrainRenderer, type TerrainRendererLike } from "./runtime/renderer.js";
+
+export {
+  TerrainAtlasBatchRenderer,
+  installTerrainAtlasFrames,
+  atlasDraws,
+  terrainMeshBatches,
+  type TerrainAtlasDraw,
+  type TerrainAtlasRenderOptions,
+  type TerrainMeshBatch,
+} from "./batch/atlasBatch.js";

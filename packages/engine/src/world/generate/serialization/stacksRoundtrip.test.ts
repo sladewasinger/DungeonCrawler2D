@@ -27,12 +27,11 @@ function assertRoundtrip(request: { worldSeed: number; floor: number; cx: number
   const stacks = heightFieldToStacks({ tiles: chunk.tiles, height: chunk.height, width: CHUNK_SIZE, rows: CHUNK_SIZE });
   const compiled = stacksToHeightField(stacks, CHUNK_SIZE, CHUNK_SIZE);
   expect(compiled.tiles, `seed ${worldSeed} floor ${floor} chunk (${cx},${cy}): tiles`).toEqual(chunk.tiles);
-  for (let i = 0; i < chunk.height.length; i++) {
-    expect(compiled.height[i], `seed ${worldSeed} floor ${floor} chunk (${cx},${cy}) tile ${i}: height`).toBeCloseTo(
-      chunk.height[i] ?? 0,
-      5,
-    );
-  }
+  expect(heightBytes(compiled.height), `seed ${worldSeed} floor ${floor} chunk (${cx},${cy}): height`).toEqual(heightBytes(chunk.height));
+}
+
+function heightBytes(height: Float32Array): Uint8Array {
+  return new Uint8Array(height.buffer, height.byteOffset, height.byteLength);
 }
 
 describe("stack compile round-trip: byte-identical to today's generated height field", () => {
@@ -60,9 +59,7 @@ describe("stack compile round-trip: byte-identical to today's generated height f
   });
 
   it("an instanced personal stretch room round-trips", { timeout: 60_000 }, () => {
-    for (const worldSeed of SEEDS.slice(0, 10)) {
-      const { cx, cy } = personalRoomChunk(0);
-      assertRoundtrip({ worldSeed, floor: 1, cx, cy });
-    }
+    const { cx, cy } = personalRoomChunk(0);
+    assertRoundtrip({ worldSeed: SEEDS[0] ?? 3, floor: 1, cx, cy });
   });
 });

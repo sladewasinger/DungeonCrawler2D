@@ -1,14 +1,14 @@
 import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import { depthForEntity } from "../../render/entities/presentation/depthSort.js";
-import { Terrain4Renderer } from "../../render/terrain4/index.js";
-import { TERRAIN4_CAMERA_BACKGROUND } from "../../render/terrain4/runtime/terrain4RenderSupport.js";
+import { TerrainRenderer } from "../../render/terrain/index.js";
+import { TERRAIN_CAMERA_BACKGROUND } from "../../render/terrain/runtime/renderSupport.js";
 import { getViewOrientation } from "../../render/view/transform/viewState.js";
 import { viewTileToWorld, worldToView } from "../../render/view/transform/viewTransform.js";
 import { EDITOR_GRID_SIZE, EditorTerrainWorld, type EditorPoint } from "./EditorTerrainWorld.js";
 
 interface EditorSceneState {
-  readonly terrain: Terrain4Renderer;
+  readonly terrain: TerrainRenderer;
   readonly world: EditorTerrainWorld;
 }
 
@@ -27,7 +27,7 @@ export class EditorScene extends Phaser.Scene {
 
   create(): void {
     const world = new EditorTerrainWorld();
-    const terrain = new Terrain4Renderer(this, world);
+    const terrain = new TerrainRenderer(this, world);
     this.state = { terrain, world };
     this.configureCamera();
     this.createDummy();
@@ -58,7 +58,7 @@ export class EditorScene extends Phaser.Scene {
     const center = worldToView({ x: EDITOR_GRID_SIZE / 2, y: EDITOR_GRID_SIZE / 2 }, getViewOrientation());
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.centerOn(center.x * SCREEN_TILE_PX, center.y * SCREEN_TILE_PX);
-    this.cameras.main.setBackgroundColor(TERRAIN4_CAMERA_BACKGROUND);
+    this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND);
   }
 
   private createDummy(): void {
@@ -124,7 +124,7 @@ export class EditorScene extends Phaser.Scene {
     this.stairMarker?.setVisible(false);
   }
 
-  private disposeEditor(terrain: Terrain4Renderer): void {
+  private disposeEditor(terrain: TerrainRenderer): void {
     terrain.dispose();
     document.getElementById("editor-stairs")?.removeEventListener("click", this.onStairsClick);
     document.getElementById("editor-reset")?.removeEventListener("click", this.onResetClick);

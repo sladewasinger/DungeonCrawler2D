@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { EntityRenderer, type RenderContext } from "../../render/entities/geometry/index.js";
-import { Terrain4Renderer } from "../../render/terrain4/index.js";
+import { TerrainRenderer } from "../../render/terrain/index.js";
 import { setViewOrientation } from "../../render/view/transform/viewState.js";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
 import {
@@ -41,7 +41,7 @@ const HELP_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
 export class CharacterVfxTestbench extends Phaser.Scene {
   private readonly world = new CharacterVfxBenchWorld();
   private entityRenderer!: EntityRenderer;
-  private terrain!: Terrain4Renderer;
+  private terrain!: TerrainRenderer;
   private actors: CharacterVfxActor[] = [];
   private physicsAccumulatorMs = 0;
   private cameraKeys!: CameraKeys;
@@ -58,7 +58,7 @@ export class CharacterVfxTestbench extends Phaser.Scene {
     this.game.canvas.tabIndex = -1;
     this.game.canvas.focus({ preventScroll: true });
     this.entityRenderer = new EntityRenderer(this);
-    this.terrain = new Terrain4Renderer(this, this.world);
+    this.terrain = new TerrainRenderer(this, this.world);
     this.cameras.main.setBackgroundColor(BACKGROUND);
     this.cameras.main.setZoom(BENCH_ZOOM);
     this.cameras.main.setRoundPixels(true);

@@ -1,5 +1,5 @@
 import { LEVEL, TILE, World, type TerrainType, type TileType, type WorldView } from "@dc2d/engine";
-import type { Terrain4World } from "../../render/terrain4/runtime/terrain4World.js";
+import type { TerrainWorld } from "../../render/terrain/runtime/world.js";
 
 export const CHARACTER_VFX_ROOM = {
   left: 1,
@@ -14,7 +14,7 @@ const ROOM_RIGHT = CHARACTER_VFX_ROOM.left + CHARACTER_VFX_ROOM.width;
 const ROOM_BOTTOM = CHARACTER_VFX_ROOM.top + CHARACTER_VFX_ROOM.height;
 
 /** Real sandbox World with a deterministic flat tile carve for the VFX stage. */
-export class CharacterVfxBenchWorld implements Terrain4World, WorldView {
+export class CharacterVfxBenchWorld implements TerrainWorld, WorldView {
   private readonly sandbox = new World(SANDBOX_SEED, SANDBOX_FLOOR, LEVEL.Sandbox);
 
   constructor() {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { snapshotOf, source } from "./hudSnapshot.test.js";
+import { snapshotOf, source } from "./hudSnapshot.testSupport.js";
 
 describe("buildHudSnapshot inventory and progression", () => {
   it("builds inventory rows with hotbar bindings", () => {

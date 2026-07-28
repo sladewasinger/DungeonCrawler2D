@@ -5,7 +5,7 @@ import type { Connection } from "../../../net/connection/connection.js";
 import type { HudFakeSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { VfxSystem } from "../../../vfx/system/index.js";
 import type { World } from "@dc2d/engine";
-import { Terrain4Renderer, type TerrainRendererLike } from "../../../render/terrain4/index.js";
+import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terrain/index.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
 import { requestCameraSnap, stepCameraFollow } from "../camera/cameraFollow.js";
 import type { RenderPose } from "./state.js";
@@ -76,7 +76,7 @@ export function replaceDungeonWorldSystems(request: ReplaceWorldSystemsRequest):
   const { scene, current, terrain, lighting, world } = request;
   if (current === world) return undefined;
   terrain?.dispose(); lighting?.dispose();
-  return { terrain: new Terrain4Renderer(scene, world), lighting: new LightingSystem(scene, world) };
+  return { terrain: new TerrainRenderer(scene, world), lighting: new LightingSystem(scene, world) };
 }
 
 interface AdvanceRotationRequest { readonly rotation: RotationController; readonly terrain: TerrainRendererLike | undefined; readonly lighting: LightingSystem | undefined; readonly state: DungeonSceneState; readonly deltaMs: number; }

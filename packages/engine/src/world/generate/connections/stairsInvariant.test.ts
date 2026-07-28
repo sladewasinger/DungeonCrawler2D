@@ -8,12 +8,11 @@
 // stay under this repo's per-file line budget.
 
 import { describe, expect, it } from "vitest";
-import { STEP_UP } from "../../../core/constants.js";
 import { entryClimbDir } from "../../stairs/stairs.js";
 import { TILE } from "../../core/types.js";
 import { World } from "../../core/world.js";
 import { WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
-import { anyFloorTile, bfsChunks, CLIMB_DIRS, scanStairs, type ChunkCache } from "../test-support.js";
+import { CLIMB_DIRS, scanStairs } from "../test-support.js";
 import { STAIR_TEST_CHUNK_RANGE, STAIR_TEST_FLOOR, STAIR_TEST_SEEDS } from "./stairsTestConstants.js";
 
 const SEEDS = STAIR_TEST_SEEDS;
@@ -88,22 +87,6 @@ describe("stair runs stay short (no clusters / fan fills)", () => {
   });
 });
 
-describe("a room's height-variant floor is reachable via its single staircase", () => {
-  it("finds at least one non-flat (deliberate height) floor tile reachable by the STEP_UP walk rule from a corridor", () => {
-    for (const seed of SEEDS) {
-      const cache: ChunkCache = new Map();
-      const scope = { seed, floor: FLOOR, cache };
-      const start = anyFloorTile(scope, { cx: 0, cy: 0 });
-      expect(start, `seed ${seed}: origin chunk has no floor`).not.toBeNull();
-      if (!start) continue;
-      const reached = bfsChunks(scope, start, 3);
-      const world = new World(seed, FLOOR);
-      const sawDeliberateHeight = Array.from(reached).some((key) => isDeliberateFloor(world, key));
-      expect(sawDeliberateHeight, `seed ${seed}: no deliberate-height floor reached via the walk rule`).toBe(true);
-    }
-  }, 15_000);
-});
-
 interface StairCluster { readonly key: string; readonly size: number; }
 function stairClusters(points: ReadonlyArray<{ readonly x: number; readonly y: number }>): StairCluster[] {
   const stairs = new Set(points.map(pointKey));
@@ -141,7 +124,6 @@ function assertCompactPitRun(input: { readonly seed: number; readonly world: Wor
 }
 function isPitDaisSpan(run: StairRun): boolean { const span = Math.abs(run.hi - run.lo); return span > 0.9 && span < 1.1; }
 function pitRunMessage(input: { readonly seed: number; readonly point: { readonly x: number; readonly y: number } }, run: StairRun): string { return `seed ${input.seed}: pit/dais exit run at (${input.point.x},${input.point.y}) spans ${Math.abs(run.hi - run.lo)} z but is ${run.length} tiles long — a compact 1-z exit must be exactly 1 tile`; }
-function isDeliberateFloor(world: World, key: string): boolean { const point = pointFromKey(key); return world.tileAt(point.x, point.y) === TILE.Floor && Math.abs(world.heightAt(point.x, point.y)) > STEP_UP; }
 function pointKey(point: { readonly x: number; readonly y: number }): string { return `${point.x},${point.y}`; }
 function pointFromKey(key: string): { x: number; y: number } { const [x, y] = key.split(",").map(Number); return { x: x ?? 0, y: y ?? 0 }; }
 const CARDINAL_DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;

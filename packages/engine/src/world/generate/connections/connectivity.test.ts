@@ -3,7 +3,9 @@
 // now also carrying avenue-widened seams at district boundaries.
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../../core/rng.js";
-import { anyFloorTile, bfsChunks, keyInChunk, type ChunkCache } from "../test-support.js";
+import { GENERATION_CHUNK_SIZE, WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
+import { edgeAnchors, type EdgeAnchor } from "../layout/edges.js";
+import { reachesNeighborChunk, type ChunkCache, type WorldPoint } from "../test-support.js";
 
 const FLOOR = 1;
 const SEEDS = [
@@ -13,40 +15,38 @@ const SEEDS = [
   hashString("s4"),
   hashString("s5"),
 ];
-const SEAMS = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
-
 describe("cross-chunk connectivity", () => {
   it("holds at all four seams of the origin chunk, for 5 seeds", () => {
     for (const seed of SEEDS) {
       const cache: ChunkCache = new Map();
       const scope = { seed, floor: FLOOR, cache };
-      const start = anyFloorTile(scope, { cx: 0, cy: 0 });
-      expect(start, `seed ${seed}: origin chunk has no floor`).not.toBeNull();
-      if (!start) continue;
-      const reached = bfsChunks(scope, start, 1);
-      for (const [cx, cy] of SEAMS) {
-        const touchesNeighbor = Array.from(reached).some((key) => keyInChunk(key, { cx, cy }));
-        expect(touchesNeighbor, `seed ${seed}: seam to chunk ${cx},${cy} unreachable`).toBe(true);
+      for (const anchor of edgeAnchors({ seed, cx: 0, cy: 0, chunkSize: GENERATION_CHUNK_SIZE })) {
+        const start = scaledAnchor(anchor);
+        expect(reachesNeighborChunk(scope, start), `seed ${seed}: ${anchorName(anchor)} anchor is isolated`).toBe(true);
       }
     }
   });
 
-  it("holds across a wider region, including super-chunk (district/avenue) seams", () => {
+  it("keeps the widened avenue seam connected", () => {
     const seed = SEEDS[0] as number;
     const cache: ChunkCache = new Map();
     const scope = { seed, floor: FLOOR, cache };
-    const start = anyFloorTile(scope, { cx: 0, cy: 0 });
-    expect(start).not.toBeNull();
-    if (!start) return;
-    const reached = bfsChunks(scope, start, 4);
-    // Chunks (3,0) and (4,0) straddle a super-chunk boundary (SUPERCHUNK_SIZE
-    // = 3): an avenue seam. Both sides must be reachable from the origin.
-    expect(Array.from(reached).some((key) => keyInChunk(key, { cx: 3, cy: 0 }))).toBe(true);
-    expect(Array.from(reached).some((key) => keyInChunk(key, { cx: 4, cy: 0 }))).toBe(true);
+    const eastAnchor = edgeAnchors({ seed, cx: 2, cy: 0, chunkSize: GENERATION_CHUNK_SIZE })
+      .find((anchor) => anchor.side === 1);
+    expect(eastAnchor).toBeDefined();
+    if (!eastAnchor) return;
+    expect(eastAnchor.width).toBeGreaterThan(3);
+    expect(reachesNeighborChunk(scope, scaledAnchor(eastAnchor))).toBe(true);
   });
 });
+
+function scaledAnchor(anchor: EdgeAnchor): WorldPoint {
+  return {
+    x: anchor.point.x * WORLD_GEOMETRY_SCALE,
+    y: anchor.point.y * WORLD_GEOMETRY_SCALE,
+  };
+}
+
+function anchorName(anchor: EdgeAnchor): string {
+  return ["north", "east", "south", "west"][anchor.side] ?? "unknown";
+}

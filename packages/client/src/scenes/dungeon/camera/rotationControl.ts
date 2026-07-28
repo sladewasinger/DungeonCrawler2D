@@ -1,10 +1,10 @@
 /**
  * Drives the live cardinal camera rotation: owns the rotationTween state machine and
- * flips the settled ViewState at the midpoint. Terrain4Renderer prewarms the destination
+ * flips the settled ViewState at the midpoint. TerrainRenderer prewarms the destination
  * root before this swap, so the old root stays visible until the new one is complete.
  * A short cosmetic camera lean covers the atomic swap without a blank or flashing frame.
  * Phaser-free by design (like every render/view/* module) — DungeonScene wires it to a
- * real camera and to Terrain4Renderer/LightingSystem's invalidation hooks.
+ * real camera and to TerrainRenderer/LightingSystem's invalidation hooks.
  */
 import {
   advanceRotationTween,
@@ -64,7 +64,7 @@ export class RotationController {
   /**
    * Advances the tween by `dtMs`; `invalidate` fires exactly once when progress crosses
    * the midpoint, flipping the seam's settled orientation and refreshing lighting. The
-   * terrain callback is renderer-agnostic; Terrain4's destination root is already
+   * terrain callback is renderer-agnostic; Terrain's destination root is already
    * prepared by the key binding.
    */
   update(dtMs: number, invalidate: () => void): void {

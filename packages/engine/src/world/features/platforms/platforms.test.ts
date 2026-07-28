@@ -127,7 +127,9 @@ describe("ruin platform clusters", () => {
   });
 
   it("never raises the corridor itself (connectivity guarantee)", () => {
-    for (const chunk of findClusterChunks(4)) {
+    const chunks = findClusterChunks(4);
+    expect(chunks.length).toBeGreaterThan(0);
+    for (const chunk of chunks) {
       const { height } = buildClusterChunk(chunk);
       corridorHeightIsSmooth(height, chunk);
     }

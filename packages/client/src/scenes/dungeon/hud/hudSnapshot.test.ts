@@ -1,65 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { ChatPanelModel } from "../../../ui/chat/controller.js";
-import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
-
-export function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotSource {
-  return {
-    playerId: "self",
-    hp: 20,
-    maxHp: 30,
-    stamina: 100,
-    maxStamina: 100,
-    blocking: false,
-    staminaExhausted: false,
-    xp: 0,
-    level: 1,
-    xpForNext: 100,
-    hotbar: [null, null, null, null, null, null, null, null, null],
-    inventory: [],
-    weapon: null,
-    fx: [],
-    statusEffects: [],
-    pingMs: 40,
-    connected: true,
-    reconnecting: false,
-    reconnectAttempts: 0,
-    downed: false,
-    dead: false,
-    party: null,
-    craftTableNearby: false,
-    stashNearby: false,
-    stash: null,
-    lastToast: null,
-    toasts: [],
-    seedInputText: null,
-    floor: 1,
-    boss: null,
-    ...overrides,
-  };
-}
-
-/** Neutral fps/bodyPos/chat/contacts args for tests that don't care about those fields. */
-const FPS = 60;
-const BODY_POS = { x: 0, y: 0, z: 0 };
-const CHAT_MODEL: ChatPanelModel = { tabs: [], lines: [] };
-const CONTACTS: never[] = [];
-const COMPASS = 0;
-const STAIRWAY = null;
-
-interface SnapshotTestOptions {
-  readonly selectedSlot?: number | null;
-  readonly fps?: number;
-  readonly bodyPos?: typeof BODY_POS;
-}
-
-export function snapshotOf(src: HudSnapshotSource, options: SnapshotTestOptions = {}) {
-  const { selectedSlot = null, fps = FPS, bodyPos = BODY_POS } = options;
-  return buildHudSnapshot({
-    src, selectedHotbarSlot: selectedSlot, armedThrowableSlot: null, interactionPrompt: null,
-    touch: null, fps, bodyPos, chatModel: CHAT_MODEL, contacts: CONTACTS,
-    compassBearingDeg: COMPASS, stairway: STAIRWAY,
-  });
-}
+import { buildHudSnapshot } from "./hudSnapshot.js";
+import {
+  BODY_POS,
+  CHAT_MODEL,
+  COMPASS,
+  CONTACTS,
+  FPS,
+  snapshotOf,
+  source,
+  STAIRWAY,
+} from "./hudSnapshot.testSupport.js";
 
 describe("buildHudSnapshot", () => {
   it("maps health/ping/connection straight through", () => {

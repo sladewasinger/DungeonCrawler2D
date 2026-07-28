@@ -23,6 +23,7 @@ import { resolveDeaths } from "../combat/deaths.js";
 import { spawnEnemy } from "../core/helpers.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { PlayerStore } from "../../store.js";
+import { findWorldPoint } from "../combat/chasmTestSupport.js";
 import { activateChunksNearPlayers, stepEnemies } from "./index.js";
 
 /**
@@ -102,21 +103,7 @@ function assertNoEnemyInVoid(sim: SimState, label: string): void {
 /** Any explicit void tile at or below chasm depth, scanning outward from the
  * origin (mirrors sim/chasmDeath.test.ts's findChasmFloor). */
 function findChasmFloor(world: World): { x: number; y: number } | null {
-  return chunkCoordinates().flatMap((chunk) => tilesInChunk(chunk)).find((tile) => world.tileAt(tile.x, tile.y) === TILE.Void) ?? null;
-}
-
-function chunkCoordinates(): Array<{ x: number; y: number }> {
-  return Array.from({ length: 49 * 49 }, (_, index) => ({
-    x: Math.floor(index / 49) - 24,
-    y: index % 49 - 24,
-  }));
-}
-
-function tilesInChunk(chunk: { x: number; y: number }): Array<{ x: number; y: number }> {
-  return Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, (_, index) => ({
-    x: chunk.x * CHUNK_SIZE + index % CHUNK_SIZE,
-    y: chunk.y * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE),
-  }));
+  return findWorldPoint({ world, predicate: ({ tile }) => tile === TILE.Void });
 }
 
 describe("enemy void safety: population placement (multi-seed sweep)", () => {
@@ -160,6 +147,14 @@ describe("enemy void safety: a ranged enemy locked into shooting still dies in a
     const spitter = spawnEnemy(sim, { defId: "spitter", x: rift.x + 0.5, y: rift.y + 0.5 });
     spitter.body.z = sim.world.heightAt(rift.x, rift.y);
     spitter.body.grounded = true;
+    const spitterSlot = sim.enemies.get(spitter.id);
+    expect(spitterSlot).toBeDefined();
+    if (!spitterSlot) return;
+    spitterSlot.animation = {
+      state: "windup",
+      ticksRemaining: 5,
+      target: { targetId: scout.entity.id, x: scout.entity.body.x, y: scout.entity.body.y, z: scout.entity.body.z },
+    };
 
     stepEnemies(sim, []);
     resolveDeaths(sim);

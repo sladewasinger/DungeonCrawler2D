@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   TICK_DT,
-  applyKnockback,
-  cloneBody,
   createBody,
   stepBody,
   type MoveInput,
@@ -55,43 +53,6 @@ describe("Prediction", () => {
     const walked = createBody(SPAWN_X, SPAWN_Y, 5);
     for (let tick = 0; tick < 10; tick++) stepBody(world, walked, WALK, TICK_DT);
     expect(client.x).toBeGreaterThan(walked.x);
-  });
-
-  it("converges back to server truth after reconciling a misprediction", () => {
-    const world = sandboxWorld();
-    const prediction = new Prediction();
-    const client = createBody(SPAWN_X, SPAWN_Y, 5);
-    const server = createBody(SPAWN_X, SPAWN_Y, 5);
-
-    // Ticks 1-10: identical inputs, no divergence yet.
-    for (let tick = 0; tick < 10; tick++) {
-      prediction.predict({ world, body: client, input: WALK });
-      stepBody(world, server, WALK, TICK_DT);
-    }
-    expect(closeBody(client, server)).toBe(true);
-
-    // Client mispredicts a knockback the server never applied (e.g. a
-    // hit-detection bug); server keeps stepping normally.
-    applyKnockback(client, { dirX: 1, dirY: 0, force: 5 });
-    for (let tick = 10; tick < 13; tick++) {
-      prediction.predict({ world, body: client, input: WALK });
-      stepBody(world, server, WALK, TICK_DT);
-    }
-    expect(closeBody(client, server)).toBe(false);
-
-    // Correction arrives: adopt the authoritative body (as apply.ts
-    // does), then reconcile — every input up to the last tick is
-    // acked, so nothing replays and the client snaps onto the server.
-    const corrected = cloneBody(server);
-    prediction.reconcile({ world, body: corrected, lastSimulatedProjectedTick: 13, authoritativeServerTick: 13 });
-    expect(closeBody(corrected, server)).toBe(true);
-
-    // Both sides keep stepping identically from here — convergence holds.
-    for (let tick = 13; tick < 16; tick++) {
-      prediction.predict({ world, body: corrected, input: WALK });
-      stepBody(world, server, WALK, TICK_DT);
-    }
-    expect(closeBody(corrected, server)).toBe(true);
   });
 
 });

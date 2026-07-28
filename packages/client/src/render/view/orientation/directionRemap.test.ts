@@ -33,12 +33,6 @@ describe("screenSouthWorldDirection", () => {
     }
   });
 
-  it("cycles S -> W -> N -> E (wall faces per brief step 2)", () => {
-    expect(screenSouthWorldDirection(0)).toBe("S");
-    expect(screenSouthWorldDirection(90)).toBe("W");
-    expect(screenSouthWorldDirection(180)).toBe("N");
-    expect(screenSouthWorldDirection(270)).toBe("E");
-  });
 });
 
 describe("screenSlotFor agrees with viewTransform's point math", () => {

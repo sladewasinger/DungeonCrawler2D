@@ -5,7 +5,7 @@ import type { Connection } from "../../../net/connection/connection.js";
 import type { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import type { LightSource } from "../../../render/lighting/core/lightSource.js";
 import type { LightingSystem } from "../../../render/lighting/index.js";
-import type { TerrainRendererLike } from "../../../render/terrain4/index.js";
+import type { TerrainRendererLike } from "../../../render/terrain/index.js";
 import { worldToScreen } from "../../../render/entities/geometry/worldToScreen.js";
 import type { VfxSystem } from "../../../vfx/system/index.js";
 import { collectExpiredSwingsInto } from "../../../vfx/combat/meleeConnect.js";

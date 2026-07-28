@@ -7,7 +7,7 @@
 // no-behavior-change plumbing exercise across ~15 files (ASSUMPTIONS.md logs this as a
 // deliberate call). The pure render/view/* math modules (viewTransform, directionRemap,
 // viewDepth, rotationTween) never read this — they stay parameter-only and independently
-// unit-testable; only Phaser-facing glue (worldToScreen, Terrain4Renderer, LightingSystem)
+// unit-testable; only Phaser-facing glue (worldToScreen, TerrainRenderer, LightingSystem)
 // touches it.
 import { normalizeOrientation, type ViewOrientation } from "../orientation/viewOrientation.js";
 

@@ -28,7 +28,7 @@ import { blanketSpawnNeighborhood, openFloorNear } from "./testSupport.js";
  * Spawn-safety CLEARANCE (panel round 3b blocker #1): no living hostile
  * within SPAWN_CLEARANCE_RADIUS of the entry/respawn tile at control
  * handoff. Grace-window coverage lives in spawnGrace.test.ts; the
- * multi-seed sweep in spawnSafety.fuzz.test.ts.
+ * multi-seed sweep in spawnSafety.seedSweep.test.ts.
  */
 
 const content: ContentRegistry = buildContentRegistry({

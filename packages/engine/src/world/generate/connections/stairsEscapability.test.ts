@@ -162,9 +162,11 @@ describe("no walkable stair's low anchor sits at or below CHASM_DEATH_Z", () => 
   for (const seed of SEEDS) {
     it(`holds for seed ${seed}`, () => {
       const world = new World(seed, FLOOR);
+      let checked = 0;
       for (const { x, y } of scanStairs({ seed, floor: FLOOR, chunkRange: CHUNK_RANGE })) {
         const dir = entryClimbDir(world, x, y);
         if (dir === null) continue;
+        checked++;
         const [dx, dy] = CLIMB_DIRS[dir] as [number, number];
         const low = world.heightAt(x - dx, y - dy);
         expect(
@@ -173,6 +175,7 @@ describe("no walkable stair's low anchor sits at or below CHASM_DEATH_Z", () => 
             `(${CHASM_DEATH_Z}) — a body gliding down it would die partway instead of escaping`,
         ).toBeGreaterThan(CHASM_DEATH_Z);
       }
+      expect(checked, `seed ${seed}: no climbable stairs found`).toBeGreaterThan(0);
     });
   }
 });

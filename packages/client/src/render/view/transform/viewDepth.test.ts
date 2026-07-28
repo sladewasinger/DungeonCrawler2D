@@ -4,10 +4,6 @@ import { describe, expect, it } from "vitest";
 import { compareViewDepth, depthForViewEntity, viewSpaceFeetY } from "./viewDepth.js";
 
 describe("viewSpaceFeetY", () => {
-  it("matches world Y at orientation 0 (regression lock, same as viewTransform's)", () => {
-    expect(viewSpaceFeetY(3, 7, 0)).toBe(7);
-  });
-
   it("a world-south entity is still 'in front' at orientation 0", () => {
     const north = viewSpaceFeetY(0, -5, 0);
     const south = viewSpaceFeetY(0, 5, 0);

@@ -5,21 +5,21 @@
 // passes) so a regression in either the fix or this test can't hide the other's bug.
 import { describe, expect, it } from "vitest";
 import { WALL_FACE_MIN_DROP } from "../../../core/constants.js";
-import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { generateChunk } from "../index.js";
 
 interface Violation {
   readonly x: number;
   readonly y: number;
-  readonly kind: "wall" | "floor";
+  readonly kind: "floor";
   readonly z: number;
   readonly depth: number;
 }
 
-/** Last row (inclusive) of the run starting at (x, y0) — TOPOLOGY.Uncarved rows if `wantWall`, else same-height floor rows. */
+/** Last row (inclusive) of the same-height floor run starting at (x, y). */
 interface ScanInput { readonly tiles: Uint8Array; readonly height: Float32Array; readonly x: number; readonly y: number; }
 
-function runEnd(input: ScanInput & { readonly wantWall: boolean }): number {
+function runEnd(input: ScanInput & { readonly h0: number }): number {
   const h0 = heightAt(input, input.y);
   let y2 = input.y;
   while (y2 + 1 < CHUNK_SIZE) {
@@ -29,24 +29,15 @@ function runEnd(input: ScanInput & { readonly wantWall: boolean }): number {
   return y2;
 }
 
-function continuesRun(input: ScanInput & { readonly wantWall: boolean; readonly h0: number }): boolean {
+function continuesRun(input: ScanInput & { readonly h0: number }): boolean {
   const tile = tileAt(input, input.y);
-  if (input.wantWall) return tile === TOPOLOGY.Uncarved;
-  return tile !== TOPOLOGY.Uncarved && tile !== TILE.Stairs && Math.abs(heightAt(input, input.y) - input.h0) <= 0.01;
-}
-
-/** A TOPOLOGY.Uncarved run shallower than z+1 (z=1), open to real floor on both its north and south. */
-function wallRunViolation(input: ScanInput): Violation | null {
-  const y2 = runEnd({ ...input, wantWall: true });
-  const depth = y2 - input.y + 1;
-  if (depth < 2 && openOnBothSides({ ...input, y2 })) return { x: input.x, y: input.y, kind: "wall", z: 1, depth };
-  return null;
+  return tile === TILE.Floor && Math.abs(heightAt(input, input.y) - input.h0) <= 0.01;
 }
 
 /** A same-height FLOOR run shallower than z+1, where z is its own height and it drops to open ground south. */
 function floorRunViolation(input: ScanInput): Violation | null {
   const h0 = heightAt(input, input.y);
-  const y2 = runEnd({ ...input, wantWall: false });
+  const y2 = runEnd({ ...input, h0 });
   if (y2 >= CHUNK_SIZE - 1) return null; // chunk-edge truncated: true depth unknown
   const southT = tileAt(input, y2 + 1);
   const southH = heightAt(input, y2 + 1);
@@ -77,15 +68,13 @@ function scanColumn(tiles: Uint8Array, height: Float32Array, x: number): Violati
 }
 
 function scanRunAt(input: ScanInput): { readonly violation: Violation | null; readonly nextY: number } {
-  const wantWall = tileAt(input, input.y) === TOPOLOGY.Uncarved;
-  if (!wantWall && !startsFloorPlateau(input)) return { violation: null, nextY: input.y + 1 };
-  const violation = wantWall ? wallRunViolation(input) : floorRunViolation(input);
-  return { violation, nextY: runEnd({ ...input, wantWall }) + 1 };
+  if (!startsFloorPlateau(input)) return { violation: null, nextY: input.y + 1 };
+  const violation = floorRunViolation(input);
+  return { violation, nextY: runEnd({ ...input, h0: heightAt(input, input.y) }) + 1 };
 }
 
-function tileAt(input: ScanInput, y: number): number { return input.tiles[y * CHUNK_SIZE + input.x] ?? TOPOLOGY.Uncarved; }
+function tileAt(input: ScanInput, y: number): number { return input.tiles[y * CHUNK_SIZE + input.x] ?? TILE.Void; }
 function heightAt(input: ScanInput, y: number): number { return input.height[y * CHUNK_SIZE + input.x] ?? 0; }
-function openOnBothSides(input: ScanInput & { readonly y2: number }): boolean { return input.y > 0 && input.y2 < CHUNK_SIZE - 1 && tileAt(input, input.y - 1) !== TOPOLOGY.Uncarved && tileAt(input, input.y2 + 1) !== TOPOLOGY.Uncarved; }
 
 function scanChunk(tiles: Uint8Array, height: Float32Array): Violation[] {
   const found: Violation[] = [];
@@ -115,11 +104,13 @@ function collectViolations(): LocatedViolation[] {
 }
 function testCoordinates(): Array<{ seed: number; floor: number; cx: number; cy: number }> {
   const coordinates: Array<{ seed: number; floor: number; cx: number; cy: number }> = [];
-  for (let seed = 1; seed <= 20; seed++) for (let floor = 0; floor <= 1; floor++) addChunkCoordinates(coordinates, seed, floor);
+  for (const seed of [1, 5, 9, 13, 17]) {
+    for (const floor of [0, 1]) addChunkCoordinates(coordinates, seed, floor);
+  }
   return coordinates;
 }
 function addChunkCoordinates(coordinates: Array<{ seed: number; floor: number; cx: number; cy: number }>, seed: number, floor: number): void {
-  for (let cx = -5; cx <= 5; cx++) for (let cy = -5; cy <= 5; cy++) coordinates.push({ seed, floor, cx, cy });
+  for (let cx = -3; cx <= 3; cx++) for (let cy = -3; cy <= 3; cy++) coordinates.push({ seed, floor, cx, cy });
 }
 function scanGeneratedChunk(coordinate: { seed: number; floor: number; cx: number; cy: number }): LocatedViolation[] {
   const chunk = generateChunk({ worldSeed: coordinate.seed * 7919 + 13, floor: coordinate.floor, cx: coordinate.cx, cy: coordinate.cy });

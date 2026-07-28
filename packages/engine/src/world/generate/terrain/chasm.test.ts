@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { CHASM_DEATH_Z, TICK_DT } from "../../../core/constants.js";
 import { hashString } from "../../../core/rng.js";
 import { createBody, stepBody } from "../../../entities/movement/index.js";
-import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { generateChunk } from "../index.js";
 import { floodFromBorder } from "../test-support.js";
 import { World } from "../../core/world.js";
@@ -49,32 +49,17 @@ function findWalkableVoidEdge(world: World, range: number): {
   return direction ? { floor, direction } : null;
 }
 
-function chasmContents(chunk: ReturnType<typeof generateChunk>): { sawVoid: boolean; sawBridge: boolean } {
-  return Array.from(chunk.tiles).reduce<{ sawVoid: boolean; sawBridge: boolean }>((found, tile, index) => ({
-    sawVoid: found.sawVoid || tile === TILE.Void,
-    sawBridge: found.sawBridge || (tile === TILE.Floor && Math.abs(chunk.height[index] ?? 0) < 1e-6),
-  }), { sawVoid: false, sawBridge: false });
-}
-
 describe("chasm rifts", () => {
-  it("appear somewhere in a wide region with no lowered wall shell", () => {
-    const found = findChasmChunk(24);
-    expect(found, "no chasm room found in scan range").not.toBeNull();
-    if (!found) return;
-    const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: found.cx, cy: found.cy });
-    expect(Array.from(chunk.tiles)).not.toContain(TOPOLOGY.Uncarved);
-  });
-
   it("a chasm room carries a guaranteed flat (height 0) bridge across its depth", () => {
     const found = findChasmChunk(24);
     expect(found).not.toBeNull();
     if (!found) return;
     const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: found.cx, cy: found.cy });
 
-    const { sawVoid, sawBridge } = chasmContents(chunk);
+    const sawVoid = Array.from(chunk.tiles).some((tile) => tile === TILE.Void);
     for (const [index, tile] of Array.from(chunk.tiles).entries()) if (tile === TILE.Void) expect(chunk.height[index]).toBe(0);
     expect(sawVoid).toBe(true);
-    expect(sawBridge).toBe(true);
+    expect(hasFlatBridge(chunk)).toBe(true);
   });
 
   it("stays fully connected (no orphan pocket at the pit's edge)", () => {
@@ -102,6 +87,62 @@ describe("chasm rifts", () => {
         jump: tick === 0,
       }, TICK_DT);
     }
-    expect(world.heightAt(Math.floor(body.x), Math.floor(body.y))).toBeGreaterThan(CHASM_DEATH_Z);
+    const bodyTile = { x: Math.floor(body.x), y: Math.floor(body.y) };
+    expect(world.tileAt(bodyTile.x, bodyTile.y)).not.toBe(TILE.Void);
+    expect(world.isWalkable(bodyTile.x, bodyTile.y)).toBe(true);
   }, 15_000);
 });
+
+function hasFlatBridge(chunk: ReturnType<typeof generateChunk>): boolean {
+  return hasHorizontalBridge(chunk) || hasVerticalBridge(chunk);
+}
+
+function hasHorizontalBridge(chunk: ReturnType<typeof generateChunk>): boolean {
+  for (let y = 1; y < CHUNK_SIZE - 1; y++) {
+    if (hasEnclosedFlatRun({ chunk, fixed: y, vertical: false })) return true;
+  }
+  return false;
+}
+
+function hasVerticalBridge(chunk: ReturnType<typeof generateChunk>): boolean {
+  for (let x = 1; x < CHUNK_SIZE - 1; x++) {
+    if (hasEnclosedFlatRun({ chunk, fixed: x, vertical: true })) return true;
+  }
+  return false;
+}
+
+interface BridgeScan {
+  readonly chunk: ReturnType<typeof generateChunk>;
+  readonly fixed: number;
+  readonly vertical: boolean;
+}
+
+function hasEnclosedFlatRun(input: BridgeScan): boolean {
+  for (let variable = 1; variable < CHUNK_SIZE - 1; variable++) {
+    if (!isFlatFloor(input, variable)) continue;
+    const end = flatRunEnd(input, variable);
+    if (isEnclosedLongRun(input, variable, end)) return true;
+    variable = end;
+  }
+  return false;
+}
+
+function isEnclosedLongRun(input: BridgeScan, start: number, end: number): boolean {
+  return end - start + 1 >= 4 && isVoid(input, start - 1) && isVoid(input, end + 1);
+}
+
+function flatRunEnd(input: BridgeScan, start: number): number {
+  let end = start;
+  while (end + 1 < CHUNK_SIZE && isFlatFloor(input, end + 1)) end++;
+  return end;
+}
+
+function isFlatFloor(input: BridgeScan, variable: number): boolean {
+  const index = input.vertical ? variable * CHUNK_SIZE + input.fixed : input.fixed * CHUNK_SIZE + variable;
+  return input.chunk.tiles[index] === TILE.Floor && Math.abs(input.chunk.height[index] ?? 0) <= 1e-6;
+}
+
+function isVoid(input: BridgeScan, variable: number): boolean {
+  const index = input.vertical ? variable * CHUNK_SIZE + input.fixed : input.fixed * CHUNK_SIZE + variable;
+  return input.chunk.tiles[index] === TILE.Void;
+}

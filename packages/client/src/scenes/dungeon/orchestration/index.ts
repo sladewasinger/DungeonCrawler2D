@@ -9,8 +9,8 @@ import { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
-import { Terrain4Renderer, type TerrainRendererLike } from "../../../render/terrain4/index.js";
-import { TERRAIN4_CAMERA_BACKGROUND } from "../../../render/terrain4/runtime/terrain4RenderSupport.js";
+import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terrain/index.js";
+import { TERRAIN_CAMERA_BACKGROUND } from "../../../render/terrain/runtime/renderSupport.js";
 import { ChatController } from "../../../ui/chat/controller.js";
 import { ChatInputBox } from "../../../ui/chat/chatInput.js";
 import { VfxSystem } from "../../../vfx/system/index.js";
@@ -57,7 +57,7 @@ export class DungeonScene extends Phaser.Scene {
   /** LANE W2: Q/X camera rotation (see rotationControl.ts's doc comment for the Q/E-vs-Q/X
    * key deviation) — owns the tween + the hard content swap + the cosmetic camera spin. */
   private readonly rotation = new RotationController((direction) => {
-    const terrain = this.terrain as Terrain4Renderer | undefined;
+    const terrain = this.terrain as TerrainRenderer | undefined;
     terrain?.prewarmRotation(this.cameras.main.worldView, direction);
   });
 
@@ -70,7 +70,7 @@ export class DungeonScene extends Phaser.Scene {
     // restores the gameplay keyboard contract for quit-to-title/rejoin cycles.
     this.input.keyboard?.enableGlobalCapture();
     this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true });
-    this.cameras.main.setBackgroundColor(TERRAIN4_CAMERA_BACKGROUND); this.cameras.main.setZoom(DEFAULT_CAMERA_ZOOM);
+    this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND); this.cameras.main.setZoom(DEFAULT_CAMERA_ZOOM);
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);

@@ -1,6 +1,6 @@
 // Headless tests for the self weapon-orbit angle math: aim-source resolution (mouse vs
 // facing), the slew-rate-capped sweep, orbit placement, and the strike sweep.
-import { MELEE_ARC_COS, MELEE_RANGE } from "@dc2d/engine";
+import { MELEE_ARC_COS } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   MAX_ANGULAR_SPEED_RAD_PER_S,
@@ -104,13 +104,5 @@ describe("swingSweepAngle", () => {
     const half = MELEE_HALF_ANGLE_RAD;
     expect(swingSweepAngle(0, half, -1)).toBeCloseTo(-half);
     expect(swingSweepAngle(0, half, 2)).toBeCloseTo(half);
-  });
-});
-
-// Sanity: the engine's melee range is what the wedge/orbit math is meant to communicate,
-// even though this module only consumes the arc-angle constant directly.
-describe("engine constant sanity", () => {
-  it("MELEE_RANGE is a positive tile distance", () => {
-    expect(MELEE_RANGE).toBeGreaterThan(0);
   });
 });

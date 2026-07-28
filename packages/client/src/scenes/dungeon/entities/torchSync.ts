@@ -13,7 +13,7 @@ import {
 } from "../../../render/lighting/torches/placedTorches.js";
 import type { TilePos } from "../../../render/lighting/torches/torchPlacement.js";
 import type { TorchEntityView } from "../../../render/entities/geometry/index.js";
-import type { TerrainRendererLike } from "../../../render/terrain4/index.js";
+import type { TerrainRendererLike } from "../../../render/terrain/index.js";
 import { torchView, type InterpolatedEntity } from "./entityViews.js";
 import { mapFrameInto } from "./frameEntityViews.js";
 

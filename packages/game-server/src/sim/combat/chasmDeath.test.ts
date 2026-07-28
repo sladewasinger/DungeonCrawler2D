@@ -1,10 +1,9 @@
 import {
   CHASM_DEATH_Z,
-  CHUNK_SIZE,
   LEVEL,
   PLAYER_MAX_HP,
   RESPAWN_DELAY_TICKS,
-  TILE,
+  TERRAIN,
   World,
   buildContentRegistry,
   createBody,
@@ -15,6 +14,7 @@ import {
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
+import { findWorldPoint } from "./chasmTestSupport.js";
 import { resolveDeaths } from "./deaths.js";
 import { stepPlayers } from "../players/players.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
@@ -73,30 +73,11 @@ function newSim(seed: string): SimState {
 
 /** Any explicit void tile at or below chasm depth, scanning outward from origin. */
 function findChasmFloor(world: World): { x: number; y: number } | null {
-  return chunkCoordinates()
-    .map((chunk) => chasmInChunk(world, chunk))
-    .find((chasm) => chasm !== null) ?? null;
+  return findWorldPoint({ world, predicate: ({ terrain }) => terrain === TERRAIN.Void });
 }
 
-function chasmInChunk(world: World, chunk: { cx: number; cy: number }): { x: number; y: number } | null {
-  return localCoordinates()
-    .map(({ x, y }) => ({ x: chunk.cx * CHUNK_SIZE + x, y: chunk.cy * CHUNK_SIZE + y }))
-    .find(({ x, y }) => world.tileAt(x, y) === TILE.Void) ?? null;
-}
-
-function chunkCoordinates(): Array<{ cx: number; cy: number }> {
-  return coordinateRange(24).flatMap((cx) => coordinateRange(24).map((cy) => ({ cx, cy })));
-}
-
-function localCoordinates(): Array<{ x: number; y: number }> {
-  return Array.from({ length: CHUNK_SIZE ** 2 }, (_, index) => ({
-    x: index % CHUNK_SIZE,
-    y: Math.floor(index / CHUNK_SIZE),
-  }));
-}
-
-function coordinateRange(limit: number): number[] {
-  return Array.from({ length: limit * 2 + 1 }, (_, index) => index - limit);
+function findWalkableFloor(world: World): { x: number; y: number } | null {
+  return findWorldPoint({ world, predicate: ({ point }) => world.isWalkable(point.x, point.y) });
 }
 
 describe("chasm = death (knockback-death-pit ruling)", () => {
@@ -132,7 +113,10 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
 
   it("does not kill a player standing above chasm depth", () => {
     const sim = newSim("chasm-test-world");
-    const a = makeSlot("A", 0.5, 0.5);
+    const spot = findWalkableFloor(sim.world);
+    expect(spot, "no walkable floor found in scan range").not.toBeNull();
+    if (!spot) return;
+    const a = makeSlot("A", spot.x + 0.5, spot.y + 0.5);
     const startingHp = a.entity.hp;
     a.entity.body.z = CHASM_DEATH_Z + 1; // well clear of the death band
     a.entity.body.grounded = true;

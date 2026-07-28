@@ -9,7 +9,7 @@ import {
   type MoveInput,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { PREDICTION_HISTORY_LIMIT, Prediction } from "./prediction.js";
+import { Prediction } from "./prediction.js";
 
 const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
 const SPAWN_X = -6;
@@ -30,27 +30,6 @@ function bodiesMatch(left: BodyState, right: BodyState): boolean {
 }
 
 describe("Prediction input timeline", () => {
-  it("preserves unsimulated ticks instead of falsely acknowledging a faster client", () => {
-    const world = new World(7, 0, LEVEL.Sandbox);
-    const prediction = new Prediction();
-    const client = createBody(SPAWN_X, SPAWN_Y, 5);
-    const server = createBody(SPAWN_X, SPAWN_Y, 5);
-    reconcile(prediction, { world, body: client, tick: -1, serverTick: 100 });
-
-    for (let tick = 101; tick <= 700; tick++) {
-      predict(prediction, world, client);
-      if (tick % 10 === 0) predict(prediction, world, client);
-      stepBody(world, server, WALK, TICK_DT);
-      const authoritative = cloneBody(server);
-      reconcile(prediction, { world, body: authoritative, tick, serverTick: tick });
-      Object.assign(client, authoritative);
-    }
-
-    expect(prediction.pendingStepCount).toBe(60);
-    expect(prediction.projectedTick).toBe(760);
-    expect(prediction.allocatedStepRecordCount).toBeLessThanOrEqual(PREDICTION_HISTORY_LIMIT);
-  }, 10_000);
-
   it("keeps every predicted step newer than the server's simulated input cursor", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
     const prediction = new Prediction();

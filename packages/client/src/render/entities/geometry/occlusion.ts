@@ -7,11 +7,11 @@
 // WAVE R2 generalization (user playtest 2026-07-20, pit at z-1): occluders used to
 // come only from WALL tiles — a z0 floor rim between the camera and a pit-dweller
 // didn't occlude, so he read as standing ON the floor above instead of below it.
-// The rule is the same one cliffMask.ts's outline consumer uses: ANY terrain
+// The rule is the same one the terrain edge overlay uses: ANY terrain
 // higher than the entity, on the side the camera sits, occludes — floor rims
 // exactly like walls. "The side the camera sits" is screen-south, which rotates
 // with the view (screenSouthWorldDirection); the height math itself stays plain
-// world-space data, same as cliffMask.ts.
+// world-space data, same as the terrain planner's edge geometry.
 //
 // WAVE E3 (docs/ELEVATION-PROJECTION.md section 3): under the shift, a cell's drawn
 // body reaches exactly `height` rows north of its own row (the cap shifts screen-up
