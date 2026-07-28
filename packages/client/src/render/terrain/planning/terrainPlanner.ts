@@ -10,10 +10,10 @@ import type {
  * Produces the height-map renderer's minimal geometry in view space.
  *
  * Void produces flat quads, including backdrop rows that fill the projection
- * gap above lower Floor. A vertical face is similarly strict: both cells must
- * be finite Floor surfaces, and only a positive drop toward view-south emits
- * a face. Mapping the south neighbor through view space makes the same rule
- * work for all four cardinal camera orientations.
+ * gap above lower Floor. Finite Floor emits a one-tile floating face toward
+ * screen-south VOID; Floor-to-Floor faces still require a positive drop.
+ * Mapping the south neighbor through view space makes the same rules work for
+ * all four cardinal camera orientations.
  */
 export function planTerrain(source: TerrainSource, options: TerrainPlanOptions): TerrainPlan {
   assertRect(options.bounds, "bounds");

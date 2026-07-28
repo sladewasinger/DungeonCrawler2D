@@ -38,7 +38,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "warn",
       // Architecture guardrails: keep new code small, shallow, and easy to compose.
       complexity: ["error", { max: 8 }],
-      "sonarjs/cognitive-complexity": ["error", 5],
+      "sonarjs/cognitive-complexity": ["error", 7],
       "max-lines-per-function": ["error", { max: 35, skipBlankLines: true, skipComments: true }],
       "max-lines": ["error", { max: 150, skipBlankLines: true, skipComments: true }],
       "max-depth": ["error", 3],

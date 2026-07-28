@@ -45,8 +45,6 @@ const STAIR_DIRS: ReadonlyArray<readonly [number, number]> = [
   [-1, 0],
   [1, 0],
 ];
-const VOID_NEIGHBOR_OFFSETS: ReadonlyArray<Cell> = [-1, 0, 1]
-  .flatMap((dy) => [-1, 0, 1].map((dx) => [dx, dy] as const));
 
 /** Every cell is in-chunk, plain FLAT open floor, outside reserved zones — flat
  * is non-negotiable (this runs after every repair net, so carving against
@@ -113,8 +111,12 @@ function pitViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number, numb
 }
 
 function touchesVoid(g: Grid, [x, y]: Cell): boolean {
-  return VOID_NEIGHBOR_OFFSETS.some(([dx, dy]) =>
-    at(g.tiles, x + dx, y + dy) === TILE.Void);
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (at(g.tiles, x + dx, y + dy) === TILE.Void) return true;
+    }
+  }
+  return false;
 }
 
 /** Sink the 2x2 to z-1 with one compact rim-stair tread at -0.5 on side `dir`. */

@@ -8,6 +8,8 @@ import type {
 } from "../geometry/terrainPlannerModel.js";
 import type { TerrainPlanningContext } from "./terrainPlanner.js";
 
+const VOID_FACE_DEPTH = 1;
+
 export type MutableTerrainBatches = {
   floors: TerrainFloorQuad[]; voids: TerrainVoidQuad[]; features: TerrainFeatureQuad[];
   props: TerrainPropQuad[]; southFaces: TerrainSouthFaceQuad[]; cliffEdges: TerrainCliffEdgeQuad[]; ao: TerrainAOQuad[];
@@ -38,7 +40,7 @@ function appendTileGeometry(context: TerrainPlanningContext, worldTile: Point): 
   appendFloorArt(tileContext);
   appendTerrainCliffEdges(tileContext, context.batches.cliffEdges);
   appendTerrainAmbientOcclusion(tileContext, context.batches.ao);
-  appendSouthFace(tileContext);
+  appendScreenSouthFace(tileContext);
 }
 
 function appendVoidBackdrop(context: TerrainPlanningContext, worldTile: Point, viewTile: Point): void {
@@ -67,9 +69,26 @@ function appendFloorArt(context: TerrainTileContext): void {
   else batches.floors.push({ kind: "floor", worldTile, viewTile, height, vertices });
 }
 
-function appendSouthFace(context: TerrainTileContext): void {
+function appendScreenSouthFace(context: TerrainTileContext): void {
   const southWorld = viewTileToWorld({ x: context.viewTile.x, y: context.viewTile.y + 1 }, context.orientation);
-  if (context.source.terrainAt(southWorld.x, southWorld.y) !== TERRAIN_KINDS.Floor) return;
+  const southTerrain = context.source.terrainAt(southWorld.x, southWorld.y);
+  if (southTerrain === TERRAIN_KINDS.Void) {
+    appendVoidSouthFace(context);
+    return;
+  }
+  if (southTerrain === TERRAIN_KINDS.Floor) appendFloorSouthFace(context, southWorld);
+}
+
+function appendVoidSouthFace(context: TerrainTileContext): void {
+  const bottomHeight = context.height - VOID_FACE_DEPTH;
+  context.batches.southFaces.push({
+    kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
+    topHeight: context.height, bottomHeight, voidWall: true,
+    vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
+  });
+}
+
+function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): void {
   const currentFeature = featureAt(context, context.worldTile);
   const southFeature = featureAt(context, southWorld);
   const bottomHeight = finiteHeight(context, southWorld);
