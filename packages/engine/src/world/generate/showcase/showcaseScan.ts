@@ -2,8 +2,8 @@
 // the entry-anchor spiral, the shared 2x2-block geometry, and the "does a
 // clean platform/pit already exist near the entry" finders. Pure reads over
 // chunk-local arrays — the carve half (showcase.ts) owns all mutation.
-import { TILE, TOPOLOGY } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
 /** Chebyshev radius around the entry anchor that bounds "near the floor-1
  * entry" — the ~20-tile brief with a small tolerance (docs/ASSUMPTIONS.md row
@@ -15,10 +15,10 @@ import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
  * order — restricted to this chunk's own cells (the real spiral may cross into
  * a negative-coordinate neighbor; when it does the two anchors differ by at
  * most a few tiles, inside the same tolerance). */
-export const SHOWCASE_RADIUS = 24;
+export const SHOWCASE_RADIUS = WORLD_GENERATION_TUNING.showcase.searchRadius;
 export const SHOWCASE_RISE = 1;
 export const SHOWCASE_DEPTH = -1; // z-1 pit, exited via its rim stair tread
-export const BLOCK = 2; // 2x2 feature interior
+export const BLOCK = WORLD_GENERATION_TUNING.showcase.featureSpan;
 export const EPS = 0.01;
 /** A pit rim cell must sit above the pit floor by the wall-face threshold. */
 const RIM_MIN_H = SHOWCASE_DEPTH + 0.75;
@@ -72,7 +72,8 @@ export function blockDistance(anchor: Cell, bx: number, by: number): number {
 
 /** The 8 ring cells around the 2x2 block whose top-left is (bx, by). */
 export function ringCells(bx: number, by: number): Cell[] {
-  return squareCells(bx - 1, by - 1, BLOCK + 2).filter(([x, y]) => !inBlock(x, y, bx, by));
+  return squareCells(bx - 1, by - 1, BLOCK + 2)
+    .filter((cell) => !inBlock(cell, [bx, by]));
 }
 
 function squareCells(x0: number, y0: number, size: number): Cell[] {
@@ -83,7 +84,7 @@ function squareCells(x0: number, y0: number, size: number): Cell[] {
   return cells;
 }
 
-function inBlock(...[x, y, bx, by]: [number, number, number, number]): boolean {
+function inBlock([x, y]: Cell, [bx, by]: Cell): boolean {
   return x >= bx && x < bx + BLOCK && y >= by && y < by + BLOCK;
 }
 

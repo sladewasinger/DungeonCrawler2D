@@ -9,11 +9,9 @@ import { EffectsEngine, type EffectEvent } from "./system.js";
  * the shipped content values — statuses, stacking, interaction
  * rules, sanctuary suppression, damage scaling, immunities.
  *
- * DEVIATION from reference/engine/effects/system.test.ts: the engine
- * package may not depend on @dc2d/content (import-boundary rule), so
+ * The engine package may not depend on @dc2d/content, so
  * this fixture reproduces the relevant status/rule/item defs inline
- * instead of importing the real `content` registry. Values and every
- * assertion are unchanged.
+ * instead of importing the real content registry.
  */
 
 const SANCTUARY_ZONE = { minX: 100, maxX: 120 };

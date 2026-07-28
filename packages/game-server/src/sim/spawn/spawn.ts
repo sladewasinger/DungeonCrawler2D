@@ -1,4 +1,4 @@
-import { LEVEL, MIN_SPAWN_DIST, SPAWN_CHUNK_RANGE, chunkCenter } from "@dc2d/engine";
+import { LEVEL, MIN_SPAWN_DIST, populationAnchorForChunk, SPAWN_CHUNK_RANGE } from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
 export { findWalkableNear } from "./search.js";
 import { findWalkableNear } from "./search.js";
@@ -10,11 +10,9 @@ import { findWalkableNear } from "./search.js";
  *
  *  1. `clusterSpawns` (or the Sandbox level) — the tests'/e2e tight-cluster
  *     mode: a fixed grid a couple tiles apart around a hardcoded anchor,
- *     snapped to real floor via `findWalkableNear` (mirrors v1's
- *     SANDBOX_SPAWN clustering, but re-resolved against whatever floor the
- *     live BSP generator puts there — never a hardcoded tile, since v1's
- *     hand-authored sandbox chunk no longer exists; see
- *     docs/PORT_PLAN.md's worldgen redesign). Wins over spawnRadiusTiles
+ *     snapped to real floor via `findWalkableNear`. It is re-resolved against
+ *     whatever floor the live BSP generator puts there, never a hardcoded tile.
+ *     Wins over spawnRadiusTiles
  *     when both are set: it exists for deterministic test/e2e geometry,
  *     not gameplay, so it stays authoritative regardless of gameplay opts.
  *  2. `spawnRadiusTiles` — the friend-playtest gameplay mode (see
@@ -22,8 +20,8 @@ import { findWalkableNear } from "./search.js";
  *     within N tiles of the fixed 3D playtest anchor, at
  *     least RADIUS_SPAWN_MIN_SPACING apart from other players, relaxing
  *     that spacing if the neighborhood gets crowded.
- *  3. Classic vast scatter (default: neither option set) — random chunk
- *     centers out to SPAWN_CHUNK_RANGE, scored by MIN_SPAWN_DIST from
+ *  3. Classic vast scatter (default: neither option set) — anchors in
+ *     random generated rooms out to SPAWN_CHUNK_RANGE, scored by MIN_SPAWN_DIST from
  *     other players.
  */
 const SANDBOX_ANCHOR = { x: 23, y: 24 };
@@ -179,8 +177,9 @@ function evaluateSpawnCandidate(sim: SimState): { spaced: { x: number; y: number
 }
 
 function spawnCandidate(sim: SimState, chunkX: number, chunkY: number): { tile: { x: number; y: number }; distance: number } | null {
-  const center = chunkCenter(sim.world.worldSeed, sim.world.floor, chunkX, chunkY);
-  const tile = findWalkableNear({ sim, ...center });
+  const world = { worldSeed: sim.world.worldSeed, floor: sim.world.floor };
+  const anchor = populationAnchorForChunk({ ...world, cx: chunkX, cy: chunkY });
+  const tile = findWalkableNear({ sim, ...anchor });
   return tile ? { tile, distance: nearestPlayerDistance(sim, tile) } : null;
 }
 

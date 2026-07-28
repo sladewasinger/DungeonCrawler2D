@@ -27,7 +27,7 @@ export function parseContent(raw: RawContent): ParsedContent {
   };
 }
 
-/** Statuses alone reject duplicate ids: every other primitive is keyed last-write-wins, matching v1. */
+/** Statuses reject duplicate ids; other content maps use last-write-wins semantics. */
 function parseStatuses(raw: unknown[]): Map<string, StatusDef> {
   const statuses = new Map<string, StatusDef>();
   for (const s of raw) {

@@ -18,7 +18,7 @@ export function requestCameraSnap(state: CameraFollowState): void {
   state.snap = true;
 }
 
-/** Exponential-decay ease rate (matches reference/client's proven feel). */
+/** Exponential-decay ease rate for responsive movement without camera jitter. */
 const EASE_RATE_PER_SEC = 10;
 
 /** Advances the eased camera position one frame toward (targetX, targetY). */

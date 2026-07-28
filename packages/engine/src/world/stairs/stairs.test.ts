@@ -8,7 +8,7 @@ import { TILE, type WorldView } from "../core/types.js";
  * Generator-independent stair fixtures: hand-built WorldView/StairView
  * geometry rather than a scan over any particular chunk generator's
  * output. Which generator is wired in as World's default is free to
- * change (docs/PORT_PLAN.md's worldgen redesign brief) — these physics
+ * change; these physics
  * assertions only care about the shape of a staircase.
  */
 

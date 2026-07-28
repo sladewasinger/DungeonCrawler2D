@@ -17,8 +17,7 @@ import { eventsOf, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from 
  * Epic 7 regressions driven through the full GameSim facade (wire-level
  * action dispatch, not just sim/social.ts's unit tests): party
  * proximity/consent, AOI-scoped chat, downed/revive, give-up, and the
- * nested portal/crafting/stash flow — ported from
- * reference/game-server/sim.test.ts.
+ * nested portal/crafting/stash flow.
  */
 
 describe("GameSim: party, portals, crafting, stash", () => {

@@ -90,10 +90,9 @@ describe("world generation", () => {
   });
 
   it("stairway chunks contain a cleared landing pad", () => {
-    // The pad is a flat clearing (baseSample is height 0 everywhere —
-    // flat-first), never TILE.Stairs: a Stairs tile with no real height
+    // The pad is a flat-first clearing, never TILE.Stairs: a Stairs tile with no real height
     // delta across its climb axis is the "flavor without height" bug
-    // (docs/PORT_PLAN.md's worldgen redesign brief) — see fixed.ts.
+    // — see fixed.ts.
     const found = findFirst(isStairsChunk);
     expect(found).not.toBeNull();
     if (!found) return;

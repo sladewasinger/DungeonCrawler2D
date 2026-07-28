@@ -27,10 +27,9 @@ export { findFlatArena, findFlatFloor, nearbyAreaTile, type NearbyAreaSearch } f
 /**
  * Shared fixtures for the GameSim integration suite (sim/integration/):
  * headless multi-client tests that drive the exact sim the ws server
- * runs in production, minus the sockets. Ported from
- * reference/game-server/sim.test.ts, split by epic to respect the
- * 200-line file cap, and adapted to the v2 BSP world generator — no
- * coordinate here is a hardcoded v1 sandbox-chunk tile; everything is
+ * runs in production, minus the sockets. Files are split by domain to
+ * respect the 150-line file cap. No coordinate here is a hardcoded
+ * sandbox-chunk tile; everything is
  * either a relative offset from a live spawn/anchor or a deterministic
  * query against the running World.
  */

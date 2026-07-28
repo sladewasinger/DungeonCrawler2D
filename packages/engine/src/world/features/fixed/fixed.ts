@@ -1,13 +1,8 @@
 import { hash2D, mixSeeds } from "../../../core/rng.js";
-import {
-  baseSample,
-  seedsFor,
-  smoothstep01,
-  type CorridorSegment,
-  type Seeds,
-} from "../../core/terrain.js";
-import { TILE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/layout/scale.js";
+import { smoothstep01 } from "../../../core/math.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
+import { placementSeed } from "../../generate/layout/placement.js";
+import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
 import type { WorldChunk } from "../descent/descentShared.js";
 
 /**
@@ -16,27 +11,25 @@ import type { WorldChunk } from "../descent/descentShared.js";
  * and height-blended into the surrounding terrain.
  */
 
-const SAFE_ROOM_SPACING = 3; // one safe room per 3×3 chunk cell
-const SAFE_ROOM_HALF = 5; // room is (2*half+1)² tiles
-const SAFE_ROOM_MARGIN = 3; // height-blend apron around the room
-
-const STAIRS_MODULUS = 23; // ~1 in 23 chunks hosts a stairway
+const FIXED_FEATURES = WORLD_GENERATION_TUNING.fixedFeatures;
 
 function posMod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
 
 export function isSafeRoomChunk(chunk: WorldChunk): boolean {
-  const layout = seedsFor(chunk.worldSeed, chunk.floor).layout;
-  const offX = hash2D(mixSeeds(layout, 0x5afe), 1, 0) % SAFE_ROOM_SPACING;
-  const offY = hash2D(mixSeeds(layout, 0x5afe), 0, 1) % SAFE_ROOM_SPACING;
-  return posMod(chunk.cx, SAFE_ROOM_SPACING) === offX && posMod(chunk.cy, SAFE_ROOM_SPACING) === offY;
+  const layout = placementSeed(chunk.worldSeed, chunk.floor);
+  const spacing = FIXED_FEATURES.safeRoomChunkSpacing;
+  const offX = hash2D(mixSeeds(layout, 0x5afe), 1, 0) % spacing;
+  const offY = hash2D(mixSeeds(layout, 0x5afe), 0, 1) % spacing;
+  return posMod(chunk.cx, spacing) === offX && posMod(chunk.cy, spacing) === offY;
 }
 
 export function isStairsChunk(chunk: WorldChunk): boolean {
   if (isSafeRoomChunk(chunk)) return false;
-  const layout = seedsFor(chunk.worldSeed, chunk.floor).layout;
-  return hash2D(mixSeeds(layout, 0x57a1), chunk.cx, chunk.cy) % STAIRS_MODULUS === 0;
+  const layout = placementSeed(chunk.worldSeed, chunk.floor);
+  return hash2D(mixSeeds(layout, 0x57a1), chunk.cx, chunk.cy) %
+    FIXED_FEATURES.stairwayFrequency === 0;
 }
 
 interface FeatureLayout {
@@ -48,27 +41,38 @@ interface FeatureLayout {
 }
 
 /** Where the feature sits and how tall its flattened pad is (pure). */
-interface FeatureContext {
-  chunk: WorldChunk;
-  seeds: Seeds;
-  segs: CorridorSegment[];
-}
-
-function featureLayout(context: FeatureContext): FeatureLayout | null {
-  const { chunk, seeds, segs } = context;
+function featureLayout(chunk: WorldChunk): FeatureLayout | null {
   const safeRoom = isSafeRoomChunk(chunk);
   const stairs = isStairsChunk(chunk);
   if (!safeRoom && !stairs) return null;
 
-  const jitterRange = safeRoom ? 3 : 6;
-  const jx = (hash2D(mixSeeds(seeds.layout, 0xf1a7), chunk.cx, chunk.cy) % (jitterRange * 2 + 1)) - jitterRange;
-  const jy = (hash2D(mixSeeds(seeds.layout, 0xf1a8), chunk.cx, chunk.cy) % (jitterRange * 2 + 1)) - jitterRange;
+  const jitterRange = safeRoom
+    ? FIXED_FEATURES.safeRoomJitter
+    : FIXED_FEATURES.stairwayJitter;
+  const layout = placementSeed(chunk.worldSeed, chunk.floor);
+  const jx = centeredJitter({ seed: layout, salt: 0xf1a7, chunk, range: jitterRange });
+  const jy = centeredJitter({ seed: layout, salt: 0xf1a8, chunk, range: jitterRange });
   const centerLx = CHUNK_SIZE / 2 + jx;
   const centerLy = CHUNK_SIZE / 2 + jy;
-  const featureH = baseSample(seeds, segs, chunk.cx * CHUNK_SIZE + centerLx, chunk.cy * CHUNK_SIZE + centerLy)
-    .height;
+  return {
+    safeRoom,
+    half: safeRoom ? FIXED_FEATURES.safeRoomRadius : 1,
+    centerLx,
+    centerLy,
+    featureH: 0,
+  };
+}
 
-  return { safeRoom, half: safeRoom ? SAFE_ROOM_HALF : 1, centerLx, centerLy, featureH };
+interface JitterRequest {
+  seed: number,
+  salt: number,
+  chunk: WorldChunk,
+  range: number,
+}
+
+function centeredJitter({ seed, salt, chunk, range }: JitterRequest): number {
+  return (hash2D(mixSeeds(seed, salt), chunk.cx, chunk.cy) %
+    (range * 2 + 1)) - range;
 }
 
 /** Stamp the flattened pad and its height-blend apron into `tiles`/`height`. */
@@ -80,7 +84,7 @@ interface FeatureBuffers {
 function stampFeaturePad(layout: FeatureLayout, buffers: FeatureBuffers): void {
   const { tiles, height } = buffers;
   const { half, centerLx, centerLy, featureH } = layout;
-  const margin = SAFE_ROOM_MARGIN;
+  const margin = FIXED_FEATURES.safeRoomBlendMargin;
   const reach = half + margin;
   for (let ly = centerLy - reach; ly <= centerLy + reach; ly++) {
     for (let lx = centerLx - reach; lx <= centerLx + reach; lx++) {
@@ -118,10 +122,12 @@ function blendedFeatureHeight(cell: FeatureCell, index: number, distance: number
 }
 
 /** Safe rooms and stairways: cleared, flattened, height-blended into terrain. */
-export interface FlattenedFeatureContext extends FeatureContext, FeatureBuffers {}
+export interface FlattenedFeatureContext extends FeatureBuffers {
+  chunk: WorldChunk;
+}
 
 export function applyFlattenedFeature(context: FlattenedFeatureContext): void {
-  const layout = featureLayout(context);
+  const layout = featureLayout(context.chunk);
   if (!layout) return;
 
   stampFeaturePad(layout, context);
@@ -137,7 +143,7 @@ export function applyFlattenedFeature(context: FlattenedFeatureContext): void {
 }
 
 /** Height of the kiosk terrace: z2, satisfying the generator's z+1 vertical-extent floor (docs/VISUAL_DIRECTION.md). */
-export const KIOSK_HEIGHT = 2;
+export const KIOSK_HEIGHT = FIXED_FEATURES.kioskHeight;
 
 /**
  * How far the terrace reaches NORTH of its door row. ownFace.ts's face
@@ -152,7 +158,7 @@ export const KIOSK_HEIGHT = 2;
  * directly behind the door where every OTHER kiosk column already showed
  * flat top one row sooner — the "visible seam/split" complaint).
  */
-const TERRACE_TOP_ROWS = KIOSK_HEIGHT;
+const TERRACE_TOP_ROWS = FIXED_FEATURES.kioskTopDepth;
 /** Rows from the door (exclusive) to the terrace's northmost row. */
 const TERRACE_NORTH_REACH = KIOSK_HEIGHT + TERRACE_TOP_ROWS - 1;
 
@@ -179,8 +185,9 @@ interface SafeRoomEntrance extends FeatureBuffers {
 
 export function carveSafeRoomEntrance(entrance: SafeRoomEntrance): void {
   const { tiles, height, centerLx, centerLy } = entrance;
+  const halfWidth = FIXED_FEATURES.kioskHalfWidth;
   for (let dy = -TERRACE_NORTH_REACH; dy <= 1; dy++) {
-    for (let dx = -2; dx <= 2; dx++) {
+    for (let dx = -halfWidth; dx <= halfWidth; dx++) {
       stampTerraceCell({ tiles, height, lx: centerLx + dx, ly: centerLy + dy });
     }
   }

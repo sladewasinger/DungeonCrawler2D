@@ -40,9 +40,8 @@ roadmap is preserved in
   contextual action help, and combat-readability polish.
 - [ ] Finish cohesive four-direction character art, item/effect readability,
   terrain-generation decisions, and remaining 2D content polish.
-- [ ] Remove the blanket 2× world-generation expansion: use direct 32×32 chunks,
-  widen room and avenue corridors in the generator, and make stairs one tile;
-  follow [WORLDGEN-SCALE-REMOVAL.md](WORLDGEN-SCALE-REMOVAL.md).
+- [x] Remove the blanket 2× world-generation expansion and centralize direct
+  tile dimensions; see [WORLD-GENERATION.md](WORLD-GENERATION.md).
 - [ ] Complete touch HUD editing and mobile action-layout ergonomics.
 
 ## Epic 3 — Descent, Progression, and Social Play

@@ -11,12 +11,12 @@
 // rooms — height.ts keeps variants to ~1 in 4) avoids reintroducing the
 // same cliff at the room's own doorway instead.
 
-import { TILE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { centerX, centerY, lPathLegs, rectDistance } from "../layout/geometry.js";
 import type { Point, Rect, Room } from "../types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-const LINK_WIDTH = 2;
+const LINK_WIDTH = WORLD_GENERATION_TUNING.corridors.descentLinkWidth;
 const FLAT_TOLERANCE = 0.01;
 
 interface FlatCarveContext {

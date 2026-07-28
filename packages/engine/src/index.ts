@@ -1,5 +1,6 @@
 // Public facade for @dc2d/engine — consumers import from here, never from siblings.
 export * from "./core/constants.js";
+export * from "./core/math.js";
 export * from "./core/rng.js";
 export * from "./core/noise.js";
 export * from "./world/core/types.js";
@@ -7,18 +8,15 @@ export * from "./world/core/level.js";
 export * from "./world/core/worldFeatures.js";
 export * from "./world/stairs/stairs.js";
 export * from "./world/interactions/interactions.js";
-export * from "./world/core/terrain.js";
 export * from "./world/features/fixed/fixed.js";
 export * from "./world/features/descent/descent.js";
 export * from "./world/features/bossArena/bossArena.js";
-export * from "./world/features/platforms/platforms.js";
 export * from "./world/core/pockets.js";
-export * from "./world/features/terraces/terraces.js";
 export * from "./world/generate.js";
 export * from "./world/generate/terrain/biome.js";
 export * from "./world/generate/layout/district.js";
 export * from "./world/generate/populationRooms.js";
-export * from "./world/generate/layout/scale.js";
+export * from "./world/generate/tuning.js";
 export * from "./world/features/rooms/rooms.js";
 export * from "./world/core/world.js";
 export * from "./entities/entity.js";

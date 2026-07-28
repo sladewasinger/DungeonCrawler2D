@@ -7,11 +7,6 @@ import importXPlugin from "eslint-plugin-import-x";
 import sonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
 
-const banReference = {
-  group: ["**/reference/**", "**/reference", "reference", "reference/**"],
-  message: "reference/ is frozen v1 code — never import it.",
-};
-
 const banDc2d = {
   group: ["@dc2d/*"],
   message: "this package may not depend on other @dc2d/* packages.",
@@ -23,7 +18,7 @@ const banNodeBuiltins = {
 };
 
 export default tseslint.config(
-  { ignores: ["reference/**", "**/dist/**", "**/node_modules/**", ".scratch/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", ".scratch/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -50,7 +45,6 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/ban-ts-comment": ["warn", { minimumDescriptionLength: 10 }],
       "import-x/no-cycle": "error",
-      "no-restricted-imports": ["error", { patterns: [banReference] }],
     },
   },
   {
@@ -81,7 +75,7 @@ export default tseslint.config(
             { name: "phaser", message: "engine must stay platform-free — no Phaser." },
             { name: "ws", message: "engine must stay platform-free — no ws." },
           ],
-          patterns: [banReference, banNodeBuiltins, banDc2d],
+          patterns: [banNodeBuiltins, banDc2d],
         },
       ],
     },
@@ -97,7 +91,7 @@ export default tseslint.config(
             { name: "phaser", message: "content is data + schemas only — no Phaser." },
             { name: "ws", message: "content is data + schemas only — no ws." },
           ],
-          patterns: [banReference, banNodeBuiltins, banDc2d],
+          patterns: [banNodeBuiltins, banDc2d],
         },
       ],
     },
@@ -113,7 +107,7 @@ export default tseslint.config(
           paths: [
             { name: "ws", message: "client runs in the browser — use the native WebSocket, not ws." },
           ],
-          patterns: [banReference, { group: ["@dc2d/game-server"], message: "client must not depend on game-server." }],
+          patterns: [{ group: ["@dc2d/game-server"], message: "client must not depend on game-server." }],
         },
       ],
     },
@@ -126,7 +120,7 @@ export default tseslint.config(
         "error",
         {
           paths: [{ name: "phaser", message: "game-server is headless — no Phaser." }],
-          patterns: [banReference, { group: ["@dc2d/client"], message: "game-server must not depend on client." }],
+          patterns: [{ group: ["@dc2d/client"], message: "game-server must not depend on client." }],
         },
       ],
     },

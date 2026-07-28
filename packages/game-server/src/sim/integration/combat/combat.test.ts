@@ -10,10 +10,9 @@ import { SWING_TICKS, findFlatArena, findFlatFloor, findSafeRoomDoor, makeParty,
 
 /**
  * Epic 6 regressions: melee cooldown/targeting/damage, ranged enemies,
- * PvP suppression, and chase/loot — ported from
- * reference/game-server/sim.test.ts. Multi-entity positioning uses
- * `findFlatArena`: the BSP overworld isn't hand-flattened like v1's
- * sandbox chunk, so a couple of tiles' offset can land a target out of
+ * PvP suppression, and chase/loot. Multi-entity positioning uses
+ * `findFlatArena`: variable terrain means a couple of tiles' offset can
+ * land a target out of
  * melee's ±1.5 vertical reach unless the whole cluster is co-height.
  */
 

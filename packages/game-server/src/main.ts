@@ -46,8 +46,7 @@ const spawnRadiusTiles =
 const freezeEnemies = enemiesAreFrozen(process.env["FREEZE_ENEMIES"]);
 const worldFeatures = { voidTerrain: voidTerrainIsEnabled(process.env["VOID_TERRAIN"]) };
 
-// custom-map / Tile Studio editor was dropped from the v2 core slice
-// (see docs/PORT_PLAN.md); CUSTOM_MAP is accepted by the systemd unit
+// The custom-map / Tile Studio editor is retired. CUSTOM_MAP is accepted by the systemd unit
 // for compatibility but has no effect here.
 if (process.env["CUSTOM_MAP"] && process.env["CUSTOM_MAP"] !== "none") {
   console.log(`[game-server] CUSTOM_MAP is set but ignored — custom maps are not part of v2 yet`);

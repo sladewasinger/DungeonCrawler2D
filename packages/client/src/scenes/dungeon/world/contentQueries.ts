@@ -36,10 +36,7 @@ export function weaponCooldownMs(itemDefId: string | null, fallbackMs: number): 
 
 export type ItemCategory = "weapons" | "usables" | "materials";
 
-/**
- * Weapon → Weapons, consumable-or-throwable → Usables, else Materials — ported
- * verbatim from reference/client/ui/inventoryPanel.ts's categoryOf() (HUD_OS.md §7).
- */
+/** Weapon → Weapons, consumable-or-throwable → Usables, else Materials. */
 export function categoryOfItem(itemDefId: string): ItemCategory {
   const def = itemById.get(itemDefId);
   if (def?.weapon) return "weapons";
@@ -75,7 +72,7 @@ function isRecipeDef(value: unknown): value is RecipeDef {
   return typeof def?.id === "string" && Array.isArray(def.inputs) && typeof def.output === "object" && def.output !== null;
 }
 
-/** Every recipe, content order (matches v1's craft-panel number-key ordering). */
+/** Every recipe in authored content order for stable keyboard selection. */
 export const recipeList: readonly RecipeDef[] = (recipesData as readonly unknown[]).filter(isRecipeDef);
 
 export function recipeIdAtIndex(index: number): string | undefined {

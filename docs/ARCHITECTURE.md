@@ -177,16 +177,13 @@ Every effect, item, and enemy is a JSON file in `content/`, validated against a 
 
 `generateChunk(worldSeed, floor, chunkCoord) → DungeonChunk` — a pure function over seeded hashes, built **layout first, height second**:
 
-1. **Flat layout.** Cave-noise walls + the corridor network (long hallways between jittered chunk centers — the global connectivity guarantee) + fixed features (safe-room kiosks, stairway pads) + a reachability pass that seals orphan pockets. Everything at height 0, so the dungeon reads as a dungeon on its own.
-2. **Deliberate height.** Verticality is only ever *added by features that make sense as places*: raised floor regions use `WALL_RISE`/derived face geometry, ruin platform clusters stamp tiered mesas with loot on top, and the authored proving ground carries its own geometry. There is **no noise heightfield** — a height change exists because something was built there, never because a contour happened to cross a hallway.
+1. **Flat layout.** A BSP partitions each chunk into rooms. A deterministic corridor tree connects those rooms and four shared edge anchors guarantee cross-chunk connectivity. Districts widen arterial avenues and bias room character; a reachability pass seals orphan pockets.
+2. **Deliberate height.** Room variants and authored landmarks add pits, daises, chasms, stairs, and structures after connectivity exists. There is **no noise heightfield** — a height change exists because something was built there, never because a contour happened to cross a hallway.
 
-**Wave-function collapse is the planned decoration layer** (v0.8 biomes/ruins): the noise + corridor skeleton stays structural — it owns connectivity, determinism, and chunk-locality, none of which WFC provides naturally — while seeded WFC textures constrained regions (room interiors, ruin patches) whose border cells the skeleton pins, so per-chunk solving can't contradict neighbors. Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry and heights on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities (enemies, loot, players) are placed by the server and sent as events, so only static geometry and zones rely on determinism. The generator's contract and test suite cover cross-chunk connectivity, the flat-base invariant, and platform-tier jumpability.
+**Wave-function collapse is the planned decoration layer** (v0.8 biomes/ruins): the BSP and corridor skeleton stays structural — it owns connectivity, determinism, and chunk-locality, none of which WFC provides naturally — while seeded WFC textures constrained regions whose border cells the skeleton pins, so per-chunk solving cannot contradict neighbors. Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry and heights on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities are placed by the server and sent as events, so only static geometry and zones rely on determinism.
 
-**Next planned world-generation migration (not implemented):** remove the
-blanket 2× logical-cell expansion and use 32×32 runtime chunks directly. Corridor
-and avenue widths, room/feature footprints, and stair authoring will be retuned in
-runtime tile units; stairs become one tile. The staged plan and affected modules
-are recorded in [WORLDGEN-SCALE-REMOVAL.md](WORLDGEN-SCALE-REMOVAL.md).
+Generation uses direct 32×32 runtime tiles. Geometry controls and the active
+module map are documented in [WORLD-GENERATION.md](WORLD-GENERATION.md).
 
 ## Rendering & art pipeline
 

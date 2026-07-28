@@ -31,6 +31,27 @@ describe("VOID terrain world feature", () => {
     expectNoVoid(chunk);
   });
 
+  it("changes only enabled VOID cells, preserving every finite tile exactly", () => {
+    const request = {
+      worldSeed: hashString(DEV_WORLD),
+      floor: 1,
+      cx: 1,
+      cy: -1,
+    };
+    const enabled = generateChunk(request);
+    const disabled = generateChunk({ ...request, features: DISABLED });
+
+    for (let index = 0; index < enabled.tiles.length; index++) {
+      if (enabled.terrain[index] === TERRAIN.Floor) {
+        expectChunkCell(disabled, index, enabled);
+      } else {
+        expect(disabled.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
+        expect(disabled.tiles[index], `tile ${index}`).not.toBe(TILE.Void);
+        expect(disabled.zones[index], `zone ${index}`).toBe(enabled.zones[index]);
+      }
+    }
+  });
+
   it("keeps every reserved-room chunk cell finite when disabled", () => {
     const { cx, cy } = personalRoomChunk(0);
     const enabled = generateChunk({

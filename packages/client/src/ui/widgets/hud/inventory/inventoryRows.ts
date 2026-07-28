@@ -11,7 +11,7 @@ export interface InventoryTabDef {
   label: string;
 }
 
-/** v1's four filter tabs, ported verbatim (HUD_OS.md §5 — fixed mode until Phase 3's shared tabBar.ts lift). */
+/** Fixed inventory filters (HUD_OS.md §5) until the shared tab-bar upgrade. */
 export const INVENTORY_TABS: readonly InventoryTabDef[] = [
   { id: "all", label: "All" },
   { id: "weapons", label: "Weapons" },

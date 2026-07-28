@@ -2,19 +2,19 @@
 // courtyard, ringed by a low wall with gates wherever the corridor network
 // crosses it — an intimate plaza at the super-chunk's heart.
 
-import { TILE, TOPOLOGY } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkStamp } from "./shared.js";
 
-const DAIS_RADIUS = 4;
-const RING_RADIUS = 6;
+const DAIS_RADIUS = WORLD_GENERATION_TUNING.landmarks.shrineDaisRadius;
+const RING_RADIUS = WORLD_GENERATION_TUNING.landmarks.shrineRingRadius;
 // A small decorative bump beside the corridor's own flush passthrough
 // (see `carved` below) — never load-bearing for reachability, so it
 // simply halves with the z-scale doctrine, no ramp needed.
 export const DAIS_HEIGHT = 0.5;
 
 export function stampShrine({ worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkStamp): void {
-  const center = landmarkCenter({ worldSeed, floor, cx, cy });
+  const center = landmarkCenter({ worldSeed, floor, cx, cy }, RING_RADIUS);
   forEachLandmarkTile(center, RING_RADIUS, (tile) => stampShrineTile({ corridorCarved, tiles, height, tile }));
 }
 

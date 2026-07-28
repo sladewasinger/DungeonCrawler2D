@@ -13,11 +13,11 @@ import { describe, expect, it } from "vitest";
 import { hashString } from "../../../core/rng.js";
 import { CHUNK_SIZE, TILE, type Chunk } from "../../core/types.js";
 import { generateChunk } from "../index.js";
-import { WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
 const EPS = 0.01;
-const RADIUS = 24 * WORLD_GEOMETRY_SCALE;
-const BLOCK_SIZE = 2 * WORLD_GEOMETRY_SCALE;
+const RADIUS = WORLD_GENERATION_TUNING.showcase.searchRadius;
+const BLOCK_SIZE = WORLD_GENERATION_TUNING.showcase.featureSpan;
 const SEEDS = Array.from({ length: 10 }, (_, i) => hashString(`showcase-seed-${i}`));
 
 interface Cell { t: number; h: number }

@@ -97,7 +97,7 @@ export class PanelWindows {
     return this.stash.isOpen();
   }
 
-  /** [E] near a stash opens it if not already open — never toggles closed (matches v1). */
+  /** [E] near a stash opens it if not already open; it never toggles closed. */
   openStash(): void {
     this.stash.openIfClosed();
   }

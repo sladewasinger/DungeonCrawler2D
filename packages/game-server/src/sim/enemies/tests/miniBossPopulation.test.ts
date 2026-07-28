@@ -84,8 +84,13 @@ describe("large-room orc mini bosses", () => {
     for (const enemy of sim.enemies.values()) assertEnemyInHome(enemy, home);
   });
 
-  it("reports scaled room bounds inside their owning chunk", () => {
-    const rooms = populationRoomsForChunk(hashString("room-bounds"), 1, 2, -3);
+  it("reports direct room bounds inside their owning chunk", () => {
+    const rooms = populationRoomsForChunk({
+      worldSeed: hashString("room-bounds"),
+      floor: 1,
+      cx: 2,
+      cy: -3,
+    });
     expect(rooms.length).toBeGreaterThan(0);
     for (const room of rooms) assertRoomInChunk(room);
   });

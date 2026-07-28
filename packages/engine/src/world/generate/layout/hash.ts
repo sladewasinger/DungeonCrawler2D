@@ -6,10 +6,10 @@
 import { hash2D, mixSeeds } from "../../../core/rng.js";
 import type { Rect } from "../types.js";
 
-const VARIANT_SALT = 0xa2c4;
+const LAYOUT_SALT = 0xa2c4;
 
-export function architectSeed(worldSeed: number, floor: number): number {
-  return mixSeeds(worldSeed, floor, VARIANT_SALT);
+export function layoutSeed(worldSeed: number, floor: number): number {
+  return mixSeeds(worldSeed, floor, LAYOUT_SALT);
 }
 
 /** Per-chunk seed for everything that must vary chunk-to-chunk (BSP split, room flavor, corridor width, height). */

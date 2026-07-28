@@ -7,8 +7,8 @@
 // still reachable from the wider corridor network through that one gate.
 import { describe, expect, it } from "vitest";
 import {
-  GENERATED_ARENA_HALF,
-  GENERATED_RING_THICKNESS,
+  ARENA_HALF,
+  RING_THICKNESS,
   bossArenaChunk,
   bossArenaGatePosition,
   bossArenaSpawnAnchor,
@@ -16,7 +16,6 @@ import {
 import { FLOOR_CAP } from "../../features/descent/descentShared.js";
 import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { generateChunk } from "../index.js";
-import { WORLD_GEOMETRY_SCALE } from "../layout/scale.js";
 import { reachesNeighborChunk, type WorldPoint } from "../test-support.js";
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
@@ -26,26 +25,25 @@ interface RingCell extends WorldPoint {
 }
 
 function arenaOffsets(): Array<{ x: number; y: number }> {
-  const width = GENERATED_ARENA_HALF * 2 + 1;
-  const inner = GENERATED_ARENA_HALF - GENERATED_RING_THICKNESS + 1;
-  return Array.from({ length: width ** 2 }, (_, index) => ({ x: index % width - GENERATED_ARENA_HALF, y: Math.floor(index / width) - GENERATED_ARENA_HALF }))
+  const width = ARENA_HALF * 2 + 1;
+  const inner = ARENA_HALF - RING_THICKNESS + 1;
+  return Array.from({ length: width ** 2 }, (_, index) => ({
+    x: index % width - ARENA_HALF,
+    y: Math.floor(index / width) - ARENA_HALF,
+  }))
     .filter(({ x, y }) => {
       const distance = Math.max(Math.abs(x), Math.abs(y));
-      return distance >= inner && distance <= GENERATED_ARENA_HALF;
+      return distance >= inner && distance <= ARENA_HALF;
     });
 }
 
-function scaledOffsets(): Array<{ x: number; y: number }> {
-  return Array.from({ length: WORLD_GEOMETRY_SCALE ** 2 }, (_, index) => ({ x: index % WORLD_GEOMETRY_SCALE, y: Math.floor(index / WORLD_GEOMETRY_SCALE) }));
-}
-
 function ringCells(spawn: WorldPoint): RingCell[] {
-  const inner = GENERATED_ARENA_HALF - GENERATED_RING_THICKNESS + 1;
-  return arenaOffsets().flatMap((offset) => scaledOffsets().map((scale) => ({
-    x: spawn.x + offset.x * WORLD_GEOMETRY_SCALE + scale.x,
-    y: spawn.y + offset.y * WORLD_GEOMETRY_SCALE + scale.y,
+  const inner = ARENA_HALF - RING_THICKNESS + 1;
+  return arenaOffsets().map((offset) => ({
+    x: spawn.x + offset.x,
+    y: spawn.y + offset.y,
     gate: offset.x === 0 && offset.y >= inner,
-  })));
+  }));
 }
 
 function assertRing(seed: number, chunk: { cx: number; cy: number }, spawn: WorldPoint): number {
@@ -95,13 +93,12 @@ describe("boss arena: exactly one gate", () => {
       if (!chunk || !spawn || !gate) continue;
       expect(gate).toEqual({
         x: spawn.x,
-        y: spawn.y + GENERATED_ARENA_HALF * WORLD_GEOMETRY_SCALE,
+        y: spawn.y + ARENA_HALF,
       });
 
       const floorCount = assertRing(seed, chunk, spawn);
-      expect(floorCount, `seed ${seed}: gate notch must preserve its scaled footprint`).toBe(
-        GENERATED_RING_THICKNESS * WORLD_GEOMETRY_SCALE ** 2,
-      );
+      expect(floorCount, `seed ${seed}: gate notch must preserve its footprint`)
+        .toBe(RING_THICKNESS);
       checked++;
     }
     expect(checked).toBeGreaterThan(25);

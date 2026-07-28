@@ -10,10 +10,10 @@ import type { EdgeAnchor } from "../layout/edges.js";
 import { band, centerX, centerY, clampInt, lPathLegs, rectDistance } from "../layout/geometry.js";
 import { rectHash } from "../layout/hash.js";
 import type { Doorway, Point, Rect, Room, Side } from "../types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-export const CORRIDOR_WIDTH_MIN = 2;
-const WIDTH_MAX = 3;
-const PORT_JITTER = 2;
+const CORRIDOR_TUNING = WORLD_GENERATION_TUNING.corridors;
+export const CORRIDOR_WIDTH_MIN = CORRIDOR_TUNING.roomToRoomWidth.min;
 
 export interface CorridorContext {
   seed: number;
@@ -59,7 +59,8 @@ function isVertical(side: Side): boolean {
  */
 function roomPort(context: { seed: number; room: Room; side: Side; salt: number }): Point {
   const r = context.room.rect;
-  const jitter = (rectHash(context.seed, r, context.salt) % (PORT_JITTER * 2 + 1)) - PORT_JITTER;
+  const radius = CORRIDOR_TUNING.doorwayJitter;
+  const jitter = rectHash(context.seed, r, context.salt) % (radius * 2 + 1) - radius;
   if (context.side === 0) return { x: clampInt(centerX(r) + jitter, r.x0 + 1, r.x1 - 1), y: r.y0 - 1 };
   if (context.side === 2) return { x: clampInt(centerX(r) + jitter, r.x0 + 1, r.x1 - 1), y: r.y1 + 1 };
   if (context.side === 1) return { x: r.x1 + 1, y: clampInt(centerY(r) + jitter, r.y0 + 1, r.y1 - 1) };
@@ -72,8 +73,9 @@ function thresholdCenter(side: Side, port: Point): number {
 }
 
 export function corridorWidth(seed: number, a: Rect, b: Rect): number {
+  const { min, max } = CORRIDOR_TUNING.roomToRoomWidth;
   const salted = rectHash(seed, { x0: a.x0, y0: a.y0, x1: b.x1, y1: b.y1 }, 0x9c02);
-  return CORRIDOR_WIDTH_MIN + (salted % (WIDTH_MAX - CORRIDOR_WIDTH_MIN + 1));
+  return min + salted % (max - min + 1);
 }
 
 function connectRooms(context: CarvingContext, [a, b]: [Room, Room]): void {

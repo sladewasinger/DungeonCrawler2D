@@ -1,7 +1,7 @@
 # Visual Direction — moody torchlit dungeon
 
-v1's failure was presentation: muddy olive-grey tiles, random grass in a stone dungeon,
-hooded-blob characters, zero lighting, programmer HUD. v2 exists to fix that. The bar:
+The early prototype's presentation was muddy olive-grey tiles, random grass in a
+stone dungeon, hooded-blob characters, zero lighting, and a programmer HUD. The bar:
 **a screenshot of this game should look like a finished indie game you'd wishlist.**
 Tonally: a deadly dungeon run as a twisted game show (Dungeon Crawler Carl energy) —
 oppressive dark, warm islands of firelight, neon-vivid magic.

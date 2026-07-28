@@ -1,6 +1,6 @@
 // Melee-swing wedge telegraph: one pooled Graphics per attacking entity id, redrawn only
 // when that id's swing starts (not every frame) and faded via alpha thereafter — the
-// v1-style "pie shape wedge" showing the attack's real distance/arc, per VISUAL_DIRECTION's
+// pie-shaped wedge shows the attack's real distance/arc, per VISUAL_DIRECTION's
 // "hits feel like hits" juice requirement.
 //
 // Drawn with Graphics.slice(), the one Phaser primitive whose fill path runs

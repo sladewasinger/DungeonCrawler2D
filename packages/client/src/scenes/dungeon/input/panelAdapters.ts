@@ -1,8 +1,7 @@
 /**
- * Range-gated panel wiring (Epic 7.12): the crafting-table/stash open/close/toggle
- * semantics ported from reference/client/ui/panels.ts's Panels class, plus the two
- * windows' network-intent adapters. Split out of inputAdapters.ts to keep that file
- * focused on connection/query/hook adapters.
+ * Range-gated crafting/stash panel controls and their network-intent adapters.
+ * Split out of inputAdapters.ts to keep that file focused on connection,
+ * query, and hook adapters.
  */
 import type { InputConnection, InputPanels, InputQueries } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
@@ -27,8 +26,7 @@ export interface PanelSource {
 
 /**
  * [C]: closes an open craft window unconditionally (no range check needed to close);
- * opens it only when a crafting table is nearby right now. Matches v1's
- * `craftOpen = !craftOpen && tableNearby(conn)` exactly.
+ * opens it only when a crafting table is nearby right now.
  */
 function toggleCraft(hud: PanelSource, queries: InputQueries, conn: InputConnection): void {
   if (hud.craftOpen()) {

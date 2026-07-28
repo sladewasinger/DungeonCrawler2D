@@ -46,12 +46,12 @@ function encounterRoom(
     cy,
   );
   if (roll % 5 !== 0) return null;
-  const rooms = populationRoomsForChunk(
-    sim.world.worldSeed,
-    sim.world.floor,
+  const rooms = populationRoomsForChunk({
+    worldSeed: sim.world.worldSeed,
+    floor: sim.world.floor,
     cx,
     cy,
-  ).filter((room) => room.area >= MINI_BOSS_MIN_ROOM_AREA);
+  }).filter((room) => room.area >= MINI_BOSS_MIN_ROOM_AREA);
   return rooms[roll % rooms.length] ?? null;
 }
 

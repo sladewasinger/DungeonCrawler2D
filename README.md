@@ -1,4 +1,4 @@
-# Dungeon Crawler 2D — v2
+# Dungeon Crawler 2D
 
 A browser-based, top-down 2D **real-time PvPvE multiplayer** dungeon crawler with a
 full height axis, tonally inspired by the Dungeon Crawler Carl series. Players spawn
@@ -8,9 +8,8 @@ The signature system: a fully data-driven effects engine whose closed vocabulary
 primitives, tags, and interaction rules lets an **AI crafting system** invent
 brand-new items at runtime, validated like any other content.
 
-This is the **v2 rebuild** of the original prototype (frozen in [reference/](reference/README.md)):
-same design, same server-authoritative architecture, rebuilt to a real visual and
-engineering bar.
+The game has its own server-authoritative architecture, visual direction, and
+engineering standards; the current codebase is the sole implementation.
 
 The current release is **v0.5.2** ([release notes](docs/releases/v0.5.2.md)). It
 includes collectible companion pets, shared terrain-aware pathfinding, HUD layout

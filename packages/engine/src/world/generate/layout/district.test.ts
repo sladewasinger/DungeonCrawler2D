@@ -1,25 +1,34 @@
-// Grafted from the "districts" candidate: super-chunk character, landmark
-// set-pieces, and avenue-widened seams layered onto the architect base
-// generator (docs/PORT_PLAN.md's worldgen redesign brief).
+// District invariants: super-chunk character, landmark set-pieces, and
+// avenue-widened seams are deterministic, chunk-local decisions.
 
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../../core/rng.js";
 import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed/fixed.js";
 import { CHUNK_SIZE, TILE } from "../../core/types.js";
-import { DISTRICT, districtAt, isLandmarkChunk, type DistrictKind } from "./district.js";
-import { architectSeed } from "./hash.js";
+import {
+  DISTRICT,
+  districtAt,
+  isLandmarkChunk,
+  SUPERCHUNK_SIZE,
+  type DistrictKind,
+} from "./district.js";
+import { layoutSeed } from "./hash.js";
 import { generateChunk } from "../index.js";
 
 const SEED = hashString("district-test-world");
 const FLOOR = 1;
-const ROOT_SEED = architectSeed(SEED, FLOOR);
+const ROOT_SEED = layoutSeed(SEED, FLOOR);
 
 describe("district character", () => {
   it("all biome district kinds appear within a modest region", () => {
     const seen = new Set<DistrictKind>();
     for (let scx = -6; scx <= 6; scx++) {
       for (let scy = -6; scy <= 6; scy++) {
-        seen.add(districtAt(ROOT_SEED, scx * 3, scy * 3));
+        seen.add(districtAt(
+          ROOT_SEED,
+          scx * SUPERCHUNK_SIZE,
+          scy * SUPERCHUNK_SIZE,
+        ));
       }
     }
     expect(seen).toEqual(new Set([
@@ -34,8 +43,8 @@ describe("district character", () => {
 
   it("is stable for every chunk within one super-chunk", () => {
     const kind = districtAt(ROOT_SEED, 0, 0);
-    for (let cx = 0; cx < 3; cx++) {
-      for (let cy = 0; cy < 3; cy++) {
+    for (let cx = 0; cx < SUPERCHUNK_SIZE; cx++) {
+      for (let cy = 0; cy < SUPERCHUNK_SIZE; cy++) {
         expect(districtAt(ROOT_SEED, cx, cy)).toBe(kind);
       }
     }
@@ -46,11 +55,12 @@ describe("landmark set-pieces", () => {
   it("a landmark chunk's district-appropriate landmark replaces its plain style", () => {
     // Walk out from the center of super-chunk (0,0) until it isn't also
     // claimed by a safe-room kiosk or stairway pad.
-    let cx = 1;
-    let cy = 1;
+    const centerOffset = Math.floor(SUPERCHUNK_SIZE / 2);
+    let cx = centerOffset;
+    let cy = centerOffset;
     while (isSafeRoomChunk({ worldSeed: SEED, floor: FLOOR, cx, cy }) || isStairsChunk({ worldSeed: SEED, floor: FLOOR, cx, cy })) {
-      cx += 3;
-      cy += 3;
+      cx += SUPERCHUNK_SIZE;
+      cy += SUPERCHUNK_SIZE;
     }
     expect(isLandmarkChunk(cx, cy)).toBe(true);
     const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
@@ -66,10 +76,12 @@ describe("landmark set-pieces", () => {
 
 describe("avenues", () => {
   it("a corridor crossing a super-chunk boundary is wider than one that doesn't", () => {
-    // Chunks (2,0)|(3,0) straddle a super-chunk seam; (0,0)|(1,0) don't
-    // (SUPERCHUNK_SIZE = 3). Measure carved width along each shared border.
+    // The final chunk in one district and first chunk in the next straddle
+    // an avenue seam; the first two chunks in a district do not.
     const inSeamWidth = corridorWidthAtBorder({ seed: SEED, left: { cx: 0, cy: 0 }, right: { cx: 1, cy: 0 } });
-    const avenueWidth = corridorWidthAtBorder({ seed: SEED, left: { cx: 2, cy: 0 }, right: { cx: 3, cy: 0 } });
+    const left = { cx: SUPERCHUNK_SIZE - 1, cy: 0 };
+    const right = { cx: SUPERCHUNK_SIZE, cy: 0 };
+    const avenueWidth = corridorWidthAtBorder({ seed: SEED, left, right });
     expect(avenueWidth).toBeGreaterThanOrEqual(inSeamWidth);
   });
 });

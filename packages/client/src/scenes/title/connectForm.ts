@@ -1,7 +1,6 @@
-// DOM name-entry + connect button overlay for TitleScene — Phaser has no native text
-// input, so this uses the same "styled DOM overlay" pattern reference/client/main.ts's
-// chat input proved, matching the panel language (dark fill, thin border, gold accent)
-// from ui/panel.ts and the monogram font from ui/font.ts.
+// DOM name-entry + connect button overlay for TitleScene. Phaser has no native text
+// input, so this follows the game's panel language (dark fill, thin border, gold
+// accent) and monogram font.
 import { LEVEL, type LevelId, type PlayerSkin } from "@dc2d/engine";
 import { APP_VERSION } from "../../appVersion.js";
 import { loadTabPreference, saveTabPreference } from "../../net/auth/identity.js";

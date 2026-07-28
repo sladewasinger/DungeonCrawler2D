@@ -5,12 +5,12 @@
 // carves one more corridor from the nearest room — skipping over the pad's own
 // protected tiles (stairs, doors, furniture) so the connector never erases them.
 
-import { TILE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { centerX, centerY, lPathLegs, rectDistance } from "../layout/geometry.js";
 import type { Point, Rect, Room } from "../types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-const LINK_WIDTH = 2;
+const LINK_WIDTH = WORLD_GENERATION_TUNING.corridors.fixedFeatureLinkWidth;
 
 const PROTECTED: ReadonlySet<number> = new Set([
   TILE.Stairs,

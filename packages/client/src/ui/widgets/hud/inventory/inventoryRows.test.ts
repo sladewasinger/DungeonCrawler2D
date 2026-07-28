@@ -13,7 +13,7 @@ function rows(): InventoryRowData[] {
 }
 
 describe("INVENTORY_TABS", () => {
-  it("ships v1's four filters verbatim, in order", () => {
+  it("ships the four inventory filters in stable order", () => {
     expect(INVENTORY_TABS.map((tab) => tab.id)).toEqual(["all", "weapons", "usables", "materials"]);
   });
 });

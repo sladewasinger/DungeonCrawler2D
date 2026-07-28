@@ -105,7 +105,7 @@ export class DungeonScene extends Phaser.Scene {
     this.syncInputHolds(conn);
     this.prepareFrame(conn, time, deltaMs);
     // Sample+predict before interpolating so this frame's render reflects any tick(s)
-    // that occurred this frame (matches reference/client's proven fixed-step order).
+    // that occurred this frame.
     sampleDungeonInput({ conn, state: this.state, inputController: this.inputController, vfx: this.vfx, deltaMs, nowMs: time });
 
     const render = interpolateConnectionSelf(conn, this.state, deltaMs);

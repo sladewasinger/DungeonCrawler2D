@@ -1,5 +1,5 @@
 import { CHUNK_SIZE } from "../../core/types.js";
-import { architectSeed } from "../layout/hash.js";
+import { layoutSeed } from "../layout/hash.js";
 import {
   biomeForDistrict,
   districtAt,
@@ -20,6 +20,6 @@ export function biomeAtWorldTile({ worldSeed, floor, wx, wy }: {
 }): WorldBiome {
   const cx = Math.floor(wx / CHUNK_SIZE);
   const cy = Math.floor(wy / CHUNK_SIZE);
-  const district = districtAt(architectSeed(worldSeed, floor), cx, cy);
+  const district = districtAt(layoutSeed(worldSeed, floor), cx, cy);
   return { district, biome: biomeForDistrict(district) };
 }

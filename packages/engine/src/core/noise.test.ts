@@ -1,5 +1,4 @@
-// No reference/engine/core sibling test exists for noise.ts; these cover its
-// determinism and range contract per docs/ENGINEERING_STANDARDS.md.
+// Covers noise determinism and range contracts from ENGINEERING_STANDARDS.md.
 import { describe, expect, it } from "vitest";
 import { fbm2D, valueNoise2D } from "./noise.js";
 

@@ -16,16 +16,13 @@
 // infinite-height VOID and therefore has no height edge for repairCliffs to
 // reinterpret, while the pit retains its checked-flat threshold and floor.
 // No Wall/pocket topology changes at all.
-import { TILE, ZONE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
-import { isNearDescent, isNearLandmark } from "../landmarks/guard.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import {
   at,
   BLOCK,
   blockCells,
   blockDistance,
   type Cell,
-  EPS,
   entryAnchor,
   type Grid,
   hasCleanPit,
@@ -35,7 +32,12 @@ import {
   SHOWCASE_RISE,
   TREAD_H,
 } from "./showcaseScan.js";
-import type { Rect } from "../types.js";
+import {
+  cellsCarvable,
+  type FeatureSite,
+  guardsClear,
+  platformViable,
+} from "./showcaseSite.js";
 
 export { SHOWCASE_RADIUS } from "./showcaseScan.js";
 
@@ -56,27 +58,6 @@ const STAIR_DIRS: ReadonlyArray<readonly [number, number]> = [
  * ring this requires means any route through the block detours around it on
  * level ground (and a doorway/tight passage can never qualify — its flanking
  * walls would sit in the ring), so no guaranteed path is ever jump-gated. */
-function cellsCarvable(g: Grid, cells: readonly Cell[]): boolean {
-  return cells.every(([x, y]) => {
-    if (x < 0 || y < 0 || x >= CHUNK_SIZE || y >= CHUNK_SIZE) return false;
-    if (at(g.tiles, x, y) !== TILE.Floor || at(g.zones, x, y) !== ZONE.None) return false;
-    return Math.abs(at(g.height, x, y)) <= EPS;
-  });
-}
-
-function guardsClear(...[worldSeed, floor, bx, by]: [number, number, number, number]): boolean {
-  const r: Rect = { x0: bx - 1, y0: by - 1, x1: bx + BLOCK, y1: by + BLOCK };
-  const context = { worldSeed, floor, cx: 0, cy: 0, rect: r };
-  return !isNearLandmark(context) && !isNearDescent(context);
-}
-
-/** A 2x2-plus-ring clearing at (bx, by) this pass may carve into (no mutation). */
-function platformViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number, number, number]): boolean {
-  const block = blockCells(bx, by);
-  if (!cellsCarvable(g, [...block, ...ringCells(bx, by)])) return false;
-  return guardsClear(worldSeed, floor, bx, by);
-}
-
 /** Convert the 2x2 plateau to explicit VOID; its surrounding ring stays z0. */
 function carveVoidPlateauAt(g: Grid, bx: number, by: number): void {
   for (const [x, y] of blockCells(bx, by)) {
@@ -107,15 +88,15 @@ function pitStair({ bx, by, dx, dy }: { bx: number; by: number; dx: number; dy: 
   return { tread, threshold: [tread[0] + dx, tread[1] + dy] };
 }
 
-interface PitSite {
-  readonly g: Grid; readonly worldSeed: number; readonly floor: number;
-  readonly bx: number; readonly by: number; readonly voidTerrain: boolean;
+interface PitSite extends FeatureSite {
+  readonly voidTerrain: boolean;
 }
 
 /** First workable stair side for a pit at (bx, by), or null if none (no mutation). */
 function pitViable({ g, worldSeed, floor, bx, by, voidTerrain }: PitSite): Cell | null {
   const block = blockCells(bx, by);
-  if (!cellsCarvable(g, [...block, ...ringCells(bx, by)]) || !guardsClear(worldSeed, floor, bx, by)) return null;
+  if (!cellsCarvable(g, [...block, ...ringCells(bx, by)]) ||
+    !guardsClear({ g, worldSeed, floor, bx, by })) return null;
   for (const [dx, dy] of STAIR_DIRS) {
     const { tread, threshold } = pitStair({ bx, by, dx, dy });
     if (cellsCarvable(g, [threshold]) && (!voidTerrain || !touchesVoid(g, tread))) return [dx, dy];
@@ -133,7 +114,12 @@ function touchesVoid(g: Grid, [x, y]: Cell): boolean {
 }
 
 /** Sink the 2x2 to z-1 with one compact rim-stair tread at -0.5 on side `dir`. */
-function carvePitAt(...[g, bx, by, dir]: [Grid, number, number, Cell]): void {
+function carvePitAt({ g, bx, by, dir }: {
+  g: Grid;
+  bx: number;
+  by: number;
+  dir: Cell;
+}): void {
   for (const [x, y] of blockCells(bx, by)) g.height[y * CHUNK_SIZE + x] = SHOWCASE_DEPTH;
   const { tread } = pitStair({ bx, by, dx: dir[0], dy: dir[1] });
   g.tiles[tread[1] * CHUNK_SIZE + tread[0]] = TILE.Stairs;
@@ -174,7 +160,8 @@ interface ShowcaseContext {
 
 function ensurePlatform({ g, anchor, worldSeed, floor, voidTerrain }: ShowcaseContext): void {
   if (hasCleanPlatform(g, anchor, voidTerrain)) return;
-  const spot = closestViable(anchor, (bx, by) => platformViable(g, worldSeed, floor, bx, by));
+  const site = (bx: number, by: number) => ({ g, worldSeed, floor, bx, by });
+  const spot = closestViable(anchor, (bx, by) => platformViable(site(bx, by)));
   if (!spot) return;
   if (voidTerrain) carveVoidPlateauAt(g, spot[0], spot[1]);
   else carveRaisedPlatformAt(g, spot[0], spot[1]);
@@ -187,7 +174,7 @@ function ensurePit(context: ShowcaseContext): void {
   const spot = closestViable(anchor, (bx, by) => pitViable(site(bx, by)) !== null);
   if (!spot) return;
   const direction = pitViable(site(spot[0], spot[1]));
-  if (direction) carvePitAt(g, spot[0], spot[1], direction);
+  if (direction) carvePitAt({ g, bx: spot[0], by: spot[1], dir: direction });
 }
 
 export interface ShowcaseRequest {

@@ -22,10 +22,7 @@ import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "
 /**
  * Unit tests for deaths.ts: enemy loot drops, the universal "downed"
  * window, bleed-out, and full-loot player death + respawn scheduling.
- * No dedicated reference/game-server test file exists for this module
- * (deaths/spawn are only exercised inside the monolithic v1 sim.test.ts,
- * which ports at integration) — cases below are written fresh against
- * the ported behavior in deaths.ts.
+ * These cases directly cover the current behavior in deaths.ts.
  */
 
 const EMPTY_CONTENT: RawContent = {

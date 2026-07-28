@@ -5,10 +5,9 @@ import { findFlatFloor, findSafeRoomDoor, makeSim, stepN, teleport } from "../su
 
 /**
  * Epic 3 regressions: standing hazards, fall damage, and the jump-off
- * fall-height rule — ported from reference/game-server/sim.test.ts.
+ * fall-height rule.
  * Fall-damage arithmetic (SAFE_FALL_HEIGHT, FALL_DAMAGE_PER_UNIT) is
- * unchanged by the jump/gravity rework (docs/PORT_PLAN.md's "Redesign
- * after baseline" #1); only the airtime to reach the ground got
+ * unchanged by the jump/gravity rework; only the airtime to reach the ground got
  * faster, so the original tick budgets still cover a full arc.
  */
 

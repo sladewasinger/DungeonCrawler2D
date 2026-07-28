@@ -1,24 +1,24 @@
 // Collapsed tower landmark (ruins district): concentric rings stepping up
 // +1 per tier toward a rubble-strewn core — climbable tier by tier, exactly
 // the jump-apex language the rest of the world uses. Anchored DIAGONALLY off
-// the chunk's own corridor-junction point (same trick as
-// features/platforms.ts's clusterCenter): the junction is where local
-// corridor arms actually converge, so a tower centered ON it would have its
+// the chunk's stable landmark anchor. Local corridor arms commonly pass
+// near that anchor, so a tower centered ON it would have its
 // climbable core carved flat by crossing traffic. Off to the side, roads
 // still braid through its rubble apron, but the peak stands intact.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
-import { TILE, TOPOLOGY } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
-import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkCenter, type LandmarkStamp } from "./shared.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { landmarkAnchor } from "../layout/placement.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
+import { clampLandmarkCenter, forEachLandmarkTile, onCorridor, type LandmarkCenter, type LandmarkStamp } from "./shared.js";
 
-const OUTER_RADIUS = 9;
-const RING_STEP = 3; // tiles per tier
+const OUTER_RADIUS = WORLD_GENERATION_TUNING.landmarks.towerOuterRadius;
+const RING_STEP = WORLD_GENERATION_TUNING.landmarks.towerTierWidth;
 export const TIER_RISE = 1; // height per tier — the jumpable step
 /** The tower's peak height (core tier), for tests bounding the world's overall height budget. */
 export const TOWER_MAX_RISE = Math.floor(OUTER_RADIUS / RING_STEP) * TIER_RISE;
 const RUBBLE_CHANCE_DENOM = 6;
-const JUNCTION_CLEARANCE = 11; // clears the busiest crossing traffic near the junction
+const ANCHOR_OFFSET = WORLD_GENERATION_TUNING.landmarks.towerAnchorOffset;
 
 const DIAG: ReadonlyArray<readonly [number, number]> = [
   [1, 1],
@@ -27,15 +27,14 @@ const DIAG: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
 ];
 
-function towerCenter({ seed, worldSeed, floor, cx, cy }: { seed: number; worldSeed: number; floor: number; cx: number; cy: number }): LandmarkCenter {
-  const junction = landmarkCenter({ worldSeed, floor, cx, cy });
+export function towerLandmarkCenter({ seed, worldSeed, floor, cx, cy }: { seed: number; worldSeed: number; floor: number; cx: number; cy: number }): LandmarkCenter {
+  const anchor = landmarkAnchor({ worldSeed, floor, cx, cy });
   const pick = hash2D(mixSeeds(seed, 0x7012), cx, cy) % DIAG.length;
   const [ddx, ddy] = DIAG[pick] ?? [1, 1];
-  const clamp = (v: number) => Math.max(1, Math.min(CHUNK_SIZE - 2, v));
-  return {
-    lx: clamp(junction.lx + ddx * JUNCTION_CLEARANCE),
-    ly: clamp(junction.ly + ddy * JUNCTION_CLEARANCE),
-  };
+  return clampLandmarkCenter({
+    lx: anchor.x + ddx * ANCHOR_OFFSET,
+    ly: anchor.y + ddy * ANCHOR_OFFSET,
+  }, OUTER_RADIUS);
 }
 
 /**
@@ -59,7 +58,7 @@ function isRubble(seed: number, wx: number, wy: number): boolean {
 }
 
 export function stampTower({ seed, worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkStamp): void {
-  const center = towerCenter({ seed, worldSeed, floor, cx, cy });
+  const center = towerLandmarkCenter({ seed, worldSeed, floor, cx, cy });
   forEachLandmarkTile(center, OUTER_RADIUS, ({ lx, ly, dx, dy }) => {
     const i = ly * CHUNK_SIZE + lx;
     const d = Math.max(Math.abs(dx), Math.abs(dy));

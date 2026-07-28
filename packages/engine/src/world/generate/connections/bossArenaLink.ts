@@ -23,11 +23,10 @@
 // sibling stairway connector.
 
 import {
-  GENERATED_ARENA_HALF,
+  ARENA_HALF,
   ARENA_THROAT_LENGTH,
 } from "../../features/bossArena/bossArena.js";
-import { TILE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { centerX, centerY, rectDistance } from "../layout/geometry.js";
 import type { Point, Room } from "../types.js";
 
@@ -76,19 +75,19 @@ function roomHeight(height: Float32Array, room: Room): number {
 /** Nearest column to `targetX` that is guaranteed outside the ring's own column span — unchanged if already outside it. */
 function safeColumn(targetX: number, boxCenterX: number): number {
   if (
-    targetX < boxCenterX - GENERATED_ARENA_HALF ||
-    targetX > boxCenterX + GENERATED_ARENA_HALF
+    targetX < boxCenterX - ARENA_HALF ||
+    targetX > boxCenterX + ARENA_HALF
   ) return targetX;
   return targetX < boxCenterX
-    ? boxCenterX - GENERATED_ARENA_HALF - 1
-    : boxCenterX + GENERATED_ARENA_HALF + 1;
+    ? boxCenterX - ARENA_HALF - 1
+    : boxCenterX + ARENA_HALF + 1;
 }
 
 /** True where a point sits inside (or bordering) the ring's own bounding square — such a room's rect was likely already overwritten by the arena stamp, so it's never a valid connection target. */
 function insideRing(p: Point, center: Point): boolean {
   return (
-    Math.abs(p.x - center.x) <= GENERATED_ARENA_HALF + 1 &&
-    Math.abs(p.y - center.y) <= GENERATED_ARENA_HALF + 1
+    Math.abs(p.x - center.x) <= ARENA_HALF + 1 &&
+    Math.abs(p.y - center.y) <= ARENA_HALF + 1
   );
 }
 

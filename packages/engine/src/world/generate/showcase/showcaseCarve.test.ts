@@ -4,7 +4,7 @@
 // viable scan order, never read back from the implementation.
 import { describe, expect, it } from "vitest";
 import { TILE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE } from "../../core/types.js";
 import { applyShowcase } from "./showcase.js";
 
 describe("applyShowcase (unit)", () => {

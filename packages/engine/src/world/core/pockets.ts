@@ -1,5 +1,4 @@
-import { TILE, TOPOLOGY, ZONE } from "./types.js";
-import { GENERATION_CHUNK_SIZE } from "../generate/layout/scale.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY, ZONE } from "./types.js";
 
 /**
  * Seal wall-enclosed floor pockets that touch neither a corridor, a
@@ -67,7 +66,7 @@ export function sealInteriorPockets(
   corridorCarved: Uint8Array,
   zones: Uint8Array,
 ): void {
-  const size = GENERATION_CHUNK_SIZE;
+  const size = CHUNK_SIZE;
   const reached = new Uint8Array(size * size);
   const queue = seedIndices({ tiles, corridorCarved, zones, size });
   for (const i of queue) reached[i] = 1;

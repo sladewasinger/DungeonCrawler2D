@@ -15,13 +15,10 @@ import {
 const PERSISTENT_HOTBAR_CLIENT = "persistent-hotbar";
 
 /**
- * Epic 4 regressions: pickup/stack/drop, explicit hotbar binding, and
- * throwables — ported from reference/game-server/sim.test.ts. Positions
- * are relative to the player's own body, but pickup gates on same-level
- * height (±1.5) — on the BSP overworld a 0.5-tile offset can straddle a
- * terrain step, so pickup spots use `findFlatArena` to guarantee the
- * item lands at the player's own height, unlike v1's hand-flattened
- * sandbox chunk where any nearby offset was safely co-height.
+ * Pickup/stack/drop, explicit hotbar binding, and throwable regressions.
+ * Positions are relative to the player's own body, but pickup gates on
+ * same-level height (±1.5). A 0.5-tile offset can straddle a terrain step,
+ * so pickup spots use `findFlatArena` to guarantee co-height placement.
  */
 
 describe("GameSim: items and inventory", () => {

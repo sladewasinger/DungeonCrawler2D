@@ -7,8 +7,8 @@
 // local-anchor jitter every role's footprint centers its stamp on.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
-import { seedsFor } from "../../core/terrain.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/layout/scale.js";
+import { CHUNK_SIZE } from "../../core/types.js";
+import { placementSeed } from "../../generate/layout/placement.js";
 import { isSafeRoomChunk, isStairsChunk } from "../fixed/fixed.js";
 
 /** Highest floor this wave generates; floor FLOOR_CAP hosts the boss arena instead of a StairwayDown. */
@@ -62,7 +62,7 @@ function isReserved(chunk: WorldChunk): boolean {
  * different ring, full stop, before any hashing even happens.
  */
 export function pickRingChunk(world: Pick<WorldChunk, "worldSeed" | "floor">, selection: RingSelection): ChunkCoord {
-  const seed = mixSeeds(seedsFor(world.worldSeed, world.floor).layout, selection.salt);
+  const seed = mixSeeds(placementSeed(world.worldSeed, world.floor), selection.salt);
   const perimeter = ringPerimeter(selection.radius);
   const start = hash2D(seed, 1, 0) % perimeter.length;
   for (let step = 0; step < perimeter.length; step++) {
@@ -88,7 +88,7 @@ export interface LocalAnchor {
  * neighboring chunk this generator pass can't touch.
  */
 export function structureAnchor(chunk: WorldChunk, placement: AnchorPlacement): LocalAnchor {
-  const layout = seedsFor(chunk.worldSeed, chunk.floor).layout;
+  const layout = placementSeed(chunk.worldSeed, chunk.floor);
   const range = CHUNK_SIZE / 2 - placement.clearance;
   const jx = (hash2D(mixSeeds(layout, placement.salt), chunk.cx, chunk.cy) % (range * 2 + 1)) - range;
   const jy = (hash2D(mixSeeds(layout, placement.salt + 1), chunk.cx, chunk.cy) % (range * 2 + 1)) - range;

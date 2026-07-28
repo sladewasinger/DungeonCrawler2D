@@ -12,8 +12,7 @@ import {
 /**
  * Asserts the redesigned jump's feel against fixed target bands, all
  * measured in whole ticks (TICK_DT, 20Hz) per the physics' discrete
- * step — see docs/PORT_PLAN.md's "Redesign after baseline" entry for
- * the bands themselves. Bands, not exact values: the harness is a
+ * step. Bands, not exact values: the harness is a
  * deterministic simulation, but the numbers are a tuning target, not a
  * contract worth pinning to the float.
  */

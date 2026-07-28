@@ -6,8 +6,7 @@ import type { PlayerSlot, SimState } from "../state/state.js";
 /**
  * Unit tests for the social module in isolation (no ws/GameSim layer
  * yet): party invite/accept/leave consent + proximity, chat fan-out,
- * and invite expiry. Assertions carried over from
- * reference/game-server/sim.test.ts's Epic 7 party/chat cases.
+ * and invite expiry.
  */
 
 describe("social", () => {

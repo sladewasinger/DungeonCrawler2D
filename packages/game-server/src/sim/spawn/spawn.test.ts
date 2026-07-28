@@ -15,11 +15,7 @@ import { PlayerStore } from "../../store.js";
 import { findSpawn, findWalkableNear, newToken } from "./spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 
-/**
- * Unit tests for spawn.ts against the new BSP generator: no dedicated
- * reference/game-server test file covers spawn.ts (only exercised inside
- * the monolithic v1 sim.test.ts, which ports at integration).
- */
+/** Unit tests for spawn selection against the active BSP generator. */
 
 const EMPTY_CONTENT: RawContent = {
   statuses: [],

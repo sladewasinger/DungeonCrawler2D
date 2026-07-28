@@ -10,66 +10,74 @@ import { rectHash } from "./hash.js";
 import { rectH, rectW } from "./geometry.js";
 import { DISTRICT, type DistrictKind } from "./district.js";
 import type { Flavor, Rect, Room } from "../types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-const MIN_LEAF = 6; // smallest splittable side; leaves are never smaller than this
-const BASE_MAX_DEPTH = 4;
-const BORDER_MARGIN = 3; // interior kept clear of the chunk edge for anchor corridors
-const ROOM_INSET_MIN = 1;
-const ROOM_INSET_MAX = 2;
+const ROOM_LAYOUT = WORLD_GENERATION_TUNING.roomLayout;
 
 export interface BspResult {
   rooms: Room[];
   links: Array<[Room, Room]>;
 }
 
+interface PartitionContext extends BspResult {
+  seed: number;
+  district: DistrictKind;
+}
+
 /** Warren subdivides into more, smaller cells; Plaza subdivides less, for grand halls. */
 function maxDepthFor(district: DistrictKind): number {
-  if (district === DISTRICT.Warren) return BASE_MAX_DEPTH + 1;
-  if (district === DISTRICT.Plaza || district === DISTRICT.Arena) return BASE_MAX_DEPTH - 1;
-  return BASE_MAX_DEPTH;
+  if (district === DISTRICT.Warren) return ROOM_LAYOUT.maximumPartitionDepth + 1;
+  if (district === DISTRICT.Plaza || district === DISTRICT.Arena) return ROOM_LAYOUT.maximumPartitionDepth - 1;
+  return ROOM_LAYOUT.maximumPartitionDepth;
 }
 
 export function partitionChunk(chunkSeed: number, chunkSize: number, district: DistrictKind): BspResult {
   const initial: Rect = {
-    x0: BORDER_MARGIN,
-    y0: BORDER_MARGIN,
-    x1: chunkSize - 1 - BORDER_MARGIN,
-    y1: chunkSize - 1 - BORDER_MARGIN,
+    x0: ROOM_LAYOUT.chunkBorderMargin,
+    y0: ROOM_LAYOUT.chunkBorderMargin,
+    x1: chunkSize - 1 - ROOM_LAYOUT.chunkBorderMargin,
+    y1: chunkSize - 1 - ROOM_LAYOUT.chunkBorderMargin,
   };
   const rooms: Room[] = [];
   const links: Array<[Room, Room]> = [];
-  partition(chunkSeed, initial, maxDepthFor(district), district, rooms, links);
+  const context = { seed: chunkSeed, district, rooms, links };
+  partition(context, initial, maxDepthFor(district));
   return { rooms, links };
 }
 
 /** Recurse, collecting every leaf's room and every split's connecting edge; returns a representative room for the caller to link further up the tree. */
-function partition(...[seed, rect, depth, district, rooms, links]: [number, Rect, number, DistrictKind, Room[], Array<[Room, Room]>]): Room {
-  const canX = rectW(rect) >= MIN_LEAF * 2 + 1;
-  const canY = rectH(rect) >= MIN_LEAF * 2 + 1;
+function partition(
+  context: PartitionContext,
+  rect: Rect,
+  depth: number,
+): Room {
+  const canX = rectW(rect) >= ROOM_LAYOUT.minimumPartitionSpan * 2 + 1;
+  const canY = rectH(rect) >= ROOM_LAYOUT.minimumPartitionSpan * 2 + 1;
   if (depth <= 0 || (!canX && !canY)) {
-    const room = makeRoom(seed, rect, district);
-    rooms.push(room);
+    const room = makeRoom(context.seed, rect, context.district);
+    context.rooms.push(room);
     return room;
   }
   const splitX = canX && (!canY || rectW(rect) >= rectH(rect));
-  const [a, b] = splitRect(seed, rect, splitX);
-  const roomA = partition(seed, a, depth - 1, district, rooms, links);
-  const roomB = partition(seed, b, depth - 1, district, rooms, links);
-  links.push([roomA, roomB]);
+  const [a, b] = splitRect(context.seed, rect, splitX);
+  const roomA = partition(context, a, depth - 1);
+  const roomB = partition(context, b, depth - 1);
+  context.links.push([roomA, roomB]);
   return roomA;
 }
 
 function splitRect(seed: number, rect: Rect, splitX: boolean): [Rect, Rect] {
+  const minimum = ROOM_LAYOUT.minimumPartitionSpan;
   if (splitX) {
-    const span = rectW(rect) - MIN_LEAF * 2;
-    const cut = rect.x0 + MIN_LEAF - 1 + (span > 0 ? rectHash(seed, rect, 0x5111) % (span + 1) : 0);
+    const span = rectW(rect) - minimum * 2;
+    const cut = rect.x0 + minimum - 1 + (span > 0 ? rectHash(seed, rect, 0x5111) % (span + 1) : 0);
     return [
       { ...rect, x1: cut },
       { ...rect, x0: cut + 1 },
     ];
   }
-  const span = rectH(rect) - MIN_LEAF * 2;
-  const cut = rect.y0 + MIN_LEAF - 1 + (span > 0 ? rectHash(seed, rect, 0x5112) % (span + 1) : 0);
+  const span = rectH(rect) - minimum * 2;
+  const cut = rect.y0 + minimum - 1 + (span > 0 ? rectHash(seed, rect, 0x5112) % (span + 1) : 0);
   return [
     { ...rect, y1: cut },
     { ...rect, y0: cut + 1 },
@@ -77,15 +85,30 @@ function splitRect(seed: number, rect: Rect, splitX: boolean): [Rect, Rect] {
 }
 
 function makeRoom(seed: number, leaf: Rect, district: DistrictKind): Room {
-  const insetX = ROOM_INSET_MIN + (rectHash(seed, leaf, 0x1350) % (ROOM_INSET_MAX - ROOM_INSET_MIN + 1));
-  const insetY = ROOM_INSET_MIN + (rectHash(seed, leaf, 0x1351) % (ROOM_INSET_MAX - ROOM_INSET_MIN + 1));
+  const insetX = Math.min(
+    randomRoomInset(seed, leaf, 0x1350),
+    maximumRoomInset(rectW(leaf)),
+  );
+  const insetY = Math.min(
+    randomRoomInset(seed, leaf, 0x1351),
+    maximumRoomInset(rectH(leaf)),
+  );
   const rect: Rect = {
-    x0: Math.min(leaf.x0 + insetX, leaf.x1 - 3),
-    y0: Math.min(leaf.y0 + insetY, leaf.y1 - 3),
-    x1: Math.max(leaf.x1 - insetX, leaf.x0 + 3),
-    y1: Math.max(leaf.y1 - insetY, leaf.y0 + 3),
+    x0: leaf.x0 + insetX,
+    y0: leaf.y0 + insetY,
+    x1: leaf.x1 - insetX,
+    y1: leaf.y1 - insetY,
   };
   return { rect, flavor: pickFlavor(seed, rect, district) };
+}
+
+function maximumRoomInset(leafSpan: number): number {
+  return Math.floor((leafSpan - ROOM_LAYOUT.minimumRoomSpan) / 2);
+}
+
+function randomRoomInset(seed: number, leaf: Rect, salt: number): number {
+  const { min, max } = ROOM_LAYOUT.roomInset;
+  return min + rectHash(seed, leaf, salt) % (max - min + 1);
 }
 
 interface DistrictBias {
@@ -106,25 +129,39 @@ const DISTRICT_BIASES: readonly DistrictBias[] = [
 
 function districtBiasedFlavor(district: DistrictKind, area: number, roll: number): Flavor | null {
   for (const bias of DISTRICT_BIASES) {
-    if (matchesDistrictBias(bias, district, area, roll)) return bias.flavor;
+    if (matchesDistrictBias(bias, { district, area, roll })) return bias.flavor;
   }
   return null;
 }
 
-function matchesDistrictBias(...[bias, district, area, roll]: [DistrictBias, DistrictKind, number, number]): boolean {
+interface FlavorRoll {
+  district: DistrictKind;
+  area: number;
+  roll: number;
+}
+
+function matchesDistrictBias(
+  bias: DistrictBias,
+  { district, area, roll }: FlavorRoll,
+): boolean {
   return bias.kind === district && (bias.minArea === undefined || area >= bias.minArea) && roll < bias.threshold;
 }
 
 /** The generic, district-agnostic roll every leaf falls back to. */
 function areaBiasedFlavor(area: number, roll: number): Flavor {
-  if (matchesAreaFlavor(area, roll, 90, 20)) return "pillarHall";
-  if (matchesAreaFlavor(area, roll, 60, 40)) return "plaza";
-  if (matchesAreaFlavor(area, roll, 70, 55)) return "grotto";
+  if (matchesAreaFlavor({ area, roll, minimumArea: 90, threshold: 20 })) return "pillarHall";
+  if (matchesAreaFlavor({ area, roll, minimumArea: 60, threshold: 40 })) return "plaza";
+  if (matchesAreaFlavor({ area, roll, minimumArea: 70, threshold: 55 })) return "grotto";
   return "chamber";
 }
 
-function matchesAreaFlavor(...[area, roll, minArea, threshold]: [number, number, number, number]): boolean {
-  return area >= minArea && roll < threshold;
+function matchesAreaFlavor(input: {
+  area: number;
+  roll: number;
+  minimumArea: number;
+  threshold: number;
+}): boolean {
+  return input.area >= input.minimumArea && input.roll < input.threshold;
 }
 
 /** District bends the flavor roll toward its signature room family; galleries (aspect) always win first. */

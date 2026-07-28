@@ -1,11 +1,11 @@
 // Super-chunk (3x3 chunk) district assignment: gives the BSP room layout a
 // macro-scale character — named neighborhoods instead of one uniform room
-// family across the whole floor. Graft from the "districts" candidate onto
-// the winning "architect" base generator (docs/PORT_PLAN.md redesign brief).
+// family across the whole floor.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-export const SUPERCHUNK_SIZE = 3;
+export const SUPERCHUNK_SIZE = WORLD_GENERATION_TUNING.districts.chunkSpan;
 
 export const DISTRICT = {
   Warren: 0,
@@ -69,7 +69,8 @@ export function districtAt(seed: number, cx: number, cy: number): DistrictKind {
 /** The one chunk per super-chunk that hosts its landmark: the center cell. */
 export function isLandmarkChunk(cx: number, cy: number): boolean {
   const { scx, scy } = superchunkOf(cx, cy);
-  return cx === scx + 1 && cy === scy + 1;
+  const centerOffset = Math.floor(SUPERCHUNK_SIZE / 2);
+  return cx === scx + centerOffset && cy === scy + centerOffset;
 }
 
 /**

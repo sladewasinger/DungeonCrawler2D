@@ -1,6 +1,5 @@
-// Tuned gameplay/physics/network constants shared by server and client — values are
-// ported byte-for-byte from reference/engine/core/constants.ts; changing any of them
-// changes movement feel or netcode behavior and must be a deliberate, reviewed change.
+// Tuned gameplay/physics/network constants shared by server and client. Changing
+// them affects movement feel or netcode behavior and must be deliberate and reviewed.
 //
 // Z-SCALE DOCTRINE: 1 z-unit = 1 tile edge. Every z-denominated constant below
 // (wall/stair/fall heights, clearances) is authored on that footing — a wall is
@@ -19,10 +18,8 @@ export const PROJECTED_INPUT_MAX_FUTURE_TICKS = 8;
 
 /** v0.3.0 traversal tuning: walking is 20% slower than the previous 8 tiles/s. */
 export const MOVE_SPEED = 6.4;
-// Epic 7.12 run input: v1's SHIFT key was never a run modifier (it stored a bound
-// hotbar stack into the stash — reference/client/input/controller.ts) so there is
-// nothing to port here; the multiplier is a fresh tuning call against the roadmap's
-// own "likely ~1.5x" hint (docs/ASSUMPTIONS.md #65).
+// Run speed is independently tuned from walking speed; inventory shortcuts only
+// consume SHIFT while their panel is open.
 /** Produces 8.4 tiles/s: 30% slower than the previous 12 tiles/s sprint. */
 export const RUN_SPEED_MULTIPLIER = 1.3125;
 /** A raised guard trades mobility for protection. Shared prediction/server physics apply it once. */

@@ -13,11 +13,7 @@
 // anywhere else.
 
 import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
-import {
-  GENERATION_CHUNK_SIZE,
-  WORLD_GEOMETRY_SCALE,
-  scaleGeneratedCoordinate,
-} from "../../generate/layout/scale.js";
+import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
 import {
   FLOOR_CAP,
   pickRingChunk,
@@ -30,9 +26,8 @@ import {
 const ARENA_RADIUS = 2;
 const ARENA_SALT = 0xde5e;
 const ANCHOR_SALT = 0xde61;
-/** Half-width: the ring's outer edge sits (2*ARENA_HALF+1)^2 = 15x15 total footprint from center. */
-export const GENERATED_ARENA_HALF = 7;
-export const ARENA_HALF = GENERATED_ARENA_HALF * WORLD_GEOMETRY_SCALE;
+/** Radius: the ring's outer edge produces a (2*radius+1) square footprint. */
+export const ARENA_HALF = WORLD_GENERATION_TUNING.bossArena.radius;
 /**
  * The ring wall is 2 tiles thick (d in [ARENA_HALF - RING_THICKNESS + 1,
  * ARENA_HALF]), not 1: generate/verticalExtent.ts's resolveThinWalls merges
@@ -44,15 +39,15 @@ export const ARENA_HALF = GENERATED_ARENA_HALF * WORLD_GEOMETRY_SCALE;
  * 15x15 to 11x11; the overall 15x15 footprint (what Epic 7.14's contract
  * describes) is unchanged.
  */
-export const GENERATED_RING_THICKNESS = 2;
-export const RING_THICKNESS = GENERATED_RING_THICKNESS * WORLD_GEOMETRY_SCALE;
-const RING_INNER_EDGE = GENERATED_ARENA_HALF - GENERATED_RING_THICKNESS + 1;
+export const RING_THICKNESS = WORLD_GENERATION_TUNING.bossArena.wallThickness;
+const RING_INNER_EDGE = ARENA_HALF - RING_THICKNESS + 1;
 /** How far past the ring's own footprint the gate connector's straight exit throat runs (generate/bossArenaLink.ts) — 1 tile already fully clears the ring's bounding box on the gate's axis; +1 is a visual buffer. */
-export const ARENA_THROAT_LENGTH = 2;
-const ARENA_CLEARANCE = GENERATED_ARENA_HALF + 1 + ARENA_THROAT_LENGTH;
+export const ARENA_THROAT_LENGTH =
+  WORLD_GENERATION_TUNING.bossArena.exitThroatLength;
+const ARENA_CLEARANCE = ARENA_HALF + 1 + ARENA_THROAT_LENGTH;
 /** Local offset of the arena's one gate: a 1-wide notch cut through the full 2-tile ring thickness, on the south wall. */
 const GATE_DX = 0;
-const GATE_DY = GENERATED_ARENA_HALF;
+const GATE_DY = ARENA_HALF;
 
 export function bossArenaChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
   if (world.floor !== FLOOR_CAP) return null;
@@ -95,8 +90,8 @@ function isGateCell(dx: number, dy: number): boolean {
 }
 
 function stampRing(anchor: LocalAnchor, tiles: Uint8Array, height: Float32Array): void {
-  for (let dy = -GENERATED_ARENA_HALF; dy <= GENERATED_ARENA_HALF; dy++) {
-    for (let dx = -GENERATED_ARENA_HALF; dx <= GENERATED_ARENA_HALF; dx++) {
+  for (let dy = -ARENA_HALF; dy <= ARENA_HALF; dy++) {
+    for (let dx = -ARENA_HALF; dx <= ARENA_HALF; dx++) {
       stampRingCell({ anchor, dx, dy, tiles, height });
     }
   }
@@ -114,13 +109,13 @@ function stampRingCell(context: RingCellContext): void {
   const lx = context.anchor.lx + context.dx;
   const ly = context.anchor.ly + context.dy;
   if (!isChunkCell(lx, ly)) return;
-  const index = ly * GENERATION_CHUNK_SIZE + lx;
+  const index = ly * CHUNK_SIZE + lx;
   context.tiles[index] = isRingWall(context.dx, context.dy) ? TOPOLOGY.Uncarved : TILE.Floor;
   context.height[index] = 0;
 }
 
 function isChunkCell(lx: number, ly: number): boolean {
-  return lx >= 0 && ly >= 0 && lx < GENERATION_CHUNK_SIZE && ly < GENERATION_CHUNK_SIZE;
+  return lx >= 0 && ly >= 0 && lx < CHUNK_SIZE && ly < CHUNK_SIZE;
 }
 
 function isRingWall(dx: number, dy: number): boolean {
@@ -129,8 +124,8 @@ function isRingWall(dx: number, dy: number): boolean {
 
 function worldPoint(anchor: LocalAnchor, chunk: ChunkCoord, offset: LocalAnchor): { x: number; y: number } {
   return {
-    x: chunk.cx * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.lx + offset.lx),
-    y: chunk.cy * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.ly + offset.ly),
+    x: chunk.cx * CHUNK_SIZE + anchor.lx + offset.lx,
+    y: chunk.cy * CHUNK_SIZE + anchor.ly + offset.ly,
   };
 }
 
@@ -151,5 +146,5 @@ export function bossArenaSpawnAnchor(world: { worldSeed: number; floor: number }
 /** Local-anchor + reach for the room-height guard (generate/landmarks/guard.ts): keeps ordinary pit/dais variance away from the arena's own footprint in its chunk. */
 export function bossArenaGuardAnchor(chunk: WorldChunk): { lx: number; ly: number; reach: number } | null {
   if (!isBossArenaChunk(chunk)) return null;
-  return { ...anchorFor(chunk), reach: GENERATED_ARENA_HALF + 2 };
+  return { ...anchorFor(chunk), reach: ARENA_HALF + 2 };
 }

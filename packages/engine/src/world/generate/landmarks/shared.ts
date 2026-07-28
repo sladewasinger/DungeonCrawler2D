@@ -1,11 +1,8 @@
-// Shared helpers for landmark stamping: local-coordinate footprint
-// iteration anchored on the chunk's own corridor-junction point (reusing
-// terrain.ts's jittered chunkCenter purely as a stable anchor — the room
-// layout itself doesn't otherwise use it), with the existing corridor
-// network (corridorCarved) always winning: a landmark never walls it off.
+// Shared helpers for landmark stamping. The existing corridor network
+// (corridorCarved) always wins: a landmark never walls it off.
 
-import { generatedChunkCenter } from "../../core/terrain.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE } from "../../core/types.js";
+import { landmarkAnchor } from "../layout/placement.js";
 
 export interface LandmarkCenter {
   lx: number;
@@ -26,10 +23,23 @@ export interface LandmarkStamp extends LandmarkLocation {
   height: Float32Array;
 }
 
-/** The landmark's anchor: this chunk's own corridor-junction point, in local coords. */
-export function landmarkCenter({ worldSeed, floor, cx, cy }: LandmarkLocation): LandmarkCenter {
-  const junction = generatedChunkCenter(worldSeed, floor, cx, cy);
-  return { lx: junction.x - cx * CHUNK_SIZE, ly: junction.y - cy * CHUNK_SIZE };
+/** Clamp a landmark center so its complete square footprint stays in-chunk. */
+export function clampLandmarkCenter(
+  center: LandmarkCenter,
+  radius: number,
+): LandmarkCenter {
+  const clamp = (value: number) =>
+    Math.max(radius, Math.min(CHUNK_SIZE - 1 - radius, value));
+  return { lx: clamp(center.lx), ly: clamp(center.ly) };
+}
+
+/** Stable landmark center with its complete footprint kept in this chunk. */
+export function landmarkCenter(
+  location: LandmarkLocation,
+  radius: number,
+): LandmarkCenter {
+  const anchor = landmarkAnchor(location);
+  return clampLandmarkCenter({ lx: anchor.x, ly: anchor.y }, radius);
 }
 
 /** Visit every in-bounds local tile within `reach` (chebyshev) of the landmark center. */

@@ -6,19 +6,16 @@
 // network only has to reach these four points for the cross-chunk
 // connectivity guarantee to hold globally.
 //
-// "Avenues" graft: an edge that crosses a super-chunk (district) boundary
+// An edge that crosses a super-chunk (district) boundary
 // widens well beyond the ordinary 1-3 tile capillary corridor — a legible
 // arterial road hierarchy on top of the connectivity guarantee.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
 import { avenueBetween } from "./district.js";
 import type { Point, Side } from "../types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-const MARGIN = 6; // keep anchors off the chunk corners
-const WIDTH_MIN = 1;
-const WIDTH_MAX = 3;
-const AVENUE_WIDTH_MIN = 4;
-const AVENUE_WIDTH_MAX = 6;
+const CORRIDOR_TUNING = WORLD_GENERATION_TUNING.corridors;
 const V_SALT = 0xed6e;
 const H_SALT = 0xed6f;
 
@@ -39,18 +36,17 @@ interface EdgeHash extends EdgeCoordinate {
 }
 
 function edgeJitter({ seed, x, y, salt, span }: EdgeHash & { span: number }): number {
-  return MARGIN + (hash2D(mixSeeds(seed, salt), x, y) % span);
+  return CORRIDOR_TUNING.edgeAnchorMargin + (hash2D(mixSeeds(seed, salt), x, y) % span);
 }
 
 function edgeWidth({ seed, x, y, salt, avenue }: EdgeHash & { avenue: boolean }): number {
-  const min = avenue ? AVENUE_WIDTH_MIN : WIDTH_MIN;
-  const max = avenue ? AVENUE_WIDTH_MAX : WIDTH_MAX;
+  const { min, max } = avenue ? CORRIDOR_TUNING.avenueWidth : CORRIDOR_TUNING.chunkEdgeWidth;
   return min + (hash2D(mixSeeds(seed, salt ^ 0x7777), x, y) % (max - min + 1));
 }
 
 /** The four border anchors for chunk (cx, cy), in chunk-local coordinates. */
 export function edgeAnchors({ seed, cx, cy, chunkSize }: { seed: number; cx: number; cy: number; chunkSize: number }): EdgeAnchor[] {
-  const span = chunkSize - 2 * MARGIN;
+  const span = chunkSize - 2 * CORRIDOR_TUNING.edgeAnchorMargin;
   return buildAnchors({ seed, cx, cy, chunkSize, span });
 }
 

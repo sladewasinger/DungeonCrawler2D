@@ -13,10 +13,7 @@
 // `reviveDownedPartyMember` already uses) — no new TILE type needed.
 
 import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
-import {
-  GENERATION_CHUNK_SIZE,
-  scaleGeneratedCoordinate,
-} from "../../generate/layout/scale.js";
+import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
 import {
   FLOOR_CAP,
   pickRingChunk,
@@ -34,16 +31,17 @@ const UP_SALT = 0xde5c;
 const DOWN_SALT = 0xde5d;
 const ANCHOR_SALT = 0xde60;
 
-const STRUCT_HALF_X = 2; // 5 tiles wide
-const STRUCT_BACK = 3; // rows behind the anchor
-const STRUCT_FRONT = 1; // rows in front, open approach
+const STRUCTURE = WORLD_GENERATION_TUNING.descentStructure;
+const STRUCT_HALF_X = STRUCTURE.halfWidth;
+const STRUCT_BACK = STRUCTURE.backReach;
+const STRUCT_FRONT = STRUCTURE.frontReach;
 // Every wall run (back rim, mouth notch, side rim) must be >= 2 tiles deep:
 // generate/verticalExtent.ts's resolveThinWalls merges any freestanding
 // TOPOLOGY.Uncarved run under 2 tiles deep straight into Floor whenever both its
 // north and south neighbors are open — confirmed live (bossArenaInvariant's
 // first version) eating a 1-thick rim entirely. 2 back rows keep the rim
 // AND the mouth notch both above that threshold.
-const BACK_WALL_DEPTH = 2;
+const BACK_WALL_DEPTH = STRUCTURE.backWallDepth;
 const STRUCT_CLEARANCE = Math.max(STRUCT_HALF_X, STRUCT_BACK, STRUCT_FRONT) + 1;
 /**
  * Base (pre-WALL_RISE) height for the rim/side walls, giving the mouth
@@ -143,22 +141,22 @@ function stampStructureCell(context: StructureCellContext): void {
   const lx = context.anchor.lx + context.dx;
   const ly = context.anchor.ly + context.dy;
   if (!isChunkCell(lx, ly)) return;
-  const index = ly * GENERATION_CHUNK_SIZE + lx;
+  const index = ly * CHUNK_SIZE + lx;
   const cell = classifyCell(context.dx, context.dy, context.tiles[index] !== TOPOLOGY.Uncarved);
   context.tiles[index] = cell.tile;
   context.height[index] = cell.height;
 }
 
 function isChunkCell(lx: number, ly: number): boolean {
-  return lx >= 0 && ly >= 0 && lx < GENERATION_CHUNK_SIZE && ly < GENERATION_CHUNK_SIZE;
+  return lx >= 0 && ly >= 0 && lx < CHUNK_SIZE && ly < CHUNK_SIZE;
 }
 
 function positionFor(chunk: ChunkCoord | null, world: Pick<WorldChunk, "worldSeed" | "floor">): { x: number; y: number } | null {
   if (!chunk) return null;
   const anchor = anchorFor({ ...world, ...chunk });
   return {
-    x: chunk.cx * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.lx),
-    y: chunk.cy * CHUNK_SIZE + scaleGeneratedCoordinate(anchor.ly),
+    x: chunk.cx * CHUNK_SIZE + anchor.lx,
+    y: chunk.cy * CHUNK_SIZE + anchor.ly,
   };
 }
 

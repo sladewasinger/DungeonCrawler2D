@@ -2,7 +2,7 @@ import {
   CHUNK_SIZE,
   isRoomChunk,
   LEVEL,
-  platformLootSpots,
+  roomLootSpotsForChunk,
 } from "@dc2d/engine";
 import { spawnEnemy, spawnItem } from "../core/helpers.js";
 import { resolveSpawnAnchor } from "../spawn/spawn.js";
@@ -15,7 +15,7 @@ import { pickEnemyDef, pickNativeEnemyDef } from "./populationRoster.js";
 export const NEAR_SPAWN_RADIUS_TILES = 60;
 const NEAR_SPAWN_BONUS_ENEMIES = 3;
 const ENEMY_CAP = 150;
-const PLATFORM_LOOT = [
+const ROOM_LOOT = [
   "bandage", "torch", "vodka-bottle", "knife", "water-flask",
 ];
 
@@ -55,7 +55,7 @@ function activateChunk(sim: SimState, cx: number, cy: number): void {
 function populateChunk(sim: SimState, cx: number, cy: number): void {
   if (isRoomChunk(cy)) return;
   if (sim.world.level === LEVEL.Sandbox) return populateSandboxChunk(sim, cx, cy);
-  spawnPlatformLoot(sim, cx, cy);
+  spawnRoomLoot(sim, cx, cy);
   if (sim.enemies.size >= ENEMY_CAP) return;
   spawnMiniBossEncounter(sim, cx, cy);
   spawnEnemyPack(sim, cx, cy);
@@ -65,12 +65,18 @@ function populateSandboxChunk(sim: SimState, cx: number, cy: number): void {
   if (sim.opts.testFixtures) populateTestZoneChunk(sim, cx, cy);
 }
 
-function spawnPlatformLoot(sim: SimState, cx: number, cy: number): void {
-  const spots = platformLootSpots({ worldSeed: sim.world.worldSeed, floor: sim.world.floor, cx, cy });
+function spawnRoomLoot(sim: SimState, cx: number, cy: number): void {
+  const spots = roomLootSpotsForChunk({
+    worldSeed: sim.world.worldSeed,
+    floor: sim.world.floor,
+    cx,
+    cy,
+  });
   for (const spot of spots) {
+    if (!sim.world.isWalkable(Math.floor(spot.x), Math.floor(spot.y))) continue;
     if (sim.rng.next() >= 0.6) continue;
-    const index = Math.floor(sim.rng.next() * PLATFORM_LOOT.length);
-    spawnItem(sim, { defId: PLATFORM_LOOT[index]!, x: spot.x, y: spot.y, qty: 1 });
+    const index = Math.floor(sim.rng.next() * ROOM_LOOT.length);
+    spawnItem(sim, { defId: ROOM_LOOT[index]!, x: spot.x, y: spot.y, qty: 1 });
   }
 }
 

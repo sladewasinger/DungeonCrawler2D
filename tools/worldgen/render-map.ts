@@ -5,7 +5,7 @@
 //
 // Dev tool only: imports the engine's world source directly (relative import
 // into packages/engine/src is acceptable here; nothing under packages/ may
-// import this tool or reference/).
+// import this tool).
 
 import { CHUNK_SIZE } from "../../packages/engine/src/world/types.js";
 import { parseArgs } from "./args.js";

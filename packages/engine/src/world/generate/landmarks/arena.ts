@@ -2,14 +2,14 @@
 // bounded by a standing wall, with the corridor network punching clean
 // gates through it — the district's meeting-ground/fighting-pit centerpiece.
 
-import { TILE, TOPOLOGY } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
+import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 import { forEachLandmarkTile, landmarkCenter, onCorridor, type LandmarkStamp } from "./shared.js";
 
-const WALL_RADIUS = 10;
+const WALL_RADIUS = WORLD_GENERATION_TUNING.landmarks.arenaWallRadius;
 
 export function stampArena({ worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkStamp): void {
-  const center = landmarkCenter({ worldSeed, floor, cx, cy });
+  const center = landmarkCenter({ worldSeed, floor, cx, cy }, WALL_RADIUS);
   forEachLandmarkTile(center, WALL_RADIUS, ({ lx, ly, dx, dy }) => {
     const i = ly * CHUNK_SIZE + lx;
     const d = Math.max(Math.abs(dx), Math.abs(dy));

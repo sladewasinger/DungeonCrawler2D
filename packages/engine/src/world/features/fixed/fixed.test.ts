@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { TILE } from "../../core/types.js";
-import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../../generate/layout/scale.js";
+import { CHUNK_SIZE, TILE } from "../../core/types.js";
+import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
 import { carveSafeRoomEntrance, KIOSK_HEIGHT } from "./fixed.js";
 
 const CENTER_LX = 10;
 const CENTER_LY = 10;
+const KIOSK = WORLD_GENERATION_TUNING.fixedFeatures;
 /** Rows north of the door row a real flat-top platform needs behind its face rows (fixed.ts's TERRACE_TOP_ROWS). */
-const REQUIRED_FLAT_TOP_ROWS = KIOSK_HEIGHT;
+const REQUIRED_FLAT_TOP_ROWS = KIOSK.kioskTopDepth;
 
 function kioskCells(): Array<{ x: number; y: number }> {
-  return Array.from({ length: 25 }, (_, index) => ({ x: CENTER_LX - 2 + index % 5, y: CENTER_LY - 3 + Math.floor(index / 5) }));
+  const width = KIOSK.kioskHalfWidth * 2 + 1;
+  const depth = KIOSK_HEIGHT + KIOSK.kioskTopDepth + 1;
+  const northReach = KIOSK_HEIGHT + KIOSK.kioskTopDepth - 1;
+  return Array.from({ length: width * depth }, (_, index) => ({
+    x: CENTER_LX - KIOSK.kioskHalfWidth + index % width,
+    y: CENTER_LY - northReach + Math.floor(index / width),
+  }));
 }
 
 describe("carveSafeRoomEntrance", () => {
@@ -24,7 +31,8 @@ describe("carveSafeRoomEntrance", () => {
       expect(tiles[index]).toBe(isDoor ? TILE.DoorSafeRoom : TILE.Floor);
       expect(height[index]).toBe(KIOSK_HEIGHT);
     }
-    expect(tiles[CENTER_LY * CHUNK_SIZE + (CENTER_LX - 3)]).toBe(TILE.Floor);
+    const outsideWest = CENTER_LX - KIOSK.kioskHalfWidth - 1;
+    expect(tiles[CENTER_LY * CHUNK_SIZE + outsideWest]).toBe(TILE.Floor);
     expect(tiles[(CENTER_LY + 2) * CHUNK_SIZE + CENTER_LX]).toBe(TILE.Floor);
   });
 
@@ -35,9 +43,10 @@ describe("carveSafeRoomEntrance", () => {
 
     let depth = 0;
     for (let y = 0; y < CHUNK_SIZE; y++) {
-      if (height[y * CHUNK_SIZE + (CENTER_LX - 2)] === KIOSK_HEIGHT) depth++;
+      const westEdge = CENTER_LX - KIOSK.kioskHalfWidth;
+      if (height[y * CHUNK_SIZE + westEdge] === KIOSK_HEIGHT) depth++;
     }
-    expect(depth).toBe(2 * KIOSK_HEIGHT + 1);
+    expect(depth).toBe(KIOSK_HEIGHT + KIOSK.kioskTopDepth + 1);
   });
 
   it("the door's OWN column has at least REQUIRED_FLAT_TOP_ROWS of terrace north of its face rows — the exact 'notch directly above the door' bug: every other column already had this depth, only the door's column came up short", () => {

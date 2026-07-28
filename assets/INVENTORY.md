@@ -47,7 +47,7 @@ masking reference — not required to use):
 
 Basic wall faces: `wall_left`, `wall_mid`, `wall_right`, `wall_top_left`,
 `wall_top_mid`, `wall_top_right` (6 pieces — a minimal wall-cap kit, thinner
-than v1's 16-mask brick grammar).
+than the game's generated 16-mask brick grammar).
 
 Elevation/edge kit (**this is the pack's closest thing to cliff-face art** —
 see GAPS): `wall_edge_bottom_left`, `wall_edge_bottom_right`,
@@ -117,7 +117,7 @@ all 4, don't assume a clean `f0..f3` string pattern), `ice_zombie` (16×16),
 `tiny_slug` (16×16).
 
 `skelet_idle_anim_f0..f3` / `skelet_run_anim_f0..f3` is a **direct, exact
-match** for the game's `skeleton` enemy (`reference/content/enemies.json`) —
+match** for the game's `skeleton` enemy (`packages/content/src/data/enemies.json`) —
 use as-is, no recolor needed.
 
 ## Companion pets
@@ -159,7 +159,7 @@ are equip/hand-overlay icons (meant to attach to a hero's hand slot), not
 ground-item icons, but double as inventory-slot art directly.
 
 `weapon_rusty_sword` is a **direct match** for the game's `sword` item
-("Rusty Sword" — `reference/content/items.json`). `weapon_knife` matches
+("Rusty Sword" — `packages/content/src/data/items.json`). `weapon_knife` matches
 `knife`. `weapon_hammer`/`weapon_big_hammer` match `hammer`.
 
 ---
@@ -186,7 +186,7 @@ by sourcing a second art pack — mixing packs violates
    or steam frames anywhere in the pack (same grep, zero hits for
    `smoke|spark|particle`). Needed for: `area-fire`, `area-smoke`,
    `area-steam`, `area-poison`, `area-oil`, `area-wet` (all in
-   `reference/content/areas.json`) and for hit-flash/knockback/dust-puff
+   `packages/content/src/data/areas.json`) and for hit-flash/knockback/dust-puff
    juice in `docs/VISUAL_DIRECTION.md`. Recommend **not** sourcing a second
    pack for this (evaluated Kenney's CC0 Particle Pack — rejected, it's
    soft/vector-style at a different effective resolution, exactly the
@@ -216,13 +216,13 @@ by sourcing a second art pack — mixing packs violates
    commission 3–4 stair-tread variants at matching pixel density.
 
 5. **Sanctuary floor variant — gap, but exactly the kind this pipeline
-   expects to solve procedurally.** No teal/blessed floor tile exists; v1's
-   pipeline (`docs/TILESET.md`) already did this as a runtime teal recolor
-   of a base floor tile, so replicate that against `floor_1..floor_8` here.
+   expects to solve procedurally.** No teal/blessed floor tile exists; the
+   terrain pipeline can produce one as a runtime teal recolor of a base floor
+   tile such as `floor_1..floor_8`.
    Straightforward, no new source art needed.
 
 6. **Specific item icons — total gap for 4 of 10 current items.**
-   Cross-checked every item in `reference/content/items.json` against the
+   Cross-checked every item in `packages/content/src/data/items.json` against the
    370-frame manifest:
    - Matched directly or near-directly: `knife`→`weapon_knife`,
      `sword`("Rusty Sword")→`weapon_rusty_sword`,
@@ -240,7 +240,7 @@ by sourcing a second art pack — mixing packs violates
      tiles.
 
 7. **Enemy roster — 2 of 4 current enemies unmatched.**
-   Cross-checked `reference/content/enemies.json`:
+   Cross-checked `packages/content/src/data/enemies.json`:
    - `skeleton` → **exact match**, `skelet_idle/run` (see above).
    - `slime` → no true slime creature in the pack. `wall_goo`/`wall_goo_base`
      are static wall-ooze decals, not a creature. Closest animate-able

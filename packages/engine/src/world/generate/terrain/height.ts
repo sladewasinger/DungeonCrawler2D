@@ -2,13 +2,12 @@
 // daises, always exactly the jumpable +/-1 (PLATFORM_TIER_STEP elsewhere
 // in the engine, apex ~1.07 — see core/constants.ts's JUMP_VELOCITY/GRAVITY;
 // 1 z-unit = 1 tile edge per that file's doctrine comment). A rarer "chasm"
-// variant (grafted from the "caverns" candidate) drops a large room to -2
+// variant drops a large room to -2
 // with one guaranteed flat bridge deck. A pit/dais room gets EXACTLY ONE
 // built staircase, at one
 // deliberately-chosen doorway (carveRamp); every OTHER doorway meets the
 // room at a plain, un-ramped edge — a real cliff you jump or fall, not a
-// second staircase (docs/PORT_PLAN.md's "one straight run per transition,
-// no clusters" stair redesign). A chasm room gets NO staircase at all —
+// second staircase. A chasm room gets NO staircase at all —
 // every chasm rim is an infinite-height void boundary with no staircase;
 // the guaranteed bridge (stampBridge) is the one crossing, and falling or
 // being knocked into the void remains a server-side death.
@@ -20,11 +19,12 @@ import { rectH, rectW } from "../layout/geometry.js";
 import { TILE } from "../../core/types.js";
 import type { Doorway, Point, Rect, Room, Side } from "../types.js";
 import { DISTRICT, type DistrictKind } from "../layout/district.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
 export const ROOM_RISE = 1;
 export const CHASM_DEPTH = -2;
-const CHASM_BRIDGE_HALF = 1; // 3-tile-wide guaranteed crossing
-const CHASM_MIN_SPAN = 9; // room must be big enough to hold a real drop plus the bridge
+const HEIGHT_FEATURES = WORLD_GENERATION_TUNING.heightFeatures;
+const CHASM_BRIDGE_HALF = Math.floor(HEIGHT_FEATURES.chasmBridgeWidth / 2);
 // Retired as this generator's own tread budget (docs/R2-STAIRS-SPEC.md,
 // Wave R2 compact stairs): carveRamp now emits exactly one tread per whole
 // z (stepCount = round(|delta|)), walkable via the on-stair glide, which
@@ -32,7 +32,7 @@ const CHASM_MIN_SPAN = 9; // room must be big enough to hold a real drop plus th
 // Kept alive ONLY as cliffs.ts's sub-tier auto-repair step size (a
 // graze-edge fix well short of a full deliberate tier) — do not delete.
 export const MAX_STAIR_SLOPE = 0.5;
-const THRESHOLD_RAMP_MAX_WIDTH = 2; // one built staircase reads as a place, not a fence
+const THRESHOLD_RAMP_MAX_WIDTH = HEIGHT_FEATURES.doorwayRampMaximumWidth;
 
 type Variant = "flat" | "pit" | "dais" | "chasm";
 
@@ -56,7 +56,8 @@ function isFloodedPit(district: DistrictKind, roll: number): boolean {
 }
 
 function isChasmRoom(room: Room, roll: number): boolean {
-  return roll < 1 && Math.min(rectW(room.rect), rectH(room.rect)) >= CHASM_MIN_SPAN;
+  return roll < 1 &&
+    Math.min(rectW(room.rect), rectH(room.rect)) >= HEIGHT_FEATURES.chasmMinimumSpan;
 }
 
 function ordinaryVariant(roll: number): Variant {
