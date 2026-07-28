@@ -1,4 +1,4 @@
-import type { PlayerSkin } from "@dc2d/engine";
+import { cloneBody, createBody, type BodyState, type PlayerSkin } from "@dc2d/engine";
 import type Phaser from "phaser";
 import type { PlayerEntityView } from "../../render/entities/visuals/view.js";
 import { VfxSystem } from "../../vfx/system/index.js";
@@ -15,11 +15,15 @@ export interface CharacterVfxActor {
 }
 
 export interface CharacterVfxActorState {
-  x: number;
-  y: number;
-  z: number;
+  readonly body: BodyState;
+  previousBody: BodyState;
   faceX: number;
-  air: boolean;
+  jumpPauseMs: number;
+  jumpStarted: boolean;
+  renderX: number;
+  renderY: number;
+  renderZ: number;
+  renderAir: boolean;
 }
 
 interface ActorSpec {
@@ -39,14 +43,29 @@ const ACTOR_SPECS: readonly ActorSpec[] = [
 ];
 
 export function createCharacterVfxActors(scene: Phaser.Scene): CharacterVfxActor[] {
-  return ACTOR_SPECS.map((spec) => ({
+  return ACTOR_SPECS.map((spec) => createActor(scene, spec));
+}
+
+function createActor(scene: Phaser.Scene, spec: ActorSpec): CharacterVfxActor {
+  const body = createBody(spec.x, 8, 0);
+  return {
     id: spec.id,
     name: spec.name,
     detail: spec.detail,
     skin: spec.skin,
     vfx: new VfxSystem(scene),
-    state: { x: spec.x, y: 8, z: 0, faceX: spec.id === "walk" ? -1 : 1, air: false },
-  }));
+    state: {
+      body,
+      previousBody: cloneBody(body),
+      faceX: spec.id === "walk" ? -1 : 1,
+      jumpPauseMs: spec.id === "jump" ? 1200 : 0,
+      jumpStarted: false,
+      renderX: body.x,
+      renderY: body.y,
+      renderZ: body.z,
+      renderAir: false,
+    },
+  };
 }
 
 export function characterVfxPlayerViews(actors: readonly CharacterVfxActor[]): PlayerEntityView[] {
@@ -55,15 +74,15 @@ export function characterVfxPlayerViews(actors: readonly CharacterVfxActor[]): P
     playerId: `character-vfx:${actor.id}`,
     skin: actor.skin,
     name: actor.name,
-    x: actor.state.x,
-    y: actor.state.y,
-    z: actor.state.z,
+    x: actor.state.renderX,
+    y: actor.state.renderY,
+    z: actor.state.renderZ,
     hp: 100,
     maxHp: 100,
     fx: [],
     faceX: actor.state.faceX,
     faceY: 0,
-    air: actor.state.air,
+    air: actor.state.renderAir,
     downed: false,
     disconnected: false,
     attacking: false,
