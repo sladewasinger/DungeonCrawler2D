@@ -131,7 +131,10 @@ function handleHello(msg: ClientHello, context: ConnectionMessageContext): void 
   const previous = sockets.get(join.playerId);
   sockets.set(join.playerId, { ws, sim });
   if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");
-  sendWelcome({ ws, join, level: msg.level, seedInputText: inputText, worldSeed, diagnostics });
+  sendWelcome({
+    ws, join, level: msg.level, seedInputText: inputText, worldSeed,
+    worldFeatures: sim.world.features, diagnostics,
+  });
 }
 
 function rejectProtocolMismatch(ws: WebSocket, diagnostics: ServerNetworkDiagnostics): void {

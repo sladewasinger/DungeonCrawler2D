@@ -62,6 +62,7 @@ function join(port: number, level: LevelId): Promise<{ socket: WebSocket; welcom
 
 describe("level loader", () => {
   it("routes each title-screen selection to its own level simulation", async () => {
+    const worldFeatures = { voidTerrain: false };
     const server = startServer({
       port: 0,
       worldSeed: hashString("server-level-test"),
@@ -69,14 +70,21 @@ describe("level loader", () => {
       content,
       storeFile: null,
       rngSeed: 12,
+      worldFeatures,
     });
     await waitForListening(server);
     const address = server.wss.address() as AddressInfo;
     const dungeon = await join(address.port, "dungeon");
     const sandbox = await join(address.port, "sandbox");
+    worldFeatures.voidTerrain = true;
     try {
       expect(dungeon.welcome.level).toBe("dungeon");
       expect(sandbox.welcome.level).toBe("sandbox");
+      expect(dungeon.welcome.worldFeatures).toEqual({ voidTerrain: false });
+      expect(sandbox.welcome.worldFeatures).toEqual({ voidTerrain: false });
+      expect(server.sims.dungeon.world.features.voidTerrain).toBe(false);
+      expect(server.sims.sandbox.world.features.voidTerrain).toBe(false);
+      expect(server.floors.ensureFloor(3).world.features.voidTerrain).toBe(false);
       expect(server.sims.dungeon.playerCount).toBe(1);
       expect(server.sims.sandbox.playerCount).toBe(1);
       expect(server.sims.sandbox.enemyCount).toBe(0);

@@ -4,6 +4,7 @@ export * from "./core/rng.js";
 export * from "./core/noise.js";
 export * from "./world/core/types.js";
 export * from "./world/core/level.js";
+export * from "./world/core/worldFeatures.js";
 export * from "./world/stairs/stairs.js";
 export * from "./world/interactions/interactions.js";
 export * from "./world/core/terrain.js";

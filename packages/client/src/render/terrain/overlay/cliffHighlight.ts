@@ -2,11 +2,12 @@ import type Phaser from "phaser";
 import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadBatch.js";
 import type { TerrainBatches, TerrainCliffEdgeQuad, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
 import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
+import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 
-const RIM_FRACTION = 0.05;
-const RIM_COLOR = 0xf7f0c9;
-const VOID_RIM_COLOR = 0xb67cff;
-const RIM_ALPHA = 1;
+const RIM_FRACTION = TERRAIN_VISUAL_STYLE.cliffRim.widthFraction;
+const RIM_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.cliffRim.floorColor);
+const VOID_RIM_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.cliffRim.voidColor);
+const RIM_ALPHA = TERRAIN_VISUAL_STYLE.cliffRim.alpha;
 
 /** Cheap post-process rim: one Graphics layer per depth row, no per-tile sprites. */
 export class TerrainCliffHighlightRenderer {

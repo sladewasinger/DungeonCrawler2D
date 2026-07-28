@@ -1,0 +1,49 @@
+{
+  "camera": {
+    "background": "#14141c"
+  },
+  "cliffRim": {
+    "floorColor": "#f7f0c9",
+    "voidColor": "#b67cff",
+    "widthFraction": 0.05,
+    "alpha": 1
+  },
+  "ambientOcclusion": {
+    "color": "#06060c",
+    "defaultStrength": 0.5,
+    "fallbackAlpha": 0.22,
+    "bandFractions": [0.16, 0.3, 0.46],
+    "bandAlphas": [0.3, 0.2, 0.12],
+    "cornerFraction": 0.3,
+    "cornerAlpha": 0.22
+  },
+  "fallbackMaterials": {
+    "void": "#000000",
+    "biomes": {
+      "maze": {
+        "floor": "#526579",
+        "wallFace": "#2d3c4d"
+      },
+      "open-halls": {
+        "floor": "#b28a52",
+        "wallFace": "#6e4d2d"
+      },
+      "ruins": {
+        "floor": "#68715b",
+        "wallFace": "#3c4536"
+      },
+      "pillars": {
+        "floor": "#687458",
+        "wallFace": "#3a4537"
+      },
+      "pools": {
+        "floor": "#3c91aa",
+        "wallFace": "#20536c"
+      },
+      "arena": {
+        "floor": "#9d5b43",
+        "wallFace": "#5b2c2a"
+      }
+    }
+  }
+}

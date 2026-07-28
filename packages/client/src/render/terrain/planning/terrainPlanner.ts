@@ -9,9 +9,10 @@ import type {
 /**
  * Produces the height-map renderer's minimal geometry in view space.
  *
- * Void produces flat quads, including backdrop rows that fill the projection
- * gap above lower Floor. Finite Floor emits a one-tile floating face toward
- * screen-south VOID; Floor-to-Floor faces still require a positive drop.
+ * With VOID terrain enabled, Void produces flat quads plus backdrop rows and
+ * finite Floor emits a one-tile floating face toward screen-south VOID.
+ * Disabled mode rejects explicit Void as a world-generation invariant failure.
+ * Floor-to-Floor faces always require a positive drop.
  * Mapping the south neighbor through view space makes the same rules work for
  * all four cardinal camera orientations.
  */
@@ -20,8 +21,11 @@ export function planTerrain(source: TerrainSource, options: TerrainPlanOptions):
   const seamApron = validatedApron(options.seamApron);
   const batches = emptyBatches();
   const { bounds, orientation } = options;
-  appendPlanTiles({ source, bounds, orientation, batches });
-  return { bounds, sampleBounds: expandRect(bounds, seamApron), orientation, batches };
+  const { voidTerrain } = source;
+  const sampleBounds = expandRect(bounds, seamApron);
+  if (!voidTerrain) assertFiniteSample(source, expandRect(bounds, 1));
+  appendPlanTiles({ source, bounds, orientation, batches, voidTerrain });
+  return { bounds, sampleBounds, orientation, batches };
 }
 
 export interface TerrainPlanningContext {
@@ -29,6 +33,7 @@ export interface TerrainPlanningContext {
   readonly bounds: TerrainRect;
   readonly orientation: ViewOrientation;
   readonly batches: MutableTerrainBatches;
+  readonly voidTerrain: boolean;
 }
 
 function expandRect(rect: TerrainRect, apron: number): TerrainRect {
@@ -42,6 +47,16 @@ function expandRect(rect: TerrainRect, apron: number): TerrainRect {
 
 function emptyBatches(): MutableTerrainBatches {
   return { floors: [], voids: [], features: [], props: [], southFaces: [], cliffEdges: [], ao: [] };
+}
+
+function assertFiniteSample(source: TerrainSource, bounds: TerrainRect): void {
+  for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
+    for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
+      if (source.terrainAt(x, y) === "void") {
+        throw new Error(`VOID terrain leaked into disabled world at (${x}, ${y})`);
+      }
+    }
+  }
 }
 
 function validatedApron(apron: number | undefined): number {

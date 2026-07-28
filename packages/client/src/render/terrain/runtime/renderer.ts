@@ -38,6 +38,7 @@ export class TerrainRenderer {
     private readonly world: TerrainWorld,
   ) {
     this.terrainSource = {
+      voidTerrain: this.world.features.voidTerrain,
       terrainAt: (x, y) => this.world.terrainAt(x, y) === WORLD_TERRAIN.Void ? TERRAIN_KINDS.Void : TERRAIN_KINDS.Floor,
       heightAt: (x, y) => this.world.heightAt(x, y),
       featureAt: (x, y) => terrainFeatureForTile(this.world.tileAt(x, y)),

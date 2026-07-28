@@ -276,7 +276,9 @@ class ScriptedClient {
     }
     if (message.type === "welcome") {
       this.welcome = message;
-      this.world = new World(message.worldSeed, message.floor, message.level);
+      this.world = new World(message.worldSeed, message.floor, {
+        level: message.level, features: message.worldFeatures,
+      });
       this.body = createBody(message.spawn.x, message.spawn.y, message.spawn.z);
       this.prediction.reset();
       this.cadence.reset();

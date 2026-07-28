@@ -16,6 +16,7 @@ import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
  * a negative-coordinate neighbor; when it does the two anchors differ by at
  * most a few tiles, inside the same tolerance). */
 export const SHOWCASE_RADIUS = 24;
+export const SHOWCASE_RISE = 1;
 export const SHOWCASE_DEPTH = -1; // z-1 pit, exited via its rim stair tread
 export const BLOCK = 2; // 2x2 feature interior
 export const EPS = 0.01;
@@ -106,12 +107,13 @@ function hasCleanBlock(anchor: Cell, matches: (bx: number, by: number) => boolea
   return blockCandidates(anchor).some(([bx, by]) => matches(bx, by));
 }
 
-/** A clean VOID plateau: 2x2 explicit VOID whose whole ring is open ground. */
-export function hasCleanPlatform(g: Grid, anchor: Cell): boolean {
-  return hasCleanBlock(anchor, (bx, by) => platformAt(g, bx, by));
+/** A clean platform in the selected world mode, surrounded by open ground. */
+export function hasCleanPlatform(g: Grid, anchor: Cell, voidTerrain = true): boolean {
+  const matches = voidTerrain ? voidPlatformAt : raisedPlatformAt;
+  return hasCleanBlock(anchor, (bx, by) => matches(g, bx, by));
 }
 
-function platformAt(g: Grid, bx: number, by: number): boolean {
+function voidPlatformAt(g: Grid, bx: number, by: number): boolean {
   if (bx < 1 || by < 1 || bx + BLOCK > CHUNK_SIZE - 1 || by + BLOCK > CHUNK_SIZE - 1) return false;
   const isVoid = blockCells(bx, by).every(
     ([x, y]) => at(g.tiles, x, y) === TILE.Void && Math.abs(at(g.height, x, y)) <= EPS,
@@ -119,6 +121,12 @@ function platformAt(g: Grid, bx: number, by: number): boolean {
   return isVoid && ringCells(bx, by).every(([x, y]) =>
     at(g.tiles, x, y) === TILE.Floor && at(g.height, x, y) <= 0.25 + EPS,
   );
+}
+
+function raisedPlatformAt(g: Grid, bx: number, by: number): boolean {
+  if (!blockAt({ g, bx, by, height: SHOWCASE_RISE })) return false;
+  return ringCells(bx, by).every(([x, y]) =>
+    at(g.tiles, x, y) === TILE.Floor && at(g.height, x, y) <= 0.25 + EPS);
 }
 
 /** A clean z-1 pit: 2x2 Floor at z-1, ring open, near-flat rim, >=1 rim stair tread. */

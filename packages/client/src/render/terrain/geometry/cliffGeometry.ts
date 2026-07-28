@@ -27,6 +27,7 @@ interface TerrainTileContext {
   readonly viewTile: Point;
   readonly orientation: ViewOrientation;
   readonly height: number;
+  readonly voidTerrain: boolean;
 }
 
 export function appendTerrainCliffEdges(
@@ -53,8 +54,8 @@ export function appendTerrainAmbientOcclusion(
 }
 
 function boundarySides(context: TerrainTileContext): BoundarySide[] {
-  return VIEW_SIDES.flatMap(({ side, dx, dy }) => {
-    if (isVoidNeighbor(context, { x: dx, y: dy })) return [{ side, voidBoundary: true }];
+  return VIEW_SIDES.flatMap(({ side, dx, dy }): BoundarySide[] => {
+    if (context.voidTerrain && isVoidNeighbor(context, { x: dx, y: dy })) return [{ side, voidBoundary: true }];
     if (isLowerFloor(context, { x: dx, y: dy })) return [{ side, voidBoundary: false }];
     return [];
   });

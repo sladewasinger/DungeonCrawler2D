@@ -3,7 +3,7 @@
 // join-time one, or every post-transfer prediction/terrain/stairway-proximity
 // read silently uses the wrong floor's chunk geometry.
 import { describe, expect, it } from "vitest";
-import { LEVEL } from "@dc2d/engine";
+import { LEVEL, World } from "@dc2d/engine";
 import { applySnapshot } from "./apply.js";
 import { freshConnection, snapshotAtFloor, WORLD_SEED } from "./applyTestSupport.js";
 
@@ -30,6 +30,18 @@ describe("applySnapshot floor transfer", () => {
     applySnapshot(conn, snapshotAtFloor(1));
 
     expect(conn.world).toBe(before);
+  });
+
+  it("preserves the server-selected world features across floor changes", () => {
+    const conn = freshConnection(1);
+    conn.world = new World(WORLD_SEED, 1, {
+      level: LEVEL.Dungeon, features: { voidTerrain: false },
+    });
+    conn.hasReceivedSnapshot = true;
+
+    applySnapshot(conn, snapshotAtFloor(2));
+
+    expect(conn.world?.features).toEqual({ voidTerrain: false });
   });
 });
 

@@ -4,6 +4,7 @@ import { TERRAIN_KINDS, type TerrainSource } from "../planning/terrainPlanner.js
 import { TerrainChunkPlanCache, appendVisibleChunkPlans, emptyTerrainBatches } from "../planning/chunkCache.js";
 
 const source: TerrainSource = {
+  voidTerrain: true,
   terrainAt: () => TERRAIN_KINDS.Floor,
   heightAt: () => 0,
 };
@@ -14,6 +15,14 @@ describe("TerrainChunkPlanCache", () => {
     const first = cache.get({ source, coord: { cx: 0, cy: 0 }, orientation: 0, revision: 1 });
     expect(cache.get({ source, coord: { cx: 0, cy: 0 }, orientation: 0, revision: 1 })).toBe(first);
     expect(cache.get({ source, coord: { cx: 0, cy: 0 }, orientation: 90, revision: 1 })).not.toBe(first);
+  });
+
+  it("does not reuse plans across VOID terrain modes", () => {
+    const cache = new TerrainChunkPlanCache();
+    const input = { coord: { cx: 0, cy: 0 }, orientation: 0 as const, revision: 1 };
+    const enabled = cache.get({ ...input, source: { ...source, voidTerrain: true } });
+    const disabled = cache.get({ ...input, source: { ...source, voidTerrain: false } });
+    expect(disabled).not.toBe(enabled);
   });
 
   it("invalidates seam neighbors when a tile changes", () => {

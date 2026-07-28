@@ -63,6 +63,7 @@ describe("MovementTraceRecorder", () => {
       endpoint: "ws://localhost:8787",
       worldSeed: 123,
       floor: 1,
+      voidTerrain: false,
     }, 1_000)).toBe(true);
 
     recorder.recordInput(input, state());
@@ -77,13 +78,14 @@ describe("MovementTraceRecorder", () => {
 
     expect(trace).toMatchObject({
       format: "dc2d-movement-trace",
-      version: 1,
+      version: 2,
       durationMs: 100,
       stopReason: "manual",
       metadata: {
         endpoint: "ws://localhost:8787",
         worldSeed: 123,
         floor: 1,
+        voidTerrain: false,
       },
       truncated: false,
     });
@@ -95,7 +97,7 @@ describe("MovementTraceRecorder", () => {
 
   it("exposes the automatic sixty-second stop boundary", () => {
     const recorder = new MovementTraceRecorder();
-    recorder.start({ endpoint: "ws://test", worldSeed: null, floor: 1 }, 500);
+    recorder.start({ endpoint: "ws://test", worldSeed: null, floor: 1, voidTerrain: null }, 500);
 
     expect(recorder.timedOut(500 + MOVEMENT_TRACE_MAX_MS - 1)).toBe(false);
     expect(recorder.timedOut(500 + MOVEMENT_TRACE_MAX_MS)).toBe(true);

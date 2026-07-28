@@ -1,4 +1,11 @@
-import { LEVEL, World, type ContentRegistry, type LevelId } from "@dc2d/engine";
+import {
+  DEFAULT_WORLD_FEATURES,
+  LEVEL,
+  World,
+  type ContentRegistry,
+  type LevelId,
+  type WorldFeatures,
+} from "@dc2d/engine";
 import { WebSocketServer, type WebSocket } from "ws";
 import { FloorRegistry } from "../floors/floorRegistry.js";
 import { GameSim } from "../sim/core/index.js";
@@ -34,6 +41,7 @@ export interface ServerOptions {
   debugCommands?: boolean;
   freezeEnemies?: boolean;
   testFixtures?: boolean;
+  worldFeatures?: WorldFeatures;
 }
 
 export interface RunningServer {
@@ -94,9 +102,16 @@ interface SimulationCreation {
 }
 
 function createSimulations({ opts, store, seed, simOpts }: SimulationCreation): { floors: FloorRegistry; sandbox: GameSim } {
+  const worldFeatures = opts.worldFeatures ?? DEFAULT_WORLD_FEATURES;
   return {
-    floors: new FloorRegistry({ worldSeed: opts.worldSeed, content: opts.content, store, rngSeedBase: seed, opts: simOpts }),
-    sandbox: new GameSim({ world: new World(opts.worldSeed, opts.floor, LEVEL.Sandbox), content: opts.content, store: store, rngSeed: seed + 1000, opts: simOpts }),
+    floors: new FloorRegistry({
+      worldSeed: opts.worldSeed, content: opts.content, store,
+      rngSeedBase: seed, opts: simOpts, worldFeatures,
+    }),
+    sandbox: new GameSim({
+      world: new World(opts.worldSeed, opts.floor, { level: LEVEL.Sandbox, features: worldFeatures }),
+      content: opts.content, store, rngSeed: seed + 1000, opts: simOpts,
+    }),
   };
 }
 

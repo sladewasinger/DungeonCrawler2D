@@ -37,6 +37,10 @@ function applyXpState(conn: Connection, next: ProgressionState): void {
 function applyFloorState(conn: Connection, snap: ServerSnapshot): void {
   const next = snap.self.floor ?? conn.welcome?.floor ?? conn.floor;
   if (conn.hasReceivedSnapshot) conn.visualEvents.push(...floorChangeEvents(conn.floor, next));
-  if (next !== conn.floor && conn.world) conn.world = new World(conn.world.worldSeed, next, conn.world.level);
+  if (next !== conn.floor && conn.world) {
+    conn.world = new World(conn.world.worldSeed, next, {
+      level: conn.world.level, features: conn.world.features,
+    });
+  }
   conn.floor = next;
 }

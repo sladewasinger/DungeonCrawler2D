@@ -77,6 +77,7 @@ export const serverWelcomeSchema = z.object({
   worldSeed: z.number().int(),
   floor: z.number().int(),
   level,
+  worldFeatures: z.object({ voidTerrain: z.boolean() }),
   tickRate: z.number().int(),
   spawn: z.object({ x: z.number(), y: z.number(), z: z.number() }),
 });

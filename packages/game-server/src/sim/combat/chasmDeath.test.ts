@@ -27,6 +27,7 @@ import { createSimState, type PlayerSlot, type SimState } from "../state/state.j
  */
 
 const EMPTY_CONTENT: RawContent = { statuses: [], rules: [], areas: [], items: [], enemies: [], recipes: [] };
+const CHASM_WORLD_SEED_INPUT = "chasm-test-world";
 
 function makeSlot(name: string, x: number, y: number): PlayerSlot {
   const entity = makeEntity("player", createBody(x, y, 0), {
@@ -65,8 +66,10 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
   };
 }
 
-function newSim(seed: string): SimState {
-  const world = new World(hashString(seed), 1, LEVEL.Dungeon);
+function newSim(seed: string, voidTerrain = true): SimState {
+  const world = new World(hashString(seed), 1, {
+    level: LEVEL.Dungeon, features: { voidTerrain },
+  });
   const content = buildContentRegistry(EMPTY_CONTENT);
   return createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
 }
@@ -82,7 +85,7 @@ function findWalkableFloor(world: World): { x: number; y: number } | null {
 
 describe("chasm = death (knockback-death-pit ruling)", () => {
   it("a player whose grounded z lands at/below chasm depth dies: full loot drop, respawn scheduled", () => {
-    const sim = newSim("chasm-test-world");
+    const sim = newSim(CHASM_WORLD_SEED_INPUT);
     const spot = findChasmFloor(sim.world);
     expect(spot, "no chasm floor found in scan range").not.toBeNull();
     if (!spot) return;
@@ -112,7 +115,7 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
   }, 15_000);
 
   it("does not kill a player standing above chasm depth", () => {
-    const sim = newSim("chasm-test-world");
+    const sim = newSim(CHASM_WORLD_SEED_INPUT);
     const spot = findWalkableFloor(sim.world);
     expect(spot, "no walkable floor found in scan range").not.toBeNull();
     if (!spot) return;
@@ -127,4 +130,25 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
     expect(a.entity.hp).toBe(startingHp);
     expect(a.forceDeath).toBe(false);
   });
+
+  it("keeps the finite-mode chasm floor enterable and lethal", () => {
+    const sim = newSim(CHASM_WORLD_SEED_INPUT, false);
+    const spot = findWorldPoint({
+      world: sim.world,
+      predicate: ({ height }) => height <= CHASM_DEATH_Z,
+    });
+    expect(spot, "no finite chasm floor found in scan range").not.toBeNull();
+    if (!spot) return;
+    expect(sim.world.isWalkable(spot.x, spot.y)).toBe(true);
+    expect(sim.world.terrainAt(spot.x, spot.y)).toBe(TERRAIN.Floor);
+
+    const player = makeSlot("Finite", spot.x + 0.5, spot.y + 0.5);
+    player.entity.body.z = sim.world.heightAt(spot.x, spot.y);
+    player.entity.body.grounded = true;
+    sim.players.set(player.entity.id, player);
+    stepPlayers(sim, []);
+
+    expect(player.entity.hp).toBe(0);
+    expect(player.forceDeath).toBe(true);
+  }, 15_000);
 });

@@ -17,7 +17,7 @@ export class TerrainChunkPlanCache {
 
   get(input: TerrainChunkPlanInput): TerrainPlan {
     this.syncRevision(input.revision);
-    const key = cacheKey(input.coord, input.orientation, input.revision);
+    const key = cacheKey(input);
     const cached = this.plans.get(key);
     if (cached) return cached;
     const plan = planTerrain(input.source, { bounds: chunkBounds(input.coord), orientation: input.orientation, seamApron: 1 });
@@ -83,6 +83,7 @@ export function emptyTerrainBatches(): MutableTerrainBatches {
   return { floors: [], voids: [], features: [], props: [], southFaces: [], cliffEdges: [], ao: [] };
 }
 
-function cacheKey(coord: TerrainChunkCoord, orientation: ViewOrientation, revision: number): string {
-  return `${coord.cx}:${coord.cy}:${orientation}:${revision}`;
+function cacheKey(input: TerrainChunkPlanInput): string {
+  const { coord, orientation, revision, source } = input;
+  return `${coord.cx}:${coord.cy}:${orientation}:${revision}:${Number(source.voidTerrain)}`;
 }

@@ -24,6 +24,7 @@ import { districtAt } from "./layout/district.js";
 import { edgeAnchors } from "./layout/edges.js";
 import { connectFixedFeaturePad } from "./connections/feature-link.js";
 import { applyRoomHeight, markVoidTiles } from "./terrain/height.js";
+import { DEFAULT_WORLD_FEATURES, type WorldFeatures } from "../core/worldFeatures.js";
 import { architectSeed, chunkSeed } from "./layout/hash.js";
 import { applyLandmark } from "./landmarks/index.js";
 import { isNearDescent, isNearLandmark } from "./landmarks/guard.js";
@@ -33,19 +34,18 @@ import { applyShowcase } from "./showcase/showcase.js";
 import { resolveShallowPlateaus, resolveThinWalls } from "./terrain/verticalExtent.js";
 import { applyWallHeight } from "./terrain/wallHeight.js";
 import { GENERATION_CHUNK_SIZE, scaleGeneratedChunk } from "./layout/scale.js";
+import { assertChunkWorldFeatures } from "./worldFeatureInvariant.js";
 
-function createGeneratedGrid(): {
-  tiles: Uint8Array;
-  height: Float32Array;
-  zones: Uint8Array;
-  corridorCarved: Uint8Array;
-} {
+interface GeneratedGrid {
+  tiles: Uint8Array; height: Float32Array; zones: Uint8Array; corridorCarved: Uint8Array;
+}
+
+function createGeneratedGrid(): GeneratedGrid {
   const cells = GENERATION_CHUNK_SIZE * GENERATION_CHUNK_SIZE;
   return {
     tiles: new Uint8Array(cells).fill(TOPOLOGY.Uncarved),
     height: new Float32Array(cells),
-    zones: new Uint8Array(cells),
-    corridorCarved: new Uint8Array(cells),
+    zones: new Uint8Array(cells), corridorCarved: new Uint8Array(cells),
   };
 }
 
@@ -118,29 +118,31 @@ function stampFixedFeature(context: FeatureStampContext): void {
 }
 
 export interface ChunkGenerationRequest {
-  worldSeed: number; floor: number; cx: number; cy: number;
+  worldSeed: number; floor: number; cx: number; cy: number; features?: WorldFeatures;
 }
 
 interface GenerationState extends FeatureStampContext {
   seed: number; perChunkSeed: number; district: ReturnType<typeof districtAt>;
-  zones: Uint8Array; doorways: ReturnType<typeof carveCorridors>;
+  zones: Uint8Array; doorways: ReturnType<typeof carveCorridors>; features: WorldFeatures;
 }
 
 export function generateChunk(request: ChunkGenerationRequest): Chunk {
-  if (isRoomChunk(request.cy)) return generateRoomChunk(request.cx, request.cy);
+  const features = request.features ?? DEFAULT_WORLD_FEATURES;
+  if (isRoomChunk(request.cy)) return assertChunkWorldFeatures(generateRoomChunk(request.cx, request.cy, features.voidTerrain), features);
   const state = createGenerationState(request);
   stampRoomsAndCorridors(state);
   applyRoomHeights(state);
   stampFeatures(state);
   finishTerrain(state);
-  return buildRuntimeChunk(state);
+  return assertChunkWorldFeatures(buildRuntimeChunk(state), features);
 }
 
 function createGenerationState(request: ChunkGenerationRequest): GenerationState {
   const { tiles, height, zones, corridorCarved } = createGeneratedGrid();
   const seed = architectSeed(request.worldSeed, request.floor);
   return {
-    ...request, tiles, height, zones, corridorCarved, seed,
+    ...request, features: request.features ?? DEFAULT_WORLD_FEATURES,
+    tiles, height, zones, corridorCarved, seed,
     perChunkSeed: chunkSeed(seed, request.cx, request.cy),
     district: districtAt(seed, request.cx, request.cy),
     rooms: [], doorways: [],
@@ -181,12 +183,15 @@ function finishTerrain(state: GenerationState): void {
   resolveThinWalls(state.tiles, GENERATION_CHUNK_SIZE);
   repairCliffs(state.tiles, state.height, GENERATION_CHUNK_SIZE);
   resolveShallowPlateaus(state.tiles, state.height, GENERATION_CHUNK_SIZE);
-  markVoidTiles(state.tiles, state.height, GENERATION_CHUNK_SIZE);
+  if (state.features.voidTerrain) markVoidTiles(state.tiles, state.height, GENERATION_CHUNK_SIZE);
   applyWallHeight(state.tiles, state.height, GENERATION_CHUNK_SIZE);
   demoteOrphanedStairs(state.tiles, state.height, GENERATION_CHUNK_SIZE);
 }
 
 function buildRuntimeChunk(state: GenerationState): Chunk {
-  applyShowcase(state.worldSeed, state.floor, state.cx, state.cy, state.tiles, state.height, state.zones);
+  applyShowcase({
+    worldSeed: state.worldSeed, floor: state.floor, cx: state.cx, cy: state.cy,
+    tiles: state.tiles, height: state.height, zones: state.zones, voidTerrain: state.features.voidTerrain,
+  });
   return finalizeScaledChunk(scaleGeneratedChunk(state.cx, state.cy, state));
 }

@@ -46,7 +46,7 @@ export class MovementTraceRecorder {
     if (!active) return null;
     this.active = null;
     return {
-      format: "dc2d-movement-trace", version: 1, build: BUILD_SHA, startedAt: active.startedAtIso,
+      format: "dc2d-movement-trace", version: 2, build: BUILD_SHA, startedAt: active.startedAtIso,
       durationMs: Math.max(0, now - active.startedAt), stopReason: reason,
       metadata: { ...active.metadata, userAgent: navigator.userAgent }, records: active.records, truncated: active.truncated,
     };

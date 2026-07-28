@@ -6,19 +6,22 @@ interface RoomRect { left: number; top: number; w: number; h: number; }
 interface RoomGrid { tiles: Uint8Array; terrain: Uint8Array; features: Uint8Array; height: Float32Array; zones: Uint8Array; }
 interface FixtureContext extends RoomRect { set: SetRoomTile; kind: RoomSlot["kind"]; }
 
-export function generateRoomChunk(cx: number, cy: number): Chunk {
-  const grid = createRoomGrid();
+export function generateRoomChunk(cx: number, cy: number, voidTerrain = true): Chunk {
+  const grid = createRoomGrid(voidTerrain);
   const slot = roomSlotAt(cx, cy);
   if (slot) stampRoom(grid, slot);
   populateFeatures(grid);
   return { cx, cy, ...grid };
 }
 
-function createRoomGrid(): RoomGrid {
+function createRoomGrid(voidTerrain: boolean): RoomGrid {
   const cells = CHUNK_SIZE * CHUNK_SIZE;
+  const height = new Float32Array(cells);
+  if (!voidTerrain) height.fill(ROOM_WALL_RISE);
   return {
-    tiles: new Uint8Array(cells).fill(TILE.Void), terrain: new Uint8Array(cells).fill(TERRAIN.Void),
-    features: new Uint8Array(cells), height: new Float32Array(cells), zones: new Uint8Array(cells),
+    tiles: new Uint8Array(cells).fill(voidTerrain ? TILE.Void : TILE.Floor),
+    terrain: new Uint8Array(cells).fill(voidTerrain ? TERRAIN.Void : TERRAIN.Floor),
+    features: new Uint8Array(cells), height, zones: new Uint8Array(cells),
   };
 }
 

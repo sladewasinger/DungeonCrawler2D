@@ -1,6 +1,7 @@
 import { CHASM_DEATH_Z } from "../../core/constants.js";
 import { generateChunk } from "../generate.js";
 import { LEVEL, type LevelId } from "./level.js";
+import { snapshotWorldFeatures, type WorldFeatures } from "./worldFeatures.js";
 import { stairRampAt } from "../stairs/stairs.js";
 import {
   CHUNK_SIZE,
@@ -18,8 +19,8 @@ import {
 /**
  * Lazy chunk cache over the deterministic generator. Both the game
  * server (authoritative) and the client (rendering + prediction)
- * construct one of these from the same (worldSeed, floor) and see
- * identical terrain.
+ * construct one from the same seed, floor, level, and startup features
+ * and see identical terrain.
  */
 export class World implements WorldView {
   // Two-level Map (cx -> cy -> Chunk), not a `${cx},${cy}` string key: this lookup sits
@@ -31,11 +32,17 @@ export class World implements WorldView {
   private tileOverrides = new Map<string, TileType>();
   tileRevision = 0;
 
+  readonly level: LevelId;
+  readonly features: WorldFeatures;
+
   constructor(
     readonly worldSeed: number,
     readonly floor: number,
-    readonly level: LevelId = LEVEL.Dungeon,
-  ) {}
+    options: LevelId | WorldOptions = LEVEL.Dungeon,
+  ) {
+    this.level = typeof options === "string" ? options : options.level ?? LEVEL.Dungeon;
+    this.features = snapshotWorldFeatures(typeof options === "string" ? undefined : options.features);
+  }
 
   getChunk(cx: number, cy: number): Chunk {
     let row = this.chunks.get(cx);
@@ -45,7 +52,10 @@ export class World implements WorldView {
     }
     let chunk = row.get(cy);
     if (!chunk) {
-      chunk = generateChunk({ worldSeed: this.worldSeed, floor: this.floor, cx, cy, level: this.level });
+      chunk = generateChunk({
+        worldSeed: this.worldSeed, floor: this.floor, cx, cy,
+        level: this.level, features: this.features,
+      });
       row.set(cy, chunk);
     }
     return chunk;
@@ -77,6 +87,9 @@ export class World implements WorldView {
   replaceTileOverrides(
     overrides: readonly { x: number; y: number; tile: TileType }[],
   ): void {
+    if (!this.features.voidTerrain && overrides.some(({ tile }) => tile === TILE.Void)) {
+      throw new Error("VOID override leaked into disabled world");
+    }
     const next = new Map(overrides.map((entry) => [
       `${entry.x},${entry.y}`,
       entry.tile,
@@ -103,12 +116,12 @@ export class World implements WorldView {
   }
 
   isWalkable(wx: number, wy: number): boolean {
-    // A generated void/chasm is an infinite-height collision boundary, not a
-    // low floor. Keeping this check here makes movement, jumping, landing,
-    // and navigation agree without special cases in each caller.
-    return this.terrainAt(wx, wy) !== TERRAIN.Void &&
-      !SOLID_TILES.has(this.tileAt(wx, wy)) &&
-      this.heightAt(wx, wy) > CHASM_DEATH_Z;
+    // Enabled VOID is an infinite boundary. Disabled mode restores legacy
+    // finite chasm floors so movement can enter them and the death plane can
+    // resolve the fall.
+    if (SOLID_TILES.has(this.tileAt(wx, wy))) return false;
+    if (!this.features.voidTerrain) return true;
+    return this.terrainAt(wx, wy) !== TERRAIN.Void && this.heightAt(wx, wy) > CHASM_DEATH_Z;
   }
 
   /** Continuous ground height: stair tiles ramp with position. */
@@ -132,4 +145,9 @@ export class World implements WorldView {
     for (const row of this.chunks.values()) total += row.size;
     return total;
   }
+}
+
+export interface WorldOptions {
+  readonly level?: LevelId;
+  readonly features?: WorldFeatures;
 }

@@ -1,5 +1,11 @@
 import type Phaser from "phaser";
 import type { TerrainBatches, TerrainQuadVertices, TerrainVertex } from "../planning/terrainPlanner.js";
+import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
+
+const DEFAULT_AO_MATERIAL = {
+  color: phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color),
+  alpha: TERRAIN_VISUAL_STYLE.ambientOcclusion.fallbackAlpha,
+};
 
 /** A screen-space point submitted to Phaser Graphics. */
 export interface TerrainScreenPoint {
@@ -56,7 +62,7 @@ export class TerrainQuadBatchRenderer {
     this.drawBatch(batches.props, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
     this.drawBatch(batches.cliffEdges, projection, materials.cliffEdge ?? materials.southFace);
-    this.drawBatch(batches.ao, projection, materials.ao ?? { color: 0x06060c, alpha: 0.22 });
+    this.drawBatch(batches.ao, projection, materials.ao ?? DEFAULT_AO_MATERIAL);
   }
 
   private drawBatch(

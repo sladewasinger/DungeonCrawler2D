@@ -33,6 +33,10 @@ export class CharacterVfxBenchWorld implements TerrainWorld, WorldView {
     return this.sandbox.floor;
   }
 
+  get features() {
+    return this.sandbox.features;
+  }
+
   terrainAt(x: number, y: number): TerrainType {
     return this.sandbox.terrainAt(x, y);
   }

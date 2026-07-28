@@ -73,7 +73,7 @@ describe("height-derived terrain boundaries", () => {
     const world = new World(SEED, FLOOR);
     const chunk = world.getChunk(0, 0);
     expect(
-      Array.from(chunk.tiles).every((tile, index) => tile !== TILE.Floor || chunk.height[index] < 2),
+      Array.from(chunk.tiles).every((tile, index) => tile !== TILE.Floor || (chunk.height[index] ?? 0) < 2),
     ).toBe(true);
   });
 

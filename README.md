@@ -106,7 +106,13 @@ the pet name and a smaller owner line.
 `GAME_PORT` (8787 dev / 8081 prod) · `WORLD_SEED` (any string) · `SPAWN_RADIUS`
 (tiles; `0`/`off` = vast scatter; default 50 for playtests) · `DEBUG_COMMANDS=0`
 disables `/god`+`/tp` (always off under `NODE_ENV=production`) · `STORE_FILE`
-(player persistence path, `none` to disable) · `CLUSTER_SPAWNS=1` (test-grid spawns).
+(player persistence path, `none` to disable) · `CLUSTER_SPAWNS=1` (test-grid spawns) ·
+`VOID_TERRAIN=1` (default) enables explicit VOID generation, infinite collision,
+and its flat backdrop/boundary rendering. `VOID_TERRAIN=0` restores the complete
+finite-terrain mode: raised showcase platforms, finite chasm and room exteriors,
+ordinary wall faces/occlusion, and no VOID geometry. This startup-only,
+server-authoritative mode requires a server restart and is sent to every client;
+there is intentionally no client URL override that could disagree with collision.
 Players whose crawler name contains `josiah` or `ellie` (case-insensitive) receive
 the temporary playtest handicap: 0.3× incoming damage and 3× outgoing damage.
 The grant is isolated behind the same interface planned for future admin grants.

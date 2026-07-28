@@ -133,7 +133,7 @@ function onWelcome(conn: Connection, msg: ServerWelcome): void {
   conn.reconnectAttempts = 0;
   conn.sessionExpired = false;
   saveResumeToken(msg.resumeToken, msg.level);
-  conn.world = new World(msg.worldSeed, msg.floor, msg.level);
+  conn.world = new World(msg.worldSeed, msg.floor, { level: msg.level, features: msg.worldFeatures });
   conn.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
   conn.prediction.reset();
   conn.movementCadence.reset();

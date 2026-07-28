@@ -16,6 +16,8 @@ export const TERRAIN_PROPS = { CraftingTable: "crafting-table", Stash: "stash" }
 export type TerrainPropKind = (typeof TERRAIN_PROPS)[keyof typeof TERRAIN_PROPS];
 
 export interface TerrainSource {
+  /** Explicit server-selected mode; standalone tools must choose deliberately. */
+  readonly voidTerrain: boolean;
   terrainAt(worldX: number, worldY: number): TerrainKind;
   heightAt(worldX: number, worldY: number): number;
   featureAt?(worldX: number, worldY: number): TerrainFeatureKind | null;

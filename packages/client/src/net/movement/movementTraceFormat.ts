@@ -21,6 +21,7 @@ export interface MovementTraceMetadata {
   seedInputText?: string | null;
   worldSeed: number | null;
   floor: number;
+  voidTerrain: boolean | null;
 }
 
 export interface MovementTraceRecord {
@@ -32,7 +33,7 @@ export type MovementTraceRecordData = { kind: MovementTraceRecord["kind"] } & Re
 
 export interface MovementTraceFile {
   format: "dc2d-movement-trace";
-  version: 1;
+  version: 2;
   build: string;
   startedAt: string;
   durationMs: number;

@@ -11,7 +11,7 @@ function source(
   heights: ReadonlyMap<string, number>,
 ): TerrainSource {
   return {
-    terrainAt: (x, y) => terrain.get(`${x},${y}`) ?? FLOOR,
+    voidTerrain: true, terrainAt: (x, y) => terrain.get(`${x},${y}`) ?? FLOOR,
     heightAt: (x, y) => heights.get(`${x},${y}`) ?? 0,
   };
 }
@@ -41,7 +41,7 @@ describe("planTerrain", () => {
 
   it("keeps authored features on a separate overlay batch", () => {
     const plan = planTerrain({
-      terrainAt: () => FLOOR,
+      voidTerrain: true, terrainAt: () => FLOOR,
       heightAt: () => 1,
       featureAt: (x, y) => x === 2 && y === 3 ? "stairs" : null,
     }, { bounds: { x: 2, y: 3, width: 1, height: 1 }, orientation: 0 });
@@ -53,7 +53,7 @@ describe("planTerrain", () => {
 
   it("keeps sprite-backed furniture out of the terrain atlas batches", () => {
     const plan = planTerrain({
-      terrainAt: () => FLOOR,
+      voidTerrain: true, terrainAt: () => FLOOR,
       heightAt: () => 0,
       propAt: () => "stash",
     }, { bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0 });

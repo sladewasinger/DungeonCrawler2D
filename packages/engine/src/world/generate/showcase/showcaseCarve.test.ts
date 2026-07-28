@@ -16,10 +16,21 @@ describe("applyShowcase (unit)", () => {
     };
   }
 
+  function apply(
+    g: ReturnType<typeof flatChunk>,
+    overrides: Partial<{ floor: number; cx: number; cy: number; voidTerrain: boolean }> = {},
+  ): void {
+    applyShowcase({
+      worldSeed: 1, floor: overrides.floor ?? 1, cx: overrides.cx ?? 0, cy: overrides.cy ?? 0,
+      tiles: g.tiles, height: g.height, zones: g.zones,
+      voidTerrain: overrides.voidTerrain ?? true,
+    });
+  }
+
   it("is a no-op off floor 1 and off chunk (0,0)", () => {
     const a = flatChunk();
-    applyShowcase(1, 2, 0, 0, a.tiles, a.height, a.zones);
-    applyShowcase(1, 1, 1, 0, a.tiles, a.height, a.zones);
+    apply(a, { floor: 2 });
+    apply(a, { cx: 1 });
     const b = flatChunk();
     expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
     expect(Array.from(a.height)).toEqual(Array.from(b.height));
@@ -27,7 +38,7 @@ describe("applyShowcase (unit)", () => {
 
   it("carves a VOID plateau and pit at hand-derived first sites", () => {
     const g = flatChunk();
-    applyShowcase(1, 1, 0, 0, g.tiles, g.height, g.zones);
+    apply(g);
     const h = (x: number, y: number): number => g.height[y * CHUNK_SIZE + x] ?? 0;
     const t = (x: number, y: number): number => g.tiles[y * CHUNK_SIZE + x] ?? 0;
     // Plateau: first 4x4 site is (0,0)..(3,3) -> VOID 2x2 at (1,1)..(2,2).
@@ -60,6 +71,25 @@ describe("applyShowcase (unit)", () => {
     expect(t(4, 4)).toBe(TILE.Floor);
   });
 
+  it("carves the same showcase as finite raised Floor when VOID terrain is disabled", () => {
+    const g = flatChunk();
+    const expected = flatChunk();
+    for (const [x, y] of [[1, 1], [2, 1], [1, 2], [2, 2]] as const) {
+      expected.height[y * CHUNK_SIZE + x] = 1;
+    }
+    for (const [x, y] of [[4, 1], [5, 1], [4, 2], [5, 2]] as const) {
+      expected.height[y * CHUNK_SIZE + x] = -1;
+    }
+    expected.tiles[3 * CHUNK_SIZE + 4] = TILE.Stairs;
+    expected.height[3 * CHUNK_SIZE + 4] = -0.5;
+
+    apply(g, { voidTerrain: false });
+
+    expect(Array.from(g.tiles)).toEqual(Array.from(expected.tiles));
+    expect(Array.from(g.height)).toEqual(Array.from(expected.height));
+    expect(Array.from(g.zones)).toEqual(Array.from(expected.zones));
+  });
+
   it("leaves a chunk untouched when a clean platform and pit already exist in-window", () => {
     const g = flatChunk();
     const set = ({ x, y, tile, height }: { x: number; y: number; tile: number; height: number }): void => {
@@ -87,7 +117,7 @@ describe("applyShowcase (unit)", () => {
     set({ x: 14, y: 9, tile: TILE.Stairs, height: -0.5 });
     const tilesBefore = Array.from(g.tiles);
     const heightBefore = Array.from(g.height);
-    applyShowcase(1, 1, 0, 0, g.tiles, g.height, g.zones);
+    apply(g);
     expect(Array.from(g.tiles)).toEqual(tilesBefore);
     expect(Array.from(g.height)).toEqual(heightBefore);
   });

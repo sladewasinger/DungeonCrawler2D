@@ -1,9 +1,12 @@
 import {
+  DEFAULT_WORLD_FEATURES,
   LEVEL,
   World,
+  snapshotWorldFeatures,
   type ContentRegistry,
   type ServerSnapshot,
   type ServerStateSnapshot,
+  type WorldFeatures,
 } from "@dc2d/engine";
 import { GameSim } from "../sim/core/index.js";
 import type { PreparedSnapshotDelivery } from "../sim/snapshots/snapshots.js";
@@ -31,6 +34,7 @@ export interface FloorRegistryCreation {
   store: PlayerStore;
   rngSeedBase: number;
   opts: FloorRegistryOptions;
+  worldFeatures?: WorldFeatures;
 }
 
 export interface TickResult {
@@ -52,12 +56,13 @@ export interface PreparedReplicationTickResult {
 export class FloorRegistry {
   private readonly sims = new Map<number, GameSim>();
 
-  constructor({ worldSeed, content, store, rngSeedBase, opts }: FloorRegistryCreation) {
+  constructor({ worldSeed, content, store, rngSeedBase, opts, worldFeatures }: FloorRegistryCreation) {
     this.worldSeed = worldSeed;
     this.content = content;
     this.store = store;
     this.rngSeedBase = rngSeedBase;
     this.opts = opts;
+    this.worldFeatures = snapshotWorldFeatures(worldFeatures ?? DEFAULT_WORLD_FEATURES);
     this.ensureFloor(1);
   }
 
@@ -66,6 +71,7 @@ export class FloorRegistry {
   private readonly store: PlayerStore;
   private readonly rngSeedBase: number;
   private readonly opts: FloorRegistryOptions;
+  private readonly worldFeatures: WorldFeatures;
 
   /** The always-existing floor-1 sim — RunningServer.sims.dungeon aliases this. */
   get base(): GameSim {
@@ -76,7 +82,7 @@ export class FloorRegistry {
     const clamped = Math.min(Math.max(Math.floor(floor), 1), FLOOR_CAP);
     let sim = this.sims.get(clamped);
     if (!sim) {
-      sim = new GameSim({ world: new World(this.worldSeed, clamped, LEVEL.Dungeon), content: this.content, store: this.store, rngSeed: this.rngSeedBase + clamped, opts: this.opts }
+      sim = new GameSim({ world: new World(this.worldSeed, clamped, { level: LEVEL.Dungeon, features: this.worldFeatures }), content: this.content, store: this.store, rngSeed: this.rngSeedBase + clamped, opts: this.opts }
       );
       this.sims.set(clamped, sim);
     }

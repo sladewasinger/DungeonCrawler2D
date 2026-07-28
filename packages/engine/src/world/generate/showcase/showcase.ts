@@ -32,6 +32,7 @@ import {
   hasCleanPlatform,
   ringCells,
   SHOWCASE_DEPTH,
+  SHOWCASE_RISE,
   TREAD_H,
 } from "./showcaseScan.js";
 import type { Rect } from "../types.js";
@@ -85,6 +86,13 @@ function carveVoidPlateauAt(g: Grid, bx: number, by: number): void {
   }
 }
 
+function carveRaisedPlatformAt(g: Grid, bx: number, by: number): void {
+  for (const [x, y] of blockCells(bx, by)) {
+    g.tiles[y * CHUNK_SIZE + x] = TILE.Floor;
+    g.height[y * CHUNK_SIZE + x] = SHOWCASE_RISE;
+  }
+}
+
 /** The ring cell a pit's tread occupies for stair side (dx, dy), and the
  * threshold cell one further out (kept z0 so the climb axis is real —
  * height.ts's carveRamp shape). */
@@ -99,13 +107,18 @@ function pitStair({ bx, by, dx, dy }: { bx: number; by: number; dx: number; dy: 
   return { tread, threshold: [tread[0] + dx, tread[1] + dy] };
 }
 
+interface PitSite {
+  readonly g: Grid; readonly worldSeed: number; readonly floor: number;
+  readonly bx: number; readonly by: number; readonly voidTerrain: boolean;
+}
+
 /** First workable stair side for a pit at (bx, by), or null if none (no mutation). */
-function pitViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number, number, number]): Cell | null {
+function pitViable({ g, worldSeed, floor, bx, by, voidTerrain }: PitSite): Cell | null {
   const block = blockCells(bx, by);
   if (!cellsCarvable(g, [...block, ...ringCells(bx, by)]) || !guardsClear(worldSeed, floor, bx, by)) return null;
   for (const [dx, dy] of STAIR_DIRS) {
     const { tread, threshold } = pitStair({ bx, by, dx, dy });
-    if (cellsCarvable(g, [threshold]) && !touchesVoid(g, tread)) return [dx, dy];
+    if (cellsCarvable(g, [threshold]) && (!voidTerrain || !touchesVoid(g, tread))) return [dx, dy];
   }
   return null;
 }
@@ -156,27 +169,38 @@ interface ShowcaseContext {
   anchor: Cell;
   worldSeed: number;
   floor: number;
+  voidTerrain: boolean;
 }
 
-function ensureVoidPlateau({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
-  if (hasCleanPlatform(g, anchor)) return;
+function ensurePlatform({ g, anchor, worldSeed, floor, voidTerrain }: ShowcaseContext): void {
+  if (hasCleanPlatform(g, anchor, voidTerrain)) return;
   const spot = closestViable(anchor, (bx, by) => platformViable(g, worldSeed, floor, bx, by));
-  if (spot) carveVoidPlateauAt(g, spot[0], spot[1]);
+  if (!spot) return;
+  if (voidTerrain) carveVoidPlateauAt(g, spot[0], spot[1]);
+  else carveRaisedPlatformAt(g, spot[0], spot[1]);
 }
 
-function ensurePit({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
+function ensurePit(context: ShowcaseContext): void {
+  const { g, anchor, worldSeed, floor, voidTerrain } = context;
   if (hasCleanPit(g, anchor)) return;
-  const spot = closestViable(anchor, (bx, by) => pitViable(g, worldSeed, floor, bx, by) !== null);
+  const site = (bx: number, by: number): PitSite => ({ g, worldSeed, floor, bx, by, voidTerrain });
+  const spot = closestViable(anchor, (bx, by) => pitViable(site(bx, by)) !== null);
   if (!spot) return;
-  const direction = pitViable(g, worldSeed, floor, spot[0], spot[1]);
+  const direction = pitViable(site(spot[0], spot[1]));
   if (direction) carvePitAt(g, spot[0], spot[1], direction);
 }
 
-export function applyShowcase(...[worldSeed, floor, cx, cy, tiles, height, zones]: [number, number, number, number, Uint8Array, Float32Array, Uint8Array]): void {
+export interface ShowcaseRequest {
+  readonly worldSeed: number; readonly floor: number; readonly cx: number; readonly cy: number;
+  readonly tiles: Uint8Array; readonly height: Float32Array; readonly zones: Uint8Array;
+  readonly voidTerrain: boolean;
+}
+
+export function applyShowcase({ worldSeed, floor, cx, cy, tiles, height, zones, voidTerrain }: ShowcaseRequest): void {
   if (floor !== 1 || cx !== 0 || cy !== 0) return;
   const g: Grid = { tiles, height, zones };
   const anchor = entryAnchor(tiles);
-  const context = { g, anchor, worldSeed, floor };
-  ensureVoidPlateau(context);
+  const context = { g, anchor, worldSeed, floor, voidTerrain };
+  ensurePlatform(context);
   ensurePit(context);
 }

@@ -1,4 +1,5 @@
 import { TERRAIN, TILE, TOPOLOGY, type Chunk } from "../../core/types.js";
+import { DEFAULT_WORLD_FEATURES, type WorldFeatures } from "../../core/worldFeatures.js";
 
 export const WORLD_GEOMETRY_SCALE = 1;
 export const GENERATION_CHUNK_SIZE = 32;
@@ -12,6 +13,7 @@ interface GeneratedChunkData {
   readonly tiles: Uint8Array;
   readonly height: Float32Array;
   readonly zones: Uint8Array;
+  readonly features?: WorldFeatures;
 }
 
 interface ScaledChunkBuffers {
@@ -68,7 +70,7 @@ function scaleGeneratedCell({ source, buffers, sx, sy, ox, oy, tile, sourceIndex
   const sourceHeight = source.height[sourceIndex] ?? 0;
   const anchor = isFeatureAnchor(tile, ox, oy);
   const cellTile = sourceTileForCell(tile, anchor);
-  const voidCell = isHeightlessSource(cellTile);
+  const voidCell = isVoidSource(cellTile, source.features?.voidTerrain ?? DEFAULT_WORLD_FEATURES.voidTerrain);
   buffers.tiles[targetIndex] = runtimeTileForCell({ tile, cellTile, anchor, voidCell });
   buffers.terrain[targetIndex] = voidCell ? TERRAIN.Void : TERRAIN.Floor;
   buffers.features[targetIndex] = featureForCell(tile, cellTile, anchor);
@@ -82,9 +84,9 @@ function sourceTileForCell(tile: number, anchor: boolean): number {
 
 function runtimeTileForCell({ tile, cellTile, anchor, voidCell }: { tile: number; cellTile: number; anchor: boolean; voidCell: boolean }): number {
   if (voidCell) return TILE.Void;
-  if (anchor) return runtimeTileFor(tile);
+  if (anchor) return tile;
   if (isDiscreteFeature(tile)) return FLOOR_TILE;
-  return cellTile;
+  return cellTile === TOPOLOGY.Uncarved ? FLOOR_TILE : cellTile;
 }
 
 function featureForCell(tile: number, cellTile: number, anchor: boolean): number {
@@ -99,7 +101,7 @@ function placeFeatureAnchor({ buffers, sx, sy, tile }: { buffers: ScaledChunkBuf
   const anchorX = sx * WORLD_GEOMETRY_SCALE;
   const anchorY = sy * WORLD_GEOMETRY_SCALE + WORLD_GEOMETRY_SCALE - 1;
   const index = anchorY * buffers.size + anchorX;
-  buffers.tiles[index] = runtimeTileFor(tile);
+  buffers.tiles[index] = tile;
   buffers.features[index] = featureFor(tile);
 }
 
@@ -107,12 +109,15 @@ function isDiscreteFeature(tile: number): boolean {
   return tile >= FIRST_DISCRETE_FEATURE_TILE && tile <= LAST_DISCRETE_FEATURE_TILE;
 }
 
-function runtimeTileFor(tile: number): number {
-  return isHeightlessSource(tile) ? TILE.Void : tile;
+function isVoidSource(tile: number, voidTerrain: boolean): boolean {
+  assertVoidSourceAllowed(tile, voidTerrain);
+  return tile === TILE.Void || (voidTerrain && tile === TOPOLOGY.Uncarved);
 }
 
-function isHeightlessSource(tile: number): boolean {
-  return tile === TOPOLOGY.Uncarved || tile === TILE.Void;
+function assertVoidSourceAllowed(tile: number, voidTerrain: boolean): void {
+  if (tile === TILE.Void && !voidTerrain) {
+    throw new Error("Explicit VOID source leaked into disabled world generation");
+  }
 }
 
 function featureFor(tile: number): number {

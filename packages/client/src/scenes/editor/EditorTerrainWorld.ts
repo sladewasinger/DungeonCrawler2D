@@ -9,6 +9,7 @@ interface EditorCell {
 
 export class EditorTerrainWorld {
   private readonly cells = new Map<string, EditorCell>();
+  readonly features = { voidTerrain: true } as const;
   tileRevision = 0;
 
   terrainAt(x: number, y: number): TerrainType {

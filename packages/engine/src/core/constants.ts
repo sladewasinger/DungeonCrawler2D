@@ -11,7 +11,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 22;
+export const PROTOCOL_VERSION = 23;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 export const PROJECTED_INPUT_MAX_PAST_TICKS = 64;

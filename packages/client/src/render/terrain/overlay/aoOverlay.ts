@@ -3,6 +3,9 @@ import { AO_BAND_FRACS, AO_CORNER_FRAC, aoBandAlphas, aoCornerAlpha, getAOStreng
 import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadBatch.js";
 import type { TerrainAOQuad, TerrainBatches, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
 import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
+import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
+
+const AO_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color);
 
 /** One Graphics object per depth row keeps AO batched while preserving entity ordering. */
 export class TerrainAOOverlayRenderer {
@@ -15,7 +18,7 @@ export class TerrainAOOverlayRenderer {
     for (const graphics of this.layers.values()) graphics.clear().setVisible(false);
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
-      graphics.clear().setVisible(visible).fillStyle(0x06060c, 1);
+      graphics.clear().setVisible(visible).fillStyle(AO_COLOR, 1);
       drawGroup(graphics, group, projection);
     }
   }
@@ -84,13 +87,13 @@ function drawPart(input: DrawPartInput): void {
 function isCorner(region: AOPart["region"]): region is AOCorner { return region.length === 2; }
 
 function drawCorner(graphics: Phaser.GameObjects.Graphics, points: TerrainPoints, corner: AOCorner): void {
-  graphics.fillStyle(0x06060c, aoCornerAlpha(getAOStrength()));
+  graphics.fillStyle(AO_COLOR, aoCornerAlpha(getAOStrength()));
   fillQuad(graphics, cornerPatch(points, corner, AO_CORNER_FRAC));
 }
 
 function drawSideBands(input: DrawSideBandsInput): void {
   for (let band = 0; band < AO_BAND_FRACS.length; band += 1) {
-    input.graphics.fillStyle(0x06060c, input.alphas[band] ?? 0);
+    input.graphics.fillStyle(AO_COLOR, input.alphas[band] ?? 0);
     const fraction = AO_BAND_FRACS[band] ?? 0;
     fillQuad(input.graphics, sideBand(input.points, input.side, fraction));
   }

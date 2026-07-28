@@ -66,6 +66,7 @@ export class MovementTraceControl {
       seedInputText: connection.welcome?.seedInputText ?? null,
       worldSeed: connection.world?.worldSeed ?? null,
       floor: connection.floor,
+      voidTerrain: connection.world?.features.voidTerrain ?? null,
     })) return;
     this.button.style.background = RECORDING_COLOR;
     this.button.style.borderColor = "#ffb4b4";

@@ -1,13 +1,30 @@
-import { CHUNK_SIZE, generateChunk, hashString, TERRAIN, type WorldView } from "@dc2d/engine";
+import { CHUNK_SIZE, generateChunk, hashString, TERRAIN, TILE, ZONE, type Chunk, type WorldView } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { terrainOcclusionAhead } from "../../entities/geometry/occlusion.js";
-import { chunkTileRows, DEV_WORLD_TILE_ROWS } from "./devWorldChunkFixture.js";
+import {
+  chunkHeightRows,
+  chunkTileRows,
+  DEV_WORLD_TILE_ROWS,
+  FINITE_DEV_WORLD_HEIGHT_ROWS,
+  FINITE_DEV_WORLD_TILE_ROWS,
+} from "./devWorldChunkFixture.js";
 import { planTerrain, TERRAIN_KINDS, type TerrainKind } from "./terrainPlanner.js";
 
 const FLOOR = TERRAIN_KINDS.Floor;
 const VOID = TERRAIN_KINDS.Void;
 
 describe("dev-world terrain planning", () => {
+  it("preserves every finite-mode cell in the screenshot regression chunk", () => {
+    const chunk = generateChunk({
+      worldSeed: hashString("dev-world-1"), floor: 1, cx: 1, cy: -1,
+      features: { voidTerrain: false },
+    });
+
+    expect(chunkTileRows(chunk)).toEqual(FINITE_DEV_WORLD_TILE_ROWS);
+    expect(chunkHeightRows(chunk)).toEqual(FINITE_DEV_WORLD_HEIGHT_ROWS);
+    assertFinitePlanes(chunk);
+  });
+
   it("distinguishes VOID caps from neighboring pit faces", () => {
     const chunk = generateChunk({ worldSeed: hashString("dev-world-1"), floor: 1, cx: 1, cy: -1 });
     const cell = (x: number, y: number): { terrain: TerrainKind; height: number } => {
@@ -18,6 +35,7 @@ describe("dev-world terrain planning", () => {
     const lowerFloor = { x: 43, y: -13 };
     const voidTile = { x: 52, y: -5 };
     const source = {
+      voidTerrain: true,
       terrainAt: (x: number, y: number) => cell(x, y).terrain,
       heightAt: (x: number, y: number) => cell(x, y).height,
     };
@@ -32,7 +50,7 @@ describe("dev-world terrain planning", () => {
     });
     const world: WorldView = {
       isWalkable: () => true,
-      terrainAt: source.terrainAt,
+      terrainAt: (x, y) => source.terrainAt(x, y) === VOID ? TERRAIN.Void : TERRAIN.Floor,
       heightAt: source.heightAt,
       groundAt: source.heightAt,
       stairHeightAt: () => null,
@@ -55,3 +73,12 @@ describe("dev-world terrain planning", () => {
     })).toBeNull();
   });
 });
+
+function assertFinitePlanes(chunk: Chunk): void {
+  for (let index = 0; index < CHUNK_SIZE ** 2; index++) {
+    const expectedFeature = chunk.tiles[index] === TILE.Stairs ? TILE.Stairs : TILE.Floor;
+    expect(chunk.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
+    expect(chunk.features[index], `feature ${index}`).toBe(expectedFeature);
+    expect(chunk.zones[index], `zone ${index}`).toBe(ZONE.None);
+  }
+}

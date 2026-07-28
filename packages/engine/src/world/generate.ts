@@ -9,10 +9,12 @@
 
 import { generateChunk as generateLayoutChunk, type ChunkGenerationRequest } from "./generate/index.js";
 import { LEVEL, type LevelId } from "./core/level.js";
+import type { WorldFeatures } from "./core/worldFeatures.js";
 import type { Chunk } from "./core/types.js";
 
 export interface WorldGenerationRequest extends ChunkGenerationRequest {
   level?: LevelId;
+  features?: WorldFeatures;
 }
 
 export function generateChunk({ level = LEVEL.Dungeon, ...layout }: WorldGenerationRequest): Chunk {

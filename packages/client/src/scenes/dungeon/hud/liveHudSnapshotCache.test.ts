@@ -24,6 +24,7 @@ function connection(): Connection {
     worldSeed: 7,
     floor: 0,
     level: LEVEL.Sandbox,
+    worldFeatures: { voidTerrain: true },
     tickRate: 20,
     spawn: { x: 5.5, y: 5.5, z: 0 },
   } satisfies ServerWelcome;

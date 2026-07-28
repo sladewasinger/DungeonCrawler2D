@@ -5,30 +5,41 @@ import { viewTileToWorld } from "../../view/transform/viewTransform.js";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import type { TerrainScreenProjection } from "../batch/quadBatch.js";
 import type { TerrainRect } from "../planning/terrainPlanner.js";
+import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 
 export const VIEW_MARGIN_TILES = 2;
 export const TERRAIN_DEPTH = -1000;
-export const TERRAIN_CAMERA_BACKGROUND = "#14141c";
+export const TERRAIN_CAMERA_BACKGROUND = TERRAIN_VISUAL_STYLE.camera.background;
 
 export const screenProjection: TerrainScreenProjection = {
   project: ({ x, y, z }) => ({ x: x * SCREEN_TILE_PX, y: y * SCREEN_TILE_PX - z * SCREEN_TILE_PX }),
 };
 
 const BIOME_MATERIALS: Readonly<Record<BiomeKind, { floor: number; face: number }>> = {
-  [BIOME.Maze]: { floor: 0x526579, face: 0x2d3c4d },
-  [BIOME.OpenHalls]: { floor: 0xb28a52, face: 0x6e4d2d },
-  [BIOME.Ruins]: { floor: 0x68715b, face: 0x3c4536 },
-  [BIOME.Pillars]: { floor: 0x687458, face: 0x3a4537 },
-  [BIOME.Pools]: { floor: 0x3c91aa, face: 0x20536c },
-  [BIOME.Arena]: { floor: 0x9d5b43, face: 0x5b2c2a },
+  [BIOME.Maze]: fallbackMaterial(BIOME.Maze),
+  [BIOME.OpenHalls]: fallbackMaterial(BIOME.OpenHalls),
+  [BIOME.Ruins]: fallbackMaterial(BIOME.Ruins),
+  [BIOME.Pillars]: fallbackMaterial(BIOME.Pillars),
+  [BIOME.Pools]: fallbackMaterial(BIOME.Pools),
+  [BIOME.Arena]: fallbackMaterial(BIOME.Arena),
 };
 
 export function materialsFor(world: Partial<World>, bounds: TerrainRect) {
   const palette = BIOME_MATERIALS[worldBiomeAt(world, bounds.x, bounds.y)];
   return {
-    floor: { color: palette.floor }, feature: { color: palette.floor }, void: { color: 0x000000 },
-    southFace: { color: palette.face }, cliffEdge: { color: palette.face }, ao: { color: 0x06060c, alpha: 0.22 },
+    floor: { color: palette.floor }, feature: { color: palette.floor },
+    void: { color: phaserColor(TERRAIN_VISUAL_STYLE.fallbackMaterials.void) },
+    southFace: { color: palette.face }, cliffEdge: { color: palette.face },
+    ao: {
+      color: phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color),
+      alpha: TERRAIN_VISUAL_STYLE.ambientOcclusion.fallbackAlpha,
+    },
   };
+}
+
+function fallbackMaterial(biome: BiomeKind): { floor: number; face: number } {
+  const material = TERRAIN_VISUAL_STYLE.fallbackMaterials.biomes[biome];
+  return { floor: phaserColor(material.floor), face: phaserColor(material.wallFace) };
 }
 
 export function worldBiomeAt(world: Partial<World>, x: number, y: number): BiomeKind {

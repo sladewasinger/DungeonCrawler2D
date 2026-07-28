@@ -29,6 +29,7 @@ describe("VOID terrain planning", () => {
       ...neighbors.map((neighbor) => [key(neighbor.x, neighbor.y), 0] as const),
     ]);
     const plan = planTerrain({
+      voidTerrain: true,
       terrainAt: (x, y) => terrain.get(key(x, y)) ?? FLOOR,
       heightAt: (x, y) => heights.get(key(x, y)) ?? 0,
     }, { bounds: { x: voidTile.x, y: voidTile.y, width: 1, height: 1 }, orientation });
@@ -49,6 +50,7 @@ describe("VOID terrain planning", () => {
     ]);
     for (const height of [1, 0, -1]) {
       const plan = planTerrain({
+        voidTerrain: true,
         terrainAt: (x, y) => terrain.get(key(x, y)) ?? FLOOR,
         heightAt: () => height,
       }, { bounds: { x: floorTile.x, y: floorTile.y, width: 1, height: 1 }, orientation });
@@ -74,6 +76,7 @@ describe("VOID terrain planning", () => {
       [key(southFloor.x, southFloor.y), FLOOR],
     ]);
     const source = {
+      voidTerrain: true,
       terrainAt: (x: number, y: number) => terrain.get(key(x, y)) ?? FLOOR,
       heightAt: (x: number, y: number) => key(x, y) === key(floorTile.x, floorTile.y) ? 0 : -1,
       featureAt: () => null,
@@ -99,6 +102,7 @@ describe("VOID terrain planning", () => {
       [key(pit.x, pit.y), FLOOR], [key(voidTile.x, voidTile.y), VOID],
     ]);
     const plan = planTerrain({
+      voidTerrain: true,
       terrainAt: (x, y) => terrain.get(key(x, y)) ?? FLOOR,
       heightAt: (x, y) => key(x, y) === key(pit.x, pit.y) ? -1 : 0,
     }, { bounds: { x: voidTile.x, y: voidTile.y, width: 1, height: 1 }, orientation });
@@ -111,6 +115,7 @@ describe("VOID terrain planning", () => {
     const lower = { x: 10, y: 10 };
     const south = { x: 10, y: 11 };
     const plan = planTerrain({
+      voidTerrain: true,
       terrainAt: (x, y) => key(x, y) === key(lower.x, lower.y) || key(x, y) === key(south.x, south.y) ? FLOOR : VOID,
       heightAt: (x, y) => key(x, y) === key(lower.x, lower.y) ? -0.5 : -1,
       featureAt: (x, y) => key(x, y) === key(lower.x, lower.y) ? "stairs" : null,

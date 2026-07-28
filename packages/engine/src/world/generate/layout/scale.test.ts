@@ -57,6 +57,30 @@ describe("generated runtime geometry", () => {
     expect(chunk.zones).toHaveLength(GENERATION_CHUNK_SIZE ** 2);
   });
 
+  it("restores uncarved topology as finite Floor when VOID terrain is disabled", () => {
+    const length = GENERATION_CHUNK_SIZE * GENERATION_CHUNK_SIZE;
+    const chunk = scaleGeneratedChunk(0, 0, {
+      tiles: new Uint8Array(length).fill(TOPOLOGY.Uncarved),
+      height: new Float32Array(length).fill(2),
+      zones: new Uint8Array(length),
+      features: { voidTerrain: false },
+    });
+
+    expect(chunk.tiles[0]).toBe(TILE.Floor);
+    expect(chunk.terrain[0]).toBe(TERRAIN.Floor);
+    expect(chunk.height[0]).toBe(2);
+  });
+
+  it("rejects explicit VOID source cells when VOID terrain is disabled", () => {
+    const length = GENERATION_CHUNK_SIZE * GENERATION_CHUNK_SIZE;
+    expect(() => scaleGeneratedChunk(0, 0, {
+      tiles: new Uint8Array(length).fill(TILE.Void),
+      height: new Float32Array(length),
+      zones: new Uint8Array(length),
+      features: { voidTerrain: false },
+    })).toThrow(/VOID source leaked/);
+  });
+
   it("keeps generated stair heights instead of synthesizing subtiles", () => {
     const length = GENERATION_CHUNK_SIZE * GENERATION_CHUNK_SIZE;
     const tiles = new Uint8Array(length).fill(TILE.Floor);

@@ -6,6 +6,7 @@ import { TERRAIN_KINDS, planTerrain } from "./terrainPlanner.js";
 describe("planTerrain stair walls", () => {
   it("marks the south face below a stair feature for stair wall art", () => {
     const plan = planTerrain({
+      voidTerrain: true,
       terrainAt: (x, y) => x === 0 && (y === 0 || y === 1) ? TERRAIN_KINDS.Floor : TERRAIN_KINDS.Void,
       heightAt: (x, y) => x === 0 && y === 0 ? 2 : 0,
       featureAt: (x, y) => x === 0 && y === 0 ? "stairs" : null,
@@ -20,6 +21,7 @@ describe("planTerrain stair walls", () => {
     const stair = viewTileToWorld(stairView, orientation);
     const north = viewTileToWorld(northView, orientation);
     const plan = planTerrain({
+      voidTerrain: true,
       terrainAt: () => TERRAIN_KINDS.Floor,
       heightAt: (x, y) => sameTile(x, y, north) ? 2 : 0.375,
       featureAt: (x, y) => sameTile(x, y, stair) ? "stairs" : null,
@@ -41,6 +43,7 @@ describe("planTerrain stair walls", () => {
     const current = viewTileToWorld(stairView, orientation);
     const south = viewTileToWorld(southView, orientation);
     const plan = planTerrain({
+      voidTerrain: true,
       terrainAt: () => TERRAIN_KINDS.Floor,
       heightAt: (x, y) => sameTile(x, y, current) ? 1 : 0.5,
       featureAt: (x, y) => sameTile(x, y, current) || sameTile(x, y, south) ? "stairs" : null,

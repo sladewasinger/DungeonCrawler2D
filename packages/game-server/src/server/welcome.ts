@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, TICK_RATE, type LevelId } from "@dc2d/engine";
+import { PROTOCOL_VERSION, TICK_RATE, type LevelId, type WorldFeatures } from "@dc2d/engine";
 import type { WebSocket } from "ws";
 import type { GameSim } from "../sim/core/index.js";
 import { sendServerMessage } from "./telemetry/measuredSend.js";
@@ -10,10 +10,11 @@ export interface WelcomeContext {
   level: LevelId;
   seedInputText: string;
   worldSeed: number;
+  worldFeatures: WorldFeatures;
   diagnostics: ServerNetworkDiagnostics;
 }
 
-export function sendWelcome({ ws, join, level, seedInputText, worldSeed, diagnostics }: WelcomeContext): void {
+export function sendWelcome({ ws, join, level, seedInputText, worldSeed, worldFeatures, diagnostics }: WelcomeContext): void {
   sendServerMessage({
     socket: ws,
     playerId: join.playerId,
@@ -26,6 +27,7 @@ export function sendWelcome({ ws, join, level, seedInputText, worldSeed, diagnos
       worldSeed,
       floor: join.floor,
       level,
+      worldFeatures,
       tickRate: TICK_RATE,
       spawn: join.spawn,
     },

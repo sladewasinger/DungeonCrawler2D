@@ -48,6 +48,7 @@ describe("live enemy death VFX queue", () => {
       worldSeed: 123,
       floor: 1,
       level: LEVEL.Dungeon,
+      worldFeatures: { voidTerrain: true },
       tickRate: 20,
       spawn: { x: 1, y: 2, z: 0 },
     };
