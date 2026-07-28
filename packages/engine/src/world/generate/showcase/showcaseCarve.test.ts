@@ -25,20 +25,20 @@ describe("applyShowcase (unit)", () => {
     expect(Array.from(a.height)).toEqual(Array.from(b.height));
   });
 
-  it("carves at hand-derived first sites on an all-flat chunk", () => {
+  it("carves a VOID plateau and pit at hand-derived first sites", () => {
     const g = flatChunk();
     applyShowcase(1, 1, 0, 0, g.tiles, g.height, g.zones);
     const h = (x: number, y: number): number => g.height[y * CHUNK_SIZE + x] ?? 0;
     const t = (x: number, y: number): number => g.tiles[y * CHUNK_SIZE + x] ?? 0;
-    // Platform: first 4x4 site is (0,0)..(3,3) -> raised 2x2 at (1,1)..(2,2).
+    // Plateau: first 4x4 site is (0,0)..(3,3) -> VOID 2x2 at (1,1)..(2,2).
     for (const [x, y] of [
       [1, 1],
       [2, 1],
       [1, 2],
       [2, 2],
     ] as const) {
-      expect(h(x, y), `platform cell ${x},${y}`).toBe(1);
-      expect(t(x, y)).toBe(TILE.Floor);
+      expect(h(x, y), `plateau cell ${x},${y}`).toBe(0);
+      expect(t(x, y)).toBe(TILE.Void);
     }
     expect(h(0, 0)).toBe(0); // ring untouched
     expect(h(3, 3)).toBe(0);
@@ -66,14 +66,14 @@ describe("applyShowcase (unit)", () => {
       g.tiles[y * CHUNK_SIZE + x] = tile;
       g.height[y * CHUNK_SIZE + x] = height;
     };
-    // Natural platform: 2x2 z1 at (10,10)..(11,11), flat open ring.
+    // Natural VOID plateau: 2x2 at (10,10)..(11,11), flat open ring.
     for (const [x, y] of [
       [10, 10],
       [11, 10],
       [10, 11],
       [11, 11],
     ] as const) {
-      set({ x, y, tile: TILE.Floor, height: 1 });
+      set({ x, y, tile: TILE.Void, height: 0 });
     }
     // Natural pit: 2x2 z-1 at (14,10)..(15,11), rim tread at (14,9).
     for (const [x, y] of [

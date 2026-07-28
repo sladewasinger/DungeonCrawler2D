@@ -46,7 +46,7 @@ export function findSpawn(sim: SimState): { x: number; y: number; z: number } {
   if (sim.world.level === LEVEL.Sandbox || sim.opts.clusterSpawns) return findClusteredSpawn(sim);
   const radiusTiles = sim.opts.spawnRadiusTiles;
   if (radiusTiles && radiusTiles > 0) return findRadiusSpawn(sim, radiusTiles);
-  const spot = pickSpawnTile(sim) ?? { x: 0.5, y: 0.5 };
+  const spot = pickSpawnTile(sim) ?? requireWalkableNear({ sim, x: 0, y: 0, maxRadius: ANCHOR_SEARCH_RADIUS });
   const x = spot.x + 0.5;
   const y = spot.y + 0.5;
   return { x, y, z: sim.world.groundAt(x, y) };
@@ -58,7 +58,8 @@ function findClusteredSpawn(sim: SimState): { x: number; y: number; z: number } 
   const ox = SANDBOX_ANCHOR.x + (index % SANDBOX_CLUSTER_COLUMNS) * SANDBOX_CLUSTER_SPACING;
   const oy = SANDBOX_ANCHOR.y + Math.floor(index / SANDBOX_CLUSTER_COLUMNS) * SANDBOX_CLUSTER_SPACING;
   const tile = findWalkableNear({ sim, x: ox, y: oy }) ??
-    findWalkableNear({ sim, ...SANDBOX_ANCHOR }) ?? SANDBOX_ANCHOR;
+    findWalkableNear({ sim, ...SANDBOX_ANCHOR }) ??
+    requireWalkableNear({ sim, ...SANDBOX_ANCHOR, maxRadius: ANCHOR_SEARCH_RADIUS });
   const x = tile.x + 0.5;
   const y = tile.y + 0.5;
   return { x, y, z: sim.world.groundAt(x, y) };
@@ -67,7 +68,8 @@ function findClusteredSpawn(sim: SimState): { x: number; y: number; z: number } 
 /** Friend-playtest spawn: near a fixed seed-derived anchor, spaced from other players. */
 function findRadiusSpawn(sim: SimState, radiusTiles: number): { x: number; y: number; z: number } {
   const anchor = resolveSpawnAnchor(sim);
-  const tile = pickRadiusTile(sim, anchor, radiusTiles) ?? anchor;
+  const tile = pickRadiusTile(sim, anchor, radiusTiles) ??
+    requireWalkableNear({ sim, ...anchor, maxRadius: radiusTiles });
   const x = tile.x + 0.5;
   const y = tile.y + 0.5;
   return { x, y, z: sim.world.groundAt(x, y) };
@@ -80,10 +82,18 @@ function findRadiusSpawn(sim: SimState, radiusTiles: number): { x: number; y: nu
  * byte-identical on every server restart for a given seed.
  */
 export function resolveSpawnAnchor(sim: SimState): { x: number; y: number } {
-  return (
-    findWalkableNear({ sim, ...PLAYTEST_SPAWN_ANCHOR, maxRadius: ANCHOR_SEARCH_RADIUS }) ??
-    PLAYTEST_SPAWN_ANCHOR
-  );
+  return requireWalkableNear({ sim, ...PLAYTEST_SPAWN_ANCHOR, maxRadius: ANCHOR_SEARCH_RADIUS });
+}
+
+function requireWalkableNear(input: {
+  readonly sim: Pick<SimState, "world">;
+  readonly x: number;
+  readonly y: number;
+  readonly maxRadius: number;
+}): { x: number; y: number } {
+  const tile = findWalkableNear(input);
+  if (tile) return tile;
+  throw new Error(`No walkable spawn tile near (${input.x}, ${input.y})`);
 }
 
 /** Random floor candidate within radiusTiles of anchor, relaxing min spacing if crowded. */

@@ -1,7 +1,8 @@
 // Elevation showcase guarantee (docs/ROADMAP.md PANEL ROUND 3b blocker #3):
 // within ~20 tiles of the floor-1 entry anchor (showcaseScan.ts's spiral —
 // the same "nearest walkable to world origin" rule the spawn anchor uses),
-// guarantee at least one clean raised platform (z1, 2x2) and one clean pit
+// guarantee at least one clean flat VOID plateau (the former raised 2x2 mass)
+// and one clean pit
 // (z-1, 2x2 interior with its rim stair). Find-or-carve: if the ordinary
 // generator already produced a qualifying feature near the entry, nothing
 // changes; otherwise carve one into the CLOSEST flat open clearing. Pure and
@@ -11,11 +12,10 @@
 // natural feature the find phase had already accepted (resolveShallowPlateaus
 // clamping a found platform, demoteOrphanedStairs eating a counted tread —
 // observed live across the 10-seed invariant). The carve itself re-violates
-// nothing the nets police, by construction: every edge it creates is a sheer
-// full-tier (+/-1) drop repairCliffs deliberately leaves alone, the platform is
-// exactly the z+1 rule's 2-deep minimum, the tread's climb axis straddles a
-// checked-flat threshold and the pit floor, and no Wall/pocket topology
-// changes at all.
+// nothing the nets police, by construction: the plateau is explicit
+// infinite-height VOID and therefore has no height edge for repairCliffs to
+// reinterpret, while the pit retains its checked-flat threshold and floor.
+// No Wall/pocket topology changes at all.
 import { TILE, ZONE } from "../../core/types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
 import { isNearDescent, isNearLandmark } from "../landmarks/guard.js";
@@ -32,7 +32,6 @@ import {
   hasCleanPlatform,
   ringCells,
   SHOWCASE_DEPTH,
-  SHOWCASE_RISE,
   TREAD_H,
 } from "./showcaseScan.js";
 import type { Rect } from "../types.js";
@@ -77,9 +76,13 @@ function platformViable(...[g, worldSeed, floor, bx, by]: [Grid, number, number,
   return guardsClear(worldSeed, floor, bx, by);
 }
 
-/** Raise the 2x2 to z1 — the surrounding ring stays z0, every edge sheer full-tier. */
-function carvePlatformAt(g: Grid, bx: number, by: number): void {
-  for (const [x, y] of blockCells(bx, by)) g.height[y * CHUNK_SIZE + x] = SHOWCASE_RISE;
+/** Convert the 2x2 plateau to explicit VOID; its surrounding ring stays z0. */
+function carveVoidPlateauAt(g: Grid, bx: number, by: number): void {
+  for (const [x, y] of blockCells(bx, by)) {
+    const index = y * CHUNK_SIZE + x;
+    g.tiles[index] = TILE.Void;
+    g.height[index] = 0;
+  }
 }
 
 /** The ring cell a pit's tread occupies for stair side (dx, dy), and the
@@ -146,10 +149,10 @@ interface ShowcaseContext {
   floor: number;
 }
 
-function ensurePlatform({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
+function ensureVoidPlateau({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
   if (hasCleanPlatform(g, anchor)) return;
   const spot = closestViable(anchor, (bx, by) => platformViable(g, worldSeed, floor, bx, by));
-  if (spot) carvePlatformAt(g, spot[0], spot[1]);
+  if (spot) carveVoidPlateauAt(g, spot[0], spot[1]);
 }
 
 function ensurePit({ g, anchor, worldSeed, floor }: ShowcaseContext): void {
@@ -165,6 +168,6 @@ export function applyShowcase(...[worldSeed, floor, cx, cy, tiles, height, zones
   const g: Grid = { tiles, height, zones };
   const anchor = entryAnchor(tiles);
   const context = { g, anchor, worldSeed, floor };
-  ensurePlatform(context);
+  ensureVoidPlateau(context);
   ensurePit(context);
 }

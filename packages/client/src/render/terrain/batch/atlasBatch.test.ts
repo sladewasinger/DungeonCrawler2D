@@ -3,27 +3,31 @@ import { describe, expect, it, vi } from "vitest";
 import { TerrainAtlasBatchRenderer, atlasDraws, terrainMeshBatches } from "./atlasBatch.js";
 import type { TerrainScreenProjection } from "./quadBatch.js";
 import type { TerrainBatches } from "../planning/terrainPlanner.js";
-
 const projection: TerrainScreenProjection = {
   project: ({ x, y, z }) => ({ x: x * 10, y: y * 10 - z * 5 }),
 };
 const atlasImage = { width: 576, height: 320 };
-
+const FLOOR_FRAME = "terrain:shared-atlas:0:floor";
 describe("atlasDraws", () => {
-  it("uses the stable floor, raised-floor, void, and south-face roles", () => {
+  it("uses the stable floor, void, and south-face roles for terrain caps and faces", () => {
     const draws = atlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
-
     expect(draws.map(({ frame, phase }) => ({ frame, phase }))).toEqual([
       { frame: "terrain:shared-atlas:0:void", phase: 0 },
-      { frame: "terrain:shared-atlas:0:floor", phase: 1 },
-      { frame: "terrain:shared-atlas:0:raised-floor", phase: 1 },
+      { frame: FLOOR_FRAME, phase: 1 },
+      { frame: FLOOR_FRAME, phase: 1 },
       { frame: "terrain:shared-atlas:0:south-face", phase: 2 },
       { frame: "terrain:shared-atlas:0:south-face", phase: 2 },
     ]);
     expect(draws[3]?.points).toEqual([{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 15 }, { x: 0, y: 15 }]);
     expect(draws[4]?.points).toEqual([{ x: 0, y: 5 }, { x: 10, y: 5 }, { x: 10, y: 10 }, { x: 0, y: 10 }]);
   });
-
+  it("keeps raised top-down surfaces on the floor cap material", () => {
+    const draw = atlasDraws({ ...batches, voids: [], southFaces: [], floors: [batches.floors[1]!] }, {
+      projection, biomeAt: () => BIOME.Maze, debug: false,
+    })[0];
+    expect(draw?.role).toBe("floor");
+    expect(draw?.frame).toBe(FLOOR_FRAME);
+  });
   it("groups by biome material and switches every draw to the debug atlas on request", () => {
     const biomeDraws = atlasDraws(batches, {
       projection,
@@ -31,28 +35,23 @@ describe("atlasDraws", () => {
       debug: false,
     });
     const debugDraws = atlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: true });
-
     expect(new Set(biomeDraws.map((draw) => draw.atlas.key))).toEqual(new Set(["shared-atlas"]));
     expect(debugDraws.every((draw) => draw.atlas.key === "debug-atlas")).toBe(true);
   });
-
   it("uses the distinct stair wall role for a stair south face", () => {
     const draws = atlasDraws({
       ...batches,
       voids: [], floors: [],
       southFaces: [{ ...batches.southFaces[0]!, stairWall: true }],
     }, { projection, biomeAt: () => BIOME.Maze, debug: true });
-
     expect(draws.map(({ role, frame }) => ({ role, frame }))).toEqual([
       { role: "stair-wall-face", frame: "terrain:debug-atlas:0:stair-wall-face" },
       { role: "stair-wall-face", frame: "terrain:debug-atlas:0:stair-wall-face" },
     ]);
   });
-
   it("packs each texture/phase as UV quads for one Mesh2D submission", () => {
     const draws = atlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
     const meshes = terrainMeshBatches(draws, () => atlasImage);
-
     expect(meshes).toHaveLength(3);
     expect(meshes.map((mesh) => [mesh.depth, mesh.phase, mesh.vertices.length, mesh.indices.length])).toEqual([
       [-0.5, 0, 16, 8], [99.5, 1, 32, 16], [100.5, 2, 32, 16],
@@ -62,7 +61,6 @@ describe("atlasDraws", () => {
       10, 10, 0.22135416666666666, 0.0015625000000000222, 0, 10, 0.11197916666666667, 0.0015625000000000222,
     ]);
   });
-
   it("keeps cliff geometry out of atlas texture draws", () => {
     const draws = atlasDraws({
       ...batches,
@@ -72,7 +70,6 @@ describe("atlasDraws", () => {
         vertices: [{ x: 2, y: 2, z: 0 }, { x: 3, y: 2, z: 0 }, { x: 3, y: 3, z: 0 }, { x: 2, y: 3, z: 0 }],
       }],
     }, { projection, biomeAt: () => BIOME.Maze, debug: false });
-
     expect(draws).toHaveLength(atlasDraws(batches, {
       projection,
       biomeAt: () => BIOME.Maze,
@@ -80,7 +77,6 @@ describe("atlasDraws", () => {
     }).length);
     expect(draws.every((draw) => draw.atlas.key === "shared-atlas")).toBe(true);
   });
-
   it("hides and restores procedural overlays with an orientation root", () => {
     const activeMesh = { setVisible: vi.fn() };
     const inactiveMesh = { setVisible: vi.fn() };

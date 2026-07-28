@@ -14,11 +14,7 @@ import { World } from "./world.js";
 const SEED = hashString("test-world");
 const FLOOR = 1;
 
-/**
- * Runtime terrain no longer stores Wall cells. Former uncarved cells are raised Floors;
- * the height transition blocks grounded movement and the renderer derives its
- * camera-facing face from adjacent finite Floor heights.
- */
+/** Runtime authored terrain retains finite raised Floors; topology-only walls become VOID. */
 
 /** A floor tile with a raised Floor immediately to its east. */
 function raisedPairAt(world: World, x: number, y: number): { floor: { x: number; y: number }; raised: { x: number; y: number } } | null {
@@ -52,12 +48,33 @@ function findFloorRaisedPair(world: World): { floor: { x: number; y: number }; r
 }
 
 describe("height-derived terrain boundaries", () => {
-  it("former uncarved cells are finite Floor surfaces, not Wall tiles", () => {
+  it("authored raised cells remain finite Floor surfaces", () => {
     const world = new World(SEED, FLOOR);
     const { raised } = findFloorRaisedPair(world);
     expect(world.tileAt(raised.x, raised.y)).toBe(TILE.Floor);
     expect(world.terrainAt(raised.x, raised.y)).toBe(TERRAIN.Floor);
     expect(world.heightAt(raised.x, raised.y)).toBeGreaterThan(0);
+  });
+
+  it("topology-only wall cells become flat infinite-height VOID", () => {
+    const world = new World(SEED, FLOOR);
+    const chunk = world.getChunk(2, 2);
+    const index = chunk.terrain.findIndex((terrain) => terrain === TERRAIN.Void);
+    expect(index).toBeGreaterThanOrEqual(0);
+    if (index < 0) return;
+    const x = 2 * CHUNK_SIZE + (index % CHUNK_SIZE);
+    const y = 2 * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
+    expect(world.tileAt(x, y)).toBe(TILE.Void);
+    expect(world.heightAt(x, y)).toBe(0);
+    expect(world.isWalkable(x, y)).toBe(false);
+  });
+
+  it("runtime chunks do not retain z2 Floor plateau cells", () => {
+    const world = new World(SEED, FLOOR);
+    const chunk = world.getChunk(0, 0);
+    expect(
+      Array.from(chunk.tiles).every((tile, index) => tile !== TILE.Floor || chunk.height[index] < 2),
+    ).toBe(true);
   });
 
   it("walking into a raised terrain boundary is blocked by the height gate", () => {

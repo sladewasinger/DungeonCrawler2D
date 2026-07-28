@@ -48,7 +48,7 @@ export class TerrainRenderer {
   update(view: ViewRect): void {
     const orientation = getViewOrientation();
     const root = this.ensureRoot(orientation);
-    const hasAtlasAssets = this.hasAtlasAsset();
+    const hasAtlasAssets = this.scene.textures.exists(this.debugMode ? ASSET_KEYS.debugAtlas : ASSET_KEYS.sharedAtlas);
     const bounds = worldBoundsForView(view, orientation);
     const key = `${orientation}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (this.dirty || root.planKey !== key) {
@@ -131,7 +131,7 @@ export class TerrainRenderer {
   private renderRoot(root: TerrainRoot, bounds: TerrainRect, key: string): void {
     const plan = emptyTerrainBatches();
     appendVisibleChunkPlans({ target: plan, cache: this.chunkCache, source: this.terrainSource, bounds, orientation: root.orientation, revision: this.world.tileRevision });
-    if (this.hasAtlasAsset()) {
+    if (this.scene.textures.exists(this.debugMode ? ASSET_KEYS.debugAtlas : ASSET_KEYS.sharedAtlas)) {
       root.atlas.render(plan, {
         projection: screenProjection,
         biomeAt: (tile) => worldBiomeAt(this.world, tile.x, tile.y),
@@ -143,10 +143,5 @@ export class TerrainRenderer {
     }
     syncTerrainProps({ scene: this.scene, root, props: plan.props });
     root.planKey = key;
-  }
-
-  private hasAtlasAsset(): boolean {
-    const key = this.debugMode ? ASSET_KEYS.debugAtlas : ASSET_KEYS.sharedAtlas;
-    return this.scene.textures.exists(key);
   }
 }

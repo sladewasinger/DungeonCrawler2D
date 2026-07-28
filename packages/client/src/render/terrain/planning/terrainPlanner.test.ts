@@ -88,15 +88,6 @@ describe("planTerrain", () => {
     });
   });
 
-  it("never turns a Floor-to-Void edge into a wall face", () => {
-    const plan = planTerrain(
-      source(new Map([[key(0, 0), FLOOR]]), new Map([[key(0, 0), 3]])),
-      { bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0 },
-    );
-
-    expect(plan.batches.southFaces).toEqual([]);
-  });
-
   it("ignores sub-pixel height noise at a Floor-to-Floor seam", () => {
     const terrain = new Map<string, TerrainKind>([
       [key(0, 0), FLOOR], [key(0, 1), FLOOR],

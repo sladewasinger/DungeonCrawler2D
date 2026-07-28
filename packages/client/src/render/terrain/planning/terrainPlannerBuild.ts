@@ -38,7 +38,19 @@ function appendTileGeometry(context: TerrainPlanningContext, worldTile: Point): 
   appendFloorArt(tileContext);
   appendTerrainCliffEdges(tileContext, context.batches.cliffEdges);
   appendTerrainAmbientOcclusion(tileContext, context.batches.ao);
+  appendVoidWall(tileContext);
   appendSouthFace(tileContext);
+}
+
+function appendVoidWall(context: TerrainTileContext): void {
+  const southWorld = viewTileToWorld({ x: context.viewTile.x, y: context.viewTile.y + 1 }, context.orientation);
+  if (context.source.terrainAt(southWorld.x, southWorld.y) !== TERRAIN_KINDS.Void) return;
+  if (context.height <= TERRAIN_HEIGHT_EPSILON) return;
+  context.batches.southFaces.push({
+    kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
+    topHeight: context.height, bottomHeight: 0, voidWall: true,
+    vertices: southFaceQuad(context.viewTile, context.height, 0),
+  });
 }
 
 function appendFloorArt(context: TerrainTileContext): void {

@@ -12,7 +12,7 @@ export interface AppendDrawsInput { readonly target: TerrainAtlasDraw[]; readonl
 export interface TerrainDrawQuad { readonly worldTile: { readonly x: number; readonly y: number }; readonly viewTile: { readonly x: number; readonly y: number }; readonly vertices: TerrainQuadVertices; readonly kind: string; readonly height?: number; }
 
 function appendDraw(input: AppendDrawsInput, quad: TerrainDrawQuad): void {
-  const role = quad.kind === "floor" && quad.height && quad.height > 0 ? "raised-floor" : input.defaultRole;
+  const role = input.defaultRole;
   const atlas = input.options.debug ? TERRAIN_TILESETS.debug : TERRAIN_TILESETS[input.options.biomeAt(quad.worldTile)];
   input.target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0, phase: input.phase, depth: drawDepth(input.phase, quad.viewTile.y), points: projectQuad(quad.vertices, input.options.projection) });
 }

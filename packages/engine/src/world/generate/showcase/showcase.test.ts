@@ -1,6 +1,7 @@
 // Elevation showcase invariant (docs/ROADMAP.md PANEL ROUND 3b blocker #3):
 // floor-1 chunk (0,0) — the spawn-anchor neighborhood — always contains one
-// clean raised 2x2 platform (z1) and one clean 2x2 pit (z-1) with a rim-stair
+// clean flat VOID plateau (the former raised 2x2 mass) and one clean 2x2 pit
+// (z-1) with a rim-stair
 // tread, within ~20 tiles (Chebyshev <= 24, docs/ASSUMPTIONS.md row 364's
 // tolerance) of the entry anchor (the nearest walkable tile to world origin —
 // spawn.ts's resolveSpawnAnchor rule). Scan criteria here are re-derived from
@@ -85,20 +86,28 @@ function outsideBlock({ x, y, bx, by }: { x: number; y: number; bx: number; by: 
   return outsideX || y < by || y >= by + BLOCK_SIZE;
 }
 
-function matchesBlockCell(cell: Cell, height: number): boolean {
-  return cell.t === TILE.Floor && Math.abs(cell.h - height) <= EPS;
+function matchesVoidCell(cell: Cell): boolean {
+  return cell.t === TILE.Void && Math.abs(cell.h) <= EPS;
 }
 
-function isBlock({ chunk, bx, by }: BlockPosition, height: number): boolean {
+function isVoidBlock({ chunk, bx, by }: BlockPosition): boolean {
   for (let y = by; y < by + BLOCK_SIZE; y++) {
-    if (!isBlockRow({ chunk, bx, y, height })) return false;
+    if (!isVoidBlockRow({ chunk, bx, y })) return false;
   }
   return true;
 }
 
-function isBlockRow({ chunk, bx, y, height }: { chunk: Chunk; bx: number; y: number; height: number }): boolean {
+function isVoidBlockRow({ chunk, bx, y }: { chunk: Chunk; bx: number; y: number }): boolean {
   return Array.from({ length: BLOCK_SIZE }, (_, index) => cellAt({ chunk, x: bx + index, y }))
-    .every((cell) => matchesBlockCell(cell, height));
+    .every(matchesVoidCell);
+}
+
+function isBlock({ chunk, bx, by }: BlockPosition, height: number): boolean {
+  return Array.from({ length: BLOCK_SIZE }, (_, yOffset) =>
+    Array.from({ length: BLOCK_SIZE }, (_, xOffset) =>
+      cellAt({ chunk, x: bx + xOffset, y: by + yOffset }),
+    ).every((cell) => cell.t === TILE.Floor && Math.abs(cell.h - height) <= EPS),
+  ).every(Boolean);
 }
 
 function blockPositions(chunk: Chunk): BlockPosition[] {
@@ -109,17 +118,17 @@ function blockPositions(chunk: Chunk): BlockPosition[] {
   return blocks;
 }
 
-function hasPlatformRing(block: BlockPosition): boolean {
+function hasVoidPlatformRing(block: BlockPosition): boolean {
   return ring(block.bx, block.by).every(([x, y]) => {
     const cell = cellAt({ chunk: block.chunk, x, y });
-    return cell.t !== TILE.Void && cell.h <= 0.25 + EPS;
+    return cell.t === TILE.Floor && cell.h <= 0.25 + EPS;
   });
 }
 
-/** 2x2 Floor at z1, every ring cell open ground at z <= 0.25 (a 0.75+ drop on all sides). */
+/** 2x2 VOID plateau, every ring cell remains open ground. */
 function scanPlatform(c: Chunk): { bx: number; by: number } | null {
   const platform = blockPositions(c).find((block) =>
-    nearAnchor(c, block.bx, block.by) && isBlock(block, 1) && hasPlatformRing(block),
+    nearAnchor(c, block.bx, block.by) && isVoidBlock(block) && hasVoidPlatformRing(block),
   );
   if (platform) return { bx: platform.bx, by: platform.by };
   return null;
@@ -151,7 +160,7 @@ function scanPit(c: Chunk): { bx: number; by: number; tread: [number, number] } 
 }
 
 describe("floor-1 entry elevation showcase", () => {
-  it("guarantees a clean 2x2 z1 platform in the entry window across 10 seeds", () => {
+  it("guarantees a clean flat VOID plateau in the entry window across 10 seeds", () => {
     for (const seed of SEEDS) {
       const chunk = generateChunk({ worldSeed: seed, floor: 1, cx: 0, cy: 0 });
       expect(scanPlatform(chunk), `seed ${seed} has no clean platform`).not.toBeNull();

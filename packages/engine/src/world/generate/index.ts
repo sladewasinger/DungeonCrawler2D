@@ -51,8 +51,8 @@ function createGeneratedGrid(): {
 
 function finalizeScaledChunk(chunk: Chunk): Chunk {
   demoteOrphanedStairs(chunk.tiles, chunk.height, CHUNK_SIZE);
-  // Uncarved source cells become ordinary Floor surfaces at runtime; enforce
-  // the same z+1 depth rule after that topology-to-height-map conversion.
+  // Runtime VOID cells are already heightless; enforce the same z+1 depth rule
+  // for the remaining finite terrain after topology-to-height-map conversion.
   resolveShallowPlateaus(chunk.tiles, chunk.height, CHUNK_SIZE);
   demoteOrphanedStairs(chunk.tiles, chunk.height, CHUNK_SIZE);
   return chunk;

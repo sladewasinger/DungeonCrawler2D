@@ -2,7 +2,6 @@
 // the entry-anchor spiral, the shared 2x2-block geometry, and the "does a
 // clean platform/pit already exist near the entry" finders. Pure reads over
 // chunk-local arrays — the carve half (showcase.ts) owns all mutation.
-import { WALL_FACE_MIN_DROP } from "../../../core/constants.js";
 import { TILE, TOPOLOGY } from "../../core/types.js";
 import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
 
@@ -17,14 +16,11 @@ import { GENERATION_CHUNK_SIZE as CHUNK_SIZE } from "../layout/scale.js";
  * a negative-coordinate neighbor; when it does the two anchors differ by at
  * most a few tiles, inside the same tolerance). */
 export const SHOWCASE_RADIUS = 24;
-export const SHOWCASE_RISE = 1; // z1 platform — the jumpable tier (height.ts's ROOM_RISE)
 export const SHOWCASE_DEPTH = -1; // z-1 pit, exited via its rim stair tread
 export const BLOCK = 2; // 2x2 feature interior
 export const EPS = 0.01;
-/** A ring cell must sit at least a face-drop below a platform top (1 - 0.75). */
-const RING_MAX_H = SHOWCASE_RISE - WALL_FACE_MIN_DROP;
-/** A pit rim cell must sit at least a face-drop above the pit floor (-1 + 0.75). */
-const RIM_MIN_H = SHOWCASE_DEPTH + WALL_FACE_MIN_DROP;
+/** A pit rim cell must sit above the pit floor by the wall-face threshold. */
+const RIM_MIN_H = SHOWCASE_DEPTH + 0.75;
 /** One compact tread, midway (height.ts's one-tread-per-whole-z contract). */
 export const TREAD_H = SHOWCASE_DEPTH / 2;
 
@@ -39,8 +35,8 @@ export type Cell = readonly [number, number];
 export const at = (a: Uint8Array | Float32Array, x: number, y: number): number =>
   a[y * CHUNK_SIZE + x] ?? 0;
 
-/** Nearest non-Wall cell to local (0,0), by the same expanding Chebyshev-ring
- * spiral spawn.ts's findWalkableNear walks (out-of-chunk candidates skipped). */
+/** Nearest finite-floor cell to local (0,0), by the same expanding
+ * Chebyshev-ring spiral spawn.ts's findWalkableNear walks. */
 export function entryAnchor(tiles: Uint8Array): Cell {
   for (let radius = 0; radius < CHUNK_SIZE; radius++) {
     const anchor = ringOffsets(radius).find(([x, y]) => isWalkableInChunk(tiles, x, y));
@@ -57,7 +53,9 @@ function ringOffsets(radius: number): Cell[] {
 }
 
 function isWalkableInChunk(tiles: Uint8Array, x: number, y: number): boolean {
-  return x >= 0 && y >= 0 && (tiles[y * CHUNK_SIZE + x] ?? TOPOLOGY.Uncarved) !== TOPOLOGY.Uncarved;
+  if (x < 0 || y < 0) return false;
+  const tile = tiles[y * CHUNK_SIZE + x] ?? TOPOLOGY.Uncarved;
+  return tile !== TOPOLOGY.Uncarved && tile !== TILE.Void;
 }
 
 /** Chebyshev distance from the anchor to the farthest cell of the 2x2 block. */
@@ -108,14 +106,18 @@ function hasCleanBlock(anchor: Cell, matches: (bx: number, by: number) => boolea
   return blockCandidates(anchor).some(([bx, by]) => matches(bx, by));
 }
 
-/** A clean z1 platform: 2x2 Floor at z1 whose whole ring is lower open ground. */
+/** A clean VOID plateau: 2x2 explicit VOID whose whole ring is open ground. */
 export function hasCleanPlatform(g: Grid, anchor: Cell): boolean {
   return hasCleanBlock(anchor, (bx, by) => platformAt(g, bx, by));
 }
 
 function platformAt(g: Grid, bx: number, by: number): boolean {
-  return blockAt({ g, bx, by, height: SHOWCASE_RISE }) && ringCells(bx, by).every(
-    ([x, y]) => at(g.tiles, x, y) !== TOPOLOGY.Uncarved && at(g.height, x, y) <= RING_MAX_H + EPS,
+  if (bx < 1 || by < 1 || bx + BLOCK > CHUNK_SIZE - 1 || by + BLOCK > CHUNK_SIZE - 1) return false;
+  const isVoid = blockCells(bx, by).every(
+    ([x, y]) => at(g.tiles, x, y) === TILE.Void && Math.abs(at(g.height, x, y)) <= EPS,
+  );
+  return isVoid && ringCells(bx, by).every(([x, y]) =>
+    at(g.tiles, x, y) === TILE.Floor && at(g.height, x, y) <= 0.25 + EPS,
   );
 }
 
