@@ -23,6 +23,7 @@ export interface HudUpdate {
   player: FirstPersonState;
   yaw: number;
   mouseCaptured: boolean;
+  fps?: number; latencyMs?: number;
   giveUpHoldProgress?: number;
   snapshot?: HudFakeSnapshot;
 }
@@ -133,28 +134,22 @@ export class SharedHtmlHud {
   sessionMenuOpen(): boolean {
     return this.parts.sessionMenu.isOpen();
   }
-
   toggleSessionMenu(): void {
     this.parts.sessionMenu.toggle();
   }
-
   focusChat(): void { this.parts.panels.chat.focus(); }
   toggleChat(): void { this.parts.overlays.toggleChat(); }
-
   toggleContacts(): void { this.parts.overlays.toggleContacts(); }
   closeContacts(): void { this.parts.overlays.closeContacts(); }
   toggleCraft(): void { this.parts.overlays.toggleCraft(); }
-
   closeCraft(): void { this.parts.overlays.closeCraft(); }
   craftOpen(): boolean { return this.parts.overlays.craftOpen(); }
-
   openStash(): void { this.parts.overlays.openStash(); }
   toggleStash(): boolean { return this.parts.overlays.toggleStash(); }
   closeStash(): void { this.parts.overlays.closeStash(); }
   stashOpen(): boolean { return this.parts.overlays.stashOpen(); }
 
   closeOverlays(): boolean { return this.parts.overlays.closeAll(); }
-
   dispose(): void {
     this.setTextInputFocused(false);
     this.keyboard.dispose();
@@ -164,5 +159,4 @@ export class SharedHtmlHud {
     this.parts.manager.dispose();
     this.element.remove();
   }
-
 }

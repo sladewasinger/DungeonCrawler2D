@@ -77,7 +77,7 @@ class ThreeDungeonClient {
     this.refreshTerrain();
     const reducedMotion = this.options.root.dataset.reducedMotion === "true";
     this.terrain.update(time, reducedMotion);
-    this.hud.update({ connection: this.options.conn, world: this.world, player: this.state, yaw: sampled.yaw, mouseCaptured: sampled.mouseCaptured, giveUpHoldProgress: this.actions.giveUpHoldProgress() });
+    this.hud.update({ connection: this.options.conn, world: this.world, player: this.state, yaw: sampled.yaw, mouseCaptured: sampled.mouseCaptured, fps: elapsed > 0 ? 1 / elapsed : 0, latencyMs: this.options.conn.rttMs, giveUpHoldProgress: this.actions.giveUpHoldProgress() });
     this.viewport.render({
       connection: this.options.conn,
       world: this.world,

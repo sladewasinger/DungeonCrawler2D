@@ -9,8 +9,14 @@ interface UpdateHudRequest {
   showHealthFeedback: boolean;
 }
 
+const telemetryPerformance = (update: HudUpdate): { fps: number | undefined; latencyMs: number } => ({
+  fps: update.fps ?? update.snapshot?.fps,
+  latencyMs: update.latencyMs ?? update.snapshot?.pingMs ?? update.connection.rttMs,
+});
+
 export const updateHud = ({ hud, update, showHealthFeedback }: UpdateHudRequest): void => {
   const { connection, world, player, yaw, mouseCaptured } = update;
+  const { fps, latencyMs } = telemetryPerformance(update);
   const { parts } = hud;
   parts.panels.chat.update();
   parts.inventory.update();
@@ -22,7 +28,7 @@ export const updateHud = ({ hud, update, showHealthFeedback }: UpdateHudRequest)
   if (showHealthFeedback) parts.healthFeedback.update(connection, performance.now());
   parts.weapon.update(connection);
   parts.party.update(connection, player, yaw);
-  parts.telemetry.update({ connection, world, player, yaw, mouseCaptured });
+  parts.telemetry.update({ connection, world, player, yaw, mouseCaptured, fps, latencyMs });
   parts.downed.update(connection, update.giveUpHoldProgress);
   parts.invite.update();
   parts.sessionMenu.update(connection.status === "connected" && connection.hp > 0);

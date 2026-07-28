@@ -1,4 +1,4 @@
-/** Renders live build, connection, seed, position, and heading telemetry. */
+/** Renders live performance, build, connection, seed, position, and heading telemetry. */
 import { biomeAtWorldTile, displayCoordinates, type World } from "@dc2d/engine";
 import { BUILD_SHA } from "../../../buildInfo.js";
 import { APP_VERSION } from "../../../appVersion.js";
@@ -11,6 +11,18 @@ export const headingDegrees = (yaw: number): number => Math.round(
   ((((-yaw * 180) / Math.PI) % 360) + 360) % 360,
 );
 
+export interface TelemetryPerformanceInput {
+  readonly connected: boolean;
+  readonly fps: number | undefined;
+  readonly latencyMs: number;
+}
+
+export const telemetryPerformanceLine = ({ connected, fps, latencyMs }: TelemetryPerformanceInput): string => {
+  const fpsText = fps === undefined ? "—" : String(Math.round(fps));
+  const latencyText = connected ? `${Math.round(latencyMs)}ms` : "offline";
+  return `fps ${fpsText} · latency ${latencyText}`;
+};
+
 export class HudTelemetry {
   readonly element: HTMLElement;
   private readonly readout: HTMLElement;
@@ -20,11 +32,12 @@ export class HudTelemetry {
     this.readout = requireHudElement(this.element, "[data-hud-telemetry-readout]");
   }
 
-  update({ connection, world, player, yaw, mouseCaptured }: HudTelemetryUpdate): void {
+  update({ connection, world, player, yaw, mouseCaptured, fps, latencyMs }: HudTelemetryUpdate): void {
     const heading = headingDegrees(yaw);
     const display = displayCoordinates(player.x, player.z);
     const biome = biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: player.x, wy: player.z }).biome;
     this.readout.textContent =
+      `${telemetryPerformanceLine({ connected: connection.status === "connected", fps, latencyMs })}\n` +
       `version ${APP_VERSION}\n` +
       `build ${BUILD_SHA}\n` +
       `floor ${world.floor} · ${connection.status}\n` +
@@ -44,4 +57,6 @@ export interface HudTelemetryUpdate {
   readonly player: FirstPersonState;
   readonly yaw: number;
   readonly mouseCaptured: boolean;
+  readonly fps: number | undefined;
+  readonly latencyMs: number;
 }

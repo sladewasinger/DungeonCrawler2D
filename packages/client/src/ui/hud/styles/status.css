@@ -70,6 +70,6 @@
 .hud-status__stamina[data-exhausted="true"] { color: #ffc46b; }
 .hud-status__xp { color: #d8d5df; font-size: 10px; }
 
-.hud-telemetry__readout { white-space: pre-wrap; }
+.hud-telemetry__readout { white-space: pre-wrap; font-size: 11px; line-height: 1.15; }
 .hud-weapon { display: grid; align-content: center; }
 .hud-weapon__name { font-size: 16px; font-weight: 700; text-align: center; }
