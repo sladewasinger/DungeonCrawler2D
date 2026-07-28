@@ -6,9 +6,8 @@
 // recessed "mouth" notch cut into its back wall: a shallow, NON-walkable
 // gap in the rim, distinctly lower than the rest of the wall once
 // wallHeight.ts's WALL_RISE pass runs — reads as a dark opening without
-// any walkable height dip, which would risk the exact inescapable-step
-// class of bug stairsInvariant.test.ts already regression-locks (see
-// docs/ASSUMPTIONS.md). Interaction is proximity-based (the sim validates
+// any walkable height dip, which would risk an inescapable-step bug.
+// Interaction is proximity-based (the sim validates
 // the {type:"descend"} intent against `stairwayDownPosition`/
 // `stairwayUpPosition` within INTERACT_RANGE, the same pattern
 // `reviveDownedPartyMember` already uses) — no new TILE type needed.

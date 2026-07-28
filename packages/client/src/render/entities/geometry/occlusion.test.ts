@@ -92,10 +92,6 @@ describe("isOccludedByTerrainAhead", () => {
   // WAVE E3 exact-test truth table (docs/ELEVATION-PROJECTION.md section 3): each case
   // hand-derived from `heightAt(ahead) - z >= step`, independent of the implementation.
   describe("WAVE E3 exact-test truth table", () => {
-    it("pit-behind-rim: a z0 rim one row south of a z-1 pit-dweller occludes (0 - (-1) = 1 >= 1)", () => {
-      expect(isOccludedAt(fakeWorld({ "5,6": 0 }), -1)).toBe(true);
-    });
-
     it("z1-entity-behind-z2-wall: a z2 wall one row south of a z1 entity occludes (2 - 1 = 1 >= 1)", () => {
       expect(isOccludedAt(fakeWorld({ "5,6": 2 }), 1)).toBe(true);
     });

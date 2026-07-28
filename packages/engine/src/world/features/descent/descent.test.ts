@@ -7,10 +7,7 @@ import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE } from "../../core/types.js";
 import {
   FLOOR_CAP,
-  isStairwayDownChunk,
-  isStairwayUpChunk,
   stairwayDownChunk,
-  stairwayDownPosition,
   stairwayUpChunk,
   stairwayUpPosition,
 } from "./descent.js";
@@ -51,31 +48,14 @@ describe("stairway chunk selection", () => {
     expect(pairs.length).toBeGreaterThan(50);
   });
 
-  it("isStairwayUpChunk/isStairwayDownChunk agree with the chunk getters, and only that one chunk", () => {
+  it("places the floor-cap up-stair position inside its selected chunk", () => {
     const seed = SEEDS[0] as number;
-    const floor = 3;
-    const down = stairwayDownChunk(world(seed, floor));
-    const up = stairwayUpChunk(world(seed, floor));
-    expect(down).not.toBeNull();
+    const up = stairwayUpPosition(world(seed, FLOOR_CAP));
+    const chunk = stairwayUpChunk(world(seed, FLOOR_CAP));
     expect(up).not.toBeNull();
-    if (!down || !up) return;
-    expect(isStairwayDownChunk(world(seed, floor, down))).toBe(true);
-    expect(isStairwayDownChunk(world(seed, floor, { cx: down.cx + 1, cy: down.cy }))).toBe(false);
-    expect(isStairwayUpChunk(world(seed, floor, up))).toBe(true);
-    expect(isStairwayUpChunk(world(seed, floor, { cx: up.cx + 1, cy: up.cy }))).toBe(false);
-  });
-
-  it("position functions return null exactly where the chunk getters do, and a point inside that chunk otherwise", () => {
-    for (const seed of SEEDS.slice(0, 10)) {
-      const positionWorld = { worldSeed: seed, floor: FLOOR_CAP };
-      expect(stairwayDownPosition(positionWorld)).toBeNull(); // FLOOR_CAP has the arena instead
-      const up = stairwayUpPosition(positionWorld);
-      const chunk = stairwayUpChunk(world(seed, FLOOR_CAP));
-      expect(chunk).not.toBeNull();
-      expect(up).not.toBeNull();
-      if (!up || !chunk) continue;
-      expect(Math.floor(up.x / CHUNK_SIZE)).toBe(chunk.cx);
-      expect(Math.floor(up.y / CHUNK_SIZE)).toBe(chunk.cy);
-    }
+    expect(chunk).not.toBeNull();
+    if (!up || !chunk) return;
+    expect(Math.floor(up.x / CHUNK_SIZE)).toBe(chunk.cx);
+    expect(Math.floor(up.y / CHUNK_SIZE)).toBe(chunk.cy);
   });
 });

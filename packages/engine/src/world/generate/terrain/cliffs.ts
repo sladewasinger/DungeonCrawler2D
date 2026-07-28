@@ -35,8 +35,8 @@ export function repairCliffs(tiles: Uint8Array, height: Float32Array, chunkSize:
  * losing its flat far neighbor to a corridor bend) — geometry no single
  * pass fully anticipates. Such a tile provides zero ramping value already
  * (stairRampAt only reads a Stairs tile via a valid entryClimbDir), so
- * keeping it tagged Stairs is pure downside: a rule-1 violation
- * (stairsInvariant.test.ts) and render clutter (dangling tread art) for no
+ * keeping it tagged Stairs is pure downside: a rule-1 violation and render
+ * clutter (dangling tread art) for no
  * gameplay benefit. Demote it back to plain Floor at its current height —
  * a real, if occasionally un-ramped, edge, exactly like any other
  * un-ramped secondary doorway.
@@ -94,7 +94,7 @@ function repairCellEdges({ tiles, height, view, chunkSize, i, x, y }: Omit<RampE
  * ramp already smooths via its virtual padding (an adjacent Stairs tile's
  * RUN_PADDING reach) — re-stamping those produces a redundant Stairs tile
  * with no real delta on its far side (a second "flavor without height"
- * source; see stairsInvariant.test.ts).
+ * source; see the stair geometry contract in world/stairs.ts).
  */
 /**
  * True if either side of this edge is already a Wall (an existing

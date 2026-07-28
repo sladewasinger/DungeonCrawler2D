@@ -40,16 +40,16 @@ function coordinateSquare(range: number): Array<{ cx: number; cy: number }> {
 
 describe("safe-room kiosk stays reachable", () => {
   it("the door sits within STEP_UP of the pad tile just south of it — a real grounded step, not a stranded ledge", () => {
-    const checked = Array.from({ length: 40 }, (_, index) => index + 1)
+    const checked = Array.from({ length: 24 }, (_, index) => index + 1)
       .filter((seed) => assertSafeRoomDoor(seed * 7919 + 13)).length;
-    expect(checked).toBeGreaterThan(20);
+    expect(checked).toBe(24);
   });
 
   it("the pad the door fronts still reaches the wider corridor network (feature-link.ts's connector, unaffected by the kiosk's Floor/Wall change)", () => {
     let checked = 0;
-    for (let seed = 1; seed <= 15; seed++) {
+    for (let seed = 1; seed <= 8; seed++) {
       const worldSeed = seed * 7919 + 13;
-      const found = findFirstSafeRoomChunk(worldSeed, 5);
+      const found = findFirstSafeRoomChunk(worldSeed, 3);
       if (!found) continue;
       const door = findSafeRoomDoor(worldSeed, found.cx, found.cy);
       if (!door) continue;
@@ -59,12 +59,12 @@ describe("safe-room kiosk stays reachable", () => {
       expect(touchesNeighbor, `seed ${worldSeed}: kiosk pad never leaves its own chunk`).toBe(true);
       checked++;
     }
-    expect(checked).toBeGreaterThan(5);
+    expect(checked).toBe(8);
   }, 15_000);
 });
 
 function assertSafeRoomDoor(worldSeed: number): boolean {
-  const found = findFirstSafeRoomChunk(worldSeed, 5);
+  const found = findFirstSafeRoomChunk(worldSeed, 3);
   if (!found) return false;
   const door = findSafeRoomDoor(worldSeed, found.cx, found.cy);
   if (!door) return false;

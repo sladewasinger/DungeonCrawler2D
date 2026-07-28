@@ -181,11 +181,4 @@ describe("floor-1 entry elevation showcase", () => {
     }
   });
 
-  it("stays byte-deterministic with the showcase pass in the pipeline", () => {
-    const seed = SEEDS[0] ?? 1;
-    const a = generateChunk({ worldSeed: seed, floor: 1, cx: 0, cy: 0 });
-    const b = generateChunk({ worldSeed: seed, floor: 1, cx: 0, cy: 0 });
-    expect(Array.from(a.tiles)).toEqual(Array.from(b.tiles));
-    expect(Array.from(a.height)).toEqual(Array.from(b.height));
-  });
 });

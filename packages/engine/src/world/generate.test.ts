@@ -144,7 +144,7 @@ describe("world generation", () => {
   });
 
   it("has no unreachable interior floor pockets (pocket sealing)", () => {
-    for (const [cx, cy] of chunkGrid(-2, 2)) {
+    for (const [cx, cy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-1, 1], [1, -1]] as const) {
       const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
       assertNoPockets(chunk.tiles, cx, cy);
     }

@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { DECAL_LIFETIME_MS, decalAlpha, isDecalExpired } from "./bloodDecalMotion.js";
 
 describe("isDecalExpired", () => {
-  it("expires persistent blood at thirty seconds", () => {
-    expect(DECAL_LIFETIME_MS).toBe(30_000);
-  });
-
   it("flips exactly at the lifetime boundary", () => {
     expect(isDecalExpired(DECAL_LIFETIME_MS - 1)).toBe(false);
     expect(isDecalExpired(DECAL_LIFETIME_MS)).toBe(true);

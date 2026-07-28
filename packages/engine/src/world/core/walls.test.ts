@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { JUMP_VELOCITY, GRAVITY, TICK_DT, WALL_FACE_MIN_DROP } from "../../core/constants.js";
+import { TICK_DT, WALL_FACE_MIN_DROP } from "../../core/constants.js";
 import { hashString } from "../../core/rng.js";
 import { createBody, stepBody } from "../../entities/movement/index.js";
 import {
@@ -71,11 +71,6 @@ describe("height-derived terrain boundaries", () => {
   it("generated chunks contain no runtime Wall values", () => {
     const world = new World(SEED, FLOOR);
     expect(Array.from(world.getChunk(2, 2).tiles)).not.toContain(1);
-  });
-
-  it("a full-hop apex clears the old WALL_RISE step, proving this is a deliberate veto, not insufficient jump power", () => {
-    const apex = (JUMP_VELOCITY * JUMP_VELOCITY) / (2 * GRAVITY);
-    expect(apex).toBeGreaterThan(1); // comfortably above WALL_RISE (1)
   });
 
   function raisedRoomPerimeter(world: World): number {

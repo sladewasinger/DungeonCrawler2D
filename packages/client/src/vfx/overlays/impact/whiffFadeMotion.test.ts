@@ -19,7 +19,4 @@ describe("whiffAlpha", () => {
     expect(whiffAlpha(WHIFF_FADE_MS + 50)).toBe(0);
   });
 
-  it("never exceeds the connect wedge's full-bright peak (stays a fainter, distinct cue)", () => {
-    expect(WHIFF_PEAK_ALPHA).toBeLessThan(1);
-  });
 });

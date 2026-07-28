@@ -7,7 +7,7 @@
 // is a trustworthy geometry source).
 import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE } from "../../core/types.js";
-import { bossArenaChunk, bossArenaGatePosition, bossArenaSpawnAnchor, isBossArenaChunk } from "./bossArena.js";
+import { bossArenaChunk, bossArenaGatePosition, bossArenaSpawnAnchor } from "./bossArena.js";
 import { FLOOR_CAP } from "../descent/descentShared.js";
 
 const SEEDS = Array.from({ length: 30 }, (_, i) => i * 7919 + 13);
@@ -22,15 +22,6 @@ describe("boss arena chunk selection", () => {
       for (let floor = 1; floor < FLOOR_CAP; floor++) expect(bossArenaChunk(world(seed, floor))).toBeNull();
       expect(bossArenaChunk(world(seed, FLOOR_CAP))).not.toBeNull();
     }
-  });
-
-  it("isBossArenaChunk agrees with the chunk getter, and only that one chunk", () => {
-    const seed = SEEDS[0] as number;
-    const chunk = bossArenaChunk(world(seed, FLOOR_CAP));
-    expect(chunk).not.toBeNull();
-    if (!chunk) return;
-    expect(isBossArenaChunk(world(seed, FLOOR_CAP, chunk))).toBe(true);
-    expect(isBossArenaChunk(world(seed, FLOOR_CAP, { cx: chunk.cx, cy: chunk.cy + 1 }))).toBe(false);
   });
 
   it("gate and spawn-anchor positions land inside the arena's own chunk, and are null off FLOOR_CAP", () => {

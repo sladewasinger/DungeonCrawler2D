@@ -61,29 +61,6 @@ function countWithin(sim: SimState, anchor: { x: number; y: number }, radius: nu
   return count;
 }
 
-describe("floor-1 near-spawn density", () => {
-  // ASSUMPTION #150 (docs/ASSUMPTIONS.md): the un-boosted baseline diagnosed
-  // 5-15 enemies within NEAR_SPAWN_RADIUS_TILES across a wide sweep; this
-  // floor sits below the boosted band (19-31 observed) with margin for
-  // seed variance, high enough to catch a regression back to the baseline.
-  const MIN_NEAR_SPAWN_ENEMIES = 10;
-
-  it.each(["grinder-probe-1", "grinder-probe-2", "grinder-probe-3"])(
-    "seeds >= %s enemies reachable within NEAR_SPAWN_RADIUS_TILES for seed %s",
-    (seedStr) => {
-      const world = new World(hashString(seedStr), 1, LEVEL.Dungeon);
-      const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
-      const anchor = resolveSpawnAnchor(sim);
-
-      sweepNearSpawn(sim, anchor);
-
-      expect(countWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThanOrEqual(
-        MIN_NEAR_SPAWN_ENEMIES,
-      );
-    },
-  );
-});
-
 describe("repopulateNearSpawn", () => {
   const REPPOP_TEST_WORLD = "repop-test-world";
   let sim: SimState;

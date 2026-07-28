@@ -43,7 +43,10 @@ describe("GameSim reconnect grace", () => {
     expect(snapshot.entities.find((entry) => entry.id === leaving.playerId)).toMatchObject({ disconnected: true, hp: 17 });
     expect(snapshot.left).not.toContain(leaving.playerId);
     expect(snapshot.party?.members).toContainEqual(expect.objectContaining({ id: leaving.playerId, disconnected: true }));
-    stepN(sim, TICK_RATE * 31);
+    // The fixed grace boundary is covered below; this case only needs a
+    // short real grace interval to prove that the disconnected slot remains
+    // inert and visible while the observer moves away.
+    stepN(sim, 2);
     expect(entity.body).toMatchObject({ x, y });
     teleport({ entity: sim.getPlayerEntity(observer.playerId)!, x: x + AOI_RADIUS * 3, y: y, sim: sim });
     sim.areas.spawn({ defId: "area-fire", x: Math.floor(x), y: Math.floor(y), radius: 0 });

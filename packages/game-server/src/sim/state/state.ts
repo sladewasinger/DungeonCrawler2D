@@ -147,6 +147,8 @@ export interface SimState {
     debugCommands?: boolean;
     /** Temporary playtest switch: keep populated hostiles visible but inert. */
     freezeEnemies?: boolean;
+    /** Test-only torch lifetime override; production uses TORCH_BURN_TICKS. */
+    torchBurnTicks?: number;
     testFixtures?: boolean;
   };
   readonly players: Map<string, PlayerSlot>;

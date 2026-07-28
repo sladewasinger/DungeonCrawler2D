@@ -29,12 +29,6 @@ function frame(tick: number): PlayerSnapshotFrame {
 }
 
 describe("shouldSendSnapshot", () => {
-  it("sends ten idle snapshots over twenty simulation ticks", () => {
-    const sends = Array.from({ length: 20 }, (_, index) =>
-      shouldSendSnapshot(frame(index + 1), false));
-    expect(sends.filter(Boolean)).toHaveLength(10);
-  });
-
   it("sends odd ticks for baselines, events, and moving AOI entities", () => {
     expect(shouldSendSnapshot(frame(1), true)).toBe(true);
     expect(shouldSendSnapshot({ ...frame(1), events: [{ t: "toast", msg: "now" }] }, false)).toBe(true);

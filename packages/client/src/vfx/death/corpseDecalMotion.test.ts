@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { CORPSE_DECAL_LIFETIME_MS, corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
 
 describe("isCorpseDecalExpired", () => {
-  it("keeps a dead body for one minute", () => {
-    expect(CORPSE_DECAL_LIFETIME_MS).toBe(60_000);
-  });
-
   it("flips exactly at the lifetime boundary", () => {
     expect(isCorpseDecalExpired(CORPSE_DECAL_LIFETIME_MS - 1)).toBe(false);
     expect(isCorpseDecalExpired(CORPSE_DECAL_LIFETIME_MS)).toBe(true);

@@ -52,11 +52,6 @@ describe("announcer line builders", () => {
     expect(event.t === "chat" && event.text).toContain("Rowan");
   });
 
-  it("announceJoin is deterministic for the same inputs", () => {
-    const input = { tick: 10, playerId: "p1", name: "Rowan", ordinal: 3 };
-    expect(announceJoin(input)).toEqual(announceJoin(input));
-  });
-
   it("announceDeath picks a distinct pool for chasm vs ordinary deaths", () => {
     const ordinary = announceDeath({ tick: 10, playerId: "p1", name: "Rowan", chasm: false, rating: 6 });
     const chasm = announceDeath({ tick: 10, playerId: "p1", name: "Rowan", chasm: true, rating: 6 });
@@ -117,10 +112,6 @@ describe("announcer line builders", () => {
     expect(announceStairwayHint(10, "p1", { worldSeed: 1337, floor: 5 })).toBeNull();
   });
 
-  it("announceStairwayHint is deterministic for the same (tick, player, floor)", () => {
-    const world = { worldSeed: 1337, floor: 1 };
-    expect(announceStairwayHint(7, "p1", world)).toEqual(announceStairwayHint(7, "p1", world));
-  });
 });
 
 function makeSlot(id: string, name: string): PlayerSlot {

@@ -1,5 +1,5 @@
 /** Proves reconnect grace pauses dead and downed player lifecycle transitions. */
-import { PLAYER_MAX_HP, RESPAWN_DELAY_TICKS, TICK_RATE } from "@dc2d/engine";
+import { PLAYER_MAX_HP, RESPAWN_DELAY_TICKS } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { DOWNED_DURATION_TICKS } from "../../combat/deathTestSupport.js";
 import { makeSim, stepN } from "../support.js";
@@ -41,7 +41,9 @@ describe("GameSim disconnected lifecycle continuity", () => {
     const frozen = { x: entity.body.x, y: entity.body.y, z: entity.body.z };
 
     sim.markDisconnected(player.playerId);
-    stepN(sim, TICK_RATE * 70);
+    // Long disconnected retention is covered by reconnect.test.ts. This
+    // case only needs a live grace interval before resuming the downed slot.
+    stepN(sim, 2);
     expect(entity.hp).toBe(1);
     expect(entity.body).toMatchObject(frozen);
 

@@ -74,7 +74,7 @@ export function stepTorches(sim: SimState): void {
 
 function advanceFlyingTorch(sim: SimState, torch: PlayerSlot["entity"]): void {
   const result = stepTorch(sim.world, torch, TICK_DT);
-  if (result.landed) torch.expiresAtTick = sim.tickCount + TORCH_BURN_TICKS;
+  if (result.landed) torch.expiresAtTick = sim.tickCount + (sim.opts.torchBurnTicks ?? TORCH_BURN_TICKS);
 }
 
 function removeExpiredTorch(sim: SimState, id: string, torch: PlayerSlot["entity"]): void {

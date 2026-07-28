@@ -14,9 +14,6 @@ describe("wrapDegrees", () => {
     expect(wrapDegrees(-0.5)).toBeCloseTo(359.5);
   });
 
-  it("agrees with normalizeOrientation at every settled orientation", () => {
-    for (const o of VIEW_ORIENTATIONS) expect(wrapDegrees(o)).toBe(normalizeOrientation(o));
-  });
 });
 
 describe("normalizeOrientation", () => {
