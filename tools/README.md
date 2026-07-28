@@ -2,7 +2,8 @@
 
 Builds the game's sprite atlas from the 0x72 DungeonTileset II pack plus the procedural
 gap-fill sprites listed in `assets/INVENTORY.md`'s GAPS section (items, sanctuary floor,
-crafting table, plant-creeper/slime recolors, and the two light/VFX textures).
+crafting table, plant-creeper/slime recolors, and the two light/VFX textures). It also
+writes a dedicated crisp particle atlas for transient effects.
 
 Self-contained: this folder has its own `package.json`/`package-lock.json`/`node_modules`
 (just `pngjs`, pure JS, no native build). It never touches the repo root's `package.json` or
@@ -36,6 +37,9 @@ All under `packages/client/public/assets/`:
 - `contact-sheet.png` — every generated sprite at 4x, labeled, plus a handful of original
   pack frames alongside for a quick palette/style comparison. Open this first after any
   change to the generators.
+- `particles/particle-atlas.png` and `particles/particle-atlas.json` — a separate 64×32
+  atlas of opaque pixel chunks (`chunk_tiny`, `chunk_small`, `chunk_square`, `chunk_large`,
+  `chunk_wide`, `chunk_tall`, `chunk_bar`, and `chunk_diamond`).
 
 ## How parsing/grouping works (`lib/parse-frames.mjs`)
 

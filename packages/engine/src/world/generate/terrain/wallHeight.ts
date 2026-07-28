@@ -8,7 +8,7 @@
 // jumpable WALL_RISE.
 
 import { WALL_RISE } from "../../../core/constants.js";
-import { TOPOLOGY } from "../../core/types.js";
+import { TILE, TOPOLOGY } from "../../core/types.js";
 
 // Apex is ~1.07 (JUMP_VELOCITY^2 / 2*GRAVITY) — see walls.test.ts's own
 // computation. 2 clears it with margin without inventing a new constant
@@ -77,7 +77,31 @@ function isWallOrOutside({ tiles, chunkSize, x, y }: Pick<HeightGrid, "tiles" | 
 /** Raise every Wall tile: WALL_RISE for a rim/thin wall, INTERIOR_WALL_RISE for a fully-enclosed fill cell. */
 export function applyWallHeight(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
   for (let y = 0; y < chunkSize; y++) applyWallHeightRow({ tiles, height, chunkSize, y });
+  markInteriorFillVoid({ tiles, height, chunkSize });
   capVoidTowers({ tiles, height, chunkSize });
+}
+
+function markInteriorFillVoid({ tiles, height, chunkSize }: HeightGrid): void {
+  const infill = collectInteriorFill({ tiles, height, chunkSize });
+  for (const index of infill) {
+    tiles[index] = TILE.Void;
+    height[index] = 0;
+  }
+}
+
+function collectInteriorFill({ tiles, height, chunkSize }: Pick<HeightGrid, "tiles" | "chunkSize"> & { height: Float32Array }): number[] {
+  const infill: number[] = [];
+  for (let y = 0; y < chunkSize; y++) infill.push(...collectInteriorFillRow({ tiles, height, chunkSize, y }));
+  return infill;
+}
+
+function collectInteriorFillRow({ tiles, height, chunkSize, y }: Pick<HeightGrid, "tiles" | "chunkSize"> & { height: Float32Array; y: number }): number[] {
+  const infill: number[] = [];
+  for (let x = 0; x < chunkSize; x++) {
+    const index = y * chunkSize + x;
+    if (tiles[index] === TOPOLOGY.Uncarved && (height[index] ?? 0) >= 2) infill.push(index);
+  }
+  return infill;
 }
 
 function applyWallHeightRow({ tiles, height, chunkSize, y }: HeightGrid & { y: number }): void {

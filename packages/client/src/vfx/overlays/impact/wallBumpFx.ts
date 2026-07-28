@@ -4,6 +4,10 @@ import type Phaser from "phaser";
 import { WallBumpFlashPool } from "./wallBumpFlash.js";
 import type { WallBumpVfxInput } from "../../system/vfxSystemTypes.js";
 
+// Retained for a possible future contact cue, but intentionally disabled while
+// the movement/collision feedback is being reworked.
+const WALL_BUMP_FLASH_ENABLED = false;
+
 export class WallBumpFx {
   private readonly flash: WallBumpFlashPool;
 
@@ -13,6 +17,7 @@ export class WallBumpFx {
 
   /** Fires feedback at the contact point without moving the player presentation. */
   trigger(input: WallBumpVfxInput): void {
+    if (!WALL_BUMP_FLASH_ENABLED) return;
     this.flash.spawn(input);
   }
 

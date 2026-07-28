@@ -33,7 +33,7 @@ export function drawCraftingTable(p) {
   c.fillRect(11, 12, 2, 3, opaque(p.WOOD_DARK));
   c.fillRect(2, 9, 12, 3, opaque(p.WOOD_MID));
   c.fillRect(2, 9, 12, 1, opaque(p.WOOD_HILITE));
-  drawThickLine(c, 8, 9, 8, 4, 1, p.WOOD_DARK);
+  drawThickLine({ canvas: c, x0: 8, y0: 9, x1: 8, y1: 4, thickness: 1, hex: p.WOOD_DARK });
   c.fillRect(6, 3, 5, 3, opaque(p.OUTLINE));
   c.fillRect(6, 3, 5, 1, opaque(p.WHITE_HILITE));
   addOutline(c, p.OUTLINE);

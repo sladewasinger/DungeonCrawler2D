@@ -2,6 +2,7 @@
 
 export const ASSET_KEYS = {
   atlas: "atlas",
+  particleAtlas: "particle-atlas",
   animations: "animations-data",
   debugAtlas: "debug-atlas",
   sharedAtlas: "shared-atlas",
@@ -10,6 +11,8 @@ export const ASSET_KEYS = {
 export const ASSET_PATHS = {
   atlasImage: "assets/atlas.png",
   atlasJson: "assets/atlas.json",
+  particleAtlasImage: "assets/particles/particle-atlas.png",
+  particleAtlasJson: "assets/particles/particle-atlas.json",
   animationsJson: "assets/animations.json",
   debugAtlasImage: "assets/terrain/debug-atlas.png",
   sharedAtlasImage: "assets/terrain/shared-atlas.png",

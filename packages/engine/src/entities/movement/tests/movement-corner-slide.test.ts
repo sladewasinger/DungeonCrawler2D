@@ -83,3 +83,21 @@ describe("corner-slide assist (1-tile corridor entry)", () => {
     expect(body.x).toBeLessThan(WALL_AT);
   });
 });
+
+describe("corner escape", () => {
+  it("lets a body walk out of a lower-floor corner after jumping into it", () => {
+    const world: WorldView = {
+      isWalkable: () => true,
+      heightAt: (x, y) => Math.floor(x) >= 0 && Math.floor(y) >= 0 ? -1 : 0,
+      groundAt: (x, y) => Math.floor(x) >= 0 && Math.floor(y) >= 0 ? -1 : 0,
+      stairHeightAt: () => null,
+    };
+    const body = createBody(0, 0, -1);
+
+    for (let tick = 0; tick < 8; tick++) stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT);
+
+    expect(body.x).toBeGreaterThan(BODY_RADIUS);
+    expect(body.y).toBeGreaterThan(BODY_RADIUS);
+    expect(body.z).toBe(-1);
+  });
+});

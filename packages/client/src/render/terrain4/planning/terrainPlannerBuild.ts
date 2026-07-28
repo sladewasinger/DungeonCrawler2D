@@ -56,7 +56,6 @@ function appendSouthFace(context: Terrain4TileContext): void {
   if (context.source.terrainAt(southWorld.x, southWorld.y) !== TERRAIN4.Floor) return;
   const currentFeature = featureAt(context, context.worldTile);
   const southFeature = featureAt(context, southWorld);
-  if (currentFeature === "stairs" && southFeature === "stairs") return;
   const bottomHeight = finiteHeight(context, southWorld);
   if (context.height - bottomHeight <= TERRAIN4_HEIGHT_EPSILON) return;
   const stairWall = currentFeature === "stairs";

@@ -8,6 +8,8 @@ import {
 import { stairGateBlocks } from "./stairGate.js";
 
 const AXIS_SWEEP_ITERATIONS = 16;
+const DIAGONAL_ESCAPE_STEPS = 16;
+const DIAGONAL_ESCAPE_LOOKAHEAD = 4;
 
 interface AxisMove {
   dx: number;
@@ -48,8 +50,26 @@ function edgeCorners({ body, dx, dy }: AxisMove & Pick<AxisSweepContext, "body">
   return [[body.x - BODY_RADIUS, edgeY], [body.x + BODY_RADIUS, edgeY]];
 }
 
+function bodyCorners(body: BodyState, x = body.x, y = body.y): readonly [number, number][] {
+  return [
+    [x - BODY_RADIUS, y - BODY_RADIUS], [x - BODY_RADIUS, y + BODY_RADIUS],
+    [x + BODY_RADIUS, y - BODY_RADIUS], [x + BODY_RADIUS, y + BODY_RADIUS],
+  ];
+}
+
+function canOccupy(context: AxisSweepContext): boolean {
+  const { body, dx, dy } = context;
+  const x = body.x + dx;
+  const y = body.y + dy;
+  return bodyCorners(body, x, y).every(([cx, cy]) => cornerIsOpen({ ...context, x: cx, y: cy }));
+}
+
+function cornerIsOpen(context: CornerProbe): boolean {
+  return !cornerBlocksMove(context);
+}
+
 export function canMoveAxis(context: AxisSweepContext): boolean {
-  return edgeCorners(context).every(([x, y]) => !cornerBlocksMove({ ...context, x, y }));
+  return edgeCorners(context).every(([x, y]) => cornerIsOpen({ ...context, x, y }));
 }
 
 function applyMove(body: BodyState, { dx, dy }: AxisMove, fraction: number): void {
@@ -74,5 +94,53 @@ export function moveAxisToContact(context: AxisSweepContext): number {
   if (dx === 0 && dy === 0) return 1;
   const fraction = contactFraction(context);
   applyMove(body, context, fraction);
+  return fraction;
+}
+
+function diagonalEscapeFraction(context: AxisSweepContext): number {
+  if (canOccupy({ ...context, dx: 0, dy: 0 })) return diagonalContactFraction(context);
+  for (let step = 1; step <= DIAGONAL_ESCAPE_STEPS; step++) {
+    const fraction = step / DIAGONAL_ESCAPE_STEPS;
+    if (canOccupy({ ...context, dx: context.dx * fraction, dy: context.dy * fraction })) {
+      return refineDiagonalEscape(context, (step - 1) / DIAGONAL_ESCAPE_STEPS, fraction);
+    }
+  }
+  return hasFutureEscape(context) ? 1 : 0;
+}
+
+function hasFutureEscape(context: AxisSweepContext): boolean {
+  for (let step = 1; step <= DIAGONAL_ESCAPE_STEPS; step++) {
+    const fraction = (step / DIAGONAL_ESCAPE_STEPS) * DIAGONAL_ESCAPE_LOOKAHEAD;
+    if (canOccupy({ ...context, dx: context.dx * fraction, dy: context.dy * fraction })) return true;
+  }
+  return false;
+}
+
+function diagonalContactFraction(context: AxisSweepContext): number {
+  if (canOccupy(context)) return 1;
+  let safe = 0;
+  let blocked = 1;
+  for (let iteration = 0; iteration < AXIS_SWEEP_ITERATIONS; iteration++) {
+    const candidate = (safe + blocked) / 2;
+    if (canOccupy({ ...context, dx: context.dx * candidate, dy: context.dy * candidate })) safe = candidate;
+    else blocked = candidate;
+  }
+  return safe;
+}
+
+function refineDiagonalEscape(context: AxisSweepContext, blocked: number, open: number): number {
+  for (let iteration = 0; iteration < AXIS_SWEEP_ITERATIONS; iteration++) {
+    const candidate = (blocked + open) / 2;
+    if (canOccupy({ ...context, dx: context.dx * candidate, dy: context.dy * candidate })) open = candidate;
+    else blocked = candidate;
+  }
+  return open;
+}
+
+/** Lets a body leave a two-sided corner when both axis-only moves are blocked. */
+export function moveDiagonalToContact(context: AxisSweepContext): number {
+  if (context.dx === 0 || context.dy === 0) return 0;
+  const fraction = diagonalEscapeFraction(context);
+  applyMove(context.body, context, fraction);
   return fraction;
 }

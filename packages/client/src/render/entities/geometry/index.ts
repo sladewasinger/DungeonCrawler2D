@@ -39,6 +39,12 @@ export class EntityRenderer {
     this.gc(seen, "player");
   }
 
+  playerFacingSign(playerId: string): number | undefined {
+    const visual = this.visuals.get(playerId);
+    if (!visual || visual.kind !== "player") return undefined;
+    return visual.body.flipX ? -1 : 1;
+  }
+
   syncMonsters(views: readonly MonsterEntityView[], ctx: RenderContext): void {
     const seen = this.stepKind(views, (view) => {
       const visual = this.getOrCreate(view.id, "enemy", () => createMonsterVisual(this.scene, monsterSpriteFor(view.defId)));

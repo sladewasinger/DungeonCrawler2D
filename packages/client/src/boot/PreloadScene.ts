@@ -29,6 +29,7 @@ export class PreloadScene extends Phaser.Scene {
 
   preload(): void {
     this.load.atlas(ASSET_KEYS.atlas, ASSET_PATHS.atlasImage, ASSET_PATHS.atlasJson);
+    this.load.atlas(ASSET_KEYS.particleAtlas, ASSET_PATHS.particleAtlasImage, ASSET_PATHS.particleAtlasJson);
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
     this.load.image(ASSET_KEYS.debugAtlas, ASSET_PATHS.debugAtlasImage);
     this.load.image(ASSET_KEYS.sharedAtlas, ASSET_PATHS.sharedAtlasImage);

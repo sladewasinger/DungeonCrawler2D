@@ -146,11 +146,16 @@ function syncExpiredWhiffs({ state, nowMs, vfx }: FrameSyncContext): void {
   }
 }
 
-function syncSelfVfx({ conn, vfx, state, render, nowMs }: FrameSyncContext): void {
+function syncSelfVfx({ conn, entityRenderer, vfx, state, render, nowMs }: FrameSyncContext): void {
   if (!conn.body) return;
   const groundHeight = conn.world?.groundAt(render.x, render.y) ?? 0;
+  const facingSign = entityRendererFacingSign(entityRenderer, state);
   vfx.trackPlayerMotion({ x: render.x, y: render.y, groundHeight, air: !conn.body.grounded, faceX: state.cosmetics.faceX, nowMs });
   vfx.graceRing.sync({ x: render.x, y: render.y, graceUntilMs: state.cosmetics.graceUntilMs, nowMs });
-  vfx.syncOutOfBreath({ x: render.x, y: render.y, z: render.z, faceX: state.cosmetics.spriteFaceX, exhausted: conn.staminaExhausted, nowMs });
+  vfx.syncOutOfBreath({ x: render.x, y: render.y, z: render.z, faceX: facingSign, exhausted: conn.staminaExhausted, nowMs });
   vfx.update(nowMs);
+}
+
+function entityRendererFacingSign(entityRenderer: EntityRenderer, state: DungeonSceneState): number {
+  return entityRenderer.playerFacingSign(state.selfPose.id) ?? state.cosmetics.spriteFaceX;
 }

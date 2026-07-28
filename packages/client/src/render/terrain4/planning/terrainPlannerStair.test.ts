@@ -35,7 +35,7 @@ describe("planTerrain4 stair walls", () => {
     });
   });
 
-  it.each(VIEW_ORIENTATIONS)("does not place a wall between adjacent stair tiles at orientation %i", (orientation) => {
+  it.each(VIEW_ORIENTATIONS)("places a segmented wall between descending adjacent stair tiles at orientation %i", (orientation) => {
     const stairView = { x: 8, y: 8 };
     const southView = { x: stairView.x, y: stairView.y + 1 };
     const current = viewTileToWorld(stairView, orientation);
@@ -46,7 +46,13 @@ describe("planTerrain4 stair walls", () => {
       featureAt: (x, y) => sameTile(x, y, current) || sameTile(x, y, south) ? "stairs" : null,
     }, { bounds: { ...current, width: 1, height: 1 }, orientation });
 
-    expect(plan.batches.southFaces).toEqual([]);
+    expect(plan.batches.southFaces).toHaveLength(1);
+    expect(plan.batches.southFaces[0]).toMatchObject({
+      topHeight: 1,
+      bottomHeight: 0.5,
+      stairWall: true,
+      southNeighborIsStair: true,
+    });
   });
 });
 

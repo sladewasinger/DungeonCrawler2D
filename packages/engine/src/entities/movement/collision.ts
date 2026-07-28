@@ -6,7 +6,7 @@ import {
   type MoveInput,
   type StepOpts,
 } from "./state.js";
-import { canMoveAxis, moveAxisToContact } from "./axisSweep.js";
+import { canMoveAxis, moveAxisToContact, moveDiagonalToContact } from "./axisSweep.js";
 
 /**
  * Horizontal step + tile collision: analog-magnitude direction scaling,
@@ -20,6 +20,7 @@ import { canMoveAxis, moveAxisToContact } from "./axisSweep.js";
  * that the nudge lands within a fraction of a pixel of the true gap
  * edge; cheap since the search only runs on a blocked tick. */
 const CORNER_SLIDE_PROBE_STEP = 0.01;
+const CORNER_SLIDE_CLEARANCE = 0.01;
 
 // Scales (moveX, moveY) so its length never exceeds 1, preserving both
 // direction and magnitude below that: an analog magnitude in [0,1]
@@ -42,10 +43,6 @@ interface HorizontalMove {
   dx: number;
   dy: number;
   blocked?: StepOpts["blocked"];
-}
-
-function tryAxisMove(move: HorizontalMove): boolean {
-  return moveAxisToContact(move) === 1;
 }
 
 // Scan outward (smallest magnitude first, both signs) from the body's
@@ -75,7 +72,7 @@ function findGapOffset(move: HorizontalMove): number | null {
 // A blocked axis move redirects its own (unused) speed budget into a
 // perpendicular nudge toward a nearby gap's centerline instead of
 // stalling — the classic Zelda-style corner assist. The nudge itself
-// still runs through tryAxisMove's ordinary collision check, so it can
+// still runs through the ordinary collision check, so it can
 // never land the body in a wall/void the plain move couldn't legally
 // enter; it only ever narrows the gap between "blocked" and "through".
 function attemptCornerSlide(move: HorizontalMove): void {
@@ -83,9 +80,21 @@ function attemptCornerSlide(move: HorizontalMove): void {
   const budget = Math.abs(dx !== 0 ? dx : dy);
   const offset = findGapOffset(move);
   if (offset === null) return;
-  const nudge = Math.sign(offset) * Math.min(Math.abs(offset), budget);
-  if (dx !== 0) tryAxisMove({ ...move, dx: 0, dy: nudge });
-  else tryAxisMove({ ...move, dx: nudge, dy: 0 });
+  const nudge = Math.sign(offset) * Math.min(Math.abs(offset) + CORNER_SLIDE_CLEARANCE, budget);
+  if (dx !== 0) slideAlongCorner({ move, nudge, perpendicular: "y" });
+  else slideAlongCorner({ move, nudge, perpendicular: "x" });
+}
+
+function slideAlongCorner(input: { move: HorizontalMove; nudge: number; perpendicular: "x" | "y" }): void {
+  const { move, nudge, perpendicular } = input;
+  const perpendicularMove = perpendicular === "x"
+    ? { ...move, dx: nudge, dy: 0 }
+    : { ...move, dx: 0, dy: nudge };
+  if (moveAxisToContact(perpendicularMove) > 0) return;
+  const diagonal = perpendicular === "x"
+    ? { ...move, dx: nudge }
+    : { ...move, dy: nudge };
+  moveDiagonalToContact(diagonal);
 }
 
 /** Blend knockback into intent, decay it, and resolve the two axis moves. */

@@ -20,7 +20,7 @@ export function breathScreenAnchor(
   worldY: number,
   worldZ: number,
 ): { x: number; y: number } {
-  const screen = worldToScreen(worldX, worldY - 0.85);
+  const screen = worldToScreen(worldX, worldY - 0.5);
   return { x: screen.x, y: screen.y - spriteLiftPx(worldZ) };
 }
 
@@ -58,7 +58,7 @@ export class OutOfBreathFx {
       this.graphics.fillStyle(COLOR, puff.alpha);
       this.graphics.fillCircle(
         screen.x + puff.x,
-        screen.y + puff.y,
+        screen.y - puff.y,
         puff.radius,
       );
     }
