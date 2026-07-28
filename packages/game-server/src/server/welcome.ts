@@ -8,11 +8,12 @@ export interface WelcomeContext {
   ws: WebSocket;
   join: ReturnType<GameSim["addPlayer"]>;
   level: LevelId;
+  seedInputText: string;
   worldSeed: number;
   diagnostics: ServerNetworkDiagnostics;
 }
 
-export function sendWelcome({ ws, join, level, worldSeed, diagnostics }: WelcomeContext): void {
+export function sendWelcome({ ws, join, level, seedInputText, worldSeed, diagnostics }: WelcomeContext): void {
   sendServerMessage({
     socket: ws,
     playerId: join.playerId,
@@ -21,6 +22,7 @@ export function sendWelcome({ ws, join, level, worldSeed, diagnostics }: Welcome
       protocol: PROTOCOL_VERSION,
       playerId: join.playerId,
       resumeToken: join.resumeToken,
+      seedInputText,
       worldSeed,
       floor: join.floor,
       level,

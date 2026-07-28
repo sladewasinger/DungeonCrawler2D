@@ -11,8 +11,8 @@ import {
   type MotionSample,
 } from "./motionFx.js";
 
-const grounded = (x: number, faceX = 1): MotionSample => ({ x, y: 0, air: false, faceX });
-const airborne = (x: number, faceX = 1): MotionSample => ({ x, y: 0, air: true, faceX });
+const grounded = (x: number, faceX = 1, groundHeight = 0): MotionSample => ({ x, y: 0, groundHeight, air: false, faceX });
+const airborne = (x: number, faceX = 1, groundHeight = 0): MotionSample => ({ x, y: 0, groundHeight, air: true, faceX });
 
 describe("motionEvents", () => {
   it("is empty with no previous sample", () => {

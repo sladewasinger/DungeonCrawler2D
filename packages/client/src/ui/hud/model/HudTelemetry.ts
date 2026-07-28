@@ -36,12 +36,13 @@ export class HudTelemetry {
     const heading = headingDegrees(yaw);
     const display = displayCoordinates(player.x, player.z);
     const biome = biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: player.x, wy: player.z }).biome;
+    const seedInputText = connection.welcome?.seedInputText ?? "—";
     this.readout.textContent =
       `${telemetryPerformanceLine({ connected: connection.status === "connected", fps, latencyMs })}\n` +
       `version ${APP_VERSION}\n` +
       `build ${BUILD_SHA}\n` +
       `floor ${world.floor} · ${connection.status}\n` +
-      `seed ${world.worldSeed}\n` +
+      `seed ${seedInputText}\n` +
       `biome ${biomeLabel(biome)}\n` +
       `x ${display.x.toFixed(1)}, y ${display.y.toFixed(1)}, z ${player.y.toFixed(2)}\n` +
       `heading ${heading}°\n` +

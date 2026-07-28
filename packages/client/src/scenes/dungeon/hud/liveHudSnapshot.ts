@@ -70,7 +70,7 @@ function snapshotWorldState(conn: Connection) {
     stashKind: conn.stashContext.kind,
     lastToast: conn.toasts.at(-1) ?? null,
     toasts: conn.toasts,
-    seed: conn.welcome ? String(conn.welcome.worldSeed) : null,
+    seedInputText: conn.welcome?.seedInputText ?? null,
     floor: conn.floor,
     boss: resolveRemoteBossBar(conn.entities.values()),
   };

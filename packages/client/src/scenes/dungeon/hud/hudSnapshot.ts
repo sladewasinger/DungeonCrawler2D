@@ -66,7 +66,7 @@ export interface HudSnapshotSource {
   readonly stashKind?: "personal" | "loot";
   readonly lastToast: ToastData | null;
   readonly toasts: readonly ToastData[];
-  readonly seed: string | null;
+  readonly seedInputText: string | null;
   readonly floor: number;
   readonly boss: BossBarData | null;
 }
@@ -97,7 +97,7 @@ export function buildHudSnapshot(input: HudSnapshotInput): HudFakeSnapshot {
     ...inventoryFields(src, selectedHotbarSlot, armedThrowableSlot),
     lastToast: src.lastToast,
     toasts: [...src.toasts],
-    seed: src.seed,
+    seedInputText: src.seedInputText,
     floor: src.floor,
     biome: null,
     headingDeg: 0,

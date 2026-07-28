@@ -15,7 +15,7 @@ import { startServer } from "./server";
 // GAME_PORT (not PORT) so generic tooling that injects PORT for the
 // web client can't accidentally re-home the websocket server.
 const port = Number(process.env.GAME_PORT ?? 8081);
-const seedText = process.env.WORLD_SEED ?? "dev-world-1";
+const seedText = process.env.WORLD_SEED ?? "dungeon-test-1";
 const floor = Number(process.env.FLOOR ?? 1);
 const worldSeed = hashString(seedText);
 const storeFile =

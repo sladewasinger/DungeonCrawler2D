@@ -16,13 +16,14 @@ import { worldToScreen } from "../../render/entities/geometry/worldToScreen.js";
 import { recycleSlotIndex, shouldGrowPool } from "../blood/bloodDecalSlots.js";
 import { isSkeletalDefId } from "./boneChipBurst.js";
 import { corpseDecalAlpha, isCorpseDecalExpired } from "./corpseDecalMotion.js";
-import { GROUND_DECAL_VERTICAL_SCALE, groundedVisualPlacement } from "./groundPlaneDepth.js";
+import { containedGroundOffset, GROUND_DECAL_VERTICAL_SCALE, groundedVisualPlacement } from "./groundPlaneDepth.js";
 
 export const CORPSE_DECAL_CAP = 24;
 const BASE_ALPHA = 0.96;
 const BONE_COLOR = 0xd8cdb8;
 const CROSS_LENGTH_PX = 17;
 const CROSS_THICKNESS_PX = 3;
+const CORPSE_VERTICAL_HALF_EXTENT_PX = 16;
 
 interface CorpseDecal {
   readonly container: Phaser.GameObjects.Container;
@@ -101,7 +102,11 @@ export class CorpseDecalPool {
     const screen = worldToScreen(x, y);
     const scatterPx = 6;
     const scatterX = (Math.random() - 0.5) * scatterPx;
-    const scatterY = (Math.random() - 0.5) * scatterPx;
+    const scatterY = containedGroundOffset(
+      screen.y,
+      (Math.random() - 0.5) * scatterPx,
+      CORPSE_VERTICAL_HALF_EXTENT_PX,
+    );
     const placement = groundedVisualPlacement({
       rawScreenY: screen.y,
       groundHeight,

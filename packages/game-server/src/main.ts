@@ -22,9 +22,9 @@ import { startServer } from "./server/index.js";
 // web client can't accidentally re-home the websocket server.
 const DEV_DEFAULT_PORT = 8787;
 const port = Number(process.env["GAME_PORT"] ?? DEV_DEFAULT_PORT);
-const seedText = process.env["WORLD_SEED"] ?? "dev-world-1";
+const seedInputText = process.env["WORLD_SEED"] ?? "dev-world-1";
 const floor = Number(process.env["FLOOR"] ?? 1);
-const worldSeed = hashString(seedText);
+const worldSeed = hashString(seedInputText);
 const storeFile =
   process.env["STORE_FILE"] === "none"
     ? null
@@ -70,6 +70,7 @@ const content = buildContentRegistry({
 
 const server = startServer({
   port,
+  seedInputText,
   worldSeed,
   floor,
   content,
@@ -84,7 +85,7 @@ const server = startServer({
 console.log(
   // Epic 7.14: the dungeon level now runs floors 1..FLOOR_CAP simultaneously
   // (lazily created) — `floor` only still pins the sandbox level's floor.
-  `[game-server] world "${seedText}" (seed ${worldSeed}), dungeon floors 1..FLOOR_CAP live, sandbox floor ${floor}, listening on ws://localhost:${port}`,
+  `[game-server] world "${seedInputText}" (seed ${worldSeed}), dungeon floors 1..FLOOR_CAP live, sandbox floor ${floor}, listening on ws://localhost:${port}`,
 );
 
 function shutdown(): void {

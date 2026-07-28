@@ -31,7 +31,7 @@ export function source(overrides: Partial<HudSnapshotSource> = {}): HudSnapshotS
     stash: null,
     lastToast: null,
     toasts: [],
-    seed: null,
+    seedInputText: null,
     floor: 1,
     boss: null,
     ...overrides,

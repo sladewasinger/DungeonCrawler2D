@@ -44,6 +44,7 @@ describe("live enemy death VFX queue", () => {
       protocol: 1,
       playerId: "player-1",
       resumeToken: "token",
+      seedInputText: "test-world",
       worldSeed: 123,
       floor: 1,
       level: LEVEL.Dungeon,

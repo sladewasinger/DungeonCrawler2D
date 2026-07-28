@@ -19,6 +19,7 @@ interface ConnectionContext {
   floors: FloorRegistry;
   sandbox: GameSim;
   sockets: SocketMap;
+  seedInputText?: string;
   worldSeed: number;
   diagnostics: ServerNetworkDiagnostics;
 }
@@ -116,7 +117,8 @@ function resolveJoinSim(msg: ClientHello, floors: FloorRegistry, sandbox: GameSi
 }
 
 function handleHello(msg: ClientHello, context: ConnectionMessageContext): void {
-  const { ws, conn, floors, sandbox, sockets, worldSeed, diagnostics } = context;
+  const { ws, conn, floors, sandbox, sockets, seedInputText, worldSeed, diagnostics } = context;
+  const inputText = seedInputText ?? String(worldSeed);
   if (conn.playerId !== null) return;
   if (msg.protocol !== PROTOCOL_VERSION) {
     rejectProtocolMismatch(ws, diagnostics);
@@ -129,7 +131,7 @@ function handleHello(msg: ClientHello, context: ConnectionMessageContext): void 
   const previous = sockets.get(join.playerId);
   sockets.set(join.playerId, { ws, sim });
   if (previous && previous.ws !== ws) previous.ws.close(1000, "resumed elsewhere");
-  sendWelcome({ ws, join, level: msg.level, worldSeed, diagnostics });
+  sendWelcome({ ws, join, level: msg.level, seedInputText: inputText, worldSeed, diagnostics });
 }
 
 function rejectProtocolMismatch(ws: WebSocket, diagnostics: ServerNetworkDiagnostics): void {

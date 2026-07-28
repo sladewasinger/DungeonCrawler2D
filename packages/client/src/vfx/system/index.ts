@@ -54,8 +54,8 @@ export class VfxSystem {
   }
 
   /** Feeds one frame of the tracked player's motion: fires dust/footstep edge triggers. */
-  trackPlayerMotion({ x, y, air, faceX, nowMs }: MotionVfxInput): void {
-    this.components.playerMotionFx.track({ x, y, air, faceX }, nowMs);
+  trackPlayerMotion({ x, y, groundHeight, air, faceX, nowMs }: MotionVfxInput): void {
+    this.components.playerMotionFx.track({ x, y, groundHeight, air, faceX }, nowMs);
   }
 
   syncOutOfBreath(input: OutOfBreathVfxInput): void {

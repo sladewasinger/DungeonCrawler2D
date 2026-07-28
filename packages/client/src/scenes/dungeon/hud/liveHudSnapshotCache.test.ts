@@ -20,6 +20,7 @@ function connection(): Connection {
     protocol: 1,
     playerId: "player",
     resumeToken: "token",
+    seedInputText: "test-world",
     worldSeed: 7,
     floor: 0,
     level: LEVEL.Sandbox,

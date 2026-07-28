@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { resetViewOrientation, setViewOrientation } from "../../view/transform/viewState.js";
-import { depthForEntityNow, worldToScreen } from "./worldToScreen.js";
+import { depthForEntityNow, groundToScreen, worldToScreen } from "./worldToScreen.js";
 
 afterEach(() => resetViewOrientation());
 
@@ -15,6 +15,18 @@ describe("worldToScreen at other orientations", () => {
   it("rotates world east to screen-north at orientation 90", () => {
     setViewOrientation(90);
     expect(worldToScreen(1, 0)).toEqual({ x: 0, y: -SCREEN_TILE_PX });
+  });
+});
+
+describe("groundToScreen", () => {
+  it("applies the same absolute-height lift as ground-anchored visuals", () => {
+    expect(groundToScreen(3, -2, 1)).toEqual({ x: 3 * SCREEN_TILE_PX, y: -3 * SCREEN_TILE_PX });
+    expect(groundToScreen(3, -2, -1)).toEqual({ x: 3 * SCREEN_TILE_PX, y: -1 * SCREEN_TILE_PX });
+  });
+
+  it("keeps height on the screen vertical axis after rotation", () => {
+    setViewOrientation(90);
+    expect(groundToScreen(1, 0, 1)).toEqual({ x: 0, y: -2 * SCREEN_TILE_PX });
   });
 });
 

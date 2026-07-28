@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import { worldToScreen } from "../../render/entities/geometry/worldToScreen.js";
-import { decalAlpha, isDecalExpired } from "../blood/bloodDecalMotion.js";
 import { recycleSlotIndex, shouldGrowPool } from "../blood/bloodDecalSlots.js";
 import { loadCarnageSettings } from "../system/carnageSettings.js";
 import { isSkeletalDefId } from "./boneChipBurst.js";
@@ -10,7 +9,16 @@ import {
   type CarnageAppearance,
   type CarnageMark,
 } from "./deathCarnageDrawing.js";
-import { groundedVisualPlacement } from "./groundPlaneDepth.js";
+import { depthForGroundEffect } from "../../render/entities/presentation/depthSort.js";
+import { groundedVisualPlacement, groundEffectRow } from "./groundPlaneDepth.js";
+import {
+  carnageGraphicsForRow,
+  clearCarnageRows,
+  createCarnageMark,
+  destroyCarnageRows,
+  placeCarnageRows,
+  updateCarnageMark,
+} from "./ground/deathCarnageRows.js";
 
 const CARNAGE_POOL_CAP = 24;
 const BASE_ALPHA = 0.88;
@@ -28,14 +36,6 @@ export interface DeathCarnageInput {
   readonly spritePrefix?: string | undefined;
 }
 
-interface MarkPlacement {
-  readonly mark: CarnageMark;
-  readonly x: number;
-  readonly y: number;
-  readonly depth: number;
-  readonly nowMs: number;
-}
-
 export class DeathCarnagePool {
   private readonly marks: CarnageMark[] = [];
   private cursor = 0;
@@ -51,7 +51,7 @@ export class DeathCarnagePool {
     const screen = worldToScreen(input.x, input.y);
     const placement = groundedVisualPlacement({ rawScreenY: screen.y, groundHeight: input.groundHeight, layer: "corpseFragment" });
     this.drawMark({ mark, input, settings, screen, placement });
-    this.placeMark({ mark, x: screen.x, y: placement.projectedScreenY, depth: placement.depth, nowMs: input.nowMs });
+    this.placeMark({ mark, x: screen.x, y: placement.projectedScreenY, nowMs: input.nowMs });
   }
 
   private drawMark({ mark, input, settings, screen, placement }: {
@@ -61,59 +61,61 @@ export class DeathCarnagePool {
     readonly screen: { x: number; y: number };
     readonly placement: ReturnType<typeof groundedVisualPlacement>;
   }): void {
-    mark.graphics.clear();
+    clearCarnageRows(mark);
+    const graphicsForRow = (row: number) => carnageGraphicsForRow(this.scene, mark, row);
     if (settings.bloodEnabled && !isSkeletalDefId(input.appearance.defId)) {
       drawCarnageStreaks({
-        graphics: mark.graphics,
+        graphicsForRow,
         count: settings.streakLimit,
         intensity: settings.intensity,
         tint: input.tint,
         world: { x: input.x, y: input.y },
         impactAngle: input.impactAngle,
+        rawScreenY: screen.y,
       });
     }
-    this.drawChunks({ mark, input, settings, screen, placement });
+    this.drawChunks({ mark, input, settings, screen, placement, graphicsForRow });
   }
 
-  private drawChunks({ mark, input, settings, screen, placement }: {
+  private drawChunks({ mark, input, settings, screen, placement, graphicsForRow }: {
     readonly mark: CarnageMark;
     readonly input: DeathCarnageInput;
     readonly settings: ReturnType<typeof loadCarnageSettings>;
     readonly screen: { x: number; y: number };
     readonly placement: ReturnType<typeof groundedVisualPlacement>;
+    readonly graphicsForRow: (row: number) => Phaser.GameObjects.Graphics;
   }): void {
-    drawCarnageChunks({ scene: this.scene, mark, count: settings.chunkLimit, intensity: settings.intensity, appearance: input.appearance, screen: { x: screen.x, y: placement.projectedScreenY }, spritePrefix: input.spritePrefix });
+    drawCarnageChunks({
+      scene: this.scene,
+      mark,
+      count: settings.chunkLimit,
+      intensity: settings.intensity,
+      appearance: input.appearance,
+      screen: { x: screen.x, y: placement.projectedScreenY },
+      rawScreenY: screen.y,
+      graphicsForRow,
+      onFragmentPlaced: (fragment, rawY) => fragment.setDepth(depthForGroundEffect(groundEffectRow(rawY)) + GROUND_FRAGMENT_BIAS),
+      spritePrefix: input.spritePrefix,
+    });
   }
 
-  private placeMark({ mark, x, y, depth, nowMs }: MarkPlacement): void {
-    const graphics = mark.graphics;
-    graphics
-      .setPosition(x, y)
-      .setAlpha(BASE_ALPHA)
-      .setVisible(true)
-      .setDepth(depth);
-    // Keep fragments distinct from the streak graphics without entering the AO band.
-    for (const fragment of mark.fragments) fragment.setDepth(depth + GROUND_FRAGMENT_BIAS);
+  private placeMark({ mark, x, y, nowMs }: {
+    readonly mark: CarnageMark;
+    readonly x: number;
+    readonly y: number;
+    readonly nowMs: number;
+  }): void {
+    placeCarnageRows({ mark, x, y, alpha: BASE_ALPHA });
     mark.spawnMs = nowMs;
   }
 
   update(nowMs: number): void {
-    for (const mark of this.marks) {
-      const elapsed = nowMs - mark.spawnMs;
-      mark.graphics
-        .setAlpha(decalAlpha(elapsed, BASE_ALPHA))
-        .setVisible(!isDecalExpired(elapsed));
-      for (const fragment of mark.fragments) {
-        fragment
-          .setAlpha(decalAlpha(elapsed, BASE_ALPHA))
-          .setVisible(fragment.active && !isDecalExpired(elapsed));
-      }
-    }
+    for (const mark of this.marks) updateCarnageMark(mark, nowMs, BASE_ALPHA);
   }
 
   dispose(): void {
     for (const mark of this.marks) {
-      mark.graphics.destroy();
+      destroyCarnageRows(mark);
       for (const fragment of mark.fragments) fragment.destroy();
     }
     this.marks.length = 0;
@@ -121,11 +123,7 @@ export class DeathCarnagePool {
   }
 
   private grow(): CarnageMark {
-    const mark = {
-      graphics: this.scene.add.graphics().setName("death-carnage-ground"),
-      fragments: [],
-      spawnMs: -Infinity,
-    };
+    const mark = createCarnageMark(this.scene);
     this.marks.push(mark);
     return mark;
   }
@@ -135,4 +133,5 @@ export class DeathCarnagePool {
     this.cursor++;
     return this.marks[index]!;
   }
+
 }

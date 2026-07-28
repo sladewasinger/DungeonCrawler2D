@@ -6,7 +6,12 @@ import {
   depthForGroundEffect,
   depthForOccluder,
 } from "../../render/entities/presentation/depthSort.js";
-import { groundedVisualPlacement } from "./groundPlaneDepth.js";
+import {
+  containedGroundOffset,
+  containedGroundOffsetInOwnRow,
+  groundedVisualPlacement,
+  splitGroundSegmentByRow,
+} from "./groundPlaneDepth.js";
 
 describe("groundedVisualPlacement", () => {
   it.each([0, 0.5, 1])(
@@ -67,5 +72,28 @@ describe("groundedVisualPlacement", () => {
       .toEqual(heights.map(() => depthForGroundEffect(rawRow)));
     expect(placements.map(({ projectedScreenY }) => projectedScreenY))
       .toEqual(heights.map((height) => (rawRow - height) * SCREEN_TILE_PX));
+  });
+
+  it("splits spilled ground geometry at screen-row boundaries", () => {
+    const pieces = splitGroundSegmentByRow({
+      rawScreenY: 10,
+      start: { x: 0, y: 20 },
+      end: { x: 30, y: 80 },
+    });
+    expect(pieces).toHaveLength(2);
+    expect(pieces[0]).toMatchObject({ row: 0, start: { x: 0, y: 20 }, end: { x: 9, y: 38 } });
+    expect(pieces[1]).toMatchObject({ row: 1, start: { x: 9, y: 38 }, end: { x: 30, y: 80 } });
+  });
+
+  it("contains corpse offsets within the row used for their depth", () => {
+    const rawScreenY = 10 * SCREEN_TILE_PX + SCREEN_TILE_PX - 10;
+    const offset = containedGroundOffset(rawScreenY, 20, 16);
+    expect(rawScreenY + offset).toBe(10 * SCREEN_TILE_PX + SCREEN_TILE_PX - 16);
+  });
+
+  it("contains a spilled fragment within the row it occupies", () => {
+    const rawScreenY = 10 * SCREEN_TILE_PX + 4;
+    const offset = containedGroundOffsetInOwnRow(rawScreenY, -50, 12);
+    expect(rawScreenY + offset).toBe(9 * SCREEN_TILE_PX + 12);
   });
 });

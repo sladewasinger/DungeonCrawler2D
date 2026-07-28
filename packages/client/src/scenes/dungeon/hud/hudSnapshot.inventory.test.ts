@@ -23,10 +23,10 @@ describe("buildHudSnapshot inventory and progression", () => {
     expect(snapshotOf(source({ stash: null, stashNearby: true })).stash.entries).toEqual([]);
     expect(snapshotOf(source({ stash: [{ item: "rag", qty: 3 }], stashNearby: true, stashKind: "loot" })).stash.kind).toBe("loot");
   });
-  it("passes toast, seed, and progression", () => {
+  it("passes toast, seed input text, and progression", () => {
     const toast = { msg: "Crafted bandage", until: 12345 };
-    const snapshot = snapshotOf(source({ lastToast: toast, toasts: [{ msg: "Missing rag", until: 999 }], seed: "e2e-world", xp: 220, level: 3, xpForNext: 80 }));
+    const snapshot = snapshotOf(source({ lastToast: toast, toasts: [{ msg: "Missing rag", until: 999 }], seedInputText: "e2e-world", xp: 220, level: 3, xpForNext: 80 }));
     expect(snapshot.lastToast).toBe(toast); expect(snapshot.toasts).toEqual([{ msg: "Missing rag", until: 999 }]);
-    expect(snapshot.seed).toBe("e2e-world"); expect(snapshot.xp).toEqual({ xp: 220, level: 3, xpForNext: 80 });
+    expect(snapshot.seedInputText).toBe("e2e-world"); expect(snapshot.xp).toEqual({ xp: 220, level: 3, xpForNext: 80 });
   });
 });

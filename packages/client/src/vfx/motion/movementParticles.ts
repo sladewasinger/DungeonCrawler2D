@@ -30,7 +30,7 @@ export function spawnDustPuff(scene: Phaser.Scene, {
       frame: FRAME,
       lifespan: 300,
       speed: { min: 10, max: 40 },
-      scale: { start: 0.12, end: 0 },
+      scale: { start: 0.3, end: 0 },
       alpha: { start: 0.5, end: 0 },
       tint: DUST_TINT,
       gravityY: -20,

@@ -6,6 +6,7 @@ import { isRunningPace } from "../../render/entities/motion/playerMotion.js";
 export interface MotionSample {
   x: number;
   y: number;
+  groundHeight: number;
   air: boolean;
   faceX: number;
 }

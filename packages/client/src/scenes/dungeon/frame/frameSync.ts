@@ -148,7 +148,8 @@ function syncExpiredWhiffs({ state, nowMs, vfx }: FrameSyncContext): void {
 
 function syncSelfVfx({ conn, vfx, state, render, nowMs }: FrameSyncContext): void {
   if (!conn.body) return;
-  vfx.trackPlayerMotion({ x: render.x, y: render.y, air: !conn.body.grounded, faceX: state.cosmetics.faceX, nowMs });
+  const groundHeight = conn.world?.groundAt(render.x, render.y) ?? 0;
+  vfx.trackPlayerMotion({ x: render.x, y: render.y, groundHeight, air: !conn.body.grounded, faceX: state.cosmetics.faceX, nowMs });
   vfx.graceRing.sync({ x: render.x, y: render.y, graceUntilMs: state.cosmetics.graceUntilMs, nowMs });
   vfx.syncOutOfBreath({ x: render.x, y: render.y, z: render.z, faceX: state.cosmetics.spriteFaceX, exhausted: conn.staminaExhausted, nowMs });
   vfx.update(nowMs);

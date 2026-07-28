@@ -19,6 +19,7 @@ import type { SocketMap } from "./types.js";
 
 export interface ServerOptions {
   port: number;
+  seedInputText?: string;
   worldSeed: number;
   /** Epic 7.14: only pins the "sandbox" level's floor now — the
    * "dungeon" level's floors are always the absolute range 1..FLOOR_CAP
@@ -54,7 +55,14 @@ export function startServer(opts: ServerOptions): RunningServer {
   const wss = new WebSocketServer({ port: opts.port });
   const sockets: SocketMap = new Map();
   const networkMetrics = new ServerNetworkDiagnostics();
-  const stopHeartbeat = connectWebSockets(wss, { floors, sandbox, sockets, worldSeed: opts.worldSeed, diagnostics: networkMetrics });
+  const stopHeartbeat = connectWebSockets(wss, {
+    floors,
+    sandbox,
+    sockets,
+    seedInputText: opts.seedInputText ?? String(opts.worldSeed),
+    worldSeed: opts.worldSeed,
+    diagnostics: networkMetrics,
+  });
   const stopTickLoop = startFixedRateLoop(() => broadcastTick({ floors, sandbox, sockets, diagnostics: networkMetrics }));
 
   return {

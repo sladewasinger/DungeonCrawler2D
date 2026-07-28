@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import { worldToScreen } from "../../render/entities/geometry/worldToScreen.js";
+import { groundToScreen } from "../../render/entities/geometry/worldToScreen.js";
 import { spawnDustPuff, spawnFootstepMote, spawnRunDust } from "./movementParticles.js";
 import {
   footstepDue,
@@ -42,7 +42,7 @@ export class PlayerMotionFx {
   }
 
   private fireParticles({ sample, moving, running, nowMs }: ParticleFrame): void {
-    const screen = worldToScreen(sample.x, sample.y);
+    const screen = groundToScreen(sample.x, sample.y, sample.groundHeight);
     if (this.events.includes("jumped") || this.events.includes("turned")) {
       spawnDustPuff(this.scene, { x: screen.x, y: screen.y, quantity: 5 });
     }

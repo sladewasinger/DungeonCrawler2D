@@ -18,6 +18,7 @@ export interface MovementTraceClientState {
 
 export interface MovementTraceMetadata {
   endpoint: string;
+  seedInputText?: string | null;
   worldSeed: number | null;
   floor: number;
 }

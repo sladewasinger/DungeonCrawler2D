@@ -3,6 +3,7 @@ import type { HealthFeedback } from "../../ui/presentation/healthFeedback.js";
 export interface MotionVfxInput {
   readonly x: number;
   readonly y: number;
+  readonly groundHeight: number;
   readonly air: boolean;
   readonly faceX: number;
   readonly nowMs: number;

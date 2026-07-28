@@ -73,6 +73,7 @@ export const serverWelcomeSchema = z.object({
   protocol: z.number().int(),
   playerId: z.string(),
   resumeToken: z.string(),
+  seedInputText: z.string(),
   worldSeed: z.number().int(),
   floor: z.number().int(),
   level,

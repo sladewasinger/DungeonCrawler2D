@@ -4,12 +4,14 @@ export class MotionSampleBuffer {
   private previousRecord: MotionSample = {
     x: 0,
     y: 0,
+    groundHeight: 0,
     air: false,
     faceX: 0,
   };
   private currentRecord: MotionSample = {
     x: 0,
     y: 0,
+    groundHeight: 0,
     air: false,
     faceX: 0,
   };
@@ -18,6 +20,7 @@ export class MotionSampleBuffer {
   begin(sample: MotionSample): MotionSample {
     this.currentRecord.x = sample.x;
     this.currentRecord.y = sample.y;
+    this.currentRecord.groundHeight = sample.groundHeight;
     this.currentRecord.air = sample.air;
     this.currentRecord.faceX = sample.faceX;
     return this.currentRecord;

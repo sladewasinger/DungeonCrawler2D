@@ -44,7 +44,7 @@ export interface ConnectionStatusUpdate {
   connected: boolean;
   fpsSample: number;
   coords: TileCoords;
-  seed: string | null;
+  seedInputText: string | null;
   floor: number;
   biome: BiomeKind | null;
   headingDeg: number;
@@ -119,7 +119,7 @@ export class ConnectionStatusWidget {
     this.updateRows(input, fps);
   }
 
-  private updateRows({ pingMs, connected, coords, seed, floor, biome, headingDeg }: ConnectionStatusUpdate, fps: number): void {
+  private updateRows({ pingMs, connected, coords, seedInputText, floor, biome, headingDeg }: ConnectionStatusUpdate, fps: number): void {
     const [ping, fpsRow, coordsRow, floorRow, biomeRow, headingRow, seedRow, buildRow] = this.rows as [
       Phaser.GameObjects.Text,
       Phaser.GameObjects.Text,
@@ -136,7 +136,7 @@ export class ConnectionStatusWidget {
     floorRow.setText(`floor ${floor}`).setColor(NEUTRAL_TEXT_COLOR);
     biomeRow.setText(`biome ${biome ? biomeLabel(biome) : "—"}`).setColor(NEUTRAL_TEXT_COLOR);
     headingRow.setText(`heading ${headingDeg}°`).setColor(NEUTRAL_TEXT_COLOR);
-    seedRow.setText(`seed ${seed ?? "—"}`).setColor(DIM_TEXT_COLOR);
+    seedRow.setText(`seed ${seedInputText ?? "—"}`).setColor(DIM_TEXT_COLOR);
     buildRow.setText(`build ${BUILD_SHA}`).setColor(DIM_TEXT_COLOR);
   }
 

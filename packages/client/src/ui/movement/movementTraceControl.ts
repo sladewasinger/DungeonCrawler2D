@@ -63,6 +63,7 @@ export class MovementTraceControl {
     const connection = this.connection;
     if (!this.recorder.start({
       endpoint: connection.url,
+      seedInputText: connection.welcome?.seedInputText ?? null,
       worldSeed: connection.world?.worldSeed ?? null,
       floor: connection.floor,
     })) return;
