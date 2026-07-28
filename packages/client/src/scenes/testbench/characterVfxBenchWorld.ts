@@ -45,6 +45,18 @@ export class CharacterVfxBenchWorld implements TerrainWorld, WorldView {
     return this.sandbox.tileAt(x, y);
   }
 
+  featureAt(x: number, y: number): TileType {
+    return this.sandbox.featureAt(x, y);
+  }
+
+  featureFaceAt(x: number, y: number) {
+    return this.sandbox.featureFaceAt(x, y);
+  }
+
+  featureHeightAt(x: number, y: number): number {
+    return this.sandbox.featureHeightAt(x, y);
+  }
+
   heightAt(x: number, y: number): number {
     return inFlatArea(x, y) ? 0 : this.sandbox.heightAt(x, y);
   }

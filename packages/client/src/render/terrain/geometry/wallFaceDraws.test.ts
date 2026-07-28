@@ -26,6 +26,28 @@ describe("wall face draws", () => {
     expect(draws[0]?.uvCrop).toBeUndefined();
     expect(draws[1]?.uvCrop).toEqual({ top: 0, bottom: 0.625 });
   });
+
+  it("replaces only the authored wall segment with a door frame", () => {
+    const batches = stairNeighborBatches();
+    const face = batches.southFaces[0];
+    if (!face) throw new Error("wall face fixture is missing");
+    const draws = atlasDraws({
+      ...batches,
+      southFaces: [{
+        ...face,
+        topHeight: 2,
+        bottomHeight: 0,
+        southNeighborIsStair: false,
+        wallFeature: { feature: "door", topHeight: 1 },
+      }],
+    }, {
+      projection,
+      biomeAt: () => BIOME.Maze,
+      debug: true,
+    });
+
+    expect(draws.map((draw) => draw.role)).toEqual(["door", SOUTH_FACE]);
+  });
 });
 
 function stairNeighborBatches(): TerrainBatches {

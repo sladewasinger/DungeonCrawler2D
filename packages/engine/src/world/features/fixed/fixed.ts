@@ -1,6 +1,7 @@
 import { hash2D, mixSeeds } from "../../../core/rng.js";
 import { smoothstep01 } from "../../../core/math.js";
-import { CHUNK_SIZE, TILE } from "../../core/types.js";
+import { WALL_DOOR_FEATURE_HEIGHT } from "../../../core/constants.js";
+import { CHUNK_SIZE, FEATURE_FACE, TILE } from "../../core/types.js";
 import { placementSeed } from "../../generate/layout/placement.js";
 import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
 import type { WorldChunk } from "../descent/descentShared.js";
@@ -81,6 +82,12 @@ interface FeatureBuffers {
   height: Float32Array;
 }
 
+interface FeaturePlanes {
+  featureTiles: Uint8Array;
+  featureFaces: Uint8Array;
+  featureHeight: Float32Array;
+}
+
 function stampFeaturePad(layout: FeatureLayout, buffers: FeatureBuffers): void {
   const { tiles, height } = buffers;
   const { half, centerLx, centerLy, featureH } = layout;
@@ -122,7 +129,7 @@ function blendedFeatureHeight(cell: FeatureCell, index: number, distance: number
 }
 
 /** Safe rooms and stairways: cleared, flattened, height-blended into terrain. */
-export interface FlattenedFeatureContext extends FeatureBuffers {
+export interface FlattenedFeatureContext extends FeatureBuffers, FeaturePlanes {
   chunk: WorldChunk;
 }
 
@@ -166,25 +173,19 @@ const TERRACE_NORTH_REACH = KIOSK_HEIGHT + TERRACE_TOP_ROWS - 1;
  * 5-wide x 5-deep kiosk TERRACE: a raised, walkable floor dais (not solid
  * raised terrain) whose southernmost KIOSK_HEIGHT rows are its face, with
  * TERRACE_TOP_ROWS more of genuine flat top behind that at
- * EVERY column, door column included — never short a full z+1 of walkable
- * top the way a too-shallow terrace leaves the door's own column with
- * zero (the authored terrace regression is covered by the feature tests). The
- * door replaces the center
- * cell of the south face row AND drops that one cell to height 0 (flush
- * with the pad outside): STEP_UP gates grounded movement onto any raised
- * cell (movement/collision.ts's cornerBlocksMove), doors get no ramp/jump
- * exemption there, so a door left at the terrace's own height would be a
- * real portal nobody could ever walk up to — the doorway is a full-depth
- * notch cut down to the ground, same as any ordinary wall door, not a face
- * cell at reduced height.
+ * EVERY column, door column included. The door is authored independently on
+ * the feature plane at z1, so the wall and walkable terrace above it remain
+ * intact while the renderer replaces only the bottom wall-face segment.
  */
-interface SafeRoomEntrance extends FeatureBuffers {
+interface SafeRoomEntrance extends FeatureBuffers, FeaturePlanes {
   centerLx: number;
   centerLy: number;
 }
 
 export function carveSafeRoomEntrance(entrance: SafeRoomEntrance): void {
-  const { tiles, height, centerLx, centerLy } = entrance;
+  const {
+    tiles, height, featureTiles, featureFaces, featureHeight, centerLx, centerLy,
+  } = entrance;
   const halfWidth = FIXED_FEATURES.kioskHalfWidth;
   for (let dy = -TERRACE_NORTH_REACH; dy <= 1; dy++) {
     for (let dx = -halfWidth; dx <= halfWidth; dx++) {
@@ -194,8 +195,9 @@ export function carveSafeRoomEntrance(entrance: SafeRoomEntrance): void {
   const doorLy = centerLy + 1;
   if (doorLy < CHUNK_SIZE) {
     const doorIndex = doorLy * CHUNK_SIZE + centerLx;
-    tiles[doorIndex] = TILE.DoorSafeRoom;
-    height[doorIndex] = KIOSK_HEIGHT;
+    featureTiles[doorIndex] = TILE.DoorSafeRoom;
+    featureFaces[doorIndex] = FEATURE_FACE.South;
+    featureHeight[doorIndex] = WALL_DOOR_FEATURE_HEIGHT;
   }
 }
 

@@ -1,16 +1,31 @@
 import { CHASM_DEATH_Z } from "../../core/constants.js";
 import { generateChunk } from "../generate.js";
 import { LEVEL, type LevelId } from "./level.js";
-import { snapshotWorldFeatures, type WorldFeatures } from "./worldFeatures.js";
-import { stairRampAt } from "../stairs/stairs.js";
 import {
-  CHUNK_SIZE,
+  snapshotWorldFeatures,
+  type WorldFeatures,
+  type WorldOptions,
+} from "./worldFeatures.js";
+import { stairRampAt } from "../stairs/stairs.js";
+import { chunkCellAt, generatedChunkCount } from "./chunkCoordinates.js";
+import {
+  featureOverrideMap,
+  featureFromTile,
+  sameFeatureOverrides,
+  sameTileOverrides,
+  tileOverrideMap,
+  type StoredFeature,
+} from "./featureOverrides.js";
+import {
+  FEATURE_FACE,
   SOLID_TILES,
   TERRAIN,
   TILE,
   ZONE,
   type Chunk,
+  type FeatureFace,
   type TerrainType,
+  type TileFeatureOverride,
   type TileType,
   type WorldView,
   type ZoneType,
@@ -30,6 +45,7 @@ export class World implements WorldView {
   // key would otherwise pay on every single terrain read.
   private readonly chunks = new Map<number, Map<number, Chunk>>();
   private tileOverrides = new Map<string, TileType>();
+  private featureOverrides = new Map<string, StoredFeature>();
   tileRevision = 0;
 
   readonly level: LevelId;
@@ -62,19 +78,49 @@ export class World implements WorldView {
   }
 
   private lookup(wx: number, wy: number): { chunk: Chunk; index: number } {
-    const cx = Math.floor(wx / CHUNK_SIZE);
-    const cy = Math.floor(wy / CHUNK_SIZE);
-    const lx = wx - cx * CHUNK_SIZE;
-    const ly = wy - cy * CHUNK_SIZE;
-    return { chunk: this.getChunk(cx, cy), index: ly * CHUNK_SIZE + lx };
+    const cell = chunkCellAt(wx, wy);
+    return { chunk: this.getChunk(cell.cx, cell.cy), index: cell.index };
   }
 
   tileAt(wx: number, wy: number): TileType {
     const overridden = this.tileOverrides.get(`${wx},${wy}`);
     if (overridden !== undefined) return overridden;
+    const feature = this.featureAt(wx, wy);
+    if (feature !== TILE.Floor) return feature;
     const { chunk, index } = this.lookup(wx, wy);
     if (chunk.terrain[index] === TERRAIN.Void) return TILE.Void;
-    return (chunk.features[index] ?? chunk.tiles[index] ?? TILE.Floor) as TileType;
+    return (chunk.tiles[index] ?? TILE.Floor) as TileType;
+  }
+
+  featureAt(wx: number, wy: number): TileType {
+    const key = `${wx},${wy}`;
+    const tileOverride = this.tileOverrides.get(key);
+    if (tileOverride !== undefined) return featureFromTile(tileOverride);
+    const featureOverride = this.featureOverrides.get(key);
+    if (featureOverride) return featureOverride.tile;
+    const { chunk, index } = this.lookup(wx, wy);
+    return (chunk.features[index] ?? TILE.Floor) as TileType;
+  }
+
+  featureHeightAt(wx: number, wy: number): number {
+    const key = `${wx},${wy}`;
+    const tileOverride = this.tileOverrides.get(key);
+    if (tileOverride !== undefined) {
+      return featureFromTile(tileOverride) === TILE.Floor ? 0 : this.heightAt(wx, wy);
+    }
+    const featureOverride = this.featureOverrides.get(key);
+    if (featureOverride) return featureOverride.featureHeight;
+    const { chunk, index } = this.lookup(wx, wy);
+    return chunk.featureHeight[index] ?? 0;
+  }
+
+  featureFaceAt(wx: number, wy: number): FeatureFace {
+    const key = `${wx},${wy}`;
+    if (this.tileOverrides.has(key)) return FEATURE_FACE.Top;
+    const featureOverride = this.featureOverrides.get(key);
+    if (featureOverride) return featureOverride.featureFace;
+    const { chunk, index } = this.lookup(wx, wy);
+    return (chunk.featureFaces[index] ?? FEATURE_FACE.Top) as FeatureFace;
   }
 
   terrainAt(wx: number, wy: number): TerrainType {
@@ -90,19 +136,17 @@ export class World implements WorldView {
     if (!this.features.voidTerrain && overrides.some(({ tile }) => tile === TILE.Void)) {
       throw new Error("VOID override leaked into disabled world");
     }
-    const next = new Map(overrides.map((entry) => [
-      `${entry.x},${entry.y}`,
-      entry.tile,
-    ]));
-    if (this.hasSameOverrides(next)) return;
+    const next = tileOverrideMap(overrides);
+    if (sameTileOverrides(this.tileOverrides, next)) return;
     this.tileOverrides = next;
     this.tileRevision++;
   }
 
-  private hasSameOverrides(next: ReadonlyMap<string, TileType>): boolean {
-    if (next.size !== this.tileOverrides.size) return false;
-    for (const [key, tile] of next) if (this.tileOverrides.get(key) !== tile) return false;
-    return true;
+  replaceFeatureOverrides(overrides: readonly TileFeatureOverride[]): void {
+    const next = featureOverrideMap(overrides);
+    if (sameFeatureOverrides(this.featureOverrides, next)) return;
+    this.featureOverrides = next;
+    this.tileRevision++;
   }
 
   heightAt(wx: number, wy: number): number {
@@ -119,7 +163,7 @@ export class World implements WorldView {
     // Enabled VOID is an infinite boundary. Disabled mode restores legacy
     // finite chasm floors so movement can enter them and the death plane can
     // resolve the fall.
-    if (SOLID_TILES.has(this.tileAt(wx, wy))) return false;
+    if (SOLID_TILES.has(this.featureAt(wx, wy))) return false;
     if (!this.features.voidTerrain) return true;
     return this.terrainAt(wx, wy) !== TERRAIN.Void && this.heightAt(wx, wy) > CHASM_DEATH_Z;
   }
@@ -131,23 +175,12 @@ export class World implements WorldView {
 
   /** Ramp height iff (x, y) sits on a TILE.Stairs tile, else null — see WorldView's doc comment. */
   stairHeightAt(x: number, y: number): number | null {
-    if (this.tileAt(Math.floor(x), Math.floor(y)) !== TILE.Stairs) return null;
+    if (this.featureAt(Math.floor(x), Math.floor(y)) !== TILE.Stairs) return null;
     return stairRampAt(this, x, y);
   }
 
-  isSanctuary(wx: number, wy: number): boolean {
-    return this.zoneAt(wx, wy) === ZONE.Sanctuary;
-  }
+  isSanctuary(wx: number, wy: number): boolean { return this.zoneAt(wx, wy) === ZONE.Sanctuary; }
 
   /** Number of generated chunks currently cached (diagnostics). */
-  get cachedChunkCount(): number {
-    let total = 0;
-    for (const row of this.chunks.values()) total += row.size;
-    return total;
-  }
-}
-
-export interface WorldOptions {
-  readonly level?: LevelId;
-  readonly features?: WorldFeatures;
+  get cachedChunkCount(): number { return generatedChunkCount(this.chunks); }
 }

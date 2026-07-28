@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { CHASM_DEATH_Z } from "../core/constants.js";
 import { hashString } from "../core/rng.js";
-import { personalRoomChunk } from "./features/rooms/rooms.js";
+import {
+  PERSONAL_ROOM_H,
+  PERSONAL_ROOM_W,
+  personalRoomChunk,
+} from "./features/rooms/rooms.js";
 import { ROOM_WALL_RISE } from "./features/rooms/roomExitGeometry.js";
 import { generateChunk } from "./generate.js";
 import { assertChunkWorldFeatures } from "./generate/worldFeatureInvariant.js";
-import { CHUNK_SIZE, TERRAIN, TILE, type Chunk } from "./core/types.js";
+import { CHUNK_SIZE, TERRAIN, TILE, ZONE, type Chunk } from "./core/types.js";
 import { LEVEL } from "./core/level.js";
 import { World } from "./core/world.js";
 
@@ -115,9 +119,13 @@ function assertRoomModeTransform(enabled: Chunk, disabled: Chunk): void {
     }
     expect(disabled.tiles[index], `tile ${index}`).toBe(TILE.Floor);
     expect(disabled.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
-    expect(disabled.features[index], `feature ${index}`).toBe(TILE.Floor);
+    expect(disabled.features[index], `feature ${index}`).toBe(enabled.features[index]);
+    expect(disabled.featureFaces[index], `feature face ${index}`)
+      .toBe(enabled.featureFaces[index]);
+    expect(disabled.featureHeight[index], `feature height ${index}`)
+      .toBe(enabled.featureHeight[index]);
     expect(disabled.height[index], `height ${index}`).toBe(ROOM_WALL_RISE);
-    expect(disabled.zones[index], `zone ${index}`).toBe(enabled.zones[index]);
+    expect(disabled.zones[index], `zone ${index}`).toBe(legacyPersonalRoomZone(index));
   }
 }
 
@@ -125,6 +133,18 @@ function expectChunkCell(actual: Chunk, index: number, expected: Chunk): void {
   expect(actual.tiles[index], `tile ${index}`).toBe(expected.tiles[index]);
   expect(actual.terrain[index], `terrain ${index}`).toBe(expected.terrain[index]);
   expect(actual.features[index], `feature ${index}`).toBe(expected.features[index]);
+  expect(actual.featureFaces[index], `feature face ${index}`).toBe(expected.featureFaces[index]);
+  expect(actual.featureHeight[index], `feature height ${index}`).toBe(expected.featureHeight[index]);
   expect(actual.height[index], `height ${index}`).toBe(expected.height[index]);
   expect(actual.zones[index], `zone ${index}`).toBe(expected.zones[index]);
+}
+
+function legacyPersonalRoomZone(index: number): number {
+  const lx = index % CHUNK_SIZE;
+  const ly = Math.floor(index / CHUNK_SIZE);
+  const left = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_W / 2);
+  const top = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_H / 2);
+  const inside = lx >= left && lx < left + PERSONAL_ROOM_W &&
+    ly >= top && ly < top + PERSONAL_ROOM_H;
+  return inside ? ZONE.Sanctuary : ZONE.None;
 }

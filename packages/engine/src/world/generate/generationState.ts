@@ -20,6 +20,9 @@ export interface FeatureStampContext {
   cx: number;
   cy: number;
   tiles: Uint8Array;
+  featureTiles: Uint8Array;
+  featureFaces: Uint8Array;
+  featureHeight: Float32Array;
   height: Float32Array;
   corridorCarved: Uint8Array;
   rooms: Room[];
@@ -36,11 +39,14 @@ export interface GenerationState extends FeatureStampContext {
 
 function generatedGrid(): Pick<
   GenerationState,
-  "tiles" | "height" | "zones" | "corridorCarved"
+  "tiles" | "featureTiles" | "featureFaces" | "featureHeight" | "height" | "zones" | "corridorCarved"
 > {
   const cells = CHUNK_SIZE * CHUNK_SIZE;
   return {
     tiles: new Uint8Array(cells).fill(TOPOLOGY.Uncarved),
+    featureTiles: new Uint8Array(cells),
+    featureFaces: new Uint8Array(cells),
+    featureHeight: new Float32Array(cells),
     height: new Float32Array(cells),
     zones: new Uint8Array(cells),
     corridorCarved: new Uint8Array(cells),

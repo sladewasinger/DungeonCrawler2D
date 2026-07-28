@@ -1,4 +1,9 @@
-import type { TerrainType, TileType, WorldFeatures } from "@dc2d/engine";
+import type {
+  FeatureFace,
+  TerrainType,
+  TileType,
+  WorldFeatures,
+} from "@dc2d/engine";
 
 export interface TerrainWorld {
   readonly tileRevision: number;
@@ -8,4 +13,7 @@ export interface TerrainWorld {
   terrainAt(x: number, y: number): TerrainType;
   heightAt(x: number, y: number): number;
   tileAt(x: number, y: number): TileType;
+  featureAt(x: number, y: number): TileType;
+  featureFaceAt(x: number, y: number): FeatureFace;
+  featureHeightAt(x: number, y: number): number;
 }

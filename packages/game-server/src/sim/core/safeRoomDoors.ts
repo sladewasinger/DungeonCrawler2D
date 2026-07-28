@@ -2,6 +2,7 @@ import {
   CHUNK_SIZE,
   SAFE_ROOM_MAX_OCCUPANTS,
   TILE,
+  WALL_DOOR_FEATURE_HEIGHT,
   partyRoomDoorPositions,
   roomKindAt,
   safeRoomDoorPositions,
@@ -48,6 +49,7 @@ function safeRoomAssignments(
     return [{
       ...position,
       tile: owner.partyId ? TILE.DoorParty : TILE.DoorPersonal,
+      featureHeight: WALL_DOOR_FEATURE_HEIGHT,
       ownerId: owner.entity.id,
       label: owner.partyId ? "PARTY ROOM" : `${owner.entity.name}'S ROOM`,
     }];
@@ -80,6 +82,7 @@ function partyRoomAssignments(
       return [{
         ...position,
         tile: TILE.DoorPersonal,
+        featureHeight: WALL_DOOR_FEATURE_HEIGHT,
         ownerId: owner.entity.id,
         label: `${owner.entity.name}'S ROOM`,
       }];
@@ -122,7 +125,7 @@ function assignmentsForOccupants(sim: SimState, occupants: RoomOccupants): Map<s
 
 export function syncSafeRoomDoors(sim: SimState): void {
   const doors = [...buildRoomDoorAssignments(sim).values()].flat();
-  sim.world.replaceTileOverrides(doors);
+  sim.world.replaceFeatureOverrides(doors);
 }
 
 function snapshotAssignments(sim: SimState): Map<string, SafeRoomDoorSnapshot[]> {
@@ -156,11 +159,9 @@ export function safeRoomDoorAt(
 
 export function safeRoomHasCapacity(sim: SimState, cx: number, cy: number): boolean {
   return [...sim.players.values()]
-    .filter((slot) => slot.connected && isInRoom(slot, cx, cy))
+    .filter((slot) => {
+      const room = roomCoordinates(slot);
+      return slot.connected && room?.cx === cx && room.cy === cy;
+    })
     .length < SAFE_ROOM_MAX_OCCUPANTS;
-}
-
-function isInRoom(slot: PlayerSlot, cx: number, cy: number): boolean {
-  const room = roomCoordinates(slot);
-  return room?.cx === cx && room.cy === cy;
 }

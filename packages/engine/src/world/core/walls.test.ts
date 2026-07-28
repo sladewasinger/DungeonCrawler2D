@@ -90,22 +90,16 @@ describe("height-derived terrain boundaries", () => {
     expect(Array.from(world.getChunk(2, 2).tiles)).not.toContain(1);
   });
 
-  function raisedRoomPerimeter(world: World): number {
+  it("stretch rooms keep only the north wall raised and use VOID for the collision shell", () => {
+    const world = new World(SEED, FLOOR);
     const room = personalRoomChunk(0);
     const left = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_W / 2);
     const top = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_H / 2);
-    return Array.from({ length: PERSONAL_ROOM_H }, (_, row) => row + top)
-      .flatMap((ly) => Array.from({ length: PERSONAL_ROOM_W }, (_, column) => [left + column, ly] as [number, number]))
-      .filter(([lx, ly]) => lx === left || lx === left + PERSONAL_ROOM_W - 1 || ly === top || ly === top + PERSONAL_ROOM_H - 1)
-      .filter(([lx, ly]) => world.tileAt(room.cx * CHUNK_SIZE + lx, room.cy * CHUNK_SIZE + ly) === TILE.Floor)
-      .filter(([lx, ly]) => world.heightAt(room.cx * CHUNK_SIZE + lx, room.cy * CHUNK_SIZE + ly) >= 3).length;
-  }
-
-  it("stretch-room perimeters remain raised Floor terrain", () => {
-    const world = new World(SEED, FLOOR);
     const spawn = personalRoomSpawn(0);
-    expect(raisedRoomPerimeter(world)).toBeGreaterThan(10);
-    // Sanity: the room interior itself is walkable floor.
+    for (let lx = left; lx < left + PERSONAL_ROOM_W; lx++) {
+      expect(world.heightAt(room.cx * CHUNK_SIZE + lx, room.cy * CHUNK_SIZE + top)).toBe(3);
+    }
+    expect(world.tileAt(room.cx * CHUNK_SIZE + left - 1, Math.floor(spawn.y))).toBe(TILE.Void);
     expect(world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
   });
 });

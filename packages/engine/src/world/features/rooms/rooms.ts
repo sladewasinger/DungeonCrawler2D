@@ -1,6 +1,27 @@
-import { CHUNK_SIZE } from "../../core/types.js";
+import {
+  CHUNK_SIZE,
+  FEATURE_FACE,
+} from "../../core/types.js";
+import {
+  PARTY_ROOM_H,
+  PARTY_ROOM_W,
+  PERSONAL_ROOM_H,
+  PERSONAL_ROOM_W,
+  SAFE_ROOM_H,
+  SAFE_ROOM_W,
+  type RoomKind,
+  type RoomSlot,
+} from "./roomModel.js";
+import {
+  partyRoomDoorPlacements,
+  safeRoomDoorPlacements,
+  type WallFeatureFace,
+} from "./roomDoorPlacements.js";
+import { SOUTH_EXIT_HALL_DEPTH } from "./roomExitGeometry.js";
 
 export { generateRoomChunk } from "./roomChunkBuilder.js";
+export * from "./roomDoorPlacements.js";
+export * from "./roomModel.js";
 
 /**
  * Stretch rooms (GAME_DESIGN.md § Safe rooms): instanced sub-maps that
@@ -17,14 +38,6 @@ export const ROOM_REGION_CY = 4096;
 const SLOT_STRIDE_CHUNKS = 2;
 /** Safe-room rows start below the personal/party rows (see safeRoomChunk). */
 const SAFE_ROOM_BASE_CY = ROOM_REGION_CY + 2 * SLOT_STRIDE_CHUNKS;
-
-export const PERSONAL_ROOM_W = 13;
-export const PERSONAL_ROOM_H = 9;
-export const PARTY_ROOM_W = 17;
-export const PARTY_ROOM_H = 13;
-export const SAFE_ROOM_W = 17;
-export const SAFE_ROOM_H = 11;
-export const SAFE_ROOM_MAX_OCCUPANTS = 20;
 
 export function isRoomChunk(cy: number): boolean { return cy >= ROOM_REGION_CY; }
 
@@ -99,8 +112,8 @@ export function safeRoomAttendantPosition(cx: number, cy: number): { x: number; 
 
 /** World tile coords of a safe room's fixtures (tests, UI hints). */
 export function safeRoomFeatures(doorCx: number, doorCy: number): {
-  doors: Array<{ x: number; y: number }>;
-  exit: { x: number; y: number };
+  doors: Array<{ x: number; y: number; featureFace: WallFeatureFace }>;
+  exit: { x: number; y: number; featureFace: WallFeatureFace };
 } {
   const chunk = safeRoomChunk(doorCx, doorCy);
   const baseX = chunk.cx * CHUNK_SIZE;
@@ -108,12 +121,13 @@ export function safeRoomFeatures(doorCx: number, doorCy: number): {
   const top = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_H / 2);
   const centerX = baseX + Math.floor(CHUNK_SIZE / 2);
   return {
-    doors: safeRoomDoorPositions(chunk.cx, chunk.cy),
-    // North wall (docs/ROADMAP.md's filed ruling, 2026-07-20: "exit doors
-    // default to the north/back wall" — the safe room's north row has a
-    // free center column, DoorPersonal/DoorParty sitting at +-2 either
-    // side of it) — see placeFixtures's matching exitLy.
-    exit: { x: centerX, y: baseY + top + SAFE_ROOM_H - 2 },
+    doors: safeRoomDoorPlacements(chunk.cx, chunk.cy)
+      .map(({ x, y, featureFace }) => ({ x, y, featureFace })),
+    exit: {
+      x: centerX,
+      y: southExitDoorY(baseY, top, SAFE_ROOM_H),
+      featureFace: FEATURE_FACE.North,
+    },
   };
 }
 
@@ -121,7 +135,7 @@ export function safeRoomFeatures(doorCx: number, doorCy: number): {
 export function personalRoomFeatures(slot: number): {
   stash: { x: number; y: number };
   table: { x: number; y: number };
-  exit: { x: number; y: number };
+  exit: { x: number; y: number; featureFace: WallFeatureFace };
 } {
   const chunk = personalRoomChunk(slot);
   const baseX = chunk.cx * CHUNK_SIZE;
@@ -133,24 +147,21 @@ export function personalRoomFeatures(slot: number): {
     table: { x: baseX + left + PERSONAL_ROOM_W - 2, y: baseY + top + 1 },
     exit: {
       x: baseX + Math.floor(CHUNK_SIZE / 2),
-      y: baseY + top + PERSONAL_ROOM_H - 2,
+      y: southExitDoorY(baseY, top, PERSONAL_ROOM_H),
+      featureFace: FEATURE_FACE.North,
     },
   };
 }
 
-/** Generate a chunk in the room region: Void except where a room template is carved.
- * Every room interior is sanctuary — no fighting in anyone's home.
- *
- * Room boundaries rise far beyond the jump apex (≈1.07): stretch rooms stay sealed.
- */
-export type RoomKind = "personal" | "party" | "safe";
-
-export interface RoomSlot {
-  kind: RoomKind;
-  w: number;
-  h: number;
+function southExitDoorY(baseY: number, top: number, roomHeight: number): number {
+  const southWallY = baseY + top + roomHeight - 1;
+  return southWallY + SOUTH_EXIT_HALL_DEPTH;
 }
 
+/**
+ * Room templates use a raised back wall and a VOID collision shell. When VOID
+ * terrain is disabled, the same shell becomes finite raised floor.
+ */
 /** Which room template (if any) occupies this chunk (pure). */
 export function roomSlotAt(cx: number, cy: number): RoomSlot | null {
   const isSlotColumn = cx % SLOT_STRIDE_CHUNKS === 0 && cx >= 0;
@@ -172,39 +183,22 @@ export function roomKindAt(cx: number, cy: number): RoomKind | null {
   return roomSlotAt(cx, cy)?.kind ?? null;
 }
 
-const SAFE_DOOR_LOCAL_POSITIONS: ReadonlyArray<readonly [number, number]> = [
-  [8, 1], [10, 1], [12, 1], [14, 1],
-  [15, 2], [15, 4], [15, 6], [15, 8],
-  [14, 9], [12, 9], [10, 9], [6, 9], [4, 9], [2, 9],
-  [1, 8], [1, 6], [1, 4], [1, 2],
-  [2, 1], [4, 1],
-];
-
 /** Twenty clockwise portal positions, beginning at the north-wall center. */
-export function safeRoomDoorPositions(cx: number, cy: number): Array<{ x: number; y: number }> {
+export function safeRoomDoorPositions(
+  cx: number,
+  cy: number,
+): Array<{ x: number; y: number; featureFace: WallFeatureFace }> {
   if (roomKindAt(cx, cy) !== "safe") return [];
-  const left = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_W / 2);
-  const top = Math.floor(CHUNK_SIZE / 2 - SAFE_ROOM_H / 2);
-  return SAFE_DOOR_LOCAL_POSITIONS.map(([dx, dy]) => ({
-    x: cx * CHUNK_SIZE + left + dx,
-    y: cy * CHUNK_SIZE + top + dy,
-  }));
+  return safeRoomDoorPlacements(cx, cy)
+    .map(({ x, y, featureFace }) => ({ x, y, featureFace }));
 }
 
-const PARTY_DOOR_LOCAL_POSITIONS: ReadonlyArray<readonly [number, number]> = [
-  [6, 1], [8, 1], [10, 1], [12, 1], [14, 1],
-  [15, 3], [15, 5], [15, 7], [15, 9],
-  [14, 11], [12, 11], [10, 11], [6, 11], [4, 11], [2, 11],
-  [1, 9], [1, 7], [1, 5], [1, 3], [2, 1],
-];
-
 /** One private personal-room portal site per possible party member. */
-export function partyRoomDoorPositions(cx: number, cy: number): Array<{ x: number; y: number }> {
+export function partyRoomDoorPositions(
+  cx: number,
+  cy: number,
+): Array<{ x: number; y: number; featureFace: WallFeatureFace }> {
   if (roomKindAt(cx, cy) !== "party") return [];
-  const left = Math.floor(CHUNK_SIZE / 2 - PARTY_ROOM_W / 2);
-  const top = Math.floor(CHUNK_SIZE / 2 - PARTY_ROOM_H / 2);
-  return PARTY_DOOR_LOCAL_POSITIONS.map(([dx, dy]) => ({
-    x: cx * CHUNK_SIZE + left + dx,
-    y: cy * CHUNK_SIZE + top + dy,
-  }));
+  return partyRoomDoorPlacements(cx, cy)
+    .map(({ x, y, featureFace }) => ({ x, y, featureFace }));
 }

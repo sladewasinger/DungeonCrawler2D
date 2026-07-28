@@ -2,6 +2,7 @@
 import {
   AOI_RADIUS,
   TICK_RATE,
+  featureApproachPosition,
   personalRoomFeatures,
   safeRoomFeatures,
 } from "@dc2d/engine";
@@ -89,14 +90,13 @@ describe("GameSim reconnect grace", () => {
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const door = findSafeRoomDoor(sim);
-    const floorX = door.x + 0.5;
-    const floorY = door.y + 0.5;
+    const { x: floorX, y: floorY } = featureApproachPosition(door);
     teleport({ entity: entity, x: floorX, y: floorY, sim: sim });
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
     const safe = safeRoomFeatures(door.doorCx, door.doorCy);
     const personalDoor = safe.doors[0]!;
-    teleport({ entity: entity, x: personalDoor.x + 0.5, y: personalDoor.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(personalDoor), sim });
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
     const personal = { x: entity.body.x, y: entity.body.y };
@@ -107,11 +107,11 @@ describe("GameSim reconnect grace", () => {
     expect(thief).toMatchObject({ resumed: false });
     expect(thief.playerId).not.toBe(player.playerId);
     const features = personalRoomFeatures(0);
-    teleport({ entity: entity, x: features.exit.x + 0.5, y: features.exit.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(features.exit), sim });
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
     expect(entity.body.x).toBeCloseTo(personalDoor.x + 0.5, 3);
-    teleport({ entity: entity, x: safe.exit.x + 0.5, y: safe.exit.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(safe.exit), sim });
     sim.queueAction(player.playerId, { type: "interact" });
     sim.step();
     expect(entity.body).toMatchObject({ x: floorX, y: floorY });

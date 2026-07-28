@@ -1,4 +1,10 @@
-import { TERRAIN, TILE, type TerrainType, type TileType } from "@dc2d/engine";
+import {
+  FEATURE_FACE,
+  TERRAIN,
+  TILE,
+  type TerrainType,
+  type TileType,
+} from "@dc2d/engine";
 
 export const EDITOR_GRID_SIZE = 20;
 
@@ -18,6 +24,19 @@ export class EditorTerrainWorld {
 
   tileAt(x: number, y: number): TileType {
     return this.cellAt(x, y).tile;
+  }
+
+  featureAt(x: number, y: number): TileType {
+    const tile = this.tileAt(x, y);
+    return tile === TILE.Stairs ? tile : TILE.Floor;
+  }
+
+  featureFaceAt(): typeof FEATURE_FACE.Top {
+    return FEATURE_FACE.Top;
+  }
+
+  featureHeightAt(x: number, y: number): number {
+    return this.featureAt(x, y) === TILE.Floor ? 0 : this.heightAt(x, y);
   }
 
   heightAt(x: number, y: number): number {

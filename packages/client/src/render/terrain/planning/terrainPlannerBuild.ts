@@ -1,6 +1,11 @@
 import type { Point } from "../../view/transform/viewTransform.js";
 import { viewTileToWorld, worldTileToView } from "../../view/transform/viewTransform.js";
 import { appendTerrainAmbientOcclusion, appendTerrainCliffEdges } from "../geometry/cliffGeometry.js";
+import { appendFloorArt } from "../geometry/featureArt.js";
+import {
+  voidWallFeatureQuad,
+  wallFeatureForFace,
+} from "../geometry/wallFeatureGeometry.js";
 import { TERRAIN_KINDS, TERRAIN_HEIGHT_EPSILON } from "../geometry/terrainPlannerModel.js";
 import type {
   TerrainAOQuad, TerrainCliffEdgeQuad, TerrainFeatureKind, TerrainFeatureQuad, TerrainFloorQuad,
@@ -37,7 +42,7 @@ function appendTileGeometry(context: TerrainPlanningContext, worldTile: Point): 
   }
   if (terrain !== TERRAIN_KINDS.Floor) return;
   const tileContext = { ...context, worldTile, viewTile, height: finiteHeight(context, worldTile) };
-  appendFloorArt(tileContext);
+  appendFloorArt({ ...tileContext, vertices: topQuad(viewTile, tileContext.height) });
   appendTerrainCliffEdges(tileContext, context.batches.cliffEdges);
   appendTerrainAmbientOcclusion(tileContext, context.batches.ao);
   appendScreenSouthFace(tileContext);
@@ -47,6 +52,11 @@ function appendVoidBackdrop(context: TerrainPlanningContext, worldTile: Point, v
   context.batches.voids.push(voidQuad(worldTile, viewTile));
   const southView = { x: viewTile.x, y: viewTile.y + 1 };
   const southWorld = viewTileToWorld(southView, context.orientation);
+  const wallFeature = voidWallFeatureQuad({
+    source: context.source, worldTile, southWorld, southView,
+    orientation: context.orientation,
+  });
+  if (wallFeature) context.batches.features.push(wallFeature);
   if (context.source.terrainAt(southWorld.x, southWorld.y) !== TERRAIN_KINDS.Floor) return;
   const rows = Math.max(0, Math.floor(-finiteHeight(context, southWorld) + TERRAIN_HEIGHT_EPSILON));
   for (let offset = 1; offset <= rows; offset++) {
@@ -57,16 +67,6 @@ function appendVoidBackdrop(context: TerrainPlanningContext, worldTile: Point, v
 
 function voidQuad(worldTile: Point, viewTile: Point): TerrainVoidQuad {
   return { kind: "void", worldTile, viewTile, vertices: topQuad(viewTile, 0) };
-}
-
-function appendFloorArt(context: TerrainTileContext): void {
-  const { source, worldTile, viewTile, height, batches } = context;
-  const vertices = topQuad(viewTile, height);
-  const feature = source.featureAt?.(worldTile.x, worldTile.y) ?? null;
-  const prop = source.propAt?.(worldTile.x, worldTile.y) ?? null;
-  if (feature) batches.features.push({ kind: "feature", feature, worldTile, viewTile, height, vertices });
-  else if (prop) batches.props.push({ kind: "prop", prop, worldTile, viewTile, height, vertices });
-  else batches.floors.push({ kind: "floor", worldTile, viewTile, height, vertices });
 }
 
 function appendScreenSouthFace(context: TerrainTileContext): void {
@@ -80,6 +80,7 @@ function appendScreenSouthFace(context: TerrainTileContext): void {
 }
 
 function appendVoidSouthFace(context: TerrainTileContext): void {
+  if (context.source.voidBoundaryAt?.(context.worldTile.x, context.worldTile.y) === "flat") return;
   const bottomHeight = context.height - VOID_FACE_DEPTH;
   context.batches.southFaces.push({
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
@@ -94,10 +95,18 @@ function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): v
   const bottomHeight = finiteHeight(context, southWorld);
   if (context.height - bottomHeight <= TERRAIN_HEIGHT_EPSILON) return;
   const stairWall = currentFeature === "stairs";
+  const wallFeature = wallFeatureForFace({
+    source: context.source,
+    worldTile: context.worldTile,
+    terrainTop: context.height,
+    terrainBottom: bottomHeight,
+    orientation: context.orientation,
+  });
   context.batches.southFaces.push({
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
     topHeight: context.height, bottomHeight, stairWall,
     southNeighborIsStair: southFeature === "stairs",
+    ...(wallFeature ? { wallFeature } : {}),
     vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
   });
 }

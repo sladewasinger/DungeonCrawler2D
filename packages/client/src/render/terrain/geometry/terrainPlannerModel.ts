@@ -1,10 +1,12 @@
 import type { Point } from "../../view/transform/viewTransform.js";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
+import type { FeatureFace } from "@dc2d/engine";
 
 export const TERRAIN_KINDS = { Floor: "floor", Void: "void" } as const;
 export const TERRAIN_HEIGHT_EPSILON = 0.01;
 export const TERRAIN_FLOOR_EDGE_MIN_DROP = 0.1;
 export type TerrainKind = (typeof TERRAIN_KINDS)[keyof typeof TERRAIN_KINDS];
+export type VoidBoundaryStyle = "floating" | "flat";
 
 export const TERRAIN_FEATURES = { Stairs: "stairs", Door: "door", Brazier: "brazier" } as const;
 export type TerrainFeatureKind = (typeof TERRAIN_FEATURES)[keyof typeof TERRAIN_FEATURES];
@@ -20,6 +22,9 @@ export interface TerrainSource {
   readonly voidTerrain: boolean;
   terrainAt(worldX: number, worldY: number): TerrainKind;
   heightAt(worldX: number, worldY: number): number;
+  featureFaceAt?(worldX: number, worldY: number): FeatureFace;
+  featureHeightAt?(worldX: number, worldY: number): number;
+  voidBoundaryAt?(worldX: number, worldY: number): VoidBoundaryStyle;
   featureAt?(worldX: number, worldY: number): TerrainFeatureKind | null;
   propAt?(worldX: number, worldY: number): TerrainPropKind | null;
 }
@@ -34,11 +39,15 @@ export type TerrainQuadVertices = readonly [TerrainVertex, TerrainVertex, Terrai
 interface TerrainQuadBase { readonly worldTile: Point; readonly viewTile: Point; readonly vertices: TerrainQuadVertices; }
 export interface TerrainFloorQuad extends TerrainQuadBase { readonly kind: "floor"; readonly height: number; }
 export interface TerrainVoidQuad extends TerrainQuadBase { readonly kind: "void"; }
-export interface TerrainFeatureQuad extends TerrainQuadBase { readonly kind: "feature"; readonly feature: TerrainFeatureKind; readonly height: number; }
+export interface TerrainFeatureQuad extends TerrainQuadBase {
+  readonly kind: "feature"; readonly feature: TerrainFeatureKind;
+  readonly height: number; readonly wallMounted?: boolean;
+}
 export interface TerrainPropQuad extends TerrainQuadBase { readonly kind: "prop"; readonly prop: TerrainPropKind; readonly height: number; }
 export interface TerrainSouthFaceQuad extends TerrainQuadBase {
   readonly kind: "south-face"; readonly topHeight: number; readonly bottomHeight: number;
   readonly stairWall?: boolean; readonly southNeighborIsStair?: boolean; readonly voidWall?: boolean;
+  readonly wallFeature?: { readonly feature: TerrainFeatureKind; readonly topHeight: number };
 }
 export interface TerrainCliffEdgeQuad extends TerrainQuadBase {
   readonly kind: "cliff-edge"; readonly cliff: TerrainCliffKind; readonly rotation: TerrainQuarterTurn;

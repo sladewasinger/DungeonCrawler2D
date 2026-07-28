@@ -1,4 +1,4 @@
-import { TILE, type TileType } from "@dc2d/engine";
+import { TERRAIN } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   PLAYER_GROUND_LIGHT_FADE_MS,
@@ -19,8 +19,10 @@ function world(
   chasms: ReadonlySet<string> = new Set(),
 ): PlayerGroundLightWorld {
   return {
-    tileAt: (x, y): TileType => walls.has(`${x},${y}`) || chasms.has(`${x},${y}`) ? TILE.Void : TILE.Floor,
-    heightAt: (x, y) => chasms.has(`${x},${y}`) ? -2 : 0,
+    terrainAt: (x, y) =>
+      walls.has(`${x},${y}`) || chasms.has(`${x},${y}`)
+        ? TERRAIN.Void
+        : TERRAIN.Floor,
     groundAt: (x, y) => Math.floor(x) + Math.floor(y) / 10,
   };
 }
@@ -69,6 +71,17 @@ describe("playerGroundLightCells", () => {
   it("records each tile's ground height for projected floor placement", () => {
     const cells = playerGroundLightCells(world(), 2.5, 3.5);
     expect(cells[0]?.groundHeight).toBe(2.3);
+  });
+
+  it("lights floor cells independently of any door or furniture overlay", () => {
+    const overlayWorld = {
+      ...world(),
+      featureAt: () => 8,
+    };
+    const cells = playerGroundLightCells(overlayWorld, 0.5, 0.5);
+
+    expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
+    expect(cells.some(({ tileX }) => tileX > 0)).toBe(true);
   });
 });
 

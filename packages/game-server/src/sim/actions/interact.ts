@@ -43,7 +43,7 @@ function sendStash(slot: PlayerSlot): void {
   slot.outbox.push({ t: "stash", slots: slot.stored.stash.map((s) => ({ ...s })) });
 }
 
-/** Doors: use a nearby solid doorway to teleport. */
+/** Doors: use a nearby wall-mounted or ground-mounted feature to teleport. */
 function useDoor({ sim, slot, door }: DoorContext): boolean {
   const assigned = safeRoomDoorAt(sim, door.x, door.y);
   if (assigned) return useAssignedRoomDoor({ sim, slot, ownerId: assigned.ownerId, tile: assigned.tile });

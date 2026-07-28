@@ -1,6 +1,9 @@
-import { smoothstep01, SOLID_TILES, TILE, type TileType } from "@dc2d/engine";
+import {
+  smoothstep01,
+  TERRAIN,
+  type TerrainType,
+} from "@dc2d/engine";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
-import { isVoidTile } from "../../terrain/shading/heightShade.js";
 import { LIGHT_CURVE_FULL_LEVEL } from "../../terrain/shading/tileLight.js";
 
 export const PLAYER_GROUND_LIGHT_RADIUS = 12;
@@ -30,8 +33,7 @@ export function playerGroundLightStrength(distance: number): number {
 }
 
 export interface PlayerGroundLightWorld {
-  tileAt(wx: number, wy: number): TileType;
-  heightAt(wx: number, wy: number): number;
+  terrainAt(wx: number, wy: number): TerrainType;
   groundAt(x: number, y: number): number;
 }
 
@@ -57,12 +59,11 @@ const ORTHOGONAL: ReadonlyArray<readonly [number, number]> = [
 ];
 
 function isPassableGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
-  const tile = world.tileAt(tileX, tileY);
-  return !SOLID_TILES.has(tile) && !isVoidTile(tile);
+  return world.terrainAt(tileX, tileY) === TERRAIN.Floor;
 }
 
 function isLitGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
-  return world.tileAt(tileX, tileY) === TILE.Floor;
+  return world.terrainAt(tileX, tileY) === TERRAIN.Floor;
 }
 
 interface TileCoordinate { readonly x: number; readonly y: number; }

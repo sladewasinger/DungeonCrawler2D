@@ -3,6 +3,7 @@ import {
   REVIVE_HOLD_TICKS,
   RESPAWN_DELAY_TICKS,
   TILE,
+  featureApproachPosition,
   personalRoomFeatures,
   personalRoomSpawn,
   safeRoomFeatures,
@@ -103,9 +104,10 @@ describe("GameSim: party, portals, crafting, stash", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
     const door = findSafeRoomDoor(sim);
+    const worldDoorApproach = featureApproachPosition(door);
     expect(sim.world.tileAt(door.x, door.y)).toBe(TILE.DoorSafeRoom);
     expect(sim.world.isSanctuary(door.x, door.y + 1)).toBe(false);
-    teleport({ entity: entity, x: door.x + 0.5, y: door.y + 0.5, sim: sim });
+    teleport({ entity, ...worldDoorApproach, sim });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
 
@@ -117,7 +119,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
     const personalDoor = safeF.doors[0]!;
     expect(sim.world.tileAt(safeF.exit.x, safeF.exit.y)).toBe(TILE.DoorExit);
 
-    teleport({ entity: entity, x: personalDoor.x + 0.5, y: personalDoor.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(personalDoor), sim });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
     const spawn = personalRoomSpawn(0); // first client gets slot 0
@@ -125,16 +127,16 @@ describe("GameSim: party, portals, crafting, stash", () => {
     const features = personalRoomFeatures(0);
     expect(sim.world.isSanctuary(Math.floor(entity.body.x), Math.floor(entity.body.y))).toBe(true);
 
-    teleport({ entity: entity, x: features.exit.x + 0.5, y: features.exit.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(features.exit), sim });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
     expect(entity.body.x).toBeCloseTo(personalDoor.x + 0.5, 3);
 
-    teleport({ entity: entity, x: safeF.exit.x + 0.5, y: safeF.exit.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(safeF.exit), sim });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
-    expect(entity.body.x).toBeCloseTo(door.x + 0.5, 3);
-    expect(entity.body.y).toBeCloseTo(door.y + 0.5, 3);
+    expect(entity.body.x).toBeCloseTo(worldDoorApproach.x, 3);
+    expect(entity.body.y).toBeCloseTo(worldDoorApproach.y, 3);
   });
 
   it("the proving ground offers every epic's examples: weapons, hazards, enemies", () => {

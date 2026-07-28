@@ -22,6 +22,15 @@ export const TILE = {
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
+export const FEATURE_FACE = {
+  Top: 0,
+  North: 1,
+  East: 2,
+  South: 3,
+  West: 4,
+} as const;
+export type FeatureFace = (typeof FEATURE_FACE)[keyof typeof FEATURE_FACE];
+
 /** Generator-only uncarved mask value. It is never written to a runtime Chunk. */
 export const TOPOLOGY = { Uncarved: 1 } as const;
 
@@ -38,9 +47,9 @@ export const TERRAIN = {
 export type TerrainType = (typeof TERRAIN)[keyof typeof TERRAIN];
 
 /**
- * Solid feature tiles that block movement outright: furniture and doors. A raised Floor is blocked by the height
- * transition in movement/collision, while Void is an
- * infinite-height boundary.
+ * Occupancy features that block movement outright. Wall-mounted doors do not
+ * occupy their map cell: the underlying raised terrain or VOID shell provides
+ * collision while the feature replaces one visual wall-face segment.
  * Generated void cells are also blocked by World.isWalkable; they are an
  * infinite-height collision boundary even though they render flat in 2D.
  * Projectiles use the same terrain plane and height barriers as movement.
@@ -48,10 +57,6 @@ export type TerrainType = (typeof TERRAIN)[keyof typeof TERRAIN];
 export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.CraftingTable,
   TILE.Stash,
-  TILE.DoorPersonal,
-  TILE.DoorParty,
-  TILE.DoorExit,
-  TILE.DoorSafeRoom,
   TILE.Void,
 ]);
 
@@ -71,10 +76,23 @@ export interface Chunk {
   readonly terrain: Uint8Array;
   /** Feature plane: zero for no feature, otherwise Stairs/door/interactable code. */
   readonly features: Uint8Array;
+  /** FeatureFace per feature cell. */
+  readonly featureFaces: Uint8Array;
+  /** Absolute top elevation for each feature; zero where no feature exists. */
+  readonly featureHeight: Float32Array;
   /** Continuous terrain height per tile. */
   readonly height: Float32Array;
   /** ZoneType per tile (sanctuary etc.). */
   readonly zones: Uint8Array;
+}
+
+/** Runtime feature overlay that leaves the underlying terrain untouched. */
+export interface TileFeatureOverride {
+  readonly x: number;
+  readonly y: number;
+  readonly tile: TileType;
+  readonly featureFace: FeatureFace;
+  readonly featureHeight: number;
 }
 
 /**

@@ -1,5 +1,6 @@
 import {
   TILE,
+  featureApproachPosition,
   personalRoomSpawn,
   safeRoomSpawn,
   type Entity,
@@ -21,7 +22,7 @@ function enterSharedSafeRoom(
 ): void {
   const entity = sim.getPlayerEntity(playerId);
   if (!entity) throw new Error(`missing player ${playerId}`);
-  teleport({ entity: entity, x: entrance.x + 0.5, y: entrance.y + 0.5, sim: sim });
+  teleport({ entity, ...featureApproachPosition(entrance), sim });
   sim.queueAction(playerId, { type: "interact" });
   sim.step();
 }
@@ -63,8 +64,16 @@ describe("personal room isolation", () => {
     expect(aDoor.tile).toBe(TILE.DoorPersonal);
     expect(bDoor.tile).toBe(TILE.DoorPersonal);
 
-    teleport({ entity: playerEntity(sim, a.playerId), x: aDoor.x + 0.5, y: aDoor.y + 0.5, sim: sim });
-    teleport({ entity: playerEntity(sim, b.playerId), x: bDoor.x + 0.5, y: bDoor.y + 0.5, sim: sim });
+    teleport({
+      entity: playerEntity(sim, a.playerId),
+      ...featureApproachPosition(aDoor),
+      sim,
+    });
+    teleport({
+      entity: playerEntity(sim, b.playerId),
+      ...featureApproachPosition(bDoor),
+      sim,
+    });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.queueAction(b.playerId, { type: "interact" });
     const privateSnapshots = sim.step();
@@ -109,7 +118,11 @@ describe("personal room isolation", () => {
     );
     if (!partyDoor) throw new Error("missing shared party-room assignment");
     for (const playerId of [aId, bId]) {
-      teleport({ entity: playerEntity(sim, playerId), x: partyDoor.x + 0.5, y: partyDoor.y + 0.5, sim: sim });
+      teleport({
+        entity: playerEntity(sim, playerId),
+        ...featureApproachPosition(partyDoor),
+        sim,
+      });
       sim.queueAction(playerId, { type: "interact" });
     }
     const sharedParty = sim.step();

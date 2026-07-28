@@ -55,7 +55,8 @@ export function appendTerrainAmbientOcclusion(
 
 function boundarySides(context: TerrainTileContext): BoundarySide[] {
   return VIEW_SIDES.flatMap(({ side, dx, dy }): BoundarySide[] => {
-    if (context.voidTerrain && isVoidNeighbor(context, { x: dx, y: dy })) return [{ side, voidBoundary: true }];
+    if (context.voidTerrain && context.source.voidBoundaryAt?.(context.worldTile.x, context.worldTile.y) !== "flat" &&
+        isVoidNeighbor(context, { x: dx, y: dy })) return [{ side, voidBoundary: true }];
     if (isLowerFloor(context, { x: dx, y: dy })) return [{ side, voidBoundary: false }];
     return [];
   });

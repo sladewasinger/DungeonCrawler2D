@@ -4,7 +4,11 @@ import type { TerrainAtlasDraw, TerrainMeshBatch } from "../batch/atlasBatch.js"
 import type { TerrainAtlasRenderOptions } from "../batch/atlasBatch.js";
 import { depthForOccluder } from "../../entities/presentation/depthSort.js";
 import type { TerrainBatches, TerrainQuadVertices } from "./terrainPlannerModel.js";
-import { TERRAIN_TILESETS, terrainAtlasFrameName } from "../planning/tileset.js";
+import {
+  TERRAIN_TILESETS,
+  terrainAtlasFrameName,
+  type TerrainTileRole,
+} from "../planning/tileset.js";
 
 const ATLAS_UV_INSET_PX = 0.5;
 
@@ -89,12 +93,22 @@ interface SouthFaceSegmentRequest {
 function appendSouthFaceSegment(target: TerrainAtlasDraw[], request: SouthFaceSegmentRequest): void {
   const { quad, atlas, bottom, height, projection } = request;
   const uvCrop = height >= 1 - FACE_TILE_HEIGHT_EPSILON ? undefined : { top: 0, bottom: height };
-  const role = quad.voidWall === true
-    ? "void-wall-face"
-    : quad.stairWall === true ? "stair-wall-face" : "south-face";
+  const role = southFaceRole(quad, bottom + height);
   target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0,
     phase: 2, depth: depthForOccluder(quad.viewTile.y + 1), ...(uvCrop === undefined ? {} : { uvCrop }),
     points: projectQuad(southFaceSegment(quad.vertices, bottom + height, bottom), projection) });
+}
+
+function southFaceRole(
+  quad: TerrainBatches["southFaces"][number],
+  segmentTop: number,
+): TerrainTileRole {
+  if (quad.wallFeature &&
+      Math.abs(quad.wallFeature.topHeight - segmentTop) <= FACE_TILE_HEIGHT_EPSILON) {
+    return quad.wallFeature.feature;
+  }
+  if (quad.voidWall === true) return "void-wall-face";
+  return quad.stairWall === true ? "stair-wall-face" : "south-face";
 }
 
 function southFaceSegment(

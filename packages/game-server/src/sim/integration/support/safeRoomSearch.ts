@@ -1,4 +1,9 @@
-import { CHUNK_SIZE, TILE, isSafeRoomChunk } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  TILE,
+  isSafeRoomChunk,
+  type FeatureFace,
+} from "@dc2d/engine";
 import type { GameSim } from "../../core/index.js";
 
 interface ChunkPosition {
@@ -9,6 +14,7 @@ interface ChunkPosition {
 interface DoorPosition extends ChunkPosition {
   doorCx: number;
   doorCy: number;
+  featureFace: FeatureFace;
 }
 
 const SEARCH_CHUNK_LIMIT = 16;
@@ -17,7 +23,12 @@ export function findSafeRoomDoor(sim: GameSim): DoorPosition {
   const safeRoom = nearbySafeRoomChunks(sim).find((chunk) => scanChunkForDoor(sim, chunk));
   if (!safeRoom) throw new Error("no safe-room door found within the scanned chunk range");
   const door = scanChunkForDoor(sim, safeRoom)!;
-  return { ...door, doorCx: safeRoom.x, doorCy: safeRoom.y };
+  return {
+    ...door,
+    doorCx: safeRoom.x,
+    doorCy: safeRoom.y,
+    featureFace: sim.world.featureFaceAt(door.x, door.y),
+  };
 }
 
 function nearbySafeRoomChunks(sim: GameSim): ChunkPosition[] {

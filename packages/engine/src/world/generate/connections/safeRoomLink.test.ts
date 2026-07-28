@@ -1,14 +1,8 @@
-// The safe-room kiosk's door must stay walkable from its own pad now that the
-// kiosk is a z2 FLOOR terrace (VISUAL_DIRECTION.md's wall vertical-extent
-// rule), not an uncarved generator cell: STEP_UP gates grounded movement onto any raised
-// cell (movement/collision.ts's cornerBlocksMove) with no door exemption, so
-// the door itself must sit at a walkable height relative to its threshold —
-// carveSafeRoomEntrance's fix (fixed.ts). And the pad it fronts must still
-// reach the wider corridor network, exactly as before the kiosk's tile type
-// changed from Wall to Floor (feature-link.ts's connector).
+// The kiosk door is a wall feature over an intact z2 terrace cell. Its front
+// approach must still connect to the wider corridor network.
 import { describe, expect, it } from "vitest";
 import { isSafeRoomChunk } from "../../features/fixed/fixed.js";
-import { CHUNK_SIZE, SOLID_TILES, TILE } from "../../core/types.js";
+import { CHUNK_SIZE, FEATURE_FACE, TILE } from "../../core/types.js";
 import { generateChunk } from "../index.js";
 import {
   reachesNeighborChunk,
@@ -21,7 +15,7 @@ const FLOOR = 1;
 function findSafeRoomDoor(seed: number, cx: number, cy: number): WorldPoint | null {
   const chunk = generateChunk({ worldSeed: seed, floor: FLOOR, cx: cx, cy: cy });
   for (let i = 0; i < chunk.tiles.length; i++) {
-    if (chunk.tiles[i] !== TILE.DoorSafeRoom) continue;
+    if (chunk.features[i] !== TILE.DoorSafeRoom) continue;
     const lx = i % CHUNK_SIZE;
     const ly = (i - lx) / CHUNK_SIZE;
     return { x: cx * CHUNK_SIZE + lx, y: cy * CHUNK_SIZE + ly };
@@ -39,7 +33,7 @@ function coordinateSquare(range: number): Array<{ cx: number; cy: number }> {
 }
 
 describe("safe-room kiosk stays reachable", () => {
-  it("the door sits within STEP_UP of the pad tile just south of it — a real grounded step, not a stranded ledge", () => {
+  it("keeps the wall-mounted door independent from its raised collision terrain", () => {
     const checked = Array.from({ length: 24 }, (_, index) => index + 1)
       .filter((seed) => assertSafeRoomDoor(seed * 7919 + 13)).length;
     expect(checked).toBe(24);
@@ -71,9 +65,10 @@ function assertSafeRoomDoor(worldSeed: number): boolean {
   const chunk = generateChunk({ worldSeed, floor: FLOOR, ...found });
   const doorIndex = localIndex(door, found);
   const southIndex = localIndex({ x: door.x, y: door.y + 1 }, found);
-  const doorTile = chunk.tiles[doorIndex];
-  if (doorTile === undefined) throw new Error(`Missing door tile for seed ${worldSeed}`);
-  expect(SOLID_TILES.has(doorTile)).toBe(true);
+  expect(chunk.tiles[doorIndex]).toBe(TILE.Floor);
+  expect(chunk.features[doorIndex]).toBe(TILE.DoorSafeRoom);
+  expect(chunk.featureFaces[doorIndex]).toBe(FEATURE_FACE.South);
+  expect(chunk.featureHeight[doorIndex]).toBe(1);
   expect(chunk.height[doorIndex]).toBe(2);
   expect(chunk.height[southIndex]).toBe(0);
   return true;

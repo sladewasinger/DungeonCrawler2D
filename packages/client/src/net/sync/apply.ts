@@ -51,7 +51,7 @@ function applySnapshotEvents(
 }
 
 function applyRoomDoors(conn: Connection, snap: ServerSnapshot): void {
-  conn.world?.replaceTileOverrides(snap.roomDoors ?? []);
+  conn.world?.replaceFeatureOverrides(snap.roomDoors ?? []);
   conn.roomDoors = snap.roomDoors ?? [];
 }
 

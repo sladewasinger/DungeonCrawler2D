@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INTERACT_RANGE } from "../../core/constants.js";
 import { findWorldInteractionTarget, resolveWorldInteraction } from "./interactions.js";
-import { TILE, type TileType } from "../core/types.js";
+import { FEATURE_FACE, TILE, type TileType } from "../core/types.js";
 
 const worldWith = (tiles: ReadonlyMap<string, TileType>) => ({
   tileAt: (x: number, y: number) => tiles.get(`${x},${y}`) ?? TILE.Floor,
@@ -26,5 +26,22 @@ describe("world interactions", () => {
     ]));
     expect(findWorldInteractionTarget({ world, x: 0.5 - INTERACT_RANGE, y: 0.5, kind: "stash" })?.x).toBe(0);
     expect(findWorldInteractionTarget({ world, x: 1.5, y: 0.5, kind: "stash" })?.x).toBe(0);
+  });
+
+  it("finds a wall door on the feature plane without replacing its base floor", () => {
+    const world = {
+      tileAt: () => TILE.Floor,
+      featureAt: (x: number, y: number) =>
+        x === 0 && y === 0 ? TILE.DoorSafeRoom : TILE.Floor,
+      featureFaceAt: () => FEATURE_FACE.South,
+    };
+
+    expect(resolveWorldInteraction(world, 0.5, 1.5)).toMatchObject({
+      kind: "door",
+      tile: TILE.DoorSafeRoom,
+      x: 0,
+      y: 0,
+    });
+    expect(resolveWorldInteraction(world, 0.5, -0.5)).toBeNull();
   });
 });

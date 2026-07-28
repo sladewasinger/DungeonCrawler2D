@@ -51,12 +51,19 @@ export class RoomPresentation {
       this.objects = this.create(kind, cx, cy);
     }
     this.positionObjects();
-    this.syncDoorLabels(conn);
+    this.syncDoors(conn);
     this.updateSpeech(conn, nowMs);
   }
 
-  private syncDoorLabels(conn: Connection): void {
-    syncRoomDoorLabels(this.scene, this.doorLabels, conn.roomDoors);
+  private syncDoors(conn: Connection): void {
+    const objects = this.objects;
+    if (!objects) return;
+    syncRoomDoorLabels({
+      scene: this.scene,
+      labels: this.doorLabels,
+      room: objects,
+      doors: conn.roomDoors,
+    });
   }
 
   private create(kind: RoomKind, cx: number, cy: number): RoomObjects {

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
-import { CHUNK_SIZE, TERRAIN, TILE, TOPOLOGY } from "../core/types.js";
+import {
+  CHUNK_SIZE,
+  FEATURE_FACE,
+  TERRAIN,
+  TILE,
+  TOPOLOGY,
+} from "../core/types.js";
 import { generateChunk } from "./index.js";
 import { buildRuntimeChunk, type GeneratedTerrain } from "./runtimeChunk.js";
 
@@ -26,6 +32,9 @@ describe("runtime chunk conversion", () => {
     const chunk = buildRuntimeChunk(4, -2, terrain);
 
     expect(chunk.tiles).toHaveLength(CELL_COUNT);
+    expect(chunk.features).toHaveLength(CELL_COUNT);
+    expect(chunk.featureFaces).toHaveLength(CELL_COUNT);
+    expect(chunk.featureHeight).toHaveLength(CELL_COUNT);
     for (let index = 0; index < CELL_COUNT; index++) {
       const voidCell = terrain.tiles[index] === TOPOLOGY.Uncarved;
       expect(chunk.tiles[index]).toBe(voidCell ? TILE.Void : TILE.Floor);
@@ -66,7 +75,7 @@ describe("runtime chunk conversion", () => {
     }))).toThrow(/VOID source leaked/);
   });
 
-  it("preserves stairs, raised floor, and discrete feature anchors", () => {
+  it("extracts discrete features without replacing their base floor", () => {
     const tiles = new Uint8Array(CELL_COUNT).fill(TILE.Floor);
     const height = new Float32Array(CELL_COUNT).fill(2);
     const stairIndex = 9 * CHUNK_SIZE + 8;
@@ -79,9 +88,33 @@ describe("runtime chunk conversion", () => {
 
     expect(chunk.height[stairIndex]).toBe(0.5);
     expect(chunk.features[stairIndex]).toBe(TILE.Stairs);
-    expect(chunk.tiles[doorIndex]).toBe(TILE.DoorSafeRoom);
+    expect(chunk.tiles[doorIndex]).toBe(TILE.Floor);
     expect(chunk.features[doorIndex]).toBe(TILE.DoorSafeRoom);
+    expect(chunk.featureHeight[doorIndex]).toBe(2);
     expect(chunk.height[doorIndex]).toBe(2);
+  });
+
+  it("preserves an explicitly authored wall-feature elevation", () => {
+    const featureTiles = new Uint8Array(CELL_COUNT);
+    const featureFaces = new Uint8Array(CELL_COUNT);
+    const featureHeight = new Float32Array(CELL_COUNT);
+    const height = new Float32Array(CELL_COUNT).fill(2);
+    featureTiles[7] = TILE.DoorSafeRoom;
+    featureFaces[7] = FEATURE_FACE.South;
+    featureHeight[7] = 1;
+
+    const chunk = buildRuntimeChunk(0, 0, source({
+      featureTiles,
+      featureFaces,
+      featureHeight,
+      height,
+    }));
+
+    expect(chunk.tiles[7]).toBe(TILE.Floor);
+    expect(chunk.features[7]).toBe(TILE.DoorSafeRoom);
+    expect(chunk.featureFaces[7]).toBe(FEATURE_FACE.South);
+    expect(chunk.featureHeight[7]).toBe(1);
+    expect(chunk.height[7]).toBe(2);
   });
 });
 

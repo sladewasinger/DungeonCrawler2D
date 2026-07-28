@@ -83,6 +83,9 @@ function stampFixedFeature(context: FeatureStampContext): void {
   applyFlattenedFeature({
     chunk,
     tiles: context.tiles,
+    featureTiles: context.featureTiles,
+    featureFaces: context.featureFaces,
+    featureHeight: context.featureHeight,
     height: context.height,
   });
   connectFixedFeaturePad({ tiles: context.tiles, corridorCarved: context.corridorCarved, before, rooms: context.rooms });
@@ -171,9 +174,6 @@ function assembleRuntimeChunk(state: GenerationState): Chunk {
     tiles: state.tiles, height: state.height, zones: state.zones,
     voidTerrain: state.worldFeatures.voidTerrain,
   });
-  const runtimeChunk = buildRuntimeChunk(state.cx, state.cy, {
-    ...state,
-    worldFeatures: state.worldFeatures,
-  });
+  const runtimeChunk = buildRuntimeChunk(state.cx, state.cy, state);
   return finalizeRuntimeChunk(runtimeChunk);
 }

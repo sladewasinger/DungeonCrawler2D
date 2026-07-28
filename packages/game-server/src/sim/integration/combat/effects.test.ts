@@ -1,4 +1,4 @@
-import { JUMP_VELOCITY } from "@dc2d/engine";
+import { JUMP_VELOCITY, featureApproachPosition } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { GameSim } from "../../core/index.js";
 import { findFlatFloor, findSafeRoomDoor, makeSim, stepN, teleport } from "../support.js";
@@ -27,7 +27,7 @@ describe("GameSim: standing effects and fall damage", () => {
     expect(snap.self.fx).toContain("on-fire");
 
     const door = findSafeRoomDoor(sim);
-    teleport({ entity: entity, x: door.x + 0.5, y: door.y + 0.5, sim: sim }); // stand on the overworld door tile
+    teleport({ entity, ...featureApproachPosition(door), sim });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step(); // teleports into the shared safe room (sanctuary)
     sim.areas.spawn({ defId: "area-fire", x: Math.floor(entity.body.x), y: Math.floor(entity.body.y), radius: 1 });

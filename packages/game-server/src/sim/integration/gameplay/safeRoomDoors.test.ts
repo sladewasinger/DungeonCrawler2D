@@ -1,4 +1,12 @@
-import { LEVEL, TILE, World, safeRoomFeatures, safeRoomSpawn } from "@dc2d/engine";
+import {
+  LEVEL,
+  TILE,
+  WALL_DOOR_FEATURE_HEIGHT,
+  World,
+  featureApproachPosition,
+  safeRoomFeatures,
+  safeRoomSpawn,
+} from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
 import { GameSim } from "../../core/index.js";
@@ -13,7 +21,7 @@ describe("dynamic safe room doors", () => {
     const player = sim.addPlayer({ name: "A", clientId: "solo-safe-room" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const entrance = findSafeRoomDoor(sim);
-    teleport({ entity: entity, x: entrance.x + 0.5, y: entrance.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(entrance), sim });
     sim.queueAction(player.playerId, { type: "interact" });
     const snapshot = sim.step().get(player.playerId)!;
     const features = safeRoomFeatures(entrance.doorCx, entrance.doorCy);
@@ -21,6 +29,7 @@ describe("dynamic safe room doors", () => {
     expect(snapshot.roomDoors).toEqual([{
       ...features.doors[0],
       tile: TILE.DoorPersonal,
+      featureHeight: WALL_DOOR_FEATURE_HEIGHT,
       ownerId: player.playerId,
       label: "A'S ROOM",
     }]);
@@ -58,10 +67,18 @@ describe("dynamic safe room doors", () => {
     sim.queueAction(b.playerId, { type: "party", op: "accept" });
     const safeSnapshot = sim.step().get(a.playerId)!;
     const partyDoor = safeSnapshot.roomDoors![0]!;
-    teleport({ entity: sim.getPlayerEntity(a.playerId)!, x: partyDoor.x + 0.5, y: partyDoor.y + 0.5, sim: sim });
+    teleport({
+      entity: sim.getPlayerEntity(a.playerId)!,
+      ...featureApproachPosition(partyDoor),
+      sim,
+    });
     sim.queueAction(a.playerId, { type: "interact" });
     sim.step();
-    teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: partyDoor.x + 0.5, y: partyDoor.y + 0.5, sim: sim });
+    teleport({
+      entity: sim.getPlayerEntity(b.playerId)!,
+      ...featureApproachPosition(partyDoor),
+      sim,
+    });
     sim.queueAction(b.playerId, { type: "interact" });
     const partySnapshot = sim.step().get(a.playerId)!;
 
@@ -75,7 +92,7 @@ describe("dynamic safe room doors", () => {
     expect(aDoor).toBeDefined();
     if (!aDoor) throw new Error("missing A's personal-room door");
     const bEntity = sim.getPlayerEntity(b.playerId)!;
-    teleport({ entity: bEntity, x: aDoor.x + 0.5, y: aDoor.y + 0.5, sim: sim });
+    teleport({ entity: bEntity, ...featureApproachPosition(aDoor), sim });
     sim.queueAction(b.playerId, { type: "interact" });
     const rejected = sim.step().get(b.playerId)!;
     expect(rejected.events).toContainEqual({ t: "toast", msg: "That personal room is private" });
@@ -87,7 +104,7 @@ describe("dynamic safe room doors", () => {
     const player = sim.addPlayer({ name: "Ada", clientId: "safe-greeting" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const entrance = findSafeRoomDoor(sim);
-    teleport({ entity: entity, x: entrance.x + 0.5, y: entrance.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(entrance), sim });
     sim.queueAction(player.playerId, { type: "interact" });
     const snapshot = sim.step().get(player.playerId)!;
     const speech = snapshot.events.find((event) => event.t === "npcSpeech");
@@ -111,7 +128,7 @@ describe("dynamic safe room doors", () => {
     }
     const blocked = sim.addPlayer({ name: "Blocked", clientId: "safe-cap-blocked" });
     const entity = sim.getPlayerEntity(blocked.playerId)!;
-    teleport({ entity: entity, x: entrance.x + 0.5, y: entrance.y + 0.5, sim: sim });
+    teleport({ entity, ...featureApproachPosition(entrance), sim });
     sim.queueAction(blocked.playerId, { type: "interact" });
     const snapshot = sim.step().get(blocked.playerId)!;
 

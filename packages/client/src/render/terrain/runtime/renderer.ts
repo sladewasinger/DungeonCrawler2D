@@ -12,12 +12,13 @@ import { TerrainAtlasBatchRenderer } from "../batch/atlasBatch.js";
 import { TERRAIN_KINDS, type TerrainRect, type TerrainSource } from "../planning/terrainPlanner.js";
 import { appendVisibleChunkPlans, emptyTerrainBatches, TerrainChunkPlanCache } from "../planning/chunkCache.js";
 import { syncTerrainProps } from "./props.js";
-import { terrainFeatureForTile, terrainPropForTile } from "../planning/tileFeatures.js";
+import { terrainFeatureAt, terrainPropForTile } from "../planning/tileFeatures.js";
 import type { TerrainRoot } from "./root.js";
 import type { TerrainWorld } from "./world.js";
 import {
   materialsFor, screenProjection, worldBiomeAt, worldBoundsForView, TERRAIN_DEPTH,
 } from "./renderSupport.js";
+import { roomVoidBoundaryStyle } from "./roomTerrainPolicy.js";
 export interface TerrainRendererLike {
   update(view: ViewRect): void;
   setDynamicLights(lights: readonly DynamicLightSeed[]): void;
@@ -41,8 +42,11 @@ export class TerrainRenderer {
       voidTerrain: this.world.features.voidTerrain,
       terrainAt: (x, y) => this.world.terrainAt(x, y) === WORLD_TERRAIN.Void ? TERRAIN_KINDS.Void : TERRAIN_KINDS.Floor,
       heightAt: (x, y) => this.world.heightAt(x, y),
-      featureAt: (x, y) => terrainFeatureForTile(this.world.tileAt(x, y)),
-      propAt: (x, y) => terrainPropForTile(this.world.tileAt(x, y)),
+      featureFaceAt: (x, y) => this.world.featureFaceAt(x, y),
+      featureHeightAt: (x, y) => this.world.featureHeightAt(x, y),
+      voidBoundaryAt: (_x, y) => roomVoidBoundaryStyle(y),
+      featureAt: (x, y) => terrainFeatureAt(this.world, x, y),
+      propAt: (x, y) => terrainPropForTile(this.world.featureAt(x, y)),
     };
     this.ensureRoot(getViewOrientation());
   }

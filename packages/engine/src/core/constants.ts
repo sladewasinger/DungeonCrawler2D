@@ -10,7 +10,7 @@
 // still takes the same beats, it just travels half as many world-units high because
 // those units are now worth twice as much.
 
-export const PROTOCOL_VERSION = 23;
+export const PROTOCOL_VERSION = 24;
 export const TICK_RATE = 20;
 export const TICK_DT = 1 / TICK_RATE;
 export const PROJECTED_INPUT_MAX_PAST_TICKS = 64;
@@ -115,6 +115,8 @@ export const THROW_SPEED = 10;
 export const MAX_THROW_RANGE = 8;
 export const PICKUP_RANGE = 1.5;
 export const INTERACT_RANGE = 1.6;
+/** Top elevation of a one-tile door replacing the lowest wall-face segment. */
+export const WALL_DOOR_FEATURE_HEIGHT = 1;
 export const HOTBAR_SLOTS = 9;
 export const ENEMY_ACTIVE_RADIUS = 48;
 

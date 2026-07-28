@@ -1,4 +1,13 @@
-import { CHASM_DEATH_Z, TILE, createBody, makeEntity, newBrain, newEntityId, type BodyState, type Entity } from "@dc2d/engine";
+import {
+  CHASM_DEATH_Z,
+  TERRAIN,
+  createBody,
+  makeEntity,
+  newBrain,
+  newEntityId,
+  type BodyState,
+  type Entity,
+} from "@dc2d/engine";
 import { scaledEnemyDef } from "../floors/scaling.js";
 import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
 import {
@@ -11,13 +20,17 @@ import type { EnemySlot, PlayerSlot, SimState } from "../state/state.js";
 /** Small queries and spawners shared across the sim modules. */
 
 /**
- * A grounded body whose tile is explicitly void is standing in a void — with
+ * A grounded body whose base terrain is explicitly void is standing in a void — with
  * the old negative-z check retained for legacy/teleported bodies. Used by
  * players.ts and enemies/ai.ts so the death ruling cannot drift.
  */
-export function isBodyInChasm(world: { tileAt(x: number, y: number): number }, body: BodyState): boolean {
+export function isBodyInChasm(
+  world: { terrainAt(x: number, y: number): number },
+  body: BodyState,
+): boolean {
   return body.grounded && (
-    world.tileAt(Math.floor(body.x), Math.floor(body.y)) === TILE.Void || body.z <= CHASM_DEATH_Z
+    world.terrainAt(Math.floor(body.x), Math.floor(body.y)) === TERRAIN.Void ||
+    body.z <= CHASM_DEATH_Z
   );
 }
 

@@ -23,7 +23,10 @@ export function appendFeatureDraws(target: TerrainAtlasDraw[], quads: TerrainBat
 
 function appendFeatureDraw(target: TerrainAtlasDraw[], quad: TerrainBatches["features"][number], options: TerrainAtlasRenderOptions): void {
   const atlas = options.debug ? TERRAIN_TILESETS.debug : TERRAIN_TILESETS[options.biomeAt(quad.worldTile)];
-  target.push({ atlas, frame: terrainAtlasFrameName(atlas, quad.feature, 0), role: quad.feature, variant: 0, phase: 1, depth: depthForCapOccluder(quad.viewTile.y), points: projectQuad(quad.vertices, options.projection) });
+  const depth = quad.wallMounted === true
+    ? depthForOccluder(quad.viewTile.y) + 0.1
+    : depthForCapOccluder(quad.viewTile.y);
+  target.push({ atlas, frame: terrainAtlasFrameName(atlas, quad.feature, 0), role: quad.feature, variant: 0, phase: 1, depth, points: projectQuad(quad.vertices, options.projection) });
 }
 
 function drawDepth(role: TerrainTileRole, phase: TerrainAtlasPhase, viewY: number): number {

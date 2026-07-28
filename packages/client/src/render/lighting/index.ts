@@ -9,9 +9,17 @@ import { viewChunkWorldOrigin } from "./core/viewChunkOrigin.js";
 import { chunkKey, chunkWindowKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming/streaming.js";
 import { getViewOrientation } from "../view/transform/viewState.js";
 import { viewToWorld } from "../view/transform/viewTransform.js";
-import { doorLightPositions } from "./torches/doorLights.js";
+import {
+  doorLightPositions,
+  type DoorLightMount,
+} from "./torches/doorLights.js";
 import { collectTorchLights, selectFrameLights } from "./torches/frameLights.js";
 import { hashSeed, type LightSource } from "./core/lightSource.js";
+import {
+  createLightStreamState,
+  invalidateLightStream,
+  refreshLightStreamRevision,
+} from "./core/lightStreamState.js";
 import { LightSpritePool } from "./core/pool.js";
 import { PlayerGroundLightPass } from "./ground/playerGroundLightPass.js";
 import { playerGroundLightEnabledForProfile } from "./ground/playerGroundLight.js";
@@ -38,7 +46,7 @@ export class LightingSystem {
   private readonly groundLight: PlayerGroundLightPass;
   private personalHaloEnabled = true;
   private readonly chunkLights = new Map<string, LightSource[]>();
-  private streamedWindow = "";
+  private readonly stream = createLightStreamState();
   private accentLights: readonly LightSource[] = [];
   private readonly candidateLights: LightSource[] = [];
   private readonly frameLights: LightSource[] = [];
@@ -111,18 +119,18 @@ export class LightingSystem {
    * instant since scanChunk's chunk footprint is also computed via the seam's
    * orientation-dependent viewChunkWorldOrigin. */
   invalidateAll(): void {
-    this.chunkLights.clear();
-    this.streamedWindow = "";
+    invalidateLightStream(this.stream, this.chunkLights);
   }
 
   private streamChunks(view: ViewRect): void {
+    refreshLightStreamRevision(this.stream, this.chunkLights, this.world.tileRevision);
     const window = chunkWindowKey(view, LOAD_MARGIN_CHUNKS);
-    if (window === this.streamedWindow) return;
+    if (window === this.stream.window) return;
     const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
     const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.chunkLights.keys()));
     for (const coord of toLoad) this.chunkLights.set(chunkKey(coord), this.scanChunk(coord));
     for (const key of toUnloadKeys) this.chunkLights.delete(key);
-    this.streamedWindow = window;
+    this.stream.window = window;
   }
 
   private scanChunk(coord: ChunkCoord): LightSource[] {
@@ -149,10 +157,18 @@ export class LightingSystem {
     return { id, x: p.wx + 0.5, y: p.wy + 1.1, color: TORCH_COLOR, radiusTiles: TORCH_RADIUS_TILES, kind: "torch", seed: hashSeed(id), groundHeight };
   }
 
-  private doorLight(p: TilePos): LightSource {
+  private doorLight(p: DoorLightMount): LightSource {
     const id = `door:${p.wx},${p.wy}`;
-    const groundHeight = this.world.groundAt(p.wx + 0.5, p.wy + 0.5);
-    return { id, x: p.wx + 0.5, y: p.wy + 0.5, color: PORTAL_COLOR, radiusTiles: PORTAL_RADIUS_TILES, kind: "portal", seed: hashSeed(id), groundHeight };
+    return {
+      id,
+      x: p.x,
+      y: p.y,
+      color: PORTAL_COLOR,
+      radiusTiles: PORTAL_RADIUS_TILES,
+      kind: "portal",
+      seed: hashSeed(id),
+      groundHeight: p.projectionHeight,
+    };
   }
 
   private updatePersonalLight(personal: Readonly<{ x: number; y: number }>): void {

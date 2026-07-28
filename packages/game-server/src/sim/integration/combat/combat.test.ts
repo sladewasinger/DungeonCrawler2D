@@ -2,6 +2,7 @@ import {
   FIST_DAMAGE,
   PARTY_FRIENDLY_FIRE_SCALE,
   PLAYER_MAX_HP,
+  featureApproachPosition,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -160,7 +161,7 @@ describe("GameSim: combat", () => {
     const aEntity = sim.getPlayerEntity(a.playerId)!;
     const bEntity = sim.getPlayerEntity(b.playerId)!;
     const door = findSafeRoomDoor(sim);
-    teleport({ entity: aEntity, x: door.x + 0.5, y: door.y + 0.5, sim: sim });
+    teleport({ entity: aEntity, ...featureApproachPosition(door), sim });
     sim.queueAction(a.playerId, { type: "interact" }); // steps into the shared safe room
     sim.step();
     teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
