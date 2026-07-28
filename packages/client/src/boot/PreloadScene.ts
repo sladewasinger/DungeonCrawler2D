@@ -5,9 +5,11 @@ import { registerAnimations, type AnimationManifest } from "./registerAnimations
 import { waitForPixelFontReady } from "../ui/foundation/font.js";
 import { setViewOrientation } from "../render/view/transform/viewState.js";
 import { PET_ASSETS } from "./petAssetManifest.js";
+import { testbenchSceneKey } from "../scenes/testbench/testbenchRegistry.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
+const TESTBENCH_PARAM = "testbench";
 /** Dev-only startup ViewOrientation override (e.g. `?vo=90`) — useful for gallery
  * captures and renderer regression checks. The dungeon scene also changes this state
  * live through its prewarmed Q/X rotation controller. */
@@ -61,7 +63,10 @@ export class PreloadScene extends Phaser.Scene {
     const params = new URLSearchParams(window.location.search);
     const vo = params.get(VIEW_ORIENTATION_PARAM);
     if (vo !== null) setViewOrientation(Number(vo));
-    this.startRequestedScene(params.get(SCENE_PARAM));
+    this.startRequestedScene({
+      requestedScene: params.get(SCENE_PARAM),
+      requestedTestbench: params.get(TESTBENCH_PARAM),
+    });
   }
 
   private shouldWaitForFont(timedOut: boolean): boolean {
@@ -75,13 +80,23 @@ export class PreloadScene extends Phaser.Scene {
     console.warn(`[boot] pixel font not ready after ${FONT_READY_TIMEOUT_MS}ms — proceeding with the system font fallback`);
   }
 
-  private startRequestedScene(requested: string | null): void {
-    if (requested === EDITOR_SCENE_KEY) {
+  private startRequestedScene({ requestedScene, requestedTestbench }: SceneRequest): void {
+    const testbench = testbenchSceneKey(requestedTestbench);
+    if (testbench) {
+      this.scene.start(testbench);
+      return;
+    }
+    if (requestedScene === EDITOR_SCENE_KEY) {
       this.scene.start(EDITOR_SCENE_KEY);
       return;
     }
     this.scene.start("title");
   }
+}
+
+interface SceneRequest {
+  readonly requestedScene: string | null;
+  readonly requestedTestbench: string | null;
 }
 
 function registerPetAnimations(anims: Phaser.Animations.AnimationManager): void {

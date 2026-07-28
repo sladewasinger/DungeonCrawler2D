@@ -39,6 +39,7 @@ vi.mock("../scenes/editor/index.js", () => ({
 vi.mock("../scenes/HudScene.js", () => ({ HudScene: class {} }));
 vi.mock("../scenes/title/index.js", () => ({ TitleScene: class {} }));
 vi.mock("../scenes/title/connectForm.js", () => ({ loadStoredName: () => "Wren" }));
+vi.mock("../scenes/testbench/characterVfxTestbench.js", () => ({ CharacterVfxTestbench: class {} }));
 vi.mock("./mobileFullscreen.js", () => ({ installPhaserFullscreenRetry: harness.retry }));
 
 describe("startPhaserRoute", () => {

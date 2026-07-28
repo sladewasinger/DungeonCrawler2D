@@ -12,6 +12,7 @@ import { EditorScene, setUpEditorLayout } from "../scenes/editor/index.js";
 import { HudScene } from "../scenes/HudScene.js";
 import { TitleScene } from "../scenes/title/index.js";
 import { loadStoredName } from "../scenes/title/connectForm.js";
+import { CharacterVfxTestbench } from "../scenes/testbench/characterVfxTestbench.js";
 import { installPhaserFullscreenRetry } from "./mobileFullscreen.js";
 
 export function startPhaserRoute(search: URLSearchParams): void {
@@ -48,7 +49,7 @@ function startGame(search: URLSearchParams): void {
     pixelArt: true,
     scale: { mode: Phaser.Scale.RESIZE },
     input: { activePointers: 3, touch: true },
-    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), HudScene],
+    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), new CharacterVfxTestbench(), HudScene],
   });
   installPhaserFullscreenRetry(game.canvas);
   if (!import.meta.env.DEV || search.get("debug") !== "1") return;

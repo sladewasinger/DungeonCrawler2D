@@ -19,15 +19,14 @@ describe("wall height: interior fill vs rim", () => {
     expect(WALL_RISE).toBeLessThan(apex);
   });
 
-  it("converts fully-enclosed Wall cells into heightless Void", () => {
+  it("a fully-enclosed Wall cell (all 8 neighbors Wall) rises INTERIOR_WALL_RISE", () => {
     // No Floor cells at all: every Wall cell not on the grid's own edge
     // (which this helper treats as an implicit boundary, not open ground)
     // is fully enclosed.
     const { tiles, height } = grid([]);
     applyWallHeight(tiles, height, SIZE);
     const center = 2 * SIZE + 2; // (2,2), interior of the 5x5 grid
-    expect(tiles[center]).toBe(TILE.Void);
-    expect(height[center]).toBe(0);
+    expect(height[center]).toBeCloseTo(INTERIOR_WALL_RISE, 5);
   });
 
   it("a rim Wall cell (at least one open neighbor) rises only WALL_RISE", () => {
@@ -36,8 +35,7 @@ describe("wall height: interior fill vs rim", () => {
     const rim = 1 * SIZE + 2; // (2,1), directly north of the opening
     const stillInterior = 0 * SIZE + 0; // (0,0), corner, far from the opening
     expect(height[rim]).toBeCloseTo(WALL_RISE, 5);
-    expect(tiles[stillInterior]).toBe(TILE.Void);
-    expect(height[stillInterior]).toBe(0);
+    expect(height[stillInterior]).toBeCloseTo(INTERIOR_WALL_RISE, 5);
   });
 
   it("stacks on top of a pre-existing base height (a raised room's wall ring)", () => {
@@ -52,8 +50,7 @@ describe("wall height: interior fill vs rim", () => {
     const { tiles, height } = grid([]);
     applyWallHeight(tiles, height, SIZE);
     const edge = 0 * SIZE + 2; // (2,0), on the grid's own edge, all real neighbors Wall
-    expect(tiles[edge]).toBe(TILE.Void);
-    expect(height[edge]).toBe(0);
+    expect(height[edge]).toBeCloseTo(INTERIOR_WALL_RISE, 5);
   });
 
   it("caps an isolated void tower one level above its highest adjacent tile", () => {
