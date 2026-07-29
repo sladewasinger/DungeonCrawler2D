@@ -8,6 +8,12 @@ import {
   SPAWN_INTERCOM_ID,
   stepSpawnRoomAnnouncements,
 } from "./announcements.js";
+import {
+  SPAWN_ROOM_ANNOUNCEMENT_CONFIG,
+  announcementDurationMs,
+  announcementIntervalTicks,
+  initialAnnouncementDelayTicks,
+} from "./spawnRoomAnnouncementConfig.js";
 
 describe("spawn room intercom", () => {
   it("rotates announcements and personalizes its crawler callout", () => {
@@ -34,5 +40,15 @@ describe("spawn room intercom", () => {
 
     expect(speeches[0]).toBe("GET OUT THERE AND DO SOME DAMAGE!!!");
     expect(speeches[1]).toContain("CRAWLER AUSTIN");
+  });
+
+  it("derives timing from the editable announcement configuration", () => {
+    const { timing } = SPAWN_ROOM_ANNOUNCEMENT_CONFIG;
+    expect(announcementDurationMs())
+      .toBe(timing.displayDurationSeconds * 1_000);
+    expect(initialAnnouncementDelayTicks()).toBeGreaterThan(0);
+    expect(announcementIntervalTicks(0))
+      .toBeLessThan(announcementIntervalTicks(1));
+    expect(SPAWN_ROOM_ANNOUNCEMENT_CONFIG.messages).not.toHaveLength(0);
   });
 });

@@ -10,10 +10,15 @@ import {
   playerGroundLightFadeAlpha,
   type PlayerGroundLightCell,
 } from "./playerGroundLight.js";
+import {
+  LIGHTING_VISUAL_STYLE,
+  lightingColor,
+} from "../lightingVisualStyle.js";
 
-const LIGHT_ALPHA = 0.2;
-const LIGHT_COLOR = 0xffe9c9;
-const FLOOR_LAYER_BIAS = 0.01;
+const GROUND_LIGHT = LIGHTING_VISUAL_STYLE.ground;
+const LIGHT_ALPHA = GROUND_LIGHT.alpha;
+const LIGHT_COLOR = lightingColor(GROUND_LIGHT.color);
+const FLOOR_LAYER_BIAS = GROUND_LIGHT.floorLayerBias;
 export const PLAYER_GROUND_LIGHT_MAX_POOL_TILES = PLAYER_GROUND_LIGHT_MAX_CELLS * 2;
 
 export interface PlayerGroundLightTile { setActive(active: boolean): this; setVisible(visible: boolean): this; setPosition(x: number, y: number): this; setDepth(depth: number): this; setAlpha(alpha: number): this; destroy(): void; }

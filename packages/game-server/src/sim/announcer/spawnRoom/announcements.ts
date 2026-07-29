@@ -1,25 +1,22 @@
 import {
   CHUNK_SIZE,
-  TICK_RATE,
   roomKindAt,
   spawnRoomSpeakerPosition,
 } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../../state/state.js";
+import {
+  SPAWN_ROOM_ANNOUNCEMENT_CONFIG,
+  announcementDurationMs,
+  announcementIntervalTicks,
+  configuredSpawnAnnouncement,
+  initialAnnouncementDelayTicks,
+} from "./spawnRoomAnnouncementConfig.js";
 
-export const SPAWN_INTERCOM_ID = "spawn-room-intercom";
-export const SPAWN_INTERCOM_NAME = "Spawn Room Intercom";
-export const SPAWN_ANNOUNCEMENT_MS = 4_000;
-const MIN_PAUSE_TICKS = 6 * TICK_RATE;
-const RANDOM_PAUSE_TICKS = 5 * TICK_RATE;
-const INITIAL_DELAY_TICKS = 2 * TICK_RATE;
-
-const ANNOUNCEMENTS: ReadonlyArray<(name: string) => string> = [
-  () => "GET OUT THERE AND DO SOME DAMAGE!!!",
-  (name) => `WHY ARE YOU STILL HERE, CRAWLER ${name.toUpperCase()}?!`,
-  () => "THE ONLY WAY BACK IN IS THROUGH THE GRAVE.",
-  () => "THIS IS A SPAWN ROOM, NOT A RETIREMENT HOME!",
-  () => "THE DUNGEON ISN'T GOING TO BLEED ITSELF!",
-];
+export const SPAWN_INTERCOM_ID =
+  SPAWN_ROOM_ANNOUNCEMENT_CONFIG.speaker.id;
+export const SPAWN_INTERCOM_NAME =
+  SPAWN_ROOM_ANNOUNCEMENT_CONFIG.speaker.name;
+export const SPAWN_ANNOUNCEMENT_MS = announcementDurationMs();
 
 interface SpawnAnnouncementState {
   lineIndex: number;
@@ -32,8 +29,7 @@ export function spawnRoomAnnouncement(
   lineIndex: number,
   playerName: string,
 ): string {
-  const line = ANNOUNCEMENTS[lineIndex % ANNOUNCEMENTS.length];
-  return (line ?? ANNOUNCEMENTS[0]!)(playerName);
+  return configuredSpawnAnnouncement(lineIndex, playerName);
 }
 
 export function stepSpawnRoomAnnouncements(sim: SimState): void {
@@ -44,7 +40,7 @@ export function stepSpawnRoomAnnouncements(sim: SimState): void {
   }
   const state = states.get(sim) ?? {
     lineIndex: 0,
-    nextAtTick: sim.tickCount + INITIAL_DELAY_TICKS,
+    nextAtTick: sim.tickCount + initialAnnouncementDelayTicks(),
   };
   states.set(sim, state);
   if (sim.tickCount < state.nextAtTick) return;
@@ -84,7 +80,8 @@ function scheduleNextAnnouncement(
   sim: SimState,
   state: SpawnAnnouncementState,
 ): void {
-  const randomDelay = Math.floor(sim.rng.next() * RANDOM_PAUSE_TICKS);
-  state.lineIndex = (state.lineIndex + 1) % ANNOUNCEMENTS.length;
-  state.nextAtTick = sim.tickCount + MIN_PAUSE_TICKS + randomDelay;
+  const messageCount = SPAWN_ROOM_ANNOUNCEMENT_CONFIG.messages.length;
+  state.lineIndex = (state.lineIndex + 1) % messageCount;
+  state.nextAtTick = sim.tickCount +
+    announcementIntervalTicks(sim.rng.next());
 }

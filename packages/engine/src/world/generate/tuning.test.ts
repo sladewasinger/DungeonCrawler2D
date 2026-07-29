@@ -36,5 +36,13 @@ describe("world generation tuning", () => {
       .toBeLessThanOrEqual(TUNING.bossArena.radius);
     expect(TUNING.descentStructure.backWallDepth)
       .toBeLessThanOrEqual(TUNING.descentStructure.backReach);
+    expect(TUNING.heightFeatures.pitThreshold)
+      .toBeLessThan(TUNING.heightFeatures.daisThreshold);
+    expect(TUNING.heightFeatures.daisThreshold)
+      .toBeLessThan(TUNING.heightFeatures.variantRollSize);
+    expect(TUNING.heightFeatures.chasmThreshold)
+      .toBeLessThanOrEqual(TUNING.heightFeatures.pitThreshold);
+    expect(TUNING.population.lootChunkFrequency).toBeGreaterThan(0);
+    expect(TUNING.population.lootSpotsPerChunk).toBeGreaterThan(0);
   });
 });

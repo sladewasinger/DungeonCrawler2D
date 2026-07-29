@@ -10,12 +10,17 @@ import {
   SOUTH_EXIT_HALL_DEPTH,
 } from "./roomExitGeometry.js";
 import type { WallFeatureFace } from "./roomDoorPlacements.js";
+import { ROOM_TUNING } from "./roomConfiguration/roomTuning.js";
 
-const SPAWN_ROOM_SLOT_COUNT = 21;
-const SPAWN_ROOM_COLUMNS = 7;
+const SPAWN_ROOM_SLOT_COUNT = ROOM_TUNING.spawn.slotCount;
+const SPAWN_ROOM_COLUMNS = ROOM_TUNING.spawn.columns;
+const SPAWN_SLOT_SPACING = ROOM_TUNING.spawn.slotSpacingTiles;
 
 /** Shared entry room, isolated one AOI stride west of private room slots. */
-export const SPAWN_ROOM_CHUNK = { cx: -2, cy: ROOM_REGION_CY } as const;
+export const SPAWN_ROOM_CHUNK = {
+  cx: ROOM_TUNING.spawn.chunkX,
+  cy: ROOM_REGION_CY,
+} as const;
 
 export function spawnRoomChunk(): { cx: number; cy: number } {
   return { ...SPAWN_ROOM_CHUNK };
@@ -32,9 +37,12 @@ export function spawnRoomSpawn(slot = 0): { x: number; y: number } {
   const normalized = Math.abs(Math.trunc(slot)) % SPAWN_ROOM_SLOT_COUNT;
   const column = normalized % SPAWN_ROOM_COLUMNS;
   const row = Math.floor(normalized / SPAWN_ROOM_COLUMNS);
+  const centerColumn = Math.floor(SPAWN_ROOM_COLUMNS / 2);
+  const rowCount = Math.ceil(SPAWN_ROOM_SLOT_COUNT / SPAWN_ROOM_COLUMNS);
+  const centerRow = Math.floor(rowCount / 2);
   return {
-    x: center.x + (column - 3) * 2 + 0.5,
-    y: center.y + (row - 1) * 2 + 0.5,
+    x: center.x + (column - centerColumn) * SPAWN_SLOT_SPACING + 0.5,
+    y: center.y + (row - centerRow) * SPAWN_SLOT_SPACING + 0.5,
   };
 }
 

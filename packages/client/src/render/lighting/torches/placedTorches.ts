@@ -7,6 +7,7 @@ import { hashSeed, type LightSource } from "../core/lightSource.js";
 import { TORCH_COLOR, TORCH_FLIGHT_RADIUS_TILES, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 import type { TilePos } from "./torchPlacement.js";
 import { LIGHT_MAX, type DynamicLightSeed } from "../../terrain/shading/tileLight.js";
+import { LIGHTING_VISUAL_STYLE } from "../lightingVisualStyle.js";
 
 export interface PlacedTorch {
   readonly id: string;
@@ -18,11 +19,12 @@ export interface PlacedTorch {
 
 /** Seconds before burnout the fading-ember tell begins (docs/ROADMAP.md Epic 7.8's
  * deferred bullet, closed in Epic 7.12). */
-export const EMBER_FADE_SECONDS = 15;
+export const EMBER_FADE_SECONDS =
+  LIGHTING_VISUAL_STYLE.torch.emberFadeSeconds;
 /** Halo strength floor as burnout approaches — never fully dark before the actual
  * expiry event does that job (the pickup/burnout rebake-out), so the last visible
  * frames still read as "a dying torch", not "nothing here". */
-const EMBER_FADE_FLOOR = 0.35;
+const EMBER_FADE_FLOOR = LIGHTING_VISUAL_STYLE.torch.emberFadeFloor;
 
 /**
  * 1 while a placed torch has more than EMBER_FADE_SECONDS of burn time left, ramping

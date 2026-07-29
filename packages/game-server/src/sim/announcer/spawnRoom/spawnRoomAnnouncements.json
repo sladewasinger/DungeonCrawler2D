@@ -1,0 +1,19 @@
+{
+  "speaker": {
+    "id": "spawn-room-intercom",
+    "name": "Spawn Room Intercom"
+  },
+  "timing": {
+    "initialDelaySeconds": 2,
+    "displayDurationSeconds": 4,
+    "pauseBetweenMessagesSeconds": 2,
+    "randomAdditionalPauseSeconds": 5
+  },
+  "messages": [
+    "GET OUT THERE AND DO SOME DAMAGE!!!",
+    "WHY ARE YOU STILL HERE, CRAWLER {name}?!",
+    "THE ONLY WAY BACK IN IS THROUGH THE GRAVE.",
+    "THIS IS A SPAWN ROOM, NOT A RETIREMENT HOME!",
+    "THE DUNGEON ISN'T GOING TO BLEED ITSELF!"
+  ]
+}

@@ -9,11 +9,13 @@
 
 import { WALL_RISE } from "../../../core/constants.js";
 import { TOPOLOGY } from "../../core/types.js";
+import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
 // Apex is ~1.07 (JUMP_VELOCITY^2 / 2*GRAVITY) — see walls.test.ts's own
 // computation. 2 clears it with margin without inventing a new constant
 // this file would have to keep in sync with the physics tuning.
-export const INTERIOR_WALL_RISE = 2;
+export const INTERIOR_WALL_RISE =
+  WORLD_GENERATION_TUNING.heightFeatures.interiorWallRise;
 const ADJACENT_OFFSETS = [
   [-1, -1], [0, -1], [1, -1], [-1, 0],
   [1, 0], [-1, 1], [0, 1], [1, 1],

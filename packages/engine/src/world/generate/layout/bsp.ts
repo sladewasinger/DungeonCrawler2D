@@ -9,8 +9,9 @@
 import { rectHash } from "./hash.js";
 import { rectH, rectW } from "./geometry.js";
 import { DISTRICT, type DistrictKind } from "./district.js";
-import type { Flavor, Rect, Room } from "../types.js";
+import type { Rect, Room } from "../types.js";
 import { WORLD_GENERATION_TUNING } from "../tuning.js";
+import { pickRoomFlavor } from "./roomFlavor.js";
 
 const ROOM_LAYOUT = WORLD_GENERATION_TUNING.roomLayout;
 
@@ -99,7 +100,7 @@ function makeRoom(seed: number, leaf: Rect, district: DistrictKind): Room {
     x1: leaf.x1 - insetX,
     y1: leaf.y1 - insetY,
   };
-  return { rect, flavor: pickFlavor(seed, rect, district) };
+  return { rect, flavor: pickRoomFlavor(seed, rect, district) };
 }
 
 function maximumRoomInset(leafSpan: number): number {
@@ -109,68 +110,4 @@ function maximumRoomInset(leafSpan: number): number {
 function randomRoomInset(seed: number, leaf: Rect, salt: number): number {
   const { min, max } = ROOM_LAYOUT.roomInset;
   return min + rectHash(seed, leaf, salt) % (max - min + 1);
-}
-
-interface DistrictBias {
-  kind: DistrictKind;
-  threshold: number;
-  flavor: Flavor;
-  minArea?: number;
-}
-
-/** Each district's signature flavor and how strongly the roll favors it. */
-const DISTRICT_BIASES: readonly DistrictBias[] = [
-  { kind: DISTRICT.PillarForest, threshold: 65, flavor: "pillarHall" },
-  { kind: DISTRICT.Ruins, threshold: 50, flavor: "grotto" },
-  { kind: DISTRICT.Plaza, threshold: 55, flavor: "plaza", minArea: 50 },
-  { kind: DISTRICT.Flooded, threshold: 60, flavor: "grotto" },
-  { kind: DISTRICT.Arena, threshold: 70, flavor: "plaza", minArea: 50 },
-];
-
-function districtBiasedFlavor(district: DistrictKind, area: number, roll: number): Flavor | null {
-  for (const bias of DISTRICT_BIASES) {
-    if (matchesDistrictBias(bias, { district, area, roll })) return bias.flavor;
-  }
-  return null;
-}
-
-interface FlavorRoll {
-  district: DistrictKind;
-  area: number;
-  roll: number;
-}
-
-function matchesDistrictBias(
-  bias: DistrictBias,
-  { district, area, roll }: FlavorRoll,
-): boolean {
-  return bias.kind === district && (bias.minArea === undefined || area >= bias.minArea) && roll < bias.threshold;
-}
-
-/** The generic, district-agnostic roll every leaf falls back to. */
-function areaBiasedFlavor(area: number, roll: number): Flavor {
-  if (matchesAreaFlavor({ area, roll, minimumArea: 90, threshold: 20 })) return "pillarHall";
-  if (matchesAreaFlavor({ area, roll, minimumArea: 60, threshold: 40 })) return "plaza";
-  if (matchesAreaFlavor({ area, roll, minimumArea: 70, threshold: 55 })) return "grotto";
-  return "chamber";
-}
-
-function matchesAreaFlavor(input: {
-  area: number;
-  roll: number;
-  minimumArea: number;
-  threshold: number;
-}): boolean {
-  return input.area >= input.minimumArea && input.roll < input.threshold;
-}
-
-/** District bends the flavor roll toward its signature room family; galleries (aspect) always win first. */
-function pickFlavor(seed: number, rect: Rect, district: DistrictKind): Flavor {
-  const w = rectW(rect);
-  const h = rectH(rect);
-  const area = w * h;
-  const aspect = Math.max(w, h) / Math.max(1, Math.min(w, h));
-  if (aspect >= 2.1) return "gallery";
-  const roll = rectHash(seed, rect, 0x4a01) % 100;
-  return districtBiasedFlavor(district, area, roll) ?? areaBiasedFlavor(area, roll);
 }

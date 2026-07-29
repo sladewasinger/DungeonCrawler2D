@@ -5,6 +5,7 @@ import { partitionChunk } from "./layout/bsp.js";
 import { districtAt } from "./layout/district.js";
 import { chunkSeed, layoutSeed } from "./layout/hash.js";
 import { placementSeed } from "./layout/placement.js";
+import { WORLD_GENERATION_TUNING } from "./tuning.js";
 
 export interface PopulationRoom {
   readonly x0: number;
@@ -59,8 +60,7 @@ export function populationAnchorForChunk(chunk: PopulationChunk): { x: number; y
   return roomCenter(largest);
 }
 
-const LOOT_CHUNK_FREQUENCY = 4;
-const LOOT_SPOTS_PER_CHUNK = 3;
+const POPULATION = WORLD_GENERATION_TUNING.population;
 
 function isProvingGround({ cx, cy }: PopulationChunk): boolean {
   return cx >= 0 && cx <= 1 && cy >= 0 && cy <= 1;
@@ -71,7 +71,8 @@ function hasRoomLoot(chunk: PopulationChunk): boolean {
     return false;
   }
   const seed = mixSeeds(placementSeed(chunk.worldSeed, chunk.floor), 0x9e5a);
-  return hash2D(seed, chunk.cx, chunk.cy) % LOOT_CHUNK_FREQUENCY === 0;
+  return hash2D(seed, chunk.cx, chunk.cy) %
+    POPULATION.lootChunkFrequency === 0;
 }
 
 /** Up to three deterministic room-center loot candidates in eligible chunks. */
@@ -80,7 +81,7 @@ export function roomLootSpotsForChunk(chunk: PopulationChunk): Array<{ x: number
   return populationRoomsForChunk(chunk)
     .slice()
     .sort((a, b) => b.area - a.area)
-    .slice(0, LOOT_SPOTS_PER_CHUNK)
+    .slice(0, POPULATION.lootSpotsPerChunk)
     .map(roomCenter)
     .map(({ x, y }) => ({ x: x + 0.5, y: y + 0.5 }));
 }

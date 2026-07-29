@@ -1,7 +1,8 @@
 import { TILE } from "../../core/types.js";
+import { ROOM_TUNING } from "./roomConfiguration/roomTuning.js";
 
-export const ROOM_WALL_RISE = 3;
-export const SOUTH_EXIT_HALL_DEPTH = 2;
+export const ROOM_WALL_RISE = ROOM_TUNING.wallRise;
+export const SOUTH_EXIT_HALL_DEPTH = ROOM_TUNING.southExitHallDepth;
 
 export interface RoomTile {
   lx: number;

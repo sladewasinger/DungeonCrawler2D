@@ -16,8 +16,8 @@ import { WORLD_GENERATION_TUNING } from "../tuning.js";
  * a negative-coordinate neighbor; when it does the two anchors differ by at
  * most a few tiles, inside the same tolerance). */
 export const SHOWCASE_RADIUS = WORLD_GENERATION_TUNING.showcase.searchRadius;
-export const SHOWCASE_RISE = 1;
-export const SHOWCASE_DEPTH = -1; // z-1 pit, exited via its rim stair tread
+export const SHOWCASE_RISE = WORLD_GENERATION_TUNING.showcase.platformRise;
+export const SHOWCASE_DEPTH = WORLD_GENERATION_TUNING.showcase.pitDepth;
 export const BLOCK = WORLD_GENERATION_TUNING.showcase.featureSpan;
 export const EPS = 0.01;
 /** A pit rim cell must sit above the pit floor by the wall-face threshold. */

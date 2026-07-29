@@ -5,13 +5,24 @@ import {
 } from "@dc2d/engine";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import { LIGHT_CURVE_FULL_LEVEL } from "../../terrain/shading/tileLight.js";
+import { LIGHTING_VISUAL_STYLE } from "../lightingVisualStyle.js";
+import {
+  canGroundLightCrossStep,
+  hasClearGroundLightLine,
+  isGroundLightSurface,
+  type GroundLightTerrain,
+  type GroundLightTile,
+} from "./groundLightVisibility.js";
 
-export const PLAYER_GROUND_LIGHT_RADIUS = 12;
+const GROUND_LIGHT = LIGHTING_VISUAL_STYLE.ground;
+
+export const PLAYER_GROUND_LIGHT_RADIUS = GROUND_LIGHT.radiusTiles;
 /** Conservative disk bound for a tile-centered circle at any player sub-tile position. */
 export const PLAYER_GROUND_LIGHT_MAX_CELLS =
   Math.ceil(Math.PI * (PLAYER_GROUND_LIGHT_RADIUS + 0.5) ** 2);
-export const PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS = 100;
-export const PLAYER_GROUND_LIGHT_FADE_MS = 180;
+export const PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS =
+  GROUND_LIGHT.updateIntervalMs;
+export const PLAYER_GROUND_LIGHT_FADE_MS = GROUND_LIGHT.fadeMs;
 
 export const playerGroundLightEnabledForProfile = (
   profile: "constrained" | "desktop",
@@ -32,9 +43,8 @@ export function playerGroundLightStrength(distance: number): number {
   return smoothstep01((PLAYER_GROUND_LIGHT_RADIUS - distance) / LIGHT_CURVE_FULL_LEVEL);
 }
 
-export interface PlayerGroundLightWorld {
+export interface PlayerGroundLightWorld extends GroundLightTerrain {
   terrainAt(wx: number, wy: number): TerrainType;
-  groundAt(x: number, y: number): number;
 }
 
 export interface PlayerGroundLightCell {
@@ -58,52 +68,11 @@ const ORTHOGONAL: ReadonlyArray<readonly [number, number]> = [
   [0, -1],
 ];
 
-function isPassableGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
-  return world.terrainAt(tileX, tileY) === TERRAIN.Floor;
-}
-
 function isLitGround(world: PlayerGroundLightWorld, tileX: number, tileY: number): boolean {
   return world.terrainAt(tileX, tileY) === TERRAIN.Floor;
 }
 
-interface TileCoordinate { readonly x: number; readonly y: number; }
-
-interface GridLine { x: number; y: number; readonly dx: number; readonly dy: number; readonly stepX: number; readonly stepY: number; error: number; }
-
-/** Walls and voids cast a direct grid-space shadow; light cannot route around
- * the end of a blocker and illuminate a tile behind its opaque face. */
-function hasClearGroundLine(world: PlayerGroundLightWorld, from: TileCoordinate, to: TileCoordinate): boolean {
-  const line = createLine(from, to);
-  while (!lineReached(line, to)) {
-    stepLine(line);
-    if (!isPassableGround(world, line.x, line.y)) return false;
-  }
-  return true;
-}
-
-function createLine(from: TileCoordinate, to: TileCoordinate): GridLine {
-  const dx = Math.abs(to.x - from.x);
-  const dy = Math.abs(to.y - from.y);
-  return { x: from.x, y: from.y, dx, dy, stepX: Math.sign(to.x - from.x), stepY: Math.sign(to.y - from.y), error: dx - dy };
-}
-
-function lineReached(line: GridLine, target: TileCoordinate): boolean {
-  return line.x === target.x && line.y === target.y;
-}
-
-function stepLine(line: GridLine): void {
-  const doubledError = line.error * 2;
-  if (doubledError > -line.dy) {
-    line.error -= line.dy;
-    line.x += line.stepX;
-  }
-  if (doubledError < line.dx) {
-    line.error += line.dx;
-    line.y += line.stepY;
-  }
-}
-
-interface GroundCellCandidate extends TileCoordinate { readonly distance: number; }
+interface GroundCellCandidate extends GroundLightTile { readonly distance: number; }
 
 function addLitGroundCell(
   world: PlayerGroundLightWorld,
@@ -114,34 +83,38 @@ function addLitGroundCell(
   cells.push({ tileX: candidate.x, tileY: candidate.y, strength: playerGroundLightStrength(candidate.distance), groundHeight: world.groundAt(candidate.x + 0.5, candidate.y + 0.5) });
 }
 
-interface PlayerGroundLightSearch { readonly world: PlayerGroundLightWorld; readonly origin: TileCoordinate; readonly player: Readonly<{ x: number; y: number }>; readonly cells: PlayerGroundLightCell[]; readonly visited: Set<string>; readonly queue: TileCoordinate[]; }
+interface PlayerGroundLightSearch { readonly world: PlayerGroundLightWorld; readonly origin: GroundLightTile; readonly player: Readonly<{ x: number; y: number }>; readonly cells: PlayerGroundLightCell[]; readonly visited: Set<string>; readonly queue: GroundLightTile[]; }
 
 function createSearch(world: PlayerGroundLightWorld, playerX: number, playerY: number): PlayerGroundLightSearch {
   const origin = { x: Math.floor(playerX), y: Math.floor(playerY) };
   return { world, origin, player: { x: playerX, y: playerY }, cells: [], visited: new Set([tileKey(origin)]), queue: [origin] };
 }
 
-function tileKey(tile: TileCoordinate): string {
+function tileKey(tile: GroundLightTile): string {
   return `${tile.x},${tile.y}`;
 }
 
-function distanceToPlayer(search: PlayerGroundLightSearch, tile: TileCoordinate): number {
+function distanceToPlayer(search: PlayerGroundLightSearch, tile: GroundLightTile): number {
   return Math.hypot(tile.x + 0.5 - search.player.x, tile.y + 0.5 - search.player.y);
 }
 
-function visitNeighbors(search: PlayerGroundLightSearch, tile: TileCoordinate): void {
+function visitNeighbors(search: PlayerGroundLightSearch, tile: GroundLightTile): void {
   for (const [dx, dy] of ORTHOGONAL) {
     const next = { x: tile.x + dx, y: tile.y + dy };
-    if (canQueueTile(search, next)) search.queue.push(next);
+    if (canQueueTile(search, tile, next)) search.queue.push(next);
   }
 }
 
-function canQueueTile(search: PlayerGroundLightSearch, tile: TileCoordinate): boolean {
+function canQueueTile(
+  search: PlayerGroundLightSearch,
+  from: GroundLightTile,
+  tile: GroundLightTile,
+): boolean {
   if (search.visited.has(tileKey(tile))) return false;
   search.visited.add(tileKey(tile));
   return distanceToPlayer(search, tile) <= PLAYER_GROUND_LIGHT_RADIUS + 1e-6
-    && isPassableGround(search.world, tile.x, tile.y)
-    && hasClearGroundLine(search.world, search.origin, tile);
+    && canGroundLightCrossStep(search.world, from, tile)
+    && hasClearGroundLightLine(search.world, search.origin, tile);
 }
 
 function populateGroundLightCells(search: PlayerGroundLightSearch): void {
@@ -159,7 +132,7 @@ export function playerGroundLightCells(
   playerY: number,
 ): readonly PlayerGroundLightCell[] {
   const search = createSearch(world, playerX, playerY);
-  if (!isPassableGround(world, search.origin.x, search.origin.y)) return [];
+  if (!isGroundLightSurface(world, search.origin)) return [];
   populateGroundLightCells(search);
   return search.cells;
 }

@@ -1,0 +1,142 @@
+{
+  "districts": {
+    "chunkSpan": 3
+  },
+  "roomLayout": {
+    "minimumPartitionSpan": 6,
+    "maximumPartitionDepth": 4,
+    "chunkBorderMargin": 3,
+    "roomInset": {
+      "min": 1,
+      "max": 2
+    },
+    "minimumRoomSpan": 4,
+    "galleryAspectRatio": 2.1
+  },
+  "roomFlavor": {
+    "districtBiases": {
+      "pillarForest": {
+        "threshold": 65,
+        "flavor": "pillarHall"
+      },
+      "ruins": {
+        "threshold": 50,
+        "flavor": "grotto"
+      },
+      "plaza": {
+        "threshold": 55,
+        "minimumArea": 50,
+        "flavor": "plaza"
+      },
+      "flooded": {
+        "threshold": 60,
+        "flavor": "grotto"
+      },
+      "arena": {
+        "threshold": 70,
+        "minimumArea": 50,
+        "flavor": "plaza"
+      }
+    },
+    "areaBiases": {
+      "pillarHall": {
+        "threshold": 20,
+        "minimumArea": 90
+      },
+      "plaza": {
+        "threshold": 40,
+        "minimumArea": 60
+      },
+      "grotto": {
+        "threshold": 55,
+        "minimumArea": 70
+      }
+    }
+  },
+  "corridors": {
+    "roomToRoomWidth": {
+      "min": 2,
+      "max": 3
+    },
+    "chunkEdgeWidth": {
+      "min": 1,
+      "max": 3
+    },
+    "avenueWidth": {
+      "min": 4,
+      "max": 6
+    },
+    "edgeAnchorMargin": 6,
+    "doorwayJitter": 2,
+    "fixedFeatureLinkWidth": 2,
+    "descentLinkWidth": 2
+  },
+  "roomDetails": {
+    "pillarSpacing": 4,
+    "pillarInset": 2,
+    "pillarJitter": 1,
+    "rubbleInset": 2,
+    "rubbleChanceDenominator": 6
+  },
+  "heightFeatures": {
+    "roomRise": 1,
+    "chasmDepth": -2,
+    "maximumAutomaticStep": 0.5,
+    "interiorWallRise": 2,
+    "chasmBridgeWidth": 3,
+    "chasmMinimumSpan": 9,
+    "doorwayRampMaximumWidth": 2,
+    "variantRollSize": 30,
+    "floodedPitThreshold": 12,
+    "chasmThreshold": 1,
+    "pitThreshold": 4,
+    "daisThreshold": 7
+  },
+  "landmarks": {
+    "arenaWallRadius": 10,
+    "shrineDaisRadius": 4,
+    "shrineRingRadius": 6,
+    "shrineDaisHeight": 0.5,
+    "towerOuterRadius": 9,
+    "towerTierWidth": 3,
+    "towerTierRise": 1,
+    "towerRubbleChanceDenominator": 6,
+    "towerAnchorOffset": 11,
+    "anchorJitterRadius": 6
+  },
+  "showcase": {
+    "searchRadius": 24,
+    "featureSpan": 2,
+    "platformRise": 1,
+    "pitDepth": -1
+  },
+  "population": {
+    "lootChunkFrequency": 4,
+    "lootSpotsPerChunk": 3
+  },
+  "fixedFeatures": {
+    "safeRoomChunkSpacing": 3,
+    "safeRoomRadius": 5,
+    "safeRoomBlendMargin": 3,
+    "safeRoomJitter": 3,
+    "stairwayJitter": 6,
+    "stairwayFrequency": 23,
+    "kioskHalfWidth": 2,
+    "kioskHeight": 2,
+    "kioskTopDepth": 2
+  },
+  "descentStructure": {
+    "upChunkRadius": 1,
+    "downChunkRadius": 2,
+    "halfWidth": 2,
+    "backReach": 3,
+    "frontReach": 1,
+    "backWallDepth": 2,
+    "wallBaseHeight": 0.5
+  },
+  "bossArena": {
+    "radius": 7,
+    "wallThickness": 2,
+    "exitThroatLength": 2
+  }
+}

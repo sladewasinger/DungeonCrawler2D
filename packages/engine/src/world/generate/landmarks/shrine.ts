@@ -11,7 +11,8 @@ const RING_RADIUS = WORLD_GENERATION_TUNING.landmarks.shrineRingRadius;
 // A small decorative bump beside the corridor's own flush passthrough
 // (see `carved` below) — never load-bearing for reachability, so it
 // simply halves with the z-scale doctrine, no ramp needed.
-export const DAIS_HEIGHT = 0.5;
+export const DAIS_HEIGHT =
+  WORLD_GENERATION_TUNING.landmarks.shrineDaisHeight;
 
 export function stampShrine({ worldSeed, floor, cx, cy, corridorCarved, tiles, height }: LandmarkStamp): void {
   const center = landmarkCenter({ worldSeed, floor, cx, cy }, RING_RADIUS);

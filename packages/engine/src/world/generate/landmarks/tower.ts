@@ -14,10 +14,11 @@ import { clampLandmarkCenter, forEachLandmarkTile, onCorridor, type LandmarkCent
 
 const OUTER_RADIUS = WORLD_GENERATION_TUNING.landmarks.towerOuterRadius;
 const RING_STEP = WORLD_GENERATION_TUNING.landmarks.towerTierWidth;
-export const TIER_RISE = 1; // height per tier — the jumpable step
+export const TIER_RISE = WORLD_GENERATION_TUNING.landmarks.towerTierRise;
 /** The tower's peak height (core tier), for tests bounding the world's overall height budget. */
 export const TOWER_MAX_RISE = Math.floor(OUTER_RADIUS / RING_STEP) * TIER_RISE;
-const RUBBLE_CHANCE_DENOM = 6;
+const RUBBLE_CHANCE_DENOM =
+  WORLD_GENERATION_TUNING.landmarks.towerRubbleChanceDenominator;
 const ANCHOR_OFFSET = WORLD_GENERATION_TUNING.landmarks.towerAnchorOffset;
 
 const DIAG: ReadonlyArray<readonly [number, number]> = [

@@ -25,13 +25,13 @@ import {
 
 export { FLOOR_CAP };
 
-const UP_RADIUS = 1;
-const DOWN_RADIUS = 2;
 const UP_SALT = 0xde5c;
 const DOWN_SALT = 0xde5d;
 const ANCHOR_SALT = 0xde60;
 
 const STRUCTURE = WORLD_GENERATION_TUNING.descentStructure;
+const UP_RADIUS = STRUCTURE.upChunkRadius;
+const DOWN_RADIUS = STRUCTURE.downChunkRadius;
 const STRUCT_HALF_X = STRUCTURE.halfWidth;
 const STRUCT_BACK = STRUCTURE.backReach;
 const STRUCT_FRONT = STRUCTURE.frontReach;
@@ -53,7 +53,7 @@ const STRUCT_CLEARANCE = Math.max(STRUCT_HALF_X, STRUCT_BACK, STRUCT_FRONT) + 1;
  * door already forces to height 0 for the same reason). The floor here
  * always stays flush with the ground it's blended into.
  */
-export const STAIRWAY_HEIGHT = 0.5;
+export const STAIRWAY_HEIGHT = STRUCTURE.wallBaseHeight;
 
 export function stairwayUpChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
   if (world.floor < 2 || world.floor > FLOOR_CAP) return null;

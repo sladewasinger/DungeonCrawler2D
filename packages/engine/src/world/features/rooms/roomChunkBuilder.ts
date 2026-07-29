@@ -14,7 +14,7 @@ import {
   type RoomTile,
   type SetRoomTile,
 } from "./roomExitGeometry.js";
-import { roomSlotAt } from "./rooms.js";
+import { roomSlotAt } from "./locations/roomLocations.js";
 import type { RoomSlot } from "./roomModel.js";
 
 interface RoomRect { left: number; top: number; w: number; h: number; }

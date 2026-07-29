@@ -21,9 +21,9 @@ import type { Doorway, Point, Rect, Room, Side } from "../types.js";
 import { DISTRICT, type DistrictKind } from "../layout/district.js";
 import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-export const ROOM_RISE = 1;
-export const CHASM_DEPTH = -2;
 const HEIGHT_FEATURES = WORLD_GENERATION_TUNING.heightFeatures;
+export const ROOM_RISE = HEIGHT_FEATURES.roomRise;
+export const CHASM_DEPTH = HEIGHT_FEATURES.chasmDepth;
 const CHASM_BRIDGE_HALF = Math.floor(HEIGHT_FEATURES.chasmBridgeWidth / 2);
 // Retired as this generator's own tread budget (docs/R2-STAIRS-SPEC.md,
 // Wave R2 compact stairs): carveRamp now emits exactly one tread per whole
@@ -31,7 +31,7 @@ const CHASM_BRIDGE_HALF = Math.floor(HEIGHT_FEATURES.chasmBridgeWidth / 2);
 // ignores STEP_UP entirely rather than needing a shallow per-tread slope.
 // Kept alive ONLY as cliffs.ts's sub-tier auto-repair step size (a
 // graze-edge fix well short of a full deliberate tier) — do not delete.
-export const MAX_STAIR_SLOPE = 0.5;
+export const MAX_STAIR_SLOPE = HEIGHT_FEATURES.maximumAutomaticStep;
 const THRESHOLD_RAMP_MAX_WIDTH = HEIGHT_FEATURES.doorwayRampMaximumWidth;
 
 type Variant = "flat" | "pit" | "dais" | "chasm";
@@ -45,24 +45,26 @@ interface VariantInput {
 function pickVariant({ seed, room, district }: VariantInput): Variant {
   // Kept deliberately rare: sunken pits, daises, and chasms should read as
   // set-pieces, not wallpaper — roughly one room in four, most stay flat-first.
-  const roll = rectHash(seed, room.rect, 0x9007) % 30;
+  const roll = rectHash(seed, room.rect, 0x9007) %
+    HEIGHT_FEATURES.variantRollSize;
   if (isFloodedPit(district, roll)) return "pit";
   if (isChasmRoom(room, roll)) return "chasm";
   return ordinaryVariant(roll);
 }
 
 function isFloodedPit(district: DistrictKind, roll: number): boolean {
-  return district === DISTRICT.Flooded && roll < 12;
+  return district === DISTRICT.Flooded &&
+    roll < HEIGHT_FEATURES.floodedPitThreshold;
 }
 
 function isChasmRoom(room: Room, roll: number): boolean {
-  return roll < 1 &&
+  return roll < HEIGHT_FEATURES.chasmThreshold &&
     Math.min(rectW(room.rect), rectH(room.rect)) >= HEIGHT_FEATURES.chasmMinimumSpan;
 }
 
 function ordinaryVariant(roll: number): Variant {
-  if (roll < 4) return "pit";
-  if (roll < 7) return "dais";
+  if (roll < HEIGHT_FEATURES.pitThreshold) return "pit";
+  if (roll < HEIGHT_FEATURES.daisThreshold) return "dais";
   return "flat";
 }
 

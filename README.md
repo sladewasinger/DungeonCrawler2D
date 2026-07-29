@@ -29,6 +29,7 @@ uses “fuck” or a clear derivative.
 | Doc | Purpose |
 | --- | --- |
 | [docs/ENGINEERING_STANDARDS.md](docs/ENGINEERING_STANDARDS.md) | **The constitution.** Hard limits, structure rules, definition of done |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Developer-facing terrain, room, lighting, announcement, and content tuning |
 | [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) | **The beauty bar.** Palette, lighting, motion, UI language, acceptance criteria |
 | [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) | World & floor lifecycle, verticality, PvPvE rules, safe/stretch rooms, social systems |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Tech stack, package layout, networking model, simulation |

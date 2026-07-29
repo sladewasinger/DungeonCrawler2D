@@ -1,0 +1,46 @@
+{
+  "streaming": {
+    "loadMarginChunks": 1,
+    "maximumActiveLights": 24,
+    "maximumSpareLights": 24,
+    "overlayDepthMarginTiles": 4
+  },
+  "halo": {
+    "baseAlpha": 0.62,
+    "fadeInMs": 250,
+    "flickerPeriodMs": 2200,
+    "scalePrimaryAmplitude": 0.06,
+    "scaleSecondaryAmplitude": 0.04,
+    "scaleSecondaryRate": 0.37,
+    "alphaPrimaryAmplitude": 0.08,
+    "alphaSecondaryAmplitude": 0.05,
+    "alphaSecondaryRate": 0.53
+  },
+  "torch": {
+    "color": "#ff9e3d",
+    "radiusTiles": 1.5,
+    "flightRadiusTiles": 1,
+    "authoredSpacingTiles": 10,
+    "emberFadeSeconds": 15,
+    "emberFadeFloor": 0.35
+  },
+  "portal": {
+    "color": "#3dd6c3",
+    "radiusTiles": 3
+  },
+  "personal": {
+    "color": "#fff0d2",
+    "radiusTiles": 1.6,
+    "haloAlphaMultiplier": 0.22,
+    "haloScaleMultiplier": 1.65
+  },
+  "ground": {
+    "color": "#ffe9c9",
+    "alpha": 0.2,
+    "radiusTiles": 12,
+    "maximumStepHeight": 0.5,
+    "updateIntervalMs": 100,
+    "fadeMs": 180,
+    "floorLayerBias": 0.01
+  }
+}

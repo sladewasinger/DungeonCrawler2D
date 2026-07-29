@@ -26,20 +26,15 @@ import { playerGroundLightEnabledForProfile } from "./ground/playerGroundLight.j
 import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../terrain/streaming/terrainDeviceProfile.js";
 import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torches/torchLightStyle.js";
 import { selectTorchPositions, torchCandidates, type TilePos, type TileRect } from "./torches/torchPlacement.js";
-
-const LOAD_MARGIN_CHUNKS = 1;
-/** Hard cap on lights composited per frame — nearest win; the personal light always survives. */
-/** Wide viewports show more than 12 torches, so at 12 the nearest-N set churns
- * MID-SCREEN as the camera moves — torches visibly blink in (user playtest
- * 2026-07-20). 24 pushes the swap boundary past the visible edge in practice. */
-const MAX_ACTIVE_LIGHTS = 24;
-const PORTAL_COLOR = 0x3dd6c3;
-const PORTAL_RADIUS_TILES = 3;
-const PERSONAL_COLOR = 0xfff0d2;
-const PERSONAL_RADIUS_TILES = 1.6; // deliberately small: a soft cue, not a headlight
-type MutableLightSource = {
-  -readonly [Key in keyof LightSource]: LightSource[Key];
-};
+import { lightOverlayDepth } from "./core/lightDepth.js";
+import {
+  LIGHT_LOAD_MARGIN_CHUNKS,
+  MAXIMUM_ACTIVE_LIGHTS,
+  PORTAL_LIGHT_COLOR,
+  PORTAL_LIGHT_RADIUS_TILES,
+  createPersonalLight,
+  type MutableLightSource,
+} from "./lightingRuntimeStyle.js";
 
 export class LightingSystem {
   private readonly pool: LightSpritePool;
@@ -51,16 +46,7 @@ export class LightingSystem {
   private readonly candidateLights: LightSource[] = [];
   private readonly frameLights: LightSource[] = [];
   private readonly activeTorchLights: LightSource[] = [];
-  private readonly personalLight: MutableLightSource = {
-    id: "personal",
-    x: 0,
-    y: 0,
-    color: PERSONAL_COLOR,
-    radiusTiles: PERSONAL_RADIUS_TILES,
-    kind: "personal",
-    seed: 0,
-    groundHeight: 0,
-  };
+  private readonly personalLight: MutableLightSource = createPersonalLight();
 
   constructor(
     scene: Phaser.Scene,
@@ -99,9 +85,13 @@ export class LightingSystem {
     const lights = selectFrameLights({
       chunkLights: this.chunkLights.values(), accentLights: this.accentLights,
       center: centerWorld, personalLight: this.personalHaloEnabled ? this.personalLight : null,
-      maxLights: MAX_ACTIVE_LIGHTS, candidates: this.candidateLights, selected: this.frameLights,
+      maxLights: MAXIMUM_ACTIVE_LIGHTS, candidates: this.candidateLights, selected: this.frameLights,
     });
-    this.pool.sync(lights, input.nowMs);
+    this.pool.sync({
+      lights,
+      nowMs: input.nowMs,
+      overlayDepth: lightOverlayDepth(input.view),
+    });
   }
 
   /** Torch positions currently resident (authored wall torches + placed thrown
@@ -124,9 +114,9 @@ export class LightingSystem {
 
   private streamChunks(view: ViewRect): void {
     refreshLightStreamRevision(this.stream, this.chunkLights, this.world.tileRevision);
-    const window = chunkWindowKey(view, LOAD_MARGIN_CHUNKS);
+    const window = chunkWindowKey(view, LIGHT_LOAD_MARGIN_CHUNKS);
     if (window === this.stream.window) return;
-    const desired = desiredChunks(view, LOAD_MARGIN_CHUNKS);
+    const desired = desiredChunks(view, LIGHT_LOAD_MARGIN_CHUNKS);
     const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.chunkLights.keys()));
     for (const coord of toLoad) this.chunkLights.set(chunkKey(coord), this.scanChunk(coord));
     for (const key of toUnloadKeys) this.chunkLights.delete(key);
@@ -163,8 +153,8 @@ export class LightingSystem {
       id,
       x: p.x,
       y: p.y,
-      color: PORTAL_COLOR,
-      radiusTiles: PORTAL_RADIUS_TILES,
+      color: PORTAL_LIGHT_COLOR,
+      radiusTiles: PORTAL_LIGHT_RADIUS_TILES,
       kind: "portal",
       seed: hashSeed(id),
       groundHeight: p.projectionHeight,

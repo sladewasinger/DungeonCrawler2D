@@ -1,4 +1,14 @@
-import { TERRAIN } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  ROOM_WALL_RISE,
+  SPAWN_ROOM_H,
+  TERRAIN,
+  World,
+  hashString,
+  spawnRoomChunk,
+  spawnRoomFeatures,
+  spawnRoomSpawn,
+} from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   PLAYER_GROUND_LIGHT_FADE_MS,
@@ -17,13 +27,16 @@ import {
 function world(
   walls: ReadonlySet<string> = new Set(),
   chasms: ReadonlySet<string> = new Set(),
+  heights: ReadonlyMap<string, number> = new Map(),
 ): PlayerGroundLightWorld {
   return {
     terrainAt: (x, y) =>
       walls.has(`${x},${y}`) || chasms.has(`${x},${y}`)
         ? TERRAIN.Void
         : TERRAIN.Floor,
-    groundAt: (x, y) => Math.floor(x) + Math.floor(y) / 10,
+    groundAt: (x, y) =>
+      heights.get(`${Math.floor(x)},${Math.floor(y)}`) ??
+      (Math.floor(x) + Math.floor(y)) / 10,
   };
 }
 
@@ -70,7 +83,42 @@ describe("playerGroundLightCells", () => {
 
   it("records each tile's ground height for projected floor placement", () => {
     const cells = playerGroundLightCells(world(), 2.5, 3.5);
-    expect(cells[0]?.groundHeight).toBe(2.3);
+    expect(cells[0]?.groundHeight).toBe(0.5);
+  });
+
+  it("does not illuminate or cross a raised wall surface", () => {
+    const wallHeights = new Map([
+      ["1,-1", 3],
+      ["1,0", 3],
+      ["1,1", 3],
+    ]);
+    const cells = playerGroundLightCells(
+      world(new Set(), new Set(), wallHeights),
+      0.5,
+      0.5,
+    );
+    const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
+
+    expect(keys.has("1,0")).toBe(false);
+    expect(keys.has("2,0")).toBe(false);
+  });
+
+  it("lights the spawn exit hall without lighting the hidden wall cap", () => {
+    const roomWorld = new World(hashString("ground-light-room"), 1);
+    const spawn = spawnRoomSpawn(10);
+    const cells = playerGroundLightCells(roomWorld, spawn.x, spawn.y);
+    const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
+    const exit = spawnRoomFeatures().exit;
+    const chunk = spawnRoomChunk();
+    const wallY = chunk.cy * CHUNK_SIZE +
+      Math.floor(CHUNK_SIZE / 2 - SPAWN_ROOM_H / 2);
+    const centerX = chunk.cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+
+    expect(keys.has(`${exit.x},${exit.y - 1}`)).toBe(true);
+    expect(keys.has(`${exit.x},${exit.y - 2}`)).toBe(true);
+    expect(keys.has(`${centerX},${wallY}`)).toBe(false);
+    expect(cells.some(({ groundHeight }) =>
+      groundHeight >= ROOM_WALL_RISE)).toBe(false);
   });
 
   it("lights floor cells independently of any door or furniture overlay", () => {

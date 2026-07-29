@@ -21,19 +21,27 @@ The generator is pure and deterministic for
 ## Geometry controls
 
 Developer-facing dimensions live in
-`packages/engine/src/world/generate/tuning.ts`. Distances, widths, and radii are
-runtime-tile counts unless their names explicitly say chunks, depth, frequency,
-or chance. Changing one never changes `CHUNK_SIZE` or coordinate scale.
+`packages/engine/src/world/generate/worldGenerationTuning.json`, imported
+through `tuning.ts`. Distances, widths, and radii are runtime-tile counts unless
+their names explicitly say chunks, depth, frequency, threshold, or chance.
+Changing one never changes `CHUNK_SIZE` or coordinate scale.
 
 The tuning object groups related controls:
 
 - `roomLayout`: BSP partition size, room inset, and chunk border margin.
+- `roomFlavor`: district and area biases for generated room families.
 - `corridors`: room, edge, avenue, and feature-link widths.
 - `roomDetails`: pillar and rubble spacing.
-- `heightFeatures`: chasm bridge and stair-ramp widths.
-- `landmarks`: arena, shrine, and tower footprints.
+- `heightFeatures`: room/chasm elevation, frequency, bridges, and stair ramps.
+- `landmarks`: arena, shrine, and tower footprints and elevations.
+- `population`: generated room-loot frequency and count.
 - `showcase`, `fixedFeatures`, `descentStructure`, and `bossArena`: authored
   set-piece dimensions.
+
+Reserved personal, party, safe, and spawn rooms have their own dimensions in
+`packages/engine/src/world/features/rooms/roomConfiguration/roomTuning.json`;
+those are authored
+room templates rather than procedural BSP generation.
 
 Keep related constraints in mind when editing:
 

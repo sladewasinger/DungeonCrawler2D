@@ -3,6 +3,7 @@
 // hash-buckets them into evenly spaced torch positions. No two torches crowd one bucket,
 // but placement never depends on load order or Math.random, so it's identical every run.
 import { hasSouthFace, type TerrainRead } from "../../terrain/geometry/faces.js";
+import { LIGHTING_VISUAL_STYLE } from "../lightingVisualStyle.js";
 
 export interface TilePos {
   readonly wx: number;
@@ -17,7 +18,8 @@ export interface TileRect {
 }
 
 /** Grid-bucket size in tiles — big enough that torch pools read as distinct "islands of firelight", not one continuous glow. */
-export const TORCH_SPACING_TILES = 10;
+export const TORCH_SPACING_TILES =
+  LIGHTING_VISUAL_STYLE.torch.authoredSpacingTiles;
 
 /** Small multiplicative hash, deterministic for identical (wx, wy) every run. */
 function hash2(wx: number, wy: number): number {
