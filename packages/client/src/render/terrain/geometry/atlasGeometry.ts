@@ -34,7 +34,7 @@ export function appendMeshQuad(batch: TerrainMeshBatch, draw: TerrainAtlasDraw, 
 
 const FACE_TILE_HEIGHT_EPSILON = 1e-6;
 
-/** Emits one source tile per vertical wall unit, cropping only the final partial tile. */
+/** Splits wall art on world-z unit boundaries so neighboring faces share seams. */
 export function appendSouthFaceDraws(
   target: TerrainAtlasDraw[],
   quads: TerrainBatches["southFaces"],
@@ -46,11 +46,7 @@ export function appendSouthFaceDraws(
 function appendSouthFaceQuad(target: TerrainAtlasDraw[], quad: TerrainBatches["southFaces"][number], options: TerrainAtlasRenderOptions): void {
   const atlas = options.debug ? TERRAIN_TILESETS.debug : TERRAIN_TILESETS[options.biomeAt(quad.worldTile)];
   const request = { target, quad, atlas, projection: options.projection };
-  if (quad.southNeighborIsStair === true) {
-    appendTopAlignedSegments(request);
-    return;
-  }
-  appendBottomAlignedSegments(request);
+  appendUnitAlignedSegments(request);
 }
 
 interface SouthFaceDrawRequest {
@@ -60,26 +56,39 @@ interface SouthFaceDrawRequest {
   readonly projection: TerrainScreenProjection;
 }
 
-function appendTopAlignedSegments(request: SouthFaceDrawRequest): void {
+interface WallFaceSegment {
+  readonly bottom: number;
+  readonly height: number;
+}
+
+function appendUnitAlignedSegments(request: SouthFaceDrawRequest): void {
   const { target, quad, atlas, projection } = request;
-  let top = quad.topHeight;
-  for (let remaining = top - quad.bottomHeight; remaining > FACE_TILE_HEIGHT_EPSILON;) {
-    const height = Math.min(1, remaining);
-    appendSouthFaceSegment(target, { quad, atlas, bottom: top - height, height, projection });
-    top -= height;
-    remaining -= height;
+  const segments = wallFaceSegments(quad.bottomHeight, quad.topHeight);
+  for (const { bottom, height } of segments) {
+    appendSouthFaceSegment(target, { quad, atlas, bottom, height, projection });
   }
 }
 
-function appendBottomAlignedSegments(request: SouthFaceDrawRequest): void {
-  const { target, quad, atlas, projection } = request;
-  let bottom = quad.bottomHeight;
-  for (let remaining = quad.topHeight - bottom; remaining > FACE_TILE_HEIGHT_EPSILON;) {
-    const height = Math.min(1, remaining);
-    appendSouthFaceSegment(target, { quad, atlas, bottom, height, projection });
-    bottom += height;
-    remaining -= height;
+function wallFaceSegments(bottomHeight: number, topHeight: number): WallFaceSegment[] {
+  const segments: WallFaceSegment[] = [];
+  let bottom = bottomHeight;
+  while (topHeight - bottom > FACE_TILE_HEIGHT_EPSILON) {
+    const top = Math.min(topHeight, nextUnitHeight(bottom));
+    segments.push({ bottom, height: top - bottom });
+    bottom = top;
   }
+  if (isUnitHeight(topHeight) && !isUnitHeight(bottomHeight)) segments.reverse();
+  return segments;
+}
+
+function nextUnitHeight(height: number): number {
+  const nearest = Math.round(height);
+  if (Math.abs(height - nearest) <= FACE_TILE_HEIGHT_EPSILON) return nearest + 1;
+  return Math.ceil(height);
+}
+
+function isUnitHeight(height: number): boolean {
+  return Math.abs(height - Math.round(height)) <= FACE_TILE_HEIGHT_EPSILON;
 }
 
 interface SouthFaceSegmentRequest {

@@ -10,8 +10,8 @@ const projection: TerrainScreenProjection = {
 };
 
 describe("wall face draws", () => {
-  it("top-aligns tiled wall segments above a fractional stair step", () => {
-    const draws = atlasDraws(stairNeighborBatches(), {
+  it("snaps wall segments to unit heights above a fractional floor", () => {
+    const draws = atlasDraws(fractionalFloorBatches(), {
       projection,
       biomeAt: () => BIOME.Maze,
       debug: true,
@@ -28,7 +28,7 @@ describe("wall face draws", () => {
   });
 
   it("replaces only the authored wall segment with a door frame", () => {
-    const batches = stairNeighborBatches();
+    const batches = fractionalFloorBatches();
     const face = batches.southFaces[0];
     if (!face) throw new Error("wall face fixture is missing");
     const draws = atlasDraws({
@@ -37,7 +37,6 @@ describe("wall face draws", () => {
         ...face,
         topHeight: 2,
         bottomHeight: 0,
-        southNeighborIsStair: false,
         wallFeature: { feature: "door", topHeight: 1 },
       }],
     }, {
@@ -50,7 +49,7 @@ describe("wall face draws", () => {
   });
 });
 
-function stairNeighborBatches(): TerrainBatches {
+function fractionalFloorBatches(): TerrainBatches {
   return {
     voids: [], floors: [], features: [], props: [], cliffEdges: [], ao: [],
     southFaces: [{
@@ -60,7 +59,6 @@ function stairNeighborBatches(): TerrainBatches {
       topHeight: 2,
       bottomHeight: 0.375,
       stairWall: false,
-      southNeighborIsStair: true,
       vertices: [
         { x: 0, y: 1, z: 2 }, { x: 1, y: 1, z: 2 },
         { x: 1, y: 1, z: 0.375 }, { x: 0, y: 1, z: 0.375 },

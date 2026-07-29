@@ -102,7 +102,6 @@ function appendVoidSouthFace(context: TerrainTileContext): void {
 
 function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): void {
   const currentFeature = featureAt(context, context.worldTile);
-  const southFeature = featureAt(context, southWorld);
   const bottomHeight = finiteHeight(context, southWorld);
   if (context.height - bottomHeight <= TERRAIN_HEIGHT_EPSILON) return;
   const stairWall = currentFeature === "stairs";
@@ -116,7 +115,6 @@ function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): v
   const face: TerrainSouthFaceQuad = {
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,
     topHeight: context.height, bottomHeight, stairWall,
-    southNeighborIsStair: southFeature === "stairs",
     ...(wallFeature ? { wallFeature } : {}),
     vertices: southFaceQuad(context.viewTile, context.height, bottomHeight),
   };

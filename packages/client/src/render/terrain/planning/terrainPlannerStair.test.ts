@@ -15,7 +15,7 @@ describe("planTerrain stair walls", () => {
     expect(plan.batches.southFaces[0]?.stairWall).toBe(true);
   });
 
-  it.each(VIEW_ORIENTATIONS)("keeps the raised neighbor wall on the screen-north edge of stairs at orientation %i", (orientation) => {
+  it.each(VIEW_ORIENTATIONS)("keeps the raised wall on the screen-north edge of stairs at orientation %i", (orientation) => {
     const stairView = { x: 8, y: 8 };
     const northView = { x: stairView.x, y: stairView.y - 1 };
     const stair = viewTileToWorld(stairView, orientation);
@@ -33,7 +33,6 @@ describe("planTerrain stair walls", () => {
       topHeight: 2,
       bottomHeight: 0.375,
       stairWall: false,
-      southNeighborIsStair: true,
     });
   });
 
@@ -54,7 +53,6 @@ describe("planTerrain stair walls", () => {
       topHeight: 1,
       bottomHeight: 0.5,
       stairWall: true,
-      southNeighborIsStair: true,
     });
   });
 });

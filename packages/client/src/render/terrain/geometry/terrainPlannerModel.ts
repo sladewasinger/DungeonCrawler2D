@@ -61,7 +61,7 @@ export interface TerrainFeatureQuad extends TerrainQuadBase {
 export interface TerrainPropQuad extends TerrainQuadBase { readonly kind: "prop"; readonly prop: TerrainPropKind; readonly height: number; }
 export interface TerrainSouthFaceQuad extends TerrainQuadBase {
   readonly kind: "south-face"; readonly topHeight: number; readonly bottomHeight: number;
-  readonly stairWall?: boolean; readonly southNeighborIsStair?: boolean; readonly voidWall?: boolean;
+  readonly stairWall?: boolean; readonly voidWall?: boolean;
   readonly wallFeature?: { readonly feature: TerrainFeatureKind; readonly topHeight: number };
 }
 export interface TerrainCliffEdgeQuad extends TerrainQuadBase {
