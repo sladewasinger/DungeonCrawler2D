@@ -56,7 +56,7 @@ describe("runtime chunk conversion", () => {
     expect(chunk.zones).toHaveLength(CELL_COUNT);
   });
 
-  it("restores uncarved topology as finite floor when VOID is disabled", () => {
+  it("restores unmarked wall rims as finite floor when VOID is disabled", () => {
     const chunk = buildRuntimeChunk(0, 0, source({
       tiles: new Uint8Array(CELL_COUNT).fill(TOPOLOGY.Uncarved),
       height: new Float32Array(CELL_COUNT).fill(2),
@@ -64,6 +64,20 @@ describe("runtime chunk conversion", () => {
     }));
 
     expect(chunk.tiles[0]).toBe(TILE.Floor);
+    expect(chunk.terrain[0]).toBe(TERRAIN.Floor);
+    expect(chunk.height[0]).toBe(2);
+  });
+
+  it("preserves explicitly classified structural bedrock", () => {
+    const tiles = new Uint8Array(CELL_COUNT).fill(TILE.Floor);
+    tiles[0] = TILE.Bedrock;
+    const chunk = buildRuntimeChunk(0, 0, source({
+      tiles,
+      height: new Float32Array(CELL_COUNT).fill(2),
+      worldFeatures: { voidTerrain: false },
+    }));
+
+    expect(chunk.tiles[0]).toBe(TILE.Bedrock);
     expect(chunk.terrain[0]).toBe(TERRAIN.Floor);
     expect(chunk.height[0]).toBe(2);
   });

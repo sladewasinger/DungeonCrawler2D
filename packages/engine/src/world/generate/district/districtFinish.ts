@@ -1,5 +1,6 @@
 import { sealInteriorPockets } from "../../core/pockets.js";
 import { demoteOrphanedStairs, repairCliffs } from "../terrain/cliffs.js";
+import { markBedrockStructures } from "../terrain/bedrock.js";
 import { markVoidTiles } from "../terrain/height.js";
 import {
   resolveShallowPlateaus,
@@ -24,4 +25,7 @@ export function finishDistrictTerrain(state: DistrictGenerationState): void {
   }
   applyWallHeight(state.tiles, state.height, size);
   demoteOrphanedStairs(state.tiles, state.height, size);
+  if (!state.worldFeatures.voidTerrain) {
+    markBedrockStructures(state.tiles, size);
+  }
 }

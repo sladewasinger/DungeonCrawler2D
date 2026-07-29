@@ -1,5 +1,6 @@
 export {
   TERRAIN_KINDS,
+  TERRAIN_SURFACES,
   TERRAIN_FEATURES,
   TERRAIN_PROPS,
   TERRAIN_HEIGHT_EPSILON,
@@ -15,6 +16,7 @@ export {
   type TerrainPropQuad,
   type TerrainPropKind,
   type TerrainKind,
+  type TerrainSurface,
   type TerrainPresentation,
   type TerrainPresentationMode,
   type TerrainPlan,

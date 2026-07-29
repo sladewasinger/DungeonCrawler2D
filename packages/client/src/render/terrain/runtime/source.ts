@@ -1,6 +1,7 @@
-import { TERRAIN as WORLD_TERRAIN } from "@dc2d/engine";
+import { TERRAIN as WORLD_TERRAIN, TILE } from "@dc2d/engine";
 import {
   TERRAIN_KINDS,
+  TERRAIN_SURFACES,
   type TerrainSource,
 } from "../planning/terrainPlanner.js";
 import { terrainFeatureAt, terrainPropForTile } from "../planning/tileFeatures.js";
@@ -13,6 +14,12 @@ export function createTerrainSource(world: TerrainWorld): TerrainSource {
     terrainAt: (x, y) => world.terrainAt(x, y) === WORLD_TERRAIN.Void
       ? TERRAIN_KINDS.Void
       : TERRAIN_KINDS.Floor,
+    surfaceAt: (x, y) => {
+      const tile = world.surfaceTileAt?.(x, y) ?? world.tileAt(x, y);
+      return tile === TILE.Bedrock
+        ? TERRAIN_SURFACES.Bedrock
+        : TERRAIN_SURFACES.Floor;
+    },
     heightAt: (x, y) => world.heightAt(x, y),
     featureFaceAt: (x, y) => world.featureFaceAt(x, y),
     featureHeightAt: (x, y) => world.featureHeightAt(x, y),

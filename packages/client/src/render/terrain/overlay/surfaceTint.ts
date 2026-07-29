@@ -10,12 +10,15 @@ import type {
   TerrainFloorQuad,
   TerrainSouthFaceQuad,
 } from "../geometry/terrainPlannerModel.js";
+import { TERRAIN_SURFACES } from "../geometry/terrainPlannerModel.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 import { pruneTerrainLayers } from "./layerRetention.js";
 import { projectTerrainQuad } from "./projectedTerrainQuad.js";
 
 const TINT_DEPTH_BIAS = 0.02;
 const TINT_ALPHA = TERRAIN_VISUAL_STYLE.biomeTint.alpha;
+const BEDROCK_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.bedrock.topColor);
+const BEDROCK_ALPHA = TERRAIN_VISUAL_STYLE.bedrock.topAlpha;
 const BIOME_TINTS: Readonly<Record<BiomeKind, number>> = {
   [BIOME.Maze]: tintColor(BIOME.Maze),
   [BIOME.OpenHalls]: tintColor(BIOME.OpenHalls),
@@ -28,10 +31,11 @@ const BIOME_TINTS: Readonly<Record<BiomeKind, number>> = {
 type TintQuad = TerrainFloorQuad | TerrainSouthFaceQuad;
 interface TintPart {
   readonly quad: TintQuad;
-  readonly biome: BiomeKind;
+  readonly biome: BiomeKind | null;
+  readonly bedrock: boolean;
 }
 
-export interface BiomeTintOptions {
+export interface SurfaceTintOptions {
   readonly projection: TerrainScreenProjection;
   readonly biomeAt: (
     worldTile: { readonly x: number; readonly y: number },
@@ -39,15 +43,15 @@ export interface BiomeTintOptions {
   readonly enabled: boolean;
 }
 
-/** A translucent batched color wash keeps one shared terrain atlas biome-aware. */
-export class TerrainBiomeTintRenderer {
+/** Batched color washes keep one shared terrain atlas biome- and surface-aware. */
+export class TerrainSurfaceTintRenderer {
   private readonly layers = new Map<number, Phaser.GameObjects.Graphics>();
 
   constructor(private readonly scene: Phaser.Scene) {}
 
   render(
     batches: TerrainBatches,
-    options: BiomeTintOptions,
+    options: SurfaceTintOptions,
     visible: boolean,
   ): void {
     const grouped = options.enabled ? groupTintParts(batches, options.biomeAt) : new Map();
@@ -81,7 +85,7 @@ function tintColor(biome: BiomeKind): number {
 
 function groupTintParts(
   batches: TerrainBatches,
-  biomeAt: BiomeTintOptions["biomeAt"],
+  biomeAt: SurfaceTintOptions["biomeAt"],
 ): Map<number, TintPart[]> {
   const grouped = new Map<number, TintPart[]>();
   for (const quad of batches.floors) appendTintPart(grouped, quad, biomeAt);
@@ -92,14 +96,16 @@ function groupTintParts(
 function appendTintPart(
   grouped: Map<number, TintPart[]>,
   quad: TintQuad,
-  biomeAt: BiomeTintOptions["biomeAt"],
+  biomeAt: SurfaceTintOptions["biomeAt"],
 ): void {
   const biome = biomeAt(quad.worldTile);
-  if (biome === null) return;
+  const bedrock = quad.kind === "floor" &&
+    quad.surface === TERRAIN_SURFACES.Bedrock;
+  if (biome === null && !bedrock) return;
   const depth = tintDepth(quad);
   const parts = grouped.get(depth) ?? [];
   if (!grouped.has(depth)) grouped.set(depth, parts);
-  parts.push({ quad, biome });
+  parts.push({ quad, biome, bedrock });
 }
 
 function tintDepth(quad: TintQuad): number {
@@ -114,9 +120,16 @@ function drawParts(
   parts: readonly TintPart[],
   projection: TerrainScreenProjection,
 ): void {
-  for (const { quad, biome } of parts) {
-    graphics.fillStyle(BIOME_TINTS[biome], TINT_ALPHA);
-    fillQuad(graphics, projectTerrainQuad(quad.vertices, projection.project));
+  for (const part of parts) {
+    const points = projectTerrainQuad(part.quad.vertices, projection.project);
+    if (part.biome !== null) {
+      graphics.fillStyle(BIOME_TINTS[part.biome], TINT_ALPHA);
+      fillQuad(graphics, points);
+    }
+    if (part.bedrock) {
+      graphics.fillStyle(BEDROCK_COLOR, BEDROCK_ALPHA);
+      fillQuad(graphics, points);
+    }
   }
 }
 

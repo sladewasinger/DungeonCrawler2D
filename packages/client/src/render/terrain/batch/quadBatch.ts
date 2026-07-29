@@ -31,6 +31,7 @@ export interface TerrainQuadMaterial {
 /** One material per pure planner batch. */
 export interface TerrainBatchMaterials {
   readonly floor: TerrainQuadMaterial;
+  readonly bedrock: TerrainQuadMaterial;
   readonly feature: TerrainQuadMaterial;
   readonly void: TerrainQuadMaterial;
   readonly southFace: TerrainQuadMaterial;
@@ -57,13 +58,30 @@ export class TerrainQuadBatchRenderer {
   ): void {
     this.graphics.clear();
     this.drawBatch(batches.voids, projection, materials.void);
-    this.drawBatch(batches.floors, projection, materials.floor);
+    this.drawFloorBatches(batches.floors, projection, materials);
     this.drawBatch(batches.features, projection, materials.feature);
     this.drawBatch(batches.props, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
     this.drawBatch(batches.cliffEdges, projection, materials.cliffEdge ?? materials.southFace);
     const floorAO = batches.ao.filter(({ surface }) => surface === "floor");
     this.drawBatch(floorAO, projection, materials.ao ?? DEFAULT_AO_MATERIAL);
+  }
+
+  private drawFloorBatches(
+    floors: TerrainBatches["floors"],
+    projection: TerrainScreenProjection,
+    materials: TerrainBatchMaterials,
+  ): void {
+    this.drawBatch(
+      floors.filter(({ surface }) => surface === "floor"),
+      projection,
+      materials.floor,
+    );
+    this.drawBatch(
+      floors.filter(({ surface }) => surface === "bedrock"),
+      projection,
+      materials.bedrock,
+    );
   }
 
   private drawBatch(

@@ -82,14 +82,14 @@ describe("atlasDraws", () => {
     const inactiveMesh = { setVisible: vi.fn() };
     const aoOverlay = { setVisible: vi.fn() };
     const cliffHighlight = { setVisible: vi.fn() };
-    const biomeTint = { setVisible: vi.fn() };
+    const surfaceTint = { setVisible: vi.fn() };
     const batch = {
       visible: true,
       meshes: new Map([["active", activeMesh], ["inactive", inactiveMesh]]),
       active: new Set(["active"]),
       aoOverlay,
       cliffHighlight,
-      biomeTint,
+      surfaceTint,
     };
 
     TerrainAtlasBatchRenderer.prototype.setVisible.call(batch, false);
@@ -102,8 +102,8 @@ describe("atlasDraws", () => {
     expect(aoOverlay.setVisible).toHaveBeenNthCalledWith(2, true);
     expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(1, false);
     expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(2, true);
-    expect(biomeTint.setVisible).toHaveBeenNthCalledWith(1, false);
-    expect(biomeTint.setVisible).toHaveBeenNthCalledWith(2, true);
+    expect(surfaceTint.setVisible).toHaveBeenNthCalledWith(1, false);
+    expect(surfaceTint.setVisible).toHaveBeenNthCalledWith(2, true);
   });
 
   it("tiles multi-height faces and crops only a partial top tile", () => {
@@ -139,10 +139,10 @@ const batches: TerrainBatches = {
   cliffEdges: [],
   ao: [],
   floors: [{
-    kind: "floor", worldTile: { x: 0, y: 1 }, viewTile: { x: 0, y: 1 }, height: 0,
+    kind: "floor", surface: "floor", worldTile: { x: 0, y: 1 }, viewTile: { x: 0, y: 1 }, height: 0,
     vertices: [{ x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }, { x: 0, y: 2, z: 0 }],
   }, {
-    kind: "floor", worldTile: { x: 1, y: 1 }, viewTile: { x: 1, y: 1 }, height: 2,
+    kind: "floor", surface: "floor", worldTile: { x: 1, y: 1 }, viewTile: { x: 1, y: 1 }, height: 2,
     vertices: [{ x: 1, y: 1, z: 2 }, { x: 2, y: 1, z: 2 }, { x: 2, y: 2, z: 2 }, { x: 1, y: 2, z: 2 }],
   }],
   southFaces: [{

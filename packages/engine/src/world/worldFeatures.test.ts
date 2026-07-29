@@ -86,6 +86,23 @@ describe("VOID terrain world feature", () => {
     expect(world.isWalkable(x, y)).toBe(true);
   });
 
+  it("keeps finite structural wall geometry permanently impassable", () => {
+    const world = new World(hashString(DEV_WORLD), 1, {
+      level: LEVEL.Dungeon,
+      features: DISABLED,
+    });
+    const chunk = world.getChunk(1, -1);
+    const index = chunk.tiles.findIndex((tile) => tile === TILE.Bedrock);
+
+    expect(index).toBeGreaterThanOrEqual(0);
+    const x = chunk.cx * CHUNK_SIZE + index % CHUNK_SIZE;
+    const y = chunk.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
+    expect(world.surfaceTileAt(x, y)).toBe(TILE.Bedrock);
+    expect(world.tileAt(x, y)).toBe(TILE.Bedrock);
+    expect(world.heightAt(x, y)).toBeGreaterThan(0);
+    expect(world.isWalkable(x, y)).toBe(false);
+  });
+
   it("snapshots startup features before caching chunks", () => {
     const configured = { voidTerrain: false };
     const world = new World(hashString(DEV_WORLD), 1, { features: configured });

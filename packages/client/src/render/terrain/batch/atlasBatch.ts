@@ -4,7 +4,7 @@ import type { TerrainScreenPoint, TerrainScreenProjection } from "./quadBatch.js
 import type { TerrainBatches } from "../planning/terrainPlanner.js";
 import { TerrainAOOverlayRenderer } from "../overlay/aoOverlay.js";
 import { TerrainCliffHighlightRenderer } from "../overlay/cliffHighlight.js";
-import { TerrainBiomeTintRenderer } from "../overlay/biomeTint.js";
+import { TerrainSurfaceTintRenderer } from "../overlay/surfaceTint.js";
 import {
   terrainAtlasFrame,
   TERRAIN_TILE_ROLES,
@@ -93,14 +93,14 @@ export class TerrainAtlasBatchRenderer {
   private readonly meshes = new Map<string, Phaser.GameObjects.Mesh2D>();
   private readonly aoOverlay: TerrainAOOverlayRenderer;
   private readonly cliffHighlight: TerrainCliffHighlightRenderer;
-  private readonly biomeTint: TerrainBiomeTintRenderer;
+  private readonly surfaceTint: TerrainSurfaceTintRenderer;
   private active = new Set<string>();
   private visible = false;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.aoOverlay = new TerrainAOOverlayRenderer(scene);
     this.cliffHighlight = new TerrainCliffHighlightRenderer(scene);
-    this.biomeTint = new TerrainBiomeTintRenderer(scene);
+    this.surfaceTint = new TerrainSurfaceTintRenderer(scene);
   }
 
   render(batches: TerrainBatches, options: TerrainAtlasRenderOptions): void {
@@ -108,7 +108,7 @@ export class TerrainAtlasBatchRenderer {
     this.installDrawAtlases(draws);
     const meshes = terrainMeshBatches(draws, (atlas) => this.scene.textures.get(atlas.key).source[0]!);
     this.syncMeshes(meshes);
-    this.biomeTint.render(batches, {
+    this.surfaceTint.render(batches, {
       projection: options.projection,
       biomeAt: options.biomeTintAt ?? options.biomeAt,
       enabled: !options.debug,
@@ -136,7 +136,7 @@ export class TerrainAtlasBatchRenderer {
     for (const [key, mesh] of this.meshes) mesh.setVisible(visible && this.active.has(key));
     this.aoOverlay.setVisible(visible);
     this.cliffHighlight.setVisible(visible);
-    this.biomeTint.setVisible(visible);
+    this.surfaceTint.setVisible(visible);
   }
 
   destroy(): void {
@@ -144,7 +144,7 @@ export class TerrainAtlasBatchRenderer {
     this.meshes.clear();
     this.aoOverlay.destroy();
     this.cliffHighlight.destroy();
-    this.biomeTint.destroy();
+    this.surfaceTint.destroy();
   }
 
   private updateMesh(batch: TerrainMeshBatch): void {

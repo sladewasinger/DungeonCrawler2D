@@ -31,6 +31,10 @@
       "arena": "#a96650"
     }
   },
+  "bedrock": {
+    "topColor": "#262631",
+    "topAlpha": 0.58
+  },
   "fallbackMaterials": {
     "void": "#000000",
     "biomes": {

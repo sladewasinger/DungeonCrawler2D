@@ -3,9 +3,15 @@ import type { ViewOrientation } from "../../view/orientation/viewOrientation.js"
 import type { FeatureFace } from "@dc2d/engine";
 
 export const TERRAIN_KINDS = { Floor: "floor", Void: "void" } as const;
+export const TERRAIN_SURFACES = {
+  Floor: "floor",
+  Bedrock: "bedrock",
+} as const;
 export const TERRAIN_HEIGHT_EPSILON = 0.01;
 export const TERRAIN_FLOOR_EDGE_MIN_DROP = 0.1;
 export type TerrainKind = (typeof TERRAIN_KINDS)[keyof typeof TERRAIN_KINDS];
+export type TerrainSurface =
+  (typeof TERRAIN_SURFACES)[keyof typeof TERRAIN_SURFACES];
 export type VoidBoundaryStyle = "floating" | "flat";
 export const TERRAIN_PRESENTATION_MODES = {
   Inside: "inside",
@@ -36,6 +42,7 @@ export interface TerrainSource {
   readonly voidTerrain: boolean;
   presentationAt?(worldX: number, worldY: number): TerrainPresentation;
   terrainAt(worldX: number, worldY: number): TerrainKind;
+  surfaceAt?(worldX: number, worldY: number): TerrainSurface;
   heightAt(worldX: number, worldY: number): number;
   featureFaceAt?(worldX: number, worldY: number): FeatureFace;
   featureHeightAt?(worldX: number, worldY: number): number;
@@ -52,7 +59,11 @@ export interface TerrainPlanOptions {
 export interface TerrainVertex { readonly x: number; readonly y: number; readonly z: number; }
 export type TerrainQuadVertices = readonly [TerrainVertex, TerrainVertex, TerrainVertex, TerrainVertex];
 interface TerrainQuadBase { readonly worldTile: Point; readonly viewTile: Point; readonly vertices: TerrainQuadVertices; }
-export interface TerrainFloorQuad extends TerrainQuadBase { readonly kind: "floor"; readonly height: number; }
+export interface TerrainFloorQuad extends TerrainQuadBase {
+  readonly kind: "floor";
+  readonly surface: TerrainSurface;
+  readonly height: number;
+}
 export interface TerrainVoidQuad extends TerrainQuadBase { readonly kind: "void"; }
 export interface TerrainFeatureQuad extends TerrainQuadBase {
   readonly kind: "feature"; readonly feature: TerrainFeatureKind;

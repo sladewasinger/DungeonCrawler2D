@@ -7,6 +7,10 @@ const NORTH_PASSAGE_ROW = "...........VV................VV.";
 const NORTH_WALL_ROW = "VVV........VV................VV.";
 const WEST_VOID_ROW = "V............................VV.";
 const OPEN_EAST_VOID_ROW = ".............................VV.";
+const BEDROCK_NORTH_PASSAGE_ROW = "...........BB................BB.";
+const BEDROCK_NORTH_WALL_ROW = "BBB........BB................BB.";
+const BEDROCK_WEST_ROW = "B............................BB.";
+const BEDROCK_OPEN_EAST_ROW = ".............................BB.";
 
 export const DEV_WORLD_TILE_ROWS = [
   NORTH_PASSAGE_ROW,
@@ -43,7 +47,40 @@ export const DEV_WORLD_TILE_ROWS = [
   "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV",
 ] as const;
 
-export const FINITE_DEV_WORLD_TILE_ROWS = DEV_WORLD_TILE_ROWS.map((row) => row.replaceAll("V", "."));
+export const FINITE_DEV_WORLD_TILE_ROWS = [
+  BEDROCK_NORTH_PASSAGE_ROW,
+  BEDROCK_NORTH_PASSAGE_ROW,
+  BEDROCK_NORTH_PASSAGE_ROW,
+  BEDROCK_NORTH_WALL_ROW,
+  BEDROCK_NORTH_WALL_ROW,
+  BEDROCK_NORTH_WALL_ROW,
+  BEDROCK_NORTH_WALL_ROW,
+  "BBBBBBBBBBBBB................BB.",
+  "BBBBBBBBBBBBBBBBB.......BBBBBBB.",
+  "BBBBBBBBBBBBBBBBB.......BBBBBBB.",
+  BEDROCK_WEST_ROW,
+  BEDROCK_WEST_ROW,
+  BEDROCK_WEST_ROW,
+  ".............................BBB",
+  ".............................BBB",
+  BEDROCK_OPEN_EAST_ROW,
+  ".S...........................BB.",
+  BEDROCK_WEST_ROW,
+  "BBBBBBBBBB.........BBBBBBBBBBBB.",
+  "BBBBBBBBBB........BBBBBBBBBBBBB.",
+  ".....BBB..........BB.........BB.",
+  ".....BBB..........BB.........BB.",
+  ".....BBB.....................BB.",
+  "........S....................BB.",
+  "........S....................BB.",
+  BEDROCK_OPEN_EAST_ROW,
+  BEDROCK_OPEN_EAST_ROW,
+  "..................BB.........BB.",
+  "BBBBB...BBBBBBBBBBBBBBBBBBBBBBBB",
+  "BBBBB...BBBBBBBBBBBBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+] as const;
 
 /** Exact pre-VOID finite heights for the screenshot regression chunk.
  * Symbols map in ascending order: 0=-1, 1=-0.5, 2=0, 3=0.5, 4=1, 5=2. */
@@ -96,6 +133,7 @@ function tileSymbol(tile: number | undefined): string {
   if (tile === TILE.Floor) return ".";
   if (tile === TILE.Stairs) return "S";
   if (tile === TILE.Void) return "V";
+  if (tile === TILE.Bedrock) return "B";
   return "?";
 }
 

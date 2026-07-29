@@ -8,6 +8,7 @@ import type {
   TerrainQuadVertices,
   TerrainSource,
 } from "./terrainPlannerModel.js";
+import { TERRAIN_SURFACES } from "./terrainPlannerModel.js";
 import { featureHeightAt, isElevatedWallDoor } from "./wallFeatureGeometry.js";
 
 interface FeatureArtBatches {
@@ -64,6 +65,8 @@ function appendPropOrFloor(
 }
 
 function floorQuad(request: FeatureArtRequest): TerrainFloorQuad {
-  const { worldTile, viewTile, height, vertices } = request;
-  return { kind: "floor", worldTile, viewTile, height, vertices };
+  const { source, worldTile, viewTile, height, vertices } = request;
+  const surface = source.surfaceAt?.(worldTile.x, worldTile.y) ??
+    TERRAIN_SURFACES.Floor;
+  return { kind: "floor", surface, worldTile, viewTile, height, vertices };
 }

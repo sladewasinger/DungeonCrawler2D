@@ -19,6 +19,12 @@ export const TILE = {
   DoorSafeRoom: 8,
   /** Infinite-height void cell; it has no walkable surface. */
   Void: 9,
+  /**
+   * Structural wall core used when VOID terrain is disabled. Its finite height
+   * exists only to draw ordinary wall faces; collision treats it as infinitely
+   * tall so jumping never turns thick uncarved separators into shortcuts.
+   */
+  Bedrock: 10,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
@@ -52,12 +58,15 @@ export type TerrainType = (typeof TERRAIN)[keyof typeof TERRAIN];
  * collision while the feature replaces one visual wall-face segment.
  * Generated void cells are also blocked by World.isWalkable; they are an
  * infinite-height collision boundary even though they render flat in 2D.
+ * Bedrock retains a finite render height but uses the same absolute movement
+ * boundary, so physics never depends on an Infinity value in the height map.
  * Projectiles use the same terrain plane and height barriers as movement.
  */
 export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.CraftingTable,
   TILE.Stash,
   TILE.Void,
+  TILE.Bedrock,
 ]);
 
 export const ZONE = {

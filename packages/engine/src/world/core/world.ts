@@ -84,12 +84,16 @@ export class World implements WorldView {
   }
 
   tileAt(wx: number, wy: number): TileType {
-    const overridden = this.tileOverrides.get(`${wx},${wy}`);
-    if (overridden !== undefined) return overridden;
     const feature = this.featureAt(wx, wy);
     if (feature !== TILE.Floor) return feature;
+    return this.surfaceTileAt(wx, wy);
+  }
+
+  /** Base terrain tile beneath feature overlays such as stairs and doors. */
+  surfaceTileAt(wx: number, wy: number): TileType {
+    const overridden = this.tileOverrides.get(`${wx},${wy}`);
+    if (overridden !== undefined) return featureFromTile(overridden) === TILE.Floor ? overridden : TILE.Floor;
     const { chunk, index } = this.lookup(wx, wy);
-    if (chunk.terrain[index] === TERRAIN.Void) return TILE.Void;
     return (chunk.tiles[index] ?? TILE.Floor) as TileType;
   }
 
@@ -158,7 +162,8 @@ export class World implements WorldView {
     // Enabled VOID is an infinite boundary. Disabled mode restores legacy
     // finite chasm floors so movement can enter them and the death plane can
     // resolve the fall.
-    if (SOLID_TILES.has(this.featureAt(wx, wy))) return false;
+    if (SOLID_TILES.has(this.featureAt(wx, wy)) ||
+        SOLID_TILES.has(this.surfaceTileAt(wx, wy))) return false;
     if (!this.features.voidTerrain) return true;
     return this.terrainAt(wx, wy) !== TERRAIN.Void && this.heightAt(wx, wy) > CHASM_DEATH_Z;
   }

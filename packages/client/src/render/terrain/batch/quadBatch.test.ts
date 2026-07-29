@@ -42,7 +42,7 @@ describe("TerrainQuadBatchRenderer", () => {
       cliffEdges: [],
       ao: [],
       floors: [{
-        kind: "floor", worldTile: { x: 0, y: 0 }, viewTile: { x: 0, y: 0 }, height: 3,
+        kind: "floor", surface: "floor", worldTile: { x: 0, y: 0 }, viewTile: { x: 0, y: 0 }, height: 3,
         vertices: [{ x: 1, y: 2, z: 3 }, { x: 3, y: 2, z: 3 }, { x: 3, y: 5, z: 3 }, { x: 1, y: 5, z: 3 }],
       }],
       southFaces: [{
@@ -80,6 +80,7 @@ const screenProjection: TerrainScreenProjection = {
 
 const materials: TerrainBatchMaterials = {
   floor: { color: 0x7d9ec0 },
+  bedrock: { color: 0x262631 },
   feature: { color: 0x7d9ec0 },
   void: { color: 0x000000 },
   southFace: { color: 0x4a4a70, alpha: 0.8 },

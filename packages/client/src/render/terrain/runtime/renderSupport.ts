@@ -39,7 +39,9 @@ const BIOME_MATERIALS: Readonly<Record<BiomeKind, { floor: number; face: number 
 export function materialsFor(world: Partial<World>, bounds: TerrainRect) {
   const palette = BIOME_MATERIALS[worldBiomeAt(world, bounds.x, bounds.y)];
   return {
-    floor: { color: palette.floor }, feature: { color: palette.floor },
+    floor: { color: palette.floor },
+    bedrock: { color: phaserColor(TERRAIN_VISUAL_STYLE.bedrock.topColor) },
+    feature: { color: palette.floor },
     void: { color: phaserColor(TERRAIN_VISUAL_STYLE.fallbackMaterials.void) },
     southFace: { color: palette.face }, cliffEdge: { color: palette.face },
     ao: {

@@ -63,4 +63,5 @@ describe("wall height: interior fill vs rim", () => {
     applyWallHeight(tiles, height, SIZE);
     expect(height[center]).toBe(3);
   });
+
 });
