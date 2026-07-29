@@ -1,4 +1,5 @@
 import {
+  BEDROCK_MIN_HEIGHT,
   CHUNK_SIZE,
   FEATURE_FACE,
   TERRAIN,
@@ -7,9 +8,6 @@ import {
   type Chunk,
 } from "../core/types.js";
 import { DEFAULT_WORLD_FEATURES, type WorldFeatures } from "../core/worldFeatures.js";
-
-const FIRST_DISCRETE_FEATURE_TILE = TILE.DoorPersonal;
-const LAST_DISCRETE_FEATURE_TILE = TILE.DoorSafeRoom;
 
 export interface GeneratedTerrain {
   readonly tiles: Uint8Array;
@@ -41,6 +39,8 @@ export function buildRuntimeChunk(cx: number, cy: number, source: GeneratedTerra
 
 function writeRuntimeCell(chunk: Chunk, source: GeneratedTerrain, index: number): void {
   const sourceTile = source.tiles[index] ?? TILE.Floor;
+  const sourceHeight = source.height[index] ?? 0;
+  assertBedrockHeight(sourceTile, sourceHeight, index);
   const voidCell = isVoidSource(
     sourceTile,
     source.worldFeatures?.voidTerrain ?? DEFAULT_WORLD_FEATURES.voidTerrain,
@@ -50,8 +50,18 @@ function writeRuntimeCell(chunk: Chunk, source: GeneratedTerrain, index: number)
   chunk.features[index] = runtimeFeature(source, sourceTile, index);
   chunk.featureFaces[index] = runtimeFeatureFace(source, index);
   chunk.featureHeight[index] = runtimeFeatureHeight(source, index);
-  chunk.height[index] = voidCell ? 0 : source.height[index] ?? 0;
+  chunk.height[index] = voidCell ? 0 : sourceHeight;
   chunk.zones[index] = source.zones[index] ?? 0;
+}
+
+function assertBedrockHeight(
+  tile: number,
+  height: number,
+  index: number,
+): void {
+  if (tile === TILE.Bedrock && height < BEDROCK_MIN_HEIGHT) {
+    throw new Error(`Bedrock cell ${index} is below z${BEDROCK_MIN_HEIGHT}`);
+  }
 }
 
 function runtimeTile(tile: number, voidCell: boolean): number {
@@ -88,7 +98,8 @@ function terrainHeight(source: GeneratedTerrain, index: number): number {
 }
 
 function isDiscreteFeature(tile: number): boolean {
-  return tile >= FIRST_DISCRETE_FEATURE_TILE && tile <= LAST_DISCRETE_FEATURE_TILE;
+  return tile === TILE.ArenaGate ||
+    (tile >= TILE.DoorPersonal && tile <= TILE.DoorSafeRoom);
 }
 
 function isVoidSource(tile: number, voidTerrain: boolean): boolean {

@@ -1,18 +1,18 @@
 import {
   CHUNK_SIZE,
   TILE,
-  createBody,
   resolveWorldInteraction,
+  isSpawnRoomExteriorDoor,
   partyRoomSpawn,
   personalRoomSpawn,
   safeRoomSpawn,
   safeRoomChunk,
   roomKindAt,
+  type WorldInteractionTarget,
 } from "@dc2d/engine";
 import { findDungeonEntry } from "../spawn/dungeonEntry.js";
 import { findSpawn } from "../spawn/spawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
-import { resetInputTimeline } from "../players/playerInputTimeline.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import {
   safeRoomDoorAt,
@@ -21,6 +21,8 @@ import {
 import { queueFoodAttendantGreeting } from "../npcs/foodAttendant/index.js";
 import { openLootChest } from "../lootChests/lootChests.js";
 import { claimNearestPet } from "../pets/index.js";
+import { useMiniBossArenaGate } from "../enemies/miniBossArena/gate.js";
+import { teleportPlayer } from "./playerTeleport.js";
 
 /** The interact intent: revive, pet claims, doors, stash, and floor exits. */
 
@@ -38,8 +40,22 @@ export function doInteract({ sim, slot }: InteractContext): void {
   if (claimNearestPet(sim, slot) || openLootChest(sim, slot)) return;
   const body = slot.entity.body;
   const target = resolveWorldInteraction(sim.world, body.x, body.y);
-  if (target?.kind === "door") return void useDoor({ sim, slot, door: target });
-  if (target?.kind === "stash") sendStash(slot);
+  if (target) useWorldInteraction({ sim, slot }, target);
+}
+
+function useWorldInteraction(
+  context: InteractContext,
+  target: WorldInteractionTarget,
+): void {
+  if (target.kind === "arena-gate") {
+    useMiniBossArenaGate({ ...context, gate: target });
+    return;
+  }
+  if (target.kind === "door") {
+    useDoor({ ...context, door: target });
+    return;
+  }
+  if (target.kind === "stash") sendStash(context.slot);
 }
 
 function sendStash(slot: PlayerSlot): void {
@@ -48,6 +64,13 @@ function sendStash(slot: PlayerSlot): void {
 
 /** Doors: use a nearby wall-mounted or ground-mounted feature to teleport. */
 function useDoor({ sim, slot, door }: DoorContext): boolean {
+  if (isSpawnRoomExteriorDoor(sim.world.floor, door.x, door.y)) {
+    slot.outbox.push({
+      t: "toast",
+      msg: "Locked. The only way back in is through the grave.",
+    });
+    return true;
+  }
   const assigned = safeRoomDoorAt(sim, door.x, door.y);
   if (assigned) return useAssignedRoomDoor({ sim, slot, ownerId: assigned.ownerId, tile: assigned.tile });
   switch (door.tile) {
@@ -65,7 +88,7 @@ function useSafeRoomDoor({ sim, slot, door }: DoorContext): boolean {
   const doorCy = Math.floor(door.y / CHUNK_SIZE);
   const room = safeRoomChunk(doorCx, doorCy);
   if (!safeRoomHasCapacity(sim, room.cx, room.cy)) return notifyFullSafeRoom(slot);
-  teleport({ sim, slot, to: safeRoomSpawn(doorCx, doorCy), remember: true });
+  teleportPlayer({ sim, slot, to: safeRoomSpawn(doorCx, doorCy), remember: true });
   queueFoodAttendantGreeting(sim, slot, room);
   slot.outbox.push({ t: "toast", msg: "The safe room. No fighting in here." });
   return true;
@@ -77,7 +100,7 @@ function notifyFullSafeRoom(slot: PlayerSlot): true {
 }
 
 function usePersonalDoor({ sim, slot }: InteractContext): true {
-  teleport({ sim, slot, to: personalRoomSpawn(slot.stored.slot), remember: true });
+  teleportPlayer({ sim, slot, to: personalRoomSpawn(slot.stored.slot), remember: true });
   slot.outbox.push({ t: "toast", msg: "Your room. Stash and crafting table inside." });
   return true;
 }
@@ -89,13 +112,13 @@ function usePartyDoor(context: InteractContext): true {
 
 function useExitDoor({ sim, slot }: InteractContext): true {
   if (currentRoomKind(slot) === "spawn") {
-    teleport({ sim, slot, to: findDungeonEntry(sim), remember: false });
+    teleportPlayer({ sim, slot, to: findDungeonEntry(sim), remember: false });
     slot.returnStack = [];
     secureSpawnHandoff(sim, slot);
     slot.outbox.push({ t: "toast", msg: "No way back but the grave. Do some damage." });
     return true;
   }
-  teleport({ sim, slot, to: slot.returnStack.pop() ?? findSpawn(sim), remember: false });
+  teleportPlayer({ sim, slot, to: slot.returnStack.pop() ?? findSpawn(sim), remember: false });
   return true;
 }
 
@@ -116,7 +139,7 @@ function useAssignedRoomDoor({ sim, slot, ownerId, tile }: InteractContext & { o
   const party = sim.parties.get(owner.partyId);
   if (!party) return true;
   party.roomSlot ??= sim.nextPartyRoom++;
-  teleport({ sim, slot, to: partyRoomSpawn(party.roomSlot), remember: true });
+  teleportPlayer({ sim, slot, to: partyRoomSpawn(party.roomSlot), remember: true });
   slot.outbox.push({ t: "toast", msg: "The party room" });
   return true;
 }
@@ -126,7 +149,7 @@ function useOwnedPersonalDoor({ sim, slot, ownerId, owner }: InteractContext & {
     slot.outbox.push({ t: "toast", msg: "That personal room is private" });
     return true;
   }
-  teleport({ sim, slot, to: personalRoomSpawn(owner.stored.slot), remember: true });
+  teleportPlayer({ sim, slot, to: personalRoomSpawn(owner.stored.slot), remember: true });
   slot.outbox.push({ t: "toast", msg: "Your personal room" });
   return true;
 }
@@ -139,19 +162,6 @@ function useDoorParty({ sim, slot }: InteractContext): void {
   const party = sim.parties.get(slot.partyId);
   if (!party) return;
   party.roomSlot ??= sim.nextPartyRoom++;
-  teleport({ sim, slot, to: partyRoomSpawn(party.roomSlot), remember: true });
+  teleportPlayer({ sim, slot, to: partyRoomSpawn(party.roomSlot), remember: true });
   slot.outbox.push({ t: "toast", msg: "The party room" });
-}
-
-export function teleport({ sim, slot, to, remember }: InteractContext & { to: { x: number; y: number; z?: number }; remember: boolean }): void {
-  if (remember) {
-    slot.returnStack.push({ x: slot.entity.body.x, y: slot.entity.body.y, z: slot.entity.body.z });
-    if (slot.returnStack.length > 4) slot.returnStack.shift();
-  }
-  const z = to.z ?? sim.world.groundAt(to.x, to.y);
-  slot.entity.body = createBody(to.x, to.y, z);
-  resetInputTimeline(slot);
-  slot.needsFullAreas = true;
-  slot.known.clear();
-  slot.outbox.push({ t: "teleported" });
 }

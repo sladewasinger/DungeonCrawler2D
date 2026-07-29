@@ -29,6 +29,9 @@ function hasNearbyItem(items: readonly PromptTarget[], x: number, y: number): bo
 }
 
 const worldPrompt = (kind: WorldInteractionKind): InteractionPrompt => {
+  if (kind === "arena-gate") {
+    return { key: "E", label: "enter mini-boss arena" };
+  }
   if (kind === "door") return { key: "E", label: "enter" };
   if (kind === "stash") return { key: "E", label: "open stash" };
   return { key: "E", label: "craft" };

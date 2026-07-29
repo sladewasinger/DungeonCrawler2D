@@ -41,47 +41,45 @@ describe("applyShowcase (unit)", () => {
     apply(g);
     const h = (x: number, y: number): number => g.height[y * CHUNK_SIZE + x] ?? 0;
     const t = (x: number, y: number): number => g.tiles[y * CHUNK_SIZE + x] ?? 0;
-    // Plateau: first 4x4 site is (0,0)..(3,3) -> VOID 2x2 at (1,1)..(2,2).
+    // The spawn-room facade reserves y1..9. The nearest clear plateau is the
+    // 2x2 at (1,11)..(2,12), with the pit beside it at (4,11)..(5,12).
     for (const [x, y] of [
-      [1, 1],
-      [2, 1],
-      [1, 2],
-      [2, 2],
+      [1, 11],
+      [2, 11],
+      [1, 12],
+      [2, 12],
     ] as const) {
       expect(h(x, y), `plateau cell ${x},${y}`).toBe(0);
       expect(t(x, y)).toBe(TILE.Void);
     }
-    expect(h(0, 0)).toBe(0); // ring untouched
-    expect(h(3, 3)).toBe(0);
-    // Pit: first block clear of the fresh platform is (4,1)..(5,2). Its north
-    // stair needs a threshold at y=-1 (out of chunk), so the south side wins:
-    // tread at (4,3) mid-height, threshold (4,4) kept flat.
+    expect(h(0, 10)).toBe(0); // ring untouched
+    expect(h(3, 13)).toBe(0);
     for (const [x, y] of [
-      [4, 1],
-      [5, 1],
-      [4, 2],
-      [5, 2],
+      [4, 11],
+      [5, 11],
+      [4, 12],
+      [5, 12],
     ] as const) {
       expect(h(x, y), `pit cell ${x},${y}`).toBe(-1);
       expect(t(x, y)).toBe(TILE.Floor);
     }
-    expect(t(4, 3)).toBe(TILE.Stairs);
-    expect(h(4, 3)).toBe(-0.5);
-    expect(h(4, 4)).toBe(0);
-    expect(t(4, 4)).toBe(TILE.Floor);
+    expect(t(4, 10)).toBe(TILE.Stairs);
+    expect(h(4, 10)).toBe(-0.5);
+    expect(h(4, 9)).toBe(0);
+    expect(t(4, 9)).toBe(TILE.Floor);
   });
 
   it("carves the same showcase as finite raised Floor when VOID terrain is disabled", () => {
     const g = flatChunk();
     const expected = flatChunk();
-    for (const [x, y] of [[1, 1], [2, 1], [1, 2], [2, 2]] as const) {
+    for (const [x, y] of [[1, 11], [2, 11], [1, 12], [2, 12]] as const) {
       expected.height[y * CHUNK_SIZE + x] = 1;
     }
-    for (const [x, y] of [[4, 1], [5, 1], [4, 2], [5, 2]] as const) {
+    for (const [x, y] of [[4, 11], [5, 11], [4, 12], [5, 12]] as const) {
       expected.height[y * CHUNK_SIZE + x] = -1;
     }
-    expected.tiles[3 * CHUNK_SIZE + 4] = TILE.Stairs;
-    expected.height[3 * CHUNK_SIZE + 4] = -0.5;
+    expected.tiles[10 * CHUNK_SIZE + 4] = TILE.Stairs;
+    expected.height[10 * CHUNK_SIZE + 4] = -0.5;
 
     apply(g, { voidTerrain: false });
 

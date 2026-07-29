@@ -55,6 +55,7 @@ function connectionGameplay() {
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
     forceDeath: false,
+    rescueReadyAtTick: Number.NEGATIVE_INFINITY,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,
     spawnGraceUntilTick: 0,

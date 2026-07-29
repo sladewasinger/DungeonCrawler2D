@@ -1,6 +1,7 @@
 import { sealInteriorPockets } from "../../core/pockets.js";
 import { demoteOrphanedStairs, repairCliffs } from "../terrain/cliffs.js";
-import { markBedrockStructures } from "../terrain/bedrock.js";
+import { classifyFiniteWallStructures } from "../terrain/bedrock.js";
+import { polishTerrainEscapes } from "../terrain/escape/escapePolish.js";
 import { markVoidTiles } from "../terrain/height.js";
 import {
   resolveShallowPlateaus,
@@ -26,6 +27,23 @@ export function finishDistrictTerrain(state: DistrictGenerationState): void {
   applyWallHeight(state.tiles, state.height, size);
   demoteOrphanedStairs(state.tiles, state.height, size);
   if (!state.worldFeatures.voidTerrain) {
-    markBedrockStructures(state.tiles, size);
+    finishFiniteTerrain(state, size);
+  }
+}
+
+function finishFiniteTerrain(
+  state: DistrictGenerationState,
+  size: number,
+): void {
+  classifyFiniteWallStructures(state.tiles, state.height, size);
+  while (true) {
+    polishTerrainEscapes({
+      tiles: state.tiles,
+      height: state.height,
+      corridorCarved: state.corridorCarved,
+      featureTiles: state.featureTiles,
+      size,
+    });
+    if (!resolveShallowPlateaus(state.tiles, state.height, size)) return;
   }
 }

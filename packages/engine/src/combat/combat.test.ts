@@ -147,4 +147,5 @@ describe("enemy AI", () => {
     enemyThink({ brain, enemy: slime, def: slimeDef, players: [dead], inSanctuary: () => false, dt: 0.05, rng: () => rng.next() });
     expect(brain.targetId).toBeNull();
   });
+
 });

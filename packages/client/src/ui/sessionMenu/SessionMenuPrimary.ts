@@ -6,6 +6,7 @@ interface SessionMenuPrimaryOptions {
   readonly respawnButton: HTMLButtonElement;
   readonly settingsContent: HTMLElement;
   readonly onResume: () => void;
+  readonly onRescue: () => void;
   readonly onQuit: () => void;
   readonly onAdvanced: () => void;
 }
@@ -16,6 +17,7 @@ export function buildSessionMenuPrimary(
   const title = createHudTemplate<HTMLHeadingElement>("hud-session-heading-template");
   title.textContent = "Game menu";
   const resume = createSessionButton("Resume", options.onResume);
+  const rescue = createSessionButton("I'm stuck", options.onRescue);
   const quit = createSessionButton("Quit to title", options.onQuit);
   const advanced = createSessionButton(
     "Advanced settings",
@@ -26,6 +28,7 @@ export function buildSessionMenuPrimary(
   options.container.append(
     title,
     resume,
+    rescue,
     options.respawnButton,
     quit,
     advanced,

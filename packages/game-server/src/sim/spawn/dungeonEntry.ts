@@ -1,28 +1,27 @@
+import { spawnRoomExteriorSite } from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
-import { findWalkableNear } from "./search.js";
 
-const ENTRY_SEARCH_RADIUS = 48;
-
-/** Closest free dungeon floor to world origin, used by the one-way spawn-room exit. */
+/** First open apron tile immediately outside the visible spawn-room facade. */
 export function findDungeonEntry(
   sim: SimState,
 ): { x: number; y: number; z: number } {
   const occupied = occupiedPlayerTiles(sim);
-  const tile = findWalkableNear({
-    sim,
-    x: 0,
-    y: 0,
-    maxRadius: ENTRY_SEARCH_RADIUS,
-    avoid: occupied,
-  }) ?? findWalkableNear({
-    sim,
-    x: 0,
-    y: 0,
-    maxRadius: ENTRY_SEARCH_RADIUS,
+  const positions = spawnRoomExteriorSite().landingPositions;
+  const destination = positions.find((position) => {
+    const tileX = Math.floor(position.x);
+    const tileY = Math.floor(position.y);
+    return sim.world.isWalkable(tileX, tileY) &&
+      !occupied.has(`${tileX},${tileY}`);
+  }) ?? positions.find((position) => {
+    return sim.world.isWalkable(
+      Math.floor(position.x),
+      Math.floor(position.y),
+    );
   });
-  if (!tile) throw new Error("No walkable dungeon entry tile near (0, 0)");
-  const x = tile.x + 0.5;
-  const y = tile.y + 0.5;
+  if (!destination) {
+    throw new Error("Spawn-room exterior has no walkable landing tile");
+  }
+  const { x, y } = destination;
   return { x, y, z: sim.world.groundAt(x, y) };
 }
 

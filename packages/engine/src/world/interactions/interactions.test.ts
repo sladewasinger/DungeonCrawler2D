@@ -44,4 +44,16 @@ describe("world interactions", () => {
     });
     expect(resolveWorldInteraction(world, 0.5, -0.5)).toBeNull();
   });
+
+  it("prioritizes a feature-plane arena gate for entry", () => {
+    const world = {
+      tileAt: () => TILE.Floor,
+      featureAt: () => TILE.ArenaGate,
+      featureFaceAt: () => FEATURE_FACE.North,
+    };
+    expect(resolveWorldInteraction(world, 0.5, -0.5)).toMatchObject({
+      kind: "arena-gate",
+      tile: TILE.ArenaGate,
+    });
+  });
 });

@@ -1,4 +1,7 @@
-import { INTERACT_RANGE } from "@dc2d/engine";
+import {
+  INTERACT_RANGE,
+  type WorldInteractionKind,
+} from "@dc2d/engine";
 import type Phaser from "phaser";
 import type { InputConnection, InputPanels, InputQueries } from "../controls/state.js";
 
@@ -28,7 +31,11 @@ function useWorldInteraction(conn: InputConnection, panels: InputPanels, queries
   return true;
 }
 
-function worldInteractionAction(kind: "craft" | "stash" | "door", conn: InputConnection, panels: InputPanels): void {
+function worldInteractionAction(
+  kind: WorldInteractionKind,
+  conn: InputConnection,
+  panels: InputPanels,
+): void {
   if (kind === "craft") return panels.toggleCraft(conn);
   if (kind === "stash") return openStash(conn, panels);
   conn.interact();

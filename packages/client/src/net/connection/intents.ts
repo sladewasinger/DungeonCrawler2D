@@ -152,6 +152,11 @@ export function suicideIntent(conn: Connection): void {
   if (conn.status === "connected" && conn.hp > 0) conn.send({ type: "suicide" });
 }
 
+/** Requests an authoritative safe-platform rescue, including while incapacitated. */
+export function rescueIntent(conn: Connection): void {
+  if (conn.status === "connected") conn.send({ type: "rescue" });
+}
+
 export function debugTeleportIntent(conn: Connection, x: number, y: number): void {
   conn.send({ type: "debug", op: "teleport", x, y });
 }

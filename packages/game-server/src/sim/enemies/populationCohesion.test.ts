@@ -17,6 +17,8 @@ import { PlayerStore } from "../../store.js";
 import { createSimState } from "../state/state.js";
 import { spawnEnemyPack } from "./population.js";
 import { enemyRosterForBiome } from "./populationRoster.js";
+import { resolveSpawnAnchor } from "../spawn/spawn.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -60,8 +62,22 @@ describe("cohesive district enemy population", () => {
         expect(Math.hypot(
           a.entity.body.x - b.entity.body.x,
           a.entity.body.y - b.entity.body.y,
-        )).toBeLessThanOrEqual(10);
+        )).toBeLessThanOrEqual(
+          ENEMY_SIMULATION_TUNING.population.packSpreadRadiusTiles * 2,
+        );
       }
     }
+  });
+
+  it("keeps packs next to the floor-one spawn anchor small", () => {
+    const sim = createTestSim("near-spawn-population");
+    const anchor = resolveSpawnAnchor(sim);
+    spawnEnemyPack(
+      sim,
+      Math.floor(anchor.x / 32),
+      Math.floor(anchor.y / 32),
+    );
+    expect(sim.enemies.size).toBeGreaterThanOrEqual(1);
+    expect(sim.enemies.size).toBeLessThanOrEqual(2);
   });
 });

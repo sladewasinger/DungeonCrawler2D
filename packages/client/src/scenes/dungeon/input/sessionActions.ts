@@ -7,9 +7,11 @@ export const createSessionActions = (
   connection: Connection,
 ): {
   respawn(): void;
+  rescue(): void;
   quitToTitle(): void;
 } => ({
   respawn: () => connection.suicide(),
+  rescue: () => connection.rescue(),
   quitToTitle: () => {
     connection.disconnect();
     scene.scene.stop("hud");

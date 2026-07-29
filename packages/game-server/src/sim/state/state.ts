@@ -110,6 +110,8 @@ export interface PlayerSlot {
   handicap?: HandicapGrant;
   /** Menu-requested death bypasses the party downed state. */
   forceDeath: boolean;
+  /** Authoritative tick when another accepted stuck-player rescue is allowed. */
+  rescueReadyAtTick?: number;
   /** Tick timestamps of recent chat sends, rolling-window rate limit (social.ts). */
   chatTimestamps: number[];
   /** Tick of this slot's most recent fistbump *offer* sent, rate-limited separately from chat. */
@@ -170,7 +172,7 @@ export interface SimState {
   readonly fistbumpOffers: Map<string, { from: string; expiresAtTick: number }>;
   readonly reviveAttempts: Map<string, ReviveAttempt>;
   readonly activatedChunks: Set<string>;
-  readonly defeatedMiniBossRooms: Set<string>;
+  readonly defeatedMiniBossArenas: Set<string>;
   /** Fire-exposure seconds per ground item id (items char, then burn away). */
   readonly exposure: Map<string, number>;
   /** Positional events delivered to anyone whose AOI covers (x, y). */

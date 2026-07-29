@@ -43,7 +43,11 @@ export const createThreeDungeonSetup = (
   const hud = new SharedHtmlHud({
     root: options.root, connection: options.conn, focusGame: () => input.focusGame(),
     viewDistance, setViewDistance, onSelectHotbar: actions.selectHotbar,
-    session: { respawn: () => options.conn.suicide(), quitToTitle: options.onQuitToTitle },
+    session: {
+      respawn: () => options.conn.suicide(),
+      rescue: () => options.conn.rescue(),
+      quitToTitle: options.onQuitToTitle,
+    },
   });
   hudRef.current = hud;
   const setup = {

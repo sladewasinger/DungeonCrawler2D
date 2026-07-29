@@ -14,8 +14,8 @@ describe("enemiesAreFrozen", () => {
 });
 
 describe("voidTerrainIsEnabled", () => {
-  it("preserves VOID terrain unless startup explicitly disables it", () => {
-    expect(voidTerrainIsEnabled(undefined)).toBe(true);
+  it("keeps VOID terrain off unless startup explicitly enables it", () => {
+    expect(voidTerrainIsEnabled(undefined)).toBe(false);
     expect(voidTerrainIsEnabled("1")).toBe(true);
     expect(voidTerrainIsEnabled("true")).toBe(true);
     expect(voidTerrainIsEnabled("0")).toBe(false);

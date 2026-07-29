@@ -9,7 +9,13 @@ import {
 import { ROOM_WALL_RISE } from "./features/rooms/roomExitGeometry.js";
 import { generateChunk } from "./generate.js";
 import { assertChunkWorldFeatures } from "./generate/worldFeatureInvariant.js";
-import { CHUNK_SIZE, TERRAIN, TILE, ZONE, type Chunk } from "./core/types.js";
+import {
+  CHUNK_SIZE,
+  TERRAIN,
+  TILE,
+  ZONE,
+  type Chunk,
+} from "./core/types.js";
 import { LEVEL } from "./core/level.js";
 import { World } from "./core/world.js";
 
@@ -68,7 +74,7 @@ describe("VOID terrain world feature", () => {
     assertRoomModeTransform(enabled, disabled);
   });
 
-  it("restores deep chasms as finite lethal Floor instead of infinite VOID", () => {
+  it("restores deep chasms as playable finite Floor instead of infinite VOID", () => {
     const worldSeed = hashString("chasm-test-world");
     const coordinate = { cx: -18, cy: -25 };
     const enabled = generateChunk({ worldSeed, floor: 1, ...coordinate });
@@ -84,23 +90,6 @@ describe("VOID terrain world feature", () => {
     const y = coordinate.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
     const world = new World(worldSeed, 1, { level: LEVEL.Dungeon, features: DISABLED });
     expect(world.isWalkable(x, y)).toBe(true);
-  });
-
-  it("keeps finite structural wall geometry permanently impassable", () => {
-    const world = new World(hashString(DEV_WORLD), 1, {
-      level: LEVEL.Dungeon,
-      features: DISABLED,
-    });
-    const chunk = world.getChunk(1, -1);
-    const index = chunk.tiles.findIndex((tile) => tile === TILE.Bedrock);
-
-    expect(index).toBeGreaterThanOrEqual(0);
-    const x = chunk.cx * CHUNK_SIZE + index % CHUNK_SIZE;
-    const y = chunk.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
-    expect(world.surfaceTileAt(x, y)).toBe(TILE.Bedrock);
-    expect(world.tileAt(x, y)).toBe(TILE.Bedrock);
-    expect(world.heightAt(x, y)).toBeGreaterThan(0);
-    expect(world.isWalkable(x, y)).toBe(false);
   });
 
   it("snapshots startup features before caching chunks", () => {

@@ -34,7 +34,11 @@ export const TERRAIN_CLIFFS = { Middle: "middle", Corner: "corner" } as const;
 export type TerrainCliffKind = (typeof TERRAIN_CLIFFS)[keyof typeof TERRAIN_CLIFFS];
 export type TerrainCliffSide = "north" | "south" | "east" | "west";
 export type TerrainQuarterTurn = 0 | 90 | 180 | 270;
-export const TERRAIN_PROPS = { CraftingTable: "crafting-table", Stash: "stash" } as const;
+export const TERRAIN_PROPS = {
+  ArenaGate: "arena-gate",
+  CraftingTable: "crafting-table",
+  Stash: "stash",
+} as const;
 export type TerrainPropKind = (typeof TERRAIN_PROPS)[keyof typeof TERRAIN_PROPS];
 
 export interface TerrainSource {
@@ -69,7 +73,12 @@ export interface TerrainFeatureQuad extends TerrainQuadBase {
   readonly kind: "feature"; readonly feature: TerrainFeatureKind;
   readonly height: number; readonly wallMounted?: boolean;
 }
-export interface TerrainPropQuad extends TerrainQuadBase { readonly kind: "prop"; readonly prop: TerrainPropKind; readonly height: number; }
+export interface TerrainPropQuad extends TerrainQuadBase {
+  readonly kind: "prop";
+  readonly prop: TerrainPropKind;
+  readonly height: number;
+  readonly featureFace?: FeatureFace;
+}
 export interface TerrainSouthFaceQuad extends TerrainQuadBase {
   readonly kind: "south-face"; readonly topHeight: number; readonly bottomHeight: number;
   readonly stairWall?: boolean; readonly voidWall?: boolean;

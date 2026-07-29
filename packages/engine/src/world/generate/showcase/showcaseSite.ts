@@ -1,4 +1,5 @@
 import { CHUNK_SIZE, TILE, ZONE } from "../../core/types.js";
+import { overlapsSpawnRoomExterior } from "../../features/rooms/spawnExterior/spawnRoomExterior.js";
 import { isNearDescent, isNearLandmark } from "../landmarks/guard.js";
 import type { Rect } from "../types.js";
 import {
@@ -37,7 +38,9 @@ export function guardsClear({ worldSeed, floor, bx, by }: FeatureSite): boolean 
     y1: by + BLOCK,
   };
   const context = { worldSeed, floor, cx: 0, cy: 0, rect };
-  return !isNearLandmark(context) && !isNearDescent(context);
+  return !isNearLandmark(context) &&
+    !isNearDescent(context) &&
+    !overlapsSpawnRoomExterior(context);
 }
 
 /** True when a feature block and its ring may be carved without disruption. */

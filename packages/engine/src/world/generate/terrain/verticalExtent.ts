@@ -32,7 +32,11 @@ function tileAt({ tiles, chunkSize, x, y }: Pick<HeightGrid, "tiles" | "chunkSiz
 
 /** True for a tile a north-south run never spans across — a wall, a ramp, or a door cutout. */
 function isRunBreak(tile: number): boolean {
-  return tile === TOPOLOGY.Uncarved || tile === TILE.Void || tile === TILE.Stairs || DOOR_TILES.has(tile);
+  return tile === TOPOLOGY.Uncarved ||
+    tile === TILE.Void ||
+    tile === TILE.Bedrock ||
+    tile === TILE.Stairs ||
+    DOOR_TILES.has(tile);
 }
 
 /** The last row (inclusive) of the contiguous TOPOLOGY.Uncarved run starting at (x, y). */
@@ -152,8 +156,16 @@ function capShallowRun({ tiles, height, chunkSize, x, run }: HeightGrid & { x: n
   return true;
 }
 
-export function resolveShallowPlateaus(tiles: Uint8Array, height: Float32Array, chunkSize: number): void {
+export function resolveShallowPlateaus(
+  tiles: Uint8Array,
+  height: Float32Array,
+  chunkSize: number,
+): boolean {
+  let changed = false;
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    if (!resolveShallowPlateausOnce(tiles, height, chunkSize)) return;
+    const passChanged = resolveShallowPlateausOnce(tiles, height, chunkSize);
+    if (!passChanged) return changed;
+    changed = true;
   }
+  return changed;
 }

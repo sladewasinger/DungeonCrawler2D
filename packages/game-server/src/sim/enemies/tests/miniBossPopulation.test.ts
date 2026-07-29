@@ -1,11 +1,11 @@
 import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
-import { CHUNK_SIZE, buildContentRegistry, createBody, hashString, makeEntity, populationRoomsForChunk, World } from "@dc2d/engine";
+import { CHUNK_SIZE, buildContentRegistry, createBody, hashString, makeEntity, miniBossArenaForChunk, populationRoomsForChunk, World } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
 import { resolveDeaths } from "../../combat/deaths.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "../../state/state.js";
 import { stepEnemies } from "../ai.js";
-import { MINI_BOSS_MIN_ROOM_AREA, spawnMiniBossEncounter } from "../miniBossPopulation.js";
+import { spawnMiniBossEncounter } from "../miniBossArena/population.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData], rules: [...rulesData], areas: [...areasData],
@@ -52,24 +52,31 @@ function assertEnemyInHome(enemy: EnemySlot, home: NonNullable<EnemySlot["home"]
 describe("large-room orc mini bosses", () => {
   it("spawns one warlord and three guards entirely inside a large room", () => {
     const sim = createTestSim("mini-boss-rooms");
-    spawnEncounter(sim);
+    const chunk = spawnEncounter(sim);
     const enemies = [...sim.enemies.values()];
     const warlord = requireWarlord(sim);
     const home = warlord.home;
     if (!home) throw new Error("warlord lacks home room");
+    const arena = miniBossArenaForChunk({
+      worldSeed: sim.world.worldSeed,
+      floor: sim.world.floor,
+      cx: chunk.x,
+      cy: chunk.y,
+    });
     expect(enemies).toHaveLength(4);
-    expect((home.x1 - home.x0 + 1) * (home.y1 - home.y0 + 1)).toBeGreaterThanOrEqual(MINI_BOSS_MIN_ROOM_AREA);
+    expect(home).toEqual(arena?.interior);
     for (const enemy of enemies) {
       expect(enemy.home).toEqual(home);
+      expect(enemy.arenaKey).toBe(arena?.key);
       assertEnemyInHome(enemy, home);
     }
     expect(warlord.def.hp).toBeGreaterThan(content.enemies.get("orc-warrior")!.hp * 3);
   });
 
-  it("does not respawn a defeated warlord in its room", () => {
+  it("does not respawn an entirely defeated arena encounter", () => {
     const sim = createTestSim("mini-boss-defeat");
     const chunk = spawnEncounter(sim);
-    requireWarlord(sim).entity.hp = 0;
+    for (const enemy of sim.enemies.values()) enemy.entity.hp = 0;
     resolveDeaths(sim);
     expect(spawnMiniBossEncounter(sim, chunk.x, chunk.y)).toBe(false);
   });

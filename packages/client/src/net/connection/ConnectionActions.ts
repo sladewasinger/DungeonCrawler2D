@@ -17,6 +17,7 @@ import {
   partyOpIntent,
   pickupIntent,
   reviveIntent,
+  rescueIntent,
   stashOpIntent,
   suicideIntent,
   throwTorchIntent,
@@ -129,6 +130,7 @@ export class ConnectionActions extends ConnectionState {
   fistbump(targetId: string): void { fistbumpIntent(this.connection, targetId); }
   who(): void { whoIntent(this.connection); }
   suicide(): void { suicideIntent(this.connection); }
+  rescue(): void { rescueIntent(this.connection); }
   debugTeleport(x: number, y: number): void { debugTeleportIntent(this.connection, x, y); }
   debugGod(on?: boolean): void { debugGodIntent(this.connection, on); }
 

@@ -1,8 +1,7 @@
 import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
-import { buildContentRegistry, createBody, hashString, LEVEL, makeEntity, World, type EffectEvent } from "@dc2d/engine";
+import { buildContentRegistry, createBody, hashString, LEVEL, makeEntity, TILE, World, type EffectEvent } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
-import { resolveDeaths } from "../../combat/deaths.js";
 import { spawnEnemy } from "../../core/helpers.js";
 import { createSimState, type PlayerSlot, type SimState } from "../../state/state.js";
 import { stepEnemies } from "../index.js";
@@ -102,20 +101,17 @@ describe("enemy AI", () => {
     expect(sim.projectiles.size).toBe(1);
   });
 
-  it("cancels a windup and resumes wandering when its target is downed", () => {
+  it("cancels a windup when its target disconnects outside active AI", () => {
     const entity = spawnEnemy(sim, { defId: "spitter", x: spot.x + 4, y: spot.y });
     stepEnemies(sim, []);
     const enemy = sim.enemies.get(entity.id);
     const player = sim.players.get("p1");
     if (!enemy || !player) throw new Error("missing target lifecycle fixture");
     expect(enemy.animation.state).toBe("windup");
-    player.entity.hp = 0;
-    resolveDeaths(sim);
-    expect(enemy.brain.targetId).toBeNull();
-    enemy.brain.wanderDir = { moveX: 1, moveY: 0, jump: false };
-    enemy.brain.wanderLeft = 1;
+    player.connected = false;
     stepEnemies(sim, []);
-    expect(enemy.brain.wanderLeft).toBeLessThan(1);
+    expect(enemy.brain.targetId).toBeNull();
+    expect(enemy.animation.state).toBe("idle");
   });
 
   it("abandons a dead target and reacquires the nearest living player", () => {
@@ -130,6 +126,32 @@ describe("enemy AI", () => {
     dead.entity.hp = 0;
     stepEnemies(sim, []);
     expect(enemy.brain.targetId).toBe(living.entity.id);
+  });
+
+  it("does not acquire a player through a wall", () => {
+    sim.world.replaceTileOverrides([{ x: Math.floor(spot.x) + 1, y: Math.floor(spot.y), tile: TILE.CraftingTable }]);
+    const entity = spawnEnemy(sim, {
+      defId: "skeleton",
+      x: spot.x + 2,
+      y: spot.y,
+    });
+    stepEnemies(sim, []);
+    expect(sim.enemies.get(entity.id)?.brain.targetId).toBeNull();
+  });
+
+  it("limits simultaneous attackers assigned to one player", () => {
+    for (let index = 0; index < 6; index++) {
+      spawnEnemy(sim, {
+        defId: "skeleton",
+        x: spot.x + 2 + index * 0.2,
+        y: spot.y,
+      });
+    }
+    stepEnemies(sim, []);
+    const attackers = [...sim.enemies.values()].filter((enemy) =>
+      enemy.brain.targetId === "p1"
+    );
+    expect(attackers).toHaveLength(3);
   });
 });
 

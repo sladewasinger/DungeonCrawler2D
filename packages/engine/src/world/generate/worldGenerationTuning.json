@@ -134,5 +134,12 @@
     "radius": 7,
     "wallThickness": 2,
     "exitThroatLength": 2
+  },
+  "miniBossArena": {
+    "chunkFrequency": 5,
+    "outerSpan": 9,
+    "wallRise": 2,
+    "minimumGates": 1,
+    "maximumGates": 3
   }
 }

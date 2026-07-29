@@ -1,7 +1,8 @@
 import {
+  FALL_DAMAGE_BASE,
+  FALL_DAMAGE_MIN_HEIGHT,
   FALL_DAMAGE_PER_UNIT,
   NEUTRAL_INPUT,
-  SAFE_FALL_HEIGHT,
   TICK_DT,
   faceEntity,
   stepBody,
@@ -70,14 +71,19 @@ function applyLandingDamage(context: LandingContext): void {
   const { sim, entity, fallHeight, effectEvents } = context;
   sim.effects.modifyHealth({
     entity,
-    amount: -(fallHeight - SAFE_FALL_HEIGHT) * FALL_DAMAGE_PER_UNIT,
+    amount: -fallDamageForHeight(fallHeight),
     events: effectEvents,
     opts: { sourceTags: ["fall"] },
     target: effectTargetFor(sim, entity, { spawnProtection: false }),
   });
 }
 
+function fallDamageForHeight(fallHeight: number): number {
+  return FALL_DAMAGE_BASE +
+    (fallHeight - FALL_DAMAGE_MIN_HEIGHT) * FALL_DAMAGE_PER_UNIT;
+}
+
 function shouldDamageForLanding({ sim, entity, fallHeight, tags }: LandingContext): boolean {
-  if (fallHeight <= SAFE_FALL_HEIGHT || tags.has("feather-fall")) return false;
+  if (fallHeight < FALL_DAMAGE_MIN_HEIGHT || tags.has("feather-fall")) return false;
   return !sim.areas.hasTagAt(Math.floor(entity.body.x), Math.floor(entity.body.y), "liquid");
 }

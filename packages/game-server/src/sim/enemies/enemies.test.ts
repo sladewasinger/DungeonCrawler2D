@@ -12,6 +12,7 @@ import { createSimState, type PlayerSlot, type SimState } from "../state/state.j
 import { PlayerStore } from "../../store.js";
 import { populateTestZoneChunk } from "../core/testzone.js";
 import { activateChunksNearPlayers } from "./index.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 /** Headless tests for the enemy subsystem: population placement and per-tick AI. */
 
@@ -104,6 +105,12 @@ describe("enemy population", () => {
       expect(sim.world.isWalkable(tx, ty)).toBe(true);
       expect(sim.world.isSanctuary(tx, ty)).toBe(false);
       expect(sim.world.heightAt(tx, ty)).toBeGreaterThan(CHASM_DEATH_Z);
+      expect(Math.hypot(
+        enemy.entity.body.x - spot.x,
+        enemy.entity.body.y - spot.y,
+      )).toBeGreaterThanOrEqual(
+        ENEMY_SIMULATION_TUNING.population.minimumPlayerDistanceTiles,
+      );
     }
   });
 

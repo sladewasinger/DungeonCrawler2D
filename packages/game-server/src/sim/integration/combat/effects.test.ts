@@ -6,9 +6,8 @@ import { findFlatFloor, findSafeRoomDoor, makeSim, stepN, teleport } from "../su
 /**
  * Epic 3 regressions: standing hazards, fall damage, and the jump-off
  * fall-height rule.
- * Fall-damage arithmetic (SAFE_FALL_HEIGHT, FALL_DAMAGE_PER_UNIT) is
- * unchanged by the jump/gravity rework; only the airtime to reach the ground got
- * faster, so the original tick budgets still cover a full arc.
+ * Damage starts at 2 HP for a completed 3-tile drop, then adds 2 HP per
+ * additional tile. The tick budgets cover the full jump/gravity arc.
  */
 
 describe("GameSim: standing effects and fall damage", () => {
@@ -52,16 +51,18 @@ describe("GameSim: standing effects and fall damage", () => {
       expect(entity.body.z).toBe(0);
     };
 
-    dropFrom(4);
-    // (8 - SAFE_FALL 3) x 6 dmg/unit = 30.
-    expect(entity.hp).toBe(70);
+    dropFrom(3);
+    expect(entity.hp).toBe(98);
 
-    dropFrom(1); // under the safe-fall threshold: free
-    expect(entity.hp).toBe(70);
+    dropFrom(2); // below the 3-tile threshold: free
+    expect(entity.hp).toBe(98);
+
+    dropFrom(4); // 2 base + (4 - 3) * 2 = 4 damage
+    expect(entity.hp).toBe(94);
 
     sim.effects.applyStatus({ entity, statusId: "feather-fall", events: [] });
     dropFrom(4);
-    expect(entity.hp).toBe(70);
+    expect(entity.hp).toBe(94);
   });
 
   it("jumping off a low platform hurts no more than walking off it", () => {
@@ -71,8 +72,8 @@ describe("GameSim: standing effects and fall damage", () => {
     entity.hp = 100;
     const flat = findFlatFloor(sim, 28, 28);
     // Airborne as if the player jumped at the edge of a +2 platform over
-    // flat ground: fall height is measured from the takeoff z (2), not
-    // the arc's peak, so it stays under SAFE_FALL and is free — that
+    // flat ground: fall height is measured from the takeoff z (1), not
+    // the arc's peak, so it stays below the damage threshold and is free — that
     // invariant is unchanged by the jump retune (see movement/physics.ts).
     teleport({ entity: entity, x: flat.x, y: flat.y, sim: sim });
     entity.body.z = 1;

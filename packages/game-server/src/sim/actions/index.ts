@@ -28,8 +28,12 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
 
 function processSlotActions(sim: SimState, slot: PlayerSlot, effectEvents: EffectEvent[]): void {
   const actions = slot.pendingActions.splice(0);
-  if (!slot.connected || slot.entity.hp <= 0) return;
+  if (!slot.connected) return;
   for (const action of actions) {
+    if (action.type === "rescue") {
+      dispatchAction({ sim, slot, action, effectEvents });
+      return;
+    }
     if (slot.entity.hp <= 0) return;
     dispatchAction({ sim, slot, action, effectEvents });
   }

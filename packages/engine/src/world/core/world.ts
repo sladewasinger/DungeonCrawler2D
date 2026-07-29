@@ -1,4 +1,3 @@
-import { CHASM_DEATH_Z } from "../../core/constants.js";
 import { generateDistrictChunks } from "../generate.js";
 import { LEVEL, type LevelId } from "./level.js";
 import { snapshotWorldFeatures, type WorldFeatures, type WorldOptions } from "./worldFeatures.js";
@@ -141,7 +140,7 @@ export class World implements WorldView {
     if (!this.features.voidTerrain && overrides.some(({ tile }) => tile === TILE.Void)) {
       throw new Error("VOID override leaked into disabled world");
     }
-    const next = tileOverrideMap(overrides);
+    const next = tileOverrideMap(overrides, (x, y) => this.heightAt(x, y));
     if (sameTileOverrides(this.tileOverrides, next)) return;
     this.tileOverrides = next;
     this.tileRevision++;
@@ -159,13 +158,11 @@ export class World implements WorldView {
   zoneAt(wx: number, wy: number): ZoneType { const { chunk, index } = this.lookup(wx, wy); return (chunk.zones[index] ?? ZONE.None) as ZoneType; }
 
   isWalkable(wx: number, wy: number): boolean {
-    // Enabled VOID is an infinite boundary. Disabled mode restores legacy
-    // finite chasm floors so movement can enter them and the death plane can
-    // resolve the fall.
     if (SOLID_TILES.has(this.featureAt(wx, wy)) ||
         SOLID_TILES.has(this.surfaceTileAt(wx, wy))) return false;
-    if (!this.features.voidTerrain) return true;
-    return this.terrainAt(wx, wy) !== TERRAIN.Void && this.heightAt(wx, wy) > CHASM_DEATH_Z;
+    // Numeric height never implies a chasm. Explicit void is the authoritative
+    // infinite boundary; finite floor remains playable at any authored z.
+    return this.terrainAt(wx, wy) !== TERRAIN.Void;
   }
 
   /** Continuous ground height: stair tiles ramp with position. */

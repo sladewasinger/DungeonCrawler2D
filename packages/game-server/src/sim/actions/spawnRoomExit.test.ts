@@ -5,6 +5,7 @@ import {
   createBody,
   hashString,
   roomKindAt,
+  spawnRoomExteriorSite,
   spawnRoomFeatures,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ import { createSimState } from "../state/state.js";
 import { doInteract } from "./interact.js";
 
 describe("spawn room exit", () => {
-  it("starts every new crawler inside and exits one-way near world origin", () => {
+  it("exits beside the visible facade and keeps its outside door locked", () => {
     const sim = createSimState({
       world: new World(hashString("spawn-room-exit"), 1, LEVEL.Dungeon),
       content,
@@ -36,13 +37,22 @@ describe("spawn room exit", () => {
     doInteract({ sim, slot });
 
     expect(roomKindFor(slot.entity.body)).toBeNull();
-    expect(Math.hypot(slot.entity.body.x, slot.entity.body.y))
-      .toBeLessThan(50);
+    const landing = spawnRoomExteriorSite().landingPositions[0]!;
+    expect(slot.entity.body).toMatchObject(landing);
     expect(slot.returnStack).toEqual([]);
     expect(sim.world.isWalkable(
       Math.floor(slot.entity.body.x),
       Math.floor(slot.entity.body.y),
     )).toBe(true);
+
+    const outside = { ...slot.entity.body };
+    doInteract({ sim, slot });
+
+    expect(slot.entity.body).toEqual(outside);
+    expect(slot.outbox.at(-1)).toEqual({
+      t: "toast",
+      msg: "Locked. The only way back in is through the grave.",
+    });
   });
 });
 

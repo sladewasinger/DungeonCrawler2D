@@ -22,6 +22,7 @@ import { applyAreaContact, realizeEffectEvents, tickStatuses } from "../progress
 import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
 import { stepTorches } from "../combat/torches.js";
 import { stepSpawnRoomAnnouncements } from "../announcer/spawnRoom/announcements.js";
+import { stepMiniBossArenaBoundaries } from "../enemies/miniBossArena/boundary.js";
 import type { SimState } from "../state/state.js";
 
 export function advanceSimTick(sim: SimState): void {
@@ -37,6 +38,7 @@ function prepareSimTick(sim: SimState, effectEvents: EffectEvent[]): void {
   syncSafeRoomDoors(sim);
   stepPlayers(sim, effectEvents);
   processActions(sim, effectEvents);
+  stepMiniBossArenaBoundaries(sim);
   stepFoodAttendantDialogs(sim);
   stepSpawnRoomAnnouncements(sim);
   stepPets(sim);

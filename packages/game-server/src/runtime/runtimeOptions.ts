@@ -3,9 +3,9 @@ export function enemiesAreFrozen(value: string | undefined): boolean {
   return value === "1";
 }
 
-/** VOID terrain ships on; an explicit false startup value restores finite raised walls. */
+/** Finite terrain is the safe default; VOID mode requires an explicit startup opt-in. */
 export function voidTerrainIsEnabled(value: string | undefined): boolean {
-  if (value === undefined) return true;
+  if (value === undefined) return false;
   const normalized = value.toLowerCase();
   if (["1", "true", "on"].includes(normalized)) return true;
   if (["0", "false", "off"].includes(normalized)) return false;

@@ -82,6 +82,17 @@ describe("runtime chunk conversion", () => {
     expect(chunk.height[0]).toBe(2);
   });
 
+  it("rejects bedrock below its absolute minimum height", () => {
+    const tiles = new Uint8Array(CELL_COUNT).fill(TILE.Floor);
+    tiles[0] = TILE.Bedrock;
+
+    expect(() => buildRuntimeChunk(0, 0, source({
+      tiles,
+      height: new Float32Array(CELL_COUNT).fill(1),
+      worldFeatures: { voidTerrain: false },
+    }))).toThrow(/Bedrock cell 0 is below z2/);
+  });
+
   it("rejects explicit VOID source cells when VOID is disabled", () => {
     expect(() => buildRuntimeChunk(0, 0, source({
       tiles: new Uint8Array(CELL_COUNT).fill(TILE.Void),

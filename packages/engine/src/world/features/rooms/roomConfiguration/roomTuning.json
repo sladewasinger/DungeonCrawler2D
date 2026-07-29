@@ -22,6 +22,18 @@
     "height": 17,
     "slotCount": 21,
     "columns": 7,
-    "slotSpacingTiles": 2
+    "slotSpacingTiles": 2,
+    "exterior": {
+      "floor": 1,
+      "chunkX": 0,
+      "chunkY": 0,
+      "centerTileX": 6,
+      "southWallTileY": 6,
+      "width": 9,
+      "depth": 5,
+      "wallHeight": 3,
+      "apronHalfWidth": 3,
+      "apronDepth": 3
+    }
   }
 }

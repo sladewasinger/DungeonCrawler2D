@@ -10,6 +10,7 @@ import { activeFocusables } from "./sessionMenuFocusables.js";
 export interface SessionMenuActions {
   focusGame(): void;
   respawn(): void;
+  rescue(): void;
   quitToTitle(): void;
   replayTutorials?(): void;
 }
@@ -56,6 +57,7 @@ export class SessionMenu {
       respawnButton: this.respawnButton,
       settingsContent,
       onResume: () => this.close(),
+      onRescue: () => this.rescue(),
       onAdvanced: () => this.openAdvanced(),
       onQuit: () => this.confirm(quitConfirmation(
         () => this.actions.quitToTitle(),
@@ -71,6 +73,11 @@ export class SessionMenu {
   private respawn(): void {
     this.close(false);
     this.actions.respawn();
+  }
+
+  private rescue(): void {
+    this.close();
+    this.actions.rescue();
   }
 
   update(canRespawn: boolean): void {

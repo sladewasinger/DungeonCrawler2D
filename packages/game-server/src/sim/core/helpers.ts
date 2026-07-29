@@ -1,37 +1,33 @@
 import {
-  CHASM_DEATH_Z,
   TERRAIN,
   createBody,
   makeEntity,
-  newBrain,
   newEntityId,
   type BodyState,
   type Entity,
 } from "@dc2d/engine";
-import { scaledEnemyDef } from "../floors/scaling.js";
 import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
 import {
   GOD_MODE_DAMAGE_MULTIPLIER,
   handicapForPlayer,
   type HandicapGrant,
 } from "../progression/handicap.js";
-import type { EnemySlot, PlayerSlot, SimState } from "../state/state.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
+
+export {
+  spawnEnemy,
+  type EnemySpawn,
+} from "../enemies/enemySpawner.js";
 
 /** Small queries and spawners shared across the sim modules. */
 
-/**
- * A grounded body whose base terrain is explicitly void is standing in a void — with
- * the old negative-z check retained for legacy/teleported bodies. Used by
- * players.ts and enemies/ai.ts so the death ruling cannot drift.
- */
+/** Grounded bodies die only on authoritative void terrain, never from numeric z. */
 export function isBodyInChasm(
   world: { terrainAt(x: number, y: number): number },
   body: BodyState,
 ): boolean {
-  return body.grounded && (
-    world.terrainAt(Math.floor(body.x), Math.floor(body.y)) === TERRAIN.Void ||
-    body.z <= CHASM_DEATH_Z
-  );
+  return body.grounded &&
+    world.terrainAt(Math.floor(body.x), Math.floor(body.y)) === TERRAIN.Void;
 }
 
 /** Every entity that can take damage or trigger effects. */
@@ -119,52 +115,4 @@ export function spawnItem(sim: SimState, spawn: ItemSpawn): Entity {
   );
   sim.items.set(item.id, item);
   return item;
-}
-
-/** Spawn an enemy with a fresh brain. Stats scale with the sim's floor
- * (Epic 7.14) — see floors/scaling.ts; floor 1 is unscaled. */
-export interface EnemySpawn {
-  defId: string;
-  x: number;
-  y: number;
-  home?: EnemySlot["home"];
-}
-
-export function spawnEnemy(sim: SimState, spawn: EnemySpawn): Entity {
-  const { defId } = spawn;
-  const baseDef = sim.content.enemies.get(defId);
-  if (!baseDef) throw new Error(`unknown enemy ${defId}`);
-  const def = scaledEnemyDef(baseDef, sim.world.floor);
-  const entity = createEnemyEntity(sim, spawn, def);
-  sim.enemies.set(entity.id, enemySlot(entity, def, spawn.home));
-  return entity;
-}
-
-function createEnemyEntity(sim: SimState, spawn: EnemySpawn, def: ReturnType<typeof scaledEnemyDef>): Entity {
-  const { x, y, defId } = spawn;
-  const entity = makeEntity(
-    "enemy",
-    createBody(x, y, sim.world.groundAt(x, y)),
-    {
-      id: newEntityId("e"),
-      defId,
-      name: def.name,
-      hp: def.hp,
-      maxHp: def.hp,
-      baseSpeed: def.speed,
-      tags: new Set(def.tags),
-      facing: { x: 0, y: 1 },
-    },
-  );
-  return entity;
-}
-
-function enemySlot(entity: Entity, def: ReturnType<typeof scaledEnemyDef>, home: EnemySlot["home"] | undefined): EnemySlot {
-  return {
-    entity,
-    brain: newBrain(),
-    def,
-    ...(home ? { home } : {}),
-    animation: { state: "idle", ticksRemaining: 0 },
-  };
 }

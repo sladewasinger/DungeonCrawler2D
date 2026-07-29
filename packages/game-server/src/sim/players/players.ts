@@ -37,7 +37,8 @@ export function queueAction(
   msg: PlayerSlot["pendingActions"][number],
 ): void {
   const slot = sim.players.get(playerId);
-  if (!slot || !slot.connected || slot.entity.hp <= 0) return;
+  if (!slot || !slot.connected) return;
+  if (slot.entity.hp <= 0 && msg.type !== "rescue") return;
   if (slot.pendingActions.length < 16) slot.pendingActions.push(msg);
 }
 

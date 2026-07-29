@@ -82,14 +82,14 @@ export const MIN_SPAWN_DIST = 80;
 export const SPAWN_CHUNK_RANGE = 16;
 export const RECONNECT_GRACE_MS = 4 * 60_000;
 export const MAX_INPUTS_PER_TICK = 5;
-export const SAFE_FALL_HEIGHT = 1.5;
-// Doubled alongside SAFE_FALL_HEIGHT's halving so damage for an
-// EQUIVALENT real-world drop (in tile-edges) is unchanged.
-export const FALL_DAMAGE_PER_UNIT = 12;
-// Legacy depth threshold for bodies/maps that still carry the old chasm
-// sentinel. Generated void cells are explicit TILE.Void with no height; a
-// body that is already knocked into one is killed server-side through the
-// normal loot-drop/respawn path.
+/** Drops shorter than this are free; a completed 3-tile drop starts at 2 HP. */
+export const FALL_DAMAGE_MIN_HEIGHT = 3;
+export const FALL_DAMAGE_BASE = 2;
+/** Every additional tile beyond the threshold adds 2 HP of fall damage. */
+export const FALL_DAMAGE_PER_UNIT = 2;
+// Generation/placement boundary for identifying legacy deep terrain.
+// Chasm death itself is terrain-driven: only an explicit TERRAIN.Void is
+// lethal, regardless of a body's numeric z.
 export const CHASM_DEATH_Z = -1.5;
 
 export const MELEE_RANGE = 1.6;

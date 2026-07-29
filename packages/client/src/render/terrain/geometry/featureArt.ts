@@ -58,9 +58,12 @@ function appendPropOrFloor(
   request.batches.floors.push(floorQuad(request));
   if (!prop) return;
   const { source, worldTile, viewTile, height, batches } = request;
+  const featureFace = source.featureFaceAt?.(worldTile.x, worldTile.y);
   batches.props.push({
     kind: "prop", prop, worldTile, viewTile,
-    height: featureHeightAt(source, worldTile, height), vertices,
+    height: featureHeightAt(source, worldTile, height),
+    ...(featureFace === undefined ? {} : { featureFace }),
+    vertices,
   });
 }
 

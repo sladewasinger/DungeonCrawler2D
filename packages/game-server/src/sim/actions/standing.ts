@@ -2,9 +2,11 @@ import { doWho } from "../combat/contacts.js";
 import { invIndex } from "../inventory/inventory.js";
 import { doModeration } from "../moderation.js";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
+import { doRescue } from "../rescue/rescueAction.js";
 import { doChat, doParty } from "../social/social.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
-import { doInteract, teleport } from "./interact.js";
+import { doInteract } from "./interact.js";
+import { teleportPlayer } from "./playerTeleport.js";
 
 export interface StandingActionContext {
   sim: SimState;
@@ -27,6 +29,7 @@ const standingHandlers: Partial<Record<PlayerAction["type"], StandingHandler>> =
   chat: (context) => dispatchSocial(context),
   who: (context) => dispatchSocial(context),
   moderation: (context) => dispatchSocial(context),
+  rescue: ({ sim, slot }) => doRescue(sim, slot),
   debug: (context) => dispatchDebug(context),
 };
 
@@ -114,7 +117,12 @@ function doDebug(sim: SimState, slot: PlayerSlot, action: Extract<PlayerAction, 
   if (!sim.opts.debugCommands) return;
   if (action.op === "god") return toggleGod(slot, action.on);
   if (action.op === "teleport" && Number.isFinite(action.x) && Number.isFinite(action.y)) {
-    teleport({ sim, slot, to: { x: action.x as number, y: action.y as number }, remember: false });
+    teleportPlayer({
+      sim,
+      slot,
+      to: { x: action.x as number, y: action.y as number },
+      remember: false,
+    });
   }
 }
 

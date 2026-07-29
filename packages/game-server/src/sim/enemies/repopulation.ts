@@ -9,10 +9,11 @@ import {
 import { spawnEnemy } from "../core/helpers.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
 import type { SimState } from "../state/state.js";
-import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
+import { spawnMiniBossEncounter } from "./miniBossArena/population.js";
 import { NEAR_SPAWN_RADIUS_TILES } from "./population.js";
 import { tooCloseToPlayer } from "./populationPlacement.js";
 import { pickEnemyDef } from "./populationRoster.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 /**
  * Chunks populate only once, while their enemies remain allocated after
@@ -22,7 +23,6 @@ import { pickEnemyDef } from "./populationRoster.js";
 /** A cleared active area begins recovering within 30 seconds. */
 export const REPOPULATE_INTERVAL_TICKS = 30 * TICK_RATE;
 /** Target density for each occupied area before the shared global cap is divided. */
-const NEAR_SPAWN_TARGET_COUNT = 16;
 const REPOPULATE_ATTEMPTS_PER_ENEMY = 40;
 const ENEMY_CAP = 150;
 const RETAIN_RADIUS_TILES = NEAR_SPAWN_RADIUS_TILES + AOI_RADIUS;
@@ -45,7 +45,10 @@ export function repopulateNearSpawn(sim: SimState): void {
 }
 
 function targetCount(centerCount: number): number {
-  return Math.min(NEAR_SPAWN_TARGET_COUNT, Math.max(4, Math.floor(ENEMY_CAP / centerCount)));
+  return Math.min(
+    ENEMY_SIMULATION_TUNING.population.occupiedAreaTargetCount,
+    Math.max(4, Math.floor(ENEMY_CAP / centerCount)),
+  );
 }
 
 function repopulateCenter(sim: SimState, center: PopulationCenter, target: number): void {
@@ -85,7 +88,7 @@ function populationCenters(sim: SimState): PopulationCenter[] {
 
 function recycleInactiveEnemies(sim: SimState, centers: PopulationCenter[]): void {
   for (const [id, enemy] of sim.enemies) {
-    if (enemy.def.id === WARDEN_DEF_ID) continue;
+    if (enemy.def.id === WARDEN_DEF_ID || enemy.arenaKey) continue;
     const retained = centers.some((center) =>
       Math.hypot(enemy.entity.body.x - center.x, enemy.entity.body.y - center.y) <=
         RETAIN_RADIUS_TILES

@@ -150,7 +150,7 @@ function ramp({ tiles, height, view, i, neighbor, x, y }: RampEdge): boolean {
   const delta = repairableDelta(hi, height[neighbor] ?? 0);
   // A gap already at or under one slope-step needs no ramp: a single
   // MAX_STAIR_SLOPE-sized step (over STEP_UP but a small graceful fall,
-  // well under SAFE_FALL_HEIGHT) is fine left sheer. Tagging it Stairs
+  // well under the fall-damage threshold) is fine left sheer. Tagging it Stairs
   // here would move `n` to EXACTLY its own pre-existing height (a no-op)
   // — a Stairs tile with no real delta on its far side, the same "flavor
   // without height" bug this net must not introduce.

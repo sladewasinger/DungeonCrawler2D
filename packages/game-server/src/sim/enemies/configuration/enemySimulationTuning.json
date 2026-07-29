@@ -1,0 +1,30 @@
+{
+  "population": {
+    "nearSpawnRadiusTiles": 60,
+    "nearSpawnPackMinimum": 1,
+    "nearSpawnPackMaximum": 2,
+    "dungeonPackMinimum": 2,
+    "dungeonPackMaximum": 4,
+    "packSpreadRadiusTiles": 8,
+    "minimumPlayerDistanceTiles": 16,
+    "occupiedAreaTargetCount": 10
+  },
+  "perception": {
+    "maximumAttackersPerPlayer": 3,
+    "maximumVisibleHeightDifference": 1,
+    "memorySeconds": 20,
+    "memoryPathMaxExpansions": 256,
+    "memoryPathMarginTiles": 8,
+    "maximumMeleeHeightDifference": 0.5,
+    "jumpRiseTiles": 1,
+    "jumpHeightTolerance": 0.1,
+    "jumpApproachDistanceTiles": 2.5
+  },
+  "animationTicks": {
+    "rangedWindup": 5,
+    "rangedAttack": 2,
+    "rangedRecovery": 3,
+    "meleeAttack": 4,
+    "meleeRecovery": 3
+  }
+}

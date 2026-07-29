@@ -32,6 +32,16 @@ describe("resolveInteractionPrompt", () => {
     expect(resolveInteractionPrompt({ world, x: 5.5, y: 4.9, items: [] })).toEqual({ key: "E", label: "enter" });
   });
 
+  it("prompts entry near an ordinary mini-boss arena gate", () => {
+    const world = worldWithTileAt(5, 5, TILE.ArenaGate);
+    expect(resolveInteractionPrompt({
+      world,
+      x: 5.5,
+      y: 5.5,
+      items: [],
+    })).toEqual({ key: "E", label: "enter mini-boss arena" });
+  });
+
   it("prompts pickup near a ground item when no interactable is in range", () => {
     const world = worldWithTileAt(99, 99, TILE.CraftingTable);
     expect(resolveInteractionPrompt({ world, x: 5, y: 5, items: [{ x: 5.3, y: 5 }] })).toEqual({ key: "R", label: "pick up" });

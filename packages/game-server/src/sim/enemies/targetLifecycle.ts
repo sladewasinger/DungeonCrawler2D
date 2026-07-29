@@ -1,3 +1,4 @@
+import { forgetEnemyTarget } from "@dc2d/engine";
 import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
 import type { EnemySlot, SimState } from "../state/state.js";
 
@@ -21,19 +22,51 @@ function clearEnemyTarget(enemy: EnemySlot, playerId: string): void {
   }
 }
 
-export function revalidateEnemyTarget(sim: SimState, enemy: EnemySlot): void {
-  const brainTargetId = enemy.brain.targetId;
-  if (brainTargetId !== null && !isTargetablePlayer(sim, brainTargetId)) {
-    clearEnemyTarget(enemy, brainTargetId);
-  }
+function clearEnemyTargetAndMemory(
+  enemy: EnemySlot,
+  playerId: string,
+): void {
+  clearEnemyTarget(enemy, playerId);
+  forgetEnemyTarget(enemy.brain, playerId);
+}
+
+export function revalidateEnemyTarget(
+  sim: SimState,
+  enemy: EnemySlot,
+  assignedTargetId: string | undefined,
+): void {
+  clearInvalidTarget({
+    sim,
+    enemy,
+    targetId: enemy.brain.targetId,
+    assignedTargetId,
+  });
   const windupTargetId = enemy.animation.state === "windup"
     ? enemy.animation.target?.targetId
     : undefined;
-  if (windupTargetId !== undefined && !isTargetablePlayer(sim, windupTargetId)) {
-    clearEnemyTarget(enemy, windupTargetId);
+  clearInvalidTarget({ sim, enemy, targetId: windupTargetId, assignedTargetId });
+}
+
+interface TargetValidity {
+  readonly sim: SimState;
+  readonly enemy: EnemySlot;
+  readonly targetId: string | null | undefined;
+  readonly assignedTargetId: string | undefined;
+}
+
+function clearInvalidTarget(input: TargetValidity): void {
+  const { sim, enemy, targetId, assignedTargetId } = input;
+  if (targetId === null || targetId === undefined) return;
+  if (!isTargetablePlayer(sim, targetId)) {
+    clearEnemyTargetAndMemory(enemy, targetId);
+    return;
   }
+  if (targetId === assignedTargetId) return;
+  clearEnemyTarget(enemy, targetId);
 }
 
 export function clearEnemyTargetsForPlayer(sim: SimState, playerId: string): void {
-  for (const enemy of sim.enemies.values()) clearEnemyTarget(enemy, playerId);
+  for (const enemy of sim.enemies.values()) {
+    clearEnemyTargetAndMemory(enemy, playerId);
+  }
 }

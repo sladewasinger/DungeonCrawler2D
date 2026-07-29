@@ -8,23 +8,25 @@ import { spawnEnemy, spawnItem } from "../core/helpers.js";
 import { resolveSpawnAnchor } from "../spawn/spawn.js";
 import type { SimState } from "../state/state.js";
 import { populateTestZoneChunk } from "../core/testzone.js";
-import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
+import { spawnMiniBossEncounter } from "./miniBossArena/population.js";
 import { randomChunkSpot, randomNearbySpot } from "./populationPlacement.js";
 import { pickEnemyDef, pickNativeEnemyDef } from "./populationRoster.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
-export const NEAR_SPAWN_RADIUS_TILES = 60;
-const NEAR_SPAWN_BONUS_ENEMIES = 3;
+export const NEAR_SPAWN_RADIUS_TILES =
+  ENEMY_SIMULATION_TUNING.population.nearSpawnRadiusTiles;
 const ENEMY_CAP = 150;
 const ROOM_LOOT = [
   "bandage", "torch", "vodka-bottle", "knife", "water-flask",
 ];
 
-export function isNearSpawnChunk(sim: SimState, cx: number, cy: number): boolean {
+function isNearSpawnPosition(
+  sim: SimState,
+  position: { x: number; y: number },
+): boolean {
   if (sim.world.floor !== 1) return false;
   const anchor = resolveSpawnAnchor(sim);
-  const centerX = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
-  const centerY = cy * CHUNK_SIZE + CHUNK_SIZE / 2;
-  return Math.hypot(centerX - anchor.x, centerY - anchor.y) <=
+  return Math.hypot(position.x - anchor.x, position.y - anchor.y) <=
     NEAR_SPAWN_RADIUS_TILES;
 }
 
@@ -81,9 +83,9 @@ function spawnRoomLoot(sim: SimState, cx: number, cy: number): void {
 }
 
 export function spawnEnemyPack(sim: SimState, cx: number, cy: number): void {
-  const count = packSize(sim, cx, cy);
   const anchor = randomChunkSpot(sim, cx, cy);
   if (!anchor) return;
+  const count = packSize(sim, anchor);
   const packDef = pickNativeEnemyDef(sim, anchor.x, anchor.y);
   const outlierIndex = count > 2 && sim.rng.next() < 0.35 ? count - 1 : -1;
   for (let index = 0; index < count && sim.enemies.size < ENEMY_CAP; index++) {
@@ -91,9 +93,18 @@ export function spawnEnemyPack(sim: SimState, cx: number, cy: number): void {
   }
 }
 
-function packSize(sim: SimState, cx: number, cy: number): number {
-  const bonus = isNearSpawnChunk(sim, cx, cy) ? NEAR_SPAWN_BONUS_ENEMIES : 0;
-  return 2 + Math.floor(sim.rng.next() * 3) + bonus;
+function packSize(
+  sim: SimState,
+  anchor: { x: number; y: number },
+): number {
+  const tuning = ENEMY_SIMULATION_TUNING.population;
+  return isNearSpawnPosition(sim, anchor)
+    ? randomCount(sim, tuning.nearSpawnPackMinimum, tuning.nearSpawnPackMaximum)
+    : randomCount(sim, tuning.dungeonPackMinimum, tuning.dungeonPackMaximum);
+}
+
+function randomCount(sim: SimState, minimum: number, maximum: number): number {
+  return minimum + Math.floor(sim.rng.next() * (maximum - minimum + 1));
 }
 
 interface PackMemberInput {
@@ -106,7 +117,13 @@ interface PackMemberInput {
 
 function spawnPackMember(input: PackMemberInput): void {
   const { sim, index, anchor, packDef, outlierIndex } = input;
-  const spot = index === 0 ? anchor : randomNearbySpot(sim, anchor, 5);
+  const spot = index === 0
+    ? anchor
+    : randomNearbySpot(
+      sim,
+      anchor,
+      ENEMY_SIMULATION_TUNING.population.packSpreadRadiusTiles,
+    );
   if (!spot) return;
   const defId = index === outlierIndex ? pickEnemyDef(sim, spot.x, spot.y) : packDef;
   spawnEnemy(sim, { defId, x: spot.x + 0.5, y: spot.y + 0.5 });

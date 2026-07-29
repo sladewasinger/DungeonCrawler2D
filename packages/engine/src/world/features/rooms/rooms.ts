@@ -25,6 +25,7 @@ export * from "./roomExitGeometry.js";
 export * from "./locations/roomLocations.js";
 export * from "./roomModel.js";
 export * from "./spawnRoom.js";
+export * from "./spawnExterior/spawnRoomExterior.js";
 
 /**
  * Stretch rooms (GAME_DESIGN.md § Safe rooms): instanced sub-maps that

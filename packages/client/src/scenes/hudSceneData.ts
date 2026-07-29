@@ -16,6 +16,7 @@ export interface HudSceneData {
   onSelectHotbar?: (index: number | null) => void;
   session?: {
     respawn(): void;
+    rescue(): void;
     quitToTitle(): void;
   };
 }

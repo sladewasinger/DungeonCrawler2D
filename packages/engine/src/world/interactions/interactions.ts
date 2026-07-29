@@ -13,7 +13,11 @@ export {
   featureApproachPosition,
 } from "./interactionGeometry.js";
 
-export type WorldInteractionKind = "door" | "stash" | "craft";
+export type WorldInteractionKind =
+  | "arena-gate"
+  | "door"
+  | "stash"
+  | "craft";
 
 export interface WorldInteractionWorld {
   tileAt(wx: number, wy: number): TileType;
@@ -36,6 +40,7 @@ const DOOR_TILES: ReadonlySet<TileType> = new Set([
 ]);
 
 const kindOf = (tile: TileType): WorldInteractionKind | null => {
+  if (tile === TILE.ArenaGate) return "arena-gate";
   if (DOOR_TILES.has(tile)) return "door";
   if (tile === TILE.Stash) return "stash";
   if (tile === TILE.CraftingTable) return "craft";
@@ -112,7 +117,8 @@ export function resolveWorldInteraction(
   x: number,
   y: number,
 ): WorldInteractionTarget | null {
-  return findWorldInteractionTarget({ world, x, y, kind: "door" })
+  return findWorldInteractionTarget({ world, x, y, kind: "arena-gate" })
+    ?? findWorldInteractionTarget({ world, x, y, kind: "door" })
     ?? findWorldInteractionTarget({ world, x, y, kind: "stash" })
     ?? findWorldInteractionTarget({ world, x, y, kind: "craft" });
 }

@@ -15,6 +15,7 @@ import { effectTargetFor, isBodyInChasm } from "../../core/helpers.js";
 import { blocksAttackFrom } from "../../players/directionalBlock.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { insideGracedClearance } from "../../spawnSafety/spawnSafety.js";
+import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
 
 export interface EnemyMoveInput {
   sim: SimState;
@@ -105,7 +106,13 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): void {
 
 function isOutOfStrikeRange(enemy: EnemySlot, victim: EnemySlot["entity"]): boolean {
   const { body } = enemy.entity;
-  return Math.hypot(victim.body.x - body.x, victim.body.y - body.y) > enemy.def.attack.range + 0.3;
+  const tooFar = Math.hypot(
+    victim.body.x - body.x,
+    victim.body.y - body.y,
+  ) > enemy.def.attack.range + 0.3;
+  const tooHigh = Math.abs(victim.body.z - body.z) >
+    ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference;
+  return tooFar || tooHigh;
 }
 
 function applyStrikeEffects(input: EnemyStrikeInput, victim: EnemySlot["entity"]): void {

@@ -1,6 +1,6 @@
 // Headless tests for Connection's derived getters — no socket/World needed since the
 // constructor does no I/O and every field the getters read is a plain public property.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Connection } from "./connection.js";
 import { requireConnectionUpdate } from "./socket.js";
 
@@ -85,6 +85,27 @@ describe("Connection contextual action completion", () => {
       block: true,
     });
     expect([...conn.contextualActionsUsed]).toEqual(["attack", "block"]);
+  });
+});
+
+describe("Connection rescue action", () => {
+  it("sends the production rescue intent while alive, downed, or dead", () => {
+    const conn = freshConnection();
+    const send = vi.spyOn(conn, "send").mockImplementation(() => {});
+    conn.status = "connected";
+    conn.hasReceivedSnapshot = true;
+    conn.hp = 30;
+
+    conn.rescue();
+    conn.downed = true;
+    conn.rescue();
+    conn.downed = false;
+    conn.hp = 0;
+    conn.rescue();
+
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send).toHaveBeenNthCalledWith(1, { type: "rescue" });
+    expect(send).toHaveBeenNthCalledWith(3, { type: "rescue" });
   });
 });
 

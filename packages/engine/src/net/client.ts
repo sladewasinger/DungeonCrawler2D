@@ -152,6 +152,8 @@ export const clientWhoSchema = z.object({ type: z.literal("who") });
 
 export const clientPingSchema = z.object({ type: z.literal("ping"), t: z.number() });
 export const clientSuicideSchema = z.object({ type: z.literal("suicide") });
+/** Production recovery intent. The server chooses and validates the destination. */
+export const clientRescueSchema = z.object({ type: z.literal("rescue") });
 export const clientRespawnSchema = z.object({ type: z.literal("respawn") });
 /** Requests a complete delta baseline after a revision/base-tick mismatch. */
 export const clientSnapshotResyncSchema = z.object({ type: z.literal("snapshotResync") });
@@ -193,6 +195,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientWhoSchema,
   clientPingSchema,
   clientSuicideSchema,
+  clientRescueSchema,
   clientRespawnSchema,
   clientSnapshotResyncSchema,
   clientDebugSchema,

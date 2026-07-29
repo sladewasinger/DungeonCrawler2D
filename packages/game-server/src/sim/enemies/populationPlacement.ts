@@ -1,5 +1,10 @@
-import { CHASM_DEATH_Z, CHUNK_SIZE } from "@dc2d/engine";
+import {
+  CHASM_DEATH_Z,
+  CHUNK_SIZE,
+  miniBossArenaAtPosition,
+} from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 export interface SpawnBounds {
   readonly x0: number;
@@ -9,8 +14,14 @@ export interface SpawnBounds {
 }
 
 export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
+  const centerX = x + 0.5;
+  const centerY = y + 0.5;
   for (const slot of sim.players.values()) {
-    if (Math.hypot(slot.entity.body.x - x, slot.entity.body.y - y) < 12) {
+    if (Math.hypot(
+      slot.entity.body.x - centerX,
+      slot.entity.body.y - centerY,
+    ) <
+        ENEMY_SIMULATION_TUNING.population.minimumPlayerDistanceTiles) {
       return true;
     }
   }
@@ -20,6 +31,7 @@ export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
 export function validEnemySpawn(sim: SimState, x: number, y: number): boolean {
   if (!sim.world.isWalkable(x, y) || sim.world.isSanctuary(x, y)) return false;
   if (sim.world.heightAt(x, y) <= CHASM_DEATH_Z) return false;
+  if (miniBossArenaAtPosition(sim.world, x, y)) return false;
   return !tooCloseToPlayer(sim, x, y);
 }
 

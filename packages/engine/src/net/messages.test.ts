@@ -43,6 +43,7 @@ describe("protocol", () => {
       { type: "fistbump", targetId: "p2" },
       { type: "who" },
       { type: "suicide" },
+      { type: "rescue" },
       { type: "respawn" },
       { type: "descend" },
       { type: "snapshotResync" },

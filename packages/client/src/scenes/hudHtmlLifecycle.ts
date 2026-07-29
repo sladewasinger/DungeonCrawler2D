@@ -41,7 +41,7 @@ function htmlHudOptions(root: HTMLElement, request: HtmlHudLifecycleRequest): Pa
     root, connection: request.connection, focusGame,
     setTextInputFocused: (focused) => focused ? request.keyboard?.disableGlobalCapture() : request.keyboard?.enableGlobalCapture(),
     ...(request.onSelectHotbar ? { onSelectHotbar: request.onSelectHotbar } : {}),
-    session: request.session ?? { respawn: () => {}, quitToTitle: () => {} },
+    session: request.session ?? { respawn: () => {}, rescue: () => {}, quitToTitle: () => {} },
   };
 }
 

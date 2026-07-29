@@ -10,7 +10,7 @@ import { handleBossDeath } from "../floors/boss.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
 import { isBodyInChasm, spawnItem } from "../core/helpers.js";
 import { spawnPlayerLootChest } from "../lootChests/lootChests.js";
-import { markMiniBossDefeated } from "../enemies/miniBossPopulation.js";
+import { handleMiniBossEnemyDeath } from "../enemies/miniBossArena/population.js";
 import { clearEnemyTargetsForPlayer } from "../enemies/targetLifecycle.js";
 import type { EnemySlot } from "../state/enemyState.js";
 import { awardKillXp } from "../progression/xp.js";
@@ -45,7 +45,7 @@ function resolveEnemyDeath(sim: SimState, id: string, enemy: EnemySlot): void {
   sim.enemies.delete(id);
   sim.worldEvents.push({ ev: { t: "death", id }, x: enemy.entity.body.x, y: enemy.entity.body.y });
   awardKillXp(sim, enemy);
-  markMiniBossDefeated(sim, enemy);
+  handleMiniBossEnemyDeath(sim, enemy);
   if (enemy.def.id === WARDEN_DEF_ID) handleBossDeath(sim);
   spawnEnemyDrops(sim, enemy);
 }

@@ -7,6 +7,7 @@ export const ASSET_KEYS = {
   debugAtlas: "debug-atlas",
   sharedAtlas: "shared-atlas",
   spawnRoomMegaphone: "spawn-room-megaphone",
+  arenaGate: "arena-gate",
 } as const;
 
 export const ASSET_PATHS = {
@@ -18,6 +19,7 @@ export const ASSET_PATHS = {
   debugAtlasImage: "assets/terrain/debug-atlas.png",
   sharedAtlasImage: "assets/terrain/shared-atlas.png",
   spawnRoomMegaphoneImage: "assets/props/spawn-room-megaphone.png",
+  arenaGateImage: "assets/props/arena-gate.png",
   fontFile: "assets/fonts/monogram.ttf",
 } as const;
 

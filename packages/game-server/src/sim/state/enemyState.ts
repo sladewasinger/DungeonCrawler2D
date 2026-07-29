@@ -15,6 +15,8 @@ export interface EnemySlot {
     readonly x1: number;
     readonly y1: number;
   };
+  /** Ordinary mini-boss encounter identity; absent for normal enemies. */
+  arenaKey?: string;
   animation: {
     state: EnemyAnimationState;
     ticksRemaining: number;

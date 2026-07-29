@@ -2,6 +2,8 @@
 
 /** Runtime and generated chunks share one 32×32 tile grid. */
 export const CHUNK_SIZE = 32;
+/** Absolute minimum top elevation for generated Bedrock. */
+export const BEDROCK_MIN_HEIGHT = 2;
 
 export const TILE = {
   Floor: 0,
@@ -20,11 +22,13 @@ export const TILE = {
   /** Infinite-height void cell; it has no walkable surface. */
   Void: 9,
   /**
-   * Structural wall core used when VOID terrain is disabled. Its finite height
-   * exists only to draw ordinary wall faces; collision treats it as infinitely
-   * tall so jumping never turns thick uncarved separators into shortcuts.
+   * Structural wall cap at BEDROCK_MIN_HEIGHT or higher when VOID terrain is
+   * disabled. Its finite height draws ordinary wall faces; collision treats it
+   * as infinitely tall so jumping never turns thick separators into shortcuts.
    */
   Bedrock: 10,
+  /** Floor-mounted turnstile controlling an ordinary mini-boss arena. */
+  ArenaGate: 11,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
