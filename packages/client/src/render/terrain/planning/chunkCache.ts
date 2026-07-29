@@ -2,8 +2,10 @@ import { CHUNK_SIZE } from "@dc2d/engine";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import {
   planTerrain,
+  OUTSIDE_TERRAIN_PRESENTATION,
   type TerrainBatches,
   type TerrainPlan,
+  type TerrainPresentation,
   type TerrainRect,
   type TerrainSource,
 } from "./terrainPlanner.js";
@@ -85,5 +87,19 @@ export function emptyTerrainBatches(): MutableTerrainBatches {
 
 function cacheKey(input: TerrainChunkPlanInput): string {
   const { coord, orientation, revision, source } = input;
-  return `${coord.cx}:${coord.cy}:${orientation}:${revision}:${Number(source.voidTerrain)}`;
+  const presentation = presentationForChunk(source, coord);
+  return [
+    coord.cx, coord.cy, orientation, revision, Number(source.voidTerrain),
+    presentation.mode, presentation.wallRise,
+  ].join(":");
+}
+
+function presentationForChunk(
+  source: TerrainSource,
+  coord: TerrainChunkCoord,
+): TerrainPresentation {
+  return source.presentationAt?.(
+    coord.cx * CHUNK_SIZE,
+    coord.cy * CHUNK_SIZE,
+  ) ?? OUTSIDE_TERRAIN_PRESENTATION;
 }

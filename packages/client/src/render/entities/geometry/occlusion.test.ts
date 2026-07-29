@@ -1,7 +1,12 @@
 // Headless tests for the occlusion heuristic — no Phaser involved (syncOcclusionSilhouette's
 // Phaser glue is exercised via the manual zoomed screenshot proof instead).
 import { describe, expect, it } from "vitest";
-import { TERRAIN, type WorldView } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  ROOM_REGION_CY,
+  TERRAIN,
+  type WorldView,
+} from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import type { ViewOrientation } from "../../view/index.js";
 import { isOccludedByTerrainAhead, terrainOcclusionAhead } from "./occlusion.js";
@@ -27,6 +32,15 @@ function fakeWorld(heights: Record<string, number>, voids: readonly string[] = [
 }
 
 describe("isOccludedByTerrainAhead", () => {
+  it("never applies outside-wall occlusion inside a room", () => {
+    const y = ROOM_REGION_CY * CHUNK_SIZE + 16.5;
+    const world = fakeWorld({ [`5,${Math.floor(y) + 1}`]: 3 });
+
+    expect(terrainOcclusionAhead({
+      world, x: 5.5, y, z: 0, orientation: 0,
+    })).toBeNull();
+  });
+
   it("returns the top seam of the occluding face so only the covered sprite pixels need a ghost", () => {
     expect(occlusionAt(fakeWorld({ "5,6": 1 }), 0)).toEqual({ screenY: 5 * SCREEN_TILE_PX });
   });

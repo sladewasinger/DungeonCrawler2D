@@ -1,12 +1,17 @@
 import type { Point } from "../../view/transform/viewTransform.js";
 import { viewTileToWorld, worldTileToView } from "../../view/transform/viewTransform.js";
-import { appendTerrainAmbientOcclusion, appendTerrainCliffEdges } from "../geometry/cliffGeometry.js";
+import { appendTerrainCliffEdges } from "../geometry/cliffGeometry.js";
+import { appendTerrainAmbientOcclusion } from "../geometry/floorAmbientOcclusion.js";
 import { appendFloorArt } from "../geometry/featureArt.js";
 import {
   voidWallFeatureQuad,
   wallFeatureForFace,
 } from "../geometry/wallFeatureGeometry.js";
 import { appendWallAmbientOcclusion } from "../geometry/wallAmbientOcclusion.js";
+import {
+  appendInsideVoidGeometry,
+  shouldCullInsideWall,
+} from "../geometry/insideRoomGeometry.js";
 import { TERRAIN_KINDS, TERRAIN_HEIGHT_EPSILON } from "../geometry/terrainPlannerModel.js";
 import type {
   TerrainAOQuad, TerrainCliffEdgeQuad, TerrainFeatureKind, TerrainFeatureQuad, TerrainFloorQuad,
@@ -21,7 +26,7 @@ export type MutableTerrainBatches = {
   props: TerrainPropQuad[]; southFaces: TerrainSouthFaceQuad[]; cliffEdges: TerrainCliffEdgeQuad[]; ao: TerrainAOQuad[];
 };
 
-interface TerrainTileContext extends TerrainPlanningContext {
+export interface TerrainTileContext extends TerrainPlanningContext {
   readonly worldTile: Point;
   readonly viewTile: Point;
   readonly height: number;
@@ -38,11 +43,13 @@ function appendTileGeometry(context: TerrainPlanningContext, worldTile: Point): 
   const terrain = context.source.terrainAt(worldTile.x, worldTile.y);
   const viewTile = worldTileToView(worldTile, context.orientation);
   if (terrain === TERRAIN_KINDS.Void) {
+    if (appendInsideVoidGeometry(context, worldTile, viewTile)) return;
     appendVoidBackdrop(context, worldTile, viewTile);
     return;
   }
   if (terrain !== TERRAIN_KINDS.Floor) return;
   const tileContext = { ...context, worldTile, viewTile, height: finiteHeight(context, worldTile) };
+  if (shouldCullInsideWall(tileContext)) return;
   appendFloorArt({ ...tileContext, vertices: topQuad(viewTile, tileContext.height) });
   appendTerrainCliffEdges(tileContext, context.batches.cliffEdges);
   appendTerrainAmbientOcclusion(tileContext, context.batches.ao);
@@ -81,6 +88,7 @@ function appendScreenSouthFace(context: TerrainTileContext): void {
 }
 
 function appendVoidSouthFace(context: TerrainTileContext): void {
+  if (context.presentation.mode === "inside") return;
   if (context.source.voidBoundaryAt?.(context.worldTile.x, context.worldTile.y) === "flat") return;
   const bottomHeight = context.height - VOID_FACE_DEPTH;
   const face: TerrainSouthFaceQuad = {

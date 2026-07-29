@@ -23,6 +23,7 @@ import { spawnRoomSlotAt } from "./spawnRoom.js";
 
 export { generateRoomChunk } from "./roomChunkBuilder.js";
 export * from "./roomDoorPlacements.js";
+export * from "./roomExitGeometry.js";
 export * from "./roomModel.js";
 export * from "./spawnRoom.js";
 

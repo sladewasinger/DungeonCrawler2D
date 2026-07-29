@@ -4,12 +4,24 @@ import type { ViewRect } from "../../terrain/streaming/streaming.js";
 import { viewTileToWorld } from "../../view/transform/viewTransform.js";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import type { TerrainScreenProjection } from "../batch/quadBatch.js";
-import type { TerrainRect } from "../planning/terrainPlanner.js";
+import {
+  TERRAIN_PRESENTATION_MODES,
+  type TerrainPresentationMode,
+  type TerrainRect,
+} from "../planning/terrainPlanner.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 
 export const VIEW_MARGIN_TILES = 2;
 export const TERRAIN_DEPTH = -1000;
 export const TERRAIN_CAMERA_BACKGROUND = TERRAIN_VISUAL_STYLE.camera.background;
+
+export function terrainCameraBackground(
+  mode: TerrainPresentationMode,
+): string {
+  return mode === TERRAIN_PRESENTATION_MODES.Inside
+    ? TERRAIN_VISUAL_STYLE.camera.insideBackground
+    : TERRAIN_CAMERA_BACKGROUND;
+}
 
 export const screenProjection: TerrainScreenProjection = {
   project: ({ x, y, z }) => ({ x: x * SCREEN_TILE_PX, y: y * SCREEN_TILE_PX - z * SCREEN_TILE_PX }),

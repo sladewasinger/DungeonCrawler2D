@@ -25,7 +25,12 @@
 // The duplicate is stored on the body sprite's own Phaser data store rather than a new
 // field on PlayerVisual (state.ts is a different lane's file) and self-destroys off the
 // body's "destroy" event, so callers don't need a teardown hook either.
-import { TERRAIN, type WorldView } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  TERRAIN,
+  isRoomChunk,
+  type WorldView,
+} from "@dc2d/engine";
 import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { screenSouthWorldDirection, type CompassDir } from "../../view/orientation/directionRemap.js";
@@ -82,6 +87,7 @@ export function terrainOcclusionAhead({
 }: TerrainOcclusionInput): TerrainOcclusion | null {
   const tileX = Math.floor(x);
   const tileY = Math.floor(y);
+  if (isRoomChunk(Math.floor(tileY / CHUNK_SIZE))) return null;
   const { dx, dy } = WORLD_STEP[screenSouthWorldDirection(orientation)];
   let closestSeamY = Number.POSITIVE_INFINITY;
   for (let step = 1; step <= MAX_OCCLUDING_ROWS_AHEAD; step++) {

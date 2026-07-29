@@ -74,4 +74,28 @@ describe("wall-feature door geometry", () => {
     });
     expect(plan.batches.features[0]?.vertices.map(({ z }) => z)).toEqual([1, 1, 0, 0]);
   });
+
+  it("embeds a camera-facing door in an inside room wall", () => {
+    const wall = { x: 10, y: 10 };
+    const plan = planTerrain({
+      voidTerrain: true,
+      presentationAt: () => ({ mode: "inside", wallRise: 3 }),
+      terrainAt: (x, y) => key(x, y) === "10,11"
+        ? TERRAIN_KINDS.Floor
+        : TERRAIN_KINDS.Void,
+      heightAt: () => 0,
+      featureAt: (x, y) => key(x, y) === key(wall.x, wall.y) ? "door" : null,
+      featureFaceAt: () => FEATURE_FACE.South,
+      featureHeightAt: () => 1,
+    }, { bounds: { ...wall, width: 1, height: 1 }, orientation: 0 });
+
+    expect(plan.batches.voids).toEqual([]);
+    expect(plan.batches.features).toEqual([]);
+    expect(plan.batches.floors).toHaveLength(1);
+    expect(plan.batches.southFaces[0]).toMatchObject({
+      topHeight: 3,
+      bottomHeight: 0,
+      wallFeature: { feature: "door", topHeight: 1 },
+    });
+  });
 });

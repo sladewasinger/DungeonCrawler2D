@@ -1,4 +1,3 @@
-import { TERRAIN as WORLD_TERRAIN } from "@dc2d/engine";
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import type { TilePos } from "../../lighting/torches/torchPlacement.js";
@@ -9,16 +8,20 @@ import { rotateOrientation, type ViewOrientation } from "../../view/orientation/
 import type { ViewRect } from "../../terrain/streaming/streaming.js";
 import { createTerrainQuadBatchRenderer } from "../batch/quadBatch.js";
 import { TerrainAtlasBatchRenderer } from "../batch/atlasBatch.js";
-import { TERRAIN_KINDS, type TerrainRect, type TerrainSource } from "../planning/terrainPlanner.js";
+import type { TerrainRect, TerrainSource } from "../planning/terrainPlanner.js";
 import { appendVisibleChunkPlans, emptyTerrainBatches, TerrainChunkPlanCache } from "../planning/chunkCache.js";
 import { syncTerrainProps } from "./props.js";
-import { terrainFeatureAt, terrainPropForTile } from "../planning/tileFeatures.js";
 import type { TerrainRoot } from "./root.js";
 import type { TerrainWorld } from "./world.js";
 import {
-  materialsFor, screenProjection, worldBiomeAt, worldBoundsForView, TERRAIN_DEPTH,
+  materialsFor,
+  screenProjection,
+  worldBiomeAt,
+  worldBoundsForView,
+  TERRAIN_DEPTH,
 } from "./renderSupport.js";
-import { roomVoidBoundaryStyle } from "./roomTerrainPolicy.js";
+import { TerrainCameraBackground } from "./cameraBackground.js";
+import { createTerrainSource } from "./source.js";
 export interface TerrainRendererLike {
   update(view: ViewRect): void;
   setDynamicLights(lights: readonly DynamicLightSeed[]): void;
@@ -33,21 +36,14 @@ export class TerrainRenderer {
     new URLSearchParams(window.location.search).get("terrain4Debug") === "1";
   private readonly chunkCache = new TerrainChunkPlanCache();
   private readonly terrainSource: TerrainSource;
+  private readonly cameraBackground: TerrainCameraBackground;
   private dirty = true;
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: TerrainWorld,
   ) {
-    this.terrainSource = {
-      voidTerrain: this.world.features.voidTerrain,
-      terrainAt: (x, y) => this.world.terrainAt(x, y) === WORLD_TERRAIN.Void ? TERRAIN_KINDS.Void : TERRAIN_KINDS.Floor,
-      heightAt: (x, y) => this.world.heightAt(x, y),
-      featureFaceAt: (x, y) => this.world.featureFaceAt(x, y),
-      featureHeightAt: (x, y) => this.world.featureHeightAt(x, y),
-      voidBoundaryAt: (_x, y) => roomVoidBoundaryStyle(y),
-      featureAt: (x, y) => terrainFeatureAt(this.world, x, y),
-      propAt: (x, y) => terrainPropForTile(this.world.featureAt(x, y)),
-    };
+    this.terrainSource = createTerrainSource(world);
+    this.cameraBackground = new TerrainCameraBackground(scene.cameras.main);
     this.ensureRoot(getViewOrientation());
   }
   update(view: ViewRect): void {
@@ -55,6 +51,7 @@ export class TerrainRenderer {
     const root = this.ensureRoot(orientation);
     const hasAtlasAssets = this.scene.textures.exists(this.debugMode ? ASSET_KEYS.debugAtlas : ASSET_KEYS.sharedAtlas);
     const bounds = worldBoundsForView(view, orientation);
+    this.cameraBackground.sync(view, orientation);
     const key = `${orientation}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (this.dirty || root.planKey !== key) {
       this.renderRoot(root, bounds, key);

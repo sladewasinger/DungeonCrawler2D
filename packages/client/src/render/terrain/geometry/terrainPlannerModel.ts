@@ -7,6 +7,20 @@ export const TERRAIN_HEIGHT_EPSILON = 0.01;
 export const TERRAIN_FLOOR_EDGE_MIN_DROP = 0.1;
 export type TerrainKind = (typeof TERRAIN_KINDS)[keyof typeof TERRAIN_KINDS];
 export type VoidBoundaryStyle = "floating" | "flat";
+export const TERRAIN_PRESENTATION_MODES = {
+  Inside: "inside",
+  Outside: "outside",
+} as const;
+export type TerrainPresentationMode =
+  (typeof TERRAIN_PRESENTATION_MODES)[keyof typeof TERRAIN_PRESENTATION_MODES];
+export interface TerrainPresentation {
+  readonly mode: TerrainPresentationMode;
+  readonly wallRise: number;
+}
+export const OUTSIDE_TERRAIN_PRESENTATION: TerrainPresentation = {
+  mode: TERRAIN_PRESENTATION_MODES.Outside,
+  wallRise: 0,
+};
 
 export const TERRAIN_FEATURES = { Stairs: "stairs", Door: "door", Brazier: "brazier" } as const;
 export type TerrainFeatureKind = (typeof TERRAIN_FEATURES)[keyof typeof TERRAIN_FEATURES];
@@ -20,6 +34,7 @@ export type TerrainPropKind = (typeof TERRAIN_PROPS)[keyof typeof TERRAIN_PROPS]
 export interface TerrainSource {
   /** Explicit server-selected mode; standalone tools must choose deliberately. */
   readonly voidTerrain: boolean;
+  presentationAt?(worldX: number, worldY: number): TerrainPresentation;
   terrainAt(worldX: number, worldY: number): TerrainKind;
   heightAt(worldX: number, worldY: number): number;
   featureFaceAt?(worldX: number, worldY: number): FeatureFace;
@@ -64,4 +79,10 @@ export interface TerrainBatches {
   readonly southFaces: readonly TerrainSouthFaceQuad[]; readonly cliffEdges: readonly TerrainCliffEdgeQuad[];
   readonly ao: readonly TerrainAOQuad[];
 }
-export interface TerrainPlan { readonly bounds: TerrainRect; readonly sampleBounds: TerrainRect; readonly orientation: ViewOrientation; readonly batches: TerrainBatches; }
+export interface TerrainPlan {
+  readonly bounds: TerrainRect;
+  readonly sampleBounds: TerrainRect;
+  readonly orientation: ViewOrientation;
+  readonly presentation: TerrainPresentation;
+  readonly batches: TerrainBatches;
+}

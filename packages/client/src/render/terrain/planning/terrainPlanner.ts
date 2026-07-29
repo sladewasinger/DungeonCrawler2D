@@ -3,8 +3,9 @@ import { appendPlanTiles, type MutableTerrainBatches } from "./terrainPlannerBui
 
 export * from "../geometry/terrainPlannerModel.js";
 import type {
-  TerrainPlan, TerrainPlanOptions, TerrainRect, TerrainSource,
+  TerrainPlan, TerrainPlanOptions, TerrainPresentation, TerrainRect, TerrainSource,
 } from "../geometry/terrainPlannerModel.js";
+import { OUTSIDE_TERRAIN_PRESENTATION } from "../geometry/terrainPlannerModel.js";
 
 /**
  * Produces the height-map renderer's minimal geometry in view space.
@@ -22,10 +23,14 @@ export function planTerrain(source: TerrainSource, options: TerrainPlanOptions):
   const batches = emptyBatches();
   const { bounds, orientation } = options;
   const { voidTerrain } = source;
+  const presentation = source.presentationAt?.(bounds.x, bounds.y) ??
+    OUTSIDE_TERRAIN_PRESENTATION;
   const sampleBounds = expandRect(bounds, seamApron);
   if (!voidTerrain) assertFiniteSample(source, expandRect(bounds, 1));
-  appendPlanTiles({ source, bounds, orientation, batches, voidTerrain });
-  return { bounds, sampleBounds, orientation, batches };
+  appendPlanTiles({
+    source, bounds, orientation, batches, voidTerrain, presentation,
+  });
+  return { bounds, sampleBounds, orientation, presentation, batches };
 }
 
 export interface TerrainPlanningContext {
@@ -34,6 +39,7 @@ export interface TerrainPlanningContext {
   readonly orientation: ViewOrientation;
   readonly batches: MutableTerrainBatches;
   readonly voidTerrain: boolean;
+  readonly presentation: TerrainPresentation;
 }
 
 function expandRect(rect: TerrainRect, apron: number): TerrainRect {

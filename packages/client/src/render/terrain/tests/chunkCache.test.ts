@@ -25,6 +25,21 @@ describe("TerrainChunkPlanCache", () => {
     expect(disabled).not.toBe(enabled);
   });
 
+  it("does not reuse plans across inside and outside presentation", () => {
+    const cache = new TerrainChunkPlanCache();
+    const input = { coord: { cx: 0, cy: 0 }, orientation: 0 as const, revision: 1 };
+    const outside = cache.get({ ...input, source });
+    const inside = cache.get({
+      ...input,
+      source: {
+        ...source,
+        presentationAt: () => ({ mode: "inside", wallRise: 3 }),
+      },
+    });
+
+    expect(inside).not.toBe(outside);
+  });
+
   it("invalidates seam neighbors when a tile changes", () => {
     const cache = new TerrainChunkPlanCache();
     cache.get({ source, coord: { cx: 0, cy: 0 }, orientation: 0, revision: 1 });

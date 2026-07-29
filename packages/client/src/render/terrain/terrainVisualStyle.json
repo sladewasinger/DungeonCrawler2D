@@ -1,6 +1,7 @@
 {
   "camera": {
-    "background": "#14141c"
+    "background": "#14141c",
+    "insideBackground": "#24242b"
   },
   "cliffRim": {
     "floorColor": "#f7f0c9",
