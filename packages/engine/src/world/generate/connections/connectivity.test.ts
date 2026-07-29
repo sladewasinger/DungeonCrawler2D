@@ -1,10 +1,12 @@
-// Cross-chunk corridor connectivity is the networking invariant that
-// matters most for this generator's edge-anchor routing (see edges.ts),
-// now also carrying avenue-widened seams at district boundaries.
+// Cross-district corridor connectivity is the networking invariant that
+// matters most for the shared 96×96 plans.
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../../core/rng.js";
-import { CHUNK_SIZE } from "../../core/types.js";
-import { edgeAnchors, type EdgeAnchor } from "../layout/edges.js";
+import {
+  districtEdgeAnchors,
+  type EdgeAnchor,
+} from "../layout/districtEdges.js";
+import { DISTRICT_TILE_SPAN } from "../layout/district.js";
 import { layoutSeed } from "../layout/hash.js";
 import { reachesNeighborChunk, type ChunkCache, type WorldPoint } from "../test-support.js";
 
@@ -21,40 +23,40 @@ describe("cross-chunk connectivity", () => {
     for (const seed of SEEDS) {
       const cache: ChunkCache = new Map();
       const scope = { seed, floor: FLOOR, cache };
-      for (const anchor of edgeAnchors({
+      for (const anchor of districtEdgeAnchors({
         seed: layoutSeed(seed, FLOOR),
-        cx: 0,
-        cy: 0,
-        chunkSize: CHUNK_SIZE,
+        dx: 0,
+        dy: 0,
+        districtSize: DISTRICT_TILE_SPAN,
       })) {
-        const start = runtimeAnchor(anchor, 0, 0);
+        const start = runtimeAnchor(anchor);
         expect(reachesNeighborChunk(scope, start), `seed ${seed}: ${anchorName(anchor)} anchor is isolated`).toBe(true);
       }
     }
   });
 
-  it("keeps the widened avenue seam connected", () => {
+  it("keeps the widened district seam connected", () => {
     const seed = SEEDS[0] as number;
     const cache: ChunkCache = new Map();
     const scope = { seed, floor: FLOOR, cache };
-    const eastAnchor = edgeAnchors({
+    const eastAnchor = districtEdgeAnchors({
       seed: layoutSeed(seed, FLOOR),
-      cx: 2,
-      cy: 0,
-      chunkSize: CHUNK_SIZE,
+      dx: 0,
+      dy: 0,
+      districtSize: DISTRICT_TILE_SPAN,
     })
       .find((anchor) => anchor.side === 1);
     expect(eastAnchor).toBeDefined();
     if (!eastAnchor) return;
     expect(eastAnchor.width).toBeGreaterThan(3);
-    expect(reachesNeighborChunk(scope, runtimeAnchor(eastAnchor, 2, 0))).toBe(true);
+    expect(reachesNeighborChunk(scope, runtimeAnchor(eastAnchor))).toBe(true);
   });
 });
 
-function runtimeAnchor(anchor: EdgeAnchor, cx: number, cy: number): WorldPoint {
+function runtimeAnchor(anchor: EdgeAnchor): WorldPoint {
   return {
-    x: cx * CHUNK_SIZE + anchor.point.x,
-    y: cy * CHUNK_SIZE + anchor.point.y,
+    x: anchor.point.x,
+    y: anchor.point.y,
   };
 }
 

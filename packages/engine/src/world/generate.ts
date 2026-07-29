@@ -5,7 +5,11 @@
 // compatibility (sandbox proving-ground content is not part of this slice;
 // every level generates the same dungeon layout).
 
-import { generateChunk as generateLayoutChunk, type ChunkGenerationRequest } from "./generate/index.js";
+import {
+  generateChunk as generateLayoutChunk,
+  generateDistrictChunks as generateLayoutDistrict,
+  type ChunkGenerationRequest,
+} from "./generate/index.js";
 import { LEVEL, type LevelId } from "./core/level.js";
 import type { WorldFeatures } from "./core/worldFeatures.js";
 import type { Chunk } from "./core/types.js";
@@ -18,4 +22,12 @@ export interface WorldGenerationRequest extends ChunkGenerationRequest {
 export function generateChunk({ level = LEVEL.Dungeon, ...layout }: WorldGenerationRequest): Chunk {
   void level;
   return generateLayoutChunk(layout);
+}
+
+export function generateDistrictChunks({
+  level = LEVEL.Dungeon,
+  ...layout
+}: WorldGenerationRequest): readonly Chunk[] {
+  void level;
+  return generateLayoutDistrict(layout);
 }

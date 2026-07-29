@@ -21,6 +21,10 @@ interface SlimeKillScenario {
   slime: Entity;
 }
 
+function makeXpSim(): GameSim {
+  return makeSim(1234, { testFixtures: false, freezeEnemies: true });
+}
+
 function killSlimeWithFists({ sim, playerId, target, slime }: SlimeKillScenario): void {
   for (let i = 0; i < 4; i++) {
     teleport({ entity: slime, x: target.x, y: target.y, sim }); // undo knockback between swings
@@ -32,7 +36,7 @@ function killSlimeWithFists({ sim, playerId, target, slime }: SlimeKillScenario)
 
 describe("GameSim: XP award", () => {
   it("awards XP on a real melee kill, readable on the killer's next self snapshot", () => {
-    const sim = makeSim();
+    const sim = makeXpSim();
     const arena = findFlatArena({ sim: sim, anchor: { x: 28, y: 28 } });
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const aEntity = sim.getPlayerEntity(a.playerId)!;
@@ -51,7 +55,7 @@ describe("GameSim: XP award", () => {
   });
 
   it("attributes the kill only to the attacker — a nearby bystander earns nothing", () => {
-    const sim = makeSim();
+    const sim = makeXpSim();
     const arena = findFlatArena({ sim: sim, anchor: { x: 28, y: 28 } });
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const b = sim.addPlayer({ name: "B", clientId: "client-b" });

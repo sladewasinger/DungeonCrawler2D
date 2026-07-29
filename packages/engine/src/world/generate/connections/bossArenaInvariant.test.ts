@@ -16,7 +16,11 @@ import {
 import { FLOOR_CAP } from "../../features/descent/descentShared.js";
 import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { generateChunk } from "../index.js";
-import { reachesNeighborChunk, type WorldPoint } from "../test-support.js";
+import {
+  bfsChunks,
+  keyInChunk,
+  type WorldPoint,
+} from "../test-support.js";
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
 
@@ -71,7 +75,12 @@ function hasArenaExit(seed: number): boolean {
   const generated = generateChunk({ worldSeed: seed, floor: FLOOR_CAP, ...chunk });
   const index = localIndex(chunk, spawn);
   if (generated.tiles[index] !== TILE.Floor || generated.height[index] !== 0) return false;
-  return reachesNeighborChunk({ seed, floor: FLOOR_CAP, cache: new Map() }, spawn);
+  const reached = bfsChunks(
+    { seed, floor: FLOOR_CAP, cache: new Map() },
+    spawn,
+    1,
+  );
+  return [...reached].some((key) => !keyInChunk(key, chunk));
 }
 
 function localIndex(chunk: { cx: number; cy: number }, point: WorldPoint): number {
@@ -107,7 +116,7 @@ describe("boss arena: exactly one gate", () => {
   it("the spawn anchor sits inside the ring and reaches the wider corridor network through the gate", { timeout: 120_000 }, () => {
     let checked = 0;
     for (const seed of SEEDS.slice(0, 12)) {
-      expect(hasArenaExit(seed), `seed ${seed}: arena interior never leaves its own chunk`).toBe(true);
+      expect(hasArenaExit(seed), `seed ${seed}: arena interior never reaches the district network`).toBe(true);
       checked++;
     }
     expect(checked).toBe(12);

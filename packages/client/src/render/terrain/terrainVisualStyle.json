@@ -4,9 +4,11 @@
     "insideBackground": "#24242b"
   },
   "cliffRim": {
-    "floorColor": "#f7f0c9",
+    "floorColor": "#e4e0c2",
     "voidColor": "#b67cff",
-    "widthFraction": 0.05,
+    "widthFraction": 0.04,
+    "outsideCornerRadiusFraction": 0.16,
+    "outsideCornerSegments": 4,
     "alpha": 1
   },
   "ambientOcclusion": {
@@ -17,6 +19,17 @@
     "bandAlphas": [0.3, 0.2, 0.12],
     "cornerFraction": 0.3,
     "cornerAlpha": 0.22
+  },
+  "biomeTint": {
+    "alpha": 0.13,
+    "colors": {
+      "maze": "#58779a",
+      "open-halls": "#bd9251",
+      "ruins": "#77816b",
+      "pillars": "#6f835f",
+      "pools": "#3b9db8",
+      "arena": "#a96650"
+    }
   },
   "fallbackMaterials": {
     "void": "#000000",

@@ -1,5 +1,5 @@
-// District invariants: super-chunk character, landmark set-pieces, and
-// avenue-widened seams are deterministic, chunk-local decisions.
+// District invariants: shared character, landmark placement, and deterministic
+// outer connections across neighboring 96×96 plans.
 
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../../core/rng.js";
@@ -7,13 +7,16 @@ import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed/fixed.js";
 import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import {
   DISTRICT,
+  DISTRICT_CHUNK_SPAN,
+  DISTRICT_TILE_SPAN,
   districtAt,
+  districtOriginForChunk,
   isLandmarkChunk,
-  SUPERCHUNK_SIZE,
   type DistrictKind,
 } from "./district.js";
 import { layoutSeed } from "./hash.js";
 import { generateChunk } from "../index.js";
+import { districtEdgeAnchors } from "./districtEdges.js";
 
 const SEED = hashString("district-test-world");
 const FLOOR = 1;
@@ -26,8 +29,8 @@ describe("district character", () => {
       for (let scy = -6; scy <= 6; scy++) {
         seen.add(districtAt(
           ROOT_SEED,
-          scx * SUPERCHUNK_SIZE,
-          scy * SUPERCHUNK_SIZE,
+          scx * DISTRICT_CHUNK_SPAN,
+          scy * DISTRICT_CHUNK_SPAN,
         ));
       }
     }
@@ -41,26 +44,33 @@ describe("district character", () => {
     ]));
   });
 
-  it("is stable for every chunk within one super-chunk", () => {
+  it("is stable for every chunk within one district", () => {
     const kind = districtAt(ROOT_SEED, 0, 0);
-    for (let cx = 0; cx < SUPERCHUNK_SIZE; cx++) {
-      for (let cy = 0; cy < SUPERCHUNK_SIZE; cy++) {
+    for (let cx = 0; cx < DISTRICT_CHUNK_SPAN; cx++) {
+      for (let cy = 0; cy < DISTRICT_CHUNK_SPAN; cy++) {
         expect(districtAt(ROOT_SEED, cx, cy)).toBe(kind);
       }
     }
+  });
+
+  it("uses floor-based origins for negative chunk coordinates", () => {
+    expect(districtOriginForChunk(-1, -1)).toEqual({
+      cx: -DISTRICT_CHUNK_SPAN,
+      cy: -DISTRICT_CHUNK_SPAN,
+    });
   });
 });
 
 describe("landmark set-pieces", () => {
   it("a landmark chunk's district-appropriate landmark replaces its plain style", () => {
-    // Walk out from the center of super-chunk (0,0) until it isn't also
+    // Walk out from the center of district (0,0) until it isn't also
     // claimed by a safe-room kiosk or stairway pad.
-    const centerOffset = Math.floor(SUPERCHUNK_SIZE / 2);
+    const centerOffset = Math.floor(DISTRICT_CHUNK_SPAN / 2);
     let cx = centerOffset;
     let cy = centerOffset;
     while (isSafeRoomChunk({ worldSeed: SEED, floor: FLOOR, cx, cy }) || isStairsChunk({ worldSeed: SEED, floor: FLOOR, cx, cy })) {
-      cx += SUPERCHUNK_SIZE;
-      cy += SUPERCHUNK_SIZE;
+      cx += DISTRICT_CHUNK_SPAN;
+      cy += DISTRICT_CHUNK_SPAN;
     }
     expect(isLandmarkChunk(cx, cy)).toBe(true);
     const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
@@ -74,15 +84,21 @@ describe("landmark set-pieces", () => {
   });
 });
 
-describe("avenues", () => {
-  it("a corridor crossing a super-chunk boundary is wider than one that doesn't", () => {
-    // The final chunk in one district and first chunk in the next straddle
-    // an avenue seam; the first two chunks in a district do not.
-    const inSeamWidth = corridorWidthAtBorder({ seed: SEED, left: { cx: 0, cy: 0 }, right: { cx: 1, cy: 0 } });
-    const left = { cx: SUPERCHUNK_SIZE - 1, cy: 0 };
-    const right = { cx: SUPERCHUNK_SIZE, cy: 0 };
-    const avenueWidth = corridorWidthAtBorder({ seed: SEED, left, right });
-    expect(avenueWidth).toBeGreaterThanOrEqual(inSeamWidth);
+describe("district connections", () => {
+  it("carves a wide shared corridor across a district boundary", () => {
+    const anchor = districtEdgeAnchors({
+      seed: ROOT_SEED,
+      dx: 0,
+      dy: 0,
+      districtSize: DISTRICT_TILE_SPAN,
+    }).find(({ side }) => side === 1);
+    expect(anchor).toBeDefined();
+    if (!anchor) return;
+    const cy = Math.floor(anchor.point.y / CHUNK_SIZE);
+    const left = { cx: DISTRICT_CHUNK_SPAN - 1, cy };
+    const right = { cx: DISTRICT_CHUNK_SPAN, cy };
+    expect(corridorWidthAtBorder({ seed: SEED, left, right }))
+      .toBeGreaterThanOrEqual(anchor.width);
   });
 });
 

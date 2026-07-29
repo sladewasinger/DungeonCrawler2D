@@ -1,4 +1,4 @@
-// Binary space partition: recursively halve the chunk interior into leaf
+// Binary space partition: recursively halve a planned region into leaf
 // rects, one room per leaf, connected pairwise as the recursion unwinds —
 // the classic BSP-dungeon spanning tree. `seed` is already chunk-specific
 // (mixed with cx, cy by the caller); every hash here keys off a node's own
@@ -32,16 +32,16 @@ function maxDepthFor(district: DistrictKind): number {
   return ROOM_LAYOUT.maximumPartitionDepth;
 }
 
-export function partitionChunk(chunkSeed: number, chunkSize: number, district: DistrictKind): BspResult {
+export function partitionRegion(seed: number, size: number, district: DistrictKind): BspResult {
   const initial: Rect = {
-    x0: ROOM_LAYOUT.chunkBorderMargin,
-    y0: ROOM_LAYOUT.chunkBorderMargin,
-    x1: chunkSize - 1 - ROOM_LAYOUT.chunkBorderMargin,
-    y1: chunkSize - 1 - ROOM_LAYOUT.chunkBorderMargin,
+    x0: ROOM_LAYOUT.districtBorderMargin,
+    y0: ROOM_LAYOUT.districtBorderMargin,
+    x1: size - 1 - ROOM_LAYOUT.districtBorderMargin,
+    y1: size - 1 - ROOM_LAYOUT.districtBorderMargin,
   };
   const rooms: Room[] = [];
   const links: Array<[Room, Room]> = [];
-  const context = { seed: chunkSeed, district, rooms, links };
+  const context = { seed, district, rooms, links };
   partition(context, initial, maxDepthFor(district));
   return { rooms, links };
 }

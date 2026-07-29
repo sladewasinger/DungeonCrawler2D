@@ -12,11 +12,20 @@ import { planTerrain, TERRAIN_KINDS, type TerrainKind } from "./terrainPlanner.j
 
 const FLOOR = TERRAIN_KINDS.Floor;
 const VOID = TERRAIN_KINDS.Void;
+const DEV_WORLD_SEED = hashString("dev-world-1");
 
 describe("dev-world terrain planning", () => {
+  it("preserves every VOID-mode cell in the screenshot regression chunk", () => {
+    const chunk = generateChunk({
+      worldSeed: DEV_WORLD_SEED, floor: 1, cx: 1, cy: -1,
+    });
+
+    expect(chunkTileRows(chunk)).toEqual(DEV_WORLD_TILE_ROWS);
+  });
+
   it("preserves every finite-mode cell in the screenshot regression chunk", () => {
     const chunk = generateChunk({
-      worldSeed: hashString("dev-world-1"), floor: 1, cx: 1, cy: -1,
+      worldSeed: DEV_WORLD_SEED, floor: 1, cx: 1, cy: -1,
       features: { voidTerrain: false },
     });
 
@@ -26,14 +35,16 @@ describe("dev-world terrain planning", () => {
   });
 
   it("distinguishes VOID caps from neighboring pit faces", () => {
-    const chunk = generateChunk({ worldSeed: hashString("dev-world-1"), floor: 1, cx: 1, cy: -1 });
+    const chunk = generateChunk({
+      worldSeed: DEV_WORLD_SEED, floor: 1, cx: -10, cy: -11,
+    });
     const cell = (x: number, y: number): { terrain: TerrainKind; height: number } => {
       const index = (y - chunk.cy * CHUNK_SIZE) * CHUNK_SIZE + x - chunk.cx * CHUNK_SIZE;
       return { terrain: chunk.terrain[index] === TERRAIN.Void ? VOID : FLOOR, height: chunk.height[index] ?? 0 };
     };
-    const floor = { x: 43, y: -14 };
-    const lowerFloor = { x: 43, y: -13 };
-    const voidTile = { x: 52, y: -5 };
+    const floor = { x: -297, y: -351 };
+    const lowerFloor = { x: -297, y: -350 };
+    const voidTile = { x: -296, y: -351 };
     const source = {
       voidTerrain: true,
       terrainAt: (x: number, y: number) => cell(x, y).terrain,
@@ -43,10 +54,7 @@ describe("dev-world terrain planning", () => {
       bounds: { x: floor.x, y: floor.y, width: 1, height: 1 }, orientation: 0,
     });
     const requestedVoidPlan = planTerrain(source, {
-      bounds: { x: 51, y: -13, width: 1, height: 1 }, orientation: 0,
-    });
-    const boundaryPlan = planTerrain(source, {
-      bounds: { x: 50, y: -13, width: 1, height: 1 }, orientation: 0,
+      bounds: { ...voidTile, width: 1, height: 1 }, orientation: 0,
     });
     const world: WorldView = {
       isWalkable: () => true,
@@ -56,17 +64,13 @@ describe("dev-world terrain planning", () => {
       stairHeightAt: () => null,
     };
 
-    expect(chunkTileRows(chunk)).toEqual(DEV_WORLD_TILE_ROWS);
     expect(cell(floor.x, floor.y)).toMatchObject({ terrain: FLOOR, height: 0 });
     expect(cell(lowerFloor.x, lowerFloor.y)).toMatchObject({ terrain: FLOOR, height: -1 });
     expect(cell(voidTile.x, voidTile.y).terrain).toBe(VOID);
-    expect(cell(50, -12)).toMatchObject({ terrain: FLOOR, height: -1 });
-    expect(cell(51, -12)).toMatchObject({ terrain: FLOOR, height: -1 });
-    expect(cell(51, -13)).toMatchObject({ terrain: VOID, height: 0 });
+    expect(cell(voidTile.x, voidTile.y + 1))
+      .toMatchObject({ terrain: FLOOR, height: -1 });
     expect(floorPlan.batches.southFaces).toHaveLength(1);
     expect(floorPlan.batches.southFaces[0]).toMatchObject({ topHeight: 0, bottomHeight: -1 });
-    expect(boundaryPlan.batches.southFaces).toHaveLength(1);
-    expect(boundaryPlan.batches.southFaces[0]).toMatchObject({ topHeight: 0, bottomHeight: -1 });
     expect(requestedVoidPlan.batches.voids).toHaveLength(2);
     expect(terrainOcclusionAhead({
       world, x: floor.x + 0.5, y: floor.y + 0.5, z: -1, orientation: 0,

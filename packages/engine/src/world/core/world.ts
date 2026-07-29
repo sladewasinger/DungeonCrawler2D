@@ -1,16 +1,13 @@
 import { CHASM_DEATH_Z } from "../../core/constants.js";
-import { generateChunk } from "../generate.js";
+import { generateDistrictChunks } from "../generate.js";
 import { LEVEL, type LevelId } from "./level.js";
-import {
-  snapshotWorldFeatures,
-  type WorldFeatures,
-  type WorldOptions,
-} from "./worldFeatures.js";
+import { snapshotWorldFeatures, type WorldFeatures, type WorldOptions } from "./worldFeatures.js";
 import { stairRampAt } from "../stairs/stairs.js";
 import {
   chunkCellAt,
   generatedChunkCount,
   pruneGeneratedChunks,
+  storeGeneratedChunk,
 } from "./chunkCoordinates.js";
 import {
   featureOverrideMap,
@@ -65,20 +62,20 @@ export class World implements WorldView {
   }
 
   getChunk(cx: number, cy: number): Chunk {
-    let row = this.chunks.get(cx);
-    if (!row) {
-      row = new Map<number, Chunk>();
-      this.chunks.set(cx, row);
-    }
-    let chunk = row.get(cy);
-    if (!chunk) {
-      chunk = generateChunk({
-        worldSeed: this.worldSeed, floor: this.floor, cx, cy,
-        level: this.level, features: this.features,
-      });
-      row.set(cy, chunk);
-    }
-    return chunk;
+    const cached = this.chunks.get(cx)?.get(cy);
+    if (cached) return cached;
+    const generated = generateDistrictChunks({
+      worldSeed: this.worldSeed,
+      floor: this.floor,
+      cx,
+      cy,
+      level: this.level,
+      features: this.features,
+    });
+    for (const chunk of generated) storeGeneratedChunk(this.chunks, chunk);
+    const requested = this.chunks.get(cx)?.get(cy);
+    if (requested) return requested;
+    throw new Error(`Generation omitted chunk (${cx}, ${cy})`);
   }
 
   private lookup(wx: number, wy: number): { chunk: Chunk; index: number } {
@@ -177,7 +174,6 @@ export class World implements WorldView {
 
   isSanctuary(wx: number, wy: number): boolean { return this.zoneAt(wx, wy) === ZONE.Sanctuary; }
 
-  /** Number of generated chunks currently cached (diagnostics). */
   get cachedChunkCount(): number { return generatedChunkCount(this.chunks); }
 
   pruneChunkCache(centerWx: number, centerWy: number, capacity: number): void {

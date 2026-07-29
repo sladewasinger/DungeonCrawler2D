@@ -82,12 +82,14 @@ describe("atlasDraws", () => {
     const inactiveMesh = { setVisible: vi.fn() };
     const aoOverlay = { setVisible: vi.fn() };
     const cliffHighlight = { setVisible: vi.fn() };
+    const biomeTint = { setVisible: vi.fn() };
     const batch = {
       visible: true,
       meshes: new Map([["active", activeMesh], ["inactive", inactiveMesh]]),
       active: new Set(["active"]),
       aoOverlay,
       cliffHighlight,
+      biomeTint,
     };
 
     TerrainAtlasBatchRenderer.prototype.setVisible.call(batch, false);
@@ -100,6 +102,8 @@ describe("atlasDraws", () => {
     expect(aoOverlay.setVisible).toHaveBeenNthCalledWith(2, true);
     expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(1, false);
     expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(2, true);
+    expect(biomeTint.setVisible).toHaveBeenNthCalledWith(1, false);
+    expect(biomeTint.setVisible).toHaveBeenNthCalledWith(2, true);
   });
 
   it("tiles multi-height faces and crops only a partial top tile", () => {

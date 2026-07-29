@@ -1,7 +1,7 @@
 import worldGenerationTuning from "./worldGenerationTuning.json" with { type: "json" };
 
 /**
- * Developer-facing controls for the active 32×32 world generator.
+ * Developer-facing controls for district planning and chunk-local features.
  *
  * Distances, widths, and radii are runtime tiles unless their names explicitly
  * say chunks, depth, frequency, threshold, or chance. The editable source is

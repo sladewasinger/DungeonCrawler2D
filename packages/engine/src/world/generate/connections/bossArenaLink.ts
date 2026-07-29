@@ -9,8 +9,8 @@
 // throat row, already south of the ring's whole bounding box; leg 2
 // travels along a column pushed OUTSIDE that box (`safeColumn`), so it
 // can never re-enter the ring at any row; leg 3 (into the room) is only
-// unsafe if the room's OWN center sits inside the box, which
-// `eligibleRooms` excludes up front — so leg 3 is safe by exclusion, legs
+// unsafe if the target room intersects the box, which the candidate
+// filter excludes up front — so leg 3 is safe by exclusion, legs
 // 1-2 are safe by construction, no case is left uncovered.
 //
 // Every carved cell also gets height forced to 0 (the arena's own flush
@@ -83,12 +83,13 @@ function safeColumn(targetX: number, boxCenterX: number): number {
     : boxCenterX + ARENA_HALF + 1;
 }
 
-/** True where a point sits inside (or bordering) the ring's own bounding square — such a room's rect was likely already overwritten by the arena stamp, so it's never a valid connection target. */
-function insideRing(p: Point, center: Point): boolean {
-  return (
-    Math.abs(p.x - center.x) <= ARENA_HALF + 1 &&
-    Math.abs(p.y - center.y) <= ARENA_HALF + 1
-  );
+/** Intersecting rooms may have every original doorway severed by the ring. */
+function intersectsRing(room: Room, center: Point): boolean {
+  const reach = ARENA_HALF + 1;
+  return room.rect.x0 <= center.x + reach &&
+    room.rect.x1 >= center.x - reach &&
+    room.rect.y0 <= center.y + reach &&
+    room.rect.y1 >= center.y - reach;
 }
 
 function nearestRoom(rooms: readonly Room[], p: Point): Room {
@@ -104,7 +105,7 @@ function nearestRoom(rooms: readonly Room[], p: Point): Room {
   return best;
 }
 
-/** Route a corridor from the arena's gate to the nearest already-flat BSP room whose own center isn't inside the ring, via a throat + two guaranteed-safe legs (see this file's doc comment for the safety argument). */
+/** Route from the gate to the nearest intact, flat BSP room. */
 export function connectBossArenaGate({ tiles, corridorCarved, height, gate, center, rooms }: CarveMap & {
   gate: Point;
   center: Point;
@@ -113,7 +114,7 @@ export function connectBossArenaGate({ tiles, corridorCarved, height, gate, cent
   if (rooms.length === 0) return;
   const map = { tiles, corridorCarved, height };
   const throatEnd = carveThroat({ ...map, gate });
-  const candidates = rooms.filter((r) => !insideRing({ x: centerX(r.rect), y: centerY(r.rect) }, center));
+  const candidates = rooms.filter((room) => !intersectsRing(room, center));
   const flat = candidates.filter((r) => Math.abs(roomHeight(height, r)) <= FLAT_TOLERANCE);
   const pool = flat.length > 0 ? flat : candidates.length > 0 ? candidates : rooms;
   const room = nearestRoom(pool, throatEnd);

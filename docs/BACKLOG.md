@@ -187,8 +187,8 @@ evidence. Uncertain work remains open. Player-visible changes must also update t
     readable four-direction art and distinct ground/inventory icons.
   - Resolve corridor width, minimum pit size, walkable wall-back generation, and
     remaining stair/ledge readability cases.
-  - Planned worldgen scale removal is documented separately: direct 32×32 chunks,
-    generator-authored wider corridors/avenues, and one-tile stairs. Do not add a
+  - Planned worldgen scale removal is documented separately: 32×32 runtime chunks,
+    district-authored wider corridors/connectors, and one-tile stairs. Do not add a
     second scaling shim while implementing this item.
   - Fixed-seed maps remain collision/render consistent at all camera rotations.
   - Performance does not regress at chunk boundaries.

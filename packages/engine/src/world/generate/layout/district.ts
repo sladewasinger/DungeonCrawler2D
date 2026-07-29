@@ -1,11 +1,12 @@
-// Super-chunk (3x3 chunk) district assignment: gives the BSP room layout a
-// macro-scale character — named neighborhoods instead of one uniform room
-// family across the whole floor.
+// District assignment and coordinates. A district is planned as one shared
+// tile surface, then clipped into fixed-size runtime chunks.
 
 import { hash2D, mixSeeds } from "../../../core/rng.js";
+import { CHUNK_SIZE } from "../../core/types.js";
 import { WORLD_GENERATION_TUNING } from "../tuning.js";
 
-export const SUPERCHUNK_SIZE = WORLD_GENERATION_TUNING.districts.chunkSpan;
+export const DISTRICT_CHUNK_SPAN = WORLD_GENERATION_TUNING.districts.chunkSpan;
+export const DISTRICT_TILE_SPAN = DISTRICT_CHUNK_SPAN * CHUNK_SIZE;
 
 export const DISTRICT = {
   Warren: 0,
@@ -45,41 +46,44 @@ export function biomeForDistrict(district: DistrictKind): BiomeKind {
   return BIOME.Arena;
 }
 
-interface ChunkCoord {
-  cx: number;
-  cy: number;
+export interface DistrictCoordinate {
+  readonly dx: number;
+  readonly dy: number;
 }
 
-function superOrigin(c: number): number {
-  return Math.floor(c / SUPERCHUNK_SIZE) * SUPERCHUNK_SIZE;
+export interface DistrictOrigin {
+  readonly cx: number;
+  readonly cy: number;
 }
 
-/** Which 3x3 super-chunk a chunk belongs to, as that super-chunk's low corner. */
-export function superchunkOf(cx: number, cy: number): { scx: number; scy: number } {
-  return { scx: superOrigin(cx), scy: superOrigin(cy) };
+export function districtCoordinateForChunk(
+  cx: number,
+  cy: number,
+): DistrictCoordinate {
+  return {
+    dx: Math.floor(cx / DISTRICT_CHUNK_SPAN),
+    dy: Math.floor(cy / DISTRICT_CHUNK_SPAN),
+  };
 }
 
-/** The district character for a chunk's whole super-chunk (pure, deterministic). */
+export function districtOriginForChunk(cx: number, cy: number): DistrictOrigin {
+  const { dx, dy } = districtCoordinateForChunk(cx, cy);
+  return {
+    cx: dx * DISTRICT_CHUNK_SPAN,
+    cy: dy * DISTRICT_CHUNK_SPAN,
+  };
+}
+
+/** The district character shared by every runtime chunk in the district. */
 export function districtAt(seed: number, cx: number, cy: number): DistrictKind {
-  const { scx, scy } = superchunkOf(cx, cy);
-  const h = hash2D(mixSeeds(seed, 0xd15c), scx, scy);
+  const { dx, dy } = districtCoordinateForChunk(cx, cy);
+  const h = hash2D(mixSeeds(seed, 0xd15c), dx, dy);
   return DISTRICT_KINDS[h % DISTRICT_KINDS.length] ?? DISTRICT.Warren;
 }
 
-/** The one chunk per super-chunk that hosts its landmark: the center cell. */
+/** The center runtime chunk hosts the district's authored landmark. */
 export function isLandmarkChunk(cx: number, cy: number): boolean {
-  const { scx, scy } = superchunkOf(cx, cy);
-  const centerOffset = Math.floor(SUPERCHUNK_SIZE / 2);
-  return cx === scx + centerOffset && cy === scy + centerOffset;
-}
-
-/**
- * True where two orthogonally-adjacent chunks belong to different
- * super-chunks — an avenue seam, where the cross-chunk connector corridor
- * widens into a legible arterial road (edges.ts's edgeWidth).
- */
-export function avenueBetween(a: ChunkCoord, b: ChunkCoord): boolean {
-  const sa = superchunkOf(a.cx, a.cy);
-  const sb = superchunkOf(b.cx, b.cy);
-  return sa.scx !== sb.scx || sa.scy !== sb.scy;
+  const origin = districtOriginForChunk(cx, cy);
+  const centerOffset = Math.floor(DISTRICT_CHUNK_SPAN / 2);
+  return cx === origin.cx + centerOffset && cy === origin.cy + centerOffset;
 }

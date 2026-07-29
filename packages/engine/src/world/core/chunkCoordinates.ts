@@ -22,6 +22,18 @@ export function generatedChunkCount(
   return total;
 }
 
+export function storeGeneratedChunk(
+  columns: Map<number, Map<number, Chunk>>,
+  chunk: Chunk,
+): void {
+  let column = columns.get(chunk.cx);
+  if (!column) {
+    column = new Map<number, Chunk>();
+    columns.set(chunk.cx, column);
+  }
+  column.set(chunk.cy, chunk);
+}
+
 export interface ChunkCacheRetention {
   readonly centerCx: number;
   readonly centerCy: number;

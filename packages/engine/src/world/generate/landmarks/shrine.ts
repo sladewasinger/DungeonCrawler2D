@@ -1,6 +1,6 @@
 // Shrine landmark (warren district): a small raised dais in an open
 // courtyard, ringed by a low wall with gates wherever the corridor network
-// crosses it — an intimate plaza at the super-chunk's heart.
+// crosses it — an intimate plaza at the district's heart.
 
 import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
 import { WORLD_GENERATION_TUNING } from "../tuning.js";

@@ -1,4 +1,4 @@
-// Landmark dispatch: one per super-chunk, stamped only on the landmark
+// Landmark dispatch: one per district, stamped only on the landmark
 // chunk, skipped where a safe-room kiosk or stairway pad already claimed
 // the chunk (features/fixed.ts owns those, same as the plain layout).
 

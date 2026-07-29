@@ -177,12 +177,12 @@ Every effect, item, and enemy is a JSON file in `content/`, validated against a 
 
 `generateChunk(worldSeed, floor, chunkCoord) → DungeonChunk` — a pure function over seeded hashes, built **layout first, height second**:
 
-1. **Flat layout.** A BSP partitions each chunk into rooms. A deterministic corridor tree connects those rooms and four shared edge anchors guarantee cross-chunk connectivity. Districts widen arterial avenues and bias room character; a reachability pass seals orphan pockets.
+1. **Flat layout.** A BSP partitions each 96×96 district into rooms. A deterministic corridor tree connects those rooms and four shared district-edge anchors guarantee connectivity between adjacent plans. The complete surface is finalized before being sliced into nine 32×32 runtime chunks, so rooms and corridors can cross internal chunk boundaries without seams.
 2. **Deliberate height.** Room variants and authored landmarks add pits, daises, chasms, stairs, and structures after connectivity exists. There is **no noise heightfield** — a height change exists because something was built there, never because a contour happened to cross a hallway.
 
 **Wave-function collapse is the planned decoration layer** (v0.8 biomes/ruins): the BSP and corridor skeleton stays structural — it owns connectivity, determinism, and chunk-locality, none of which WFC provides naturally — while seeded WFC textures constrained regions whose border cells the skeleton pins, so per-chunk solving cannot contradict neighbors. Determinism is a **tested networking invariant**: the same inputs must produce byte-identical geometry and heights on every machine, because clients regenerate chunks locally from coordinates the server sends. Spawned entities are placed by the server and sent as events, so only static geometry and zones rely on determinism.
 
-Generation uses direct 32×32 runtime tiles. Geometry controls and the active
+Generation uses one world tile per planned cell and direct 32×32 runtime chunks. Geometry controls and the active
 module map are documented in [WORLD-GENERATION.md](WORLD-GENERATION.md).
 
 ## Rendering & art pipeline

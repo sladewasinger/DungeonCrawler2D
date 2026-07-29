@@ -4,6 +4,7 @@ import type { TerrainScreenPoint, TerrainScreenProjection } from "./quadBatch.js
 import type { TerrainBatches } from "../planning/terrainPlanner.js";
 import { TerrainAOOverlayRenderer } from "../overlay/aoOverlay.js";
 import { TerrainCliffHighlightRenderer } from "../overlay/cliffHighlight.js";
+import { TerrainBiomeTintRenderer } from "../overlay/biomeTint.js";
 import {
   terrainAtlasFrame,
   TERRAIN_TILE_ROLES,
@@ -26,7 +27,7 @@ export interface TerrainAtlasDraw { readonly atlas: TerrainAtlasSet; readonly fr
 /** Packed data for one public Phaser 4 Mesh2D texture submission. */
 export interface TerrainMeshBatch { readonly atlas: TerrainAtlasSet; readonly phase: TerrainAtlasPhase; readonly depth: number; readonly vertices: number[]; readonly indices: number[]; }
 
-export interface TerrainAtlasRenderOptions { readonly projection: TerrainScreenProjection; readonly biomeAt: (worldTile: { readonly x: number; readonly y: number }) => BiomeKind; readonly debug: boolean; }
+export interface TerrainAtlasRenderOptions { readonly projection: TerrainScreenProjection; readonly biomeAt: (worldTile: { readonly x: number; readonly y: number }) => BiomeKind; readonly biomeTintAt?: (worldTile: { readonly x: number; readonly y: number }) => BiomeKind | null; readonly debug: boolean; }
 
 /**
  * Creates image draws from pure planner geometry. Floors, void caps, and faces
@@ -92,12 +93,14 @@ export class TerrainAtlasBatchRenderer {
   private readonly meshes = new Map<string, Phaser.GameObjects.Mesh2D>();
   private readonly aoOverlay: TerrainAOOverlayRenderer;
   private readonly cliffHighlight: TerrainCliffHighlightRenderer;
+  private readonly biomeTint: TerrainBiomeTintRenderer;
   private active = new Set<string>();
   private visible = false;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.aoOverlay = new TerrainAOOverlayRenderer(scene);
     this.cliffHighlight = new TerrainCliffHighlightRenderer(scene);
+    this.biomeTint = new TerrainBiomeTintRenderer(scene);
   }
 
   render(batches: TerrainBatches, options: TerrainAtlasRenderOptions): void {
@@ -105,6 +108,11 @@ export class TerrainAtlasBatchRenderer {
     this.installDrawAtlases(draws);
     const meshes = terrainMeshBatches(draws, (atlas) => this.scene.textures.get(atlas.key).source[0]!);
     this.syncMeshes(meshes);
+    this.biomeTint.render(batches, {
+      projection: options.projection,
+      biomeAt: options.biomeTintAt ?? options.biomeAt,
+      enabled: !options.debug,
+    }, this.visible);
     this.aoOverlay.render(batches.ao, options.projection, this.visible);
     this.cliffHighlight.render(batches.cliffEdges, options.projection, this.visible);
   }
@@ -128,6 +136,7 @@ export class TerrainAtlasBatchRenderer {
     for (const [key, mesh] of this.meshes) mesh.setVisible(visible && this.active.has(key));
     this.aoOverlay.setVisible(visible);
     this.cliffHighlight.setVisible(visible);
+    this.biomeTint.setVisible(visible);
   }
 
   destroy(): void {
@@ -135,6 +144,7 @@ export class TerrainAtlasBatchRenderer {
     this.meshes.clear();
     this.aoOverlay.destroy();
     this.cliffHighlight.destroy();
+    this.biomeTint.destroy();
   }
 
   private updateMesh(batch: TerrainMeshBatch): void {

@@ -12,9 +12,9 @@ export function layoutSeed(worldSeed: number, floor: number): number {
   return mixSeeds(worldSeed, floor, LAYOUT_SALT);
 }
 
-/** Per-chunk seed for everything that must vary chunk-to-chunk (BSP split, room flavor, corridor width, height). */
-export function chunkSeed(seed: number, cx: number, cy: number): number {
-  return mixSeeds(seed, cx, cy);
+/** Per-district seed for the shared room, corridor, and height plan. */
+export function districtSeed(seed: number, dx: number, dy: number): number {
+  return mixSeeds(seed, 0xd157, dx, dy);
 }
 
 /** Hash keyed by a rect's own corners plus a per-purpose salt (pure, order-stable). */

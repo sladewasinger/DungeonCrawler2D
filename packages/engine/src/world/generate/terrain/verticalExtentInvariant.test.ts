@@ -36,6 +36,7 @@ function continuesRun(input: ScanInput & { readonly h0: number }): boolean {
 
 /** A same-height FLOOR run shallower than z+1, where z is its own height and it drops to open ground south. */
 function floorRunViolation(input: ScanInput): Violation | null {
+  if (input.y === 0) return null; // the run may begin in the north neighbor
   const h0 = heightAt(input, input.y);
   const y2 = runEnd({ ...input, h0 });
   if (y2 >= CHUNK_SIZE - 1) return null; // chunk-edge truncated: true depth unknown

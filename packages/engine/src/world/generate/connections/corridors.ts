@@ -1,12 +1,11 @@
 // Carves the corridor network: one L-shaped, variable-width corridor per
-// BSP sibling link, plus one connecting each chunk-edge anchor to its
-// nearest room (anchors crossing a district boundary already carry an
-// avenue-widened width from edges.ts). Records each carved threshold as a
+// BSP sibling link, plus one connecting each district-edge anchor to its
+// nearest room. Records each carved threshold as a
 // Doorway for the height pass to turn into a stair ramp where a room sits
 // above/below the hall.
 
 import { TILE } from "../../core/types.js";
-import type { EdgeAnchor } from "../layout/edges.js";
+import type { EdgeAnchor } from "../layout/districtEdges.js";
 import { band, centerX, centerY, clampInt, lPathLegs, rectDistance } from "../layout/geometry.js";
 import { rectHash } from "../layout/hash.js";
 import type { Doorway, Point, Rect, Room, Side } from "../types.js";

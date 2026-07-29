@@ -10,7 +10,7 @@ describe("world generation tuning", () => {
       .toBeLessThanOrEqual(TUNING.roomLayout.minimumPartitionSpan);
     expect(TUNING.corridors.roomToRoomWidth.max)
       .toBeLessThanOrEqual(TUNING.roomLayout.minimumRoomSpan);
-    expect(TUNING.corridors.avenueWidth.max)
+    expect(TUNING.corridors.districtEdgeWidth.max)
       .toBeLessThanOrEqual(TUNING.corridors.edgeAnchorMargin);
   });
 

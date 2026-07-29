@@ -1,11 +1,22 @@
 import type Phaser from "phaser";
 import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadBatch.js";
-import type { TerrainBatches, TerrainCliffEdgeQuad, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
-import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
+import type {
+  TerrainBatches,
+} from "../geometry/terrainPlannerModel.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 import { pruneTerrainLayers } from "./layerRetention.js";
+import {
+  cliffRimSideBand,
+  roundedCliffRimCorner,
+} from "./cliffRimGeometry.js";
+import {
+  groupCliffRimParts,
+  type CliffRimPart,
+} from "./cliffRimParts.js";
+import { projectTerrainQuad } from "./projectedTerrainQuad.js";
 
 const RIM_FRACTION = TERRAIN_VISUAL_STYLE.cliffRim.widthFraction;
+const CORNER_RADIUS = TERRAIN_VISUAL_STYLE.cliffRim.outsideCornerRadiusFraction;
 const RIM_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.cliffRim.floorColor);
 const VOID_RIM_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.cliffRim.voidColor);
 const RIM_ALPHA = TERRAIN_VISUAL_STYLE.cliffRim.alpha;
@@ -17,8 +28,7 @@ export class TerrainCliffHighlightRenderer {
   constructor(private readonly scene: Phaser.Scene) {}
 
   render(edges: TerrainBatches["cliffEdges"], projection: TerrainScreenProjection, visible: boolean): void {
-    const grouped = new Map<number, HighlightPart[]>();
-    for (const edge of edges) appendEdgeParts(grouped, edge);
+    const grouped = groupCliffRimParts(edges);
     pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
@@ -43,58 +53,33 @@ export class TerrainCliffHighlightRenderer {
   }
 }
 
-function appendEdgeParts(grouped: Map<number, HighlightPart[]>, edge: TerrainCliffEdgeQuad): void {
-  for (const side of edge.sides) appendEdgePart(grouped, edge, side);
-}
-
-function appendEdgePart(grouped: Map<number, HighlightPart[]>, edge: TerrainCliffEdgeQuad, side: HighlightPart["side"]): void {
-  const depth = edgeDepth(edge, side); const group = grouped.get(depth) ?? [];
-  if (!grouped.has(depth)) grouped.set(depth, group);
-  group.push({ edge, side });
-}
-
 function drawEdges(
   graphics: Phaser.GameObjects.Graphics,
-  edges: readonly HighlightPart[],
+  edges: readonly CliffRimPart[],
   projection: TerrainScreenProjection,
 ): void {
-  for (const { edge, side } of edges) {
-    const points = projectQuad(edge.vertices, projection);
-    graphics.fillStyle(edge.voidBoundary === true ? VOID_RIM_COLOR : RIM_COLOR, RIM_ALPHA);
-    fillQuad(graphics, sideBand(points, side, RIM_FRACTION));
+  for (const part of edges) {
+    const points = projectTerrainQuad(part.edge.vertices, projection.project);
+    const color = part.edge.voidBoundary === true ? VOID_RIM_COLOR : RIM_COLOR;
+    graphics.fillStyle(color, RIM_ALPHA);
+    if (part.kind === "corner") {
+      fillPolygon(graphics, roundedCliffRimCorner({
+        points,
+        corner: part.corner,
+        radius: CORNER_RADIUS,
+        width: RIM_FRACTION,
+        segments: TERRAIN_VISUAL_STYLE.cliffRim.outsideCornerSegments,
+      }));
+      continue;
+    }
+    fillQuad(graphics, cliffRimSideBand({
+      points,
+      side: part.side,
+      width: RIM_FRACTION,
+      corners: part.corners,
+      radius: CORNER_RADIUS,
+    }));
   }
-}
-
-interface HighlightPart {
-  readonly edge: TerrainCliffEdgeQuad;
-  readonly side: "north" | "south" | "east" | "west";
-}
-
-function edgeDepth(edge: TerrainCliffEdgeQuad, side: HighlightPart["side"]): number {
-  // A north/south rim sits on a row boundary. Place it above the lower cap's
-  // AO, rather than depth-sorting it with only the higher source tile.
-  const boundaryRow = side === "south" ? edge.viewTile.y + 1 : edge.viewTile.y;
-  return depthForCapOccluder(boundaryRow) + 0.08;
-}
-
-function projectQuad(vertices: TerrainQuadVertices, projection: TerrainScreenProjection): readonly [TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint] {
-  return [projection.project(vertices[0]), projection.project(vertices[1]), projection.project(vertices[2]), projection.project(vertices[3])];
-}
-
-function sideBand(points: readonly [TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint], side: "north" | "south" | "east" | "west", fraction: number): readonly [TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint] {
-  const [tl, tr, br, bl] = points;
-  // Keep the polygon perimeter ordered clockwise. The previous north order
-  // ended with BL, BR, producing a self-crossing bow-tie and a moving
-  // left-biased half-fill as the camera scrolled.
-  const top = [tl, tr, lerp(tr, br, fraction), lerp(tl, bl, fraction)] as const;
-  const bottom = [lerp(tl, bl, 1 - fraction), lerp(tr, br, 1 - fraction), br, bl] as const;
-  const left = [tl, lerp(tl, tr, fraction), lerp(bl, br, fraction), bl] as const;
-  const right = [lerp(tl, tr, 1 - fraction), tr, br, lerp(bl, br, 1 - fraction)] as const;
-  return { north: top, south: bottom, east: right, west: left }[side];
-}
-
-function lerp(a: TerrainScreenPoint, b: TerrainScreenPoint, amount: number): TerrainScreenPoint {
-  return { x: a.x + (b.x - a.x) * amount, y: a.y + (b.y - a.y) * amount };
 }
 
 function fillQuad(graphics: Phaser.GameObjects.Graphics, points: readonly [TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint, TerrainScreenPoint]): void {
@@ -107,6 +92,19 @@ function fillQuad(graphics: Phaser.GameObjects.Graphics, points: readonly [Terra
   graphics.lineTo(b.x, b.y);
   graphics.lineTo(c.x, c.y);
   graphics.lineTo(d.x, d.y);
+  graphics.closePath();
+  graphics.fillPath();
+}
+
+function fillPolygon(
+  graphics: Phaser.GameObjects.Graphics,
+  points: readonly TerrainScreenPoint[],
+): void {
+  const first = points[0];
+  if (!first) return;
+  graphics.beginPath();
+  graphics.moveTo(first.x, first.y);
+  for (const point of points.slice(1)) graphics.lineTo(point.x, point.y);
   graphics.closePath();
   graphics.fillPath();
 }

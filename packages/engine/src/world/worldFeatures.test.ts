@@ -70,12 +70,12 @@ describe("VOID terrain world feature", () => {
 
   it("restores deep chasms as finite lethal Floor instead of infinite VOID", () => {
     const worldSeed = hashString("chasm-test-world");
-    const coordinate = { cx: -21, cy: -23 };
+    const coordinate = { cx: -18, cy: -25 };
     const enabled = generateChunk({ worldSeed, floor: 1, ...coordinate });
     const disabled = generateChunk({ worldSeed, floor: 1, ...coordinate, features: DISABLED });
     const index = disabled.height.findIndex((height) => height <= CHASM_DEATH_Z);
 
-    expect(index).toBe(362);
+    expect(index).toBe(20);
     expect(enabled.terrain[index]).toBe(TERRAIN.Void);
     expect(disabled.tiles[index]).toBe(TILE.Floor);
     expect(disabled.terrain[index]).toBe(TERRAIN.Floor);

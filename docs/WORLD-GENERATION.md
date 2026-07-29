@@ -1,22 +1,28 @@
 # World generation
 
-The active generator builds one 32×32 runtime chunk directly. There is no
-logical-to-runtime scale pass: one generated cell is one world tile.
+The active generator plans one 96×96 district across a 3×3 group of runtime
+chunks. One planned cell is still one world tile: this is shared planning, not
+a logical-to-runtime scale pass. The finished surface is sliced into immutable
+32×32 chunks for storage, networking, and rendering.
 
 ## Active pipeline
 
 `World` calls `world/generate.ts`, which delegates ordinary chunks to
 `world/generate/index.ts`. That coordinator runs these phases:
 
-1. Partition the chunk into BSP rooms.
-2. Stamp rooms and connect them to each other and all four chunk edges.
+1. Partition the district into BSP rooms.
+2. Stamp rooms and connect them to each other and all four district edges.
 3. Add deliberate room height variants.
-4. Stamp fixed features, descent structures, boss arenas, and landmarks.
-5. Repair connectivity and vertical extent, then mark eligible void cells.
-6. Convert topology into the runtime terrain and feature planes one-to-one.
+4. Project chunk-authored fixed features, descent structures, boss arenas, and
+   landmarks into the shared district surface.
+5. Repair connectivity and vertical extent once across the full district, then
+   mark eligible void cells.
+6. Slice the surface and convert topology into runtime terrain and feature
+   planes one-to-one.
 
 The generator is pure and deterministic for
-`(worldSeed, floor, chunk coordinate, world features)`.
+`(worldSeed, floor, district coordinate, world features)`. Requesting any chunk
+in a district produces the same nine byte-identical runtime chunks.
 
 ## Geometry controls
 
@@ -28,9 +34,9 @@ Changing one never changes `CHUNK_SIZE` or coordinate scale.
 
 The tuning object groups related controls:
 
-- `roomLayout`: BSP partition size, room inset, and chunk border margin.
+- `roomLayout`: BSP partition size, room inset, and district border margin.
 - `roomFlavor`: district and area biases for generated room families.
-- `corridors`: room, edge, avenue, and feature-link widths.
+- `corridors`: room, district-edge, and feature-link widths.
 - `roomDetails`: pillar and rubble spacing.
 - `heightFeatures`: room/chasm elevation, frequency, bridges, and stair ramps.
 - `landmarks`: arena, shrine, and tower footprints and elevations.
@@ -46,7 +52,7 @@ room templates rather than procedural BSP generation.
 Keep related constraints in mind when editing:
 
 - A corridor must fit through the minimum room and partition spans.
-- Edge-anchor margins must leave room for the widest avenue.
+- Edge-anchor margins must leave room for the widest district connector.
 - Landmark and structure footprints plus clearance must fit inside 32×32.
 - Chasm bridge width should remain odd so it has a centered tile.
 - Boss-arena wall thickness must not exceed its radius.

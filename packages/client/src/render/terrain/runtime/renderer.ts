@@ -7,6 +7,7 @@ import { getViewOrientation } from "../../view/transform/viewState.js";
 import { rotateOrientation, type ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import type { ViewRect } from "../../terrain/streaming/streaming.js";
 import type { TerrainRect, TerrainSource } from "../planning/terrainPlanner.js";
+import { TERRAIN_PRESENTATION_MODES } from "../geometry/terrainPlannerModel.js";
 import { appendVisibleChunkPlans, emptyTerrainBatches, TerrainChunkPlanCache } from "../planning/chunkCache.js";
 import { syncTerrainProps } from "./props.js";
 import {
@@ -133,6 +134,12 @@ export class TerrainRenderer {
       root.atlas.render(plan, {
         projection: screenProjection,
         biomeAt: (tile) => worldBiomeAt(this.world, tile.x, tile.y),
+        biomeTintAt: (tile) => {
+          const presentation = this.terrainSource.presentationAt?.(tile.x, tile.y);
+          return presentation?.mode === TERRAIN_PRESENTATION_MODES.Inside
+            ? null
+            : worldBiomeAt(this.world, tile.x, tile.y);
+        },
         debug: this.debugMode,
       });
       root.graphics.setVisible(false);

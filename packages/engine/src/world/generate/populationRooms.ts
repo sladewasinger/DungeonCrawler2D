@@ -1,9 +1,14 @@
 import { hash2D, mixSeeds } from "../../core/rng.js";
 import { CHUNK_SIZE } from "../core/types.js";
 import { isSafeRoomChunk, isStairsChunk } from "../features/fixed/fixed.js";
-import { partitionChunk } from "./layout/bsp.js";
-import { districtAt } from "./layout/district.js";
-import { chunkSeed, layoutSeed } from "./layout/hash.js";
+import { partitionRegion } from "./layout/bsp.js";
+import {
+  districtAt,
+  districtCoordinateForChunk,
+  districtOriginForChunk,
+  DISTRICT_TILE_SPAN,
+} from "./layout/district.js";
+import { districtSeed, layoutSeed } from "./layout/hash.js";
 import { placementSeed } from "./layout/placement.js";
 import { WORLD_GENERATION_TUNING } from "./tuning.js";
 
@@ -30,20 +35,44 @@ export function populationRoomsForChunk({
 }: PopulationChunk): PopulationRoom[] {
   const seed = layoutSeed(worldSeed, floor);
   const district = districtAt(seed, cx, cy);
-  const rooms = partitionChunk(
-    chunkSeed(seed, cx, cy),
-    CHUNK_SIZE,
+  const coordinate = districtCoordinateForChunk(cx, cy);
+  const origin = districtOriginForChunk(cx, cy);
+  const rooms = partitionRegion(
+    districtSeed(seed, coordinate.dx, coordinate.dy),
+    DISTRICT_TILE_SPAN,
     district,
   ).rooms;
-  const originX = cx * CHUNK_SIZE;
-  const originY = cy * CHUNK_SIZE;
-  return rooms.map(({ rect }) => {
-    const x0 = originX + rect.x0;
-    const y0 = originY + rect.y0;
-    const x1 = originX + rect.x1;
-    const y1 = originY + rect.y1;
-    return { x0, y0, x1, y1, area: (x1 - x0 + 1) * (y1 - y0 + 1) };
+  const offsetX = (cx - origin.cx) * CHUNK_SIZE;
+  const offsetY = (cy - origin.cy) * CHUNK_SIZE;
+  return rooms.flatMap(({ rect }) => {
+    const clipped = clipToChunk(rect, offsetX, offsetY);
+    if (!clipped) return [];
+    return [worldPopulationRoom(clipped, origin.cx, origin.cy)];
   });
+}
+
+function clipToChunk(
+  rect: { x0: number; y0: number; x1: number; y1: number },
+  offsetX: number,
+  offsetY: number,
+): { x0: number; y0: number; x1: number; y1: number } | null {
+  const x0 = Math.max(rect.x0, offsetX);
+  const y0 = Math.max(rect.y0, offsetY);
+  const x1 = Math.min(rect.x1, offsetX + CHUNK_SIZE - 1);
+  const y1 = Math.min(rect.y1, offsetY + CHUNK_SIZE - 1);
+  return x0 <= x1 && y0 <= y1 ? { x0, y0, x1, y1 } : null;
+}
+
+function worldPopulationRoom(
+  rect: { x0: number; y0: number; x1: number; y1: number },
+  originCx: number,
+  originCy: number,
+): PopulationRoom {
+  const x0 = originCx * CHUNK_SIZE + rect.x0;
+  const y0 = originCy * CHUNK_SIZE + rect.y0;
+  const x1 = originCx * CHUNK_SIZE + rect.x1;
+  const y1 = originCy * CHUNK_SIZE + rect.y1;
+  return { x0, y0, x1, y1, area: (x1 - x0 + 1) * (y1 - y0 + 1) };
 }
 
 function roomCenter(room: PopulationRoom): { x: number; y: number } {
