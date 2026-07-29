@@ -1,0 +1,7 @@
+{
+  "retention": {
+    "maxChunkPlans": 32,
+    "maxOrientationRoots": 4,
+    "maxWorldChunks": 96
+  }
+}

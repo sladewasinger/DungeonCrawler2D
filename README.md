@@ -17,9 +17,9 @@ persistence, and the playability fixes listed in the release notes.
 
 ## Austin's F-Bomb Counter
 
-**47**
+**48**
 
-<!-- f-bomb-count: 47 -->
+<!-- f-bomb-count: 48 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.

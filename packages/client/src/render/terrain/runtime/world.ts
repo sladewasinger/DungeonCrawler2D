@@ -16,4 +16,5 @@ export interface TerrainWorld {
   featureAt(x: number, y: number): TileType;
   featureFaceAt(x: number, y: number): FeatureFace;
   featureHeightAt(x: number, y: number): number;
+  pruneChunkCache?(centerWx: number, centerWy: number, capacity: number): void;
 }

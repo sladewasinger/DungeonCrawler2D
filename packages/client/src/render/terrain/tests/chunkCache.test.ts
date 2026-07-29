@@ -49,6 +49,17 @@ describe("TerrainChunkPlanCache", () => {
     expect(cache.size).toBe(1);
   });
 
+  it("evicts the least recently used plan at its configured capacity", () => {
+    const cache = new TerrainChunkPlanCache(2);
+    const first = cache.get({ source, coord: { cx: 0, cy: 0 }, orientation: 0, revision: 1 });
+    const oldest = cache.get({ source, coord: { cx: 1, cy: 0 }, orientation: 0, revision: 1 });
+    expect(cache.get({ source, coord: { cx: 0, cy: 0 }, orientation: 0, revision: 1 })).toBe(first);
+    cache.get({ source, coord: { cx: 2, cy: 0 }, orientation: 0, revision: 1 });
+
+    expect(cache.size).toBe(2);
+    expect(cache.get({ source, coord: { cx: 1, cy: 0 }, orientation: 0, revision: 1 })).not.toBe(oldest);
+  });
+
   it("combines only chunks intersecting the requested bounds", () => {
     const batches = emptyTerrainBatches();
     appendVisibleChunkPlans({ target: batches, cache: new TerrainChunkPlanCache(), source, bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0, revision: 1 });

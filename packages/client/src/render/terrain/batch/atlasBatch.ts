@@ -12,6 +12,7 @@ import {
 } from "../planning/tileset.js";
 import { appendMeshQuad, appendSouthFaceDraws, compareDraws, meshKey } from "../geometry/atlasGeometry.js";
 import { appendDraws, appendFeatureDraws } from "./atlasDraws.js";
+import { pruneTerrainMeshes } from "./meshRetention.js";
 
 export type TerrainAtlasPhase = 0 | 1 | 2;
 
@@ -119,7 +120,7 @@ export class TerrainAtlasBatchRenderer {
   private syncMeshes(meshes: readonly TerrainMeshBatch[]): void {
     this.active = new Set(meshes.map(meshKey));
     for (const batch of meshes) this.updateMesh(batch);
-    for (const [key, mesh] of this.meshes) mesh.setVisible(this.visible && this.active.has(key));
+    this.pruneInactiveMeshes();
   }
 
   setVisible(visible: boolean): void {
@@ -146,4 +147,11 @@ export class TerrainAtlasBatchRenderer {
     this.meshes.set(key, mesh);
   }
 
+  private pruneInactiveMeshes(): void {
+    pruneTerrainMeshes({
+      meshes: this.meshes,
+      active: this.active,
+      visible: this.visible,
+    });
+  }
 }

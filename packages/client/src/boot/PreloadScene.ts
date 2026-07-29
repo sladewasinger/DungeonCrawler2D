@@ -6,6 +6,7 @@ import { waitForPixelFontReady } from "../ui/foundation/font.js";
 import { setViewOrientation } from "../render/view/transform/viewState.js";
 import { PET_ASSETS } from "./petAssetManifest.js";
 import { testbenchSceneKey } from "../scenes/testbench/testbenchRegistry.js";
+import { terrainDebugIsEnabled } from "../render/terrain/runtime/debugMode.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
@@ -33,7 +34,9 @@ export class PreloadScene extends Phaser.Scene {
     this.load.atlas(ASSET_KEYS.atlas, ASSET_PATHS.atlasImage, ASSET_PATHS.atlasJson);
     this.load.atlas(ASSET_KEYS.particleAtlas, ASSET_PATHS.particleAtlasImage, ASSET_PATHS.particleAtlasJson);
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
-    this.load.image(ASSET_KEYS.debugAtlas, ASSET_PATHS.debugAtlasImage);
+    if (terrainDebugIsEnabled(window.location.search)) {
+      this.load.image(ASSET_KEYS.debugAtlas, ASSET_PATHS.debugAtlasImage);
+    }
     this.load.image(ASSET_KEYS.sharedAtlas, ASSET_PATHS.sharedAtlasImage);
     this.load.image(
       ASSET_KEYS.spawnRoomMegaphone,

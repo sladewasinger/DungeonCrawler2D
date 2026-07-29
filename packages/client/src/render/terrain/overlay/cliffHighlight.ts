@@ -3,6 +3,7 @@ import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadB
 import type { TerrainBatches, TerrainCliffEdgeQuad, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
 import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
+import { pruneTerrainLayers } from "./layerRetention.js";
 
 const RIM_FRACTION = TERRAIN_VISUAL_STYLE.cliffRim.widthFraction;
 const RIM_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.cliffRim.floorColor);
@@ -18,7 +19,7 @@ export class TerrainCliffHighlightRenderer {
   render(edges: TerrainBatches["cliffEdges"], projection: TerrainScreenProjection, visible: boolean): void {
     const grouped = new Map<number, HighlightPart[]>();
     for (const edge of edges) appendEdgeParts(grouped, edge);
-    for (const graphics of this.layers.values()) graphics.clear().setVisible(false);
+    pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
       graphics.clear().setVisible(visible).fillStyle(RIM_COLOR, RIM_ALPHA);

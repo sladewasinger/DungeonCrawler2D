@@ -11,6 +11,7 @@ adjacent TypeScript modules provide stable imports and derived values.
 | Procedural dungeon generation | `packages/engine/src/world/generate/worldGenerationTuning.json` | BSP rooms, corridor and hallway widths, room flavors, elevation frequency, landmarks, loot, fixed structures, and boss arenas |
 | Reserved room templates | `packages/engine/src/world/features/rooms/roomConfiguration/roomTuning.json` | Personal, party, safe, and spawn room dimensions; wall height; exit hallway length; room spacing; spawn slots |
 | Terrain presentation | `packages/client/src/render/terrain/terrainVisualStyle.json` | Camera backgrounds, void/floor ledges, ambient occlusion, and fallback terrain colors |
+| Terrain runtime retention | `packages/client/src/render/terrain/terrainRuntimeTuning.json` | Chunk-plan cache and prewarmed orientation-root memory limits |
 | Dynamic lighting | `packages/client/src/render/lighting/lightingVisualStyle.json` | Ground light, torch/portal/personal halos, flicker, pooling, fade, colors, and radii |
 | Spawn-room intercom | `packages/game-server/src/sim/announcer/spawnRoom/spawnRoomAnnouncements.json` | Speaker label, announcement text, display duration, initial delay, and pauses |
 | Items, effects, recipes, and enemies | `packages/content/src/data/` | Data-driven gameplay content |

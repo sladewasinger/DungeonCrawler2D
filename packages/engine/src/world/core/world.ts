@@ -7,7 +7,11 @@ import {
   type WorldOptions,
 } from "./worldFeatures.js";
 import { stairRampAt } from "../stairs/stairs.js";
-import { chunkCellAt, generatedChunkCount } from "./chunkCoordinates.js";
+import {
+  chunkCellAt,
+  generatedChunkCount,
+  pruneGeneratedChunks,
+} from "./chunkCoordinates.js";
 import {
   featureOverrideMap,
   featureFromTile,
@@ -149,15 +153,9 @@ export class World implements WorldView {
     this.tileRevision++;
   }
 
-  heightAt(wx: number, wy: number): number {
-    const { chunk, index } = this.lookup(wx, wy);
-    return chunk.height[index] ?? 0;
-  }
+  heightAt(wx: number, wy: number): number { const { chunk, index } = this.lookup(wx, wy); return chunk.height[index] ?? 0; }
 
-  zoneAt(wx: number, wy: number): ZoneType {
-    const { chunk, index } = this.lookup(wx, wy);
-    return (chunk.zones[index] ?? ZONE.None) as ZoneType;
-  }
+  zoneAt(wx: number, wy: number): ZoneType { const { chunk, index } = this.lookup(wx, wy); return (chunk.zones[index] ?? ZONE.None) as ZoneType; }
 
   isWalkable(wx: number, wy: number): boolean {
     // Enabled VOID is an infinite boundary. Disabled mode restores legacy
@@ -169,9 +167,7 @@ export class World implements WorldView {
   }
 
   /** Continuous ground height: stair tiles ramp with position. */
-  groundAt(x: number, y: number): number {
-    return stairRampAt(this, x, y) ?? this.heightAt(Math.floor(x), Math.floor(y));
-  }
+  groundAt(x: number, y: number): number { return stairRampAt(this, x, y) ?? this.heightAt(Math.floor(x), Math.floor(y)); }
 
   /** Ramp height iff (x, y) sits on a TILE.Stairs tile, else null — see WorldView's doc comment. */
   stairHeightAt(x: number, y: number): number | null {
@@ -183,4 +179,9 @@ export class World implements WorldView {
 
   /** Number of generated chunks currently cached (diagnostics). */
   get cachedChunkCount(): number { return generatedChunkCount(this.chunks); }
+
+  pruneChunkCache(centerWx: number, centerWy: number, capacity: number): void {
+    const center = chunkCellAt(centerWx, centerWy);
+    pruneGeneratedChunks(this.chunks, { centerCx: center.cx, centerCy: center.cy, capacity });
+  }
 }

@@ -9,6 +9,7 @@ import {
   type TerrainRect,
   type TerrainSource,
 } from "./terrainPlanner.js";
+import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
 
 export interface TerrainChunkCoord { readonly cx: number; readonly cy: number; }
 
@@ -17,13 +18,23 @@ export class TerrainChunkPlanCache {
   private readonly plans = new Map<string, TerrainPlan>();
   private revision: number | null = null;
 
+  constructor(
+    private readonly capacity = TERRAIN_RUNTIME_TUNING.retention.maxChunkPlans,
+  ) {
+    if (capacity < 1) throw new Error("Terrain chunk-plan capacity must be positive");
+  }
+
   get(input: TerrainChunkPlanInput): TerrainPlan {
     this.syncRevision(input.revision);
     const key = cacheKey(input);
     const cached = this.plans.get(key);
-    if (cached) return cached;
+    if (cached) {
+      this.touch(key, cached);
+      return cached;
+    }
     const plan = planTerrain(input.source, { bounds: chunkBounds(input.coord), orientation: input.orientation, seamApron: 1 });
     this.plans.set(key, plan);
+    this.evictOverflow();
     return plan;
   }
 
@@ -42,6 +53,19 @@ export class TerrainChunkPlanCache {
 
   clear(): void { this.plans.clear(); this.revision = null; }
   get size(): number { return this.plans.size; }
+
+  private touch(key: string, plan: TerrainPlan): void {
+    this.plans.delete(key);
+    this.plans.set(key, plan);
+  }
+
+  private evictOverflow(): void {
+    while (this.plans.size > this.capacity) {
+      const oldest = this.plans.keys().next().value as string | undefined;
+      if (oldest === undefined) return;
+      this.plans.delete(oldest);
+    }
+  }
 }
 
 function isNeighborChunk(key: string, target: TerrainChunkCoord): boolean {

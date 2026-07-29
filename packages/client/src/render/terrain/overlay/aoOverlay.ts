@@ -4,6 +4,7 @@ import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadB
 import type { TerrainAOQuad, TerrainBatches, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 import { ambientOcclusionDepth } from "./ambientOcclusionDepth.js";
+import { pruneTerrainLayers } from "./layerRetention.js";
 
 const AO_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color);
 
@@ -15,7 +16,7 @@ export class TerrainAOOverlayRenderer {
 
   render(masks: TerrainBatches["ao"], projection: TerrainScreenProjection, visible: boolean): void {
     const grouped = groupByDepth(masks);
-    for (const graphics of this.layers.values()) graphics.clear().setVisible(false);
+    pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
       graphics.clear().setVisible(visible).fillStyle(AO_COLOR, 1);
