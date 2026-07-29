@@ -13,7 +13,8 @@ import { ensureStarterKit } from "../inventory/inventory.js";
 import { refreshModerationBindings, sendModerationState } from "../moderation.js";
 import { replayPartyInviteState } from "../social/partyInviteEvents.js";
 import { resetInputTimeline } from "./playerInputTimeline.js";
-import { findSpawn, newToken } from "../spawn/spawn.js";
+import { findPlayerSpawn } from "../spawn/playerSpawn.js";
+import { newToken } from "../spawn/spawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { createPlayerSlot } from "./joinSlot.js";
 import { restorePausedLifecycle } from "./joinResume.js";
@@ -41,7 +42,7 @@ function resumePlayer(sim: SimState, request: PlayerJoinRequest): JoinResult | n
 }
 
 function createPlayer(sim: SimState, request: PlayerJoinRequest): JoinResult {
-  const spawn = findSpawn(sim);
+  const spawn = findPlayerSpawn(sim, sim.players.size);
   const entity = createPlayerEntity(request.name, spawn, request.skin);
   const token = newToken(sim);
   const slot = createPlayerSlot({

@@ -15,10 +15,17 @@ import {
   PERSONAL_ROOM_W,
   SAFE_ROOM_H,
   SAFE_ROOM_W,
+  SPAWN_ROOM_H,
+  SPAWN_ROOM_W,
   type RoomKind,
 } from "./roomModel.js";
 import { generateRoomChunk } from "./roomChunkBuilder.js";
-import { partyRoomChunk, personalRoomChunk, safeRoomChunk } from "./rooms.js";
+import {
+  partyRoomChunk,
+  personalRoomChunk,
+  safeRoomChunk,
+  spawnRoomChunk,
+} from "./rooms.js";
 
 interface RoomCase {
   readonly kind: RoomKind;
@@ -31,6 +38,7 @@ const CASES: readonly RoomCase[] = [
   { kind: "personal", position: personalRoomChunk(0), width: PERSONAL_ROOM_W, height: PERSONAL_ROOM_H },
   { kind: "party", position: partyRoomChunk(0), width: PARTY_ROOM_W, height: PARTY_ROOM_H },
   { kind: "safe", position: safeRoomChunk(4, 7), width: SAFE_ROOM_W, height: SAFE_ROOM_H },
+  { kind: "spawn", position: spawnRoomChunk(), width: SPAWN_ROOM_W, height: SPAWN_ROOM_H },
 ];
 
 describe("room chunks with VOID terrain disabled", () => {

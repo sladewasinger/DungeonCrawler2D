@@ -70,6 +70,7 @@ const setup = (
     attackCooldownMs: () => 0,
     recipeIdAt: () => undefined,
     nearestPlayerId: () => options.nearby,
+    nearestEnemyDirection: () => undefined,
     nearbyLootChest: () => options.lootCanOpen === undefined
       ? undefined
       : { id: "loot-1", canOpen: options.lootCanOpen },

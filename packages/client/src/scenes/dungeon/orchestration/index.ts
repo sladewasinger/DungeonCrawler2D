@@ -26,7 +26,6 @@ import { LiveHudSnapshotCache } from "../hud/liveHudSnapshotCache.js";
 import { createCraftActions, createStashActions } from "../input/panelAdapters.js";
 import { RotationController } from "../camera/rotationControl.js";
 import { bindRotationKeys } from "../camera/rotationKeys.js";
-import { syncReviveRing } from "../visuals/reviveRingSync.js";
 import { createSessionActions } from "../input/sessionActions.js";
 import { buildSocialActions } from "../input/socialWiring.js";
 import type { InteractionPrompt } from "../world/interactionPrompt.js";
@@ -52,8 +51,6 @@ export class DungeonScene extends Phaser.Scene {
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
   private fistbumpRing!: FistbumpRing;
-  /** Same generic ring visual as fistbumpRing, driven by the hold-E revive gesture. */
-  private reviveRing!: FistbumpRing;
   /** LANE W2: Q/X camera rotation (see rotationControl.ts's doc comment for the Q/E-vs-Q/X
    * key deviation) — owns the tween + the hard content swap + the cosmetic camera spin. */
   private readonly rotation = new RotationController((direction) => {
@@ -75,7 +72,6 @@ export class DungeonScene extends Phaser.Scene {
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
     this.fistbumpRing = new FistbumpRing(this);
-    this.reviveRing = new FistbumpRing(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
     this.chatInputBox = this.createChatInputBox();
@@ -135,7 +131,7 @@ export class DungeonScene extends Phaser.Scene {
   }
   private syncInputHolds(conn: Connection): void {
     this.inputController.pollFistbumpHold(); syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
-    this.inputController.pollReviveHold(); this.inputController.pollGiveUpHold(); syncReviveRing(this.reviveRing, this.inputController, conn);
+    this.inputController.pollReviveHold(); this.inputController.pollGiveUpHold();
   }
   private prepareFrame(conn: Connection, time: number, deltaMs: number): void {
     this.ensureWorldBoundSystems(conn.world!); consumeDungeonTeleport({ conn, state: this.state, vfx: this.vfx, nowMs: time });
@@ -170,6 +166,5 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.dispose();
     this.chatInputBox.dispose();
     this.fistbumpRing.dispose();
-    this.reviveRing.dispose();
   }
 }

@@ -3,7 +3,7 @@ import type Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
 import { uiTextStyle } from "../../ui/foundation/font.js";
 import { depthForEntityNow, worldToScreen } from "../entities/geometry/worldToScreen.js";
-import { SAFE_ROOM_PRESENTATION_DEPTH } from "./roomPresentation.js";
+import { SAFE_ROOM_PRESENTATION_DEPTH } from "./roomPresentationDepth.js";
 
 export interface SafeRoomAttendantObjects {
   attendant: Phaser.GameObjects.Sprite;

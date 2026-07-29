@@ -1,25 +1,17 @@
-/**
- * Input facade: wires keyboard/mouse/touch Phaser events to intents sent through
- * the network connection. Nothing here mutates game state directly — every
- * handler either sends an intent or flips local UI state; the server decides
- * what happens. Touch is a virtual input source merged into the same MoveInput
- * shape keyboard produces (input/touch/*) — prediction never sees a forked
- * intent type. Split along key-chord / hotbar / pointer / touch seams to stay
- * under the file-size cap.
- */
+/** Wires keyboard, mouse, and touch events to server-authoritative intents. */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
-import { interactOrUse, throwSelected } from "./gameplay/gameplayActions.js";
+import { interactOrUse, throwPreviewTarget, throwSelected } from "./gameplay/gameplayActions.js";
 import { createKeys } from "./controls/keys.js";
 import { activeThrowableSlot, throwPreview as resolveThrowPreview } from "./gameplay/hotbar.js";
 import { LifeGestures } from "./gestures/lifeGestures.js";
-import { cursorWorldTile } from "./pointer/pointer.js";
 import { bindControllerEvents } from "./bindings/controllerEvents.js";
 import { FistbumpGesture } from "./holds/fistbumpGesture.js";
 import { inputModality, type InputModality } from "./controls/inputModality.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./controls/state.js";
 import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { readCurrentInput } from "./movement/readCurrentInput.js";
+import { attackInKidMode, createKidModeState } from "./controls/kidMode.js";
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
 
@@ -53,11 +45,9 @@ export class InputController {
     const { scene, conn, panels, hud, queries, hooks, tilePx } = options;
     this.conn = conn;
     this.panels = panels;
-    this.scene = scene;
-    this.queries = queries;
-    this.tilePx = tilePx;
+    this.scene = scene; this.queries = queries; this.tilePx = tilePx;
     const { keys, cursors } = createKeys(scene);
-    this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null };
+    this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null, kidMode: createKidModeState() };
     this.configureEvents({ scene, conn, panels, hud, queries, hooks, tilePx });
   }
 
@@ -81,6 +71,7 @@ export class InputController {
       onBandageUp: () => this.fistbump.release(conn, queries, this.scene.time.now),
       onContextAction: () => this.handleInteractDown("pickup"),
       onThrowSelected: () => this.throwSelectedTouch(),
+      onKidAttack: () => attackInKidMode({ state: this.state, conn, queries, hooks, nowMs: performance.now() }),
       onMovementEdge: () => this.sendCurrentMovementEdge(),
       onModality: (mode) => this.applyModality(mode),
     });
@@ -184,9 +175,10 @@ export class InputController {
 
   /** Current armed-throw trajectory preview, for the scene to render, or null. */
   throwPreview(): ThrowPreview | null {
-    const pointer = this.scene.input.activePointer;
-    const cursorWorld = cursorWorldTile({ camera: this.scene.cameras.main, pointer, tilePx: this.tilePx, heightAt: this.conn.heightAt });
-    return resolveThrowPreview({ state: this.state, conn: this.conn, queries: this.queries, pointerWorld: cursorWorld });
+    const pointerWorld = throwPreviewTarget({
+      scene: this.scene, conn: this.conn, state: this.state, tilePx: this.tilePx,
+    });
+    return resolveThrowPreview({ state: this.state, conn: this.conn, queries: this.queries, pointerWorld });
   }
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */

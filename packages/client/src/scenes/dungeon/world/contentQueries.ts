@@ -96,18 +96,25 @@ export interface NearestEntityQuery {
 }
 
 export function nearestEntityId(query: NearestEntityQuery): string | undefined {
+  return nearestEntity(query)?.id;
+}
+
+export function nearestEntity(
+  query: NearestEntityQuery,
+): PositionedEntity | undefined {
   const { entities, kind, fromX, fromY, maxDistance } = query;
-  let bestId: string | undefined;
+  let best: PositionedEntity | undefined;
   let bestDistance = maxDistance;
   for (const entity of entities) {
     if (entity.kind !== kind) continue;
     const distance = Math.hypot(entity.x - fromX, entity.y - fromY);
-    if (distance <= bestDistance) {
+    if (distance < bestDistance ||
+      (distance === bestDistance && (!best || entity.id < best.id))) {
       bestDistance = distance;
-      bestId = entity.id;
+      best = entity;
     }
   }
-  return bestId;
+  return best;
 }
 
 export interface PartyMemberPosition {

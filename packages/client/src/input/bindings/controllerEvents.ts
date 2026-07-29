@@ -24,6 +24,7 @@ export interface ControllerEventBindings {
   readonly onBandageUp: () => void;
   readonly onContextAction: () => void;
   readonly onThrowSelected: () => void;
+  readonly onKidAttack: () => void;
   readonly onMovementEdge: () => void;
   readonly onModality: (mode: InputModality) => void;
 }
@@ -49,6 +50,7 @@ function bindKeys(request: ControllerEventBindings): void {
     onInteractReleased: request.onInteractReleased,
     onBandageDown: request.onBandageDown,
     onBandageUp: request.onBandageUp,
+    onKidAttack: request.onKidAttack,
   });
 }
 

@@ -7,6 +7,7 @@ import {
   PARTY_ROOM_W,
   PERSONAL_ROOM_H,
   PERSONAL_ROOM_W,
+  ROOM_REGION_CY,
   SAFE_ROOM_H,
   SAFE_ROOM_W,
   type RoomKind,
@@ -17,11 +18,13 @@ import {
   safeRoomDoorPlacements,
   type WallFeatureFace,
 } from "./roomDoorPlacements.js";
-import { SOUTH_EXIT_HALL_DEPTH } from "./roomExitGeometry.js";
+import { southExitDoorY } from "./roomExitGeometry.js";
+import { spawnRoomSlotAt } from "./spawnRoom.js";
 
 export { generateRoomChunk } from "./roomChunkBuilder.js";
 export * from "./roomDoorPlacements.js";
 export * from "./roomModel.js";
+export * from "./spawnRoom.js";
 
 /**
  * Stretch rooms (GAME_DESIGN.md § Safe rooms): instanced sub-maps that
@@ -32,8 +35,6 @@ export * from "./roomModel.js";
  * apart than the AOI radius, so neighbors never replicate.
  */
 
-/** Chunk rows at/below this cy are room space, not floor terrain. */
-export const ROOM_REGION_CY = 4096;
 /** One room slot every 2 chunks — 64 tiles remain beyond AOI_RADIUS. */
 const SLOT_STRIDE_CHUNKS = 2;
 /** Safe-room rows start below the personal/party rows (see safeRoomChunk). */
@@ -153,17 +154,14 @@ export function personalRoomFeatures(slot: number): {
   };
 }
 
-function southExitDoorY(baseY: number, top: number, roomHeight: number): number {
-  const southWallY = baseY + top + roomHeight - 1;
-  return southWallY + SOUTH_EXIT_HALL_DEPTH;
-}
-
 /**
  * Room templates use a raised back wall and a VOID collision shell. When VOID
  * terrain is disabled, the same shell becomes finite raised floor.
  */
 /** Which room template (if any) occupies this chunk (pure). */
 export function roomSlotAt(cx: number, cy: number): RoomSlot | null {
+  const spawnRoom = spawnRoomSlotAt(cx, cy);
+  if (spawnRoom) return spawnRoom;
   const isSlotColumn = cx % SLOT_STRIDE_CHUNKS === 0 && cx >= 0;
   if (!isSlotColumn) return null;
   return roomSlotForRow(cy);

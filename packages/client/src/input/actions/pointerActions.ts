@@ -6,6 +6,7 @@ import { beginStick, isInLowerLeftQuadrant, pressButton } from "../touch/index.j
 import type { InputConnection, InputHooks, InputHud, InputState } from "../controls/state.js";
 import type Phaser from "phaser";
 import type { TouchInputState } from "../touch/index.js";
+import { attackInKidMode } from "../controls/kidMode.js";
 
 interface PointerHudHitRequest {
   state: InputState;
@@ -50,6 +51,16 @@ interface PointerAttackRequest {
 
 export function attackAtPointer({ state, deps, pointer, camera, tilePx }: PointerAttackRequest): void {
   const { conn } = deps;
+  if (state.kidMode.active) {
+    attackInKidMode({
+      state,
+      conn,
+      queries: deps.queries,
+      hooks: deps.hooks,
+      nowMs: performance.now(),
+    });
+    return;
+  }
   const cursorWorld = cursorWorldTile({ camera, pointer, tilePx, heightAt: conn.heightAt });
   const dx = cursorWorld.x - conn.body!.x;
   const dy = cursorWorld.y - conn.body!.y;

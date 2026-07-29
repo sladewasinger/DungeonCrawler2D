@@ -35,6 +35,10 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json(ASSET_KEYS.animations, ASSET_PATHS.animationsJson);
     this.load.image(ASSET_KEYS.debugAtlas, ASSET_PATHS.debugAtlasImage);
     this.load.image(ASSET_KEYS.sharedAtlas, ASSET_PATHS.sharedAtlasImage);
+    this.load.image(
+      ASSET_KEYS.spawnRoomMegaphone,
+      ASSET_PATHS.spawnRoomMegaphoneImage,
+    );
     for (const spec of Object.values(PET_ASSETS)) {
       this.load.spritesheet(spec.textureKey, spec.path, {
         frameWidth: spec.frameWidth,

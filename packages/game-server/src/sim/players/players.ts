@@ -7,7 +7,7 @@ import {
   type EffectEvent,
 } from "@dc2d/engine";
 import { grantRespawnKit } from "../inventory/inventory.js";
-import { findSpawn } from "../spawn/spawn.js";
+import { findPlayerSpawn } from "../spawn/playerSpawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { leaveParty } from "../social/social.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
@@ -68,7 +68,7 @@ function respawnDuePlayer(sim: SimState, slot: PlayerSlot): void {
 export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   sim.store.recordActiveFloor(slot.stored, sim.world.floor);
   slot.respawnAtTick = null;
-  const spawn = findSpawn(sim);
+  const spawn = findPlayerSpawn(sim, slot.stored.slot);
   slot.entity.body = createBody(spawn.x, spawn.y, spawn.z);
   slot.entity.hp = PLAYER_MAX_HP;
   slot.maxStamina ??= PLAYER_MAX_STAMINA;

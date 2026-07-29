@@ -6,15 +6,25 @@ import { depthForEntityNow, worldToScreen } from "../entities/geometry/worldToSc
 import { uiTextStyle } from "../../ui/foundation/font.js";
 import { syncRoomDoorLabels } from "./roomDoorLabels.js";
 import { createSafeRoomAttendant } from "./safeRoomAttendant.js";
+import {
+  createSpawnRoomIntercom,
+  positionSpawnRoomIntercom,
+} from "./spawnRoomIntercom.js";
+import {
+  SAFE_ROOM_PRESENTATION_DEPTH,
+} from "./roomPresentationDepth.js";
+export {
+  SAFE_ROOM_BUBBLE_DEPTH,
+  SAFE_ROOM_PRESENTATION_DEPTH,
+} from "./roomPresentationDepth.js";
+import { syncRoomSpeech } from "./roomSpeech.js";
 
 const ROOM_LABELS: Readonly<Record<RoomKind, string>> = {
   safe: "SAFE ROOM",
   party: "PARTY ROOM",
   personal: "YOUR PERSONAL ROOM",
+  spawn: "SPAWN ROOM",
 };
-
-export const SAFE_ROOM_PRESENTATION_DEPTH = Number.MAX_SAFE_INTEGER - 1;
-export const SAFE_ROOM_BUBBLE_DEPTH = SAFE_ROOM_PRESENTATION_DEPTH + 1;
 
 export function roomFloorLabelPosition(
   kind: RoomKind,
@@ -32,6 +42,7 @@ interface RoomObjects {
   counter?: Phaser.GameObjects.Rectangle;
   nameplate?: Phaser.GameObjects.Text;
   bubble?: Phaser.GameObjects.Text;
+  intercom?: Phaser.GameObjects.Image;
 }
 
 export class RoomPresentation {
@@ -78,6 +89,7 @@ export class RoomPresentation {
     ).setOrigin(0.5).setAlpha(0.18).setDepth(depthForEntityNow(center.x, center.y) - 1);
     const objects: RoomObjects = { kind, cx, cy, floorLabel };
     if (kind === "safe") this.createAttendant(objects);
+    if (kind === "spawn") objects.intercom = createSpawnRoomIntercom(this.scene);
     return objects;
   }
 
@@ -93,6 +105,7 @@ export class RoomPresentation {
     const floor = worldToScreen(labelPosition.x, labelPosition.y);
     objects.floorLabel.setPosition(floor.x, floor.y)
       .setDepth(depthForEntityNow(labelPosition.x, labelPosition.y) - 1);
+    if (objects.intercom) positionSpawnRoomIntercom(objects.intercom);
     if (!objects.attendant) return;
     const position = safeRoomAttendantPosition(objects.cx, objects.cy);
     const screen = worldToScreen(position.x, position.y);
@@ -102,32 +115,17 @@ export class RoomPresentation {
     const headY = screen.y - objects.attendant.displayHeight;
     objects.nameplate?.setPosition(screen.x, headY - 4)
       .setDepth(SAFE_ROOM_PRESENTATION_DEPTH);
-    objects.bubble?.setPosition(screen.x, headY - 28)
-      .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
   }
 
   private updateSpeech(conn: Connection, nowMs: number): void {
     const objects = this.objects;
-    if (!objects?.attendant) return;
-    const speech = conn.npcSpeech;
-    if (!speech || speech.untilMs <= nowMs) {
-      objects.bubble?.setVisible(false);
-      return;
-    }
-    const headY = objects.attendant.y - objects.attendant.displayHeight;
-    if (!objects.bubble) {
-      objects.bubble = this.scene.add.text(
-        objects.attendant.x,
-        headY - 28,
-        speech.text,
-        uiTextStyle(12, "#ffffff"),
-      ).setOrigin(0.5, 1).setAlign("center").setPadding(8, 5, 8, 5)
-        .setBackgroundColor("rgba(20,20,28,0.92)")
-        .setWordWrapWidth(260)
-        .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
-    }
-    objects.bubble.setText(speech.text).setVisible(true)
-      .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
+    const speaker = objects?.attendant ?? objects?.intercom;
+    if (!objects || !speaker) return;
+    const bubble = syncRoomSpeech({
+      scene: this.scene, bubble: objects.bubble, speaker,
+      speech: conn.npcSpeech, nowMs, cx: objects.cx, cy: objects.cy,
+    });
+    if (bubble) objects.bubble = bubble;
   }
 
   private clear(): void {
@@ -138,6 +136,7 @@ export class RoomPresentation {
     objects.counter?.destroy();
     objects.nameplate?.destroy();
     objects.bubble?.destroy();
+    objects.intercom?.destroy();
     for (const label of this.doorLabels.values()) label.destroy();
     this.doorLabels.clear();
     this.objects = null;

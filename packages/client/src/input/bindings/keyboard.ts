@@ -17,6 +17,7 @@ export interface ControllerKeyBindings {
   readonly onInteractReleased: () => void;
   readonly onBandageDown: () => void;
   readonly onBandageUp: () => void;
+  readonly onKidAttack: () => void;
 }
 
 export function bindControllerKeys(request: ControllerKeyBindings): void {
@@ -28,6 +29,7 @@ export function bindControllerKeys(request: ControllerKeyBindings): void {
   keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
   bindBandageKey({ key: keys.F, conn, queries, selectedSlot: () => state.selectedSlot,
     fallbackDown: request.onBandageDown, fallbackUp: request.onBandageUp, blocked });
+  keys.N.on("down", guardedAction(request.onKidAttack, blocked));
   bindEscapeKey(request);
   bindPanelKeys(request, blocked);
   bindNumberKeys(request, blocked);

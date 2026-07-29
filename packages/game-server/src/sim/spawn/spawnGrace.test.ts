@@ -115,6 +115,12 @@ describe("spawn grace", () => {
   it("applies the name-based handicap after spawn grace expires", () => {
     const handicappedId = addPlayer(sim, { name: "ELLIE-the-crawler", clientId: "client-ellie" }).playerId;
     const handicapped = sim.players.get(handicappedId)!;
+    const spot = openFloorNear(sim, { x: 220, y: 200 });
+    handicapped.entity.body = createBody(
+      spot.x,
+      spot.y,
+      sim.world.groundAt(spot.x, spot.y),
+    );
     sim.tickCount = handicapped.spawnGraceUntilTick;
     const events: EffectEvent[] = [];
 

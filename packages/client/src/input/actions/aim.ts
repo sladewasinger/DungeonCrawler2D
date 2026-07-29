@@ -6,6 +6,10 @@ import { cursorWorldTile } from "../pointer/pointer.js";
 import type { InputConnection, InputQueries, InputState } from "../controls/state.js";
 import type { TouchInputState } from "../touch/index.js";
 import { getViewOrientation } from "../../render/view/index.js";
+import {
+  kidFacingTarget,
+  kidFacingWorld,
+} from "../controls/kidMode.js";
 
 export interface PointerFacingRequest {
   readonly move: MoveInput;
@@ -21,6 +25,13 @@ export interface ThrowRequest {
   readonly state: InputState;
   readonly touch: TouchInputState;
   readonly touchActive: boolean;
+  readonly tilePx: number;
+}
+
+export interface ThrowPreviewTargetRequest {
+  readonly scene: Phaser.Scene;
+  readonly conn: InputConnection;
+  readonly state: InputState;
   readonly tilePx: number;
 }
 
@@ -68,6 +79,21 @@ function cursorTarget(request: CursorTargetRequest): ThrowTarget {
   return { slot, x: target.x, y: target.y };
 }
 
+export function throwPreviewTarget(
+  request: ThrowPreviewTargetRequest,
+): { x: number; y: number } {
+  const { scene, conn, state, tilePx } = request;
+  if (state.kidMode.active && conn.body) {
+    return kidFacingTarget(state.kidMode, conn.body, MAX_THROW_RANGE);
+  }
+  return cursorWorldTile({
+    camera: scene.cameras.main,
+    pointer: scene.input.activePointer,
+    tilePx,
+    heightAt: conn.heightAt,
+  });
+}
+
 /** G throws the selected throwable toward touch facing or the desktop cursor. */
 export function throwSelected(request: ThrowRequest): void {
   const { scene, conn, queries, state, touch, touchActive, tilePx } = request;
@@ -75,6 +101,8 @@ export function throwSelected(request: ThrowRequest): void {
   if (slot === null || !conn.body) return;
   const target = touchActive
     ? touchTarget(conn, slot, screenDirToWorld(touch.lastFacing, getViewOrientation()))
+    : state.kidMode.active
+      ? touchTarget(conn, slot, kidFacingWorld(state.kidMode))
     : cursorTarget({ scene, conn, slot, tilePx });
   if (target) throwAt(conn, target);
 }

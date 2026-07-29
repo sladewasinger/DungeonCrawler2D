@@ -5,11 +5,8 @@
  * only while visible — zero cost when idle.
  */
 import type Phaser from "phaser";
-import { SELECTION_ACCENT } from "../../../ui/foundation/panel.js";
-import { HUD_SCALE } from "../../../ui/foundation/hudScale.js";
+import { drawHoldProgressRing } from "../../../render/entities/presentation/holdProgressRing.js";
 
-const RADIUS_PX = 14 * HUD_SCALE;
-const THICKNESS_PX = 3;
 /** Above every entity sprite (world depth-sorts are y-based and far smaller). */
 const RING_DEPTH = 100000;
 
@@ -27,14 +24,12 @@ export class FistbumpRing {
       return;
     }
     this.graphics.setVisible(true);
-    this.graphics.clear();
-    // Faint full track, then the sweep from 12 o'clock.
-    this.graphics.lineStyle(THICKNESS_PX, SELECTION_ACCENT, 0.25);
-    this.graphics.strokeCircle(state.x, state.y, RADIUS_PX);
-    this.graphics.lineStyle(THICKNESS_PX, SELECTION_ACCENT, 0.95);
-    this.graphics.beginPath();
-    this.graphics.arc(state.x, state.y, RADIUS_PX, -Math.PI / 2, -Math.PI / 2 + state.progress * Math.PI * 2);
-    this.graphics.strokePath();
+    drawHoldProgressRing({
+      graphics: this.graphics,
+      x: state.x,
+      y: state.y,
+      progress: state.progress,
+    });
   }
 
   dispose(): void {

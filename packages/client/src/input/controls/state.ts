@@ -9,10 +9,17 @@ import type { MoveInput } from "@dc2d/engine";
 
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
-  | "W" | "A" | "S" | "D" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB"
+  | "W" | "A" | "S" | "D" | "B" | "N" | "SPACE" | "G" | "E" | "R" | "C" | "F" | "ESC" | "SHIFT" | "I" | "TAB"
   | "ENTER" | "O",
   Phaser.Input.Keyboard.Key
 >;
+
+export interface KidModeState {
+  active: boolean;
+  /** Last non-zero arrow-key direction, in screen space. */
+  facingX: number;
+  facingY: number;
+}
 
 /** A pending world-target throw, previewed from the cursor until the next click. */
 export interface ThrowPreview {
@@ -28,6 +35,7 @@ export interface InputState {
   /** Mirrors the server's swing cooldown so the swing arc never lies. */
   nextSwingAt: number;
   selectedSlot: number | null;
+  kidMode: KidModeState;
 }
 
 /** The subset of the network connection input needs to read and act on. */
@@ -113,6 +121,10 @@ export interface InputQueries {
   attackCooldownMs(weaponId: string | null): number;
   recipeIdAt(index: number): string | undefined;
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
+  nearestEnemyDirection(
+    conn: InputConnection,
+    maxDistance: number,
+  ): { x: number; y: number } | undefined;
   nearbyLootChest(conn: InputConnection): { id: string; canOpen: boolean } | undefined;
   isStashNearby(conn: InputConnection): boolean;
   isCraftTableNearby(conn: InputConnection): boolean;

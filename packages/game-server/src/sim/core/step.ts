@@ -21,6 +21,7 @@ import { maintainSpawnClearance } from "../spawnSafety/spawnSafety.js";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "../progression/statuses.js";
 import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
 import { stepTorches } from "../combat/torches.js";
+import { stepSpawnRoomAnnouncements } from "../announcer/spawnRoom/announcements.js";
 import type { SimState } from "../state/state.js";
 
 export function advanceSimTick(sim: SimState): void {
@@ -37,6 +38,7 @@ function prepareSimTick(sim: SimState, effectEvents: EffectEvent[]): void {
   stepPlayers(sim, effectEvents);
   processActions(sim, effectEvents);
   stepFoodAttendantDialogs(sim);
+  stepSpawnRoomAnnouncements(sim);
   stepPets(sim);
   activateChunksNearPlayers(sim);
   repopulateEnemies(sim);

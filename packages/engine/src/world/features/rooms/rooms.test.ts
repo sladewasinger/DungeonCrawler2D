@@ -15,12 +15,15 @@ import {
   PERSONAL_ROOM_W,
   SAFE_ROOM_H,
   SAFE_ROOM_W,
+  SPAWN_ROOM_H,
+  SPAWN_ROOM_W,
   generateRoomChunk,
   partyRoomChunk,
   personalRoomChunk,
   personalRoomFeatures,
   personalRoomSpawn,
   safeRoomChunk,
+  spawnRoomChunk,
 } from "./rooms.js";
 
 const tileAt = (
@@ -98,7 +101,7 @@ function expectedRoomTile(input: { lx: number; ly: number; room: RoomCase }): nu
 }
 
 interface RoomCase {
-  kind: "personal" | "party" | "safe";
+  kind: "personal" | "party" | "safe" | "spawn";
   position: { cx: number; cy: number };
   width: number;
   height: number;
@@ -122,6 +125,12 @@ const ROOM_CASES: readonly RoomCase[] = [
     position: safeRoomChunk(4, 7),
     width: SAFE_ROOM_W,
     height: SAFE_ROOM_H,
+  },
+  {
+    kind: "spawn",
+    position: spawnRoomChunk(),
+    width: SPAWN_ROOM_W,
+    height: SPAWN_ROOM_H,
   },
 ];
 

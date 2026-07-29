@@ -7,8 +7,11 @@ import {
   personalRoomSpawn,
   safeRoomSpawn,
   safeRoomChunk,
+  roomKindAt,
 } from "@dc2d/engine";
+import { findDungeonEntry } from "../spawn/dungeonEntry.js";
 import { findSpawn } from "../spawn/spawn.js";
+import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import {
@@ -85,8 +88,21 @@ function usePartyDoor(context: InteractContext): true {
 }
 
 function useExitDoor({ sim, slot }: InteractContext): true {
+  if (currentRoomKind(slot) === "spawn") {
+    teleport({ sim, slot, to: findDungeonEntry(sim), remember: false });
+    slot.returnStack = [];
+    secureSpawnHandoff(sim, slot);
+    slot.outbox.push({ t: "toast", msg: "No way back but the grave. Do some damage." });
+    return true;
+  }
   teleport({ sim, slot, to: slot.returnStack.pop() ?? findSpawn(sim), remember: false });
   return true;
+}
+
+function currentRoomKind(slot: PlayerSlot) {
+  const cx = Math.floor(slot.entity.body.x / CHUNK_SIZE);
+  const cy = Math.floor(slot.entity.body.y / CHUNK_SIZE);
+  return roomKindAt(cx, cy);
 }
 
 function useAssignedRoomDoor({ sim, slot, ownerId, tile }: InteractContext & { ownerId: string; tile: number }): boolean {

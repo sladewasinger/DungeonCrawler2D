@@ -10,12 +10,14 @@ import {
   partyRoomChunk,
   personalRoomChunk,
   safeRoomChunk,
+  spawnRoomChunk,
 } from "./rooms.js";
 
 const ROOM_CASES = [
   { kind: "personal", position: personalRoomChunk(0) },
   { kind: "party", position: partyRoomChunk(0) },
   { kind: "safe", position: safeRoomChunk(4, 7) },
+  { kind: "spawn", position: spawnRoomChunk() },
 ] as const;
 const WORLD_SEED = hashString("room-exit-collision");
 

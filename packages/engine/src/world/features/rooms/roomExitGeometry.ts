@@ -19,3 +19,11 @@ export function carveSouthExitHall(context: { set: SetRoomTile; centerLx: number
     set({ lx: centerLx, ly: wallLy + depth, tile: TILE.Floor });
   }
 }
+
+export function southExitDoorY(
+  baseY: number,
+  top: number,
+  roomHeight: number,
+): number {
+  return baseY + top + roomHeight - 1 + SOUTH_EXIT_HALL_DEPTH;
+}

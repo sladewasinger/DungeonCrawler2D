@@ -11,7 +11,7 @@ export function createKeys(scene: Phaser.Scene): {
   const keyboard = scene.input.keyboard;
   if (!keyboard) throw new Error("scene has no keyboard plugin");
   const cursors = keyboard.createCursorKeys();
-  const keys = keyboard.addKeys("W,A,S,D,SPACE,G,E,R,C,F,ESC,SHIFT,I,TAB,ENTER,O") as unknown as Keys;
+  const keys = keyboard.addKeys("W,A,S,D,B,N,SPACE,G,E,R,C,F,ESC,SHIFT,I,TAB,ENTER,O") as unknown as Keys;
   return { keys, cursors };
 }
 
@@ -27,14 +27,32 @@ function eitherDown(cursorKey: Phaser.Input.Keyboard.Key, gameKey: Phaser.Input.
 export function readMoveInput(state: InputState, conn: InputConnection): MoveInput {
   if (isTypingInInput() || !conn.canAct) return { moveX: 0, moveY: 0, jump: false, run: false };
   const { keys, cursors } = state;
-  const left = eitherDown(cursors.left, keys.A);
-  const right = eitherDown(cursors.right, keys.D);
-  const up = eitherDown(cursors.up, keys.W);
-  const down = eitherDown(cursors.down, keys.S);
+  const direction = readDirection(state);
   return {
-    moveX: (right ? 1 : 0) - (left ? 1 : 0),
-    moveY: (down ? 1 : 0) - (up ? 1 : 0),
+    moveX: direction.x,
+    moveY: direction.y,
     jump: eitherDown(cursors.space, keys.SPACE),
     run: keys.SHIFT.isDown,
   };
+}
+
+function readDirection(state: InputState): { x: number; y: number } {
+  const { keys, cursors } = state;
+  const allowWasd = !state.kidMode.active;
+  const left = directionKeyDown(cursors.left, keys.A, allowWasd);
+  const right = directionKeyDown(cursors.right, keys.D, allowWasd);
+  const up = directionKeyDown(cursors.up, keys.W, allowWasd);
+  const down = directionKeyDown(cursors.down, keys.S, allowWasd);
+  return {
+    x: Number(right) - Number(left),
+    y: Number(down) - Number(up),
+  };
+}
+
+function directionKeyDown(
+  arrow: Phaser.Input.Keyboard.Key,
+  wasd: Phaser.Input.Keyboard.Key,
+  allowWasd: boolean,
+): boolean {
+  return arrow.isDown || allowWasd && wasd.isDown;
 }

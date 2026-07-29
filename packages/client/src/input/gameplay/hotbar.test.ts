@@ -45,6 +45,7 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     attackCooldownMs: () => 350,
     recipeIdAt: () => undefined,
     nearestPlayerId: () => undefined,
+    nearestEnemyDirection: () => undefined,
     nearbyLootChest: () => undefined,
     isStashNearby: () => true,
     isCraftTableNearby: () => true,
@@ -61,6 +62,7 @@ function makeState(): InputState {
     cursors: {} as InputState["cursors"],
     nextSwingAt: 0,
     selectedSlot: null,
+    kidMode: { active: false, facingX: 0, facingY: 1 },
   };
 }
 

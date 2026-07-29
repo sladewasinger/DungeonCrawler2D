@@ -4,6 +4,8 @@ import {
   displayCoordinates,
   personalRoomSpawn,
   safeRoomAttendantPosition,
+  spawnRoomSpeakerPosition,
+  spawnRoomSpawn,
 } from "./rooms.js";
 
 describe("room display coordinates", () => {
@@ -11,6 +13,14 @@ describe("room display coordinates", () => {
     expect(displayCoordinates(-17.25, 42.5)).toEqual({ x: -17.25, y: 42.5 });
     const spawn = personalRoomSpawn(3);
     expect(displayCoordinates(spawn.x, spawn.y)).toEqual({ x: 0.5, y: 1.5 });
+  });
+});
+
+describe("spawn room positions", () => {
+  it("keeps spawn slots and the wall speaker inside the shared room chunk", () => {
+    expect(displayCoordinates(spawnRoomSpawn(0).x, spawnRoomSpawn(0).y))
+      .toEqual({ x: -5.5, y: -1.5 });
+    expect(spawnRoomSpeakerPosition().z).toBe(1.5);
   });
 });
 

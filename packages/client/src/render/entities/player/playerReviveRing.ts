@@ -1,8 +1,8 @@
 import type Phaser from "phaser";
 import type { PlayerEntityView } from "../visuals/view.js";
 import { depthForScreenY } from "../geometry/worldToScreen.js";
+import { drawHoldProgressRing } from "../presentation/holdProgressRing.js";
 
-const REVIVE_RING_RADIUS_PX = 11;
 const REVIVE_RING_DEPTH_BIAS = 0.5;
 
 /** Draws the authoritative AOI-visible hold ring above a downed crawler. */
@@ -30,17 +30,5 @@ interface ReviveRingDrawing {
 }
 
 function drawReviveRing({ ring, x, ringY, progress }: ReviveRingDrawing): void {
-  ring.clear();
-  ring.lineStyle(2, 0x8fffc1, 0.3);
-  ring.strokeCircle(x, ringY, REVIVE_RING_RADIUS_PX);
-  ring.lineStyle(2, 0x8fffc1, 0.95);
-  ring.beginPath();
-  ring.arc(
-    x,
-    ringY,
-    REVIVE_RING_RADIUS_PX,
-    -Math.PI / 2,
-    -Math.PI / 2 + progress * Math.PI * 2,
-  );
-  ring.strokePath();
+  drawHoldProgressRing({ graphics: ring, x, y: ringY, progress });
 }

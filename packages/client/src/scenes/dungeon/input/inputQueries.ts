@@ -11,21 +11,38 @@ import {
   isConsumableItem,
   isThrowableItem,
   nearestDownedPartyMember,
+  nearestEntity,
   nearestEntityId,
   recipeIdAtIndex,
   weaponCooldownMs,
 } from "../world/contentQueries.js";
 import { resolveStairwayPrompt } from "../world/stairwayProximity.js";
 
-function positionedEntities(conn: Connection): Array<{ id: string; kind: string; x: number; y: number }> {
-  return [...conn.entities.entries()].map(([id, remote]) => ({ id, kind: remote.snap.kind, x: remote.snap.x, y: remote.snap.y }));
+function positionedEntities(conn: Connection): Array<{
+  id: string;
+  kind: string;
+  x: number;
+  y: number;
+}> {
+  return [...conn.entities.entries()]
+    .filter(([, remote]) => remote.snap.hp === undefined || remote.snap.hp > 0)
+    .map(([id, remote]) => ({
+      id,
+      kind: remote.snap.kind,
+      x: remote.snap.x,
+      y: remote.snap.y,
+    }));
 }
 
 export function createInputQueries(conn: Connection): InputQueries {
   return { ...inputContentQueries(conn), ...inputProximityQueries(conn) };
 }
 
-function inputContentQueries(conn: Connection): Pick<InputQueries, "isThrowable" | "isConsumable" | "attackCooldownMs" | "recipeIdAt" | "nearestPlayerId"> {
+function inputContentQueries(conn: Connection): Pick<
+  InputQueries,
+  "isThrowable" | "isConsumable" | "attackCooldownMs" | "recipeIdAt" |
+  "nearestPlayerId" | "nearestEnemyDirection"
+> {
   return {
     isThrowable: isThrowableItem,
     isConsumable: isConsumableItem,
@@ -34,6 +51,19 @@ function inputContentQueries(conn: Connection): Pick<InputQueries, "isThrowable"
     nearestPlayerId: (adapter, maxDistance) => adapter.body
       ? nearestEntityId({ entities: positionedEntities(conn), kind: "player", fromX: adapter.body.x, fromY: adapter.body.y, maxDistance })
       : undefined,
+    nearestEnemyDirection: (adapter, maxDistance) => {
+      if (!adapter.body) return undefined;
+      const enemy = nearestEntity({
+        entities: positionedEntities(conn),
+        kind: "enemy",
+        fromX: adapter.body.x,
+        fromY: adapter.body.y,
+        maxDistance,
+      });
+      return enemy
+        ? { x: enemy.x - adapter.body.x, y: enemy.y - adapter.body.y }
+        : undefined;
+    },
   };
 }
 

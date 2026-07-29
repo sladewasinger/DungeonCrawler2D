@@ -100,7 +100,7 @@ function collectRoomOccupants(sim: SimState): RoomOccupants {
   for (const slot of sim.players.values()) {
     if (!slot.connected) continue;
     const room = roomCoordinates(slot);
-    if (!room || room.kind === "personal") continue;
+    if (!room || room.kind === "personal" || room.kind === "spawn") continue;
     const key = roomKey(room.cx, room.cy);
     const entry = occupants.get(key) ?? { room, slots: [] };
     entry.slots.push(slot);

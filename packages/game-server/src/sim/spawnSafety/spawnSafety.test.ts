@@ -10,9 +10,11 @@ import {
   CHASM_DEATH_Z,
   LEVEL,
   PLAYER_MAX_HP,
+  CHUNK_SIZE,
   World,
   buildContentRegistry,
   hashString,
+  roomKindAt,
   type ContentRegistry,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
@@ -22,7 +24,7 @@ import { addPlayer } from "../players/join.js";
 import { reapAndRespawn } from "../players/players.js";
 import { SPAWN_CLEARANCE_RADIUS, SPAWN_GRACE_TICKS, enforceSpawnClearance } from "./spawnSafety.js";
 import { createSimState, type SimState } from "../state/state.js";
-import { blanketSpawnNeighborhood, openFloorNear } from "./testSupport.js";
+import { openFloorNear } from "./testSupport.js";
 
 /**
  * Spawn-safety CLEARANCE (panel round 3b blocker #1): no living hostile
@@ -112,28 +114,25 @@ describe("spawn handoff safety", () => {
     expect(slot.spawnGraceUntilTick).toBe(simB.tickCount + SPAWN_GRACE_TICKS);
   });
 
-  it("death respawn into a hostile-blanketed neighborhood still hands over clear", () => {
+  it("death respawn returns to the spawn room and evicts a waiting hostile", () => {
     const sim = makeDungeonSim("spawn-safety-respawn", 11, { spawnRadiusTiles: 12 });
     const join = addPlayer(sim, { name: "Doomed", clientId: "client-d" });
     const slot = sim.players.get(join.playerId)!;
 
-    // Blanket every reachable tile of the spawn neighborhood so ANY
-    // respawn tile has a camper within ~2.2 tiles — pre-fix, a
-    // guaranteed ambush.
-    const parked = blanketSpawnNeighborhood(sim);
-    expect(parked.length).toBeGreaterThan(20); // dense enough to mean something
+    spawnEnemy(sim, {
+      defId: "skeleton",
+      x: slot.entity.body.x,
+      y: slot.entity.body.y,
+    });
 
     slot.entity.hp = 0;
     slot.respawnAtTick = sim.tickCount;
     reapAndRespawn(sim);
 
     const { x, y } = slot.entity.body;
-    // The ambush WOULD have existed: some pre-relocation camper sat
-    // inside the radius of the respawn tile...
-    const preFix = Math.min(...parked.map((p) => Math.hypot(p.x - x, p.y - y)));
-    expect(preFix).toBeLessThan(SPAWN_CLEARANCE_RADIUS);
-    // ...and the handoff is clear anyway, at full hp, with grace armed.
     expect(nearestHostileDistance(sim, x, y)).toBeGreaterThanOrEqual(SPAWN_CLEARANCE_RADIUS);
+    expect(roomKindAt(Math.floor(x / CHUNK_SIZE), Math.floor(y / CHUNK_SIZE)))
+      .toBe("spawn");
     expect(slot.entity.hp).toBe(PLAYER_MAX_HP);
     expect(slot.spawnGraceUntilTick).toBe(sim.tickCount + SPAWN_GRACE_TICKS);
   });

@@ -1,4 +1,4 @@
-import { LEVEL, TILE, World, buildContentRegistry, createBody, hashString, makeEntity, newEntityId, type RawContent } from "@dc2d/engine";
+import { CHUNK_SIZE, LEVEL, TILE, World, buildContentRegistry, createBody, hashString, makeEntity, newEntityId, roomKindAt, type RawContent } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { addPlayer } from "../players/join.js";
@@ -128,8 +128,7 @@ describe("findSpawn with spawnRadiusTiles", () => {
     expect(tileDistanceFromAnchor(spawn, anchor)).toBeLessThanOrEqual(radiusTiles);
   });
 
-  it("respawn after death lands within spawnRadiusTiles of the anchor too", () => {
-    const anchor = resolveSpawnAnchor(sim);
+  it("respawn after death returns to the protected spawn room", () => {
     const join = addPlayer(sim, { name: "Respawner", clientId: "client-respawn" });
     const slot = sim.players.get(join.playerId);
     expect(slot).toBeDefined();
@@ -137,8 +136,11 @@ describe("findSpawn with spawnRadiusTiles", () => {
 
     reapAndRespawn(sim);
 
-    const respawned = { x: slot!.entity.body.x, y: slot!.entity.body.y };
-    expect(tileDistanceFromAnchor(respawned, anchor)).toBeLessThanOrEqual(radiusTiles);
+    const respawned = slot!.entity.body;
+    expect(roomKindAt(
+      Math.floor(respawned.x / CHUNK_SIZE),
+      Math.floor(respawned.y / CHUNK_SIZE),
+    )).toBe("spawn");
   });
 });
 

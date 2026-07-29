@@ -11,6 +11,8 @@ import {
   safeRoomChunk,
   safeRoomFeatures,
   safeRoomSpawn,
+  spawnRoomFeatures,
+  spawnRoomSpawn,
 } from "./rooms.js";
 
 const SEED = hashString("test-world");
@@ -59,5 +61,16 @@ describe("room world integration", () => {
     expect(Math.floor(spawn.x)).toBe(features.exit.x);
     expect(Math.floor(spawn.y)).toBeLessThan(features.exit.y - SOUTH_EXIT_HALL_DEPTH);
     expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
+  });
+
+  it("provides a shared sanctuary spawn room with a blocked one-way exit", () => {
+    const world = new World(SEED, FLOOR);
+    const spawn = spawnRoomSpawn(0);
+    const exit = spawnRoomFeatures().exit;
+
+    expect(world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
+    expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
+    expect(world.tileAt(exit.x, exit.y)).toBe(TILE.DoorExit);
+    expect(world.isWalkable(exit.x, exit.y)).toBe(false);
   });
 });
