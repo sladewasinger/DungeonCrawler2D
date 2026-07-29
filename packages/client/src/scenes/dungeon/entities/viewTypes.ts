@@ -21,7 +21,8 @@ export interface SelfVitals {
 
 export interface SelfPlayerViewSource {
   readonly pose: SelfPose; readonly vitals: SelfVitals; readonly cosmetics: SelfCosmeticsState;
-  readonly nowMs: number; readonly weaponAimAngle: number; readonly target?: PlayerEntityView | undefined;
+  readonly nowMs: number; readonly weaponAimAngle: number; readonly assistedAim: boolean;
+  readonly target?: PlayerEntityView | undefined;
 }
 
 export interface ItemViewSource {

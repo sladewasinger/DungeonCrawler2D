@@ -1,6 +1,6 @@
 import { bindBandageKey } from "../gameplay/gameplayActions.js";
 import { onNumberKey } from "../gameplay/hotbar.js";
-import { guardedAction } from "../controls/inputGuard.js";
+import { guardedAction, inputActionBlocked } from "../controls/inputGuard.js";
 import { bindInteractKey } from "../gestures/interactKey.js";
 import type { InputConnection, InputHooks, InputPanels, InputQueries, InputState } from "../controls/state.js";
 
@@ -12,7 +12,8 @@ export interface ControllerKeyBindings {
   readonly state: InputState;
   readonly queries: InputQueries;
   readonly hooks: InputHooks;
-  readonly onGod: () => void;
+  readonly onThrowAimStart: () => void;
+  readonly onThrowAimRelease: (allowThrow: boolean) => void;
   readonly onInteract: () => void;
   readonly onInteractReleased: () => void;
   readonly onBandageDown: () => void;
@@ -20,19 +21,40 @@ export interface ControllerKeyBindings {
   readonly onKidAttack: () => void;
 }
 
+interface ThrowAimKeyBinding {
+  readonly key: InputState["keys"]["G"];
+  readonly blocked: () => boolean;
+  readonly onStart: () => void;
+  readonly onRelease: (allowThrow: boolean) => void;
+}
+
+/** G starts aiming on key-down, but only release is allowed to dispatch a throw. */
+export function bindThrowAimKey(request: ThrowAimKeyBinding): void {
+  request.key.on("down", () => {
+    if (!request.blocked()) request.onStart();
+  });
+  request.key.on("up", () => request.onRelease(!request.blocked()));
+}
+
 export function bindControllerKeys(request: ControllerKeyBindings): void {
   const { keys, conn, panels, state, queries } = request;
-  const blocked = () => panels.gameplayBlocked;
-  keys.G.on("down", guardedAction(request.onGod, blocked));
-  bindInteractKey(keys.E, guardedAction(request.onInteract, blocked), request.onInteractReleased);
-  keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
-  keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
+  const panelBlocked = () => panels.gameplayBlocked;
+  const actionBlocked = () => inputActionBlocked(panelBlocked);
+  bindThrowAimKey({
+    key: keys.G,
+    blocked: actionBlocked,
+    onStart: request.onThrowAimStart,
+    onRelease: request.onThrowAimRelease,
+  });
+  bindInteractKey(keys.E, guardedAction(request.onInteract, panelBlocked), request.onInteractReleased);
+  keys.R.on("down", guardedAction(() => conn.pickup(), panelBlocked));
+  keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), panelBlocked));
   bindBandageKey({ key: keys.F, conn, queries, selectedSlot: () => state.selectedSlot,
-    fallbackDown: request.onBandageDown, fallbackUp: request.onBandageUp, blocked });
-  keys.N.on("down", guardedAction(request.onKidAttack, blocked));
+    fallbackDown: request.onBandageDown, fallbackUp: request.onBandageUp, blocked: panelBlocked });
+  keys.N.on("down", guardedAction(request.onKidAttack, panelBlocked));
   bindEscapeKey(request);
-  bindPanelKeys(request, blocked);
-  bindNumberKeys(request, blocked);
+  bindPanelKeys(request, panelBlocked);
+  bindNumberKeys(request, panelBlocked);
 }
 
 function bindEscapeKey({ keys, state, panels, conn, hooks }: ControllerKeyBindings): void {

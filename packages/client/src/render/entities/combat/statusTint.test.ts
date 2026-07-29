@@ -1,40 +1,56 @@
-// Headless tests for status-tint color selection, flicker bounds, and tint compositing.
-import { describe, expect, it } from "vitest";
-import { compositeStatusTint, statusTintFor, type StatusTint } from "./statusTint.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  applyCombatantTint,
+  blendTintWithWhite,
+  resolveCombatantTint,
+  resolveCombatantTintLayer,
+} from "./statusTint.js";
 
-/** Narrows a possibly-null tint for callers that already know their fx list should produce one. */
-function assertTint(tint: StatusTint | null): StatusTint {
-  if (!tint) throw new Error("expected a status tint");
-  return tint;
-}
+const normal = (fx: readonly string[], nowMs = 0) =>
+  resolveCombatantTint(fx, nowMs, "normal");
 
-describe("statusTintFor", () => {
-  it("is null with no burning/poisoned status", () => {
-    expect(statusTintFor(["bleeding"], 0)).toBeNull();
-    expect(statusTintFor([], 0)).toBeNull();
-  });
-
-  it("prefers burning over poisoned when both are active", () => {
-    expect(assertTint(statusTintFor(["poisoned", "on-fire"], 0)).color).toBe(0xff9e3d);
-  });
-
-  it("picks poisoned's green when only poisoned is active", () => {
-    expect(assertTint(statusTintFor(["poisoned"], 0)).color).toBe(0x7bd44a);
-  });
-
-  it("flickers alpha within bounds and varies over time", () => {
-    const samples = [0, 65, 130, 195].map((ms) => assertTint(statusTintFor(["on-fire"], ms)).alpha);
-    for (const alpha of samples) {
-      expect(alpha).toBeGreaterThanOrEqual(0.35);
-      expect(alpha).toBeLessThanOrEqual(0.85);
+describe("combatant status tint", () => {
+  it("uses one 50% poison blend for enemy, local-player, and remote-player paths", () => {
+    const expected = {
+      mode: "multiply",
+      color: blendTintWithWhite(0x7bd44a, 0.5),
+      blend: 0.5,
+      source: "poisoned",
+    };
+    for (const kind of ["enemy", "local-player", "remote-player"]) {
+      expect(normal(["poisoned"]), kind).toMatchObject(expected);
     }
-    expect(new Set(samples).size).toBeGreaterThan(1);
   });
-});
 
-describe("compositeStatusTint", () => {
-  it("is neutral white at alpha 0 and the pure color at alpha 1", () => {
-    expect(compositeStatusTint({ color: 0xff9e3d, alpha: 0 })).toBe(0xffffff);
-    expect(compositeStatusTint({ color: 0xff9e3d, alpha: 1 })).toBe(0xff9e3d);
+  it("returns stable shared presentations without per-frame result allocation", () => {
+    expect(normal(["poisoned"])).toBe(normal(["poisoned"], 10_000));
+    expect(normal([])).toBe(normal([]));
+  });
+
+  it("defines damage, state, telegraph, fire, poison, and clear precedence", () => {
+    const fx = ["poisoned", "on-fire"];
+    expect(resolveCombatantTint(fx, 0, resolveCombatantTintLayer(true, "downed", true)).source).toBe("damage-flash");
+    expect(resolveCombatantTint(fx, 0, resolveCombatantTintLayer(false, "downed", true)).source).toBe("downed");
+    expect(resolveCombatantTint(fx, 0, resolveCombatantTintLayer(false, "normal", true)).source).toBe("telegraph");
+    expect(normal(fx).source).toBe("on-fire");
+    expect(normal(["poisoned"]).source).toBe("poisoned");
+    expect(normal([]).source).toBe("none");
+  });
+
+  it("removes expired poison and resets Phaser fill mode after a damage flash", () => {
+    const sprite = {
+      setTint: vi.fn(),
+      clearTint: vi.fn(),
+      setTintMode: vi.fn(),
+    };
+    applyCombatantTint(sprite, resolveCombatantTint(["poisoned"], 0, "damage-flash"));
+    expect(sprite.setTintMode).toHaveBeenLastCalledWith(1);
+
+    applyCombatantTint(sprite, normal(["poisoned"]));
+    expect(sprite.setTintMode).toHaveBeenLastCalledWith(0);
+
+    applyCombatantTint(sprite, normal([]));
+    expect(sprite.clearTint).toHaveBeenCalledOnce();
+    expect(sprite.setTintMode).toHaveBeenLastCalledWith(0);
   });
 });

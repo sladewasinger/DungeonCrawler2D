@@ -9,6 +9,7 @@ import { applySnapshotProgression } from "./applyProgression.js";
 import { applyVitals } from "./applyVitals.js";
 import { recordSample } from "../interpolation/interpolate.js";
 import { pruneAreaTiles } from "./areaTileRetention.js";
+import { applyWorldFeatureOverrides } from "./worldFeatureOverrides.js";
 
 /**
  * Applies server truth to the Connection's state: authoritative self
@@ -21,8 +22,12 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   const combatBefore = captureCombatHealth(conn);
   if (snap.events.some((event) => event.t === "teleported")) prepareTeleport(conn);
   conn.serverTick = snap.tick;
-  applySelfState(conn, snap, conn.world);
-  applyRoomDoors(conn, snap);
+  const worldBeforeSnapshot = conn.world;
+  applyWorldFeatureOverrides(conn, snap);
+  applySelfState(conn, snap, worldBeforeSnapshot);
+  if (conn.world !== worldBeforeSnapshot) {
+    applyWorldFeatureOverrides(conn, snap);
+  }
   conn.hasReceivedSnapshot = true;
   applyRemoteState(conn, snap);
   applySnapshotEvents(conn, snap, combatBefore);
@@ -48,11 +53,6 @@ function applySnapshotEvents(
   for (const event of snap.events) applyEvent(conn, event);
   inferMissingDamageEvents(conn, snap, combatBefore);
   for (const id of snap.left) conn.entities.delete(id);
-}
-
-function applyRoomDoors(conn: Connection, snap: ServerSnapshot): void {
-  conn.world?.replaceFeatureOverrides(snap.roomDoors ?? []);
-  conn.roomDoors = snap.roomDoors ?? [];
 }
 
 function prepareTeleport(conn: Connection): void {

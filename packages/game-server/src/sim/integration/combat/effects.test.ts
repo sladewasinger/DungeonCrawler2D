@@ -33,6 +33,29 @@ describe("GameSim: standing effects and fall damage", () => {
     expect(sim.areas.defAt(Math.floor(entity.body.x), Math.floor(entity.body.y))).toBeNull();
   });
 
+  it("oil applies replicated oiled while preserving the existing slowdown", () => {
+    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
+    sim.endSpawnGrace(a.playerId);
+    const entity = sim.getPlayerEntity(a.playerId)!;
+    const observer = sim.getPlayerEntity(b.playerId)!;
+    teleport({ entity: observer, x: entity.body.x + 1, y: entity.body.y, sim });
+    sim.areas.place({
+      defId: "area-oil",
+      x: Math.floor(entity.body.x),
+      y: Math.floor(entity.body.y),
+      steps: 0,
+    });
+    const snapshots = sim.step();
+    expect(snapshots.get(a.playerId)?.self.fx).toContain("oiled");
+    expect(sim.effects.speedMult(entity)).toBeCloseTo(0.6, 5);
+    const replicated = snapshots.get(b.playerId)?.entities.find(
+      (snapshot) => snapshot.id === a.playerId,
+    );
+    expect(replicated?.fx).toContain("oiled");
+    expect(replicated?.fx).not.toContain("slowed");
+  });
+
   it("falls hurt; feather-fall negates", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;

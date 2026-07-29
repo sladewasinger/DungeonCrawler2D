@@ -25,13 +25,13 @@ describe("selfPlayerView", () => {
     const view = selfPlayerView({
       pose: { id: "p1", skin: "elf_f", name: "Hero", x: 1, y: 2, z: 0, air: false },
       vitals: { hp: 10, maxHp: 30, fx: ["on-fire"], downed: false, blocking: true, weaponId: "sword" },
-      cosmetics, nowMs: 1000, weaponAimAngle: Math.PI,
+      cosmetics, nowMs: 1000, weaponAimAngle: Math.PI, assistedAim: true,
     });
     expect(view).toMatchObject({ id: "p1", skin: "elf_f", faceX: -1, attacking: true, blocking: true, weaponId: "sword", hp: 10, weaponAimAngle: Math.PI });
     expect(selfPlayerView({
       pose: { id: "p1", skin: "elf_f", name: "Hero", x: 2, y: 3, z: 0, air: false },
       vitals: { hp: 11, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
-      cosmetics, nowMs: 1001, weaponAimAngle: 0, target: view,
+      cosmetics, nowMs: 1001, weaponAimAngle: 0, assistedAim: true, target: view,
     })).toBe(view);
     expect(view).toMatchObject({ x: 2, y: 3, hp: 11, blocking: false });
   });
@@ -42,7 +42,7 @@ describe("selfPlayerView", () => {
     const view = selfPlayerView({
       pose: { id: "p1", skin: "knight_m", name: "Hero", x: 0, y: 0, z: 0, air: false },
       vitals: { hp: 10, maxHp: 30, fx: [], downed: false, blocking: false, weaponId: null },
-      cosmetics, nowMs: 1000, weaponAimAngle: 0,
+      cosmetics, nowMs: 1000, weaponAimAngle: 0, assistedAim: true,
     });
     expect(view.attackAngleRad).toBeCloseTo(Math.PI / 2);
   });

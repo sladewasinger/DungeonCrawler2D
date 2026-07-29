@@ -8,6 +8,11 @@ import {
 } from "./controlsHintLayout.js";
 
 describe("title hint content", () => {
+  it("advertises Z/X rotation without assigning reserved Q", () => {
+    expect(CONTROLS_LINE).toContain("Z/X rotate");
+    expect(CONTROLS_LINE).not.toMatch(/\bQ\b/);
+  });
+
   it("keeps the full accessible text on desktop", () => {
     expect(titleHintContent(800)).toEqual({
       premiseVisible: true,

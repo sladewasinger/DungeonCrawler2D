@@ -1,6 +1,6 @@
 // Resolves the self player's live weapon-orbit aim angle: mouse-relative on desktop,
-// held facing on touch. Split out of index.ts to keep DungeonScene's own file under the
-// line cap — this is a thin wrapper around weaponOrbit.ts's pure AimSource resolution.
+// movement/assisted-attack facing in kid and touch modes. Split out of index.ts to keep
+// DungeonScene's own file under the line cap.
 //
 // Transforms the pointer through the scene's own camera explicitly (`camera.getWorldPoint`)
 // rather than trusting `pointer.worldX/worldY`: that field is a shared, single Pointer
@@ -18,15 +18,15 @@ import { getViewOrientation, worldToView } from "../../../render/view/index.js";
 import type { RenderPose } from "../orchestration/state.js";
 
 /**
- * `touchActive` is input/index.ts's touchVisual() null-ness — the same signal the rest
- * of the input subsystem uses to pick a source. `faceX`/`faceY` (self-cosmetics' own
+ * `assistedAim` comes from InputController's modality + kid-mode state. `faceX`/`faceY`
+ * (self-cosmetics' own
  * facing, LANE W2) are WORLD-space — the same space remote entities' wire `faceX`/`faceY`
  * already use, so self/remote sprite-flip logic stays symmetric under rotation — but this
  * widget's own orbit angle is a SCREEN-space visual, so the touch branch routes it through
  * worldToView (the forward half of the seam) before handing it to weaponOrbit's atan2.
  */
 export interface SelfAimSource {
-  readonly touchActive: boolean;
+  readonly assistedAim: boolean;
   readonly faceX: number;
   readonly faceY: number;
   readonly render: RenderPose;
@@ -35,12 +35,14 @@ export interface SelfAimSource {
 }
 
 export function resolveSelfAimAngle(source: SelfAimSource): number {
-  const { touchActive, faceX, faceY, render, camera, pointer } = source;
-  const aimSource: AimSource = touchActive ? touchFacingSource(faceX, faceY) : mouseAimSource(render, camera, pointer);
+  const { assistedAim, faceX, faceY, render, camera, pointer } = source;
+  const aimSource: AimSource = assistedAim
+    ? facingSource(faceX, faceY)
+    : mouseAimSource(render, camera, pointer);
   return resolveAimAngle(aimSource);
 }
 
-function touchFacingSource(faceX: number, faceY: number): AimSource {
+function facingSource(faceX: number, faceY: number): AimSource {
   const screen = worldToView({ x: faceX, y: faceY }, getViewOrientation());
   return { kind: "facing", faceX: screen.x, faceY: screen.y };
 }

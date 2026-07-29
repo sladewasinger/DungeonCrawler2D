@@ -44,6 +44,7 @@ function fullSnapshot(slot: PlayerSlot, frame: PlayerSnapshotFrame): ServerSnaps
     events: frame.events,
     areas: frame.areas,
     roomDoors: frame.roomDoors,
+    miniBossArenaGates: frame.miniBossArenaGates,
     inventory: slot.inventory.map((stack) => ({ ...stack })),
     hotbar: [...slot.hotbar],
     entities: frame.entities.map(({ snapshot }) => snapshot),

@@ -2,11 +2,15 @@ import type { Entity } from "../entities/entity.js";
 import type { EnemyBrain, RememberedEnemyTarget } from "./ai.js";
 
 export function ageEnemyMemory(brain: EnemyBrain, dt: number): void {
+  if (brain.memoryPhase === "searching") {
+    ageEnemySearch(brain, dt);
+    return;
+  }
   brain.memorySecondsRemaining = Math.max(
     0,
     brain.memorySecondsRemaining - dt,
   );
-  if (brain.memorySecondsRemaining === 0) brain.rememberedTarget = null;
+  if (brain.memorySecondsRemaining === 0) clearEnemyMemory(brain);
 }
 
 export function rememberEnemyTarget(
@@ -21,6 +25,18 @@ export function rememberEnemyTarget(
     z: target.body.z,
   };
   brain.memorySecondsRemaining = memorySeconds;
+  brain.memoryPhase = "pursuing";
+  brain.memorySearchSecondsRemaining = 0;
+}
+
+export function beginEnemySearch(
+  brain: EnemyBrain,
+  searchSeconds: number,
+): void {
+  if (brain.memoryPhase === "searching") return;
+  brain.memoryPhase = "searching";
+  brain.memorySearchSecondsRemaining = Math.max(0, searchSeconds);
+  if (brain.memorySearchSecondsRemaining === 0) clearEnemyMemory(brain);
 }
 
 export function forgetEnemyTarget(
@@ -28,12 +44,30 @@ export function forgetEnemyTarget(
   targetId: string,
 ): void {
   if (brain.rememberedTarget?.targetId !== targetId) return;
-  brain.rememberedTarget = null;
-  brain.memorySecondsRemaining = 0;
+  clearEnemyMemory(brain);
 }
 
 export function activeEnemyMemory(
   brain: EnemyBrain,
 ): RememberedEnemyTarget | null {
-  return brain.memorySecondsRemaining > 0 ? brain.rememberedTarget : null;
+  if (!brain.rememberedTarget) return null;
+  const remaining = brain.memoryPhase === "searching"
+    ? brain.memorySearchSecondsRemaining ?? 0
+    : brain.memorySecondsRemaining;
+  return remaining > 0 ? brain.rememberedTarget : null;
+}
+
+function ageEnemySearch(brain: EnemyBrain, dt: number): void {
+  brain.memorySearchSecondsRemaining = Math.max(
+    0,
+    (brain.memorySearchSecondsRemaining ?? 0) - dt,
+  );
+  if (brain.memorySearchSecondsRemaining === 0) clearEnemyMemory(brain);
+}
+
+function clearEnemyMemory(brain: EnemyBrain): void {
+  brain.rememberedTarget = null;
+  brain.memorySecondsRemaining = 0;
+  brain.memoryPhase = "pursuing";
+  brain.memorySearchSecondsRemaining = 0;
 }

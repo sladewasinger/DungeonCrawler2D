@@ -31,10 +31,14 @@ interface NoticeActionHint {
   key: string;
   label: string;
   touchKey?: string;
+  touchLabel?: string;
 }
 
-const actionText = (hint: NoticeActionHint, touchDevice: boolean): string =>
-  `[${touchDevice ? hint.touchKey ?? "USE" : hint.key}] ${hint.label}`;
+const actionText = (hint: NoticeActionHint, touchDevice: boolean): string => {
+  const key = touchDevice ? hint.touchKey ?? "USE" : hint.key;
+  const label = touchDevice ? hint.touchLabel ?? hint.label : hint.label;
+  return `[${key}] ${label}`;
+};
 
 export function latestVisibleToast(
   toasts: HudNoticeState["toasts"],

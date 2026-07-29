@@ -1,6 +1,6 @@
 // Headless tests for hotbar/throwable/panel-number-key resolution.
 import { describe, expect, it } from "vitest";
-import { activateHotbar, activeThrowableSlot, onNumberKey, throwPreview } from "./hotbar.js";
+import { activateHotbar, activeThrowableSlot, onNumberKey } from "./hotbar.js";
 import type { InputConnection, InputPanels, InputQueries, InputState, Keys } from "../controls/state.js";
 
 function makeConn(overrides: Partial<InputConnection> = {}): InputConnection {
@@ -95,24 +95,12 @@ describe("activateHotbar", () => {
   });
 });
 
-describe("activeThrowableSlot / throwPreview", () => {
+describe("activeThrowableSlot", () => {
   it("returns null if the selected item is no longer throwable", () => {
     const state = makeState(); state.selectedSlot = 1;
     const conn = makeConn({ hotbar: ["sword", undefined, undefined] });
     expect(activeThrowableSlot(state, conn, makeQueries())).toBeNull();
     expect(state.selectedSlot).toBe(1);
-  });
-
-  it("builds a world-space preview for an armed throwable", () => {
-    const state = makeState(); state.selectedSlot = 1;
-    const conn = makeConn();
-    const preview = throwPreview({ state, conn, queries: makeQueries(), pointerWorld: { x: 3.5, y: 2 } });
-    expect(preview).toEqual({ slot: 1, targetX: 3.5, targetY: 2 });
-  });
-
-  it("returns null when no slot is armed", () => {
-    const state = makeState(); const conn = makeConn();
-    expect(throwPreview({ state, conn, queries: makeQueries(), pointerWorld: { x: 0, y: 0 } })).toBeNull();
   });
 });
 

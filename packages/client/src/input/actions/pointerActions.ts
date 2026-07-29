@@ -1,12 +1,14 @@
 import { screenDirToWorld } from "../controls/cameraRelative.js";
 import { activateHotbar } from "../gameplay/hotbar.js";
-import { cursorWorldTile, triggerAttack, type PointerDeps, type WorldPointCamera } from "../pointer/pointer.js";
+import { cursorWorldTile, type PointerDeps, type WorldPointCamera } from "../pointer/pointer.js";
 import { getViewOrientation } from "../../render/view/index.js";
 import { beginStick, isInLowerLeftQuadrant, pressButton } from "../touch/index.js";
-import type { InputConnection, InputHooks, InputHud, InputState } from "../controls/state.js";
+import type { InputConnection, InputHooks, InputHud, InputQueries, InputState } from "../controls/state.js";
 import type Phaser from "phaser";
 import type { TouchInputState } from "../touch/index.js";
 import { attackInKidMode } from "../controls/kidMode.js";
+import { triggerAssistedAttack } from "./assistedAim.js";
+import { triggerAttack } from "./attack.js";
 
 interface PointerHudHitRequest {
   state: InputState;
@@ -64,7 +66,14 @@ export function attackAtPointer({ state, deps, pointer, camera, tilePx }: Pointe
   const cursorWorld = cursorWorldTile({ camera, pointer, tilePx, heightAt: conn.heightAt });
   const dx = cursorWorld.x - conn.body!.x;
   const dy = cursorWorld.y - conn.body!.y;
-  triggerAttack({ state, conn, hooks: deps.hooks, dx, dy, nowMs: performance.now(), cooldownMs: deps.queries.attackCooldownMs(conn.weapon) });
+  triggerAttack({
+    state,
+    conn,
+    hooks: deps.hooks,
+    direction: { x: dx, y: dy },
+    nowMs: performance.now(),
+    cooldownMs: deps.queries.attackCooldownMs(conn.weapon),
+  });
 }
 
 interface UiHitRequest {
@@ -89,7 +98,14 @@ interface UiHitActionsRequest {
 function uiHitActions({ state, deps, pointerId }: UiHitActionsRequest): Record<string, () => void> {
   const { conn, queries, hooks, touch } = deps;
   return {
-    "touch:attack": () => attackInTouchFacing({ state, conn, hooks, touch, cooldownMs: queries.attackCooldownMs(conn.weapon) }),
+    "touch:attack": () => attackWithTouchAssistance({
+      state,
+      conn,
+      queries,
+      hooks,
+      touch,
+      cooldownMs: queries.attackCooldownMs(conn.weapon),
+    }),
     "touch:block": () => pressAndMove(deps, "block", pointerId),
     "touch:jump": () => pressAndMove(deps, "jump", pointerId),
     "touch:interact": () => pressAndInteract(deps, pointerId),
@@ -102,14 +118,27 @@ function uiHitActions({ state, deps, pointerId }: UiHitActionsRequest): Record<s
 interface TouchAttackRequest {
   state: InputState;
   conn: InputConnection;
+  queries: InputQueries;
   hooks: InputHooks;
   touch: TouchInputState;
   cooldownMs: number;
 }
 
-function attackInTouchFacing({ state, conn, hooks, touch, cooldownMs }: TouchAttackRequest): void {
-  const dir = screenDirToWorld(touch.lastFacing, getViewOrientation());
-  triggerAttack({ state, conn, hooks, dx: dir.x, dy: dir.y, nowMs: performance.now(), cooldownMs });
+function attackWithTouchAssistance(request: TouchAttackRequest): void {
+  const { state, conn, queries, hooks, touch, cooldownMs } = request;
+  const fallbackDirection = screenDirToWorld(
+    touch.lastFacing,
+    getViewOrientation(),
+  );
+  triggerAssistedAttack({
+    state,
+    conn,
+    queries,
+    hooks,
+    fallbackDirection,
+    nowMs: performance.now(),
+    cooldownMs,
+  });
 }
 
 function pressAndMove(deps: PointerDeps, button: "block" | "jump", pointerId: number): void {

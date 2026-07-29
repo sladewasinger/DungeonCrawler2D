@@ -71,6 +71,7 @@ export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.Stash,
   TILE.Void,
   TILE.Bedrock,
+  TILE.ArenaGate,
 ]);
 
 export const ZONE = {

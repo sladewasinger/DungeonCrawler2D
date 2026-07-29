@@ -6,7 +6,7 @@
 // Bearing composition: world bearing to the stairway is measured compass-style
 // (0 = world-north = -y, clockwise-positive, east = +x = 90), then rotated by the
 // SAME live view bearing the letter dial uses (compassBearing.ts, continuous through
-// the Q/X tween) — so the tick stays glued to the true screen direction mid-rotation
+// the Z/X tween) — so the tick stays glued to the true screen direction mid-rotation
 // by construction, exactly like the cardinal letters.
 import { stairwayDownPosition } from "@dc2d/engine";
 import { wrapDegrees } from "../../../render/view/index.js";

@@ -5,13 +5,18 @@ import {
   ENEMY_ACTIVE_RADIUS,
   type EnemyDecision,
   type EffectEvent,
-  type MoveInput,
 } from "@dc2d/engine";
 import { isBodyInChasm } from "../core/helpers.js";
-import { gracedClearanceCenters, isSpawnProtected } from "../spawnSafety/spawnSafety.js";
-import type { EnemySlot, PlayerSlot, SimState } from "../state/state.js";
+import { gracedClearanceCenters } from "../spawnSafety/spawnSafety.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 import { revalidateEnemyTarget } from "./targetLifecycle.js";
-import { moveEnemy, resolveEnemyStrike } from "./ai/combat.js";
+import {
+  resolveEnemyStrike,
+} from "./ai/combat.js";
+import {
+  continueAirborneEnemyPhysics,
+  moveEnemy,
+} from "./ai/enemyMovement.js";
 import {
   advanceAttackAnimation,
   beginWindup,
@@ -20,37 +25,14 @@ import {
   activeEnemiesNearPlayers,
   assignVisibleEnemyTargets,
 } from "./ai/enemyTargeting.js";
-import { withPursuitJump } from "./ai/enemyPursuit.js";
-import { withEnemyMemoryPath } from "./ai/enemyMemoryNavigation.js";
+import { enemyPursuitMove } from "./ai/enemyNavigation.js";
+import { enemyPlayerSets } from "./ai/enemyPlayerSets.js";
+import { enemyMemoryArrivalTolerance } from "./ai/enemyMemoryTuning.js";
+import { withEnemySearch } from "./ai/search/enemySearch.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
+import { prepareMiniBossArenaEnemy } from "./miniBossArena/aggro.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
-
-function enemyPlayerSets(sim: SimState): {
-  activePlayers: EnemySlot["entity"][];
-  targetablePlayers: EnemySlot["entity"][];
-} {
-  const activePlayers: EnemySlot["entity"][] = [];
-  const targetablePlayers: EnemySlot["entity"][] = [];
-  for (const slot of sim.players.values()) {
-    addEnemyVisiblePlayer({ slot, sim, activePlayers, targetablePlayers });
-  }
-  return { activePlayers, targetablePlayers };
-}
-
-interface VisiblePlayerInput {
-  slot: PlayerSlot;
-  sim: SimState,
-  activePlayers: EnemySlot["entity"][],
-  targetablePlayers: EnemySlot["entity"][],
-}
-
-function addEnemyVisiblePlayer(input: VisiblePlayerInput): void {
-  const { slot, sim, activePlayers, targetablePlayers } = input;
-  if (!slot.connected || slot.entity.hp <= 0 || isSpawnProtected(slot, sim.tickCount)) return;
-  activePlayers.push(slot.entity);
-  if (slot.downedAtTick === null) targetablePlayers.push(slot.entity);
-}
 
 export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
   const { activePlayers, targetablePlayers } = enemyPlayerSets(sim);
@@ -95,12 +77,20 @@ interface EnemyStepInput {
 function stepEnemy(input: EnemyStepInput): void {
   const { sim, enemy, active } = input;
   sim.replicationMotion.set(enemy.entity.id, { x: 0, y: 0 });
+  const arenaActive = prepareMiniBossArenaEnemy(sim, enemy);
   revalidateEnemyTarget(sim, enemy, input.target?.id);
-  if (!active) {
+  if (!active || !arenaActive) {
     ageEnemyMemory(enemy.brain, TICK_DT);
+    continueAirborneEnemyPhysics(input);
+    killEnemyInChasm(sim, enemy);
     return;
   }
-  if (killEnemyInChasm(sim, enemy) || advanceAttackAnimation(sim, enemy)) return;
+  if (killEnemyInChasm(sim, enemy)) return;
+  if (advanceAttackAnimation(sim, enemy)) {
+    continueAirborneEnemyPhysics(input);
+    killEnemyInChasm(sim, enemy);
+    return;
+  }
   executeEnemyDecision(input);
 }
 
@@ -117,7 +107,17 @@ function executeEnemyDecision(input: EnemyStepInput): void {
     beginWindup(enemy, decision.shoot);
     return;
   }
-  moveEnemy({ sim, enemy, move: pursuitMove(input, decision), graced });
+  moveEnemy({
+    sim,
+    enemy,
+    move: enemyPursuitMove({
+      sim,
+      enemy,
+      visibleTarget: input.target,
+      decision,
+    }),
+    graced,
+  });
   if (decision.strike) resolveEnemyStrike({
     sim,
     enemy,
@@ -129,7 +129,8 @@ function executeEnemyDecision(input: EnemyStepInput): void {
 
 function thinkForEnemy(input: EnemyStepInput): EnemyDecision {
   const { sim, enemy, target } = input;
-  return enemyThink({
+  const arrivalTolerance = enemyMemoryArrivalTolerance(sim, enemy);
+  const decision = enemyThink({
     brain: enemy.brain,
     enemy: enemy.entity,
     def: enemy.def,
@@ -138,27 +139,17 @@ function thinkForEnemy(input: EnemyStepInput): EnemyDecision {
     dt: TICK_DT,
     rng: () => sim.rng.next(),
     memorySeconds: ENEMY_SIMULATION_TUNING.perception.memorySeconds,
+    memorySearchSeconds:
+      ENEMY_SIMULATION_TUNING.perception.memorySearchSeconds,
+    memoryArrivalTolerance: arrivalTolerance,
     maximumMeleeHeightDifference:
       ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference,
   });
-}
-
-function pursuitMove(
-  input: EnemyStepInput,
-  decision: EnemyDecision,
-): MoveInput {
-  const { sim, enemy, target } = input;
-  const pathMove = withEnemyMemoryPath({
+  return withEnemySearch({
     sim,
     enemy,
     visibleTarget: target,
-    pursuit: decision.pursuit,
-    move: decision.move,
-  });
-  return withPursuitJump({
-    world: sim.world,
-    enemy: enemy.entity,
-    target: decision.pursuit,
-    move: pathMove,
+    decision,
+    arrivalTolerance,
   });
 }

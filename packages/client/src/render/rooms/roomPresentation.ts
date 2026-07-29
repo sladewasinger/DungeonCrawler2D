@@ -124,6 +124,7 @@ export class RoomPresentation {
     const bubble = syncRoomSpeech({
       scene: this.scene, bubble: objects.bubble, speaker,
       speech: conn.npcSpeech, nowMs, cx: objects.cx, cy: objects.cy,
+      speakerKind: objects.kind === "spawn" ? "spawn-intercom" : "attendant",
     });
     if (bubble) objects.bubble = bubble;
   }

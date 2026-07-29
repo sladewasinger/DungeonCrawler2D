@@ -32,6 +32,12 @@ export function resetInputTimeline(slot: PlayerSlot): void {
   slot.lastProjectedServerTick = -1;
 }
 
+/** Acknowledges one due input tick while an authoritative sequence owns movement. */
+export function suppressInputTimeline(slot: PlayerSlot): void {
+  advanceInputTimeline(slot);
+  delete slot.heldInput;
+}
+
 function alignInputTimeline(
   slot: PlayerSlot,
   projectedTick: number,

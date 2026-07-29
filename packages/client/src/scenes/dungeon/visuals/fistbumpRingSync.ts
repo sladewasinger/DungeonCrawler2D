@@ -4,6 +4,7 @@
  */
 import type { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
+import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { worldToScreen } from "../../../render/entities/geometry/worldToScreen.js";
 import type { FistbumpRing } from "./fistbumpRing.js";
 
@@ -18,6 +19,10 @@ export function syncFistbumpRing(ring: FistbumpRing, inputController: InputContr
     ring.update(null);
     return;
   }
-  const screen = worldToScreen(target.x, target.y - RING_HEAD_OFFSET_TILES);
-  ring.update({ x: screen.x, y: screen.y, progress: hold.progress });
+  const screen = worldToScreen(target.x, target.y);
+  ring.update({
+    x: screen.x,
+    y: screen.y - RING_HEAD_OFFSET_TILES * SCREEN_TILE_PX,
+    progress: hold.progress,
+  });
 }

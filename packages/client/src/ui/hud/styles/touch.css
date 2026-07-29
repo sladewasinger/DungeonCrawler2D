@@ -1,7 +1,9 @@
 .hud-touch { position: absolute; inset: 0; z-index: 1050; pointer-events: none; touch-action: none; }
 .hud-touch__stick { position: absolute; left: 20px; bottom: 20px; border: 2px solid rgb(138 143 169 / 85%); border-radius: 50%; background: rgb(15 16 26 / 35%); box-sizing: border-box; }
 .hud-touch__knob { position: absolute; width: 36px; height: 36px; translate: -50% -50%; border: 2px solid rgb(198 201 220 / 85%); border-radius: 50%; background: rgb(83 87 116 / 48%); }
-.hud-touch__button, .hud-touch__bag { position: absolute; min-width: 48px; min-height: 48px; border: 1px solid rgb(138 143 169 / 85%); border-radius: 50%; background: rgb(15 16 26 / 55%); color: var(--hud-text); font: 10px monospace; pointer-events: auto; touch-action: none; }
+.hud-touch__button, .hud-touch__bag { position: absolute; min-width: 48px; min-height: 48px; border: 1px solid rgb(138 143 169 / 85%); border-radius: 50%; background: rgb(15 16 26 / 55%); color: var(--hud-text); font: 10px monospace; touch-action: none; }
+.hud-touch__button { pointer-events: none; }
+.hud-touch__bag { pointer-events: auto; }
 .hud-touch__button--attack { right: 20px; bottom: 150px; }
 .hud-touch__button--block { right: 80px; bottom: 90px; }
 .hud-touch__button--jump { right: 20px; bottom: 90px; }

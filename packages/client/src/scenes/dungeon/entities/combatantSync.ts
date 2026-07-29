@@ -20,6 +20,7 @@ import { mapFrameInto } from "./frameEntityViews.js";
 import { resolveSelfAimAngle } from "../player/selfAim.js";
 import type { DungeonSceneState, RenderPose } from "../orchestration/state.js";
 import { syncMeleeSwings } from "../combat/meleeSwingSync.js";
+import { assistedSelfAimFacing } from "../player/selfCosmetics.js";
 
 export interface CombatantSyncFrame {
   readonly scene: Phaser.Scene;
@@ -37,9 +38,10 @@ export interface CombatantSyncFrame {
 export function syncCombatants(frame: CombatantSyncFrame): void {
   const { scene, conn, entityRenderer, vfx, inputController, state, nowMs, render, buckets, context } = frame;
   if (!conn.world || !conn.welcome || !conn.body) return;
-  const touchActive = inputController.touchVisual() !== null;
-  const aimAngle = resolveSelfAimAngle({ touchActive, faceX: state.cosmetics.faceX, faceY: state.cosmetics.faceY, render, camera: scene.cameras.main, pointer: scene.input.activePointer });
-  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle });
+  const assistedAim = inputController.usesAssistedAim();
+  const facing = assistedSelfAimFacing(state.cosmetics, nowMs);
+  const aimAngle = resolveSelfAimAngle({ assistedAim, faceX: facing.x, faceY: facing.y, render, camera: scene.cameras.main, pointer: scene.input.activePointer });
+  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle, assistedAim });
   const monsters = mapFrameInto({ source: buckets.enemies, out: state.entityViews.enemies, records: state.entityViews.enemyRecords, map: monsterView });
   const pets = mapFrameInto({ source: buckets.pets, out: state.entityViews.pets, records: state.entityViews.petRecords, map: petView });
   syncDamageVfx({
@@ -65,7 +67,7 @@ function syncRenderedCombatants(input: {
   readonly context: RenderContext;
 }): void {
   const { entityRenderer, players, monsters, pets, context } = input;
-  entityRenderer.syncPlayers(players, context); entityRenderer.syncMonsters(monsters, context);
+  entityRenderer.syncCombatants(players, monsters, context);
   entityRenderer.syncPets(pets, context);
 }
 
@@ -86,10 +88,11 @@ function syncItemViews(input: ItemViewSyncInput): void {
 interface PlayerViewSyncInput {
   readonly conn: Connection; readonly state: DungeonSceneState; readonly buckets: FrameEntityBuckets;
   readonly render: RenderPose; readonly nowMs: number; readonly aimAngle: number;
+  readonly assistedAim: boolean;
 }
 
 function syncPlayerViews(input: PlayerViewSyncInput): PlayerEntityView[] {
-  const { conn, state, buckets, render, nowMs, aimAngle } = input;
+  const { conn, state, buckets, render, nowMs, aimAngle, assistedAim } = input;
   if (!conn.welcome || !conn.body) return state.entityViews.players;
   const players = state.entityViews.players;
   const records = state.entityViews.playerRecords;
@@ -97,7 +100,7 @@ function syncPlayerViews(input: PlayerViewSyncInput): PlayerEntityView[] {
   updateSelfSource(conn, state, render);
   const self = selfPlayerView({
     pose: state.selfPose, vitals: state.selfVitals, cosmetics: state.cosmetics,
-    nowMs, weaponAimAngle: aimAngle, target: records[0],
+    nowMs, weaponAimAngle: aimAngle, assistedAim, target: records[0],
   });
   records[0] = self;
   players[0] = self;

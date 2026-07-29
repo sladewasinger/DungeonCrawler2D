@@ -17,17 +17,24 @@ const hints = [
     touchKey: "ATTACK",
     label: "Attack with Rusty Sword",
   },
+  {
+    action: "throw" as const,
+    key: "G",
+    touchKey: "THROW",
+    label: "Hold to aim, release to throw Torch",
+    touchLabel: "Throw Torch",
+  },
 ];
 
 describe("contextualHelpText", () => {
   it("renders nearby and contextual actions with desktop controls", () => {
     expect(contextualHelpText({ key: "R", label: "pick up" }, hints, false))
-      .toBe("[R] pick up   ·   [E] Use Bandage   ·   [LMB] Attack with Rusty Sword");
+      .toBe("[R] pick up   ·   [E] Use Bandage   ·   [LMB] Attack with Rusty Sword   ·   [G] Hold to aim, release to throw Torch");
   });
 
   it("uses the real touch action labels", () => {
     expect(contextualHelpText(null, hints, true))
-      .toBe("[USE] Use Bandage   ·   [ATTACK] Attack with Rusty Sword");
+      .toBe("[USE] Use Bandage   ·   [ATTACK] Attack with Rusty Sword   ·   [THROW] Throw Torch");
   });
 
   it("stays hidden when there is no contextual help", () => {

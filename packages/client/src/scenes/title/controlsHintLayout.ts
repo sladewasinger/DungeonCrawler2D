@@ -1,5 +1,5 @@
 export const CONTROLS_LINE =
-  "WASD move · mouse aim & click attack · Shift run · Space jump · E interact · I inventory · C craft · Enter chat · F10 edit HUD";
+  "WASD move · mouse aim & click attack · Z/X rotate · Shift run · Space jump · E interact · I inventory · C craft · Enter chat · F10 edit HUD";
 
 export const COMPACT_CONTROLS_LINE = "WASD move · click attack · Enter chat — more in-game (F10)";
 

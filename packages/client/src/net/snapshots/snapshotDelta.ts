@@ -101,6 +101,7 @@ function materializeSnapshot(
     events: delta.events,
     areas: delta.areas,
     roomDoors: delta.roomDoors ?? [],
+    miniBossArenaGates: delta.miniBossArenaGates ?? [],
   };
 }
 

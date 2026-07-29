@@ -1,7 +1,10 @@
 import type { Entity } from "../entities/entity.js";
 import type { MoveInput } from "../entities/movement/index.js";
 import type { EnemyBrain, EnemyDecision } from "./ai.js";
-import { activeEnemyMemory } from "./enemyMemory.js";
+import {
+  activeEnemyMemory,
+  beginEnemySearch,
+} from "./enemyMemory.js";
 
 const AXIS: readonly [-1, 0, 1] = [-1, 0, 1];
 
@@ -10,6 +13,14 @@ interface Investigation {
   readonly enemy: Entity;
   readonly dt: number;
   readonly rng: () => number;
+  readonly searchSeconds: number;
+  readonly arrivalTolerance: number;
+}
+
+export interface RememberedMovementIntent {
+  readonly state: "none" | "pursue" | "arrive" | "search";
+  readonly target: ReturnType<typeof activeEnemyMemory>;
+  readonly distance: number;
 }
 
 export function idleEnemyMove(): MoveInput {
@@ -27,15 +38,31 @@ export function pursueEnemyPoint(
 }
 
 export function investigateOrWander(input: Investigation): EnemyDecision {
-  const memory = activeEnemyMemory(input.brain);
-  if (!memory) return wander(input);
+  const intent = rememberedMovementIntent(input);
+  if (intent.state === "none") return wander(input);
+  if (intent.state === "pursue" && intent.target) {
+    return pursueEnemyPoint(input.enemy, intent.target);
+  }
+  if (intent.state === "arrive") {
+    beginEnemySearch(input.brain, input.searchSeconds);
+  }
+  return { move: idleEnemyMove(), searching: true };
+}
+
+export function rememberedMovementIntent(
+  input: Pick<Investigation, "brain" | "enemy" | "arrivalTolerance">,
+): RememberedMovementIntent {
+  const target = activeEnemyMemory(input.brain);
+  if (!target) return { state: "none", target: null, distance: Infinity };
   const distance = Math.hypot(
-    memory.x - input.enemy.body.x,
-    memory.y - input.enemy.body.y,
+    target.x - input.enemy.body.x,
+    target.y - input.enemy.body.y,
   );
-  return distance <= 0.75
-    ? wander(input)
-    : pursueEnemyPoint(input.enemy, memory);
+  if (input.brain.memoryPhase === "searching") {
+    return { state: "search", target, distance };
+  }
+  const state = distance <= input.arrivalTolerance ? "arrive" : "pursue";
+  return { state, target, distance };
 }
 
 function wander(input: Investigation): EnemyDecision {

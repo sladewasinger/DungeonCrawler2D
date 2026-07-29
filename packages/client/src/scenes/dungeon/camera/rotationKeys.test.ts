@@ -1,12 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { rotateOrientation } from "../../../render/view/orientation/viewOrientation.js";
 import { bindRotationKeys, rotationDirectionForKey } from "./rotationKeys.js";
 
 describe("rotationDirectionForKey", () => {
-  it("maps only the live Q/X camera controls to one discrete turn", () => {
-    expect(rotationDirectionForKey("KeyQ")).toBe(-1);
+  it("maps only the live Z/X camera controls to one discrete turn", () => {
+    expect(rotationDirectionForKey("KeyZ")).toBe(-1);
     expect(rotationDirectionForKey("KeyX")).toBe(1);
+    expect(rotationDirectionForKey("KeyQ")).toBeNull();
     expect(rotationDirectionForKey("KeyE")).toBeNull();
     expect(rotationDirectionForKey("Digit1")).toBeNull();
+  });
+
+  it("turns the default north view west on the first Z press", () => {
+    expect(rotateOrientation(0, rotationDirectionForKey("KeyZ")!)).toBe(270);
+    expect(rotateOrientation(0, rotationDirectionForKey("KeyX")!)).toBe(90);
   });
 });
 
@@ -40,9 +47,15 @@ describe("bindRotationKeys", () => {
     expect(addEventListener).toHaveBeenCalledWith("keydown", expect.any(Function), true);
     const handler = addEventListener.mock.calls[0]?.[1] as (event: KeyboardEvent) => void;
     const preventDefault = vi.fn();
-    handler({ code: "KeyQ", preventDefault } as unknown as KeyboardEvent);
+    handler({ code: "KeyZ", preventDefault } as unknown as KeyboardEvent);
     expect(request).toHaveBeenCalledWith(-1);
     expect(preventDefault).toHaveBeenCalledOnce();
+
+    request.mockClear();
+    preventDefault.mockClear();
+    handler({ code: "KeyQ", preventDefault } as unknown as KeyboardEvent);
+    expect(request).not.toHaveBeenCalled();
+    expect(preventDefault).not.toHaveBeenCalled();
 
     vi.stubGlobal("document", { activeElement: new HTMLInputElement() });
     handler({ code: "KeyX", preventDefault } as unknown as KeyboardEvent);

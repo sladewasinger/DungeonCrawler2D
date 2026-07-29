@@ -36,6 +36,25 @@ describe("terrain line of sight", () => {
       .toBe(true);
   });
 
+  it("sees both ways between a z-1 pit and its adjacent z0 rim", () => {
+    const world = worldWith(new Map([
+      ["0,0", -1],
+      ["1,0", 0],
+    ]));
+    const pit = { x: 0.5, y: 0.5 };
+    const rim = { x: 1.5, y: 0.5 };
+    expect(canSee(world, pit, rim)).toBe(true);
+    expect(canSee(world, rim, pit)).toBe(true);
+  });
+
+  it("keeps sight after one early transition onto the rim", () => {
+    const world = worldWith(new Map([["0,0", -1]]));
+    const pit = { x: 0.5, y: 0.5 };
+    const rim = { x: 2.5, y: 0.5 };
+    expect(canSee(world, pit, rim)).toBe(true);
+    expect(canSee(world, rim, pit)).toBe(true);
+  });
+
   it("cannot see over a raised platform and back down", () => {
     const world = worldWith(new Map([["1,0", 1]]));
     expect(canSee(world, { x: 0.5, y: 0.5 }, { x: 2.5, y: 0.5 }))
@@ -57,6 +76,18 @@ describe("terrain line of sight", () => {
       ["3,0", 1],
     ]));
     expect(canSee(world, { x: 0.5, y: 0.5 }, { x: 3.5, y: 0.5 }))
+      .toBe(false);
+  });
+
+  it("cannot look down through a dip and back up", () => {
+    const world = worldWith(new Map([["1,0", -1]]));
+    expect(canSee(world, { x: 0.5, y: 0.5 }, { x: 2.5, y: 0.5 }))
+      .toBe(false);
+  });
+
+  it("cannot crest raised terrain touched at a diagonal corner", () => {
+    const world = worldWith(new Map([["1,0", 1]]));
+    expect(canSee(world, { x: 0.5, y: 0.5 }, { x: 1.5, y: 1.5 }))
       .toBe(false);
   });
 

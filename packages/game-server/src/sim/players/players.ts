@@ -10,8 +10,12 @@ import { grantRespawnKit } from "../inventory/inventory.js";
 import { findPlayerSpawn } from "../spawn/playerSpawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { leaveParty } from "../social/social.js";
+import { miniBossArenaEntryForPlayer } from "../enemies/miniBossArena/runtime.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
-import { resetInputTimeline } from "./playerInputTimeline.js";
+import {
+  resetInputTimeline,
+  suppressInputTimeline,
+} from "./playerInputTimeline.js";
 import { stepPlayerBody } from "./step.js";
 
 /** Player step/lifecycle after join: input handling, movement, reap/respawn. Join/resume live in join.ts. */
@@ -106,6 +110,11 @@ export function stepPlayers(sim: SimState, effectEvents: EffectEvent[]): void {
     if (slot.entity.hp <= 0 || slot.downedAtTick !== null) {
       slot.blocking = false;
       resetInputTimeline(slot);
+      continue;
+    }
+    if (miniBossArenaEntryForPlayer(sim, slot.entity.id)) {
+      slot.blocking = false;
+      suppressInputTimeline(slot);
       continue;
     }
     stepPlayerBody({ sim, slot, effectEvents });

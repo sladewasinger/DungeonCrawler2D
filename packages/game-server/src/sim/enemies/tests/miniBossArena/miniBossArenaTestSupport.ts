@@ -5,6 +5,7 @@ import {
   makeEntity,
   miniBossArenaForChunk,
   World,
+  type MiniBossArenaGate,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
 import {
@@ -15,14 +16,19 @@ import {
   rulesData,
   statusesData,
 } from "@dc2d/content";
-import { PlayerStore } from "../../../store.js";
+import { PlayerStore } from "../../../../store.js";
 import {
   createSimState,
   type PlayerSlot,
   type SimState,
-} from "../../state/state.js";
-import { createPlayerSlot } from "../../players/joinSlot.js";
-import { spawnMiniBossEncounter } from "../miniBossArena/population.js";
+} from "../../../state/state.js";
+import { createPlayerSlot } from "../../../players/joinSlot.js";
+import { stepMiniBossArenaBoundaries } from "../../miniBossArena/boundary.js";
+import {
+  handleMiniBossEnemyDeath,
+  spawnMiniBossEncounter,
+} from "../../miniBossArena/population.js";
+import { miniBossArenaEntryForPlayer } from "../../miniBossArena/runtime.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -91,4 +97,46 @@ function spawnArenaInChunk(
     cx: chunk.x,
     cy: chunk.y,
   });
+}
+
+export function requiredArenaGate(
+  gate: MiniBossArenaGate | undefined,
+): MiniBossArenaGate {
+  if (!gate) throw new Error("arena has no gate");
+  return gate;
+}
+
+export function arenaEntryDirection(
+  gate: MiniBossArenaGate,
+): { readonly x: number; readonly y: number } {
+  const dx = gate.inside.x - gate.outside.x;
+  const dy = gate.inside.y - gate.outside.y;
+  const distance = Math.hypot(dx, dy);
+  return { x: dx / distance, y: dy / distance };
+}
+
+export function advanceTestArenaEntry(
+  sim: SimState,
+  slot: PlayerSlot,
+): Array<{ readonly x: number; readonly y: number }> {
+  const positions: Array<{ x: number; y: number }> = [];
+  for (let tick = 0; tick < 40; tick++) {
+    if (!miniBossArenaEntryForPlayer(sim, slot.entity.id)) break;
+    stepMiniBossArenaBoundaries(sim);
+    positions.push({ x: slot.entity.body.x, y: slot.entity.body.y });
+  }
+  return positions;
+}
+
+export function defeatTestArenaBoss(
+  sim: SimState,
+  arenaKey: string,
+): void {
+  const boss = [...sim.enemies.entries()].find(([, enemy]) =>
+    enemy.arenaKey === arenaKey && enemy.def.id === "orc-warlord"
+  );
+  if (!boss) throw new Error("test arena has no warlord");
+  const [id, enemy] = boss;
+  sim.enemies.delete(id);
+  handleMiniBossEnemyDeath(sim, enemy);
 }

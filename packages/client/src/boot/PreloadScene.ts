@@ -13,7 +13,7 @@ const SCENE_PARAM = "scene";
 const TESTBENCH_PARAM = "testbench";
 /** Dev-only startup ViewOrientation override (e.g. `?vo=90`) — useful for gallery
  * captures and renderer regression checks. The dungeon scene also changes this state
- * live through its prewarmed Q/X rotation controller. */
+ * live through its prewarmed Z/X rotation controller. */
 const VIEW_ORIENTATION_PARAM = "vo";
 const EDITOR_SCENE_KEY = "editor";
 /** Hard cap on waiting for the pixel font: some mobile browsers never resolve

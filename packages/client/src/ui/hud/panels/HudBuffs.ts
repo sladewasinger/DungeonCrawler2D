@@ -3,6 +3,8 @@ import type { Connection } from "../../../net/connection/connection.js";
 import { shouldShowAutoHealing, statusViews } from "../model/HudModel.js";
 import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 
+export const DUNGEON_AUTO_HEALING_LABEL = "Dungeon Auto Healing";
+
 export class HudBuffs {
   readonly element: HTMLElement;
   private readonly list: HTMLElement;
@@ -39,7 +41,7 @@ const statusSignatureFor = (connection: Connection): string => connection.status
 
 const autoHealingChip = (): HTMLSpanElement => {
   const chip = createHudTemplate<HTMLSpanElement>("hud-buff-template");
-  chip.textContent = "basic auto healing";
+  chip.textContent = DUNGEON_AUTO_HEALING_LABEL;
   return chip;
 };
 

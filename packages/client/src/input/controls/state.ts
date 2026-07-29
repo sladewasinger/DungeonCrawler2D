@@ -21,7 +21,7 @@ export interface KidModeState {
   facingY: number;
 }
 
-/** A pending world-target throw, previewed from the cursor until the next click. */
+/** The currently resolved held-aim destination rendered by the throw guide. */
 export interface ThrowPreview {
   slot: number;
   targetX: number;

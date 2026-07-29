@@ -125,7 +125,7 @@ const selectionMessage = (
       id: "throwable",
       text: mode === "touch"
         ? "Tap [THROW] to throw the selected item."
-        : "Press [G] to throw the selected item.",
+        : "Hold [G] to aim; release to throw the selected item.",
       persistent: true,
     };
   }

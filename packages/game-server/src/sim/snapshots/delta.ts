@@ -45,5 +45,6 @@ function deltaPayload({ frame, state, baseline, inventoryChanged, hotbarChanged 
     events: frame.events,
     areas: frame.areas,
     roomDoors: frame.roomDoors,
+    miniBossArenaGates: frame.miniBossArenaGates,
   };
 }

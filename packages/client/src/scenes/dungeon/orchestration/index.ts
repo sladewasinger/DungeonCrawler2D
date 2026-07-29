@@ -18,8 +18,7 @@ import type { HudScene } from "../../HudScene.js";
 import { requestCameraSnap } from "../camera/cameraFollow.js";
 import { DEFAULT_CAMERA_ZOOM } from "../camera/cameraDefaults.js";
 import { bindDungeonCameraResize } from "../camera/cameraResize.js";
-import { FistbumpRing } from "../visuals/fistbumpRing.js";
-import { syncFistbumpRing } from "../visuals/fistbumpRingSync.js";
+import { InputGestureVisuals } from "../visuals/inputGestureVisuals.js";
 import { syncFrame } from "../frame/frameSync.js";
 import { createChatPort, createHudActions } from "../input/inputAdapters.js";
 import { LiveHudSnapshotCache } from "../hud/liveHudSnapshotCache.js";
@@ -50,9 +49,8 @@ export class DungeonScene extends Phaser.Scene {
   private readonly hudSnapshotCache = new LiveHudSnapshotCache();
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
-  private fistbumpRing!: FistbumpRing;
-  /** LANE W2: Q/X camera rotation (see rotationControl.ts's doc comment for the Q/E-vs-Q/X
-   * key deviation) — owns the tween + the hard content swap + the cosmetic camera spin. */
+  private inputGestureVisuals!: InputGestureVisuals;
+  /** Z/X camera rotation: owns the tween, hard content swap, and cosmetic camera spin. */
   private readonly rotation = new RotationController((direction) => {
     const terrain = this.terrain as TerrainRenderer | undefined;
     terrain?.prewarmRotation(this.cameras.main.worldView, direction);
@@ -71,7 +69,7 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.entityRenderer = new EntityRenderer(this);
     this.vfx = new VfxSystem(this);
-    this.fistbumpRing = new FistbumpRing(this);
+    this.inputGestureVisuals = new InputGestureVisuals(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
     this.chatInputBox = this.createChatInputBox();
@@ -96,7 +94,7 @@ export class DungeonScene extends Phaser.Scene {
     // instead of a clean path back to title (Epic 7.12).
     if (this.redirectExpiredSession()) return;
     this.chatController.sync();
-    if (!conn.world || !conn.body || !conn.welcome) return;
+    if (!conn.world || !conn.body || !conn.welcome) return this.inputGestureVisuals.hide();
 
     this.syncInputHolds(conn);
     this.prepareFrame(conn, time, deltaMs);
@@ -105,6 +103,7 @@ export class DungeonScene extends Phaser.Scene {
     sampleDungeonInput({ conn, state: this.state, inputController: this.inputController, vfx: this.vfx, deltaMs, nowMs: time });
 
     const render = interpolateConnectionSelf(conn, this.state, deltaMs);
+    this.inputGestureVisuals.syncThrow(this.inputController, conn, render);
     conn.movementTrace?.recordFrame({
       time,
       input: this.state.renderInput,
@@ -130,8 +129,11 @@ export class DungeonScene extends Phaser.Scene {
     return true;
   }
   private syncInputHolds(conn: Connection): void {
-    this.inputController.pollFistbumpHold(); syncFistbumpRing(this.fistbumpRing, this.inputController, conn);
-    this.inputController.pollReviveHold(); this.inputController.pollGiveUpHold();
+    this.inputController.pollFistbumpHold();
+    this.inputGestureVisuals.syncFistbump(this.inputController, conn);
+    this.inputController.pollReviveHold();
+    this.inputGestureVisuals.syncRevive(this.inputController, conn);
+    this.inputController.pollGiveUpHold();
   }
   private prepareFrame(conn: Connection, time: number, deltaMs: number): void {
     this.ensureWorldBoundSystems(conn.world!); consumeDungeonTeleport({ conn, state: this.state, vfx: this.vfx, nowMs: time });
@@ -165,6 +167,6 @@ export class DungeonScene extends Phaser.Scene {
     this.entityRenderer.dispose();
     this.vfx.dispose();
     this.chatInputBox.dispose();
-    this.fistbumpRing.dispose();
+    this.inputGestureVisuals.dispose();
   }
 }

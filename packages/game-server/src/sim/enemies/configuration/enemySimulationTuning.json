@@ -13,12 +13,19 @@
     "maximumAttackersPerPlayer": 3,
     "maximumVisibleHeightDifference": 1,
     "memorySeconds": 20,
+    "memorySearchSeconds": 20,
+    "memorySearchRadiusTiles": 4,
+    "memorySearchWaypointPauseTicks": 6,
+    "memoryArrivalMinimumTiles": 0.3,
+    "memoryArrivalMarginTiles": 0.1,
     "memoryPathMaxExpansions": 256,
     "memoryPathMarginTiles": 8,
+    "memoryRouteStallTicks": 8,
+    "memoryRouteMinimumProgressTiles": 0.01,
+    "waypointAlignmentToleranceTiles": 0.2,
     "maximumMeleeHeightDifference": 0.5,
     "jumpRiseTiles": 1,
-    "jumpHeightTolerance": 0.1,
-    "jumpApproachDistanceTiles": 2.5
+    "jumpHeightTolerance": 0.1
   },
   "animationTicks": {
     "rangedWindup": 5,

@@ -1,14 +1,14 @@
 import {
-  containsPoint,
   miniBossArenaAtGate,
   type MiniBossArenaGate,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
-import { teleportPlayer } from "../../actions/playerTeleport.js";
+import { syncWorldFeatureOverrides } from "../../core/worldFeatureOverrides.js";
 import type { PlayerSlot, SimState } from "../../state/state.js";
 import {
+  beginMiniBossArenaEntry,
+  miniBossArenaEntryForArena,
   miniBossArenaOccupants,
-  occupyMiniBossArena,
 } from "./runtime.js";
 import {
   miniBossEncounterAlive,
@@ -38,10 +38,7 @@ export function useMiniBossArenaGate(
   );
   if (!arena || !gate) return false;
   const crossing = { sim, slot, arena, gate };
-  if (sim.defeatedMiniBossArenas.has(arena.key)) {
-    teleportThroughOpenGate(crossing);
-    return true;
-  }
+  if (sim.defeatedMiniBossArenas.has(arena.key)) return false;
   ensureEncounter(sim, arena);
   if (!miniBossEncounterAlive(sim, arena.key)) {
     notify(slot, "The arena gate refuses to open.");
@@ -57,26 +54,18 @@ function enterArena(input: ArenaCrossing): true {
     notify(slot, "The gate stays sealed until the arena is cleared.");
     return true;
   }
-  if (occupants.size > 0) {
+  if (occupants.size > 0 || miniBossArenaEntryForArena(sim, arena.key)) {
     notify(slot, "The arena is sealed. Someone else is fighting.");
     return true;
   }
-  occupyMiniBossArena(sim, arena.key, slot.entity.id);
-  teleportPlayer({ sim, slot, to: gate.inside, remember: false });
-  notify(slot, "The gate slams shut. Defeat the warlord and its guards.");
-  return true;
-}
-
-function teleportThroughOpenGate(input: ArenaCrossing): void {
-  const { sim, slot, arena, gate } = input;
-  const body = slot.entity.body;
-  const inside = containsPoint(arena.interior, body.x, body.y);
-  teleportPlayer({
-    sim,
-    slot,
-    to: inside ? gate.outside : gate.inside,
-    remember: false,
+  beginMiniBossArenaEntry(sim, {
+    arenaKey: arena.key,
+    playerId: slot.entity.id,
+    gate,
   });
+  syncWorldFeatureOverrides(sim);
+  notify(slot, "The arena gate opens and pulls you inside.");
+  return true;
 }
 
 function ensureEncounter(sim: SimState, arena: MiniBossArenaSite): void {

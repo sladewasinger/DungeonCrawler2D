@@ -70,6 +70,14 @@ export const safeRoomDoorSnapshotSchema = z.object({
 });
 export type SafeRoomDoorSnapshot = z.infer<typeof safeRoomDoorSnapshotSchema>;
 
+export const miniBossArenaGateSnapshotSchema = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+});
+export type MiniBossArenaGateSnapshot = z.infer<
+  typeof miniBossArenaGateSnapshotSchema
+>;
+
 export const serverWelcomeSchema = z.object({
   type: z.literal("welcome"),
   protocol: z.number().int(),
@@ -102,6 +110,7 @@ export const serverSnapshotSchema = z.object({
   events: z.array(gameEventSchema),
   areas: z.array(areaTileSchema),
   roomDoors: z.array(safeRoomDoorSnapshotSchema).optional(),
+  miniBossArenaGates: z.array(miniBossArenaGateSnapshotSchema).optional(),
 });
 
 export const entitySnapshotRevisionSchema = entitySnapshotSchema.extend({
@@ -138,6 +147,7 @@ export const serverSnapshotDeltaSchema = z.object({
   events: z.array(gameEventSchema),
   areas: z.array(areaTileSchema),
   roomDoors: z.array(safeRoomDoorSnapshotSchema).optional(),
+  miniBossArenaGates: z.array(miniBossArenaGateSnapshotSchema).optional(),
 });
 
 export const serverPongSchema = z.object({ type: z.literal("pong"), t: z.number() });

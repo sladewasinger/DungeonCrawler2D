@@ -8,13 +8,11 @@ import {
 } from "@dc2d/engine";
 import { findWalkableNear, resolveSpawnAnchor } from "../spawn/spawn.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
-import { stepPetTowardOwner } from "./follow.js";
 import { clearPetPath } from "./navigation.js";
 import { PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
 import { PET_DEFINITIONS, type PetDefinition, type PetSlot } from "./types.js";
 
 export { PET_DRIFT_IDLE_TICKS, PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
-
 const PET_SPAWN_OFFSETS = [
   { x: 20, y: 0 },
   { x: -24, y: 12 },
@@ -22,7 +20,6 @@ const PET_SPAWN_OFFSETS = [
   { x: 36, y: 24 },
   { x: -40, y: -28 },
 ] as const;
-
 /** Seed one of each current companion around floor 1's shared spawn area. */
 export function seedPets(sim: SimState): void {
   if (!isPetSpawnFloor(sim)) return;
@@ -110,7 +107,6 @@ function assignPet(target: PetSlot, slot: PlayerSlot): void {
   target.driftTarget = undefined;
   clearPetPath(target);
 }
-
 function petClaimMessage(target: PetSlot, previous: PetSlot | undefined): string {
   if (previous) {
     return `${target.definition.name} is now your pet. ${previous.definition.name} is available for another crawler.`;
@@ -144,22 +140,7 @@ function isCloserPet(input: { pet: PetSlot; best: PetSlot | undefined; distance:
     || (input.distance === input.bestDistance && (!input.best || input.pet.entity.id < input.best.entity.id));
 }
 
-export function stepPets(sim: SimState): void {
-  for (const pet of sim.pets.values()) {
-    stepPet(sim, pet);
-  }
-}
-
-function stepPet(sim: SimState, pet: PetSlot): void {
-  sim.replicationMotion.set(pet.entity.id, { x: 0, y: 0 });
-  const owner = pet.ownerId ? sim.players.get(pet.ownerId) : undefined;
-  if (!owner) return releasePet(pet);
-  if (!owner.connected || owner.entity.hp <= 0) return;
-  pet.mode = "following";
-  stepPetTowardOwner(sim, pet, owner);
-}
-
-function releasePet(pet: PetSlot): void {
+export function releasePet(pet: PetSlot): void {
   pet.mode = "available";
   pet.ownerId = null;
   delete pet.entity.ownerId;

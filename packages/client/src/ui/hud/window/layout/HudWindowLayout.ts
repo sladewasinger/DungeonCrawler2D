@@ -14,6 +14,8 @@ export type HudAnchor =
   | "bottom-right"
   | "free";
 
+export type HudWindowChrome = "standard" | "content-only";
+
 export interface HudWindowSpec {
   id: string;
   title: string;
@@ -24,6 +26,7 @@ export interface HudWindowSpec {
   mobile?: Pick<HudWindowSpec, "width" | "height" | "anchor">;
   interactive?: boolean;
   defaultVisible?: boolean;
+  chrome?: HudWindowChrome;
 }
 
 export interface HudWindowViewport {

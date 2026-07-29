@@ -22,7 +22,7 @@
     "tags": ["oil", "flammable", "liquid"],
     "buoyancy": -1,
     "duration": 40,
-    "onEnterStatus": "slowed",
+    "onEnterStatus": "oiled",
     "spread": { "chance": 0.1, "maxSteps": 2 },
     "sprite": "oil"
   },

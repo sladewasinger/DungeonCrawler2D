@@ -6,23 +6,13 @@ import {
   launchVelocity,
   makeEntity,
   newEntityId,
-  stepBody,
   THROW_SPEED,
-  TICK_DT,
   type EffectEvent,
 } from "@dc2d/engine";
-import { effectTargetFor, isBodyInChasm } from "../../core/helpers.js";
+import { effectTargetFor } from "../../core/helpers.js";
 import { blocksAttackFrom } from "../../players/directionalBlock.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
-import { insideGracedClearance } from "../../spawnSafety/spawnSafety.js";
 import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
-
-export interface EnemyMoveInput {
-  sim: SimState;
-  enemy: EnemySlot;
-  move: { moveX: number; moveY: number; jump: boolean };
-  graced: ReadonlyArray<{ x: number; y: number }>;
-}
 
 export interface EnemyStrikeInput {
   sim: SimState;
@@ -37,54 +27,6 @@ export interface SpitLaunchInput {
   entity: EnemySlot["entity"];
   tags: readonly string[];
   target: { x: number; y: number; z: number };
-}
-
-export function moveEnemy(input: EnemyMoveInput): void {
-  const { sim, enemy, move, graced } = input;
-  const entity = enemy.entity;
-  faceEntity(entity, move.moveX, move.moveY);
-  const before = { ...entity.body };
-  stepBody(sim.world, entity.body, move, TICK_DT, enemyMovementOptions(sim, enemy));
-  preserveGracedClearance(entity, before, graced);
-  recordEnemyMotion(sim, entity, before);
-  if (isBodyInChasm(sim.world, entity.body)) entity.hp = 0;
-  enemy.animation = walkingAnimation(move);
-}
-
-function enemyMovementOptions(sim: SimState, enemy: EnemySlot) {
-  return {
-    speed: enemy.entity.baseSpeed * sim.effects.speedMult(enemy.entity),
-    blocked: (x: number, y: number) => sim.world.isSanctuary(x, y) || outsideHome(enemy, x, y),
-  };
-}
-
-function outsideHome(enemy: EnemySlot, x: number, y: number): boolean {
-  const home = enemy.home;
-  return home !== undefined && (x < home.x0 || x > home.x1 || y < home.y0 || y > home.y1);
-}
-
-function preserveGracedClearance(
-  entity: EnemySlot["entity"],
-  before: EnemySlot["entity"]["body"],
-  graced: ReadonlyArray<{ x: number; y: number }>,
-): void {
-  const enteredClearance = insideGracedClearance(graced, entity.body.x, entity.body.y);
-  if (enteredClearance && !insideGracedClearance(graced, before.x, before.y)) entity.body = before;
-}
-
-function recordEnemyMotion(
-  sim: SimState,
-  entity: EnemySlot["entity"],
-  before: EnemySlot["entity"]["body"],
-): void {
-  sim.replicationMotion.set(entity.id, {
-    x: (entity.body.x - before.x) / TICK_DT,
-    y: (entity.body.y - before.y) / TICK_DT,
-  });
-}
-
-function walkingAnimation(move: EnemyMoveInput["move"]): EnemySlot["animation"] {
-  return { state: move.moveX !== 0 || move.moveY !== 0 ? "walk" : "idle", ticksRemaining: 0 };
 }
 
 export function resolveEnemyStrike(input: EnemyStrikeInput): void {

@@ -20,6 +20,7 @@ function frame(tick: number): PlayerSnapshotFrame {
     events: [],
     areas: [],
     roomDoors: [],
+    miniBossArenaGates: [],
     visibleIds: new Set(),
     privateEventCount: 0,
     pendingEventCount: 0,

@@ -137,9 +137,13 @@
   },
   "miniBossArena": {
     "chunkFrequency": 5,
-    "outerSpan": 9,
+    "outerSpan": 13,
     "wallRise": 2,
     "minimumGates": 1,
-    "maximumGates": 3
+    "maximumGates": 3,
+    "gateApproachMargin": 1,
+    "platformCount": 2,
+    "platformOffset": 3,
+    "platformRise": 1
   }
 }

@@ -3,6 +3,12 @@ import type Phaser from "phaser";
 import type { NpcSpeech } from "../../net/connection/connection.js";
 import { uiTextStyle } from "../../ui/foundation/font.js";
 import { SAFE_ROOM_BUBBLE_DEPTH } from "./roomPresentationDepth.js";
+import {
+  speechBubbleLayout,
+  speechBubbleWrapWidth,
+  type RoomSpeakerKind,
+} from "./roomSpeechGeometry.js";
+import { ROOM_SPEECH_VISUAL_STYLE } from "./roomSpeechVisualStyle.js";
 
 interface RoomSpeechRequest {
   readonly scene: Phaser.Scene;
@@ -12,6 +18,7 @@ interface RoomSpeechRequest {
   readonly nowMs: number;
   readonly cx: number;
   readonly cy: number;
+  readonly speakerKind: RoomSpeakerKind;
 }
 
 export function syncRoomSpeech(
@@ -23,10 +30,8 @@ export function syncRoomSpeech(
     return bubble;
   }
   const next = bubble ?? createSpeechBubble(request.scene, request.speaker);
-  const headY = request.speaker.y - request.speaker.displayHeight / 2;
-  next.setText(speech!.text).setVisible(true)
-    .setPosition(request.speaker.x, headY - 28)
-    .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
+  next.setText(speech!.text).setVisible(true);
+  positionSpeechBubble(request, next);
   return next;
 }
 
@@ -37,17 +42,46 @@ function speechIsActive(request: RoomSpeechRequest): boolean {
     Math.floor(speech.y / CHUNK_SIZE) === cy;
 }
 
+function positionSpeechBubble(
+  request: RoomSpeechRequest,
+  bubble: Phaser.GameObjects.Text,
+): void {
+  const viewport = request.scene.cameras.main.worldView;
+  bubble.setWordWrapWidth(speechBubbleWrapWidth(viewport.width));
+  const layout = speechBubbleLayout({
+    speaker: {
+      x: request.speaker.x,
+      y: request.speaker.y,
+      width: request.speaker.displayWidth,
+      height: request.speaker.displayHeight,
+    },
+    bubble: { width: bubble.displayWidth, height: bubble.displayHeight },
+    viewport,
+    speakerKind: request.speakerKind,
+  });
+  bubble.setOrigin(0.5, layout.originY)
+    .setPosition(layout.x, layout.y)
+    .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
+}
+
 function createSpeechBubble(
   scene: Phaser.Scene,
   speaker: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image,
 ): Phaser.GameObjects.Text {
+  const style = ROOM_SPEECH_VISUAL_STYLE.bubble;
   return scene.add.text(
     speaker.x,
     speaker.y,
     "",
     uiTextStyle(12, "#ffffff"),
-  ).setOrigin(0.5, 1).setAlign("center").setPadding(8, 5, 8, 5)
+  ).setOrigin(0.5, 1).setAlign("center")
+    .setPadding(
+      style.horizontalPaddingPx,
+      style.verticalPaddingPx,
+      style.horizontalPaddingPx,
+      style.verticalPaddingPx,
+    )
     .setBackgroundColor("rgba(20,20,28,0.92)")
-    .setWordWrapWidth(260)
+    .setWordWrapWidth(style.maximumWidthPx)
     .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
 }

@@ -12,6 +12,7 @@ export interface ContextualActionHint {
   readonly key: string;
   readonly touchKey: string;
   readonly label: string;
+  readonly touchLabel?: string;
 }
 
 export interface ContextualActionContext {
@@ -26,6 +27,7 @@ interface HintInput {
   readonly key: string;
   readonly touchKey: string;
   readonly label: string;
+  readonly touchLabel?: string;
 }
 
 const hint = (input: HintInput): ContextualActionHint => input;
@@ -43,7 +45,15 @@ export function resolveContextualActionHelp(
 function addSelectedItemHints(hints: ContextualActionHint[], selected: string | null): void {
   if (!selected) return;
   if (isConsumableItem(selected)) hints.push(hint({ action: "use", key: "E", touchKey: "USE", label: `Use ${itemName(selected)}` }));
-  if (isThrowableItem(selected)) hints.push(hint({ action: "throw", key: "G", touchKey: "THROW", label: `Throw ${itemName(selected)}` }));
+  if (isThrowableItem(selected)) {
+    hints.push(hint({
+      action: "throw",
+      key: "G",
+      touchKey: "THROW",
+      label: `Hold to aim, release to throw ${itemName(selected)}`,
+      touchLabel: `Throw ${itemName(selected)}`,
+    }));
+  }
 }
 
 function addWeaponHints(hints: ContextualActionHint[], weaponId: string | null, canBlock: boolean): void {

@@ -5,12 +5,22 @@ import {
 } from "./carnageSettings.js";
 
 describe("carnage settings", () => {
-  it("uses full blood-drop intensity by default", () => {
+  it("enables carnage with full blood-drop intensity by default", () => {
     expect(parseCarnageSettings(null)).toEqual(DEFAULT_CARNAGE_SETTINGS);
-    expect(DEFAULT_CARNAGE_SETTINGS.enabled).toBe(false);
+    expect(DEFAULT_CARNAGE_SETTINGS.enabled).toBe(true);
     expect(DEFAULT_CARNAGE_SETTINGS.bloodEnabled).toBe(true);
     expect(DEFAULT_CARNAGE_SETTINGS.bloodDropIntensity).toBe(1);
   });
+
+  it.each([false, true])(
+    "preserves an explicit persisted enabled=%s preference",
+    (enabled) => {
+      expect(parseCarnageSettings({
+        ...DEFAULT_CARNAGE_SETTINGS,
+        enabled,
+      }).enabled).toBe(enabled);
+    },
+  );
 
   it("clamps persisted limits and intensities", () => {
     expect(parseCarnageSettings({

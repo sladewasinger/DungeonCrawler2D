@@ -123,9 +123,8 @@ function assignmentsForOccupants(sim: SimState, occupants: RoomOccupants): Map<s
   return assignments;
 }
 
-export function syncSafeRoomDoors(sim: SimState): void {
-  const doors = [...buildRoomDoorAssignments(sim).values()].flat();
-  sim.world.replaceFeatureOverrides(doors);
+export function safeRoomDoorOverrides(sim: SimState): SafeRoomDoorSnapshot[] {
+  return [...buildRoomDoorAssignments(sim).values()].flat();
 }
 
 function snapshotAssignments(sim: SimState): Map<string, SafeRoomDoorSnapshot[]> {

@@ -17,7 +17,6 @@ export interface PlayerVisual extends CombatantParts {
   readonly kind: "player";
   readonly weapon: Phaser.GameObjects.Sprite;
   readonly guardCone?: Phaser.GameObjects.Graphics;
-  readonly reviveRing?: Phaser.GameObjects.Graphics;
   lastHp: number | undefined;
   hitFlashStartMs: number | undefined;
   lastX: number;
@@ -100,7 +99,6 @@ function destroyPlayerAttachments(visual: PlayerVisual): void {
   destroyCombatantParts(visual);
   visual.weapon.destroy();
   visual.guardCone?.destroy();
-  visual.reviveRing?.destroy();
 }
 
 function destroyPetAttachments(visual: PetVisual): void {

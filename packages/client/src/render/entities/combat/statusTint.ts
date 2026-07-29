@@ -1,38 +1,124 @@
-// Status tint chips: a looping flicker color for burning/poisoned, read off the
-// snapshot's `fx` status-id list (server truth, never inferred client-side) — the
-// VISUAL_DIRECTION accent palette carries the read (fire orange, poison green).
 const BURNING_COLOR = 0xff9e3d;
 const POISONED_COLOR = 0x7bd44a;
-const FLICKER_PERIOD_MS = 260;
-const FLICKER_MIN_ALPHA = 0.35;
-const FLICKER_MAX_ALPHA = 0.85;
+const POISONED_BLEND = 0.5;
+const BURNING_PERIOD_MS = 260;
+const DOWNED_COLOR = 0x7a3d3d;
+const DISCONNECTED_COLOR = 0x55555a;
+const TELEGRAPH_COLOR = 0xffb37a;
+const CLEAR_MODE = "clear";
+const MULTIPLY_MODE = "multiply";
+const FILL_MODE = "fill";
+const ON_FIRE_STATUS = "on-fire";
+const POISONED_STATUS = "poisoned";
+const NORMAL_LAYER = "normal";
+const DAMAGE_FLASH_LAYER = "damage-flash";
+const DOWNED_LAYER = "downed";
+const DISCONNECTED_LAYER = "disconnected";
+const TELEGRAPH_LAYER = "telegraph";
+const NONE_SOURCE = "none";
 
-export interface StatusTint {
+export type CombatantStateVisual =
+  typeof NORMAL_LAYER | typeof DOWNED_LAYER | typeof DISCONNECTED_LAYER;
+export type CombatantTintLayer =
+  CombatantStateVisual | typeof DAMAGE_FLASH_LAYER | typeof TELEGRAPH_LAYER;
+export type TintMode =
+  typeof CLEAR_MODE | typeof MULTIPLY_MODE | typeof FILL_MODE;
+export type TintSource =
+  typeof NONE_SOURCE | CombatantTintLayer |
+  typeof ON_FIRE_STATUS | typeof POISONED_STATUS;
+
+export interface CombatantTint {
+  readonly mode: TintMode;
   readonly color: number;
-  readonly alpha: number;
+  readonly blend: number;
+  readonly source: TintSource;
 }
 
-/** The strongest active status tint for an entity's fx list (burning wins over poisoned), or null if neither is up. */
-export function statusTintFor(fx: readonly string[], nowMs: number): StatusTint | null {
-  const color = fx.includes("on-fire") ? BURNING_COLOR : fx.includes("poisoned") ? POISONED_COLOR : null;
-  if (color === null) return null;
-  const phase = (nowMs % FLICKER_PERIOD_MS) / FLICKER_PERIOD_MS;
-  const wave = (Math.sin(phase * Math.PI * 2) + 1) / 2;
-  return { color, alpha: FLICKER_MIN_ALPHA + wave * (FLICKER_MAX_ALPHA - FLICKER_MIN_ALPHA) };
+const CLEAR_TINT: CombatantTint = { mode: CLEAR_MODE, color: 0xffffff, blend: 0, source: NONE_SOURCE };
+const DAMAGE_FLASH: CombatantTint = { mode: FILL_MODE, color: 0xffffff, blend: 1, source: DAMAGE_FLASH_LAYER };
+const DOWNED_TINT: CombatantTint = { mode: MULTIPLY_MODE, color: DOWNED_COLOR, blend: 1, source: DOWNED_LAYER };
+const DISCONNECTED_TINT: CombatantTint = { mode: MULTIPLY_MODE, color: DISCONNECTED_COLOR, blend: 1, source: DISCONNECTED_LAYER };
+const TELEGRAPH_TINT: CombatantTint = { mode: MULTIPLY_MODE, color: TELEGRAPH_COLOR, blend: 1, source: TELEGRAPH_LAYER };
+const POISONED_TINT = blendedTint(POISONED_COLOR, POISONED_BLEND, POISONED_STATUS);
+const BURNING_TINTS = [
+  blendedTint(BURNING_COLOR, 0.35, ON_FIRE_STATUS),
+  blendedTint(BURNING_COLOR, 0.5, ON_FIRE_STATUS),
+  blendedTint(BURNING_COLOR, 0.65, ON_FIRE_STATUS),
+  blendedTint(BURNING_COLOR, 0.5, ON_FIRE_STATUS),
+] as const;
+
+function blendedTint(color: number, blend: number, source: TintSource): CombatantTint {
+  return { mode: MULTIPLY_MODE, color: blendTintWithWhite(color, blend), blend, source };
 }
 
 function channel(color: number, shift: number): number {
   return (color >> shift) & 0xff;
 }
 
-function lerpChannel(from: number, to: number, t: number): number {
-  return Math.round(from + (to - from) * t);
+function lerpChannel(from: number, to: number, amount: number): number {
+  return Math.round(from + (to - from) * amount);
 }
 
-/** Blends a status color toward neutral white by (1 - alpha) into one Phaser multiply-tint. */
-export function compositeStatusTint(tint: StatusTint): number {
-  const r = lerpChannel(255, channel(tint.color, 16), tint.alpha);
-  const g = lerpChannel(255, channel(tint.color, 8), tint.alpha);
-  const b = lerpChannel(255, channel(tint.color, 0), tint.alpha);
+/** Converts an overlay blend into the equivalent neutral-based Phaser multiply tint. */
+export function blendTintWithWhite(color: number, amount: number): number {
+  const r = lerpChannel(255, channel(color, 16), amount);
+  const g = lerpChannel(255, channel(color, 8), amount);
+  const b = lerpChannel(255, channel(color, 0), amount);
   return (r << 16) | (g << 8) | b;
+}
+
+function statusTint(fx: readonly string[], nowMs: number): CombatantTint | null {
+  if (fx.includes(ON_FIRE_STATUS)) {
+    const index = Math.floor((nowMs % BURNING_PERIOD_MS) / (BURNING_PERIOD_MS / BURNING_TINTS.length));
+    return BURNING_TINTS[index] ?? BURNING_TINTS[0];
+  }
+  return fx.includes(POISONED_STATUS) ? POISONED_TINT : null;
+}
+
+export function resolveCombatantTintLayer(
+  damageFlashing: boolean,
+  state: CombatantStateVisual,
+  telegraphing: boolean,
+): CombatantTintLayer {
+  if (damageFlashing) return DAMAGE_FLASH_LAYER;
+  if (state !== NORMAL_LAYER) return state;
+  return telegraphing ? TELEGRAPH_LAYER : NORMAL_LAYER;
+}
+
+function layerTint(layer: CombatantTintLayer): CombatantTint | null {
+  if (layer === DAMAGE_FLASH_LAYER) return DAMAGE_FLASH;
+  if (layer === DOWNED_LAYER) return DOWNED_TINT;
+  if (layer === DISCONNECTED_LAYER) return DISCONNECTED_TINT;
+  return layer === TELEGRAPH_LAYER ? TELEGRAPH_TINT : null;
+}
+
+/**
+ * Shared precedence for every combatant: flash > life/connection state >
+ * attack telegraph > replicated status > natural sprite color.
+ */
+export function resolveCombatantTint(
+  fx: readonly string[],
+  nowMs: number,
+  layer: CombatantTintLayer,
+): CombatantTint {
+  const fixed = layerTint(layer);
+  if (fixed) return fixed;
+  return statusTint(fx, nowMs) ?? CLEAR_TINT;
+}
+
+export interface TintableSprite {
+  setTint(color: number): unknown;
+  clearTint(): unknown;
+  setTintMode?(mode: number): unknown;
+}
+
+/** Applies the semantic result and resets Phaser's fill mode so pooled sprites cannot retain it. */
+export function applyCombatantTint(sprite: TintableSprite, presentation: CombatantTint): void {
+  if (presentation.mode === CLEAR_MODE) {
+    sprite.setTintMode?.(0);
+    sprite.clearTint();
+    return;
+  }
+  sprite.setTint(presentation.color);
+  sprite.setTintMode?.(presentation.mode === FILL_MODE ? 1 : 0);
 }

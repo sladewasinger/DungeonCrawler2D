@@ -74,25 +74,6 @@ describe("cursorWorldTile", () => {
   });
 });
 
-describe("touch context action", () => {
-  it("routes USE through the same contextual callback as keyboard E", () => {
-    const performContextAction = vi.fn();
-    const touch = createTouchInputState();
-    const deps = {
-      conn: { body: { x: 0, y: 0 }, canAct: true },
-      hud: { hitTest: () => "touch:interact" },
-      touch,
-      touchActive: true,
-      performContextAction,
-      hooks: { onToggleChat: vi.fn(), onToggleInventory: vi.fn() },
-    } as unknown as PointerDeps;
-    const pointer = { id: 4, x: 0, y: 0, rightButtonDown: () => false };
-    handlePointerDown({} as InputState, deps, pointer as unknown as Phaser.Input.Pointer);
-    expect(performContextAction).toHaveBeenCalledOnce();
-    expect(touch.buttons.interact).toBe(4);
-  });
-});
-
 describe("touch joystick network cadence", () => {
   it("keeps high-rate drag local until fixed sampling and sends one immediate release edge", () => {
     const sendMovementEdge = vi.fn();

@@ -1,8 +1,6 @@
 /**
- * Radial hold-progress ring over the fistbump target (Epic 7.10): while F (or the
- * touch interact button) is held with a player in range, a gold arc sweeps 0..360°
- * over the target; it vanishes on release/fire. One pooled Graphics object, redrawn
- * only while visible — zero cost when idle.
+ * Large yellow radial hold-progress indicator shared by fistbumps and revives.
+ * Each gesture owns one pooled Graphics object, redrawn only while visible.
  */
 import type Phaser from "phaser";
 import { drawHoldProgressRing } from "../../../render/entities/presentation/holdProgressRing.js";

@@ -25,6 +25,8 @@ export interface EnemyBrain {
   attackCooldown: number;
   rememberedTarget: RememberedEnemyTarget | null;
   memorySecondsRemaining: number;
+  memoryPhase?: "pursuing" | "searching";
+  memorySearchSecondsRemaining?: number;
 }
 
 export interface RememberedEnemyTarget {
@@ -36,6 +38,8 @@ export interface RememberedEnemyTarget {
 
 export interface EnemyDecision {
   move: MoveInput;
+  /** True while investigating around a remembered last-seen position. */
+  searching?: boolean;
   /** Melee strike this tick. */
   strike?: { targetId: string };
   /** Launch a ranged projectile at this position/entity. */
@@ -52,6 +56,8 @@ export function newBrain(): EnemyBrain {
     attackCooldown: 0,
     rememberedTarget: null,
     memorySecondsRemaining: 0,
+    memoryPhase: "pursuing",
+    memorySearchSecondsRemaining: 0,
   };
 }
 
@@ -67,6 +73,8 @@ interface EnemyThinkInput extends AggroSearch {
   dt: number;
   rng: () => number;
   memorySeconds?: number;
+  memorySearchSeconds?: number;
+  memoryArrivalTolerance?: number;
   maximumMeleeHeightDifference?: number;
 }
 
@@ -142,7 +150,14 @@ export function enemyThink(input: EnemyThinkInput): EnemyDecision {
   const target = findAggroTarget({ enemy, def, players, inSanctuary });
   brain.targetId = target?.id ?? null;
 
-  if (!target) return investigateOrWander({ brain, enemy, dt, rng });
+  if (!target) return investigateOrWander({
+    brain,
+    enemy,
+    dt,
+    rng,
+    searchSeconds: input.memorySearchSeconds ?? 0,
+    arrivalTolerance: input.memoryArrivalTolerance ?? 0.3,
+  });
   rememberEnemyTarget(brain, target, input.memorySeconds ?? 0);
   return attackOrChase({
     brain,

@@ -2,6 +2,7 @@ import { hash2D, mixSeeds } from "../../../core/rng.js";
 import {
   CHUNK_SIZE,
   TILE,
+  type Chunk,
   type FeatureFace,
 } from "../../core/types.js";
 import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
@@ -19,6 +20,7 @@ import {
   arenaBoundsForChunk,
   buildMiniBossArenaSite,
 } from "./miniBossArenaGeometry.js";
+import { generatedMiniBossArenaFeatureAt } from "./miniBossArenaGeneratedFeature.js";
 
 const TUNING = WORLD_GENERATION_TUNING.miniBossArena;
 const PLACEMENT_SALT = 0xa8e4;
@@ -38,6 +40,13 @@ export interface MiniBossArenaGate {
   readonly outside: { readonly x: number; readonly y: number };
 }
 
+export interface MiniBossArenaPlatform {
+  readonly x: number;
+  readonly y: number;
+  readonly height: number;
+  readonly screenDepthTiles: number;
+}
+
 export interface MiniBossArenaSite {
   readonly key: string;
   readonly chunk: { readonly cx: number; readonly cy: number };
@@ -45,6 +54,7 @@ export interface MiniBossArenaSite {
   readonly interior: MiniBossArenaBounds;
   readonly center: { readonly x: number; readonly y: number };
   readonly gates: readonly MiniBossArenaGate[];
+  readonly platforms: readonly MiniBossArenaPlatform[];
 }
 
 export interface MiniBossArenaChunk {
@@ -76,7 +86,7 @@ export function miniBossArenaAtGate(
     cy: Math.floor(y / CHUNK_SIZE),
   });
   return site &&
-    miniBossArenaIsStamped(world, site) &&
+    (!world.featureAt || world.featureAt(x, y) === TILE.ArenaGate) &&
     site.gates.some((gate) => gate.x === x && gate.y === y)
     ? site
     : null;
@@ -103,6 +113,7 @@ export interface MiniBossArenaWorld {
   readonly worldSeed: number;
   readonly floor: number;
   readonly featureAt?: (x: number, y: number) => number;
+  readonly getChunk?: (cx: number, cy: number) => Pick<Chunk, "features">;
 }
 
 /** Runtime guard for a deterministic site skipped due to an authored feature. */
@@ -110,9 +121,9 @@ export function miniBossArenaIsStamped(
   world: MiniBossArenaWorld,
   site: MiniBossArenaSite,
 ): boolean {
-  if (!world.featureAt) return true;
+  if (!world.featureAt && !world.getChunk) return true;
   return site.gates.every(({ x, y }) =>
-    world.featureAt?.(x, y) === TILE.ArenaGate
+    generatedMiniBossArenaFeatureAt(world, x, y) === TILE.ArenaGate
   );
 }
 

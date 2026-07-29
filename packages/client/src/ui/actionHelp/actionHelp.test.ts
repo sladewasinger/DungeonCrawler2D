@@ -22,7 +22,8 @@ describe("resolveContextualActionHelp", () => {
       action: "throw",
       key: "G",
       touchKey: "THROW",
-      label: "Throw Torch",
+      label: "Hold to aim, release to throw Torch",
+      touchLabel: "Throw Torch",
     }]);
   });
 

@@ -1,6 +1,10 @@
 import type { WorldView } from "../core/types.js";
+import {
+  advanceSightElevation,
+  SIGHT_HEIGHT_EPSILON,
+  type SightElevation,
+} from "./terrainSightElevation.js";
 
-const HEIGHT_EPSILON = 1e-6;
 const CORNER_EPSILON = 1e-9;
 
 export interface SightPoint {
@@ -19,10 +23,10 @@ interface SightTraversal {
   readonly world: WorldView;
   readonly targetX: number;
   readonly targetY: number;
-  readonly fromHeight: number;
-  readonly toHeight: number;
+  readonly targetHeight: number;
   x: number;
   y: number;
+  elevation: SightElevation;
 }
 
 interface GridRay {
@@ -34,18 +38,18 @@ interface GridRay {
   nextY: number;
 }
 
-type SightCell = Readonly<{ x: number; y: number; progress: number }>;
+type SightCell = Readonly<{ x: number; y: number }>;
 
 /**
- * Returns whether a direct tile-space ray remains on traversable terrain no
- * higher than either endpoint. The endpoint rule lets enemies see one level
- * up or down, while an intervening rise still hides anything behind it.
+ * Returns whether a direct tile-space ray crosses a monotonic terrain profile.
+ * One elevation transition between endpoints is visible; a crest or dip that
+ * reverses vertical direction remains occluded.
  */
 export function hasTerrainLineOfSight(input: TerrainSight): boolean {
   const fromHeight = input.world.groundAt(input.from.x, input.from.y);
   const toHeight = input.world.groundAt(input.to.x, input.to.y);
   if (Math.abs(fromHeight - toHeight) >
-      input.maximumHeightDifference + HEIGHT_EPSILON) return false;
+      input.maximumHeightDifference + SIGHT_HEIGHT_EPSILON) return false;
   return traceSightCells(input, fromHeight, toHeight);
 }
 
@@ -71,10 +75,10 @@ function createTraversal(
     world: input.world,
     targetX: Math.floor(input.to.x),
     targetY: Math.floor(input.to.y),
-    fromHeight,
-    toHeight,
+    targetHeight: toHeight,
     x: Math.floor(input.from.x),
     y: Math.floor(input.from.y),
+    elevation: { lastHeight: fromHeight, direction: 0 },
   };
 }
 
@@ -115,7 +119,6 @@ function advanceSightRay(
   if (Math.abs(ray.nextX - ray.nextY) <= CORNER_EPSILON) {
     return crossGridCorner(traversal, ray);
   }
-  const progress = Math.min(ray.nextX, ray.nextY);
   if (ray.nextX < ray.nextY) {
     traversal.x += ray.stepX;
     ray.nextX += ray.deltaX;
@@ -126,7 +129,6 @@ function advanceSightRay(
   return sightCellIsClear(traversal, {
     x: traversal.x,
     y: traversal.y,
-    progress,
   });
 }
 
@@ -136,32 +138,32 @@ function crossGridCorner(
 ): boolean {
   const nextX = traversal.x + ray.stepX;
   const nextY = traversal.y + ray.stepY;
-  const progress = ray.nextX;
   if (!sightCellIsClear(traversal, {
     x: nextX,
     y: traversal.y,
-    progress,
-  }) || !sightCellIsClear(traversal, {
+  }, false) || !sightCellIsClear(traversal, {
     x: traversal.x,
     y: nextY,
-    progress,
-  })) return false;
+  }, false)) return false;
   traversal.x = nextX;
   traversal.y = nextY;
   ray.nextX += ray.deltaX;
   ray.nextY += ray.deltaY;
-  return sightCellIsClear(traversal, { x: nextX, y: nextY, progress });
+  return sightCellIsClear(traversal, { x: nextX, y: nextY });
 }
 
 function sightCellIsClear(
   traversal: SightTraversal,
   cell: SightCell,
+  commit = true,
 ): boolean {
-  const { x, y, progress } = cell;
-  if (x === traversal.targetX && y === traversal.targetY) return true;
-  if (!traversal.world.isWalkable(x, y)) return false;
-  const sightHeight = traversal.fromHeight +
-    (traversal.toHeight - traversal.fromHeight) * progress;
-  return traversal.world.groundAt(x + 0.5, y + 0.5) <=
-    sightHeight + HEIGHT_EPSILON;
+  const target = cell.x === traversal.targetX &&
+    cell.y === traversal.targetY;
+  if (!target && !traversal.world.isWalkable(cell.x, cell.y)) return false;
+  const height = traversal.world.groundAt(cell.x + 0.5, cell.y + 0.5);
+  const elevation = advanceSightElevation(traversal.elevation, height);
+  if (!elevation ||
+      !advanceSightElevation(elevation, traversal.targetHeight)) return false;
+  if (commit) traversal.elevation = elevation;
+  return true;
 }

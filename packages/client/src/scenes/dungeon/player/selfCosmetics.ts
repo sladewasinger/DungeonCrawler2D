@@ -73,6 +73,23 @@ export function isSelfAttacking(state: SelfCosmeticsState, nowMs: number): boole
   return nowMs < state.attackingUntilMs;
 }
 
+export interface SelfAimFacing {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Assisted modes follow movement while idle, then the captured assisted target
+ * for the short attack pulse. Desktop mouse aim remains outside this state. */
+export function assistedSelfAimFacing(
+  state: SelfCosmeticsState,
+  nowMs: number,
+): SelfAimFacing {
+  if (isSelfAttacking(state, nowMs)) {
+    return { x: state.attackDirX, y: state.attackDirY };
+  }
+  return { x: state.faceX, y: state.faceY };
+}
+
 /** Starts (or restarts) the shield-ring countdown from now. */
 export function startSelfGrace(state: SelfCosmeticsState, nowMs: number): void {
   state.graceUntilMs = nowMs + SELF_GRACE_DURATION_MS;

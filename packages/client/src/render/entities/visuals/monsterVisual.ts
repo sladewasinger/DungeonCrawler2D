@@ -3,7 +3,7 @@
 // shared combatant chrome (shadow/hp/nameplate).
 import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
-import { resolveAnimState, telegraphScale, telegraphTint } from "../motion/animState.js";
+import { resolveAnimState, telegraphScale } from "../motion/animState.js";
 import { createHpBar, HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "../presentation/hpBar.js";
 import { resolveHpBarVisibility } from "../presentation/hpBarVisibility.js";
 import { flashIntensity, tookDamage } from "../combat/hitFlash.js";
@@ -11,7 +11,11 @@ import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
 import { createNameplate, LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "../presentation/nameplate.js";
 import { createShadow, updateShadowPosition } from "../geometry/shadow.js";
 import type { MonsterVisual } from "./state.js";
-import { compositeStatusTint, statusTintFor } from "../combat/statusTint.js";
+import {
+  applyCombatantTint,
+  resolveCombatantTint,
+  resolveCombatantTintLayer,
+} from "../combat/statusTint.js";
 import type { MonsterEntityView, RenderContext } from "./view.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
 
@@ -76,37 +80,19 @@ function startsTelegraph(animation: MonsterEntityView["anim"]): boolean {
 function applyMonsterPresentation(visual: MonsterVisual, telegraph: ReturnType<typeof resolveAnimState>["telegraph"], ctx: RenderContext): void {
   const telegraphElapsed = ctx.nowMs - (visual.telegraphStartMs ?? ctx.nowMs);
   visual.body.setScale(WORLD_PIXEL_SCALE * telegraphScale(telegraph, telegraphElapsed));
-  if (applyMonsterFlash(visual, ctx.nowMs)) return;
-  applyMonsterBaseTint(visual, telegraph, ctx.nowMs);
+  const damageFlashing = monsterDamageFlashing(visual, ctx.nowMs);
+  const layer = resolveCombatantTintLayer(damageFlashing, "normal", telegraph !== "none");
+  applyCombatantTint(
+    visual.body,
+    resolveCombatantTint(visual.lastFx, ctx.nowMs, layer),
+  );
 }
 
-function applyMonsterFlash(visual: MonsterVisual, nowMs: number): boolean {
+function monsterDamageFlashing(visual: MonsterVisual, nowMs: number): boolean {
   const flashElapsed = visual.hitFlashStartMs === undefined ? Infinity : nowMs - visual.hitFlashStartMs;
-  if (flashIntensity(flashElapsed) > 0) {
-    setTintFill(visual.body, 0xffffff);
-    return true;
-  }
+  if (flashIntensity(flashElapsed) > 0) return true;
   if (flashElapsed >= 0) visual.hitFlashStartMs = undefined;
   return false;
-}
-
-function applyMonsterBaseTint(
-  visual: MonsterVisual,
-  telegraph: ReturnType<typeof resolveAnimState>["telegraph"],
-  nowMs: number,
-): void {
-  const glow = telegraphTint(telegraph);
-  const status = statusTintFor(visual.lastFx, nowMs);
-  if (glow !== null) visual.body.setTint(glow);
-  else if (status) visual.body.setTint(compositeStatusTint(status));
-  else visual.body.clearTint();
-}
-
-/** Phaser 4 split tint color and mode; the optional call keeps headless visual
- * tests and non-WebGL renderers compatible without importing Phaser at module load. */
-function setTintFill(sprite: Phaser.GameObjects.Sprite, color: number): void {
-  sprite.setTint(color);
-  (sprite as unknown as { setTintMode?: (mode: number) => void }).setTintMode?.(1);
 }
 
 /** Shadow, hp bar, nameplate — everything that hangs off the body's screen position.

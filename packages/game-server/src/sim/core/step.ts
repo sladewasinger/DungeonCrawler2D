@@ -15,7 +15,7 @@ import { stepFoodAttendantDialogs } from "../npcs/foodAttendant/index.js";
 import { stepPets } from "../pets/index.js";
 import { applyGodMode, reapAndRespawn, stepPlayers } from "../players/players.js";
 import { stepProjectiles } from "../projectiles/index.js";
-import { syncSafeRoomDoors } from "./safeRoomDoors.js";
+import { syncWorldFeatureOverrides } from "./worldFeatureOverrides.js";
 import { expireInvites } from "../social/social.js";
 import { maintainSpawnClearance } from "../spawnSafety/spawnSafety.js";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "../progression/statuses.js";
@@ -35,7 +35,7 @@ export function advanceSimTick(sim: SimState): void {
 
 function prepareSimTick(sim: SimState, effectEvents: EffectEvent[]): void {
   reapAndRespawn(sim);
-  syncSafeRoomDoors(sim);
+  syncWorldFeatureOverrides(sim);
   stepPlayers(sim, effectEvents);
   processActions(sim, effectEvents);
   stepMiniBossArenaBoundaries(sim);

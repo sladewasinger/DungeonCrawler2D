@@ -38,7 +38,7 @@ describe("contextual tutorials", () => {
     advanceTutorials(state, snapshot());
     expect(advanceTutorials(state, snapshot({ selectedSlot: 0 }))).toEqual([{
       id: "throwable",
-      text: "Press [G] to throw the selected item.",
+      text: "Hold [G] to aim; release to throw the selected item.",
       persistent: true,
     }]);
     expect(advanceTutorials(state, snapshot({ selectedSlot: 0 }))).toEqual([]);

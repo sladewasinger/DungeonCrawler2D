@@ -1,4 +1,4 @@
-// Pure state machine for the Q/E ~250ms rotation tween (brief's step 3, "game rotation
+// Pure state machine for the Z/X ~250ms rotation tween (brief's step 3, "game rotation
 // UX"). Owns only the numbers — no Phaser, no scene wiring — so scenes/HUD can drive it
 // from their own update loop and tests can advance it in fixed steps without a renderer.
 import { rotateOrientation, wrapDegrees, type ViewOrientation } from "./viewOrientation.js";

@@ -36,7 +36,7 @@ export function buildRenderContext(source: RenderContextSource): RenderContext {
 }
 
 export function selfPlayerView(source: SelfPlayerViewSource): PlayerEntityView {
-  const { pose, vitals, cosmetics, nowMs, weaponAimAngle, target } = source;
+  const { pose, vitals, cosmetics, nowMs, weaponAimAngle, assistedAim, target } = source;
   const view = target ?? {} as PlayerEntityView;
   view.id = pose.id; view.playerId = pose.id;
   view.skin = pose.skin;
@@ -57,6 +57,7 @@ export function selfPlayerView(source: SelfPlayerViewSource): PlayerEntityView {
   view.blocking = vitals.blocking;
   view.weaponId = vitals.weaponId;
   view.weaponAimAngle = weaponAimAngle;
+  view.assistedAim = assistedAim;
   view.attackAngleRad = Math.atan2(cosmetics.attackDirY, cosmetics.attackDirX);
   return view;
 }

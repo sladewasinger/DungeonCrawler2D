@@ -4,9 +4,17 @@ import { CHUNK_SIZE, TILE } from "../../core/types.js";
 import { World } from "../../core/world.js";
 import {
   miniBossArenaForChunk,
+  miniBossArenaIsStamped,
   type MiniBossArenaSite,
 } from "./miniBossArena.js";
 import { applyMiniBossArena } from "./miniBossArenaStamp.js";
+import { assertEnlargedArena } from "./miniBossArenaTestAssertions.js";
+
+const REPRESENTATIVE_SEEDS = [
+  "ordinary-mini-boss-arena",
+  "arena-platform-invariants",
+  "arena-enclosure-invariants",
+] as const;
 
 interface LocatedArena {
   readonly world: World;
@@ -23,25 +31,29 @@ function locateArena(seedText: string): LocatedArena {
         cx,
         cy,
       });
-      if (site) return { world, site };
+      if (site && miniBossArenaIsStamped(world, site)) {
+        return { world, site };
+      }
     }
   }
   throw new Error("test seed produced no ordinary mini-boss arena");
 }
 
 describe("ordinary mini-boss arena generation", () => {
-  it("stamps deterministic two-high walls and one to three feature gates", () => {
-    const { world, site } = locateArena("ordinary-mini-boss-arena");
-    const repeat = miniBossArenaForChunk({
-      worldSeed: world.worldSeed,
-      floor: world.floor,
-      ...site.chunk,
-    });
-    expect(repeat).toEqual(site);
-    expect(site.gates.length).toBeGreaterThanOrEqual(1);
-    expect(site.gates.length).toBeLessThanOrEqual(3);
-    assertArenaGeometry(world, site);
-  });
+  it.each(REPRESENTATIVE_SEEDS)(
+    "stamps a deterministic enlarged enclosed arena for %s",
+    (seedText) => {
+      const { world, site } = locateArena(seedText);
+      const repeat = miniBossArenaForChunk({
+        worldSeed: world.worldSeed,
+        floor: world.floor,
+        ...site.chunk,
+      });
+      expect(repeat).toEqual(site);
+      assertEnlargedArena(world, site);
+      assertArenaGeometry(world, site);
+    },
+  );
 
   it("does not place ordinary arenas on the final boss floor", () => {
     expect(miniBossArenaForChunk({
@@ -93,9 +105,25 @@ function assertArenaCell(input: ArenaCellAssertion): void {
   const { world, site, x, y } = input;
   const gate = arenaHasGate(site, x, y);
   const sealedWall = arenaBoundaryContains(site, x, y) && !gate;
-  expect(world.heightAt(x, y)).toBe(sealedWall ? 2 : 0);
+  const platformHeight = arenaPlatformHeightAt(site, x, y);
+  const expectedHeight = sealedWall ? 2 : platformHeight;
+  expect(world.heightAt(x, y)).toBe(expectedHeight);
   expect(world.tileAt(x, y)).toBe(expectedArenaTile(gate, sealedWall));
   expect(world.featureAt(x, y)).toBe(gate ? TILE.ArenaGate : TILE.Floor);
+  expect(world.isWalkable(x, y)).toBe(!gate && !sealedWall);
+}
+
+function arenaPlatformHeightAt(
+  site: MiniBossArenaSite,
+  x: number,
+  y: number,
+): number {
+  const platform = site.platforms.find((spot) =>
+    spot.x === x &&
+    y >= spot.y &&
+    y < spot.y + spot.screenDepthTiles
+  );
+  return platform?.height ?? 0;
 }
 
 function expectedArenaTile(gate: boolean, sealedWall: boolean): number {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Connection } from "../../../net/connection/connection.js";
 import {
+  assistedSelfAimFacing,
   consumeRespawnGrace,
   createSelfCosmeticsState,
   endSelfGrace,
@@ -75,6 +76,14 @@ describe("attack pulse", () => {
     triggerSelfAttack(state, { nowMs: 1000, dirX: 0, dirY: -1 });
     expect(state.attackDirX).toBe(0);
     expect(state.attackDirY).toBe(-1);
+  });
+
+  it("presents movement-facing until an assisted attack captures a target", () => {
+    const state = createSelfCosmeticsState();
+    updateSelfFacing(state, { moveX: 1, moveY: 0 });
+    expect(assistedSelfAimFacing(state, 900)).toEqual({ x: 1, y: 0 });
+    triggerSelfAttack(state, { nowMs: 1000, dirX: -1, dirY: 0 });
+    expect(assistedSelfAimFacing(state, 1000)).toEqual({ x: -1, y: 0 });
   });
 });
 

@@ -3,6 +3,7 @@ import {
   miniBossArenaForChunk,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
+import { syncWorldFeatureOverrides } from "../../core/worldFeatureOverrides.js";
 import { spawnEnemy } from "../../core/helpers.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { clearMiniBossArena } from "./runtime.js";
@@ -29,9 +30,12 @@ export function handleMiniBossEnemyDeath(
   enemy: EnemySlot,
 ): void {
   const arenaKey = enemy.arenaKey;
-  if (!arenaKey || encounterExists(sim, arenaKey)) return;
+  if (!arenaKey || enemy.def.id !== ORC_WARLORD ||
+      sim.defeatedMiniBossArenas.has(arenaKey)) return;
   sim.defeatedMiniBossArenas.add(arenaKey);
   clearMiniBossArena(sim, arenaKey);
+  endArenaEnemyConstraints(sim, arenaKey);
+  syncWorldFeatureOverrides(sim);
 }
 
 export function spawnMiniBossEncounter(
@@ -83,6 +87,14 @@ function encounterExists(sim: SimState, arenaKey: string): boolean {
   return [...sim.enemies.values()].some((enemy) =>
     enemy.arenaKey === arenaKey
   );
+}
+
+function endArenaEnemyConstraints(sim: SimState, arenaKey: string): void {
+  for (const enemy of sim.enemies.values()) {
+    if (enemy.arenaKey !== arenaKey) continue;
+    delete enemy.arenaKey;
+    delete enemy.home;
+  }
 }
 
 function encounterSpots(

@@ -40,6 +40,15 @@
     "whileActive": [{ "primitive": "modify_stat", "stat": "speed", "mult": 0.6 }]
   },
   {
+    "id": "oiled",
+    "name": "Oiled",
+    "kind": "debuff",
+    "tags": ["oil", "slow"],
+    "duration": 4,
+    "stacking": "refresh",
+    "whileActive": [{ "primitive": "modify_stat", "stat": "speed", "mult": 0.6 }]
+  },
+  {
     "id": "wet",
     "name": "Wet",
     "kind": "debuff",

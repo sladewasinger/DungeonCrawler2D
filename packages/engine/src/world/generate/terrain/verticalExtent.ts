@@ -13,6 +13,11 @@ import { TILE, TOPOLOGY } from "../../core/types.js";
 const HEIGHT_EPS = 0.01;
 const MAX_PASSES = 4;
 
+/** Minimum north-to-south floor span that can visually support a raised cap. */
+export function minimumRaisedSurfaceDepth(height: number): number {
+  return Math.max(1, Math.round(height) + 1);
+}
+
 interface HeightGrid {
   tiles: Uint8Array;
   height: Float32Array;
@@ -150,7 +155,8 @@ function resolveShallowPlateausColumn({ tiles, height, chunkSize, x }: HeightGri
 
 function capShallowRun({ tiles, height, chunkSize, x, run }: HeightGrid & { x: number; run: { y: number; y2: number; h: number } }): boolean {
   const depth = run.y2 - run.y + 1;
-  if (depth >= run.h + 1 || !dropsToOpenGround({ tiles, height, chunkSize, x, y2: run.y2, h: run.h })) return false;
+  if (depth >= minimumRaisedSurfaceDepth(run.h) ||
+      !dropsToOpenGround({ tiles, height, chunkSize, x, y2: run.y2, h: run.h })) return false;
   const capped = Math.max(0, depth - 1);
   for (let y = run.y; y <= run.y2; y++) height[y * chunkSize + x] = capped;
   return true;

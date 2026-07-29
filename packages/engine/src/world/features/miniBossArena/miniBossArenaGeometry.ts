@@ -8,6 +8,7 @@ import type {
   MiniBossArenaGate,
   MiniBossArenaSite,
 } from "./miniBossArena.js";
+import { miniBossArenaPlatforms } from "./miniBossArenaPlatforms.js";
 
 const TUNING = WORLD_GENERATION_TUNING.miniBossArena;
 const GATE_SALT = 0x6a7e;
@@ -17,8 +18,10 @@ export function arenaBoundsForChunk(
   roll: number,
 ): MiniBossArenaBounds | null {
   const span = TUNING.outerSpan;
+  const requiredSpan = span + TUNING.gateApproachMargin * 2;
   const rooms = populationRoomsForChunk(chunk).filter((room) =>
-    room.x1 - room.x0 + 1 >= span && room.y1 - room.y0 + 1 >= span
+    room.x1 - room.x0 + 1 >= requiredSpan &&
+    room.y1 - room.y0 + 1 >= requiredSpan
   );
   if (rooms.length === 0) return null;
   const room = rooms[roll % rooms.length];
@@ -49,6 +52,7 @@ export function buildMiniBossArenaSite(
     interior: inset(bounds),
     center,
     gates: chooseGates({ chunk, bounds, center }),
+    platforms: miniBossArenaPlatforms(chunk, center),
   };
 }
 

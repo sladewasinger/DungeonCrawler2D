@@ -1,4 +1,13 @@
 import type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
+import {
+  isEntityVisibleFromRoom,
+  type RoomEntityVisibility,
+} from "./roomEntityVisibility.js";
+
+export type EntityBucketViewpoint = Pick<
+  RoomEntityVisibility,
+  "viewerX" | "viewerY"
+>;
 
 export interface FrameEntityBuckets {
   readonly players: InterpolatedEntity[];
@@ -30,10 +39,25 @@ export function createFrameEntityBuckets(): FrameEntityBuckets {
 export function bucketFrameEntities(
   entities: readonly InterpolatedEntity[],
   buckets: FrameEntityBuckets,
+  viewpoint: EntityBucketViewpoint,
 ): FrameEntityBuckets {
   clearBuckets(buckets);
-  for (const entity of entities) bucketEntity(buckets, entity);
+  for (const entity of entities) {
+    if (!isVisibleEntity(viewpoint, entity)) continue;
+    bucketEntity(buckets, entity);
+  }
   return buckets;
+}
+
+function isVisibleEntity(
+  viewpoint: EntityBucketViewpoint,
+  entity: InterpolatedEntity,
+): boolean {
+  return isEntityVisibleFromRoom({
+    ...viewpoint,
+    entityX: entity.x,
+    entityY: entity.y,
+  });
 }
 
 function bucketEntity(buckets: FrameEntityBuckets, entity: InterpolatedEntity): void {

@@ -46,7 +46,10 @@ export function syncEntities(context: FrameSyncContext): EntitySyncResult {
   const { scene, conn, entityRenderer, vfx, terrain, inputController, state, torchSyncState, partyIds, nowMs, dtSeconds, render } = context;
   if (!conn.world || !conn.welcome || !conn.body) return { interactionPrompt: null, torchAccentLights: [] };
   const interpolated = conn.interpolated();
-  const buckets = bucketFrameEntities(interpolated, state.entityBuckets);
+  const buckets = bucketFrameEntities(interpolated, state.entityBuckets, {
+    viewerX: render.x,
+    viewerY: render.y,
+  });
   const renderContext = buildRenderContext({
     world: conn.world, nowMs, dtSeconds, selfX: render.x, selfY: render.y,
     partyIds, target: state.renderContext ?? undefined,

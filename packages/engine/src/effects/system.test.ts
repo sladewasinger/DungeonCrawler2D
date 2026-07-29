@@ -22,6 +22,7 @@ const FIXTURE: RawContent = {
     { id: "poisoned", name: "Poisoned", kind: "debuff", tags: ["poison"], duration: 10, tickEvery: 2, stacking: "refresh", onTick: [{ primitive: "modify_health", amount: -1 }] },
     { id: "on-fire", name: "On Fire", kind: "debuff", tags: ["fire"], duration: 5, tickEvery: 1, stacking: "refresh", appliesTags: ["burning"], onTick: [{ primitive: "modify_health", amount: -3 }] },
     { id: "slowed", name: "Slowed", kind: "debuff", tags: ["slow"], duration: 4, stacking: "refresh", whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.6 }] },
+    { id: "oiled", name: "Oiled", kind: "debuff", tags: ["oil", "slow"], duration: 4, stacking: "refresh", whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.6 }] },
     { id: "wet", name: "Wet", kind: "debuff", tags: ["wet"], duration: 6, stacking: "refresh", appliesTags: ["wet"], whileActive: [{ primitive: "modify_stat", stat: "speed", mult: 0.85 }] },
     { id: "bandaged", name: "Bandaged", kind: "buff", tags: ["heal"], duration: 1, stacking: "refresh", onApply: [{ primitive: "modify_health", amount: 4 }, { primitive: "remove_status", tag: "bleed" }] },
   ],
@@ -126,6 +127,17 @@ describe("effects engine", () => {
     engine.applyStatus({ entity: target, statusId: "slowed", events }); // ×0.6
     engine.applyStatus({ entity: target, statusId: "wet", events }); // ×0.85
     expect(engine.speedMult(target)).toBeCloseTo(0.6 * 0.85, 5);
+  });
+
+  it("oiled preserves oil's authored slowdown and refresh duration", () => {
+    const engine = makeEngine();
+    const target = player();
+    const events: EffectEvent[] = [];
+    engine.applyStatus({ entity: target, statusId: "oiled", events });
+    expect(engine.speedMult(target)).toBeCloseTo(0.6, 5);
+    engine.tick({ entity: target, dt: 2, events });
+    engine.applyStatus({ entity: target, statusId: "oiled", events });
+    expect(target.statuses.find((status) => status.defId === "oiled")?.remaining).toBe(4);
   });
 
   it("bandage heals and strips bleeding via remove_status", () => {

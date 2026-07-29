@@ -90,6 +90,12 @@
   pointer-events: auto;
 }
 
+.hud-window--content-only .hud-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
 .hud-window__resize-grip { position: absolute; right: 0; bottom: 0; width: 44px; height: 44px; display: none; z-index: 2; pointer-events: auto; touch-action: none; cursor: nwse-resize; background: linear-gradient(135deg, transparent 48%, rgb(235 225 180 / 82%) 49%, rgb(235 225 180 / 82%) 53%, transparent 54%), linear-gradient(135deg, transparent 64%, rgb(235 225 180 / 82%) 65%, rgb(235 225 180 / 82%) 69%, transparent 70%); }
 
 .hud-panel__header {

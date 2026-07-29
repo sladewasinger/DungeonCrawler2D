@@ -14,11 +14,17 @@ import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
 import { stepOrbitAngle } from "../motion/weaponOrbit.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
-import { updatePlayerReviveRing } from "../player/playerReviveRing.js";
 import { updatePlayerChrome } from "../player/playerChrome.js";
 import { createHeldWeapon, updatePlayerWeapon } from "../player/playerWeaponVisual.js";
+import { playerFacesLeft } from "../player/playerFacing.js";
+import {
+  applyCombatantTint,
+  resolveCombatantTint,
+  resolveCombatantTintLayer,
+  type CombatantStateVisual,
+} from "../combat/statusTint.js";
 
-const DOWNED_TINT = 0x7a3d3d; const DISCONNECTED_TINT = 0x55555a; const DOWNED_ANGLE = 78;
+const DOWNED_ANGLE = 78;
 /** Epic 7.12: no dedicated run frames exist, so running plays the same walk loop
  * faster instead — see playerMotion.ts's isRunningPace doc comment. */
 const RUN_ANIM_TIMESCALE = 1.35;
@@ -30,7 +36,6 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     body,
     weapon: createHeldWeapon(scene, 0),
     guardCone: scene.add.graphics(),
-    reviveRing: scene.add.graphics(),
     shadow: createShadow(scene, 0),
     hpBar: createHpBar(scene, 0),
     nameplate: createNameplate(scene, 0),
@@ -77,8 +82,7 @@ function positionPlayerBody({ visual, view, heightAboveGround }: Omit<PlayerBody
   // exactly on it — see lift.ts's module doc.
   visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
-  updatePlayerReviveRing(visual.reviveRing, visual.body, view);
-  visual.body.setFlipX(playerFacesLeft(visual, view));
+  visual.body.setFlipX(playerFacesLeft(visual.weaponAngle, view));
 }
 
 function updatePlayerAnimation({ visual, skinPrefix, view, context }: Omit<PlayerBodyUpdate, "heightAboveGround">): void {
@@ -124,29 +128,19 @@ function applyLandingSquash(visual: PlayerVisual, airborne: boolean, nowMs: numb
 }
 
 function applyPlayerTint(visual: PlayerVisual, view: PlayerEntityView, ctx: RenderContext): void {
-  const fixedTint = playerStateTint(view);
-  if (fixedTint !== null) return void visual.body.setTint(fixedTint);
   const elapsed = visual.hitFlashStartMs === undefined ? Infinity : ctx.nowMs - visual.hitFlashStartMs;
-  if (flashIntensity(elapsed) > 0) return setTintFill(visual.body, 0xffffff);
-  visual.body.clearTint();
-  if (elapsed >= 0) visual.hitFlashStartMs = undefined;
+  const damageFlashing = flashIntensity(elapsed) > 0;
+  const layer = resolveCombatantTintLayer(damageFlashing, playerStateVisual(view), false);
+  applyCombatantTint(
+    visual.body,
+    resolveCombatantTint(view.fx, ctx.nowMs, layer),
+  );
+  if (!damageFlashing && elapsed >= 0) visual.hitFlashStartMs = undefined;
 }
 
-function playerStateTint(view: PlayerEntityView): number | null {
-  if (view.disconnected) return DISCONNECTED_TINT;
-  return view.downed ? DOWNED_TINT : null;
-}
-
-function setTintFill(sprite: Phaser.GameObjects.Sprite, color: number): void {
-  sprite.setTint(color);
-  (sprite as unknown as { setTintMode?: (mode: number) => void }).setTintMode?.(1);
-}
-
-function playerFacesLeft(visual: PlayerVisual, view: PlayerEntityView): boolean {
-  if (view.weaponId === null || view.weaponAimAngle === null) {
-    return view.faceX < 0;
-  }
-  return Math.cos(visual.weaponAngle) < 0;
+function playerStateVisual(view: PlayerEntityView): CombatantStateVisual {
+  if (view.disconnected) return "disconnected";
+  return view.downed ? "downed" : "normal";
 }
 
 /** Advances one player's full visual for a fresh snapshot sample. */

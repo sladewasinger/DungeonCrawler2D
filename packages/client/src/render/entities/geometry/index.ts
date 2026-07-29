@@ -15,6 +15,8 @@ import { monsterSpriteFor, playerSkinFor } from "../visuals/spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "../visuals/state.js";
 import { createTorchVisual, updateTorchVisual } from "../visuals/torchEntityVisual.js";
 import type { ItemEntityView, MonsterEntityView, PetEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "../visuals/view.js";
+import { PhaserStatusVisualRig } from "../status/entityStatusRig.js";
+import { EntityStatusVisualPool } from "../status/entityStatusVisualPool.js";
 
 export type { RenderContext, PlayerEntityView, MonsterEntityView, PetEntityView, ItemEntityView, ProjectileEntityView, TorchEntityView } from "../visuals/view.js";
 
@@ -22,19 +24,41 @@ export class EntityRenderer {
   private readonly visuals = new Map<string, EntityVisual>();
   private readonly seen = new Set<string>();
   private readonly rooms: RoomPresentation;
+  private readonly statusVisuals: EntityStatusVisualPool;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.rooms = new RoomPresentation(scene);
+    this.statusVisuals = new EntityStatusVisualPool(
+      (_seed, budget) => new PhaserStatusVisualRig(scene, budget),
+    );
   }
 
   syncRoom(conn: Connection, nowMs: number): void {
     this.rooms.sync(conn, nowMs);
   }
 
+  syncCombatants(
+    players: readonly PlayerEntityView[],
+    monsters: readonly MonsterEntityView[],
+    ctx: RenderContext,
+  ): void {
+    this.statusVisuals.beginFrame(ctx.nowMs);
+    this.syncPlayerViews(players, ctx);
+    this.syncMonsterViews(monsters, ctx);
+    this.statusVisuals.endFrame();
+  }
+
   syncPlayers(views: readonly PlayerEntityView[], ctx: RenderContext): void {
+    this.statusVisuals.beginFrame(ctx.nowMs);
+    this.syncPlayerViews(views, ctx);
+    this.statusVisuals.endFrame();
+  }
+
+  private syncPlayerViews(views: readonly PlayerEntityView[], ctx: RenderContext): void {
     const seen = this.stepKind(views, (view) => {
       const visual = this.getOrCreate(view.id, "player", () => createPlayerVisual(this.scene, ctx.nowMs));
       updatePlayerVisual({ visual, skinPrefix: playerSkinFor(view.playerId, view.skin), view, context: ctx });
+      this.statusVisuals.syncEntity(view.id, visual, view);
     }, shouldRenderLivePlayer);
     this.gc(seen, "player");
   }
@@ -46,9 +70,16 @@ export class EntityRenderer {
   }
 
   syncMonsters(views: readonly MonsterEntityView[], ctx: RenderContext): void {
+    this.statusVisuals.beginFrame(ctx.nowMs);
+    this.syncMonsterViews(views, ctx);
+    this.statusVisuals.endFrame();
+  }
+
+  private syncMonsterViews(views: readonly MonsterEntityView[], ctx: RenderContext): void {
     const seen = this.stepKind(views, (view) => {
       const visual = this.getOrCreate(view.id, "enemy", () => createMonsterVisual(this.scene, monsterSpriteFor(view.defId)));
       updateMonsterVisual(visual, view, ctx);
+      this.statusVisuals.syncEntity(view.id, visual, view);
     });
     this.gc(seen, "enemy");
   }
@@ -122,6 +153,7 @@ export class EntityRenderer {
 
   dispose(): void {
     this.rooms.dispose();
+    this.statusVisuals.dispose();
     for (const visual of this.visuals.values()) destroyEntityVisual(visual);
     this.visuals.clear();
   }

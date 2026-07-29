@@ -65,6 +65,7 @@ function createEnemySlot(input: EnemySlotInput): EnemySlot {
     entity,
     brain: newBrain(),
     def,
+    rememberedRoute: null,
     ...(home ? { home } : {}),
     ...(arenaKey ? { arenaKey } : {}),
     animation: { state: "idle", ticksRemaining: 0 },

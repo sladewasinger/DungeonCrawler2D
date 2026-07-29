@@ -27,6 +27,8 @@ export function applyMiniBossArena(
       stampArenaCell({ context, site, worldX: x, worldY: y });
     }
   }
+  for (const gate of site.gates) stampGateApproach(context, gate);
+  for (const platform of site.platforms) stampPlatform(context, platform);
   for (const gate of site.gates) stampGate(context, gate);
   return site;
 }
@@ -41,7 +43,11 @@ function footprintHasAuthoredFeature(
       if (context.featureTiles[index] !== TILE.Floor) return true;
     }
   }
-  return false;
+  return site.gates.some((gate) => {
+    const point = gateOutsideTile(gate);
+    return context.featureTiles[localIndex(context, point.x, point.y)] !==
+      TILE.Floor;
+  });
 }
 
 interface ArenaCellStamp {
@@ -71,6 +77,46 @@ function stampGate(
   context.featureTiles[index] = TILE.ArenaGate;
   context.featureFaces[index] = gate.featureFace;
   context.featureHeight[index] = 0;
+}
+
+function stampGateApproach(
+  context: MiniBossArenaStamp,
+  gate: MiniBossArenaSite["gates"][number],
+): void {
+  const point = gateOutsideTile(gate);
+  const index = localIndex(context, point.x, point.y);
+  context.tiles[index] = TILE.Floor;
+  context.height[index] = 0;
+  clearFeature(context, index);
+}
+
+function gateOutsideTile(
+  gate: MiniBossArenaSite["gates"][number],
+): { readonly x: number; readonly y: number } {
+  return {
+    x: Math.floor(gate.outside.x),
+    y: Math.floor(gate.outside.y),
+  };
+}
+
+function stampPlatform(
+  context: MiniBossArenaStamp,
+  platform: MiniBossArenaSite["platforms"][number],
+): void {
+  for (let dy = 0; dy < platform.screenDepthTiles; dy++) {
+    stampPlatformCell(context, platform, platform.y + dy);
+  }
+}
+
+function stampPlatformCell(
+  context: MiniBossArenaStamp,
+  platform: MiniBossArenaSite["platforms"][number],
+  worldY: number,
+): void {
+  const index = localIndex(context, platform.x, worldY);
+  context.tiles[index] = TILE.Floor;
+  context.height[index] = platform.height;
+  clearFeature(context, index);
 }
 
 function clearFeature(context: MiniBossArenaStamp, index: number): void {

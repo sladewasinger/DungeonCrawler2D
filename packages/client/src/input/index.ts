@@ -1,17 +1,18 @@
 /** Wires keyboard, mouse, and touch events to server-authoritative intents. */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
-import { interactOrUse, throwPreviewTarget, throwSelected } from "./gameplay/gameplayActions.js";
+import { interactOrUse } from "./gameplay/gameplayActions.js";
 import { createKeys } from "./controls/keys.js";
-import { activeThrowableSlot, throwPreview as resolveThrowPreview } from "./gameplay/hotbar.js";
 import { LifeGestures } from "./gestures/lifeGestures.js";
 import { bindControllerEvents } from "./bindings/controllerEvents.js";
 import { FistbumpGesture } from "./holds/fistbumpGesture.js";
+import { ThrowAimController } from "./holds/throwAimController.js";
 import { inputModality, type InputModality } from "./controls/inputModality.js";
 import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./controls/state.js";
 import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
 import { readCurrentInput } from "./movement/readCurrentInput.js";
 import { attackInKidMode, createKidModeState } from "./controls/kidMode.js";
+import { assistedAimActive } from "./actions/assistedAim.js";
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
 
@@ -29,6 +30,7 @@ export class InputController {
   private readonly state: InputState;
   private readonly touch: TouchInputState = createTouchInputState();
   private readonly fistbump = new FistbumpGesture();
+  private readonly throwAim: ThrowAimController;
   /** Hold-E revive gesture (Epic 7.12) — gated by a downed party member in range. */
   private readonly lifeGestures = new LifeGestures();
   /** Cached projection of the shared observable, updated only by applyModality. */
@@ -48,6 +50,10 @@ export class InputController {
     this.scene = scene; this.queries = queries; this.tilePx = tilePx;
     const { keys, cursors } = createKeys(scene);
     this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null, kidMode: createKidModeState() };
+    this.throwAim = new ThrowAimController({
+      scene, conn, queries, state: this.state, touch: this.touch,
+      touchActive: () => this.touchActive, tilePx,
+    });
     this.configureEvents({ scene, conn, panels, hud, queries, hooks, tilePx });
   }
 
@@ -64,29 +70,19 @@ export class InputController {
       touch: this.touch,
       tilePx,
       touchActive: () => this.touchActive,
-      onGod: () => this.handleGDown(),
+      onThrowAimStart: () => this.throwAim.beginKeyboardAim(),
+      onThrowAimRelease: (allowThrow) => this.throwAim.releaseKeyboardAim(allowThrow),
       onInteract: () => this.handleInteractDown(),
       onInteractReleased: () => this.lifeGestures.endInteract(this.conn, scene.time.now),
       onBandageDown: () => this.fistbump.down(this.scene.time.now),
       onBandageUp: () => this.fistbump.release(conn, queries, this.scene.time.now),
       onContextAction: () => this.handleInteractDown("pickup"),
-      onThrowSelected: () => this.throwSelectedTouch(),
+      onThrowSelected: () => this.throwAim.throwFromTouch(),
       onKidAttack: () => attackInKidMode({ state: this.state, conn, queries, hooks, nowMs: performance.now() }),
       onMovementEdge: () => this.sendCurrentMovementEdge(),
       onModality: (mode) => this.applyModality(mode),
     });
     scene.events.once("shutdown", this.stopModality);
-  }
-
-  /** [G] is a localhost/dev convenience when no hotbar slot is armed. A selected
-   * slot retains the existing throw action, and production bundles never expose
-   * the shortcut; the server-side /god command remains unchanged. */
-  private handleGDown(): void {
-    if (import.meta.env.DEV && this.state.selectedSlot === null) {
-      this.conn.debugGod?.();
-      return;
-    }
-    throwSelected({ scene: this.scene, conn: this.conn, queries: this.queries, state: this.state, touch: this.touch, touchActive: this.touchActive, tilePx: this.tilePx });
   }
 
   /** [E]: a nearby stairway (Epic 7.14) takes priority and sends descend() instead;
@@ -169,20 +165,11 @@ export class InputController {
     return true;
   }
 
-  private throwSelectedTouch(): void {
-    throwSelected({ scene: this.scene, conn: this.conn, queries: this.queries, state: this.state, touch: this.touch, touchActive: true, tilePx: this.tilePx });
-  }
-
-  /** Current armed-throw trajectory preview, for the scene to render, or null. */
-  throwPreview(): ThrowPreview | null {
-    const pointerWorld = throwPreviewTarget({
-      scene: this.scene, conn: this.conn, state: this.state, tilePx: this.tilePx,
-    });
-    return resolveThrowPreview({ state: this.state, conn: this.conn, queries: this.queries, pointerWorld });
-  }
+  /** Current held-G trajectory preview, resolved identically to the release action. */
+  throwPreview(): ThrowPreview | null { return this.throwAim.preview(); }
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
-  armedThrowableSlot(): number | null { return activeThrowableSlot(this.state, this.conn, this.queries); }
+  armedThrowableSlot(): number | null { return this.throwAim.armedSlot(); }
 
   /** Hotbar slot selected by keyboard/touch, regardless of its item category. */
   selectedHotbarSlot(): number | null { return this.state.selectedSlot; }
@@ -190,7 +177,8 @@ export class InputController {
   setHotbarSlot(index: number | null): void { this.state.selectedSlot = index; }
 
   /** Live joystick/button state for the touch HUD widgets to render, or null when touch isn't active. */
-  touchVisual(): TouchVisualSnapshot | null {
-    return this.touchActive ? touchVisualSnapshot(this.touch) : null;
-  }
+  touchVisual(): TouchVisualSnapshot | null { return this.touchActive ? touchVisualSnapshot(this.touch) : null; }
+
+  /** True when aim presentation follows movement and assisted attacks instead of the mouse. */
+  usesAssistedAim(): boolean { return assistedAimActive(this.touchActive, this.state.kidMode.active); }
 }

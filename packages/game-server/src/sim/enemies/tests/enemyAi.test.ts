@@ -1,59 +1,22 @@
-import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
-import { buildContentRegistry, createBody, hashString, LEVEL, makeEntity, TILE, World, type EffectEvent } from "@dc2d/engine";
+import { TILE, type EffectEvent } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
-import { PlayerStore } from "../../../store.js";
 import { spawnEnemy } from "../../core/helpers.js";
-import { createSimState, type PlayerSlot, type SimState } from "../../state/state.js";
+import type { PlayerSlot, SimState } from "../../state/state.js";
 import { stepEnemies } from "../index.js";
-
-const content = buildContentRegistry({
-  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData],
-  items: [...itemsData], enemies: [...enemiesData], recipes: [...recipesData],
-});
-
-function findOpenFloor(sim: SimState): { x: number; y: number } {
-  for (let radius = 0; radius < 64; radius++) {
-    const floor = perimeterTiles(radius).find((tile) => isOpenFloor(sim, tile));
-    if (floor) return { x: floor.x + 0.5, y: floor.y + 0.5 };
-  }
-  throw new Error("no open floor found near (200, 200)");
-}
-
-function perimeterTiles(radius: number): Array<{ x: number; y: number }> {
-  const tiles: Array<{ x: number; y: number }> = [];
-  for (let offset = -radius; offset <= radius; offset++) {
-    tiles.push({ x: 200 + offset, y: 200 - radius }, { x: 200 + offset, y: 200 + radius });
-  }
-  return tiles;
-}
-
-function isOpenFloor(sim: SimState, tile: { x: number; y: number }): boolean {
-  return Array.from({ length: 5 }, (_, offset) => tile.x + offset).every((x) =>
-    sim.world.isWalkable(x, tile.y) && !sim.world.isSanctuary(x, tile.y));
-}
-
-function makePlayerSlot(sim: SimState, spot: { x: number; y: number }, id = "p1"): PlayerSlot {
-  const entity = makeEntity("player", createBody(spot.x, spot.y, sim.world.groundAt(spot.x, spot.y)), {
-    id, hp: 30, maxHp: 30, baseSpeed: 8,
-  });
-  return {
-    entity, clientId: `c-${id}`, stored: { slot: 0, name: "tester", stash: [], contacts: [] },
-    resumeToken: "tok", lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: 0,
-    known: new Set(), inventory: [], hotbar: [], weapon: null, outbox: [], returnStack: [], partyId: null,
-    respawnAtTick: null, needsFullAreas: true, downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: -1000,
-    god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
-    spawnGraceUntilTick: 0, pendingTransfer: null,
-  };
-}
+import {
+  addEnemyTestPlayer,
+  createEnemyTestSim,
+  findEnemyTestFloor,
+} from "./enemyAiTestSupport.js";
 
 describe("enemy AI", () => {
   let sim: SimState;
   let spot: { x: number; y: number };
 
   beforeEach(() => {
-    sim = createSimState({ world: new World(hashString("enemies-test-world"), 1, LEVEL.Dungeon), content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
-    spot = findOpenFloor(sim);
-    sim.players.set("p1", makePlayerSlot(sim, spot));
+    sim = createEnemyTestSim();
+    spot = findEnemyTestFloor(sim);
+    addEnemyTestPlayer(sim, spot);
   });
 
   it("freezes enemies with no player within ENEMY_ACTIVE_RADIUS", () => {
@@ -115,8 +78,11 @@ describe("enemy AI", () => {
   });
 
   it("abandons a dead target and reacquires the nearest living player", () => {
-    const living = makePlayerSlot(sim, { x: spot.x + 3, y: spot.y }, "p2");
-    sim.players.set(living.entity.id, living);
+    const living = addEnemyTestPlayer(
+      sim,
+      { x: spot.x + 3, y: spot.y },
+      "p2",
+    );
     const entity = spawnEnemy(sim, { defId: "slime", x: spot.x + 1, y: spot.y });
     stepEnemies(sim, []);
     const enemy = sim.enemies.get(entity.id);

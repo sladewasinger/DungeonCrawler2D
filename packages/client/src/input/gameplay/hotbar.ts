@@ -2,14 +2,7 @@
  * Hotbar/throwable/panel-number-key logic — pure functions over InputState plus
  * the connection/panels/queries contracts, so it ports and tests without Phaser.
  */
-import type { InputConnection, InputPanels, InputQueries, InputState, Keys, ThrowPreview } from "../controls/state.js";
-
-export interface ThrowPreviewRequest {
-  readonly state: InputState;
-  readonly conn: InputConnection;
-  readonly queries: InputQueries;
-  readonly pointerWorld: { readonly x: number; readonly y: number };
-}
+import type { InputConnection, InputPanels, InputQueries, InputState, Keys } from "../controls/state.js";
 
 export interface NumberKeyRequest {
   readonly state: InputState;
@@ -33,14 +26,6 @@ export function activeThrowableSlot(state: InputState, conn: InputConnection, qu
   if (state.selectedSlot === null) return null;
   const defId = conn.hotbar[state.selectedSlot];
   return defId && queries.isThrowable(defId) ? state.selectedSlot : null;
-}
-
-/** Builds the world-space throw preview from the active pointer, if any slot is armed. */
-export function throwPreview(request: ThrowPreviewRequest): ThrowPreview | null {
-  const { state, conn, queries, pointerWorld } = request;
-  const slot = activeThrowableSlot(state, conn, queries);
-  if (slot === null) return null;
-  return { slot, targetX: pointerWorld.x, targetY: pointerWorld.y };
 }
 
 /** [1-9]/hotbar click selects a usable without consuming or throwing it. */

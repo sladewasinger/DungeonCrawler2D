@@ -33,7 +33,7 @@ function encounterChunk(sim: SimState): { x: number; y: number } | undefined {
 }
 
 function chunkCoordinates(): number[] {
-  return Array.from({ length: 17 }, (_, index) => index - 8);
+  return Array.from({ length: 21 }, (_, index) => index - 10);
 }
 
 function requireWarlord(sim: SimState): EnemySlot {

@@ -7,7 +7,7 @@ import {
 import { buildHudWindow, type HudWindowRecord } from "./HudWindowRecord.js";
 import type { HudWindowLayout } from "./hudWindowStorage.js";
 
-interface BuildHudWindowRequest {
+export interface BuildHudWindowRequest {
   spec: HudWindowSpec;
   mobile: boolean;
   stored: HudWindowLayout | undefined;
@@ -16,24 +16,40 @@ interface BuildHudWindowRequest {
   scale: number;
 }
 
-export const buildManagedHudWindow = ({ spec, mobile, stored, z, viewport, scale }: BuildHudWindowRequest): HudWindowRecord => {
-  const effective = mobile && spec.mobile ? { ...spec, ...spec.mobile } : spec;
+export const resolveManagedHudWindowLayout = ({
+  spec,
+  mobile,
+  stored,
+  z,
+  viewport,
+  scale,
+}: BuildHudWindowRequest): HudWindowLayout => {
+  const effective = effectiveSpec(spec, mobile);
   const visible = spec.defaultVisible ?? true;
   const defaults = defaultWindowLayout({ spec: effective, visible, z, viewport, scale });
   const desktopDefaults = defaultWindowLayout({ spec, visible, z, viewport });
-  const layout = shouldUseMobileDefault({ mobile, spec, stored, desktopDefaults })
+  return shouldUseMobileDefault({ mobile, spec, stored, desktopDefaults })
     ? defaults
     : stored ? restoreStoredLayout(stored, defaults) : defaults;
-  const startupLayout = enforceStartupVisibility(layout, spec.defaultVisible);
-  return { ...buildHudWindow(effective), id: spec.id, title: spec.title, layout: startupLayout, interactive: Boolean(spec.interactive) };
 };
 
-const enforceStartupVisibility = (
-  layout: HudWindowLayout,
-  defaultVisible: boolean | undefined,
-): HudWindowLayout => defaultVisible === false
-  ? { ...layout, visible: false }
-  : layout;
+export const buildManagedHudWindow = (
+  request: BuildHudWindowRequest,
+): HudWindowRecord => {
+  const { spec, mobile } = request;
+  return {
+    ...buildHudWindow(effectiveSpec(spec, mobile)),
+    id: spec.id,
+    title: spec.title,
+    layout: resolveManagedHudWindowLayout(request),
+    interactive: Boolean(spec.interactive),
+  };
+};
+
+const effectiveSpec = (
+  spec: HudWindowSpec,
+  mobile: boolean,
+): HudWindowSpec => mobile && spec.mobile ? { ...spec, ...spec.mobile } : spec;
 
 export const applyHudWindowChrome = (record: HudWindowRecord, editing: boolean): void => {
   const style = chromeStyle(editing, record.interactive);

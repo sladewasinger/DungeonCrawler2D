@@ -1,6 +1,10 @@
 import type { MoveInput } from "@dc2d/engine";
 import { getViewOrientation } from "../../render/view/index.js";
-import { triggerAttack } from "../pointer/pointer.js";
+import {
+  ASSISTED_TARGET_RANGE_TILES,
+  assistedAttackDirection,
+  triggerAssistedAttack,
+} from "../actions/assistedAim.js";
 import { screenDirToWorld } from "./cameraRelative.js";
 import type {
   InputConnection,
@@ -10,7 +14,7 @@ import type {
   KidModeState,
 } from "./state.js";
 
-export const KID_TARGET_RANGE_TILES = 4;
+export const KID_TARGET_RANGE_TILES = ASSISTED_TARGET_RANGE_TILES;
 
 export function createKidModeState(): KidModeState {
   return { active: false, facingX: 0, facingY: 1 };
@@ -46,8 +50,7 @@ export function kidAttackDirection(
   conn: InputConnection,
   queries: InputQueries,
 ): { x: number; y: number } {
-  return queries.nearestEnemyDirection(conn, KID_TARGET_RANGE_TILES) ??
-    kidFacingWorld(state.kidMode);
+  return assistedAttackDirection(conn, queries, kidFacingWorld(state.kidMode));
 }
 
 interface KidAttackRequest {
@@ -61,13 +64,12 @@ interface KidAttackRequest {
 export function attackInKidMode(request: KidAttackRequest): void {
   const { state, conn, queries, hooks, nowMs } = request;
   if (!state.kidMode.active || !conn.body || !conn.canAct) return;
-  const direction = kidAttackDirection(state, conn, queries);
-  triggerAttack({
+  triggerAssistedAttack({
     state,
     conn,
+    queries,
     hooks,
-    dx: direction.x,
-    dy: direction.y,
+    fallbackDirection: kidFacingWorld(state.kidMode),
     nowMs,
     cooldownMs: queries.attackCooldownMs(conn.weapon),
   });

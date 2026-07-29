@@ -5,7 +5,7 @@
  * The first version was a bare north-needle — mathematically identical information, but
  * a needle pointing right after a Q-press reads as "east is up" when it means "north is
  * to the right (west is up)"; letters remove the ambiguity instead of asking the player
- * to decode it. Animates smoothly through the Q/X lean via rotationControl's bearingDeg().
+ * to decode it. Animates smoothly through the Z/X lean via rotationControl's bearingDeg().
  *
  * LANE W (panel R3 blocker #2, stairs wayfinding): also carries the gold StairwayDown
  * tick — a small gold arrowhead on the dial at the stairway's live screen bearing

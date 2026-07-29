@@ -35,6 +35,8 @@ export interface PlayerEntityView {
   weaponId: string | null;
   /** Self-only live weapon-orbit target. Remote players use replicated facing instead. */
   weaponAimAngle: number | null;
+  /** Self-only marker: body and weapon presentation follow movement/assisted attacks. */
+  assistedAim?: boolean;
   /** Direction (radians) of the current/most-recent swing: self's real attack.dx/dy for
    * exact wedge/sweep alignment, or a remote player's reported faceX/faceY as the best
    * available proxy (the protocol never reports a remote player's actual swing direction). */

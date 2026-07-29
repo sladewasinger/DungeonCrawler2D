@@ -62,16 +62,6 @@ export function cursorWorldTile(options: CursorWorldTileOptions | WorldPointCame
   return viewToWorld({ x: viewTile.x, y: viewTile.y + pick.height }, orientation);
 }
 
-export interface AttackRequest {
-  state: InputState;
-  conn: InputConnection;
-  hooks: InputHooks;
-  dx: number;
-  dy: number;
-  nowMs: number;
-  cooldownMs: number;
-}
-
 export interface PointerDeps {
   conn: InputConnection;
   hud: InputHud;
@@ -94,14 +84,6 @@ export interface PointerDeps {
    * camera's value whenever HudScene's InputPlugin hit-tests last (docs Epic 7.12 audit).
    */
   camera: WorldPointCamera;
-}
-
-/** Swings the equipped weapon at (dx,dy); the one cooldown-gated path both mouse-click and the touch ATTACK button use. */
-export function triggerAttack({ state, conn, hooks, dx, dy, nowMs, cooldownMs }: AttackRequest): void {
-  if (nowMs < state.nextSwingAt) return;
-  state.nextSwingAt = nowMs + cooldownMs;
-  conn.attack(dx, dy);
-  hooks.onSwing(dx, dy);
 }
 
 /** Routes a pointerdown through UI hit testing, touch zones, then weapon swing. */

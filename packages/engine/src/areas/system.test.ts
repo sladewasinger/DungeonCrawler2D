@@ -20,7 +20,7 @@ function minimalStatus(id: string) {
 }
 
 const content = buildContentRegistry({
-  statuses: ["on-fire", "wet", "slowed", "poisoned"].map(minimalStatus),
+  statuses: ["on-fire", "wet", "oiled", "poisoned"].map(minimalStatus),
   rules: [],
   areas: [
     {
@@ -46,7 +46,7 @@ const content = buildContentRegistry({
       tags: ["oil", "flammable", "liquid"],
       buoyancy: -1,
       duration: 40,
-      onEnterStatus: "slowed",
+      onEnterStatus: "oiled",
       spread: { chance: 0.1, maxSteps: 2 },
       sprite: "oil",
     },

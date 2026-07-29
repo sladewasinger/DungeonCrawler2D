@@ -6,38 +6,56 @@ import {
   type MiniBossArenaGate,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
-import { teleportPlayer } from "../../actions/playerTeleport.js";
+import { syncWorldFeatureOverrides } from "../../core/worldFeatureOverrides.js";
 import type { PlayerSlot, SimState } from "../../state/state.js";
 import {
+  applyArenaAuthoritativePosition,
+  stepMiniBossArenaEntries,
+} from "./entryStep.js";
+import {
   clearMiniBossArena,
+  miniBossArenaEntryForArena,
+  miniBossArenaEntryForPlayer,
   miniBossArenaOccupants,
   removeMiniBossArenaPlayer,
 } from "./runtime.js";
 
 export function stepMiniBossArenaBoundaries(sim: SimState): void {
-  removeInactiveOccupants(sim);
+  const removedOpenGate = removeInactiveArenaPlayers(sim);
+  const entryGateChanged = stepMiniBossArenaEntries(sim);
+  if (removedOpenGate || entryGateChanged) syncWorldFeatureOverrides(sim);
   for (const slot of sim.players.values()) {
-    if (isActivePlayer(slot)) enforcePlayerBoundary(sim, slot);
+    if (isTrackedArenaPlayer(slot)) enforcePlayerBoundary(sim, slot);
   }
 }
 
-function removeInactiveOccupants(sim: SimState): void {
+function removeInactiveArenaPlayers(sim: SimState): boolean {
+  let gateChanged = false;
   for (const slot of sim.players.values()) {
-    if (hasLiveArenaBody(slot)) continue;
-    removeMiniBossArenaPlayer(sim, slot.entity.id);
+    if (isTrackedArenaPlayer(slot)) {
+      if (!canContinueEntry(slot) &&
+          miniBossArenaEntryForPlayer(sim, slot.entity.id)) {
+        gateChanged = removeMiniBossArenaPlayer(sim, slot.entity.id) ||
+          gateChanged;
+      }
+      continue;
+    }
+    gateChanged = removeMiniBossArenaPlayer(sim, slot.entity.id) || gateChanged;
   }
+  return gateChanged;
 }
 
-function isActivePlayer(slot: PlayerSlot): boolean {
-  return hasLiveArenaBody(slot);
-}
-
-function hasLiveArenaBody(slot: PlayerSlot): boolean {
+function isTrackedArenaPlayer(slot: PlayerSlot): boolean {
   return slot.connected && slot.entity.hp > 0 &&
     slot.respawnAtTick === null;
 }
 
+function canContinueEntry(slot: PlayerSlot): boolean {
+  return isTrackedArenaPlayer(slot) && slot.downedAtTick === null;
+}
+
 function enforcePlayerBoundary(sim: SimState, slot: PlayerSlot): void {
+  if (miniBossArenaEntryForPlayer(sim, slot.entity.id)) return;
   for (const arena of nearbyArenas(sim, slot.entity.body)) {
     if (sim.defeatedMiniBossArenas.has(arena.key)) {
       clearMiniBossArena(sim, arena.key);
@@ -61,11 +79,12 @@ function enforceArenaBoundary(input: BoundaryCheck): void {
   const inside = containsPoint(arena.interior, body.x, body.y);
   if (occupant === inside) return;
   const gate = nearestGate(arena, body);
-  teleportPlayer({
+  const target = occupant ? gate.inside : gate.outside;
+  applyArenaAuthoritativePosition({
     sim,
     slot,
-    to: occupant ? gate.inside : gate.outside,
-    remember: false,
+    position: target,
+    before: { x: body.x, y: body.y },
   });
 }
 
@@ -84,12 +103,20 @@ function nearbyArenas(
         cx: cx + dx,
         cy: cy + dy,
       });
-      if (arena && miniBossArenaIsStamped(sim.world, arena)) {
+      if (arena && arenaBoundaryIsActive(sim, arena)) {
         arenas.push(arena);
       }
     }
   }
   return arenas;
+}
+
+function arenaBoundaryIsActive(
+  sim: SimState,
+  arena: MiniBossArenaSite,
+): boolean {
+  return miniBossArenaIsStamped(sim.world, arena) ||
+    miniBossArenaEntryForArena(sim, arena.key) !== undefined;
 }
 
 function nearestGate(

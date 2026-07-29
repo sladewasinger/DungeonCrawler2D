@@ -1,0 +1,10 @@
+{
+  "bubble": {
+    "maximumWidthPx": 260,
+    "viewportMarginPx": 12,
+    "horizontalPaddingPx": 8,
+    "verticalPaddingPx": 5,
+    "attendantOffsetYPx": -28,
+    "spawnIntercomOffsetYPx": 16
+  }
+}

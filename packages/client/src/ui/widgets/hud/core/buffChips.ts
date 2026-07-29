@@ -23,6 +23,7 @@ const BUFF_COLOR = 0x3dd6c3;
 const STATUS_COLORS: Readonly<Record<string, number>> = {
   "on-fire": 0xff9e3d,
   poisoned: 0x7bd44a,
+  oiled: 0x4b3a52,
   bleeding: DEBUFF_COLOR,
   wet: BUFF_COLOR,
 };

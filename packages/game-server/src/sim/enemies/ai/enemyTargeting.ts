@@ -4,6 +4,7 @@ import {
 } from "@dc2d/engine";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
+import { canMiniBossArenaEnemyTarget } from "../miniBossArena/aggro.js";
 
 interface TargetCandidate {
   readonly enemy: EnemySlot;
@@ -60,6 +61,7 @@ function visibleCandidate(
   enemy: EnemySlot,
   player: Entity,
 ): TargetCandidate | null {
+  if (!canMiniBossArenaEnemyTarget(sim, enemy, player.id)) return null;
   if (sim.effects.inSanctuary(player)) return null;
   const distance = Math.hypot(
     player.body.x - enemy.entity.body.x,

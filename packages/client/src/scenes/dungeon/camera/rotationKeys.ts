@@ -1,6 +1,5 @@
-// [Q]/[X] camera-rotation key binding — kept as its own thin Phaser-facing glue file,
-// separate from rotationControl.ts's Phaser-free state machine (docs/ASSUMPTIONS.md:
-// physically Q/X, not literal Q/E, since E already owns Interact).
+// [Z]/[X] camera-rotation key binding — kept as its own thin Phaser-facing glue file,
+// separate from rotationControl.ts's Phaser-free state machine.
 import type Phaser from "phaser";
 import { isTypingInInput } from "../../../input/controls/state.js";
 import type { RotationController } from "./rotationControl.js";
@@ -10,7 +9,7 @@ type RotationWindow = Window & {
 };
 
 export const rotationDirectionForKey = (code: string): 1 | -1 | null => {
-  if (code === "KeyQ") return -1;
+  if (code === "KeyZ") return -1;
   if (code === "KeyX") return 1;
   return null;
 };

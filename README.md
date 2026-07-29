@@ -11,15 +11,16 @@ brand-new items at runtime, validated like any other content.
 The game has its own server-authoritative architecture, visual direction, and
 engineering standards; the current codebase is the sole implementation.
 
-The current release is **v0.5.2** ([release notes](docs/releases/v0.5.2.md)). It
-includes collectible companion pets, shared terrain-aware pathfinding, HUD layout
-persistence, and the playability fixes listed in the release notes.
+The current release is **v0.6.0** ([release notes](docs/releases/v0.6.0.md)). It
+includes the living-dungeon terrain and renderer overhaul, dedicated room and
+encounter spaces, assisted controls, and the playability fixes listed in the
+release notes.
 
 ## Austin's F-Bomb Counter
 
-**49**
+**50**
 
-<!-- f-bomb-count: 49 -->
+<!-- f-bomb-count: 50 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.
@@ -127,7 +128,8 @@ raised surface that owns them.
 
 ## Status
 
-**v0.5.2 is playable:** worldgen, multiplayer, movement/combat, effects, items,
-safe rooms, parties/chat, Three.js parity foundations, companion pets, shared
-navigation, and editable HUD layouts are shipped. AI crafting, complete mobile
-HUD ergonomics, moderation, and final art/content polish remain on the roadmap.
+**v0.6.0 is playable:** district-scale world generation, multiplayer
+movement/combat, effects, items, dedicated room and encounter spaces,
+terrain-aware enemies, companion pets, assisted controls, parties/chat, and
+editable HUD layouts are shipped. AI crafting and final art/content polish
+remain on the roadmap.
