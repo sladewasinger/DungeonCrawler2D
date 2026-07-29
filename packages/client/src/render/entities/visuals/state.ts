@@ -67,9 +67,8 @@ export interface ProjectileVisual {
 }
 
 /**
- * A thrown torch's body sprite. Visible only while flying — once placed, its visual
- * identity comes entirely from the flame particle + halo (render/lighting), matching
- * authored world torches, which have no body sprite at all (see torchEntityVisual.ts).
+ * A thrown torch's single body sprite. It follows the flight arc, then remains visible
+ * at a reduced, stable grounded scale after landing (see torch/visual.ts).
  */
 export interface TorchVisual {
   readonly kind: "torch";

@@ -33,8 +33,10 @@ describe("buildContentRegistry", () => {
       rules: [{ when: ["fire", "wet"], removeTags: ["fire"], apply: "burning" }],
       areas: [
         {
-          id: "fire_pool",
+          id: "fire-pool",
           tags: ["fire"],
+          channel: "flame",
+          priority: 10,
           buoyancy: 0,
           duration: 10,
           onEnterStatus: "burning",
@@ -48,7 +50,7 @@ describe("buildContentRegistry", () => {
           tags: [],
           maxStack: 1,
           throwable: {
-            onImpact: [{ primitive: "spawn_area", area: "fire_pool", radius: 1 }],
+            onImpact: [{ primitive: "spawn_area", area: "fire-pool", radius: 1 }],
             breakChance: 1,
           },
           weapon: { damage: 2, applies: [{ status: "burning", chance: 0.5 }] },
@@ -73,7 +75,7 @@ describe("buildContentRegistry", () => {
 
     expect(registry.statuses.get("burning")?.kind).toBe("debuff");
     expect(registry.rules).toHaveLength(1);
-    expect(registry.areas.has("fire_pool")).toBe(true);
+    expect(registry.areas.has("fire-pool")).toBe(true);
     expect(registry.items.has("torch")).toBe(true);
     expect(registry.enemies.get("slime")?.hp).toBe(10);
     expect(registry.recipes.get("make_torch")?.output.item).toBe("torch");

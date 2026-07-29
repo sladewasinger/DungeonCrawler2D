@@ -83,7 +83,15 @@ describe("protocol", () => {
       ],
       left: ["p3"],
       events: [{ t: "damageImpact", id: "e1", amount: 6 }, { t: "toast", msg: "Crafted bandage" }, { t: "chat", channel: "party", from: "p2", name: "Ally", text: "hi" }, { t: "chat", channel: "dm", from: "p2", name: "Ally", text: "hi", target: "Crawler" }, { t: "contactsUpdated", contacts: [{ name: "Ally", online: true }, { name: "Rex", online: false }] }],
-      areas: [{ x: 5, y: 5, defId: "area-fire" }, { x: 6, y: 5, defId: null }],
+      areas: [
+        {
+          x: 5,
+          y: 5,
+          defId: "area-fire",
+          layers: ["area-oil", "area-fire"],
+        },
+        { x: 6, y: 5, defId: null },
+      ],
       miniBossArenaGates: [{ x: 8, y: 9 }],
     };
     expect(decodeServerMessage(encodeMessage(snap))).toEqual(snap);

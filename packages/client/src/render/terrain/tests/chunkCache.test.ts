@@ -60,9 +60,47 @@ describe("TerrainChunkPlanCache", () => {
     expect(cache.get({ source, coord: { cx: 1, cy: 0 }, orientation: 0, revision: 1 })).not.toBe(oldest);
   });
 
-  it("combines only chunks intersecting the requested bounds", () => {
+  it("submits only geometry inside the requested bounds from intersecting chunks", () => {
     const batches = emptyTerrainBatches();
     appendVisibleChunkPlans({ target: batches, cache: new TerrainChunkPlanCache(), source, bounds: { x: 0, y: 0, width: 1, height: 1 }, orientation: 0, revision: 1 });
-    expect(batches.floors.length).toBe(CHUNK_SIZE ** 2);
+    expect(batches.floors).toHaveLength(1);
+    expect(batches.floors[0]?.worldTile).toEqual({ x: 0, y: 0 });
+  });
+
+  it("clips every terrain presentation layer at a chunk seam", () => {
+    const batches = emptyTerrainBatches();
+    appendVisibleChunkPlans({
+      target: batches,
+      cache: new TerrainChunkPlanCache(),
+      source: {
+        ...source,
+        heightAt: (x) => x === CHUNK_SIZE - 1 ? 1 : 0,
+      },
+      bounds: { x: CHUNK_SIZE - 1, y: 0, width: 2, height: 1 },
+      orientation: 0,
+      revision: 1,
+    });
+
+    expect(batches.floors).toHaveLength(2);
+    expect(batches.floors.map(({ worldTile }) => worldTile.x)).toEqual([
+      CHUNK_SIZE - 1,
+      CHUNK_SIZE,
+    ]);
+    expect(allWorldTilesInside(batches, {
+      x: CHUNK_SIZE - 1,
+      y: 0,
+      width: 2,
+      height: 1,
+    })).toBe(true);
   });
 });
+
+function allWorldTilesInside(
+  batches: ReturnType<typeof emptyTerrainBatches>,
+  bounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number },
+): boolean {
+  return Object.values(batches).flat().every(({ worldTile }) =>
+    worldTile.x >= bounds.x && worldTile.x < bounds.x + bounds.width &&
+    worldTile.y >= bounds.y && worldTile.y < bounds.y + bounds.height
+  );
+}

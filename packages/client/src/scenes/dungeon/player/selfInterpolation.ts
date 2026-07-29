@@ -1,15 +1,15 @@
 /** Produces the local player's render pose without mutating authoritative simulation state. */
 import {
+  MOVE_SPEED,
   TICK_DT,
   cloneBody,
-  stepBody,
-  stepPlayerResources,
   type BodyState,
   type MoveInput,
   type PlayerResourceState,
   type World,
 } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
+import { stepPredictedBody } from "../../../net/prediction/predictionStep.js";
 import type { PredictionCorrection } from "../../../net/prediction/predictionCorrection.js";
 import type { DungeonSceneState, RenderPose } from "../orchestration/state.js";
 
@@ -29,6 +29,7 @@ export function interpolateConnectionSelf(
     correction: connection.predictionCorrection,
     deltaMs,
     canAct: connection.canAct,
+    movementSpeed: connection.prediction.currentMovementSpeed(connection.movementSpeed),
   });
 }
 
@@ -42,16 +43,22 @@ export interface SelfRenderPoseRequest {
   readonly correction: PredictionCorrection;
   readonly deltaMs: number;
   readonly canAct?: boolean;
+  readonly movementSpeed?: number;
 }
 
 type LegacySelfRenderPoseArgs = [World, BodyState, MoveInput, number, PlayerResourceState, boolean, PredictionCorrection, number, boolean?];
 
 export function projectSelfRenderPose(...args: [SelfRenderPoseRequest] | LegacySelfRenderPoseArgs): RenderPose {
   const request = normalizeSelfRenderPoseRequest(args);
-  const { world, body, input, accumulatorMs, resources, canBlock, correction, deltaMs, canAct = true } = request;
+  const {
+    world, body, input, accumulatorMs, resources, canBlock, correction, deltaMs,
+    canAct = true, movementSpeed = MOVE_SPEED,
+  } = request;
   const projected = cloneBody(body);
   const projectedResources = { ...resources };
-  const blocked = projectMovement({ world, projected, projectedResources, input, canBlock, canAct });
+  const blocked = projectMovement({
+    world, projected, projectedResources, input, canBlock, canAct, movementSpeed,
+  });
   const offset = correction.advance(deltaMs, blocked);
   return {
     x: body.x + (projected.x - body.x) * renderAlpha(accumulatorMs) + offset.x,
@@ -78,11 +85,18 @@ interface ProjectMovementRequest {
   readonly input: MoveInput;
   readonly canBlock: boolean;
   readonly canAct: boolean;
+  readonly movementSpeed: number;
 }
 
 function projectMovement(request: ProjectMovementRequest): { x: boolean; y: boolean } {
   if (!request.canAct) return { x: false, y: false };
-  const effective = stepPlayerResources({ state: request.projectedResources, input: request.input, canBlock: request.canBlock, dt: TICK_DT }).input;
-  const step = stepBody(request.world, request.projected, effective, TICK_DT);
+  const step = stepPredictedBody({
+    world: request.world,
+    body: request.projected,
+    input: request.input,
+    resources: request.projectedResources,
+    canBlock: request.canBlock,
+    movementSpeed: request.movementSpeed,
+  });
   return { x: request.input.moveX !== 0 && step.blockedX === true, y: request.input.moveY !== 0 && step.blockedY === true };
 }

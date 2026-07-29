@@ -1,5 +1,6 @@
 import type { BodyState } from "./movement/index.js";
 import type { PlayerSkin } from "./playerAppearance.js";
+import type { BallisticFlight } from "./projectile.js";
 
 /**
  * The universal entity model. Players, enemies, ground items, and
@@ -12,6 +13,8 @@ export type EntityKind = "player" | "enemy" | "pet" | "item" | "projectile" | "t
 
 export interface ActiveStatus {
   defId: string;
+  /** Authoritative entity that caused this status, retained through damage ticks. */
+  sourceId?: string;
   /** Seconds left; null = until removed. */
   remaining: number | null;
   /** Accumulator toward the next onTick firing. */
@@ -39,6 +42,8 @@ export interface Entity {
   qty: number;
   /** Projectile state (kind === "projectile"). */
   vel?: { x: number; y: number; z: number };
+  /** Resolved launch/landing contract retained while a ballistic entity is flying. */
+  ballisticFlight?: BallisticFlight;
   /** Last non-zero horizontal intent, normalized for presentation. */
   facing?: { x: number; y: number };
   ownerId?: string;
@@ -83,6 +88,7 @@ function applyPresentationFields(entity: Entity, opts: Partial<Entity>): void {
 
 function applyMotionFields(entity: Entity, opts: Partial<Entity>): void {
   if (opts.vel !== undefined) entity.vel = opts.vel;
+  if (opts.ballisticFlight !== undefined) entity.ballisticFlight = opts.ballisticFlight;
   if (opts.facing !== undefined) entity.facing = opts.facing;
 }
 

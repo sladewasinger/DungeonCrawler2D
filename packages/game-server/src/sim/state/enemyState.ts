@@ -35,10 +35,26 @@ export interface EnemySearchState {
   readonly waypoint?: EnemySearchPoint;
 }
 
+export interface DirectionalFlameState {
+  readonly kind: "directional-flame";
+  readonly originTileX: number;
+  readonly originTileY: number;
+  readonly stepX: number;
+  readonly stepY: number;
+  readonly maximumSegments: number;
+  readonly hitTargetIds: Set<string>;
+  nextSegment: number;
+  ticksUntilSegment: number;
+}
+
 export interface EnemySlot {
   entity: Entity;
   brain: EnemyBrain;
   def: EnemyDef;
+  /** Most recent authoritative damage source, retained for delayed kill credit. */
+  lastDamageSourceId?: string;
+  /** Fixed-tick runtime for a currently active elemental attack. */
+  elementalAttack?: DirectionalFlameState;
   /** Cached only while following a last-seen target; optional for legacy fixtures. */
   rememberedRoute?: EnemyRememberedRoute | null;
   /** Bounded investigation state; the brain owns the non-resetting deadline. */

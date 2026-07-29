@@ -10,6 +10,7 @@ import {
   hashString,
 } from "@dc2d/engine";
 import {
+  areaReactionsData,
   areasData,
   enemiesData,
   itemsData,
@@ -31,6 +32,7 @@ const content = buildContentRegistry({
   statuses: [...statusesData],
   rules: [...rulesData],
   areas: [...areasData],
+  areaReactions: [...areaReactionsData],
   items: [...itemsData],
   enemies: [...enemiesData],
   recipes: [...recipesData],

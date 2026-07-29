@@ -2,6 +2,10 @@ import type { EntitySnapshotDeltaEntry, ServerSnapshotDelta } from "@dc2d/engine
 import { describe, expect, it } from "vitest";
 import { makeSim, teleport } from "../integration/support.js";
 
+const OIL_AREA_DEF = "area-oil";
+const FIRE_AREA_DEF = "area-fire";
+const POISON_AREA_DEF = "area-poison";
+
 function asDelta(value: unknown): ServerSnapshotDelta {
   if (!value || typeof value !== "object" || !("type" in value) || value.type !== "snapshotDelta") {
     throw new Error("expected snapshotDelta");
@@ -24,6 +28,57 @@ function nextDelta(sim: ReturnType<typeof makeSim>, playerId: string): ServerSna
 }
 
 describe("snapshot delta replication", () => {
+  it("backfills an unchanged compound area after its AOI leaves and re-enters", () => {
+    const sim = makeSim(1234, { testFixtures: false, freezeEnemies: true });
+    const player = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    const x = Math.floor(player.spawn.x);
+    const y = Math.floor(player.spawn.y);
+    const compound = {
+      x,
+      y,
+      defId: FIRE_AREA_DEF,
+      layers: [OIL_AREA_DEF, FIRE_AREA_DEF],
+    };
+
+    sim.step();
+    sim.areas.place({ defId: OIL_AREA_DEF, x, y, steps: 0 });
+    sim.areas.place({ defId: FIRE_AREA_DEF, x, y, steps: 0 });
+    expect(sim.step().get(player.playerId)?.areas).toContainEqual(compound);
+
+    teleport({ entity, x: x + 120.5, y: y + 0.5, sim });
+    sim.step();
+    teleport({ entity, x: x + 0.5, y: y + 0.5, sim });
+
+    expect(sim.step().get(player.playerId)?.areas).toContainEqual(compound);
+  });
+
+  it("backfills an area created before the player enters its AOI", () => {
+    const sim = makeSim(1234, { testFixtures: false, freezeEnemies: true });
+    const player = sim.addPlayer({ name: "A", clientId: "client-a" });
+    const entity = sim.getPlayerEntity(player.playerId)!;
+    const x = Math.floor(player.spawn.x);
+    const y = Math.floor(player.spawn.y);
+
+    teleport({ entity, x: x + 120.5, y: y + 0.5, sim });
+    sim.step();
+    sim.areas.place({ defId: POISON_AREA_DEF, x, y, steps: 0 });
+
+    expect(sim.step().get(player.playerId)?.areas).not.toContainEqual({
+      x,
+      y,
+      defId: POISON_AREA_DEF,
+    });
+
+    teleport({ entity, x: x + 0.5, y: y + 0.5, sim });
+
+    expect(sim.step().get(player.playerId)?.areas).toContainEqual({
+      x,
+      y,
+      defId: POISON_AREA_DEF,
+    });
+  });
+
   it("replicates the character skin selected during the hello handshake", () => {
     const sim = makeSim();
     const observer = sim.addPlayer({ name: "Observer", clientId: "skin-observer" });

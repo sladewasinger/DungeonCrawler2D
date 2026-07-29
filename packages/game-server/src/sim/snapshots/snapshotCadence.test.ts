@@ -26,6 +26,7 @@ function frame(tick: number): PlayerSnapshotFrame {
     pendingEventCount: 0,
     pendingAreaKeys: [],
     includesFullAreas: false,
+    areaAoiCenter: { x: 0, y: 0 },
   };
 }
 

@@ -13,7 +13,7 @@ import { shouldRenderLivePlayer } from "../presentation/playerVisibility.js";
 import { createProjectileVisual, updateProjectileVisual } from "../visuals/projectileEntityVisual.js";
 import { monsterSpriteFor, playerSkinFor } from "../visuals/spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "../visuals/state.js";
-import { createTorchVisual, updateTorchVisual } from "../visuals/torchEntityVisual.js";
+import { createTorchVisual, updateTorchVisual } from "../visuals/torch/visual.js";
 import type { ItemEntityView, MonsterEntityView, PetEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "../visuals/view.js";
 import { PhaserStatusVisualRig } from "../status/entityStatusRig.js";
 import { EntityStatusVisualPool } from "../status/entityStatusVisualPool.js";

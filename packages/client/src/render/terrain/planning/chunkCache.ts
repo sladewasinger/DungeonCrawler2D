@@ -88,21 +88,52 @@ export function appendVisibleChunkPlans(
   const maxCx = Math.floor((bounds.x + bounds.width - 1) / CHUNK_SIZE); const maxCy = Math.floor((bounds.y + bounds.height - 1) / CHUNK_SIZE);
   for (let cy = minCy; cy <= maxCy; cy++) {
     for (let cx = minCx; cx <= maxCx; cx++) {
-      appendPlan(input.target, input.cache.get({ source: input.source, coord: { cx, cy }, orientation: input.orientation, revision: input.revision }));
+      appendPlan(
+        input.target,
+        input.cache.get({
+          source: input.source,
+          coord: { cx, cy },
+          orientation: input.orientation,
+          revision: input.revision,
+        }),
+        bounds,
+      );
     }
   }
 }
 
 export interface VisibleChunkPlanInput { readonly target: MutableTerrainBatches; readonly cache: TerrainChunkPlanCache; readonly source: TerrainSource; readonly bounds: TerrainRect; readonly orientation: ViewOrientation; readonly revision: number; }
 
-function appendPlan(target: MutableTerrainBatches, plan: TerrainPlan): void {
-  target.floors.push(...plan.batches.floors);
-  target.voids.push(...plan.batches.voids);
-  target.features.push(...plan.batches.features);
-  target.props.push(...plan.batches.props);
-  target.southFaces.push(...plan.batches.southFaces);
-  target.cliffEdges.push(...plan.batches.cliffEdges);
-  target.ao.push(...plan.batches.ao);
+function appendPlan(
+  target: MutableTerrainBatches,
+  plan: TerrainPlan,
+  bounds: TerrainRect,
+): void {
+  appendVisible(target.floors, plan.batches.floors, bounds);
+  appendVisible(target.voids, plan.batches.voids, bounds);
+  appendVisible(target.features, plan.batches.features, bounds);
+  appendVisible(target.props, plan.batches.props, bounds);
+  appendVisible(target.southFaces, plan.batches.southFaces, bounds);
+  appendVisible(target.cliffEdges, plan.batches.cliffEdges, bounds);
+  appendVisible(target.ao, plan.batches.ao, bounds);
+}
+
+function appendVisible<T extends { readonly worldTile: { readonly x: number; readonly y: number } }>(
+  target: T[],
+  source: readonly T[],
+  bounds: TerrainRect,
+): void {
+  for (const quad of source) {
+    if (containsWorldTile(bounds, quad.worldTile)) target.push(quad);
+  }
+}
+
+function containsWorldTile(
+  bounds: TerrainRect,
+  tile: Readonly<{ x: number; y: number }>,
+): boolean {
+  return tile.x >= bounds.x && tile.x < bounds.x + bounds.width &&
+    tile.y >= bounds.y && tile.y < bounds.y + bounds.height;
 }
 
 export function emptyTerrainBatches(): MutableTerrainBatches {

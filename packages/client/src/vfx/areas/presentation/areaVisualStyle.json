@@ -1,0 +1,138 @@
+{
+  "layers": {
+    "cloudRowInset": 0.010,
+    "fireCoreUnderlayBias": 0.02,
+    "particleOverlayInset": 0.1,
+    "maximumSparePuddleRows": 24
+  },
+  "puddles": {
+    "insetPx": 4,
+    "cornerRadiusPx": 13,
+    "wet": {
+      "color": "#39768f",
+      "alpha": 0.48,
+      "blendMode": "NORMAL"
+    },
+    "oil": {
+      "color": "#17121d",
+      "alpha": 0.7,
+      "blendMode": "MULTIPLY"
+    },
+    "poison": {
+      "color": "#527f2e",
+      "alpha": 0.62,
+      "blendMode": "NORMAL"
+    }
+  },
+  "fire": {
+    "lightColor": "#ff9e3d",
+    "lightRadiusTiles": 2.3,
+    "baseFlameColor": "#ff9e3d",
+    "baseFlameAlpha": 0.72,
+    "floorFlames": {
+      "periodMs": 470,
+      "horizontalPulsePx": 1.2,
+      "verticalPulsePx": 0.8,
+      "layers": [
+        {
+          "horizontalScale": 1.5,
+          "verticalScale": 0.7,
+          "alpha": 0.3,
+          "phase": 0,
+          "leanDegrees": -2,
+          "verticalOffsetPx": 5,
+          "color": "#ff7a2f"
+        }
+      ]
+    },
+    "flameParticles": {
+      "minimumScale": 0.5,
+      "maximumScale": 2,
+      "minimumRiseSpeed": 12,
+      "maximumRiseSpeed": 26,
+      "minimumRiseAngleDegrees": 258,
+      "maximumRiseAngleDegrees": 282,
+      "horizontalSpawnRadiusPx": 5,
+      "minimumSpawnOffsetYPx": 1,
+      "maximumSpawnOffsetYPx": 5,
+      "maximumRotationDegrees": 8,
+      "alpha": 0.82,
+      "colors": ["#ffe486", "#ffae38", "#ff6b2c"]
+    },
+    "field": {
+      "maximumLiveFlames": 5,
+      "maskInsetPx": 1,
+      "maskRadiusPx": 7
+    },
+    "floorScaleMultipliers": {
+      "core": 4,
+      "flame": 4,
+      "ember": 4,
+      "spark": 4
+    },
+    "actorFlames": {
+      "count": 3,
+      "scale": 2,
+      "alpha": 0.82,
+      "alphaPulse": 0.12,
+      "pulsePeriodMs": 420,
+      "depthBias": 0.07,
+      "offsets": [
+        [-0.24, -0.22],
+        [0.22, -0.48],
+        [-0.04, -0.72]
+      ]
+    },
+    "actorSparks": {
+      "scale": 2,
+      "alpha": 0.95,
+      "depthBias": 0.08
+    },
+    "flameFrequencyMs": 78,
+    "flameLifespanMs": 560,
+    "emberFrequencyMs": 105,
+    "emberLifespanMs": 760,
+    "sparkFrequencyMs": 150,
+    "sparkLifespanMs": 520
+  },
+  "poison": {
+    "lightColor": "#7bd44a",
+    "lightRadiusTiles": 2,
+    "bubbles": {
+      "perTile": 2,
+      "periodMs": 1500,
+      "minimumRadiusPx": 4,
+      "maximumRadiusPx": 8,
+      "heightRatio": 0.42,
+      "fillAlpha": 0.22,
+      "ringAlpha": 0.62,
+      "lineWidthPx": 1.5,
+      "depthBias": 0.01,
+      "maximumSpareRows": 24,
+      "color": "#9bea68"
+    }
+  },
+  "steam": {
+    "lightColor": "#d8dde6",
+    "lightRadiusTiles": 1.6,
+    "frequencyMs": 95
+  },
+  "budgets": {
+    "full": {
+      "maximumFireRigs": 24,
+      "maximumPoisonRigs": 12,
+      "maximumSteamRigs": 10,
+      "maximumPoisonBubbles": 192,
+      "maximumSpareRigsPerKind": 8,
+      "emissionFrequencyScale": 1
+    },
+    "reduced": {
+      "maximumFireRigs": 10,
+      "maximumPoisonRigs": 5,
+      "maximumSteamRigs": 4,
+      "maximumPoisonBubbles": 72,
+      "maximumSpareRigsPerKind": 3,
+      "emissionFrequencyScale": 2.25
+    }
+  }
+}

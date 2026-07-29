@@ -1,5 +1,5 @@
 import {
-  areasData, enemiesData, itemsData, recipesData, rulesData, statusesData,
+  areaReactionsData, areasData, enemiesData, itemsData, recipesData, rulesData, statusesData,
 } from "@dc2d/content";
 import {
   buildContentRegistry, createBody, hashString, LEVEL, makeEntity, World, type ContentRegistry,
@@ -11,6 +11,7 @@ import { resolveSpawnAnchor } from "../spawn/spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { activateChunksNearPlayers, NEAR_SPAWN_RADIUS_TILES } from "./population.js";
 import { REPOPULATE_INTERVAL_TICKS, repopulateNearSpawn } from "./repopulation.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 /**
  * GRINDER'S BLOCKER (panel round 2): probes the diagnosed near-spawn
@@ -20,7 +21,7 @@ import { REPOPULATE_INTERVAL_TICKS, repopulateNearSpawn } from "./repopulation.j
  */
 
 const content: ContentRegistry = buildContentRegistry({
-  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData],
+  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData], areaReactions: [...areaReactionsData],
   items: [...itemsData], enemies: [...enemiesData], recipes: [...recipesData],
 });
 
@@ -61,6 +62,33 @@ function countWithin(sim: SimState, anchor: { x: number; y: number }, radius: nu
   return count;
 }
 
+function countOrdinaryWithin(sim: SimState, anchor: { x: number; y: number }, radius: number): number {
+  let count = 0;
+  for (const enemy of sim.enemies.values()) {
+    if (enemy.arenaKey || enemy.entity.hp <= 0) continue;
+    if (Math.hypot(enemy.entity.body.x - anchor.x, enemy.entity.body.y - anchor.y) <= radius) count++;
+  }
+  return count;
+}
+
+function expectOrdinaryEnemiesOutsideBuffer(
+  sim: SimState,
+  anchor: { x: number; y: number },
+  radius: number,
+): void {
+  for (const enemy of sim.enemies.values()) {
+    if (enemy.arenaKey || enemy.entity.hp <= 0) continue;
+    const distance = Math.hypot(
+      enemy.entity.body.x - anchor.x,
+      enemy.entity.body.y - anchor.y,
+    );
+    if (distance > radius) continue;
+    expect(distance).toBeGreaterThanOrEqual(
+      ENEMY_SIMULATION_TUNING.population.minimumPlayerDistanceTiles,
+    );
+  }
+}
+
 describe("repopulateNearSpawn", () => {
   const REPPOP_TEST_WORLD = "repop-test-world";
   let sim: SimState;
@@ -77,7 +105,7 @@ describe("repopulateNearSpawn", () => {
     player.entity.body.y = anchor.y;
   });
 
-  it("tops the near-spawn population back up after everything nearby is cleared", () => {
+  it("restores ordinary density outside the protected spawn buffer", () => {
     for (const [id, enemy] of sim.enemies) {
       if (Math.hypot(enemy.entity.body.x - anchor.x, enemy.entity.body.y - anchor.y) <= NEAR_SPAWN_RADIUS_TILES) {
         sim.enemies.delete(id);
@@ -88,7 +116,10 @@ describe("repopulateNearSpawn", () => {
     sim.tickCount = REPOPULATE_INTERVAL_TICKS;
     repopulateNearSpawn(sim);
 
-    expect(countWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThan(0);
+    expect(countOrdinaryWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThanOrEqual(
+      ENEMY_SIMULATION_TUNING.population.occupiedAreaTargetCount,
+    );
+    expectOrdinaryEnemiesOutsideBuffer(sim, anchor, NEAR_SPAWN_RADIUS_TILES);
   });
 
   it("does not keep piling on enemies once the near-spawn area is already full", () => {

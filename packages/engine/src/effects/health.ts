@@ -5,6 +5,8 @@ import { inSanctuary, type EffectsState } from "./state.js";
 export interface DamageOpts {
   /** Tags describing the damage source (fire, physical, …). */
   sourceTags?: readonly string[];
+  /** Entity responsible for hostile damage, retained for server attribution. */
+  sourceId?: string;
   /** Sanctuary suppression bypass (falls, bleed-out — world rules). */
   ignoreSanctuary?: boolean;
   /** Presentation source for non-hostile health changes. */
@@ -67,6 +69,7 @@ function emitHealthEvents(change: HealthChange, applied: number): void {
       delta: applied,
       hp: entity.hp,
       ...(opts.healthSource === undefined ? {} : { source: opts.healthSource }),
+      ...(opts.sourceId === undefined ? {} : { sourceId: opts.sourceId }),
     });
   }
   if (entity.hp <= 0) events.push({ t: "death", id: entity.id });

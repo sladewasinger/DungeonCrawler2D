@@ -31,6 +31,29 @@
     "epithet": "mulched by a houseplant with opinions"
   },
   {
+    "id": "pitchbloom",
+    "name": "Pitchbloom",
+    "tags": ["organic", "plant", "flammable", "oil"],
+    "hp": 22,
+    "speed": 2.6,
+    "aggroRadius": 10,
+    "attack": {
+      "damage": 0,
+      "range": 7,
+      "cooldown": 3,
+      "ranged": true,
+      "elemental": "oil-lob"
+    },
+    "damageScale": { "fire": 2 },
+    "drops": [
+      { "item": "stick", "chance": 0.75 },
+      { "item": "vodka-bottle", "chance": 0.2 }
+    ],
+    "sprite": "pitchbloom",
+    "xp": 14,
+    "epithet": "learned that pitch does, in fact, burn"
+  },
+  {
     "id": "skeleton",
     "name": "Skeleton",
     "tags": ["undead"],
@@ -196,7 +219,13 @@
     "hp": 32,
     "speed": 4.2,
     "aggroRadius": 12,
-    "attack": { "damage": 7, "range": 1.1, "cooldown": 1 },
+    "attack": {
+      "damage": 2,
+      "range": 3,
+      "cooldown": 3.5,
+      "ranged": true,
+      "elemental": "directional-flame"
+    },
     "drops": [
       { "item": "raw-meat", "chance": 0.55 },
       { "item": "vodka-bottle", "chance": 0.12 }

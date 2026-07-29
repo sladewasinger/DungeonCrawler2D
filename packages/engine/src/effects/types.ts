@@ -8,6 +8,11 @@ export {
   type InteractionRule,
 } from "./content/statuses.js";
 export { areaDefSchema, type AreaDef } from "./content/areas.js";
+export {
+  areaReactionSchema,
+  type AreaReaction,
+  type AreaReactionAction,
+} from "./content/areaReactions.js";
 export { itemDefSchema, type ItemDef } from "./content/items.js";
 export { enemyDefSchema, type EnemyDef } from "./content/enemies.js";
 export { recipeDefSchema, type RecipeDef } from "./content/recipes.js";

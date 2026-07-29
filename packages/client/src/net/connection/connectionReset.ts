@@ -1,4 +1,4 @@
-import { PLAYER_MAX_STAMINA } from "@dc2d/engine";
+import { MOVE_SPEED, PLAYER_MAX_STAMINA } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 
 export function resetDisconnectedConnection(conn: Connection): void {
@@ -17,6 +17,7 @@ function resetAuthoritativeState(conn: Connection): void {
   conn.staminaRecoveryDelaySeconds = 0;
   conn.staminaExhausted = false;
   conn.healthRegenerationDelaySeconds = 0;
+  conn.movementSpeed = MOVE_SPEED;
   conn.downed = false;
   conn.respawnAtTick = null;
   conn.justRespawned = false;
@@ -30,6 +31,7 @@ function resetPresentationState(conn: Connection): void {
   conn.outgoingPartyInvites.clear();
   conn.clearInterpolationFrame();
   conn.areaTiles.clear();
+  conn.areaTileLayers.clear();
   conn.npcSpeech = null;
   conn.roomDoors = [];
   conn.stashContext = { kind: "personal", chestId: null };

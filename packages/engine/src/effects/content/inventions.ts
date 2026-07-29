@@ -50,6 +50,7 @@ function validateRegistryReferences(
     buildContentRegistry({
       statuses: [...content.statuses.values()],
       rules: [...content.rules],
+      areaReactions: [...content.areaReactions],
       areas: [...content.areas.values()],
       items: [...content.items.values(), item],
       enemies: [...content.enemies.values()],

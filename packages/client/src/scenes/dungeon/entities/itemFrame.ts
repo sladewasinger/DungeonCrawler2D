@@ -6,9 +6,11 @@ import { itemIconFrame } from "../../../ui/widgets/hud/inventory/itemIcon.js";
 
 const FALLBACK_ITEM_FRAME = "skull";
 const LOOT_CHEST_FRAME = "chest_full_open_anim_f0";
+const OIL_LOB_FRAME = "projectile_oil_lob";
 
 export function groundItemFrame(defId: string | undefined): string {
   if (!defId) return FALLBACK_ITEM_FRAME;
   if (defId === "player-loot-chest") return LOOT_CHEST_FRAME;
+  if (defId === "pitchbloom-oil-lob") return OIL_LOB_FRAME;
   return itemIconFrame(defId) ?? FALLBACK_ITEM_FRAME;
 }

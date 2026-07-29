@@ -113,7 +113,9 @@ describe("GameSim: combat", () => {
       teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
     }
     expect(bEntity.hp).toBeLessThan(PLAYER_MAX_HP);
-    expect(bEntity.statuses.some((s) => s.defId === "bleeding")).toBe(true);
+    const bleeding = bEntity.statuses.find((status) => status.defId === "bleeding");
+    expect(bleeding).toBeDefined();
+    expect(bleeding?.sourceId).toBe(a.playerId);
   });
 
   it("spitters broadcast windup, release, and recovery states around a delayed projectile", () => {

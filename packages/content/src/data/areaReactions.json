@@ -1,0 +1,28 @@
+[
+  {
+    "id": "fire-burns-oil",
+    "priority": 20,
+    "when": ["fire", "oil"],
+    "actions": [
+      { "op": "rate_consume", "tag": "oil", "perSecond": 3 }
+    ]
+  },
+  {
+    "id": "fire-and-wet-become-steam",
+    "priority": 30,
+    "when": ["fire", "wet"],
+    "actions": [
+      { "op": "remove", "tag": "fire" },
+      { "op": "remove", "tag": "wet" },
+      { "op": "add", "area": "area-steam", "sourceFromTag": "fire" }
+    ]
+  },
+  {
+    "id": "steam-extinguishes-fire",
+    "priority": 10,
+    "when": ["fire", "steam"],
+    "actions": [
+      { "op": "remove", "tag": "fire" }
+    ]
+  }
+]

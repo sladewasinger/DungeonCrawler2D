@@ -2,7 +2,7 @@
 // halos (flying + placed), the BFS seeds a placed torch feeds into the baked chunk
 // light, and the frame-to-frame diff that tells the caller which tiles just started
 // or stopped glowing — the exact input a targeted rebake needs. No Phaser, no net;
-// scenes/dungeon/torchSync.ts is the seam that wires this to live snapshots.
+// scenes/dungeon/entities/torches/sync.ts wires this to live snapshots.
 import { hashSeed, type LightSource } from "../core/lightSource.js";
 import { TORCH_COLOR, TORCH_FLIGHT_RADIUS_TILES, TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 import type { TilePos } from "./torchPlacement.js";
@@ -11,8 +11,11 @@ import { LIGHTING_VISUAL_STYLE } from "../lightingVisualStyle.js";
 
 export interface PlacedTorch {
   readonly id: string;
-  readonly tileX: number;
-  readonly tileY: number;
+  /** Continuous, server-authoritative impact point — never quantized for presentation. */
+  readonly x: number;
+  readonly y: number;
+  /** Absolute terrain height at this anchor, carried through to halo and flame projection. */
+  readonly groundHeight: number;
   /** 0..1 halo strength; omitted/1 = full brightness. See torchEmberFade below. */
   readonly emberFade?: number;
 }
@@ -73,12 +76,13 @@ export function appendPlacedTorchLights(
     const fade = t.emberFade ?? 1;
     out.push({
       id: `torch-placed:${t.id}`,
-      x: t.tileX + 0.5,
-      y: t.tileY + 0.5,
+      x: t.x,
+      y: t.y,
       color: emberColor(TORCH_COLOR, fade),
       radiusTiles: TORCH_RADIUS_TILES * (0.55 + 0.45 * fade),
       kind: "torch" as const,
       seed: hashSeed(t.id),
+      groundHeight: t.groundHeight,
     });
   }
   return out;
@@ -111,7 +115,11 @@ export function appendFlyingTorchLights(
 /** BFS seeds for the baked chunk light — a placed torch shines exactly as bright as
  * an authored world torch. */
 export function placedTorchSeeds(torches: readonly PlacedTorch[]): DynamicLightSeed[] {
-  return torches.map((t) => ({ tileX: t.tileX, tileY: t.tileY, level: LIGHT_MAX }));
+  return torches.map((t) => ({
+    tileX: Math.floor(t.x),
+    tileY: Math.floor(t.y),
+    level: LIGHT_MAX,
+  }));
 }
 
 /**
@@ -135,7 +143,10 @@ export function diffPlacedTorches(
 }
 
 function appendChangedTorch(input: ChangedTorchInput): void {
-  const tile = { wx: input.torch.tileX, wy: input.torch.tileY };
+  const tile = {
+    wx: Math.floor(input.torch.x),
+    wy: Math.floor(input.torch.y),
+  };
   input.next.set(input.torch.id, tile);
   const prior = input.previous.get(input.torch.id);
   if (!prior || prior.wx !== tile.wx || prior.wy !== tile.wy) input.changedTiles.push(tile);
@@ -170,8 +181,10 @@ function updateCurrentPlacedTiles(state: PlacedTorchTileState, current: readonly
 function updatePlacedTorchTile(state: PlacedTorchTileState, torch: PlacedTorch): void {
   state.seenPlacedIds.add(torch.id);
   const prior = state.placedTiles.get(torch.id);
-  if (prior && prior.wx === torch.tileX && prior.wy === torch.tileY) return;
-  const tile = { wx: torch.tileX, wy: torch.tileY };
+  const x = Math.floor(torch.x);
+  const y = Math.floor(torch.y);
+  if (prior && prior.wx === x && prior.wy === y) return;
+  const tile = { wx: x, wy: y };
   state.placedTiles.set(torch.id, tile);
   state.changedTiles.push(tile);
 }

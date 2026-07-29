@@ -2,7 +2,8 @@
 
 Builds the game's sprite atlas from the 0x72 DungeonTileset II pack plus the procedural
 gap-fill sprites listed in `assets/INVENTORY.md`'s GAPS section (items, sanctuary floor,
-crafting table, plant-creeper/slime recolors, and the two light/VFX textures). It also
+crafting table, plant-creeper/Pitchbloom/slime recolors, an oil-lob projectile,
+and the two light/VFX textures). It also
 writes a dedicated crisp particle atlas for transient effects.
 
 Self-contained: this folder has its own `package.json`/`package-lock.json`/`node_modules`
@@ -31,7 +32,7 @@ All under `packages/client/public/assets/`:
   generated frame, keyed by frame name.
 - `animations.json` — `{ animKey: { frames, frameRate, repeat } }` for every multi-frame
   group (heroes idle/run, monsters, chests, fountains, spikes, coin, plus the generated
-  plant_creeper/slime series). Single-frame groups (e.g. each hero's `*_hit`) are correctly
+  plant_creeper/pitchbloom/slime series). Single-frame groups (e.g. each hero's `*_hit`) are correctly
   excluded — the source pack only ships one hit frame per class.
 - `fonts/monogram.ttf` — copied from `assets/fonts/monogram.ttf`.
 - `contact-sheet.png` — every generated sprite at 4x, labeled, plus a handful of original
@@ -67,9 +68,13 @@ explicitly reserves for glows (fire/torch `#ff9e3d`, sanctuary/portal teal `#3dd
   the mortar-crack outline color is left untouched.
 - **`crafting_table`**: fresh 16x16 composite — crate/door wood tones for the tabletop and
   legs, a small hammer silhouette on top.
-- **`plant_creeper_idle/run_f0..3`**: `goblin_idle/run` frames with a 2-color remap (base
-  skin green -> a more saturated leafy green sampled from `wall_goo`; dark clothing slate ->
-  a berry red sampled from the red banner).
+- **`plant_creeper_idle/run_f0..3`**: deterministic 24×24 reductions of the authored
+  legacy leafy/rooted creature frames under `assets/enemies/plant-creeper-v2`.
+- **`pitchbloom_idle/run_f0..3`**: an oily purple transformation of that purpose-built
+  plant silhouette, distinct from Plant Creeper without reverting to the goblin body.
+- **`projectile_oil_lob`**: a compact outlined oil glob with a readable specular highlight,
+- **`area_fire_flame`**: a persistent outlined flame core beneath pooled fire particles,
+  used by Pitchbloom's authoritative ballistic attack.
 - **`slime_idle/run_f0..3`**: `swampy`/`muddy` frames remapped from their native
   teal-mid/brown tones toward the same poison-green family (swampy's own lime highlight is
   already close to poison-green and is left as-is).
@@ -89,9 +94,5 @@ Reviewed via `contact-sheet.png` at 4x and, for the weaker cases, at 20x crops. 
 clearly and sit comfortably next to the original frames on the comparison row. `item_rag` and
 `item_bandage` are the softest of the set — recognizable but a notch more "clean pixel-art
 icon" than the pack's own slightly scruffier hand-drawn items; acceptable as gap-fill, not
-best-in-class. `plant_creeper` is an honest goblin recolor (green skin restyled, red
-belt/accent added) rather than a genuinely plant-shaped silhouette — INVENTORY.md itself
-flags this as "no good substitute silhouette exists" and expects a reskin, so this is
-in line with the brief, not a discovered shortcut. `slime` reads well as a poison-green
-muck creature. Every generated sprite's outline is a solid 1px `#222222` line with flat,
-non-anti-aliased fills, matching the pack's own rendering discipline.
+best-in-class. `plant_creeper` and `pitchbloom` use the restored authored plant silhouette
+rather than a humanoid stand-in. `slime` reads well as a poison-green muck creature.

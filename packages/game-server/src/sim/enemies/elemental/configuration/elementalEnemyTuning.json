@@ -1,0 +1,16 @@
+{
+  "oilLob": {
+    "projectileSpeedTilesPerSecond": 12,
+    "targetingErrorTiles": 0.35,
+    "statusId": "oiled",
+    "areaId": "area-oil",
+    "footprintSizeTiles": 2
+  },
+  "directionalFlame": {
+    "maximumRangeTiles": 3,
+    "maximumElevationDifference": 0.5,
+    "ticksPerSegment": 1,
+    "statusId": "on-fire",
+    "areaId": "area-enemy-flame"
+  }
+}

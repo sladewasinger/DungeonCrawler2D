@@ -1,12 +1,14 @@
 // Cross-reference checks — a content file naming an id that doesn't exist is a bug (or a
 // rejected AI proposal), never a runtime surprise.
 import type { AreaDef } from "./areas.js";
+import type { AreaReaction, AreaReactionAction } from "./areaReactions.js";
 import type { EnemyDef } from "./enemies.js";
 import type { ItemDef } from "./items.js";
 import type { Primitive } from "../primitives.js";
 import type { RecipeDef } from "./recipes.js";
 import type { StatusDef } from "./statuses.js";
 import type { ParsedContent } from "./parse.js";
+import { validateAreaReactionTermination } from "./areaReactionTermination.js";
 
 type CheckStatus = (id: string, from: string) => void;
 type CheckPrimitives = (prims: readonly Primitive[] | undefined, from: string) => void;
@@ -41,10 +43,55 @@ export function validateReferences(content: ParsedContent): void {
   for (const status of content.statuses.values()) validateStatusPrimitives(status, checkPrimitives);
   for (const rule of content.rules) validateRuleStatus(rule.apply, `rule ${rule.when.join("+")}`, checkStatus);
   for (const area of content.areas.values()) validateRuleStatus(area.onEnterStatus, `area ${area.id}`, checkStatus);
+  validateAreaReactions(content);
 
   validateItemReferences(content.items, checkPrimitives, checkStatus);
   validateEnemyReferences(content.enemies, content.items, checkStatus);
   validateRecipeReferences(content.recipes, content.items);
+}
+
+function validateAreaReactions(content: ParsedContent): void {
+  const tags = new Set([...content.areas.values()].flatMap((area) => area.tags));
+  for (const reaction of content.areaReactions) {
+    for (const tag of reaction.when) validateAreaTag(tags, tag, reaction.id);
+    for (const action of reaction.actions) {
+      validateAreaAction({
+        areas: content.areas,
+        tags,
+        reaction,
+        action,
+      });
+    }
+  }
+  validateAreaReactionTermination(content);
+}
+
+interface AreaActionValidation {
+  readonly areas: ReadonlyMap<string, AreaDef>;
+  readonly tags: ReadonlySet<string>;
+  readonly reaction: AreaReaction;
+  readonly action: AreaReactionAction;
+}
+
+function validateAreaAction(request: AreaActionValidation): void {
+  const { areas, tags, reaction, action } = request;
+  if ("tag" in action) validateAreaTag(tags, action.tag, reaction.id);
+  if ("sourceFromTag" in action && action.sourceFromTag) {
+    validateAreaTag(tags, action.sourceFromTag, reaction.id);
+    validateReactionSourceTag(reaction, action.sourceFromTag);
+  }
+  if ("area" in action && !areas.has(action.area)) {
+    throw new Error(`area reaction ${reaction.id} references unknown area "${action.area}"`);
+  }
+}
+
+function validateReactionSourceTag(reaction: AreaReaction, tag: string): void {
+  if (reaction.when.includes(tag)) return;
+  throw new Error(`area reaction ${reaction.id} sources from unmatched area tag "${tag}"`);
+}
+
+function validateAreaTag(tags: ReadonlySet<string>, tag: string, from: string): void {
+  if (!tags.has(tag)) throw new Error(`area reaction ${from} references unknown area tag "${tag}"`);
 }
 
 function validateStatusPrimitives(status: StatusDef, checkPrimitives: CheckPrimitives): void {

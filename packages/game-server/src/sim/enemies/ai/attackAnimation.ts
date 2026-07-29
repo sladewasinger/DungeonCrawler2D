@@ -1,6 +1,10 @@
-import { faceEntity } from "@dc2d/engine";
+import { faceEntity, type EffectEvent } from "@dc2d/engine";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
+import {
+  advanceElementalEnemyAttack,
+  beginElementalEnemyAttack,
+} from "../elemental/elementalEnemyAttack.js";
 import { launchSpit } from "./combat.js";
 
 export function beginWindup(
@@ -23,6 +27,7 @@ export function beginWindup(
 export function advanceAttackAnimation(
   sim: SimState,
   enemy: EnemySlot,
+  effectEvents: EffectEvent[],
 ): boolean {
   if (enemy.animation.state === "attack") {
     return tickPose(enemy, () => ({
@@ -36,7 +41,7 @@ export function advanceAttackAnimation(
   if (!enemy.def.attack.ranged ||
       enemy.animation.state === "idle" ||
       enemy.animation.state === "walk") return false;
-  return advanceRangedPose(sim, enemy);
+  return advanceRangedPose(sim, enemy, effectEvents);
 }
 
 function tickPose(
@@ -48,7 +53,20 @@ function tickPose(
   return true;
 }
 
-function advanceRangedPose(sim: SimState, enemy: EnemySlot): boolean {
+function advanceRangedPose(
+  sim: SimState,
+  enemy: EnemySlot,
+  effectEvents: EffectEvent[],
+): boolean {
+  const elementalComplete = advanceElementalEnemyAttack({
+    sim,
+    enemy,
+    effectEvents,
+  });
+  if (elementalComplete !== null) {
+    if (elementalComplete) enemy.animation = rangedRecovery();
+    return true;
+  }
   enemy.animation.ticksRemaining -= 1;
   if (enemy.animation.ticksRemaining > 0) return true;
   if (enemy.animation.state === "windup") return finishWindup(sim, enemy);
@@ -58,7 +76,7 @@ function advanceRangedPose(sim: SimState, enemy: EnemySlot): boolean {
 
 function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
   const target = enemy.animation.target;
-  if (target) {
+  if (target && !beginElementalEnemyAttack({ sim, enemy, target })) {
     launchSpit({
       sim,
       entity: enemy.entity,
@@ -82,9 +100,13 @@ function spitAnimation(
 
 function nextRangedAnimation(enemy: EnemySlot): EnemySlot["animation"] {
   return enemy.animation.state === "spit"
-    ? {
-      state: "recover",
-      ticksRemaining: ENEMY_SIMULATION_TUNING.animationTicks.rangedRecovery,
-    }
+    ? rangedRecovery()
     : { state: "idle", ticksRemaining: 0 };
+}
+
+function rangedRecovery(): EnemySlot["animation"] {
+  return {
+    state: "recover",
+    ticksRemaining: ENEMY_SIMULATION_TUNING.animationTicks.rangedRecovery,
+  };
 }

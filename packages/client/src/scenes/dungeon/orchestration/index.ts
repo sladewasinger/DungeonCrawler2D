@@ -31,7 +31,7 @@ import type { InteractionPrompt } from "../world/interactionPrompt.js";
 import { consumeRespawnGrace } from "../player/selfCosmetics.js";
 import { interpolateConnectionSelf } from "../player/selfInterpolation.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
-import { createTorchSyncState, type TorchSyncState } from "../entities/torchSync.js";
+import { createTorchSyncState, type TorchSyncState } from "../entities/torches/sync.js";
 import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputController, consumeDungeonTeleport, replaceDungeonWorldSystems, sampleDungeonInput, updateDungeonCamera } from "./dungeonSceneHelpers.js";
 
 export class DungeonScene extends Phaser.Scene {

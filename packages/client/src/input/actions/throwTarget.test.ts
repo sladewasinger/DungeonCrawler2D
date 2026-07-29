@@ -64,9 +64,24 @@ describe("live throw target parity", () => {
       previewTarget!.y,
     );
   });
+
+  it("sends a selected torch through the same target-tile contract", () => {
+    const useSlot = vi.fn();
+    const request = runtimeRequest(useSlot, 0);
+    const previewTarget = resolveCurrentThrowTarget(request);
+
+    throwSelected(request);
+
+    expect(previewTarget).toEqual({ slot: 0, x: 6.25, y: 5.125 });
+    expect(useSlot).toHaveBeenCalledWith(0, 6.25, 5.125);
+    expect(request.conn.throwTorch).not.toHaveBeenCalled();
+  });
 });
 
-function runtimeRequest(useSlot: InputConnection["useSlot"]): CurrentThrowTargetRequest {
+function runtimeRequest(
+  useSlot: InputConnection["useSlot"],
+  selectedSlot = 1,
+): CurrentThrowTargetRequest {
   const heightAt = (x: number, y: number) => x === 6 && y === 5 ? 2 : 0;
   const scene = {
     cameras: {
@@ -82,11 +97,11 @@ function runtimeRequest(useSlot: InputConnection["useSlot"]): CurrentThrowTarget
     throwTorch: vi.fn(),
   } as unknown as InputConnection;
   const state = {
-    selectedSlot: 1,
+    selectedSlot,
     kidMode: { active: false, facingX: 1, facingY: 0 },
   } as InputState;
   const queries = {
-    isThrowable: (id: string) => id === "bomb",
+    isThrowable: (id: string) => id === "bomb" || id === "torch",
   } as unknown as InputQueries;
   return {
     scene,

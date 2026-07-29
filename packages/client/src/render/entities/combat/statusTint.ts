@@ -1,6 +1,6 @@
+import { STATUS_VISUAL_STYLE } from "./statusVisualStyle.js";
+
 const BURNING_COLOR = 0xff9e3d;
-const POISONED_COLOR = 0x7bd44a;
-const POISONED_BLEND = 0.5;
 const BURNING_PERIOD_MS = 260;
 const DOWNED_COLOR = 0x7a3d3d;
 const DISCONNECTED_COLOR = 0x55555a;
@@ -39,7 +39,11 @@ const DAMAGE_FLASH: CombatantTint = { mode: FILL_MODE, color: 0xffffff, blend: 1
 const DOWNED_TINT: CombatantTint = { mode: MULTIPLY_MODE, color: DOWNED_COLOR, blend: 1, source: DOWNED_LAYER };
 const DISCONNECTED_TINT: CombatantTint = { mode: MULTIPLY_MODE, color: DISCONNECTED_COLOR, blend: 1, source: DISCONNECTED_LAYER };
 const TELEGRAPH_TINT: CombatantTint = { mode: MULTIPLY_MODE, color: TELEGRAPH_COLOR, blend: 1, source: TELEGRAPH_LAYER };
-const POISONED_TINT = blendedTint(POISONED_COLOR, POISONED_BLEND, POISONED_STATUS);
+const POISONED_TINT = blendedTint(
+  STATUS_VISUAL_STYLE.poisoned.color,
+  STATUS_VISUAL_STYLE.poisoned.blend,
+  POISONED_STATUS,
+);
 const BURNING_TINTS = [
   blendedTint(BURNING_COLOR, 0.35, ON_FIRE_STATUS),
   blendedTint(BURNING_COLOR, 0.5, ON_FIRE_STATUS),

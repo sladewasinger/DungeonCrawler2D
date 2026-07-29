@@ -1,6 +1,5 @@
 import {
   AOI_RADIUS,
-  CHASM_DEATH_Z,
   CHUNK_SIZE,
   isRoomChunk,
   LEVEL,
@@ -8,10 +7,10 @@ import {
 } from "@dc2d/engine";
 import { spawnEnemy } from "../core/helpers.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
-import type { SimState } from "../state/state.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 import { spawnMiniBossEncounter } from "./miniBossArena/population.js";
 import { NEAR_SPAWN_RADIUS_TILES } from "./population.js";
-import { tooCloseToPlayer } from "./populationPlacement.js";
+import { validEnemySpawn } from "./populationPlacement.js";
 import { pickEnemyDef } from "./populationRoster.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
@@ -102,9 +101,16 @@ function recycleInactiveEnemies(sim: SimState, centers: PopulationCenter[]): voi
 function countEnemiesWithin(sim: SimState, anchor: { x: number; y: number }, radius: number): number {
   let count = 0;
   for (const enemy of sim.enemies.values()) {
+    if (!countsTowardPopulation(enemy)) continue;
     if (Math.hypot(enemy.entity.body.x - anchor.x, enemy.entity.body.y - anchor.y) <= radius) count++;
   }
   return count;
+}
+
+function countsTowardPopulation(enemy: EnemySlot): boolean {
+  return enemy.entity.hp > 0 &&
+    enemy.def.id !== WARDEN_DEF_ID &&
+    enemy.arenaKey === undefined;
 }
 
 /** Random valid placement within `radius` of `anchor` — mirrors spawn.ts's
@@ -117,7 +123,7 @@ function randomSpotNear(
 ): { x: number; y: number } | null {
   for (let attempt = 0; attempt < REPOPULATE_ATTEMPTS_PER_ENEMY; attempt++) {
     const spot = randomRadiusTile(sim, anchor, radius);
-    if (isValidRepopulationSpot(sim, spot)) return spot;
+    if (validEnemySpawn(sim, spot.x, spot.y)) return spot;
   }
   return null;
 }
@@ -129,11 +135,4 @@ function randomRadiusTile(sim: SimState, anchor: PopulationCenter, radius: numbe
     x: Math.floor(anchor.x + Math.cos(angle) * distance),
     y: Math.floor(anchor.y + Math.sin(angle) * distance),
   };
-}
-
-function isValidRepopulationSpot(sim: SimState, spot: PopulationCenter): boolean {
-  return sim.world.isWalkable(spot.x, spot.y) &&
-    !sim.world.isSanctuary(spot.x, spot.y) &&
-    sim.world.heightAt(spot.x, spot.y) > CHASM_DEATH_Z &&
-    !tooCloseToPlayer(sim, spot.x, spot.y);
 }

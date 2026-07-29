@@ -4,6 +4,7 @@ import type { EffectEvent } from "./events.js";
 import type { EffectTarget } from "./health.js";
 import { runPrimitives } from "./resolve.js";
 import type { EffectsState } from "./state.js";
+import { resolveContinuousMovementSpeed } from "./movementSpeed.js";
 
 const STATUS_TIME_EPSILON = 1e-9;
 
@@ -34,7 +35,15 @@ function runStatusTick(state: EffectsState, context: TickContext): void {
   const { entity, status, def, events, target, rng } = context;
   if (!def.onTick) return;
   for (let stack = 0; stack < status.stacks; stack++) {
-    runPrimitives(state, { entity, primitives: def.onTick, events, target, rng, sourceTags: def.tags });
+    runPrimitives(state, {
+      entity,
+      primitives: def.onTick,
+      events,
+      target,
+      rng,
+      sourceTags: def.tags,
+      ...(status.sourceId === undefined ? {} : { sourceId: status.sourceId }),
+    });
   }
 }
 
@@ -50,7 +59,15 @@ function advanceExpiry(state: EffectsState, context: ExpiryContext): void {
   if (status.remaining > STATUS_TIME_EPSILON) return;
   entity.statuses.splice(index, 1);
   events.push({ t: "status", id: entity.id, status: status.defId, on: false });
-  if (def.onExpire) runPrimitives(state, { entity, primitives: def.onExpire, events, target });
+  if (def.onExpire) {
+    runPrimitives(state, {
+      entity,
+      primitives: def.onExpire,
+      events,
+      target,
+      ...(status.sourceId === undefined ? {} : { sourceId: status.sourceId }),
+    });
+  }
 }
 
 /** Advance all statuses on an entity by dt seconds. */
@@ -99,19 +116,17 @@ function removeUnknownStatus(entity: Entity, index: number): false {
   return false;
 }
 
-/** Combined speed multiplier from whileActive modify_stat primitives. */
-export function speedMult(state: EffectsState, entity: Entity): number {
-  let mult = 1;
-  for (const status of entity.statuses) {
-    mult *= speedMultForStatus(state, status);
-  }
-  return mult;
+/** Effective continuously modified movement speed in tiles per second. */
+export function movementSpeed(state: EffectsState, entity: Entity): number {
+  return resolveContinuousMovementSpeed({
+    baseSpeed: entity.baseSpeed,
+    statuses: entity.statuses,
+    statusDefinition: (statusId) => state.content.statuses.get(statusId),
+  });
 }
 
-function speedMultForStatus(state: EffectsState, status: ActiveStatus): number {
-  const primitives = state.content.statuses.get(status.defId)?.whileActive ?? [];
-  return primitives.reduce((mult, primitive) => {
-    if (primitive.primitive !== "modify_stat" || primitive.stat !== "speed") return mult;
-    return mult * primitive.mult;
-  }, 1);
+/** Compatibility ratio for systems that scale non-player movement timing. */
+export function speedMult(state: EffectsState, entity: Entity): number {
+  if (entity.baseSpeed <= 0) return 1;
+  return movementSpeed(state, entity) / entity.baseSpeed;
 }

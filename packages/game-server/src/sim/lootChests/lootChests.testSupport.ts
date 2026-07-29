@@ -1,11 +1,11 @@
-import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
+import { areaReactionsData, areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
 import { TILE, buildContentRegistry, createBody, makeEntity, type World } from "@dc2d/engine";
 import { PlayerStore } from "../../store.js";
 import { spawnPlayerLootChest } from "./lootChests.js";
 import { createSimState, type PlayerSlot } from "../state/state.js";
 
 const content = buildContentRegistry({
-  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData],
+  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData], areaReactions: [...areaReactionsData],
   items: [...itemsData], enemies: [...enemiesData], recipes: [...recipesData],
 });
 

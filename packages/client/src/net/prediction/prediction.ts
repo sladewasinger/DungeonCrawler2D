@@ -1,25 +1,25 @@
 import {
-  TICK_DT,
-  stepBody,
-  stepPlayerResources,
+  MOVE_SPEED,
   type BodyState,
+  type ContinuousMovementSpeedProjection,
   type MoveInput,
   type PlayerResourceState,
   type World,
 } from "@dc2d/engine";
+import { PredictionHistory } from "./predictionHistory.js";
+import { PredictionMovementSpeed } from "./movement/predictionMovementSpeed.js";
+import {
+  replayPredictionStep,
+  stepPredictedBody,
+} from "./predictionStep.js";
+
+export { PREDICTION_HISTORY_LIMIT } from "./predictionHistory.js";
 
 /**
  * Client-side movement prediction: the local body advances through the
  * same engine stepBody the server runs, and steps newer than the
  * authoritative simulation tick replay on top of each snapshot.
  */
-export const PREDICTION_HISTORY_LIMIT = 64;
-
-interface PredictedStep {
-  projectedServerTick: number;
-  input: MoveInput;
-}
-
 export interface PredictedInputIdentity {
   readonly seq: number;
   readonly projectedServerTick: number;
@@ -31,6 +31,8 @@ export interface PredictionRequest {
   input: MoveInput;
   resources?: PlayerResourceState;
   canBlock?: boolean;
+  movementSpeed?: number;
+  movementSpeedProjection?: ContinuousMovementSpeedProjection;
 }
 
 export interface ReconciliationRequest {
@@ -40,19 +42,20 @@ export interface ReconciliationRequest {
   authoritativeServerTick: number;
   resources?: PlayerResourceState;
   canBlock?: boolean;
+  movementSpeed?: number;
+  movementSpeedProjection?: ContinuousMovementSpeedProjection;
 }
 
 export class Prediction {
   private seq = 0;
   private projectedServerTick: number | null = null;
-  private readonly pending: PredictedStep[] = [];
-  private readonly recycled: PredictedStep[] = [];
-  private allocatedStepRecords = 0;
+  private readonly history = new PredictionHistory();
+  private readonly projectedMovementSpeed = new PredictionMovementSpeed();
 
   reset(): void {
     this.projectedServerTick = null;
-    for (const step of this.pending) this.recycleStep(step);
-    this.pending.length = 0;
+    this.projectedMovementSpeed.reset();
+    this.history.clear();
   }
 
   /** Reserve a wire identity for a changed control state, independent of simulation ticks. */
@@ -63,39 +66,61 @@ export class Prediction {
 
   /** Advance one local tick and bind it to the sequence sent for this prediction. */
   predict(request: PredictionRequest): PredictedInputIdentity {
-    const { world, body, input, resources, canBlock = false } = request;
+    const {
+      world,
+      body,
+      input,
+      resources,
+      canBlock = false,
+      movementSpeed = MOVE_SPEED,
+      movementSpeedProjection,
+    } = request;
+    this.projectedMovementSpeed.ensure(movementSpeedProjection);
     this.seq++;
     this.projectedServerTick = (this.projectedServerTick ?? 0) + 1;
-    const effective = resources
-      ? stepPlayerResources({ state: resources, input, canBlock, dt: TICK_DT }).input
-      : input;
-    stepBody(world, body, effective, TICK_DT);
-    this.pending.push(this.acquireStep(this.projectedServerTick, input));
-    if (this.pending.length > PREDICTION_HISTORY_LIMIT) {
-      const evicted = this.pending.shift();
-      if (evicted) this.recycleStep(evicted);
-    }
+    stepPredictedBody({
+      world,
+      body,
+      input,
+      resources,
+      canBlock,
+      movementSpeed: this.projectedMovementSpeed.current(movementSpeed),
+    });
+    this.projectedMovementSpeed.advance();
+    this.history.add(this.projectedServerTick, input);
     return { seq: this.seq, projectedServerTick: this.projectedServerTick };
   }
 
   /** Drop ticks the server actually simulated, then replay only the newer local steps. */
   reconcile(request: ReconciliationRequest): void {
-    const { world, body, lastSimulatedProjectedTick, authoritativeServerTick, resources, canBlock = false } = request;
+    const {
+      world,
+      body,
+      lastSimulatedProjectedTick,
+      authoritativeServerTick,
+      resources,
+      canBlock = false,
+      movementSpeed = MOVE_SPEED,
+      movementSpeedProjection,
+    } = request;
+    this.projectedMovementSpeed.replace(movementSpeedProjection);
     const acknowledgedTick = this.resolveAcknowledgedTick(
       lastSimulatedProjectedTick,
       authoritativeServerTick,
     );
-    this.discardSimulatedSteps(acknowledgedTick);
+    this.history.discardThrough(acknowledgedTick);
     if (acknowledgedTick !== null) {
       this.projectedServerTick =
-        this.pending[this.pending.length - 1]?.projectedServerTick ?? acknowledgedTick;
+        this.history.steps[this.history.size - 1]?.projectedServerTick ?? acknowledgedTick;
     }
-    for (const p of this.pending) {
-      const effective = resources
-        ? stepPlayerResources({ state: resources, input: p.input, canBlock, dt: TICK_DT }).input
-        : p.input;
-      stepBody(world, body, effective, TICK_DT);
-    }
+    for (const p of this.history.steps) replayPredictionStep(this.projectedMovementSpeed, {
+      world,
+      body,
+      input: p.input,
+      resources,
+      canBlock,
+      movementSpeed,
+    });
   }
 
   private resolveAcknowledgedTick(
@@ -103,50 +128,23 @@ export class Prediction {
     authoritativeServerTick: number,
   ): number | null {
     if (lastSimulatedProjectedTick >= 0) return lastSimulatedProjectedTick;
-    if (this.pending.length === 0) return authoritativeServerTick;
+    if (this.history.size === 0) return authoritativeServerTick;
     return null;
   }
 
-  private discardSimulatedSteps(acknowledgedTick: number | null): void {
-    let retainedCount = 0;
-    for (const step of this.pending) {
-      if (acknowledgedTick !== null && step.projectedServerTick <= acknowledgedTick) {
-        this.recycleStep(step);
-        continue;
-      }
-      this.pending[retainedCount] = step;
-      retainedCount++;
-    }
-    this.pending.length = retainedCount;
-  }
-
   get pendingStepCount(): number {
-    return this.pending.length;
+    return this.history.size;
   }
 
   get allocatedStepRecordCount(): number {
-    return this.allocatedStepRecords;
+    return this.history.allocatedCount;
   }
 
   get projectedTick(): number | null {
     return this.projectedServerTick;
   }
 
-  private acquireStep(
-    projectedServerTick: number,
-    input: MoveInput,
-  ): PredictedStep {
-    const step = this.recycled.pop();
-    if (step) {
-      step.projectedServerTick = projectedServerTick;
-      step.input = input;
-      return step;
-    }
-    this.allocatedStepRecords++;
-    return { projectedServerTick, input };
-  }
-
-  private recycleStep(step: PredictedStep): void {
-    if (this.recycled.length < PREDICTION_HISTORY_LIMIT) this.recycled.push(step);
+  currentMovementSpeed(fallback = MOVE_SPEED): number {
+    return this.projectedMovementSpeed.current(fallback);
   }
 }

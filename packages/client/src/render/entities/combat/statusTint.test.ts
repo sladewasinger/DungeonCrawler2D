@@ -5,21 +5,34 @@ import {
   resolveCombatantTint,
   resolveCombatantTintLayer,
 } from "./statusTint.js";
+import { STATUS_VISUAL_STYLE } from "./statusVisualStyle.js";
 
 const normal = (fx: readonly string[], nowMs = 0) =>
   resolveCombatantTint(fx, nowMs, "normal");
 
 describe("combatant status tint", () => {
-  it("uses one 50% poison blend for enemy, local-player, and remote-player paths", () => {
+  it("uses one 70% poison blend for enemy, local-player, and remote-player paths", () => {
     const expected = {
       mode: "multiply",
-      color: blendTintWithWhite(0x7bd44a, 0.5),
-      blend: 0.5,
+      color: blendTintWithWhite(
+        STATUS_VISUAL_STYLE.poisoned.color,
+        STATUS_VISUAL_STYLE.poisoned.blend,
+      ),
+      blend: STATUS_VISUAL_STYLE.poisoned.blend,
       source: "poisoned",
     };
     for (const kind of ["enemy", "local-player", "remote-player"]) {
       expect(normal(["poisoned"]), kind).toMatchObject(expected);
     }
+    expect(expected.blend).toBe(0.7);
+  });
+
+  it("uses a partial multiply blend rather than a full poison fill", () => {
+    const tint = normal(["poisoned"]);
+    expect(tint.mode).toBe("multiply");
+    expect(tint.blend).toBeGreaterThan(0);
+    expect(tint.blend).toBeLessThan(1);
+    expect(tint.color).not.toBe(STATUS_VISUAL_STYLE.poisoned.color);
   });
 
   it("returns stable shared presentations without per-frame result allocation", () => {

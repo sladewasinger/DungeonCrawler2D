@@ -64,7 +64,7 @@ export interface InputConnection {
   useSlot(index: number, targetX?: number, targetY?: number): void;
   useSlotOnPlayer(index: number, targetId: string): void;
   useItem(item: string): void;
-  /** Throws a hotbar torch toward an aim direction. */
+  /** Legacy direction-only torch throw retained for the Three.js client. */
   throwTorch(dirX: number, dirY: number): void;
   craft(recipeId: string): void;
   stashOp(op: "put" | "take", index: number): void;

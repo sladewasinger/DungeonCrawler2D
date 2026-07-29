@@ -11,6 +11,7 @@ export interface PrimitiveExecution {
   readonly target: EffectTarget;
   readonly rng: () => number;
   readonly sourceTags?: readonly string[] | undefined;
+  readonly sourceId?: string;
 }
 
 export interface PrimitiveCallbacks {
@@ -32,7 +33,14 @@ export function executePrimitive(execution: PrimitiveExecution, callbacks: Primi
       callbacks.removeStatusesByTag({ entity, tag: primitive.tag, events });
       break;
     case "spawn_area":
-      events.push({ t: "spawnArea", x: Math.floor(entity.body.x), y: Math.floor(entity.body.y), area: primitive.area, radius: primitive.radius });
+      events.push({
+        t: "spawnArea",
+        x: Math.floor(entity.body.x),
+        y: Math.floor(entity.body.y),
+        area: primitive.area,
+        radius: primitive.radius,
+        ...(execution.sourceId === undefined ? {} : { sourceId: execution.sourceId }),
+      });
       break;
     case "destroy_entity":
       events.push({ t: "destroy", id: entity.id });
@@ -43,8 +51,12 @@ export function executePrimitive(execution: PrimitiveExecution, callbacks: Primi
 }
 
 function healthChange(execution: PrimitiveExecution, amount: number): HealthChange {
-  const { entity, events, sourceTags, target } = execution;
-  return { entity, amount, events, opts: sourceTags ? { sourceTags } : {}, target };
+  const { entity, events, sourceTags, sourceId, target } = execution;
+  const opts = {
+    ...(sourceTags ? { sourceTags } : {}),
+    ...(sourceId === undefined ? {} : { sourceId }),
+  };
+  return { entity, amount, events, opts, target };
 }
 
 interface StatusExecution {
@@ -56,6 +68,14 @@ interface StatusExecution {
 
 function applyStatus(request: StatusExecution): void {
   const { execution, callbacks, statusId, chance } = request;
-  const { entity, events, target, rng } = execution;
-  if (chance === undefined || rng() < chance) callbacks.applyStatus({ entity, statusId, events, target });
+  const { entity, events, sourceId, target, rng } = execution;
+  if (chance === undefined || rng() < chance) {
+    callbacks.applyStatus({
+      entity,
+      statusId,
+      events,
+      target,
+      ...(sourceId === undefined ? {} : { sourceId }),
+    });
+  }
 }

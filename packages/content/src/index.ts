@@ -4,6 +4,7 @@
 // (docs/ASSUMPTIONS.md #102 — the book-fan lane's scope didn't cover registry.ts/parse.ts).
 import statuses from "./data/statuses.json" with { type: "json" };
 import rules from "./data/rules.json" with { type: "json" };
+import areaReactions from "./data/areaReactions.json" with { type: "json" };
 import areas from "./data/areas.json" with { type: "json" };
 import items from "./data/items.json" with { type: "json" };
 import enemies from "./data/enemies.json" with { type: "json" };
@@ -22,6 +23,7 @@ export const statusesData: readonly unknown[] = [
   tunedBandageStatus(liveTuningData),
 ];
 export const rulesData: readonly unknown[] = rules;
+export const areaReactionsData: readonly unknown[] = areaReactions;
 export const areasData: readonly unknown[] = areas;
 export const itemsData: readonly unknown[] = items;
 export const enemiesData: readonly unknown[] = enemies;

@@ -4,7 +4,7 @@ import type { EffectEvent } from "./events.js";
 import { modifyHealth, type EffectTarget, type HealthChange } from "./health.js";
 import { applyStatus, removeStatusesByTag, runInteractionRules, runPrimitives, type PrimitiveRun } from "./resolve.js";
 import { inSanctuary, tagsOf, type EffectsState } from "./state.js";
-import { speedMult, tick, type EffectsTick } from "./tick.js";
+import { movementSpeed, speedMult, tick, type EffectsTick } from "./tick.js";
 
 export type { EffectEvent } from "./events.js";
 export type { DamageOpts, EffectTarget } from "./health.js";
@@ -12,6 +12,7 @@ export type { DamageOpts, EffectTarget } from "./health.js";
 export interface StatusChange {
   readonly entity: Entity;
   readonly statusId: string;
+  readonly sourceId?: string;
   readonly events: EffectEvent[];
   readonly target?: EffectTarget;
 }
@@ -63,6 +64,10 @@ export class EffectsEngine {
 
   speedMult(entity: Entity): number {
     return speedMult(this.state, entity);
+  }
+
+  movementSpeed(entity: Entity): number {
+    return movementSpeed(this.state, entity);
   }
 
   runInteractionRules(request: Pick<StatusRemoval, "entity" | "events">): void {

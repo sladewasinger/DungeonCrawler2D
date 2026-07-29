@@ -83,6 +83,7 @@ function resetDormantEnemy(enemy: EnemySlot): void {
   enemy.brain.wanderDir = NEUTRAL_INPUT;
   enemy.brain.wanderLeft = 0;
   enemy.animation = { state: "idle", ticksRemaining: 0 };
+  delete enemy.elementalAttack;
   enemy.entity.body.kx = 0;
   enemy.entity.body.ky = 0;
 }

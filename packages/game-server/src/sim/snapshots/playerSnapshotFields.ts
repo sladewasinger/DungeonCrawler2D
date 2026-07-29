@@ -1,13 +1,12 @@
 import { AOI_RADIUS, type GameEvent, type ServerSnapshot } from "@dc2d/engine";
 import { versionedEntitySnapshot, type VersionedEntitySnapshot } from "./entitySnapshots.js";
+import type { AoiCheck } from "./areaAoiCoverage.js";
 import { socialDeliveryAllowed } from "../moderation.js";
 import { newSnapshotPendingState, type SnapshotPendingState } from "../state/snapshotState.js";
 import type { SpatialEntityIndex } from "../core/spatialEntities.js";
 import type { PlayerSlot, SimState, WorldEvent } from "../state/state.js";
 
-type AoiCheck = (x: number, y: number) => boolean;
 type PartyMember = NonNullable<ServerSnapshot["party"]>["members"][number];
-type AreaDelivery = { areas: ServerSnapshot["areas"]; keys: string[]; includesFullAreas: boolean };
 
 export function toPartySnapshot(sim: SimState, slot: PlayerSlot): ServerSnapshot["party"] {
   const party = slot.partyId ? sim.parties.get(slot.partyId) : undefined;
@@ -32,23 +31,6 @@ function partyMember(sim: SimState, slot: PlayerSlot, id: string): PartyMember |
     ...(member.connected ? {} : { disconnected: true }),
     level: member.stored.level ?? 1,
   };
-}
-
-export function deliveryAoi(slot: PlayerSlot): AoiCheck {
-  const { x, y } = slot.entity.body;
-  return (targetX, targetY) => (targetX - x) ** 2 + (targetY - y) ** 2 <= AOI_RADIUS ** 2;
-}
-
-export function areaSnapshot(request: {
-  sim: SimState;
-  slot: PlayerSlot;
-  pending: SnapshotPendingState;
-  inAoi: AoiCheck;
-}): AreaDelivery {
-  const { sim, slot, pending, inAoi } = request;
-  const keys = [...pending.areas.keys()];
-  if (!slot.needsFullAreas) return { areas: [...pending.areas.values()], keys, includesFullAreas: false };
-  return { areas: sim.areas.allTiles().filter((area) => inAoi(area.x, area.y)), keys, includesFullAreas: true };
 }
 
 export function visibleEntities(request: {

@@ -1,4 +1,4 @@
-import { areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
+import { areaReactionsData, areasData, enemiesData, itemsData, recipesData, rulesData, statusesData } from "@dc2d/content";
 import { CHUNK_SIZE, buildContentRegistry, createBody, hashString, makeEntity, miniBossArenaForChunk, populationRoomsForChunk, World } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
@@ -8,7 +8,7 @@ import { stepEnemies } from "../ai.js";
 import { spawnMiniBossEncounter } from "../miniBossArena/population.js";
 
 const content = buildContentRegistry({
-  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData],
+  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData], areaReactions: [...areaReactionsData],
   items: [...itemsData], enemies: [...enemiesData], recipes: [...recipesData],
 });
 const ORC_WARLORD = "orc-warlord";

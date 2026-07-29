@@ -1,26 +1,18 @@
+import { STATUS_VISUAL_BUDGETS } from "../combat/statusVisualStyle.js";
+
 export interface StatusVisualBudget {
   readonly maximumActiveRigs: number;
   readonly maximumSpareRigs: number;
-  readonly particleSlotsPerRig: number;
-  readonly emberIntervalMs: number;
+  readonly fireSparkSlots: number;
+  readonly oilDropSlots: number;
+  readonly poisonGasSlots: number;
+  readonly fireSparkIntervalMs: number;
   readonly oilDropIntervalMs: number;
+  readonly poisonGasIntervalMs: number;
 }
 
-const FULL_BUDGET: StatusVisualBudget = {
-  maximumActiveRigs: 32,
-  maximumSpareRigs: 8,
-  particleSlotsPerRig: 4,
-  emberIntervalMs: 110,
-  oilDropIntervalMs: 180,
-};
-
-const REDUCED_BUDGET: StatusVisualBudget = {
-  maximumActiveRigs: 16,
-  maximumSpareRigs: 4,
-  particleSlotsPerRig: 2,
-  emberIntervalMs: 240,
-  oilDropIntervalMs: 360,
-};
+const FULL_BUDGET: StatusVisualBudget = STATUS_VISUAL_BUDGETS.full;
+const REDUCED_BUDGET: StatusVisualBudget = STATUS_VISUAL_BUDGETS.reduced;
 
 export function statusVisualBudgetFor(reducedMotion: boolean, mobile: boolean): StatusVisualBudget {
   return reducedMotion || mobile ? REDUCED_BUDGET : FULL_BUDGET;

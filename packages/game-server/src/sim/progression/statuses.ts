@@ -1,6 +1,12 @@
 import { TICK_DT, type EffectEvent } from "@dc2d/engine";
-import { combatants, effectTargetFor, positionOf } from "../core/helpers.js";
+import { combatants, effectTargetFor } from "../core/helpers.js";
 import type { SimState } from "../state/state.js";
+import { igniteEntity } from "./elemental/elementalIgnition.js";
+import {
+  fireSourceForEntity,
+  resolveFireContact,
+} from "./elemental/fireContact.js";
+export { realizeEffectEvents } from "./effectEvents.js";
 
 /** Area-contact statuses, status ticking, and effect-event realization. */
 
@@ -19,13 +25,63 @@ function applyGroundStatuses(sim: SimState, effectEvents: EffectEvent[]): void {
 function applyGroundStatus(sim: SimState, entity: ReturnType<typeof combatants>[number], effectEvents: EffectEvent[]): void {
   if (entity.hp <= 0) return;
   if (!entity.body.grounded) return;
-  const statusId = groundStatusAt(sim, entity.body.x, entity.body.y);
-  if (statusId) sim.effects.applyStatus({ entity, statusId, events: effectEvents, target: effectTargetFor(sim, entity) });
+  igniteOilUnderBurningEntity(sim, entity, effectEvents);
+  const contacts = groundStatusesAt(sim, entity.body.x, entity.body.y);
+  for (const contact of contacts) {
+    applyGroundContact({ sim, entity, contact, effectEvents });
+  }
 }
 
-function groundStatusAt(sim: SimState, x: number, y: number): string | undefined {
-  const defId = sim.areas.defAt(Math.floor(x), Math.floor(y));
-  return defId === null ? undefined : sim.content.areas.get(defId)?.onEnterStatus;
+interface GroundContactRequest {
+  readonly sim: SimState;
+  readonly entity: ReturnType<typeof combatants>[number];
+  readonly contact: { statusId: string; sourceId?: string };
+  readonly effectEvents: EffectEvent[];
+}
+
+function applyGroundContact({ sim, entity, contact, effectEvents }: GroundContactRequest): void {
+  if (contact.statusId === "on-fire") {
+    igniteEntity({ sim, entity, effectEvents, ...sourceOption(contact.sourceId) });
+    return;
+  }
+  sim.effects.applyStatus({
+    entity,
+    statusId: contact.statusId,
+    events: effectEvents,
+    target: effectTargetFor(sim, entity),
+    ...sourceOption(contact.sourceId),
+  });
+}
+
+function sourceOption(sourceId: string | undefined): { sourceId?: string } {
+  return sourceId === undefined ? {} : { sourceId };
+}
+
+function igniteOilUnderBurningEntity(
+  sim: SimState,
+  entity: ReturnType<typeof combatants>[number],
+  effectEvents: EffectEvent[],
+): boolean {
+  const source = fireSourceForEntity(sim, entity);
+  if (!source) return false;
+  return resolveFireContact({
+    sim,
+    source,
+    effectEvents,
+    target: {
+      kind: "area",
+      x: Math.floor(entity.body.x),
+      y: Math.floor(entity.body.y),
+    },
+  });
+}
+
+function groundStatusesAt(
+  sim: SimState,
+  x: number,
+  y: number,
+): Array<{ statusId: string; sourceId?: string }> {
+  return sim.areas.contactsAt(Math.floor(x), Math.floor(y));
 }
 
 /** Ground items exposed to fire char over time, then are destroyed. */
@@ -53,56 +109,5 @@ export function tickStatuses(sim: SimState, effectEvents: EffectEvent[]): void {
     if (entity.hp <= 0) continue;
     sim.effects.tick({ entity, dt: TICK_DT, events: effectEvents, target: effectTargetFor(sim, entity), rng: () => sim.rng.next() });
     sim.effects.runInteractionRules({ entity, events: effectEvents });
-  }
-}
-
-function healthEventFor(event: Extract<EffectEvent, { t: "hp" }>) {
-  return {
-    t: "health" as const,
-    id: event.id,
-    delta: event.delta,
-    kind: event.delta > 0 ? "heal" as const : "damage" as const,
-    ...(event.source === undefined ? {} : { source: event.source }),
-  };
-}
-
-function realizeHealthEvent(
-  sim: SimState,
-  event: Extract<EffectEvent, { t: "hp" }>,
-): void {
-  const position = positionOf(sim, event.id);
-  sim.worldEvents.push({ ev: healthEventFor(event), ...position });
-  if (event.delta < 0) {
-    sim.worldEvents.push({
-      ev: { t: "damageImpact", id: event.id, amount: -event.delta },
-      ...position,
-    });
-  }
-}
-
-/** Turn engine effect events into world state changes + replicated events. */
-export function realizeEffectEvents(sim: SimState, effectEvents: EffectEvent[]): void {
-  for (const event of effectEvents) {
-    switch (event.t) {
-      case "spawnArea":
-        sim.areas.spawn({ defId: event.area, x: event.x, y: event.y, radius: event.radius });
-        break;
-      case "destroy":
-        sim.items.delete(event.id);
-        sim.projectiles.delete(event.id);
-        break;
-      case "hp":
-        realizeHealthEvent(sim, event);
-        break;
-      case "status":
-        sim.worldEvents.push({
-          ev: { t: "status", id: event.id, status: event.status, on: event.on },
-          ...positionOf(sim, event.id),
-        });
-        break;
-      case "death":
-        // handled in deaths.ts resolveDeaths (entity still present here)
-        break;
-    }
   }
 }

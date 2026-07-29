@@ -1,0 +1,35 @@
+{
+  "poisoned": {
+    "color": "#5fc44d",
+    "blend": 0.7,
+    "gas": {
+      "color": "#7bd44a",
+      "alpha": 0.68,
+      "scale": 0.52,
+      "lifespanMs": 1400,
+      "depthBias": 0.065
+    }
+  },
+  "budgets": {
+    "full": {
+      "maximumActiveRigs": 32,
+      "maximumSpareRigs": 8,
+      "fireSparkSlots": 4,
+      "oilDropSlots": 1,
+      "poisonGasSlots": 6,
+      "fireSparkIntervalMs": 150,
+      "oilDropIntervalMs": 180,
+      "poisonGasIntervalMs": 180
+    },
+    "reduced": {
+      "maximumActiveRigs": 16,
+      "maximumSpareRigs": 4,
+      "fireSparkSlots": 2,
+      "oilDropSlots": 1,
+      "poisonGasSlots": 3,
+      "fireSparkIntervalMs": 300,
+      "oilDropIntervalMs": 360,
+      "poisonGasIntervalMs": 360
+    }
+  }
+}

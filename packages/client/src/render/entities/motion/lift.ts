@@ -15,7 +15,7 @@ import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 
 /**
  * Pixels to shift a sprite upward (negative screen Y) for absolute height z. The
- * trailing params are accepted-but-ignored: torchEntityVisual.ts calls this with the
+ * trailing params are accepted-but-ignored: visuals/torch/visual.ts calls this with the
  * old 3-arg shape, and keeping the shape source-compatible means callers don't all
  * need touching in lockstep — the lift itself only ever needs z now. The identical
  * `z*TILE` shape also serves GROUND-anchored callers (shadow/halo/decals): call this

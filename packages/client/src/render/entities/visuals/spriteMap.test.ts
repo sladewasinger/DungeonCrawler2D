@@ -23,6 +23,7 @@ describe("monsterSpriteFor", () => {
     expect(monsterSpriteFor("spitter")).toBe("imp");
     expect(monsterSpriteFor("slime")).toBe("slime");
     expect(monsterSpriteFor("plant-creeper")).toBe("plant_creeper");
+    expect(monsterSpriteFor("pitchbloom")).toBe("pitchbloom");
   });
 
   it("maps every expanded Dungeon Tileset II monster family", () => {

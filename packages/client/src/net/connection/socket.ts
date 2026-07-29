@@ -142,6 +142,7 @@ function onWelcome(conn: Connection, msg: ServerWelcome): void {
   conn.snapshotRevisions.reset();
   conn.entities.clear();
   conn.areaTiles.clear();
+  conn.areaTileLayers.clear();
   conn.teleported = true;
   conn.onConnected?.();
   if (!conn.pingTimer) {

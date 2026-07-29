@@ -1,5 +1,6 @@
 import {
   areasData,
+  areaReactionsData,
   enemiesData,
   itemsData,
   recipesData,
@@ -24,6 +25,7 @@ const content = buildContentRegistry({
   statuses: [...statusesData],
   rules: [...rulesData],
   areas: [...areasData],
+  areaReactions: [...areaReactionsData],
   items: [...itemsData],
   enemies: [...enemiesData],
   recipes: [...recipesData],
@@ -69,7 +71,7 @@ describe("cohesive district enemy population", () => {
     }
   });
 
-  it("keeps packs next to the floor-one spawn anchor small", () => {
+  it("uses the configured pack bounds next to the floor-one spawn anchor", () => {
     const sim = createTestSim("near-spawn-population");
     const anchor = resolveSpawnAnchor(sim);
     spawnEnemyPack(
@@ -77,7 +79,8 @@ describe("cohesive district enemy population", () => {
       Math.floor(anchor.x / 32),
       Math.floor(anchor.y / 32),
     );
-    expect(sim.enemies.size).toBeGreaterThanOrEqual(1);
-    expect(sim.enemies.size).toBeLessThanOrEqual(2);
+    const tuning = ENEMY_SIMULATION_TUNING.population;
+    expect(sim.enemies.size).toBeGreaterThanOrEqual(tuning.nearSpawnPackMinimum);
+    expect(sim.enemies.size).toBeLessThanOrEqual(tuning.nearSpawnPackMaximum);
   });
 });

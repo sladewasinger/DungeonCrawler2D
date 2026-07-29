@@ -1,46 +1,34 @@
-import Phaser from "phaser";
-import { ASSET_KEYS } from "../../../boot/assetManifest.js";
+import type Phaser from "phaser";
 import {
-  emberVerticalOffset,
-  oilVerticalOffset,
-  particleAlpha,
-  particleProgress,
-  statusParticleNoise,
+  availableStatusParticleSlot,
+  clearStatusParticleKind,
+  createStatusParticleSlots,
+  destroyStatusParticleSlots,
+  resetStatusParticleSlots,
+} from "./particles/statusParticleCollection.js";
+import {
+  FIRE_SPARK_PARTICLE,
+  OIL_DROP_PARTICLE,
+  POISON_GAS_PARTICLE,
   type StatusParticleKind,
-} from "./statusParticleMotion.js";
+} from "./particles/statusParticleMotion.js";
+import { StatusParticleScheduler } from "./particles/statusParticleScheduler.js";
+import {
+  activateStatusParticleSlot,
+  syncStatusParticleSlot,
+} from "./particles/statusParticleSlot.js";
 import type { StatusVisualBudget } from "./statusVisualBudget.js";
 import type { StatusVisualFrame } from "./statusVisualFrame.js";
 
-const PARTICLE_FRAME = "particle_soft";
-const EMBER_DURATION_MS = 560;
-const OIL_DURATION_MS = 720;
-const EMBER_COLOR = 0xff9e3d;
-const OIL_COLOR = 0x17121b;
-
-interface StatusParticle {
-  readonly sprite: Phaser.GameObjects.Sprite;
-  active: boolean;
-  kind: StatusParticleKind;
-  startedAtMs: number;
-  durationMs: number;
-  offsetX: number;
-  driftX: number;
-}
-
 export class EntityStatusParticles {
-  private readonly slots: StatusParticle[] = [];
-  private nextEmberAtMs = 0;
-  private nextOilAtMs = 0;
+  private readonly slots;
+  private readonly scheduler: StatusParticleScheduler;
   private sequence = 0;
   private seed = 0;
 
-  constructor(
-    scene: Phaser.Scene,
-    private readonly budget: StatusVisualBudget,
-  ) {
-    for (let index = 0; index < budget.particleSlotsPerRig; index++) {
-      this.slots.push(createParticle(scene));
-    }
+  constructor(scene: Phaser.Scene, budget: StatusVisualBudget) {
+    this.slots = createStatusParticleSlots(scene, budget);
+    this.scheduler = new StatusParticleScheduler(budget);
   }
 
   activate(seed: number): void {
@@ -49,116 +37,57 @@ export class EntityStatusParticles {
   }
 
   sync(body: Phaser.GameObjects.Sprite, frame: StatusVisualFrame): void {
-    this.syncSpawning(body, frame);
-    if (!frame.burning) this.clearKind("ember");
-    if (!frame.oiled) this.clearKind("oil");
-    for (const slot of this.slots) this.updateSlot(slot, body, frame);
-  }
-
-  private syncSpawning(
-    body: Phaser.GameObjects.Sprite,
-    frame: StatusVisualFrame,
-  ): void {
-    if (frame.burning && frame.nowMs >= this.nextEmberAtMs) {
-      this.spawn("ember", body, frame.nowMs);
-      this.nextEmberAtMs = frame.nowMs + this.budget.emberIntervalMs;
-    } else if (!frame.burning) this.nextEmberAtMs = 0;
-    if (frame.oiled && frame.nowMs >= this.nextOilAtMs) {
-      this.spawn("oil", body, frame.nowMs);
-      this.nextOilAtMs = frame.nowMs + this.budget.oilDropIntervalMs;
-    } else if (!frame.oiled) this.nextOilAtMs = 0;
-  }
-
-  private spawn(
-    kind: StatusParticleKind,
-    body: Phaser.GameObjects.Sprite,
-    nowMs: number,
-  ): void {
-    const slot = availableSlot(this.slots);
-    if (!slot) return;
-    const noise = statusParticleNoise(this.seed, this.sequence++);
-    configureParticle(slot, kind, nowMs);
-    configureParticleGeometry(slot, body.displayWidth, noise);
-  }
-
-  private updateSlot(
-    slot: StatusParticle,
-    body: Phaser.GameObjects.Sprite,
-    frame: StatusVisualFrame,
-  ): void {
-    if (!slot.active) return;
-    const progress = particleProgress(frame.nowMs, slot.startedAtMs, slot.durationMs);
-    if (progress >= 1) return void deactivate(slot);
-    const groundDistance = frame.groundScreenY - body.y;
-    const offset = slot.kind === "ember"
-      ? emberVerticalOffset(progress, body.displayHeight)
-      : oilVerticalOffset(progress, body.displayHeight, groundDistance);
-    const y = body.y + offset;
-    const drift = slot.kind === "ember" ? slot.driftX * progress : 0;
-    slot.sprite.setPosition(body.x + slot.offsetX + drift, y);
-    slot.sprite.setDepth(body.depth + 0.06);
-    slot.sprite.setAlpha(particleAlpha(slot.kind, progress));
-  }
-
-  private clearKind(kind: StatusParticleKind): void {
+    this.clearInactiveKinds(frame);
     for (const slot of this.slots) {
-      if (slot.active && slot.kind === kind) deactivate(slot);
+      syncStatusParticleSlot(slot, body, frame);
     }
+    this.spawnDue(body, frame);
+  }
+
+  private spawnDue(
+    body: Phaser.GameObjects.Sprite,
+    frame: StatusVisualFrame,
+  ): void {
+    const input = { body, nowMs: frame.nowMs };
+    this.spawnIfDue(FIRE_SPARK_PARTICLE, frame.burning, input);
+    this.spawnIfDue(OIL_DROP_PARTICLE, frame.oiled, input);
+    this.spawnIfDue(POISON_GAS_PARTICLE, frame.poisoned, input);
+  }
+
+  private spawnIfDue(
+    kind: StatusParticleKind,
+    enabled: boolean,
+    input: StatusParticleSpawn,
+  ): void {
+    if (!this.scheduler.due(kind, enabled, input.nowMs)) return;
+    const slot = availableStatusParticleSlot(this.slots, kind);
+    if (!slot) return;
+    activateStatusParticleSlot(slot, {
+      body: input.body,
+      nowMs: input.nowMs,
+      seed: this.seed,
+      sequence: this.sequence++,
+    });
+  }
+
+  private clearInactiveKinds(frame: StatusVisualFrame): void {
+    if (!frame.burning) clearStatusParticleKind(this.slots, FIRE_SPARK_PARTICLE);
+    if (!frame.oiled) clearStatusParticleKind(this.slots, OIL_DROP_PARTICLE);
+    if (!frame.poisoned) clearStatusParticleKind(this.slots, POISON_GAS_PARTICLE);
   }
 
   reset(): void {
-    this.nextEmberAtMs = 0;
-    this.nextOilAtMs = 0;
+    this.scheduler.reset();
     this.sequence = 0;
-    for (const slot of this.slots) deactivate(slot);
+    resetStatusParticleSlots(this.slots);
   }
 
   destroy(): void {
-    for (const slot of this.slots) slot.sprite.destroy();
-    this.slots.length = 0;
+    destroyStatusParticleSlots(this.slots);
   }
 }
 
-function createParticle(scene: Phaser.Scene): StatusParticle {
-  const sprite = scene.add.sprite(0, 0, ASSET_KEYS.atlas, PARTICLE_FRAME)
-    .setOrigin(0.5)
-    .setVisible(false)
-    .setActive(false);
-  return {
-    sprite,
-    active: false,
-    kind: "ember",
-    startedAtMs: 0,
-    durationMs: EMBER_DURATION_MS,
-    offsetX: 0,
-    driftX: 0,
-  };
-}
-
-function availableSlot(slots: readonly StatusParticle[]): StatusParticle | null {
-  for (const slot of slots) {
-    if (!slot.active) return slot;
-  }
-  return null;
-}
-
-function configureParticle(slot: StatusParticle, kind: StatusParticleKind, nowMs: number): void {
-  slot.active = true;
-  slot.kind = kind;
-  slot.startedAtMs = nowMs;
-  slot.durationMs = kind === "ember" ? EMBER_DURATION_MS : OIL_DURATION_MS;
-  slot.sprite.setTint(kind === "ember" ? EMBER_COLOR : OIL_COLOR);
-  slot.sprite.setBlendMode(kind === "ember" ? Phaser.BlendModes.ADD : Phaser.BlendModes.MULTIPLY);
-  slot.sprite.setScale(kind === "ember" ? 0.1 : 0.08, kind === "ember" ? 0.1 : 0.15);
-  slot.sprite.setVisible(true).setActive(true);
-}
-
-function configureParticleGeometry(slot: StatusParticle, bodyWidth: number, noise: number): void {
-  slot.offsetX = (noise - 0.5) * bodyWidth * 0.55;
-  slot.driftX = (0.5 - noise) * bodyWidth * 0.35;
-}
-
-function deactivate(slot: StatusParticle): void {
-  slot.active = false;
-  slot.sprite.setVisible(false).setActive(false).setAlpha(0);
+interface StatusParticleSpawn {
+  readonly body: Phaser.GameObjects.Sprite;
+  readonly nowMs: number;
 }

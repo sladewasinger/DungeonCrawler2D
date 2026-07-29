@@ -12,6 +12,12 @@ describe("groundItemFrame", () => {
     expect(groundItemFrame("torch")).toBe("item_torch");
   });
 
+  it("uses the dedicated Pitchbloom oil-lob frame", () => {
+    expect(groundItemFrame("pitchbloom-oil-lob")).toBe(
+      "projectile_oil_lob",
+    );
+  });
+
   it("falls back to a generic frame when the defId is missing", () => {
     expect(groundItemFrame(undefined)).toBe("skull");
   });
