@@ -8,9 +8,9 @@ import { loadCarnageSettings } from "../system/carnageSettings.js";
 import { CorpseDecalPool } from "../death/corpseDecalPool.js";
 import { DeathCarnagePool, type CarnageAppearance } from "../death/deathCarnagePool.js";
 import { spawnGibBurst } from "../death/gibBurst.js";
-import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 import { ScreenShakeBudget } from "../particles/screenShake.js";
 import { deathDecalInputs } from "../death/deathDecalInputs.js";
+import { KillZoomPunch } from "./camera/killZoomPunch.js";
 
 export type { CarnageAppearance } from "../death/deathCarnagePool.js";
 
@@ -34,12 +34,14 @@ export interface DeathGoreInput extends CombatEffectTarget {
 
 export class CombatEffects {
   private readonly shake: ScreenShakeBudget;
+  private readonly killZoomPunch: KillZoomPunch;
   private readonly bloodDecals: BloodDecalPool;
   private readonly corpseDecals: CorpseDecalPool;
   private readonly deathCarnage: DeathCarnagePool;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.shake = new ScreenShakeBudget(scene.cameras.main);
+    this.killZoomPunch = new KillZoomPunch(scene.cameras.main);
     this.bloodDecals = new BloodDecalPool(scene);
     this.corpseDecals = new CorpseDecalPool(scene);
     this.deathCarnage = new DeathCarnagePool(scene);
@@ -99,7 +101,7 @@ export class CombatEffects {
   spawnKillMoment(input: DeathGoreInput): void {
     this.spawnDeathGore(input);
     this.shake.onKillMoment(input.nowMs);
-    this.punchCamera();
+    this.killZoomPunch.trigger();
   }
 
   onOwnHit(nowMs: number): void {
@@ -120,14 +122,6 @@ export class CombatEffects {
     this.bloodDecals.dispose();
     this.corpseDecals.dispose();
     this.deathCarnage.dispose();
-  }
-
-  private punchCamera(): void {
-    const camera = this.scene.cameras.main;
-    const baseZoom = camera.zoom;
-    camera.zoomTo(baseZoom * HIT_STOP_ZOOM, HIT_STOP_DURATION_MS / 2, "Sine.easeOut", true, (_cam, progress) => {
-      if (progress === 1) camera.zoomTo(baseZoom, HIT_STOP_DURATION_MS / 2, "Sine.easeIn");
-    });
   }
 
   private spawnGibBurst({ screen, tint, defId, enabled }: {

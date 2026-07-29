@@ -11,6 +11,7 @@ import {
   type World,
 } from "@dc2d/engine";
 import { initBossFloor, receiveTransfer } from "../floors/index.js";
+import { spawnPet as spawnCompanion, type PetDefinition } from "../pets/index.js";
 import { spawnEnemy, spawnItem, type ItemSpawn } from "./helpers.js";
 import { addPlayer, type PlayerJoinRequest } from "../players/join.js";
 import {
@@ -132,6 +133,11 @@ export class GameSim {
   /** Test access: spawn an enemy. */
   spawnEnemy(defId: string, x: number, y: number): Entity {
     return spawnEnemy(this.state, { defId, x, y });
+  }
+
+  /** Test access: spawn an adoptable pet. */
+  spawnPet(definition: PetDefinition, x: number, y: number): Entity {
+    return spawnCompanion(this.state, { definition, position: { x, y } });
   }
 
   /** Test access: forfeit a player's spawn grace (sim/spawnSafety.ts) —

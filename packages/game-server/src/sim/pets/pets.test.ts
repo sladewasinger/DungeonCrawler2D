@@ -74,19 +74,38 @@ describe("pets", () => {
     expect(pet.body.x).toBeGreaterThan(before);
   });
 
-  it("allows each player to claim at most one pet", () => {
+  it("swaps pets and leaves the previous companion available in place", () => {
     const sim = dungeonState();
     sim.pets.clear();
     const player = addPlayer(sim, { name: "Ellie", clientId: "pet-client-one" });
     const first = spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: player.spawn.x + 1, y: player.spawn.y } });
-    const second = spawnPet(sim, { definition: PET_DEFINITIONS[1]!, position: { x: player.spawn.x + 2, y: player.spawn.y } });
+    const second = spawnPet(sim, { definition: PET_DEFINITIONS[1]!, position: { x: player.spawn.x + 4, y: player.spawn.y } });
     const slot = sim.players.get(player.playerId)!;
 
     expect(claimNearestPet(sim, slot)).toBe(true);
+    const firstPosition = { x: first.body.x, y: first.body.y };
+    slot.entity.body.x = second.body.x;
     expect(claimNearestPet(sim, slot)).toBe(true);
-    expect(sim.pets.get(first.id)?.ownerId).toBe(player.playerId);
-    expect(sim.pets.get(second.id)?.ownerId).toBeNull();
-    expect(slot.outbox.at(-1)).toMatchObject({ t: "toast", msg: "You already have a pet." });
+    expect(sim.pets.get(first.id)).toMatchObject({ ownerId: null, mode: "available" });
+    expect(first.body).toMatchObject(firstPosition);
+    expect(sim.pets.get(second.id)?.ownerId).toBe(player.playerId);
+    expect(slot.outbox.at(-1)).toMatchObject({
+      t: "toast",
+      msg: "Mort is now your pet. Doux is available for another crawler.",
+    });
+  });
+
+  it("does not consume interact when only the player's own pet is nearby", () => {
+    const sim = dungeonState();
+    sim.pets.clear();
+    const player = addPlayer(sim, { name: "Ellie", clientId: "pet-client-self" });
+    spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: player.spawn.x + 1, y: player.spawn.y } });
+    const slot = sim.players.get(player.playerId)!;
+    expect(claimNearestPet(sim, slot)).toBe(true);
+    slot.outbox.length = 0;
+
+    expect(claimNearestPet(sim, slot)).toBe(false);
+    expect(slot.outbox).toEqual([]);
   });
 
   it("does not seed pets on sandbox simulations", () => {

@@ -90,14 +90,18 @@ function petSlot(sim: SimState, entity: Entity, input: { definition: PetDefiniti
   };
 }
 
-/** The first nearby player to send interact owns an unclaimed pet. */
+/** Claims a nearby available pet, releasing the player's previous companion in place. */
 export function claimNearestPet(sim: SimState, slot: PlayerSlot): boolean {
-  if (simHasPet(sim, slot.entity.id)) {
-    slot.outbox.push({ t: "toast", msg: "You already have a pet." });
-    return true;
-  }
   const target = nearestAvailablePet(sim, slot);
   if (!target) return false;
+  const previous = ownedPet(sim, slot.entity.id);
+  if (previous) releasePet(previous);
+  assignPet(target, slot);
+  slot.outbox.push({ t: "toast", msg: petClaimMessage(target, previous) });
+  return true;
+}
+
+function assignPet(target: PetSlot, slot: PlayerSlot): void {
   target.ownerId = slot.entity.id;
   target.mode = "following";
   target.entity.ownerId = slot.entity.id;
@@ -105,15 +109,17 @@ export function claimNearestPet(sim: SimState, slot: PlayerSlot): boolean {
   target.ownerStillTicks = 0;
   target.driftTarget = undefined;
   clearPetPath(target);
-  slot.outbox.push({
-    t: "toast",
-    msg: `${target.definition.name} is now your pet! It will follow you around the dungeon.`,
-  });
-  return true;
 }
 
-function simHasPet(sim: SimState, playerId: string): boolean {
-  return [...sim.pets.values()].some((pet) => pet.ownerId === playerId);
+function petClaimMessage(target: PetSlot, previous: PetSlot | undefined): string {
+  if (previous) {
+    return `${target.definition.name} is now your pet. ${previous.definition.name} is available for another crawler.`;
+  }
+  return `${target.definition.name} is now your pet! It will follow you around the dungeon.`;
+}
+
+function ownedPet(sim: SimState, playerId: string): PetSlot | undefined {
+  return [...sim.pets.values()].find((pet) => pet.ownerId === playerId);
 }
 
 function nearestAvailablePet(sim: SimState, slot: PlayerSlot): PetSlot | undefined {
