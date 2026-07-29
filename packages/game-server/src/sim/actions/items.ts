@@ -9,88 +9,90 @@ import {
   newEntityId,
   type EffectEvent,
 } from "@dc2d/engine";
-import { invQty, invRemove } from "../inventory.js";
-import type { PlayerAction, PlayerSlot, SimState } from "../state.js";
-import { doThrowTorch } from "../torches.js";
+import { invQty, invRemove } from "../inventory/inventory.js";
+import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
+import { doThrowTorch } from "../combat/torches.js";
 
 /** Hotbar item use: throwables launch a projectile, consumables run their effects. */
 
-export function doUseSlot(
-  sim: SimState,
-  slot: PlayerSlot,
-  index: number,
-  targetX: number | undefined,
-  targetY: number | undefined,
-  targetId: string | undefined,
-  effectEvents: EffectEvent[],
-): void {
-  const defId = slot.hotbar[index];
+interface ItemUseContext {
+  sim: SimState;
+  slot: PlayerSlot;
+  defId: string;
+  effectEvents: EffectEvent[];
+}
+
+interface ItemThrowContext extends ItemUseContext {
+  tags: readonly string[];
+  targetX: number;
+  targetY: number;
+}
+
+interface ItemActionContext {
+  sim: SimState;
+  slot: PlayerSlot;
+  action: PlayerAction;
+  effectEvents: EffectEvent[];
+}
+
+export function doUseSlot({ sim, slot, action, effectEvents }: ItemActionContext): void {
+  if (action.type !== "useSlot") return;
+  const defId = slot.hotbar[action.slot];
   if (!defId) return;
   const def = sim.content.items.get(defId);
   if (!def || invQty(slot, defId) < 1) return;
-
-  if (targetId !== undefined) {
-    useBandageOnPlayer(sim, slot, defId, targetId, effectEvents);
-    return;
-  }
-
-  if (targetX !== undefined && targetY !== undefined && def.throwable) {
-    throwItem(sim, slot, defId, def.tags, targetX, targetY);
-    return;
-  }
-
-  consumeItem(sim, slot, defId, effectEvents);
+  const context = { sim, slot, defId, effectEvents };
+  useSlottedItem(context, def.throwable ? def.tags : undefined, action);
 }
 
-function useBandageOnPlayer(
-  sim: SimState,
-  slot: PlayerSlot,
-  defId: string,
-  targetId: string,
-  effectEvents: EffectEvent[],
-): void {
-  if (defId !== "bandage" || targetId === slot.entity.id) return;
+function useSlottedItem(context: ItemUseContext, tags: readonly string[] | undefined, action: Extract<PlayerAction, { type: "useSlot" }>): void {
+  if (action.targetId !== undefined) return useBandageOnPlayer({ ...context, targetId: action.targetId });
+  if (canThrowAt(action, tags)) return throwItem({ ...context, tags: tags ?? [], targetX: action.targetX, targetY: action.targetY });
+  consumeItem(context);
+}
+
+function canThrowAt(action: Extract<PlayerAction, { type: "useSlot" }>, tags: readonly string[] | undefined): action is Extract<PlayerAction, { type: "useSlot" }> & { targetX: number; targetY: number } {
+  return tags !== undefined && action.targetX !== undefined && action.targetY !== undefined;
+}
+
+function useBandageOnPlayer(context: ItemUseContext & { targetId: string }): void {
+  const { sim, slot, defId, effectEvents } = context;
+  const target = bandageTargetFor(context);
+  if (!target) return;
+  if (!isWithinBandageRange(slot, target)) return;
+  const consumable = sim.content.items.get(defId)?.consumable;
+  if (!consumable) return;
+  sim.effects.runPrimitives({ entity: target.entity, primitives: consumable.effects, events: effectEvents, rng: () => sim.rng.next() });
+  invRemove(slot, defId, 1);
+}
+
+function bandageTargetFor({ sim, slot, defId, targetId }: ItemUseContext & { targetId: string }): PlayerSlot | undefined {
+  if (defId !== "bandage") return undefined;
+  if (targetId === slot.entity.id) return undefined;
   const target = sim.players.get(targetId);
-  if (!target?.connected || target.entity.hp <= 0) return;
+  if (!target?.connected) return undefined;
+  return target.entity.hp > 0 ? target : undefined;
+}
+
+function isWithinBandageRange(slot: PlayerSlot, target: PlayerSlot): boolean {
   const from = slot.entity.body;
   const to = target.entity.body;
-  if (Math.hypot(to.x - from.x, to.y - from.y) > INTERACT_RANGE) return;
-  const consumable = sim.content.items.get(defId)?.consumable;
-  if (!consumable) return;
-  sim.effects.runPrimitives(target.entity, consumable.effects, effectEvents, {}, () => sim.rng.next());
-  invRemove(slot, defId, 1);
+  return Math.hypot(to.x - from.x, to.y - from.y) <= INTERACT_RANGE;
 }
 
-export function doUseItem(
-  sim: SimState,
-  slot: PlayerSlot,
-  defId: string,
-  effectEvents: EffectEvent[],
-): void {
+export function doUseItem({ sim, slot, defId, effectEvents }: ItemUseContext): void {
   if (invQty(slot, defId) < 1) return;
-  consumeItem(sim, slot, defId, effectEvents);
+  consumeItem({ sim, slot, defId, effectEvents });
 }
 
-function consumeItem(
-  sim: SimState,
-  slot: PlayerSlot,
-  defId: string,
-  effectEvents: EffectEvent[],
-): void {
+function consumeItem({ sim, slot, defId, effectEvents }: ItemUseContext): void {
   const consumable = sim.content.items.get(defId)?.consumable;
   if (!consumable) return;
-  sim.effects.runPrimitives(slot.entity, consumable.effects, effectEvents, {}, () => sim.rng.next());
+  sim.effects.runPrimitives({ entity: slot.entity, primitives: consumable.effects, events: effectEvents, rng: () => sim.rng.next() });
   invRemove(slot, defId, 1);
 }
 
-function throwItem(
-  sim: SimState,
-  slot: PlayerSlot,
-  defId: string,
-  tags: readonly string[],
-  targetX: number,
-  targetY: number,
-): void {
+function throwItem({ sim, slot, defId, tags, targetX, targetY }: ItemThrowContext): void {
   const from = slot.entity.body;
   let dx = targetX - from.x;
   let dy = targetY - from.y;
@@ -117,29 +119,17 @@ function throwItem(
 }
 
 /** Dispatches the three inventory-use action shapes split from actions/index.ts. */
-export function dispatchItemAction(
-  sim: SimState,
-  slot: PlayerSlot,
-  action: PlayerAction,
-  effectEvents: EffectEvent[],
-): void {
+export function dispatchItemAction(context: ItemActionContext): void {
+  const { sim, slot, action, effectEvents } = context;
   switch (action.type) {
     case "useSlot":
-      doUseSlot(
-        sim,
-        slot,
-        action.slot,
-        action.targetX,
-        action.targetY,
-        action.targetId,
-        effectEvents,
-      );
+      doUseSlot(context);
       break;
     case "useItem":
-      doUseItem(sim, slot, action.item, effectEvents);
+      doUseItem({ sim, slot, defId: action.item, effectEvents });
       break;
     case "throwTorch":
-      doThrowTorch(sim, slot, action.dirX, action.dirY);
+      doThrowTorch({ sim, slot, dirX: action.dirX, dirY: action.dirY });
       break;
   }
 }

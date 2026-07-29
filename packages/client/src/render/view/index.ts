@@ -6,23 +6,23 @@ export {
   rotateOrientation,
   wrapDegrees,
   type ViewOrientation,
-} from "./viewOrientation.js";
-export { getViewOrientation, resetViewOrientation, setViewOrientation } from "./viewState.js";
-export { viewTileToWorld, viewToWorld, worldAngleToView, worldTileToView, worldToView, type Point } from "./viewTransform.js";
-export { pickTallestFirst, type TallestFirstPick } from "./picking.js";
+} from "./orientation/viewOrientation.js";
+export { getViewOrientation, resetViewOrientation, setViewOrientation } from "./transform/viewState.js";
+export { viewTileToWorld, viewToWorld, worldAngleToView, worldTileToView, worldToView, type Point } from "./transform/viewTransform.js";
+export { pickTallestFirst, type TallestFirstPick } from "./picking/picking.js";
 export {
   screenNorthWorldDirection,
   screenSlotFor,
   screenSouthWorldDirection,
   stairTreadAxis,
   type CompassDir,
-} from "./directionRemap.js";
+} from "./orientation/directionRemap.js";
 export {
   compareViewDepth,
   depthForViewEntity,
   viewSpaceFeetY,
   type ViewDepthKey,
-} from "./viewDepth.js";
+} from "./transform/viewDepth.js";
 export {
   advanceRotationTween,
   isPastCrossfadeMidpoint,
@@ -32,4 +32,4 @@ export {
   rotationTweenProgress,
   startRotationTween,
   type RotationTween,
-} from "./rotationTween.js";
+} from "./orientation/rotationTween.js";

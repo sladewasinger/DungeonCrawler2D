@@ -132,21 +132,6 @@ async function exercise(
   return { heapStart, heapEnd: process.memoryUsage().heapUsed };
 }
 
-async function measure(
-  server: RunningServer,
-  clients: NetworkLoadClient[],
-  stepSamples: number[],
-): Promise<NetworkLoadResult> {
-  const beforeMeasure = stepSamples.length;
-  const memory = await exercise(server, clients);
-  const measuredSteps = stepSamples.slice(beforeMeasure + WARMUP_TICKS);
-  return buildNetworkLoadResult(
-    measuredSteps,
-    aggregateMetrics(clients),
-    memory,
-  );
-}
-
 async function publish(result: NetworkLoadResult): Promise<void> {
   await mkdir(dirname(OUTPUT_FILE), { recursive: true });
   await writeFile(OUTPUT_FILE, `${JSON.stringify(result, null, 2)}\n`);
@@ -161,7 +146,10 @@ async function run(): Promise<void> {
   let clients: NetworkLoadClient[] = [];
   try {
     clients = await connectClients(server);
-    await publish(await measure(server, clients, stepSamples));
+    const beforeMeasure = stepSamples.length;
+    const memory = await exercise(server, clients);
+    const measuredSteps = stepSamples.slice(beforeMeasure + WARMUP_TICKS);
+    await publish(buildNetworkLoadResult(measuredSteps, aggregateMetrics(clients), memory));
   } finally {
     await Promise.all(clients.map((client) => client.close()));
     server.stop();

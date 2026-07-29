@@ -1,4 +1,5 @@
 import { createSessionButton } from "./SessionMenuControls.js";
+import { createHudTemplate } from "../hud/styles/hudTemplate.js";
 
 interface SessionMenuPrimaryOptions {
   readonly container: HTMLElement;
@@ -12,18 +13,16 @@ interface SessionMenuPrimaryOptions {
 export function buildSessionMenuPrimary(
   options: SessionMenuPrimaryOptions,
 ): HTMLButtonElement {
-  const title = document.createElement("h2");
+  const title = createHudTemplate<HTMLHeadingElement>("hud-session-heading-template");
   title.textContent = "Game menu";
-  title.style.cssText = "margin:0 0 4px;color:#ffd54c;font-size:20px";
   const resume = createSessionButton("Resume", options.onResume);
   const quit = createSessionButton("Quit to title", options.onQuit);
   const advanced = createSessionButton(
     "Advanced settings",
     options.onAdvanced,
   );
-  const hudTitle = document.createElement("h3");
+  const hudTitle = createHudTemplate<HTMLHeadingElement>("hud-session-subheading-template");
   hudTitle.textContent = "HUD & view";
-  hudTitle.style.cssText = "margin:8px 0 0;color:#aaaec8;font-size:12px";
   options.container.append(
     title,
     resume,

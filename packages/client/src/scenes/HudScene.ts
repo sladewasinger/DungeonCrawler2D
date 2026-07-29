@@ -1,29 +1,17 @@
-/**
- * HUD overlay scene: runs in parallel with the game scene on its own camera, so
- * world lighting postFX (vignette/bloom, docs/VISUAL_DIRECTION.md "darkness is the
- * canvas") never dims or blurs UI legibility. Two ways in: launched with a `source`
- * (DungeonScene, real net/inventory state pulled fresh every frame) or self-gated on
- * ?hud=1|death (the gallery's fake-data preview) — a no-op scene otherwise, so it's
- * safe to always keep launched.
- */
 import Phaser from "phaser";
-import { BossBarWidget } from "../ui/widgets/hud/bossBar.js";
-import type { HudFakeSnapshot } from "../ui/widgets/hud/fakeData.js";
-import { HudWidgets } from "../ui/widgets/hud/index.js";
-import { attachDevelopmentMovementTrace } from "../ui/developmentMovementTrace.js";
-import type { MovementTraceControl } from "../ui/movementTraceControl.js";
-import type { Connection } from "../net/connection.js";
-import { HtmlTouchHitRegions } from "../three/HtmlTouchHitRegions.js";
-import { ThreeHud } from "../three/ThreeHud.js";
-import { createLiveHtmlHud } from "./hudHtml.js";
+import { BossBarWidget } from "../ui/widgets/hud/bars/bossBar.js";
+import type { HudFakeSnapshot } from "../ui/widgets/hud/core/fakeData.js";
+import { HudWidgets } from "../ui/widgets/hud/core/index.js";
+import type { Connection } from "../net/connection/connection.js";
+import { HtmlTouchHitRegions } from "../ui/hud/touch/HtmlTouchHitRegions.js";
+import { SharedHtmlHud } from "../ui/hud/core/SharedHtmlHud.js";
+import { createHtmlHudLifecycle, type HtmlHudLifecycle } from "./hudHtmlLifecycle.js";
 import { applyHudPreviewAids, resolveHudPreview } from "./hudPreview.js";
 import type { HudSceneData } from "./hudSceneData.js";
 export type { HudSceneData } from "./hudSceneData.js";
 
 export class HudScene extends Phaser.Scene {
   private hud: HudWidgets | undefined;
-  /** Epic 7.14 boss HP bar — built from `hud.registry` rather than folded into
-   * HudWidgets itself, which is already at its file-size cap. */
   private bossBar: BossBarWidget | undefined;
   private snapshot: HudFakeSnapshot | undefined;
   private source: (() => HudFakeSnapshot) | undefined;
@@ -31,7 +19,7 @@ export class HudScene extends Phaser.Scene {
   private social: HudSceneData["social"];
   private stations: HudSceneData["stations"];
   private connection: Connection | undefined;
-  private htmlHud: ThreeHud | undefined; private movementTraceControl: MovementTraceControl | undefined; private movementTraceGeneration = 0;
+  private htmlHud: SharedHtmlHud | undefined; private htmlHudLifecycle: HtmlHudLifecycle | undefined;
   private readonly touchHits = new HtmlTouchHitRegions();
   private onSelectHotbar: ((index: number | null) => void) | undefined;
   private session: HudSceneData["session"];
@@ -54,12 +42,16 @@ export class HudScene extends Phaser.Scene {
     const params = new URLSearchParams(window.location.search);
     this.snapshot = this.source ? undefined : resolveHudPreview(params) ?? undefined;
     if (!this.source && !this.snapshot) return;
-    if (this.source && this.connection) this.createHtmlHud(this.connection);
-    else this.createPreviewHud();
+    this.createHudSurface();
     applyHudPreviewAids(params, this.snapshot, this.hud);
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
+  }
+
+  private createHudSurface(): void {
+    if (this.source && this.connection) this.createHtmlHud(this.connection);
+    else this.createPreviewHud();
   }
 
   update(time: number): void {
@@ -73,105 +65,46 @@ export class HudScene extends Phaser.Scene {
     this.bossBar?.update(snapshot.boss);
   }
 
-  /** InputHud contract: forwarded to the live HudWidgets instance, if one is running. */
   hitTest(screenX: number, screenY: number): string | null {
     if (!this.htmlHud) return this.hud?.hitTest(screenX, screenY) ?? null;
-    return this.touchHits.hitTest(screenX, screenY, this.scale.width, this.scale.height);
+    return this.touchHits.hitTest({ x: screenX, y: screenY, width: this.scale.width, height: this.scale.height });
   }
 
-  /** Toggles the chat panel — the touch layout's collapse-to-chip affordance (InputHooks.onToggleChat). */
-  toggleChat(): void {
-    if (this.htmlHud) this.htmlHud.toggleChat();
-    else this.hud?.toggleChat();
-  }
+  toggleChat(): void { if (this.htmlHud) this.htmlHud.toggleChat(); else this.hud?.toggleChat(); }
 
-  /** Toggles the inventory window — [I]/[Tab] or the touch bag button (InputHooks.onToggleInventory). */
-  toggleInventory(): void {
-    if (this.htmlHud) this.htmlHud.toggleInventory();
-    else this.hud?.toggleInventory();
-  }
+  toggleInventory(): void { if (this.htmlHud) this.htmlHud.toggleInventory(); else this.hud?.toggleInventory(); }
 
-  /** InventoryPanelSource contract (inputAdapters.ts's createInputPanels). */
-  inventoryOpen(): boolean {
-    return this.htmlHud?.inventoryOpen() ?? this.hud?.inventoryOpen() ?? false;
-  }
+  inventoryOpen(): boolean { return this.htmlHud?.inventoryOpen() ?? this.hud?.inventoryOpen() ?? false; }
 
-  blocksGameplay(): boolean {
-    return this.htmlHud?.blocksGameplay() ?? this.hud?.inventoryOpen() ?? false;
-  }
+  blocksGameplay(): boolean { return this.htmlHud?.blocksGameplay() ?? this.hud?.inventoryOpen() ?? false; }
 
-  sessionMenuOpen(): boolean {
-    return this.htmlHud?.sessionMenuOpen() ?? false;
-  }
+  sessionMenuOpen(): boolean { return this.htmlHud?.sessionMenuOpen() ?? false; }
 
-  toggleSessionMenu(): void {
-    this.htmlHud?.toggleSessionMenu();
-  }
+  toggleSessionMenu(): void { this.htmlHud?.toggleSessionMenu(); }
 
-  /** InventoryPanelSource contract. */
-  selectedInventoryItem(): string | null {
-    return this.htmlHud ? null : this.hud?.selectedInventoryItem() ?? null;
-  }
+  selectedInventoryItem(): string | null { return this.htmlHud ? null : this.hud?.selectedInventoryItem() ?? null; }
 
-  /** InventoryPanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
-  closeInventory(): void {
-    if (this.htmlHud) this.htmlHud.closeInventory();
-    else this.hud?.closeInventory();
-  }
+  closeInventory(): void { if (this.htmlHud) this.htmlHud.closeInventory(); else this.hud?.closeInventory(); }
 
-  focusChat(): void {
-    this.htmlHud?.focusChat();
-  }
+  focusChat(): void { this.htmlHud?.focusChat(); }
 
-  /** [o] or the chat-tab chip (InputHooks.onToggleContacts). */
-  toggleContacts(): void {
-    if (this.htmlHud) this.htmlHud.toggleContacts();
-    else this.hud?.toggleContacts();
-  }
+  toggleContacts(): void { if (this.htmlHud) this.htmlHud.toggleContacts(); else this.hud?.toggleContacts(); }
 
-  /** [Esc] (InputHooks.onCloseOverlays). */
-  closeContacts(): void {
-    if (this.htmlHud) this.htmlHud.closeContacts();
-    else this.hud?.closeContacts();
-  }
+  closeContacts(): void { if (this.htmlHud) this.htmlHud.closeContacts(); else this.hud?.closeContacts(); }
 
-  closeTransientOverlays(): boolean {
-    return this.htmlHud?.closeOverlays() ?? false;
-  }
+  closeTransientOverlays(): boolean { return this.htmlHud?.closeOverlays() ?? false; }
 
-  /** PanelSource contract (scenes/dungeon/panelAdapters.ts's createInputPanels). */
-  craftOpen(): boolean {
-    return this.htmlHud?.craftOpen() ?? this.hud?.craftOpen() ?? false;
-  }
+  craftOpen(): boolean { return this.htmlHud?.craftOpen() ?? this.hud?.craftOpen() ?? false; }
 
-  /** PanelSource contract — flips the craft window open/closed, no range gating (the caller checks that). */
-  toggleCraftPanel(): void {
-    if (this.htmlHud) this.htmlHud.toggleCraft();
-    else this.hud?.toggleCraftPanel();
-  }
+  toggleCraftPanel(): void { if (this.htmlHud) this.htmlHud.toggleCraft(); else this.hud?.toggleCraftPanel(); }
 
-  /** PanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
-  closeCraftPanel(): void {
-    if (this.htmlHud) this.htmlHud.closeCraft();
-    else this.hud?.closeCraftPanel();
-  }
+  closeCraftPanel(): void { if (this.htmlHud) this.htmlHud.closeCraft(); else this.hud?.closeCraftPanel(); }
 
-  /** PanelSource contract. */
-  stashOpen(): boolean {
-    return this.htmlHud?.stashOpen() ?? this.hud?.stashOpen() ?? false;
-  }
+  stashOpen(): boolean { return this.htmlHud?.stashOpen() ?? this.hud?.stashOpen() ?? false; }
 
-  /** PanelSource contract — opens the stash window if it isn't already open. */
-  openStashPanel(): void {
-    if (this.htmlHud) this.htmlHud.openStash();
-    else this.hud?.openStashPanel();
-  }
+  openStashPanel(): void { if (this.htmlHud) this.htmlHud.openStash(); else this.hud?.openStashPanel(); }
 
-  /** PanelSource contract — [Esc]'s InputPanels.closeAll sweep. */
-  closeStashPanel(): void {
-    if (this.htmlHud) this.htmlHud.closeStash();
-    else this.hud?.closeStashPanel();
-  }
+  closeStashPanel(): void { if (this.htmlHud) this.htmlHud.closeStash(); else this.hud?.closeStashPanel(); }
 
   private handleResize(gameSize: Phaser.Structs.Size): void {
     this.cameras.main.setSize(gameSize.width, gameSize.height);
@@ -181,72 +114,37 @@ export class HudScene extends Phaser.Scene {
   }
 
   private createHtmlHud(connection: Connection): void {
-    const root = document.getElementById("app");
-    if (!root) throw new Error("Missing #app root for HTML HUD.");
-    const focusGame = () => { this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true }); };
-    this.htmlHud = createLiveHtmlHud({
-      root,
+    this.htmlHudLifecycle = createHtmlHudLifecycle({
       connection,
-      focusGame,
-      setTextInputFocused: (focused: boolean) => {
-        const keyboard = this.input.keyboard;
-        if (focused) keyboard?.disableGlobalCapture();
-        else keyboard?.enableGlobalCapture();
-      },
-      ...(this.onSelectHotbar
-        ? { onSelectHotbar: this.onSelectHotbar }
-        : {}),
-      session: this.session ?? {
-        respawn: () => {},
-        quitToTitle: () => {},
-      },
+      canvas: this.game.canvas,
+      keyboard: this.input.keyboard ?? undefined,
+      ...(this.onSelectHotbar ? { onSelectHotbar: this.onSelectHotbar } : {}),
+      ...(this.session ? { session: this.session } : {}),
     });
-    const movementTraceGeneration = ++this.movementTraceGeneration;
-    attachDevelopmentMovementTrace(root, connection, focusGame,
-      () => movementTraceGeneration === this.movementTraceGeneration,
-      (control) => { this.movementTraceControl = control; });
+    this.htmlHud = this.htmlHudLifecycle.hud;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.movementTraceGeneration += 1;
-      this.movementTraceControl?.dispose();
-      this.movementTraceControl = undefined;
-      this.htmlHud?.dispose();
+      this.htmlHudLifecycle?.dispose();
+      this.htmlHudLifecycle = undefined;
       this.htmlHud = undefined;
     });
   }
 
   private updateHtmlHud(snapshot: HudFakeSnapshot): void {
-    const connection = this.connection;
-    const world = connection?.world;
-    if (!this.htmlHud || !connection || !world) return;
+    if (!this.htmlHudLifecycle || !this.connection) return;
     this.touchHits.setActive(snapshot.touch !== null);
-    const player = {
-      x: snapshot.coords.x,
-      y: snapshot.coords.z,
-      z: snapshot.coords.y,
-      verticalVelocity: 0,
-      grounded: true,
-    };
-    this.htmlHud.update({
-      connection,
-      world,
-      player,
-      yaw: -(snapshot.compassBearingDeg * Math.PI) / 180,
-      mouseCaptured: true,
-      snapshot,
-    });
-    this.movementTraceControl?.update();
+    this.htmlHudLifecycle.update(snapshot);
   }
 
   private createPreviewHud(): void {
     const viewport = { width: this.scale.width, height: this.scale.height };
-    this.hud = new HudWidgets(
-      this,
+    this.hud = new HudWidgets({
+      scene: this,
       viewport,
-      this.actions,
-      this.social,
-      this.stations,
-      this.connection ? () => this.connection?.suicide() : undefined,
-    );
+      ...(this.actions ? { actions: this.actions } : {}),
+      ...(this.social ? { social: this.social } : {}),
+      ...(this.stations ? { stations: this.stations } : {}),
+      ...(this.connection ? { onRespawnNow: () => this.connection?.suicide() } : {}),
+    });
     this.bossBar = new BossBarWidget(this, this.hud.registry, viewport);
   }
 }

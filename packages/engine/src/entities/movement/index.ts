@@ -3,7 +3,7 @@ import {
   MOVE_SPEED,
   RUN_SPEED_MULTIPLIER,
 } from "../../core/constants.js";
-import type { WorldView } from "../../world/types.js";
+import type { WorldView } from "../../world/core/types.js";
 import { moveHorizontal } from "./collision.js";
 import { resolveVerticalMotion, updateJumpState } from "./physics.js";
 
@@ -34,22 +34,16 @@ import type { BodyState, MoveInput, StepOpts, StepResult } from "./state.js";
  * RUN_SPEED_MULTIPLIER — applied here, once, so the server (authoritative)
  * and the client's prediction/replay (same function, no opts) can never
  * drift apart on what "running" is worth. */
-export function stepBody(
-  world: WorldView,
-  body: BodyState,
-  input: MoveInput,
-  dt: number,
-  opts: StepOpts = {},
-): StepResult {
+export function stepBody(...[world, body, input, dt, opts = {}]: [WorldView, BodyState, MoveInput, number, StepOpts?]): StepResult {
   const speed = (opts.speed ?? MOVE_SPEED) *
     (input.run ? RUN_SPEED_MULTIPLIER : 1) *
     (input.block ? BLOCK_SPEED_MULTIPLIER : 1);
 
   updateJumpState(body, input, dt);
-  const blockedAxes = moveHorizontal(world, body, input, dt, speed, opts);
+  const blockedAxes = moveHorizontal({ world, body, input, dt, speed, opts });
   const terrain = world.groundAt(body.x, body.y);
   const onStair = world.stairHeightAt(body.x, body.y) !== null;
-  const result = resolveVerticalMotion(body, terrain, dt, onStair);
+  const result = resolveVerticalMotion({ body, terrain, dt, onStair });
   if ((blockedAxes & 1) !== 0) result.blockedX = true;
   if ((blockedAxes & 2) !== 0) result.blockedY = true;
   return result;

@@ -10,19 +10,14 @@ import {
   MIN_STREAK_LIMIT,
   saveCarnageSettings,
   type CarnageSettings,
-} from "../../vfx/carnageSettings.js";
+} from "../../vfx/system/carnageSettings.js";
 
-function createRange(
-  label: string,
-  minimum: number,
-  maximum: number,
-  value: number,
-  step: number,
-  format: (value: number) => string,
-  change: (value: number) => void,
-): HTMLLabelElement {
+interface RangeOptions { label: string; minimum: number; maximum: number; value: number; step: number; format: (value: number) => string; change: (value: number) => void; }
+interface PercentRangeOptions { label: string; value: number; minimum: number; maximum: number; change: (next: number) => void; }
+
+function createRange({ label, minimum, maximum, value, step, format, change }: RangeOptions): HTMLLabelElement {
   const row = document.createElement("label");
-  row.style.cssText = "display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center";
+  row.className = "hud-session__range";
   const text = document.createElement("span");
   text.textContent = label;
   const output = document.createElement("output");
@@ -33,7 +28,7 @@ function createRange(
   input.max = String(maximum);
   input.step = String(step);
   input.value = String(value);
-  input.style.cssText = "grid-column:1/-1;width:100%;accent-color:#c9414d";
+  input.className = "hud-session__range-input hud-session__range-input--blood";
   const update = () => {
     const next = Number(input.value);
     output.value = format(next);
@@ -51,8 +46,7 @@ function createToggle(
   change: (checked: boolean) => void,
 ): HTMLLabelElement {
   const row = document.createElement("label");
-  row.style.cssText =
-    "display:flex;justify-content:space-between;gap:8px;align-items:center";
+  row.className = "hud-session__toggle";
   const text = document.createElement("span");
   text.textContent = label;
   const checkbox = document.createElement("input");
@@ -80,35 +74,15 @@ function createCarnageRanges(
   HTMLLabelElement,
   HTMLLabelElement,
 ] {
-  const bloodDrops = createRange(
-    "Blood drop intensity",
-    Math.round(MIN_BLOOD_DROP_INTENSITY * 100),
-    Math.round(MAX_BLOOD_DROP_INTENSITY * 100),
-    Math.round(settings.bloodDropIntensity * 100),
-    5,
-    (value) => `${value}%`,
-    (value) => save({ bloodDropIntensity: value / 100 }),
-  );
-  const intensity = createRange(
-    "Carnage intensity",
-    Math.round(MIN_CARNAGE_INTENSITY * 100),
-    Math.round(MAX_CARNAGE_INTENSITY * 100),
-    Math.round(settings.intensity * 100),
-    5,
-    (value) => `${value}%`,
-    (value) => save({ intensity: value / 100 }),
-  );
-  const streaks = createRange(
-    "Ground splat streak limit", MIN_STREAK_LIMIT, MAX_STREAK_LIMIT,
-    settings.streakLimit, 1, String,
-    (value) => save({ streakLimit: value }),
-  );
-  const chunks = createRange(
-    "Gore chunk limit", MIN_CHUNK_LIMIT, MAX_CHUNK_LIMIT,
-    settings.chunkLimit, 1, String,
-    (value) => save({ chunkLimit: value }),
-  );
+  const bloodDrops = percent({ label: "Blood drop intensity", value: settings.bloodDropIntensity, minimum: MIN_BLOOD_DROP_INTENSITY, maximum: MAX_BLOOD_DROP_INTENSITY, change: (value) => save({ bloodDropIntensity: value }) });
+  const intensity = percent({ label: "Carnage intensity", value: settings.intensity, minimum: MIN_CARNAGE_INTENSITY, maximum: MAX_CARNAGE_INTENSITY, change: (value) => save({ intensity: value }) });
+  const streaks = createRange({ label: "Ground splat streak limit", minimum: MIN_STREAK_LIMIT, maximum: MAX_STREAK_LIMIT, value: settings.streakLimit, step: 1, format: String, change: (value) => save({ streakLimit: value }) });
+  const chunks = createRange({ label: "Gore chunk limit", minimum: MIN_CHUNK_LIMIT, maximum: MAX_CHUNK_LIMIT, value: settings.chunkLimit, step: 1, format: String, change: (value) => save({ chunkLimit: value }) });
   return [bloodDrops, intensity, streaks, chunks];
+}
+
+function percent({ label, value, minimum, maximum, change }: PercentRangeOptions): HTMLLabelElement {
+  return createRange({ label, value: Math.round(value * 100), minimum: minimum * 100, maximum: maximum * 100, step: 5, format: (next) => `${next}%`, change: (next) => change(next / 100) });
 }
 
 export function createCarnageControlGroups(): CarnageControlGroups {

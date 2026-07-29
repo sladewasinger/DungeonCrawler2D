@@ -1,0 +1,18 @@
+@import "./hud/styles/tokens.css";
+@import "./hud/styles/core.css";
+@import "./hud/styles/status.css";
+@import "./hud/styles/panels.css";
+@import "./hud/styles/inventory.css";
+@import "./hud/styles/social.css";
+@import "./hud/styles/feedback.css";
+@import "./hud/styles/touch.css";
+@import "./hud/styles/session.css";
+
+.hud-chat__tab:hover,
+.hud-chat__tab:focus-visible { background: rgb(37 39 57 / 68%); }
+
+@media (max-width: 720px), (pointer: coarse) {
+  .hud-chat { gap: 2px; padding: 4px 5px 3px; }
+  .hud-chat__input { padding: 4px 5px; }
+  .hud-chat__tab { padding-inline: 1px; font-size: 9px; }
+}

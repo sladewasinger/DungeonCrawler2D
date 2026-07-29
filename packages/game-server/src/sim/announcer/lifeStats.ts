@@ -6,7 +6,7 @@
 // players.ts's respawnSlot (another lane's files this wave) — life-start is seeded
 // lazily the first time deaths.ts observes a slot, which lands within one tick of the
 // real join/respawn since that call site runs unconditionally every tick.
-import type { PlayerSlot } from "../state.js";
+import type { PlayerSlot } from "../state/state.js";
 import { getKillCount } from "./killCounts.js";
 
 interface LifeMark {

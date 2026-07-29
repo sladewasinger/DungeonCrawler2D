@@ -8,15 +8,20 @@ function hasLocalStorage(): boolean {
 /** Narrow-parses arbitrary JSON into a LayoutConfig shape, dropping anything malformed. */
 function parseConfig(raw: unknown): LayoutConfig {
   const config = createEmptyConfig();
-  if (typeof raw !== "object" || raw === null) return config;
-  const widgets = (raw as { widgets?: unknown }).widgets;
-  if (typeof widgets !== "object" || widgets === null) return config;
-  for (const [id, value] of Object.entries(widgets as Record<string, unknown>)) {
-    if (typeof value === "object" && value !== null) {
-      config.widgets[id] = value as WidgetOverride;
-    }
-  }
+  const widgets = widgetEntries(raw);
+  for (const [id, value] of widgets) addValidWidget(config, id, value);
   return config;
+}
+
+function widgetEntries(raw: unknown): [string, unknown][] {
+  if (typeof raw !== "object" || raw === null) return [];
+  const widgets = (raw as { widgets?: unknown }).widgets;
+  if (typeof widgets !== "object" || widgets === null) return [];
+  return Object.entries(widgets as Record<string, unknown>);
+}
+
+function addValidWidget(config: LayoutConfig, id: string, value: unknown): void {
+  if (typeof value === "object" && value !== null) config.widgets[id] = value as WidgetOverride;
 }
 
 /** Loads the persisted layout override set, or null when none is stored / storage is unavailable. */

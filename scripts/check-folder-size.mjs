@@ -9,15 +9,23 @@ const ROOT = process.cwd();
 const SOURCE_FILE = /\.(?:[cm]?[jt]sx?)$/;
 const ROOTS = ["packages", "scripts", "tests", "tools"];
 const BASELINE = JSON.parse(readFileSync(new URL("./folder-size-baseline.json", import.meta.url), "utf8"));
+const IGNORED_DIRECTORIES = new Set(["node_modules", "dist", "build", ".vite", "coverage"]);
 
 function collectFiles(directory, files = []) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (["node_modules", "dist", "build", ".vite", "coverage"].includes(entry.name)) continue;
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) collectFiles(path, files);
-    else if (SOURCE_FILE.test(entry.name)) files.push(path);
+    collectEntry(directory, entry, files);
   }
   return files;
+}
+
+function collectEntry(directory, entry, files) {
+  if (IGNORED_DIRECTORIES.has(entry.name)) return;
+  const path = resolve(directory, entry.name);
+  if (entry.isDirectory()) {
+    collectFiles(path, files);
+    return;
+  }
+  if (SOURCE_FILE.test(entry.name)) files.push(path);
 }
 
 function countsByDirectory() {

@@ -16,6 +16,6 @@ describe("installPhaserFullscreenRetry", () => {
     const { installPhaserFullscreenRetry } = await import("./mobileFullscreen.js");
     const canvas = {} as HTMLElement;
     expect(installPhaserFullscreenRetry(canvas)).toBe(fullscreen.retry);
-    expect(fullscreen.install).toHaveBeenCalledWith(canvas);
+    expect(fullscreen.install).toHaveBeenCalledWith({ target: canvas });
   });
 });

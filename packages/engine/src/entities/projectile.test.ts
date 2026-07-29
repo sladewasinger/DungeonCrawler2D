@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import { makeEntity } from "./entity.js";
 import { createBody } from "./movement/index.js";
 import { stepProjectile } from "./projectile.js";

@@ -4,7 +4,7 @@ import {
   MOVE_SPEED,
   TICK_DT,
 } from "../core/constants.js";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import { createBody, stepBody } from "./movement/index.js";
 
 const world: WorldView = {

@@ -1,0 +1,27 @@
+{
+  "reservedRegionChunkY": 4096,
+  "slotStrideChunks": 2,
+  "wallRise": 3,
+  "southExitHallDepth": 2,
+  "personal": {
+    "width": 13,
+    "height": 9
+  },
+  "party": {
+    "width": 17,
+    "height": 13
+  },
+  "safe": {
+    "width": 17,
+    "height": 11,
+    "maximumOccupants": 20
+  },
+  "spawn": {
+    "chunkX": -2,
+    "width": 23,
+    "height": 17,
+    "slotCount": 21,
+    "columns": 7,
+    "slotSpacingTiles": 2
+  }
+}

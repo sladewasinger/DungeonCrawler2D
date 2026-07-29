@@ -21,3 +21,27 @@ does not appear.
 - Do not run tests during implementation iterations. Run `npm test` only at the
   final validation checkpoint immediately before committing, unless Austin asks
   for an earlier test run.
+
+## Critical code quality rules
+
+- Write highly modular, decoupled TypeScript.
+- Never nest conditionals or loops deeper than 3 levels.
+- If a function is approaching 35 lines, immediately abstract sub-steps into
+  private, pure helper functions.
+- Prefer pure functions with explicit inputs and outputs over stateful,
+  side-effect-heavy code to maintain low coupling.
+- If an object requires more than 3 parameters, group them into a single,
+  cohesive TypeScript interface or type.
+- Keep no more than four statements per line; never collapse whole modules
+  onto one line to evade file/function size limits.
+
+## Domain-based names
+
+- Name new or renamed folders, files, functions, variables, exported symbols,
+  assets, manifest keys, and other shared identifiers after the feature or
+  domain concept they represent.
+- Do not bleed branch names, renderer names, version numbers, or temporary
+  pipeline labels such as `terrain4` or `phaser4` into those names.
+- Keep implementation-specific details scoped to the smallest necessary
+  architectural boundary. Preserve an existing external name only when it is
+  a compatibility entry point, such as a documented URL query parameter.

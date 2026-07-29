@@ -1,0 +1,10 @@
+:root {
+  --hud-gold: #ffd54c;
+  --hud-text: #f2f0eb;
+  --hud-muted: #aaaec8;
+  --hud-panel-bg: rgba(17,18,29,.78);
+  --hud-panel-border: rgba(86,91,116,.82);
+  --hud-button-bg: #1b1c2c;
+  --hud-button-border: #555a75;
+  --hud-shadow: 0 8px 22px rgba(0,0,0,.28);
+}

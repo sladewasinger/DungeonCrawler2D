@@ -1,0 +1,25 @@
+<template id="hud-inventory-template">
+  <div class="hud-inventory" data-hud-inventory hidden role="dialog" aria-modal="true" aria-label="Inventory">
+    <section class="hud-inventory__panel">
+      <div class="hud-inventory__header"><strong>Inventory</strong><span class="hud-inventory__summary" data-hud-inventory-summary></span><button class="hud-button hud-button--close" data-hud-inventory-close type="button" aria-label="Close inventory">×</button></div>
+      <div class="hud-inventory__toolbar"><nav data-hud-inventory-tabs></nav><input data-hud-inventory-search type="search" placeholder="Filter items" aria-label="Filter inventory items"></div>
+      <div class="hud-inventory__body"><nav data-hud-inventory-folders></nav><div class="hud-inventory__list" data-hud-inventory-list></div></div>
+    </section>
+  </div>
+</template>
+
+<template id="hud-inventory-button-template">
+  <button class="hud-button" type="button" data-hud-inventory-button></button>
+</template>
+
+<template id="hud-inventory-row-template">
+  <div class="hud-inventory__row" data-hud-inventory-row>
+    <div class="hud-inventory__row-heading"><strong data-hud-inventory-name></strong><span data-hud-inventory-quantity></span></div>
+    <div class="hud-muted" data-hud-inventory-flavor></div>
+    <div class="hud-inventory__actions" data-hud-inventory-actions></div>
+  </div>
+</template>
+
+<template id="hud-inventory-actions-template">
+  <div class="hud-inventory__actions" data-hud-inventory-actions></div>
+</template>

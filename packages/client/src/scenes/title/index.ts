@@ -1,7 +1,7 @@
 /** Phaser title route backed by the same HTML title used by the Three.js route. */
 import Phaser from "phaser";
 import { isTouchDevice } from "../../input/touchDetect.js";
-import type { Connection } from "../../net/connection.js";
+import type { Connection } from "../../net/connection/connection.js";
 import { requestFullscreenBestEffort } from "./fullscreenChip.js";
 import { StandaloneTitle } from "./standaloneTitle.js";
 
@@ -32,8 +32,8 @@ export class TitleScene extends Phaser.Scene {
     this.title = new StandaloneTitle(
       this.conn,
       root,
-      () => this.scene.start("dungeon"),
       {
+        onReady: () => this.scene.start("dungeon"),
         onNameInputFocusChange: (focused) => {
           const keyboard = this.input.keyboard;
           if (focused) keyboard?.disableGlobalCapture();

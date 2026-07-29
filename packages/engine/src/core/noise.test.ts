@@ -1,5 +1,4 @@
-// No reference/engine/core sibling test exists for noise.ts; these cover its
-// determinism and range contract per docs/ENGINEERING_STANDARDS.md.
+// Covers noise determinism and range contracts from ENGINEERING_STANDARDS.md.
 import { describe, expect, it } from "vitest";
 import { fbm2D, valueNoise2D } from "./noise.js";
 
@@ -23,14 +22,16 @@ describe("valueNoise2D", () => {
 
 describe("fbm2D", () => {
   it("is deterministic and normalized to [0, 1]", () => {
-    const a = fbm2D(11, 4.2, 7.1, 4);
-    const b = fbm2D(11, 4.2, 7.1, 4);
+    const a = fbm2D({ seed: 11, x: 4.2, y: 7.1, octaves: 4 });
+    const b = fbm2D({ seed: 11, x: 4.2, y: 7.1, octaves: 4 });
     expect(a).toBe(b);
     expect(a).toBeGreaterThanOrEqual(0);
     expect(a).toBeLessThanOrEqual(1);
   });
 
   it("differs across octave counts for the same coordinate", () => {
-    expect(fbm2D(11, 4.2, 7.1, 1)).not.toBe(fbm2D(11, 4.2, 7.1, 5));
+    expect(fbm2D({ seed: 11, x: 4.2, y: 7.1, octaves: 1 })).not.toBe(
+      fbm2D({ seed: 11, x: 4.2, y: 7.1, octaves: 5 }),
+    );
   });
 });

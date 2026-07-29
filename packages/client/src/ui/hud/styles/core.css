@@ -1,0 +1,100 @@
+.dc2d-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  color: var(--hud-text);
+  font: 12px monospace;
+  pointer-events: none;
+  text-shadow: 0 2px 4px #000;
+}
+
+/* The HTML hidden attribute is state, not merely an accessibility hint. Some
+ * HUD components intentionally set display:grid/flex for their visible form,
+ * which would otherwise override the browser's weaker default hidden rule. */
+.dc2d-hud [hidden] {
+  display: none !important;
+}
+
+.hud-panel,
+.hud-status {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  background: var(--hud-panel-bg);
+  border: 1px solid var(--hud-panel-border);
+  box-shadow: var(--hud-shadow);
+  overflow: hidden;
+}
+
+.hud-title {
+  color: var(--hud-muted);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+
+.hud-button {
+  border: 1px solid var(--hud-button-border);
+  background: var(--hud-button-bg);
+  color: var(--hud-text);
+  padding: 4px 6px;
+  font: 10px monospace;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.hud-button--close {
+  padding: 2px 6px;
+}
+
+.hud-muted {
+  color: var(--hud-muted);
+}
+
+.hud-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  border: 1px solid rgb(255 255 255 / 82%);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.hud-window-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hud-window {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  box-sizing: border-box;
+  color: var(--hud-text);
+  font: 12px monospace;
+}
+
+.hud-window__content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.hud-window__resize-grip { position: absolute; right: 0; bottom: 0; width: 44px; height: 44px; display: none; z-index: 2; pointer-events: auto; touch-action: none; cursor: nwse-resize; background: linear-gradient(135deg, transparent 48%, rgb(235 225 180 / 82%) 49%, rgb(235 225 180 / 82%) 53%, transparent 54%), linear-gradient(135deg, transparent 64%, rgb(235 225 180 / 82%) 65%, rgb(235 225 180 / 82%) 69%, transparent 70%); }
+
+.hud-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

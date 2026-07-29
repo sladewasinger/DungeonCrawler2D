@@ -24,6 +24,15 @@ export interface EffectTarget {
   invulnerable?: boolean;
 }
 
+/** Input for one authoritative health mutation. */
+export interface HealthChange {
+  readonly entity: Entity;
+  readonly amount: number;
+  readonly events: EffectEvent[];
+  readonly opts?: DamageOpts;
+  readonly target?: EffectTarget;
+}
+
 /** Scales a hostile amount by the target's per-tag damageScale, or returns it unchanged. */
 function scaleDamage(
   amount: number,
@@ -40,13 +49,8 @@ function scaleDamage(
 }
 
 /** Resolves the final delta for a health change, or null if sanctuary suppresses it. */
-function resolveDelta(
-  state: EffectsState,
-  entity: Entity,
-  amount: number,
-  opts: DamageOpts,
-  target: EffectTarget,
-): number | null {
+function resolveDelta(state: EffectsState, change: HealthChange): number | null {
+  const { entity, amount, opts = {}, target = {} } = change;
   if (amount >= 0) return amount;
   if (target.invulnerable) return null;
   if (!opts.ignoreSanctuary && inSanctuary(state, entity)) return null;
@@ -54,25 +58,8 @@ function resolveDelta(
   return scaled * (target.damageTakenMultiplier ?? 1);
 }
 
-/**
- * Damage/heal an entity. Hostile amounts are suppressed in sanctuary
- * and scaled by the target's damageScale per source tag or uniform
- * damageTakenMultiplier. Emits hp and death events. Returns the applied delta.
- */
-export function modifyHealth(
-  state: EffectsState,
-  entity: Entity,
-  amount: number,
-  events: EffectEvent[],
-  opts: DamageOpts = {},
-  target: EffectTarget = {},
-): number {
-  if (entity.hp <= 0) return 0;
-  const delta = resolveDelta(state, entity, amount, opts, target);
-  if (delta === null) return 0;
-  const before = entity.hp;
-  entity.hp = Math.max(0, Math.min(entity.maxHp, entity.hp + delta));
-  const applied = entity.hp - before;
+function emitHealthEvents(change: HealthChange, applied: number): void {
+  const { entity, events, opts = {} } = change;
   if (applied !== 0) {
     events.push({
       t: "hp",
@@ -83,5 +70,24 @@ export function modifyHealth(
     });
   }
   if (entity.hp <= 0) events.push({ t: "death", id: entity.id });
+}
+
+/**
+ * Damage/heal an entity. Hostile amounts are suppressed in sanctuary
+ * and scaled by the target's damageScale per source tag or uniform
+ * damageTakenMultiplier. Emits hp and death events. Returns the applied delta.
+ */
+export function modifyHealth(
+  state: EffectsState,
+  change: HealthChange,
+): number {
+  const { entity } = change;
+  if (entity.hp <= 0) return 0;
+  const delta = resolveDelta(state, change);
+  if (delta === null) return 0;
+  const before = entity.hp;
+  entity.hp = Math.max(0, Math.min(entity.maxHp, entity.hp + delta));
+  const applied = entity.hp - before;
+  emitHealthEvents(change, applied);
   return applied;
 }

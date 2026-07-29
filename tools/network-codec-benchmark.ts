@@ -60,14 +60,47 @@ function groupedBytes(
   ]));
 }
 
+function coldMetrics<T>(codec: Codec<T>, packets: JsonValue[]) {
+  const { coldEncode, coldDecode, encoded } = encodeAndVerify(codec, packets);
+  return {
+    coldEncode,
+    coldDecode,
+    encoded,
+    packetBytes: encoded.map((packet) => codec.bytes(packet)),
+  };
+}
+
+interface WarmMetricOptions<T> {
+  codec: Codec<T>;
+  packets: JsonValue[];
+  encoded: T[];
+  records: CorpusRecord[];
+}
+
+function warmMetrics<T>(options: WarmMetricOptions<T>) {
+  const { codec, packets, encoded, records } = options;
+  const timings = warmTimings(codec, packets, encoded);
+  const packetBytes = encoded.map((packet) => codec.bytes(packet));
+  return {
+    batches: WARM_BATCHES,
+    packetsPerBatch: packets.length,
+    totalBytes: packetBytes.reduce((sum, value) => sum + value, 0),
+    packetBytes: distribution(packetBytes),
+    bytesByDirection: groupedBytes(records, packetBytes, ({ direction }) => direction),
+    bytesByType: groupedBytes(records, packetBytes, ({ direction, type }) => `${direction}:${type}`),
+    encodeBatchMilliseconds: timings.encode,
+    decodeBatchMilliseconds: timings.decode,
+    encodeMicrosecondsPerPacket: (timings.encode.p50 * 1000) / Math.max(1, packets.length),
+    decodeMicrosecondsPerPacket: (timings.decode.p50 * 1000) / Math.max(1, packets.length),
+  };
+}
+
 export function benchmarkCodec<T>(
   codec: Codec<T>,
   packets: JsonValue[],
   records: CorpusRecord[],
 ) {
-  const { coldEncode, coldDecode, encoded } = encodeAndVerify(codec, packets);
-  const timings = warmTimings(codec, packets, encoded);
-  const packetBytes = encoded.map((packet) => codec.bytes(packet));
+  const { coldEncode, coldDecode, encoded } = coldMetrics(codec, packets);
   return {
     codec: codec.name,
     cold: {
@@ -75,24 +108,7 @@ export function benchmarkCodec<T>(
       encodeMilliseconds: coldEncode.milliseconds,
       decodeMilliseconds: coldDecode.milliseconds,
     },
-    warm: {
-      batches: WARM_BATCHES,
-      packetsPerBatch: packets.length,
-      totalBytes: packetBytes.reduce((sum, value) => sum + value, 0),
-      packetBytes: distribution(packetBytes),
-      bytesByDirection: groupedBytes(records, packetBytes, ({ direction }) => direction),
-      bytesByType: groupedBytes(
-        records,
-        packetBytes,
-        ({ direction, type }) => `${direction}:${type}`,
-      ),
-      encodeBatchMilliseconds: timings.encode,
-      decodeBatchMilliseconds: timings.decode,
-      encodeMicrosecondsPerPacket:
-        (timings.encode.p50 * 1000) / Math.max(1, packets.length),
-      decodeMicrosecondsPerPacket:
-        (timings.decode.p50 * 1000) / Math.max(1, packets.length),
-    },
+    warm: warmMetrics({ codec, packets, encoded, records }),
     conformance: { packetsRoundTripped: packets.length, failures: 0 },
   };
 }

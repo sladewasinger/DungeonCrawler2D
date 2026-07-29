@@ -2,6 +2,28 @@
 import { PNG } from 'pngjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 
+function readRect(first, rest) {
+  if (typeof first === 'object') return { rect: first, remainder: rest };
+  const [y, w, h, ...remainder] = rest;
+  return { rect: { x: first, y, w, h }, remainder };
+}
+
+function readFillArgs(first, rest) {
+  const { rect, remainder } = readRect(first, rest);
+  return { rect, rgba: remainder[0] };
+}
+
+function readBlitArgs(sourceRectOrX, rest) {
+  if (typeof sourceRectOrX === 'object') {
+    return { sourceRect: sourceRectOrX, destRect: rest[0] };
+  }
+  const [sy, dx, dy, sw, sh] = rest;
+  return {
+    sourceRect: { x: sourceRectOrX, y: sy, w: sw, h: sh },
+    destRect: { x: dx, y: dy, w: sw, h: sh },
+  };
+}
+
 export class Canvas {
   constructor(width, height) {
     this.width = width;
@@ -16,9 +38,10 @@ export class Canvas {
     return canvas;
   }
 
-  static fromRegion(source, x, y, w, h) {
-    const canvas = new Canvas(w, h);
-    canvas.blit(source, x, y, 0, 0, w, h);
+  static fromRegion(source, rectOrX, ...args) {
+    const { rect } = readRect(rectOrX, args);
+    const canvas = new Canvas(rect.w, rect.h);
+    canvas.blit(source, rect, { x: 0, y: 0, w: rect.w, h: rect.h });
     return canvas;
   }
 
@@ -41,8 +64,11 @@ export class Canvas {
     return [this.data[i], this.data[i + 1], this.data[i + 2], this.data[i + 3]];
   }
 
-  fillRect(x, y, w, h, rgba) {
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) this.setPixel(xx, yy, rgba);
+  fillRect(rectOrX, ...args) {
+    const { rect, rgba } = readFillArgs(rectOrX, args);
+    for (let yy = rect.y; yy < rect.y + rect.h; yy++) {
+      for (let xx = rect.x; xx < rect.x + rect.w; xx++) this.setPixel(xx, yy, rgba);
+    }
   }
 
   /**
@@ -51,23 +77,31 @@ export class Canvas {
    * never punch a hole in whatever is already drawn underneath (e.g. a panel background);
    * fully opaque source pixels take a fast exact-copy path.
    */
-  blit(src, sx, sy, dx, dy, sw, sh) {
-    for (let yy = 0; yy < sh; yy++) {
-      for (let xx = 0; xx < sw; xx++) {
-        const [sr, sg, sb, sa] = src.getPixel(sx + xx, sy + yy);
-        if (sa === 0) continue;
-        if (sa === 255) {
-          this.setPixel(dx + xx, dy + yy, [sr, sg, sb, sa]);
-          continue;
-        }
-        const [dr, dg, db, da] = this.getPixel(dx + xx, dy + yy);
-        const srcA = sa / 255;
-        const dstA = (da / 255) * (1 - srcA);
-        const outA = srcA + dstA;
-        const mix = (s, d) => (outA === 0 ? 0 : (s * srcA + d * dstA) / outA);
-        this.setPixel(dx + xx, dy + yy, [mix(sr, dr), mix(sg, dg), mix(sb, db), Math.round(outA * 255)]);
+  blit(src, sourceRectOrX, ...args) {
+    const { sourceRect, destRect } = readBlitArgs(sourceRectOrX, args);
+    for (let yy = 0; yy < sourceRect.h; yy++) {
+      for (let xx = 0; xx < sourceRect.w; xx++) {
+        this.copyPixel(src, { sourceRect, destRect, xx, yy });
       }
     }
+  }
+
+  copyPixel(src, { sourceRect, destRect, xx, yy }) {
+    const [sr, sg, sb, sa] = src.getPixel(sourceRect.x + xx, sourceRect.y + yy);
+    if (sa === 0) return;
+    if (sa === 255) {
+      this.setPixel(destRect.x + xx, destRect.y + yy, [sr, sg, sb, sa]);
+      return;
+    }
+    const [dr, dg, db, da] = this.getPixel(destRect.x + xx, destRect.y + yy);
+    const srcA = sa / 255;
+    const dstA = (da / 255) * (1 - srcA);
+    const outA = srcA + dstA;
+    const mix = (source, destination) =>
+      outA === 0 ? 0 : (source * srcA + destination * dstA) / outA;
+    this.setPixel(destRect.x + xx, destRect.y + yy, [
+      mix(sr, dr), mix(sg, dg), mix(sb, db), Math.round(outA * 255),
+    ]);
   }
 
   toPngBuffer() {

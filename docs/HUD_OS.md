@@ -43,7 +43,7 @@ windows that happen to ship with fixed chrome (no visible frame, no drag handle,
 close button) and a fixed size. A **window** is the registry's unit of HUD real
 estate, and every one of them carries:
 
-| Property | Today (v1 registry) | This doc adds |
+| Property | Current registry | This doc adds |
 | --- | --- | --- |
 | `id` | yes | — |
 | `title` | no (chrome-less) | yes — only rendered when the window has a frame (edit-HUD mode, or a catalog listing) |
@@ -132,7 +132,7 @@ architecture change.
 ## 5. Tabs & filters as a first-class primitive
 
 Tab bars already exist twice in the codebase, both hand-built per widget:
-`chatPanel.ts`'s channel tabs and reference/v1's inventory filter tabs. Neither is
+`chatPanel.ts`'s channel tabs and the inventory filter tabs. Neither is
 reusable. This doc makes tabs a declared capability of a window definition instead of
 bespoke per-widget code.
 
@@ -161,7 +161,7 @@ interface WindowTabsState {
 ```
 
 - **Inventory (Phase 1, ships fixed-mode):** catalog = `All`, `Weapons`, `Usables`,
-  `Materials` (v1's four, ported verbatim). Fixed mode in Phase 1 — reordering/hiding
+  `Materials`. Fixed mode in Phase 1 — reordering/hiding
   individual filter tabs is a Phase 3 upgrade once the generic tab-bar renderer exists;
   Phase 1 hardcodes the tab bar exactly like `chatPanel.ts` does today (see § 7).
 - **Chat (Epic 8, user-extensible):** catalog = `global`, `party`, `dm`, `proximity` at
@@ -321,10 +321,9 @@ already live, which is exactly why it doesn't wait for edit-HUD mode.
   exactly). Phaser's `TAB` key does not `preventDefault()` browser focus-cycling by
   default — call `keyboard.addCapture('TAB')` (or `event.preventDefault()` in the
   handler) so opening inventory doesn't yank focus off the canvas.
-- **Filter tabs:** `All` / `Weapons` / `Usables` / `Materials`, ported verbatim from
-  `reference/client/ui/inventoryPanel.ts`'s `categoryOf()` — weapon → Weapons,
-  consumable-or-throwable → Usables, else → Materials — rebuilt as a pure function
-  (extend `packages/client/src/scenes/dungeon/contentQueries.ts`'s existing
+- **Filter tabs:** `All` / `Weapons` / `Usables` / `Materials` — weapon → Weapons,
+  consumable-or-throwable → Usables, else → Materials — implemented as a pure function
+  (extend `packages/client/src/scenes/dungeon/world/contentQueries.ts`'s existing
   `ItemDef`/`itemById` map with `name`/`weapon`/`consumable` fields it doesn't
   currently read, rather than building a second content lookup). Rendered as its own
   small tab strip inside the window, hand-built same as `chatPanel.ts`'s `buildTabs()`

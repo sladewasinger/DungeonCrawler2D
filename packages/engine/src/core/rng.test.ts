@@ -5,16 +5,19 @@
 import { describe, expect, it } from "vitest";
 import { Rng, hash2D, hash2DFloat, hashString, mixSeeds } from "./rng.js";
 
+const HASH_SEED = 42;
+const DEVELOPMENT_WORLD = "dev-world-1";
+
 describe("rng", () => {
   it("hashString is deterministic and spreads", () => {
-    expect(hashString("dev-world-1")).toBe(hashString("dev-world-1"));
-    expect(hashString("dev-world-1")).not.toBe(hashString("dev-world-2"));
+    expect(hashString(DEVELOPMENT_WORLD)).toBe(hashString(DEVELOPMENT_WORLD));
+    expect(hashString(DEVELOPMENT_WORLD)).not.toBe(hashString("dev-world-2"));
   });
 
   it("hash2D is deterministic per (seed, x, y) including negatives", () => {
-    expect(hash2D(42, -7, 13)).toBe(hash2D(42, -7, 13));
-    expect(hash2D(42, -7, 13)).not.toBe(hash2D(42, 13, -7));
-    expect(hash2D(42, 0, 0)).not.toBe(hash2D(43, 0, 0));
+    expect(hash2D(HASH_SEED, -7, 13)).toBe(hash2D(HASH_SEED, -7, 13));
+    expect(hash2D(HASH_SEED, -7, 13)).not.toBe(hash2D(HASH_SEED, 13, -7));
+    expect(hash2D(HASH_SEED, 0, 0)).not.toBe(hash2D(HASH_SEED + 1, 0, 0));
   });
 
   it("hash2D always returns a non-negative uint32", () => {

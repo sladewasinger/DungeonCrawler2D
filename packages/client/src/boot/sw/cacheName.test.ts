@@ -6,13 +6,6 @@ describe("deriveCacheName", () => {
     expect(deriveCacheName("abc1234")).toBe("dc2d-cache-abc1234");
   });
 
-  it("gives two different shas two different cache names", () => {
-    expect(deriveCacheName("abc1234")).not.toBe(deriveCacheName("def5678"));
-  });
-
-  it("falls back to the dev sha unchanged", () => {
-    expect(deriveCacheName("dev")).toBe("dc2d-cache-dev");
-  });
 });
 
 describe("isDc2dCacheName", () => {

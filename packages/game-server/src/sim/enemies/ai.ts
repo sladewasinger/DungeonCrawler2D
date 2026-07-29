@@ -1,23 +1,9 @@
-import {
-  applyKnockback,
-  createBody,
-  enemyThink,
-  faceEntity,
-  KNOCKBACK_FORCE,
-  launchVelocity,
-  makeEntity,
-  newEntityId,
-  stepBody,
-  THROW_SPEED,
-  TICK_DT,
-  ENEMY_ACTIVE_RADIUS,
-  type EffectEvent,
-} from "@dc2d/engine";
-import { effectTargetFor, isBodyInChasm } from "../helpers.js";
-import { gracedClearanceCenters, insideGracedClearance, isSpawnProtected } from "../spawnSafety.js";
-import type { EnemySlot, SimState } from "../state.js";
-import { blocksAttackFrom } from "../directionalBlock.js";
+import { enemyThink, faceEntity, TICK_DT, ENEMY_ACTIVE_RADIUS, type EffectEvent } from "@dc2d/engine";
+import { isBodyInChasm } from "../core/helpers.js";
+import { gracedClearanceCenters, isSpawnProtected } from "../spawnSafety/spawnSafety.js";
+import type { EnemySlot, PlayerSlot, SimState } from "../state/state.js";
 import { revalidateEnemyTarget } from "./targetLifecycle.js";
+import { launchSpit, moveEnemy, resolveEnemyStrike } from "./ai/combat.js";
 
 /** Per-tick enemy AI: think, move/attack, and advance attack animations. */
 
@@ -46,17 +32,23 @@ function enemyPlayerSets(sim: SimState): {
   const activePlayers: EnemySlot["entity"][] = [];
   const targetablePlayers: EnemySlot["entity"][] = [];
   for (const slot of sim.players.values()) {
-    if (!slot.connected || slot.entity.hp <= 0) continue;
-    if (slot.downedAtTick !== null) {
-      activePlayers.push(slot.entity);
-      continue;
-    }
-    // Spawn-grace players remain invisible to both activation and enemy aggro.
-    if (isSpawnProtected(slot, sim.tickCount)) continue;
-    activePlayers.push(slot.entity);
-    targetablePlayers.push(slot.entity);
+    addEnemyVisiblePlayer({ slot, sim, activePlayers, targetablePlayers });
   }
   return { activePlayers, targetablePlayers };
+}
+
+interface VisiblePlayerInput {
+  slot: PlayerSlot;
+  sim: SimState,
+  activePlayers: EnemySlot["entity"][],
+  targetablePlayers: EnemySlot["entity"][],
+}
+
+function addEnemyVisiblePlayer(input: VisiblePlayerInput): void {
+  const { slot, sim, activePlayers, targetablePlayers } = input;
+  if (!slot.connected || slot.entity.hp <= 0 || isSpawnProtected(slot, sim.tickCount)) return;
+  activePlayers.push(slot.entity);
+  if (slot.downedAtTick === null) targetablePlayers.push(slot.entity);
 }
 
 export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
@@ -66,106 +58,56 @@ export function stepEnemies(sim: SimState, effectEvents: EffectEvent[]): void {
   // at the boundary. Computed once per tick, not per enemy.
   const graced = gracedClearanceCenters(sim);
   for (const enemy of sim.enemies.values()) {
-    const entity = enemy.entity;
-    sim.replicationMotion.set(entity.id, { x: 0, y: 0 });
-    if (entity.hp <= 0) continue; // corpses don't bite
-    revalidateEnemyTarget(sim, enemy);
-    if (!isNearAnyPlayer(entity, activePlayers)) continue; // frozen far from everyone
-    // Checked before the shoot/melee/wander dispatch, not only inside
-    // moveEnemy's post-move check: a ranged decision below `continue`s
-    // straight to beginWindup without ever calling moveEnemy, which
-    // used to let a spitter parked in a rift (bad spawn, or chased/
-    // knocked in) keep winding up and firing forever without this
-    // ruling ever re-checking it.
-    if (isBodyInChasm(sim.world, entity.body)) {
-      entity.hp = 0;
-      continue;
-    }
-    if (advanceAttackAnimation(sim, enemy)) continue;
-
-    const decision = enemyThink(
-      enemy.brain,
-      entity,
-      enemy.def,
-      targetablePlayers,
-      (e) => sim.effects.inSanctuary(e),
-      TICK_DT,
-      () => sim.rng.next(),
-    );
-    if (decision.shoot) {
-      beginWindup(enemy, decision.shoot);
-      continue;
-    }
-    moveEnemy(sim, enemy, decision.move, graced);
-    if (decision.strike) resolveStrike(sim, enemy, decision.strike.targetId, effectEvents);
+    stepEnemy({ sim, enemy, activePlayers, targetablePlayers, graced, effectEvents });
   }
+}
+
+interface EnemyStepInput {
+  sim: SimState;
+  enemy: EnemySlot;
+  activePlayers: EnemySlot["entity"][];
+  targetablePlayers: EnemySlot["entity"][];
+  graced: ReadonlyArray<{ x: number; y: number }>;
+  effectEvents: EffectEvent[];
+}
+
+function stepEnemy(input: EnemyStepInput): void {
+  const { sim, enemy, activePlayers } = input;
+  sim.replicationMotion.set(enemy.entity.id, { x: 0, y: 0 });
+  if (enemy.entity.hp <= 0 || !isNearAnyPlayer(enemy.entity, activePlayers)) return;
+  revalidateEnemyTarget(sim, enemy);
+  if (killEnemyInChasm(sim, enemy) || advanceAttackAnimation(sim, enemy)) return;
+  executeEnemyDecision(input);
+}
+
+function killEnemyInChasm(sim: SimState, enemy: EnemySlot): boolean {
+  if (!isBodyInChasm(sim.world, enemy.entity.body)) return false;
+  enemy.entity.hp = 0;
+  return true;
+}
+
+function executeEnemyDecision(input: EnemyStepInput): void {
+  const { sim, enemy, targetablePlayers, graced, effectEvents } = input;
+  const decision = enemyThink({
+    brain: enemy.brain,
+    enemy: enemy.entity,
+    def: enemy.def,
+    players: targetablePlayers,
+    inSanctuary: (entity) => sim.effects.inSanctuary(entity),
+    dt: TICK_DT,
+    rng: () => sim.rng.next(),
+  });
+  if (decision.shoot) {
+    beginWindup(enemy, decision.shoot);
+    return;
+  }
+  moveEnemy({ sim, enemy, move: decision.move, graced });
+  if (decision.strike) resolveEnemyStrike({ sim, enemy, targetId: decision.strike.targetId, effectEvents, attackTicks: MELEE_ATTACK_TICKS });
 }
 
 function beginWindup(enemy: EnemySlot, shoot: { targetId: string; x: number; y: number; z: number }): void {
   faceEntity(enemy.entity, shoot.x - enemy.entity.body.x, shoot.y - enemy.entity.body.y);
   enemy.animation = { state: "windup", ticksRemaining: SPITTER_WINDUP_TICKS, target: shoot };
-}
-
-function moveEnemy(
-  sim: SimState,
-  enemy: EnemySlot,
-  move: { moveX: number; moveY: number; jump: boolean },
-  graced: ReadonlyArray<{ x: number; y: number }>,
-): void {
-  const entity = enemy.entity;
-  faceEntity(entity, move.moveX, move.moveY);
-  const before = { ...entity.body };
-  stepBody(sim.world, entity.body, move, TICK_DT, {
-    speed: entity.baseSpeed * sim.effects.speedMult(entity),
-    // Enemies never set foot on sanctuary ground.
-    blocked: (x, y) => sim.world.isSanctuary(x, y) ||
-      (enemy.home !== undefined && (
-        x < enemy.home.x0 || x > enemy.home.x1 ||
-        y < enemy.home.y0 || y > enemy.home.y1
-      )),
-  });
-  // Panel round 4 (spawnSafety.ts guarantee 2): a hostile that was
-  // outside a graced player's clearance radius may not end its step
-  // inside one — revert the whole step, a deterministic clamp at the
-  // boundary (it stalls; the next think can wander elsewhere). One
-  // already inside is left to maintainSpawnClearance, which ran before
-  // this step and will run again before it could ever act from inside.
-  if (
-    insideGracedClearance(graced, entity.body.x, entity.body.y) &&
-    !insideGracedClearance(graced, before.x, before.y)
-  ) {
-    entity.body = before;
-  }
-  sim.replicationMotion.set(entity.id, {
-    x: (entity.body.x - before.x) / TICK_DT,
-    y: (entity.body.y - before.y) / TICK_DT,
-  });
-  // Void death applies to enemies too: resolveEnemyDeaths (deaths.ts) already
-  // removes any hp<=0 enemy and rolls its drops, so this is the whole of it.
-  if (isBodyInChasm(sim.world, entity.body)) entity.hp = 0;
-  enemy.animation = {
-    state: move.moveX !== 0 || move.moveY !== 0 ? "walk" : "idle",
-    ticksRemaining: 0,
-  };
-}
-
-function resolveStrike(sim: SimState, enemy: EnemySlot, targetId: string, effectEvents: EffectEvent[]): void {
-  const entity = enemy.entity;
-  const victimSlot = sim.players.get(targetId);
-  const victim = victimSlot?.entity;
-  if (!victim || victim.hp <= 0) return;
-  faceEntity(entity, victim.body.x - entity.body.x, victim.body.y - entity.body.y);
-  const d = Math.hypot(victim.body.x - entity.body.x, victim.body.y - entity.body.y);
-  if (d > enemy.def.attack.range + 0.3) return;
-
-  enemy.animation = { state: "attack", ticksRemaining: MELEE_ATTACK_TICKS };
-  if (blocksAttackFrom(victimSlot, entity)) return;
-  const target = effectTargetFor(sim, victim);
-  sim.effects.modifyHealth(victim, -enemy.def.attack.damage, effectEvents, { sourceTags: enemy.def.tags }, target);
-  for (const apply of enemy.def.attack.applies ?? []) {
-    if (sim.rng.next() < apply.chance) sim.effects.applyStatus(victim, apply.status, effectEvents, target);
-  }
-  applyKnockback(victim.body, victim.body.x - entity.body.x, victim.body.y - entity.body.y, KNOCKBACK_FORCE * 0.6);
 }
 
 /** Advance a windup/attack/recover pose. Returns true while the enemy
@@ -194,35 +136,22 @@ function tickPose(enemy: EnemySlot, next: () => EnemySlot["animation"]): boolean
 function advanceRangedPose(sim: SimState, enemy: EnemySlot): boolean {
   enemy.animation.ticksRemaining -= 1;
   if (enemy.animation.ticksRemaining > 0) return true;
-  if (enemy.animation.state === "windup") {
-    const target = enemy.animation.target;
-    if (target) {
-      launchSpit(sim, enemy.entity, enemy.def.tags, target);
-      enemy.animation = { state: "spit", ticksRemaining: SPITTER_SPIT_TICKS, target };
-    } else {
-      enemy.animation = { state: "spit", ticksRemaining: SPITTER_SPIT_TICKS };
-    }
-    return true;
-  }
-  if (enemy.animation.state === "spit") {
-    enemy.animation = { state: "recover", ticksRemaining: SPITTER_RECOVER_TICKS };
-    return true;
-  }
-  enemy.animation = { state: "idle", ticksRemaining: 0 };
+  if (enemy.animation.state === "windup") return finishWindup(sim, enemy);
+  enemy.animation = nextRangedAnimation(enemy);
   return true;
 }
 
-function launchSpit(
-  sim: SimState,
-  entity: EnemySlot["entity"],
-  tags: readonly string[],
-  target: { x: number; y: number; z: number },
-): void {
-  const projectile = makeEntity("projectile", createBody(entity.body.x, entity.body.y, entity.body.z + 0.5), {
-    id: newEntityId("j"),
-    ownerId: entity.id,
-    tags: new Set(["spit", ...tags]),
-    vel: launchVelocity({ x: entity.body.x, y: entity.body.y, z: entity.body.z + 0.5 }, target, THROW_SPEED),
-  });
-  sim.projectiles.set(projectile.id, projectile);
+function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
+  const target = enemy.animation.target;
+  if (target) launchSpit({ sim, entity: enemy.entity, tags: enemy.def.tags, target });
+  enemy.animation = target
+    ? { state: "spit", ticksRemaining: SPITTER_SPIT_TICKS, target }
+    : { state: "spit", ticksRemaining: SPITTER_SPIT_TICKS };
+  return true;
+}
+
+function nextRangedAnimation(enemy: EnemySlot): EnemySlot["animation"] {
+  return enemy.animation.state === "spit"
+    ? { state: "recover", ticksRemaining: SPITTER_RECOVER_TICKS }
+    : { state: "idle", ticksRemaining: 0 };
 }

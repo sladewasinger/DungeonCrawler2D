@@ -1,5 +1,5 @@
-import { isSpawnProtected } from "../spawnSafety.js";
-import type { EnemySlot, SimState } from "../state.js";
+import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 
 function isTargetablePlayer(sim: SimState, playerId: string): boolean {
   const slot = sim.players.get(playerId);

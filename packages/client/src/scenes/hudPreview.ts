@@ -2,8 +2,8 @@
 import {
   fakeHudSnapshot,
   type HudFakeSnapshot,
-} from "../ui/widgets/hud/fakeData.js";
-import type { HudWidgets } from "../ui/widgets/hud/index.js";
+} from "../ui/widgets/hud/core/fakeData.js";
+import type { HudWidgets } from "../ui/widgets/hud/core/index.js";
 
 const FAKE_BOSS = {
   name: "The Warden of Five",
@@ -24,8 +24,13 @@ export const applyHudPreviewAids = (
   snapshot: HudFakeSnapshot | undefined,
   hud: HudWidgets | undefined,
 ): void => {
-  if (snapshot && params.get("boss") === "1") snapshot.boss = FAKE_BOSS;
+  applyBossPreview(params, snapshot);
   if (params.get("inventory") === "1") hud?.toggleInventory();
   if (params.get("craft") === "1") hud?.toggleCraftPanel();
   if (params.get("stash") === "1") hud?.openStashPanel();
 };
+
+function applyBossPreview(params: URLSearchParams, snapshot: HudFakeSnapshot | undefined): void {
+  if (params.get("boss") !== "1" || !snapshot) return;
+  snapshot.boss = FAKE_BOSS;
+}

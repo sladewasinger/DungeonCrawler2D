@@ -28,39 +28,48 @@ const GLYPHS: Readonly<Record<string, Glyph>> = {
 };
 
 const GLYPH_W = 3;
-const GLYPH_H = 5;
 
 /** Draws one uppercase character at `scale` px per font pixel. Unknown chars are blank. */
-export function drawChar(
-  canvas: Canvas,
-  x: number,
-  y: number,
-  ch: string,
-  color: Rgb,
-  scale: number,
-): void {
-  const glyph = GLYPHS[ch.toUpperCase()];
-  if (!glyph) return;
-  for (let row = 0; row < GLYPH_H; row++) {
-    const line = glyph[row];
-    for (let col = 0; col < GLYPH_W; col++) {
-      if (line[col] !== "#") continue;
-      canvas.fillRect(x + col * scale, y + row * scale, scale, scale, color);
-    }
+function drawGlyphRow({ canvas, x, y, line, color, scale }: {
+  canvas: Canvas;
+  x: number;
+  y: number;
+  line: string;
+  color: Rgb;
+  scale: number;
+}): void {
+  for (let col = 0; col < GLYPH_W; col++) {
+    if (line[col] !== "#") continue;
+    canvas.fillRect(x + col * scale, y, scale, scale, color);
   }
 }
 
-export function drawText(
-  canvas: Canvas,
-  x: number,
-  y: number,
-  text: string,
-  color: Rgb,
-  scale: number,
-): void {
+export function drawChar({ canvas, x, y, ch, color, scale }: {
+  canvas: Canvas;
+  x: number;
+  y: number;
+  ch: string;
+  color: Rgb;
+  scale: number;
+}): void {
+  const glyph = GLYPHS[ch.toUpperCase()];
+  if (!glyph) return;
+  glyph.forEach((line, row) => drawGlyphRow({
+    canvas, x, y: y + row * scale, line, color, scale,
+  }));
+}
+
+export function drawText({ canvas, x, y, text, color, scale }: {
+  canvas: Canvas;
+  x: number;
+  y: number;
+  text: string;
+  color: Rgb;
+  scale: number;
+}): void {
   const advance = (GLYPH_W + 1) * scale;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch !== undefined && ch !== " ") drawChar(canvas, x + i * advance, y, ch, color, scale);
+    if (ch !== undefined && ch !== " ") drawChar({ canvas, x: x + i * advance, y, ch, color, scale });
   }
 }

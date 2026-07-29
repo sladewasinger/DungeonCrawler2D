@@ -32,14 +32,25 @@ function createPanel(message: string): HTMLDivElement {
     "box-shadow:0 18px 60px rgba(0,0,0,.55)",
   ].join(";");
 
+  panel.append(createPanelTitle(), createPanelDetail(message), createRefreshButton());
+  return panel;
+}
+
+function createPanelTitle(): HTMLHeadingElement {
   const title = document.createElement("h1");
   title.textContent = "Update required";
   title.style.cssText = "margin:0 0 12px;color:#ffd23d;font-size:24px";
+  return title;
+}
 
+function createPanelDetail(message: string): HTMLParagraphElement {
   const detail = document.createElement("p");
   detail.textContent = message || "The dungeon changed while this page was open.";
   detail.style.cssText = "margin:0 0 18px;line-height:1.45";
+  return detail;
+}
 
+function createRefreshButton(): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.textContent = "Refresh game";
@@ -52,9 +63,7 @@ function createPanel(message: string): HTMLDivElement {
     "cursor:pointer",
   ].join(";");
   button.addEventListener("click", () => window.location.reload());
-
-  panel.append(title, detail, button);
-  return panel;
+  return button;
 }
 
 export function showVersionRefreshOverlay(message: string): void {

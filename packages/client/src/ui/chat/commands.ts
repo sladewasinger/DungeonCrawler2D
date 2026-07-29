@@ -119,11 +119,12 @@ function parseSlash(trimmed: string, lastDmPartner: string | null): ChatCommand 
   const { cmd, rest } = splitCommand(trimmed);
   const moderation = ["/mute", "/unmute", "/block", "/unblock", "/report"];
   if (moderation.includes(cmd)) {
-    return parseModeration(
-      cmd.slice(1) as "mute" | "unmute" | "block" | "unblock" | "report",
-      rest,
-    );
+    return parseModeration(cmd.slice(1) as "mute" | "unmute" | "block" | "unblock" | "report", rest);
   }
+  return parseKnownSlash(cmd, rest, lastDmPartner);
+}
+
+function parseKnownSlash(cmd: string, rest: string, lastDmPartner: string | null): ChatCommand {
   const staticCommands: Record<string, ChatCommand> = {
     "/help": { kind: "local-lines", lines: [...HELP_LINES] },
     "/who": { kind: "who" },

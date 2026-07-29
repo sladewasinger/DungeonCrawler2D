@@ -4,9 +4,9 @@ import {
   bossArenaSpawnAnchor,
 } from "@dc2d/engine";
 import { announceBossIntro, announceBossKill, broadcastAnnouncement } from "../announcer/index.js";
-import { spawnEnemy } from "../helpers.js";
-import { levelForXp } from "../xp.js";
-import type { EnemySlot, SimState } from "../state.js";
+import { spawnEnemy } from "../core/helpers.js";
+import { levelForXp } from "../progression/xp.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 import { BOSS_RESPAWN_TICKS, BOSS_XP_BURST, FLOOR_CAP, WARDEN_DEF_ID } from "./constants.js";
 
 /**
@@ -60,7 +60,7 @@ function spawnBoss(sim: SimState): void {
   // fallback) — the boss is simply absent rather than crashing floor-5
   // creation.
   if (!anchor) return;
-  spawnEnemy(sim, WARDEN_DEF_ID, anchor.x, anchor.y);
+  spawnEnemy(sim, { defId: WARDEN_DEF_ID, x: anchor.x, y: anchor.y });
 }
 
 /** Called once from GameSim's constructor when it creates a floor-5 sim. */
@@ -80,16 +80,22 @@ export function stepBoss(sim: SimState): void {
 
 function enforceBossGate(sim: SimState): void {
   const gate = bossArenaGatePosition(sim.world);
-  if (!gate || !hasLivingBoss(sim)) {
-    sim.bossGateSealed = false;
-    sim.bossArenaOccupants.clear();
-    return;
-  }
+  if (!gate) return resetGate(sim);
+  if (!hasLivingBoss(sim)) return resetGate(sim);
   if (!sim.bossGateSealed) {
     armGateIfEngaged(sim);
     return;
   }
   if (releaseIfArenaEmptied(sim)) return;
+  clampAtGate(sim, gate);
+}
+
+function resetGate(sim: SimState): void {
+  sim.bossGateSealed = false;
+  sim.bossArenaOccupants.clear();
+}
+
+function clampAtGate(sim: SimState, gate: { x: number; y: number }): void {
   for (const [id, slot] of sim.players) {
     const body = slot.entity.body;
     if (distance(body, gate) > GATE_CAPTURE_RADIUS) continue;

@@ -1,6 +1,6 @@
 import { INTERACT_RANGE, stairwayDownPosition } from "@dc2d/engine";
 import { FLOOR_CAP } from "../floors/constants.js";
-import type { PlayerSlot, SimState } from "../state.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
 
 /**
  * The `descend` intent (Epic 7.14, WIRE v15): valid within interact

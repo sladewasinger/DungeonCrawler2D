@@ -9,9 +9,9 @@ import {
 } from "@dc2d/content";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
-import { addPlayer } from "../join.js";
-import { resolveSpawnAnchor } from "../spawn.js";
-import { createSimState } from "../state.js";
+import { addPlayer } from "../players/join.js";
+import { resolveSpawnAnchor } from "../spawn/spawn.js";
+import { createSimState } from "../state/state.js";
 import {
   claimNearestPet,
   PET_DEFINITIONS,
@@ -32,13 +32,10 @@ const content = buildContentRegistry({
 });
 
 function dungeonState() {
-  return createSimState(
-    new World(hashString("pet-test-world"), 1, LEVEL.Dungeon),
-    content,
-    new PlayerStore(null),
-    7,
-    { spawnRadiusTiles: 2 },
-  );
+  return createSimState({
+    world: new World(hashString("pet-test-world"), 1, LEVEL.Dungeon),
+    content, store: new PlayerStore(null), rngSeed: 7, opts: { spawnRadiusTiles: 2 },
+  });
 }
 
 describe("pets", () => {
@@ -59,9 +56,9 @@ describe("pets", () => {
   it("lets only the first nearby player claim a pet, then follows their movement", () => {
     const sim = dungeonState();
     sim.pets.clear();
-    const first = addPlayer(sim, "Ellie", "pet-client-a");
-    const second = addPlayer(sim, "Josiah", "pet-client-b");
-    const pet = spawnPet(sim, PET_DEFINITIONS[0]!, first.spawn.x + 1, first.spawn.y);
+    const first = addPlayer(sim, { name: "Ellie", clientId: "pet-client-a" });
+    const second = addPlayer(sim, { name: "Josiah", clientId: "pet-client-b" });
+    const pet = spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: first.spawn.x + 1, y: first.spawn.y } });
     const secondSlot = sim.players.get(second.playerId)!;
     secondSlot.entity.body.x = pet.body.x;
     secondSlot.entity.body.y = pet.body.y;
@@ -77,29 +74,45 @@ describe("pets", () => {
     expect(pet.body.x).toBeGreaterThan(before);
   });
 
-  it("allows each player to claim at most one pet", () => {
+  it("swaps pets and leaves the previous companion available in place", () => {
     const sim = dungeonState();
     sim.pets.clear();
-    const player = addPlayer(sim, "Ellie", "pet-client-one");
-    const first = spawnPet(sim, PET_DEFINITIONS[0]!, player.spawn.x + 1, player.spawn.y);
-    const second = spawnPet(sim, PET_DEFINITIONS[1]!, player.spawn.x + 2, player.spawn.y);
+    const player = addPlayer(sim, { name: "Ellie", clientId: "pet-client-one" });
+    const first = spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: player.spawn.x + 1, y: player.spawn.y } });
+    const second = spawnPet(sim, { definition: PET_DEFINITIONS[1]!, position: { x: player.spawn.x + 4, y: player.spawn.y } });
     const slot = sim.players.get(player.playerId)!;
 
     expect(claimNearestPet(sim, slot)).toBe(true);
+    const firstPosition = { x: first.body.x, y: first.body.y };
+    slot.entity.body.x = second.body.x;
     expect(claimNearestPet(sim, slot)).toBe(true);
-    expect(sim.pets.get(first.id)?.ownerId).toBe(player.playerId);
-    expect(sim.pets.get(second.id)?.ownerId).toBeNull();
-    expect(slot.outbox.at(-1)).toMatchObject({ t: "toast", msg: "You already have a pet." });
+    expect(sim.pets.get(first.id)).toMatchObject({ ownerId: null, mode: "available" });
+    expect(first.body).toMatchObject(firstPosition);
+    expect(sim.pets.get(second.id)?.ownerId).toBe(player.playerId);
+    expect(slot.outbox.at(-1)).toMatchObject({
+      t: "toast",
+      msg: "Mort is now your pet. Doux is available for another crawler.",
+    });
+  });
+
+  it("does not consume interact when only the player's own pet is nearby", () => {
+    const sim = dungeonState();
+    sim.pets.clear();
+    const player = addPlayer(sim, { name: "Ellie", clientId: "pet-client-self" });
+    spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: player.spawn.x + 1, y: player.spawn.y } });
+    const slot = sim.players.get(player.playerId)!;
+    expect(claimNearestPet(sim, slot)).toBe(true);
+    slot.outbox.length = 0;
+
+    expect(claimNearestPet(sim, slot)).toBe(false);
+    expect(slot.outbox).toEqual([]);
   });
 
   it("does not seed pets on sandbox simulations", () => {
-    const sim = createSimState(
-      new World(hashString("pet-sandbox"), 1, LEVEL.Sandbox),
-      content,
-      new PlayerStore(null),
-      3,
-      {},
-    );
+    const sim = createSimState({
+      world: new World(hashString("pet-sandbox"), 1, LEVEL.Sandbox),
+      content, store: new PlayerStore(null), rngSeed: 3, opts: {},
+    });
     seedPets(sim);
     expect(sim.pets.size).toBe(0);
   });
@@ -107,8 +120,8 @@ describe("pets", () => {
   it("teleports a claimed pet back near its owner after the leash is exceeded", () => {
     const sim = dungeonState();
     sim.pets.clear();
-    const player = addPlayer(sim, "Ellie", "pet-client-teleport");
-    const pet = spawnPet(sim, PET_DEFINITIONS[0]!, player.spawn.x + 1, player.spawn.y);
+    const player = addPlayer(sim, { name: "Ellie", clientId: "pet-client-teleport" });
+    const pet = spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: player.spawn.x + 1, y: player.spawn.y } });
     const slot = sim.players.get(player.playerId)!;
     expect(claimNearestPet(sim, slot)).toBe(true);
     slot.entity.body.x = pet.body.x + PET_TELEPORT_DISTANCE_TILES + 1;
@@ -122,8 +135,8 @@ describe("pets", () => {
   it("drops an idle drift target that falls outside the follow leash", () => {
     const sim = dungeonState();
     sim.pets.clear();
-    const player = addPlayer(sim, "Ellie", "pet-client-drift-range");
-    const pet = spawnPet(sim, PET_DEFINITIONS[0]!, player.spawn.x + 1, player.spawn.y);
+    const player = addPlayer(sim, { name: "Ellie", clientId: "pet-client-drift-range" });
+    const pet = spawnPet(sim, { definition: PET_DEFINITIONS[0]!, position: { x: player.spawn.x + 1, y: player.spawn.y } });
     const slot = sim.players.get(player.playerId)!;
     expect(claimNearestPet(sim, slot)).toBe(true);
     const petSlot = sim.pets.get(pet.id)!;

@@ -6,6 +6,7 @@
   "description": "Standalone art/atlas pipeline tooling. Self-contained: own deps, own lockfile, never touches the workspace root.",
   "scripts": {
     "bake-atlas": "node bake-atlas.mjs",
+    "bake-particle-atlas": "node bake-particle-atlas.mjs",
     "smoke-production": "node smoke-production.mjs"
   },
   "dependencies": {

@@ -1,6 +1,13 @@
 # R2-STAIRS-SPEC — Compact Stairs (Wave R2)
 
-Branch: `pivot/explicit-heights-reskin`. Status: implementable. This is the FIRST deliberate break of the Phase-1 byte-identical worldgen invariant — the world is *supposed* to move here.
+Branch: `pivot/explicit-heights-reskin`. Status: historical proposal (retired).
+
+This document records an earlier design pass. The stack conversion/editor
+contract described below is no longer part of the runtime: the unused
+`world/stacks` path and its tests were removed, and generated height maps are
+the current world-generation output. Keep this file as historical context;
+current implementation contracts live beside the active terrain and stairs
+modules.
 
 All paths below are under `D:\repos\claude-test\DC2D-pivot\`. Every file cited was read and confirmed to exist on this branch.
 

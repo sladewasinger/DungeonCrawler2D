@@ -6,9 +6,9 @@ import {
   LEVEL,
   TICK_RATE,
 } from "@dc2d/engine";
-import { spawnEnemy } from "../helpers.js";
+import { spawnEnemy } from "../core/helpers.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 import { spawnMiniBossEncounter } from "./miniBossPopulation.js";
 import { NEAR_SPAWN_RADIUS_TILES } from "./population.js";
 import { tooCloseToPlayer } from "./populationPlacement.js";
@@ -38,26 +38,28 @@ export function repopulateNearSpawn(sim: SimState): void {
   const centers = populationCenters(sim);
   if (centers.length === 0) return;
   recycleInactiveEnemies(sim, centers);
-  const targetPerCenter = Math.min(
-    NEAR_SPAWN_TARGET_COUNT,
-    Math.max(4, Math.floor(ENEMY_CAP / centers.length)),
-  );
+  const targetPerCenter = targetCount(centers.length);
   for (const center of centers) {
-    restoreMiniBossEncounters(sim, center);
-    const deficit = targetPerCenter -
-      countEnemiesWithin(sim, center, NEAR_SPAWN_RADIUS_TILES);
-    for (let n = 0; n < deficit && sim.enemies.size < ENEMY_CAP; n++) {
-      const spot = randomSpotNear(sim, center, NEAR_SPAWN_RADIUS_TILES);
-      if (spot) {
-        spawnEnemy(
-          sim,
-          pickEnemyDef(sim, spot.x, spot.y),
-          spot.x + 0.5,
-          spot.y + 0.5,
-        );
-      }
-    }
+    repopulateCenter(sim, center, targetPerCenter);
   }
+}
+
+function targetCount(centerCount: number): number {
+  return Math.min(NEAR_SPAWN_TARGET_COUNT, Math.max(4, Math.floor(ENEMY_CAP / centerCount)));
+}
+
+function repopulateCenter(sim: SimState, center: PopulationCenter, target: number): void {
+  restoreMiniBossEncounters(sim, center);
+  const deficit = target - countEnemiesWithin(sim, center, NEAR_SPAWN_RADIUS_TILES);
+  for (let count = 0; count < deficit && sim.enemies.size < ENEMY_CAP; count++) {
+    spawnRandomEnemyNear(sim, center);
+  }
+}
+
+function spawnRandomEnemyNear(sim: SimState, center: PopulationCenter): void {
+  const spot = randomSpotNear(sim, center, NEAR_SPAWN_RADIUS_TILES);
+  if (!spot) return;
+  spawnEnemy(sim, { defId: pickEnemyDef(sim, spot.x, spot.y), x: spot.x + 0.5, y: spot.y + 0.5 });
 }
 
 function restoreMiniBossEncounters(sim: SimState, center: PopulationCenter): void {
@@ -111,14 +113,24 @@ function randomSpotNear(
   radius: number,
 ): { x: number; y: number } | null {
   for (let attempt = 0; attempt < REPOPULATE_ATTEMPTS_PER_ENEMY; attempt++) {
-    const angle = sim.rng.next() * Math.PI * 2;
-    const dist = Math.sqrt(sim.rng.next()) * radius;
-    const wx = Math.floor(anchor.x + Math.cos(angle) * dist);
-    const wy = Math.floor(anchor.y + Math.sin(angle) * dist);
-    if (!sim.world.isWalkable(wx, wy) || sim.world.isSanctuary(wx, wy)) continue;
-    if (sim.world.heightAt(wx, wy) <= CHASM_DEATH_Z) continue;
-    if (tooCloseToPlayer(sim, wx, wy)) continue;
-    return { x: wx, y: wy };
+    const spot = randomRadiusTile(sim, anchor, radius);
+    if (isValidRepopulationSpot(sim, spot)) return spot;
   }
   return null;
+}
+
+function randomRadiusTile(sim: SimState, anchor: PopulationCenter, radius: number): PopulationCenter {
+  const angle = sim.rng.next() * Math.PI * 2;
+  const distance = Math.sqrt(sim.rng.next()) * radius;
+  return {
+    x: Math.floor(anchor.x + Math.cos(angle) * distance),
+    y: Math.floor(anchor.y + Math.sin(angle) * distance),
+  };
+}
+
+function isValidRepopulationSpot(sim: SimState, spot: PopulationCenter): boolean {
+  return sim.world.isWalkable(spot.x, spot.y) &&
+    !sim.world.isSanctuary(spot.x, spot.y) &&
+    sim.world.heightAt(spot.x, spot.y) > CHASM_DEATH_Z &&
+    !tooCloseToPlayer(sim, spot.x, spot.y);
 }

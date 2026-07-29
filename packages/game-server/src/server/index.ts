@@ -1,13 +1,20 @@
-import { LEVEL, World, type ContentRegistry, type LevelId } from "@dc2d/engine";
+import {
+  DEFAULT_WORLD_FEATURES,
+  LEVEL,
+  World,
+  type ContentRegistry,
+  type LevelId,
+  type WorldFeatures,
+} from "@dc2d/engine";
 import { WebSocketServer, type WebSocket } from "ws";
-import { FloorRegistry } from "../floorRegistry.js";
-import { GameSim } from "../sim/index.js";
+import { FloorRegistry } from "../floors/floorRegistry.js";
+import { GameSim } from "../sim/core/index.js";
 import { PlayerStore } from "../store.js";
 import { broadcastTick } from "./broadcast.js";
 import { handleConnection } from "./dispatch.js";
 import { startFixedRateLoop } from "./fixedRateLoop.js";
-import { startHeartbeat } from "./heartbeat.js";
-import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
+import { startHeartbeat } from "./telemetry/heartbeat.js";
+import { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 import type { SocketMap } from "./types.js";
 
 /** WebSocket transport facade: decodes/validates inbound messages,
@@ -19,6 +26,7 @@ import type { SocketMap } from "./types.js";
 
 export interface ServerOptions {
   port: number;
+  seedInputText?: string;
   worldSeed: number;
   /** Epic 7.14: only pins the "sandbox" level's floor now — the
    * "dungeon" level's floors are always the absolute range 1..FLOOR_CAP
@@ -33,6 +41,7 @@ export interface ServerOptions {
   debugCommands?: boolean;
   freezeEnemies?: boolean;
   testFixtures?: boolean;
+  worldFeatures?: WorldFeatures;
 }
 
 export interface RunningServer {
@@ -49,33 +58,20 @@ export interface RunningServer {
 export function startServer(opts: ServerOptions): RunningServer {
   const store = new PlayerStore(opts.storeFile ?? null);
   const initialSeed = opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-  const simOpts = {
-    clusterSpawns: opts.clusterSpawns ?? false,
-    spawnRadiusTiles: opts.spawnRadiusTiles,
-    debugCommands: opts.debugCommands ?? false,
-    freezeEnemies: opts.freezeEnemies ?? false,
-    testFixtures: opts.testFixtures ?? false,
-  };
-  const floors = new FloorRegistry(opts.worldSeed, opts.content, store, initialSeed, simOpts);
-  const sandbox = new GameSim(
-    new World(opts.worldSeed, opts.floor, LEVEL.Sandbox),
-    opts.content,
-    store,
-    initialSeed + 1000,
-    simOpts,
-  );
+  const simOpts = simulationOptions(opts);
+  const { floors, sandbox } = createSimulations({ opts, store, seed: initialSeed, simOpts });
   const wss = new WebSocketServer({ port: opts.port });
   const sockets: SocketMap = new Map();
   const networkMetrics = new ServerNetworkDiagnostics();
-  const stopHeartbeat = startHeartbeat(wss);
-
-  wss.on("connection", (ws: WebSocket) => {
-    handleConnection(ws, floors, sandbox, sockets, opts.worldSeed, networkMetrics);
+  const stopHeartbeat = connectWebSockets(wss, {
+    floors,
+    sandbox,
+    sockets,
+    seedInputText: opts.seedInputText ?? String(opts.worldSeed),
+    worldSeed: opts.worldSeed,
+    diagnostics: networkMetrics,
   });
-
-  const stopTickLoop = startFixedRateLoop(
-    () => broadcastTick(floors, sandbox, sockets, networkMetrics),
-  );
+  const stopTickLoop = startFixedRateLoop(() => broadcastTick({ floors, sandbox, sockets, diagnostics: networkMetrics }));
 
   return {
     wss,
@@ -84,17 +80,56 @@ export function startServer(opts: ServerOptions): RunningServer {
     floors,
     store,
     networkMetrics,
-    stop: () => stopServer(stopTickLoop, stopHeartbeat, store, wss, sockets),
+    stop: () => stopServer({ stopTickLoop, stopHeartbeat, store, wss, sockets }),
   };
 }
 
-function stopServer(
-  stopTickLoop: () => void,
-  stopHeartbeat: () => void,
-  store: PlayerStore,
-  wss: WebSocketServer,
-  sockets: SocketMap,
-): void {
+function simulationOptions(opts: ServerOptions): GameSim["state"]["opts"] {
+  return {
+    clusterSpawns: opts.clusterSpawns ?? false,
+    spawnRadiusTiles: opts.spawnRadiusTiles,
+    debugCommands: opts.debugCommands ?? false,
+    freezeEnemies: opts.freezeEnemies ?? false,
+    testFixtures: opts.testFixtures ?? false,
+  };
+}
+
+interface SimulationCreation {
+  opts: ServerOptions;
+  store: PlayerStore;
+  seed: number;
+  simOpts: GameSim["state"]["opts"];
+}
+
+function createSimulations({ opts, store, seed, simOpts }: SimulationCreation): { floors: FloorRegistry; sandbox: GameSim } {
+  const worldFeatures = opts.worldFeatures ?? DEFAULT_WORLD_FEATURES;
+  return {
+    floors: new FloorRegistry({
+      worldSeed: opts.worldSeed, content: opts.content, store,
+      rngSeedBase: seed, opts: simOpts, worldFeatures,
+    }),
+    sandbox: new GameSim({
+      world: new World(opts.worldSeed, opts.floor, { level: LEVEL.Sandbox, features: worldFeatures }),
+      content: opts.content, store, rngSeed: seed + 1000, opts: simOpts,
+    }),
+  };
+}
+
+function connectWebSockets(wss: WebSocketServer, context: Parameters<typeof handleConnection>[1]): () => void {
+  const stopHeartbeat = startHeartbeat(wss);
+  wss.on("connection", (ws: WebSocket) => handleConnection(ws, context));
+  return stopHeartbeat;
+}
+
+interface StopServerContext {
+  stopTickLoop: () => void;
+  stopHeartbeat: () => void;
+  store: PlayerStore;
+  wss: WebSocketServer;
+  sockets: SocketMap;
+}
+
+function stopServer({ stopTickLoop, stopHeartbeat, store, wss, sockets }: StopServerContext): void {
   stopTickLoop();
   stopHeartbeat();
   store.flush();

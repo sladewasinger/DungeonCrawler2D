@@ -4,10 +4,10 @@ import {
   type World,
 } from "@dc2d/engine";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Connection } from "../net/connection.js";
-import { readMoveInput } from "./keys.js";
+import { Connection } from "../net/connection/connection.js";
+import { readMoveInput } from "./controls/keys.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
-import type { InputConnection, InputState } from "./state.js";
+import type { InputConnection, InputState } from "./controls/state.js";
 
 class FakeKey {
   isDown = false;
@@ -39,6 +39,8 @@ function createInputState(w: FakeKey): InputState {
       A: unused,
       S: unused,
       D: unused,
+      B: unused,
+      N: unused,
       SPACE: unused,
       G: unused,
       E: unused,
@@ -62,6 +64,7 @@ function createInputState(w: FakeKey): InputState {
     },
     nextSwingAt: 0,
     selectedSlot: null,
+    kidMode: { active: false, facingX: 0, facingY: 1 },
   } as unknown as InputState;
 }
 
@@ -116,5 +119,18 @@ describe("keyboard movement edges", () => {
       moveX: 0,
       moveY: 0,
     });
+  });
+
+  it("uses arrows to enter kid mode and WASD to leave it", () => {
+    const w = new FakeKey();
+    const arrow = new FakeKey();
+    const state = createInputState(w);
+    state.cursors.up = arrow as unknown as InputState["cursors"]["up"];
+    bindKeyboardMovementEdges(state, () => undefined);
+
+    arrow.press();
+    expect(state.kidMode.active).toBe(true);
+    w.press();
+    expect(state.kidMode.active).toBe(false);
   });
 });

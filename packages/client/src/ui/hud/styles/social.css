@@ -1,0 +1,11 @@
+.hud-party { display: grid; align-content: start; gap: 4px; }
+.hud-party__header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.hud-party__members, .hud-party__invites { display: grid; gap: 4px; }
+.hud-party__member { display: grid; grid-template-columns: 1fr auto; gap: 5px; }
+.hud-party__member[data-downed="true"] { color: #e96a6a; }
+.hud-party__member[data-disconnected="true"] { color: var(--hud-muted); }
+.hud-party-invite { display: grid; gap: 8px; padding: 6px; border: 1px solid var(--hud-panel-border); }
+.hud-party-invite__actions { display: flex; justify-content: center; gap: 8px; }
+.hud-party-invite[data-hud-party-invite] { position: absolute; left: 50%; top: 18%; translate: -50% 0; z-index: 1200; min-width: 260px; max-width: min(420px,80vw); padding: 12px; background: rgb(17 18 29 / 96%); border: 1px solid #777c96; box-shadow: 0 12px 34px rgb(0 0 0 / 62%); pointer-events: auto; text-align: center; }
+.hud-party-invite__message { margin-bottom: 10px; color: var(--hud-gold); }
+.hud-party-invite__row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }

@@ -1,15 +1,18 @@
-import type { InterpolatedEntity } from "../../../net/interpolate.js";
-import type { ProjectileEntityView, TorchEntityView } from "../../../render/entities/index.js";
-import { groundItemFrame } from "../itemFrame.js";
-import { trackProjectileVelocity, type ProjectileVelocityState } from "../projectileVelocity.js";
+import type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
+import type { ProjectileEntityView, TorchEntityView } from "../../../render/entities/geometry/index.js";
+import { groundItemFrame } from "../entities/itemFrame.js";
+import { trackProjectileVelocity, type ProjectileVelocityState } from "../player/projectileVelocity.js";
 
-export function projectileView(
-  e: InterpolatedEntity,
-  velocity: ProjectileVelocityState,
-  nowMs: number,
-  target?: ProjectileEntityView,
-): ProjectileEntityView {
-  const { vx, vy } = trackProjectileVelocity(velocity, e.id, e.x, e.y, nowMs);
+export interface ProjectileViewInput {
+  readonly e: InterpolatedEntity;
+  readonly velocity: ProjectileVelocityState;
+  readonly nowMs: number;
+  readonly target?: ProjectileEntityView | undefined;
+}
+
+export function projectileView(input: ProjectileViewInput): ProjectileEntityView {
+  const { e, velocity, nowMs, target } = input;
+  const { vx, vy } = trackProjectileVelocity(velocity, { id: e.id, x: e.x, y: e.y, nowMs });
   const view = target ?? {} as ProjectileEntityView;
   view.id = e.id;
   view.x = e.x;

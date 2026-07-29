@@ -2,10 +2,18 @@ import type { ActiveStatus, Entity } from "../entities/entity.js";
 import type { Primitive, StatusDef } from "./types.js";
 import type { EffectEvent } from "./events.js";
 import { modifyHealth, type EffectTarget } from "./health.js";
+import { executePrimitive } from "./primitives/execute.js";
 import { inSanctuary, tagsOf, type EffectsState } from "./state.js";
 
 /** True if a status may not be applied to this entity right now (dead, sanctuary, immunity). */
-function isBlocked(state: EffectsState, entity: Entity, def: StatusDef, target: EffectTarget): boolean {
+export type StatusApplication = Readonly<{ entity: Entity; statusId: string; events: EffectEvent[]; target?: EffectTarget }>;
+export type StatusRemoval = Readonly<{ entity: Entity; tag: string; events: EffectEvent[] }>;
+type StatusBlockCheck = Readonly<{ entity: Entity; def: StatusDef; target: EffectTarget }>;
+
+export type PrimitiveRun = Readonly<{ entity: Entity; primitives: readonly Primitive[]; events: EffectEvent[]; target?: EffectTarget; rng?: () => number; sourceTags?: readonly string[] | undefined }>;
+
+function isBlocked(state: EffectsState, check: StatusBlockCheck): boolean {
+  const { entity, def, target } = check;
   if (entity.hp <= 0) return true;
   if (def.kind === "debuff" && (inSanctuary(state, entity) || target.invulnerable)) return true;
   if (target.immunities?.some((tag) => def.tags.includes(tag))) return true;
@@ -40,73 +48,111 @@ function restack(existing: ActiveStatus, def: StatusDef): boolean {
  */
 export function applyStatus(
   state: EffectsState,
-  entity: Entity,
-  statusId: string,
-  events: EffectEvent[],
-  target: EffectTarget = {},
+  request: StatusApplication,
 ): boolean {
+  const { entity, statusId, events, target = {} } = request;
   const def = state.content.statuses.get(statusId);
   if (!def) return false;
-  if (isBlocked(state, entity, def, target)) return false;
+  if (isBlocked(state, { entity, def, target })) return false;
 
   const existing = entity.statuses.find((s) => s.defId === statusId);
-  if (existing) {
-    const refreshed = restack(existing, def);
-    if (refreshed && def.onRefresh) {
-      runPrimitives(state, entity, def.onRefresh, events, target);
-    }
-    return refreshed;
-  }
+  return existing
+    ? refreshStatus(state, { entity, def, events, target, existing })
+    : addStatus(state, { entity, statusId, def, events, target });
+}
 
+type ExistingStatusChange = Readonly<{ entity: Entity; def: StatusDef; events: EffectEvent[]; target: EffectTarget; existing: ActiveStatus }>;
+
+function refreshStatus(state: EffectsState, change: ExistingStatusChange): boolean {
+  const { entity, def, events, target, existing } = change;
+  const refreshed = restack(existing, def);
+  if (refreshed && def.onRefresh) runPrimitives(state, { entity, primitives: def.onRefresh, events, target });
+  return refreshed;
+}
+
+type NewStatusChange = Readonly<{ entity: Entity; statusId: string; def: StatusDef; events: EffectEvent[]; target: EffectTarget }>;
+
+function addStatus(state: EffectsState, change: NewStatusChange): true {
+  const { entity, statusId, def, events, target } = change;
   entity.statuses.push({ defId: statusId, remaining: def.duration, tickAccum: 0, stacks: 1 });
   events.push({ t: "status", id: entity.id, status: statusId, on: true });
-  if (def.onApply) runPrimitives(state, entity, def.onApply, events, target);
-  runInteractionRules(state, entity, events);
+  if (def.onApply) runPrimitives(state, { entity, primitives: def.onApply, events, target });
+  runInteractionRules(state, { entity, events });
   return true;
 }
 
 /** Remove active statuses carrying the given tag. */
 export function removeStatusesByTag(
   state: EffectsState,
-  entity: Entity,
-  tag: string,
-  events: EffectEvent[],
+  request: StatusRemoval,
 ): void {
+  const { entity, tag, events } = request;
   for (let i = entity.statuses.length - 1; i >= 0; i--) {
     const status = entity.statuses[i];
     if (!status) continue;
     const def = state.content.statuses.get(status.defId);
-    if (def && (def.tags.includes(tag) || def.appliesTags?.includes(tag))) {
+    if (statusMatchesTag(def, tag)) {
       entity.statuses.splice(i, 1);
       events.push({ t: "status", id: entity.id, status: status.defId, on: false });
     }
   }
 }
 
+function statusMatchesTag(def: StatusDef | undefined, tag: string): boolean {
+  return def?.tags.includes(tag) === true || def?.appliesTags?.includes(tag) === true;
+}
+
 /**
  * Tag interaction rules (fire + wet ⇒ extinguish…): evaluated to a
  * bounded fixpoint whenever tags may have changed.
  */
-export function runInteractionRules(state: EffectsState, entity: Entity, events: EffectEvent[]): void {
+export function runInteractionRules(
+  state: EffectsState,
+  request: Pick<StatusRemoval, "entity" | "events">,
+): void {
+  const { entity, events } = request;
   for (let pass = 0; pass < 4; pass++) {
-    const tags = tagsOf(state, entity);
-    let changed = false;
-    for (const rule of state.content.rules) {
-      if (!tags.has(rule.when[0]) || !tags.has(rule.when[1])) continue;
-      if (rule.removeTags) {
-        for (const tag of rule.removeTags) removeStatusesByTag(state, entity, tag, events);
-        changed = true;
-      }
-      if (rule.apply) changed = applyRuleStatus(state, entity, rule.apply, events) || changed;
-    }
-    if (!changed) return;
+    if (!applyInteractionPass(state, { entity, events })) return;
   }
 }
 
-function applyRuleStatus(state: EffectsState, entity: Entity, statusId: string, events: EffectEvent[]): boolean {
+function applyInteractionPass(state: EffectsState, request: Pick<StatusRemoval, "entity" | "events">): boolean {
+  const { entity, events } = request;
+  const tags = tagsOf(state, entity);
+  let changed = false;
+  for (const rule of state.content.rules) {
+    if (applyMatchingRule(state, { entity, events, tags, rule })) changed = true;
+  }
+  return changed;
+}
+
+type RuleApplication = Readonly<{ entity: Entity; events: EffectEvent[]; tags: Set<string>; rule: EffectsState["content"]["rules"][number] }>;
+
+function applyMatchingRule(state: EffectsState, application: RuleApplication): boolean {
+  const { entity, events, tags, rule } = application;
+  if (!tags.has(rule.when[0]) || !tags.has(rule.when[1])) return false;
+  const removed = removeRuleTags(state, { entity, events, tags: rule.removeTags });
+  return applyRuleStatus(state, { entity, statusId: rule.apply, events }) || removed;
+}
+
+function removeRuleTags(
+  state: EffectsState,
+  request: Pick<StatusRemoval, "entity" | "events"> & { readonly tags?: readonly string[] | undefined },
+): boolean {
+  if (!request.tags) return false;
+  for (const tag of request.tags) removeStatusesByTag(state, { ...request, tag });
+  return true;
+}
+
+function applyRuleStatus(
+  state: EffectsState,
+  request: Pick<StatusApplication, "entity" | "events"> & { readonly statusId?: string | undefined },
+): boolean {
+  const { entity, statusId, events } = request;
+  if (!statusId) return false;
   // Avoid infinite loops: rules never re-apply a status already present.
   if (entity.statuses.some((s) => s.defId === statusId)) return false;
-  return applyStatus(state, entity, statusId, events);
+  return applyStatus(state, { entity, statusId, events });
 }
 
 /**
@@ -116,51 +162,18 @@ function applyRuleStatus(state: EffectsState, entity: Entity, statusId: string, 
  */
 export function runPrimitives(
   state: EffectsState,
-  entity: Entity,
-  primitives: readonly Primitive[],
-  events: EffectEvent[],
-  target: EffectTarget = {},
-  rng: () => number = Math.random,
-  sourceTags?: readonly string[],
+  request: PrimitiveRun,
 ): void {
+  const { entity, primitives, events, target = {}, rng = Math.random, sourceTags } = request;
   for (const p of primitives) {
-    runPrimitive(state, entity, p, events, target, rng, sourceTags);
+    executePrimitive(
+      { entity, primitive: p, events, target, rng, sourceTags },
+      {
+        modifyHealth: (change) => modifyHealth(state, change),
+        applyStatus: (change) => applyStatus(state, change),
+        removeStatusesByTag: (removal) => removeStatusesByTag(state, removal),
+      },
+    );
     if (entity.hp <= 0) return;
-  }
-}
-
-function runPrimitive(
-  state: EffectsState,
-  entity: Entity,
-  p: Primitive,
-  events: EffectEvent[],
-  target: EffectTarget,
-  rng: () => number,
-  sourceTags?: readonly string[],
-): void {
-  switch (p.primitive) {
-    case "modify_health":
-      modifyHealth(state, entity, p.amount, events, sourceTags ? { sourceTags } : {}, target);
-      break;
-    case "apply_status":
-      if (p.chance === undefined || rng() < p.chance) applyStatus(state, entity, p.status, events, target);
-      break;
-    case "remove_status":
-      removeStatusesByTag(state, entity, p.tag, events);
-      break;
-    case "spawn_area":
-      events.push({
-        t: "spawnArea",
-        x: Math.floor(entity.body.x),
-        y: Math.floor(entity.body.y),
-        area: p.area,
-        radius: p.radius,
-      });
-      break;
-    case "destroy_entity":
-      events.push({ t: "destroy", id: entity.id });
-      break;
-    case "modify_stat":
-      break; // continuous — read via speedMult(), not executed
   }
 }

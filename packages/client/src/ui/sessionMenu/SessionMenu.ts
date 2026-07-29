@@ -1,20 +1,11 @@
-/** Owns the shared non-pausing game menu, confirmations, and local settings controls. */
-import {
-  LocalPresentationController,
-} from "./localPresentation.js";
+import { LocalPresentationController } from "./localPresentation.js";
 import { AdvancedSettingsDialog } from "./AdvancedSettingsDialog.js";
-import { createSessionButton } from "./SessionMenuControls.js";
-import {
-  quitConfirmation,
-  respawnConfirmation,
-  showSessionMenuConfirmation,
-  type SessionMenuConfirmation,
-} from "./SessionMenuConfirmation.js";
+import { quitConfirmation, respawnConfirmation, showSessionMenuConfirmation, type SessionMenuConfirmation } from "./SessionMenuConfirmation.js";
 import { SessionMenuFocus } from "./SessionMenuFocus.js";
-import {
-  buildSessionMenuPrimary,
-  createRespawnButton,
-} from "./SessionMenuPrimary.js";
+import { configureSessionMenuView } from "./SessionMenuView.js";
+import { buildSessionMenuPrimary, createRespawnButton } from "./SessionMenuPrimary.js";
+import { createHudTemplate, requireHudElement } from "../hud/styles/hudTemplate.js";
+import { activeFocusables } from "./sessionMenuFocusables.js";
 
 export interface SessionMenuActions {
   focusGame(): void;
@@ -28,21 +19,22 @@ interface InternalSessionMenuActions extends SessionMenuActions {
   onOpenChange?(open: boolean): void;
 }
 
-const FOCUSABLE_SELECTOR = [
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "a[href]",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
+const CARD_WIDTH = "min(92vw,420px)";
+
+interface SessionMenuOptions {
+  appRoot: HTMLElement;
+  hudRoot: HTMLElement;
+  settingsContent: HTMLElement;
+  actions: InternalSessionMenuActions;
+}
 
 export class SessionMenu {
-  private readonly gear = createSessionButton("⚙", () => this.toggle());
-  private readonly overlay = document.createElement("div");
-  private readonly card = document.createElement("section");
-  private readonly primary = document.createElement("div");
-  private readonly confirmation = document.createElement("div");
+  private readonly actions: InternalSessionMenuActions;
+  private readonly gear = createHudTemplate<HTMLButtonElement>("hud-session-gear-template");
+  private readonly overlay = createHudTemplate<HTMLDivElement>("hud-session-overlay-template");
+  private readonly card = requireHudElement<HTMLElement>(this.overlay, "[data-hud-session-card]");
+  private readonly primary = requireHudElement<HTMLDivElement>(this.overlay, "[data-hud-session-primary]");
+  private readonly confirmation = requireHudElement<HTMLDivElement>(this.overlay, "[data-hud-session-confirmation]");
   private readonly advanced: AdvancedSettingsDialog;
   private readonly respawnButton: HTMLButtonElement;
   private resumeButton: HTMLButtonElement | undefined;
@@ -51,32 +43,14 @@ export class SessionMenu {
   private confirmationReturnFocus: HTMLElement | undefined;
   private openState = false;
 
-  constructor(
-    appRoot: HTMLElement,
-    hudRoot: HTMLElement,
-    settingsContent: HTMLElement,
-    private readonly actions: InternalSessionMenuActions,
-  ) {
+  constructor({ appRoot, hudRoot, settingsContent, actions }: SessionMenuOptions) {
+    this.actions = actions;
+    this.gear.addEventListener("click", () => this.toggle());
     this.presentation = new LocalPresentationController(appRoot, hudRoot);
-    this.advanced = new AdvancedSettingsDialog({
-      presentation: this.presentation,
-      replayTutorials: actions.replayTutorials,
-      onBack: () => this.closeAdvanced(),
-    });
-    this.configureGear();
-    this.configureOverlay();
-    this.focus = new SessionMenuFocus(
-      appRoot,
-      hudRoot,
-      this.overlay,
-      () => this.activeFocusables(),
-    );
-    this.respawnButton = createRespawnButton(() => this.confirm(
-      respawnConfirmation(() => {
-        this.close(false);
-        this.actions.respawn();
-      }),
-    ));
+    this.advanced = this.createAdvancedDialog(actions);
+    configureSessionMenuView({ gear: this.gear, overlay: this.overlay, card: this.card, primary: this.primary, confirmation: this.confirmation, advanced: this.advanced, onOutsideClick: () => this.close() });
+    this.focus = new SessionMenuFocus({ appRoot, hudRoot, overlay: this.overlay, activeFocusables: () => activeFocusables(this.advanced, this.confirmation, this.primary) });
+    this.respawnButton = createRespawnButton(() => this.confirm(respawnConfirmation(() => this.respawn())));
     this.resumeButton = buildSessionMenuPrimary({
       container: this.primary,
       respawnButton: this.respawnButton,
@@ -88,6 +62,15 @@ export class SessionMenu {
       )),
     });
     hudRoot.append(this.gear, this.overlay);
+  }
+
+  private createAdvancedDialog(actions: InternalSessionMenuActions): AdvancedSettingsDialog {
+    return new AdvancedSettingsDialog({ presentation: this.presentation, replayTutorials: actions.replayTutorials, onBack: () => this.closeAdvanced() });
+  }
+
+  private respawn(): void {
+    this.close(false);
+    this.actions.respawn();
   }
 
   update(canRespawn: boolean): void {
@@ -113,7 +96,7 @@ export class SessionMenu {
     this.actions.onOpenChange?.(true);
     this.confirmation.replaceChildren();
     this.advanced.close();
-    this.card.style.width = "min(92vw,420px)";
+    this.card.style.width = CARD_WIDTH;
     this.primary.style.display = "grid";
     this.confirmation.style.display = "none";
     this.overlay.style.display = "grid";
@@ -127,7 +110,7 @@ export class SessionMenu {
     this.actions.onOpenChange?.(false);
     this.overlay.style.display = "none";
     this.advanced.close();
-    this.card.style.width = "min(92vw,420px)";
+    this.card.style.width = CARD_WIDTH;
     this.gear.setAttribute("aria-expanded", "false");
     this.confirmationReturnFocus = undefined;
     this.focus.deactivate(false, this.actions.focusGame);
@@ -143,38 +126,6 @@ export class SessionMenu {
     this.overlay.remove();
   }
 
-  private configureGear(): void {
-    this.gear.setAttribute("aria-label", "Game menu");
-    this.gear.setAttribute("aria-expanded", "false");
-    this.gear.style.cssText =
-      "position:absolute;right:12px;top:12px;z-index:2501;width:40px;height:40px;" +
-      "border:1px solid #71758b;background:rgba(18,19,30,.84);color:#f3f0e9;" +
-      "font:20px sans-serif;pointer-events:auto;cursor:pointer";
-  }
-
-  private configureOverlay(): void {
-    this.overlay.dataset.sessionMenu = "true";
-    this.overlay.setAttribute("role", "dialog");
-    this.overlay.setAttribute("aria-modal", "true");
-    this.overlay.setAttribute("aria-label", "Game menu");
-    this.overlay.style.cssText =
-      "position:absolute;inset:0;z-index:2500;display:none;place-items:center;" +
-      "padding:16px;box-sizing:border-box;background:rgba(6,7,12,.76);" +
-      "pointer-events:auto;text-shadow:none";
-    this.card.style.cssText =
-      "width:min(92vw,420px);max-height:min(88vh,680px);overflow-y:auto;" +
-      "padding:18px;box-sizing:border-box;background:rgba(17,18,29,.98);" +
-      "border:1px solid #686d86;box-shadow:0 18px 60px rgba(0,0,0,.68);" +
-      "color:#f2f0eb;font:12px monospace";
-    this.primary.style.cssText = "display:grid;gap:9px";
-    this.confirmation.style.cssText = "display:none;gap:10px";
-    this.card.append(this.primary, this.confirmation, this.advanced.element);
-    this.overlay.append(this.card);
-    this.overlay.addEventListener("pointerdown", (event) => {
-      if (event.target === this.overlay) this.close();
-    });
-  }
-
   private openAdvanced(): void {
     this.primary.style.display = "none";
     this.confirmation.style.display = "none";
@@ -184,7 +135,7 @@ export class SessionMenu {
 
   private closeAdvanced(): void {
     this.advanced.close();
-    this.card.style.width = "min(92vw,420px)";
+    this.card.style.width = CARD_WIDTH;
     this.primary.style.display = "grid";
     this.resumeButton?.focus({ preventScroll: true });
   }
@@ -203,16 +154,4 @@ export class SessionMenu {
     cancel.focus();
   }
 
-  private activeFocusables(): HTMLElement[] {
-    const container = this.advanced.isOpen
-      ? this.advanced.element
-      : this.confirmation.style.display === "grid"
-        ? this.confirmation
-        : this.primary;
-    return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-      .filter((element) =>
-        !element.hidden &&
-        element.tabIndex >= 0 &&
-        element.getClientRects().length > 0);
-  }
 }

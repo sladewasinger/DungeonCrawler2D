@@ -60,6 +60,14 @@ export interface Codec<T> {
   bytes(encoded: T): number;
 }
 
+function scalarProtoValue(value: ProtoValue): JsonValue | undefined {
+  if (value.numberValue !== undefined) return value.numberValue;
+  if (value.stringValue !== undefined) return value.stringValue;
+  if (value.boolValue !== undefined) return value.boolValue;
+  if (value.nullValue !== undefined) return null;
+  return undefined;
+}
+
 export function toProtoValue(value: JsonValue): ProtoValue {
   if (value === null) return { nullValue: 0 };
   if (typeof value === "number") return { numberValue: value };
@@ -78,10 +86,8 @@ export function toProtoValue(value: JsonValue): ProtoValue {
 }
 
 export function fromProtoValue(value: ProtoValue): JsonValue {
-  if (value.numberValue !== undefined) return value.numberValue;
-  if (value.stringValue !== undefined) return value.stringValue;
-  if (value.boolValue !== undefined) return value.boolValue;
-  if (value.nullValue !== undefined) return null;
+  const scalar = scalarProtoValue(value);
+  if (scalar !== undefined) return scalar;
   if (value.listValue) return (value.listValue.values ?? []).map(fromProtoValue);
   if (value.objectValue) {
     return Object.fromEntries(

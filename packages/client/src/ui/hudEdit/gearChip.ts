@@ -8,8 +8,8 @@
  * near the action-button cluster can't drop a player into edit mode mid-combat.
  */
 import type Phaser from "phaser";
-import { uiTextStyle } from "../font.js";
-import { drawPanelBackground } from "../panel.js";
+import { uiTextStyle } from "../foundation/font.js";
+import { drawPanelBackground } from "../foundation/panel.js";
 import type { Viewport } from "../widgets/state.js";
 
 const CHIP_SIZE = 28;
@@ -19,6 +19,13 @@ const CORNER_INSET = 6;
  * hold-to-confirm pacing, kept local here rather than importing across lanes). */
 const LONG_PRESS_MS = 450;
 
+interface GearChipOptions {
+  scene: Phaser.Scene;
+  viewport: Viewport;
+  depth: number;
+  onToggle: () => void;
+}
+
 export class GearChip {
   private readonly container: Phaser.GameObjects.Container;
   private readonly hitArea: Phaser.GameObjects.Rectangle;
@@ -26,7 +33,7 @@ export class GearChip {
   private readonly scene: Phaser.Scene;
   private longPressTimer: Phaser.Time.TimerEvent | undefined;
 
-  constructor(scene: Phaser.Scene, viewport: Viewport, depth: number, onToggle: () => void) {
+  constructor({ scene, viewport, depth, onToggle }: GearChipOptions) {
     this.scene = scene;
     this.container = scene.add.container(0, 0).setScrollFactor(0).setDepth(depth);
     drawPanelBackground(scene, CHIP_SIZE, CHIP_SIZE).setPosition(-CHIP_SIZE, -CHIP_SIZE).setAlpha(0.9);

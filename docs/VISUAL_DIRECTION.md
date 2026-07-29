@@ -1,7 +1,7 @@
 # Visual Direction — moody torchlit dungeon
 
-v1's failure was presentation: muddy olive-grey tiles, random grass in a stone dungeon,
-hooded-blob characters, zero lighting, programmer HUD. v2 exists to fix that. The bar:
+The early prototype's presentation was muddy olive-grey tiles, random grass in a
+stone dungeon, hooded-blob characters, zero lighting, and a programmer HUD. The bar:
 **a screenshot of this game should look like a finished indie game you'd wishlist.**
 Tonally: a deadly dungeon run as a twisted game show (Dungeon Crawler Carl energy) —
 oppressive dark, warm islands of firelight, neon-vivid magic.
@@ -25,7 +25,9 @@ Everything moves that should move.
 - **Palette discipline.** Base world: dark desaturated (stone `#2e2e3a`→`#494956`
   range, flat black `#000000` voids with black borders). Accents are reserved and consistent:
   fire/torch `#ff9e3d`, poison `#7bd44a`, sanctuary/portal teal `#3dd6c3`,
-  blood/damage `#e04a4a`, arcane `#8a6cff`, loot/gold `#ffd23d`. UI reuses these.
+  blood material `#b52f3f`, damage UI `#e04a4a`, arcane `#8a6cff`, loot/gold `#ffd23d`.
+  UI and floor blood intentionally use separate values: the deeper material red reads
+  as wet blood without making the whole combat HUD glow red.
   No new hues without updating this doc.
 - **Darkness is the canvas.** The world renders under a darkness layer; lights punch
   through it. Ambient ≈ 15–25% so unlit corridors read as genuinely dark. Every torch,

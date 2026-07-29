@@ -28,14 +28,8 @@ export function valueNoise2D(seed: number, x: number, y: number): number {
 }
 
 /** Fractal (octaved) value noise, normalized back to [0, 1]. */
-export function fbm2D(
-  seed: number,
-  x: number,
-  y: number,
-  octaves: number,
-  lacunarity = 2,
-  gain = 0.5,
-): number {
+export function fbm2D(request: FbmRequest): number {
+  const { seed, x, y, octaves, lacunarity = 2, gain = 0.5 } = request;
   let sum = 0;
   let amp = 1;
   let norm = 0;
@@ -48,4 +42,13 @@ export function fbm2D(
     freq *= lacunarity;
   }
   return sum / norm;
+}
+
+export interface FbmRequest {
+  seed: number;
+  x: number;
+  y: number;
+  octaves: number;
+  lacunarity?: number;
+  gain?: number;
 }

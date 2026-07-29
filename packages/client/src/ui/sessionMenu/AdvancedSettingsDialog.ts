@@ -3,6 +3,7 @@ import {
   createSessionButton,
 } from "./SessionMenuControls.js";
 import type { LocalPresentationController } from "./localPresentation.js";
+import { createHudTemplate } from "../hud/styles/hudTemplate.js";
 
 type AdvancedTab = "graphics" | "gameplay";
 
@@ -13,9 +14,8 @@ interface AdvancedSettingsOptions {
 }
 
 function createSectionTitle(text: string): HTMLHeadingElement {
-  const title = document.createElement("h2");
+  const title = createHudTemplate<HTMLHeadingElement>("hud-session-heading-template");
   title.textContent = text;
-  title.style.cssText = "margin:0;color:#ffd54c;font-size:20px";
   return title;
 }
 
@@ -31,22 +31,21 @@ function createTabButton(
 }
 
 export class AdvancedSettingsDialog {
-  readonly element = document.createElement("div");
+  readonly element = createHudTemplate<HTMLDivElement>("hud-session-advanced-template");
   private readonly graphicsButton: HTMLButtonElement;
   private readonly gameplayButton: HTMLButtonElement;
   private readonly graphics = document.createElement("div");
   private readonly gameplay = document.createElement("div");
 
   constructor(options: AdvancedSettingsOptions) {
-    this.element.style.cssText = "display:none;gap:14px";
     const header = document.createElement("div");
-    header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:12px";
+    header.className = "hud-session__advanced-header";
     const back = createSessionButton("Back", options.onBack);
     back.style.width = "auto";
     header.append(createSectionTitle("Advanced settings"), back);
     const tabs = document.createElement("div");
     tabs.setAttribute("role", "tablist");
-    tabs.style.cssText = "display:flex;gap:8px;border-bottom:1px solid #4d5168;padding-bottom:8px";
+    tabs.className = "hud-session__tabs";
     this.graphicsButton = createTabButton("Graphics", () => this.select("graphics"));
     this.gameplayButton = createTabButton("Gameplay", () => this.select("gameplay"));
     tabs.append(this.graphicsButton, this.gameplayButton);
@@ -71,12 +70,10 @@ export class AdvancedSettingsDialog {
 
   private configurePanels(options: AdvancedSettingsOptions): void {
     this.graphics.setAttribute("role", "tabpanel");
-    this.graphics.style.cssText =
-      "display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));" +
-      "gap:12px;align-items:start";
+    this.graphics.className = "hud-session__panel--graphics";
     this.graphics.append(...createGraphicsControls(options.presentation));
     this.gameplay.setAttribute("role", "tabpanel");
-    this.gameplay.style.cssText = "display:none;gap:10px";
+    this.gameplay.className = "hud-session__panel--gameplay";
     this.gameplay.append(createSectionTitle("Gameplay"));
     if (options.replayTutorials) {
       this.gameplay.append(createSessionButton(

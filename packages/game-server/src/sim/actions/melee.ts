@@ -11,39 +11,39 @@ import {
   type EffectEvent,
   type ItemDef,
 } from "@dc2d/engine";
-import { combatants, damageGivenMultiplierFor, effectTargetFor } from "../helpers.js";
-import type { PlayerSlot, SimState } from "../state.js";
-import { blocksAttackFrom } from "../directionalBlock.js";
+import { combatants, damageGivenMultiplierFor, effectTargetFor } from "../core/helpers.js";
+import type { PlayerSlot, SimState } from "../state/state.js";
+import { blocksAttackFrom } from "../players/directionalBlock.js";
 
 /** Melee swing resolution: cooldown gating, targeting-aid, damage, knockback. */
 
-export function doAttack(
-  sim: SimState,
-  slot: PlayerSlot,
-  dirX: number,
-  dirY: number,
-  effectEvents: EffectEvent[],
-): void {
+export interface AttackContext {
+  sim: SimState;
+  slot: PlayerSlot;
+  dirX: number;
+  dirY: number;
+  effectEvents: EffectEvent[];
+}
+
+interface HitContext {
+  sim: SimState;
+  attacker: Entity;
+  weaponDef: ItemDef | undefined;
+  victim: Entity;
+  effectEvents: EffectEvent[];
+}
+
+export function doAttack({ sim, slot, dirX, dirY, effectEvents }: AttackContext): void {
   const attacker = slot.entity;
   faceEntity(attacker, dirX, dirY);
   if (slot.blocking) return;
   if (sim.effects.inSanctuary(attacker)) return; // no fighting in safe rooms
   const weaponDef = equippedWeapon(sim, slot);
-  const cooldownTicks = attackCooldownTicks(weaponDef);
   if (sim.tickCount < slot.attackReadyAtTick) return; // swing still recovering
-  slot.attackReadyAtTick = sim.tickCount + cooldownTicks;
+  slot.attackReadyAtTick = sim.tickCount + attackCooldownTicks(weaponDef);
   slot.attackStartedAtTick = sim.tickCount;
-
-  const victim = pickMeleeTarget(
-    attacker,
-    dirX,
-    dirY,
-    combatants(sim),
-    (target) => isPartyMember(sim, slot, target),
-    weaponDef?.weapon?.range,
-    weaponDef?.weapon?.arcCos,
-  );
-  if (victim) resolveHit(sim, attacker, weaponDef, victim, effectEvents);
+  const victim = targetForAttack({ sim, slot, weaponDef, dirX, dirY });
+  if (victim) resolveHit({ sim, attacker, weaponDef, victim, effectEvents });
 }
 
 function equippedWeapon(sim: SimState, slot: PlayerSlot): ItemDef | undefined {
@@ -61,31 +61,40 @@ function isPartyMember(sim: SimState, slot: PlayerSlot, target: Entity): boolean
 }
 
 /** Damage, status applies, knockback, and the downed-player finisher for one swing. */
-function resolveHit(
-  sim: SimState,
-  attacker: Entity,
-  weaponDef: ItemDef | undefined,
-  victim: Entity,
-  effectEvents: EffectEvent[],
-): void {
+function targetForAttack({ sim, slot, weaponDef, dirX, dirY }: Pick<AttackContext, "sim" | "slot" | "dirX" | "dirY"> & { weaponDef: ItemDef | undefined }): Entity | null {
+  return pickMeleeTarget({
+    attacker: slot.entity,
+    direction: { x: dirX, y: dirY },
+    candidates: combatants(sim),
+    isPartyMember: (target) => isPartyMember(sim, slot, target),
+    ...(weaponDef?.weapon?.range !== undefined ? { range: weaponDef.weapon.range } : {}),
+    ...(weaponDef?.weapon?.arcCos !== undefined ? { arcCos: weaponDef.weapon.arcCos } : {}),
+  });
+}
+
+function resolveHit({ sim, attacker, weaponDef, victim, effectEvents }: HitContext): void {
   if (meleeHitIsBlocked(sim, victim, attacker)) return;
-  const weapon = weaponDef?.weapon;
-  const damage = (weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim)
-    * damageGivenMultiplierFor(sim, attacker);
-  if (attacker.kind === "player" && victim.kind === "player") {
-    const victimSlot = sim.players.get(victim.id);
-    if (victimSlot) victimSlot.lastDamagedByPlayerId = attacker.id;
-  }
+  const damage = meleeDamage({ sim, attacker, victim, weaponDef });
+  recordPlayerAttacker(sim, attacker, victim);
   const target = effectTargetFor(sim, victim);
-  sim.effects.modifyHealth(victim, -damage, effectEvents, { sourceTags: weaponDef?.tags ?? [] }, target);
-  applyWeaponStatuses(sim, victim, weaponDef, target, effectEvents);
-  applyKnockback(
-    victim.body,
-    victim.body.x - attacker.body.x,
-    victim.body.y - attacker.body.y,
-    KNOCKBACK_FORCE,
-  );
+  sim.effects.modifyHealth({ entity: victim, amount: -damage, events: effectEvents, opts: { sourceTags: weaponDef?.tags ?? [] }, target });
+  applyWeaponStatuses({ sim, victim, weaponDef, target, effectEvents });
+  applyKnockback(victim.body, {
+    dirX: victim.body.x - attacker.body.x,
+    dirY: victim.body.y - attacker.body.y,
+    force: KNOCKBACK_FORCE,
+  });
   finishIfDownedPlayer(sim, victim, effectEvents);
+}
+
+function meleeDamage({ sim, attacker, victim, weaponDef }: Pick<HitContext, "sim" | "attacker" | "victim" | "weaponDef">): number {
+  return (weaponDef?.weapon?.damage ?? FIST_DAMAGE) * damageScaleFor(sim, attacker, victim) * damageGivenMultiplierFor(sim, attacker);
+}
+
+function recordPlayerAttacker(sim: SimState, attacker: Entity, victim: Entity): void {
+  if (attacker.kind !== "player" || victim.kind !== "player") return;
+  const victimSlot = sim.players.get(victim.id);
+  if (victimSlot) victimSlot.lastDamagedByPlayerId = attacker.id;
 }
 
 function meleeHitIsBlocked(sim: SimState, victim: Entity, attacker: Entity): boolean {
@@ -95,16 +104,10 @@ function meleeHitIsBlocked(sim: SimState, victim: Entity, attacker: Entity): boo
   return blocksAttackFrom(victimSlot, attacker);
 }
 
-function applyWeaponStatuses(
-  sim: SimState,
-  victim: Entity,
-  weaponDef: ItemDef | undefined,
-  target: ReturnType<typeof effectTargetFor>,
-  effectEvents: EffectEvent[],
-): void {
+function applyWeaponStatuses({ sim, victim, weaponDef, target, effectEvents }: Pick<HitContext, "sim" | "victim" | "weaponDef" | "effectEvents"> & { target: ReturnType<typeof effectTargetFor> }): void {
   for (const apply of weaponDef?.weapon?.applies ?? []) {
     if (sim.rng.next() < apply.chance) {
-      sim.effects.applyStatus(victim, apply.status, effectEvents, target);
+      sim.effects.applyStatus({ entity: victim, statusId: apply.status, events: effectEvents, target });
     }
   }
 }

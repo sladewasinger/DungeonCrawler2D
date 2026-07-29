@@ -17,6 +17,7 @@ import { generateItemIcons } from './lib/sprites/items.mjs';
 import { generateFloorAndCrafting } from './lib/sprites/floor-crafting.mjs';
 import { generateMonsterRecolors } from './lib/sprites/monster-recolors.mjs';
 import { generateVfx } from './lib/sprites/vfx.mjs';
+import { buildParticleAtlasJson, generateParticleAtlas } from './lib/particle-atlas.mjs';
 
 const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOLS_DIR, '..');
@@ -24,6 +25,7 @@ const DUNGEON_DIR = path.join(REPO_ROOT, 'assets', 'dungeon');
 const FONT_SRC = path.join(REPO_ROOT, 'assets', 'fonts', 'monogram.ttf');
 const OUT_DIR = path.join(REPO_ROOT, 'packages', 'client', 'public', 'assets');
 const OUT_FONTS_DIR = path.join(OUT_DIR, 'fonts');
+const PARTICLE_OUT_DIR = path.join(OUT_DIR, 'particles');
 
 // A few original frames shown alongside the generated sprites on the contact sheet, for
 // eyeballing that the generated palette/outline style genuinely matches the source pack.
@@ -64,6 +66,13 @@ function copyFont() {
   fs.copyFileSync(FONT_SRC, path.join(OUT_FONTS_DIR, 'monogram.ttf'));
 }
 
+function writeParticleAtlas() {
+  fs.mkdirSync(PARTICLE_OUT_DIR, { recursive: true });
+  const { atlas, frames } = generateParticleAtlas();
+  atlas.writeFile(path.join(PARTICLE_OUT_DIR, 'particle-atlas.png'));
+  writeJson(path.join(PARTICLE_OUT_DIR, 'particle-atlas.json'), buildParticleAtlasJson(frames));
+}
+
 function run() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const sheet = Canvas.fromFile(path.join(DUNGEON_DIR, '0x72_DungeonTilesetII_v1.7.png'));
@@ -83,11 +92,12 @@ function run() {
   const comparisonSprites = buildComparisonSprites(sheet, frameByName);
   const contactSheet = buildContactSheet(gapFillSprites, comparisonSprites);
   contactSheet.writeFile(path.join(OUT_DIR, 'contact-sheet.png'));
+  writeParticleAtlas();
 
   console.log(`Parsed ${originalFrames.length} original frames, ${groups.size} animation groups.`);
   console.log(`Generated ${gapFillSprites.length} gap-fill sprites.`);
   console.log(`Atlas: ${atlas.width}x${atlas.height} -> ${path.join(OUT_DIR, 'atlas.png')}`);
-  console.log('Wrote atlas.json, animations.json, contact-sheet.png, fonts/monogram.ttf');
+  console.log('Wrote atlas.json, animations.json, contact-sheet.png, particle atlas, fonts/monogram.ttf');
 }
 
 run();

@@ -1,4 +1,4 @@
-# Dungeon Crawler 2D — v2
+# Dungeon Crawler 2D
 
 A browser-based, top-down 2D **real-time PvPvE multiplayer** dungeon crawler with a
 full height axis, tonally inspired by the Dungeon Crawler Carl series. Players spawn
@@ -8,9 +8,8 @@ The signature system: a fully data-driven effects engine whose closed vocabulary
 primitives, tags, and interaction rules lets an **AI crafting system** invent
 brand-new items at runtime, validated like any other content.
 
-This is the **v2 rebuild** of the original prototype (frozen in [reference/](reference/README.md)):
-same design, same server-authoritative architecture, rebuilt to a real visual and
-engineering bar.
+The game has its own server-authoritative architecture, visual direction, and
+engineering standards; the current codebase is the sole implementation.
 
 The current release is **v0.5.2** ([release notes](docs/releases/v0.5.2.md)). It
 includes collectible companion pets, shared terrain-aware pathfinding, HUD layout
@@ -18,9 +17,9 @@ persistence, and the playability fixes listed in the release notes.
 
 ## Austin's F-Bomb Counter
 
-**31**
+**47**
 
-<!-- f-bomb-count: 31 -->
+<!-- f-bomb-count: 47 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.
@@ -30,6 +29,7 @@ uses “fuck” or a clear derivative.
 | Doc | Purpose |
 | --- | --- |
 | [docs/ENGINEERING_STANDARDS.md](docs/ENGINEERING_STANDARDS.md) | **The constitution.** Hard limits, structure rules, definition of done |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Developer-facing terrain, room, lighting, announcement, and content tuning |
 | [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) | **The beauty bar.** Palette, lighting, motion, UI language, acceptance criteria |
 | [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) | World & floor lifecycle, verticality, PvPvE rules, safe/stretch rooms, social systems |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Tech stack, package layout, networking model, simulation |
@@ -106,7 +106,13 @@ the pet name and a smaller owner line.
 `GAME_PORT` (8787 dev / 8081 prod) · `WORLD_SEED` (any string) · `SPAWN_RADIUS`
 (tiles; `0`/`off` = vast scatter; default 50 for playtests) · `DEBUG_COMMANDS=0`
 disables `/god`+`/tp` (always off under `NODE_ENV=production`) · `STORE_FILE`
-(player persistence path, `none` to disable) · `CLUSTER_SPAWNS=1` (test-grid spawns).
+(player persistence path, `none` to disable) · `CLUSTER_SPAWNS=1` (test-grid spawns) ·
+`VOID_TERRAIN=1` (default) enables explicit VOID generation, infinite collision,
+and its flat backdrop/boundary rendering. `VOID_TERRAIN=0` restores the complete
+finite-terrain mode: raised showcase platforms, finite chasm and room exteriors,
+ordinary wall faces/occlusion, and no VOID geometry. This startup-only,
+server-authoritative mode requires a server restart and is sent to every client;
+there is intentionally no client URL override that could disagree with collision.
 Players whose crawler name contains `josiah` or `ellie` (case-insensitive) receive
 the temporary playtest handicap: 0.3× incoming damage and 3× outgoing damage.
 The grant is isolated behind the same interface planned for future admin grants.

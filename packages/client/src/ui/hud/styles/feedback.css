@@ -1,0 +1,19 @@
+.hud-notices { position: absolute; inset: 0; z-index: 1080; pointer-events: none; }
+.hud-notices__boss { position: absolute; left: 50%; top: 4%; translate: -50% 0; width: min(420px,54vw); height: 28px; padding: 4px; border: 1px solid #6a6071; background: #17131d; box-sizing: border-box; text-align: center; }
+.hud-notices__boss-fill { position: absolute; inset: 4px; width: 0; background: #a53343; }
+.hud-notices__boss-label { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; text-shadow: 0 1px 3px #000; }
+.hud-notices__toast, .hud-notices__prompt { position: absolute; left: 50%; translate: -50% 0; text-align: center; }
+.hud-notices__toast { top: 12%; max-width: 70vw; padding: 6px 10px; background: rgb(17 18 29 / 82%); color: var(--hud-gold); }
+.hud-notices__prompt { bottom: 25%; max-width: min(720px,88vw); padding: 5px 9px; box-sizing: border-box; background: rgb(17 18 29 / 72%); border: 1px solid var(--hud-button-border); color: var(--hud-text); }
+.hud-notices__reconnect { position: absolute; left: 50%; top: 5%; translate: -50% 0; color: var(--hud-gold); }
+.hud-health-feedback { position: absolute; left: 50%; top: 38%; translate: -50% 0; z-index: 1090; pointer-events: none; font: 700 22px monospace; }
+.hud-health-feedback { color: var(--hud-feedback-color, var(--hud-text)); }
+.hud-downed { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font: 700 18px monospace; color: #f2e9e2; background: rgb(18 4 8 / 38%); pointer-events: none; }
+.hud-downed__content { display: grid; justify-items: center; }
+.hud-downed__headline { font-size: clamp(32px,12vmin,68px); line-height: 1; color: #ff596d; font-weight: 900; -webkit-text-stroke: 2px #4c0d1b; text-shadow: 0 4px 8px #000; }
+.hud-downed__copy { white-space: pre-line; font-size: clamp(13px,3.6vmin,20px); line-height: 1.45; margin-top: 10px; }
+.hud-downed__track { width: 240px; height: 10px; margin: 14px auto 0; border: 2px solid #77778d; background: #242436; box-sizing: border-box; }
+.hud-downed__fill { height: 100%; width: 0; background: var(--hud-gold); transition: width 50ms linear; }
+.hud-downed__give-up { display: block; margin: 14px auto 0; min-width: 160px; height: 38px; padding: 0 18px; border: 2px solid #ff6b7f; background: #b51631; color: #fff; font: 700 16px monospace; pointer-events: auto; cursor: pointer; }
+.hud-tutorial { position: absolute; left: 50%; bottom: 78px; translate: -50% 0; z-index: 1100; max-width: min(520px,78vw); padding: 2px 8px; text-align: center; white-space: pre-line; pointer-events: none; color: var(--hud-gold); font: 12px monospace; text-shadow: 0 1px 3px rgb(0 0 0 / 90%); }
+.hud-tutorial[data-input-mode="touch"] { font-size: 14px; }

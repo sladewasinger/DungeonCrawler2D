@@ -14,38 +14,45 @@ interface RouteEvidence {
 const MODULE_SUFFIX = {
   main: "/src/main.ts",
   phaser: "/src/phaser/PhaserRoute.ts",
-  three: "/src/three/ThreeRoute.ts",
+  three: "/src/three/client/ThreeRoute.ts",
 } as const;
 
 export function rendererIsolation(): Plugin {
   return {
     name: "verify-renderer-isolation",
     generateBundle(_options, bundle): void {
-      const chunks = outputChunks(bundle);
-      const byFile = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
-      const main = routeChunk(chunks, MODULE_SUFFIX.main);
-      const phaser = routeChunk(chunks, MODULE_SUFFIX.phaser);
-      const three = routeChunk(chunks, MODULE_SUFFIX.three);
-      const mainClosure = staticClosure(main, byFile);
-      const phaserClosure = staticClosure(phaser, byFile);
-      const threeClosure = staticClosure(three, byFile);
-
-      assertDynamicRoute(main, phaser);
-      assertDynamicRoute(main, three);
-      assertRuntimes("entry", mainClosure, []);
-      assertRuntimes("Phaser", phaserClosure, ["phaser"]);
-      assertRuntimes("Three", threeClosure, ["three"]);
-
-      this.emitFile({
-        type: "asset",
-        fileName: "renderer-isolation.json",
-        source: `${JSON.stringify({
-          entry: evidence(mainClosure),
-          routes: { phaser: evidence(phaserClosure), three: evidence(threeClosure) },
-        }, null, 2)}\n`,
-      });
+      this.emitFile(rendererIsolationAsset(bundle));
     },
   };
+}
+
+function rendererIsolationAsset(bundle: OutputBundle): { type: "asset"; fileName: string; source: string } {
+  const chunks = outputChunks(bundle);
+  const byFile = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
+  const routes = routeClosures(chunks, byFile);
+  assertRouteIsolation(routes);
+  return {
+    type: "asset",
+    fileName: "renderer-isolation.json",
+    source: `${JSON.stringify({ entry: evidence(routes.main), routes: { phaser: evidence(routes.phaser), three: evidence(routes.three) } }, null, 2)}\n`,
+  };
+}
+
+interface RouteClosures { main: OutputChunk[]; phaser: OutputChunk[]; three: OutputChunk[]; }
+
+function routeClosures(chunks: OutputChunk[], byFile: ReadonlyMap<string, OutputChunk>): RouteClosures {
+  const main = routeChunk(chunks, MODULE_SUFFIX.main);
+  const phaser = routeChunk(chunks, MODULE_SUFFIX.phaser);
+  const three = routeChunk(chunks, MODULE_SUFFIX.three);
+  assertDynamicRoute(main, phaser);
+  assertDynamicRoute(main, three);
+  return { main: staticClosure(main, byFile), phaser: staticClosure(phaser, byFile), three: staticClosure(three, byFile) };
+}
+
+function assertRouteIsolation({ main, phaser, three }: RouteClosures): void {
+  assertRuntimes("entry", main, []);
+  assertRuntimes("Phaser", phaser, ["phaser"]);
+  assertRuntimes("Three", three, ["three"]);
 }
 
 function outputChunks(bundle: OutputBundle): OutputChunk[] {
@@ -66,14 +73,26 @@ function staticClosure(start: OutputChunk, byFile: ReadonlyMap<string, OutputChu
   while (pending.length > 0) {
     const chunk = pending.pop();
     if (!chunk || seen.has(chunk.fileName)) continue;
-    seen.add(chunk.fileName);
-    found.push(chunk);
-    for (const imported of chunk.imports) {
-      const dependency = byFile.get(imported);
-      if (dependency) pending.push(dependency);
-    }
+    addChunkClosure({ chunk, byFile, seen, found, pending });
   }
   return found;
+}
+
+interface ChunkClosureState {
+  chunk: OutputChunk;
+  byFile: ReadonlyMap<string, OutputChunk>;
+  seen: Set<string>;
+  found: OutputChunk[];
+  pending: OutputChunk[];
+}
+
+function addChunkClosure({ chunk, byFile, seen, found, pending }: ChunkClosureState): void {
+  seen.add(chunk.fileName);
+  found.push(chunk);
+  for (const imported of chunk.imports) {
+    const dependency = byFile.get(imported);
+    if (dependency) pending.push(dependency);
+  }
 }
 
 function runtimes(chunks: readonly OutputChunk[]): Renderer[] {

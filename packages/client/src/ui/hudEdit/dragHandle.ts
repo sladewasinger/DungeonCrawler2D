@@ -5,24 +5,26 @@
  * HudEditMode (index.ts) owns the actual drag state machine and registry writes.
  */
 import type Phaser from "phaser";
-import { uiTextStyle } from "../font.js";
-import { drawPanelBackground, drawSelectionAccent } from "../panel.js";
+import { uiTextStyle } from "../foundation/font.js";
+import { drawPanelBackground, drawSelectionAccent } from "../foundation/panel.js";
 
 const HANDLE_WIDTH = 116;
 const HANDLE_HEIGHT = 20;
 const HANDLE_FONT_SIZE = 10;
 
+interface DragHandleOptions {
+  scene: Phaser.Scene;
+  id: string;
+  point: { x: number; y: number };
+  depth: number;
+  onGrab: (pointer: Phaser.Input.Pointer) => void;
+}
+
 export class DragHandle {
   readonly container: Phaser.GameObjects.Container;
   private point: { x: number; y: number };
 
-  constructor(
-    scene: Phaser.Scene,
-    id: string,
-    point: { x: number; y: number },
-    depth: number,
-    onGrab: (pointer: Phaser.Input.Pointer) => void,
-  ) {
+  constructor({ scene, id, point, depth, onGrab }: DragHandleOptions) {
     this.point = { ...point };
     this.container = scene.add.container(point.x, point.y).setScrollFactor(0).setDepth(depth);
     const bg = drawPanelBackground(scene, HANDLE_WIDTH, HANDLE_HEIGHT).setPosition(-HANDLE_WIDTH / 2, -HANDLE_HEIGHT / 2).setAlpha(0.92);

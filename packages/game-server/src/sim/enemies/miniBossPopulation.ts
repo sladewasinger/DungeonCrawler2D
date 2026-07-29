@@ -4,12 +4,14 @@ import {
   populationRoomsForChunk,
   type PopulationRoom,
 } from "@dc2d/engine";
-import { spawnEnemy } from "../helpers.js";
-import type { EnemySlot, SimState } from "../state.js";
+import { spawnEnemy } from "../core/helpers.js";
+import type { EnemySlot, SimState } from "../state/state.js";
 import { validEnemySpawn } from "./populationPlacement.js";
 
-export const MINI_BOSS_MIN_ROOM_AREA = 220;
+export const MINI_BOSS_MIN_ROOM_AREA = 55;
 const ENCOUNTER_SIZE = 4;
+const ORC_WARLORD = "orc-warlord";
+const ORC_WARRIOR = "orc-warrior";
 const ROOM_SEARCH_OFFSETS = [
   [0, 0], [-1, 0], [1, 0], [0, -1], [0, 1],
   [-1, -1], [1, -1], [-1, 1], [1, 1],
@@ -23,13 +25,13 @@ function roomKey(room: RoomBounds): string {
 
 function encounterExists(sim: SimState, room: PopulationRoom): boolean {
   return [...sim.enemies.values()].some((enemy) =>
-    enemy.def.id === "orc-warlord" && enemy.home !== undefined &&
+    enemy.def.id === ORC_WARLORD && enemy.home !== undefined &&
     roomKey(enemy.home) === roomKey(room)
   );
 }
 
 export function markMiniBossDefeated(sim: SimState, enemy: EnemySlot): void {
-  if (enemy.def.id !== "orc-warlord" || !enemy.home) return;
+  if (enemy.def.id !== ORC_WARLORD || !enemy.home) return;
   sim.defeatedMiniBossRooms.add(roomKey(enemy.home));
 }
 
@@ -44,21 +46,24 @@ function encounterRoom(
     cy,
   );
   if (roll % 5 !== 0) return null;
-  const rooms = populationRoomsForChunk(
-    sim.world.worldSeed,
-    sim.world.floor,
+  const rooms = populationRoomsForChunk({
+    worldSeed: sim.world.worldSeed,
+    floor: sim.world.floor,
     cx,
     cy,
-  ).filter((room) => room.area >= MINI_BOSS_MIN_ROOM_AREA);
+  }).filter((room) => room.area >= MINI_BOSS_MIN_ROOM_AREA);
   return rooms[roll % rooms.length] ?? null;
 }
 
-function roomSpot(
-  sim: SimState,
-  room: PopulationRoom,
-  desired: { x: number; y: number },
-  claimed: Set<string>,
-): { x: number; y: number } | null {
+interface RoomSpotInput {
+  sim: SimState;
+  room: PopulationRoom;
+  desired: { x: number; y: number };
+  claimed: Set<string>;
+}
+
+function roomSpot(input: RoomSpotInput): { x: number; y: number } | null {
+  const { sim, room, desired, claimed } = input;
   for (const [dx, dy] of ROOM_SEARCH_OFFSETS) {
     const x = Math.floor(desired.x + dx);
     const y = Math.floor(desired.y + dy);
@@ -81,7 +86,7 @@ function encounterSpots(
     { x, y }, { x: x - 3, y }, { x: x + 3, y }, { x, y: y + 3 },
   ];
   const claimed = new Set<string>();
-  const spots = desired.map((spot) => roomSpot(sim, room, spot, claimed));
+  const spots = desired.map((spot) => roomSpot({ sim, room, desired: spot, claimed }));
   return spots.every((spot) => spot !== null)
     ? spots as Array<{ x: number; y: number }>
     : null;
@@ -100,9 +105,9 @@ export function spawnMiniBossEncounter(
   }
   const spots = encounterSpots(sim, room);
   if (!spots) return false;
-  const defs = ["orc-warlord", "orc-warrior", "orc-shaman", "masked-orc"];
+  const defs = [ORC_WARLORD, ORC_WARRIOR, "orc-shaman", "masked-orc"];
   spots.forEach((spot, index) => {
-    spawnEnemy(sim, defs[index]!, spot.x, spot.y, room);
+    spawnEnemy(sim, { defId: defs[index]!, x: spot.x, y: spot.y, home: room });
   });
   return true;
 }

@@ -1,104 +1,92 @@
-/**
- * Input facade: wires keyboard/mouse/touch Phaser events to intents sent through
- * the network connection. Nothing here mutates game state directly — every
- * handler either sends an intent or flips local UI state; the server decides
- * what happens. Touch is a virtual input source merged into the same MoveInput
- * shape keyboard produces (input/touch/*) — prediction never sees a forked
- * intent type. Split along key-chord / hotbar / pointer / touch seams to stay
- * under the file-size cap.
- */
+/** Wires keyboard, mouse, and touch events to server-authoritative intents. */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
-import { screenDirToWorld, screenMoveToWorld } from "./cameraRelative.js";
-import { bindBandageKey, interactOrUse, throwSelected, withPointerFacing } from "./gameplayActions.js";
-import { createKeys, readMoveInput } from "./keys.js";
-import { createHoldState, FISTBUMP_RANGE_TILES, holdCrossedThreshold, holdDown, holdProgress, holdUp, syncHoldSource, type HoldState } from "./fistbump.js";
-import { guardedAction } from "./inputGuard.js";
-import { bindInteractKey } from "./interactKey.js";
-import { activeThrowableSlot, onNumberKey, throwPreview as resolveThrowPreview } from "./hotbar.js";
-import { LifeGestures } from "./lifeGestures.js";
-import { bindKeyboardMovementEdges } from "./movementEdges.js";
-import { cursorWorldTile } from "./pointer.js";
-import { bindInputPointerEdges } from "./pointerBindings.js";
-import { inputModality, type InputModality } from "./inputModality.js";
-import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./state.js";
-import { createTouchInputState, isButtonHeld, mergeMoveInputs, resetTouchInputState, touchMoveInput, touchVisualSnapshot, updateLastFacing, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
-import { getViewOrientation } from "../render/view/index.js";
-export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./state.js";
+import { interactOrUse, throwPreviewTarget, throwSelected } from "./gameplay/gameplayActions.js";
+import { createKeys } from "./controls/keys.js";
+import { activeThrowableSlot, throwPreview as resolveThrowPreview } from "./gameplay/hotbar.js";
+import { LifeGestures } from "./gestures/lifeGestures.js";
+import { bindControllerEvents } from "./bindings/controllerEvents.js";
+import { FistbumpGesture } from "./holds/fistbumpGesture.js";
+import { inputModality, type InputModality } from "./controls/inputModality.js";
+import type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, InputState, ThrowPreview } from "./controls/state.js";
+import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type TouchInputState, type TouchVisualSnapshot } from "./touch/index.js";
+import { readCurrentInput } from "./movement/readCurrentInput.js";
+import { attackInKidMode, createKidModeState } from "./controls/kidMode.js";
+export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
+
+export interface InputControllerOptions {
+  readonly scene: Phaser.Scene;
+  readonly conn: InputConnection;
+  readonly panels: InputPanels;
+  readonly hud: InputHud;
+  readonly queries: InputQueries;
+  readonly hooks: InputHooks;
+  readonly tilePx: number;
+}
+
 export class InputController {
   private readonly state: InputState;
   private readonly touch: TouchInputState = createTouchInputState();
-  /** Hold-vs-tap F discrimination (Epic 7.10) — a tap keeps party invite/accept as-is. */
-  private readonly fistbumpHold: HoldState = createHoldState();
-  /** Nearby-player id tracked while F is held, for both firing and the HUD ring. */
-  private fistbumpTargetId: string | null = null;
-  /** Edge-detection for the touch interact button, which has no keydown/keyup events. */
-  private touchFistbumpHeld = false;
+  private readonly fistbump = new FistbumpGesture();
   /** Hold-E revive gesture (Epic 7.12) — gated by a downed party member in range. */
   private readonly lifeGestures = new LifeGestures();
   /** Cached projection of the shared observable, updated only by applyModality. */
   private touchActive = inputModality.current === "touch";
-  private readonly stopModality: () => void;
+  private stopModality: () => void = () => undefined;
   private readonly scene: Phaser.Scene;
   private readonly queries: InputQueries;
   private readonly tilePx: number;
 
-  constructor(
-    scene: Phaser.Scene,
-    private readonly conn: InputConnection,
-    private readonly panels: InputPanels,
-    hud: InputHud,
-    queries: InputQueries,
-    hooks: InputHooks,
-    /** World px per tile — passed in so input never depends on the render module. */
-    tilePx: number,
-  ) {
-    this.scene = scene;
-    this.queries = queries;
-    this.tilePx = tilePx;
+  private readonly conn: InputConnection;
+  private readonly panels: InputPanels;
+
+  constructor(options: InputControllerOptions) {
+    const { scene, conn, panels, hud, queries, hooks, tilePx } = options;
+    this.conn = conn;
+    this.panels = panels;
+    this.scene = scene; this.queries = queries; this.tilePx = tilePx;
     const { keys, cursors } = createKeys(scene);
-    this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null };
-    this.bindKeys(keys, queries, hooks);
-    bindKeyboardMovementEdges(this.state, () => this.sendCurrentMovementEdge());
-    bindInputPointerEdges({
-      scene, state: this.state, conn, hud, queries, hooks, tilePx,
+    this.state = { keys, cursors, nextSwingAt: 0, selectedSlot: null, kidMode: createKidModeState() };
+    this.configureEvents({ scene, conn, panels, hud, queries, hooks, tilePx });
+  }
+
+  private configureEvents(options: InputControllerOptions): void {
+    const { scene, conn, panels, hud, queries, hooks, tilePx } = options;
+    this.stopModality = bindControllerEvents({
+      scene,
+      conn,
+      panels,
+      hud,
+      state: this.state,
+      queries,
+      hooks,
       touch: this.touch,
+      tilePx,
       touchActive: () => this.touchActive,
+      onGod: () => this.handleGDown(),
+      onInteract: () => this.handleInteractDown(),
       onInteractReleased: () => this.lifeGestures.endInteract(this.conn, scene.time.now),
+      onBandageDown: () => this.fistbump.down(this.scene.time.now),
+      onBandageUp: () => this.fistbump.release(conn, queries, this.scene.time.now),
       onContextAction: () => this.handleInteractDown("pickup"),
       onThrowSelected: () => this.throwSelectedTouch(),
+      onKidAttack: () => attackInKidMode({ state: this.state, conn, queries, hooks, nowMs: performance.now() }),
       onMovementEdge: () => this.sendCurrentMovementEdge(),
+      onModality: (mode) => this.applyModality(mode),
     });
-    this.stopModality = inputModality.subscribe((mode) => this.applyModality(mode));
     scene.events.once("shutdown", this.stopModality);
   }
 
-  private bindKeys(keys: InputState["keys"], queries: InputQueries, hooks: InputHooks): void {
-    const { conn, panels, state } = this;
-    const blocked = () => panels.gameplayBlocked;
-    keys.G.on("down", guardedAction(() => throwSelected(this.scene, conn, queries, state, this.touch, this.touchActive, this.tilePx), blocked));
-    bindInteractKey(keys.E, guardedAction(() => this.handleInteractDown(), blocked), () => this.lifeGestures.endInteract(this.conn, this.scene.time.now));
-    keys.R.on("down", guardedAction(() => conn.pickup(), blocked));
-    keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), blocked));
-    bindBandageKey(keys.F, conn, queries, () => state.selectedSlot, () => holdDown(this.fistbumpHold, this.scene.time.now), () => this.releaseFistbumpHold(conn, queries), blocked);
-    keys.ESC.on("down", () => {
-      state.selectedSlot = null;
-      const panelsWereOpen = panels.inventoryOpen || panels.craftOpen || panels.stashOpen;
-      panels.closeAll(conn);
-      const overlayWasOpen = hooks.onCloseOverlays();
-      if (!panelsWereOpen && !overlayWasOpen) hooks.onToggleSessionMenu();
-    });
-    keys.I.on("down", guardedAction(() => hooks.onToggleInventory(), blocked));
-    keys.TAB.on("down", guardedAction(() => hooks.onToggleInventory(), blocked));
-    keys.ENTER.on("down", guardedAction(() => hooks.onOpenChat(), blocked));
-    keys.O.on("down", guardedAction(() => hooks.onToggleContacts(), blocked));
-    const keyboard = this.scene.input.keyboard;
-    if (!keyboard) throw new Error("scene has no keyboard plugin");
-    for (let i = 1; i <= 9; i++) {
-      keyboard.addKey(48 + i).on("down",
-        guardedAction(() => onNumberKey(state, conn, panels, queries, keys, i), blocked));
+  /** [G] is a localhost/dev convenience when no hotbar slot is armed. A selected
+   * slot retains the existing throw action, and production bundles never expose
+   * the shortcut; the server-side /god command remains unchanged. */
+  private handleGDown(): void {
+    if (import.meta.env.DEV && this.state.selectedSlot === null) {
+      this.conn.debugGod?.();
+      return;
     }
+    throwSelected({ scene: this.scene, conn: this.conn, queries: this.queries, state: this.state, touch: this.touch, touchActive: this.touchActive, tilePx: this.tilePx });
   }
 
   /** [E]: a nearby stairway (Epic 7.14) takes priority and sends descend() instead;
@@ -111,7 +99,14 @@ export class InputController {
       return;
     }
     if (this.conn.dead) return;
-    interactOrUse(this.conn, this.panels, this.queries, this.state.selectedSlot, (targetId) => this.lifeGestures.beginRevive(this.conn, targetId, this.scene.time.now), fallback);
+    interactOrUse({
+      conn: this.conn,
+      panels: this.panels,
+      queries: this.queries,
+      selectedSlot: this.state.selectedSlot,
+      startRevive: (targetId) => this.lifeGestures.beginRevive(this.conn, targetId, this.scene.time.now),
+      fallback,
+    });
   }
 
   /** Call once per render frame: fires the revive intent exactly on the tick the hold
@@ -134,53 +129,14 @@ export class InputController {
   /** HUD-facing read: the in-progress revive hold's target + 0..1 ring progress, or null when idle. */
   reviveHoldView(): { targetId: string; progress: number } | null { return this.lifeGestures.reviveHoldView(this.scene.time.now); }
 
-  /** A quick tap keeps today's party invite/accept flow; a hold already fired (or missed
-   * its window with no target) and does nothing further here. */
-  private releaseFistbumpHold(conn: InputConnection, queries: InputQueries): void {
-    const result = holdUp(this.fistbumpHold, this.scene.time.now);
-    this.fistbumpTargetId = null;
-    if (result !== "tap") return;
-    if (conn.pendingInvite) {
-      conn.partyOp("accept");
-      return;
-    }
-    const nearest = queries.nearestPlayerId(conn, 6);
-    if (nearest) conn.partyOp("invite", nearest);
-  }
-
-  /** Call once per render frame: fires the fistbump intent exactly on the tick the hold
-   * crosses its threshold, and keeps the tracked nearby target fresh for the HUD ring. */
   pollFistbumpHold(): void {
     if (this.cancelModalGestures()) return;
-    const nowMs = this.scene.time.now;
-    this.pollTouchFistbumpEdge(nowMs);
-    if (!this.isFistbumpHoldSourceDown()) return;
-    this.fistbumpTargetId = this.queries.nearestPlayerId(this.conn, FISTBUMP_RANGE_TILES) ?? null;
-    if (this.fistbumpTargetId && holdCrossedThreshold(this.fistbumpHold, nowMs)) {
-      this.conn.fistbump(this.fistbumpTargetId);
-    }
-  }
-
-  private isFistbumpHoldSourceDown(): boolean {
-    return this.state.keys.F.isDown ||
-      (this.touchActive && !this.lifeGestures.reviveActive() && isButtonHeld(this.touch, "interact"));
-  }
-
-  /** The touch interact button has no keydown/keyup events, so its hold-vs-tap
-   * edges for the fistbump gesture are detected here instead, every frame. */
-  private pollTouchFistbumpEdge(nowMs: number): void {
-    if (!this.touchActive) return;
-    const held = !this.lifeGestures.reviveActive() && isButtonHeld(this.touch, "interact");
-    const nextHeld = syncHoldSource(this.fistbumpHold, this.touchFistbumpHeld, held, nowMs);
-    if (this.touchFistbumpHeld && !nextHeld) this.fistbumpTargetId = null;
-    this.touchFistbumpHeld = nextHeld;
+    this.fistbump.poll({ touchActive: this.touchActive, touch: this.touch, keyboardHeld: this.state.keys.F.isDown, reviveActive: this.lifeGestures.reviveActive(), conn: this.conn, queries: this.queries, nowMs: this.scene.time.now });
   }
 
   /** HUD-facing read: the in-progress hold's target + 0..1 ring progress, or null when idle. */
   fistbumpHoldView(): { targetId: string; progress: number } | null {
-    if (!this.fistbumpTargetId) return null;
-    const progress = holdProgress(this.fistbumpHold, this.scene.time.now);
-    return progress > 0 ? { targetId: this.fistbumpTargetId, progress } : null;
+    return this.fistbump.view(this.scene.time.now);
   }
 
   /** Clears held touch state before desktop routing can observe it. */
@@ -190,7 +146,7 @@ export class InputController {
     if (!touchActive) {
       resetTouchInputState(this.touch);
       this.lifeGestures.endInteract(this.conn, this.scene.time.now);
-      this.touchFistbumpHeld = false;
+      this.fistbump.resetTouch();
     }
     this.touchActive = touchActive;
     this.sendCurrentMovementEdge();
@@ -202,41 +158,31 @@ export class InputController {
    * intent (screen-up = "forward") — camera-relative controls remap it to WORLD space
    * here, the one choke point before Connection.sampleInput's predicted stepBody. */
   readInput(): MoveInput {
-    if (this.panels.gameplayBlocked) return { moveX: 0, moveY: 0, jump: false, run: false };
-    const keyboardMove = readMoveInput(this.state, this.conn);
-    if (!this.touchActive) return { ...withPointerFacing(screenMoveToWorld(keyboardMove, getViewOrientation()), this.scene, this.conn, this.tilePx), block: this.scene.input.activePointer.rightButtonDown() };
-    const merged = mergeMoveInputs(keyboardMove, touchMoveInput(this.touch));
-    updateLastFacing(this.touch, merged.moveX, merged.moveY);
-    const move = screenMoveToWorld(merged, getViewOrientation());
-    const facing = screenDirToWorld(this.touch.lastFacing, getViewOrientation());
-    return { ...move, faceX: facing.x, faceY: facing.y };
+    return readCurrentInput({ scene: this.scene, panels: this.panels, state: this.state, conn: this.conn, touch: this.touch, touchActive: this.touchActive, tilePx: this.tilePx });
   }
 
   private cancelModalGestures(): boolean {
     if (!this.panels.gameplayBlocked) return false;
     this.lifeGestures.endInteract(this.conn, this.scene.time.now);
-    this.lifeGestures.cancel(this.scene.time.now, this.fistbumpHold);
-    this.fistbumpTargetId = null;
-    this.touchFistbumpHeld = this.touchActive && isButtonHeld(this.touch, "interact");
+    this.lifeGestures.cancel(this.scene.time.now, this.fistbump.holdForCancellation());
+    this.fistbump.cancel(this.touchActive, this.touch);
     return true;
   }
 
   private throwSelectedTouch(): void {
-    throwSelected(this.scene, this.conn, this.queries, this.state,
-      this.touch, true, this.tilePx);
+    throwSelected({ scene: this.scene, conn: this.conn, queries: this.queries, state: this.state, touch: this.touch, touchActive: true, tilePx: this.tilePx });
   }
 
   /** Current armed-throw trajectory preview, for the scene to render, or null. */
   throwPreview(): ThrowPreview | null {
-    const pointer = this.scene.input.activePointer;
-    const cursorWorld = cursorWorldTile(this.scene.cameras.main, pointer, this.tilePx, this.conn.heightAt);
-    return resolveThrowPreview(this.state, this.conn, this.queries, cursorWorld);
+    const pointerWorld = throwPreviewTarget({
+      scene: this.scene, conn: this.conn, state: this.state, tilePx: this.tilePx,
+    });
+    return resolveThrowPreview({ state: this.state, conn: this.conn, queries: this.queries, pointerWorld });
   }
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
-  armedThrowableSlot(): number | null {
-    return activeThrowableSlot(this.state, this.conn, this.queries);
-  }
+  armedThrowableSlot(): number | null { return activeThrowableSlot(this.state, this.conn, this.queries); }
 
   /** Hotbar slot selected by keyboard/touch, regardless of its item category. */
   selectedHotbarSlot(): number | null { return this.state.selectedSlot; }

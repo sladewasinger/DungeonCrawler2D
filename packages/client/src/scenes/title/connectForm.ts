@@ -1,10 +1,9 @@
-// DOM name-entry + connect button overlay for TitleScene — Phaser has no native text
-// input, so this uses the same "styled DOM overlay" pattern reference/client/main.ts's
-// chat input proved, matching the panel language (dark fill, thin border, gold accent)
-// from ui/panel.ts and the monogram font from ui/font.ts.
+// DOM name-entry + connect button overlay for TitleScene. Phaser has no native text
+// input, so this follows the game's panel language (dark fill, thin border, gold
+// accent) and monogram font.
 import { LEVEL, type LevelId, type PlayerSkin } from "@dc2d/engine";
 import { APP_VERSION } from "../../appVersion.js";
-import { loadTabPreference, saveTabPreference } from "../../net/identity.js";
+import { loadTabPreference, saveTabPreference } from "../../net/auth/identity.js";
 import { RELEASE_NOTES_INDEX_PATH } from "../../releaseNotesUrl.js";
 import { CharacterSelection } from "./characterSelection.js";
 
@@ -12,46 +11,29 @@ const PANEL_BG = "#1a1a24";
 const PANEL_BORDER = "#494956";
 const GOLD = "#ffd23d";
 const NAME_STORAGE_KEY = "dc2d-name";
+const MONOGRAM_FONT = "monogram, monospace";
 
 export function loadStoredName(): string {
   return loadTabPreference(NAME_STORAGE_KEY) ??
     `Crawler${Math.floor(100 + Math.random() * 900)}`;
 }
-
 function applyRootStyle(el: HTMLDivElement): void {
   Object.assign(el.style, {
-    position: "fixed",
-    left: "50%",
-    bottom: "3%",
-    transform: "translateX(-50%)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px",
-    zIndex: "20",
+    position: "fixed", left: "50%", bottom: "3%", transform: "translateX(-50%)",
+    display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", zIndex: "20",
   });
 }
-
 function applyInputStyle(el: HTMLInputElement): void {
   Object.assign(el.style, {
-    width: "220px",
-    padding: "10px 12px",
-    background: PANEL_BG,
-    color: "#e8e8e8",
+    width: "220px", padding: "10px 12px", background: PANEL_BG, color: "#e8e8e8",
     border: `1px solid ${PANEL_BORDER}`,
-    fontFamily: "monogram, monospace",
-    fontSize: "20px",
-    textAlign: "center",
+    fontFamily: MONOGRAM_FONT, fontSize: "20px", textAlign: "center",
   });
 }
-
 function applyButtonStyle(el: HTMLButtonElement): void {
   Object.assign(el.style, {
-    padding: "12px 26px",
-    background: PANEL_BG,
-    color: GOLD,
-    border: `1px solid ${GOLD}`,
-    fontFamily: "monogram, monospace",
+    padding: "12px 26px", background: PANEL_BG, color: GOLD, border: `1px solid ${GOLD}`,
+    fontFamily: MONOGRAM_FONT,
     fontSize: "20px",
     cursor: "pointer",
     letterSpacing: "1px",
@@ -60,22 +42,19 @@ function applyButtonStyle(el: HTMLButtonElement): void {
     textAlign: "left",
   });
 }
-
 function applyStatusStyle(el: HTMLDivElement): void {
   Object.assign(el.style, {
     color: "#9a9aae",
-    fontFamily: "monogram, monospace",
+    fontFamily: MONOGRAM_FONT,
     fontSize: "16px",
     minHeight: "16px",
   });
 }
-
 function createStatus(): HTMLDivElement {
   const status = document.createElement("div");
   applyStatusStyle(status);
   return status;
 }
-
 function createReleaseNotesLink(): HTMLAnchorElement {
   const releaseNotes = document.createElement("a");
   releaseNotes.href = RELEASE_NOTES_INDEX_PATH;
@@ -85,7 +64,6 @@ function createReleaseNotesLink(): HTMLAnchorElement {
   releaseNotes.setAttribute("aria-label", `Read release notes for version ${APP_VERSION}`);
   return releaseNotes;
 }
-
 export interface ConnectFormHandlers {
   onConnect(name: string, level: LevelId, skin: PlayerSkin): void;
   /** Lets the renderer suspend global gameplay-key capture while the name field owns typing. */
@@ -98,27 +76,16 @@ export class ConnectForm {
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly status: HTMLDivElement;
   private readonly character = new CharacterSelection();
+  private readonly onNameInputFocusChange?: ConnectFormHandlers["onNameInputFocusChange"];
 
   constructor(handlers: ConnectFormHandlers) {
+    this.onNameInputFocusChange = handlers.onNameInputFocusChange;
     this.root = document.createElement("div");
     this.root.className = "title-connect-form";
     applyRootStyle(this.root);
 
-    this.input = document.createElement("input");
-    this.input.maxLength = 16;
-    this.input.value = loadStoredName();
-    applyInputStyle(this.input);
-
+    this.input = this.createInput(handlers);
     const choices = this.createChoices(handlers);
-    this.input.addEventListener("focus", () => handlers.onNameInputFocusChange?.(true));
-    this.input.addEventListener("blur", () => handlers.onNameInputFocusChange?.(false));
-    this.input.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      event.stopPropagation();
-      this.submit(handlers, LEVEL.Dungeon);
-    });
-
     this.status = createStatus();
     this.root.append(
       this.character.element,
@@ -131,27 +98,32 @@ export class ConnectForm {
     this.input.focus();
   }
 
+  private createInput(handlers: ConnectFormHandlers): HTMLInputElement {
+    const input = document.createElement("input");
+    input.maxLength = 16; input.value = loadStoredName(); applyInputStyle(input);
+    input.addEventListener("focus", () => handlers.onNameInputFocusChange?.(true));
+    input.addEventListener("blur", () => handlers.onNameInputFocusChange?.(false));
+    input.addEventListener("keydown", (event) => this.handleInputKey(event, handlers));
+    return input;
+  }
+
+  private handleInputKey(event: KeyboardEvent, handlers: ConnectFormHandlers): void {
+    if (event.key !== "Enter") return;
+    event.preventDefault(); event.stopPropagation(); this.submit(handlers, LEVEL.Dungeon);
+  }
+
   private createChoices(handlers: ConnectFormHandlers): HTMLDivElement {
     const choices = document.createElement("div");
     choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
-    this.buttons.push(this.createButton(
-      "Enter the Dungeon", "Procedural world · enemies · progression", LEVEL.Dungeon, handlers,
-    ));
+    this.buttons.push(this.createButton({ label: "Enter the Dungeon", detail: "Procedural world · enemies · progression", level: LEVEL.Dungeon, handlers }));
     if (import.meta.env.DEV) {
-      this.buttons.push(this.createButton(
-        "Enter the Sandbox", "Fixed traversal course · no enemies", LEVEL.Sandbox, handlers,
-      ));
+      this.buttons.push(this.createButton({ label: "Enter the Sandbox", detail: "Fixed traversal course · no enemies", level: LEVEL.Sandbox, handlers }));
     }
     choices.append(...this.buttons);
     return choices;
   }
 
-  private createButton(
-    label: string,
-    detail: string,
-    level: LevelId,
-    handlers: ConnectFormHandlers,
-  ): HTMLButtonElement {
+  private createButton({ label, detail, level, handlers }: ConnectButton): HTMLButtonElement {
     const button = document.createElement("button");
     const title = document.createElement("strong");
     title.textContent = label;
@@ -168,6 +140,7 @@ export class ConnectForm {
   private submit(handlers: ConnectFormHandlers, level: LevelId): void {
     const name = this.input.value.trim().slice(0, 16) || loadStoredName();
     saveTabPreference(NAME_STORAGE_KEY, name);
+    this.releaseInputFocus();
     handlers.onConnect(name, level, this.character.skin);
   }
 
@@ -184,7 +157,14 @@ export class ConnectForm {
   dispose(): void {
     // Removing a focused DOM node does not consistently dispatch blur across
     // browsers; release the renderer's keyboard-capture suspension explicitly.
-    this.input.blur();
+    this.releaseInputFocus();
     this.root.remove();
   }
+
+  private releaseInputFocus(): void {
+    this.input.blur();
+    this.onNameInputFocusChange?.(false);
+  }
 }
+
+interface ConnectButton { readonly label: string; readonly detail: string; readonly level: LevelId; readonly handlers: ConnectFormHandlers; }

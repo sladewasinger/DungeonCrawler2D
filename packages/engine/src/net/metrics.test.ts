@@ -5,9 +5,9 @@ import { WireMetrics } from "./metrics.js";
 describe("WireMetrics", () => {
   it("reports directional rates and correction bounds from an injected clock", () => {
     const metrics = new WireMetrics();
-    metrics.record("outbound", 100, 0.2, 8, 1000);
-    metrics.record("outbound", 100, 0.3, 16, 2000);
-    metrics.record("inbound", 400, 0.5, 4, 2000);
+    metrics.record({ direction: "outbound", bytes: 100, codecMilliseconds: 0.2, queueBytes: 8, nowMs: 1000 });
+    metrics.record({ direction: "outbound", bytes: 100, codecMilliseconds: 0.3, queueBytes: 16, nowMs: 2000 });
+    metrics.record({ direction: "inbound", bytes: 400, codecMilliseconds: 0.5, queueBytes: 4, nowMs: 2000 });
     metrics.recordRoundTrip(50);
     metrics.recordRoundTrip(70);
     metrics.recordRoundTrip(60);

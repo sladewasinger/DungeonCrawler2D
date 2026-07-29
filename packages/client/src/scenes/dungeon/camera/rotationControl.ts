@@ -1,0 +1,110 @@
+/**
+ * Drives the live cardinal camera rotation: owns the rotationTween state machine and
+ * flips the settled ViewState at the midpoint. TerrainRenderer prewarms the destination
+ * root before this swap, so the old root stays visible until the new one is complete.
+ * A short cosmetic camera lean covers the atomic swap without a blank or flashing frame.
+ * Phaser-free by design (like every render/view/* module) — DungeonScene wires it to a
+ * real camera and to TerrainRenderer/LightingSystem's invalidation hooks.
+ */
+import {
+  advanceRotationTween,
+  isPastCrossfadeMidpoint,
+  isRotationTweenDone,
+  rotationTweenProgress,
+  startRotationTween,
+  type RotationTween,
+} from "../../../render/view/orientation/rotationTween.js";
+import { getViewOrientation, setViewOrientation } from "../../../render/view/transform/viewState.js";
+import { compassBearingDeg } from "./compassBearing.js";
+
+/** How far the pre-snap lean tilts, in degrees — "a slight fake rotation towards the
+ * proper direction, and then everything is snapped over" (user directive 2026-07-20,
+ * replacing the two-phase compensated spin whose sign mismatch with Phaser's camera
+ * rotation read as a wrong-way 720 "twister"). Vetoable knob. */
+const LEAN_DEG = 14;
+
+function easeOutQuad(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
+/**
+ * The lean, in camera-rotation degrees. Sign: Phaser camera.rotation +θ makes the WORLD
+ * appear rotated CW on screen, while a stepDir=+1 orientation swap rotates content CCW
+ * (east moves screen-right -> screen-up per worldToView) — so the camera must lean
+ * NEGATIVE stepDir for the world to tilt toward where the snap will take it. The tween
+ * ends AT the snap (update() below), so there is no post-swap phase at all.
+ */
+function cameraFxDeg(tween: RotationTween): number {
+  const progress = rotationTweenProgress(tween);
+  const leanT = Math.min(1, progress / 0.5);
+  return -tween.stepDir * LEAN_DEG * easeOutQuad(leanT);
+}
+
+export class RotationController {
+  constructor(private readonly beforeStep?: (direction: 1 | -1) => void) {}
+  private tween: RotationTween | null = null;
+  private swapped = false;
+  /** One-deep chain: a request landing mid-tween starts the moment the current step
+   * snaps, so holding the key spins continuously (user directive 2026-07-21 — the old
+   * behavior ATE inputs during the tween, which with 250ms steps read as sluggish). */
+  private pendingDir: 1 | -1 | null = null;
+
+  /** Starts one 90-degree step in `dir` (1 = clockwise/"X", -1 = "Q"/ccw, per
+   * docs/ASSUMPTIONS.md row 252's convention); mid-tween requests chain. */
+  request(dir: 1 | -1): void {
+    if (this.tween) {
+      this.pendingDir = dir;
+      return;
+    }
+    this.beforeStep?.(dir);
+    this.tween = startRotationTween(getViewOrientation(), dir);
+    this.swapped = false;
+  }
+
+  /**
+   * Advances the tween by `dtMs`; `invalidate` fires exactly once when progress crosses
+   * the midpoint, flipping the seam's settled orientation and refreshing lighting. The
+   * terrain callback is renderer-agnostic; Terrain's destination root is already
+   * prepared by the key binding.
+   */
+  update(dtMs: number, invalidate: () => void): void {
+    if (!this.tween) return;
+    this.tween = advanceRotationTween(this.tween, dtMs);
+    if (!this.swapped && isPastCrossfadeMidpoint(this.tween)) {
+      this.completeSwap(invalidate);
+      return;
+    }
+    if (isRotationTweenDone(this.tween)) this.tween = null;
+  }
+
+  private completeSwap(invalidate: () => void): void {
+    if (!this.tween) return;
+    this.swapped = true;
+    setViewOrientation(this.tween.to);
+    invalidate();
+    this.tween = null;
+    this.startPendingRotation();
+  }
+
+  private startPendingRotation(): void {
+    if (this.pendingDir === null) return;
+    const direction = this.pendingDir;
+    this.pendingDir = null;
+    this.request(direction);
+  }
+
+  /** This frame's cosmetic camera spin, in radians — 0 while idle. */
+  cameraRotationRad(): number {
+    if (!this.tween) return 0;
+    return (cameraFxDeg(this.tween) * Math.PI) / 180;
+  }
+
+  /** HUD compass's live bearing (0 = world-north at screen-up), continuous through the tween. */
+  bearingDeg(): number {
+    return compassBearingDeg(getViewOrientation(), this.tween);
+  }
+
+  get tweening(): boolean {
+    return this.tween !== null;
+  }
+}

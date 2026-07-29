@@ -1,8 +1,8 @@
 import type Phaser from "phaser";
-import type { PlayerEntityView } from "../view.js";
-import { depthForScreenY } from "../worldToScreen.js";
+import type { PlayerEntityView } from "../visuals/view.js";
+import { depthForScreenY } from "../geometry/worldToScreen.js";
+import { drawHoldProgressRing } from "../presentation/holdProgressRing.js";
 
-const REVIVE_RING_RADIUS_PX = 11;
 const REVIVE_RING_DEPTH_BIAS = 0.5;
 
 /** Draws the authoritative AOI-visible hold ring above a downed crawler. */
@@ -18,18 +18,17 @@ export function updatePlayerReviveRing(
     return;
   }
   const ringY = body.y - body.displayHeight - 5;
-  ring.clear();
-  ring.lineStyle(2, 0x8fffc1, 0.3);
-  ring.strokeCircle(body.x, ringY, REVIVE_RING_RADIUS_PX);
-  ring.lineStyle(2, 0x8fffc1, 0.95);
-  ring.beginPath();
-  ring.arc(
-    body.x,
-    ringY,
-    REVIVE_RING_RADIUS_PX,
-    -Math.PI / 2,
-    -Math.PI / 2 + progress * Math.PI * 2,
-  );
-  ring.strokePath();
+  drawReviveRing({ ring, x: body.x, ringY, progress });
   ring.setDepth(depthForScreenY(ringY) + REVIVE_RING_DEPTH_BIAS).setVisible(true);
+}
+
+interface ReviveRingDrawing {
+  readonly ring: Phaser.GameObjects.Graphics;
+  readonly x: number;
+  readonly ringY: number;
+  readonly progress: number;
+}
+
+function drawReviveRing({ ring, x, ringY, progress }: ReviveRingDrawing): void {
+  drawHoldProgressRing({ graphics: ring, x, y: ringY, progress });
 }

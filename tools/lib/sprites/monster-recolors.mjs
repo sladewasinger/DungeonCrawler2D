@@ -35,9 +35,9 @@ function slimeRunMapping(p) {
 
 export function generateMonsterRecolors(sheet, palette, frameByName) {
   return [
-    ...recolorSeries(sheet, frameByName, GOBLIN_IDLE, 'plant_creeper_idle', creeperMapping(palette)),
-    ...recolorSeries(sheet, frameByName, GOBLIN_RUN, 'plant_creeper_run', creeperMapping(palette)),
-    ...recolorSeries(sheet, frameByName, SWAMPY, 'slime_idle', slimeIdleMapping(palette)),
-    ...recolorSeries(sheet, frameByName, MUDDY, 'slime_run', slimeRunMapping(palette)),
+    ...recolorSeries({ sheet, frameByName, sourceNames: GOBLIN_IDLE, outPrefix: 'plant_creeper_idle', mapping: creeperMapping(palette) }),
+    ...recolorSeries({ sheet, frameByName, sourceNames: GOBLIN_RUN, outPrefix: 'plant_creeper_run', mapping: creeperMapping(palette) }),
+    ...recolorSeries({ sheet, frameByName, sourceNames: SWAMPY, outPrefix: 'slime_idle', mapping: slimeIdleMapping(palette) }),
+    ...recolorSeries({ sheet, frameByName, sourceNames: MUDDY, outPrefix: 'slime_run', mapping: slimeRunMapping(palette) }),
   ];
 }

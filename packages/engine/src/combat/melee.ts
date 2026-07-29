@@ -15,6 +15,43 @@ interface TargetCandidate {
   distance: number;
 }
 
+interface Direction {
+  x: number;
+  y: number;
+}
+
+interface TargetEligibility {
+  attacker: Entity;
+  target: Entity;
+  direction: Direction;
+  range: number;
+  halfArcRad: number;
+}
+
+interface TargetSearch {
+  attacker: Entity;
+  direction: Direction;
+  candidates: Iterable<Entity>;
+  isPartyMember: (target: Entity) => boolean;
+  range: number;
+  halfArcRad: number;
+}
+
+export interface MeleeTargetInput {
+  attacker: Entity;
+  direction: Direction;
+  candidates: Iterable<Entity>;
+  isPartyMember: (target: Entity) => boolean;
+  range?: number;
+  arcCos?: number;
+}
+
+export interface FacingArcInput {
+  facing: Direction;
+  target: Direction;
+  arcCos?: number;
+}
+
 function closerCandidate(
   current: TargetCandidate | null,
   entity: Entity,
@@ -24,57 +61,44 @@ function closerCandidate(
   return { entity, distance };
 }
 
-function isEligibleTarget(
-  attacker: Entity,
-  target: Entity,
-  nx: number,
-  ny: number,
-  range: number,
-  halfArcRad: number,
-): number | null {
-  if (target.id === attacker.id || target.hp <= 0) return null;
-  if (target.kind !== "player" && target.kind !== "enemy") return null;
+function isEligibleTarget({ attacker, target, direction, range, halfArcRad }: TargetEligibility): number | null {
+  if (!isCombatTarget(attacker, target)) return null;
   const dx = target.body.x - attacker.body.x;
   const dy = target.body.y - attacker.body.y;
   const dist = Math.hypot(dx, dy);
-  // The blade only has to reach the target's near EDGE, not its center point.
-  if (dist - BODY_RADIUS > range) return null;
-  // Vertical reach: can't slap someone three ledges up.
-  if (Math.abs(target.body.z - attacker.body.z) > 1.5) return null;
-  if (dist > 0.001) {
-    // Cone-vs-body: the swing connects if the arc touches ANY part of the target's
-    // body, not just its center — the allowed off-axis angle widens by asin(r/dist),
-    // so an adjacent enemy slightly off the aim axis can't slip between the cone's
-    // edge and the attacker (center-point testing made point-blank combat whiff:
-    // a touching enemy 60 degrees off-aim was rejected while visually inside any
-    // real swing). At range the allowance vanishes and the arc converges to
-    // MELEE_ARC_COS exactly.
-    const dot = (dx / dist) * nx + (dy / dist) * ny;
-    const offAxisRad = Math.acos(Math.min(1, Math.max(-1, dot)));
-    const bodyAllowanceRad = Math.asin(Math.min(1, BODY_RADIUS / dist));
-    if (offAxisRad > halfArcRad + bodyAllowanceRad) return null;
-  }
+  if (!isWithinMeleeRange({ attacker, target, distance: dist, range })) return null;
+  if (!isWithinMeleeArc({ dx, dy, distance: dist, direction, halfArcRad })) return null;
   return dist;
 }
 
-function normalizeDirection(dirX: number, dirY: number): { nx: number; ny: number } {
-  const len = Math.hypot(dirX, dirY);
-  if (len <= 0) return { nx: 1, ny: 0 };
-  return { nx: dirX / len, ny: dirY / len };
+function isCombatTarget(attacker: Entity, target: Entity): boolean {
+  return target.id !== attacker.id && target.hp > 0 && (target.kind === "player" || target.kind === "enemy");
 }
 
-export function isWithinFacingArc(
-  facingX: number,
-  facingY: number,
-  targetX: number,
-  targetY: number,
-  arcCos = MELEE_ARC_COS,
-): boolean {
-  const facing = normalizeDirection(facingX, facingY);
-  const targetLength = Math.hypot(targetX, targetY);
+function isWithinMeleeRange({ attacker, target, distance, range }: { attacker: Entity; target: Entity; distance: number; range: number }): boolean {
+  return distance - BODY_RADIUS <= range && Math.abs(target.body.z - attacker.body.z) <= 1.5;
+}
+
+function isWithinMeleeArc({ dx, dy, distance, direction, halfArcRad }: { dx: number; dy: number; distance: number; direction: Direction; halfArcRad: number }): boolean {
+  if (distance <= 0.001) return true;
+  const dot = (dx / distance) * direction.x + (dy / distance) * direction.y;
+  const offAxisRad = Math.acos(Math.min(1, Math.max(-1, dot)));
+  const bodyAllowanceRad = Math.asin(Math.min(1, BODY_RADIUS / distance));
+  return offAxisRad <= halfArcRad + bodyAllowanceRad;
+}
+
+function normalizeDirection({ x, y }: Direction): Direction {
+  const len = Math.hypot(x, y);
+  if (len <= 0) return { x: 1, y: 0 };
+  return { x: x / len, y: y / len };
+}
+
+export function isWithinFacingArc({ facing, target, arcCos = MELEE_ARC_COS }: FacingArcInput): boolean {
+  const normalizedFacing = normalizeDirection(facing);
+  const targetLength = Math.hypot(target.x, target.y);
   if (targetLength <= 0.001) return true;
-  return facing.nx * (targetX / targetLength) +
-      facing.ny * (targetY / targetLength) >= arcCos;
+  return normalizedFacing.x * (target.x / targetLength) +
+      normalizedFacing.y * (target.y / targetLength) >= arcCos;
 }
 
 interface BestTargets {
@@ -82,38 +106,27 @@ interface BestTargets {
   friendly: TargetCandidate | null;
 }
 
-function findBestTargets(
-  attacker: Entity,
-  nx: number,
-  ny: number,
-  candidates: Iterable<Entity>,
-  isPartyMember: (target: Entity) => boolean,
-  range: number,
-  halfArcRad: number,
-): BestTargets {
+function findBestTargets({ attacker, direction, candidates, isPartyMember, range, halfArcRad }: TargetSearch): BestTargets {
   const best: BestTargets = { hostile: null, friendly: null };
   for (const target of candidates) {
-    const dist = isEligibleTarget(attacker, target, nx, ny, range, halfArcRad);
-    if (dist === null) continue;
-    if (isPartyMember(target)) {
-      best.friendly = closerCandidate(best.friendly, target, dist);
-    } else {
-      best.hostile = closerCandidate(best.hostile, target, dist);
-    }
+    const dist = isEligibleTarget({ attacker, target, direction, range, halfArcRad });
+    if (dist !== null) updateBestTarget({ best, target, distance: dist, isPartyMember });
   }
   return best;
 }
 
-export function pickMeleeTarget(
-  attacker: Entity,
-  dirX: number,
-  dirY: number,
-  candidates: Iterable<Entity>,
-  isPartyMember: (target: Entity) => boolean,
-  range = MELEE_RANGE,
-  arcCos = MELEE_ARC_COS,
-): Entity | null {
-  const { nx, ny } = normalizeDirection(dirX, dirY);
-  const best = findBestTargets(attacker, nx, ny, candidates, isPartyMember, range, Math.acos(arcCos));
+function updateBestTarget({ best, target, distance, isPartyMember }: {
+  best: BestTargets;
+  target: Entity;
+  distance: number;
+  isPartyMember: (target: Entity) => boolean;
+}): void {
+  if (isPartyMember(target)) best.friendly = closerCandidate(best.friendly, target, distance);
+  else best.hostile = closerCandidate(best.hostile, target, distance);
+}
+
+export function pickMeleeTarget({ attacker, direction, candidates, isPartyMember, range = MELEE_RANGE, arcCos = MELEE_ARC_COS }: MeleeTargetInput): Entity | null {
+  const normalizedDirection = normalizeDirection(direction);
+  const best = findBestTargets({ attacker, direction: normalizedDirection, candidates, isPartyMember, range, halfArcRad: Math.acos(arcCos) });
   return best.hostile?.entity ?? best.friendly?.entity ?? null;
 }

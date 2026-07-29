@@ -1,26 +1,31 @@
 import { STEP_UP } from "../core/constants.js";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 
 const STAIR_RIM_PROBE = 0.01;
 
 /** Match movement's side-rim gate when evaluating a path edge. */
 export function stairRimBlocks(
-  world: WorldView,
-  fromX: number,
-  fromY: number,
-  dx: number,
-  dy: number,
+  request: { world: WorldView; from: { x: number; y: number }; to: { x: number; y: number } },
 ): boolean {
-  const sign = Math.sign(dx !== 0 ? dx : dy);
-  const axisBoundary = dx !== 0 ? (sign > 0 ? fromX + 1 : fromX) :
-    (sign > 0 ? fromY + 1 : fromY);
-  const nearAxis = axisBoundary - sign * STAIR_RIM_PROBE;
-  const farAxis = axisBoundary + sign * STAIR_RIM_PROBE;
-  const near = dx !== 0
-    ? world.groundAt(nearAxis, fromY + 0.5)
-    : world.groundAt(fromX + 0.5, nearAxis);
-  const far = dx !== 0
-    ? world.groundAt(farAxis, fromY + 0.5)
-    : world.groundAt(fromX + 0.5, farAxis);
+  const { world, from, to } = request;
+  const probe = rimProbe(from, to);
+  const near = groundAtProbe({ world, from, probe, offset: -STAIR_RIM_PROBE });
+  const far = groundAtProbe({ world, from, probe, offset: STAIR_RIM_PROBE });
   return far - near > STEP_UP;
+}
+
+interface RimProbe { horizontal: boolean; axisBoundary: number; sign: number; }
+
+function rimProbe(from: { x: number; y: number }, to: { x: number; y: number }): RimProbe {
+  const dx = to.x - from.x;
+  const horizontal = dx !== 0;
+  const sign = Math.sign(horizontal ? dx : to.y - from.y);
+  const start = horizontal ? from.x : from.y;
+  return { horizontal, sign, axisBoundary: sign > 0 ? start + 1 : start };
+}
+
+function groundAtProbe(request: { world: WorldView; from: { x: number; y: number }; probe: RimProbe; offset: number }): number {
+  const { world, from, probe, offset } = request;
+  const axis = probe.axisBoundary + probe.sign * offset;
+  return probe.horizontal ? world.groundAt(axis, from.y + 0.5) : world.groundAt(from.x + 0.5, axis);
 }

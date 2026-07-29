@@ -4,6 +4,8 @@ import { buildContentRegistry } from "../effects/types.js";
 import { Rng } from "../core/rng.js";
 import { AreaSystem, type AreaWorld } from "./system.js";
 
+const STEAM_AREA_ID = "area-steam";
+
 // Mirrors packages/content/src/data/areas.json's values for the areas these
 // tests exercise; engine code may not import @dc2d/content (import boundary).
 function minimalStatus(id: string) {
@@ -58,12 +60,14 @@ const content = buildContentRegistry({
       sprite: "poison",
     },
     { id: "area-smoke", tags: ["smoke", "gas"], buoyancy: 1, duration: 8, spread: { chance: 0.3, maxSteps: 3 }, sprite: "smoke" },
-    { id: "area-steam", tags: ["steam", "gas"], buoyancy: 1, duration: 4, sprite: "steam" },
+    { id: STEAM_AREA_ID, tags: ["steam", "gas"], buoyancy: 1, duration: 4, sprite: "steam" },
   ],
   items: [],
   enemies: [],
   recipes: [],
 });
+
+const FIRE_AREA_ID = "area-fire";
 
 function flatWorld(opts: {
   heightFn?: (x: number, y: number) => number;
@@ -81,9 +85,9 @@ function flatWorld(opts: {
 describe("area system", () => {
   it("spawns a blob and decays it away", () => {
     const areas = new AreaSystem(content, flatWorld({}));
-    areas.spawn("area-steam", 10, 10, 1); // steam: 4 s, no spread
+    areas.spawn({ defId: STEAM_AREA_ID, x: 10, y: 10, radius: 1 }); // steam: 4 s, no spread
     expect(areas.size).toBeGreaterThanOrEqual(5);
-    expect(areas.defAt(10, 10)).toBe("area-steam");
+    expect(areas.defAt(10, 10)).toBe(STEAM_AREA_ID);
     const rng = new Rng(1);
     for (let i = 0; i < 5 / 0.05; i++) areas.tick(0.05, () => rng.next());
     expect(areas.size).toBe(0);
@@ -95,8 +99,8 @@ describe("area system", () => {
   it("fire spreads onto flammable areas (oil) but not bare floor", () => {
     const areas = new AreaSystem(content, flatWorld({}));
     // A line of oil leading away from the fire.
-    for (let x = 11; x <= 14; x++) areas.place("area-oil", x, 10, 0);
-    areas.place("area-fire", 10, 10, 0);
+    for (let x = 11; x <= 14; x++) areas.place({ defId: "area-oil", x: x, y: 10, steps: 0 });
+    areas.place({ defId: FIRE_AREA_ID, x: 10, y: 10, steps: 0 });
     const rng = new Rng(7);
     for (let i = 0; i < 200; i++) areas.tick(0.05, () => rng.next());
     // Fire consumed the oil line (fire replaces oil on meeting)…
@@ -110,15 +114,15 @@ describe("area system", () => {
 
   it("fire meeting wet becomes steam", () => {
     const areas = new AreaSystem(content, flatWorld({}));
-    areas.place("area-wet", 5, 5, 0);
-    areas.place("area-fire", 5, 5, 0);
-    expect(areas.defAt(5, 5)).toBe("area-steam");
+    areas.place({ defId: "area-wet", x: 5, y: 5, steps: 0 });
+    areas.place({ defId: "area-fire", x: 5, y: 5, steps: 0 });
+    expect(areas.defAt(5, 5)).toBe(STEAM_AREA_ID);
   });
 
   it("heavy gas sinks: poison never spreads uphill", () => {
     // A slope rising to the east: x is the height.
     const areas = new AreaSystem(content, flatWorld({ heightFn: (x) => x * 2 }));
-    areas.place("area-poison", 10, 10, 0);
+    areas.place({ defId: "area-poison", x: 10, y: 10, steps: 0 });
     const rng = new Rng(3);
     for (let i = 0; i < 240; i++) areas.tick(0.05, () => rng.next());
     // Anything east of the origin would be uphill — forbidden.
@@ -128,7 +132,7 @@ describe("area system", () => {
 
   it("smoke rises: never spreads downhill", () => {
     const areas = new AreaSystem(content, flatWorld({ heightFn: (x) => x * 2 }));
-    areas.place("area-smoke", 10, 10, 0);
+    areas.place({ defId: "area-smoke", x: 10, y: 10, steps: 0 });
     const rng = new Rng(3);
     for (let i = 0; i < 160; i++) areas.tick(0.05, () => rng.next());
     expect(areas.defAt(9, 10)).toBeNull();
@@ -138,19 +142,19 @@ describe("area system", () => {
   it("hostile areas cannot enter sanctuary — fire dies at the threshold", () => {
     const sanctuary = (x: number) => x >= 12;
     const areas = new AreaSystem(content, flatWorld({ sanctuary }));
-    areas.spawn("area-fire", 12, 10, 2); // blob centered on sanctuary ground
+    areas.spawn({ defId: "area-fire", x: 12, y: 10, radius: 2 }); // blob centered on sanctuary ground
     expect(areas.defAt(12, 10)).toBeNull();
     expect(areas.defAt(13, 10)).toBeNull();
     expect(areas.defAt(10, 10)).toBe("area-fire"); // outside the line it burns
     // Non-hostile areas are allowed inside (steam drifting in is fine).
-    areas.place("area-steam", 13, 10, 0);
-    expect(areas.defAt(13, 10)).toBe("area-steam");
+    areas.place({ defId: STEAM_AREA_ID, x: 13, y: 10, steps: 0 });
+    expect(areas.defAt(13, 10)).toBe(STEAM_AREA_ID);
   });
 
   it("spread respects maxSteps generations", () => {
     const areas = new AreaSystem(content, flatWorld({}));
     // Wet spreads freely but only 2 generations.
-    areas.place("area-wet", 50, 50, 0);
+    areas.place({ defId: "area-wet", x: 50, y: 50, steps: 0 });
     const rng = new Rng(9);
     for (let i = 0; i < 400; i++) areas.tick(0.05, () => rng.next());
     for (const tile of areas.allTiles()) {

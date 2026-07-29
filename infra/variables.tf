@@ -30,7 +30,7 @@ variable "instance_type" {
 variable "world_seed" {
   description = "Deterministic production world seed."
   type        = string
-  default     = "austin-dungeon-prod-1"
+  default     = "dungeon-test-1"
 
   validation {
     condition     = can(regex("^[A-Za-z0-9._-]+$", var.world_seed))

@@ -1,24 +1,30 @@
-import {
-  CHUNK_SIZE,
-  roomCenterAt,
-  roomKindAt,
-  safeRoomAttendantPosition,
-  type RoomKind,
-} from "@dc2d/engine";
+import { CHUNK_SIZE, roomCenterAt, roomKindAt, safeRoomAttendantPosition, type RoomKind } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
-import type { Connection } from "../../net/connection.js";
-import { depthForEntityNow, worldToScreen } from "../entities/worldToScreen.js";
-import { uiTextStyle } from "../../ui/font.js";
+import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
+import type { Connection } from "../../net/connection/connection.js";
+import { depthForEntityNow, worldToScreen } from "../entities/geometry/worldToScreen.js";
+import { uiTextStyle } from "../../ui/foundation/font.js";
+import { syncRoomDoorLabels } from "./roomDoorLabels.js";
+import { createSafeRoomAttendant } from "./safeRoomAttendant.js";
+import {
+  createSpawnRoomIntercom,
+  positionSpawnRoomIntercom,
+} from "./spawnRoomIntercom.js";
+import {
+  SAFE_ROOM_PRESENTATION_DEPTH,
+} from "./roomPresentationDepth.js";
+export {
+  SAFE_ROOM_BUBBLE_DEPTH,
+  SAFE_ROOM_PRESENTATION_DEPTH,
+} from "./roomPresentationDepth.js";
+import { syncRoomSpeech } from "./roomSpeech.js";
 
 const ROOM_LABELS: Readonly<Record<RoomKind, string>> = {
   safe: "SAFE ROOM",
   party: "PARTY ROOM",
   personal: "YOUR PERSONAL ROOM",
+  spawn: "SPAWN ROOM",
 };
-
-export const SAFE_ROOM_PRESENTATION_DEPTH = Number.MAX_SAFE_INTEGER - 1;
-export const SAFE_ROOM_BUBBLE_DEPTH = SAFE_ROOM_PRESENTATION_DEPTH + 1;
 
 export function roomFloorLabelPosition(
   kind: RoomKind,
@@ -36,6 +42,7 @@ interface RoomObjects {
   counter?: Phaser.GameObjects.Rectangle;
   nameplate?: Phaser.GameObjects.Text;
   bubble?: Phaser.GameObjects.Text;
+  intercom?: Phaser.GameObjects.Image;
 }
 
 export class RoomPresentation {
@@ -55,36 +62,19 @@ export class RoomPresentation {
       this.objects = this.create(kind, cx, cy);
     }
     this.positionObjects();
-    this.syncDoorLabels(conn);
+    this.syncDoors(conn);
     this.updateSpeech(conn, nowMs);
   }
 
-  private syncDoorLabels(conn: Connection): void {
-    const seen = new Set<string>();
-    for (const door of conn.roomDoors ?? []) {
-      const key = `${door.x},${door.y}`;
-      seen.add(key);
-      let label = this.doorLabels.get(key);
-      if (!label) {
-        const screen = worldToScreen(door.x + 0.5, door.y);
-        label = this.scene.add.text(
-          screen.x,
-          screen.y - 4,
-          door.label ?? "ROOM",
-          uiTextStyle(10, "#ffffff", 1, "emphasis"),
-        ).setOrigin(0.5, 1).setStroke("#11111a", 3)
-          .setDepth(depthForEntityNow(door.x, door.y) + 0.6);
-        this.doorLabels.set(key, label);
-      }
-      const screen = worldToScreen(door.x + 0.5, door.y);
-      label.setText(door.label ?? "ROOM").setPosition(screen.x, screen.y - 4)
-        .setDepth(depthForEntityNow(door.x, door.y) + 0.6);
-    }
-    for (const [key, label] of this.doorLabels) {
-      if (seen.has(key)) continue;
-      label.destroy();
-      this.doorLabels.delete(key);
-    }
+  private syncDoors(conn: Connection): void {
+    const objects = this.objects;
+    if (!objects) return;
+    syncRoomDoorLabels({
+      scene: this.scene,
+      labels: this.doorLabels,
+      room: objects,
+      doors: conn.roomDoors,
+    });
   }
 
   private create(kind: RoomKind, cx: number, cy: number): RoomObjects {
@@ -95,39 +85,16 @@ export class RoomPresentation {
       floorPosition.x,
       floorPosition.y,
       ROOM_LABELS[kind],
-      uiTextStyle(30, "#a9b1c8", 1, "emphasis"),
+      uiTextStyle(30, "#a9b1c8", { scale: 1, weight: "emphasis" }),
     ).setOrigin(0.5).setAlpha(0.18).setDepth(depthForEntityNow(center.x, center.y) - 1);
     const objects: RoomObjects = { kind, cx, cy, floorLabel };
     if (kind === "safe") this.createAttendant(objects);
+    if (kind === "spawn") objects.intercom = createSpawnRoomIntercom(this.scene);
     return objects;
   }
 
   private createAttendant(objects: RoomObjects): void {
-    const position = safeRoomAttendantPosition(objects.cx, objects.cy);
-    const screen = worldToScreen(position.x, position.y);
-    const depth = depthForEntityNow(position.x, position.y);
-    objects.counter = this.scene.add.rectangle(
-      screen.x,
-      screen.y + SCREEN_TILE_PX * 0.25,
-      SCREEN_TILE_PX * 2.5,
-      SCREEN_TILE_PX * 0.65,
-      0x6e4528,
-    ).setStrokeStyle(3, 0x2c1b13).setDepth(depth + 0.1);
-    objects.attendant = this.scene.add.sprite(
-      screen.x,
-      screen.y,
-      ASSET_KEYS.atlas,
-      "goblin_idle_anim_f0",
-    ).setOrigin(0.5, 1).setScale(WORLD_PIXEL_SCALE).setDepth(depth);
-    objects.attendant.play("goblin_idle");
-    const headY = screen.y - objects.attendant.displayHeight;
-    objects.nameplate = this.scene.add.text(
-      screen.x,
-      headY - 4,
-      "Nib, Safe Room Attendant",
-      uiTextStyle(11, "#ffd98a", 1, "emphasis"),
-    ).setOrigin(0.5, 1).setStroke("#11111a", 3)
-      .setDepth(SAFE_ROOM_PRESENTATION_DEPTH);
+    Object.assign(objects, createSafeRoomAttendant(this.scene, objects.cx, objects.cy));
   }
 
   private positionObjects(): void {
@@ -138,6 +105,7 @@ export class RoomPresentation {
     const floor = worldToScreen(labelPosition.x, labelPosition.y);
     objects.floorLabel.setPosition(floor.x, floor.y)
       .setDepth(depthForEntityNow(labelPosition.x, labelPosition.y) - 1);
+    if (objects.intercom) positionSpawnRoomIntercom(objects.intercom);
     if (!objects.attendant) return;
     const position = safeRoomAttendantPosition(objects.cx, objects.cy);
     const screen = worldToScreen(position.x, position.y);
@@ -147,32 +115,17 @@ export class RoomPresentation {
     const headY = screen.y - objects.attendant.displayHeight;
     objects.nameplate?.setPosition(screen.x, headY - 4)
       .setDepth(SAFE_ROOM_PRESENTATION_DEPTH);
-    objects.bubble?.setPosition(screen.x, headY - 28)
-      .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
   }
 
   private updateSpeech(conn: Connection, nowMs: number): void {
     const objects = this.objects;
-    if (!objects?.attendant) return;
-    const speech = conn.npcSpeech;
-    if (!speech || speech.untilMs <= nowMs) {
-      objects.bubble?.setVisible(false);
-      return;
-    }
-    const headY = objects.attendant.y - objects.attendant.displayHeight;
-    if (!objects.bubble) {
-      objects.bubble = this.scene.add.text(
-        objects.attendant.x,
-        headY - 28,
-        speech.text,
-        uiTextStyle(12, "#ffffff"),
-      ).setOrigin(0.5, 1).setAlign("center").setPadding(8, 5, 8, 5)
-        .setBackgroundColor("rgba(20,20,28,0.92)")
-        .setWordWrapWidth(260)
-        .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
-    }
-    objects.bubble.setText(speech.text).setVisible(true)
-      .setDepth(SAFE_ROOM_BUBBLE_DEPTH);
+    const speaker = objects?.attendant ?? objects?.intercom;
+    if (!objects || !speaker) return;
+    const bubble = syncRoomSpeech({
+      scene: this.scene, bubble: objects.bubble, speaker,
+      speech: conn.npcSpeech, nowMs, cx: objects.cx, cy: objects.cy,
+    });
+    if (bubble) objects.bubble = bubble;
   }
 
   private clear(): void {
@@ -183,6 +136,7 @@ export class RoomPresentation {
     objects.counter?.destroy();
     objects.nameplate?.destroy();
     objects.bubble?.destroy();
+    objects.intercom?.destroy();
     for (const label of this.doorLabels.values()) label.destroy();
     this.doorLabels.clear();
     this.objects = null;

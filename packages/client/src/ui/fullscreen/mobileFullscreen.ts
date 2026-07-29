@@ -19,6 +19,13 @@ export interface FullscreenRetry {
   dispose(): void;
 }
 
+interface FullscreenRetryOptions {
+  target: HTMLElement;
+  doc?: FullscreenDocument;
+  deviceScreen?: FullscreenScreen;
+  touchDevice?: boolean;
+}
+
 export function isFullscreenActive(doc: FullscreenDocument = document): boolean {
   return Boolean(doc.fullscreenElement ?? doc.webkitFullscreenElement);
 }
@@ -37,8 +44,13 @@ export function enterFullscreenLandscape(
     void lockLandscape(deviceScreen);
     return Promise.resolve(true);
   }
+  if (!canEnterFullscreen(target, doc)) return Promise.resolve(false);
   const request = target.requestFullscreen ?? target.webkitRequestFullscreen;
-  if (!request || !canEnterFullscreen(target, doc)) return Promise.resolve(false);
+  if (!request) return Promise.resolve(false);
+  return requestFullscreen(target, request, deviceScreen);
+}
+
+function requestFullscreen(target: FullscreenElement, request: () => Promise<void> | void, deviceScreen: FullscreenScreen): Promise<boolean> {
   try {
     return Promise.resolve(request.call(target)).then(
       async () => {
@@ -53,12 +65,13 @@ export function enterFullscreenLandscape(
 }
 
 export function installFullscreenResumeRetry(
-  target: HTMLElement,
-  doc: FullscreenDocument = document,
-  deviceScreen: FullscreenScreen = screen,
-  touchDevice: boolean = isTouchDevice(),
+  { target, doc = document, deviceScreen = screen, touchDevice = isTouchDevice() }: FullscreenRetryOptions,
 ): FullscreenRetry {
   if (!touchDevice) return { dispose: () => undefined };
+  return createFullscreenRetry({ target, doc, deviceScreen });
+}
+
+function createFullscreenRetry({ target, doc, deviceScreen }: Required<Pick<FullscreenRetryOptions, "target" | "doc" | "deviceScreen">>): FullscreenRetry {
   let retryArmed = false;
   const onGameTap = () => {
     disarm();
@@ -74,17 +87,27 @@ export function installFullscreenResumeRetry(
     retryArmed = true;
     target.addEventListener("pointerdown", onGameTap, { capture: true, once: true });
   };
-  const onVisibilityChange = () => {
-    if (doc.visibilityState === "visible") arm();
-    else disarm();
-  };
-  doc.addEventListener("visibilitychange", onVisibilityChange);
+  const onVisibilityChange = () => toggleFullscreenRetry(doc, arm, disarm);
+  addVisibilityListener(doc, onVisibilityChange);
   return {
     dispose: () => {
       disarm();
-      doc.removeEventListener("visibilitychange", onVisibilityChange);
+      removeVisibilityListener(doc, onVisibilityChange);
     },
   };
+}
+
+function toggleFullscreenRetry(doc: Document, arm: () => void, disarm: () => void): void {
+  if (doc.visibilityState === "visible") arm();
+  else disarm();
+}
+
+function addVisibilityListener(doc: Document, listener: () => void): void {
+  doc.addEventListener("visibilitychange", listener);
+}
+
+function removeVisibilityListener(doc: Document, listener: () => void): void {
+  doc.removeEventListener("visibilitychange", listener);
 }
 
 async function lockLandscape(deviceScreen: FullscreenScreen): Promise<void> {

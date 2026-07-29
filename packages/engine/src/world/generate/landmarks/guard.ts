@@ -7,16 +7,17 @@
 // nearby rooms flat means the landmark's own (already-graduated) height
 // meets ordinary ground with nothing more than the usual WALL_RISE step.
 
-import { bossArenaGuardAnchor } from "../../features/bossArena.js";
-import { descentGuardAnchor } from "../../features/descent.js";
-import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed.js";
+import { bossArenaGuardAnchor } from "../../features/bossArena/bossArena.js";
+import { descentGuardAnchor } from "../../features/descent/descent.js";
+import { isSafeRoomChunk, isStairsChunk } from "../../features/fixed/fixed.js";
 import type { Rect } from "../types.js";
-import { isLandmarkChunk } from "../district.js";
+import { DISTRICT, districtAt, isLandmarkChunk } from "../layout/district.js";
+import { layoutSeed } from "../layout/hash.js";
+import { landmarkRadius } from "./footprint.js";
 import { landmarkCenter } from "./shared.js";
+import { towerLandmarkCenter } from "./tower.js";
 
-// Covers every landmark kind's own reach (arena's WALL_RADIUS = 10 is the
-// largest) plus a margin, without needing to plumb each kind's constant here.
-const GUARD_REACH = 12;
+const HEIGHT_GUARD_MARGIN = 2;
 
 function chebyshevDistance(rect: Rect, cx: number, cy: number): number {
   const dx = Math.max(rect.x0 - cx, 0, cx - rect.x1);
@@ -24,30 +25,33 @@ function chebyshevDistance(rect: Rect, cx: number, cy: number): number {
   return Math.max(dx, dy);
 }
 
-export function isNearLandmark(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  rect: Rect,
-): boolean {
-  if (!isLandmarkChunk(cx, cy)) return false;
-  if (isSafeRoomChunk(worldSeed, floor, cx, cy)) return false;
-  if (isStairsChunk(worldSeed, floor, cx, cy)) return false;
-  const center = landmarkCenter(worldSeed, floor, cx, cy);
-  return chebyshevDistance(rect, center.lx, center.ly) <= GUARD_REACH;
+export interface LandmarkGuardContext {
+  worldSeed: number;
+  floor: number;
+  cx: number;
+  cy: number;
+  rect: Rect;
+}
+
+export function isNearLandmark(context: LandmarkGuardContext): boolean {
+  if (!isLandmarkChunk(context.cx, context.cy)) return false;
+  const chunk = context;
+  if (isSafeRoomChunk(chunk)) return false;
+  if (isStairsChunk(chunk)) return false;
+  const seed = layoutSeed(context.worldSeed, context.floor);
+  const district = districtAt(seed, context.cx, context.cy);
+  const radius = landmarkRadius(district);
+  const center = district === DISTRICT.Ruins
+    ? towerLandmarkCenter({ ...context, seed })
+    : landmarkCenter(context, radius);
+  return chebyshevDistance(context.rect, center.lx, center.ly) <=
+    radius + HEIGHT_GUARD_MARGIN;
 }
 
 /** Same guard as isNearLandmark, for the single-per-floor descent structures (features/descent.ts, features/bossArena.ts) — whichever (if any) claimed this chunk. */
-export function isNearDescent(
-  worldSeed: number,
-  floor: number,
-  cx: number,
-  cy: number,
-  rect: Rect,
-): boolean {
+export function isNearDescent(context: LandmarkGuardContext): boolean {
   const anchor =
-    descentGuardAnchor(worldSeed, floor, cx, cy) ?? bossArenaGuardAnchor(worldSeed, floor, cx, cy);
+    descentGuardAnchor(context) ?? bossArenaGuardAnchor(context);
   if (!anchor) return false;
-  return chebyshevDistance(rect, anchor.lx, anchor.ly) <= anchor.reach;
+  return chebyshevDistance(context.rect, anchor.lx, anchor.ly) <= anchor.reach;
 }

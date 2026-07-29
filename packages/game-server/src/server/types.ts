@@ -1,5 +1,5 @@
 import type { WebSocket } from "ws";
-import type { GameSim } from "../sim/index.js";
+import type { GameSim } from "../sim/core/index.js";
 
 /** Shared per-socket bookkeeping types for the ws transport (server/). */
 

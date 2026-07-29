@@ -3,6 +3,14 @@ import { Canvas } from '../png-canvas.mjs';
 import { drawThickLine, addOutline } from './shapes.mjs';
 import { scaleColor, opaque } from '../color.mjs';
 
+function remapPixel({ canvas, remap, x, y }) {
+  const [r, g, b, a] = canvas.getPixel(x, y);
+  if (a === 0) return;
+  const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  const replacement = remap.get(hex);
+  if (replacement) canvas.setPixel(x, y, replacement);
+}
+
 /** Recolors floor_1 toward the doc's sanctuary teal, kept dark/desaturated (scaled, not raw accent). */
 export function drawFloorSanctuary(sheet, palette) {
   const c = Canvas.fromRegion(sheet, 16, 64, 16, 16); // floor_1
@@ -13,13 +21,7 @@ export function drawFloorSanctuary(sheet, palette) {
     [palette.FLOOR_MID, opaque(tealMid)],
   ]);
   for (let y = 0; y < c.height; y++) {
-    for (let x = 0; x < c.width; x++) {
-      const [r, g, b, a] = c.getPixel(x, y);
-      if (a === 0) continue;
-      const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-      const replacement = remap.get(hex);
-      if (replacement) c.setPixel(x, y, replacement);
-    }
+    for (let x = 0; x < c.width; x++) remapPixel({ canvas: c, remap, x, y });
   }
   return c;
 }
@@ -31,7 +33,7 @@ export function drawCraftingTable(p) {
   c.fillRect(11, 12, 2, 3, opaque(p.WOOD_DARK));
   c.fillRect(2, 9, 12, 3, opaque(p.WOOD_MID));
   c.fillRect(2, 9, 12, 1, opaque(p.WOOD_HILITE));
-  drawThickLine(c, 8, 9, 8, 4, 1, p.WOOD_DARK);
+  drawThickLine({ canvas: c, x0: 8, y0: 9, x1: 8, y1: 4, thickness: 1, hex: p.WOOD_DARK });
   c.fillRect(6, 3, 5, 3, opaque(p.OUTLINE));
   c.fillRect(6, 3, 5, 1, opaque(p.WHITE_HILITE));
   addOutline(c, p.OUTLINE);

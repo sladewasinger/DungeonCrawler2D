@@ -10,7 +10,14 @@
 // Self-contained: only the `ws` package (declared in tools/package.json).
 
 import { readFileSync } from "node:fs";
-import { WebSocket } from "ws";
+import {
+  joinSocket,
+  sendGlobalChat,
+  sendInputIntents,
+  waitForChatLine,
+  waitForSnapshots,
+  withTimeout,
+} from "./lib/smoke-socket.mjs";
 
 // Read the protocol version straight from the engine source so this script
 // can never drift from a bump again (deploy #3 failed exactly that way).
@@ -81,111 +88,11 @@ async function runReleaseNotesChecks(siteUrl) {
   console.log(`[smoke] release index and v${APP_VERSION} page loaded — OK`);
 }
 
-/** Race a promise against a timeout, rejecting with `label` on expiry. */
-function withTimeout(promise, ms, label) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
-}
-
-/** Sends the hello handshake for `name`, resolving with the server's welcome. */
-function waitForWelcome(ws, name, level) {
-  return new Promise((resolve, reject) => {
-    ws.once("open", () => {
-      ws.send(
-        JSON.stringify({
-          type: "hello",
-          protocol: PROTOCOL_VERSION,
-          name,
-          clientId: `smoke-${name}-${Date.now().toString(36)}`,
-          level,
-        }),
-      );
-    });
-    ws.once("error", reject);
-    const onMessage = (raw) => {
-      const msg = safeParse(raw);
-      if (msg?.type === "error") {
-        ws.off("message", onMessage);
-        reject(new Error(`server rejected hello: ${msg.code} ${msg.message}`));
-        return;
-      }
-      if (msg?.type === "welcome") {
-        ws.off("message", onMessage);
-        resolve(msg);
-      }
-    };
-    ws.on("message", onMessage);
-  });
-}
-
-/** Opens a fresh socket and completes its join handshake; resolves with both. */
-async function joinSocket(target, name, level = "dungeon") {
-  const ws = new WebSocket(target);
-  const welcome = await withTimeout(waitForWelcome(ws, name, level), HANDSHAKE_TIMEOUT_MS, `${name} handshake`);
-  return { ws, welcome };
-}
-
-/** Resolves with the first "snapshot" message for which `predicate` is true — the
- * shared shape both waitForSnapshots and waitForChatLine below are built from. */
-function waitForSnapshotWhere(ws, predicate) {
-  return new Promise((resolve, reject) => {
-    ws.once("error", reject);
-    const onMessage = (raw) => {
-      const msg = safeParse(raw);
-      if (msg?.type !== "snapshot" || !predicate(msg)) return;
-      ws.off("message", onMessage);
-      resolve(msg);
-    };
-    ws.on("message", onMessage);
-  });
-}
-
-function waitForSnapshots(ws, count) {
-  let seen = 0;
-  return waitForSnapshotWhere(ws, () => ++seen >= count).then(() => seen);
-}
-
-/** Resolves once a snapshot's events carry a global chat line with this exact text —
- * proof the message actually crossed sockets, not just that it was accepted. */
-function waitForChatLine(ws, text) {
-  return waitForSnapshotWhere(ws, (msg) =>
-    msg.events?.some((e) => e.t === "chat" && e.channel === "global" && e.text === text),
-  );
-}
-
-function sendGlobalChat(ws, text) {
-  ws.send(JSON.stringify({ type: "chat", channel: "global", text }));
-}
-
-function safeParse(raw) {
-  try {
-    return JSON.parse(raw.toString());
-  } catch {
-    return null;
-  }
-}
-
-async function sendInputIntents(ws) {
-  for (let seq = 1; seq <= INPUT_INTENTS_TO_SEND; seq++) {
-    ws.send(JSON.stringify({ type: "input", seq, moveX: 1, moveY: 0, jump: seq % 2 === 0 }));
-    await new Promise((resolve) => setTimeout(resolve, INPUT_INTERVAL_MS));
-  }
-}
-
 /** Original single-socket smoke: handshake, a few input intents, snapshots keep arriving. */
 async function runSoloChecks(target) {
-  const { ws, welcome } = await joinSocket(target, "SmokeSolo");
+  const { ws, welcome } = await joinSocket(target, {
+    name: "SmokeSolo", level: "dungeon", protocol: PROTOCOL_VERSION, handshakeTimeout: HANDSHAKE_TIMEOUT_MS,
+  });
   try {
     if (welcome.level !== "dungeon") {
       throw new Error(`expected dungeon level, got ${welcome.level}`);
@@ -193,7 +100,7 @@ async function runSoloChecks(target) {
     console.log(`[smoke] joined as ${welcome.playerId} (protocol ${welcome.protocol}, tick ${welcome.tickRate}Hz)`);
 
     const snapshotsWaiter = waitForSnapshots(ws, 3);
-    await sendInputIntents(ws);
+    await sendInputIntents(ws, { count: INPUT_INTENTS_TO_SEND, interval: INPUT_INTERVAL_MS });
     const seen = await withTimeout(snapshotsWaiter, SNAPSHOT_TIMEOUT_MS, "snapshot wait");
     console.log(`[smoke] received ${seen} snapshots after input intents — OK`);
   } finally {
@@ -206,8 +113,9 @@ async function runSoloChecks(target) {
  * Runs in the SANDBOX sim: global chat is scoped per-sim, so real players in
  * the dungeon never see the smoke line (a live player screenshotted one). */
 async function runChatCrossCheck(target) {
-  const a = await joinSocket(target, "SmokeChatA", "sandbox");
-  const b = await joinSocket(target, "SmokeChatB", "sandbox");
+  const socketOptions = { level: "sandbox", protocol: PROTOCOL_VERSION, handshakeTimeout: HANDSHAKE_TIMEOUT_MS };
+  const a = await joinSocket(target, { ...socketOptions, name: "SmokeChatA" });
+  const b = await joinSocket(target, { ...socketOptions, name: "SmokeChatB" });
   try {
     const marker = `smoke-global-${Date.now().toString(36)}`;
     const heardWaiter = waitForChatLine(b.ws, marker);

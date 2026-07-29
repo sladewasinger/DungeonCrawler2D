@@ -40,6 +40,8 @@ roadmap is preserved in
   contextual action help, and combat-readability polish.
 - [ ] Finish cohesive four-direction character art, item/effect readability,
   terrain-generation decisions, and remaining 2D content polish.
+- [x] Remove the blanket 2× world-generation expansion and centralize direct
+  tile dimensions; see [WORLD-GENERATION.md](WORLD-GENERATION.md).
 - [ ] Complete touch HUD editing and mobile action-layout ergonomics.
 
 ## Epic 3 — Descent, Progression, and Social Play

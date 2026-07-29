@@ -70,11 +70,23 @@ function applyOptionalEntityFields(
   entity: Entity,
   opts: Partial<Omit<Entity, "kind" | "body">>,
 ): void {
+  applyPresentationFields(entity, opts);
+  applyMotionFields(entity, opts);
+  applyOwnershipFields(entity, opts);
+}
+
+function applyPresentationFields(entity: Entity, opts: Partial<Entity>): void {
   if (opts.defId !== undefined) entity.defId = opts.defId;
   if (opts.name !== undefined) entity.name = opts.name;
   if (opts.skin !== undefined) entity.skin = opts.skin;
+}
+
+function applyMotionFields(entity: Entity, opts: Partial<Entity>): void {
   if (opts.vel !== undefined) entity.vel = opts.vel;
   if (opts.facing !== undefined) entity.facing = opts.facing;
+}
+
+function applyOwnershipFields(entity: Entity, opts: Partial<Entity>): void {
   if (opts.ownerId !== undefined) entity.ownerId = opts.ownerId;
   if (opts.torchState !== undefined) entity.torchState = opts.torchState;
   if (opts.expiresAtTick !== undefined) entity.expiresAtTick = opts.expiresAtTick;
@@ -86,18 +98,28 @@ export function makeEntity(
   opts: Partial<Omit<Entity, "kind" | "body">> = {},
 ): Entity {
   const entity: Entity = {
-    id: opts.id ?? newEntityId(kind[0] ?? "e"),
+    ...entityDefaults(kind, opts),
     kind,
     body,
-    hp: opts.hp ?? 1,
-    maxHp: opts.maxHp ?? opts.hp ?? 1,
-    baseSpeed: opts.baseSpeed ?? 0,
-    tags: opts.tags ?? new Set(),
     statuses: [],
-    qty: opts.qty ?? 1,
   };
   applyOptionalEntityFields(entity, opts);
   return entity;
+}
+
+function entityDefaults(kind: EntityKind, opts: Partial<Entity>): Pick<Entity, "id" | "hp" | "maxHp" | "baseSpeed" | "tags" | "qty"> {
+  return {
+    id: opts.id ?? newEntityId(kind[0] ?? "e"),
+    hp: opts.hp ?? 1,
+    maxHp: maxHp(opts),
+    baseSpeed: opts.baseSpeed ?? 0,
+    tags: opts.tags ?? new Set(),
+    qty: opts.qty ?? 1,
+  };
+}
+
+function maxHp(opts: Partial<Entity>): number {
+  return opts.maxHp ?? opts.hp ?? 1;
 }
 
 export function faceEntity(entity: Entity, x: number, y: number): void {
@@ -116,9 +138,18 @@ export function entityTags(
 ): Set<string> {
   const tags = new Set(entity.tags);
   for (const status of entity.statuses) {
-    const applied = statusAppliesTags(status.defId);
-    if (applied) for (const t of applied) tags.add(t);
+    addStatusTags(tags, status, statusAppliesTags);
   }
   if (!entity.body.grounded) tags.add("airborne");
   return tags;
+}
+
+function addStatusTags(
+  tags: Set<string>,
+  status: ActiveStatus,
+  statusAppliesTags: (defId: string) => readonly string[] | undefined,
+): void {
+  const applied = statusAppliesTags(status.defId);
+  if (!applied) return;
+  for (const tag of applied) tags.add(tag);
 }

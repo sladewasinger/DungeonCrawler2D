@@ -1,0 +1,137 @@
+/** Owns shared HTML HUD keyboard shortcuts without coupling the window facade to DOM events. */
+export interface HudKeyboardActions {
+  toggleInventory(): void;
+  closeInventory(): void;
+  inventoryOpen(): boolean;
+  selectHotbar(index: number): void;
+  focusChat(): void;
+  leaveChat(): void;
+  chatOwnsFocus(): boolean;
+  closeOverlays(): boolean;
+  sessionMenuOpen(): boolean;
+  toggleSessionMenu(): void;
+  closeSessionMenu(): void;
+}
+
+export class HudKeyboard {
+  constructor(
+    private readonly actions: HudKeyboardActions,
+    enabled: boolean,
+  ) {
+    if (enabled) window.addEventListener("keydown", this.onKeyDown, true);
+    this.enabled = enabled;
+  }
+
+  private readonly enabled: boolean;
+
+  dispose(): void {
+    if (this.enabled) {
+      window.removeEventListener("keydown", this.onKeyDown, true);
+    }
+  }
+
+  private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (event.code === "F12") return;
+    if (event.defaultPrevented) return;
+    if (this.captureOverlayEvent(event)) return;
+    this.captureGameplayEvent(event);
+  };
+
+  private captureOverlayEvent(event: KeyboardEvent): boolean {
+    return this.captureTabEvent(event) ||
+      this.captureChatEvent(event) ||
+      this.captureTextEntryEvent(event) ||
+      this.captureSessionMenuEvent(event) ||
+      this.captureInventoryToggleEvent(event) ||
+      this.captureInventoryEvent(event);
+  }
+
+  private captureGameplayEvent(event: KeyboardEvent): void {
+    if (event.code.startsWith("Digit")) this.selectHotbar(event);
+    if (event.code === "Enter") {
+      event.preventDefault();
+      this.actions.focusChat();
+    }
+    this.captureEscapeEvent(event);
+  }
+
+  /** Text entry owns every game-level shortcut while its browser input is focused. */
+  private captureChatEvent(event: KeyboardEvent): boolean {
+    if (!this.actions.chatOwnsFocus()) return false;
+    if (event.code === "Escape") {
+      event.preventDefault();
+      this.actions.leaveChat();
+    }
+    return true;
+  }
+
+  private captureTextEntryEvent(event: KeyboardEvent): boolean {
+    const target = event.target as Partial<Element> | null;
+    if (!target || typeof target.matches !== "function" ||
+      !target.matches("input,textarea,[contenteditable='true']")) {
+      return false;
+    }
+    return true;
+  }
+
+  private captureSessionMenuEvent(event: KeyboardEvent): boolean {
+    if (!this.actions.sessionMenuOpen()) return false;
+    if (event.code === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.actions.closeSessionMenu();
+    }
+    return true;
+  }
+
+  private captureTabEvent(event: KeyboardEvent): boolean {
+    if (event.code !== "Tab") return false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (this.actions.inventoryOpen()) this.actions.closeInventory();
+    else this.actions.toggleInventory();
+    return true;
+  }
+
+  private captureInventoryToggleEvent(event: KeyboardEvent): boolean {
+    if (event.code !== "KeyI") return false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.actions.toggleInventory();
+    return true;
+  }
+
+  private selectHotbar(event: KeyboardEvent): void {
+    const index = Number(event.code.slice(5)) - 1;
+    if (index < 0 || index >= 9) return;
+    event.preventDefault();
+    this.actions.selectHotbar(index);
+  }
+
+  private captureInventoryEvent(event: KeyboardEvent): boolean {
+    if (!this.actions.inventoryOpen()) return false;
+    if (event.code === "Escape") {
+      event.preventDefault();
+      this.actions.closeInventory();
+    } else if (!(event.target instanceof Element) ||
+      !event.target.closest("[data-inventory-workspace]")) {
+      event.preventDefault();
+    }
+    return true;
+  }
+
+  private captureEscapeEvent(event: KeyboardEvent): boolean {
+    if (event.code !== "Escape") return false;
+    if (this.actions.chatOwnsFocus()) {
+      this.actions.leaveChat();
+    } else if (this.actions.closeOverlays()) {
+      // Transient windows close before Escape opens the game menu.
+    } else if (this.actions.sessionMenuOpen()) {
+      this.actions.closeSessionMenu();
+    } else {
+      this.actions.toggleSessionMenu();
+    }
+    event.preventDefault();
+    return true;
+  }
+}

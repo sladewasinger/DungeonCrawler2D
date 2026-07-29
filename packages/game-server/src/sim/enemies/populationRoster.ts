@@ -3,30 +3,34 @@ import {
   biomeAtWorldTile,
   type BiomeKind,
 } from "@dc2d/engine";
-import type { SimState } from "../state.js";
+import type { SimState } from "../state/state.js";
 
+const ORC_WARRIOR = "orc-warrior";
+const SKELETON = "skeleton";
+const FALLEN_ANGEL = "fallen-angel";
+const MASKED_ORC = "masked-orc";
 const GLOBAL_ROSTER = [
-  "slime", "plant-creeper", "skeleton", "spitter", "goblin",
-  "masked-orc", "orc-warrior", "orc-shaman", "tiny-zombie",
+  "slime", "plant-creeper", SKELETON, "spitter", "goblin",
+  MASKED_ORC, ORC_WARRIOR, "orc-shaman", "tiny-zombie",
   "big-zombie", "chort", "big-demon", "wogol", "pumpkin-fiend",
-  "fallen-angel",
+  FALLEN_ANGEL,
 ] as const;
 
 export function enemyRosterForBiome(biome: BiomeKind): readonly string[] {
   if (biome === BIOME.Maze) {
-    return ["goblin", "masked-orc", "orc-warrior", "orc-shaman"];
+    return ["goblin", MASKED_ORC, ORC_WARRIOR, "orc-shaman"];
   }
   if (biome === BIOME.OpenHalls) {
-    return ["skeleton", "fallen-angel", "orc-warrior"];
+    return [SKELETON, FALLEN_ANGEL, ORC_WARRIOR];
   }
   if (biome === BIOME.Ruins) {
-    return ["skeleton", "tiny-zombie", "big-zombie", "fallen-angel"];
+    return [SKELETON, "tiny-zombie", "big-zombie", FALLEN_ANGEL];
   }
   if (biome === BIOME.Pillars) {
     return ["plant-creeper", "pumpkin-fiend", "wogol"];
   }
   if (biome === BIOME.Pools) return ["slime", "spitter", "wogol"];
-  return ["chort", "big-demon", "masked-orc", "orc-warrior"];
+  return ["chort", "big-demon", MASKED_ORC, ORC_WARRIOR];
 }
 
 function randomEntry(sim: SimState, entries: readonly string[]): string {
@@ -47,11 +51,6 @@ export function pickNativeEnemyDef(
   x: number,
   y: number,
 ): string {
-  const biome = biomeAtWorldTile(
-    sim.world.worldSeed,
-    sim.world.floor,
-    x,
-    y,
-  ).biome;
+  const biome = biomeAtWorldTile({ worldSeed: sim.world.worldSeed, floor: sim.world.floor, wx: x, wy: y }).biome;
   return randomEntry(sim, enemyRosterForBiome(biome));
 }

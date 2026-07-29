@@ -1,8 +1,8 @@
 import type { GameEvent } from "@dc2d/engine";
-import { leaveParty } from "./social.js";
-import type { PlayerSlot, SimState } from "./state.js";
+import { leaveParty } from "./social/social.js";
+import { recordReport } from "./moderation/report.js";
+import type { PlayerSlot, SimState } from "./state/state.js";
 
-const MAX_REPORTS = 500;
 export type ModerationOp = "mute" | "unmute" | "block" | "unblock" | "report";
 
 const muted = (slot: PlayerSlot): Set<string> => (slot.mutedPlayers ??= new Set());
@@ -65,23 +65,25 @@ export function sendModerationState(slot: PlayerSlot): void {
   slot.outbox.push(moderationStateEvent(slot));
 }
 
-export function doModeration(
-  sim: SimState,
-  slot: PlayerSlot,
-  op: ModerationOp,
-  targetId: string,
-  reason?: string,
-): void {
+export function doModeration({ sim, slot, op, targetId, reason }: {
+  sim: SimState;
+  slot: PlayerSlot;
+  op: ModerationOp;
+  targetId: string;
+  reason?: string;
+}): void {
   const target = resolveModerationTarget(sim, targetId);
   if (!target || localProfileId(slot) === profileId(target.stored)) {
     slot.outbox.push({ t: "toast", msg: "That player is unavailable" });
     return;
   }
   if (op === "report") {
-    recordReport(sim, slot, target.stored, reason);
+    recordReport(reason === undefined
+      ? { sim, reporter: slot, target: target.stored, profileId }
+      : { sim, reporter: slot, target: target.stored, reason, profileId });
     return;
   }
-  applyProfileControl(sim, slot, target, op);
+  applyProfileControl({ sim, slot, target, op });
   slot.outbox.push({ t: "toast", msg: `${moderationLabel(op)} ${target.stored.name}` });
   sendModerationState(slot);
 }
@@ -101,17 +103,17 @@ function resolveModerationTarget(sim: SimState, targetId: string): ModerationTar
     : undefined;
 }
 
-function applyProfileControl(
-  sim: SimState,
-  slot: PlayerSlot,
-  target: ModerationTarget,
-  op: Exclude<ModerationOp, "report">,
-): void {
-  if (op === "mute") setProfileControl(sim, slot, target.stored, "mutedProfileIds", true);
+function applyProfileControl({ sim, slot, target, op }: {
+  sim: SimState;
+  slot: PlayerSlot;
+  target: ModerationTarget;
+  op: Exclude<ModerationOp, "report">;
+}): void {
+  if (op === "mute") setProfileControl({ sim, slot, target: target.stored, kind: "mutedProfileIds", enabled: true });
   else if (op === "unmute") {
-    setProfileControl(sim, slot, target.stored, "mutedProfileIds", false);
-  } else if (op === "block") blockPlayer(sim, slot, target.stored, target.slot);
-  else setProfileControl(sim, slot, target.stored, "blockedProfileIds", false);
+    setProfileControl({ sim, slot, target: target.stored, kind: "mutedProfileIds", enabled: false });
+  } else if (op === "block") blockPlayer({ sim, slot, targetStored: target.stored, target: target.slot });
+  else setProfileControl({ sim, slot, target: target.stored, kind: "blockedProfileIds", enabled: false });
 }
 
 const profileId = (stored: PlayerSlot["stored"]): string =>
@@ -124,47 +126,40 @@ const moderationLabel = (op: Exclude<ModerationOp, "report">): string => ({
   unblock: "Unblocked",
 })[op];
 
-function setProfileControl(
-  sim: SimState,
-  slot: PlayerSlot,
-  target: PlayerSlot["stored"],
-  kind: "mutedProfileIds" | "blockedProfileIds",
-  enabled: boolean,
-): void {
-  sim.store.recordModerationProfile(slot.stored, kind, profileId(target), enabled);
+function setProfileControl({ sim, slot, target, kind, enabled }: {
+  sim: SimState;
+  slot: PlayerSlot;
+  target: PlayerSlot["stored"];
+  kind: "mutedProfileIds" | "blockedProfileIds";
+  enabled: boolean;
+}): void {
+  sim.store.recordModerationProfile(slot.stored, { kind, profileId: profileId(target), enabled });
   refreshModerationBindings(sim);
 }
 
-function blockPlayer(
-  sim: SimState,
-  slot: PlayerSlot,
-  targetStored: PlayerSlot["stored"],
-  target: PlayerSlot | undefined,
-): void {
-  setProfileControl(sim, slot, targetStored, "blockedProfileIds", true);
+function blockPlayer({ sim, slot, targetStored, target }: {
+  sim: SimState;
+  slot: PlayerSlot;
+  targetStored: PlayerSlot["stored"];
+  target: PlayerSlot | undefined;
+}): void {
+  setProfileControl({ sim, slot, target: targetStored, kind: "blockedProfileIds", enabled: true });
   if (!target) return;
-  sim.invites.delete(slot.entity.id);
-  const targetInvite = sim.invites.get(target.entity.id);
-  if (targetInvite?.from === slot.entity.id) sim.invites.delete(target.entity.id);
-  const offeredToSlot = sim.fistbumpOffers.get(slot.entity.id);
-  if (offeredToSlot?.from === target.entity.id) sim.fistbumpOffers.delete(slot.entity.id);
-  const offeredToTarget = sim.fistbumpOffers.get(target.entity.id);
-  if (offeredToTarget?.from === slot.entity.id) sim.fistbumpOffers.delete(target.entity.id);
-  if (slot.partyId !== null && slot.partyId === target.partyId) leaveParty(sim, slot);
+  clearPendingSocialState(sim, slot, target);
+  if (sameParty(slot, target)) leaveParty(sim, slot);
 }
 
-function recordReport(
-  sim: SimState,
-  reporter: PlayerSlot,
-  target: PlayerSlot["stored"],
-  reason?: string,
-): void {
-  sim.moderationReports.push({
-    tick: sim.tickCount,
-    reporterId: reporter.entity.id,
-    targetId: profileId(target),
-    reason: reason?.trim() || "Player report",
-  });
-  if (sim.moderationReports.length > MAX_REPORTS) sim.moderationReports.shift();
-  reporter.outbox.push({ t: "toast", msg: `Reported ${target.name}` });
+function clearPendingSocialState(sim: SimState, slot: PlayerSlot, target: PlayerSlot): void {
+  sim.invites.delete(slot.entity.id);
+  removeOfferFrom(sim.invites, target.entity.id, slot.entity.id);
+  removeOfferFrom(sim.fistbumpOffers, slot.entity.id, target.entity.id);
+  removeOfferFrom(sim.fistbumpOffers, target.entity.id, slot.entity.id);
+}
+
+function removeOfferFrom(collection: Map<string, { from: string }>, recipientId: string, senderId: string): void {
+  if (collection.get(recipientId)?.from === senderId) collection.delete(recipientId);
+}
+
+function sameParty(slot: PlayerSlot, target: PlayerSlot): boolean {
+  return slot.partyId !== null && slot.partyId === target.partyId;
 }

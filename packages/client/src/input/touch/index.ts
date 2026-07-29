@@ -27,8 +27,18 @@ export { mergeMoveInputs, touchMoveInput, updateLastFacing } from "./moveInput.j
 /** True when (x, y) falls in the screen's lower-left quadrant — the floating
  * joystick's summon zone, so a thumb resting anywhere down there gets a stick
  * under it instead of only a fixed hot corner. */
-export function isInLowerLeftQuadrant(x: number, y: number, viewportWidth: number, viewportHeight: number): boolean {
-  return x < viewportWidth / 2 && y > viewportHeight / 2;
+export interface ViewportPoint {
+  x: number;
+  y: number;
+}
+
+export interface ViewportSize {
+  width: number;
+  height: number;
+}
+
+export function isInLowerLeftQuadrant({ x, y }: ViewportPoint, { width, height }: ViewportSize): boolean {
+  return x < width / 2 && y > height / 2;
 }
 
 /** Read-only projection of touch state for the HUD widgets to render — never mutated by ui/. */

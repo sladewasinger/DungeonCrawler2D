@@ -1,5 +1,5 @@
 import { MAX_THROW_RANGE, THROW_SPEED } from "../core/constants.js";
-import type { WorldView } from "../world/types.js";
+import type { WorldView } from "../world/core/types.js";
 import type { Entity } from "./entity.js";
 import { launchVelocity, stepProjectile } from "./projectile.js";
 
@@ -21,12 +21,12 @@ export interface TorchLaunch {
  * A zero-length vector defaults to straight "north" rather than throwing
  * nowhere.
  */
-export function launchTorch(
-  world: WorldView,
-  from: { x: number; y: number; z: number },
-  dirX: number,
-  dirY: number,
-): TorchLaunch {
+export function launchTorch({ world, from, direction }: {
+  world: WorldView;
+  from: { x: number; y: number; z: number };
+  direction: { x: number; y: number };
+}): TorchLaunch {
+  const { x: dirX, y: dirY } = direction;
   const length = Math.hypot(dirX, dirY);
   const nx = length > 0 ? dirX / length : 0;
   const ny = length > 0 ? dirY / length : -1;

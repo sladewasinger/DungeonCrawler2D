@@ -1,20 +1,43 @@
 # Engineering Standards — non-negotiable
 
-This is the constitution of the v2 rebuild. Every contributor — human or agent — writes
+This is the codebase constitution. Every contributor — human or agent — writes
 code against these rules. CI enforces what a linter can enforce; review blocks the rest.
-"I'll clean it up later" is how v1's `sim.ts` reached 1,400 lines; later never comes.
+"I'll clean it up later" is how large modules become unmaintainable; later never comes.
 
 ## Hard limits (lint-enforced, build fails)
 
 | Rule | Limit |
 | --- | --- |
-| Lines per file (code, excluding blanks/comments) | **≤ 200** |
-| Lines per function | ≤ 40 |
-| Cyclomatic complexity per function | ≤ 10 |
+| Lines per file (code, excluding blanks/comments) | **≤ 150** |
+| Lines per function | **≤ 35** |
+| Cyclomatic complexity per function | **≤ 8** |
+| Cognitive complexity per function | **≤ 7** |
+| Conditional/loop nesting depth | **≤ 3** |
+| Function parameters | **≤ 3** |
+| Duplicate string threshold | **3 occurrences** |
 | `any` (explicit or implicit), non-null `!`, `@ts-ignore`/`@ts-expect-error` | **forbidden** in `packages/engine`; elsewhere needs an inline justification comment |
-| Import boundaries | `engine` imports nothing from other packages, no Phaser, no Node APIs. `content` is data + schemas only. `client`, `game-server` import `engine` + `content`; **nobody imports across the other packages, and nobody imports `reference/`** |
+| Import boundaries | `engine` imports nothing from other packages, no Phaser, no Node APIs. `content` is data + schemas only. `client`, `game-server` import `engine` + `content`; **nobody imports across the other packages** |
 | Circular imports | forbidden |
 | Skipped/only tests committed | forbidden |
+
+The complexity, size, nesting, parameter, and duplicate-string limits are enforced by
+the root flat ESLint configuration. `sonarjs/cognitive-complexity` supplies the
+cognitive-complexity check. Narrow, explicitly documented benchmark/test overrides
+are allowed only where the fixture itself is the subject of the test; production
+modules must meet every limit.
+
+## Critical code quality rules
+
+- Write highly modular, decoupled TypeScript.
+- Never nest conditionals or loops deeper than three levels.
+- If a function approaches 35 lines, immediately abstract sub-steps into private,
+  pure helper functions.
+- Keep no more than four statements per line; do not collapse code to evade
+  size limits.
+- Prefer pure functions with explicit inputs and outputs over stateful,
+  side-effect-heavy code to maintain low coupling.
+- If an object requires more than three parameters, group them into a single,
+  cohesive TypeScript interface or type.
 
 ## Structure
 

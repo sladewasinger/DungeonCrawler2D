@@ -43,17 +43,24 @@ const GLYPHS = {
   ' ': ['...', '...', '...', '...', '...'],
 };
 
-/** Draws `text` (case-insensitive) at (x,y) with each font pixel drawn as a `scale`x`scale` block. */
-export function drawText(canvas, text, x, y, rgba, scale = 1) {
+function drawGlyphRow({ canvas, line, x, y, rgba, scale }) {
+  for (let col = 0; col < line.length; col++) {
+    if (line[col] !== '#') continue;
+    canvas.fillRect(x + col * scale, y, scale, scale, rgba);
+  }
+}
+
+function drawGlyph({ canvas, glyph, x, y, rgba, scale }) {
+  glyph.forEach((line, row) => drawGlyphRow({
+    canvas, line, x, y: y + row * scale, rgba, scale,
+  }));
+}
+
+/** Draws `text` (case-insensitive) with each font pixel drawn as a scaled block. */
+export function drawText(canvas, { text, x, y, rgba, scale = 1 }) {
   let cursorX = x;
   for (const rawChar of text.toUpperCase()) {
-    const glyph = GLYPHS[rawChar] ?? GLYPHS[' '];
-    for (let row = 0; row < glyph.length; row++) {
-      for (let col = 0; col < glyph[row].length; col++) {
-        if (glyph[row][col] !== '#') continue;
-        canvas.fillRect(cursorX + col * scale, y + row * scale, scale, scale, rgba);
-      }
-    }
+    drawGlyph({ canvas, glyph: GLYPHS[rawChar] ?? GLYPHS[' '], x: cursorX, y, rgba, scale });
     cursorX += 4 * scale;
   }
   return cursorX;

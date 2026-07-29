@@ -54,9 +54,9 @@ describe("EffectTarget.invulnerable", () => {
     const target = player();
     const events: EffectEvent[] = [];
 
-    expect(engine.modifyHealth(target, -5, events, { sourceTags: ["physical"] }, { invulnerable: true })).toBe(0);
+    expect(engine.modifyHealth({ entity: target, amount: -5, events, opts: { sourceTags: ["physical"] }, target: { invulnerable: true } })).toBe(0);
     // Even lethal damage is dropped, not clamped.
-    expect(engine.modifyHealth(target, -999, events, {}, { invulnerable: true })).toBe(0);
+    expect(engine.modifyHealth({ entity: target, amount: -999, events, target: { invulnerable: true } })).toBe(0);
 
     expect(target.hp).toBe(30);
     expect(events).toHaveLength(0);
@@ -68,7 +68,7 @@ describe("EffectTarget.invulnerable", () => {
     target.hp = 20;
     const events: EffectEvent[] = [];
 
-    expect(engine.modifyHealth(target, 5, events, {}, { invulnerable: true })).toBe(5);
+    expect(engine.modifyHealth({ entity: target, amount: 5, events, target: { invulnerable: true } })).toBe(5);
     expect(target.hp).toBe(25);
   });
 
@@ -78,11 +78,11 @@ describe("EffectTarget.invulnerable", () => {
     target.hp = 20;
     const events: EffectEvent[] = [];
 
-    expect(engine.applyStatus(target, "poisoned", events, { invulnerable: true })).toBe(false);
+    expect(engine.applyStatus({ entity: target, statusId: "poisoned", events, target: { invulnerable: true } })).toBe(false);
     expect(target.statuses).toHaveLength(0);
 
     // bandaged is a buff: applies and its onApply heal (+4) runs → 24.
-    expect(engine.applyStatus(target, "bandaged", events, { invulnerable: true })).toBe(true);
+    expect(engine.applyStatus({ entity: target, statusId: "bandaged", events, target: { invulnerable: true } })).toBe(true);
     expect(target.hp).toBe(24);
   });
 
@@ -91,7 +91,7 @@ describe("EffectTarget.invulnerable", () => {
     const target = player();
     const events: EffectEvent[] = [];
 
-    expect(engine.modifyHealth(target, -5, events, { sourceTags: ["physical"] }, {})).toBe(-5);
+    expect(engine.modifyHealth({ entity: target, amount: -5, events, opts: { sourceTags: ["physical"] } })).toBe(-5);
     expect(target.hp).toBe(25);
   });
 
@@ -100,13 +100,13 @@ describe("EffectTarget.invulnerable", () => {
     const target = player();
     const events: EffectEvent[] = [];
 
-    expect(engine.modifyHealth(
-      target,
-      -5,
+    expect(engine.modifyHealth({
+      entity: target,
+      amount: -5,
       events,
-      { sourceTags: ["physical"] },
-      { damageTakenMultiplier: 0.5 },
-    )).toBe(-2.5);
+      opts: { sourceTags: ["physical"] },
+      target: { damageTakenMultiplier: 0.5 },
+    })).toBe(-2.5);
     expect(target.hp).toBe(27.5);
   });
 });

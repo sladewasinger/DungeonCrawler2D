@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MOVE_SPEED, RUN_SPEED_MULTIPLIER, STEP_UP, TICK_DT } from "../../core/constants.js";
-import { stairRampAt, type StairView } from "../../world/stairs.js";
-import { TILE, type WorldView } from "../../world/types.js";
+import { stairRampAt, type StairView } from "../../world/stairs/stairs.js";
+import { TILE, type WorldView } from "../../world/core/types.js";
 import { createBody, stepBody } from "./index.js";
 import type { BodyState } from "./state.js";
 import { stairGateBlocks } from "./stairGate.js";
@@ -81,7 +81,7 @@ describe("boundary rim-gate sampling at all 4 climb directions", () => {
         const body: BodyState = createBody(p.x, p.y, world.groundAt(p.x, p.y));
         const cx = p.x + dx * 0.01;
         const cy = p.y + dy * 0.01;
-        expect(stairGateBlocks(world, body, cx, cy, dx, dy), `dir ${dir} t ${t}`).toBe(false);
+        expect(stairGateBlocks({ world, body, x: cx, y: cy, dx, dy }), `dir ${dir} t ${t}`).toBe(false);
       }
     });
 
@@ -91,7 +91,7 @@ describe("boundary rim-gate sampling at all 4 climb directions", () => {
       const body: BodyState = createBody(start.x, start.y, 0);
       const dest = flankPoint(dir, 0.95, -0.01);
       const [mdx, mdy] = flankMoveVector(dir);
-      expect(stairGateBlocks(world, body, dest.x, dest.y, mdx, mdy), `dir ${dir}`).toBe(true);
+      expect(stairGateBlocks({ world, body, x: dest.x, y: dest.y, dx: mdx, dy: mdy }), `dir ${dir}`).toBe(true);
     });
 
     it(`dir ${dir}: a flank move into the ramp's near-low-edge row is flush and allowed`, () => {
@@ -100,7 +100,7 @@ describe("boundary rim-gate sampling at all 4 climb directions", () => {
       const body: BodyState = createBody(start.x, start.y, 0);
       const dest = flankPoint(dir, 0.05, -0.01);
       const [mdx, mdy] = flankMoveVector(dir);
-      expect(stairGateBlocks(world, body, dest.x, dest.y, mdx, mdy), `dir ${dir}`).toBe(false);
+      expect(stairGateBlocks({ world, body, x: dest.x, y: dest.y, dx: mdx, dy: mdy }), `dir ${dir}`).toBe(false);
     });
   }
 });
@@ -123,6 +123,27 @@ describe("on-stair glide (no airborne tick) at walk and run speed, all 4 climb d
   }
 });
 
+interface StairTestMove {
+  world: WorldView;
+  body: BodyState;
+  dx: number;
+  dy: number;
+}
+
+function climbPartway({ world, body, dx, dy }: StairTestMove): void {
+  for (let i = 0; i < 60 && body.z < 0.5; i++) {
+    stepBody(world, body, { moveX: dx, moveY: dy, jump: false }, TICK_DT);
+  }
+}
+
+function fallHeightAfterSideExit({ world, body, dx: px, dy: py }: StairTestMove): number | null {
+  for (let i = 0; i < 60; i++) {
+    const result = stepBody(world, body, { moveX: px, moveY: py, jump: false }, TICK_DT);
+    if (result.landed) return result.landed.fallHeight;
+  }
+  return null;
+}
+
 describe("walking off a partially-climbed ramp's side takes a real fall", () => {
   for (const dir of DIRS) {
     it(`dir ${dir}: glide does not suppress fall damage measurement on a side exit`, () => {
@@ -131,15 +152,9 @@ describe("walking off a partially-climbed ramp's side takes a real fall", () => 
       const [px, py] = flankMoveVector(dir).map((v) => -v) as [number, number];
       const start = { x: X + 0.5 - dx * 2.5, y: Y + 0.5 - dy * 2.5 };
       const body = createBody(start.x, start.y, 0);
-      for (let i = 0; i < 60 && body.z < 0.5; i++) {
-        stepBody(world, body, { moveX: dx, moveY: dy, jump: false }, TICK_DT);
-      }
+      climbPartway({ world, body, dx, dy });
       expect(body.z).toBeGreaterThan(STEP_UP);
-      let fellHeight: number | null = null;
-      for (let i = 0; i < 60 && fellHeight === null; i++) {
-        const r = stepBody(world, body, { moveX: px, moveY: py, jump: false }, TICK_DT);
-        if (r.landed) fellHeight = r.landed.fallHeight;
-      }
+      const fellHeight = fallHeightAfterSideExit({ world, body, dx: px, dy: py });
       expect(fellHeight, `dir ${dir} never landed after stepping off the ramp's side`).not.toBeNull();
       expect(fellHeight as number).toBeGreaterThan(0);
       expect(body.z).toBeCloseTo(0, 3);

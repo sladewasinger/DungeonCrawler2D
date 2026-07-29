@@ -1,5 +1,5 @@
 // Announcer-private kill tally, scoped entirely to this subsystem.
-import type { PlayerSlot } from "../state.js";
+import type { PlayerSlot } from "../state/state.js";
 
 /**
  * WeakMap keyed by PlayerSlot rather than a SimState field: this count is
