@@ -22,6 +22,21 @@ export interface LightSource {
    * to the same `height*TILE` screen-Y shift every other ground-anchored thing uses.
    */
   readonly groundHeight?: number;
+  /** Radius used only by the darkness reveal mask; halo size remains `radiusTiles`. */
+  readonly revealRadiusTiles?: number;
+  /** Soft darkness-mask brush radius in tile units. */
+  readonly revealCellRadiusTiles?: number;
+  /** Per-cell darkness erasure strength before LOS falloff. */
+  readonly revealCellAlpha?: number;
+  /** Small exact-source darkness stamp radius, separate from the LOS field. */
+  readonly sourceRevealCellRadiusTiles?: number;
+  /** Exact-source darkness erasure strength, separate from the LOS field. */
+  readonly sourceRevealCellAlpha?: number;
+  /** Marks a non-`torch` source, such as a flying torch, as torch-strength. */
+  readonly emitsTorchLight?: boolean;
+  /** Optional per-source halo tuning, used by the player light mode. */
+  readonly haloAlphaMultiplier?: number;
+  readonly haloScaleMultiplier?: number;
 }
 
 /** Small integer hash used only to spread flicker phase — not a determinism-sensitive RNG. */

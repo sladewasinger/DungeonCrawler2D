@@ -60,9 +60,23 @@ function isOutOfStrikeRange(enemy: EnemySlot, victim: EnemySlot["entity"]): bool
 function applyStrikeEffects(input: EnemyStrikeInput, victim: EnemySlot["entity"]): void {
   const { sim, enemy, effectEvents } = input;
   const target = effectTargetFor(sim, victim);
-  sim.effects.modifyHealth({ entity: victim, amount: -enemy.def.attack.damage, events: effectEvents, opts: { sourceTags: enemy.def.tags }, target });
+  sim.effects.modifyHealth({
+    entity: victim,
+    amount: -enemy.def.attack.damage,
+    events: effectEvents,
+    opts: { sourceTags: enemy.def.tags, sourceId: enemy.entity.id },
+    target,
+  });
   for (const apply of enemy.def.attack.applies ?? []) {
-    if (sim.rng.next() < apply.chance) sim.effects.applyStatus({ entity: victim, statusId: apply.status, events: effectEvents, target });
+    if (sim.rng.next() < apply.chance) {
+      sim.effects.applyStatus({
+        entity: victim,
+        statusId: apply.status,
+        events: effectEvents,
+        target,
+        sourceId: enemy.entity.id,
+      });
+    }
   }
 }
 

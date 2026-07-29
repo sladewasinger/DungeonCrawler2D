@@ -5,20 +5,22 @@ import type { Connection } from "../../../net/connection/connection.js";
 import type { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import type { LightSource } from "../../../render/lighting/core/lightSource.js";
 import type { LightingSystem } from "../../../render/lighting/index.js";
+import { playerCarriesTorch } from "../../../render/lighting/playerLightMode.js";
 import type { TerrainRendererLike } from "../../../render/terrain/index.js";
-import { worldToScreen } from "../../../render/entities/geometry/worldToScreen.js";
+import { projectTorchGroundAnchor } from "../../../render/entities/presentation/torch/groundAnchor.js";
 import type { VfxSystem } from "../../../vfx/system/index.js";
-import { collectExpiredSwingsInto } from "../../../vfx/combat/meleeConnect.js";
-import { buildAreaTileViewsInto } from "../world/areaViews.js";
+import { visibleAreaViews } from "../world/areas/visibleAreaViews.js";
 import { syncCombatants } from "../entities/combatantSync.js";
 import { buildRenderContext, projectileView } from "../entities/entityViews.js";
 import { bucketFrameEntities } from "./frameEntityBuckets.js";
 import { mapFrameInto } from "../entities/frameEntityViews.js";
 import type { InteractionPrompt } from "../world/interactionPrompt.js";
 import { resolveFrameInteractionPrompt } from "./frameInteractionPrompt.js";
+import { syncExpiredWhiffs } from "./frameExpiredSwings.js";
+import { syncSelfVfx } from "./frameSelfVfx.js";
 import { pruneProjectileVelocity } from "../player/projectileVelocity.js";
 import type { DungeonSceneState, RenderPose } from "../orchestration/state.js";
-import { syncTorches, type TorchSyncState } from "../entities/torchSync.js";
+import { syncTorches, type TorchSyncState } from "../entities/torches/sync.js";
 import { applyVisualEvents } from "../visuals/visualEvents.js";
 
 export interface EntitySyncResult {
@@ -108,13 +110,19 @@ export function syncLightingAndVfx(context: FrameSyncContext, torchAccentLights:
 }
 
 function updateLighting(context: FrameSyncContext, torchAccentLights: LightSource[]): void {
-  const { conn, lighting, vfx, scene, state, nowMs, render } = context;
-  if (!lighting) return;
-  const areaLights = vfx.syncAreas(buildAreaTileViewsInto({ areaTiles: conn.areaTiles, bounds: scene.cameras.main.worldView, marginPx: 2 * SCREEN_TILE_PX, views: state.areaViews, records: state.areaViewRecords }));
+  const { conn, lighting, vfx, scene, state, nowMs, render, inputController } = context;
+  if (!lighting || !conn.world) return;
+  const areaLights = vfx.syncAreas(visibleAreaViews({
+    connection: conn,
+    world: conn.world,
+    state,
+    view: scene.cameras.main.worldView,
+  }));
   state.accentLights.length = 0;
   state.accentLights.push(...areaLights, ...torchAccentLights);
   lighting.setAccentLights(state.accentLights);
-  lighting.update({ view: scene.cameras.main.worldView, personal: render, nowMs });
+  const carriesTorch = playerCarriesTorch({ hotbar: conn.hotbar, selectedSlot: inputController.selectedHotbarSlot() });
+  lighting.update({ view: scene.cameras.main.worldView, personal: render, carriesTorch, nowMs });
 }
 
 function syncVisibleTorchFlames(context: FrameSyncContext): void {
@@ -125,40 +133,15 @@ function syncVisibleTorchFlames(context: FrameSyncContext): void {
   const visibleTorchLights = state.visibleTorchLights;
   visibleTorchLights.length = 0;
   for (const torch of lighting.activeTorches()) {
-      const { x: sx, y: sy } = worldToScreen(torch.x, torch.y);
-      if (sx >= view.x - marginPx && sx <= view.right + marginPx && sy >= view.y - marginPx && sy <= view.bottom + marginPx) visibleTorchLights.push(torch);
+    const { x: sx, y: sy } = projectTorchGroundAnchor({
+      x: torch.x,
+      y: torch.y,
+      groundHeight: torch.groundHeight ?? 0,
+    });
+    if (sx >= view.x - marginPx && sx <= view.right + marginPx &&
+        sy >= view.y - marginPx && sy <= view.bottom + marginPx) {
+      visibleTorchLights.push(torch);
+    }
   }
   vfx.syncTorchFlames(visibleTorchLights);
-}
-
-function syncExpiredWhiffs({ state, nowMs, vfx }: FrameSyncContext): void {
-  // Panel round 3b item 5 (WHIFF FEEDBACK): swings nobody correlated a hit against in
-  // time (visualEvents.ts's applyHit resolves the ones that DID connect) — flush
-  // whatever's left over into the whiff cue before this frame's vfx.update fades it.
-  for (const swing of collectExpiredSwingsInto(state.pendingSwings, nowMs, state.expiredSwings)) {
-    vfx.spawnMeleeWhiff({
-      id: swing.attackerId,
-      x: swing.worldX,
-      y: swing.worldY,
-      z: swing.z,
-      angleRad: swing.angleRad,
-      depth: swing.depth,
-      tilePx: SCREEN_TILE_PX,
-      nowMs,
-    });
-  }
-}
-
-function syncSelfVfx({ conn, entityRenderer, vfx, state, render, nowMs }: FrameSyncContext): void {
-  if (!conn.body) return;
-  const groundHeight = conn.world?.groundAt(render.x, render.y) ?? 0;
-  const facingSign = entityRendererFacingSign(entityRenderer, state);
-  vfx.trackPlayerMotion({ x: render.x, y: render.y, groundHeight, air: !conn.body.grounded, faceX: state.cosmetics.faceX, nowMs });
-  vfx.graceRing.sync({ x: render.x, y: render.y, graceUntilMs: state.cosmetics.graceUntilMs, nowMs });
-  vfx.syncOutOfBreath({ x: render.x, y: render.y, z: render.z, faceX: facingSign, exhausted: conn.staminaExhausted, nowMs });
-  vfx.update(nowMs);
-}
-
-function entityRendererFacingSign(entityRenderer: EntityRenderer, state: DungeonSceneState): number {
-  return entityRenderer.playerFacingSign(state.selfPose.id) ?? state.cosmetics.spriteFaceX;
 }

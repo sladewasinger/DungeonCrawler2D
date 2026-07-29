@@ -18,9 +18,9 @@ release notes.
 
 ## Austin's F-Bomb Counter
 
-**50**
+**51**
 
-<!-- f-bomb-count: 50 -->
+<!-- f-bomb-count: 51 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.

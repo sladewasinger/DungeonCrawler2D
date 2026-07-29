@@ -84,8 +84,8 @@ export const clientEquipSchema = z.object({
   type: z.literal("equip"),
   item: z.string().max(64).nullable(),
 });
-/** Throw the equipped torch stack toward an aim direction (not a clicked tile) —
- * server clamps/normalizes the vector and rejects it if no torch is carried. */
+/** Legacy direction-only torch throw retained for older and Three.js clients.
+ * Phaser clients send every throwable through target-based `useSlot`. */
 export const clientThrowTorchSchema = z.object({
   type: z.literal("throwTorch"),
   dirX: z.number(),

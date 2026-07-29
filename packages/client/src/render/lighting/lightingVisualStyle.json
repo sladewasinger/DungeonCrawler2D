@@ -28,19 +28,78 @@
     "color": "#3dd6c3",
     "radiusTiles": 3
   },
-  "personal": {
-    "color": "#fff0d2",
-    "radiusTiles": 1.6,
-    "haloAlphaMultiplier": 0.22,
-    "haloScaleMultiplier": 1.65
+  "decorativeLight": {
+    "maximumRadiusTiles": 1.1,
+    "haloAlphaMultiplier": 0.16
+  },
+  "playerLight": {
+    "baseline": {
+      "color": "#d8dde6",
+      "revealRadiusTiles": 15,
+      "revealCellRadiusTiles": 1.35,
+      "revealCellAlpha": 0.16,
+      "sourceRevealCellRadiusTiles": 0.72,
+      "sourceRevealCellAlpha": 0.58,
+      "haloRadiusTiles": 0.75,
+      "haloAlphaMultiplier": 0,
+      "haloScaleMultiplier": 1
+    },
+    "carriedTorch": {
+      "color": "#ff9e3d",
+      "revealRadiusTiles": 6,
+      "revealCellRadiusTiles": 1.6,
+      "revealCellAlpha": 0.42,
+      "sourceRevealCellRadiusTiles": 1.05,
+      "sourceRevealCellAlpha": 0.82,
+      "haloRadiusTiles": 1.35,
+      "haloAlphaMultiplier": 0.08,
+      "haloScaleMultiplier": 1
+    }
   },
   "ground": {
     "color": "#ffe9c9",
-    "alpha": 0.2,
-    "radiusTiles": 12,
+    "alpha": 0.48,
+    "radiusTiles": 15,
+    "torchRevealCellRadiusTiles": 1.25,
+    "torchRevealCellAlpha": 0.2,
+    "torchSourceRevealCellRadiusTiles": 1.05,
+    "torchSourceRevealCellAlpha": 0.78,
     "maximumStepHeight": 0.5,
-    "updateIntervalMs": 100,
+    "updateIntervalMs": 120,
     "fadeMs": 180,
     "floorLayerBias": 0.01
+  },
+  "darkness": {
+    "color": "#000000",
+    "outsideAlpha": 0.96,
+    "insideAlpha": 0,
+    "desktopDownscale": 4,
+    "constrainedDownscale": 8,
+    "maximumRevealLights": 12,
+    "worldRevealRadiusTiles": 15,
+    "desktopMaximumRevealCells": 1024,
+    "constrainedMaximumRevealCells": 768,
+    "overlayDepthGap": 0.5
+  },
+  "fog": {
+    "textureKey": "lighting-atmosphere-fog",
+    "textureSizePx": 128,
+    "desktopLayerCount": 2,
+    "constrainedLayerCount": 1,
+    "color": "#9fa9ba",
+    "alpha": [0.045, 0.025],
+    "scale": [1.7, 2.5],
+    "speedPxPerSecond": [2.6, -1.3]
+  },
+  "atmosphere": {
+    "particleFrame": "particle_soft",
+    "color": "#b9c4d5",
+    "desktopMaximumParticles": 18,
+    "constrainedMaximumParticles": 8,
+    "frequencyMs": 260,
+    "lifespanMs": 2400,
+    "speedPxPerSecond": 7,
+    "alpha": 0.13,
+    "scale": 0.34
   }
 }

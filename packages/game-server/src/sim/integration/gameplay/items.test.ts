@@ -97,6 +97,7 @@ describe("GameSim: items and inventory", () => {
     sim.queueAction(a.playerId, { type: "useSlot", slot: 0, targetX: tx, targetY: ty });
     stepN(sim, 30);
     expect(nearbyAreaTile({ sim: sim, x: tx, y: ty, tag: "fire" })).not.toBeNull();
+    expect(sim.areas.sourceIdAt(Math.floor(tx), Math.floor(ty))).toBe(a.playerId);
   });
 
   it("uses consumables directly while rejecting invalid equip and hotbar assignments", () => {

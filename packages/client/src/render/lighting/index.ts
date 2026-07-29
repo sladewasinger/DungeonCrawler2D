@@ -1,61 +1,74 @@
-// Lighting facade: the small dynamic layer over the BAKED tile lighting — a
-// colored halo pool (torch flames, portals, and the constrained-device personal
-// fallback) plus accent lights for live effects and camera post-FX. Ambient darkness
-// lives in the baked tile tints now; there is no screen darkness overlay to maintain.
-import { CHUNK_SIZE, type World } from "@dc2d/engine";
+// Lighting facade: atmosphere darkness, capped LOS-aware floor reveal, reusable fog,
+// and colored halos. The work is bounded by device-profile budgets, never a shader.
+import type { World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../boot/assetManifest.js";
-import { viewChunkWorldOrigin } from "./core/viewChunkOrigin.js";
-import { chunkKey, chunkWindowKey, desiredChunks, diffChunks, type ChunkCoord, type ViewRect } from "../terrain/streaming/streaming.js";
 import { getViewOrientation } from "../view/transform/viewState.js";
 import { viewToWorld } from "../view/transform/viewTransform.js";
 import {
-  doorLightPositions,
-  type DoorLightMount,
-} from "./torches/doorLights.js";
-import { collectTorchLights, selectFrameLights } from "./torches/frameLights.js";
-import { hashSeed, type LightSource } from "./core/lightSource.js";
-import {
-  createLightStreamState,
-  invalidateLightStream,
-  refreshLightStreamRevision,
-} from "./core/lightStreamState.js";
+  collectGroundRevealLights,
+  collectTorchLights,
+  selectFrameLights,
+} from "./torches/frameLights.js";
+import type { LightSource } from "./core/lightSource.js";
 import { LightSpritePool } from "./core/pool.js";
-import { PlayerGroundLightPass } from "./ground/playerGroundLightPass.js";
-import { playerGroundLightEnabledForProfile } from "./ground/playerGroundLight.js";
+import { GroundLightPass } from "./ground/groundLightPass.js";
 import { readTerrainDeviceSignals, selectTerrainDeviceProfile } from "../terrain/streaming/terrainDeviceProfile.js";
-import { TORCH_COLOR, TORCH_RADIUS_TILES } from "./torches/torchLightStyle.js";
-import { selectTorchPositions, torchCandidates, type TilePos, type TileRect } from "./torches/torchPlacement.js";
-import { lightOverlayDepth } from "./core/lightDepth.js";
 import {
-  LIGHT_LOAD_MARGIN_CHUNKS,
   MAXIMUM_ACTIVE_LIGHTS,
-  PORTAL_LIGHT_COLOR,
-  PORTAL_LIGHT_RADIUS_TILES,
   createPersonalLight,
   type MutableLightSource,
 } from "./lightingRuntimeStyle.js";
+import { applyPlayerLightMode } from "./playerLightMode.js";
+import {
+  applyPlayerGroundLightAnchor,
+  playerGroundLightAnchor,
+  type PlayerGroundLightAnchorSource,
+} from "./playerGroundLightAnchor.js";
+import {
+  lightingAtmosphereBudget,
+  reducedMotionPreferred,
+  type LightingAtmosphereBudget,
+} from "./atmosphere/lightingAtmosphereBudget.js";
+import { WorldLightStream } from "./worldLightStream.js";
+import { LightingAtmosphere } from "./atmosphere/lightingAtmosphere.js";
+import {
+  lightingFrameState,
+  type LightingFrame,
+  type LightingFrameState,
+} from "./lightingFrame.js";
 
 export class LightingSystem {
   private readonly pool: LightSpritePool;
-  private readonly groundLight: PlayerGroundLightPass;
-  private personalHaloEnabled = true;
-  private readonly chunkLights = new Map<string, LightSource[]>();
-  private readonly stream = createLightStreamState();
+  private readonly groundLight: GroundLightPass;
+  private readonly atmosphere: LightingAtmosphere;
+  private readonly atmosphereBudget: LightingAtmosphereBudget;
+  private personalHaloEnabled = false;
+  private playerGroundRevealEnabled = true;
+  private readonly worldLights: WorldLightStream;
   private accentLights: readonly LightSource[] = [];
   private readonly candidateLights: LightSource[] = [];
   private readonly frameLights: LightSource[] = [];
+  private readonly revealWorldLights: LightSource[] = [];
   private readonly activeTorchLights: LightSource[] = [];
   private readonly personalLight: MutableLightSource = createPersonalLight();
+  private carriesTorch = false;
 
   constructor(
     scene: Phaser.Scene,
-    private readonly world: World,
+    world: World,
   ) {
     this.pool = new LightSpritePool(scene);
-    this.groundLight = new PlayerGroundLightPass(scene, world);
+    this.worldLights = new WorldLightStream(world);
     const profile = selectTerrainDeviceProfile(readTerrainDeviceSignals(scene));
-    this.setPlayerGroundLightEnabled(playerGroundLightEnabledForProfile(profile.kind));
+    const reducedMotion = reducedMotionPreferred();
+    this.atmosphereBudget = lightingAtmosphereBudget(profile.kind, reducedMotion);
+    this.groundLight = new GroundLightPass(world);
+    this.atmosphere = new LightingAtmosphere(
+      scene,
+      this.atmosphereBudget,
+      reducedMotion,
+    );
   }
 
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */
@@ -63,17 +76,29 @@ export class LightingSystem {
     this.accentLights = lights;
   }
 
-  /** Performance fallback: disabling the bounded floor pass restores the personal halo. */
+  /** Compatibility toggle for diagnostics; it only controls the darkness-mask reveal. */
   setPlayerGroundLightEnabled(enabled: boolean): void {
-    this.groundLight.setEnabled(enabled);
-    this.personalHaloEnabled = !enabled;
+    this.playerGroundRevealEnabled = enabled;
   }
 
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
   update(input: LightingFrame): void {
-    this.streamChunks(input.view);
-    this.updatePersonalLight(input.personal);
-    this.groundLight.update(input.personal.x, input.personal.y, input.nowMs);
+    this.worldLights.update(input.view);
+    this.updatePersonalLight(input.personal, input.carriesTorch);
+    const frame = lightingFrameState(input);
+    const lights = this.selectLights(input);
+    const revealChanged = this.syncLightReveal(frame, input.nowMs, lights);
+    this.atmosphere.update({
+      enabled: !frame.insideRoom,
+      overlayDepth: frame.overlayDepth,
+      nowMs: input.nowMs,
+      revealCells: this.groundLight.cellsForMask(),
+      revealChanged,
+    });
+    this.pool.sync({ lights, nowMs: input.nowMs, overlayDepth: frame.overlayDepth });
+  }
+
+  private selectLights(input: LightingFrame): LightSource[] {
     // Cap anchors to what the CAMERA sees, never the personal anchor — a scene
     // viewed away from the player (gallery, spectate) must still keep its lights.
     // `view` is the camera's on-screen rect, which is in VIEW-pixel space once
@@ -82,15 +107,28 @@ export class LightingSystem {
     // door positions are scanned straight off the real world in scanChunk below).
     const centerView = { x: (input.view.x + input.view.width / 2) / SCREEN_TILE_PX, y: (input.view.y + input.view.height / 2) / SCREEN_TILE_PX };
     const centerWorld = viewToWorld(centerView, getViewOrientation());
-    const lights = selectFrameLights({
-      chunkLights: this.chunkLights.values(), accentLights: this.accentLights,
+    return selectFrameLights({
+      chunkLights: this.worldLights.values(), accentLights: this.accentLights,
       center: centerWorld, personalLight: this.personalHaloEnabled ? this.personalLight : null,
       maxLights: MAXIMUM_ACTIVE_LIGHTS, candidates: this.candidateLights, selected: this.frameLights,
     });
-    this.pool.sync({
-      lights,
-      nowMs: input.nowMs,
-      overlayDepth: lightOverlayDepth(input.view),
+  }
+
+  private syncLightReveal(
+    frame: LightingFrameState,
+    nowMs: number,
+    lights: readonly LightSource[],
+  ): boolean {
+    return this.groundLight.update({
+      enabled: !frame.insideRoom && this.playerGroundRevealEnabled,
+      nowMs,
+      personal: this.personalLight,
+      worldLights: collectGroundRevealLights(
+        lights,
+        this.atmosphereBudget.maximumRevealLights,
+        this.revealWorldLights,
+      ),
+      maximumCells: this.atmosphereBudget.maximumRevealCells,
     });
   }
 
@@ -98,7 +136,7 @@ export class LightingSystem {
    * torches, fed in as accent lights) — vfx flame particles key off this list. */
   activeTorches(): readonly LightSource[] {
     return collectTorchLights(
-      this.chunkLights.values(),
+      this.worldLights.values(),
       this.accentLights,
       this.activeTorchLights,
     );
@@ -109,74 +147,28 @@ export class LightingSystem {
    * instant since scanChunk's chunk footprint is also computed via the seam's
    * orientation-dependent viewChunkWorldOrigin. */
   invalidateAll(): void {
-    invalidateLightStream(this.stream, this.chunkLights);
+    this.worldLights.invalidate();
   }
 
-  private streamChunks(view: ViewRect): void {
-    refreshLightStreamRevision(this.stream, this.chunkLights, this.world.tileRevision);
-    const window = chunkWindowKey(view, LIGHT_LOAD_MARGIN_CHUNKS);
-    if (window === this.stream.window) return;
-    const desired = desiredChunks(view, LIGHT_LOAD_MARGIN_CHUNKS);
-    const { toLoad, toUnloadKeys } = diffChunks(desired, new Set(this.chunkLights.keys()));
-    for (const coord of toLoad) this.chunkLights.set(chunkKey(coord), this.scanChunk(coord));
-    for (const key of toUnloadKeys) this.chunkLights.delete(key);
-    this.stream.window = window;
-  }
-
-  private scanChunk(coord: ChunkCoord): LightSource[] {
-    // (coord.cx, coord.cy) name a VIEW chunk (same desiredChunks call as terrain's
-    // TerrainRenderer, off the camera's view-pixel rect) — torch/door positions are a
-    // real-world scan (torchCandidates/doorLightPositions read the real World), so this
-    // needs the chunk's real-world footprint, not its view-space one.
-    const origin = viewChunkWorldOrigin({
-      baseVX: coord.cx * CHUNK_SIZE,
-      baseVY: coord.cy * CHUNK_SIZE,
-      size: CHUNK_SIZE,
-      orientation: getViewOrientation(),
-    });
-    const bounds: TileRect = { x0: origin.x, y0: origin.y, x1: origin.x + CHUNK_SIZE, y1: origin.y + CHUNK_SIZE };
-    const torches = selectTorchPositions(torchCandidates(this.world, bounds)).map((p) => this.torchLight(p));
-    const doors = doorLightPositions(this.world, bounds).map((p) => this.doorLight(p));
-    return [...torches, ...doors];
-  }
-
-  private torchLight(p: TilePos): LightSource {
-    const id = `torch:${p.wx},${p.wy}`;
-    // groundAt(tile) — section 5: a torch on a platform glows on the platform.
-    const groundHeight = this.world.groundAt(p.wx + 0.5, p.wy + 0.5);
-    return { id, x: p.wx + 0.5, y: p.wy + 1.1, color: TORCH_COLOR, radiusTiles: TORCH_RADIUS_TILES, kind: "torch", seed: hashSeed(id), groundHeight };
-  }
-
-  private doorLight(p: DoorLightMount): LightSource {
-    const id = `door:${p.wx},${p.wy}`;
-    return {
-      id,
-      x: p.x,
-      y: p.y,
-      color: PORTAL_LIGHT_COLOR,
-      radiusTiles: PORTAL_LIGHT_RADIUS_TILES,
-      kind: "portal",
-      seed: hashSeed(id),
-      groundHeight: p.projectionHeight,
-    };
-  }
-
-  private updatePersonalLight(personal: Readonly<{ x: number; y: number }>): void {
-    this.personalLight.x = personal.x;
-    this.personalLight.y = personal.y;
-    this.personalLight.groundHeight = this.world.groundAt(personal.x, personal.y);
+  private updatePersonalLight(
+    personal: PlayerGroundLightAnchorSource,
+    carriesTorch: boolean,
+  ): void {
+    if (this.carriesTorch !== carriesTorch) this.groundLight.invalidate();
+    this.carriesTorch = carriesTorch;
+    this.personalHaloEnabled = carriesTorch;
+    applyPlayerLightMode(this.personalLight, carriesTorch);
+    applyPlayerGroundLightAnchor(
+      this.personalLight,
+      playerGroundLightAnchor(personal),
+    );
   }
 
   dispose(): void {
-    this.groundLight.dispose();
+    this.atmosphere.dispose();
     this.pool.dispose();
   }
 }
 
-export interface LightingFrame {
-  readonly view: ViewRect;
-  readonly personal: Readonly<{ x: number; y: number }>;
-  readonly nowMs: number;
-}
-
+export type { LightingFrame } from "./lightingFrame.js";
 export type { LightKind, LightSource } from "./core/lightSource.js";

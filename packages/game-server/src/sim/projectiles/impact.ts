@@ -1,5 +1,6 @@
 import { type EffectEvent, type Entity, type Primitive } from "@dc2d/engine";
 import { combatants, damageGivenMultiplierFor, effectTargetFor, spawnItem } from "../core/helpers.js";
+import { isOilLob, resolveOilLobImpact } from "../enemies/elemental/oilLob.js";
 import type { SimState } from "../state/state.js";
 
 export interface ProjectileImpactContext {
@@ -10,8 +11,26 @@ export interface ProjectileImpactContext {
   effectEvents: EffectEvent[];
 }
 
+interface SpitEffectContext {
+  sim: SimState;
+  directHit: Entity;
+  effectEvents: EffectEvent[];
+  target: ReturnType<typeof effectTargetFor>;
+  sourceId: string | undefined;
+}
+
+interface SpitDamageContext extends SpitEffectContext { damage: number; }
+
+interface SpitStatusContext extends SpitEffectContext {
+  applies: Array<{ status: string; chance: number }>;
+}
+
 /** Resolves either enemy spit or a throwable item's authored impact. */
 export function resolveProjectileImpact(context: ProjectileImpactContext): void {
+  if (isOilLob(context.projectile)) {
+    resolveOilLobImpact(context);
+    return;
+  }
   if (context.projectile.defId) resolveThrowableImpact(context);
   else resolveSpitImpact(context);
 }
@@ -21,30 +40,47 @@ function resolveSpitImpact(context: ProjectileImpactContext): void {
   if (!directHit) return;
   const owner = sim.enemies.get(projectile.ownerId ?? "");
   const target = effectTargetFor(sim, directHit);
-  applySpitDamage({ sim, directHit, effectEvents, target, damage: owner?.def.attack.damage ?? 2 });
-  applySpitStatuses({ sim, directHit, effectEvents, target, applies: owner?.def.attack.applies ?? [] });
+  applySpitDamage({
+    sim,
+    directHit,
+    effectEvents,
+    target,
+    damage: owner?.def.attack.damage ?? 2,
+    sourceId: projectile.ownerId,
+  });
+  applySpitStatuses({
+    sim,
+    directHit,
+    effectEvents,
+    target,
+    applies: owner?.def.attack.applies ?? [],
+    sourceId: projectile.ownerId,
+  });
 }
 
-function applySpitDamage({ sim, directHit, effectEvents, target, damage }: {
-  sim: SimState;
-  directHit: Entity;
-  effectEvents: EffectEvent[];
-  target: ReturnType<typeof effectTargetFor>;
-  damage: number;
-}): void {
-  sim.effects.modifyHealth({ entity: directHit, amount: -damage, events: effectEvents, opts: { sourceTags: ["spit"] }, target });
+function applySpitDamage({ sim, directHit, effectEvents, target, damage, sourceId }: SpitDamageContext): void {
+  sim.effects.modifyHealth({
+    entity: directHit,
+    amount: -damage,
+    events: effectEvents,
+    opts: {
+      sourceTags: ["spit"],
+      ...(sourceId === undefined ? {} : { sourceId }),
+    },
+    target,
+  });
 }
 
-function applySpitStatuses({ sim, directHit, effectEvents, target, applies }: {
-  sim: SimState;
-  directHit: Entity;
-  effectEvents: EffectEvent[];
-  target: ReturnType<typeof effectTargetFor>;
-  applies: Array<{ status: string; chance: number }>;
-}): void {
+function applySpitStatuses({ sim, directHit, effectEvents, target, applies, sourceId }: SpitStatusContext): void {
   for (const apply of applies) {
     if (sim.rng.next() >= apply.chance) continue;
-    sim.effects.applyStatus({ entity: directHit, statusId: apply.status, events: effectEvents, target });
+    sim.effects.applyStatus({
+      entity: directHit,
+      statusId: apply.status,
+      events: effectEvents,
+      target,
+      ...(sourceId === undefined ? {} : { sourceId }),
+    });
   }
 }
 
@@ -65,7 +101,15 @@ function applyThrowablePrimitives(context: ProjectileImpactContext, primitives: 
 function applyThrowablePrimitive(context: ProjectileImpactContext, primitive: Primitive): void {
   if (primitive.primitive === "spawn_area") {
     const { x, y } = context.point;
-    context.sim.areas.spawn({ defId: primitive.area, x: Math.floor(x), y: Math.floor(y), radius: primitive.radius });
+    context.sim.areas.spawn({
+      defId: primitive.area,
+      x: Math.floor(x),
+      y: Math.floor(y),
+      radius: primitive.radius,
+      ...(context.projectile.ownerId === undefined
+        ? {}
+        : { sourceId: context.projectile.ownerId }),
+    });
     return;
   }
   applyPrimitiveInBlastRadius({ ...context, primitive: scaleThrowableDamage(context, primitive) });
@@ -101,6 +145,9 @@ function applyBlastPrimitiveToVictim(context: BlastPrimitiveContext, victim: Ent
     target: effectTargetFor(sim, victim),
     rng: () => sim.rng.next(),
     sourceTags: [...projectile.tags],
+    ...(projectile.ownerId === undefined
+      ? {}
+      : { sourceId: projectile.ownerId }),
   });
 }
 

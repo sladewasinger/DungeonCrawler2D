@@ -1,13 +1,13 @@
 {
   "population": {
     "nearSpawnRadiusTiles": 60,
-    "nearSpawnPackMinimum": 1,
-    "nearSpawnPackMaximum": 2,
+    "nearSpawnPackMinimum": 2,
+    "nearSpawnPackMaximum": 4,
     "dungeonPackMinimum": 2,
     "dungeonPackMaximum": 4,
     "packSpreadRadiusTiles": 8,
-    "minimumPlayerDistanceTiles": 16,
-    "occupiedAreaTargetCount": 10
+    "minimumPlayerDistanceTiles": 8,
+    "occupiedAreaTargetCount": 16
   },
   "perception": {
     "maximumAttackersPerPlayer": 3,

@@ -8,7 +8,7 @@ import {
 } from "../../../../render/entities/geometry/worldToScreen.js";
 import { spriteLiftPx } from "../../../../render/entities/motion/lift.js";
 import {
-  parabolicThrowArc,
+  ballisticThrowArc,
   type ThrowArcPoint,
 } from "./throwTrajectoryGeometry.js";
 
@@ -38,14 +38,14 @@ export class ThrowTrajectoryPreview {
       this.hide();
       return;
     }
-    const target = trajectoryTarget(input.preview, input.world);
-    const points = parabolicThrowArc({
-      origin: { ...input.origin, z: input.origin.z + 0.7 },
-      target,
+    const trajectory = ballisticThrowArc({
+      origin: input.origin,
+      target: { x: input.preview.targetX, y: input.preview.targetY },
+      world: input.world,
     });
     this.graphics.setVisible(true).clear();
-    drawArc(this.graphics, points);
-    drawLandingMarker(this.graphics, target);
+    drawArc(this.graphics, trajectory.points);
+    drawLandingMarker(this.graphics, trajectory.target);
   }
 
   hide(): void {
@@ -55,14 +55,6 @@ export class ThrowTrajectoryPreview {
   dispose(): void {
     this.graphics.destroy();
   }
-}
-
-function trajectoryTarget(
-  preview: ThrowPreview,
-  world: WorldView,
-): ThrowArcPoint {
-  const { targetX: x, targetY: y } = preview;
-  return { x, y, z: world.groundAt(x, y) + 0.08 };
 }
 
 function drawArc(

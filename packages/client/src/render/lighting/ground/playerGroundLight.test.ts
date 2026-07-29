@@ -16,7 +16,6 @@ import {
   PLAYER_GROUND_LIGHT_RADIUS,
   PLAYER_GROUND_LIGHT_UPDATE_INTERVAL_MS,
   playerGroundLightFadeAlpha,
-  playerGroundLightEnabledForProfile,
   playerGroundLightCells,
   playerGroundLightStrength,
   shouldUpdatePlayerGroundLight,
@@ -46,7 +45,7 @@ function update(input: Omit<PlayerGroundLightUpdate, "orientation"> & { orientat
 
 describe("playerGroundLightCells", () => {
   it("covers a circular radius with monotonic S-curve falloff", () => {
-    const cells = playerGroundLightCells(world(), 0.5, 0.5);
+    const cells = playerGroundLightCells(world(), { x: 0.5, y: 0.5 });
     expect(cells.length).toBeLessThanOrEqual(PLAYER_GROUND_LIGHT_MAX_CELLS);
     expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
     expect(cells.find((cell) => cell.tileX === PLAYER_GROUND_LIGHT_RADIUS && cell.tileY === 0)?.strength).toBe(0);
@@ -57,7 +56,7 @@ describe("playerGroundLightCells", () => {
   });
 
   it("assigns one S-curve brightness value to every tile at its Euclidean distance", () => {
-    const cells = playerGroundLightCells(world(), 0.5, 0.5);
+    const cells = playerGroundLightCells(world(), { x: 0.5, y: 0.5 });
     for (const cell of cells) {
       const distance = Math.hypot(cell.tileX, cell.tileY);
       expect(cell.strength).toBe(playerGroundLightStrength(distance));
@@ -73,7 +72,7 @@ describe("playerGroundLightCells", () => {
     const chasms = new Set(
       Array.from({ length: 9 }, (_, index) => `${index - 4},1`),
     );
-    const cells = playerGroundLightCells(world(walls, chasms), 0.5, 0.5);
+    const cells = playerGroundLightCells(world(walls, chasms), { x: 0.5, y: 0.5 });
     const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
     expect(keys.has("1,0")).toBe(false);
     expect(keys.has("2,0")).toBe(false);
@@ -82,7 +81,7 @@ describe("playerGroundLightCells", () => {
   });
 
   it("records each tile's ground height for projected floor placement", () => {
-    const cells = playerGroundLightCells(world(), 2.5, 3.5);
+    const cells = playerGroundLightCells(world(), { x: 2.5, y: 3.5 });
     expect(cells[0]?.groundHeight).toBe(0.5);
   });
 
@@ -94,8 +93,7 @@ describe("playerGroundLightCells", () => {
     ]);
     const cells = playerGroundLightCells(
       world(new Set(), new Set(), wallHeights),
-      0.5,
-      0.5,
+      { x: 0.5, y: 0.5 },
     );
     const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
 
@@ -106,7 +104,7 @@ describe("playerGroundLightCells", () => {
   it("lights the spawn exit hall without lighting the hidden wall cap", () => {
     const roomWorld = new World(hashString("ground-light-room"), 1);
     const spawn = spawnRoomSpawn(10);
-    const cells = playerGroundLightCells(roomWorld, spawn.x, spawn.y);
+    const cells = playerGroundLightCells(roomWorld, spawn);
     const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
     const exit = spawnRoomFeatures().exit;
     const chunk = spawnRoomChunk();
@@ -126,7 +124,7 @@ describe("playerGroundLightCells", () => {
       ...world(),
       featureAt: () => 8,
     };
-    const cells = playerGroundLightCells(overlayWorld, 0.5, 0.5);
+    const cells = playerGroundLightCells(overlayWorld, { x: 0.5, y: 0.5 });
 
     expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
     expect(cells.some(({ tileX }) => tileX > 0)).toBe(true);
@@ -153,8 +151,4 @@ describe("shouldUpdatePlayerGroundLight", () => {
     expect(shouldUpdatePlayerGroundLight(previous, update({ tileX: 4, tileY: 5, atMs: 101, orientation: 90 }))).toBe(true);
   });
 
-  it("falls back to the existing personal halo on constrained devices", () => {
-    expect(playerGroundLightEnabledForProfile("desktop")).toBe(true);
-    expect(playerGroundLightEnabledForProfile("constrained")).toBe(false);
-  });
 });

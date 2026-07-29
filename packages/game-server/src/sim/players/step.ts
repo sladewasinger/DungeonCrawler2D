@@ -59,7 +59,10 @@ function movePlayer({ sim, entity, input, tags }: {
 }
 
 function playerMovementOptions(sim: SimState, entity: Entity, tags: Set<string>) {
-  return { speed: entity.baseSpeed * sim.effects.speedMult(entity), stickyFeet: tags.has("sticky-feet") };
+  return {
+    speed: sim.effects.movementSpeed(entity),
+    stickyFeet: tags.has("sticky-feet"),
+  };
 }
 
 function movementSince(entity: Entity, before: { x: number; y: number }) {

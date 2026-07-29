@@ -86,7 +86,7 @@ function stepEnemy(input: EnemyStepInput): void {
     return;
   }
   if (killEnemyInChasm(sim, enemy)) return;
-  if (advanceAttackAnimation(sim, enemy)) {
+  if (advanceAttackAnimation(sim, enemy, input.effectEvents)) {
     continueAirborneEnemyPhysics(input);
     killEnemyInChasm(sim, enemy);
     return;

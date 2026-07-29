@@ -1,21 +1,10 @@
-// Fills INVENTORY.md GAPS#7: plant_creeper (recolor of goblin) and slime (recolor of
-// swampy/muddy). Source hex values below are the sampled, verified-consistent palette of
-// those specific sheet frames (goblin: outline/skin/clothing/eye; swampy & muddy: outline/
-// mid/dark/dark2) — replaced 1:1 with tones from `palette` so results stay in-pack.
+// Fills INVENTORY.md GAPS#7's slime with recolored swampy/muddy frames. Plant creatures
+// use their restored authored silhouettes in plant-creatures.mjs.
 import { recolorSeries } from './recolor.mjs';
 import { opaque, scaleColor } from '../color.mjs';
 
-const GOBLIN_IDLE = ['goblin_idle_anim_f0', 'goblin_idle_anim_f1', 'goblin_idle_anim_f2', 'goblin_idle_anim_f3'];
-const GOBLIN_RUN = ['goblin_run_anim_f0', 'goblin_run_anim_f1', 'goblin_run_anim_f2', 'goblin_run_anim_f3'];
 const SWAMPY = ['swampy_anim_f0', 'swampy_anim_f1', 'swampy_anim_f2', 'swampy_anim_f3'];
 const MUDDY = ['muddy_anim_f0', 'muddy_anim_f1', 'muddy_anim_f2', 'muddy_anim_f3'];
-
-function creeperMapping(p) {
-  return new Map([
-    ['#3d734f', opaque(p.LEAF_MID)], // goblin base-green skin -> leafy green
-    ['#314152', opaque(p.BERRY_RED)], // goblin dark clothing/belt -> red berry accent
-  ]);
-}
 
 function slimeIdleMapping(p) {
   return new Map([
@@ -35,8 +24,6 @@ function slimeRunMapping(p) {
 
 export function generateMonsterRecolors(sheet, palette, frameByName) {
   return [
-    ...recolorSeries({ sheet, frameByName, sourceNames: GOBLIN_IDLE, outPrefix: 'plant_creeper_idle', mapping: creeperMapping(palette) }),
-    ...recolorSeries({ sheet, frameByName, sourceNames: GOBLIN_RUN, outPrefix: 'plant_creeper_run', mapping: creeperMapping(palette) }),
     ...recolorSeries({ sheet, frameByName, sourceNames: SWAMPY, outPrefix: 'slime_idle', mapping: slimeIdleMapping(palette) }),
     ...recolorSeries({ sheet, frameByName, sourceNames: MUDDY, outPrefix: 'slime_run', mapping: slimeRunMapping(palette) }),
   ];

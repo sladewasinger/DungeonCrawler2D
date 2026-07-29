@@ -9,8 +9,9 @@ const ORC_WARRIOR = "orc-warrior";
 const SKELETON = "skeleton";
 const FALLEN_ANGEL = "fallen-angel";
 const MASKED_ORC = "masked-orc";
+const PITCHBLOOM = "pitchbloom";
 const GLOBAL_ROSTER = [
-  "slime", "plant-creeper", SKELETON, "spitter", "goblin",
+  "slime", "plant-creeper", PITCHBLOOM, SKELETON, "spitter", "goblin",
   MASKED_ORC, ORC_WARRIOR, "orc-shaman", "tiny-zombie",
   "big-zombie", "chort", "big-demon", "wogol", "pumpkin-fiend",
   FALLEN_ANGEL,
@@ -29,7 +30,9 @@ export function enemyRosterForBiome(biome: BiomeKind): readonly string[] {
   if (biome === BIOME.Pillars) {
     return ["plant-creeper", "pumpkin-fiend", "wogol"];
   }
-  if (biome === BIOME.Pools) return ["slime", "spitter", "wogol"];
+  if (biome === BIOME.Pools) {
+    return ["slime", "spitter", PITCHBLOOM, "wogol"];
+  }
   return ["chort", "big-demon", MASKED_ORC, ORC_WARRIOR];
 }
 

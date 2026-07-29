@@ -87,6 +87,8 @@ export interface PlayerSlot {
   staminaRecoveryDelaySeconds?: number;
   staminaExhausted?: boolean;
   lastDamageAtTick?: number;
+  /** Most recent authoritative hostile source, including delayed status damage. */
+  lastDamageSourceId?: string;
   lastDamagedByPlayerId?: string | null;
   /** Private per-player events (toasts, stash contents, invites…). */
   outbox: GameEvent[];
@@ -99,6 +101,8 @@ export interface PlayerSlot {
   respawnAtTick: number | null;
   /** Send the full area set on next snapshot (join/teleport). */
   needsFullAreas: boolean;
+  /** AOI center included in the last committed snapshot for area backfill. */
+  lastAreaAoiCenter?: AoiCenter;
   downedAtTick: number | null;
   /** Melee swings gate on this tick (spam clicks are dropped). */
   attackReadyAtTick: number;
@@ -125,6 +129,11 @@ export interface PlayerSlot {
   pendingTransfer: PendingTransfer | null;
   /** Negotiated wire mode follows this slot across floor transfers. */
   snapshotMode?: SnapshotMode;
+}
+
+export interface AoiCenter {
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface SimState {

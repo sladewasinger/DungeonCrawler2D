@@ -1,4 +1,4 @@
-import type { ServerSnapshot } from "@dc2d/engine";
+import { MOVE_SPEED, type ServerSnapshot } from "@dc2d/engine";
 import type { Connection } from "../connection/connection.js";
 
 export function applyVitals(conn: Connection, snap: ServerSnapshot): void {
@@ -21,6 +21,7 @@ function applyStaminaState(conn: Connection, snap: ServerSnapshot): void {
 
 function applyStatusState(conn: Connection, snap: ServerSnapshot): void {
   conn.healthRegenerationDelaySeconds = snap.self.healthRegenerationDelaySeconds ?? conn.healthRegenerationDelaySeconds;
+  conn.movementSpeed = snap.self.movementSpeed ?? MOVE_SPEED;
   conn.fx = snap.self.fx;
   conn.statusEffects = snap.self.statusEffects ?? snap.self.fx.map((id) => ({
     id,

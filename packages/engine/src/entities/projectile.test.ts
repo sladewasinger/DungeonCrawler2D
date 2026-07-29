@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { WorldView } from "../world/core/types.js";
 import { makeEntity } from "./entity.js";
 import { createBody } from "./movement/index.js";
-import { stepProjectile } from "./projectile.js";
+import {
+  resolveBallisticThrow,
+  stepProjectile,
+} from "./projectile.js";
 
 /** A raised tile at (1, 0): plain terrain, walkable at any height (own-tile face model — collision is height, not a separate facade). */
 function raisedTileWorld(): WorldView {
@@ -45,5 +48,31 @@ describe("projectile collision", () => {
   it("stops a projectile at a non-walkable (solid) tile regardless of height", () => {
     const entity = projectile(5);
     expect(stepProjectile(solidTileWorld(), entity, 0.1).impact).toEqual({ x: 0.5, y: 0.5 });
+  });
+});
+
+describe("ballistic throw target resolution", () => {
+  it("preserves a destination that is already within range", () => {
+    const result = resolveBallisticThrow({
+      world: raisedTileWorld(),
+      from: { x: 0.5, y: 0.5, z: 1 },
+      target: { x: 2.5, y: 0.5 },
+    });
+
+    expect(result.target).toEqual({ x: 2.5, y: 0.5, z: 0 });
+  });
+
+  it("clamps a distant destination without changing its direction", () => {
+    const result = resolveBallisticThrow({
+      world: raisedTileWorld(),
+      from: { x: 0.5, y: 0.5, z: 1 },
+      target: { x: 30.5, y: 40.5 },
+      maxRange: 5,
+    });
+
+    expect(result.target.x).toBeCloseTo(3.5);
+    expect(result.target.y).toBeCloseTo(4.5);
+    expect(Math.hypot(result.target.x - 0.5, result.target.y - 0.5))
+      .toBeCloseTo(5);
   });
 });

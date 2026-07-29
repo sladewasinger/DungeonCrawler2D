@@ -138,6 +138,7 @@ export function applySnapshotDelta(conn: Connection, snapshot: ServerSnapshotDel
   if (snapshot.baseline) {
     conn.entities.clear();
     conn.areaTiles.clear();
+    conn.areaTileLayers.clear();
     conn.snapshotRevisions.entities.clear();
   }
   applySnapshot(conn, materialized);

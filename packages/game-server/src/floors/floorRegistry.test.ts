@@ -1,5 +1,6 @@
 import {
   areasData,
+  areaReactionsData,
   enemiesData,
   itemsData,
   recipesData,
@@ -18,7 +19,6 @@ import { describe, expect, it } from "vitest";
 import { FloorRegistry } from "./floorRegistry.js";
 import { DEATH_TO_RESPAWN_TICKS } from "../sim/combat/deathTestSupport.js";
 import { PlayerStore } from "../store.js";
-
 /**
  * Integration coverage for Epic 7.14 (The Descent) at the FloorRegistry
  * level: real GameSim instances, driven by real intents where the DoD
@@ -28,11 +28,11 @@ import { PlayerStore } from "../store.js";
  * protocol-mismatch rejection is server/dispatch's existing coverage
  * (server.test.ts), unaffected by this epic.
  */
-
 const content: ContentRegistry = buildContentRegistry({
   statuses: [...statusesData],
   rules: [...rulesData],
   areas: [...areasData],
+  areaReactions: [...areaReactionsData],
   items: [...itemsData],
   enemies: [...enemiesData],
   recipes: [...recipesData],
@@ -66,9 +66,7 @@ describe("FloorRegistry: the descent chain", () => {
       expect(sim.world.floor).toBe(floor);
       sim.queueAction(join.playerId, { type: "descend" });
       const { moved } = floors.stepAll();
-      expect(moved.some((m) => m.playerId === join.playerId && m.sim.world.floor === floor + 1)).toBe(
-        true,
-      );
+      expect(moved.some((m) => m.playerId === join.playerId && m.sim.world.floor === floor + 1)).toBe(true);
     }
 
     const finalSim = floors.findByToken(join.resumeToken)!;

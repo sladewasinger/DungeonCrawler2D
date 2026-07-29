@@ -1,39 +1,29 @@
 import {
   INTERACT_RANGE,
-  MAX_THROW_RANGE,
-  THROW_SPEED,
   createBody,
+  createBallisticFlight,
   faceEntity,
-  launchVelocity,
   makeEntity,
   newEntityId,
-  type EffectEvent,
+  resolveBallisticThrow,
+  throwLaunchOrigin,
 } from "@dc2d/engine";
 import { invQty, invRemove } from "../inventory/inventory.js";
-import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
-import { doThrowTorch } from "../combat/torches.js";
+import type { PlayerSlot } from "../state/state.js";
+import {
+  doThrowLegacyTorch,
+  doThrowTorch,
+} from "../combat/torches.js";
+import type {
+  ItemActionContext,
+  ItemThrowContext,
+  ItemUseContext,
+  SlottedItemContext,
+  ThrowableItemContext,
+  UseSlotAction,
+} from "./itemActionContext.js";
 
 /** Hotbar item use: throwables launch a projectile, consumables run their effects. */
-
-interface ItemUseContext {
-  sim: SimState;
-  slot: PlayerSlot;
-  defId: string;
-  effectEvents: EffectEvent[];
-}
-
-interface ItemThrowContext extends ItemUseContext {
-  tags: readonly string[];
-  targetX: number;
-  targetY: number;
-}
-
-interface ItemActionContext {
-  sim: SimState;
-  slot: PlayerSlot;
-  action: PlayerAction;
-  effectEvents: EffectEvent[];
-}
 
 export function doUseSlot({ sim, slot, action, effectEvents }: ItemActionContext): void {
   if (action.type !== "useSlot") return;
@@ -42,17 +32,41 @@ export function doUseSlot({ sim, slot, action, effectEvents }: ItemActionContext
   const def = sim.content.items.get(defId);
   if (!def || invQty(slot, defId) < 1) return;
   const context = { sim, slot, defId, effectEvents };
-  useSlottedItem(context, def.throwable ? def.tags : undefined, action);
+  useSlottedItem({
+    ...context,
+    tags: def.tags,
+    throwable: def.throwable,
+    action,
+  });
 }
 
-function useSlottedItem(context: ItemUseContext, tags: readonly string[] | undefined, action: Extract<PlayerAction, { type: "useSlot" }>): void {
+function useSlottedItem(context: SlottedItemContext): void {
+  const { action, throwable } = context;
   if (action.targetId !== undefined) return useBandageOnPlayer({ ...context, targetId: action.targetId });
-  if (canThrowAt(action, tags)) return throwItem({ ...context, tags: tags ?? [], targetX: action.targetX, targetY: action.targetY });
+  if (throwable && hasThrowTarget(action)) {
+    return throwSlottedItem({ ...context, action, throwable });
+  }
   consumeItem(context);
 }
 
-function canThrowAt(action: Extract<PlayerAction, { type: "useSlot" }>, tags: readonly string[] | undefined): action is Extract<PlayerAction, { type: "useSlot" }> & { targetX: number; targetY: number } {
-  return tags !== undefined && action.targetX !== undefined && action.targetY !== undefined;
+function hasThrowTarget(
+  action: UseSlotAction,
+): action is UseSlotAction & {
+  targetX: number;
+  targetY: number;
+} {
+  return action.targetX !== undefined &&
+    action.targetY !== undefined;
+}
+
+function throwSlottedItem(context: ThrowableItemContext): void {
+  const { action, throwable } = context;
+  const target = { targetX: action.targetX, targetY: action.targetY };
+  if (throwable.placesEntity === "torch") {
+    doThrowTorch({ ...context, ...target });
+    return;
+  }
+  throwItem({ ...context, tags: context.tags, ...target });
 }
 
 function useBandageOnPlayer(context: ItemUseContext & { targetId: string }): void {
@@ -93,26 +107,21 @@ function consumeItem({ sim, slot, defId, effectEvents }: ItemUseContext): void {
 }
 
 function throwItem({ sim, slot, defId, tags, targetX, targetY }: ItemThrowContext): void {
-  const from = slot.entity.body;
-  let dx = targetX - from.x;
-  let dy = targetY - from.y;
-  const dist = Math.hypot(dx, dy);
-  faceEntity(slot.entity, dx, dy);
-  if (dist > MAX_THROW_RANGE) {
-    dx *= MAX_THROW_RANGE / dist;
-    dy *= MAX_THROW_RANGE / dist;
-  }
-  const to = {
-    x: from.x + dx,
-    y: from.y + dy,
-    z: sim.world.groundAt(from.x + dx, from.y + dy),
-  };
-  const projectile = makeEntity("projectile", createBody(from.x, from.y, from.z + 1), {
+  const body = slot.entity.body;
+  const from = throwLaunchOrigin(body);
+  faceEntity(slot.entity, targetX - body.x, targetY - body.y);
+  const ballistic = resolveBallisticThrow({
+    world: sim.world,
+    from,
+    target: { x: targetX, y: targetY },
+  });
+  const projectile = makeEntity("projectile", createBody(from.x, from.y, from.z), {
     id: newEntityId("j"),
     defId,
     ownerId: slot.entity.id,
     tags: new Set(tags),
-    vel: launchVelocity({ x: from.x, y: from.y, z: from.z + 1 }, to, THROW_SPEED),
+    vel: ballistic.vel,
+    ballisticFlight: createBallisticFlight(from, ballistic),
   });
   sim.projectiles.set(projectile.id, projectile);
   invRemove(slot, defId, 1);
@@ -129,7 +138,7 @@ export function dispatchItemAction(context: ItemActionContext): void {
       doUseItem({ sim, slot, defId: action.item, effectEvents });
       break;
     case "throwTorch":
-      doThrowTorch({ sim, slot, dirX: action.dirX, dirY: action.dirY });
+      doThrowLegacyTorch({ sim, slot, dirX: action.dirX, dirY: action.dirY });
       break;
   }
 }

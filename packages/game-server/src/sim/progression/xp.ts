@@ -41,6 +41,10 @@ export function levelForXp(xp: number): number {
  * qualifying attacker this tick (DOT/environmental) awards nobody.
  */
 function findKiller(sim: SimState, enemy: EnemySlot): PlayerSlot | null {
+  const attributed = enemy.lastDamageSourceId
+    ? sim.players.get(enemy.lastDamageSourceId)
+    : undefined;
+  if (attributed) return attributed;
   let best: PlayerSlot | null = null;
   let bestDist = Infinity;
   for (const slot of sim.players.values()) {

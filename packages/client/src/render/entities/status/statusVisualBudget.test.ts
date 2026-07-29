@@ -7,8 +7,10 @@ describe("status visual budgets", () => {
     const reduced = statusVisualBudgetFor(true, false);
     const mobile = statusVisualBudgetFor(false, true);
     expect(reduced.maximumActiveRigs).toBeLessThan(full.maximumActiveRigs);
-    expect(reduced.particleSlotsPerRig).toBeLessThan(full.particleSlotsPerRig);
-    expect(reduced.emberIntervalMs).toBeGreaterThan(full.emberIntervalMs);
+    expect(reduced.fireSparkSlots).toBeLessThan(full.fireSparkSlots);
+    expect(reduced.poisonGasSlots).toBeLessThan(full.poisonGasSlots);
+    expect(reduced.fireSparkIntervalMs).toBeGreaterThan(full.fireSparkIntervalMs);
+    expect(reduced.poisonGasIntervalMs).toBeGreaterThan(full.poisonGasIntervalMs);
     expect(mobile).toBe(reduced);
   });
 });

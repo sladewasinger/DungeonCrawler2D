@@ -54,7 +54,7 @@ describe("EntityStatusVisualPool", () => {
       statusVisualBudgetFor(false, false),
     );
     pool.beginFrame(0);
-    sync(pool, "first", ["oiled"]);
+    sync(pool, "first", ["on-fire"]);
     pool.endFrame();
     pool.beginFrame(16);
     sync(pool, "first", []);
@@ -72,7 +72,7 @@ describe("EntityStatusVisualPool", () => {
     pool.syncEntity("second", dead.visual as never, dead.view);
     pool.endFrame();
     pool.beginFrame(64);
-    sync(pool, "third", ["oiled"]);
+    sync(pool, "third", ["on-fire"]);
     pool.endFrame();
     pool.beginFrame(80);
     pool.endFrame();

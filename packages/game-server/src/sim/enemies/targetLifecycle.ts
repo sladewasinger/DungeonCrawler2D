@@ -19,6 +19,7 @@ function clearEnemyTarget(enemy: EnemySlot, playerId: string): void {
   if (matchedBrain) enemy.brain.targetId = null;
   if (matchedWindup || (matchedBrain && enemy.animation.state === "attack")) {
     enemy.animation = { state: "idle", ticksRemaining: 0 };
+    delete enemy.elementalAttack;
   }
 }
 

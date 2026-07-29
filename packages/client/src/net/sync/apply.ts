@@ -10,6 +10,7 @@ import { applyVitals } from "./applyVitals.js";
 import { recordSample } from "../interpolation/interpolate.js";
 import { pruneAreaTiles } from "./areaTileRetention.js";
 import { applyWorldFeatureOverrides } from "./worldFeatureOverrides.js";
+import { movementSpeedProjection } from "../prediction/movement/movementSpeedContent.js";
 
 /**
  * Applies server truth to the Connection's state: authoritative self
@@ -40,7 +41,12 @@ function applyRemoteState(conn: Connection, snap: ServerSnapshot): void {
   conn.interpolationDelay.observe(snap.tick, now);
   for (const entity of snap.entities) applyEntitySample(conn, serverTime, entity);
   for (const tile of snap.areas) applyAreaTile(conn, tile);
-  pruneAreaTiles({ areaTiles: conn.areaTiles, centerX: snap.self.x, centerY: snap.self.y });
+  pruneAreaTiles({
+    areaTiles: conn.areaTiles,
+    areaTileLayers: conn.areaTileLayers,
+    centerX: snap.self.x,
+    centerY: snap.self.y,
+  });
 }
 
 function applySnapshotEvents(
@@ -59,6 +65,7 @@ function prepareTeleport(conn: Connection): void {
   conn.entities.clear();
   conn.snapshotRevisions.entities.clear();
   conn.areaTiles.clear();
+  conn.areaTileLayers.clear();
   conn.prediction.reset();
   conn.predictionCorrection.reset(true);
 }
@@ -135,6 +142,11 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
       authoritativeServerTick: snap.tick,
       resources: conn,
       canBlock: snap.weapon !== null,
+      movementSpeed: conn.movementSpeed,
+      movementSpeedProjection: movementSpeedProjection(
+        conn.movementSpeed,
+        conn.statusEffects,
+      ),
     });
   }
 }
@@ -155,6 +167,12 @@ function applyEntitySample(
 
 function applyAreaTile(conn: Connection, tile: AreaTileUpdate): void {
   const key = `${tile.x},${tile.y}`;
-  if (tile.defId === null) conn.areaTiles.delete(key);
-  else conn.areaTiles.set(key, tile.defId);
+  if (tile.defId === null) {
+    conn.areaTiles.delete(key);
+    conn.areaTileLayers.delete(key);
+    return;
+  }
+  conn.areaTiles.set(key, tile.defId);
+  if (tile.layers) conn.areaTileLayers.set(key, tile.layers);
+  else conn.areaTileLayers.delete(key);
 }

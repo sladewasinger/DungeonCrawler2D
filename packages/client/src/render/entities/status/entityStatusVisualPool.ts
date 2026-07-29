@@ -26,6 +26,7 @@ export class EntityStatusVisualPool {
     nowMs: 0,
     burning: false,
     oiled: false,
+    poisoned: false,
   };
 
   constructor(
@@ -45,7 +46,8 @@ export class EntityStatusVisualPool {
   ): void {
     this.frame.burning = view.fx.includes("on-fire");
     this.frame.oiled = view.fx.includes("oiled");
-    if (view.hp <= 0 || (!this.frame.burning && !this.frame.oiled)) {
+    this.frame.poisoned = view.fx.includes("poisoned");
+    if (view.hp <= 0 || !hasVisibleStatus(this.frame)) {
       this.releaseId(id);
       return;
     }
@@ -95,4 +97,8 @@ export class EntityStatusVisualPool {
     this.spare.length = 0;
     this.seen.clear();
   }
+}
+
+function hasVisibleStatus(frame: StatusVisualFrame): boolean {
+  return frame.burning || frame.oiled || frame.poisoned;
 }

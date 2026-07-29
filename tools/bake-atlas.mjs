@@ -16,6 +16,8 @@ import { buildContactSheet } from './lib/contact-sheet.mjs';
 import { generateItemIcons } from './lib/sprites/items.mjs';
 import { generateFloorAndCrafting } from './lib/sprites/floor-crafting.mjs';
 import { generateMonsterRecolors } from './lib/sprites/monster-recolors.mjs';
+import { generateElementalProjectiles } from './lib/sprites/elemental-projectiles.mjs';
+import { generatePlantCreatures } from './lib/sprites/plant-creatures.mjs';
 import { generateVfx } from './lib/sprites/vfx.mjs';
 import { buildParticleAtlasJson, generateParticleAtlas } from './lib/particle-atlas.mjs';
 
@@ -26,6 +28,12 @@ const FONT_SRC = path.join(REPO_ROOT, 'assets', 'fonts', 'monogram.ttf');
 const OUT_DIR = path.join(REPO_ROOT, 'packages', 'client', 'public', 'assets');
 const OUT_FONTS_DIR = path.join(OUT_DIR, 'fonts');
 const PARTICLE_OUT_DIR = path.join(OUT_DIR, 'particles');
+const PLANT_CREATURE_SOURCE_DIR = path.join(
+  REPO_ROOT,
+  'assets',
+  'enemies',
+  'plant-creeper-v2',
+);
 
 // A few original frames shown alongside the generated sprites on the contact sheet, for
 // eyeballing that the generated palette/outline style genuinely matches the source pack.
@@ -46,6 +54,8 @@ function generateGapFillSprites(sheet, palette, frameByName) {
     ...generateItemIcons(palette),
     ...generateFloorAndCrafting(sheet, palette),
     ...generateMonsterRecolors(sheet, palette, frameByName),
+    ...generatePlantCreatures(PLANT_CREATURE_SOURCE_DIR),
+    ...generateElementalProjectiles(palette),
     ...generateVfx(),
   ];
 }

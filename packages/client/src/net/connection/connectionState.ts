@@ -1,5 +1,6 @@
 import {
   LEVEL,
+  MOVE_SPEED,
   PLAYER_MAX_STAMINA,
   WireMetrics,
   World,
@@ -38,6 +39,7 @@ export class ConnectionState {
   staminaRecoveryDelaySeconds = 0;
   staminaExhausted = false;
   healthRegenerationDelaySeconds = 0;
+  movementSpeed = MOVE_SPEED;
   readonly contextualActionsUsed = new Set<"attack" | "block">();
   fx: string[] = [];
   statusEffects: ActiveStatusSnapshot[] = [];
@@ -72,6 +74,7 @@ export class ConnectionState {
   justRespawned = false;
   readonly entities = new Map<string, RemoteEntity>();
   readonly areaTiles = new Map<string, string>();
+  readonly areaTileLayers = new Map<string, readonly string[]>();
   readonly prediction = new Prediction();
   readonly movementCadence = new MovementCadence();
   readonly predictionCorrection = new PredictionCorrection();

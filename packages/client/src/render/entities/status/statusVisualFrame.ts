@@ -5,6 +5,7 @@ export interface StatusVisualFrame {
   nowMs: number;
   burning: boolean;
   oiled: boolean;
+  poisoned: boolean;
 }
 
 export interface StatusCombatantVisual {

@@ -60,7 +60,7 @@ function stepSimActors(sim: SimState, effectEvents: EffectEvent[]): void {
     stepEnemies(sim, effectEvents);
     stepProjectiles(sim, effectEvents);
   }
-  stepTorches(sim);
+  stepTorches(sim, effectEvents);
   sim.areas.tick(TICK_DT, () => sim.rng.next());
 }
 

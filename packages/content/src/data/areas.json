@@ -2,15 +2,29 @@
   {
     "id": "area-fire",
     "tags": ["fire", "hostile"],
+    "channel": "flame",
+    "priority": 20,
     "buoyancy": 0,
-    "duration": 8,
+    "duration": 12,
     "onEnterStatus": "on-fire",
     "spread": { "chance": 0.5, "ontoAreaTag": "flammable", "maxSteps": 6 },
     "sprite": "fire"
   },
   {
+    "id": "area-enemy-flame",
+    "tags": ["fire", "hostile"],
+    "channel": "flame",
+    "priority": 10,
+    "buoyancy": 0,
+    "duration": 1,
+    "onEnterStatus": "on-fire",
+    "sprite": "fire"
+  },
+  {
     "id": "area-wet",
     "tags": ["wet", "liquid"],
+    "channel": "surface",
+    "priority": 20,
     "buoyancy": -1,
     "duration": 25,
     "onEnterStatus": "wet",
@@ -20,6 +34,8 @@
   {
     "id": "area-oil",
     "tags": ["oil", "flammable", "liquid"],
+    "channel": "surface",
+    "priority": 10,
     "buoyancy": -1,
     "duration": 40,
     "onEnterStatus": "oiled",
@@ -29,6 +45,8 @@
   {
     "id": "area-poison",
     "tags": ["poison", "gas", "hostile"],
+    "channel": "gas",
+    "priority": 10,
     "buoyancy": -1,
     "duration": 12,
     "onEnterStatus": "poisoned",
@@ -38,6 +56,8 @@
   {
     "id": "area-smoke",
     "tags": ["smoke", "gas"],
+    "channel": "gas",
+    "priority": 20,
     "buoyancy": 1,
     "duration": 8,
     "spread": { "chance": 0.3, "maxSteps": 3 },
@@ -46,6 +66,8 @@
   {
     "id": "area-steam",
     "tags": ["steam", "gas"],
+    "channel": "gas",
+    "priority": 30,
     "buoyancy": 1,
     "duration": 4,
     "sprite": "steam"

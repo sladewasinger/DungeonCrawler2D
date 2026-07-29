@@ -29,6 +29,7 @@ function statusEffectSnapshots(sim: SimState, slot: PlayerSlot) {
       ? null
       : Math.max(0, status.remaining),
     durationSeconds: sim.content.statuses.get(status.defId)?.duration ?? null,
+    ...(status.stacks > 1 ? { stacks: status.stacks } : {}),
   }));
 }
 
@@ -65,8 +66,12 @@ function resourceSnapshot(sim: SimState, slot: PlayerSlot): Pick<ServerSnapshot[
   };
 }
 
-function effectSnapshot(sim: SimState, slot: PlayerSlot): Pick<ServerSnapshot["self"], "fx" | "statusEffects"> {
-  return { fx: slot.entity.statuses.map((status) => status.defId), statusEffects: statusEffectSnapshots(sim, slot) };
+function effectSnapshot(sim: SimState, slot: PlayerSlot): Pick<ServerSnapshot["self"], "fx" | "statusEffects" | "movementSpeed"> {
+  return {
+    fx: slot.entity.statuses.map((status) => status.defId),
+    statusEffects: statusEffectSnapshots(sim, slot),
+    movementSpeed: sim.effects.movementSpeed(slot.entity),
+  };
 }
 
 function downedSnapshot(slot: PlayerSlot): Pick<ServerSnapshot["self"], "downed" | "downedUntilTick"> {

@@ -8,8 +8,6 @@ import { safeRoomDoorsForSlot } from "../core/safeRoomDoors.js";
 import { miniBossArenaGatesForSlot } from "../enemies/miniBossArena/gateOverrides.js";
 import { toSelfSnapshot } from "./selfSnapshot.js";
 import {
-  areaSnapshot,
-  deliveryAoi,
   leavingEntities,
   pendingState,
   queueDeliveries,
@@ -17,6 +15,8 @@ import {
   toPartySnapshot,
   visibleEntities,
 } from "./playerSnapshotFields.js";
+import { areaSnapshot, deliveryAoi } from "./areaAoiCoverage.js";
+import type { AoiCenter } from "../state/state.js";
 import type { PlayerSlot, SimState, WorldEvent } from "../state/state.js";
 import type { SpatialEntityIndex } from "../core/spatialEntities.js";
 import type { VersionedEntitySnapshot } from "./entitySnapshots.js";
@@ -40,6 +40,7 @@ export interface PlayerSnapshotFrame {
   pendingEventCount: number;
   pendingAreaKeys: string[];
   includesFullAreas: boolean;
+  areaAoiCenter: AoiCenter;
 }
 
 export interface PlayerSnapshotBuildRequest {
@@ -56,7 +57,7 @@ export function buildPlayerSnapshotFrame(request: PlayerSnapshotBuildRequest): P
   const pending = pendingState(sim, slot);
   queueDeliveries({ pending, dirty, worldEvents, inAoi });
   const visible = visibleEntities({ sim, slot, index });
-  const area = areaSnapshot({ sim, slot, pending, inAoi });
+  const area = areaSnapshot({ sim, slot, pending });
   return snapshotFrame({ sim, slot, pending, visible, area });
 }
 
@@ -65,7 +66,12 @@ function snapshotFrame(request: {
   slot: PlayerSlot;
   pending: { events: GameEvent[] };
   visible: { entities: VersionedEntitySnapshot[]; ids: Set<string> };
-  area: { areas: ServerSnapshot["areas"]; keys: string[]; includesFullAreas: boolean };
+  area: {
+    areas: ServerSnapshot["areas"];
+    keys: string[];
+    includesFullAreas: boolean;
+    coverageCenter: AoiCenter;
+  };
 }): PlayerSnapshotFrame {
   const { sim, slot, pending, visible, area } = request;
   return {
@@ -93,7 +99,12 @@ function frameContent(request: {
   slot: PlayerSlot;
   pending: { events: GameEvent[] };
   visible: { entities: VersionedEntitySnapshot[]; ids: Set<string> };
-  area: { areas: ServerSnapshot["areas"]; keys: string[]; includesFullAreas: boolean };
+  area: {
+    areas: ServerSnapshot["areas"];
+    keys: string[];
+    includesFullAreas: boolean;
+    coverageCenter: AoiCenter;
+  };
 }): Omit<PlayerSnapshotFrame, "tick" | "lastSeq" | "lastProjectedServerTick" | "self" | "weapon" | "party"> {
   const { sim, slot, pending, visible, area } = request;
   return {
@@ -108,6 +119,7 @@ function frameContent(request: {
     pendingEventCount: pending.events.length,
     pendingAreaKeys: area.keys,
     includesFullAreas: area.includesFullAreas,
+    areaAoiCenter: area.coverageCenter,
   };
 }
 
@@ -123,4 +135,5 @@ export function commitPlayerSnapshotFrame(
   pending?.events.splice(0, frame.pendingEventCount);
   for (const key of frame.pendingAreaKeys) pending?.areas.delete(key);
   if (frame.includesFullAreas) slot.needsFullAreas = false;
+  slot.lastAreaAoiCenter = frame.areaAoiCenter;
 }

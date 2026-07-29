@@ -1,10 +1,12 @@
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type EnemyDef, xpForLevel } from "@dc2d/engine";
+import { type EffectEvent, type EnemyDef, xpForLevel } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { announceKill, announceLevelUp } from "../announcer/index.js";
+import { doAttack } from "../actions/melee.js";
+import { realizeEffectEvents } from "./statuses.js";
 import { awardKillXp } from "./xp.js";
 import { makeEnemySlot, makeSlot, makeXpSim, slimeDef } from "./xp.testSupport.js";
 import type { SimState } from "../state/state.js";
@@ -59,6 +61,25 @@ describe("awardKillXp", () => {
 
     expect(near.stored.xp).toBe(5);
     expect(far.stored.xp).toBe(0); // no award for the other player's non-kill
+  });
+
+  it("credits the later melee killer instead of an older burn source", () => {
+    const burnSource = makeSlot("Burn", 20, 20);
+    const meleeKiller = makeSlot("Melee", 5, 5);
+    sim.players.set(burnSource.entity.id, burnSource);
+    sim.players.set(meleeKiller.entity.id, meleeKiller);
+    const enemy = makeEnemySlot(5.8, 5, slimeDef);
+    enemy.entity.hp = 3;
+    enemy.lastDamageSourceId = burnSource.entity.id;
+    const effectEvents: EffectEvent[] = [];
+
+    doAttack({ sim, slot: meleeKiller, dirX: 1, dirY: 0, effectEvents });
+    realizeEffectEvents(sim, effectEvents);
+    awardKillXp(sim, enemy);
+
+    expect(meleeKiller.stored.xp).toBe(5);
+    expect(burnSource.stored.xp).toBe(0);
+    expect(enemy.lastDamageSourceId).toBe(meleeKiller.entity.id);
   });
 
   it("awards nothing for an enemy def without an xp value", () => {

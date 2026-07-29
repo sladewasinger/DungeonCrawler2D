@@ -15,20 +15,43 @@ import { TORCH_RADIUS_TILES } from "./torchLightStyle.js";
 
 const TICK_RATE = 20;
 
+interface PlacedTorchFixture {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly groundHeight?: number;
+  readonly emberFade?: number;
+}
+
+function placedTorch(input: PlacedTorchFixture) {
+  const { id, x, y, groundHeight = 0, emberFade } = input;
+  return { id, x, y, groundHeight, ...(emberFade === undefined ? {} : { emberFade }) };
+}
+
 describe("placedTorchLights / flyingTorchLights", () => {
-  it("centers a placed torch's halo on its tile and tags it kind torch", () => {
-    const [light] = placedTorchLights([{ id: "t1", tileX: 4, tileY: 6 }]);
-    expect(light).toMatchObject({ x: 4.5, y: 6.5, kind: "torch" });
+  it("preserves a placed torch's exact anchor and terrain height", () => {
+    const [light] = placedTorchLights([placedTorch({ id: "t1", x: 4.25, y: 6.75, groundHeight: 2 })]);
+    expect(light).toMatchObject({
+      x: 4.25,
+      y: 6.75,
+      groundHeight: 2,
+      kind: "torch",
+    });
   });
 
   it("tags a flying torch's glow kind fire, not torch (no flame particle mid-flight)", () => {
     const [light] = flyingTorchLights([{ id: "t1", x: 4.2, y: 6.7 }]);
-    expect(light).toMatchObject({ x: 4.2, y: 6.7, kind: "fire" });
+    expect(light).toMatchObject({
+      x: 4.2,
+      y: 6.7,
+      kind: "fire",
+      emitsTorchLight: true,
+    });
   });
 
   it("appends both light kinds into caller-owned frame storage", () => {
     const output: ReturnType<typeof placedTorchLights> = [];
-    appendPlacedTorchLights([{ id: "p", tileX: 1, tileY: 2 }], output);
+    appendPlacedTorchLights([placedTorch({ id: "p", x: 1, y: 2 })], output);
     appendFlyingTorchLights([{ id: "f", x: 3, y: 4 }], output);
 
     expect(output.map((light) => light.kind)).toEqual(["torch", "fire"]);
@@ -56,35 +79,36 @@ describe("torchEmberFade", () => {
 
 describe("placedTorchLights ember fade", () => {
   it("shrinks and dims the halo for a fading torch, full brightness for a fresh one", () => {
-    const [fresh] = placedTorchLights([{ id: "t1", tileX: 0, tileY: 0, emberFade: 1 }]);
-    const [fading] = placedTorchLights([{ id: "t2", tileX: 0, tileY: 0, emberFade: 0.35 }]);
+    const [fresh] = placedTorchLights([placedTorch({ id: "t1", x: 0, y: 0, emberFade: 1 })]);
+    const [fading] = placedTorchLights([placedTorch({ id: "t2", x: 0, y: 0, emberFade: 0.35 })]);
     expect(fresh?.radiusTiles).toBeCloseTo(TORCH_RADIUS_TILES, 5);
     expect(fading?.radiusTiles).toBeLessThan(fresh?.radiusTiles ?? 0);
     expect(fading?.color).not.toBe(fresh?.color);
   });
 
   it("defaults to full brightness when emberFade is omitted (backward compatible)", () => {
-    const [light] = placedTorchLights([{ id: "t1", tileX: 0, tileY: 0 }]);
+    const [light] = placedTorchLights([placedTorch({ id: "t1", x: 0, y: 0 })]);
     expect(light?.radiusTiles).toBeCloseTo(TORCH_RADIUS_TILES, 5);
   });
 });
 
 describe("placedTorchSeeds", () => {
   it("seeds a placed torch's own tile at full brightness, like an authored torch", () => {
-    expect(placedTorchSeeds([{ id: "t1", tileX: 4, tileY: 6 }])).toEqual([{ tileX: 4, tileY: 6, level: LIGHT_MAX }]);
+    expect(placedTorchSeeds([placedTorch({ id: "t1", x: 4.25, y: 6.75 })]))
+      .toEqual([{ tileX: 4, tileY: 6, level: LIGHT_MAX }]);
   });
 });
 
 describe("diffPlacedTorches", () => {
   it("reports a newly landed torch's tile as changed", () => {
-    const { changedTiles, next } = diffPlacedTorches(new Map(), [{ id: "t1", tileX: 4, tileY: 6 }]);
+    const { changedTiles, next } = diffPlacedTorches(new Map(), [placedTorch({ id: "t1", x: 4.25, y: 6.75 })]);
     expect(changedTiles).toEqual([{ wx: 4, wy: 6 }]);
     expect(next.get("t1")).toEqual({ wx: 4, wy: 6 });
   });
 
   it("reports nothing changed when the same torch persists across frames", () => {
     const previous = new Map([["t1", { wx: 4, wy: 6 }]]);
-    const { changedTiles } = diffPlacedTorches(previous, [{ id: "t1", tileX: 4, tileY: 6 }]);
+    const { changedTiles } = diffPlacedTorches(previous, [placedTorch({ id: "t1", x: 4.25, y: 6.75 })]);
     expect(changedTiles).toEqual([]);
   });
 
@@ -97,7 +121,7 @@ describe("diffPlacedTorches", () => {
 
   it("coalesces a simultaneous landing and expiry into two changed tiles in one pass", () => {
     const previous = new Map([["gone", { wx: 1, wy: 1 }]]);
-    const { changedTiles } = diffPlacedTorches(previous, [{ id: "new", tileX: 9, tileY: 9 }]);
+    const { changedTiles } = diffPlacedTorches(previous, [placedTorch({ id: "new", x: 9, y: 9 })]);
     expect(changedTiles).toEqual(
       expect.arrayContaining([
         { wx: 9, wy: 9 },
@@ -114,11 +138,14 @@ describe("updatePlacedTorchTiles", () => {
     const changed: Array<{ wx: number; wy: number }> = [];
     const state = { placedTiles: placed, seenPlacedIds: new Set<string>(), changedTiles: changed };
 
-    expect(updatePlacedTorchTiles(state, [{ id: "t", tileX: 1, tileY: 2 }])).toEqual([{ wx: 1, wy: 2 }]);
+    expect(updatePlacedTorchTiles(state, [placedTorch({ id: "t", x: 1.25, y: 2.75 })]))
+      .toEqual([{ wx: 1, wy: 2 }]);
     const stableTile = placed.get("t");
-    expect(updatePlacedTorchTiles(state, [{ id: "t", tileX: 1, tileY: 2 }])).toEqual([]);
+    expect(updatePlacedTorchTiles(state, [placedTorch({ id: "t", x: 1.75, y: 2.25 })]))
+      .toEqual([]);
     expect(placed.get("t")).toBe(stableTile);
-    expect(updatePlacedTorchTiles(state, [{ id: "t", tileX: 2, tileY: 2 }])).toEqual([{ wx: 2, wy: 2 }]);
+    expect(updatePlacedTorchTiles(state, [placedTorch({ id: "t", x: 2, y: 2 })]))
+      .toEqual([{ wx: 2, wy: 2 }]);
     expect(updatePlacedTorchTiles(state, []))
       .toEqual([{ wx: 2, wy: 2 }]);
     expect(placed).toHaveLength(0);

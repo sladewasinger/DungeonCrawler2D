@@ -9,8 +9,8 @@ The effects engine is the foundation the whole game — and especially AI crafti
 ## Three layers
 
 1. **Effect primitives** — the only layer implemented in code. Small, orthogonal, heavily tested verbs.
-2. **Status effects & area effects** — data files composing primitives with parameters, duration, stacking, and tags.
-3. **Interaction rules** — data-declared reactions between tags (`fire` + `wet` ⇒ extinguish).
+2. **Status effects & area effects** — data files composing primitives with parameters, duration, stacking, channels, and tags.
+3. **Interaction rules** — validated, deterministic reactions between tags (`fire` + `wet` ⇒ extinguish).
 
 The AI (and human content authors) only ever touch layers 2–3 vocabulary; they cannot invent a primitive.
 
@@ -76,36 +76,76 @@ Each primitive is a pure function `(state, params, target, dt) → state changes
 
 ### Area effects
 
-Same schema shape, but bound to tile regions instead of entities, plus spread/decay:
+Areas are authoritative tile cells. A cell may contain one layer in each
+explicit channel:
+
+- `surface`: water, oil, and other ground liquids
+- `flame`: fire and short-lived flame attacks
+- `gas`: poison, smoke, and steam
+
+Each layer retains its own duration, spread state, and source attribution. An
+incoming layer replaces a lower-priority layer in its channel, while equal or
+lower priority conflicts are rejected. The complete cell is replicated
+atomically, so burning oil remains oil plus fire—not a client-side illusion.
 
 ```jsonc
-// content/effects/area-fire.json
 {
   "id": "area-fire",
-  "tags": ["fire"],
-  "onEnter": [{ "primitive": "apply_status", "status": "on-fire", "chance": 1.0 }],
-  "perTick": [{ "primitive": "spread", "chance": 0.15, "mediumTags": ["flammable"], "consumesFuel": true }],
-  "decay": { "afterSeconds": 8, "leavesTile": "charred" }
+  "tags": ["fire", "hostile"],
+  "channel": "flame",
+  "priority": 20,
+  "duration": 8,
+  "onEnterStatus": "on-fire",
+  "spread": {
+    "chance": 0.5,
+    "ontoAreaTag": "flammable",
+    "maxSteps": 6
+  },
+  "sprite": "fire"
 }
 ```
 
-Wet ground, poison clouds, oil slicks, smoke: same model, different data. Clouds get a `drift` param; liquids get `flow`.
+Wet ground, poison clouds, oil slicks, smoke, and steam use the same bounded
+model. Height-aware buoyancy and spread parameters determine how they move.
 
 ## Layer 3 — Interaction rules (data)
 
-Declarative, tag-based, order-independent rules evaluated when statuses/areas/tags coexist:
+Area reactions live in `packages/content/src/data/areaReactions.json`. They are
+declarative, tag-based, order-independent, and sorted by priority then stable
+ID before evaluation:
 
 ```jsonc
 [
-  { "when": ["fire", "wet"],       "then": { "remove": "fire",  "spawn": "area-steam" } },
-  { "when": ["fire", "flammable"], "then": { "apply": "on-fire" } },
-  { "when": ["fire", "explosive"], "then": { "trigger": "explode" } },
-  { "when": ["poison", "fire"],    "then": { "remove": "poison" } },   // burn off the cloud
-  { "when": ["water", "electric"], "then": { "conduct": true } }        // future
+  {
+    "id": "fire-burns-oil",
+    "priority": 20,
+    "when": ["fire", "oil"],
+    "actions": [
+      { "op": "rate_consume", "tag": "oil", "perSecond": 3 }
+    ]
+  },
+  {
+    "id": "fire-and-wet-become-steam",
+    "priority": 30,
+    "when": ["fire", "wet"],
+    "actions": [
+      { "op": "remove", "tag": "fire" },
+      { "op": "remove", "tag": "wet" },
+      { "op": "add", "area": "area-steam", "sourceFromTag": "fire" }
+    ]
+  }
 ]
 ```
 
-Rules reference **tags, never item ids**. This is the multiplier: every new tagged thing (hand-made or AI-made) automatically participates in every existing rule. Content growth is combinatorial, code growth is zero.
+Transition actions are planned and applied atomically. Continuous consumption
+uses an authored per-second rate, allowing oil to remain visible beneath fire
+until its own fuel timer expires. Invalid references, duplicate IDs, unsafe
+numeric bounds, and cyclic transitions are rejected during content loading.
+Channel conflicts reject the incoming runtime placement deterministically; a
+runtime transition cap remains a defense-in-depth guard.
+
+Rules reference **tags, never item IDs**. Every new tagged thing
+automatically participates in existing compatible rules.
 
 ## Stacking, resistance, immunity
 
@@ -116,10 +156,16 @@ Rules reference **tags, never item ids**. This is the multiplier: every new tagg
 ## What the AI is allowed to do (preview of AI_CRAFTING.md)
 
 An AI item proposal may only:
-- reference **existing** primitives, statuses, areas, and tags by id
-- optionally define a new status/area **composed of existing primitives**, within numeric bounds (max DoT, max radius, max duration — the "balance budget")
 
-The validator rejects unknown primitives/tags, out-of-budget numbers, and self-referencing loops. A rejected proposal costs the player nothing but the attempt.
+- reference existing primitives, statuses, areas, tags, channels, and reaction
+  operations by ID
+- compose approved base effects within numeric and layer-count bounds
+- submit declarative JSON; it cannot provide executable code or invent a new
+  primitive
+
+The validator rejects unknown references, duplicates, out-of-budget numbers,
+channel conflicts, and transition loops. A rejected proposal costs the player
+nothing but the attempt.
 
 ## Verticality
 

@@ -110,7 +110,7 @@ function pickUpEntity(sim: SimState, slot: PlayerSlot, entity: Entity): void {
 
 function pickUpTorch(sim: SimState, slot: PlayerSlot, torch: Entity): void {
   sim.torches.delete(torch.id);
-  invAdd(sim, slot, "torch", 1);
+  invAdd(sim, slot, torch.defId ?? "torch", 1);
 }
 
 /** Drop one item by def; equipment clears only when its final copy leaves. */

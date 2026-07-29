@@ -1,6 +1,11 @@
 // Enemy defs — combat stats, status application on hit, immunities, and drop tables.
 import { z } from "zod";
 
+export const ENEMY_ELEMENTAL_ATTACKS = [
+  "oil-lob",
+  "directional-flame",
+] as const;
+
 export const enemyDefSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -9,11 +14,13 @@ export const enemyDefSchema = z.object({
   speed: z.number().positive(),
   aggroRadius: z.number().positive(),
   attack: z.object({
-    damage: z.number().positive(),
+    damage: z.number().nonnegative(),
     range: z.number().positive(),
     cooldown: z.number().positive(),
     /** Ranged attacks lob a projectile instead of striking. */
     ranged: z.boolean().optional(),
+    /** Server-owned elemental delivery layered onto the ranged attack phases. */
+    elemental: z.enum(ENEMY_ELEMENTAL_ATTACKS).optional(),
     applies: z.array(z.object({ status: z.string(), chance: z.number().min(0).max(1) })).optional(),
   }),
   /** Status tags this enemy cannot receive (slime is immune to bleed). */

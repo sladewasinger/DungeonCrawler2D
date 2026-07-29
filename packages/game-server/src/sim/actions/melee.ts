@@ -33,6 +33,15 @@ interface HitContext {
   effectEvents: EffectEvent[];
 }
 
+interface WeaponStatusContext {
+  sim: SimState;
+  attacker: Entity;
+  victim: Entity;
+  weaponDef: ItemDef | undefined;
+  target: ReturnType<typeof effectTargetFor>;
+  effectEvents: EffectEvent[];
+}
+
 export function doAttack({ sim, slot, dirX, dirY, effectEvents }: AttackContext): void {
   const attacker = slot.entity;
   faceEntity(attacker, dirX, dirY);
@@ -77,8 +86,14 @@ function resolveHit({ sim, attacker, weaponDef, victim, effectEvents }: HitConte
   const damage = meleeDamage({ sim, attacker, victim, weaponDef });
   recordPlayerAttacker(sim, attacker, victim);
   const target = effectTargetFor(sim, victim);
-  sim.effects.modifyHealth({ entity: victim, amount: -damage, events: effectEvents, opts: { sourceTags: weaponDef?.tags ?? [] }, target });
-  applyWeaponStatuses({ sim, victim, weaponDef, target, effectEvents });
+  sim.effects.modifyHealth({
+    entity: victim,
+    amount: -damage,
+    events: effectEvents,
+    opts: { sourceTags: weaponDef?.tags ?? [], sourceId: attacker.id },
+    target,
+  });
+  applyWeaponStatuses({ sim, attacker, victim, weaponDef, target, effectEvents });
   applyKnockback(victim.body, {
     dirX: victim.body.x - attacker.body.x,
     dirY: victim.body.y - attacker.body.y,
@@ -104,10 +119,16 @@ function meleeHitIsBlocked(sim: SimState, victim: Entity, attacker: Entity): boo
   return blocksAttackFrom(victimSlot, attacker);
 }
 
-function applyWeaponStatuses({ sim, victim, weaponDef, target, effectEvents }: Pick<HitContext, "sim" | "victim" | "weaponDef" | "effectEvents"> & { target: ReturnType<typeof effectTargetFor> }): void {
+function applyWeaponStatuses({ sim, attacker, victim, weaponDef, target, effectEvents }: WeaponStatusContext): void {
   for (const apply of weaponDef?.weapon?.applies ?? []) {
     if (sim.rng.next() < apply.chance) {
-      sim.effects.applyStatus({ entity: victim, statusId: apply.status, events: effectEvents, target });
+      sim.effects.applyStatus({
+        entity: victim,
+        statusId: apply.status,
+        events: effectEvents,
+        target,
+        sourceId: attacker.id,
+      });
     }
   }
 }

@@ -1,5 +1,6 @@
 // Public registry type + entry point: validates raw content JSON into a cross-checked ContentRegistry.
 import type { AreaDef } from "./areas.js";
+import type { AreaReaction } from "./areaReactions.js";
 import type { EnemyDef } from "./enemies.js";
 import type { ItemDef } from "./items.js";
 import type { RecipeDef } from "./recipes.js";
@@ -10,6 +11,7 @@ import { validateReferences } from "./validate.js";
 export interface ContentRegistry {
   statuses: ReadonlyMap<string, StatusDef>;
   rules: readonly InteractionRule[];
+  areaReactions: readonly AreaReaction[];
   areas: ReadonlyMap<string, AreaDef>;
   items: ReadonlyMap<string, ItemDef>;
   enemies: ReadonlyMap<string, EnemyDef>;
@@ -19,6 +21,7 @@ export interface ContentRegistry {
 export interface RawContent {
   statuses: unknown[];
   rules: unknown[];
+  areaReactions?: unknown[];
   areas: unknown[];
   items: unknown[];
   enemies: unknown[];

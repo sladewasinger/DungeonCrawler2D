@@ -8,6 +8,8 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     delta: z.number(),
     kind: z.enum(["heal", "damage"]),
     source: z.literal("automatic").optional(),
+    /** Authoritative combat source; clients may ignore it until messaging uses it. */
+    sourceId: z.string().optional(),
   }),
   /** Presentation signal for a resolved damaging impact. Kept separate from
    * health state so invulnerability systems may restore HP without suppressing

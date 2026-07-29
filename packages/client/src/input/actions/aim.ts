@@ -32,11 +32,7 @@ export function throwAtResolvedTarget(
   conn: InputConnection,
   target: ResolvedThrowTarget,
 ): void {
-  const { body } = conn;
-  if (!body) return;
-  const dx = target.x - body.x;
-  const dy = target.y - body.y;
-  if (conn.hotbar[target.slot] === "torch") return conn.throwTorch(dx, dy);
+  if (!conn.body) return;
   conn.useSlot(target.slot, target.x, target.y);
 }
 

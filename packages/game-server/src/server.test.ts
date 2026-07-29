@@ -1,5 +1,6 @@
 import {
   areasData,
+  areaReactionsData,
   enemiesData,
   itemsData,
   recipesData,
@@ -24,6 +25,7 @@ const content = buildContentRegistry({
   statuses: statusesData as unknown[],
   rules: rulesData as unknown[],
   areas: areasData as unknown[],
+  areaReactions: areaReactionsData as unknown[],
   items: itemsData as unknown[],
   enemies: enemiesData as unknown[],
   recipes: recipesData as unknown[],

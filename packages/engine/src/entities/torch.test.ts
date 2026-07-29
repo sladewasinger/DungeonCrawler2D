@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MAX_THROW_RANGE } from "../core/constants.js";
 import type { WorldView } from "../world/core/types.js";
+import { TICK_DT } from "../core/constants.js";
 import { makeEntity } from "./entity.js";
 import { createBody } from "./movement/index.js";
 import { launchTorch, stepTorch } from "./torch.js";
@@ -20,6 +20,15 @@ function wallAt3World(): WorldView {
   };
 }
 
+function raisedTargetWorld(): WorldView {
+  return {
+    isWalkable: () => true,
+    heightAt: (x, y) => (Math.floor(x) === 2 && Math.floor(y) === 0 ? 2 : 0),
+    groundAt: (x, y) => (Math.floor(x) === 2 && Math.floor(y) === 0 ? 2 : 0),
+    stairHeightAt: () => null,
+  };
+}
+
 function flyingTorch(vel: { x: number; y: number; z: number }) {
   const body = createBody(0.5, 0.5, 1);
   body.grounded = false;
@@ -27,17 +36,24 @@ function flyingTorch(vel: { x: number; y: number; z: number }) {
 }
 
 describe("launchTorch", () => {
-  it("normalizes the aim direction and arcs toward a point MAX_THROW_RANGE away", () => {
-    const { vel } = launchTorch({ world: flatWorld(), from: { x: 0, y: 0, z: 1 }, direction: { x: 3, y: 4 } }); // 3-4-5 triangle
+  it("arcs toward the requested target", () => {
+    const { vel } = launchTorch({
+      world: flatWorld(),
+      from: { x: 0, y: 0, z: 1 },
+      target: { x: 3, y: 4 },
+    });
     expect(Math.hypot(vel.x, vel.y)).toBeGreaterThan(0);
-    // Direction preserved: vel.x/vel.y ratio matches the normalized (3/5, 4/5) input.
     expect(vel.x / vel.y).toBeCloseTo(3 / 4, 5);
-    expect(vel.z).toBeGreaterThan(0); // launched upward, not straight-lined
+    expect(vel.z).toBeGreaterThan(0);
   });
 
-  it("defaults a zero-length vector to a sane forward throw instead of nowhere", () => {
-    const { vel } = launchTorch({ world: flatWorld(), from: { x: 0, y: 0, z: 1 }, direction: { x: 0, y: 0 } });
-    expect(Math.hypot(vel.x, vel.y)).toBeGreaterThan(0);
+  it("does not invent distance for a target at the thrower's position", () => {
+    const { vel } = launchTorch({
+      world: flatWorld(),
+      from: { x: 0, y: 0, z: 1 },
+      target: { x: 0, y: 0 },
+    });
+    expect(Math.hypot(vel.x, vel.y)).toBe(0);
   });
 });
 
@@ -50,7 +66,7 @@ describe("stepTorch", () => {
     expect(torch.body).toEqual(before);
   });
 
-  it("arcs, lands on open ground, snaps to the landing tile's center, and flips to placed", () => {
+  it("arcs, lands on open ground, preserves the impact point, and flips to placed", () => {
     const torch = flyingTorch({ x: 10, y: 0, z: 2 });
     let result = stepTorch(flatWorld(), torch, 0.1);
     let steps = 0;
@@ -61,8 +77,8 @@ describe("stepTorch", () => {
     expect(result.landed).toBe(true);
     expect(torch.torchState).toBe("placed");
     expect(torch.vel).toBeUndefined();
-    expect(torch.body.x % 1).toBeCloseTo(0.5, 5);
-    expect(torch.body.y % 1).toBeCloseTo(0.5, 5);
+    expect(torch.body.x).not.toBeCloseTo(0.5, 5);
+    expect(torch.body.y).toBeCloseTo(0.5, 5);
   });
 
   it("stops and places at the wall (visual-height blocking rule), never crossing it", () => {
@@ -82,21 +98,50 @@ describe("stepTorch", () => {
     expect(torch.body.x).toBeLessThan(3);
   });
 
-  it("launched torch flight reaches roughly the intended MAX_THROW_RANGE distance", () => {
+  it("lands a near throw at its exact target with production 50ms ticks", () => {
     const from = { x: 0.5, y: 0.5, z: 0 };
-    const { vel } = launchTorch({ world: flatWorld(), from, direction: { x: 1, y: 0 } });
+    const target = { x: 2.25, y: 0.5 };
+    const launch = launchTorch({ world: flatWorld(), from, target });
     const torch = makeEntity("torch", createBody(from.x, from.y, from.z), {
       torchState: "flying",
-      vel,
+      vel: launch.vel,
+      ballisticFlight: launch.ballisticFlight,
     });
     torch.body.grounded = false;
-    let result = stepTorch(flatWorld(), torch, 0.02);
+    let result = stepTorch(flatWorld(), torch, TICK_DT);
     let steps = 0;
-    while (!result.landed && steps < 500) {
-      result = stepTorch(flatWorld(), torch, 0.02);
+    while (!result.landed && steps < 40) {
+      result = stepTorch(flatWorld(), torch, TICK_DT);
       steps++;
     }
     expect(result.landed).toBe(true);
-    expect(torch.body.x - from.x).toBeCloseTo(MAX_THROW_RANGE, 0);
+    expect(torch.body.x).toBeCloseTo(target.x, 8);
+    expect(torch.body.y).toBeCloseTo(target.y, 8);
+    expect(torch.body.x).not.toBeCloseTo(2.5, 2);
+    expect(torch.body.x - from.x).toBeLessThan(3);
+  });
+
+  it("lands on the target ground height when the target is elevated", () => {
+    const from = { x: 0.5, y: 0.5, z: 0 };
+    const launch = launchTorch({
+      world: raisedTargetWorld(),
+      from,
+      target: { x: 2.25, y: 0.5 },
+    });
+    const torch = makeEntity("torch", createBody(from.x, from.y, from.z), {
+      torchState: "flying",
+      vel: launch.vel,
+      ballisticFlight: launch.ballisticFlight,
+    });
+    torch.body.grounded = false;
+    let result = stepTorch(raisedTargetWorld(), torch, 0.02);
+    let steps = 0;
+    while (!result.landed && steps < 500) {
+      result = stepTorch(raisedTargetWorld(), torch, 0.02);
+      steps++;
+    }
+
+    expect(result.landed).toBe(true);
+    expect(torch.body.z).toBe(2);
   });
 });

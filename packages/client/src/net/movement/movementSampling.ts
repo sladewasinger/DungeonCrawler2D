@@ -1,6 +1,7 @@
 /** Runs local prediction every fixed tick while sending only cadence-selected movement intents. */
 import type { MoveInput } from "@dc2d/engine";
 import type { Connection } from "../connection/connection.js";
+import { movementSpeedProjection } from "../prediction/movement/movementSpeedContent.js";
 
 function sendMovement(
   connection: Connection,
@@ -34,6 +35,11 @@ export function sampleMovement(connection: Connection, input: MoveInput): void {
     input,
     resources: connection,
     canBlock: connection.weapon !== null,
+    movementSpeed: connection.movementSpeed,
+    movementSpeedProjection: movementSpeedProjection(
+      connection.movementSpeed,
+      connection.statusEffects,
+    ),
   });
   if (!connection.movementCadence.shouldSend(input)) return;
   sendMovement(connection, input, identity);

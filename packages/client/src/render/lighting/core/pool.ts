@@ -2,8 +2,9 @@
 // id, reused across frames (never recreated), tinted per light and gently flickering.
 import Phaser from "phaser";
 import { ASSET_KEYS, SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
-import { worldToScreen } from "../../entities/geometry/worldToScreen.js";
+import { groundToScreen } from "../../entities/geometry/worldToScreen.js";
 import { torchHaloFade } from "./haloFade.js";
+import { lightHaloPresentation } from "./lightHaloPresentation.js";
 import { flickerAlpha, flickerScale, type LightSource } from "./lightSource.js";
 import { LIGHTING_VISUAL_STYLE } from "../lightingVisualStyle.js";
 
@@ -11,11 +12,7 @@ const LIGHT_FRAME = "light_soft";
 const LIGHT_SOURCE_PX = 64;
 const MAX_SPARE_LIGHTS =
   LIGHTING_VISUAL_STYLE.streaming.maximumSpareLights;
-/** Kept modest (not a bright opaque wash) — darkness's erase already restores full natural brightness within the hole; this layer only adds the color cast, so it never flattens an entity's silhouette when a light sits right on top of one. */
-/** Raised with ambient 0.72: the additive halo carries most of a torch's visible
- * punch now that the baked tint plateau is close to full brightness. */
 const BASE_ALPHA = LIGHTING_VISUAL_STYLE.halo.baseAlpha;
-const PERSONAL = LIGHTING_VISUAL_STYLE.personal;
 
 interface LightSpriteFrame {
   readonly lights: readonly LightSource[];
@@ -102,15 +99,16 @@ export class LightSpritePool {
     placement: LightPlacement,
   ): void {
     const { light, nowMs, overlayDepth } = placement;
-    const personal = light.kind === "personal";
-    const scale = ((light.radiusTiles * 2 * SCREEN_TILE_PX) / LIGHT_SOURCE_PX) *
+    const presentation = lightHaloPresentation(light);
+    const scale = ((presentation.radiusTiles * 2 * SCREEN_TILE_PX) / LIGHT_SOURCE_PX) *
       flickerScale(nowMs, light.seed) *
-      (personal ? PERSONAL.haloScaleMultiplier : 1);
-    const screen = worldToScreen(light.x, light.y);
-    // GROUND-anchored (ELEVATION-PROJECTION section 5): shift by the light's ground
-    // height so a torch/personal halo on a platform glows on the platform, not below it.
-    const shiftedY = screen.y - (light.groundHeight ?? 0) * SCREEN_TILE_PX;
-    sprite.setPosition(screen.x, shiftedY).setDepth(overlayDepth);
+      presentation.scaleMultiplier;
+    const screen = groundToScreen(
+      light.x,
+      light.y,
+      light.groundHeight ?? 0,
+    );
+    sprite.setPosition(screen.x, screen.y).setDepth(overlayDepth);
     sprite.setScale(scale);
     sprite.setTint(light.color);
     const fade = light.kind === "torch"
@@ -119,7 +117,7 @@ export class LightSpritePool {
     sprite.setAlpha(Math.min(
       1,
       BASE_ALPHA *
-        (personal ? PERSONAL.haloAlphaMultiplier : 1) *
+        presentation.alphaMultiplier *
         flickerAlpha(nowMs, light.seed) *
         fade,
     ));

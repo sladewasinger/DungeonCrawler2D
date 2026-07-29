@@ -1,6 +1,7 @@
 import { LEVEL, MOVE_SPEED, World, buildContentRegistry, hashString } from "@dc2d/engine";
 import {
   areasData,
+  areaReactionsData,
   enemiesData,
   itemsData,
   recipesData,
@@ -26,6 +27,7 @@ const content = buildContentRegistry({
   statuses: [...statusesData],
   rules: [...rulesData],
   areas: [...areasData],
+  areaReactions: [...areaReactionsData],
   items: [...itemsData],
   enemies: [...enemiesData],
   recipes: [...recipesData],

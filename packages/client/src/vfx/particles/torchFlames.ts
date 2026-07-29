@@ -2,7 +2,7 @@
 // (torches don't move) and destroyed when its chunk streams back out — mirrors
 // LightSpritePool's id-keyed sync shape.
 import type Phaser from "phaser";
-import { worldToScreen } from "../../render/entities/geometry/worldToScreen.js";
+import { projectTorchGroundAnchor } from "../../render/entities/presentation/torch/groundAnchor.js";
 import type { LightSource } from "../../render/lighting/core/lightSource.js";
 import { createTorchFlame } from "./particleRecipes.js";
 
@@ -28,8 +28,16 @@ export class TorchFlamePool {
 
   private syncTorch(torch: LightSource): void {
     this.seen.add(torch.id);
-    if (this.emitters.has(torch.id)) return;
-    const screen = worldToScreen(torch.x, torch.y);
+    const screen = projectTorchGroundAnchor({
+      x: torch.x,
+      y: torch.y,
+      groundHeight: torch.groundHeight ?? 0,
+    });
+    const existing = this.emitters.get(torch.id);
+    if (existing) {
+      existing.setPosition(screen.x, screen.y);
+      return;
+    }
     this.emitters.set(torch.id, this.acquire(screen.x, screen.y));
   }
 

@@ -3,6 +3,7 @@ import {
   lightingColor,
 } from "./lightingVisualStyle.js";
 import type { LightSource } from "./core/lightSource.js";
+import { applyPlayerLightMode } from "./playerLightMode.js";
 
 export type MutableLightSource = {
   -readonly [Key in keyof LightSource]: LightSource[Key];
@@ -16,20 +17,17 @@ export const PORTAL_LIGHT_COLOR =
   lightingColor(LIGHTING_VISUAL_STYLE.portal.color);
 export const PORTAL_LIGHT_RADIUS_TILES =
   LIGHTING_VISUAL_STYLE.portal.radiusTiles;
-export const PERSONAL_LIGHT_COLOR =
-  lightingColor(LIGHTING_VISUAL_STYLE.personal.color);
-export const PERSONAL_LIGHT_RADIUS_TILES =
-  LIGHTING_VISUAL_STYLE.personal.radiusTiles;
-
 export function createPersonalLight(): MutableLightSource {
-  return {
+  const light: MutableLightSource = {
     id: "personal",
     x: 0,
     y: 0,
-    color: PERSONAL_LIGHT_COLOR,
-    radiusTiles: PERSONAL_LIGHT_RADIUS_TILES,
+    color: 0,
+    radiusTiles: 0,
     kind: "personal",
     seed: 0,
     groundHeight: 0,
   };
+  applyPlayerLightMode(light, false);
+  return light;
 }

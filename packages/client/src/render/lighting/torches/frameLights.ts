@@ -48,6 +48,25 @@ export function collectTorchLights(
   return out;
 }
 
+/** Luminous ground sources make darkness holes; the personal source is added separately. */
+export function collectGroundRevealLights(
+  lights: readonly LightSource[],
+  maximumLights: number,
+  out: LightSource[],
+): LightSource[] {
+  out.length = 0;
+  for (const light of lights) {
+    if (!isGroundRevealLight(light)) continue;
+    out.push(light);
+    if (out.length >= maximumLights) break;
+  }
+  return out;
+}
+
+function isGroundRevealLight(light: LightSource): boolean {
+  return light.kind !== "personal";
+}
+
 function appendTorches(
   lights: readonly LightSource[],
   out: LightSource[],

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { LightSource } from "../core/lightSource.js";
-import { collectTorchLights, selectFrameLights } from "./frameLights.js";
+import {
+  collectGroundRevealLights,
+  collectTorchLights,
+  selectFrameLights,
+} from "./frameLights.js";
 
 function light(
   id: string,
@@ -61,5 +65,22 @@ describe("collectTorchLights", () => {
 
     expect(result).toBe(identity);
     expect(result.map(({ id }) => id)).toEqual(["world", "placed"]);
+  });
+});
+
+describe("collectGroundRevealLights", () => {
+  it("includes every world emitter while excluding the separately-managed player light", () => {
+    const lights = [
+      light("personal", 0, "personal"),
+      light("torch-a", 1, "torch"),
+      { ...light("flying", 2, "fire"), emitsTorchLight: true },
+      light("fire-field", 2, "fire"),
+      light("poison", 2, "poison"),
+      light("portal", 2, "portal"),
+      light("torch-b", 3, "torch"),
+    ];
+
+    expect(collectGroundRevealLights(lights, 6, []).map(({ id }) => id))
+      .toEqual(["torch-a", "flying", "fire-field", "poison", "portal", "torch-b"]);
   });
 });
