@@ -101,5 +101,6 @@ function assertComposition(input: CompositionAssertion): void {
     .map((enemy) => enemy.def.id)
     .sort();
   expect(leader.def.id).toBe(input.leaderDefId);
+  expect(leader.def.tags).toContain("mini-boss");
   expect(minions).toEqual([...input.minionDefIds].sort());
 }

@@ -1,4 +1,8 @@
 import { AREA_VISUAL_BUDGETS } from "./areaVisualStyle.js";
+import {
+  DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  type DevicePresentationProfile,
+} from "../../../presentation/devicePresentationProfile.js";
 
 export interface AreaVisualBudget {
   readonly maximumFireRigs: number;
@@ -12,16 +16,19 @@ export interface AreaVisualBudget {
 export function areaVisualBudgetFor(
   reducedEffects: boolean,
   mobile: boolean,
+  deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
 ): AreaVisualBudget {
-  return reducedEffects || mobile
+  return reducedEffects || mobile || deviceProfile.kind === "constrained"
     ? AREA_VISUAL_BUDGETS.reduced
     : AREA_VISUAL_BUDGETS.full;
 }
 
-export function defaultAreaVisualBudget(): AreaVisualBudget {
+export function defaultAreaVisualBudget(
+  deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+): AreaVisualBudget {
   const reducedEffects = userReducedEffects() || systemReducedMotion();
   const mobile = (globalThis.navigator?.maxTouchPoints ?? 0) > 0;
-  return areaVisualBudgetFor(reducedEffects, mobile);
+  return areaVisualBudgetFor(reducedEffects, mobile, deviceProfile);
 }
 
 function userReducedEffects(): boolean {

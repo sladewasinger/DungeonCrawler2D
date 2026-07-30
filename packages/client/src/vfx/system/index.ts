@@ -1,6 +1,10 @@
 // VFX facade: owns every particle/juice subsystem and exposes the small trigger surface
 // scenes call into — area hazards, torch flames, player motion feel, and combat juice.
 import type Phaser from "phaser";
+import {
+  DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  type DevicePresentationProfile,
+} from "../../presentation/devicePresentationProfile.js";
 import { worldToScreen } from "../../render/entities/geometry/worldToScreen.js";
 import type { LightSource } from "../../render/lighting/core/lightSource.js";
 import type { AreaTileView } from "../areas/areaEffectPool.js";
@@ -39,8 +43,11 @@ export class VfxSystem {
   readonly graceRing: GraceRing;
   private selfHpRatio = 1;
 
-  constructor(private readonly scene: Phaser.Scene) {
-    this.components = createVfxSystemComponents(scene);
+  constructor(
+    private readonly scene: Phaser.Scene,
+    deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  ) {
+    this.components = createVfxSystemComponents(scene, deviceProfile);
     this.graceRing = new GraceRing(scene);
   }
 

@@ -1,5 +1,6 @@
 import { resolveHitAgainstPending } from "../../../vfx/combat/meleeConnect.js";
 import type { VisualEventContext } from "./visualEvents.js";
+import { shouldPresentWorldVisual } from "./worldVisualVisibility.js";
 
 export interface CapturedTarget {
   readonly id: string;
@@ -22,18 +23,25 @@ export function resolveVisualTarget(context: VisualEventContext, captured: Captu
 
 export function applyDamageImpact(context: VisualEventContext, event: CapturedTarget): void {
   const target = resolveVisualTarget(context, event);
-  if (target.position && context.conn.world) {
-    context.vfx.spawnBloodHit({
-      x: target.position.x,
-      y: target.position.y,
-      groundHeight: context.conn.world.groundAt(target.position.x, target.position.y),
-      defId: target.defId,
-      nowMs: context.nowMs,
-      direction: target.direction,
-    });
-    resolveHitAgainstPending(context.pendingSwings, target.position.x, target.position.y);
-  }
+  if (target.position && context.conn.world) spawnImpactBlood(context, target);
   if (target.isSelf) context.vfx.onOwnHit(context.nowMs);
+}
+
+function spawnImpactBlood(
+  context: VisualEventContext,
+  target: ReturnType<typeof resolveVisualTarget>,
+): void {
+  if (!target.position || !context.conn.world) return;
+  resolveHitAgainstPending(context.pendingSwings, target.position.x, target.position.y);
+  if (!shouldPresentWorldVisual({ ...target.position, isSelf: target.isSelf }, context.worldVisibility)) return;
+  context.vfx.spawnBloodHit({
+    x: target.position.x,
+    y: target.position.y,
+    groundHeight: context.conn.world.groundAt(target.position.x, target.position.y),
+    defId: target.defId,
+    nowMs: context.nowMs,
+    direction: target.direction,
+  });
 }
 
 function capturedPosition(captured: CapturedTarget) {

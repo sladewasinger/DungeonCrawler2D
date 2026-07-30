@@ -7,7 +7,9 @@ import type { PendingSwing } from "../../../vfx/combat/meleeConnect.js";
 import { floorAnnouncerLine } from "../combat/floorAnnouncer.js";
 import type { RenderPose } from "../orchestration/state.js";
 import { healthFeedback } from "../../../ui/presentation/healthFeedback.js";
+import type { WorldPresentationVisibility } from "../../../render/visibility/worldPresentationVisibility.js";
 import { applyDamageImpact, resolveVisualTarget, type CapturedTarget } from "./visualEventCombat.js";
+import { shouldPresentWorldVisual } from "./worldVisualVisibility.js";
 
 type VisualEvent = ReturnType<Connection["drainVisualEvents"]>[number];
 
@@ -19,6 +21,7 @@ export interface VisualEventContext {
   readonly pendingSwings: Map<string, PendingSwing>;
   readonly nowMs: number;
   readonly explicitImpacts: Map<string, number>;
+  readonly worldVisibility: WorldPresentationVisibility | null;
 }
 
 export interface VisualEventInput {
@@ -27,14 +30,28 @@ export interface VisualEventInput {
   readonly render: RenderPose;
   readonly pendingSwings: Map<string, PendingSwing>;
   readonly nowMs: number;
+  readonly lighting?: PresentationVisibilitySource | undefined;
 }
 
-export function applyVisualEvents({ conn, vfx, render, pendingSwings, nowMs }: VisualEventInput): void {
+interface PresentationVisibilitySource {
+  presentationVisibility(): WorldPresentationVisibility | null;
+}
+
+export function applyVisualEvents({ conn, vfx, render, pendingSwings, nowMs, lighting }: VisualEventInput): void {
   // Continuous (not event-edge-triggered): the low-hp heartbeat throb animates every
   // frame, not just on hp change, so this runs whether or not any event fired below.
   vfx.setSelfHp(conn.hp, conn.maxHp);
   const events = conn.drainVisualEvents();
-  const context: VisualEventContext = { conn, vfx, render, pendingSwings, nowMs, selfId: conn.welcome?.playerId, explicitImpacts: countExplicitImpacts(events) };
+  const context: VisualEventContext = {
+    conn,
+    vfx,
+    render,
+    pendingSwings,
+    nowMs,
+    selfId: conn.welcome?.playerId,
+    explicitImpacts: countExplicitImpacts(events),
+    worldVisibility: lighting?.presentationVisibility() ?? null,
+  };
   for (const event of events) applyVisualEvent(context, event);
 }
 
@@ -121,15 +138,15 @@ function applyHealthChange(context: VisualEventContext, event: CapturedTarget & 
     defId?: string;
     targetKind?: "player" | "enemy";
   }): void {
-  const { position } = resolveVisualTarget(context, event);
-  if (position && event.source !== "automatic") {
-      context.vfx.spawnDamageNumber({
-        x: position.x,
-        y: position.y - 0.6,
-        feedback: healthFeedback(event.delta, event.kind),
-        nowMs: context.nowMs,
-      });
-  }
+  const target = resolveVisualTarget(context, event);
+  if (!target.position || event.source === "automatic") return;
+  if (!shouldPresentWorldVisual({ ...target.position, isSelf: target.isSelf }, context.worldVisibility)) return;
+  context.vfx.spawnDamageNumber({
+    x: target.position.x,
+    y: target.position.y - 0.6,
+    feedback: healthFeedback(event.delta, event.kind),
+    nowMs: context.nowMs,
+  });
 }
 
 /** Blood burst + decals at a dying entity's last known position, plus the full kill
@@ -142,6 +159,7 @@ function applyFistbumpSealed(context: VisualEventContext, partnerName: string): 
   const lowerName = partnerName.toLowerCase();
   for (const remote of context.conn.entities.values()) {
     if (remote.snap.kind === "player" && remote.snap.name?.toLowerCase() === lowerName) {
+      if (!shouldPresentWorldVisual(remote.snap, context.worldVisibility)) return;
       context.vfx.spawnFistbumpFlourish(remote.snap.x, remote.snap.y);
       return;
     }

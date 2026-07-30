@@ -7,7 +7,8 @@ describe("toon lighting budget", () => {
     expect(TOON_LIGHTING_BUDGET.playerGroundLightObjects).toBe(0);
     expect(TOON_LIGHTING_BUDGET.classicMaximumPlayerGroundLightObjects)
       .toBeGreaterThan(TOON_LIGHTING_BUDGET.maskGameObjects);
-    expect(TOON_LIGHTING_BUDGET.lineOfSightChecksPerRebuild).toBe(4096);
+    expect(TOON_LIGHTING_BUDGET.lineOfSightChecksPerRebuild).toBe(0);
+    expect(TOON_LIGHTING_BUDGET.occluderChecksPerRebuild).toBe(4096);
     expect(TOON_LIGHTING_BUDGET.evaluatedCellsPerRebuild).toBe(4096);
   });
 });

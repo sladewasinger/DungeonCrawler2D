@@ -1,8 +1,13 @@
 import type Phaser from "phaser";
+import {
+  DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  type DevicePresentationProfile,
+} from "../../presentation/devicePresentationProfile.js";
 import type { LightSource } from "../../render/lighting/core/lightSource.js";
 import { AreaAnimatedPool } from "./animation/areaAnimatedPool.js";
 import { ConnectedFireField } from "./fire/connectedFireField.js";
 import { AreaPuddleLayers } from "./puddles/areaPuddleLayers.js";
+import { defaultAreaVisualBudget } from "./presentation/areaVisualBudget.js";
 
 export type AreaSpriteKind =
   | "fire"
@@ -56,10 +61,12 @@ export class AreaEffectPool {
   constructor(
     scene: Phaser.Scene,
     dependencies: AreaEffectPoolDependencies = {},
+    deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
   ) {
-    this.puddles = dependencies.puddles ?? new AreaPuddleLayers(scene);
-    this.animated = dependencies.animated ?? new AreaAnimatedPool(scene);
-    this.fire = dependencies.fire ?? new ConnectedFireField(scene);
+    const budget = defaultAreaVisualBudget(deviceProfile);
+    this.puddles = dependencies.puddles ?? new AreaPuddleLayers(scene, budget);
+    this.animated = dependencies.animated ?? new AreaAnimatedPool(scene, budget);
+    this.fire = dependencies.fire ?? new ConnectedFireField(scene, budget);
   }
 
   sync(tiles: readonly AreaTileView[]): LightSource[] {

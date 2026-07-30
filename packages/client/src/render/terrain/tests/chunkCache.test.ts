@@ -67,6 +67,25 @@ describe("TerrainChunkPlanCache", () => {
     expect(batches.floors[0]?.worldTile).toEqual({ x: 0, y: 0 });
   });
 
+  it("omits terrain geometry outside presentation visibility", () => {
+    const batches = emptyTerrainBatches();
+    const metrics = appendVisibleChunkPlans({
+      target: batches,
+      cache: new TerrainChunkPlanCache(),
+      source,
+      bounds: { x: 0, y: 0, width: 4, height: 1 },
+      orientation: 0,
+      revision: 1,
+      visibility: {
+        revision: 1,
+        isWorldPositionVisible: (x) => x < 2,
+      },
+    });
+
+    expect(batches.floors.map(({ worldTile }) => worldTile.x)).toEqual([0, 1]);
+    expect(metrics).toEqual({ candidateQuads: 4, submittedQuads: 2 });
+  });
+
   it("clips every terrain presentation layer at a chunk seam", () => {
     const batches = emptyTerrainBatches();
     appendVisibleChunkPlans({

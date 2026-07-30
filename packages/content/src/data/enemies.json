@@ -237,7 +237,7 @@
   {
     "id": "big-demon",
     "name": "Greater Demon",
-    "tags": ["organic", "demon", "elite"],
+    "tags": ["organic", "demon", "elite", "mini-boss"],
     "hp": 90,
     "speed": 3,
     "aggroRadius": 14,

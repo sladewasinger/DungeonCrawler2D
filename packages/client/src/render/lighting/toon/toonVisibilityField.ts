@@ -4,12 +4,13 @@ import {
 } from "@dc2d/engine";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import { TOON_LIGHTING_TUNING } from "./toonLightingTuning.js";
+import { sweepAngularVisibility } from "./visibility/angularVisibilitySweep.js";
 import {
   mergeToonMaskTiles,
   toonMaskTileFor,
   type ToonMaskRect,
   type ToonMaskTile,
-} from "./toonMaskGeometry.js";
+} from "./mask/maskGeometry.js";
 
 export interface ToonWorldBounds {
   readonly x: number;
@@ -35,6 +36,7 @@ export interface ToonVisibilityField {
   readonly maskRects: readonly ToonMaskRect[];
   readonly evaluatedCells: number;
   readonly lineOfSightChecks: number;
+  readonly occluderChecks: number;
 }
 
 export function buildToonVisibilityField(
@@ -43,29 +45,28 @@ export function buildToonVisibilityField(
   const visibleTiles = new Set<string>();
   const maskTiles: ToonMaskTile[] = [];
   const bounds = boundedVisibilityBounds(input.bounds, input.player);
-  const evaluatedCells = visitVisibilityCells(bounds, (x, y) => {
-    appendVisibleTile({ input, visibleTiles, maskTiles, x, y });
+  const origin = {
+    x: Math.floor(input.player.x),
+    y: Math.floor(input.player.y),
+  };
+  let lineOfSightChecks = 0;
+  const sweep = sweepAngularVisibility({
+    bounds,
+    origin,
+    isOpaque: ({ x, y }) => !input.world.isWalkable(x, y),
+    visit: ({ x, y }) => {
+      lineOfSightChecks += 1;
+      if (!hasToonLineOfSight(input, x, y)) return;
+      appendVisibleTile({ input, visibleTiles, maskTiles, x, y });
+    },
   });
   return {
     visibleTiles,
     maskRects: mergeToonMaskTiles(maskTiles),
-    evaluatedCells,
-    lineOfSightChecks: evaluatedCells,
+    evaluatedCells: sweep.evaluatedCells,
+    lineOfSightChecks,
+    occluderChecks: sweep.occluderChecks,
   };
-}
-
-function visitVisibilityCells(
-  bounds: ToonWorldBounds,
-  visit: (x: number, y: number) => void,
-): number {
-  const count = Math.min(
-    bounds.width * bounds.height,
-    TOON_LIGHTING_TUNING.maximumFieldCells,
-  );
-  for (let index = 0; index < count; index += 1) {
-    visit(bounds.x + index % bounds.width, bounds.y + Math.floor(index / bounds.width));
-  }
-  return count;
 }
 
 export function toonTileKey(x: number, y: number): string {
@@ -119,13 +120,7 @@ function appendVisibleTile(input: {
   readonly x: number;
   readonly y: number;
 }): void {
-  const { world, player, orientation } = input.input;
-  if (!hasTerrainLineOfSight({
-    world,
-    from: player,
-    to: { x: input.x + 0.5, y: input.y + 0.5 },
-    maximumHeightDifference: TOON_LIGHTING_TUNING.maximumHeightDifference,
-  })) return;
+  const { world, orientation } = input.input;
   input.visibleTiles.add(toonTileKey(input.x, input.y));
   input.maskTiles.push(toonMaskTileFor({
     world,
@@ -133,4 +128,17 @@ function appendVisibleTile(input: {
     y: input.y,
     orientation,
   }));
+}
+
+function hasToonLineOfSight(
+  input: ToonVisibilityBuildInput,
+  x: number,
+  y: number,
+): boolean {
+  return hasTerrainLineOfSight({
+    world: input.world,
+    from: input.player,
+    to: { x: x + 0.5, y: y + 0.5 },
+    maximumHeightDifference: TOON_LIGHTING_TUNING.maximumHeightDifference,
+  });
 }

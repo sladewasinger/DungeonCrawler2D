@@ -7,6 +7,9 @@ import {
   MIN_FONT_SCALE,
 } from "./localPresentation.js";
 import { createCarnageControlGroups } from "./carnageControls.js";
+import {
+  createDevicePerformanceControl,
+} from "./performance/devicePerformanceControl.js";
 import { createSettingsSection } from "./settingsSection.js";
 import { createHudTemplate } from "../hud/styles/hudTemplate.js";
 import {
@@ -15,7 +18,6 @@ import {
   lightingModeIsQueryForced,
   savePersistedLightingMode,
 } from "../../render/lighting/mode.js";
-
 export const createSessionButton = (
   label: string,
   action: () => void,
@@ -27,7 +29,6 @@ export const createSessionButton = (
   button.addEventListener("click", action);
   return button;
 };
-
 export const createSessionRange = (
   { label, minimum, maximum, value, change }: { label: string; minimum: number; maximum: number; value: number; change: (value: number) => void },
 ): HTMLLabelElement => {
@@ -49,7 +50,6 @@ export const createSessionRange = (
   row.append(text, output, input);
   return row;
 };
-
 function bindRangeInput(input: HTMLInputElement, output: HTMLOutputElement, change: (value: number) => void): void {
   input.addEventListener("input", () => {
     const next = Number(input.value) / 100;
@@ -110,12 +110,13 @@ export const createGraphicsControls = (
     change: (value) => presentation.setFontScale(value),
   });
   const motion = createMotionControl(presentation, current.motion);
+  const performance = createDevicePerformanceControl();
   const lighting = createLightingModeControl();
   const groups = createCarnageControlGroups();
   const accessibility = createSettingsSection(
     "Accessibility",
     "#aaaec8",
-    [brightness, font, motion, lighting],
+    [brightness, font, motion, performance, lighting],
   );
   accessibility.style.gridColumn = "1 / -1";
   return [

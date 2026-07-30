@@ -3,6 +3,10 @@
 // methods once per frame; this is the only file outside this folder that should import
 // its siblings directly.
 import type Phaser from "phaser";
+import {
+  DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  type DevicePresentationProfile,
+} from "../../../presentation/devicePresentationProfile.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import { RoomPresentation } from "../../rooms/roomPresentation.js";
 import { createItemVisual, updateItemVisual } from "../visuals/itemVisual.js";
@@ -17,6 +21,7 @@ import { createTorchVisual, updateTorchVisual } from "../visuals/torch/visual.js
 import type { ItemEntityView, MonsterEntityView, PetEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "../visuals/view.js";
 import { PhaserStatusVisualRig } from "../status/entityStatusRig.js";
 import { EntityStatusVisualPool } from "../status/entityStatusVisualPool.js";
+import { defaultStatusVisualBudget } from "../status/statusVisualBudget.js";
 
 export type { RenderContext, PlayerEntityView, MonsterEntityView, PetEntityView, ItemEntityView, ProjectileEntityView, TorchEntityView } from "../visuals/view.js";
 
@@ -26,10 +31,14 @@ export class EntityRenderer {
   private readonly rooms: RoomPresentation;
   private readonly statusVisuals: EntityStatusVisualPool;
 
-  constructor(private readonly scene: Phaser.Scene) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  ) {
     this.rooms = new RoomPresentation(scene);
     this.statusVisuals = new EntityStatusVisualPool(
       (_seed, budget) => new PhaserStatusVisualRig(scene, budget),
+      defaultStatusVisualBudget(deviceProfile),
     );
   }
 

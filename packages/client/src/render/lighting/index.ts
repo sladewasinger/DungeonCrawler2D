@@ -23,6 +23,9 @@ import {
   ToonVisibilityController,
   type LightingToonMetrics,
 } from "./toon/index.js";
+import type {
+  WorldPresentationVisibility,
+} from "../visibility/worldPresentationVisibility.js";
 export class LightingSystem {
   private readonly pool: LightSpritePool;
   private readonly groundLight: PlayerGroundLightPass;
@@ -56,7 +59,7 @@ export class LightingSystem {
     this.syncPersonalLighting(false);
   }
   /** Runs before interpolation so the same LOS field can cull remote presentation. */
-  prepareToonVisibility(input: LightingFrame): boolean {
+  prepareToonVisibility(input: ToonLightingFrame): boolean {
     const active = this.toon.prepare(input);
     this.syncPersonalLighting(active);
     return active;
@@ -73,13 +76,17 @@ export class LightingSystem {
     return this.toon.isActive();
   }
 
+  presentationVisibility(): WorldPresentationVisibility | null {
+    return this.toon.presentationVisibility();
+  }
+
   toonMetrics(): LightingToonMetrics {
     return readLightingToonMetrics(this.toon, this.groundLight.activeCellCount());
   }
 
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
   update(input: LightingFrame): void {
-    const toonActive = this.prepareToonVisibility(input);
+    const toonActive = this.toon.isActive();
     this.chunkLights.stream(input.view);
     this.updatePersonalLight(input.personal);
     if (toonActive) {
@@ -141,6 +148,10 @@ export interface LightingFrame {
   readonly view: ViewRect;
   readonly personal: Readonly<{ x: number; y: number }>;
   readonly nowMs: number;
+}
+
+export interface ToonLightingFrame extends LightingFrame {
+  readonly cameraRotationRad: number;
 }
 
 export type { LightKind, LightSource } from "./core/lightSource.js";

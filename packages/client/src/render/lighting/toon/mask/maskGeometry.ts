@@ -1,8 +1,8 @@
 import type { WorldView } from "@dc2d/engine";
-import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
-import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
-import { worldTileToView } from "../../view/transform/viewTransform.js";
-import { TOON_LIGHTING_TUNING } from "./toonLightingTuning.js";
+import { SCREEN_TILE_PX } from "../../../../boot/assetManifest.js";
+import type { ViewOrientation } from "../../../view/orientation/viewOrientation.js";
+import { worldTileToView } from "../../../view/transform/viewTransform.js";
+import { TOON_LIGHTING_TUNING } from "../toonLightingTuning.js";
 
 export interface ToonMaskRect {
   readonly x: number;
@@ -24,11 +24,13 @@ export function toonMaskTileFor(input: {
   readonly orientation: ViewOrientation;
 }): ToonMaskTile {
   const view = worldTileToView({ x: input.x, y: input.y }, input.orientation);
-  const height = Math.max(0, input.world.groundAt(input.x + 0.5, input.y + 0.5));
+  const height = input.world.groundAt(input.x + 0.5, input.y + 0.5);
+  const projectedFaceHeight = Math.max(0, height);
   return {
     viewX: view.x * SCREEN_TILE_PX,
     topY: (view.y - height) * SCREEN_TILE_PX,
-    height: (1 + height + TOON_LIGHTING_TUNING.maskProjectionPaddingTiles)
+    height: (1 + projectedFaceHeight +
+      TOON_LIGHTING_TUNING.maskProjectionPaddingTiles)
       * SCREEN_TILE_PX,
   };
 }

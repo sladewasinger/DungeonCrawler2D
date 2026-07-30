@@ -1,13 +1,7 @@
 import type { World } from "@dc2d/engine";
 import type Phaser from "phaser";
 import type { ViewRect } from "../../terrain/streaming/streaming.js";
-import {
-  terrainCameraBackground,
-} from "../../terrain/runtime/renderSupport.js";
-import { roomTerrainPresentation } from "../../terrain/runtime/roomPresentation.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
-import { viewToWorld } from "../../view/transform/viewTransform.js";
-import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { isReservedRoomPosition } from "../../../scenes/dungeon/frame/roomEntityVisibility.js";
 import { currentLightingMode, LIGHTING_MODES } from "../mode.js";
 import {
@@ -20,19 +14,25 @@ import {
   isToonPositionVisible,
   type ToonVisibilityField,
 } from "./toonVisibilityField.js";
-import { ToonVisibilityMask } from "./toonVisibilityMask.js";
+import { ToonVisibilityMask } from "./mask/visibilityMask.js";
 import { toonWorldBoundsForView } from "./toonVisibilityBounds.js";
+import type {
+  WorldPresentationVisibility,
+} from "../../visibility/worldPresentationVisibility.js";
+import { TOON_LIGHTING_TUNING } from "./toonLightingTuning.js";
 
 const ALWAYS_VISIBLE_FIELD: ToonVisibilityField = {
   visibleTiles: new Set(),
   maskRects: [],
   evaluatedCells: 0,
   lineOfSightChecks: 0,
+  occluderChecks: 0,
 };
 
 export interface ToonVisibilityFrame {
   readonly view: ViewRect;
   readonly personal: Readonly<{ x: number; y: number }>;
+  readonly cameraRotationRad: number;
 }
 
 export interface ToonVisibilityMetrics {
@@ -41,11 +41,13 @@ export interface ToonVisibilityMetrics {
   readonly visibleTiles: number;
   readonly evaluatedCells: number;
   readonly lineOfSightChecks: number;
+  readonly occluderChecks: number;
   readonly fieldRebuilds: number;
 }
 
 /** Owns mode switching, LOS cache invalidation, and the single camera mask. */
-export class ToonVisibilityController {
+export class ToonVisibilityController implements WorldPresentationVisibility {
+  readonly backgroundColor = TOON_LIGHTING_TUNING.cameraBackgroundColor;
   private mask: ToonVisibilityMask | null = null;
   private cacheKey: ToonVisibilityCacheKey | null = null;
   private field = ALWAYS_VISIBLE_FIELD;
@@ -59,11 +61,10 @@ export class ToonVisibilityController {
 
   prepare(frame: ToonVisibilityFrame): boolean {
     const enabled = this.shouldEnable(frame.personal);
-    if (!enabled) return this.disable(frame);
+    if (!enabled) return this.disable();
     this.active = true;
-    this.scene.cameras.main.setBackgroundColor("#000000");
     this.refreshField(frame);
-    this.maskForToon().sync(this.field);
+    this.maskForToon().sync(this.field, frame.cameraRotationRad);
     return true;
   }
 
@@ -79,6 +80,14 @@ export class ToonVisibilityController {
     return this.isVisible(x, y);
   }
 
+  presentationVisibility(): WorldPresentationVisibility | null {
+    return this.active ? this : null;
+  }
+
+  get revision(): number {
+    return this.fieldRebuilds;
+  }
+
   metrics(): ToonVisibilityMetrics {
     return {
       active: this.active,
@@ -86,6 +95,7 @@ export class ToonVisibilityController {
       visibleTiles: this.field.visibleTiles.size,
       evaluatedCells: this.field.evaluatedCells,
       lineOfSightChecks: this.field.lineOfSightChecks,
+      occluderChecks: this.field.occluderChecks,
       fieldRebuilds: this.fieldRebuilds,
     };
   }
@@ -100,23 +110,13 @@ export class ToonVisibilityController {
       !isReservedRoomPosition(personal.x, personal.y);
   }
 
-  private disable(frame: ToonVisibilityFrame): boolean {
+  private disable(): boolean {
     if (!this.active) return false;
     this.active = false;
     this.cacheKey = null;
     this.field = ALWAYS_VISIBLE_FIELD;
     this.mask?.clear();
-    this.restoreTerrainBackground(frame.view);
     return false;
-  }
-
-  private restoreTerrainBackground(view: ViewRect): void {
-    const center = viewToWorld({
-      x: (view.x + view.width / 2) / SCREEN_TILE_PX,
-      y: (view.y + view.height / 2) / SCREEN_TILE_PX,
-    }, getViewOrientation());
-    const mode = roomTerrainPresentation(center.y).mode;
-    this.scene.cameras.main.setBackgroundColor(terrainCameraBackground(mode));
   }
 
   private maskForToon(): ToonVisibilityMask {

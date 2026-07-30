@@ -1,4 +1,8 @@
 import type Phaser from "phaser";
+import {
+  DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  type DevicePresentationProfile,
+} from "../../presentation/devicePresentationProfile.js";
 import { AreaEffectPool } from "../areas/areaEffectPool.js";
 import { BossDownFlourish } from "../flourishes/bossDownFlourish.js";
 import { CombatEffects } from "../combat/combatEffects.js";
@@ -31,9 +35,12 @@ export interface VfxSystemComponents {
   readonly teleportFade: TeleportFade;
 }
 
-export function createVfxSystemComponents(scene: Phaser.Scene): VfxSystemComponents {
+export function createVfxSystemComponents(
+  scene: Phaser.Scene,
+  deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+): VfxSystemComponents {
   return {
-    areas: new AreaEffectPool(scene),
+    areas: new AreaEffectPool(scene, {}, deviceProfile),
     torchFlames: new TorchFlamePool(scene),
     damageNumbers: new DamageNumberPool(scene),
     xpNumbers: new XpNumberPool(scene),

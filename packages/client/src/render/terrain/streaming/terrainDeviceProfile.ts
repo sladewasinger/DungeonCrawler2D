@@ -1,11 +1,13 @@
 import type Phaser from "phaser";
+import {
+  loadDevicePresentationSettings,
+  type DevicePresentationMode,
+} from "../../../presentation/devicePresentationSettings.js";
 import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
 import {
   readTerrainDeviceSignals,
   requiresConstrainedPresentation,
 } from "./terrainDeviceSignals.js";
-
-const MIB = 1024 * 1024;
 
 export interface TerrainDeviceSignals {
   readonly viewportWidth: number;
@@ -29,13 +31,10 @@ export interface TerrainVisualFeatures {
 
 export interface TerrainDeviceProfile {
   readonly kind: "constrained" | "desktop";
-  readonly activeBytes: number;
-  readonly spareBytes: number;
   /** Screen tiles retained for height-projected caps and south-facing walls. */
   readonly terrainMarginTiles: number;
   /** Whole chunks retained so offscreen torch/door halos can reach the camera. */
   readonly lightLoadMarginChunks: number;
-  readonly maximumPreferredPagePx: number;
   readonly visuals: TerrainVisualFeatures;
   readonly retention: TerrainRetentionProfile;
 }
@@ -74,28 +73,25 @@ const CONSTRAINED_TERRAIN_RETENTION: TerrainRetentionProfile = {
 
 export const CONSTRAINED_TERRAIN_PROFILE = freezeProfile({
   kind: "constrained",
-  activeBytes: 80 * MIB,
-  spareBytes: 16 * MIB,
   terrainMarginTiles: 2,
   lightLoadMarginChunks: 1,
-  maximumPreferredPagePx: 1024,
   visuals: CONSTRAINED_TERRAIN_VISUALS,
   retention: CONSTRAINED_TERRAIN_RETENTION,
 });
 
 export const DESKTOP_TERRAIN_PROFILE = freezeProfile({
   kind: "desktop",
-  activeBytes: 160 * MIB,
-  spareBytes: 32 * MIB,
   terrainMarginTiles: 2,
   lightLoadMarginChunks: 1,
-  maximumPreferredPagePx: 1024,
   visuals: DESKTOP_TERRAIN_VISUALS,
   retention: DESKTOP_TERRAIN_RETENTION,
 });
 
-export function selectTerrainDeviceProfile(signals: TerrainDeviceSignals): TerrainDeviceProfile {
-  return requiresConstrainedPresentation(signals)
+export function selectTerrainDeviceProfile(
+  signals: TerrainDeviceSignals,
+  mode: DevicePresentationMode = "auto",
+): TerrainDeviceProfile {
+  return mode === "constrained" || requiresConstrainedPresentation(signals)
     ? CONSTRAINED_TERRAIN_PROFILE
     : DESKTOP_TERRAIN_PROFILE;
 }
@@ -103,7 +99,8 @@ export function selectTerrainDeviceProfile(signals: TerrainDeviceSignals): Terra
 export { readTerrainDeviceSignals } from "./terrainDeviceSignals.js";
 
 export function terrainDeviceProfileForScene(scene: Phaser.Scene): TerrainDeviceProfile {
-  return selectTerrainDeviceProfile(readTerrainDeviceSignals(scene));
+  const { mode } = loadDevicePresentationSettings();
+  return selectTerrainDeviceProfile(readTerrainDeviceSignals(scene), mode);
 }
 
 function freezeProfile(profile: TerrainDeviceProfile): TerrainDeviceProfile {

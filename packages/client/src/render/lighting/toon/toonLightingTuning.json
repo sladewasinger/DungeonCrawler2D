@@ -1,5 +1,6 @@
 {
   "queryParameter": "lighting",
+  "cameraBackgroundColor": "#000000",
   "cameraMarginTiles": 2,
   "playerPositionStepTiles": 1,
   "maximumHeightDifference": 1,

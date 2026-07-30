@@ -11,6 +11,7 @@ import { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
 import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terrain/index.js";
 import { TERRAIN_CAMERA_BACKGROUND } from "../../../render/terrain/runtime/renderSupport.js";
+import type { TerrainDeviceProfile } from "../../../render/terrain/streaming/terrainDeviceProfile.js";
 import { ChatController } from "../../../ui/chat/controller.js";
 import { ChatInputBox } from "../../../ui/chat/chatInput.js";
 import { VfxSystem } from "../../../vfx/system/index.js";
@@ -32,7 +33,7 @@ import { consumeRespawnGrace } from "../player/selfCosmetics.js";
 import { interpolateConnectionSelf } from "../player/selfInterpolation.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
 import { createTorchSyncState, type TorchSyncState } from "../entities/torches/sync.js";
-import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputController, consumeDungeonTeleport, replaceDungeonWorldSystems, sampleDungeonInput, updateDungeonCamera } from "./dungeonSceneHelpers.js";
+import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputController, consumeDungeonTeleport, createDungeonPresentationSystems, replaceDungeonWorldSystems, sampleDungeonInput, syncDungeonWorldPresentation, updateDungeonCamera } from "./dungeonSceneHelpers.js";
 
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
@@ -42,6 +43,7 @@ export class DungeonScene extends Phaser.Scene {
   private hudScene!: HudScene;
   private terrain: TerrainRendererLike | undefined;
   private lighting: LightingSystem | undefined;
+  private deviceProfile!: TerrainDeviceProfile;
   private boundWorld: World | undefined;
   private interactionPrompt: InteractionPrompt | null = null;
   private readonly partyIds = new Set<string>();
@@ -67,8 +69,8 @@ export class DungeonScene extends Phaser.Scene {
     this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true });
     this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND); this.cameras.main.setZoom(DEFAULT_CAMERA_ZOOM);
     this.cameras.main.setRoundPixels(true);
-    this.entityRenderer = new EntityRenderer(this);
-    this.vfx = new VfxSystem(this);
+    const presentation = createDungeonPresentationSystems(this);
+    this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx;
     this.inputGestureVisuals = new InputGestureVisuals(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
@@ -110,8 +112,8 @@ export class DungeonScene extends Phaser.Scene {
       render,
       client: conn.movementTraceState(),
     });
-    updateDungeonCamera({ scene: this, state: this.state, render, deltaMs });
-    this.syncTerrainAndParty(conn);
+    updateDungeonCamera({ scene: this, state: this.state, render, deltaMs }); syncDungeonWorldPresentation({ scene: this, terrain: this.terrain, lighting: this.lighting, personal: render, nowMs: time, cameraRotationRad: this.rotation.cameraRotationRad() });
+    this.syncParty(conn);
     const synced = this.syncRenderFrame({ conn, time, deltaMs, render });
     this.interactionPrompt = synced.interactionPrompt;
   }
@@ -140,8 +142,7 @@ export class DungeonScene extends Phaser.Scene {
     this.consumeHardCorrection(); consumeRespawnGrace(conn, this.state.cosmetics, time);
     advanceDungeonRotation({ rotation: this.rotation, terrain: this.terrain, lighting: this.lighting, state: this.state, deltaMs });
   }
-  private syncTerrainAndParty(conn: Connection): void {
-    this.cameras.main.setRotation(this.rotation.cameraRotationRad()); this.terrain?.update(this.cameras.main.worldView);
+  private syncParty(conn: Connection): void {
     this.partyIds.clear(); for (const member of conn.party?.members ?? []) this.partyIds.add(member.id);
   }
   private syncRenderFrame({ conn, time, deltaMs, render }: { readonly conn: Connection; readonly time: number; readonly deltaMs: number; readonly render: RenderPose }) {
@@ -149,7 +150,7 @@ export class DungeonScene extends Phaser.Scene {
   }
   /** (Re)builds the World-bound renderers whenever Connection hands out a new World (initial connect or reconnect). */
   private ensureWorldBoundSystems(world: World): void {
-    const systems = replaceDungeonWorldSystems({ scene: this, current: this.boundWorld, terrain: this.terrain, lighting: this.lighting, world });
+    const systems = replaceDungeonWorldSystems({ scene: this, current: this.boundWorld, terrain: this.terrain, lighting: this.lighting, world, deviceProfile: this.deviceProfile });
     if (!systems) return;
     this.terrain = systems.terrain;
     this.lighting = systems.lighting;

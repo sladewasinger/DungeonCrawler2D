@@ -15,13 +15,12 @@ const DESKTOP: TerrainDeviceSignals = {
 };
 
 describe("terrain device profiles", () => {
-  it("keeps desktop terrain below a 192 MiB active-plus-spare ceiling", () => {
+  it("keeps full terrain presentation on capable desktops", () => {
     const profile = selectTerrainDeviceProfile(DESKTOP);
     expect(profile.kind).toBe("desktop");
     expect(Object.isFrozen(profile)).toBe(true);
     expect(Object.isFrozen(profile.visuals)).toBe(true);
     expect(Object.isFrozen(profile.retention)).toBe(true);
-    expect(profile.activeBytes + profile.spareBytes).toBe(192 * 1024 * 1024);
     expect(profile.terrainMarginTiles).toBe(2);
     expect(profile.lightLoadMarginChunks).toBe(1);
     expect(profile.visuals).toEqual({
@@ -37,6 +36,11 @@ describe("terrain device profiles", () => {
     expect(profile.kind).toBe("desktop");
   });
 
+  it("allows a desktop to force the shared constrained profile", () => {
+    expect(selectTerrainDeviceProfile(DESKTOP, "constrained").kind)
+      .toBe("constrained");
+  });
+
   it("uses the constrained profile for a real phone", () => {
     const profile = selectTerrainDeviceProfile({
       ...DESKTOP,
@@ -49,7 +53,6 @@ describe("terrain device profiles", () => {
       mobilePlatform: true,
     });
     expect(profile.kind).toBe("constrained");
-    expect(profile.activeBytes + profile.spareBytes).toBe(96 * 1024 * 1024);
     expect(profile.terrainMarginTiles).toBe(2);
     expect(profile.lightLoadMarginChunks).toBe(1);
     expect(profile.retention.maxChunkPlans)

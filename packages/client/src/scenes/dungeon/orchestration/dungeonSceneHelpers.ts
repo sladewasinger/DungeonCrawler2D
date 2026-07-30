@@ -3,11 +3,13 @@ import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { HudFakeSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
-import type { VfxSystem } from "../../../vfx/system/index.js";
+import { VfxSystem } from "../../../vfx/system/index.js";
 import type { World } from "@dc2d/engine";
+import { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terrain/index.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
-import { terrainDeviceProfileForScene } from "../../../render/terrain/streaming/terrainDeviceProfile.js";
+import { terrainDeviceProfileForScene, type TerrainDeviceProfile } from "../../../render/terrain/streaming/terrainDeviceProfile.js";
+import { devicePresentationProfileForKind } from "../../../presentation/devicePresentationProfile.js";
 import { requestCameraSnap, stepCameraFollow } from "../camera/cameraFollow.js";
 import type { RenderPose } from "./state.js";
 import { worldToScreen } from "../../../render/entities/geometry/worldToScreen.js";
@@ -71,17 +73,34 @@ export function buildDungeonHudSnapshot(request: BuildHudSnapshotRequest): HudFa
 
 interface WorldSystems { readonly terrain: TerrainRendererLike; readonly lighting: LightingSystem; }
 
-interface ReplaceWorldSystemsRequest { readonly scene: Phaser.Scene; readonly current: World | undefined; readonly terrain: TerrainRendererLike | undefined; readonly lighting: LightingSystem | undefined; readonly world: World; }
+export interface DungeonPresentationSystems {
+  readonly deviceProfile: TerrainDeviceProfile;
+  readonly entityRenderer: EntityRenderer;
+  readonly vfx: VfxSystem;
+}
+
+export function createDungeonPresentationSystems(
+  scene: Phaser.Scene,
+): DungeonPresentationSystems {
+  const deviceProfile = terrainDeviceProfileForScene(scene);
+  const presentationProfile = devicePresentationProfileForKind(deviceProfile.kind);
+  return {
+    deviceProfile,
+    entityRenderer: new EntityRenderer(scene, presentationProfile),
+    vfx: new VfxSystem(scene, presentationProfile),
+  };
+}
+
+interface ReplaceWorldSystemsRequest { readonly scene: Phaser.Scene; readonly current: World | undefined; readonly terrain: TerrainRendererLike | undefined; readonly lighting: LightingSystem | undefined; readonly world: World; readonly deviceProfile: TerrainDeviceProfile; }
 
 export function replaceDungeonWorldSystems(request: ReplaceWorldSystemsRequest): WorldSystems | undefined {
-  const { scene, current, terrain, lighting, world } = request;
+  const { scene, current, terrain, lighting, world, deviceProfile } = request;
   if (current === world) return undefined;
   terrain?.dispose();
   lighting?.dispose();
-  const profile = terrainDeviceProfileForScene(scene);
   return {
-    terrain: new TerrainRenderer(scene, world, profile),
-    lighting: new LightingSystem(scene, world, profile),
+    terrain: new TerrainRenderer(scene, world, deviceProfile),
+    lighting: new LightingSystem(scene, world, deviceProfile),
   };
 }
 
@@ -97,6 +116,30 @@ export function updateDungeonCamera({ scene, state, render, deltaMs }: UpdateCam
   const screen = worldToScreen(render.x, render.y);
   stepCameraFollow(state.camera, { targetX: screen.x, targetY: screen.y, deltaMs });
   scene.cameras.main.centerOn(state.camera.x, state.camera.y);
+}
+
+interface WorldPresentationRequest {
+  readonly scene: Phaser.Scene;
+  readonly terrain: TerrainRendererLike | undefined;
+  readonly lighting: LightingSystem | undefined;
+  readonly personal: RenderPose;
+  readonly nowMs: number;
+  readonly cameraRotationRad: number;
+}
+
+export function syncDungeonWorldPresentation(
+  request: WorldPresentationRequest,
+): void {
+  const { scene, terrain, lighting, personal, nowMs } = request;
+  scene.cameras.main.setRotation(request.cameraRotationRad);
+  lighting?.prepareToonVisibility({
+    view: scene.cameras.main.worldView,
+    personal,
+    nowMs,
+    cameraRotationRad: request.cameraRotationRad,
+  });
+  terrain?.setWorldVisibility?.(lighting?.presentationVisibility() ?? null);
+  terrain?.update(scene.cameras.main.worldView);
 }
 
 interface ConsumeTeleportRequest { readonly conn: Connection; readonly state: DungeonSceneState; readonly vfx: VfxSystem; readonly nowMs: number; }

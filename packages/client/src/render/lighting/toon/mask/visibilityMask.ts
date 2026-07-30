@@ -1,16 +1,11 @@
 import Phaser from "phaser";
-import { TOON_LIGHTING_TUNING } from "./toonLightingTuning.js";
-import type { ToonVisibilityField } from "./toonVisibilityField.js";
-
-interface CameraTransformSignature {
-  readonly x: number;
-  readonly y: number;
-  readonly scrollX: number;
-  readonly scrollY: number;
-  readonly zoom: number;
-  readonly width: number;
-  readonly height: number;
-}
+import { TOON_LIGHTING_TUNING } from "../toonLightingTuning.js";
+import type { ToonVisibilityField } from "../toonVisibilityField.js";
+import {
+  toonCameraTransform,
+  toonCameraTransformChanged,
+  type ToonCameraTransform,
+} from "./cameraTransform.js";
 
 /**
  * Phaser 4's WebGL Mask filter captures exactly one Graphics object. The graphics
@@ -21,22 +16,30 @@ export class ToonVisibilityMask {
   private readonly graphics: Phaser.GameObjects.Graphics;
   private filter: Phaser.Filters.Mask | null = null;
   private lastField: ToonVisibilityField | null = null;
-  private lastCamera: CameraTransformSignature | null = null;
+  private lastCamera: ToonCameraTransform | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.graphics = scene.add.graphics();
     scene.cameras.main.ignore(this.graphics);
   }
 
-  sync(field: ToonVisibilityField): void {
+  sync(field: ToonVisibilityField, cameraRotationRad: number): void {
     const changed = field !== this.lastField;
     if (changed) this.drawField(field);
     this.ensureFilter();
-    if (changed || cameraTransformChanged(this.lastCamera, this.scene.cameras.main)) {
+    if (changed ||
+        toonCameraTransformChanged(
+          this.lastCamera,
+          this.scene.cameras.main,
+          cameraRotationRad,
+        )) {
       this.requestFilterRefresh();
     }
     this.lastField = field;
-    this.lastCamera = cameraTransform(this.scene.cameras.main);
+    this.lastCamera = toonCameraTransform(
+      this.scene.cameras.main,
+      cameraRotationRad,
+    );
   }
 
   clear(): void {
@@ -81,36 +84,3 @@ export class ToonVisibilityMask {
     if (this.filter) this.filter.needsUpdate = true;
   }
 }
-
-function cameraTransform(
-  camera: Phaser.Cameras.Scene2D.Camera,
-): CameraTransformSignature {
-  return {
-    x: camera.x,
-    y: camera.y,
-    scrollX: camera.scrollX,
-    scrollY: camera.scrollY,
-    zoom: camera.zoom,
-    width: camera.width,
-    height: camera.height,
-  };
-}
-
-function cameraTransformChanged(
-  previous: CameraTransformSignature | null,
-  camera: Phaser.Cameras.Scene2D.Camera,
-): boolean {
-  if (!previous) return true;
-  const next = cameraTransform(camera);
-  return CAMERA_TRANSFORM_FIELDS.some((field) => previous[field] !== next[field]);
-}
-
-const CAMERA_TRANSFORM_FIELDS: readonly (keyof CameraTransformSignature)[] = [
-  "x",
-  "y",
-  "scrollX",
-  "scrollY",
-  "zoom",
-  "width",
-  "height",
-];

@@ -1,4 +1,3 @@
-/** Ensures authoritative healing feedback never enters the damage/blood presentation path. */
 import { describe, expect, it, vi } from "vitest";
 import type { Connection } from "../../../net/connection/connection.js";
 import { HEAL_FEEDBACK_COLOR } from "../../../ui/presentation/healthFeedback.js";

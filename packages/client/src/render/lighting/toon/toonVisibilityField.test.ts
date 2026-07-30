@@ -41,7 +41,28 @@ describe("toon visibility field", () => {
     const clear = field(worldWith());
     const blocked = field(worldWith(new Map(), new Set(["1,0"])));
     expect(isToonPositionVisible(clear, 2.5, 0.5)).toBe(true);
+    expect(isToonPositionVisible(blocked, 1.5, 0.5)).toBe(true);
     expect(isToonPositionVisible(blocked, 2.5, 0.5)).toBe(false);
+  });
+
+  it("reveals a blocking wall within one level and hides terrain behind it", () => {
+    const wall = field(worldWith(
+      new Map([["1,0", 1]]),
+      new Set(["1,0"]),
+    ));
+
+    expect(isToonPositionVisible(wall, 1.5, 0.5)).toBe(true);
+    expect(isToonPositionVisible(wall, 2.5, 0.5)).toBe(false);
+  });
+
+  it("does not reveal a wall past an elevation reversal", () => {
+    const hiddenWall = field(worldWith(
+      new Map([["1,0", 1]]),
+      new Set(["2,0"]),
+    ));
+
+    expect(isToonPositionVisible(hiddenWall, 1.5, 0.5)).toBe(true);
+    expect(isToonPositionVisible(hiddenWall, 2.5, 0.5)).toBe(false);
   });
 
   it("does not reveal diagonally around a blocked corner", () => {
@@ -49,11 +70,34 @@ describe("toon visibility field", () => {
     expect(isToonPositionVisible(corner, 1.5, 1.5)).toBe(false);
   });
 
-  it("keeps one elevation step visible but hides a ridge that descends again", () => {
-    const step = field(worldWith(new Map([["2,0", 1]])));
+  it("continues sight after one elevation transition but hides a ridge", () => {
+    const raised = field(worldWith(new Map([
+      ["1,0", 1],
+      ["2,0", 1],
+      ["3,0", 1],
+    ])));
+    const lowered = field(worldWith(new Map([
+      ["0,0", -1],
+      ["1,0", 0],
+      ["2,0", 0],
+      ["3,0", 0],
+    ])));
     const ridge = field(worldWith(new Map([["1,0", 1]])));
-    expect(isToonPositionVisible(step, 2.5, 0.5)).toBe(true);
+    expect(isToonPositionVisible(raised, 3.5, 0.5)).toBe(true);
+    expect(isToonPositionVisible(lowered, 3.5, 0.5)).toBe(true);
     expect(isToonPositionVisible(ridge, 2.5, 0.5)).toBe(false);
+  });
+
+  it("projects a visible pit floor at its lowered screen position", () => {
+    const pit = field(worldWith(new Map([
+      ["0,0", -1],
+      ["1,0", -1],
+    ])));
+    const viewTile = worldTileToView({ x: 1, y: 0 }, 0);
+
+    expect(isToonPositionVisible(pit, 1.5, 0.5)).toBe(true);
+    expect(maskIncludes(pit.maskRects, viewTile.x, viewTile.y + 1)).toBe(true);
+    expect(maskIncludes(pit.maskRects, viewTile.x, viewTile.y)).toBe(false);
   });
 
   it("projects every orientation through the terrain world-to-view seam", () => {
@@ -73,7 +117,9 @@ describe("toon visibility field", () => {
       orientation: 0,
     });
     expect(workload.evaluatedCells).toBe(4096);
-    expect(workload.lineOfSightChecks).toBe(4096);
+    expect(workload.lineOfSightChecks).toBeGreaterThan(0);
+    expect(workload.lineOfSightChecks).toBeLessThanOrEqual(4096);
+    expect(workload.occluderChecks).toBeLessThanOrEqual(4096);
   });
 });
 

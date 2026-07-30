@@ -3,13 +3,24 @@ import type { ViewOrientation } from "../../view/orientation/viewOrientation.js"
 import {
   planTerrain,
   OUTSIDE_TERRAIN_PRESENTATION,
-  type TerrainBatches,
   type TerrainPlan,
   type TerrainPresentation,
   type TerrainRect,
   type TerrainSource,
 } from "./terrainPlanner.js";
 import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
+import type {
+  WorldPresentationVisibility,
+} from "../../visibility/worldPresentationVisibility.js";
+import {
+  addMetrics,
+  appendVisibleTerrainPlan,
+  emptySelectionMetrics,
+  type TerrainBatchSelectionMetrics,
+  type MutableTerrainBatches,
+} from "./visibility/visibleTerrainBatches.js";
+
+export { emptyTerrainBatches } from "./visibility/visibleTerrainBatches.js";
 
 export interface TerrainChunkCoord { readonly cx: number; readonly cy: number; }
 
@@ -74,7 +85,6 @@ function isNeighborChunk(key: string, target: TerrainChunkCoord): boolean {
 }
 
 export interface TerrainChunkPlanInput { readonly source: TerrainSource; readonly coord: TerrainChunkCoord; readonly orientation: ViewOrientation; readonly revision: number; }
-type MutableTerrainBatches = { [Key in keyof TerrainBatches]-?: NonNullable<TerrainBatches[Key]> extends readonly (infer Value)[] ? Value[] : never; };
 
 function chunkBounds(coord: TerrainChunkCoord): TerrainRect {
   return { x: coord.cx * CHUNK_SIZE, y: coord.cy * CHUNK_SIZE, width: CHUNK_SIZE, height: CHUNK_SIZE };
@@ -82,62 +92,37 @@ function chunkBounds(coord: TerrainChunkCoord): TerrainRect {
 
 export function appendVisibleChunkPlans(
   input: VisibleChunkPlanInput,
-): void {
+): TerrainBatchSelectionMetrics {
+  const metrics = emptySelectionMetrics();
   const { bounds } = input;
   const minCx = Math.floor(bounds.x / CHUNK_SIZE); const minCy = Math.floor(bounds.y / CHUNK_SIZE);
   const maxCx = Math.floor((bounds.x + bounds.width - 1) / CHUNK_SIZE); const maxCy = Math.floor((bounds.y + bounds.height - 1) / CHUNK_SIZE);
   for (let cy = minCy; cy <= maxCy; cy++) {
     for (let cx = minCx; cx <= maxCx; cx++) {
-      appendPlan(
-        input.target,
-        input.cache.get({
+      addMetrics(metrics, appendVisibleTerrainPlan({
+        target: input.target,
+        plan: input.cache.get({
           source: input.source,
           coord: { cx, cy },
           orientation: input.orientation,
           revision: input.revision,
         }),
         bounds,
-      );
+        visibility: input.visibility,
+      }));
     }
   }
+  return metrics;
 }
 
-export interface VisibleChunkPlanInput { readonly target: MutableTerrainBatches; readonly cache: TerrainChunkPlanCache; readonly source: TerrainSource; readonly bounds: TerrainRect; readonly orientation: ViewOrientation; readonly revision: number; }
-
-function appendPlan(
-  target: MutableTerrainBatches,
-  plan: TerrainPlan,
-  bounds: TerrainRect,
-): void {
-  appendVisible(target.floors, plan.batches.floors, bounds);
-  appendVisible(target.voids, plan.batches.voids, bounds);
-  appendVisible(target.features, plan.batches.features, bounds);
-  appendVisible(target.props, plan.batches.props, bounds);
-  appendVisible(target.southFaces, plan.batches.southFaces, bounds);
-  appendVisible(target.cliffEdges, plan.batches.cliffEdges, bounds);
-  appendVisible(target.ao, plan.batches.ao, bounds);
-}
-
-function appendVisible<T extends { readonly worldTile: { readonly x: number; readonly y: number } }>(
-  target: T[],
-  source: readonly T[],
-  bounds: TerrainRect,
-): void {
-  for (const quad of source) {
-    if (containsWorldTile(bounds, quad.worldTile)) target.push(quad);
-  }
-}
-
-function containsWorldTile(
-  bounds: TerrainRect,
-  tile: Readonly<{ x: number; y: number }>,
-): boolean {
-  return tile.x >= bounds.x && tile.x < bounds.x + bounds.width &&
-    tile.y >= bounds.y && tile.y < bounds.y + bounds.height;
-}
-
-export function emptyTerrainBatches(): MutableTerrainBatches {
-  return { floors: [], voids: [], features: [], props: [], southFaces: [], cliffEdges: [], ao: [] };
+export interface VisibleChunkPlanInput {
+  readonly target: MutableTerrainBatches;
+  readonly cache: TerrainChunkPlanCache;
+  readonly source: TerrainSource;
+  readonly bounds: TerrainRect;
+  readonly orientation: ViewOrientation;
+  readonly revision: number;
+  readonly visibility?: WorldPresentationVisibility | null;
 }
 
 function cacheKey(input: TerrainChunkPlanInput): string {

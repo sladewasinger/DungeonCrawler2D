@@ -78,12 +78,8 @@ export function syncEntities(context: FrameSyncContext): EntitySyncResult {
 function framePresentationFilter(
   context: FrameSyncContext,
 ) {
-  const { scene, conn, inputController, nowMs, render, lighting, terrain } = context;
-  const toonActive = lighting?.prepareToonVisibility({
-    view: scene.cameras.main.worldView,
-    personal: render,
-    nowMs,
-  });
+  const { scene, conn, inputController, render, lighting, terrain } = context;
+  const toonActive = lighting?.isToonActive();
   return presentationEntityFilter({
     inputController,
     localPlayerId: conn.welcome!.playerId,

@@ -9,6 +9,7 @@ export const TOON_LIGHTING_BUDGET = {
   maskGameObjects: TOON_LIGHTING_TUNING.maximumMaskObjects,
   playerGroundLightObjects: 0,
   classicMaximumPlayerGroundLightObjects: PLAYER_GROUND_LIGHT_MAX_CELLS,
-  lineOfSightChecksPerRebuild: TOON_LIGHTING_TUNING.maximumFieldCells,
+  lineOfSightChecksPerRebuild: 0,
+  occluderChecksPerRebuild: TOON_LIGHTING_TUNING.maximumFieldCells,
   evaluatedCellsPerRebuild: TOON_LIGHTING_TUNING.maximumFieldCells,
 } as const;

@@ -1,4 +1,8 @@
 import { STATUS_VISUAL_BUDGETS } from "../combat/statusVisualStyle.js";
+import {
+  DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  type DevicePresentationProfile,
+} from "../../../presentation/devicePresentationProfile.js";
 
 export interface StatusVisualBudget {
   readonly maximumActiveRigs: number;
@@ -14,12 +18,20 @@ export interface StatusVisualBudget {
 const FULL_BUDGET: StatusVisualBudget = STATUS_VISUAL_BUDGETS.full;
 const REDUCED_BUDGET: StatusVisualBudget = STATUS_VISUAL_BUDGETS.reduced;
 
-export function statusVisualBudgetFor(reducedMotion: boolean, mobile: boolean): StatusVisualBudget {
-  return reducedMotion || mobile ? REDUCED_BUDGET : FULL_BUDGET;
+export function statusVisualBudgetFor(
+  reducedMotion: boolean,
+  mobile: boolean,
+  deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+): StatusVisualBudget {
+  return reducedMotion || mobile || deviceProfile.kind === "constrained"
+    ? REDUCED_BUDGET
+    : FULL_BUDGET;
 }
 
-export function defaultStatusVisualBudget(): StatusVisualBudget {
+export function defaultStatusVisualBudget(
+  deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+): StatusVisualBudget {
   const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   const mobile = (globalThis.navigator?.maxTouchPoints ?? 0) > 0;
-  return statusVisualBudgetFor(reducedMotion, mobile);
+  return statusVisualBudgetFor(reducedMotion, mobile, deviceProfile);
 }
