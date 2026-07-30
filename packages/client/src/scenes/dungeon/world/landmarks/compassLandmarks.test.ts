@@ -3,6 +3,7 @@ import {
   MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS,
   World,
   hashString,
+  miniBossArenaAtPosition,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { wrapDegrees } from "../../../../render/view/orientation/viewOrientation.js";
@@ -10,7 +11,7 @@ import {
   CompassLandmarkLocator,
   resolveCompassLandmarks,
 } from "./compassLandmarks.js";
-import { findCompassLandmarkCandidates } from "./compassLandmarkCandidates.js";
+import { findNearestCompassLandmarks } from "./compassLandmarkSearch.js";
 import {
   arenaChunkKey,
   nearestMiniBossArena,
@@ -20,16 +21,20 @@ const WORLD_SEED = hashString("ordinary-mini-boss-arena");
 const MISSING_ARENA_ERROR = "test world is missing a mini-boss arena";
 
 describe("compass landmarks", () => {
-  it("finds the nearest deterministic safe room and stamped mini-boss arena", () => {
-    const targets = resolveCompassLandmarks({
-      world: new World(WORLD_SEED, 1),
+  it("finds production-stamped landmarks without generating compass chunks", () => {
+    const world = new World(WORLD_SEED, 1);
+    const positions = findNearestCompassLandmarks({
+      world,
       x: 0.5,
       y: 0.5,
-      viewBearingDeg: 0,
     });
 
-    expect(targets.safeRoom).not.toBeNull();
-    expect(targets.miniBossArena).not.toBeNull();
+    expect(positions.safeRoom).not.toBeNull();
+    expect(positions.miniBossArena).not.toBeNull();
+    expect(world.cachedChunkCount).toBe(0);
+    const arena = positions.miniBossArena;
+    expect(arena && miniBossArenaAtPosition(world, arena.x, arena.y))
+      .not.toBeNull();
   });
 
   it("composes landmark bearings with the current camera orientation", () => {
@@ -131,18 +136,17 @@ describe("compass landmarks", () => {
       cx: arenaChunk.cx - MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS,
       cy: arenaChunk.cy,
     };
-    const candidates = findCompassLandmarkCandidates({
+    const target = nearestMiniBossArena({
       world,
       x: predictedCenter.cx * CHUNK_SIZE + 0.5,
       y: predictedCenter.cy * CHUNK_SIZE + 0.5,
-      viewBearingDeg: 0,
-      miniBossArenaWindowCenter: {
+      windowCenter: {
         cx: predictedCenter.cx - 1,
         cy: predictedCenter.cy,
       },
     });
 
-    expect(candidates.miniBossArena).not.toContainEqual(active);
+    expect(target).not.toEqual(active);
   });
 });
 

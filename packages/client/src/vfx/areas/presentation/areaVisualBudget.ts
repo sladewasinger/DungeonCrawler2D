@@ -6,7 +6,6 @@ import {
 
 export interface AreaVisualBudget {
   readonly maximumFireRigs: number;
-  readonly maximumPoisonRigs: number;
   readonly maximumSteamRigs: number;
   readonly maximumPoisonBubbles: number;
   readonly maximumSpareRigsPerKind: number;

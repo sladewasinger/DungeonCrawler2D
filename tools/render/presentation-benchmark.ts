@@ -3,9 +3,7 @@ import {
   World,
   type WorldFeatures,
 } from "../../packages/engine/src/index.js";
-import {
-  buildToonVisibilityField,
-} from "../../packages/client/src/render/lighting/toon/toonVisibilityField.js";
+import { buildToonVisibilityField } from "../../packages/client/src/render/lighting/toon/toonVisibilityField.js";
 import {
   TOON_LIGHTING_BUDGET,
 } from "../../packages/client/src/render/lighting/toon/performance/toonLightingBudget.js";
@@ -16,6 +14,7 @@ import {
 } from "../../packages/client/src/render/terrain/planning/chunkCache.js";
 import { createTerrainSource } from "../../packages/client/src/render/terrain/runtime/source.js";
 import { renderDeviceProfileReport } from "./device-profile-report.js";
+import { benchmarkCompassLandmarks } from "./compass-landmark-benchmark.js";
 
 const WORLD_SEED = 228_182_761;
 const VIEW = Object.freeze({ x: -32, y: -18, width: 64, height: 36 });
@@ -83,6 +82,7 @@ const report = {
       orientation: 0,
     });
   }),
+  compassLandmarkRefresh: benchmarkCompassLandmarks(WORLD_SEED, FEATURES),
   deviceProfiles: renderDeviceProfileReport(),
 };
 

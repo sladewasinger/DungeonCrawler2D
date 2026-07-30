@@ -11,7 +11,7 @@ describe("area visual budgets", () => {
     const reduced = areaVisualBudgetFor(true, false);
     expect(areaVisualBudgetFor(false, true)).toBe(reduced);
     expect(reduced.maximumFireRigs).toBeLessThan(full.maximumFireRigs);
-    expect(reduced.maximumPoisonRigs).toBeLessThan(full.maximumPoisonRigs);
+    expect(reduced.maximumPoisonBubbles).toBeLessThan(full.maximumPoisonBubbles);
     expect(reduced.emissionFrequencyScale).toBeGreaterThan(1);
   });
 

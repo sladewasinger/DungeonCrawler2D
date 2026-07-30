@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { TOON_LIGHTING_TUNING } from "../toonLightingTuning.js";
 import type { ToonVisibilityField } from "../toonVisibilityField.js";
+import type { ToonMaskPath } from "./maskGeometry.js";
 import {
   toonCameraTransform,
   toonCameraTransformChanged,
@@ -75,6 +76,10 @@ export class ToonVisibilityMask {
   private drawField(field: ToonVisibilityField): void {
     this.graphics.clear();
     this.graphics.fillStyle(0xffffff, 1);
+    if (field.maskPaths) {
+      for (const path of field.maskPaths) drawMaskPath(this.graphics, path);
+      return;
+    }
     for (const rect of field.maskRects) {
       this.graphics.fillRect(rect.x, rect.y, rect.width, rect.height);
     }
@@ -83,4 +88,17 @@ export class ToonVisibilityMask {
   private requestFilterRefresh(): void {
     if (this.filter) this.filter.needsUpdate = true;
   }
+}
+
+function drawMaskPath(
+  graphics: Phaser.GameObjects.Graphics,
+  path: ToonMaskPath,
+): void {
+  const [first, ...rest] = path.points;
+  if (!first) return;
+  graphics.beginPath();
+  graphics.moveTo(first.x, first.y);
+  for (const point of rest) graphics.lineTo(point.x, point.y);
+  graphics.closePath();
+  graphics.fillPath();
 }

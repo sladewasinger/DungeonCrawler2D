@@ -20,7 +20,7 @@ import {
 } from "./areaEmitterLifecycle.js";
 import { shouldRestartAreaRig } from "./areaRigLifecycle.js";
 
-export type AmbientAreaKind = Exclude<AnimatedAreaKind, "fire">;
+export type AmbientAreaKind = Extract<AnimatedAreaKind, "steam">;
 
 interface MutableAreaLight {
   id: string;
@@ -62,9 +62,7 @@ export function createAnimatedAreaRig(
   frequencyScale: number,
 ): AnimatedAreaRig {
   const context: AmbientRigContext = {
-    emitters: kind === "steam"
-      ? [createSteamEmitter({ scene, x: 0, y: 0, frequencyScale })]
-      : [],
+    emitters: [createSteamEmitter({ scene, x: 0, y: 0, frequencyScale })],
     light: createAreaLight(kind),
     state: { active: false, placementKey: "" },
   };
@@ -106,7 +104,7 @@ function deactivateAmbientRig(context: AmbientRigContext): void {
   context.state.placementKey = "";
 }
 
-function createAreaLight(kind: AmbientAreaKind): MutableAreaLight {
+function createAreaLight(kind: "steam"): MutableAreaLight {
   const style = AREA_LIGHT_STYLES[kind];
   return {
     id: "",

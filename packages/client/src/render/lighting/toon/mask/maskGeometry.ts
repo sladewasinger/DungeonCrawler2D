@@ -3,6 +3,10 @@ import { SCREEN_TILE_PX } from "../../../../boot/assetManifest.js";
 import type { ViewOrientation } from "../../../view/orientation/viewOrientation.js";
 import { worldTileToView } from "../../../view/transform/viewTransform.js";
 import { TOON_LIGHTING_TUNING } from "../toonLightingTuning.js";
+import { buildConservativeMaskPaths } from "./conservativeContour.js";
+import type { ToonMaskPath } from "./contourTypes.js";
+
+export type { ToonMaskPath } from "./contourTypes.js";
 
 export interface ToonMaskRect {
   readonly x: number;
@@ -15,6 +19,8 @@ export interface ToonMaskTile {
   readonly viewX: number;
   readonly topY: number;
   readonly height: number;
+  /** Prevents diagonal smoothing across a projected elevation transition. */
+  readonly groundHeight: number;
 }
 
 export function toonMaskTileFor(input: {
@@ -32,7 +38,18 @@ export function toonMaskTileFor(input: {
     height: (1 + projectedFaceHeight +
       TOON_LIGHTING_TUNING.maskProjectionPaddingTiles)
       * SCREEN_TILE_PX,
+    groundHeight: height,
   };
+}
+
+/**
+ * Returns null for fields with an interior hole, where the exact rectangle
+ * renderer remains the only conservative way to preserve transparent coverage.
+ */
+export function conservativeToonMaskPaths(
+  tiles: readonly ToonMaskTile[],
+): readonly ToonMaskPath[] | null {
+  return buildConservativeMaskPaths({ tiles, cellSize: SCREEN_TILE_PX });
 }
 
 export function mergeToonMaskTiles(

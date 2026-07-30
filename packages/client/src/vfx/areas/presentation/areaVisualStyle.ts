@@ -45,10 +45,6 @@ export const AREA_LIGHT_STYLES = {
     color: hexColorToNumber(areaVisualStyle.fire.lightColor, "area fire light"),
     radiusTiles: areaVisualStyle.fire.lightRadiusTiles,
   },
-  poison: {
-    color: hexColorToNumber(areaVisualStyle.poison.lightColor, "area poison light"),
-    radiusTiles: areaVisualStyle.poison.lightRadiusTiles,
-  },
   steam: {
     color: hexColorToNumber(areaVisualStyle.steam.lightColor, "area steam light"),
     radiusTiles: areaVisualStyle.steam.lightRadiusTiles,

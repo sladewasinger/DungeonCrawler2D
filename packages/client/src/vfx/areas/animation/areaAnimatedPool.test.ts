@@ -6,7 +6,7 @@ import type { AreaTileView } from "../areaEffectPool.js";
 import { areaVisualBudgetFor } from "../presentation/areaVisualBudget.js";
 import type { AmbientAreaKind } from "./areaAnimatedRig.js";
 
-const tile = (id: string, sprite: AmbientAreaKind): AreaTileView => ({
+const tile = (id: string, sprite: AreaTileView["sprite"]): AreaTileView => ({
   id,
   effectId: `area-${sprite}`,
   x: 0.5,
@@ -29,7 +29,7 @@ function rig(kind: AmbientAreaKind): AnimatedAreaRig {
 }
 
 describe("AreaAnimatedPool", () => {
-  it("reuses released rigs while capping poison light count", () => {
+  it("leaves poison presentation to puddles and bubbles", () => {
     const built: AnimatedAreaRig[] = [];
     const factory = (kind: AmbientAreaKind) => {
       const next = rig(kind);
@@ -38,20 +38,33 @@ describe("AreaAnimatedPool", () => {
     };
     const pool = new AreaAnimatedPool(
       {} as Phaser.Scene,
-      { ...areaVisualBudgetFor(true, false), maximumPoisonRigs: 1 },
+      areaVisualBudgetFor(true, false),
       factory,
     );
 
     expect(pool.sync([tile("a", "poison"), tile("b", "poison")]))
-      .toHaveLength(1);
-    pool.sync([]);
-    expect(built[0]?.deactivate).toHaveBeenCalledTimes(1);
-    pool.sync([tile("c", "poison")]);
-    expect(built).toHaveLength(1);
-    expect(built[0]?.activate).toHaveBeenCalledTimes(2);
+      .toHaveLength(0);
+    expect(built).toHaveLength(0);
   });
 
-  it("replaces an active rig when a tile changes animated material", () => {
+  it("keeps steam lights in the returned accent lights", () => {
+    const built: AnimatedAreaRig[] = [];
+    const pool = new AreaAnimatedPool(
+      {} as Phaser.Scene,
+      areaVisualBudgetFor(false, false),
+      (kind) => {
+        const next = rig(kind);
+        built.push(next);
+        return next;
+      },
+    );
+
+    const lights = pool.sync([tile("steam-tile", "steam")]);
+
+    expect(lights).toEqual([built[0]?.light]);
+  });
+
+  it("releases a steam rig when its tile becomes poison", () => {
     const built: AnimatedAreaRig[] = [];
     const pool = new AreaAnimatedPool(
       {} as Phaser.Scene,
@@ -64,11 +77,11 @@ describe("AreaAnimatedPool", () => {
     );
     pool.sync([tile("same", "steam")]);
     pool.sync([tile("same", "poison")]);
-    expect(built.map(({ kind }) => kind)).toEqual(["steam", "poison"]);
+    expect(built.map(({ kind }) => kind)).toEqual(["steam"]);
     expect(built[0]?.deactivate).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps an unchanged active poison rig running", () => {
+  it("keeps an unchanged active steam rig running", () => {
     const built: AnimatedAreaRig[] = [];
     const pool = new AreaAnimatedPool(
       {} as Phaser.Scene,
@@ -80,8 +93,8 @@ describe("AreaAnimatedPool", () => {
       },
     );
 
-    pool.sync([tile("steady", "poison")]);
-    pool.sync([tile("steady", "poison")]);
+    pool.sync([tile("steady", "steam")]);
+    pool.sync([tile("steady", "steam")]);
 
     expect(built).toHaveLength(1);
     expect(built[0]?.activate).toHaveBeenCalledTimes(2);

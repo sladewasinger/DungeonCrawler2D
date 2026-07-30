@@ -1,4 +1,8 @@
-import { CHUNK_SIZE, isSafeRoomChunk, TILE, type World } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  safeRoomEntranceDoorForChunk,
+  type World,
+} from "@dc2d/engine";
 import { nearestLandmark } from "./compassLandmarkMath.js";
 import type { CompassLandmarkPosition } from "./compassLandmarkTypes.js";
 
@@ -35,11 +39,6 @@ function safeRoomEntrance(
   cy: number,
 ): CompassLandmarkPosition[] {
   const chunk = { worldSeed: world.worldSeed, floor: world.floor, cx, cy };
-  if (!isSafeRoomChunk(chunk)) return [];
-  const doorIndex = world.getChunk(cx, cy).features.indexOf(TILE.DoorSafeRoom);
-  if (doorIndex < 0) return [];
-  return [{
-    x: cx * CHUNK_SIZE + doorIndex % CHUNK_SIZE + 0.5,
-    y: cy * CHUNK_SIZE + Math.floor(doorIndex / CHUNK_SIZE) + 0.5,
-  }];
+  const door = safeRoomEntranceDoorForChunk(chunk);
+  return door ? [{ x: door.x + 0.5, y: door.y + 0.5 }] : [];
 }

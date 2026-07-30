@@ -5,15 +5,10 @@ import {
 import { wrapDegrees } from "../../../../render/view/orientation/viewOrientation.js";
 import type { CompassLandmarkTicks } from "../../../../ui/widgets/hud/core/fakeData.js";
 import {
-  emptyCompassLandmarkCandidates,
-  findCompassLandmarkCandidates,
-  type CompassLandmarkCandidates,
-} from "./compassLandmarkCandidates.js";
-import {
+  findNearestCompassLandmarks,
   type CompassLandmarkPosition,
   type CompassLandmarkPositions,
 } from "./compassLandmarkSearch.js";
-import { nearestLandmark } from "./compassLandmarkMath.js";
 
 export interface CompassLandmarkRequest {
   readonly world: World;
@@ -30,23 +25,25 @@ export interface CompassLandmarkRequest {
  * client. It never reads remote enemies or extends the server's AOI payload.
  */
 export class CompassLandmarkLocator {
-  private chunkX = Number.NaN;
-  private chunkY = Number.NaN;
+  private tileX = Number.NaN;
+  private tileY = Number.NaN;
   private miniBossWindowChunkX = Number.NaN;
   private miniBossWindowChunkY = Number.NaN;
   private miniBossArenaLandmarkRevision = Number.NaN;
-  private candidates: CompassLandmarkCandidates =
-    emptyCompassLandmarkCandidates();
+  private positions: CompassLandmarkPositions = {
+    safeRoom: null,
+    miniBossArena: null,
+  };
 
   resolve(request: CompassLandmarkRequest): CompassLandmarkTicks {
     if (this.needsRefresh(request)) this.refresh(request);
-    return projectLandmarks(request, nearestCompassLandmarks(request, this.candidates));
+    return projectLandmarks(request, this.positions);
   }
 
   private needsRefresh(request: CompassLandmarkRequest): boolean {
     const miniBossCenter = miniBossWindowCenter(request);
-    return this.chunkX !== Math.floor(request.x / CHUNK_SIZE) ||
-      this.chunkY !== Math.floor(request.y / CHUNK_SIZE) ||
+    return this.tileX !== Math.floor(request.x) ||
+      this.tileY !== Math.floor(request.y) ||
       this.miniBossWindowChunkX !== miniBossCenter.cx ||
       this.miniBossWindowChunkY !== miniBossCenter.cy ||
       this.miniBossArenaLandmarkRevision !==
@@ -54,14 +51,24 @@ export class CompassLandmarkLocator {
   }
 
   private refresh(request: CompassLandmarkRequest): void {
-    this.chunkX = Math.floor(request.x / CHUNK_SIZE);
-    this.chunkY = Math.floor(request.y / CHUNK_SIZE);
+    this.tileX = Math.floor(request.x);
+    this.tileY = Math.floor(request.y);
     const miniBossCenter = miniBossWindowCenter(request);
     this.miniBossWindowChunkX = miniBossCenter.cx;
     this.miniBossWindowChunkY = miniBossCenter.cy;
     this.miniBossArenaLandmarkRevision =
       request.miniBossArenaLandmarkRevision ?? 0;
-    this.candidates = findCompassLandmarkCandidates(request);
+    this.positions = findNearestCompassLandmarks({
+      world: request.world,
+      x: request.x,
+      y: request.y,
+      ...(request.defeatedMiniBossArenaChunks
+        ? { defeatedMiniBossArenaChunks: request.defeatedMiniBossArenaChunks }
+        : {}),
+      ...(request.miniBossArenaWindowCenter
+        ? { miniBossArenaWindowCenter: request.miniBossArenaWindowCenter }
+        : {}),
+    });
   }
 }
 
@@ -101,22 +108,4 @@ function projectPosition(
   if (!target) return null;
   const worldBearingDeg = Math.atan2(target.x - request.x, request.y - target.y) * 180 / Math.PI;
   return { screenBearingDeg: wrapDegrees(request.viewBearingDeg + worldBearingDeg) };
-}
-
-function nearestCompassLandmarks(
-  request: CompassLandmarkRequest,
-  candidates: CompassLandmarkCandidates,
-): CompassLandmarkPositions {
-  return {
-    safeRoom: nearestLandmark({
-      positions: candidates.safeRoom,
-      x: request.x,
-      y: request.y,
-    }),
-    miniBossArena: nearestLandmark({
-      positions: candidates.miniBossArena,
-      x: request.x,
-      y: request.y,
-    }),
-  };
 }

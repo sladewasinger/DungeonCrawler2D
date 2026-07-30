@@ -6,8 +6,10 @@ import type { ViewOrientation } from "../../view/orientation/viewOrientation.js"
 import { TOON_LIGHTING_TUNING } from "./toonLightingTuning.js";
 import { sweepAngularVisibility } from "./visibility/angularVisibilitySweep.js";
 import {
+  conservativeToonMaskPaths,
   mergeToonMaskTiles,
   toonMaskTileFor,
+  type ToonMaskPath,
   type ToonMaskRect,
   type ToonMaskTile,
 } from "./mask/maskGeometry.js";
@@ -34,6 +36,8 @@ export interface ToonVisibilityBuildInput {
 export interface ToonVisibilityField {
   readonly visibleTiles: ReadonlySet<string>;
   readonly maskRects: readonly ToonMaskRect[];
+  /** Null retains exact rectangle coverage for a field with mask holes. */
+  readonly maskPaths?: readonly ToonMaskPath[] | null;
   readonly evaluatedCells: number;
   readonly lineOfSightChecks: number;
   readonly occluderChecks: number;
@@ -63,6 +67,7 @@ export function buildToonVisibilityField(
   return {
     visibleTiles,
     maskRects: mergeToonMaskTiles(maskTiles),
+    maskPaths: conservativeToonMaskPaths(maskTiles),
     evaluatedCells: sweep.evaluatedCells,
     lineOfSightChecks,
     occluderChecks: sweep.occluderChecks,

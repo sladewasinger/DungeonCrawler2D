@@ -10,6 +10,7 @@ export * from "./world/stairs/stairs.js";
 export * from "./world/perception/terrainLineOfSight.js";
 export * from "./world/interactions/interactions.js";
 export * from "./world/features/fixed/fixed.js";
+export * from "./world/features/fixed/safeRoomEntranceDoor.js";
 export * from "./world/features/descent/descent.js";
 export * from "./world/features/bossArena/bossArena.js";
 export * from "./world/features/miniBossArena/miniBossArena.js";

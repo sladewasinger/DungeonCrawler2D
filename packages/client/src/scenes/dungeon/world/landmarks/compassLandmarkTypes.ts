@@ -15,4 +15,8 @@ export interface CompassLandmarkSearchRequest {
   readonly x: number;
   readonly y: number;
   readonly defeatedMiniBossArenaChunks?: ReadonlySet<string>;
+  readonly miniBossArenaWindowCenter?: {
+    readonly cx: number;
+    readonly cy: number;
+  };
 }

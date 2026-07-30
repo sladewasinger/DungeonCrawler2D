@@ -21,6 +21,9 @@ export function findNearestCompassLandmarks(
       world,
       x,
       y,
+      ...(request.miniBossArenaWindowCenter
+        ? { windowCenter: request.miniBossArenaWindowCenter }
+        : {}),
       ...(request.defeatedMiniBossArenaChunks
         ? { defeatedArenaChunks: request.defeatedMiniBossArenaChunks }
         : {}),

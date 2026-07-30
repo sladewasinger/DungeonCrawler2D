@@ -33,7 +33,7 @@ export function isStairsChunk(chunk: WorldChunk): boolean {
     FIXED_FEATURES.stairwayFrequency === 0;
 }
 
-interface FeatureLayout {
+export interface FeatureLayout {
   safeRoom: boolean;
   half: number;
   centerLx: number;
@@ -42,7 +42,7 @@ interface FeatureLayout {
 }
 
 /** Where the feature sits and how tall its flattened pad is (pure). */
-function featureLayout(chunk: WorldChunk): FeatureLayout | null {
+export function featureLayout(chunk: WorldChunk): FeatureLayout | null {
   const safeRoom = isSafeRoomChunk(chunk);
   const stairs = isStairsChunk(chunk);
   if (!safeRoom && !stairs) return null;

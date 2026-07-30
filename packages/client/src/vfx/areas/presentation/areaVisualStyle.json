@@ -96,8 +96,6 @@
     "sparkLifespanMs": 520
   },
   "poison": {
-    "lightColor": "#7bd44a",
-    "lightRadiusTiles": 2,
     "bubbles": {
       "perTile": 2,
       "periodMs": 1500,
@@ -120,7 +118,6 @@
   "budgets": {
     "full": {
       "maximumFireRigs": 24,
-      "maximumPoisonRigs": 12,
       "maximumSteamRigs": 10,
       "maximumPoisonBubbles": 192,
       "maximumSpareRigsPerKind": 8,
@@ -128,7 +125,6 @@
     },
     "reduced": {
       "maximumFireRigs": 10,
-      "maximumPoisonRigs": 5,
       "maximumSteamRigs": 4,
       "maximumPoisonBubbles": 72,
       "maximumSpareRigsPerKind": 3,

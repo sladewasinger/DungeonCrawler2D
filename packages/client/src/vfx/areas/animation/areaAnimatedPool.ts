@@ -7,12 +7,8 @@ import {
   type AnimatedAreaRigFactory,
 } from "./areaAnimatedRig.js";
 import type { AreaTileView } from "../areaEffectPool.js";
-import {
-  type AreaVisualBudget,
-  defaultAreaVisualBudget,
-} from "../presentation/areaVisualBudget.js";
+import { defaultAreaVisualBudget } from "../presentation/areaVisualBudget.js";
 const ANIMATED_KINDS = new Set<AreaTileView["sprite"]>([
-  "poison",
   "steam",
 ]);
 
@@ -32,7 +28,7 @@ export class AreaAnimatedPool {
   sync(tiles: readonly AreaTileView[]): LightSource[] {
     this.seen.clear();
     this.lights.length = 0;
-    const counts = { poison: 0, steam: 0 };
+    const counts = { steam: 0 };
     for (const tile of tiles) this.syncTile(tile, counts);
     this.releaseUnseen();
     return this.lights;
@@ -43,12 +39,12 @@ export class AreaAnimatedPool {
     counts: Record<AmbientAreaKind, number>,
   ): void {
     const kind = animatedKind(tile);
-    if (!kind || counts[kind] >= maximumFor(this.budget, kind)) return;
+    if (!kind || counts[kind] >= this.budget.maximumSteamRigs) return;
     counts[kind]++;
     this.seen.add(tile.id);
     const rig = this.rigFor(tile.id, kind);
     rig.activate(tile);
-    this.lights.push(rig.light);
+    if (rig.light) this.lights.push(rig.light);
   }
 
   private rigFor(id: string, kind: AmbientAreaKind): AnimatedAreaRig {
@@ -91,12 +87,4 @@ function animatedKind(tile: AreaTileView): AmbientAreaKind | null {
   return ANIMATED_KINDS.has(tile.sprite)
     ? tile.sprite as AmbientAreaKind
     : null;
-}
-
-function maximumFor(
-  budget: AreaVisualBudget,
-  kind: AmbientAreaKind,
-): number {
-  if (kind === "poison") return budget.maximumPoisonRigs;
-  return budget.maximumSteamRigs;
 }

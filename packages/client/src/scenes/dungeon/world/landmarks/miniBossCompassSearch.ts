@@ -1,8 +1,6 @@
 import {
   CHUNK_SIZE,
-  MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS,
   miniBossArenaForChunk,
-  miniBossArenaIsStamped,
   type World,
 } from "@dc2d/engine";
 import {
@@ -10,6 +8,11 @@ import {
   nearestLandmark,
 } from "./compassLandmarkMath.js";
 import type { CompassLandmarkPosition } from "./compassLandmarkTypes.js";
+import {
+  chunkInsideMiniBossCompassWindow,
+  maximumMiniBossSearchRadius,
+  type MiniBossCompassWindowCenter,
+} from "./miniBossCompassWindow.js";
 
 const EMPTY_DEFEATED_ARENAS = new Set<string>();
 
@@ -18,6 +21,7 @@ export interface MiniBossCompassSearch {
   readonly x: number;
   readonly y: number;
   readonly defeatedArenaChunks?: ReadonlySet<string>;
+  readonly windowCenter?: MiniBossCompassWindowCenter;
 }
 
 export function nearestMiniBossArena(
@@ -28,8 +32,14 @@ export function nearestMiniBossArena(
     request.defeatedArenaChunks ?? EMPTY_DEFEATED_ARENAS;
   const chunkX = Math.floor(x / CHUNK_SIZE);
   const chunkY = Math.floor(y / CHUNK_SIZE);
+  const windowCenter = request.windowCenter ?? { cx: chunkX, cy: chunkY };
   let nearest: CompassLandmarkPosition | null = null;
-  for (let radius = 0; radius <= MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS; radius++) {
+  const maximumRadius = maximumMiniBossSearchRadius(
+    chunkX,
+    chunkY,
+    windowCenter,
+  );
+  for (let radius = 0; radius <= maximumRadius; radius++) {
     nearest = nearestArenaInRing({
       world,
       x,
@@ -39,6 +49,7 @@ export function nearestMiniBossArena(
       radius,
       nearest,
       defeatedArenaChunks,
+      windowCenter,
     });
     if (searchContainsNearest({ x, y, chunkX, chunkY, radius, nearest })) return nearest;
   }
@@ -57,13 +68,25 @@ interface ArenaSearchRing {
 interface ArenaRingRequest extends ArenaSearchRing {
   readonly world: World;
   readonly defeatedArenaChunks: ReadonlySet<string>;
+  readonly windowCenter: MiniBossCompassWindowCenter;
 }
 
 function nearestArenaInRing(
   request: ArenaRingRequest,
 ): CompassLandmarkPosition | null {
-  const { chunkX, chunkY, radius, world, x, y, nearest, defeatedArenaChunks } = request;
+  const {
+    chunkX,
+    chunkY,
+    radius,
+    world,
+    x,
+    y,
+    nearest,
+    defeatedArenaChunks,
+    windowCenter,
+  } = request;
   const candidates = ringChunks(chunkX, chunkY, radius)
+    .filter((chunk) => chunkInsideMiniBossCompassWindow(chunk, windowCenter))
     .flatMap((chunk) => miniBossArenaCenter({
       world,
       chunk,
@@ -81,7 +104,9 @@ function miniBossArenaCenter(request: {
   const { cx, cy } = chunk;
   if (defeatedArenaChunks.has(arenaChunkKey(cx, cy))) return [];
   const arena = miniBossArenaForChunk({ worldSeed: world.worldSeed, floor: world.floor, cx, cy });
-  if (!arena || !miniBossArenaIsStamped(world, arena)) return [];
+  // Eligibility reserves ordinary generated chunks from authored structures.
+  // Runtime stamping remains guarded for injected/custom feature planes.
+  if (!arena) return [];
   return [{ x: arena.center.x + 0.5, y: arena.center.y + 0.5 }];
 }
 
