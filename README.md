@@ -11,10 +11,9 @@ brand-new items at runtime, validated like any other content.
 The game has its own server-authoritative architecture, visual direction, and
 engineering standards; the current codebase is the sole implementation.
 
-The current release is **v0.7.1** ([release notes](docs/releases/v0.7.1.md)).
-It adds opt-in CorpNet smoothing, opt-in toon line-of-sight lighting,
-constrained-device rendering optimizations, encounter/navigation fixes, and
-asset-cache repair. Classic networking and lighting remain the defaults.
+The current release is **v0.7.2** ([release notes](docs/releases/v0.7.2.md)).
+It makes mini-boss encounters reliably present before crawlers reach their
+gates while keeping their server lifetime bounded by nearby observers.
 
 ## Austin's F-Bomb Counter
 
@@ -128,9 +127,8 @@ raised surface that owns them.
 
 ## Status
 
-**v0.7.0 is playable:** district-scale world generation, multiplayer
+**v0.7.2 is playable:** district-scale world generation, multiplayer
 movement/combat, effects, items, dedicated room and encounter spaces,
 terrain-aware enemies, elemental reactions, companion pets, assisted controls,
 parties/chat, and editable HUD layouts are shipped. AI crafting and final
-art/content polish remain on the roadmap. v0.7.1 remains a testable release
-candidate until its device and CorpNet playtests are accepted.
+art/content polish remain on the roadmap.
