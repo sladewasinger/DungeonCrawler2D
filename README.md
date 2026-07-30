@@ -11,11 +11,10 @@ brand-new items at runtime, validated like any other content.
 The game has its own server-authoritative architecture, visual direction, and
 engineering standards; the current codebase is the sole implementation.
 
-The current release is **v0.7.0** ([release notes](docs/releases/v0.7.0.md)).
-The **v0.7.1 release candidate** ([draft notes](docs/releases/v0.7.1.md)) adds
-opt-in CorpNet smoothing, opt-in toon line-of-sight lighting, constrained-device
-rendering optimizations, encounter/navigation fixes, and asset-cache repair.
-Classic networking and lighting remain the defaults.
+The current release is **v0.7.1** ([release notes](docs/releases/v0.7.1.md)).
+It adds opt-in CorpNet smoothing, opt-in toon line-of-sight lighting,
+constrained-device rendering optimizations, encounter/navigation fixes, and
+asset-cache repair. Classic networking and lighting remain the defaults.
 
 ## Austin's F-Bomb Counter
 
