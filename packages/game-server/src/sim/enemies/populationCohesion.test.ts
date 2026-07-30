@@ -18,8 +18,8 @@ import { PlayerStore } from "../../store.js";
 import { createSimState } from "../state/state.js";
 import { spawnEnemyPack } from "./population.js";
 import { enemyRosterForBiome } from "./populationRoster.js";
-import { resolveSpawnAnchor } from "../spawn/spawn.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
+import { nearSpawnPopulationCenter } from "./population/nearSpawn.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -73,7 +73,7 @@ describe("cohesive district enemy population", () => {
 
   it("uses the configured pack bounds next to the floor-one spawn anchor", () => {
     const sim = createTestSim("near-spawn-population");
-    const anchor = resolveSpawnAnchor(sim);
+    const anchor = nearSpawnPopulationCenter();
     spawnEnemyPack(
       sim,
       Math.floor(anchor.x / 32),

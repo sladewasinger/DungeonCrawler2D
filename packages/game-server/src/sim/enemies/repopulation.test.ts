@@ -1,170 +1,63 @@
-import {
-  areaReactionsData, areasData, enemiesData, itemsData, recipesData, rulesData, statusesData,
-} from "@dc2d/content";
-import {
-  buildContentRegistry, createBody, hashString, LEVEL, makeEntity, World, type ContentRegistry,
-} from "@dc2d/engine";
-import { beforeEach, describe, expect, it } from "vitest";
-import { PlayerStore } from "../../store.js";
+import { LEVEL } from "@dc2d/engine";
+import { describe, expect, it } from "vitest";
 import { spawnEnemy } from "../core/helpers.js";
 import { resolveSpawnAnchor } from "../spawn/spawn.js";
-import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
-import { activateChunksNearPlayers, NEAR_SPAWN_RADIUS_TILES } from "./population.js";
-import { REPOPULATE_INTERVAL_TICKS, repopulateNearSpawn } from "./repopulation.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
+import {
+  nearSpawnPopulationCenter,
+  NEAR_SPAWN_POPULATION_RADIUS_TILES,
+} from "./population/nearSpawn.js";
+import {
+  addPopulationTestPlayer,
+  countPopulation,
+  createPopulationTestSim,
+} from "./population/populationTestSupport.js";
+import { repopulateNearSpawn } from "./repopulation.js";
 
-/**
- * GRINDER'S BLOCKER (panel round 2): probes the diagnosed near-spawn
- * density fix and the periodic repopulation that refills a floor other
- * players have cleared out. See population.ts's NEAR_SPAWN_RADIUS_TILES
- * doc comment for the diagnosis numbers.
- */
-
-const content: ContentRegistry = buildContentRegistry({
-  statuses: [...statusesData], rules: [...rulesData], areas: [...areasData], areaReactions: [...areaReactionsData],
-  items: [...itemsData], enemies: [...enemiesData], recipes: [...recipesData],
-});
-
-function makeSlot(x: number, y: number, world: World): PlayerSlot {
-  const entity = makeEntity("player", createBody(x, y, world.groundAt(x, y)), {
-    id: "p1", hp: 30, maxHp: 30, baseSpeed: 8,
-  });
-  return {
-    entity, clientId: "c1", stored: { slot: 0, name: "tester", stash: [], contacts: [] },
-    resumeToken: "tok", lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true,
-    reapAtTick: 0, known: new Set(), inventory: [], hotbar: [], weapon: null, outbox: [],
-    returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: true, downedAtTick: null,
-    attackReadyAtTick: 0, attackStartedAtTick: -1000, god: false, forceDeath: false, chatTimestamps: [],
-    lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
-  };
-}
-
-/** Sweeps the player through a wide neighborhood of the spawn anchor,
- * activating chunks the way a wandering player's 3x3 window would. */
-function sweepNearSpawn(sim: SimState, anchor: { x: number; y: number }): void {
-  const slot = makeSlot(anchor.x, anchor.y, sim.world);
-  sim.players.set("p1", slot);
-  const offsets: Array<[number, number]> = [
-    [0, 0], [40, 0], [-40, 0], [0, 40], [0, -40], [60, 60], [-60, -60], [60, -60], [-60, 60],
-  ];
-  for (const offset of offsets) {
-    slot.entity.body.x = anchor.x + offset[0];
-    slot.entity.body.y = anchor.y + offset[1];
-    activateChunksNearPlayers(sim);
-  }
-}
-
-function countWithin(sim: SimState, anchor: { x: number; y: number }, radius: number): number {
-  let count = 0;
-  for (const enemy of sim.enemies.values()) {
-    if (Math.hypot(enemy.entity.body.x - anchor.x, enemy.entity.body.y - anchor.y) <= radius) count++;
-  }
-  return count;
-}
-
-function countOrdinaryWithin(sim: SimState, anchor: { x: number; y: number }, radius: number): number {
-  let count = 0;
-  for (const enemy of sim.enemies.values()) {
-    if (enemy.arenaKey || enemy.entity.hp <= 0) continue;
-    if (Math.hypot(enemy.entity.body.x - anchor.x, enemy.entity.body.y - anchor.y) <= radius) count++;
-  }
-  return count;
-}
-
-function expectOrdinaryEnemiesOutsideBuffer(
-  sim: SimState,
-  anchor: { x: number; y: number },
-  radius: number,
-): void {
-  for (const enemy of sim.enemies.values()) {
-    if (enemy.arenaKey || enemy.entity.hp <= 0) continue;
-    const distance = Math.hypot(
-      enemy.entity.body.x - anchor.x,
-      enemy.entity.body.y - anchor.y,
-    );
-    if (distance > radius) continue;
-    expect(distance).toBeGreaterThanOrEqual(
-      ENEMY_SIMULATION_TUNING.population.minimumPlayerDistanceTiles,
-    );
-  }
-}
-
-describe("repopulateNearSpawn", () => {
-  const REPPOP_TEST_WORLD = "repop-test-world";
-  let sim: SimState;
-  let anchor: { x: number; y: number };
-
-  beforeEach(() => {
-    const world = new World(hashString(REPPOP_TEST_WORLD), 1, LEVEL.Dungeon);
-    sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
-    anchor = resolveSpawnAnchor(sim);
-    sweepNearSpawn(sim, anchor);
-    const player = sim.players.get("p1");
-    if (!player) throw new Error("sweep did not create the test player");
-    player.entity.body.x = anchor.x;
-    player.entity.body.y = anchor.y;
-  });
-
-  it("restores ordinary density outside the protected spawn buffer", () => {
-    for (const [id, enemy] of sim.enemies) {
-      if (Math.hypot(enemy.entity.body.x - anchor.x, enemy.entity.body.y - anchor.y) <= NEAR_SPAWN_RADIUS_TILES) {
-        sim.enemies.delete(id);
-      }
-    }
-    expect(countWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBe(0);
-
-    sim.tickCount = REPOPULATE_INTERVAL_TICKS;
-    repopulateNearSpawn(sim);
-
-    expect(countOrdinaryWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThanOrEqual(
-      ENEMY_SIMULATION_TUNING.population.occupiedAreaTargetCount,
-    );
-    expectOrdinaryEnemiesOutsideBuffer(sim, anchor, NEAR_SPAWN_RADIUS_TILES);
-  });
-
-  it("does not keep piling on enemies once the near-spawn area is already full", () => {
-    const before = sim.enemies.size;
+describe("occupied-area repopulation", () => {
+  it("preserves ordinary density on deeper floors", () => {
+    const sim = createPopulationTestSim({ floor: 2 });
+    const center = resolveSpawnAnchor(sim);
+    addPopulationTestPlayer(sim, center);
 
     repopulateNearSpawn(sim);
-    repopulateNearSpawn(sim);
 
-    // Some churn is possible near the target line, but repeated calls on an
-    // already-populated area should not runaway-spawn.
-    expect(sim.enemies.size).toBeLessThan(before + 10);
+    expect(countPopulation({
+      sim,
+      anchor: center,
+      radius: ENEMY_SIMULATION_TUNING.population.occupiedAreaRadiusTiles,
+    })).toBe(ENEMY_SIMULATION_TUNING.population.occupiedAreaTargetCount);
   });
 
-  it("repopulates occupied areas on deeper floors", () => {
-    const world2 = new World(hashString(REPPOP_TEST_WORLD), 2, LEVEL.Dungeon);
-    const sim2 = createSimState({ world: world2, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
-    const center = resolveSpawnAnchor(sim2);
-    sim2.players.set("p1", makeSlot(center.x, center.y, world2));
-
-    repopulateNearSpawn(sim2);
-
-    expect(countWithin(sim2, center, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThan(0);
-  });
-
-  it("recycles distant enemies that filled the cap and restores the active area", () => {
-    sim.enemies.clear();
+  it("recycles distant enemies and restores the active area", () => {
+    const sim = createPopulationTestSim();
+    const anchor = nearSpawnPopulationCenter();
+    addPopulationTestPlayer(sim, anchor);
     for (let index = 0; index < 150; index++) {
-      spawnEnemy(sim, { defId: "slime", x: anchor.x + 500 + index, y: anchor.y + 500 });
+      spawnEnemy(sim, {
+        defId: "slime",
+        x: anchor.x + 500 + index,
+        y: anchor.y + 500,
+      });
     }
 
     repopulateNearSpawn(sim);
 
     expect(sim.enemies.size).toBeLessThanOrEqual(150);
-    expect(countWithin(sim, anchor, NEAR_SPAWN_RADIUS_TILES)).toBeGreaterThan(0);
+    expect(countPopulation({
+      sim,
+      anchor,
+      radius: NEAR_SPAWN_POPULATION_RADIUS_TILES,
+    })).toBeGreaterThan(0);
   });
 
   it("is a no-op in the Sandbox level", () => {
-    const world2 = new World(hashString(REPPOP_TEST_WORLD), 1, LEVEL.Sandbox);
-    const sim2 = createSimState({ world: world2, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
-    const center = resolveSpawnAnchor(sim2);
-    sim2.players.set("p1", makeSlot(center.x, center.y, world2));
-    const before = sim2.enemies.size;
+    const sim = createPopulationTestSim({ level: LEVEL.Sandbox });
+    const center = resolveSpawnAnchor(sim);
+    addPopulationTestPlayer(sim, center);
 
-    repopulateNearSpawn(sim2);
+    repopulateNearSpawn(sim);
 
-    expect(sim2.enemies.size).toBe(before);
+    expect(sim.enemies.size).toBe(0);
   });
 });

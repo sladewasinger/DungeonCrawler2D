@@ -1,12 +1,17 @@
 {
   "population": {
-    "nearSpawnRadiusTiles": 60,
-    "nearSpawnPackMinimum": 2,
-    "nearSpawnPackMaximum": 4,
+    "nearSpawnPlayerRadiusTiles": 32,
+    "nearSpawnPopulationRadiusTiles": 96,
+    "nearSpawnExclusionRadiusTiles": 20,
+    "nearSpawnTargetCount": 8,
+    "nearSpawnMaximumSameType": 4,
+    "nearSpawnPackMinimum": 1,
+    "nearSpawnPackMaximum": 2,
     "dungeonPackMinimum": 2,
     "dungeonPackMaximum": 4,
     "packSpreadRadiusTiles": 8,
     "minimumPlayerDistanceTiles": 8,
+    "occupiedAreaRadiusTiles": 60,
     "occupiedAreaTargetCount": 16
   },
   "perception": {

@@ -9,9 +9,15 @@ import { spawnEnemy } from "../core/helpers.js";
 import { WARDEN_DEF_ID } from "../floors/constants.js";
 import type { EnemySlot, SimState } from "../state/state.js";
 import { spawnMiniBossEncounter } from "./miniBossArena/population.js";
-import { NEAR_SPAWN_RADIUS_TILES } from "./population.js";
-import { validEnemySpawn } from "./populationPlacement.js";
-import { pickEnemyDef } from "./populationRoster.js";
+import {
+  canAddNearSpawnEnemy,
+  isNearSpawnPopulationPosition,
+  nearSpawnPopulationCenter,
+  NEAR_SPAWN_POPULATION_RADIUS_TILES,
+  usesNearSpawnPopulationRules,
+} from "./population/nearSpawn.js";
+import { randomSpawnWithinRadius } from "./populationPlacement.js";
+import { pickAllowedEnemyDef, pickEnemyDef } from "./populationRoster.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 /**
@@ -24,7 +30,8 @@ export const REPOPULATE_INTERVAL_TICKS = 30 * TICK_RATE;
 /** Target density for each occupied area before the shared global cap is divided. */
 const REPOPULATE_ATTEMPTS_PER_ENEMY = 40;
 const ENEMY_CAP = 150;
-const RETAIN_RADIUS_TILES = NEAR_SPAWN_RADIUS_TILES + AOI_RADIUS;
+const RETAIN_RADIUS_TILES =
+  ENEMY_SIMULATION_TUNING.population.occupiedAreaRadiusTiles + AOI_RADIUS;
 
 interface PopulationCenter {
   x: number;
@@ -37,31 +44,72 @@ export function repopulateNearSpawn(sim: SimState): void {
   const centers = populationCenters(sim);
   if (centers.length === 0) return;
   recycleInactiveEnemies(sim, centers);
-  const targetPerCenter = targetCount(centers.length);
   for (const center of centers) {
-    repopulateCenter(sim, center, targetPerCenter);
+    repopulateCenter(sim, center, centers.length);
   }
 }
 
-function targetCount(centerCount: number): number {
+function targetCount(sim: SimState, center: PopulationCenter, centerCount: number): number {
+  if (usesNearSpawnPopulationRules(sim, center)) {
+    return ENEMY_SIMULATION_TUNING.population.nearSpawnTargetCount;
+  }
   return Math.min(
     ENEMY_SIMULATION_TUNING.population.occupiedAreaTargetCount,
     Math.max(4, Math.floor(ENEMY_CAP / centerCount)),
   );
 }
 
-function repopulateCenter(sim: SimState, center: PopulationCenter, target: number): void {
+function repopulateCenter(
+  sim: SimState,
+  center: PopulationCenter,
+  centerCount: number,
+): void {
   restoreMiniBossEncounters(sim, center);
-  const deficit = target - countEnemiesWithin(sim, center, NEAR_SPAWN_RADIUS_TILES);
+  const nearSpawn = usesNearSpawnPopulationRules(sim, center);
+  const anchor = nearSpawn ? nearSpawnPopulationCenter() : center;
+  const target = targetCount(sim, center, centerCount);
+  const radius = nearSpawn
+    ? NEAR_SPAWN_POPULATION_RADIUS_TILES
+    : ENEMY_SIMULATION_TUNING.population.occupiedAreaRadiusTiles;
+  const deficit = target - countEnemiesWithin(sim, anchor, radius);
   for (let count = 0; count < deficit && sim.enemies.size < ENEMY_CAP; count++) {
-    spawnRandomEnemyNear(sim, center);
+    spawnRandomEnemyNear({ sim, center: anchor, radius });
   }
 }
 
-function spawnRandomEnemyNear(sim: SimState, center: PopulationCenter): void {
-  const spot = randomSpotNear(sim, center, NEAR_SPAWN_RADIUS_TILES);
+interface RandomEnemyPopulation {
+  readonly sim: SimState;
+  readonly center: PopulationCenter;
+  readonly radius: number;
+}
+
+function spawnRandomEnemyNear(input: RandomEnemyPopulation): void {
+  const { sim, center, radius } = input;
+  const spot = randomSpawnWithinRadius({
+    sim,
+    anchor: center,
+    radius,
+    attempts: REPOPULATE_ATTEMPTS_PER_ENEMY,
+  });
   if (!spot) return;
-  spawnEnemy(sim, { defId: pickEnemyDef(sim, spot.x, spot.y), x: spot.x + 0.5, y: spot.y + 0.5 });
+  const defId = repopulationEnemyDef(sim, spot);
+  if (!defId) return;
+  spawnEnemy(sim, { defId, x: spot.x + 0.5, y: spot.y + 0.5 });
+}
+
+function repopulationEnemyDef(
+  sim: SimState,
+  spot: PopulationCenter,
+): string | null {
+  if (!isNearSpawnPopulationPosition(sim, spot)) {
+    return pickEnemyDef(sim, spot.x, spot.y);
+  }
+  return pickAllowedEnemyDef({
+    sim,
+    x: spot.x,
+    y: spot.y,
+    isAllowed: (defId) => canAddNearSpawnEnemy(sim, defId),
+  });
 }
 
 function restoreMiniBossEncounters(sim: SimState, center: PopulationCenter): void {
@@ -111,28 +159,4 @@ function countsTowardPopulation(enemy: EnemySlot): boolean {
   return enemy.entity.hp > 0 &&
     enemy.def.id !== WARDEN_DEF_ID &&
     enemy.arenaKey === undefined;
-}
-
-/** Random valid placement within `radius` of `anchor` — mirrors spawn.ts's
- * sampleWithinRadius, but this module owns its own placement validity
- * (chasm/sanctuary/player-clearance), same rules population.ts seeds with. */
-function randomSpotNear(
-  sim: SimState,
-  anchor: { x: number; y: number },
-  radius: number,
-): { x: number; y: number } | null {
-  for (let attempt = 0; attempt < REPOPULATE_ATTEMPTS_PER_ENEMY; attempt++) {
-    const spot = randomRadiusTile(sim, anchor, radius);
-    if (validEnemySpawn(sim, spot.x, spot.y)) return spot;
-  }
-  return null;
-}
-
-function randomRadiusTile(sim: SimState, anchor: PopulationCenter, radius: number): PopulationCenter {
-  const angle = sim.rng.next() * Math.PI * 2;
-  const distance = Math.sqrt(sim.rng.next()) * radius;
-  return {
-    x: Math.floor(anchor.x + Math.cos(angle) * distance),
-    y: Math.floor(anchor.y + Math.sin(angle) * distance),
-  };
 }
