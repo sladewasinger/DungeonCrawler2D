@@ -14,7 +14,7 @@ import {
   LIGHTING_MODES,
   lightingModeIsQueryForced,
   savePersistedLightingMode,
-} from "../../render/lighting/toon/lightingMode.js";
+} from "../../render/lighting/mode.js";
 
 export const createSessionButton = (
   label: string,

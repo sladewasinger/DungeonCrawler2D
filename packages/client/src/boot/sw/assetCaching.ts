@@ -38,10 +38,15 @@ export function isGameShellNavigation(
 }
 
 export function isCacheableResponse(response: Response): boolean {
-  return response.ok &&
-    response.status !== 206 &&
+  return response.status === 200 &&
     response.type !== "opaque" &&
+    !hasNoStoreDirective(response) &&
     response.headers.get("Vary")?.trim() !== "*";
+}
+
+export function isCacheableShellResponse(response: Response): boolean {
+  if (!isCacheableResponse(response)) return false;
+  return getMediaType(response.headers.get("Content-Type")) === "text/html";
 }
 
 export function isCacheableImmutableAssetResponse(
@@ -56,8 +61,21 @@ export function isCacheableImmutableAssetResponse(
   if (!expectedTypes) return false;
   const contentType = response.headers.get("Content-Type");
   if (!contentType) return false;
-  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
+  const mediaType = getMediaType(contentType);
   return mediaType !== undefined && expectedTypes.includes(mediaType);
+}
+
+function hasNoStoreDirective(response: Response): boolean {
+  const cacheControl = response.headers.get("Cache-Control");
+  if (!cacheControl) return false;
+  return cacheControl.split(",").some((directive) => {
+    const name = directive.split("=", 1)[0]?.trim().toLowerCase();
+    return name === "no-store";
+  });
+}
+
+function getMediaType(contentType: string | null): string | undefined {
+  return contentType?.split(";", 1)[0]?.trim().toLowerCase();
 }
 
 function getExtension(pathname: string): string {

@@ -32,6 +32,7 @@ function resetWelcomeState(conn: Connection): void {
   conn.areaTiles.clear();
   conn.areaTileLayers.clear();
   conn.defeatedMiniBossArenaChunks.clear();
+  conn.defeatedMiniBossArenaWindowCenter = null;
   conn.miniBossArenaLandmarkRevision++;
   conn.teleported = true;
 }

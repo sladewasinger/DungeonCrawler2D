@@ -1,16 +1,23 @@
-import { CHUNK_SIZE, World, hashString } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS,
+  World,
+  hashString,
+} from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { wrapDegrees } from "../../../../render/view/orientation/viewOrientation.js";
 import {
   CompassLandmarkLocator,
   resolveCompassLandmarks,
 } from "./compassLandmarks.js";
+import { findCompassLandmarkCandidates } from "./compassLandmarkCandidates.js";
 import {
   arenaChunkKey,
   nearestMiniBossArena,
 } from "./miniBossCompassSearch.js";
 
 const WORLD_SEED = hashString("ordinary-mini-boss-arena");
+const MISSING_ARENA_ERROR = "test world is missing a mini-boss arena";
 
 describe("compass landmarks", () => {
   it("finds the nearest deterministic safe room and stamped mini-boss arena", () => {
@@ -51,7 +58,7 @@ describe("compass landmarks", () => {
     const after = { x: -255.5, y: -160.5 };
     const beforeTarget = nearestMiniBossArena({ world, ...before });
     const afterTarget = nearestMiniBossArena({ world, ...after });
-    if (!beforeTarget || !afterTarget) throw new Error("test world is missing a mini-boss arena");
+    if (!beforeTarget || !afterTarget) throw new Error(MISSING_ARENA_ERROR);
     expect(samePosition(beforeTarget, afterTarget)).toBe(false);
 
     const beforeMarker = locator.resolve({ world, ...before, viewBearingDeg: 0 });
@@ -83,7 +90,7 @@ describe("compass landmarks", () => {
     const x = 0.5;
     const y = 0.5;
     const active = nearestMiniBossArena({ world, x, y });
-    if (!active) throw new Error("test world is missing a mini-boss arena");
+    if (!active) throw new Error(MISSING_ARENA_ERROR);
     const defeated = new Set([
       arenaChunkKey(
         Math.floor(active.x / CHUNK_SIZE),
@@ -110,6 +117,32 @@ describe("compass landmarks", () => {
 
     expect(after.safeRoom).toEqual(before.safeRoom);
     expect(after.miniBossArena).not.toEqual(before.miniBossArena);
+  });
+
+  it("does not reveal an arena newly exposed by predicted chunk movement", () => {
+    const world = new World(WORLD_SEED, 1);
+    const active = nearestMiniBossArena({ world, x: 0.5, y: 0.5 });
+    if (!active) throw new Error(MISSING_ARENA_ERROR);
+    const arenaChunk = {
+      cx: Math.floor(active.x / CHUNK_SIZE),
+      cy: Math.floor(active.y / CHUNK_SIZE),
+    };
+    const predictedCenter = {
+      cx: arenaChunk.cx - MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS,
+      cy: arenaChunk.cy,
+    };
+    const candidates = findCompassLandmarkCandidates({
+      world,
+      x: predictedCenter.cx * CHUNK_SIZE + 0.5,
+      y: predictedCenter.cy * CHUNK_SIZE + 0.5,
+      viewBearingDeg: 0,
+      miniBossArenaWindowCenter: {
+        cx: predictedCenter.cx - 1,
+        cy: predictedCenter.cy,
+      },
+    });
+
+    expect(candidates.miniBossArena).not.toContainEqual(active);
   });
 });
 

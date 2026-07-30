@@ -10,6 +10,7 @@ import {
   miniBossEncounterMembers,
   type MiniBossEncounterMember,
 } from "./encounterPlacement.js";
+import { markMiniBossArenaDefeated } from "./defeatedArenaState.js";
 import { clearMiniBossArena } from "./runtime.js";
 
 const ENEMY_CAP = 150;
@@ -20,8 +21,7 @@ export function handleMiniBossEnemyDeath(
 ): void {
   const arenaKey = enemy.arenaKey;
   if (!arenaKey || !enemy.arenaLeader ||
-      sim.defeatedMiniBossArenas.has(arenaKey)) return;
-  sim.defeatedMiniBossArenas.add(arenaKey);
+      !markMiniBossArenaDefeated(sim, arenaKey)) return;
   clearMiniBossArena(sim, arenaKey);
   endArenaEnemyConstraints(sim, arenaKey);
   syncWorldFeatureOverrides(sim);

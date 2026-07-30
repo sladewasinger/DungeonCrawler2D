@@ -12,6 +12,7 @@ import { deriveCacheName, isDc2dCacheName } from "./cacheName.js";
 import {
   isCacheableResponse,
   isCacheableImmutableAssetResponse,
+  isCacheableShellResponse,
   isGameShellNavigation,
   isImmutableAssetRequest,
 } from "./assetCaching.js";
@@ -54,7 +55,8 @@ async function cacheResponse(
 async function handleNavigation(request: Request): Promise<Response> {
   try {
     const response = await fetch(request);
-    if (isGameShellNavigation(request, self.location.origin)) {
+    if (isGameShellNavigation(request, self.location.origin) &&
+      isCacheableShellResponse(response)) {
       await cacheResponse(NAVIGATION_FALLBACK, response);
     }
     return response;

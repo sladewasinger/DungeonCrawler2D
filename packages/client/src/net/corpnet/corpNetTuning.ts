@@ -20,7 +20,7 @@ export const EXPERIMENTAL_CORPNET_TUNING = {
     flushDelayMs: 16,
   },
   stall: {
-    watchdogIntervalMs: 1_000,
+    watchdogRetryDelayMs: 250,
     predictionHoldAfterMs: CORPNET_INPUT_LEASE_MS,
     recoveryAfterMs: 2_500,
     initialRecoveryBackoffMs: 3_000,

@@ -21,7 +21,7 @@ function frame(tick: number): PlayerSnapshotFrame {
     areas: [],
     roomDoors: [],
     miniBossArenaGates: [],
-    defeatedMiniBossArenas: [],
+    defeatedMiniBossArenaWindow: { center: { cx: 0, cy: 0 }, arenas: [] },
     visibleIds: new Set(),
     privateEventCount: 0,
     pendingEventCount: 0,

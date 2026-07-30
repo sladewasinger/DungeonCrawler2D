@@ -4,7 +4,8 @@ import { defeatedMiniBossArenaWindowSchema } from "./miniBossArenaLandmarks.js";
 import { gameEventSchema } from "./serverEvents.js";
 
 export { gameEventSchema, type GameEvent } from "./serverEvents.js";
-export { defeatedMiniBossArenaSnapshotSchema, type DefeatedMiniBossArenaSnapshot } from "./miniBossArenaLandmarks.js";
+export { defeatedMiniBossArenaSnapshotSchema, defeatedMiniBossArenaWindowSchema } from "./miniBossArenaLandmarks.js";
+export type { DefeatedMiniBossArenaSnapshot, DefeatedMiniBossArenaWindow } from "./miniBossArenaLandmarks.js";
 
 /** Zod schemas and types for server→client wire messages (authoritative snapshots and events). */
 
@@ -115,7 +116,7 @@ export const serverSnapshotSchema = z.object({
   areas: z.array(areaTileSchema),
   roomDoors: z.array(safeRoomDoorSnapshotSchema).optional(),
   miniBossArenaGates: z.array(miniBossArenaGateSnapshotSchema).optional(),
-  defeatedMiniBossArenas: defeatedMiniBossArenaWindowSchema.optional(),
+  defeatedMiniBossArenaWindow: defeatedMiniBossArenaWindowSchema.optional(),
 });
 
 export const entitySnapshotRevisionSchema = entitySnapshotSchema.extend({
@@ -153,7 +154,7 @@ export const serverSnapshotDeltaSchema = z.object({
   areas: z.array(areaTileSchema),
   roomDoors: z.array(safeRoomDoorSnapshotSchema).optional(),
   miniBossArenaGates: z.array(miniBossArenaGateSnapshotSchema).optional(),
-  defeatedMiniBossArenas: defeatedMiniBossArenaWindowSchema.optional(),
+  defeatedMiniBossArenaWindow: defeatedMiniBossArenaWindowSchema.optional(),
 });
 
 export const serverPongSchema = z.object({ type: z.literal("pong"), t: z.number() });

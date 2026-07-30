@@ -8,7 +8,7 @@ interface DeltaOptions {
   baseTick: number | null;
   baseline: boolean;
   areas?: ServerSnapshotDelta["areas"];
-  defeatedMiniBossArenas?: ServerSnapshotDelta["defeatedMiniBossArenas"];
+  defeatedMiniBossArenaWindow?: ServerSnapshotDelta["defeatedMiniBossArenaWindow"];
 }
 
 function deltaAt(options: DeltaOptions): ServerSnapshotDelta {
@@ -20,9 +20,9 @@ function deltaAt(options: DeltaOptions): ServerSnapshotDelta {
     ...(options.baseline ? { hotbar: ["bandage"] } : {}), weapon: full.weapon, party: full.party,
     entities: options.baseline ? [{ id: "item-1", kind: "item", defId: "rag", x: 1, y: 2, z: 0, revision: 3 }] : [{ id: "item-1", revision: 3, unchanged: true }],
     left: [], events: [],
-    ...(options.defeatedMiniBossArenas === undefined
+    ...(options.defeatedMiniBossArenaWindow === undefined
       ? {}
-      : { defeatedMiniBossArenas: options.defeatedMiniBossArenas }),
+      : { defeatedMiniBossArenaWindow: options.defeatedMiniBossArenaWindow }),
   };
 }
 
@@ -55,16 +55,21 @@ describe("applySnapshotDelta", () => {
       tick: 10,
       baseTick: null,
       baseline: true,
-      defeatedMiniBossArenas: [{ cx: 3, cy: -2 }],
+      defeatedMiniBossArenaWindow: {
+        center: { cx: 2, cy: -2 },
+        arenas: [{ cx: 3, cy: -2 }],
+      },
     }));
     expect([...conn.defeatedMiniBossArenaChunks]).toEqual(["3,-2"]);
+    expect(conn.defeatedMiniBossArenaWindowCenter).toEqual({ cx: 2, cy: -2 });
 
     applySnapshotDelta(conn, deltaAt({
       tick: 11,
       baseTick: 10,
       baseline: false,
-      defeatedMiniBossArenas: [],
+      defeatedMiniBossArenaWindow: { center: { cx: 3, cy: -2 }, arenas: [] },
     }));
     expect(conn.defeatedMiniBossArenaChunks.size).toBe(0);
+    expect(conn.defeatedMiniBossArenaWindowCenter).toEqual({ cx: 3, cy: -2 });
   });
 });

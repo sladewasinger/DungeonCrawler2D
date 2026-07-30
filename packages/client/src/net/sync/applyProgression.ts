@@ -42,6 +42,7 @@ function applyFloorState(conn: Connection, snap: ServerSnapshot): void {
       level: conn.world.level, features: conn.world.features,
     });
     conn.defeatedMiniBossArenaChunks.clear();
+    conn.defeatedMiniBossArenaWindowCenter = null;
     conn.miniBossArenaLandmarkRevision++;
   }
   conn.floor = next;

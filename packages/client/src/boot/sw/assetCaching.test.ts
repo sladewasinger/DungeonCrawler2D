@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCacheableShellResponse,
   isCacheableImmutableAssetResponse,
   isCacheableResponse,
   isGameShellNavigation,
@@ -8,6 +9,7 @@ import {
 } from "./assetCaching.js";
 
 const GAME_ORIGIN = "https://game.invalid";
+const HTML_SHELL = "<html></html>";
 
 describe("service-worker asset caching", () => {
   it("caches Vite content-addressed bundles immutably", () => {
@@ -75,14 +77,38 @@ describe("service-worker asset caching", () => {
     )).toBe(false);
   });
 
-  it("only permits successful cache-compatible responses", () => {
+  it("only permits valid status-200 cache-compatible responses", () => {
     expect(isCacheableResponse(new Response("asset"))).toBe(true);
+    expect(isCacheableResponse(new Response(null, { status: 204 })))
+      .toBe(false);
     expect(isCacheableResponse(new Response("missing", { status: 404 })))
       .toBe(false);
     expect(isCacheableResponse(new Response("partial", { status: 206 })))
       .toBe(false);
+    expect(isCacheableResponse(new Response("private", {
+      headers: { "cache-control": "public, NO-STORE, max-age=60" },
+    }))).toBe(false);
     expect(isCacheableResponse(new Response("vary", {
       headers: { Vary: "*" },
+    }))).toBe(false);
+  });
+
+  it("only caches a status-200 HTML game shell", () => {
+    expect(isCacheableShellResponse(new Response(HTML_SHELL, {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    }))).toBe(true);
+    expect(isCacheableShellResponse(new Response(null, {
+      status: 204,
+      headers: { "content-type": "text/html" },
+    }))).toBe(false);
+    expect(isCacheableShellResponse(new Response("{}", {
+      headers: { "content-type": "application/json" },
+    }))).toBe(false);
+    expect(isCacheableShellResponse(new Response(HTML_SHELL, {
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/html",
+      },
     }))).toBe(false);
   });
 
@@ -114,5 +140,14 @@ describe("service-worker asset caching", () => {
       });
       expect(isCacheableImmutableAssetResponse(request, response)).toBe(true);
     }
+
+    const malformedResponse = new Response(null, {
+      status: 204,
+      headers: { "content-type": "application/json" },
+    });
+    expect(isCacheableImmutableAssetResponse(
+      new Request(`${GAME_ORIGIN}/assets/atlas.json?build=x`),
+      malformedResponse,
+    )).toBe(false);
   });
 });

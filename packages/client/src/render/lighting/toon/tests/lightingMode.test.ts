@@ -5,7 +5,7 @@ import {
   lightingModeFromQuery,
   resolveLightingMode,
   savePersistedLightingMode,
-} from "../lightingMode.js";
+} from "../../mode.js";
 
 describe("toon lighting mode", () => {
   it("keeps classic as the persisted default", () => {

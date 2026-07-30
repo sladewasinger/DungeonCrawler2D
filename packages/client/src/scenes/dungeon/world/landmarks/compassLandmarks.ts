@@ -21,6 +21,7 @@ export interface CompassLandmarkRequest {
   readonly y: number;
   readonly viewBearingDeg: number;
   readonly defeatedMiniBossArenaChunks?: ReadonlySet<string>;
+  readonly miniBossArenaWindowCenter?: { readonly cx: number; readonly cy: number };
   readonly miniBossArenaLandmarkRevision?: number;
 }
 
@@ -31,6 +32,8 @@ export interface CompassLandmarkRequest {
 export class CompassLandmarkLocator {
   private chunkX = Number.NaN;
   private chunkY = Number.NaN;
+  private miniBossWindowChunkX = Number.NaN;
+  private miniBossWindowChunkY = Number.NaN;
   private miniBossArenaLandmarkRevision = Number.NaN;
   private candidates: CompassLandmarkCandidates =
     emptyCompassLandmarkCandidates();
@@ -41,8 +44,11 @@ export class CompassLandmarkLocator {
   }
 
   private needsRefresh(request: CompassLandmarkRequest): boolean {
+    const miniBossCenter = miniBossWindowCenter(request);
     return this.chunkX !== Math.floor(request.x / CHUNK_SIZE) ||
       this.chunkY !== Math.floor(request.y / CHUNK_SIZE) ||
+      this.miniBossWindowChunkX !== miniBossCenter.cx ||
+      this.miniBossWindowChunkY !== miniBossCenter.cy ||
       this.miniBossArenaLandmarkRevision !==
         (request.miniBossArenaLandmarkRevision ?? 0);
   }
@@ -50,10 +56,22 @@ export class CompassLandmarkLocator {
   private refresh(request: CompassLandmarkRequest): void {
     this.chunkX = Math.floor(request.x / CHUNK_SIZE);
     this.chunkY = Math.floor(request.y / CHUNK_SIZE);
+    const miniBossCenter = miniBossWindowCenter(request);
+    this.miniBossWindowChunkX = miniBossCenter.cx;
+    this.miniBossWindowChunkY = miniBossCenter.cy;
     this.miniBossArenaLandmarkRevision =
       request.miniBossArenaLandmarkRevision ?? 0;
     this.candidates = findCompassLandmarkCandidates(request);
   }
+}
+
+function miniBossWindowCenter(
+  request: CompassLandmarkRequest,
+): { readonly cx: number; readonly cy: number } {
+  return request.miniBossArenaWindowCenter ?? {
+    cx: Math.floor(request.x / CHUNK_SIZE),
+    cy: Math.floor(request.y / CHUNK_SIZE),
+  };
 }
 
 const locators = new WeakMap<World, CompassLandmarkLocator>();

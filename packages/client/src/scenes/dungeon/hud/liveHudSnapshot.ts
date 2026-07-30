@@ -133,6 +133,9 @@ function resolveLiveCompassLandmarks(
     y: bodyPos.y,
     viewBearingDeg,
     defeatedMiniBossArenaChunks: conn.defeatedMiniBossArenaChunks,
+    ...(conn.defeatedMiniBossArenaWindowCenter
+      ? { miniBossArenaWindowCenter: conn.defeatedMiniBossArenaWindowCenter }
+      : {}),
     miniBossArenaLandmarkRevision: conn.miniBossArenaLandmarkRevision,
   });
 }

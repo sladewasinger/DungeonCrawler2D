@@ -9,7 +9,7 @@ import { getViewOrientation } from "../../view/transform/viewState.js";
 import { viewToWorld } from "../../view/transform/viewTransform.js";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { isReservedRoomPosition } from "../../../scenes/dungeon/frame/roomEntityVisibility.js";
-import { currentLightingMode, LIGHTING_MODES } from "./lightingMode.js";
+import { currentLightingMode, LIGHTING_MODES } from "../mode.js";
 import {
   shouldRebuildToonVisibility,
   toonVisibilityCacheKey,

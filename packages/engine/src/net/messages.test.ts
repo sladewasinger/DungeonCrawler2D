@@ -104,7 +104,7 @@ describe("protocol", () => {
         { x: 6, y: 5, defId: null },
       ],
       miniBossArenaGates: [{ x: 8, y: 9 }],
-      defeatedMiniBossArenas: [{ cx: -2, cy: 7 }],
+      defeatedMiniBossArenaWindow: { center: { cx: -1, cy: 7 }, arenas: [{ cx: -2, cy: 7 }] },
     };
     expect(decodeServerMessage(encodeMessage(snap))).toEqual(snap);
   });

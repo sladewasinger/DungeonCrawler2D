@@ -23,6 +23,10 @@ export function findCompassLandmarkCandidates(
 ): CompassLandmarkCandidates {
   const centerX = Math.floor(request.x / CHUNK_SIZE);
   const centerY = Math.floor(request.y / CHUNK_SIZE);
+  const miniBossCenter = request.miniBossArenaWindowCenter ?? {
+    cx: centerX,
+    cy: centerY,
+  };
   return {
     safeRoom: safeRoomCandidates(request.world, squareChunks(
       centerX,
@@ -30,8 +34,8 @@ export function findCompassLandmarkCandidates(
       SAFE_ROOM_SEARCH_RADIUS_CHUNKS,
     )),
     miniBossArena: miniBossArenaCandidates(request, squareChunks(
-      centerX,
-      centerY,
+      miniBossCenter.cx,
+      miniBossCenter.cy,
       MINI_BOSS_ARENA_COMPASS_RADIUS_CHUNKS,
     )),
   };

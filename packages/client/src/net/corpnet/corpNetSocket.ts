@@ -33,12 +33,11 @@ export function queueCorpNetSnapshot(
 
 export function startCorpNetWatchdog(conn: Connection): void {
   if (!conn.corpNet.enabled || conn.corpNetWatchdogTimer) return;
-  conn.corpNetWatchdogTimer = setInterval(() => checkCorpNetStall(conn),
-    EXPERIMENTAL_CORPNET_TUNING.stall.watchdogIntervalMs);
+  scheduleCorpNetWatchdog(conn);
 }
 
 export function stopCorpNetWatchdog(conn: Connection): void {
-  if (conn.corpNetWatchdogTimer) clearInterval(conn.corpNetWatchdogTimer);
+  if (conn.corpNetWatchdogTimer) clearTimeout(conn.corpNetWatchdogTimer);
   conn.corpNetWatchdogTimer = null;
   if (conn.corpNetFlushTimer) clearTimeout(conn.corpNetFlushTimer);
   conn.corpNetFlushTimer = null;
@@ -51,6 +50,7 @@ export function flushCorpNetSnapshots(conn: Connection): void {
   for (const snapshot of conn.snapshotCoalescer.drain()) {
     applyCorpNetSnapshot(conn, snapshot.message, snapshot.receivedAtMs);
   }
+  scheduleCorpNetWatchdog(conn);
 }
 
 function scheduleCorpNetSnapshotFlush(conn: Connection): void {
@@ -62,11 +62,31 @@ function scheduleCorpNetSnapshotFlush(conn: Connection): void {
 }
 
 function checkCorpNetStall(conn: Connection): void {
-  if (conn.ws?.readyState !== WebSocket.OPEN) return;
+  if (conn.ws?.readyState !== WebSocket.OPEN) {
+    scheduleCorpNetWatchdog(conn, EXPERIMENTAL_CORPNET_TUNING.stall.watchdogRetryDelayMs);
+    return;
+  }
   const watchdog = conn.corpNet.watchdog(performance.now());
   if (watchdog.requestRecovery) {
     requestSnapshotBaseline(conn, { retryPending: true });
   }
+  scheduleCorpNetWatchdog(conn);
+}
+
+function scheduleCorpNetWatchdog(conn: Connection, minimumDelayMs = 0): void {
+  if (!conn.corpNet.enabled || conn.status !== "connected") return;
+  if (conn.corpNetWatchdogTimer) clearTimeout(conn.corpNetWatchdogTimer);
+  const nowMs = performance.now();
+  const deadlineMs = conn.corpNet.watchdogDeadlineMs();
+  if (deadlineMs === null) {
+    conn.corpNetWatchdogTimer = null;
+    return;
+  }
+  const delayMs = Math.max(minimumDelayMs, deadlineMs - nowMs);
+  conn.corpNetWatchdogTimer = setTimeout(() => {
+    conn.corpNetWatchdogTimer = null;
+    checkCorpNetStall(conn);
+  }, delayMs);
 }
 
 function applyCorpNetSnapshot(

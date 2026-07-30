@@ -6,19 +6,30 @@ export function applyMiniBossArenaLandmarks(
   conn: Connection,
   snapshot: ServerSnapshot,
 ): void {
-  const arenas = snapshot.defeatedMiniBossArenas;
-  if (!arenas) return;
-  const next = new Set(arenas.map(arenaChunkKey));
-  if (sameArenaChunks(conn.defeatedMiniBossArenaChunks, next)) return;
+  const window = snapshot.defeatedMiniBossArenaWindow;
+  if (!window) return;
+  const next = new Set(window.arenas.map(arenaChunkKey));
+  const centerChanged = !sameCenter(conn.defeatedMiniBossArenaWindowCenter, window.center);
+  if (!centerChanged && sameArenaChunks(conn.defeatedMiniBossArenaChunks, next)) return;
   conn.defeatedMiniBossArenaChunks.clear();
   for (const key of next) conn.defeatedMiniBossArenaChunks.add(key);
+  conn.defeatedMiniBossArenaWindowCenter = window.center;
   conn.miniBossArenaLandmarkRevision++;
 }
 
 function arenaChunkKey(
-  arena: NonNullable<ServerSnapshot["defeatedMiniBossArenas"]>[number],
+  arena: NonNullable<ServerSnapshot["defeatedMiniBossArenaWindow"]>["arenas"][number],
 ): string {
   return `${arena.cx},${arena.cy}`;
+}
+
+function sameCenter(
+  current: { readonly cx: number; readonly cy: number } | null,
+  next: { readonly cx: number; readonly cy: number },
+): boolean {
+  return current !== null &&
+    current.cx === next.cx &&
+    current.cy === next.cy;
 }
 
 function sameArenaChunks(

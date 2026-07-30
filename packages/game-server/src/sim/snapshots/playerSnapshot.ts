@@ -1,13 +1,13 @@
 import {
   type GameEvent,
-  type DefeatedMiniBossArenaSnapshot,
+  type DefeatedMiniBossArenaWindow,
   type MiniBossArenaGateSnapshot,
   type SafeRoomDoorSnapshot,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { safeRoomDoorsForSlot } from "../core/safeRoomDoors.js";
 import { miniBossArenaGatesForSlot } from "../enemies/miniBossArena/gateOverrides.js";
-import { defeatedMiniBossArenasForSlot } from "../enemies/miniBossArena/defeatedLandmarks.js";
+import { defeatedMiniBossArenaWindowForSlot } from "../enemies/miniBossArena/landmarks/defeatedLandmarks.js";
 import { toSelfSnapshot } from "./selfSnapshot.js";
 import {
   leavingEntities,
@@ -37,7 +37,7 @@ export interface PlayerSnapshotFrame {
   areas: ServerSnapshot["areas"];
   roomDoors: SafeRoomDoorSnapshot[];
   miniBossArenaGates: MiniBossArenaGateSnapshot[];
-  defeatedMiniBossArenas: DefeatedMiniBossArenaSnapshot[];
+  defeatedMiniBossArenaWindow: DefeatedMiniBossArenaWindow;
   visibleIds: Set<string>;
   privateEventCount: number;
   pendingEventCount: number;
@@ -117,7 +117,7 @@ function frameContent(request: {
     areas: area.areas,
     roomDoors: safeRoomDoorsForSlot(sim, slot),
     miniBossArenaGates: miniBossArenaGatesForSlot(sim, slot),
-    defeatedMiniBossArenas: defeatedMiniBossArenasForSlot(sim, slot),
+    defeatedMiniBossArenaWindow: defeatedMiniBossArenaWindowForSlot(sim, slot),
     visibleIds: visible.ids,
     privateEventCount: slot.outbox.length,
     pendingEventCount: pending.events.length,

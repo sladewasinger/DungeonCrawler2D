@@ -13,6 +13,7 @@ export * from "./world/features/fixed/fixed.js";
 export * from "./world/features/descent/descent.js";
 export * from "./world/features/bossArena/bossArena.js";
 export * from "./world/features/miniBossArena/miniBossArena.js";
+export * from "./world/features/miniBossArena/miniBossArenaKey.js";
 export * from "./world/core/pockets.js";
 export * from "./world/generate.js";
 export * from "./world/generate/terrain/biome.js";

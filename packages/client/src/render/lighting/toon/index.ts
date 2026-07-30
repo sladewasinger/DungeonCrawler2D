@@ -5,7 +5,7 @@ export {
   loadPersistedLightingMode,
   savePersistedLightingMode,
   type LightingMode,
-} from "./lightingMode.js";
+} from "../mode.js";
 export {
   ToonVisibilityController,
   type ToonVisibilityFrame,

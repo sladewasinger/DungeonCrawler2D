@@ -22,8 +22,9 @@ describe("defeated mini-boss compass landmarks", () => {
     const snapshot = buildSnapshots(sim).get(fighter.entity.id);
 
     expect(snapshot?.miniBossArenaGates).toEqual([]);
-    expect(snapshot?.defeatedMiniBossArenas).toEqual([
-      { cx: arena.chunk.cx, cy: arena.chunk.cy },
-    ]);
+    expect(snapshot?.defeatedMiniBossArenaWindow).toEqual({
+      center: { cx: arena.chunk.cx + 3, cy: arena.chunk.cy },
+      arenas: [{ cx: arena.chunk.cx, cy: arena.chunk.cy }],
+    });
   });
 });

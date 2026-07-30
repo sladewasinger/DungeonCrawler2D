@@ -25,8 +25,9 @@ export function presentationEntityFilter(
   const retainedIds = activeInteractionEntityIds(input.inputController);
   retainedIds.add(input.localPlayerId);
   const orientation = getViewOrientation();
-  const enabled = input.constrainedPresentation === true &&
-    !isReservedRoomPosition(input.viewerX, input.viewerY);
+  const enabled = !isReservedRoomPosition(input.viewerX, input.viewerY) && (
+    input.constrainedPresentation === true || input.terrainVisibility !== undefined
+  );
   return (remote) => shouldPresentEntity({
     entity: remote.snap,
     viewport: input.viewport,

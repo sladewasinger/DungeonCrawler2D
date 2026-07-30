@@ -38,11 +38,11 @@ export function shouldPresentEntity({
   enabled = true,
   terrainVisibility,
 }: EntityPresentationVisibilityInput): boolean {
-  if (!enabled || retainedIds?.has(entity.id)) return true;
   if (terrainVisibility && !terrainVisibility.isWorldPositionVisible(
     entity.x,
     entity.y,
   )) return false;
+  if (!enabled || retainedIds?.has(entity.id)) return true;
   return isEntityInViewport({ entity, viewport, orientation, marginTiles });
 }
 

@@ -1,6 +1,6 @@
 import { INTERACT_RANGE } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
-import { nearestLootChest } from "../../../net/queries/lootChestQuery.js";
+import { nearestLootChestFromFrame } from "../../../net/queries/lootChestQuery.js";
 import type { FrameEntityBuckets } from "./frameEntityBuckets.js";
 import {
   resolveInteractionPrompt,
@@ -65,7 +65,7 @@ export function resolveFrameInteractionPrompt(
   return resolveInteractionPrompt({
     world: conn.world, x, y, items: buckets.pickupTargets,
     reviveTarget: nearestDownedPlayer(buckets, x, y),
-    lootChest: nearestLootChest(conn) ?? undefined,
+    lootChest: nearestLootChestFromFrame(conn.body, buckets.lootChests) ?? undefined,
     pet: nearestPet(buckets, x, y),
   });
 }

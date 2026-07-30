@@ -1,4 +1,4 @@
-import type { EntitySnapshot } from "@dc2d/engine";
+import { createBody, type EntitySnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { Connection } from "../connection/connection.js";
 import {
@@ -6,6 +6,7 @@ import {
   canOpenLootChest,
   lootChestLockSeconds,
   nearestLootChest,
+  nearestLootChestFromFrame,
 } from "./lootChestQuery.js";
 
 const chest = (overrides: Partial<EntitySnapshot> = {}): EntitySnapshot => ({
@@ -47,6 +48,14 @@ describe("loot chest client query", () => {
     const tieA = chest({ id: "loot-a", x: -1 });
     expect(nearestLootChest(connection(tieB, tieA))?.id).toBe("loot-a");
     expect(nearestLootChest(connection(tieA, tieB))?.id).toBe("loot-a");
+  });
+
+  it("uses interpolated frame positions for visible chest proximity", () => {
+    const snapshot = chest({ x: 20, y: 20 });
+    expect(nearestLootChestFromFrame(
+      createBody(0, 0, 0),
+      [{ snap: snapshot, x: 0.5, y: 0, z: 0 }],
+    )?.id).toBe(snapshot.id);
   });
 
   it("shows a ceiling-rounded lock while allowing the killer through", () => {

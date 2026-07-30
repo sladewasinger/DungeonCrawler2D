@@ -53,6 +53,11 @@ export class CorpNetState {
     return "entered-hold";
   }
 
+  watchdogDeadlineMs(): number | null {
+    if (!this.enabledValue || this.lastSnapshotAtMs === null) return null;
+    return this.nextRecoveryAtMs;
+  }
+
   watchdog(nowMs: number): CorpNetWatchdogState {
     const stalled = this.snapshotSilenceMs(nowMs) >=
       EXPERIMENTAL_CORPNET_TUNING.stall.recoveryAfterMs;

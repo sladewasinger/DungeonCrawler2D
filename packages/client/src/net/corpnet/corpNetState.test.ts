@@ -45,4 +45,18 @@ describe("CorpNetState", () => {
     expect(state.shouldHoldPrediction(10_001)).toBe(false);
     expect(state.watchdog(10_001)).toEqual({ stalled: false, requestRecovery: false });
   });
+
+  it("exposes the next absolute watchdog deadline", () => {
+    const state = new CorpNetState(true);
+    state.reset(1_000);
+
+    expect(state.watchdogDeadlineMs()).toBe(
+      1_000 + EXPERIMENTAL_CORPNET_TUNING.stall.recoveryAfterMs,
+    );
+    state.watchdog(1_000 + EXPERIMENTAL_CORPNET_TUNING.stall.recoveryAfterMs);
+    expect(state.watchdogDeadlineMs()).toBe(
+      1_000 + EXPERIMENTAL_CORPNET_TUNING.stall.recoveryAfterMs +
+        EXPERIMENTAL_CORPNET_TUNING.stall.initialRecoveryBackoffMs,
+    );
+  });
 });

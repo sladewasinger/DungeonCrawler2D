@@ -77,6 +77,7 @@ export class ConnectionState {
   npcSpeech: NpcSpeech | null = null;
   roomDoors: ServerSnapshot["roomDoors"] = [];
   readonly defeatedMiniBossArenaChunks = new Set<string>();
+  defeatedMiniBossArenaWindowCenter: { readonly cx: number; readonly cy: number } | null = null;
   miniBossArenaLandmarkRevision = 0;
   teleported = false;
   justRespawned = false;
@@ -96,7 +97,7 @@ export class ConnectionState {
   movementTrace: MovementTraceRecorder | null = null;
   ws: WebSocket | null = null;
   pingTimer: ReturnType<typeof setInterval> | null = null;
-  corpNetWatchdogTimer: ReturnType<typeof setInterval> | null = null;
+  corpNetWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
   corpNetFlushTimer: ReturnType<typeof setTimeout> | null = null;
   reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   shouldReconnect = false;

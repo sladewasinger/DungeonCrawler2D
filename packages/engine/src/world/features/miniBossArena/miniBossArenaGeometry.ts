@@ -8,6 +8,7 @@ import type {
   MiniBossArenaGate,
   MiniBossArenaSite,
 } from "./miniBossArena.js";
+import { miniBossArenaKey } from "./miniBossArenaKey.js";
 import { miniBossArenaPlatforms } from "./miniBossArenaPlatforms.js";
 
 const TUNING = WORLD_GENERATION_TUNING.miniBossArena;
@@ -46,7 +47,7 @@ export function buildMiniBossArenaSite(
     y: Math.floor((bounds.y0 + bounds.y1) / 2),
   };
   return {
-    key: `${chunk.floor}:${chunk.cx},${chunk.cy}`,
+    key: miniBossArenaKey(chunk),
     chunk: { cx: chunk.cx, cy: chunk.cy },
     bounds,
     interior: inset(bounds),

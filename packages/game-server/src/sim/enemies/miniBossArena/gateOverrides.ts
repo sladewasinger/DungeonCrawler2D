@@ -1,12 +1,15 @@
 import {
   FEATURE_FACE,
   TILE,
+  miniBossArenaKey,
   miniBossArenaForChunk,
   type MiniBossArenaGateSnapshot,
   type TileFeatureOverride,
 } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../../state/state.js";
 import { MINI_BOSS_ARENA_RUNTIME_CONFIGURATION as CONFIG } from "./configuration.js";
+import { defeatedMiniBossArenaRevision } from "./defeatedArenaState.js";
+import { chunksWithinTileRadius } from "./landmarks/nearbyChunks.js";
 import { miniBossArenaEntries } from "./runtime.js";
 
 export function miniBossArenaGateOverrides(
@@ -25,9 +28,10 @@ export function miniBossArenaGatesForSlot(
 ): MiniBossArenaGateSnapshot[] {
   const body = slot.entity.body;
   const radius = CONFIG.openGateReplicationRadiusTiles;
-  return miniBossArenaGateOverrides(sim)
-    .filter(({ x, y }) => Math.hypot(x + 0.5 - body.x, y + 0.5 - body.y) <= radius)
-    .map(({ x, y }) => ({ x, y }));
+  return uniqueGates([
+    ...temporaryOpenGates(sim),
+    ...permanentlyOpenGatesNearPosition(sim, body, radius),
+  ]).filter(({ x, y }) => isWithinRadius({ x, y, body, radius }));
 }
 
 function temporaryOpenGates(sim: SimState): MiniBossArenaGateSnapshot[] {
@@ -38,9 +42,26 @@ function temporaryOpenGates(sim: SimState): MiniBossArenaGateSnapshot[] {
 }
 
 function permanentlyOpenGates(sim: SimState): MiniBossArenaGateSnapshot[] {
-  return [...sim.defeatedMiniBossArenas]
+  const cache = permanentGateCacheFor(sim);
+  const revision = defeatedMiniBossArenaRevision(sim);
+  if (cache.revision === revision) return cache.gates;
+  cache.revision = revision;
+  cache.gates = [...sim.defeatedMiniBossArenas]
     .sort()
     .flatMap((arenaKey) => gatesForArenaKey(sim, arenaKey));
+  return cache.gates;
+}
+
+function permanentlyOpenGatesNearPosition(
+  sim: SimState,
+  body: { readonly x: number; readonly y: number },
+  radius: number,
+): MiniBossArenaGateSnapshot[] {
+  return chunksWithinTileRadius(body, radius).flatMap(({ cx, cy }) => {
+    const key = miniBossArenaKey({ floor: sim.world.floor, cx, cy });
+    if (!sim.defeatedMiniBossArenas.has(key)) return [];
+    return gatesForArenaChunk(sim, { cx, cy });
+  });
 }
 
 function gatesForArenaKey(
@@ -49,12 +70,46 @@ function gatesForArenaKey(
 ): MiniBossArenaGateSnapshot[] {
   const chunk = parseArenaChunk(arenaKey, sim.world.floor);
   if (!chunk) return [];
+  return gatesForArenaChunk(sim, chunk);
+}
+
+function gatesForArenaChunk(
+  sim: SimState,
+  chunk: { readonly cx: number; readonly cy: number },
+): MiniBossArenaGateSnapshot[] {
   const arena = miniBossArenaForChunk({
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
     ...chunk,
   });
   return arena?.gates.map(({ x, y }) => ({ x, y })) ?? [];
+}
+
+function isWithinRadius(input: {
+  readonly x: number;
+  readonly y: number;
+  readonly body: { readonly x: number; readonly y: number };
+  readonly radius: number;
+}): boolean {
+  return Math.hypot(
+    input.x + 0.5 - input.body.x,
+    input.y + 0.5 - input.body.y,
+  ) <= input.radius;
+}
+
+interface PermanentGateCache {
+  revision: number;
+  gates: MiniBossArenaGateSnapshot[];
+}
+
+const permanentGateCaches = new WeakMap<SimState, PermanentGateCache>();
+
+function permanentGateCacheFor(sim: SimState): PermanentGateCache {
+  const existing = permanentGateCaches.get(sim);
+  if (existing) return existing;
+  const cache = { revision: -1, gates: [] };
+  permanentGateCaches.set(sim, cache);
+  return cache;
 }
 
 function parseArenaChunk(

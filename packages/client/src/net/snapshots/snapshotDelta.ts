@@ -103,9 +103,9 @@ function materializeSnapshot(
     areas: delta.areas,
     roomDoors: delta.roomDoors ?? [],
     miniBossArenaGates: delta.miniBossArenaGates ?? [],
-    ...(delta.defeatedMiniBossArenas === undefined
+    ...(delta.defeatedMiniBossArenaWindow === undefined
       ? {}
-      : { defeatedMiniBossArenas: delta.defeatedMiniBossArenas }),
+      : { defeatedMiniBossArenaWindow: delta.defeatedMiniBossArenaWindow }),
   };
 }
 

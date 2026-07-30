@@ -122,6 +122,23 @@ describe("entity presentation visibility", () => {
       marginTiles: 0,
       retainedIds: new Set([entity.id]),
       terrainVisibility,
-    })).toBe(true);
+    })).toBe(false);
+  });
+
+  it("applies toon visibility even when viewport culling is disabled", () => {
+    const entity = entityAtView({
+      id: "hidden-on-desktop",
+      viewX: 5,
+      viewY: 5,
+      orientation: 0,
+    });
+    expect(shouldPresentEntity({
+      entity,
+      viewport: VIEWPORT,
+      orientation: 0,
+      marginTiles: 0,
+      enabled: false,
+      terrainVisibility: { isWorldPositionVisible: () => false },
+    })).toBe(false);
   });
 });

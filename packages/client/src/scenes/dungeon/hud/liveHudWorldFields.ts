@@ -38,6 +38,9 @@ export function updateLiveHudWorldFields(
       y: body.y,
       viewBearingDeg: compassBearingDeg,
       defeatedMiniBossArenaChunks: conn.defeatedMiniBossArenaChunks,
+      ...(conn.defeatedMiniBossArenaWindowCenter
+        ? { miniBossArenaWindowCenter: conn.defeatedMiniBossArenaWindowCenter }
+        : {}),
       miniBossArenaLandmarkRevision: conn.miniBossArenaLandmarkRevision,
     })
     : { safeRoom: null, miniBossArena: null };
