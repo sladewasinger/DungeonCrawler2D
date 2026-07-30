@@ -4,6 +4,7 @@ import {
   MAX_INTERPOLATION_DELAY_MS,
   MIN_INTERPOLATION_DELAY_MS,
 } from "./interpolationDelay.js";
+import { EXPERIMENTAL_CORPNET_TUNING } from "../corpnet/corpNetTuning.js";
 
 describe("InterpolationDelay", () => {
   it("uses a low stable-link delay for active 20 Hz snapshots", () => {
@@ -47,5 +48,21 @@ describe("InterpolationDelay", () => {
     delay.observe(1, 1100);
 
     expect(delay.currentMs).toBe(MIN_INTERPOLATION_DELAY_MS);
+  });
+
+  it("uses a larger but still bounded jitter ceiling only for CorpNet mode", () => {
+    const delay = new InterpolationDelay();
+    delay.setExperimentalCorpNetEnabled(true);
+    expect(delay.currentMs).toBe(
+      EXPERIMENTAL_CORPNET_TUNING.interpolation.minDelayMs,
+    );
+    delay.observe(100, 0);
+    delay.observe(101, 1_000);
+
+    expect(delay.currentMs).toBe(
+      EXPERIMENTAL_CORPNET_TUNING.interpolation.maxDelayMs,
+    );
+    delay.setExperimentalCorpNetEnabled(false);
+    expect(delay.currentMs).toBe(MAX_INTERPOLATION_DELAY_MS);
   });
 });

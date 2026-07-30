@@ -19,6 +19,11 @@ export function isEntityVisibleFromRoom(input: RoomEntityVisibility): boolean {
   return sameChunk(viewerChunk, chunkAt(input.entityX, input.entityY));
 }
 
+export function isReservedRoomPosition(x: number, y: number): boolean {
+  const chunk = chunkAt(x, y);
+  return roomKindAt(chunk.cx, chunk.cy) !== null;
+}
+
 function chunkAt(x: number, y: number): ChunkPosition {
   return {
     cx: Math.floor(x / CHUNK_SIZE),

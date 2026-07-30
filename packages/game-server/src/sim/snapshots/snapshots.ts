@@ -7,7 +7,7 @@ import {
   commitPlayerSnapshotFrame,
   type PlayerSnapshotFrame,
 } from "./playerSnapshot.js";
-import { shouldSendSnapshot } from "./snapshotCadence.js";
+import { shouldSendSnapshot } from "./cadence/snapshotCadence.js";
 import {
   needsSnapshotBaseline,
   pruneSnapshotClients,
@@ -45,6 +45,7 @@ function fullSnapshot(slot: PlayerSlot, frame: PlayerSnapshotFrame): ServerSnaps
     areas: frame.areas,
     roomDoors: frame.roomDoors,
     miniBossArenaGates: frame.miniBossArenaGates,
+    defeatedMiniBossArenas: frame.defeatedMiniBossArenas,
     inventory: slot.inventory.map((stack) => ({ ...stack })),
     hotbar: [...slot.hotbar],
     entities: frame.entities.map(({ snapshot }) => snapshot),
@@ -143,7 +144,11 @@ function addPreparedDelivery({ sim, snapshots, slot, context }: PreparedDelivery
   if (!slot.connected) return discardDisconnectedSlot(sim, slot);
   const frame = snapshotFrame(sim, slot, context);
   const state = slot.snapshotMode ? snapshotClientState(sim, slot) : null;
-  if (!shouldSendSnapshot(frame, state ? needsSnapshotBaseline(state) : false)) return;
+  if (!shouldSendSnapshot(
+    frame,
+    state ? needsSnapshotBaseline(state) : false,
+    slot.networkProfile,
+  )) return;
   snapshots.set(slot.entity.id, preparedDelivery(sim, slot, frame));
 }
 

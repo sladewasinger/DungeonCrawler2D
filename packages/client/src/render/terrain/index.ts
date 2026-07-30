@@ -49,7 +49,8 @@ export {
   type TerrainTileRole,
 } from "./planning/tileset.js";
 
-export { TerrainRenderer, type TerrainRendererLike } from "./runtime/renderer.js";
+export { TerrainRenderer } from "./runtime/renderer.js";
+export type { TerrainRendererLike } from "./rendererPort.js";
 
 export {
   TerrainAtlasBatchRenderer,

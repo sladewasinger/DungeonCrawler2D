@@ -43,6 +43,7 @@ export const CHAT_MODEL: ChatPanelModel = { tabs: [], lines: [] };
 export const CONTACTS: never[] = [];
 export const COMPASS = 0;
 export const STAIRWAY = null;
+export const COMPASS_LANDMARKS = { safeRoom: null, miniBossArena: null };
 
 interface SnapshotTestOptions {
   readonly selectedSlot?: number | null;
@@ -64,5 +65,6 @@ export function snapshotOf(src: HudSnapshotSource, options: SnapshotTestOptions 
     contacts: CONTACTS,
     compassBearingDeg: COMPASS,
     stairway: STAIRWAY,
+    compassLandmarks: COMPASS_LANDMARKS,
   });
 }

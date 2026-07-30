@@ -1,6 +1,7 @@
 import { TICK_DT, type EffectEvent } from "@dc2d/engine";
 import { combatants, effectTargetFor } from "../core/helpers.js";
 import type { SimState } from "../state/state.js";
+import { applyEntityStatus } from "./statusApplication.js";
 import { igniteEntity } from "./elemental/elementalIgnition.js";
 import {
   fireSourceForEntity,
@@ -44,11 +45,11 @@ function applyGroundContact({ sim, entity, contact, effectEvents }: GroundContac
     igniteEntity({ sim, entity, effectEvents, ...sourceOption(contact.sourceId) });
     return;
   }
-  sim.effects.applyStatus({
+  applyEntityStatus({
+    sim,
     entity,
     statusId: contact.statusId,
-    events: effectEvents,
-    target: effectTargetFor(sim, entity),
+    effectEvents,
     ...sourceOption(contact.sourceId),
   });
 }

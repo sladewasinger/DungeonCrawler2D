@@ -26,7 +26,7 @@ import {
   buildSnapshots,
   type PreparedSnapshotDelivery,
 } from "../snapshots/snapshots.js";
-import { configureSnapshotMode, requestSnapshotBaseline } from "../snapshots/snapshotReplication.js";
+import { configureNetworkProfile, configureSnapshotMode, requestSnapshotBaseline } from "../snapshots/snapshotReplication.js";
 import {
   injectGlobalChat,
   listConnectedPlayers,
@@ -106,6 +106,9 @@ export class GameSim {
   configureSnapshotMode(playerId: string, mode: SnapshotMode | undefined): void {
     configureSnapshotMode(this.state, playerId, mode);
   }
+
+  configureNetworkProfile(playerId: string, profile: Parameters<typeof configureNetworkProfile>[2]): void {
+    configureNetworkProfile(this.state, playerId, profile); }
 
   requestSnapshotBaseline(playerId: string): void { requestSnapshotBaseline(this.state, playerId); }
 

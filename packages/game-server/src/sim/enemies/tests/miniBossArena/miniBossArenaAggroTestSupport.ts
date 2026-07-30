@@ -33,8 +33,8 @@ export function arenaFixture(
   const arena = spawnTestArena(sim);
   const gate = requiredArenaGate(arena.gates[0]);
   const player = addArenaPlayer(sim, "fighter", gate.outside);
-  const enemy = retainArenaEnemy(sim, defId);
   useMiniBossArenaGate({ sim, slot: player, gate });
+  const enemy = retainArenaEnemy(sim, defId);
   return { sim, arena, player, enemy };
 }
 

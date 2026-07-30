@@ -3,6 +3,10 @@ import type {
   EnemySearchState,
 } from "../../../state/enemyState.js";
 import type { EnemySearchCandidate } from "./enemySearchCandidates.js";
+import {
+  nextReachableSearchCandidate,
+} from "./enemySearchCandidateScan.js";
+import type { EnemySearchDirection } from "./enemySearchObservation.js";
 
 interface SearchAdvanceInput {
   readonly state: EnemySearchState;
@@ -23,12 +27,14 @@ export interface EnemySearchAdvance {
 export function createEnemySearchState(
   anchor: EnemySearchPoint,
   pauseTicks: number,
+  forward?: EnemySearchDirection,
 ): EnemySearchState {
   return {
     anchor,
     visitedWaypointKeys: [searchPointKey(anchor)],
     candidateCursor: 0,
     pauseTicksRemaining: Math.max(0, pauseTicks),
+    ...(forward ? { forward } : {}),
   };
 }
 
@@ -62,11 +68,13 @@ function arrivedAtWaypoint(input: SearchAdvanceInput): boolean {
 }
 
 function pauseAfterArrival(input: SearchAdvanceInput): EnemySearchAdvance {
+  const pauseTicks = Math.max(0, input.waypointPauseTicks);
+  const state = stateWithoutWaypoint(input.state, pauseTicks);
+  if (pauseTicks === 0) {
+    return selectNextWaypoint({ ...input, state });
+  }
   return {
-    state: stateWithoutWaypoint(
-      input.state,
-      Math.max(0, input.waypointPauseTicks),
-    ),
+    state,
     selectedWaypoint: false,
   };
 }
@@ -91,6 +99,7 @@ function stateWithoutWaypoint(
     visitedWaypointKeys: state.visitedWaypointKeys,
     candidateCursor: state.candidateCursor,
     pauseTicksRemaining,
+    ...(state.forward ? { forward: state.forward } : {}),
   };
 }
 
@@ -107,46 +116,29 @@ function continueSearchPause(state: EnemySearchState): EnemySearchAdvance {
 function selectNextWaypoint(
   input: SearchAdvanceInput,
 ): EnemySearchAdvance {
-  const selection = nextUnvisitedCandidate(input);
-  if (!selection) {
-    return { state: input.state, selectedWaypoint: false };
-  }
-  const point = {
-    ...selection.candidate,
-    z: input.groundAt(selection.candidate.x, selection.candidate.y),
-  };
+  const selection = nextReachableSearchCandidate({
+    candidateCursor: input.state.candidateCursor,
+    candidates: input.candidates,
+    visitedWaypointKeys: input.state.visitedWaypointKeys,
+    groundAt: input.groundAt,
+    isReachable: input.isReachable,
+  });
   const state = { ...input.state, candidateCursor: selection.nextCursor };
-  if (!input.isReachable(point)) {
+  if (!selection.point) {
     return { state, selectedWaypoint: false };
   }
   return {
     state: {
       ...state,
-      waypoint: point,
+      waypoint: selection.point,
       visitedWaypointKeys: [
         ...state.visitedWaypointKeys,
-        searchPointKey(point),
+        searchPointKey(selection.point),
       ],
     },
-    target: point,
+    target: selection.point,
     selectedWaypoint: true,
   };
-}
-
-function nextUnvisitedCandidate(input: SearchAdvanceInput): {
-  readonly candidate: EnemySearchCandidate;
-  readonly nextCursor: number;
-} | null {
-  let cursor = input.state.candidateCursor;
-  while (cursor < input.candidates.length) {
-    const candidate = input.candidates[cursor];
-    cursor++;
-    if (candidate &&
-        !input.state.visitedWaypointKeys.includes(
-          searchPointKey(candidate),
-        )) return { candidate, nextCursor: cursor };
-  }
-  return null;
 }
 
 export function searchPointKey(

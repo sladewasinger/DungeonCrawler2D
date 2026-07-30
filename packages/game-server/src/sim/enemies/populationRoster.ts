@@ -13,7 +13,7 @@ const PITCHBLOOM = "pitchbloom";
 const GLOBAL_ROSTER = [
   "slime", "plant-creeper", PITCHBLOOM, SKELETON, "spitter", "goblin",
   MASKED_ORC, ORC_WARRIOR, "orc-shaman", "tiny-zombie",
-  "big-zombie", "chort", "big-demon", "wogol", "pumpkin-fiend",
+  "big-zombie", "chort", "wogol", "pumpkin-fiend",
   FALLEN_ANGEL,
 ] as const;
 
@@ -33,7 +33,7 @@ export function enemyRosterForBiome(biome: BiomeKind): readonly string[] {
   if (biome === BIOME.Pools) {
     return ["slime", "spitter", PITCHBLOOM, "wogol"];
   }
-  return ["chort", "big-demon", MASKED_ORC, ORC_WARRIOR];
+  return ["chort", MASKED_ORC, ORC_WARRIOR];
 }
 
 function randomEntry(sim: SimState, entries: readonly string[]): string {

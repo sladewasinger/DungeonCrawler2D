@@ -8,18 +8,27 @@ import { pruneTerrainLayers } from "./layerRetention.js";
 
 const AO_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color);
 
+export interface TerrainAOOverlayOptions {
+  readonly enabled: boolean;
+  readonly visible: boolean;
+}
+
 /** One Graphics object per depth row keeps AO batched while preserving entity ordering. */
 export class TerrainAOOverlayRenderer {
   private readonly layers = new Map<number, Phaser.GameObjects.Graphics>();
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  render(masks: TerrainBatches["ao"], projection: TerrainScreenProjection, visible: boolean): void {
-    const grouped = groupByDepth(masks);
+  render(
+    masks: TerrainBatches["ao"],
+    projection: TerrainScreenProjection,
+    options: TerrainAOOverlayOptions,
+  ): void {
+    const grouped = options.enabled ? groupByDepth(masks) : new Map();
     pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, group] of grouped) {
       const graphics = this.layers.get(depth) ?? this.createLayer(depth);
-      graphics.clear().setVisible(visible).fillStyle(AO_COLOR, 1);
+      graphics.clear().setVisible(options.visible).fillStyle(AO_COLOR, 1);
       drawGroup(graphics, group, projection);
     }
   }

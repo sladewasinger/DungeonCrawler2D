@@ -7,6 +7,9 @@ import { connectedAreaNeighborMask } from "../../../../vfx/areas/puddles/areaTil
 import { areaCellSurface, type AreaGroundSampler } from "./areaCellSurface.js";
 import { areaCellVisible, parseAreaCellPosition } from "./areaViewGeometry.js";
 import { writeAreaView } from "./areaViewRecord.js";
+import type {
+  TerrainPresentationVisibility,
+} from "../../../../render/entities/presentation/visibility/entityPresentationVisibility.js";
 
 interface AreaDef {
   readonly id: string;
@@ -35,6 +38,7 @@ export interface AreaTileViewFrame {
   readonly marginPx: number;
   readonly views: AreaTileView[];
   readonly records: AreaTileView[];
+  readonly terrainVisibility?: TerrainPresentationVisibility | undefined;
 }
 
 interface AreaViewBuildState extends AreaTileViewFrame {
@@ -47,6 +51,7 @@ export interface AreaTileViewBuildRequest {
   readonly groundAt: AreaGroundSampler;
   readonly bounds?: AreaViewBounds;
   readonly marginPx?: number;
+  readonly terrainVisibility?: TerrainPresentationVisibility | undefined;
 }
 
 export function buildAreaTileViews(
@@ -79,6 +84,12 @@ function appendAreaCell(
 ): void {
   const cell = parseAreaCellPosition(key);
   const surface = areaCellSurface(cell, state.groundAt);
+  if (state.terrainVisibility && !state.terrainVisibility.isWorldPositionVisible(
+    cell.x + 0.5,
+    cell.y + 0.5,
+  )) {
+    return;
+  }
   if (!areaCellVisible({
     screen: surface.screen,
     bounds: state.bounds,

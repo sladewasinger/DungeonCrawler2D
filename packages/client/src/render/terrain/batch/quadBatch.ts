@@ -36,7 +36,7 @@ export interface TerrainBatchMaterials {
   readonly void: TerrainQuadMaterial;
   readonly southFace: TerrainQuadMaterial;
   readonly cliffEdge?: TerrainQuadMaterial;
-  readonly ao?: TerrainQuadMaterial;
+  readonly ao?: TerrainQuadMaterial | null;
 }
 
 /**
@@ -63,8 +63,10 @@ export class TerrainQuadBatchRenderer {
     this.drawBatch(batches.props, projection, materials.feature);
     this.drawBatch(batches.southFaces, projection, materials.southFace);
     this.drawBatch(batches.cliffEdges, projection, materials.cliffEdge ?? materials.southFace);
-    const floorAO = batches.ao.filter(({ surface }) => surface === "floor");
-    this.drawBatch(floorAO, projection, materials.ao ?? DEFAULT_AO_MATERIAL);
+    if (materials.ao !== null) {
+      const floorAO = batches.ao.filter(({ surface }) => surface === "floor");
+      this.drawBatch(floorAO, projection, materials.ao ?? DEFAULT_AO_MATERIAL);
+    }
   }
 
   private drawFloorBatches(

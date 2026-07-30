@@ -157,6 +157,7 @@ describe("ordinary mini-boss arena gate", () => {
     expect(replicated).toHaveLength(expected.length);
     expect(replicated).toEqual(expect.arrayContaining(expected));
   });
+
 });
 
 function finishEntry(sim: SimState, slot: PlayerSlot): void {

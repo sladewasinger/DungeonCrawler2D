@@ -84,6 +84,7 @@ describe("ordinary mini-boss arena generation", () => {
     expect(result).toBeNull();
     expect(featureTiles[localY * CHUNK_SIZE + localX]).toBe(TILE.Stairs);
   });
+
 });
 
 function assertArenaGeometry(world: World, site: MiniBossArenaSite): void {

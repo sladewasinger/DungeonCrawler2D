@@ -127,6 +127,9 @@ function handleHello(msg: ClientHello, context: ConnectionMessageContext): void 
   const sim = resolveJoinSim(msg, floors, sandbox);
   const join = sim.addPlayer({ name: msg.name, clientId: msg.clientId, resumeToken: msg.resumeToken, skin: msg.skin });
   sim.configureSnapshotMode(join.playerId, msg.snapshotMode);
+  if (msg.networkProfile !== undefined) {
+    sim.configureNetworkProfile(join.playerId, msg.networkProfile);
+  }
   conn.playerId = join.playerId;
   const previous = sockets.get(join.playerId);
   sockets.set(join.playerId, { ws, sim });

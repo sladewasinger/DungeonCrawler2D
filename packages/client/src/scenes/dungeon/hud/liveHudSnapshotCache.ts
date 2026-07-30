@@ -1,4 +1,4 @@
-import { biomeAtWorldTile, displayCoordinates } from "@dc2d/engine";
+import { displayCoordinates } from "@dc2d/engine";
 import type { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { ChatController, ChatPanelModel } from "../../../ui/chat/controller.js";
@@ -7,7 +7,7 @@ import {
   buildLiveHudSnapshot,
   type LiveHudSnapshot,
 } from "./liveHudSnapshot.js";
-import { resolveStairwayTick } from "../world/stairwayTick.js";
+import { updateLiveHudWorldFields } from "./liveHudWorldFields.js";
 
 const CHAT_LINES_SHOWN = 4;
 
@@ -143,11 +143,6 @@ export class LiveHudSnapshotCache {
     snapshot.downedRemainingSec = conn.downedSecondsRemaining;
     snapshot.reviveProgress = conn.reviveProgress;
     snapshot.reviverName = conn.reviverName;
-    snapshot.biome = conn.world
-      ? biomeAtWorldTile({ worldSeed: conn.world.worldSeed, floor: conn.floor, wx: body.x, wy: body.y }).biome
-      : null;
-    snapshot.stairway = conn.world
-      ? resolveStairwayTick({ world: conn.world, x: body.x, y: body.y, viewBearingDeg: compassBearingDeg })
-      : null;
+    updateLiveHudWorldFields({ snapshot, conn, body, compassBearingDeg });
   }
 }

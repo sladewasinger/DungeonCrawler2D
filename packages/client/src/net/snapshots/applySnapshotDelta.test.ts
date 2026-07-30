@@ -8,6 +8,7 @@ interface DeltaOptions {
   baseTick: number | null;
   baseline: boolean;
   areas?: ServerSnapshotDelta["areas"];
+  defeatedMiniBossArenas?: ServerSnapshotDelta["defeatedMiniBossArenas"];
 }
 
 function deltaAt(options: DeltaOptions): ServerSnapshotDelta {
@@ -19,6 +20,9 @@ function deltaAt(options: DeltaOptions): ServerSnapshotDelta {
     ...(options.baseline ? { hotbar: ["bandage"] } : {}), weapon: full.weapon, party: full.party,
     entities: options.baseline ? [{ id: "item-1", kind: "item", defId: "rag", x: 1, y: 2, z: 0, revision: 3 }] : [{ id: "item-1", revision: 3, unchanged: true }],
     left: [], events: [],
+    ...(options.defeatedMiniBossArenas === undefined
+      ? {}
+      : { defeatedMiniBossArenas: options.defeatedMiniBossArenas }),
   };
 }
 
@@ -42,5 +46,25 @@ describe("applySnapshotDelta", () => {
     expect(conn.serverTick).toBe(15);
     expect(conn.snapshotRevisions.awaitingBaseline).toBe(false);
     expect([...conn.areaTiles]).toEqual([["1,0", "area-wet"]]);
+  });
+
+  it("keeps authoritative defeated-arena landmarks through delta baselines", () => {
+    const conn = freshConnection(1);
+
+    applySnapshotDelta(conn, deltaAt({
+      tick: 10,
+      baseTick: null,
+      baseline: true,
+      defeatedMiniBossArenas: [{ cx: 3, cy: -2 }],
+    }));
+    expect([...conn.defeatedMiniBossArenaChunks]).toEqual(["3,-2"]);
+
+    applySnapshotDelta(conn, deltaAt({
+      tick: 11,
+      baseTick: 10,
+      baseline: false,
+      defeatedMiniBossArenas: [],
+    }));
+    expect(conn.defeatedMiniBossArenaChunks.size).toBe(0);
   });
 });

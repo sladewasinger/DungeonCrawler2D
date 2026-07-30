@@ -12,6 +12,7 @@ export function handleInput(sim: SimState, playerId: string, input: ClientInput)
   if (input.seq <= highestReceivedSeq) return;
   if (!alignInputTimeline(slot, input.projectedServerTick)) return;
   slot.highestReceivedSeq = input.seq;
+  slot.lastInputReceivedAtTick = sim.tickCount;
   queueByProjectedTick(slot.pendingInputs, input);
 }
 

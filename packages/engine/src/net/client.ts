@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PLAYER_SKINS } from "../entities/playerAppearance.js";
+import { clientNetworkProfileSchema, networkProfileSchema } from "./networkProfile.js";
 
 /** Zod schemas and types for client→server wire messages (intents, never asserted outcomes). */
 
@@ -31,6 +32,11 @@ export const clientHelloSchema = z.object({
   floor: z.number().int().positive().optional(),
   /** Additive capability negotiation: absent clients keep full snapshots. */
   snapshotMode: snapshotModeSchema.optional(),
+  /**
+   * Additive delivery profile. A present `null` explicitly restores standard
+   * delivery for a resumed slot; absence stays compatible with older clients.
+   */
+  networkProfile: networkProfileSchema.nullable().optional(),
 });
 
 export const clientInputSchema = z.object({
@@ -198,6 +204,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   clientRescueSchema,
   clientRespawnSchema,
   clientSnapshotResyncSchema,
+  clientNetworkProfileSchema,
   clientDebugSchema,
 ]);
 

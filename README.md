@@ -11,16 +11,16 @@ brand-new items at runtime, validated like any other content.
 The game has its own server-authoritative architecture, visual direction, and
 engineering standards; the current codebase is the sole implementation.
 
-The current release is **v0.7.0** ([release notes](docs/releases/v0.7.0.md)). It
-adds authoritative elemental interactions, connected hazard presentation,
-shared ballistic throws, movement-prediction parity, and mobile terrain
-submission improvements.
+The current release is **v0.7.1** ([release notes](docs/releases/v0.7.1.md)). It
+adds opt-in CorpNet smoothing, opt-in toon line-of-sight lighting, constrained
+device rendering optimizations, encounter/navigation fixes, and asset-cache
+repair. Classic networking and lighting remain the defaults.
 
 ## Austin's F-Bomb Counter
 
-**51**
+**52**
 
-<!-- f-bomb-count: 51 -->
+<!-- f-bomb-count: 52 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.
@@ -128,7 +128,7 @@ raised surface that owns them.
 
 ## Status
 
-**v0.7.0 is playable:** district-scale world generation, multiplayer
+**v0.7.1 is playable:** district-scale world generation, multiplayer
 movement/combat, effects, items, dedicated room and encounter spaces,
 terrain-aware enemies, elemental reactions, companion pets, assisted controls,
 parties/chat, and editable HUD layouts are shipped. AI crafting and final

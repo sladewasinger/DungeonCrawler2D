@@ -5,11 +5,15 @@ import {
   type PlayerSkin,
   TICK_RATE,
 } from "@dc2d/engine";
-import { closeSocket, openSocket } from "./socket.js";
+import {
+  closeSocket,
+  openSocket,
+} from "./socket.js";
 import type { DeathVisualEvent, VisualEvent } from "./connectionTypes.js";
 import { ConnectionActions } from "./ConnectionActions.js";
 import {
   interpolateInto,
+  type InterpolationEntityFilter,
   type InterpolatedEntity,
 } from "../interpolation/interpolate.js";
 import { sendMeasured } from "../transport/measuredSend.js";
@@ -18,6 +22,10 @@ import type {
   MovementTraceClientState,
 } from "../movement/movementTrace.js";
 import { resetDisconnectedConnection } from "./connectionReset.js";
+import {
+  saveExperimentalCorpNetSettings,
+  setExperimentalCorpNetMode,
+} from "../corpnet/index.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -33,6 +41,29 @@ export class Connection extends ConnectionActions {
   onConnected: (() => void) | null = null;
   onSnapshot: (() => void) | null = null;
   onUpdateRequired: ((message: string) => void) | null = null;
+
+  constructor(url: string, name: string, clientId: string) {
+    super(url, name, clientId);
+    this.interpolationDelay.setExperimentalCorpNetEnabled(this.corpNet.enabled);
+  }
+
+  get experimentalCorpNetEnabled(): boolean {
+    return this.corpNet.enabled;
+  }
+
+  get shouldHoldMovementPrediction(): boolean {
+    return this.corpNet.shouldHoldPrediction(performance.now());
+  }
+
+  setExperimentalCorpNetEnabled(enabled: boolean): void {
+    const changed = this.corpNet.enabled !== enabled;
+    saveExperimentalCorpNetSettings({ schemaVersion: 1, enabled });
+    setExperimentalCorpNetMode(this, enabled);
+    if (changed && this.status === "connected") {
+      this.send({ type: "networkProfile", profile: enabled ? "corpnet" : null });
+    }
+  }
+
   get dead(): boolean {
     return this.status === "connected" && this.hasReceivedSnapshot && this.hp <= 0 && !this.downed && this.respawnAtTick !== null;
   }
@@ -95,12 +126,14 @@ export class Connection extends ConnectionActions {
   /** Peer positions rendered behind the server by the adaptive jitter buffer. */
   interpolated(
     now: number = performance.now(),
+    include?: InterpolationEntityFilter,
   ): readonly InterpolatedEntity[] {
     return interpolateInto({
       entities: this.entities,
       delayMs: this.interpolationDelay.currentMs,
       now: this.serverTimeline.now(now),
       out: this.interpolationFrame,
+      ...(include ? { include } : {}),
     });
   }
 

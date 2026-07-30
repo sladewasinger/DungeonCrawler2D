@@ -33,7 +33,14 @@ const compassTemplate = (element: FallbackElement): void => {
   const dial = node("div", "[data-hud-compass-dial]");
   const letters = ["N", "E", "S", "W"].map((label) =>
     node("span", `[data-compass-letter="${label}"]`));
-  append(dial, node("span"), ...letters, node("span", "[data-hud-compass-stairway]"));
+  append(
+    dial,
+    node("span"),
+    ...letters,
+    node("span", "[data-hud-compass-stairway]"),
+    node("span", "[data-hud-compass-safe-room]"),
+    node("span", "[data-hud-compass-mini-boss]"),
+  );
   append(element, dial);
 };
 

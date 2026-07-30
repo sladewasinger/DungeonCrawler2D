@@ -4,6 +4,7 @@ import { buildHudSnapshot } from "./hudSnapshot.js";
 import {
   BODY_POS,
   CHAT_MODEL,
+  COMPASS_LANDMARKS,
   COMPASS,
   CONTACTS,
   FPS,
@@ -81,7 +82,7 @@ describe("buildHudSnapshot", () => {
       lines: [{ channel: "global", author: "server", text: "welcome" }],
     };
     const contacts = [{ name: "Wren", online: true }];
-    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: null, armedThrowableSlot: null, interactionPrompt: null, touch: null, fps: FPS, bodyPos: BODY_POS, chatModel, contacts, compassBearingDeg: COMPASS, stairway: STAIRWAY });
+    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: null, armedThrowableSlot: null, interactionPrompt: null, touch: null, fps: FPS, bodyPos: BODY_POS, chatModel, contacts, compassBearingDeg: COMPASS, stairway: STAIRWAY, compassLandmarks: COMPASS_LANDMARKS });
     expect(snap.chatModel).toBe(chatModel);
     expect(snap.contacts).toEqual(contacts);
   });
@@ -89,7 +90,7 @@ describe("buildHudSnapshot", () => {
   it("passes through armedThrowableSlot, interactionPrompt, and touch unchanged", () => {
     const prompt = { key: "E", label: "interact" };
     const touch = { stick: null, buttons: { attack: false, jump: false, interact: false } };
-    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: 3, armedThrowableSlot: 3, interactionPrompt: prompt, touch, fps: FPS, bodyPos: BODY_POS, chatModel: CHAT_MODEL, contacts: CONTACTS, compassBearingDeg: COMPASS, stairway: STAIRWAY });
+    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: 3, armedThrowableSlot: 3, interactionPrompt: prompt, touch, fps: FPS, bodyPos: BODY_POS, chatModel: CHAT_MODEL, contacts: CONTACTS, compassBearingDeg: COMPASS, stairway: STAIRWAY, compassLandmarks: COMPASS_LANDMARKS });
     expect(snap.armedThrowableSlot).toBe(3);
     expect(snap.interactionPrompt).toBe(prompt);
     expect(snap.touch).toBe(touch);
@@ -97,7 +98,7 @@ describe("buildHudSnapshot", () => {
 
   it("passes the stairway tick straight through for the compass widget (LANE W)", () => {
     const tick = { screenBearingDeg: 135, near: true };
-    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: null, armedThrowableSlot: null, interactionPrompt: null, touch: null, fps: FPS, bodyPos: BODY_POS, chatModel: CHAT_MODEL, contacts: CONTACTS, compassBearingDeg: COMPASS, stairway: tick });
+    const snap = buildHudSnapshot({ src: source(), selectedHotbarSlot: null, armedThrowableSlot: null, interactionPrompt: null, touch: null, fps: FPS, bodyPos: BODY_POS, chatModel: CHAT_MODEL, contacts: CONTACTS, compassBearingDeg: COMPASS, stairway: tick, compassLandmarks: COMPASS_LANDMARKS });
     expect(snap.stairway).toBe(tick);
     expect(snapshotOf(source()).stairway).toBeNull();
   });

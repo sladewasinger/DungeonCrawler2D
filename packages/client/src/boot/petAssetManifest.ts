@@ -1,3 +1,5 @@
+import { buildAssetPath } from "./assetManifest.js";
+
 /** Pet sprites stay in their native sheets instead of being forced into the
  * 16px world atlas. Keeping the frame geometry here makes adding a future pet
  * a data-only change for the loader and renderer. */
@@ -13,7 +15,7 @@ export interface PetAssetSpec {
 export const PET_ASSETS = {
   "pet-dino-doux": {
     textureKey: "pet-dino-doux",
-    path: "assets/pets/dino-doux.png",
+    path: buildAssetPath("assets/pets/dino-doux.png"),
     frameWidth: 24,
     frameHeight: 24,
     idleFrames: [0, 1, 2, 3],
@@ -21,7 +23,7 @@ export const PET_ASSETS = {
   },
   "pet-dino-mort": {
     textureKey: "pet-dino-mort",
-    path: "assets/pets/dino-mort.png",
+    path: buildAssetPath("assets/pets/dino-mort.png"),
     frameWidth: 24,
     frameHeight: 24,
     idleFrames: [0, 1, 2, 3],
@@ -29,7 +31,7 @@ export const PET_ASSETS = {
   },
   "pet-dino-tard": {
     textureKey: "pet-dino-tard",
-    path: "assets/pets/dino-tard.png",
+    path: buildAssetPath("assets/pets/dino-tard.png"),
     frameWidth: 24,
     frameHeight: 24,
     idleFrames: [0, 1, 2, 3],
@@ -37,7 +39,7 @@ export const PET_ASSETS = {
   },
   "pet-dino-vita": {
     textureKey: "pet-dino-vita",
-    path: "assets/pets/dino-vita.png",
+    path: buildAssetPath("assets/pets/dino-vita.png"),
     frameWidth: 24,
     frameHeight: 24,
     idleFrames: [0, 1, 2, 3],
@@ -45,7 +47,7 @@ export const PET_ASSETS = {
   },
   "pet-dog": {
     textureKey: "pet-dog",
-    path: "assets/pets/dungeon-dog.png",
+    path: buildAssetPath("assets/pets/dungeon-dog.png"),
     frameWidth: 32,
     frameHeight: 32,
     idleFrames: [168, 169, 170, 171],

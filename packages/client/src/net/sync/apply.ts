@@ -1,4 +1,4 @@
-import { World, type AreaTileUpdate, type ServerSnapshot } from "@dc2d/engine";
+import { World, type ServerSnapshot } from "@dc2d/engine";
 import type { Connection } from "../connection/connection.js";
 import { applyEvent } from "./applyEvents.js";
 import {
@@ -7,10 +7,10 @@ import {
 } from "../events/combatEventInference.js";
 import { applySnapshotProgression } from "./applyProgression.js";
 import { applyVitals } from "./applyVitals.js";
-import { recordSample } from "../interpolation/interpolate.js";
-import { pruneAreaTiles } from "./areaTileRetention.js";
 import { applyWorldFeatureOverrides } from "./worldFeatureOverrides.js";
 import { movementSpeedProjection } from "../prediction/movement/movementSpeedContent.js";
+import { applyRemoteState } from "./applyRemoteState.js";
+import { applyMiniBossArenaLandmarks } from "./miniBossArenaLandmarks.js";
 
 /**
  * Applies server truth to the Connection's state: authoritative self
@@ -18,7 +18,11 @@ import { movementSpeedProjection } from "../prediction/movement/movementSpeedCon
  * and the events that feed UI state.
  */
 
-export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
+export function applySnapshot(
+  conn: Connection,
+  snap: ServerSnapshot,
+  arrivalMs: number = performance.now(),
+): void {
   if (!conn.world) return;
   const combatBefore = captureCombatHealth(conn);
   if (snap.events.some((event) => event.t === "teleported")) prepareTeleport(conn);
@@ -29,24 +33,11 @@ export function applySnapshot(conn: Connection, snap: ServerSnapshot): void {
   if (conn.world !== worldBeforeSnapshot) {
     applyWorldFeatureOverrides(conn, snap);
   }
+  applyMiniBossArenaLandmarks(conn, snap);
   conn.hasReceivedSnapshot = true;
-  applyRemoteState(conn, snap);
+  applyRemoteState(conn, snap, arrivalMs);
   applySnapshotEvents(conn, snap, combatBefore);
   conn.onSnapshot?.();
-}
-
-function applyRemoteState(conn: Connection, snap: ServerSnapshot): void {
-  const now = performance.now();
-  const serverTime = conn.serverTimeline.observe(snap.tick, now);
-  conn.interpolationDelay.observe(snap.tick, now);
-  for (const entity of snap.entities) applyEntitySample(conn, serverTime, entity);
-  for (const tile of snap.areas) applyAreaTile(conn, tile);
-  pruneAreaTiles({
-    areaTiles: conn.areaTiles,
-    areaTileLayers: conn.areaTileLayers,
-    centerX: snap.self.x,
-    centerY: snap.self.y,
-  });
 }
 
 function applySnapshotEvents(
@@ -149,30 +140,4 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
       ),
     });
   }
-}
-
-
-function applyEntitySample(
-  conn: Connection,
-  now: number,
-  entity: ServerSnapshot["entities"][number],
-): void {
-  let remote = conn.entities.get(entity.id);
-  if (!remote) {
-    remote = { snap: entity, samples: [] };
-    conn.entities.set(entity.id, remote);
-  }
-  recordSample(remote, now, entity);
-}
-
-function applyAreaTile(conn: Connection, tile: AreaTileUpdate): void {
-  const key = `${tile.x},${tile.y}`;
-  if (tile.defId === null) {
-    conn.areaTiles.delete(key);
-    conn.areaTileLayers.delete(key);
-    return;
-  }
-  conn.areaTiles.set(key, tile.defId);
-  if (tile.layers) conn.areaTileLayers.set(key, tile.layers);
-  else conn.areaTileLayers.delete(key);
 }

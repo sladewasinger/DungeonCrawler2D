@@ -7,6 +7,7 @@ import type { VfxSystem } from "../../../vfx/system/index.js";
 import type { World } from "@dc2d/engine";
 import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terrain/index.js";
 import { LightingSystem } from "../../../render/lighting/index.js";
+import { terrainDeviceProfileForScene } from "../../../render/terrain/streaming/terrainDeviceProfile.js";
 import { requestCameraSnap, stepCameraFollow } from "../camera/cameraFollow.js";
 import type { RenderPose } from "./state.js";
 import { worldToScreen } from "../../../render/entities/geometry/worldToScreen.js";
@@ -75,8 +76,13 @@ interface ReplaceWorldSystemsRequest { readonly scene: Phaser.Scene; readonly cu
 export function replaceDungeonWorldSystems(request: ReplaceWorldSystemsRequest): WorldSystems | undefined {
   const { scene, current, terrain, lighting, world } = request;
   if (current === world) return undefined;
-  terrain?.dispose(); lighting?.dispose();
-  return { terrain: new TerrainRenderer(scene, world), lighting: new LightingSystem(scene, world) };
+  terrain?.dispose();
+  lighting?.dispose();
+  const profile = terrainDeviceProfileForScene(scene);
+  return {
+    terrain: new TerrainRenderer(scene, world, profile),
+    lighting: new LightingSystem(scene, world, profile),
+  };
 }
 
 interface AdvanceRotationRequest { readonly rotation: RotationController; readonly terrain: TerrainRendererLike | undefined; readonly lighting: LightingSystem | undefined; readonly state: DungeonSceneState; readonly deltaMs: number; }

@@ -21,6 +21,10 @@ const SPEED = 3;
 const ARRIVAL_TOLERANCE = SPEED * TICK_DT + 0.1;
 const SEARCH = ENEMY_SIMULATION_TUNING.perception;
 
+interface FlatSearchOptions {
+  readonly forward?: { readonly x: number; readonly y: number };
+}
+
 export interface EnemySearchTick {
   readonly move: MoveInput;
   readonly targetKey: string | undefined;
@@ -43,8 +47,10 @@ interface FlatSearchRun {
   state: EnemySearchState;
 }
 
-export function runFlatEnemySearch(): EnemySearchSequence {
-  const run = createFlatSearchRun();
+export function runFlatEnemySearch(
+  options: FlatSearchOptions = {},
+): EnemySearchSequence {
+  const run = createFlatSearchRun(options);
   for (let tick = 0; tick < 500 && activeEnemyMemory(run.brain); tick++) {
     stepFlatEnemySearch(run);
   }
@@ -56,7 +62,7 @@ export function runFlatEnemySearch(): EnemySearchSequence {
   };
 }
 
-function createFlatSearchRun(): FlatSearchRun {
+function createFlatSearchRun(options: FlatSearchOptions): FlatSearchRun {
   const brain = newBrain();
   brain.rememberedTarget = { targetId: "hidden-player", ...ANCHOR };
   brain.memorySecondsRemaining = SEARCH.memorySeconds;
@@ -66,12 +72,15 @@ function createFlatSearchRun(): FlatSearchRun {
     state: createEnemySearchState(
       ANCHOR,
       SEARCH.memorySearchWaypointPauseTicks,
+      options.forward,
     ),
     position: { x: ANCHOR.x, y: ANCHOR.y },
     candidates: enemySearchCandidates({
       anchor: ANCHOR,
       radius: SEARCH.memorySearchRadiusTiles,
       seed: 17,
+      ...(options.forward ? { forward: options.forward } : {}),
+      forwardDistance: SEARCH.memorySearchForwardDistanceTiles,
     }),
     ticks: [],
     selectedWaypointKeys: [],

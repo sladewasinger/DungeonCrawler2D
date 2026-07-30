@@ -1,6 +1,6 @@
 import { BIOME } from "@dc2d/engine";
-import { describe, expect, it, vi } from "vitest";
-import { TerrainAtlasBatchRenderer, atlasDraws, terrainMeshBatches } from "./atlasBatch.js";
+import { describe, expect, it } from "vitest";
+import { atlasDraws, terrainMeshBatches } from "./atlasBatch.js";
 import type { TerrainScreenProjection } from "./quadBatch.js";
 import type { TerrainBatches } from "../planning/terrainPlanner.js";
 const projection: TerrainScreenProjection = {
@@ -77,35 +77,6 @@ describe("atlasDraws", () => {
     }).length);
     expect(draws.every((draw) => draw.atlas.key === "shared-atlas")).toBe(true);
   });
-  it("hides and restores procedural overlays with an orientation root", () => {
-    const activeMesh = { setVisible: vi.fn() };
-    const inactiveMesh = { setVisible: vi.fn() };
-    const aoOverlay = { setVisible: vi.fn() };
-    const cliffHighlight = { setVisible: vi.fn() };
-    const surfaceTint = { setVisible: vi.fn() };
-    const batch = {
-      visible: true,
-      meshes: new Map([["active", activeMesh], ["inactive", inactiveMesh]]),
-      active: new Set(["active"]),
-      aoOverlay,
-      cliffHighlight,
-      surfaceTint,
-    };
-
-    TerrainAtlasBatchRenderer.prototype.setVisible.call(batch, false);
-    TerrainAtlasBatchRenderer.prototype.setVisible.call(batch, true);
-
-    expect(activeMesh.setVisible).toHaveBeenNthCalledWith(1, false);
-    expect(activeMesh.setVisible).toHaveBeenNthCalledWith(2, true);
-    expect(inactiveMesh.setVisible).toHaveBeenCalledWith(false);
-    expect(aoOverlay.setVisible).toHaveBeenNthCalledWith(1, false);
-    expect(aoOverlay.setVisible).toHaveBeenNthCalledWith(2, true);
-    expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(1, false);
-    expect(cliffHighlight.setVisible).toHaveBeenNthCalledWith(2, true);
-    expect(surfaceTint.setVisible).toHaveBeenNthCalledWith(1, false);
-    expect(surfaceTint.setVisible).toHaveBeenNthCalledWith(2, true);
-  });
-
   it("tiles multi-height faces and crops only a partial top tile", () => {
     const face = batches.southFaces[0]!;
     const draws = atlasDraws({

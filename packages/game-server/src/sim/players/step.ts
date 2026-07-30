@@ -1,4 +1,5 @@
 import {
+  CORPNET_INPUT_LEASE_TICKS,
   FALL_DAMAGE_BASE,
   FALL_DAMAGE_MIN_HEIGHT,
   FALL_DAMAGE_PER_UNIT,
@@ -34,12 +35,28 @@ export function stepPlayerBody(context: PlayerStepContext): void {
   const { sim, slot } = context;
   const entity = slot.entity;
   const tags = sim.effects.tagsOf(entity);
-  const input = advancePlayerResources(slot, advanceInputTimeline(slot) ?? NEUTRAL_INPUT);
+  const timelineInput = advanceInputTimeline(slot) ?? NEUTRAL_INPUT;
+  const input = advancePlayerResources(
+    slot,
+    inputWithinNetworkLease(sim, slot, timelineInput),
+  );
   endGraceForMovement(slot, input);
   faceEntity(entity, input.faceX ?? input.moveX, input.faceY ?? input.moveY);
   const result = movePlayer({ sim, entity, input, tags });
   if (result.landed) applyLandingDamage({ ...context, entity, tags, fallHeight: result.landed.fallHeight });
   killIfInChasm(slot, sim.world);
+}
+
+function inputWithinNetworkLease(
+  sim: SimState,
+  slot: PlayerSlot,
+  input: MoveInput,
+): MoveInput {
+  if (slot.networkProfile !== "corpnet") return input;
+  const receivedAtTick = slot.lastInputReceivedAtTick ?? sim.tickCount;
+  if (sim.tickCount - receivedAtTick < CORPNET_INPUT_LEASE_TICKS) return input;
+  delete slot.heldInput;
+  return NEUTRAL_INPUT;
 }
 
 function endGraceForMovement(slot: PlayerSlot, input: { moveX: number; moveY: number; jump: boolean }): void {

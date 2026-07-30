@@ -34,7 +34,7 @@ const ENEMY_DEF: EnemyDef = {
 };
 
 describe("enemy search state machine", () => {
-  it("visits distinct flat-ground points for one bounded memory window", () => {
+  it("fans across distinct flat-ground points for one bounded memory window", () => {
     const sequence = runFlatEnemySearch();
     expect(sequence.selectedWaypointKeys.length).toBeGreaterThan(3);
     expect(new Set(sequence.selectedWaypointKeys).size)
@@ -130,6 +130,7 @@ describe("enemy search state machine", () => {
     expect(state.waypoint).toBeUndefined();
     expect(state.candidateCursor).toBe(candidates.length);
   });
+
 });
 
 function searchTimerOnlyDecreases(

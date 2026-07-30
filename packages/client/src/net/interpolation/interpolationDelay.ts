@@ -1,4 +1,5 @@
 import { TICK_RATE } from "@dc2d/engine";
+import { EXPERIMENTAL_CORPNET_TUNING } from "../corpnet/index.js";
 
 const TICK_MS = 1000 / TICK_RATE;
 export const MIN_INTERPOLATION_DELAY_MS = 75;
@@ -15,12 +16,23 @@ export class InterpolationDelay {
   private lastServerTick: number | null = null;
   private lastArrivalMs: number | null = null;
   private jitterMs = 0;
+  private experimentalCorpNetEnabled = false;
 
   get currentMs(): number {
+    const tuning = this.experimentalCorpNetEnabled
+      ? EXPERIMENTAL_CORPNET_TUNING.interpolation
+      : null;
+    const minimumDelayMs = tuning?.minDelayMs ?? MIN_INTERPOLATION_DELAY_MS;
     return Math.min(
-      MAX_INTERPOLATION_DELAY_MS,
-      MIN_INTERPOLATION_DELAY_MS + this.jitterMs * JITTER_MARGIN_MULTIPLIER,
+      tuning?.maxDelayMs ?? MAX_INTERPOLATION_DELAY_MS,
+      minimumDelayMs + this.jitterMs * (
+        tuning?.jitterMarginMultiplier ?? JITTER_MARGIN_MULTIPLIER
+      ),
     );
+  }
+
+  setExperimentalCorpNetEnabled(enabled: boolean): void {
+    this.experimentalCorpNetEnabled = enabled;
   }
 
   reset(): void {

@@ -41,6 +41,8 @@ function applyFloorState(conn: Connection, snap: ServerSnapshot): void {
     conn.world = new World(conn.world.worldSeed, next, {
       level: conn.world.level, features: conn.world.features,
     });
+    conn.defeatedMiniBossArenaChunks.clear();
+    conn.miniBossArenaLandmarkRevision++;
   }
   conn.floor = next;
 }

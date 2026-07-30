@@ -6,6 +6,15 @@ import { createViewDistanceButton } from "../../../three/terrain/view/viewDistan
 import { canEnterFullscreen, enterFullscreenLandscape } from "../../../ui/fullscreen/mobileFullscreen.js";
 import { createHudButton } from "../styles/HudStyles.js";
 import { createHudTemplate } from "../styles/hudTemplate.js";
+import type { Connection } from "../../../net/connection/connection.js";
+import { createExperimentalCorpNetControls } from "../../sessionMenu/network/corpNetControls.js";
+
+interface HudSettingsOptions {
+  readonly manager: HudWindowManager;
+  readonly getViewDistance?: (() => ViewDistance) | undefined;
+  readonly setViewDistance?: ((viewDistance: ViewDistance) => void) | undefined;
+  readonly connection?: Connection | undefined;
+}
 
 export class HudSettings {
   readonly element = createHudTemplate<HTMLDivElement>("hud-settings-template");
@@ -14,27 +23,26 @@ export class HudSettings {
   private readonly editingListeners = new Set<(editing: boolean) => void>();
   private editing = false;
 
-  constructor(
-    private readonly manager: HudWindowManager,
-    getViewDistance?: () => ViewDistance,
-    setViewDistance?: (viewDistance: ViewDistance) => void,
-  ) {
+  constructor(private readonly options: HudSettingsOptions) {
     this.edit = this.createSettingsButton("", () => this.toggleEditing());
-    this.catalog = new HudCatalog(manager);
-    this.configureMenu(getViewDistance, setViewDistance);
+    this.catalog = new HudCatalog(options.manager);
+    this.configureMenu();
   }
 
-  private configureMenu(
-    getViewDistance?: () => ViewDistance,
-    setViewDistance?: (viewDistance: ViewDistance) => void,
-  ): void {
+  private configureMenu(): void {
     this.updateLabel();
     this.catalog.setEditing(false);
     const controls: HTMLElement[] = [this.edit];
-    if (getViewDistance && setViewDistance) {
-      controls.push(createViewDistanceButton(getViewDistance, setViewDistance));
+    if (this.options.getViewDistance && this.options.setViewDistance) {
+      controls.push(createViewDistanceButton(
+        this.options.getViewDistance,
+        this.options.setViewDistance,
+      ));
     }
     if (canEnterFullscreen()) controls.push(this.fullscreenButton());
+    if (this.options.connection) {
+      controls.push(...createExperimentalCorpNetControls(this.options.connection));
+    }
     controls.push(this.catalog.element);
     this.element.append(...controls);
   }
@@ -67,7 +75,7 @@ export class HudSettings {
 
   private toggleEditing(): void {
     this.editing = !this.editing;
-    this.manager.setEditing(this.editing);
+    this.options.manager.setEditing(this.editing);
     this.catalog.setEditing(this.editing);
     this.updateLabel();
     for (const listener of this.editingListeners) listener(this.editing);

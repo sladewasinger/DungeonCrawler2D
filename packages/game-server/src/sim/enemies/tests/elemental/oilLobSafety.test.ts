@@ -17,7 +17,7 @@ describe("Pitchbloom oil lob safety boundaries", () => {
     ["ordinary wall", "walkable"],
     ["bedrock", "bedrock"],
     ["void", "void"],
-  ] as const)("does not place or damage through a %s", (_name, boundary: BoundaryKind) => {
+  ] as const)("does not spill oil through a %s", (_name, boundary: BoundaryKind) => {
     const fixture = createOilFixture();
     blockSurfaceCell(fixture.sim, {
       cell: { x: fixture.floor.x + 1, y: fixture.floor.y + 1 },
@@ -27,15 +27,14 @@ describe("Pitchbloom oil lob safety boundaries", () => {
       sim: fixture.sim,
       projectile: fixture.projectile,
       point: fixture.target.body,
-      directHit: fixture.target,
+      directHit: null,
       effectEvents: [],
     });
 
-    expect(fixture.target.statuses).toEqual([]);
     expect(fixture.sim.areas.size).toBe(0);
   });
 
-  it("does not place or damage through an elevation crest", () => {
+  it("does not spill oil through an elevation crest", () => {
     const fixture = createOilFixture();
     mockTerrainCrest(fixture.sim, {
       cell: { x: fixture.floor.x + 1, y: fixture.floor.y + 1 },
@@ -45,11 +44,10 @@ describe("Pitchbloom oil lob safety boundaries", () => {
       sim: fixture.sim,
       projectile: fixture.projectile,
       point: fixture.target.body,
-      directHit: fixture.target,
+      directHit: null,
       effectEvents: [],
     });
 
-    expect(fixture.target.statuses).toEqual([]);
     expect(fixture.sim.areas.size).toBe(0);
   });
 

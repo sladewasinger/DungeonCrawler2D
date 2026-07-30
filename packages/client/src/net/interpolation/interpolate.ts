@@ -25,6 +25,8 @@ export interface InterpolatedEntity {
   z: number;
 }
 
+export type InterpolationEntityFilter = (remote: RemoteEntity) => boolean;
+
 export const MAX_EXTRAPOLATION_MS = 150;
 export const REMOTE_SAMPLE_HISTORY_MS = 1000;
 
@@ -61,6 +63,7 @@ export interface InterpolationFrameInput {
   readonly delayMs: number;
   readonly now: number;
   readonly out: InterpolatedEntity[];
+  readonly include?: InterpolationEntityFilter;
 }
 
 /**
@@ -72,10 +75,12 @@ export function interpolateInto({
   delayMs,
   now,
   out,
+  include,
 }: InterpolationFrameInput): InterpolatedEntity[] {
   const t = now - delayMs;
   let count = 0;
   for (const [id, remote] of entities) {
+    if (include && !include(remote)) continue;
     const target = out[count] ?? {
       id,
       snap: remote.snap,

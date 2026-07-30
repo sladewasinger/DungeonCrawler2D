@@ -52,7 +52,11 @@ export const createWindowParts = (
     panels, manager,
     overlays: new HudOverlays({ manager, panels, focusGame: options.focusGame, releaseStash: options.connection.closeLootChest.bind(options.connection) }),
     touch: new HudTouchOverlay(actions.toggleInventory),
-    settings: createHudSettings(manager, { viewDistance: options.viewDistance, setViewDistance: options.setViewDistance }),
+    settings: createHudSettings(manager, {
+      connection: options.connection,
+      viewDistance: options.viewDistance,
+      setViewDistance: options.setViewDistance,
+    }),
   };
 };
 

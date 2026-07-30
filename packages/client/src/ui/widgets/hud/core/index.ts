@@ -129,7 +129,7 @@ this.chat.update(snapshot.chatModel);
 this.party.update(snapshot.party, snapshot.partySelfLeader);
 this.interaction.update(snapshot.interactionPrompt);
 this.connection?.update({ pingMs: snapshot.pingMs, connected: snapshot.connected, fpsSample: snapshot.fps, coords: snapshot.coords, seedInputText: snapshot.seedInputText, floor: snapshot.floor, biome: snapshot.biome, headingDeg: snapshot.headingDeg });
-this.compass.update(snapshot.compassBearingDeg, snapshot.stairway, nowMs);
+this.compass.update({ bearingDeg: snapshot.compassBearingDeg, stairway: snapshot.stairway, landmarks: snapshot.compassLandmarks, nowMs });
 this.death.update({ downed: snapshot.downed, dead: snapshot.dead, remainingSec: snapshot.respawnRemainingSec, holdProgress: snapshot.giveUpHoldProgress, downedRemainingSec: snapshot.downedRemainingSec, reviveProgress: snapshot.reviveProgress, reviverName: snapshot.reviverName });
 this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
 this.toasts.update(snapshot.toasts, nowMs);

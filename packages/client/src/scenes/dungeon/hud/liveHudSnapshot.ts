@@ -12,6 +12,7 @@ import type { HudFakeSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import { buildHudSnapshot, type HudSnapshotSource } from "./hudSnapshot.js";
 import type { InteractionPrompt } from "../world/interactionPrompt.js";
 import { resolveStairwayTick } from "../world/stairwayTick.js";
+import { resolveCompassLandmarks } from "../world/landmarks/compassLandmarks.js";
 import type { ContextualAction } from "../../../ui/actionHelp/actionHelp.js";
 
 const CHAT_LINES_SHOWN = 4;
@@ -95,12 +96,17 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
   // rebuilds it on every transfer), so the tick re-aims at the NEW floor's stairway
   // the same frame the descent lands.
   const stairway = conn.world ? resolveStairwayTick({ world: conn.world, x: bodyPos.x, y: bodyPos.y, viewBearingDeg: compassBearingDeg }) : null;
+  const compassLandmarks = resolveLiveCompassLandmarks(
+    conn,
+    bodyPos,
+    compassBearingDeg,
+  );
   const snapshot = buildHudSnapshot({
     src: buildSnapshotSource(conn), selectedHotbarSlot: inputController.selectedHotbarSlot(),
     armedThrowableSlot: inputController.armedThrowableSlot(), interactionPrompt,
     touch: inputController.touchVisual(), fps: actualFps, bodyPos,
     chatModel: chatController.model(CHAT_LINES_SHOWN), contacts: conn.contacts,
-    compassBearingDeg, stairway,
+    compassBearingDeg, stairway, compassLandmarks,
   }) as LiveHudSnapshot;
   snapshot.biome = conn.world
     ? biomeAtWorldTile({ worldSeed: conn.world.worldSeed, floor: conn.floor, wx: bodyPos.x, wy: bodyPos.y }).biome
@@ -113,4 +119,20 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
   snapshot.giveUpHoldProgress = inputController.giveUpHoldProgress();
   snapshot.completedContextualActions = [...conn.contextualActionsUsed];
   return snapshot;
+}
+
+function resolveLiveCompassLandmarks(
+  conn: Connection,
+  bodyPos: { readonly x: number; readonly y: number },
+  viewBearingDeg: number,
+) {
+  if (!conn.world) return { safeRoom: null, miniBossArena: null };
+  return resolveCompassLandmarks({
+    world: conn.world,
+    x: bodyPos.x,
+    y: bodyPos.y,
+    viewBearingDeg,
+    defeatedMiniBossArenaChunks: conn.defeatedMiniBossArenaChunks,
+    miniBossArenaLandmarkRevision: conn.miniBossArenaLandmarkRevision,
+  });
 }

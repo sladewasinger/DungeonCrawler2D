@@ -1,19 +1,16 @@
 import {
   NEUTRAL_INPUT,
-  hashString,
   type EnemyDecision,
   type GridPathStep,
 } from "@dc2d/engine";
 import type { EnemySearchPoint } from "../../../state/enemyState.js";
 import type { EnemySlot, SimState } from "../../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../../configuration/enemySimulationTuning.js";
-import { findEnemyMemoryPath } from "../enemyMemoryPath.js";
-import { enemySearchCandidates } from "./enemySearchCandidates.js";
+import { createEnemySearchState, rejectEnemySearchWaypointState } from "./enemySearchStateMachine.js";
+import { rememberedSearchDirection } from "./enemySearchObservation.js";
 import {
-  advanceEnemySearchState,
-  createEnemySearchState,
-  rejectEnemySearchWaypointState,
-} from "./enemySearchStateMachine.js";
+  advanceEnemySearchPlan,
+} from "./enemySearchPlanning.js";
 import { enemySearchMove } from "./enemySearchSteering.js";
 
 interface EnemySearchInput {
@@ -49,12 +46,13 @@ export function withEnemySearch(
 
 function planEnemySearch(
   input: EnemySearchInput,
-  memory: EnemySearchPoint,
+  memory: NonNullable<EnemySlot["brain"]["rememberedTarget"]>,
 ): SearchPlan {
   const state = input.enemy.searchState ??
     createEnemySearchState(
       memory,
       ENEMY_SIMULATION_TUNING.perception.memorySearchWaypointPauseTicks,
+      rememberedSearchDirection(input.enemy.lastObservedTarget, memory.targetId),
     );
   const selection = selectEnemySearchWaypoint(input, state);
   input.enemy.searchState = selection.state;
@@ -66,49 +64,17 @@ function selectEnemySearchWaypoint(
   state: NonNullable<EnemySlot["searchState"]>,
 ): SearchSelection {
   const radius = ENEMY_SIMULATION_TUNING.perception.memorySearchRadiusTiles;
-  let selectedPath: GridPathStep[] | undefined;
-  const advance = advanceEnemySearchState({
+  return advanceEnemySearchPlan({
+    sim: input.sim,
+    enemy: input.enemy,
     state,
-    position: input.enemy.entity.body,
-    candidates: enemySearchCandidates({
-      anchor: state.anchor,
-      radius,
-      seed: hashString(input.enemy.entity.id),
-    }),
+    radius,
     arrivalTolerance: input.arrivalTolerance,
     waypointPauseTicks:
       ENEMY_SIMULATION_TUNING.perception.memorySearchWaypointPauseTicks,
-    groundAt: (x, y) => input.sim.world.groundAt(x, y),
-    isReachable: (point) => {
-      selectedPath = findEnemyMemoryPath({
-        sim: input.sim,
-        enemy: input.enemy,
-        pursuit: point,
-        canEnter: (x, y) =>
-          withinSearchRadius({ anchor: state.anchor, radius, x, y }),
-      });
-      return selectedPath.length > 0;
-    },
+    forwardDistance:
+      ENEMY_SIMULATION_TUNING.perception.memorySearchForwardDistanceTiles,
   });
-  return {
-    state: advance.state,
-    target: advance.target,
-    selectedPath,
-  };
-}
-
-interface SearchRadiusCell {
-  readonly anchor: EnemySearchPoint;
-  readonly radius: number;
-  readonly x: number;
-  readonly y: number;
-}
-
-function withinSearchRadius(input: SearchRadiusCell): boolean {
-  return Math.hypot(
-    input.x + 0.5 - input.anchor.x,
-    input.y + 0.5 - input.anchor.y,
-  ) <= input.radius;
 }
 
 export function rejectEnemySearchWaypoint(enemy: EnemySlot): void {

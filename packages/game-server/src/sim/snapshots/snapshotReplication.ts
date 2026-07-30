@@ -1,6 +1,7 @@
 import type {
   EntitySnapshotDeltaEntry,
   InvStack,
+  NetworkProfile,
   ServerSnapshotDelta,
   SnapshotMode,
 } from "@dc2d/engine";
@@ -20,6 +21,23 @@ export function configureSnapshotMode(
   if (mode) slot.snapshotMode = mode;
   else delete slot.snapshotMode;
   sim.snapshotClients.delete(playerId);
+}
+
+/** Changes cadence only; the delta revision chain remains intact. */
+export function configureNetworkProfile(
+  sim: SimState,
+  playerId: string,
+  profile: NetworkProfile | null,
+): void {
+  const slot = sim.players.get(playerId);
+  if (!slot) return;
+  if (profile) {
+    slot.networkProfile = profile;
+    slot.lastInputReceivedAtTick = sim.tickCount;
+    return;
+  }
+  delete slot.networkProfile;
+  delete slot.lastInputReceivedAtTick;
 }
 
 export function requestSnapshotBaseline(sim: SimState, playerId: string): void {

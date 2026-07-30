@@ -7,6 +7,7 @@ import {
   type EffectsEngine,
   type GameEvent,
   type InvStack,
+  type NetworkProfile,
   type Rng,
   type SnapshotMode,
   type World,
@@ -51,7 +52,8 @@ export type {
 /** Everything a client can ask for besides movement and handshakes. */
 export type PlayerAction = Exclude<
   ClientMessage,
-  ClientInput | { type: "hello" } | { type: "ping" } | { type: "snapshotResync" }
+  ClientInput | { type: "hello" } | { type: "ping" } |
+  { type: "snapshotResync" } | { type: "networkProfile" }
 >;
 
 export interface PlayerSlot {
@@ -66,6 +68,8 @@ export interface PlayerSlot {
   lastProjectedServerTick?: number;
   /** Control state held after consuming every command due for the simulated input tick. */
   heldInput?: ClientInput;
+  /** Last authoritative tick that accepted movement input for the CorpNet lease. */
+  lastInputReceivedAtTick?: number;
   pendingInputs: ClientInput[];
   pendingActions: PlayerAction[];
   connected: boolean;
@@ -129,6 +133,8 @@ export interface PlayerSlot {
   pendingTransfer: PendingTransfer | null;
   /** Negotiated wire mode follows this slot across floor transfers. */
   snapshotMode?: SnapshotMode;
+  /** Optional delivery profile follows this slot across reconnects and floors. */
+  networkProfile?: NetworkProfile;
 }
 
 export interface AoiCenter {

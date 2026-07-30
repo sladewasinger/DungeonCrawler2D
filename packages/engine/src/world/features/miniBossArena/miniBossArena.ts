@@ -25,6 +25,8 @@ import { generatedMiniBossArenaFeatureAt } from "./miniBossArenaGeneratedFeature
 const TUNING = WORLD_GENERATION_TUNING.miniBossArena;
 const PLACEMENT_SALT = 0xa8e4;
 
+export * from "./miniBossArenaCompass.js";
+
 export interface MiniBossArenaBounds {
   readonly x0: number;
   readonly y0: number;
@@ -67,12 +69,32 @@ export interface MiniBossArenaChunk {
 export function miniBossArenaForChunk(
   chunk: MiniBossArenaChunk,
 ): MiniBossArenaSite | null {
-  if (!isEligibleChunk(chunk)) return null;
-  const seed = mixSeeds(chunk.worldSeed, chunk.floor, PLACEMENT_SALT);
-  const roll = hash2D(seed, chunk.cx, chunk.cy);
-  if (roll % TUNING.chunkFrequency !== 0) return null;
+  if (!miniBossArenaEligibleForChunk(chunk)) return null;
+  const roll = miniBossArenaPlacementRoll(chunk);
+  if (roll % TUNING.eligibleChunkFrequency !== 0) return null;
   const bounds = arenaBoundsForChunk(chunk, roll);
   return bounds ? buildMiniBossArenaSite(chunk, bounds) : null;
+}
+
+/** The chunks eligible for the developer-tuned mini-boss arena frequency. */
+export function miniBossArenaEligibleForChunk(
+  chunk: MiniBossArenaChunk,
+): boolean {
+  return chunk.floor >= 1 &&
+    chunk.floor < FLOOR_CAP &&
+    !isRoomChunk(chunk.cy) &&
+    !isClaimedStructureChunk(chunk) &&
+    !overlapsSpawnRoomExterior({
+      ...chunk,
+      rect: { x0: 0, y0: 0, x1: CHUNK_SIZE - 1, y1: CHUNK_SIZE - 1 },
+    });
+}
+
+export function miniBossArenaPlacementRoll(
+  chunk: MiniBossArenaChunk,
+): number {
+  const seed = mixSeeds(chunk.worldSeed, chunk.floor, PLACEMENT_SALT);
+  return hash2D(seed, chunk.cx, chunk.cy);
 }
 
 export function miniBossArenaAtGate(
@@ -134,16 +156,6 @@ export function containsPoint(
 ): boolean {
   return x >= bounds.x0 && x < bounds.x1 + 1 &&
     y >= bounds.y0 && y < bounds.y1 + 1;
-}
-
-function isEligibleChunk(chunk: MiniBossArenaChunk): boolean {
-  if (chunk.floor < 1 || chunk.floor >= FLOOR_CAP) return false;
-  if (isRoomChunk(chunk.cy)) return false;
-  if (isClaimedStructureChunk(chunk)) return false;
-  return !overlapsSpawnRoomExterior({
-    ...chunk,
-    rect: { x0: 0, y0: 0, x1: CHUNK_SIZE - 1, y1: CHUNK_SIZE - 1 },
-  });
 }
 
 function isClaimedStructureChunk(chunk: MiniBossArenaChunk): boolean {

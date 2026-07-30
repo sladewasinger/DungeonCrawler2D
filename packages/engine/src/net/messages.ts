@@ -3,3 +3,4 @@
 export * from "./client.js";
 export * from "./server.js";
 export * from "./codec.js";
+export * from "./networkProfile.js";

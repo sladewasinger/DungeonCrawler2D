@@ -5,8 +5,10 @@ import { HudKeyboard } from "../model/HudKeyboard.js";
 import { HudSettings } from "../panels/HudSettings.js";
 import type { ViewDistance } from "../../../three/terrain/view/viewDistance.js";
 import { createHudTemplate } from "../styles/hudTemplate.js";
+import type { Connection } from "../../../net/connection/connection.js";
 
 export interface HudSetupOptions {
+  connection?: Connection | undefined;
   viewDistance?: ViewDistance | undefined;
   setViewDistance?: ((viewDistance: ViewDistance) => void) | undefined;
   bindKeyboard?: boolean;
@@ -36,16 +38,19 @@ export const createHudSettings = (
   options: HudSetupOptions,
 ): HudSettings => {
   let activeDistance: ViewDistance = options.viewDistance ?? 18;
-  return new HudSettings(
+  return new HudSettings({
     manager,
-    options.viewDistance === undefined ? undefined : () => activeDistance,
-    options.setViewDistance === undefined
+    getViewDistance: options.viewDistance === undefined
+      ? undefined
+      : () => activeDistance,
+    setViewDistance: options.setViewDistance === undefined
       ? undefined
       : (distance) => {
         activeDistance = distance;
         options.setViewDistance?.(distance);
       },
-  );
+    connection: options.connection,
+  });
 };
 
 export const createHudKeyboard = (

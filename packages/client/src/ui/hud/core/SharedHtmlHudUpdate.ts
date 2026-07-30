@@ -22,7 +22,7 @@ export const updateHud = ({ hud, update, showHealthFeedback }: UpdateHudRequest)
   parts.inventory.update();
   parts.status.update(connection, world.floor);
   const compass = resolveCompassState({ world, player, yaw, snapshot: update.snapshot });
-  parts.compass.update(compass.bearingDeg, compass.stairway);
+  parts.compass.update(compass.bearingDeg, compass.stairway, compass.landmarks);
   parts.hotbar.update(connection, update.snapshot?.selectedSlot);
   parts.buffs.update(connection);
   if (showHealthFeedback) parts.healthFeedback.update(connection, performance.now());

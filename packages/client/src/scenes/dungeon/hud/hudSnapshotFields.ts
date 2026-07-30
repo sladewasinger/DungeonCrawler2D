@@ -2,7 +2,7 @@ import { displayCoordinates, type ActiveStatusSnapshot, type InvStack } from "@d
 import type { TouchVisualSnapshot } from "../../../input/touch/index.js";
 import { resolveContextualActionHelp } from "../../../ui/actionHelp/actionHelp.js";
 import { statusPresentations } from "../../../ui/presentation/statusPresentation.js";
-import { type BuffChipData, type HotbarSlotData, type InventoryRowData, type StairwayTickData, type TileCoords } from "../../../ui/widgets/hud/core/fakeData.js";
+import { type BuffChipData, type CompassLandmarkTicks, type HotbarSlotData, type InventoryRowData, type StairwayTickData, type TileCoords } from "../../../ui/widgets/hud/core/fakeData.js";
 import { recipeRowViews } from "../../../ui/widgets/hud/windows/recipeRows.js";
 import { stashRowViews } from "../../../ui/widgets/hud/windows/stashRows.js";
 import { categoryOfItem, isConsumableItem, isThrowableItem, itemFlavor, itemName, recipeList } from "../world/contentQueries.js";
@@ -62,6 +62,7 @@ interface HudStatusInput {
   readonly bodyPos: { x: number; y: number; z: number };
   readonly compassBearingDeg: number;
   readonly stairway: StairwayTickData | null;
+  readonly compassLandmarks: CompassLandmarkTicks;
 }
 
 function roundedCoords(bodyPos: { x: number; y: number; z: number }): TileCoords {
@@ -70,6 +71,6 @@ function roundedCoords(bodyPos: { x: number; y: number; z: number }): TileCoords
 }
 
 export function statusFields(input: HudStatusInput) {
-  const { src, touch, fps, bodyPos, compassBearingDeg, stairway } = input;
-  return { pingMs: src.pingMs, connected: src.connected, reconnecting: src.reconnecting, reconnectAttempts: src.reconnectAttempts, downed: src.downed, dead: src.dead, respawnRemainingSec: 0, giveUpHoldProgress: 0, downedRemainingSec: 0, reviveProgress: 0, reviverName: null, touch, fps, coords: roundedCoords(bodyPos), compassBearingDeg, stairway };
+  const { src, touch, fps, bodyPos, compassBearingDeg, stairway, compassLandmarks } = input;
+  return { pingMs: src.pingMs, connected: src.connected, reconnecting: src.reconnecting, reconnectAttempts: src.reconnectAttempts, downed: src.downed, dead: src.dead, respawnRemainingSec: 0, giveUpHoldProgress: 0, downedRemainingSec: 0, reviveProgress: 0, reviverName: null, touch, fps, coords: roundedCoords(bodyPos), compassBearingDeg, stairway, compassLandmarks };
 }

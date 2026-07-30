@@ -6,10 +6,15 @@ import {
   type EffectEvent,
   type Entity,
 } from "@dc2d/engine";
-import { effectTargetFor } from "../../core/helpers.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
+import { applyEntityStatus } from "../../progression/statusApplication.js";
 import { ELEMENTAL_ENEMY_TUNING } from "./configuration/elementalEnemyTuning.js";
-import { oilCellIsReachable, oilSourceFor } from "./oilBoundary.js";
+import {
+  captureOilLobBoundarySource,
+  oilCellIsReachable,
+  oilSourceFor,
+  type OilLobBoundarySource,
+} from "./oilBoundary.js";
 import { oilFootprintCells } from "./oilFootprint.js";
 
 const OIL_LOB_TAG = "enemy-oil-lob";
@@ -29,6 +34,10 @@ export interface OilLobImpact {
   readonly effectEvents: EffectEvent[];
 }
 
+interface OilLobProjectile extends Entity {
+  readonly oilLobBoundarySource: OilLobBoundarySource;
+}
+
 export function launchOilLob(input: OilLobLaunch): Entity {
   const { sim, enemy } = input;
   const from = {
@@ -37,17 +46,20 @@ export function launchOilLob(input: OilLobLaunch): Entity {
     z: enemy.entity.body.z + 0.5,
   };
   const target = oilLobTarget(input);
-  const projectile = makeEntity("projectile", createBody(from.x, from.y, from.z), {
-    id: newEntityId("j"),
-    defId: OIL_LOB_VISUAL_ID,
-    ownerId: enemy.entity.id,
-    tags: new Set([OIL_LOB_TAG, "oil", ...enemy.def.tags]),
-    vel: launchVelocity(
-      from,
-      target,
-      ELEMENTAL_ENEMY_TUNING.oilLob.projectileSpeedTilesPerSecond,
-    ),
-  });
+  const projectile: OilLobProjectile = {
+    ...makeEntity("projectile", createBody(from.x, from.y, from.z), {
+      id: newEntityId("j"),
+      defId: OIL_LOB_VISUAL_ID,
+      ownerId: enemy.entity.id,
+      tags: new Set([OIL_LOB_TAG, "oil", ...enemy.def.tags]),
+      vel: launchVelocity(
+        from,
+        target,
+        ELEMENTAL_ENEMY_TUNING.oilLob.projectileSpeedTilesPerSecond,
+      ),
+    }),
+    oilLobBoundarySource: captureOilLobBoundarySource(enemy),
+  };
   sim.projectiles.set(projectile.id, projectile);
   return projectile;
 }
@@ -67,24 +79,27 @@ export function isOilLob(projectile: Entity): boolean {
 }
 
 export function resolveOilLobImpact(input: OilLobImpact): void {
-  const source = oilSourceFor(input.sim, input.projectile.ownerId);
-  if (!source) return;
   if (input.directHit) {
-    if (!oilCellIsReachable(input.sim, source, input.directHit.body)) return;
     applyDirectOil(input);
     return;
   }
+  const source = oilSourceFor(
+    input.sim,
+    input.projectile.ownerId,
+    oilLobBoundarySource(input.projectile),
+  );
+  if (!source) return;
   placeOilFootprint({ ...input, source });
 }
 
 function applyDirectOil(input: OilLobImpact): void {
   const { sim, projectile, directHit, effectEvents } = input;
   if (!directHit) return;
-  sim.effects.applyStatus({
+  applyEntityStatus({
+    sim,
     entity: directHit,
     statusId: ELEMENTAL_ENEMY_TUNING.oilLob.statusId,
-    events: effectEvents,
-    target: effectTargetFor(sim, directHit),
+    effectEvents,
     ...(projectile.ownerId === undefined
       ? {}
       : { sourceId: projectile.ownerId }),
@@ -92,7 +107,7 @@ function applyDirectOil(input: OilLobImpact): void {
 }
 
 interface OilFootprintPlacement extends OilLobImpact {
-  readonly source: EnemySlot;
+  readonly source: OilLobBoundarySource;
 }
 
 function placeOilFootprint(input: OilFootprintPlacement): void {
@@ -106,8 +121,14 @@ function placeOilFootprint(input: OilFootprintPlacement): void {
 interface OilCellPlacement {
   readonly sim: SimState;
   readonly projectile: Entity;
-  readonly source: EnemySlot;
+  readonly source: OilLobBoundarySource;
   readonly cell: { readonly x: number; readonly y: number };
+}
+
+function oilLobBoundarySource(
+  projectile: Entity,
+): OilLobBoundarySource | undefined {
+  return (projectile as Partial<OilLobProjectile>).oilLobBoundarySource;
 }
 
 function placeOilCell(input: OilCellPlacement): void {

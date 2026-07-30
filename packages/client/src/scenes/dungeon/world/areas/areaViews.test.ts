@@ -8,6 +8,8 @@ import {
 import type { AreaGroundSampler } from "./areaCellSurface.js";
 
 const flatGround = () => 0;
+const FIRE_AREA = "area-fire";
+const FIRST_FIRE_TILE_ID = "0,0:area-fire";
 
 function areaViews(
   areaTiles: ReadonlyMap<string, string>,
@@ -26,7 +28,7 @@ function onlyView(
 
 describe("buildAreaTileViews", () => {
   it("resolves content sprites at the sampled terrain surface", () => {
-    const [view] = areaViews(new Map([["3,4", "area-fire"]]));
+    const [view] = areaViews(new Map([["3,4", FIRE_AREA]]));
     expect(view).toMatchObject({
       id: "3,4:area-fire",
       effectId: "area-fire",
@@ -39,7 +41,7 @@ describe("buildAreaTileViews", () => {
   });
 
   it("projects positive and negative terrain heights from one canonical surface", () => {
-    const tiles = new Map([["0,0", "area-fire"]]);
+    const tiles = new Map([["0,0", FIRE_AREA]]);
     const raised = onlyView(areaViews(tiles, () => 2));
     const lowered = onlyView(areaViews(tiles, () => -1));
     expect(raised.groundHeight).toBe(2);
@@ -49,9 +51,9 @@ describe("buildAreaTileViews", () => {
   });
 
   it("skips unknown definitions and preserves co-located compound layers", () => {
-    const areaTiles = new Map([["0,0", "area-fire"], ["1,0", "unknown"]]);
+    const areaTiles = new Map([["0,0", FIRE_AREA], ["1,0", "unknown"]]);
     const areaLayers = new Map<string, readonly string[]>([
-      ["0,0", ["area-oil", "area-fire"]],
+      ["0,0", ["area-oil", FIRE_AREA]],
     ]);
     const views: ReturnType<typeof buildAreaTileViews> = [];
     buildAreaTileViewsInto({
@@ -65,7 +67,7 @@ describe("buildAreaTileViews", () => {
     });
     expect(views.map(({ id }) => id)).toEqual([
       "0,0:area-oil",
-      "0,0:area-fire",
+      FIRST_FIRE_TILE_ID,
     ]);
     expect(views.map(({ groundHeight }) => groundHeight)).toEqual([2, 2]);
     expect(views[0]?.screenY).toBe(views[1]?.screenY);
@@ -85,17 +87,17 @@ describe("buildAreaTileViews", () => {
 
   it("limits views to the elevated camera neighborhood", () => {
     const views = buildAreaTileViews({
-      areaTiles: new Map([["0,0", "area-fire"], ["100,100", "area-fire"]]),
+      areaTiles: new Map([["0,0", FIRE_AREA], ["100,100", FIRE_AREA]]),
       groundAt: flatGround,
       bounds: { x: -100, y: -100, right: 100, bottom: 100 },
     });
-    expect(views.map(({ id }) => id)).toEqual(["0,0:area-fire"]);
+    expect(views.map(({ id }) => id)).toEqual([FIRST_FIRE_TILE_ID]);
   });
 
   it("rewrites caller-owned records across sustained frames", () => {
     const views: ReturnType<typeof buildAreaTileViews> = [];
     const records: ReturnType<typeof buildAreaTileViews> = [];
-    const tiles = new Map([["0,0", "area-fire"]]);
+    const tiles = new Map([["0,0", FIRE_AREA]]);
     const empty = new Map<string, string>();
     buildAreaTileViewsInto({
       areaTiles: tiles,
@@ -118,5 +120,22 @@ describe("buildAreaTileViews", () => {
       if (frame % 2 === 0) expect(views[0]).toBe(first);
     }
     expect(records).toHaveLength(1);
+  });
+
+  it("does not create area VFX outside the toon visibility field", () => {
+    const views = buildAreaTileViews({
+      areaTiles: new Map([[
+        "0,0",
+        FIRE_AREA,
+      ], [
+        "1,0",
+        FIRE_AREA,
+      ]]),
+      groundAt: flatGround,
+      terrainVisibility: {
+        isWorldPositionVisible: (x) => x < 1,
+      },
+    });
+    expect(views.map(({ id }) => id)).toEqual([FIRST_FIRE_TILE_ID]);
   });
 });

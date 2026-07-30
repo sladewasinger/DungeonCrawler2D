@@ -27,11 +27,20 @@ export interface EnemySearchPoint {
   readonly z: number;
 }
 
+export interface EnemyObservedTarget {
+  readonly targetId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly movementX: number;
+  readonly movementY: number;
+}
+
 export interface EnemySearchState {
   readonly anchor: EnemySearchPoint;
   readonly visitedWaypointKeys: readonly string[];
   readonly candidateCursor: number;
   readonly pauseTicksRemaining: number;
+  readonly forward?: { readonly x: number; readonly y: number };
   readonly waypoint?: EnemySearchPoint;
 }
 
@@ -59,6 +68,8 @@ export interface EnemySlot {
   rememberedRoute?: EnemyRememberedRoute | null;
   /** Bounded investigation state; the brain owns the non-resetting deadline. */
   searchState?: EnemySearchState | null;
+  /** Latest visible target position and its retained travel direction. */
+  lastObservedTarget?: EnemyObservedTarget;
   home?: {
     readonly x0: number;
     readonly y0: number;
@@ -67,6 +78,8 @@ export interface EnemySlot {
   };
   /** Ordinary mini-boss encounter identity; absent for normal enemies. */
   arenaKey?: string;
+  /** Explicit encounter leader; its death permanently clears the arena. */
+  arenaLeader?: true;
   animation: {
     state: EnemyAnimationState;
     ticksRemaining: number;

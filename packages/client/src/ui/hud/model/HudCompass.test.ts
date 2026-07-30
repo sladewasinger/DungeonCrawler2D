@@ -85,7 +85,7 @@ describe("shared HTML HUD compass", () => {
     if (!dial) throw new Error("missing compass dial");
     const north = dial.children[1];
     if (!north) throw new Error("missing north marker");
-    const stairway = dial.children.at(-1);
+    const stairway = dial.children[5];
     expect(north.style.marginLeft).toBe("22px");
     expect(north.style.marginTop).toBe("0px");
     expect(stairway).toMatchObject({
@@ -97,6 +97,23 @@ describe("shared HTML HUD compass", () => {
       },
     });
     expect(root.attributes["aria-label"]).toBe("Compass 90 degrees");
+  });
+
+  it("projects blue safe-room and red mini-boss markers independently", () => {
+    vi.stubGlobal("document", { createElement: fakeElement });
+    const compass = new HudCompass();
+
+    compass.update(0, null, {
+      safeRoom: { screenBearingDeg: 90 },
+      miniBossArena: { screenBearingDeg: 180 },
+    });
+
+    const dial = (compass.element as unknown as FakeElement).children[0];
+    if (!dial) throw new Error("missing compass dial");
+    const safeRoom = dial.children[6];
+    const miniBoss = dial.children[7];
+    expect(safeRoom?.style).toMatchObject({ display: "block", marginLeft: "27px", marginTop: "0px" });
+    expect(miniBoss?.style).toMatchObject({ display: "block", marginLeft: "0px", marginTop: "27px" });
   });
 
   it("registers a visible compass window even when an older stored layout has no entry", () => {

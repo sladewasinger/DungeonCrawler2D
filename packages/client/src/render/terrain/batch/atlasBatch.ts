@@ -14,6 +14,7 @@ import {
 import { appendMeshQuad, appendSouthFaceDraws, compareDraws, meshKey } from "../geometry/atlasGeometry.js";
 import { appendDraws, appendFeatureDraws } from "./atlasDraws.js";
 import { pruneTerrainMeshes } from "./meshRetention.js";
+import type { TerrainVisualFeatures } from "../streaming/terrainDeviceProfile.js";
 
 export type TerrainAtlasPhase = 0 | 1 | 2;
 
@@ -97,7 +98,10 @@ export class TerrainAtlasBatchRenderer {
   private active = new Set<string>();
   private visible = false;
 
-  constructor(private readonly scene: Phaser.Scene) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly visualFeatures: TerrainVisualFeatures,
+  ) {
     this.aoOverlay = new TerrainAOOverlayRenderer(scene);
     this.cliffHighlight = new TerrainCliffHighlightRenderer(scene);
     this.surfaceTint = new TerrainSurfaceTintRenderer(scene);
@@ -111,10 +115,18 @@ export class TerrainAtlasBatchRenderer {
     this.surfaceTint.render(batches, {
       projection: options.projection,
       biomeAt: options.biomeTintAt ?? options.biomeAt,
-      enabled: !options.debug,
+      biomeEnabled: !options.debug && this.visualFeatures.biomeTint,
+      bedrockEnabled: this.visualFeatures.bedrockTint,
     }, this.visible);
-    this.aoOverlay.render(batches.ao, options.projection, this.visible);
-    this.cliffHighlight.render(batches.cliffEdges, options.projection, this.visible);
+    this.aoOverlay.render(batches.ao, options.projection, {
+      enabled: this.visualFeatures.ambientOcclusion,
+      visible: this.visible,
+    });
+    this.cliffHighlight.render(
+      batches.cliffEdges,
+      options.projection,
+      this.visible && this.visualFeatures.cliffHighlights,
+    );
   }
 
   private installDrawAtlases(draws: readonly TerrainAtlasDraw[]): void {
@@ -132,6 +144,7 @@ export class TerrainAtlasBatchRenderer {
   }
 
   setVisible(visible: boolean): void {
+    if (this.visible === visible) return;
     this.visible = visible;
     for (const [key, mesh] of this.meshes) mesh.setVisible(visible && this.active.has(key));
     this.aoOverlay.setVisible(visible);

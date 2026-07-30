@@ -6,31 +6,20 @@ import {
 import { syncWorldFeatureOverrides } from "../../core/worldFeatureOverrides.js";
 import { spawnEnemy } from "../../core/helpers.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
+import {
+  miniBossEncounterMembers,
+  type MiniBossEncounterMember,
+} from "./encounterPlacement.js";
 import { clearMiniBossArena } from "./runtime.js";
 
-const ENCOUNTER_SIZE = 4;
 const ENEMY_CAP = 150;
-const ORC_WARLORD = "orc-warlord";
-const ENCOUNTER_DEFS = [
-  ORC_WARLORD,
-  "orc-warrior",
-  "orc-shaman",
-  "masked-orc",
-] as const;
-const SPOT_OFFSETS = [
-  [0, 0],
-  [-1, 0],
-  [1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
 
 export function handleMiniBossEnemyDeath(
   sim: SimState,
   enemy: EnemySlot,
 ): void {
   const arenaKey = enemy.arenaKey;
-  if (!arenaKey || enemy.def.id !== ORC_WARLORD ||
+  if (!arenaKey || !enemy.arenaLeader ||
       sim.defeatedMiniBossArenas.has(arenaKey)) return;
   sim.defeatedMiniBossArenas.add(arenaKey);
   clearMiniBossArena(sim, arenaKey);
@@ -43,7 +32,6 @@ export function spawnMiniBossEncounter(
   cx: number,
   cy: number,
 ): boolean {
-  if (sim.enemies.size > ENEMY_CAP - ENCOUNTER_SIZE) return false;
   const arena = miniBossArenaForChunk({
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
@@ -53,18 +41,13 @@ export function spawnMiniBossEncounter(
   if (!arena ||
       !miniBossArenaIsStamped(sim.world, arena) ||
       encounterUnavailable(sim, arena)) return false;
-  const spots = encounterSpots(sim, arena);
-  if (!spots) return false;
-  for (let index = 0; index < ENCOUNTER_DEFS.length; index++) {
-    const spot = spots[index]!;
-    spawnEnemy(sim, {
-      defId: ENCOUNTER_DEFS[index]!,
-      x: spot.x,
-      y: spot.y,
-      home: arena.interior,
-      arenaKey: arena.key,
-    });
-  }
+  const members = miniBossEncounterMembers({
+    sim,
+    arena,
+    maximumEnemies: ENEMY_CAP,
+  });
+  if (members.length === 0) return false;
+  spawnEncounterMembers(sim, arena, members);
   return true;
 }
 
@@ -72,7 +55,9 @@ export function miniBossEncounterAlive(
   sim: SimState,
   arenaKey: string,
 ): boolean {
-  return encounterExists(sim, arenaKey);
+  return [...sim.enemies.values()].some((enemy) =>
+    enemy.arenaKey === arenaKey && enemy.arenaLeader
+  );
 }
 
 function encounterUnavailable(
@@ -93,55 +78,24 @@ function endArenaEnemyConstraints(sim: SimState, arenaKey: string): void {
   for (const enemy of sim.enemies.values()) {
     if (enemy.arenaKey !== arenaKey) continue;
     delete enemy.arenaKey;
+    delete enemy.arenaLeader;
     delete enemy.home;
   }
 }
 
-function encounterSpots(
+function spawnEncounterMembers(
   sim: SimState,
   arena: MiniBossArenaSite,
-): Array<{ x: number; y: number }> | null {
-  const desired = [
-    arena.center,
-    { x: arena.center.x - 2, y: arena.center.y },
-    { x: arena.center.x + 2, y: arena.center.y },
-    { x: arena.center.x, y: arena.center.y + 2 },
-  ];
-  const claimed = new Set<string>();
-  const spots = desired.map((point) =>
-    arenaSpot({ sim, arena, desired: point, claimed })
-  );
-  return spots.every((spot) => spot !== null)
-    ? spots as Array<{ x: number; y: number }>
-    : null;
-}
-
-interface ArenaSpotInput {
-  readonly sim: SimState;
-  readonly arena: MiniBossArenaSite;
-  readonly desired: { readonly x: number; readonly y: number };
-  readonly claimed: Set<string>;
-}
-
-function arenaSpot(input: ArenaSpotInput): { x: number; y: number } | null {
-  const { sim, arena, desired, claimed } = input;
-  for (const [dx, dy] of SPOT_OFFSETS) {
-    const x = desired.x + dx;
-    const y = desired.y + dy;
-    const key = `${x},${y}`;
-    if (!insideArena(arena, x, y) || claimed.has(key)) continue;
-    if (!sim.world.isWalkable(x, y) || sim.world.isSanctuary(x, y)) continue;
-    claimed.add(key);
-    return { x: x + 0.5, y: y + 0.5 };
+  members: readonly MiniBossEncounterMember[],
+): void {
+  for (const member of members) {
+    spawnEnemy(sim, {
+      defId: member.defId,
+      x: member.x,
+      y: member.y,
+      home: arena.interior,
+      arenaKey: arena.key,
+      ...(member.arenaLeader ? { arenaLeader: true } : {}),
+    });
   }
-  return null;
-}
-
-function insideArena(
-  arena: MiniBossArenaSite,
-  x: number,
-  y: number,
-): boolean {
-  return x >= arena.interior.x0 && x <= arena.interior.x1 &&
-    y >= arena.interior.y0 && y <= arena.interior.y1;
 }

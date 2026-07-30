@@ -9,6 +9,12 @@ import {
 import { createCarnageControlGroups } from "./carnageControls.js";
 import { createSettingsSection } from "./settingsSection.js";
 import { createHudTemplate } from "../hud/styles/hudTemplate.js";
+import {
+  currentLightingMode,
+  LIGHTING_MODES,
+  lightingModeIsQueryForced,
+  savePersistedLightingMode,
+} from "../../render/lighting/toon/lightingMode.js";
 
 export const createSessionButton = (
   label: string,
@@ -89,14 +95,27 @@ export const createGraphicsControls = (
   presentation: LocalPresentationController,
 ): HTMLElement[] => {
   const current = presentation.current();
-  const brightness = createSessionRange({ label: "World brightness", minimum: MIN_BRIGHTNESS, maximum: MAX_BRIGHTNESS, value: current.brightness, change: (value) => presentation.setBrightness(value) });
-  const font = createSessionRange({ label: "HUD font scale", minimum: MIN_FONT_SCALE, maximum: MAX_FONT_SCALE, value: current.fontScale, change: (value) => presentation.setFontScale(value) });
+  const brightness = createSessionRange({
+    label: "World brightness",
+    minimum: MIN_BRIGHTNESS,
+    maximum: MAX_BRIGHTNESS,
+    value: current.brightness,
+    change: (value) => presentation.setBrightness(value),
+  });
+  const font = createSessionRange({
+    label: "HUD font scale",
+    minimum: MIN_FONT_SCALE,
+    maximum: MAX_FONT_SCALE,
+    value: current.fontScale,
+    change: (value) => presentation.setFontScale(value),
+  });
   const motion = createMotionControl(presentation, current.motion);
+  const lighting = createLightingModeControl();
   const groups = createCarnageControlGroups();
   const accessibility = createSettingsSection(
     "Accessibility",
     "#aaaec8",
-    [brightness, font, motion],
+    [brightness, font, motion, lighting],
   );
   accessibility.style.gridColumn = "1 / -1";
   return [
@@ -105,3 +124,28 @@ export const createGraphicsControls = (
     createSettingsSection("Carnage", "#d66b73", groups.carnage),
   ];
 };
+
+function createLightingModeControl(): HTMLButtonElement {
+  const queryForced = lightingModeIsQueryForced();
+  const button = createSessionButton(lightingModeLabel(queryForced), () => {
+    const next = currentLightingMode() === LIGHTING_MODES.Toon
+      ? LIGHTING_MODES.Classic
+      : LIGHTING_MODES.Toon;
+    savePersistedLightingMode(next);
+    button.textContent = lightingModeLabel(false);
+  });
+  button.disabled = queryForced;
+  if (queryForced) {
+    button.title = "The lighting URL parameter overrides this setting for this load.";
+  }
+  return button;
+}
+
+function lightingModeLabel(queryForced: boolean): string {
+  const mode = currentLightingMode() === LIGHTING_MODES.Toon
+    ? "Toon LOS"
+    : "Classic";
+  return queryForced
+    ? `Lighting: ${mode} (URL)`
+    : `Lighting: ${mode}`;
+}

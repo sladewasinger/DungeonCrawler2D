@@ -20,6 +20,7 @@ describe("sampleMovement", () => {
       world: {},
       body: {},
       canAct: true,
+      corpNet: { predictionGate: () => "open" },
       prediction: { predict },
       movementCadence: new MovementCadence(),
       send,
@@ -45,5 +46,34 @@ describe("sampleMovement", () => {
     expect(inputs.map(({ projectedServerTick }) => projectedServerTick))
       .toEqual(Array.from({ length: 24 }, (_, index) => index + 101));
     expect(inputs.at(-1)).toMatchObject({ moveX: 1, faceY: -1, jump: true, run: true });
+  });
+
+  it("sends one neutral edge when CorpNet enters a prediction hold", () => {
+    const send = vi.fn();
+    const nextInputIdentity = vi.fn(() => ({ seq: 8, projectedServerTick: 108 }));
+    const predictionGate = vi.fn()
+      .mockReturnValueOnce("entered-hold")
+      .mockReturnValue("holding");
+    const connection = {
+      world: {},
+      body: {},
+      canAct: true,
+      corpNet: { predictionGate },
+      prediction: { nextInputIdentity, predict: vi.fn() },
+      movementCadence: new MovementCadence(),
+      send,
+    } as unknown as Connection;
+
+    sampleMovement(connection, { ...IDLE, moveX: 1 });
+    sampleMovement(connection, { ...IDLE, moveX: 1 });
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      seq: 8,
+      projectedServerTick: 108,
+      moveX: 0,
+      moveY: 0,
+      jump: false,
+    }));
   });
 });

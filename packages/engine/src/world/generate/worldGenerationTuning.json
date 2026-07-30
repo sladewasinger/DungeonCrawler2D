@@ -136,7 +136,7 @@
     "exitThroatLength": 2
   },
   "miniBossArena": {
-    "chunkFrequency": 5,
+    "eligibleChunkFrequency": 3,
     "outerSpan": 13,
     "wallRise": 2,
     "minimumGates": 1,

@@ -15,6 +15,7 @@ export interface EnemySpawn {
   readonly y: number;
   readonly home?: EnemySlot["home"];
   readonly arenaKey?: string;
+  readonly arenaLeader?: true;
 }
 
 export function spawnEnemy(sim: SimState, spawn: EnemySpawn): Entity {
@@ -27,6 +28,7 @@ export function spawnEnemy(sim: SimState, spawn: EnemySpawn): Entity {
     def,
     home: spawn.home,
     arenaKey: spawn.arenaKey,
+    arenaLeader: spawn.arenaLeader,
   }));
   return entity;
 }
@@ -57,10 +59,11 @@ interface EnemySlotInput {
   readonly def: ReturnType<typeof scaledEnemyDef>;
   readonly home: EnemySlot["home"] | undefined;
   readonly arenaKey: string | undefined;
+  readonly arenaLeader: true | undefined;
 }
 
 function createEnemySlot(input: EnemySlotInput): EnemySlot {
-  const { entity, def, home, arenaKey } = input;
+  const { entity, def, home, arenaKey, arenaLeader } = input;
   return {
     entity,
     brain: newBrain(),
@@ -68,6 +71,7 @@ function createEnemySlot(input: EnemySlotInput): EnemySlot {
     rememberedRoute: null,
     ...(home ? { home } : {}),
     ...(arenaKey ? { arenaKey } : {}),
+    ...(arenaLeader ? { arenaLeader } : {}),
     animation: { state: "idle", ticksRemaining: 0 },
   };
 }

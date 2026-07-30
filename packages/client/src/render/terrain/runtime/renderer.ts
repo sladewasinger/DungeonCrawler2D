@@ -1,11 +1,10 @@
 import Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
+import { ASSET_KEYS } from "../../../boot/assetManifest.js";
 import type { TilePos } from "../../lighting/torches/torchPlacement.js";
-import type { DynamicLightSeed } from "../../terrain/shading/tileLight.js";
-import { viewToWorld, worldToView } from "../../view/transform/viewTransform.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { rotateOrientation, type ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import type { ViewRect } from "../../terrain/streaming/streaming.js";
+import type { DynamicLightSeed } from "../shading/tileLight.js";
 import type { TerrainRect, TerrainSource } from "../planning/terrainPlanner.js";
 import { TERRAIN_PRESENTATION_MODES } from "../geometry/terrainPlannerModel.js";
 import { appendVisibleChunkPlans, emptyTerrainBatches, TerrainChunkPlanCache } from "../planning/chunkCache.js";
@@ -16,38 +15,44 @@ import {
   type TerrainRoot,
 } from "./root.js";
 import type { TerrainWorld } from "./world.js";
-import { materialsFor, screenProjection, worldBiomeAt, worldBoundsForView } from "./renderSupport.js";
+import {
+  materialsFor,
+  screenProjection,
+  worldBiomeAt,
+} from "./renderSupport.js";
 import { TerrainCameraBackground } from "./cameraBackground.js";
 import { createTerrainSource } from "./source.js";
 import { terrainDebugIsEnabled } from "./debugMode.js";
 import { TerrainRootRetention } from "./rootRetention.js";
-import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
-
-export interface TerrainRendererLike {
-  update(view: ViewRect): void;
-  setDynamicLights(lights: readonly DynamicLightSeed[]): void;
-  rebuildAffected(tiles: readonly TilePos[]): void;
-  rebakeAllNow(): void;
-  invalidateAll(): void;
-  dispose(): void;
-}
-export class TerrainRenderer {
+import {
+  terrainDeviceProfileForScene,
+  type TerrainDeviceProfile,
+} from "../streaming/terrainDeviceProfile.js";
+import type { TerrainRendererLike } from "../rendererPort.js";
+import { rotatedTerrainView, terrainBoundsForProfile } from "../streaming/terrainView.js";
+export class TerrainRenderer implements TerrainRendererLike {
   private readonly roots: TerrainRootRetention;
   private readonly debugMode = typeof window !== "undefined" &&
     terrainDebugIsEnabled(window.location.search);
-  private readonly chunkCache = new TerrainChunkPlanCache();
+  private readonly chunkCache: TerrainChunkPlanCache;
   private readonly terrainSource: TerrainSource;
   private readonly cameraBackground: TerrainCameraBackground;
+  private readonly deviceProfile: TerrainDeviceProfile;
   private dirty = true;
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: TerrainWorld,
+    deviceProfile = terrainDeviceProfileForScene(scene),
   ) {
+    this.deviceProfile = deviceProfile;
+    this.chunkCache = new TerrainChunkPlanCache(
+      this.deviceProfile.retention.maxChunkPlans,
+    );
     this.terrainSource = createTerrainSource(world);
     this.cameraBackground = new TerrainCameraBackground(scene.cameras.main);
     this.roots = new TerrainRootRetention({
-      capacity: TERRAIN_RUNTIME_TUNING.retention.maxOrientationRoots,
-      create: (orientation) => createTerrainRoot(this.scene, orientation),
+      capacity: this.deviceProfile.retention.maxOrientationRoots,
+      create: (orientation) => createTerrainRoot(this.scene, orientation, this.deviceProfile),
       destroy: destroyTerrainRoot,
     });
     this.ensureRoot(getViewOrientation());
@@ -57,7 +62,7 @@ export class TerrainRenderer {
     const root = this.ensureRoot(orientation);
     this.roots.retain(new Set([orientation]));
     const hasAtlasAssets = this.scene.textures.exists(this.debugMode ? ASSET_KEYS.debugAtlas : ASSET_KEYS.sharedAtlas);
-    const bounds = worldBoundsForView(view, orientation);
+    const bounds = terrainBoundsForProfile(view, orientation, this.deviceProfile);
     this.cameraBackground.sync(view, orientation);
     const key = `${orientation}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (this.dirty || root.planKey !== key) {
@@ -79,19 +84,8 @@ export class TerrainRenderer {
     const next = rotateOrientation(current, direction);
     const root = this.ensureRoot(next);
     this.roots.retain(new Set([current, next]));
-    const centerView = {
-      x: (view.x + view.width / 2) / SCREEN_TILE_PX,
-      y: (view.y + view.height / 2) / SCREEN_TILE_PX,
-    };
-    const centerWorld = viewToWorld(centerView, current);
-    const nextCenterView = worldToView(centerWorld, next);
-    const nextView = {
-      x: nextCenterView.x * SCREEN_TILE_PX - view.width / 2,
-      y: nextCenterView.y * SCREEN_TILE_PX - view.height / 2,
-      width: view.width,
-      height: view.height,
-    };
-    const bounds = worldBoundsForView(nextView, next);
+    const nextView = rotatedTerrainView(view, current, next);
+    const bounds = terrainBoundsForProfile(nextView, next, this.deviceProfile);
     const key = `${next}:${bounds.x},${bounds.y},${bounds.width},${bounds.height}:${this.world.tileRevision}`;
     if (root.planKey !== key) this.renderRoot(root, bounds, key);
   }
@@ -113,9 +107,12 @@ export class TerrainRenderer {
     for (const root of this.roots.values()) root.planKey = "";
   }
   get loadedChunkCount(): number { return this.chunkCache.size; }
-
-  dispose(): void { this.roots.clear(); }
-
+  get constrainedPresentation(): boolean {
+    return this.deviceProfile.kind === "constrained";
+  }
+  dispose(): void {
+    this.roots.clear();
+  }
   private ensureRoot(orientation: ViewOrientation): TerrainRoot {
     return this.roots.acquire(orientation);
   }
@@ -124,9 +121,10 @@ export class TerrainRenderer {
     this.world.pruneChunkCache?.(
       bounds.x + bounds.width / 2,
       bounds.y + bounds.height / 2,
-      TERRAIN_RUNTIME_TUNING.retention.maxWorldChunks,
+      this.deviceProfile.retention.maxWorldChunks,
     );
   }
+
   private renderRoot(root: TerrainRoot, bounds: TerrainRect, key: string): void {
     const plan = emptyTerrainBatches();
     appendVisibleChunkPlans({ target: plan, cache: this.chunkCache, source: this.terrainSource, bounds, orientation: root.orientation, revision: this.world.tileRevision });
@@ -144,7 +142,7 @@ export class TerrainRenderer {
       });
       root.graphics.setVisible(false);
     } else {
-      root.batch.render(plan, screenProjection, materialsFor(this.world, bounds));
+      root.batch.render(plan, screenProjection, materialsFor(this.world, bounds, this.deviceProfile.visuals));
     }
     syncTerrainProps({ scene: this.scene, root, props: plan.props });
     root.planKey = key;

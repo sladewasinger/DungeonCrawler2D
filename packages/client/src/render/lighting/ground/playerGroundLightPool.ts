@@ -105,6 +105,10 @@ export class PlayerGroundLightPool {
     this.desiredKeyList.length = 0;
   }
 
+  activeCount(): number {
+    return this.active.size;
+  }
+
   private createTile(): PlayerGroundLightTile {
     if (this.tileFactory) return this.tileFactory();
     return this.scene.add.rectangle(0, 0, SCREEN_TILE_PX, SCREEN_TILE_PX, LIGHT_COLOR, 1)

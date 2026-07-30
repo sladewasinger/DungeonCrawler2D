@@ -1,16 +1,18 @@
 import {
   PROTOCOL_VERSION,
   RECONNECT_GRACE_MS,
-  World,
-  createBody,
   type ServerMessage,
-  type ServerWelcome,
 } from "@dc2d/engine";
 import { applySnapshot } from "../sync/apply.js";
 import type { Connection } from "./connection.js";
-import { clearResumeToken, loadResumeToken, saveResumeToken } from "../auth/identity.js";
+import { clearResumeToken, loadResumeToken } from "../auth/identity.js";
 import { decodeMeasuredServerMessage } from "../transport/measuredDecode.js";
+import {
+  queueCorpNetSnapshot,
+  stopCorpNetWatchdog,
+} from "../corpnet/index.js";
 import { applySnapshotDelta } from "../snapshots/snapshotDelta.js";
+import { applyWelcome } from "./welcome.js";
 
 /**
  * WebSocket wire mechanics for Connection: open/close, the hello
@@ -51,6 +53,7 @@ function attachSocketHandlers(conn: Connection, ws: WebSocket): void {
       clientId: conn.clientId,
       level: conn.level,
       snapshotMode: "delta-v1",
+      networkProfile: conn.corpNet.enabled ? "corpnet" : null,
       ...(resumeToken ? { resumeToken } : {}),
     });
   };
@@ -72,6 +75,7 @@ function handleClose(conn: Connection, ws: WebSocket): void {
   conn.status = "closed";
   if (conn.pingTimer) clearInterval(conn.pingTimer);
   conn.pingTimer = null;
+  stopCorpNetWatchdog(conn);
   if (!conn.shouldReconnect) return;
   conn.reconnectAttempts++;
   if (conn.reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
@@ -89,6 +93,7 @@ export function closeSocket(conn: Connection): void {
   conn.reconnectTimer = null;
   if (conn.pingTimer) clearInterval(conn.pingTimer);
   conn.pingTimer = null;
+  stopCorpNetWatchdog(conn);
   const ws = conn.ws;
   conn.ws = null;
   if (ws && ws.readyState < WebSocket.CLOSING) ws.close();
@@ -105,14 +110,15 @@ export function requireConnectionUpdate(conn: Connection, message: string): void
 function handleMessage(conn: Connection, msg: ServerMessage): void {
   switch (msg.type) {
     case "welcome":
-      onWelcome(conn, msg);
+      applyWelcome(conn, msg);
       return;
     case "snapshot":
-      conn.snapshotRevisions.reset();
-      applySnapshot(conn, msg);
-      return;
     case "snapshotDelta":
-      applySnapshotDelta(conn, msg);
+      if (conn.corpNet.enabled) {
+        queueCorpNetSnapshot(conn, msg, performance.now());
+      } else {
+        applyImmediateSnapshot(conn, msg);
+      }
       return;
     case "pong": {
       const roundTrip = performance.now() - msg.t;
@@ -127,29 +133,14 @@ function handleMessage(conn: Connection, msg: ServerMessage): void {
   }
 }
 
-function onWelcome(conn: Connection, msg: ServerWelcome): void {
-  conn.welcome = msg;
-  conn.status = "connected";
-  conn.reconnectAttempts = 0;
-  conn.sessionExpired = false;
-  saveResumeToken(msg.resumeToken, msg.level);
-  conn.world = new World(msg.worldSeed, msg.floor, { level: msg.level, features: msg.worldFeatures });
-  conn.body = createBody(msg.spawn.x, msg.spawn.y, msg.spawn.z);
-  conn.prediction.reset();
-  conn.movementCadence.reset();
-  conn.predictionCorrection.reset(true);
-  conn.serverTimeline.reset();
-  conn.snapshotRevisions.reset();
-  conn.entities.clear();
-  conn.areaTiles.clear();
-  conn.areaTileLayers.clear();
-  conn.teleported = true;
-  conn.onConnected?.();
-  if (!conn.pingTimer) {
-    conn.pingTimer = setInterval(() => {
-      if (conn.ws?.readyState === WebSocket.OPEN) {
-        conn.send({ type: "ping", t: performance.now() });
-      }
-    }, 2000);
+function applyImmediateSnapshot(
+  conn: Connection,
+  msg: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>,
+): void {
+  if (msg.type === "snapshot") {
+    conn.snapshotRevisions.reset();
+    applySnapshot(conn, msg);
+    return;
   }
+  applySnapshotDelta(conn, msg);
 }

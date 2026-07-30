@@ -8,6 +8,7 @@ import type {
 } from "@dc2d/engine";
 import { applySnapshot } from "../sync/apply.js";
 import type { Connection } from "../connection/connection.js";
+import { requestSnapshotBaseline } from "./requestSnapshotBaseline.js";
 
 /** Validates and materializes negotiated deltas without exposing partial state. */
 
@@ -102,15 +103,10 @@ function materializeSnapshot(
     areas: delta.areas,
     roomDoors: delta.roomDoors ?? [],
     miniBossArenaGates: delta.miniBossArenaGates ?? [],
+    ...(delta.defeatedMiniBossArenas === undefined
+      ? {}
+      : { defeatedMiniBossArenas: delta.defeatedMiniBossArenas }),
   };
-}
-
-function requestBaseline(conn: Connection): void {
-  conn.snapshotRevisions.awaitingBaseline = true;
-  if (conn.snapshotRevisions.resyncPending) return;
-  conn.snapshotRevisions.resyncPending = true;
-  conn.networkMetrics.recordRecoveryRequest();
-  conn.send({ type: "snapshotResync" });
 }
 
 function commitRevisions(conn: Connection, snapshot: ServerSnapshotDelta): void {
@@ -125,14 +121,18 @@ function commitRevisions(conn: Connection, snapshot: ServerSnapshotDelta): void 
 }
 
 /** Applies a complete baseline or one delta whose base/revisions are known locally. */
-export function applySnapshotDelta(conn: Connection, snapshot: ServerSnapshotDelta): void {
+export function applySnapshotDelta(
+  conn: Connection,
+  snapshot: ServerSnapshotDelta,
+  arrivalMs?: number,
+): void {
   if (!conn.world || !revisionsMatch(conn, snapshot)) {
-    requestBaseline(conn);
+    requestSnapshotBaseline(conn);
     return;
   }
   const materialized = materializeSnapshot(conn, snapshot);
   if (!materialized) {
-    requestBaseline(conn);
+    requestSnapshotBaseline(conn);
     return;
   }
   if (snapshot.baseline) {
@@ -141,6 +141,6 @@ export function applySnapshotDelta(conn: Connection, snapshot: ServerSnapshotDel
     conn.areaTileLayers.clear();
     conn.snapshotRevisions.entities.clear();
   }
-  applySnapshot(conn, materialized);
+  applySnapshot(conn, materialized, arrivalMs);
   commitRevisions(conn, snapshot);
 }

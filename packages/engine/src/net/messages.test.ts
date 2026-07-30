@@ -56,7 +56,18 @@ describe("protocol", () => {
         level: "dungeon",
         floor: 3,
         snapshotMode: "delta-v1",
+        networkProfile: "corpnet",
       },
+      {
+        type: "hello",
+        protocol: 8,
+        name: "Crawler",
+        clientId: "client-1",
+        level: "dungeon",
+        networkProfile: null,
+      },
+      { type: "networkProfile", profile: "corpnet" },
+      { type: "networkProfile", profile: null },
     ];
     for (const intent of intents) {
       expect(decodeClientMessage(encodeMessage(intent))).toEqual(intent);
@@ -93,6 +104,7 @@ describe("protocol", () => {
         { x: 6, y: 5, defId: null },
       ],
       miniBossArenaGates: [{ x: 8, y: 9 }],
+      defeatedMiniBossArenas: [{ cx: -2, cy: 7 }],
     };
     expect(decodeServerMessage(encodeMessage(snap))).toEqual(snap);
   });
@@ -141,5 +153,6 @@ describe("protocol", () => {
       ),
     ).toBeNull();
     expect(decodeClientMessage('{"type":"hello","protocol":2,"name":"A"}')).toBeNull();
+    expect(decodeClientMessage('{"type":"networkProfile","profile":"fast"}')).toBeNull();
   });
 });

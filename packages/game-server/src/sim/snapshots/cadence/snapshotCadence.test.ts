@@ -1,6 +1,6 @@
 /** Verifies idle snapshot traffic halves while events and nearby movement retain burst cadence. */
 import { describe, expect, it } from "vitest";
-import type { PlayerSnapshotFrame } from "./playerSnapshot.js";
+import type { PlayerSnapshotFrame } from "../playerSnapshot.js";
 import { shouldSendSnapshot } from "./snapshotCadence.js";
 
 function frame(tick: number): PlayerSnapshotFrame {
@@ -21,6 +21,7 @@ function frame(tick: number): PlayerSnapshotFrame {
     areas: [],
     roomDoors: [],
     miniBossArenaGates: [],
+    defeatedMiniBossArenas: [],
     visibleIds: new Set(),
     privateEventCount: 0,
     pendingEventCount: 0,
@@ -38,5 +39,18 @@ describe("shouldSendSnapshot", () => {
       ...frame(1),
       entities: [{ revision: 1, snapshot: { id: "p2", kind: "player", x: 1, y: 0, z: 0, vx: 2 } }],
     }, false)).toBe(true);
+  });
+
+  it("caps CorpNet dynamic frames at the base cadence without delaying critical state", () => {
+    const moving: PlayerSnapshotFrame = {
+      ...frame(1),
+      entities: [{ revision: 1, snapshot: { id: "p2", kind: "player", x: 1, y: 0, z: 0, vx: 2 } }],
+    };
+    expect(shouldSendSnapshot(moving, false, "corpnet")).toBe(false);
+    expect(shouldSendSnapshot({ ...moving, tick: 2 }, false, "corpnet")).toBe(true);
+    expect(shouldSendSnapshot(moving, true, "corpnet")).toBe(true);
+    expect(shouldSendSnapshot({ ...moving, events: [{ t: "toast", msg: "now" }] }, false, "corpnet")).toBe(true);
+    expect(shouldSendSnapshot({ ...moving, areas: [{ x: 1, y: 1, defId: "area-fire" }] }, false, "corpnet")).toBe(true);
+    expect(shouldSendSnapshot({ ...moving, left: ["p2"] }, false, "corpnet")).toBe(true);
   });
 });

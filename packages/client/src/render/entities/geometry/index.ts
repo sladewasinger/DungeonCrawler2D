@@ -9,7 +9,7 @@ import { createItemVisual, updateItemVisual } from "../visuals/itemVisual.js";
 import { createMonsterVisual, updateMonsterVisual } from "../visuals/monsterVisual.js";
 import { createPetVisual, updatePetVisual } from "../pets/petVisual.js";
 import { createPlayerVisual, updatePlayerVisual } from "../visuals/playerVisual.js";
-import { shouldRenderLivePlayer } from "../presentation/playerVisibility.js";
+import { shouldRenderLivePlayer } from "../presentation/visibility/playerVisibility.js";
 import { createProjectileVisual, updateProjectileVisual } from "../visuals/projectileEntityVisual.js";
 import { monsterSpriteFor, playerSkinFor } from "../visuals/spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "../visuals/state.js";

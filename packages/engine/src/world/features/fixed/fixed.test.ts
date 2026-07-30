@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE, FEATURE_FACE, TILE } from "../../core/types.js";
 import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
-import { carveSafeRoomEntrance, KIOSK_HEIGHT } from "./fixed.js";
+import {
+  carveSafeRoomEntrance,
+  KIOSK_HEIGHT,
+} from "./fixed.js";
 
 const CENTER_LX = 10;
 const CENTER_LY = 10;

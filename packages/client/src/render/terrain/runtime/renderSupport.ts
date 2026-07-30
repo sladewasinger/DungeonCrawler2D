@@ -10,6 +10,7 @@ import {
   type TerrainRect,
 } from "../planning/terrainPlanner.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
+import type { TerrainVisualFeatures } from "../streaming/terrainDeviceProfile.js";
 
 export const VIEW_MARGIN_TILES = 2;
 export const TERRAIN_DEPTH = -1000;
@@ -36,7 +37,11 @@ const BIOME_MATERIALS: Readonly<Record<BiomeKind, { floor: number; face: number 
   [BIOME.Arena]: fallbackMaterial(BIOME.Arena),
 };
 
-export function materialsFor(world: Partial<World>, bounds: TerrainRect) {
+export function materialsFor(
+  world: Partial<World>,
+  bounds: TerrainRect,
+  visuals: TerrainVisualFeatures,
+) {
   const palette = BIOME_MATERIALS[worldBiomeAt(world, bounds.x, bounds.y)];
   return {
     floor: { color: palette.floor },
@@ -44,10 +49,10 @@ export function materialsFor(world: Partial<World>, bounds: TerrainRect) {
     feature: { color: palette.floor },
     void: { color: phaserColor(TERRAIN_VISUAL_STYLE.fallbackMaterials.void) },
     southFace: { color: palette.face }, cliffEdge: { color: palette.face },
-    ao: {
+    ao: visuals.ambientOcclusion ? {
       color: phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color),
       alpha: TERRAIN_VISUAL_STYLE.ambientOcclusion.fallbackAlpha,
-    },
+    } : null,
   };
 }
 
@@ -61,18 +66,22 @@ export function worldBiomeAt(world: Partial<World>, x: number, y: number): Biome
   return biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: x, wy: y }).biome;
 }
 
-export function worldBoundsForView(view: ViewRect, orientation: ViewOrientation): TerrainRect {
-  const minVX = Math.floor(view.x / SCREEN_TILE_PX) - VIEW_MARGIN_TILES;
-  const minVY = Math.floor(view.y / SCREEN_TILE_PX) - VIEW_MARGIN_TILES;
-  const maxVX = Math.ceil((view.x + view.width) / SCREEN_TILE_PX) + VIEW_MARGIN_TILES;
-  const maxVY = Math.ceil((view.y + view.height) / SCREEN_TILE_PX) + VIEW_MARGIN_TILES;
+export function worldBoundsForView(
+  view: ViewRect,
+  orientation: ViewOrientation,
+  marginTiles = VIEW_MARGIN_TILES,
+): TerrainRect {
+  const minVX = Math.floor(view.x / SCREEN_TILE_PX) - marginTiles;
+  const minVY = Math.floor(view.y / SCREEN_TILE_PX) - marginTiles;
+  const maxVX = Math.ceil((view.x + view.width) / SCREEN_TILE_PX) + marginTiles;
+  const maxVY = Math.ceil((view.y + view.height) / SCREEN_TILE_PX) + marginTiles;
   const corners = [
     viewTileToWorld({ x: minVX, y: minVY }, orientation), viewTileToWorld({ x: maxVX, y: minVY }, orientation),
     viewTileToWorld({ x: minVX, y: maxVY }, orientation), viewTileToWorld({ x: maxVX, y: maxVY }, orientation),
   ];
-  const minX = Math.min(...corners.map((corner) => corner.x)) - VIEW_MARGIN_TILES;
-  const minY = Math.min(...corners.map((corner) => corner.y)) - VIEW_MARGIN_TILES;
-  const maxX = Math.max(...corners.map((corner) => corner.x)) + VIEW_MARGIN_TILES;
-  const maxY = Math.max(...corners.map((corner) => corner.y)) + VIEW_MARGIN_TILES;
+  const minX = Math.min(...corners.map((corner) => corner.x)) - marginTiles;
+  const minY = Math.min(...corners.map((corner) => corner.y)) - marginTiles;
+  const maxX = Math.max(...corners.map((corner) => corner.x)) + marginTiles;
+  const maxY = Math.max(...corners.map((corner) => corner.y)) + marginTiles;
   return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }

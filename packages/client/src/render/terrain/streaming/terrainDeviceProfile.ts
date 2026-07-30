@@ -1,4 +1,9 @@
 import type Phaser from "phaser";
+import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
+import {
+  readTerrainDeviceSignals,
+  requiresConstrainedPresentation,
+} from "./terrainDeviceSignals.js";
 
 const MIB = 1024 * 1024;
 
@@ -7,60 +12,104 @@ export interface TerrainDeviceSignals {
   readonly viewportHeight: number;
   readonly devicePixelRatio: number;
   readonly maxTouchPoints: number;
+  readonly coarsePointer: boolean;
+  readonly finePointer: boolean;
+  readonly mobilePlatform: boolean;
+  readonly logicalProcessorCount: number;
   readonly deviceMemoryGiB?: number;
   readonly maxTextureSize: number;
+}
+
+export interface TerrainVisualFeatures {
+  readonly ambientOcclusion: boolean;
+  readonly biomeTint: boolean;
+  readonly bedrockTint: boolean;
+  readonly cliffHighlights: boolean;
 }
 
 export interface TerrainDeviceProfile {
   readonly kind: "constrained" | "desktop";
   readonly activeBytes: number;
   readonly spareBytes: number;
-  readonly loadMarginChunks: number;
+  /** Screen tiles retained for height-projected caps and south-facing walls. */
+  readonly terrainMarginTiles: number;
+  /** Whole chunks retained so offscreen torch/door halos can reach the camera. */
+  readonly lightLoadMarginChunks: number;
   readonly maximumPreferredPagePx: number;
+  readonly visuals: TerrainVisualFeatures;
+  readonly retention: TerrainRetentionProfile;
 }
 
-export const CONSTRAINED_TERRAIN_PROFILE: TerrainDeviceProfile = {
+export interface TerrainRetentionProfile {
+  readonly maxChunkPlans: number;
+  readonly maxOrientationRoots: number;
+  readonly maxWorldChunks: number;
+}
+
+const DESKTOP_TERRAIN_VISUALS: TerrainVisualFeatures = {
+  ambientOcclusion: true,
+  biomeTint: true,
+  bedrockTint: true,
+  cliffHighlights: true,
+};
+
+const CONSTRAINED_TERRAIN_VISUALS: TerrainVisualFeatures = {
+  ambientOcclusion: false,
+  biomeTint: false,
+  bedrockTint: true,
+  cliffHighlights: true,
+};
+
+const DESKTOP_TERRAIN_RETENTION: TerrainRetentionProfile = {
+  maxChunkPlans: TERRAIN_RUNTIME_TUNING.retention.maxChunkPlans,
+  maxOrientationRoots: TERRAIN_RUNTIME_TUNING.retention.maxOrientationRoots,
+  maxWorldChunks: TERRAIN_RUNTIME_TUNING.retention.maxWorldChunks,
+};
+
+const CONSTRAINED_TERRAIN_RETENTION: TerrainRetentionProfile = {
+  maxChunkPlans: Math.max(8, Math.floor(DESKTOP_TERRAIN_RETENTION.maxChunkPlans / 2)),
+  maxOrientationRoots: 2,
+  maxWorldChunks: Math.max(32, Math.floor(DESKTOP_TERRAIN_RETENTION.maxWorldChunks / 2)),
+};
+
+export const CONSTRAINED_TERRAIN_PROFILE = freezeProfile({
   kind: "constrained",
   activeBytes: 80 * MIB,
   spareBytes: 16 * MIB,
-  loadMarginChunks: 0,
+  terrainMarginTiles: 2,
+  lightLoadMarginChunks: 1,
   maximumPreferredPagePx: 1024,
-};
+  visuals: CONSTRAINED_TERRAIN_VISUALS,
+  retention: CONSTRAINED_TERRAIN_RETENTION,
+});
 
-export const DESKTOP_TERRAIN_PROFILE: TerrainDeviceProfile = {
+export const DESKTOP_TERRAIN_PROFILE = freezeProfile({
   kind: "desktop",
   activeBytes: 160 * MIB,
   spareBytes: 32 * MIB,
-  loadMarginChunks: 1,
+  terrainMarginTiles: 2,
+  lightLoadMarginChunks: 1,
   maximumPreferredPagePx: 1024,
-};
+  visuals: DESKTOP_TERRAIN_VISUALS,
+  retention: DESKTOP_TERRAIN_RETENTION,
+});
 
 export function selectTerrainDeviceProfile(signals: TerrainDeviceSignals): TerrainDeviceProfile {
-  const framebufferPixels = signals.viewportWidth * signals.viewportHeight * signals.devicePixelRatio ** 2;
-  const narrowHighDensity = Math.min(signals.viewportWidth, signals.viewportHeight) <= 1024 &&
-    signals.devicePixelRatio >= 2;
-  const constrained = signals.maxTouchPoints > 0 ||
-    (signals.deviceMemoryGiB !== undefined && signals.deviceMemoryGiB <= 4) ||
-    signals.maxTextureSize < 4096 ||
-    framebufferPixels >= 8_000_000 ||
-    narrowHighDensity;
-  return constrained ? CONSTRAINED_TERRAIN_PROFILE : DESKTOP_TERRAIN_PROFILE;
+  return requiresConstrainedPresentation(signals)
+    ? CONSTRAINED_TERRAIN_PROFILE
+    : DESKTOP_TERRAIN_PROFILE;
 }
 
-export function readTerrainDeviceSignals(scene: Phaser.Scene): TerrainDeviceSignals {
-  const memoryNavigator = navigator as Navigator & { readonly deviceMemory?: number };
-  return {
-    viewportWidth: scene.scale.width,
-    viewportHeight: scene.scale.height,
-    devicePixelRatio: window.devicePixelRatio || 1,
-    maxTouchPoints: navigator.maxTouchPoints || 0,
-    ...(memoryNavigator.deviceMemory === undefined ? {} : { deviceMemoryGiB: memoryNavigator.deviceMemory }),
-    maxTextureSize: reportedMaxTextureSize(scene),
-  };
+export { readTerrainDeviceSignals } from "./terrainDeviceSignals.js";
+
+export function terrainDeviceProfileForScene(scene: Phaser.Scene): TerrainDeviceProfile {
+  return selectTerrainDeviceProfile(readTerrainDeviceSignals(scene));
 }
 
-function reportedMaxTextureSize(scene: Phaser.Scene): number {
-  const renderer = scene.game.renderer as Phaser.Renderer.WebGL.WebGLRenderer;
-  if (!renderer.gl) return 4096;
-  return Number(renderer.gl.getParameter(renderer.gl.MAX_TEXTURE_SIZE)) || 4096;
+function freezeProfile(profile: TerrainDeviceProfile): TerrainDeviceProfile {
+  return Object.freeze({
+    ...profile,
+    visuals: Object.freeze({ ...profile.visuals }),
+    retention: Object.freeze({ ...profile.retention }),
+  });
 }

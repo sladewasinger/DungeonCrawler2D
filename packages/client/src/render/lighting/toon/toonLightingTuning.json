@@ -1,0 +1,10 @@
+{
+  "queryParameter": "lighting",
+  "cameraMarginTiles": 2,
+  "playerPositionStepTiles": 1,
+  "maximumHeightDifference": 1,
+  "maximumFieldCells": 4096,
+  "maskScaleFactor": 1,
+  "maskProjectionPaddingTiles": 0,
+  "maximumMaskObjects": 1
+}

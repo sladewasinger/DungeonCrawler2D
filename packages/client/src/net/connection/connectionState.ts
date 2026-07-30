@@ -21,6 +21,12 @@ import { Prediction } from "../prediction/prediction.js";
 import { PredictionCorrection } from "../prediction/predictionCorrection.js";
 import { SnapshotRevisionState } from "../snapshots/snapshotState.js";
 import { ServerTimeline } from "../interpolation/serverTimeline.js";
+import {
+  CorpNetState,
+  EXPERIMENTAL_CORPNET_TUNING,
+  loadExperimentalCorpNetSettings,
+  SnapshotCoalescer,
+} from "../corpnet/index.js";
 
 export class ConnectionState {
   world: World | null = null;
@@ -70,6 +76,8 @@ export class ConnectionState {
   deathVisualEvents: DeathVisualEvent[] = [];
   npcSpeech: NpcSpeech | null = null;
   roomDoors: ServerSnapshot["roomDoors"] = [];
+  readonly defeatedMiniBossArenaChunks = new Set<string>();
+  miniBossArenaLandmarkRevision = 0;
   teleported = false;
   justRespawned = false;
   readonly entities = new Map<string, RemoteEntity>();
@@ -80,10 +88,16 @@ export class ConnectionState {
   readonly predictionCorrection = new PredictionCorrection();
   readonly serverTimeline = new ServerTimeline();
   readonly interpolationDelay = new InterpolationDelay();
+  readonly corpNet = new CorpNetState(loadExperimentalCorpNetSettings().enabled);
+  readonly snapshotCoalescer = new SnapshotCoalescer(
+    EXPERIMENTAL_CORPNET_TUNING.snapshots.maximumQueuedMessages,
+  );
   readonly networkMetrics = new WireMetrics();
   movementTrace: MovementTraceRecorder | null = null;
   ws: WebSocket | null = null;
   pingTimer: ReturnType<typeof setInterval> | null = null;
+  corpNetWatchdogTimer: ReturnType<typeof setInterval> | null = null;
+  corpNetFlushTimer: ReturnType<typeof setTimeout> | null = null;
   reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   shouldReconnect = false;
   level: LevelId = LEVEL.Dungeon;

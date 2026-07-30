@@ -4,6 +4,7 @@ import type { ChatPanelModel } from "../../../ui/chat/controller.js";
 import type {
   CraftSnapshot,
   HudFakeSnapshot,
+  CompassLandmarkTicks,
   StairwayTickData,
   StashSnapshot,
   ToastData,
@@ -85,10 +86,11 @@ export interface HudSnapshotInput {
   readonly contacts: readonly ContactData[];
   readonly compassBearingDeg: number;
   readonly stairway: StairwayTickData | null;
+  readonly compassLandmarks: CompassLandmarkTicks;
 }
 
 export function buildHudSnapshot(input: HudSnapshotInput): HudFakeSnapshot {
-  const { src, selectedHotbarSlot, armedThrowableSlot, interactionPrompt, touch, fps, bodyPos, chatModel, contacts, compassBearingDeg, stairway } = input;
+  const { src, selectedHotbarSlot, armedThrowableSlot, interactionPrompt, touch, fps, bodyPos, chatModel, contacts, compassBearingDeg, stairway, compassLandmarks } = input;
   const party = partyRowsView({ party: src.party, selfId: src.playerId, bodyPos, viewBearingDeg: compassBearingDeg });
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
@@ -107,6 +109,6 @@ export function buildHudSnapshot(input: HudSnapshotInput): HudFakeSnapshot {
     chatModel,
     contacts: [...contacts],
     interactionPrompt,
-    ...statusFields({ src, touch, fps, bodyPos, compassBearingDeg, stairway }),
+    ...statusFields({ src, touch, fps, bodyPos, compassBearingDeg, stairway, compassLandmarks }),
   };
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { releaseNotesRequest } from "../build/releaseNotes.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
-const applicationVersion = "0.7.0";
+const applicationVersion = "0.7.1";
 
 describe("release notes dev routes", () => {
   it("serves the generated index instead of falling through to the game shell", () => {

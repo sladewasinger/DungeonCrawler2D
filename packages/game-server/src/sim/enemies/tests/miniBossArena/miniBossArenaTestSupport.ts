@@ -29,6 +29,7 @@ import {
   handleMiniBossEnemyDeath,
   spawnMiniBossEncounter,
 } from "../../miniBossArena/population.js";
+import { miniBossEncounterForArena } from "../../miniBossArena/encounterComposition.js";
 import { miniBossArenaEntryForPlayer } from "../../miniBossArena/runtime.js";
 
 const content = buildContentRegistry({
@@ -92,13 +93,19 @@ function spawnArenaInChunk(
   sim: SimState,
   chunk: { readonly x: number; readonly y: number },
 ): MiniBossArenaSite | null {
-  if (!spawnMiniBossEncounter(sim, chunk.x, chunk.y)) return null;
-  return miniBossArenaForChunk({
+  const candidate = miniBossArenaForChunk({
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
     cx: chunk.x,
     cy: chunk.y,
   });
+  if (!candidate || miniBossEncounterForArena({
+    worldSeed: sim.world.worldSeed,
+    floor: sim.world.floor,
+    arena: candidate,
+  }).id !== "orc-warlord") return null;
+  if (!spawnMiniBossEncounter(sim, chunk.x, chunk.y)) return null;
+  return candidate;
 }
 
 export function requiredArenaGate(
@@ -135,9 +142,9 @@ export function defeatTestArenaBoss(
   arenaKey: string,
 ): void {
   const boss = [...sim.enemies.entries()].find(([, enemy]) =>
-    enemy.arenaKey === arenaKey && enemy.def.id === "orc-warlord"
+    enemy.arenaKey === arenaKey && enemy.arenaLeader
   );
-  if (!boss) throw new Error("test arena has no warlord");
+  if (!boss) throw new Error("test arena has no leader");
   const [id, enemy] = boss;
   sim.enemies.delete(id);
   handleMiniBossEnemyDeath(sim, enemy);

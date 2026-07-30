@@ -31,6 +31,10 @@ export class PlayerGroundLightPass {
     this.pool.update(nowMs);
   }
 
+  activeCellCount(): number {
+    return this.pool.activeCount();
+  }
+
   private refresh(input: GroundLightRefresh): void {
     this.pool.sync(playerGroundLightCells(this.world, input.player.x, input.player.y), input.nowMs);
     this.previousUpdate = input.next;

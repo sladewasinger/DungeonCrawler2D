@@ -17,7 +17,8 @@
 
 .hud-compass__forward,
 .hud-compass__letter,
-.hud-compass__stairway {
+.hud-compass__stairway,
+.hud-compass__landmark {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -46,6 +47,14 @@
   color: var(--hud-gold);
   font: 10px monospace;
 }
+
+.hud-compass__landmark {
+  display: none;
+  font: 10px monospace;
+}
+
+.hud-compass__landmark--safe-room { color: #4ea8ff; }
+.hud-compass__landmark--mini-boss { color: #e04a4a; }
 
 .hud-meter {
   border: 1px solid #666b80;

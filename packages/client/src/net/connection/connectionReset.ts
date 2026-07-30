@@ -43,4 +43,6 @@ function resetNetworkState(conn: Connection): void {
   conn.predictionCorrection.reset();
   conn.serverTimeline.reset();
   conn.interpolationDelay.reset();
+  conn.corpNet.reset();
+  conn.snapshotCoalescer.reset();
 }

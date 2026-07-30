@@ -1,4 +1,4 @@
-import type { PlayerEntityView } from "../visuals/view.js";
+import type { PlayerEntityView } from "../../visuals/view.js";
 
 export function shouldRenderLivePlayer(
   view: Pick<PlayerEntityView, "hp">,

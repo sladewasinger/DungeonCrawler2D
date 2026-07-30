@@ -1,9 +1,7 @@
 import {
   ageEnemyMemory,
-  enemyThink,
   TICK_DT,
   ENEMY_ACTIVE_RADIUS,
-  type EnemyDecision,
   type EffectEvent,
 } from "@dc2d/engine";
 import { isBodyInChasm } from "../core/helpers.js";
@@ -27,8 +25,7 @@ import {
 } from "./ai/enemyTargeting.js";
 import { enemyPursuitMove } from "./ai/enemyNavigation.js";
 import { enemyPlayerSets } from "./ai/enemyPlayerSets.js";
-import { enemyMemoryArrivalTolerance } from "./ai/enemyMemoryTuning.js";
-import { withEnemySearch } from "./ai/search/enemySearch.js";
+import { thinkForEnemy } from "./ai/decision/enemyThought.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 import { prepareMiniBossArenaEnemy } from "./miniBossArena/aggro.js";
 
@@ -124,32 +121,5 @@ function executeEnemyDecision(input: EnemyStepInput): void {
     targetId: decision.strike.targetId,
     effectEvents,
     attackTicks: ENEMY_SIMULATION_TUNING.animationTicks.meleeAttack,
-  });
-}
-
-function thinkForEnemy(input: EnemyStepInput): EnemyDecision {
-  const { sim, enemy, target } = input;
-  const arrivalTolerance = enemyMemoryArrivalTolerance(sim, enemy);
-  const decision = enemyThink({
-    brain: enemy.brain,
-    enemy: enemy.entity,
-    def: enemy.def,
-    players: target ? [target] : [],
-    inSanctuary: (entity) => sim.effects.inSanctuary(entity),
-    dt: TICK_DT,
-    rng: () => sim.rng.next(),
-    memorySeconds: ENEMY_SIMULATION_TUNING.perception.memorySeconds,
-    memorySearchSeconds:
-      ENEMY_SIMULATION_TUNING.perception.memorySearchSeconds,
-    memoryArrivalTolerance: arrivalTolerance,
-    maximumMeleeHeightDifference:
-      ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference,
-  });
-  return withEnemySearch({
-    sim,
-    enemy,
-    visibleTarget: target,
-    decision,
-    arrivalTolerance,
   });
 }

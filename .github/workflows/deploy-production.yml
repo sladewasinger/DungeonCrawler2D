@@ -64,14 +64,16 @@ jobs:
         run: aws s3 cp packages/game-server/dist/main.cjs "s3://$ARTIFACT_BUCKET/server/main.cjs"
 
       - name: Publish client
-        # Two-pass publish: hashed assets get long immutable caching; the
-        # entry documents (index.html, sw.js, manifest) get no-cache so the
-        # service worker's build-SHA cache-busting actually reaches players —
-        # a cached sw.js would pin clients to a stale build forever.
+        # Fixed-name public assets (atlas.png/json, animation manifests, sprites)
+        # are mutable and must revalidate. Only Vite's content-addressed JS/CSS
+        # bundles receive immutable caching.
         run: |
           aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" --delete \
-            --cache-control "public,max-age=31536000,immutable" \
-            --exclude "*.html" --exclude "sw.js" --exclude "manifest.webmanifest"
+            --cache-control "no-cache"
+          aws s3 cp packages/client/dist/assets "s3://$FRONTEND_BUCKET/assets" \
+            --recursive --exclude "*" \
+            --include "*-????????.js" --include "*-????????.css" \
+            --cache-control "public,max-age=31536000,immutable"
           aws s3 sync packages/client/dist "s3://$FRONTEND_BUCKET" \
             --exclude "*" --include "*.html" \
             --cache-control "no-cache" --content-type "text/html"

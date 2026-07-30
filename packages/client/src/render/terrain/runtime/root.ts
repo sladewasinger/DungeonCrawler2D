@@ -7,6 +7,7 @@ import {
   TerrainAtlasBatchRenderer,
 } from "../batch/atlasBatch.js";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
+import type { TerrainDeviceProfile } from "../streaming/terrainDeviceProfile.js";
 import { TERRAIN_DEPTH } from "./renderSupport.js";
 
 export interface TerrainRoot {
@@ -21,12 +22,13 @@ export interface TerrainRoot {
 export function createTerrainRoot(
   scene: Phaser.Scene,
   orientation: ViewOrientation,
+  profile: TerrainDeviceProfile,
 ): TerrainRoot {
   const batch = createTerrainQuadBatchRenderer(scene);
   return {
     graphics: batch.graphics.setDepth(TERRAIN_DEPTH).setVisible(false),
     batch,
-    atlas: new TerrainAtlasBatchRenderer(scene),
+    atlas: new TerrainAtlasBatchRenderer(scene, profile.visuals),
     props: new Map(),
     planKey: "",
     orientation,
