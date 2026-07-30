@@ -10,6 +10,9 @@ title: Public Notes
 ## Added
 
 - A public feature.
+- A wrapped public feature that
+  keeps all of its useful details
+  across multiple source lines.
 <!-- developer-only -->
 - Internal implementation detail.
 <!-- /developer-only -->
@@ -33,7 +36,10 @@ describe("release note audiences", () => {
     expect(publicReleaseNoteSource(note, "v1.2.3.md"))
       .not.toContain("Internal implementation detail");
     expect(parseNote(note, "v1.2.3.md").sections.Added)
-      .toEqual(["A public feature."]);
+      .toEqual([
+        "A public feature.",
+        "A wrapped public feature that keeps all of its useful details across multiple source lines.",
+      ]);
   });
 
   it("rejects unmatched developer-only tags", () => {
