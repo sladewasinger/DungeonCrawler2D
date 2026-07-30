@@ -25,6 +25,7 @@ import type { SocketMap } from "./types.js";
  * broadcast.ts — this file only owns construction and lifecycle. */
 
 export interface ServerOptions {
+  host?: string;
   port: number;
   seedInputText?: string;
   worldSeed: number;
@@ -60,7 +61,10 @@ export function startServer(opts: ServerOptions): RunningServer {
   const initialSeed = opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
   const simOpts = simulationOptions(opts);
   const { floors, sandbox } = createSimulations({ opts, store, seed: initialSeed, simOpts });
-  const wss = new WebSocketServer({ port: opts.port });
+  const wss = new WebSocketServer({
+    port: opts.port,
+    ...(opts.host ? { host: opts.host } : {}),
+  });
   const sockets: SocketMap = new Map();
   const networkMetrics = new ServerNetworkDiagnostics();
   const stopHeartbeat = connectWebSockets(wss, {
