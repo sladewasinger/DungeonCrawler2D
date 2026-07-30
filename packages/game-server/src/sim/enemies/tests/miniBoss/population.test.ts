@@ -1,4 +1,5 @@
 import {
+  AOI_RADIUS,
   CHUNK_SIZE,
   createBody,
   hashString,
@@ -11,7 +12,11 @@ import type { EnemySlot, PlayerSlot, SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../ai.js";
 import { spawnMiniBossEncounter } from "../../miniBossArena/population.js";
 import {
+  syncObservableMiniBossEncounters,
+} from "../../miniBossArena/observation/observablePopulation.js";
+import {
   createMiniBossPopulationSim,
+  findMiniBossPopulationArena,
   requireMiniBossArenaLeader,
   spawnMiniBossPopulationEncounter,
 } from "./populationTestSupport.js";
@@ -46,6 +51,26 @@ describe("mini-boss arena population", () => {
     for (const enemy of sim.enemies.values()) assertEnemyInArena(enemy, arena.key, home);
   });
 
+  it("keeps encounters loaded only while a connected crawler can observe them", () => {
+    const sim = createMiniBossPopulationSim("mini-boss-observation");
+    const arena = findMiniBossPopulationArena(sim);
+    if (!arena) throw new Error("missing arena fixture");
+    const player = addBaitPlayer(sim, arena.interior);
+
+    syncObservableMiniBossEncounters(sim);
+    expect(arenaEnemyCount(sim, arena.key)).toBe(4);
+
+    player.entity.body.x += AOI_RADIUS * 3;
+    player.entity.body.y += AOI_RADIUS * 3;
+    syncObservableMiniBossEncounters(sim);
+    expect(arenaEnemyCount(sim, arena.key)).toBe(0);
+
+    player.entity.body.x = arena.center.x + 0.5;
+    player.entity.body.y = arena.center.y + 0.5;
+    syncObservableMiniBossEncounters(sim);
+    expect(arenaEnemyCount(sim, arena.key)).toBe(4);
+  });
+
   it("reports direct room bounds inside their owning chunk", () => {
     const rooms = populationRoomsForChunk({
       worldSeed: hashString("room-bounds"),
@@ -76,19 +101,30 @@ function assertEnemyInArena(
   expect(enemy.entity.body.y).toBeLessThan(home.y1 + 1);
 }
 
-function addBaitPlayer(sim: SimState, home: NonNullable<EnemySlot["home"]>): void {
+function addBaitPlayer(
+  sim: SimState,
+  home: NonNullable<EnemySlot["home"]>,
+): PlayerSlot {
   const body = createBody(home.x1 + 2.5, (home.y0 + home.y1) / 2, 0);
   const entity = makeEntity("player", body, {
     id: "bait",
     hp: 100,
     maxHp: 100,
   });
-  sim.players.set("bait", {
+  const player = {
     entity,
     connected: true,
     downedAtTick: null,
     spawnGraceUntilTick: 0,
-  } as PlayerSlot);
+  } as PlayerSlot;
+  sim.players.set("bait", player);
+  return player;
+}
+
+function arenaEnemyCount(sim: SimState, arenaKey: string): number {
+  return [...sim.enemies.values()].filter((enemy) =>
+    enemy.arenaKey === arenaKey
+  ).length;
 }
 
 interface PopulationRoom {

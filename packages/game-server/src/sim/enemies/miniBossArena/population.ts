@@ -13,8 +13,6 @@ import {
 import { markMiniBossArenaDefeated } from "./defeatedArenaState.js";
 import { clearMiniBossArena } from "./runtime.js";
 
-const ENEMY_CAP = 150;
-
 export function handleMiniBossEnemyDeath(
   sim: SimState,
   enemy: EnemySlot,
@@ -44,7 +42,6 @@ export function spawnMiniBossEncounter(
   const members = miniBossEncounterMembers({
     sim,
     arena,
-    maximumEnemies: ENEMY_CAP,
   });
   if (members.length === 0) return false;
   spawnEncounterMembers(sim, arena, members);

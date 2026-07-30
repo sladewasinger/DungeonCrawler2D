@@ -1,7 +1,7 @@
 import { BIOME } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
+import { spawnEnemy } from "../../../core/helpers.js";
 import { resolveDeaths } from "../../../combat/deaths.js";
-import { miniBossEncounterMembers } from "../../miniBossArena/encounterPlacement.js";
 import { enemyRosterForBiome } from "../../populationRoster.js";
 import {
   createMiniBossPopulationSim,
@@ -73,16 +73,23 @@ describe("mini-boss encounter compositions", () => {
     }
   });
 
-  it("does not truncate an authored encounter to fit the enemy cap", () => {
+  it("does not cap an authored encounter behind roaming enemies", () => {
     const sim = createMiniBossPopulationSim("mini-boss-capacity");
-    const arena = spawnMiniBossPopulationEncounter(sim);
-    sim.enemies.clear();
+    for (let index = 0; index < 150; index++) {
+      spawnEnemy(sim, {
+        defId: "slime",
+        x: 10_000 + index,
+        y: 10_000,
+      });
+    }
 
-    expect(miniBossEncounterMembers({
-      sim,
-      arena,
-      maximumEnemies: 3,
-    })).toEqual([]);
+    const arena = spawnMiniBossPopulationEncounter(sim);
+    const arenaEnemies = [...sim.enemies.values()].filter((enemy) =>
+      enemy.arenaKey === arena.key
+    );
+
+    expect(sim.enemies.size).toBe(154);
+    expect(arenaEnemies).toHaveLength(4);
   });
 });
 

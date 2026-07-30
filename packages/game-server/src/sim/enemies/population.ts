@@ -8,7 +8,9 @@ import { spawnItem } from "../core/helpers.js";
 import type { SimState } from "../state/state.js";
 import { populateTestZoneChunk } from "../core/testzone.js";
 import { spawnEnemyPack } from "./population/packs.js";
-import { spawnMiniBossEncounter } from "./miniBossArena/population.js";
+import {
+  syncObservableMiniBossEncounters,
+} from "./miniBossArena/observation/observablePopulation.js";
 
 const ENEMY_CAP = 150;
 const ROOM_LOOT = [
@@ -17,6 +19,7 @@ const ROOM_LOOT = [
 
 export function activateChunksNearPlayers(sim: SimState): void {
   if (sim.world.level === LEVEL.Sandbox && !sim.opts.testFixtures) return;
+  syncObservableMiniBossEncounters(sim);
   for (const slot of sim.players.values()) {
     const ccx = Math.floor(slot.entity.body.x / CHUNK_SIZE);
     const ccy = Math.floor(slot.entity.body.y / CHUNK_SIZE);
@@ -44,7 +47,6 @@ function populateChunk(sim: SimState, cx: number, cy: number): void {
   if (sim.world.level === LEVEL.Sandbox) return populateSandboxChunk(sim, cx, cy);
   spawnRoomLoot(sim, cx, cy);
   if (sim.enemies.size >= ENEMY_CAP) return;
-  spawnMiniBossEncounter(sim, cx, cy);
   spawnEnemyPack(sim, cx, cy);
 }
 

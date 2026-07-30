@@ -29,21 +29,19 @@ export interface MiniBossEncounterMember {
 export interface MiniBossEncounterPlacement {
   readonly sim: SimState;
   readonly arena: MiniBossArenaSite;
-  readonly maximumEnemies: number;
 }
 
-/** Returns the complete encounter, or nothing when the cap/arena cannot hold it. */
+/** Returns the complete authored encounter, or nothing when the arena cannot hold it. */
 export function miniBossEncounterMembers(
   input: MiniBossEncounterPlacement,
 ): readonly MiniBossEncounterMember[] {
-  const { sim, arena, maximumEnemies } = input;
+  const { sim, arena } = input;
   const composition = miniBossEncounterForArena({
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
     arena,
   });
-  const defIds = encounterDefIds(sim, composition, maximumEnemies);
-  if (defIds.length === 0) return [];
+  const defIds = encounterDefIds(composition);
   const spots = encounterSpots(sim, arena, defIds.length);
   if (spots.length !== defIds.length) return [];
   return spots.map((spot, index) => ({
@@ -55,13 +53,9 @@ export function miniBossEncounterMembers(
 }
 
 function encounterDefIds(
-  sim: SimState,
   composition: MiniBossEncounterComposition,
-  maximumEnemies: number,
 ): readonly string[] {
-  const defIds = [composition.leaderDefId, ...composition.minionDefIds];
-  const availableSlots = maximumEnemies - sim.enemies.size;
-  return availableSlots >= defIds.length ? defIds : [];
+  return [composition.leaderDefId, ...composition.minionDefIds];
 }
 
 function encounterSpots(

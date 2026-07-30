@@ -54,11 +54,18 @@ export function spawnMiniBossPopulationEncounter(
   sim: SimState,
   compositionId?: MiniBossEncounterId,
 ): MiniBossArenaSite {
-  const arena = matchingArena(sim, compositionId);
+  const arena = findMiniBossPopulationArena(sim, compositionId);
   if (!arena || !spawnMiniBossEncounter(sim, arena.chunk.cx, arena.chunk.cy)) {
     throw new Error("no mini-boss encounter spawned");
   }
   return arena;
+}
+
+export function findMiniBossPopulationArena(
+  sim: SimState,
+  compositionId?: MiniBossEncounterId,
+): MiniBossArenaSite | null {
+  return matchingArena(sim, compositionId);
 }
 
 export function requireMiniBossArenaLeader(sim: SimState): EnemySlot {
