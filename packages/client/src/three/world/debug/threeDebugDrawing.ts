@@ -15,6 +15,7 @@ import {
   wedgeOutline,
   type AdminDebugPoint,
 } from "../../../render/debug/adminDebugGeometry.js";
+import { attackVolumeGeometry } from "../../../render/debug/attack/adminDebugAttackVolumeGeometry.js";
 import type { ThreeDebugPrimitiveWriter } from "./threeDebugPrimitives.js";
 
 const COLORS = {
@@ -55,6 +56,12 @@ function addHitbox(
   entity: AdminMapEntity,
   hitbox: ReturnType<typeof activeHitboxes>[number],
 ): void {
+  const volume = attackVolumeGeometry(entity, hitbox);
+  if (volume) {
+    for (const line of volume.shell) writer.line(line, COLORS.hitbox, 0.08);
+    writer.line(volume.strike, 0xffa2aa, 0.1);
+    return;
+  }
   if (hitbox.shape === "circle") {
     writer.line(circleOutline(hitboxCircle(entity, hitbox)), COLORS.hitbox, 0.11);
     return;

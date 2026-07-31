@@ -17,6 +17,7 @@ import {
   respawnTrainingDummies,
 } from "../../training/trainingDummy.js";
 import { activeTrainingWeaponHitbox } from "../../training/trainingDummyAttack.js";
+import { MELEE_HITBOX_TIMING } from "../../../actions/melee/meleeHitboxTuning.js";
 import {
   makeTrainingSandbox as makeSandbox,
   passiveTrainingDummy as populateDummy,
@@ -128,6 +129,16 @@ describe("sandbox training dummy", () => {
     });
     expect(player.entity.hp).toBeLessThan(player.entity.maxHp);
     expect(passive.entity.hp).toBe(passiveHp);
+
+    for (let offset = 1; offset < MELEE_HITBOX_TIMING.lastResolutionOffsetTicks; offset++) {
+      sim.tickCount = TICK_RATE + offset;
+      stepEnemies(sim, effects);
+    }
+    expect(activeTrainingWeaponHitbox(sword)).toBeDefined();
+    sim.tickCount = TICK_RATE + MELEE_HITBOX_TIMING.lastResolutionOffsetTicks;
+    stepEnemies(sim, effects);
+    expect(activeTrainingWeaponHitbox(sword)).toBeUndefined();
+    expect(sword.animation.state).toBe("idle");
   });
 });
 

@@ -7,7 +7,11 @@ import {
   type WeaponProfile,
 } from "@dc2d/engine";
 import { resolveMeleeContact } from "../../actions/melee/contact.js";
-import { MELEE_HITBOX_TUNING } from "../../actions/melee/meleeHitboxTuning.js";
+import {
+  isFinalMeleeHitboxResolutionTick,
+  isMeleeHitboxResolutionTick,
+  MELEE_HITBOX_TIMING,
+} from "../../actions/melee/meleeHitboxTuning.js";
 import type { ActiveMeleeAttack } from "../../state/meleeAttackState.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
 
@@ -70,18 +74,32 @@ function stepActiveHitbox(input: ActiveHitboxStep): void {
   const { sim, enemy, runtime, effectEvents } = input;
   const attack = runtime.active;
   if (!attack) return;
-  if (sim.tickCount - attack.startedAtTick > MELEE_HITBOX_TUNING.activeWindowTicks) {
-    delete runtime.active;
-    enemy.animation = { state: "idle", ticksRemaining: 0 };
+  if (!isMeleeHitboxResolutionTick(sim.tickCount, attack.startedAtTick)) {
+    deactivateTrainingHitbox(enemy, runtime);
     return;
   }
   if (attack.lastResolvedAtTick === sim.tickCount) return;
   attack.lastResolvedAtTick = sim.tickCount;
   enemy.animation = {
     state: "attack",
-    ticksRemaining: MELEE_HITBOX_TUNING.activeWindowTicks,
+    ticksRemaining: remainingTrainingHitboxTicks(sim.tickCount, attack.startedAtTick),
   };
   resolvePlayerContacts({ sim, enemy, effectEvents }, attack);
+  if (isFinalMeleeHitboxResolutionTick(sim.tickCount, attack.startedAtTick)) {
+    deactivateTrainingHitbox(enemy, runtime);
+  }
+}
+
+function remainingTrainingHitboxTicks(tick: number, startedAtTick: number): number {
+  return MELEE_HITBOX_TIMING.lastResolutionOffsetTicks - (tick - startedAtTick);
+}
+
+function deactivateTrainingHitbox(
+  enemy: EnemySlot,
+  runtime: TrainingAttackRuntime,
+): void {
+  delete runtime.active;
+  enemy.animation = { state: "idle", ticksRemaining: 0 };
 }
 
 function beginTrainingAttack(

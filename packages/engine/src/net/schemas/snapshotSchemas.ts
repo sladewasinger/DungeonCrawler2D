@@ -40,7 +40,7 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   level: z.number().int().positive().optional(), xpForNext: z.number().int().nonnegative().optional(),
   floor: z.number().int().positive().optional(), deepestFloor: z.number().int().positive().optional(),
   admin: z.boolean().optional(), adminDebug: z.object({
-    hurtboxes: z.boolean(), attacks: z.boolean(), guards: z.boolean(),
+    hurtboxes: z.boolean(), attacks: z.boolean(), hitboxPreview: z.boolean(), guards: z.boolean(),
     lineOfSight: z.boolean(), behavior: z.boolean(), search: z.boolean(), navigation: z.boolean(),
   }).strict().optional(),
   adminDebugEntities: z.array(adminMapEntitySchema).max(2048).optional(),

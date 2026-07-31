@@ -6,6 +6,7 @@ import {
 } from "@dc2d/engine";
 import { healthRegenerationDelaySeconds } from "../progression/combatResources.js";
 import { adminDebugEntities } from "../admin/adminMap.js";
+import { isMeleeHitboxResolutionTick } from "../actions/melee/meleeHitboxTuning.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
 function nullable<T>(value: T | undefined): T | null {
@@ -61,7 +62,7 @@ function presentationSnapshot(
   return {
     faceX: facing.x,
     faceY: facing.y,
-    attacking: sim.tickCount - slot.attackStartedAtTick <= 3,
+    attacking: isMeleeHitboxResolutionTick(sim.tickCount, slot.attackStartedAtTick),
   };
 }
 

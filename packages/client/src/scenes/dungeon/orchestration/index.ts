@@ -121,11 +121,12 @@ export class DungeonScene extends Phaser.Scene {
     updateDungeonCamera({ scene: this, state: this.state, render, deltaMs }); syncDungeonWorldPresentation({ scene: this, terrain: this.terrain, lighting: this.lighting, personal: render, nowMs: time, cameraRotationRad: this.rotation.cameraRotationRad() });
     this.syncParty(conn);
     const synced = this.syncRenderFrame({ conn, time, deltaMs, render });
-    this.debugOverlay.update(
-      conn.activeAdminDebugFlags,
-      conn.activeAdminDebugEntities,
-      conn.activeAdmin,
-    );
+    this.debugOverlay.update({
+      flags: conn.activeAdminDebugFlags,
+      entities: conn.activeAdminDebugEntities,
+      active: conn.activeAdmin,
+      nowMs: time,
+    });
     this.interactionPrompt = synced.interactionPrompt;
   }
   private syncInputHolds(conn: Connection): void {

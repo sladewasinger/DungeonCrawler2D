@@ -18,7 +18,8 @@ export function adminMapDebugFields(
 }
 
 function facingFields(input: AdminMapDebugInput): Pick<AdminMapEntity, "facing"> {
-  const relevant = !input.flags || input.flags.attacks || input.flags.guards;
+  const relevant = !input.flags || input.flags.attacks ||
+    input.flags.hitboxPreview || input.flags.guards;
   return relevant && input.entity.facing
     ? { facing: { ...input.entity.facing } }
     : {};

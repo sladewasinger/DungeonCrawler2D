@@ -21,13 +21,23 @@ const debugHurtboxSchema = z.object({
   bottomOffset: z.number().finite().min(-64).max(64),
 }).strict();
 const debugArcCosSchema = z.number().finite().min(-1).max(1);
+const debugAttackVolumeSchema = {
+  strikeHeightOffset: z.number().finite().min(-64).max(64).optional(),
+  verticalHalfExtent: debugRadiusSchema.optional(),
+  preview: z.literal(true).optional(),
+};
 export const adminHitboxSchema = z.discriminatedUnion("shape", [
-  z.object({ shape: z.literal("circle"), radius: debugRadiusSchema }).strict(),
+  z.object({
+    shape: z.literal("circle"),
+    radius: debugRadiusSchema,
+    ...debugAttackVolumeSchema,
+  }).strict(),
   z.object({
     shape: z.literal("cone"),
     direction: adminDirectionSchema,
     range: debugRadiusSchema,
     arcCos: debugArcCosSchema,
+    ...debugAttackVolumeSchema,
   }).strict(),
   z.object({ shape: z.literal("tile"), center: debugPointSchema }).strict(),
 ]);

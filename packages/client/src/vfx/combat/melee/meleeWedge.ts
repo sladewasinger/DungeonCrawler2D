@@ -21,7 +21,12 @@ import {
   groundToScreen,
 } from "../../../render/entities/geometry/worldToScreen.js";
 import { getViewOrientation, worldAngleToView } from "../../../render/view/index.js";
-import { wedgeAlpha, wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
+import {
+  MELEE_SWING_HEIGHT_OFFSET_TILES,
+  wedgeAlpha,
+  wedgeGeometry,
+  type WedgeGeometry,
+} from "./meleeWedgeGeometry.js";
 import type {
   MeleeVfxInput,
   MeleeVfxPositionInput,
@@ -128,7 +133,11 @@ function drawSwing(
   swing: WedgeSwing,
   input: Pick<MeleeVfxInput, "x" | "y" | "z">,
 ): void {
-  const origin = groundToScreen(input.x, input.y, input.z);
+  const origin = groundToScreen(
+    input.x,
+    input.y,
+    input.z + MELEE_SWING_HEIGHT_OFFSET_TILES,
+  );
   const viewAngle = worldAngleToView(swing.angleRad, getViewOrientation());
   drawWedge({
     gfx: swing.gfx,

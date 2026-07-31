@@ -1,4 +1,5 @@
 import type { Entity, EntitySnapshot } from "@dc2d/engine";
+import { isMeleeHitboxResolutionTick } from "../../actions/melee/meleeHitboxTuning.js";
 import { petSnapshotFields } from "../../pets/snapshot.js";
 import { reviveSnapshotFields } from "../../players/playerSnapshotFields.js";
 import type { PlayerSlot, SimState } from "../../state/state.js";
@@ -68,7 +69,9 @@ export function playerFields(sim: SimState, entity: Entity): SnapshotFields {
 }
 
 function playerAnimationFields(sim: SimState, slot: PlayerSlot): SnapshotFields {
-  return sim.tickCount - slot.attackStartedAtTick <= 3 ? { anim: "attack" } : {};
+  return isMeleeHitboxResolutionTick(sim.tickCount, slot.attackStartedAtTick)
+    ? { anim: "attack" }
+    : {};
 }
 
 function playerStateFields(slot: PlayerSlot): SnapshotFields {

@@ -1,6 +1,7 @@
 import type { AdminHitbox, AdminMapEntity } from "@dc2d/engine";
+import { attackCenter } from "./attack/adminDebugAttackPosition.js";
 
-export { boxOutline, boxWireframe } from "./adminDebugBoxGeometry.js";
+export { boxCrossSection, boxOutline, boxWireframe } from "./adminDebugBoxGeometry.js";
 
 export interface AdminDebugPoint {
   readonly x: number;
@@ -48,7 +49,7 @@ export function hitboxCircle(
   entity: AdminMapEntity,
   hitbox: Extract<AdminHitbox, { readonly shape: "circle" }>,
 ): AdminDebugCircle {
-  return { center: entityPoint(entity), radius: hitbox.radius };
+  return { center: attackCenter(entity, hitbox), radius: hitbox.radius };
 }
 
 export function hitboxWedge(
@@ -56,7 +57,7 @@ export function hitboxWedge(
   hitbox: Extract<AdminHitbox, { readonly shape: "cone" }>,
 ): AdminDebugWedge {
   return {
-    center: entityPoint(entity),
+    center: attackCenter(entity, hitbox),
     direction: normalizedDirection(hitbox.direction),
     radius: hitbox.range,
     arcCos: hitbox.arcCos,

@@ -74,7 +74,7 @@ describe("melee wedge position depth", () => {
     expect(graphics.slice).toHaveBeenNthCalledWith(
       1,
       1,
-      1.5,
+      1.25,
       PROFILE.range * 48,
       0.5 - halfAngle,
       0.5 + halfAngle,

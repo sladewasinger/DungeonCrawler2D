@@ -1,13 +1,15 @@
 import type { Entity } from "../../entities/entity.js";
-import { reachesHurtbox } from "../geometry/hurtboxes.js";
 import { selectConeTargets } from "./coneTargeting.js";
+import { weaponHitboxIntersectsHurtbox } from "./weaponHitbox.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
 
 export {
   weaponHitboxContainsPoint,
   weaponHitboxIntersectsHurtbox,
+  weaponHitboxVerticalRange,
   type WeaponHitboxHurtboxInput,
   type WeaponHitboxPointInput,
+  type WeaponHitboxVerticalRange,
 } from "./weaponHitbox.js";
 
 export interface WeaponTargetingInput {
@@ -26,16 +28,20 @@ export function selectWeaponTargets(input: WeaponTargetingInput): Entity[] {
 function groundTargets(input: WeaponTargetingInput): Entity[] {
   const targets: Entity[] = [];
   for (const target of input.candidates) {
-    if (isGroundTarget(input.attacker, target, input.profile.range)) targets.push(target);
+    if (isGroundTarget(input, target)) targets.push(target);
   }
   return targets;
 }
 
-function isGroundTarget(attacker: Entity, target: Entity, range: number): boolean {
-  if (target.id === attacker.id || target.hp <= 0) return false;
+function isGroundTarget(input: WeaponTargetingInput, target: Entity): boolean {
+  if (target.id === input.attacker.id || target.hp <= 0) return false;
   if (target.kind !== "player" && target.kind !== "enemy") return false;
-  if (Math.abs(target.body.z - attacker.body.z) > 1.5) return false;
-  return reachesHurtbox(attacker, target, range);
+  return weaponHitboxIntersectsHurtbox({
+    attacker: input.attacker,
+    direction: input.direction,
+    profile: input.profile,
+    target,
+  });
 }
 
 export interface AttackKnockback {

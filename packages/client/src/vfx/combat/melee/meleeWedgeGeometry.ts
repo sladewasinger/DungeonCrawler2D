@@ -10,6 +10,9 @@ export const WEDGE_RADIUS_TILES = MELEE_RANGE;
 /** Wedge half-angle, in radians — derived from the engine's real melee arc cosine. */
 export const WEDGE_HALF_ANGLE_RAD = Math.acos(MELEE_ARC_COS);
 
+/** Presentation-only lift: the yellow cue sits below the red strike center. */
+export const MELEE_SWING_HEIGHT_OFFSET_TILES = 0.25;
+
 /** How long the wedge stays visible, fading out over this window (docs spec: "~160ms"). */
 export const WEDGE_FADE_MS = 160;
 

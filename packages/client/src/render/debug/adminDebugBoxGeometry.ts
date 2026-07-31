@@ -26,3 +26,13 @@ export function boxWireframe(box: AdminDebugBox): AdminDebugPoint[][] {
   ]);
   return [base, top, ...corners];
 }
+
+/** Horizontal hurtbox slice, omitted when the requested plane misses the prism. */
+export function boxCrossSection(
+  box: AdminDebugBox,
+  z: number,
+): AdminDebugPoint[] | undefined {
+  const base = box.center.z - box.bottomOffset;
+  if (z < base || z > base + box.height) return undefined;
+  return boxOutline(box).map((point) => ({ ...point, z }));
+}

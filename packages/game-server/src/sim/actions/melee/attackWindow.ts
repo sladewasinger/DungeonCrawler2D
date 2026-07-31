@@ -13,7 +13,10 @@ import {
 import type { PlayerSlot, SimState } from "../../state/state.js";
 import { resolveMeleeContact } from "./contact.js";
 import { targetsForActiveMeleeAttack } from "./targeting.js";
-import { MELEE_HITBOX_TUNING } from "./meleeHitboxTuning.js";
+import {
+  isFinalMeleeHitboxResolutionTick,
+  isMeleeHitboxResolutionTick,
+} from "./meleeHitboxTuning.js";
 
 /** Ticks 0–3 at 20 Hz are 0, 50, 100, and 150 ms — never a 200 ms contact. */
 
@@ -36,7 +39,7 @@ interface ActiveMeleeResolution {
 export function startActiveMeleeAttack(input: StartMeleeAttack): void {
   const attack = captureMeleeAttack(input);
   setActiveMeleeAttack(input.slot, attack);
-  resolveActiveMeleeAttack({
+  resolveMeleeHitboxTick({
     sim: input.sim,
     slot: input.slot,
     attack,
@@ -73,7 +76,7 @@ function stepActiveMeleeAttack(
     return;
   }
   if (attack.lastResolvedAtTick === sim.tickCount) return;
-  resolveActiveMeleeAttack({ sim, slot, attack, effectEvents });
+  resolveMeleeHitboxTick({ sim, slot, attack, effectEvents });
 }
 
 function canContinueMeleeAttack(
@@ -88,9 +91,17 @@ function canContinueMeleeAttack(
 }
 
 function isWithinMeleeWindow(tick: number, startedAtTick: number): boolean {
-  const elapsedTicks = tick - startedAtTick;
-  return elapsedTicks >= 0 &&
-    elapsedTicks <= MELEE_HITBOX_TUNING.activeWindowTicks;
+  return isMeleeHitboxResolutionTick(tick, startedAtTick);
+}
+
+function resolveMeleeHitboxTick(input: ActiveMeleeResolution): void {
+  resolveActiveMeleeAttack(input);
+  if (isFinalMeleeHitboxResolutionTick(
+    input.sim.tickCount,
+    input.attack.startedAtTick,
+  )) {
+    clearActiveMeleeAttack(input.slot);
+  }
 }
 
 function resolveActiveMeleeAttack(input: ActiveMeleeResolution): void {

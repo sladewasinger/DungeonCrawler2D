@@ -6,10 +6,12 @@ import {
 } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
 import {
+  advanceMeleeTick,
   attack,
   createMeleeFixture,
   spawnSpitter,
 } from "../actions/melee/testSupport.js";
+import { MELEE_HITBOX_TIMING } from "../actions/melee/meleeHitboxTuning.js";
 import { activeMeleeAttackFor } from "../state/meleeAttackState.js";
 import { adminDebugEntities, adminMap } from "./adminMap.js";
 
@@ -35,7 +37,31 @@ describe("admin map debug projection", () => {
       direction: activeAttack.direction,
       range: activeAttack.profile.range,
       arcCos: activeAttack.profile.arcCos,
+      strikeHeightOffset: 0.5,
+      verticalHalfExtent: 0.5,
     }]);
+  });
+
+  it("resolves a final late contact and removes its debug hitbox that tick", () => {
+    const fixture = createMeleeFixture();
+    const enemy = spawnSpitter(fixture, 8);
+    const startedAtTick = fixture.sim.tickCount;
+    attack(fixture);
+    for (let offset = 1; offset < MELEE_HITBOX_TIMING.lastResolutionOffsetTicks; offset++) {
+      advanceMeleeTick(fixture, startedAtTick + offset);
+    }
+    enemy.body.x = fixture.player.entity.body.x + 1;
+    enemy.body.y = fixture.player.entity.body.y;
+    const hpBeforeContact = enemy.hp;
+
+    advanceMeleeTick(
+      fixture,
+      startedAtTick + MELEE_HITBOX_TIMING.lastResolutionOffsetTicks,
+    );
+
+    expect(enemy.hp).toBeLessThan(hpBeforeContact);
+    expect(activeMeleeAttackFor(fixture.player)).toBeUndefined();
+    expect(mapEntityForPlayer(fixture).debug?.attacks).toBeUndefined();
   });
 
   it("includes projectile attacks only in a private active-admin diagnostic map", () => {
@@ -105,8 +131,34 @@ describe("admin map debug projection", () => {
         direction: { x: 1, y: 0 },
         range: 2.4,
         arcCos: expect.any(Number),
+        strikeHeightOffset: 0.5,
+        verticalHalfExtent: 0.5,
       }],
     });
+  });
+
+  it("projects a persistent equipped-weapon preview without an active attack", () => {
+    const fixture = createMeleeFixture();
+    const flags = { ...createDebugFlags(), hitboxPreview: true };
+    const body = fixture.player.entity.body;
+
+    const entities = adminDebugEntities(fixture.sim, {
+      x: body.x,
+      y: body.y,
+      radius: 16,
+      flags,
+    });
+    const entity = entities.find((candidate) => candidate.id === fixture.player.entity.id);
+
+    expect(entity?.debug?.attacks).toEqual([{
+      shape: "cone",
+      direction: { x: 1, y: 0 },
+      range: 2.4,
+      arcCos: expect.any(Number),
+      strikeHeightOffset: 0.5,
+      verticalHalfExtent: 0.5,
+      preview: true,
+    }]);
   });
 });
 

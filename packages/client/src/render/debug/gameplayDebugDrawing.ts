@@ -7,6 +7,7 @@ import {
   hitboxCircle,
   hitboxTile,
   hitboxWedge,
+  boxCrossSection,
   boxWireframe,
   circleOutline,
   combatHurtbox,
@@ -16,8 +17,8 @@ import {
   wedgeOutline,
   type AdminDebugPoint,
 } from "./adminDebugGeometry.js";
-import { groundToScreen } from "../entities/geometry/worldToScreen.js";
-
+import { attackVolumeGeometry } from "./attack/adminDebugAttackVolumeGeometry.js";
+import { gameplayDebugScreenPoint } from "./gameplayDebugProjection.js";
 const COLORS = {
   hurtbox: 0xf7c55c,
   hitbox: 0xf3727d,
@@ -31,11 +32,12 @@ export interface GameplayDebugDrawingInput {
   readonly graphics: Phaser.GameObjects.Graphics;
   readonly flags: DebugFlags;
   readonly entity: AdminMapEntity;
+  readonly hurtboxStrikeHeights?: readonly number[];
 }
 
 export function drawGameplayEntityDebug(input: GameplayDebugDrawingInput): void {
   if (input.flags.hurtboxes) drawHurtbox(input);
-  if (input.flags.attacks) drawHitboxes(input);
+  if (input.flags.attacks || input.flags.hitboxPreview) drawHitboxes(input);
   if (input.flags.guards) drawGuard(input);
   if (input.flags.lineOfSight) drawLineOfSight(input);
   if (input.flags.search) drawSearch(input);
@@ -46,7 +48,11 @@ function drawHurtbox(input: GameplayDebugDrawingInput): void {
   const hurtbox = combatHurtbox(input.entity);
   if (!hurtbox) return;
   for (const points of boxWireframe(hurtbox)) {
-    drawGameplayLine({ ...input, points, color: COLORS.hurtbox });
+    drawGameplayLine({ ...input, points, color: COLORS.hurtbox, alpha: 0.28 });
+  }
+  for (const z of input.hurtboxStrikeHeights ?? []) {
+    const points = boxCrossSection(hurtbox, z);
+    if (points) drawGameplayLine({ ...input, points, color: COLORS.hurtbox, alpha: 1, width: 2 });
   }
 }
 
@@ -58,6 +64,9 @@ function drawHitbox(
   input: GameplayDebugDrawingInput,
   hitbox: ReturnType<typeof activeHitboxes>[number],
 ): void {
+  const volume = attackVolumeGeometry(input.entity, hitbox);
+  const preview = "preview" in hitbox && hitbox.preview === true;
+  if (volume) return drawAttackVolume(input, preview, volume);
   if (hitbox.shape === "circle") {
     drawGameplayLine({ ...input, points: circleOutline(hitboxCircle(input.entity, hitbox)), color: COLORS.hitbox, width: 2 });
     return;
@@ -67,6 +76,24 @@ function drawHitbox(
     return;
   }
   drawGameplayLine({ ...input, points: tileOutline(hitboxTile(hitbox)), color: COLORS.hitbox, width: 2 });
+}
+
+function drawAttackVolume(
+  input: GameplayDebugDrawingInput,
+  preview: boolean,
+  volume: NonNullable<ReturnType<typeof attackVolumeGeometry>>,
+): void {
+  const shellAlpha = preview ? 0.55 : 0.42;
+  for (const points of volume.shell) {
+    drawGameplayLine({ ...input, points, color: COLORS.hitbox, alpha: shellAlpha });
+  }
+  drawGameplayLine({
+    ...input,
+    points: volume.strike,
+    color: COLORS.hitbox,
+    alpha: preview ? 0.9 : 1,
+    width: 2,
+  });
 }
 
 function drawGuard(input: GameplayDebugDrawingInput): void {
@@ -115,12 +142,13 @@ interface GameplayDebugLineInput {
   readonly points: readonly AdminDebugPoint[];
   readonly color: number;
   readonly width?: number;
+  readonly alpha?: number;
 }
 
 function drawGameplayLine(input: GameplayDebugLineInput): void {
   if (input.points.length < 2) return;
   const first = gameplayDebugScreenPoint(input.points[0]!);
-  input.graphics.lineStyle(input.width ?? 1, input.color, 0.9);
+  input.graphics.lineStyle(input.width ?? 1, input.color, input.alpha ?? 0.9);
   input.graphics.beginPath();
   input.graphics.moveTo(first.x, first.y);
   for (const point of input.points.slice(1)) {
@@ -130,9 +158,4 @@ function drawGameplayLine(input: GameplayDebugLineInput): void {
   input.graphics.strokePath();
 }
 
-/** Projects authoritative 3D debug geometry through Phaser's elevation seam. */
-export function gameplayDebugScreenPoint(
-  point: AdminDebugPoint,
-): { readonly x: number; readonly y: number } {
-  return groundToScreen(point.x, point.y, point.z);
-}
+export { gameplayDebugScreenPoint } from "./gameplayDebugProjection.js";

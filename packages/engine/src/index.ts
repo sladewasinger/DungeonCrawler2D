@@ -41,6 +41,7 @@ export * from "./combat/melee/melee.js";
 export * from "./combat/geometry/guardCollision.js";
 export * from "./combat/geometry/hurtboxes.js";
 export * from "./combat/weapons/weaponProfiles.js";
+export * from "./combat/weapons/weaponHitboxTuning.js";
 export * from "./combat/weapons/weaponTargeting.js";
 export * from "./combat/ai/ai.js";
 export * from "./combat/ai/enemyMemory.js";

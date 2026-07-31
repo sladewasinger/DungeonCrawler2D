@@ -3,23 +3,37 @@ import type { AdminMapEntity, DebugFlags } from "@dc2d/engine";
 import { worldToScreen } from "../entities/geometry/worldToScreen.js";
 import { drawGameplayEntityDebug } from "./gameplayDebugDrawing.js";
 import { pruneGameplayDebugLabels } from "./gameplayDebugLabels.js";
+import { GameplayAttackDebugLifetime } from "./attack/gameplayAttackDebugLifetime.js";
+import { attackStrikeHeights } from "./attack/adminDebugAttackPosition.js";
 
 /** Renders the server's private, authoritative admin diagnostics over the 2D world. */
 export class GameplayDebugOverlay {
   private readonly graphics: Phaser.GameObjects.Graphics;
   private readonly labels = new Map<string, Phaser.GameObjects.Text>();
+  private readonly attackLifetime = new GameplayAttackDebugLifetime();
 
   constructor(private readonly scene: Phaser.Scene) {
     this.graphics = scene.add.graphics().setDepth(100_000);
   }
 
-  update(flags: DebugFlags, entities: readonly AdminMapEntity[], active: boolean): void {
+  update(input: GameplayDebugOverlayInput): void {
+    const { flags, entities, active, nowMs } = input;
     this.graphics.clear();
     if (!active || !hasEnabledFlag(flags)) {
+      this.attackLifetime.clear();
       pruneGameplayDebugLabels(this.labels, new Set());
       return;
     }
-    for (const entity of entities) drawGameplayEntityDebug({ graphics: this.graphics, flags, entity });
+    const visibleEntities = this.attackLifetime.visibleEntities(entities, nowMs);
+    const strikeHeights = attackStrikeHeights(visibleEntities);
+    for (const entity of visibleEntities) {
+      drawGameplayEntityDebug({
+        graphics: this.graphics,
+        flags,
+        entity,
+        hurtboxStrikeHeights: strikeHeights,
+      });
+    }
     const activeLabels = this.drawBehaviorLabels(flags, entities);
     pruneGameplayDebugLabels(this.labels, activeLabels);
   }
@@ -28,6 +42,7 @@ export class GameplayDebugOverlay {
     this.graphics.destroy();
     for (const label of this.labels.values()) label.destroy();
     this.labels.clear();
+    this.attackLifetime.clear();
   }
 
   private drawBehaviorLabels(
@@ -64,6 +79,13 @@ export class GameplayDebugOverlay {
     this.labels.set(id, label);
     return label;
   }
+}
+
+export interface GameplayDebugOverlayInput {
+  readonly flags: DebugFlags;
+  readonly entities: readonly AdminMapEntity[];
+  readonly active: boolean;
+  readonly nowMs: number;
 }
 
 function hasEnabledFlag(flags: DebugFlags): boolean {

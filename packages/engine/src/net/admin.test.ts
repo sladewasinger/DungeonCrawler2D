@@ -46,6 +46,7 @@ describe("admin wire protocol", () => {
         flags: {
           hurtboxes: true,
           attacks: false,
+          hitboxPreview: false,
           guards: false,
           lineOfSight: false,
           behavior: false,

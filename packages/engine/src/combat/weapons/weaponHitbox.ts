@@ -10,9 +10,9 @@ import {
   type Bounds2,
 } from "./sectorIntersection.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
+import { WEAPON_HITBOX_TUNING } from "./weaponHitboxTuning.js";
 
 type HitboxGeometry = Pick<WeaponProfile, "arcCos" | "range" | "shape">;
-const WEAPON_VERTICAL_REACH = 1.5;
 
 interface WeaponHitboxInput {
   readonly attacker: Pick<Entity, "body">;
@@ -47,7 +47,21 @@ export function weaponHitboxContainsPoint(input: WeaponHitboxPointInput): boolea
 }
 
 function withinWeaponPointHeight(attackerZ: number, pointZ: number): boolean {
-  return Math.abs(pointZ - attackerZ) <= WEAPON_VERTICAL_REACH;
+  const range = weaponHitboxVerticalRange(attackerZ);
+  return pointZ >= range.minimumZ && pointZ <= range.maximumZ;
+}
+
+export interface WeaponHitboxVerticalRange {
+  readonly minimumZ: number;
+  readonly maximumZ: number;
+}
+
+export function weaponHitboxVerticalRange(attackerZ: number): WeaponHitboxVerticalRange {
+  const centerZ = attackerZ + WEAPON_HITBOX_TUNING.strikeHeightOffset;
+  return {
+    minimumZ: centerZ - WEAPON_HITBOX_TUNING.verticalHalfExtent,
+    maximumZ: centerZ + WEAPON_HITBOX_TUNING.verticalHalfExtent,
+  };
 }
 
 /** True when the authoritative weapon hitbox intersects a target hurtbox. */
@@ -79,9 +93,10 @@ function withinWeaponHeight(
   attackerZ: number,
   target: WeaponHitboxHurtboxInput["target"],
 ): boolean {
+  const range = weaponHitboxVerticalRange(attackerZ);
   return verticalRangeIntersectsHurtbox(
-    attackerZ - WEAPON_VERTICAL_REACH,
-    attackerZ + WEAPON_VERTICAL_REACH,
+    range.minimumZ,
+    range.maximumZ,
     target,
   );
 }

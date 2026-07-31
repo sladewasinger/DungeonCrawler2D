@@ -3,6 +3,7 @@ import { z } from "zod";
 export const DEBUG_FLAG_NAMES = [
   "hurtboxes",
   "attacks",
+  "hitboxPreview",
   "guards",
   "lineOfSight",
   "behavior",
@@ -15,6 +16,7 @@ export type DebugFlag = (typeof DEBUG_FLAG_NAMES)[number];
 export const debugFlagsSchema = z.object({
   hurtboxes: z.boolean(),
   attacks: z.boolean(),
+  hitboxPreview: z.boolean(),
   guards: z.boolean(),
   lineOfSight: z.boolean(),
   behavior: z.boolean(),
@@ -28,6 +30,7 @@ export function createDebugFlags(): DebugFlags {
   return {
     hurtboxes: false,
     attacks: false,
+    hitboxPreview: false,
     guards: false,
     lineOfSight: false,
     behavior: false,

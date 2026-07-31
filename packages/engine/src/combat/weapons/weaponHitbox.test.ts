@@ -5,6 +5,7 @@ import { resolveWeaponProfile } from "./weaponProfiles.js";
 import {
   weaponHitboxContainsPoint,
   weaponHitboxIntersectsHurtbox,
+  weaponHitboxVerticalRange,
 } from "./weaponTargeting.js";
 
 function attacker() {
@@ -49,9 +50,13 @@ describe("weapon hitboxes", () => {
     expect(intersects({ x: 2.7, y: 0 })).toBe(false);
   });
 
-  it("uses the full ground profile and the shared height band", () => {
+  it("keeps the strike volume above the floor and centered at body height", () => {
+    expect(weaponHitboxVerticalRange(0)).toEqual({ minimumZ: 0, maximumZ: 1 });
     expect(intersects({ x: 0, y: 2.5, shape: "ground" })).toBe(true);
-    expect(intersects({ x: 1, y: 0, z: 1.6 })).toBe(false);
+    expect(intersects({ x: 1, y: 0, z: 1 })).toBe(true);
+    expect(intersects({ x: 1, y: 0, z: 1.001 })).toBe(false);
+    expect(intersects({ x: 1, y: 0, z: 0 })).toBe(true);
+    expect(intersects({ x: 1, y: 0, z: -0.001 })).toBe(false);
   });
 
   it("does not combine separate range and angle allowances into a false hit", () => {
@@ -100,5 +105,34 @@ describe("weapon hitboxes", () => {
       profile: weaponProfile(),
       target,
     })).toBe(true);
+  });
+
+  it("uses the shifted vertical volume against the full target hurtbox", () => {
+    const touching = makeEntity("enemy", createBody(1, 0, 1.1), {
+      combatHurtbox: {
+        halfWidth: 0.2,
+        halfDepth: 0.2,
+        height: 0.2,
+        bottomOffset: 0.1,
+      },
+      hp: 10,
+    });
+    const above = makeEntity("enemy", createBody(1, 0, 1.101), {
+      combatHurtbox: {
+        halfWidth: 0.2,
+        halfDepth: 0.2,
+        height: 0.2,
+        bottomOffset: 0.1,
+      },
+      hp: 10,
+    });
+    const input = {
+      attacker: attacker(),
+      direction: { x: 1, y: 0 },
+      profile: weaponProfile(),
+    };
+
+    expect(weaponHitboxIntersectsHurtbox({ ...input, target: touching })).toBe(true);
+    expect(weaponHitboxIntersectsHurtbox({ ...input, target: above })).toBe(false);
   });
 });
