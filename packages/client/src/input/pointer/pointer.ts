@@ -72,7 +72,7 @@ export interface PointerDeps {
   touch: TouchInputState;
   touchActive: boolean;
   sendMovementEdge(): void;
-  performContextAction(): void;
+  performInteract(): void;
   throwSelected(): void;
   viewport: { width: number; height: number };
   /**

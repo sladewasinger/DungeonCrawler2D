@@ -25,6 +25,9 @@ export interface GuardConeUpdate {
   readonly depth: GuardConeDepth;
   readonly blockFeedback?: BlockFeedbackState;
   readonly nowMs: number;
+  /** World-projected feet position, intentionally independent from sprite art offset. */
+  readonly originX: number;
+  readonly originY: number;
 }
 
 export const updateGuardCone = ({
@@ -34,11 +37,13 @@ export const updateGuardCone = ({
   depth,
   blockFeedback,
   nowMs,
+  originX,
+  originY,
 }: GuardConeUpdate): void => {
   const cone = visual.guardCone;
   if (!cone) return;
   if (blocking) {
-    drawGuard({ cone, visual, facingAngle, feedback: blockFeedback, nowMs });
+    drawGuard({ cone, originX, originY, facingAngle, feedback: blockFeedback, nowMs });
   } else {
     cone.clear().setVisible(false);
     return;
@@ -48,18 +53,19 @@ export const updateGuardCone = ({
 
 interface GuardDrawRequest {
   readonly cone: Phaser.GameObjects.Graphics;
-  readonly visual: PlayerVisual;
+  readonly originX: number;
+  readonly originY: number;
   readonly facingAngle: number;
   readonly feedback: BlockFeedbackState | undefined;
   readonly nowMs: number;
 }
 
-function drawGuard({ cone, visual, facingAngle, feedback, nowMs }: GuardDrawRequest): void {
+function drawGuard({ cone, originX, originY, facingAngle, feedback, nowMs }: GuardDrawRequest): void {
   const geometry = guardWedgeGeometry(facingAngle, SCREEN_TILE_PX);
   drawGuardCone({
     cone,
-    originX: visual.body.x,
-    originY: combatOriginY(visual.body.y, SCREEN_TILE_PX),
+    originX,
+    originY: combatOriginY(originY, SCREEN_TILE_PX),
     geometry,
     feedbackAlpha: feedback === undefined ? 0 : blockFeedbackAlpha(nowMs - feedback.startedAtMs),
   });

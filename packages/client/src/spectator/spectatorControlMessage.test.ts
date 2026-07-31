@@ -9,6 +9,8 @@ describe("spectator control message", () => {
       .toEqual({ type: TYPE, action: "zoom", direction: "in" });
     expect(spectatorControlMessage({ type: TYPE, action: "mode", mode: "free" }))
       .toEqual({ type: TYPE, action: "mode", mode: "free" });
+    expect(spectatorControlMessage({ type: TYPE, action: "zoom-reset" }))
+      .toEqual({ type: TYPE, action: "zoom-reset" });
   });
 
   it.each([

@@ -9,4 +9,5 @@ export interface AdminSpectatorSurfaceOptions {
   readonly onCameraMove: (x: number, y: number) => void;
   readonly onSpawn: (x: number, y: number, selection: AdminSpawnSelection) => void;
   readonly onDespawn: (entityId: string) => void;
+  readonly onZoomChange: (percent: number) => void;
 }

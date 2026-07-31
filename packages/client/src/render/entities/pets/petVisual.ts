@@ -13,6 +13,7 @@ import {
 import type { PetVisual } from "../visuals/state.js";
 import type { PetEntityView, RenderContext } from "../visuals/view.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
+import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
 
 /** The source sheets leave a transparent foot pad; this keeps visible feet
  * planted on the same ground point as the shadow. */
@@ -58,7 +59,12 @@ interface PetLabelPresentation {
 
 function updatePetBody(visual: PetVisual, view: PetEntityView, presentation: PetPresentation): void {
   const screen = worldToScreen(view.x, view.y);
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z) + baselineOffsetFor(visual.assetId));
+  const anchor = actorScreenAnchor({
+    screen,
+    liftPx: spriteLiftPx(view.z),
+    baselineOffsetPx: baselineOffsetFor(visual.assetId),
+  });
+  visual.body.setPosition(anchor.x, anchor.y);
   visual.body.setDepth(presentation.depth);
   visual.body.setFlipX(view.faceX < 0);
   const animationKey = `pet:${visual.assetId}:${view.anim}`;
@@ -74,10 +80,14 @@ function updatePetBody(visual: PetVisual, view: PetEntityView, presentation: Pet
 
 function updatePetShadow(visual: PetVisual, view: PetEntityView, presentation: PetPresentation): void {
   const ground = worldToScreen(view.x, view.y);
+  const anchor = actorScreenAnchor({
+    screen: ground,
+    liftPx: spriteLiftPx(presentation.groundHeight),
+  });
   updateShadowPosition({
     shadow: visual.shadow,
-    groundScreenX: ground.x,
-    groundScreenY: ground.y - spriteLiftPx(presentation.groundHeight),
+    groundScreenX: anchor.x,
+    groundScreenY: anchor.y,
     heightAboveGround: presentation.heightAboveGround,
   });
   visual.shadow.setDepth(presentation.depth - 0.2);

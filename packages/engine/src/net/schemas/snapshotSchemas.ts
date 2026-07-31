@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PLAYER_SKINS } from "../../entities/playerAppearance.js";
+import { debugFlagsSchema } from "../../debug/debugFlags.js";
 import { adminMapEntitySchema } from "../wire/admin.js";
 
 export const enemyAnimationStateSchema = z.enum([
@@ -39,10 +40,7 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   respawnAtTick: z.number().int().nullable().optional(), xp: z.number().int().nonnegative().optional(),
   level: z.number().int().positive().optional(), xpForNext: z.number().int().nonnegative().optional(),
   floor: z.number().int().positive().optional(), deepestFloor: z.number().int().positive().optional(),
-  admin: z.boolean().optional(), adminDebug: z.object({
-    hurtboxes: z.boolean(), attacks: z.boolean(), hitboxPreview: z.boolean(), guards: z.boolean(),
-    lineOfSight: z.boolean(), behavior: z.boolean(), search: z.boolean(), navigation: z.boolean(),
-  }).strict().optional(),
+  admin: z.boolean().optional(), adminDebug: debugFlagsSchema.optional(),
   adminDebugEntities: z.array(adminMapEntitySchema).max(2048).optional(),
   faceX: z.number().min(-1).max(1).optional(),
   faceY: z.number().min(-1).max(1).optional(),

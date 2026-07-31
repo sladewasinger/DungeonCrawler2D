@@ -87,7 +87,7 @@ describe("touch joystick network cadence", () => {
       touch,
       touchActive: true,
       sendMovementEdge,
-      performContextAction: vi.fn(),
+      performInteract: vi.fn(),
       throwSelected: vi.fn(),
       viewport: { width: 800, height: 400 },
       camera: { getWorldPoint: (x: number, y: number) => ({ x, y }) },

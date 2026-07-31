@@ -1,10 +1,4 @@
-import { updateGuardCone } from "../combat/attack/guardCone.js";
-import {
-  attackReadyFlashForVisual,
-  cooldownForVisual,
-  recordAttackStart,
-} from "../combat/attack/attackCooldown.js";
-import { updateAttackCooldownIndicator } from "../combat/attack/attackCooldownIndicator.js";
+import { recordAttackStart } from "../combat/attack/attackCooldown.js";
 import { createHeldWeapon, updateHeldWeapon } from "../combat/weapon/heldWeapon.js";
 import type { PlayerVisual } from "../visuals/state.js";
 import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
@@ -13,7 +7,11 @@ import { combatOverlayPosition } from "../geometry/worldToScreen.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { worldAngleToView } from "../../view/transform/viewTransform.js";
 import { weaponProfileForId } from "../../../scenes/dungeon/world/contentQueries.js";
-import { depthForCombatGeometry, depthForCombatOverlay } from "../presentation/depthSort.js";
+import {
+  combatWorldAnchor,
+  updatePlayerAttackRecovery,
+  updatePlayerGuardOverlay,
+} from "./playerCombatOverlays.js";
 
 const STRIKE_DURATION_MS = 160;
 
@@ -33,64 +31,40 @@ export function updatePlayerWeapon({ visual, view, context }: PlayerWeaponUpdate
   applySwingEdge({ visual, attacking: attackActive, nowMs: context.nowMs, cooldownMs: profile.cooldownMs });
   const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());
   const combatPosition = combatOverlayPosition({ worldX: view.x, worldY: view.y });
-  const guardConeInput = {
+  const worldAnchor = combatWorldAnchor(view);
+  const combatDepth = updatePlayerGuardOverlay({
     visual,
+    view,
     blocking,
     facingAngle: view.weaponAimAngle === null ? facingAngle : visual.weaponAngle,
-    depth: { wielderDepth: visual.body.depth, ...combatPosition },
-    nowMs: context.nowMs,
-    ...(view.blockFeedback === undefined ? {} : { blockFeedback: view.blockFeedback }),
-  };
-  updateGuardCone(guardConeInput);
-  const attackReadyFlash = updateAttackRecovery({
-    visual,
-    view,
-    nowMs: context.nowMs,
-    blocking,
-    combatDepth: guardConeInput.depth,
-  });
-  updateHeldWeapon(visual.weapon, weaponFrame(view), weaponPose({
-    visual,
-    view,
-    context,
-    blocking,
-    striking,
-    facingAngle,
     combatPosition,
-    attackReadyFlash,
-  }));
-}
-
-interface AttackRecoveryUpdate {
-  readonly visual: PlayerVisual;
-  readonly view: PlayerEntityView;
-  readonly nowMs: number;
-  readonly blocking: boolean;
-  readonly combatDepth: {
-    readonly wielderDepth: number;
-    readonly wielderViewY: number;
-  };
-}
-
-function updateAttackRecovery(input: AttackRecoveryUpdate): boolean {
-  const { visual, view, nowMs, blocking, combatDepth } = input;
-  const cooldown = cooldownForVisual(visual, nowMs);
-  const readyFlash = attackReadyFlashForVisual({
+    worldAnchor,
+    nowMs: context.nowMs,
+  });
+  const attackReadyFlash = updatePlayerAttackRecovery({
     visual,
-    state: cooldown,
-    nowMs,
-    downed: view.downed,
-  });
-  updateAttackCooldownIndicator({
-    graphics: visual.attackCooldownIndicator,
-    state: cooldown,
-    x: visual.body.x,
-    feetY: visual.body.y,
-    depth: depthForCombatGeometry(depthForCombatOverlay(combatDepth)),
+    view,
+    nowMs: context.nowMs,
     blocking,
-    downed: view.downed,
+    combatDepth,
+    worldAnchor,
   });
-  return readyFlash;
+  updatePlayerHeldWeapon({
+    visual, view, context, blocking, striking, facingAngle, combatPosition, attackReadyFlash,
+  });
+}
+
+interface PlayerHeldWeaponUpdate extends PlayerWeaponUpdate {
+  readonly blocking: boolean;
+  readonly striking: boolean;
+  readonly facingAngle: number;
+  readonly combatPosition: ReturnType<typeof combatOverlayPosition>;
+  readonly attackReadyFlash: boolean;
+}
+
+function updatePlayerHeldWeapon(input: PlayerHeldWeaponUpdate): void {
+  const { visual, view } = input;
+  updateHeldWeapon(visual.weapon, weaponFrame(view), weaponPose(input));
 }
 
 interface WeaponPoseInput extends PlayerWeaponUpdate {

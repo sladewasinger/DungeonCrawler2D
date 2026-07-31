@@ -68,6 +68,7 @@ function panelStyle(): string {
 function debugLabel(flag: DebugFlag): string {
   const labels: Record<DebugFlag, string> = {
     hurtboxes: "Hurtboxes",
+    movementCollision: "Movement collision",
     attacks: "Active hitboxes",
     hitboxPreview: "Weapon hitbox preview",
     guards: "Active guards",

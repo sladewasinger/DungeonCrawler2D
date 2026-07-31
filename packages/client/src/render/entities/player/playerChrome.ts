@@ -18,6 +18,7 @@ import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
 import { spriteLiftPx } from "../motion/lift.js";
 import { worldToScreen } from "../geometry/worldToScreen.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
+import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
 
 export interface PlayerChromeUpdate {
   readonly visual: PlayerVisual;
@@ -63,10 +64,14 @@ function updatePlayerShadow({
   groundHeight,
 }: PlayerShadowUpdate): void {
   const ground = worldToScreen(view.x, view.y);
+  const anchor = actorScreenAnchor({
+    screen: ground,
+    liftPx: spriteLiftPx(groundHeight),
+  });
   updateShadowPosition({
     shadow: visual.shadow,
-    groundScreenX: ground.x,
-    groundScreenY: ground.y - spriteLiftPx(groundHeight),
+    groundScreenX: anchor.x,
+    groundScreenY: anchor.y,
     heightAboveGround,
   });
 }

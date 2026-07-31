@@ -1,6 +1,7 @@
 import type { AdminMapEntity } from "@dc2d/engine";
 import { adminCombatDebug } from "./debug/combatDiagnostics.js";
 import { adminEnemyDebug } from "./debug/enemyDiagnostics.js";
+import { adminMovementCollisionDebug } from "./debug/movementCollisionDiagnostics.js";
 import type { AdminEntityDebug, AdminMapDebugInput } from "./adminMapDebugTypes.js";
 
 export type { AdminMapDebugInput } from "./adminMapDebugTypes.js";
@@ -28,6 +29,7 @@ function facingFields(input: AdminMapDebugInput): Pick<AdminMapEntity, "facing">
 function debugForEntity(input: AdminMapDebugInput): AdminEntityDebug | undefined {
   const debug = {
     ...adminCombatDebug(input),
+    ...adminMovementCollisionDebug(input),
     ...adminEnemyDebug(input),
   };
   return Object.keys(debug).length > 0 ? debug : undefined;

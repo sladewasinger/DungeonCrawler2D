@@ -9,12 +9,9 @@ import {
 } from "./map/adminMapCamera.js";
 import { AdminMapCanvasInteractions } from "./map/camera/adminMapCanvasInteractions.js";
 import { AdminMapKeyboardPan } from "./map/camera/adminMapKeyboardPan.js";
-import {
-  ADMIN_MAP_DEFAULT_TILE_SIZE,
-  adminMapViewportRadius,
-  type AdminMapZoomDirection,
-  nextAdminMapTileSize,
-} from "./map/camera/adminMapZoom.js";
+import { adminMapViewportRadius } from "./map/camera/adminMapZoom.js";
+import { AdminMapZoomState } from "./map/camera/zoom/adminMapZoomState.js";
+import type { AdminMapZoomDirection } from "./map/camera/adminMapZoom.js";
 import { deletableAdminEntityAt } from "./map/adminMapEntityHitTest.js";
 import { renderAdminMap } from "./map/adminMapRenderer.js";
 import type {
@@ -30,7 +27,7 @@ export class AdminSpectatorSurface {
   private cameraCenter: AdminMapCenter = { x: 0, y: 0 };
   private selection: AdminSpawnSelection = { kind: "enemy", defId: "" };
   private debugFlags: DebugFlags = createDebugFlags();
-  private tileSize = ADMIN_MAP_DEFAULT_TILE_SIZE;
+  private readonly zoomState = new AdminMapZoomState();
   private interactionEnabled = false;
   private readonly canvasInteractions: AdminMapCanvasInteractions;
   private readonly keyboardPan: AdminMapKeyboardPan;
@@ -51,6 +48,7 @@ export class AdminSpectatorSurface {
       pointerDown: () => options.canvas.focus(),
     });
     this.draw();
+    options.onZoomChange(this.zoomState.percent);
   }
 
   setSelection(selection: AdminSpawnSelection): void { this.selection = selection; this.updateCursor(); }
@@ -73,7 +71,7 @@ export class AdminSpectatorSurface {
     return adminMapViewportRadius({
       width: this.options.canvas.width,
       height: this.options.canvas.height,
-      tileSize: this.tileSize,
+      tileSize: this.zoomState.value,
     });
   }
 
@@ -85,13 +83,13 @@ export class AdminSpectatorSurface {
   focusInput(): void { this.options.canvas.focus(); }
 
   zoom(direction: AdminMapZoomDirection): void {
-    this.tileSize = nextAdminMapTileSize(this.tileSize, direction);
+    this.options.onZoomChange(this.zoomState.zoom(direction));
     this.draw();
     this.focusInput();
   }
 
   resetZoom(): void {
-    this.tileSize = ADMIN_MAP_DEFAULT_TILE_SIZE;
+    this.options.onZoomChange(this.zoomState.reset());
     this.draw();
     this.focusInput();
   }
@@ -122,7 +120,7 @@ export class AdminSpectatorSurface {
       event,
       canvas: this.options.canvas,
       center: this.cameraCenter,
-      tileSize: this.tileSize,
+      tileSize: this.zoomState.value,
     });
     this.options.onSpawn(point.x, point.y, this.selection);
   }
@@ -146,7 +144,7 @@ export class AdminSpectatorSurface {
       map: this.map,
       center: this.cameraCenter,
       canvas: this.options.canvas,
-      tileSize: this.tileSize,
+      tileSize: this.zoomState.value,
       point: adminMapPointerCanvasPoint({ event, canvas: this.options.canvas }),
     });
   }
@@ -161,7 +159,7 @@ export class AdminSpectatorSurface {
       context: this.context,
       map: this.map,
       center: this.cameraCenter,
-      tileSize: this.tileSize,
+      tileSize: this.zoomState.value,
       debugFlags: this.debugFlags,
       unavailableMessage: this.interactionEnabled ? "Loading map…" : "Authenticate to load the map",
     });

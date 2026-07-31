@@ -76,7 +76,6 @@ export class InputController {
       onInteractReleased: () => this.lifeGestures.endInteract(this.conn, scene.time.now),
       onBandageDown: () => this.fistbump.down(this.scene.time.now),
       onBandageUp: () => this.fistbump.release(conn, queries, this.scene.time.now),
-      onContextAction: () => this.handleInteractDown("pickup"),
       onThrowSelected: () => this.throwAim.throwFromTouch(),
       onKidAttack: () => attackInKidMode({ state: this.state, conn, queries, hooks, nowMs: performance.now() }),
       onMovementEdge: () => this.sendCurrentMovementEdge(),

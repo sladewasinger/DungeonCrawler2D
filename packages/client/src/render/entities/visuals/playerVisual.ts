@@ -5,7 +5,7 @@ import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { resolveAnimState } from "../motion/animState.js";
 import { createHpBar } from "../presentation/hpBar.js";
 import { flashIntensity, tookDamage } from "../combat/feedback/hitFlash.js";
-import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
+import { airborneHeightAboveGround } from "../motion/lift.js";
 import { createNameplate } from "../presentation/nameplate.js";
 import { inferPlayerAnimState, isRunningPace } from "../motion/playerMotion.js";
 import { createShadow } from "../geometry/shadow.js";
@@ -13,10 +13,9 @@ import { squashScale } from "../geometry/squash.js";
 import type { PlayerVisual } from "./state.js";
 import type { PlayerEntityView, RenderContext } from "./view.js";
 import { stepOrbitAngle } from "../motion/weaponOrbit.js";
-import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
 import { updatePlayerChrome } from "../player/playerChrome.js";
 import { createHeldWeapon, updatePlayerWeapon } from "../player/playerWeaponVisual.js";
-import { playerFacesLeft } from "../player/playerFacing.js";
+import { positionPlayerBody } from "../player/playerBodyPosition.js";
 import {
   applyCombatantTint,
   resolveCombatantTint,
@@ -73,20 +72,10 @@ function updatePlayerBody({
   context,
   heightAboveGround,
 }: PlayerBodyUpdate): void {
-  positionPlayerBody({ visual, view, heightAboveGround });
+  positionPlayerBody({ body: visual.body, view, heightAboveGround });
   updatePlayerAnimation({ visual, skinPrefix, view, context });
   applyPlayerTint(visual, view, context);
   visual.body.setAngle(view.downed ? DOWNED_ANGLE : 0);
-}
-
-function positionPlayerBody({ visual, view, heightAboveGround }: Omit<PlayerBodyUpdate, "skinPrefix" | "context">): void {
-  const screen = worldToScreen(view.x, view.y);
-  // ELEVATION-PROJECTION section 3: absolute-z lift. Terrain now bakes the matching
-  // shift into its own drawn cap (wave E2), so a grounded body (z === groundAt) lands
-  // exactly on it — see lift.ts's module doc.
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
-  visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
-  visual.body.setFlipX(playerFacesLeft(view));
 }
 
 function updatePlayerAnimation({ visual, skinPrefix, view, context }: Omit<PlayerBodyUpdate, "heightAboveGround">): void {
@@ -123,7 +112,7 @@ function applyPlayerAnimationFrame({
   visual.body.anims.timeScale = running ? RUN_ANIM_TIMESCALE : 1;
 }
 
-/** Landing-squash edge trigger + scale application, split out of updatePlayerBody to keep its complexity down. */
+/** Landing-squash edge trigger and scale application. */
 function applyLandingSquash(visual: PlayerVisual, airborne: boolean, nowMs: number): void {
   if (visual.lastAir && !airborne) visual.squashStartMs = nowMs;
   visual.lastAir = airborne;

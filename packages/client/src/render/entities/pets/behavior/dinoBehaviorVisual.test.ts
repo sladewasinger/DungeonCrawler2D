@@ -1,6 +1,5 @@
 import type Phaser from "phaser";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { resetViewOrientation } from "../../../view/transform/viewState.js";
+import { describe, expect, it, vi } from "vitest";
 import type { PetEntityView } from "../../visuals/view.js";
 import {
   createDinoBehaviorVisual,
@@ -11,8 +10,6 @@ import {
   TARD_FART_PARTICLE_COUNT,
   tardRearwardVelocity,
 } from "./dinos/tard.js";
-
-afterEach(resetViewOrientation);
 
 describe("dino behavior visuals", () => {
   it("leaves dinos without a registered behavior unchanged", () => {
@@ -35,7 +32,7 @@ describe("dino behavior visuals", () => {
     const particles = vi.fn(() => emitter);
     const scene = { add: { particles } } as unknown as Phaser.Scene;
     const behavior = createDinoBehaviorVisual(scene, "pet-dino-tard");
-    const body = { depth: 4 } as unknown as Phaser.GameObjects.Sprite;
+    const body = { x: 48, y: 80, depth: 4 } as unknown as Phaser.GameObjects.Sprite;
     const input = {
       behavior,
       body,
@@ -49,33 +46,24 @@ describe("dino behavior visuals", () => {
     expect(emitter.explode).toHaveBeenCalledTimes(1);
     expect(emitter.explode).toHaveBeenCalledWith(TARD_FART_PARTICLE_COUNT);
     expect(emitter.setDepth).toHaveBeenCalledWith(4.08);
+    expect(emitter.setPosition).toHaveBeenCalledWith(34, 66);
     expect(emitter.setVisible).toHaveBeenCalledWith(true);
     expect(emitter.setRadial).toHaveBeenCalledWith(false);
-    expect(emitter.setParticleSpeed).toHaveBeenCalledWith(-44, 0);
+    expect(emitter.setParticleSpeed).toHaveBeenCalledWith(-20, 0);
     expect(emitter.setParticleSpeed.mock.invocationCallOrder[0]).toBeLessThan(
       emitter.setRadial.mock.invocationCallOrder[0] ?? Infinity,
     );
     expect(particles).toHaveBeenCalledWith(0, 0, "atlas", expect.objectContaining({
       lifespan: TARD_FART_DURATION_MS,
       quantity: TARD_FART_PARTICLE_COUNT,
-      scale: { start: 1.35, end: 0.22, random: true },
+      scale: { start: 4.05, end: 0.66, random: true },
     }));
   });
 
-  it("projects the rearward ejection vector through every camera rotation", () => {
-    const expected = [
-      [0, { x: -44, y: 0 }],
-      [90, { x: 0, y: 44 }],
-      [180, { x: 44, y: 0 }],
-      [270, { x: 0, y: -44 }],
-    ] as const;
-    for (const [orientation, velocity] of expected) {
-      expect(tardRearwardVelocity({
-        faceX: 1,
-        faceY: 0,
-        orientation,
-      })).toEqual(velocity);
-    }
+  it("always ejects horizontally behind the sprite-facing direction", () => {
+    expect(tardRearwardVelocity(1)).toEqual({ x: -20, y: 0 });
+    expect(tardRearwardVelocity(-1)).toEqual({ x: 20, y: 0 });
+    expect(tardRearwardVelocity(0)).toEqual({ x: -20, y: 0 });
   });
 });
 

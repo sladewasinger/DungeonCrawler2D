@@ -123,6 +123,11 @@ export class SpectatorScene extends Phaser.Scene {
     this.spectatorCamera?.focus();
   }
 
+  resetCameraZoom(): void {
+    this.cameras.main.setZoom(1);
+    this.spectatorCamera?.focus();
+  }
+
   private ensureWorldSystems(world: World): void {
     const systems = replaceDungeonWorldSystems({
       scene: this,

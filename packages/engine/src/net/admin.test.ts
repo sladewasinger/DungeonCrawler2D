@@ -45,6 +45,7 @@ describe("admin wire protocol", () => {
         op: "debug",
         flags: {
           hurtboxes: true,
+          movementCollision: false,
           attacks: false,
           hitboxPreview: false,
           guards: false,

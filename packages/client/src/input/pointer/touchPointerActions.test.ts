@@ -10,15 +10,15 @@ import {
 
 describe("touch action buttons", () => {
   it("routes USE through the same contextual callback as keyboard E", () => {
-    const performContextAction = vi.fn();
+    const performInteract = vi.fn();
     const touch = createTouchInputState();
     const deps = touchDeps({
       touch,
       hit: "touch:interact",
-      performContextAction,
+      performInteract,
     });
     handlePointerDown(inputState(), deps, pointer(4));
-    expect(performContextAction).toHaveBeenCalledOnce();
+    expect(performInteract).toHaveBeenCalledOnce();
     expect(touch.buttons.interact).toBe(4);
   });
 
@@ -76,7 +76,7 @@ interface TouchDepsOverrides {
   readonly queries?: Partial<PointerDeps["queries"]>;
   readonly hooks?: Partial<PointerDeps["hooks"]>;
   readonly sendMovementEdge?: () => void;
-  readonly performContextAction?: () => void;
+  readonly performInteract?: () => void;
 }
 
 function touchDeps(overrides: TouchDepsOverrides): PointerDeps {
@@ -88,7 +88,7 @@ function touchDeps(overrides: TouchDepsOverrides): PointerDeps {
     touch: overrides.touch,
     touchActive: true,
     sendMovementEdge: overrides.sendMovementEdge ?? vi.fn(),
-    performContextAction: overrides.performContextAction ?? vi.fn(),
+    performInteract: overrides.performInteract ?? vi.fn(),
     throwSelected: vi.fn(),
   } as unknown as PointerDeps;
 }

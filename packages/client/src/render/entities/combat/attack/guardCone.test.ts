@@ -37,6 +37,8 @@ function guardConeInput(
     facingAngle: 0,
     depth: { wielderDepth: 0, wielderViewY: 0 },
     nowMs: 1_000,
+    originX: 100,
+    originY: 120,
     ...overrides,
   };
 }

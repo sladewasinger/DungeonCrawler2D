@@ -34,6 +34,7 @@ export class AdminPage {
       onCameraMove: (x, y) => this.spawnPlacement.requestMap(x, y),
       onSpawn: (x, y, selection) => this.spawnPlacement.spawn(x, y, selection),
       onDespawn: (entityId) => this.spawnPlacement.despawn(entityId),
+      onZoomChange: (percent) => { this.view.mapZoomStatus.textContent = `Zoom: ${percent}%`; },
     });
     this.spawnPlacement = new AdminSpawnPlacementController({
       connection: this.connection,

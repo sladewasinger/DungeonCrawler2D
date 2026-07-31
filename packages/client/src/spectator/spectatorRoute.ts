@@ -33,6 +33,7 @@ export function startSpectatorRoute(search: URLSearchParams): void {
     focusCamera: () => scene.focusCamera(),
     centerCamera: () => scene.centerCamera(),
     zoomCamera: (direction) => scene.zoomCamera(direction),
+    resetCameraZoom: () => scene.resetCameraZoom(),
     hudVisible,
     embedded,
   });

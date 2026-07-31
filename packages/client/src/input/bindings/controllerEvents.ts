@@ -23,7 +23,6 @@ export interface ControllerEventBindings {
   readonly onInteractReleased: () => void;
   readonly onBandageDown: () => void;
   readonly onBandageUp: () => void;
-  readonly onContextAction: () => void;
   readonly onThrowSelected: () => void;
   readonly onKidAttack: () => void;
   readonly onMovementEdge: () => void;
@@ -67,8 +66,8 @@ function bindPointer(request: ControllerEventBindings): void {
     tilePx: request.tilePx,
     touch: request.touch,
     touchActive: request.touchActive,
+    onInteract: request.onInteract,
     onInteractReleased: request.onInteractReleased,
-    onContextAction: request.onContextAction,
     onThrowSelected: request.onThrowSelected,
     onMovementEdge: request.onMovementEdge,
   });

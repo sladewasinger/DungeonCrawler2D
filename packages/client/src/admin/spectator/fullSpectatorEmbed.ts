@@ -1,5 +1,12 @@
 import type { SpectatorMode } from "@dc2d/engine";
-import { spectatorUrl } from "../../spectator/spectatorUrl.js";
+import { nextSpectatorCameraZoom } from "../../spectator/camera/spectatorCameraZoom.js";
+import {
+  spectatorEmbedMessagePlan,
+  spectatorEmbedSource,
+  spectatorEmbedZoomMessage,
+  type SentSpectatorEmbedState,
+} from "./embed/fullSpectatorEmbedMessages.js";
+import { spectatorZoomControls } from "./embed/spectatorZoomControls.js";
 
 const SPECTATOR_CONTROL_MESSAGE_TYPE = "dc2d-spectator-control";
 
@@ -11,9 +18,16 @@ export interface FullSpectatorEmbedState {
 
 export class FullSpectatorEmbed {
   readonly element = document.createElement("div");
+  private readonly controls = spectatorZoomControls({
+    zoom: (direction) => this.zoom(direction),
+    reset: () => this.resetZoom(),
+  });
+  private readonly frameHost = document.createElement("div");
+  private readonly zoomStatus = document.createElement("span");
   private frame: HTMLIFrameElement | null = null;
   private sent: SentSpectatorEmbedState | null = null;
   private loaded = false;
+  private cameraZoom = 1.25;
   private state: FullSpectatorEmbedState = {
     active: false,
     playerId: null,
@@ -22,6 +36,11 @@ export class FullSpectatorEmbed {
 
   constructor() {
     this.element.dataset.adminSpectatorFrame = "";
+    this.frameHost.dataset.adminSpectatorFrameHost = "";
+    this.zoomStatus.dataset.adminSpectatorZoomStatus = "";
+    this.zoomStatus.setAttribute("aria-live", "polite");
+    this.updateZoomStatus();
+    this.element.append(this.controls, this.zoomStatus, this.frameHost);
   }
 
   update(state: FullSpectatorEmbedState): void {
@@ -39,6 +58,16 @@ export class FullSpectatorEmbed {
   zoom(direction: "in" | "out"): void {
     if (!this.state.active) return;
     this.send(spectatorEmbedZoomMessage(direction));
+    this.cameraZoom = nextSpectatorCameraZoom(this.cameraZoom, direction);
+    this.updateZoomStatus();
+    focusSpectatorEmbedFrame(this.frame);
+  }
+
+  resetZoom(): void {
+    if (!this.state.active) return;
+    this.send({ type: SPECTATOR_CONTROL_MESSAGE_TYPE, action: "zoom-reset" });
+    this.cameraZoom = 1;
+    this.updateZoomStatus();
     focusSpectatorEmbedFrame(this.frame);
   }
 
@@ -60,8 +89,8 @@ export class FullSpectatorEmbed {
     frame.addEventListener("load", () => this.handleLoad(frame));
     this.frame = frame;
     this.loaded = false;
-    this.sent = sentState(this.state);
-    this.element.replaceChildren(frame);
+    this.sent = spectatorEmbedMessagePlan(null, this.state).sent;
+    this.frameHost.replaceChildren(frame);
   }
 
   private unmount(): void {
@@ -72,6 +101,7 @@ export class FullSpectatorEmbed {
     if (!frame) return;
     frame.src = "about:blank";
     frame.remove();
+    this.frameHost.replaceChildren();
   }
 
   private handleLoad(frame: HTMLIFrameElement): void {
@@ -79,85 +109,14 @@ export class FullSpectatorEmbed {
     this.loaded = true;
     this.sendState();
   }
-}
 
-interface SentSpectatorEmbedState {
-  readonly playerId: string | null;
-  readonly mode: Exclude<SpectatorMode, "off"> | null;
-}
-
-interface SpectatorEmbedMessagePlan {
-  readonly messages: Array<Record<string, unknown>>;
-  readonly sent: SentSpectatorEmbedState | null;
-}
-
-export function spectatorEmbedMessagePlan(
-  previous: SentSpectatorEmbedState | null,
-  state: FullSpectatorEmbedState,
-): SpectatorEmbedMessagePlan {
-  if (!state.active) return { messages: [], sent: previous };
-  const targetChanged = previous?.playerId !== state.playerId;
-  const modeAfterTarget = targetChanged && state.playerId ? "track" : previous?.mode ?? null;
-  return {
-    messages: [
-      ...targetChangeMessage(targetChanged, state.playerId),
-      ...modeChangeMessage(state.mode, modeAfterTarget),
-    ],
-    sent: { playerId: state.playerId, mode: state.mode === "off" ? null : state.mode },
-  };
-}
-
-export function spectatorEmbedSource(
-  search: string,
-  state: FullSpectatorEmbedState,
-): string | null {
-  if (!state.active || state.mode === "off") return null;
-  return spectatorUrl(search, {
-    embedded: true,
-    hud: false,
-    mode: state.mode,
-    ...(state.playerId ? { playerId: state.playerId } : {}),
-  });
-}
-
-export function spectatorEmbedZoomMessage(
-  direction: "in" | "out",
-): Record<string, unknown> {
-  return controlMessage("zoom", { direction });
+  private updateZoomStatus(): void {
+    this.zoomStatus.textContent = `Zoom: ${Math.round(this.cameraZoom * 100)}%`;
+  }
 }
 
 export function focusSpectatorEmbedFrame(
   frame: { readonly contentWindow: { focus(): void } | null } | null,
 ): void {
   frame?.contentWindow?.focus();
-}
-
-function sentState(state: FullSpectatorEmbedState): SentSpectatorEmbedState | null {
-  if (!state.active || state.mode === "off") return null;
-  return { playerId: state.playerId, mode: state.mode };
-}
-
-function targetChangeMessage(
-  changed: boolean,
-  playerId: string | null,
-): Array<Record<string, unknown>> {
-  return changed && playerId
-    ? [controlMessage("target", { playerId })]
-    : [];
-}
-
-function modeChangeMessage(
-  mode: FullSpectatorEmbedState["mode"],
-  previous: SentSpectatorEmbedState["mode"],
-): Array<Record<string, unknown>> {
-  return mode !== "off" && mode !== previous
-    ? [controlMessage("mode", { mode })]
-    : [];
-}
-
-function controlMessage(
-  action: string,
-  details: Record<string, unknown>,
-): Record<string, unknown> {
-  return { type: SPECTATOR_CONTROL_MESSAGE_TYPE, action, ...details };
 }

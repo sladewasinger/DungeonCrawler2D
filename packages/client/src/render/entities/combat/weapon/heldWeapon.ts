@@ -9,6 +9,8 @@ import {
 } from "../attack/blockGuard.js";
 import { combatOriginY, MELEE_HALF_ANGLE_RAD, orbitPosition, swingSweepAngle } from "../../motion/weaponOrbit.js";
 import { depthForCombatOverlay } from "../../presentation/depthSort.js";
+import { positionHammerWeaponStrike } from "./hammerWeaponPresentation.js";
+import { HAMMER_WEAPON_FRAME } from "./weaponIcon.js";
 
 const HAND_OFFSET_X = SCREEN_TILE_PX * 0.34;
 const HAND_OFFSET_Y = -SCREEN_TILE_PX * 0.45;
@@ -60,7 +62,7 @@ export function updateHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: strin
     return;
   }
   prepareHeldWeapon(sprite, frame, pose);
-  positionHeldWeapon(sprite, pose);
+  positionHeldWeapon(sprite, frame, pose);
 }
 
 function prepareHeldWeapon(sprite: Phaser.GameObjects.Sprite, frame: string, pose: HeldWeaponPose): void {
@@ -84,9 +86,18 @@ function applyHeldWeaponTint(sprite: Phaser.GameObjects.Sprite, pose: HeldWeapon
   sprite.clearTint().setTintMode(MULTIPLY_TINT_MODE);
 }
 
-function positionHeldWeapon(sprite: Phaser.GameObjects.Sprite, pose: HeldWeaponPose): void {
+function positionHeldWeapon(
+  sprite: Phaser.GameObjects.Sprite,
+  frame: string,
+  pose: HeldWeaponPose,
+): void {
   if (pose.blocking) {
     positionGuard(sprite, pose);
+    return;
+  }
+
+  if (pose.striking && frame === HAMMER_WEAPON_FRAME) {
+    positionHammerWeaponStrike(sprite, pose);
     return;
   }
 

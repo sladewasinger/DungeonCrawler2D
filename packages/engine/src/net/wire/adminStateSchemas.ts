@@ -20,6 +20,12 @@ const debugHurtboxSchema = z.object({
   height: debugRadiusSchema,
   bottomOffset: z.number().finite().min(-64).max(64),
 }).strict();
+const debugMovementCollisionSchema = z.object({
+  halfWidth: debugRadiusSchema,
+  halfDepth: debugRadiusSchema,
+  grounded: z.boolean(),
+  groundHeight: z.number().finite(),
+}).strict();
 const debugArcCosSchema = z.number().finite().min(-1).max(1);
 const debugAttackVolumeSchema = {
   strikeHeightOffset: z.number().finite().min(-64).max(64).optional(),
@@ -56,6 +62,7 @@ const adminNavigationDebugSchema = z.object({
 }).strict();
 const adminEntityDebugSchema = z.object({
   hurtbox: debugHurtboxSchema.optional(),
+  movementCollision: debugMovementCollisionSchema.optional(),
   attacks: z.array(adminHitboxSchema).min(1).max(24).optional(),
   guard: adminGuardAreaSchema.optional(),
   behavior: z.enum(["idle", "engaged", "pursuing", "searching"]).optional(),

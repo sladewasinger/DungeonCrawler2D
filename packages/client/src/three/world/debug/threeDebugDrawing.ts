@@ -15,11 +15,17 @@ import {
   wedgeOutline,
   type AdminDebugPoint,
 } from "../../../render/debug/adminDebugGeometry.js";
+import {
+  movementCollision,
+  movementCollisionOutline,
+  movementGroundProbe,
+} from "../../../render/debug/adminDebugMovementGeometry.js";
 import { attackVolumeGeometry } from "../../../render/debug/attack/adminDebugAttackVolumeGeometry.js";
 import type { ThreeDebugPrimitiveWriter } from "./threeDebugPrimitives.js";
 
 const COLORS = {
   hurtbox: 0xf7c55c,
+  movementCollision: 0x39d5ff,
   hitbox: 0xf3727d,
   guard: 0x78c6e8,
   lineOfSight: 0xe9c46a,
@@ -32,9 +38,26 @@ export function addThreeEntityDebug(
   flags: DebugFlags,
   entity: AdminMapEntity,
 ): void {
+  addThreeCombatDebug(writer, flags, entity);
+  addThreeAwarenessDebug(writer, flags, entity);
+}
+
+function addThreeCombatDebug(
+  writer: ThreeDebugPrimitiveWriter,
+  flags: DebugFlags,
+  entity: AdminMapEntity,
+): void {
   if (flags.hurtboxes) addHurtbox(writer, entity);
+  if (flags.movementCollision) addMovementCollision(writer, entity);
   if (flags.attacks) addHitboxes(writer, entity);
   if (flags.guards) addGuard(writer, entity);
+}
+
+function addThreeAwarenessDebug(
+  writer: ThreeDebugPrimitiveWriter,
+  flags: DebugFlags,
+  entity: AdminMapEntity,
+): void {
   if (flags.lineOfSight) addLineOfSight(writer, entity);
   if (flags.search) addSearch(writer, entity);
   if (flags.navigation) addNavigation(writer, entity);
@@ -45,6 +68,18 @@ function addHurtbox(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): 
   const hurtbox = combatHurtbox(entity);
   if (!hurtbox) return;
   for (const line of boxWireframe(hurtbox)) writer.line(line, COLORS.hurtbox);
+}
+
+function addMovementCollision(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): void {
+  const collision = movementCollision(entity);
+  if (!collision) return;
+  writer.line(movementCollisionOutline(collision), COLORS.movementCollision, 0.04);
+  writer.line(movementGroundProbe(collision), COLORS.movementCollision, 0.04);
+  addMarker(writer, {
+    x: collision.center.x,
+    y: collision.center.y,
+    z: collision.groundHeight,
+  }, COLORS.movementCollision);
 }
 
 function addHitboxes(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): void {

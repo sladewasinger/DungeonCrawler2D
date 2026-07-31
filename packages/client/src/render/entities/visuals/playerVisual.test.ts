@@ -114,6 +114,7 @@ describe("updatePlayerVisual", () => {
     };
     const view = { id: "p", playerId: "p", name: "Wren", x: 1, y: 2, z: 0, hp: 30, maxHp: 30, fx: [], faceX: 1, faceY: 0, air: false, downed: false, disconnected: true, attacking: false, blocking: false, weaponId: null, weaponAimAngle: null, attackAngleRad: 0 };
     updatePlayerVisual({ visual: visual as never, skinPrefix: "hero", view, context: context as never });
+    expect(body).toMatchObject({ x: 1, y: 6 });
     expect(body.tint).toBe(0x55555a);
     expect(probes.nameplate).toHaveBeenLastCalledWith(expect.objectContaining({
       name: "Wren",

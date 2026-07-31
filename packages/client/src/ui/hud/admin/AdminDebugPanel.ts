@@ -9,6 +9,7 @@ import { ADMIN_DEBUG_WINDOW_ID } from "./adminDebugWindow.js";
 
 const LABELS: Record<DebugFlag, string> = {
   hurtboxes: "Hurtboxes",
+  movementCollision: "Movement collision",
   attacks: "Active hitboxes",
   hitboxPreview: "Weapon hitbox preview",
   guards: "Active guards",

@@ -12,6 +12,7 @@ export type SpectatorControlMessage = SpectatorControlBase & (
   | { readonly action: "hud"; readonly visible: boolean }
   | { readonly action: "center" }
   | { readonly action: "zoom"; readonly direction: "in" | "out" }
+  | { readonly action: "zoom-reset" }
 );
 
 export function spectatorControlMessage(value: unknown): SpectatorControlMessage | null {
@@ -30,6 +31,7 @@ const CONTROL_MESSAGE_PARSERS: Readonly<Record<string, ControlMessageParser>> = 
   hud: hudMessage,
   center: centerMessage,
   zoom: zoomMessage,
+  "zoom-reset": zoomResetMessage,
 };
 
 function isControlRecord(value: unknown): value is Record<string, unknown> {
@@ -66,6 +68,12 @@ function zoomMessage(value: Record<string, unknown>): SpectatorControlMessage | 
   if (!exactKeys(value, ["type", "action", "direction"])) return null;
   if (value.direction !== "in" && value.direction !== "out") return null;
   return { type: SPECTATOR_CONTROL_TYPE, action: "zoom", direction: value.direction };
+}
+
+function zoomResetMessage(value: Record<string, unknown>): SpectatorControlMessage | null {
+  return exactKeys(value, ["type", "action"])
+    ? { type: SPECTATOR_CONTROL_TYPE, action: "zoom-reset" }
+    : null;
 }
 
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {

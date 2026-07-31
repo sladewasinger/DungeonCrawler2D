@@ -22,7 +22,7 @@ interface PointerBindingOptions {
   touch: TouchInputState;
   touchActive(): boolean;
   onInteractReleased(): void;
-  onContextAction(): void;
+  onInteract(): void;
   onThrowSelected(): void;
   onMovementEdge(): void;
 }
@@ -30,7 +30,7 @@ interface PointerBindingOptions {
 export function bindInputPointerEdges(options: PointerBindingOptions): void {
   const {
     scene, state, conn, hud, queries, hooks, tilePx, touch, touchActive,
-    onInteractReleased, onContextAction, onThrowSelected, onMovementEdge,
+    onInteract, onInteractReleased, onThrowSelected, onMovementEdge,
   } = options;
   scene.input.mouse?.disableContextMenu();
   scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -44,7 +44,7 @@ export function bindInputPointerEdges(options: PointerBindingOptions): void {
       touch,
       touchActive: touchActive(),
       sendMovementEdge: onMovementEdge,
-      performContextAction: onContextAction,
+      performInteract: onInteract,
       throwSelected: onThrowSelected,
       viewport: { width: scene.scale.width, height: scene.scale.height },
       camera: scene.cameras.main,

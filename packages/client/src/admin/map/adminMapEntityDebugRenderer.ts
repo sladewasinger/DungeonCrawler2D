@@ -15,6 +15,10 @@ import {
   wedgeOutline,
   type AdminDebugPoint,
 } from "../../render/debug/adminDebugGeometry.js";
+import {
+  movementCollision,
+  movementCollisionOutline,
+} from "../../render/debug/adminDebugMovementGeometry.js";
 import { adminMapEntityScreenPoint } from "./adminMapEntityHitTest.js";
 import type { AdminMapCenter } from "./adminMapCamera.js";
 
@@ -33,9 +37,18 @@ export interface AdminMapEntityPoint {
 }
 
 export function drawAdminMapEntityDebug(input: AdminMapEntityDebugRenderInput): void {
+  drawAdminMapCombatDebug(input);
+  drawAdminMapAwarenessDebug(input);
+}
+
+function drawAdminMapCombatDebug(input: AdminMapEntityDebugRenderInput): void {
   if (input.debugFlags.hurtboxes) drawHurtbox(input);
+  if (input.debugFlags.movementCollision) drawMovementCollision(input);
   if (input.debugFlags.attacks) drawHitboxes(input);
   if (input.debugFlags.guards) drawGuard(input);
+}
+
+function drawAdminMapAwarenessDebug(input: AdminMapEntityDebugRenderInput): void {
   if (input.debugFlags.lineOfSight) drawLineOfSight(input);
   if (input.debugFlags.search) drawSearch(input);
   if (input.debugFlags.navigation) drawNavigation(input);
@@ -44,7 +57,18 @@ export function drawAdminMapEntityDebug(input: AdminMapEntityDebugRenderInput): 
 
 function drawHurtbox(input: AdminMapEntityDebugRenderInput): void {
   const hurtbox = combatHurtbox(input.entity);
-  if (hurtbox) drawAdminMapLine({ ...input, points: boxOutline(hurtbox), color: "#f7c55c" });
+  if (hurtbox) drawAdminMapLine({ ...input, points: boxOutline(hurtbox), color: "#f7c55c", width: 2 });
+}
+
+function drawMovementCollision(input: AdminMapEntityDebugRenderInput): void {
+  const collision = movementCollision(input.entity);
+  if (!collision) return;
+  drawAdminMapLine({
+    ...input,
+    points: movementCollisionOutline(collision),
+    color: "#39d5ff",
+    width: 2,
+  });
 }
 
 function drawHitboxes(input: AdminMapEntityDebugRenderInput): void {

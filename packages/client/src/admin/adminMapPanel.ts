@@ -15,6 +15,7 @@ export interface AdminMapPanel {
   readonly map: HTMLCanvasElement;
   readonly mapLevel: HTMLSelectElement;
   readonly mapFloor: HTMLInputElement;
+  readonly mapZoomStatus: HTMLElement;
   readonly catalog: AdminSpawnCatalog;
 }
 
@@ -33,6 +34,7 @@ export function mapPanel(): AdminMapPanel {
     catalog,
     mapLevel: controls.mapLevel,
     mapFloor: controls.mapFloor,
+    mapZoomStatus: controls.mapZoomStatus,
   };
 }
 
@@ -57,6 +59,7 @@ interface MapControls {
   readonly root: HTMLElement;
   readonly mapLevel: HTMLSelectElement;
   readonly mapFloor: HTMLInputElement;
+  readonly mapZoomStatus: HTMLElement;
 }
 
 function mapControls(): MapControls {
@@ -64,8 +67,9 @@ function mapControls(): MapControls {
   root.dataset.adminMapControls = "";
   const mapLevel = select("Map level", [...LEVEL_IDS]);
   const mapFloor = mapFloorInput();
-  root.append(...mapControlContent({ mapLevel, mapFloor }));
-  return { root, mapLevel, mapFloor };
+  const mapZoomStatus = zoomStatus();
+  root.append(...mapControlContent({ mapLevel, mapFloor, mapZoomStatus }));
+  return { root, mapLevel, mapFloor, mapZoomStatus };
 }
 
 function mapFloorInput(): HTMLInputElement {
@@ -88,21 +92,29 @@ function mapControlContent(controls: Omit<MapControls, "root">): readonly HTMLEl
       "Camera",
       actionButton("Center selected", "map-center-selected"),
       actionButton("Free pan", "map-free-camera"),
-      mapZoomControls(),
+      mapZoomControls(controls.mapZoomStatus),
     ),
     help,
   ];
 }
 
-function mapZoomControls(): HTMLElement {
+function mapZoomControls(status: HTMLElement): HTMLElement {
   const controls = document.createElement("div");
   controls.dataset.adminMapZoomControls = "";
   controls.append(
     zoomButton("−", "map-zoom-out", "Zoom world editor out"),
+    actionButton("100%", "map-zoom-reset"),
     zoomButton("+", "map-zoom-in", "Zoom world editor in"),
-    actionButton("Reset zoom (100%)", "map-zoom-reset"),
+    status,
   );
   return controls;
+}
+
+function zoomStatus(): HTMLElement {
+  const status = text("Zoom: 100%");
+  status.dataset.adminMapZoomStatus = "";
+  status.setAttribute("aria-live", "polite");
+  return status;
 }
 
 function zoomButton(label: string, action: string, accessibleLabel: string): HTMLButtonElement {

@@ -27,6 +27,7 @@ export interface AdminPageView {
   readonly map: HTMLCanvasElement;
   readonly mapLevel: HTMLSelectElement;
   readonly mapFloor: HTMLInputElement;
+  readonly mapZoomStatus: HTMLElement;
   readonly catalog: AdminSpawnCatalog;
   readonly playerObserver: AdminPlayerObserver;
 }
@@ -54,6 +55,7 @@ export function createAdminPageView(root: HTMLElement): AdminPageView {
     map: spawnMap.map,
     mapLevel: spawnMap.mapLevel,
     mapFloor: spawnMap.mapFloor,
+    mapZoomStatus: spawnMap.mapZoomStatus,
     catalog: spawnMap.catalog,
     playerObserver,
   };

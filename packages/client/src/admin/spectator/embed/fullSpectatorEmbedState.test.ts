@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   focusSpectatorEmbedFrame,
+} from "../fullSpectatorEmbed.js";
+import {
   spectatorEmbedMessagePlan,
   spectatorEmbedSource,
   spectatorEmbedZoomMessage,
-} from "../fullSpectatorEmbed.js";
+} from "./fullSpectatorEmbedMessages.js";
 
 describe("spectatorEmbedMessagePlan", () => {
   it("deduplicates unchanged target and mode updates", () => {

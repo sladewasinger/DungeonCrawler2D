@@ -1,15 +1,16 @@
 import type { SpectatorMode } from "@dc2d/engine";
 import type { Connection } from "../net/connection/connection.js";
 import {
+  applyEmbeddedSpectatorControl,
+  type EmbeddedSpectatorControlHandlers,
+} from "./controls/embeddedSpectatorControl.js";
+import {
   spectatorControlMessage,
   type SpectatorControlMessage,
 } from "./spectatorControlMessage.js";
 
-export interface SpectatorControlHandlers {
+export interface SpectatorControlHandlers extends EmbeddedSpectatorControlHandlers {
   readonly setHudVisible: (visible: boolean) => void;
-  readonly focusCamera: () => void;
-  readonly centerCamera: () => void;
-  readonly zoomCamera: (direction: "in" | "out") => void;
 }
 
 export interface SpectatorControlsOptions extends SpectatorControlHandlers {
@@ -80,41 +81,15 @@ export class SpectatorControls {
   };
 
   private applyMessage(message: SpectatorControlMessage): void {
-    if (this.applyCameraMessage(message)) return;
     if (message.action === "hud") {
       this.setHud(message.visible);
+      return;
     }
-  }
-
-  private applyCameraMessage(message: SpectatorControlMessage): boolean {
-    if (this.applyTargetMessage(message)) return true;
-    if (this.applyModeMessage(message)) return true;
-    if (this.applyCenterMessage(message)) return true;
-    return this.applyZoomMessage(message);
-  }
-
-  private applyTargetMessage(message: SpectatorControlMessage): boolean {
-    if (message.action !== "target") return false;
-    this.connection.selectSpectatorTarget(message.playerId);
-    return true;
-  }
-
-  private applyModeMessage(message: SpectatorControlMessage): boolean {
-    if (message.action !== "mode") return false;
-    this.setMode(message.mode);
-    return true;
-  }
-
-  private applyCenterMessage(message: SpectatorControlMessage): boolean {
-    if (message.action !== "center") return false;
-    this.handlers.centerCamera();
-    return true;
-  }
-
-  private applyZoomMessage(message: SpectatorControlMessage): boolean {
-    if (message.action !== "zoom") return false;
-    this.handlers.zoomCamera(message.direction);
-    return true;
+    applyEmbeddedSpectatorControl({
+      connection: this.connection,
+      handlers: this.handlers,
+      message,
+    });
   }
 
   private render(): void {

@@ -15,10 +15,13 @@ import {
   navigationPath,
   tileOutline,
   wedgeOutline,
-  type AdminDebugPoint,
 } from "./adminDebugGeometry.js";
 import { attackVolumeGeometry } from "./attack/adminDebugAttackVolumeGeometry.js";
-import { gameplayDebugScreenPoint } from "./gameplayDebugProjection.js";
+import {
+  drawGameplayLine,
+  drawGameplayWorldMarker,
+} from "./gameplayDebugLineDrawing.js";
+import { drawGameplayMovementCollision } from "./gameplayMovementCollisionDrawing.js";
 const COLORS = {
   hurtbox: 0xf7c55c,
   hitbox: 0xf3727d,
@@ -36,9 +39,18 @@ export interface GameplayDebugDrawingInput {
 }
 
 export function drawGameplayEntityDebug(input: GameplayDebugDrawingInput): void {
+  drawGameplayCombatDebug(input);
+  drawGameplayAwarenessDebug(input);
+}
+
+function drawGameplayCombatDebug(input: GameplayDebugDrawingInput): void {
   if (input.flags.hurtboxes) drawHurtbox(input);
+  if (input.flags.movementCollision) drawGameplayMovementCollision(input);
   if (input.flags.attacks || input.flags.hitboxPreview) drawHitboxes(input);
   if (input.flags.guards) drawGuard(input);
+}
+
+function drawGameplayAwarenessDebug(input: GameplayDebugDrawingInput): void {
   if (input.flags.lineOfSight) drawLineOfSight(input);
   if (input.flags.search) drawSearch(input);
   if (input.flags.navigation) drawNavigation(input);
@@ -48,11 +60,11 @@ function drawHurtbox(input: GameplayDebugDrawingInput): void {
   const hurtbox = combatHurtbox(input.entity);
   if (!hurtbox) return;
   for (const points of boxWireframe(hurtbox)) {
-    drawGameplayLine({ ...input, points, color: COLORS.hurtbox, alpha: 0.28 });
+    drawGameplayLine({ ...input, points, color: COLORS.hurtbox, alpha: 0.72, width: 2 });
   }
   for (const z of input.hurtboxStrikeHeights ?? []) {
     const points = boxCrossSection(hurtbox, z);
-    if (points) drawGameplayLine({ ...input, points, color: COLORS.hurtbox, alpha: 1, width: 2 });
+    if (points) drawGameplayLine({ ...input, points, color: COLORS.hurtbox, alpha: 1, width: 3 });
   }
 }
 
@@ -109,7 +121,7 @@ function drawLineOfSight(input: GameplayDebugDrawingInput): void {
 function drawSearch(input: GameplayDebugDrawingInput): void {
   const search = activeSearch(input.entity);
   if (!search) return;
-  drawWorldMarker(input, search.anchor, COLORS.search);
+  drawGameplayWorldMarker(input.graphics, search.anchor, COLORS.search);
   if (search.target) drawGameplayLine({ ...input, points: [search.anchor, search.target], color: COLORS.search });
   if (search.waypoint) drawGameplayLine({ ...input, points: [input.entity, search.waypoint], color: COLORS.search });
 }
@@ -117,45 +129,6 @@ function drawSearch(input: GameplayDebugDrawingInput): void {
 function drawNavigation(input: GameplayDebugDrawingInput): void {
   const path = navigationPath(input.entity);
   if (path.length > 0) drawGameplayLine({ ...input, points: [input.entity, ...path], color: COLORS.navigation });
-}
-
-function drawWorldMarker(
-  input: GameplayDebugDrawingInput,
-  point: AdminDebugPoint,
-  color: number,
-): void {
-  const size = 0.18;
-  drawGameplayLine({
-    ...input,
-    points: [{ x: point.x - size, y: point.y, z: point.z }, { x: point.x + size, y: point.y, z: point.z }],
-    color,
-  });
-  drawGameplayLine({
-    ...input,
-    points: [{ x: point.x, y: point.y - size, z: point.z }, { x: point.x, y: point.y + size, z: point.z }],
-    color,
-  });
-}
-
-interface GameplayDebugLineInput {
-  readonly graphics: Phaser.GameObjects.Graphics;
-  readonly points: readonly AdminDebugPoint[];
-  readonly color: number;
-  readonly width?: number;
-  readonly alpha?: number;
-}
-
-function drawGameplayLine(input: GameplayDebugLineInput): void {
-  if (input.points.length < 2) return;
-  const first = gameplayDebugScreenPoint(input.points[0]!);
-  input.graphics.lineStyle(input.width ?? 1, input.color, input.alpha ?? 0.9);
-  input.graphics.beginPath();
-  input.graphics.moveTo(first.x, first.y);
-  for (const point of input.points.slice(1)) {
-    const screen = gameplayDebugScreenPoint(point);
-    input.graphics.lineTo(screen.x, screen.y);
-  }
-  input.graphics.strokePath();
 }
 
 export { gameplayDebugScreenPoint } from "./gameplayDebugProjection.js";

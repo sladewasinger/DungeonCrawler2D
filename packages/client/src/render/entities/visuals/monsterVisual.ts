@@ -18,6 +18,7 @@ import {
 import type { MonsterEntityView, RenderContext } from "./view.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
 import { updateMonsterTrainingWeapon } from "../monster/trainingWeaponVisual.js";
+import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
 
 export { createMonsterVisual } from "./monsterVisualCreation.js";
 
@@ -39,7 +40,9 @@ function positionMonsterBody(visual: MonsterVisual, view: MonsterEntityView, hei
   const screen = worldToScreen(view.x, view.y);
   // ELEVATION-PROJECTION section 3: absolute-z lift — see lift.ts's module doc and
   // playerVisual.ts's matching comment.
-  visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z)); visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
+  const anchor = actorScreenAnchor({ screen, liftPx: spriteLiftPx(view.z) });
+  visual.body.setPosition(anchor.x, anchor.y);
+  visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 }
 
@@ -106,10 +109,14 @@ function updateMonsterChromeDepths(visual: MonsterVisual): void {
 
 function updateMonsterShadow({ visual, view, heightAboveGround, groundHeight }: Omit<MonsterChromeUpdate, "context">): void {
   const ground = worldToScreen(view.x, view.y);
+  const anchor = actorScreenAnchor({
+    screen: ground,
+    liftPx: spriteLiftPx(groundHeight),
+  });
   updateShadowPosition({
     shadow: visual.shadow,
-    groundScreenX: ground.x,
-    groundScreenY: ground.y - spriteLiftPx(groundHeight),
+    groundScreenX: anchor.x,
+    groundScreenY: anchor.y,
     heightAboveGround,
   });
 }

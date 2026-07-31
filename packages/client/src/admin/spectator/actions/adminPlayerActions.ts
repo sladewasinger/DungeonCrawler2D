@@ -4,6 +4,7 @@ import {
   combatActionGroup,
   positionActionGroup,
 } from "../controls/adminPlayerParameterizedActions.js";
+import { configureAdminToggle } from "./adminToggleControl.js";
 
 const SPECTATOR_TOGGLE_ACTION = "spectator-toggle";
 const SPECTATOR_ZOOM_OUT_ACTION = "spectator-zoom-out";
@@ -117,7 +118,7 @@ function actionControl(input: ActionControlInput): HTMLButtonElement {
   control.dataset.playerId = input.playerId;
   control.disabled = !input.authenticated;
   if (input.pressed !== undefined) {
-    control.setAttribute("aria-pressed", String(input.pressed));
+    configureAdminToggle(control, input.label, input.pressed);
   }
   describeZoomControl(control, input.action);
   return control;

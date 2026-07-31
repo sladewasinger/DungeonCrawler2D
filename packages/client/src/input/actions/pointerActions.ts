@@ -148,5 +148,5 @@ function pressAndMove(deps: PointerDeps, button: "block" | "jump", pointerId: nu
 
 function pressAndInteract(deps: PointerDeps, pointerId: number): void {
   pressButton(deps.touch, "interact", pointerId);
-  deps.performContextAction();
+  deps.performInteract();
 }
