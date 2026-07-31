@@ -26,6 +26,34 @@ export interface AdminMapPointerCanvasInput {
   readonly canvas: HTMLCanvasElement;
 }
 
+export interface AdminMapPanInput {
+  readonly center: AdminMapCenter;
+  readonly direction: AdminMapCenter;
+  readonly elapsedMs: number;
+  readonly tilesPerSecond: number;
+}
+
+export interface AdminMapLocation {
+  readonly level: "dungeon" | "sandbox";
+  readonly floor: number;
+}
+
+export function adminMapLocationChanged(
+  current: AdminMapLocation | null,
+  next: AdminMapLocation | null,
+): boolean {
+  return next !== null &&
+    (current === null || current.level !== next.level || current.floor !== next.floor);
+}
+
+/** Returns the centre point of the tile containing a world position. */
+export function adminMapTileCenter(point: AdminMapCenter): AdminMapCenter {
+  return {
+    x: Math.floor(point.x) + 0.5,
+    y: Math.floor(point.y) + 0.5,
+  };
+}
+
 export function adminMapScreenPoint(
   world: AdminMapCenter,
   center: AdminMapCenter,
@@ -57,11 +85,12 @@ export function adminMapPointerCanvasPoint(
   );
 }
 
-export function moveAdminMapCenter(
-  center: AdminMapCenter,
-  direction: AdminMapCenter,
-): AdminMapCenter {
-  return { x: center.x + direction.x, y: center.y + direction.y };
+export function panAdminMapCenter(input: AdminMapPanInput): AdminMapCenter {
+  const distance = input.elapsedMs / 1000 * input.tilesPerSecond;
+  return {
+    x: input.center.x + input.direction.x * distance,
+    y: input.center.y + input.direction.y * distance,
+  };
 }
 
 export function pointIsNearCanvas(

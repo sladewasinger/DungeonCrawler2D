@@ -6,13 +6,13 @@ import {
 } from "./adminMapEntityHitTest.js";
 
 const canvas = { width: 480, height: 360 };
-const center = { x: 10, y: 10 };
+const center = { x: 10.5, y: 10.5 };
 
 describe("admin map entity hit testing", () => {
   it("renders a tile-centred world position in the visual centre of its cell", () => {
     expect(adminMapEntityScreenPoint({ x: 10.5, y: 10.5 }, center, canvas)).toEqual({
-      x: 252,
-      y: 192,
+      x: 240,
+      y: 180,
     });
   });
 
@@ -28,9 +28,9 @@ describe("admin map entity hit testing", () => {
       entities: [enemy, weapon, { id: "i11", kind: "item", x: 12.5, y: 10.5, z: 0 }],
     };
 
-    expect(deletableAdminEntityAt({ map, center, canvas, point: { x: 276, y: 192 } })?.id)
+    expect(deletableAdminEntityAt({ map, center, canvas, point: { x: 264, y: 180 } })?.id)
       .toBe("i10");
-    expect(deletableAdminEntityAt({ map, center, canvas, point: { x: 300, y: 192 } }))
+    expect(deletableAdminEntityAt({ map, center, canvas, point: { x: 288, y: 180 } }))
       .toBeNull();
   });
 });

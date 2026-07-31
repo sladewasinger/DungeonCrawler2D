@@ -14,10 +14,10 @@ export class AdminPlayerSelection {
   }
 
   sync(state: AdminPlayerSelectionState): void {
-    if (state.spectatorMode === "track" && state.spectatorTargetId) {
+    if (!this.selectedPlayer(state.players)) this.playerId = null;
+    if (!this.playerId && tracksConnectedPlayer(state)) {
       this.playerId = state.spectatorTargetId;
     }
-    if (!this.selectedPlayer(state.players)) this.playerId = null;
   }
 
   selectedPlayer(players: readonly AdminPlayer[]): AdminPlayer | null {
@@ -28,6 +28,11 @@ export class AdminPlayerSelection {
   get selectedPlayerId(): string | null {
     return this.playerId;
   }
+}
+
+function tracksConnectedPlayer(state: AdminPlayerSelectionState): boolean {
+  return state.spectatorMode === "track" && state.spectatorTargetId !== null &&
+    state.players.some((player) => player.playerId === state.spectatorTargetId);
 }
 
 export function playerIdFromSelectionEvent(target: EventTarget | null): string | null {

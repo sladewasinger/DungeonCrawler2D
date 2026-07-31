@@ -28,6 +28,10 @@ export class AdminPlayerObserverController {
     return true;
   }
 
+  selectedPlayer() {
+    return this.selection.selectedPlayer(this.connection.adminPlayers);
+  }
+
   render(): void {
     this.selection.sync({
       players: this.connection.adminPlayers,

@@ -1,10 +1,11 @@
+import type { AdminPlayer } from "@dc2d/engine";
 import type { Connection } from "../net/connection/connection.js";
 import type { AdminSpectatorSurface, AdminSpawnSelection } from "./adminSpectatorSurface.js";
 import type { AdminPageView } from "./adminPageView.js";
+import { AdminMapCameraController } from "./map/camera/adminMapCameraController.js";
 import {
   adminOption,
   adminSpawnKind,
-  boundedAdminFloor,
   paletteDefinitions,
 } from "./adminPageSupport.js";
 
@@ -18,11 +19,13 @@ export class AdminSpawnPlacementController {
   private readonly connection: Connection;
   private readonly view: AdminPageView;
   private readonly surface: AdminSpectatorSurface;
+  private readonly mapCamera: AdminMapCameraController;
 
   constructor(options: AdminSpawnPlacementControllerOptions) {
     this.connection = options.connection;
     this.view = options.view;
     this.surface = options.surface;
+    this.mapCamera = new AdminMapCameraController(options);
     this.wireControls();
     this.render();
   }
@@ -37,11 +40,27 @@ export class AdminSpawnPlacementController {
   }
 
   requestMap(x: number, y: number): void {
-    if (!this.connection.adminAuthenticated) return;
-    const map = this.connection.adminMap;
-    const level = this.view.mapLevel.value === "sandbox" ? "sandbox" : "dungeon";
-    const floor = boundedAdminFloor(this.view.mapFloor.value, map?.floor ?? 1);
-    this.connection.sendAdminCommand({ op: "map", level, floor, x, y, radius: map?.radius ?? 10 });
+    this.mapCamera.panTo({ x, y });
+  }
+
+  inspectDefaultMap(): void {
+    this.mapCamera.inspectDefaultMap();
+  }
+
+  followPlayer(player: AdminPlayer | null): void {
+    this.mapCamera.followPlayer(player);
+  }
+
+  freeCamera(): void {
+    this.mapCamera.freeCamera();
+  }
+
+  refreshFollow(): void {
+    this.mapCamera.refreshFollow();
+  }
+
+  dispose(): void {
+    this.mapCamera.dispose();
   }
 
   spawn(x: number, y: number, selection: AdminSpawnSelection): void {
@@ -65,8 +84,7 @@ export class AdminSpawnPlacementController {
   }
 
   inspectCurrentMap(): void {
-    const center = this.connection.adminMap?.center ?? { x: 0, y: 0 };
-    this.requestMap(center.x, center.y);
+    this.mapCamera.inspectCurrentMap();
   }
 
   private wireControls(): void {

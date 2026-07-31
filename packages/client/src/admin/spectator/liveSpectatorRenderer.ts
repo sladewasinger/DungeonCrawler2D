@@ -14,7 +14,7 @@ export interface LiveSpectatorRenderInput {
 export function renderLiveSpectatorMap(input: LiveSpectatorRenderInput): void {
   clear(input.context);
   const map = input.map;
-  if (!map) return drawUnavailable(input.context);
+  if (!map) return;
   const view = createLiveSpectatorView({ map, targetId: input.targetId, canvas: input.context.canvas });
   drawLiveSpectatorTerrain({ context: input.context, map, terrain: input.terrain, view });
   drawLiveSpectatorActors({ context: input.context, map, targetId: input.targetId, atlas: input.atlas, view });
@@ -24,12 +24,6 @@ export function renderLiveSpectatorMap(input: LiveSpectatorRenderInput): void {
 function clear(context: CanvasRenderingContext2D): void {
   context.fillStyle = "#05080d";
   context.fillRect(0, 0, context.canvas.width, context.canvas.height);
-}
-
-function drawUnavailable(context: CanvasRenderingContext2D): void {
-  context.fillStyle = "#aeb7c9";
-  context.font = "14px system-ui";
-  context.fillText("Waiting for the live player view…", 18, 28);
 }
 
 function drawFrame(input: Pick<LiveSpectatorRenderInput, "context" | "targetId"> & { readonly map: AdminMap }): void {

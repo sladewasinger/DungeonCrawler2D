@@ -216,9 +216,9 @@ section:has([data-admin-players]) th {
 
 [data-admin-player-observer] {
   display: grid !important;
-  grid-template-columns: minmax(280px, 0.72fr) minmax(420px, 1.28fr);
+  grid-template-columns: minmax(330px, 0.82fr) minmax(500px, 1.18fr);
   align-items: start !important;
-  gap: 16px !important;
+  gap: 18px !important;
 }
 
 [data-admin-player-observer] > h1,
@@ -228,9 +228,37 @@ section:has([data-admin-players]) th {
 
 [data-admin-player-actions] {
   grid-column: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+[data-admin-action-group] {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-content: start;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgb(75 99 129 / 72%);
+  border-radius: 8px;
+  background: rgb(7 13 22 / 32%);
+}
+
+[data-admin-action-group] > h2,
+[data-admin-map-control-group] > h2 {
+  width: 100%;
+  margin: 0 0 2px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+[data-admin-action-group] > button {
+  flex: 1 1 122px;
+  min-width: 0;
 }
 
 [data-admin-spectator-viewer] {
@@ -245,6 +273,10 @@ section:has([data-admin-players]) th {
   background: #090e16;
 }
 
+[data-admin-spectator-viewer][data-live="false"] {
+  background: #05080d;
+}
+
 [data-admin-spectator-status]::before {
   display: inline-block;
   width: 8px;
@@ -254,6 +286,11 @@ section:has([data-admin-players]) th {
   background: var(--admin-success);
   box-shadow: 0 0 9px var(--admin-success);
   content: "";
+}
+
+[data-admin-spectator-viewer][data-live="false"] [data-admin-spectator-status]::before {
+  background: var(--admin-muted);
+  box-shadow: none;
 }
 
 [data-admin-spectator-canvas] {
@@ -266,20 +303,48 @@ section:has([data-admin-players]) th {
 
 section:has([data-admin-map]) {
   display: grid !important;
-  grid-template-columns: minmax(560px, 1.5fr) minmax(330px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start !important;
   gap: 14px !important;
 }
 
-section:has([data-admin-map]) > h1,
-section:has([data-admin-map]) > div:not([data-admin-catalog]) {
-  grid-column: 1 / -1;
+[data-admin-map-workspace] {
+  display: grid;
+  grid-template-columns: minmax(164px, 210px) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 14px;
+  min-width: 0;
+}
+
+[data-admin-map-controls] {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+[data-admin-map-control-group] {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgb(75 99 129 / 72%);
+  border-radius: 8px;
+  background: rgb(7 13 22 / 32%);
+}
+
+[data-admin-map-control-group] > button,
+[data-admin-map-control-group] > select,
+[data-admin-map-control-group] > input {
+  width: 100%;
+}
+
+[data-admin-map-help] {
+  margin: 2px 1px 0 !important;
+  font-size: 12px;
 }
 
 [data-admin-map] {
-  grid-column: 1;
   width: 100% !important;
-  max-width: none !important;
+  max-width: 1040px !important;
   min-height: 0 !important;
   aspect-ratio: 5 / 3;
   border: 1px solid var(--admin-border-bright) !important;
@@ -290,15 +355,17 @@ section:has([data-admin-map]) > div:not([data-admin-catalog]) {
 }
 
 [data-admin-catalog] {
-  grid-column: 2;
-  max-height: none !important;
-  height: min(480px, 55vh);
-  padding: 4px 8px 4px 4px !important;
+  grid-column: 1;
+  width: 100%;
+  max-height: min(520px, 52vh) !important;
+  height: auto !important;
+  padding: 3px 4px 3px 0 !important;
   scrollbar-color: var(--admin-border-bright) transparent;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)) !important;
 }
 
 [data-admin-catalog-card] {
-  min-height: 76px;
+  min-height: 94px;
   text-align: left;
 }
 
@@ -334,7 +401,7 @@ section:has([data-admin-debug-flag]) label:has(input:checked) {
 
 @media (max-width: 980px) {
   [data-admin-player-observer],
-  section:has([data-admin-map]) {
+  [data-admin-map-workspace] {
     grid-template-columns: 1fr;
   }
 
@@ -342,7 +409,6 @@ section:has([data-admin-debug-flag]) label:has(input:checked) {
   [data-admin-player-details],
   [data-admin-player-actions],
   [data-admin-spectator-viewer],
-  [data-admin-map],
   [data-admin-catalog] {
     grid-column: 1;
   }
@@ -352,7 +418,7 @@ section:has([data-admin-debug-flag]) label:has(input:checked) {
   }
 
   [data-admin-catalog] {
-    height: 360px;
+    max-height: 420px !important;
   }
 }
 
@@ -380,5 +446,17 @@ section:has([data-admin-debug-flag]) label:has(input:checked) {
 
   section:has([data-admin-players]) table {
     min-width: 720px;
+  }
+
+  [data-admin-player-actions] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-admin-map-controls] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-admin-map-help] {
+    grid-column: 1 / -1;
   }
 }

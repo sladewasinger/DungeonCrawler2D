@@ -41,7 +41,7 @@ export class AdminPage {
     this.connection.onConnected = () => this.resumeStoredSession();
     this.connection.onAdminAuth = (ok) => this.renderAuth(ok);
     this.connection.onAdminState = () => this.renderState();
-    this.connection.onAdminObserverState = () => this.playerObserver.render();
+    this.connection.onAdminObserverState = () => this.renderObserverState();
     this.connection.onAdminCommandResult = (result) => renderAdminCommandResult(this.view, result);
     this.view.login.addEventListener("click", () => this.authenticate());
     this.view.root.addEventListener("click", (event) => this.handleClick(event));
@@ -54,6 +54,8 @@ export class AdminPage {
   }
 
   stop(): void {
+    this.spawnPlacement.dispose();
+    this.surface.dispose();
     this.connection.disconnect();
   }
 
@@ -82,16 +84,29 @@ export class AdminPage {
     const control = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-admin-action]");
     const action = control?.dataset.adminAction;
     if (action) return this.sendAction(action, control.dataset.playerId);
-    if (this.playerObserver.select(event.target)) this.renderState();
+    if (this.playerObserver.select(event.target)) {
+      this.spawnPlacement.followPlayer(this.playerObserver.selectedPlayer());
+      this.renderState();
+    }
   }
 
   private handlePlayerKey(event: KeyboardEvent): void {
-    if (this.playerObserver.selectFromKey(event)) this.renderState();
+    if (!this.playerObserver.selectFromKey(event)) return;
+    this.spawnPlacement.followPlayer(this.playerObserver.selectedPlayer());
+    this.renderState();
   }
 
   private sendAction(action: string, playerId?: string): void {
     if (action === "inspect-map") {
       this.spawnPlacement.inspectCurrentMap();
+      return;
+    }
+    if (action === "map-center-selected") {
+      this.spawnPlacement.followPlayer(this.playerObserver.selectedPlayer());
+      return;
+    }
+    if (action === "map-free-camera") {
+      this.spawnPlacement.freeCamera();
       return;
     }
     const command = commandForAdminAction(action, playerId);
@@ -107,6 +122,7 @@ export class AdminPage {
     this.view.status.textContent = ok
       ? `Authenticated · ${this.connection.adminCapabilities.join(", ") || "no capabilities"}`
       : "Authentication failed.";
+    if (ok) this.spawnPlacement.inspectDefaultMap();
     this.renderState();
   }
 
@@ -115,5 +131,10 @@ export class AdminPage {
     this.spawnPlacement.render();
     this.surface.setInteractionEnabled(this.connection.adminAuthenticated);
     this.surface.setMap(this.connection.adminMap);
+  }
+
+  private renderObserverState(): void {
+    this.playerObserver.render();
+    this.spawnPlacement.refreshFollow();
   }
 }

@@ -13,7 +13,10 @@ import { PlayerStore } from "../../../store.js";
 import { createAdminSession } from "../access/authorization.js";
 import { MemoryAdminAuditSink } from "../audit.js";
 import { AdminController } from "../controller.js";
-import { newSpectatorSession } from "../spectator/spectatorSession.js";
+import {
+  newSpectatorSession,
+  trackSpectator,
+} from "../spectator/spectatorSession.js";
 import { AdminStateSubscriptions } from "./adminStateSubscriptions.js";
 import type { ConnState } from "../../types.js";
 
@@ -37,6 +40,19 @@ describe("admin state subscriptions", () => {
       y: expected.y,
       level: "dungeon",
     }));
+  });
+
+  it("encodes a tracked spectator map in the spawn room beyond 100,000 tiles", () => {
+    const runtime = adminRuntime();
+    const joined = runtime.floors.base.addPlayer({ name: "Spawn crawler", clientId: "spawn-map-client" });
+    const spectator = newSpectatorSession();
+    trackSpectator(spectator, joined.playerId);
+
+    const state = runtime.controller.observerState(spectator);
+    const encoded = decodeServerMessage(JSON.stringify(state));
+
+    expect(state.spectatorMap?.center.y).toBeGreaterThan(100_000);
+    expect(encoded).toEqual(state);
   });
 });
 

@@ -4,11 +4,7 @@ import { cell } from "../adminPagePrimitives.js";
 export function renderAdminPlayers(
   input: AdminPlayerTableInput,
 ): void {
-  input.playersElement.replaceChildren(...input.players.map((player) => playerRow({
-    player,
-    authenticated: input.authenticated,
-    selectedPlayerId: input.selectedPlayerId,
-  })));
+  playerTable(input.playersElement).render(input);
 }
 
 export interface AdminPlayerTableInput {
@@ -24,20 +20,113 @@ interface PlayerRowInput {
   readonly selectedPlayerId: string | null;
 }
 
-function playerRow(input: PlayerRowInput): HTMLTableRowElement {
-  const { player, authenticated, selectedPlayerId } = input;
+interface PlayerRow {
+  readonly element: HTMLTableRowElement;
+  readonly identity: HTMLTableCellElement;
+  readonly location: HTMLTableCellElement;
+  readonly status: HTMLTableCellElement;
+}
+
+class AdminPlayerTable {
+  private readonly rows = new Map<string, PlayerRow>();
+
+  constructor(private readonly element: HTMLTableSectionElement) {}
+
+  render(input: AdminPlayerTableInput): void {
+    const playerIds = input.players.map((player) => player.playerId);
+    this.removeDisconnectedRows(playerIds);
+    for (const player of input.players) {
+      const row = this.rows.get(player.playerId) ?? this.createRow(player.playerId);
+      updatePlayerRow(row, {
+        player,
+        authenticated: input.authenticated,
+        selectedPlayerId: input.selectedPlayerId,
+      });
+    }
+    this.reorderOnlyWhenNeeded(playerIds);
+  }
+
+  private createRow(playerId: string): PlayerRow {
+    const row = playerRow(playerId);
+    this.rows.set(playerId, row);
+    return row;
+  }
+
+  private removeDisconnectedRows(playerIds: readonly string[]): void {
+    const connected = new Set(playerIds);
+    for (const [playerId, row] of this.rows) {
+      if (connected.has(playerId)) continue;
+      row.element.remove();
+      this.rows.delete(playerId);
+    }
+  }
+
+  private reorderOnlyWhenNeeded(playerIds: readonly string[]): void {
+    if (samePlayerOrder(this.element, playerIds)) return;
+    for (const [index, playerId] of playerIds.entries()) {
+      const row = this.rows.get(playerId)!.element;
+      if (this.element.children[index] === row) continue;
+      this.element.insertBefore(row, this.element.children[index] ?? null);
+    }
+  }
+}
+
+const PLAYER_TABLES = new WeakMap<HTMLTableSectionElement, AdminPlayerTable>();
+
+function playerTable(element: HTMLTableSectionElement): AdminPlayerTable {
+  let table = PLAYER_TABLES.get(element);
+  if (!table) {
+    table = new AdminPlayerTable(element);
+    PLAYER_TABLES.set(element, table);
+  }
+  return table;
+}
+
+function playerRow(playerId: string): PlayerRow {
   const row = document.createElement("tr");
+  const identity = cell("");
+  const location = cell("");
+  const status = cell("");
   row.dataset.adminPlayerSelect = "";
-  row.dataset.playerId = player.playerId;
-  row.dataset.selected = String(player.playerId === selectedPlayerId);
-  row.tabIndex = authenticated ? 0 : -1;
-  row.setAttribute("aria-selected", String(player.playerId === selectedPlayerId));
-  row.append(
-    cell(playerIdentity(player)),
-    cell(positionText(player)),
-    cell(statusText(player)),
+  row.dataset.playerId = playerId;
+  row.append(identity, location, status);
+  return { element: row, identity, location, status };
+}
+
+function updatePlayerRow(row: PlayerRow, input: PlayerRowInput): void {
+  const selected = input.player.playerId === input.selectedPlayerId;
+  updateText(row.identity, playerIdentity(input.player));
+  updateText(row.location, positionText(input.player));
+  updateText(row.status, statusText(input.player));
+  updateRowSelection(row.element, selected, input.authenticated);
+}
+
+function updateText(element: HTMLElement, value: string): void {
+  if (element.textContent !== value) element.textContent = value;
+}
+
+function updateRowSelection(
+  row: HTMLTableRowElement,
+  selected: boolean,
+  authenticated: boolean,
+): void {
+  const selectedValue = String(selected);
+  const tabIndex = authenticated ? 0 : -1;
+  if (row.dataset.selected !== selectedValue) row.dataset.selected = selectedValue;
+  if (row.tabIndex !== tabIndex) row.tabIndex = tabIndex;
+  if (row.getAttribute("aria-selected") !== selectedValue) {
+    row.setAttribute("aria-selected", selectedValue);
+  }
+}
+
+function samePlayerOrder(
+  element: HTMLTableSectionElement,
+  playerIds: readonly string[],
+): boolean {
+  if (element.children.length !== playerIds.length) return false;
+  return playerIds.every(
+    (playerId, index) => element.children[index]?.getAttribute("data-player-id") === playerId,
   );
-  return row;
 }
 
 function playerIdentity(player: AdminPlayer): string {

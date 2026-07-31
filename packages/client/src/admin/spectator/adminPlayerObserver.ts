@@ -1,6 +1,9 @@
 import type { AdminMap, AdminPlayer } from "@dc2d/engine";
 import { text, title } from "../adminPagePrimitives.js";
-import { appendSpectatorControls, renderAdminPlayerActions } from "./adminPlayerActions.js";
+import {
+  clearAdminPlayerActions,
+  renderAdminPlayerActions,
+} from "./adminPlayerActions.js";
 import { createLiveSpectatorAssets, type LiveSpectatorAssets } from "./liveSpectatorAssets.js";
 import { renderLiveSpectatorMap } from "./liveSpectatorRenderer.js";
 
@@ -52,6 +55,7 @@ function createElements(): ObserverElements {
   viewer.dataset.adminSpectatorViewer = "";
   const liveStatus = text("Not spectating");
   liveStatus.dataset.adminSpectatorStatus = "";
+  liveStatus.setAttribute("aria-live", "polite");
   const canvas = document.createElement("canvas");
   canvas.width = 504;
   canvas.height = 504;
@@ -74,27 +78,32 @@ interface RenderObserverInput {
 }
 
 function renderObserver({ elements, assets, input }: RenderObserverInput): void {
+  if (!input.player) return renderEmpty({ elements, assets });
   const tracking = isTracking(input);
-  elements.root.hidden = input.player === null;
-  if (!input.player) return renderEmpty(elements);
   elements.heading.textContent = input.player.name;
   elements.details.textContent = playerSummary(input.player);
   renderAdminPlayerActions({ actions: elements.actions, player: input.player, authenticated: input.authenticated, tracking });
   renderLiveViewer({ elements, assets, input, tracking });
 }
 
-function renderEmpty(elements: ObserverElements): void {
-  elements.actions.replaceChildren();
-  elements.viewer.hidden = true;
+function renderEmpty(input: Pick<RenderObserverInput, "elements" | "assets">): void {
+  const { elements, assets } = input;
+  elements.heading.textContent = "Player controls";
+  elements.details.textContent = "Select a connected player to manage their session or start a spectator camera.";
+  clearAdminPlayerActions(elements.actions);
+  elements.viewer.dataset.live = "false";
+  elements.liveStatus.textContent = "Camera idle · select a player to begin";
+  drawLiveFrame({ canvas: elements.canvas, assets, frame: { map: null, targetId: null } });
 }
 
 function renderLiveViewer(input: RenderObserverInput & { readonly tracking: boolean }): void {
   const { elements, assets, tracking } = input;
-  elements.viewer.hidden = !tracking;
-  if (!tracking) return;
-  elements.liveStatus.textContent = liveStatus(input.input.player!, input.input.spectatorMap);
-  drawLiveFrame({ canvas: elements.canvas, assets, frame: frameFromObserver(input.input) });
-  appendSpectatorControls(elements.actions, input.input.authenticated);
+  elements.viewer.dataset.live = String(tracking);
+  elements.liveStatus.textContent = tracking
+    ? liveStatus(input.input.player!, input.input.spectatorMap)
+    : "Camera idle · use Spectate player to begin";
+  const frame = tracking ? frameFromObserver(input.input) : { map: null, targetId: null };
+  drawLiveFrame({ canvas: elements.canvas, assets, frame });
 }
 
 function isTracking(input: AdminPlayerObserverRenderInput): boolean {

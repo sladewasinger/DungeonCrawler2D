@@ -1,4 +1,7 @@
-import type { AdminCommand } from "@dc2d/engine";
+import {
+  ADMIN_WORLD_COORDINATE_LIMIT,
+  type AdminCommand,
+} from "@dc2d/engine";
 
 export function isAdminChatCommand(text: string): boolean {
   return text.trim().toLowerCase().startsWith("/admin");
@@ -96,7 +99,7 @@ function map([level, floorText, xText, yText, radiusText, ...rest]: string[]): A
 
 function validMapInput(input: MapInput): input is ValidMapInput {
   return levelIsValid(input.level) && input.rest.length === 0 && Number.isInteger(input.floor) && boundedNumber(input.floor, 1, 64) &&
-    boundedNumber(input.x, -100000, 100000) && boundedNumber(input.y, -100000, 100000) && Number.isInteger(input.radius) && boundedNumber(input.radius, 4, 16);
+    worldCoordinate(input.x) && worldCoordinate(input.y) && Number.isInteger(input.radius) && boundedNumber(input.radius, 4, 16);
 }
 
 function spawn([kind, defId, xText, yText, level, floorText, ...rest]: string[]): AdminCommand | null {
@@ -111,7 +114,7 @@ interface ValidSpawnInput { kind: "enemy" | "item" | "weapon"; defId: string; x:
 
 function validSpawnInput(input: SpawnInput): input is ValidSpawnInput {
   return isSpawnKind(input.kind) && Boolean(input.defId) && levelIsValid(input.level) && input.rest.length === 0 &&
-    boundedNumber(input.x, -100000, 100000) && boundedNumber(input.y, -100000, 100000) && Number.isInteger(input.floor) && boundedNumber(input.floor, 1, 64);
+    worldCoordinate(input.x) && worldCoordinate(input.y) && Number.isInteger(input.floor) && boundedNumber(input.floor, 1, 64);
 }
 
 function levelIsValid(value: string | undefined): value is "dungeon" | "sandbox" {
@@ -124,4 +127,8 @@ function isSpawnKind(value: string | undefined): value is "enemy" | "item" | "we
 
 function boundedNumber(value: number, min: number, max: number): boolean {
   return Number.isFinite(value) && value >= min && value <= max;
+}
+
+function worldCoordinate(value: number): boolean {
+  return boundedNumber(value, -ADMIN_WORLD_COORDINATE_LIMIT, ADMIN_WORLD_COORDINATE_LIMIT);
 }

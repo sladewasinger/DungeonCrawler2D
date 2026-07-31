@@ -4,8 +4,21 @@ import { debugFlagsSchema } from "../../debug/debugFlags.js";
 const playerTarget = z.string().min(1).max(64);
 const destination = z.enum(["spawn", "safeRoom", "self", "player"]);
 const level = z.enum(["dungeon", "sandbox"]);
-const coordinate = z.number().finite().min(-100000).max(100000);
-const tileCoordinate = z.number().finite().int().min(-100000).max(100000);
+/**
+ * Reserved rooms live beyond the ordinary dungeon play area: the shared spawn
+ * room is currently at y=131,072. Keep the admin protocol finite without
+ * rejecting legitimate map views, player locations, or tile centers there.
+ */
+export const ADMIN_WORLD_COORDINATE_LIMIT = 1_000_000;
+const coordinate = z.number()
+  .finite()
+  .min(-ADMIN_WORLD_COORDINATE_LIMIT)
+  .max(ADMIN_WORLD_COORDINATE_LIMIT);
+const tileCoordinate = z.number()
+  .finite()
+  .int()
+  .min(-ADMIN_WORLD_COORDINATE_LIMIT)
+  .max(ADMIN_WORLD_COORDINATE_LIMIT);
 const entityId = z.string().min(1).max(64);
 const directionSchema = z.object({ x: z.number().finite(), y: z.number().finite() }).strict();
 const debugPointSchema = z.object({ x: coordinate, y: coordinate, z: z.number().finite() }).strict();

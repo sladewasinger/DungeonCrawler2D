@@ -1,14 +1,14 @@
-import {
-  createDebugFlags,
-  type AdminMap,
-  type DebugFlags,
-} from "@dc2d/engine";
+import { createDebugFlags, type AdminMap, type DebugFlags } from "@dc2d/engine";
 import {
   adminMapPointerWorldPoint,
   adminMapPointerCanvasPoint,
-  moveAdminMapCenter,
+  adminMapLocationChanged,
+  adminMapTileCenter,
+  panAdminMapCenter,
   type AdminMapCenter,
 } from "./map/adminMapCamera.js";
+import { AdminMapCanvasInteractions } from "./map/camera/adminMapCanvasInteractions.js";
+import { AdminMapKeyboardPan } from "./map/camera/adminMapKeyboardPan.js";
 import { deletableAdminEntityAt } from "./map/adminMapEntityHitTest.js";
 import { renderAdminMap } from "./map/adminMapRenderer.js";
 
@@ -31,15 +31,24 @@ export class AdminSpectatorSurface {
   private selection: AdminSpawnSelection = { kind: "enemy", defId: "" };
   private debugFlags: DebugFlags = createDebugFlags();
   private interactionEnabled = false;
+  private readonly canvasInteractions: AdminMapCanvasInteractions;
+  private readonly keyboardPan: AdminMapKeyboardPan;
 
   constructor(private readonly options: AdminSpectatorSurfaceOptions) {
     this.context = options.canvas.getContext("2d")!;
     options.canvas.tabIndex = 0;
-    options.canvas.addEventListener("keydown", (event) => this.handleKey(event));
-    options.canvas.addEventListener("click", (event) => this.handleClick(event));
-    options.canvas.addEventListener("contextmenu", (event) => this.handleContextMenu(event));
-    options.canvas.addEventListener("mousemove", (event) => this.updateCursor(event));
-    options.canvas.addEventListener("mouseleave", () => this.updateCursor());
+    this.keyboardPan = new AdminMapKeyboardPan({
+      canvas: options.canvas,
+      onPan: (direction, elapsedMs) => this.pan(direction, elapsedMs),
+    });
+    this.canvasInteractions = new AdminMapCanvasInteractions({
+      canvas: options.canvas,
+      click: (event) => this.handleClick(event),
+      contextMenu: (event) => this.handleContextMenu(event),
+      mouseMove: (event) => this.updateCursor(event),
+      mouseLeave: () => this.updateCursor(),
+      pointerDown: () => options.canvas.focus(),
+    });
     this.draw();
   }
 
@@ -54,10 +63,25 @@ export class AdminSpectatorSurface {
   }
 
   setMap(map: AdminMap | null): void {
+    const shouldCenter = adminMapLocationChanged(this.map, map);
     this.map = map;
-    if (map) this.cameraCenter = { ...map.center };
+    if (map && shouldCenter) this.cameraCenter = adminMapTileCenter(map.center);
     this.updateCursor();
     this.draw();
+  }
+
+  get center(): AdminMapCenter {
+    return this.cameraCenter;
+  }
+
+  focus(center: AdminMapCenter): void {
+    this.cameraCenter = adminMapTileCenter(center);
+    this.draw();
+  }
+
+  dispose(): void {
+    this.canvasInteractions.dispose();
+    this.keyboardPan.dispose();
   }
 
   setDebugFlags(flags: DebugFlags): void {
@@ -65,11 +89,13 @@ export class AdminSpectatorSurface {
     this.draw();
   }
 
-  private handleKey(event: KeyboardEvent): void {
-    const direction = directionForKey(event.key);
-    if (!direction) return;
-    event.preventDefault();
-    this.cameraCenter = moveAdminMapCenter(this.cameraCenter, direction);
+  private pan(direction: AdminMapCenter, elapsedMs: number): void {
+    this.cameraCenter = panAdminMapCenter({
+      center: this.cameraCenter,
+      direction,
+      elapsedMs,
+      tilesPerSecond: 6,
+    });
     this.draw();
     this.options.onCameraMove(this.cameraCenter.x, this.cameraCenter.y);
   }
@@ -118,21 +144,7 @@ export class AdminSpectatorSurface {
       map: this.map,
       center: this.cameraCenter,
       debugFlags: this.debugFlags,
+      unavailableMessage: this.interactionEnabled ? "Loading map…" : "Authenticate to load the map",
     });
   }
-}
-
-const DIRECTIONS: Readonly<Record<string, AdminMapCenter>> = {
-  ArrowLeft: { x: -1, y: 0 },
-  ArrowRight: { x: 1, y: 0 },
-  ArrowUp: { x: 0, y: -1 },
-  ArrowDown: { x: 0, y: 1 },
-  a: { x: -1, y: 0 },
-  d: { x: 1, y: 0 },
-  w: { x: 0, y: -1 },
-  s: { x: 0, y: 1 },
-};
-
-function directionForKey(key: string): AdminMapCenter | null {
-  return DIRECTIONS[key] ?? DIRECTIONS[key.toLowerCase()] ?? null;
 }

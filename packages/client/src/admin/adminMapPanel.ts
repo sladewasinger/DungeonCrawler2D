@@ -17,36 +17,84 @@ export interface AdminMapPanel {
 }
 
 export function mapPanel(): AdminMapPanel {
-  const section = panel("Spawn / map contract");
+  const section = panel("World map & spawn");
+  const map = mapCanvas();
+  const workspace = document.createElement("div");
+  workspace.dataset.adminMapWorkspace = "";
+  const controls = mapControls();
+  const catalog = createAdminSpawnCatalog();
+  workspace.append(controls.root, map);
+  section.append(workspace, catalog.root);
+  return {
+    root: section,
+    map,
+    catalog,
+    mapLevel: controls.mapLevel,
+    mapFloor: controls.mapFloor,
+    spawnKind: controls.spawnKind,
+    spawnDef: controls.spawnDef,
+  };
+}
+
+function mapCanvas(): HTMLCanvasElement {
   const map = document.createElement("canvas");
   map.width = 800;
   map.height = 480;
   map.tabIndex = 0;
-  map.style.cssText = "width:100%;max-width:800px;min-height:320px;border:1px solid #394152;image-rendering:pixelated;outline:none";
   map.dataset.adminMap = "";
-  const tools = document.createElement("div");
-  tools.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%";
+  map.setAttribute("aria-label", "World map and spawn placement canvas");
+  return map;
+}
+
+interface MapControls {
+  readonly root: HTMLElement;
+  readonly mapLevel: HTMLSelectElement;
+  readonly mapFloor: HTMLInputElement;
+  readonly spawnKind: HTMLSelectElement;
+  readonly spawnDef: HTMLSelectElement;
+}
+
+function mapControls(): MapControls {
+  const root = document.createElement("div");
+  root.dataset.adminMapControls = "";
   const mapLevel = select("Map level", "adminMapLevel", ["dungeon", "sandbox"]);
-  const mapFloor = document.createElement("input");
-  mapFloor.type = "number";
-  mapFloor.min = "1";
-  mapFloor.max = "64";
-  mapFloor.value = "1";
-  mapFloor.title = "Map floor";
-  mapFloor.dataset.adminMapFloor = "";
+  const mapFloor = mapFloorInput();
   const spawnKind = select("Spawn kind", "adminSpawnKind", ["enemy", "item", "weapon"]);
   const spawnDef = select("Definition", "adminSpawnDef", []);
-  const catalog = createAdminSpawnCatalog();
-  tools.append(
-    mapLevel,
-    mapFloor,
-    actionButton("Inspect", "inspect-map"),
-    spawnKind,
-    spawnDef,
-    text("Select a card, then click a walkable cell to place it. Right-click an enemy or weapon marker to remove it. Arrow/WASD moves the map."),
-  );
-  section.append(map, tools, catalog.root);
-  return { root: section, map, mapLevel, mapFloor, spawnKind, spawnDef, catalog };
+  root.append(...mapControlContent({ mapLevel, mapFloor, spawnKind, spawnDef }));
+  return { root, mapLevel, mapFloor, spawnKind, spawnDef };
+}
+
+function mapFloorInput(): HTMLInputElement {
+  const floor = document.createElement("input");
+  floor.type = "number";
+  floor.min = "1";
+  floor.max = "64";
+  floor.value = "1";
+  floor.title = "Map floor";
+  floor.dataset.adminMapFloor = "";
+  return floor;
+}
+
+function mapControlContent(controls: Omit<MapControls, "root">): readonly HTMLElement[] {
+  const help = text("Select a card, then click a walkable cell to place it. Right-click an enemy or weapon marker to remove it. Hold Arrow keys or WASD to pan the map.");
+  help.dataset.adminMapHelp = "";
+  return [
+    controlGroup("Map", controls.mapLevel, controls.mapFloor, actionButton("Load map", "inspect-map")),
+    controlGroup("Camera", actionButton("Center selected", "map-center-selected"), actionButton("Free pan", "map-free-camera")),
+    controlGroup("Spawn", controls.spawnKind, controls.spawnDef),
+    help,
+  ];
+}
+
+function controlGroup(label: string, ...controls: HTMLElement[]): HTMLElement {
+  const group = document.createElement("section");
+  group.dataset.adminMapControlGroup = "";
+  const heading = document.createElement("h2");
+  heading.textContent = label;
+  group.setAttribute("aria-label", label);
+  group.append(heading, ...controls);
+  return group;
 }
 
 function select(label: string, key: AdminSelectDataKey, values: readonly string[]): HTMLSelectElement {
@@ -66,7 +114,6 @@ function option(value: string): HTMLOptionElement {
 
 function panel(label: string): HTMLElement {
   const section = document.createElement("section");
-  section.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px;background:#1b1f2a;border:1px solid #394152;border-radius:6px";
   section.append(title(label));
   return section;
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AdminPlayerSelection } from "./adminPlayerSelection.js";
 
 describe("admin player selection", () => {
-  it("keeps the selected player separate from the spectator target until tracking starts", () => {
+  it("keeps a selected player separate from the tracked spectator target", () => {
     const selection = new AdminPlayerSelection();
     const players = [player("one"), player("two")];
     selection.select("two");
@@ -12,6 +12,15 @@ describe("admin player selection", () => {
     expect(selection.selectedPlayerId).toBe("two");
 
     selection.sync({ players, spectatorMode: "track", spectatorTargetId: "one" });
+    expect(selection.selectedPlayerId).toBe("two");
+  });
+
+  it("selects the tracked player only when no player is already selected", () => {
+    const selection = new AdminPlayerSelection();
+    const players = [player("one"), player("two")];
+
+    selection.sync({ players, spectatorMode: "track", spectatorTargetId: "one" });
+
     expect(selection.selectedPlayerId).toBe("one");
   });
 

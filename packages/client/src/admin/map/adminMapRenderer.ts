@@ -8,12 +8,13 @@ export interface AdminMapRenderInput {
   readonly map: AdminMap | null;
   readonly center: AdminMapCenter;
   readonly debugFlags: DebugFlags;
+  readonly unavailableMessage: string;
 }
 
 export function renderAdminMap(input: AdminMapRenderInput): void {
   clearCanvas(input.context);
   const map = input.map;
-  if (!map) return drawUnavailable(input.context);
+  if (!map) return drawUnavailable(input.context, input.unavailableMessage);
   const mapInput = { ...input, map };
   drawAdminMapCells(mapInput);
   drawAdminMapEntities(mapInput);
@@ -25,9 +26,9 @@ function clearCanvas(context: CanvasRenderingContext2D): void {
   context.fillRect(0, 0, context.canvas.width, context.canvas.height);
 }
 
-function drawUnavailable(context: CanvasRenderingContext2D): void {
+function drawUnavailable(context: CanvasRenderingContext2D, message: string): void {
   context.fillStyle = "#aeb7c9";
-  context.fillText("Authenticate to inspect the map", 20, 30);
+  context.fillText(message, 20, 30);
 }
 
 function drawCenter(context: CanvasRenderingContext2D): void {

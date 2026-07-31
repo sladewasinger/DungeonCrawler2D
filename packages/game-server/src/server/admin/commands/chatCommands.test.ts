@@ -12,6 +12,15 @@ describe("admin gameplay chat commands", () => {
     });
   });
 
+  it("accepts shared spawn-room coordinates for map and spawn commands", () => {
+    expect(parseAdminChatCommand("/admin map dungeon 1 -52.5 131087.5 10")).toEqual({
+      op: "map", level: "dungeon", floor: 1, x: -52.5, y: 131087.5, radius: 10,
+    });
+    expect(parseAdminChatCommand("/admin spawn enemy slime -52.5 131087.5 dungeon 1")).toEqual({
+      op: "spawn", kind: "enemy", defId: "slime", x: -52.5, y: 131087.5, level: "dungeon", floor: 1,
+    });
+  });
+
   it("rejects malformed or unbounded commands", () => {
     expect(parseAdminChatCommand("/admin kill player-1 extra")).toBeNull();
     expect(parseAdminChatCommand("/admin map dungeon 2 10 10 99")).toBeNull();
