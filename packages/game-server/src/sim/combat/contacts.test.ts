@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { doFistbump, doWho, expireFistbumpOffers, withinRateLimit } from "./contacts.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 /** Unit tests for fistbump mutual-contact handshake, /who, and the shared rate-limit helper. */
 
@@ -48,6 +49,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,

@@ -79,8 +79,7 @@ function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
   if (target && !beginElementalEnemyAttack({ sim, enemy, target })) {
     launchSpit({
       sim,
-      entity: enemy.entity,
-      tags: enemy.def.tags,
+      enemy,
       target,
     });
   }

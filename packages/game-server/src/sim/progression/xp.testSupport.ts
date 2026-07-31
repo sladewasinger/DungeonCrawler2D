@@ -4,6 +4,7 @@ import {
 } from "@dc2d/engine";
 import { PlayerStore } from "../../store.js";
 import { createSimState, type EnemySlot, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 const emptyContent: RawContent = { statuses: [], rules: [], areas: [], items: [], enemies: [], recipes: [] };
 
@@ -31,7 +32,7 @@ export function makeSlot(name: string, x: number, y: number): PlayerSlot {
     reapAtTick: Number.MAX_SAFE_INTEGER, known: new Set<string>(), inventory: [], hotbar: [], weapon: null,
     outbox: [], returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: true,
     downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: Number.NEGATIVE_INFINITY,
-    god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
+    god: false, ...adminTestPlayerState(), forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
     spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }

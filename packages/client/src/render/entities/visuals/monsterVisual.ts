@@ -6,7 +6,7 @@ import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { resolveAnimState, telegraphScale } from "../motion/animState.js";
 import { createHpBar, HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "../presentation/hpBar.js";
 import { resolveHpBarVisibility } from "../presentation/hpBarVisibility.js";
-import { flashIntensity, tookDamage } from "../combat/hitFlash.js";
+import { flashIntensity, tookDamage } from "../combat/feedback/hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
 import { createNameplate, LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "../presentation/nameplate.js";
 import { createShadow, updateShadowPosition } from "../geometry/shadow.js";
@@ -15,7 +15,7 @@ import {
   applyCombatantTint,
   resolveCombatantTint,
   resolveCombatantTintLayer,
-} from "../combat/statusTint.js";
+} from "../combat/status/statusTint.js";
 import type { MonsterEntityView, RenderContext } from "./view.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
 

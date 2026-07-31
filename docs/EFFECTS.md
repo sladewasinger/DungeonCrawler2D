@@ -1,92 +1,128 @@
 # Effects System Design
 
-The effects engine is the foundation the whole game — and especially AI crafting — stands on. Its job: make "what an item/effect *does*" expressible entirely as data, so new effects (including AI-proposed ones) require zero new code.
+The effects engine is the foundation the whole game—and especially AI
+crafting—stands on. Its job is to make what an item or effect does expressible
+as validated content wherever the current game supports that safely, while
+keeping world authority and physics in the systems that own them.
 
-**Multiplayer note:** effects are simulated exclusively on the game server as part of the authoritative tick (see [ARCHITECTURE.md](ARCHITECTURE.md)). Clients receive effect events (`EffectApplied`, `AreaSpawned`, `EntityTransformed`…) within their area of interest and render them — they never compute outcomes. Every observer sees the same fire spread identically, and no client can cheat a debuff away — which matters double in PvP.
+This document has two deliberate halves:
 
-**Safe rooms are this system, not a special case:** safe-room tiles carry a `sanctuary` zone tag ([GAME_DESIGN.md](GAME_DESIGN.md)), and one interaction rule suppresses hostile primitives (negative `modify_health`, debuff `apply_status`, hostile `spawn_area`/`spread`) for anything inside — fire dies at the threshold, PvP damage zeroes out, healing still works.
+- **Implemented contract** describes the APIs and content formats that exist
+  today and are safe for game code and content authors to use.
+- **Planned extensions** preserves the larger design: more composable
+  primitives, richer AI-authored effects, and more vertical interactions.
+  These ideas are not production capabilities until they move into the first
+  section and acquire code, validation, and tests.
 
-## Three layers
+## Implemented contract
 
-1. **Effect primitives** — the only layer implemented in code. Small, orthogonal, heavily tested verbs.
-2. **Status effects & area effects** — data files composing primitives with parameters, duration, stacking, channels, and tags.
-3. **Interaction rules** — validated, deterministic reactions between tags (`fire` + `wet` ⇒ extinguish).
+### Authoritative model
 
-The AI (and human content authors) only ever touch layers 2–3 vocabulary; they cannot invent a primitive.
+Effects are simulated on the game server as part of the authoritative tick
+(see [ARCHITECTURE.md](ARCHITECTURE.md)). The engine mutates authoritative
+entities and emits a small set of outcome events—health changes, status
+changes, deaths, entity destruction, and area spawns. The server realizes
+world-level events and replicates the result. Clients render snapshots and
+events; they do not decide whether damage, debuffs, or area reactions happen.
 
-## Layer 1 — Effect primitives (code)
+The engine has no direct world-mutation authority. For example,
+`spawn_area` emits an event and the server's effects integration places the
+area through the authoritative `AreaSystem`.
 
-Initial catalog (expandable, but only by developers):
+### Three implemented layers
+
+1. **Effect primitives** — a closed vocabulary implemented in code.
+2. **Statuses and areas** — validated content definitions that compose those
+   primitives with durations, tags, stacking, channels, and source data.
+3. **Interaction rules** — validated content reactions between status tags or
+   compound area layers.
+
+The registry parses JSON into typed definitions and cross-checks references
+before the simulation starts. Unknown status, area, item, enemy, recipe, or
+reaction references are content errors, not runtime surprises.
+
+### Effect primitives
+
+The current primitive catalog is intentionally small:
 
 | Primitive | Parameters | Example use |
 | --- | --- | --- |
-| `modify_health` | amount, interval (per-tick or once) | bleeding (−2/2s), healing salve (+3/1s), instant damage |
-| `modify_stat` | stat, amount/multiplier, while-active | slow (speed ×0.6), strength buff |
-| `apply_status` | statusId, chance, target | poison blade: on-hit applies `poisoned` |
-| `add_tags` / `remove_tags` | tags | `wet` status adds the `wet` tag; drying removes it |
-| `spawn_area` | areaId, radius, at (self/impact) | molotov impact spawns `fire` area |
-| `spread` | radius, chance/tick, medium tags | fire spreads to adjacent `flammable` entities/tiles |
-| `transform_entity` | targetId, requires exposure time | raw meat + 10s fire exposure ⇒ cooked meat; 30s ⇒ char |
-| `destroy_entity` | delay/condition | charred item crumbles; bottle breaks on impact |
-| `spawn_entity` | entityId, count | breaking spawns shards; smoke spawns from fire |
-| `emit_event` | eventId | hooks for quests/audio/VFX |
+| `modify_health` | `amount` | bleeding damage, healing, instant damage |
+| `modify_stat` | `stat: "speed"`, `mult` | slowed, oiled, wet movement |
+| `apply_status` | `status`, optional `chance` | poison blade, fire contact |
+| `remove_status` | status tag | remove fire, wet, or oil statuses |
+| `spawn_area` | `area`, `radius` | create fire, wet, poison, or smoke |
+| `destroy_entity` | no additional parameters | destroy a burned item |
 
-Each primitive is a pure function `(state, params, target, dt) → state changes`, unit-tested in isolation.
+The primitive schema lives in
+`packages/engine/src/effects/primitives.ts`. Primitive execution is
+deliberately not presented as a pure `(state, params) → state` function: it
+uses explicit callbacks to mutate authoritative state and append outcome
+events. That keeps the engine decoupled from the server while preserving one
+authoritative result.
 
-## Layer 2 — Statuses & areas (data)
+`modify_stat` is currently a continuous speed multiplier and is evaluated while
+its owning status is active. It is not yet a general arbitrary-stat system.
+Area spreading, item burning, fall damage, and entity transformation are
+implemented by their owning systems around this primitive vocabulary rather
+than pretending to be primitives that the schema cannot execute.
 
-### Status effect schema (sketch)
+### Status effects
+
+Status definitions are data in
+`packages/content/src/data/statuses.json` and are validated by
+`packages/engine/src/effects/content/statuses.ts`.
+
+The current schema is:
 
 ```jsonc
-// content/effects/bleeding.json
 {
   "id": "bleeding",
   "name": "Bleeding",
   "kind": "debuff",
-  "tags": ["physical", "bleed"],
-  "duration": 8,               // seconds; null = until removed
-  "tick": 2,                   // run tick primitives every 2s
-  "stacking": "refresh",       // refresh | stack(max) | ignore
-  "onTick": [{ "primitive": "modify_health", "amount": -2 }],
-  "removedBy": ["heal-wounds", "bandaged"]
-}
-```
-
-```jsonc
-// content/effects/on-fire.json
-{
-  "id": "on-fire",
-  "name": "On Fire",
-  "kind": "debuff",
-  "tags": ["fire"],
-  "duration": 6,
-  "tick": 1,
+  "tags": ["bleed", "physical"],
+  "duration": 8,
+  "tickEvery": 2,
   "stacking": "refresh",
-  "appliesTags": ["burning"],
   "onTick": [
-    { "primitive": "modify_health", "amount": -3 },
-    { "primitive": "spread", "radius": 1, "chance": 0.25, "mediumTags": ["flammable"] }
-  ],
-  "exposure": [   // effects on the *bearer* accumulating over time
-    { "afterSeconds": 10, "ifTags": ["organic", "item"], "primitive": "transform_entity", "to": "charred-remains" },
-    { "afterSeconds": 6,  "ifTags": ["raw-food"],        "primitive": "transform_entity", "to": "{id}-cooked" }
+    { "primitive": "modify_health", "amount": -2 }
   ]
 }
 ```
 
-### Area effects
+Supported lifecycle hooks are `onApply`, `onRefresh`, `onTick`, and
+`onExpire`. `whileActive` currently accepts continuous stat modifiers.
+Statuses may add tags with `appliesTags`, and use `refresh`, `stack`, or
+`ignore` stacking behavior with a bounded `maxStacks` where applicable.
+
+The live status set is:
+
+- `bleeding`, `poisoned`, `on-fire`, `slowed`, `oiled`, and `wet`
+- `healing` and `regenerating`
+- `feather-fall` and `sticky-feet`
+
+Status application checks dead entities, sanctuary, spawn protection or other
+target invulnerability, and immunity tags. Damage can also be scaled by source
+tags through the server-provided target context. A general content-authored
+resistance object is not part of the current status schema.
+
+### Compound area effects
 
 Areas are authoritative tile cells. A cell may contain one layer in each
 explicit channel:
 
-- `surface`: water, oil, and other ground liquids
+- `surface`: water and oil
 - `flame`: fire and short-lived flame attacks
 - `gas`: poison, smoke, and steam
 
-Each layer retains its own duration, spread state, and source attribution. An
-incoming layer replaces a lower-priority layer in its channel, while equal or
-lower priority conflicts are rejected. The complete cell is replicated
-atomically, so burning oil remains oil plus fire—not a client-side illusion.
+Each layer retains duration, spread progress, channel priority, and optional
+source attribution. Different channels compose, so burning oil is represented
+as oil plus fire. Competing layers in the same channel are resolved by
+priority. Area placement requires a walkable tile, and hostile areas are
+blocked in sanctuary.
+
+The current area definitions are `area-fire`, `area-enemy-flame`, `area-wet`,
+`area-oil`, `area-poison`, `area-smoke`, and `area-steam`.
 
 ```jsonc
 {
@@ -94,7 +130,8 @@ atomically, so burning oil remains oil plus fire—not a client-side illusion.
   "tags": ["fire", "hostile"],
   "channel": "flame",
   "priority": 20,
-  "duration": 8,
+  "buoyancy": 0,
+  "duration": 12,
   "onEnterStatus": "on-fire",
   "spread": {
     "chance": 0.5,
@@ -105,85 +142,138 @@ atomically, so burning oil remains oil plus fire—not a client-side illusion.
 }
 ```
 
-Wet ground, poison clouds, oil slicks, smoke, and steam use the same bounded
-model. Height-aware buoyancy and spread parameters determine how they move.
+Spread is cardinal, bounded by `maxSteps`, and checked against walkability,
+height, buoyancy, and any required destination tag. The area engine can carry
+multiple channel layers, but it does not currently model arbitrary fluid
+simulation or continuous slopes.
 
-## Layer 3 — Interaction rules (data)
+### Interaction rules
 
-Area reactions live in `packages/content/src/data/areaReactions.json`. They are
-declarative, tag-based, order-independent, and sorted by priority then stable
-ID before evaluation:
+Area reactions live in
+`packages/content/src/data/areaReactions.json`. They use tags rather than
+hard-coded item IDs and are validated, priority-sorted, and resolved through a
+bounded transition process. Current examples include:
 
-```jsonc
-[
-  {
-    "id": "fire-burns-oil",
-    "priority": 20,
-    "when": ["fire", "oil"],
-    "actions": [
-      { "op": "rate_consume", "tag": "oil", "perSecond": 3 }
-    ]
-  },
-  {
-    "id": "fire-and-wet-become-steam",
-    "priority": 30,
-    "when": ["fire", "wet"],
-    "actions": [
-      { "op": "remove", "tag": "fire" },
-      { "op": "remove", "tag": "wet" },
-      { "op": "add", "area": "area-steam", "sourceFromTag": "fire" }
-    ]
-  }
-]
-```
+- fire consumes oil at an authored rate, allowing oil to remain visible while
+  it burns;
+- fire and wet become steam;
+- steam removes fire.
 
-Transition actions are planned and applied atomically. Continuous consumption
-uses an authored per-second rate, allowing oil to remain visible beneath fire
-until its own fuel timer expires. Invalid references, duplicate IDs, unsafe
-numeric bounds, and cyclic transitions are rejected during content loading.
-Channel conflicts reject the incoming runtime placement deterministically; a
-runtime transition cap remains a defense-in-depth guard.
+Area transition actions currently support `remove`, `add`, `transform`, and
+`rate_consume`. Runtime transitions are bounded and repeated compound states
+are rejected during validation.
 
-Rules reference **tags, never item IDs**. Every new tagged thing
-automatically participates in existing compatible rules.
+Entity status interactions are a related but separate mechanism. They use the
+content rules in `packages/content/src/data/rules.json`, currently applying
+simple tag matches such as burning plus wet removing fire and wet. Those rules
+run to a bounded fixpoint in authored order; they do not yet have the area
+reaction system's explicit priority and stable-ID ordering.
 
-## Stacking, resistance, immunity
+### Sanctuary and safe rooms
 
-- Stacking rule lives on the status (`refresh`, `stack` with max, `ignore`)
-- Entities can declare `immunities: ["bleed"]` (a slime) and `resistances: { "fire": 0.5 }`
-- Immunity/resistance are checked in `apply_status`, one place, so all content respects them
+Safe rooms are protected by the authoritative effects boundaries, but they are
+not represented by one universal data rule. The server supplies sanctuary and
+spawn-protection context to health, status, and area placement checks:
 
-## What the AI is allowed to do (preview of AI_CRAFTING.md)
+- hostile health damage is suppressed;
+- hostile debuffs are suppressed;
+- hostile area placement and spread are rejected;
+- healing and beneficial effects continue to work.
 
-An AI item proposal may only:
+This split is intentional: sanctuary is a world/gameplay predicate, while the
+effects engine owns the consistent enforcement points.
 
-- reference existing primitives, statuses, areas, tags, channels, and reaction
-  operations by ID
-- compose approved base effects within numeric and layer-count bounds
-- submit declarative JSON; it cannot provide executable code or invent a new
-  primitive
+### Verticality currently in production
 
-The validator rejects unknown references, duplicates, out-of-budget numbers,
-channel conflicts, and transition loops. A rejected proposal costs the player
-nothing but the attempt.
+Height is already an input to several systems, but vertical gameplay is not
+yet entirely authored through effects data:
 
-## Verticality
+- `airborne` is a derived entity tag while a body is not grounded;
+- grounded area contact skips airborne entities;
+- fall damage is calculated by the server movement system from landing height;
+- water cancels fall damage through the server landing rule;
+- `feather-fall` suppresses fall damage and `sticky-feet` affects movement and
+  knockback behavior;
+- area buoyancy constrains cardinal spreading by neighboring tile height.
 
-The world has a continuous height axis ([GAME_DESIGN.md](GAME_DESIGN.md) § Verticality). Height is an **input to the same machinery**, not a new system:
+Melee reach, jumping, collision, and landing physics remain geometry and
+movement concerns. The current engine does not provide data-defined flying,
+buoyancy simulation, or arbitrary height transitions for every effect.
 
-- **Fall damage** is `modify_health` scaled by drop distance — and an interaction rule cancels it on landing in water (the engine already thinks this way: fire + wet ⇒ extinguish)
-- **`airborne`** is a tag set by jumping/flying; ground-bound area effects and melee simply don't match airborne targets — flying over your own burning oil slick is a legal play
-- **Area effects carry a `buoyancy` param:** heavy gases sink into pits and low terrain, smoke rises, liquids flow downhill along the height field. Poison poured off a cloud-city ledge rains onto the terraces below.
-- **Movement capabilities are statuses:** `flying`, `feather-fall`, `sticky-feet` (cliff traversal, ledge-grip, knockback immunity) compose from existing primitives — data, therefore AI-craftable
+### AI crafting boundary
 
-## Launch status set (v0.2–v0.3)
+The current invention pipeline accepts one proposed item and one proposed
+recipe. The proposal may reference existing item vocabulary and existing
+primitive, status, area, and reaction references through the validated content
+schemas. Proposals are staged as `pending_review`, remain non-craftable, and
+require moderation, balance, and economy review.
 
-Debuffs: `bleeding`, `poisoned`, `on-fire`, `slowed`, `wet` (contextual), `blinded` (smoke)
-Buffs: `healing`, `regenerating`, `haste`, `resist-fire`, `well-fed`, `feather-fall`, `flying` (rare), `sticky-feet`
-Areas: `area-fire`, `area-wet`, `area-poison-cloud`, `area-oil`, `area-smoke`, `area-steam`
+The current pipeline cannot activate generated content and cannot introduce a
+new primitive, status, area, or reaction definition by itself. See
+[AI_CRAFTING.md](AI_CRAFTING.md) and
+`packages/engine/src/effects/content/inventions.ts`.
 
-Bandage balance is authored once in the validated, versioned
-`packages/content/src/data/liveTuning.json`. Its `bandaged` status is materialized
-from those values, and refresh replays the immediate heal while restarting both its
-five-second duration and one-second tick cadence. Authoritative snapshots include
-remaining and total status time so renderer HUDs never fabricate buff progress.
+## Planned extensions
+
+The following preserves the original design direction. It is a target model,
+not a description of current runtime behavior.
+
+### A larger closed primitive vocabulary
+
+Add carefully bounded primitives for capabilities that are currently owned by
+server systems:
+
+- `add_tags` and `remove_tags` for explicit temporary tags;
+- general stat modifiers beyond movement speed;
+- `spread` as a reusable authored operation rather than area-engine behavior;
+- `transform_entity` for exposure-driven item and actor transformations;
+- `spawn_entity` for bounded content-driven spawns;
+- `emit_event` for typed quest, audio, and presentation hooks.
+
+Each addition needs a server execution contract, validation bounds, source
+attribution rules, and focused tests before it belongs in the implemented
+catalog.
+
+### Richer content-authored verticality
+
+The long-term goal is for fall damage, water cancellation, flying, feather
+fall, sticky feet, gas movement, and other height interactions to compose from
+the same validated vocabulary. The implementation still needs explicit rules
+for collision ownership, target height, line of sight, and server physics so
+that “data-driven” does not mean “physics hidden in content JSON.”
+
+### AI-composed effects
+
+AI should eventually be able to propose combinations of approved base
+statuses, areas, tags, channels, and reaction operations. Any future expansion
+must retain:
+
+- no executable code in proposals;
+- reference validation against the active registry;
+- numeric, duration, spread, and layer-count budgets;
+- cycle and termination checks;
+- moderation, balance, economy, rollback, and audit history;
+- an explicit activation step after review.
+
+New base primitives remain developer-owned. AI may compose approved behavior,
+but it should not silently create an unbounded new simulation language.
+
+### Presentation and compound-state visuals
+
+Mechanics and presentation should continue to share IDs and source data, but
+the client may use specialized renderers for fire, liquids, poison gas, status
+overlays, particles, lighting, and connected-area shapes. A data definition
+does not automatically produce a complete visual effect today. Future content
+work should specify both the authoritative behavior and the client presentation
+contract, with performance budgets for mobile and slow hardware.
+
+The guiding principle remains the same: if two effects visibly and
+mechanically coexist—such as oil beneath fire—the replicated compound state
+should preserve both layers, and the renderer should present them as one
+coherent phenomenon.
+
+### Documentation rule
+
+When a planned extension ships, move its description into **Implemented
+contract**, add the relevant schema and source links, and add tests before
+describing it as available to content authors or AI proposals.

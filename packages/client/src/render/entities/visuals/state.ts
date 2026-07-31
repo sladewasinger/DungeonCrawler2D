@@ -4,6 +4,7 @@
 // EntityRenderer facade (index.ts).
 import type Phaser from "phaser";
 import type { HpBar } from "../presentation/hpBar.js";
+import type { DinoBehaviorVisual } from "../pets/behavior/dinoBehaviorVisual.js";
 
 interface CombatantParts {
   readonly body: Phaser.GameObjects.Sprite;
@@ -16,7 +17,9 @@ interface CombatantParts {
 export interface PlayerVisual extends CombatantParts {
   readonly kind: "player";
   readonly weapon: Phaser.GameObjects.Sprite;
+  readonly adminLabel: Phaser.GameObjects.Text;
   readonly guardCone?: Phaser.GameObjects.Graphics;
+  readonly attackCooldownIndicator: Phaser.GameObjects.Graphics;
   lastHp: number | undefined;
   hitFlashStartMs: number | undefined;
   lastX: number;
@@ -49,6 +52,7 @@ export interface PetVisual {
   readonly nameplate: Phaser.GameObjects.Text;
   readonly ownerLabel: Phaser.GameObjects.Text;
   readonly assetId: string;
+  readonly behavior: DinoBehaviorVisual;
   lastAnim: string | undefined;
 }
 
@@ -97,10 +101,13 @@ const ATTACHMENT_DESTROYERS: Record<EntityVisual["kind"], AttachmentDestroyer> =
 function destroyPlayerAttachments(visual: PlayerVisual): void {
   destroyCombatantParts(visual);
   visual.weapon.destroy();
+  visual.adminLabel.destroy();
   visual.guardCone?.destroy();
+  visual.attackCooldownIndicator.destroy();
 }
 
 function destroyPetAttachments(visual: PetVisual): void {
+  visual.behavior.destroy();
   visual.shadow.destroy();
   visual.nameplate.destroy();
   visual.ownerLabel.destroy();

@@ -1,6 +1,6 @@
 import type Phaser from "phaser";
 import { describe, expect, it, vi } from "vitest";
-import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "../hitStop.js";
+import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 import { KillZoomPunch } from "./killZoomPunch.js";
 
 describe("KillZoomPunch", () => {

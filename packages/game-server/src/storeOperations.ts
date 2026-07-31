@@ -22,6 +22,8 @@ export function createStoredPlayer(slot: number, name: string): StoredPlayer {
     craftedRecipes: {},
     mutedProfileIds: [],
     blockedProfileIds: [],
+    adminGranted: false,
+    handicapGranted: false,
   };
 }
 

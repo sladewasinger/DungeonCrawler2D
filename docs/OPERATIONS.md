@@ -57,10 +57,34 @@ replacement only after the evidence has been retained.
 ## Monitoring
 
 The production instance ships its server log to
-`/dungeoncrawler2d/prod/server` in CloudWatch Logs with 30-day retention. The
-production dashboard shows CPU and network traffic alongside a recent-error
-query. High CPU and failed EC2 status checks have dedicated alarms.
+`/dungeoncrawler2d/prod/server` in CloudWatch Logs. Retention is configured by
+`server_log_retention_days` and defaults to 90 days. The production dashboard
+shows CPU, network traffic, the structured server-error metric, and a
+recent-error query. High CPU, failed EC2 status checks, and structured server
+errors have dedicated alarms.
 
 An operator must attach the alarms to the team's paging destination before the
 public-release gate. Terraform intentionally does not guess an email, phone
 number, or incident-management service.
+
+## Connection and administrative history
+
+The server writes sanitized connection, admin, security, and server lifecycle
+events to the Terraform-managed DynamoDB operational-history table. It uses
+on-demand capacity, encryption, point-in-time recovery, and TTL; retention
+defaults to 90 days. Query a player through its actor key, or use the `by_time`
+index with a UTC date partition (`YYYY-MM-DD`) for an incident window. The EC2
+role has `PutItem` access only, so queries require an operator identity with
+explicit read access.
+
+Connection events retain join/resume state and close reason. Repeated anonymous
+peers can be correlated by a deployment-keyed one-way fingerprint, but the raw
+network address and key are never stored in the table or logs. Admin events
+retain success/failure, command type, and bounded target IDs.
+
+Treat `operational_event_write_failed` and `operational_event_dropped` records
+as monitoring failures: gameplay continues, but some history may be missing.
+Treat `server_error` as an application incident and use its source, error name,
+message, bounded stack, and surrounding timeline. Verify the Terraform apply
+and alarm notification target before claiming production history or paging is
+active.

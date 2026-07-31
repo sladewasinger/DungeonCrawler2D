@@ -6,6 +6,8 @@
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { depthForScreenY, worldToScreen } from "../../../render/entities/geometry/worldToScreen.js";
 import type { PlayerEntityView } from "../../../render/entities/geometry/index.js";
+import { weaponProfileForId } from "../world/contentQueries.js";
+import type { WeaponProfile } from "@dc2d/engine";
 
 /** Draws the wedge just under the wielder's feet-depth, so it reads as a ground telegraph rather than floating in front of the body. */
 const WEDGE_DEPTH_BIAS = 0.05;
@@ -18,6 +20,7 @@ export interface MeleeSwingSpawn {
   z: number;
   angleRad: number;
   depth: number;
+  profile: WeaponProfile;
 }
 
 /** Returns the spawn parameters for every player whose `attacking` flipped false->true this frame; mutates `previousAttacking` to this frame's state and prunes ids no longer present. */
@@ -69,6 +72,7 @@ function toSpawn(
   spawn.worldY = player.y;
   spawn.z = player.z;
   spawn.angleRad = player.attackAngleRad;
+  spawn.profile = weaponProfileForId(player.weaponId);
   const screen = worldToScreen(player.x, player.y);
   spawn.depth = depthForScreenY(screen.y - player.z * SCREEN_TILE_PX) - WEDGE_DEPTH_BIAS;
   return spawn;

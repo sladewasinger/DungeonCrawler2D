@@ -1,6 +1,6 @@
 import type { CarnageAppearance, DeathCarnageInput } from "./deathCarnagePool.js";
 import type { CorpseDecalInput } from "./corpseDecalPool.js";
-import type { DeathGoreInput } from "../combat/combatEffects.js";
+import type { DeathGoreInput } from "../combat/effects/combatEffects.js";
 
 export interface DeathDecalInputs {
   readonly carnage: DeathCarnageInput;

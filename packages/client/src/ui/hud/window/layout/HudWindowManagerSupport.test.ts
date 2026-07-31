@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { HudWindowSpec } from "./HudWindowLayout.js";
-import { resolveManagedHudWindowLayout } from "./HudWindowManagerSupport.js";
+import {
+  resolveManagedHudWindowLayout,
+  resolveRenderedHudWindowGeometry,
+} from "./HudWindowManagerSupport.js";
 import type { HudWindowLayout } from "./hudWindowStorage.js";
 
 const spec = (defaultVisible: boolean): HudWindowSpec => ({
@@ -47,4 +50,23 @@ describe("managed HUD window visibility", () => {
       expect(resolve(spec(false), stored)).toEqual(stored);
     },
   );
+});
+
+describe("managed HUD intrinsic geometry", () => {
+  it("anchors against the rendered intrinsic height instead of the requested height", () => {
+    const element = {
+      getBoundingClientRect: () => ({ width: 280, height: 120 }),
+    } as unknown as HTMLElement;
+    const layout = { ...storedLayout(true), anchor: "bottom-right" as const };
+
+    expect(resolveRenderedHudWindowGeometry({
+      element,
+      requestedSize: { width: 280, height: 20 },
+      layout,
+      viewport: { width: 320, height: 200 },
+    })).toEqual({
+      size: { width: 280, height: 120 },
+      position: { x: 24, y: 64 },
+    });
+  });
 });

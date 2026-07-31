@@ -78,6 +78,10 @@ export class FloorRegistry {
     return this.ensureFloor(1);
   }
 
+  activeSims(): readonly GameSim[] {
+    return [...this.sims.values()];
+  }
+
   ensureFloor(floor: number): GameSim {
     const clamped = Math.min(Math.max(Math.floor(floor), 1), FLOOR_CAP);
     let sim = this.sims.get(clamped);

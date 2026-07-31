@@ -1,6 +1,6 @@
-import { TICK_RATE, createBody } from "@dc2d/engine";
-import { resetInputTimeline } from "../players/playerInputTimeline.js";
+import { TICK_RATE } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../state/state.js";
+import { teleportPlayer } from "../actions/playerTeleport.js";
 import { RESCUE_COOLDOWN_TICKS } from "./configuration/rescueTuning.js";
 import { rescueConstraints } from "./rescueConstraints.js";
 import { findRescueDestination } from "./rescueDestination.js";
@@ -43,14 +43,8 @@ function relocatePlayer(
   slot: PlayerSlot,
   destination: { readonly x: number; readonly y: number; readonly z: number },
 ): void {
-  slot.entity.body = createBody(destination.x, destination.y, destination.z);
+  teleportPlayer({ sim, slot, to: destination, remember: false });
   slot.blocking = false;
-  resetInputTimeline(slot);
   sim.replicationMotion.set(slot.entity.id, { x: 0, y: 0 });
-  slot.needsFullAreas = true;
-  slot.known.clear();
-  slot.outbox.push(
-    { t: "teleported" },
-    { t: "toast", msg: "Rescued to the nearest safe platform." },
-  );
+  slot.outbox.push({ t: "toast", msg: "Rescued to a nearby safe platform." });
 }

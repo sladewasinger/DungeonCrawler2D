@@ -1,5 +1,6 @@
 import {
   applyKnockback,
+  combatHurtboxRadius,
   createBody,
   faceEntity,
   KNOCKBACK_FORCE,
@@ -11,6 +12,7 @@ import {
 } from "@dc2d/engine";
 import { effectTargetFor } from "../../core/helpers.js";
 import { blocksAttackFrom } from "../../players/directionalBlock.js";
+import { notifyBlockFeedback } from "../../combat/blockFeedback.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
 
@@ -24,8 +26,7 @@ export interface EnemyStrikeInput {
 
 export interface SpitLaunchInput {
   sim: SimState;
-  entity: EnemySlot["entity"];
-  tags: readonly string[];
+  enemy: EnemySlot;
   target: { x: number; y: number; z: number };
 }
 
@@ -37,7 +38,10 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): void {
   faceEntity(enemy.entity, victim.body.x - enemy.entity.body.x, victim.body.y - enemy.entity.body.y);
   if (isOutOfStrikeRange(enemy, victim)) return;
   enemy.animation = { state: "attack", ticksRemaining: attackTicks };
-  if (blocksAttackFrom(victimSlot, enemy.entity)) return;
+  if (blocksAttackFrom(victimSlot, enemy.entity)) {
+    notifyBlockFeedback(sim, victim, "melee");
+    return;
+  }
   applyStrikeEffects(input, victim);
   applyKnockback(victim.body, {
     dirX: victim.body.x - enemy.entity.body.x,
@@ -51,7 +55,7 @@ function isOutOfStrikeRange(enemy: EnemySlot, victim: EnemySlot["entity"]): bool
   const tooFar = Math.hypot(
     victim.body.x - body.x,
     victim.body.y - body.y,
-  ) > enemy.def.attack.range + 0.3;
+  ) > enemy.def.attack.range + combatHurtboxRadius(victim);
   const tooHigh = Math.abs(victim.body.z - body.z) >
     ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference;
   return tooFar || tooHigh;
@@ -81,12 +85,21 @@ function applyStrikeEffects(input: EnemyStrikeInput, victim: EnemySlot["entity"]
 }
 
 export function launchSpit(input: SpitLaunchInput): void {
-  const { sim, entity, tags, target } = input;
+  const { sim, enemy, target } = input;
+  const entity = enemy.entity;
   const projectile = makeEntity("projectile", createBody(entity.body.x, entity.body.y, entity.body.z + 0.5), {
     id: newEntityId("j"),
     ownerId: entity.id,
-    tags: new Set(["spit", ...tags]),
+    tags: new Set(["spit", ...enemy.def.tags]),
+    directProjectileImpact: spitImpact(enemy),
     vel: launchVelocity({ x: entity.body.x, y: entity.body.y, z: entity.body.z + 0.5 }, target, THROW_SPEED),
   });
   sim.projectiles.set(projectile.id, projectile);
+}
+
+function spitImpact(enemy: EnemySlot) {
+  return {
+    damage: enemy.def.attack.damage,
+    applies: (enemy.def.attack.applies ?? []).map((apply) => ({ ...apply })),
+  };
 }

@@ -10,7 +10,7 @@ import {
   hitPlausiblyFromSwing,
   resolveHitAgainstPending,
   type PendingSwing,
-} from "../../../vfx/combat/meleeConnect.js";
+} from "../../../vfx/combat/melee/meleeConnect.js";
 
 // Death presentation keeps a small combatant registry so a just-removed target can
 // still be classified. Hit blood deliberately does not live here: visualEvents.ts

@@ -7,6 +7,7 @@ import { ThreeAmbientMotes } from "../terrain/core/ThreeAmbientMotes.js";
 import { ThreeAreaEffects } from "../terrain/core/ThreeAreaEffects.js";
 import { ThreeRemoteActors } from "../world/actors/ThreeRemoteActors.js";
 import { ThreeWorldEntities } from "../world/entities/ThreeWorldEntities.js";
+import { ThreeAdminDebugOverlay } from "../world/debug/ThreeAdminDebugOverlay.js";
 import { safeCameraPosition, type PlanarPosition } from "./cameraSafety.js";
 import type { FirstPersonState } from "../input/movement.js";
 import { environmentProfile } from "../terrain/core/threeEnvironment.js";
@@ -37,6 +38,7 @@ export class ThreeFirstPersonViewport {
   private readonly worldEntities: ThreeWorldEntities;
   private readonly areaEffects: ThreeAreaEffects;
   private readonly ambientMotes: ThreeAmbientMotes;
+  private readonly adminDebugOverlay: ThreeAdminDebugOverlay;
   private readonly cameraMotion = new FirstPersonCameraMotion();
   private cameraPlanar: PlanarPosition;
   private viewDistance: ViewDistance;
@@ -50,6 +52,7 @@ export class ThreeFirstPersonViewport {
     this.worldEntities = new ThreeWorldEntities(this.scene);
     this.areaEffects = new ThreeAreaEffects(this.scene);
     this.ambientMotes = new ThreeAmbientMotes(this.scene);
+    this.adminDebugOverlay = new ThreeAdminDebugOverlay(this.scene);
     this.setViewDistance(viewDistance);
   }
 
@@ -90,6 +93,12 @@ export class ThreeFirstPersonViewport {
   private updateActors(frame: ViewportFrame): void {
     const interpolated = frame.connection.interpolated(frame.timeMs);
     this.remoteActors.update(interpolated, frame.elapsed);
+    this.adminDebugOverlay.update({
+      active: frame.connection.activeAdmin,
+      flags: frame.connection.activeAdminDebugFlags,
+      entities: frame.connection.activeAdminDebugEntities,
+      tick: frame.connection.serverTick,
+    });
     this.worldEntities.update({
       interpolated,
       timeMs: frame.timeMs,
@@ -129,6 +138,7 @@ export class ThreeFirstPersonViewport {
     this.worldEntities.dispose();
     this.areaEffects.dispose();
     this.ambientMotes.dispose();
+    this.adminDebugOverlay.dispose();
     this.renderer.dispose();
   }
 

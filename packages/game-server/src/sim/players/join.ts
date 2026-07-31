@@ -1,36 +1,31 @@
 import {
-  MOVE_SPEED,
-  PLAYER_MAX_HP,
-  createBody,
-  makeEntity,
-  newEntityId,
-  type Entity,
+  type ClientHello,
   type PlayerSkin,
 } from "@dc2d/engine";
-import { announceFloorEntry, announceJoin, announceStairwayHint, broadcastAnnouncement } from "../announcer/index.js";
 import { sendContactsUpdated } from "../combat/contacts.js";
 import { ensureStarterKit } from "../inventory/inventory.js";
-import { refreshModerationBindings, sendModerationState } from "../moderation.js";
+import { sendModerationState } from "../moderation.js";
 import { replayPartyInviteState } from "../social/partyInviteEvents.js";
 import { resetInputTimeline } from "./playerInputTimeline.js";
-import { findPlayerSpawn } from "../spawn/playerSpawn.js";
 import { newToken } from "../spawn/spawn.js";
-import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { createPlayerSlot } from "./joinSlot.js";
 import { restorePausedLifecycle } from "./joinResume.js";
 import { handicapForPlayer } from "../progression/handicap.js";
 import type { JoinResult, PlayerSlot, SimState } from "../state/state.js";
+import { completeFreshJoin, createPlayerEntity, initialSpawn } from "./joinFresh.js";
 
 export interface PlayerJoinRequest {
   name: string;
   clientId: string;
   resumeToken?: string | undefined;
   skin?: PlayerSkin | undefined;
+  clientMetadata?: ClientHello["clientMetadata"];
 }
 
 /** Player join and reconnect-resume: the entity/slot a fresh or returning client gets. */
 export function addPlayer(sim: SimState, request: PlayerJoinRequest): JoinResult {
-  return resumePlayer(sim, request) ?? createPlayer(sim, request);
+  const stored = sim.store.get(request.clientId, request.name, request.clientMetadata);
+  return resumePlayer(sim, request) ?? createPlayer(sim, request, stored);
 }
 
 function resumePlayer(sim: SimState, request: PlayerJoinRequest): JoinResult | null {
@@ -41,14 +36,18 @@ function resumePlayer(sim: SimState, request: PlayerJoinRequest): JoinResult | n
   return reclaimExistingClient(sim, request);
 }
 
-function createPlayer(sim: SimState, request: PlayerJoinRequest): JoinResult {
-  const spawn = findPlayerSpawn(sim, sim.players.size);
+function createPlayer(
+  sim: SimState,
+  request: PlayerJoinRequest,
+  stored: PlayerSlot["stored"],
+): JoinResult {
+  const spawn = initialSpawn(sim);
   const entity = createPlayerEntity(request.name, spawn, request.skin);
   const token = newToken(sim);
   const slot = createPlayerSlot({
     entity,
     clientId: request.clientId,
-    stored: sim.store.get(request.clientId, request.name),
+    stored,
     resumeToken: token,
     tick: sim.tickCount,
   });
@@ -58,48 +57,6 @@ function createPlayer(sim: SimState, request: PlayerJoinRequest): JoinResult {
   return { playerId: entity.id, resumeToken: token, spawn, resumed: false, floor: sim.world.floor };
 }
 
-function createPlayerEntity(
-  name: string,
-  spawn: { x: number; y: number; z: number },
-  skin?: PlayerSkin,
-): Entity {
-  return makeEntity("player", createBody(spawn.x, spawn.y, spawn.z), {
-    id: newEntityId("p"),
-    name,
-    ...(skin ? { skin } : {}),
-    hp: PLAYER_MAX_HP,
-    maxHp: PLAYER_MAX_HP,
-    baseSpeed: MOVE_SPEED,
-    tags: new Set(["player", "organic"]),
-    facing: { x: 0, y: 1 },
-  });
-}
-
-function completeFreshJoin(sim: SimState, slot: PlayerSlot, name: string): void {
-  secureSpawnHandoff(sim, slot);
-  ensureStarterKit(sim, slot);
-  syncModerationState(sim, slot);
-  sendContactsUpdated(sim, slot);
-  announceFreshJoin(sim, slot, name);
-  slot.outbox.push(announceFloorEntry(sim.world.floor));
-  const stairHint = announceStairwayHint(sim.tickCount, slot.entity.id, sim.world);
-  if (stairHint) slot.outbox.push(stairHint);
-  sim.store.recordFloor(slot.stored, sim.world.floor);
-}
-
-function announceFreshJoin(sim: SimState, slot: PlayerSlot, name: string): void {
-  broadcastAnnouncement(sim, announceJoin({
-    tick: sim.tickCount,
-    playerId: slot.entity.id,
-    name,
-    ordinal: slot.stored.slot + 1,
-  }));
-}
-
-function syncModerationState(sim: SimState, slot: PlayerSlot): void {
-  refreshModerationBindings(sim);
-  sendModerationState(slot);
-}
 
 function tryResume(sim: SimState, request: PlayerJoinRequest): JoinResult | null {
   const existingId = sim.byToken.get(request.resumeToken!);
@@ -112,7 +69,10 @@ function reclaimExistingClient(sim: SimState, request: PlayerJoinRequest): JoinR
   const slot = [...sim.players.values()].find((candidate) => candidate.clientId === request.clientId);
   if (!slot) return null;
   slot.entity.name = request.name;
-  sim.store.get(request.clientId, request.name);
+  slot.stored = sim.store.get(request.clientId, request.name, request.clientMetadata);
+  // A client-id match is not a credential. Only a valid resume token may retain
+  // the runtime admin role attached to this live slot.
+  slot.admin = false;
   updateHandicap(slot, request.name);
   return resumeSlot(sim, { slot, skin: request.skin });
 }

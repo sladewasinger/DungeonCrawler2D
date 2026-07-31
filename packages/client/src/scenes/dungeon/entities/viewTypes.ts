@@ -2,6 +2,7 @@ import type { WorldView } from "@dc2d/engine";
 import type { SelfCosmeticsState } from "../player/selfCosmetics.js";
 import type { ItemEntityView, PlayerEntityView, RenderContext } from "../../../render/entities/geometry/index.js";
 import type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
+import type { BlockFeedbackState } from "../../../combat/blockFeedback.js";
 
 export interface RenderContextSource {
   readonly world: WorldView; readonly nowMs: number; readonly dtSeconds: number;
@@ -16,7 +17,9 @@ export interface SelfPose {
 
 export interface SelfVitals {
   hp: number; maxHp: number; fx: readonly string[]; downed: boolean;
+  admin?: boolean;
   reviveProgress?: number; blocking: boolean; weaponId: string | null;
+  blockFeedback?: BlockFeedbackState | null;
 }
 
 export interface SelfPlayerViewSource {

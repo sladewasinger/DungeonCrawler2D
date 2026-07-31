@@ -10,6 +10,7 @@ import { findWalkableNear, resolveSpawnAnchor } from "../spawn/spawn.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import { clearPetPath } from "./navigation.js";
 import { PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
+import { initialPetBehavior, resetPetBehavior } from "./behaviors/scheduler.js";
 import { PET_DEFINITIONS, type PetDefinition, type PetSlot } from "./types.js";
 
 export { PET_DRIFT_IDLE_TICKS, PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
@@ -84,6 +85,7 @@ function petSlot(sim: SimState, entity: Entity, input: { definition: PetDefiniti
     pathIndex: 0,
     nextPathTick: sim.tickCount,
     pathGoal: undefined,
+    behavior: initialPetBehavior(),
   };
 }
 
@@ -146,5 +148,6 @@ export function releasePet(pet: PetSlot): void {
   delete pet.entity.ownerId;
   pet.ownerStillTicks = 0;
   pet.driftTarget = undefined;
+  resetPetBehavior(pet);
   clearPetPath(pet);
 }

@@ -19,7 +19,7 @@ vi.mock("../../boot/assetManifest.js", () => ({
 vi.mock("../view/transform/viewState.js", () => ({ getViewOrientation: () => 0 }));
 vi.mock("../view/transform/viewTransform.js", () => ({ worldAngleToView: (value: number) => value }));
 vi.mock("./animState.js", () => ({ resolveAnimState: () => ({ animKey: "idle" }) }));
-vi.mock("../combat/heldWeapon.js", () => ({
+vi.mock("../combat/weapon/heldWeapon.js", () => ({
   createHeldWeapon: vi.fn(),
   updateHeldWeapon: probes.heldWeapon,
 }));
@@ -29,7 +29,7 @@ vi.mock("../presentation/hpBar.js", () => ({
   updateHpBar: vi.fn(),
 }));
 vi.mock("../presentation/hpBarVisibility.js", () => ({ resolveHpBarVisibility: () => false }));
-vi.mock("../presentation/hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
+vi.mock("../combat/feedback/hitFlash.js", () => ({ flashIntensity: () => 0, tookDamage: () => false }));
 vi.mock("../motion/lift.js", () => ({ airborneHeightAboveGround: () => 0, spriteLiftPx: () => 0 }));
 vi.mock("../presentation/nameplate.js", () => ({
   createNameplate: vi.fn(),
@@ -42,13 +42,17 @@ vi.mock("../geometry/occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), t
 vi.mock("../motion/playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
 vi.mock("../geometry/shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
 vi.mock("../motion/squash.js", () => ({ squashScale: () => ({ scaleX: 1, scaleY: 1 }) }));
-vi.mock("../presentation/weaponIcon.js", () => ({
+vi.mock("../combat/weapon/weaponIcon.js", () => ({
   FIST_FALLBACK_FRAME: "particle_soft",
   weaponIconFrame: () => null,
 }));
+vi.mock("../combat/attack/attackCooldownIndicator.js", () => ({
+  createAttackCooldownIndicator: vi.fn(),
+  updateAttackCooldownIndicator: vi.fn(),
+}));
 vi.mock("../motion/weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
 vi.mock("../geometry/worldToScreen.js", () => ({
-  combatOverlayPosition: () => ({ wielderViewY: 2, screenSouthFloorHigher: false }),
+  combatOverlayPosition: () => ({ wielderViewY: 2 }),
   depthForEntityNow: () => 1,
   depthForScreenY: () => 1,
   worldToScreen: (x: number, y: number) => ({ x, y }),
@@ -92,9 +96,12 @@ describe("updatePlayerVisual", () => {
     const { updatePlayerVisual } = await import("./playerVisual.js");
     const body = sprite();
     const visual = {
-      body, weapon: {}, shadow: { setDepth: vi.fn() }, hpBar: { container: { setDepth: vi.fn(), setVisible: vi.fn() } },
-      nameplate: { setDepth: vi.fn() }, lastHp: 30, hpBarRevealed: false, hitFlashStartMs: undefined,
-      lastX: 0, lastY: 0, lastSampleMs: 0, lastAir: false, squashStartMs: undefined,
+      body, weapon: {},
+      adminLabel: { setDepth: vi.fn(), setVisible: vi.fn() }, shadow: { setDepth: vi.fn() },
+      hpBar: { container: { setDepth: vi.fn(), setVisible: vi.fn() } }, nameplate: { setDepth: vi.fn() },
+      lastHp: 30, hpBarRevealed: false,
+      hitFlashStartMs: undefined, lastX: 0, lastY: 0,
+      lastSampleMs: 0, lastAir: false, squashStartMs: undefined,
       weaponAngle: 0, wasAttacking: false, swingStartMs: undefined,
     };
     const context = {

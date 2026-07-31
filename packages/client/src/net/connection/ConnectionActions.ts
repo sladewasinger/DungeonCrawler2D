@@ -1,3 +1,4 @@
+import type { AdminCommand } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 import { ConnectionState } from "./connectionState.js";
 import {
@@ -65,6 +66,23 @@ function outgoingTargetId(connection: Connection, matches: SocialTargetMatcher):
 export class ConnectionActions extends ConnectionState {
   private get connection(): Connection {
     return this as unknown as Connection;
+  }
+
+  /** Admin token travels only in an authenticated WebSocket message body. */
+  authenticateAdmin(token: string): void {
+    this.connection.send({ type: "adminAuth", token });
+  }
+
+  resumeAdmin(sessionKey: string): void {
+    this.connection.send({ type: "adminResume", sessionKey });
+  }
+
+  sendAdminCommand(command: AdminCommand, requestId?: string): void {
+    this.connection.send({
+      type: "adminCommand",
+      command,
+      ...(requestId ? { requestId } : {}),
+    });
   }
 
   attack(dirX: number, dirY: number): void {

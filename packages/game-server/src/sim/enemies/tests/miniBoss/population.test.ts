@@ -18,6 +18,7 @@ import {
   createMiniBossPopulationSim,
   findMiniBossPopulationArena,
   requireMiniBossArenaLeader,
+  blockArenaInterior,
   spawnMiniBossPopulationEncounter,
 } from "./populationTestSupport.js";
 
@@ -67,6 +68,21 @@ describe("mini-boss arena population", () => {
 
     player.entity.body.x = arena.center.x + 0.5;
     player.entity.body.y = arena.center.y + 0.5;
+    syncObservableMiniBossEncounters(sim);
+    expect(arenaEnemyCount(sim, arena.key)).toBe(4);
+  });
+
+  it("retries an observable arena after a temporary spawn failure", () => {
+    const sim = createMiniBossPopulationSim("mini-boss-retry");
+    const arena = findMiniBossPopulationArena(sim);
+    if (!arena) throw new Error("missing arena fixture");
+    addBaitPlayer(sim, arena.interior);
+    blockArenaInterior(sim, arena);
+
+    syncObservableMiniBossEncounters(sim);
+    expect(arenaEnemyCount(sim, arena.key)).toBe(0);
+
+    sim.world.replaceTileOverrides([]);
     syncObservableMiniBossEncounters(sim);
     expect(arenaEnemyCount(sim, arena.key)).toBe(4);
   });

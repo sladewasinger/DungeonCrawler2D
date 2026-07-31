@@ -14,6 +14,17 @@ export function storedPlayer(player: StoredFilePlayer): StoredPlayer {
     ...(player.deepestFloor === undefined ? {} : { deepestFloor: player.deepestFloor }),
     ...descentState(player),
     ...profileState(player),
+    ...adminState(player),
+  };
+}
+
+function adminState(player: StoredFilePlayer): Pick<StoredPlayer, "identity" | "adminGranted" | "handicapGranted"> {
+  return {
+    ...(!("identity" in player) || player.identity === undefined
+      ? {}
+      : { identity: { ...player.identity } }),
+    adminGranted: "adminGranted" in player ? player.adminGranted ?? false : false,
+    handicapGranted: "handicapGranted" in player ? player.handicapGranted ?? false : false,
   };
 }
 

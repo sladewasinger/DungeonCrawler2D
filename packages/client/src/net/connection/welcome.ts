@@ -9,6 +9,7 @@ export function applyWelcome(conn: Connection, message: ServerWelcome): void {
   conn.status = "connected";
   conn.reconnectAttempts = 0;
   conn.sessionExpired = false;
+  conn.sessionEndMessage = null;
   saveResumeToken(message.resumeToken, message.level);
   conn.world = new World(message.worldSeed, message.floor, {
     level: message.level,

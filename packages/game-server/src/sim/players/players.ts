@@ -11,6 +11,7 @@ import { findPlayerSpawn } from "../spawn/playerSpawn.js";
 import { secureSpawnHandoff } from "../spawnSafety/spawnSafety.js";
 import { leaveParty } from "../social/social.js";
 import { miniBossArenaEntryForPlayer } from "../enemies/miniBossArena/runtime.js";
+import { clearActiveMeleeAttack } from "../state/meleeAttackState.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import {
   resetInputTimeline,
@@ -32,6 +33,7 @@ export function markDisconnected(sim: SimState, playerId: string): void {
   resetInputTimeline(slot);
   slot.pendingActions.length = 0;
   slot.blocking = false;
+  clearActiveMeleeAttack(slot);
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
 }
 

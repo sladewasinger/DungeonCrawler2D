@@ -2,7 +2,7 @@
 // interpolation reference pose, and every subsystem's small local cosmetic state.
 // One object per scene instance so no module holds state of its own.
 import { NEUTRAL_INPUT, type MoveInput } from "@dc2d/engine";
-import type { PendingSwing } from "../../../vfx/combat/meleeConnect.js";
+import type { PendingSwing } from "../../../vfx/combat/melee/meleeConnect.js";
 import type { LightSource } from "../../../render/lighting/core/lightSource.js";
 import type { AreaTileView } from "../../../vfx/system/index.js";
 import type { RenderContext } from "../../../render/entities/geometry/index.js";
@@ -77,9 +77,11 @@ function createSelfVitals(): SelfVitals {
     maxHp: 1,
     fx: [],
     downed: false,
+    admin: false,
     reviveProgress: 0,
     blocking: false,
     weaponId: null,
+    blockFeedback: null,
   };
 }
 

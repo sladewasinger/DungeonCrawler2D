@@ -68,6 +68,7 @@ class ThreeDungeonClient {
 
   private readonly tick = (time: number) => {
     if (!this.active) return;
+    if (this.redirectEndedSession()) return;
     this.syncAuthoritativeWorld();
     const elapsed = this.elapsed(time);
     const sampled = this.input.sample(elapsed);
@@ -95,6 +96,12 @@ class ThreeDungeonClient {
     const seconds = Math.min(0.05, Math.max(0, (time - this.previousTime) / 1000));
     this.previousTime = time;
     return seconds;
+  }
+
+  private redirectEndedSession(): boolean {
+    if (!this.options.conn.sessionExpired) return false;
+    this.options.onQuitToTitle();
+    return true;
   }
 
   private publishInput(input: Parameters<typeof firstPersonMoveInput>[0], elapsed: number): void {

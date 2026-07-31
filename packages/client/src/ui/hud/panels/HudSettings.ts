@@ -1,6 +1,6 @@
 /** Builds the HUD-and-view controls embedded in the shared game menu. */
 import type { HudWindowManager } from "../window/layout/HudWindows.js";
-import { HudCatalog } from "../core/HudCatalog.js";
+import { HudCatalog } from "./HudCatalog.js";
 import type { ViewDistance } from "../../../three/terrain/view/viewDistance.js";
 import { createViewDistanceButton } from "../../../three/terrain/view/viewDistanceButton.js";
 import { canEnterFullscreen, enterFullscreenLandscape } from "../../../ui/fullscreen/mobileFullscreen.js";

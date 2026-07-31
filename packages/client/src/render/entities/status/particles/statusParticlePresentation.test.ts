@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ASSET_KEYS } from "../../../../boot/assetManifest.js";
-import { STATUS_VISUAL_STYLE } from "../../combat/statusVisualStyle.js";
+import { STATUS_VISUAL_STYLE } from "../../combat/status/statusVisualStyle.js";
 import { statusParticlePresentation } from "./statusParticlePresentation.js";
 
 describe("status particle presentation", () => {

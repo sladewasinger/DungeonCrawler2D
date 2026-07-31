@@ -150,7 +150,7 @@ function releaseAssets(notes: ReleaseNote[]): ReleaseAsset[] {
   const assets: ReleaseAsset[] = [{
     type: "asset",
     fileName: "releases/index.html",
-    source: page("DungeonCrawler2D Release Notes", `<h1>Release Notes</h1>${cards}<p><a href="/">Return to DungeonCrawler2D</a></p>`),
+    source: page("DungeonCrawler2D Release Notes", `<p><a href="/">← Back to title screen</a></p><h1>Release Notes</h1>${cards}<p><a href="/">Return to DungeonCrawler2D</a></p>`),
   }];
   for (const note of notes) {
     assets.push({

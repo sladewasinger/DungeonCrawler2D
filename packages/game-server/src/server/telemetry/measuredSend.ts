@@ -23,10 +23,16 @@ export function sendServerMessage({ socket, playerId, message, diagnostics }: Se
   diagnostics?.record({
     playerId,
     direction: "outbound",
-    payload,
+    payload: outboundDiagnosticPayload(message, payload),
     codecMilliseconds: encodedAt - startedAt,
     queueBytes: socket.bufferedAmount,
     nowMs: encodedAt,
   });
   return true;
+}
+
+export function outboundDiagnosticPayload(message: ServerMessage, payload: string): string {
+  return message.type === "adminAuthResult"
+    ? '{"type":"adminCredential","redacted":true}'
+    : payload;
 }

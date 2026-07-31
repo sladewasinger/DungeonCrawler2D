@@ -43,3 +43,25 @@ variable "enable_distribution" {
   type        = bool
   default     = true
 }
+
+variable "operational_event_retention_days" {
+  description = "How long sanitized connection and admin/security records remain queryable in DynamoDB."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.operational_event_retention_days >= 7 && var.operational_event_retention_days <= 365
+    error_message = "operational_event_retention_days must be between 7 and 365."
+  }
+}
+
+variable "server_log_retention_days" {
+  description = "How long structured server logs remain in CloudWatch Logs."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = contains([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365], var.server_log_retention_days)
+    error_message = "server_log_retention_days must be a supported CloudWatch Logs retention period."
+  }
+}

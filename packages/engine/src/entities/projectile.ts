@@ -1,4 +1,14 @@
 /** Public compatibility surface for projectile and ballistic domain helpers. */
+export interface DirectProjectileImpact {
+  readonly damage: number;
+  readonly applies: readonly DirectProjectileStatusApply[];
+}
+
+export interface DirectProjectileStatusApply {
+  readonly status: string;
+  readonly chance: number;
+}
+
 export {
   launchVelocity,
   resolveBallisticThrow,

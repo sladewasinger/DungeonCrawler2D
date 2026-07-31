@@ -2,6 +2,7 @@ import { areaReactionsData, areasData, enemiesData, itemsData, recipesData, rule
 import { TILE, buildContentRegistry, createBody, makeEntity, newEntityId, type World } from "@dc2d/engine";
 import { PlayerStore } from "../../store.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 const registry = buildContentRegistry({
   statuses: [...statusesData], rules: [...rulesData], areas: [...areasData], areaReactions: [...areaReactionsData],
@@ -27,7 +28,7 @@ export function buildSlot(x: number, y: number, z = 0): PlayerSlot {
     lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: 0,
     known: new Set<string>(), inventory: [], hotbar: Array(9).fill(null), weapon: null, outbox: [],
     returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: false,
-    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, forceDeath: false,
+    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: 0, god: false, ...adminTestPlayerState(), forceDeath: false,
     chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }

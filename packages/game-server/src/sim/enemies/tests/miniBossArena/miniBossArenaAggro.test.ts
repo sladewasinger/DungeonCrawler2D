@@ -117,4 +117,5 @@ describe("mini-boss arena aggro boundary", () => {
     for (let tick = 0; tick < 5; tick++) stepEnemies(fixture.sim, []);
     expect(fixture.sim.projectiles.size).toBe(1);
   });
+
 });

@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "../hitStop.js";
+import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
 
 /** A kill can retrigger mid-tween, so every punch anchors to one resting zoom. */
 export class KillZoomPunch {

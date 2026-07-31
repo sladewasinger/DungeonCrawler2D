@@ -9,8 +9,10 @@ const LIFT_STEP = 0.01;
 const OCCLUDER_BIAS = 0.5;
 /** Ground effects sit just above their floor cap, but below every entity in that row. */
 export const GROUND_EFFECT_BIAS = 0.04;
-/** Small presentation lift used by held weapons and attack-cone indicators. */
-export const COMBAT_OVERLAY_BIAS = 0.08;
+/** Combat geometry must clear the immediate screen-south terrain face and mounted props. */
+export const COMBAT_OVERLAY_BIAS = 0.14;
+/** Extra tie-break for geometry that must remain above the adjacent terrain cap. */
+export const COMBAT_GEOMETRY_BIAS = 0.03;
 
 /** Phaser depth for an entity whose feet are at `feetWorldY`, `liftUnits` above its ground height. */
 export function depthForEntity(feetWorldY: number, liftUnits = 0): number {
@@ -53,10 +55,41 @@ export function depthForGroundEffect(rowY: number): number {
 export function depthForAdjacentTerrainOverlay(
   wielderViewY: number,
   wielderDepth: number,
-  screenSouthFloorHigher: boolean,
 ): number {
-  if (screenSouthFloorHigher) return wielderDepth + COMBAT_OVERLAY_BIAS;
-  return depthForOccluder(Math.floor(wielderViewY) + 1) + COMBAT_OVERLAY_BIAS;
+  return depthForCombatOverlay({ wielderViewY, wielderDepth });
+}
+
+export interface CombatOverlayDepth {
+  readonly wielderViewY: number;
+  readonly wielderDepth: number;
+}
+
+/** The dedicated combat layer is always above its immediate screen-south terrain. */
+export function depthForCombatOverlay({ wielderViewY, wielderDepth }: CombatOverlayDepth): number {
+  const terrainDepth = depthForOccluder(Math.floor(wielderViewY) + 1);
+  return Math.max(wielderDepth, terrainDepth) + COMBAT_OVERLAY_BIAS;
+}
+
+export interface CombatReachOverlayDepth extends CombatOverlayDepth {
+  readonly reachTiles: number;
+}
+
+/**
+ * Attack geometry spans several view rows, so its single Graphics object must
+ * clear the south edge of the farthest row it can touch.
+ */
+export function depthForCombatReachOverlay(
+  input: CombatReachOverlayDepth,
+): number {
+  const reach = Math.max(0, input.reachTiles);
+  const southEdge = Math.floor(input.wielderViewY + reach) + 1;
+  const terrainDepth = depthForOccluder(southEdge);
+  return Math.max(input.wielderDepth, terrainDepth) + COMBAT_OVERLAY_BIAS;
+}
+
+/** Keeps attack and guard shapes in the same safe overlay band as held weapons. */
+export function depthForCombatGeometry(baseDepth: number): number {
+  return baseDepth + COMBAT_GEOMETRY_BIAS;
 }
 
 export interface DepthKey {

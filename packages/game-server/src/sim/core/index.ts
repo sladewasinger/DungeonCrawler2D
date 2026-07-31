@@ -42,6 +42,7 @@ import {
 import { advanceSimTick } from "./step.js";
 import { PlayerStore } from "../../store.js";
 import type { GameSimOptions } from "../state/gameSimOptions.js";
+import { createGameAdminFacade, type GameAdminFacade } from "../admin/adminFacade.js";
 
 export type { JoinResult, PlayerAction, FloorTransferRequest } from "../state/state.js";
 
@@ -53,6 +54,7 @@ export type { JoinResult, PlayerAction, FloorTransferRequest } from "../state/st
  */
 export class GameSim {
   private readonly state: SimState;
+  readonly admin: GameAdminFacade;
 
   constructor({
     world,
@@ -62,6 +64,7 @@ export class GameSim {
     opts = {},
   }: GameSimOptions) {
     this.state = createSimState({ world, content, store, rngSeed, opts });
+    this.admin = createGameAdminFacade(this.state);
     initBossFloor(this.state); // no-op off floor FLOOR_CAP (Epic 7.14)
   }
 
@@ -79,11 +82,8 @@ export class GameSim {
 
   get petCount(): number { return this.state.pets.size; }
 
-  /** Test access: ground-item entities currently in this sim (e.g. a
-   * death's full-loot drop, which stays on the floor it happened on). */
-  get itemCount(): number {
-    return this.state.items.size;
-  }
+  get itemCount(): number { return this.state.items.size; }
+
 
   // ── join / leave / input ─────────────────────────────────────────
 
@@ -112,21 +112,13 @@ export class GameSim {
 
   requestSnapshotBaseline(playerId: string): void { requestSnapshotBaseline(this.state, playerId); }
 
-  getPlayerEntity(playerId: string): Entity | undefined {
-    return this.state.players.get(playerId)?.entity;
-  }
+  getPlayerEntity(playerId: string): Entity | undefined { return this.state.players.get(playerId)?.entity; }
 
-  getInventory(playerId: string): InvStack[] | undefined {
-    return this.state.players.get(playerId)?.inventory;
-  }
+  getInventory(playerId: string): InvStack[] | undefined { return this.state.players.get(playerId)?.inventory; }
 
-  getHotbar(playerId: string): Array<string | null> | undefined {
-    return this.state.players.get(playerId)?.hotbar;
-  }
+  getHotbar(playerId: string): Array<string | null> | undefined { return this.state.players.get(playerId)?.hotbar; }
 
-  getWeapon(playerId: string): string | null | undefined {
-    return this.state.players.get(playerId)?.weapon;
-  }
+  getWeapon(playerId: string): string | null | undefined { return this.state.players.get(playerId)?.weapon; }
 
   /** Test access: spawn an item entity on the ground. */
   spawnItem(request: ItemSpawn): Entity {
@@ -150,11 +142,6 @@ export class GameSim {
     const slot = this.state.players.get(playerId);
     if (slot) endSpawnGrace(slot);
   }
-
-  // ── Epic 7.14 (The Descent): cross-sim transfer + cross-floor social ──
-  // FloorRegistry (game-server/src/floorRegistry.ts) is the only caller of
-  // these — they operate one tick behind step() by design (see
-  // floors/transfer.ts's doc comment).
 
   /** Slots that left this sim THIS tick, awaiting placement elsewhere. */
   takeOutgoingTransfers(): FloorTransferRequest[] {

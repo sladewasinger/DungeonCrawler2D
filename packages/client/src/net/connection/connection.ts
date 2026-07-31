@@ -9,7 +9,7 @@ import {
   closeSocket,
   openSocket,
 } from "./socket.js";
-import type { DeathVisualEvent, VisualEvent } from "./connectionTypes.js";
+import type { BlockFeedbackKind, DeathVisualEvent, VisualEvent } from "./connectionTypes.js";
 import { ConnectionActions } from "./ConnectionActions.js";
 import {
   interpolateInto,
@@ -21,11 +21,12 @@ import { sampleMovement, sendMovementEdge } from "../movement/movementSampling.j
 import type {
   MovementTraceClientState,
 } from "../movement/movementTrace.js";
-import { resetDisconnectedConnection } from "./connectionReset.js";
+import { resetDisconnectedConnection } from "./lifecycle/connectionReset.js";
 import {
   saveExperimentalCorpNetSettings,
   setExperimentalCorpNetMode,
 } from "../corpnet/index.js";
+import type { AdminCommandResult } from "./admin/adminMessages.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -41,6 +42,10 @@ export class Connection extends ConnectionActions {
   onConnected: (() => void) | null = null;
   onSnapshot: (() => void) | null = null;
   onUpdateRequired: ((message: string) => void) | null = null;
+  onAdminAuth: ((ok: boolean) => void) | null = null;
+  onAdminState: (() => void) | null = null;
+  onAdminObserverState: (() => void) | null = null;
+  onAdminCommandResult: ((result: AdminCommandResult) => void) | null = null;
 
   constructor(url: string, name: string, clientId: string) {
     super(url, name, clientId);
@@ -80,7 +85,13 @@ export class Connection extends ConnectionActions {
   setName(name: string): void { this.name = name; }
   setSkin(skin: PlayerSkin): void { this.skin = skin; }
   connect(level: LevelId = this.level): void {
+    this.adminOnly = false;
     this.level = level;
+    openSocket(this);
+  }
+
+  connectAdmin(): void {
+    this.adminOnly = true;
     openSocket(this);
   }
 
@@ -113,6 +124,10 @@ export class Connection extends ConnectionActions {
     const out = this.visualEvents;
     this.visualEvents = [];
     return out;
+  }
+
+  recordBlockFeedback(kind: BlockFeedbackKind, startedAtMs: number): void {
+    this.blockFeedback = { kind, startedAtMs };
   }
 
   get respawnSecondsRemaining(): number { return this.respawnAtTick === null ? 0 : Math.ceil(Math.max(0, this.respawnAtTick - this.serverTick) / TICK_RATE); } get downedSecondsRemaining(): number { return this.downedUntilTick === null ? 0 : Math.ceil(Math.max(0, this.downedUntilTick - this.serverTick) / TICK_RATE); }

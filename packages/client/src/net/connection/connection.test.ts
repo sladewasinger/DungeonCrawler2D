@@ -2,7 +2,7 @@
 // constructor does no I/O and every field the getters read is a plain public property.
 import { describe, expect, it, vi } from "vitest";
 import { Connection } from "./connection.js";
-import { requireConnectionUpdate } from "./socket.js";
+import { requireConnectionIdleTimeout, requireConnectionUpdate } from "./socket.js";
 
 function freshConnection(): Connection {
   return new Connection("wss://example.test", "Tester", "client-1");
@@ -122,5 +122,19 @@ describe("requireConnectionUpdate", () => {
     expect(conn.shouldReconnect).toBe(false);
     expect(conn.status).toBe("closed");
     expect(messages).toEqual(["Refresh this client"]);
+  });
+});
+
+describe("requireConnectionIdleTimeout", () => {
+  it("stops reconnecting and retains a clear rejoin message", () => {
+    const conn = freshConnection();
+    conn.shouldReconnect = true;
+
+    requireConnectionIdleTimeout(conn, "Disconnected after 3 minutes of inactivity.");
+
+    expect(conn.shouldReconnect).toBe(false);
+    expect(conn.sessionExpired).toBe(true);
+    expect(conn.sessionEndMessage).toBe("Disconnected after 3 minutes of inactivity.");
+    expect(conn.status).toBe("closed");
   });
 });

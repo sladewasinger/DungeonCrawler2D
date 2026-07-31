@@ -1,11 +1,19 @@
-import { updateGuardCone } from "../combat/guardCone.js";
-import { createHeldWeapon, updateHeldWeapon } from "../combat/heldWeapon.js";
+import { updateGuardCone } from "../combat/attack/guardCone.js";
+import {
+  attackReadyFlashForVisual,
+  cooldownForVisual,
+  recordAttackStart,
+} from "../combat/attack/attackCooldown.js";
+import { updateAttackCooldownIndicator } from "../combat/attack/attackCooldownIndicator.js";
+import { createHeldWeapon, updateHeldWeapon } from "../combat/weapon/heldWeapon.js";
 import type { PlayerVisual } from "../visuals/state.js";
 import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
-import { FIST_FALLBACK_FRAME, weaponIconFrame } from "../combat/weaponIcon.js";
+import { FIST_FALLBACK_FRAME, weaponIconFrame } from "../combat/weapon/weaponIcon.js";
 import { combatOverlayPosition } from "../geometry/worldToScreen.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { worldAngleToView } from "../../view/transform/viewTransform.js";
+import { weaponProfileForId } from "../../../scenes/dungeon/world/contentQueries.js";
+import { depthForCombatGeometry, depthForCombatOverlay } from "../presentation/depthSort.js";
 
 const STRIKE_DURATION_MS = 160;
 
@@ -19,27 +27,90 @@ export interface PlayerWeaponUpdate {
 
 export function updatePlayerWeapon({ visual, view, context }: PlayerWeaponUpdate): void {
   const blocking = !view.downed && view.blocking;
-  const striking = !view.downed && !view.blocking && view.attacking;
-  applySwingEdge(visual, striking, context.nowMs);
+  const attackActive = !view.downed && view.attacking;
+  const striking = attackActive && !view.blocking;
+  const profile = weaponProfileForId(view.weaponId);
+  applySwingEdge({ visual, attacking: attackActive, nowMs: context.nowMs, cooldownMs: profile.cooldownMs });
   const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());
-  const combatPosition = combatOverlayPosition({ worldX: view.x, worldY: view.y, z: view.z, world: context.world });
-  updateGuardCone({
+  const combatPosition = combatOverlayPosition({ worldX: view.x, worldY: view.y });
+  const guardConeInput = {
     visual,
     blocking,
     facingAngle: view.weaponAimAngle === null ? facingAngle : visual.weaponAngle,
     depth: { wielderDepth: visual.body.depth, ...combatPosition },
+    nowMs: context.nowMs,
+    ...(view.blockFeedback === undefined ? {} : { blockFeedback: view.blockFeedback }),
+  };
+  updateGuardCone(guardConeInput);
+  const attackReadyFlash = updateAttackRecovery({
+    visual,
+    view,
+    nowMs: context.nowMs,
+    blocking,
+    combatDepth: guardConeInput.depth,
   });
-  updateHeldWeapon(visual.weapon, weaponFrame(view), weaponPose({ visual, view, context, blocking, striking, facingAngle, combatPosition }));
+  updateHeldWeapon(visual.weapon, weaponFrame(view), weaponPose({
+    visual,
+    view,
+    context,
+    blocking,
+    striking,
+    facingAngle,
+    combatPosition,
+    attackReadyFlash,
+  }));
+}
+
+interface AttackRecoveryUpdate {
+  readonly visual: PlayerVisual;
+  readonly view: PlayerEntityView;
+  readonly nowMs: number;
+  readonly blocking: boolean;
+  readonly combatDepth: {
+    readonly wielderDepth: number;
+    readonly wielderViewY: number;
+  };
+}
+
+function updateAttackRecovery(input: AttackRecoveryUpdate): boolean {
+  const { visual, view, nowMs, blocking, combatDepth } = input;
+  const cooldown = cooldownForVisual(visual, nowMs);
+  const readyFlash = attackReadyFlashForVisual({
+    visual,
+    state: cooldown,
+    nowMs,
+    downed: view.downed,
+  });
+  updateAttackCooldownIndicator({
+    graphics: visual.attackCooldownIndicator,
+    state: cooldown,
+    x: visual.body.x,
+    feetY: visual.body.y,
+    depth: depthForCombatGeometry(depthForCombatOverlay(combatDepth)),
+    blocking,
+    downed: view.downed,
+  });
+  return readyFlash;
 }
 
 interface WeaponPoseInput extends PlayerWeaponUpdate {
   readonly blocking: boolean;
   readonly striking: boolean;
+  readonly attackReadyFlash: boolean;
   readonly facingAngle: number;
   readonly combatPosition: ReturnType<typeof combatOverlayPosition>;
 }
 
-function weaponPose({ visual, view, context, blocking, striking, facingAngle, combatPosition }: WeaponPoseInput) {
+function weaponPose({
+  visual,
+  view,
+  context,
+  blocking,
+  striking,
+  facingAngle,
+  combatPosition,
+  attackReadyFlash,
+}: WeaponPoseInput) {
   const rawFrame = view.downed ? null : weaponIconFrame(view.weaponId);
   const isFistFallback = rawFrame === null && !view.downed;
   return {
@@ -48,6 +119,7 @@ function weaponPose({ visual, view, context, blocking, striking, facingAngle, co
     facingX: view.faceX,
     striking,
     blocking,
+    attackReadyFlash,
     nowMs: context.nowMs,
     strikeProgress: strikeProgress(visual, striking, context.nowMs),
     wielderDepth: visual.body.depth,
@@ -63,8 +135,17 @@ function weaponFrame(view: PlayerEntityView): string | null {
   return rawFrame ?? (view.downed ? null : FIST_FALLBACK_FRAME);
 }
 
-function applySwingEdge(visual: PlayerVisual, attacking: boolean, nowMs: number): void {
-  if (attacking && !visual.wasAttacking) visual.swingStartMs = nowMs;
+function applySwingEdge(input: {
+  readonly visual: PlayerVisual;
+  readonly attacking: boolean;
+  readonly nowMs: number;
+  readonly cooldownMs: number;
+}): void {
+  const { visual, attacking, nowMs, cooldownMs } = input;
+  if (attacking && !visual.wasAttacking) {
+    visual.swingStartMs = nowMs;
+    recordAttackStart(visual, nowMs, cooldownMs);
+  }
   visual.wasAttacking = attacking;
 }
 

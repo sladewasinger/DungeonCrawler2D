@@ -1,14 +1,10 @@
 /** Composes the browser-native first-person HUD and its keyboard focus contract. */
 import type { World } from "@dc2d/engine";
-import { inputModality } from "../../../input/controls/inputModality.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { SessionMenuActions } from "../../../ui/sessionMenu/SessionMenu.js";
 import type { HudFakeSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { FirstPersonState } from "../../../three/input/movement.js";
-import {
-  createHudComposition,
-  type HudComposition,
-} from "./HudComposition.js";
+import type { HudComposition } from "./HudComposition.js";
 import { HudKeyboard } from "../model/HudKeyboard.js";
 import {
   createHudKeyboard,
@@ -17,6 +13,8 @@ import {
 import type { ViewDistance } from "../../../three/terrain/view/viewDistance.js";
 import { createHudTemplate } from "../styles/hudTemplate.js";
 import { updateHud } from "./SharedHtmlHudUpdate.js";
+import { AdminDebugPanel } from "../admin/AdminDebugPanel.js";
+import { createSharedHudParts } from "./sharedHudParts.js";
 export interface HudUpdate {
   connection: Connection;
   world: World;
@@ -46,6 +44,7 @@ export interface HudOptions {
 export class SharedHtmlHud {
   readonly element = createHudTemplate<HTMLDivElement>("hud-root-template");
   readonly parts: HudComposition;
+  readonly adminDebug: AdminDebugPanel;
   private readonly keyboard: HudKeyboard;
   private readonly focusGame: () => void;
   private readonly setTextInputFocused: (focused: boolean) => void;
@@ -55,35 +54,10 @@ export class SharedHtmlHud {
     this.focusGame = options.focusGame;
     this.setTextInputFocused = options.setTextInputFocused ?? (() => {});
     this.showHealthFeedback = options.showHealthFeedback !== false;
-    this.parts = createHudComposition(
-      {
-        root: options.root,
-        element: this.element,
-        connection: options.connection,
-        focusGame: options.focusGame,
-        setTextInputFocused: this.setTextInputFocused,
-        touchDevice: inputModality.current === "touch",
-        ...(options.viewDistance === undefined
-          ? {}
-          : { viewDistance: options.viewDistance }),
-        ...(options.setViewDistance
-          ? { setViewDistance: options.setViewDistance }
-          : {}),
-        ...(options.onSelectHotbar
-          ? { onSelectHotbar: options.onSelectHotbar }
-          : {}),
-        session: options.session,
-      },
-      {
-        closeInventory: () => this.closeInventory(),
-        toggleContacts: () => this.toggleContacts(),
-        closeContacts: () => this.closeContacts(),
-        closeCraft: () => this.closeCraft(),
-        closeStash: () => this.closeStash(),
-        toggleInventory: () => this.toggleInventory(),
-      },
-    );
+    this.parts = createSharedHudParts(this, options);
     this.keyboard = this.createKeyboard(options);
+    this.adminDebug = new AdminDebugPanel(options.connection);
+    this.element.append(this.adminDebug.element);
     if (options.showReticle !== false) mountHudReticle(this.element);
   }
 
@@ -105,6 +79,9 @@ export class SharedHtmlHud {
       toggleSessionMenu: () => parts.sessionMenu.toggle(),
       closeSessionMenu: () => parts.sessionMenu.close(),
     }, options);
+  }
+  get setTextInputFocus(): (focused: boolean) => void {
+    return this.setTextInputFocused;
   }
   update(update: HudUpdate): void {
     updateHud({ hud: this, update, showHealthFeedback: this.showHealthFeedback });
@@ -156,6 +133,7 @@ export class SharedHtmlHud {
     this.parts.panels.chat.dispose();
     this.parts.sessionMenu.dispose();
     this.parts.settings.dispose();
+    this.adminDebug.dispose();
     this.parts.manager.dispose();
     this.element.remove();
   }

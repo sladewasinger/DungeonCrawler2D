@@ -5,7 +5,7 @@
 // and a stronger gravity arc rather than light-halo art.
 import type Phaser from "phaser";
 import { ASSET_KEYS } from "../../boot/assetManifest.js";
-import { COMBAT_PARTICLE_DEPTH } from "../combat/combatLayer.js";
+import { COMBAT_PARTICLE_DEPTH } from "../combat/shared/combatLayer.js";
 
 const FRAME = "particle_soft";
 /** "24+ particles with gravity" per the wave-7 kill-moment brief. */

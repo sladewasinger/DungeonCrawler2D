@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { findSpawn, findWalkableNear, newToken } from "./spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 /** Unit tests for spawn selection against the active BSP generator. */
 
@@ -57,6 +58,7 @@ function makeSlotAt(x: number, y: number): PlayerSlot {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,

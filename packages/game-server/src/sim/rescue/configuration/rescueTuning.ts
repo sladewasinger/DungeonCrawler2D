@@ -4,6 +4,7 @@ import rescueTuning from "./rescueTuning.json" with { type: "json" };
 interface RescueTuning {
   readonly cooldownSeconds: number;
   readonly destinationSearchRadiusTiles: number;
+  readonly destinationMinimumDistanceTiles: number;
 }
 
 /** Developer-facing controls for the production stuck-player rescue action. */
@@ -20,6 +21,12 @@ function validateTuning(tuning: RescueTuning): RescueTuning {
   if (!Number.isInteger(tuning.destinationSearchRadiusTiles) ||
       tuning.destinationSearchRadiusTiles < 1) {
     throw new Error("Rescue destinationSearchRadiusTiles must be a positive integer");
+  }
+  if (!Number.isFinite(tuning.destinationMinimumDistanceTiles) ||
+      tuning.destinationMinimumDistanceTiles < 0 ||
+      tuning.destinationMinimumDistanceTiles >=
+        tuning.destinationSearchRadiusTiles) {
+    throw new Error("Rescue destinationMinimumDistanceTiles must be within the search radius");
   }
   return Object.freeze({ ...tuning });
 }

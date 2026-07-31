@@ -10,6 +10,7 @@ import {
   NAMEPLATE_LINE_HEIGHT_PX,
   updateNameplate,
 } from "../presentation/nameplate.js";
+import { updateAdminLabel } from "../presentation/adminLabel.js";
 import { syncOcclusionSilhouette, terrainOcclusionAhead } from "../geometry/occlusion.js";
 import { updateShadowPosition } from "../geometry/shadow.js";
 import type { PlayerVisual } from "../visuals/state.js";
@@ -45,6 +46,7 @@ function updateChromeDepths(visual: PlayerVisual): void {
   visual.shadow.setDepth(bodyDepth - 0.2);
   visual.hpBar.container.setDepth(bodyDepth + 0.2);
   visual.nameplate.setDepth(bodyDepth + 0.2);
+  visual.adminLabel.setDepth(bodyDepth + 0.21);
 }
 
 interface PlayerShadowUpdate {
@@ -93,6 +95,12 @@ function updatePlayerNameplate(visual: PlayerVisual, view: PlayerEntityView, con
     isParty: context.partyIds.has(view.id),
     downed: view.downed,
     disconnected: view.disconnected ?? false,
+    additionalOffsetPx: view.admin ? NAMEPLATE_LINE_HEIGHT_PX + LABEL_LINE_GAP_PX : 0,
+  });
+  updateAdminLabel({
+    label: visual.adminLabel,
+    nameplate: visual.nameplate,
+    visible: view.admin === true,
   });
 }
 

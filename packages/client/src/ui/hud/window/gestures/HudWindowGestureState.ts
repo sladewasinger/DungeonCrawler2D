@@ -82,8 +82,9 @@ export const releaseGesturePointers = (
 export const snapWindowAnchor = (
   layout: HudWindowLayout,
   root: DOMRect,
+  constraints: { readonly aspectRatio?: number; readonly minWidth?: number; readonly minHeight?: number } = {},
 ): void => {
-  const size = resolveWindowSize(layout, root);
+  const size = resolveWindowSize(layout, root, constraints);
   const position = resolveWindowPosition(layout, size, root);
   layout.anchor = closestAnchor({ position, size, viewport: root });
 };
@@ -115,8 +116,8 @@ export const hudWindowGestureBounds = (
   const rect = record.element.getBoundingClientRect();
   const root = rootElement.getBoundingClientRect();
   return {
-    minWidth: MIN_WINDOW_WIDTH,
-    minHeight: MIN_WINDOW_HEIGHT,
+    minWidth: record.minWidth ?? MIN_WINDOW_WIDTH,
+    minHeight: record.minHeight ?? MIN_WINDOW_HEIGHT,
     maxWidth: Math.max(
       1,
       (root.width - Math.max(0, rect.left - root.left)) / scale,

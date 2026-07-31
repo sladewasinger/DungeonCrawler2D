@@ -3,6 +3,7 @@
  * the state facade under the file-size cap. Pure types only, no behavior.
  */
 import type { PlayerSkin } from "@dc2d/engine";
+import type { BlockFeedbackKind } from "../../combat/blockFeedback.js";
 
 export interface Toast {
   msg: string;
@@ -33,6 +34,8 @@ export interface NpcSpeech {
   untilMs: number;
 }
 
+export type { BlockFeedbackKind } from "../../combat/blockFeedback.js";
+
 interface CapturedCombatTarget {
   x?: number;
   y?: number;
@@ -57,6 +60,7 @@ export type VisualEvent =
     source?: "automatic" | undefined;
   } & CapturedCombatTarget
   | ({ t: "damageImpact"; id: string; amount: number } & CapturedCombatTarget)
+  | { t: "blockFeedback"; kind: BlockFeedbackKind }
   | ({ t: "status"; id: string; status: string; on: boolean } & CapturedCombatTarget)
   /** Client-detected (net/apply.ts's fistbumpSeal parse) — server sends no dedicated
    * wire event for a sealed contact, only the system chat line this is derived from. */

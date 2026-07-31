@@ -1,6 +1,6 @@
 import type { BodyState } from "./movement/index.js";
 import type { PlayerSkin } from "./playerAppearance.js";
-import type { BallisticFlight } from "./projectile.js";
+import type { BallisticFlight, DirectProjectileImpact } from "./projectile.js";
 
 /**
  * The universal entity model. Players, enemies, ground items, and
@@ -44,6 +44,10 @@ export interface Entity {
   vel?: { x: number; y: number; z: number };
   /** Resolved launch/landing contract retained while a ballistic entity is flying. */
   ballisticFlight?: BallisticFlight;
+  /** Direct-hit payload captured when a hostile projectile launches. */
+  directProjectileImpact?: DirectProjectileImpact;
+  /** Player who returned a hostile direct projectile; it can then hit enemies only. */
+  returnedByPlayerId?: string;
   /** Last non-zero horizontal intent, normalized for presentation. */
   facing?: { x: number; y: number };
   ownerId?: string;
@@ -70,13 +74,14 @@ export function newEntityId(prefix: string): string {
   return `${prefix}${nextEntityId++}`;
 }
 
-/** The five presentation/ownership fields that only exist on some entity kinds. */
+/** Optional presentation, motion, projectile-combat, and ownership fields. */
 function applyOptionalEntityFields(
   entity: Entity,
   opts: Partial<Omit<Entity, "kind" | "body">>,
 ): void {
   applyPresentationFields(entity, opts);
   applyMotionFields(entity, opts);
+  applyProjectileCombatFields(entity, opts);
   applyOwnershipFields(entity, opts);
 }
 
@@ -90,6 +95,15 @@ function applyMotionFields(entity: Entity, opts: Partial<Entity>): void {
   if (opts.vel !== undefined) entity.vel = opts.vel;
   if (opts.ballisticFlight !== undefined) entity.ballisticFlight = opts.ballisticFlight;
   if (opts.facing !== undefined) entity.facing = opts.facing;
+}
+
+function applyProjectileCombatFields(entity: Entity, opts: Partial<Entity>): void {
+  if (opts.directProjectileImpact !== undefined) {
+    entity.directProjectileImpact = opts.directProjectileImpact;
+  }
+  if (opts.returnedByPlayerId !== undefined) {
+    entity.returnedByPlayerId = opts.returnedByPlayerId;
+  }
 }
 
 function applyOwnershipFields(entity: Entity, opts: Partial<Entity>): void {

@@ -1,5 +1,6 @@
 import { createBody } from "@dc2d/engine";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
+import { clearActiveMeleeAttack } from "../state/meleeAttackState.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
 export interface PlayerTeleport {
@@ -18,6 +19,7 @@ export function teleportPlayer({
   if (remember) rememberReturnPosition(slot);
   const z = to.z ?? sim.world.groundAt(to.x, to.y);
   slot.entity.body = createBody(to.x, to.y, z);
+  clearActiveMeleeAttack(slot);
   resetInputTimeline(slot);
   slot.needsFullAreas = true;
   slot.known.clear();

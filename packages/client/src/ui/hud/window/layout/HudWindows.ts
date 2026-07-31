@@ -11,7 +11,6 @@ import {
 } from "../gestures/HudWindowEditing.js";
 import {
   resolveWindowSize,
-  resolveWindowPosition,
   type HudWindowSpec,
 } from "./HudWindowLayout.js";
 import { type HudWindowRecord } from "./HudWindowRecord.js";
@@ -19,7 +18,11 @@ import {
   loadWindowLayouts,
   saveWindowLayouts,
 } from "./hudWindowStorage.js";
-import { applyHudWindowChrome, buildManagedHudWindow } from "./HudWindowManagerSupport.js";
+import {
+  applyHudWindowChrome,
+  buildManagedHudWindow,
+  resolveRenderedHudWindowGeometry,
+} from "./HudWindowManagerSupport.js";
 export type { HudAnchor, HudWindowSpec } from "./HudWindowLayout.js";
 
 export interface HudWindowView {
@@ -134,17 +137,22 @@ export class HudWindowManager {
 
   private apply(record: HudWindowRecord): void {
     const viewport = this.viewport();
-    const size = resolveWindowSize(record.layout, viewport);
-    const position = resolveWindowPosition(record.layout, size, viewport);
+    const requestedSize = resolveWindowSize(record.layout, viewport, record);
     const visible = record.layout.visible !== false;
     Object.assign(record.element.style, {
       display: visible ? "block" : "none",
-      left: `${position.x}px`,
-      top: `${position.y}px`,
-      width: `${size.width}px`,
-      height: `${size.height}px`,
+      width: `${requestedSize.width}px`,
+      height: `${requestedSize.height}px`,
       zIndex: String(record.layout.z),
     });
+    const { position } = resolveRenderedHudWindowGeometry({
+      element: record.element,
+      requestedSize,
+      layout: record.layout,
+      viewport,
+    });
+    record.element.style.left = `${position.x}px`;
+    record.element.style.top = `${position.y}px`;
     this.applyChrome(record);
   }
 

@@ -178,6 +178,7 @@ export class HudWindowGestureController {
       snapWindowAnchor(
         this.record.layout,
         completed.rootRect,
+        this.record,
       );
     }
     this.context.apply(this.record);

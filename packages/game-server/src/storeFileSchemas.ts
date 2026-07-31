@@ -29,6 +29,20 @@ export const versionThreePlayerSchema = versionTwoPlayerSchema.extend({
   blockedProfileIds: z.array(z.string()),
 }).strict();
 
+const identitySchema = z.object({
+  clientId: z.string().min(4).max(64),
+  userAgent: z.string().max(256),
+  platform: z.string().max(128),
+  touch: z.boolean(),
+  lastSeenAt: z.number().int().nonnegative(),
+}).strict();
+
+export const versionFourPlayerSchema = versionThreePlayerSchema.extend({
+  identity: identitySchema.optional(),
+  adminGranted: z.boolean().optional(),
+  handicapGranted: z.boolean().optional(),
+}).strict();
+
 const versionOnePlayersSchema = z.record(z.string(), versionOnePlayerSchema);
 export const legacyStoreSchema = z.object({
   nextSlot: z.number().int().nonnegative(),
@@ -42,13 +56,19 @@ export const versionTwoStoreSchema = z.object({
   nextSlot: z.number().int().nonnegative(),
   players: z.record(z.string(), versionTwoPlayerSchema),
 }).strict();
-export const currentStoreSchema = z.object({
+export const versionThreeStoreSchema = z.object({
   version: z.literal(3),
   nextSlot: z.number().int().nonnegative(),
   players: z.record(z.string(), versionThreePlayerSchema),
+}).strict();
+export const currentStoreSchema = z.object({
+  version: z.literal(4),
+  nextSlot: z.number().int().nonnegative(),
+  players: z.record(z.string(), versionFourPlayerSchema),
 }).strict();
 
 export type StoredFilePlayer =
   | z.infer<typeof versionOnePlayerSchema>
   | z.infer<typeof versionTwoPlayerSchema>
-  | z.infer<typeof versionThreePlayerSchema>;
+  | z.infer<typeof versionThreePlayerSchema>
+  | z.infer<typeof versionFourPlayerSchema>;

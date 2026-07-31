@@ -1,6 +1,6 @@
 import { ASSET_KEYS } from "../../../../boot/assetManifest.js";
 import { FIRE_SPARK_PRESENTATION } from "../../../../vfx/particles/fireParticlePresentation.js";
-import { STATUS_VISUAL_STYLE } from "../../combat/statusVisualStyle.js";
+import { STATUS_VISUAL_STYLE } from "../../combat/status/statusVisualStyle.js";
 import type { StatusParticleKind } from "./statusParticleMotion.js";
 
 export interface StatusParticlePresentation {

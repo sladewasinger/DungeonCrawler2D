@@ -4,7 +4,7 @@ import type Phaser from "phaser";
 import type { HealthFeedback } from "../../ui/presentation/healthFeedback.js";
 import { uiTextStyle } from "../../ui/foundation/font.js";
 import { HUD_SCALE } from "../../ui/foundation/hudScale.js";
-import { COMBAT_TEXT_DEPTH } from "../combat/combatLayer.js";
+import { COMBAT_TEXT_DEPTH } from "../combat/shared/combatLayer.js";
 import { damageNumberPose, isExpired } from "./damageNumberMotion.js";
 
 const FONT_SIZE_PX = 18 * HUD_SCALE;

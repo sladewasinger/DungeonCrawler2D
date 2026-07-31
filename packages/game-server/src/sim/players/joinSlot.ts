@@ -1,4 +1,9 @@
-import { HOTBAR_SLOTS, PLAYER_MAX_STAMINA, type Entity } from "@dc2d/engine";
+import {
+  HOTBAR_SLOTS,
+  PLAYER_MAX_STAMINA,
+  createDebugFlags,
+  type Entity,
+} from "@dc2d/engine";
 import { handicapForPlayer } from "../progression/handicap.js";
 import type { PlayerSlot } from "../state/state.js";
 
@@ -54,6 +59,8 @@ function connectionGameplay() {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    admin: false,
+    debugFlags: createDebugFlags(),
     forceDeath: false,
     rescueReadyAtTick: Number.NEGATIVE_INFINITY,
     chatTimestamps: [],

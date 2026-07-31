@@ -4,7 +4,7 @@ import { doCraft, doDrop, doPickup, doStash } from "../inventory/inventory.js";
 import type { PlayerAction, PlayerSlot, SimState } from "../state/state.js";
 import { doDescend } from "./descend.js";
 import { dispatchItemAction } from "./items.js";
-import { doAttack } from "./melee.js";
+import { doAttack, stepActiveMeleeAttacks } from "./melee.js";
 import { endSpawnGrace } from "../spawnSafety/spawnSafety.js";
 import { closeLootChest, openLootChestById, takeLoot } from "../lootChests/lootChests.js";
 import { setReviveHeld, stepRevives } from "../players/revives.js";
@@ -23,6 +23,7 @@ interface ActionContext {
 
 export function processActions(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const slot of sim.players.values()) processSlotActions(sim, slot, effectEvents);
+  stepActiveMeleeAttacks(sim, effectEvents);
   stepRevives(sim, effectEvents);
 }
 

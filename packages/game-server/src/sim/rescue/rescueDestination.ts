@@ -1,9 +1,5 @@
 import { TERRAIN } from "@dc2d/engine";
 import { RESCUE_TUNING } from "./configuration/rescueTuning.js";
-import {
-  reachableRescueTiles,
-  tileKey,
-} from "./rescueReachability.js";
 import type { RescueWorld } from "./rescueWorld.js";
 
 const GROUND_EPSILON = 0.000_001;
@@ -35,23 +31,30 @@ interface TileOffset {
 export function findRescueDestination(
   search: RescueDestinationSearch,
 ): RescueDestination | null {
-  const { world, from } = search;
+  const { from } = search;
   const originX = Math.floor(from.x);
   const originY = Math.floor(from.y);
-  const reachable = reachableRescueTiles({
-    world,
-    origin: from,
-    radius: RESCUE_TUNING.destinationSearchRadiusTiles,
-  });
   for (const offset of orderedSearchOffsets(from)) {
     const tileX = originX + offset.x;
     const tileY = originY + offset.y;
-    if (reachable.has(tileKey(tileX, tileY))) continue;
+    if (!isFarEnoughFromOrigin(search, tileX, tileY)) continue;
     const ground = flatPlatformGround(search, tileX, tileY);
     if (ground === null) continue;
     return { x: tileX + 0.5, y: tileY + 0.5, z: ground };
   }
   return null;
+}
+
+function isFarEnoughFromOrigin(
+  search: RescueDestinationSearch,
+  tileX: number,
+  tileY: number,
+): boolean {
+  const distance = Math.hypot(
+    tileX + 0.5 - search.from.x,
+    tileY + 0.5 - search.from.y,
+  );
+  return distance >= RESCUE_TUNING.destinationMinimumDistanceTiles;
 }
 
 function flatPlatformGround(

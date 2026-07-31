@@ -4,7 +4,7 @@ import type Phaser from "phaser";
 import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { resolveAnimState } from "../motion/animState.js";
 import { createHpBar } from "../presentation/hpBar.js";
-import { flashIntensity, tookDamage } from "../combat/hitFlash.js";
+import { flashIntensity, tookDamage } from "../combat/feedback/hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
 import { createNameplate } from "../presentation/nameplate.js";
 import { inferPlayerAnimState, isRunningPace } from "../motion/playerMotion.js";
@@ -22,7 +22,9 @@ import {
   resolveCombatantTint,
   resolveCombatantTintLayer,
   type CombatantStateVisual,
-} from "../combat/statusTint.js";
+} from "../combat/status/statusTint.js";
+import { createAttackCooldownIndicator } from "../combat/attack/attackCooldownIndicator.js";
+import { createAdminLabel } from "../presentation/adminLabel.js";
 
 const DOWNED_ANGLE = 78;
 /** Epic 7.12: no dedicated run frames exist, so running plays the same walk loop
@@ -35,7 +37,9 @@ export function createPlayerVisual(scene: Phaser.Scene, nowMs: number): PlayerVi
     kind: "player",
     body,
     weapon: createHeldWeapon(scene, 0),
+    adminLabel: createAdminLabel(scene, 0),
     guardCone: scene.add.graphics(),
+    attackCooldownIndicator: createAttackCooldownIndicator(scene),
     shadow: createShadow(scene, 0),
     hpBar: createHpBar(scene, 0),
     nameplate: createNameplate(scene, 0),
@@ -82,7 +86,7 @@ function positionPlayerBody({ visual, view, heightAboveGround }: Omit<PlayerBody
   // exactly on it — see lift.ts's module doc.
   visual.body.setPosition(screen.x, screen.y - spriteLiftPx(view.z));
   visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
-  visual.body.setFlipX(playerFacesLeft(visual.weaponAngle, view));
+  visual.body.setFlipX(playerFacesLeft(view));
 }
 
 function updatePlayerAnimation({ visual, skinPrefix, view, context }: Omit<PlayerBodyUpdate, "heightAboveGround">): void {

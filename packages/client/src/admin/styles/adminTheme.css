@@ -1,0 +1,384 @@
+@font-face {
+  font-family: "Dungeon Admin";
+  src: url("/assets/fonts/monogram.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --admin-bg: #080c13;
+  --admin-panel: #111925;
+  --admin-panel-raised: #172233;
+  --admin-border: #2f4158;
+  --admin-border-bright: #506986;
+  --admin-text: #edf4ff;
+  --admin-muted: #96a9bf;
+  --admin-accent: #efbd62;
+  --admin-accent-soft: #493b25;
+  --admin-cyan: #72d6e5;
+  --admin-danger: #eb6f77;
+  --admin-success: #79d29a;
+  --admin-radius: 10px;
+}
+
+html,
+body {
+  min-height: 100%;
+  overflow: auto !important;
+  background:
+    radial-gradient(circle at 20% 0%, rgb(39 57 78 / 42%), transparent 34rem),
+    linear-gradient(155deg, #0b1019 0%, var(--admin-bg) 72%);
+}
+
+body {
+  color: var(--admin-text);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#app {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 100dvh;
+}
+
+#app > main {
+  box-sizing: border-box;
+  width: min(100%, 1560px);
+  max-width: none !important;
+  margin: 0 auto;
+  padding: clamp(14px, 2vw, 30px) !important;
+  display: grid !important;
+  gap: 18px !important;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+#app > main > section {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 18px !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: var(--admin-radius) !important;
+  background:
+    linear-gradient(145deg, rgb(26 38 55 / 96%), rgb(14 21 32 / 98%)) !important;
+  box-shadow:
+    0 14px 36px rgb(0 0 0 / 20%),
+    inset 0 1px rgb(255 255 255 / 3%);
+}
+
+#app > main > section:first-child {
+  padding: 4px 2px 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+#app h1 {
+  margin: 0 !important;
+  color: var(--admin-text);
+  font-family: "Dungeon Admin", ui-monospace, monospace;
+  font-size: clamp(25px, 2.5vw, 36px) !important;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 1;
+}
+
+#app > main > section:not(:first-child) > h1 {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgb(95 120 151 / 28%);
+  font-size: 25px !important;
+}
+
+#app p {
+  color: var(--admin-muted) !important;
+  line-height: 1.45;
+}
+
+#app button,
+#app select,
+#app input {
+  box-sizing: border-box;
+  min-height: 36px;
+  border: 1px solid var(--admin-border-bright) !important;
+  border-radius: 7px !important;
+  background: #1c293b !important;
+  color: var(--admin-text) !important;
+  font: inherit;
+}
+
+#app button {
+  padding: 8px 12px !important;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+#app button:hover:not(:disabled) {
+  border-color: var(--admin-accent) !important;
+  background: #26364b !important;
+  transform: translateY(-1px);
+}
+
+#app button:focus-visible,
+#app select:focus-visible,
+#app input:focus-visible,
+[data-admin-player-select]:focus-visible,
+[data-admin-map]:focus-visible {
+  outline: 2px solid var(--admin-cyan) !important;
+  outline-offset: 2px;
+}
+
+#app button:disabled,
+#app select:disabled,
+#app input:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+#app select,
+#app input {
+  padding: 7px 10px;
+}
+
+section:has([data-admin-token]) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 230px) auto minmax(240px, 1fr);
+  align-items: center !important;
+}
+
+section:has([data-admin-token]) > h1 {
+  grid-column: 1 / -1;
+}
+
+[data-admin-status] {
+  min-width: 0;
+  color: var(--admin-success) !important;
+  overflow-wrap: anywhere;
+}
+
+section:has([data-admin-players]) {
+  display: block !important;
+  overflow: hidden;
+}
+
+section:has([data-admin-players]) table {
+  display: block;
+  max-height: 285px;
+  overflow: auto;
+  border-collapse: separate !important;
+  border-spacing: 0;
+}
+
+section:has([data-admin-players]) thead,
+section:has([data-admin-players]) tbody {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+section:has([data-admin-players]) thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #172232;
+}
+
+section:has([data-admin-players]) th {
+  color: var(--admin-muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+[data-admin-player-select] {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+[data-admin-player-select]:hover {
+  background: rgb(114 214 229 / 8%);
+}
+
+[data-admin-player-select][data-selected="true"] {
+  background: linear-gradient(90deg, rgb(239 189 98 / 18%), transparent);
+  box-shadow: inset 3px 0 var(--admin-accent);
+}
+
+[data-admin-player-select] td {
+  border-color: rgb(65 85 111 / 58%) !important;
+  white-space: pre-line;
+}
+
+[data-admin-player-observer] {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(420px, 1.28fr);
+  align-items: start !important;
+  gap: 16px !important;
+}
+
+[data-admin-player-observer] > h1,
+[data-admin-player-details] {
+  grid-column: 1;
+}
+
+[data-admin-player-actions] {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+[data-admin-spectator-viewer] {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #090e16;
+}
+
+[data-admin-spectator-status]::before {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--admin-success);
+  box-shadow: 0 0 9px var(--admin-success);
+  content: "";
+}
+
+[data-admin-spectator-canvas] {
+  width: 100%;
+  height: auto;
+  max-height: 540px;
+  border-radius: 5px;
+  image-rendering: pixelated;
+}
+
+section:has([data-admin-map]) {
+  display: grid !important;
+  grid-template-columns: minmax(560px, 1.5fr) minmax(330px, 0.8fr);
+  align-items: start !important;
+  gap: 14px !important;
+}
+
+section:has([data-admin-map]) > h1,
+section:has([data-admin-map]) > div:not([data-admin-catalog]) {
+  grid-column: 1 / -1;
+}
+
+[data-admin-map] {
+  grid-column: 1;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  aspect-ratio: 5 / 3;
+  border: 1px solid var(--admin-border-bright) !important;
+  border-radius: 7px;
+  background: #080c12;
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+[data-admin-catalog] {
+  grid-column: 2;
+  max-height: none !important;
+  height: min(480px, 55vh);
+  padding: 4px 8px 4px 4px !important;
+  scrollbar-color: var(--admin-border-bright) transparent;
+}
+
+[data-admin-catalog-card] {
+  min-height: 76px;
+  text-align: left;
+}
+
+[data-admin-catalog-card][data-selected="true"] {
+  border-color: var(--admin-accent) !important;
+  background:
+    linear-gradient(135deg, var(--admin-accent-soft), #202c3d) !important;
+  box-shadow:
+    inset 0 0 0 1px rgb(239 189 98 / 18%),
+    0 5px 16px rgb(0 0 0 / 18%);
+}
+
+[data-admin-catalog-preview] {
+  border-color: rgb(80 105 134 / 75%) !important;
+  background:
+    radial-gradient(circle, #26364b, #0d141e 72%) !important;
+}
+
+section:has([data-admin-debug-flag]) {
+  align-items: center !important;
+}
+
+section:has([data-admin-debug-flag]) label {
+  border-color: var(--admin-border) !important;
+  background: rgb(9 14 22 / 48%);
+  cursor: pointer;
+}
+
+section:has([data-admin-debug-flag]) label:has(input:checked) {
+  border-color: var(--admin-cyan) !important;
+  background: rgb(52 111 125 / 24%);
+}
+
+@media (max-width: 980px) {
+  [data-admin-player-observer],
+  section:has([data-admin-map]) {
+    grid-template-columns: 1fr;
+  }
+
+  [data-admin-player-observer] > h1,
+  [data-admin-player-details],
+  [data-admin-player-actions],
+  [data-admin-spectator-viewer],
+  [data-admin-map],
+  [data-admin-catalog] {
+    grid-column: 1;
+  }
+
+  [data-admin-spectator-viewer] {
+    grid-row: auto;
+  }
+
+  [data-admin-catalog] {
+    height: 360px;
+  }
+}
+
+@media (max-width: 640px) {
+  #app > main {
+    padding: 10px !important;
+    gap: 10px !important;
+  }
+
+  #app > main > section {
+    padding: 13px !important;
+  }
+
+  section:has([data-admin-token]) {
+    grid-template-columns: 1fr;
+  }
+
+  section:has([data-admin-token]) > h1 {
+    grid-column: 1;
+  }
+
+  section:has([data-admin-players]) {
+    overflow-x: auto;
+  }
+
+  section:has([data-admin-players]) table {
+    min-width: 720px;
+  }
+}

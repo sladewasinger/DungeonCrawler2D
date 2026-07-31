@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { RESCUE_TUNING } from "./configuration/rescueTuning.js";
 import { findRescueDestination } from "./rescueDestination.js";
 import { RescueTestWorld } from "./rescueTestSupport.js";
 
 describe("rescue destination search", () => {
-  it("chooses the nearest centered flat 3×3 floor", () => {
+  it("chooses the nearest centered flat 3×3 floor in the local area", () => {
     const world = new RescueTestWorld();
     world.addPlatform(8, 0, 2);
     world.addPlatform(4, 0, -2);
@@ -38,19 +39,33 @@ describe("rescue destination search", () => {
     expect(search(uneven, { x: 0, y: 0 })).toBeNull();
   });
 
-  it("leaves the current walkable component instead of teleporting in place", () => {
+  it("can bypass the trapping void to a nearby open platform", () => {
     const world = new RescueTestWorld();
-    world.addPlatform(0, 0);
-    world.addPlatform(8, 0);
+    world.addPlatform(4, 0);
 
     expect(search(world, { x: 0.5, y: 0.5 })).toEqual({
-      x: 8.5,
+      x: 4.5,
       y: 0.5,
       z: 0,
     });
   });
 
-  it("rejects disallowed and dynamically occupied platform footprints", () => {
+  it("rejects chasms, sanctuaries, and dynamically occupied footprints", () => {
+    const chasm = new RescueTestWorld();
+    chasm.addPlatform(4, 0);
+    chasm.removeFloor(4, 0);
+    expect(search(chasm, { x: 0.5, y: 0.5 })).toBeNull();
+
+    const sanctuary = new RescueTestWorld();
+    sanctuary.addPlatform(4, 0);
+    sanctuary.setSanctuary(4, 0);
+    expect(findRescueDestination({
+      world: sanctuary,
+      from: { x: 0.5, y: 0.5 },
+      allowsTile: (x, y) => !sanctuary.isSanctuary(x, y),
+      isOccupied: () => false,
+    })).toBeNull();
+
     const world = new RescueTestWorld();
     world.addPlatform(4, 0);
     world.addPlatform(8, 0);
@@ -62,6 +77,14 @@ describe("rescue destination search", () => {
       isOccupied: (x, y) => x === 8 && y === 0,
     })).toBeNull();
   });
+
+  it("never falls back to a distant platform outside the local bound", () => {
+    const world = new RescueTestWorld();
+    const distantX = RESCUE_TUNING.destinationSearchRadiusTiles + 3;
+    world.addPlatform(distantX, 0);
+
+    expect(search(world, { x: 0.5, y: 0.5 })).toBeNull();
+  });
 });
 
 function search(
@@ -71,7 +94,7 @@ function search(
   return findRescueDestination({
     world,
     from,
-    allowsTile: () => true,
+    allowsTile: (x, y) => !world.isSanctuary(x, y),
     isOccupied: () => false,
   });
 }

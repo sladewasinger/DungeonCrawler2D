@@ -90,6 +90,15 @@
   pointer-events: auto;
 }
 
+.hud-window--intrinsic-height {
+  min-height: min-content;
+}
+
+.hud-window--intrinsic-height .hud-window__content {
+  height: auto;
+  min-height: min-content;
+}
+
 .hud-window--content-only .hud-panel {
   background: transparent;
   border: 0;

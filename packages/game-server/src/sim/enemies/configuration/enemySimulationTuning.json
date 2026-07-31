@@ -26,7 +26,7 @@
     "memoryArrivalMinimumTiles": 0.3,
     "memoryArrivalMarginTiles": 0.1,
     "memoryPathMaxExpansions": 256,
-    "memoryPathMarginTiles": 8,
+    "memoryPathMarginTiles": 12,
     "memoryRouteStallTicks": 8,
     "memoryRouteMinimumProgressTiles": 0.01,
     "waypointAlignmentToleranceTiles": 0.2,

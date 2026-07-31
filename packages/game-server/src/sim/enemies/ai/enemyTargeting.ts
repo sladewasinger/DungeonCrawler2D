@@ -84,10 +84,20 @@ function visibleCandidate(
 }
 
 function compareCandidates(a: TargetCandidate, b: TargetCandidate): number {
+  const leaderOrder = compareArenaLeadership(a, b);
+  if (leaderOrder !== 0) return leaderOrder;
   if (a.retained !== b.retained) return a.retained ? -1 : 1;
   return a.distance - b.distance ||
     a.enemy.entity.id.localeCompare(b.enemy.entity.id) ||
     a.player.id.localeCompare(b.player.id);
+}
+
+function compareArenaLeadership(
+  a: TargetCandidate,
+  b: TargetCandidate,
+): number {
+  if (a.enemy.arenaLeader === b.enemy.arenaLeader) return 0;
+  return a.enemy.arenaLeader ? -1 : 1;
 }
 
 function assignCandidate(

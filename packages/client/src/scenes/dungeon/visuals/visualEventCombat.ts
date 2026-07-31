@@ -1,4 +1,4 @@
-import { resolveHitAgainstPending } from "../../../vfx/combat/meleeConnect.js";
+import { resolveHitAgainstPending } from "../../../vfx/combat/melee/meleeConnect.js";
 import type { VisualEventContext } from "./visualEvents.js";
 import { shouldPresentWorldVisual } from "./worldVisualVisibility.js";
 

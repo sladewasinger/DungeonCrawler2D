@@ -1,6 +1,7 @@
 import { loadPlayerStoreFile, savePlayerStoreFile } from "./storeFile.js";
 import { addToStash, addPlayerXp, createStoredPlayer, updateHotbar, updateModerationProfile, type StashAddRequest } from "./storeOperations.js";
 import { normalizeStoredPlayer } from "./storedPlayer.js";
+import { updatePlayerIdentity, type PlayerIdentityInput } from "./storeIdentity.js";
 
 /**
  * Persistent per-player data keyed by anonymous clientId: personal
@@ -10,6 +11,14 @@ import { normalizeStoredPlayer } from "./storedPlayer.js";
  */
 
 export interface StashEntry { item: string; qty: number }
+
+export interface PlayerIdentityMetadata {
+  clientId: string;
+  userAgent: string;
+  platform: string;
+  touch: boolean;
+  lastSeenAt: number;
+}
 
 export interface StoredPlayer {
   slot: number;
@@ -50,6 +59,10 @@ export interface StoredPlayer {
   blockedProfileIds?: string[];
   /** Future admin-panel grant; temporary name grants are resolved at runtime. */
   handicapGranted?: boolean;
+  /** Server-local identity context; never an authentication credential. */
+  identity?: PlayerIdentityMetadata;
+  /** Explicit server-side admin grant, independent of display name. */
+  adminGranted?: boolean;
 }
 
 export const STASH_CAPACITY = 24;
@@ -75,28 +88,28 @@ export class PlayerStore {
   /** True if this clientId already has a durable record — i.e. this is
    * not their first-ever join (server restarts don't reset this, unlike
    * the in-memory per-connection sim state). */
-  has(clientId: string): boolean {
-    return this.data.has(clientId);
-  }
+  has(clientId: string): boolean { return this.data.has(clientId); }
 
   /** Fetch (or create) the durable record for a clientId. */
-  get(clientId: string, name: string): StoredPlayer {
+  get(clientId: string, name: string, metadata?: PlayerIdentityInput): StoredPlayer {
     let player = this.data.get(clientId);
+    const isNew = !player;
     if (!player) {
       player = createStoredPlayer(this.nextSlot++, name);
       this.data.set(clientId, player);
-      this.scheduleSave();
-    } else if (player.name !== name) {
-      player.name = name;
-      this.scheduleSave();
     }
+    const changed = player.name !== name || updatePlayerIdentity(player, clientId, metadata);
+    player.name = name;
+    if (isNew || changed) this.scheduleSave();
     return player;
   }
 
+  recordAdminGrant(player: StoredPlayer, enabled: boolean): void { if (player.adminGranted === enabled) return; player.adminGranted = enabled; this.scheduleSave(); }
+
+  recordHandicapGrant(player: StoredPlayer, enabled: boolean): void { if (player.handicapGranted === enabled) return; player.handicapGranted = enabled; this.scheduleSave(); }
+
   /** Read an existing record without creating one or accepting client-supplied state. */
-  find(clientId: string): StoredPlayer | undefined {
-    return this.data.get(clientId);
-  }
+  find(clientId: string): StoredPlayer | undefined { return this.data.get(clientId); }
 
   findUniqueByName(name: string): StoredPlayer | undefined {
     const lower = name.toLowerCase();
@@ -142,10 +155,7 @@ export class PlayerStore {
     this.scheduleSave();
   }
 
-  recordFloor(player: StoredPlayer, floor: number): void {
-    this.recordActiveFloor(player, floor);
-    this.recordDeepestFloor(player, floor);
-  }
+  recordFloor(player: StoredPlayer, floor: number): void { this.recordActiveFloor(player, floor); this.recordDeepestFloor(player, floor); }
 
   /** Returns true exactly once, allowing objective rewards to be idempotent. */
   completeDescent(player: StoredPlayer): boolean {

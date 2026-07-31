@@ -3,16 +3,12 @@ import {
   RECONNECT_GRACE_MS,
   type ServerMessage,
 } from "@dc2d/engine";
-import { applySnapshot } from "../sync/apply.js";
 import type { Connection } from "./connection.js";
 import { clearResumeToken, loadResumeToken } from "../auth/identity.js";
 import { decodeMeasuredServerMessage } from "../transport/measuredDecode.js";
-import {
-  queueCorpNetSnapshot,
-  stopCorpNetWatchdog,
-} from "../corpnet/index.js";
-import { applySnapshotDelta } from "../snapshots/snapshotDelta.js";
-import { applyWelcome } from "./welcome.js";
+import { handleAdminMessage } from "./admin/adminMessages.js";
+import { stopCorpNetWatchdog } from "../corpnet/index.js";
+import { handleWorldMessage } from "./socketWorldMessages.js";
 
 /**
  * WebSocket wire mechanics for Connection: open/close, the hello
@@ -31,6 +27,7 @@ export function openSocket(conn: Connection): void {
   conn.shouldReconnect = true;
   conn.status = "connecting";
   conn.sessionExpired = false;
+  conn.sessionEndMessage = null;
   if (conn.reconnectTimer) clearTimeout(conn.reconnectTimer);
   conn.reconnectTimer = null;
   const previous = conn.ws;
@@ -44,6 +41,12 @@ export function openSocket(conn: Connection): void {
 function attachSocketHandlers(conn: Connection, ws: WebSocket): void {
   ws.onopen = () => {
     if (conn.ws !== ws) return;
+    if (conn.adminOnly) {
+      conn.status = "connected";
+      conn.reconnectAttempts = 0;
+      conn.onConnected?.();
+      return;
+    }
     const resumeToken = loadResumeToken(conn.level);
     conn.send({
       type: "hello",
@@ -54,6 +57,7 @@ function attachSocketHandlers(conn: Connection, ws: WebSocket): void {
       level: conn.level,
       snapshotMode: "delta-v1",
       networkProfile: conn.corpNet.enabled ? "corpnet" : null,
+      clientMetadata: browserMetadata(),
       ...(resumeToken ? { resumeToken } : {}),
     });
   };
@@ -107,40 +111,28 @@ export function requireConnectionUpdate(conn: Connection, message: string): void
   conn.onUpdateRequired?.(message);
 }
 
-function handleMessage(conn: Connection, msg: ServerMessage): void {
-  switch (msg.type) {
-    case "welcome":
-      applyWelcome(conn, msg);
-      return;
-    case "snapshot":
-    case "snapshotDelta":
-      if (conn.corpNet.enabled) {
-        queueCorpNetSnapshot(conn, msg, performance.now());
-      } else {
-        applyImmediateSnapshot(conn, msg);
-      }
-      return;
-    case "pong": {
-      const roundTrip = performance.now() - msg.t;
-      conn.rttMs = roundTrip;
-      conn.networkMetrics.recordRoundTrip(roundTrip);
-      return;
-    }
-    case "error":
-      console.error(`[server] ${msg.code}: ${msg.message}`);
-      if (msg.code === "protocol_mismatch") requireConnectionUpdate(conn, msg.message);
-      return;
-  }
+export function requireConnectionIdleTimeout(conn: Connection, message: string): void {
+  conn.shouldReconnect = false;
+  conn.sessionExpired = true;
+  conn.sessionEndMessage = message;
+  clearResumeToken(conn.level);
+  closeSocket(conn);
 }
 
-function applyImmediateSnapshot(
-  conn: Connection,
-  msg: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>,
-): void {
-  if (msg.type === "snapshot") {
-    conn.snapshotRevisions.reset();
-    applySnapshot(conn, msg);
-    return;
-  }
-  applySnapshotDelta(conn, msg);
+function handleMessage(conn: Connection, msg: ServerMessage): void {
+  if (handleAdminMessage(conn, msg)) return;
+  handleWorldMessage({
+    conn,
+    msg,
+    onProtocolMismatch: requireConnectionUpdate,
+    onIdleTimeout: requireConnectionIdleTimeout,
+  });
+}
+
+function browserMetadata(): NonNullable<Extract<Parameters<Connection["send"]>[0], { type: "hello" }>["clientMetadata"]> {
+  return {
+    userAgent: globalThis.navigator?.userAgent ?? "unknown",
+    platform: globalThis.navigator?.platform ?? "unknown",
+    touch: (globalThis.navigator?.maxTouchPoints ?? 0) > 0,
+  };
 }

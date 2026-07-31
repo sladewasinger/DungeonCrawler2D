@@ -11,19 +11,19 @@ const RECAP_TEXT =
   "First time down here: WASD to move, click to attack, E to interact, I for your bag. Good luck.";
 
 export interface TitleSceneData {
-  expired?: boolean;
+  endMessage?: string;
 }
 
 export class TitleScene extends Phaser.Scene {
   private title: StandaloneTitle | undefined;
-  private expired = false;
+  private endMessage: string | undefined;
 
   constructor(private readonly conn: Connection) {
     super("title");
   }
 
   init(data?: TitleSceneData): void {
-    this.expired = !!data?.expired;
+    this.endMessage = data?.endMessage;
   }
 
   create(): void {
@@ -39,8 +39,8 @@ export class TitleScene extends Phaser.Scene {
           if (focused) keyboard?.disableGlobalCapture();
           else keyboard?.enableGlobalCapture();
         },
-        ...(this.expired
-          ? { initialStatus: "Session expired — reconnect below" }
+        ...(this.endMessage
+          ? { initialStatus: this.endMessage }
           : {}),
         beforeConnect: () => {
           if (isTouchDevice()) requestFullscreenBestEffort();

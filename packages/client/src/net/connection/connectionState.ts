@@ -5,6 +5,12 @@ import {
   WireMetrics,
   World,
   type ActiveStatusSnapshot,
+  type AdminPlayer,
+  type AdminMap,
+  type AdminMapEntity,
+  type AdminPalette,
+  createDebugFlags,
+  type DebugFlags,
   type BodyState,
   type InvStack,
   type LevelId,
@@ -12,6 +18,7 @@ import {
   type ServerSnapshot,
   type ServerWelcome,
 } from "@dc2d/engine";
+import type { BlockFeedbackState } from "../../combat/blockFeedback.js";
 import type { ChatLine, ContactInfo, DeathVisualEvent, NpcSpeech, Toast, VisualEvent } from "./connectionTypes.js";
 import type { RemoteEntity } from "../interpolation/interpolate.js";
 import { InterpolationDelay } from "../interpolation/interpolationDelay.js";
@@ -74,6 +81,7 @@ export class ConnectionState {
   blockedPlayers = new Set<string>();
   visualEvents: VisualEvent[] = [];
   deathVisualEvents: DeathVisualEvent[] = [];
+  blockFeedback: BlockFeedbackState | null = null;
   npcSpeech: NpcSpeech | null = null;
   roomDoors: ServerSnapshot["roomDoors"] = [];
   readonly defeatedMiniBossArenaChunks = new Set<string>();
@@ -105,8 +113,23 @@ export class ConnectionState {
   skin: PlayerSkin = "knight_f";
   reconnectAttempts = 0;
   sessionExpired = false;
+  sessionEndMessage: string | null = null;
   updateRequired = false;
   updateRequiredMessage = "";
+  adminAuthenticated = false;
+  adminSessionKey: string | null = null;
+  adminCapabilities: string[] = [];
+  adminPlayers: AdminPlayer[] = [];
+  adminMap: AdminMap | null = null;
+  adminSpectatorMap: AdminMap | null = null;
+  adminPalette: AdminPalette = { enemies: [], items: [], weapons: [] };
+  adminDebugFlags: DebugFlags = createDebugFlags();
+  spectatorMode: "off" | "free" | "track" = "off";
+  spectatorTargetId: string | null = null;
+  activeAdmin = false;
+  activeAdminDebugFlags: DebugFlags = createDebugFlags();
+  activeAdminDebugEntities: AdminMapEntity[] = [];
+  adminOnly = false;
 
   constructor(readonly url: string, public name: string, readonly clientId: string) {}
 }

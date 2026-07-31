@@ -7,7 +7,7 @@ import {
   type InterpolatedEntity,
 } from "./entityViews.js";
 import { createSelfCosmeticsState } from "../player/selfCosmetics.js";
-import { resolveCombatantTint } from "../../../render/entities/combat/statusTint.js";
+import { resolveCombatantTint } from "../../../render/entities/combat/status/statusTint.js";
 
 function entity(
   snap: Partial<EntitySnapshot> & {

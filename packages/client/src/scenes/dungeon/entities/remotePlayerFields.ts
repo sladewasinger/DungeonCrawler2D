@@ -4,6 +4,7 @@ import type { PlayerEntityView } from "../../../render/entities/geometry/index.j
 
 export type RemotePlayerFields = Pick<PlayerEntityView,
   "name" | "skin" | "hp" | "maxHp" | "fx" | "faceX" | "faceY" | "air" | "downed" |
+  "admin" |
   "reviveProgress" | "disconnected" | "attacking" | "blocking" | "weaponId" |
   "weaponAimAngle" | "attackAngleRad">;
 
@@ -11,6 +12,7 @@ const REMOTE_DEFAULTS = {
   air: false,
   disconnected: false,
   downed: false,
+  admin: false,
   reviveProgress: 0,
   faceX: 1,
   faceY: 0,
@@ -36,6 +38,7 @@ export function remotePlayerFields(snapshot: EntitySnapshot): RemotePlayerFields
     faceY: REMOTE_DEFAULTS.faceY,
     air: REMOTE_DEFAULTS.air,
     downed: REMOTE_DEFAULTS.downed,
+    admin: REMOTE_DEFAULTS.admin,
     reviveProgress: REMOTE_DEFAULTS.reviveProgress,
     disconnected: REMOTE_DEFAULTS.disconnected,
     attacking: false,
@@ -81,6 +84,7 @@ function applyPoseFields({ snapshot, target, faceX, faceY }: RemotePoseFieldsReq
   target.faceY = faceY;
   target.air = valueOr(snapshot.air, REMOTE_DEFAULTS.air);
   target.downed = valueOr(snapshot.downed, REMOTE_DEFAULTS.downed);
+  target.admin = valueOr(snapshot.admin, REMOTE_DEFAULTS.admin);
   target.reviveProgress = valueOr(snapshot.reviveProgress, REMOTE_DEFAULTS.reviveProgress);
 }
 

@@ -40,6 +40,7 @@ const compassTemplate = (element: FallbackElement): void => {
     node("span", "[data-hud-compass-stairway]"),
     node("span", "[data-hud-compass-safe-room]"),
     node("span", "[data-hud-compass-mini-boss]"),
+    node("canvas", "[data-hud-minimap-canvas]"),
   );
   append(element, dial);
 };

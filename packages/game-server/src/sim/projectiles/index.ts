@@ -1,5 +1,7 @@
 import {
+  PROJECTILE_CONTACT_RADIUS,
   TICK_DT,
+  combatHurtboxRadius,
   stepProjectile,
   type EffectEvent,
   type Entity,
@@ -7,6 +9,7 @@ import {
 import { combatants } from "../core/helpers.js";
 import type { SimState } from "../state/state.js";
 import { blocksAttackDirection } from "../players/directionalBlock.js";
+import { notifyBlockFeedback } from "../combat/blockFeedback.js";
 import { resolveProjectileImpact } from "./impact.js";
 
 /** Thrown items and enemy spit: flight, direct hits, impact effects. */
@@ -32,7 +35,10 @@ function resolveProjectileStep(step: ProjectileStep): void {
   const { sim, id, projectile, directHit, impact, effectEvents } = step;
   if (!directHit && !impact) return;
   sim.projectiles.delete(id);
-  if (directHit && projectileBlockedByTarget(sim, projectile, directHit)) return;
+  if (directHit && projectileBlockedByTarget(sim, projectile, directHit)) {
+    notifyBlockFeedback(sim, directHit, "projectile");
+    return;
+  }
   const point = directHit?.body ?? impact ?? projectile.body;
   resolveProjectileImpact({ sim, projectile, point, directHit, effectEvents });
 }
@@ -84,11 +90,13 @@ function findDirectHit(sim: SimState, projectile: Entity): Entity | null {
 
 function isDirectProjectileTarget(candidate: Entity, projectile: Entity): boolean {
   if (candidate.id === projectile.ownerId || candidate.hp <= 0) return false;
+  if (projectile.returnedByPlayerId !== undefined && candidate.kind !== "enemy") return false;
   return withinProjectileRange(candidate, projectile) && alignedWithProjectile(candidate, projectile);
 }
 
 function withinProjectileRange(candidate: Entity, projectile: Entity): boolean {
-  return Math.hypot(candidate.body.x - projectile.body.x, candidate.body.y - projectile.body.y) < 0.7;
+  const distance = Math.hypot(candidate.body.x - projectile.body.x, candidate.body.y - projectile.body.y);
+  return distance < PROJECTILE_CONTACT_RADIUS + combatHurtboxRadius(candidate);
 }
 
 function alignedWithProjectile(candidate: Entity, projectile: Entity): boolean {

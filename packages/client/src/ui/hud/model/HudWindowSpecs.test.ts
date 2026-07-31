@@ -6,6 +6,10 @@ const coreStyles = readFileSync(
   new URL("../styles/core.css", import.meta.url),
   "utf8",
 );
+const statusStyles = readFileSync(
+  new URL("../styles/status.css", import.meta.url),
+  "utf8",
+);
 
 const contents = (): HudWindowContents => ({
   status: {} as HTMLElement,
@@ -45,6 +49,21 @@ describe("HUD window defaults", () => {
   it("removes only panel chrome from content-only windows", () => {
     expect(coreStyles).toMatch(
       /\.hud-window--content-only \.hud-panel\s*\{[^}]*background:\s*transparent;[^}]*border:\s*0;[^}]*box-shadow:\s*none;/s,
+    );
+  });
+
+  it("keeps status and minimap sizing responsive without pixel minimums", () => {
+    const status = windows.find(({ id }) => id === "three-health");
+    const minimap = windows.find(({ id }) => id === "three-compass");
+
+    expect(status).not.toHaveProperty("minHeight");
+    expect(status).toMatchObject({ intrinsicMinHeight: true });
+    expect(minimap).toMatchObject({ aspectRatio: 1 });
+    expect(minimap).not.toHaveProperty("minWidth");
+    expect(minimap).not.toHaveProperty("minHeight");
+    expect(statusStyles).toContain("min-height: min-content");
+    expect(coreStyles).toMatch(
+      /\.hud-window--intrinsic-height\s*\{[^}]*min-height:\s*min-content;/s,
     );
   });
 });

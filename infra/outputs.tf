@@ -41,3 +41,13 @@ output "site_url" {
 output "github_actions_deploy_role_arn" {
   value = aws_iam_role.github_actions_deploy.arn
 }
+
+output "operational_history_table_name" {
+  description = "DynamoDB table containing sanitized connection and admin/security history."
+  value       = aws_dynamodb_table.operational_history.name
+}
+
+output "operational_history_time_index_name" {
+  description = "Use this index with a UTC day partition for chronological operational queries."
+  value       = "by_time"
+}

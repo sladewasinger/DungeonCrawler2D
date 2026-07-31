@@ -24,6 +24,12 @@ const profileDefaults = (
   blockedProfileIds: [...(player.blockedProfileIds ?? [])],
 });
 
+const identityDefaults = (player: StoredPlayer): Pick<StoredPlayer, "identity" | "adminGranted" | "handicapGranted"> => ({
+  ...(player.identity ? { identity: { ...player.identity } } : {}),
+  adminGranted: player.adminGranted ?? false,
+  handicapGranted: player.handicapGranted ?? false,
+});
+
 const optionalEquipment = (
   player: StoredPlayer,
 ): Pick<StoredPlayer, "hotbar" | "starterHotbarSchema"> => ({
@@ -37,5 +43,6 @@ export const normalizeStoredPlayer = (player: StoredPlayer): StoredPlayer => ({
   ...player,
   ...progressionDefaults(player),
   ...profileDefaults(player),
+  ...identityDefaults(player),
   ...optionalEquipment(player),
 });

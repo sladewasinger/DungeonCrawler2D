@@ -1,6 +1,7 @@
 import { NEUTRAL_INPUT } from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
 import { releasePet } from "./behavior.js";
+import { resetPetBehavior, stepPetBehavior } from "./behaviors/scheduler.js";
 import { stepPetTowardOwner } from "./follow.js";
 import { advancePetBody } from "./movement.js";
 import type { PetSlot } from "./types.js";
@@ -17,9 +18,11 @@ function stepPet(sim: SimState, pet: PetSlot): void {
     return;
   }
   if (!owner.connected || owner.entity.hp <= 0) {
+    resetPetBehavior(pet);
     advancePetBody({ sim, pet, move: NEUTRAL_INPUT });
     return;
   }
   pet.mode = "following";
+  stepPetBehavior(sim, pet, owner);
   stepPetTowardOwner(sim, pet, owner);
 }

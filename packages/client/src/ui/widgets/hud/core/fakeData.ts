@@ -9,6 +9,7 @@ import type { BossBarData } from "../bars/bossBarView.js";
 import type { RecipeRowView } from "../windows/recipeRows.js";
 import type { StashRowView } from "../windows/stashRows.js";
 import type { XpBarData } from "../bars/xpBarView.js";
+import type { MinimapSnapshot } from "../../../hud/model/minimap/minimapTypes.js";
 export interface HotbarSlotData {
     itemId: string | null;
     count: number;
@@ -60,6 +61,7 @@ export interface CompassLandmarkTicks {
     safeRoom: CompassTargetTickData | null;
     miniBossArena: CompassTargetTickData | null;
 }
+export type { MinimapSnapshot } from "../../../hud/model/minimap/minimapTypes.js";
 export interface HudFakeSnapshot {
     health: {
         hp: number;
@@ -112,6 +114,7 @@ export interface HudFakeSnapshot {
     compassBearingDeg: number;
     stairway: StairwayTickData | null;
     compassLandmarks: CompassLandmarkTicks;
+    minimap?: MinimapSnapshot;
 }
 const EMPTY_SLOT: HotbarSlotData = { itemId: null, count: 0 };
 const FAKE_INVENTORY: InventoryRowData[] = [{ itemId: "sword", name: "Rusty Sword", qty: 1, category: "weapons", boundSlot: 0, canUse: false, canHotbar: false }, { itemId: "knife", name: "Knife", qty: 1, category: "weapons", boundSlot: null, canUse: false, canHotbar: false }, { itemId: "hammer", name: "Heavy Hammer", qty: 1, category: "weapons", boundSlot: 4, canUse: false, canHotbar: false }, { itemId: "torch", name: "Torch", qty: 2, category: "usables", boundSlot: null, canUse: false, canHotbar: true }, { itemId: "bandage", name: "Bandage", qty: 3, category: "usables", boundSlot: 1, canUse: true, canHotbar: true }, { itemId: "water-flask", name: "Water Flask", qty: 2, category: "usables", boundSlot: 2, canUse: true, canHotbar: true }, { itemId: "vodka-bottle", name: "Vodka Bottle", qty: 1, category: "usables", boundSlot: 3, canUse: false, canHotbar: true }, { itemId: "raw-meat", name: "Raw Meat", qty: 4, category: "usables", boundSlot: null, canUse: true, canHotbar: true }, { itemId: "rag", name: "Rag", qty: 6, category: "materials", boundSlot: null, canUse: false, canHotbar: false, flavor: "Absorbent. Slightly cursed. Mostly the first thing." }, { itemId: "stick", name: "Stick", qty: 5, category: "materials", boundSlot: null, canUse: false, canHotbar: false, flavor: "The dungeon's starter weapon, technically. Don't." },];

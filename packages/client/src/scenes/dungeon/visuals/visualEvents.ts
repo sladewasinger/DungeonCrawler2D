@@ -3,7 +3,7 @@
 // net/apply.ts; by the time an event reaches here it's presentation only.
 import type { Connection } from "../../../net/connection/connection.js";
 import type { VfxSystem } from "../../../vfx/system/index.js";
-import type { PendingSwing } from "../../../vfx/combat/meleeConnect.js";
+import type { PendingSwing } from "../../../vfx/combat/melee/meleeConnect.js";
 import { floorAnnouncerLine } from "../combat/floorAnnouncer.js";
 import type { RenderPose } from "../orchestration/state.js";
 import { healthFeedback } from "../../../ui/presentation/healthFeedback.js";
@@ -52,10 +52,18 @@ export function applyVisualEvents({ conn, vfx, render, pendingSwings, nowMs, lig
     explicitImpacts: countExplicitImpacts(events),
     worldVisibility: lighting?.presentationVisibility() ?? null,
   };
-  for (const event of events) applyVisualEvent(context, event);
+  for (const event of events) applyQueuedVisualEvent(context, event);
 }
 
-function applyVisualEvent(context: VisualEventContext, event: VisualEvent): void {
+function applyQueuedVisualEvent(context: VisualEventContext, event: VisualEvent): void {
+  if (event.t === "blockFeedback") {
+    context.conn.recordBlockFeedback(event.kind, context.nowMs);
+    return;
+  }
+  applyVisualEvent(context, event);
+}
+
+function applyVisualEvent(context: VisualEventContext, event: Exclude<VisualEvent, { t: "blockFeedback" }>): void {
   applyHealthPresentation(context, event);
   switch (event.t) {
     case "damageImpact":

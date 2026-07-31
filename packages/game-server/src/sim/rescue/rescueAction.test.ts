@@ -1,8 +1,10 @@
 import { CHUNK_SIZE, ROOM_REGION_CY, TICK_RATE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { processActions } from "../actions/index.js";
+import { doAttack } from "../actions/melee.js";
 import { addPlayer } from "../players/join.js";
 import { markDisconnected, queueAction } from "../players/players.js";
+import { activeMeleeAttackFor } from "../state/meleeAttackState.js";
 import { RESCUE_COOLDOWN_TICKS } from "./configuration/rescueTuning.js";
 import { doRescue } from "./rescueAction.js";
 import { createRescueFixture, RescueTestWorld } from "./rescueTestSupport.js";
@@ -25,7 +27,7 @@ describe("stuck-player rescue action", () => {
     expect(slot.rescueReadyAtTick).toBe(100 + RESCUE_COOLDOWN_TICKS);
     expect(slot.outbox.slice(-2)).toEqual([
       { t: "teleported" },
-      { t: "toast", msg: "Rescued to the nearest safe platform." },
+      { t: "toast", msg: "Rescued to a nearby safe platform." },
     ]);
   });
 
@@ -92,6 +94,25 @@ describe("stuck-player rescue action", () => {
       t: "toast",
       msg: "Rescue is only available in the dungeon.",
     });
+  });
+
+  it("cancels an active melee attack when the rescue is accepted", () => {
+    const world = new RescueTestWorld();
+    world.addPlatform(4, 0);
+    const { sim, slot } = createRescueFixture(world);
+    slot.weapon = "sword";
+    doAttack({
+      sim,
+      slot,
+      dirX: 1,
+      dirY: 0,
+      effectEvents: [],
+    });
+    expect(activeMeleeAttackFor(slot)).toBeDefined();
+
+    doRescue(sim, slot);
+
+    expect(activeMeleeAttackFor(slot)).toBeUndefined();
   });
 });
 

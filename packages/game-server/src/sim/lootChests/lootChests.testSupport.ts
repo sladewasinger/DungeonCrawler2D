@@ -3,6 +3,7 @@ import { TILE, buildContentRegistry, createBody, makeEntity, type World } from "
 import { PlayerStore } from "../../store.js";
 import { spawnPlayerLootChest } from "./lootChests.js";
 import { createSimState, type PlayerSlot } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData], rules: [...rulesData], areas: [...areasData], areaReactions: [...areaReactionsData],
@@ -19,7 +20,7 @@ function slot(request: { id: string; name: string; x?: number; y?: number }): Pl
     lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: Infinity,
     known: new Set<string>(), inventory: [{ item: "rag", qty: 3 }, { item: "torch", qty: 2 }], hotbar: [],
     weapon: null, outbox: [], returnStack: [], partyId: null, respawnAtTick: null, needsFullAreas: false,
-    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: -Infinity, god: false, forceDeath: false,
+    downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: -Infinity, god: false, ...adminTestPlayerState(), forceDeath: false,
     chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }

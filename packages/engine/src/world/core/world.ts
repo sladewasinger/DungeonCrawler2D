@@ -9,27 +9,15 @@ import {
   storeGeneratedChunk,
 } from "./chunkCoordinates.js";
 import {
-  featureOverrideMap,
-  featureFromTile,
-  sameFeatureOverrides,
-  sameTileOverrides,
-  tileOverrideMap,
-  type StoredFeature,
-} from "./featureOverrides.js";
-import {
-  FEATURE_FACE,
-  SOLID_TILES,
-  TERRAIN,
   TILE,
-  ZONE,
   type Chunk,
-  type FeatureFace,
-  type TerrainType,
-  type TileFeatureOverride,
-  type TileType,
   type WorldView,
-  type ZoneType,
 } from "./types.js";
+import {
+  WorldTerrain,
+  type TerrainCell,
+} from "./worldTerrain.js";
+import type { CachedTerrainTile } from "./worldCachedTerrain.js";
 
 /**
  * Lazy chunk cache over the deterministic generator. Both the game
@@ -44,9 +32,8 @@ export class World implements WorldView {
   // Native number keys skip the per-call template-string allocation + hash that a string
   // key would otherwise pay on every single terrain read.
   private readonly chunks = new Map<number, Map<number, Chunk>>();
-  private tileOverrides = new Map<string, TileType>();
-  private featureOverrides = new Map<string, StoredFeature>();
-  tileRevision = 0;
+  private readonly terrain: WorldTerrain;
+  private chunkRevision = 0;
 
   readonly level: LevelId;
   readonly features: WorldFeatures;
@@ -58,11 +45,17 @@ export class World implements WorldView {
   ) {
     this.level = typeof options === "string" ? options : options.level ?? LEVEL.Dungeon;
     this.features = snapshotWorldFeatures(typeof options === "string" ? undefined : options.features);
+    this.terrain = new WorldTerrain({
+      voidTerrain: this.features.voidTerrain,
+      lookup: (wx, wy) => this.lookup(wx, wy),
+      cachedLookup: (wx, wy) => this.cachedLookup(wx, wy),
+    });
   }
 
   getChunk(cx: number, cy: number): Chunk {
     const cached = this.chunks.get(cx)?.get(cy);
     if (cached) return cached;
+    const chunkCount = this.cachedChunkCount;
     const generated = generateDistrictChunks({
       worldSeed: this.worldSeed,
       floor: this.floor,
@@ -72,98 +65,54 @@ export class World implements WorldView {
       features: this.features,
     });
     for (const chunk of generated) storeGeneratedChunk(this.chunks, chunk);
+    if (this.cachedChunkCount !== chunkCount) this.chunkRevision++;
     const requested = this.chunks.get(cx)?.get(cy);
     if (requested) return requested;
     throw new Error(`Generation omitted chunk (${cx}, ${cy})`);
   }
 
-  private lookup(wx: number, wy: number): { chunk: Chunk; index: number } {
+  private lookup(wx: number, wy: number): TerrainCell {
     const cell = chunkCellAt(wx, wy);
     return { chunk: this.getChunk(cell.cx, cell.cy), index: cell.index };
   }
 
-  tileAt(wx: number, wy: number): TileType {
-    const feature = this.featureAt(wx, wy);
-    if (feature !== TILE.Floor) return feature;
-    return this.surfaceTileAt(wx, wy);
+  private cachedLookup(wx: number, wy: number): TerrainCell | undefined {
+    const cell = chunkCellAt(wx, wy);
+    const chunk = this.chunks.get(cell.cx)?.get(cell.cy);
+    if (!chunk) return undefined;
+    return { chunk, index: cell.index };
   }
 
-  /** Base terrain tile beneath feature overlays such as stairs and doors. */
-  surfaceTileAt(wx: number, wy: number): TileType {
-    const overridden = this.tileOverrides.get(`${wx},${wy}`);
-    if (overridden !== undefined) return featureFromTile(overridden) === TILE.Floor ? overridden : TILE.Floor;
-    const { chunk, index } = this.lookup(wx, wy);
-    return (chunk.tiles[index] ?? TILE.Floor) as TileType;
+  tileAt(wx: number, wy: number) { return this.terrain.tileAt(wx, wy); }
+
+  surfaceTileAt(wx: number, wy: number) { return this.terrain.surfaceTileAt(wx, wy); }
+
+  featureAt(wx: number, wy: number) { return this.terrain.featureAt(wx, wy); }
+
+  featureHeightAt(wx: number, wy: number) { return this.terrain.featureHeightAt(wx, wy); }
+
+  featureFaceAt(wx: number, wy: number) { return this.terrain.featureFaceAt(wx, wy); }
+
+  terrainAt(wx: number, wy: number) { return this.terrain.terrainAt(wx, wy); }
+
+  replaceTileOverrides(overrides: Parameters<WorldTerrain["replaceTileOverrides"]>[0]): void {
+    this.terrain.replaceTileOverrides(overrides);
   }
 
-  featureAt(wx: number, wy: number): TileType {
-    const key = `${wx},${wy}`;
-    const tileOverride = this.tileOverrides.get(key);
-    if (tileOverride !== undefined) return featureFromTile(tileOverride);
-    const featureOverride = this.featureOverrides.get(key);
-    if (featureOverride) return featureOverride.tile;
-    const { chunk, index } = this.lookup(wx, wy);
-    return (chunk.features[index] ?? TILE.Floor) as TileType;
+  replaceFeatureOverrides(overrides: Parameters<WorldTerrain["replaceFeatureOverrides"]>[0]): void {
+    this.terrain.replaceFeatureOverrides(overrides);
   }
 
-  featureHeightAt(wx: number, wy: number): number {
-    const key = `${wx},${wy}`;
-    const tileOverride = this.tileOverrides.get(key);
-    if (tileOverride !== undefined) {
-      return featureFromTile(tileOverride) === TILE.Floor ? 0 : this.heightAt(wx, wy);
-    }
-    const featureOverride = this.featureOverrides.get(key);
-    if (featureOverride) return featureOverride.featureHeight;
-    const { chunk, index } = this.lookup(wx, wy);
-    return chunk.featureHeight[index] ?? 0;
+  heightAt(wx: number, wy: number) { return this.terrain.heightAt(wx, wy); }
+
+  zoneAt(wx: number, wy: number) { return this.terrain.zoneAt(wx, wy); }
+
+  /** Returns terrain only when its runtime chunk is already cached. */
+  cachedTerrainAt(wx: number, wy: number): CachedTerrainTile | undefined {
+    return this.terrain.cachedTerrainAt(wx, wy);
   }
 
-  featureFaceAt(wx: number, wy: number): FeatureFace {
-    const key = `${wx},${wy}`;
-    if (this.tileOverrides.has(key)) return FEATURE_FACE.Top;
-    const featureOverride = this.featureOverrides.get(key);
-    if (featureOverride) return featureOverride.featureFace;
-    const { chunk, index } = this.lookup(wx, wy);
-    return (chunk.featureFaces[index] ?? FEATURE_FACE.Top) as FeatureFace;
-  }
-
-  terrainAt(wx: number, wy: number): TerrainType {
-    const overridden = this.tileOverrides.get(`${wx},${wy}`);
-    if (overridden !== undefined) return overridden === TILE.Void ? TERRAIN.Void : TERRAIN.Floor;
-    const { chunk, index } = this.lookup(wx, wy);
-    return (chunk.terrain[index] ?? TERRAIN.Floor) as TerrainType;
-  }
-
-  replaceTileOverrides(
-    overrides: readonly { x: number; y: number; tile: TileType }[],
-  ): void {
-    if (!this.features.voidTerrain && overrides.some(({ tile }) => tile === TILE.Void)) {
-      throw new Error("VOID override leaked into disabled world");
-    }
-    const next = tileOverrideMap(overrides, (x, y) => this.heightAt(x, y));
-    if (sameTileOverrides(this.tileOverrides, next)) return;
-    this.tileOverrides = next;
-    this.tileRevision++;
-  }
-
-  replaceFeatureOverrides(overrides: readonly TileFeatureOverride[]): void {
-    const next = featureOverrideMap(overrides);
-    if (sameFeatureOverrides(this.featureOverrides, next)) return;
-    this.featureOverrides = next;
-    this.tileRevision++;
-  }
-
-  heightAt(wx: number, wy: number): number { const { chunk, index } = this.lookup(wx, wy); return chunk.height[index] ?? 0; }
-
-  zoneAt(wx: number, wy: number): ZoneType { const { chunk, index } = this.lookup(wx, wy); return (chunk.zones[index] ?? ZONE.None) as ZoneType; }
-
-  isWalkable(wx: number, wy: number): boolean {
-    if (SOLID_TILES.has(this.featureAt(wx, wy)) ||
-        SOLID_TILES.has(this.surfaceTileAt(wx, wy))) return false;
-    // Numeric height never implies a chasm. Explicit void is the authoritative
-    // infinite boundary; finite floor remains playable at any authored z.
-    return this.terrainAt(wx, wy) !== TERRAIN.Void;
-  }
+  isWalkable(wx: number, wy: number) { return this.terrain.isWalkable(wx, wy); }
 
   /** Continuous ground height: stair tiles ramp with position. */
   groundAt(x: number, y: number): number { return stairRampAt(this, x, y) ?? this.heightAt(Math.floor(x), Math.floor(y)); }
@@ -174,12 +123,20 @@ export class World implements WorldView {
     return stairRampAt(this, x, y);
   }
 
-  isSanctuary(wx: number, wy: number): boolean { return this.zoneAt(wx, wy) === ZONE.Sanctuary; }
+  isSanctuary(wx: number, wy: number): boolean { return this.terrain.isSanctuary(wx, wy); }
+
+  get tileRevision(): number { return this.terrain.tileRevision; }
 
   get cachedChunkCount(): number { return generatedChunkCount(this.chunks); }
 
+  get chunkCacheRevision(): number { return this.chunkRevision; }
+
   pruneChunkCache(centerWx: number, centerWy: number, capacity: number): void {
+    const chunkCount = this.cachedChunkCount;
     const center = chunkCellAt(centerWx, centerWy);
     pruneGeneratedChunks(this.chunks, { centerCx: center.cx, centerCy: center.cy, capacity });
+    if (this.cachedChunkCount !== chunkCount) this.chunkRevision++;
   }
 }
+
+export type { CachedTerrainTile } from "./worldCachedTerrain.js";

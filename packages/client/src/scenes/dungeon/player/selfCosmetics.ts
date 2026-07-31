@@ -40,20 +40,39 @@ export function createSelfCosmeticsState(): SelfCosmeticsState {
 export interface SelfMoveIntent {
   readonly moveX: number;
   readonly moveY: number;
+  /** Canonical world-space aim/facing from the sampled input. Desktop pointer,
+   * kid, and touch all populate this when they have a direction. */
+  readonly faceX?: number | undefined;
+  readonly faceY?: number | undefined;
   readonly jump?: boolean;
 }
 
 export function updateSelfFacing(state: SelfCosmeticsState, intent: SelfMoveIntent): void {
   const { moveX, moveY, jump = false } = intent;
   if (moveX !== 0 || moveY !== 0 || jump) endSelfGrace(state);
-  if (moveX === 0 && moveY === 0) return;
-  state.faceX = moveX;
-  state.faceY = moveY;
-  if (moveX !== 0) state.spriteFaceX = moveX;
+  const facing = inputFacing(intent);
+  if (facing === undefined) return;
+  state.faceX = facing.x;
+  state.faceY = facing.y;
+  if (facing.x !== 0) state.spriteFaceX = facing.x;
 }
 
-/** 3 ticks @ 20Hz — matches game-server/sim/snapshots.ts's playerFields attack-anim window. */
-const SELF_ATTACK_PULSE_MS = 150;
+function inputFacing(intent: SelfMoveIntent): SelfAimFacing | undefined {
+  if (hasFacing(intent)) return { x: intent.faceX, y: intent.faceY };
+  if (intent.moveX === 0 && intent.moveY === 0) return undefined;
+  return { x: intent.moveX, y: intent.moveY };
+}
+
+function hasFacing(intent: SelfMoveIntent): intent is SelfMoveIntent & {
+  readonly faceX: number;
+  readonly faceY: number;
+} {
+  return intent.faceX !== undefined && intent.faceY !== undefined &&
+    (intent.faceX !== 0 || intent.faceY !== 0);
+}
+
+/** Matches the melee wedge and server contact window: 0 through 150 ms inclusive. */
+const SELF_ATTACK_PULSE_MS = 160;
 
 /** Call from the input controller's onSwing hook: starts the self attack telegraph, aimed at (dirX, dirY). */
 export interface SelfAttackIntent {

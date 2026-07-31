@@ -27,6 +27,13 @@ describe("updateSelfFacing", () => {
     expect(state.faceY).toBe(1);
   });
 
+  it("adopts pointer-facing input even while the movement axes are idle", () => {
+    const state = createSelfCosmeticsState();
+    updateSelfFacing(state, { moveX: 0, moveY: 0, faceX: -1, faceY: 0 });
+    expect(state.faceX).toBe(-1);
+    expect(state.spriteFaceX).toBe(-1);
+  });
+
   it("keeps the last horizontal sprite facing during vertical movement", () => {
     const state = createSelfCosmeticsState();
     updateSelfFacing(state, { moveX: -1, moveY: 0 });
@@ -62,8 +69,8 @@ describe("attack pulse", () => {
     const state = createSelfCosmeticsState();
     triggerSelfAttack(state, { nowMs: 1000, dirX: 1, dirY: 0 });
     expect(isSelfAttacking(state, 1000)).toBe(true);
-    expect(isSelfAttacking(state, 1100)).toBe(true);
-    expect(isSelfAttacking(state, 1200)).toBe(false);
+    expect(isSelfAttacking(state, 1159)).toBe(true);
+    expect(isSelfAttacking(state, 1160)).toBe(false);
   });
 
   it("defaults to not attacking before any trigger", () => {

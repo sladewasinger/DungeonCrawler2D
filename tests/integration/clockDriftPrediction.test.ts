@@ -2,7 +2,7 @@ import { LEVEL, World, type ClientMessage, type MoveInput } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
 import { applySnapshot } from "../../packages/client/src/net/sync/apply.js";
 import { Connection } from "../../packages/client/src/net/connection/connection.js";
-import { fixedRateStepPlan } from "../../packages/game-server/src/server/fixedRateLoop.js";
+import { fixedRateStepPlan } from "../../packages/game-server/src/server/loop/fixedRateLoop.js";
 import {
   findFlatArena,
   makeSim,

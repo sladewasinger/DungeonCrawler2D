@@ -10,6 +10,7 @@ import {
 import { buildContentRegistry, CHASM_DEATH_Z, hashString, LEVEL, makeEntity, World, createBody, type ContentRegistry } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 import { PlayerStore } from "../../store.js";
 import { populateTestZoneChunk } from "../core/testzone.js";
 import { activateChunksNearPlayers } from "./index.js";
@@ -80,7 +81,7 @@ function makePlayerSlot(fixture: PlayerSlotFixture): PlayerSlot {
     weapon: null, outbox: [], returnStack: [],
     partyId: null, respawnAtTick: null, needsFullAreas: true,
     downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: -1000,
-    god: false, forceDeath: false,
+    god: false, ...adminTestPlayerState(), forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
   };

@@ -5,6 +5,7 @@ import {
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { healthRegenerationDelaySeconds } from "../progression/combatResources.js";
+import { adminMap } from "../admin/adminMap.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
 function nullable<T>(value: T | undefined): T | null {
@@ -45,8 +46,22 @@ export function toSelfSnapshot(
     ...reviveFields(sim, slot),
     respawnAtTick: slot.respawnAtTick,
     ...progressionSnapshot(slot),
+    ...adminSnapshot(sim, slot),
     floor: sim.world.floor,
     deepestFloor: slot.stored.deepestFloor ?? 1,
+  };
+}
+
+function adminSnapshot(
+  sim: SimState,
+  slot: PlayerSlot,
+): Pick<ServerSnapshot["self"], "admin" | "adminDebug" | "adminDebugEntities"> | Record<string, never> {
+  if (!slot.admin) return {};
+  const body = slot.entity.body;
+  return {
+    admin: true,
+    adminDebug: { ...slot.debugFlags },
+    adminDebugEntities: adminMap(sim, { x: body.x, y: body.y, radius: 16 }).entities,
   };
 }
 

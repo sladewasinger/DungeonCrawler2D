@@ -1,4 +1,4 @@
-import { STATUS_VISUAL_BUDGETS } from "../combat/statusVisualStyle.js";
+import { STATUS_VISUAL_BUDGETS } from "../combat/status/statusVisualStyle.js";
 import {
   DESKTOP_DEVICE_PRESENTATION_PROFILE,
   type DevicePresentationProfile,

@@ -19,13 +19,15 @@ function enemyMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): 
 function petMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {
   if (entity.kind !== "pet") return true;
   const fields = petSnapshotFields(sim, entity);
-  return snapshot.anim === fields.anim && snapshot.petOwnerName === fields.petOwnerName;
+  return snapshot.anim === fields.anim && snapshot.petOwnerName === fields.petOwnerName &&
+    snapshot.petBehavior === fields.petBehavior &&
+    snapshot.petBehaviorEvent === fields.petBehaviorEvent;
 }
 
 function playerMatches(sim: SimState, entity: Entity, snapshot: EntitySnapshot): boolean {
   if (entity.kind !== "player") return true;
   const fields = playerFields(sim, entity);
-  return snapshot.anim === fields.anim && snapshot.downed === fields.downed &&
+  return snapshot.anim === fields.anim && snapshot.admin === fields.admin && snapshot.downed === fields.downed &&
     snapshot.disconnected === fields.disconnected && snapshot.weapon === fields.weapon &&
     snapshot.blocking === fields.blocking && snapshot.reviveProgress === fields.reviveProgress;
 }

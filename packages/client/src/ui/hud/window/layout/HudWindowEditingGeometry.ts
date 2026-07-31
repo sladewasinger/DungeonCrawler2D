@@ -4,6 +4,9 @@ import type { HudWindowLayout } from "./hudWindowStorage.js";
 export interface EditableHudWindow {
   readonly element: HTMLDivElement;
   readonly layout: HudWindowLayout;
+  readonly aspectRatio?: number;
+  readonly minWidth?: number;
+  readonly minHeight?: number;
 }
 
 export interface HudWindowEditingContext {
@@ -63,6 +66,15 @@ export const clampWindowSize = (
     width: Math.round(clamp(size.width, minWidth, bounds.maxWidth)),
     height: Math.round(clamp(size.height, minHeight, bounds.maxHeight)),
   };
+};
+
+export const constrainAspectRatio = (
+  size: HudWindowSize,
+  aspectRatio: number | undefined,
+): HudWindowSize => {
+  if (!aspectRatio || aspectRatio <= 0) return size;
+  const width = Math.min(size.width, size.height * aspectRatio);
+  return { width: Math.round(width), height: Math.round(width / aspectRatio) };
 };
 
 export const resizeWindowFromPointer = (

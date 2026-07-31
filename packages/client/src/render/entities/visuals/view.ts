@@ -1,7 +1,13 @@
 // Per-frame input contracts for the entity renderer: shaped to mirror
 // @dc2d/engine's EntitySnapshot/EnemyAnimationState fields 1:1 so wiring a real
 // net.apply()-derived list in later waves is a passthrough, not a rewrite.
-import type { EnemyAnimationState, PlayerSkin, WorldView } from "@dc2d/engine";
+import type {
+  EnemyAnimationState,
+  PetBehavior,
+  PlayerSkin,
+  WorldView,
+} from "@dc2d/engine";
+import type { BlockFeedbackState } from "../../../combat/blockFeedback.js";
 
 export interface RenderContext {
   world: WorldView;
@@ -26,6 +32,7 @@ export interface PlayerEntityView {
   faceX: number;
   faceY: number;
   air: boolean;
+  admin?: boolean;
   downed: boolean;
   /** Authoritative 0..1 hold progress while this crawler is being revived. */
   reviveProgress?: number;
@@ -33,6 +40,7 @@ export interface PlayerEntityView {
   attacking: boolean;
   blocking: boolean;
   weaponId: string | null;
+  blockFeedback?: BlockFeedbackState;
   /** Self-only live weapon-orbit target. Remote players use replicated facing instead. */
   weaponAimAngle: number | null;
   /** Self-only marker: body and weapon presentation follow movement/assisted attacks. */
@@ -68,7 +76,10 @@ export interface PetEntityView {
   y: number;
   z: number;
   anim: PetAnimationState;
+  petBehavior: PetBehavior;
+  petBehaviorEvent: number;
   faceX: number;
+  faceY: number;
   air: boolean;
   ownerName?: string;
 }

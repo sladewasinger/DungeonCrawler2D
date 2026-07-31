@@ -17,6 +17,7 @@ import { findWorldPoint } from "./chasmTestSupport.js";
 import { resolveDeaths } from "./deaths.js";
 import { stepPlayers } from "../players/players.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 /**
  * Sim test for the chasm = death design ruling (2026-07-19): rifts are
@@ -59,6 +60,7 @@ function makeSlot(name: string, x: number, y: number): PlayerSlot {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,

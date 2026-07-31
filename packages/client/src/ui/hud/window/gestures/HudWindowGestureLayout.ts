@@ -9,6 +9,7 @@ import type {
   HudWindowSize,
   HudWindowSizeBounds,
 } from "../layout/HudWindowEditingGeometry.js";
+import { constrainAspectRatio } from "../layout/HudWindowEditingGeometry.js";
 import { hudWindowGestureBounds } from "./HudWindowGestureState.js";
 
 interface GestureLayoutRequest {
@@ -30,10 +31,11 @@ export const makeFreeHudWindow = ({ record, context }: GestureLayoutRequest): DO
 export const applyHudWindowSize = ({ record, context, size }: GestureLayoutRequest & {
   size: HudWindowSize;
 }): void => {
+  const constrained = constrainAspectRatio(size, record.aspectRatio);
   const root = context.root.getBoundingClientRect();
   const scale = context.scale();
-  record.layout.widthRatio = Math.min(1, Math.max(0, size.width * scale / Math.max(1, root.width)));
-  record.layout.heightRatio = Math.min(1, Math.max(0, size.height * scale / Math.max(1, root.height)));
+  record.layout.widthRatio = Math.min(1, Math.max(0, constrained.width * scale / Math.max(1, root.width)));
+  record.layout.heightRatio = Math.min(1, Math.max(0, constrained.height * scale / Math.max(1, root.height)));
   context.apply(record);
 };
 

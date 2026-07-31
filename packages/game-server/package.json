@@ -1,6 +1,6 @@
 {
   "name": "@dc2d/game-server",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1100.0",
     "@dc2d/content": "*",
     "@dc2d/engine": "*",
     "ws": "^8.21.1",

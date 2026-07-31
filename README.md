@@ -17,9 +17,9 @@ gates while keeping their server lifetime bounded by nearby observers.
 
 ## Austin's F-Bomb Counter
 
-**52**
+**53**
 
-<!-- f-bomb-count: 52 -->
+<!-- f-bomb-count: 53 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.

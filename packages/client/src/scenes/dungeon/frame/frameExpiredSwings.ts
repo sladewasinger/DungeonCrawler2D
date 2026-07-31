@@ -1,5 +1,6 @@
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
-import { collectExpiredSwingsInto } from "../../../vfx/combat/meleeConnect.js";
+import { resolveWeaponProfile } from "@dc2d/engine";
+import { collectExpiredSwingsInto } from "../../../vfx/combat/melee/meleeConnect.js";
 import type { FrameSyncContext } from "./frameSync.js";
 
 export function syncExpiredWhiffs(
@@ -20,6 +21,7 @@ export function syncExpiredWhiffs(
       depth: swing.depth,
       tilePx: SCREEN_TILE_PX,
       nowMs,
+      profile: swing.profile ?? resolveWeaponProfile(),
     });
   }
 }

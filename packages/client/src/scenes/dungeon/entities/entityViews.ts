@@ -50,12 +50,18 @@ export function selfPlayerView(source: SelfPlayerViewSource): PlayerEntityView {
   view.faceX = cosmetics.spriteFaceX;
   view.faceY = cosmetics.faceY;
   view.air = pose.air;
+  view.admin = vitals.admin ?? false;
   view.downed = vitals.downed;
   view.reviveProgress = vitals.reviveProgress ?? 0;
   view.disconnected = false;
   view.attacking = isSelfAttacking(cosmetics, nowMs);
   view.blocking = vitals.blocking;
   view.weaponId = vitals.weaponId;
+  if (vitals.blockFeedback === null || vitals.blockFeedback === undefined) {
+    delete view.blockFeedback;
+  } else {
+    view.blockFeedback = vitals.blockFeedback;
+  }
   view.weaponAimAngle = weaponAimAngle;
   view.assistedAim = assistedAim;
   view.attackAngleRad = Math.atan2(cosmetics.attackDirY, cosmetics.attackDirX);
@@ -111,7 +117,10 @@ export function petView(
   view.y = e.y;
   view.z = e.z;
   view.anim = e.snap.anim === "walk" ? "walk" : "idle";
+  view.petBehavior = e.snap.petBehavior ?? "idle";
+  view.petBehaviorEvent = e.snap.petBehaviorEvent ?? 0;
   view.faceX = valueOr(e.snap.faceX, 1);
+  view.faceY = valueOr(e.snap.faceY, 0);
   view.air = valueOr(e.snap.air, false);
   if (e.snap.petOwnerName === undefined) delete view.ownerName;
   else view.ownerName = e.snap.petOwnerName;

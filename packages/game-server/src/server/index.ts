@@ -1,21 +1,15 @@
-import {
-  DEFAULT_WORLD_FEATURES,
-  LEVEL,
-  World,
-  type ContentRegistry,
-  type LevelId,
-  type WorldFeatures,
-} from "@dc2d/engine";
-import { WebSocketServer, type WebSocket } from "ws";
+import { type ContentRegistry, type LevelId, type WorldFeatures } from "@dc2d/engine";
+import { type WebSocketServer } from "ws";
 import { FloorRegistry } from "../floors/floorRegistry.js";
 import { GameSim } from "../sim/core/index.js";
 import { PlayerStore } from "../store.js";
 import { broadcastTick } from "./broadcast.js";
-import { handleConnection } from "./dispatch.js";
-import { startFixedRateLoop } from "./fixedRateLoop.js";
-import { startHeartbeat } from "./telemetry/heartbeat.js";
+import { startFixedRateLoop } from "./loop/fixedRateLoop.js";
 import { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
-import type { SocketMap } from "./types.js";
+import type { MemoryAdminAuditSink } from "./admin/audit.js";
+import type { OperationalEventSink } from "./operations/operationalEvent.js";
+import { connectWebSockets, createServerRuntime } from "./runtime/serverRuntime.js";
+import { stopServer } from "./runtime/serverShutdown.js";
 
 /** WebSocket transport facade: decodes/validates inbound messages,
  * drives every level's simulation at 20 Hz, broadcasts snapshots.
@@ -43,6 +37,16 @@ export interface ServerOptions {
   freezeEnemies?: boolean;
   testFixtures?: boolean;
   worldFeatures?: WorldFeatures;
+  /** Secret for the separate admin WebSocket contract; null disables it. */
+  adminToken?: string | null;
+  /** Trust X-Forwarded-For only when a trusted reverse proxy strips client headers. */
+  trustProxy?: boolean;
+  /** Disconnect gameplay sockets after this much meaningful inactivity. */
+  gameplayIdleTimeoutMs?: number;
+  /** Optional DynamoDB-backed operational history; local development omits it. */
+  operationalEvents?: OperationalEventSink;
+  /** Deployment secret used to make one-way, non-IP peer fingerprints. */
+  operationalEventPepper?: string;
 }
 
 export interface RunningServer {
@@ -53,90 +57,34 @@ export interface RunningServer {
   floors: FloorRegistry;
   store: PlayerStore;
   networkMetrics: ServerNetworkDiagnostics;
+  adminAudit: MemoryAdminAuditSink;
+  operationalEvents: OperationalEventSink;
   stop(): void;
+  flushOperationalEvents(): Promise<void>;
 }
 
 export function startServer(opts: ServerOptions): RunningServer {
-  const store = new PlayerStore(opts.storeFile ?? null);
-  const initialSeed = opts.rngSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-  const simOpts = simulationOptions(opts);
-  const { floors, sandbox } = createSimulations({ opts, store, seed: initialSeed, simOpts });
-  const wss = new WebSocketServer({
-    port: opts.port,
-    ...(opts.host ? { host: opts.host } : {}),
-  });
-  const sockets: SocketMap = new Map();
-  const networkMetrics = new ServerNetworkDiagnostics();
-  const stopHeartbeat = connectWebSockets(wss, {
-    floors,
-    sandbox,
-    sockets,
-    seedInputText: opts.seedInputText ?? String(opts.worldSeed),
-    worldSeed: opts.worldSeed,
-    diagnostics: networkMetrics,
-  });
-  const stopTickLoop = startFixedRateLoop(() => broadcastTick({ floors, sandbox, sockets, diagnostics: networkMetrics }));
+  const runtime = createServerRuntime(opts);
+  const stopHeartbeat = connectWebSockets(runtime.wss, runtime.context);
+  const stopTickLoop = startFixedRateLoop(() => broadcastTick(runtime.tickContext));
 
   return {
-    wss,
-    sim: floors.base,
-    sims: { dungeon: floors.base, sandbox },
-    floors,
-    store,
-    networkMetrics,
-    stop: () => stopServer({ stopTickLoop, stopHeartbeat, store, wss, sockets }),
-  };
-}
-
-function simulationOptions(opts: ServerOptions): GameSim["state"]["opts"] {
-  return {
-    clusterSpawns: opts.clusterSpawns ?? false,
-    spawnRadiusTiles: opts.spawnRadiusTiles,
-    debugCommands: opts.debugCommands ?? false,
-    freezeEnemies: opts.freezeEnemies ?? false,
-    testFixtures: opts.testFixtures ?? false,
-  };
-}
-
-interface SimulationCreation {
-  opts: ServerOptions;
-  store: PlayerStore;
-  seed: number;
-  simOpts: GameSim["state"]["opts"];
-}
-
-function createSimulations({ opts, store, seed, simOpts }: SimulationCreation): { floors: FloorRegistry; sandbox: GameSim } {
-  const worldFeatures = opts.worldFeatures ?? DEFAULT_WORLD_FEATURES;
-  return {
-    floors: new FloorRegistry({
-      worldSeed: opts.worldSeed, content: opts.content, store,
-      rngSeedBase: seed, opts: simOpts, worldFeatures,
+    wss: runtime.wss,
+    sim: runtime.floors.base,
+    sims: { dungeon: runtime.floors.base, sandbox: runtime.sandbox },
+    floors: runtime.floors,
+    store: runtime.store,
+    networkMetrics: runtime.networkMetrics,
+    adminAudit: runtime.adminAudit,
+    operationalEvents: runtime.operationalEvents,
+    stop: () => stopServer({
+      stopTickLoop,
+      stopHeartbeat,
+      store: runtime.store,
+      wss: runtime.wss,
+      sockets: runtime.sockets,
+      operationalEvents: runtime.operationalEvents,
     }),
-    sandbox: new GameSim({
-      world: new World(opts.worldSeed, opts.floor, { level: LEVEL.Sandbox, features: worldFeatures }),
-      content: opts.content, store, rngSeed: seed + 1000, opts: simOpts,
-    }),
+    flushOperationalEvents: () => runtime.operationalEvents.flush(),
   };
-}
-
-function connectWebSockets(wss: WebSocketServer, context: Parameters<typeof handleConnection>[1]): () => void {
-  const stopHeartbeat = startHeartbeat(wss);
-  wss.on("connection", (ws: WebSocket) => handleConnection(ws, context));
-  return stopHeartbeat;
-}
-
-interface StopServerContext {
-  stopTickLoop: () => void;
-  stopHeartbeat: () => void;
-  store: PlayerStore;
-  wss: WebSocketServer;
-  sockets: SocketMap;
-}
-
-function stopServer({ stopTickLoop, stopHeartbeat, store, wss, sockets }: StopServerContext): void {
-  stopTickLoop();
-  stopHeartbeat();
-  store.flush();
-  wss.close();
-  for (const { ws } of sockets.values()) ws.close(1001, "server stopping");
 }

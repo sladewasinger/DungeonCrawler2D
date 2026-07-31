@@ -18,6 +18,7 @@ import {
 } from "@dc2d/engine";
 import { PlayerStore } from "../../../store.js";
 import { createSimState, type PlayerSlot, type SimState } from "../../state/state.js";
+import { adminTestPlayerState } from "../../testing/adminTestPlayerState.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -91,7 +92,7 @@ function playerSlot(entity: Entity): PlayerSlot {
     resumeToken: "tok", lastSeq: 0, pendingInputs: [], pendingActions: [], connected: true, reapAtTick: 0,
     known: new Set(), inventory: [], hotbar: [], weapon: null, outbox: [], returnStack: [], partyId: null,
     respawnAtTick: null, needsFullAreas: true, downedAtTick: null, attackReadyAtTick: 0, attackStartedAtTick: -1000,
-    god: false, forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
+    god: false, ...adminTestPlayerState(), forceDeath: false, chatTimestamps: [], lastFistbumpOfferAtTick: -Infinity,
     spawnGraceUntilTick: 0, pendingTransfer: null,
   };
 }

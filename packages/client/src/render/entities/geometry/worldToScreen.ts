@@ -5,10 +5,9 @@
 // wedges, nameplates, HP bars) along with them with no per-file changes needed.
 // Reads the seam's ViewState directly (not a threaded parameter) for the same reason
 // TerrainRenderer does — see viewState.ts's module doc.
-import type { WorldView } from "@dc2d/engine";
 import { depthForViewEntity } from "../../view/transform/viewDepth.js";
 import { depthForEntity } from "../presentation/depthSort.js";
-import { viewTileToWorld, worldToView } from "../../view/transform/viewTransform.js";
+import { worldToView } from "../../view/transform/viewTransform.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { spriteLiftPx } from "../motion/lift.js";
@@ -39,28 +38,21 @@ export function depthForScreenY(screenY: number): number {
 
 export interface CombatOverlayPosition {
   readonly wielderViewY: number;
-  readonly screenSouthFloorHigher: boolean;
 }
 
-/** Samples the immediate screen-south floor for combat overlays that share the player's terrain ordering. */
+/** Provides the view-space row shared by combat overlays and terrain ordering. */
 export interface CombatOverlayPositionInput {
   readonly worldX: number;
   readonly worldY: number;
-  readonly z: number;
-  readonly world: WorldView;
 }
 
 export function combatOverlayPosition({
   worldX,
   worldY,
-  z,
-  world,
 }: CombatOverlayPositionInput): CombatOverlayPosition {
   const orientation = getViewOrientation();
   const viewPosition = worldToView({ x: worldX, y: worldY }, orientation);
-  const southWorld = viewTileToWorld({ x: Math.floor(viewPosition.x), y: Math.floor(viewPosition.y) + 1 }, orientation);
   return {
     wielderViewY: viewPosition.y,
-    screenSouthFloorHigher: world.isWalkable(southWorld.x, southWorld.y) && world.heightAt(southWorld.x, southWorld.y) > z + 0.01,
   };
 }

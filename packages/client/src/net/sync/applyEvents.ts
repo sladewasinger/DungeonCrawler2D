@@ -140,6 +140,10 @@ export const applyEvent = (conn: Connection, event: GameEvent): void => {
     conn.teleported = true;
     return;
   }
+  if (event.t === "blockFeedback") {
+    conn.visualEvents.push(event);
+    return;
+  }
   if (isCombatEvent(event)) applyCombatVisualEvent(conn, event);
   if (event.t === "death") applyDeathVisualEvent(conn, event);
 };

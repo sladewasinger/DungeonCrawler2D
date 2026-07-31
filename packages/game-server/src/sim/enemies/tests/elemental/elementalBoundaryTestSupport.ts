@@ -1,4 +1,3 @@
-import { TILE, type TileType } from "@dc2d/engine";
 import { vi } from "vitest";
 import type { SimState } from "../../../state/state.js";
 
@@ -18,13 +17,12 @@ export function blockSurfaceCell(
   sim: SimState,
   request: SurfaceBoundary,
 ): void {
-  const { cell, boundary } = request;
-  const blockedTile = boundaryTile(boundary);
-  const originalSurfaceTileAt = sim.world.surfaceTileAt.bind(sim.world);
-  vi.spyOn(sim.world, "surfaceTileAt").mockImplementation((cellX, cellY) =>
-    Math.floor(cellX) === cell.x && Math.floor(cellY) === cell.y
-      ? blockedTile
-      : originalSurfaceTileAt(cellX, cellY)
+  const { cell } = request;
+  const originalWalkable = sim.world.isWalkable.bind(sim.world);
+  vi.spyOn(sim.world, "isWalkable").mockImplementation((cellX, cellY) =>
+    cellIsBlocked({ cell, cellX, cellY })
+      ? false
+      : originalWalkable(cellX, cellY),
   );
 }
 
@@ -46,8 +44,13 @@ export function mockTerrainCrest(
   );
 }
 
-function boundaryTile(boundary: BoundaryKind): TileType {
-  if (boundary === "walkable") return TILE.CraftingTable;
-  if (boundary === "bedrock") return TILE.Bedrock;
-  return TILE.Void;
+interface BoundaryCellCheck {
+  readonly cell: SurfaceCell;
+  readonly cellX: number;
+  readonly cellY: number;
+}
+
+function cellIsBlocked(input: BoundaryCellCheck): boolean {
+  return Math.floor(input.cellX) === input.cell.x &&
+    Math.floor(input.cellY) === input.cell.y;
 }

@@ -23,7 +23,8 @@ export function rescueConstraints(
   slot: PlayerSlot,
 ): RescueConstraints {
   const body = slot.entity.body;
-  if (isReservedRoomPosition(body.y)) {
+  if (isReservedRoomPosition(body.y) ||
+      sim.world.isSanctuary(Math.floor(body.x), Math.floor(body.y))) {
     return rejectedConstraints(ROOM_REJECTION);
   }
   if (occupiesMiniBossArena(sim, slot.entity.id) ||
@@ -48,6 +49,7 @@ function rejectedConstraints(message: string): RescueConstraints {
 
 function isDungeonTile(sim: SimState, x: number, y: number): boolean {
   return !isReservedRoomPosition(y) &&
+    !sim.world.isSanctuary(x, y) &&
     miniBossArenaAtPosition(sim.world, x, y) === null;
 }
 

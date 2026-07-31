@@ -14,6 +14,7 @@ import type { InteractionPrompt } from "../world/interactionPrompt.js";
 import { resolveStairwayTick } from "../world/stairwayTick.js";
 import { resolveCompassLandmarks } from "../world/landmarks/compassLandmarks.js";
 import type { ContextualAction } from "../../../ui/actionHelp/actionHelp.js";
+import { buildMinimapSnapshot } from "./minimapSnapshot.js";
 
 const CHAT_LINES_SHOWN = 4;
 export type LiveHudSnapshot = HudFakeSnapshot & {
@@ -101,12 +102,19 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
     bodyPos,
     compassBearingDeg,
   );
+  const minimap = buildMinimapSnapshot({
+    connection: conn,
+    world: conn.world,
+    centerX: bodyPos.x,
+    centerY: bodyPos.y,
+  });
   const snapshot = buildHudSnapshot({
     src: buildSnapshotSource(conn), selectedHotbarSlot: inputController.selectedHotbarSlot(),
     armedThrowableSlot: inputController.armedThrowableSlot(), interactionPrompt,
     touch: inputController.touchVisual(), fps: actualFps, bodyPos,
     chatModel: chatController.model(CHAT_LINES_SHOWN), contacts: conn.contacts,
     compassBearingDeg, stairway, compassLandmarks,
+    minimap,
   }) as LiveHudSnapshot;
   snapshot.biome = conn.world
     ? biomeAtWorldTile({ worldSeed: conn.world.worldSeed, floor: conn.floor, wx: bodyPos.x, wy: bodyPos.y }).biome

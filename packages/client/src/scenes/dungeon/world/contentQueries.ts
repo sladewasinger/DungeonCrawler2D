@@ -2,12 +2,21 @@
 // throwability, recipe ids, nearest-entity and nearest-tile proximity checks. No
 // Phaser, no Connection — callers inject just the data these need to stay plain-
 // function testable.
+import { resolveWeaponProfile, type WeaponProfile } from "@dc2d/engine";
 import { itemsData, recipesData } from "@dc2d/content";
 
 interface ItemDef {
   readonly id: string;
   readonly name?: string;
-  readonly weapon?: { readonly cooldownMs?: number };
+  readonly weapon?: {
+    readonly profileId?: string;
+    readonly damage: number;
+    readonly range?: number;
+    readonly cooldownMs?: number;
+    readonly arcCos?: number;
+    readonly shape?: "cone" | "ground";
+    readonly knockbackForce?: number;
+  };
   readonly consumable?: unknown;
   readonly throwable?: unknown;
   /** Epic 7.14 §4: short flavor line shown dimmed under the item name in the inventory window. */
@@ -21,6 +30,7 @@ function isItemDef(value: unknown): value is ItemDef {
 const itemById = new Map<string, ItemDef>(
   (itemsData as readonly unknown[]).filter(isItemDef).map((def) => [def.id, def]),
 );
+const weaponProfileCache = new Map<string, WeaponProfile>();
 
 export function isThrowableItem(itemDefId: string): boolean {
   return !!itemById.get(itemDefId)?.throwable;
@@ -32,6 +42,15 @@ export function isConsumableItem(itemDefId: string): boolean {
 
 export function weaponCooldownMs(itemDefId: string | null, fallbackMs: number): number {
   return (itemDefId ? itemById.get(itemDefId)?.weapon?.cooldownMs : undefined) ?? fallbackMs;
+}
+
+export function weaponProfileForId(itemDefId: string | null): WeaponProfile {
+  if (itemDefId === null) return resolveWeaponProfile();
+  const cached = weaponProfileCache.get(itemDefId);
+  if (cached) return cached;
+  const profile = resolveWeaponProfile(itemById.get(itemDefId));
+  weaponProfileCache.set(itemDefId, profile);
+  return profile;
 }
 
 export type ItemCategory = "weapons" | "usables" | "materials";

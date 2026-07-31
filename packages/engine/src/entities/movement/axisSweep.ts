@@ -30,7 +30,7 @@ interface CornerProbe extends AxisSweepContext {
 function cornerBlocksMove({ world, body, x: cx, y: cy, dx, dy, blocked }: CornerProbe): boolean {
   const tileX = Math.floor(cx);
   const tileY = Math.floor(cy);
-  if (!world.isWalkable(tileX, tileY) || blocked?.(tileX, tileY)) return true;
+  if (!world.isWalkable(tileX, tileY) || blocked?.(cx, cy)) return true;
   const onStair = world.stairHeightAt(body.x, body.y) !== null ||
     world.stairHeightAt(cx, cy) !== null;
   if (body.grounded && onStair) {

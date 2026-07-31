@@ -27,6 +27,10 @@ export interface HudWindowSpec {
   interactive?: boolean;
   defaultVisible?: boolean;
   chrome?: HudWindowChrome;
+  aspectRatio?: number;
+  minWidth?: number;
+  minHeight?: number;
+  intrinsicMinHeight?: boolean;
 }
 
 export interface HudWindowViewport {
@@ -97,10 +101,29 @@ const matchesDefaultSize = (stored: HudWindowLayout, defaults: HudWindowLayout):
 export const resolveWindowSize = (
   layout: HudWindowLayout,
   viewport: HudWindowViewport,
-): { width: number; height: number } => ({
-  width: Math.max(1, Math.round(layout.widthRatio * viewport.width)),
-  height: Math.max(1, Math.round(layout.heightRatio * viewport.height)),
-});
+  constraints: Pick<HudWindowSpec, "aspectRatio" | "minWidth" | "minHeight"> = {},
+): { width: number; height: number } => {
+  const raw = {
+    width: Math.max(1, Math.round(layout.widthRatio * viewport.width)),
+    height: Math.max(1, Math.round(layout.heightRatio * viewport.height)),
+  };
+  const ratio = constraints.aspectRatio;
+  if (!ratio || ratio <= 0) {
+    return {
+      width: Math.min(Math.max(1, viewport.width), Math.max(constraints.minWidth ?? 1, raw.width)),
+      height: Math.min(Math.max(1, viewport.height), Math.max(constraints.minHeight ?? 1, raw.height)),
+    };
+  }
+  const minWidth = constraints.minWidth ?? 1;
+  const minHeight = constraints.minHeight ?? 1;
+  const minSide = Math.max(minWidth, minHeight * ratio);
+  const maxSide = Math.min(viewport.width, viewport.height * ratio);
+  const side = Math.min(
+    maxSide,
+    Math.max(Math.min(minSide, maxSide), Math.min(raw.width, raw.height * ratio)),
+  );
+  return { width: Math.max(1, Math.round(side)), height: Math.max(1, Math.round(side / ratio)) };
+};
 
 export const resolveWindowPosition = (
   layout: HudWindowLayout,

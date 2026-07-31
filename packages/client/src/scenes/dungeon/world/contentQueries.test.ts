@@ -7,6 +7,7 @@ import {
   nearestEntityId,
   recipeIdAtIndex,
   weaponCooldownMs,
+  weaponProfileForId,
 } from "./contentQueries.js";
 
 describe("isThrowableItem", () => {
@@ -28,6 +29,38 @@ describe("weaponCooldownMs", () => {
   it("uses the fallback while unarmed or for an unknown item", () => {
     expect(weaponCooldownMs(null, 400)).toBe(400);
     expect(weaponCooldownMs("nonexistent", 400)).toBe(400);
+  });
+});
+
+describe("weaponProfileForId", () => {
+  it("resolves each shipped weapon from the content registry into its release combat profile", () => {
+    expect(weaponProfileForId("knife")).toEqual({
+      profileId: "knife",
+      damage: 6,
+      range: 1.62,
+      cooldownMs: 240,
+      arcCos: 0.92,
+      shape: "cone",
+      knockbackForce: 7,
+    });
+    expect(weaponProfileForId("sword")).toEqual({
+      profileId: "sword",
+      damage: 9,
+      range: 2.4,
+      cooldownMs: 350,
+      arcCos: 0.7071,
+      shape: "cone",
+      knockbackForce: 10,
+    });
+    expect(weaponProfileForId("hammer")).toEqual({
+      profileId: "hammer",
+      damage: 7,
+      range: 2.04,
+      cooldownMs: 500,
+      arcCos: 0.7071,
+      shape: "ground",
+      knockbackForce: 18,
+    });
   });
 });
 

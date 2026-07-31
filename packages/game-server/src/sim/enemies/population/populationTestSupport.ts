@@ -22,6 +22,7 @@ import {
   type PlayerSlot,
   type SimState,
 } from "../../state/state.js";
+import { adminTestPlayerState } from "../../testing/adminTestPlayerState.js";
 
 const CONTENT = buildContentRegistry({
   statuses: [...statusesData],
@@ -128,6 +129,7 @@ function emptyPlayerRuntimeState(): Omit<
     attackReadyAtTick: 0,
     attackStartedAtTick: -1000,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity,

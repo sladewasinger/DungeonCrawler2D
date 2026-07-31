@@ -35,6 +35,24 @@ describe("responsive HUD window layout", () => {
       .toEqual({ width: 140, height: 90 });
   });
 
+  it("lets the Status panel shrink with an undersized viewport", () => {
+    const layout = { ...freeLayout(0, 0), heightRatio: 80 / 720 };
+
+    expect(resolveWindowSize(layout, { width: 1280, height: 720 }))
+      .toEqual({ width: 280, height: 80 });
+    expect(resolveWindowSize(layout, { width: 640, height: 100 }))
+      .toEqual({ width: 140, height: 11 });
+    expect(resolveWindowSize(layout, { width: 0, height: 0 }))
+      .toEqual({ width: 1, height: 1 });
+  });
+
+  it("clamps a square minimap window to its smaller stored dimension", () => {
+    const layout = { ...freeLayout(0, 0), widthRatio: 0.5, heightRatio: 0.25 };
+    expect(resolveWindowSize(layout, { width: 1000, height: 800 }, {
+      aspectRatio: 1,
+    })).toEqual({ width: 200, height: 200 });
+  });
+
   it("keeps anchored panels on-screen in undersized viewports", () => {
     expect(anchoredPosition({ anchor: "bottom-right", size: { width: 280, height: 180 }, viewport: { width: 200, height: 100 } }))
       .toEqual({ x: 0, y: 0 });

@@ -1,4 +1,5 @@
 import { MOVE_SPEED, type Entity } from "@dc2d/engine";
+import type { PetBehaviorState } from "./behaviors/types.js";
 
 /** Pet content is deliberately independent from enemy definitions. New
  * abilities can hang off this state without turning pets into combatants. */
@@ -44,4 +45,5 @@ export interface PetSlot {
   pathIndex: number;
   nextPathTick: number;
   pathGoal: { x: number; y: number } | undefined;
+  behavior: PetBehaviorState;
 }

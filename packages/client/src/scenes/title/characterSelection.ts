@@ -14,7 +14,7 @@ import { loadTabPreference, saveTabPreference } from "../../net/auth/identity.js
 
 const STORAGE_KEY = "dc2d-player-skin";
 const ATLAS_WIDTH = 512;
-const ATLAS_HEIGHT = 577;
+const ATLAS_HEIGHT = 594;
 
 const FRAME_Y: Record<PlayerModel, Record<PlayerGender, number>> = {
   knight: { female: 68, male: 100 },

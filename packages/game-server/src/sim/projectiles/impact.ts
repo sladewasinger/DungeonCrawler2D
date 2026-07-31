@@ -2,6 +2,7 @@ import { type EffectEvent, type Entity, type Primitive } from "@dc2d/engine";
 import { combatants, damageGivenMultiplierFor, effectTargetFor, spawnItem } from "../core/helpers.js";
 import { isOilLob, resolveOilLobImpact } from "../enemies/elemental/oilLob.js";
 import type { SimState } from "../state/state.js";
+import { resolveSpitImpact } from "./spitImpact.js";
 
 export interface ProjectileImpactContext {
   sim: SimState;
@@ -9,20 +10,6 @@ export interface ProjectileImpactContext {
   point: { x: number; y: number };
   directHit: Entity | null;
   effectEvents: EffectEvent[];
-}
-
-interface SpitEffectContext {
-  sim: SimState;
-  directHit: Entity;
-  effectEvents: EffectEvent[];
-  target: ReturnType<typeof effectTargetFor>;
-  sourceId: string | undefined;
-}
-
-interface SpitDamageContext extends SpitEffectContext { damage: number; }
-
-interface SpitStatusContext extends SpitEffectContext {
-  applies: Array<{ status: string; chance: number }>;
 }
 
 /** Resolves either enemy spit or a throwable item's authored impact. */
@@ -33,55 +20,6 @@ export function resolveProjectileImpact(context: ProjectileImpactContext): void 
   }
   if (context.projectile.defId) resolveThrowableImpact(context);
   else resolveSpitImpact(context);
-}
-
-function resolveSpitImpact(context: ProjectileImpactContext): void {
-  const { sim, projectile, directHit, effectEvents } = context;
-  if (!directHit) return;
-  const owner = sim.enemies.get(projectile.ownerId ?? "");
-  const target = effectTargetFor(sim, directHit);
-  applySpitDamage({
-    sim,
-    directHit,
-    effectEvents,
-    target,
-    damage: owner?.def.attack.damage ?? 2,
-    sourceId: projectile.ownerId,
-  });
-  applySpitStatuses({
-    sim,
-    directHit,
-    effectEvents,
-    target,
-    applies: owner?.def.attack.applies ?? [],
-    sourceId: projectile.ownerId,
-  });
-}
-
-function applySpitDamage({ sim, directHit, effectEvents, target, damage, sourceId }: SpitDamageContext): void {
-  sim.effects.modifyHealth({
-    entity: directHit,
-    amount: -damage,
-    events: effectEvents,
-    opts: {
-      sourceTags: ["spit"],
-      ...(sourceId === undefined ? {} : { sourceId }),
-    },
-    target,
-  });
-}
-
-function applySpitStatuses({ sim, directHit, effectEvents, target, applies, sourceId }: SpitStatusContext): void {
-  for (const apply of applies) {
-    if (sim.rng.next() >= apply.chance) continue;
-    sim.effects.applyStatus({
-      entity: directHit,
-      statusId: apply.status,
-      events: effectEvents,
-      target,
-      ...(sourceId === undefined ? {} : { sourceId }),
-    });
-  }
 }
 
 function resolveThrowableImpact(context: ProjectileImpactContext): void {

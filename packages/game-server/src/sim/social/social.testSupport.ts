@@ -10,6 +10,7 @@ import {
 } from "@dc2d/engine";
 import { PlayerStore } from "../../store.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 const EMPTY_CONTENT: RawContent = {
   statuses: [],
@@ -74,13 +75,14 @@ function socialSessionState(): Pick<
 
 function socialGameplayState(): Pick<
   PlayerSlot,
-  "attackReadyAtTick" | "attackStartedAtTick" | "god" | "forceDeath" | "chatTimestamps" |
+  "attackReadyAtTick" | "attackStartedAtTick" | "god" | "admin" | "debugFlags" | "forceDeath" | "chatTimestamps" |
   "lastFistbumpOfferAtTick" | "spawnGraceUntilTick" | "pendingTransfer"
 > {
   return {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: Number.NEGATIVE_INFINITY,

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { releaseNotesRequest } from "../build/releaseNotes.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
-const applicationVersion = "0.7.2";
+const applicationVersion = "0.8.0";
 
 describe("release notes dev routes", () => {
   it("serves the generated index instead of falling through to the game shell", () => {
@@ -20,6 +20,7 @@ describe("release notes dev routes", () => {
         "cache-control": "no-store",
       },
     });
+    expect(response?.body).toContain('href="/">← Back to title screen</a>');
     expect(response?.body).toContain("<h1>Release Notes</h1>");
     expect(response?.body).toContain(`./v${applicationVersion}.html`);
     expect(response?.body).not.toContain("src/main.ts");

@@ -9,6 +9,10 @@ import { createRemoteActorAnimation, updateRemoteActorAnimation, type RemoteActo
 import { syncReconnectPresentation, type DisconnectedActorLabel, type ReconnectActor } from "./ThreeRemoteActorReconnectPresentation.js";
 import { createEnemyTexture } from "../entities/threeVisuals.js";
 import {
+  createThreeTextSprite,
+  type ThreeTextSprite,
+} from "../entities/ThreeTextSprite.js";
+import {
   createRemoteActorAura,
   disposeRemoteActorAura,
   syncRemoteActorAura,
@@ -48,6 +52,7 @@ interface ActiveActor {
   animation?: RemoteActorAnimation | undefined;
   disconnected: boolean;
   disconnectedLabel?: DisconnectedActorLabel | undefined;
+  adminLabel?: ThreeTextSprite | undefined;
 }
 
 export class ThreeRemoteActors {
@@ -138,6 +143,7 @@ export class ThreeRemoteActors {
     });
     if (active.aura) syncRemoteActorAura(active.aura, player.snap);
     this.syncDisconnectedPresentation(active, player.snap.disconnected === true);
+    this.syncAdminPresentation(active, player.snap.admin === true);
   }
 
   private addActor(id: string, kind: VisibleKind): ActiveActor {
@@ -193,6 +199,21 @@ export class ThreeRemoteActors {
     });
   }
 
+  private syncAdminPresentation(active: ActiveActor, admin: boolean): void {
+    if (active.kind !== "player") return;
+    if (!admin) {
+      if (active.adminLabel) active.adminLabel.visible = false;
+      return;
+    }
+    const label = active.adminLabel ?? createThreeTextSprite("[ADMIN]", "#54a8ff");
+    if (!active.adminLabel) {
+      label.position.y = KNIGHT_HEIGHT + 0.55;
+      active.object.add(label);
+      active.adminLabel = label;
+    }
+    label.visible = admin;
+  }
+
   private replaceFallback(id: string, actor: ActorObject): void {
     const previous = this.actors.get(id);
     if (previous?.aura) disposeRemoteActorAura(previous.aura);
@@ -206,6 +227,7 @@ export class ThreeRemoteActors {
 
   private removeActor(id: string, actor: ActiveActor): void {
     if (actor.aura) disposeRemoteActorAura(actor.aura);
+    actor.adminLabel?.material.map?.dispose();
     this.group.remove(actor.object);
     this.actors.delete(id);
   }

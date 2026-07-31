@@ -9,6 +9,15 @@ fi
 
 id dc2d >/dev/null 2>&1 || useradd --system --home-dir /opt/dungeoncrawler2d --shell /sbin/nologin dc2d
 install -d -o dc2d -g dc2d /opt/dungeoncrawler2d /var/lib/dungeoncrawler2d /var/log/dungeoncrawler2d
+operational_env=/var/lib/dungeoncrawler2d/operational-events.env
+if [ ! -s "$operational_env" ] || ! grep -qxE 'OPERATIONAL_EVENT_PEPPER=[A-Za-z0-9+/=]{40,}' "$operational_env"; then
+  set +x
+  umask 077
+  printf 'OPERATIONAL_EVENT_PEPPER=%s\n' "$(head -c 32 /dev/urandom | base64 -w0)" >"$operational_env"
+  set -x
+fi
+chown dc2d:dc2d "$operational_env"
+chmod 0600 "$operational_env"
 
 cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'JSON'
 {
@@ -23,7 +32,7 @@ cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'JSON'
             "file_path": "/var/log/dungeoncrawler2d/server.log",
             "log_group_name": "${log_group_name}",
             "log_stream_name": "{instance_id}",
-            "retention_in_days": 30
+            "retention_in_days": ${server_log_retention_days}
           }
         ]
       }
@@ -69,9 +78,14 @@ Environment=NODE_ENV=production
 Environment=DEBUG_COMMANDS=0
 Environment=VOID_TERRAIN=false
 Environment=GAME_PORT=8081
+Environment=TRUST_PROXY=1
+Environment=GAMEPLAY_IDLE_TIMEOUT_MS=180000
 Environment=WORLD_SEED=${world_seed}
 Environment=STORE_FILE=/var/lib/dungeoncrawler2d/players.json
 Environment=CUSTOM_MAP=none
+Environment=OPERATIONAL_EVENT_TABLE=${operational_event_table}
+Environment=OPERATIONAL_EVENT_RETENTION_SECONDS=${operational_event_retention_seconds}
+EnvironmentFile=/var/lib/dungeoncrawler2d/operational-events.env
 ExecStartPre=+/usr/local/bin/dc2d-sync
 ExecStart=/usr/bin/node /opt/dungeoncrawler2d/main.cjs
 StandardOutput=append:/var/log/dungeoncrawler2d/server.log

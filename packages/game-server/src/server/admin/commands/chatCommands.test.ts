@@ -1,0 +1,20 @@
+import { describe, expect, it } from "vitest";
+import { parseAdminChatCommand } from "./chatCommands.js";
+
+describe("admin gameplay chat commands", () => {
+  it("parses bounded commands into the shared wire command shapes", () => {
+    expect(parseAdminChatCommand("/admin heal player-1")).toEqual({ op: "heal", playerId: "player-1" });
+    expect(parseAdminChatCommand("/admin map dungeon 2 10.5 -4.5 8")).toEqual({
+      op: "map", level: "dungeon", floor: 2, x: 10.5, y: -4.5, radius: 8,
+    });
+    expect(parseAdminChatCommand("/admin spawn weapon sword 4.5 5.5 dungeon 1")).toEqual({
+      op: "spawn", kind: "weapon", defId: "sword", x: 4.5, y: 5.5, level: "dungeon", floor: 1,
+    });
+  });
+
+  it("rejects malformed or unbounded commands", () => {
+    expect(parseAdminChatCommand("/admin kill player-1 extra")).toBeNull();
+    expect(parseAdminChatCommand("/admin map dungeon 2 10 10 99")).toBeNull();
+    expect(parseAdminChatCommand("/admin spawn enemy slime 10 10 unknown 1")).toBeNull();
+  });
+});

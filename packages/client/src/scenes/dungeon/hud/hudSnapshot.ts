@@ -9,6 +9,7 @@ import type {
   StashSnapshot,
   ToastData,
 } from "../../../ui/widgets/hud/core/fakeData.js";
+import type { MinimapSnapshot } from "../../../ui/hud/model/minimap/minimapTypes.js";
 import type { ContactData } from "../../../ui/widgets/hud/social/contactRows.js";
 import type { BossBarData } from "../../../ui/widgets/hud/bars/bossBarView.js";
 import { recipeRowViews } from "../../../ui/widgets/hud/windows/recipeRows.js";
@@ -87,10 +88,11 @@ export interface HudSnapshotInput {
   readonly compassBearingDeg: number;
   readonly stairway: StairwayTickData | null;
   readonly compassLandmarks: CompassLandmarkTicks;
+  readonly minimap?: MinimapSnapshot;
 }
 
 export function buildHudSnapshot(input: HudSnapshotInput): HudFakeSnapshot {
-  const { src, selectedHotbarSlot, armedThrowableSlot, interactionPrompt, touch, fps, bodyPos, chatModel, contacts, compassBearingDeg, stairway, compassLandmarks } = input;
+  const { src, selectedHotbarSlot, armedThrowableSlot, interactionPrompt, touch, fps, bodyPos, chatModel, contacts, compassBearingDeg, stairway, compassLandmarks, minimap } = input;
   const party = partyRowsView({ party: src.party, selfId: src.playerId, bodyPos, viewBearingDeg: compassBearingDeg });
   return {
     health: { hp: src.hp, maxHp: src.maxHp },
@@ -110,5 +112,17 @@ export function buildHudSnapshot(input: HudSnapshotInput): HudFakeSnapshot {
     contacts: [...contacts],
     interactionPrompt,
     ...statusFields({ src, touch, fps, bodyPos, compassBearingDeg, stairway, compassLandmarks }),
+    minimap: minimap ?? emptyMinimap(bodyPos),
+  };
+}
+
+function emptyMinimap(bodyPos: { readonly x: number; readonly y: number; }): MinimapSnapshot {
+  return {
+    centerX: bodyPos.x,
+    centerY: bodyPos.y,
+    rangeTiles: 16,
+    terrain: [],
+    entities: [],
+    landmarks: [],
   };
 }

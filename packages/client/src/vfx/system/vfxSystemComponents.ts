@@ -5,12 +5,12 @@ import {
 } from "../../presentation/devicePresentationProfile.js";
 import { AreaEffectPool } from "../areas/areaEffectPool.js";
 import { BossDownFlourish } from "../flourishes/bossDownFlourish.js";
-import { CombatEffects } from "../combat/combatEffects.js";
+import { CombatEffects } from "../combat/effects/combatEffects.js";
 import { DamageNumberPool } from "../motion/damageNumbers.js";
 import { FloorBanner } from "../flourishes/floorBanner.js";
 import { LevelUpFlourish } from "../flourishes/levelUpFlourish.js";
 import { LowHpOverlay } from "../overlays/status/lowHpOverlay.js";
-import { MeleeSwingFx } from "../combat/meleeSwingFx.js";
+import { MeleeSwingFx } from "../combat/melee/meleeSwingFx.js";
 import { OutOfBreathFx } from "../overlays/status/outOfBreathFx.js";
 import { PlayerMotionFx } from "../motion/playerMotionFx.js";
 import { TeleportFade } from "../overlays/teleport/teleportFade.js";

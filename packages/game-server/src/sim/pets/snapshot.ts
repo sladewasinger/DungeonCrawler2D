@@ -6,12 +6,14 @@ import type { SimState } from "../state/state.js";
 export function petSnapshotFields(
   sim: SimState,
   entity: Entity,
-): Pick<EntitySnapshot, "anim" | "petOwnerName"> | Record<string, never> {
+): Pick<EntitySnapshot, "anim" | "petOwnerName" | "petBehavior" | "petBehaviorEvent"> | Record<string, never> {
   if (entity.kind !== "pet") return {};
   const pet = sim.pets.get(entity.id);
   if (!pet) return {};
   return {
     anim: petAnimation(sim, entity.id),
+    petBehavior: pet.behavior.current,
+    petBehaviorEvent: pet.behavior.eventSequence,
     ...petOwnerName(sim, pet.ownerId),
   };
 }

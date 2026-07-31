@@ -20,6 +20,8 @@ import type {
   SnapshotPendingState,
 } from "./snapshotState.js";
 import type { HandicapGrant } from "../progression/handicap.js";
+import type { AdminPlayerState } from "./adminPlayerState.js";
+import type { AoiCenter } from "./aoiCenter.js";
 import type { PetSlot } from "../pets/types.js";
 import type {
   FloorTransferRequest,
@@ -43,6 +45,8 @@ export type {
   WorldEvent,
 } from "./domainTypes.js";
 
+export type { AoiCenter } from "./aoiCenter.js";
+
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
  * a set of pure-ish functions over this one mutable state object; the
@@ -56,7 +60,7 @@ export type PlayerAction = Exclude<
   { type: "snapshotResync" } | { type: "networkProfile" }
 >;
 
-export interface PlayerSlot {
+export interface PlayerSlot extends AdminPlayerState {
   entity: Entity;
   clientId: string;
   stored: StoredPlayer;
@@ -135,11 +139,6 @@ export interface PlayerSlot {
   snapshotMode?: SnapshotMode;
   /** Optional delivery profile follows this slot across reconnects and floors. */
   networkProfile?: NetworkProfile;
-}
-
-export interface AoiCenter {
-  readonly x: number;
-  readonly y: number;
 }
 
 export interface SimState {

@@ -3,6 +3,7 @@ import {
   hashString,
   miniBossArenaForChunk,
   miniBossArenaIsStamped,
+  TILE,
   World,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
@@ -59,6 +60,23 @@ export function spawnMiniBossPopulationEncounter(
     throw new Error("no mini-boss encounter spawned");
   }
   return arena;
+}
+
+export function blockArenaInterior(
+  sim: SimState,
+  arena: MiniBossArenaSite,
+): void {
+  const overrides: Array<{
+    x: number;
+    y: number;
+    tile: typeof TILE.CraftingTable;
+  }> = [];
+  for (let y = arena.interior.y0; y <= arena.interior.y1; y++) {
+    for (let x = arena.interior.x0; x <= arena.interior.x1; x++) {
+      overrides.push({ x, y, tile: TILE.CraftingTable });
+    }
+  }
+  sim.world.replaceTileOverrides(overrides);
 }
 
 export function findMiniBossPopulationArena(

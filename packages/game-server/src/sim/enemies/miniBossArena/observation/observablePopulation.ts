@@ -7,7 +7,10 @@ import {
 } from "@dc2d/engine";
 import type { SimState } from "../../../state/state.js";
 import { chunksWithinTileRadius } from "../landmarks/nearbyChunks.js";
-import { spawnMiniBossEncounter } from "../population.js";
+import {
+  miniBossEncounterAlive,
+  spawnMiniBossEncounter,
+} from "../population.js";
 import { clearMiniBossArena } from "../runtime.js";
 
 interface ArenaChunk {
@@ -30,7 +33,7 @@ export function syncObservableMiniBossEncounters(sim: SimState): void {
   const chunks = observableArenaChunks(sim);
   const nextKeys = new Set(chunks.keys());
   const state = observableArenaStateFor(sim);
-  spawnNewlyObservableEncounters(sim, chunks, state.arenaKeys);
+  ensureObservableEncounters(sim, chunks, state.arenaKeys);
   removeUnobservableEncounters(sim, nextKeys);
   state.arenaKeys = nextKeys;
 }
@@ -50,15 +53,20 @@ function playerIsInReservedRoom(y: number): boolean {
   return isRoomChunk(Math.floor(y / CHUNK_SIZE));
 }
 
-function spawnNewlyObservableEncounters(
+function ensureObservableEncounters(
   sim: SimState,
   chunks: ReadonlyMap<string, ArenaChunk>,
   previousKeys: ReadonlySet<string>,
 ): void {
   for (const [key, chunk] of chunks) {
-    if (previousKeys.has(key)) continue;
+    if (previousKeys.has(key) && encounterAlreadyAvailable(sim, key)) continue;
     spawnMiniBossEncounter(sim, chunk.cx, chunk.cy);
   }
+}
+
+function encounterAlreadyAvailable(sim: SimState, arenaKey: string): boolean {
+  return sim.defeatedMiniBossArenas.has(arenaKey) ||
+    miniBossEncounterAlive(sim, arenaKey);
 }
 
 function removeUnobservableEncounters(

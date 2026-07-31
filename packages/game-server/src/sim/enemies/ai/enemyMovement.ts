@@ -9,6 +9,7 @@ import { isBodyInChasm } from "../../core/helpers.js";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { insideGracedClearance } from "../../spawnSafety/spawnSafety.js";
 import { recordEnemyRouteMotion } from "./enemyMemoryNavigation.js";
+import { activeGuardBlocksEnemyMotion } from "../../combat/shieldCollision.js";
 
 export interface EnemyMoveInput {
   readonly sim: SimState;
@@ -50,8 +51,9 @@ function stepEnemyBody(input: EnemyMoveInput): EnemyBodyMotion {
     TICK_DT,
     enemyMovementOptions(sim, enemy),
   );
+  const shieldBlocked = activeGuardBlocksEnemyMotion(sim, before, entity.body);
   preserveGracedClearance(entity, before, graced);
-  const motion = bodyMotion(entity, before, result);
+  const motion = bodyMotion({ entity, before, blocked: result, shieldBlocked });
   sim.replicationMotion.set(entity.id, { x: motion.x, y: motion.y });
   if (isBodyInChasm(sim.world, entity.body)) entity.hp = 0;
   return motion;
@@ -68,7 +70,8 @@ function enemyMovementOptions(sim: SimState, enemy: EnemySlot) {
 function outsideHome(enemy: EnemySlot, x: number, y: number): boolean {
   const home = enemy.home;
   return home !== undefined &&
-    (x < home.x0 || x > home.x1 || y < home.y0 || y > home.y1);
+    (x < home.x0 || x >= home.x1 + 1 ||
+      y < home.y0 || y >= home.y1 + 1);
 }
 
 function preserveGracedClearance(
@@ -86,16 +89,19 @@ function preserveGracedClearance(
   entity.body.y = before.y;
 }
 
-function bodyMotion(
-  entity: EnemySlot["entity"],
-  before: EnemySlot["entity"]["body"],
-  blocked: { readonly blockedX?: boolean; readonly blockedY?: boolean },
-): EnemyBodyMotion {
+interface BodyMotionRequest {
+  readonly entity: EnemySlot["entity"];
+  readonly before: EnemySlot["entity"]["body"];
+  readonly blocked: { readonly blockedX?: boolean; readonly blockedY?: boolean };
+  readonly shieldBlocked: boolean;
+}
+
+function bodyMotion({ entity, before, blocked, shieldBlocked }: BodyMotionRequest): EnemyBodyMotion {
   return {
     x: (entity.body.x - before.x) / TICK_DT,
     y: (entity.body.y - before.y) / TICK_DT,
-    blockedX: blocked.blockedX ?? false,
-    blockedY: blocked.blockedY ?? false,
+    blockedX: shieldBlocked || blocked.blockedX === true,
+    blockedY: shieldBlocked || blocked.blockedY === true,
   };
 }
 

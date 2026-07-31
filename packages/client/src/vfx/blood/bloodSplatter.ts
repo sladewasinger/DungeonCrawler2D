@@ -8,7 +8,7 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS } from "../../boot/assetManifest.js";
 import { splatterAngleWindow } from "./bloodDirection.js";
-import { COMBAT_PARTICLE_DEPTH } from "../combat/combatLayer.js";
+import { COMBAT_PARTICLE_DEPTH } from "../combat/shared/combatLayer.js";
 
 const FRAME = "particle_soft";
 const HIT_COUNT = 12;

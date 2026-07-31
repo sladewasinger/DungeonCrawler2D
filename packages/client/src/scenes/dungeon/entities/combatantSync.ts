@@ -142,7 +142,9 @@ function updateSelfSource(
   vitals.maxHp = conn.maxHp;
   vitals.fx = conn.fx;
   vitals.downed = conn.downed;
+  vitals.admin = conn.activeAdmin;
   vitals.reviveProgress = conn.reviveProgress;
   vitals.blocking = conn.blocking;
   vitals.weaponId = conn.weapon;
+  vitals.blockFeedback = conn.blockFeedback;
 }

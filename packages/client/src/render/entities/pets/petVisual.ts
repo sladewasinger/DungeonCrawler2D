@@ -6,6 +6,10 @@ import { HUD_SCALE } from "../../../ui/foundation/hudScale.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
 import { createNameplate, LABEL_LINE_GAP_PX, updateNameplate } from "../presentation/nameplate.js";
 import { createShadow, updateShadowPosition } from "../geometry/shadow.js";
+import {
+  createDinoBehaviorVisual,
+  syncDinoBehaviorVisual,
+} from "./behavior/dinoBehaviorVisual.js";
 import type { PetVisual } from "../visuals/state.js";
 import type { PetEntityView, RenderContext } from "../visuals/view.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
@@ -34,6 +38,7 @@ export function createPetVisual(scene: Phaser.Scene, defId: string): PetVisual {
       .setOrigin(0.5, 1)
       .setStroke("#000000", 2),
     assetId: defId,
+    behavior: createDinoBehaviorVisual(scene, defId),
     lastAnim: undefined,
   };
 }
@@ -42,6 +47,7 @@ interface PetPresentation {
   readonly depth: number;
   readonly groundHeight: number;
   readonly heightAboveGround: number;
+  readonly context: RenderContext;
 }
 
 interface PetLabelPresentation {
@@ -58,6 +64,12 @@ function updatePetBody(visual: PetVisual, view: PetEntityView, presentation: Pet
   const animationKey = `pet:${visual.assetId}:${view.anim}`;
   if (visual.body.anims.currentAnim?.key !== animationKey) visual.body.play(animationKey);
   visual.body.setScale(WORLD_PIXEL_SCALE);
+  syncDinoBehaviorVisual({
+    behavior: visual.behavior,
+    view,
+    nowMs: presentation.context.nowMs,
+    body: visual.body,
+  });
 }
 
 function updatePetShadow(visual: PetVisual, view: PetEntityView, presentation: PetPresentation): void {
@@ -97,7 +109,7 @@ export function updatePetVisual(visual: PetVisual, view: PetEntityView, ctx: Ren
   const groundHeight = ctx.world.groundAt(view.x, view.y);
   const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
   const depth = depthForEntityNow(view.x, view.y, heightAboveGround);
-  const presentation = { depth, groundHeight, heightAboveGround };
+  const presentation = { depth, groundHeight, heightAboveGround, context: ctx };
   updatePetBody(visual, view, presentation);
   updatePetShadow(visual, view, presentation);
   updatePetLabels(visual, { view, ctx, depth });

@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 import { resolveDeaths } from "../combat/deaths.js";
 import { spawnEnemy } from "../core/helpers.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 import { PlayerStore } from "../../store.js";
 import { findWorldPoint } from "../combat/chasmTestSupport.js";
 import { stepEnemies } from "./index.js";
@@ -71,6 +72,7 @@ function makeScoutSlot(x: number, y: number, sim: SimState): PlayerSlot {
     attackReadyAtTick: 0,
     attackStartedAtTick: -1000,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,

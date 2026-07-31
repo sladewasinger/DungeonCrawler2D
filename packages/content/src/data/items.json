@@ -15,7 +15,7 @@
     "tags": ["sharp", "metal"],
     "maxStack": 1,
     "flavor": "Small, mean, and eager to prove it.",
-    "weapon": { "damage": 6, "range": 1.6, "cooldownMs": 240, "arcCos": 0.8, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
+    "weapon": { "profileId": "knife", "damage": 6, "range": 1.62, "cooldownMs": 240, "arcCos": 0.92, "knockbackForce": 7, "applies": [{ "status": "bleeding", "chance": 0.4 }] }
   },
   {
     "id": "sword",
@@ -23,7 +23,7 @@
     "tags": ["sharp", "metal"],
     "maxStack": 1,
     "flavor": "Previously owned. The rust is load-bearing.",
-    "weapon": { "damage": 9, "range": 2, "cooldownMs": 350, "arcCos": 0.7071, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
+    "weapon": { "profileId": "sword", "damage": 9, "range": 2.4, "cooldownMs": 350, "arcCos": 0.7071, "knockbackForce": 10, "applies": [{ "status": "bleeding", "chance": 0.25 }] }
   },
   {
     "id": "hammer",
@@ -31,7 +31,7 @@
     "tags": ["blunt", "metal"],
     "maxStack": 1,
     "flavor": "Subtlety was never on the crafting list.",
-    "weapon": { "damage": 10, "range": 1.7, "cooldownMs": 500, "arcCos": 0.74, "applies": [{ "status": "slowed", "chance": 0.5 }] }
+    "weapon": { "profileId": "hammer", "damage": 7, "range": 2.04, "cooldownMs": 500, "shape": "ground", "knockbackForce": 18, "applies": [{ "status": "slowed", "chance": 0.5 }] }
   },
   {
     "id": "torch",

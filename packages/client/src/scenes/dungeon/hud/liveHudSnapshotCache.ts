@@ -134,6 +134,10 @@ export class LiveHudSnapshotCache {
     snapshot.coords.x = Math.round(display.x);
     snapshot.coords.y = Math.round(display.y);
     snapshot.coords.z = Math.round(body.z * 10) / 10;
+    if (snapshot.minimap) {
+      snapshot.minimap.centerX = body.x;
+      snapshot.minimap.centerY = body.y;
+    }
     snapshot.pingMs = conn.rttMs;
     snapshot.connected = conn.status === "connected";
     snapshot.reconnecting = conn.status !== "connected";

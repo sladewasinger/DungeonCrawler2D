@@ -13,6 +13,7 @@ import { content, makeSim } from "../../sim/integration/support.js";
 import { PlayerStore } from "../../store.js";
 import { deliverSnapshots } from "../broadcast.js";
 import { handleConnection } from "../dispatch.js";
+import { AdminSessionRegistry } from "../admin/access/sessionRegistry.js";
 import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
 import type { SocketMap } from "../types.js";
 
@@ -70,15 +71,16 @@ describe("server network diagnostics wiring", () => {
     const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: { testFixtures: true } });
     const sandbox = makeSim();
     const diagnostics = new ServerNetworkDiagnostics();
+    const adminSessions = new AdminSessionRegistry();
     const sockets: SocketMap = new Map();
     const accepted = new FakeSocket();
-    handleConnection(accepted as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics });
+    handleConnection(accepted as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     accepted.receive(hello());
     accepted.receive({ type: "ping", t: 4 });
     deliverSnapshots({ snapshots: sandbox.stepPreparedReplicated(), sockets, diagnostics });
 
     const rejected = new FakeSocket();
-    handleConnection(rejected as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics });
+    handleConnection(rejected as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     rejected.receive(hello(PROTOCOL_VERSION + 1));
 
     expect(wireTypes(accepted)).toEqual(["welcome", "pong", "snapshotDelta"]);
@@ -98,15 +100,16 @@ describe("server network diagnostics wiring", () => {
     const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: { testFixtures: true } });
     const sandbox = makeSim();
     const diagnostics = new ServerNetworkDiagnostics();
+    const adminSessions = new AdminSessionRegistry();
     const sockets: SocketMap = new Map();
     const first = new FakeSocket();
-    handleConnection(first as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics });
+    handleConnection(first as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     first.receive(hello());
     const joined = welcome(first);
     sandbox.markDisconnected(joined.playerId);
 
     const replacement = new FakeSocket();
-    handleConnection(replacement as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics });
+    handleConnection(replacement as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     replacement.receive(hello(PROTOCOL_VERSION, joined.resumeToken));
 
     expect(sockets.get(joined.playerId)?.ws).toBe(replacement);

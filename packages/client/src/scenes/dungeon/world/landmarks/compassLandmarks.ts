@@ -40,6 +40,13 @@ export class CompassLandmarkLocator {
     return projectLandmarks(request, this.positions);
   }
 
+  resolvePositions(
+    request: CompassLandmarkRequest,
+  ): CompassLandmarkPositions {
+    if (this.needsRefresh(request)) this.refresh(request);
+    return this.positions;
+  }
+
   private needsRefresh(request: CompassLandmarkRequest): boolean {
     const miniBossCenter = miniBossWindowCenter(request);
     return this.tileX !== Math.floor(request.x) ||
@@ -89,6 +96,14 @@ export function resolveCompassLandmarks(
   const locator = locators.get(request.world) ?? new CompassLandmarkLocator();
   locators.set(request.world, locator);
   return locator.resolve(request);
+}
+
+export function resolveCompassLandmarkPositions(
+  request: CompassLandmarkRequest,
+): CompassLandmarkPositions {
+  const locator = locators.get(request.world) ?? new CompassLandmarkLocator();
+  locators.set(request.world, locator);
+  return locator.resolvePositions(request);
 }
 
 function projectLandmarks(

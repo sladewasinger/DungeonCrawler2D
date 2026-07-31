@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HELP_LINES, parseChatInput } from "./commands.js";
+import { ADMIN_HELP_LINES, HELP_LINES, parseChatInput } from "./commands.js";
 
 describe("parseChatInput", () => {
   it("plain text sends on the active channel", () => {
@@ -35,6 +35,19 @@ describe("parseChatInput", () => {
       kind: "local-lines",
       lines: [...HELP_LINES],
     });
+  });
+
+  it("/help includes the complete admin command summary only for active admins", () => {
+    expect(parseChatInput("/help", "global", {
+      lastDmPartner: null,
+      activeAdmin: true,
+    })).toEqual({
+      kind: "local-lines",
+      lines: [...HELP_LINES, ...ADMIN_HELP_LINES],
+    });
+    expect(ADMIN_HELP_LINES.join("\n")).toContain("/admin list");
+    expect(ADMIN_HELP_LINES.join("\n")).toContain("/admin map");
+    expect(ADMIN_HELP_LINES.join("\n")).toContain("/admin spawn");
   });
 
   // The parser command table, one row per command shape.

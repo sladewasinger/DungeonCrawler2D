@@ -5,11 +5,22 @@ import { HUD_MUTED } from "../styles/HudStyles.js";
 import { createHudTemplate, requireHudElement } from "../styles/hudTemplate.js";
 import type {
   CompassLandmarkTicks,
+  HudFakeSnapshot,
   StairwayTickData,
 } from "../../../ui/widgets/hud/core/fakeData.js";
-import type { HudFakeSnapshot } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { FirstPersonState } from "../../../three/input/movement.js";
 import { headingDegrees } from "./HudTelemetry.js";
+import {
+  MinimapCanvasRenderer,
+  minimapRenderedSize,
+} from "./minimap/minimapCanvasRenderer.js";
+import type { MinimapSnapshot } from "./minimap/minimapTypes.js";
+import {
+  updateCardinalLetters,
+  updateCompassMarkers,
+  type CompassLetterElement,
+  type CompassMarkerElements,
+} from "./minimap/HudCompassMarkers.js";
 
 const CARDINALS = [
   { label: "N", offset: 0, color: "#e04a4a" },
@@ -17,9 +28,9 @@ const CARDINALS = [
   { label: "S", offset: 180, color: HUD_MUTED },
   { label: "W", offset: 270, color: HUD_MUTED },
 ] as const;
+const EMPTY_LANDMARKS: CompassLandmarkTicks = { safeRoom: null, miniBossArena: null };
 
-const LETTER_RADIUS = 22;
-const STAIRWAY_RADIUS = 27;
+export { compassCoordinates, stairwayTickCoordinates } from "./minimap/HudCompassGeometry.js";
 
 export interface CompassState {
   bearingDeg: number;
@@ -31,10 +42,14 @@ export interface CompassStateRequest {
   readonly world: World;
   readonly player: Pick<FirstPersonState, "x" | "z">;
   readonly yaw: number;
-  readonly snapshot?: Pick<
-    HudFakeSnapshot,
-    "compassBearingDeg" | "stairway" | "compassLandmarks"
-  > | undefined;
+  readonly snapshot?: Pick<HudFakeSnapshot, "compassBearingDeg" | "stairway" | "compassLandmarks"> | undefined;
+}
+
+export interface HudCompassUpdate {
+  readonly bearingDeg: number;
+  readonly stairway?: StairwayTickData | null;
+  readonly landmarks?: CompassLandmarkTicks;
+  readonly minimap?: MinimapSnapshot;
 }
 
 export const resolveCompassState = ({ world, player, yaw, snapshot }: CompassStateRequest): CompassState => {
@@ -42,89 +57,54 @@ export const resolveCompassState = ({ world, player, yaw, snapshot }: CompassSta
   return {
     bearingDeg,
     stairway: snapshot?.stairway ?? resolveStairwayTick({ world, x: player.x, y: player.z, viewBearingDeg: bearingDeg }),
-    landmarks: snapshot?.compassLandmarks ?? resolveCompassLandmarks({
-      world,
-      x: player.x,
-      y: player.z,
-      viewBearingDeg: bearingDeg,
-    }),
-  };
-};
-
-const rounded = (value: number): number => {
-  const result = Math.round(value);
-  return Object.is(result, -0) ? 0 : result;
-};
-
-export const compassCoordinates = (bearingDeg: number, offsetDeg: number) => {
-  const radians = ((bearingDeg + offsetDeg) * Math.PI) / 180;
-  return {
-    x: rounded(Math.sin(radians) * LETTER_RADIUS),
-    y: rounded(-Math.cos(radians) * LETTER_RADIUS),
-  };
-};
-
-export const stairwayTickCoordinates = (bearingDeg: number) => {
-  const radians = (bearingDeg * Math.PI) / 180;
-  return {
-    x: rounded(Math.sin(radians) * STAIRWAY_RADIUS),
-    y: rounded(-Math.cos(radians) * STAIRWAY_RADIUS),
+    landmarks: snapshot?.compassLandmarks ?? resolveCompassLandmarks({ world, x: player.x, y: player.z, viewBearingDeg: bearingDeg }),
   };
 };
 
 export class HudCompass {
   readonly element: HTMLElement;
-  private readonly letters: Array<typeof CARDINALS[number] & { element: HTMLElement }>;
+  private readonly letters: Array<typeof CARDINALS[number] & CompassLetterElement>;
   private readonly stairway: HTMLElement;
   private readonly safeRoom: HTMLElement;
   private readonly miniBossArena: HTMLElement;
+  private readonly minimap: HTMLCanvasElement;
+  private readonly minimapContext: CanvasRenderingContext2D | null;
+  private readonly renderer = new MinimapCanvasRenderer();
 
   constructor() {
     this.element = createHudTemplate<HTMLElement>("hud-compass-template");
     this.letters = CARDINALS.map((cardinal) => ({
       ...cardinal,
-      element: requireHudElement<HTMLElement>(
-        this.element,
-        `[data-compass-letter="${cardinal.label}"]`,
-      ),
+      element: requireHudElement<HTMLElement>(this.element, `[data-compass-letter="${cardinal.label}"]`),
     }));
     this.stairway = requireHudElement(this.element, "[data-hud-compass-stairway]");
     this.safeRoom = requireHudElement(this.element, "[data-hud-compass-safe-room]");
     this.miniBossArena = requireHudElement(this.element, "[data-hud-compass-mini-boss]");
-    this.update(0);
+    this.minimap = requireHudElement(this.element, "[data-hud-minimap-canvas]");
+    this.minimapContext = this.minimap.getContext?.("2d") ?? null;
+    this.update({ bearingDeg: 0 });
   }
 
-  update(
-    bearingDeg: number,
-    stairway: StairwayTickData | null = null,
-    landmarks: CompassLandmarkTicks = { safeRoom: null, miniBossArena: null },
-  ): void {
-    const normalized = ((bearingDeg % 360) + 360) % 360;
-    for (const letter of this.letters) {
-      const point = compassCoordinates(normalized, letter.offset);
-      letter.element.style.marginLeft = `${point.x}px`;
-      letter.element.style.marginTop = `${point.y}px`;
-    }
-    this.stairway.style.display = stairway ? "block" : "none";
-    if (stairway) {
-      const point = stairwayTickCoordinates(stairway.screenBearingDeg);
-      this.stairway.style.marginLeft = `${point.x}px`;
-      this.stairway.style.marginTop = `${point.y}px`;
-      this.stairway.style.scale = stairway.near ? "1.35" : "1";
-    }
-    this.updateLandmark(this.safeRoom, landmarks.safeRoom);
-    this.updateLandmark(this.miniBossArena, landmarks.miniBossArena);
-    this.element.setAttribute("aria-label", `Compass ${Math.round(normalized)} degrees`);
+  update({ bearingDeg, stairway = null, landmarks = EMPTY_LANDMARKS, minimap }: HudCompassUpdate): void {
+    const normalized = normalizeBearing(bearingDeg);
+    updateCardinalLetters(
+      this.letters,
+      normalized,
+      minimapRenderedSize(this.minimap),
+    );
+    updateCompassMarkers({ stairway, landmarks, elements: this.markerElements() }, Boolean(minimap));
+    this.renderer.render({
+      canvas: this.minimap,
+      context: this.minimapContext,
+      bearingDeg: normalized,
+      ...(minimap ? { snapshot: minimap } : {}),
+    });
+    this.element.setAttribute("aria-label", `Minimap ${Math.round(normalized)} degrees`);
   }
 
-  private updateLandmark(
-    element: HTMLElement,
-    target: CompassLandmarkTicks["safeRoom"],
-  ): void {
-    element.style.display = target ? "block" : "none";
-    if (!target) return;
-    const point = stairwayTickCoordinates(target.screenBearingDeg);
-    element.style.marginLeft = `${point.x}px`;
-    element.style.marginTop = `${point.y}px`;
+  private markerElements(): CompassMarkerElements {
+    return { stairway: this.stairway, safeRoom: this.safeRoom, miniBossArena: this.miniBossArena };
   }
 }
+
+const normalizeBearing = (bearingDeg: number): number => ((bearingDeg % 360) + 360) % 360;

@@ -5,6 +5,23 @@ import type { VfxSystem } from "../../../vfx/system/index.js";
 import { applyVisualEvents } from "./visualEvents.js";
 
 describe("visual health events", () => {
+  it("routes block feedback into the held-guard presentation state", () => {
+    const recordBlockFeedback = vi.fn();
+    const connection = {
+      hp: 30,
+      maxHp: 30,
+      welcome: { playerId: "player-1" },
+      entities: new Map(),
+      drainVisualEvents: () => [{ t: "blockFeedback", kind: "melee" }],
+      recordBlockFeedback,
+    } as unknown as Connection;
+    const vfx = { setSelfHp: vi.fn() } as unknown as VfxSystem;
+
+    applyVisualEvents({ conn: connection, vfx, render: { x: 2, y: 3, z: 0 }, pendingSwings: new Map(), nowMs: 100 });
+
+    expect(recordBlockFeedback).toHaveBeenCalledWith("melee", 100);
+  });
+
   it("shows green +4 feedback without blood or own-hit reactions", () => {
     const spawnDamageNumber = vi.fn();
     const spawnBloodHit = vi.fn();

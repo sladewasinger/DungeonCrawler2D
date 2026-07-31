@@ -32,13 +32,14 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
 }
 
 locals {
-  name                       = "dungeoncrawler2d-prod"
-  artifact_bucket_name       = "dungeoncrawler2d-artifacts-${data.aws_caller_identity.current.account_id}"
-  server_bundle_source       = "${path.module}/../packages/game-server/dist/main.cjs"
-  server_bundle_object       = "server/main.cjs"
-  frontend_origin_id         = "frontend"
-  game_server_origin_id      = "game-server"
-  production_distribution_id = "E253TI6NRUSHMS"
+  name                                = "dungeoncrawler2d-prod"
+  artifact_bucket_name                = "dungeoncrawler2d-artifacts-${data.aws_caller_identity.current.account_id}"
+  server_bundle_source                = "${path.module}/../packages/game-server/dist/main.cjs"
+  server_bundle_object                = "server/main.cjs"
+  frontend_origin_id                  = "frontend"
+  game_server_origin_id               = "game-server"
+  production_distribution_id          = "E253TI6NRUSHMS"
+  operational_event_retention_seconds = var.operational_event_retention_days * 24 * 60 * 60
 }
 
 resource "aws_s3_bucket" "frontend" {
@@ -155,6 +156,73 @@ resource "aws_iam_role_policy" "server_artifacts" {
   })
 }
 
+resource "aws_dynamodb_table" "operational_history" {
+  name         = "${local.name}-operational-history"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "actor_key"
+  range_key    = "event_key"
+
+  attribute {
+    name = "actor_key"
+    type = "S"
+  }
+
+  attribute {
+    name = "event_key"
+    type = "S"
+  }
+
+  attribute {
+    name = "time_partition"
+    type = "S"
+  }
+
+  attribute {
+    name = "time_key"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "by_time"
+    hash_key        = "time_partition"
+    range_key       = "time_key"
+    projection_type = "ALL"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "${local.name}-operational-history"
+    project     = "dungeoncrawler2d"
+    environment = "prod"
+  }
+}
+
+resource "aws_iam_role_policy" "operational_history" {
+  name = "operational-history-write"
+  role = aws_iam_role.game_server.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["dynamodb:PutItem"]
+      Resource = aws_dynamodb_table.operational_history.arn
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "game_server" {
   name = "${local.name}-instance"
   role = aws_iam_role.game_server.name
@@ -191,11 +259,14 @@ resource "aws_instance" "game_server" {
   iam_instance_profile        = aws_iam_instance_profile.game_server.name
 
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
-    aws_region           = var.aws_region
-    artifact_bucket      = aws_s3_bucket.artifacts.id
-    log_group_name       = aws_cloudwatch_log_group.game_server.name
-    server_bundle_object = local.server_bundle_object
-    world_seed           = var.world_seed
+    aws_region                           = var.aws_region
+    artifact_bucket                      = aws_s3_bucket.artifacts.id
+    log_group_name                       = aws_cloudwatch_log_group.game_server.name
+    server_log_retention_days            = var.server_log_retention_days
+    server_bundle_object                 = local.server_bundle_object
+    world_seed                           = var.world_seed
+    operational_event_table              = aws_dynamodb_table.operational_history.name
+    operational_event_retention_seconds = local.operational_event_retention_seconds
   })
 
   metadata_options {
@@ -216,6 +287,7 @@ resource "aws_instance" "game_server" {
 
   depends_on = [
     aws_iam_role_policy.server_artifacts,
+    aws_iam_role_policy.operational_history,
     aws_iam_role_policy_attachment.cloudwatch_agent,
     aws_iam_role_policy_attachment.ssm,
     aws_s3_object.server_bundle,
@@ -224,7 +296,32 @@ resource "aws_instance" "game_server" {
 
 resource "aws_cloudwatch_log_group" "game_server" {
   name              = "/dungeoncrawler2d/prod/server"
-  retention_in_days = 30
+  retention_in_days = var.server_log_retention_days
+}
+
+resource "aws_cloudwatch_log_metric_filter" "server_errors" {
+  name           = "${local.name}-server-errors"
+  log_group_name = aws_cloudwatch_log_group.game_server.name
+  pattern        = "{ $.level = \"error\" && $.eventType = \"server_error\" }"
+
+  metric_transformation {
+    name      = "ServerErrors"
+    namespace = "DungeonCrawler2D/Server"
+    value     = "1"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "server_errors" {
+  alarm_name          = "${local.name}-server-errors"
+  alarm_description   = "The authoritative server logged a fatal or unhandled error."
+  namespace           = "DungeonCrawler2D/Server"
+  metric_name         = "ServerErrors"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  treat_missing_data  = "notBreaching"
 }
 
 resource "aws_cloudwatch_metric_alarm" "server_cpu" {
@@ -272,7 +369,8 @@ resource "aws_cloudwatch_dashboard" "production" {
           metrics = [
             ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.game_server.id],
             [".", "NetworkIn", ".", "."],
-            [".", "NetworkOut", ".", "."]
+            [".", "NetworkOut", ".", "."],
+            ["DungeonCrawler2D/Server", "ServerErrors"]
           ]
         }
       },
@@ -283,7 +381,7 @@ resource "aws_cloudwatch_dashboard" "production" {
         properties = {
           title  = "Recent server errors"
           region = var.aws_region
-          query  = "SOURCE '${aws_cloudwatch_log_group.game_server.name}' | fields @timestamp, @message | filter @message like /error|failed|exception/i | sort @timestamp desc | limit 50"
+          query  = "SOURCE '${aws_cloudwatch_log_group.game_server.name}' | fields @timestamp, source, errorName, message | filter level = \"error\" and eventType = \"server_error\" | sort @timestamp desc | limit 50"
         }
       }
     ]

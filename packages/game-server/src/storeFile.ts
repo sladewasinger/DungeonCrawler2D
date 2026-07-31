@@ -10,11 +10,12 @@ import {
   currentStoreSchema,
   legacyStoreSchema,
   versionOneStoreSchema,
+  versionThreeStoreSchema,
   versionTwoStoreSchema,
 } from "./storeFileSchemas.js";
 
-export const PLAYER_STORE_VERSION = 3;
-const SUPPORTED_STORE_VERSIONS = new Set<number | undefined>([undefined, 1, 2, PLAYER_STORE_VERSION]);
+export const PLAYER_STORE_VERSION = 4;
+const SUPPORTED_STORE_VERSIONS = new Set<number | undefined>([undefined, 1, 2, 3, PLAYER_STORE_VERSION]);
 
 export interface PlayerStoreFileData {
   nextSlot: number;
@@ -91,6 +92,7 @@ function parseVersionedStore(raw: unknown, version: number | undefined) {
   if (version === undefined) return legacyStoreSchema.parse(raw);
   if (version === 1) return versionOneStoreSchema.parse(raw);
   if (version === 2) return versionTwoStoreSchema.parse(raw);
+  if (version === 3) return versionThreeStoreSchema.parse(raw);
   return currentStoreSchema.parse(raw);
 }
 

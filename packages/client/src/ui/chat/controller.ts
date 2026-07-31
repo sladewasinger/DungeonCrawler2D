@@ -20,6 +20,7 @@ import {
 export interface ChatPort {
   readonly chatLog: readonly { channel: string; name: string; text: string; target?: string }[];
   readonly chatSeq: number;
+  readonly activeAdmin?: boolean;
   chat(channel: "party" | "local" | "global" | "dm", text: string, target?: string): void;
   who(): void;
   partyCommand(
@@ -88,7 +89,10 @@ export class ChatController {
 
   /** Parses and dispatches one submitted chat-input line. */
   submit(raw: string): void {
-    this.dispatch(parseChatInput(raw, this.tabs.active, this.dmPartner()));
+    this.dispatch(parseChatInput(raw, this.tabs.active, {
+      lastDmPartner: this.dmPartner(),
+      activeAdmin: this.port.activeAdmin === true,
+    }));
   }
 
   private dispatch(command: ChatCommand): void {

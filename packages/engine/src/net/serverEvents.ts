@@ -19,6 +19,7 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     id: z.string(),
     amount: z.number().positive(),
   }),
+  z.object({ t: z.literal("blockFeedback"), kind: z.enum(["melee", "projectile"]) }),
   z.object({ t: z.literal("death"), id: z.string() }),
   z.object({ t: z.literal("status"), id: z.string(), status: z.string(), on: z.boolean() }),
   z.object({

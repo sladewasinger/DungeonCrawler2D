@@ -23,6 +23,7 @@ export class RescueTestWorld implements RescueWorld {
   readonly floor = 1;
   readonly level = LEVEL.Sandbox;
   private readonly floorCells = new Map<string, FloorCell>();
+  private readonly sanctuaryCells = new Set<string>();
 
   addPlatform(centerX: number, centerY: number, height = 0): void {
     for (let y = centerY - 1; y <= centerY + 1; y++) {
@@ -36,9 +37,17 @@ export class RescueTestWorld implements RescueWorld {
     this.floorCells.set(key(x, y), { height, blocked: false });
   }
 
+  removeFloor(x: number, y: number): void {
+    this.floorCells.delete(key(x, y));
+  }
+
   block(x: number, y: number): void {
     const cell = this.floorCells.get(key(x, y));
     if (cell) cell.blocked = true;
+  }
+
+  setSanctuary(x: number, y: number): void {
+    this.sanctuaryCells.add(key(x, y));
   }
 
   isWalkable(x: number, y: number): boolean {
@@ -58,8 +67,8 @@ export class RescueTestWorld implements RescueWorld {
     return this.heightAt(Math.floor(x), Math.floor(y));
   }
 
-  isSanctuary(): boolean {
-    return false;
+  isSanctuary(x: number, y: number): boolean {
+    return this.sanctuaryCells.has(key(x, y));
   }
 
   tileAt(x: number, y: number): number {

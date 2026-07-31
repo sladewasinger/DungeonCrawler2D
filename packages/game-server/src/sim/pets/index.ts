@@ -7,6 +7,7 @@ export {
   spawnPet,
 } from "./behavior.js";
 export { stepPets } from "./petTick.js";
+export { type PetBehaviorState } from "./behaviors/types.js";
 export { clearPetPath } from "./navigation.js";
 export {
   PET_FOLLOW_DISTANCE_TILES,

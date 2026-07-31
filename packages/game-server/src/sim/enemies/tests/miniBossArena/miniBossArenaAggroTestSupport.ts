@@ -26,6 +26,13 @@ export interface ArenaAggroFixture {
   readonly enemy: EnemySlot;
 }
 
+export interface FullArenaAggroFixture {
+  readonly sim: SimState;
+  readonly arena: ReturnType<typeof spawnTestArena>;
+  readonly player: PlayerSlot;
+  readonly leader: EnemySlot;
+}
+
 export function arenaFixture(
   defId: typeof ARENA_ENEMY_TYPES[number],
 ): ArenaAggroFixture {
@@ -49,6 +56,16 @@ export function admittedArenaFixture(
   return fixture;
 }
 
+export function admittedFullArenaFixture(): FullArenaAggroFixture {
+  const sim = createMiniBossArenaSim();
+  const arena = spawnTestArena(sim);
+  const gate = requiredArenaGate(arena.gates[0]);
+  const player = addArenaPlayer(sim, "fighter", gate.outside);
+  useMiniBossArenaGate({ sim, slot: player, gate });
+  advanceTestArenaEntry(sim, player);
+  return { sim, arena, player, leader: requireArenaLeader(sim) };
+}
+
 function retainArenaEnemy(
   sim: SimState,
   defId: typeof ARENA_ENEMY_TYPES[number],
@@ -61,6 +78,14 @@ function retainArenaEnemy(
     if (enemy !== selected) sim.enemies.delete(id);
   }
   return selected;
+}
+
+function requireArenaLeader(sim: SimState): EnemySlot {
+  const leader = [...sim.enemies.values()].find((enemy) =>
+    enemy.arenaLeader
+  );
+  if (!leader) throw new Error("missing arena leader");
+  return leader;
 }
 
 interface EnemyPlacement extends ArenaAggroFixture {

@@ -13,7 +13,7 @@ import { TerrainRenderer, type TerrainRendererLike } from "../../../render/terra
 import { TERRAIN_CAMERA_BACKGROUND } from "../../../render/terrain/runtime/renderSupport.js";
 import type { TerrainDeviceProfile } from "../../../render/terrain/streaming/terrainDeviceProfile.js";
 import { ChatController } from "../../../ui/chat/controller.js";
-import { ChatInputBox } from "../../../ui/chat/chatInput.js";
+import type { ChatInputBox } from "../../../ui/chat/chatInput.js";
 import { VfxSystem } from "../../../vfx/system/index.js";
 import type { HudScene } from "../../HudScene.js";
 import { requestCameraSnap } from "../camera/cameraFollow.js";
@@ -32,8 +32,11 @@ import type { InteractionPrompt } from "../world/interactionPrompt.js";
 import { consumeRespawnGrace } from "../player/selfCosmetics.js";
 import { interpolateConnectionSelf } from "../player/selfInterpolation.js";
 import { createDungeonSceneState, type DungeonSceneState, type RenderPose } from "./state.js";
+import { GameplayDebugOverlay } from "../../../render/debug/GameplayDebugOverlay.js";
 import { createTorchSyncState, type TorchSyncState } from "../entities/torches/sync.js";
 import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputController, consumeDungeonTeleport, createDungeonPresentationSystems, replaceDungeonWorldSystems, sampleDungeonInput, syncDungeonWorldPresentation, updateDungeonCamera } from "./dungeonSceneHelpers.js";
+import { redirectExpiredSession } from "./expiredSessionRedirect.js";
+import { createDungeonChatInputBox } from "./dungeonChatInput.js";
 
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
@@ -52,15 +55,14 @@ export class DungeonScene extends Phaser.Scene {
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
   private inputGestureVisuals!: InputGestureVisuals;
+  private debugOverlay!: GameplayDebugOverlay;
   /** Z/X camera rotation: owns the tween, hard content swap, and cosmetic camera spin. */
   private readonly rotation = new RotationController((direction) => {
     const terrain = this.terrain as TerrainRenderer | undefined;
     terrain?.prewarmRotation(this.cameras.main.worldView, direction);
   });
 
-  constructor(private readonly conn: Connection) {
-    super("dungeon");
-  }
+  constructor(private readonly conn: Connection) { super("dungeon"); }
 
   create(): void {
     // Title text entry temporarily suspends Phaser capture; every dungeon entry
@@ -72,9 +74,13 @@ export class DungeonScene extends Phaser.Scene {
     const presentation = createDungeonPresentationSystems(this);
     this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx;
     this.inputGestureVisuals = new InputGestureVisuals(this);
+    this.debugOverlay = new GameplayDebugOverlay(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
-    this.chatInputBox = this.createChatInputBox();
+    this.chatInputBox = createDungeonChatInputBox({
+      keyboard: this.input.keyboard,
+      onSubmit: (text) => this.chatController.submit(text),
+    });
     this.inputController = buildDungeonInputController({ scene: this, conn: this.conn, hudScene: this.hudScene, cosmetics: this.state.cosmetics, chatInputBox: this.chatInputBox });
     this.scene.launch("hud", {
       source: () => buildDungeonHudSnapshot({ scene: this, conn: this.conn, inputController: this.inputController, interactionPrompt: this.interactionPrompt, chatController: this.chatController, cache: this.hudSnapshotCache, rotation: this.rotation }), connection: this.conn,
@@ -94,7 +100,7 @@ export class DungeonScene extends Phaser.Scene {
     // body/welcome are still the last-known stale state, not null, so this check must
     // run before the guard below or the scene would render a dead world forever
     // instead of a clean path back to title (Epic 7.12).
-    if (this.redirectExpiredSession()) return;
+    if (redirectExpiredSession(this, conn)) return;
     this.chatController.sync();
     if (!conn.world || !conn.body || !conn.welcome) return this.inputGestureVisuals.hide();
 
@@ -115,20 +121,12 @@ export class DungeonScene extends Phaser.Scene {
     updateDungeonCamera({ scene: this, state: this.state, render, deltaMs }); syncDungeonWorldPresentation({ scene: this, terrain: this.terrain, lighting: this.lighting, personal: render, nowMs: time, cameraRotationRad: this.rotation.cameraRotationRad() });
     this.syncParty(conn);
     const synced = this.syncRenderFrame({ conn, time, deltaMs, render });
+    this.debugOverlay.update(
+      conn.activeAdminDebugFlags,
+      conn.activeAdminDebugEntities,
+      conn.activeAdmin,
+    );
     this.interactionPrompt = synced.interactionPrompt;
-  }
-  private createChatInputBox(): ChatInputBox {
-    return new ChatInputBox({ onSubmit: (text) => this.chatController.submit(text), onFocusChange: (focused) => this.toggleKeyboardCapture(focused) });
-  }
-  private toggleKeyboardCapture(focused: boolean): void {
-    const keyboard = this.input.keyboard;
-    if (!keyboard) return;
-    if (focused) keyboard.disableGlobalCapture(); else keyboard.enableGlobalCapture();
-  }
-  private redirectExpiredSession(): boolean {
-    if (!this.conn.sessionExpired) return false;
-    this.conn.sessionExpired = false; this.scene.stop("hud"); this.scene.start("title", { expired: true });
-    return true;
   }
   private syncInputHolds(conn: Connection): void {
     this.inputController.pollFistbumpHold();
@@ -169,5 +167,6 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.dispose();
     this.chatInputBox.dispose();
     this.inputGestureVisuals.dispose();
+    this.debugOverlay.dispose();
   }
 }

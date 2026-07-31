@@ -5,6 +5,7 @@ import {
   isResizeHandle,
   resizeWindowFromPinch,
   resizeWindowFromPointer,
+  constrainAspectRatio,
 } from "./HudWindowEditing.js";
 
 const bounds = {
@@ -31,5 +32,10 @@ describe("HUD window resize geometry", () => {
       .toEqual({ width: 300, height: 150 });
     expect(clampWindowSize({ width: 900, height: 900 }, bounds))
       .toEqual({ width: 400, height: 300 });
+  });
+
+  it("keeps the minimap resize handle square", () => {
+    expect(constrainAspectRatio({ width: 320, height: 180 }, 1))
+      .toEqual({ width: 180, height: 180 });
   });
 });

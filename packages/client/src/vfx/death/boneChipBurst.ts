@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
 import { ASSET_KEYS } from "../../boot/assetManifest.js";
 import { splatterAngleWindow } from "../blood/bloodDirection.js";
-import { COMBAT_PARTICLE_DEPTH } from "../combat/combatLayer.js";
+import { COMBAT_PARTICLE_DEPTH } from "../combat/shared/combatLayer.js";
 
 const BONE_TINTS = [0xf3ead2, 0xd8cdb8, 0xb8aa91];
 const HIT_CHIP_COUNT = 7;

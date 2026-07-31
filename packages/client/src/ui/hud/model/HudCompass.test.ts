@@ -9,6 +9,8 @@ import {
 import { hudWindowSpecs } from "./HudWindowSpecs.js";
 
 interface FakeElement {
+  clientWidth: number;
+  clientHeight: number;
   dataset: Record<string, string>;
   style: Record<string, string>;
   textContent: string;
@@ -19,6 +21,8 @@ interface FakeElement {
 }
 
 const fakeElement = (): FakeElement => ({
+  clientWidth: 116,
+  clientHeight: 116,
   dataset: {},
   style: {},
   textContent: "",
@@ -50,8 +54,9 @@ const contents = () => ({
 
 describe("shared HTML HUD compass", () => {
   it("rotates world north through the dial when the camera bearing changes", () => {
-    expect(compassCoordinates(0, 0)).toEqual({ x: 0, y: -22 });
-    expect(compassCoordinates(270, 0)).toEqual({ x: -22, y: 0 });
+    expect(compassCoordinates(0, 0)).toEqual({ x: 0, y: -21 });
+    expect(compassCoordinates(270, 0)).toEqual({ x: -21, y: 0 });
+    expect(compassCoordinates(90, 0, 116)).toEqual({ x: 50, y: 0 });
   });
 
   it("keeps the stairway tick on its own reported screen bearing", () => {
@@ -78,7 +83,7 @@ describe("shared HTML HUD compass", () => {
     vi.stubGlobal("document", { createElement: fakeElement });
     const compass = new HudCompass();
 
-    compass.update(90, { screenBearingDeg: 180, near: true });
+    compass.update({ bearingDeg: 90, stairway: { screenBearingDeg: 180, near: true } });
 
     const root = compass.element as unknown as FakeElement;
     const dial = root.children[0];
@@ -86,7 +91,7 @@ describe("shared HTML HUD compass", () => {
     const north = dial.children[1];
     if (!north) throw new Error("missing north marker");
     const stairway = dial.children[5];
-    expect(north.style.marginLeft).toBe("22px");
+    expect(north.style.marginLeft).toBe("50px");
     expect(north.style.marginTop).toBe("0px");
     expect(stairway).toMatchObject({
       style: {
@@ -96,16 +101,20 @@ describe("shared HTML HUD compass", () => {
         scale: "1.35",
       },
     });
-    expect(root.attributes["aria-label"]).toBe("Compass 90 degrees");
+    expect(root.attributes["aria-label"]).toBe("Minimap 90 degrees");
   });
 
   it("projects blue safe-room and red mini-boss markers independently", () => {
     vi.stubGlobal("document", { createElement: fakeElement });
     const compass = new HudCompass();
 
-    compass.update(0, null, {
-      safeRoom: { screenBearingDeg: 90 },
-      miniBossArena: { screenBearingDeg: 180 },
+    compass.update({
+      bearingDeg: 0,
+      stairway: null,
+      landmarks: {
+        safeRoom: { screenBearingDeg: 90 },
+        miniBossArena: { screenBearingDeg: 180 },
+      },
     });
 
     const dial = (compass.element as unknown as FakeElement).children[0];
@@ -120,7 +129,7 @@ describe("shared HTML HUD compass", () => {
     const compass = hudWindowSpecs(contents()).find((window) => window.id === "three-compass");
     expect(compass).toMatchObject({
       id: "three-compass",
-      title: "Compass",
+      title: "Minimap",
       anchor: "top-center",
       defaultVisible: true,
     });

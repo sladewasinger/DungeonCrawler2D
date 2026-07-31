@@ -1,6 +1,7 @@
 // Item defs — consumables, throwables, and weapons; the crafting output/input vocabulary.
 import { z } from "zod";
 import { primitiveSchema } from "../primitives.js";
+import { attackProfileInputSchema } from "../../combat/weapons/weaponProfiles.js";
 
 export const itemDefSchema = z.object({
   id: z.string(),
@@ -35,12 +36,7 @@ export const itemDefSchema = z.object({
       placesEntity: z.enum(["torch"]).optional(),
     })
     .optional(),
-  weapon: z
-    .object({
-      damage: z.number().positive(),
-      range: z.number().positive().optional(),
-      cooldownMs: z.number().int().positive().optional(),
-      arcCos: z.number().min(-1).max(1).optional(),
+  weapon: attackProfileInputSchema.extend({
       /** Statuses applied to melee victims. */
       applies: z.array(z.object({ status: z.string(), chance: z.number().min(0).max(1) })).optional(),
     })

@@ -5,6 +5,7 @@ import { addPlayer } from "../players/join.js";
 import { reapAndRespawn } from "../players/players.js";
 import { RADIUS_SPAWN_MIN_SPACING, findSpawn, resolveSpawnAnchor } from "./spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 
 /**
  * Unit tests for spawn.ts's `spawnRadiusTiles` friend-playtest mode: split
@@ -58,6 +59,7 @@ function makeSlotAt(x: number, y: number): PlayerSlot {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    ...adminTestPlayerState(),
     forceDeath: false,
     chatTimestamps: [],
     lastFistbumpOfferAtTick: -Infinity, spawnGraceUntilTick: 0, pendingTransfer: null,
