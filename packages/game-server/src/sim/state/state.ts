@@ -1,7 +1,6 @@
 import {
   type AreaSystem,
   type ClientInput,
-  type ClientMessage,
   type ContentRegistry,
   type Entity,
   type EffectsEngine,
@@ -13,7 +12,7 @@ import {
   type World,
 } from "@dc2d/engine";
 import type { PlayerStore, StoredPlayer } from "../../store.js";
-import type { EnemySlot } from "./enemyState.js";
+import type { EnemySlot, PendingEnemyRespawn } from "./enemyState.js";
 import type {
   SnapshotClientState,
   SnapshotEntityState,
@@ -23,6 +22,7 @@ import type { HandicapGrant } from "../progression/handicap.js";
 import type { AdminPlayerState } from "./adminPlayerState.js";
 import type { AoiCenter } from "./aoiCenter.js";
 import type { PetSlot } from "../pets/types.js";
+import type { PlayerAction } from "./playerActions.js";
 import type {
   FloorTransferRequest,
   LootChest,
@@ -46,19 +46,13 @@ export type {
 } from "./domainTypes.js";
 
 export type { AoiCenter } from "./aoiCenter.js";
+export type { PlayerAction } from "./playerActions.js";
 
 /**
  * Shared state contract for the floor simulation. Every sim/ module is
  * a set of pure-ish functions over this one mutable state object; the
  * GameSim facade (index.ts) owns the instance and the tick order.
  */
-
-/** Everything a client can ask for besides movement and handshakes. */
-export type PlayerAction = Exclude<
-  ClientMessage,
-  ClientInput | { type: "hello" } | { type: "ping" } |
-  { type: "snapshotResync" } | { type: "networkProfile" }
->;
 
 export interface PlayerSlot extends AdminPlayerState {
   entity: Entity;
@@ -170,6 +164,7 @@ export interface SimState {
   readonly players: Map<string, PlayerSlot>;
   readonly byToken: Map<string, string>;
   readonly enemies: Map<string, EnemySlot>;
+  readonly pendingEnemyRespawns: PendingEnemyRespawn[];
   /** Friendly, non-combat companions; behavior lives in sim/pets. */
   readonly pets: Map<string, PetSlot>;
   readonly items: Map<string, Entity>;

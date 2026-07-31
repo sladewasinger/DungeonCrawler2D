@@ -1,6 +1,7 @@
 import type { AdminCommand } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 import { ConnectionState } from "./connectionState.js";
+import { socialTargetId } from "./socialTargetResolver.js";
 import {
   assignSlotIntent,
   attackIntent,
@@ -28,41 +29,6 @@ import {
   whoIntent,
 } from "./intents.js";
 
-const socialTargetId = (
-  connection: Connection,
-  nameOrId: string,
-): string | undefined => {
-  const lower = nameOrId.toLowerCase();
-  const matches = socialTargetMatcher(nameOrId, lower);
-  return partyTargetId(connection, matches)
-    ?? entityTargetId(connection, matches)
-    ?? contactTargetId(connection, matches)
-    ?? outgoingTargetId(connection, matches);
-};
-
-function socialTargetMatcher(nameOrId: string, lower: string) {
-  return (id: string | undefined, name: string | undefined): boolean =>
-    id === nameOrId || name?.toLowerCase() === lower;
-}
-
-type SocialTargetMatcher = ReturnType<typeof socialTargetMatcher>;
-
-function partyTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
-  return connection.party?.members.find(({ id, name }) => matches(id, name))?.id;
-}
-
-function entityTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
-  return [...connection.entities.values()].find(({ snap }) => matches(snap.id, snap.name))?.snap.id;
-}
-
-function contactTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
-  return connection.contacts.find(({ id, name }) => matches(id, name))?.id;
-}
-
-function outgoingTargetId(connection: Connection, matches: SocialTargetMatcher): string | undefined {
-  return [...connection.outgoingPartyInvites].find(([id, name]) => matches(id, name))?.[0];
-}
-
 export class ConnectionActions extends ConnectionState {
   private get connection(): Connection {
     return this as unknown as Connection;
@@ -75,6 +41,10 @@ export class ConnectionActions extends ConnectionState {
 
   resumeAdmin(sessionKey: string): void {
     this.connection.send({ type: "adminResume", sessionKey });
+  }
+
+  logoutAdmin(): void {
+    this.connection.send({ type: "adminLogout" });
   }
 
   sendAdminCommand(command: AdminCommand, requestId?: string): void {

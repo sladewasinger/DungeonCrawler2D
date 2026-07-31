@@ -58,7 +58,7 @@ replacement only after the evidence has been retained.
 
 The production instance ships its server log to
 `/dungeoncrawler2d/prod/server` in CloudWatch Logs. Retention is configured by
-`server_log_retention_days` and defaults to 90 days. The production dashboard
+`server_log_retention_days` and defaults to 14 days. The production dashboard
 shows CPU, network traffic, the structured server-error metric, and a
 recent-error query. High CPU, failed EC2 status checks, and structured server
 errors have dedicated alarms.
@@ -71,8 +71,10 @@ number, or incident-management service.
 
 The server writes sanitized connection, admin, security, and server lifecycle
 events to the Terraform-managed DynamoDB operational-history table. It uses
-on-demand capacity, encryption, point-in-time recovery, and TTL; retention
-defaults to 90 days. Query a player through its actor key, or use the `by_time`
+on-demand capacity, encryption, point-in-time recovery, and per-event TTL;
+retention defaults to 365 days. Each new event gets its own fresh expiration,
+so annual activity keeps recent history available while older events still age
+out. Query a player through its actor key, or use the `by_time`
 index with a UTC date partition (`YYYY-MM-DD`) for an incident window. The EC2
 role has `PutItem` access only, so queries require an operator identity with
 explicit read access.
@@ -81,6 +83,11 @@ Connection events retain join/resume state and close reason. Repeated anonymous
 peers can be correlated by a deployment-keyed one-way fingerprint, but the raw
 network address and key are never stored in the table or logs. Admin events
 retain success/failure, command type, and bounded target IDs.
+
+This table is operational history, not player persistence. Player profiles live
+in `/var/lib/dungeoncrawler2d/players.json` on the EC2 volume and are covered by
+the separate backup policy above; DynamoDB event expiration does not remove a
+character or its saved state.
 
 Treat `operational_event_write_failed` and `operational_event_dropped` records
 as monitoring failures: gameplay continues, but some history may be missing.

@@ -81,10 +81,12 @@ function adminTeleport(
     destination: command.destination,
     targetPlayerId: command.targetPlayerId,
     operatorPlayerId,
+    x: command.x,
+    y: command.y,
   });
   if (!destination) return { ok: false, code: "destination_not_found" };
   teleportPlayer({ sim, slot: target, to: destination, remember: false });
-  target.outbox.push({ t: "toast", msg: `An admin teleported you to ${teleportLabel(command.destination)}.` });
+  target.outbox.push({ t: "toast", msg: `An admin teleported you to ${teleportLabel(command)}.` });
   return { ok: true };
 }
 
@@ -94,6 +96,7 @@ function teleportDestination(
   const { sim, target, destination, targetPlayerId, operatorPlayerId } = input;
   if (destination === "spawn") return findPlayerSpawn(sim, target.stored.slot);
   if (destination === "safeRoom") return roomDestination(sim);
+  if (destination === "coordinates") return coordinateDestination(input);
   const playerId = destination === "self" ? operatorPlayerId : targetPlayerId;
   const player = playerId ? sim.players.get(playerId) : undefined;
   if (!player) return null;
@@ -107,12 +110,23 @@ interface TeleportDestinationInput {
   readonly destination: Extract<AdminCommand, { op: "teleport" }>["destination"];
   readonly targetPlayerId: string | undefined;
   readonly operatorPlayerId: string | null;
+  readonly x: number | undefined;
+  readonly y: number | undefined;
 }
 
-function teleportLabel(destination: Extract<AdminCommand, { op: "teleport" }> ["destination"]): string {
-  if (destination === "safeRoom") return "the safe room";
-  if (destination === "self") return "the admin";
-  return destination === "spawn" ? "the spawn room" : "another player";
+function coordinateDestination(
+  input: TeleportDestinationInput,
+): { x: number; y: number; z: number } | null {
+  if (input.x === undefined || input.y === undefined) return null;
+  if (!input.sim.world.isWalkable(input.x, input.y)) return null;
+  return { x: input.x, y: input.y, z: input.sim.world.groundAt(input.x, input.y) };
+}
+
+function teleportLabel(command: Extract<AdminCommand, { op: "teleport" }>): string {
+  if (command.destination === "safeRoom") return "the safe room";
+  if (command.destination === "self") return "the admin";
+  if (command.destination === "coordinates") return `coordinates ${command.x}, ${command.y}`;
+  return command.destination === "spawn" ? "the spawn room" : "another player";
 }
 
 function roomDestination(sim: SimState): { x: number; y: number; z: number } {

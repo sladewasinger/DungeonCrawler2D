@@ -18,11 +18,10 @@ import type Phaser from "phaser";
 import {
   combatOverlayPosition,
   depthForEntityNow,
-  worldToScreen,
+  groundToScreen,
 } from "../../../render/entities/geometry/worldToScreen.js";
 import { getViewOrientation, worldAngleToView } from "../../../render/view/index.js";
 import { wedgeAlpha, wedgeGeometry, type WedgeGeometry } from "./meleeWedgeGeometry.js";
-import { combatOriginY } from "../../../render/entities/motion/weaponOrbit.js";
 import type {
   MeleeVfxInput,
   MeleeVfxPositionInput,
@@ -129,16 +128,12 @@ function drawSwing(
   swing: WedgeSwing,
   input: Pick<MeleeVfxInput, "x" | "y" | "z">,
 ): void {
-  const screen = worldToScreen(input.x, input.y);
-  const originY = combatOriginY(
-    screen.y - input.z * swing.tilePx,
-    swing.tilePx,
-  );
+  const origin = groundToScreen(input.x, input.y, input.z);
   const viewAngle = worldAngleToView(swing.angleRad, getViewOrientation());
   drawWedge({
     gfx: swing.gfx,
-    tipX: screen.x,
-    tipY: originY,
+    tipX: origin.x,
+    tipY: origin.y,
     geo: wedgeGeometry(viewAngle, swing.tilePx, swing.profile),
   });
 }

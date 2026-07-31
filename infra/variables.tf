@@ -12,7 +12,7 @@ variable "aws_region" {
 variable "aws_profile" {
   description = "Local AWS profile used by Terraform."
   type        = string
-  default     = "terraform"
+  default     = "poweraccess-terraform"
 }
 
 variable "domain_name" {
@@ -30,7 +30,7 @@ variable "instance_type" {
 variable "world_seed" {
   description = "Deterministic production world seed."
   type        = string
-  default     = "dungeon-test-1"
+  default     = "austin-dungeon-prod-1"
 
   validation {
     condition     = can(regex("^[A-Za-z0-9._-]+$", var.world_seed))
@@ -45,9 +45,9 @@ variable "enable_distribution" {
 }
 
 variable "operational_event_retention_days" {
-  description = "How long sanitized connection and admin/security records remain queryable in DynamoDB."
+  description = "Per-event retention for sanitized connection and admin/security history in DynamoDB."
   type        = number
-  default     = 90
+  default     = 365
 
   validation {
     condition     = var.operational_event_retention_days >= 7 && var.operational_event_retention_days <= 365
@@ -58,7 +58,7 @@ variable "operational_event_retention_days" {
 variable "server_log_retention_days" {
   description = "How long structured server logs remain in CloudWatch Logs."
   type        = number
-  default     = 90
+  default     = 14
 
   validation {
     condition     = contains([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365], var.server_log_retention_days)

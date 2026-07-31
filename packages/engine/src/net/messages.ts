@@ -5,3 +5,4 @@ export * from "./server.js";
 export * from "./codec.js";
 export * from "./networkProfile.js";
 export * from "./wire/admin.js";
+export * from "./wire/spectator.js";

@@ -1,0 +1,66 @@
+.spectator-controls {
+  position: fixed;
+  z-index: 40;
+  inset: 12px 12px auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: #111722e8;
+  border: 1px solid #56657d;
+  border-radius: 6px;
+  color: #f4f7fb;
+  font: 16px monogram, monospace;
+  pointer-events: auto;
+}
+
+.spectator-controls a,
+.spectator-controls button,
+.spectator-controls select {
+  color: #f4f7fb;
+  background: #202b3e;
+  border: 1px solid #61728d;
+  border-radius: 4px;
+  padding: 6px 9px;
+  font: inherit;
+}
+
+.spectator-controls a {
+  color: #ffd76a;
+  text-decoration: none;
+}
+
+.spectator-controls button,
+.spectator-controls select {
+  cursor: pointer;
+}
+
+.spectator-controls button[aria-pressed="true"] {
+  color: #111722;
+  background: #ffd76a;
+  border-color: #ffd76a;
+}
+
+.spectator-controls__status {
+  margin-left: auto;
+  color: #b8c7dc;
+}
+
+.spectator-controls--embedded {
+  inset: 12px 12px auto auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+@media (max-width: 700px) {
+  .spectator-controls {
+    font-size: 14px;
+  }
+
+  .spectator-controls__status {
+    width: 100%;
+    margin-left: 0;
+  }
+}

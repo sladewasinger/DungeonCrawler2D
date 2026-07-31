@@ -84,6 +84,8 @@ export class GameSim {
 
   get itemCount(): number { return this.state.items.size; }
 
+  get lootChestCount(): number { return this.state.lootChests.size; }
+
 
   // ── join / leave / input ─────────────────────────────────────────
 
@@ -95,12 +97,12 @@ export class GameSim {
     markDisconnected(this.state, playerId);
   }
 
-  handleInput(playerId: string, input: ClientInput): void {
-    handleInput(this.state, playerId, input);
+  handleInput(playerId: string, input: ClientInput): boolean {
+    return handleInput(this.state, playerId, input);
   }
 
-  queueAction(playerId: string, msg: PlayerAction): void {
-    queueAction(this.state, playerId, msg);
+  queueAction(playerId: string, msg: PlayerAction): boolean {
+    return queueAction(this.state, playerId, msg);
   }
 
   configureSnapshotMode(playerId: string, mode: SnapshotMode | undefined): void {

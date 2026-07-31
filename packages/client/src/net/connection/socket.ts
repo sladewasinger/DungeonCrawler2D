@@ -9,6 +9,7 @@ import { decodeMeasuredServerMessage } from "../transport/measuredDecode.js";
 import { handleAdminMessage } from "./admin/adminMessages.js";
 import { stopCorpNetWatchdog } from "../corpnet/index.js";
 import { handleWorldMessage } from "./socketWorldMessages.js";
+import { handleSpectatorMessage } from "./spectator/spectatorMessages.js";
 
 /**
  * WebSocket wire mechanics for Connection: open/close, the hello
@@ -39,28 +40,7 @@ export function openSocket(conn: Connection): void {
 }
 
 function attachSocketHandlers(conn: Connection, ws: WebSocket): void {
-  ws.onopen = () => {
-    if (conn.ws !== ws) return;
-    if (conn.adminOnly) {
-      conn.status = "connected";
-      conn.reconnectAttempts = 0;
-      conn.onConnected?.();
-      return;
-    }
-    const resumeToken = loadResumeToken(conn.level);
-    conn.send({
-      type: "hello",
-      protocol: PROTOCOL_VERSION,
-      name: conn.name,
-      skin: conn.skin,
-      clientId: conn.clientId,
-      level: conn.level,
-      snapshotMode: "delta-v1",
-      networkProfile: conn.corpNet.enabled ? "corpnet" : null,
-      clientMetadata: browserMetadata(),
-      ...(resumeToken ? { resumeToken } : {}),
-    });
-  };
+  ws.onopen = () => handleOpen(conn, ws);
 
   ws.onmessage = (event) => {
     const raw = String(event.data);
@@ -69,6 +49,42 @@ function attachSocketHandlers(conn: Connection, ws: WebSocket): void {
   };
 
   ws.onclose = () => handleClose(conn, ws);
+}
+
+function handleOpen(conn: Connection, ws: WebSocket): void {
+  if (conn.ws !== ws) return;
+  if (conn.adminOnly) return connectAdmin(conn);
+  if (conn.spectatorOnly) return connectSpectator(conn);
+  const resumeToken = loadResumeToken(conn.level);
+  conn.send({
+    type: "hello",
+    protocol: PROTOCOL_VERSION,
+    name: conn.name,
+    skin: conn.skin,
+    clientId: conn.clientId,
+    level: conn.level,
+    snapshotMode: "delta-v1",
+    networkProfile: conn.corpNet.enabled ? "corpnet" : null,
+    clientMetadata: browserMetadata(),
+    ...(resumeToken ? { resumeToken } : {}),
+  });
+}
+
+function connectAdmin(conn: Connection): void {
+  conn.status = "connected";
+  conn.reconnectAttempts = 0;
+  conn.onConnected?.();
+}
+
+function connectSpectator(conn: Connection): void {
+  conn.send({
+    type: "spectatorHello",
+    protocol: PROTOCOL_VERSION,
+    mode: conn.spectatorRequestedMode,
+    ...(conn.spectatorRequestedTargetId
+      ? { playerId: conn.spectatorRequestedTargetId }
+      : {}),
+  });
 }
 
 /** Socket dropped: clears wire bookkeeping, then either schedules the next backoff
@@ -85,7 +101,7 @@ function handleClose(conn: Connection, ws: WebSocket): void {
   if (conn.reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
     conn.shouldReconnect = false;
     conn.sessionExpired = true;
-    clearResumeToken(conn.level);
+    if (!conn.spectatorOnly) clearResumeToken(conn.level);
     return;
   }
   conn.reconnectTimer = setTimeout(() => openSocket(conn), RETRY_INTERVAL_MS);
@@ -120,6 +136,7 @@ export function requireConnectionIdleTimeout(conn: Connection, message: string):
 }
 
 function handleMessage(conn: Connection, msg: ServerMessage): void {
+  if (handleSpectatorMessage(conn, msg)) return;
   if (handleAdminMessage(conn, msg)) return;
   handleWorldMessage({
     conn,

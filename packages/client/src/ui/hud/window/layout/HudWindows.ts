@@ -36,6 +36,7 @@ const MOBILE_SCALE = 0.66;
 export class HudWindowManager {
   private readonly layer = document.createElement("div");
   private readonly records = new Map<string, HudWindowRecord>();
+  private readonly availability = new Map<string, boolean>();
   private readonly editingBindings = new Map<string, HudWindowEditingBinding>();
   private readonly stored: ReturnType<typeof loadWindowLayouts>;
   private mobile = inputModality.current === "touch";
@@ -63,6 +64,7 @@ export class HudWindowManager {
     });
     this.layer.append(record.element);
     this.records.set(spec.id, record);
+    this.availability.set(spec.id, spec.initiallyAvailable ?? true);
     this.zCounter = Math.max(this.zCounter, record.layout.z);
     this.bindWindow(record);
     this.apply(record);
@@ -86,16 +88,27 @@ export class HudWindowManager {
     this.notify();
   }
 
+  setAvailable(id: string, available: boolean): void {
+    const record = this.records.get(id);
+    if (!record || this.availability.get(id) === available) return;
+    this.availability.set(id, available);
+    this.apply(record);
+    this.notify();
+  }
+
   isVisible(id: string): boolean {
-    return this.records.get(id)?.layout.visible !== false;
+    return this.availability.get(id) !== false &&
+      this.records.get(id)?.layout.visible !== false;
   }
 
   windows(): HudWindowView[] {
-    return [...this.records.values()].map(({ id, title, layout }) => ({
-      id,
-      title,
-      visible: layout.visible !== false,
-    }));
+    return [...this.records.values()]
+      .filter(({ id }) => this.availability.get(id) !== false)
+      .map(({ id, title, layout }) => ({
+        id,
+        title,
+        visible: layout.visible !== false,
+      }));
   }
 
   onChange(listener: () => void): () => void {
@@ -108,6 +121,7 @@ export class HudWindowManager {
     this.stopModality();
     this.listeners.clear();
     this.editingBindings.clear();
+    this.availability.clear();
     this.layer.remove();
   }
 
@@ -138,7 +152,8 @@ export class HudWindowManager {
   private apply(record: HudWindowRecord): void {
     const viewport = this.viewport();
     const requestedSize = resolveWindowSize(record.layout, viewport, record);
-    const visible = record.layout.visible !== false;
+    const visible = this.availability.get(record.id) !== false &&
+      record.layout.visible !== false;
     Object.assign(record.element.style, {
       display: visible ? "block" : "none",
       width: `${requestedSize.width}px`,

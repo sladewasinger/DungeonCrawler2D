@@ -1,6 +1,7 @@
 import type { BodyState } from "./movement/index.js";
 import type { PlayerSkin } from "./playerAppearance.js";
 import type { BallisticFlight, DirectProjectileImpact } from "./projectile.js";
+import type { CombatHurtbox } from "../combat/geometry/hurtboxes.js";
 
 /**
  * The universal entity model. Players, enemies, ground items, and
@@ -35,6 +36,8 @@ export interface Entity {
   maxHp: number;
   /** Base move speed in tiles/s (statuses multiply it). */
   baseSpeed: number;
+  /** Authoritative world-horizontal combat receiver; kind defaults apply when omitted. */
+  combatHurtbox?: CombatHurtbox;
   /** Permanent tags from the definition (flammable, undead, …). */
   tags: ReadonlySet<string>;
   statuses: ActiveStatus[];
@@ -89,6 +92,7 @@ function applyPresentationFields(entity: Entity, opts: Partial<Entity>): void {
   if (opts.defId !== undefined) entity.defId = opts.defId;
   if (opts.name !== undefined) entity.name = opts.name;
   if (opts.skin !== undefined) entity.skin = opts.skin;
+  if (opts.combatHurtbox !== undefined) entity.combatHurtbox = opts.combatHurtbox;
 }
 
 function applyMotionFields(entity: Entity, opts: Partial<Entity>): void {

@@ -50,6 +50,7 @@ const contents = () => ({
   contacts: {} as HTMLElement,
   craft: {} as HTMLElement,
   stash: {} as HTMLElement,
+  adminDebug: {} as HTMLElement,
 });
 
 describe("shared HTML HUD compass", () => {

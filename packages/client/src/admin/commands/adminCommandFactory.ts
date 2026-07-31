@@ -27,7 +27,6 @@ const commandFactories: Readonly<Record<string, CommandFactory>> = {
   "handicap-off": playerCommand((playerId) => ({ op: "handicap", playerId, enabled: false })),
   "admin-on": playerCommand((playerId) => ({ op: "assignAdmin", playerId, enabled: true })),
   "admin-off": playerCommand((playerId) => ({ op: "assignAdmin", playerId, enabled: false })),
-  "kill-enemies": playerCommand((centerPlayerId) => ({ op: "killEnemies", centerPlayerId, radius: 8 })),
 };
 
 function playerCommand(factory: (playerId: string) => AdminCommand): CommandFactory {

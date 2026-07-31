@@ -18,4 +18,16 @@ describe("admin spectator commands", () => {
     executeSpectatorCommand(spectator, { op: "spectator", action: "cycle", direction: "next" }, players);
     expect(spectator.playerId).toBe("two");
   });
+
+  it("starts previous/next cycling at the expected end while in free camera", () => {
+    const players = [player("one"), player("two"), player("three")];
+    const previous = newSpectatorSession();
+    const next = newSpectatorSession();
+
+    executeSpectatorCommand(previous, { op: "spectator", action: "cycle", direction: "previous" }, players);
+    executeSpectatorCommand(next, { op: "spectator", action: "cycle", direction: "next" }, players);
+
+    expect(previous.playerId).toBe("three");
+    expect(next.playerId).toBe("one");
+  });
 });

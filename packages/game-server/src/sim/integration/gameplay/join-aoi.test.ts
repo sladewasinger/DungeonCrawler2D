@@ -18,7 +18,7 @@ describe("GameSim: join, spawn, and AOI", () => {
     sim = makeSim();
   });
 
-  it("keeps the sandbox level enemy-free and clustered near the shared anchor", () => {
+  it("keeps the sandbox free of random hostiles while seeding its training dummy", () => {
     const sandbox = makeSim(77, {});
     const player = sandbox.addPlayer({ name: "Sandboxer", clientId: "sandbox-client" });
     stepN(sandbox, TICK_RATE * 3);
@@ -26,7 +26,7 @@ describe("GameSim: join, spawn, and AOI", () => {
     const tileY = Math.floor(player.spawn.y);
     expect(sandbox.world.isWalkable(tileX, tileY)).toBe(true);
     expect(Math.hypot(player.spawn.x - 28.5, player.spawn.y - 28.5)).toBeLessThan(10);
-    expect(sandbox.enemyCount).toBe(0);
+    expect(sandbox.enemyCount).toBe(1);
   });
 
   it("debug teleport and god mode work when enabled and are dropped when not", () => {

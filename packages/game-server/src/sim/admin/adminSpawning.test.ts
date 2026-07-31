@@ -1,4 +1,4 @@
-import { LEVEL, World } from "@dc2d/engine";
+import { LEVEL, World, safeRoomSpawn, spawnRoomSpawn } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { findSpawn } from "../spawn/spawn.js";
@@ -63,11 +63,43 @@ describe("admin entity placement", () => {
     expect(despawnAdminEntity(sim, despawnCommand(enemyId)).ok).toBe(true);
     expect(sim.enemies.size).toBe(0);
   });
+
+  it.each([
+    ["spawn", spawnRoomSpawn(0)],
+    ["safe", safeRoomSpawn(4, 7)],
+  ] as const)("does not place enemies in the protected %s room", (_kind, point) => {
+    const sim = adminDungeonState();
+
+    expect(spawnAdminEntity(sim, {
+      op: "spawn",
+      level: LEVEL.Dungeon,
+      floor: 1,
+      kind: "enemy",
+      defId: "goblin",
+      x: point.x,
+      y: point.y,
+    })).toEqual({ ok: false, code: "invalid_spawn_location" });
+    expect(sim.enemies.size).toBe(0);
+  });
+
 });
 
 function adminTestState() {
   return createSimState({
     world: new World(SEED, 1, LEVEL.Sandbox),
+    content,
+    store: new PlayerStore(null),
+    rngSeed: 1,
+    opts: {},
+  });
+}
+
+function adminDungeonState() {
+  return createSimState({
+    world: new World(SEED, 1, {
+      level: LEVEL.Dungeon,
+      features: { voidTerrain: false },
+    }),
     content,
     store: new PlayerStore(null),
     rngSeed: 1,

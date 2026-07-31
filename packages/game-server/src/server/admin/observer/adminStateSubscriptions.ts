@@ -4,6 +4,7 @@ import { sendServerMessage } from "../../telemetry/measuredSend.js";
 import type { ServerNetworkDiagnostics } from "../../telemetry/networkDiagnostics.js";
 import type { ConnState } from "../../types.js";
 import type { AdminController } from "../controller.js";
+import type { AdminSessionRegistry } from "../access/sessionRegistry.js";
 
 const ADMIN_STATE_INTERVAL_MS = 250;
 
@@ -11,6 +12,8 @@ const ADMIN_STATE_INTERVAL_MS = 250;
 export class AdminStateSubscriptions {
   private readonly connections = new Map<WebSocket, ConnState>();
   private lastBroadcastAt = 0;
+
+  constructor(private readonly sessions: AdminSessionRegistry) {}
 
   add(socket: WebSocket, connection: ConnState): void {
     this.connections.set(socket, connection);
@@ -28,13 +31,23 @@ export class AdminStateSubscriptions {
     if (now - this.lastBroadcastAt < ADMIN_STATE_INTERVAL_MS) return;
     this.lastBroadcastAt = now;
     for (const [socket, connection] of this.connections) {
-      if (socket.readyState !== socket.OPEN || !connection.adminSession) {
+      if (!adminSubscriptionIsActive(this.sessions, socket, connection)) {
         this.connections.delete(socket);
         continue;
       }
       sendObserverState({ socket, connection, controller, diagnostics });
     }
   }
+}
+
+function adminSubscriptionIsActive(
+  sessions: AdminSessionRegistry,
+  socket: WebSocket,
+  connection: ConnState,
+): boolean {
+  const session = connection.adminSession;
+  return socket.readyState === socket.OPEN && session !== null &&
+    sessions.isActive({ session, peerAddress: connection.peerAddress });
 }
 
 interface SendObserverStateInput {

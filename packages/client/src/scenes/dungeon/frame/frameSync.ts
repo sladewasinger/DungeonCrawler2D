@@ -1,5 +1,4 @@
 import type Phaser from "phaser";
-import type { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { EntityRenderer } from "../../../render/entities/geometry/index.js";
 import type { LightSource } from "../../../render/lighting/core/lightSource.js";
@@ -17,6 +16,7 @@ import type { DungeonSceneState, RenderPose } from "../orchestration/state.js";
 import { syncTorches, type TorchSyncState } from "../entities/torches/sync.js";
 import { presentationEntityFilter } from "./entityPresentationFilter.js";
 import { syncLightingAndVfx } from "./frameLightingSync.js";
+import type { DungeonPresentationInput } from "./presentationInput.js";
 
 export interface EntitySyncResult {
   interactionPrompt: InteractionPrompt | null;
@@ -30,7 +30,7 @@ export interface FrameSyncContext {
   readonly vfx: VfxSystem;
   readonly terrain: TerrainRendererLike | undefined;
   readonly lighting: LightingSystem | undefined;
-  readonly inputController: InputController;
+  readonly inputController: DungeonPresentationInput;
   readonly state: DungeonSceneState;
   readonly torchSyncState: TorchSyncState;
   readonly partyIds: ReadonlySet<string>;

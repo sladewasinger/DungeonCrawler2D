@@ -7,6 +7,7 @@ import type { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js
 import type { AdminController } from "./admin/controller.js";
 import type { AdminStateSubscriptions } from "./admin/observer/adminStateSubscriptions.js";
 import { expireInactiveGameplayConnections } from "./connection/activity/gameplayInactivity.js";
+import type { SpectatorSubscriptions } from "./spectator/spectatorSubscriptions.js";
 
 export interface BroadcastContext {
   floors: FloorRegistry;
@@ -15,6 +16,7 @@ export interface BroadcastContext {
   diagnostics: ServerNetworkDiagnostics | undefined;
   admin?: AdminController;
   adminSubscriptions?: AdminStateSubscriptions;
+  spectatorSubscriptions?: SpectatorSubscriptions;
   gameplayIdleTimeoutMs?: number;
 }
 
@@ -28,7 +30,7 @@ export interface SnapshotDeliveryContext {
  * floor transfers to socket routing, and ship snapshots out. */
 
 export function broadcastTick(input: BroadcastContext): void {
-  const { floors, sandbox, sockets, diagnostics, admin, adminSubscriptions, gameplayIdleTimeoutMs } = input;
+  const { floors, sandbox, sockets, diagnostics, admin, adminSubscriptions, spectatorSubscriptions, gameplayIdleTimeoutMs } = input;
   expireInactiveGameplayConnections({
     sockets,
     diagnostics,
@@ -40,9 +42,24 @@ export function broadcastTick(input: BroadcastContext): void {
     const entry = sockets.get(playerId);
     if (entry) entry.sim = sim;
   }
-  deliverSnapshots({ snapshots, sockets, diagnostics });
-  deliverSnapshots({ snapshots: sandbox.stepPreparedReplicated(), sockets, diagnostics });
+  spectatorSubscriptions?.prepare();
+  deliverWorldSnapshots({ snapshots, sockets, diagnostics, spectatorSubscriptions });
+  const sandboxSnapshots = sandbox.stepPreparedReplicated();
+  deliverWorldSnapshots({
+    snapshots: sandboxSnapshots,
+    sockets,
+    diagnostics,
+    spectatorSubscriptions,
+  });
+  spectatorSubscriptions?.refresh();
   if (admin && adminSubscriptions) adminSubscriptions.broadcast(admin, diagnostics);
+}
+
+function deliverWorldSnapshots(input: SnapshotDeliveryContext & {
+  readonly spectatorSubscriptions: SpectatorSubscriptions | undefined;
+}): void {
+  deliverSnapshots(input);
+  input.spectatorSubscriptions?.deliver(input.snapshots);
 }
 
 export function deliverSnapshots({ snapshots, sockets, diagnostics }: SnapshotDeliveryContext): void {

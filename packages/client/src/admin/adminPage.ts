@@ -1,13 +1,14 @@
 import { Connection } from "../net/connection/connection.js";
+import type { AdminAuthFailureReason } from "../net/connection/admin/adminMessages.js";
+import { adminAuthenticationStatus } from "./auth/adminAuthenticationStatus.js";
 import {
   clearAdminSessionKey,
   loadAdminSessionKey,
   saveAdminSessionKey,
 } from "./adminSession.js";
-import { commandForAdminAction } from "./commands/adminCommandFactory.js";
+import { AdminPageActionController } from "./commands/adminPageActionController.js";
 import { AdminSpectatorSurface } from "./adminSpectatorSurface.js";
 import { createAdminPageView, type AdminPageView } from "./adminPageView.js";
-import { renderAdminCommandResult } from "./adminPageSupport.js";
 import { AdminSpawnPlacementController } from "./adminSpawnPlacementController.js";
 import { AdminPlayerObserverController } from "./spectator/adminPlayerObserverController.js";
 
@@ -22,6 +23,7 @@ export class AdminPage {
   private readonly surface: AdminSpectatorSurface;
   private readonly spawnPlacement: AdminSpawnPlacementController;
   private readonly playerObserver: AdminPlayerObserverController;
+  private readonly actions: AdminPageActionController;
 
   constructor({ root, url }: AdminPageOptions) {
     this.connection = new Connection(url, "Admin", `admin-${crypto.randomUUID()}`);
@@ -37,13 +39,21 @@ export class AdminPage {
       connection: this.connection,
       view: this.view,
       surface: this.surface,
+      selectedPlayer: () => this.playerObserver.selectedPlayer(),
+    });
+    this.actions = new AdminPageActionController({
+      connection: this.connection,
+      view: this.view,
+      spawnPlacement: this.spawnPlacement,
+      playerObserver: this.playerObserver,
     });
     this.connection.onConnected = () => this.resumeStoredSession();
-    this.connection.onAdminAuth = (ok) => this.renderAuth(ok);
+    this.connection.onAdminAuth = (ok, reason) => this.renderAuth(ok, reason);
     this.connection.onAdminState = () => this.renderState();
     this.connection.onAdminObserverState = () => this.renderObserverState();
-    this.connection.onAdminCommandResult = (result) => renderAdminCommandResult(this.view, result);
+    this.connection.onAdminCommandResult = (result) => this.view.history.showCommandResult(result);
     this.view.login.addEventListener("click", () => this.authenticate());
+    this.view.logout.addEventListener("click", () => this.logout());
     this.view.root.addEventListener("click", (event) => this.handleClick(event));
     this.view.root.addEventListener("keydown", (event) => this.handlePlayerKey(event));
   }
@@ -80,53 +90,59 @@ export class AdminPage {
     this.connection.resumeAdmin(sessionKey);
   }
 
+  private logout(): void {
+    if (!this.connection.adminAuthenticated) return;
+    this.view.status.textContent = "Signing out…";
+    this.connection.logoutAdmin();
+  }
+
   private handleClick(event: Event): void {
     const control = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-admin-action]");
     const action = control?.dataset.adminAction;
-    if (action) return this.sendAction(action, control.dataset.playerId);
+    if (action) return this.actions.send(action, control);
     if (this.playerObserver.select(event.target)) {
-      this.spawnPlacement.followPlayer(this.playerObserver.selectedPlayer());
+      const player = this.playerObserver.selectedPlayer();
+      this.spawnPlacement.followPlayer(player);
+      if (player && this.connection.spectatorMode !== "off") {
+        this.connection.sendAdminCommand({ op: "spectate", playerId: player.playerId });
+        return;
+      }
       this.renderState();
     }
   }
 
   private handlePlayerKey(event: KeyboardEvent): void {
     if (!this.playerObserver.selectFromKey(event)) return;
-    this.spawnPlacement.followPlayer(this.playerObserver.selectedPlayer());
+    const player = this.playerObserver.selectedPlayer();
+    this.spawnPlacement.followPlayer(player);
+    if (player && this.connection.spectatorMode !== "off") {
+      this.connection.sendAdminCommand({ op: "spectate", playerId: player.playerId });
+      return;
+    }
     this.renderState();
   }
 
-  private sendAction(action: string, playerId?: string): void {
-    if (action === "inspect-map") {
-      this.spawnPlacement.inspectCurrentMap();
-      return;
-    }
-    if (action === "map-center-selected") {
-      this.spawnPlacement.followPlayer(this.playerObserver.selectedPlayer());
-      return;
-    }
-    if (action === "map-free-camera") {
-      this.spawnPlacement.freeCamera();
-      return;
-    }
-    const command = commandForAdminAction(action, playerId);
-    if (command) this.connection.sendAdminCommand(command);
-  }
-
-  private renderAuth(ok: boolean): void {
+  private renderAuth(ok: boolean, reason?: AdminAuthFailureReason): void {
     if (ok && this.connection.adminSessionKey) {
       saveAdminSessionKey(this.connection.adminSessionKey);
     } else if (!ok) {
       clearAdminSessionKey();
     }
-    this.view.status.textContent = ok
-      ? `Authenticated · ${this.connection.adminCapabilities.join(", ") || "no capabilities"}`
-      : "Authentication failed.";
+    const status = {
+      ok,
+      capabilities: this.connection.adminCapabilities,
+      ...(reason ? { reason } : {}),
+    };
+    this.view.authentication.render({
+      authenticated: ok,
+      status: adminAuthenticationStatus(status),
+    });
     if (ok) this.spawnPlacement.inspectDefaultMap();
     this.renderState();
   }
 
   private renderState(): void {
+    this.view.history.render(this.connection.adminHistory);
     this.playerObserver.render();
     this.spawnPlacement.render();
     this.surface.setInteractionEnabled(this.connection.adminAuthenticated);
@@ -135,6 +151,7 @@ export class AdminPage {
 
   private renderObserverState(): void {
     this.playerObserver.render();
+    this.spawnPlacement.render();
     this.spawnPlacement.refreshFollow();
   }
 }

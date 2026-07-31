@@ -6,6 +6,7 @@ import {
   TERRAIN_HEIGHT_EPSILON,
   TERRAIN_KINDS,
   TERRAIN_PRESENTATION_MODES,
+  TERRAIN_SURFACES,
   type TerrainSouthFaceQuad,
 } from "./terrainPlannerModel.js";
 import { appendWallAmbientOcclusion } from "./wallAmbientOcclusion.js";
@@ -33,8 +34,16 @@ export function shouldCullInsideWall(
 ): boolean {
   const { mode, wallRise } = context.presentation;
   if (mode !== TERRAIN_PRESENTATION_MODES.Inside) return false;
+  if (isSealedRoomApron(context)) return false;
   if (context.height < wallRise - TERRAIN_HEIGHT_EPSILON) return false;
   return !hasLowerScreenSouthFloor(context);
+}
+
+function isSealedRoomApron(context: TerrainTileContext): boolean {
+  return context.source.surfaceAt?.(
+    context.worldTile.x,
+    context.worldTile.y,
+  ) === TERRAIN_SURFACES.Bedrock;
 }
 
 function syntheticWallContext(

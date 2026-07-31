@@ -1,19 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { CHASM_DEATH_Z } from "../core/constants.js";
 import { hashString } from "../core/rng.js";
-import {
-  PERSONAL_ROOM_H,
-  PERSONAL_ROOM_W,
-  personalRoomChunk,
-} from "./features/rooms/rooms.js";
-import { ROOM_WALL_RISE } from "./features/rooms/roomExitGeometry.js";
+import { personalRoomChunk } from "./features/rooms/rooms.js";
 import { generateChunk } from "./generate.js";
 import { assertChunkWorldFeatures } from "./generate/worldFeatureInvariant.js";
 import {
   CHUNK_SIZE,
   TERRAIN,
   TILE,
-  ZONE,
   type Chunk,
 } from "./core/types.js";
 import { LEVEL } from "./core/level.js";
@@ -62,7 +56,7 @@ describe("VOID terrain world feature", () => {
     }
   });
 
-  it("keeps every reserved-room chunk cell finite when disabled", () => {
+  it("keeps reserved-room isolation independent from ordinary VOID mode", () => {
     const { cx, cy } = personalRoomChunk(0);
     const enabled = generateChunk({
       worldSeed: hashString(DEV_WORLD), floor: 1, cx, cy,
@@ -70,8 +64,9 @@ describe("VOID terrain world feature", () => {
     const disabled = generateChunk({
       worldSeed: hashString(DEV_WORLD), floor: 1, cx, cy, features: DISABLED,
     });
-    expectNoVoid(disabled);
-    assertRoomModeTransform(enabled, disabled);
+    expect(disabled).toEqual(enabled);
+    expect(disabled.terrain).not.toContain(TERRAIN.Void);
+    expect(disabled.tiles).toContain(TILE.Bedrock);
   });
 
   it("restores deep chasms as playable finite Floor instead of infinite VOID", () => {
@@ -117,24 +112,6 @@ describe("VOID terrain world feature", () => {
   });
 });
 
-function assertRoomModeTransform(enabled: Chunk, disabled: Chunk): void {
-  for (let index = 0; index < enabled.tiles.length; index++) {
-    if (enabled.terrain[index] === TERRAIN.Floor) {
-      expectChunkCell(disabled, index, enabled);
-      continue;
-    }
-    expect(disabled.tiles[index], `tile ${index}`).toBe(TILE.Floor);
-    expect(disabled.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
-    expect(disabled.features[index], `feature ${index}`).toBe(enabled.features[index]);
-    expect(disabled.featureFaces[index], `feature face ${index}`)
-      .toBe(enabled.featureFaces[index]);
-    expect(disabled.featureHeight[index], `feature height ${index}`)
-      .toBe(enabled.featureHeight[index]);
-    expect(disabled.height[index], `height ${index}`).toBe(ROOM_WALL_RISE);
-    expect(disabled.zones[index], `zone ${index}`).toBe(legacyPersonalRoomZone(index));
-  }
-}
-
 function expectChunkCell(actual: Chunk, index: number, expected: Chunk): void {
   expect(actual.tiles[index], `tile ${index}`).toBe(expected.tiles[index]);
   expect(actual.terrain[index], `terrain ${index}`).toBe(expected.terrain[index]);
@@ -143,14 +120,4 @@ function expectChunkCell(actual: Chunk, index: number, expected: Chunk): void {
   expect(actual.featureHeight[index], `feature height ${index}`).toBe(expected.featureHeight[index]);
   expect(actual.height[index], `height ${index}`).toBe(expected.height[index]);
   expect(actual.zones[index], `zone ${index}`).toBe(expected.zones[index]);
-}
-
-function legacyPersonalRoomZone(index: number): number {
-  const lx = index % CHUNK_SIZE;
-  const ly = Math.floor(index / CHUNK_SIZE);
-  const left = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_W / 2);
-  const top = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_H / 2);
-  const inside = lx >= left && lx < left + PERSONAL_ROOM_W &&
-    ly >= top && ly < top + PERSONAL_ROOM_H;
-  return inside ? ZONE.Sanctuary : ZONE.None;
 }

@@ -8,9 +8,14 @@ registerServiceWorker(import.meta.env.PROD);
 
 const search = new URLSearchParams(window.location.search);
 const adminRoute = window.location.pathname === "/admin" || search.get("admin") === "1";
+const spectatorRoute = window.location.pathname === "/spectate" || search.get("spectate") === "1";
 
 if (adminRoute) {
   void import("./admin/adminRoute.js").then(({ startAdminRoute }) => startAdminRoute());
+} else if (spectatorRoute) {
+  installGameDomPolicy();
+  void import("./spectator/spectatorRoute.js")
+    .then(({ startSpectatorRoute }) => startSpectatorRoute(search));
 } else {
   installGameDomPolicy();
 

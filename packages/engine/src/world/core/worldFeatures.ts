@@ -2,6 +2,7 @@ import type { LevelId } from "./level.js";
 
 /** Server-selected world-generation features shared with every client. */
 export interface WorldFeatures {
+  /** Ordinary dungeon VOID; isolated room planes keep their sealed Bedrock apron in either mode. */
   readonly voidTerrain: boolean;
 }
 

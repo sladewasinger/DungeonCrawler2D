@@ -1,7 +1,7 @@
-import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
+import { SCREEN_TILE_PX } from "../../../../boot/assetManifest.js";
 import { resolveWeaponProfile } from "@dc2d/engine";
-import { collectExpiredSwingsInto } from "../../../vfx/combat/melee/meleeConnect.js";
-import type { FrameSyncContext } from "./frameSync.js";
+import { collectExpiredSwingsInto } from "../../../../vfx/combat/melee/meleeConnect.js";
+import type { FrameSyncContext } from "../frameSync.js";
 
 export function syncExpiredWhiffs(
   { state, nowMs, vfx }: FrameSyncContext,

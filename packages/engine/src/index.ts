@@ -24,6 +24,7 @@ export * from "./world/generate/tuning.js";
 export * from "./world/features/rooms/rooms.js";
 export * from "./world/core/world.js";
 export * from "./entities/entity.js";
+export * from "./entities/petDefinitions.js";
 export * from "./entities/playerAppearance.js";
 export * from "./entities/movement/index.js";
 export * from "./entities/projectile.js";

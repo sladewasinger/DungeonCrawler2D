@@ -5,6 +5,15 @@ export function title(label: string): HTMLHeadingElement {
   return heading;
 }
 
+/** Creates a semantic control section with the visual hierarchy used by game settings. */
+export function controlFieldset(label: string): HTMLFieldSetElement {
+  const fieldset = document.createElement("fieldset");
+  const legend = document.createElement("legend");
+  legend.textContent = label;
+  fieldset.append(legend);
+  return fieldset;
+}
+
 export function text(value: string): HTMLParagraphElement {
   const paragraph = document.createElement("p");
   paragraph.textContent = value;

@@ -49,15 +49,19 @@ export class SharedHtmlHud {
   private readonly focusGame: () => void;
   private readonly setTextInputFocused: (focused: boolean) => void;
   private readonly showHealthFeedback: boolean;
+  private readonly releaseAdminEditing: () => void;
 
   constructor(options: HudOptions) {
     this.focusGame = options.focusGame;
     this.setTextInputFocused = options.setTextInputFocused ?? (() => {});
     this.showHealthFeedback = options.showHealthFeedback !== false;
+    this.adminDebug = new AdminDebugPanel(options.connection, options.focusGame);
     this.parts = createSharedHudParts(this, options);
+    this.adminDebug.attach(this.parts.manager);
+    this.releaseAdminEditing = this.parts.settings.onEditingChange(
+      (editing) => this.adminDebug.setEditing(editing),
+    );
     this.keyboard = this.createKeyboard(options);
-    this.adminDebug = new AdminDebugPanel(options.connection);
-    this.element.append(this.adminDebug.element);
     if (options.showReticle !== false) mountHudReticle(this.element);
   }
 
@@ -132,6 +136,7 @@ export class SharedHtmlHud {
     this.keyboard.dispose();
     this.parts.panels.chat.dispose();
     this.parts.sessionMenu.dispose();
+    this.releaseAdminEditing();
     this.parts.settings.dispose();
     this.adminDebug.dispose();
     this.parts.manager.dispose();

@@ -2,6 +2,7 @@ import { CHASM_DEATH_Z } from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
 import { SPAWN_CLEARANCE_RADIUS } from "./constants.js";
 import { insideGracedClearance } from "./clearance.js";
+import { enemyOccupancyIsAllowed } from "../enemies/roomIsolation/enemyRoomIsolation.js";
 
 const RELOCATE_SEARCH_RADIUS = SPAWN_CLEARANCE_RADIUS + 10;
 
@@ -42,7 +43,7 @@ function isRelocationTile({ sim, centers, claimed }: RelocationSearch, tile: Til
   if (claimed.has(tileKey(tile))) return false;
   if (insideGracedClearance(centers, tile.x + 0.5, tile.y + 0.5)) return false;
   return sim.world.isWalkable(tile.x, tile.y) &&
-    !sim.world.isSanctuary(tile.x, tile.y) &&
+    enemyOccupancyIsAllowed(sim, tile) &&
     sim.world.heightAt(tile.x, tile.y) > CHASM_DEATH_Z;
 }
 

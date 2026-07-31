@@ -4,8 +4,19 @@ import { createBody } from "../../entities/movement/state.js";
 import { resolveWeaponProfile } from "./weaponProfiles.js";
 import { knockbackForWeapon, selectWeaponTargets } from "./weaponTargeting.js";
 
-function combatant(input: { kind: "player" | "enemy"; id: string; x: number; y?: number }) {
-  return makeEntity(input.kind, createBody(input.x, input.y ?? 0, 0), { id: input.id, hp: 10, maxHp: 10 });
+function combatant(input: {
+  kind: "player" | "enemy";
+  id: string;
+  x: number;
+  y?: number;
+  combatHurtbox?: { halfWidth: number; halfDepth: number };
+}) {
+  return makeEntity(input.kind, createBody(input.x, input.y ?? 0, 0), {
+    id: input.id,
+    hp: 10,
+    maxHp: 10,
+    ...(input.combatHurtbox ? { combatHurtbox: input.combatHurtbox } : {}),
+  });
 }
 
 describe("shape-specific attack targeting", () => {
@@ -77,5 +88,28 @@ describe("shape-specific attack targeting", () => {
       dirY: 1,
       force: 18,
     });
+  });
+
+  it("selects an off-center large target only when its box intersects the cone", () => {
+    const attacker = combatant({ kind: "player", id: "attacker", x: 0 });
+    const target = combatant({
+      kind: "enemy",
+      id: "large",
+      x: 1.6,
+      y: 1.7,
+      combatHurtbox: { halfWidth: 0.8, halfDepth: 0.8 },
+    });
+    const sword = resolveWeaponProfile({
+      weapon: { damage: 9, range: 2.4, cooldownMs: 350, arcCos: 0.7071 },
+    });
+
+    const targets = selectWeaponTargets({
+      attacker,
+      direction: { x: 1, y: 0 },
+      candidates: [target],
+      isPartyMember: () => false,
+      profile: sword,
+    });
+    expect(targets).toEqual([target]);
   });
 });

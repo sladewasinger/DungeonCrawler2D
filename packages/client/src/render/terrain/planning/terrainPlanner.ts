@@ -22,9 +22,9 @@ export function planTerrain(source: TerrainSource, options: TerrainPlanOptions):
   const seamApron = validatedApron(options.seamApron);
   const batches = emptyBatches();
   const { bounds, orientation } = options;
-  const { voidTerrain } = source;
   const presentation = source.presentationAt?.(bounds.x, bounds.y) ??
     OUTSIDE_TERRAIN_PRESENTATION;
+  const voidTerrain = source.voidTerrain || presentation.mode === "inside";
   const sampleBounds = expandRect(bounds, seamApron);
   if (!voidTerrain) assertFiniteSample(source, expandRect(bounds, 1));
   appendPlanTiles({
@@ -58,11 +58,19 @@ function emptyBatches(): MutableTerrainBatches {
 function assertFiniteSample(source: TerrainSource, bounds: TerrainRect): void {
   for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
     for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
-      if (source.terrainAt(x, y) === "void") {
-        throw new Error(`VOID terrain leaked into disabled world at (${x}, ${y})`);
-      }
+      if (!hasUnexpectedFiniteVoid(source, x, y)) continue;
+      throw new Error(`VOID terrain leaked into disabled world at (${x}, ${y})`);
     }
   }
+}
+
+function hasUnexpectedFiniteVoid(
+  source: TerrainSource,
+  x: number,
+  y: number,
+): boolean {
+  return source.terrainAt(x, y) === "void" &&
+    source.allowsVoidAt?.(x, y) !== true;
 }
 
 function validatedApron(apron: number | undefined): number {

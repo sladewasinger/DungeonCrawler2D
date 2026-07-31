@@ -12,6 +12,12 @@ export const GAMEPLAY_IDLE_TIMEOUT_CODE = "idle_timeout";
 export const GAMEPLAY_IDLE_TIMEOUT_MESSAGE =
   "Disconnected after 3 minutes of inactivity. Rejoin when you are ready.";
 
+const ACTIVITY_ELIGIBLE_ACTION_TYPES = new Set<ClientMessage["type"]>([
+  "attack", "useSlot", "useItem", "throwTorch", "drop", "assign", "equip",
+  "revive", "descend", "lootChest", "party", "moderation", "fistbump",
+  "suicide", "rescue",
+]);
+
 export function startGameplayActivity(conn: ConnState, now = Date.now()): void {
   conn.lastMeaningfulActivityAt = now;
   conn.idleTimedOut = false;
@@ -48,7 +54,7 @@ export interface GameplayInactivityCheck {
 function isMeaningfulGameplayMessage(conn: ConnState, message: ClientMessage): boolean {
   if (message.type === "input") return inputIsMeaningful(conn, message);
   if (message.type === "chat") return true;
-  return isGameplayAction(message);
+  return isActivityEligibleAction(message);
 }
 
 function inputIsMeaningful(conn: ConnState, input: ClientInput): boolean {
@@ -82,11 +88,14 @@ function aimAxis(inputAxis: number | undefined, priorAxis: number | undefined): 
   return priorAxis ?? 0;
 }
 
-function isGameplayAction(message: ClientMessage): boolean {
-  return message.type !== "hello" && message.type !== "ping" &&
-    message.type !== "input" && message.type !== "snapshotResync" &&
-    message.type !== "networkProfile" && message.type !== "adminAuth" &&
-    message.type !== "adminResume" && message.type !== "adminCommand";
+/**
+ * These are deliberate, directed play intents. We only call this after the
+ * socket's authoritative player slot accepted the message. Tick-resolved
+ * no-op intents such as pickup/interact/craft deliberately do not prolong a
+ * connection because they cannot prove player activity synchronously.
+ */
+function isActivityEligibleAction(message: ClientMessage): boolean {
+  return ACTIVITY_ELIGIBLE_ACTION_TYPES.has(message.type);
 }
 
 function shouldExpireConnection(

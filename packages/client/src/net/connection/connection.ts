@@ -10,7 +10,7 @@ import {
   openSocket,
 } from "./socket.js";
 import type { BlockFeedbackKind, DeathVisualEvent, VisualEvent } from "./connectionTypes.js";
-import { ConnectionActions } from "./ConnectionActions.js";
+import { ConnectionSpectatorActions } from "./spectator/spectatorActions.js";
 import {
   interpolateInto,
   type InterpolationEntityFilter,
@@ -26,7 +26,10 @@ import {
   saveExperimentalCorpNetSettings,
   setExperimentalCorpNetMode,
 } from "../corpnet/index.js";
-import type { AdminCommandResult } from "./admin/adminMessages.js";
+import type {
+  AdminAuthFailureReason,
+  AdminCommandResult,
+} from "./admin/adminMessages.js";
 
 /**
  * Client-visible game state and outgoing intents, protocol v2. Socket
@@ -36,16 +39,17 @@ import type { AdminCommandResult } from "./admin/adminMessages.js";
 
 export type { ChatLine, ContactInfo, DeathVisualEvent, NpcSpeech, Toast, VisualEvent } from "./connectionTypes.js";
 
-export class Connection extends ConnectionActions {
+export class Connection extends ConnectionSpectatorActions {
   private readonly interpolationFrame: InterpolatedEntity[] = [];
 
   onConnected: (() => void) | null = null;
   onSnapshot: (() => void) | null = null;
   onUpdateRequired: ((message: string) => void) | null = null;
-  onAdminAuth: ((ok: boolean) => void) | null = null;
+  onAdminAuth: ((ok: boolean, reason?: AdminAuthFailureReason) => void) | null = null;
   onAdminState: (() => void) | null = null;
   onAdminObserverState: (() => void) | null = null;
   onAdminCommandResult: ((result: AdminCommandResult) => void) | null = null;
+  onSpectatorState: (() => void) | null = null;
 
   constructor(url: string, name: string, clientId: string) {
     super(url, name, clientId);
@@ -86,12 +90,14 @@ export class Connection extends ConnectionActions {
   setSkin(skin: PlayerSkin): void { this.skin = skin; }
   connect(level: LevelId = this.level): void {
     this.adminOnly = false;
+    this.spectatorOnly = false;
     this.level = level;
     openSocket(this);
   }
 
   connectAdmin(): void {
     this.adminOnly = true;
+    this.spectatorOnly = false;
     openSocket(this);
   }
 

@@ -6,6 +6,7 @@
     "hp": 12,
     "speed": 3,
     "aggroRadius": 8,
+    "hurtbox": { "halfWidth": 0.34, "halfDepth": 0.3 },
     "attack": { "damage": 2, "range": 0.9, "cooldown": 1.2 },
     "immunities": ["bleed"],
     "drops": [{ "item": "rag", "chance": 0.75 }],
@@ -20,6 +21,7 @@
     "hp": 18,
     "speed": 2,
     "aggroRadius": 6,
+    "hurtbox": { "halfWidth": 0.42, "halfDepth": 0.38 },
     "attack": { "damage": 4, "range": 1, "cooldown": 1.5 },
     "damageScale": { "fire": 2 },
     "drops": [
@@ -37,6 +39,7 @@
     "hp": 22,
     "speed": 2.6,
     "aggroRadius": 10,
+    "hurtbox": { "halfWidth": 0.4, "halfDepth": 0.36 },
     "attack": {
       "damage": 0,
       "range": 7,
@@ -60,6 +63,7 @@
     "hp": 20,
     "speed": 4.5,
     "aggroRadius": 12,
+    "hurtbox": { "halfWidth": 0.28, "halfDepth": 0.25 },
     "attack": { "damage": 5, "range": 1.1, "cooldown": 1 },
     "immunities": ["bleed", "poison"],
     "drops": [
@@ -78,6 +82,7 @@
     "hp": 14,
     "speed": 3.5,
     "aggroRadius": 10,
+    "hurtbox": { "halfWidth": 0.32, "halfDepth": 0.28 },
     "attack": {
       "damage": 3,
       "range": 7,
@@ -101,6 +106,7 @@
     "hp": 16,
     "speed": 4.8,
     "aggroRadius": 10,
+    "hurtbox": { "halfWidth": 0.29, "halfDepth": 0.26 },
     "attack": { "damage": 4, "range": 1, "cooldown": 0.9 },
     "drops": [
       { "item": "knife", "chance": 0.08 },
@@ -117,6 +123,7 @@
     "hp": 28,
     "speed": 4,
     "aggroRadius": 11,
+    "hurtbox": { "halfWidth": 0.32, "halfDepth": 0.29 },
     "attack": { "damage": 6, "range": 1.1, "cooldown": 1.1 },
     "drops": [
       { "item": "knife", "chance": 0.18 },
@@ -133,6 +140,7 @@
     "hp": 36,
     "speed": 3.8,
     "aggroRadius": 12,
+    "hurtbox": { "halfWidth": 0.35, "halfDepth": 0.31 },
     "attack": { "damage": 7, "range": 1.2, "cooldown": 1.2 },
     "drops": [
       { "item": "sword", "chance": 0.12 },
@@ -149,6 +157,7 @@
     "hp": 26,
     "speed": 3.4,
     "aggroRadius": 12,
+    "hurtbox": { "halfWidth": 0.33, "halfDepth": 0.29 },
     "attack": {
       "damage": 5,
       "range": 7,
@@ -171,6 +180,7 @@
     "hp": 140,
     "speed": 2.8,
     "aggroRadius": 13,
+    "hurtbox": { "halfWidth": 0.58, "halfDepth": 0.5 },
     "attack": { "damage": 11, "range": 1.5, "cooldown": 1.5 },
     "drops": [
       { "item": "hammer", "chance": 0.45 },
@@ -188,6 +198,7 @@
     "hp": 18,
     "speed": 3.6,
     "aggroRadius": 9,
+    "hurtbox": { "halfWidth": 0.25, "halfDepth": 0.23 },
     "attack": { "damage": 4, "range": 0.9, "cooldown": 1 },
     "immunities": ["poison"],
     "drops": [{ "item": "rag", "chance": 0.65 }],
@@ -202,6 +213,7 @@
     "hp": 46,
     "speed": 2.3,
     "aggroRadius": 10,
+    "hurtbox": { "halfWidth": 0.46, "halfDepth": 0.4 },
     "attack": { "damage": 8, "range": 1.2, "cooldown": 1.5 },
     "immunities": ["poison"],
     "drops": [
@@ -219,6 +231,7 @@
     "hp": 32,
     "speed": 4.2,
     "aggroRadius": 12,
+    "hurtbox": { "halfWidth": 0.35, "halfDepth": 0.31 },
     "attack": {
       "damage": 2,
       "range": 3,
@@ -241,6 +254,7 @@
     "hp": 90,
     "speed": 3,
     "aggroRadius": 14,
+    "hurtbox": { "halfWidth": 0.52, "halfDepth": 0.46 },
     "attack": { "damage": 10, "range": 1.4, "cooldown": 1.4 },
     "drops": [
       { "item": "hammer", "chance": 0.25 },
@@ -257,6 +271,7 @@
     "hp": 30,
     "speed": 4.5,
     "aggroRadius": 11,
+    "hurtbox": { "halfWidth": 0.34, "halfDepth": 0.3 },
     "attack": { "damage": 6, "range": 1.1, "cooldown": 1 },
     "drops": [
       { "item": "raw-meat", "chance": 0.8 },
@@ -273,6 +288,7 @@
     "hp": 25,
     "speed": 3.7,
     "aggroRadius": 10,
+    "hurtbox": { "halfWidth": 0.36, "halfDepth": 0.33 },
     "attack": { "damage": 5, "range": 1, "cooldown": 1.1 },
     "damageScale": { "fire": 2 },
     "drops": [
@@ -290,6 +306,7 @@
     "hp": 42,
     "speed": 4,
     "aggroRadius": 13,
+    "hurtbox": { "halfWidth": 0.32, "halfDepth": 0.28 },
     "attack": { "damage": 7, "range": 1.2, "cooldown": 1.1 },
     "immunities": ["poison"],
     "drops": [
@@ -307,6 +324,7 @@
     "hp": 600,
     "speed": 1.8,
     "aggroRadius": 14,
+    "hurtbox": { "halfWidth": 0.55, "halfDepth": 0.48 },
     "attack": { "damage": 12.5, "range": 1.8, "cooldown": 1.8 },
     "immunities": ["bleed", "poison"],
     "drops": [
@@ -316,5 +334,22 @@
     "sprite": "skelet",
     "xp": 200,
     "epithet": "flattened by the Warden of Five, in the Warden's own house"
+  },
+  {
+    "id": "training-dummy",
+    "name": "Training Dummy",
+    "tags": ["organic", "wood", "flammable", "training-dummy"],
+    "hp": 30,
+    "speed": 0,
+    "aggroRadius": 1,
+    "hurtbox": { "halfWidth": 0.42, "halfDepth": 0.32 },
+    "attack": { "damage": 0, "range": 0.1, "cooldown": 60 },
+    "damageScale": { "fire": 1.5 },
+    "drops": [],
+    "sprite": "pumpkin_dude",
+    "stationary": true,
+    "respawnDelaySeconds": 1,
+    "xp": 25,
+    "epithet": "outlasted by a training dummy"
   }
 ]

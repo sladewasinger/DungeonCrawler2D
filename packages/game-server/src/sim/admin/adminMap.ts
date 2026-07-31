@@ -3,31 +3,59 @@ import {
   type AdminMap,
   type AdminMapEntity,
   type AdminPalette,
+  type DebugFlags,
 } from "@dc2d/engine";
+import { PET_DEFINITIONS } from "../pets/index.js";
 import type { SimState } from "../state/state.js";
-import { adminMapDebugFields } from "./adminMapDebug.js";
+import { adminMapEntities } from "./map/adminMapEntities.js";
 
 const DEFAULT_RADIUS = 10;
-const MAX_MAP_ENTITIES = 2048;
-
 export interface AdminMapRequest {
   readonly x: number;
   readonly y: number;
   readonly radius?: number;
+  /** Private active-admin snapshot only; portal maps intentionally omit projectiles. */
+  readonly includeProjectileDiagnostics?: boolean;
+}
+
+export interface AdminDebugEntityRequest {
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+  readonly flags: DebugFlags;
 }
 
 export function adminMap(sim: SimState, request: AdminMapRequest): AdminMap {
   const radius = clampRadius(request.radius ?? DEFAULT_RADIUS);
   const center = { x: request.x, y: request.y };
-  const entities = mapEntities(sim, center, radius);
+  const entities = adminMapEntities(sim, {
+    center,
+    radius,
+    includeProjectiles: request.includeProjectileDiagnostics === true,
+  });
   return {
     level: sim.world.level,
     floor: sim.world.floor,
     center,
     radius,
     cells: mapCells(sim, center, radius),
-    entities: entities.slice(0, MAX_MAP_ENTITIES),
+    entities,
   };
+}
+
+/** Builds nearby private diagnostics without touching terrain map cells. */
+export function adminDebugEntities(
+  sim: SimState,
+  request: AdminDebugEntityRequest,
+): AdminMapEntity[] {
+  const radius = clampRadius(request.radius);
+  return adminMapEntities(sim, {
+    center: { x: request.x, y: request.y },
+    radius,
+    includeProjectiles: request.flags.attacks,
+    flags: request.flags,
+    diagnosticsOnly: true,
+  });
 }
 
 export function adminPalette(sim: SimState): AdminPalette {
@@ -36,6 +64,7 @@ export function adminPalette(sim: SimState): AdminPalette {
     enemies: [...sim.content.enemies.keys()].sort(),
     items: items.filter((item) => !item.weapon).map((item) => item.id).sort(),
     weapons: items.filter((item) => Boolean(item.weapon)).map((item) => item.id).sort(),
+    pets: PET_DEFINITIONS.map((definition) => definition.id).sort(),
   };
 }
 
@@ -61,52 +90,3 @@ function mapCells(sim: SimState, center: { x: number; y: number }, radius: numbe
   }
   return cells;
 }
-
-function mapEntities(sim: SimState, center: { x: number; y: number }, radius: number): AdminMapEntity[] {
-  const entities = [
-    ...[...sim.players.values()].filter((slot) => slot.connected).map((slot) => slot.entity),
-    ...[...sim.enemies.values()].map((slot) => slot.entity),
-    ...[...sim.items.values()],
-    ...[...sim.torches.values()],
-  ];
-  return entities
-    .filter((entity) => withinRadius({ x: entity.body.x, y: entity.body.y }, center, radius + 1))
-    .map((entity) => mapEntity({ sim, entity }));
-}
-
-interface MapEntityInput {
-  readonly sim: SimState;
-  readonly entity: AdminMapEntitySource;
-}
-
-function mapEntity({ sim, entity }: MapEntityInput): AdminMapEntity {
-  return {
-    id: entity.id,
-    kind: entityKind(sim, entity),
-    ...(entity.defId ? { defId: entity.defId } : {}),
-    ...(entity.name ? { name: entity.name } : {}),
-    x: entity.body.x,
-    y: entity.body.y,
-    z: entity.body.z,
-    ...adminMapDebugFields({ sim, entity }),
-  };
-}
-
-function entityKind(sim: SimState, entity: AdminMapEntitySource): AdminMapEntity["kind"] {
-  if (entity.kind === "player" || entity.kind === "enemy") return entity.kind;
-  if (entity.kind === "torch") return "torch";
-  return entity.defId && sim.content.items.get(entity.defId)?.weapon ? "weapon" : "item";
-}
-
-function withinRadius(
-  point: { x: number; y: number },
-  center: { x: number; y: number },
-  radius: number,
-): boolean {
-  return Math.abs(point.x - center.x) <= radius && Math.abs(point.y - center.y) <= radius;
-}
-
-type AdminMapEntitySource = Pick<
-  import("@dc2d/engine").Entity,
-  "id" | "kind" | "defId" | "name" | "body" | "facing"
->;

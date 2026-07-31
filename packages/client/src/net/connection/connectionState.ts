@@ -6,6 +6,7 @@ import {
   World,
   type ActiveStatusSnapshot,
   type AdminPlayer,
+  type AdminHistoryEntry,
   type AdminMap,
   type AdminMapEntity,
   type AdminPalette,
@@ -15,6 +16,8 @@ import {
   type InvStack,
   type LevelId,
   type PlayerSkin,
+  type SpectatorMode,
+  type SpectatorPlayer,
   type ServerSnapshot,
   type ServerWelcome,
 } from "@dc2d/engine";
@@ -122,14 +125,23 @@ export class ConnectionState {
   adminPlayers: AdminPlayer[] = [];
   adminMap: AdminMap | null = null;
   adminSpectatorMap: AdminMap | null = null;
-  adminPalette: AdminPalette = { enemies: [], items: [], weapons: [] };
+  adminPalette: AdminPalette = { enemies: [], items: [], weapons: [], pets: [] };
   adminDebugFlags: DebugFlags = createDebugFlags();
+  adminHistory: AdminHistoryEntry[] = [];
   spectatorMode: "off" | "free" | "track" = "off";
   spectatorTargetId: string | null = null;
+  spectatorPlayers: SpectatorPlayer[] = [];
+  spectatorRequestedMode: SpectatorMode = "free";
+  spectatorRequestedTargetId: string | null = null;
+  spectatorTargetPose: Pick<BodyState, "x" | "y" | "z"> | null = null;
+  spectatorFacingX = 1;
+  spectatorFacingY = 0;
+  spectatorAttacking = false;
   activeAdmin = false;
   activeAdminDebugFlags: DebugFlags = createDebugFlags();
   activeAdminDebugEntities: AdminMapEntity[] = [];
   adminOnly = false;
+  spectatorOnly = false;
 
   constructor(readonly url: string, public name: string, readonly clientId: string) {}
 }

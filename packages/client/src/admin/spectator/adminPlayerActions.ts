@@ -1,11 +1,16 @@
 import type { AdminPlayer } from "@dc2d/engine";
-import { actionButton } from "../adminPagePrimitives.js";
+import { actionButton, controlFieldset } from "../adminPagePrimitives.js";
+import {
+  combatActionGroup,
+  positionActionGroup,
+} from "./controls/adminPlayerParameterizedActions.js";
 
 export interface AdminPlayerActionsInput {
   readonly actions: HTMLElement;
   readonly player: AdminPlayer;
   readonly authenticated: boolean;
   readonly tracking: boolean;
+  readonly spectatorMode: "off" | "free" | "track";
 }
 
 export function renderAdminPlayerActions(input: AdminPlayerActionsInput): void {
@@ -22,26 +27,16 @@ export function clearAdminPlayerActions(actions: HTMLElement): void {
 }
 
 function actionGroups(input: AdminPlayerActionsInput): readonly HTMLElement[] {
-  const { player, authenticated, tracking } = input;
+  const { player, authenticated } = input;
   return [
     actionGroup({
       label: "Spectator",
-      definitions: spectatorActions(tracking),
+      definitions: spectatorActions(input.spectatorMode),
       playerId: player.playerId,
       authenticated,
     }),
-    actionGroup({
-      label: "Position",
-      definitions: positionActions(),
-      playerId: player.playerId,
-      authenticated,
-    }),
-    actionGroup({
-      label: "Health & combat",
-      definitions: combatActions(),
-      playerId: player.playerId,
-      authenticated,
-    }),
+    positionActionGroup({ player, authenticated }),
+    combatActionGroup({ player, authenticated }),
     actionGroup({
       label: "Player modes",
       definitions: modeActions(player),
@@ -51,21 +46,21 @@ function actionGroups(input: AdminPlayerActionsInput): readonly HTMLElement[] {
   ];
 }
 
-function spectatorActions(tracking: boolean): readonly ActionDefinition[] {
-  if (!tracking) return [["Spectate player", "spectate"]];
-  return [
-    ["Stop spectating", "spectator-stop"],
+function spectatorActions(mode: AdminPlayerActionsInput["spectatorMode"]): readonly ActionDefinition[] {
+  if (mode === "off") return [["Spectate", "spectate", false]];
+  if (mode === "free") return [
+    ["Spectate", "spectator-stop", true],
+    ["Free camera", "spectate", true],
+    ["Center on player", "spectator-center"],
     ["Previous player", "spectator-previous"],
     ["Next player", "spectator-next"],
   ];
-}
-
-function positionActions(): readonly ActionDefinition[] {
-  return [["Send to spawn", "teleport-spawn"], ["Send to safe room", "teleport-safe"]];
-}
-
-function combatActions(): readonly ActionDefinition[] {
-  return [["Heal", "heal"], ["Kill", "kill"], ["Kill nearby enemies", "kill-enemies"]];
+  return [
+    ["Spectate", "spectator-stop", true],
+    ["Free camera", "spectator-free", false],
+    ["Previous player", "spectator-previous"],
+    ["Next player", "spectator-next"],
+  ];
 }
 
 function modeActions(player: AdminPlayer): readonly ActionDefinition[] {
@@ -76,7 +71,7 @@ function modeActions(player: AdminPlayer): readonly ActionDefinition[] {
   ];
 }
 
-type ActionDefinition = readonly [label: string, action: string];
+type ActionDefinition = readonly [label: string, action: string, pressed?: boolean];
 
 interface ActionGroupInput {
   readonly label: string;
@@ -86,18 +81,16 @@ interface ActionGroupInput {
 }
 
 function actionGroup(input: ActionGroupInput): HTMLElement {
-  const group = document.createElement("section");
+  const group = controlFieldset(input.label);
   group.dataset.adminActionGroup = "";
-  group.setAttribute("aria-label", input.label);
-  const heading = document.createElement("h2");
-  heading.textContent = input.label;
-  const controls = input.definitions.map(([controlLabel, action]) => actionControl({
+  const controls = input.definitions.map(([controlLabel, action, pressed]) => actionControl({
     label: controlLabel,
     action,
     playerId: input.playerId,
     authenticated: input.authenticated,
+    ...(pressed === undefined ? {} : { pressed }),
   }));
-  group.append(heading, ...controls);
+  group.append(...controls);
   return group;
 }
 
@@ -106,12 +99,16 @@ interface ActionControlInput {
   readonly action: string;
   readonly playerId: string;
   readonly authenticated: boolean;
+  readonly pressed?: boolean;
 }
 
 function actionControl(input: ActionControlInput): HTMLButtonElement {
   const control = actionButton(input.label, input.action);
   control.dataset.playerId = input.playerId;
   control.disabled = !input.authenticated;
+  if (input.pressed !== undefined) {
+    control.setAttribute("aria-pressed", String(input.pressed));
+  }
   return control;
 }
 
@@ -121,6 +118,7 @@ function actionStateKey(input: AdminPlayerActionsInput): string {
     player.playerId,
     input.authenticated,
     input.tracking,
+    input.spectatorMode,
     player.god,
     player.handicapped,
     player.admin,

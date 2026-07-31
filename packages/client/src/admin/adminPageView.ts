@@ -1,6 +1,14 @@
-import { button, text, title } from "./adminPagePrimitives.js";
+import { text, title } from "./adminPagePrimitives.js";
 import { mapPanel } from "./adminMapPanel.js";
+import {
+  createAdminAuthenticationPanel,
+  type AdminAuthenticationPanel,
+} from "./auth/adminAuthenticationPanel.js";
 import type { AdminSpawnCatalog } from "./catalog/adminSpawnCatalog.js";
+import {
+  createAdminHistoryPanel,
+  type AdminHistoryPanel,
+} from "./history/adminHistoryPanel.js";
 import {
   createAdminPlayerObserver,
   type AdminPlayerObserver,
@@ -12,12 +20,13 @@ export interface AdminPageView {
   readonly status: HTMLElement;
   readonly token: HTMLInputElement;
   readonly login: HTMLButtonElement;
+  readonly logout: HTMLButtonElement;
+  readonly authentication: AdminAuthenticationPanel;
+  readonly history: AdminHistoryPanel;
   readonly players: HTMLTableSectionElement;
   readonly map: HTMLCanvasElement;
   readonly mapLevel: HTMLSelectElement;
   readonly mapFloor: HTMLInputElement;
-  readonly spawnKind: HTMLSelectElement;
-  readonly spawnDef: HTMLSelectElement;
   readonly catalog: AdminSpawnCatalog;
   readonly playerObserver: AdminPlayerObserver;
 }
@@ -29,19 +38,22 @@ export function createAdminPageView(root: HTMLElement): AdminPageView {
   page.style.cssText = "max-width:1280px;margin:auto;padding:24px;display:grid;gap:16px";
   const spawnMap = mapPanel();
   const playerObserver = createAdminPlayerObserver();
-  page.append(header(), authPanel(), playersPanel(), playerObserver.root, spawnMap.root);
+  const authentication = createAdminAuthenticationPanel();
+  const history = createAdminHistoryPanel();
+  page.append(header(), authentication.root, history.root, playersPanel(), playerObserver.root, spawnMap.root);
   root.append(page);
   return {
     root,
-    status: page.querySelector<HTMLElement>("[data-admin-status]")!,
-    token: page.querySelector<HTMLInputElement>("[data-admin-token]")!,
-    login: page.querySelector<HTMLButtonElement>("[data-admin-login]")!,
+    status: authentication.status,
+    token: authentication.token,
+    login: authentication.login,
+    logout: authentication.logout,
+    authentication,
+    history,
     players: page.querySelector<HTMLTableSectionElement>("[data-admin-players]")!,
     map: spawnMap.map,
     mapLevel: spawnMap.mapLevel,
     mapFloor: spawnMap.mapFloor,
-    spawnKind: spawnMap.spawnKind,
-    spawnDef: spawnMap.spawnDef,
     catalog: spawnMap.catalog,
     playerObserver,
   };
@@ -50,21 +62,6 @@ export function createAdminPageView(root: HTMLElement): AdminPageView {
 function header(): HTMLElement {
   const section = document.createElement("section");
   section.append(title("Dungeon admin"), text("Authenticated control surface · tokens never enter the URL"));
-  return section;
-}
-
-function authPanel(): HTMLElement {
-  const section = panel("Authentication");
-  const token = document.createElement("input");
-  token.type = "password";
-  token.placeholder = "ADMIN_TOKEN";
-  token.autocomplete = "current-password";
-  token.dataset.adminToken = "";
-  const login = button("Authenticate", "admin-login");
-  login.dataset.adminLogin = "";
-  const status = text("Not authenticated");
-  status.dataset.adminStatus = "";
-  section.append(token, login, status);
   return section;
 }
 

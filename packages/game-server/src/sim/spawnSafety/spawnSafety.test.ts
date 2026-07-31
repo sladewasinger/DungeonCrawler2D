@@ -97,15 +97,14 @@ describe("enforceSpawnClearance", () => {
 });
 
 describe("spawn handoff safety", () => {
-  it("a join whose entry tile has a camping hostile hands over clear + grace-protected", () => {
-    // Twin sims, identical seeds: A reveals where the join will land,
-    // B parks a skeleton exactly there first (spawnEnemy consumes no
-    // rng, so B's findSpawn replays A's byte-for-byte).
+  it("a join clears a stale hostile from its protected room handoff", () => {
     const simA = makeDungeonSim("spawn-safety-handoff", 7, { spawnRadiusTiles: 12 });
     const joinA = addPlayer(simA, { name: "Scout", clientId: "client-s" });
 
     const simB = makeDungeonSim("spawn-safety-handoff", 7, { spawnRadiusTiles: 12 });
-    spawnEnemy(simB, { defId: "skeleton", x: joinA.spawn.x, y: joinA.spawn.y });
+    const floor = openFloorNear(simB, { x: 200, y: 200 });
+    const stale = spawnEnemy(simB, { defId: "skeleton", x: floor.x, y: floor.y });
+    Object.assign(stale.body, joinA.spawn);
     const joinB = addPlayer(simB, { name: "Scout", clientId: "client-s" });
 
     expect(joinB.spawn).toEqual(joinA.spawn); // the ambush really was on the entry tile
@@ -116,16 +115,14 @@ describe("spawn handoff safety", () => {
     expect(slot.spawnGraceUntilTick).toBe(simB.tickCount + SPAWN_GRACE_TICKS);
   });
 
-  it("death respawn returns to the spawn room and evicts a waiting hostile", () => {
+  it("death respawn returns to the spawn room and evicts a stale hostile", () => {
     const sim = makeDungeonSim("spawn-safety-respawn", 11, { spawnRadiusTiles: 12 });
     const join = addPlayer(sim, { name: "Doomed", clientId: "client-d" });
     const slot = sim.players.get(join.playerId)!;
 
-    spawnEnemy(sim, {
-      defId: "skeleton",
-      x: slot.entity.body.x,
-      y: slot.entity.body.y,
-    });
+    const floor = openFloorNear(sim, { x: 200, y: 200 });
+    const stale = spawnEnemy(sim, { defId: "skeleton", x: floor.x, y: floor.y });
+    Object.assign(stale.body, slot.entity.body);
 
     slot.entity.hp = 0;
     slot.respawnAtTick = sim.tickCount;

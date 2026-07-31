@@ -91,6 +91,17 @@ describe("gameplay inactivity", () => {
     expect(conn.lastMeaningfulActivityAt).toBe(40);
   });
 
+  it("does not refresh an idle lease for tick-resolved no-op intents", () => {
+    const conn = connection(10);
+
+    recordMeaningfulGameplayActivity(conn, { type: "pickup" }, 20);
+    recordMeaningfulGameplayActivity(conn, { type: "interact" }, 30);
+    recordMeaningfulGameplayActivity(conn, { type: "craft", recipe: "bandage" }, 40);
+    recordMeaningfulGameplayActivity(conn, { type: "stash", op: "take", index: 0 }, 50);
+
+    expect(conn.lastMeaningfulActivityAt).toBe(10);
+  });
+
   it("disconnects only inactive gameplay players with a specific idle reason", () => {
     const playerSocket = new FakeSocket();
     const adminSocket = new FakeSocket();

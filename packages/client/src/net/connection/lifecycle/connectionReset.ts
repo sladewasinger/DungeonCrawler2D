@@ -11,6 +11,7 @@ function resetAuthoritativeState(conn: Connection): void {
   conn.world = null;
   conn.welcome = null;
   conn.body = null;
+  conn.spectatorTargetPose = null;
   conn.hp = 0;
   conn.stamina = PLAYER_MAX_STAMINA;
   conn.blocking = false;

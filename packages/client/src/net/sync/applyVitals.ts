@@ -12,8 +12,23 @@ export function applyVitals(conn: Connection, snap: ServerSnapshot): void {
   applyActiveAdminState(conn, snap);
   applyStaminaState(conn, snap);
   applyStatusState(conn, snap);
+  applySpectatorPresentation(conn, snap);
   if (wasDead && conn.hp > 0) conn.justRespawned = true;
   applyLifeState(conn, snap);
+}
+
+function applySpectatorPresentation(
+  conn: Connection,
+  snap: ServerSnapshot,
+): void {
+  conn.spectatorTargetPose = {
+    x: snap.self.x,
+    y: snap.self.y,
+    z: snap.self.z,
+  };
+  conn.spectatorFacingX = snap.self.faceX ?? conn.spectatorFacingX;
+  conn.spectatorFacingY = snap.self.faceY ?? conn.spectatorFacingY;
+  conn.spectatorAttacking = snap.self.attacking ?? false;
 }
 
 function applyActiveAdminState(conn: Connection, snap: ServerSnapshot): void {

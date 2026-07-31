@@ -33,34 +33,34 @@ interface FixtureContext extends RoomRect {
   kind: RoomSlot["kind"];
 }
 
-export function generateRoomChunk(cx: number, cy: number, voidTerrain = true): Chunk {
-  const grid = createRoomGrid(voidTerrain);
+export function generateRoomChunk(cx: number, cy: number): Chunk {
+  const grid = createRoomGrid();
   const slot = roomSlotAt(cx, cy);
-  if (slot) stampRoom(grid, slot, voidTerrain);
+  if (slot) stampRoom(grid, slot);
   populateFeatures(grid);
   return { cx, cy, ...grid };
 }
 
-function createRoomGrid(voidTerrain: boolean): RoomGrid {
+function createRoomGrid(): RoomGrid {
   const cells = CHUNK_SIZE * CHUNK_SIZE;
-  const height = new Float32Array(cells);
-  if (!voidTerrain) height.fill(ROOM_WALL_RISE);
   return {
-    tiles: new Uint8Array(cells).fill(voidTerrain ? TILE.Void : TILE.Floor),
-    terrain: new Uint8Array(cells).fill(voidTerrain ? TERRAIN.Void : TERRAIN.Floor),
+    // A reserved room plane is fully sealed by an authoritative Bedrock apron.
+    // This keeps the camera surrounded by authored terrain while the collision
+    // shell remains impassable, rather than exposing unrendered dungeon VOID.
+    tiles: new Uint8Array(cells).fill(TILE.Bedrock),
+    terrain: new Uint8Array(cells).fill(TERRAIN.Floor),
     features: new Uint8Array(cells),
     featureFaces: new Uint8Array(cells),
     featureHeight: new Float32Array(cells),
-    height,
+    height: new Float32Array(cells).fill(ROOM_WALL_RISE),
     zones: new Uint8Array(cells),
   };
 }
 
-function stampRoom(grid: RoomGrid, slot: RoomSlot, voidTerrain: boolean): void {
+function stampRoom(grid: RoomGrid, slot: RoomSlot): void {
   const rect = centeredRoomRect(slot);
   const set = roomTileSetter(grid);
-  if (voidTerrain) stampBackWall(set, rect);
-  else stampRaisedRoom(set, rect);
+  stampBackWall(set, rect);
   carveInterior(set, rect);
   placeFixtures({ grid, set, kind: slot.kind, ...rect });
 }
@@ -75,6 +75,9 @@ function writeRoomTile(grid: RoomGrid, cell: RoomTile): void {
   const index = cell.ly * CHUNK_SIZE + cell.lx;
   grid.tiles[index] = cell.tile;
   grid.terrain[index] = TERRAIN.Floor;
+  grid.features[index] = TILE.Floor;
+  grid.featureFaces[index] = FEATURE_FACE.Top;
+  grid.featureHeight[index] = 0;
   grid.zones[index] = cell.zone ?? ZONE.Sanctuary;
   grid.height[index] = cell.tileHeight ?? 0;
 }
@@ -82,14 +85,6 @@ function writeRoomTile(grid: RoomGrid, cell: RoomTile): void {
 function stampBackWall(set: SetRoomTile, rect: RoomRect): void {
   for (let lx = rect.left; lx < rect.left + rect.w; lx++) {
     set({ lx, ly: rect.top, tile: TILE.Floor, tileHeight: ROOM_WALL_RISE });
-  }
-}
-
-function stampRaisedRoom(set: SetRoomTile, rect: RoomRect): void {
-  for (let ly = rect.top; ly < rect.top + rect.h; ly++) {
-    for (let lx = rect.left; lx < rect.left + rect.w; lx++) {
-      set({ lx, ly, tile: TILE.Floor, tileHeight: ROOM_WALL_RISE });
-    }
   }
 }
 
@@ -126,7 +121,7 @@ function placeExitDoor(
 function populateFeatures(grid: RoomGrid): void {
   for (let index = 0; index < grid.tiles.length; index++) {
     const tile = grid.tiles[index] ?? TILE.Floor;
-    if (grid.terrain[index] !== TERRAIN.Floor || tile === TILE.Floor) continue;
+    if (tile === TILE.Floor || tile === TILE.Bedrock) continue;
     grid.features[index] = tile;
     grid.featureHeight[index] = grid.height[index] ?? 0;
     grid.tiles[index] = TILE.Floor;

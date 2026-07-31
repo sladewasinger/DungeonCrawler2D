@@ -2,10 +2,9 @@
 // input, so this follows the game's panel language (dark fill, thin border, gold
 // accent) and monogram font.
 import { LEVEL, type LevelId, type PlayerSkin } from "@dc2d/engine";
-import { APP_VERSION } from "../../appVersion.js";
 import { loadTabPreference, saveTabPreference } from "../../net/auth/identity.js";
-import { RELEASE_NOTES_INDEX_PATH } from "../../releaseNotesUrl.js";
 import { CharacterSelection } from "./characterSelection.js";
+import { createReleaseNotesLink, createSpectatorLink } from "./titleLinks.js";
 
 const PANEL_BG = "#1a1a24";
 const PANEL_BORDER = "#494956";
@@ -55,15 +54,6 @@ function createStatus(): HTMLDivElement {
   applyStatusStyle(status);
   return status;
 }
-function createReleaseNotesLink(): HTMLAnchorElement {
-  const releaseNotes = document.createElement("a");
-  releaseNotes.href = RELEASE_NOTES_INDEX_PATH;
-  releaseNotes.textContent = `Release Notes · v${APP_VERSION}`;
-  releaseNotes.style.cssText =
-    "color:#c4c4d0;font:16px monogram,monospace;text-underline-offset:3px;pointer-events:auto";
-  releaseNotes.setAttribute("aria-label", `Read release notes for version ${APP_VERSION}`);
-  return releaseNotes;
-}
 export interface ConnectFormHandlers {
   onConnect(name: string, level: LevelId, skin: PlayerSkin): void;
   /** Lets the renderer suspend global gameplay-key capture while the name field owns typing. */
@@ -92,6 +82,7 @@ export class ConnectForm {
       this.input,
       choices,
       this.status,
+      createSpectatorLink(),
       createReleaseNotesLink(),
     );
     document.body.append(this.root);
@@ -117,7 +108,7 @@ export class ConnectForm {
     choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
     this.buttons.push(this.createButton({ label: "Enter the Dungeon", detail: "Procedural world · enemies · progression", level: LEVEL.Dungeon, handlers }));
     if (import.meta.env.DEV) {
-      this.buttons.push(this.createButton({ label: "Enter the Sandbox", detail: "Fixed traversal course · no enemies", level: LEVEL.Sandbox, handlers }));
+      this.buttons.push(this.createButton({ label: "Enter the Sandbox", detail: "Traversal course · regenerative training dummy", level: LEVEL.Sandbox, handlers }));
     }
     choices.append(...this.buttons);
     return choices;

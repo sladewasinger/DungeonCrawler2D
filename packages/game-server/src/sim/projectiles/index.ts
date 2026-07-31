@@ -1,7 +1,7 @@
 import {
   PROJECTILE_CONTACT_RADIUS,
   TICK_DT,
-  combatHurtboxRadius,
+  circleIntersectsHurtbox,
   stepProjectile,
   type EffectEvent,
   type Entity,
@@ -95,8 +95,11 @@ function isDirectProjectileTarget(candidate: Entity, projectile: Entity): boolea
 }
 
 function withinProjectileRange(candidate: Entity, projectile: Entity): boolean {
-  const distance = Math.hypot(candidate.body.x - projectile.body.x, candidate.body.y - projectile.body.y);
-  return distance < PROJECTILE_CONTACT_RADIUS + combatHurtboxRadius(candidate);
+  return circleIntersectsHurtbox(
+    projectile.body,
+    PROJECTILE_CONTACT_RADIUS,
+    candidate,
+  );
 }
 
 function alignedWithProjectile(candidate: Entity, projectile: Entity): boolean {

@@ -11,9 +11,15 @@ import type { AdminAccessLimiter } from "./access/rateLimit.js";
 import { isAdminChatCommand, parseAdminChatCommand } from "./commands/chatCommands.js";
 import { sendAdminServerMessage, type AdminServerMessage } from "./adminMessageSender.js";
 import type { AdminInboundMessage } from "./adminMessageTypes.js";
-import { resumeAdminSession } from "./adminSessionResume.js";
+import { resumeAdminSession } from "./session/adminSessionResume.js";
+import { logoutAdminSession } from "./session/adminLogout.js";
+import {
+  activeBoundAdminSession,
+  bindAdminSession,
+  revokeBoundAdminSession,
+} from "./session/adminSessionBinding.js";
 import type { OperationalEventSink } from "../operations/operationalEvent.js";
-import { recordAdminSecurityEvent } from "./audit/adminSecurityEvent.js";
+import { recordAdminDispatchSecurityEvent } from "./audit/adminDispatchSecurityEvent.js";
 import {
   executeAdminInboundCommand,
   executeAuthorizedAdminCommand,
@@ -43,6 +49,10 @@ export function dispatchAdminMessage(
     sendResult: (result) => sendResult(context, result),
     sendState: () => sendState(context),
   });
+  else if (message.type === "adminLogout") logoutAdminSession({
+    context,
+    sendResult: (result) => sendResult(context, result),
+  });
   else executeAdminInboundCommand(message, context);
 }
 
@@ -52,7 +62,7 @@ export function dispatchAdminChatMessage(
 ): boolean {
   if (!isAdminChatCommand(message.text)) return false;
   if (!context.admin || !adminChatAuthority(context)) {
-    recordSecurityEvent(context, "command_rejected", "unauthorized");
+    recordAdminDispatchSecurityEvent(context, "command_rejected", "unauthorized");
     sendResult(context, { type: "adminCommandResult", ok: false, code: "unauthorized" });
     return true;
   }
@@ -62,7 +72,7 @@ export function dispatchAdminChatMessage(
     return true;
   }
   if (!context.adminAccess.acceptAuthenticatedCommand(context.conn.peerAddress)) {
-    recordSecurityEvent(context, "command_rejected", "rate_limited");
+    recordAdminDispatchSecurityEvent(context, "command_rejected", "rate_limited");
     sendResult(context, { type: "adminCommandResult", ok: false, code: "rate_limited" });
     return true;
   }
@@ -73,25 +83,30 @@ export function dispatchAdminChatMessage(
 function authenticate(token: string, context: AdminDispatchContext): void {
   const { ws, conn, admin, adminToken } = context;
   if (!adminToken || !admin) {
-    recordSecurityEvent(context, "authentication_rejected", "disabled");
+    recordAdminDispatchSecurityEvent(context, "authentication_rejected", "disabled");
     return sendResult(context, { type: "adminAuthResult", ok: false, reason: "disabled" });
   }
   if (!context.adminAccess.canAttemptAuthentication(conn.peerAddress)) {
     conn.terminationReason = "admin_rate_limited";
-    recordSecurityEvent(context, "authentication_rejected", "rate_limited");
+    recordAdminDispatchSecurityEvent(context, "authentication_rejected", "rate_limited");
     sendResult(context, { type: "adminAuthResult", ok: false, reason: "rate_limited" });
     ws.close(1008, "admin rate limited");
     return;
   }
   if (!adminTokenMatches(token, adminToken)) return rejectToken(context);
+  revokeBoundAdminSession(context);
   conn.adminSession = createAdminSession();
   const sessionKey = context.adminSessions.issue({
     session: conn.adminSession,
     peerAddress: conn.peerAddress,
   });
+  if (!bindAdminSession(context, conn.adminSession)) {
+    conn.adminSession = null;
+    return sendResult(context, { type: "adminAuthResult", ok: false, reason: "expired" });
+  }
   context.adminSubscriptions?.add(ws, conn);
   context.adminAccess.clearFailedAuthentication(conn.peerAddress);
-  recordSecurityEvent(context, "authenticated", "accepted");
+  recordAdminDispatchSecurityEvent(context, "authenticated", "accepted");
   sendResult(context, {
     type: "adminAuthResult",
     ok: true,
@@ -106,13 +121,13 @@ function rejectToken(context: AdminDispatchContext): void {
   const rateLimited = context.adminAccess.recordFailedAuthentication(conn.peerAddress);
   const reason = rateLimited ? "rate_limited" : "invalid";
   if (rateLimited) conn.terminationReason = "admin_rate_limited";
-  recordSecurityEvent(context, "authentication_rejected", reason);
+  recordAdminDispatchSecurityEvent(context, "authentication_rejected", reason);
   sendResult(context, { type: "adminAuthResult", ok: false, reason });
   if (rateLimited) ws.close(1008, "admin rate limited");
 }
 
 function adminChatAuthority(context: AdminDispatchContext): "token" | "active" | null {
-  if (context.conn.adminSession) return "token";
+  if (activeBoundAdminSession(context)) return "token";
   return activeAdminOwnsSocket(context) ? "active" : null;
 }
 
@@ -131,17 +146,4 @@ function sendState(context: AdminDispatchContext, state?: ReturnType<AdminContro
 
 function sendResult(context: AdminDispatchContext, message: AdminServerMessage): void {
   sendAdminServerMessage({ ...context, message });
-}
-
-function recordSecurityEvent(
-  context: AdminDispatchContext,
-  action: Parameters<typeof recordAdminSecurityEvent>[0]["action"],
-  outcome: Parameters<typeof recordAdminSecurityEvent>[0]["outcome"],
-): void {
-  recordAdminSecurityEvent({
-    events: context.operationalEvents,
-    conn: context.conn,
-    action,
-    outcome,
-  });
 }

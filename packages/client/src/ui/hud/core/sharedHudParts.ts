@@ -17,6 +17,7 @@ export function createSharedHudParts(
       focusGame: options.focusGame,
       setTextInputFocused: hud.setTextInputFocus,
       touchDevice: inputModality.current === "touch",
+      adminDebug: hud.adminDebug.element,
       ...(options.viewDistance === undefined ? {} : { viewDistance: options.viewDistance }),
       ...(options.setViewDistance ? { setViewDistance: options.setViewDistance } : {}),
       ...(options.onSelectHotbar ? { onSelectHotbar: options.onSelectHotbar } : {}),

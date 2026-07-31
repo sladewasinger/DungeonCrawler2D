@@ -8,16 +8,17 @@ export interface AdminPlayerSelectionState {
 
 export class AdminPlayerSelection {
   private playerId: string | null = null;
+  private manuallySelected = false;
 
   select(playerId: string): void {
     this.playerId = playerId;
+    this.manuallySelected = true;
   }
 
   sync(state: AdminPlayerSelectionState): void {
-    if (!this.selectedPlayer(state.players)) this.playerId = null;
-    if (!this.playerId && tracksConnectedPlayer(state)) {
-      this.playerId = state.spectatorTargetId;
-    }
+    this.clearMissingSelection(state.players);
+    if (this.manuallySelected || !tracksConnectedPlayer(state)) return;
+    this.playerId = state.spectatorTargetId;
   }
 
   selectedPlayer(players: readonly AdminPlayer[]): AdminPlayer | null {
@@ -27,6 +28,12 @@ export class AdminPlayerSelection {
 
   get selectedPlayerId(): string | null {
     return this.playerId;
+  }
+
+  private clearMissingSelection(players: readonly AdminPlayer[]): void {
+    if (this.selectedPlayer(players)) return;
+    this.playerId = null;
+    this.manuallySelected = false;
   }
 }
 

@@ -29,7 +29,7 @@ export class AdminMapCameraController {
 
   panTo(center: AdminMapCenter): void {
     if (!this.options.connection.adminAuthenticated) return;
-    this.freeCamera();
+    this.stopFollowing();
     this.requestMapAt(center);
   }
 
@@ -38,12 +38,12 @@ export class AdminMapCameraController {
     this.options.view.mapLevel.value = "dungeon";
     this.options.view.mapFloor.value = "1";
     this.options.surface.focus(center);
-    this.freeCamera();
+    this.stopFollowing();
     this.requestMapAt(center);
   }
 
   inspectCurrentMap(): void {
-    this.freeCamera();
+    this.stopFollowing();
     this.requestMapAt(this.options.surface.center);
   }
 
@@ -55,6 +55,11 @@ export class AdminMapCameraController {
   }
 
   freeCamera(): void {
+    this.stopFollowing();
+    this.options.surface.focusInput();
+  }
+
+  private stopFollowing(): void {
     this.followedPlayerId = null;
     this.followedTile = null;
   }
@@ -64,7 +69,7 @@ export class AdminMapCameraController {
     const player = this.options.connection.adminPlayers
       .find((candidate) => candidate.playerId === this.followedPlayerId) ?? null;
     if (player) return this.followPlayerPosition(player);
-    this.freeCamera();
+    this.stopFollowing();
   }
 
   dispose(): void {

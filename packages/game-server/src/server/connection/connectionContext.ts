@@ -12,6 +12,7 @@ import type { ServerNetworkDiagnostics } from "../telemetry/networkDiagnostics.j
 import type { ConnState, SocketMap } from "../types.js";
 import type { OperationalEventSink } from "../operations/operationalEvent.js";
 import { peerFingerprint } from "../operations/operationalEventIdentity.js";
+import type { SpectatorSubscriptions } from "../spectator/spectatorSubscriptions.js";
 
 export interface ServerConnectionContext {
   readonly floors: FloorRegistry;
@@ -28,6 +29,7 @@ export interface ServerConnectionContext {
   readonly adminAccess?: AdminAccessLimiter;
   readonly adminSessions: AdminSessionRegistry;
   readonly adminSubscriptions?: AdminStateSubscriptions;
+  readonly spectatorSubscriptions?: SpectatorSubscriptions;
   readonly trustProxy?: boolean;
 }
 

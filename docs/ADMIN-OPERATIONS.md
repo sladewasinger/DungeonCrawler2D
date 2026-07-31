@@ -44,14 +44,17 @@ The portal provides:
 - a contextual player control area: select a player, then choose server-
   authoritative actions such as **Spectate**, heal, kill, teleport, god,
   handicap, enemy-radius, or **Grant/Revoke Admin**;
-- an atlas-sprite live viewer that follows the selected spectator target, with
-  previous, next, and stop controls shown only while the viewer is open;
-- a scrollable sprite-and-stat catalog for every enemy, item, and weapon in
+- a full read-only game-renderer viewer with smooth player tracking, untethered
+  free camera, center, previous/next, and optional HUD controls. The black
+  viewer space stays in the layout while Spectate is off, but its iframe and
+  server subscription do not;
+- a scrollable sprite-and-stat catalog for every enemy, item, weapon, and pet in
   content; categories and card stats derive from the authored definition, so a
   newly added spawnable definition appears without a portal allowlist. Unknown
   atlas art uses a neutral fallback glyph; selecting a card keeps the existing
   map/floor/inspect/kind/definition control order intact. Weapon cards include
-  damage, range, knockback, and cooldown;
+  damage, range, knockback, and cooldown; enemy cards include authored hitbox
+  width and depth;
 - click placement on validated walkable cells, normalized by the server to each
   tile's exact center; right-clicking an enemy or weapon marker requests its
   authenticated server-side despawn. Items, players, and map props cannot be
@@ -61,10 +64,12 @@ The portal provides:
   guards, line-of-sight, behavior/search, and navigation overlays in both
   renderers.
 
-Observer updates contain only player presence, spectator state, and the small
-map used by the active viewer. The inspector map, palette, and debug settings
-remain on the authenticated command-response path, so a live viewer cannot
-reset an operator's map or catalog selection.
+Observer updates contain only player presence and spectator state. The
+inspector map, palette, and debug settings remain on the authenticated
+command-response path, so a live viewer cannot reset an operator's map or
+catalog selection. The separate spectator subscription receives only the
+selected player's sanitized presentation state and releases its capacity when
+the viewer is disabled.
 
 The same command service is available from gameplay chat to either a connection
 that has authenticated the server admin token or a currently live admin player.
@@ -82,10 +87,12 @@ session. Revoking a live role does not terminate an already token-authenticated
 portal session.
 
 The local token is read when the server starts. To revoke access to a shared
-token, replace `ADMIN_TOKEN` and perform a full server restart; existing
-sessions are not revalidated against a changed environment value in a running
-process. After restart, clients reconnect and must authenticate with the new
-token. Stored role records cannot revoke a holder of the current shared token.
+token, replace `ADMIN_TOKEN` and perform a full server restart. After restart,
+clients reconnect and must authenticate with the new token. Logging out revokes
+every live socket and continuation key bound to that server-issued session;
+active commands extend its eight-hour inactivity lease, while passive observer
+updates do not. Stored role records cannot revoke a holder of the current
+shared token.
 
 Admin state, map cells, palettes, and command results are only emitted on the
 authenticated admin path. An active gameplay admin receives only its own
@@ -102,10 +109,10 @@ is not IP-based authorization; that record and the metadata are not credentials
 or local session-revocation mechanisms.
 
 Future account-backed administration should verify an identity-provider JWT
-(for example Cognito), map
-the verified subject to a stable identity record, and persist role grants in
-DynamoDB. A production audit adapter would use the bounded `AdminAuditSink`
-boundary.
+(for example Cognito), map the verified subject to a stable identity record,
+and persist role grants in DynamoDB. The current bounded audit sink already
+writes sanitized operational events when production DynamoDB configuration is
+present.
 
 The current server uses the local env-token boundary intentionally. Replacing
 that boundary with the production provider is an infrastructure integration,
@@ -115,10 +122,18 @@ not a client-side fallback and not an IP-based grant.
 
 Terraform defines an encrypted, point-in-time-recoverable DynamoDB table for
 sanitized connection, admin, security, and server lifecycle events. Records
-expire through DynamoDB TTL after `operational_event_retention_days` (90 days
-by default). They can be queried by player or anonymized peer actor key, or
+expire individually through DynamoDB TTL after
+`operational_event_retention_days` (365 days by default). Each new event gets a
+fresh one-year expiration, so recent history remains available for a player who
+is active at least annually without keeping older events forever. Records can
+be queried by player or anonymized peer actor key, or
 chronologically through the daily `by_time` index. The EC2 role can only write
 items; investigations require a separately authorized operator identity.
+
+This table contains operational events, not player profiles. Production player
+state remains in `/var/lib/dungeoncrawler2d/players.json` on the EC2 volume and
+uses the separate EBS/AWS Backup lifecycle. Expiring a history event does not
+delete a player character or saved state.
 
 Raw network addresses are never written. Production creates a random
 `OPERATIONAL_EVENT_PEPPER` once in an access-restricted environment file on the
@@ -134,8 +149,41 @@ Connection records cover open, successful join/resume, and close reason.
 Admin records include command outcome and bounded target player IDs. Dropped
 or failed writes become structured log events so missing history is visible.
 
-The server log is shipped to CloudWatch Logs. Uncaught exceptions, unhandled
+The server log is shipped to CloudWatch Logs and retained for 14 days by
+default. Uncaught exceptions, unhandled
 rejections, WebSocket server errors, and individual WebSocket errors are
 serialized as sanitized JSON with a bounded stack trace. Terraform defines a
 metric filter, alarm, and dashboard query. Applying Terraform is still an
 operator step; repository presence is not proof those resources are live.
+
+## Future production maintenance controls
+
+The `/admin` page is part of the static client hosted by S3 and CloudFront. It
+is not served from the EC2 game server; it connects to that server through the
+same CloudFront WebSocket origin as the game.
+
+A production maintenance panel can use two deliberately separate paths:
+
+- game startup settings such as world seed, VOID terrain, spawn radius, and idle
+  timeout can use the existing authenticated admin WebSocket. The server should
+  validate and persist staged values in its dedicated runtime environment file,
+  announce maintenance, save connected players, and exit cleanly so systemd
+  restarts it;
+- lighting and debug presentation should remain live client/admin settings and
+  should not restart the server;
+- graceful restart can use the same server path: drain, persist players, audit
+  the operator, and let systemd restart the process;
+- CloudWatch log search can be exposed through a bounded read-only query API
+  that redacts sensitive fields and limits time range and result count;
+- a world-seed change must be a typed, confirmed maintenance operation that
+  shows the current and proposed seed, verifies a fresh player-data backup,
+  updates the durable game runtime configuration, and schedules the restart;
+- AWS infrastructure settings such as retention, backups, instance size, IAM,
+  and CloudWatch access remain in Terraform or a separately authenticated,
+  least-privilege AWS API.
+
+Every maintenance action needs a durable audit event and a narrowly scoped
+capability. Do not give the WebSocket game process general EC2, SSM, Terraform,
+or CloudWatch-read permissions merely to add game-setting buttons. The current
+portal can host both UI groups while the game server owns only its own settings
+and an AWS maintenance API owns infrastructure operations.

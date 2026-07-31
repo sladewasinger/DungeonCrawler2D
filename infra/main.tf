@@ -40,6 +40,16 @@ locals {
   game_server_origin_id               = "game-server"
   production_distribution_id          = "E253TI6NRUSHMS"
   operational_event_retention_seconds = var.operational_event_retention_days * 24 * 60 * 60
+  game_server_runtime_configuration = templatefile("${path.module}/server-runtime.sh.tftpl", {
+    aws_region                          = var.aws_region
+    artifact_bucket                     = aws_s3_bucket.artifacts.id
+    log_group_name                      = aws_cloudwatch_log_group.game_server.name
+    server_log_retention_days           = var.server_log_retention_days
+    server_bundle_object                = local.server_bundle_object
+    world_seed                          = var.world_seed
+    operational_event_table             = aws_dynamodb_table.operational_history.name
+    operational_event_retention_seconds = local.operational_event_retention_seconds
+  })
 }
 
 resource "aws_s3_bucket" "frontend" {
@@ -183,9 +193,18 @@ resource "aws_dynamodb_table" "operational_history" {
   }
 
   global_secondary_index {
-    name            = "by_time"
-    hash_key        = "time_partition"
-    range_key       = "time_key"
+    name = "by_time"
+
+    key_schema {
+      attribute_name = "time_partition"
+      key_type       = "HASH"
+    }
+
+    key_schema {
+      attribute_name = "time_key"
+      key_type       = "RANGE"
+    }
+
     projection_type = "ALL"
   }
 
@@ -258,16 +277,7 @@ resource "aws_instance" "game_server" {
   vpc_security_group_ids      = [aws_security_group.game_server.id]
   iam_instance_profile        = aws_iam_instance_profile.game_server.name
 
-  user_data = templatefile("${path.module}/user-data.sh.tftpl", {
-    aws_region                           = var.aws_region
-    artifact_bucket                      = aws_s3_bucket.artifacts.id
-    log_group_name                       = aws_cloudwatch_log_group.game_server.name
-    server_log_retention_days            = var.server_log_retention_days
-    server_bundle_object                 = local.server_bundle_object
-    world_seed                           = var.world_seed
-    operational_event_table              = aws_dynamodb_table.operational_history.name
-    operational_event_retention_seconds = local.operational_event_retention_seconds
-  })
+  user_data = local.game_server_runtime_configuration
 
   metadata_options {
     http_endpoint = "enabled"
@@ -285,9 +295,43 @@ resource "aws_instance" "game_server" {
     Name = local.name
   }
 
+  lifecycle {
+    prevent_destroy = true
+
+    # Production state lives on this instance's root volume. AMI releases and
+    # runtime-script edits must be deliberate migrations, never routine applies.
+    ignore_changes = [ami, user_data]
+  }
+
   depends_on = [
     aws_iam_role_policy.server_artifacts,
     aws_iam_role_policy.operational_history,
+    aws_iam_role_policy_attachment.cloudwatch_agent,
+    aws_iam_role_policy_attachment.ssm,
+    aws_s3_object.server_bundle,
+  ]
+}
+
+resource "aws_ssm_association" "game_server_runtime" {
+  name             = "AWS-RunShellScript"
+  association_name = "${local.name}-runtime"
+
+  parameters = {
+    commands = local.game_server_runtime_configuration
+  }
+
+  targets {
+    key    = "InstanceIds"
+    values = [aws_instance.game_server.id]
+  }
+
+  wait_for_success_timeout_seconds = 600
+
+  depends_on = [
+    aws_cloudwatch_log_group.game_server,
+    aws_dynamodb_table.operational_history,
+    aws_iam_role_policy.operational_history,
+    aws_iam_role_policy.server_artifacts,
     aws_iam_role_policy_attachment.cloudwatch_agent,
     aws_iam_role_policy_attachment.ssm,
     aws_s3_object.server_bundle,
@@ -613,8 +657,8 @@ data "aws_iam_policy_document" "github_actions_deploy" {
   }
 
   statement {
-    sid       = "PublishReleaseArtifacts"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    sid     = "PublishReleaseArtifacts"
+    actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = [
       "${aws_s3_bucket.artifacts.arn}/server/*",
       "${aws_s3_bucket.artifacts.arn}/client/*",

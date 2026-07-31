@@ -9,9 +9,20 @@ export interface DevelopmentMovementTraceSource {
   readonly attach: (control: MovementTraceControl) => void;
 }
 
+export interface MovementTraceDiagnosticsEnvironment {
+  readonly DEV: boolean;
+  readonly VITE_ENABLE_MOVEMENT_TRACE?: string;
+}
+
+export function movementTraceDiagnosticsEnabled(
+  environment: MovementTraceDiagnosticsEnvironment,
+): boolean {
+  return environment.DEV && environment.VITE_ENABLE_MOVEMENT_TRACE === "1";
+}
+
 export function attachDevelopmentMovementTrace(source: DevelopmentMovementTraceSource): void {
   const { root, connection, focusGame, active, attach } = source;
-  if (!import.meta.env.DEV) return;
+  if (!movementTraceDiagnosticsEnabled(import.meta.env)) return;
   void import("./movementTraceControl.js").then(({ MovementTraceControl }) => {
     if (!active()) return;
     attach(new MovementTraceControl(root, connection, focusGame));

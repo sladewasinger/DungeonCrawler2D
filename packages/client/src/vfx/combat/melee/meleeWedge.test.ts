@@ -15,7 +15,7 @@ const position = vi.hoisted(() => ({
 vi.mock("../../../render/entities/geometry/worldToScreen.js", () => ({
   combatOverlayPosition: () => ({ wielderViewY: position.wielderViewY }),
   depthForEntityNow: () => position.wielderDepth,
-  worldToScreen: (x: number, y: number) => ({ x, y }),
+  groundToScreen: (x: number, y: number, z: number) => ({ x, y: y - z }),
 }));
 vi.mock("../../../render/view/index.js", () => ({
   getViewOrientation: () => 0,
@@ -51,6 +51,37 @@ function graphicsProbe() {
 }
 
 describe("melee wedge position depth", () => {
+  it("draws the raw attack area at the body position from the exact profile", () => {
+    const graphics = graphicsProbe();
+    const scene = {
+      add: { graphics: () => graphics },
+    } as unknown as Phaser.Scene;
+    const pool = new MeleeWedgePool(scene);
+
+    pool.spawn({
+      id: "player-1",
+      x: 1,
+      y: 2,
+      z: 0.5,
+      angleRad: 0.5,
+      depth: 0,
+      tilePx: 48,
+      nowMs: 1_000,
+      profile: PROFILE,
+    });
+
+    const halfAngle = Math.acos(PROFILE.arcCos);
+    expect(graphics.slice).toHaveBeenNthCalledWith(
+      1,
+      1,
+      1.5,
+      PROFILE.range * 48,
+      0.5 - halfAngle,
+      0.5 + halfAngle,
+      false,
+    );
+  });
+
   it("uses the spawn-locked reach when the active attack follows movement", () => {
     const graphics = graphicsProbe();
     const scene = {

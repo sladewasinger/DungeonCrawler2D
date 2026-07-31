@@ -72,11 +72,17 @@ export function mapForInspector(
   return sim.admin.map({ x: view.x, y: view.y, radius: view.radius });
 }
 
-export function mapForTrackedSpectator(
+export function mapForSpectator(
   context: AdminWorldContext,
   spectator: SpectatorSession,
   players: readonly AdminPlayer[],
 ): AdminMap | null {
+  if (spectator.mode === "off") return null;
+  if (spectator.mode === "free") {
+    const view = inspectorView(spectator, players, context.sandbox.world.floor);
+    const sim = simForLocation(context, view) ?? context.sandbox;
+    return sim.admin.map({ x: view.x, y: view.y, radius: view.radius });
+  }
   const target = trackedPlayer(spectator, players);
   if (!target) return null;
   const sim = simForLocation(context, target);

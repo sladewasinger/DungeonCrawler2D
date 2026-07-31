@@ -12,6 +12,7 @@ import { isBodyInChasm, spawnItem } from "../core/helpers.js";
 import { spawnPlayerLootChest } from "../lootChests/lootChests.js";
 import { handleMiniBossEnemyDeath } from "../enemies/miniBossArena/population.js";
 import { clearEnemyTargetsForPlayer } from "../enemies/targetLifecycle.js";
+import { scheduleTrainingDummyRespawn } from "../enemies/training/trainingDummy.js";
 import type { EnemySlot } from "../state/enemyState.js";
 import { awardKillXp } from "../progression/xp.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
@@ -42,6 +43,7 @@ function resolveEnemyDeaths(sim: SimState): void {
 }
 
 function resolveEnemyDeath(sim: SimState, id: string, enemy: EnemySlot): void {
+  scheduleTrainingDummyRespawn(sim, enemy);
   sim.enemies.delete(id);
   sim.worldEvents.push({ ev: { t: "death", id }, x: enemy.entity.body.x, y: enemy.entity.body.y });
   awardKillXp(sim, enemy);

@@ -1,39 +1,33 @@
 import { enemiesData, itemsData } from "@dc2d/content";
-import { resolveWeaponProfile, type AttackProfileInput } from "@dc2d/engine";
+import {
+  PET_DEFINITIONS,
+  resolveWeaponProfile,
+  type PetDefinition,
+} from "@dc2d/engine";
 import type { AdminSpawnKind } from "../adminPageSupport.js";
 import {
   enemyCatalogImage,
   itemCatalogImage,
-  type AdminCatalogImage,
+  petCatalogImage,
+  type AdminCatalogVisual,
 } from "./adminCatalogImages.js";
+import {
+  isEnemyDefinition,
+  isItemDefinition,
+  type EnemyDefinition,
+  type ItemDefinition,
+} from "./adminCatalogContentTypes.js";
 
-export type { AdminCatalogImage } from "./adminCatalogImages.js";
+export type {
+  AdminCatalogImage,
+  AdminCatalogVisual,
+} from "./adminCatalogImages.js";
 
 export interface AdminCatalogEntry {
   readonly id: string;
   readonly name: string;
   readonly stats: readonly string[];
-  readonly image: AdminCatalogImage | null;
-}
-
-interface EnemyDefinition {
-  readonly id: string;
-  readonly name: string;
-  readonly hp: number;
-  readonly speed: number;
-  readonly attack: {
-    readonly damage: number;
-    readonly range: number;
-  };
-  readonly sprite?: string;
-}
-
-interface ItemDefinition {
-  readonly id: string;
-  readonly name: string;
-  readonly maxStack: number;
-  readonly tags: readonly string[];
-  readonly weapon?: AttackProfileInput;
+  readonly image: AdminCatalogVisual | null;
 }
 
 const ENEMY_DEFINITIONS = enemiesData.filter(isEnemyDefinition);
@@ -46,14 +40,16 @@ export function adminCatalogEntries(kind: AdminSpawnKind): readonly AdminCatalog
 export function adminCatalogImage(
   kind: AdminSpawnKind,
   definitionId: string | undefined,
-): AdminCatalogImage | null {
+): AdminCatalogVisual | null {
   if (!definitionId) return null;
   if (kind === "enemy") return enemyCatalogImage(enemyById(definitionId)?.sprite);
+  if (kind === "pet") return petCatalogImage(definitionId);
   return itemCatalogImage(definitionId);
 }
 
 function entriesForKind(kind: AdminSpawnKind): AdminCatalogEntry[] {
   if (kind === "enemy") return ENEMY_DEFINITIONS.map(enemyEntry);
+  if (kind === "pet") return PET_DEFINITIONS.map(petEntry);
   return itemDefinitionsFor(kind).map((definition) => itemEntry(kind, definition));
 }
 
@@ -70,6 +66,7 @@ function enemyEntry(definition: EnemyDefinition): AdminCatalogEntry {
       `${definition.speed} SPD`,
       `${definition.attack.damage} DMG`,
       `${definition.attack.range} RNG`,
+      `${hitboxDimension(definition.hurtbox.halfWidth)}×${hitboxDimension(definition.hurtbox.halfDepth)} HITBOX`,
     ],
     image: enemyCatalogImage(definition.sprite),
   };
@@ -81,6 +78,15 @@ function itemEntry(kind: AdminSpawnKind, definition: ItemDefinition): AdminCatal
     name: definition.name,
     stats: kind === "weapon" ? weaponStats(definition) : itemStats(definition),
     image: itemCatalogImage(definition.id),
+  };
+}
+
+function petEntry(definition: PetDefinition): AdminCatalogEntry {
+  return {
+    id: definition.id,
+    name: definition.name,
+    stats: [`${definition.species.toUpperCase()} PET`, `${definition.speed} SPD`],
+    image: petCatalogImage(definition.id),
   };
 }
 
@@ -106,27 +112,8 @@ function isWeapon(definition: ItemDefinition): boolean {
   return definition.weapon !== undefined;
 }
 
-function isEnemyDefinition(value: unknown): value is EnemyDefinition {
-  const definition = value as Partial<EnemyDefinition>;
-  return typeof definition.id === "string" &&
-    typeof definition.name === "string" &&
-    typeof definition.hp === "number" &&
-    typeof definition.speed === "number" &&
-    typeof definition.attack?.damage === "number" &&
-    typeof definition.attack.range === "number";
-}
-
-function isItemDefinition(value: unknown): value is ItemDefinition {
-  const definition = value as Partial<ItemDefinition>;
-  return typeof definition.id === "string" &&
-    typeof definition.name === "string" &&
-    typeof definition.maxStack === "number" &&
-    Array.isArray(definition.tags) &&
-    isAttackProfile(definition.weapon);
-}
-
-function isAttackProfile(value: unknown): value is AttackProfileInput | undefined {
-  return value === undefined || (typeof value === "object" && value !== null);
+function hitboxDimension(halfExtent: number): string {
+  return Number((halfExtent * 2).toFixed(2)).toString();
 }
 
 function upperCase(value: string): string {

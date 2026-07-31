@@ -1,12 +1,12 @@
 import {
   applyKnockback,
-  combatHurtboxRadius,
   createBody,
   faceEntity,
   KNOCKBACK_FORCE,
   launchVelocity,
   makeEntity,
   newEntityId,
+  reachesHurtbox,
   THROW_SPEED,
   type EffectEvent,
 } from "@dc2d/engine";
@@ -52,10 +52,7 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): void {
 
 function isOutOfStrikeRange(enemy: EnemySlot, victim: EnemySlot["entity"]): boolean {
   const { body } = enemy.entity;
-  const tooFar = Math.hypot(
-    victim.body.x - body.x,
-    victim.body.y - body.y,
-  ) > enemy.def.attack.range + combatHurtboxRadius(victim);
+  const tooFar = !reachesHurtbox(enemy.entity, victim, enemy.def.attack.range);
   const tooHigh = Math.abs(victim.body.z - body.z) >
     ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference;
   return tooFar || tooHigh;

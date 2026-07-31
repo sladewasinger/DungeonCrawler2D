@@ -1,3 +1,5 @@
+import { petAssetFor } from "../../boot/petAssetManifest.js";
+
 export interface AdminCatalogImage {
   readonly x: number;
   readonly y: number;
@@ -5,12 +7,34 @@ export interface AdminCatalogImage {
   readonly height: number;
 }
 
+export interface AdminPetCatalogImage {
+  readonly source: "pet";
+  readonly defId: string;
+  readonly path: string;
+  readonly width: number;
+  readonly height: number;
+}
+
+export type AdminCatalogVisual = AdminCatalogImage | AdminPetCatalogImage;
+
 export function enemyCatalogImage(sprite: string | undefined): AdminCatalogImage | null {
   return sprite ? ENEMY_IMAGES[sprite] ?? null : null;
 }
 
 export function itemCatalogImage(id: string): AdminCatalogImage | null {
   return ITEM_IMAGES[id] ?? null;
+}
+
+export function petCatalogImage(id: string): AdminPetCatalogImage | null {
+  const asset = petAssetFor(id);
+  if (!asset) return null;
+  return {
+    source: "pet",
+    defId: id,
+    path: asset.path,
+    width: asset.frameWidth,
+    height: asset.frameHeight,
+  };
 }
 
 const ENEMY_IMAGES: Readonly<Record<string, AdminCatalogImage>> = {

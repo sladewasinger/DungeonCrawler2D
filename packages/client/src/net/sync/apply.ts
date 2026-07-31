@@ -112,8 +112,8 @@ function recordDevelopmentTrace(conn: Connection, snap: ServerSnapshot, before: 
 }
 
 function applyInventoryState(conn: Connection, snap: ServerSnapshot): void {
-  conn.inventory = snap.inventory;
-  conn.hotbar = snap.hotbar;
+  conn.inventory = snap.self.spectatorLoadout?.inventory ?? snap.inventory;
+  conn.hotbar = snap.self.spectatorLoadout?.hotbar ?? snap.hotbar;
   conn.weapon = snap.weapon;
   conn.party = snap.party;
 }

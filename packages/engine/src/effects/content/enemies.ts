@@ -11,8 +11,13 @@ export const enemyDefSchema = z.object({
   name: z.string(),
   tags: z.array(z.string()),
   hp: z.number().positive(),
-  speed: z.number().positive(),
+  speed: z.number().nonnegative(),
   aggroRadius: z.number().positive(),
+  /** Authored ground-plane combat box; legacy test fixtures use kind defaults. */
+  hurtbox: z.object({
+    halfWidth: z.number().positive(),
+    halfDepth: z.number().positive(),
+  }).optional(),
   attack: z.object({
     damage: z.number().nonnegative(),
     range: z.number().positive(),
@@ -29,6 +34,10 @@ export const enemyDefSchema = z.object({
   damageScale: z.record(z.string(), z.number().positive()).optional(),
   drops: z.array(z.object({ item: z.string(), chance: z.number().min(0).max(1) })),
   sprite: z.string(),
+  /** Prevents AI movement and attacks while preserving damage/status simulation. */
+  stationary: z.boolean().optional(),
+  /** Recreate this enemy after a fixed delay when defeated in the sandbox. */
+  respawnDelaySeconds: z.number().positive().optional(),
   /** XP granted to the killer on death (Epic 11 core, pulled forward into
    * Epic 7.13 — ASSUMPTION #90, docs/ASSUMPTIONS.md). Optional so hand-built
    * EnemyDef fixtures elsewhere in the repo need no changes; an absent

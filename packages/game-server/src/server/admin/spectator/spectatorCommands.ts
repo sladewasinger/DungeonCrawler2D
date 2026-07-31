@@ -57,7 +57,9 @@ function cycle(
   if (players.length === 0) return { handled: true, ok: false, code: "no_players" };
   const current = players.findIndex((player) => player.playerId === spectator.playerId);
   const step = direction === "next" ? 1 : -1;
-  const index = (current + step + players.length) % players.length;
+  const index = current < 0
+    ? (direction === "next" ? 0 : players.length - 1)
+    : (current + step + players.length) % players.length;
   trackSpectator(spectator, players[index]!.playerId);
   return { handled: true, ok: true };
 }

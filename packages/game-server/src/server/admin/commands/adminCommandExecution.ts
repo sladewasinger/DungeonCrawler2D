@@ -2,6 +2,10 @@ import type { ClientMessage } from "@dc2d/engine";
 import { sendAdminServerMessage, type AdminServerMessage } from "../adminMessageSender.js";
 import type { AdminDispatchContext } from "../dispatch.js";
 import { recordAdminSecurityEvent } from "../audit/adminSecurityEvent.js";
+import {
+  activeBoundAdminSession,
+  touchBoundAdminSession,
+} from "../session/adminSessionBinding.js";
 
 type AdminCommand = Extract<ClientMessage, { type: "adminCommand" }> ["command"];
 
@@ -31,20 +35,28 @@ export function executeAuthorizedAdminCommand(
 ): void {
   const { admin, conn } = context;
   if (!admin) return sendOutcome(context, { ok: false, code: "unauthorized" }, requestId);
-  if (conn.adminSession) return executeTokenCommand(command, requestId, context);
+  const session = touchBoundAdminSession(context);
+  if (session) return executeTokenCommand({ command, requestId, context, session });
   sendOutcome(context, admin.executeActive({ spectator: conn.spectator, command, operatorPlayerId: conn.playerId }), requestId);
 }
 
-function executeTokenCommand(command: AdminCommand, requestId: string | undefined, context: AdminDispatchContext): void {
-  const session = context.conn.adminSession;
-  if (!session || !context.admin) return;
+interface TokenCommandExecution {
+  readonly command: AdminCommand;
+  readonly requestId: string | undefined;
+  readonly context: AdminDispatchContext;
+  readonly session: import("../access/authorization.js").AdminSession;
+}
+
+function executeTokenCommand(input: TokenCommandExecution): void {
+  const { command, requestId, context, session } = input;
+  if (!context.admin) return;
   const outcome = context.admin.execute({ session, spectator: context.conn.spectator, command, operatorPlayerId: context.conn.playerId });
   sendOutcome(context, outcome, requestId);
   sendAdminMessage(context, outcome.state);
 }
 
 function hasAdminAuthority(context: AdminDispatchContext): boolean {
-  if (context.conn.adminSession) return true;
+  if (activeBoundAdminSession(context)) return true;
   const playerId = context.conn.playerId;
   if (!playerId) return false;
   const entry = context.sockets.get(playerId);

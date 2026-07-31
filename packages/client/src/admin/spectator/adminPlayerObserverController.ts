@@ -32,6 +32,10 @@ export class AdminPlayerObserverController {
     return this.selection.selectedPlayer(this.connection.adminPlayers);
   }
 
+  centerCamera(): void {
+    this.view.playerObserver.centerCamera();
+  }
+
   render(): void {
     this.selection.sync({
       players: this.connection.adminPlayers,
@@ -52,8 +56,12 @@ export class AdminPlayerObserverController {
   }
 
   private renderObserver(): void {
+    const spectatorPlayer = this.connection.adminPlayers.find(
+      (player) => player.playerId === this.connection.spectatorTargetId,
+    ) ?? null;
     this.view.playerObserver.render({
       player: this.selection.selectedPlayer(this.connection.adminPlayers),
+      spectatorPlayer,
       authenticated: this.connection.adminAuthenticated,
       spectatorMode: this.connection.spectatorMode,
       spectatorTargetId: this.connection.spectatorTargetId,

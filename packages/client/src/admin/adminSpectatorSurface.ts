@@ -13,8 +13,9 @@ import { deletableAdminEntityAt } from "./map/adminMapEntityHitTest.js";
 import { renderAdminMap } from "./map/adminMapRenderer.js";
 
 export interface AdminSpawnSelection {
-  readonly kind: "enemy" | "item" | "weapon";
+  readonly kind: "enemy" | "item" | "weapon" | "pet";
   readonly defId: string;
+  readonly placementAllowed?: boolean;
 }
 
 export interface AdminSpectatorSurfaceOptions {
@@ -79,6 +80,10 @@ export class AdminSpectatorSurface {
     this.draw();
   }
 
+  focusInput(): void {
+    this.options.canvas.focus();
+  }
+
   dispose(): void {
     this.canvasInteractions.dispose();
     this.keyboardPan.dispose();
@@ -101,7 +106,7 @@ export class AdminSpectatorSurface {
   }
 
   private handleClick(event: MouseEvent): void {
-    if (!this.interactionEnabled || !this.map || !this.selection.defId) return;
+    if (!this.canPlace() || !this.map) return;
     const point = adminMapPointerWorldPoint({
       event,
       canvas: this.options.canvas,
@@ -113,7 +118,6 @@ export class AdminSpectatorSurface {
   private handleContextMenu(event: MouseEvent): void {
     const entity = this.deletableEntityAt(event);
     if (!this.interactionEnabled || !entity) return;
-    event.preventDefault();
     this.options.onDespawn(entity.id);
   }
 
@@ -135,7 +139,8 @@ export class AdminSpectatorSurface {
   }
 
   private canPlace(): boolean {
-    return this.interactionEnabled && this.map !== null && this.selection.defId.length > 0;
+    return this.interactionEnabled && this.selection.placementAllowed !== false &&
+      this.map !== null && this.selection.defId.length > 0;
   }
 
   private draw(): void {

@@ -1,6 +1,6 @@
 import { MELEE_ARC_COS, MELEE_RANGE } from "../../core/constants.js";
 import type { Entity } from "../../entities/entity.js";
-import { combatHurtboxRadius } from "../geometry/hurtboxes.js";
+import { weaponAttackIntersectsHurtbox } from "../weapons/weaponAttackArea.js";
 
 /**
  * The melee targeting aid (GAME_DESIGN.md § PvPvE): friendly fire is
@@ -66,8 +66,7 @@ function isEligibleTarget({ attacker, target, direction, range, halfArcRad }: Ta
   const dx = target.body.x - attacker.body.x;
   const dy = target.body.y - attacker.body.y;
   const dist = Math.hypot(dx, dy);
-  if (!isWithinMeleeRange({ attacker, target, distance: dist, range })) return null;
-  if (!isWithinMeleeArc({ dx, dy, distance: dist, direction, halfArcRad, target })) return null;
+  if (!isWithinMeleeAttack({ attacker, target, direction, range, halfArcRad })) return null;
   return dist;
 }
 
@@ -75,23 +74,19 @@ function isCombatTarget(attacker: Entity, target: Entity): boolean {
   return target.id !== attacker.id && target.hp > 0 && (target.kind === "player" || target.kind === "enemy");
 }
 
-function isWithinMeleeRange({ attacker, target, distance, range }: { attacker: Entity; target: Entity; distance: number; range: number }): boolean {
-  return distance - combatHurtboxRadius(target) <= range && Math.abs(target.body.z - attacker.body.z) <= 1.5;
-}
-
-function isWithinMeleeArc({ dx, dy, distance, direction, halfArcRad, target }: {
-  dx: number;
-  dy: number;
-  distance: number;
-  direction: Direction;
-  halfArcRad: number;
+function isWithinMeleeAttack({ attacker, target, direction, range, halfArcRad }: {
+  attacker: Entity;
   target: Entity;
+  direction: Direction;
+  range: number;
+  halfArcRad: number;
 }): boolean {
-  if (distance <= 0.001) return true;
-  const dot = (dx / distance) * direction.x + (dy / distance) * direction.y;
-  const offAxisRad = Math.acos(Math.min(1, Math.max(-1, dot)));
-  const bodyAllowanceRad = Math.asin(Math.min(1, combatHurtboxRadius(target) / distance));
-  return offAxisRad <= halfArcRad + bodyAllowanceRad;
+  return weaponAttackIntersectsHurtbox({
+    attacker,
+    direction,
+    profile: { shape: "cone", range, arcCos: Math.cos(halfArcRad) },
+    target,
+  });
 }
 
 function normalizeDirection({ x, y }: Direction): Direction {

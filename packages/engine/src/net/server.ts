@@ -15,6 +15,10 @@ import {
   adminObserverStateSchema,
   adminStateSchema,
 } from "./wire/admin.js";
+import {
+  spectatorRosterSchema,
+  spectatorWelcomeSchema,
+} from "./wire/spectator.js";
 
 export { gameEventSchema, type GameEvent } from "./serverEvents.js";
 export { defeatedMiniBossArenaSnapshotSchema, defeatedMiniBossArenaWindowSchema } from "./miniBossArenaLandmarks.js";
@@ -138,6 +142,8 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   serverSnapshotDeltaSchema,
   serverPongSchema,
   serverErrorSchema,
+  spectatorWelcomeSchema,
+  spectatorRosterSchema,
   adminAuthResultSchema,
   adminStateSchema,
   adminObserverStateSchema,

@@ -4,8 +4,13 @@ import { clientHelloSchema } from "./hello.js";
 import {
   clientAdminAuthSchema,
   clientAdminCommandMessageSchema,
+  clientAdminLogoutSchema,
   clientAdminResumeSchema,
 } from "./admin.js";
+import {
+  clientSpectatorCommandSchema,
+  clientSpectatorHelloSchema,
+} from "./spectator.js";
 
 const axis = z.number().min(-1).max(1);
 const slot = z.number().int().min(0).max(8);
@@ -35,6 +40,6 @@ export const clientRescueSchema = z.object({ type: z.literal("rescue") });
 export const clientRespawnSchema = z.object({ type: z.literal("respawn") });
 export const clientSnapshotResyncSchema = z.object({ type: z.literal("snapshotResync") });
 export const clientDebugSchema = z.object({ type: z.literal("debug"), op: z.enum(["teleport", "god"]), x: z.number().optional(), y: z.number().optional(), on: z.boolean().optional() });
-export const clientMessageSchema = z.discriminatedUnion("type", [clientHelloSchema, clientInputSchema, clientAttackSchema, clientUseSlotSchema, clientUseItemSchema, clientThrowTorchSchema, clientPickupSchema, clientDropSchema, clientAssignSchema, clientEquipSchema, clientInteractSchema, clientReviveSchema, clientDescendSchema, clientCraftSchema, clientStashSchema, clientLootChestSchema, clientPartySchema, clientModerationSchema, clientChatSchema, clientFistbumpSchema, clientWhoSchema, clientPingSchema, clientSuicideSchema, clientRescueSchema, clientRespawnSchema, clientSnapshotResyncSchema, clientNetworkProfileSchema, clientDebugSchema, clientAdminAuthSchema, clientAdminResumeSchema, clientAdminCommandMessageSchema]);
+export const clientMessageSchema = z.discriminatedUnion("type", [clientHelloSchema, clientSpectatorHelloSchema, clientSpectatorCommandSchema, clientInputSchema, clientAttackSchema, clientUseSlotSchema, clientUseItemSchema, clientThrowTorchSchema, clientPickupSchema, clientDropSchema, clientAssignSchema, clientEquipSchema, clientInteractSchema, clientReviveSchema, clientDescendSchema, clientCraftSchema, clientStashSchema, clientLootChestSchema, clientPartySchema, clientModerationSchema, clientChatSchema, clientFistbumpSchema, clientWhoSchema, clientPingSchema, clientSuicideSchema, clientRescueSchema, clientRespawnSchema, clientSnapshotResyncSchema, clientNetworkProfileSchema, clientDebugSchema, clientAdminAuthSchema, clientAdminResumeSchema, clientAdminLogoutSchema, clientAdminCommandMessageSchema]);
 export type ClientInput = z.infer<typeof clientInputSchema>;
 export type ClientMessage = z.infer<typeof clientMessageSchema>;

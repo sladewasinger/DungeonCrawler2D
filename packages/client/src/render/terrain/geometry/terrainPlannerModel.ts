@@ -44,6 +44,8 @@ export type TerrainPropKind = (typeof TERRAIN_PROPS)[keyof typeof TERRAIN_PROPS]
 export interface TerrainSource {
   /** Explicit server-selected mode; standalone tools must choose deliberately. */
   readonly voidTerrain: boolean;
+  /** Explicit exception for isolated room-plane cells in an otherwise finite world. */
+  allowsVoidAt?(worldX: number, worldY: number): boolean;
   presentationAt?(worldX: number, worldY: number): TerrainPresentation;
   terrainAt(worldX: number, worldY: number): TerrainKind;
   surfaceAt?(worldX: number, worldY: number): TerrainSurface;

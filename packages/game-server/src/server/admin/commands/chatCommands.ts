@@ -2,6 +2,7 @@ import {
   ADMIN_WORLD_COORDINATE_LIMIT,
   type AdminCommand,
 } from "@dc2d/engine";
+import { parseAdminSpawnCommand } from "./chatSpawnCommand.js";
 
 export function isAdminChatCommand(text: string): boolean {
   return text.trim().toLowerCase().startsWith("/admin");
@@ -33,7 +34,7 @@ const CHAT_COMMANDS: Readonly<Record<string, ChatCommandParser>> = {
   "kill-enemies": killEnemies,
   teleport,
   map,
-  spawn,
+  spawn: parseAdminSpawnCommand,
 };
 
 function playerArgument(
@@ -63,19 +64,20 @@ function killEnemies([centerPlayerId, radiusText, ...rest]: string[]): AdminComm
     : null;
 }
 
-function teleport([playerId, destination, targetPlayerId, ...rest]: string[]): AdminCommand | null {
-  if (!playerId || !destination || rest.length > 0) return null;
-  return simpleTeleport(playerId, destination, targetPlayerId)
-    ?? playerTeleport(playerId, destination, targetPlayerId);
+function teleport([playerId, destination, ...args]: string[]): AdminCommand | null {
+  if (!playerId || !destination) return null;
+  return simpleTeleport(playerId, destination, args)
+    ?? playerTeleport(playerId, destination, args)
+    ?? coordinateTeleport(playerId, destination, args);
 }
 
 function simpleTeleport(
   playerId: string,
   destination: string,
-  targetPlayerId: string | undefined,
+  args: readonly string[],
 ): AdminCommand | null {
   const destinations = new Set(["spawn", "safeRoom", "self"]);
-  return destinations.has(destination) && !targetPlayerId
+  return destinations.has(destination) && args.length === 0
     ? { op: "teleport", playerId, destination: destination as "spawn" | "safeRoom" | "self" }
     : null;
 }
@@ -83,10 +85,23 @@ function simpleTeleport(
 function playerTeleport(
   playerId: string,
   destination: string,
-  targetPlayerId: string | undefined,
+  args: readonly string[],
 ): AdminCommand | null {
-  return destination === "player" && targetPlayerId
-    ? { op: "teleport", playerId, destination: "player", targetPlayerId }
+  return destination === "player" && args.length === 1 && args[0]
+    ? { op: "teleport", playerId, destination: "player", targetPlayerId: args[0] }
+    : null;
+}
+
+function coordinateTeleport(
+  playerId: string,
+  destination: string,
+  [xText, yText, ...rest]: readonly string[],
+): AdminCommand | null {
+  const x = Number(xText);
+  const y = Number(yText);
+  return destination === "coordinates" && rest.length === 0 &&
+    worldCoordinate(x) && worldCoordinate(y)
+    ? { op: "teleport", playerId, destination: "coordinates", x, y }
     : null;
 }
 
@@ -102,27 +117,11 @@ function validMapInput(input: MapInput): input is ValidMapInput {
     worldCoordinate(input.x) && worldCoordinate(input.y) && Number.isInteger(input.radius) && boundedNumber(input.radius, 4, 16);
 }
 
-function spawn([kind, defId, xText, yText, level, floorText, ...rest]: string[]): AdminCommand | null {
-  const input = { kind, defId, x: Number(xText), y: Number(yText), level: level ?? "dungeon", floor: Number(floorText ?? "1"), rest };
-  return validSpawnInput(input) ? { op: "spawn", kind: input.kind, defId: input.defId, x: input.x, y: input.y, level: input.level, floor: input.floor } : null;
-}
-
 interface MapInput { level: string | undefined; floor: number; x: number; y: number; radius: number; rest: string[] }
 interface ValidMapInput { level: "dungeon" | "sandbox"; floor: number; x: number; y: number; radius: number; rest: [] }
-interface SpawnInput { kind: string | undefined; defId: string | undefined; x: number; y: number; level: string; floor: number; rest: string[] }
-interface ValidSpawnInput { kind: "enemy" | "item" | "weapon"; defId: string; x: number; y: number; level: "dungeon" | "sandbox"; floor: number; rest: [] }
-
-function validSpawnInput(input: SpawnInput): input is ValidSpawnInput {
-  return isSpawnKind(input.kind) && Boolean(input.defId) && levelIsValid(input.level) && input.rest.length === 0 &&
-    worldCoordinate(input.x) && worldCoordinate(input.y) && Number.isInteger(input.floor) && boundedNumber(input.floor, 1, 64);
-}
 
 function levelIsValid(value: string | undefined): value is "dungeon" | "sandbox" {
   return value === "dungeon" || value === "sandbox";
-}
-
-function isSpawnKind(value: string | undefined): value is "enemy" | "item" | "weapon" {
-  return value === "enemy" || value === "item" || value === "weapon";
 }
 
 function boundedNumber(value: number, min: number, max: number): boolean {

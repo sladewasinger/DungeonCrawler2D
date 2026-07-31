@@ -26,4 +26,29 @@ describe("authenticated network profile routing", () => {
     expect(configureNetworkProfile).toHaveBeenNthCalledWith(2, "player", null);
     expect(queueAction).not.toHaveBeenCalled();
   });
+
+  it("reports whether gameplay input or actions were accepted", () => {
+    const handleInput = vi.fn().mockReturnValue(false);
+    const queueAction = vi.fn().mockReturnValue(true);
+    const sim = { handleInput, queueAction } as unknown as GameSim;
+    const sockets: SocketMap = new Map([["player", { sim, ws: {} as WebSocket }]]);
+
+    const rejectedInput = routeAuthenticatedMessage({
+      type: "input",
+      seq: 1,
+      projectedServerTick: 1,
+      moveX: 1,
+      moveY: 0,
+      jump: false,
+      run: false,
+    }, "player", sockets);
+    const acceptedAction = routeAuthenticatedMessage(
+      { type: "attack", dirX: 1, dirY: 0 },
+      "player",
+      sockets,
+    );
+
+    expect(rejectedInput).toBe(false);
+    expect(acceptedAction).toBe(true);
+  });
 });

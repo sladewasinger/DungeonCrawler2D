@@ -1,6 +1,5 @@
 import type { Entity } from "../../entities/entity.js";
-import { combatHurtboxRadius } from "../geometry/hurtboxes.js";
-import { weaponAttackContainsPoint } from "./weaponAttackArea.js";
+import { weaponAttackIntersectsHurtbox } from "./weaponAttackArea.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
 
 export interface ConeWeaponTargetingInput {
@@ -50,12 +49,11 @@ function collectConeTarget(
 
 function isConeTarget(input: ConeWeaponTargetingInput, target: Entity): boolean {
   if (!isCombatTarget(input.attacker, target)) return false;
-  return weaponAttackContainsPoint({
+  return weaponAttackIntersectsHurtbox({
     attacker: input.attacker,
     direction: input.direction,
-    point: target.body,
-    pointRadius: combatHurtboxRadius(target),
     profile: input.profile,
+    target,
   });
 }
 

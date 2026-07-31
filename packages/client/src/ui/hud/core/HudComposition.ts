@@ -52,6 +52,7 @@ export interface HudCompositionOptions {
   focusGame(): void;
   setTextInputFocused(focused: boolean): void;
   touchDevice: boolean;
+  adminDebug: HTMLElement;
   viewDistance?: ViewDistance;
   setViewDistance?: (viewDistance: ViewDistance) => void;
   onSelectHotbar?: (index: number | null) => void;

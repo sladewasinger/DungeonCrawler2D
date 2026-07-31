@@ -9,6 +9,7 @@ export interface LiveSpectatorRenderInput {
   readonly targetId: string | null;
   readonly atlas: HTMLImageElement;
   readonly terrain: HTMLImageElement;
+  readonly pets: Readonly<Record<string, HTMLImageElement>>;
 }
 
 export function renderLiveSpectatorMap(input: LiveSpectatorRenderInput): void {
@@ -17,7 +18,14 @@ export function renderLiveSpectatorMap(input: LiveSpectatorRenderInput): void {
   if (!map) return;
   const view = createLiveSpectatorView({ map, targetId: input.targetId, canvas: input.context.canvas });
   drawLiveSpectatorTerrain({ context: input.context, map, terrain: input.terrain, view });
-  drawLiveSpectatorActors({ context: input.context, map, targetId: input.targetId, atlas: input.atlas, view });
+  drawLiveSpectatorActors({
+    context: input.context,
+    map,
+    targetId: input.targetId,
+    atlas: input.atlas,
+    pets: input.pets,
+    view,
+  });
   drawFrame({ context: input.context, targetId: input.targetId, map });
 }
 

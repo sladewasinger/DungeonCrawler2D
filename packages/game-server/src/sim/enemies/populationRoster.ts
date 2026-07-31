@@ -10,7 +10,7 @@ const SKELETON = "skeleton";
 const FALLEN_ANGEL = "fallen-angel";
 const MASKED_ORC = "masked-orc";
 const PITCHBLOOM = "pitchbloom";
-const GLOBAL_ROSTER = [
+export const RANDOM_ENEMY_ROSTER = [
   "slime", "plant-creeper", PITCHBLOOM, SKELETON, "spitter", "goblin",
   MASKED_ORC, ORC_WARRIOR, "orc-shaman", "tiny-zombie",
   "big-zombie", "chort", "wogol", "pumpkin-fiend",
@@ -52,7 +52,7 @@ export function pickEnemyDef(
   x: number,
   y: number,
 ): string {
-  if (sim.rng.next() >= 0.88) return randomEntry(sim, GLOBAL_ROSTER);
+  if (sim.rng.next() >= 0.88) return randomEntry(sim, RANDOM_ENEMY_ROSTER);
   return pickNativeEnemyDef(sim, x, y);
 }
 
@@ -69,7 +69,7 @@ export function pickAllowedEnemyDef(
   selection: AllowedEnemySelection,
 ): string | null {
   const native = allowedNativeRoster(selection);
-  const global = GLOBAL_ROSTER.filter(selection.isAllowed);
+  const global = RANDOM_ENEMY_ROSTER.filter(selection.isAllowed);
   const useGlobal = selection.sim.rng.next() >= 0.88;
   return randomOptionalEntry(
     selection.sim,

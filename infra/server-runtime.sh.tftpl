@@ -103,5 +103,10 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable --now amazon-cloudwatch-agent.service
-systemctl enable --now dungeoncrawler2d.service
+systemctl enable dungeoncrawler2d.service
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+systemctl restart dungeoncrawler2d.service

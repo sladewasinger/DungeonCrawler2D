@@ -17,7 +17,10 @@ import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { createSimState } from "../state/state.js";
 import { spawnEnemyPack } from "./population.js";
-import { enemyRosterForBiome } from "./populationRoster.js";
+import {
+  enemyRosterForBiome,
+  RANDOM_ENEMY_ROSTER,
+} from "./populationRoster.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 import { nearSpawnPopulationCenter } from "./population/nearSpawn.js";
 
@@ -47,6 +50,13 @@ describe("cohesive district enemy population", () => {
     }
     expect(enemyRosterForBiome(BIOME.Pools)).toContain("slime");
     expect(enemyRosterForBiome(BIOME.Maze)).toContain("orc-warrior");
+  });
+
+  it("never puts the sandbox training dummy in a random dungeon roster", () => {
+    expect(RANDOM_ENEMY_ROSTER).not.toContain("training-dummy");
+    for (const biome of Object.values(BIOME)) {
+      expect(enemyRosterForBiome(biome)).not.toContain("training-dummy");
+    }
   });
 
   it("spawns a tight pack with at most one off-theme wanderer", () => {

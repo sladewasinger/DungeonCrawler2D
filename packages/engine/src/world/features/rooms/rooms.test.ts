@@ -20,22 +20,9 @@ import {
   generateRoomChunk,
   partyRoomChunk,
   personalRoomChunk,
-  personalRoomFeatures,
-  personalRoomSpawn,
   safeRoomChunk,
   spawnRoomChunk,
 } from "./rooms.js";
-
-const tileAt = (
-  chunk: ReturnType<typeof generateRoomChunk>,
-  wx: number,
-  wy: number,
-): number => {
-  const lx = wx - chunk.cx * CHUNK_SIZE;
-  const ly = wy - chunk.cy * CHUNK_SIZE;
-  const index = ly * CHUNK_SIZE + lx;
-  return chunk.features[index] || chunk.tiles[index] || TILE.Floor;
-};
 
 const within = (value: number, start: number, length: number): boolean =>
   value >= start && value < start + length;
@@ -53,7 +40,7 @@ function isCarvedRoomCell(input: { lx: number; ly: number; room: RoomCase }): bo
   return inBackWall || inInterior || inHall;
 }
 
-function assertCarvedMask(chunk: ReturnType<typeof generateRoomChunk>, room: RoomCase): void {
+function assertRoomAndShellMask(chunk: ReturnType<typeof generateRoomChunk>, room: RoomCase): void {
   const top = Math.floor(CHUNK_SIZE / 2 - room.height / 2);
   for (let index = 0; index < chunk.terrain.length; index++) assertRoomCell({ chunk, room, top, index });
 }
@@ -69,14 +56,14 @@ function assertRoomCell(input: {
   const ly = Math.floor(index / CHUNK_SIZE);
   const expectedTile = expectedRoomTile({ lx, ly, room });
   if (!isCarvedRoomCell({ lx, ly, room })) {
-    expect(chunk.terrain[index], `terrain ${index}`).toBe(TERRAIN.Void);
-    expect(chunk.tiles[index], `tile ${index}`).toBe(TILE.Void);
+    expect(chunk.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
+    expect(chunk.tiles[index], `tile ${index}`).toBe(TILE.Bedrock);
     expect(chunk.features[index], `feature ${index}`).toBe(expectedTile);
     expect(chunk.featureFaces[index], `feature face ${index}`)
       .toBe(expectedTile === TILE.DoorExit ? FEATURE_FACE.North : FEATURE_FACE.Top);
     expect(chunk.featureHeight[index], `feature height ${index}`)
       .toBe(expectedTile === TILE.DoorExit ? WALL_DOOR_FEATURE_HEIGHT : 0);
-    expect(chunk.height[index], `height ${index}`).toBe(0);
+    expect(chunk.height[index], `height ${index}`).toBe(ROOM_WALL_RISE);
     expect(chunk.zones[index], `zone ${index}`).toBe(ZONE.None);
     return;
   }
@@ -136,24 +123,11 @@ const ROOM_CASES: readonly RoomCase[] = [
 
 describe("south exit geometry", () => {
   it.each(ROOM_CASES)(
-    "keeps the $kind room, back wall, and two hall tiles as the exact chunk mask",
+    "keeps the $kind room inside an exact sealed Bedrock shell",
     (room) => {
       const { position } = room;
       const chunk = generateRoomChunk(position.cx, position.cy);
-      assertCarvedMask(chunk, room);
+      assertRoomAndShellMask(chunk, room);
     },
   );
-});
-
-describe("personal room fixtures", () => {
-  it("mounts the exit on the collision wall at the far end of the hall", () => {
-    const { cx, cy } = personalRoomChunk(0);
-    const chunk = generateRoomChunk(cx, cy);
-    const exit = personalRoomFeatures(0).exit;
-    expect(tileAt(chunk, exit.x, exit.y)).toBe(TILE.DoorExit);
-    expect(chunk.terrain[(exit.y - cy * CHUNK_SIZE) * CHUNK_SIZE + exit.x - cx * CHUNK_SIZE])
-      .toBe(TERRAIN.Void);
-    const spawn = personalRoomSpawn(0);
-    expect(spawn.y).toBeLessThan(exit.y);
-  });
 });

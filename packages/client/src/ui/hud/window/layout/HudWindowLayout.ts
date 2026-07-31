@@ -26,6 +26,8 @@ export interface HudWindowSpec {
   mobile?: Pick<HudWindowSpec, "width" | "height" | "anchor">;
   interactive?: boolean;
   defaultVisible?: boolean;
+  /** Runtime availability is separate from the player's persisted visibility choice. */
+  initiallyAvailable?: boolean;
   chrome?: HudWindowChrome;
   aspectRatio?: number;
   minWidth?: number;

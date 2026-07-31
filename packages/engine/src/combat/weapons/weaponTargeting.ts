@@ -3,7 +3,12 @@ import { reachesHurtbox } from "../geometry/hurtboxes.js";
 import { selectConeTargets } from "./coneTargeting.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
 
-export { weaponAttackContainsPoint, type WeaponAttackPointInput } from "./weaponAttackArea.js";
+export {
+  weaponAttackContainsPoint,
+  weaponAttackIntersectsHurtbox,
+  type WeaponAttackHurtboxInput,
+  type WeaponAttackPointInput,
+} from "./weaponAttackArea.js";
 
 export interface WeaponTargetingInput {
   readonly attacker: Entity;

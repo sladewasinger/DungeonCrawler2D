@@ -11,6 +11,8 @@ import {
   type ServerConnectionContext,
 } from "./connectionContext.js";
 import { recordConnectionClosed, recordConnectionOpened } from "./connectionLifecycle.js";
+import type { SpectatorSubscriptions } from "../spectator/spectatorSubscriptions.js";
+import type { AdminSessionRegistry } from "../admin/access/sessionRegistry.js";
 
 export function handleConnection(
   ws: WebSocket,
@@ -29,7 +31,9 @@ export function handleConnection(
     sockets: context.sockets,
     diagnostics: context.diagnostics,
     operationalEvents: context.operationalEvents,
+    adminSessions: context.adminSessions,
     adminSubscriptions: context.adminSubscriptions,
+    spectatorSubscriptions: context.spectatorSubscriptions,
   }));
 }
 
@@ -48,12 +52,16 @@ interface DisconnectContext {
   readonly sockets: SocketMap;
   readonly diagnostics: ServerNetworkDiagnostics;
   readonly operationalEvents: OperationalEventSink | undefined;
+  readonly adminSessions: AdminSessionRegistry;
   readonly adminSubscriptions: AdminStateSubscriptions | undefined;
+  readonly spectatorSubscriptions: SpectatorSubscriptions | undefined;
 }
 
 function disconnectSocket(input: DisconnectContext): void {
-  const { ws, conn, code, sockets, diagnostics, operationalEvents, adminSubscriptions } = input;
+  const { ws, conn, code, sockets, diagnostics, operationalEvents, adminSessions, adminSubscriptions, spectatorSubscriptions } = input;
+  adminSessions.unbind(ws);
   adminSubscriptions?.remove(ws);
+  spectatorSubscriptions?.remove(ws);
   recordConnectionClosed({ events: operationalEvents, conn, code });
   if (!conn.playerId) return;
   const entry = sockets.get(conn.playerId);

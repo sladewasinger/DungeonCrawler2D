@@ -1,6 +1,7 @@
 /** Defines the shared HTML HUD window catalog independently from its runtime facade. */
 import type { HudWindowSpec } from "../window/layout/HudWindows.js";
 import type { HudWindowChrome } from "../window/layout/HudWindowLayout.js";
+import { ADMIN_DEBUG_WINDOW_ID } from "../admin/adminDebugWindow.js";
 
 export interface HudWindowContents {
   status: HTMLElement;
@@ -14,6 +15,7 @@ export interface HudWindowContents {
   contacts: HTMLElement;
   craft: HTMLElement;
   stash: HTMLElement;
+  adminDebug: HTMLElement;
 }
 
 type WindowSpecInput = Pick<
@@ -21,6 +23,7 @@ type WindowSpecInput = Pick<
   "id" | "title" | "width" | "height" | "anchor" | "content" |
   "interactive" | "mobile" | "defaultVisible" | "chrome"
   | "aspectRatio" | "minWidth" | "minHeight" | "intrinsicMinHeight"
+  | "initiallyAvailable"
 >;
 
 const CONTENT_ONLY: HudWindowChrome = "content-only";
@@ -35,6 +38,7 @@ const spec = ({
   interactive = false,
   mobile,
   defaultVisible = true,
+  initiallyAvailable = true,
   chrome,
   ...constraints
 }: WindowSpecInput): HudWindowSpec => ({
@@ -46,6 +50,7 @@ const spec = ({
   content,
   interactive,
   defaultVisible,
+  initiallyAvailable,
   ...(mobile ? { mobile } : {}),
   ...(chrome ? { chrome } : {}),
   ...windowConstraints(constraints),
@@ -86,4 +91,14 @@ export const hudWindowSpecs = (
   spec({ id: "three-contacts", title: "Contacts", width: 260, height: 340, anchor: "center", content: content.contacts, interactive: true, defaultVisible: false }),
   spec({ id: "three-craft", title: "Crafting", width: 390, height: 420, anchor: "center", content: content.craft, interactive: true, defaultVisible: false }),
   spec({ id: "three-stash", title: "Stash", width: 460, height: 420, anchor: "center", content: content.stash, interactive: true, defaultVisible: false }),
+  spec({
+    id: ADMIN_DEBUG_WINDOW_ID,
+    title: "Admin overlays",
+    width: 300,
+    height: 178,
+    anchor: "top-right",
+    content: content.adminDebug,
+    interactive: true,
+    initiallyAvailable: false,
+  }),
 ];

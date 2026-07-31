@@ -10,6 +10,7 @@ import type { EnemySlot, SimState } from "../../state/state.js";
 import { insideGracedClearance } from "../../spawnSafety/spawnSafety.js";
 import { recordEnemyRouteMotion } from "./enemyMemoryNavigation.js";
 import { activeGuardBlocksEnemyMotion } from "../../combat/shieldCollision.js";
+import { enemyOccupancyIsAllowed } from "../roomIsolation/enemyRoomIsolation.js";
 
 export interface EnemyMoveInput {
   readonly sim: SimState;
@@ -63,7 +64,7 @@ function enemyMovementOptions(sim: SimState, enemy: EnemySlot) {
   return {
     speed: enemy.entity.baseSpeed * sim.effects.speedMult(enemy.entity),
     blocked: (x: number, y: number) =>
-      sim.world.isSanctuary(x, y) || outsideHome(enemy, x, y),
+      !enemyOccupancyIsAllowed(sim, { x, y }) || outsideHome(enemy, x, y),
   };
 }
 

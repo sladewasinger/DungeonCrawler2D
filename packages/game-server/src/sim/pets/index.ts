@@ -5,6 +5,7 @@ export {
   claimNearestPet,
   seedPets,
   spawnPet,
+  spawnPetForPlayer,
 } from "./behavior.js";
 export { stepPets } from "./petTick.js";
 export { type PetBehaviorState } from "./behaviors/types.js";

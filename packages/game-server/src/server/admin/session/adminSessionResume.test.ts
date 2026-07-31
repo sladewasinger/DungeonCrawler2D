@@ -1,13 +1,13 @@
 import type { ServerMessage } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import { AdminAccessLimiter } from "./access/rateLimit.js";
-import { createAdminSession } from "./access/authorization.js";
-import { AdminSessionRegistry } from "./access/sessionRegistry.js";
+import { AdminAccessLimiter } from "../access/rateLimit.js";
+import { createAdminSession } from "../access/authorization.js";
+import { AdminSessionRegistry } from "../access/sessionRegistry.js";
 import { resumeAdminSession } from "./adminSessionResume.js";
-import { newSpectatorSession } from "./spectator/spectatorSession.js";
-import type { AdminDispatchContext } from "./dispatch.js";
-import type { ConnState } from "../types.js";
+import { newSpectatorSession } from "../spectator/spectatorSession.js";
+import type { AdminDispatchContext } from "../dispatch.js";
+import type { ConnState } from "../../types.js";
 
 describe("admin session resume", () => {
   it("rejects a rate-limited peer before resolving its session key", () => {
@@ -41,12 +41,13 @@ function resumeContext(
   peerAddress: string,
   adminAccess: AdminAccessLimiter,
   adminSessions: AdminSessionRegistry,
-): Pick<AdminDispatchContext, "admin" | "adminAccess" | "adminToken" | "adminSessions" | "conn" | "ws"> {
+): Pick<AdminDispatchContext, "admin" | "adminAccess" | "adminToken" | "adminSessions" | "conn" | "diagnostics" | "ws"> {
   return {
     admin: {} as NonNullable<AdminDispatchContext["admin"]>,
     adminAccess,
     adminToken: "configured-token",
     adminSessions,
+    diagnostics: {} as AdminDispatchContext["diagnostics"],
     conn: connection(peerAddress),
     ws: {} as WebSocket,
   };

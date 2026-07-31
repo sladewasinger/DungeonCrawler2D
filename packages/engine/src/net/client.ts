@@ -2,3 +2,4 @@
 export * from "./wire/clientSchemas.js";
 export { clientHelloSchema, snapshotModeSchema } from "./wire/hello.js";
 export type { ClientHello, SnapshotMode } from "./wire/hello.js";
+export * from "./wire/spectator.js";

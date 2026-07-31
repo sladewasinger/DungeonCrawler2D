@@ -6,12 +6,14 @@ import {
   type LiveSpectatorPoint,
   type LiveSpectatorView,
 } from "./liveSpectatorView.js";
+import { drawLiveSpectatorPet } from "./pets/liveSpectatorPetRenderer.js";
 
 export interface LiveSpectatorActorInput {
   readonly context: CanvasRenderingContext2D;
   readonly map: AdminMap;
   readonly targetId: string | null;
   readonly atlas: HTMLImageElement;
+  readonly pets: Readonly<Record<string, HTMLImageElement>>;
   readonly view: LiveSpectatorView;
 }
 
@@ -44,6 +46,14 @@ function drawShadow(input: EntityScreenInput): void {
 }
 
 function drawBody(input: EntityScreenInput): void {
+  const petImage = input.entity.defId ? input.pets[input.entity.defId] : undefined;
+  if (input.entity.kind === "pet" && drawLiveSpectatorPet({
+    context: input.context,
+    entity: input.entity,
+    image: petImage,
+    point: input.point,
+    tileSize: input.view.tileSize,
+  })) return;
   const image = spriteImage(input.entity);
   if (image && atlasReady(input.atlas)) return drawAtlasSprite({ ...input, image });
   drawFallbackEntity(input);
@@ -89,9 +99,17 @@ function drawTargetRing(context: CanvasRenderingContext2D, point: LiveSpectatorP
 
 function spriteImage(entity: AdminMapEntity): AdminCatalogImage | null {
   if (entity.kind === "player") return playerImage(entity.id);
-  if (entity.kind === "torch") return adminCatalogImage("item", "torch");
+  if (entity.kind === "torch") return atlasCatalogImage("item", "torch");
   if (!entity.defId || (entity.kind !== "enemy" && entity.kind !== "item" && entity.kind !== "weapon")) return null;
-  return adminCatalogImage(entity.kind, entity.defId);
+  return atlasCatalogImage(entity.kind, entity.defId);
+}
+
+function atlasCatalogImage(
+  kind: "enemy" | "item" | "weapon",
+  definitionId: string,
+): AdminCatalogImage | null {
+  const image = adminCatalogImage(kind, definitionId);
+  return image && !("source" in image) ? image : null;
 }
 
 function playerImage(id: string): AdminCatalogImage {
@@ -114,19 +132,23 @@ function entityDepth(entity: AdminMapEntity, view: LiveSpectatorView): number {
 function entityScale(entity: AdminMapEntity, tileSize: number): number {
   const base = tileSize / 16;
   if (entity.kind === "enemy") return base * 1.15;
+  if (entity.kind === "pet") return base;
   if (entity.kind === "weapon" || entity.kind === "item") return base * 0.7;
   return base;
 }
 
 function entityLabel(entity: AdminMapEntity, targetId: string | null): string | null {
   if (entity.id === targetId) return entity.name ?? "Player";
-  if (entity.kind === "player" || entity.kind === "enemy") return entity.name ?? entity.defId ?? entity.kind;
+  if (entity.kind === "player" || entity.kind === "enemy" || entity.kind === "pet") {
+    return entity.name ?? entity.defId ?? entity.kind;
+  }
   return null;
 }
 
 function fallbackColor(kind: AdminMapEntity["kind"]): string {
   if (kind === "player") return "#f4d35e";
   if (kind === "enemy") return "#ef6b73";
+  if (kind === "pet") return "#72e6ad";
   if (kind === "weapon") return "#72d6e5";
   return kind === "item" ? "#c3a5f5" : "#f39c5a";
 }

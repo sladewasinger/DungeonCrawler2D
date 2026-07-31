@@ -18,16 +18,13 @@ const ROOM_CHUNKS = [
 ] as const;
 
 describe("inside room terrain presentation", () => {
-  it.each([true, false])(
-    "preserves every ground tile and only the camera-facing wall (VOID %s)",
-    (voidTerrain) => {
-      for (const room of ROOM_CHUNKS) {
-        for (const orientation of VIEW_ORIENTATIONS) {
-          assertRoomPlan(room, orientation, voidTerrain);
-        }
+  it("preserves every ground tile and only the camera-facing wall", () => {
+    for (const room of ROOM_CHUNKS) {
+      for (const orientation of VIEW_ORIENTATIONS) {
+        assertRoomPlan(room, orientation);
       }
-    },
-  );
+    }
+  });
 
   it("leaves outside planning byte-for-byte unchanged", () => {
     const source = fixtureSource(generateRoomChunk(0, 4096), true);
@@ -50,10 +47,9 @@ describe("inside room terrain presentation", () => {
 function assertRoomPlan(
   room: { readonly cx: number; readonly cy: number },
   orientation: ViewOrientation,
-  voidTerrain: boolean,
 ): void {
-  const chunk = generateRoomChunk(room.cx, room.cy, voidTerrain);
-  const source = fixtureSource(chunk, voidTerrain);
+  const chunk = generateRoomChunk(room.cx, room.cy);
+  const source = fixtureSource(chunk, true);
   const plan = planTerrain(source, { bounds: chunkBounds(chunk), orientation });
   const expected = expectedVisibleTiles(chunk, source, orientation);
   const caps = new Set(plan.batches.floors.map(({ worldTile }) => tileKey(worldTile)));

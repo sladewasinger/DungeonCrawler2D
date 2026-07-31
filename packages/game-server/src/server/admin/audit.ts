@@ -13,8 +13,12 @@ export interface AdminAuditSink {
   record(event: AdminAuditRecord): void;
 }
 
+export interface AdminAuditHistory {
+  recent(limit: number): readonly AdminAuditRecord[];
+}
+
 /** Bounded local sink. Production can inject a durable compliance adapter. */
-export class MemoryAdminAuditSink implements AdminAuditSink {
+export class MemoryAdminAuditSink implements AdminAuditSink, AdminAuditHistory {
   private readonly records: AdminAuditRecord[] = [];
 
   constructor(private readonly capacity = 256) {}
@@ -26,5 +30,11 @@ export class MemoryAdminAuditSink implements AdminAuditSink {
 
   snapshot(): readonly AdminAuditRecord[] {
     return this.records.slice();
+  }
+
+  recent(limit: number): readonly AdminAuditRecord[] {
+    const requested = Number.isFinite(limit) ? Math.floor(limit) : 0;
+    const count = Math.max(0, Math.min(this.capacity, requested));
+    return this.records.slice(-count);
   }
 }

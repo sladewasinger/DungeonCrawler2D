@@ -44,6 +44,13 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
     lineOfSight: z.boolean(), behavior: z.boolean(), search: z.boolean(), navigation: z.boolean(),
   }).strict().optional(),
   adminDebugEntities: z.array(adminMapEntitySchema).max(2048).optional(),
+  faceX: z.number().min(-1).max(1).optional(),
+  faceY: z.number().min(-1).max(1).optional(),
+  attacking: z.boolean().optional(),
+  spectatorLoadout: z.object({
+    inventory: z.array(z.object({ item: z.string(), qty: z.number().int() })),
+    hotbar: z.array(z.string().nullable()),
+  }).strict().optional(),
 });
 
 export const entitySnapshotSchema = z.object({

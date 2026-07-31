@@ -41,11 +41,13 @@ export function queueAction(
   sim: SimState,
   playerId: string,
   msg: PlayerSlot["pendingActions"][number],
-): void {
+): boolean {
   const slot = sim.players.get(playerId);
-  if (!slot || !slot.connected) return;
-  if (slot.entity.hp <= 0 && msg.type !== "rescue") return;
-  if (slot.pendingActions.length < 16) slot.pendingActions.push(msg);
+  if (!slot || !slot.connected) return false;
+  if (slot.entity.hp <= 0 && msg.type !== "rescue") return false;
+  if (slot.pendingActions.length >= 16) return false;
+  slot.pendingActions.push(msg);
+  return true;
 }
 
 /** Reap grace-expired disconnects; respawn dead players whose timer elapsed. */

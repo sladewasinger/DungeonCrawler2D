@@ -5,7 +5,7 @@ import {
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { healthRegenerationDelaySeconds } from "../progression/combatResources.js";
-import { adminMap } from "../admin/adminMap.js";
+import { adminDebugEntities } from "../admin/adminMap.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
 function nullable<T>(value: T | undefined): T | null {
@@ -43,6 +43,7 @@ export function toSelfSnapshot(
     ...resourceSnapshot(sim, slot),
     ...effectSnapshot(sim, slot),
     ...downedSnapshot(slot),
+    ...presentationSnapshot(sim, slot),
     ...reviveFields(sim, slot),
     respawnAtTick: slot.respawnAtTick,
     ...progressionSnapshot(slot),
@@ -52,17 +53,44 @@ export function toSelfSnapshot(
   };
 }
 
+function presentationSnapshot(
+  sim: SimState,
+  slot: PlayerSlot,
+): Pick<ServerSnapshot["self"], "faceX" | "faceY" | "attacking"> {
+  const facing = slot.entity.facing ?? { x: 1, y: 0 };
+  return {
+    faceX: facing.x,
+    faceY: facing.y,
+    attacking: sim.tickCount - slot.attackStartedAtTick <= 3,
+  };
+}
+
 function adminSnapshot(
   sim: SimState,
   slot: PlayerSlot,
 ): Pick<ServerSnapshot["self"], "admin" | "adminDebug" | "adminDebugEntities"> | Record<string, never> {
   if (!slot.admin) return {};
-  const body = slot.entity.body;
+  const flags = { ...slot.debugFlags };
   return {
     admin: true,
-    adminDebug: { ...slot.debugFlags },
-    adminDebugEntities: adminMap(sim, { x: body.x, y: body.y, radius: 16 }).entities,
+    adminDebug: flags,
+    adminDebugEntities: activeAdminDebugEntities(sim, slot, flags),
   };
+}
+
+function activeAdminDebugEntities(
+  sim: SimState,
+  slot: PlayerSlot,
+  flags: ServerSnapshot["self"]["adminDebug"],
+): ServerSnapshot["self"]["adminDebugEntities"] {
+  if (!flags || !Object.values(flags).some(Boolean)) return [];
+  const body = slot.entity.body;
+  return adminDebugEntities(sim, {
+    x: body.x,
+    y: body.y,
+    radius: 16,
+    flags,
+  });
 }
 
 function bodySnapshot(slot: PlayerSlot): Pick<ServerSnapshot["self"], "x" | "y" | "z" | "zVel" | "grounded" | "coyoteTime" | "jumpBuffer" | "jumpHeld" | "kx" | "ky" | "hp" | "maxHp"> {

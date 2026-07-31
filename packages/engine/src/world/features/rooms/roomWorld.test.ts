@@ -52,12 +52,12 @@ describe("room world integration", () => {
       baseY + top + PERSONAL_ROOM_H - 1 + SOUTH_EXIT_HALL_DEPTH,
     );
     expect(world.tileAt(features.exit.x, features.exit.y)).toBe(TILE.DoorExit);
-    expect(world.terrainAt(features.exit.x, features.exit.y)).toBe(TERRAIN.Void);
+    expect(world.terrainAt(features.exit.x, features.exit.y)).toBe(TERRAIN.Floor);
     expect(world.isWalkable(features.exit.x, features.exit.y)).toBe(false);
     expect(world.tileAt(features.exit.x, features.exit.y - 1)).toBe(TILE.Floor);
     expect(world.tileAt(features.exit.x, features.exit.y - 2)).toBe(TILE.Floor);
-    expect(world.tileAt(features.exit.x - 1, features.exit.y - 1)).toBe(TILE.Void);
-    expect(world.tileAt(features.exit.x + 1, features.exit.y - 1)).toBe(TILE.Void);
+    expect(world.tileAt(features.exit.x - 1, features.exit.y - 1)).toBe(TILE.Bedrock);
+    expect(world.tileAt(features.exit.x + 1, features.exit.y - 1)).toBe(TILE.Bedrock);
     expect(Math.floor(spawn.x)).toBe(features.exit.x);
     expect(Math.floor(spawn.y)).toBeLessThan(features.exit.y - SOUTH_EXIT_HALL_DEPTH);
     expect(world.isSanctuary(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);

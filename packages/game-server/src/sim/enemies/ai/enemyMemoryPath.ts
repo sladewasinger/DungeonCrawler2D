@@ -4,6 +4,7 @@ import {
 } from "@dc2d/engine";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
+import { enemyOccupancyIsAllowed } from "../roomIsolation/enemyRoomIsolation.js";
 
 export interface EnemyMemoryPathInput {
   readonly sim: SimState;
@@ -92,7 +93,7 @@ function baseTerrainIsEnterable(
   y: number,
 ): boolean {
   return input.sim.world.isWalkable(x, y) &&
-    !input.sim.world.isSanctuary(x, y);
+    enemyOccupancyIsAllowed(input.sim, { x, y });
 }
 
 function insideEnemyHome(

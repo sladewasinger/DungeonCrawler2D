@@ -19,8 +19,8 @@
     "benchmark:codecs": "tsx tools/network-codec-assessment.ts",
     "benchmark:render": "tsx tools/render/presentation-benchmark.ts",
     "typecheck": "npm run typecheck -w @dc2d/engine && npm run typecheck -w @dc2d/content && npm run typecheck -w @dc2d/game-server && npm run typecheck -w @dc2d/client",
-    "lint": "eslint . && node scripts/check-folder-size.mjs",
-    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-folder-size.mjs --changed"
+    "lint": "eslint . && node scripts/check-config-docs.mjs && node scripts/check-folder-size.mjs",
+    "lint:working-tree": "node scripts/lint-working-tree.mjs && node scripts/check-config-docs.mjs && node scripts/check-folder-size.mjs --changed"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

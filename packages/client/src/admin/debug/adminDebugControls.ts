@@ -66,5 +66,14 @@ function panelStyle(): string {
 }
 
 function debugLabel(flag: DebugFlag): string {
-  return flag.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
+  const labels: Record<DebugFlag, string> = {
+    hurtboxes: "Hurtboxes",
+    attacks: "Active attacks",
+    guards: "Active guards",
+    lineOfSight: "Current line of sight",
+    behavior: "AI behavior",
+    search: "Search state",
+    navigation: "Navigation path",
+  };
+  return labels[flag];
 }

@@ -40,27 +40,27 @@ const runMovement = (input: { world: World; body: ReturnType<typeof createBody>;
   }
 };
 
-function assertVoidBoundary(world: World, x: number, y: number): void {
-  expect(world.tileAt(x, y)).toBe(TILE.Void);
-  expect(world.terrainAt(x, y)).toBe(TERRAIN.Void);
-  expect(world.heightAt(x, y)).toBe(0);
+function assertSealedBoundary(world: World, x: number, y: number): void {
+  expect(world.tileAt(x, y)).toBe(TILE.Bedrock);
+  expect(world.terrainAt(x, y)).toBe(TERRAIN.Floor);
+  expect(world.heightAt(x, y)).toBe(3);
   expect(world.isWalkable(x, y)).toBe(false);
 }
 
 function assertHallGeometry(world: World, exit: { x: number; y: number }): void {
   expect(world.tileAt(exit.x, exit.y)).toBe(TILE.DoorExit);
-  expect(world.terrainAt(exit.x, exit.y)).toBe(TERRAIN.Void);
+  expect(world.terrainAt(exit.x, exit.y)).toBe(TERRAIN.Floor);
   expect(world.isWalkable(exit.x, exit.y)).toBe(false);
   for (let depth = 1; depth <= SOUTH_EXIT_HALL_DEPTH; depth++) {
     const y = exit.y - depth;
     expect(world.tileAt(exit.x, y)).toBe(TILE.Floor);
     expect(world.isWalkable(exit.x, y)).toBe(true);
-    for (const x of [exit.x - 1, exit.x + 1]) assertVoidBoundary(world, x, y);
+    for (const x of [exit.x - 1, exit.x + 1]) assertSealedBoundary(world, x, y);
   }
 }
 
 describe("south exit collision", () => {
-  it.each(ROOM_CASES)("keeps every $kind hall side and endpoint as infinite-collision VOID", ({ position }) => {
+  it.each(ROOM_CASES)("keeps every $kind hall side and endpoint sealed", ({ position }) => {
     const world = new World(WORLD_SEED, 1);
     assertHallGeometry(world, exitPosition(world.getChunk(position.cx, position.cy)));
   });

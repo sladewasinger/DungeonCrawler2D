@@ -14,7 +14,7 @@ import {
 } from "../descent/descent.js";
 import { FLOOR_CAP } from "../descent/descentShared.js";
 import { isSafeRoomChunk, isStairsChunk } from "../fixed/fixed.js";
-import { isRoomChunk } from "../rooms/locations/roomLocations.js";
+import { isRoomIsolationChunk } from "../rooms/locations/roomLocations.js";
 import { overlapsSpawnRoomExterior } from "../rooms/spawnExterior/spawnRoomExterior.js";
 import {
   arenaBoundsForChunk,
@@ -82,7 +82,7 @@ export function miniBossArenaEligibleForChunk(
 ): boolean {
   return chunk.floor >= 1 &&
     chunk.floor < FLOOR_CAP &&
-    !isRoomChunk(chunk.cy) &&
+    !isRoomIsolationChunk(chunk.cy) &&
     !isClaimedStructureChunk(chunk) &&
     !overlapsSpawnRoomExterior({
       ...chunk,

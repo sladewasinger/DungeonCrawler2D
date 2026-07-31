@@ -47,7 +47,7 @@ export const createWindowParts = (
     actions: { toggleContacts: actions.toggleContacts, closeContacts: actions.closeContacts, closeCraft: actions.closeCraft, closeStash: actions.closeStash },
   });
   const manager = new HudWindowManager(options.element);
-  addHudWindows(manager, statics, panels);
+  addHudWindows(manager, { statics, panels, adminDebug: options.adminDebug });
   return {
     panels, manager,
     overlays: new HudOverlays({ manager, panels, focusGame: options.focusGame, releaseStash: options.connection.closeLootChest.bind(options.connection) }),
@@ -60,11 +60,20 @@ export const createWindowParts = (
   };
 };
 
-function addHudWindows(manager: HudWindowManager, statics: StaticParts, panels: WindowParts["panels"]): void {
+function addHudWindows(
+  manager: HudWindowManager,
+  content: {
+    readonly statics: StaticParts;
+    readonly panels: WindowParts["panels"];
+    readonly adminDebug: HTMLElement;
+  },
+): void {
+  const { statics, panels, adminDebug } = content;
   hudWindowSpecs({
     status: statics.status.element, compass: statics.compass.element, buffs: statics.buffs.element,
     hotbar: statics.hotbar.element, chat: panels.chat.element, weapon: statics.weapon.element,
     party: statics.party.element, telemetry: statics.telemetry.element, contacts: panels.contacts.element,
     craft: panels.craft.element, stash: panels.stash.element,
+    adminDebug,
   }).forEach((window) => manager.add(window));
 }

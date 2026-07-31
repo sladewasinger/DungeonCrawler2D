@@ -1,8 +1,8 @@
-aws_profile         = "terraform"
+aws_profile         = "poweraccess-terraform"
 aws_region          = "us-east-1"
 domain_name         = "dungeoncrawl2d.austinwasinger.com"
 instance_type       = "t4g.nano"
-world_seed          = "dungeon-test-1"
+world_seed          = "austin-dungeon-prod-1"
 enable_distribution = true
-operational_event_retention_days = 90
-server_log_retention_days         = 90
+operational_event_retention_days = 365
+server_log_retention_days         = 14

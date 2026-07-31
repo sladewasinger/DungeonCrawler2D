@@ -112,12 +112,12 @@ describe("FloorRegistry: the descent chain", () => {
     const sim3 = floors.ensureFloor(3);
     const join = sim3.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim3.getPlayerEntity(join.playerId)!;
-    const itemsBefore = sim3.itemCount;
+    const chestsBefore = sim3.lootChestCount;
 
     entity.hp = 0;
     for (let i = 0; i < DEATH_TO_RESPAWN_TICKS + 2; i++) floors.stepAll();
 
-    expect(sim3.itemCount).toBeGreaterThan(itemsBefore); // starter kit dropped where they died
+    expect(sim3.lootChestCount).toBeGreaterThan(chestsBefore); // starter kit stays in its death chest
     expect(sim3.playerCount).toBe(0); // no longer resident on floor 3
     const home = floors.findByToken(join.resumeToken)!;
     expect(home.world.floor).toBe(1);

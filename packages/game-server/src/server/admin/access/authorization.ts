@@ -8,6 +8,7 @@ import {
 const SPECTATOR_CAPABILITY = "spectator:use";
 const WORLD_CAPABILITY = "world:edit";
 const DEBUG_CAPABILITY = "debug:inspect";
+const AUDIT_HISTORY_CAPABILITY = "audit:read";
 
 export const ADMIN_CAPABILITIES = [
   "players:read",
@@ -17,6 +18,7 @@ export const ADMIN_CAPABILITIES = [
   "enemies:kill",
   WORLD_CAPABILITY,
   DEBUG_CAPABILITY,
+  AUDIT_HISTORY_CAPABILITY,
   "admins:grant",
 ] as const;
 
@@ -52,6 +54,10 @@ export function authorizeAdminCommand(
   return session.capabilities.has(required)
     ? { allowed: true }
     : { allowed: false, code: "forbidden" };
+}
+
+export function canReadAdminHistory(session: AdminSession | null): boolean {
+  return session?.capabilities.has(AUDIT_HISTORY_CAPABILITY) ?? false;
 }
 
 function capabilityFor(command: AdminCommand): AdminCapability {

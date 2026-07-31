@@ -51,7 +51,7 @@ export const ADMIN_HELP_LINES: readonly string[] = [
   "/admin teleport <playerId> spawn|safeRoom|self|player <targetId>",
   "/admin kill-enemies <playerId> [radius]",
   "/admin map <dungeon|sandbox> <floor> <x> <y> [radius]",
-  "/admin spawn <enemy|item|weapon> <id> <x> <y> [level] [floor]",
+  "/admin spawn <enemy|item|weapon|pet> <id> <x> <y> [level] [floor] [pet-owner]",
 ];
 
 /**

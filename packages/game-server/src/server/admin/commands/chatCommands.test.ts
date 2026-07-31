@@ -10,6 +10,9 @@ describe("admin gameplay chat commands", () => {
     expect(parseAdminChatCommand("/admin spawn weapon sword 4.5 5.5 dungeon 1")).toEqual({
       op: "spawn", kind: "weapon", defId: "sword", x: 4.5, y: 5.5, level: "dungeon", floor: 1,
     });
+    expect(parseAdminChatCommand("/admin spawn pet pet-dino-tard 4.5 5.5 dungeon 1 player-1")).toEqual({
+      op: "spawn", kind: "pet", defId: "pet-dino-tard", x: 4.5, y: 5.5, level: "dungeon", floor: 1, ownerPlayerId: "player-1",
+    });
   });
 
   it("accepts shared spawn-room coordinates for map and spawn commands", () => {
@@ -21,9 +24,21 @@ describe("admin gameplay chat commands", () => {
     });
   });
 
+  it("accepts direct player coordinate teleport commands", () => {
+    expect(parseAdminChatCommand("/admin teleport player-1 coordinates -52.5 131087.5"))
+      .toEqual({
+        op: "teleport",
+        playerId: "player-1",
+        destination: "coordinates",
+        x: -52.5,
+        y: 131087.5,
+      });
+  });
+
   it("rejects malformed or unbounded commands", () => {
     expect(parseAdminChatCommand("/admin kill player-1 extra")).toBeNull();
     expect(parseAdminChatCommand("/admin map dungeon 2 10 10 99")).toBeNull();
     expect(parseAdminChatCommand("/admin spawn enemy slime 10 10 unknown 1")).toBeNull();
+    expect(parseAdminChatCommand("/admin spawn pet pet-dino-tard 10 10 dungeon 1")).toBeNull();
   });
 });

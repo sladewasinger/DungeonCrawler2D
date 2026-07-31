@@ -11,6 +11,7 @@ import type { PlayerSlot, SimState } from "../state/state.js";
 import { clearPetPath } from "./navigation.js";
 import { PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
 import { initialPetBehavior, resetPetBehavior } from "./behaviors/scheduler.js";
+import { assignPetToOwner, removePetOwnedByPlayer } from "./petOwnership.js";
 import { PET_DEFINITIONS, type PetDefinition, type PetSlot } from "./types.js";
 
 export { PET_DRIFT_IDLE_TICKS, PET_DRIFT_INTERVAL_TICKS, PET_SPAWN_DISTANCE_TILES } from "./behaviorConstants.js";
@@ -55,6 +56,22 @@ export function spawnPet(sim: SimState, input: { definition: PetDefinition; posi
   return entity;
 }
 
+/** Replaces the owner's current companion with an already-owned admin pet. */
+export function spawnPetForPlayer(
+  sim: SimState,
+  input: {
+    readonly definition: PetDefinition;
+    readonly position: { readonly x: number; readonly y: number };
+    readonly owner: PlayerSlot;
+  },
+): Entity {
+  removePetOwnedByPlayer(sim, input.owner.entity.id);
+  const entity = spawnPet(sim, input);
+  const pet = sim.pets.get(entity.id)!;
+  assignPetToOwner(pet, input.owner);
+  return entity;
+}
+
 function createPetEntity(sim: SimState, input: { definition: PetDefinition; position: { x: number; y: number } }): Entity {
   const { definition, position } = input;
   return makeEntity("pet", createBody(position.x, position.y, sim.world.groundAt(position.x, position.y)), {
@@ -95,20 +112,11 @@ export function claimNearestPet(sim: SimState, slot: PlayerSlot): boolean {
   if (!target) return false;
   const previous = ownedPet(sim, slot.entity.id);
   if (previous) releasePet(previous);
-  assignPet(target, slot);
+  assignPetToOwner(target, slot);
   slot.outbox.push({ t: "toast", msg: petClaimMessage(target, previous) });
   return true;
 }
 
-function assignPet(target: PetSlot, slot: PlayerSlot): void {
-  target.ownerId = slot.entity.id;
-  target.mode = "following";
-  target.entity.ownerId = slot.entity.id;
-  target.lastOwnerPosition = { x: slot.entity.body.x, y: slot.entity.body.y };
-  target.ownerStillTicks = 0;
-  target.driftTarget = undefined;
-  clearPetPath(target);
-}
 function petClaimMessage(target: PetSlot, previous: PetSlot | undefined): string {
   if (previous) {
     return `${target.definition.name} is now your pet. ${previous.definition.name} is available for another crawler.`;

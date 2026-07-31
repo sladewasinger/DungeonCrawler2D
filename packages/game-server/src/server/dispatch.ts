@@ -24,27 +24,33 @@ import { recordConnectionJoined } from "./connection/connectionLifecycle.js";
 import {
   type ServerConnectionMessageContext,
 } from "./connection/connectionContext.js";
+import { dispatchSpectatorMessage } from "./spectator/spectatorDispatch.js";
 
 /** Per-connection message routing: hello/resume, protocol check, and
  * handing off input/action messages to whichever sim currently owns
  * this player (which can change mid-session — Epic 7.14 floor transfers). */
 
 export function dispatchMessage(msg: ClientMessage, context: ServerConnectionMessageContext): void {
-  const { ws, conn, sockets } = context;
   if (dispatchControlMessage(msg, context)) {
     recordLiveAdminActivity(msg, context);
     return;
   }
-  const playerOwnsSocket = conn.playerId !== null &&
-    currentSocketOwnsPlayer(sockets, conn.playerId, ws);
-  if (playerOwnsSocket) recordMeaningfulGameplayActivity(conn, msg);
   if (msg.type === "chat" && dispatchAdminChatMessage(msg, context)) return;
-  if (conn.playerId && playerOwnsSocket) {
-    routeAuthenticatedMessage(msg, conn.playerId, sockets);
-  }
+  dispatchOwnedPlayerMessage(msg, context);
+}
+
+function dispatchOwnedPlayerMessage(
+  msg: ClientMessage,
+  context: ServerConnectionMessageContext,
+): void {
+  const { conn, sockets, ws } = context;
+  if (!conn.playerId || !currentSocketOwnsPlayer(sockets, conn.playerId, ws)) return;
+  const accepted = routeAuthenticatedMessage(msg, conn.playerId, sockets);
+  if (accepted) recordMeaningfulGameplayActivity(conn, msg);
 }
 
 function dispatchControlMessage(msg: ClientMessage, context: ServerConnectionMessageContext): boolean {
+  if (dispatchSpectatorMessage(msg, context)) return true;
   if (isAdminMessage(msg)) {
     dispatchAdminMessage(msg, context);
     return true;
@@ -88,6 +94,7 @@ function handleHello(msg: ClientHello, context: ServerConnectionMessageContext):
     clientMetadata: msg.clientMetadata,
   });
   configureJoin(sim, join.playerId, msg);
+  context.adminSessions.unbind(ws);
   conn.playerId = join.playerId;
   startGameplayActivity(conn);
   // Admin sessions are created only after the connection proves the server

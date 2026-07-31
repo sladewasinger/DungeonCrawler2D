@@ -9,7 +9,7 @@ export interface OperationalEventConfiguration {
   readonly retentionSeconds?: number;
 }
 
-const DEFAULT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
+const DEFAULT_RETENTION_SECONDS = 365 * 24 * 60 * 60;
 
 /** Returns a no-op sink unless production explicitly configures a table. */
 export function createOperationalEventSink(config: OperationalEventConfiguration): OperationalEventSink {

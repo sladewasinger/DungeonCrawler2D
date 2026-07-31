@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminMapEntitySchema,
   clientAdminAuthSchema,
   clientAdminCommandMessageSchema,
+  clientAdminLogoutSchema,
   clientAdminResumeSchema,
 } from "./wire/admin.js";
 
@@ -12,10 +14,24 @@ describe("admin wire protocol", () => {
       type: "adminResume",
       sessionKey: "a".repeat(43),
     }).success).toBe(true);
+    expect(clientAdminLogoutSchema.safeParse({ type: "adminLogout" }).success).toBe(true);
     expect(clientAdminCommandMessageSchema.safeParse({ type: "adminCommand", command: { op: "list" } }).success).toBe(true);
     expect(clientAdminCommandMessageSchema.safeParse({
       type: "adminCommand",
       command: { op: "spawn", kind: "enemy", defId: "slime", level: "dungeon", floor: 1, x: 1.5, y: 2.5 },
+    }).success).toBe(true);
+    expect(clientAdminCommandMessageSchema.safeParse({
+      type: "adminCommand",
+      command: {
+        op: "spawn",
+        kind: "pet",
+        defId: "pet-dino-tard",
+        level: "dungeon",
+        floor: 1,
+        x: 1.5,
+        y: 2.5,
+        ownerPlayerId: "player-1",
+      },
     }).success).toBe(true);
     expect(clientAdminCommandMessageSchema.safeParse({
       type: "adminCommand",
@@ -45,5 +61,28 @@ describe("admin wire protocol", () => {
       sessionKey: "short",
     }).success).toBe(false);
     expect(clientAdminCommandMessageSchema.safeParse({ type: "adminCommand", command: { op: "kill" } }).success).toBe(false);
+    expect(clientAdminCommandMessageSchema.safeParse({
+      type: "adminCommand",
+      command: { op: "spawn", kind: "pet", defId: "pet-dino-tard", level: "dungeon", floor: 1, x: 1.5, y: 2.5 },
+    }).success).toBe(false);
+  });
+
+  it("accepts rectangular hurtboxes and rejects the obsolete circle field", () => {
+    const entity = {
+      id: "e1",
+      kind: "enemy",
+      x: 1.5,
+      y: 2.5,
+      z: 0,
+    } as const;
+
+    expect(adminMapEntitySchema.safeParse({
+      ...entity,
+      debug: { hurtbox: { halfWidth: 0.8, halfDepth: 0.45 } },
+    }).success).toBe(true);
+    expect(adminMapEntitySchema.safeParse({
+      ...entity,
+      debug: { hurtboxRadius: 0.8 },
+    }).success).toBe(false);
   });
 });

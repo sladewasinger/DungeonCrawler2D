@@ -35,6 +35,14 @@ export interface EnemyObservedTarget {
   readonly movementY: number;
 }
 
+/** Sandbox-only reconstruction request for a defeated regenerating target. */
+export interface PendingEnemyRespawn {
+  readonly defId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly dueTick: number;
+}
+
 export interface EnemySearchState {
   readonly anchor: EnemySearchPoint;
   readonly visitedWaypointKeys: readonly string[];

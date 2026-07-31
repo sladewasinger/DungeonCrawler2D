@@ -43,10 +43,10 @@ describe("safe-room door placements", () => {
       const index = localIndex(room, door);
       const northWall = door.wall === "north";
       expect(chunk.terrain[index], `${door.wall} terrain`)
-        .toBe(northWall ? TERRAIN.Floor : TERRAIN.Void);
+        .toBe(TERRAIN.Floor);
       expect(chunk.tiles[index], `${door.wall} tile`)
-        .toBe(northWall ? TILE.Floor : TILE.Void);
-      expect(chunk.height[index], `${door.wall} height`).toBe(northWall ? 3 : 0);
+        .toBe(northWall ? TILE.Floor : TILE.Bedrock);
+      expect(chunk.height[index], `${door.wall} height`).toBe(3);
       expect(inwardTerrain(chunk, room, door)).toBe(TERRAIN.Floor);
       expect(roomDoorWallAt({ kind: "safe", ...room, x: door.x, y: door.y })).toBe(door.wall);
     }
@@ -68,7 +68,7 @@ describe("safe-room door placements", () => {
     expect(generateRoomChunk(room.cx, room.cy).height[localIndex(room, door)]).toBe(3);
   });
 
-  it("overlays a door without punching through either raised or VOID collision", () => {
+  it("overlays a door without punching through either raised or sealed collision", () => {
     const world = new World(hashString("room-wall-feature"), 1);
     const room = safeRoomChunk(4, 7);
     const doors = safeRoomDoorPlacements(room.cx, room.cy);
@@ -87,7 +87,8 @@ describe("safe-room door placements", () => {
     expect(world.featureFaceAt(north.x, north.y)).toBe(north.featureFace);
     expect(world.heightAt(north.x, north.y)).toBe(3);
     expect(world.tileAt(west.x, west.y)).toBe(TILE.DoorPersonal);
-    expect(world.terrainAt(west.x, west.y)).toBe(TERRAIN.Void);
+    expect(world.terrainAt(west.x, west.y)).toBe(TERRAIN.Floor);
+    expect(world.surfaceTileAt(west.x, west.y)).toBe(TILE.Bedrock);
     expect(world.isWalkable(west.x, west.y)).toBe(false);
 
     const body = createBody(north.x + 0.5, north.y + 1.5, 0);

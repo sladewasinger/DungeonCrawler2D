@@ -7,6 +7,7 @@ import { handleConnection } from "../connection/connectionHandler.js";
 import type { OperationalEventSink } from "../operations/operationalEvent.js";
 import type { ServerNetworkDiagnostics } from "../telemetry/networkDiagnostics.js";
 import type { SocketMap } from "../types.js";
+import type { SpectatorSubscriptions } from "../spectator/spectatorSubscriptions.js";
 
 export interface ConnectionContextInput {
   readonly opts: ServerOptions;
@@ -19,12 +20,13 @@ export interface ConnectionContextInput {
   readonly adminSessions: ReturnType<typeof createAdminRuntime>["sessions"];
   readonly adminSubscriptions: ReturnType<typeof createAdminRuntime>["subscriptions"];
   readonly operationalEvents: OperationalEventSink;
+  readonly spectatorSubscriptions: SpectatorSubscriptions;
 }
 
 export function createConnectionContext(
   input: ConnectionContextInput,
 ): Parameters<typeof handleConnection>[1] {
-  const { opts, floors, sandbox, sockets, networkMetrics, admin, adminAccess, adminSessions, adminSubscriptions, operationalEvents } = input;
+  const { opts, floors, sandbox, sockets, networkMetrics, admin, adminAccess, adminSessions, adminSubscriptions, spectatorSubscriptions, operationalEvents } = input;
   return {
     floors,
     sandbox,
@@ -37,6 +39,7 @@ export function createConnectionContext(
     adminAccess,
     adminSessions,
     adminSubscriptions,
+    spectatorSubscriptions,
     trustProxy: opts.trustProxy ?? false,
     operationalEvents,
     ...(opts.operationalEventPepper ? { operationalEventPepper: opts.operationalEventPepper } : {}),
@@ -46,7 +49,7 @@ export function createConnectionContext(
 export function createBroadcastContext(
   input: Omit<ConnectionContextInput, "adminAccess" | "adminSessions" | "operationalEvents">,
 ): Parameters<typeof broadcastTick>[0] {
-  const { opts, floors, sandbox, sockets, networkMetrics, admin, adminSubscriptions } = input;
+  const { opts, floors, sandbox, sockets, networkMetrics, admin, adminSubscriptions, spectatorSubscriptions } = input;
   return {
     floors,
     sandbox,
@@ -54,6 +57,7 @@ export function createBroadcastContext(
     diagnostics: networkMetrics,
     admin,
     adminSubscriptions,
+    spectatorSubscriptions,
     ...(opts.gameplayIdleTimeoutMs ? { gameplayIdleTimeoutMs: opts.gameplayIdleTimeoutMs } : {}),
   };
 }

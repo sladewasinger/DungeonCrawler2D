@@ -25,8 +25,8 @@ describe("melee cone-vs-body (point-blank playability)", () => {
     expect(meleeTarget({ attacker, enemy })).toBe(enemy);
   });
 
-  it("still misses a ranged enemy 60 degrees off-axis", () => {
-    const { attacker, enemy } = targetAt(1.5, 60);
+  it("still misses a ranged enemy whose full box is off-axis", () => {
+    const { attacker, enemy } = targetAt(1.5, 70);
     expect(meleeTarget({ attacker, enemy })).toBeNull();
   });
 
@@ -49,7 +49,7 @@ describe("melee cone-vs-body (point-blank playability)", () => {
     const distant = targetAt(2.2, 0);
     expect(meleeTarget({ ...distant, range: 2, arcCos: 0.7071 })).toBe(distant.enemy);
     expect(meleeTarget({ ...distant, range: 1.6, arcCos: 0.8 })).toBeNull();
-    const offAxis = targetAt(1.5, 50);
+    const offAxis = targetAt(1.5, 60);
     expect(meleeTarget({ ...offAxis, range: 2, arcCos: 0.7071 })).toBe(offAxis.enemy);
     expect(meleeTarget({ ...offAxis, range: 1.6, arcCos: 0.8 })).toBeNull();
   });

@@ -4,6 +4,7 @@ import {
   PARTY_ROOM_W,
   PERSONAL_ROOM_H,
   PERSONAL_ROOM_W,
+  ROOM_ISOLATION_BUFFER_CHUNKS,
   ROOM_REGION_CY,
   SAFE_ROOM_H,
   SAFE_ROOM_W,
@@ -18,6 +19,11 @@ const SAFE_ROOM_BASE_CY =
 
 export function isRoomChunk(cy: number): boolean {
   return cy >= ROOM_REGION_CY;
+}
+
+/** Room chunks plus the sealed buffer that no dungeon terrain may enter. */
+export function isRoomIsolationChunk(cy: number): boolean {
+  return cy >= ROOM_REGION_CY - ROOM_ISOLATION_BUFFER_CHUNKS;
 }
 
 export function personalRoomChunk(slot: number): { cx: number; cy: number } {

@@ -1,10 +1,10 @@
 # v0.8.0 implementation handoff
 
-Date: 2026-07-30
+Date: 2026-07-31
 
 This file is for the next agent taking over the current v0.8.0 worktree. The
-tree is intentionally uncommitted so Austin can playtest before the release
-commit and push.
+integrated release changes are intended for a local commit after validation;
+they must not be pushed until Austin finishes playtesting and asks for it.
 
 ## User-visible bugs that must remain in scope
 
@@ -32,7 +32,7 @@ commit and push.
   knockback/cooldown differences.
 - Combat geometry split into attack, guard, weapon, feedback, status, and
   geometry modules.
-- Larger enemy hurtboxes and tighter player hurtboxes.
+- Individually authored rectangular enemy hurtboxes and a tighter player box.
 - Active-admin-only in-game debug flags for hurtboxes, attacks, guards, LOS,
   behavior/search, and navigation, with actual 2D and Three overlays.
 - Secure `/admin` portal with token authentication, connected-player controls,
@@ -196,20 +196,81 @@ commit and push.
   visible actor-adjacent depth band, while preserving the replicated one-shot
   event contract.
 
+### July 31 admin, spectator, and operations continuation
+
+- The admin portal now uses stable player rows, contextual grouped controls,
+  an independently focused map inspector, content-derived Enemy/Item/Weapon/Pet
+  tabs, tile-centered placement, selected-player pet ownership, command history,
+  coordinate teleport, and radius-controlled enemy removal.
+- Spectating uses a separate read-only connection and the full game renderer.
+  Public spectators can opt into the inert player HUD; the admin viewer defaults
+  it off, supports smooth follow, untethered free camera, center/previous/next,
+  and releases the spectator connection whenever its switch is off.
+- Server-issued admin sessions have sliding inactivity expiry and live socket
+  binding. Logout, revocation, or expiry invalidates every sibling socket and
+  continuation key for that session; passive observer updates do not extend it.
+- Spectator start/command limits survive reconnects for their complete rolling
+  window. Idle activity now records only accepted gameplay input and an explicit
+  meaningful-intent set, so protocol traffic and invalid/no-op actions cannot
+  keep a crawler connected.
+- Spawn and safe rooms exclude enemies and ordinary dungeon presentation. A
+  non-walkable bedrock apron fills zoomed-out visual bounds without exposing or
+  connecting the dungeon plane.
+- Gameplay admin diagnostics now project only enabled nearby geometry, prune
+  stale labels, and reuse bounded Three.js drawing pools instead of rebuilding
+  terrain maps and graphics every snapshot.
+- Terraform and the deployment guide now use the `poweraccess-terraform` AWS
+  profile and the existing S3 remote state. The configuration validates with
+  AWS provider 6.54. Applying operational history and monitoring remains a
+  separate, explicitly authorized operator action.
+
+### July 31 combat-box and Sandbox continuation
+
+- Combat receivers are now canonical world-space, axis-aligned boxes. Every
+  shipped enemy definition has explicit half-width and half-depth values, with
+  larger authored dimensions for bosses and oversized sprites. A content
+  completeness test prevents future enemies from silently omitting them.
+- Cone attacks use exact finite-sector/box intersection, ground attacks use
+  disk/box intersection, and direct projectile circles intersect the same
+  boxes. Active attacks still use the attacker's current position on ticks 0,
+  50, 100, and 150 ms, preserve their accepted direction/profile, and contact
+  each grouped target once.
+- The visible attack wedge continues to use the exact weapon profile range and
+  arc. Its tip now uses the same body/ground origin as server combat; the former
+  chest-height half-tile visual offset is removed.
+- Admin, Phaser, and Three debug views serialize and draw the exact four-corner
+  box under the single label **Hurtboxes**. The obsolete debug radius field is
+  rejected. In-game checkboxes now retain a pending selection until the next
+  authoritative snapshot instead of blinking back to stale state.
+- The live Sandbox auto-seeds one stationary, flammable Training Dummy near the
+  test area. It uses ordinary damage/status/death events, grants 25 XP, drops no
+  loot, and returns at full health exactly one second after defeat. It is not in
+  any random dungeon roster, and the admin catalog discovers it automatically.
+- Tard's toot now ejects opposite his facing under all four camera rotations,
+  lasts 2.2 seconds, and travels roughly three times farther than before. Every
+  idle/start-moving trigger uses the same replicated effect path.
+- Headless Chromium verification against an isolated local server authenticated
+  the portal, joined the Sandbox, granted the player live admin access,
+  teleported beside the Training Dummy, and displayed the dummy/player boxes
+  together with the active sword cone. No page errors were recorded.
+
 ## Validation status
 
-The final integrated release gate passed on 2026-07-30:
+The final integrated release gate passed on 2026-07-31:
 
 - `npm run lint`
 - `npm run typecheck`
 - `npm run build`
-- `npm test` — 560 files and 2,393 tests passed
+- `npm test` — 593 files and 2,502 tests passed
 - `git diff --check`
 
 The folder-size check reports only the repository's existing legacy notices,
-not a failure. Terraform and OpenTofu are not installed in this workspace, so
-the HCL was manually reviewed but `terraform fmt -check` and
-`terraform validate` could not run. No Terraform apply was attempted.
+not a failure. Terraform `fmt -check` and `validate` pass with AWS provider
+6.54 and the `poweraccess-terraform` profile. The latest production-variable
+plan is 16 additions, two in-place updates, and zero destroys: it preserves the
+current EC2 instance, Elastic IP, root volume, and production seed while adding
+the operational-event, logging, alarm, backup, policy, and SSM runtime resources.
+No Terraform apply was attempted.
 
 ## Antagonist review status
 

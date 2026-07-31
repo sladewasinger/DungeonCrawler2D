@@ -1,4 +1,9 @@
-import { TERRAIN as WORLD_TERRAIN, TILE } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  TERRAIN as WORLD_TERRAIN,
+  TILE,
+  isRoomIsolationChunk,
+} from "@dc2d/engine";
 import {
   TERRAIN_KINDS,
   TERRAIN_SURFACES,
@@ -11,6 +16,8 @@ import type { TerrainWorld } from "./world.js";
 export function createTerrainSource(world: TerrainWorld): TerrainSource {
   return {
     voidTerrain: world.features.voidTerrain,
+    allowsVoidAt: (_x, y) =>
+      isRoomIsolationChunk(Math.floor(y / CHUNK_SIZE)),
     terrainAt: (x, y) => world.terrainAt(x, y) === WORLD_TERRAIN.Void
       ? TERRAIN_KINDS.Void
       : TERRAIN_KINDS.Floor,

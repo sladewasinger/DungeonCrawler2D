@@ -90,7 +90,7 @@ describe("height-derived terrain boundaries", () => {
     expect(Array.from(world.getChunk(2, 2).tiles)).not.toContain(1);
   });
 
-  it("stretch rooms keep only the north wall raised and use VOID for the collision shell", () => {
+  it("stretch rooms keep only the north wall raised and use a sealed collision apron", () => {
     const world = new World(SEED, FLOOR);
     const room = personalRoomChunk(0);
     const left = Math.floor(CHUNK_SIZE / 2 - PERSONAL_ROOM_W / 2);
@@ -99,7 +99,7 @@ describe("height-derived terrain boundaries", () => {
     for (let lx = left; lx < left + PERSONAL_ROOM_W; lx++) {
       expect(world.heightAt(room.cx * CHUNK_SIZE + lx, room.cy * CHUNK_SIZE + top)).toBe(3);
     }
-    expect(world.tileAt(room.cx * CHUNK_SIZE + left - 1, Math.floor(spawn.y))).toBe(TILE.Void);
+    expect(world.tileAt(room.cx * CHUNK_SIZE + left - 1, Math.floor(spawn.y))).toBe(TILE.Bedrock);
     expect(world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
   });
 });

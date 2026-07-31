@@ -89,6 +89,11 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private startRequestedScene({ requestedScene, requestedTestbench }: SceneRequest): void {
+    const startupScene = this.registry.get("startupScene");
+    if (typeof startupScene === "string") {
+      this.scene.start(startupScene);
+      return;
+    }
     const testbench = testbenchSceneKey(requestedTestbench);
     if (testbench) {
       this.scene.start(testbench);

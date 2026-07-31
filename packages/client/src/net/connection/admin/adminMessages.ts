@@ -1,5 +1,9 @@
 import type { ServerMessage } from "@dc2d/engine";
+import { createDebugFlags } from "@dc2d/engine";
 import type { Connection } from "../connection.js";
+
+type AdminAuthMessage = Extract<ServerMessage, { type: "adminAuthResult" }>;
+export type AdminAuthFailureReason = NonNullable<AdminAuthMessage["reason"]>;
 
 export interface AdminCommandResult {
   readonly ok: boolean;
@@ -20,14 +24,36 @@ export function handleAdminMessage(
 
 function handleAuth(
   conn: Connection,
-  message: Extract<ServerMessage, { type: "adminAuthResult" }>,
+  message: AdminAuthMessage,
 ): true {
+  applyAdminAuthentication(conn, message);
+  conn.onAdminAuth?.(message.ok, message.reason);
+  notifyAuthenticationFailure(conn, message);
+  return true;
+}
+
+function applyAdminAuthentication(conn: Connection, message: AdminAuthMessage): void {
   conn.adminAuthenticated = message.ok;
   conn.adminSessionKey = message.ok ? message.sessionKey ?? null : null;
   conn.adminCapabilities = message.capabilities ?? [];
-  conn.onAdminAuth?.(message.ok);
-  if (!message.ok) conn.pushToast(`Admin authentication ${message.reason ?? "failed"}`);
-  return true;
+  if (!message.ok) clearAdminPortalState(conn);
+}
+
+function notifyAuthenticationFailure(conn: Connection, message: AdminAuthMessage): void {
+  if (!message.ok && message.reason !== "logged_out") {
+    conn.pushToast(`Admin authentication ${message.reason ?? "failed"}`);
+  }
+}
+
+function clearAdminPortalState(conn: Connection): void {
+  conn.adminPlayers = [];
+  conn.adminMap = null;
+  conn.adminSpectatorMap = null;
+  conn.adminPalette = { enemies: [], items: [], weapons: [], pets: [] };
+  conn.adminDebugFlags = createDebugFlags();
+  conn.adminHistory = [];
+  conn.spectatorMode = "off";
+  conn.spectatorTargetId = null;
 }
 
 function handleState(
@@ -38,6 +64,7 @@ function handleState(
   conn.adminMap = message.map;
   conn.adminPalette = message.palette;
   conn.adminDebugFlags = message.debug;
+  conn.adminHistory = message.history;
   conn.onAdminState?.();
   return true;
 }

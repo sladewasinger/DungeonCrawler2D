@@ -5,6 +5,7 @@ import {
 } from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
+import { enemyOccupancyIsAllowed } from "./roomIsolation/enemyRoomIsolation.js";
 import { isInsideSpawnEnemyExclusion } from "./population/nearSpawn.js";
 
 export interface SpawnBounds {
@@ -37,7 +38,8 @@ export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
 }
 
 export function validEnemySpawn(sim: SimState, x: number, y: number): boolean {
-  if (!sim.world.isWalkable(x, y) || sim.world.isSanctuary(x, y)) return false;
+  if (!sim.world.isWalkable(x, y) ||
+      !enemyOccupancyIsAllowed(sim, { x, y })) return false;
   if (sim.world.heightAt(x, y) <= CHASM_DEATH_Z) return false;
   if (miniBossArenaAtPosition(sim.world, x, y)) return false;
   if (isInsideSpawnEnemyExclusion(sim, { x: x + 0.5, y: y + 0.5 })) return false;

@@ -16,6 +16,8 @@ import { NullOperationalEventSink, type OperationalEventSink } from "../operatio
 import { ServerNetworkDiagnostics } from "../telemetry/networkDiagnostics.js";
 import type { SocketMap } from "../types.js";
 import { createBroadcastContext, createConnectionContext } from "./serverRuntimeContext.js";
+import { SpectatorDirectory } from "../spectator/spectatorDirectory.js";
+import { SpectatorSubscriptions } from "../spectator/spectatorSubscriptions.js";
 
 export interface ServerRuntime {
   readonly wss: WebSocketServer;
@@ -26,6 +28,7 @@ export interface ServerRuntime {
   readonly networkMetrics: ServerNetworkDiagnostics;
   readonly adminAudit: MemoryAdminAuditSink;
   readonly operationalEvents: OperationalEventSink;
+  readonly spectatorSubscriptions: SpectatorSubscriptions;
   readonly context: Parameters<typeof handleConnection>[1];
   readonly tickContext: Parameters<typeof broadcastTick>[0];
 }
@@ -78,10 +81,12 @@ function assembleRuntime(input: RuntimeAssemblyInput): ServerRuntime {
   const { floors, sandbox, sockets, networkMetrics } = foundation;
   const { controller: admin, audit: adminAudit, access: adminAccess } = adminRuntime;
   const { sessions: adminSessions, subscriptions: adminSubscriptions } = adminRuntime;
+  const spectatorSubscriptions = createSpectatorSubscriptions(input);
   return {
     ...foundation,
     adminAudit,
     operationalEvents,
+    spectatorSubscriptions,
     context: createConnectionContext({
       opts,
       floors,
@@ -92,10 +97,25 @@ function assembleRuntime(input: RuntimeAssemblyInput): ServerRuntime {
       adminAccess,
       adminSessions,
       adminSubscriptions,
+      spectatorSubscriptions,
       operationalEvents,
     }),
-    tickContext: createBroadcastContext({ opts, floors, sandbox, sockets, networkMetrics, admin, adminSubscriptions }),
+    tickContext: createBroadcastContext({ opts, floors, sandbox, sockets, networkMetrics, admin, adminSubscriptions, spectatorSubscriptions }),
   };
+}
+
+function createSpectatorSubscriptions(
+  input: RuntimeAssemblyInput,
+): SpectatorSubscriptions {
+  const { opts, foundation } = input;
+  return new SpectatorSubscriptions({
+    directory: new SpectatorDirectory({
+      sockets: foundation.sockets,
+      seedInputText: opts.seedInputText ?? String(opts.worldSeed),
+      worldSeed: opts.worldSeed,
+    }),
+    diagnostics: foundation.networkMetrics,
+  });
 }
 
 function simulationOptions(opts: ServerOptions): GameSim["state"]["opts"] {

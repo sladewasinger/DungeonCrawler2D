@@ -3,7 +3,6 @@ import {
   safeRoomSpawn,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { spawnEnemy } from "../../../core/helpers.js";
 import {
   blockSurfaceCell,
   mockTerrainCrest,
@@ -67,13 +66,6 @@ describe("Chort directional flame safety boundaries", () => {
   it("rejects sanctuary and interior-room targets", () => {
     const fixture = createFlameFixture(1);
     const sanctuary = safeRoomSpawn(0, 0);
-    const roomSourceEntity = spawnEnemy(fixture.sim, {
-      defId: "chort",
-      x: sanctuary.x,
-      y: sanctuary.y,
-    });
-    const roomSource = fixture.sim.enemies.get(roomSourceEntity.id);
-    if (!roomSource) throw new Error("missing room Chort fixture");
 
     expect(flameCellIsReachable({
       sim: fixture.sim,
@@ -81,9 +73,10 @@ describe("Chort directional flame safety boundaries", () => {
       x: Math.floor(sanctuary.x),
       y: Math.floor(sanctuary.y),
     })).toBe(false);
+    Object.assign(fixture.enemy.entity.body, sanctuary);
     expect(flameCellIsReachable({
       sim: fixture.sim,
-      enemy: roomSource,
+      enemy: fixture.enemy,
       x: fixture.tileX,
       y: fixture.tileY,
     })).toBe(false);

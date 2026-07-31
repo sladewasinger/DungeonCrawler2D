@@ -7,6 +7,7 @@ import {
 } from "@dc2d/engine";
 import { scaledEnemyDef } from "../floors/scaling.js";
 import type { EnemySlot, SimState } from "../state/state.js";
+import { enemyOccupancyIsAllowed } from "./roomIsolation/enemyRoomIsolation.js";
 
 /** Server-authoritative enemy construction with floor-scaled stats. */
 export interface EnemySpawn {
@@ -21,6 +22,9 @@ export interface EnemySpawn {
 export function spawnEnemy(sim: SimState, spawn: EnemySpawn): Entity {
   const baseDef = sim.content.enemies.get(spawn.defId);
   if (!baseDef) throw new Error(`unknown enemy ${spawn.defId}`);
+  if (!enemyOccupancyIsAllowed(sim, spawn)) {
+    throw new Error("enemy spawn denied in protected room space");
+  }
   const def = scaledEnemyDef(baseDef, sim.world.floor);
   const entity = createEnemyEntity(sim, spawn, def);
   sim.enemies.set(entity.id, createEnemySlot({
@@ -48,6 +52,7 @@ function createEnemyEntity(
       hp: def.hp,
       maxHp: def.hp,
       baseSpeed: def.speed,
+      ...(def.hurtbox ? { combatHurtbox: def.hurtbox } : {}),
       tags: new Set(def.tags),
       facing: { x: 0, y: 1 },
     },

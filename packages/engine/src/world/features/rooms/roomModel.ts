@@ -7,8 +7,10 @@ export const PARTY_ROOM_H = ROOM_TUNING.party.height;
 export const SAFE_ROOM_W = ROOM_TUNING.safe.width;
 export const SAFE_ROOM_H = ROOM_TUNING.safe.height;
 export const SAFE_ROOM_MAX_OCCUPANTS = ROOM_TUNING.safe.maximumOccupants;
-/** Chunk rows at/below this cy are deterministic room space. */
+/** Chunk rows at/above this cy are deterministic room space. */
 export const ROOM_REGION_CY = ROOM_TUNING.reservedRegionChunkY;
+/** Empty rows separating room cameras from the nearest dungeon terrain. */
+export const ROOM_ISOLATION_BUFFER_CHUNKS = 2;
 /** Roughly twice the safe room's footprint while remaining one 32×32 chunk. */
 export const SPAWN_ROOM_W = ROOM_TUNING.spawn.width;
 export const SPAWN_ROOM_H = ROOM_TUNING.spawn.height;

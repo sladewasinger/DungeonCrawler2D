@@ -9,6 +9,7 @@ import {
   repopulateNearSpawn,
   stepEnemies,
 } from "../enemies/index.js";
+import { respawnTrainingDummies } from "../enemies/training/trainingDummy.js";
 import { drainReadyTransfers, stepBoss } from "../floors/index.js";
 import { expireLootChests } from "../lootChests/lootChests.js";
 import { stepFoodAttendantDialogs } from "../npcs/foodAttendant/index.js";
@@ -35,6 +36,7 @@ export function advanceSimTick(sim: SimState): void {
 
 function prepareSimTick(sim: SimState, effectEvents: EffectEvent[]): void {
   reapAndRespawn(sim);
+  respawnTrainingDummies(sim);
   syncWorldFeatureOverrides(sim);
   stepPlayers(sim, effectEvents);
   processActions(sim, effectEvents);

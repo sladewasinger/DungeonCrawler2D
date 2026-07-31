@@ -23,6 +23,7 @@ const contents = (): HudWindowContents => ({
   contacts: {} as HTMLElement,
   craft: {} as HTMLElement,
   stash: {} as HTMLElement,
+  adminDebug: {} as HTMLElement,
 });
 
 describe("HUD window defaults", () => {
@@ -33,6 +34,16 @@ describe("HUD window defaults", () => {
       id: "three-telemetry",
       title: "World status",
       defaultVisible: false,
+    });
+  });
+
+  it("registers admin overlays as an interactive persisted HUD window", () => {
+    expect(windows.find(({ id }) => id === "admin-debug")).toMatchObject({
+      title: "Admin overlays",
+      anchor: "top-right",
+      interactive: true,
+      defaultVisible: true,
+      initiallyAvailable: false,
     });
   });
 

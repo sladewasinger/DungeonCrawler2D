@@ -2,28 +2,29 @@
 // of runtime chunks, finalized as one surface, then sliced into 32×32 chunks.
 
 import type { Chunk } from "../core/types.js";
-import { DEFAULT_WORLD_FEATURES } from "../core/worldFeatures.js";
-import { generateRoomChunk, isRoomChunk } from "../features/rooms/rooms.js";
+import {
+  generateRoomChunk,
+  isRoomIsolationChunk,
+} from "../features/rooms/rooms.js";
 import { generateDistrictChunks as generateTerrainDistrict } from "./district/districtGeneration.js";
 import type { ChunkGenerationRequest } from "./generationState.js";
-import { assertChunkWorldFeatures } from "./worldFeatureInvariant.js";
 
 export type { ChunkGenerationRequest } from "./generationState.js";
 
 function generateSpecialRoom(request: ChunkGenerationRequest): Chunk {
-  const features = request.features ?? DEFAULT_WORLD_FEATURES;
-  const room = generateRoomChunk(request.cx, request.cy, features.voidTerrain);
-  return assertChunkWorldFeatures(room, features);
+  // Room planes keep their own sealed Bedrock apron even when ordinary dungeon
+  // terrain uses the finite accessibility mode.
+  return generateRoomChunk(request.cx, request.cy);
 }
 
 export function generateDistrictChunks(
   request: ChunkGenerationRequest,
 ): readonly Chunk[] {
-  if (isRoomChunk(request.cy)) return [generateSpecialRoom(request)];
-  // The final dungeon district overlaps the reserved room band numerically.
-  // Never let its batched cache payload replace independently generated rooms.
+  if (isRoomIsolationChunk(request.cy)) return [generateSpecialRoom(request)];
+  // The final dungeon district overlaps the isolated room plane numerically.
+  // Never let its batched cache payload replace rooms or their sealed buffer.
   return generateTerrainDistrict(request).filter((chunk) => {
-    return !isRoomChunk(chunk.cy);
+    return !isRoomIsolationChunk(chunk.cy);
   });
 }
 

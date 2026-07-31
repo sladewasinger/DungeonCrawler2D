@@ -28,15 +28,17 @@ export function createAdminRuntime(input: AdminRuntimeInput): AdminRuntime {
   const auditSink = input.operationalEvents
     ? new CompositeAdminAuditSink([audit, new OperationalAdminAuditSink(input.operationalEvents)])
     : audit;
+  const sessions = new AdminSessionRegistry();
   return {
     controller: new AdminController({
       floors: input.floors,
       sandbox: input.sandbox,
       audit: auditSink,
+      history: audit,
     }),
     audit,
     access: new AdminAccessLimiter(),
-    sessions: new AdminSessionRegistry(),
-    subscriptions: new AdminStateSubscriptions(),
+    sessions,
+    subscriptions: new AdminStateSubscriptions(sessions),
   };
 }

@@ -1,5 +1,6 @@
 import {
   createDebugFlags,
+  type AdminHistoryEntry,
   type AdminObserverState,
   type AdminPlayer,
   type AdminState,
@@ -8,7 +9,7 @@ import type { FloorRegistry } from "../../floors/floorRegistry.js";
 import type { GameSim } from "../../sim/core/index.js";
 import type { AdminSession } from "./access/authorization.js";
 import type { SpectatorSession } from "./spectator/spectatorSession.js";
-import { mapForInspector, mapForTrackedSpectator } from "./worldCommands.js";
+import { mapForInspector, mapForSpectator } from "./worldCommands.js";
 
 export interface AdminStateInput {
   readonly floors: FloorRegistry;
@@ -16,6 +17,7 @@ export interface AdminStateInput {
   readonly spectator: SpectatorSession;
   readonly session: AdminSession | null;
   readonly players: readonly AdminPlayer[];
+  readonly history: readonly AdminHistoryEntry[];
 }
 
 export function buildAdminState(input: AdminStateInput): AdminState {
@@ -32,6 +34,7 @@ export function buildAdminState(input: AdminStateInput): AdminState {
     spectatorMap: observer.spectatorMap,
     palette: input.sandbox.admin.palette(),
     debug: input.session?.debugFlags ?? createDebugFlags(),
+    history: [...input.history],
   };
 }
 
@@ -43,7 +46,7 @@ export function buildAdminObserverState(input: AdminStateInput): AdminObserverSt
       mode: input.spectator.mode,
       playerId: input.spectator.playerId,
     },
-    spectatorMap: mapForTrackedSpectator(
+    spectatorMap: mapForSpectator(
       { floors: input.floors, sandbox: input.sandbox },
       input.spectator,
       input.players,

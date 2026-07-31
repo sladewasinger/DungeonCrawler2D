@@ -6,7 +6,7 @@ import {
   visibleAreaViews,
 } from "../world/areas/visibleAreaViews.js";
 import { applyVisualEvents } from "../visuals/visualEvents.js";
-import { syncExpiredWhiffs } from "./frameExpiredSwings.js";
+import { syncExpiredWhiffs } from "./effects/expiredSwings.js";
 import { syncSelfVfx } from "./frameSelfVfx.js";
 import type { FrameSyncContext } from "./frameSync.js";
 

@@ -1,5 +1,4 @@
 import type Phaser from "phaser";
-import type { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type {
   EntityRenderer,
@@ -21,13 +20,14 @@ import { resolveSelfAimAngle } from "../player/selfAim.js";
 import type { DungeonSceneState, RenderPose } from "../orchestration/state.js";
 import { syncMeleeSwings } from "../combat/meleeSwingSync.js";
 import { assistedSelfAimFacing } from "../player/selfCosmetics.js";
+import type { DungeonPresentationInput } from "../frame/presentationInput.js";
 
 export interface CombatantSyncFrame {
   readonly scene: Phaser.Scene;
   readonly conn: Connection;
   readonly entityRenderer: EntityRenderer;
   readonly vfx: VfxSystem;
-  readonly inputController: InputController;
+  readonly inputController: DungeonPresentationInput;
   readonly state: DungeonSceneState;
   readonly nowMs: number;
   readonly render: RenderPose;

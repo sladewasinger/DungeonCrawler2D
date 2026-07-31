@@ -5,15 +5,16 @@ import {
 } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../state/state.js";
 
-export function handleInput(sim: SimState, playerId: string, input: ClientInput): void {
+export function handleInput(sim: SimState, playerId: string, input: ClientInput): boolean {
   const slot = sim.players.get(playerId);
-  if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return;
+  if (!slot || !slot.connected || slot.entity.hp <= 0 || slot.downedAtTick !== null) return false;
   const highestReceivedSeq = slot.highestReceivedSeq ?? slot.lastSeq;
-  if (input.seq <= highestReceivedSeq) return;
-  if (!alignInputTimeline(slot, input.projectedServerTick)) return;
+  if (input.seq <= highestReceivedSeq) return false;
+  if (!alignInputTimeline(slot, input.projectedServerTick)) return false;
   slot.highestReceivedSeq = input.seq;
   slot.lastInputReceivedAtTick = sim.tickCount;
   queueByProjectedTick(slot.pendingInputs, input);
+  return true;
 }
 
 export function advanceInputTimeline(slot: PlayerSlot): ClientInput | undefined {
