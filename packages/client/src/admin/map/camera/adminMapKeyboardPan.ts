@@ -3,6 +3,7 @@ import type { AdminMapCenter } from "../adminMapCamera.js";
 export interface AdminMapKeyboardPanOptions {
   readonly canvas: HTMLCanvasElement;
   readonly onPan: (direction: AdminMapCenter, elapsedMs: number) => void;
+  readonly eventTarget?: EventTarget;
 }
 
 const DIRECTIONS: Readonly<Record<string, AdminMapCenter>> = {
@@ -19,35 +20,37 @@ const DIRECTIONS: Readonly<Record<string, AdminMapCenter>> = {
 /** Smooth keyboard panning for a focused map canvas. */
 export class AdminMapKeyboardPan {
   private readonly heldKeys = new Set<string>();
-  private readonly onKeyDown = (event: KeyboardEvent) => this.handleKeyDown(event);
-  private readonly onKeyUp = (event: KeyboardEvent) => this.handleKeyUp(event);
+  private readonly eventTarget: EventTarget;
+  private readonly onKeyDown = (event: Event) => this.handleKeyDown(event);
+  private readonly onKeyUp = (event: Event) => this.handleKeyUp(event);
   private readonly onWindowBlur = () => this.release();
   private animationFrame: number | null = null;
   private previousAnimationAt: number | null = null;
 
   constructor(private readonly options: AdminMapKeyboardPanOptions) {
-    window.addEventListener("keydown", this.onKeyDown);
-    window.addEventListener("keyup", this.onKeyUp);
-    window.addEventListener("blur", this.onWindowBlur);
+    this.eventTarget = options.eventTarget ?? window;
+    this.eventTarget.addEventListener("keydown", this.onKeyDown);
+    this.eventTarget.addEventListener("keyup", this.onKeyUp);
+    this.eventTarget.addEventListener("blur", this.onWindowBlur);
   }
 
   dispose(): void {
-    window.removeEventListener("keydown", this.onKeyDown);
-    window.removeEventListener("keyup", this.onKeyUp);
-    window.removeEventListener("blur", this.onWindowBlur);
+    this.eventTarget.removeEventListener("keydown", this.onKeyDown);
+    this.eventTarget.removeEventListener("keyup", this.onKeyUp);
+    this.eventTarget.removeEventListener("blur", this.onWindowBlur);
     this.release();
   }
 
-  private handleKeyDown(event: KeyboardEvent): void {
-    const key = normalizedMapKey(event.key);
+  private handleKeyDown(event: Event): void {
+    const key = normalizedMapKey(keyFromEvent(event));
     if (!key || document.activeElement !== this.options.canvas) return;
     event.preventDefault();
     this.heldKeys.add(key);
     this.beginPanning();
   }
 
-  private handleKeyUp(event: KeyboardEvent): void {
-    const key = normalizedMapKey(event.key);
+  private handleKeyUp(event: Event): void {
+    const key = normalizedMapKey(keyFromEvent(event));
     if (key) this.heldKeys.delete(key);
   }
 
@@ -77,9 +80,14 @@ export class AdminMapKeyboardPan {
   }
 }
 
-function normalizedMapKey(key: string): string | null {
+function normalizedMapKey(key: unknown): string | null {
+  if (typeof key !== "string") return null;
   const normalized = key.toLowerCase();
   return DIRECTIONS[normalized] ? normalized : null;
+}
+
+function keyFromEvent(event: Event): unknown {
+  return "key" in event ? event.key : undefined;
 }
 
 function heldDirection(keys: ReadonlySet<string>): AdminMapCenter {
