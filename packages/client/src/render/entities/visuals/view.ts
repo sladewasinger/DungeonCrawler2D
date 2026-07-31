@@ -63,6 +63,7 @@ export interface MonsterEntityView {
   fx: readonly string[];
   anim: EnemyAnimationState;
   faceX: number;
+  faceY?: number;
   air: boolean;
 }
 

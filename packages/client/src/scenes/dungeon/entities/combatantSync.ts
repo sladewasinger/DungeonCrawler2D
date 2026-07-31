@@ -58,7 +58,7 @@ export function syncCombatants(frame: CombatantSyncFrame): void {
   });
   syncRenderedCombatants({ entityRenderer, players, monsters, pets, context });
   syncItemViews({ conn, renderer: entityRenderer, state, buckets, render, nowMs });
-  syncMeleeSwings({ vfx, state, players, nowMs, context });
+  syncMeleeSwings({ vfx, state, players, monsters, nowMs, context });
 }
 
 function syncRenderedCombatants(input: {

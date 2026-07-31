@@ -22,7 +22,7 @@ interface SlimeKillScenario {
 }
 
 function makeXpSim(): GameSim {
-  return makeSim(1234, { testFixtures: false, freezeEnemies: true });
+  return makeSim(1234, { freezeEnemies: true });
 }
 
 function killSlimeWithFists({ sim, playerId, target, slime }: SlimeKillScenario): void {

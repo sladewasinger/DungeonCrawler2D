@@ -159,7 +159,6 @@ export interface SimState {
     freezeEnemies?: boolean;
     /** Test-only torch lifetime override; production uses TORCH_BURN_TICKS. */
     torchBurnTicks?: number;
-    testFixtures?: boolean;
   };
   readonly players: Map<string, PlayerSlot>;
   readonly byToken: Map<string, string>;
@@ -189,8 +188,8 @@ export interface SimState {
   tickCount: number;
   nextPartyId: number;
   nextPartyRoom: number;
-  /** True once the test-zone chunk activated — keeps hazard fixtures seeded. */
-  hazardsActive: boolean;
+  /** True once the combat arena activated — keeps authored pickups and areas seeded. */
+  combatSandboxFixturesActive: boolean;
 
   // ── Epic 7.14 (The Descent) ─────────────────────────────────────────
   /** Slots that left this sim this tick, awaiting FloorRegistry placement

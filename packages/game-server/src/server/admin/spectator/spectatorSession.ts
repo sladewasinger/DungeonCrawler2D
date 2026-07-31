@@ -1,3 +1,5 @@
+import type { LevelId } from "@dc2d/engine";
+
 export type SpectatorMode = "off" | "free" | "track";
 
 export interface SpectatorSession {
@@ -7,7 +9,7 @@ export interface SpectatorSession {
 }
 
 export interface SpectatorView {
-  readonly level: "dungeon" | "sandbox";
+  readonly level: LevelId;
   readonly floor: number;
   readonly x: number;
   readonly y: number;

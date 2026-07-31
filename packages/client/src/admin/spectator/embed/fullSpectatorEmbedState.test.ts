@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  focusSpectatorEmbedFrame,
   spectatorEmbedMessagePlan,
   spectatorEmbedSource,
+  spectatorEmbedZoomMessage,
 } from "../fullSpectatorEmbed.js";
 
 describe("spectatorEmbedMessagePlan", () => {
@@ -46,5 +48,21 @@ describe("spectatorEmbedMessagePlan", () => {
     expect(source).toContain("embed=admin");
     expect(source).toContain("mode=free");
     expect(source).toContain("target=p2");
+  });
+
+  it("relays camera zoom through the embedded spectator control channel", () => {
+    expect(spectatorEmbedZoomMessage("in")).toEqual({
+      type: "dc2d-spectator-control",
+      action: "zoom",
+      direction: "in",
+    });
+  });
+
+  it("returns keyboard focus to the embedded camera after a zoom action", () => {
+    const focus = vi.fn();
+
+    focusSpectatorEmbedFrame({ contentWindow: { focus } });
+
+    expect(focus).toHaveBeenCalledOnce();
   });
 });

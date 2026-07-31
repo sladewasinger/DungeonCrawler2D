@@ -9,21 +9,20 @@ import {
 } from "./map/adminMapCamera.js";
 import { AdminMapCanvasInteractions } from "./map/camera/adminMapCanvasInteractions.js";
 import { AdminMapKeyboardPan } from "./map/camera/adminMapKeyboardPan.js";
+import {
+  ADMIN_MAP_DEFAULT_TILE_SIZE,
+  adminMapViewportRadius,
+  type AdminMapZoomDirection,
+  nextAdminMapTileSize,
+} from "./map/camera/adminMapZoom.js";
 import { deletableAdminEntityAt } from "./map/adminMapEntityHitTest.js";
 import { renderAdminMap } from "./map/adminMapRenderer.js";
+import type {
+  AdminSpawnSelection,
+  AdminSpectatorSurfaceOptions,
+} from "./map/adminMapSurfaceTypes.js";
 
-export interface AdminSpawnSelection {
-  readonly kind: "enemy" | "item" | "weapon" | "pet";
-  readonly defId: string;
-  readonly placementAllowed?: boolean;
-}
-
-export interface AdminSpectatorSurfaceOptions {
-  readonly canvas: HTMLCanvasElement;
-  readonly onCameraMove: (x: number, y: number) => void;
-  readonly onSpawn: (x: number, y: number, selection: AdminSpawnSelection) => void;
-  readonly onDespawn: (entityId: string) => void;
-}
+export type { AdminSpawnSelection } from "./map/adminMapSurfaceTypes.js";
 
 export class AdminSpectatorSurface {
   private readonly context: CanvasRenderingContext2D;
@@ -31,6 +30,7 @@ export class AdminSpectatorSurface {
   private cameraCenter: AdminMapCenter = { x: 0, y: 0 };
   private selection: AdminSpawnSelection = { kind: "enemy", defId: "" };
   private debugFlags: DebugFlags = createDebugFlags();
+  private tileSize = ADMIN_MAP_DEFAULT_TILE_SIZE;
   private interactionEnabled = false;
   private readonly canvasInteractions: AdminMapCanvasInteractions;
   private readonly keyboardPan: AdminMapKeyboardPan;
@@ -53,15 +53,9 @@ export class AdminSpectatorSurface {
     this.draw();
   }
 
-  setSelection(selection: AdminSpawnSelection): void {
-    this.selection = selection;
-    this.updateCursor();
-  }
+  setSelection(selection: AdminSpawnSelection): void { this.selection = selection; this.updateCursor(); }
 
-  setInteractionEnabled(enabled: boolean): void {
-    this.interactionEnabled = enabled;
-    this.updateCursor();
-  }
+  setInteractionEnabled(enabled: boolean): void { this.interactionEnabled = enabled; this.updateCursor(); }
 
   setMap(map: AdminMap | null): void {
     const shouldCenter = adminMapLocationChanged(this.map, map);
@@ -75,18 +69,35 @@ export class AdminSpectatorSurface {
     return this.cameraCenter;
   }
 
+  get requiredMapRadius(): number {
+    return adminMapViewportRadius({
+      width: this.options.canvas.width,
+      height: this.options.canvas.height,
+      tileSize: this.tileSize,
+    });
+  }
+
   focus(center: AdminMapCenter): void {
     this.cameraCenter = adminMapTileCenter(center);
     this.draw();
   }
 
-  focusInput(): void {
-    this.options.canvas.focus();
+  focusInput(): void { this.options.canvas.focus(); }
+
+  zoom(direction: AdminMapZoomDirection): void {
+    this.tileSize = nextAdminMapTileSize(this.tileSize, direction);
+    this.draw();
+    this.focusInput();
+  }
+
+  resetZoom(): void {
+    this.tileSize = ADMIN_MAP_DEFAULT_TILE_SIZE;
+    this.draw();
+    this.focusInput();
   }
 
   dispose(): void {
-    this.canvasInteractions.dispose();
-    this.keyboardPan.dispose();
+    this.canvasInteractions.dispose(); this.keyboardPan.dispose();
   }
 
   setDebugFlags(flags: DebugFlags): void {
@@ -111,6 +122,7 @@ export class AdminSpectatorSurface {
       event,
       canvas: this.options.canvas,
       center: this.cameraCenter,
+      tileSize: this.tileSize,
     });
     this.options.onSpawn(point.x, point.y, this.selection);
   }
@@ -134,6 +146,7 @@ export class AdminSpectatorSurface {
       map: this.map,
       center: this.cameraCenter,
       canvas: this.options.canvas,
+      tileSize: this.tileSize,
       point: adminMapPointerCanvasPoint({ event, canvas: this.options.canvas }),
     });
   }
@@ -148,6 +161,7 @@ export class AdminSpectatorSurface {
       context: this.context,
       map: this.map,
       center: this.cameraCenter,
+      tileSize: this.tileSize,
       debugFlags: this.debugFlags,
       unavailableMessage: this.interactionEnabled ? "Loading map…" : "Authenticate to load the map",
     });

@@ -96,7 +96,6 @@ const server = startServer({
   freezeEnemies,
   worldFeatures,
   debugCommands,
-  testFixtures: process.env["TEST_FIXTURES"] === "1",
   adminToken: process.env["ADMIN_TOKEN"] ?? null,
   trustProxy: process.env["TRUST_PROXY"] === "1",
   operationalEvents,

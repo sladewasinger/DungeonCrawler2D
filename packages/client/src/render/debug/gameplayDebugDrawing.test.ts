@@ -5,6 +5,7 @@ import {
   setViewOrientation,
 } from "../view/transform/viewState.js";
 import { gameplayDebugScreenPoint } from "./gameplayDebugDrawing.js";
+import { boxWireframe } from "./adminDebugGeometry.js";
 
 afterEach(resetViewOrientation);
 
@@ -22,5 +23,22 @@ describe("gameplay debug projection", () => {
       x: 0,
       y: -3 * SCREEN_TILE_PX,
     });
+  });
+
+  it("projects the truthful hurtbox height through every settled rotation", () => {
+    const lines = boxWireframe({
+      center: { x: 4, y: 7, z: 2 },
+      halfWidth: 0.5,
+      halfDepth: 0.5,
+      height: 1.5,
+      bottomOffset: 0.25,
+    });
+    for (const orientation of [0, 90, 180, 270]) {
+      setViewOrientation(orientation);
+      const base = gameplayDebugScreenPoint(lines[0]![0]!);
+      const top = gameplayDebugScreenPoint(lines[1]![0]!);
+      expect(top.x).toBe(base.x);
+      expect(base.y - top.y).toBe(1.5 * SCREEN_TILE_PX);
+    }
   });
 });

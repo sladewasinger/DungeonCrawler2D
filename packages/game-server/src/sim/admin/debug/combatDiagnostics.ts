@@ -2,11 +2,12 @@ import {
   combatHurtbox,
   guardVolume,
   PROJECTILE_CONTACT_RADIUS,
-  type AdminAttackArea,
+  type AdminHitbox,
 } from "@dc2d/engine";
 import { ELEMENTAL_ENEMY_TUNING } from "../../enemies/elemental/configuration/elementalEnemyTuning.js";
 import type { EnemySlot } from "../../state/enemyState.js";
 import { activeMeleeAttackFor } from "../../state/meleeAttackState.js";
+import { activeTrainingWeaponHitbox } from "../../enemies/training/trainingDummyAttack.js";
 import {
   adminDebugFlagEnabled,
   type AdminEntityDebug,
@@ -18,7 +19,7 @@ export function adminCombatDebug(
 ): Pick<AdminEntityDebug, "hurtbox" | "attacks" | "guard"> {
   return {
     ...(adminDebugFlagEnabled(input, "hurtboxes") ? combatHurtboxDebug(input) : {}),
-    ...(adminDebugFlagEnabled(input, "attacks") ? attackDebug(input) : {}),
+    ...(adminDebugFlagEnabled(input, "attacks") ? hitboxDebug(input) : {}),
     ...(adminDebugFlagEnabled(input, "guards") ? guardDebug(input) : {}),
   };
 }
@@ -31,12 +32,12 @@ function combatHurtboxDebug(
   return { hurtbox: { ...combatHurtbox(entity) } };
 }
 
-function attackDebug(input: AdminMapDebugInput): Pick<AdminEntityDebug, "attacks"> {
-  const attacks = activeAttackAreas(input);
-  return attacks.length > 0 ? { attacks } : {};
+function hitboxDebug(input: AdminMapDebugInput): Pick<AdminEntityDebug, "attacks"> {
+  const hitboxes = activeHitboxes(input);
+  return hitboxes.length > 0 ? { attacks: hitboxes } : {};
 }
 
-function activeAttackAreas(input: AdminMapDebugInput): AdminAttackArea[] {
+function activeHitboxes(input: AdminMapDebugInput): AdminHitbox[] {
   return [
     ...activePlayerAttack(input),
     ...activeEnemyAttack(input),
@@ -44,7 +45,7 @@ function activeAttackAreas(input: AdminMapDebugInput): AdminAttackArea[] {
   ];
 }
 
-function activePlayerAttack(input: AdminMapDebugInput): AdminAttackArea[] {
+function activePlayerAttack(input: AdminMapDebugInput): AdminHitbox[] {
   const player = input.sim.players.get(input.entity.id);
   const attack = player ? activeMeleeAttackFor(player) : undefined;
   if (!attack) return [];
@@ -59,17 +60,33 @@ function activePlayerAttack(input: AdminMapDebugInput): AdminAttackArea[] {
   }];
 }
 
-function activeEnemyAttack(input: AdminMapDebugInput): AdminAttackArea[] {
+function activeEnemyAttack(input: AdminMapDebugInput): AdminHitbox[] {
   const enemy = input.sim.enemies.get(input.entity.id);
   if (!enemy) return [];
-  // Melee damage resolves instantaneously; its animation is not a hit window.
-  return activeDirectionalFlameAreas(input, enemy);
+  return [
+    ...activeTrainingHitbox(enemy),
+    ...activeDirectionalFlameAreas(input, enemy),
+  ];
+}
+
+function activeTrainingHitbox(enemy: EnemySlot): AdminHitbox[] {
+  const hitbox = activeTrainingWeaponHitbox(enemy);
+  if (!hitbox) return [];
+  if (hitbox.profile.shape === "ground") {
+    return [{ shape: "circle", radius: hitbox.profile.range }];
+  }
+  return [{
+    shape: "cone",
+    direction: { ...hitbox.direction },
+    range: hitbox.profile.range,
+    arcCos: hitbox.profile.arcCos,
+  }];
 }
 
 function activeDirectionalFlameAreas(
   input: AdminMapDebugInput,
   enemy: EnemySlot,
-): AdminAttackArea[] {
+): AdminHitbox[] {
   const state = enemy.elementalAttack;
   if (state?.kind !== "directional-flame") return [];
   return directionalFlameCells(state)
@@ -105,7 +122,7 @@ function directionalFlameBelongsTo(
   ) === enemy.entity.id;
 }
 
-function activeProjectileAttack(input: AdminMapDebugInput): AdminAttackArea[] {
+function activeProjectileAttack(input: AdminMapDebugInput): AdminHitbox[] {
   const { entity } = input;
   if (entity.kind !== "projectile" || !entity.directProjectileImpact) return [];
   return [{ shape: "circle", radius: PROJECTILE_CONTACT_RADIUS }];

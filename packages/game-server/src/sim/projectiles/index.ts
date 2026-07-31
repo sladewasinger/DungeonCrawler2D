@@ -2,6 +2,7 @@ import {
   PROJECTILE_CONTACT_RADIUS,
   TICK_DT,
   circleIntersectsHurtbox,
+  verticalRangeIntersectsHurtbox,
   stepProjectile,
   type EffectEvent,
   type Entity,
@@ -103,5 +104,9 @@ function withinProjectileRange(candidate: Entity, projectile: Entity): boolean {
 }
 
 function alignedWithProjectile(candidate: Entity, projectile: Entity): boolean {
-  return Math.abs(candidate.body.z + 0.8 - projectile.body.z) < 1.2;
+  return verticalRangeIntersectsHurtbox(
+    projectile.body.z - PROJECTILE_CONTACT_RADIUS,
+    projectile.body.z + PROJECTILE_CONTACT_RADIUS,
+    candidate,
+  );
 }

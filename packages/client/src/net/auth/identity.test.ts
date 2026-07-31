@@ -56,6 +56,7 @@ const context = (
 const CLIENT_ID_KEY = "dc2d-client-id";
 const LEGACY_CLIENT = "legacy-shared-client";
 const DUNGEON = "dungeon";
+const COMBAT_SANDBOX = "combat-sandbox";
 const SOURCE_TOKEN = "source-token";
 const NAME_KEY = "dc2d-name";
 const SKIN_KEY = "dc2d-player-skin";
@@ -103,6 +104,7 @@ describe("tab-scoped connection identity", () => {
     const source = context(null, sharedLocal, new MemoryTabMarker());
     const sourceClient = persistentClientId(source);
     saveResumeToken(SOURCE_TOKEN, DUNGEON, source);
+    saveResumeToken("combat-source-token", COMBAT_SANDBOX, source);
 
     const duplicate = context(null, sharedLocal, new MemoryTabMarker());
     const duplicateClient = persistentClientId(duplicate);
@@ -110,6 +112,8 @@ describe("tab-scoped connection identity", () => {
     expect(duplicateClient).not.toBe(sourceClient);
     expect(loadResumeToken(DUNGEON, source)).toBe(SOURCE_TOKEN);
     expect(loadResumeToken(DUNGEON, duplicate)).toBeUndefined();
+    expect(loadResumeToken(COMBAT_SANDBOX, source)).toBe("combat-source-token");
+    expect(loadResumeToken(COMBAT_SANDBOX, duplicate)).toBeUndefined();
   });
 
   it("rotates a duplicated session identity and does not resume the source tab", () => {
@@ -118,6 +122,7 @@ describe("tab-scoped connection identity", () => {
     const source = context(sourceSession, sharedLocal, new MemoryTabMarker());
     const sourceClient = persistentClientId(source);
     saveResumeToken(SOURCE_TOKEN, DUNGEON, source);
+    saveResumeToken("combat-session-token", COMBAT_SANDBOX, source);
 
     const duplicatedSession = sourceSession.clone();
     const duplicate = context(duplicatedSession, sharedLocal, new MemoryTabMarker());
@@ -127,6 +132,8 @@ describe("tab-scoped connection identity", () => {
     expect(persistentClientId(source)).toBe(sourceClient);
     expect(loadResumeToken(DUNGEON, source)).toBe(SOURCE_TOKEN);
     expect(loadResumeToken(DUNGEON, duplicate)).toBeUndefined();
+    expect(loadResumeToken(COMBAT_SANDBOX, source)).toBe("combat-session-token");
+    expect(loadResumeToken(COMBAT_SANDBOX, duplicate)).toBeUndefined();
   });
 });
 

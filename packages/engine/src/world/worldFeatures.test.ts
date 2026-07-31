@@ -96,6 +96,16 @@ describe("VOID terrain world feature", () => {
     expect(Object.isFrozen(world.features)).toBe(true);
   });
 
+  it("advertises authored Combat Sandbox VOID even when ordinary VOID is disabled", () => {
+    const world = new World(hashString(DEV_WORLD), 1, {
+      level: LEVEL.CombatSandbox,
+      features: DISABLED,
+    });
+
+    expect(world.features).toEqual({ voidTerrain: true });
+    expect(Object.isFrozen(world.features)).toBe(true);
+  });
+
   it("rejects runtime VOID overrides when the feature is disabled", () => {
     const world = new World(hashString(DEV_WORLD), 1, { features: DISABLED });
     expect(() => world.replaceTileOverrides([

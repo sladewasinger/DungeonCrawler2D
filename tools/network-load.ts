@@ -101,7 +101,6 @@ const createServer = (): RunningServer => startServer({
   rngSeed: 20260725,
   clusterSpawns: true,
   freezeEnemies: true,
-  testFixtures: true,
 });
 
 const connectClients = async (

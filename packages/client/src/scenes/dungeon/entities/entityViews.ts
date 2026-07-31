@@ -100,7 +100,7 @@ export function monsterView(
   view.maxHp = valueOr(e.snap.maxHp, 1);
   view.fx = valueOr(e.snap.fx, EMPTY_FX);
   view.anim = valueOr(e.snap.anim, "idle");
-  view.faceX = valueOr(e.snap.faceX, 1);
+  view.faceX = valueOr(e.snap.faceX, 1); view.faceY = valueOr(e.snap.faceY, 0);
   view.air = valueOr(e.snap.air, false);
   return view;
 }

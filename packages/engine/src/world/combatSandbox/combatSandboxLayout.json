@@ -1,0 +1,25 @@
+{
+  "arena": {
+    "origin": { "x": 0, "y": 0 },
+    "width": 50,
+    "height": 50,
+    "wallHeight": 2
+  },
+  "playerSpawn": { "x": 25.5, "y": 25.5 },
+  "fixtureReseedSeconds": 2,
+  "blocks": [
+    { "x": 44, "y": 44, "height": 1 },
+    { "x": 46, "y": 44, "height": 1 },
+    { "x": 44, "y": 46, "height": 1 }
+  ],
+  "fixtureRows": {
+    "weapons": { "x": 6.5, "y": 7.5, "spacing": 3, "columns": 12, "rowSpacing": 3 },
+    "items": { "x": 6.5, "y": 12.5, "spacing": 3, "columns": 12, "rowSpacing": 3 },
+    "pets": { "x": 6.5, "y": 18.5, "spacing": 4, "columns": 10, "rowSpacing": 4 },
+    "areas": { "x": 6, "y": 43, "spacing": 6, "columns": 7, "rowSpacing": 4, "radius": 1 }
+  },
+  "trainingDummies": {
+    "passive": { "x": 18.5, "y": 34.5 },
+    "sword": { "x": 30.5, "y": 34.5, "facing": { "x": -1, "y": 0 } }
+  }
+}

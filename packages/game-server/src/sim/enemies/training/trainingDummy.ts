@@ -1,50 +1,73 @@
-import { LEVEL, TICK_RATE } from "@dc2d/engine";
+import {
+  COMBAT_SANDBOX_LAYOUT,
+  LEVEL,
+  TICK_RATE,
+  type CombatSandboxPoint,
+  type Entity,
+} from "@dc2d/engine";
 import type { EnemySlot, PendingEnemyRespawn } from "../../state/enemyState.js";
 import type { SimState } from "../../state/state.js";
-import { findWalkableNear } from "../../spawn/spawn.js";
 import { spawnEnemy } from "../enemySpawner.js";
 
 export const TRAINING_DUMMY_DEF_ID = "training-dummy";
-const TRAINING_DUMMY_ANCHOR = { x: 33.5, y: 28.5 };
+export const SWORD_TRAINING_DUMMY_DEF_ID = "sword-training-dummy";
 
-/** Keeps one canonical target available in every live sandbox. */
-export function ensureSandboxTrainingDummy(sim: SimState): void {
-  if (!canSeedTrainingDummy(sim) || trainingDummyExists(sim)) return;
-  const tile = findWalkableNear({
-    sim,
-    ...TRAINING_DUMMY_ANCHOR,
-    maxRadius: 16,
-    avoid: new Set(),
-  });
-  if (!tile) return;
-  spawnEnemy(sim, {
+const TRAINING_TARGETS = [
+  {
     defId: TRAINING_DUMMY_DEF_ID,
-    x: tile.x + 0.5,
-    y: tile.y + 0.5,
-  });
+    position: COMBAT_SANDBOX_LAYOUT.trainingDummies.passive,
+  },
+  {
+    defId: SWORD_TRAINING_DUMMY_DEF_ID,
+    position: COMBAT_SANDBOX_LAYOUT.trainingDummies.sword,
+  },
+] as const;
+
+interface TrainingTarget {
+  readonly defId: string;
+  readonly position: CombatSandboxPoint & {
+    readonly facing?: { readonly x: number; readonly y: number };
+  };
 }
 
-function canSeedTrainingDummy(sim: SimState): boolean {
-  return sim.world.level === LEVEL.Sandbox &&
-    sim.content.enemies.has(TRAINING_DUMMY_DEF_ID);
+/** Keeps both configured targets available only in the combat sandbox. */
+export function ensureCombatSandboxTrainingDummies(sim: SimState): void {
+  if (sim.world.level !== LEVEL.CombatSandbox) return;
+  for (const target of TRAINING_TARGETS) ensureTrainingTarget(sim, target);
 }
 
-function trainingDummyExists(sim: SimState): boolean {
+function ensureTrainingTarget(
+  sim: SimState,
+  target: TrainingTarget,
+): void {
+  if (!sim.content.enemies.has(target.defId) || trainingTargetExists(sim, target.defId)) return;
+  const entity = spawnEnemy(sim, { defId: target.defId, ...target.position });
+  applyConfiguredFacing(entity, target.position.facing);
+}
+
+function applyConfiguredFacing(
+  entity: Entity,
+  facing: { readonly x: number; readonly y: number } | undefined,
+): void {
+  if (facing) entity.facing = { ...facing };
+}
+
+function trainingTargetExists(sim: SimState, defId: string): boolean {
   const alive = [...sim.enemies.values()].some(
-    (enemy) => enemy.def.id === TRAINING_DUMMY_DEF_ID,
+    (enemy) => enemy.def.id === defId,
   );
   return alive || sim.pendingEnemyRespawns.some(
-    (request) => request.defId === TRAINING_DUMMY_DEF_ID,
+    (request) => request.defId === defId,
   );
 }
 
-/** Defeated training targets rebuild only in the sandbox that owns them. */
+/** Defeated training targets rebuild only in the combat sandbox that owns them. */
 export function scheduleTrainingDummyRespawn(
   sim: SimState,
   enemy: EnemySlot,
 ): void {
   const delay = enemy.def.respawnDelaySeconds;
-  if (sim.world.level !== LEVEL.Sandbox || delay === undefined) return;
+  if (sim.world.level !== LEVEL.CombatSandbox || delay === undefined) return;
   sim.pendingEnemyRespawns.push({
     defId: enemy.def.id,
     x: enemy.entity.body.x,
@@ -61,7 +84,16 @@ export function respawnTrainingDummies(sim: SimState): void {
       pending.push(request);
       continue;
     }
-    spawnEnemy(sim, request);
+    const entity = spawnEnemy(sim, request);
+    applyConfiguredFacing(entity, configuredFacingFor(request.defId));
   }
   sim.pendingEnemyRespawns.splice(0, sim.pendingEnemyRespawns.length, ...pending);
+}
+
+function configuredFacingFor(
+  defId: string,
+): { readonly x: number; readonly y: number } | undefined {
+  return defId === SWORD_TRAINING_DUMMY_DEF_ID
+    ? COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.facing
+    : undefined;
 }

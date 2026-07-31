@@ -18,6 +18,7 @@ import { AdminController } from "../controller.js";
 import {
   newSpectatorSession,
   setFreeSpectator,
+  setSpectatorView,
   trackSpectator,
 } from "../spectator/spectatorSession.js";
 import { authenticatedAdminStateSubscriptions, ObserverSocket } from "./adminStateSubscriptionTestSupport.js";
@@ -67,11 +68,18 @@ describe("admin state subscriptions", () => {
     const runtime = adminRuntime();
     const spectator = newSpectatorSession();
     setFreeSpectator(spectator);
+    setSpectatorView(spectator, {
+      level: LEVEL.Sandbox,
+      floor: 1,
+      x: 0.5,
+      y: 0.5,
+      radius: 24,
+    });
 
     const state = runtime.controller.observerState(spectator);
 
     expect(state.spectator.mode).toBe("free");
-    expect(state.spectatorMap).not.toBeNull();
+    expect(state.spectatorMap?.radius).toBe(10);
   });
 
   it("includes a spawn-room pet in inspector and tracked spectator maps", () => {
@@ -112,14 +120,14 @@ function adminRuntime(): { readonly floors: FloorRegistry; readonly controller: 
     content,
     store,
     rngSeedBase: 11,
-    opts: { testFixtures: true },
+    opts: {},
   });
   const sandbox = new GameSim({
     world: new World(123, 1, LEVEL.Sandbox),
     content,
     store,
     rngSeed: 12,
-    opts: { testFixtures: true },
+    opts: {},
   });
   const controller = new AdminController({
     floors,

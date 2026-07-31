@@ -1,41 +1,55 @@
 import {
   LEVEL,
   TICK_RATE,
-  World,
-  buildContentRegistry,
-  hashString,
+  COMBAT_SANDBOX_LAYOUT,
   type EffectEvent,
 } from "@dc2d/engine";
-import {
-  areaReactionsData,
-  areasData,
-  enemiesData,
-  itemsData,
-  recipesData,
-  rulesData,
-  statusesData,
-} from "@dc2d/content";
 import { describe, expect, it } from "vitest";
-import { PlayerStore } from "../../../../store.js";
 import { resolveDeaths } from "../../../combat/deaths.js";
 import { addPlayer } from "../../../players/join.js";
 import { applyEntityStatus } from "../../../progression/statusApplication.js";
 import { realizeEffectEvents, tickStatuses } from "../../../progression/statuses.js";
-import { createSimState, type SimState } from "../../../state/state.js";
+import type { SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../ai.js";
 import { activateChunksNearPlayers } from "../../population.js";
 import {
-  ensureSandboxTrainingDummy,
+  ensureCombatSandboxTrainingDummies,
   respawnTrainingDummies,
 } from "../../training/trainingDummy.js";
+import { activeTrainingWeaponHitbox } from "../../training/trainingDummyAttack.js";
+import {
+  makeTrainingSandbox as makeSandbox,
+  passiveTrainingDummy as populateDummy,
+  trainingDummies,
+} from "./trainingDummyTestSupport.js";
 
 const DUMMY_ID = "training-dummy";
+const SWORD_DUMMY_ID = "sword-training-dummy";
 
 describe("sandbox training dummy", () => {
-  it("auto-seeds in an ordinary sandbox without general test fixtures", () => {
-    const sim = makeSandbox(false);
+  it("seeds both configured targets only in the combat sandbox", () => {
+    const sim = makeSandbox(LEVEL.CombatSandbox);
     activateChunksNearPlayers(sim);
-    expect(trainingDummies(sim)).toHaveLength(1);
+    expect(trainingDummies(sim)).toHaveLength(2);
+    expect(Math.hypot(
+      COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.x -
+        COMBAT_SANDBOX_LAYOUT.trainingDummies.passive.x,
+      COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.y -
+        COMBAT_SANDBOX_LAYOUT.trainingDummies.passive.y,
+    )).toBeGreaterThanOrEqual(10);
+    expect(trainingDummies(sim).find((dummy) => dummy.def.id === DUMMY_ID)?.entity.body)
+      .toMatchObject(COMBAT_SANDBOX_LAYOUT.trainingDummies.passive);
+    expect(trainingDummies(sim).find((dummy) => dummy.def.id === SWORD_DUMMY_ID)?.entity)
+      .toMatchObject({
+        body: {
+          x: COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.x,
+          y: COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.y,
+        },
+        facing: COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.facing,
+      });
+    const ordinary = makeSandbox(LEVEL.Sandbox);
+    activateChunksNearPlayers(ordinary);
+    expect(trainingDummies(ordinary)).toHaveLength(0);
   });
 
   it("stays still while remaining a normal damage and fire target", () => {
@@ -71,54 +85,54 @@ describe("sandbox training dummy", () => {
     dummy.entity.hp = 0;
 
     resolveDeaths(sim);
-    ensureSandboxTrainingDummy(sim);
+    ensureCombatSandboxTrainingDummies(sim);
     expect(player.stored.xp).toBe(25);
-    expect(trainingDummies(sim)).toHaveLength(0);
+    expect(trainingDummies(sim)).toHaveLength(1);
     expect(sim.pendingEnemyRespawns).toHaveLength(1);
     expect(sim.items.size).toBe(0);
     assertNotRespawnedEarly(sim, defeatedAt);
 
     sim.tickCount++;
     respawnTrainingDummies(sim);
-    ensureSandboxTrainingDummy(sim);
-    ensureSandboxTrainingDummy(sim);
-    expect(trainingDummies(sim)).toHaveLength(1);
+    ensureCombatSandboxTrainingDummies(sim);
+    ensureCombatSandboxTrainingDummies(sim);
+    expect(trainingDummies(sim)).toHaveLength(2);
     expect(sim.pendingEnemyRespawns).toHaveLength(0);
-    expect(trainingDummies(sim)[0]?.entity).toMatchObject({ hp: 30, maxHp: 30 });
+    expect(trainingDummies(sim).find((dummy) => dummy.def.id === DUMMY_ID)?.entity)
+      .toMatchObject({ hp: 150, maxHp: 150 });
+  });
+
+  it("swings the ordinary sword hitbox every second against players only", () => {
+    const sim = makeSandbox();
+    const joined = addPlayer(sim, { name: "Target", clientId: "sword-target" });
+    const player = sim.players.get(joined.playerId)!;
+    player.spawnGraceUntilTick = 0;
+    player.entity.body.x = COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.x - 1.5;
+    player.entity.body.y = COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.y;
+    ensureCombatSandboxTrainingDummies(sim);
+    const sword = trainingDummies(sim).find((dummy) => dummy.def.id === SWORD_DUMMY_ID)!;
+    const passive = trainingDummies(sim).find((dummy) => dummy.def.id === DUMMY_ID)!;
+    passive.entity.body.x = COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.x - 1;
+    passive.entity.body.y = COMBAT_SANDBOX_LAYOUT.trainingDummies.sword.y;
+    const passiveHp = passive.entity.hp;
+    const effects: EffectEvent[] = [];
+
+    stepEnemies(sim, effects);
+    for (let tick = 1; tick <= TICK_RATE; tick++) {
+      sim.tickCount = tick;
+      stepEnemies(sim, effects);
+    }
+
+    expect(activeTrainingWeaponHitbox(sword)).toMatchObject({
+      profile: { profileId: "sword", range: 2.4, arcCos: 0.7071 },
+    });
+    expect(player.entity.hp).toBeLessThan(player.entity.maxHp);
+    expect(passive.entity.hp).toBe(passiveHp);
   });
 });
 
 function assertNotRespawnedEarly(sim: SimState, defeatedAt: number): void {
   sim.tickCount = defeatedAt + TICK_RATE - 1;
   respawnTrainingDummies(sim);
-  expect(trainingDummies(sim)).toHaveLength(0);
-}
-
-function makeSandbox(testFixtures = true): SimState {
-  return createSimState({
-    world: new World(hashString("training-dummy-test"), 1, LEVEL.Sandbox),
-    content: buildContentRegistry({
-      statuses: [...statusesData],
-      rules: [...rulesData],
-      areas: [...areasData],
-      areaReactions: [...areaReactionsData],
-      items: [...itemsData],
-      enemies: [...enemiesData],
-      recipes: [...recipesData],
-    }),
-    store: new PlayerStore(null),
-    rngSeed: 1,
-    opts: { testFixtures },
-  });
-}
-
-function populateDummy(sim: SimState) {
-  ensureSandboxTrainingDummy(sim);
-  const dummy = trainingDummies(sim)[0];
-  if (!dummy) throw new Error("training dummy fixture did not spawn");
-  return dummy;
-}
-
-function trainingDummies(sim: SimState) {
-  return [...sim.enemies.values()].filter((enemy) => enemy.def.id === DUMMY_ID);
+  expect(trainingDummies(sim)).toHaveLength(1);
 }

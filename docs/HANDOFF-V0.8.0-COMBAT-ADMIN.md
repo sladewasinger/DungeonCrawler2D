@@ -8,7 +8,7 @@ they must not be pushed until Austin finishes playtesting and asks for it.
 
 ## User-visible bugs that must remain in scope
 
-1. The attack cone/green wedge must not be visible while the player is idle.
+1. The weapon hitbox/green wedge must not be visible while the player is idle.
    It should appear only for the short attack pulse, follow the player's
    position during that pulse, and keep the attack's captured direction and
    weapon shape. Recovery uses a separate horizontal cooldown bar. Blocking
@@ -33,7 +33,7 @@ they must not be pushed until Austin finishes playtesting and asks for it.
 - Combat geometry split into attack, guard, weapon, feedback, status, and
   geometry modules.
 - Individually authored rectangular enemy hurtboxes and a tighter player box.
-- Active-admin-only in-game debug flags for hurtboxes, attacks, guards, LOS,
+- Active-admin-only in-game debug flags for hurtboxes, hitboxes, guards, LOS,
   behavior/search, and navigation, with actual 2D and Three overlays.
 - Secure `/admin` portal with token authentication, connected-player controls,
   spectator free camera/tracking/cycling, a bounded height-map canvas, and
@@ -64,7 +64,7 @@ they must not be pushed until Austin finishes playtesting and asks for it.
   - tracks attack cooldown by weapon profile and updates the separate bar.
 - `packages/client/src/vfx/combat/melee/meleeWedge.ts` and
   `packages/client/src/scenes/dungeon/combat/meleeSwingSync.ts`
-  - keep the attack area visible for its existing 160 ms lifetime;
+  - keep the weapon hitbox visible for its existing 160 ms lifetime;
   - follow player position during the active attack pulse while preserving the
     direction, profile, tile scale, and full-range depth footprint captured at
     attack start;
@@ -81,7 +81,7 @@ they must not be pushed until Austin finishes playtesting and asks for it.
     unchanged.
 - `packages/game-server/src/sim/projectiles/reflection.ts`
   - lets an accepted player attack return a hostile direct spit when the
-    projectile intersects that weapon's real attack area;
+    projectile intersects that weapon's real hitbox;
   - reverses the projectile, transfers credit to the player, preserves the
     shot's launch-captured damage/status payload, and limits returned shots to
     living enemy targets;
@@ -178,7 +178,7 @@ they must not be pushed until Austin finishes playtesting and asks for it.
 - Cooldown-bar and guard-cone drawing now have focused coverage for ready,
   downed, and blocking hiding, recovery progress, guard-only behavior, yellow
   shield feedback, feedback expiry, one-shot weapon-ready flash lifecycle, and
-  the absence of a cooldown attack cone.
+  the absence of a weapon hitbox during cooldown.
 - Attack depth coverage verifies multi-row weapon reach in orientation-resolved
   view space, including position following with the spawn-locked profile.
 - Minimap terrain reads only already-cached world chunks and invalidates its
@@ -235,7 +235,7 @@ they must not be pushed until Austin finishes playtesting and asks for it.
   boxes. Active attacks still use the attacker's current position on ticks 0,
   50, 100, and 150 ms, preserve their accepted direction/profile, and contact
   each grouped target once.
-- The visible attack wedge continues to use the exact weapon profile range and
+- The visible weapon hitbox continues to use the exact weapon profile range and
   arc. Its tip now uses the same body/ground origin as server combat; the former
   chest-height half-tile visual offset is removed.
 - Admin, Phaser, and Three debug views serialize and draw the exact four-corner

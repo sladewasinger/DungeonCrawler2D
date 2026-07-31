@@ -30,6 +30,7 @@ export type ActiveAdminCommandOutcome = Omit<AdminCommandOutcome, "state">;
 export interface AdminControllerOptions {
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox?: GameSim;
   readonly audit: AdminAuditSink;
   readonly history?: AdminAuditHistory;
 }
@@ -37,12 +38,14 @@ export interface AdminControllerOptions {
 export class AdminController {
   private readonly floors: FloorRegistry;
   private readonly sandbox: GameSim;
+  private readonly combatSandbox: GameSim | undefined;
   private readonly audit: AdminAuditSink;
   private readonly history: AdminAuditHistory;
 
   constructor(options: AdminControllerOptions) {
     this.floors = options.floors;
     this.sandbox = options.sandbox;
+    this.combatSandbox = options.combatSandbox;
     this.audit = options.audit;
     this.history = options.history ?? emptyAdminAuditHistory;
   }
@@ -84,6 +87,7 @@ export class AdminController {
     return controllerAdminState({
       floors: this.floors,
       sandbox: this.sandbox,
+      combatSandbox: this.combatSandbox,
       spectator,
       session,
       players,
@@ -95,6 +99,7 @@ export class AdminController {
     return controllerObserverState({
       floors: this.floors,
       sandbox: this.sandbox,
+      combatSandbox: this.combatSandbox,
       spectator,
       players: adminControllerPlayers(this.worldContext()),
     });
@@ -148,7 +153,11 @@ export class AdminController {
   }
 
   private worldContext(): AdminWorldContext {
-    return { floors: this.floors, sandbox: this.sandbox };
+    return {
+      floors: this.floors,
+      sandbox: this.sandbox,
+      combatSandbox: this.combatSandbox,
+    };
   }
 }
 

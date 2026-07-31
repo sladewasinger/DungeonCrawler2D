@@ -1,6 +1,6 @@
 import { generateDistrictChunks } from "../generate.js";
 import { LEVEL, type LevelId } from "./level.js";
-import { snapshotWorldFeatures, type WorldFeatures, type WorldOptions } from "./worldFeatures.js";
+import { snapshotLevelWorldFeatures, type WorldFeatures, type WorldOptions } from "./worldFeatures.js";
 import { stairRampAt } from "../stairs/stairs.js";
 import {
   chunkCellAt,
@@ -44,7 +44,10 @@ export class World implements WorldView {
     options: LevelId | WorldOptions = LEVEL.Dungeon,
   ) {
     this.level = typeof options === "string" ? options : options.level ?? LEVEL.Dungeon;
-    this.features = snapshotWorldFeatures(typeof options === "string" ? undefined : options.features);
+    this.features = snapshotLevelWorldFeatures(
+      this.level,
+      typeof options === "string" ? undefined : options.features,
+    );
     this.terrain = new WorldTerrain({
       voidTerrain: this.features.voidTerrain,
       lookup: (wx, wy) => this.lookup(wx, wy),

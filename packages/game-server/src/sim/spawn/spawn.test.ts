@@ -1,4 +1,5 @@
 import {
+  COMBAT_SANDBOX_LAYOUT,
   LEVEL,
   MIN_SPAWN_DIST,
   TILE,
@@ -103,6 +104,19 @@ describe("findSpawn", () => {
     expect(Number.isFinite(spawn.x)).toBe(true);
     expect(Number.isFinite(spawn.y)).toBe(true);
     expect(sim.world.isWalkable(Math.floor(spawn.x), Math.floor(spawn.y))).toBe(true);
+  });
+
+  it("uses the authored tile center in the Combat Sandbox", () => {
+    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.CombatSandbox);
+    sim = createSimState({
+      world,
+      content: buildContentRegistry(EMPTY_CONTENT),
+      store: new PlayerStore(null),
+      rngSeed: 42,
+      opts: {},
+    });
+
+    expect(findSpawn(sim)).toEqual({ ...COMBAT_SANDBOX_LAYOUT.playerSpawn, z: 0 });
   });
 });
 

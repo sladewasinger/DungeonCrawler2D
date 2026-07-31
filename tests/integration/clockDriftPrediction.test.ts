@@ -68,7 +68,7 @@ function stepDriftServer(options: DriftServerStepOptions): {
 
 describe("prediction under host timer drift", () => {
   it("keeps a 20 Hz client aligned when server callbacks arrive at 17 Hz", () => {
-    const sim = makeSim(719, { testFixtures: true, freezeEnemies: true });
+    const sim = makeSim(719, { freezeEnemies: true });
     const joined = sim.addPlayer({ name: "Clock drift", clientId: "clock-drift-client" });
     const serverPlayer = sim.getPlayerEntity(joined.playerId);
     if (!serverPlayer) throw new Error("expected joined server player");

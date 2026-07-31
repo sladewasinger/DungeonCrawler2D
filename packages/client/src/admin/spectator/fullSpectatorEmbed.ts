@@ -1,6 +1,8 @@
 import type { SpectatorMode } from "@dc2d/engine";
 import { spectatorUrl } from "../../spectator/spectatorUrl.js";
 
+const SPECTATOR_CONTROL_MESSAGE_TYPE = "dc2d-spectator-control";
+
 export interface FullSpectatorEmbedState {
   readonly active: boolean;
   readonly playerId: string | null;
@@ -31,7 +33,13 @@ export class FullSpectatorEmbed {
 
   centerOnPlayer(): void {
     if (!this.state.active) return;
-    this.send({ type: "dc2d-spectator-control", action: "center" });
+    this.send({ type: SPECTATOR_CONTROL_MESSAGE_TYPE, action: "center" });
+  }
+
+  zoom(direction: "in" | "out"): void {
+    if (!this.state.active) return;
+    this.send(spectatorEmbedZoomMessage(direction));
+    focusSpectatorEmbedFrame(this.frame);
   }
 
   private sendState(): void {
@@ -112,6 +120,18 @@ export function spectatorEmbedSource(
   });
 }
 
+export function spectatorEmbedZoomMessage(
+  direction: "in" | "out",
+): Record<string, unknown> {
+  return controlMessage("zoom", { direction });
+}
+
+export function focusSpectatorEmbedFrame(
+  frame: { readonly contentWindow: { focus(): void } | null } | null,
+): void {
+  frame?.contentWindow?.focus();
+}
+
 function sentState(state: FullSpectatorEmbedState): SentSpectatorEmbedState | null {
   if (!state.active || state.mode === "off") return null;
   return { playerId: state.playerId, mode: state.mode };
@@ -139,5 +159,5 @@ function controlMessage(
   action: string,
   details: Record<string, unknown>,
 ): Record<string, unknown> {
-  return { type: "dc2d-spectator-control", action, ...details };
+  return { type: SPECTATOR_CONTROL_MESSAGE_TYPE, action, ...details };
 }

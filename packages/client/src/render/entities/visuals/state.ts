@@ -38,6 +38,8 @@ export interface PlayerVisual extends CombatantParts {
 export interface MonsterVisual extends CombatantParts {
   readonly kind: "enemy";
   readonly spritePrefix: string;
+  readonly weapon?: Phaser.GameObjects.Sprite;
+  readonly trainingWeaponId?: string;
   lastHp: number | undefined;
   lastFx: readonly string[];
   hitFlashStartMs: number | undefined;
@@ -91,7 +93,7 @@ type AttachmentDestroyer = (visual: EntityVisual) => void;
 
 const ATTACHMENT_DESTROYERS: Record<EntityVisual["kind"], AttachmentDestroyer> = {
   player: (visual) => destroyPlayerAttachments(visual as PlayerVisual),
-  enemy: (visual) => destroyCombatantParts(visual as MonsterVisual),
+  enemy: (visual) => destroyMonsterAttachments(visual as MonsterVisual),
   pet: (visual) => destroyPetAttachments(visual as PetVisual),
   item: (visual) => destroyItemAttachments(visual as ItemVisual),
   projectile: (visual) => (visual as ProjectileVisual).trail.destroy(),
@@ -104,6 +106,11 @@ function destroyPlayerAttachments(visual: PlayerVisual): void {
   visual.adminLabel.destroy();
   visual.guardCone?.destroy();
   visual.attackCooldownIndicator.destroy();
+}
+
+function destroyMonsterAttachments(visual: MonsterVisual): void {
+  destroyCombatantParts(visual);
+  visual.weapon?.destroy();
 }
 
 function destroyPetAttachments(visual: PetVisual): void {

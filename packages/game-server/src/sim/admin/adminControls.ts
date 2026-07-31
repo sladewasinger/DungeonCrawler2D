@@ -1,5 +1,4 @@
 import {
-  LEVEL,
   safeRoomSpawn,
   type AdminCommand,
   type AdminPlayer,
@@ -41,7 +40,7 @@ function adminPlayer(sim: SimState, slot: PlayerSlot): AdminPlayer {
     playerId: slot.entity.id,
     profileId: slot.stored.localProfileId ?? `local-profile-${slot.stored.slot}`,
     name: slot.entity.name ?? slot.stored.name,
-    level: sim.world.level === LEVEL.Sandbox ? "sandbox" : "dungeon",
+    level: sim.world.level,
     floor: sim.world.floor,
     x: body.x,
     y: body.y,

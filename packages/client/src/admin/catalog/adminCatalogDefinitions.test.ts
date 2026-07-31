@@ -39,8 +39,8 @@ describe("admin spawn catalog definitions", () => {
 
     expect(entries).toHaveLength(contentIds(enemiesData).length);
     expect(entries.every((entry) => entry.stats.length > 0)).toBe(true);
-    expect(entries.every(hasHitboxStat)).toBe(true);
-    expect(entryById("enemy", "training-dummy").stats).toContain("0.84×0.64 HITBOX");
+    expect(entries.every(hasHurtboxStat)).toBe(true);
+    expect(entryById("enemy", "training-dummy").stats).toContain("1.08×1.08×1.52 HURTBOX");
   });
 });
 
@@ -75,6 +75,6 @@ function hasKnockbackStat(entry: AdminCatalogEntry): boolean {
   return entry.stats.some((stat) => stat.endsWith(" KB"));
 }
 
-function hasHitboxStat(entry: AdminCatalogEntry): boolean {
-  return entry.stats.some((stat) => stat.endsWith(" HITBOX"));
+function hasHurtboxStat(entry: AdminCatalogEntry): boolean {
+  return entry.stats.some((stat) => stat.endsWith(" HURTBOX"));
 }

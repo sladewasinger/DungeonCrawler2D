@@ -15,7 +15,7 @@ import { createPetVisual, updatePetVisual } from "../pets/petVisual.js";
 import { createPlayerVisual, updatePlayerVisual } from "../visuals/playerVisual.js";
 import { shouldRenderLivePlayer } from "../presentation/visibility/playerVisibility.js";
 import { createProjectileVisual, updateProjectileVisual } from "../visuals/projectileEntityVisual.js";
-import { monsterSpriteFor, playerSkinFor } from "../visuals/spriteMap.js";
+import { monsterSpriteFor, monsterTrainingWeaponFor, playerSkinFor } from "../visuals/spriteMap.js";
 import { destroyEntityVisual, type EntityVisual } from "../visuals/state.js";
 import { createTorchVisual, updateTorchVisual } from "../visuals/torch/visual.js";
 import type { ItemEntityView, MonsterEntityView, PetEntityView, PlayerEntityView, ProjectileEntityView, RenderContext, TorchEntityView } from "../visuals/view.js";
@@ -86,7 +86,11 @@ export class EntityRenderer {
 
   private syncMonsterViews(views: readonly MonsterEntityView[], ctx: RenderContext): void {
     const seen = this.stepKind(views, (view) => {
-      const visual = this.getOrCreate(view.id, "enemy", () => createMonsterVisual(this.scene, monsterSpriteFor(view.defId)));
+      const visual = this.getOrCreate(view.id, "enemy", () => createMonsterVisual(
+        this.scene,
+        monsterSpriteFor(view.defId),
+        monsterTrainingWeaponFor(view.defId),
+      ));
       updateMonsterVisual(visual, view, ctx);
       this.statusVisuals.syncEntity(view.id, visual, view);
     });

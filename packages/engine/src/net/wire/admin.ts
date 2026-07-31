@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { debugFlagsSchema } from "../../debug/debugFlags.js";
 import {
+  ADMIN_MAP_MAX_RADIUS,
   adminCoordinateSchema,
   adminDestinationSchema,
   adminEntityIdSchema,
@@ -8,13 +9,17 @@ import {
   adminPlayerTargetSchema,
 } from "./adminProtocolPrimitives.js";
 
-export { ADMIN_WORLD_COORDINATE_LIMIT } from "./adminProtocolPrimitives.js";
 export {
-  adminAttackAreaSchema,
+  ADMIN_MAP_MAX_CELL_COUNT,
+  ADMIN_MAP_MAX_RADIUS,
+  ADMIN_WORLD_COORDINATE_LIMIT,
+} from "./adminProtocolPrimitives.js";
+export {
+  adminHitboxSchema,
   adminMapEntitySchema,
   adminObserverStateSchema,
   adminStateSchema,
-  type AdminAttackArea,
+  type AdminHitbox,
   type AdminHistoryEntry,
   type AdminMap,
   type AdminMapCell,
@@ -78,7 +83,9 @@ export const clientAdminCommandSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("assignAdmin"), playerId: adminPlayerTargetSchema, enabled: z.boolean() }),
   z.object({
     op: z.literal("map"), level: adminLevelSchema, floor: z.number().int().min(1).max(64),
-    x: adminCoordinateSchema, y: adminCoordinateSchema, radius: z.number().int().min(4).max(16),
+    x: adminCoordinateSchema,
+    y: adminCoordinateSchema,
+    radius: z.number().int().min(4).max(ADMIN_MAP_MAX_RADIUS),
   }),
   adminSpawnSchema,
   z.object({

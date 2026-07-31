@@ -1,4 +1,7 @@
-export const ADMIN_MAP_TILE_SIZE = 24;
+import type { AdminMap } from "@dc2d/engine";
+import { ADMIN_MAP_DEFAULT_TILE_SIZE } from "./camera/adminMapZoom.js";
+
+export const ADMIN_MAP_TILE_SIZE = ADMIN_MAP_DEFAULT_TILE_SIZE;
 
 export interface AdminMapCenter {
   readonly x: number;
@@ -15,10 +18,18 @@ export interface AdminMapScreenPoint {
   readonly y: number;
 }
 
+export interface AdminMapProjectionInput {
+  readonly world: AdminMapCenter;
+  readonly center: AdminMapCenter;
+  readonly canvas: AdminMapCanvas;
+  readonly tileSize?: number;
+}
+
 export interface AdminMapPointerInput {
   readonly event: MouseEvent;
   readonly canvas: HTMLCanvasElement;
   readonly center: AdminMapCenter;
+  readonly tileSize?: number;
 }
 
 export interface AdminMapPointerCanvasInput {
@@ -34,7 +45,7 @@ export interface AdminMapPanInput {
 }
 
 export interface AdminMapLocation {
-  readonly level: "dungeon" | "sandbox";
+  readonly level: AdminMap["level"];
   readonly floor: number;
 }
 
@@ -54,14 +65,11 @@ export function adminMapTileCenter(point: AdminMapCenter): AdminMapCenter {
   };
 }
 
-export function adminMapScreenPoint(
-  world: AdminMapCenter,
-  center: AdminMapCenter,
-  canvas: AdminMapCanvas,
-): AdminMapScreenPoint {
+export function adminMapScreenPoint(input: AdminMapProjectionInput): AdminMapScreenPoint {
+  const tileSize = input.tileSize ?? ADMIN_MAP_TILE_SIZE;
   return {
-    x: canvas.width / 2 + (world.x - center.x) * ADMIN_MAP_TILE_SIZE,
-    y: canvas.height / 2 + (world.y - center.y) * ADMIN_MAP_TILE_SIZE,
+    x: input.canvas.width / 2 + (input.world.x - input.center.x) * tileSize,
+    y: input.canvas.height / 2 + (input.world.y - input.center.y) * tileSize,
   };
 }
 
@@ -69,9 +77,10 @@ export function adminMapPointerWorldPoint(
   input: AdminMapPointerInput,
 ): AdminMapCenter {
   const point = adminMapPointerCanvasPoint(input);
+  const tileSize = input.tileSize ?? ADMIN_MAP_TILE_SIZE;
   return {
-    x: Math.floor(input.center.x + (point.x - input.canvas.width / 2) / ADMIN_MAP_TILE_SIZE) + 0.5,
-    y: Math.floor(input.center.y + (point.y - input.canvas.height / 2) / ADMIN_MAP_TILE_SIZE) + 0.5,
+    x: Math.floor(input.center.x + (point.x - input.canvas.width / 2) / tileSize) + 0.5,
+    y: Math.floor(input.center.y + (point.y - input.canvas.height / 2) / tileSize) + 0.5,
   };
 }
 
@@ -96,9 +105,10 @@ export function panAdminMapCenter(input: AdminMapPanInput): AdminMapCenter {
 export function pointIsNearCanvas(
   point: AdminMapScreenPoint,
   canvas: AdminMapCanvas,
+  tileSize = ADMIN_MAP_TILE_SIZE,
 ): boolean {
-  return point.x >= -ADMIN_MAP_TILE_SIZE && point.x <= canvas.width &&
-    point.y >= -ADMIN_MAP_TILE_SIZE && point.y <= canvas.height;
+  return point.x >= -tileSize && point.x <= canvas.width &&
+    point.y >= -tileSize && point.y <= canvas.height;
 }
 
 function pointerPosition(

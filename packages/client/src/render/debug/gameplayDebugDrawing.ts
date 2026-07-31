@@ -1,13 +1,13 @@
 import type Phaser from "phaser";
 import type { AdminMapEntity, DebugFlags } from "@dc2d/engine";
 import {
-  activeAttackAreas,
+  activeHitboxes,
   activeGuardArea,
   activeSearch,
-  attackCircle,
-  attackTile,
-  attackWedge,
-  boxOutline,
+  hitboxCircle,
+  hitboxTile,
+  hitboxWedge,
+  boxWireframe,
   circleOutline,
   combatHurtbox,
   currentLineOfSight,
@@ -20,7 +20,7 @@ import { groundToScreen } from "../entities/geometry/worldToScreen.js";
 
 const COLORS = {
   hurtbox: 0xf7c55c,
-  attack: 0xf3727d,
+  hitbox: 0xf3727d,
   guard: 0x78c6e8,
   lineOfSight: 0xe9c46a,
   search: 0xc48df2,
@@ -35,7 +35,7 @@ export interface GameplayDebugDrawingInput {
 
 export function drawGameplayEntityDebug(input: GameplayDebugDrawingInput): void {
   if (input.flags.hurtboxes) drawHurtbox(input);
-  if (input.flags.attacks) drawAttacks(input);
+  if (input.flags.attacks) drawHitboxes(input);
   if (input.flags.guards) drawGuard(input);
   if (input.flags.lineOfSight) drawLineOfSight(input);
   if (input.flags.search) drawSearch(input);
@@ -45,26 +45,28 @@ export function drawGameplayEntityDebug(input: GameplayDebugDrawingInput): void 
 function drawHurtbox(input: GameplayDebugDrawingInput): void {
   const hurtbox = combatHurtbox(input.entity);
   if (!hurtbox) return;
-  drawGameplayLine({ ...input, points: boxOutline(hurtbox), color: COLORS.hurtbox });
+  for (const points of boxWireframe(hurtbox)) {
+    drawGameplayLine({ ...input, points, color: COLORS.hurtbox });
+  }
 }
 
-function drawAttacks(input: GameplayDebugDrawingInput): void {
-  for (const attack of activeAttackAreas(input.entity)) drawAttack(input, attack);
+function drawHitboxes(input: GameplayDebugDrawingInput): void {
+  for (const hitbox of activeHitboxes(input.entity)) drawHitbox(input, hitbox);
 }
 
-function drawAttack(
+function drawHitbox(
   input: GameplayDebugDrawingInput,
-  attack: ReturnType<typeof activeAttackAreas>[number],
+  hitbox: ReturnType<typeof activeHitboxes>[number],
 ): void {
-  if (attack.shape === "circle") {
-    drawGameplayLine({ ...input, points: circleOutline(attackCircle(input.entity, attack)), color: COLORS.attack, width: 2 });
+  if (hitbox.shape === "circle") {
+    drawGameplayLine({ ...input, points: circleOutline(hitboxCircle(input.entity, hitbox)), color: COLORS.hitbox, width: 2 });
     return;
   }
-  if (attack.shape === "cone") {
-    drawGameplayLine({ ...input, points: wedgeOutline(attackWedge(input.entity, attack)), color: COLORS.attack, width: 2 });
+  if (hitbox.shape === "cone") {
+    drawGameplayLine({ ...input, points: wedgeOutline(hitboxWedge(input.entity, hitbox)), color: COLORS.hitbox, width: 2 });
     return;
   }
-  drawGameplayLine({ ...input, points: tileOutline(attackTile(attack)), color: COLORS.attack, width: 2 });
+  drawGameplayLine({ ...input, points: tileOutline(hitboxTile(hitbox)), color: COLORS.hitbox, width: 2 });
 }
 
 function drawGuard(input: GameplayDebugDrawingInput): void {

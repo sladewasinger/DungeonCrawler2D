@@ -40,7 +40,7 @@ interface PopulationCenter {
 
 /** Recycles inactive hostiles and tops up occupied overworld areas on every dungeon floor. */
 export function repopulateNearSpawn(sim: SimState): void {
-  if (sim.world.level === LEVEL.Sandbox) return;
+  if (sim.world.level !== LEVEL.Dungeon) return;
   const centers = populationCenters(sim);
   if (centers.length === 0) return;
   recycleInactiveEnemies(sim, centers);

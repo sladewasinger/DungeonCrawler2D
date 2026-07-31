@@ -1,11 +1,14 @@
-import type { AdminCommand, AdminMap, AdminPlayer } from "@dc2d/engine";
+import { LEVEL, type AdminCommand, type AdminMap, type AdminPlayer, type LevelId } from "@dc2d/engine";
 import type { FloorRegistry } from "../../floors/floorRegistry.js";
 import type { GameSim } from "../../sim/core/index.js";
 import { setSpectatorView, type SpectatorSession, type SpectatorView } from "./spectator/spectatorSession.js";
 
+const LIVE_SPECTATOR_MAP_RADIUS = 10;
+
 export interface AdminWorldContext {
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim | undefined;
 }
 
 export interface AdminWorldResult {
@@ -81,12 +84,20 @@ export function mapForSpectator(
   if (spectator.mode === "free") {
     const view = inspectorView(spectator, players, context.sandbox.world.floor);
     const sim = simForLocation(context, view) ?? context.sandbox;
-    return sim.admin.map({ x: view.x, y: view.y, radius: view.radius });
+    return sim.admin.map({
+      x: view.x,
+      y: view.y,
+      radius: LIVE_SPECTATOR_MAP_RADIUS,
+    });
   }
   const target = trackedPlayer(spectator, players);
   if (!target) return null;
   const sim = simForLocation(context, target);
-  return sim?.admin.map({ x: target.x, y: target.y, radius: 10 }) ?? null;
+  return sim?.admin.map({
+    x: target.x,
+    y: target.y,
+    radius: LIVE_SPECTATOR_MAP_RADIUS,
+  }) ?? null;
 }
 
 function inspectorView(
@@ -110,10 +121,15 @@ function trackedPlayer(
 
 function simForLocation(
   context: AdminWorldContext,
-  location: { level: "dungeon" | "sandbox"; floor: number },
+  location: { level: LevelId; floor: number },
 ): GameSim | undefined {
-  if (location.level === "sandbox") {
+  if (location.level === LEVEL.Sandbox) {
     return location.floor === context.sandbox.world.floor ? context.sandbox : undefined;
+  }
+  if (location.level === LEVEL.CombatSandbox) {
+    return location.floor === context.combatSandbox?.world.floor
+      ? context.combatSandbox
+      : undefined;
   }
   return context.floors.activeSims().find((sim) => sim.world.floor === location.floor);
 }

@@ -10,7 +10,7 @@ import {
 const ORC = "orc-warrior";
 const TORCH = "torch";
 const PALETTE: AdminPalette = {
-  enemies: ["goblin", ORC],
+  enemies: ["goblin", "slime", ORC],
   items: [TORCH, "water-flask"],
   weapons: ["sword", "hammer"],
   pets: ["pet-dino-tard"],
@@ -29,6 +29,20 @@ describe("admin spawn selection", () => {
       kind: "weapon",
       defId: ORC,
     })).toEqual({ kind: "weapon", defId: "sword" });
+  });
+
+  it("defaults the enemy tab to slime when it is available", () => {
+    expect(validAdminSpawnSelection(PALETTE, {
+      kind: "enemy",
+      defId: "",
+    })).toEqual({ kind: "enemy", defId: "slime" });
+  });
+
+  it("falls back to the first enemy when slime is unavailable", () => {
+    expect(validAdminSpawnSelection({ ...PALETTE, enemies: ["goblin", ORC] }, {
+      kind: "enemy",
+      defId: "",
+    })).toEqual({ kind: "enemy", defId: "goblin" });
   });
 
   it("uses an empty definition when a type has no spawnable content", () => {

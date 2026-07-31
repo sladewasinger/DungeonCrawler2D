@@ -74,7 +74,7 @@ describe("hostile projectile returns", () => {
     });
   });
 
-  it("leaves hostile spits outside the attack arc or range unchanged", () => {
+  it("leaves hostile spits outside the weapon hitbox unchanged", () => {
     const wrongArc = createReflectionFixture();
     attack(wrongArc, { x: -1, y: 0 });
     expect(wrongArc.projectile.ownerId).toBe(wrongArc.enemy.id);
@@ -85,7 +85,7 @@ describe("hostile projectile returns", () => {
     expect(outOfRange.projectile.ownerId).toBe(outOfRange.enemy.id);
   });
 
-  it("returns a spit that enters the active attack area after acceptance", () => {
+  it("returns a spit that enters the active weapon hitbox after acceptance", () => {
     const fixture = createReflectionFixture();
     fixture.projectile.body.x = fixture.player.entity.body.x + 2.7;
 
@@ -132,14 +132,17 @@ describe("hostile projectile returns", () => {
 
   it("credits the returner and lets the returned spit hit enemies, not players", () => {
     const fixture = createReflectionFixture();
+    fixture.enemy.body.x += 0.2;
     const bystander = addEnemyTestPlayer(
       fixture.sim,
-      { x: fixture.enemy.body.x, y: fixture.enemy.body.y },
+      { x: fixture.enemy.body.x + 0.1, y: fixture.enemy.body.y },
       "p2",
     );
     bystander.entity.body.z = fixture.player.entity.body.z;
     fixture.sim.rng.next = () => 0;
     const events = attack(fixture);
+    expect(bystander.entity.hp).toBe(bystander.entity.maxHp);
+    expect(fixture.enemy.hp).toBe(fixture.enemy.maxHp);
 
     stepProjectiles(fixture.sim, events);
     realizeEffectEvents(fixture.sim, events);

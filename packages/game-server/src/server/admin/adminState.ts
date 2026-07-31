@@ -14,6 +14,7 @@ import { mapForInspector, mapForSpectator } from "./worldCommands.js";
 export interface AdminStateInput {
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim | undefined;
   readonly spectator: SpectatorSession;
   readonly session: AdminSession | null;
   readonly players: readonly AdminPlayer[];
@@ -27,7 +28,7 @@ export function buildAdminState(input: AdminStateInput): AdminState {
     players: observer.players,
     spectator: observer.spectator,
     map: mapForInspector(
-      { floors: input.floors, sandbox: input.sandbox },
+      { floors: input.floors, sandbox: input.sandbox, combatSandbox: input.combatSandbox },
       input.spectator,
       input.players,
     ),
@@ -47,7 +48,7 @@ export function buildAdminObserverState(input: AdminStateInput): AdminObserverSt
       playerId: input.spectator.playerId,
     },
     spectatorMap: mapForSpectator(
-      { floors: input.floors, sandbox: input.sandbox },
+      { floors: input.floors, sandbox: input.sandbox, combatSandbox: input.combatSandbox },
       input.spectator,
       input.players,
     ),

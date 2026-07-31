@@ -1,4 +1,5 @@
 import {
+  LEVEL,
   type ClientHello,
   type PlayerSkin,
 } from "@dc2d/engine";
@@ -25,7 +26,16 @@ export interface PlayerJoinRequest {
 /** Player join and reconnect-resume: the entity/slot a fresh or returning client gets. */
 export function addPlayer(sim: SimState, request: PlayerJoinRequest): JoinResult {
   const stored = sim.store.get(request.clientId, request.name, request.clientMetadata);
-  return resumePlayer(sim, request) ?? createPlayer(sim, request, stored);
+  const result = resumePlayer(sim, request) ?? createPlayer(sim, request, stored);
+  grantSandboxAdmin(sim, result.playerId);
+  return result;
+}
+
+function grantSandboxAdmin(sim: SimState, playerId: string): void {
+  if (!sim.opts.debugCommands) return;
+  if (sim.world.level !== LEVEL.Sandbox && sim.world.level !== LEVEL.CombatSandbox) return;
+  const slot = sim.players.get(playerId);
+  if (slot) slot.admin = true;
 }
 
 function resumePlayer(sim: SimState, request: PlayerJoinRequest): JoinResult | null {

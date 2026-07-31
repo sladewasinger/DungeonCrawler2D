@@ -1,7 +1,13 @@
-import { LEVEL, MIN_SPAWN_DIST, populationAnchorForChunk, SPAWN_CHUNK_RANGE } from "@dc2d/engine";
+import {
+  LEVEL,
+  MIN_SPAWN_DIST,
+  populationAnchorForChunk,
+  SPAWN_CHUNK_RANGE,
+} from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
 export { findWalkableNear } from "./search.js";
 import { findWalkableNear } from "./search.js";
+import { findCombatSandboxSpawn } from "./combatSandboxSpawn.js";
 
 /**
  * Spawn-point selection: candidates are floor tiles inside the BSP
@@ -30,17 +36,14 @@ const SANDBOX_CLUSTER_SPACING = 2;
 const SANDBOX_CLUSTER_COLUMNS = 4;
 
 /** Radius-mode target spacing between concurrent players; halves under crowding. */
-export const RADIUS_SPAWN_MIN_SPACING = 6;
-// Still 3x the physical overlap threshold (2 * engine's BODY_RADIUS = 0.5),
-// so even a fully-relaxed spawn never lands literally on top of someone.
-export const RADIUS_SPAWN_SPACING_FLOOR = 1.5;
-const RADIUS_SPAWN_ATTEMPTS = 40;
+export const RADIUS_SPAWN_MIN_SPACING = 6; export const RADIUS_SPAWN_SPACING_FLOOR = 1.5;
+const RADIUS_SPAWN_ATTEMPTS = 40; const ANCHOR_SEARCH_RADIUS = 48;
 // Spiral search radius (tiles) for the one-time origin anchor — generously
 // bigger than one chunk so it finds real corridor floor even if (0,0)
 // itself lands inside an uncarved generator cell between rooms.
-const ANCHOR_SEARCH_RADIUS = 48;
 
 export function findSpawn(sim: SimState): { x: number; y: number; z: number } {
+  if (sim.world.level === LEVEL.CombatSandbox) return findCombatSandboxSpawn(sim);
   if (sim.world.level === LEVEL.Sandbox || sim.opts.clusterSpawns) return findClusteredSpawn(sim);
   const radiusTiles = sim.opts.spawnRadiusTiles;
   if (radiusTiles && radiusTiles > 0) return findRadiusSpawn(sim, radiusTiles);
@@ -195,7 +198,7 @@ function nearestPlayerDistance(sim: SimState, tile: { x: number; y: number }): n
 /**
  * Nearest room/corridor floor tile to a world position (spiral search).
  * `avoid` skips tiles a caller has already claimed this pass (e.g.
- * testzone.ts snapping several tightly-packed fixtures without stacking
+ * authored fixture snapping without stacking
  * them onto the same lone floor tile).
  */
 export function newToken(sim: SimState): string {

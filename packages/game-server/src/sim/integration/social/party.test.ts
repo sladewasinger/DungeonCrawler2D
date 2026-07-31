@@ -1,4 +1,6 @@
 import {
+  LEVEL,
+  PET_DEFINITIONS,
   PLAYER_MAX_HP,
   REVIVE_HOLD_TICKS,
   RESPAWN_DELAY_TICKS,
@@ -11,8 +13,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GameSim } from "../../core/index.js";
-import { snapToFloor, snapToFloorTile } from "../../core/testzone.js";
-import { eventsOf, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "../support.js";
+import { content, eventsOf, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "../support.js";
 
 /**
  * Epic 7 regressions driven through the full GameSim facade (wire-level
@@ -139,39 +140,38 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(entity.body.y).toBeCloseTo(worldDoorApproach.y, 3);
   });
 
-  it("the proving ground offers every epic's examples: weapons, hazards, enemies", () => {
-    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
-    const snap = stepN(sim, 2).get(a.playerId)!;
+  it("the Combat Sandbox offers every item, weapon, pet, and area definition", () => {
+    const arena = makeSim(4321, { level: LEVEL.CombatSandbox });
+    arena.addPlayer({ name: "A", clientId: "client-a" });
+    stepN(arena, 2);
 
-    const itemDefs = new Set(snap.entities.filter((e) => e.kind === "item").map((e) => e.defId));
-    for (const def of ["sword", "hammer", "bandage", "rag", "vodka-bottle"]) {
-      expect(itemDefs, `missing ground item ${def}`).toContain(def);
-    }
-
-    const fireSpot = snapToFloorTile({ sim, x: 34, y: 24 });
-    const poisonSpot = snapToFloorTile({ sim, x: 18, y: 33 });
-    expect(sim.areas.defAt(fireSpot.x, fireSpot.y)).toBe("area-fire");
-    expect(sim.areas.defAt(poisonSpot.x, poisonSpot.y)).toBe("area-poison");
-    expect(sim.enemyCount).toBeGreaterThanOrEqual(5);
+    expect(arena.itemCount).toBe(content.items.size);
+    expect(arena.petCount).toBe(PET_DEFINITIONS.length);
+    const areaDefs = new Set(arena.areas.allTiles().map((tile) => tile.defId));
+    for (const defId of content.areas.keys()) expect(areaDefs).toContain(defId);
+    expect(arena.enemyCount).toBe(2);
   });
 
   it("a picked-up sword out-damages fists", () => {
-    const a = sim.addPlayer({ name: "A", clientId: "client-a" });
-    const b = sim.addPlayer({ name: "B", clientId: "client-b" });
-    sim.endSpawnGrace(b.playerId); // hand-placed victim, not a fresh spawn (spawnSafety.ts)
-    const aEntity = sim.getPlayerEntity(a.playerId)!;
-    const bEntity = sim.getPlayerEntity(b.playerId)!;
+    const arena = makeSim(5432, { level: LEVEL.CombatSandbox });
+    const a = arena.addPlayer({ name: "A", clientId: "client-a" });
+    const b = arena.addPlayer({ name: "B", clientId: "client-b" });
+    arena.endSpawnGrace(b.playerId);
+    const aEntity = arena.getPlayerEntity(a.playerId)!;
+    const bEntity = arena.getPlayerEntity(b.playerId)!;
+    arena.step();
+    const sword = arena.admin.map({ x: 15, y: 8, radius: 10 }).entities.find(
+      (candidate) => candidate.kind === "weapon" && candidate.defId === "sword",
+    );
+    expect(sword).toBeDefined();
+    teleport({ entity: aEntity, x: sword!.x, y: sword!.y, sim: arena });
+    arena.queueAction(a.playerId, { type: "pickup" });
+    arena.step();
+    expect(arena.getInventory(a.playerId)![0]?.item).toBe("sword");
 
-    const swordSpot = snapToFloor({ sim, x: 30.5, y: 27.5 }); // testzone.ts's canonical sword fixture
-    teleport({ entity: aEntity, x: swordSpot.x, y: swordSpot.y, sim: sim });
-    sim.step();
-    sim.queueAction(a.playerId, { type: "pickup" });
-    sim.step();
-    expect(sim.getInventory(a.playerId)![0]?.item).toBe("sword");
-
-    teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: sim });
-    sim.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
-    sim.step();
+    teleport({ entity: bEntity, x: aEntity.body.x + 1, y: aEntity.body.y, sim: arena });
+    arena.queueAction(a.playerId, { type: "attack", dirX: 1, dirY: 0 });
+    arena.step();
     expect(PLAYER_MAX_HP - bEntity.hp).toBeGreaterThanOrEqual(8); // sword, not fists
   });
 

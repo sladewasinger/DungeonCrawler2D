@@ -66,7 +66,7 @@ function enemyEntry(definition: EnemyDefinition): AdminCatalogEntry {
       `${definition.speed} SPD`,
       `${definition.attack.damage} DMG`,
       `${definition.attack.range} RNG`,
-      `${hitboxDimension(definition.hurtbox.halfWidth)}×${hitboxDimension(definition.hurtbox.halfDepth)} HITBOX`,
+      `${hurtboxDimension(definition.hurtbox.halfWidth)}×${hurtboxDimension(definition.hurtbox.halfDepth)}×${hurtboxHeight(definition.hurtbox.height)} HURTBOX`,
     ],
     image: enemyCatalogImage(definition.sprite),
   };
@@ -112,8 +112,12 @@ function isWeapon(definition: ItemDefinition): boolean {
   return definition.weapon !== undefined;
 }
 
-function hitboxDimension(halfExtent: number): string {
+function hurtboxDimension(halfExtent: number): string {
   return Number((halfExtent * 2).toFixed(2)).toString();
+}
+
+function hurtboxHeight(height: number): string {
+  return Number(height.toFixed(2)).toString();
 }
 
 function upperCase(value: string): string {

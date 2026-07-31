@@ -29,7 +29,7 @@ function nextDelta(sim: ReturnType<typeof makeSim>, playerId: string): ServerSna
 
 describe("snapshot delta replication", () => {
   it("backfills an unchanged compound area after its AOI leaves and re-enters", () => {
-    const sim = makeSim(1234, { testFixtures: false, freezeEnemies: true });
+    const sim = makeSim(1234, { freezeEnemies: true });
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const x = Math.floor(player.spawn.x);
@@ -54,7 +54,7 @@ describe("snapshot delta replication", () => {
   });
 
   it("backfills an area created before the player enters its AOI", () => {
-    const sim = makeSim(1234, { testFixtures: false, freezeEnemies: true });
+    const sim = makeSim(1234, { freezeEnemies: true });
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const x = Math.floor(player.spawn.x);

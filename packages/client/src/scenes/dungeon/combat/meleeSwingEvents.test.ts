@@ -3,7 +3,10 @@
 // wedge spawn geometry from the view's real position/angle rather than magic numbers.
 import { describe, expect, it } from "vitest";
 import { depthForEntity } from "../../../render/entities/presentation/depthSort.js";
-import type { PlayerEntityView } from "../../../render/entities/geometry/index.js";
+import type {
+  MonsterEntityView,
+  PlayerEntityView,
+} from "../../../render/entities/geometry/index.js";
 import {
   resolveMeleeSwings,
   resolveMeleeSwingsInto,
@@ -30,6 +33,24 @@ function view(overrides: Partial<PlayerEntityView> & { id: string }): PlayerEnti
     weaponAimAngle: null,
     attackAngleRad: 0,
     ...overrides,
+  };
+}
+
+function swordDummy(anim: MonsterEntityView["anim"]): MonsterEntityView {
+  return {
+    id: "sword-dummy",
+    defId: "sword-training-dummy",
+    name: "Sword Training Dummy",
+    x: 30.5,
+    y: 34.5,
+    z: 0,
+    hp: 150,
+    maxHp: 150,
+    fx: [],
+    anim,
+    faceX: -1,
+    faceY: 0,
+    air: false,
   };
 }
 
@@ -63,6 +84,25 @@ describe("resolveMeleeSwings", () => {
       previous,
     );
     expect(started.map((s) => s.id)).toEqual(["self"]);
+  });
+
+  it("routes the replicated sword-dummy attack through the ordinary sword wedge", () => {
+    const previousAttacking = new Map<string, boolean>();
+    const frame = {
+      players: [],
+      previousAttacking,
+      spawns: [] as MeleeSwingSpawn[],
+      records: [] as MeleeSwingSpawn[],
+      seen: new Set<string>(),
+    };
+    resolveMeleeSwingsInto({ ...frame, monsters: [swordDummy("idle")] });
+    const swings = resolveMeleeSwingsInto({ ...frame, monsters: [swordDummy("attack")] });
+
+    expect(swings[0]).toMatchObject({
+      id: "sword-dummy",
+      angleRad: Math.PI,
+      profile: { profileId: "sword", range: 2.4, arcCos: 0.7071 },
+    });
   });
 
   it("prunes ids no longer present so a disconnected player's stale state can't leak into a reused id", () => {

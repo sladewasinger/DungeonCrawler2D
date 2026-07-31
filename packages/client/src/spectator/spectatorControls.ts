@@ -1,10 +1,15 @@
 import type { SpectatorMode } from "@dc2d/engine";
 import type { Connection } from "../net/connection/connection.js";
+import {
+  spectatorControlMessage,
+  type SpectatorControlMessage,
+} from "./spectatorControlMessage.js";
 
 export interface SpectatorControlHandlers {
   readonly setHudVisible: (visible: boolean) => void;
   readonly focusCamera: () => void;
   readonly centerCamera: () => void;
+  readonly zoomCamera: (direction: "in" | "out") => void;
 }
 
 export interface SpectatorControlsOptions extends SpectatorControlHandlers {
@@ -75,16 +80,41 @@ export class SpectatorControls {
   };
 
   private applyMessage(message: SpectatorControlMessage): void {
-    if (message.action === "target") return this.applyTargetMessage(message);
-    if (message.action === "mode" && message.mode) return this.setMode(message.mode);
-    if (message.action === "center") return this.handlers.centerCamera();
-    if (message.action === "hud" && typeof message.visible === "boolean") {
+    if (this.applyCameraMessage(message)) return;
+    if (message.action === "hud") {
       this.setHud(message.visible);
     }
   }
 
-  private applyTargetMessage(message: SpectatorControlMessage): void {
-    if (message.playerId) this.connection.selectSpectatorTarget(message.playerId);
+  private applyCameraMessage(message: SpectatorControlMessage): boolean {
+    if (this.applyTargetMessage(message)) return true;
+    if (this.applyModeMessage(message)) return true;
+    if (this.applyCenterMessage(message)) return true;
+    return this.applyZoomMessage(message);
+  }
+
+  private applyTargetMessage(message: SpectatorControlMessage): boolean {
+    if (message.action !== "target") return false;
+    this.connection.selectSpectatorTarget(message.playerId);
+    return true;
+  }
+
+  private applyModeMessage(message: SpectatorControlMessage): boolean {
+    if (message.action !== "mode") return false;
+    this.setMode(message.mode);
+    return true;
+  }
+
+  private applyCenterMessage(message: SpectatorControlMessage): boolean {
+    if (message.action !== "center") return false;
+    this.handlers.centerCamera();
+    return true;
+  }
+
+  private applyZoomMessage(message: SpectatorControlMessage): boolean {
+    if (message.action !== "zoom") return false;
+    this.handlers.zoomCamera(message.direction);
+    return true;
   }
 
   private render(): void {
@@ -126,20 +156,6 @@ export class SpectatorControls {
     this.handlers.setHudVisible(visible);
     this.render();
   }
-}
-
-interface SpectatorControlMessage {
-  readonly type: "dc2d-spectator-control";
-  readonly action: "target" | "mode" | "hud" | "center";
-  readonly playerId?: string;
-  readonly mode?: SpectatorMode;
-  readonly visible?: boolean;
-}
-
-function spectatorControlMessage(value: unknown): SpectatorControlMessage | null {
-  if (!value || typeof value !== "object") return null;
-  const message = value as Partial<SpectatorControlMessage>;
-  return message.type === "dc2d-spectator-control" ? message as SpectatorControlMessage : null;
 }
 
 function button(label: string): HTMLButtonElement {

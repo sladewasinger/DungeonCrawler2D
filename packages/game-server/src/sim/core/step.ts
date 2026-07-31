@@ -20,7 +20,10 @@ import { syncWorldFeatureOverrides } from "./worldFeatureOverrides.js";
 import { expireInvites } from "../social/social.js";
 import { maintainSpawnClearance } from "../spawnSafety/spawnSafety.js";
 import { applyAreaContact, realizeEffectEvents, tickStatuses } from "../progression/statuses.js";
-import { TEST_ZONE_RESEED_TICKS, seedTestZoneHazards, seedTestZoneItems } from "./testzone.js";
+import {
+  COMBAT_SANDBOX_RESEED_TICKS,
+  reseedCombatSandboxFixtures,
+} from "../sandbox/combatSandboxPopulation.js";
 import { stepTorches } from "../combat/torches.js";
 import { stepSpawnRoomAnnouncements } from "../announcer/spawnRoom/announcements.js";
 import { stepMiniBossArenaBoundaries } from "../enemies/miniBossArena/boundary.js";
@@ -50,10 +53,8 @@ function prepareSimTick(sim: SimState, effectEvents: EffectEvent[]): void {
 
 function repopulateEnemies(sim: SimState): void {
   if (sim.tickCount % REPOPULATE_INTERVAL_TICKS === 0) repopulateNearSpawn(sim);
-  if (!sim.hazardsActive || sim.tickCount % TEST_ZONE_RESEED_TICKS !== 0) return;
-  const claimed = new Set<string>();
-  seedTestZoneHazards(sim, claimed);
-  seedTestZoneItems(sim, claimed);
+  if (!sim.combatSandboxFixturesActive || sim.tickCount % COMBAT_SANDBOX_RESEED_TICKS !== 0) return;
+  reseedCombatSandboxFixtures(sim);
 }
 
 function stepSimActors(sim: SimState, effectEvents: EffectEvent[]): void {

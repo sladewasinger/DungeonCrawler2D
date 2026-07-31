@@ -7,7 +7,9 @@ export function findPlayerSpawn(
   sim: SimState,
   slotIndex: number,
 ): { x: number; y: number; z: number } {
-  if (sim.world.level === LEVEL.Sandbox) return findSpawn(sim);
+  if (sim.world.level === LEVEL.Sandbox || sim.world.level === LEVEL.CombatSandbox) {
+    return findSpawn(sim);
+  }
   const roomSpawn = spawnRoomSpawn(slotIndex);
   return {
     ...roomSpawn,

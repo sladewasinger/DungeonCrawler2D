@@ -123,7 +123,17 @@ function validateEnemyReferences(
   for (const e of enemies.values()) {
     for (const application of e.attack.applies ?? []) checkStatus(application.status, `enemy ${e.id}`);
     for (const drop of e.drops) validateEnemyDrop(drop.item, e.id, items);
+    if (e.trainingWeapon) validateTrainingWeapon(e.id, e.trainingWeapon.itemId, items);
   }
+}
+
+function validateTrainingWeapon(
+  enemyId: string,
+  itemId: string,
+  items: ReadonlyMap<string, ItemDef>,
+): void {
+  if (items.get(itemId)?.weapon) return;
+  throw new Error(`enemy ${enemyId} trains with unknown weapon "${itemId}"`);
 }
 
 function validateEnemyDrop(itemId: string, enemyId: string, items: ReadonlyMap<string, ItemDef>): void {

@@ -1,11 +1,11 @@
 import type { AdminMapEntity, DebugFlags } from "@dc2d/engine";
 import {
-  activeAttackAreas,
+  activeHitboxes,
   activeGuardArea,
   activeSearch,
-  attackCircle,
-  attackTile,
-  attackWedge,
+  hitboxCircle,
+  hitboxTile,
+  hitboxWedge,
   boxOutline,
   circleOutline,
   combatHurtbox,
@@ -24,6 +24,7 @@ export interface AdminMapEntityDebugRenderInput {
   readonly point: AdminMapEntityPoint;
   readonly center: AdminMapCenter;
   readonly debugFlags: DebugFlags;
+  readonly tileSize: number;
 }
 
 export interface AdminMapEntityPoint {
@@ -33,7 +34,7 @@ export interface AdminMapEntityPoint {
 
 export function drawAdminMapEntityDebug(input: AdminMapEntityDebugRenderInput): void {
   if (input.debugFlags.hurtboxes) drawHurtbox(input);
-  if (input.debugFlags.attacks) drawAttacks(input);
+  if (input.debugFlags.attacks) drawHitboxes(input);
   if (input.debugFlags.guards) drawGuard(input);
   if (input.debugFlags.lineOfSight) drawLineOfSight(input);
   if (input.debugFlags.search) drawSearch(input);
@@ -46,23 +47,23 @@ function drawHurtbox(input: AdminMapEntityDebugRenderInput): void {
   if (hurtbox) drawAdminMapLine({ ...input, points: boxOutline(hurtbox), color: "#f7c55c" });
 }
 
-function drawAttacks(input: AdminMapEntityDebugRenderInput): void {
-  for (const attack of activeAttackAreas(input.entity)) drawAttack(input, attack);
+function drawHitboxes(input: AdminMapEntityDebugRenderInput): void {
+  for (const hitbox of activeHitboxes(input.entity)) drawHitbox(input, hitbox);
 }
 
-function drawAttack(
+function drawHitbox(
   input: AdminMapEntityDebugRenderInput,
-  attack: ReturnType<typeof activeAttackAreas>[number],
+  hitbox: ReturnType<typeof activeHitboxes>[number],
 ): void {
-  if (attack.shape === "circle") {
-    drawAdminMapLine({ ...input, points: circleOutline(attackCircle(input.entity, attack)), color: "#f3727d", width: 2 });
+  if (hitbox.shape === "circle") {
+    drawAdminMapLine({ ...input, points: circleOutline(hitboxCircle(input.entity, hitbox)), color: "#f3727d", width: 2 });
     return;
   }
-  if (attack.shape === "cone") {
-    drawAdminMapLine({ ...input, points: wedgeOutline(attackWedge(input.entity, attack)), color: "#f3727d", width: 2 });
+  if (hitbox.shape === "cone") {
+    drawAdminMapLine({ ...input, points: wedgeOutline(hitboxWedge(input.entity, hitbox)), color: "#f3727d", width: 2 });
     return;
   }
-  drawAdminMapLine({ ...input, points: tileOutline(attackTile(attack)), color: "#f3727d", width: 2 });
+  drawAdminMapLine({ ...input, points: tileOutline(hitboxTile(hitbox)), color: "#f3727d", width: 2 });
 }
 
 function drawGuard(input: AdminMapEntityDebugRenderInput): void {
@@ -105,6 +106,7 @@ interface AdminMapDebugLineInput {
   readonly color: string;
   readonly width?: number;
   readonly dash?: readonly number[];
+  readonly tileSize: number;
 }
 
 function drawAdminMapLine(input: AdminMapDebugLineInput): void {
@@ -124,7 +126,12 @@ function drawAdminMapLine(input: AdminMapDebugLineInput): void {
 }
 
 function canvasPoint(input: AdminMapDebugLineInput, point: AdminDebugPoint): AdminMapEntityPoint {
-  return adminMapEntityScreenPoint(point, input.center, input.context.canvas);
+  return adminMapEntityScreenPoint({
+    world: point,
+    center: input.center,
+    canvas: input.context.canvas,
+    tileSize: input.tileSize,
+  });
 }
 
 function drawBehavior(input: AdminMapEntityDebugRenderInput): void {

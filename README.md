@@ -68,6 +68,12 @@ join via `http://<your-LAN-IP>:5173` (if their page loads but nothing else, allo
 spawns within 2 tiles of each other (friend-testing default; `SPAWN_RADIUS=0`
 restores the vast-world scatter).
 
+Local development also exposes two test destinations on the title screen. The
+Sandbox is the existing enemy-free traversal course. The Combat Sandbox is a
+flat, enclosed arena containing the content catalog, elemental fixtures, and
+training targets; players in either local sandbox receive in-game admin tools
+automatically.
+
 Each browser tab keeps its own multiplayer identity and resume token. Name and
 character defaults remain shared preferences, so opening a second tab does not
 take over the first crawler.
@@ -144,7 +150,6 @@ values and otherwise use their defaults; `VOID_TERRAIN` rejects unrecognized val
 | `DEBUG_COMMANDS` | Enabled outside production unless exact value `0`; controls development commands such as `/god` and `/tp`. |
 | `NODE_ENV` | Unset locally; exact value `production` hard-disables debug commands regardless of `DEBUG_COMMANDS`. |
 | `CLUSTER_SPAWNS` | Off; exact value `1` uses deterministic grid-style diagnostic spawns. |
-| `TEST_FIXTURES` | Off; exact value `1` seeds test-only world fixtures. |
 | `ADMIN_TOKEN` | Unset; token for the separate admin portal. With no token, portal authentication is disabled. |
 | `TRUST_PROXY` | Off; exact value `1` trusts the rightmost proxy-appended viewer address. Enable only behind the configured CloudFront path. |
 | `OPERATIONAL_EVENT_TABLE` | Unset; DynamoDB table for sanitized connection/admin history. Unset uses a no-op event sink. |
@@ -242,8 +247,9 @@ Terraform and deployment procedure.
 
 ## Status
 
-**v0.7.2 is playable:** district-scale world generation, multiplayer
+**v0.8.0 is playable:** district-scale world generation, multiplayer
 movement/combat, effects, items, dedicated room and encounter spaces,
 terrain-aware enemies, elemental reactions, companion pets, assisted controls,
-parties/chat, and editable HUD layouts are shipped. AI crafting and final
-art/content polish remain on the roadmap.
+parties/chat, editable HUD layouts, spectator/admin tools, and local combat
+testing areas are shipped. AI crafting and final art/content polish remain on
+the roadmap.

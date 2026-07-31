@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LEVEL_IDS } from "../world/core/level.js";
 import {
   areaTileSchema,
   entitySnapshotSchema,
@@ -49,7 +50,7 @@ export type {
   SafeRoomDoorSnapshot,
 } from "./schemas/snapshotSchemas.js";
 
-const level = z.enum(["dungeon", "sandbox"]);
+const level = z.enum(LEVEL_IDS);
 
 export const invStackSchema = z.object({ item: z.string(), qty: z.number().int() });
 export type InvStack = z.infer<typeof invStackSchema>;

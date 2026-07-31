@@ -35,7 +35,7 @@ export function createSimState({ world, content, store, rngSeed, opts }: {
 function createRuntimeCollections(): Pick<SimState,
   "moderationReports" | "fistbumpOffers" | "reviveAttempts" | "activatedChunks" |
   "defeatedMiniBossArenas" | "exposure" | "worldEvents" | "tickCount" | "nextPartyId" |
-  "nextPartyRoom" | "hazardsActive" | "outgoingTransfers" | "bossGateSealed" |
+  "nextPartyRoom" | "combatSandboxFixturesActive" | "outgoingTransfers" | "bossGateSealed" |
   "bossArenaOccupants" | "bossRespawnAtTick" | "crossFloorDirectory" | "pendingGlobalChat"
 > {
   return {
@@ -49,7 +49,7 @@ function createRuntimeCollections(): Pick<SimState,
     tickCount: 0,
     nextPartyId: 1,
     nextPartyRoom: 0,
-    hazardsActive: false,
+    combatSandboxFixturesActive: false,
     outgoingTransfers: [],
     ...createBossCollections(),
     crossFloorDirectory: [],

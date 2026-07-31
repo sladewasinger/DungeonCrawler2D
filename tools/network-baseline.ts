@@ -546,7 +546,6 @@ async function run(): Promise<void> {
     clusterSpawns: true,
     debugCommands: true,
     freezeEnemies: true,
-    testFixtures: true,
   });
   instrumentServerSteps(server);
   const port = await waitForListening(server);

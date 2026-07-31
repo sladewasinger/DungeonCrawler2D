@@ -63,7 +63,7 @@ describe("shape-specific attack targeting", () => {
     const attacker = combatant({ kind: "player", id: "attacker", x: 0 });
     const near = combatant({ kind: "enemy", id: "near", x: 1.5 });
     const edge = combatant({ kind: "enemy", id: "edge", x: 2 });
-    const far = combatant({ kind: "enemy", id: "far", x: 2.1 });
+    const far = combatant({ kind: "enemy", id: "far", x: 2.3 });
     const hammer = resolveWeaponProfile({
       weapon: { damage: 7, range: 1.7, cooldownMs: 500, shape: "ground", knockbackForce: 18 },
     });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { debugFlagsSchema } from "../../debug/debugFlags.js";
 import {
+  ADMIN_MAP_MAX_CELL_COUNT,
   adminCoordinateSchema,
   adminDirectionSchema,
   adminLevelSchema,
@@ -16,9 +17,11 @@ const debugRadiusSchema = z.number().finite().positive().max(64);
 const debugHurtboxSchema = z.object({
   halfWidth: debugRadiusSchema,
   halfDepth: debugRadiusSchema,
+  height: debugRadiusSchema,
+  bottomOffset: z.number().finite().min(-64).max(64),
 }).strict();
 const debugArcCosSchema = z.number().finite().min(-1).max(1);
-export const adminAttackAreaSchema = z.discriminatedUnion("shape", [
+export const adminHitboxSchema = z.discriminatedUnion("shape", [
   z.object({ shape: z.literal("circle"), radius: debugRadiusSchema }).strict(),
   z.object({
     shape: z.literal("cone"),
@@ -43,7 +46,7 @@ const adminNavigationDebugSchema = z.object({
 }).strict();
 const adminEntityDebugSchema = z.object({
   hurtbox: debugHurtboxSchema.optional(),
-  attacks: z.array(adminAttackAreaSchema).min(1).max(24).optional(),
+  attacks: z.array(adminHitboxSchema).min(1).max(24).optional(),
   guard: adminGuardAreaSchema.optional(),
   behavior: z.enum(["idle", "engaged", "pursuing", "searching"]).optional(),
   lineOfSight: debugPointSchema.optional(),
@@ -68,7 +71,8 @@ export const adminMapEntitySchema = z.object({
 }).strict();
 const adminMapSchema = z.object({
   level: adminLevelSchema, floor: z.number().int(), center: z.object({ x: adminCoordinateSchema, y: adminCoordinateSchema }).strict(), radius: z.number().int(),
-  cells: z.array(adminMapCellSchema).max(1089), entities: z.array(adminMapEntitySchema).max(2048),
+  cells: z.array(adminMapCellSchema).max(ADMIN_MAP_MAX_CELL_COUNT),
+  entities: z.array(adminMapEntitySchema).max(2048),
 }).strict();
 const adminPaletteSchema = z.object({
   enemies: z.array(z.string()).max(256),
@@ -98,6 +102,6 @@ export type AdminObserverState = z.infer<typeof adminObserverStateSchema>;
 export type AdminMap = z.infer<typeof adminMapSchema>;
 export type AdminMapCell = z.infer<typeof adminMapCellSchema>;
 export type AdminMapEntity = z.infer<typeof adminMapEntitySchema>;
-export type AdminAttackArea = z.infer<typeof adminAttackAreaSchema>;
+export type AdminHitbox = z.infer<typeof adminHitboxSchema>;
 export type AdminPalette = z.infer<typeof adminPaletteSchema>;
 export type AdminHistoryEntry = z.infer<typeof adminHistoryEntrySchema>;

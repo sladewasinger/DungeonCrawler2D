@@ -3,13 +3,14 @@ import { text, title } from "../adminPagePrimitives.js";
 import {
   clearAdminPlayerActions,
   renderAdminPlayerActions,
-} from "./adminPlayerActions.js";
+} from "./actions/adminPlayerActions.js";
 import { FullSpectatorEmbed } from "./fullSpectatorEmbed.js";
 
 export interface AdminPlayerObserver {
   readonly root: HTMLElement;
   render(input: AdminPlayerObserverRenderInput): void;
   centerCamera(): void;
+  zoomCamera(direction: "in" | "out"): void;
 }
 
 export interface AdminPlayerObserverRenderInput {
@@ -37,6 +38,7 @@ export function createAdminPlayerObserver(): AdminPlayerObserver {
     root: elements.root,
     render: (input) => renderObserver({ elements, input }),
     centerCamera: () => elements.embed.centerOnPlayer(),
+    zoomCamera: (direction) => elements.embed.zoom(direction),
   };
 }
 

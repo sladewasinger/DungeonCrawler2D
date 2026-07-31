@@ -68,7 +68,7 @@ function panelStyle(): string {
 function debugLabel(flag: DebugFlag): string {
   const labels: Record<DebugFlag, string> = {
     hurtboxes: "Hurtboxes",
-    attacks: "Active attacks",
+    attacks: "Hitboxes",
     guards: "Active guards",
     lineOfSight: "Current line of sight",
     behavior: "AI behavior",

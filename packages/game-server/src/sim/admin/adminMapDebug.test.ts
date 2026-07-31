@@ -23,7 +23,12 @@ describe("admin map debug projection", () => {
     if (!activeAttack) throw new Error("expected active melee attack");
 
     expect(entity.debug).toMatchObject({
-      hurtbox: { halfWidth: 0.2, halfDepth: 0.2 },
+      hurtbox: {
+        halfWidth: 0.4583333333,
+        halfDepth: 0.4583333333,
+        height: 1.6666666667,
+        bottomOffset: -0.0416666667,
+      },
     });
     expect(entity.debug?.attacks).toEqual([{
       shape: "cone",
@@ -73,6 +78,8 @@ describe("admin map debug projection", () => {
     expect(entity?.debug?.hurtbox).toEqual({
       halfWidth: 0.8,
       halfDepth: 0.45,
+      height: 1.0833333333,
+      bottomOffset: 0.0416666667,
     });
   });
 

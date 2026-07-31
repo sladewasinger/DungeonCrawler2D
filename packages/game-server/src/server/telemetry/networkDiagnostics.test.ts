@@ -68,19 +68,20 @@ function wireTypes(socket: FakeSocket): string[] {
 describe("server network diagnostics wiring", () => {
   it("measures welcome, pong, snapshot, and protocol-error sends through fake sockets", () => {
     const store = new PlayerStore(null);
-    const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: { testFixtures: true } });
+    const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: {} });
     const sandbox = makeSim();
+    const combatSandbox = makeSim(4321, { level: LEVEL.CombatSandbox });
     const diagnostics = new ServerNetworkDiagnostics();
     const adminSessions = new AdminSessionRegistry();
     const sockets: SocketMap = new Map();
     const accepted = new FakeSocket();
-    handleConnection(accepted as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
+    handleConnection(accepted as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     accepted.receive(hello());
     accepted.receive({ type: "ping", t: 4 });
     deliverSnapshots({ snapshots: sandbox.stepPreparedReplicated(), sockets, diagnostics });
 
     const rejected = new FakeSocket();
-    handleConnection(rejected as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
+    handleConnection(rejected as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     rejected.receive(hello(PROTOCOL_VERSION + 1));
 
     expect(wireTypes(accepted)).toEqual(["welcome", "pong", "snapshotDelta"]);
@@ -97,19 +98,20 @@ describe("server network diagnostics wiring", () => {
 
   it("keeps a replacement client's diagnostics until its current socket closes", () => {
     const store = new PlayerStore(null);
-    const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: { testFixtures: true } });
+    const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: {} });
     const sandbox = makeSim();
+    const combatSandbox = makeSim(4321, { level: LEVEL.CombatSandbox });
     const diagnostics = new ServerNetworkDiagnostics();
     const adminSessions = new AdminSessionRegistry();
     const sockets: SocketMap = new Map();
     const first = new FakeSocket();
-    handleConnection(first as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
+    handleConnection(first as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     first.receive(hello());
     const joined = welcome(first);
     sandbox.markDisconnected(joined.playerId);
 
     const replacement = new FakeSocket();
-    handleConnection(replacement as unknown as WebSocket, { floors, sandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
+    handleConnection(replacement as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     replacement.receive(hello(PROTOCOL_VERSION, joined.resumeToken));
 
     expect(sockets.get(joined.playerId)?.ws).toBe(replacement);

@@ -103,7 +103,7 @@ export class AdminPage {
     if (this.playerObserver.select(event.target)) {
       const player = this.playerObserver.selectedPlayer();
       this.spawnPlacement.followPlayer(player);
-      if (player && this.connection.spectatorMode !== "off") {
+      if (player && this.connection.spectatorMode === "track") {
         this.connection.sendAdminCommand({ op: "spectate", playerId: player.playerId });
         return;
       }
@@ -115,7 +115,7 @@ export class AdminPage {
     if (!this.playerObserver.selectFromKey(event)) return;
     const player = this.playerObserver.selectedPlayer();
     this.spawnPlacement.followPlayer(player);
-    if (player && this.connection.spectatorMode !== "off") {
+    if (player && this.connection.spectatorMode === "track") {
       this.connection.sendAdminCommand({ op: "spectate", playerId: player.playerId });
       return;
     }

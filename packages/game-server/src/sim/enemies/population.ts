@@ -7,12 +7,12 @@ import {
 } from "@dc2d/engine";
 import { spawnItem } from "../core/helpers.js";
 import type { SimState } from "../state/state.js";
-import { populateTestZoneChunk } from "../core/testzone.js";
+import { populateCombatSandboxChunk } from "../sandbox/combatSandboxPopulation.js";
 import { spawnEnemyPack } from "./population/packs.js";
 import {
   syncObservableMiniBossEncounters,
 } from "./miniBossArena/observation/observablePopulation.js";
-import { ensureSandboxTrainingDummy } from "./training/trainingDummy.js";
+import { ensureCombatSandboxTrainingDummies } from "./training/trainingDummy.js";
 
 const ENEMY_CAP = 150;
 const ROOM_LOOT = [
@@ -20,9 +20,9 @@ const ROOM_LOOT = [
 ];
 
 export function activateChunksNearPlayers(sim: SimState): void {
-  ensureSandboxTrainingDummy(sim);
-  if (sim.world.level === LEVEL.Sandbox && !sim.opts.testFixtures) return;
-  syncObservableMiniBossEncounters(sim);
+  ensureCombatSandboxTrainingDummies(sim);
+  if (sim.world.level === LEVEL.Sandbox) return;
+  if (sim.world.level === LEVEL.Dungeon) syncObservableMiniBossEncounters(sim);
   for (const slot of sim.players.values()) {
     const ccx = Math.floor(slot.entity.body.x / CHUNK_SIZE);
     const ccy = Math.floor(slot.entity.body.y / CHUNK_SIZE);
@@ -48,14 +48,13 @@ function activateChunk(sim: SimState, cx: number, cy: number): void {
 
 function populateChunk(sim: SimState, cx: number, cy: number): void {
   if (isRoomIsolationChunk(cy)) return;
-  if (sim.world.level === LEVEL.Sandbox) return populateSandboxChunk(sim, cx, cy);
+  if (sim.world.level === LEVEL.CombatSandbox) {
+    populateCombatSandboxChunk(sim, cx, cy);
+    return;
+  }
   spawnRoomLoot(sim, cx, cy);
   if (sim.enemies.size >= ENEMY_CAP) return;
   spawnEnemyPack(sim, cx, cy);
-}
-
-function populateSandboxChunk(sim: SimState, cx: number, cy: number): void {
-  if (sim.opts.testFixtures) populateTestZoneChunk(sim, cx, cy);
 }
 
 function spawnRoomLoot(sim: SimState, cx: number, cy: number): void {

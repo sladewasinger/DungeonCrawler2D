@@ -1,6 +1,6 @@
 import {
   PROJECTILE_CONTACT_RADIUS,
-  weaponAttackContainsPoint,
+  weaponHitboxContainsPoint,
   type Entity,
   type WeaponProfile,
 } from "@dc2d/engine";
@@ -13,11 +13,11 @@ export interface ProjectileReturnContext {
   readonly profile: WeaponProfile;
 }
 
-/** Returns each nearby hostile spit through the accepted weapon attack area. */
+/** Returns each nearby hostile spit that intersects the accepted weapon hitbox. */
 export function returnHostileProjectiles(context: ProjectileReturnContext): void {
   for (const projectile of context.sim.projectiles.values()) {
     if (!isReturnableSpit(context.sim, projectile)) continue;
-    if (!weaponAttackContainsPoint(attackPointInput(context, projectile))) continue;
+    if (!weaponHitboxContainsPoint(attackPointInput(context, projectile))) continue;
     returnProjectile(projectile, context.attacker.id);
   }
 }

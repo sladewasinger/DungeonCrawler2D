@@ -1,3 +1,4 @@
+import { LEVEL_IDS } from "@dc2d/engine";
 import {
   actionButton,
   controlFieldset,
@@ -61,7 +62,7 @@ interface MapControls {
 function mapControls(): MapControls {
   const root = document.createElement("div");
   root.dataset.adminMapControls = "";
-  const mapLevel = select("Map level", ["dungeon", "sandbox"]);
+  const mapLevel = select("Map level", [...LEVEL_IDS]);
   const mapFloor = mapFloorInput();
   root.append(...mapControlContent({ mapLevel, mapFloor }));
   return { root, mapLevel, mapFloor };
@@ -83,9 +84,32 @@ function mapControlContent(controls: Omit<MapControls, "root">): readonly HTMLEl
   help.dataset.adminMapHelp = "";
   return [
     controlGroup("Map", controls.mapLevel, controls.mapFloor, actionButton("Load map", "inspect-map")),
-    controlGroup("Camera", actionButton("Center selected", "map-center-selected"), actionButton("Free pan", "map-free-camera")),
+    controlGroup(
+      "Camera",
+      actionButton("Center selected", "map-center-selected"),
+      actionButton("Free pan", "map-free-camera"),
+      mapZoomControls(),
+    ),
     help,
   ];
+}
+
+function mapZoomControls(): HTMLElement {
+  const controls = document.createElement("div");
+  controls.dataset.adminMapZoomControls = "";
+  controls.append(
+    zoomButton("−", "map-zoom-out", "Zoom world editor out"),
+    zoomButton("+", "map-zoom-in", "Zoom world editor in"),
+    actionButton("Reset zoom (100%)", "map-zoom-reset"),
+  );
+  return controls;
+}
+
+function zoomButton(label: string, action: string, accessibleLabel: string): HTMLButtonElement {
+  const control = actionButton(label, action);
+  control.title = accessibleLabel;
+  control.setAttribute("aria-label", accessibleLabel);
+  return control;
 }
 
 function controlGroup(label: string, ...controls: HTMLElement[]): HTMLElement {

@@ -72,20 +72,30 @@ export { handleConnection } from "./connection/connectionHandler.js";
 /** Which sim a hello lands in: sandbox is unchanged; a dungeon resume
  * reattaches wherever its slot currently lives (any active floor); a
  * fresh process/session join restores the server-owned active floor. */
-function resolveJoinSim(msg: ClientHello, floors: FloorRegistry, sandbox: GameSim): GameSim {
-  if (msg.level === LEVEL.Sandbox) return sandbox;
+function resolveJoinSim(
+  msg: ClientHello,
+  simulations: JoinSimulations,
+): GameSim {
+  if (msg.level === LEVEL.Sandbox) return simulations.sandbox;
+  if (msg.level === LEVEL.CombatSandbox) return simulations.combatSandbox;
   if (msg.resumeToken) {
-    const resumed = floors.findByToken(msg.resumeToken);
+    const resumed = simulations.floors.findByToken(msg.resumeToken);
     if (resumed) return resumed;
   }
-  return floors.joinSim(msg.clientId);
+  return simulations.floors.joinSim(msg.clientId);
+}
+
+interface JoinSimulations {
+  readonly floors: FloorRegistry;
+  readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim;
 }
 
 function handleHello(msg: ClientHello, context: ServerConnectionMessageContext): void {
-  const { ws, conn, floors, sandbox, sockets, seedInputText, worldSeed, diagnostics } = context;
+  const { ws, conn, floors, sandbox, combatSandbox, sockets, seedInputText, worldSeed, diagnostics } = context;
   const inputText = seedInputText ?? String(worldSeed);
   if (!canAcceptHello(msg, context)) return;
-  const sim = resolveJoinSim(msg, floors, sandbox);
+  const sim = resolveJoinSim(msg, { floors, sandbox, combatSandbox });
   const join = sim.addPlayer({
     name: msg.name,
     clientId: msg.clientId,

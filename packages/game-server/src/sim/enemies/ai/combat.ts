@@ -7,6 +7,7 @@ import {
   makeEntity,
   newEntityId,
   reachesHurtbox,
+  verticalRangeIntersectsHurtbox,
   THROW_SPEED,
   type EffectEvent,
 } from "@dc2d/engine";
@@ -53,8 +54,12 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): void {
 function isOutOfStrikeRange(enemy: EnemySlot, victim: EnemySlot["entity"]): boolean {
   const { body } = enemy.entity;
   const tooFar = !reachesHurtbox(enemy.entity, victim, enemy.def.attack.range);
-  const tooHigh = Math.abs(victim.body.z - body.z) >
-    ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference;
+  const verticalReach = ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference;
+  const tooHigh = !verticalRangeIntersectsHurtbox(
+    body.z - verticalReach,
+    body.z + verticalReach,
+    victim,
+  );
   return tooFar || tooHigh;
 }
 

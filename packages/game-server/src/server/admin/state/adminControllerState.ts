@@ -13,6 +13,7 @@ import type { SpectatorSession } from "../spectator/spectatorSession.js";
 export interface ControllerStateInput {
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim | undefined;
   readonly spectator: SpectatorSession;
   readonly session: AdminSession | null;
   readonly players: AdminPlayer[];

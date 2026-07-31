@@ -1,8 +1,3 @@
-import {
-  DEFAULT_WORLD_FEATURES,
-  LEVEL,
-  World,
-} from "@dc2d/engine";
 import { WebSocketServer } from "ws";
 import { FloorRegistry } from "../../floors/floorRegistry.js";
 import { GameSim } from "../../sim/core/index.js";
@@ -18,11 +13,16 @@ import type { SocketMap } from "../types.js";
 import { createBroadcastContext, createConnectionContext } from "./serverRuntimeContext.js";
 import { SpectatorDirectory } from "../spectator/spectatorDirectory.js";
 import { SpectatorSubscriptions } from "../spectator/spectatorSubscriptions.js";
+import {
+  createServerSimulations,
+  serverSimulationOptions,
+} from "./serverSimulations.js";
 
 export interface ServerRuntime {
   readonly wss: WebSocketServer;
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim;
   readonly store: PlayerStore;
   readonly sockets: SocketMap;
   readonly networkMetrics: ServerNetworkDiagnostics;
@@ -39,6 +39,7 @@ export function createServerRuntime(opts: ServerOptions): ServerRuntime {
   const adminRuntime = createAdminRuntime({
     floors: foundation.floors,
     sandbox: foundation.sandbox,
+    combatSandbox: foundation.combatSandbox,
     operationalEvents,
   });
   return assembleRuntime({ opts, foundation, adminRuntime, operationalEvents });
@@ -50,6 +51,7 @@ interface RuntimeFoundation {
   readonly wss: WebSocketServer;
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim;
   readonly store: PlayerStore;
   readonly sockets: SocketMap;
   readonly networkMetrics: ServerNetworkDiagnostics;
@@ -58,11 +60,17 @@ interface RuntimeFoundation {
 function createRuntimeFoundation(opts: ServerOptions): RuntimeFoundation {
   const store = new PlayerStore(opts.storeFile ?? null);
   const seed = runtimeSeed(opts.rngSeed);
-  const simulations = createSimulations({ opts, store, seed, simOpts: simulationOptions(opts) });
+  const simulations = createServerSimulations({
+    opts,
+    store,
+    seed,
+    simOpts: serverSimulationOptions(opts),
+  });
   return {
     store,
     floors: simulations.floors,
     sandbox: simulations.sandbox,
+    combatSandbox: simulations.combatSandbox,
     wss: new WebSocketServer({ port: opts.port, ...(opts.host ? { host: opts.host } : {}) }),
     sockets: new Map(),
     networkMetrics: new ServerNetworkDiagnostics(),
@@ -91,6 +99,7 @@ function assembleRuntime(input: RuntimeAssemblyInput): ServerRuntime {
       opts,
       floors,
       sandbox,
+      combatSandbox: foundation.combatSandbox,
       sockets,
       networkMetrics,
       admin,
@@ -100,7 +109,7 @@ function assembleRuntime(input: RuntimeAssemblyInput): ServerRuntime {
       spectatorSubscriptions,
       operationalEvents,
     }),
-    tickContext: createBroadcastContext({ opts, floors, sandbox, sockets, networkMetrics, admin, adminSubscriptions, spectatorSubscriptions }),
+    tickContext: createBroadcastContext({ opts, floors, sandbox, combatSandbox: foundation.combatSandbox, sockets, networkMetrics, admin, adminSubscriptions, spectatorSubscriptions }),
   };
 }
 
@@ -116,45 +125,6 @@ function createSpectatorSubscriptions(
     }),
     diagnostics: foundation.networkMetrics,
   });
-}
-
-function simulationOptions(opts: ServerOptions): GameSim["state"]["opts"] {
-  return {
-    clusterSpawns: opts.clusterSpawns ?? false,
-    spawnRadiusTiles: opts.spawnRadiusTiles,
-    debugCommands: opts.debugCommands ?? false,
-    freezeEnemies: opts.freezeEnemies ?? false,
-    testFixtures: opts.testFixtures ?? false,
-  };
-}
-
-interface SimulationCreation {
-  readonly opts: ServerOptions;
-  readonly store: PlayerStore;
-  readonly seed: number;
-  readonly simOpts: GameSim["state"]["opts"];
-}
-
-function createSimulations(input: SimulationCreation): { floors: FloorRegistry; sandbox: GameSim } {
-  const { opts, store, seed, simOpts } = input;
-  const worldFeatures = opts.worldFeatures ?? DEFAULT_WORLD_FEATURES;
-  return {
-    floors: new FloorRegistry({
-      worldSeed: opts.worldSeed,
-      content: opts.content,
-      store,
-      rngSeedBase: seed,
-      opts: simOpts,
-      worldFeatures,
-    }),
-    sandbox: new GameSim({
-      world: new World(opts.worldSeed, opts.floor, { level: LEVEL.Sandbox, features: worldFeatures }),
-      content: opts.content,
-      store,
-      rngSeed: seed + 1000,
-      opts: simOpts,
-    }),
-  };
 }
 
 function runtimeSeed(seed: number | undefined): number {

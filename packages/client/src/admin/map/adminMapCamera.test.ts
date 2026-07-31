@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminMapScreenPoint,
   adminMapLocationChanged,
   adminMapTileCenter,
   panAdminMapCenter,
@@ -23,5 +24,14 @@ describe("admin map camera", () => {
     const location = { level: "dungeon" as const, floor: 1 };
     expect(adminMapLocationChanged(location, { ...location })).toBe(false);
     expect(adminMapLocationChanged(location, { ...location, floor: 2 })).toBe(true);
+  });
+
+  it("projects world positions using the selected editor zoom", () => {
+    expect(adminMapScreenPoint({
+      world: { x: 12.5, y: 9.5 },
+      center: { x: 10.5, y: 10.5 },
+      canvas: { width: 480, height: 360 },
+      tileSize: 48,
+    })).toEqual({ x: 336, y: 132 });
   });
 });

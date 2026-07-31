@@ -4,7 +4,7 @@ import { makeSim, teleport } from "../support.js";
 
 describe("bandaging another player", () => {
   it("heals a nearby living target and consumes the healer's bandage", () => {
-    const sim = makeSim(1234, { testFixtures: true, freezeEnemies: true });
+    const sim = makeSim(1234, { freezeEnemies: true });
     const healer = sim.addPlayer({ name: "Healer", clientId: "bandage-healer" });
     const patient = sim.addPlayer({ name: "Patient", clientId: "bandage-patient" });
     const healerEntity = sim.getPlayerEntity(healer.playerId)!;
@@ -32,7 +32,7 @@ describe("bandaging another player", () => {
   });
 
   it("rejects an out-of-range target without consuming the bandage", () => {
-    const sim = makeSim(1234, { testFixtures: true, freezeEnemies: true });
+    const sim = makeSim(1234, { freezeEnemies: true });
     const healer = sim.addPlayer({ name: "Healer", clientId: "far-bandage-healer" });
     const patient = sim.addPlayer({ name: "Patient", clientId: "far-bandage-patient" });
     const healerEntity = sim.getPlayerEntity(healer.playerId)!;

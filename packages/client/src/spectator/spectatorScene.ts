@@ -16,6 +16,10 @@ import {
 } from "../scenes/dungeon/orchestration/dungeonSceneHelpers.js";
 import { createDungeonSceneState } from "../scenes/dungeon/orchestration/state.js";
 import { SpectatorCameraTracking } from "./camera/spectatorCameraTracking.js";
+import {
+  nextSpectatorCameraZoom,
+  type SpectatorCameraZoomDirection,
+} from "./camera/spectatorCameraZoom.js";
 import { syncSpectatorCosmetics } from "./spectatorCosmetics.js";
 import {
   spectatorTargetFrame,
@@ -111,6 +115,12 @@ export class SpectatorScene extends Phaser.Scene {
 
   centerCamera(): void {
     this.spectatorCamera?.centerOnTarget();
+  }
+
+  zoomCamera(direction: SpectatorCameraZoomDirection): void {
+    const camera = this.cameras.main;
+    camera.setZoom(nextSpectatorCameraZoom(camera.zoom, direction));
+    this.spectatorCamera?.focus();
   }
 
   private ensureWorldSystems(world: World): void {

@@ -1,4 +1,4 @@
-import type { AdminPlayer } from "@dc2d/engine";
+import { LEVEL, type AdminPlayer, type LevelId } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { AdminSpectatorSurface } from "../../adminSpectatorSurface.js";
 import type { AdminPageView } from "../../adminPageView.js";
@@ -8,6 +8,8 @@ import {
   AdminMapRequestThrottle,
   type AdminMapRequest,
 } from "./adminMapRequestThrottle.js";
+
+const ADMIN_MAP_REFRESH_INTERVAL_MS = 400;
 
 export interface AdminMapCameraControllerOptions {
   readonly connection: Connection;
@@ -24,6 +26,7 @@ export class AdminMapCameraController {
   constructor(private readonly options: AdminMapCameraControllerOptions) {
     this.mapRequests = new AdminMapRequestThrottle({
       send: (request) => this.sendMapRequest(request),
+      minimumIntervalMs: ADMIN_MAP_REFRESH_INTERVAL_MS,
     });
   }
 
@@ -57,6 +60,12 @@ export class AdminMapCameraController {
   freeCamera(): void {
     this.stopFollowing();
     this.options.surface.focusInput();
+  }
+
+  ensureViewportCoverage(): void {
+    const map = this.options.connection.adminMap;
+    if (map && map.radius >= this.options.surface.requiredMapRadius) return;
+    this.requestMapAt(this.options.surface.center);
   }
 
   private stopFollowing(): void {
@@ -93,7 +102,7 @@ export class AdminMapCameraController {
       level: mapLevel(this.options.view),
       floor: boundedAdminFloor(this.options.view.mapFloor.value, map?.floor ?? 1),
       center,
-      radius: map?.radius ?? 10,
+      radius: this.options.surface.requiredMapRadius,
     });
   }
 
@@ -110,8 +119,10 @@ export class AdminMapCameraController {
   }
 }
 
-function mapLevel(view: AdminPageView): "dungeon" | "sandbox" {
-  return view.mapLevel.value === "sandbox" ? "sandbox" : "dungeon";
+function mapLevel(view: AdminPageView): LevelId {
+  if (view.mapLevel.value === LEVEL.Sandbox) return LEVEL.Sandbox;
+  if (view.mapLevel.value === LEVEL.CombatSandbox) return LEVEL.CombatSandbox;
+  return LEVEL.Dungeon;
 }
 
 function sameMapCenter(left: AdminMapCenter, right: AdminMapCenter | null): boolean {

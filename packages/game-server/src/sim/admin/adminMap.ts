@@ -1,4 +1,5 @@
 import {
+  ADMIN_MAP_MAX_RADIUS,
   TERRAIN,
   type AdminMap,
   type AdminMapEntity,
@@ -69,7 +70,7 @@ export function adminPalette(sim: SimState): AdminPalette {
 }
 
 function clampRadius(radius: number): number {
-  return Math.max(4, Math.min(16, Math.floor(radius)));
+  return Math.max(4, Math.min(ADMIN_MAP_MAX_RADIUS, Math.floor(radius)));
 }
 
 function mapCells(sim: SimState, center: { x: number; y: number }, radius: number): AdminMap["cells"] {

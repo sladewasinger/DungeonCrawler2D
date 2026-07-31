@@ -20,6 +20,7 @@ export interface AdminRuntime {
 export interface AdminRuntimeInput {
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox?: GameSim;
   readonly operationalEvents?: OperationalEventSink;
 }
 
@@ -33,6 +34,7 @@ export function createAdminRuntime(input: AdminRuntimeInput): AdminRuntime {
     controller: new AdminController({
       floors: input.floors,
       sandbox: input.sandbox,
+      ...(input.combatSandbox ? { combatSandbox: input.combatSandbox } : {}),
       audit: auditSink,
       history: audit,
     }),

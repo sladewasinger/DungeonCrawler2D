@@ -2,7 +2,10 @@ import type { Connection } from "../../net/connection/connection.js";
 import type { AdminPageView } from "../adminPageView.js";
 import type { AdminSpawnPlacementController } from "../adminSpawnPlacementController.js";
 import type { AdminPlayerObserverController } from "../spectator/adminPlayerObserverController.js";
-import { commandForAdminAction } from "./adminCommandFactory.js";
+import {
+  commandForAdminAction,
+  commandForSpectatorToggle,
+} from "./adminCommandFactory.js";
 import { adminParameterizedCommand } from "./adminParameterizedCommand.js";
 
 export interface AdminPageActionControllerOptions {
@@ -16,7 +19,7 @@ export class AdminPageActionController {
   constructor(private readonly options: AdminPageActionControllerOptions) {}
 
   send(action: string, control: HTMLButtonElement | null): void {
-    if (action === "spectator-center") return this.options.playerObserver.centerCamera();
+    if (this.sendSpectatorAction(action)) return;
     if (this.sendMapAction(action)) return;
     const parameterized = adminParameterizedCommand(action, control);
     if (parameterized.recognized) return this.sendParameterized(parameterized);
@@ -24,11 +27,28 @@ export class AdminPageActionController {
     if (command) this.options.connection.sendAdminCommand(command);
   }
 
+  private sendSpectatorAction(action: string): boolean {
+    if (action === "spectator-center") this.options.playerObserver.centerCamera();
+    else if (action === "spectator-zoom-in") this.options.playerObserver.zoomCamera("in");
+    else if (action === "spectator-zoom-out") this.options.playerObserver.zoomCamera("out");
+    else if (action === "spectator-toggle") this.toggleSpectator();
+    else return false;
+    return true;
+  }
+
+  private toggleSpectator(): void {
+    const command = commandForSpectatorToggle(this.options.connection.spectatorMode);
+    this.options.connection.sendAdminCommand(command);
+  }
+
   private sendMapAction(action: string): boolean {
     if (action === "inspect-map") this.options.spawnPlacement.inspectCurrentMap();
     else if (action === "map-center-selected") {
       this.options.spawnPlacement.followPlayer(this.options.playerObserver.selectedPlayer());
     } else if (action === "map-free-camera") this.options.spawnPlacement.freeCamera();
+    else if (action === "map-zoom-in") this.options.spawnPlacement.zoom("in");
+    else if (action === "map-zoom-out") this.options.spawnPlacement.zoom("out");
+    else if (action === "map-zoom-reset") this.options.spawnPlacement.resetZoom();
     else return false;
     return true;
   }

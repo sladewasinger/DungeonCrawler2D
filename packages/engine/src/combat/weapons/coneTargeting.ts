@@ -1,5 +1,5 @@
 import type { Entity } from "../../entities/entity.js";
-import { weaponAttackIntersectsHurtbox } from "./weaponAttackArea.js";
+import { weaponHitboxIntersectsHurtbox } from "./weaponHitbox.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
 
 export interface ConeWeaponTargetingInput {
@@ -12,7 +12,7 @@ export interface ConeWeaponTargetingInput {
 
 /**
  * Cone swings connect with every hostile body. Party targeting aid retains the
- * closest party member only when no hostile body is in the attack area.
+ * closest party member only when no hostile hurtbox intersects the hitbox.
  */
 export function selectConeTargets(input: ConeWeaponTargetingInput): Entity[] {
   const groups = collectConeTargetGroups(input);
@@ -49,7 +49,7 @@ function collectConeTarget(
 
 function isConeTarget(input: ConeWeaponTargetingInput, target: Entity): boolean {
   if (!isCombatTarget(input.attacker, target)) return false;
-  return weaponAttackIntersectsHurtbox({
+  return weaponHitboxIntersectsHurtbox({
     attacker: input.attacker,
     direction: input.direction,
     profile: input.profile,

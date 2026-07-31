@@ -1,7 +1,8 @@
+import type { LevelId } from "@dc2d/engine";
 import type { AdminMapCenter } from "../adminMapCamera.js";
 
 export interface AdminMapRequest {
-  readonly level: "dungeon" | "sandbox";
+  readonly level: LevelId;
   readonly floor: number;
   readonly center: AdminMapCenter;
   readonly radius: number;

@@ -32,6 +32,7 @@ export function startSpectatorRoute(search: URLSearchParams): void {
     setHudVisible: (visible) => scene.setHudVisible(visible),
     focusCamera: () => scene.focusCamera(),
     centerCamera: () => scene.centerCamera(),
+    zoomCamera: (direction) => scene.zoomCamera(direction),
     hudVisible,
     embedded,
   });

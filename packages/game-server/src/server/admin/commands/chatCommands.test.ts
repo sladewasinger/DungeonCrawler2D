@@ -13,6 +13,9 @@ describe("admin gameplay chat commands", () => {
     expect(parseAdminChatCommand("/admin spawn pet pet-dino-tard 4.5 5.5 dungeon 1 player-1")).toEqual({
       op: "spawn", kind: "pet", defId: "pet-dino-tard", x: 4.5, y: 5.5, level: "dungeon", floor: 1, ownerPlayerId: "player-1",
     });
+    expect(parseAdminChatCommand("/admin map combat-sandbox 1 25 25 12")).toEqual({
+      op: "map", level: "combat-sandbox", floor: 1, x: 25, y: 25, radius: 12,
+    });
   });
 
   it("accepts shared spawn-room coordinates for map and spawn commands", () => {

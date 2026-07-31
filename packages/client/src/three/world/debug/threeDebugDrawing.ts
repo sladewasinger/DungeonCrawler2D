@@ -1,12 +1,12 @@
 import type { AdminMapEntity, DebugFlags } from "@dc2d/engine";
 import {
-  activeAttackAreas,
+  activeHitboxes,
   activeGuardArea,
   activeSearch,
-  attackCircle,
-  attackTile,
-  attackWedge,
-  boxOutline,
+  hitboxCircle,
+  hitboxTile,
+  hitboxWedge,
+  boxWireframe,
   circleOutline,
   combatHurtbox,
   currentLineOfSight,
@@ -19,7 +19,7 @@ import type { ThreeDebugPrimitiveWriter } from "./threeDebugPrimitives.js";
 
 const COLORS = {
   hurtbox: 0xf7c55c,
-  attack: 0xf3727d,
+  hitbox: 0xf3727d,
   guard: 0x78c6e8,
   lineOfSight: 0xe9c46a,
   search: 0xc48df2,
@@ -32,7 +32,7 @@ export function addThreeEntityDebug(
   entity: AdminMapEntity,
 ): void {
   if (flags.hurtboxes) addHurtbox(writer, entity);
-  if (flags.attacks) addAttacks(writer, entity);
+  if (flags.attacks) addHitboxes(writer, entity);
   if (flags.guards) addGuard(writer, entity);
   if (flags.lineOfSight) addLineOfSight(writer, entity);
   if (flags.search) addSearch(writer, entity);
@@ -42,27 +42,28 @@ export function addThreeEntityDebug(
 
 function addHurtbox(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): void {
   const hurtbox = combatHurtbox(entity);
-  if (hurtbox) writer.line(boxOutline(hurtbox), COLORS.hurtbox);
+  if (!hurtbox) return;
+  for (const line of boxWireframe(hurtbox)) writer.line(line, COLORS.hurtbox);
 }
 
-function addAttacks(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): void {
-  for (const attack of activeAttackAreas(entity)) addAttack(writer, entity, attack);
+function addHitboxes(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): void {
+  for (const hitbox of activeHitboxes(entity)) addHitbox(writer, entity, hitbox);
 }
 
-function addAttack(
+function addHitbox(
   writer: ThreeDebugPrimitiveWriter,
   entity: AdminMapEntity,
-  attack: ReturnType<typeof activeAttackAreas>[number],
+  hitbox: ReturnType<typeof activeHitboxes>[number],
 ): void {
-  if (attack.shape === "circle") {
-    writer.line(circleOutline(attackCircle(entity, attack)), COLORS.attack, 0.11);
+  if (hitbox.shape === "circle") {
+    writer.line(circleOutline(hitboxCircle(entity, hitbox)), COLORS.hitbox, 0.11);
     return;
   }
-  if (attack.shape === "cone") {
-    writer.line(wedgeOutline(attackWedge(entity, attack)), COLORS.attack, 0.11);
+  if (hitbox.shape === "cone") {
+    writer.line(wedgeOutline(hitboxWedge(entity, hitbox)), COLORS.hitbox, 0.11);
     return;
   }
-  writer.line(tileOutline(attackTile(attack)), COLORS.attack, 0.11);
+  writer.line(tileOutline(hitboxTile(hitbox)), COLORS.hitbox, 0.11);
 }
 
 function addGuard(writer: ThreeDebugPrimitiveWriter, entity: AdminMapEntity): void {

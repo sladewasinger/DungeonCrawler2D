@@ -4,11 +4,11 @@ import { selectConeTargets } from "./coneTargeting.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
 
 export {
-  weaponAttackContainsPoint,
-  weaponAttackIntersectsHurtbox,
-  type WeaponAttackHurtboxInput,
-  type WeaponAttackPointInput,
-} from "./weaponAttackArea.js";
+  weaponHitboxContainsPoint,
+  weaponHitboxIntersectsHurtbox,
+  type WeaponHitboxHurtboxInput,
+  type WeaponHitboxPointInput,
+} from "./weaponHitbox.js";
 
 export interface WeaponTargetingInput {
   readonly attacker: Entity;

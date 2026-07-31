@@ -12,7 +12,7 @@ import { PlayerStore } from "../../../store.js";
 import { GameSim } from "../../core/index.js";
 import { content, findSafeRoomDoor, teleport } from "../support.js";
 
-const bootSim = () => new GameSim({ world: new World(228182761, 1, LEVEL.Sandbox), content: content, store: new PlayerStore(null), rngSeed: 1234, opts: { testFixtures: true, freezeEnemies: true } }
+const bootSim = () => new GameSim({ world: new World(228182761, 1, LEVEL.Sandbox), content: content, store: new PlayerStore(null), rngSeed: 1234, opts: { freezeEnemies: true } }
 );
 
 describe("dynamic safe room doors", () => {

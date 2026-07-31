@@ -1,6 +1,7 @@
 /** Covers joining, spawn placement, AOI visibility, and replicated movement semantics. */
 import {
   AOI_RADIUS,
+  LEVEL,
   MOVE_SPEED,
   PLAYER_MAX_HP,
   RUN_SPEED_MULTIPLIER,
@@ -8,8 +9,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GameSim } from "../../core/index.js";
-import { snapToFloor } from "../../core/testzone.js";
-import { input, makeSim, stepN, teleport } from "../support.js";
+import { findFlatArena, input, makeSim, stepN, teleport } from "../support.js";
 
 describe("GameSim: join, spawn, and AOI", () => {
   let sim: GameSim;
@@ -18,7 +18,7 @@ describe("GameSim: join, spawn, and AOI", () => {
     sim = makeSim();
   });
 
-  it("keeps the sandbox free of random hostiles while seeding its training dummy", () => {
+  it("keeps the traversal sandbox free of every hostile and training target", () => {
     const sandbox = makeSim(77, {});
     const player = sandbox.addPlayer({ name: "Sandboxer", clientId: "sandbox-client" });
     stepN(sandbox, TICK_RATE * 3);
@@ -26,8 +26,21 @@ describe("GameSim: join, spawn, and AOI", () => {
     const tileY = Math.floor(player.spawn.y);
     expect(sandbox.world.isWalkable(tileX, tileY)).toBe(true);
     expect(Math.hypot(player.spawn.x - 28.5, player.spawn.y - 28.5)).toBeLessThan(10);
-    expect(sandbox.enemyCount).toBe(1);
+    expect(sandbox.enemyCount).toBe(0);
   });
+
+  it.each([LEVEL.Sandbox, LEVEL.CombatSandbox])(
+    "grants local %s players live admin authority without changing production joins",
+    (level) => {
+      const production = makeSim(72, { level });
+      const productionJoin = production.addPlayer({ name: "Player", clientId: "production-player" });
+      expect(production.admin.isActiveAdmin(productionJoin.playerId)).toBe(false);
+
+      const local = makeSim(73, { level, debugCommands: true });
+      const localJoin = local.addPlayer({ name: "Admin", clientId: "local-admin" });
+      expect(local.admin.isActiveAdmin(localJoin.playerId)).toBe(true);
+    },
+  );
 
   it("debug teleport and god mode work when enabled and are dropped when not", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
@@ -37,10 +50,10 @@ describe("GameSim: join, spawn, and AOI", () => {
     sim.step();
     expect(aEntity.body.x).toBeCloseTo(spawnX, 3);
 
-    const dev = makeSim(99, { debugCommands: true, testFixtures: true });
+    const dev = makeSim(99, { debugCommands: true });
     const b = dev.addPlayer({ name: "B", clientId: "client-b" });
     const bEntity = dev.getPlayerEntity(b.playerId)!;
-    const debugTarget = snapToFloor({ sim: dev, x: 10.5, y: 30.5 });
+    const debugTarget = findFlatArena({ sim: dev, anchor: { x: 10.5, y: 30.5 } });
     dev.queueAction(b.playerId, { type: "debug", op: "teleport", ...debugTarget });
     dev.step();
     expect(bEntity.body.x).toBeCloseTo(debugTarget.x, 3);
@@ -58,15 +71,19 @@ describe("GameSim: join, spawn, and AOI", () => {
   });
 
   it("reseeds canonical dev pickups after another player consumes them", () => {
-    const player = sim.addPlayer({ name: "Fixture user", clientId: "fixture-client" });
-    const entity = sim.getPlayerEntity(player.playerId)!;
-    const bandageSpot = snapToFloor({ sim, x: 26.5, y: 28.5 });
-    teleport({ entity: entity, x: bandageSpot.x, y: bandageSpot.y, sim: sim });
-    sim.step();
-    sim.queueAction(player.playerId, { type: "pickup" });
-    sim.step();
-    expect(sim.getInventory(player.playerId)!.some((stack) => stack.item === "bandage")).toBe(true);
-    const snapshots = stepN(sim, TICK_RATE * 2);
+    const arena = makeSim(88, { level: LEVEL.CombatSandbox });
+    const player = arena.addPlayer({ name: "Fixture user", clientId: "fixture-client" });
+    const entity = arena.getPlayerEntity(player.playerId)!;
+    arena.step();
+    const bandage = arena.admin.map({ x: 20, y: 15, radius: 16 }).entities.find(
+      (candidate) => candidate.kind === "item" && candidate.defId === "bandage",
+    );
+    expect(bandage).toBeDefined();
+    teleport({ entity, x: bandage!.x, y: bandage!.y, sim: arena });
+    arena.queueAction(player.playerId, { type: "pickup" });
+    arena.step();
+    expect(arena.getInventory(player.playerId)!.some((stack) => stack.item === "bandage")).toBe(true);
+    const snapshots = stepN(arena, TICK_RATE * 2);
     expect(snapshots.get(player.playerId)!.entities.some((entry) => entry.kind === "item" && entry.defId === "bandage")).toBe(true);
   });
 
@@ -95,8 +112,7 @@ describe("GameSim: join, spawn, and AOI", () => {
   it("holds run server-authoritatively faster than walking", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
-    const claimed = new Set<string>();
-    const start = snapToFloor({ sim, x: 5, y: 5, claimed });
+    const start = findFlatArena({ sim, anchor: { x: 5, y: 5 } });
     teleport({ entity: entity, x: start.x, y: start.y, sim: sim });
     for (let seq = 1; seq <= 5; seq += 1) {
       sim.handleInput(a.playerId, { type: "input", seq, projectedServerTick: sim.tick, moveX: 1, moveY: 0, jump: false, run: true });
@@ -106,7 +122,7 @@ describe("GameSim: join, spawn, and AOI", () => {
     expect(ranDistance).toBeCloseTo(MOVE_SPEED * RUN_SPEED_MULTIPLIER * (5 / TICK_RATE), 2);
     const b = sim.addPlayer({ name: "B", clientId: "client-b" });
     const walker = sim.getPlayerEntity(b.playerId)!;
-    const walkStart = snapToFloor({ sim, x: 5, y: 12, claimed });
+    const walkStart = findFlatArena({ sim, anchor: { x: 5, y: 12 } });
     teleport({ entity: walker, x: walkStart.x, y: walkStart.y, sim: sim });
     for (let seq = 1; seq <= 5; seq += 1) {
       sim.handleInput(b.playerId, input({ seq: seq, moveX: 1, moveY: 0 }));

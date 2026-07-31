@@ -14,6 +14,10 @@ adjacent TypeScript modules provide stable imports and derived values.
 | Terrain runtime retention | `packages/client/src/render/terrain/terrainRuntimeTuning.json` | Chunk-plan cache and prewarmed orientation-root memory limits |
 | Dynamic lighting | `packages/client/src/render/lighting/lightingVisualStyle.json` | Ground light, torch/portal/personal halos, flicker, pooling, fade, colors, and radii |
 | Spawn-room intercom | `packages/game-server/src/sim/announcer/spawnRoom/spawnRoomAnnouncements.json` | Speaker label, announcement text, display duration, initial delay, and pauses |
+| Combat Sandbox layout | `packages/engine/src/world/combatSandbox/combatSandboxLayout.json` | Arena dimensions, wall and obstacle heights, player/fixture rows, and training-target positions |
+| Combat hurtboxes | `packages/engine/src/combat/geometry/combatHurtboxTuning.json` and enemy entries in `packages/content/src/data/enemies.json` | Default player/enemy receiver dimensions plus sprite-specific enemy hurtboxes |
+| Melee hitbox timing | `packages/game-server/src/sim/actions/melee/meleeHitboxTuning.json` | Active lifetime shared by player swings and sword Training Dummy hitboxes |
+| Enemy simulation and training attacks | `packages/game-server/src/sim/enemies/configuration/enemySimulationTuning.json` and training-target entries in `packages/content/src/data/enemies.json` | Enemy perception/animation timing and each training target's health, respawn delay, weapon, and attack cadence |
 | Items, effects, recipes, and enemies | `packages/content/src/data/` | Data-driven gameplay content |
 
 Colors remain CSS hex strings so VS Code and similar editors expose their color

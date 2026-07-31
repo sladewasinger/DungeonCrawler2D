@@ -1,5 +1,9 @@
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
-import type { PlayerEntityView, RenderContext } from "../../../render/entities/geometry/index.js";
+import type {
+  MonsterEntityView,
+  PlayerEntityView,
+  RenderContext,
+} from "../../../render/entities/geometry/index.js";
 import { combatOverlayPosition, depthForEntityNow } from "../../../render/entities/geometry/worldToScreen.js";
 import { depthForCombatReachOverlay } from "../../../render/entities/presentation/depthSort.js";
 import type { VfxSystem } from "../../../vfx/system/index.js";
@@ -11,15 +15,30 @@ export interface MeleeSwingSyncInput {
   readonly vfx: VfxSystem;
   readonly state: DungeonSceneState;
   readonly players: PlayerEntityView[];
+  readonly monsters?: MonsterEntityView[];
   readonly nowMs: number;
   readonly context: RenderContext;
 }
 
 export function syncMeleeSwings(input: MeleeSwingSyncInput): void {
-  const { vfx, state, players, nowMs } = input;
-  const swings = resolveMeleeSwingsInto({ players, previousAttacking: state.attackFlags, spawns: state.swingSpawns, records: state.swingSpawnRecords, seen: state.swingSeen });
+  const { vfx, state, players, monsters = [], nowMs } = input;
+  const swings = resolveMeleeSwingsInto({ players, monsters, previousAttacking: state.attackFlags, spawns: state.swingSpawns, records: state.swingSpawnRecords, seen: state.swingSeen });
   for (const swing of swings) spawnSwing({ vfx, state, swing, nowMs });
   for (const player of players) followSwing({ vfx, player });
+  for (const monster of monsters) followTrainingSwing({ vfx, monster });
+}
+
+function followTrainingSwing(input: {
+  readonly vfx: VfxSystem;
+  readonly monster: MonsterEntityView;
+}): void {
+  if (input.monster.anim !== "attack") return;
+  input.vfx.updateMeleeSwingPosition({
+    id: input.monster.id,
+    x: input.monster.x,
+    y: input.monster.y,
+    z: input.monster.z,
+  });
 }
 
 function spawnSwing(input: {

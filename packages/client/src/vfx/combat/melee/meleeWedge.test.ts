@@ -51,7 +51,7 @@ function graphicsProbe() {
 }
 
 describe("melee wedge position depth", () => {
-  it("draws the raw attack area at the body position from the exact profile", () => {
+  it("draws the authoritative hitbox at the body position from the exact profile", () => {
     const graphics = graphicsProbe();
     const scene = {
       add: { graphics: () => graphics },

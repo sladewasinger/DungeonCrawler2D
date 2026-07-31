@@ -36,6 +36,10 @@ export class AdminPlayerObserverController {
     this.view.playerObserver.centerCamera();
   }
 
+  zoomCamera(direction: "in" | "out"): void {
+    this.view.playerObserver.zoomCamera(direction);
+  }
+
   render(): void {
     this.selection.sync({
       players: this.connection.adminPlayers,

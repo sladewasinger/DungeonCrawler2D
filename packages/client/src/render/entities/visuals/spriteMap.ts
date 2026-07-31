@@ -33,6 +33,7 @@ export function playerSkinFor(
 interface EnemyDef {
   readonly id: string;
   readonly sprite: string;
+  readonly trainingWeapon?: { readonly itemId: string };
 }
 
 function isEnemyDef(value: unknown): value is EnemyDef {
@@ -43,9 +44,18 @@ function isEnemyDef(value: unknown): value is EnemyDef {
 const enemySpriteById = new Map<string, string>(
   (enemiesData as readonly unknown[]).filter(isEnemyDef).map((def) => [def.id, def.sprite]),
 );
+const enemyTrainingWeaponById = new Map<string, string>(
+  (enemiesData as readonly unknown[])
+    .filter(isEnemyDef)
+    .flatMap((def) => def.trainingWeapon ? [[def.id, def.trainingWeapon.itemId]] : []),
+);
 
 /** The atlas animation prefix for an enemy defId, read from content's `sprite` field (the v2 atlas name). */
 export function monsterSpriteFor(defId: string | undefined): string {
   if (!defId) return FALLBACK_MONSTER_SPRITE;
   return enemySpriteById.get(defId) ?? FALLBACK_MONSTER_SPRITE;
+}
+
+export function monsterTrainingWeaponFor(defId: string | undefined): string | undefined {
+  return defId ? enemyTrainingWeaponById.get(defId) : undefined;
 }

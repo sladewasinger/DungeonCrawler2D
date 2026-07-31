@@ -117,7 +117,7 @@ describe("GameSim reconnect grace", () => {
     expect(entity.body).toMatchObject({ x: floorX, y: floorY });
   });
 
-  it("reaps disconnected players after the fixed four-minute grace boundary", () => {
+  it("reaps disconnected players without dropping their inventory after the grace boundary", () => {
     const sim = makeSim();
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     sim.getInventory(player.playerId)![0] = { item: "knife", qty: 1 };
@@ -125,6 +125,8 @@ describe("GameSim reconnect grace", () => {
     stepN(sim, TICK_RATE * 241);
     expect(sim.playerCount).toBe(0);
     const observer = sim.addPlayer({ name: "B", clientId: "client-b" });
-    expect(sim.step().get(observer.playerId)?.entities.some((entry) => entry.kind === "item" && entry.defId === "knife")).toBe(true);
+    expect(sim.step().get(observer.playerId)?.entities.some(
+      (entry) => entry.kind === "item" && entry.defId === "knife",
+    )).toBe(false);
   });
 });

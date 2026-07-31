@@ -1,6 +1,8 @@
 import {
   ADMIN_WORLD_COORDINATE_LIMIT,
+  LEVEL_IDS,
   type AdminCommand,
+  type LevelId,
 } from "@dc2d/engine";
 
 export function parseAdminSpawnCommand(args: string[]): AdminCommand | null {
@@ -27,7 +29,7 @@ interface ValidSpawnInput {
   readonly defId: string;
   readonly x: number;
   readonly y: number;
-  readonly level: "dungeon" | "sandbox";
+  readonly level: LevelId;
   readonly floor: number;
   readonly ownerPlayerId: string | undefined;
   readonly rest: string[];
@@ -96,7 +98,7 @@ function isSpawnKind(value: string | undefined): value is ValidSpawnInput["kind"
 }
 
 function levelIsValid(value: string): value is ValidSpawnInput["level"] {
-  return value === "dungeon" || value === "sandbox";
+  return LEVEL_IDS.some((level) => level === value);
 }
 
 function boundedNumber(value: number, min: number, max: number): boolean {

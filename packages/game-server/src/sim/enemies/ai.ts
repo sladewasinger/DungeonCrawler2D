@@ -27,6 +27,7 @@ import { enemyPursuitMove } from "./ai/enemyNavigation.js";
 import { enemyPlayerSets } from "./ai/enemyPlayerSets.js";
 import { thinkForEnemy } from "./ai/decision/enemyThought.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
+import { stepTrainingDummyAttack } from "./training/trainingDummyAttack.js";
 import { prepareMiniBossArenaEnemy } from "./miniBossArena/aggro.js";
 import { removeProtectedRoomEnemies } from "./roomIsolation/enemyRoomIsolation.js";
 
@@ -79,6 +80,7 @@ function stepEnemy(input: EnemyStepInput): void {
   if (enemy.def.stationary) {
     enemy.entity.body.kx = 0;
     enemy.entity.body.ky = 0;
+    stepTrainingDummyAttack(sim, enemy, input.effectEvents);
     return;
   }
   const arenaActive = prepareMiniBossArenaEnemy(sim, enemy);

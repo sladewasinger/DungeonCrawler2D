@@ -1,4 +1,4 @@
-import { type ContentRegistry, type LevelId, type WorldFeatures } from "@dc2d/engine";
+import { LEVEL, type ContentRegistry, type LevelId, type WorldFeatures } from "@dc2d/engine";
 import { type WebSocketServer } from "ws";
 import { FloorRegistry } from "../floors/floorRegistry.js";
 import { GameSim } from "../sim/core/index.js";
@@ -35,7 +35,6 @@ export interface ServerOptions {
   spawnRadiusTiles?: number | undefined;
   debugCommands?: boolean;
   freezeEnemies?: boolean;
-  testFixtures?: boolean;
   worldFeatures?: WorldFeatures;
   /** Secret for the separate admin WebSocket contract; null disables it. */
   adminToken?: string | null;
@@ -71,7 +70,11 @@ export function startServer(opts: ServerOptions): RunningServer {
   return {
     wss: runtime.wss,
     sim: runtime.floors.base,
-    sims: { dungeon: runtime.floors.base, sandbox: runtime.sandbox },
+    sims: {
+      [LEVEL.Dungeon]: runtime.floors.base,
+      [LEVEL.Sandbox]: runtime.sandbox,
+      [LEVEL.CombatSandbox]: runtime.combatSandbox,
+    },
     floors: runtime.floors,
     store: runtime.store,
     networkMetrics: runtime.networkMetrics,

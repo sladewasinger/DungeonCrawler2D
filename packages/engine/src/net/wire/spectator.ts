@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PLAYER_SKINS } from "../../entities/playerAppearance.js";
+import { LEVEL_IDS } from "../../world/core/level.js";
 
 export const spectatorModeSchema = z.enum(["free", "track"]);
 const spectatorPlayerIdSchema = z.string().min(1).max(64);
@@ -23,7 +24,7 @@ export const spectatorPlayerSchema = z.object({
   playerId: spectatorPlayerIdSchema,
   name: z.string().min(1).max(16),
   skin: z.enum(PLAYER_SKINS),
-  level: z.enum(["dungeon", "sandbox"]),
+  level: z.enum(LEVEL_IDS),
   floor: z.number().int().positive(),
 }).strict();
 

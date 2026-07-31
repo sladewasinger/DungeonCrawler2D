@@ -47,7 +47,7 @@ function join(port: number, level: LevelId): Promise<{ socket: WebSocket; welcom
         encodeMessage({
           type: "hello",
           protocol: PROTOCOL_VERSION,
-          name: `Crawler-${level}`,
+          name: "Crawler",
           clientId: `client-${level}`,
           level,
         }),
@@ -78,21 +78,29 @@ describe("level loader", () => {
     const address = server.wss.address() as AddressInfo;
     const dungeon = await join(address.port, "dungeon");
     const sandbox = await join(address.port, "sandbox");
+    const combatSandbox = await join(address.port, "combat-sandbox");
     worldFeatures.voidTerrain = true;
     try {
       expect(dungeon.welcome.level).toBe("dungeon");
       expect(sandbox.welcome.level).toBe("sandbox");
+      expect(combatSandbox.welcome.level).toBe("combat-sandbox");
       expect(dungeon.welcome.worldFeatures).toEqual({ voidTerrain: false });
       expect(sandbox.welcome.worldFeatures).toEqual({ voidTerrain: false });
+      expect(combatSandbox.welcome.worldFeatures).toEqual({ voidTerrain: true });
       expect(server.sims.dungeon.world.features.voidTerrain).toBe(false);
       expect(server.sims.sandbox.world.features.voidTerrain).toBe(false);
+      expect(server.sims["combat-sandbox"].world.features.voidTerrain).toBe(true);
       expect(server.floors.ensureFloor(3).world.features.voidTerrain).toBe(false);
       expect(server.sims.dungeon.playerCount).toBe(1);
       expect(server.sims.sandbox.playerCount).toBe(1);
+      expect(server.sims["combat-sandbox"].playerCount).toBe(1);
       expect(server.sims.sandbox.enemyCount).toBe(0);
+      expect(server.sims.sandbox.admin.players()[0]?.admin).toBe(false);
+      expect(server.sims["combat-sandbox"].admin.players()[0]?.admin).toBe(false);
     } finally {
       dungeon.socket.close();
       sandbox.socket.close();
+      combatSandbox.socket.close();
       server.stop();
     }
   });

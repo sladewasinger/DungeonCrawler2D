@@ -76,7 +76,7 @@ describe("GameSim: throwTorch", () => {
   });
 
   it("removes a placed torch when its burn-out deadline passes", () => {
-    sim = makeSim(1234, { testFixtures: true, torchBurnTicks: 40 });
+    sim = makeSim(1234, { torchBurnTicks: 40 });
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(a.playerId)!;
     const arena = findFlatArena({ sim: sim, anchor: { x: entity.body.x, y: entity.body.y }, clearance: 4 });

@@ -65,6 +65,16 @@ export class AdminSpawnPlacementController {
     this.mapCamera.freeCamera();
   }
 
+  zoom(direction: "in" | "out"): void {
+    this.surface.zoom(direction);
+    this.mapCamera.ensureViewportCoverage();
+  }
+
+  resetZoom(): void {
+    this.surface.resetZoom();
+    this.mapCamera.ensureViewportCoverage();
+  }
+
   refreshFollow(): void {
     this.mapCamera.refreshFollow();
   }

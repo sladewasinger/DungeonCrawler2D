@@ -48,6 +48,7 @@ describe("protocol", () => {
       { type: "descend" },
       { type: "snapshotResync" },
       { type: "hello", protocol: 8, name: "Crawler", skin: "lizard_f", clientId: "client-1", level: "sandbox" },
+      { type: "hello", protocol: 8, name: "Crawler", clientId: "client-2", level: "combat-sandbox" },
       {
         type: "hello",
         protocol: 8,

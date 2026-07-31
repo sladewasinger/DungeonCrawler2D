@@ -8,7 +8,7 @@ import { MELEE_ARC_COS } from "@dc2d/engine";
 /** Radius of the self weapon's idle orbit around the player, in tiles (docs spec: "~0.75 tiles"). */
 export const ORBIT_RADIUS_TILES = 0.75;
 
-/** Vertical combat origin shared by the weapon orbit and both melee cones. */
+/** Vertical combat origin shared by the weapon orbit, hitbox, and guard cone. */
 export function combatOriginY(screenY: number, tilePx: number): number {
   return screenY - tilePx * 0.5;
 }

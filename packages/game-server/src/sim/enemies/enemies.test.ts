@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 import { PlayerStore } from "../../store.js";
-import { populateTestZoneChunk } from "../core/testzone.js";
+import { populateCombatSandboxChunk } from "../sandbox/combatSandboxPopulation.js";
 import { activateChunksNearPlayers } from "./index.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
@@ -128,14 +128,20 @@ describe("enemy population", () => {
     expect(sim.enemies.size).toBe(first);
   });
 
-  it("test-fixture chunks place the canonical roster instead of random spawns", () => {
-    const world = new World(SEED, 1, LEVEL.Sandbox);
-    const fixtureSim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {
-      testFixtures: true,
-    } });
-    const placed = populateTestZoneChunk(fixtureSim, 0, 0);
+  it("populates the Combat Sandbox with content-derived non-hostile fixtures", () => {
+    const world = new World(SEED, 1, LEVEL.CombatSandbox);
+    const fixtureSim = createSimState({
+      world,
+      content,
+      store: new PlayerStore(null),
+      rngSeed: 42,
+      opts: {},
+    });
+    const placed = populateCombatSandboxChunk(fixtureSim, 0, 0);
     expect(placed).toBe(true);
-    expect(fixtureSim.enemies.size).toBeGreaterThan(0);
-    expect(populateTestZoneChunk(fixtureSim, 5, 5)).toBe(false);
+    expect(fixtureSim.enemies.size).toBe(0);
+    expect(fixtureSim.items.size).toBe(content.items.size);
+    expect(fixtureSim.pets.size).toBeGreaterThan(0);
+    expect(populateCombatSandboxChunk(fixtureSim, 5, 5)).toBe(false);
   });
 });

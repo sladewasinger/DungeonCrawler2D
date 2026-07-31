@@ -9,6 +9,13 @@ export function commandForAdminAction(
   return commandFactories[action]?.(playerId) ?? null;
 }
 
+export function commandForSpectatorToggle(
+  mode: "off" | "free" | "track",
+): AdminCommand {
+  if (mode !== "off") return { op: "spectator", action: "stop" };
+  return { op: "spectator", action: "start", mode: "free" };
+}
+
 const commandFactories: Readonly<Record<string, CommandFactory>> = {
   "spectator-free": () => ({ op: "spectator", action: "start", mode: "free" }),
   "spectator-stop": () => ({ op: "spectator", action: "stop" }),

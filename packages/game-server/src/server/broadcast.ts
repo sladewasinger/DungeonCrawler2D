@@ -12,6 +12,7 @@ import type { SpectatorSubscriptions } from "./spectator/spectatorSubscriptions.
 export interface BroadcastContext {
   floors: FloorRegistry;
   sandbox: GameSim;
+  combatSandbox: GameSim;
   sockets: SocketMap;
   diagnostics: ServerNetworkDiagnostics | undefined;
   admin?: AdminController;
@@ -30,7 +31,7 @@ export interface SnapshotDeliveryContext {
  * floor transfers to socket routing, and ship snapshots out. */
 
 export function broadcastTick(input: BroadcastContext): void {
-  const { floors, sandbox, sockets, diagnostics, admin, adminSubscriptions, spectatorSubscriptions, gameplayIdleTimeoutMs } = input;
+  const { floors, sandbox, combatSandbox, sockets, diagnostics, admin, adminSubscriptions, spectatorSubscriptions, gameplayIdleTimeoutMs } = input;
   expireInactiveGameplayConnections({
     sockets,
     diagnostics,
@@ -47,6 +48,13 @@ export function broadcastTick(input: BroadcastContext): void {
   const sandboxSnapshots = sandbox.stepPreparedReplicated();
   deliverWorldSnapshots({
     snapshots: sandboxSnapshots,
+    sockets,
+    diagnostics,
+    spectatorSubscriptions,
+  });
+  const combatSandboxSnapshots = combatSandbox.stepPreparedReplicated();
+  deliverWorldSnapshots({
+    snapshots: combatSandboxSnapshots,
     sockets,
     diagnostics,
     spectatorSubscriptions,

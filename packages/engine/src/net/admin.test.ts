@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_MAP_MAX_CELL_COUNT,
   adminMapEntitySchema,
+  adminObserverStateSchema,
   clientAdminAuthSchema,
   clientAdminCommandMessageSchema,
   clientAdminLogoutSchema,
@@ -65,6 +67,15 @@ describe("admin wire protocol", () => {
       type: "adminCommand",
       command: { op: "spawn", kind: "pet", defId: "pet-dino-tard", level: "dungeon", floor: 1, x: 1.5, y: 2.5 },
     }).success).toBe(false);
+    const mapCommand = { op: "map", level: "dungeon", floor: 1, x: 0.5, y: 0.5 };
+    expect(clientAdminCommandMessageSchema.safeParse({
+      type: "adminCommand",
+      command: { ...mapCommand, radius: 24 },
+    }).success).toBe(true);
+    expect(clientAdminCommandMessageSchema.safeParse({
+      type: "adminCommand",
+      command: { ...mapCommand, radius: 25 },
+    }).success).toBe(false);
   });
 
   it("accepts rectangular hurtboxes and rejects the obsolete circle field", () => {
@@ -78,11 +89,43 @@ describe("admin wire protocol", () => {
 
     expect(adminMapEntitySchema.safeParse({
       ...entity,
-      debug: { hurtbox: { halfWidth: 0.8, halfDepth: 0.45 } },
+      debug: { hurtbox: { halfWidth: 0.8, halfDepth: 0.45, height: 1.5, bottomOffset: 0.04 } },
     }).success).toBe(true);
     expect(adminMapEntitySchema.safeParse({
       ...entity,
       debug: { hurtboxRadius: 0.8 },
+    }).success).toBe(false);
+  });
+
+  it("accepts one bounded maximum-radius admin map payload", () => {
+    const cell = {
+      x: 0,
+      y: 0,
+      height: 0,
+      walkable: true,
+      terrain: "floor",
+      feature: 0,
+    } as const;
+    const map = {
+      level: "dungeon",
+      floor: 1,
+      center: { x: 0.5, y: 0.5 },
+      radius: 24,
+      cells: Array.from({ length: ADMIN_MAP_MAX_CELL_COUNT }, () => cell),
+      entities: [],
+    } as const;
+
+    const observer = {
+      type: "adminObserverState",
+      players: [],
+      spectator: { mode: "free", playerId: null },
+      spectatorMap: map,
+    } as const;
+
+    expect(adminObserverStateSchema.safeParse(observer).success).toBe(true);
+    expect(adminObserverStateSchema.safeParse({
+      ...observer,
+      spectatorMap: { ...map, cells: [...map.cells, cell] },
     }).success).toBe(false);
   });
 });

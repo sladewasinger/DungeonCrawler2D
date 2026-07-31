@@ -1,6 +1,6 @@
 import { MELEE_ARC_COS, MELEE_RANGE } from "../../core/constants.js";
 import type { Entity } from "../../entities/entity.js";
-import { weaponAttackIntersectsHurtbox } from "../weapons/weaponAttackArea.js";
+import { weaponHitboxIntersectsHurtbox } from "../weapons/weaponHitbox.js";
 
 /**
  * The melee targeting aid (GAME_DESIGN.md § PvPvE): friendly fire is
@@ -81,7 +81,7 @@ function isWithinMeleeAttack({ attacker, target, direction, range, halfArcRad }:
   range: number;
   halfArcRad: number;
 }): boolean {
-  return weaponAttackIntersectsHurtbox({
+  return weaponHitboxIntersectsHurtbox({
     attacker,
     direction,
     profile: { shape: "cone", range, arcCos: Math.cos(halfArcRad) },

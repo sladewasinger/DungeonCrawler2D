@@ -1,5 +1,5 @@
 import type { AdminMap, DebugFlags } from "@dc2d/engine";
-import { ADMIN_MAP_TILE_SIZE, type AdminMapCenter } from "./adminMapCamera.js";
+import type { AdminMapCenter } from "./adminMapCamera.js";
 import { drawAdminMapCells } from "./adminMapCells.js";
 import { drawAdminMapEntities } from "./adminMapEntityRenderer.js";
 
@@ -7,6 +7,7 @@ export interface AdminMapRenderInput {
   readonly context: CanvasRenderingContext2D;
   readonly map: AdminMap | null;
   readonly center: AdminMapCenter;
+  readonly tileSize: number;
   readonly debugFlags: DebugFlags;
   readonly unavailableMessage: string;
 }
@@ -18,7 +19,7 @@ export function renderAdminMap(input: AdminMapRenderInput): void {
   const mapInput = { ...input, map };
   drawAdminMapCells(mapInput);
   drawAdminMapEntities(mapInput);
-  drawCenter(input.context);
+  drawCenter(input.context, input.tileSize);
 }
 
 function clearCanvas(context: CanvasRenderingContext2D): void {
@@ -31,12 +32,12 @@ function drawUnavailable(context: CanvasRenderingContext2D, message: string): vo
   context.fillText(message, 20, 30);
 }
 
-function drawCenter(context: CanvasRenderingContext2D): void {
+function drawCenter(context: CanvasRenderingContext2D, tileSize: number): void {
   context.strokeStyle = "#f0c36a";
   context.strokeRect(
-    context.canvas.width / 2 - ADMIN_MAP_TILE_SIZE / 2,
-    context.canvas.height / 2 - ADMIN_MAP_TILE_SIZE / 2,
-    ADMIN_MAP_TILE_SIZE,
-    ADMIN_MAP_TILE_SIZE,
+    context.canvas.width / 2 - tileSize / 2,
+    context.canvas.height / 2 - tileSize / 2,
+    tileSize,
+    tileSize,
   );
 }

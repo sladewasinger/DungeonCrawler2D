@@ -1,5 +1,8 @@
 import type { Entity } from "../../entities/entity.js";
-import { combatHurtboxBounds } from "../geometry/hurtboxes.js";
+import {
+  combatHurtboxBounds,
+  verticalRangeIntersectsHurtbox,
+} from "../geometry/hurtboxes.js";
 import {
   diskIntersectsBounds,
   sectorIntersectsBounds,
@@ -8,26 +11,27 @@ import {
 } from "./sectorIntersection.js";
 import type { WeaponProfile } from "./weaponProfiles.js";
 
-type AttackGeometry = Pick<WeaponProfile, "arcCos" | "range" | "shape">;
+type HitboxGeometry = Pick<WeaponProfile, "arcCos" | "range" | "shape">;
+const WEAPON_VERTICAL_REACH = 1.5;
 
-interface WeaponAttackInput {
+interface WeaponHitboxInput {
   readonly attacker: Pick<Entity, "body">;
   readonly direction: { readonly x: number; readonly y: number };
-  readonly profile: AttackGeometry;
+  readonly profile: HitboxGeometry;
 }
 
-export interface WeaponAttackPointInput extends WeaponAttackInput {
+export interface WeaponHitboxPointInput extends WeaponHitboxInput {
   readonly point: { readonly x: number; readonly y: number; readonly z: number };
   readonly pointRadius: number;
 }
 
-export interface WeaponAttackHurtboxInput extends WeaponAttackInput {
+export interface WeaponHitboxHurtboxInput extends WeaponHitboxInput {
   readonly target: Pick<Entity, "body" | "kind" | "combatHurtbox">;
 }
 
-/** True when a circular physical volume intersects the canonical live attack area. */
-export function weaponAttackContainsPoint(input: WeaponAttackPointInput): boolean {
-  if (!withinWeaponHeight(input.attacker.body.z, input.point.z)) return false;
+/** True when a circular physical volume intersects the canonical weapon hitbox. */
+export function weaponHitboxContainsPoint(input: WeaponHitboxPointInput): boolean {
+  if (!withinWeaponPointHeight(input.attacker.body.z, input.point.z)) return false;
   const center = {
     x: input.point.x - input.attacker.body.x,
     y: input.point.y - input.attacker.body.y,
@@ -42,11 +46,15 @@ export function weaponAttackContainsPoint(input: WeaponAttackPointInput): boolea
   }, center, input.pointRadius);
 }
 
-/** True when the raw weapon area intersects a target's authoritative AABB. */
-export function weaponAttackIntersectsHurtbox(
-  input: WeaponAttackHurtboxInput,
+function withinWeaponPointHeight(attackerZ: number, pointZ: number): boolean {
+  return Math.abs(pointZ - attackerZ) <= WEAPON_VERTICAL_REACH;
+}
+
+/** True when the authoritative weapon hitbox intersects a target hurtbox. */
+export function weaponHitboxIntersectsHurtbox(
+  input: WeaponHitboxHurtboxInput,
 ): boolean {
-  if (!withinWeaponHeight(input.attacker.body.z, input.target.body.z)) return false;
+  if (!withinWeaponHeight(input.attacker.body.z, input.target)) return false;
   const bounds = relativeHurtboxBounds(input);
   if (input.profile.shape === "ground") {
     return diskIntersectsBounds(input.profile.range, bounds);
@@ -57,7 +65,7 @@ export function weaponAttackIntersectsHurtbox(
   }, bounds);
 }
 
-function relativeHurtboxBounds(input: WeaponAttackHurtboxInput): Bounds2 {
+function relativeHurtboxBounds(input: WeaponHitboxHurtboxInput): Bounds2 {
   const bounds = combatHurtboxBounds(input.target);
   return {
     minX: bounds.minX - input.attacker.body.x,
@@ -67,6 +75,13 @@ function relativeHurtboxBounds(input: WeaponAttackHurtboxInput): Bounds2 {
   };
 }
 
-function withinWeaponHeight(attackerZ: number, targetZ: number): boolean {
-  return Math.abs(targetZ - attackerZ) <= 1.5;
+function withinWeaponHeight(
+  attackerZ: number,
+  target: WeaponHitboxHurtboxInput["target"],
+): boolean {
+  return verticalRangeIntersectsHurtbox(
+    attackerZ - WEAPON_VERTICAL_REACH,
+    attackerZ + WEAPON_VERTICAL_REACH,
+    target,
+  );
 }

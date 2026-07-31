@@ -10,6 +10,7 @@ export interface AdminMapEntityRenderInput {
   readonly context: CanvasRenderingContext2D;
   readonly map: AdminMap;
   readonly center: AdminMapCenter;
+  readonly tileSize: number;
   readonly debugFlags: DebugFlags;
 }
 
@@ -19,7 +20,7 @@ export function drawAdminMapEntities(input: AdminMapEntityRenderInput): void {
 
 function drawEntity(input: AdminMapEntityRenderInput, entity: AdminMapEntity): void {
   const point = entityPoint(input, entity);
-  if (!pointIsNearCanvas(point, input.context.canvas)) return;
+  if (!pointIsNearCanvas(point, input.context.canvas, input.tileSize)) return;
   drawEntityDot(input.context, entity, point);
   drawAdminMapEntityDebug({ ...input, entity, point });
 }
@@ -28,7 +29,12 @@ function entityPoint(
   input: AdminMapEntityRenderInput,
   entity: AdminMapEntity,
 ): AdminMapEntityPoint {
-  return adminMapEntityScreenPoint(entity, input.center, input.context.canvas);
+  return adminMapEntityScreenPoint({
+    world: entity,
+    center: input.center,
+    canvas: input.context.canvas,
+    tileSize: input.tileSize,
+  });
 }
 
 function drawEntityDot(

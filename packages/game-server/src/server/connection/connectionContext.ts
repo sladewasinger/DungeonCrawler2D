@@ -17,6 +17,7 @@ import type { SpectatorSubscriptions } from "../spectator/spectatorSubscriptions
 export interface ServerConnectionContext {
   readonly floors: FloorRegistry;
   readonly sandbox: GameSim;
+  readonly combatSandbox: GameSim;
   readonly sockets: SocketMap;
   readonly seedInputText?: string;
   readonly worldSeed: number;

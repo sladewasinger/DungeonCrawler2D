@@ -1,9 +1,13 @@
 import type { AdminPlayer } from "@dc2d/engine";
-import { actionButton, controlFieldset } from "../adminPagePrimitives.js";
+import { actionButton, controlFieldset } from "../../adminPagePrimitives.js";
 import {
   combatActionGroup,
   positionActionGroup,
-} from "./controls/adminPlayerParameterizedActions.js";
+} from "../controls/adminPlayerParameterizedActions.js";
+
+const SPECTATOR_TOGGLE_ACTION = "spectator-toggle";
+const SPECTATOR_ZOOM_OUT_ACTION = "spectator-zoom-out";
+const SPECTATOR_ZOOM_IN_ACTION = "spectator-zoom-in";
 
 export interface AdminPlayerActionsInput {
   readonly actions: HTMLElement;
@@ -31,7 +35,7 @@ function actionGroups(input: AdminPlayerActionsInput): readonly HTMLElement[] {
   return [
     actionGroup({
       label: "Spectator",
-      definitions: spectatorActions(input.spectatorMode),
+      definitions: adminSpectatorActions(input.spectatorMode),
       playerId: player.playerId,
       authenticated,
     }),
@@ -46,20 +50,26 @@ function actionGroups(input: AdminPlayerActionsInput): readonly HTMLElement[] {
   ];
 }
 
-function spectatorActions(mode: AdminPlayerActionsInput["spectatorMode"]): readonly ActionDefinition[] {
-  if (mode === "off") return [["Spectate", "spectate", false]];
+export function adminSpectatorActions(
+  mode: AdminPlayerActionsInput["spectatorMode"],
+): readonly ActionDefinition[] {
+  if (mode === "off") return [["Spectate", SPECTATOR_TOGGLE_ACTION, false]];
   if (mode === "free") return [
-    ["Spectate", "spectator-stop", true],
+    ["Spectate", SPECTATOR_TOGGLE_ACTION, true],
     ["Free camera", "spectate", true],
     ["Center on player", "spectator-center"],
     ["Previous player", "spectator-previous"],
     ["Next player", "spectator-next"],
+    ["−", SPECTATOR_ZOOM_OUT_ACTION],
+    ["+", SPECTATOR_ZOOM_IN_ACTION],
   ];
   return [
-    ["Spectate", "spectator-stop", true],
+    ["Spectate", SPECTATOR_TOGGLE_ACTION, true],
     ["Free camera", "spectator-free", false],
     ["Previous player", "spectator-previous"],
     ["Next player", "spectator-next"],
+    ["−", SPECTATOR_ZOOM_OUT_ACTION],
+    ["+", SPECTATOR_ZOOM_IN_ACTION],
   ];
 }
 
@@ -71,7 +81,7 @@ function modeActions(player: AdminPlayer): readonly ActionDefinition[] {
   ];
 }
 
-type ActionDefinition = readonly [label: string, action: string, pressed?: boolean];
+export type ActionDefinition = readonly [label: string, action: string, pressed?: boolean];
 
 interface ActionGroupInput {
   readonly label: string;
@@ -109,7 +119,18 @@ function actionControl(input: ActionControlInput): HTMLButtonElement {
   if (input.pressed !== undefined) {
     control.setAttribute("aria-pressed", String(input.pressed));
   }
+  describeZoomControl(control, input.action);
   return control;
+}
+
+function describeZoomControl(control: HTMLButtonElement, action: string): void {
+  const label = action === SPECTATOR_ZOOM_IN_ACTION
+    ? "Zoom spectator camera in"
+    : action === SPECTATOR_ZOOM_OUT_ACTION ? "Zoom spectator camera out" : null;
+  if (!label) return;
+  control.dataset.adminSpectatorZoom = "";
+  control.title = label;
+  control.setAttribute("aria-label", label);
 }
 
 function actionStateKey(input: AdminPlayerActionsInput): string {

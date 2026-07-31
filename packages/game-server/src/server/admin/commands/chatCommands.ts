@@ -1,6 +1,8 @@
 import {
   ADMIN_WORLD_COORDINATE_LIMIT,
+  LEVEL_IDS,
   type AdminCommand,
+  type LevelId,
 } from "@dc2d/engine";
 import { parseAdminSpawnCommand } from "./chatSpawnCommand.js";
 
@@ -118,10 +120,10 @@ function validMapInput(input: MapInput): input is ValidMapInput {
 }
 
 interface MapInput { level: string | undefined; floor: number; x: number; y: number; radius: number; rest: string[] }
-interface ValidMapInput { level: "dungeon" | "sandbox"; floor: number; x: number; y: number; radius: number; rest: [] }
+interface ValidMapInput { level: LevelId; floor: number; x: number; y: number; radius: number; rest: [] }
 
-function levelIsValid(value: string | undefined): value is "dungeon" | "sandbox" {
-  return value === "dungeon" || value === "sandbox";
+function levelIsValid(value: string | undefined): value is LevelId {
+  return LEVEL_IDS.some((level) => level === value);
 }
 
 function boundedNumber(value: number, min: number, max: number): boolean {

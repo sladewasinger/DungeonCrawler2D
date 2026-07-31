@@ -1,5 +1,7 @@
 /** Tab-scoped browser identity with local-storage compatibility fallbacks. */
 
+import { LEVEL_IDS } from "@dc2d/engine";
+
 import {
   browserStorageContext,
   read,
@@ -15,7 +17,8 @@ const RESUME_KEY = "dc2d-resume-token";
 const CLIENT_ID_KEY = "dc2d-client-id";
 
 function clearCopiedResumeTokens(storage: IdentityStorage | null): void {
-  for (const key of [RESUME_KEY, `${RESUME_KEY}:dungeon`, `${RESUME_KEY}:sandbox`]) remove(storage, key);
+  const levelKeys = LEVEL_IDS.map((level) => `${RESUME_KEY}:${level}`);
+  for (const key of [RESUME_KEY, ...levelKeys]) remove(storage, key);
 }
 
 function resumeKey(level: string | undefined): string {

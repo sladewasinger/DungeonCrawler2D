@@ -124,7 +124,7 @@ describe("GameSim: items and inventory", () => {
   it("restores queued hotbar assignment and unbind actions from the store", () => {
     const store = new PlayerStore(null);
     const createSim = (seed: number) =>
-      new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: seed, opts: { testFixtures: true } }
+      new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: seed, opts: {} }
       );
     const first = createSim(1);
     const joined = first.addPlayer({ name: "A", clientId: PERSISTENT_HOTBAR_CLIENT });

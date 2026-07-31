@@ -29,12 +29,11 @@ interface PredictionSetupOptions {
   seed: number;
   name: string;
   clientId: string;
-  testFixtures?: boolean;
   warmupTicks?: number;
 }
 
 export function createPredictionContext(options: PredictionSetupOptions): PredictionContext {
-  const sim = makeSim(options.seed, { freezeEnemies: true, testFixtures: options.testFixtures });
+  const sim = makeSim(options.seed, { freezeEnemies: true });
   for (let tick = 0; tick < (options.warmupTicks ?? 0); tick++) sim.step();
   const joined = sim.addPlayer({ name: options.name, clientId: options.clientId });
   const serverPlayer = prepareServerPlayer(sim, joined.playerId, joined.spawn);

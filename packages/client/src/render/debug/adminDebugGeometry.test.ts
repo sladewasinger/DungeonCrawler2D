@@ -2,8 +2,9 @@ import type { AdminMapEntity } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   activeGuardArea,
-  attackWedge,
+  hitboxWedge,
   boxOutline,
+  boxWireframe,
   combatHurtbox,
   currentLineOfSight,
   navigationPath,
@@ -13,16 +14,18 @@ import {
 describe("admin debug geometry", () => {
   it("keeps combat boxes and wedges in authoritative world-tile units", () => {
     const entity = debugEntity();
-    const attack = entity.debug!.attacks![0]!;
+    const hitbox = entity.debug!.attacks![0]!;
 
     expect(combatHurtbox(entity)).toEqual({
       center: { x: 10.5, y: 20.5, z: 0 },
       halfWidth: 0.4,
       halfDepth: 0.3,
+      height: 1.5,
+      bottomOffset: 0.05,
     });
-    expect(attack.shape).toBe("cone");
-    if (attack.shape !== "cone") throw new Error("expected cone attack");
-    expect(attackWedge(entity, attack)).toMatchObject({
+    expect(hitbox.shape).toBe("cone");
+    if (hitbox.shape !== "cone") throw new Error("expected cone hitbox");
+    expect(hitboxWedge(entity, hitbox)).toMatchObject({
       center: { x: 10.5, y: 20.5, z: 0 },
       direction: { x: 1, y: 0 },
       radius: 1.6,
@@ -30,21 +33,24 @@ describe("admin debug geometry", () => {
     });
   });
 
-  it("keeps the hurtbox as an exact world-aligned box at body elevation", () => {
+  it("keeps the exact padded upright hurtbox volume", () => {
     const entity = { ...debugEntity(), z: 2.25 };
     const hurtbox = combatHurtbox(entity);
     if (!hurtbox) throw new Error("expected hurtbox");
 
     const points = boxOutline(hurtbox);
     expect(points).toHaveLength(5);
-    expect(points.every((point) => point.z === 2.25)).toBe(true);
+    expect(points.every((point) => point.z === 2.2)).toBe(true);
     expect(points).toEqual([
-      { x: 10.1, y: 20.2, z: 2.25 },
-      { x: 10.9, y: 20.2, z: 2.25 },
-      { x: 10.9, y: 20.8, z: 2.25 },
-      { x: 10.1, y: 20.8, z: 2.25 },
-      { x: 10.1, y: 20.2, z: 2.25 },
+      { x: 10.1, y: 20.2, z: 2.2 },
+      { x: 10.9, y: 20.2, z: 2.2 },
+      { x: 10.9, y: 20.8, z: 2.2 },
+      { x: 10.1, y: 20.8, z: 2.2 },
+      { x: 10.1, y: 20.2, z: 2.2 },
     ]);
+    const wireframe = boxWireframe(hurtbox);
+    expect(wireframe).toHaveLength(6);
+    expect(wireframe[1]?.every((point) => point.z === 3.7)).toBe(true);
   });
 
   it("projects only the distinct live sight, guard, and navigation fields", () => {
@@ -69,7 +75,12 @@ function debugEntity(): AdminMapEntity {
     y: 20.5,
     z: 0,
     debug: {
-      hurtbox: { halfWidth: 0.4, halfDepth: 0.3 },
+      hurtbox: {
+        halfWidth: 0.4,
+        halfDepth: 0.3,
+        height: 1.5,
+        bottomOffset: 0.05,
+      },
       attacks: [{
         shape: "cone",
         direction: { x: 1, y: 0 },

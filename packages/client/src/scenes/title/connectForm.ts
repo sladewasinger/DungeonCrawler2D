@@ -108,7 +108,8 @@ export class ConnectForm {
     choices.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center";
     this.buttons.push(this.createButton({ label: "Enter the Dungeon", detail: "Procedural world · enemies · progression", level: LEVEL.Dungeon, handlers }));
     if (import.meta.env.DEV) {
-      this.buttons.push(this.createButton({ label: "Enter the Sandbox", detail: "Traversal course · regenerative training dummy", level: LEVEL.Sandbox, handlers }));
+      this.buttons.push(this.createButton({ label: "Enter the Sandbox", detail: "Traversal course · no enemies", level: LEVEL.Sandbox, handlers }));
+      this.buttons.push(this.createButton({ label: "Enter the Combat Sandbox", detail: "Flat arena · equipment · training targets", level: LEVEL.CombatSandbox, handlers }));
     }
     choices.append(...this.buttons);
     return choices;

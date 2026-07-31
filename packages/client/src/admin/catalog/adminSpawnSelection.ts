@@ -7,6 +7,8 @@ import {
 
 export type AdminSpawnSelections = Readonly<Record<AdminSpawnKind, string>>;
 
+const DEFAULT_ENEMY_DEFINITION_ID = "slime";
+
 export function emptyAdminSpawnSelections(): AdminSpawnSelections {
   return { enemy: "", item: "", weapon: "", pet: "" };
 }
@@ -31,5 +33,15 @@ export function validAdminSpawnSelection(
 ): AdminSpawnSelection {
   const definitions = paletteDefinitions(palette, selection.kind);
   if (definitions.includes(selection.defId)) return selection;
-  return { kind: selection.kind, defId: definitions[0] ?? "" };
+  return { kind: selection.kind, defId: defaultDefinitionId(selection.kind, definitions) };
+}
+
+function defaultDefinitionId(
+  kind: AdminSpawnKind,
+  definitions: readonly string[],
+): string {
+  if (kind === "enemy" && definitions.includes(DEFAULT_ENEMY_DEFINITION_ID)) {
+    return DEFAULT_ENEMY_DEFINITION_ID;
+  }
+  return definitions[0] ?? "";
 }

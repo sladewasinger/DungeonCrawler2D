@@ -4,7 +4,7 @@ import { makeSim } from "../integration/support.js";
 
 describe("frozen enemies", () => {
   it("does not let a nearby hostile move or damage a player", () => {
-    const sim = makeSim(1234, { testFixtures: false, freezeEnemies: true });
+    const sim = makeSim(1234, { freezeEnemies: true });
     const player = sim.addPlayer({ name: "Frozen tester", clientId: "frozen-client" });
     const body = sim.getPlayerEntity(player.playerId)?.body;
     if (!body) throw new Error("joined player is missing");

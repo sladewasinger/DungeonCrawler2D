@@ -3,8 +3,8 @@ import { makeEntity } from "../../entities/entity.js";
 import { createBody } from "../../entities/movement/state.js";
 import { resolveWeaponProfile } from "./weaponProfiles.js";
 import {
-  weaponAttackContainsPoint,
-  weaponAttackIntersectsHurtbox,
+  weaponHitboxContainsPoint,
+  weaponHitboxIntersectsHurtbox,
 } from "./weaponTargeting.js";
 
 function attacker() {
@@ -30,7 +30,7 @@ function intersects(input: {
   readonly z?: number;
   readonly shape?: "cone" | "ground";
 }): boolean {
-  return weaponAttackContainsPoint({
+  return weaponHitboxContainsPoint({
     attacker: attacker(),
     direction: { x: 1, y: 0 },
     point: { x: input.x, y: input.y, z: input.z ?? 0.8 },
@@ -39,7 +39,7 @@ function intersects(input: {
   });
 }
 
-describe("weapon attack areas", () => {
+describe("weapon hitboxes", () => {
   it("includes a projectile volume at the extended cone edge", () => {
     expect(intersects({ x: 2.62, y: 0 })).toBe(true);
   });
@@ -68,7 +68,7 @@ describe("weapon attack areas", () => {
       combatHurtbox: { halfWidth: 0.15, halfDepth: 0.15 },
       hp: 10,
     });
-    expect(weaponAttackIntersectsHurtbox({
+    expect(weaponHitboxIntersectsHurtbox({
       attacker: attacker(),
       direction: { x: 1, y: 0 },
       profile: weaponProfile(),
@@ -76,12 +76,12 @@ describe("weapon attack areas", () => {
     })).toBe(true);
   });
 
-  it("rejects an in-range box wholly beyond the cone boundary", () => {
+  it("rejects an in-range hurtbox wholly beyond the cone boundary", () => {
     const target = makeEntity("enemy", createBody(1.15, 1.46, 0.8), {
       combatHurtbox: { halfWidth: 0.15, halfDepth: 0.15 },
       hp: 10,
     });
-    expect(weaponAttackIntersectsHurtbox({
+    expect(weaponHitboxIntersectsHurtbox({
       attacker: attacker(),
       direction: { x: 1, y: 0 },
       profile: weaponProfile(),
@@ -89,12 +89,12 @@ describe("weapon attack areas", () => {
     })).toBe(false);
   });
 
-  it("connects when a large box reaches into the raw cone", () => {
+  it("connects when a large hurtbox reaches into the cone", () => {
     const target = makeEntity("enemy", createBody(3, 0, 0.8), {
       combatHurtbox: { halfWidth: 0.6, halfDepth: 0.8 },
       hp: 10,
     });
-    expect(weaponAttackIntersectsHurtbox({
+    expect(weaponHitboxIntersectsHurtbox({
       attacker: attacker(),
       direction: { x: 1, y: 0 },
       profile: weaponProfile(),

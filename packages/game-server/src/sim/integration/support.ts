@@ -18,6 +18,7 @@ import {
   type ContentRegistry,
   type Entity,
   type GameEvent,
+  type LevelId,
   type ServerSnapshot,
 } from "@dc2d/engine";
 import { GameSim } from "../core/index.js";
@@ -49,8 +50,22 @@ export const SEED = hashString("sim-test-world");
 /** Ticks until the next melee swing is accepted (see sim/actions/melee.ts). */
 export const SWING_TICKS = Math.round((ATTACK_COOLDOWN_MS / 1000) * TICK_RATE);
 
-export function makeSim(rngSeed = 1234, opts: { testFixtures?: boolean; debugCommands?: boolean; freezeEnemies?: boolean; torchBurnTicks?: number } = { testFixtures: true }): GameSim {
-  return new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: new PlayerStore(null), rngSeed: rngSeed, opts: opts });
+export interface IntegrationSimOptions {
+  readonly level?: LevelId;
+  readonly debugCommands?: boolean;
+  readonly freezeEnemies?: boolean;
+  readonly torchBurnTicks?: number;
+}
+
+export function makeSim(rngSeed = 1234, options: IntegrationSimOptions = {}): GameSim {
+  const { level = LEVEL.Sandbox, ...opts } = options;
+  return new GameSim({
+    world: new World(SEED, 1, level),
+    content,
+    store: new PlayerStore(null),
+    rngSeed,
+    opts,
+  });
 }
 
 export interface InputFixture {

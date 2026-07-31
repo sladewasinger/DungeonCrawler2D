@@ -1,4 +1,6 @@
-import type { AdminAttackArea, AdminMapEntity } from "@dc2d/engine";
+import type { AdminHitbox, AdminMapEntity } from "@dc2d/engine";
+
+export { boxOutline, boxWireframe } from "./adminDebugBoxGeometry.js";
 
 export interface AdminDebugPoint {
   readonly x: number;
@@ -15,6 +17,8 @@ export interface AdminDebugBox {
   readonly center: AdminDebugPoint;
   readonly halfWidth: number;
   readonly halfDepth: number;
+  readonly height: number;
+  readonly bottomOffset: number;
 }
 
 export interface AdminDebugWedge {
@@ -36,33 +40,33 @@ export function combatHurtbox(entity: AdminMapEntity): AdminDebugBox | undefined
   return { center: entityPoint(entity), ...hurtbox };
 }
 
-export function activeAttackAreas(entity: AdminMapEntity): readonly AdminAttackArea[] {
+export function activeHitboxes(entity: AdminMapEntity): readonly AdminHitbox[] {
   return entity.debug?.attacks ?? [];
 }
 
-export function attackCircle(
+export function hitboxCircle(
   entity: AdminMapEntity,
-  attack: Extract<AdminAttackArea, { readonly shape: "circle" }>,
+  hitbox: Extract<AdminHitbox, { readonly shape: "circle" }>,
 ): AdminDebugCircle {
-  return { center: entityPoint(entity), radius: attack.radius };
+  return { center: entityPoint(entity), radius: hitbox.radius };
 }
 
-export function attackWedge(
+export function hitboxWedge(
   entity: AdminMapEntity,
-  attack: Extract<AdminAttackArea, { readonly shape: "cone" }>,
+  hitbox: Extract<AdminHitbox, { readonly shape: "cone" }>,
 ): AdminDebugWedge {
   return {
     center: entityPoint(entity),
-    direction: normalizedDirection(attack.direction),
-    radius: attack.range,
-    arcCos: attack.arcCos,
+    direction: normalizedDirection(hitbox.direction),
+    radius: hitbox.range,
+    arcCos: hitbox.arcCos,
   };
 }
 
-export function attackTile(
-  attack: Extract<AdminAttackArea, { readonly shape: "tile" }>,
+export function hitboxTile(
+  hitbox: Extract<AdminHitbox, { readonly shape: "tile" }>,
 ): AdminDebugPoint {
-  return attack.center;
+  return hitbox.center;
 }
 
 export function activeGuardArea(entity: AdminMapEntity): AdminDebugWedge | undefined {
@@ -121,18 +125,6 @@ export function circleOutline(
     points.push(offsetPoint(circle.center, circle.radius, angle));
   }
   return points;
-}
-
-/** Returns the exact closed world-horizontal outline of an axis-aligned hurtbox. */
-export function boxOutline(box: AdminDebugBox): AdminDebugPoint[] {
-  const { center, halfWidth, halfDepth } = box;
-  return [
-    { x: center.x - halfWidth, y: center.y - halfDepth, z: center.z },
-    { x: center.x + halfWidth, y: center.y - halfDepth, z: center.z },
-    { x: center.x + halfWidth, y: center.y + halfDepth, z: center.z },
-    { x: center.x - halfWidth, y: center.y + halfDepth, z: center.z },
-    { x: center.x - halfWidth, y: center.y - halfDepth, z: center.z },
-  ];
 }
 
 export function tileOutline(center: AdminDebugPoint): AdminDebugPoint[] {

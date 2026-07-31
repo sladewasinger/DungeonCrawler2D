@@ -25,7 +25,6 @@ export interface FloorRegistryOptions {
   clusterSpawns?: boolean;
   spawnRadiusTiles?: number | undefined;
   debugCommands?: boolean;
-  testFixtures?: boolean;
 }
 
 export interface FloorRegistryCreation {

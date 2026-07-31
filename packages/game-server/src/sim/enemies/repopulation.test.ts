@@ -51,13 +51,16 @@ describe("occupied-area repopulation", () => {
     })).toBeGreaterThan(0);
   });
 
-  it("is a no-op in the Sandbox level", () => {
-    const sim = createPopulationTestSim({ level: LEVEL.Sandbox });
-    const center = resolveSpawnAnchor(sim);
-    addPopulationTestPlayer(sim, center);
+  it.each([LEVEL.Sandbox, LEVEL.CombatSandbox])(
+    "is a no-op in the %s level",
+    (level) => {
+      const sim = createPopulationTestSim({ level });
+      const center = resolveSpawnAnchor(sim);
+      addPopulationTestPlayer(sim, center);
 
-    repopulateNearSpawn(sim);
+      repopulateNearSpawn(sim);
 
-    expect(sim.enemies.size).toBe(0);
-  });
+      expect(sim.enemies.size).toBe(0);
+    },
+  );
 });

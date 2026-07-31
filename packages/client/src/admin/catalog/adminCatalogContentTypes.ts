@@ -8,6 +8,8 @@ export interface EnemyDefinition {
   readonly hurtbox: {
     readonly halfWidth: number;
     readonly halfDepth: number;
+    readonly height: number;
+    readonly bottomOffset: number;
   };
   readonly attack: {
     readonly damage: number;
@@ -37,7 +39,9 @@ export function isEnemyDefinition(value: unknown): value is EnemyDefinition {
 function hasEnemyHurtbox(value: unknown): value is EnemyDefinition["hurtbox"] {
   const hurtbox = value as Partial<EnemyDefinition["hurtbox"]>;
   return typeof hurtbox?.halfWidth === "number" &&
-    typeof hurtbox.halfDepth === "number";
+    typeof hurtbox.halfDepth === "number" &&
+    typeof hurtbox.height === "number" &&
+    typeof hurtbox.bottomOffset === "number";
 }
 
 function hasEnemyAttack(value: unknown): value is EnemyDefinition["attack"] {

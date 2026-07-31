@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AdminPlayerSelection } from "./adminPlayerSelection.js";
 
 describe("admin player selection", () => {
-  it("keeps a manually selected player independent from the tracked viewer", () => {
+  it("keeps a manual selection while the spectator is off", () => {
     const selection = new AdminPlayerSelection();
     const players = [player("one"), player("two")];
     selection.select("two");
@@ -11,17 +11,26 @@ describe("admin player selection", () => {
 
     expect(selection.selectedPlayerId).toBe("two");
 
-    selection.sync({ players, spectatorMode: "track", spectatorTargetId: "one" });
     expect(selection.selectedPlayerId).toBe("two");
   });
 
-  it("selects the tracked player only when no player is already selected", () => {
+  it("selects the tracked player when spectating starts", () => {
     const selection = new AdminPlayerSelection();
     const players = [player("one"), player("two")];
 
     selection.sync({ players, spectatorMode: "track", spectatorTargetId: "one" });
 
     expect(selection.selectedPlayerId).toBe("one");
+  });
+
+  it("synchronizes a manual selection when the spectator cycles players", () => {
+    const selection = new AdminPlayerSelection();
+    const players = [player("one"), player("two")];
+    selection.select("one");
+
+    selection.sync({ players, spectatorMode: "track", spectatorTargetId: "two" });
+
+    expect(selection.selectedPlayerId).toBe("two");
   });
 
   it("keeps an automatic initial selection in sync with spectator cycling", () => {

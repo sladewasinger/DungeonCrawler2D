@@ -10,7 +10,7 @@ function healingEvents(snapshot: ServerSnapshot): GameEvent[] {
 }
 
 function useBandage(hp: number) {
-  const sim = makeSim(1234, { testFixtures: true, freezeEnemies: true });
+  const sim = makeSim(1234, { freezeEnemies: true });
   const joined = sim.addPlayer({ name: "A", clientId: "bandage-contract" });
   const entity = sim.getPlayerEntity(joined.playerId)!;
   entity.hp = hp;

@@ -1,4 +1,4 @@
-import type { LevelId } from "./level.js";
+import { LEVEL, type LevelId } from "./level.js";
 
 /** Server-selected world-generation features shared with every client. */
 export interface WorldFeatures {
@@ -21,4 +21,13 @@ export function snapshotWorldFeatures(
   features: WorldFeatures = DEFAULT_WORLD_FEATURES,
 ): WorldFeatures {
   return Object.freeze({ voidTerrain: features.voidTerrain });
+}
+
+/** Apply level-authored terrain requirements before a World starts caching chunks. */
+export function snapshotLevelWorldFeatures(
+  level: LevelId,
+  features: WorldFeatures = DEFAULT_WORLD_FEATURES,
+): WorldFeatures {
+  if (level !== LEVEL.CombatSandbox) return snapshotWorldFeatures(features);
+  return snapshotWorldFeatures({ ...features, voidTerrain: true });
 }

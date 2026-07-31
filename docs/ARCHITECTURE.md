@@ -43,7 +43,7 @@ dungeoncrawler2D/
 │   ├── engine/                  # ── PURE: no Phaser, no Node APIs ──
 │   │   ├── core/                #   Seeded RNG, event bus, fixed-tick clock, ids
 │   │   ├── world/               #   Layout pipeline: types, terrain (caves+corridors), generate, pockets, world cache
-│   │   │   └── features/        #   Deliberate stamps: fixed kiosks/stairways, platforms, terraces, rooms, testzone, custommap
+│   │   │   └── features/        #   Deliberate stamps: fixed kiosks/stairways, platforms, terraces, rooms, and arenas
 │   │   ├── entities/            #   Entity model, stats, tags
 │   │   ├── navigation/          #   Shared bounded grid pathfinding and stair-rim traversal
 │   │   ├── effects/             #   Primitives, StatusEffect, interaction rules (EFFECTS.md)
@@ -63,7 +63,7 @@ dungeoncrawler2D/
 │   │   ├── sim/                 #   The authoritative sim — one module per concern over a shared
 │   │   │                        #   SimState (state.ts): players, actions, inventory, social,
 │   │   │                        #   enemies, pets, projectiles, statuses, deaths, spawn, snapshots,
-│   │   │                        #   testzone; GameSim facade + tick order in index.ts
+│   │   │                        #   and sandbox fixtures; GameSim facade + tick order in index.ts
 │   │   ├── server.ts            #   ws transport: decode/zod-validate → sim; snapshots out
 │   │   ├── store.ts             #   File-backed player store (stash, identity) → DynamoDB in v0.8
 │   │   └── main.ts

@@ -1,15 +1,14 @@
 // Monster body visual: server-anim-driven sprite (idle/walk/windup/attack/recover),
 // a readable windup/strike telegraph pulse, status tint flicker, hit flash, plus the
 // shared combatant chrome (shadow/hp/nameplate).
-import type Phaser from "phaser";
-import { ASSET_KEYS, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
+import { WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { resolveAnimState, telegraphScale } from "../motion/animState.js";
-import { createHpBar, HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "../presentation/hpBar.js";
+import { HP_BAR_DISPLAY_HEIGHT_PX, updateHpBar } from "../presentation/hpBar.js";
 import { resolveHpBarVisibility } from "../presentation/hpBarVisibility.js";
 import { flashIntensity, tookDamage } from "../combat/feedback/hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
-import { createNameplate, LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "../presentation/nameplate.js";
-import { createShadow, updateShadowPosition } from "../geometry/shadow.js";
+import { LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "../presentation/nameplate.js";
+import { updateShadowPosition } from "../geometry/shadow.js";
 import type { MonsterVisual } from "./state.js";
 import {
   applyCombatantTint,
@@ -18,24 +17,9 @@ import {
 } from "../combat/status/statusTint.js";
 import type { MonsterEntityView, RenderContext } from "./view.js";
 import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
+import { updateMonsterTrainingWeapon } from "../monster/trainingWeaponVisual.js";
 
-export function createMonsterVisual(scene: Phaser.Scene, spritePrefix: string): MonsterVisual {
-  const body = scene.add.sprite(0, 0, ASSET_KEYS.atlas).setOrigin(0.5, 1).setScale(WORLD_PIXEL_SCALE);
-  return {
-    kind: "enemy",
-    body,
-    shadow: createShadow(scene, 0),
-    hpBar: createHpBar(scene, 0),
-    nameplate: createNameplate(scene, 0),
-    spritePrefix,
-    lastHp: undefined,
-    hpBarRevealed: false,
-    lastFx: [],
-    hitFlashStartMs: undefined,
-    lastAnim: undefined,
-    telegraphStartMs: undefined,
-  };
-}
+export { createMonsterVisual } from "./monsterVisualCreation.js";
 
 /** Body pose: position, depth, animation, telegraph pulse, status/hit tint. */
 interface MonsterBodyUpdate {
@@ -162,5 +146,6 @@ export function updateMonsterVisual(visual: MonsterVisual, view: MonsterEntityVi
   visual.lastFx = view.fx;
   updateMonsterBody({ visual, view, context: ctx, heightAboveGround });
   updateMonsterChrome({ visual, view, context: ctx, heightAboveGround, groundHeight });
+  updateMonsterTrainingWeapon(visual, view, ctx);
   visual.lastHp = view.hp;
 }

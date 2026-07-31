@@ -354,6 +354,12 @@ section:has([data-admin-players]) th {
   min-width: 0;
 }
 
+[data-admin-action-group] > [data-admin-spectator-zoom] {
+  flex: 0 1 52px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
 [data-admin-coordinate-controls],
 [data-admin-radius-controls] {
   display: grid;
@@ -472,6 +478,23 @@ section:has([data-admin-map]) {
 [data-admin-map-control-group] > select,
 [data-admin-map-control-group] > input {
   width: 100%;
+}
+
+[data-admin-map-zoom-controls] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+[data-admin-map-zoom-controls] > button {
+  width: 100%;
+  font-weight: 800;
+}
+
+[data-admin-map-zoom-controls] > button:last-child {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 [data-admin-map-help] {
