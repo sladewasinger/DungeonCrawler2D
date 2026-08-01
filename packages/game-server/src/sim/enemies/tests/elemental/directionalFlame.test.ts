@@ -80,8 +80,46 @@ describe("Chort directional flame", () => {
       .toBe(fixture.enemy.entity.id);
   });
 
-  it("limits diagonal flames to cells within three Euclidean tiles", () => {
+  it("includes the target tile in a diagonal flame path", () => {
     const fixture = createFlameFixture(1, 1);
-    expect(fixture.enemy.elementalAttack?.maximumSegments).toBe(2);
+    expect(fixture.enemy.elementalAttack?.cells).toContainEqual({
+      x: Math.floor(fixture.player.body.x),
+      y: Math.floor(fixture.player.body.y),
+    });
+  });
+
+  it.each([
+    ["east", 2, 0],
+    ["west", -2, 0],
+    ["north", 0, -2],
+    ["south", 0, 2],
+    ["north-east", 2, -1],
+    ["north-west", -2, -1],
+    ["south-east", 2, 1],
+    ["south-west", -2, 1],
+    ["steep north-east", 1, -2],
+    ["steep north-west", -1, -2],
+    ["steep south-east", 1, 2],
+    ["steep south-west", -1, 2],
+  ])("aims its primary flame at a stationary target to the %s", (
+    _direction,
+    offsetX,
+    offsetY,
+  ) => {
+    const fixture = createFlameFixture(offsetX, offsetY);
+
+    for (let segment = 0; segment < 3; segment += 1) {
+      stepDirectionalFlame({
+        sim: fixture.sim,
+        enemy: fixture.enemy,
+        effectEvents: [],
+      });
+    }
+
+    expect(fixture.player.hp).toBe(28);
+    expect(fixture.sim.areas.defAt(
+      Math.floor(fixture.player.body.x),
+      Math.floor(fixture.player.body.y),
+    )).toBe("area-enemy-flame");
   });
 });

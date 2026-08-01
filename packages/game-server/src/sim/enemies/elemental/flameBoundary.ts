@@ -13,6 +13,7 @@ export interface FlameCellCheck {
   readonly enemy: EnemySlot;
   readonly x: number;
   readonly y: number;
+  readonly previous?: { readonly x: number; readonly y: number };
 }
 
 export interface ElementalSegmentCheck {
@@ -22,6 +23,7 @@ export interface ElementalSegmentCheck {
   readonly x: number;
   readonly y: number;
   readonly maximumHeightDifference: number;
+  readonly from?: { readonly x: number; readonly y: number };
 }
 
 export function flameCellIsReachable(input: FlameCellCheck): boolean {
@@ -30,6 +32,9 @@ export function flameCellIsReachable(input: FlameCellCheck): boolean {
     sim: input.sim,
     source: enemy.entity,
     ...(enemy.arenaKey ? { arenaKey: enemy.arenaKey } : {}),
+    ...(input.previous
+      ? { from: { x: input.previous.x + 0.5, y: input.previous.y + 0.5 } }
+      : {}),
     x: input.x,
     y: input.y,
     maximumHeightDifference:
@@ -48,7 +53,7 @@ export function elementalSegmentIsReachable(
   if (!sameArenaDomain(input)) return false;
   return hasTerrainLineOfSight({
     world: sim.world,
-    from: source.body,
+    from: input.from ?? source.body,
     to: { x: x + 0.5, y: y + 0.5 },
     maximumHeightDifference: input.maximumHeightDifference,
   });

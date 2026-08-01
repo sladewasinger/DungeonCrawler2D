@@ -54,14 +54,16 @@ export interface EnemySearchState {
 
 export interface DirectionalFlameState {
   readonly kind: "directional-flame";
-  readonly originTileX: number;
-  readonly originTileY: number;
-  readonly stepX: number;
-  readonly stepY: number;
-  readonly maximumSegments: number;
+  /** Ordered, unique authoritative flame cells from the source toward the target. */
+  readonly cells: readonly DirectionalFlameCell[];
   readonly hitTargetIds: Set<string>;
   nextSegment: number;
   ticksUntilSegment: number;
+}
+
+export interface DirectionalFlameCell {
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface EnemySlot {

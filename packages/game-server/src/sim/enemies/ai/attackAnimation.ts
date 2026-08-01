@@ -75,7 +75,7 @@ function advanceRangedPose(
 }
 
 function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
-  const target = enemy.animation.target;
+  const target = rangedReleaseTarget(sim, enemy, enemy.animation.target);
   if (target && !beginElementalEnemyAttack({ sim, enemy, target })) {
     launchSpit({
       sim,
@@ -85,6 +85,22 @@ function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
   }
   enemy.animation = target ? spitAnimation(target) : spitAnimation();
   return true;
+}
+
+function rangedReleaseTarget(
+  sim: SimState,
+  enemy: EnemySlot,
+  target: EnemySlot["animation"]["target"],
+): EnemySlot["animation"]["target"] {
+  if (!target) return undefined;
+  const entity = sim.players.get(target.targetId)?.entity;
+  if (!entity || entity.hp <= 0) return undefined;
+  faceEntity(
+    enemy.entity,
+    entity.body.x - enemy.entity.body.x,
+    entity.body.y - enemy.entity.body.y,
+  );
+  return { targetId: entity.id, ...entity.body };
 }
 
 function spitAnimation(

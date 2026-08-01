@@ -16,7 +16,7 @@
     "channel": "flame",
     "priority": 10,
     "buoyancy": 0,
-    "duration": 1,
+    "duration": 5,
     "onEnterStatus": "on-fire",
     "sprite": "fire"
   },

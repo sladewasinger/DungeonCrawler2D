@@ -87,14 +87,7 @@ function activeDirectionalFlameAreas(
 function directionalFlameCells(
   state: NonNullable<EnemySlot["elementalAttack"]>,
 ): Array<{ readonly x: number; readonly y: number }> {
-  const cells = [];
-  for (let segment = 1; segment <= state.maximumSegments; segment += 1) {
-    cells.push({
-      x: state.originTileX + state.stepX * segment,
-      y: state.originTileY + state.stepY * segment,
-    });
-  }
-  return cells;
+  return [...state.cells];
 }
 
 function directionalFlameBelongsTo(

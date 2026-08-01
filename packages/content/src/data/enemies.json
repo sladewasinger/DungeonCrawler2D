@@ -252,6 +252,8 @@
       "ranged": true,
       "elemental": "directional-flame"
     },
+    "immunities": ["fire"],
+    "damageScale": { "fire": 0 },
     "drops": [
       { "item": "raw-meat", "chance": 0.55 },
       { "item": "vodka-bottle", "chance": 0.12 }

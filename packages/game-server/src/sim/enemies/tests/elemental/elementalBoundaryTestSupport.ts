@@ -44,6 +44,20 @@ export function mockTerrainCrest(
   );
 }
 
+interface RaisedPlatform {
+  readonly startX: number;
+  readonly height: number;
+}
+
+export function mockRaisedPlatform(
+  sim: SimState,
+  request: RaisedPlatform,
+): void {
+  vi.spyOn(sim.world, "groundAt").mockImplementation((x) =>
+    Math.floor(x) >= request.startX ? request.height : 0
+  );
+}
+
 interface BoundaryCellCheck {
   readonly cell: SurfaceCell;
   readonly cellX: number;

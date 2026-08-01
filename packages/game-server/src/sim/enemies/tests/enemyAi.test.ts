@@ -4,6 +4,10 @@ import { spawnEnemy } from "../../core/helpers.js";
 import type { PlayerSlot, SimState } from "../../state/state.js";
 import { stepEnemies } from "../index.js";
 import {
+  advanceAttackAnimation,
+  beginWindup,
+} from "../ai/attackAnimation.js";
+import {
   addEnemyTestPlayer,
   createEnemyTestSim,
   findEnemyTestFloor,
@@ -62,6 +66,31 @@ describe("enemy AI", () => {
     for (let count = 0; count < 5; count++) stepEnemies(sim, []);
     expect(enemy.animation.state).toBe("spit");
     expect(sim.projectiles.size).toBe(1);
+  });
+
+  it("refreshes a Chort flame target at windup release", () => {
+    const entity = spawnEnemy(sim, {
+      defId: "chort",
+      x: spot.x + 2,
+      y: spot.y,
+    });
+    const enemy = sim.enemies.get(entity.id);
+    const player = requirePlayer(sim, "p1").entity;
+    if (!enemy) throw new Error("missing Chort fixture");
+
+    beginWindup(enemy, { targetId: player.id, ...player.body });
+    player.body.x = enemy.entity.body.x;
+    player.body.y = enemy.entity.body.y + 2;
+    enemy.animation.ticksRemaining = 0;
+
+    advanceAttackAnimation(sim, enemy, []);
+
+    expect(enemy.elementalAttack).toEqual(expect.objectContaining({
+      cells: expect.arrayContaining([{
+        x: Math.floor(player.body.x),
+        y: Math.floor(player.body.y),
+      }]),
+    }));
   });
 
   it("cancels a windup when its target disconnects outside active AI", () => {

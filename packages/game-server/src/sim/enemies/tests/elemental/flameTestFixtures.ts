@@ -1,4 +1,4 @@
-import { type Entity } from "@dc2d/engine";
+import { TILE, type Entity } from "@dc2d/engine";
 import { spawnEnemy } from "../../../core/helpers.js";
 import {
   addEnemyTestPlayer,
@@ -24,6 +24,7 @@ export function createFlameFixture(
 ): FlameFixture {
   const sim = createEnemyTestSim();
   const spot = findEnemyTestFloor(sim);
+  clearFlameTestArea(sim, spot);
   const player = addEnemyTestPlayer(sim, {
     x: spot.x + offsetX,
     y: spot.y + offsetY,
@@ -43,6 +44,21 @@ export function createFlameFixture(
     tileX: Math.floor(spot.x),
     tileY: Math.floor(spot.y),
   };
+}
+
+function clearFlameTestArea(
+  sim: SimState,
+  spot: { readonly x: number; readonly y: number },
+): void {
+  const originX = Math.floor(spot.x);
+  const originY = Math.floor(spot.y);
+  const tiles = [];
+  for (let offsetY = -3; offsetY <= 3; offsetY += 1) {
+    for (let offsetX = -3; offsetX <= 3; offsetX += 1) {
+      tiles.push({ x: originX + offsetX, y: originY + offsetY, tile: TILE.Floor });
+    }
+  }
+  sim.world.replaceTileOverrides(tiles);
 }
 
 export interface ArenaFlameFixture {

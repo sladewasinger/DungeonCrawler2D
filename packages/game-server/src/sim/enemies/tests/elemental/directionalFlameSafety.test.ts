@@ -5,6 +5,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   blockSurfaceCell,
+  mockRaisedPlatform,
   mockTerrainCrest,
   type BoundaryKind,
 } from "./elementalBoundaryTestSupport.js";
@@ -61,6 +62,31 @@ describe("Chort directional flame safety boundaries", () => {
     expect(complete).toBe(true);
     expect(fixture.player.hp).toBe(30);
     expect(fixture.sim.areas.size).toBe(0);
+  });
+
+  it("climbs a reachable ledge along its stored target path", () => {
+    const fixture = createFlameFixture(2);
+    mockRaisedPlatform(fixture.sim, {
+      startX: fixture.tileX + 1,
+      height: 1,
+    });
+    fixture.enemy.entity.body.z = 0;
+    fixture.player.body.z = 1;
+
+    stepDirectionalFlame({
+      sim: fixture.sim,
+      enemy: fixture.enemy,
+      effectEvents: [],
+    });
+    stepDirectionalFlame({
+      sim: fixture.sim,
+      enemy: fixture.enemy,
+      effectEvents: [],
+    });
+
+    expect(fixture.player.hp).toBe(28);
+    expect(fixture.sim.areas.defAt(fixture.tileX + 2, fixture.tileY))
+      .toBe("area-enemy-flame");
   });
 
   it("rejects sanctuary and interior-room targets", () => {

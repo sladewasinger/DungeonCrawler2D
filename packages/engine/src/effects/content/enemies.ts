@@ -41,8 +41,8 @@ export const enemyDefSchema = z.object({
   }),
   /** Status tags this enemy cannot receive (slime is immune to bleed). */
   immunities: z.array(z.string()).optional(),
-  /** Damage multipliers by source tag (flammable plants burn ×2). */
-  damageScale: z.record(z.string(), z.number().positive()).optional(),
+  /** Damage multipliers by source tag (0 grants authored damage immunity). */
+  damageScale: z.record(z.string(), z.number().nonnegative()).optional(),
   drops: z.array(z.object({ item: z.string(), chance: z.number().min(0).max(1) })),
   sprite: z.string(),
   /** Prevents AI movement and attacks while preserving damage/status simulation. */

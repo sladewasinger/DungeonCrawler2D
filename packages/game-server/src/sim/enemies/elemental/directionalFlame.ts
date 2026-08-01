@@ -9,6 +9,7 @@ import type { DirectionalFlameState } from "../../state/enemyState.js";
 import { ELEMENTAL_ENEMY_TUNING } from "./configuration/elementalEnemyTuning.js";
 import { placeDirectionalFlameArea } from "./directionalFlameArea.js";
 import { flameCellIsReachable } from "./flameBoundary.js";
+import { directionalFlamePath } from "./directionalFlamePath.js";
 
 export interface DirectionalFlameStart {
   readonly enemy: EnemySlot;
@@ -22,34 +23,19 @@ export interface DirectionalFlameStep {
 }
 
 export function beginDirectionalFlame(input: DirectionalFlameStart): void {
-  const direction = flameDirection(input);
-  const stepDistance = Math.hypot(direction.x, direction.y);
-  const maximumSegments = Math.floor(
-    ELEMENTAL_ENEMY_TUNING.directionalFlame.maximumRangeTiles /
-      stepDistance,
-  );
   input.enemy.elementalAttack = {
     kind: "directional-flame",
-    originTileX: Math.floor(input.enemy.entity.body.x),
-    originTileY: Math.floor(input.enemy.entity.body.y),
-    stepX: direction.x,
-    stepY: direction.y,
-    maximumSegments,
+    cells: directionalFlamePath({
+      source: input.enemy.entity.body,
+      target: input.target,
+      ...(input.enemy.entity.facing
+        ? { facing: input.enemy.entity.facing }
+        : {}),
+    }),
     hitTargetIds: new Set(),
     nextSegment: 1,
     ticksUntilSegment: 0,
   };
-}
-
-function flameDirection(input: DirectionalFlameStart): {
-  readonly x: number;
-  readonly y: number;
-} {
-  const dx = Math.sign(input.target.x - input.enemy.entity.body.x);
-  const dy = Math.sign(input.target.y - input.enemy.entity.body.y);
-  if (dx !== 0 || dy !== 0) return { x: dx, y: dy };
-  const facing = input.enemy.entity.facing ?? { x: 0, y: 1 };
-  return { x: Math.sign(facing.x), y: Math.sign(facing.y) };
 }
 
 /** Returns true once the fixed segment has ended or terrain blocks it. */
@@ -61,7 +47,15 @@ export function stepDirectionalFlame(input: DirectionalFlameStep): boolean {
     return false;
   }
   const cell = flameCell(state);
-  if (!flameCellIsReachable({ ...input, ...cell })) {
+  if (!cell) {
+    delete input.enemy.elementalAttack;
+    return true;
+  }
+  if (!flameCellIsReachable({
+    ...input,
+    ...cell,
+    ...previousFlameCell(state),
+  })) {
     delete input.enemy.elementalAttack;
     return true;
   }
@@ -69,18 +63,22 @@ export function stepDirectionalFlame(input: DirectionalFlameStep): boolean {
   state.nextSegment += 1;
   state.ticksUntilSegment =
     ELEMENTAL_ENEMY_TUNING.directionalFlame.ticksPerSegment - 1;
-  if (state.nextSegment <= state.maximumSegments) return false;
+  if (state.nextSegment <= state.cells.length) return false;
   delete input.enemy.elementalAttack;
   return true;
 }
 
 function flameCell(
   state: DirectionalFlameState,
-): { readonly x: number; readonly y: number } {
-  return {
-    x: state.originTileX + state.stepX * state.nextSegment,
-    y: state.originTileY + state.stepY * state.nextSegment,
-  };
+): { readonly x: number; readonly y: number } | undefined {
+  return state.cells[state.nextSegment - 1];
+}
+
+function previousFlameCell(
+  state: DirectionalFlameState,
+): { readonly previous?: { readonly x: number; readonly y: number } } {
+  const previous = state.cells[state.nextSegment - 2];
+  return previous ? { previous } : {};
 }
 
 function resolveFlameCell(

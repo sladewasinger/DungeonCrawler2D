@@ -8,7 +8,7 @@
   },
   "directionalFlame": {
     "maximumRangeTiles": 3,
-    "maximumElevationDifference": 0.5,
+    "maximumElevationDifference": 1,
     "ticksPerSegment": 1,
     "statusId": "on-fire",
     "areaId": "area-enemy-flame"
