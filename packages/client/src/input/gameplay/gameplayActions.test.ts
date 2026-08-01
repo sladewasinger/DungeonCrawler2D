@@ -2,23 +2,10 @@ import { TILE, type WorldInteractionTarget } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { bandageNearbyPlayer, interactOrUse } from "./gameplayActions.js";
 import type { InputConnection, InputPanels, InputQueries } from "../controls/state.js";
-
-const target = (kind: WorldInteractionTarget["kind"]): WorldInteractionTarget => ({
-  kind,
-  tile: kind === "door" ? TILE.DoorExit : kind === "stash" ? TILE.Stash : TILE.CraftingTable,
-  x: 0,
-  y: 0,
-});
-
+const target = (kind: WorldInteractionTarget["kind"]): WorldInteractionTarget => ({ kind, tile: kind === "door" ? TILE.DoorExit : kind === "stash" ? TILE.Stash : TILE.CraftingTable, x: 0, y: 0 });
 const setup = (
   interaction: WorldInteractionTarget | null,
-  options: {
-    stair?: boolean;
-    revive?: boolean;
-    consumable?: boolean;
-    nearby?: string;
-    lootCanOpen?: boolean;
-  } = {},
+  options: Partial<{ stair: boolean; revive: boolean; consumable: boolean; nearby: string; lootCanOpen: boolean }> = {},
 ) => {
   const calls: string[] = [];
   const conn = {
@@ -79,17 +66,17 @@ const setup = (
     worldInteraction: () => interaction,
     isStairwayNearby: () => Boolean(options.stair),
     downedPartyMemberInRange: () => options.revive ? { id: "ally" } : undefined,
+    isAdoptablePetNearby: () => false,
+    isPickupNearby: () => false,
   } satisfies InputQueries;
   return { calls, conn, panels, queries };
 };
-
 describe("loot chest interaction priority", () => {
   it("opens an eligible chest and still lets the server validate it", () => {
     const { calls, conn, panels, queries } = setup(null, { lootCanOpen: true });
     interactOrUse({ conn, panels, queries, selectedSlot: null, startRevive: () => false });
     expect(calls).toEqual(["lootChest:loot-1:open", "toggleStash"]);
   });
-
   it("uses a fresh prompt target on the first interaction call", () => {
     const state = setup(null);
     let prompted = false;
@@ -103,20 +90,17 @@ describe("loot chest interaction priority", () => {
     expect(prompted).toBe(true);
     expect(state.calls).toEqual(["lootChest:loot-first:open", "toggleStash"]);
   });
-
   it("asks the server for lock feedback without opening for a stranger", () => {
     const { calls, conn, panels, queries } = setup(null, { lootCanOpen: false });
     interactOrUse({ conn, panels, queries, selectedSlot: null, startRevive: () => false });
     expect(calls).toEqual(["lootChest:loot-1:open"]);
   });
 });
-
 describe("interactOrUse", () => {
   it("keeps stair and revive ahead of world and selected-item actions", () => {
     const stair = setup(target("door"), { stair: true, consumable: true });
     interactOrUse({ conn: stair.conn, panels: stair.panels, queries: stair.queries, selectedSlot: 0, startRevive: () => false });
     expect(stair.calls).toEqual(["descend"]);
-
     const revive = setup(target("door"), { revive: true, consumable: true });
     interactOrUse({ conn: revive.conn, panels: revive.panels, queries: revive.queries, selectedSlot: 0, startRevive: (id) => {
       revive.calls.push(`revive:${id}`);
@@ -124,7 +108,6 @@ describe("interactOrUse", () => {
     } });
     expect(revive.calls).toEqual(["revive:ally"]);
   });
-
   it("maps each world target to exactly one matching panel or server intent", () => {
     for (const [kind, expected] of [
       ["door", ["interact"]],
@@ -136,29 +119,28 @@ describe("interactOrUse", () => {
       expect(state.calls).toEqual(expected);
     }
   });
-
   it("uses a selected consumable only when no higher-priority context exists", () => {
     const state = setup(null, { consumable: true });
     interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: 0, startRevive: () => false });
     expect(state.calls).toEqual(["useSlot"]);
   });
-
-  it("uses pickup as the touch fallback without false failure feedback", () => {
+  it.each([
+    ["picks up nearby loot", { isPickupNearby: (): boolean => true }, ["pickup"]],
+    ["adopts a pet before an overlapping item pickup", { isAdoptablePetNearby: (): boolean => true, isPickupNearby: (): boolean => true }, ["interact"]],
+    ["keeps an authoritative interact request with no target", {}, ["toast", "interact"]],
+  ])("%s through touch context", (_name, queryOverrides, expected) => {
     const state = setup(null);
-    interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: null, startRevive: () => false, fallback: "pickup" });
-    expect(state.calls).toEqual(["pickup"]);
+    Object.assign(state.queries, queryOverrides);
+    interactOrUse({ conn: state.conn, panels: state.panels, queries: state.queries, selectedSlot: null, startRevive: () => false, pickupWhenNearby: true });
+    expect(state.calls).toEqual(expected);
   });
-
   it("applies a selected owned bandage to the nearest player", () => {
     const state = setup(null, { consumable: true, nearby: "ally" });
-
     expect(bandageNearbyPlayer(state.conn, state.queries, 0)).toBe(true);
     expect(state.calls).toEqual(["bandage:ally"]);
   });
-
   it("leaves F available when no nearby bandage target exists", () => {
     const state = setup(null, { consumable: true });
-
     expect(bandageNearbyPlayer(state.conn, state.queries, 0)).toBe(false);
     expect(state.calls).toEqual([]);
   });

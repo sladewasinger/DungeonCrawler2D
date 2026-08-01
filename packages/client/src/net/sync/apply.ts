@@ -47,7 +47,12 @@ function applySnapshotEvents(
 ): void {
   // Capture visual-event targets before `left` prunes conn.entities. Rendering drains
   // these events later, so queue order alone cannot preserve a dead actor's position.
-  for (const event of snap.events) applyEvent(conn, event);
+  for (const event of snap.events) {
+    if (event.t === "death" && conn.spectatorOnly) {
+      conn.spectatorDeathPresentations.markLiveDeath(snap.tick, event.id);
+    }
+    applyEvent(conn, event);
+  }
   inferMissingDamageEvents(conn, snap, combatBefore);
   for (const id of snap.left) conn.entities.delete(id);
 }

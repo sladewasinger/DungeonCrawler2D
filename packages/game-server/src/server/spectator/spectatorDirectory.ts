@@ -4,6 +4,7 @@ import {
   type InvStack,
   type SpectatorMode,
   type SpectatorPlayer,
+  type SpectatorPresentation,
   type SpectatorWelcome,
 } from "@dc2d/engine";
 import type { SocketMap } from "../types.js";
@@ -59,6 +60,18 @@ export class SpectatorDirectory {
       .filter(({ item }) => visibleItems.has(item))
       .map((stack) => ({ ...stack }));
     return { inventory, hotbar };
+  }
+
+  presentation(playerId: string): SpectatorPresentation | null {
+    const sim = this.options.sockets.get(playerId)?.sim;
+    const worldIdentity = this.worldIdentity(playerId);
+    if (!sim || !worldIdentity) return null;
+    return {
+      type: "spectatorPresentation",
+      worldIdentity,
+      tick: sim.tick,
+      deaths: sim.visibleDeathPresentations(playerId),
+    };
   }
 
   welcome(playerId: string, mode: SpectatorMode): SpectatorWelcome | null {

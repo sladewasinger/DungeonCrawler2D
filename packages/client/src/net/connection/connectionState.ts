@@ -37,6 +37,7 @@ import {
   loadExperimentalCorpNetSettings,
   SnapshotCoalescer,
 } from "../corpnet/index.js";
+import { SpectatorDeathPresentationJournal } from "../../spectator/events/spectatorDeathPresentationJournal.js";
 
 export class ConnectionState {
   world: World | null = null;
@@ -104,6 +105,7 @@ export class ConnectionState {
   readonly snapshotCoalescer = new SnapshotCoalescer(
     EXPERIMENTAL_CORPNET_TUNING.snapshots.maximumQueuedMessages,
   );
+  readonly spectatorDeathPresentations = new SpectatorDeathPresentationJournal();
   readonly networkMetrics = new WireMetrics();
   movementTrace: MovementTraceRecorder | null = null;
   ws: WebSocket | null = null;

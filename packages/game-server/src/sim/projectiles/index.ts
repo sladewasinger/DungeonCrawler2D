@@ -12,14 +12,23 @@ import type { SimState } from "../state/state.js";
 import { blocksAttackDirection } from "../players/directionalBlock.js";
 import { notifyBlockFeedback } from "../combat/blockFeedback.js";
 import { resolveProjectileImpact } from "./impact.js";
+import { returnProjectileDuringActiveMeleeAttack } from "./reflection.js";
 
 /** Thrown items and enemy spit: flight, direct hits, impact effects. */
 
 export function stepProjectiles(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const [id, projectile] of sim.projectiles) {
     const impact = stepProjectile(sim.world, projectile, TICK_DT).impact;
+    const returned = returnProjectileDuringActiveMeleeAttack(sim, projectile);
     const directHit = findDirectHit(sim, projectile);
-    resolveProjectileStep({ sim, id, projectile, directHit, impact, effectEvents });
+    resolveProjectileStep({
+      sim,
+      id,
+      projectile,
+      directHit,
+      impact: returned ? undefined : impact,
+      effectEvents,
+    });
   }
 }
 

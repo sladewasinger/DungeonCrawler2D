@@ -5,6 +5,7 @@ import { resolveWsUrl } from "../net/connection/url.js";
 import { SpectatorControls } from "./spectatorControls.js";
 import { SpectatorScene } from "./spectatorScene.js";
 import "./spectator.css";
+import "../ui/foundation/toggleSwitch.css";
 
 export function startSpectatorRoute(search: URLSearchParams): void {
   const mode = search.get("mode") === "track" ? "track" : "free";

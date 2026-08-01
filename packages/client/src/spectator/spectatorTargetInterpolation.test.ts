@@ -12,6 +12,19 @@ describe("SpectatorTargetInterpolation", () => {
     expect(pose.x).toBeCloseTo(15);
   });
 
+  it("interpolates across buffered history when snapshot cadence has a gap", () => {
+    const interpolation = new SpectatorTargetInterpolation();
+    interpolation.update(input({ tick: 1, x: 0, renderAtMs: 50 }));
+    interpolation.update(input({ tick: 2, x: 10, renderAtMs: 100 }));
+    const pose = interpolation.update(input({
+      tick: 5,
+      x: 40,
+      renderAtMs: 250,
+      delayMs: 125,
+    }));
+    expect(pose.x).toBeCloseTo(15);
+  });
+
   it("hard-resets when the target or world changes", () => {
     const interpolation = new SpectatorTargetInterpolation();
     interpolation.update(input({ tick: 1, x: 0, renderAtMs: 50 }));
@@ -53,6 +66,7 @@ interface TestInput {
   readonly targetId?: string;
   readonly targetWorld?: object;
   readonly reset?: boolean;
+  readonly delayMs?: number;
 }
 
 function input(test: TestInput) {
@@ -60,7 +74,7 @@ function input(test: TestInput) {
     pose: { x: test.x, y: 0, z: 0 },
     tick: test.tick,
     renderAtMs: test.renderAtMs,
-    delayMs: 0,
+    delayMs: test.delayMs ?? 0,
     targetId: test.targetId ?? "p1",
     world: test.targetWorld ?? world,
     ...(test.reset === undefined ? {} : { reset: test.reset }),

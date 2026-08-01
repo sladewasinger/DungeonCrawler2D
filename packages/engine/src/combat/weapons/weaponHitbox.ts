@@ -31,7 +31,7 @@ export interface WeaponHitboxHurtboxInput extends WeaponHitboxInput {
 
 /** True when a circular physical volume intersects the canonical weapon hitbox. */
 export function weaponHitboxContainsPoint(input: WeaponHitboxPointInput): boolean {
-  if (!withinWeaponPointHeight(input.attacker.body.z, input.point.z)) return false;
+  if (!withinWeaponProjectileHeight(input)) return false;
   const center = {
     x: input.point.x - input.attacker.body.x,
     y: input.point.y - input.attacker.body.y,
@@ -46,9 +46,10 @@ export function weaponHitboxContainsPoint(input: WeaponHitboxPointInput): boolea
   }, center, input.pointRadius);
 }
 
-function withinWeaponPointHeight(attackerZ: number, pointZ: number): boolean {
-  const range = weaponHitboxVerticalRange(attackerZ);
-  return pointZ >= range.minimumZ && pointZ <= range.maximumZ;
+function withinWeaponProjectileHeight(input: WeaponHitboxPointInput): boolean {
+  const range = weaponHitboxVerticalRange(input.attacker.body.z);
+  return input.point.z + input.pointRadius >= range.minimumZ &&
+    input.point.z - input.pointRadius <= range.maximumZ;
 }
 
 export interface WeaponHitboxVerticalRange {

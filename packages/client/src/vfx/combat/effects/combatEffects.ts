@@ -11,6 +11,7 @@ import { spawnGibBurst } from "../../death/gibBurst.js";
 import { ScreenShakeBudget } from "../../particles/screenShake.js";
 import { deathDecalInputs } from "../../death/deathDecalInputs.js";
 import { KillZoomPunch } from "../camera/killZoomPunch.js";
+import type { CameraZoomEffectPort } from "../../../scenes/dungeon/camera/viewport/cameraZoomController.js";
 
 export type { CarnageAppearance } from "../../death/deathCarnagePool.js";
 
@@ -39,9 +40,13 @@ export class CombatEffects {
   private readonly corpseDecals: CorpseDecalPool;
   private readonly deathCarnage: DeathCarnagePool;
 
-  constructor(private readonly scene: Phaser.Scene) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    cameraZoom?: CameraZoomEffectPort,
+  ) {
     this.shake = new ScreenShakeBudget(scene.cameras.main);
-    this.killZoomPunch = new KillZoomPunch(scene.cameras.main);
+    this.killZoomPunch = new KillZoomPunch((multiplier) =>
+      cameraZoom?.setKillPunchMultiplier(multiplier));
     this.bloodDecals = new BloodDecalPool(scene);
     this.corpseDecals = new CorpseDecalPool(scene);
     this.deathCarnage = new DeathCarnagePool(scene);
@@ -72,9 +77,7 @@ export class CombatEffects {
     if (!settings.bloodEnabled) return;
     const tint = bloodTintFor(defId);
     spawnDeathSplatter(this.scene, { ...screen, tint, intensity: settings.bloodDropIntensity });
-    for (let index = 0; index < 12; index++) {
-      this.bloodDecals.spawn({ x, y, groundHeight, tint, nowMs });
-    }
+    this.spawnDeathBloodDecals({ x, y, groundHeight, tint, nowMs });
   }
 
   spawnDeathGore({
@@ -101,7 +104,16 @@ export class CombatEffects {
   spawnKillMoment(input: DeathGoreInput): void {
     this.spawnDeathGore(input);
     this.shake.onKillMoment(input.nowMs);
-    this.killZoomPunch.trigger();
+    this.killZoomPunch.trigger(input.nowMs);
+  }
+
+  restoreDeathPresentation(input: DeathGoreInput): void {
+    const settings = loadCarnageSettings();
+    const tint = bloodTintFor(input.defId);
+    if (settings.bloodEnabled && !isSkeletalDefId(input.defId)) {
+      this.spawnDeathBloodDecals({ ...input, tint });
+    }
+    this.spawnDeathDecals({ input, tint, bloodEnabled: settings.bloodEnabled });
   }
 
   onOwnHit(nowMs: number): void {
@@ -113,6 +125,7 @@ export class CombatEffects {
   }
 
   update(nowMs: number): void {
+    this.killZoomPunch.update(nowMs);
     this.bloodDecals.update(nowMs);
     this.corpseDecals.update(nowMs);
     this.deathCarnage.update(nowMs);
@@ -131,6 +144,15 @@ export class CombatEffects {
     readonly enabled: boolean;
   }): void {
     if (enabled && !isSkeletalDefId(defId)) spawnGibBurst(this.scene, { ...screen, tint });
+  }
+
+  private spawnDeathBloodDecals(input: CombatEffectTarget & {
+    readonly tint: number;
+  }): void {
+    const { x, y, groundHeight, tint, nowMs } = input;
+    for (let index = 0; index < 12; index++) {
+      this.bloodDecals.spawn({ x, y, groundHeight, tint, nowMs });
+    }
   }
 
   private spawnDeathDecals({ input, tint, bloodEnabled }: {

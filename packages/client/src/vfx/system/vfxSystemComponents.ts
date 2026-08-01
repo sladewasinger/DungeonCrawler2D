@@ -13,10 +13,10 @@ import { LowHpOverlay } from "../overlays/status/lowHpOverlay.js";
 import { MeleeSwingFx } from "../combat/melee/meleeSwingFx.js";
 import { OutOfBreathFx } from "../overlays/status/outOfBreathFx.js";
 import { PlayerMotionFx } from "../motion/playerMotionFx.js";
-import { TeleportFade } from "../overlays/teleport/teleportFade.js";
 import { TorchFlamePool } from "../particles/torchFlames.js";
 import { WallBumpFx } from "../overlays/impact/wallBumpFx.js";
 import { XpNumberPool } from "../motion/xpNumbers.js";
+import type { CameraZoomEffectPort } from "../../scenes/dungeon/camera/viewport/cameraZoomController.js";
 
 export interface VfxSystemComponents {
   readonly areas: AreaEffectPool;
@@ -32,12 +32,12 @@ export interface VfxSystemComponents {
   readonly outOfBreathFx: OutOfBreathFx;
   readonly floorBanner: FloorBanner;
   readonly bossDownFlourish: BossDownFlourish;
-  readonly teleportFade: TeleportFade;
 }
 
 export function createVfxSystemComponents(
   scene: Phaser.Scene,
   deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+  cameraZoom?: CameraZoomEffectPort,
 ): VfxSystemComponents {
   return {
     areas: new AreaEffectPool(scene, {}, deviceProfile),
@@ -46,13 +46,12 @@ export function createVfxSystemComponents(
     xpNumbers: new XpNumberPool(scene),
     meleeSwingFx: new MeleeSwingFx(scene),
     wallBumpFx: new WallBumpFx(scene),
-    combat: new CombatEffects(scene),
+    combat: new CombatEffects(scene, cameraZoom),
     levelUpFlourish: new LevelUpFlourish(scene),
     lowHpOverlay: new LowHpOverlay(scene),
     playerMotionFx: new PlayerMotionFx(scene),
     outOfBreathFx: new OutOfBreathFx(scene),
     floorBanner: new FloorBanner(scene),
     bossDownFlourish: new BossDownFlourish(scene),
-    teleportFade: new TeleportFade(scene),
   };
 }

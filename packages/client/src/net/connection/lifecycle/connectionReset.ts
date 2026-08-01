@@ -31,6 +31,7 @@ function resetPresentationState(conn: Connection): void {
   conn.pendingInvite = null;
   conn.outgoingPartyInvites.clear();
   conn.clearInterpolationFrame();
+  conn.spectatorDeathPresentations.reset();
   conn.areaTiles.clear();
   conn.areaTileLayers.clear();
   conn.npcSpeech = null;

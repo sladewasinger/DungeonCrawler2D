@@ -7,8 +7,8 @@ import type { TerrainRendererLike } from "../render/terrain/index.js";
 import type { TerrainDeviceProfile } from "../render/terrain/streaming/terrainDeviceProfile.js";
 import { TERRAIN_CAMERA_BACKGROUND } from "../render/terrain/runtime/renderSupport.js";
 import { VfxSystem } from "../vfx/system/index.js";
-import { DEFAULT_CAMERA_ZOOM } from "../scenes/dungeon/camera/cameraDefaults.js";
 import { bindDungeonCameraResize } from "../scenes/dungeon/camera/cameraResize.js";
+import { DungeonCameraZoomController } from "../scenes/dungeon/camera/viewport/cameraZoomController.js";
 import { createTorchSyncState } from "../scenes/dungeon/entities/torches/sync.js";
 import {
   createDungeonPresentationSystems,
@@ -42,6 +42,8 @@ export class SpectatorScene extends Phaser.Scene {
   private spectatorCamera!: SpectatorCameraTracking;
   private hud: SpectatorHud | undefined;
   private hudVisible: boolean;
+  private presentationZoom = 1;
+  private cameraZoom!: DungeonCameraZoomController;
 
   constructor(
     private readonly connection: Connection,
@@ -54,9 +56,12 @@ export class SpectatorScene extends Phaser.Scene {
   create(): void {
     const camera = this.cameras.main;
     camera.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND);
-    camera.setZoom(DEFAULT_CAMERA_ZOOM);
     camera.setRoundPixels(true);
-    const presentation = createDungeonPresentationSystems(this);
+    this.cameraZoom = new DungeonCameraZoomController(this);
+    bindDungeonCameraResize(this, this.cameraZoom, {
+      presentationZoom: () => this.presentationZoom,
+    });
+    const presentation = createDungeonPresentationSystems(this, this.cameraZoom);
     this.deviceProfile = presentation.deviceProfile;
     this.entityRenderer = presentation.entityRenderer;
     this.vfx = presentation.vfx;
@@ -64,14 +69,13 @@ export class SpectatorScene extends Phaser.Scene {
     const root = document.getElementById("app");
     if (root) this.hud = new SpectatorHud(root, this.connection);
     this.hud?.setVisible(this.hudVisible);
-    bindDungeonCameraResize(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
 
   update(time: number, deltaMs: number): void {
     const { connection } = this;
     const frame = spectatorTargetFrame({
-      connection,
+      connection: this.connection,
       interpolation: this.targetInterpolation,
       state: this.state,
       vfx: this.vfx,
@@ -88,18 +92,15 @@ export class SpectatorScene extends Phaser.Scene {
     });
     this.cameras.main.centerOn(center.x, center.y);
     syncSpectatorFrame({
-      scene: this,
-      connection,
-      terrain: this.terrain,
-      lighting: this.lighting,
-      entityRenderer: this.entityRenderer,
-      vfx: this.vfx,
-      state: this.state,
-      torchSyncState: this.torchSyncState,
+      scene: this, connection: this.connection,
+      terrain: this.terrain, lighting: this.lighting,
+      entityRenderer: this.entityRenderer, vfx: this.vfx,
+      state: this.state, torchSyncState: this.torchSyncState,
       partyIds: this.partyIds,
-      nowMs: time,
-      deltaMs,
+      nowMs: time, deltaMs,
       render: frame.render,
+      interpolationNowMs: frame.interpolationNowMs,
+      interpolationDelayMs: frame.interpolationDelayMs,
       hud: this.hud,
     });
   }
@@ -118,13 +119,14 @@ export class SpectatorScene extends Phaser.Scene {
   }
 
   zoomCamera(direction: SpectatorCameraZoomDirection): void {
-    const camera = this.cameras.main;
-    camera.setZoom(nextSpectatorCameraZoom(camera.zoom, direction));
+    this.presentationZoom = nextSpectatorCameraZoom(this.presentationZoom, direction);
+    this.cameraZoom.syncPresentation(this.presentationZoom);
     this.spectatorCamera?.focus();
   }
 
   resetCameraZoom(): void {
-    this.cameras.main.setZoom(1);
+    this.presentationZoom = 1;
+    this.cameraZoom.syncPresentation(this.presentationZoom);
     this.spectatorCamera?.focus();
   }
 

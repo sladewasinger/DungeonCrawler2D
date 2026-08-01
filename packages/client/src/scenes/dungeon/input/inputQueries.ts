@@ -1,11 +1,13 @@
 import {
   ATTACK_COOLDOWN_MS,
   INTERACT_RANGE,
+  PICKUP_RANGE,
   findWorldInteractionTarget,
   resolveWorldInteraction,
 } from "@dc2d/engine";
 import type { InputQueries } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
+import type { RemoteEntity } from "../../../net/interpolation/interpolate.js";
 import { canOpenLootChest, nearestLootChest } from "../../../net/queries/lootChestQuery.js";
 import {
   isConsumableItem,
@@ -67,7 +69,7 @@ function inputContentQueries(conn: Connection): Pick<
   };
 }
 
-function inputProximityQueries(conn: Connection): Pick<InputQueries, "nearbyLootChest" | "isStashNearby" | "isCraftTableNearby" | "worldInteraction" | "isStairwayNearby" | "downedPartyMemberInRange"> {
+function inputProximityQueries(conn: Connection): Pick<InputQueries, "nearbyLootChest" | "isStashNearby" | "isCraftTableNearby" | "worldInteraction" | "isStairwayNearby" | "downedPartyMemberInRange" | "isAdoptablePetNearby" | "isPickupNearby"> {
   return {
     nearbyLootChest: () => {
       const chest = nearestLootChest(conn);
@@ -79,7 +81,32 @@ function inputProximityQueries(conn: Connection): Pick<InputQueries, "nearbyLoot
       ? resolveWorldInteraction(conn.world, adapter.body.x, adapter.body.y) : null,
     isStairwayNearby: (adapter) => !!conn.world && !!adapter.body && !!resolveStairwayPrompt(conn.world, adapter.body.x, adapter.body.y),
     downedPartyMemberInRange: (adapter) => downedPartyMemberInRange(conn, adapter.body ?? undefined),
+    isAdoptablePetNearby: (adapter) => hasNearbyEntity({
+      conn, body: adapter.body ?? undefined,
+      predicate: (remote) => remote.snap.kind === "pet" && remote.snap.petOwnerName === undefined,
+      range: INTERACT_RANGE,
+    }),
+    isPickupNearby: (adapter) => hasNearbyEntity({
+      conn, body: adapter.body ?? undefined,
+      predicate: (remote) => (remote.snap.kind === "item" && remote.snap.defId !== "player-loot-chest")
+        || (remote.snap.kind === "torch" && remote.snap.state === "placed"),
+      range: PICKUP_RANGE,
+    }),
   };
+}
+
+interface NearbyEntityRequest {
+  readonly conn: Connection;
+  readonly body: { x: number; y: number } | undefined;
+  readonly predicate: (remote: RemoteEntity) => boolean;
+  readonly range: number;
+}
+
+function hasNearbyEntity(request: NearbyEntityRequest): boolean {
+  const { conn, body, predicate, range } = request;
+  if (!body) return false;
+  return [...conn.entities.values()].some((remote) => predicate(remote)
+    && Math.hypot(remote.snap.x - body.x, remote.snap.y - body.y) <= range);
 }
 
 function isNearbyInteraction(conn: Connection, body: { x: number; y: number } | undefined, kind: "stash" | "craft"): boolean {

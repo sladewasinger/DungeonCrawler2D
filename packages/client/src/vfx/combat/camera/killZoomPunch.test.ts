@@ -1,32 +1,23 @@
-import type Phaser from "phaser";
 import { describe, expect, it, vi } from "vitest";
 import { HIT_STOP_DURATION_MS, HIT_STOP_ZOOM } from "./hitStop.js";
-import { KillZoomPunch } from "./killZoomPunch.js";
+import { KillZoomPunch, killPunchMultiplier } from "./killZoomPunch.js";
 
 describe("KillZoomPunch", () => {
-  it("anchors repeated punches and recovery to the original resting zoom", () => {
-    const zoomTo = vi.fn();
-    const camera = { zoom: 1.25, zoomTo };
-    const punch = new KillZoomPunch(camera as unknown as Phaser.Cameras.Scene2D.Camera);
+  it("emits a transient multiplier instead of capturing a resting camera zoom", () => {
+    const setMultiplier = vi.fn();
+    const punch = new KillZoomPunch(setMultiplier);
 
-    punch.trigger();
-    camera.zoom = 1.25 * HIT_STOP_ZOOM;
-    punch.trigger();
+    punch.trigger(100);
+    punch.update(100 + HIT_STOP_DURATION_MS / 2);
+    punch.update(100 + HIT_STOP_DURATION_MS);
 
-    const halfDuration = HIT_STOP_DURATION_MS / 2;
-    expect(zoomTo).toHaveBeenNthCalledWith(
-      1, 1.25 * HIT_STOP_ZOOM, halfDuration, "Sine.easeOut", true, expect.any(Function),
-    );
-    expect(zoomTo).toHaveBeenNthCalledWith(
-      2, 1.25 * HIT_STOP_ZOOM, halfDuration, "Sine.easeOut", true, expect.any(Function),
-    );
-    const staleCompletion = zoomTo.mock.calls[0]?.[4] as ((camera: unknown, progress: number) => void);
-    staleCompletion(camera, 1);
-    expect(zoomTo).toHaveBeenCalledTimes(2);
-    const complete = zoomTo.mock.calls[1]?.[4] as ((camera: unknown, progress: number) => void);
-    complete(camera, 1);
-    expect(zoomTo).toHaveBeenNthCalledWith(
-      3, 1.25, halfDuration, "Sine.easeIn",
-    );
+    expect(setMultiplier).toHaveBeenNthCalledWith(1, 1);
+    expect(setMultiplier).toHaveBeenNthCalledWith(2, HIT_STOP_ZOOM);
+    expect(setMultiplier).toHaveBeenNthCalledWith(3, 1);
+  });
+
+  it("restarts cleanly for a later kill", () => {
+    expect(killPunchMultiplier(HIT_STOP_DURATION_MS / 2)).toBe(HIT_STOP_ZOOM);
+    expect(killPunchMultiplier(HIT_STOP_DURATION_MS)).toBe(1);
   });
 });

@@ -99,6 +99,18 @@ describe("hostile projectile returns", () => {
     expect(fixture.projectile.ownerId).toBe(fixture.player.entity.id);
   });
 
+  it("does not return a spit that enters after the active weapon window expires", () => {
+    const fixture = createReflectionFixture();
+    fixture.projectile.body.x = fixture.player.entity.body.x + 2.7;
+
+    attack(fixture);
+    fixture.sim.tickCount += 4;
+    fixture.projectile.body.x = fixture.player.entity.body.x + 2.3;
+    stepActiveMeleeAttacks(fixture.sim, []);
+
+    expect(fixture.projectile.ownerId).toBe(fixture.enemy.id);
+  });
+
   it("does not return a spit from blocked or cooldown-rejected attacks", () => {
     const blocking = createReflectionFixture();
     blocking.player.blocking = true;

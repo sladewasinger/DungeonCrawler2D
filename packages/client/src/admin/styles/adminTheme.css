@@ -130,57 +130,6 @@ body {
   color: #ffe89a !important;
 }
 
-[data-admin-action-group] > [data-admin-toggle] {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-}
-
-[data-admin-toggle-state] {
-  color: var(--admin-muted);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-}
-
-[data-admin-toggle-track] {
-  position: relative;
-  width: 42px;
-  height: 22px;
-  border: 1px solid #728097;
-  border-radius: 999px;
-  background: #111b29;
-  box-shadow: inset 0 1px 3px rgb(0 0 0 / 45%);
-  transition: background-color 120ms ease, border-color 120ms ease;
-}
-
-[data-admin-toggle-knob] {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #d7deea;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 55%);
-  transition: translate 120ms ease, background-color 120ms ease;
-}
-
-[data-admin-toggle][aria-checked="true"] [data-admin-toggle-state] {
-  color: #ffe89a;
-}
-
-[data-admin-toggle][aria-checked="true"] [data-admin-toggle-track] {
-  border-color: var(--admin-accent);
-  background: rgb(255 210 61 / 42%);
-}
-
-[data-admin-toggle][aria-checked="true"] [data-admin-toggle-knob] {
-  translate: 20px 0;
-  background: #fff4c5;
-}
-
 #app button:focus-visible,
 #app select:focus-visible,
 #app input:focus-visible,
@@ -482,6 +431,8 @@ section:has([data-admin-players]) th {
 }
 
 [data-admin-spectator-frame] {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   width: 100%;
   height: auto;
   min-height: 0;

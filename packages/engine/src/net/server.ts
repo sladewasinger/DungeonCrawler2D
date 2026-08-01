@@ -17,6 +17,7 @@ import {
   adminStateSchema,
 } from "./wire/admin.js";
 import {
+  spectatorPresentationSchema,
   spectatorRosterSchema,
   spectatorWelcomeSchema,
 } from "./wire/spectator.js";
@@ -145,6 +146,7 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   serverErrorSchema,
   spectatorWelcomeSchema,
   spectatorRosterSchema,
+  spectatorPresentationSchema,
   adminAuthResultSchema,
   adminStateSchema,
   adminObserverStateSchema,

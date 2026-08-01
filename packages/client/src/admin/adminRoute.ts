@@ -1,6 +1,7 @@
 import { resolveWsUrl } from "../net/connection/url.js";
 import { AdminPage } from "./adminPage.js";
 import "./styles/adminTheme.css";
+import "../ui/foundation/toggleSwitch.css";
 export { isAdminRoute } from "./routePredicate.js";
 
 export function startAdminRoute(): AdminPage {

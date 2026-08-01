@@ -16,6 +16,7 @@ import type {
   MotionVfxInput,
   OutOfBreathVfxInput,
 } from "./vfxSystemTypes.js";
+import type { CameraZoomEffectPort } from "../../scenes/dungeon/camera/viewport/cameraZoomController.js";
 
 export class VfxSystemCore {
   protected readonly components: VfxSystemComponents;
@@ -26,9 +27,10 @@ export class VfxSystemCore {
   constructor(
     scene: Phaser.Scene,
     deviceProfile: DevicePresentationProfile = DESKTOP_DEVICE_PRESENTATION_PROFILE,
+    cameraZoom?: CameraZoomEffectPort,
   ) {
     this.scene = scene;
-    this.components = createVfxSystemComponents(scene, deviceProfile);
+    this.components = createVfxSystemComponents(scene, deviceProfile, cameraZoom);
     this.graceRing = new GraceRing(scene);
   }
 
@@ -76,7 +78,6 @@ export class VfxSystemCore {
     this.components.lowHpOverlay.update(lowHpVignetteAlpha(this.selfHpRatio, nowMs));
     this.components.floorBanner.update(nowMs);
     this.components.bossDownFlourish.update(nowMs);
-    this.components.teleportFade.update(nowMs);
   }
 
   dispose(): void {
@@ -91,7 +92,6 @@ export class VfxSystemCore {
     this.components.lowHpOverlay.dispose();
     this.components.floorBanner.dispose();
     this.components.bossDownFlourish.dispose();
-    this.components.teleportFade.dispose();
     this.graceRing.dispose();
     this.components.outOfBreathFx.dispose();
   }

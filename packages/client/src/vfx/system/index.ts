@@ -1,4 +1,5 @@
 import { worldToScreen } from "../../render/entities/geometry/worldToScreen.js";
+import { TeleportFade } from "../overlays/teleport/teleportFade.js";
 import type {
   BloodHitInput,
   CombatEffectTarget,
@@ -62,6 +63,10 @@ export class VfxSystem extends VfxSystemCore {
     this.components.combat.spawnKillMoment(input);
   }
 
+  restoreDeathPresentation(input: DeathGoreInput): void {
+    this.components.combat.restoreDeathPresentation(input);
+  }
+
   spawnXpNumber(amount: number, nowMs: number): void {
     const sample = this.components.playerMotionFx.latest;
     if (!sample) return;
@@ -82,6 +87,6 @@ export class VfxSystem extends VfxSystemCore {
   }
 
   spawnTeleportFade(nowMs: number): void {
-    this.components.teleportFade.trigger(nowMs);
+    TeleportFade.emit(this.scene, nowMs);
   }
 }

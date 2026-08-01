@@ -1,0 +1,50 @@
+.toggle-switch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.toggle-switch__state {
+  color: var(--admin-muted, #b8c7dc);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.toggle-switch__track {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  border: 1px solid #728097;
+  border-radius: 999px;
+  background: #111b29;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 45%);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.toggle-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #d7deea;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 55%);
+  transition: translate 120ms ease, background-color 120ms ease;
+}
+
+.toggle-switch[aria-checked="true"] .toggle-switch__state {
+  color: #ffe89a;
+}
+
+.toggle-switch[aria-checked="true"] .toggle-switch__track {
+  border-color: var(--admin-accent, #ffd23d);
+  background: rgb(255 210 61 / 42%);
+}
+
+.toggle-switch[aria-checked="true"] .toggle-switch__knob {
+  translate: 20px 0;
+  background: #fff4c5;
+}

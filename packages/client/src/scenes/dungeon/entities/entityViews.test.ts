@@ -147,14 +147,16 @@ describe("itemView", () => {
 });
 
 describe("projectileView", () => {
-  it("derives velocity across two calls at the same id", () => {
+  it("carries the interpolated 3D flight position while deriving velocity", () => {
     const velocity = createProjectileVelocityState();
-    const e1 = entity({ id: "pr1", kind: "projectile", defId: "torch", x: 0, y: 0 });
-    const e2: InterpolatedEntity = { ...e1, x: 1, y: 0 };
+    const e1 = entity({ id: "pr1", kind: "projectile", defId: "torch", x: 0, y: 0, z: 1 });
+    const e2: InterpolatedEntity = { ...e1, x: 1, y: 0, z: 2.5 };
     projectileView({ e: e1, velocity, nowMs: 0 });
     const view = projectileView({ e: e2, velocity, nowMs: 1000 });
     expect(view.vx).toBeCloseTo(1);
     expect(view.vy).toBeCloseTo(0);
+    expect(view.z).toBe(2.5);
     expect(projectileView({ e: e2, velocity, nowMs: 1100, target: view })).toBe(view);
+    expect(view.z).toBe(2.5);
 });
 });

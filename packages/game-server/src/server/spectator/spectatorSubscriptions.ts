@@ -132,6 +132,8 @@ export class SpectatorSubscriptions {
     subscription.worldIdentity = this.options.directory.worldIdentity(playerId);
     subscription.needsBaseline = !this.options.directory.requestBaseline(playerId);
     this.send(subscription, welcome);
+    const presentation = this.options.directory.presentation(playerId);
+    if (presentation) this.send(subscription, presentation);
     this.sendRoster(subscription);
   }
 

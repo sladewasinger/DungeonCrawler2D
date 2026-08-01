@@ -52,6 +52,8 @@ function makeQueries(overrides: Partial<InputQueries> = {}): InputQueries {
     worldInteraction: () => null,
     isStairwayNearby: () => false,
     downedPartyMemberInRange: () => undefined,
+    isAdoptablePetNearby: () => false,
+    isPickupNearby: () => false,
     ...overrides,
   };
 }

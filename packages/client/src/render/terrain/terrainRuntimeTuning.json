@@ -3,5 +3,19 @@
     "maxChunkPlans": 32,
     "maxOrientationRoots": 4,
     "maxWorldChunks": 96
+  },
+  "cameraPresentation": {
+    "referenceViewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "baseZoom": 1,
+    "minimumAspectRatio": 1.3333333333333333,
+    "maximumAspectRatio": 2,
+    "spectator": {
+      "minimumZoom": 0.5,
+      "maximumZoom": 2.5,
+      "zoomStep": 0.25
+    }
   }
 }

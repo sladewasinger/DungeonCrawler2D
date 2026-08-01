@@ -1,8 +1,3 @@
-// DungeonScene: orchestrates one live frame for the connected game — fixed-step
-// predicted input, render interpolation, chunk-streamed terrain/lighting/entities/vfx,
-// HUD widgets (driven live via the parallel "hud" scene), and an eased camera that
-// snaps on teleport. Every subsystem's real logic lives in its own module; this file
-// only sequences them in one readable order per frame.
 import type { World } from "@dc2d/engine";
 import Phaser from "phaser";
 import { InputController } from "../../../input/index.js";
@@ -17,8 +12,8 @@ import type { ChatInputBox } from "../../../ui/chat/chatInput.js";
 import { VfxSystem } from "../../../vfx/system/index.js";
 import type { HudScene } from "../../HudScene.js";
 import { requestCameraSnap } from "../camera/cameraFollow.js";
-import { DEFAULT_CAMERA_ZOOM } from "../camera/cameraDefaults.js";
 import { bindDungeonCameraResize } from "../camera/cameraResize.js";
+import { DungeonCameraZoomController } from "../camera/viewport/cameraZoomController.js";
 import { InputGestureVisuals } from "../visuals/inputGestureVisuals.js";
 import { syncFrame } from "../frame/frameSync.js";
 import { createChatPort, createHudActions } from "../input/inputAdapters.js";
@@ -56,6 +51,7 @@ export class DungeonScene extends Phaser.Scene {
   private chatInputBox!: ChatInputBox;
   private inputGestureVisuals!: InputGestureVisuals;
   private debugOverlay!: GameplayDebugOverlay;
+  private cameraZoom!: DungeonCameraZoomController;
   /** Z/X camera rotation: owns the tween, hard content swap, and cosmetic camera spin. */
   private readonly rotation = new RotationController((direction) => {
     const terrain = this.terrain as TerrainRenderer | undefined;
@@ -69,9 +65,9 @@ export class DungeonScene extends Phaser.Scene {
     // restores the gameplay keyboard contract for quit-to-title/rejoin cycles.
     this.input.keyboard?.enableGlobalCapture();
     this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true });
-    this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND); this.cameras.main.setZoom(DEFAULT_CAMERA_ZOOM);
-    this.cameras.main.setRoundPixels(true);
-    const presentation = createDungeonPresentationSystems(this);
+    this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND); this.cameras.main.setRoundPixels(true); this.cameraZoom = new DungeonCameraZoomController(this);
+    bindDungeonCameraResize(this, this.cameraZoom);
+    const presentation = createDungeonPresentationSystems(this, this.cameraZoom);
     this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx;
     this.inputGestureVisuals = new InputGestureVisuals(this);
     this.debugOverlay = new GameplayDebugOverlay(this);
@@ -89,7 +85,6 @@ export class DungeonScene extends Phaser.Scene {
       stations: { craft: createCraftActions(this.conn), stash: createStashActions(this.conn) },
       session: createSessionActions(this, this.conn),
     });
-    bindDungeonCameraResize(this);
     bindRotationKeys(this, this.rotation);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }

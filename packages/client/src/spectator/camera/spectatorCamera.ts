@@ -64,11 +64,9 @@ export class SpectatorCamera {
   }
 
   private track(target: SpectatorCameraPoint, deltaMs: number): SpectatorCameraPoint {
-    const blend = this.initialized ? 1 - Math.exp(-deltaMs / TRACK_RESPONSE_MS) : 1;
-    this.center = {
-      x: this.center.x + (target.x - this.center.x) * blend,
-      y: this.center.y + (target.y - this.center.y) * blend,
-    };
+    this.center = this.initialized
+      ? smoothSpectatorCamera(this.center, target, deltaMs)
+      : target;
     this.initialized = true;
     this.held.clear();
     return this.center;
@@ -97,5 +95,17 @@ export class SpectatorCamera {
 
   private readonly clearHeld = (): void => {
     this.held.clear();
+  };
+}
+
+export function smoothSpectatorCamera(
+  center: SpectatorCameraPoint,
+  target: SpectatorCameraPoint,
+  deltaMs: number,
+): SpectatorCameraPoint {
+  const blend = 1 - Math.exp(-Math.max(0, deltaMs) / TRACK_RESPONSE_MS);
+  return {
+    x: center.x + (target.x - center.x) * blend,
+    y: center.y + (target.y - center.y) * blend,
   };
 }

@@ -16,6 +16,7 @@ import { scheduleTrainingDummyRespawn } from "../enemies/training/trainingDummy.
 import type { EnemySlot } from "../state/enemyState.js";
 import { awardKillXp } from "../progression/xp.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
+import { recordDeathPresentation } from "../presentation/deathPresentationHistory.js";
 
 /** Enemy deaths (drops), downed-state flow, and player death/respawn. */
 
@@ -45,6 +46,13 @@ function resolveEnemyDeaths(sim: SimState): void {
 function resolveEnemyDeath(sim: SimState, id: string, enemy: EnemySlot): void {
   scheduleTrainingDummyRespawn(sim, enemy);
   sim.enemies.delete(id);
+  recordDeathPresentation(sim, {
+    id,
+    x: enemy.entity.body.x,
+    y: enemy.entity.body.y,
+    defId: enemy.def.id,
+    targetKind: "enemy",
+  });
   sim.worldEvents.push({ ev: { t: "death", id }, x: enemy.entity.body.x, y: enemy.entity.body.y });
   awardKillXp(sim, enemy);
   handleMiniBossEnemyDeath(sim, enemy);
@@ -81,6 +89,13 @@ function resolvePlayerDeath(sim: SimState, slot: PlayerSlot): void {
 
 function finalizePlayerDeath(sim: SimState, slot: PlayerSlot, entity: PlayerSlot["entity"]): void {
   clearEnemyTargetsForPlayer(sim, entity.id);
+  recordDeathPresentation(sim, {
+    id: entity.id,
+    x: entity.body.x,
+    y: entity.body.y,
+    targetKind: "player",
+    ...(entity.skin === undefined ? {} : { skin: entity.skin }),
+  });
   sim.worldEvents.push({ ev: { t: "death", id: entity.id }, x: entity.body.x, y: entity.body.y });
   // The announcer's voice (Epic 7.13, book-fan lane): read forceDeath
   // before it's cleared below so a chasm fall gets its own mocking pool.

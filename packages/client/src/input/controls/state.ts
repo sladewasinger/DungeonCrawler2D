@@ -135,6 +135,10 @@ export interface InputQueries {
   isStairwayNearby(conn: InputConnection): boolean;
   /** Nearest downed player in interact range, regardless of party. */
   downedPartyMemberInRange(conn: InputConnection): { id: string } | undefined;
+  /** An unclaimed companion in interaction range; the server owns the actual claim. */
+  isAdoptablePetNearby(conn: InputConnection): boolean;
+  /** A ground item or placed torch in pickup range; the server validates the pickup. */
+  isPickupNearby(conn: InputConnection): boolean;
 }
 
 export interface InputHooks {

@@ -1,5 +1,6 @@
 import type { SpectatorMode } from "@dc2d/engine";
 import type { Connection } from "../net/connection/connection.js";
+import { configureToggleSwitch } from "../ui/foundation/toggleSwitch.js";
 import {
   applyEmbeddedSpectatorControl,
   type EmbeddedSpectatorControlHandlers,
@@ -8,6 +9,7 @@ import {
   spectatorControlMessage,
   type SpectatorControlMessage,
 } from "./spectatorControlMessage.js";
+import { SpectatorAvailabilityView } from "./controls/spectatorAvailability.js";
 
 export interface SpectatorControlHandlers extends EmbeddedSpectatorControlHandlers {
   readonly setHudVisible: (visible: boolean) => void;
@@ -25,6 +27,7 @@ export class SpectatorControls {
   private readonly mode = button("Free camera");
   private readonly hud = button("HUD");
   private readonly status = document.createElement("span");
+  private readonly availability = new SpectatorAvailabilityView(document.body);
   private hudVisible: boolean;
   private readonly connection: Connection;
   private readonly handlers: SpectatorControlHandlers;
@@ -40,6 +43,7 @@ export class SpectatorControls {
 
   dispose(): void {
     window.removeEventListener("message", this.handleMessage);
+    this.availability.dispose();
     this.root.remove();
   }
 
@@ -93,14 +97,14 @@ export class SpectatorControls {
   }
 
   private render(): void {
+    this.availability.render(this.connection);
     const currentIds = [...this.player.options].map(({ value }) => value).join("|");
     const nextIds = this.connection.spectatorPlayers.map(({ playerId }) => playerId).join("|");
     if (currentIds !== nextIds) this.replacePlayers();
     this.player.value = this.connection.spectatorTargetId ?? "";
     const free = this.connection.spectatorMode === "free";
-    this.mode.textContent = free ? "Free camera" : "Follow player";
-    this.mode.setAttribute("aria-pressed", String(free));
-    this.hud.setAttribute("aria-pressed", String(this.hudVisible));
+    configureToggleSwitch(this.mode, "Free camera", free);
+    configureToggleSwitch(this.hud, "HUD", this.hudVisible);
     const target = this.connection.spectatorPlayers
       .find(({ playerId }) => playerId === this.connection.spectatorTargetId);
     this.status.textContent = target

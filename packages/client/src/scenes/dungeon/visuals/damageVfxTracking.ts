@@ -11,6 +11,7 @@ import {
   resolveHitAgainstPending,
   type PendingSwing,
 } from "../../../vfx/combat/melee/meleeConnect.js";
+import { restoreRetainedDeathPresentation } from "./death/retainedDeathPresentation.js";
 
 // Death presentation keeps a small combatant registry so a just-removed target can
 // still be classified. Hit blood deliberately does not live here: visualEvents.ts
@@ -74,6 +75,18 @@ function spawnDeathVfx(death: DeathVisualEvent, context: DamageVfxContext): void
   const impactAngle = impactAngleFor(context.pendingSwings, x, y);
   const trackedTarget = context.tracked.get(death.id);
   const presentation = deathPresentation(death, trackedTarget);
+  if (death.persistentOnly) {
+    return restoreRetainedDeathPresentation({
+      death,
+      vfx: context.vfx,
+      nowMs: context.nowMs,
+      x,
+      y,
+      groundHeight,
+      impactAngle,
+      ...presentation,
+    });
+  }
   context.vfx.spawnBloodDeath({ x, y, groundHeight, defId: death.defId, nowMs: context.nowMs });
   spawnDeathPresentation({ death, context, x, y, groundHeight, impactAngle, ...presentation });
   resolveHitAgainstPending(context.pendingSwings, x, y);

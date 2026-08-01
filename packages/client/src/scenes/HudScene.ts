@@ -8,6 +8,7 @@ import { SharedHtmlHud } from "../ui/hud/core/SharedHtmlHud.js";
 import { createHtmlHudLifecycle, type HtmlHudLifecycle } from "./hudHtmlLifecycle.js";
 import { applyHudPreviewAids, resolveHudPreview } from "./hudPreview.js";
 import type { HudSceneData } from "./hudSceneData.js";
+import { TeleportFade } from "../vfx/overlays/teleport/teleportFade.js";
 export type { HudSceneData } from "./hudSceneData.js";
 
 export class HudScene extends Phaser.Scene {
@@ -23,6 +24,7 @@ export class HudScene extends Phaser.Scene {
   private readonly touchHits = new HtmlTouchHitRegions();
   private onSelectHotbar: ((index: number | null) => void) | undefined;
   private session: HudSceneData["session"];
+  private teleportFade: TeleportFade | undefined;
 
   constructor() {
     super("hud");
@@ -43,6 +45,7 @@ export class HudScene extends Phaser.Scene {
     this.snapshot = this.source ? undefined : resolveHudPreview(params) ?? undefined;
     if (!this.source && !this.snapshot) return;
     this.createHudSurface();
+    this.createTeleportFade();
     applyHudPreviewAids(params, this.snapshot, this.hud);
     const onResize = (gameSize: Phaser.Structs.Size) => this.handleResize(gameSize);
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
@@ -54,7 +57,18 @@ export class HudScene extends Phaser.Scene {
     else this.createPreviewHud();
   }
 
+  private createTeleportFade(): void {
+    this.teleportFade = new TeleportFade(this);
+    const unbind = TeleportFade.bind(this, this.teleportFade);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      unbind();
+      this.teleportFade?.dispose();
+      this.teleportFade = undefined;
+    });
+  }
+
   update(time: number): void {
+    this.teleportFade?.update(time);
     const snapshot = this.source ? this.source() : this.snapshot;
     if (!snapshot) return;
     if (this.htmlHud) {
@@ -108,6 +122,7 @@ export class HudScene extends Phaser.Scene {
 
   private handleResize(gameSize: Phaser.Structs.Size): void {
     this.cameras.main.setSize(gameSize.width, gameSize.height);
+    this.teleportFade?.resize(gameSize.width, gameSize.height);
     const viewport = { width: gameSize.width, height: gameSize.height };
     this.hud?.resize(viewport);
     if (this.hud) this.bossBar?.resize(this.hud.registry, viewport);

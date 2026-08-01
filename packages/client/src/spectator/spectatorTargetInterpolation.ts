@@ -1,7 +1,7 @@
 import { TICK_RATE } from "@dc2d/engine";
 
 const MAX_EXTRAPOLATION_MS = 100;
-const MAX_SAMPLES = 3;
+const SAMPLE_HISTORY_MS = 1000;
 const TICK_MS = 1000 / TICK_RATE;
 
 export interface SpectatorTargetPose {
@@ -52,8 +52,11 @@ export class SpectatorTargetInterpolation {
 
   private record(input: SpectatorTargetInterpolationInput): void {
     this.lastTick = input.tick;
-    this.samples.push(sampleAt(input));
-    if (this.samples.length > MAX_SAMPLES) this.samples.shift();
+    const sample = sampleAt(input);
+    this.samples.push(sample);
+    while (this.samples[0] && sample.atMs - this.samples[0].atMs > SAMPLE_HISTORY_MS) {
+      this.samples.shift();
+    }
   }
 }
 
@@ -67,11 +70,31 @@ function interpolateTarget(
 ): SpectatorTargetPose {
   const newest = samples.at(-1);
   if (!newest) return { x: 0, y: 0, z: 0 };
+  const oldest = samples[0];
+  if (!oldest || targetMs <= oldest.atMs) return { ...(oldest ?? newest) };
+  const pair = interpolationPair(samples, targetMs);
+  if (pair) return interpolateSamples(pair.previous, pair.next, targetMs);
   const previous = samples.at(-2);
-  if (!previous) return { ...newest };
-  if (targetMs <= previous.atMs) return { ...previous };
-  if (targetMs <= newest.atMs) return interpolateSamples(previous, newest, targetMs);
-  return extrapolateSample(previous, newest, targetMs);
+  return previous ? extrapolateSample(previous, newest, targetMs) : { ...newest };
+}
+
+interface SpectatorSamplePair {
+  readonly previous: SpectatorTargetSample;
+  readonly next: SpectatorTargetSample;
+}
+
+function interpolationPair(
+  samples: readonly SpectatorTargetSample[],
+  targetMs: number,
+): SpectatorSamplePair | null {
+  for (let index = samples.length - 1; index > 0; index--) {
+    const previous = samples[index - 1];
+    const next = samples[index];
+    if (previous && next && targetMs >= previous.atMs && targetMs <= next.atMs) {
+      return { previous, next };
+    }
+  }
+  return null;
 }
 
 function interpolateSamples(

@@ -11,7 +11,8 @@ export interface InteractRequest {
   readonly queries: InputQueries;
   readonly selectedSlot: number | null;
   readonly startRevive: (targetId: string | undefined) => boolean;
-  readonly fallback?: "interact" | "pickup";
+  /** Touch uses contextual pickup only when its shared proximity query finds loot. */
+  readonly pickupWhenNearby?: boolean;
 }
 
 export interface BandageBinding {
@@ -60,21 +61,40 @@ function useSelectedConsumable(conn: InputConnection, queries: InputQueries, sel
   return true;
 }
 
-function useFallback(conn: InputConnection, fallback: "interact" | "pickup"): void {
-  if (fallback === "pickup") return conn.pickup();
+function useFallback(
+  conn: InputConnection,
+  queries: InputQueries,
+  pickupWhenNearby: boolean,
+): void {
+  if (pickupWhenNearby && queries.isPickupNearby(conn)) return conn.pickup();
   conn.pushToast("Nothing to interact with here");
   conn.interact();
 }
 
 /** E priority: stairs/revive/world interaction first, then the selected consumable. */
 export function interactOrUse(request: InteractRequest): void {
-  const { conn, panels, queries, selectedSlot, startRevive, fallback = "interact" } = request;
-  if (queries.isStairwayNearby(conn)) return conn.descend();
-  if (startRevive(queries.downedPartyMemberInRange(conn)?.id)) return;
-  if (useLootChest(conn, panels, queries)) return;
-  if (useWorldInteraction(conn, panels, queries)) return;
+  const { conn, queries, selectedSlot, pickupWhenNearby = false } = request;
+  if (useMovementOrRevive(request)) return;
+  if (useNearbyWorldContext(request)) return;
   if (useSelectedConsumable(conn, queries, selectedSlot)) return;
-  useFallback(conn, fallback);
+  useFallback(conn, queries, pickupWhenNearby);
+}
+
+function useMovementOrRevive({ conn, queries, startRevive }: InteractRequest): boolean {
+  if (queries.isStairwayNearby(conn)) {
+    conn.descend();
+    return true;
+  }
+  return startRevive(queries.downedPartyMemberInRange(conn)?.id);
+}
+
+function useNearbyWorldContext({ conn, panels, queries }: InteractRequest): boolean {
+  if (useLootChest(conn, panels, queries)) return true;
+  if (queries.isAdoptablePetNearby(conn)) {
+    conn.interact();
+    return true;
+  }
+  return useWorldInteraction(conn, panels, queries);
 }
 
 /** F applies the selected bandage to the nearest player in interaction range. */

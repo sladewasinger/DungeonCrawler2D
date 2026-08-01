@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const probes = vi.hoisted(() => ({
   bone: vi.fn(),
+  carnage: vi.fn(),
+  corpse: vi.fn(),
   decal: vi.fn(),
   deathBlood: vi.fn(),
+  gib: vi.fn(),
   hitBlood: vi.fn(),
 }));
 
@@ -37,19 +40,19 @@ vi.mock("../../system/carnageSettings.js", () => ({
 }));
 vi.mock("../../death/corpseDecalPool.js", () => ({
   CorpseDecalPool: class {
-    spawn() {}
+    spawn = probes.corpse;
     update() {}
     dispose() {}
   },
 }));
 vi.mock("../../death/deathCarnagePool.js", () => ({
   DeathCarnagePool: class {
-    spawn() {}
+    spawn = probes.carnage;
     update() {}
     dispose() {}
   },
 }));
-vi.mock("../../death/gibBurst.js", () => ({ spawnGibBurst: vi.fn() }));
+vi.mock("../../death/gibBurst.js", () => ({ spawnGibBurst: probes.gib }));
 vi.mock("../../particles/screenShake.js", () => ({
   ScreenShakeBudget: class {
     onKillMoment() {}
@@ -94,5 +97,24 @@ describe("CombatEffects skeletal impacts", () => {
     });
     expect(probes.deathBlood).not.toHaveBeenCalled();
     expect(probes.decal).not.toHaveBeenCalled();
+  });
+
+  it("restores aged persistent death state without replaying transient effects", async () => {
+    const { CombatEffects } = await import("./combatEffects.js");
+    const effects = new CombatEffects({ cameras: { main: {} } } as Phaser.Scene);
+    effects.restoreDeathPresentation({
+      x: 2,
+      y: 3,
+      groundHeight: 0,
+      defId: "slime",
+      nowMs: -2_000,
+      appearance: { targetKind: "enemy" },
+    });
+    expect(probes.decal).toHaveBeenCalledTimes(12);
+    expect(probes.corpse).toHaveBeenCalledOnce();
+    expect(probes.carnage).toHaveBeenCalledOnce();
+    expect(probes.deathBlood).not.toHaveBeenCalled();
+    expect(probes.gib).not.toHaveBeenCalled();
+    expect(probes.bone).not.toHaveBeenCalled();
   });
 });

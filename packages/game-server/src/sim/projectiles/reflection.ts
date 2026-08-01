@@ -4,6 +4,7 @@ import {
   type Entity,
   type WeaponProfile,
 } from "@dc2d/engine";
+import { activeMeleeAttackFor } from "../state/meleeAttackState.js";
 import type { SimState } from "../state/state.js";
 
 export interface ProjectileReturnContext {
@@ -16,10 +17,39 @@ export interface ProjectileReturnContext {
 /** Returns each nearby hostile spit that intersects the accepted weapon hitbox. */
 export function returnHostileProjectiles(context: ProjectileReturnContext): void {
   for (const projectile of context.sim.projectiles.values()) {
-    if (!isReturnableSpit(context.sim, projectile)) continue;
-    if (!weaponHitboxContainsPoint(attackPointInput(context, projectile))) continue;
-    returnProjectile(projectile, context.attacker.id);
+    tryReturnProjectile(context, projectile);
   }
+}
+
+/**
+ * Checks the just-moved projectile against every still-active sword volume before
+ * projectile contact damage resolves for this tick.
+ */
+export function returnProjectileDuringActiveMeleeAttack(
+  sim: SimState,
+  projectile: Entity,
+): boolean {
+  for (const slot of sim.players.values()) {
+    const attack = activeMeleeAttackFor(slot);
+    if (!attack) continue;
+    if (tryReturnProjectile({
+      sim,
+      attacker: slot.entity,
+      direction: attack.direction,
+      profile: attack.profile,
+    }, projectile)) return true;
+  }
+  return false;
+}
+
+function tryReturnProjectile(
+  context: ProjectileReturnContext,
+  projectile: Entity,
+): boolean {
+  if (!isReturnableSpit(context.sim, projectile)) return false;
+  if (!weaponHitboxContainsPoint(attackPointInput(context, projectile))) return false;
+  returnProjectile(projectile, context.attacker.id);
+  return true;
 }
 
 function isReturnableSpit(sim: SimState, projectile: Entity): boolean {
@@ -32,7 +62,7 @@ function isReturnableSpit(sim: SimState, projectile: Entity): boolean {
 function attackPointInput(
   context: ProjectileReturnContext,
   projectile: Entity,
-) {
+): Parameters<typeof weaponHitboxContainsPoint>[0] {
   return {
     attacker: context.attacker,
     direction: context.direction,

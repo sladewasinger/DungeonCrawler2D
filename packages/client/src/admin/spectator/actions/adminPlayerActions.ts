@@ -4,7 +4,7 @@ import {
   combatActionGroup,
   positionActionGroup,
 } from "../controls/adminPlayerParameterizedActions.js";
-import { configureAdminToggle } from "./adminToggleControl.js";
+import { configureToggleSwitch } from "../../../ui/foundation/toggleSwitch.js";
 
 const SPECTATOR_TOGGLE_ACTION = "spectator-toggle";
 const SPECTATOR_ZOOM_OUT_ACTION = "spectator-zoom-out";
@@ -118,7 +118,7 @@ function actionControl(input: ActionControlInput): HTMLButtonElement {
   control.dataset.playerId = input.playerId;
   control.disabled = !input.authenticated;
   if (input.pressed !== undefined) {
-    configureAdminToggle(control, input.label, input.pressed);
+    configureToggleSwitch(control, input.label, input.pressed);
   }
   describeZoomControl(control, input.action);
   return control;

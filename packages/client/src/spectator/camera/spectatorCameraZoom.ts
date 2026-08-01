@@ -1,6 +1,4 @@
-const SPECTATOR_CAMERA_MIN_ZOOM = 0.5;
-const SPECTATOR_CAMERA_MAX_ZOOM = 2.5;
-const SPECTATOR_CAMERA_ZOOM_STEP = 0.25;
+import { TERRAIN_RUNTIME_TUNING } from "../../render/terrain/terrainRuntimeTuning.js";
 
 export type SpectatorCameraZoomDirection = "in" | "out";
 
@@ -8,11 +6,12 @@ export function nextSpectatorCameraZoom(
   zoom: number,
   direction: SpectatorCameraZoomDirection,
 ): number {
+  const { minimumZoom, maximumZoom, zoomStep } = TERRAIN_RUNTIME_TUNING.cameraPresentation.spectator;
   const change = direction === "in"
-    ? SPECTATOR_CAMERA_ZOOM_STEP
-    : -SPECTATOR_CAMERA_ZOOM_STEP;
+    ? zoomStep
+    : -zoomStep;
   return Math.max(
-    SPECTATOR_CAMERA_MIN_ZOOM,
-    Math.min(SPECTATOR_CAMERA_MAX_ZOOM, zoom + change),
+    minimumZoom,
+    Math.min(maximumZoom, zoom + change),
   );
 }

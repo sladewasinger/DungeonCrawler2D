@@ -27,7 +27,7 @@ export class FullSpectatorEmbed {
   private frame: HTMLIFrameElement | null = null;
   private sent: SentSpectatorEmbedState | null = null;
   private loaded = false;
-  private cameraZoom = 1.25;
+  private cameraZoom = 1;
   private state: FullSpectatorEmbedState = {
     active: false,
     playerId: null,

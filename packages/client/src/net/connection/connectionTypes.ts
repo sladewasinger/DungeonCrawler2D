@@ -47,6 +47,9 @@ interface CapturedCombatTarget {
 export type DeathVisualEvent = {
   t: "death";
   id: string;
+  occurredAtTick?: number;
+  persistentOnly?: boolean;
+  ageMs?: number;
 } & CapturedCombatTarget;
 
 /** Visual-only events the scene consumes each frame. */

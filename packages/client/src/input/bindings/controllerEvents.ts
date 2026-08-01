@@ -19,7 +19,8 @@ export interface ControllerEventBindings {
   readonly touchActive: () => boolean;
   readonly onThrowAimStart: () => void;
   readonly onThrowAimRelease: (allowThrow: boolean) => void;
-  readonly onInteract: () => void;
+  readonly onKeyboardInteract: () => void;
+  readonly onTouchInteract: () => void;
   readonly onInteractReleased: () => void;
   readonly onBandageDown: () => void;
   readonly onBandageUp: () => void;
@@ -47,7 +48,7 @@ function bindKeys(request: ControllerEventBindings): void {
     hooks: request.hooks,
     onThrowAimStart: request.onThrowAimStart,
     onThrowAimRelease: request.onThrowAimRelease,
-    onInteract: request.onInteract,
+    onInteract: request.onKeyboardInteract,
     onInteractReleased: request.onInteractReleased,
     onBandageDown: request.onBandageDown,
     onBandageUp: request.onBandageUp,
@@ -66,7 +67,7 @@ function bindPointer(request: ControllerEventBindings): void {
     tilePx: request.tilePx,
     touch: request.touch,
     touchActive: request.touchActive,
-    onInteract: request.onInteract,
+    onInteract: request.onTouchInteract,
     onInteractReleased: request.onInteractReleased,
     onThrowSelected: request.onThrowSelected,
     onMovementEdge: request.onMovementEdge,

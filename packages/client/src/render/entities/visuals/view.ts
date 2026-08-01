@@ -101,6 +101,8 @@ export interface ProjectileEntityView {
   id: string;
   x: number;
   y: number;
+  /** Absolute authoritative flight height, used by the shared elevation projection. */
+  z: number;
   frame: string;
   vx: number;
   vy: number;

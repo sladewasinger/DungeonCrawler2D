@@ -9,6 +9,7 @@ import {
   type NetworkProfile,
   type Rng,
   type SnapshotMode,
+  type SpectatorDeathPresentation,
   type World,
 } from "@dc2d/engine";
 import type { PlayerStore, StoredPlayer } from "../../store.js";
@@ -185,6 +186,8 @@ export interface SimState {
   readonly exposure: Map<string, number>;
   /** Positional events delivered to anyone whose AOI covers (x, y). */
   worldEvents: WorldEvent[];
+  /** Bounded authoritative state for reconstructing still-live death decals. */
+  deathPresentationHistory: SpectatorDeathPresentation[];
   tickCount: number;
   nextPartyId: number;
   nextPartyRoom: number;

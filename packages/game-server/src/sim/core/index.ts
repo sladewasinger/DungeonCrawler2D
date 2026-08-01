@@ -8,6 +8,7 @@ import {
   type ServerSnapshot,
   type ServerStateSnapshot,
   type SnapshotMode,
+  type SpectatorDeathPresentation,
   type World,
 } from "@dc2d/engine";
 import { initBossFloor, receiveTransfer } from "../floors/index.js";
@@ -43,6 +44,7 @@ import { advanceSimTick } from "./step.js";
 import { PlayerStore } from "../../store.js";
 import type { GameSimOptions } from "../state/gameSimOptions.js";
 import { createGameAdminFacade, type GameAdminFacade } from "../admin/adminFacade.js";
+import { visibleDeathPresentationHistory } from "../presentation/deathPresentationHistory.js";
 
 export type { JoinResult, PlayerAction, FloorTransferRequest } from "../state/state.js";
 
@@ -121,6 +123,10 @@ export class GameSim {
   getHotbar(playerId: string): Array<string | null> | undefined { return this.state.players.get(playerId)?.hotbar; }
 
   getWeapon(playerId: string): string | null | undefined { return this.state.players.get(playerId)?.weapon; }
+
+  visibleDeathPresentations(playerId: string): SpectatorDeathPresentation[] {
+    return visibleDeathPresentationHistory(this.state, playerId);
+  }
 
   /** Test access: spawn an item entity on the ground. */
   spawnItem(request: ItemSpawn): Entity {

@@ -50,13 +50,15 @@ describe("weapon hitboxes", () => {
     expect(intersects({ x: 2.7, y: 0 })).toBe(false);
   });
 
-  it("keeps the strike volume above the floor and centered at body height", () => {
+  it("intersects the full projectile sphere against the vertical strike volume", () => {
     expect(weaponHitboxVerticalRange(0)).toEqual({ minimumZ: 0, maximumZ: 1 });
     expect(intersects({ x: 0, y: 2.5, shape: "ground" })).toBe(true);
     expect(intersects({ x: 1, y: 0, z: 1 })).toBe(true);
-    expect(intersects({ x: 1, y: 0, z: 1.001 })).toBe(false);
+    expect(intersects({ x: 1, y: 0, z: 1.25 })).toBe(true);
+    expect(intersects({ x: 1, y: 0, z: 1.251 })).toBe(false);
     expect(intersects({ x: 1, y: 0, z: 0 })).toBe(true);
-    expect(intersects({ x: 1, y: 0, z: -0.001 })).toBe(false);
+    expect(intersects({ x: 1, y: 0, z: -0.25 })).toBe(true);
+    expect(intersects({ x: 1, y: 0, z: -0.251 })).toBe(false);
   });
 
   it("does not combine separate range and angle allowances into a false hit", () => {

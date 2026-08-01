@@ -37,6 +37,8 @@ export interface FrameSyncContext {
   readonly nowMs: number;
   readonly dtSeconds: number;
   readonly render: RenderPose;
+  readonly interpolationNowMs?: number;
+  readonly interpolationDelayMs?: number;
 }
 
 export function syncEntities(context: FrameSyncContext): EntitySyncResult {
@@ -55,8 +57,7 @@ export function syncEntities(context: FrameSyncContext): EntitySyncResult {
     render,
   } = context;
   if (!conn.world || !conn.welcome || !conn.body) return { interactionPrompt: null, torchAccentLights: [] };
-  const interpolated = conn.interpolated(performance.now(),
-    framePresentationFilter(context));
+  const interpolated = interpolatedPresentationFrame(context);
   const buckets = bucketFrameEntities(interpolated, state.entityBuckets, {
     viewerX: render.x,
     viewerY: render.y,
@@ -73,6 +74,14 @@ export function syncEntities(context: FrameSyncContext): EntitySyncResult {
     interactionPrompt: resolveFrameInteractionPrompt(conn, buckets),
     torchAccentLights,
   };
+}
+
+function interpolatedPresentationFrame(context: FrameSyncContext) {
+  return context.conn.interpolated(
+    context.interpolationNowMs ?? performance.now(),
+    framePresentationFilter(context),
+    context.interpolationDelayMs,
+  );
 }
 
 function framePresentationFilter(

@@ -1,2 +1,2 @@
 /** Default gameplay camera scale: 25% closer than Phaser's 1x baseline. */
-export const DEFAULT_CAMERA_ZOOM = 1.25;
+export { GAMEPLAY_BASE_CAMERA_ZOOM as DEFAULT_CAMERA_ZOOM } from "./viewport/responsiveCameraScale.js";

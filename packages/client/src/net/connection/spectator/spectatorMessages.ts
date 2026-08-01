@@ -11,6 +11,10 @@ export function handleSpectatorMessage(
     connection.onSpectatorState?.();
     return true;
   }
+  if (message.type === "spectatorPresentation") {
+    connection.spectatorDeathPresentations.ingest(message);
+    return true;
+  }
   if (message.type !== "spectatorRoster") return false;
   connection.spectatorPlayers = message.players;
   connection.spectatorTargetId = message.playerId;

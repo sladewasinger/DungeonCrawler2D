@@ -47,9 +47,28 @@ export const spectatorRosterSchema = z.object({
   mode: spectatorModeSchema,
 }).strict();
 
+export const spectatorDeathPresentationSchema = z.object({
+  id: z.string().min(1),
+  occurredAtTick: z.number().int().nonnegative(),
+  x: z.number(),
+  y: z.number(),
+  defId: z.string().optional(),
+  targetKind: z.enum(["player", "enemy"]),
+  skin: z.enum(PLAYER_SKINS).optional(),
+}).strict();
+
+export const spectatorPresentationSchema = z.object({
+  type: z.literal("spectatorPresentation"),
+  worldIdentity: z.string().min(1),
+  tick: z.number().int().nonnegative(),
+  deaths: z.array(spectatorDeathPresentationSchema).max(24),
+}).strict();
+
 export type ClientSpectatorHello = z.infer<typeof clientSpectatorHelloSchema>;
 export type ClientSpectatorCommand = z.infer<typeof clientSpectatorCommandSchema>;
 export type SpectatorMode = z.infer<typeof spectatorModeSchema>;
 export type SpectatorPlayer = z.infer<typeof spectatorPlayerSchema>;
 export type SpectatorWelcome = z.infer<typeof spectatorWelcomeSchema>;
 export type SpectatorRoster = z.infer<typeof spectatorRosterSchema>;
+export type SpectatorDeathPresentation = z.infer<typeof spectatorDeathPresentationSchema>;
+export type SpectatorPresentation = z.infer<typeof spectatorPresentationSchema>;

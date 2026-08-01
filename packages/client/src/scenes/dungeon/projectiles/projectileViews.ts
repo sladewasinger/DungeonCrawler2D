@@ -17,6 +17,7 @@ export function projectileView(input: ProjectileViewInput): ProjectileEntityView
   view.id = e.id;
   view.x = e.x;
   view.y = e.y;
+  view.z = e.z;
   view.frame = groundItemFrame(e.snap.defId);
   view.vx = vx;
   view.vy = vy;

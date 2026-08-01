@@ -72,7 +72,8 @@ export class InputController {
       touchActive: () => this.touchActive,
       onThrowAimStart: () => this.throwAim.beginKeyboardAim(),
       onThrowAimRelease: (allowThrow) => this.throwAim.releaseKeyboardAim(allowThrow),
-      onInteract: () => this.handleInteractDown(),
+      onKeyboardInteract: () => this.handleInteractDown(),
+      onTouchInteract: () => this.handleInteractDown(true),
       onInteractReleased: () => this.lifeGestures.endInteract(this.conn, scene.time.now),
       onBandageDown: () => this.fistbump.down(this.scene.time.now),
       onBandageUp: () => this.fistbump.release(conn, queries, this.scene.time.now),
@@ -88,7 +89,7 @@ export class InputController {
    * otherwise a downed party member starts hold-to-revive instead of firing instantly,
    * else this mirrors the server's doInteract() gate client-side, purely to toast
    * "nothing happened" rather than assert an outcome — interact() still always fires. */
-  private handleInteractDown(fallback: "interact" | "pickup" = "interact"): void {
+  private handleInteractDown(pickupWhenNearby = false): void {
     if (this.conn.downed) {
       this.lifeGestures.beginGiveUp(true, this.scene.time.now);
       return;
@@ -100,7 +101,7 @@ export class InputController {
       queries: this.queries,
       selectedSlot: this.state.selectedSlot,
       startRevive: (targetId) => this.lifeGestures.beginRevive(this.conn, targetId, this.scene.time.now),
-      fallback,
+      pickupWhenNearby,
     });
   }
 

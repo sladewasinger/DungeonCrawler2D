@@ -148,10 +148,11 @@ export class Connection extends ConnectionSpectatorActions {
   interpolated(
     now: number = performance.now(),
     include?: InterpolationEntityFilter,
+    delayMs: number = this.interpolationDelay.currentMs,
   ): readonly InterpolatedEntity[] {
     return interpolateInto({
       entities: this.entities,
-      delayMs: this.interpolationDelay.currentMs,
+      delayMs,
       now: this.serverTimeline.now(now),
       out: this.interpolationFrame,
       ...(include ? { include } : {}),

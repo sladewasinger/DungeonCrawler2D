@@ -27,6 +27,7 @@ import { trackWallBump } from "../combat/wallBumpTracking.js";
 import { updateSelfFacing, type SelfCosmeticsState } from "../player/selfCosmetics.js";
 import type { DungeonSceneState } from "./state.js";
 import type { RotationController } from "../camera/rotationControl.js";
+import type { CameraZoomEffectPort } from "../camera/viewport/cameraZoomController.js";
 
 interface InputControllerRequest { readonly scene: Phaser.Scene; readonly conn: Connection; readonly hudScene: HudScene; readonly cosmetics: SelfCosmeticsState; readonly chatInputBox: ChatInputBox; }
 
@@ -81,13 +82,14 @@ export interface DungeonPresentationSystems {
 
 export function createDungeonPresentationSystems(
   scene: Phaser.Scene,
+  cameraZoom?: CameraZoomEffectPort,
 ): DungeonPresentationSystems {
   const deviceProfile = terrainDeviceProfileForScene(scene);
   const presentationProfile = devicePresentationProfileForKind(deviceProfile.kind);
   return {
     deviceProfile,
     entityRenderer: new EntityRenderer(scene, presentationProfile),
-    vfx: new VfxSystem(scene, presentationProfile),
+    vfx: new VfxSystem(scene, presentationProfile, cameraZoom),
   };
 }
 
