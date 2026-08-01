@@ -29,7 +29,7 @@ describe("admin spawn catalog definitions", () => {
 
     expect(hammer).toMatchObject({
       name: "Heavy Hammer",
-      stats: ["7 DMG", "2.04 RNG", "18 KB", "500 MS"],
+      stats: ["7 DMG", "2.5 RNG", "20 KB", "500 MS"],
     });
     expect(adminCatalogEntries("weapon").every(hasKnockbackStat)).toBe(true);
   });

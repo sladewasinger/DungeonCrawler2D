@@ -85,12 +85,12 @@ function placeProjectile(
 describe("hostile projectile return positioning", () => {
   it("returns inline and offset screen-north spits inside the sword volume", () => {
     const inline = createReflectionFixture();
-    placeProjectile(inline, { x: 0, y: -2.3 });
+    placeProjectile(inline, { x: 0, y: -2.1 });
     attack(inline, { x: 0, y: -1 });
     expect(inline.projectile.ownerId).toBe(inline.player.entity.id);
 
     const offsetInside = createReflectionFixture();
-    placeProjectile(offsetInside, { x: 0.35, y: -2.2 });
+    placeProjectile(offsetInside, { x: 0.35, y: -2.0 });
     attack(offsetInside, { x: 0, y: -1 });
     expect(offsetInside.projectile.ownerId).toBe(offsetInside.player.entity.id);
   });
@@ -105,7 +105,7 @@ describe("hostile projectile return positioning", () => {
 
   it("returns a screen-north spit that enters the active sword volume during its step", () => {
     const fixture = createReflectionFixture(findFlatNorthApproach);
-    placeProjectile(fixture, { x: 0, y: -2.8 });
+    placeProjectile(fixture, { x: 0, y: -2.4 });
     fixture.projectile.vel = { x: 0, y: 10, z: 0 };
 
     const events = attack(fixture, { x: 0, y: -1 });
@@ -122,12 +122,12 @@ describe("hostile projectile return positioning", () => {
 
   it("returns only a projectile volume that reaches the sword's vertical band", () => {
     const tangent = createReflectionFixture();
-    placeProjectile(tangent, { x: 2.3, y: 0, z: 1.25 });
+    placeProjectile(tangent, { x: 2.1, y: 0, z: 1.25 });
     attack(tangent, { x: 1, y: 0 });
     expect(tangent.projectile.ownerId).toBe(tangent.player.entity.id);
 
     const above = createReflectionFixture();
-    placeProjectile(above, { x: 2.3, y: 0, z: 1.251 });
+    placeProjectile(above, { x: 2.1, y: 0, z: 1.251 });
     attack(above, { x: 1, y: 0 });
     expect(above.projectile.ownerId).toBe(above.enemy.id);
   });

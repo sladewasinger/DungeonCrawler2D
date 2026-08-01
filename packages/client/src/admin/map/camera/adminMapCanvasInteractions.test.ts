@@ -1,16 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { AdminMapCanvasInteractions } from "./adminMapCanvasInteractions.js";
 
-describe("admin map canvas interaction lifecycle", () => {
+describe("admin map canvas interactions", () => {
   it("stops delivering pointer events after disposal", () => {
-    const canvas = new EventTarget() as HTMLCanvasElement;
-    const callbacks = {
-      click: vi.fn(),
-      contextMenu: vi.fn(),
-      mouseMove: vi.fn(),
-      mouseLeave: vi.fn(),
-      pointerDown: vi.fn(),
-    };
+    const canvas = testCanvas();
+    const callbacks = interactionCallbacks();
     const interactions = new AdminMapCanvasInteractions({ canvas, ...callbacks });
 
     dispatchPointerEvents(canvas);
@@ -21,12 +15,12 @@ describe("admin map canvas interaction lifecycle", () => {
   });
 
   it("always suppresses the browser context menu, including on a miss", () => {
-    const canvas = new EventTarget() as HTMLCanvasElement;
+    const canvas = testCanvas();
     const contextMenu = vi.fn();
     const interactions = new AdminMapCanvasInteractions({
       canvas,
-      click: vi.fn(),
       contextMenu,
+      click: vi.fn(),
       mouseMove: vi.fn(),
       mouseLeave: vi.fn(),
       pointerDown: vi.fn(),
@@ -40,64 +34,66 @@ describe("admin map canvas interaction lifecycle", () => {
     interactions.dispose();
   });
 
-  it("uses an unfocused first click only to focus the map", () => {
-    const canvas = new EventTarget() as HTMLCanvasElement;
+  it("delivers the first unfocused placement and removal actions", () => {
+    const canvas = testCanvas();
     const click = vi.fn();
-    const pointerDown = vi.fn();
-    let focused = false;
+    const contextMenu = vi.fn();
     const interactions = new AdminMapCanvasInteractions({
       canvas,
       click,
-      contextMenu: vi.fn(),
-      mouseMove: vi.fn(),
-      mouseLeave: vi.fn(),
-      pointerDown: () => {
-        focused = true;
-        pointerDown();
-      },
-      isFocused: () => focused,
-    });
-
-    canvas.dispatchEvent(pointerDownEvent(0));
-    canvas.dispatchEvent(new Event("click", { cancelable: true }));
-    canvas.dispatchEvent(pointerDownEvent(0));
-    canvas.dispatchEvent(new Event("click", { cancelable: true }));
-
-    expect(pointerDown).toHaveBeenCalledTimes(2);
-    expect(click).toHaveBeenCalledOnce();
-    interactions.dispose();
-  });
-
-  it("uses an unfocused right click only to focus the map", () => {
-    const canvas = new EventTarget() as HTMLCanvasElement;
-    const contextMenu = vi.fn();
-    let focused = false;
-    const interactions = new AdminMapCanvasInteractions({
-      canvas,
-      click: vi.fn(),
       contextMenu,
       mouseMove: vi.fn(),
       mouseLeave: vi.fn(),
-      pointerDown: () => {
-        focused = true;
-      },
-      isFocused: () => focused,
+      pointerDown: vi.fn(),
     });
 
-    canvas.dispatchEvent(pointerDownEvent(2));
-    canvas.dispatchEvent(new Event("contextmenu", { cancelable: true }));
+    canvas.dispatchEvent(pointerEvent("pointerdown", { button: 0 }));
+    canvas.dispatchEvent(pointerEvent("click", { button: 0 }));
+    canvas.dispatchEvent(pointerEvent("pointerdown", { button: 2 }));
+    canvas.dispatchEvent(pointerEvent("contextmenu", { button: 2 }));
 
-    expect(contextMenu).not.toHaveBeenCalled();
+    expect(click).toHaveBeenCalledOnce();
+    expect(contextMenu).toHaveBeenCalledOnce();
     interactions.dispose();
   });
 });
 
+function interactionCallbacks() {
+  return {
+    click: vi.fn(),
+    contextMenu: vi.fn(),
+    mouseMove: vi.fn(),
+    mouseLeave: vi.fn(),
+    pointerDown: vi.fn(),
+  };
+}
+
+function testCanvas(): HTMLCanvasElement {
+  return Object.assign(new EventTarget(), {
+    setPointerCapture: vi.fn(),
+    releasePointerCapture: vi.fn(),
+    hasPointerCapture: vi.fn(() => true),
+  }) as unknown as HTMLCanvasElement;
+}
+
 function dispatchPointerEvents(canvas: HTMLCanvasElement): void {
-  for (const type of ["click", "contextmenu", "mousemove", "mouseleave", "pointerdown"]) {
+  for (const type of ["click", "contextmenu", "auxclick", "mousemove", "mouseleave", "pointerdown"]) {
     canvas.dispatchEvent(new Event(type));
   }
 }
 
-function pointerDownEvent(button: number): PointerEvent {
-  return Object.assign(new Event("pointerdown"), { button }) as PointerEvent;
+interface PointerEventInput {
+  readonly button?: number;
+  readonly pointerId?: number;
+  readonly clientX?: number;
+  readonly clientY?: number;
+}
+
+function pointerEvent(type: string, input: PointerEventInput = {}): PointerEvent {
+  return Object.assign(new Event(type, { cancelable: true }), {
+    button: input.button ?? 0,
+    pointerId: input.pointerId ?? 1,
+    clientX: input.clientX ?? 0,
+    clientY: input.clientY ?? 0,
+  }) as PointerEvent;
 }

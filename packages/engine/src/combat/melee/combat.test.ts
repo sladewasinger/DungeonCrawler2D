@@ -4,7 +4,7 @@ import { Rng } from "../../core/rng.js";
 import type { EnemyDef } from "../../effects/types.js";
 import { makeEntity, type Entity } from "../../entities/entity.js";
 import { createBody } from "../../entities/movement/index.js";
-import { enemyThink, newBrain } from "../ai/ai.js";
+import { commitEnemyAttack, enemyThink, newBrain } from "../ai/ai.js";
 import { pickMeleeTarget } from "./melee.js";
 
 function combatant(...[kind, x, y, partyId]: ["player" | "enemy", number, number, string?]): Entity {
@@ -105,6 +105,7 @@ describe("enemy AI", () => {
     const player = combatant("player", 0.5, 0);
     const first = enemyThink({ brain, enemy: slime, def: slimeDef, players: [player], inSanctuary: () => false, dt: 0.05, rng: () => rng.next() });
     expect(first.strike?.targetId).toBe(player.id);
+    commitEnemyAttack(brain, slimeDef.attack.cooldown);
     const second = enemyThink({ brain, enemy: slime, def: slimeDef, players: [player], inSanctuary: () => false, dt: 0.05, rng: () => rng.next() });
     expect(second.strike).toBeUndefined(); // cooling down
   });

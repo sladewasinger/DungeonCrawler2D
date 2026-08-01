@@ -129,7 +129,7 @@ describe("admin map debug projection", () => {
       attacks: [{
         shape: "cone",
         direction: { x: 1, y: 0 },
-        range: 2.4,
+        range: 2,
         arcCos: expect.any(Number),
         strikeHeightOffset: 0.5,
         verticalHalfExtent: 0.5,
@@ -153,7 +153,7 @@ describe("admin map debug projection", () => {
     expect(entity?.debug?.attacks).toEqual([{
       shape: "cone",
       direction: { x: 1, y: 0 },
-      range: 2.4,
+      range: 2,
       arcCos: expect.any(Number),
       strikeHeightOffset: 0.5,
       verticalHalfExtent: 0.5,

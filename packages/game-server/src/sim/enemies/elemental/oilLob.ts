@@ -79,10 +79,7 @@ export function isOilLob(projectile: Entity): boolean {
 }
 
 export function resolveOilLobImpact(input: OilLobImpact): void {
-  if (input.directHit) {
-    applyDirectOil(input);
-    return;
-  }
+  if (input.directHit) applyDirectOil(input);
   const source = oilSourceFor(
     input.sim,
     input.projectile.ownerId,

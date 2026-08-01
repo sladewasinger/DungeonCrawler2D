@@ -1,6 +1,6 @@
 import type { EnemyDef } from "../../effects/types.js";
 import type { Entity } from "../../entities/entity.js";
-import type { MoveInput } from "../../entities/movement/index.js";
+import { reachesHurtbox } from "../geometry/hurtboxes.js";
 import {
   ageEnemyMemory,
   rememberEnemyTarget,
@@ -10,43 +10,11 @@ import {
   investigateOrWander,
   pursueEnemyPoint,
 } from "./enemyMovementDecision.js";
-
-/**
- * Enemy decision-making: pure functions the server drives each tick.
- * Wander until a living, non-sanctuary player enters aggro range, then
- * chase and attack. Enemies can be kited — into fire, off cliffs, or
- * onto strangers; the aggro rule is simply "nearest visible player".
- */
-
-export interface EnemyBrain {
-  targetId: string | null;
-  wanderDir: MoveInput;
-  wanderLeft: number;
-  attackCooldown: number;
-  rememberedTarget: RememberedEnemyTarget | null;
-  memorySecondsRemaining: number;
-  memoryPhase?: "pursuing" | "searching";
-  memorySearchSecondsRemaining?: number;
-}
-
-export interface RememberedEnemyTarget {
-  readonly targetId: string;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
-export interface EnemyDecision {
-  move: MoveInput;
-  /** True while investigating around a remembered last-seen position. */
-  searching?: boolean;
-  /** Melee strike this tick. */
-  strike?: { targetId: string };
-  /** Launch a ranged projectile at this position/entity. */
-  shoot?: { targetId: string; x: number; y: number; z: number };
-  /** Point currently being pursued, including remembered last-seen positions. */
-  pursuit?: { x: number; y: number; z: number };
-}
+import type {
+  AggroSearch,
+  EnemyBrain,
+  EnemyDecision,
+} from "./types.js";
 
 export function newBrain(): EnemyBrain {
   return {
@@ -61,11 +29,12 @@ export function newBrain(): EnemyBrain {
   };
 }
 
-interface AggroSearch {
-  enemy: Entity;
-  def: EnemyDef;
-  players: readonly Entity[];
-  inSanctuary: (entity: Entity) => boolean;
+/** Records a cooldown only after the server accepts the attack action. */
+export function commitEnemyAttack(
+  brain: EnemyBrain,
+  cooldownSeconds: number,
+): void {
+  brain.attackCooldown = Math.max(brain.attackCooldown, cooldownSeconds);
 }
 
 interface EnemyThinkInput extends AggroSearch {
@@ -124,11 +93,11 @@ function tryAttack(
   input: AttackInput & { dist: number },
 ): EnemyDecision | null {
   const { brain, enemy, def, target, dist } = input;
-  if (dist > def.attack.range || brain.attackCooldown > 0) return null;
+  if (!canReachAttackTarget({ enemy, target, def, distance: dist }) ||
+      brain.attackCooldown > 0) return null;
   if (!def.attack.ranged &&
       Math.abs(target.body.z - enemy.body.z) >
         input.maximumMeleeHeightDifference) return null;
-  brain.attackCooldown = def.attack.cooldown;
   if (!def.attack.ranged) {
     return { move: idleEnemyMove(), strike: { targetId: target.id } };
   }
@@ -136,6 +105,16 @@ function tryAttack(
     move: idleEnemyMove(),
     shoot: { targetId: target.id, ...target.body },
   };
+}
+
+function canReachAttackTarget(input: {
+  enemy: Entity;
+  target: Entity;
+  def: EnemyDef;
+  distance: number;
+}): boolean {
+  if (input.def.attack.ranged) return input.distance <= input.def.attack.range;
+  return reachesHurtbox(input.enemy, input.target, input.def.attack.range);
 }
 
 function shouldHoldRangedPosition(def: EnemyDef, distance: number): boolean {

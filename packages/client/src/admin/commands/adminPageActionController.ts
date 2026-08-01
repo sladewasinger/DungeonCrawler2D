@@ -7,6 +7,10 @@ import {
   commandForSpectatorToggle,
 } from "./adminCommandFactory.js";
 import { adminParameterizedCommand } from "./adminParameterizedCommand.js";
+import {
+  configureFreePanToggle,
+  setFreePanToggle,
+} from "../map/adminMapFreePan.js";
 
 export interface AdminPageActionControllerOptions {
   readonly connection: Connection;
@@ -20,7 +24,7 @@ export class AdminPageActionController {
 
   send(action: string, control: HTMLButtonElement | null): void {
     if (this.sendSpectatorAction(action)) return;
-    if (this.sendMapAction(action)) return;
+    if (this.sendMapAction(action, control)) return;
     const parameterized = adminParameterizedCommand(action, control);
     if (parameterized.recognized) return this.sendParameterized(parameterized);
     const command = commandForAdminAction(action, control?.dataset.playerId);
@@ -41,16 +45,24 @@ export class AdminPageActionController {
     this.options.connection.sendAdminCommand(command);
   }
 
-  private sendMapAction(action: string): boolean {
+  private sendMapAction(action: string, control: HTMLButtonElement | null): boolean {
     if (action === "inspect-map") this.options.spawnPlacement.inspectCurrentMap();
     else if (action === "map-center-selected") {
       this.options.spawnPlacement.followPlayer(this.options.playerObserver.selectedPlayer());
-    } else if (action === "map-free-camera") this.options.spawnPlacement.freeCamera();
+      setFreePanToggle(this.options.view.root, false);
+    } else if (action === "map-free-camera") this.toggleFreePan(control);
     else if (action === "map-zoom-in") this.options.spawnPlacement.zoom("in");
     else if (action === "map-zoom-out") this.options.spawnPlacement.zoom("out");
     else if (action === "map-zoom-reset") this.options.spawnPlacement.resetZoom();
     else return false;
     return true;
+  }
+
+  private toggleFreePan(control: HTMLButtonElement | null): void {
+    const enabled = control?.getAttribute("aria-checked") === "true";
+    const nextEnabled = !enabled;
+    this.options.spawnPlacement.toggleFreeCamera(nextEnabled);
+    if (control) configureFreePanToggle(control, nextEnabled);
   }
 
   private sendParameterized(

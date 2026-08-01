@@ -541,7 +541,7 @@ section:has([data-admin-map]) {
   border: 1px solid var(--admin-border-bright) !important;
   border-radius: 7px;
   background: #080c12;
-  cursor: crosshair;
+  cursor: grab;
   image-rendering: pixelated;
 }
 

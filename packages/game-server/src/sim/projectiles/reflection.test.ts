@@ -34,7 +34,7 @@ function createReflectionFixture(): ReflectionFixture {
   if (!enemySlot) throw new Error("missing Spitter fixture");
   launchSpit({ sim, enemy: enemySlot, target: player.entity.body });
   const projectile = firstProjectile(sim);
-  projectile.body.x = spot.x + 2.3;
+  projectile.body.x = spot.x + 2.1;
   projectile.body.y = spot.y;
   projectile.body.z = player.entity.body.z + 0.8;
   projectile.vel = { x: -10, y: 0, z: 1 };
@@ -93,7 +93,7 @@ describe("hostile projectile returns", () => {
     expect(fixture.projectile.ownerId).toBe(fixture.enemy.id);
 
     fixture.sim.tickCount++;
-    fixture.projectile.body.x = fixture.player.entity.body.x + 2.3;
+    fixture.projectile.body.x = fixture.player.entity.body.x + 2.1;
     stepActiveMeleeAttacks(fixture.sim, []);
 
     expect(fixture.projectile.ownerId).toBe(fixture.player.entity.id);
@@ -105,7 +105,7 @@ describe("hostile projectile returns", () => {
 
     attack(fixture);
     fixture.sim.tickCount += 4;
-    fixture.projectile.body.x = fixture.player.entity.body.x + 2.3;
+    fixture.projectile.body.x = fixture.player.entity.body.x + 2.1;
     stepActiveMeleeAttacks(fixture.sim, []);
 
     expect(fixture.projectile.ownerId).toBe(fixture.enemy.id);

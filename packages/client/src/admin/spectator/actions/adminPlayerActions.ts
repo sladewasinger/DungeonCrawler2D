@@ -76,9 +76,9 @@ export function adminSpectatorActions(
 
 function modeActions(player: AdminPlayer): readonly ActionDefinition[] {
   return [
-    [player.god ? "God off" : "God on", player.god ? "god-off" : "god-on"],
-    [player.handicapped ? "Handicap off" : "Handicap on", player.handicapped ? "handicap-off" : "handicap-on"],
-    [player.admin ? "Revoke Admin" : "Grant Admin", player.admin ? "admin-off" : "admin-on"],
+    ["God", player.god ? "god-off" : "god-on", player.god],
+    ["Handicap", player.handicapped ? "handicap-off" : "handicap-on", player.handicapped],
+    ["Admin", player.admin ? "admin-off" : "admin-on", player.admin],
   ];
 }
 

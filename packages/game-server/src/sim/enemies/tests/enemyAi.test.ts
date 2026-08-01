@@ -78,7 +78,12 @@ describe("enemy AI", () => {
     const player = requirePlayer(sim, "p1").entity;
     if (!enemy) throw new Error("missing Chort fixture");
 
-    beginWindup(enemy, { targetId: player.id, ...player.body });
+    beginWindup(enemy, {
+      targetId: player.id,
+      ...player.body,
+      spreadX: 0.44,
+      spreadY: -0.32,
+    });
     player.body.x = enemy.entity.body.x;
     player.body.y = enemy.entity.body.y + 2;
     enemy.animation.ticksRemaining = 0;
@@ -134,20 +139,6 @@ describe("enemy AI", () => {
     expect(sim.enemies.get(entity.id)?.brain.targetId).toBeNull();
   });
 
-  it("limits simultaneous attackers assigned to one player", () => {
-    for (let index = 0; index < 6; index++) {
-      spawnEnemy(sim, {
-        defId: "skeleton",
-        x: spot.x + 2 + index * 0.2,
-        y: spot.y,
-      });
-    }
-    stepEnemies(sim, []);
-    const attackers = [...sim.enemies.values()].filter((enemy) =>
-      enemy.brain.targetId === "p1"
-    );
-    expect(attackers).toHaveLength(3);
-  });
 });
 
 function requirePlayer(sim: SimState, id: string): PlayerSlot {

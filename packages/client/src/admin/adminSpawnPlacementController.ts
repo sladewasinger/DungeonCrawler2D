@@ -18,6 +18,7 @@ export interface AdminSpawnPlacementControllerOptions {
   readonly view: AdminPageView;
   readonly surface: AdminSpectatorSurface;
   readonly selectedPlayer: () => AdminPlayer | null;
+  readonly onFreePanStateChange?: (enabled: boolean) => void;
 }
 
 export class AdminSpawnPlacementController {
@@ -61,9 +62,12 @@ export class AdminSpawnPlacementController {
     this.mapCamera.followPlayer(player);
   }
 
-  freeCamera(): void {
-    this.mapCamera.freeCamera();
+  toggleFreeCamera(enabled: boolean): void {
+    if (enabled) this.mapCamera.freeCamera();
+    else this.mapCamera.restoreCamera();
   }
+
+  resetFreePan(): void { this.mapCamera.resetFreePan(); }
 
   zoom(direction: "in" | "out"): void {
     this.surface.zoom(direction);
@@ -164,8 +168,7 @@ export class AdminSpawnPlacementController {
 }
 
 interface PetSpawnInput {
-  readonly map: AdminMap;
-  readonly x: number;
+  readonly map: AdminMap; readonly x: number;
   readonly y: number;
   readonly selection: AdminSpawnSelection;
 }

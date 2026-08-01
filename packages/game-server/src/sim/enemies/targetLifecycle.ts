@@ -46,6 +46,20 @@ export function revalidateEnemyTarget(
     ? enemy.animation.target?.targetId
     : undefined;
   clearInvalidTarget({ sim, enemy, targetId: windupTargetId, assignedTargetId });
+  adoptAssignedTarget({
+    sim,
+    enemy,
+    targetId: undefined,
+    assignedTargetId,
+  });
+}
+
+function adoptAssignedTarget(input: TargetValidity): void {
+  const { sim, enemy, assignedTargetId } = input;
+  if (assignedTargetId === undefined || enemy.brain.targetId !== null) return;
+  if (isTargetablePlayer(sim, assignedTargetId)) {
+    enemy.brain.targetId = assignedTargetId;
+  }
 }
 
 interface TargetValidity {

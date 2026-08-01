@@ -125,7 +125,7 @@ describe("sandbox training dummy", () => {
     }
 
     expect(activeTrainingWeaponHitbox(sword)).toMatchObject({
-      profile: { profileId: "sword", range: 2.4, arcCos: 0.7071 },
+      profile: { profileId: "sword", range: 2, arcCos: 0.7071 },
     });
     expect(player.entity.hp).toBeLessThan(player.entity.maxHp);
     expect(passive.entity.hp).toBe(passiveHp);

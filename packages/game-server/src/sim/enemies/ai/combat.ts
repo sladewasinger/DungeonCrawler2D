@@ -31,17 +31,17 @@ export interface SpitLaunchInput {
   target: { x: number; y: number; z: number };
 }
 
-export function resolveEnemyStrike(input: EnemyStrikeInput): void {
+export function resolveEnemyStrike(input: EnemyStrikeInput): boolean {
   const { sim, enemy, targetId, attackTicks } = input;
   const victimSlot = sim.players.get(targetId);
   const victim = victimSlot?.entity;
-  if (!victim || victim.hp <= 0) return;
+  if (!victim || victim.hp <= 0) return false;
   faceEntity(enemy.entity, victim.body.x - enemy.entity.body.x, victim.body.y - enemy.entity.body.y);
-  if (isOutOfStrikeRange(enemy, victim)) return;
+  if (!isAtReservedMeleeSlot(enemy, victim.id) || isOutOfStrikeRange(enemy, victim)) return false;
   enemy.animation = { state: "attack", ticksRemaining: attackTicks };
   if (blocksAttackFrom(victimSlot, enemy.entity)) {
     notifyBlockFeedback(sim, victim, "melee");
-    return;
+    return true;
   }
   applyStrikeEffects(input, victim);
   applyKnockback(victim.body, {
@@ -49,6 +49,17 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): void {
     dirY: victim.body.y - enemy.entity.body.y,
     force: KNOCKBACK_FORCE * 0.6,
   });
+  return true;
+}
+
+function isAtReservedMeleeSlot(enemy: EnemySlot, targetId: string): boolean {
+  const reservation = enemy.attackReservation;
+  if (!reservation || reservation.kind !== "melee-slot") return false;
+  if (reservation.targetId !== targetId) return false;
+  return Math.hypot(
+    enemy.entity.body.x - reservation.x,
+    enemy.entity.body.y - reservation.y,
+  ) <= 0.35;
 }
 
 function isOutOfStrikeRange(enemy: EnemySlot, victim: EnemySlot["entity"]): boolean {

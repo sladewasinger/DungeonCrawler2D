@@ -10,6 +10,7 @@ import { AdminPageActionController } from "./commands/adminPageActionController.
 import { AdminSpectatorSurface } from "./adminSpectatorSurface.js";
 import { createAdminPageView, type AdminPageView } from "./adminPageView.js";
 import { AdminSpawnPlacementController } from "./adminSpawnPlacementController.js";
+import { setFreePanToggle } from "./map/adminMapFreePan.js";
 import { AdminPlayerObserverController } from "./spectator/adminPlayerObserverController.js";
 
 export interface AdminPageOptions {
@@ -41,6 +42,7 @@ export class AdminPage {
       view: this.view,
       surface: this.surface,
       selectedPlayer: () => this.playerObserver.selectedPlayer(),
+      onFreePanStateChange: (enabled) => setFreePanToggle(this.view.root, enabled),
     });
     this.actions = new AdminPageActionController({
       connection: this.connection,
@@ -128,6 +130,7 @@ export class AdminPage {
       saveAdminSessionKey(this.connection.adminSessionKey);
     } else if (!ok) {
       clearAdminSessionKey();
+      this.spawnPlacement.resetFreePan();
     }
     const status = {
       ok,

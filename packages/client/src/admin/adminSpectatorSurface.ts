@@ -1,23 +1,15 @@
 import { createDebugFlags, type AdminMap, type DebugFlags } from "@dc2d/engine";
-import {
-  adminMapPointerWorldPoint,
-  adminMapPointerCanvasPoint,
-  adminMapLocationChanged,
-  adminMapTileCenter,
-  panAdminMapCenter,
-  type AdminMapCenter,
-} from "./map/adminMapCamera.js";
+import { adminMapPointerWorldDelta, adminMapLocationChanged, adminMapTileCenter,
+  panAdminMapCenter, panAdminMapCenterByDelta, type AdminMapCenter, type AdminMapScreenPoint } from "./map/adminMapCamera.js";
 import { AdminMapCanvasInteractions } from "./map/camera/adminMapCanvasInteractions.js";
 import { AdminMapKeyboardPan } from "./map/camera/adminMapKeyboardPan.js";
 import { adminMapViewportRadius } from "./map/camera/adminMapZoom.js";
 import { AdminMapZoomState } from "./map/camera/zoom/adminMapZoomState.js";
 import type { AdminMapZoomDirection } from "./map/camera/adminMapZoom.js";
-import { deletableAdminEntityAt } from "./map/adminMapEntityHitTest.js";
-import { renderAdminMap } from "./map/adminMapRenderer.js";
-import type {
-  AdminSpawnSelection,
-  AdminSpectatorSurfaceOptions,
-} from "./map/adminMapSurfaceTypes.js";
+import { adminMapSurfaceCursor } from "./map/adminMapSurfaceCursor.js";
+import { placeAdminMapEntity, removeAdminMapEntity } from "./map/surface/adminMapSurfaceActions.js";
+import { drawAdminMapSurface } from "./map/adminMapSurfaceDrawing.js";
+import type { AdminSpawnSelection, AdminSpectatorSurfaceOptions } from "./map/adminMapSurfaceTypes.js";
 
 export type { AdminSpawnSelection } from "./map/adminMapSurfaceTypes.js";
 
@@ -31,6 +23,7 @@ export class AdminSpectatorSurface {
   private interactionEnabled = false;
   private readonly canvasInteractions: AdminMapCanvasInteractions;
   private readonly keyboardPan: AdminMapKeyboardPan;
+  private pointerPanning = false;
 
   constructor(private readonly options: AdminSpectatorSurfaceOptions) {
     this.context = options.canvas.getContext("2d")!;
@@ -46,6 +39,8 @@ export class AdminSpectatorSurface {
       mouseMove: (event) => this.updateCursor(event),
       mouseLeave: () => this.updateCursor(),
       pointerDown: () => options.canvas.focus(),
+      pointerPan: (delta) => this.panByPointer(delta),
+      pointerPanStateChange: (active) => { this.pointerPanning = active; this.updateCursor(); },
     });
     this.draw();
     options.onZoomChange(this.zoomState.percent);
@@ -110,52 +105,52 @@ export class AdminSpectatorSurface {
       elapsedMs,
       tilesPerSecond: 6,
     });
-    this.draw();
-    this.options.onCameraMove(this.cameraCenter.x, this.cameraCenter.y);
+    this.draw(); this.options.onCameraMove(this.cameraCenter.x, this.cameraCenter.y);
+  }
+
+  private panByPointer(delta: AdminMapScreenPoint): void {
+    const worldDelta = adminMapPointerWorldDelta({
+      delta,
+      canvas: this.options.canvas,
+      tileSize: this.zoomState.value,
+    });
+    this.cameraCenter = panAdminMapCenterByDelta(this.cameraCenter, worldDelta);
+    this.draw(); this.options.onCameraMove(this.cameraCenter.x, this.cameraCenter.y);
   }
 
   private handleClick(event: MouseEvent): void {
-    if (!this.canPlace() || !this.map) return;
-    const point = adminMapPointerWorldPoint({
-      event,
-      canvas: this.options.canvas,
-      center: this.cameraCenter,
-      tileSize: this.zoomState.value,
+    placeAdminMapEntity({
+      cursor: this.cursorInput(event),
+      onSpawn: this.options.onSpawn,
     });
-    this.options.onSpawn(point.x, point.y, this.selection);
   }
 
   private handleContextMenu(event: MouseEvent): void {
-    const entity = this.deletableEntityAt(event);
-    if (!this.interactionEnabled || !entity) return;
-    this.options.onDespawn(entity.id);
+    removeAdminMapEntity({
+      cursor: this.cursorInput(event),
+      onDespawn: this.options.onDespawn,
+    });
   }
 
   private updateCursor(event?: MouseEvent): void {
-    const entity = event ? this.deletableEntityAt(event) : null;
-    this.options.canvas.style.cursor = entity && this.interactionEnabled
-      ? "pointer"
-      : this.canPlace() ? "crosshair" : "default";
+    this.options.canvas.style.cursor = adminMapSurfaceCursor(this.cursorInput(event));
   }
 
-  private deletableEntityAt(event: MouseEvent) {
-    if (!this.map) return null;
-    return deletableAdminEntityAt({
+  private cursorInput(event?: MouseEvent) {
+    return {
       map: this.map,
       center: this.cameraCenter,
       canvas: this.options.canvas,
       tileSize: this.zoomState.value,
-      point: adminMapPointerCanvasPoint({ event, canvas: this.options.canvas }),
-    });
-  }
-
-  private canPlace(): boolean {
-    return this.interactionEnabled && this.selection.placementAllowed !== false &&
-      this.map !== null && this.selection.defId.length > 0;
+      interactionEnabled: this.interactionEnabled,
+      selection: this.selection,
+      pointerPanning: this.pointerPanning,
+      ...(event ? { event } : {}),
+    };
   }
 
   private draw(): void {
-    renderAdminMap({
+    drawAdminMapSurface({
       context: this.context,
       map: this.map,
       center: this.cameraCenter,

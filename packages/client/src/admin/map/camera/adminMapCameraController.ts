@@ -15,6 +15,7 @@ export interface AdminMapCameraControllerOptions {
   readonly connection: Connection;
   readonly view: AdminPageView;
   readonly surface: AdminSpectatorSurface;
+  readonly onFreePanStateChange?: (enabled: boolean) => void;
 }
 
 /** Owns the inspector's free-pan and selected-player camera modes. */
@@ -22,6 +23,8 @@ export class AdminMapCameraController {
   private readonly mapRequests: AdminMapRequestThrottle;
   private followedPlayerId: string | null = null;
   private followedTile: AdminMapCenter | null = null;
+  private previousFollowedPlayerId: string | null = null;
+  private freePanEnabled = false;
 
   constructor(private readonly options: AdminMapCameraControllerOptions) {
     this.mapRequests = new AdminMapRequestThrottle({
@@ -52,14 +55,41 @@ export class AdminMapCameraController {
 
   followPlayer(player: AdminPlayer | null): void {
     if (!player || !this.options.connection.adminAuthenticated) return;
+    const wasFreePanEnabled = this.freePanEnabled;
+    this.freePanEnabled = false;
+    this.previousFollowedPlayerId = null;
     this.followedPlayerId = player.playerId;
     this.followedTile = null;
+    if (wasFreePanEnabled) this.options.onFreePanStateChange?.(false);
     this.followPlayerPosition(player);
   }
 
   freeCamera(): void {
+    if (this.freePanEnabled) return;
+    this.previousFollowedPlayerId = this.followedPlayerId;
+    this.freePanEnabled = true;
     this.stopFollowing();
+    this.options.onFreePanStateChange?.(true);
     this.options.surface.focusInput();
+  }
+
+  restoreCamera(): void {
+    if (!this.freePanEnabled) return;
+    const previousPlayerId = this.previousFollowedPlayerId;
+    this.previousFollowedPlayerId = null;
+    this.freePanEnabled = false;
+    this.options.onFreePanStateChange?.(false);
+    const player = this.options.connection.adminPlayers
+      .find((candidate) => candidate.playerId === previousPlayerId) ?? null;
+    if (player) return this.followPlayer(player);
+    this.options.surface.focusInput();
+  }
+
+  resetFreePan(): void {
+    this.previousFollowedPlayerId = null;
+    this.freePanEnabled = false;
+    this.stopFollowing();
+    this.options.onFreePanStateChange?.(false);
   }
 
   ensureViewportCoverage(): void {

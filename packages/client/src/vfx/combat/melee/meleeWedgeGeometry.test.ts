@@ -41,11 +41,11 @@ describe("wedgeGeometry", () => {
     expect(geo.endAngle).toBeCloseTo(centerAngle + Math.acos(0.92));
   });
 
-  it("uses the shipped sword's wider, longer cone geometry", () => {
+  it("uses the shipped sword's cone geometry", () => {
     const centerAngle = Math.PI / 3;
     const geo = wedgeGeometry(centerAngle, 50, weaponProfileForId("sword"));
     expect(geo.shape).toBe("cone");
-    expect(geo.radiusPx).toBe(120);
+    expect(geo.radiusPx).toBe(100);
     expect(geo.startAngle).toBeCloseTo(centerAngle - Math.acos(0.7071));
     expect(geo.endAngle).toBeCloseTo(centerAngle + Math.acos(0.7071));
   });
@@ -53,7 +53,7 @@ describe("wedgeGeometry", () => {
   it("uses the shipped hammer's ground-centered geometry", () => {
     const geo = wedgeGeometry(Math.PI / 3, 50, weaponProfileForId("hammer"));
     expect(geo.shape).toBe("ground");
-    expect(geo.radiusPx).toBe(102);
+    expect(geo.radiusPx).toBe(125);
   });
 });
 

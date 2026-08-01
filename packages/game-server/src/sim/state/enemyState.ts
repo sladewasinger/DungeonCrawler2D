@@ -66,6 +66,50 @@ export interface DirectionalFlameCell {
   readonly y: number;
 }
 
+export interface EnemyAttackAnimationTarget {
+  readonly targetId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  /** Stable additive offset for this ranged enemy's firing spread. */
+  readonly spreadX?: number;
+  readonly spreadY?: number;
+}
+
+export interface EnemyMeleeAttackReservation {
+  readonly kind: "melee-slot";
+  readonly targetId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly updatedAtTick: number;
+}
+
+export interface EnemyRangedAttackReservation {
+  readonly kind: "ranged-aim";
+  readonly targetId: string;
+  readonly directionX: number;
+  readonly directionY: number;
+  /** Absolute standoff coordinates for the enemy's chosen ranged movement point. */
+  readonly x: number;
+  readonly y: number;
+  readonly updatedAtTick: number;
+}
+
+export interface EnemyMeleeFormationState {
+  readonly targetId: string;
+  readonly kind: "slot" | "bounded-fallback" | "hold";
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly updatedAtTick: number;
+  readonly holdReason?: "no-bounded-slot";
+}
+
+export type EnemyAttackReservation =
+  | EnemyMeleeAttackReservation
+  | EnemyRangedAttackReservation;
+
 export interface EnemySlot {
   entity: Entity;
   brain: EnemyBrain;
@@ -93,6 +137,10 @@ export interface EnemySlot {
   animation: {
     state: EnemyAnimationState;
     ticksRemaining: number;
-    target?: { targetId: string; x: number; y: number; z: number };
+    target?: EnemyAttackAnimationTarget;
   };
+  /** Server-only short-range attack routing and firing reservations. */
+  attackReservation?: EnemyAttackReservation;
+  /** Explicit melee slot, bounded fallback, or intentional hold state. */
+  meleeFormation?: EnemyMeleeFormationState;
 }

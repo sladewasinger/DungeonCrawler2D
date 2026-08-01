@@ -46,7 +46,7 @@ describe("weaponProfileForId", () => {
     expect(weaponProfileForId("sword")).toEqual({
       profileId: "sword",
       damage: 9,
-      range: 2.4,
+      range: 2,
       cooldownMs: 350,
       arcCos: 0.7071,
       shape: "cone",
@@ -55,11 +55,11 @@ describe("weaponProfileForId", () => {
     expect(weaponProfileForId("hammer")).toEqual({
       profileId: "hammer",
       damage: 7,
-      range: 2.04,
+      range: 2.5,
       cooldownMs: 500,
       arcCos: 0.7071,
       shape: "ground",
-      knockbackForce: 18,
+      knockbackForce: 20,
     });
   });
 });

@@ -1,5 +1,5 @@
 import type { Entity } from "../../entities/entity.js";
-import type { EnemyBrain, RememberedEnemyTarget } from "./ai.js";
+import type { EnemyBrain, RememberedEnemyTarget } from "./types.js";
 
 export function ageEnemyMemory(brain: EnemyBrain, dt: number): void {
   if (brain.memoryPhase === "searching") {

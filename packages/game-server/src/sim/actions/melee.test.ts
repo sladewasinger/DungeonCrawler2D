@@ -100,7 +100,7 @@ describe("active player melee attacks", () => {
 
   it("resolves at the 150 ms boundary but never at 200 ms", () => {
     const fixture = createMeleeFixture();
-    const boundaryEnemy = spawnSpitter(fixture, 3.9);
+    const boundaryEnemy = spawnSpitter(fixture, 3.6);
 
     attack(fixture);
     advanceMeleeTick(fixture, 1);

@@ -13,8 +13,8 @@ import { blocksAttackDirection } from "../players/directionalBlock.js";
 import { notifyBlockFeedback } from "../combat/blockFeedback.js";
 import { resolveProjectileImpact } from "./impact.js";
 import { returnProjectileDuringActiveMeleeAttack } from "./reflection.js";
-
-/** Thrown items and enemy spit: flight, direct hits, impact effects. */
+import { resolveBlockedOilLobImpact } from "./blockedImpact.js";
+import { isOilLob } from "../enemies/elemental/oilLob.js";
 
 export function stepProjectiles(sim: SimState, effectEvents: EffectEvent[]): void {
   for (const [id, projectile] of sim.projectiles) {
@@ -47,6 +47,12 @@ function resolveProjectileStep(step: ProjectileStep): void {
   sim.projectiles.delete(id);
   if (directHit && projectileBlockedByTarget(sim, projectile, directHit)) {
     notifyBlockFeedback(sim, directHit, "projectile");
+    resolveBlockedOilLobImpact({
+      sim,
+      projectile,
+      directHit,
+      effectEvents,
+    });
     return;
   }
   const point = directHit?.body ?? impact ?? projectile.body;
@@ -86,36 +92,59 @@ function projectileBlockedByTarget(
     ? sim.players.get(target.id)
     : undefined;
   const source = projectileSource(sim, projectile);
-  return projectile.defId === undefined &&
+  return isBlockableProjectile(projectile) &&
     blocksAttackDirection(targetSlot, source.x, source.y);
 }
 
-/** First living combatant the projectile is touching mid-flight (never the thrower). */
+function isBlockableProjectile(projectile: Entity): boolean {
+  return projectile.defId === undefined || isOilLob(projectile);
+}
+
 function findDirectHit(sim: SimState, projectile: Entity): Entity | null {
   for (const candidate of combatants(sim)) {
-    if (isDirectProjectileTarget(candidate, projectile)) return candidate;
+    if (isDirectProjectileTarget(sim, candidate, projectile)) return candidate;
   }
   return null;
 }
 
-function isDirectProjectileTarget(candidate: Entity, projectile: Entity): boolean {
+function isDirectProjectileTarget(
+  sim: SimState,
+  candidate: Entity,
+  projectile: Entity,
+): boolean {
   if (candidate.id === projectile.ownerId || candidate.hp <= 0) return false;
-  if (projectile.returnedByPlayerId !== undefined && candidate.kind !== "enemy") return false;
+  if (!isHostileProjectileTarget(sim, candidate, projectile)) return false;
   return withinProjectileRange(candidate, projectile) && alignedWithProjectile(candidate, projectile);
 }
 
+function isHostileProjectileTarget(
+  sim: SimState,
+  candidate: Entity,
+  projectile: Entity,
+): boolean {
+  if (projectile.returnedByPlayerId !== undefined) return candidate.kind === "enemy";
+  const owner = projectileOwnerKind(sim, projectile);
+  return owner === "enemy"
+    ? candidate.kind === "player"
+    : owner === "player"
+      ? candidate.kind === "enemy"
+      : true;
+}
+
+function projectileOwnerKind(
+  sim: SimState,
+  projectile: Entity,
+): Entity["kind"] | undefined {
+  return projectileOwner(sim, projectile.ownerId)?.kind;
+}
+
 function withinProjectileRange(candidate: Entity, projectile: Entity): boolean {
-  return circleIntersectsHurtbox(
-    projectile.body,
-    PROJECTILE_CONTACT_RADIUS,
-    candidate,
-  );
+  return circleIntersectsHurtbox(projectile.body, PROJECTILE_CONTACT_RADIUS, candidate);
 }
 
 function alignedWithProjectile(candidate: Entity, projectile: Entity): boolean {
   return verticalRangeIntersectsHurtbox(
     projectile.body.z - PROJECTILE_CONTACT_RADIUS,
     projectile.body.z + PROJECTILE_CONTACT_RADIUS,
-    candidate,
-  );
+    candidate);
 }

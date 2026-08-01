@@ -1,6 +1,6 @@
 import type { Entity } from "../../entities/entity.js";
 import type { MoveInput } from "../../entities/movement/index.js";
-import type { EnemyBrain, EnemyDecision } from "./ai.js";
+import type { EnemyBrain, EnemyDecision } from "./types.js";
 import {
   activeEnemyMemory,
   beginEnemySearch,

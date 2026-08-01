@@ -37,6 +37,12 @@ export interface AdminMapPointerCanvasInput {
   readonly canvas: HTMLCanvasElement;
 }
 
+export interface AdminMapPointerPanInput {
+  readonly delta: AdminMapScreenPoint;
+  readonly canvas: HTMLCanvasElement;
+  readonly tileSize?: number;
+}
+
 export interface AdminMapPanInput {
   readonly center: AdminMapCenter;
   readonly direction: AdminMapCenter;
@@ -100,6 +106,24 @@ export function panAdminMapCenter(input: AdminMapPanInput): AdminMapCenter {
     x: input.center.x + input.direction.x * distance,
     y: input.center.y + input.direction.y * distance,
   };
+}
+
+export function adminMapPointerWorldDelta(
+  input: AdminMapPointerPanInput,
+): AdminMapCenter {
+  const tileSize = input.tileSize ?? ADMIN_MAP_TILE_SIZE;
+  const rect = input.canvas.getBoundingClientRect();
+  return {
+    x: -input.delta.x * input.canvas.width / rect.width / tileSize,
+    y: -input.delta.y * input.canvas.height / rect.height / tileSize,
+  };
+}
+
+export function panAdminMapCenterByDelta(
+  center: AdminMapCenter,
+  delta: AdminMapCenter,
+): AdminMapCenter {
+  return { x: center.x + delta.x, y: center.y + delta.y };
 }
 
 export function pointIsNearCanvas(

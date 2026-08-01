@@ -6,10 +6,18 @@ import {
   beginElementalEnemyAttack,
 } from "../elemental/elementalEnemyAttack.js";
 import { launchSpit } from "./combat.js";
+import { rangeReleaseTarget, spitAnimation } from "./attackAnimation/helpers.js";
 
 export function beginWindup(
   enemy: EnemySlot,
-  target: { targetId: string; x: number; y: number; z: number },
+  target: {
+    targetId: string;
+    x: number;
+    y: number;
+    z: number;
+    spreadX?: number;
+    spreadY?: number;
+  },
 ): void {
   faceEntity(
     enemy.entity,
@@ -23,7 +31,6 @@ export function beginWindup(
   };
 }
 
-/** Returns true while the enemy is committed to an attack pose. */
 export function advanceAttackAnimation(
   sim: SimState,
   enemy: EnemySlot,
@@ -38,9 +45,7 @@ export function advanceAttackAnimation(
   if (enemy.animation.state === "recover" && !enemy.def.attack.ranged) {
     return tickPose(enemy, () => ({ state: "idle", ticksRemaining: 0 }));
   }
-  if (!enemy.def.attack.ranged ||
-      enemy.animation.state === "idle" ||
-      enemy.animation.state === "walk") return false;
+  if (!enemy.def.attack.ranged || enemy.animation.state === "idle" || enemy.animation.state === "walk") return false;
   return advanceRangedPose(sim, enemy, effectEvents);
 }
 
@@ -75,7 +80,11 @@ function advanceRangedPose(
 }
 
 function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
-  const target = rangedReleaseTarget(sim, enemy, enemy.animation.target);
+  if (!enemy.animation.target) {
+    enemy.animation = spitAnimation();
+    return true;
+  }
+  const target = rangeReleaseTarget(sim, enemy, enemy.animation.target);
   if (target && !beginElementalEnemyAttack({ sim, enemy, target })) {
     launchSpit({
       sim,
@@ -85,32 +94,6 @@ function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
   }
   enemy.animation = target ? spitAnimation(target) : spitAnimation();
   return true;
-}
-
-function rangedReleaseTarget(
-  sim: SimState,
-  enemy: EnemySlot,
-  target: EnemySlot["animation"]["target"],
-): EnemySlot["animation"]["target"] {
-  if (!target) return undefined;
-  const entity = sim.players.get(target.targetId)?.entity;
-  if (!entity || entity.hp <= 0) return undefined;
-  faceEntity(
-    enemy.entity,
-    entity.body.x - enemy.entity.body.x,
-    entity.body.y - enemy.entity.body.y,
-  );
-  return { targetId: entity.id, ...entity.body };
-}
-
-function spitAnimation(
-  target?: EnemySlot["animation"]["target"],
-): EnemySlot["animation"] {
-  const animation = {
-    state: "spit" as const,
-    ticksRemaining: ENEMY_SIMULATION_TUNING.animationTicks.rangedAttack,
-  };
-  return target ? { ...animation, target } : animation;
 }
 
 function nextRangedAnimation(enemy: EnemySlot): EnemySlot["animation"] {

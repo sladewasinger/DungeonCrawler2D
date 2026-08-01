@@ -44,6 +44,11 @@ export * from "./combat/weapons/weaponProfiles.js";
 export * from "./combat/weapons/weaponHitboxTuning.js";
 export * from "./combat/weapons/weaponTargeting.js";
 export * from "./combat/ai/ai.js";
+export type {
+  EnemyBrain,
+  EnemyDecision,
+  RememberedEnemyTarget,
+} from "./combat/ai/types.js";
 export * from "./combat/ai/enemyMemory.js";
 export * from "./debug/debugFlags.js";
 export * from "./net/messages.js";

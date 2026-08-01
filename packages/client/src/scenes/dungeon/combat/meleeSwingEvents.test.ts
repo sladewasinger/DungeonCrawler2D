@@ -101,7 +101,7 @@ describe("resolveMeleeSwings", () => {
     expect(swings[0]).toMatchObject({
       id: "sword-dummy",
       angleRad: Math.PI,
-      profile: { profileId: "sword", range: 2.4, arcCos: 0.7071 },
+      profile: { profileId: "sword", range: 2, arcCos: 0.7071 },
     });
   });
 

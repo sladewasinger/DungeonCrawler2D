@@ -6,6 +6,120 @@ This file is for the next agent taking over the current v0.8.0 worktree. The
 integrated release changes are intended for a local commit after validation;
 they must not be pushed until Austin finishes playtesting and asks for it.
 
+## Current stop-state handoff — read this first
+
+Austin stopped the active work on 2026-07-31 and requested a new agent. All
+active coding subagents were interrupted. Do not resume or recreate their work
+without first inspecting the dirty files listed below. This section is the
+authoritative continuation point when it conflicts with older counts or status
+elsewhere in this document.
+
+### Repository state
+
+- Branch: `develop`, ten commits ahead of `origin/develop`; nothing from this
+  continuation was pushed.
+- Latest clean checkpoints:
+  - `38adcaa feat: improve mobile controls and diagnostics`
+  - `8f31ffb fix: align Chort flames with their targets`
+- `38adcaa` passed full lint, typecheck, production build, and all 617 test
+  files / 2,591 tests before commit.
+- `8f31ffb` passed full lint, typecheck, production build, and all 618 test
+  files / 2,607 tests before commit.
+- The full gates temporarily isolated and then restored Austin's weapon-stat
+  edit. That file has not been committed or modified by an agent.
+
+### Dirty worktree — preserve every file
+
+- `README.md`
+  - The required Austin counter is updated from 58 to 60 for the two newest
+    messages. This change is required housekeeping but is not committed.
+- `packages/content/src/data/items.json`
+  - Austin's own experiment changes Rusty Sword range from 2.4 to 2, Hammer
+    range from 2.04 to 2.5, and Hammer knockback from 18 to 20.
+  - Do not revert, stage, rewrite, or silently update tests for this file until
+    Austin decides whether those values are final.
+- Interrupted Pitchbloom work, uncommitted and not final-gated:
+  - `packages/game-server/src/sim/enemies/elemental/oilLob.ts`
+  - `packages/game-server/src/sim/enemies/tests/elemental/oilLob.test.ts`
+  - `packages/game-server/src/sim/projectiles/index.ts`
+
+The interrupted Pitchbloom patch currently does three things:
+
+1. Enemy-owned projectiles target players rather than colliding with nearby
+   enemies, intended to stop clustered Pitchblooms intercepting each other's
+   oil lobs.
+2. A direct oil hit applies the status and continues into ordinary ground-oil
+   placement instead of returning before the puddle is placed.
+3. A shield-blocked oil lob resolves a non-direct impact at the projectile's
+   interception position, intended to splash without oiling the player.
+
+Tests were drafted for clustered Pitchblooms, direct-hit puddles, and blocked
+splashes, but the agent was interrupted before reporting focused validation.
+Treat this patch as incomplete: verify owner/faction filtering does not change
+neutral or player-thrown projectile behavior; verify two nearby Pitchblooms
+actually launch independently; verify the blocked splash lands in front of the
+shield rather than inside/behind the player; then run focused tests and
+`npm run lint:working-tree` before further edits.
+
+### Completed mobile checkpoint (`38adcaa`)
+
+- Mobile interaction now uses the existing prompt to show `PICKUP` when an item
+  can be collected and `USE` otherwise.
+- Touch controls are independently movable and square-resizable in HUD edit;
+  ordinary buttons are 10 percent larger, attack is the central 1.5x button,
+  the bag is editable, and defaults sit closer to the bottom safe area.
+- Mobile throw appears only for an equipped throwable. Holding begins the
+  existing trajectory preview, thumb movement adjusts the target, and release
+  throws. Desktop throw behavior is unchanged.
+- `?mobilePerf=1` enables bounded, local-only mobile performance sampling and a
+  copy button. HUD minimap/compass and telemetry updates use configured lower
+  cadences, and two frame-path allocation hot spots were removed.
+- Likely remaining mobile bottlenecks are fill rate/device-pixel ratio and
+  constrained-device lighting/particle budgets. They were deliberately not
+  reduced without diagnostics from a real slow device.
+
+### Completed Chort checkpoint (`8f31ffb`)
+
+- Root cause of angled misses was eight-way `Math.sign` aiming. Chort flames now
+  precompute one ordered, target-aligned authoritative tile path; damage,
+  visible areas, terrain blocking, and admin diagnostics consume that same
+  path.
+- The target position is refreshed when ranged windup releases. Cardinal,
+  shallow-diagonal, steep-diagonal, and moved-during-windup cases are covered.
+- Flame traverses reachable one-tile elevation changes cell by cell while
+  walls, void, sanctuary boundaries, occluding two-high crests, and arena/room
+  boundaries still stop it.
+- Chort is authored as fire-status immune with zero fire damage scale, so its
+  own or another Chort's fire cannot burn or damage it.
+- Hostile flame tiles last five seconds and repeated placement refreshes the
+  authored lifetime without blinking.
+
+### Next unstarted task: enemy attack spacing
+
+Austin reported melee and ranged enemies stacking in exactly the same position
+while attacking. No code was written for this task before the agent was
+stopped. Implement general deterministic attack-position spacing:
+
+- melee enemies should choose/reserve distinct reachable points around the
+  target instead of occupying one point;
+- ranged enemies should prefer separated firing positions with small stable
+  variation;
+- use simulation-stable hashing or reservations, never nondeterministic
+  `Math.random()`;
+- avoid oscillation and preserve attack viability;
+- gracefully fall back in narrow corridors or when no alternate walkable slot
+  exists;
+- add multi-melee, multi-ranged, and corridor-fallback regression coverage.
+
+### Validation warning for the next agent
+
+Running the full suite with Austin's current `items.json` experiment present
+will fail weapon-profile/range expectations that still describe the committed
+2.4 sword and 2.04/18 hammer values. Do not "fix" those tests by assumption.
+For an isolated gate, temporarily stash only that file with a named stash, run
+the gate, and immediately restore it. Never include it in another feature's
+commit.
+
 ## User-visible bugs that must remain in scope
 
 1. The weapon hitbox/green wedge must not be visible while the player is idle.
@@ -261,7 +375,7 @@ The final integrated release gate passed on 2026-07-31:
 - `npm run lint`
 - `npm run typecheck`
 - `npm run build`
-- `npm test` — 593 files and 2,502 tests passed
+- `npm test` — 618 files and 2,607 tests passed at commit `8f31ffb`
 - `git diff --check`
 
 The folder-size check reports only the repository's existing legacy notices,

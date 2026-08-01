@@ -63,4 +63,38 @@ describe("enemy remembered navigation", () => {
     expect(move).toEqual(NEUTRAL_INPUT);
     expect(enemy.rememberedRoute).toBeNull();
   });
+
+  it("routes visible-target spacing pursuits through pathing detours", () => {
+    const tileX = Math.floor(spot.x);
+    const tileY = Math.floor(spot.y);
+    sim.world.replaceTileOverrides([
+      { x: tileX + 3, y: tileY + 1, tile: TILE.CraftingTable },
+    ]);
+    const enemyEntity = spawnEnemy(sim, {
+      defId: "skeleton",
+      x: tileX + 3.5,
+      y: tileY + 0.5,
+    });
+    const player = sim.players.get("p1")?.entity;
+    if (!player) throw new Error("missing visible pursuit target");
+    player.body.x = tileX + 3.5;
+    player.body.y = tileY + 5.5;
+
+    const enemy = sim.enemies.get(enemyEntity.id);
+    if (!enemy) throw new Error("missing spacing pursuit fixture");
+    const standoff = {
+      x: player.body.x,
+      y: player.body.y + 1,
+      z: player.body.z,
+    };
+
+    const move = enemyPursuitMove({
+      sim,
+      enemy,
+      visibleTarget: player,
+      decision: { move: NEUTRAL_INPUT, pursuit: standoff },
+    });
+
+    expect(move).not.toEqual({ moveX: 0, moveY: 1, jump: false });
+  });
 });
