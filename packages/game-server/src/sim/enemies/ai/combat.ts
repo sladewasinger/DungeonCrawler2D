@@ -107,14 +107,29 @@ function applyStrikeEffects(input: EnemyStrikeInput, victim: EnemySlot["entity"]
 export function launchSpit(input: SpitLaunchInput): void {
   const { sim, enemy, target } = input;
   const entity = enemy.entity;
+  const landingTarget = variedLandingTarget(sim, target);
   const projectile = makeEntity("projectile", createBody(entity.body.x, entity.body.y, entity.body.z + 0.5), {
     id: newEntityId("j"),
     ownerId: entity.id,
     tags: new Set(["spit", ...enemy.def.tags]),
     directProjectileImpact: spitImpact(enemy),
-    vel: launchVelocity({ x: entity.body.x, y: entity.body.y, z: entity.body.z + 0.5 }, target, THROW_SPEED),
+    vel: launchVelocity({ x: entity.body.x, y: entity.body.y, z: entity.body.z + 0.5 }, landingTarget, THROW_SPEED),
   });
   sim.projectiles.set(projectile.id, projectile);
+}
+
+function variedLandingTarget(
+  sim: SimState,
+  target: SpitLaunchInput["target"],
+): SpitLaunchInput["target"] {
+  const radius = ENEMY_SIMULATION_TUNING.rangedProjectile.landingVariationRadiusTiles;
+  const angle = sim.rng.next() * Math.PI * 2;
+  const distance = radius * Math.sqrt(sim.rng.next());
+  return {
+    ...target,
+    x: target.x + Math.cos(angle) * distance,
+    y: target.y + Math.sin(angle) * distance,
+  };
 }
 
 function spitImpact(enemy: EnemySlot) {

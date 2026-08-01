@@ -3,6 +3,7 @@ import type { EnemySlot, SimState } from "../../../state/state.js";
 import { isSpawnProtected } from "../../../spawnSafety/spawnSafety.js";
 import { beginElementalEnemyAttack } from "../../elemental/elementalEnemyAttack.js";
 import { launchSpit } from "../combat.js";
+import { ENEMY_SIMULATION_TUNING } from "../../configuration/enemySimulationTuning.js";
 import { rangeReleaseTarget, spitAnimation } from "./helpers.js";
 
 export function liveRangedReleaseTarget(
@@ -53,11 +54,22 @@ export function releaseRangedAttack(input: {
 }
 
 export function rangedSpitPose(
+  enemy: EnemySlot,
   target: NonNullable<EnemySlot["animation"]["target"]>,
   releasesRemaining: number | undefined,
 ): EnemySlot["animation"] {
   const pose = spitAnimation(target);
+  const ticksRemaining = isPendingOrdinaryRelease(enemy, releasesRemaining)
+    ? ENEMY_SIMULATION_TUNING.rangedProjectile.interReleaseTicks
+    : pose.ticksRemaining;
   return releasesRemaining === undefined
     ? pose
-    : { ...pose, releasesRemaining };
+    : { ...pose, ticksRemaining, releasesRemaining };
+}
+
+function isPendingOrdinaryRelease(
+  enemy: EnemySlot,
+  releasesRemaining: number | undefined,
+): boolean {
+  return releasesRemaining !== undefined && enemy.def.attack.elemental === undefined;
 }

@@ -10,12 +10,9 @@ import { attackInKidMode } from "../controls/kidMode.js";
 import { triggerAssistedAttack } from "./assistedAim.js";
 import { triggerAttack } from "./attack.js";
 
-interface PointerHudHitRequest {
-  state: InputState;
-  deps: PointerDeps;
-  pointer: Phaser.Input.Pointer;
-  hud: InputHud;
-}
+export type { PointerDeps } from "../pointer/pointer.js";
+
+interface PointerHudHitRequest { state: InputState; deps: PointerDeps; pointer: Phaser.Input.Pointer; hud: InputHud; }
 
 export function handlePointerHudHit({ state, deps, pointer, hud }: PointerHudHitRequest): boolean {
   const uiHit = hud.hitTest(pointer.x, pointer.y);
@@ -44,10 +41,7 @@ export function handleTouchPointer({ touchActive, touch, pointer, viewport }: To
 }
 
 interface PointerAttackRequest {
-  state: InputState;
-  deps: PointerDeps;
-  pointer: Phaser.Input.Pointer;
-  camera: WorldPointCamera;
+  state: InputState; deps: PointerDeps; pointer: Phaser.Input.Pointer; camera: WorldPointCamera;
   tilePx: number;
 }
 
@@ -63,24 +57,48 @@ export function attackAtPointer({ state, deps, pointer, camera, tilePx }: Pointe
     });
     return;
   }
-  const cursorWorld = cursorWorldTile({ camera, pointer, tilePx, heightAt: conn.heightAt });
-  const dx = cursorWorld.x - conn.body!.x;
-  const dy = cursorWorld.y - conn.body!.y;
+  const aim = pointerAim({ deps, pointer, camera, tilePx });
   triggerAttack({
     state,
     conn,
     hooks: deps.hooks,
-    direction: { x: dx, y: dy },
+    direction: aim.networkDirection,
+    ...(aim.presentationDirection
+      ? { presentationDirection: aim.presentationDirection }
+      : {}),
     nowMs: performance.now(),
     cooldownMs: deps.queries.attackCooldownMs(conn.weapon),
   });
 }
 
+function pointerAim(request: {
+  readonly deps: PointerDeps;
+  readonly pointer: Phaser.Input.Pointer;
+  readonly camera: WorldPointCamera;
+  readonly tilePx: number;
+}): {
+  readonly networkDirection: { readonly x: number; readonly y: number };
+  readonly presentationDirection?: { readonly x: number; readonly y: number };
+} {
+  const { deps, pointer, camera, tilePx } = request;
+  const reflectionAim = deps.queries.projectileReflectionAim?.(deps.conn, {
+    pointerView: pointerViewTile(camera, pointer, tilePx),
+    orientation: getViewOrientation(),
+  });
+  if (reflectionAim) return reflectionAim;
+  const cursorWorld = cursorWorldTile({ camera, pointer, tilePx, heightAt: deps.conn.heightAt });
+  return {
+    networkDirection: { x: cursorWorld.x - deps.conn.body!.x, y: cursorWorld.y - deps.conn.body!.y },
+  };
+}
+
+function pointerViewTile(camera: WorldPointCamera, pointer: Phaser.Input.Pointer, tilePx: number): { x: number; y: number } {
+  const viewPixels = camera.getWorldPoint(pointer.x, pointer.y);
+  return { x: viewPixels.x / tilePx, y: viewPixels.y / tilePx };
+}
+
 interface UiHitRequest {
-  state: InputState;
-  deps: PointerDeps;
-  uiHit: string;
-  pointerId: number;
+  state: InputState; deps: PointerDeps; uiHit: string; pointerId: number;
   pointer: Phaser.Input.Pointer;
 }
 
@@ -91,9 +109,7 @@ function handleUiHit({ state, deps, uiHit, pointerId, pointer }: UiHitRequest): 
 }
 
 interface UiHitActionsRequest {
-  state: InputState;
-  deps: PointerDeps;
-  pointerId: number;
+  state: InputState; deps: PointerDeps; pointerId: number;
   pointer: Phaser.Input.Pointer;
 }
 
@@ -118,10 +134,7 @@ function uiHitActions({ state, deps, pointerId, pointer }: UiHitActionsRequest):
 }
 
 interface TouchAttackRequest {
-  state: InputState;
-  conn: InputConnection;
-  queries: InputQueries;
-  hooks: InputHooks;
+  state: InputState; conn: InputConnection; queries: InputQueries; hooks: InputHooks;
   touch: TouchInputState;
   cooldownMs: number;
 }

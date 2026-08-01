@@ -17,9 +17,9 @@ mode, and expands the tools used to operate and debug the dungeon.
 
 ## Austin's F-Bomb Counter
 
-**62**
+**64**
 
-<!-- f-bomb-count: 62 -->
+<!-- f-bomb-count: 64 -->
 
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.

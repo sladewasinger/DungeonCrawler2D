@@ -3,32 +3,19 @@ import { describe, expect, it } from "vitest";
 import { doAttack, stepActiveMeleeAttacks } from "../actions/melee.js";
 import { spawnEnemy } from "../core/helpers.js";
 import { launchSpit } from "../enemies/ai/combat.js";
-import {
-  addEnemyTestPlayer,
-  createEnemyTestSim,
-  findEnemyTestFloor,
-} from "../enemies/tests/enemyAiTestSupport.js";
+import { addEnemyTestPlayer, createEnemyTestSim, findEnemyTestFloor } from "../enemies/tests/enemyAiTestSupport.js";
 import { realizeEffectEvents } from "../progression/statuses.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import { stepProjectiles } from "./index.js";
 
-interface ReflectionFixture {
-  readonly sim: SimState;
-  readonly player: PlayerSlot;
-  readonly enemy: Entity;
-  readonly projectile: Entity;
-}
+interface ReflectionFixture { readonly sim: SimState; readonly player: PlayerSlot; readonly enemy: Entity; readonly projectile: Entity; }
 
 function createReflectionFixture(): ReflectionFixture {
   const sim = createEnemyTestSim();
   const spot = findEnemyTestFloor(sim);
   const player = addEnemyTestPlayer(sim, spot);
   player.weapon = "sword";
-  const enemy = spawnEnemy(sim, {
-    defId: "spitter",
-    x: spot.x + 2.8,
-    y: spot.y,
-  });
+  const enemy = spawnEnemy(sim, { defId: "spitter", x: spot.x + 2.8, y: spot.y });
   enemy.body.z = player.entity.body.z;
   const enemySlot = sim.enemies.get(enemy.id);
   if (!enemySlot) throw new Error("missing Spitter fixture");
@@ -41,11 +28,7 @@ function createReflectionFixture(): ReflectionFixture {
   return { sim, player, enemy, projectile };
 }
 
-function firstProjectile(sim: SimState): Entity {
-  const projectile = sim.projectiles.values().next().value;
-  if (!projectile) throw new Error("missing projectile fixture");
-  return projectile;
-}
+function firstProjectile(sim: SimState): Entity { const projectile = sim.projectiles.values().next().value; if (!projectile) throw new Error("missing projectile fixture"); return projectile; }
 
 function attack(fixture: ReflectionFixture, direction = { x: 1, y: 0 }): EffectEvent[] {
   const events: EffectEvent[] = [];
@@ -116,11 +99,29 @@ describe("hostile projectile returns", () => {
     blocking.player.blocking = true;
     attack(blocking);
     expect(blocking.projectile.ownerId).toBe(blocking.enemy.id);
+    blocking.projectile.body.x = blocking.player.entity.body.x; blocking.projectile.body.y = blocking.player.entity.body.y;
+    blocking.projectile.vel = { x: 0, y: 0, z: 0 };
+    stepProjectiles(blocking.sim, []);
+    expect(blocking.player.outbox).toContainEqual({ t: "blockFeedback", kind: "projectile" });
 
     const coolingDown = createReflectionFixture();
     coolingDown.player.attackReadyAtTick = coolingDown.sim.tickCount + 1;
-    attack(coolingDown);
-    expect(coolingDown.projectile.ownerId).toBe(coolingDown.enemy.id);
+    attack(coolingDown); expect(coolingDown.projectile.ownerId).toBe(coolingDown.enemy.id);
+  });
+
+  it("blocks from the projectile arrival line when the owner has moved", () => {
+    const fixture = createReflectionFixture();
+    fixture.player.blocking = true;
+    fixture.player.entity.facing = { x: 1, y: 0 };
+    attack(fixture);
+    fixture.enemy.body.x = fixture.player.entity.body.x - 3;
+    fixture.projectile.body.x = fixture.player.entity.body.x + 0.5;
+    fixture.projectile.body.y = fixture.player.entity.body.y;
+    fixture.projectile.vel = { x: -10, y: 0, z: 0 };
+
+    stepProjectiles(fixture.sim, []);
+
+    expect(fixture.player.outbox).toContainEqual({ t: "blockFeedback", kind: "projectile" });
   });
 
   it("does not return the same projectile twice", () => {

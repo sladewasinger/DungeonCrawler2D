@@ -6,7 +6,9 @@ import {
   combatHurtbox,
   combatHurtboxBounds,
   ENEMY_HURTBOX,
+  DEFAULT_HURTBOX,
   PLAYER_HURTBOX,
+  PROJECTILE_CONTACT_RADIUS,
   reachesHurtbox,
   verticalRangeIntersectsHurtbox,
 } from "./hurtboxes.js";
@@ -17,20 +19,41 @@ function entity(kind: "player" | "enemy", x: number, y = 0) {
 
 describe("canonical combat hurtboxes", () => {
   it("uses axis-aligned player and enemy box defaults", () => {
+    const player = entity("player", 0);
     expect(combatHurtbox("player")).toBe(PLAYER_HURTBOX);
+    expect(combatHurtbox(player)).toEqual(PLAYER_HURTBOX);
     expect(combatHurtbox("enemy")).toBe(ENEMY_HURTBOX);
-    expect(PLAYER_HURTBOX).toEqual({
-      halfWidth: 0.4583333333,
-      halfDepth: 0.4583333333,
-      height: 1.6666666667,
-      bottomOffset: -0.0416666667,
-    });
     expect(ENEMY_HURTBOX).toEqual({
       halfWidth: 0.5416666667,
       halfDepth: 0.5416666667,
       height: 1.0833333333,
       bottomOffset: 0.0416666667,
     });
+    expect(DEFAULT_HURTBOX).toEqual({
+      halfWidth: 0.25,
+      halfDepth: 0.25,
+      height: 1,
+      bottomOffset: 0,
+    });
+  });
+
+  it("keeps the lowered player top and projectile-contact boundary exact", () => {
+    const target = entity("player", 0);
+    const bounds = combatHurtboxBounds(target);
+    const tangent = bounds.maxZ + PROJECTILE_CONTACT_RADIUS;
+
+    expect(bounds.minZ).toBe(target.body.z - PLAYER_HURTBOX.bottomOffset);
+    expect(bounds.maxZ).toBe(bounds.minZ + PLAYER_HURTBOX.height);
+    expect(verticalRangeIntersectsHurtbox(
+      tangent - PROJECTILE_CONTACT_RADIUS,
+      tangent + PROJECTILE_CONTACT_RADIUS,
+      target,
+    )).toBe(true);
+    expect(verticalRangeIntersectsHurtbox(
+      tangent + 0.0000000001 - PROJECTILE_CONTACT_RADIUS,
+      tangent + 0.0000000001 + PROJECTILE_CONTACT_RADIUS,
+      target,
+    )).toBe(false);
   });
 
   it("uses the same padded vertical volume for debug bounds and contacts", () => {

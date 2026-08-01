@@ -102,6 +102,10 @@ code in.
   validated with focused render tests plus explicit playtest evidence.
 - Tests assert behavior, not implementation: through the public facade, never
   reaching into siblings.
+- Tests must not duplicate configurable production values as literals. Import the
+  canonical configuration or derive boundary inputs from it, then assert the
+  resulting behavior. Literals are appropriate only for independent fixtures or
+  deliberately testing a fixed protocol/schema contract.
 - A red test or type error anywhere fails the task. There is no "mostly done."
 
 ## Definition of done (for any task, any agent)

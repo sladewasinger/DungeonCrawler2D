@@ -5,10 +5,10 @@
     "renderedEdgePixels": 2
   },
   "player": {
-    "halfWidth": 0.4583333333,
-    "halfDepth": 0.4583333333,
-    "height": 1.6666666667,
-    "bottomOffset": -0.0416666667
+    "halfWidth": 0.4,
+    "halfDepth": 0.4,
+    "height": 1,
+    "bottomOffset": -0.042
   },
   "enemy": {
     "halfWidth": 0.5416666667,

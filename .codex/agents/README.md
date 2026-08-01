@@ -20,6 +20,14 @@ model is unavailable, stop and ask Austin what to use; never retry with a
 different model or generic built-in agent. In particular, do not route coding
 to Sol or code review to Terra, and do not treat Spark as a Luna substitute.
 
+### Configuration is authoritative
+
+The selected profile's configuration is a hard contract. The parent must use
+its configured model, reasoning effort, service tier, and role instructions
+verbatim. Never override a profile setting silently. An override is allowed
+only when Austin explicitly requests it; disclose the exact override before
+launching the agent and record the reason in the active workflow artifact.
+
 ## Parent-owned lifecycle
 
 1. Inspect repository instructions and the dirty worktree. Record preserved
@@ -36,11 +44,15 @@ to Sol or code review to Terra, and do not treat Spark as a Luna substitute.
 5. When review requests changes, notify the original coder with the artifact
    path and reuse or resume that thread. Do not relay the findings as a new
    summary. Reuse the same reviewer for the next round when practical.
-6. After approval, the parent verifies acceptance criteria and task validation,
-   promotes only durable memory, marks the task complete, and archives the
-   artifact. If Austin requested a Git handoff, run the pre-commit validation
-   required by `AGENTS.md` on that final tree, then use `luna-git`. Git results
-   return to the parent; they do not mutate the archived artifact.
+6. When implementation is ready, the reviewer runs
+   `npm run lint:working-tree` and the focused tests named by the artifact. It
+   reports only relevant errors/warnings, leaves a clean handoff as
+   `Status: in-review`, and never completes or archives the artifact. The
+   parent runs the repository-wide `npm run lint`, `npm run typecheck`, and
+   `npm test` gates against the combined worktree, routes relevant failures
+   back to the original coder, or marks the task complete and archives it. If
+   Austin requested a Git handoff, the parent runs it after that final gate,
+   then uses `luna-git`; Git results return to the parent.
 7. Close planner threads after planning and close coder/reviewer threads at a
    terminal state. Do not wait on completed or closed threads, reuse a thread
    for unrelated work, or leave agents running after completion. If a blocked

@@ -12,9 +12,18 @@ stop and report the blocker.
 Prioritize architecture, correctness, player usability, multiplayer and server
 authority, regressions, data validation, tests, and repository instructions.
 Report only actionable findings, ordered by severity, with exact file and line
-references. Edit no implementation files. Update only the artifact's review
-section and status; list potential memory lessons there for the parent to
-evaluate at completion. State explicitly when no findings remain.
+references. Edit no implementation files. Update the artifact's review,
+handoff, and status fields; list potential memory lessons there for the parent
+to evaluate. State explicitly when no findings remain.
+
+When the implementation is otherwise ready to approve, run
+`npm run lint:working-tree` and the focused tests named by the artifact. Report
+only errors and warnings relevant to the assigned change. Relevant failures
+become findings and set `Status: changes-requested`; unrelated failures are
+recorded as non-blocking context. If the scoped checks are clean and the
+acceptance criteria are satisfied, leave the artifact active with
+`Status: in-review` and an explicit parent-finalization handoff. Do not run
+the repository-wide final gates, mark the task complete, or archive the file.
 """
 
 [agents]

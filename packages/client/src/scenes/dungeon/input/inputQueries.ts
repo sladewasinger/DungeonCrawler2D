@@ -6,6 +6,10 @@ import {
   resolveWorldInteraction,
 } from "@dc2d/engine";
 import type { InputQueries } from "../../../input/index.js";
+import {
+  findProjectileReflectionAim,
+  type ReflectionProjectileSnapshot,
+} from "./projectileReflectionAim.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { RemoteEntity } from "../../../net/interpolation/interpolate.js";
 import { canOpenLootChest, nearestLootChest } from "../../../net/queries/lootChestQuery.js";
@@ -16,6 +20,7 @@ import {
   nearestEntity,
   nearestEntityId,
   recipeIdAtIndex,
+  weaponProfileForId,
   weaponCooldownMs,
 } from "../world/contentQueries.js";
 import { resolveStairwayPrompt } from "../world/stairwayProximity.js";
@@ -43,12 +48,13 @@ export function createInputQueries(conn: Connection): InputQueries {
 function inputContentQueries(conn: Connection): Pick<
   InputQueries,
   "isThrowable" | "isConsumable" | "attackCooldownMs" | "recipeIdAt" |
-  "nearestPlayerId" | "nearestEnemyDirection"
+  "nearestPlayerId" | "nearestEnemyDirection" | "projectileReflectionAim"
 > {
   return {
     isThrowable: isThrowableItem,
     isConsumable: isConsumableItem,
     attackCooldownMs: (weaponId) => weaponCooldownMs(weaponId, ATTACK_COOLDOWN_MS),
+    projectileReflectionAim: projectileReflectionQuery(conn),
     recipeIdAt: recipeIdAtIndex,
     nearestPlayerId: (adapter, maxDistance) => adapter.body
       ? nearestEntityId({ entities: positionedEntities(conn), kind: "player", fromX: adapter.body.x, fromY: adapter.body.y, maxDistance })
@@ -67,6 +73,32 @@ function inputContentQueries(conn: Connection): Pick<
         : undefined;
     },
   };
+}
+
+function projectileReflectionQuery(
+  conn: Connection,
+): NonNullable<InputQueries["projectileReflectionAim"]> {
+  return (adapter, input) => adapter.body
+    ? findProjectileReflectionAim({
+      player: adapter.body,
+      pointerView: input.pointerView,
+      orientation: input.orientation,
+      weaponReach: weaponProfileForId(adapter.weapon).range,
+      projectiles: projectileSnapshots(conn),
+    })
+    : undefined;
+}
+
+function projectileSnapshots(conn: Connection): ReflectionProjectileSnapshot[] {
+  return [...conn.entities.values()]
+    .filter(({ snap }) => snap.kind === "projectile")
+    .map(({ snap }) => ({
+      id: snap.id,
+      x: snap.x,
+      y: snap.y,
+      z: snap.z,
+      ...(snap.defId === undefined ? {} : { defId: snap.defId }),
+    }));
 }
 
 function inputProximityQueries(conn: Connection): Pick<InputQueries, "nearbyLootChest" | "isStashNearby" | "isCraftTableNearby" | "worldInteraction" | "isStairwayNearby" | "downedPartyMemberInRange" | "isAdoptablePetNearby" | "isPickupNearby"> {

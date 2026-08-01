@@ -14,14 +14,23 @@ interface AttackRequest {
   readonly conn: InputConnection;
   readonly hooks: InputHooks;
   readonly direction: AttackDirection;
+  readonly presentationDirection?: AttackDirection;
   readonly nowMs: number;
   readonly cooldownMs: number;
 }
 
 export function triggerAttack(request: AttackRequest): void {
-  const { state, conn, hooks, direction, nowMs, cooldownMs } = request;
+  const {
+    state,
+    conn,
+    hooks,
+    direction,
+    presentationDirection = direction,
+    nowMs,
+    cooldownMs,
+  } = request;
   if (nowMs < state.nextSwingAt) return;
   state.nextSwingAt = nowMs + cooldownMs;
   conn.attack(direction.x, direction.y);
-  hooks.onSwing(direction.x, direction.y);
+  hooks.onSwing(presentationDirection.x, presentationDirection.y);
 }

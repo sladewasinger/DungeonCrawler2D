@@ -63,11 +63,24 @@ function projectileSource(
   sim: SimState,
   projectile: Entity,
 ): { x: number; y: number } {
+  const incomingSource = projectileIncomingSource(projectile);
+  if (incomingSource) return incomingSource;
   const owner = projectileOwner(sim, projectile.ownerId);
   if (owner) return { x: owner.body.x, y: owner.body.y };
   return {
     x: projectile.body.x - projectileVelocity(projectile, "x"),
     y: projectile.body.y - projectileVelocity(projectile, "y"),
+  };
+}
+
+function projectileIncomingSource(
+  projectile: Entity,
+): { x: number; y: number } | undefined {
+  const velocity = projectile.vel;
+  if (!velocity || Math.hypot(velocity.x, velocity.y) <= 0.001) return undefined;
+  return {
+    x: projectile.body.x - velocity.x,
+    y: projectile.body.y - velocity.y,
   };
 }
 

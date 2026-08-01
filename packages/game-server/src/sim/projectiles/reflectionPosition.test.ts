@@ -1,15 +1,12 @@
-import { GRAVITY, TICK_DT, type EffectEvent, type Entity } from "@dc2d/engine";
+import { GRAVITY, PROJECTILE_CONTACT_RADIUS, TICK_DT, combatHurtboxBounds, type EffectEvent, type Entity } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { doAttack } from "../actions/melee.js";
 import { spawnEnemy } from "../core/helpers.js";
 import { launchSpit } from "../enemies/ai/combat.js";
-import {
-  addEnemyTestPlayer,
-  createEnemyTestSim,
-  findEnemyTestFloor,
-} from "../enemies/tests/enemyAiTestSupport.js";
+import { addEnemyTestPlayer, createEnemyTestSim, findEnemyTestFloor } from "../enemies/tests/enemyAiTestSupport.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import { stepProjectiles } from "./index.js";
+import { realizeEffectEvents } from "../progression/statuses.js";
 
 interface ReflectionFixture {
   readonly sim: SimState;
@@ -83,6 +80,25 @@ function placeProjectile(
 }
 
 describe("hostile projectile return positioning", () => {
+  it("reconciles elevated rendered aim to the horizontal body direction", () => {
+    const visible = createReflectionFixture();
+    placeProjectile(visible, { x: 1, y: 0.625, z: 1.25 });
+    const renderedDirection = { x: 1, y: -0.625 };
+    const renderedBodyZ = visible.projectile.body.z;
+    attack(visible, renderedDirection);
+    expect(visible.projectile.ownerId).toBe(visible.enemy.id);
+
+    const corrected = createReflectionFixture();
+    placeProjectile(corrected, { x: 1, y: 0.625, z: 1.25 });
+    const authoritativeDirection = {
+      x: corrected.projectile.body.x - corrected.player.entity.body.x,
+      y: corrected.projectile.body.y - corrected.player.entity.body.y,
+    };
+    expect(corrected.projectile.body.z).toBe(renderedBodyZ);
+    attack(corrected, authoritativeDirection);
+    expect(corrected.projectile.ownerId).toBe(corrected.player.entity.id);
+  });
+
   it("returns inline and offset screen-north spits inside the sword volume", () => {
     const inline = createReflectionFixture();
     placeProjectile(inline, { x: 0, y: -2.1 });
@@ -130,5 +146,24 @@ describe("hostile projectile return positioning", () => {
     placeProjectile(above, { x: 2.1, y: 0, z: 1.251 });
     attack(above, { x: 1, y: 0 });
     expect(above.projectile.ownerId).toBe(above.enemy.id);
+  });
+
+  it("uses the lowered player top for direct contact without changing reflection height", () => {
+    const high = createReflectionFixture(); const contactTangent = combatHurtboxBounds(high.player.entity).maxZ + PROJECTILE_CONTACT_RADIUS;
+    const highZ = contactTangent + 0.1;
+    expect(highZ).toBeGreaterThan(contactTangent); placeProjectile(high, { x: 0, y: 0, z: highZ - high.player.entity.body.z });
+    high.projectile.vel = { x: 0, y: 0, z: 0 };
+    const highEvents: EffectEvent[] = []; stepProjectiles(high.sim, highEvents); realizeEffectEvents(high.sim, highEvents);
+    expect(high.sim.projectiles.has(high.projectile.id)).toBe(true);
+    expect(high.player.entity.hp).toBe(high.player.entity.maxHp);
+
+    const inBand = createReflectionFixture(); const inBandTangent = combatHurtboxBounds(inBand.player.entity).maxZ + PROJECTILE_CONTACT_RADIUS;
+    const inBandZ = inBandTangent - 0.1;
+    expect(inBandZ).toBeLessThan(inBandTangent); placeProjectile(inBand, { x: 0, y: 0, z: inBandZ - inBand.player.entity.body.z });
+    inBand.projectile.vel = { x: 0, y: 0, z: 0 };
+    const inBandEvents: EffectEvent[] = []; stepProjectiles(inBand.sim, inBandEvents); realizeEffectEvents(inBand.sim, inBandEvents);
+    expect(inBand.sim.projectiles.has(inBand.projectile.id)).toBe(false);
+    expect(inBand.player.entity.hp).toBe(inBand.player.entity.maxHp - 3);
+
   });
 });

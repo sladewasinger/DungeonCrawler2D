@@ -9,7 +9,22 @@ export function advanceFirstRangedRelease(sim: SimState): void {
 }
 
 export function advancePendingRangedRelease(sim: SimState): void {
-  for (let tick = 0; tick < 2; tick += 1) stepEnemies(sim, []);
+  for (let tick = 0; tick < 10; tick += 1) stepEnemies(sim, []);
+}
+
+export function collectRangedReleaseTicks(
+  sim: SimState,
+  expectedReleases: number,
+): number[] {
+  const releaseTicks: number[] = [];
+  let projectileCount = sim.projectiles.size;
+  for (let tick = 0; tick < 40 && releaseTicks.length < expectedReleases; tick += 1) {
+    stepEnemies(sim, []);
+    if (sim.projectiles.size <= projectileCount) continue;
+    releaseTicks.push(tick);
+    projectileCount = sim.projectiles.size;
+  }
+  return releaseTicks;
 }
 
 export function advanceRangedRecovery(sim: SimState): void {
@@ -42,4 +57,14 @@ export function expectRangedPayload(
       applies: enemy.def.attack.applies,
     });
   }
+}
+
+export function facePlayerTowardEnemy(
+  player: { body: { x: number; y: number }; facing?: { x: number; y: number } },
+  enemy: { body: { x: number; y: number } },
+): void {
+  const dx = enemy.body.x - player.body.x;
+  const dy = enemy.body.y - player.body.y;
+  const length = Math.hypot(dx, dy);
+  if (length > 0) player.facing = { x: dx / length, y: dy / length };
 }

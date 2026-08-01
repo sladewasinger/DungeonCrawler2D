@@ -6,6 +6,7 @@
  */
 import type Phaser from "phaser";
 import type { MoveInput } from "@dc2d/engine";
+import type { ViewOrientation } from "../../render/view/orientation/viewOrientation.js";
 
 /** The chord of keys the controller listens to, resolved once at construction. */
 export type Keys = Record<
@@ -26,6 +27,17 @@ export interface ThrowPreview {
   slot: number;
   targetX: number;
   targetY: number;
+}
+
+export interface ProjectileReflectionQueryInput {
+  readonly pointerView: { readonly x: number; readonly y: number };
+  readonly orientation: ViewOrientation;
+}
+
+export interface ProjectileReflectionAim {
+  readonly projectileId: string;
+  readonly networkDirection: { readonly x: number; readonly y: number };
+  readonly presentationDirection: { readonly x: number; readonly y: number };
 }
 
 /** Mutable input state, held once by the facade and threaded through helpers. */
@@ -119,6 +131,10 @@ export interface InputQueries {
   isThrowable(itemDefId: string): boolean;
   isConsumable(itemDefId: string): boolean;
   attackCooldownMs(weaponId: string | null): number;
+  projectileReflectionAim?: (
+    conn: InputConnection,
+    input: ProjectileReflectionQueryInput,
+  ) => ProjectileReflectionAim | undefined;
   recipeIdAt(index: number): string | undefined;
   nearestPlayerId(conn: InputConnection, maxDistance: number): string | undefined;
   nearestEnemyDirection(

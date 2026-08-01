@@ -1,7 +1,7 @@
 # Ranged burst cadence and roaming pack anchors
 
 - Task: `2026-08-01-projectile-burst-cadence`
-- Status: `in-review`
+- Status: `complete`
 - Parent: `primary thread`
 - Coder: `unassigned`
 - Scope: `packages/game-server/src/sim/{state/enemyState.ts,enemies/ai/attackAnimation.ts,enemies/configuration/enemySimulationTuning.json,enemies/population/packs.ts,enemies/population/nearSpawn.ts,enemies/tests/enemyAi.test.ts,enemies/tests/combat/enemyAiCommittedAnimation.test.ts,enemies/populationCohesion.test.ts,enemies/population/nearSpawn.test.ts,integration/combat/combat.test.ts}`

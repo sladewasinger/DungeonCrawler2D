@@ -29,8 +29,12 @@ Use exactly one of these values in the artifact's `Status` field:
 Normal implementation flow is `planned` -> `in-progress` -> `in-review` ->
 `complete`. Review findings change `in-review` to `changes-requested`; the
 original coder returns it to `in-progress`, resolves every finding, and hands it
-back as `in-review`. A blocked task remains under `active/` until resumed or
-explicitly abandoned.
+back as `in-review`. The reviewer runs only the artifact's changed-file lint
+and focused tests, then either requests changes or leaves a clean handoff as
+`in-review`. The parent runs the repository-wide final gates on the combined
+worktree, then either routes failures back to the original coder or sets
+`complete` and archives the artifact. A blocked task remains under `active/`
+until resumed or explicitly abandoned.
 
 ## Minimal artifact schema
 
@@ -38,6 +42,7 @@ explicitly abandoned.
 # <Task title>
 
 - Task: `<task-id>`
+- Date: `<date + time in local timezone with timezone designator>`
 - Status: `planned`
 - Parent: `primary thread`
 - Coder: `unassigned` <!-- later: <profile> / <thread identifier> -->
@@ -94,8 +99,10 @@ approved round uses `Findings: None.` Reviewers list possible durable lessons in
 
 ## Completion and archive
 
-The parent confirms approval, acceptance criteria, and required validation;
-resolves or explicitly defers every finding; promotes eligible memory; sets
-`Status: complete`; and moves the same file to the current `archive/YYYY-MM/`
+The reviewer confirms the scoped acceptance criteria and records focused
+validation; it does not complete or archive the artifact. The parent runs
+`npm run lint`, `npm run typecheck`, and `npm test` against the combined
+worktree, resolves or routes any failures, promotes eligible memory, sets
+`Status: complete`, and moves the same file to the current `archive/YYYY-MM/`
 directory. The archived artifact is the final plan, handoff, review record, and
 task summary. Do not create a second completion report.

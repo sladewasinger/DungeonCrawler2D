@@ -40,5 +40,9 @@
     "rangedRecovery": 3,
     "meleeAttack": 4,
     "meleeRecovery": 3
+  },
+  "rangedProjectile": {
+    "interReleaseTicks": 10,
+    "landingVariationRadiusTiles": 0.2
   }
 }

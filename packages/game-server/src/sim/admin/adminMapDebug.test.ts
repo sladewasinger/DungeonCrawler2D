@@ -2,6 +2,7 @@ import {
   createDebugFlags,
   createBody,
   makeEntity,
+  PLAYER_HURTBOX,
   PROJECTILE_CONTACT_RADIUS,
 } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
@@ -25,12 +26,7 @@ describe("admin map debug projection", () => {
     if (!activeAttack) throw new Error("expected active melee attack");
 
     expect(entity.debug).toMatchObject({
-      hurtbox: {
-        halfWidth: 0.4583333333,
-        halfDepth: 0.4583333333,
-        height: 1.6666666667,
-        bottomOffset: -0.0416666667,
-      },
+      hurtbox: { ...PLAYER_HURTBOX },
     });
     expect(entity.debug?.attacks).toEqual([{
       shape: "cone",

@@ -93,7 +93,7 @@ function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
   }
   const releasesRemaining = selectBurstRemainder(sim, enemy);
   releaseRangedAttack({ sim, enemy, target });
-  enemy.animation = rangedSpitPose(target, releasesRemaining);
+  enemy.animation = rangedSpitPose(enemy, target, releasesRemaining);
   return true;
 }
 
@@ -113,7 +113,7 @@ function releasePendingAttack(sim: SimState, enemy: EnemySlot): void {
     return;
   }
   releaseRangedAttack({ sim, enemy, target });
-  enemy.animation = rangedSpitPose(target, nextBurstRemainder(enemy));
+  enemy.animation = rangedSpitPose(enemy, target, nextBurstRemainder(enemy));
 }
 
 function rangedRecovery(): EnemySlot["animation"] {
