@@ -50,9 +50,23 @@ export function isInsideSpawnEnemyExclusion(
 }
 
 export function canAddNearSpawnEnemy(sim: SimState, defId: string): boolean {
+  return canAddNearSpawnEnemies(sim, [defId]);
+}
+
+export function canAddNearSpawnEnemies(
+  sim: SimState,
+  defIds: readonly string[],
+): boolean {
   const counts = nearSpawnPopulationCounts(sim);
-  return counts.total < TUNING.nearSpawnTargetCount &&
-    (counts.byType.get(defId) ?? 0) < TUNING.nearSpawnMaximumSameType;
+  if (counts.total + defIds.length > TUNING.nearSpawnTargetCount) return false;
+  const additions = new Map<string, number>();
+  for (const defId of defIds) {
+    const count = (additions.get(defId) ?? 0) + 1;
+    additions.set(defId, count);
+    if ((counts.byType.get(defId) ?? 0) + count >
+        TUNING.nearSpawnMaximumSameType) return false;
+  }
+  return true;
 }
 
 export function nearSpawnPopulationCount(sim: SimState): number {

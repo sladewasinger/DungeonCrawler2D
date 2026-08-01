@@ -5,7 +5,7 @@
     "nearSpawnExclusionRadiusTiles": 20,
     "nearSpawnTargetCount": 8,
     "nearSpawnMaximumSameType": 4,
-    "nearSpawnPackMinimum": 1,
+    "nearSpawnPackMinimum": 2,
     "nearSpawnPackMaximum": 2,
     "dungeonPackMinimum": 2,
     "dungeonPackMaximum": 4,

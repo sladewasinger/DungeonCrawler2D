@@ -136,4 +136,5 @@ function clearOutsideAnimation(
     enemy.animation.state === "attack";
   if (!outsideAnimationTarget && !outsideMeleeTarget) return;
   enemy.animation = { state: "idle", ticksRemaining: 0 };
+  delete enemy.elementalAttack;
 }

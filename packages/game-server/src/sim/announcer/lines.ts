@@ -50,12 +50,12 @@ export const CHASM_DEATH_LINES: readonly DeathLine[] = [
 
 export const LEVEL_UP_LINES: readonly LevelLine[] = [
   (name, level) => `${name} reaches Level ${level}. The audience is mildly impressed.`,
-  (name, level) => `Level ${level} for ${name}. Somewhere, a sponsor nods.`,
+  (name, level) => `Level ${level} for ${name}. Somewhere, a potential sponsor nods.`,
   (name, level) => `${name} levels up to ${level}. Still not enough to matter, probably.`,
 ];
 
 export const KILL_MILESTONE_LINES: readonly KillLine[] = [
-  (name, count) => `${name} has logged ${count} kills. The dungeon keeps better count.`,
+  (name, count) => `${name} has logged ${count} kills. The audience is taking notes.`,
   (name, count) => `${count} kills for ${name}. Someone's angling for a sponsor.`,
   (name, count) => `${name} racks up kill #${count}. Efficient. Almost professional.`,
 ];

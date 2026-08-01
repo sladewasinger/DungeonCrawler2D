@@ -137,6 +137,9 @@ describe("GameSim: combat", () => {
     expect(snapshots.get(player.playerId)!.entities.some((entry) => entry.kind === "projectile")).toBe(true);
 
     snapshots = stepN(sim, 2);
+    const afterFirstRelease = findSpitter(snapshots)?.anim;
+    expect(["spit", "recover"]).toContain(afterFirstRelease);
+    if (afterFirstRelease === "spit") snapshots = stepN(sim, 2);
     expect(findSpitter(snapshots)?.anim).toBe("recover");
   });
 

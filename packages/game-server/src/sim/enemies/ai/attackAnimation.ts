@@ -3,10 +3,15 @@ import type { EnemySlot, SimState } from "../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../configuration/enemySimulationTuning.js";
 import {
   advanceElementalEnemyAttack,
-  beginElementalEnemyAttack,
 } from "../elemental/elementalEnemyAttack.js";
-import { launchSpit } from "./combat.js";
-import { rangeReleaseTarget, spitAnimation } from "./attackAnimation/helpers.js";
+import {
+  hasPendingRelease,
+  liveRangedReleaseTarget,
+  nextBurstRemainder,
+  rangedSpitPose,
+  releaseRangedAttack,
+  selectBurstRemainder,
+} from "./attackAnimation/rangedCadence.js";
 
 export function beginWindup(
   enemy: EnemySlot,
@@ -69,37 +74,46 @@ function advanceRangedPose(
     effectEvents,
   });
   if (elementalComplete !== null) {
-    if (elementalComplete) enemy.animation = rangedRecovery();
+    if (elementalComplete) finishRangedRelease(sim, enemy);
     return true;
   }
   enemy.animation.ticksRemaining -= 1;
   if (enemy.animation.ticksRemaining > 0) return true;
   if (enemy.animation.state === "windup") return finishWindup(sim, enemy);
-  enemy.animation = nextRangedAnimation(enemy);
+  if (enemy.animation.state === "spit") return finishRangedRelease(sim, enemy);
+  enemy.animation = { state: "idle", ticksRemaining: 0 };
   return true;
 }
 
 function finishWindup(sim: SimState, enemy: EnemySlot): boolean {
-  if (!enemy.animation.target) {
-    enemy.animation = spitAnimation();
+  const target = liveRangedReleaseTarget(sim, enemy);
+  if (!target) {
+    enemy.animation = rangedRecovery();
     return true;
   }
-  const target = rangeReleaseTarget(sim, enemy, enemy.animation.target);
-  if (target && !beginElementalEnemyAttack({ sim, enemy, target })) {
-    launchSpit({
-      sim,
-      enemy,
-      target,
-    });
-  }
-  enemy.animation = target ? spitAnimation(target) : spitAnimation();
+  const releasesRemaining = selectBurstRemainder(sim, enemy);
+  releaseRangedAttack({ sim, enemy, target });
+  enemy.animation = rangedSpitPose(target, releasesRemaining);
   return true;
 }
 
-function nextRangedAnimation(enemy: EnemySlot): EnemySlot["animation"] {
-  return enemy.animation.state === "spit"
-    ? rangedRecovery()
-    : { state: "idle", ticksRemaining: 0 };
+function finishRangedRelease(sim: SimState, enemy: EnemySlot): boolean {
+  if (!hasPendingRelease(enemy)) {
+    enemy.animation = rangedRecovery();
+    return true;
+  }
+  releasePendingAttack(sim, enemy);
+  return true;
+}
+
+function releasePendingAttack(sim: SimState, enemy: EnemySlot): void {
+  const target = liveRangedReleaseTarget(sim, enemy);
+  if (!target) {
+    enemy.animation = rangedRecovery();
+    return;
+  }
+  releaseRangedAttack({ sim, enemy, target });
+  enemy.animation = rangedSpitPose(target, nextBurstRemainder(enemy));
 }
 
 function rangedRecovery(): EnemySlot["animation"] {

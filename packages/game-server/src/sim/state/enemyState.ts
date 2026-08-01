@@ -138,6 +138,8 @@ export interface EnemySlot {
     state: EnemyAnimationState;
     ticksRemaining: number;
     target?: EnemyAttackAnimationTarget;
+    /** Server-only releases still pending in the current ranged burst. */
+    releasesRemaining?: number;
   };
   /** Server-only short-range attack routing and firing reservations. */
   attackReservation?: EnemyAttackReservation;

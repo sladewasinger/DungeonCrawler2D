@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnEnemy } from "../../../core/helpers.js";
 import type { SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../index.js";
@@ -7,6 +7,16 @@ import {
   createEnemyTestSim,
   findEnemyTestFloor,
 } from "../enemyAiTestSupport.js";
+import {
+  advanceFirstRangedRelease,
+  advancePendingRangedRelease,
+  advancePostRecoveryThinking,
+  advanceRangedRecovery,
+  expectRangedPayload,
+} from "./enemyAiCommittedAnimationSupport.js";
+
+const SPITTER_DEF_ID = "spitter";
+const ORC_SHAMAN_DEF_ID = "orc-shaman";
 
 describe("committed enemy AI animations", () => {
   let sim: SimState;
@@ -19,11 +29,7 @@ describe("committed enemy AI animations", () => {
   });
 
   it("does not refresh ranged cooldowns or reservations while windup is committed", () => {
-    const enemyEntity = spawnEnemy(sim, {
-      defId: "spitter",
-      x: spot.x + 4,
-      y: spot.y,
-    });
+    const enemyEntity = spawnEnemy(sim, { defId: SPITTER_DEF_ID, x: spot.x + 4, y: spot.y });
     stepEnemies(sim, []);
     const enemy = sim.enemies.get(enemyEntity.id);
     if (!enemy) throw new Error("missing spitter fixture");
@@ -38,13 +44,82 @@ describe("committed enemy AI animations", () => {
     expect(enemy.attackReservation).toEqual(windupReservation);
   });
 
-  it("resolves a settled melee attack through the authoritative block", () => {
-    const player = sim.players.get("p1");
+  it.each([
+    [SPITTER_DEF_ID, 1], [SPITTER_DEF_ID, 2],
+    [ORC_SHAMAN_DEF_ID, 1], [ORC_SHAMAN_DEF_ID, 2],
+  ] as const)("%s releases exactly %d projectiles with its payload", (defId, length) => {
+    vi.spyOn(sim.rng, "int").mockReturnValue(length);
     const enemyEntity = spawnEnemy(sim, {
-      defId: "slime",
-      x: spot.x + 0.8,
+      defId,
+      x: spot.x + 4,
       y: spot.y,
     });
+    const enemy = sim.enemies.get(enemyEntity.id);
+    if (!enemy) throw new Error(`missing ${defId} fixture`);
+
+    advanceFirstRangedRelease(sim);
+    const cooldown = enemy.brain.attackCooldown;
+    expect(enemy.animation.state).toBe("spit");
+    expect(enemy.animation.releasesRemaining).toBe(length === 2 ? 1 : undefined);
+    expect(enemy.brain.attackCooldown).toBe(cooldown);
+    expect(sim.projectiles.size).toBe(1);
+    if (length === 2) {
+      advancePendingRangedRelease(sim); expect(sim.projectiles.size).toBe(2);
+      expect(enemy.animation.releasesRemaining).toBeUndefined();
+    }
+    expectRangedPayload(sim, enemy, enemyEntity.id);
+    advanceRangedRecovery(sim);
+    expect(enemy.brain.attackCooldown).toBe(cooldown);
+    advancePostRecoveryThinking(sim, enemy, cooldown);
+    expect(enemy.brain.attackCooldown).toBeLessThan(cooldown);
+    expect(enemy.animation.state).not.toBe("windup");
+  });
+
+  it.each([SPITTER_DEF_ID, ORC_SHAMAN_DEF_ID] as const)(
+    "%s cancels a pending release after target invalidation",
+    (defId) => {
+      vi.spyOn(sim.rng, "int").mockReturnValue(2);
+      const entity = spawnEnemy(sim, { defId, x: spot.x + 4, y: spot.y });
+      const enemy = sim.enemies.get(entity.id);
+      const player = sim.players.get("p1");
+      if (!enemy || !player) throw new Error(`missing ${defId} target`);
+      advanceFirstRangedRelease(sim);
+      player.connected = false;
+      enemy.animation.ticksRemaining = 0;
+      stepEnemies(sim, []);
+      expect(sim.projectiles.size).toBe(1);
+      expect(enemy.animation.state).toBe("recover");
+    },
+  );
+
+  it("keeps a forced Chort continuation in committed spit with no projectiles", () => {
+    vi.spyOn(sim.rng, "int").mockReturnValue(2);
+    const enemyEntity = spawnEnemy(sim, { defId: "chort", x: spot.x + 2, y: spot.y });
+    const enemy = sim.enemies.get(enemyEntity.id);
+    if (!enemy) throw new Error("missing Chort burst fixture");
+
+    stepEnemies(sim, []);
+    const cooldown = enemy.brain.attackCooldown;
+    for (let tick = 0; tick < 5; tick += 1) stepEnemies(sim, []);
+    expect(enemy.animation.state).toBe("spit");
+    expect(enemy.animation.releasesRemaining).toBe(1);
+    expect(enemy.elementalAttack).toBeDefined();
+    expect(sim.projectiles.size).toBe(0);
+
+    let sawSecondSweep = false;
+    for (let tick = 0; tick < 100 && enemy.animation.state === "spit"; tick += 1) {
+      const pendingBefore = enemy.animation.releasesRemaining; stepEnemies(sim, []);
+      sawSecondSweep ||= pendingBefore === 1 && enemy.animation.releasesRemaining === undefined && enemy.elementalAttack !== undefined;
+      expect(enemy.brain.attackCooldown).toBe(cooldown);
+    }
+    expect(sawSecondSweep).toBe(true);
+    expect(enemy.animation.state).toBe("recover");
+    expect(sim.projectiles.size).toBe(0);
+  });
+
+  it("resolves a settled melee attack through the authoritative block", () => {
+    const player = sim.players.get("p1");
+    const enemyEntity = spawnEnemy(sim, { defId: "slime", x: spot.x + 0.8, y: spot.y });
     const enemy = sim.enemies.get(enemyEntity.id);
     if (!player || !enemy) throw new Error("missing blocked melee fixture");
     player.blocking = true;
@@ -73,9 +148,7 @@ describe("committed enemy AI animations", () => {
     const second = sim.enemies.get(secondEntity.id);
     const secondReservation = second?.attackReservation;
     expect(secondReservation?.kind).toBe("melee-slot");
-    expect(`${secondReservation?.x},${secondReservation?.y}`).not.toBe(
-      `${firstReservation.x},${firstReservation.y}`,
-    );
+    expect(`${secondReservation?.x},${secondReservation?.y}`).not.toBe(`${firstReservation.x},${firstReservation.y}`);
   });
 });
 

@@ -81,6 +81,7 @@ function routeRangedDecision(input: RangedSlotInput): void {
 }
 
 function shouldShootRangedRequest(input: RangedSlotInput): boolean {
+  if (!input.request.decision.shoot) return false;
   return isAtAttackSlot(input.request.enemy.entity.body, input.point) ||
     !isSelectionFiringPointReachable(input.sim, input.request.enemy, input.point) ||
     (!input.enforcePositioning && isInRangedAttackRange(input.request));

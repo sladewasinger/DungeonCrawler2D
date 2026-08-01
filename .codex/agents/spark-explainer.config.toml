@@ -1,0 +1,13 @@
+name = "spark-coder"
+description = "Explicit opt-in quick explainer."
+model = "gpt-5.3-codex-spark"
+model_reasoning_effort = "high"
+
+developer_instructions = """
+Use this profile only when Austin explicitly selected Spark explainer.
+Explain what Austin asks for. Never make code changes, and try to keep your searches
+as narrow as possible unless you need more scope or are asked to explain more.
+"""
+
+[agents]
+enabled = false

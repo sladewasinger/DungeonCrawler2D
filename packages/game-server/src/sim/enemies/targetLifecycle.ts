@@ -1,6 +1,7 @@
 import { forgetEnemyTarget } from "@dc2d/engine";
 import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
 import type { EnemySlot, SimState } from "../state/state.js";
+import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
 
 function isTargetablePlayer(sim: SimState, playerId: string): boolean {
   const slot = sim.players.get(playerId);
@@ -14,10 +15,33 @@ function isTargetablePlayer(sim: SimState, playerId: string): boolean {
 
 function clearEnemyTarget(enemy: EnemySlot, playerId: string): void {
   const matchedBrain = enemy.brain.targetId === playerId;
+  if (matchedBrain) enemy.brain.targetId = null;
+  if (clearPendingRangedTarget(enemy, playerId)) return;
+  clearWindupOrMeleeTarget(enemy, playerId, matchedBrain);
+}
+
+function clearPendingRangedTarget(enemy: EnemySlot, playerId: string): boolean {
+  if (enemy.animation.state !== "spit") return false;
+  if (enemy.animation.target?.targetId !== playerId) return false;
+  if ((enemy.animation.releasesRemaining ?? 0) <= 0) return false;
+  enemy.animation = {
+    state: "recover",
+    ticksRemaining: ENEMY_SIMULATION_TUNING.animationTicks.rangedRecovery,
+  };
+  delete enemy.elementalAttack;
+  return true;
+}
+
+function clearWindupOrMeleeTarget(
+  enemy: EnemySlot,
+  playerId: string,
+  matchedBrain: boolean,
+): void {
   const matchedWindup = enemy.animation.state === "windup" &&
     enemy.animation.target?.targetId === playerId;
-  if (matchedBrain) enemy.brain.targetId = null;
-  if (matchedWindup || (matchedBrain && enemy.animation.state === "attack")) {
+  const matchedMelee = matchedBrain && enemy.animation.state === "attack";
+  if (!matchedWindup && !matchedMelee) return;
+  if (matchedWindup || matchedMelee) {
     enemy.animation = { state: "idle", ticksRemaining: 0 };
     delete enemy.elementalAttack;
   }

@@ -1,5 +1,5 @@
 import { TILE, type EffectEvent } from "@dc2d/engine";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnEnemy } from "../../core/helpers.js";
 import type { PlayerSlot, SimState } from "../../state/state.js";
 import { stepEnemies } from "../index.js";
@@ -68,7 +68,20 @@ describe("enemy AI", () => {
     expect(sim.projectiles.size).toBe(1);
   });
 
+  it("keeps Pitchbloom at one oil lob without burst-selection RNG", () => {
+    const burst = vi.spyOn(sim.rng, "int");
+    const entity = spawnEnemy(sim, { defId: "pitchbloom", x: spot.x + 4, y: spot.y });
+    const enemy = sim.enemies.get(entity.id);
+    if (!enemy) throw new Error("missing Pitchbloom fixture");
+    stepEnemies(sim, []);
+    for (let count = 0; count < 5; count++) stepEnemies(sim, []);
+    expect(sim.projectiles.size).toBe(1);
+    expect(enemy.animation.releasesRemaining).toBeUndefined();
+    expect(burst).not.toHaveBeenCalled();
+  });
+
   it("refreshes a Chort flame target at windup release", () => {
+    vi.spyOn(sim.rng, "int").mockReturnValue(1);
     const entity = spawnEnemy(sim, {
       defId: "chort",
       x: spot.x + 2,
@@ -90,6 +103,7 @@ describe("enemy AI", () => {
 
     advanceAttackAnimation(sim, enemy, []);
 
+    expect(enemy.animation.releasesRemaining).toBeUndefined();
     expect(enemy.elementalAttack).toEqual(expect.objectContaining({
       cells: expect.arrayContaining([{
         x: Math.floor(player.body.x),

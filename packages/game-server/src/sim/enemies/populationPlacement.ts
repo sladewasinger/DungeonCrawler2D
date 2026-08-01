@@ -22,13 +22,19 @@ interface RandomRadiusSpawn {
   readonly attempts: number;
 }
 
+export function enemySpawnCenter(tile: { readonly x: number; readonly y: number }): {
+  x: number;
+  y: number;
+} {
+  return { x: tile.x + 0.5, y: tile.y + 0.5 };
+}
+
 export function tooCloseToPlayer(sim: SimState, x: number, y: number): boolean {
-  const centerX = x + 0.5;
-  const centerY = y + 0.5;
+  const center = enemySpawnCenter({ x, y });
   for (const slot of sim.players.values()) {
     if (Math.hypot(
-      slot.entity.body.x - centerX,
-      slot.entity.body.y - centerY,
+      slot.entity.body.x - center.x,
+      slot.entity.body.y - center.y,
     ) <
         ENEMY_SIMULATION_TUNING.population.minimumPlayerDistanceTiles) {
       return true;
@@ -42,7 +48,7 @@ export function validEnemySpawn(sim: SimState, x: number, y: number): boolean {
       !enemyOccupancyIsAllowed(sim, { x, y })) return false;
   if (sim.world.heightAt(x, y) <= CHASM_DEATH_Z) return false;
   if (miniBossArenaAtPosition(sim.world, x, y)) return false;
-  if (isInsideSpawnEnemyExclusion(sim, { x: x + 0.5, y: y + 0.5 })) return false;
+  if (isInsideSpawnEnemyExclusion(sim, enemySpawnCenter({ x, y }))) return false;
   return !tooCloseToPlayer(sim, x, y);
 }
 
