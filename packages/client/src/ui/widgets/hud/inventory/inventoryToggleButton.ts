@@ -7,6 +7,7 @@
  * touch control.
  */
 import type Phaser from "phaser";
+import tuning from "../touch/touchControlLayout.json" with { type: "json" };
 import { uiTextStyle } from "../../../foundation/font.js";
 import { drawPanelBackground } from "../../../foundation/panel.js";
 import { createWidgetContainer, syncWidgetContainer } from "../../container.js";
@@ -14,17 +15,13 @@ import type { WidgetRegistry } from "../../registry.js";
 import type { Viewport } from "../../state.js";
 
 const WIDGET_ID = "inventory-toggle";
-const CHIP_WIDTH = 48;
-const CHIP_HEIGHT = 40;
+const CHIP_SIZE = tuning.bagSize;
 /**
  * Docked directly above the (touch-shrunk) hotbar, centered, clear of the joystick and
  * action-button clusters that flank it on a narrow phone. Offset is pre-hudScale, like
  * every other widget default — tuned against the shipped HUD_SCALE (2) the same way
  * index.ts's other touch overrides (chat/interaction/status) already are.
  */
-const OFFSET_X = 0;
-const OFFSET_Y = -36;
-
 export class InventoryToggleButtonWidget {
   private readonly container: Phaser.GameObjects.Container;
   /** Invisible bounds-only rect for hitTest() — drawPanelBackground()'s Graphics object has no getBounds(). */
@@ -33,17 +30,17 @@ export class InventoryToggleButtonWidget {
   constructor(scene: Phaser.Scene, registry: WidgetRegistry, viewport: Viewport) {
     registry.register({
       id: WIDGET_ID,
-      defaultAnchor: "bottom-center",
-      defaultOffset: { x: OFFSET_X, y: OFFSET_Y },
+      defaultAnchor: tuning.defaults["inventory-toggle"].anchor as "bottom-center",
+      defaultOffset: tuning.defaults["inventory-toggle"].offset,
       defaultScale: 1,
       defaultVisible: true,
     });
     // Registered synchronously above, so this id is always present in the resolved map.
     const layout = registry.resolve(viewport).get(WIDGET_ID)!;
     this.container = createWidgetContainer(scene, layout);
-    const chipBg = drawPanelBackground(scene, CHIP_WIDTH, CHIP_HEIGHT).setPosition(-CHIP_WIDTH / 2, -CHIP_HEIGHT);
-    this.hitArea = scene.add.rectangle(-CHIP_WIDTH / 2, -CHIP_HEIGHT, CHIP_WIDTH, CHIP_HEIGHT, 0x000000, 0).setOrigin(0, 0);
-    const label = scene.add.text(0, -CHIP_HEIGHT / 2, "BAG", uiTextStyle(11, undefined, { scale: layout.scale })).setOrigin(0.5, 0.5);
+    const chipBg = drawPanelBackground(scene, CHIP_SIZE, CHIP_SIZE).setPosition(-CHIP_SIZE / 2, -CHIP_SIZE);
+    this.hitArea = scene.add.rectangle(-CHIP_SIZE / 2, -CHIP_SIZE, CHIP_SIZE, CHIP_SIZE, 0x000000, 0).setOrigin(0, 0);
+    const label = scene.add.text(0, -CHIP_SIZE / 2, "BAG", uiTextStyle(11, undefined, { scale: layout.scale })).setOrigin(0.5, 0.5);
     this.container.add([chipBg, this.hitArea, label]);
   }
 

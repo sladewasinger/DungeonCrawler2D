@@ -24,7 +24,9 @@ export interface ControllerEventBindings {
   readonly onInteractReleased: () => void;
   readonly onBandageDown: () => void;
   readonly onBandageUp: () => void;
-  readonly onThrowSelected: () => void;
+  readonly onThrowAimMove: (pointer: Phaser.Input.Pointer) => void;
+  readonly onTouchThrowStart: (pointer: Phaser.Input.Pointer) => void;
+  readonly onTouchThrowRelease: (pointerId: number, allowThrow: boolean) => void;
   readonly onKidAttack: () => void;
   readonly onMovementEdge: () => void;
   readonly onModality: (mode: InputModality) => void;
@@ -69,7 +71,9 @@ function bindPointer(request: ControllerEventBindings): void {
     touchActive: request.touchActive,
     onInteract: request.onTouchInteract,
     onInteractReleased: request.onInteractReleased,
-    onThrowSelected: request.onThrowSelected,
+    onThrowAimStart: request.onTouchThrowStart,
+    onThrowAimMove: request.onThrowAimMove,
+    onThrowAimRelease: request.onTouchThrowRelease,
     onMovementEdge: request.onMovementEdge,
   });
 }

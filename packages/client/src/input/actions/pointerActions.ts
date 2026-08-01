@@ -20,7 +20,7 @@ interface PointerHudHitRequest {
 export function handlePointerHudHit({ state, deps, pointer, hud }: PointerHudHitRequest): boolean {
   const uiHit = hud.hitTest(pointer.x, pointer.y);
   if (uiHit === null) return false;
-  handleUiHit({ state, deps, uiHit, pointerId: pointer.id });
+  handleUiHit({ state, deps, uiHit, pointerId: pointer.id, pointer });
   return true;
 }
 
@@ -81,11 +81,12 @@ interface UiHitRequest {
   deps: PointerDeps;
   uiHit: string;
   pointerId: number;
+  pointer: Phaser.Input.Pointer;
 }
 
-function handleUiHit({ state, deps, uiHit, pointerId }: UiHitRequest): void {
+function handleUiHit({ state, deps, uiHit, pointerId, pointer }: UiHitRequest): void {
   if (uiHit.startsWith("slot:")) return activateHotbar(state, deps.conn, Number(uiHit.slice(5)));
-  const action = uiHitActions({ state, deps, pointerId });
+  const action = uiHitActions({ state, deps, pointerId, pointer });
   action?.[uiHit]?.();
 }
 
@@ -93,9 +94,10 @@ interface UiHitActionsRequest {
   state: InputState;
   deps: PointerDeps;
   pointerId: number;
+  pointer: Phaser.Input.Pointer;
 }
 
-function uiHitActions({ state, deps, pointerId }: UiHitActionsRequest): Record<string, () => void> {
+function uiHitActions({ state, deps, pointerId, pointer }: UiHitActionsRequest): Record<string, () => void> {
   const { conn, queries, hooks, touch } = deps;
   return {
     "touch:attack": () => attackWithTouchAssistance({
@@ -109,7 +111,7 @@ function uiHitActions({ state, deps, pointerId }: UiHitActionsRequest): Record<s
     "touch:block": () => pressAndMove(deps, "block", pointerId),
     "touch:jump": () => pressAndMove(deps, "jump", pointerId),
     "touch:interact": () => pressAndInteract(deps, pointerId),
-    "touch:throw": deps.throwSelected,
+    "touch:throw": () => deps.beginThrowAim(pointer),
     "chat:toggle": hooks.onToggleChat,
     "inventory:toggle": hooks.onToggleInventory,
   };

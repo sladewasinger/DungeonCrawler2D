@@ -8,7 +8,8 @@ import type { Viewport, WidgetOverride } from "../../state.js";
 const TOUCH_OVERRIDE_IDS = [
   "health", "stamina", "hotbar", "weapon", "chat", "inventory", "contacts",
   "craft", "stash", "bossBar", "status", "party", "touch-stick",
-  "touch-sprint", "touch-buttons", "inventory-toggle",
+  "touch-sprint", "touch-attack", "touch-block", "touch-jump", "touch-interact",
+  "touch-throw", "inventory-toggle",
 ] as const;
 
 export type TouchLayoutSnapshot = Map<string, WidgetOverride | undefined>;
@@ -146,6 +147,7 @@ export function applyTouchLayoutOverrides(registry: WidgetRegistry, viewport: Vi
   registry.setOverride("party", { offset: { x: -16, y: 85 }, scale: factor });
   registry.setOverride("touch-stick", { scale: factor });
   registry.setOverride("touch-sprint", { scale: factor });
-  registry.setOverride("touch-buttons", { scale: factor });
-  registry.setOverride("inventory-toggle", { scale: factor });
+  // Action controls keep their saved per-button scale. Unlike the former single
+  // cluster, applying a responsive scale override here would erase HUD-editor
+  // resizing every time the viewport changes.
 }

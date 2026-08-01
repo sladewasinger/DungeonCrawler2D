@@ -19,4 +19,12 @@ describe("terrain runtime tuning", () => {
     expect(camera.spectator.minimumZoom).toBeLessThanOrEqual(camera.spectator.maximumZoom);
     expect(camera.spectator.zoomStep).toBeGreaterThan(0);
   });
+
+  it("keeps mobile HUD and diagnostic sampling bounded", () => {
+    const mobile = TERRAIN_RUNTIME_TUNING.mobilePerformance;
+    expect(mobile.compassUpdatesPerSecond).toBeGreaterThanOrEqual(10);
+    expect(mobile.telemetryUpdatesPerSecond).toBeGreaterThanOrEqual(2);
+    expect(mobile.diagnosticSampleSeconds).toBeGreaterThan(0);
+    expect(mobile.diagnosticMaxSamples).toBeGreaterThan(0);
+  });
 });

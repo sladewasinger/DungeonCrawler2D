@@ -49,6 +49,7 @@ export interface CurrentThrowTargetRequest {
   readonly touch: TouchInputState;
   readonly touchActive: boolean;
   readonly tilePx: number;
+  readonly touchPointer?: { x: number; y: number } | undefined;
 }
 
 export function resolveCurrentThrowTarget(
@@ -68,10 +69,10 @@ export function resolveCurrentThrowTarget(
 function currentPointerTarget(
   request: CurrentThrowTargetRequest,
 ): WorldTarget | undefined {
-  if (request.touchActive) return undefined;
+  if (request.touchActive && !request.touchPointer) return undefined;
   return cursorWorldTile({
     camera: request.scene.cameras.main,
-    pointer: request.scene.input.activePointer,
+    pointer: request.touchPointer ?? request.scene.input.activePointer,
     tilePx: request.tilePx,
     heightAt: request.conn.heightAt,
   });

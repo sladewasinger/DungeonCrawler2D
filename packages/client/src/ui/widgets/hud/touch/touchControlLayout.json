@@ -1,0 +1,15 @@
+{
+  "ordinaryButtonSize": 44,
+  "attackSizeMultiplier": 1.5,
+  "bagSize": 48,
+  "minimumScale": 0.7,
+  "maximumScale": 1.8,
+  "defaults": {
+    "touch-attack": { "anchor": "bottom-right", "offset": { "x": -54, "y": -54 } },
+    "touch-block": { "anchor": "bottom-right", "offset": { "x": -128, "y": -48 } },
+    "touch-jump": { "anchor": "bottom-right", "offset": { "x": -50, "y": -128 } },
+    "touch-interact": { "anchor": "bottom-right", "offset": { "x": -126, "y": -128 } },
+    "touch-throw": { "anchor": "bottom-right", "offset": { "x": -202, "y": -104 } },
+    "inventory-toggle": { "anchor": "bottom-center", "offset": { "x": 0, "y": -54 } }
+  }
+}

@@ -8,7 +8,7 @@ import { applyTouchLayoutOverrides } from "./touchOverrides.js";
 
 const VIEWPORT = { width: 844, height: 390 };
 const TOUCH_STICK = "touch-stick";
-const TOUCH_BUTTONS = "touch-buttons";
+const TOUCH_BUTTONS = "touch-attack";
 const INVENTORY_TOGGLE = "inventory-toggle";
 
 function stubDefinition(id: string): WidgetDefinition {
@@ -16,7 +16,7 @@ function stubDefinition(id: string): WidgetDefinition {
 }
 
 describe("touch widget layout entries", () => {
-  it("registers both touch-stick and touch-buttons in the shipped default layout", () => {
+  it("registers both touch-stick and the principal touch action in the shipped default layout", () => {
     const registry = new WidgetRegistry();
     registry.register(stubDefinition(TOUCH_STICK));
     registry.register(stubDefinition(TOUCH_BUTTONS));
@@ -74,23 +74,23 @@ describe("applyTouchLayoutOverrides' narrow-viewport shrink", () => {
     expect(resolved.get(INVENTORY_TOGGLE)?.scale).toBe(2);
   });
 
-  it("shrinks the controls a further step on a narrow phone-portrait viewport", () => {
+  it("keeps individually-resized controls at their saved baseline on a narrow phone", () => {
     const registry = registryWithControls();
     const narrowPortrait = { width: 390, height: 844 };
     applyTouchLayoutOverrides(registry, narrowPortrait);
     const resolved = registry.resolve(narrowPortrait);
     expect(resolved.get(TOUCH_STICK)?.scale).toBe(1);
-    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(1);
-    expect(resolved.get(INVENTORY_TOGGLE)?.scale).toBe(1);
+    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(2);
+    expect(resolved.get(INVENTORY_TOGGLE)?.scale).toBe(2);
   });
 
-  it("applies the same shrink to the equivalent landscape viewport — height, not width, is the tight axis", () => {
+  it("keeps each action button at its saved scale in landscape too", () => {
     const registry = registryWithControls();
     const narrowLandscape = { width: 844, height: 390 };
     applyTouchLayoutOverrides(registry, narrowLandscape);
     const resolved = registry.resolve(narrowLandscape);
     expect(resolved.get(TOUCH_STICK)?.scale).toBe(1);
-    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(1);
+    expect(resolved.get(TOUCH_BUTTONS)?.scale).toBe(2);
   });
 
   it("never touches a window panel's own scale override — the base 0.5 (touch) value is untouched at any viewport", () => {

@@ -97,6 +97,7 @@ function framePresentationFilter(
     viewport: scene.cameras.main.worldView,
     constrainedPresentation: terrain?.constrainedPresentation === true,
     terrainVisibility: toonActive ? lighting : undefined,
+    retainedIds: context.state.presentationRetainedIds,
   });
 }
 

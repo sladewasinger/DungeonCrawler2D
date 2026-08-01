@@ -23,14 +23,16 @@ interface PointerBindingOptions {
   touchActive(): boolean;
   onInteractReleased(): void;
   onInteract(): void;
-  onThrowSelected(): void;
+  onThrowAimStart(pointer: Phaser.Input.Pointer): void;
+  onThrowAimMove(pointer: Phaser.Input.Pointer): void;
+  onThrowAimRelease(pointerId: number, allowThrow: boolean): void;
   onMovementEdge(): void;
 }
 
 export function bindInputPointerEdges(options: PointerBindingOptions): void {
   const {
     scene, state, conn, hud, queries, hooks, tilePx, touch, touchActive,
-    onInteract, onInteractReleased, onThrowSelected, onMovementEdge,
+    onInteract, onInteractReleased, onThrowAimStart, onThrowAimMove, onThrowAimRelease, onMovementEdge,
   } = options;
   scene.input.mouse?.disableContextMenu();
   scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -45,10 +47,10 @@ export function bindInputPointerEdges(options: PointerBindingOptions): void {
       touchActive: touchActive(),
       sendMovementEdge: onMovementEdge,
       performInteract: onInteract,
-      throwSelected: onThrowSelected,
+      beginThrowAim: onThrowAimStart,
       viewport: { width: scene.scale.width, height: scene.scale.height },
       camera: scene.cameras.main,
     }, pointer);
   });
-  bindPointerMovementEdges({ scene, touch, touchActive, onInteractReleased, onMovementEdge });
+  bindPointerMovementEdges({ scene, touch, touchActive, onInteractReleased, onThrowAimMove, onThrowAimRelease, onMovementEdge });
 }

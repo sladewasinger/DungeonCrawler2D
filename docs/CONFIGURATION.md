@@ -11,7 +11,7 @@ adjacent TypeScript modules provide stable imports and derived values.
 | Procedural dungeon generation | `packages/engine/src/world/generate/worldGenerationTuning.json` | BSP rooms, corridor and hallway widths, room flavors, elevation frequency, landmarks, loot, fixed structures, and boss arenas |
 | Reserved room templates | `packages/engine/src/world/features/rooms/roomConfiguration/roomTuning.json` | Personal, party, safe, and spawn room dimensions; wall height; exit hallway length; room spacing; spawn slots |
 | Terrain presentation | `packages/client/src/render/terrain/terrainVisualStyle.json` | Camera backgrounds, void/floor ledges, ambient occlusion, and fallback terrain colors |
-| Terrain runtime and camera presentation | `packages/client/src/render/terrain/terrainRuntimeTuning.json` | Chunk-plan cache, prewarmed orientation-root memory limits, and the shared 2D gameplay/spectator camera reference view, default zoom, supported aspect range, and spectator zoom controls |
+| Terrain runtime, camera, and mobile HUD cadence | `packages/client/src/render/terrain/terrainRuntimeTuning.json` | Chunk-plan cache, prewarmed orientation-root memory limits, shared 2D camera settings, non-interactive compass/telemetry cadence, and bounded local diagnostic capture retention |
 | Dynamic lighting | `packages/client/src/render/lighting/lightingVisualStyle.json` | Ground light, torch/portal/personal halos, flicker, pooling, fade, colors, and radii |
 | Spawn-room intercom | `packages/game-server/src/sim/announcer/spawnRoom/spawnRoomAnnouncements.json` | Speaker label, announcement text, display duration, initial delay, and pauses |
 | Combat Sandbox layout | `packages/engine/src/world/combatSandbox/combatSandboxLayout.json` | Arena dimensions, wall and obstacle heights, player/fixture rows, and training-target positions |
@@ -51,3 +51,14 @@ spectator buttons as multipliers of that normal view. The client validates all
 values at startup. A small minimum scale remains in TypeScript solely as a
 technical safety floor for near-zero browser dimensions; it can only reduce
 world coverage and is not a presentation tuning value.
+
+## Mobile performance capture
+
+Append `?mobilePerf=1` to a 2D game URL to enable a local-only mobile capture.
+It displays a **Copy mobile perf** button and retains the latest 120 one-second
+samples (configured by `mobilePerformance` in the terrain runtime JSON). The
+report contains frame-time percentiles, long-task count when supported, canvas
+CSS/backing dimensions, renderer/device/profile information, transport metrics,
+visible entity buckets, and terrain submission counts. It does not log
+continuously or transmit data. Copy the result from the phone and share it with
+the team; reload without the query to remove the control.

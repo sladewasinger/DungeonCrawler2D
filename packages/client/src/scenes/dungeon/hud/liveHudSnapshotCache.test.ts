@@ -109,6 +109,7 @@ describe("LiveHudSnapshotCache", () => {
       biome: expect.any(String),
       interactionPrompt: { key: "R", label: "pick up" },
       touch,
+      throwAvailable: false,
     });
     expect(second.coords.x).not.toBe(5);
   });

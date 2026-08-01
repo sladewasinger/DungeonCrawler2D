@@ -39,14 +39,16 @@ const updatePrimaryHud = ({ hud, update, showHealthFeedback }: PrimaryHudUpdate)
   hud.adminDebug.update();
   parts.inventory.update();
   parts.status.update(connection, world.floor);
-  const compass = resolveCompassState({ world, player, yaw, snapshot: update.snapshot });
-  const minimap = resolveHudMinimap({ connection, world, player, snapshot: update.snapshot });
-  parts.compass.update({
-    bearingDeg: compass.bearingDeg,
-    stairway: compass.stairway,
-    landmarks: compass.landmarks,
-    minimap,
-  });
+  if (update.updateCompass !== false) {
+    const compass = resolveCompassState({ world, player, yaw, snapshot: update.snapshot });
+    const minimap = resolveHudMinimap({ connection, world, player, snapshot: update.snapshot });
+    parts.compass.update({
+      bearingDeg: compass.bearingDeg,
+      stairway: compass.stairway,
+      landmarks: compass.landmarks,
+      minimap,
+    });
+  }
   parts.hotbar.update(connection, update.snapshot?.selectedSlot);
   parts.buffs.update(connection);
   if (showHealthFeedback) parts.healthFeedback.update(connection, performance.now());
@@ -63,7 +65,9 @@ interface SecondaryHudUpdate {
 const updateSecondaryHud = ({ hud, update, performance }: SecondaryHudUpdate): void => {
   const { connection, world, player, yaw, mouseCaptured } = update;
   const { parts } = hud;
-  parts.telemetry.update({ ...performance, connection, world, player, yaw, mouseCaptured });
+  if (update.updateTelemetry !== false) {
+    parts.telemetry.update({ ...performance, connection, world, player, yaw, mouseCaptured });
+  }
   parts.downed.update(connection, update.giveUpHoldProgress);
   parts.invite.update();
   parts.sessionMenu.update(connection.status === "connected" && connection.hp > 0);

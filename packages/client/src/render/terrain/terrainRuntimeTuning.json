@@ -17,5 +17,11 @@
       "maximumZoom": 2.5,
       "zoomStep": 0.25
     }
+  },
+  "mobilePerformance": {
+    "compassUpdatesPerSecond": 12,
+    "telemetryUpdatesPerSecond": 3,
+    "diagnosticSampleSeconds": 1,
+    "diagnosticMaxSamples": 120
   }
 }

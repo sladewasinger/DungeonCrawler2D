@@ -133,7 +133,7 @@ this.compass.update({ bearingDeg: snapshot.compassBearingDeg, stairway: snapshot
 this.death.update({ downed: snapshot.downed, dead: snapshot.dead, remainingSec: snapshot.respawnRemainingSec, holdProgress: snapshot.giveUpHoldProgress, downedRemainingSec: snapshot.downedRemainingSec, reviveProgress: snapshot.reviveProgress, reviverName: snapshot.reviverName });
 this.reconnectToast.update(snapshot.reconnecting, nowMs, snapshot.reconnectAttempts);
 this.toasts.update(snapshot.toasts, nowMs);
-this.touchControls.update(snapshot.touch, nowMs);
+this.touchControls.update({ touch: snapshot.touch, nowMs, interactionPrompt: snapshot.interactionPrompt, throwAvailable: snapshot.throwAvailable ?? false });
 }
     resize(viewport: Viewport): void { this.viewport = viewport;
 if (this.touchActive)

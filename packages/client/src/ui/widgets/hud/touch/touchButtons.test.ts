@@ -2,7 +2,7 @@
 // the old flat 0.35 it was "so low-contrast... a first-time player likely won't find
 // it". attackRestAlpha is a pure function so this doesn't need a live Phaser clock.
 import { describe, expect, it } from "vitest";
-import { ATTACK_PULSE_DURATION_MS, actionButtonLayout, attackRestAlpha } from "./touchButtons.js";
+import { ATTACK_PULSE_DURATION_MS, actionButtonLayout, attackRestAlpha, mobileInteractionLabel } from "./touchButtons.js";
 
 const ATTACK_REST_ALPHA = 0.55;
 
@@ -36,11 +36,11 @@ describe("attackRestAlpha", () => {
 });
 
 describe("mobile action layout", () => {
-  it("gives Throw, Use, and Jump equal targets and makes Attack 25% larger", () => {
+  it("gives ordinary actions equal targets and makes Attack 50% larger", () => {
     const layout = actionButtonLayout();
     expect(layout.throw.size).toBe(layout.interact.size);
     expect(layout.jump.size).toBe(layout.interact.size);
-    expect(layout.attack.size).toBe(layout.interact.size * 1.25);
+    expect(layout.attack.size).toBe(layout.interact.size * 1.5);
   });
 
   it("keeps every circular target non-overlapping", () => {
@@ -53,5 +53,13 @@ describe("mobile action layout", () => {
           .toBeGreaterThanOrEqual((a.size + b.size) / 2);
       }
     }
+  });
+});
+
+describe("mobile interaction label", () => {
+  it("shows PICKUP only for the shared pickup prompt", () => {
+    expect(mobileInteractionLabel({ label: "pick up" })).toBe("PICKUP");
+    expect(mobileInteractionLabel({ label: "adopt dino" })).toBe("USE");
+    expect(mobileInteractionLabel(null)).toBe("USE");
   });
 });

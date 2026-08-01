@@ -43,6 +43,7 @@ export interface DungeonSceneState {
   readonly areaViewRecords: AreaTileView[];
   readonly accentLights: LightSource[];
   readonly visibleTorchLights: LightSource[];
+  readonly presentationRetainedIds: Set<string>;
   /** Per-player id `attacking` from the previous frame — meleeSwingEvents.ts's edge detector for spawning the swing-wedge telegraph. */
   readonly attackFlags: Map<string, boolean>;
   readonly swingSpawns: MeleeSwingSpawn[];
@@ -108,6 +109,7 @@ function baseDungeonSceneState(): Omit<DungeonSceneState, "attackFlags" | "swing
     areaViewRecords: [],
     accentLights: [],
     visibleTorchLights: [],
+    presentationRetainedIds: new Set(),
   };
 }
 

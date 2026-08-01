@@ -17,13 +17,16 @@ interface PresentationEntityFilterInput {
   readonly viewport: Phaser.Geom.Rectangle;
   readonly constrainedPresentation?: boolean;
   readonly terrainVisibility?: TerrainPresentationVisibility | undefined;
+  readonly retainedIds?: Set<string>;
 }
 
 export function presentationEntityFilter(
   input: PresentationEntityFilterInput,
 ): InterpolationEntityFilter {
-  const retainedIds = activeInteractionEntityIds(input.inputController);
+  const retainedIds = input.retainedIds ?? new Set<string>();
+  retainedIds.clear();
   retainedIds.add(input.localPlayerId);
+  addActiveInteractionEntityIds(retainedIds, input.inputController);
   const orientation = getViewOrientation();
   const enabled = !isReservedRoomPosition(input.viewerX, input.viewerY) && (
     input.constrainedPresentation === true || input.terrainVisibility !== undefined
@@ -39,11 +42,12 @@ export function presentationEntityFilter(
   });
 }
 
-function activeInteractionEntityIds(inputController: DungeonPresentationInput): Set<string> {
-  const retainedIds = new Set<string>();
+function addActiveInteractionEntityIds(
+  retainedIds: Set<string>,
+  inputController: DungeonPresentationInput,
+): void {
   const revive = inputController.reviveHoldView();
   if (revive) retainedIds.add(revive.targetId);
   const fistbump = inputController.fistbumpHoldView();
   if (fistbump) retainedIds.add(fistbump.targetId);
-  return retainedIds;
 }

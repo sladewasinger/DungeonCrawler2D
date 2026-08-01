@@ -6,7 +6,7 @@ import type { WidgetRegistry } from "../../registry.js";
 import type { Viewport } from "../../state.js";
 
 const WIDGET_ID = "touch-sprint";
-const SIZE = 44;
+const SIZE = 48;
 const REST_ALPHA = 0.45;
 
 export class TouchSprintWidget {

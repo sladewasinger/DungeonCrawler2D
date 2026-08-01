@@ -168,6 +168,11 @@ short Git commit (falling back to `dev` outside a Git checkout).
 
 ### Copy-paste local examples
 
+For a local-only mobile performance capture, open the 2D game with
+`?mobilePerf=1` (for example `http://localhost:5173/?mobilePerf=1`). A visible
+**Copy mobile perf** button copies a bounded diagnostic report; it never uploads
+or continuously logs the data.
+
 PowerShell:
 
 ```powershell

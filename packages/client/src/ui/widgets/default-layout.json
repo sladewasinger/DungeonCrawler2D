@@ -16,6 +16,11 @@
     "death": { "anchor": "center", "offset": { "x": 0, "y": 0 } },
     "touch-stick": { "anchor": "bottom-left", "offset": { "x": 86, "y": -68 } },
     "touch-sprint": { "anchor": "bottom-left", "offset": { "x": 26, "y": -68 } },
-    "touch-buttons": { "anchor": "bottom-right", "offset": { "x": -12, "y": -40 } }
+    "touch-attack": { "anchor": "bottom-right", "offset": { "x": -54, "y": -54 } },
+    "touch-block": { "anchor": "bottom-right", "offset": { "x": -128, "y": -48 } },
+    "touch-jump": { "anchor": "bottom-right", "offset": { "x": -50, "y": -128 } },
+    "touch-interact": { "anchor": "bottom-right", "offset": { "x": -126, "y": -128 } },
+    "touch-throw": { "anchor": "bottom-right", "offset": { "x": -202, "y": -104 } },
+    "inventory-toggle": { "anchor": "bottom-center", "offset": { "x": 0, "y": -54 } }
   }
 }

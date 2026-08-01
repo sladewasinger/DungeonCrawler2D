@@ -76,6 +76,7 @@ export interface HudFakeSnapshot {
     hotbar: HotbarSlotData[];
     selectedSlot: number;
     armedThrowableSlot: number | null;
+    throwAvailable?: boolean;
     buffs: BuffChipData[];
     equippedWeaponId: string | null;
     inventory: InventoryRowData[];

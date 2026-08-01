@@ -18,7 +18,30 @@ export const TERRAIN_RUNTIME_TUNING = {
     ),
   },
   cameraPresentation: cameraPresentationTuning(),
+  mobilePerformance: mobilePerformanceTuning(),
 } as const;
+
+function mobilePerformanceTuning() {
+  const performance = terrainRuntimeTuning.mobilePerformance;
+  return {
+    compassUpdatesPerSecond: positiveInteger(
+      performance.compassUpdatesPerSecond,
+      "mobilePerformance.compassUpdatesPerSecond",
+    ),
+    telemetryUpdatesPerSecond: positiveInteger(
+      performance.telemetryUpdatesPerSecond,
+      "mobilePerformance.telemetryUpdatesPerSecond",
+    ),
+    diagnosticSampleSeconds: positiveInteger(
+      performance.diagnosticSampleSeconds,
+      "mobilePerformance.diagnosticSampleSeconds",
+    ),
+    diagnosticMaxSamples: positiveInteger(
+      performance.diagnosticMaxSamples,
+      "mobilePerformance.diagnosticMaxSamples",
+    ),
+  };
+}
 
 function cameraPresentationTuning() {
   const camera = terrainRuntimeTuning.cameraPresentation;

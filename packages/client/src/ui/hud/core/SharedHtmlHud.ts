@@ -24,6 +24,8 @@ export interface HudUpdate {
   fps?: number; latencyMs?: number;
   giveUpHoldProgress?: number;
   snapshot?: HudFakeSnapshot;
+  updateCompass?: boolean;
+  updateTelemetry?: boolean;
 }
 export interface HudOptions {
   root: HTMLElement;

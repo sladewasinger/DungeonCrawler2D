@@ -32,7 +32,7 @@ import { createTorchSyncState, type TorchSyncState } from "../entities/torches/s
 import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputController, consumeDungeonTeleport, createDungeonPresentationSystems, replaceDungeonWorldSystems, sampleDungeonInput, syncDungeonWorldPresentation, updateDungeonCamera } from "./dungeonSceneHelpers.js";
 import { redirectExpiredSession } from "./expiredSessionRedirect.js";
 import { createDungeonChatInputBox } from "./dungeonChatInput.js";
-
+import { createMobilePerformanceDiagnostics, type MobilePerformanceDiagnostics } from "../../../performance/mobilePerformanceDiagnostics.js";
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
   private entityRenderer!: EntityRenderer;
@@ -50,25 +50,21 @@ export class DungeonScene extends Phaser.Scene {
   private chatController!: ChatController;
   private chatInputBox!: ChatInputBox;
   private inputGestureVisuals!: InputGestureVisuals;
-  private debugOverlay!: GameplayDebugOverlay;
-  private cameraZoom!: DungeonCameraZoomController;
-  /** Z/X camera rotation: owns the tween, hard content swap, and cosmetic camera spin. */
+  private debugOverlay!: GameplayDebugOverlay; private cameraZoom!: DungeonCameraZoomController;
+  private mobilePerformanceDiagnostics: MobilePerformanceDiagnostics | undefined;
   private readonly rotation = new RotationController((direction) => {
     const terrain = this.terrain as TerrainRenderer | undefined;
     terrain?.prewarmRotation(this.cameras.main.worldView, direction);
   });
-
   constructor(private readonly conn: Connection) { super("dungeon"); }
-
   create(): void {
-    // Title text entry temporarily suspends Phaser capture; every dungeon entry
-    // restores the gameplay keyboard contract for quit-to-title/rejoin cycles.
     this.input.keyboard?.enableGlobalCapture();
     this.game.canvas.tabIndex = -1; this.game.canvas.focus({ preventScroll: true });
     this.cameras.main.setBackgroundColor(TERRAIN_CAMERA_BACKGROUND); this.cameras.main.setRoundPixels(true); this.cameraZoom = new DungeonCameraZoomController(this);
     bindDungeonCameraResize(this, this.cameraZoom);
     const presentation = createDungeonPresentationSystems(this, this.cameraZoom);
     this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx;
+    this.mobilePerformanceDiagnostics = createMobilePerformanceDiagnostics({ game: this.game, connection: this.conn, profile: this.deviceProfile, terrain: () => this.terrain, buckets: () => this.state.entityBuckets });
     this.inputGestureVisuals = new InputGestureVisuals(this);
     this.debugOverlay = new GameplayDebugOverlay(this);
     this.hudScene = this.scene.get("hud") as HudScene;
@@ -88,23 +84,15 @@ export class DungeonScene extends Phaser.Scene {
     bindRotationKeys(this, this.rotation);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
-
   update(time: number, deltaMs: number): void {
+    this.mobilePerformanceDiagnostics?.update(time, deltaMs);
     const { conn } = this;
-    // Reconnect retries gave up (net/socket.ts's MAX_RECONNECT_ATTEMPTS) — conn.world/
-    // body/welcome are still the last-known stale state, not null, so this check must
-    // run before the guard below or the scene would render a dead world forever
-    // instead of a clean path back to title (Epic 7.12).
     if (redirectExpiredSession(this, conn)) return;
     this.chatController.sync();
     if (!conn.world || !conn.body || !conn.welcome) return this.inputGestureVisuals.hide();
-
     this.syncInputHolds(conn);
     this.prepareFrame(conn, time, deltaMs);
-    // Sample+predict before interpolating so this frame's render reflects any tick(s)
-    // that occurred this frame.
     sampleDungeonInput({ conn, state: this.state, inputController: this.inputController, vfx: this.vfx, deltaMs, nowMs: time });
-
     const render = interpolateConnectionSelf(conn, this.state, deltaMs);
     this.inputGestureVisuals.syncThrow(this.inputController, conn, render);
     conn.movementTrace?.recordFrame({
@@ -133,7 +121,8 @@ export class DungeonScene extends Phaser.Scene {
   }
   private prepareFrame(conn: Connection, time: number, deltaMs: number): void {
     this.ensureWorldBoundSystems(conn.world!); consumeDungeonTeleport({ conn, state: this.state, vfx: this.vfx, nowMs: time });
-    this.consumeHardCorrection(); consumeRespawnGrace(conn, this.state.cosmetics, time);
+    if (this.conn.predictionCorrection.consumeHardSnap()) requestCameraSnap(this.state.camera);
+    consumeRespawnGrace(conn, this.state.cosmetics, time);
     advanceDungeonRotation({ rotation: this.rotation, terrain: this.terrain, lighting: this.lighting, state: this.state, deltaMs });
   }
   private syncParty(conn: Connection): void {
@@ -150,12 +139,6 @@ export class DungeonScene extends Phaser.Scene {
     this.lighting = systems.lighting;
     this.boundWorld = world;
   }
-  /** Server-flagged teleport (welcome, respawn, debug tp, Epic 7.14 stairways once wired):
-   * reset local render state, snap the camera, and fade through black over the cut. */
-  private consumeHardCorrection(): void {
-    if (!this.conn.predictionCorrection.consumeHardSnap()) return;
-    requestCameraSnap(this.state.camera);
-  }
   private dispose(): void {
     this.terrain?.dispose();
     this.lighting?.dispose();
@@ -163,6 +146,6 @@ export class DungeonScene extends Phaser.Scene {
     this.vfx.dispose();
     this.chatInputBox.dispose();
     this.inputGestureVisuals.dispose();
-    this.debugOverlay.dispose();
+    this.debugOverlay.dispose(); this.mobilePerformanceDiagnostics?.dispose(); this.mobilePerformanceDiagnostics = undefined;
   }
 }

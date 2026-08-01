@@ -9,6 +9,7 @@ import shippedDefaultLayout from "./default-layout.json" with { type: "json" };
 import { resolveLayout } from "./layout.js";
 import { mergeLayoutConfigs } from "./mergeLayout.js";
 import { loadPersistedLayout, savePersistedLayout } from "./storage.js";
+import { migrateTouchButtonCluster } from "./hud/touch/touchLayoutMigration.js";
 import {
   createRegistryState,
   type LayoutConfig,
@@ -108,6 +109,6 @@ export class WidgetRegistry {
   loadPersisted(): void {
     const persisted = loadPersistedLayout(STORAGE_KEY);
     if (!persisted) return;
-    applyConfig(this.state, mergeLayoutConfigs(shippedDefaultLayout as LayoutConfig, persisted));
+    applyConfig(this.state, mergeLayoutConfigs(shippedDefaultLayout as LayoutConfig, migrateTouchButtonCluster(persisted)));
   }
 }

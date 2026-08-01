@@ -61,13 +61,26 @@ function isVisibleEntity(
 }
 
 function bucketEntity(buckets: FrameEntityBuckets, entity: InterpolatedEntity): void {
-  const handlers: Record<InterpolatedEntity["snap"]["kind"], () => void> = {
-    player: () => buckets.players.push(entity), enemy: () => buckets.enemies.push(entity),
-    pet: () => buckets.pets.push(entity), item: () => bucketItem(buckets, entity),
-    projectile: () => { buckets.projectiles.push(entity); buckets.projectileIds.add(entity.id); },
-    torch: () => bucketTorch(buckets, entity),
-  };
-  handlers[entity.snap.kind]();
+  switch (entity.snap.kind) {
+    case "player":
+      buckets.players.push(entity);
+      return;
+    case "enemy":
+      buckets.enemies.push(entity);
+      return;
+    case "pet":
+      buckets.pets.push(entity);
+      return;
+    case "item":
+      bucketItem(buckets, entity);
+      return;
+    case "projectile":
+      buckets.projectiles.push(entity);
+      buckets.projectileIds.add(entity.id);
+      return;
+    case "torch":
+      bucketTorch(buckets, entity);
+  }
 }
 
 function bucketItem(buckets: FrameEntityBuckets, entity: InterpolatedEntity): void {

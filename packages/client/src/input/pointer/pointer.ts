@@ -73,7 +73,7 @@ export interface PointerDeps {
   touchActive: boolean;
   sendMovementEdge(): void;
   performInteract(): void;
-  throwSelected(): void;
+  beginThrowAim(pointer: Phaser.Input.Pointer): void;
   viewport: { width: number; height: number };
   /**
    * The dungeon scene's own camera, transformed through explicitly (`getWorldPoint`)
@@ -111,15 +111,17 @@ export interface PointerReleaseOptions {
   pointer: Phaser.Input.Pointer;
   onInteractReleased?: () => void;
   onMovementEdge?: () => void;
+  onThrowRelease?: (pointerId: number, allowThrow: boolean) => void;
 }
 
 export function handlePointerUp(options: PointerReleaseOptions | TouchInputState, ...legacy: unknown[]): void {
-  const { touch, pointer, onInteractReleased = () => {}, onMovementEdge = () => {} } = "touch" in options
+  const { touch, pointer, onInteractReleased = () => {}, onMovementEdge = () => {}, onThrowRelease = () => {} } = "touch" in options
     ? options
     : { touch: options, pointer: legacy[0] as Phaser.Input.Pointer, onInteractReleased: legacy[1] as (() => void) | undefined, onMovementEdge: legacy[2] as (() => void) | undefined };
   const releasedInteract = touch.buttons.interact === pointer.id;
   endStick(touch, pointer.id);
   releaseAllForPointer(touch, pointer.id);
+  onThrowRelease(pointer.id, true);
   if (releasedInteract) onInteractReleased();
   onMovementEdge();
 }

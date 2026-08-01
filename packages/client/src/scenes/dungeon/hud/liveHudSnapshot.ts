@@ -102,12 +102,7 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
     bodyPos,
     compassBearingDeg,
   );
-  const minimap = buildMinimapSnapshot({
-    connection: conn,
-    world: conn.world,
-    centerX: bodyPos.x,
-    centerY: bodyPos.y,
-  });
+  const minimap = buildMinimapSnapshot({ connection: conn, world: conn.world, centerX: bodyPos.x, centerY: bodyPos.y });
   const snapshot = buildHudSnapshot({
     src: buildSnapshotSource(conn), selectedHotbarSlot: inputController.selectedHotbarSlot(),
     armedThrowableSlot: inputController.armedThrowableSlot(), interactionPrompt,
@@ -120,6 +115,7 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
     ? biomeAtWorldTile({ worldSeed: conn.world.worldSeed, floor: conn.floor, wx: bodyPos.x, wy: bodyPos.y }).biome
     : null;
   snapshot.headingDeg = aimHeadingDeg;
+  applyThrowAvailability(snapshot, inputController);
   snapshot.respawnRemainingSec = conn.respawnSecondsRemaining;
   snapshot.downedRemainingSec = conn.downedSecondsRemaining;
   snapshot.reviveProgress = conn.reviveProgress;
@@ -127,6 +123,13 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
   snapshot.giveUpHoldProgress = inputController.giveUpHoldProgress();
   snapshot.completedContextualActions = [...conn.contextualActionsUsed];
   return snapshot;
+}
+
+interface ThrowAvailabilityReader { throwAvailable?(): boolean; }
+
+function applyThrowAvailability(snapshot: LiveHudSnapshot, inputController: InputController): void {
+  const reader = inputController as InputController & ThrowAvailabilityReader;
+  snapshot.throwAvailable = reader.throwAvailable?.() ?? false;
 }
 
 function resolveLiveCompassLandmarks(

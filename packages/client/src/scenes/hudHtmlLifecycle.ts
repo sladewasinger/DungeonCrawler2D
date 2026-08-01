@@ -6,6 +6,7 @@ import { SharedHtmlHud } from "../ui/hud/core/SharedHtmlHud.js";
 import { createLiveHtmlHud } from "./hudHtml.js";
 import type { HudSceneData } from "./hudSceneData.js";
 import type { HudFakeSnapshot } from "../ui/widgets/hud/core/fakeData.js";
+import { TERRAIN_RUNTIME_TUNING } from "../render/terrain/terrainRuntimeTuning.js";
 
 export interface HtmlHudLifecycle {
   readonly hud: SharedHtmlHud;
@@ -32,7 +33,30 @@ export function createHtmlHudLifecycle(request: HtmlHudLifecycleRequest): HtmlHu
   // can continue to suppress movement until the player presses Tab.
   options.focusGame();
   const trace = createMovementTrace(root, request.connection, request.canvas);
-  return { hud, update: (snapshot) => updateHtmlHud({ hud, trace, connection: request.connection, snapshot }), dispose: () => { trace?.dispose(); hud.dispose(); } };
+  const cadence = new HtmlHudCadence();
+  return {
+    hud,
+    update: (snapshot) => updateHtmlHud({ hud, trace, cadence, connection: request.connection, snapshot }),
+    dispose: () => { trace?.dispose(); hud.dispose(); },
+  };
+}
+
+class HtmlHudCadence {
+  private nextCompassMs = 0;
+  private nextTelemetryMs = 0;
+
+  consume(nowMs: number): { readonly compass: boolean; readonly telemetry: boolean } {
+    return {
+      compass: this.consumeAt("nextCompassMs", nowMs, TERRAIN_RUNTIME_TUNING.mobilePerformance.compassUpdatesPerSecond),
+      telemetry: this.consumeAt("nextTelemetryMs", nowMs, TERRAIN_RUNTIME_TUNING.mobilePerformance.telemetryUpdatesPerSecond),
+    };
+  }
+
+  private consumeAt(field: "nextCompassMs" | "nextTelemetryMs", nowMs: number, rate: number): boolean {
+    if (nowMs < this[field]) return false;
+    this[field] = nowMs + 1000 / rate;
+    return true;
+  }
 }
 
 function htmlHudOptions(root: HTMLElement, request: HtmlHudLifecycleRequest): Parameters<typeof createLiveHtmlHud>[0] {
@@ -51,8 +75,9 @@ function createMovementTrace(root: HTMLElement, connection: Connection, canvas: 
   return trace;
 }
 
-function updateHtmlHud({ hud, trace, connection, snapshot }: { hud: SharedHtmlHud; trace: MovementTraceControl | undefined; connection: Connection; snapshot: HudFakeSnapshot }): void {
+function updateHtmlHud({ hud, trace, cadence, connection, snapshot }: { hud: SharedHtmlHud; trace: MovementTraceControl | undefined; cadence: HtmlHudCadence; connection: Connection; snapshot: HudFakeSnapshot }): void {
   if (!connection.world) return;
-  hud.update({ connection, world: connection.world, player: { x: snapshot.coords.x, y: snapshot.coords.z, z: snapshot.coords.y, verticalVelocity: 0, grounded: true }, yaw: -(snapshot.compassBearingDeg * Math.PI) / 180, mouseCaptured: true, snapshot });
+  const expensive = cadence.consume(performance.now());
+  hud.update({ connection, world: connection.world, player: { x: snapshot.coords.x, y: snapshot.coords.z, z: snapshot.coords.y, verticalVelocity: 0, grounded: true }, yaw: -(snapshot.compassBearingDeg * Math.PI) / 180, mouseCaptured: true, snapshot, updateCompass: expensive.compass, updateTelemetry: expensive.telemetry });
   trace?.update();
 }

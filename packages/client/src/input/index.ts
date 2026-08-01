@@ -13,6 +13,7 @@ import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type 
 import { readCurrentInput } from "./movement/readCurrentInput.js";
 import { attackInKidMode, createKidModeState } from "./controls/kidMode.js";
 import { assistedAimActive } from "./actions/assistedAim.js";
+import { activeThrowableSlot } from "./gameplay/hotbar.js";
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
 
@@ -77,7 +78,9 @@ export class InputController {
       onInteractReleased: () => this.lifeGestures.endInteract(this.conn, scene.time.now),
       onBandageDown: () => this.fistbump.down(this.scene.time.now),
       onBandageUp: () => this.fistbump.release(conn, queries, this.scene.time.now),
-      onThrowSelected: () => this.throwAim.throwFromTouch(),
+      onTouchThrowStart: (pointer) => this.throwAim.beginTouchAim(pointer),
+      onThrowAimMove: (pointer) => this.throwAim.moveTouchAim(pointer),
+      onTouchThrowRelease: (pointerId, allowThrow) => this.throwAim.releaseTouchAim(pointerId, allowThrow),
       onKidAttack: () => attackInKidMode({ state: this.state, conn, queries, hooks, nowMs: performance.now() }),
       onMovementEdge: () => this.sendCurrentMovementEdge(),
       onModality: (mode) => this.applyModality(mode),
@@ -170,6 +173,7 @@ export class InputController {
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
   armedThrowableSlot(): number | null { return this.throwAim.armedSlot(); }
+  throwAvailable(): boolean { return activeThrowableSlot(this.state, this.conn, this.queries) !== null; }
 
   /** Hotbar slot selected by keyboard/touch, regardless of its item category. */
   selectedHotbarSlot(): number | null { return this.state.selectedSlot; }

@@ -1,13 +1,3 @@
-/**
- * Edit-HUD mode facade (docs/HUD_OS.md Phase 2): owns the HudEditState instance and
- * every edit-mode Phaser object (gear chip, per-widget drag handles, catalog side
- * panel), and orchestrates entering/exiting, dragging, and save/reset. Constructed
- * once by HudWidgets (ui/widgets/hud/index.ts) alongside every other widget; entirely
- * self-contained — binds its own [F10] key rather than reaching into input/keys.ts,
- * and every interactive element is a real Phaser game object with its own pointer
- * listener (the inventory window's pattern, HUD_OS.md §7 Phase 1), not routed through
- * HudWidgets.hitTest()'s shared dispatch.
- */
 import type Phaser from "phaser";
 import { WIDGET_DEPTH } from "../widgets/container.js";
 import type { WidgetRegistry } from "../widgets/registry.js";
@@ -15,8 +5,10 @@ import type { Viewport } from "../widgets/state.js";
 import { CatalogPanel } from "./catalogPanel.js";
 import { DragHandle } from "./dragHandle.js";
 import { GearChip } from "./gearChip.js";
+import { ResizeHandle } from "./resizeHandle.js";
 import { recomputeAnchor, toStoredOffset } from "./snap.js";
 import { createHudEditState, type HudEditState } from "./state.js";
+import { touchControlSize, touchResizeOverride } from "./touchControlResize.js";
 
 /** Above every ordinary HUD widget so edit-mode chrome always draws on top. */
 const EDIT_DEPTH = WIDGET_DEPTH + 1000;
@@ -36,6 +28,8 @@ export class HudEditMode {
   private readonly gearChip: GearChip;
   private readonly catalogPanel: CatalogPanel;
   private readonly handles = new Map<string, DragHandle>();
+  private readonly resizeHandles = new Map<string, ResizeHandle>();
+  private resizing: { id: string; center: { x: number; y: number }; size: number } | null = null;
   private viewport: Viewport;
 
   constructor({ scene, registry, viewport, onLayoutChanged }: HudEditModeOptions) {
@@ -54,16 +48,14 @@ export class HudEditMode {
     this.catalogPanel.container.setVisible(false);
     this.catalogPanel.reposition(viewport);
     scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => this.handlePointerMove(pointer));
-    scene.input.on("pointerup", () => this.handlePointerUp());
+    scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => this.handlePointerUp(pointer));
     scene.input.keyboard?.on("keydown-F10", (event: KeyboardEvent) => {
       event.preventDefault();
       this.toggle();
     });
   }
 
-  get active(): boolean {
-    return this.state.active;
-  }
+  get active(): boolean { return this.state.active; }
 
   toggle(): void {
     if (this.state.active) this.exit();
@@ -81,6 +73,7 @@ export class HudEditMode {
   private exit(): void {
     this.state.active = false;
     this.state.drag = null;
+    this.resizing = null;
     this.gearChip.setActive(false);
     this.catalogPanel.container.setVisible(false);
     this.clearHandles();
@@ -89,6 +82,8 @@ export class HudEditMode {
   private clearHandles(): void {
     for (const handle of this.handles.values()) handle.destroy();
     this.handles.clear();
+    for (const handle of this.resizeHandles.values()) handle.destroy();
+    this.resizeHandles.clear();
   }
 
   private rebuildHandles(): void {
@@ -100,6 +95,12 @@ export class HudEditMode {
       const id = definition.id;
       const handle = new DragHandle({ scene: this.scene, id, point: { x: layout.x, y: layout.y }, depth: EDIT_DEPTH, onGrab: (pointer) => this.beginDrag(id, pointer, layout) });
       this.handles.set(id, handle);
+      const size = touchControlSize(id);
+      if (size) {
+        const point = { x: layout.x + (size * layout.scale) / 2, y: layout.y + (size * layout.scale) / 2 };
+        const resize = new ResizeHandle({ scene: this.scene, point, depth: EDIT_DEPTH, onGrab: () => this.beginResize(id, layout, size) });
+        this.resizeHandles.set(id, resize);
+      }
     }
   }
 
@@ -107,13 +108,24 @@ export class HudEditMode {
     this.state.drag = { widgetId: id, grabOffset: { x: pointer.x - layout.x, y: pointer.y - layout.y } };
   }
 
+  private beginResize(id: string, layout: { x: number; y: number }, size: number): void {
+    this.resizing = { id, center: { x: layout.x, y: layout.y }, size };
+  }
+
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     const drag = this.state.drag;
-    if (!this.state.active || !drag) return;
+    if (!this.state.active || !drag || this.resizing) return;
     this.handles.get(drag.widgetId)?.moveTo({ x: pointer.x - drag.grabOffset.x, y: pointer.y - drag.grabOffset.y });
   }
 
-  private handlePointerUp(): void {
+  private handlePointerUp(pointer: Phaser.Input.Pointer): void {
+    if (this.resizing) {
+      const override = touchResizeOverride(pointer, this.resizing, this.registry.getHudScale());
+      this.resizing = null;
+      this.registry.setOverride(override.id, { scale: override.scale });
+      this.onLayoutChanged();
+      return this.rebuildHandles();
+    }
     const drag = this.state.drag;
     if (!this.state.active || !drag) return;
     this.state.drag = null;
@@ -138,9 +150,6 @@ export class HudEditMode {
 
   private save(): void {
     this.registry.persist();
-    // Layout edits already persist as you drag, so a bare "save" felt like a dead
-    // button (user 2026-07-20: "make it save and close the panel") — SAVE now
-    // commits AND exits edit mode in one tap.
     this.exit();
   }
 
