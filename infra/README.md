@@ -93,6 +93,38 @@ terraform show -no-color tfplan
 Stop if the plan contains a replacement, destroy, unexpected world-seed
 change, instance-ID change, root-volume change, or Elastic IP reassociation.
 
+## Production admin token
+
+Production `/admin` authentication uses the SSM Parameter Store SecureString
+named `/dungeoncrawler2d/prod/admin-token`. Terraform defines this name and
+grants the EC2 instance role only `ssm:GetParameter` for its exact parameter
+ARN; Terraform never reads, creates, or stores the SecureString value. The
+runtime SSM association fetches the value with the instance role, writes a
+root-owned mode-`0600` file, and systemd loads it before starting the `dc2d`
+service. The token is not copied into Terraform state, git, user-data, SSM
+command output, application logs, or URLs.
+
+Use the documented prompt-based setup and rotation procedure in
+[`docs/ADMIN-OPERATIONS.md`](../docs/ADMIN-OPERATIONS.md). A normal Terraform
+apply updates the existing runtime association and restarts the service. A
+token-only rotation must explicitly re-run that association because changing
+an external SSM value does not change Terraform configuration:
+
+```bash
+association_id=$(terraform output -raw game_server_runtime_association_id)
+aws ssm start-associations-once \
+  --association-ids "$association_id" \
+  --profile poweraccess-terraform \
+  --region us-east-1
+unset association_id
+```
+
+If the parameter is missing, empty, or contains a newline, the association
+removes the local token file and leaves `/admin` disabled while keeping the
+game service running. Verify only the association result, service status, and
+file ownership/mode; never fetch or print the decrypted parameter for a
+verification check.
+
 ## Phase 1: certificate and server
 
 ```powershell

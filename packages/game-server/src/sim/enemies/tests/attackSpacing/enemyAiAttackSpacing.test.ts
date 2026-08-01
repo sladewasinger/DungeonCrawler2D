@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { NEUTRAL_INPUT } from "@dc2d/engine";
 import { spawnEnemy } from "../../../core/helpers.js";
 import type { SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../index.js";
-import { meleeCandidates } from "../../ai/attackSpacing/attackSpacingUtils.js";
+import {
+  meleeCandidates,
+  slotWalkable,
+} from "../../ai/attackSpacing/attackSpacingUtils.js";
 import { chooseMeleeSlot } from "../../ai/attackSpacing/meleeSlotSelection.js";
+import { setMeleeReservation } from "../../ai/helpers/meleeReservationState.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
@@ -114,6 +119,34 @@ describe("enemy attack spacing", () => {
     );
     expect(slots.size).toBeGreaterThan(1);
     expect(attackers.some(hasMovedFrom(starters))).toBe(true);
+  });
+
+  it("preserves immediate strikes ahead of a reusable reservation", () => {
+    const enemyEntity = spawnEnemy(sim, { defId: "skeleton", x: spot.x + 0.8, y: spot.y });
+    const enemy = sim.enemies.get(enemyEntity.id);
+    const player = sim.players.get("p1")?.entity;
+    if (!enemy || !player) throw new Error("missing immediate strike fixture");
+    const reusable = meleeCandidates(player, enemy.def.attack.range).find((candidate) =>
+      !candidate.canShare &&
+      Math.hypot(candidate.x - enemy.entity.body.x, candidate.y - enemy.entity.body.y) > 0.35 &&
+      slotWalkable(sim, enemy, candidate),
+    );
+    if (!reusable) throw new Error("missing reusable melee slot");
+    setMeleeReservation(sim, enemy, { targetId: player.id, slot: reusable });
+
+    const selected = chooseMeleeSlot({
+      sim,
+      enemy,
+      target: player,
+      targetId: player.id,
+      attackRange: enemy.def.attack.range,
+      occupied: [],
+      preserveImmediate: true,
+      decision: { move: NEUTRAL_INPUT, strike: { targetId: player.id } },
+    });
+
+    expect(selected?.x).toBeCloseTo(enemy.entity.body.x);
+    expect(selected?.y).toBeCloseTo(enemy.entity.body.y);
   });
 
 });

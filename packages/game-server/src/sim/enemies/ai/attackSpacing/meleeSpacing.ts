@@ -1,5 +1,5 @@
 import { type EnemyDecision } from "@dc2d/engine";
-import type { SimState } from "../../../state/state.js";
+import type { EnemySlot, SimState } from "../../../state/state.js";
 import {
   type MeleeSlotOccupant,
   type AttackRequest,
@@ -54,13 +54,18 @@ function applyMeleeRequest(input: {
     return;
   }
 
-  setMeleeReservation(input.sim, input.request.enemy, {
-    targetId: input.targetId,
-    slot: slot.slot,
-    kind: slot.kind,
+  if (!slot.preserveFormationReservation) {
+    setMeleeReservation(input.sim, input.request.enemy, {
+      targetId: input.targetId,
+      slot: slot.slot,
+      kind: slot.kind,
+    });
+  }
+  input.decisions.set(input.request.enemy.entity.id, adjustedDecision(input.request, slot));
+  input.occupied.push({
+    enemy: input.request.enemy,
+    slot: occupiedSlot(input.request.enemy, slot),
   });
-  input.decisions.set(input.request.enemy.entity.id, adjustedDecision(input.request, slot.slot));
-  input.occupied.push({ enemy: input.request.enemy, slot: slot.slot });
 }
 
 function chooseSlot(input: {
@@ -84,15 +89,31 @@ function chooseSlot(input: {
 
 function adjustedDecision(
   request: AttackRequest,
-  slot: NonNullable<ReturnType<typeof chooseMeleeSlotSelection>>["slot"],
+  selection: NonNullable<ReturnType<typeof chooseMeleeSlotSelection>>,
 ): EnemyDecision {
   return adjustMeleeDecision({
     enemy: request.enemy,
     target: request.target,
     attackRange: request.enemy.def.attack.range,
-    slot,
+    slot: selection.slot,
+    ...(selection.immediateStrike ? { immediateStrike: true } : {}),
     decision: request.decision,
   });
+}
+
+function occupiedSlot(
+  enemy: EnemySlot,
+  selection: NonNullable<ReturnType<typeof chooseMeleeSlotSelection>>,
+): NonNullable<ReturnType<typeof chooseMeleeSlotSelection>>["slot"] {
+  const reservation = enemy.attackReservation;
+  if (!selection.preserveFormationReservation ||
+      reservation?.kind !== "melee-slot") return selection.slot;
+  return {
+    x: reservation.x,
+    y: reservation.y,
+    z: reservation.z,
+    canShare: false,
+  };
 }
 
 function suppressStrike(input: {

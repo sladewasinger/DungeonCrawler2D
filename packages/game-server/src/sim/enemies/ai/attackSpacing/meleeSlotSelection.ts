@@ -1,7 +1,6 @@
 import { NEUTRAL_INPUT, type EnemyDecision, type Entity } from "@dc2d/engine";
 import type { EnemySlot } from "../../../state/state.js";
 import {
-  ATTACK_KIND,
   type AttackRequest,
   type MeleeSlotCandidate,
   type SlotSelectionInput,
@@ -15,12 +14,21 @@ import {
 import {
   canStrikeNow,
   createRange,
-  isCurrentMeleeCandidate,
+  reuseMeleeSlot,
   isUsableCandidate,
 } from "./meleeSlotSelectionHelpers.js";
 import { fallbackMeleeApproachPoint } from "./meleeFallbackSelection.js";
-
+import { hasReusableMeleeReservation } from "./retention/meleeReservationValidation.js";
 export { fallbackMeleeApproachPoint } from "./meleeFallbackSelection.js";
+
+const BOUNDED_FALLBACK_KIND = "bounded-fallback" as const;
+
+export interface MeleeSlotSelection {
+  readonly slot: MeleeSlotCandidate;
+  readonly kind: "slot" | typeof BOUNDED_FALLBACK_KIND;
+  readonly immediateStrike?: true;
+  readonly preserveFormationReservation?: true;
+}
 
 export interface MeleeDecisionInput {
   readonly enemy: EnemySlot;
@@ -28,13 +36,8 @@ export interface MeleeDecisionInput {
   readonly attackRange: number;
   readonly decision: EnemyDecision;
   readonly slot: MeleeSlotCandidate;
+  readonly immediateStrike?: true;
 }
-
-export interface MeleeSlotSelection {
-  readonly slot: MeleeSlotCandidate;
-  readonly kind: "slot" | "bounded-fallback";
-}
-
 export function chooseMeleeSlot(input: SlotSelectionInput): MeleeSlotCandidate | undefined {
   return chooseMeleeSlotSelection(input)?.slot;
 }
@@ -42,14 +45,24 @@ export function chooseMeleeSlot(input: SlotSelectionInput): MeleeSlotCandidate |
 export function chooseMeleeSlotSelection(
   input: SlotSelectionInput,
 ): MeleeSlotSelection | undefined {
+  // A currently accepted strike outranks stale reservation reuse.
   const immediate = immediateMeleeSlot(input);
-  if (immediate) return { slot: immediate, kind: "slot" };
+  if (immediate) {
+    return {
+      slot: immediate,
+      kind: "slot",
+      immediateStrike: true,
+      ...(hasReusableMeleeReservation(input) ? {
+        preserveFormationReservation: true,
+      } : {}),
+    };
+  }
   const reservation = reuseMeleeSlot(input);
   if (reservation) return { slot: reservation, kind: "slot" };
   const exclusive = nonSharedSlot(input);
   if (exclusive) return { slot: exclusive, kind: "slot" };
   const fallback = fallbackMeleeApproachPoint(input);
-  return fallback ? { slot: fallback, kind: "bounded-fallback" } : undefined;
+  return fallback ? { slot: fallback, kind: BOUNDED_FALLBACK_KIND } : undefined;
 }
 
 function immediateMeleeSlot(
@@ -74,11 +87,10 @@ function immediateMeleeSlot(
     z: body.z,
     canShare: false,
   } satisfies MeleeSlotCandidate;
-  return isUsableCandidate(input, candidate, "exclusive")
+  return isUsableCandidate(input, candidate, { policy: "exclusive" })
     ? candidate
     : undefined;
 }
-
 export function adjustMeleeDecision(
   input: MeleeDecisionInput,
 ): EnemyDecision {
@@ -91,13 +103,17 @@ export function adjustMeleeDecision(
     return {
       ...rest,
       move: NEUTRAL_INPUT,
-      strike: { targetId: input.target.id },
+      strike: {
+        targetId: input.target.id,
+        ...(input.immediateStrike ? { immediate: true } : {}),
+      },
     };
   }
   const held = { ...rest, move: NEUTRAL_INPUT };
   if (positioned) return held;
   return {
     ...held,
+    pursuitMode: "melee-slot",
     pursuit: {
       x: input.slot.x,
       y: input.slot.y,
@@ -129,21 +145,6 @@ function nonSharedSlot(input: SlotSelectionInput): MeleeSlotCandidate | undefine
   );
   return ordered.find((candidate) => candidate !== undefined &&
     !candidate.canShare &&
-    isUsableCandidate(input, candidate, "exclusive")
+    isUsableCandidate(input, candidate, { policy: "exclusive" })
   );
-}
-
-function reuseMeleeSlot(input: SlotSelectionInput): MeleeSlotCandidate | undefined {
-  const reservation = input.enemy.attackReservation;
-  if (!reservation || reservation.kind !== ATTACK_KIND.meleeSlot) return undefined;
-  if (reservation.targetId !== input.target.id) return undefined;
-  if (!isCurrentMeleeCandidate(input, reservation)) return undefined;
-  const candidate: MeleeSlotCandidate = {
-    x: reservation.x,
-    y: reservation.y,
-    z: reservation.z,
-    canShare: false,
-  };
-  if (!isUsableCandidate(input, candidate, "exclusive")) return undefined;
-  return candidate;
 }

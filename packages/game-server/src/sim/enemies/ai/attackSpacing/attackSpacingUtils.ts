@@ -1,4 +1,5 @@
 import {
+  canOccupyBodyAt,
   findGridPath,
   hashString,
   mixSeeds,
@@ -43,9 +44,10 @@ export function slotReachable(
   enemy: EnemySlot,
   candidate: CandidatePoint,
 ): boolean {
+  if (!slotWalkable(sim, enemy, candidate)) return false;
   if (isAtAttackSlot(enemy.entity.body, candidate)) return true;
   if (sameTile(enemy.entity.body, candidate)) {
-    return slotWalkable(sim, enemy, candidate);
+    return true;
   }
   const path = findGridPath({
     world: sim.world,
@@ -56,7 +58,7 @@ export function slotReachable(
       margin: ENEMY_SIMULATION_TUNING.perception.memoryPathMarginTiles,
       maxJumpRise: ENEMY_SIMULATION_TUNING.perception.jumpRiseTiles,
       jumpThreshold: ENEMY_SIMULATION_TUNING.perception.jumpRiseTiles - ENEMY_SIMULATION_TUNING.perception.jumpHeightTolerance,
-      canEnter: (position: { x: number; y: number }) => slotWalkable(sim, enemy, position),
+      canEnter: (position: { x: number; y: number }) => slotTileWalkable(sim, enemy, position),
     },
   });
   return path.length > 0;
@@ -72,14 +74,49 @@ export function slotWalkable(
   enemy: EnemySlot,
   candidate: CandidatePoint,
 ): boolean {
-  if (!sim.world.isWalkable(Math.floor(candidate.x), Math.floor(candidate.y))) return false;
-  if (!enemyOccupancyIsAllowed(sim, { x: candidate.x, y: candidate.y })) return false;
-  return inHomeRange(enemy, Math.floor(candidate.x), Math.floor(candidate.y));
+  if (!slotTileWalkable(sim, enemy, candidate)) return false;
+  return canOccupyBodyAt({
+    world: sim.world,
+    body: enemy.entity.body,
+    x: candidate.x,
+    y: candidate.y,
+    blocked: (x, y) => !positionAllowed({ sim, enemy, x, y }),
+  });
+}
+
+function slotTileWalkable(
+  sim: SimState,
+  enemy: EnemySlot,
+  point: CandidatePoint,
+): boolean {
+  const tileX = Math.floor(point.x);
+  const tileY = Math.floor(point.y);
+  if (!sim.world.isWalkable(tileX, tileY)) return false;
+  if (!enemyOccupancyIsAllowed(sim, point)) return false;
+  return inHomeRange(enemy, tileX, tileY);
+}
+
+function positionAllowed(input: {
+  readonly sim: SimState;
+  readonly enemy: EnemySlot;
+  readonly x: number;
+  readonly y: number;
+}): boolean {
+  return enemyOccupancyIsAllowed(input.sim, { x: input.x, y: input.y }) &&
+    homeAllows(input.enemy, input.x, input.y);
 }
 
 function inHomeRange(enemy: EnemySlot, tileX: number, tileY: number): boolean {
   const home = enemy.home;
   return home === undefined || (tileX >= home.x0 && tileX <= home.x1 && tileY >= home.y0 && tileY <= home.y1);
+}
+
+function homeAllows(enemy: EnemySlot, x: number, y: number): boolean {
+  const home = enemy.home;
+  return home === undefined || (
+    x >= home.x0 && x < home.x1 + 1 &&
+    y >= home.y0 && y < home.y1 + 1
+  );
 }
 
 export function rangedDirectionKey(direction: { x: number; y: number }): string {

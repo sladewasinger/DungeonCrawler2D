@@ -19,7 +19,7 @@ export function fallbackMeleeApproachPoint(
   const usable = candidates
     .map((candidate, index) => ({ candidate, index }))
     .filter(({ candidate }) => candidate.canShare === false &&
-      isUsableCandidate(input, candidate, "bounded-fallback"));
+      isUsableCandidate(input, candidate, { policy: "bounded-fallback" }));
   usable.sort((left, right) => candidateOverlapCount(input, left.candidate) -
     candidateOverlapCount(input, right.candidate) || left.index - right.index);
   return usable[0]?.candidate;

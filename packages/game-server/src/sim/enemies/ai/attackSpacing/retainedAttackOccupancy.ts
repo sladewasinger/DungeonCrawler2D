@@ -1,13 +1,15 @@
-import type { EnemySlot } from "../../../state/state.js";
+import type { EnemySlot, SimState } from "../../../state/state.js";
 import { isCommittedAttackAnimation } from "../helpers/combatState.js";
 import {
   ATTACK_KIND,
   type AttackMode,
   type MeleeSlotOccupant,
 } from "./attackSpacingTypes.js";
+import { isMeleeReservationValid } from "./retention/meleeReservationValidation.js";
 import { rangedDirectionKey } from "./attackSpacingUtils.js";
 
 export function pruneInvalidReservations(input: {
+  readonly sim: SimState;
   readonly enemies: readonly EnemySlot[];
   readonly targets: ReadonlyMap<string, EnemySlot["entity"] | undefined>;
 }): void {
@@ -15,30 +17,47 @@ export function pruneInvalidReservations(input: {
     const reservation = enemy.attackReservation;
     if (!reservation) continue;
     const target = input.targets.get(enemy.entity.id);
-    if (isReservationValidForTarget(reservation, enemy, target)) continue;
+    if (isReservationValidForTarget({
+      sim: input.sim,
+      reservation,
+      enemy,
+      target,
+    })) continue;
     delete enemy.attackReservation;
     delete enemy.meleeFormation;
   }
 }
 
-function isReservationValidForTarget(
-  reservation: { kind: string; targetId: string },
-  enemy: EnemySlot,
-  target: EnemySlot["entity"] | undefined,
-): boolean {
-  if (!target || target.id !== reservation.targetId) return false;
-  if (reservation.kind === ATTACK_KIND.meleeSlot) return !enemy.def.attack.ranged;
-  return reservation.kind === ATTACK_KIND.rangedAim && enemy.def.attack.ranged === true;
+function isReservationValidForTarget(input: {
+  readonly sim: SimState;
+  readonly reservation: { kind: string; targetId: string };
+  readonly enemy: EnemySlot;
+  readonly target: EnemySlot["entity"] | undefined;
+}): boolean {
+  if (!input.target || input.target.id !== input.reservation.targetId) return false;
+  if (input.reservation.kind === ATTACK_KIND.meleeSlot) {
+    return !input.enemy.def.attack.ranged && isMeleeReservationValid({
+      sim: input.sim,
+      enemy: input.enemy,
+      target: input.target,
+    });
+  }
+  return input.reservation.kind === ATTACK_KIND.rangedAim &&
+    input.enemy.def.attack.ranged === true;
 }
 
 export function retainedMeleeSlotOccupants(input: {
+  readonly sim: SimState;
   readonly enemies: readonly EnemySlot[];
   readonly targets: ReadonlyMap<string, EnemySlot["entity"] | undefined>;
   readonly targetId: string;
 }): MeleeSlotOccupant[] {
-  return input.enemies
-    .filter((enemy) => isReservationForTarget({ ...input, enemy, mode: "melee" }))
+  // Duplicate physical reservations remain distinct occupants. The selection
+  // pass must see every committed body before assigning the next attacker.
+  const retained = input.enemies
+    .filter((enemy) => isRetainedReservation({ ...input, enemy, mode: "melee" }))
     .map(toMeleeSlotOccupant);
+  return retained;
 }
 
 function toMeleeSlotOccupant(enemy: EnemySlot): MeleeSlotOccupant {
@@ -58,6 +77,7 @@ function toMeleeSlotOccupant(enemy: EnemySlot): MeleeSlotOccupant {
 }
 
 export function retainedRangedSlotKeys(input: {
+  readonly sim: SimState;
   readonly enemies: readonly EnemySlot[];
   readonly targets: ReadonlyMap<string, EnemySlot["entity"] | undefined>;
   readonly targetId: string;
@@ -76,6 +96,7 @@ function rangedReservationKey(enemy: EnemySlot): string {
 }
 
 function isRetainedReservation(input: {
+  readonly sim: SimState;
   readonly enemy: EnemySlot;
   readonly targets: ReadonlyMap<string, EnemySlot["entity"] | undefined>;
   readonly targetId: string;
@@ -84,8 +105,21 @@ function isRetainedReservation(input: {
   if (!isReservationForTarget(input)) return false;
   if (!isCommittedAttackAnimation(input.enemy)) return false;
   return input.mode === "melee"
-    ? input.enemy.attackReservation?.kind === ATTACK_KIND.meleeSlot
+    ? isMeleeReservationRetained(input)
     : input.enemy.attackReservation?.kind === ATTACK_KIND.rangedAim;
+}
+
+function isMeleeReservationRetained(input: {
+  readonly sim: SimState;
+  readonly enemy: EnemySlot;
+  readonly targets: ReadonlyMap<string, EnemySlot["entity"] | undefined>;
+}): boolean {
+  const target = input.targets.get(input.enemy.entity.id);
+  return target !== undefined && isMeleeReservationValid({
+    sim: input.sim,
+    enemy: input.enemy,
+    target,
+  });
 }
 
 function isReservationForTarget(input: {

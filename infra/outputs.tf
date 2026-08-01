@@ -21,6 +21,16 @@ output "game_server_instance_id" {
   value = aws_instance.game_server.id
 }
 
+output "game_server_runtime_association_id" {
+  description = "SSM association ID used to re-fetch the production admin token after rotation."
+  value       = aws_ssm_association.game_server_runtime.association_id
+}
+
+output "admin_token_parameter_name" {
+  description = "SSM SecureString name for the production admin token; the value is never managed by Terraform."
+  value       = local.admin_token_parameter_name
+}
+
 output "game_server_public_ip" {
   value = aws_eip.game_server.public_ip
 }

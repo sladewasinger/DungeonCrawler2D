@@ -19,6 +19,7 @@ import {
 export function applyAttackSpacing(input: AttackSpacingInput): Map<string, EnemyDecision> {
   const decisions = new Map(input.decisions);
   pruneInvalidReservations({
+    sim: input.sim,
     enemies: input.enemies,
     targets: input.targets,
   });

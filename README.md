@@ -150,7 +150,7 @@ values and otherwise use their defaults; `VOID_TERRAIN` rejects unrecognized val
 | `DEBUG_COMMANDS` | Enabled outside production unless exact value `0`; controls development commands such as `/god` and `/tp`. |
 | `NODE_ENV` | Unset locally; exact value `production` hard-disables debug commands regardless of `DEBUG_COMMANDS`. |
 | `CLUSTER_SPAWNS` | Off; exact value `1` uses deterministic grid-style diagnostic spawns. |
-| `ADMIN_TOKEN` | Unset; token for the separate admin portal. With no token, portal authentication is disabled. |
+| `ADMIN_TOKEN` | Unset locally; token for the separate admin portal. With no token, portal authentication is disabled. Production systemd loads it from the SSM-backed protected environment file described in [admin operations](docs/ADMIN-OPERATIONS.md). |
 | `TRUST_PROXY` | Off; exact value `1` trusts the rightmost proxy-appended viewer address. Enable only behind the configured CloudFront path. |
 | `OPERATIONAL_EVENT_TABLE` | Unset; DynamoDB table for sanitized connection/admin history. Unset uses a no-op event sink. |
 | `OPERATIONAL_EVENT_RETENTION_SECONDS` | 31536000 (365 days) when a table is configured; positive per-event TTL. Every new event receives a fresh expiration. |
@@ -226,7 +226,9 @@ Terraform renders the EC2 service with `NODE_ENV=production`, `DEBUG_COMMANDS=0`
 `GAMEPLAY_IDLE_TIMEOUT_MS=180000`. It injects `WORLD_SEED`, the DynamoDB table and
 TTL from Terraform; uses `/var/lib/dungeoncrawler2d/players.json` for `STORE_FILE`;
 sets `CUSTOM_MAP=none`; and reads the generated `OPERATIONAL_EVENT_PEPPER` from a
-root-owned, mode-0600 environment file.
+root-owned, mode-0600 environment file. Production also refreshes `ADMIN_TOKEN`
+from the `/dungeoncrawler2d/prod/admin-token` SSM SecureString through the EC2
+instance role; Terraform never stores the token value.
 
 ### Terraform inputs
 

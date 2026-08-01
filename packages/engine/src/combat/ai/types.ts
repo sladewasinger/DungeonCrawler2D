@@ -23,7 +23,7 @@ export interface RememberedEnemyTarget {
 export interface EnemyDecision {
   move: MoveInput;
   searching?: boolean;
-  strike?: { targetId: string };
+  strike?: { targetId: string; immediate?: true };
   shoot?: {
     targetId: string;
     x: number;
@@ -33,6 +33,7 @@ export interface EnemyDecision {
     spreadY?: number;
   };
   pursuit?: { x: number; y: number; z: number };
+  pursuitMode?: "melee-slot";
 }
 
 export interface AggroSearch {

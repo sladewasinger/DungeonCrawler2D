@@ -22,6 +22,14 @@ interface AxisSweepContext extends AxisMove {
   blocked?: StepOpts["blocked"];
 }
 
+export interface BodyOccupancyContext {
+  readonly world: WorldView;
+  readonly body: BodyState;
+  readonly x: number;
+  readonly y: number;
+  readonly blocked?: StepOpts["blocked"];
+}
+
 interface CornerProbe extends AxisSweepContext {
   x: number;
   y: number;
@@ -57,11 +65,27 @@ function bodyCorners(body: BodyState, x = body.x, y = body.y): readonly [number,
   ];
 }
 
+export function canOccupyBodyAt(input: BodyOccupancyContext): boolean {
+  const { body, x, y } = input;
+  const dx = x - body.x;
+  const dy = y - body.y;
+  return bodyCorners(body, x, y).every(([cx, cy]) => cornerIsOpen({
+    ...input,
+    dx,
+    dy,
+    x: cx,
+    y: cy,
+  }));
+}
+
 function canOccupy(context: AxisSweepContext): boolean {
-  const { body, dx, dy } = context;
-  const x = body.x + dx;
-  const y = body.y + dy;
-  return bodyCorners(body, x, y).every(([cx, cy]) => cornerIsOpen({ ...context, x: cx, y: cy }));
+  return canOccupyBodyAt({
+    world: context.world,
+    body: context.body,
+    x: context.body.x + context.dx,
+    y: context.body.y + context.dy,
+    blocked: context.blocked,
+  });
 }
 
 function cornerIsOpen(context: CornerProbe): boolean {

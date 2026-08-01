@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { spawnEnemy } from "../../../core/helpers.js";
 import type { SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../index.js";
-import { meleeCandidates } from "../../ai/attackSpacing/attackSpacingUtils.js";
+import {
+  meleeCandidates,
+} from "../../ai/attackSpacing/attackSpacingUtils.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
@@ -35,7 +37,8 @@ describe("persistent melee formations", () => {
     for (let tick = 0; tick < 70; tick += 1) {
       stepEnemies(sim, []);
       if (tick >= 15) {
-        expect(enemiesAreSeparated(entities.map((entity) => requireEnemy(sim, entity.id)))).toBe(true);
+        const current = entities.map((entity) => requireEnemy(sim, entity.id));
+        expect(enemiesAreSeparated(current)).toBe(true);
       }
       expect(reservationsRemainStable(sim, entities, reservations)).toBe(true);
     }

@@ -7,6 +7,7 @@ import {
   type Entity,
 } from "@dc2d/engine";
 import {
+  ATTACK_KIND,
   type MeleeSlotCandidate,
   type SlotSelectionInput,
 } from "./attackSpacingTypes.js";
@@ -26,6 +27,11 @@ export interface MeleeStrikeInput {
 
 export type MeleeCandidatePolicy = "exclusive" | "bounded-fallback";
 
+export interface CandidateUsabilityPolicy {
+  readonly policy: MeleeCandidatePolicy;
+  readonly requireReachability?: boolean;
+}
+
 export function canStrikeNow(input: MeleeStrikeInput): boolean {
   const inHeight = Math.abs(
     input.enemy.entity.body.z - input.target.body.z,
@@ -44,20 +50,39 @@ export function canStrikeNow(input: MeleeStrikeInput): boolean {
 export function isUsableCandidate(
   input: SlotSelectionInput,
   candidate: MeleeSlotCandidate,
-  policy: MeleeCandidatePolicy,
+  policy: CandidateUsabilityPolicy,
+): boolean {
+  if (!baseCandidateIsUsable(input, candidate, policy)) return false;
+  const overlapCount = candidateOverlapCount(input, candidate);
+  return policy.policy === "exclusive" ? overlapCount === 0 : overlapCount <= 1;
+}
+
+function baseCandidateIsUsable(
+  input: SlotSelectionInput,
+  candidate: MeleeSlotCandidate,
+  policy: CandidateUsabilityPolicy,
 ): boolean {
   if (candidate.canShare) return false;
+  if (!candidateElevationIsAllowed(input, candidate)) return false;
   if (!slotWalkable(input.sim, input.enemy, candidate)) return false;
-  if (!slotReachable(input.sim, input.enemy, candidate)) return false;
-  if (!hasTerrainLineOfSight({
+  if (policy.requireReachability !== false &&
+      !slotReachable(input.sim, input.enemy, candidate)) return false;
+  return hasTerrainLineOfSight({
     world: input.sim.world,
     from: { ...candidate },
     to: input.target.body,
     maximumHeightDifference:
       ENEMY_SIMULATION_TUNING.perception.maximumVisibleHeightDifference,
-  })) return false;
-  const overlapCount = candidateOverlapCount(input, candidate);
-  return policy === "exclusive" ? overlapCount === 0 : overlapCount <= 1;
+  });
+}
+
+function candidateElevationIsAllowed(
+  input: SlotSelectionInput,
+  candidate: MeleeSlotCandidate,
+): boolean {
+  const candidateGround = input.sim.world.groundAt(candidate.x, candidate.y);
+  return Math.abs(candidateGround - input.target.body.z) <=
+    ENEMY_SIMULATION_TUNING.perception.maximumMeleeHeightDifference;
 }
 
 export function candidateOverlapCount(
@@ -87,6 +112,28 @@ export function isCurrentMeleeCandidate(
   return meleeCandidates(input.target, input.attackRange).some((candidate) =>
     candidateMatch(candidate, reservation),
   );
+}
+
+export function reuseMeleeSlot(
+  input: SlotSelectionInput,
+): MeleeSlotCandidate | undefined {
+  const reservation = input.enemy.attackReservation;
+  if (!reservation || reservation.kind !== ATTACK_KIND.meleeSlot) return undefined;
+  if (reservation.targetId !== input.target.id) return undefined;
+  if (!isCurrentMeleeCandidate(input, reservation)) return undefined;
+  const candidate: MeleeSlotCandidate = {
+    x: reservation.x,
+    y: reservation.y,
+    z: reservation.z,
+    canShare: false,
+  };
+  if (!isUsableCandidate(input, candidate, {
+    policy: "bounded-fallback",
+    requireReachability: false,
+  })) {
+    return undefined;
+  }
+  return candidate;
 }
 
 function candidateMatch(

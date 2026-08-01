@@ -23,6 +23,7 @@ export interface EnemyStrikeInput {
   targetId: string;
   effectEvents: EffectEvent[];
   attackTicks: number;
+  immediate?: true;
 }
 
 export interface SpitLaunchInput {
@@ -37,7 +38,8 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): boolean {
   const victim = victimSlot?.entity;
   if (!victim || victim.hp <= 0) return false;
   faceEntity(enemy.entity, victim.body.x - enemy.entity.body.x, victim.body.y - enemy.entity.body.y);
-  if (!isAtReservedMeleeSlot(enemy, victim.id) || isOutOfStrikeRange(enemy, victim)) return false;
+  if (!isAtReservedMeleeSlot(enemy, victim.id, input.immediate) ||
+      isOutOfStrikeRange(enemy, victim)) return false;
   enemy.animation = { state: "attack", ticksRemaining: attackTicks };
   if (blocksAttackFrom(victimSlot, enemy.entity)) {
     notifyBlockFeedback(sim, victim, "melee");
@@ -52,10 +54,15 @@ export function resolveEnemyStrike(input: EnemyStrikeInput): boolean {
   return true;
 }
 
-function isAtReservedMeleeSlot(enemy: EnemySlot, targetId: string): boolean {
+function isAtReservedMeleeSlot(
+  enemy: EnemySlot,
+  targetId: string,
+  immediate?: true,
+): boolean {
   const reservation = enemy.attackReservation;
   if (!reservation || reservation.kind !== "melee-slot") return false;
   if (reservation.targetId !== targetId) return false;
+  if (immediate) return true;
   return Math.hypot(
     enemy.entity.body.x - reservation.x,
     enemy.entity.body.y - reservation.y,

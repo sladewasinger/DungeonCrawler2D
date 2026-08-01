@@ -116,7 +116,171 @@ present.
 
 The current server uses the local env-token boundary intentionally. Replacing
 that boundary with the production provider is an infrastructure integration,
-not a client-side fallback and not an IP-based grant.
+not a client-side fallback and not an IP-based grant. In production, the
+systemd runtime obtains the same `ADMIN_TOKEN` value from SSM Parameter Store
+without putting the value in Terraform, user-data, logs, or URLs.
+
+## Production admin token
+
+The production parameter name is fixed at
+`/dungeoncrawler2d/prod/admin-token`. Terraform manages only that name and an
+EC2-role policy allowing `ssm:GetParameter` on its exact parameter ARN. The
+SecureString value is created and rotated manually with the production AWS
+profile. The runtime association retrieves it using the instance role, writes
+`/etc/dungeoncrawler2d/admin-token.env` as a root-owned mode-`0600` file,
+and systemd reads that file before dropping privileges to `dc2d`. The game
+process receives `ADMIN_TOKEN` only in its environment; the token is never
+written to Terraform state, git, user-data, SSM command output, application
+logs, or a URL.
+
+The commands below are Bash examples. They prompt without putting the token in
+shell history. Do not enable shell tracing while entering or rotating a token.
+They require `jq`, use a mode-`0600` temporary request and token file, and
+remove both files through an exit trap. The AWS CLI receives only the request
+file path, not the token as an argument. Use the default SSM-managed encryption
+key unless a separately reviewed KMS policy is added for a customer-managed
+key.
+
+One-time setup, before the first production apply:
+
+```bash
+put_production_admin_token() {
+  local prompt="$1"
+  (
+    set -euo pipefail
+    token_file=$(mktemp)
+    request_file=$(mktemp)
+    trap 'rm -f -- "$token_file" "$request_file"; unset token_value' EXIT
+    read -r -s -p "$prompt" token_value
+    printf '\n'
+    test -n "$token_value"
+    printf '%s' "$token_value" >"$token_file"
+    jq -n --rawfile value "$token_file" '{Value: $value}' >"$request_file"
+    aws ssm put-parameter \
+      --cli-input-json "file://$request_file" \
+      --name /dungeoncrawler2d/prod/admin-token \
+      --type SecureString \
+      --overwrite \
+      --profile poweraccess-terraform \
+      --region us-east-1 \
+      --no-cli-pager
+  )
+}
+
+put_production_admin_token "Production admin token: "
+```
+
+Then apply the infrastructure through the existing association and inspect
+the plan before applying it:
+
+```bash
+cd infra
+terraform init -reconfigure
+terraform validate
+terraform plan -out=tfplan
+terraform show -no-color tfplan
+terraform apply tfplan
+```
+
+The plan should show the runtime association update and must not replace the
+existing instance, root volume, or Elastic IP.
+
+To rotate the token, overwrite the SecureString with the same prompt pattern,
+then explicitly re-run the runtime association so it fetches the new value
+and restarts systemd. A Terraform plan is not required for a token-only
+rotation because the value is intentionally outside Terraform state:
+
+```bash
+put_production_admin_token() {
+  local prompt="$1"
+  (
+    set -euo pipefail
+    token_file=$(mktemp)
+    request_file=$(mktemp)
+    trap 'rm -f -- "$token_file" "$request_file"; unset token_value' EXIT
+    read -r -s -p "$prompt" token_value
+    printf '\n'
+    test -n "$token_value"
+    printf '%s' "$token_value" >"$token_file"
+    jq -n --rawfile value "$token_file" '{Value: $value}' >"$request_file"
+    aws ssm put-parameter \
+      --cli-input-json "file://$request_file" \
+      --name /dungeoncrawler2d/prod/admin-token \
+      --type SecureString \
+      --overwrite \
+      --profile poweraccess-terraform \
+      --region us-east-1 \
+      --no-cli-pager
+  )
+}
+
+put_production_admin_token "New production admin token: "
+
+cd infra
+association_id=$(terraform output -raw game_server_runtime_association_id)
+aws ssm start-associations-once \
+  --association-ids "$association_id" \
+  --profile poweraccess-terraform \
+  --region us-east-1
+unset association_id
+```
+
+Check the most recent association execution, then verify the service without
+printing the token or the decrypted parameter:
+
+```bash
+aws ssm describe-association-executions \
+  --association-id "$(terraform output -raw game_server_runtime_association_id)" \
+  --max-results 1 \
+  --profile poweraccess-terraform \
+  --region us-east-1 \
+  --query 'AssociationExecutions[0].{Status:Status,ExecutionId:ExecutionId,Created:CreatedTime}'
+
+instance_id=$(terraform output -raw game_server_instance_id)
+command_id=$(aws ssm send-command \
+  --instance-ids "$instance_id" \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["set -e","systemctl is-active dungeoncrawler2d","if test -f /etc/dungeoncrawler2d/admin-token.env; then stat -c %U:%G:%a /etc/dungeoncrawler2d/admin-token.env; else echo admin-token-disabled; fi"]' \
+  --query Command.CommandId \
+  --output text \
+  --profile poweraccess-terraform \
+  --region us-east-1)
+aws ssm wait command-executed \
+  --command-id "$command_id" \
+  --instance-id "$instance_id" \
+  --profile poweraccess-terraform \
+  --region us-east-1
+aws ssm get-command-invocation \
+  --command-id "$command_id" \
+  --instance-id "$instance_id" \
+  --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
+  --profile poweraccess-terraform \
+  --region us-east-1
+unset command_id instance_id
+```
+
+Expected output includes an active service and `root:root:600` for the token
+file when authentication is enabled. `admin-token-disabled` is the safe
+expected state when the parameter is absent or invalid. The runtime rejects
+empty values and values containing newlines; on retrieval failure it removes
+the local file before restarting, so an old token is not retained.
+
+For rollback, repeat the overwrite command with the previously verified token
+and re-run the association. For an emergency disable, delete only this
+parameter and re-run the association; the missing-parameter path removes the
+local file and keeps `/admin` disabled:
+
+```bash
+aws ssm delete-parameter \
+  --name /dungeoncrawler2d/prod/admin-token \
+  --profile poweraccess-terraform \
+  --region us-east-1
+```
+
+Deletion is recoverable only by recreating the parameter with a known token.
+Do not use Terraform variables, `terraform.tfvars`, user-data literals, log
+fields, URLs, or command arguments containing the literal secret as a secret
+transport.
 
 ## Durable operational history
 

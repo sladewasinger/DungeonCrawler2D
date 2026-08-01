@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { spawnEnemy } from "../../../core/helpers.js";
 import type { SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../index.js";
+import { slotWalkable } from "../../ai/attackSpacing/attackSpacingUtils.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
@@ -80,5 +81,27 @@ describe("enemy melee corridor formations", () => {
     expect(progressStates).toHaveLength(3);
     expect(progressStates.every((state) => state.progressed || state.holdReason)).toBe(true);
     expect(progressStates.filter((state) => !state.moved).length).toBeLessThan(2);
+  });
+
+  it("rejects a stepped-wall corner slot while keeping the open side usable", () => {
+    const tileX = Math.floor(spot.x);
+    const tileY = Math.floor(spot.y);
+    sim.world.replaceTileOverrides([
+      { x: tileX + 2, y: tileY, tile: TILE.CraftingTable },
+      { x: tileX + 2, y: tileY + 1, tile: TILE.CraftingTable },
+      { x: tileX + 1, y: tileY + 1, tile: TILE.CraftingTable },
+    ]);
+    const entity = spawnEnemy(sim, {
+      defId: "skeleton",
+      x: spot.x + 0.5,
+      y: spot.y + 1.5,
+    });
+    const enemy = sim.enemies.get(entity.id);
+    if (!enemy) throw new Error("missing stepped-wall enemy");
+    const blocked = { x: tileX + 1.8, y: spot.y, z: enemy.entity.body.z };
+    const openSide = { x: spot.x, y: tileY + 1.5, z: enemy.entity.body.z };
+
+    expect(slotWalkable(sim, enemy, blocked)).toBe(false);
+    expect(slotWalkable(sim, enemy, openSide)).toBe(true);
   });
 });

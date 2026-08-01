@@ -39,10 +39,13 @@ locals {
   frontend_origin_id                  = "frontend"
   game_server_origin_id               = "game-server"
   production_distribution_id          = "E253TI6NRUSHMS"
+  admin_token_parameter_name          = "/dungeoncrawler2d/prod/admin-token"
+  admin_token_parameter_arn           = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.admin_token_parameter_name}"
   operational_event_retention_seconds = var.operational_event_retention_days * 24 * 60 * 60
   game_server_runtime_configuration = templatefile("${path.module}/server-runtime.sh.tftpl", {
     aws_region                          = var.aws_region
     artifact_bucket                     = aws_s3_bucket.artifacts.id
+    admin_token_parameter_name          = local.admin_token_parameter_name
     log_group_name                      = aws_cloudwatch_log_group.game_server.name
     server_log_retention_days           = var.server_log_retention_days
     server_bundle_object                = local.server_bundle_object
@@ -163,6 +166,33 @@ resource "aws_iam_role_policy" "server_artifacts" {
       Effect   = "Allow"
       Resource = "${aws_s3_bucket.artifacts.arn}/*"
     }]
+  })
+}
+
+resource "aws_iam_role_policy" "admin_token" {
+  name = "admin-token-read"
+  role = aws_iam_role.game_server.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "ReadAdminToken"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = local.admin_token_parameter_arn
+      },
+      {
+        Sid    = "DenyParameterReadsOutsideAdminToken"
+        Effect = "Deny"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        NotResource = local.admin_token_parameter_arn
+      }
+    ]
   })
 }
 
@@ -304,6 +334,7 @@ resource "aws_instance" "game_server" {
   }
 
   depends_on = [
+    aws_iam_role_policy.admin_token,
     aws_iam_role_policy.server_artifacts,
     aws_iam_role_policy.operational_history,
     aws_iam_role_policy_attachment.cloudwatch_agent,
@@ -330,6 +361,7 @@ resource "aws_ssm_association" "game_server_runtime" {
   depends_on = [
     aws_cloudwatch_log_group.game_server,
     aws_dynamodb_table.operational_history,
+    aws_iam_role_policy.admin_token,
     aws_iam_role_policy.operational_history,
     aws_iam_role_policy.server_artifacts,
     aws_iam_role_policy_attachment.cloudwatch_agent,

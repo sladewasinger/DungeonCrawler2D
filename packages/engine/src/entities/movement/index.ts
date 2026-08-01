@@ -5,6 +5,10 @@ import {
 } from "../../core/constants.js";
 import type { WorldView } from "../../world/core/types.js";
 import { moveHorizontal } from "./collision.js";
+export {
+  canOccupyBodyAt,
+  type BodyOccupancyContext,
+} from "./axisSweep.js";
 import { resolveVerticalMotion, updateJumpState } from "./physics.js";
 
 /**

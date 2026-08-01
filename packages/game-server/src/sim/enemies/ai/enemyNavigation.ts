@@ -1,4 +1,4 @@
-import type { EnemyDecision, MoveInput } from "@dc2d/engine";
+import { TICK_DT, type EnemyDecision, type MoveInput } from "@dc2d/engine";
 import type { EnemySlot, SimState } from "../../state/state.js";
 import { withEnemyMemoryPath } from "./enemyMemoryNavigation.js";
 import { withLedgeTransitionJump } from "./enemyPursuit.js";
@@ -15,6 +15,7 @@ export function enemyPursuitMove(
   input: EnemyNavigationInput,
 ): MoveInput {
   const { sim, enemy, visibleTarget, decision } = input;
+  const speed = effectiveEnemySpeed(sim, enemy);
   const routeMove = routeWithMemory({
     sim,
     enemy,
@@ -23,7 +24,7 @@ export function enemyPursuitMove(
   });
   if (!decision.pursuit) return routeWithLedgeJump(sim, enemy, routeMove);
   if (!visibleTarget) return routeMove;
-  if (isStandoffPursuit(input)) {
+  if (isStandoffPursuit(input) && input.decision.pursuitMode !== "melee-slot") {
     return routeWithLedgeJump(
       sim,
       enemy,
@@ -32,11 +33,19 @@ export function enemyPursuitMove(
         enemy,
         visibleTarget: undefined,
         pursuit: decision.pursuit,
-        move: chaseToPoint(enemy.entity, decision.pursuit),
+        move: chaseToPoint({ enemy: enemy.entity, point: decision.pursuit, speed }),
       }),
     );
   }
-  return routeWithLedgeJump(sim, enemy, chaseToPoint(enemy.entity, decision.pursuit));
+  return routeWithLedgeJump(
+    sim,
+    enemy,
+    chaseToPoint({ enemy: enemy.entity, point: decision.pursuit, speed }),
+  );
+}
+
+function effectiveEnemySpeed(sim: SimState, enemy: EnemySlot): number {
+  return enemy.entity.baseSpeed * sim.effects.speedMult(enemy.entity);
 }
 
 function routeWithMemory(
@@ -68,17 +77,22 @@ function routeWithLedgeJump(
   });
 }
 
-function chaseToPoint(
-  enemy: EnemySlot["entity"],
-  point: { x: number; y: number },
-): MoveInput {
+export function chaseToPoint(input: {
+  readonly enemy: EnemySlot["entity"];
+  readonly point: { readonly x: number; readonly y: number };
+  readonly speed: number;
+}): MoveInput {
+  const dx = input.point.x - input.enemy.body.x;
+  const dy = input.point.y - input.enemy.body.y;
+  const distance = Math.hypot(dx, dy);
+  const travel = input.speed * TICK_DT;
+  if (distance <= ATTACK_SLOT_REACHED_EPSILON || travel <= 0) {
+    return { moveX: 0, moveY: 0, jump: false };
+  }
+  const magnitude = Math.min(1, distance / travel);
   return {
-    moveX: Math.abs(point.x - enemy.body.x) > ATTACK_SLOT_REACHED_EPSILON
-      ? (Math.sign(point.x - enemy.body.x) as -1 | 0 | 1)
-      : 0,
-    moveY: Math.abs(point.y - enemy.body.y) > ATTACK_SLOT_REACHED_EPSILON
-      ? (Math.sign(point.y - enemy.body.y) as -1 | 0 | 1)
-      : 0,
+    moveX: (dx / distance) * magnitude,
+    moveY: (dy / distance) * magnitude,
     jump: false,
   };
 }

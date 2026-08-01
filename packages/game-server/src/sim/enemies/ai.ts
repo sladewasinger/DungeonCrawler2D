@@ -106,6 +106,7 @@ function executeEnemyDecision(input: EnemyStepInput): void {
     targetId: decision.strike.targetId,
     effectEvents,
     attackTicks: ENEMY_SIMULATION_TUNING.animationTicks.meleeAttack,
+    ...(decision.strike.immediate ? { immediate: true } : {}),
   });
   if (accepted) commitEnemyAttack(enemy.brain, enemy.def.attack.cooldown);
 }

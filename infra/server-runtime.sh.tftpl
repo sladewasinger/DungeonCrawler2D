@@ -9,6 +9,135 @@ fi
 
 id dc2d >/dev/null 2>&1 || useradd --system --home-dir /opt/dungeoncrawler2d --shell /sbin/nologin dc2d
 install -d -o dc2d -g dc2d /opt/dungeoncrawler2d /var/lib/dungeoncrawler2d /var/log/dungeoncrawler2d
+install -d -o root -g root -m 0700 /etc/dungeoncrawler2d
+
+admin_token_env=/etc/dungeoncrawler2d/admin-token.env
+stop_service_and_disable() {
+  systemctl stop dungeoncrawler2d.service >/dev/null 2>&1 || true
+  systemctl disable dungeoncrawler2d.service >/dev/null 2>&1 || true
+  if systemctl is-active --quiet dungeoncrawler2d.service; then
+    systemctl kill --kill-who=all --signal=KILL dungeoncrawler2d.service >/dev/null 2>&1 || true
+  fi
+  if systemctl is-active --quiet dungeoncrawler2d.service; then
+    printf '%s\n' 'dungeoncrawler2d could not be stopped after admin-token failure.' >&2
+    return 1
+  fi
+  return 0
+}
+
+remove_admin_token_or_stop() {
+  if rm -f "$admin_token_env"; then
+    return 0
+  fi
+  stop_service_and_disable || true
+  return 1
+}
+
+write_admin_token_env() {
+  local token_file="$1"
+  local temporary_env
+  if ! temporary_env="$(mktemp /etc/dungeoncrawler2d/admin-token.env.XXXXXX)"; then
+    return 1
+  fi
+  if ! {
+    printf 'ADMIN_TOKEN="'
+    sed 's/\\/\\\\/g; s/"/\\"/g' "$token_file"
+    printf '"\n'
+  } >"$temporary_env"; then
+    rm -f "$temporary_env"
+    return 1
+  fi
+  if ! chown root:root "$temporary_env" ||
+    ! chmod 0600 "$temporary_env" ||
+    ! mv -f "$temporary_env" "$admin_token_env"; then
+    rm -f "$temporary_env"
+    return 1
+  fi
+}
+
+cleanup_admin_token_files() {
+  local cleanup_failed=0
+  rm -f "$admin_token_parameter_json" || cleanup_failed=1
+  rm -f "$admin_token_value_file" || cleanup_failed=1
+  return "$cleanup_failed"
+}
+
+cleanup_and_remove_admin_token() {
+  if ! cleanup_admin_token_files; then
+    remove_admin_token_or_stop || true
+    stop_service_and_disable || true
+    return 1
+  fi
+  remove_admin_token_or_stop
+}
+
+admin_token_is_valid() {
+  local token_file="$1"
+  [ -s "$token_file" ] || return 1
+  [ "$(wc -l <"$token_file")" -eq 0 ] || return 1
+  [ "$(LC_ALL=C tr -cd '\r' <"$token_file" | wc -c)" -eq 0 ] || return 1
+  ! LC_ALL=C od -An -t x1 -v "$token_file" | grep -qw '00'
+}
+
+refresh_admin_token() {
+  systemctl stop dungeoncrawler2d.service >/dev/null 2>&1 || true
+  if systemctl is-active --quiet dungeoncrawler2d.service; then
+    stop_service_and_disable || return 1
+  fi
+  if ! admin_token_parameter_json="$(mktemp)"; then
+    remove_admin_token_or_stop
+    return "$?"
+  fi
+  if ! admin_token_value_file="$(mktemp)"; then
+    if ! rm -f "$admin_token_parameter_json"; then
+      stop_service_and_disable || true
+      return 1
+    fi
+    remove_admin_token_or_stop
+    return "$?"
+  fi
+  if ! aws ssm get-parameter \
+    --name "${admin_token_parameter_name}" \
+    --with-decryption \
+    --output json \
+    --region "${aws_region}" \
+    --no-cli-pager >"$admin_token_parameter_json" 2>/dev/null; then
+    cleanup_and_remove_admin_token
+    return "$?"
+  fi
+  if ! /usr/bin/node - "$admin_token_parameter_json" >"$admin_token_value_file" <<'NODE'
+const fs = require("node:fs");
+const parameter = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const value = parameter.Parameter && parameter.Parameter.Value;
+if (typeof value !== "string") process.exit(1);
+process.stdout.write(value);
+NODE
+  then
+    cleanup_and_remove_admin_token
+    return "$?"
+  fi
+  if ! admin_token_is_valid "$admin_token_value_file"; then
+    cleanup_and_remove_admin_token
+    return "$?"
+  fi
+  if ! write_admin_token_env "$admin_token_value_file"; then
+    cleanup_and_remove_admin_token || true
+    stop_service_and_disable || true
+    return 1
+  fi
+  if ! cleanup_admin_token_files; then
+    remove_admin_token_or_stop || true
+    stop_service_and_disable || true
+    return 1
+  fi
+}
+
+set +x
+if ! refresh_admin_token; then
+  exit 1
+fi
+set -x
+
 operational_env=/var/lib/dungeoncrawler2d/operational-events.env
 if [ ! -s "$operational_env" ] || ! grep -qxE 'OPERATIONAL_EVENT_PEPPER=[A-Za-z0-9+/=]{40,}' "$operational_env"; then
   set +x
@@ -86,6 +215,7 @@ Environment=CUSTOM_MAP=none
 Environment=OPERATIONAL_EVENT_TABLE=${operational_event_table}
 Environment=OPERATIONAL_EVENT_RETENTION_SECONDS=${operational_event_retention_seconds}
 EnvironmentFile=/var/lib/dungeoncrawler2d/operational-events.env
+EnvironmentFile=-/etc/dungeoncrawler2d/admin-token.env
 ExecStartPre=+/usr/local/bin/dc2d-sync
 ExecStart=/usr/bin/node /opt/dungeoncrawler2d/main.cjs
 StandardOutput=append:/var/log/dungeoncrawler2d/server.log
@@ -109,4 +239,8 @@ systemctl enable dungeoncrawler2d.service
   -m ec2 \
   -s \
   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-systemctl restart dungeoncrawler2d.service
+if ! systemctl restart dungeoncrawler2d.service; then
+  remove_admin_token_or_stop || true
+  stop_service_and_disable || true
+  exit 1
+fi

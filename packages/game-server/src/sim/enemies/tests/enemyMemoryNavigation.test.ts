@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { spawnEnemy } from "../../core/helpers.js";
 import type { SimState } from "../../state/state.js";
 import { stepEnemies } from "../index.js";
-import { enemyPursuitMove } from "../ai/enemyNavigation.js";
+import { chaseToPoint, enemyPursuitMove } from "../ai/enemyNavigation.js";
+import { moveEnemy } from "../ai/enemyMovement.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
@@ -96,5 +97,33 @@ describe("enemy remembered navigation", () => {
     });
 
     expect(move).not.toEqual({ moveX: 0, moveY: 1, jump: false });
+  });
+
+  it("scales a near slot approach without reversing after settling", () => {
+    const entity = spawnEnemy(sim, {
+      defId: "skeleton",
+      x: spot.x + 2,
+      y: spot.y,
+    });
+    const enemy = sim.enemies.get(entity.id);
+    if (!enemy) throw new Error("missing analog pursuit enemy");
+    const point = {
+      x: enemy.entity.body.x + 0.04,
+      y: enemy.entity.body.y + 0.03,
+    };
+    const moves = [];
+    for (let tick = 0; tick < 3; tick += 1) {
+      const move = chaseToPoint({
+        enemy: enemy.entity,
+        point,
+        speed: enemy.entity.baseSpeed,
+      });
+      moves.push(move);
+      moveEnemy({ sim, enemy, move, graced: [] });
+    }
+
+    expect(Math.hypot(moves[0]!.moveX, moves[0]!.moveY)).toBeLessThan(1);
+    expect(moves[1]).toEqual({ moveX: 0, moveY: 0, jump: false });
+    expect(moves[2]).toEqual({ moveX: 0, moveY: 0, jump: false });
   });
 });
