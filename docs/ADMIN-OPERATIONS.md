@@ -133,41 +133,21 @@ process receives `ADMIN_TOKEN` only in its environment; the token is never
 written to Terraform state, git, user-data, SSM command output, application
 logs, or a URL.
 
-The commands below are Bash examples. They prompt without putting the token in
-shell history. Do not enable shell tracing while entering or rotating a token.
-They require `jq`, use a mode-`0600` temporary request and token file, and
-remove both files through an exit trap. The AWS CLI receives only the request
-file path, not the token as an argument. Use the default SSM-managed encryption
-key unless a separately reviewed KMS policy is added for a customer-managed
-key.
+The repository-root helper below prompts without putting the token in shell
+history. Run it from the repository root, and keep it executable; restore that
+permission with `chmod +x scripts/put-production-admin-token.sh` if necessary.
+It accepts at most one optional argument for the prompt text; that argument is
+never treated as the token. The helper validates `aws` and `jq`, does not print
+the token, uses mode-`0600` temporary request and token files, and removes both
+files and the shell variable through an exit trap. AWS CLI receives only the
+request file path, never the token as an argument. Do not enable shell tracing
+while entering or rotating a token. Use the default SSM-managed encryption key
+unless a separately reviewed KMS policy is added for a customer-managed key.
 
 One-time setup, before the first production apply:
 
 ```bash
-put_production_admin_token() {
-  local prompt="$1"
-  (
-    set -euo pipefail
-    token_file=$(mktemp)
-    request_file=$(mktemp)
-    trap 'rm -f -- "$token_file" "$request_file"; unset token_value' EXIT
-    read -r -s -p "$prompt" token_value
-    printf '\n'
-    test -n "$token_value"
-    printf '%s' "$token_value" >"$token_file"
-    jq -n --rawfile value "$token_file" '{Value: $value}' >"$request_file"
-    aws ssm put-parameter \
-      --cli-input-json "file://$request_file" \
-      --name /dungeoncrawler2d/prod/admin-token \
-      --type SecureString \
-      --overwrite \
-      --profile poweraccess-terraform \
-      --region us-east-1 \
-      --no-cli-pager
-  )
-}
-
-put_production_admin_token "Production admin token: "
+./scripts/put-production-admin-token.sh
 ```
 
 Then apply the infrastructure through the existing association and inspect
@@ -191,30 +171,7 @@ and restarts systemd. A Terraform plan is not required for a token-only
 rotation because the value is intentionally outside Terraform state:
 
 ```bash
-put_production_admin_token() {
-  local prompt="$1"
-  (
-    set -euo pipefail
-    token_file=$(mktemp)
-    request_file=$(mktemp)
-    trap 'rm -f -- "$token_file" "$request_file"; unset token_value' EXIT
-    read -r -s -p "$prompt" token_value
-    printf '\n'
-    test -n "$token_value"
-    printf '%s' "$token_value" >"$token_file"
-    jq -n --rawfile value "$token_file" '{Value: $value}' >"$request_file"
-    aws ssm put-parameter \
-      --cli-input-json "file://$request_file" \
-      --name /dungeoncrawler2d/prod/admin-token \
-      --type SecureString \
-      --overwrite \
-      --profile poweraccess-terraform \
-      --region us-east-1 \
-      --no-cli-pager
-  )
-}
-
-put_production_admin_token "New production admin token: "
+./scripts/put-production-admin-token.sh "New production admin token: "
 
 cd infra
 association_id=$(terraform output -raw game_server_runtime_association_id)
