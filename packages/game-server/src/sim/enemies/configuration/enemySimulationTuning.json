@@ -15,7 +15,7 @@
     "occupiedAreaTargetCount": 16
   },
   "perception": {
-    "maximumAttackersPerPlayer": 3,
+    "maximumAttackersPerPlayer": 5,
     "maximumVisibleHeightDifference": 1,
     "memorySeconds": 20,
     "memorySearchSeconds": 20,
@@ -43,6 +43,6 @@
   },
   "rangedProjectile": {
     "interReleaseTicks": 10,
-    "landingVariationRadiusTiles": 0.2
+    "landingVariationRadiusTiles": 2
   }
 }
