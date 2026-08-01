@@ -11,6 +11,7 @@ const PANEL_BORDER = "#494956";
 const GOLD = "#ffd23d";
 const NAME_STORAGE_KEY = "dc2d-name";
 const MONOGRAM_FONT = "monogram, monospace";
+const PRIVACY_NOTICE = "We collect IP addresses and device identifiers strictly for security, anti-cheat, and moderation purposes.";
 
 export function loadStoredName(): string {
   return loadTabPreference(NAME_STORAGE_KEY) ??
@@ -54,6 +55,12 @@ function createStatus(): HTMLDivElement {
   applyStatusStyle(status);
   return status;
 }
+function createPrivacyNotice(): HTMLParagraphElement {
+  const notice = document.createElement("p");
+  notice.className = "title-privacy-notice";
+  notice.textContent = PRIVACY_NOTICE;
+  return notice;
+}
 export interface ConnectFormHandlers {
   onConnect(name: string, level: LevelId, skin: PlayerSkin): void;
   /** Lets the renderer suspend global gameplay-key capture while the name field owns typing. */
@@ -82,6 +89,7 @@ export class ConnectForm {
       this.input,
       choices,
       this.status,
+      createPrivacyNotice(),
       createSpectatorLink(),
       createReleaseNotesLink(),
     );

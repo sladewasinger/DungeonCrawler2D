@@ -22,6 +22,13 @@ does not appear.
   final validation checkpoint immediately before committing, unless Austin asks
   for an earlier test run.
 
+## Multi-agent workflow
+
+- Before delegating repository work, the parent agent must read and follow
+  `.codex/agents/README.md` and `agent-workflow/README.md`.
+- Repository custom agents are subagents. They must never spawn or coordinate
+  additional agents; the parent agent owns all delegation and handoffs.
+
 ## Critical code quality rules
 
 - Write highly modular, decoupled TypeScript.

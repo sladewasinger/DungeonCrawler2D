@@ -1,7 +1,7 @@
 name = "luna-coder"
-description = "Default implementation agent for one bounded Dungeon Crawler task."
-model = "gpt-5.6-luna"
-model_reasoning_effort = "xhigh"
+description = "Explicit opt-in implementation agent; never a silent Luna fallback."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 Implement only the scope in the assigned `agent-workflow/active/` artifact.
