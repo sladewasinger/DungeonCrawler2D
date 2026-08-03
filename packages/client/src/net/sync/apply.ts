@@ -11,6 +11,7 @@ import { applyWorldFeatureOverrides } from "./worldFeatureOverrides.js";
 import { movementSpeedProjection } from "../prediction/movement/movementSpeedContent.js";
 import { applyRemoteState } from "./applyRemoteState.js";
 import { applyMiniBossArenaLandmarks } from "./miniBossArenaLandmarks.js";
+import { measureRuntimeWork } from "../../performance/runtimeWorkMetrics.js";
 
 /**
  * Applies server truth to the Connection's state: authoritative self
@@ -23,7 +24,16 @@ export function applySnapshot(
   snap: ServerSnapshot,
   arrivalMs: number = performance.now(),
 ): void {
+  measureRuntimeWork("snapshot.apply", () => applySnapshotInternal(conn, snap, arrivalMs));
+}
+
+function applySnapshotInternal(
+  conn: Connection,
+  snap: ServerSnapshot,
+  arrivalMs: number,
+): void {
   if (!conn.world) return;
+  if (isStaleFloorSnapshot(conn, snap)) return;
   const combatBefore = captureCombatHealth(conn);
   if (snap.events.some((event) => event.t === "teleported")) prepareTeleport(conn);
   conn.serverTick = snap.tick;
@@ -38,6 +48,11 @@ export function applySnapshot(
   applyRemoteState(conn, snap, arrivalMs);
   applySnapshotEvents(conn, snap, combatBefore);
   conn.onSnapshot?.();
+}
+
+function isStaleFloorSnapshot(conn: Connection, snap: ServerSnapshot): boolean {
+  const pendingFloor = conn.pendingFloorTransition;
+  return pendingFloor !== null && snap.self.floor !== pendingFloor;
 }
 
 function applySnapshotEvents(
@@ -143,6 +158,7 @@ function reconcilePrediction(conn: Connection, snap: ServerSnapshot, world: Worl
         conn.movementSpeed,
         conn.statusEffects,
       ),
+      noclip: conn.noclip,
     });
   }
 }

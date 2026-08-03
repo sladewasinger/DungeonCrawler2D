@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_NOCLIP_SPEED,
   TICK_DT,
   createBody,
   stepBody,
@@ -53,6 +54,25 @@ describe("Prediction", () => {
     const walked = createBody(SPAWN_X, SPAWN_Y, 5);
     for (let tick = 0; tick < 10; tick++) stepBody(world, walked, WALK, TICK_DT);
     expect(client.x).toBeGreaterThan(walked.x);
+  });
+
+  it("mirrors the server finite-floor clamp during noclip prediction", () => {
+    const world = sandboxWorld();
+    const bounds = world.floorBounds;
+    if (!bounds) throw new Error("missing finite floor bounds");
+    const prediction = new Prediction();
+    const body = createBody(bounds.maxX + 0.5, bounds.maxY + 0.5, 0);
+
+    prediction.predict({
+      world,
+      body,
+      input: { moveX: 1, moveY: 1, jump: false },
+      movementSpeed: ADMIN_NOCLIP_SPEED,
+      noclip: true,
+    });
+
+    expect(body.x).toBeLessThanOrEqual(bounds.maxX + 0.5);
+    expect(body.y).toBeLessThanOrEqual(bounds.maxY + 0.5);
   });
 
 });

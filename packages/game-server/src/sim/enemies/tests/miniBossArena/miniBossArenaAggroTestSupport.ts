@@ -94,8 +94,8 @@ interface EnemyPlacement extends ArenaAggroFixture {
 
 export function placeEnemyBesidePlayer(input: EnemyPlacement): void {
   const { sim, enemy, player, distance } = input;
-  enemy.entity.body.x = player.entity.body.x + distance;
-  enemy.entity.body.y = player.entity.body.y;
+  enemy.entity.body.x = player.entity.body.x;
+  enemy.entity.body.y = player.entity.body.y + distance;
   enemy.entity.body.z = sim.world.groundAt(
     enemy.entity.body.x,
     enemy.entity.body.y,

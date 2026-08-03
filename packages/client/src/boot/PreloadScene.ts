@@ -5,8 +5,8 @@ import { registerAnimations, type AnimationManifest } from "./registerAnimations
 import { waitForPixelFontReady } from "../ui/foundation/font.js";
 import { setViewOrientation } from "../render/view/transform/viewState.js";
 import { PET_ASSETS } from "./petAssetManifest.js";
-import { testbenchSceneKey } from "../scenes/testbench/testbenchRegistry.js";
 import { terrainDebugIsEnabled } from "../render/terrain/runtime/debugMode.js";
+import { resolveStartupScene } from "./startupScene.js";
 
 /** Query param that selects the post-boot scene; defaults to the title/boot placeholder. */
 const SCENE_PARAM = "scene";
@@ -15,7 +15,6 @@ const TESTBENCH_PARAM = "testbench";
  * captures and renderer regression checks. The dungeon scene also changes this state
  * live through its prewarmed Z/X rotation controller. */
 const VIEW_ORIENTATION_PARAM = "vo";
-const EDITOR_SCENE_KEY = "editor";
 /** Hard cap on waiting for the pixel font: some mobile browsers never resolve
  * `document.fonts.ready` (font.ts) in the way desktop Chrome does — a system-font
  * fallback beats an indefinite black screen. */
@@ -26,7 +25,7 @@ export class PreloadScene extends Phaser.Scene {
   private fontReady = false;
   private bootStartedAtMs = 0;
 
-  constructor() {
+  constructor(private readonly configuredStartupScene?: string) {
     super("preload");
   }
 
@@ -72,6 +71,7 @@ export class PreloadScene extends Phaser.Scene {
     const vo = params.get(VIEW_ORIENTATION_PARAM);
     if (vo !== null) setViewOrientation(Number(vo));
     this.startRequestedScene({
+      configuredStartupScene: this.configuredStartupScene,
       requestedScene: params.get(SCENE_PARAM),
       requestedTestbench: params.get(TESTBENCH_PARAM),
     });
@@ -88,28 +88,21 @@ export class PreloadScene extends Phaser.Scene {
     console.warn(`[boot] pixel font not ready after ${FONT_READY_TIMEOUT_MS}ms — proceeding with the system font fallback`);
   }
 
-  private startRequestedScene({ requestedScene, requestedTestbench }: SceneRequest): void {
-    const startupScene = this.registry.get("startupScene");
-    if (typeof startupScene === "string") {
-      this.scene.start(startupScene);
-      return;
-    }
-    const testbench = testbenchSceneKey(requestedTestbench);
-    if (testbench) {
-      this.scene.start(testbench);
-      return;
-    }
-    if (requestedScene === EDITOR_SCENE_KEY) {
-      this.scene.start(EDITOR_SCENE_KEY);
-      return;
-    }
-    this.scene.start("title");
+  private startRequestedScene(request: SceneRequest): void {
+    const configuredStartupScene = request.configuredStartupScene ?? registryStartupScene(this.registry);
+    this.scene.start(resolveStartupScene({ ...request, configuredStartupScene }));
   }
 }
 
 interface SceneRequest {
+  readonly configuredStartupScene: string | undefined;
   readonly requestedScene: string | null;
   readonly requestedTestbench: string | null;
+}
+
+function registryStartupScene(registry: Phaser.Data.DataManager): string | undefined {
+  const startupScene = registry.get("startupScene");
+  return typeof startupScene === "string" ? startupScene : undefined;
 }
 
 function registerPetAnimations(anims: Phaser.Animations.AnimationManager): void {

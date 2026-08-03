@@ -3,7 +3,7 @@ import {
   type DebugFlag,
   type DebugFlags,
 } from "@dc2d/engine";
-import { title } from "../adminPagePrimitives.js";
+import { title } from "../portal/adminPagePrimitives.js";
 
 export interface AdminDebugControls {
   readonly root: HTMLElement;

@@ -3,9 +3,9 @@ import { adminMapPointerWorldDelta, adminMapLocationChanged, adminMapTileCenter,
   panAdminMapCenter, panAdminMapCenterByDelta, type AdminMapCenter, type AdminMapScreenPoint } from "./map/adminMapCamera.js";
 import { AdminMapCanvasInteractions } from "./map/camera/adminMapCanvasInteractions.js";
 import { AdminMapKeyboardPan } from "./map/camera/adminMapKeyboardPan.js";
-import { adminMapViewportRadius } from "./map/camera/adminMapZoom.js";
+import { adminMapViewportRadius } from "./map/camera/zoom/adminMapZoom.js";
 import { AdminMapZoomState } from "./map/camera/zoom/adminMapZoomState.js";
-import type { AdminMapZoomDirection } from "./map/camera/adminMapZoom.js";
+import type { AdminMapZoomDirection } from "./map/camera/zoom/adminMapZoom.js";
 import { adminMapSurfaceCursor } from "./map/adminMapSurfaceCursor.js";
 import { placeAdminMapEntity, removeAdminMapEntity } from "./map/surface/adminMapSurfaceActions.js";
 import { drawAdminMapSurface } from "./map/adminMapSurfaceDrawing.js";

@@ -6,6 +6,8 @@ const GROUND_HEIGHT_EPSILON = 1e-6;
 export interface GroundLightTerrain {
   terrainAt(wx: number, wy: number): TerrainType;
   groundAt(x: number, y: number): number;
+  heightAt?(wx: number, wy: number): number;
+  isWalkable?(wx: number, wy: number): boolean;
 }
 
 export interface GroundLightTile {
@@ -27,7 +29,8 @@ export function isGroundLightSurface(
   world: GroundLightTerrain,
   tile: GroundLightTile,
 ): boolean {
-  return world.terrainAt(tile.x, tile.y) === TERRAIN.Floor;
+  return world.terrainAt(tile.x, tile.y) === TERRAIN.Floor &&
+    (world.isWalkable?.(tile.x, tile.y) ?? true);
 }
 
 export function canGroundLightCrossStep(
@@ -62,7 +65,7 @@ function groundHeightAt(
   world: GroundLightTerrain,
   tile: GroundLightTile,
 ): number {
-  return world.groundAt(tile.x + 0.5, tile.y + 0.5);
+  return world.heightAt?.(tile.x, tile.y) ?? world.groundAt(tile.x + 0.5, tile.y + 0.5);
 }
 
 function createLine(from: GroundLightTile, to: GroundLightTile): GridLine {

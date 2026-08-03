@@ -2,7 +2,7 @@
  * Marshals live Connection + InputController + ChatController state into one
  * HudFakeSnapshot frame — split out of DungeonScene to stay under the file-size cap.
  */
-import { biomeAtWorldTile, findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/engine";
+import { findWorldInteractionTarget, type WorldInteractionKind } from "@dc2d/engine";
 import type { InputController } from "../../../input/index.js";
 import type { Connection } from "../../../net/connection/connection.js";
 import { activeLootChestNearby } from "../../../net/queries/lootChestQuery.js";
@@ -112,7 +112,7 @@ export function buildLiveHudSnapshot(input: LiveHudSnapshotInput): LiveHudSnapsh
     minimap,
   }) as LiveHudSnapshot;
   snapshot.biome = conn.world
-    ? biomeAtWorldTile({ worldSeed: conn.world.worldSeed, floor: conn.floor, wx: bodyPos.x, wy: bodyPos.y }).biome
+    ? conn.world.biomeAtWorldTile(bodyPos.x, bodyPos.y)?.biome ?? null
     : null;
   snapshot.headingDeg = aimHeadingDeg;
   applyThrowAvailability(snapshot, inputController);

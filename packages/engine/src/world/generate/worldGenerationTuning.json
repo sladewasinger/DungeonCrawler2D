@@ -55,12 +55,12 @@
   },
   "corridors": {
     "roomToRoomWidth": {
-      "min": 4,
-      "max": 6
+      "min": 2,
+      "max": 3
     },
     "districtEdgeWidth": {
-      "min": 4,
-      "max": 6
+      "min": 2,
+      "max": 3
     },
     "edgeAnchorMargin": 6,
     "doorwayJitter": 2,
@@ -79,8 +79,8 @@
     "chasmDepth": -2,
     "maximumAutomaticStep": 0.5,
     "interiorWallRise": 2,
-    "chasmBridgeWidth": 3,
-    "chasmMinimumSpan": 9,
+    "chasmBridgeWidth": 2,
+    "chasmMinimumSpan": 4,
     "doorwayRampMaximumWidth": 2,
     "variantRollSize": 30,
     "floodedPitThreshold": 12,

@@ -41,6 +41,7 @@ function findArena(): { readonly world: World; readonly arena: MiniBossArenaSite
       const arena = miniBossArenaForChunk({
         worldSeed: world.worldSeed,
         floor: world.floor,
+        generatedFloor: world.generatedFloor,
         cx,
         cy,
       });

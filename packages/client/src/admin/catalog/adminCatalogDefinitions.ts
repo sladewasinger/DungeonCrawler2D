@@ -4,13 +4,13 @@ import {
   resolveWeaponProfile,
   type PetDefinition,
 } from "@dc2d/engine";
-import type { AdminSpawnKind } from "../adminPageSupport.js";
+import type { AdminSpawnKind } from "../portal/adminPageSupport.js";
 import {
   enemyCatalogImage,
   itemCatalogImage,
   petCatalogImage,
   type AdminCatalogVisual,
-} from "./adminCatalogImages.js";
+} from "./assets/adminCatalogImages.js";
 import {
   isEnemyDefinition,
   isItemDefinition,
@@ -21,7 +21,7 @@ import {
 export type {
   AdminCatalogImage,
   AdminCatalogVisual,
-} from "./adminCatalogImages.js";
+} from "./assets/adminCatalogImages.js";
 
 export interface AdminCatalogEntry {
   readonly id: string;

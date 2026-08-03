@@ -112,5 +112,5 @@ function cornerSides(corner: CliffRimCorner): readonly TerrainCliffSide[] {
 
 function edgeDepth(edge: TerrainCliffEdgeQuad, side: TerrainCliffSide): number {
   const boundaryRow = side === "south" ? edge.viewTile.y + 1 : edge.viewTile.y;
-  return depthForCapOccluder(boundaryRow) + 0.08;
+  return depthForCapOccluder(boundaryRow);
 }

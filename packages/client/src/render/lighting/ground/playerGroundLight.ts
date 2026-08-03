@@ -13,6 +13,7 @@ import {
   type GroundLightTerrain,
   type GroundLightTile,
 } from "./groundLightVisibility.js";
+import { roomGroundLightCells, usesRoomGroundLight } from "./roomGroundLight.js";
 
 const GROUND_LIGHT = LIGHTING_VISUAL_STYLE.ground;
 
@@ -45,6 +46,11 @@ export function playerGroundLightStrength(distance: number): number {
 
 export interface PlayerGroundLightWorld extends GroundLightTerrain {
   terrainAt(wx: number, wy: number): TerrainType;
+  heightAt?(wx: number, wy: number): number;
+  /** Present on the authoritative World; finite floors use bounded BFS topology. */
+  floorBounds?: unknown | null;
+  /** Compatibility marker for World implementations that expose the indexed floor. */
+  generatedFloor?: unknown | null;
 }
 
 export interface PlayerGroundLightCell {
@@ -80,7 +86,7 @@ function addLitGroundCell(
   candidate: GroundCellCandidate,
 ): void {
   if (!isLitGround(world, candidate.x, candidate.y)) return;
-  cells.push({ tileX: candidate.x, tileY: candidate.y, strength: playerGroundLightStrength(candidate.distance), groundHeight: world.groundAt(candidate.x + 0.5, candidate.y + 0.5) });
+  cells.push({ tileX: candidate.x, tileY: candidate.y, strength: playerGroundLightStrength(candidate.distance), groundHeight: world.heightAt?.(candidate.x, candidate.y) ?? world.groundAt(candidate.x + 0.5, candidate.y + 0.5) });
 }
 
 interface PlayerGroundLightSearch { readonly world: PlayerGroundLightWorld; readonly origin: GroundLightTile; readonly player: Readonly<{ x: number; y: number }>; readonly cells: PlayerGroundLightCell[]; readonly visited: Set<string>; readonly queue: GroundLightTile[]; }
@@ -112,9 +118,9 @@ function canQueueTile(
 ): boolean {
   if (search.visited.has(tileKey(tile))) return false;
   search.visited.add(tileKey(tile));
-  return distanceToPlayer(search, tile) <= PLAYER_GROUND_LIGHT_RADIUS + 1e-6
-    && canGroundLightCrossStep(search.world, from, tile)
-    && hasClearGroundLightLine(search.world, search.origin, tile);
+  if (distanceToPlayer(search, tile) > PLAYER_GROUND_LIGHT_RADIUS + 1e-6) return false;
+  if (!canGroundLightCrossStep(search.world, from, tile)) return false;
+  return hasClearGroundLightLine(search.world, search.origin, tile);
 }
 
 function populateGroundLightCells(search: PlayerGroundLightSearch): void {
@@ -133,8 +139,25 @@ export function playerGroundLightCells(
 ): readonly PlayerGroundLightCell[] {
   const search = createSearch(world, playerX, playerY);
   if (!isGroundLightSurface(world, search.origin)) return [];
+  if (usesRoomGroundLight(search.origin.y)) {
+    return roomGroundLightCells(world, playerX, playerY);
+  }
   populateGroundLightCells(search);
   return search.cells;
+}
+
+export function reprojectPlayerGroundLightCells(
+  cells: readonly PlayerGroundLightCell[],
+  playerX: number,
+  playerY: number,
+): readonly PlayerGroundLightCell[] {
+  return cells.map((cell) => ({
+    ...cell,
+    strength: playerGroundLightStrength(Math.hypot(
+      cell.tileX + 0.5 - playerX,
+      cell.tileY + 0.5 - playerY,
+    )),
+  }));
 }
 
 export function shouldUpdatePlayerGroundLight(

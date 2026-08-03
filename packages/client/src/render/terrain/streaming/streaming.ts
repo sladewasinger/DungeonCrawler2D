@@ -15,6 +15,13 @@ export interface ViewRect {
   readonly height: number;
 }
 
+export interface FiniteChunkBounds {
+  readonly minChunkX: number;
+  readonly minChunkY: number;
+  readonly maxChunkX: number;
+  readonly maxChunkY: number;
+}
+
 const CHUNK_PX = CHUNK_SIZE * SCREEN_TILE_PX;
 
 export function chunkKey(c: ChunkCoord): string {
@@ -62,16 +69,32 @@ export interface SettledWindowRequest {
 }
 
 /** Chunk coords whose bounds intersect the view rect expanded by `marginChunks` on every side. */
-export function desiredChunks(view: ViewRect, marginChunks: number): ChunkCoord[] {
+export function desiredChunks(
+  view: ViewRect,
+  marginChunks: number,
+  finiteBounds?: FiniteChunkBounds,
+): ChunkCoord[] {
   const minCx = Math.floor(view.x / CHUNK_PX) - marginChunks;
   const maxCx = Math.floor((view.x + view.width) / CHUNK_PX) + marginChunks;
   const minCy = Math.floor(view.y / CHUNK_PX) - marginChunks;
   const maxCy = Math.floor((view.y + view.height) / CHUNK_PX) + marginChunks;
   const coords: ChunkCoord[] = [];
   for (let cy = minCy; cy <= maxCy; cy++) {
-    for (let cx = minCx; cx <= maxCx; cx++) coords.push({ cx, cy });
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      if (finiteBounds && !chunkInsideBounds(cx, cy, finiteBounds)) continue;
+      coords.push({ cx, cy });
+    }
   }
   return coords;
+}
+
+function chunkInsideBounds(
+  cx: number,
+  cy: number,
+  bounds: FiniteChunkBounds,
+): boolean {
+  return cx >= bounds.minChunkX && cx <= bounds.maxChunkX &&
+    cy >= bounds.minChunkY && cy <= bounds.maxChunkY;
 }
 
 /** What to load (desired but not resident) and unload (resident but no longer desired). */

@@ -14,10 +14,16 @@ import { roomTerrainPresentation } from "./roomPresentation.js";
 import type { TerrainWorld } from "./world.js";
 
 export function createTerrainSource(world: TerrainWorld): TerrainSource {
+  const finiteBounds = terrainBounds(world.floorBounds);
   return {
     voidTerrain: world.features.voidTerrain,
-    allowsVoidAt: (_x, y) =>
-      isRoomIsolationChunk(Math.floor(y / CHUNK_SIZE)),
+    cacheIdentity: terrainCacheIdentity(world),
+    ...(finiteBounds ? { finiteBounds } : {}),
+    ...(world.stairTreadCount === undefined ? {} : { stairTreadCount: world.stairTreadCount }),
+    territoryAt: (x, y) => world.territoryAtWorldTile?.(x, y) ?? null,
+    isInBoundsAt: (x, y) => isRoomIsolationChunk(Math.floor(y / CHUNK_SIZE)) ||
+      (finiteBounds ? pointInside(finiteBounds, x, y) : true),
+    allowsVoidAt: (_x, y) => isRoomIsolationChunk(Math.floor(y / CHUNK_SIZE)),
     terrainAt: (x, y) => world.terrainAt(x, y) === WORLD_TERRAIN.Void
       ? TERRAIN_KINDS.Void
       : TERRAIN_KINDS.Floor,
@@ -34,4 +40,19 @@ export function createTerrainSource(world: TerrainWorld): TerrainSource {
     featureAt: (x, y) => terrainFeatureAt(world, x, y),
     propAt: (x, y) => terrainPropForTile(world.featureAt(x, y)),
   };
+}
+
+function terrainCacheIdentity(world: TerrainWorld): string {
+  const identity = world.floorIdentity;
+  if (!identity || world.worldSeed === undefined || world.floor === undefined) return "legacy";
+  return [world.worldSeed, world.floor, identity.configurationFingerprint, identity.fingerprint].join(":");
+}
+
+function terrainBounds(bounds: TerrainWorld["floorBounds"]): { x: number; y: number; width: number; height: number } | undefined {
+  if (!bounds) return undefined;
+  return { x: bounds.minX, y: bounds.minY, width: bounds.width, height: bounds.height };
+}
+
+function pointInside(bounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }, x: number, y: number): boolean {
+  return x >= bounds.x && x < bounds.x + bounds.width && y >= bounds.y && y < bounds.y + bounds.height;
 }

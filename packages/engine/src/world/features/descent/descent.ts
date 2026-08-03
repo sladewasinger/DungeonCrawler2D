@@ -13,10 +13,12 @@
 // `reviveDownedPartyMember` already uses) — no new TILE type needed.
 
 import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
+import { mixSeeds } from "../../../core/rng.js";
 import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
+import { FINITE_GENERATOR_VERSION } from "../../generate/finiteFloor.js";
+import { stairwayPositionForBounds } from "../../generate/finiteFloorFeatures.js";
 import {
   FLOOR_CAP,
-  pickRingChunk,
   structureAnchor,
   type ChunkCoord,
   type LocalAnchor,
@@ -25,13 +27,9 @@ import {
 
 export { FLOOR_CAP };
 
-const UP_SALT = 0xde5c;
-const DOWN_SALT = 0xde5d;
 const ANCHOR_SALT = 0xde60;
 
 const STRUCTURE = WORLD_GENERATION_TUNING.descentStructure;
-const UP_RADIUS = STRUCTURE.upChunkRadius;
-const DOWN_RADIUS = STRUCTURE.downChunkRadius;
 const STRUCT_HALF_X = STRUCTURE.halfWidth;
 const STRUCT_BACK = STRUCTURE.backReach;
 const STRUCT_FRONT = STRUCTURE.frontReach;
@@ -57,12 +55,12 @@ export const STAIRWAY_HEIGHT = STRUCTURE.wallBaseHeight;
 
 export function stairwayUpChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
   if (world.floor < 2 || world.floor > FLOOR_CAP) return null;
-  return pickRingChunk(world, { salt: UP_SALT, radius: UP_RADIUS });
+  return chunkForPosition(compatibilityStairwayPosition(world, "up", 0));
 }
 
 export function stairwayDownChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
-  if (world.floor < 1 || world.floor >= FLOOR_CAP) return null; // FLOOR_CAP has the boss arena instead
-  return pickRingChunk(world, { salt: DOWN_SALT, radius: DOWN_RADIUS });
+  if (world.floor < 1 || world.floor >= FLOOR_CAP) return null;
+  return chunkForPosition(compatibilityStairwayPosition(world, "down", 0));
 }
 
 export function isStairwayUpChunk(chunk: WorldChunk): boolean {
@@ -151,24 +149,36 @@ function isChunkCell(lx: number, ly: number): boolean {
   return lx >= 0 && ly >= 0 && lx < CHUNK_SIZE && ly < CHUNK_SIZE;
 }
 
-function positionFor(chunk: ChunkCoord | null, world: Pick<WorldChunk, "worldSeed" | "floor">): { x: number; y: number } | null {
-  if (!chunk) return null;
-  const anchor = anchorFor({ ...world, ...chunk });
-  return {
-    x: chunk.cx * CHUNK_SIZE + anchor.lx,
-    y: chunk.cy * CHUNK_SIZE + anchor.ly,
-  };
-}
-
 /** World position of this floor's StairwayUp anchor (null on floor 1, which has none). */
 export function stairwayUpPosition(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  return positionFor(stairwayUpChunk(world), world);
+  if (world.floor < 2 || world.floor > FLOOR_CAP) return null;
+  return compatibilityStairwayPosition(world, "up", 0);
 }
 
 /** World position of this floor's StairwayDown landmark (null on FLOOR_CAP, which has the boss arena instead). */
 export function stairwayDownPosition(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  return positionFor(stairwayDownChunk(world), world);
+  if (world.floor < 1 || world.floor >= FLOOR_CAP) return null;
+  return compatibilityStairwayPosition(world, "down", 0);
 }
+
+/** Every generated descent site on a non-terminal floor, in stable order. */
+export function stairwayDownPositions(
+  world: { worldSeed: number; floor: number },
+): readonly { x: number; y: number }[] {
+  if (world.floor < 1 || world.floor >= FLOOR_CAP) return [];
+  return [0, 1, 2].map((index) => compatibilityStairwayPosition(world, "down", index));
+}
+
+function compatibilityStairwayPosition(world: { readonly worldSeed: number; readonly floor: number }, role: "up" | "down", index: number): { x: number; y: number } {
+  const slot = role === "up" ? -2 : [-1, 1, 2][index] ?? -1;
+  return stairwayPositionForBounds({ bounds: DEFAULT_STAIRWAY_BOUNDS, seed: mixSeeds(world.worldSeed, world.floor, FINITE_GENERATOR_VERSION, 0), slot, index });
+}
+
+function chunkForPosition(position: { readonly x: number; readonly y: number }): ChunkCoord {
+  return { cx: Math.floor(position.x / CHUNK_SIZE), cy: Math.floor(position.y / CHUNK_SIZE) };
+}
+
+const DEFAULT_STAIRWAY_BOUNDS = { minX: -128, minY: -128, width: 512, height: 512 };
 
 /** Local-anchor + reach for the room-height guard (generate/landmarks/guard.ts): keeps ordinary pit/dais variance away from either role's footprint in its own chunk. */
 export function descentGuardAnchor(chunk: WorldChunk): { lx: number; ly: number; reach: number } | null {

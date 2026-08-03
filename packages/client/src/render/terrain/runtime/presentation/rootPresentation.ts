@@ -15,6 +15,7 @@ import type {
 import type { TerrainRect, TerrainSource } from "../../planning/terrainPlanner.js";
 import type { TerrainDeviceProfile } from "../../streaming/terrainDeviceProfile.js";
 import { syncTerrainProps } from "../props.js";
+import { recordTerrainRenderDebug } from "./terrainRenderDebug.js";
 import {
   materialsFor,
   screenProjection,
@@ -34,8 +35,30 @@ export function renderTerrainRoot(input: {
   readonly profile: TerrainDeviceProfile;
   readonly visibility: WorldPresentationVisibility | null;
   readonly debug: boolean;
-}): TerrainBatchSelectionMetrics {
+  readonly maxNewChunkPlans?: number;
+}): { readonly metrics: TerrainBatchSelectionMetrics; readonly pendingChunkPlans: number } {
+  const { plan, metrics, pendingChunkPlans } = selectTerrainPlan(input);
+  renderTerrainPlan(input, plan);
+  syncTerrainProps({ scene: input.scene, root: input.root, props: plan.props });
+  recordTerrainRenderDebug({
+    orientation: input.root.orientation,
+    bounds: input.bounds,
+    tileRevision: input.world.tileRevision,
+    pendingChunkPlans,
+    batches: plan,
+    selection: metrics,
+    atlas: input.root.atlas.debugState(),
+  });
+  return { metrics, pendingChunkPlans };
+}
+
+function selectTerrainPlan(input: Parameters<typeof renderTerrainRoot>[0]): {
+  readonly plan: ReturnType<typeof emptyTerrainBatches>;
+  readonly metrics: TerrainBatchSelectionMetrics;
+  readonly pendingChunkPlans: number;
+} {
   const plan = emptyTerrainBatches();
+  let pendingChunkPlans = 0;
   const metrics = appendVisibleChunkPlans({
     target: plan,
     cache: input.cache,
@@ -44,18 +67,22 @@ export function renderTerrainRoot(input: {
     orientation: input.root.orientation,
     revision: input.world.tileRevision,
     visibility: input.visibility,
+    maxNewPlans: input.maxNewChunkPlans,
+    onPendingPlan: () => { pendingChunkPlans += 1; },
   });
-  if (hasAtlasAssets(input.scene, input.debug)) {
-    renderAtlasRoot(input, plan);
-  } else {
-    input.root.batch.render(
-      plan,
-      screenProjection,
-      materialsFor(input.world, input.bounds, input.profile.visuals),
-    );
-  }
-  syncTerrainProps({ scene: input.scene, root: input.root, props: plan.props });
-  return metrics;
+  return { plan, metrics, pendingChunkPlans };
+}
+
+function renderTerrainPlan(
+  input: Parameters<typeof renderTerrainRoot>[0],
+  plan: ReturnType<typeof emptyTerrainBatches>,
+): void {
+  if (hasAtlasAssets(input.scene, input.debug)) return renderAtlasRoot(input, plan);
+  input.root.batch.render(
+    plan,
+    screenProjection,
+    materialsFor(input.world, input.bounds, input.profile.visuals),
+  );
 }
 
 function renderAtlasRoot(
@@ -65,6 +92,7 @@ function renderAtlasRoot(
   input.root.atlas.render(plan, {
     projection: screenProjection,
     biomeAt: (tile) => worldBiomeAt(input.world, tile.x, tile.y),
+    territoryAt: (tile) => input.source.territoryAt?.(tile.x, tile.y) ?? null,
     biomeTintAt: (tile) => biomeTintAt(input, tile),
     debug: input.debug,
   });

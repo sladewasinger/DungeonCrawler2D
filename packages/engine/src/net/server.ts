@@ -3,6 +3,7 @@ import { LEVEL_IDS } from "../world/core/level.js";
 import {
   areaTileSchema,
   entitySnapshotSchema,
+  floorGenerationIdentitySchema,
   miniBossArenaGateSnapshotSchema,
   partySnapshotSchema,
   safeRoomDoorSnapshotSchema,
@@ -21,7 +22,6 @@ import {
   spectatorRosterSchema,
   spectatorWelcomeSchema,
 } from "./wire/spectator.js";
-
 export { gameEventSchema, type GameEvent } from "./serverEvents.js";
 export { defeatedMiniBossArenaSnapshotSchema, defeatedMiniBossArenaWindowSchema } from "./miniBossArenaLandmarks.js";
 export type { DefeatedMiniBossArenaSnapshot, DefeatedMiniBossArenaWindow } from "./miniBossArenaLandmarks.js";
@@ -35,6 +35,7 @@ export {
 } from "./schemas/snapshotSchemas.js";
 export {
   areaTileSchema,
+  floorGenerationIdentitySchema,
   miniBossArenaGateSnapshotSchema,
   partySnapshotSchema,
   safeRoomDoorSnapshotSchema,
@@ -50,14 +51,12 @@ export type {
   MiniBossArenaGateSnapshot,
   SafeRoomDoorSnapshot,
 } from "./schemas/snapshotSchemas.js";
-
 const level = z.enum(LEVEL_IDS);
 
 export const invStackSchema = z.object({ item: z.string(), qty: z.number().int() });
 export type InvStack = z.infer<typeof invStackSchema>;
 export const invSlotSchema = invStackSchema.nullable();
 export type InvSlot = z.infer<typeof invSlotSchema>;
-
 export const serverWelcomeSchema = z.object({
   type: z.literal("welcome"),
   protocol: z.number().int(),
@@ -68,10 +67,11 @@ export const serverWelcomeSchema = z.object({
   floor: z.number().int(),
   level,
   worldFeatures: z.object({ voidTerrain: z.boolean() }),
+  generation: floorGenerationIdentitySchema.optional(),
+  finiteFloorArtifact: z.string().min(1).optional(),
   tickRate: z.number().int(),
   spawn: z.object({ x: z.number(), y: z.number(), z: z.number() }),
 });
-
 export const serverSnapshotSchema = z.object({
   type: z.literal("snapshot"),
   tick: z.number().int(),
@@ -93,7 +93,6 @@ export const serverSnapshotSchema = z.object({
   miniBossArenaGates: z.array(miniBossArenaGateSnapshotSchema).optional(),
   defeatedMiniBossArenaWindow: defeatedMiniBossArenaWindowSchema.optional(),
 });
-
 export const entitySnapshotRevisionSchema = entitySnapshotSchema.extend({
   revision: z.number().int().nonnegative(),
 });
@@ -106,7 +105,6 @@ export const entitySnapshotDeltaEntrySchema = z.union([
   entitySnapshotRevisionSchema,
   entitySnapshotReferenceSchema,
 ]);
-
 export const serverSnapshotDeltaSchema = z.object({
   type: z.literal("snapshotDelta"),
   tick: z.number().int(),
@@ -130,14 +128,12 @@ export const serverSnapshotDeltaSchema = z.object({
   miniBossArenaGates: z.array(miniBossArenaGateSnapshotSchema).optional(),
   defeatedMiniBossArenaWindow: defeatedMiniBossArenaWindowSchema.optional(),
 });
-
 export const serverPongSchema = z.object({ type: z.literal("pong"), t: z.number() });
 export const serverErrorSchema = z.object({
   type: z.literal("error"),
   code: z.string(),
   message: z.string(),
 });
-
 export const serverMessageSchema = z.discriminatedUnion("type", [
   serverWelcomeSchema,
   serverSnapshotSchema,
@@ -153,11 +149,7 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   adminCommandResultSchema,
 ]);
 
-export type ServerWelcome = z.infer<typeof serverWelcomeSchema>;
-export type ServerSnapshot = z.infer<typeof serverSnapshotSchema>;
-export type EntitySnapshotRevision = z.infer<typeof entitySnapshotRevisionSchema>;
-export type EntitySnapshotReference = z.infer<typeof entitySnapshotReferenceSchema>;
-export type EntitySnapshotDeltaEntry = z.infer<typeof entitySnapshotDeltaEntrySchema>;
-export type ServerSnapshotDelta = z.infer<typeof serverSnapshotDeltaSchema>;
-export type ServerStateSnapshot = ServerSnapshot | ServerSnapshotDelta;
-export type ServerMessage = z.infer<typeof serverMessageSchema>;
+export type ServerWelcome = z.infer<typeof serverWelcomeSchema>; export type ServerSnapshot = z.infer<typeof serverSnapshotSchema>;
+export type EntitySnapshotRevision = z.infer<typeof entitySnapshotRevisionSchema>; export type EntitySnapshotReference = z.infer<typeof entitySnapshotReferenceSchema>;
+export type EntitySnapshotDeltaEntry = z.infer<typeof entitySnapshotDeltaEntrySchema>; export type ServerSnapshotDelta = z.infer<typeof serverSnapshotDeltaSchema>;
+export type ServerStateSnapshot = ServerSnapshot | ServerSnapshotDelta; export type ServerMessage = z.infer<typeof serverMessageSchema>;

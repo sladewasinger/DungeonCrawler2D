@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AdminPlayer } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { AdminSpectatorSurface } from "../../adminSpectatorSurface.js";
-import type { AdminPageView } from "../../adminPageView.js";
+import type { AdminPageView } from "../../portal/adminPageView.js";
 import { AdminMapCameraController } from "./adminMapCameraController.js";
 
 describe("admin map camera controls", () => {

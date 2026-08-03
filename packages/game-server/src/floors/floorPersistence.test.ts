@@ -51,12 +51,16 @@ function place(entity: Entity, x: number, y: number): void {
   entity.body.grounded = true;
 }
 
-function descend(floors: FloorRegistry, token: string, playerId: string): void {
+async function descend(floors: FloorRegistry, token: string, playerId: string): Promise<void> {
   const source = floors.findByToken(token)!;
   const stairs = stairwayDownPosition(source.world)!;
   place(source.getPlayerEntity(playerId)!, stairs.x, stairs.y);
   source.queueAction(playerId, { type: "descend" });
-  floors.stepAll();
+  const acknowledgement = floors.stepAll();
+  expect(acknowledgement.moved).toHaveLength(0);
+  await floors.waitForPendingFloorPreparations();
+  const moved = floors.stepAll().moved;
+  expect(moved.some((entry) => entry.playerId === playerId)).toBe(true);
 }
 
 afterEach(() => {
@@ -64,28 +68,33 @@ afterEach(() => {
 });
 
 describe("durable descent lifecycle", () => {
-  it("restores the active floor after process restart and resumes there in memory", () => {
+  it("restores the active floor after process restart and resumes there in memory", { timeout: 30_000 }, async () => {
     const file = tempFile();
     const firstStore = new PlayerStore(file);
     const firstFloors = registry(firstStore);
     const joined = firstFloors.base.addPlayer({ name: "A", clientId: "client-a" });
-    descend(firstFloors, joined.resumeToken, joined.playerId);
-    descend(firstFloors, joined.resumeToken, joined.playerId);
+    await descend(firstFloors, joined.resumeToken, joined.playerId);
+    await descend(firstFloors, joined.resumeToken, joined.playerId);
     firstStore.flush();
+    await firstFloors.dispose();
 
     const secondStore = new PlayerStore(file);
     const secondFloors = registry(secondStore);
-    const restoredFloor = secondFloors.joinSim("client-a");
-    expect(restoredFloor.world.floor).toBe(3);
-    const restored = restoredFloor.addPlayer({ name: "A", clientId: "client-a" });
-    restoredFloor.markDisconnected(restored.playerId);
-    expect(restoredFloor.addPlayer({ name: "A", clientId: "client-a", resumeToken: restored.resumeToken })).toMatchObject({
-      resumed: true,
-      floor: 3,
-    });
+    const restoredFloor = await secondFloors.prepareJoinSim("client-a");
+    try {
+      expect(restoredFloor.world.floor).toBe(3);
+      const restored = restoredFloor.addPlayer({ name: "A", clientId: "client-a" });
+      restoredFloor.markDisconnected(restored.playerId);
+      expect(restoredFloor.addPlayer({ name: "A", clientId: "client-a", resumeToken: restored.resumeToken })).toMatchObject({
+        resumed: true,
+        floor: 3,
+      });
+    } finally {
+      await secondFloors.dispose();
+    }
   });
 
-  it("records floor 1 as soon as hard death begins, surviving a restart during the delay", () => {
+  it("records floor 1 as soon as hard death begins, surviving a restart during the delay", { timeout: 15_000 }, () => {
     const file = tempFile();
     const firstStore = new PlayerStore(file);
     const firstFloors = registry(firstStore);
@@ -119,20 +128,20 @@ describe("durable descent lifecycle", () => {
     });
   });
 
-  it("dissolves a party when one member descends so no party spans floor sims", () => {
+  it("dissolves a party when one member descends so no party spans floor sims", async () => {
     const floors = registry(new PlayerStore(null));
     const a = floors.base.addPlayer({ name: "A", clientId: "client-a" });
     const b = floors.base.addPlayer({ name: "B", clientId: "client-b" });
     const aEntity = floors.base.getPlayerEntity(a.playerId)!;
     const bEntity = floors.base.getPlayerEntity(b.playerId)!;
-    place(aEntity, 10, 10);
-    place(bEntity, 11, 10);
+    place(aEntity, a.spawn.x, a.spawn.y);
+    place(bEntity, a.spawn.x, a.spawn.y);
     floors.base.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
     floors.stepAll();
     floors.base.queueAction(b.playerId, { type: "party", op: "accept" });
     expect(floors.stepAll().snapshots.get(a.playerId)?.party).not.toBeNull();
 
-    descend(floors, a.resumeToken, a.playerId);
+    await descend(floors, a.resumeToken, a.playerId);
     const snapshots = floors.stepAll().snapshots;
     expect(snapshots.get(a.playerId)?.self.floor).toBe(2);
     expect(snapshots.get(a.playerId)?.party).toBeNull();

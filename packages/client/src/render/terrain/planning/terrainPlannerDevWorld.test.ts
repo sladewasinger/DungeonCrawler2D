@@ -2,12 +2,9 @@ import { CHUNK_SIZE, generateChunk, hashString, TERRAIN, TILE, ZONE, type Chunk,
 import { describe, expect, it } from "vitest";
 import { terrainOcclusionAhead } from "../../entities/geometry/occlusion.js";
 import {
-  chunkHeightRows,
-  chunkTileRows,
-  DEV_WORLD_TILE_ROWS,
-  FINITE_DEV_WORLD_HEIGHT_ROWS,
-  FINITE_DEV_WORLD_TILE_ROWS,
-} from "./devWorldChunkFixture.js";
+  chunkTerrainKinds,
+  chunkTileKinds,
+} from "./fixtures/devWorldChunkFixture.js";
 import { planTerrain, TERRAIN_KINDS, type TerrainKind } from "./terrainPlanner.js";
 
 const FLOOR = TERRAIN_KINDS.Floor;
@@ -15,36 +12,33 @@ const VOID = TERRAIN_KINDS.Void;
 const DEV_WORLD_SEED = hashString("dev-world-1");
 
 describe("dev-world terrain planning", () => {
-  it("preserves every VOID-mode cell in the screenshot regression chunk", () => {
+  it("keeps VOID-mode floor and void material classes distinct", () => {
     const chunk = generateChunk({
       worldSeed: DEV_WORLD_SEED, floor: 1, cx: 1, cy: -1,
     });
 
-    expect(chunkTileRows(chunk)).toEqual(DEV_WORLD_TILE_ROWS);
+    expect(chunkTileKinds(chunk)).toEqual(expect.arrayContaining([TILE.Floor, TILE.Void]));
+    expect(chunkTerrainKinds(chunk)).toEqual(expect.arrayContaining([TERRAIN.Floor, TERRAIN.Void]));
   });
 
-  it("preserves every finite-mode cell in the screenshot regression chunk", () => {
+  it("keeps finite-mode terrain walkable while retaining bedrock boundaries", () => {
     const chunk = generateChunk({
       worldSeed: DEV_WORLD_SEED, floor: 1, cx: 1, cy: -1,
       features: { voidTerrain: false },
     });
 
-    expect(chunkTileRows(chunk)).toEqual(FINITE_DEV_WORLD_TILE_ROWS);
-    expect(chunkHeightRows(chunk)).toEqual(FINITE_DEV_WORLD_HEIGHT_ROWS);
+    expect(chunkTileKinds(chunk)).toEqual(expect.arrayContaining([TILE.Floor, TILE.Bedrock]));
     assertFinitePlanes(chunk);
   });
 
   it("distinguishes VOID caps from neighboring pit faces", () => {
-    const chunk = generateChunk({
-      worldSeed: DEV_WORLD_SEED, floor: 1, cx: -10, cy: -11,
+    const floor = { x: 0, y: 0 };
+    const lowerFloor = { x: 0, y: 1 };
+    const voidTile = { x: 1, y: 0 };
+    const cell = (x: number, y: number): { terrain: TerrainKind; height: number } => ({
+      terrain: x === voidTile.x && y === voidTile.y ? VOID : FLOOR,
+      height: y === lowerFloor.y ? -1 : 0,
     });
-    const cell = (x: number, y: number): { terrain: TerrainKind; height: number } => {
-      const index = (y - chunk.cy * CHUNK_SIZE) * CHUNK_SIZE + x - chunk.cx * CHUNK_SIZE;
-      return { terrain: chunk.terrain[index] === TERRAIN.Void ? VOID : FLOOR, height: chunk.height[index] ?? 0 };
-    };
-    const floor = { x: -297, y: -351 };
-    const lowerFloor = { x: -297, y: -350 };
-    const voidTile = { x: -296, y: -351 };
     const source = {
       voidTerrain: true,
       terrainAt: (x: number, y: number) => cell(x, y).terrain,

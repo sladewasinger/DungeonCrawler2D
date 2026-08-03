@@ -7,29 +7,45 @@ import type { TerrainBatches, TerrainQuadVertices } from "./terrainPlannerModel.
 import {
   TERRAIN_TILESETS,
   terrainAtlasFrameName,
+  territoryWallRole,
   type TerrainTileRole,
 } from "../planning/tileset.js";
 
 const ATLAS_UV_INSET_PX = 0.5;
 
 export function appendMeshQuad(batch: TerrainMeshBatch, draw: TerrainAtlasDraw, image: { readonly width: number; readonly height: number }): void {
-  const frame = terrainAtlasFrame({ set: draw.atlas, role: draw.role, variant: draw.variant, image });
+  const uv = atlasUvBounds(draw, image);
   const base = batch.vertices.length / 4;
-  const u0 = (frame.x + ATLAS_UV_INSET_PX) / image.width;
+  const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
+  batch.vertices.push(
+    topLeft.x, topLeft.y, uv.u0, uv.v0, topRight.x, topRight.y, uv.u1, uv.v0,
+    bottomRight.x, bottomRight.y, uv.u1, uv.v1, bottomLeft.x, bottomLeft.y, uv.u0, uv.v1,
+  );
+  batch.indices.push(base, base + 1, base + 2, 0, base, base + 2, base + 3, 0);
+}
+
+export interface TerrainAtlasUvBounds {
+  readonly u0: number;
+  readonly u1: number;
+  readonly v0: number;
+  readonly v1: number;
+}
+
+export function atlasUvBounds(
+  draw: TerrainAtlasDraw,
+  image: { readonly width: number; readonly height: number },
+): TerrainAtlasUvBounds {
+  const frame = terrainAtlasFrame({ set: draw.atlas, role: draw.role, variant: draw.variant, image });
   const cropTop = draw.uvCrop?.top ?? 0;
   const cropBottom = draw.uvCrop?.bottom ?? 1;
   const topPixel = frame.y + frame.height * cropTop + ATLAS_UV_INSET_PX;
   const bottomPixel = frame.y + frame.height * cropBottom - ATLAS_UV_INSET_PX;
-  // Phaser's WebGL frame convention measures V upward from the PNG's bottom.
-  const v0 = 1 - topPixel / image.height;
-  const u1 = (frame.x + frame.width - ATLAS_UV_INSET_PX) / image.width;
-  const v1 = 1 - bottomPixel / image.height;
-  const [topLeft, topRight, bottomRight, bottomLeft] = draw.points;
-  batch.vertices.push(
-    topLeft.x, topLeft.y, u0, v0, topRight.x, topRight.y, u1, v0,
-    bottomRight.x, bottomRight.y, u1, v1, bottomLeft.x, bottomLeft.y, u0, v1,
-  );
-  batch.indices.push(base, base + 1, base + 2, 0, base, base + 2, base + 3, 0);
+  return {
+    u0: (frame.x + ATLAS_UV_INSET_PX) / image.width,
+    u1: (frame.x + frame.width - ATLAS_UV_INSET_PX) / image.width,
+    v0: 1 - topPixel / image.height,
+    v1: 1 - bottomPixel / image.height,
+  };
 }
 
 const FACE_TILE_HEIGHT_EPSILON = 1e-6;
@@ -45,7 +61,7 @@ export function appendSouthFaceDraws(
 
 function appendSouthFaceQuad(target: TerrainAtlasDraw[], quad: TerrainBatches["southFaces"][number], options: TerrainAtlasRenderOptions): void {
   const atlas = options.debug ? TERRAIN_TILESETS.debug : TERRAIN_TILESETS[options.biomeAt(quad.worldTile)];
-  const request = { target, quad, atlas, projection: options.projection };
+  const request = { target, quad, atlas, projection: options.projection, territoryAt: options.territoryAt };
   appendUnitAlignedSegments(request);
 }
 
@@ -54,6 +70,7 @@ interface SouthFaceDrawRequest {
   readonly quad: TerrainBatches["southFaces"][number];
   readonly atlas: SouthFaceSegmentRequest["atlas"];
   readonly projection: TerrainScreenProjection;
+  readonly territoryAt?: TerrainAtlasRenderOptions["territoryAt"];
 }
 
 interface WallFaceSegment {
@@ -62,10 +79,10 @@ interface WallFaceSegment {
 }
 
 function appendUnitAlignedSegments(request: SouthFaceDrawRequest): void {
-  const { target, quad, atlas, projection } = request;
+  const { target, quad, atlas, projection, territoryAt } = request;
   const segments = wallFaceSegments(quad.bottomHeight, quad.topHeight);
   for (const { bottom, height } of segments) {
-    appendSouthFaceSegment(target, { quad, atlas, bottom, height, projection });
+    appendSouthFaceSegment(target, { quad, atlas, bottom, height, projection, territoryAt });
   }
 }
 
@@ -97,13 +114,14 @@ interface SouthFaceSegmentRequest {
   readonly bottom: number;
   readonly height: number;
   readonly projection: TerrainScreenProjection;
+  readonly territoryAt?: TerrainAtlasRenderOptions["territoryAt"];
 }
 
 function appendSouthFaceSegment(target: TerrainAtlasDraw[], request: SouthFaceSegmentRequest): void {
   const { quad, atlas, bottom, height, projection } = request;
   const uvCrop = height >= 1 - FACE_TILE_HEIGHT_EPSILON ? undefined : { top: 0, bottom: height };
-  const role = southFaceRole(quad, bottom + height);
-  target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0,
+  const role = southFaceRole(quad, bottom + height, request.territoryAt);
+  target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0, worldTile: quad.worldTile,
     phase: 2, depth: depthForOccluder(quad.viewTile.y + 1), ...(uvCrop === undefined ? {} : { uvCrop }),
     points: projectQuad(southFaceSegment(quad.vertices, bottom + height, bottom), projection) });
 }
@@ -111,13 +129,15 @@ function appendSouthFaceSegment(target: TerrainAtlasDraw[], request: SouthFaceSe
 function southFaceRole(
   quad: TerrainBatches["southFaces"][number],
   segmentTop: number,
+  territoryAt?: TerrainAtlasRenderOptions["territoryAt"],
 ): TerrainTileRole {
   if (quad.wallFeature &&
       Math.abs(quad.wallFeature.topHeight - segmentTop) <= FACE_TILE_HEIGHT_EPSILON) {
     return quad.wallFeature.feature;
   }
   if (quad.voidWall === true) return "void-wall-face";
-  return quad.stairWall === true ? "stair-wall-face" : "south-face";
+  if (quad.stairWall === true) return "stair-wall-face";
+  return territoryWallRole(territoryAt?.(quad.worldTile));
 }
 
 function southFaceSegment(
@@ -138,9 +158,10 @@ export function projectQuad(vertices: TerrainQuadVertices, projection: TerrainSc
 }
 
 export function compareDraws(left: TerrainAtlasDraw, right: TerrainAtlasDraw): number {
-  return left.depth - right.depth || left.phase - right.phase || left.atlas.key.localeCompare(right.atlas.key);
+  return left.depth - right.depth || left.phase - right.phase ||
+    left.atlas.key.localeCompare(right.atlas.key) || left.role.localeCompare(right.role);
 }
 
-export function meshKey(batch: Pick<TerrainMeshBatch, "atlas" | "phase" | "depth">): string {
-  return `${batch.depth}:${batch.phase}:${batch.atlas.key}`;
+export function meshKey(batch: Pick<TerrainMeshBatch, "atlas" | "role" | "phase" | "depth">): string {
+	return `${batch.depth}:${batch.phase}:${batch.atlas.key}:${batch.role}`;
 }

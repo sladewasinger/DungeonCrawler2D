@@ -86,6 +86,25 @@ describe("TerrainChunkPlanCache", () => {
     expect(metrics).toEqual({ candidateQuads: 4, submittedQuads: 2 });
   });
 
+  it("bounds new chunk planning while retaining immutable cached plans", () => {
+    const batches = emptyTerrainBatches();
+    const cache = new TerrainChunkPlanCache();
+    const pending: string[] = [];
+    appendVisibleChunkPlans({
+      target: batches,
+      cache,
+      source,
+      bounds: { x: 0, y: 0, width: CHUNK_SIZE * 3, height: 1 },
+      orientation: 0,
+      revision: 1,
+      maxNewPlans: 1,
+      onPendingPlan: ({ cx, cy }) => pending.push(`${cx},${cy}`),
+    });
+
+    expect(cache.size).toBe(1);
+    expect(pending).toEqual(["1,0", "2,0"]);
+  });
+
   it("clips every terrain presentation layer at a chunk seam", () => {
     const batches = emptyTerrainBatches();
     appendVisibleChunkPlans({

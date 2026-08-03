@@ -1,9 +1,9 @@
-import { stairwayDownPosition } from "@dc2d/engine";
+import { stairwayDownPosition, World } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { STAIRWAY_NEAR_TILES, resolveStairwayTick } from "./stairwayTick.js";
 
 const SEED = 1337;
-const WORLD = { worldSeed: SEED, floor: 1 };
+const WORLD = new World(SEED, 1);
 // The deterministic landmark the tick must point at — the test only borrows its
 // POSITION (the same seam the shipped code reads); every expected bearing below is
 // hand-derived from the player's offset relative to it, never from the implementation.
@@ -59,6 +59,6 @@ describe("resolveStairwayTick", () => {
   });
 
   it("returns null on the boss floor (FLOOR_CAP has no StairwayDown)", () => {
-    expect(resolveStairwayTick({ world: { worldSeed: SEED, floor: 5 }, x: 0, y: 0, viewBearingDeg: 0 })).toBeNull();
+    expect(resolveStairwayTick({ world: new World(SEED, 5), x: 0, y: 0, viewBearingDeg: 0 })).toBeNull();
   });
 });

@@ -28,6 +28,7 @@ function locateArena(seedText: string): LocatedArena {
       const site = miniBossArenaForChunk({
         worldSeed: world.worldSeed,
         floor: world.floor,
+        generatedFloor: world.generatedFloor,
         cx,
         cy,
       });
@@ -47,6 +48,7 @@ describe("ordinary mini-boss arena generation", () => {
       const repeat = miniBossArenaForChunk({
         worldSeed: world.worldSeed,
         floor: world.floor,
+        generatedFloor: world.generatedFloor,
         ...site.chunk,
       });
       expect(repeat).toEqual(site);
@@ -106,12 +108,26 @@ function assertArenaCell(input: ArenaCellAssertion): void {
   const { world, site, x, y } = input;
   const gate = arenaHasGate(site, x, y);
   const sealedWall = arenaBoundaryContains(site, x, y) && !gate;
+  const ramp = world.featureAt(x, y) === TILE.Stairs;
+  const rampLanding = arenaRampLanding(site, x, y);
   const platformHeight = arenaPlatformHeightAt(site, x, y);
-  const expectedHeight = sealedWall ? 2 : platformHeight;
-  expect(world.heightAt(x, y)).toBe(expectedHeight);
-  expect(world.tileAt(x, y)).toBe(expectedArenaTile(gate, sealedWall));
-  expect(world.featureAt(x, y)).toBe(gate ? TILE.ArenaGate : TILE.Floor);
+  const expected = expectedArenaCell({ gate, ramp, rampLanding, sealedWall, platformHeight });
+  expect(world.heightAt(x, y)).toBe(expected.height);
+  expect(world.tileAt(x, y)).toBe(expected.tile);
+  expect(world.featureAt(x, y)).toBe(expected.feature);
   expect(world.isWalkable(x, y)).toBe(!gate && !sealedWall);
+}
+
+function expectedArenaCell(input: { readonly gate: boolean; readonly ramp: boolean; readonly rampLanding: boolean; readonly sealedWall: boolean; readonly platformHeight: number }): { height: number; tile: number; feature: number } {
+  return {
+    height: input.sealedWall ? 2 : input.ramp || input.rampLanding ? 0.5 : input.platformHeight,
+    tile: input.ramp ? TILE.Stairs : expectedArenaTile(input.gate, input.sealedWall),
+    feature: input.gate ? TILE.ArenaGate : input.ramp ? TILE.Stairs : TILE.Floor,
+  };
+}
+
+function arenaRampLanding(site: MiniBossArenaSite, x: number, y: number): boolean {
+  return site.platforms.some((platform) => platform.y - 1 === y && Math.abs(platform.x - x) === 1);
 }
 
 function arenaPlatformHeightAt(

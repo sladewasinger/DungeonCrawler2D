@@ -1,25 +1,60 @@
 import { BIOME, type BiomeKind } from "@dc2d/engine";
 
+const GOBLIN_FLOOR_ROLE = "territory-goblin-floor" as const;
+const SPIDER_FLOOR_ROLE = "territory-spider-floor" as const;
+const GAOL_FLOOR_ROLE = "territory-gaol-floor" as const;
+const GOBLIN_WALL_ROLE = "territory-goblin-wall" as const;
+const SPIDER_WALL_ROLE = "territory-spider-wall" as const;
+const GAOL_WALL_ROLE = "territory-gaol-wall" as const;
+const FLOOR_ROLE = "floor" as const;
+const BEDROCK_ROLE = "bedrock" as const;
+const SOUTH_FACE_ROLE = "south-face" as const;
+
 /** Stable role IDs shared by every Terrain atlas. Do not remove or rename used roles. */
 export const TERRAIN_TILE_ROLES = [
-  "floor",
+  FLOOR_ROLE,
+  BEDROCK_ROLE,
   "raised-floor",
-  "south-face",
+  SOUTH_FACE_ROLE,
   "void-wall-face",
   "void",
   "stairs",
   "stair-wall-face",
   "door",
   "brazier",
+  GOBLIN_FLOOR_ROLE, SPIDER_FLOOR_ROLE, GAOL_FLOOR_ROLE,
+  GOBLIN_WALL_ROLE, SPIDER_WALL_ROLE, GAOL_WALL_ROLE,
 ] as const;
 
 export type TerrainTileRole = (typeof TERRAIN_TILE_ROLES)[number];
+
+const TERRITORY_FLOOR_ROLES: readonly TerrainTileRole[] = [
+  GOBLIN_FLOOR_ROLE, SPIDER_FLOOR_ROLE, GAOL_FLOOR_ROLE,
+];
+
+const TERRITORY_WALL_ROLES: readonly TerrainTileRole[] = [
+  GOBLIN_WALL_ROLE, SPIDER_WALL_ROLE, GAOL_WALL_ROLE,
+];
+
+/** Maps territory ownership to the three authored floor texture variants. */
+export function territoryFloorRole(territory: number | null | undefined): TerrainTileRole {
+  if (territory === null || territory === undefined || territory < 0) return FLOOR_ROLE;
+  return TERRITORY_FLOOR_ROLES[territory % TERRITORY_FLOOR_ROLES.length] ?? FLOOR_ROLE;
+}
+
+/** Maps territory ownership to the matching vertical wall texture variant. */
+export function territoryWallRole(territory: number | null | undefined): TerrainTileRole {
+  if (territory === null || territory === undefined || territory < 0) return SOUTH_FACE_ROLE;
+  return TERRITORY_WALL_ROLES[territory % TERRITORY_WALL_ROLES.length] ?? SOUTH_FACE_ROLE;
+}
 
 interface TerrainAtlasSlot { readonly row: number; readonly column: number; }
 
 /** Column zero is reserved for non-functional row labels in the debug atlas. */
 const TERRAIN_ATLAS_LAYOUT: Readonly<Record<TerrainTileRole, TerrainAtlasSlot>> = {
   floor: { row: 0, column: 1 },
+  // The compact authored atlas shares its dark column-3 art with goblin floors.
+  [BEDROCK_ROLE]: { row: 0, column: 3 },
   "raised-floor": { row: 0, column: 2 },
   "south-face": { row: 1, column: 1 },
   "void-wall-face": { row: 4, column: 2 },
@@ -28,6 +63,12 @@ const TERRAIN_ATLAS_LAYOUT: Readonly<Record<TerrainTileRole, TerrainAtlasSlot>> 
   door: { row: 3, column: 1 },
   brazier: { row: 3, column: 2 },
   void: { row: 4, column: 1 },
+  [GOBLIN_FLOOR_ROLE]: { row: 0, column: 3 },
+  [SPIDER_FLOOR_ROLE]: { row: 0, column: 4 },
+  [GAOL_FLOOR_ROLE]: { row: 0, column: 5 },
+  [GOBLIN_WALL_ROLE]: { row: 1, column: 3 },
+  [SPIDER_WALL_ROLE]: { row: 1, column: 4 },
+  [GAOL_WALL_ROLE]: { row: 1, column: 5 },
 };
 
 export const TERRAIN_ATLAS_COLUMNS = 9;

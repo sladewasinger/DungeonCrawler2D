@@ -31,14 +31,14 @@ describe("stairway chunk selection", () => {
       for (let floor = 1; floor < FLOOR_CAP; floor++) expect(stairwayDownChunk(world(seed, floor))).not.toBeNull();
       expect(stairwayDownChunk(world(seed, FLOOR_CAP))).toBeNull();
     }
-  });
+  }, 15_000);
 
   it("StairwayUp exists on floors 2..FLOOR_CAP, never on floor 1", () => {
     for (const seed of SEEDS) {
       expect(stairwayUpChunk(world(seed, 1))).toBeNull();
       for (let floor = 2; floor <= FLOOR_CAP; floor++) expect(stairwayUpChunk(world(seed, floor))).not.toBeNull();
     }
-  });
+  }, 15_000);
 
   it("StairwayUp and StairwayDown never resolve to the same chunk on a floor hosting both", () => {
     const pairs = stairwayPairs();

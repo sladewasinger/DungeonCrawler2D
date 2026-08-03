@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { PLAYER_SKINS } from "../../entities/playerAppearance.js";
 import { debugFlagsSchema } from "../../debug/debugFlags.js";
-import { adminMapEntitySchema } from "../wire/admin.js";
+import { adminMapEntitySchema } from "../wire/adminStateSchemas.js";
+import { floorGenerationIdentitySchema } from "./floorGenerationIdentity.js";
+
+export { floorGenerationIdentitySchema, type FloorGenerationIdentity } from "./floorGenerationIdentity.js";
 
 export const enemyAnimationStateSchema = z.enum([
   "idle", "walk", "windup", "spit", "recover", "attack",
@@ -40,7 +43,9 @@ export const selfSnapshotSchema = bodySnapshotSchema.extend({
   respawnAtTick: z.number().int().nullable().optional(), xp: z.number().int().nonnegative().optional(),
   level: z.number().int().positive().optional(), xpForNext: z.number().int().nonnegative().optional(),
   floor: z.number().int().positive().optional(), deepestFloor: z.number().int().positive().optional(),
-  admin: z.boolean().optional(), adminDebug: debugFlagsSchema.optional(),
+  generation: floorGenerationIdentitySchema.optional(),
+  finiteFloorArtifact: z.string().min(1).optional(),
+  admin: z.boolean().optional(), noclip: z.boolean().optional(), adminDebug: debugFlagsSchema.optional(),
   adminDebugEntities: z.array(adminMapEntitySchema).max(2048).optional(),
   faceX: z.number().min(-1).max(1).optional(),
   faceY: z.number().min(-1).max(1).optional(),
@@ -56,7 +61,7 @@ export const entitySnapshotSchema = z.object({
   kind: z.enum(["player", "enemy", "pet", "item", "projectile", "torch"]),
   defId: z.string().optional(), name: z.string().optional(), skin: z.enum(PLAYER_SKINS).optional(),
   x: z.number(), y: z.number(), z: z.number(), hp: z.number().optional(), maxHp: z.number().optional(),
-  fx: z.array(z.string()).optional(), qty: z.number().optional(), admin: z.boolean().optional(), downed: z.boolean().optional(),
+  fx: z.array(z.string()).optional(), qty: z.number().optional(), admin: z.boolean().optional(), noclip: z.boolean().optional(), downed: z.boolean().optional(),
   reviveProgress: z.number().min(0).max(1).optional(), disconnected: z.boolean().optional(),
   anim: enemyAnimationStateSchema.optional(), petOwnerName: z.string().optional(),
   petBehavior: petBehaviorSchema.optional(), petBehaviorEvent: z.number().int().nonnegative().optional(),

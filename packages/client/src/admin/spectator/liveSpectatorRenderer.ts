@@ -1,5 +1,5 @@
 import type { AdminMap } from "@dc2d/engine";
-import { drawLiveSpectatorActors } from "./liveSpectatorActors.js";
+import { drawLiveSpectatorActors } from "./actors/liveSpectatorActors.js";
 import { drawLiveSpectatorTerrain } from "./liveSpectatorTerrain.js";
 import { createLiveSpectatorView } from "./liveSpectatorView.js";
 
@@ -10,13 +10,17 @@ export interface LiveSpectatorRenderInput {
   readonly atlas: HTMLImageElement;
   readonly terrain: HTMLImageElement;
   readonly pets: Readonly<Record<string, HTMLImageElement>>;
+  readonly zoom?: number;
 }
 
 export function renderLiveSpectatorMap(input: LiveSpectatorRenderInput): void {
   clear(input.context);
   const map = input.map;
   if (!map) return;
-  const view = createLiveSpectatorView({ map, targetId: input.targetId, canvas: input.context.canvas });
+  const view = createLiveSpectatorView({
+    map, targetId: input.targetId, canvas: input.context.canvas,
+    ...(input.zoom === undefined ? {} : { zoom: input.zoom }),
+  });
   drawLiveSpectatorTerrain({ context: input.context, map, terrain: input.terrain, view });
   drawLiveSpectatorActors({
     context: input.context,

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- focused coverage keeps the lighting contract together. */
 import {
   CHUNK_SIZE,
   ROOM_WALL_RISE,
@@ -19,6 +20,7 @@ import {
   playerGroundLightEnabledForProfile,
   playerGroundLightCells,
   playerGroundLightStrength,
+  reprojectPlayerGroundLightCells,
   shouldUpdatePlayerGroundLight,
   type PlayerGroundLightUpdate,
   type PlayerGroundLightWorld,
@@ -66,6 +68,38 @@ describe("playerGroundLightCells", () => {
     expect(playerGroundLightStrength(PLAYER_GROUND_LIGHT_RADIUS - 1)).toBeLessThan(0.2);
   });
 
+  it("keeps finite-floor traversal within the configured visual disk and cell budget", () => {
+    const finiteWorld = { ...world(), floorBounds: {} };
+    const cells = playerGroundLightCells(finiteWorld, 0.5, 0.5);
+
+    expect(cells.length).toBeLessThanOrEqual(PLAYER_GROUND_LIGHT_MAX_CELLS);
+    expect(cells.every((cell) => Math.hypot(cell.tileX, cell.tileY) <= PLAYER_GROUND_LIGHT_RADIUS + 1e-6)).toBe(true);
+    expect(cells.some((cell) => cell.tileX === 8 && cell.tileY === 8)).toBe(true);
+  });
+
+  it("keeps finite solid walls opaque through the indexed LOS check", () => {
+    const walls = new Set(["1,0"]);
+    const finiteWorld = { ...world(walls), floorBounds: {} };
+    const cells = playerGroundLightCells(finiteWorld, 0.5, 0.5);
+    const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
+
+    expect(keys.has("2,1")).toBe(false);
+  });
+
+  it("keeps non-walkable floor walls opaque without relying on VOID terrain", () => {
+    const blocked = new Set(["1,0"]);
+    const finiteWorld = {
+      ...world(),
+      floorBounds: {},
+      isWalkable: (x: number, y: number) => !blocked.has(`${x},${y}`),
+    };
+    const cells = playerGroundLightCells(finiteWorld, 0.5, 0.5);
+    const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
+
+    expect(keys.has("1,0")).toBe(false);
+    expect(keys.has("2,1")).toBe(false);
+  });
+
   it("does not cross a wall or include chasm cells", () => {
     const walls = new Set(
       Array.from({ length: 9 }, (_, index) => `1,${index - 4}`),
@@ -79,6 +113,19 @@ describe("playerGroundLightCells", () => {
     expect(keys.has("2,0")).toBe(false);
     expect(keys.has("0,1")).toBe(false);
     expect(keys.has("0,2")).toBe(false);
+  });
+
+  it("keeps legacy LOS shadows when compatibility floor markers are null", () => {
+    const walls = new Set(["1,0"]);
+    const compatibilityWorld = {
+      ...world(walls),
+      floorBounds: null,
+      generatedFloor: null,
+    };
+    const cells = playerGroundLightCells(compatibilityWorld, 0.5, 0.5);
+    const keys = new Set(cells.map((cell) => `${cell.tileX},${cell.tileY}`));
+
+    expect(keys.has("2,1")).toBe(false);
   });
 
   it("records each tile's ground height for projected floor placement", () => {
@@ -119,7 +166,7 @@ describe("playerGroundLightCells", () => {
     expect(keys.has(`${centerX},${wallY}`)).toBe(false);
     expect(cells.some(({ groundHeight }) =>
       groundHeight >= ROOM_WALL_RISE)).toBe(false);
-  });
+  }, 30_000);
 
   it("lights floor cells independently of any door or furniture overlay", () => {
     const overlayWorld = {
@@ -130,6 +177,14 @@ describe("playerGroundLightCells", () => {
 
     expect(cells[0]).toMatchObject({ tileX: 0, tileY: 0, strength: 1 });
     expect(cells.some(({ tileX }) => tileX > 0)).toBe(true);
+  });
+
+  it("reprojects cached topology without re-running terrain traversal", () => {
+    const cells = [{ tileX: 0, tileY: 0, strength: 1, groundHeight: 0 }];
+    const projected = reprojectPlayerGroundLightCells(cells, 1.5, 0.5);
+    expect(projected[0]?.groundHeight).toBe(0);
+    expect(projected[0]?.strength).toBe(playerGroundLightStrength(1));
+    expect(cells[0]?.strength).toBe(1);
   });
 });
 

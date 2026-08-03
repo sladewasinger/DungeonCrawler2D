@@ -12,7 +12,7 @@ import {
 describe("Terrain atlas contract", () => {
   it("keeps one stable labeled layout for debug and every biome", () => {
     expect(TERRAIN_ATLAS_COLUMNS).toBe(9);
-    expect(TERRAIN_TILE_ROLES).toHaveLength(9);
+    expect(TERRAIN_TILE_ROLES).toHaveLength(16);
     expect(TERRAIN_ATLAS_ROWS_PER_SET).toBe(5);
     for (const biome of Object.values(BIOME)) {
       expect(TERRAIN_TILESETS[biome].rowCount).toBe(1);
@@ -22,10 +22,18 @@ describe("Terrain atlas contract", () => {
 
   it("assigns roles to their labeled feature rows", () => {
     expect(terrainFrameFor("floor", 0)).toBe(1);
+    expect(terrainFrameFor("bedrock", 0)).toBe(3);
+    expect(terrainFrameFor("raised-floor", 0)).toBe(2);
     expect(terrainFrameFor("void", 0)).toBe(37);
     expect(terrainFrameFor("void-wall-face", 0)).toBe(38);
     expect(terrainFrameFor("stair-wall-face", 0)).toBe(20);
     expect(terrainFrameFor("brazier", 0)).toBe(29);
+    expect(terrainFrameFor("territory-goblin-floor", 0)).toBe(3);
+    expect(terrainFrameFor("territory-spider-floor", 0)).toBe(4);
+    expect(terrainFrameFor("territory-gaol-floor", 0)).toBe(5);
+    expect(terrainFrameFor("territory-goblin-wall", 0)).toBe(12);
+    expect(terrainFrameFor("territory-spider-wall", 0)).toBe(13);
+    expect(terrainFrameFor("territory-gaol-wall", 0)).toBe(14);
     expect(terrainFrameFor(TERRAIN_TILESETS[BIOME.Pools], "floor", 0)).toBe(1);
     expect(() => terrainFrameFor("floor", 1)).toThrow("row must be 0");
   });

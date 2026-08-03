@@ -18,6 +18,8 @@ export const PROJECTED_INPUT_MAX_FUTURE_TICKS = 8;
 
 /** v0.3.0 traversal tuning: walking is 20% slower than the previous 8 tiles/s. */
 export const MOVE_SPEED = 6.4;
+/** Live admin-character noclip speed; server and prediction both receive it through the snapshot. */
+export const ADMIN_NOCLIP_SPEED = MOVE_SPEED * 4;
 // Run speed is independently tuned from walking speed; inventory shortcuts only
 // consume SHIFT while their panel is open.
 /** Produces 8.4 tiles/s: 30% slower than the previous 12 tiles/s sprint. */

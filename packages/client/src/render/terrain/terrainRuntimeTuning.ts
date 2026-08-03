@@ -16,6 +16,10 @@ export const TERRAIN_RUNTIME_TUNING = {
       terrainRuntimeTuning.retention.maxWorldChunks,
       "maxWorldChunks",
     ),
+    maxNewChunkPlansPerFrame: positiveInteger(
+      terrainRuntimeTuning.retention.maxNewChunkPlansPerFrame,
+      "maxNewChunkPlansPerFrame",
+    ),
   },
   cameraPresentation: cameraPresentationTuning(),
   mobilePerformance: mobilePerformanceTuning(),
@@ -53,6 +57,11 @@ function cameraPresentationTuning() {
   return {
     referenceViewport,
     baseZoom: positiveNumber(camera.baseZoom, "cameraPresentation.baseZoom"),
+    mobileZoomMultiplier: positiveNumber(camera.mobileZoomMultiplier, "cameraPresentation.mobileZoomMultiplier"),
+    finiteTerrainMarginTiles: positiveInteger(
+      camera.finiteTerrainMarginTiles,
+      "cameraPresentation.finiteTerrainMarginTiles",
+    ),
     ...aspectRatios,
     spectator: spectatorZoomTuning(camera),
   };

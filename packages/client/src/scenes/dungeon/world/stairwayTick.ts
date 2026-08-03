@@ -8,7 +8,6 @@
 // SAME live view bearing the letter dial uses (compassBearing.ts, continuous through
 // the Z/X tween) — so the tick stays glued to the true screen direction mid-rotation
 // by construction, exactly like the cardinal letters.
-import { stairwayDownPosition } from "@dc2d/engine";
 import { wrapDegrees } from "../../../render/view/index.js";
 import type { StairwayTickData } from "../../../ui/widgets/hud/core/fakeData.js";
 import type { StairwayWorld } from "./stairwayProximity.js";
@@ -31,7 +30,8 @@ export interface StairwayTickSource {
 
 export function resolveStairwayTick(source: StairwayTickSource): StairwayTickData | null {
   const { world, x, y, viewBearingDeg } = source;
-  const target = stairwayDownPosition(world);
+  const target = [...world.downStairwayPositions()]
+    .sort((left, right) => Math.hypot(left.x - x, left.y - y) - Math.hypot(right.x - x, right.y - y))[0] ?? null;
   if (!target) return null;
   const dx = target.x - x;
   const dy = target.y - y;

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { WALL_FACE_MIN_DROP } from "../../../core/constants.js";
 import { CHUNK_SIZE, TILE } from "../../core/types.js";
-import { generateChunk } from "../index.js";
+import { finiteFloorForRuntime, sliceGeneratedFloorChunk } from "../finiteFloor.js";
 
 interface Violation {
   readonly x: number;
@@ -17,7 +17,7 @@ interface Violation {
 }
 
 /** Last row (inclusive) of the same-height floor run starting at (x, y). */
-interface ScanInput { readonly tiles: Uint8Array; readonly height: Float32Array; readonly x: number; readonly y: number; }
+interface ScanInput { readonly tiles: Uint8Array; readonly features: Uint8Array; readonly height: Float32Array; readonly x: number; readonly y: number; }
 
 function runEnd(input: ScanInput & { readonly h0: number }): number {
   const h0 = heightAt(input, input.y);
@@ -31,7 +31,9 @@ function runEnd(input: ScanInput & { readonly h0: number }): number {
 
 function continuesRun(input: ScanInput & { readonly h0: number }): boolean {
   const tile = tileAt(input, input.y);
-  return tile === TILE.Floor && Math.abs(heightAt(input, input.y) - input.h0) <= 0.01;
+  const feature = input.features[input.y * CHUNK_SIZE + input.x] ?? TILE.Floor;
+  return tile === TILE.Floor && feature !== TILE.Stairs
+    && Math.abs(heightAt(input, input.y) - input.h0) <= 0.01;
 }
 
 /** A same-height FLOOR run shallower than z+1, where z is its own height and it drops to open ground south. */
@@ -52,16 +54,18 @@ function floorRunViolation(input: ScanInput): Violation | null {
 /** True when (x, y) can start a floor-plateau run worth checking: real floor, a whole-number height >= 1. */
 function startsFloorPlateau(input: ScanInput): boolean {
   const t = tileAt(input, input.y);
+  const feature = input.features[input.y * CHUNK_SIZE + input.x] ?? TILE.Floor;
   const h = heightAt(input, input.y);
   const rounded = Math.round(h);
-  return t === TILE.Floor && rounded >= 1 && Math.abs(h - rounded) <= 0.01;
+  return t === TILE.Floor && feature !== TILE.Stairs
+    && rounded >= 1 && Math.abs(h - rounded) <= 0.01;
 }
 
-function scanColumn(tiles: Uint8Array, height: Float32Array, x: number): Violation[] {
+function scanColumn(planes: { readonly tiles: Uint8Array; readonly features: Uint8Array; readonly height: Float32Array }, x: number): Violation[] {
   const found: Violation[] = [];
   let y = 0;
   while (y < CHUNK_SIZE) {
-    const scan = scanRunAt({ tiles, height, x, y });
+    const scan = scanRunAt({ ...planes, x, y });
     if (scan.violation) found.push(scan.violation);
     y = scan.nextY;
   }
@@ -77,9 +81,9 @@ function scanRunAt(input: ScanInput): { readonly violation: Violation | null; re
 function tileAt(input: ScanInput, y: number): number { return input.tiles[y * CHUNK_SIZE + input.x] ?? TILE.Void; }
 function heightAt(input: ScanInput, y: number): number { return input.height[y * CHUNK_SIZE + input.x] ?? 0; }
 
-function scanChunk(tiles: Uint8Array, height: Float32Array): Violation[] {
+function scanChunk(tiles: Uint8Array, features: Uint8Array, height: Float32Array): Violation[] {
   const found: Violation[] = [];
-  for (let x = 0; x < CHUNK_SIZE; x++) found.push(...scanColumn(tiles, height, x));
+  for (let x = 0; x < CHUNK_SIZE; x++) found.push(...scanColumn({ tiles, features, height }, x));
   return found;
 }
 
@@ -106,7 +110,7 @@ function collectViolations(): LocatedViolation[] {
 function testCoordinates(): Array<{ seed: number; floor: number; cx: number; cy: number }> {
   const coordinates: Array<{ seed: number; floor: number; cx: number; cy: number }> = [];
   for (const seed of [1, 9, 17]) {
-    for (const floor of [0, 1]) addChunkCoordinates(coordinates, seed, floor);
+    addChunkCoordinates(coordinates, seed, 1);
   }
   return coordinates;
 }
@@ -114,6 +118,7 @@ function addChunkCoordinates(coordinates: Array<{ seed: number; floor: number; c
   for (let cx = -2; cx <= 2; cx++) for (let cy = -2; cy <= 2; cy++) coordinates.push({ seed, floor, cx, cy });
 }
 function scanGeneratedChunk(coordinate: { seed: number; floor: number; cx: number; cy: number }): LocatedViolation[] {
-  const chunk = generateChunk({ worldSeed: coordinate.seed * 7919 + 13, floor: coordinate.floor, cx: coordinate.cx, cy: coordinate.cy });
-  return scanChunk(chunk.tiles, chunk.height).map((v) => ({ ...coordinate, v }));
+  const floor = finiteFloorForRuntime({ worldSeed: coordinate.seed * 7919 + 13, floor: coordinate.floor });
+  const chunk = sliceGeneratedFloorChunk(floor, coordinate.cx, coordinate.cy);
+  return scanChunk(chunk.tiles, chunk.features, chunk.height).map((v) => ({ ...coordinate, v }));
 }

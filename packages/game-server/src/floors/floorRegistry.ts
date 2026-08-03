@@ -1,78 +1,64 @@
 import {
   DEFAULT_WORLD_FEATURES,
-  LEVEL,
-  World,
   snapshotWorldFeatures,
-  type ContentRegistry,
-  type ServerSnapshot,
-  type ServerStateSnapshot,
-  type WorldFeatures,
 } from "@dc2d/engine";
-import { GameSim } from "../sim/core/index.js";
-import type { PreparedSnapshotDelivery } from "../sim/snapshots/snapshots.js";
+import type { GameSim } from "../sim/core/index.js";
 import { FLOOR_CAP } from "../sim/floors/index.js";
-import { PlayerStore } from "../store.js";
-
-/**
- * Owns the "dungeon" level's per-floor GameSim instances (Epic 7.14 —
- * The Descent). Floor 1 always exists at construction (it IS the
- * pre-existing base dungeon sim, no migration weirdness); floors
- * 2..FLOOR_CAP are created lazily on first entry, all sharing this
- * process's PlayerStore/content/worldSeed. server.ts steps this once per
- * tick instead of a single GameSim for the "dungeon" level.
- */
-export interface FloorRegistryOptions {
-  clusterSpawns?: boolean;
-  spawnRadiusTiles?: number | undefined;
-  debugCommands?: boolean;
-}
-
-export interface FloorRegistryCreation {
-  worldSeed: number;
-  content: ContentRegistry;
-  store: PlayerStore;
-  rngSeedBase: number;
-  opts: FloorRegistryOptions;
-  worldFeatures?: WorldFeatures;
-}
-
-export interface TickResult {
-  snapshots: Map<string, ServerSnapshot>;
-  /** Players whose socket must now route to a different sim. */
-  moved: Array<{ playerId: string; sim: GameSim }>;
-}
-
-export interface ReplicationTickResult {
-  snapshots: Map<string, ServerStateSnapshot>;
-  moved: TickResult["moved"];
-}
-
-export interface PreparedReplicationTickResult {
-  snapshots: Map<string, PreparedSnapshotDelivery>;
-  moved: TickResult["moved"];
-}
+import { collectSnapshots, refreshDirectory, relayGlobalChat } from "./floorRegistryReplication.js";
+import { measureServerWork } from "../server/runtime/runtimeWork.js";
+import { FloorPreparationQueue } from "./preparation/floorPreparationQueue.js";
+import { FloorPreparationWorkerClient } from "./floorPreparationWorkerClient.js";
+import {
+  clampFloor,
+  createInitialFloor,
+  type FloorPreparationContext,
+  type PreparedFloorRequest,
+} from "./floorRegistryPreparation.js";
+import type { FloorRegistryCreation, PreparedReplicationTickResult, ReplicationTickResult, TickResult } from "./preparation/floorRegistryTypes.js";
+import {
+  applyGeneratedFloor,
+  type ApplyGeneratedFloorResult,
+} from "./registry/floorRegistryApply.js";
+import {
+  prepareFloor,
+  startPrewarm,
+} from "./registry/floorRegistryPreparationLifecycle.js";
+import { applyTransfers } from "./registry/floorRegistryTransfers.js";
+import { createFloorRegistryContexts, type FloorRegistryContexts } from "./registry/floorRegistryContexts.js";
 
 export class FloorRegistry {
   private readonly sims = new Map<number, GameSim>();
+  private readonly artifacts = new Map<number, string>();
+  private readonly transferQueue = new FloorPreparationQueue();
+  private readonly preparationWorker = new FloorPreparationWorkerClient();
+  private readonly preparationContext: FloorPreparationContext;
+  private readonly inFlightPreparations = new Map<number, Promise<GameSim>>();
+  private readonly contexts: FloorRegistryContexts;
+  private readonly prewarmEnabled: boolean;
 
-  constructor({ worldSeed, content, store, rngSeedBase, opts, worldFeatures }: FloorRegistryCreation) {
-    this.worldSeed = worldSeed;
-    this.content = content;
-    this.store = store;
-    this.rngSeedBase = rngSeedBase;
-    this.opts = opts;
-    this.worldFeatures = snapshotWorldFeatures(worldFeatures ?? DEFAULT_WORLD_FEATURES);
+  constructor({ worldSeed, content, store, rngSeedBase, opts, worldFeatures, prewarmNextFloor }: FloorRegistryCreation) {
+    const features = snapshotWorldFeatures(worldFeatures ?? DEFAULT_WORLD_FEATURES);
+    this.prewarmEnabled = prewarmNextFloor === true;
+    this.preparationContext = {
+      worldSeed,
+      content,
+      store,
+      rngSeedBase,
+      opts,
+      worldFeatures: features,
+    };
+    this.contexts = createFloorRegistryContexts({
+      sims: this.sims,
+      artifacts: this.artifacts,
+      transferQueue: this.transferQueue,
+      preparationWorker: this.preparationWorker,
+      preparationContext: this.preparationContext,
+      inFlightPreparations: this.inFlightPreparations,
+    });
     this.ensureFloor(1);
+    if (this.prewarmEnabled) this.prewarmFollowing(1);
   }
 
-  private readonly worldSeed: number;
-  private readonly content: ContentRegistry;
-  private readonly store: PlayerStore;
-  private readonly rngSeedBase: number;
-  private readonly opts: FloorRegistryOptions;
-  private readonly worldFeatures: WorldFeatures;
-
-  /** The always-existing floor-1 sim — RunningServer.sims.dungeon aliases this. */
   get base(): GameSim {
     return this.ensureFloor(1);
   }
@@ -81,28 +67,56 @@ export class FloorRegistry {
     return [...this.sims.values()];
   }
 
+  async waitForPendingFloorPreparations(): Promise<void> {
+    await Promise.all([
+      this.transferQueue.waitForPending(),
+      ...this.inFlightPreparations.values(),
+    ]);
+  }
+
+  async dispose(): Promise<void> {
+    await this.preparationWorker.dispose();
+  }
+
   ensureFloor(floor: number): GameSim {
+    return measureServerWork("server.floorEnsure", () => this.ensureFloorInternal(floor));
+  }
+
+  private ensureFloorInternal(floor: number): GameSim {
     const clamped = Math.min(Math.max(Math.floor(floor), 1), FLOOR_CAP);
     let sim = this.sims.get(clamped);
     if (!sim) {
-      sim = new GameSim({ world: new World(this.worldSeed, clamped, { level: LEVEL.Dungeon, features: this.worldFeatures }), content: this.content, store: this.store, rngSeed: this.rngSeedBase + clamped, opts: this.opts }
-      );
+      const prepared = createInitialFloor(this.preparationContext, clamped);
+      sim = prepared.sim;
       this.sims.set(clamped, sim);
+      this.artifacts.set(clamped, prepared.artifact);
     }
     return sim;
   }
 
-  /** Which currently-active floor sim (if any) holds a resume token. */
+  finiteFloorArtifact(floor: number): string | undefined {
+    return this.artifacts.get(Math.min(Math.max(Math.floor(floor), 1), FLOOR_CAP));
+  }
+  async applyGeneratedFloor(
+    request: PreparedFloorRequest & { readonly confirm: boolean },
+  ): Promise<ApplyGeneratedFloorResult> {
+    return applyGeneratedFloor(this.contexts.apply, request);
+  }
+
   findByToken(token: string): GameSim | undefined {
     for (const sim of this.sims.values()) if (sim.hasToken(token)) return sim;
     return undefined;
   }
 
-  /** Authoritative destination for a non-resume dungeon hello. The client
-   * cannot select a floor; an existing character returns to its durable
-   * active floor and a new character starts on floor 1. */
   joinSim(clientId: string): GameSim {
-    return this.ensureFloor(this.store.find(clientId)?.activeFloor ?? 1);
+    return this.ensureFloor(this.preparationContext.store.find(clientId)?.activeFloor ?? 1);
+  }
+
+  async prepareJoinSim(clientId: string): Promise<GameSim> {
+    const floor = clampFloor(this.preparationContext.store.find(clientId)?.activeFloor ?? 1);
+    const existing = this.sims.get(floor);
+    if (existing) return existing;
+    return this.prepareUnseenFloor(floor);
   }
 
   stepAll(): TickResult {
@@ -126,62 +140,26 @@ export class FloorRegistry {
   private finishTick(active: GameSim[]): TickResult["moved"] {
     relayGlobalChat(active);
     refreshDirectory(active);
-    return this.applyTransfers(active);
-  }
-
-  private applyTransfers(active: GameSim[]): TickResult["moved"] {
-    const moved: TickResult["moved"] = [];
-    for (const sim of active) {
-      for (const req of sim.takeOutgoingTransfers()) {
-        const dest = this.ensureFloor(req.targetFloor);
-        dest.receiveTransfer(req);
-        moved.push({ playerId: req.slot.entity.id, sim: dest });
-      }
+    const moved = applyTransfers({
+      sims: this.sims,
+      transferQueue: this.transferQueue,
+      prepare: (floor) => this.prepareUnseenFloor(floor),
+    }, active);
+    if (this.prewarmEnabled) {
+      for (const entry of moved) this.prewarmFollowing(entry.sim.world.floor);
     }
     return moved;
   }
-}
 
-function collectSnapshots<T>(
-  active: GameSim[],
-  step: (sim: GameSim) => Map<string, T>,
-): Map<string, T> {
-  const snapshots = new Map<string, T>();
-  for (const sim of active) {
-    for (const [id, snapshot] of step(sim)) snapshots.set(id, snapshot);
+  private prewarmFollowing(floor: number): void {
+    const next = floor + 1;
+    if (next > FLOOR_CAP) return;
+    startPrewarm({ floor: next, prepare: () => this.prepareUnseenFloor(next) });
   }
-  return snapshots;
-}
 
-/** Relay each floor's global-chat events to every OTHER active floor
- * (ASSUMPTION #130: one tick of relay delay, docs/ASSUMPTIONS.md). */
-function relayGlobalChat(active: GameSim[]): void {
-  const perSim = active.map((sim) => ({ sim, events: sim.takePendingGlobalChat() }));
-  for (const origin of perSim) {
-    relayOriginChat(origin, perSim);
+  private async prepareUnseenFloor(floor: number): Promise<GameSim> {
+    return prepareFloor(this.contexts.preparation, floor);
   }
 }
 
-type ChatRelaySource = { sim: GameSim; events: ReturnType<GameSim["takePendingGlobalChat"]> };
-
-function relayOriginChat(origin: ChatRelaySource, destinations: ChatRelaySource[]): void {
-  if (origin.events.length === 0) return;
-  for (const destination of destinations) relayToOtherSim(origin, destination);
-}
-
-function relayToOtherSim(origin: ChatRelaySource, destination: ChatRelaySource): void {
-  if (destination.sim === origin.sim) return;
-  for (const event of origin.events) {
-    destination.sim.injectGlobalChat(event, senderProfileIdFor(origin.sim, event));
-  }
-}
-
-function senderProfileIdFor(sim: GameSim, event: ChatRelaySource["events"][number]): string | undefined {
-  return event.t === "chat" ? sim.profileIdForPlayer(event.from) : undefined;
-}
-
-/** Refresh every active floor's cross-floor /who directory. */
-function refreshDirectory(active: GameSim[]): void {
-  const directory = active.flatMap((sim) => sim.listConnectedPlayers());
-  for (const sim of active) sim.setCrossFloorDirectory(directory);
-}
+export type { ApplyGeneratedFloorResult } from "./registry/floorRegistryApply.js";

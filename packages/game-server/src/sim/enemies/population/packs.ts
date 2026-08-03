@@ -13,9 +13,9 @@ import {
   pickEnemyDef,
   pickNativeEnemyDef,
 } from "../populationRoster.js";
+import { CHORT_PITCHBLOOM_PAIR } from "./territoryFactionPolicies.js";
 
-const ENEMY_CAP = 150;
-const REQUIRED_PACK_MEMBERS = ["chort", "pitchbloom"] as const;
+const ENEMY_CAP = 150; const REQUIRED_PACK_MEMBERS = CHORT_PITCHBLOOM_PAIR;
 
 type PackSpot = { readonly x: number; readonly y: number };
 type DraftedPackMember = { readonly defId: string; readonly spot: PackSpot };

@@ -59,6 +59,7 @@ function connectionGameplay() {
     attackReadyAtTick: 0,
     attackStartedAtTick: Number.NEGATIVE_INFINITY,
     god: false,
+    noclip: false,
     admin: false,
     debugFlags: createDebugFlags(),
     forceDeath: false,

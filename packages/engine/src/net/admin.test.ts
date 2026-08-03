@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_MAP_MAX_CELL_COUNT,
+  ADMIN_MAP_MAX_RADIUS,
   adminMapEntitySchema,
   adminObserverStateSchema,
   clientAdminAuthSchema,
@@ -37,6 +38,16 @@ describe("admin wire protocol", () => {
     }).success).toBe(true);
     expect(clientAdminCommandMessageSchema.safeParse({
       type: "adminCommand",
+      requestId: "apply-1",
+      command: {
+        op: "applyGeneratedFloor",
+        floor: 2,
+        confirm: true,
+        config: { territoryRoster: ["goblin-powderworks", "silkbound-broodcourt", "chainwarden-gaol", "cultist-star-chapel"] },
+      },
+    }).success).toBe(true);
+    expect(clientAdminCommandMessageSchema.safeParse({
+      type: "adminCommand",
       command: { op: "despawn", level: "dungeon", floor: 1, entityId: "e9" },
     }).success).toBe(true);
     expect(clientAdminCommandMessageSchema.safeParse({
@@ -67,6 +78,10 @@ describe("admin wire protocol", () => {
     expect(clientAdminCommandMessageSchema.safeParse({ type: "adminCommand", command: { op: "kill" } }).success).toBe(false);
     expect(clientAdminCommandMessageSchema.safeParse({
       type: "adminCommand",
+      command: { op: "applyGeneratedFloor", floor: 2, confirm: false },
+    }).success).toBe(false);
+    expect(clientAdminCommandMessageSchema.safeParse({
+      type: "adminCommand",
       command: { op: "spawn", kind: "pet", defId: "pet-dino-tard", level: "dungeon", floor: 1, x: 1.5, y: 2.5 },
     }).success).toBe(false);
     const mapCommand = { op: "map", level: "dungeon", floor: 1, x: 0.5, y: 0.5 };
@@ -76,7 +91,7 @@ describe("admin wire protocol", () => {
     }).success).toBe(true);
     expect(clientAdminCommandMessageSchema.safeParse({
       type: "adminCommand",
-      command: { ...mapCommand, radius: 25 },
+      command: { ...mapCommand, radius: ADMIN_MAP_MAX_RADIUS + 1 },
     }).success).toBe(false);
   });
 

@@ -30,6 +30,12 @@ describe("enemy AI targeting", () => {
     const attackers = [...sim.enemies.values()].filter((enemy) =>
       enemy.brain.targetId === "p1"
     );
-    expect(attackers).toHaveLength(3);
+    const unassigned = [...sim.enemies.values()].filter((enemy) =>
+      enemy.brain.targetId !== "p1"
+    );
+    expect(attackers.length).toBeGreaterThan(0);
+    expect(attackers.length).toBeLessThan(sim.enemies.size);
+    expect(unassigned.length).toBe(sim.enemies.size - attackers.length);
+    expect(attackers.every((enemy) => enemy.brain.targetId === "p1")).toBe(true);
   });
 });

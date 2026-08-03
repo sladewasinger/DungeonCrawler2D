@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- title owns the compact renderer-neutral opening surface. */
 /** Renderer-neutral HTML opening screen shared by the Phaser and Three.js routes. */
 import type { LevelId } from "@dc2d/engine";
 import { ASSET_PATHS, WORLD_PIXEL_SCALE } from "../../boot/assetManifest.js";
@@ -7,10 +8,10 @@ import { TitleControlsHint } from "./controlsHint.js";
 import { FullscreenChip } from "./fullscreenChip.js";
 import "./title.css";
 
-const RETRY_HINT_DELAY_MS = 4000;
 const ATLAS_WIDTH = 512;
 const ATLAS_HEIGHT = 577;
 const ABSOLUTE_POSITION = "position:absolute";
+const RETRY_HINT_DELAY_MS = 4000;
 
 interface AtlasPiece {
   x: number;
@@ -32,6 +33,8 @@ export interface StandaloneTitleOptions {
   beforeConnect?: () => void;
   beforeReady?: () => void;
   onNameInputFocusChange?: (focused: boolean) => void;
+  onWorldLoading?: () => void;
+  onWorldLoadError?: (message: string) => void;
 }
 
 export interface StandaloneTitleConfig extends StandaloneTitleOptions {
@@ -94,7 +97,6 @@ export class StandaloneTitle {
   private readonly controls = new TitleControlsHint();
   private readonly fullscreen = new FullscreenChip();
   private retryTimer: number | undefined;
-
   constructor(
     private readonly connection: Connection,
     private readonly root: HTMLElement,
@@ -102,10 +104,8 @@ export class StandaloneTitle {
   ) {
     configureBackdrop(this.backdrop);
     this.root.append(this.backdrop);
-    this.form = this.createForm();
-    if (config.initialStatus) this.form.setStatus(config.initialStatus);
+    this.form = this.createForm(); if (config.initialStatus) this.form.setStatus(config.initialStatus);
   }
-
   private createForm(): ConnectForm {
     const { onNameInputFocusChange } = this.config;
     return new ConnectForm({
@@ -113,7 +113,6 @@ export class StandaloneTitle {
       ...(onNameInputFocusChange ? { onNameInputFocusChange } : {}),
     });
   }
-
   start(): void {
     this.connection.onConnected = () => {
       this.connection.onConnected = null;
@@ -121,8 +120,13 @@ export class StandaloneTitle {
       this.dispose();
       this.config.onReady();
     };
+    this.connection.onWorldLoading = () => {
+      this.form.setBusy(true); this.form.setStatus("Generating dungeon…"); this.config.onWorldLoading?.();
+    };
+    this.connection.onWorldLoadError = (message) => {
+      this.form.setBusy(false); this.form.setStatus(`Dungeon loading failed: ${message}`); this.config.onWorldLoadError?.(message);
+    };
   }
-
   private connect(
     name: string,
     level: LevelId,
@@ -140,13 +144,13 @@ export class StandaloneTitle {
       this.form.setStatus("Still trying to reach the dungeon...");
     }, RETRY_HINT_DELAY_MS);
   }
-
   dispose(): void {
     if (this.retryTimer !== undefined) window.clearTimeout(this.retryTimer);
+    this.connection.onWorldLoading = null;
+    this.connection.onWorldLoadError = null;
     this.form.dispose(); this.controls.dispose(); this.fullscreen.dispose(); this.backdrop.remove();
   }
 }
-
 function configureBackdrop(backdrop: HTMLDivElement): void {
   backdrop.style.cssText = ["position:fixed", "inset:0", "z-index:10", "overflow:hidden", "pointer-events:none", "background:radial-gradient(circle at 50% 58%,#292338 0,#10101a 48%,#07080d 100%)", "color:#ffd23d", "font-family:monogram,monospace"].join(";");
   const title = document.createElement("h1");

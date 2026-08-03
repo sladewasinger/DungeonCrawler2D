@@ -1,5 +1,5 @@
 /** Renders live performance, build, connection, seed, position, and heading telemetry. */
-import { biomeAtWorldTile, displayCoordinates, type World } from "@dc2d/engine";
+import { displayCoordinates, type World } from "@dc2d/engine";
 import { BUILD_SHA } from "../../../buildInfo.js";
 import { APP_VERSION } from "../../../appVersion.js";
 import type { Connection } from "../../../net/connection/connection.js";
@@ -35,7 +35,7 @@ export class HudTelemetry {
   update({ connection, world, player, yaw, mouseCaptured, fps, latencyMs }: HudTelemetryUpdate): void {
     const heading = headingDegrees(yaw);
     const display = displayCoordinates(player.x, player.z);
-    const biome = biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: player.x, wy: player.z }).biome;
+    const biome = world.biomeAtWorldTile(player.x, player.z)?.biome ?? "maze";
     const seedInputText = connection.welcome?.seedInputText ?? "—";
     this.readout.textContent =
       `${telemetryPerformanceLine({ connected: connection.status === "connected", fps, latencyMs })}\n` +

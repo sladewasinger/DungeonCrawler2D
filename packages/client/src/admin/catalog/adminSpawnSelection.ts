@@ -3,7 +3,7 @@ import type { AdminSpawnSelection } from "../adminSpectatorSurface.js";
 import {
   type AdminSpawnKind,
   paletteDefinitions,
-} from "../adminPageSupport.js";
+} from "../portal/adminPageSupport.js";
 
 export type AdminSpawnSelections = Readonly<Record<AdminSpawnKind, string>>;
 

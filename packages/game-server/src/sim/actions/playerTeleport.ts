@@ -1,4 +1,4 @@
-import { createBody } from "@dc2d/engine";
+import { clampFiniteFloorPosition, createBody } from "@dc2d/engine";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
 import { clearActiveMeleeAttack } from "../state/meleeAttackState.js";
 import type { PlayerSlot, SimState } from "../state/state.js";
@@ -8,17 +8,17 @@ export interface PlayerTeleport {
   readonly slot: PlayerSlot;
   readonly to: { readonly x: number; readonly y: number; readonly z?: number };
   readonly remember: boolean;
+  readonly clampToFloor?: boolean;
 }
 
-export function teleportPlayer({
-  sim,
-  slot,
-  to,
-  remember,
-}: PlayerTeleport): void {
+export function teleportPlayer(input: PlayerTeleport): void {
+  const { sim, slot, to, remember, clampToFloor = false } = input;
   if (remember) rememberReturnPosition(slot);
-  const z = to.z ?? sim.world.groundAt(to.x, to.y);
-  slot.entity.body = createBody(to.x, to.y, z);
+  const position = clampToFloor
+    ? clampFiniteFloorPosition(sim.world.floorBounds, to)
+    : { x: to.x, y: to.y };
+  const z = to.z ?? sim.world.groundAt(position.x, position.y);
+  slot.entity.body = createBody(position.x, position.y, z);
   clearActiveMeleeAttack(slot);
   resetInputTimeline(slot);
   slot.needsFullAreas = true;

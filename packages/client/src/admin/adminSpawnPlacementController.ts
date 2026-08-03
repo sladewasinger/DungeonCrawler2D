@@ -1,7 +1,7 @@
 import type { AdminMap, AdminPlayer } from "@dc2d/engine";
 import type { Connection } from "../net/connection/connection.js";
 import type { AdminSpectatorSurface, AdminSpawnSelection } from "./adminSpectatorSurface.js";
-import type { AdminPageView } from "./adminPageView.js";
+import type { AdminPageView } from "./portal/adminPageView.js";
 import {
   emptyAdminSpawnSelections,
   selectionForAdminSpawnKind,
@@ -11,7 +11,7 @@ import {
 } from "./catalog/adminSpawnSelection.js";
 import { petOwnerForAdminMap } from "./catalog/adminPetPlacement.js";
 import { AdminMapCameraController } from "./map/camera/adminMapCameraController.js";
-import { paletteDefinitions } from "./adminPageSupport.js";
+import { paletteDefinitions } from "./portal/adminPageSupport.js";
 
 export interface AdminSpawnPlacementControllerOptions {
   readonly connection: Connection;

@@ -33,6 +33,7 @@ export function markDisconnected(sim: SimState, playerId: string): void {
   resetInputTimeline(slot);
   slot.pendingActions.length = 0;
   slot.blocking = false;
+  slot.noclip = false;
   clearActiveMeleeAttack(slot);
   slot.reapAtTick = sim.tickCount + GRACE_TICKS;
 }
@@ -83,6 +84,7 @@ export function respawnSlot(sim: SimState, slot: PlayerSlot): void {
   slot.maxStamina ??= PLAYER_MAX_STAMINA;
   slot.stamina = slot.maxStamina;
   slot.blocking = false;
+  slot.noclip = false;
   resetInputTimeline(slot);
   slot.staminaRecoveryDelaySeconds = 0;
   slot.staminaExhausted = false;

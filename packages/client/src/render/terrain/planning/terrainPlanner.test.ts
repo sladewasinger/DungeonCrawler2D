@@ -145,6 +145,17 @@ describe("planTerrain", () => {
     expect(plan.batches.floors).toHaveLength(1);
     expect(plan.batches.southFaces).toHaveLength(1);
   });
+
+  it("emits no tiled geometry for a view wholly outside the finite floor", () => {
+    const plan = planTerrain({
+      voidTerrain: true,
+      finiteBounds: { x: 0, y: 0, width: 4, height: 4 },
+      terrainAt: () => FLOOR,
+      heightAt: () => 99,
+    }, { bounds: { x: 100, y: 100, width: 32, height: 32 }, orientation: 0 });
+
+    expect(Object.values(plan.batches).every((batch) => batch.length === 0)).toBe(true);
+  });
 });
 
 function raisedAndViewSouth(orientation: ViewOrientation): { raised: { x: number; y: number }; south: { x: number; y: number } } {

@@ -15,11 +15,11 @@ export class DungeonCameraZoomController implements CameraZoomEffectPort {
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  syncPresentation(presentationZoom = 1): void {
+  syncPresentation(presentationZoom = 1, mobile = false): void {
     const viewport = { width: this.scene.scale.width, height: this.scene.scale.height };
     const bounded = boundedGameplayCameraViewport(viewport);
     this.scene.cameras.main.setViewport(bounded.x, bounded.y, bounded.width, bounded.height);
-    this.baselineZoom = responsiveGameplayCameraZoom(viewport, presentationZoom);
+    this.baselineZoom = responsiveGameplayCameraZoom(viewport, presentationZoom, mobile);
     this.applyZoom();
   }
 

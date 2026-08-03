@@ -38,7 +38,6 @@ function safeRoomEntrance(
   cx: number,
   cy: number,
 ): CompassLandmarkPosition[] {
-  const chunk = { worldSeed: world.worldSeed, floor: world.floor, cx, cy };
-  const door = safeRoomEntranceDoorForChunk(chunk);
+  const door = safeRoomEntranceDoorForChunk(world.generatedFloor, cx, cy);
   return door ? [{ x: door.x + 0.5, y: door.y + 0.5 }] : [];
 }

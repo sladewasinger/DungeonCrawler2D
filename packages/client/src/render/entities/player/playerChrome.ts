@@ -11,13 +11,12 @@ import {
   updateNameplate,
 } from "../presentation/nameplate.js";
 import { updateAdminLabel } from "../presentation/adminLabel.js";
-import { syncOcclusionSilhouette, terrainOcclusionAhead } from "../geometry/occlusion.js";
+import { syncEntityOcclusion } from "../geometry/occlusion.js";
 import { updateShadowPosition } from "../geometry/shadow.js";
 import type { PlayerVisual } from "../visuals/state.js";
 import type { PlayerEntityView, RenderContext } from "../visuals/view.js";
 import { spriteLiftPx } from "../motion/lift.js";
 import { worldToScreen } from "../geometry/worldToScreen.js";
-import { getViewOrientation } from "../../view/transform/viewState.js";
 import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
 
 export interface PlayerChromeUpdate {
@@ -110,12 +109,5 @@ function updatePlayerNameplate(visual: PlayerVisual, view: PlayerEntityView, con
 }
 
 function syncPlayerOcclusion(visual: PlayerVisual, view: PlayerEntityView, context: RenderContext): void {
-  const occlusion = terrainOcclusionAhead({
-    world: context.world,
-    x: view.x,
-    y: view.y,
-    z: view.z,
-    orientation: getViewOrientation(),
-  });
-  syncOcclusionSilhouette(visual.body, view.y, occlusion);
+  syncEntityOcclusion(visual.body, view, context.world);
 }

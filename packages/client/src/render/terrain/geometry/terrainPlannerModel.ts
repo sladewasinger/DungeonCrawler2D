@@ -44,6 +44,15 @@ export type TerrainPropKind = (typeof TERRAIN_PROPS)[keyof typeof TERRAIN_PROPS]
 export interface TerrainSource {
   /** Explicit server-selected mode; standalone tools must choose deliberately. */
   readonly voidTerrain: boolean;
+  /** Finite playable rectangle; outside it is background-only presentation. */
+  readonly finiteBounds?: TerrainRect;
+  isInBoundsAt?(worldX: number, worldY: number): boolean;
+  /** Visual subdivisions per physical stair tile; movement remains a continuous ramp. */
+  readonly stairTreadCount?: number | undefined;
+  /** Stable finite-floor territory index used for atlas role selection. */
+  territoryAt?(worldX: number, worldY: number): number | null;
+  /** Identity boundary for immutable plans when a renderer is reused across floors. */
+  cacheIdentity?: string;
   /** Explicit exception for isolated room-plane cells in an otherwise finite world. */
   allowsVoidAt?(worldX: number, worldY: number): boolean;
   presentationAt?(worldX: number, worldY: number): TerrainPresentation;

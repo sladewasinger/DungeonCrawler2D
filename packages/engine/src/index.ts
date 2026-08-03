@@ -18,6 +18,8 @@ export * from "./world/features/miniBossArena/miniBossArena.js";
 export * from "./world/features/miniBossArena/miniBossArenaKey.js";
 export * from "./world/core/pockets.js";
 export * from "./world/generate.js";
+export * from "./world/generate/finiteFloor.js";
+export * from "./world/generate/artifact/finiteFloorArtifact.js";
 export * from "./world/generate/terrain/biome.js";
 export * from "./world/generate/layout/district.js";
 export * from "./world/generate/populationRooms.js";

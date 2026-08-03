@@ -2,6 +2,7 @@
 // picks the same line), rotation coverage (varying salts/ticks actually
 // rotate through the pool), and the milestone/broadcast helpers.
 import { describe, expect, it } from "vitest";
+import type { World } from "@dc2d/engine";
 import {
   announceDeath,
   announceFirstTorchThrow,
@@ -14,6 +15,13 @@ import {
 } from "./index.js";
 import { pickLineIndex } from "./pick.js";
 import type { PlayerSlot } from "../state/state.js";
+
+function stairWorld(floor: number, hasDownStairs: boolean): Pick<World, "floor" | "downStairwayPositions"> {
+  return {
+    floor,
+    downStairwayPositions: () => hasDownStairs ? [{ x: 0, y: 0 }] : [],
+  };
+}
 
 describe("pickLineIndex", () => {
   it("is deterministic for the same (tick, salt, poolSize)", () => {
@@ -102,14 +110,14 @@ describe("announcer line builders", () => {
 
   it("announceStairwayHint yields a system line about the way down on floors 1-4 (LANE W)", () => {
     for (const floor of [1, 2, 3, 4]) {
-      const event = announceStairwayHint(10, "p1", { worldSeed: 1337, floor });
+      const event = announceStairwayHint(10, "p1", stairWorld(floor, true));
       expect(event).toMatchObject({ t: "chat", channel: "system", from: "server", name: "system" });
       expect(event?.t === "chat" ? event.text : "").toMatch(/down/i);
     }
   });
 
   it("announceStairwayHint returns null on the boss floor (FLOOR_CAP has no StairwayDown)", () => {
-    expect(announceStairwayHint(10, "p1", { worldSeed: 1337, floor: 5 })).toBeNull();
+    expect(announceStairwayHint(10, "p1", stairWorld(5, false))).toBeNull();
   });
 
 });

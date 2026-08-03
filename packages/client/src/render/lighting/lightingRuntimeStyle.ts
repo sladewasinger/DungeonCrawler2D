@@ -10,6 +10,8 @@ export type MutableLightSource = {
 
 export const LIGHT_LOAD_MARGIN_CHUNKS =
   LIGHTING_VISUAL_STYLE.streaming.loadMarginChunks;
+export const LIGHT_SCAN_BUDGET =
+  LIGHTING_VISUAL_STYLE.streaming.maximumChunkScansPerUpdate;
 export const MAXIMUM_ACTIVE_LIGHTS =
   LIGHTING_VISUAL_STYLE.streaming.maximumActiveLights;
 export const PORTAL_LIGHT_COLOR =

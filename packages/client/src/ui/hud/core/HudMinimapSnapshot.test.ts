@@ -20,11 +20,27 @@ describe("Three HUD minimap snapshot", () => {
     const minimap = resolveHudMinimap({ connection, world, player });
 
     expect(minimap).toMatchObject({ centerX: 7.5, centerY: 9.5 });
-    expect(minimap.terrain).toEqual([]);
+    expect(minimap.terrain.length).toBeGreaterThan(0);
     expect(world.cachedChunkCount).toBe(0);
   });
 
   it("preserves the Phaser snapshot when one is supplied", () => {
+    const world = new World(123, 1);
+    const connection = new Connection("ws://test", "Tester", "client");
+    const minimap = {
+      centerX: 1,
+      centerY: 2,
+      rangeTiles: 16,
+      terrain: [{ x: 1, y: 2, height: 0, walkable: true }],
+      entities: [],
+      landmarks: [],
+    } satisfies MinimapSnapshot;
+
+    expect(resolveHudMinimap({ connection, world, player, snapshot: { minimap } }))
+      .toBe(minimap);
+  });
+
+  it("fills an empty finite snapshot from indexed terrain without loading chunks", () => {
     const world = new World(123, 1);
     const connection = new Connection("ws://test", "Tester", "client");
     const minimap = {
@@ -36,7 +52,10 @@ describe("Three HUD minimap snapshot", () => {
       landmarks: [],
     } satisfies MinimapSnapshot;
 
-    expect(resolveHudMinimap({ connection, world, player, snapshot: { minimap } }))
-      .toBe(minimap);
+    const resolved = resolveHudMinimap({ connection, world, player, snapshot: { minimap } });
+
+    expect(resolved).not.toBe(minimap);
+    expect(resolved.terrain.length).toBeGreaterThan(0);
+    expect(world.cachedChunkCount).toBe(0);
   });
 });

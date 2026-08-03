@@ -5,7 +5,7 @@ model_reasoning_effort = "high"
 
 developer_instructions = """
 Review the complete assigned change independently. Read `AGENTS.md`,
-`.codex/agents/README.md`, `agent-workflow/README.md`, relevant agent memory,
+`.codex/agents/CONTEXT.md`, `agent-workflow/CONTEXT.md`, relevant agent memory,
 and the assigned active artifact before reviewing. If the artifact is missing,
 stop and report the blocker.
 

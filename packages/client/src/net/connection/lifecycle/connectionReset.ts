@@ -8,7 +8,15 @@ export function resetDisconnectedConnection(conn: Connection): void {
 }
 
 function resetAuthoritativeState(conn: Connection): void {
+  conn.worldLoadAttempt++;
+  conn.worldLoadCancel?.();
+  conn.worldLoadCancel = null;
   conn.world = null;
+  conn.worldReady = false;
+  conn.worldLoading = false;
+  conn.worldLoadError = null;
+  conn.pendingFloorTransition = null;
+  conn.pendingWorldSnapshot = null;
   conn.welcome = null;
   conn.body = null;
   conn.spectatorTargetPose = null;
@@ -19,6 +27,7 @@ function resetAuthoritativeState(conn: Connection): void {
   conn.staminaExhausted = false;
   conn.healthRegenerationDelaySeconds = 0;
   conn.movementSpeed = MOVE_SPEED;
+  conn.noclip = false;
   conn.downed = false;
   conn.respawnAtTick = null;
   conn.justRespawned = false;

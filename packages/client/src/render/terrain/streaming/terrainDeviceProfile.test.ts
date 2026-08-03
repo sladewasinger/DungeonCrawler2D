@@ -22,6 +22,7 @@ describe("terrain device profiles", () => {
     expect(Object.isFrozen(profile.visuals)).toBe(true);
     expect(Object.isFrozen(profile.retention)).toBe(true);
     expect(profile.terrainMarginTiles).toBe(2);
+    expect(profile.finiteTerrainMarginTiles).toBe(1);
     expect(profile.lightLoadMarginChunks).toBe(1);
     expect(profile.visuals).toEqual({
       ambientOcclusion: true,
@@ -54,6 +55,7 @@ describe("terrain device profiles", () => {
     });
     expect(profile.kind).toBe("constrained");
     expect(profile.terrainMarginTiles).toBe(2);
+    expect(profile.finiteTerrainMarginTiles).toBe(1);
     expect(profile.lightLoadMarginChunks).toBe(1);
     expect(profile.retention.maxChunkPlans)
       .toBeLessThan(selectTerrainDeviceProfile(DESKTOP).retention.maxChunkPlans);

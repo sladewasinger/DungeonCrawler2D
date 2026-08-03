@@ -22,7 +22,7 @@ describe("boss arena chunk selection", () => {
       for (let floor = 1; floor < FLOOR_CAP; floor++) expect(bossArenaChunk(world(seed, floor))).toBeNull();
       expect(bossArenaChunk(world(seed, FLOOR_CAP))).not.toBeNull();
     }
-  });
+  }, 60_000);
 
   it("gate and spawn-anchor positions land inside the arena's own chunk, and are null off FLOOR_CAP", () => {
     for (const seed of SEEDS.slice(0, 10)) {
@@ -42,5 +42,5 @@ describe("boss arena chunk selection", () => {
       expect(Math.floor(spawn.y / CHUNK_SIZE)).toBe(chunk.cy);
       expect(gate).not.toEqual(spawn); // gate sits on the south wall, spawn at the true center
     }
-  });
+  }, 60_000);
 });

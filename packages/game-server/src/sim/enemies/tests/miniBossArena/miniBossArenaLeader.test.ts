@@ -9,24 +9,29 @@ import {
 
 describe("mini-boss arena leader", () => {
   it("reserves a capped target slot for an admitted arena leader", () => {
-    const fixture = admittedFullArenaFixture();
-    const { leader, player, sim } = fixture;
-    const home = leader.home;
-    if (!home) throw new Error("arena leader lacks home bounds");
-    player.entity.hp = 100_000;
-    player.entity.maxHp = 100_000;
-    leader.entity.body.x = home.x0 + 0.5;
-    leader.entity.body.y = home.y1 - 0.25;
-    leader.entity.body.z = sim.world.groundAt(
-      leader.entity.body.x,
-      leader.entity.body.y,
+    const ordinaryFixture = admittedFullArenaFixture();
+    delete ordinaryFixture.leader.arenaLeader;
+    positionLeaderForTargeting(ordinaryFixture);
+    stepEnemies(ordinaryFixture.sim, []);
+    const ordinaryAssignments = assignedEnemies(
+      ordinaryFixture.sim,
+      ordinaryFixture.player.entity.id,
     );
+    expect(ordinaryAssignments.length).toBeGreaterThan(0);
+    expect(ordinaryAssignments.length).toBeLessThan(ordinaryFixture.sim.enemies.size);
 
-    stepEnemies(sim, []);
+    const fixture = admittedFullArenaFixture();
+    positionLeaderForTargeting(fixture);
+    stepEnemies(fixture.sim, []);
 
-    expect(leader.def.id).toBe(ORC_WARLORD);
-    expect(leader.brain.targetId).toBe(player.entity.id);
-    expect(assignedEnemies(sim, player.entity.id)).toHaveLength(3);
+    expect(fixture.leader.def.id).toBe(ORC_WARLORD);
+    expect(fixture.leader.brain.targetId).toBe(fixture.player.entity.id);
+    const leaderAssignments = assignedEnemies(fixture.sim, fixture.player.entity.id);
+    expect(leaderAssignments.length).toBeGreaterThan(0);
+    expect(leaderAssignments).toHaveLength(ordinaryAssignments.length);
+    expect(leaderAssignments).toContain(fixture.leader);
+    expect(leaderAssignments.filter((enemy) => !enemy.arenaLeader).length)
+      .toBeLessThan(ordinaryAssignments.length);
     expect(leaderAttacksWithin(fixture)).toBe(true);
   });
 
@@ -67,6 +72,17 @@ describe("mini-boss arena leader", () => {
     expect(enemy.entity.body.y).toBeLessThan(separatedY);
   });
 });
+
+function positionLeaderForTargeting(fixture: ReturnType<typeof admittedFullArenaFixture>): void {
+  const { leader, player, sim } = fixture;
+  const home = leader.home;
+  if (!home) throw new Error("arena leader lacks home bounds");
+  player.entity.hp = 100_000;
+  player.entity.maxHp = 100_000;
+  leader.entity.body.x = home.x0 + 0.5;
+  leader.entity.body.y = home.y1 - 0.25;
+  leader.entity.body.z = sim.world.groundAt(leader.entity.body.x, leader.entity.body.y);
+}
 
 function assignedEnemies(
   sim: ReturnType<typeof admittedFullArenaFixture>["sim"],

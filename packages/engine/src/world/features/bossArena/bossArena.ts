@@ -14,17 +14,15 @@
 
 import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
 import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
+import { finiteFloorForRuntime } from "../../generate/finiteFloor.js";
 import {
   FLOOR_CAP,
-  pickRingChunk,
   structureAnchor,
   type ChunkCoord,
   type LocalAnchor,
   type WorldChunk,
 } from "../descent/descentShared.js";
 
-const ARENA_RADIUS = 2;
-const ARENA_SALT = 0xde5e;
 const ANCHOR_SALT = 0xde61;
 /** Radius: the ring's outer edge produces a (2*radius+1) square footprint. */
 export const ARENA_HALF = WORLD_GENERATION_TUNING.bossArena.radius;
@@ -51,7 +49,12 @@ const GATE_DY = ARENA_HALF;
 
 export function bossArenaChunk(world: Pick<WorldChunk, "worldSeed" | "floor">): ChunkCoord | null {
   if (world.floor !== FLOOR_CAP) return null;
-  return pickRingChunk(world, { salt: ARENA_SALT, radius: ARENA_RADIUS });
+  const arena = finiteFloorForRuntime(world).bossArena;
+  if (!arena) return null;
+  return {
+    cx: Math.floor(arena.center.x / CHUNK_SIZE),
+    cy: Math.floor(arena.center.y / CHUNK_SIZE),
+  };
 }
 
 export function isBossArenaChunk(chunk: WorldChunk): boolean {
@@ -60,6 +63,13 @@ export function isBossArenaChunk(chunk: WorldChunk): boolean {
 }
 
 function anchorFor(chunk: WorldChunk): LocalAnchor {
+  const arena = finiteFloorForRuntime(chunk).bossArena;
+  if (arena) {
+    return {
+      lx: arena.center.x - chunk.cx * CHUNK_SIZE,
+      ly: arena.center.y - chunk.cy * CHUNK_SIZE,
+    };
+  }
   return structureAnchor(chunk, { salt: ANCHOR_SALT, clearance: ARENA_CLEARANCE });
 }
 
@@ -122,25 +132,16 @@ function isRingWall(dx: number, dy: number): boolean {
   return Math.max(Math.abs(dx), Math.abs(dy)) >= RING_INNER_EDGE && !isGateCell(dx, dy);
 }
 
-function worldPoint(anchor: LocalAnchor, chunk: ChunkCoord, offset: LocalAnchor): { x: number; y: number } {
-  return {
-    x: chunk.cx * CHUNK_SIZE + anchor.lx + offset.lx,
-    y: chunk.cy * CHUNK_SIZE + anchor.ly + offset.ly,
-  };
-}
-
 /** World position of FLOOR_CAP's arena gate (null off FLOOR_CAP). */
 export function bossArenaGatePosition(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  const chunk = bossArenaChunk(world);
-  if (!chunk) return null;
-  return worldPoint(anchorFor({ ...world, ...chunk }), chunk, { lx: GATE_DX, ly: GATE_DY });
+  if (world.floor !== FLOOR_CAP) return null;
+  return finiteFloorForRuntime(world).bossArena?.gate ?? null;
 }
 
 /** World position of FLOOR_CAP's boss spawn anchor: the arena's own center (null off FLOOR_CAP). */
 export function bossArenaSpawnAnchor(world: { worldSeed: number; floor: number }): { x: number; y: number } | null {
-  const chunk = bossArenaChunk(world);
-  if (!chunk) return null;
-  return worldPoint(anchorFor({ ...world, ...chunk }), chunk, { lx: 0, ly: 0 });
+  if (world.floor !== FLOOR_CAP) return null;
+  return finiteFloorForRuntime(world).bossArena?.center ?? null;
 }
 
 /** Local-anchor + reach for the room-height guard (generate/landmarks/guard.ts): keeps ordinary pit/dais variance away from the arena's own footprint in its chunk. */

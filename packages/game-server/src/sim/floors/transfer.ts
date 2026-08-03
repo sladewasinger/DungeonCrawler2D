@@ -1,10 +1,9 @@
-import { createBody, stairwayUpPosition } from "@dc2d/engine";
+import { createBody } from "@dc2d/engine";
 import { announceFloorEntry, announceStairwayHint } from "../announcer/index.js";
 import { respawnSlot } from "../players/players.js";
 import { refreshModerationBindings } from "../moderation.js";
 import { resetInputTimeline } from "../players/playerInputTimeline.js";
 import { leaveParty } from "../social/social.js";
-import { findSpawn } from "../spawn/spawn.js";
 import { clearPetPath } from "../pets/index.js";
 import type { FloorTransferRequest, SimState } from "../state/state.js";
 
@@ -53,6 +52,9 @@ function establishTransfer(sim: SimState, req: FloorTransferRequest): void {
   refreshModerationBindings(sim);
   slot.known.clear();
   slot.needsFullAreas = true;
+  slot.noclip = false;
+  if (sim.finiteFloorArtifact) slot.pendingFiniteFloorArtifact = sim.finiteFloorArtifact;
+  else delete slot.pendingFiniteFloorArtifact;
   resetInputTimeline(slot);
 }
 
@@ -63,8 +65,9 @@ function placeTransferredPlayer(sim: SimState, req: FloorTransferRequest): void 
     // same machinery every floor-1 in-place death already used.
     respawnSlot(sim, slot);
   } else {
-    const landing = stairwayUpPosition(sim.world);
-    const target = landing ? { ...landing, z: sim.world.groundAt(landing.x, landing.y) } : findSpawn(sim);
+    const landing = sim.world.upStairwayPosition();
+    if (!landing) throw new Error(`Floor ${sim.world.floor} has no generated arrival stairway`);
+    const target = { ...landing, z: sim.world.groundAt(landing.x, landing.y) };
     slot.entity.body = createBody(target.x, target.y, target.z);
     slot.outbox.push({ t: "teleported" });
   }

@@ -75,4 +75,5 @@ const COMMAND_CAPABILITIES: Readonly<Partial<Record<AdminCommand["op"], AdminCap
   debug: DEBUG_CAPABILITY,
   killEnemies: "enemies:kill",
   assignAdmin: "admins:grant",
+  applyGeneratedFloor: WORLD_CAPABILITY,
 };

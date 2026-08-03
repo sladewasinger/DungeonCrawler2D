@@ -1,4 +1,5 @@
 import {
+  clampFiniteFloorPosition,
   safeRoomSpawn,
   type AdminCommand,
   type AdminPlayer,
@@ -117,8 +118,9 @@ function coordinateDestination(
   input: TeleportDestinationInput,
 ): { x: number; y: number; z: number } | null {
   if (input.x === undefined || input.y === undefined) return null;
-  if (!input.sim.world.isWalkable(input.x, input.y)) return null;
-  return { x: input.x, y: input.y, z: input.sim.world.groundAt(input.x, input.y) };
+  const position = clampFiniteFloorPosition(input.sim.world.floorBounds, { x: input.x, y: input.y });
+  if (!input.sim.world.isWalkable(position.x, position.y)) return null;
+  return { x: position.x, y: position.y, z: input.sim.world.groundAt(position.x, position.y) };
 }
 
 function teleportLabel(command: Extract<AdminCommand, { op: "teleport" }>): string {

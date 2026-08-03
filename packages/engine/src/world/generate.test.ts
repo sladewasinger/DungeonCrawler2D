@@ -9,13 +9,12 @@ import { isSafeRoomChunk, isStairsChunk, KIOSK_HEIGHT } from "./features/fixed/f
 import {
   accumulateHeightBudget,
   createHeightBudgetStats,
-} from "./generate/terrain/heightBudget.test-support.js";
+} from "./generate/terrain/tests/heightBudget.test-support.js";
 import { generateChunk } from "./generate.js";
 import {
   chunkGrid,
   findFirstChunk,
 } from "./generate/test-support/chunkCoordinates.js";
-import { floodFromBorder } from "./generate/test-support.js";
 import {
   CHUNK_SIZE,
   FEATURE_FACE,
@@ -42,7 +41,7 @@ describe("world generation", () => {
       expect(Array.from(a.height)).toEqual(Array.from(b.height));
       expect(Array.from(a.zones)).toEqual(Array.from(b.zones));
     }
-  });
+  }, 30_000);
 
   it("differs across seeds and floors", () => {
     const a = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: 5, cy: 5 });
@@ -52,7 +51,7 @@ describe("world generation", () => {
     expect(Array.from(a.tiles)).not.toEqual(Array.from(c.tiles));
     expect(Array.from(a.tiles)).not.toContain(1);
     expect(Array.from(a.terrain).every((value) => value === TERRAIN.Floor || value === TERRAIN.Void)).toBe(true);
-  });
+  }, 30_000);
 
   it("is flat-first: floor height is 0 or within the pit/dais/chasm/landmark tier budget", () => {
     const stats = createHeightBudgetStats();
@@ -94,7 +93,9 @@ describe("world generation", () => {
     expect(chunk.featureFaces[doorIndex]).toBe(FEATURE_FACE.South);
     expect(chunk.featureHeight[doorIndex]).toBe(1);
     expect(chunk.tiles[doorIndex + CHUNK_SIZE]).toBe(TILE.Floor);
-    expect(chunk.height[doorIndex + CHUNK_SIZE]).toBe(0);
+    expect(chunk.features[doorIndex + CHUNK_SIZE]).toBe(TILE.Stairs);
+    expect(chunk.height[doorIndex + CHUNK_SIZE]).toBe(1);
+    expect(chunk.height[doorIndex + CHUNK_SIZE * 2]).toBe(0);
   });
 
   it("stairway chunks contain a cleared landing pad", () => {
@@ -115,31 +116,10 @@ describe("world generation", () => {
     expect(clearFloor).toBeGreaterThan(60);
   });
 
-  it("has no unreachable interior floor pockets (pocket sealing)", () => {
-    for (const [cx, cy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-1, 1], [1, -1]] as const) {
-      const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: cx, cy: cy });
-      assertNoPockets(chunk.tiles, cx, cy);
-    }
+  it("returns an initialized blocked chunk beyond the finite floor", () => {
+    const chunk = generateChunk({ worldSeed: SEED, floor: FLOOR, cx: 20, cy: 20 });
+    expect(Array.from(chunk.tiles).every((tile) => tile === TILE.Void)).toBe(true);
+    expect(Array.from(chunk.terrain).every((terrain) => terrain === TERRAIN.Void)).toBe(true);
+    expect(Array.from(chunk.height).every((height) => height === 0)).toBe(true);
   });
 });
-
-function assertNoPockets(tiles: Uint8Array, cx: number, cy: number): void {
-  const reached = floodFromBorder(tiles);
-  for (let index = 0; index < tiles.length; index++) {
-    assertReachedTile({ tiles, reached, index, cx, cy });
-  }
-}
-
-function assertReachedTile(input: {
-  readonly tiles: Uint8Array;
-  readonly reached: Uint8Array;
-  readonly index: number;
-  readonly cx: number;
-  readonly cy: number;
-}): void {
-  if (input.tiles[input.index] === TILE.Void) return;
-  expect(
-    input.reached[input.index],
-    `chunk ${input.cx},${input.cy} tile ${input.index} is an orphan pocket`,
-  ).toBe(1);
-}

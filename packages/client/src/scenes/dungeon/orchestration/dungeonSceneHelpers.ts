@@ -28,6 +28,7 @@ import { updateSelfFacing, type SelfCosmeticsState } from "../player/selfCosmeti
 import type { DungeonSceneState } from "./state.js";
 import type { RotationController } from "../camera/rotationControl.js";
 import type { CameraZoomEffectPort } from "../camera/viewport/cameraZoomController.js";
+import { measureRuntimeWork } from "../../../performance/runtimeWorkMetrics.js";
 
 interface InputControllerRequest { readonly scene: Phaser.Scene; readonly conn: Connection; readonly hudScene: HudScene; readonly cosmetics: SelfCosmeticsState; readonly chatInputBox: ChatInputBox; }
 
@@ -134,12 +135,12 @@ export function syncDungeonWorldPresentation(
 ): void {
   const { scene, terrain, lighting, personal, nowMs } = request;
   scene.cameras.main.setRotation(request.cameraRotationRad);
-  lighting?.prepareToonVisibility({
+  measureRuntimeWork("lighting.toonVisibility", () => lighting?.prepareToonVisibility({
     view: scene.cameras.main.worldView,
     personal,
     nowMs,
     cameraRotationRad: request.cameraRotationRad,
-  });
+  }));
   terrain?.setWorldVisibility?.(lighting?.presentationVisibility() ?? null);
   terrain?.update(scene.cameras.main.worldView);
 }

@@ -26,6 +26,7 @@ import {
 import type {
   WorldPresentationVisibility,
 } from "../visibility/worldPresentationVisibility.js";
+import { measureRuntimeWork } from "../../performance/runtimeWorkMetrics.js";
 export class LightingSystem {
   private readonly pool: LightSpritePool;
   private readonly groundLight: PlayerGroundLightPass;
@@ -46,7 +47,9 @@ export class LightingSystem {
     this.pool = new LightSpritePool(scene);
     this.groundLight = new PlayerGroundLightPass(scene, world);
     this.toon = new ToonVisibilityController(scene, world);
-    this.chunkLights = new ChunkLightStream(world, profile.lightLoadMarginChunks);
+    this.chunkLights = new ChunkLightStream(world, {
+      loadMarginChunks: profile.lightLoadMarginChunks,
+    });
     this.setPlayerGroundLightEnabled(playerGroundLightEnabledForProfile(profile.kind));
   }
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */
@@ -86,24 +89,26 @@ export class LightingSystem {
 
   /** Streams chunk-scanned lights around the view, then syncs the halo pool for this frame. */
   update(input: LightingFrame): void {
-    const toonActive = this.toon.isActive();
-    this.chunkLights.stream(input.view);
-    this.updatePersonalLight(input.personal);
-    if (toonActive) {
-      clearSoftLightPool(this.pool, input.nowMs, input.view);
-      return;
-    }
-    syncClassicLightFrame({
-      pool: this.pool,
-      groundLight: this.groundLight,
-      view: input.view,
-      personal: input.personal,
-      personalLight: this.personalHaloEnabled ? this.personalLight : null,
-      nowMs: input.nowMs,
-      chunkLights: this.chunkLights.values(),
-      accentLights: this.accentLights,
-      candidates: this.candidateLights,
-      selected: this.frameLights,
+    measureRuntimeWork("lighting.update", () => {
+      const toonActive = this.toon.isActive();
+      this.chunkLights.stream(input.view);
+      this.updatePersonalLight(input.personal);
+      if (toonActive) {
+        clearSoftLightPool(this.pool, input.nowMs, input.view);
+        return;
+      }
+      syncClassicLightFrame({
+        pool: this.pool,
+        groundLight: this.groundLight,
+        view: input.view,
+        personal: input.personal,
+        personalLight: this.personalHaloEnabled ? this.personalLight : null,
+        nowMs: input.nowMs,
+        chunkLights: this.chunkLights.values(),
+        accentLights: this.accentLights,
+        candidates: this.candidateLights,
+        selected: this.frameLights,
+      });
     });
   }
 

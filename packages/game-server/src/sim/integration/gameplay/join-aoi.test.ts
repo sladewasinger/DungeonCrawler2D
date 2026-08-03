@@ -1,6 +1,7 @@
 /** Covers joining, spawn placement, AOI visibility, and replicated movement semantics. */
 import {
   AOI_RADIUS,
+  ADMIN_NOCLIP_SPEED,
   LEVEL,
   MOVE_SPEED,
   PLAYER_MAX_HP,
@@ -68,6 +69,26 @@ describe("GameSim: join, spawn, and AOI", () => {
     dev.queueAction(b.playerId, { type: "debug", op: "god" });
     const toggleOff = dev.step().get(b.playerId);
     expect(toggleOff?.events).toContainEqual({ t: "toast", msg: "God mode off" });
+  });
+
+  it("keeps noclip server-authoritative and replicates the live admin state", () => {
+    const ordinary = makeSim(100, { debugCommands: true, level: LEVEL.Dungeon });
+    const player = ordinary.addPlayer({ name: "Ordinary", clientId: "ordinary" });
+    ordinary.queueAction(player.playerId, { type: "debug", op: "noclip", on: true });
+    const ordinarySnapshot = ordinary.step().get(player.playerId)!;
+    expect(ordinarySnapshot.self.noclip).toBeUndefined();
+    expect(ordinarySnapshot.self.movementSpeed).not.toBe(ADMIN_NOCLIP_SPEED);
+
+    const admin = makeSim(101, { debugCommands: true });
+    const adminJoin = admin.addPlayer({ name: "Admin", clientId: "admin" });
+    const adminEntity = admin.getPlayerEntity(adminJoin.playerId)!;
+    admin.queueAction(adminJoin.playerId, { type: "debug", op: "noclip", on: true });
+    const snapshot = admin.step().get(adminJoin.playerId)!;
+    expect(snapshot.self.noclip).toBe(true);
+    expect(snapshot.self.movementSpeed).toBe(ADMIN_NOCLIP_SPEED);
+    expect(adminEntity.body.x).toBe(adminJoin.spawn.x);
+    admin.queueAction(adminJoin.playerId, { type: "debug", op: "noclip", on: false });
+    expect(admin.step().get(adminJoin.playerId)?.self.noclip).toBe(false);
   });
 
   it("reseeds canonical dev pickups after another player consumes them", () => {

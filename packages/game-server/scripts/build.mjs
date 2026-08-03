@@ -12,4 +12,15 @@ await build({
   sourcemap: true,
 });
 
-console.log("[build] wrote dist/main.cjs");
+await build({
+  entryPoints: ["src/floors/floorPreparationWorker.ts"],
+  outfile: "dist/floorPreparationWorker.cjs",
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node22",
+  packages: "bundle",
+  sourcemap: true,
+});
+
+console.log("[build] wrote dist/main.cjs and dist/floorPreparationWorker.cjs");

@@ -8,7 +8,6 @@ import { persistentClientId } from "../net/auth/identity.js";
 import { resolveWsUrl } from "../net/connection/url.js";
 import { getViewOrientation } from "../render/view/index.js";
 import { DungeonScene } from "../scenes/dungeon/orchestration/index.js";
-import { EditorScene, setUpEditorLayout } from "../scenes/editor/index.js";
 import { HudScene } from "../scenes/HudScene.js";
 import { TitleScene } from "../scenes/title/index.js";
 import { loadStoredName } from "../scenes/title/connectForm.js";
@@ -16,26 +15,7 @@ import { CharacterVfxTestbench } from "../scenes/testbench/characterVfxTestbench
 import { installPhaserFullscreenRetry } from "./mobileFullscreen.js";
 
 export function startPhaserRoute(search: URLSearchParams): void {
-  if (search.get("scene") === "editor") startEditor(search);
-  else startGame(search);
-}
-
-function startEditor(search: URLSearchParams): void {
-  const boot = setUpEditorLayout();
-  const game = new Phaser.Game({
-    type: Phaser.AUTO,
-    parent: boot.parentId,
-    width: 960,
-    height: 960,
-    pixelArt: true,
-    disableContextMenu: true,
-    scene: [PreloadScene, EditorScene],
-  });
-  game.registry.set("editorBoot", boot);
-  if (!import.meta.env.DEV || search.get("debug") !== "1") return;
-  const debugWindow = window as unknown as EditorDebugWindow;
-  debugWindow.__game = game;
-  debugWindow.__editorViewOrientation = getViewOrientation;
+  startGame(search);
 }
 
 function startGame(search: URLSearchParams): void {
@@ -49,7 +29,7 @@ function startGame(search: URLSearchParams): void {
     pixelArt: true,
     scale: { mode: Phaser.Scale.RESIZE },
     input: { activePointers: 3, touch: true },
-    scene: [PreloadScene, new TitleScene(conn), new DungeonScene(conn), new CharacterVfxTestbench(), HudScene],
+    scene: [new PreloadScene(), new TitleScene(conn), new DungeonScene(conn), new CharacterVfxTestbench(), HudScene],
   });
   installPhaserFullscreenRetry(game.canvas);
   if (!import.meta.env.DEV || search.get("debug") !== "1") return;
@@ -61,11 +41,6 @@ function startGame(search: URLSearchParams): void {
     buildSha: BUILD_SHA,
     viewOrientation: getViewOrientation,
   };
-}
-
-interface EditorDebugWindow {
-  __game: Phaser.Game;
-  __editorViewOrientation: typeof getViewOrientation;
 }
 
 interface GameDebugWindow {

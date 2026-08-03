@@ -6,6 +6,8 @@ describe("terrain runtime tuning", () => {
   it("exposes the configured camera policy without replacing authored values", () => {
     expect(TERRAIN_RUNTIME_TUNING.cameraPresentation)
       .toEqual(tuning.cameraPresentation);
+    expect(TERRAIN_RUNTIME_TUNING.cameraPresentation.finiteTerrainMarginTiles)
+      .toBeGreaterThan(0);
   });
 
   it("provides a coherent validated camera presentation range", () => {

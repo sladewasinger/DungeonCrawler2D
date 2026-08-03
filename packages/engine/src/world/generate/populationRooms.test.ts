@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
 import { CHUNK_SIZE } from "../core/types.js";
+import { generateFiniteFloor } from "./finiteFloor.js";
 import {
   populationAnchorForChunk,
   populationRoomsForChunk,
@@ -8,12 +9,11 @@ import {
   type PopulationChunk,
 } from "./populationRooms.js";
 
-const CHUNK: PopulationChunk = {
+const FLOOR_INPUT = {
   worldSeed: hashString("population-room-coordinates"),
   floor: 2,
-  cx: 3,
-  cy: -2,
 };
+const CHUNK = findPopulationChunk();
 
 describe("population room geometry", () => {
   it("returns direct tile bounds inside the requested runtime chunk", () => {
@@ -49,7 +49,30 @@ describe("population room geometry", () => {
     expect(spots).toHaveLength(Math.min(3, rooms.length));
     for (const spot of spots) expect(centers.has(`${spot.x},${spot.y}`)).toBe(true);
   });
+
+  it("uses supplied configured-floor metadata instead of regenerating defaults", () => {
+    const generatedFloor = generateFiniteFloor({ ...FLOOR_INPUT, config: { roomSize: 11 } });
+    const room = generatedFloor.rooms[0];
+    expect(room).toBeDefined();
+    if (!room) return;
+    const chunk = {
+      ...FLOOR_INPUT, generatedFloor,
+      cx: Math.floor(room.center.x / CHUNK_SIZE), cy: Math.floor(room.center.y / CHUNK_SIZE),
+    };
+    expect(populationRoomsForChunk(chunk).length).toBeGreaterThan(0);
+    expect(populationAnchorForChunk(chunk)).not.toBeNull();
+  });
 });
+
+function findPopulationChunk(): PopulationChunk {
+  const floor = generateFiniteFloor(FLOOR_INPUT);
+  const room = floor.rooms[0];
+  if (!room) throw new Error("Expected a generated population room");
+  return {
+    ...FLOOR_INPUT, generatedFloor: floor,
+    cx: Math.floor(room.center.x / CHUNK_SIZE), cy: Math.floor(room.center.y / CHUNK_SIZE),
+  };
+}
 
 function findLootChunk(): PopulationChunk {
   for (let cx = -8; cx <= 8; cx++) {

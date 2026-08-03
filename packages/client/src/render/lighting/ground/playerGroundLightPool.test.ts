@@ -2,6 +2,7 @@ import type Phaser from "phaser";
 import { describe, expect, it, vi } from "vitest";
 import type { PlayerGroundLightCell } from "./playerGroundLight.js";
 import {
+  PLAYER_GROUND_LIGHT_MAX_PRESENTATION_CELLS,
   PLAYER_GROUND_LIGHT_MAX_POOL_TILES,
   PlayerGroundLightPool,
   type PlayerGroundLightTile,
@@ -98,5 +99,26 @@ describe("PlayerGroundLightPool", () => {
     expect(tiles.filter(({ active }) => active)).toHaveLength(
       PLAYER_GROUND_LIGHT_MAX_POOL_TILES,
     );
+  });
+
+  it("limits presentation objects to the configured visual cell budget", () => {
+    const tiles: FakeTile[] = [];
+    const pool = new PlayerGroundLightPool(
+      {} as Phaser.Scene,
+      () => {
+        const tile = new FakeTile();
+        tiles.push(tile);
+        return tile;
+      },
+    );
+    const cells = Array.from(
+      { length: PLAYER_GROUND_LIGHT_MAX_PRESENTATION_CELLS + 1 },
+      (_, index) => cell(index),
+    );
+
+    pool.sync(cells, 0);
+
+    expect(pool.activeCount()).toBe(PLAYER_GROUND_LIGHT_MAX_PRESENTATION_CELLS);
+    expect(tiles).toHaveLength(PLAYER_GROUND_LIGHT_MAX_PRESENTATION_CELLS);
   });
 });

@@ -1,3 +1,4 @@
+import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import type { Point } from "../../view/transform/viewTransform.js";
 import type {
   TerrainFeatureKind,
@@ -9,6 +10,7 @@ import type {
   TerrainSource,
 } from "./terrainPlannerModel.js";
 import { TERRAIN_SURFACES } from "./terrainPlannerModel.js";
+import { appendStairTreads } from "./stairs/stairArt.js";
 import { featureHeightAt, isElevatedWallDoor } from "./wallFeatureGeometry.js";
 
 interface FeatureArtBatches {
@@ -22,6 +24,7 @@ export interface FeatureArtRequest {
   readonly worldTile: Point;
   readonly viewTile: Point;
   readonly height: number;
+  readonly orientation: ViewOrientation;
   readonly vertices: TerrainQuadVertices;
   readonly batches: FeatureArtBatches;
 }
@@ -43,6 +46,7 @@ function appendFeature(
   feature: TerrainFeatureKind | null,
 ): boolean {
   if (!feature) return false;
+  if (feature === "stairs" && appendStairTreads(request)) return true;
   const { worldTile, viewTile, height, vertices, batches } = request;
   batches.features.push({
     kind: "feature", feature, worldTile, viewTile, height, vertices,

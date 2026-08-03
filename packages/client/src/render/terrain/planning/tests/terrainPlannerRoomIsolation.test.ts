@@ -1,5 +1,6 @@
 import {
   CHUNK_SIZE,
+  finiteFloorForRuntime,
   ROOM_WALL_RISE,
   TERRAIN,
   World,
@@ -38,8 +39,15 @@ describe("room terrain isolation", () => {
 
   it("allows a finite dungeon view to sample the adjacent reserved plane", () => {
     const room = spawnRoomChunk();
-    const world = new World(hashString("room-render-isolation"), 1, {
+    const worldSeed = hashString("room-render-isolation");
+    const generatedFloor = finiteFloorForRuntime({
+      worldSeed,
+      floor: 1,
       features: { voidTerrain: false },
+    });
+    const world = new World(worldSeed, 1, {
+      features: { voidTerrain: false },
+      generatedFloor,
     });
     const source = createTerrainSource(world);
     const boundaryY = room.cy * CHUNK_SIZE;

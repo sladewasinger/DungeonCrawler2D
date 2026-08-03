@@ -30,6 +30,8 @@ const content = buildContentRegistry({
   recipes: [...recipesData],
 });
 
+const TEST_PATCH_RADIUS = 8;
+
 export function createEnemyTestSim(): SimState {
   return createSimState({
     world: new World(hashString("enemies-test-world"), 1, LEVEL.Dungeon),
@@ -82,8 +84,29 @@ function perimeterTiles(radius: number): Array<{ x: number; y: number }> {
 }
 
 function isOpenFloor(sim: SimState, tile: { x: number; y: number }): boolean {
-  return Array.from({ length: 5 }, (_, offset) => tile.x + offset).every((x) =>
-    sim.world.isWalkable(x, tile.y) && !sim.world.isSanctuary(x, tile.y));
+  const baseHeight = sim.world.heightAt(tile.x, tile.y);
+  for (let offsetY = -TEST_PATCH_RADIUS; offsetY <= TEST_PATCH_RADIUS; offsetY += 1) {
+    for (let offsetX = -TEST_PATCH_RADIUS; offsetX <= TEST_PATCH_RADIUS; offsetX += 1) {
+      if (!isOpenPatchCell({ sim, tile, offsetX, offsetY, baseHeight })) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function isOpenPatchCell(input: {
+  sim: SimState;
+  tile: { x: number; y: number };
+  offsetX: number;
+  offsetY: number;
+  baseHeight: number;
+}): boolean {
+  const x = input.tile.x + input.offsetX;
+  const y = input.tile.y + input.offsetY;
+  return input.sim.world.isWalkable(x, y)
+    && !input.sim.world.isSanctuary(x, y)
+    && input.sim.world.heightAt(x, y) === input.baseHeight;
 }
 
 function playerSlot(entity: Entity): PlayerSlot {

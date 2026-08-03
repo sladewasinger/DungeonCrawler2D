@@ -1,9 +1,31 @@
+import { DEFAULT_FLOOR_GENERATION_CONFIG } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { VIEW_ORIENTATIONS } from "../../view/orientation/viewOrientation.js";
 import { viewTileToWorld } from "../../view/transform/viewTransform.js";
 import { TERRAIN_KINDS, planTerrain } from "./terrainPlanner.js";
 
 describe("planTerrain stair walls", () => {
+  it.each(VIEW_ORIENTATIONS)("subdivides a continuous stair ramp into configured visible treads at orientation %i", (orientation) => {
+    const stair = viewTileToWorld({ x: 8, y: 8 }, orientation);
+    const high = viewTileToWorld({ x: 8, y: 7 }, orientation);
+    const low = viewTileToWorld({ x: 8, y: 9 }, orientation);
+    const treadCount = DEFAULT_FLOOR_GENERATION_CONFIG.stairTreadCount;
+    const plan = planTerrain({
+      voidTerrain: true,
+      stairTreadCount: treadCount,
+      terrainAt: () => TERRAIN_KINDS.Floor,
+      heightAt: (x, y) => sameTile(x, y, high) ? 1 : sameTile(x, y, low) ? 0 : 0.5,
+      featureAt: (x, y) => sameTile(x, y, stair) ? "stairs" : null,
+    }, { bounds: { ...stair, width: 1, height: 1 }, orientation });
+
+    const treadTops = plan.batches.features.filter(({ wallMounted }) => wallMounted !== true);
+    const risers = plan.batches.features.filter(({ wallMounted }) => wallMounted === true);
+    expect(treadTops).toHaveLength(treadCount);
+    expect(risers).toHaveLength(treadCount);
+    expect(new Set(treadTops.map(({ height }) => height)).size).toBe(treadCount);
+    expect(Math.max(...treadTops.map(({ height }) => height))).toBe(1);
+  });
+
   it("marks the south face below a stair feature for stair wall art", () => {
     const plan = planTerrain({
       voidTerrain: true,

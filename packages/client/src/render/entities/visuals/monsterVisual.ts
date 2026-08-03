@@ -9,6 +9,7 @@ import { flashIntensity, tookDamage } from "../combat/feedback/hitFlash.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
 import { LABEL_LINE_GAP_PX, NAMEPLATE_GAP_PX, NAMEPLATE_LINE_HEIGHT_PX, updateNameplate } from "../presentation/nameplate.js";
 import { updateShadowPosition } from "../geometry/shadow.js";
+import { syncEntityOcclusion } from "../geometry/occlusion.js";
 import type { MonsterVisual } from "./state.js";
 import {
   applyCombatantTint,
@@ -98,6 +99,7 @@ function updateMonsterChrome({ visual, view, context, heightAboveGround, groundH
   updateMonsterShadow({ visual, view, heightAboveGround, groundHeight });
   updateMonsterHealthBar(visual, view);
   updateMonsterNameplate(visual, view, context);
+  syncEntityOcclusion(visual.body, view, context.world);
 }
 
 function updateMonsterChromeDepths(visual: MonsterVisual): void {

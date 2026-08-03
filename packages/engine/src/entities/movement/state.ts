@@ -58,6 +58,8 @@ export interface StepOpts {
   stickyFeet?: boolean;
   /** Extra tile veto (e.g. enemies never enter sanctuary). */
   blocked?: (tileX: number, tileY: number) => boolean;
+  /** Server-authorized admin traversal bypass; never inferred from input. */
+  noclip?: boolean;
 }
 
 export const NEUTRAL_INPUT: MoveInput = { moveX: 0, moveY: 0, jump: false };

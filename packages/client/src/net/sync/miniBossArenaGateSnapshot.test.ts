@@ -80,6 +80,7 @@ function locateArena(world: World): LocatedArena {
       const arena = miniBossArenaForChunk({
         worldSeed: world.worldSeed,
         floor: world.floor,
+        generatedFloor: world.generatedFloor,
         cx,
         cy,
       });

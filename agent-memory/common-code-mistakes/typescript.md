@@ -6,5 +6,5 @@ Read it before implementing a cross-module or stateful change.
 
 No durable lessons have been recorded yet.
 
-Add entries using the schema in [`../README.md`](../README.md). Prefer a concise
+Add entries using the schema in [`../CONTEXT.md`](../CONTEXT.md). Prefer a concise
 prevention rule backed by a real repository failure.

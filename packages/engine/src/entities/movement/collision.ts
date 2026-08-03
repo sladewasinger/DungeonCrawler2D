@@ -133,6 +133,11 @@ function moveOneAxis(move: HorizontalMove): number {
 
 export function moveHorizontal({ world, body, input, dt, speed, opts }: HorizontalStep): number {
   const [dx, dy] = movementDelta({ world, body, input, dt, speed, opts });
+  if (opts.noclip) {
+    body.x += dx;
+    body.y += dy;
+    return 0;
+  }
   const xFraction = moveOneAxis({ world, body, dx, dy: 0, blocked: opts.blocked });
   const yFraction = moveOneAxis({ world, body, dx: 0, dy, blocked: opts.blocked });
   return (xFraction < 1 ? 1 : 0) | (yFraction < 1 ? 2 : 0);

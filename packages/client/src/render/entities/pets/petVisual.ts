@@ -6,6 +6,7 @@ import { HUD_SCALE } from "../../../ui/foundation/hudScale.js";
 import { airborneHeightAboveGround, spriteLiftPx } from "../motion/lift.js";
 import { createNameplate, LABEL_LINE_GAP_PX, updateNameplate } from "../presentation/nameplate.js";
 import { createShadow, updateShadowPosition } from "../geometry/shadow.js";
+import { syncEntityOcclusion } from "../geometry/occlusion.js";
 import {
   createDinoBehaviorVisual,
   syncDinoBehaviorVisual,
@@ -123,5 +124,6 @@ export function updatePetVisual(visual: PetVisual, view: PetEntityView, ctx: Ren
   updatePetBody(visual, view, presentation);
   updatePetShadow(visual, view, presentation);
   updatePetLabels(visual, { view, ctx, depth });
+  syncEntityOcclusion(visual.body, view, ctx.world);
   visual.lastAnim = view.anim;
 }

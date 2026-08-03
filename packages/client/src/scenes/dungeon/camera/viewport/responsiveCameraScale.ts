@@ -27,8 +27,10 @@ const MINIMUM_VIEWPORT_SCALE = 0.25;
 export function responsiveGameplayCameraZoom(
   viewport: GameplayViewport,
   presentationZoom = 1,
+  mobile = false,
 ): number {
-  return GAMEPLAY_BASE_CAMERA_ZOOM * viewportScale(viewport) * presentationZoom;
+  const mobileMultiplier = mobile ? CAMERA_PRESENTATION.mobileZoomMultiplier : 1;
+  return GAMEPLAY_BASE_CAMERA_ZOOM * viewportScale(viewport) * presentationZoom * mobileMultiplier;
 }
 
 export function viewportScale(viewport: GameplayViewport): number {

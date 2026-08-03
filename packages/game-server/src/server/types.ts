@@ -10,6 +10,7 @@ export type SocketMap = Map<string, SocketEntry>;
 
 export type ConnectionTerminationReason =
   | "admin_rate_limited"
+  | "floor_preparation_failed"
   | "idle_timeout"
   | "malformed_message"
   | "protocol_mismatch"

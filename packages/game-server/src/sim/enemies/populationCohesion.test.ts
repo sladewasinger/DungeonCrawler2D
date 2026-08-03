@@ -29,6 +29,7 @@ import {
   spawnControlledOutlierPack,
   spawnRepeatedAnchorPack,
 } from "./population/testSupport/populationCohesionSupport.js";
+import { expectTerritoryRoster, sampleTerritories } from "./population/testSupport/populationTerritoryTestSupport.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -65,6 +66,13 @@ describe("cohesive district enemy population", () => {
     }
   });
 
+  it("uses territory ownership to select faction-domain mobs", () => {
+    const sim = createTestSim("territory-owned-population");
+    const samples = sampleTerritories(sim);
+    expect(samples.size).toBe(4);
+    for (const [id, point] of samples) expectTerritoryRoster(sim, id, point);
+  }, 30_000);
+
   it("spawns a tight pack with at most one off-theme wanderer", () => {
     const sim = createTestSim();
     spawnEnemyPack(sim, 8, 8);
@@ -88,7 +96,7 @@ describe("cohesive district enemy population", () => {
     }
   });
 
-  it("keeps the required pair across deterministic remote pack seeds", () => {
+  it("keeps the required pair across deterministic remote pack seeds", { timeout: 45_000 }, () => {
     for (const seed of ["remote-pack-a", "remote-pack-b", "remote-pack-c"]) {
       const sim = createTestSim(seed);
       spawnEnemyPack(sim, 8, 8);

@@ -14,7 +14,6 @@ import {
   advancePendingRangedRelease,
   advancePostRecoveryThinking,
   advanceRangedRecovery,
-  collectRangedReleaseTicks,
   expectRangedPayload,
 } from "./enemyAiCommittedAnimationSupport.js";
 
@@ -85,21 +84,36 @@ describe("ordinary ranged cadence", () => {
     const edgeVelocity = edge?.vel;
     if (!centeredVelocity || !edgeVelocity) throw new Error("missing variation projectiles");
     expect(centeredVelocity.y).toBe(0);
-    expect(edgeVelocity.y).toBeCloseTo(10 * 0.2 / Math.hypot(4, 0.2), 10);
-    expect(Math.hypot(edgeVelocity.x, edgeVelocity.y)).toBeCloseTo(10, 10);
+    expect(edgeVelocity.y).toBeGreaterThan(0);
+    expect(edgeVelocity.x).toBeLessThan(0);
+    expect(edgeVelocity.x).not.toBe(centeredVelocity.x);
+    expect(Math.hypot(edgeVelocity.x, edgeVelocity.y)).toBeCloseTo(
+      Math.hypot(centeredVelocity.x, centeredVelocity.y),
+      10,
+    );
     expect(variationDraws).toHaveBeenCalledTimes(4);
   });
 
   it.each([SPITTER_DEF_ID, ORC_SHAMAN_DEF_ID] as const)(
-    "%s keeps ordinary release two exactly 10 simulation steps after release one",
+    "%s releases again at its committed animation deadline",
     (defId) => {
       vi.spyOn(sim.rng, "int").mockReturnValue(2);
-      spawnEnemy(sim, { defId, x: spot.x + 4, y: spot.y });
+      const entity = spawnEnemy(sim, { defId, x: spot.x + 4, y: spot.y });
+      const enemy = sim.enemies.get(entity.id);
+      if (!enemy) throw new Error(`missing ${defId} cadence fixture`);
 
-      const releaseTicks = collectRangedReleaseTicks(sim, 2);
+      advanceFirstRangedRelease(sim);
+      const committedTicks = enemy.animation.ticksRemaining;
+      const firstReleaseCount = sim.projectiles.size;
+      let elapsed = 0;
+      while (sim.projectiles.size === firstReleaseCount && elapsed <= committedTicks + 1) {
+        stepEnemies(sim, []);
+        elapsed++;
+      }
 
-      expect(releaseTicks).toHaveLength(2);
-      expect(releaseTicks[1]! - releaseTicks[0]!).toBe(10);
+      expect(committedTicks).toBeGreaterThan(0);
+      expect(sim.projectiles.size).toBe(firstReleaseCount + 1);
+      expect(elapsed).toBe(committedTicks);
     },
   );
 

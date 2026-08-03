@@ -4,6 +4,7 @@ import { isBossDefId } from "../events/bossDefIds.js";
 import type { Connection } from "../connection/connection.js";
 import { applyNpcSpeech } from "../events/npcSpeech.js";
 import { applyContactsEvent, applyModerationEvent } from "./applyContactEvents.js";
+import { beginFloorTransition } from "./transition/applyFloorTransitionEvent.js";
 
 const applyChatEvent = (
   conn: Connection,
@@ -136,6 +137,7 @@ function remoteCombatTarget(conn: Connection, id: string) {
 
 export const applyEvent = (conn: Connection, event: GameEvent): void => {
   if (applyPrivateStateEvent(conn, event)) return;
+  if (event.t === "floorTransition") return beginFloorTransition(conn, event.floor);
   if (event.t === "teleported") {
     conn.teleported = true;
     return;

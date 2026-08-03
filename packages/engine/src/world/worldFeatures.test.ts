@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CHASM_DEATH_Z } from "../core/constants.js";
 import { hashString } from "../core/rng.js";
 import { personalRoomChunk } from "./features/rooms/rooms.js";
 import { generateChunk } from "./generate.js";
+import { finiteFloorForRuntime } from "./generate/finiteFloor.js";
 import { assertChunkWorldFeatures } from "./generate/worldFeatureInvariant.js";
 import {
   CHUNK_SIZE,
@@ -69,22 +69,33 @@ describe("VOID terrain world feature", () => {
     expect(disabled.tiles).toContain(TILE.Bedrock);
   });
 
-  it("restores deep chasms as playable finite Floor instead of infinite VOID", () => {
+  it("restores generated VOID cells as finite terrain when disabled", () => {
     const worldSeed = hashString("chasm-test-world");
-    const coordinate = { cx: -18, cy: -25 };
+    const floor = finiteFloorForRuntime({
+      worldSeed,
+      floor: 1,
+      features: { voidTerrain: true },
+    });
+    const sourceIndex = floor.terrain.findIndex((terrain) => terrain === TERRAIN.Void);
+    expect(sourceIndex).toBeGreaterThanOrEqual(0);
+    const worldX = floor.bounds.minX + sourceIndex % floor.bounds.width;
+    const worldY = floor.bounds.minY + Math.floor(sourceIndex / floor.bounds.width);
+    const coordinate = {
+      cx: Math.floor(worldX / CHUNK_SIZE),
+      cy: Math.floor(worldY / CHUNK_SIZE),
+    };
+    const localX = worldX - coordinate.cx * CHUNK_SIZE;
+    const localY = worldY - coordinate.cy * CHUNK_SIZE;
+    const index = localY * CHUNK_SIZE + localX;
     const enabled = generateChunk({ worldSeed, floor: 1, ...coordinate });
     const disabled = generateChunk({ worldSeed, floor: 1, ...coordinate, features: DISABLED });
-    const index = disabled.height.findIndex((height) => height <= CHASM_DEATH_Z);
 
-    expect(index).toBe(20);
     expect(enabled.terrain[index]).toBe(TERRAIN.Void);
-    expect(disabled.tiles[index]).toBe(TILE.Floor);
     expect(disabled.terrain[index]).toBe(TERRAIN.Floor);
-    expect(disabled.height[index]).toBe(-2);
-    const x = coordinate.cx * CHUNK_SIZE + (index % CHUNK_SIZE);
-    const y = coordinate.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
+    expect(disabled.tiles[index]).not.toBe(TILE.Void);
+    expect(disabled.height[index]).toBeGreaterThanOrEqual(0);
     const world = new World(worldSeed, 1, { level: LEVEL.Dungeon, features: DISABLED });
-    expect(world.isWalkable(x, y)).toBe(true);
+    expect(world.terrainAt(worldX, worldY)).toBe(TERRAIN.Floor);
   });
 
   it("snapshots startup features before caching chunks", () => {

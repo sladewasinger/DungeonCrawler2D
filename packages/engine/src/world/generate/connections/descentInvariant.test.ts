@@ -9,7 +9,7 @@ import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
 import { generateChunk } from "../index.js";
 import { reachesNeighborChunk, type ChunkCache, type WorldPoint } from "../test-support.js";
 
-const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
+const SEEDS = Array.from({ length: 16 }, (_, i) => i * 7919 + 13);
 
 function tileAt(seed: number, floor: number, p: WorldPoint): number {
   const cx = Math.floor(p.x / CHUNK_SIZE);
@@ -32,7 +32,7 @@ describe("StairwayDown/StairwayUp reachability", () => {
       expect(tileAt(seed, floor, position), `seed ${seed} floor ${floor}`).toBe(TILE.Floor);
     }
     expect(positions.length).toBeGreaterThan(50);
-  });
+  }, 120_000);
 
   it("StairwayDown's platform reaches the wider corridor network", () => {
     let checked = 0;

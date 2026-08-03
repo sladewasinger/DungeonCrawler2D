@@ -7,6 +7,8 @@ export type AdminAuthFailureReason = NonNullable<AdminAuthMessage["reason"]>;
 
 export interface AdminCommandResult {
   readonly ok: boolean;
+  readonly requestId?: string;
+  readonly floor?: number;
   readonly code?: string;
   readonly message?: string;
 }
@@ -95,6 +97,8 @@ function handleCommandResult(
   if (!message.ok) conn.pushToast(`Admin command failed: ${message.code ?? "unknown"}`);
   conn.onAdminCommandResult?.({
     ok: message.ok,
+    ...(message.requestId ? { requestId: message.requestId } : {}),
+    ...(message.floor !== undefined ? { floor: message.floor } : {}),
     ...(message.code ? { code: message.code } : {}),
     ...(message.message ? { message: message.message } : {}),
   });

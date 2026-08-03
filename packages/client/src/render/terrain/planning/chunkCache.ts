@@ -4,14 +4,11 @@ import {
   planTerrain,
   OUTSIDE_TERRAIN_PRESENTATION,
   type TerrainPlan,
-  type TerrainPresentation,
   type TerrainRect,
   type TerrainSource,
 } from "./terrainPlanner.js";
 import { TERRAIN_RUNTIME_TUNING } from "../terrainRuntimeTuning.js";
-import type {
-  WorldPresentationVisibility,
-} from "../../visibility/worldPresentationVisibility.js";
+import type { WorldPresentationVisibility } from "../../visibility/worldPresentationVisibility.js";
 import {
   addMetrics,
   appendVisibleTerrainPlan,
@@ -19,6 +16,11 @@ import {
   type TerrainBatchSelectionMetrics,
   type MutableTerrainBatches,
 } from "./visibility/visibleTerrainBatches.js";
+import {
+  chunkBounds,
+  chunkIntersectsFiniteBounds,
+  emptyPlanForChunk,
+} from "./finiteChunkAdmission.js";
 
 export { emptyTerrainBatches } from "./visibility/visibleTerrainBatches.js";
 
@@ -37,6 +39,9 @@ export class TerrainChunkPlanCache {
 
   get(input: TerrainChunkPlanInput): TerrainPlan {
     this.syncRevision(input.revision);
+    if (!chunkIntersectsFiniteBounds(input.coord, input.source.finiteBounds)) {
+      return emptyPlanForChunk(input);
+    }
     const key = cacheKey(input);
     const cached = this.plans.get(key);
     if (cached) {
@@ -47,6 +52,12 @@ export class TerrainChunkPlanCache {
     this.plans.set(key, plan);
     this.evictOverflow();
     return plan;
+  }
+
+  has(input: TerrainChunkPlanInput): boolean {
+    this.syncRevision(input.revision);
+    if (!chunkIntersectsFiniteBounds(input.coord, input.source.finiteBounds)) return false;
+    return this.plans.has(cacheKey(input));
   }
 
   private syncRevision(revision: number): void {
@@ -86,60 +97,66 @@ function isNeighborChunk(key: string, target: TerrainChunkCoord): boolean {
 
 export interface TerrainChunkPlanInput { readonly source: TerrainSource; readonly coord: TerrainChunkCoord; readonly orientation: ViewOrientation; readonly revision: number; }
 
-function chunkBounds(coord: TerrainChunkCoord): TerrainRect {
-  return { x: coord.cx * CHUNK_SIZE, y: coord.cy * CHUNK_SIZE, width: CHUNK_SIZE, height: CHUNK_SIZE };
-}
-
-export function appendVisibleChunkPlans(
-  input: VisibleChunkPlanInput,
-): TerrainBatchSelectionMetrics {
+export function appendVisibleChunkPlans(input: VisibleChunkPlanInput): TerrainBatchSelectionMetrics {
   const metrics = emptySelectionMetrics();
   const { bounds } = input;
-  const minCx = Math.floor(bounds.x / CHUNK_SIZE); const minCy = Math.floor(bounds.y / CHUNK_SIZE);
-  const maxCx = Math.floor((bounds.x + bounds.width - 1) / CHUNK_SIZE); const maxCy = Math.floor((bounds.y + bounds.height - 1) / CHUNK_SIZE);
-  for (let cy = minCy; cy <= maxCy; cy++) {
-    for (let cx = minCx; cx <= maxCx; cx++) {
-      addMetrics(metrics, appendVisibleTerrainPlan({
-        target: input.target,
-        plan: input.cache.get({
-          source: input.source,
-          coord: { cx, cy },
-          orientation: input.orientation,
-          revision: input.revision,
-        }),
-        bounds,
-        visibility: input.visibility,
-      }));
-    }
+  if (bounds.width === 0 || bounds.height === 0) return metrics;
+  let newPlanBudget = input.maxNewPlans ?? Number.POSITIVE_INFINITY;
+  for (const coord of visibleChunkCoordinates(bounds, input.source.finiteBounds)) {
+    const result = appendVisibleChunkPlan({ input, coord, newPlanBudget });
+    newPlanBudget = result.remainingBudget;
+    if (result.metrics) addMetrics(metrics, result.metrics);
   }
   return metrics;
 }
 
-export interface VisibleChunkPlanInput {
-  readonly target: MutableTerrainBatches;
-  readonly cache: TerrainChunkPlanCache;
-  readonly source: TerrainSource;
-  readonly bounds: TerrainRect;
-  readonly orientation: ViewOrientation;
-  readonly revision: number;
-  readonly visibility?: WorldPresentationVisibility | null;
+function appendVisibleChunkPlan(input: { readonly input: VisibleChunkPlanInput; readonly coord: TerrainChunkCoord; readonly newPlanBudget: number }): { readonly remainingBudget: number; readonly metrics?: TerrainBatchSelectionMetrics } {
+  const { input: request, coord } = input;
+  const planInput = {
+    source: request.source,
+    coord,
+    orientation: request.orientation,
+    revision: request.revision,
+  };
+  const cached = request.cache.has(planInput);
+  if (!cached && input.newPlanBudget <= 0) {
+    request.onPendingPlan?.(coord);
+    return { remainingBudget: input.newPlanBudget };
+  }
+  return { remainingBudget: input.newPlanBudget - Number(!cached), metrics: appendVisibleTerrainPlan({
+    target: request.target, plan: request.cache.get(planInput), bounds: request.bounds, visibility: request.visibility,
+  }) };
 }
+
+function visibleChunkCoordinates(
+  bounds: TerrainRect,
+  finiteBounds: TerrainRect | undefined,
+): TerrainChunkCoord[] {
+  const minCx = Math.floor(bounds.x / CHUNK_SIZE); const minCy = Math.floor(bounds.y / CHUNK_SIZE);
+  const maxCx = Math.floor((bounds.x + bounds.width - 1) / CHUNK_SIZE); const maxCy = Math.floor((bounds.y + bounds.height - 1) / CHUNK_SIZE);
+  const coords: TerrainChunkCoord[] = [];
+  for (let cy = minCy; cy <= maxCy; cy++) {
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      const coord = { cx, cy };
+      if (chunkIntersectsFiniteBounds(coord, finiteBounds)) coords.push(coord);
+    }
+  }
+  return coords;
+}
+
+export interface VisibleChunkPlanInput { readonly target: MutableTerrainBatches; readonly cache: TerrainChunkPlanCache; readonly source: TerrainSource; readonly bounds: TerrainRect; readonly orientation: ViewOrientation; readonly revision: number; readonly visibility?: WorldPresentationVisibility | null; readonly maxNewPlans?: number | undefined; readonly onPendingPlan?: (coord: TerrainChunkCoord) => void; }
 
 function cacheKey(input: TerrainChunkPlanInput): string {
   const { coord, orientation, revision, source } = input;
-  const presentation = presentationForChunk(source, coord);
+  const presentation = source.presentationAt?.(coord.cx * CHUNK_SIZE, coord.cy * CHUNK_SIZE) ?? OUTSIDE_TERRAIN_PRESENTATION;
   return [
     coord.cx, coord.cy, orientation, revision, Number(source.voidTerrain),
-    presentation.mode, presentation.wallRise,
+    presentation.mode, presentation.wallRise, source.cacheIdentity ?? "legacy",
+    finiteBoundsKey(source.finiteBounds),
   ].join(":");
 }
 
-function presentationForChunk(
-  source: TerrainSource,
-  coord: TerrainChunkCoord,
-): TerrainPresentation {
-  return source.presentationAt?.(
-    coord.cx * CHUNK_SIZE,
-    coord.cy * CHUNK_SIZE,
-  ) ?? OUTSIDE_TERRAIN_PRESENTATION;
+function finiteBoundsKey(bounds: TerrainRect | undefined): string {
+  if (!bounds) return "unbounded";
+  return `${bounds.x},${bounds.y},${bounds.width},${bounds.height}`;
 }

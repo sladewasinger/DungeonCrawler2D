@@ -82,6 +82,8 @@ describe("level loader", () => {
     worldFeatures.voidTerrain = true;
     try {
       expect(dungeon.welcome.level).toBe("dungeon");
+      expect(dungeon.welcome.finiteFloorArtifact).toMatch(/^gzip-base64-v1:/);
+      expect(sandbox.welcome.finiteFloorArtifact).toBeUndefined();
       expect(sandbox.welcome.level).toBe("sandbox");
       expect(combatSandbox.welcome.level).toBe("combat-sandbox");
       expect(dungeon.welcome.worldFeatures).toEqual({ voidTerrain: false });

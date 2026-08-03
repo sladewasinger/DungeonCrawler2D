@@ -81,6 +81,7 @@ function gatesForArenaChunk(
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
     ...chunk,
+    generatedFloor: sim.world.generatedFloor,
   });
   return arena?.gates.map(({ x, y }) => ({ x, y })) ?? [];
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   focusSpectatorEmbedFrame,
-} from "../fullSpectatorEmbed.js";
+} from "./fullSpectatorEmbed.js";
 import {
   spectatorEmbedMessagePlan,
   spectatorEmbedSource,

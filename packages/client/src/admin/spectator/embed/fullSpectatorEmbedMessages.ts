@@ -1,6 +1,6 @@
 import type { SpectatorMode } from "@dc2d/engine";
 import { spectatorUrl } from "../../../spectator/spectatorUrl.js";
-import type { FullSpectatorEmbedState } from "../fullSpectatorEmbed.js";
+import type { FullSpectatorEmbedState } from "./fullSpectatorEmbed.js";
 
 const SPECTATOR_CONTROL_MESSAGE_TYPE = "dc2d-spectator-control";
 

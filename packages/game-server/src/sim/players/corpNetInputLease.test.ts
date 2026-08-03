@@ -1,4 +1,4 @@
-import { CORPNET_INPUT_LEASE_TICKS } from "@dc2d/engine";
+import { CORPNET_INPUT_LEASE_TICKS, STANDARD_INPUT_LEASE_TICKS } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import {
   findFlatArena,
@@ -17,10 +17,10 @@ describe("CorpNet input lease", () => {
     expect(corpNet.entity.body.x).toBeCloseTo(leasedPosition, 5);
 
     const standard = movingPlayer(null);
-    stepN(standard.sim, CORPNET_INPUT_LEASE_TICKS + 2);
+    stepN(standard.sim, STANDARD_INPUT_LEASE_TICKS + 2);
     const standardPosition = standard.entity.body.x;
     stepN(standard.sim, 3);
-    expect(standard.entity.body.x).toBeGreaterThan(standardPosition);
+    expect(standard.entity.body.x).toBeCloseTo(standardPosition, 5);
   });
 });
 

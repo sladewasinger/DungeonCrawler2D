@@ -9,9 +9,9 @@ import {
 } from "@dc2d/content";
 import {
   CHASM_DEATH_Z,
+  CHUNK_SIZE,
   LEVEL,
   PLAYER_MAX_HP,
-  CHUNK_SIZE,
   World,
   buildContentRegistry,
   hashString,

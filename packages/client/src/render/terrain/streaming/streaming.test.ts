@@ -31,6 +31,13 @@ describe("desiredChunks", () => {
     const chunks = desiredChunks({ x: 0, y: 0, width: CHUNK_PX + 1, height: 1 }, 0);
     expect(chunks.map(chunkKey).sort()).toEqual(["0,0", "1,0"]);
   });
+
+  it("bounds finite-floor streaming requests to the initialized chunk rectangle", () => {
+    const chunks = desiredChunks({ x: 0, y: 0, width: CHUNK_PX + 1, height: 1 }, 1, {
+      minChunkX: 0, minChunkY: 0, maxChunkX: 1, maxChunkY: 0,
+    });
+    expect(chunks.map(chunkKey).sort()).toEqual(["0,0", "1,0"]);
+  });
 });
 
 describe("chunkWindowKey", () => {

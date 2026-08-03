@@ -39,7 +39,7 @@ const HELP_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
 };
 
 export class CharacterVfxTestbench extends Phaser.Scene {
-  private readonly world = new CharacterVfxBenchWorld();
+  private world!: CharacterVfxBenchWorld;
   private entityRenderer!: EntityRenderer;
   private terrain!: TerrainRenderer;
   private actors: CharacterVfxActor[] = [];
@@ -53,6 +53,7 @@ export class CharacterVfxTestbench extends Phaser.Scene {
   }
 
   create(): void {
+    this.world = new CharacterVfxBenchWorld();
     setViewOrientation(0);
     this.input.keyboard?.enableGlobalCapture();
     this.game.canvas.tabIndex = -1;

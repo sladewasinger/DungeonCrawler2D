@@ -1,5 +1,5 @@
 import type { AdminPlayer } from "@dc2d/engine";
-import { actionButton, controlFieldset } from "../../adminPagePrimitives.js";
+import { actionButton, controlFieldset } from "../../portal/adminPagePrimitives.js";
 
 export interface AdminParameterizedActionsInput {
   readonly player: AdminPlayer;

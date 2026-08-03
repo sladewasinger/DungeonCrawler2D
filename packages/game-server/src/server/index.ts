@@ -80,14 +80,17 @@ export function startServer(opts: ServerOptions): RunningServer {
     networkMetrics: runtime.networkMetrics,
     adminAudit: runtime.adminAudit,
     operationalEvents: runtime.operationalEvents,
-    stop: () => stopServer({
-      stopTickLoop,
-      stopHeartbeat,
-      store: runtime.store,
-      wss: runtime.wss,
-      sockets: runtime.sockets,
-      operationalEvents: runtime.operationalEvents,
-    }),
+    stop: () => {
+      void runtime.floors.dispose();
+      stopServer({
+        stopTickLoop,
+        stopHeartbeat,
+        store: runtime.store,
+        wss: runtime.wss,
+        sockets: runtime.sockets,
+        operationalEvents: runtime.operationalEvents,
+      });
+    },
     flushOperationalEvents: () => runtime.operationalEvents.flush(),
   };
 }

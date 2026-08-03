@@ -39,6 +39,10 @@ function applyIncomingSnapshot(
   conn: Connection,
   msg: Extract<ServerMessage, { type: "snapshot" | "snapshotDelta" }>,
 ): void {
+  if (!conn.world) {
+    if (msg.type === "snapshot") conn.pendingWorldSnapshot = msg;
+    return;
+  }
   if (conn.corpNet.enabled) {
     queueCorpNetSnapshot(conn, msg, performance.now());
     return;

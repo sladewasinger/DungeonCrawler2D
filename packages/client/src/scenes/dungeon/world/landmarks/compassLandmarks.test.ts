@@ -59,8 +59,8 @@ describe("compass landmarks", () => {
   it("reselects the nearest mini-boss arena while moving within a chunk", () => {
     const world = new World(WORLD_SEED, 1);
     const locator = new CompassLandmarkLocator();
-    const before = { x: -255.5, y: -176 };
-    const after = { x: -255.5, y: -160.5 };
+    const before = { x: -24, y: -63 };
+    const after = { x: -24, y: -43 };
     const beforeTarget = nearestMiniBossArena({ world, ...before });
     const afterTarget = nearestMiniBossArena({ world, ...after });
     if (!beforeTarget || !afterTarget) throw new Error(MISSING_ARENA_ERROR);

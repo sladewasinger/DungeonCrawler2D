@@ -1,12 +1,11 @@
 /** Owns deterministic remote-pack fixtures and roster assertions for population tests. */
 import { expect, vi } from "vitest";
-import { biomeAtWorldTile } from "@dc2d/engine";
 import type { SimState } from "../../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../../configuration/enemySimulationTuning.js";
 import { spawnEnemyPack } from "../../population.js";
 import { validEnemySpawn } from "../../populationPlacement.js";
 import {
-  enemyRosterForBiome,
+  enemyRosterAtPosition,
   RANDOM_ENEMY_ROSTER,
 } from "../../populationRoster.js";
 
@@ -54,21 +53,24 @@ export function spawnControlledOutlierPack(sim: SimState): void {
 
 export function expectPackMembers(sim: SimState): void {
   const enemies = [...sim.enemies.values()];
-  const native = nativeRoster(sim, enemies[0]?.entity.body ?? { x: 0, y: 0 });
   const optional = enemies.slice(2);
-  expectOptionalRoster(optional, native);
+  expectOptionalRoster(sim, optional);
   expect(enemies.every((enemy) => Number.isFinite(enemy.entity.body.x) &&
     Number.isFinite(enemy.entity.body.y))).toBe(true);
 }
 
 function expectOptionalRoster(
-  optional: readonly { def: { id: string } }[],
-  native: readonly string[],
+  sim: SimState,
+  optional: readonly { def: { id: string }; entity: { body: TilePosition } }[],
 ): void {
+  const nativeAtEachPosition = optional.map((enemy) =>
+    nativeRoster(sim, enemy.entity.body)
+  );
   expect(optional.every((enemy) =>
-    [...native, ...RANDOM_ENEMY_ROSTER].includes(enemy.def.id),
+    nativeAtEachPosition.some((native) => native.includes(enemy.def.id)) ||
+    RANDOM_ENEMY_ROSTER.includes(enemy.def.id as typeof RANDOM_ENEMY_ROSTER[number]),
   )).toBe(true);
-  expect(optional.filter((enemy) => !native.includes(enemy.def.id)).length)
+  expect(optional.filter((enemy, index) => !nativeAtEachPosition[index]?.includes(enemy.def.id)).length)
     .toBeLessThanOrEqual(1);
 }
 
@@ -156,11 +158,5 @@ function placementRandomValues(anchor: TilePosition, target: TilePosition): numb
 }
 
 function nativeRoster(sim: SimState, tile: TilePosition): readonly string[] {
-  const biome = biomeAtWorldTile({
-    worldSeed: sim.world.worldSeed,
-    floor: sim.world.floor,
-    wx: tile.x,
-    wy: tile.y,
-  }).biome;
-  return enemyRosterForBiome(biome);
+  return enemyRosterAtPosition(sim, tile.x, tile.y);
 }

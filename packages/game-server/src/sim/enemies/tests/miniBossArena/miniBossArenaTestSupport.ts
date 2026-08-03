@@ -96,6 +96,7 @@ function spawnArenaInChunk(
   const candidate = miniBossArenaForChunk({
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
+    generatedFloor: sim.world.generatedFloor,
     cx: chunk.x,
     cy: chunk.y,
   });

@@ -35,7 +35,10 @@ export interface TerrainTileContext extends TerrainPlanningContext {
 export function appendPlanTiles(context: TerrainPlanningContext): void {
   const { bounds } = context;
   for (let y = bounds.y; y < bounds.y + bounds.height; y += 1) {
-    for (let x = bounds.x; x < bounds.x + bounds.width; x += 1) appendTileGeometry(context, { x, y });
+    for (let x = bounds.x; x < bounds.x + bounds.width; x += 1) {
+      if (context.source.isInBoundsAt?.(x, y) === false) continue;
+      appendTileGeometry(context, { x, y });
+    }
   }
 }
 
@@ -79,6 +82,7 @@ function voidQuad(worldTile: Point, viewTile: Point): TerrainVoidQuad {
 
 function appendScreenSouthFace(context: TerrainTileContext): void {
   const southWorld = viewTileToWorld({ x: context.viewTile.x, y: context.viewTile.y + 1 }, context.orientation);
+  if (context.source.isInBoundsAt?.(southWorld.x, southWorld.y) === false) return;
   const southTerrain = context.source.terrainAt(southWorld.x, southWorld.y);
   if (southTerrain === TERRAIN_KINDS.Void) {
     appendVoidSouthFace(context);

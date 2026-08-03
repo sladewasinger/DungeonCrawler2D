@@ -33,6 +33,8 @@ export interface TerrainDeviceProfile {
   readonly kind: "constrained" | "desktop";
   /** Screen tiles retained for height-projected caps and south-facing walls. */
   readonly terrainMarginTiles: number;
+  /** Smaller finite-floor admission margin; visible cells remain unchanged. */
+  readonly finiteTerrainMarginTiles: number;
   /** Whole chunks retained so offscreen torch/door halos can reach the camera. */
   readonly lightLoadMarginChunks: number;
   readonly visuals: TerrainVisualFeatures;
@@ -74,6 +76,7 @@ const CONSTRAINED_TERRAIN_RETENTION: TerrainRetentionProfile = {
 export const CONSTRAINED_TERRAIN_PROFILE = freezeProfile({
   kind: "constrained",
   terrainMarginTiles: 2,
+  finiteTerrainMarginTiles: TERRAIN_RUNTIME_TUNING.cameraPresentation.finiteTerrainMarginTiles,
   lightLoadMarginChunks: 1,
   visuals: CONSTRAINED_TERRAIN_VISUALS,
   retention: CONSTRAINED_TERRAIN_RETENTION,
@@ -82,6 +85,7 @@ export const CONSTRAINED_TERRAIN_PROFILE = freezeProfile({
 export const DESKTOP_TERRAIN_PROFILE = freezeProfile({
   kind: "desktop",
   terrainMarginTiles: 2,
+  finiteTerrainMarginTiles: TERRAIN_RUNTIME_TUNING.cameraPresentation.finiteTerrainMarginTiles,
   lightLoadMarginChunks: 1,
   visuals: DESKTOP_TERRAIN_VISUALS,
   retention: DESKTOP_TERRAIN_RETENTION,
