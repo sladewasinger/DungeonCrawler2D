@@ -1,7 +1,6 @@
 import {
   AOI_RADIUS,
   CHUNK_SIZE,
-  LEVEL,
   isRoomChunk,
   miniBossArenaKey,
 } from "@dc2d/engine";
@@ -29,7 +28,7 @@ const observableArenaStates = new WeakMap<SimState, ObservableArenaState>();
  * connected crawler can receive entities from their chunk.
  */
 export function syncObservableMiniBossEncounters(sim: SimState): void {
-  if (sim.world.level !== LEVEL.Dungeon) return;
+  if (!sim.world.generatedFloor) return;
   const chunks = observableArenaChunks(sim);
   const nextKeys = new Set(chunks.keys());
   const state = observableArenaStateFor(sim);

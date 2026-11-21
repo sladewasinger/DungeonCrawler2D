@@ -60,6 +60,8 @@ describe("admin spectator normal terrain", () => {
     expect(terrainFloorRole("floor", 2)).toBe("territory-gaol-floor");
     expect(terrainFloorRole("bedrock", 1)).toBe("bedrock");
     expect(terrainWallRole({ territory: 1 }, 1)).toBe(SPIDER_WALL_ROLE);
+    expect(terrainWallRole({ territory: 1, topSegment: false }, 1)).toBe("south-face");
+    expect(terrainWallRole({ territory: 2, topSegment: false }, 1)).toBe("territory-gaol-wall");
     expect(terrainWallRole({ territory: 1, voidWall: true }, 1)).toBe("void-wall-face");
     expect(terrainWallRole({ territory: 1, stairWall: true }, 1)).toBe("stair-wall-face");
     expect(terrainWallRole({ territory: 1, wallFeature: { feature: "door", topHeight: 1 } }, 1)).toBe("door");

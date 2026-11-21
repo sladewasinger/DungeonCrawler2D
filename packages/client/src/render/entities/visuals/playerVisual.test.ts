@@ -54,6 +54,7 @@ vi.mock("../combat/attack/attackCooldownIndicator.js", () => ({
 vi.mock("../motion/weaponOrbit.js", () => ({ stepOrbitAngle: () => 0 }));
 vi.mock("../geometry/worldToScreen.js", () => ({
   combatOverlayPosition: () => ({ wielderViewY: 2 }),
+  depthForActorNow: () => 1,
   depthForEntityNow: () => 1,
   depthForScreenY: () => 1,
   worldToScreen: (x: number, y: number) => ({ x, y }),

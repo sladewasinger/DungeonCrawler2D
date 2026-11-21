@@ -73,20 +73,23 @@ function appendFloorSouthFace(context: TerrainTileContext, southWorld: Point): v
   const bottomHeight = finiteTerrainHeight(context, southWorld);
   if (context.height - bottomHeight <= TERRAIN_HEIGHT_EPSILON) return;
   const stairWall = featureAt(context, context.worldTile) === "stairs";
+  const bedrockWall = context.source.surfaceAt?.(context.worldTile.x, context.worldTile.y) === "bedrock";
   const wallFeature = wallFeatureForFace({
     source: context.source, worldTile: context.worldTile,
     terrainTop: context.height, terrainBottom: bottomHeight,
     orientation: context.orientation,
   });
   appendSouthFace(context, bottomHeight, {
-    stairWall, ...(wallFeature ? { wallFeature } : {}),
+    stairWall,
+    ...(bedrockWall ? { bedrockWall: true } : {}),
+    ...(wallFeature ? { wallFeature } : {}),
   });
 }
 
 function appendSouthFace(
   context: TerrainTileContext,
   bottomHeight: number,
-  presentation: Pick<TerrainSouthFaceQuad, "voidWall" | "stairWall" | "wallFeature">,
+  presentation: Pick<TerrainSouthFaceQuad, "voidWall" | "stairWall" | "bedrockWall" | "wallFeature">,
 ): void {
   const face: TerrainSouthFaceQuad = {
     kind: "south-face", worldTile: context.worldTile, viewTile: context.viewTile,

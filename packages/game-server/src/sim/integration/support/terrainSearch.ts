@@ -55,7 +55,12 @@ export function separatedFiniteFloorPositions(sim: GameSim): {
   const spawn = sim.world.generatedFloor?.spawn;
   if (!spawn) throw new Error("missing finite integration fixture spawn");
   const nearby = findFlatFloor(sim, spawn.x, spawn.y);
-  return { nearby, distant: findFlatFloor(sim, nearby.x + 24, nearby.y) };
+  const distant = centerTile(spiralFind({
+    anchor: { x: Math.floor(nearby.x + 24), y: Math.floor(nearby.y) },
+    maxRadius: 96,
+    predicate: (x, y) => isFlatFloor(sim, x, y) && Math.hypot(x + 0.5 - nearby.x, y + 0.5 - nearby.y) > 8,
+  }));
+  return { nearby, distant };
 }
 
 function isFlatFloor(sim: GameSim, x: number, y: number): boolean {

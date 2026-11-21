@@ -40,11 +40,10 @@ describe("safe-room door placements", () => {
     expect(doors).toHaveLength(20);
     for (const door of doors) {
       const index = localIndex(room, door);
-      const northWall = door.wall === "north";
       expect(chunk.terrain[index], `${door.wall} terrain`)
         .toBe(TERRAIN.Floor);
       expect(chunk.tiles[index], `${door.wall} tile`)
-        .toBe(northWall ? TILE.Floor : TILE.Bedrock);
+        .toBe(TILE.Bedrock);
       expect(chunk.height[index], `${door.wall} height`).toBe(3);
       expect(inwardTerrain(chunk, room, door)).toBe(TERRAIN.Floor);
       expect(roomDoorWallAt({ kind: "safe", ...room, x: door.x, y: door.y })).toBe(door.wall);

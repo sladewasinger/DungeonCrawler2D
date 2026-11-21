@@ -7,6 +7,8 @@ export interface TerrainWallMaterialInput {
   readonly territory: number | null | undefined;
   readonly voidWall?: boolean | undefined;
   readonly stairWall?: boolean | undefined;
+  readonly bedrockWall?: boolean | undefined;
+  readonly topSegment?: boolean | undefined;
   readonly wallFeature?: { readonly feature: TerrainFeatureKind; readonly topHeight: number } | undefined;
 }
 
@@ -28,9 +30,11 @@ export function terrainWallRole(input: TerrainWallMaterialInput, segmentTop: num
   if (input.wallFeature && approximatelyEqual(input.wallFeature.topHeight, segmentTop)) {
     return input.wallFeature.feature;
   }
-  if (input.voidWall === true) return "void-wall-face";
+  if (input.voidWall === true || input.bedrockWall === true) return "void-wall-face";
   if (input.stairWall === true) return "stair-wall-face";
-  return territoryWallRole(input.territory);
+  const role = territoryWallRole(input.territory);
+  if (input.topSegment === false && role !== "territory-gaol-wall") return "south-face";
+  return role;
 }
 
 /** Splits a wall face at unit boundaries so material and UV seams stay aligned. */

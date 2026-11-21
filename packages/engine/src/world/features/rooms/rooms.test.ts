@@ -33,25 +33,22 @@ function isCarvedRoomCell(input: { lx: number; ly: number; room: RoomCase }): bo
   const bottom = top + room.height - 1;
   const left = Math.floor(CHUNK_SIZE / 2 - room.width / 2);
   const centerLx = Math.floor(CHUNK_SIZE / 2);
-  const inBackWall = within(lx, left, room.width) && ly === top;
   const inInterior = within(lx, left + 1, room.width - 2) &&
     within(ly, top + 1, room.height - 2);
   const inHall = lx === centerLx && within(ly, bottom, SOUTH_EXIT_HALL_DEPTH);
-  return inBackWall || inInterior || inHall;
+  return inInterior || inHall;
 }
 
 function assertRoomAndShellMask(chunk: ReturnType<typeof generateRoomChunk>, room: RoomCase): void {
-  const top = Math.floor(CHUNK_SIZE / 2 - room.height / 2);
-  for (let index = 0; index < chunk.terrain.length; index++) assertRoomCell({ chunk, room, top, index });
+  for (let index = 0; index < chunk.terrain.length; index++) assertRoomCell({ chunk, room, index });
 }
 
 function assertRoomCell(input: {
   chunk: ReturnType<typeof generateRoomChunk>;
   room: RoomCase;
-  top: number;
   index: number;
 }): void {
-  const { chunk, room, top, index } = input;
+  const { chunk, room, index } = input;
   const lx = index % CHUNK_SIZE;
   const ly = Math.floor(index / CHUNK_SIZE);
   const expectedTile = expectedRoomTile({ lx, ly, room });
@@ -69,7 +66,7 @@ function assertRoomCell(input: {
   }
   expect(chunk.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
   expect(chunk.tiles[index], `tile ${index}`).toBe(TILE.Floor);
-  expect(chunk.height[index], `height ${index}`).toBe(ly === top ? ROOM_WALL_RISE : 0);
+  expect(chunk.height[index], `height ${index}`).toBe(0);
   expect(chunk.zones[index], `zone ${index}`).toBe(ZONE.Sanctuary);
   expect(chunk.features[index], `feature ${index}`).toBe(expectedTile);
   expect(chunk.featureFaces[index], `feature face ${index}`).toBe(0);

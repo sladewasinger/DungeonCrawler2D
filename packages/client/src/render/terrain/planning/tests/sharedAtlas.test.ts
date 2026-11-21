@@ -40,7 +40,7 @@ describe("finite territory atlas variants", () => {
   it("maps structural bedrock to authored dark art, not the gray raised cap", () => {
     const atlas = decodeAtlas(readFileSync(ATLAS_PATH));
     const raised = atlas.pixel(2 * 64 + 32, 32);
-    const bedrock = atlas.pixel(3 * 64 + 32, 32);
+    const bedrock = atlas.pixel(6 * 64 + 32, 32);
     const bedrockFrame = terrainAtlasFrame({
       set: TERRAIN_TILESETS.maze, role: "bedrock", variant: 0, image: atlas,
     });
@@ -48,7 +48,7 @@ describe("finite territory atlas variants", () => {
       set: TERRAIN_TILESETS.maze, role: "raised-floor", variant: 0, image: atlas,
     });
 
-    expect(bedrockFrame.x).toBe(3 * 64);
+    expect(bedrockFrame.x).toBe(6 * 64);
     expect(raisedFrame.x).toBe(2 * 64);
     expect(bedrock[0]).toBeLessThan(raised[0]);
     expect(bedrock[2]).toBeLessThan(raised[2]);

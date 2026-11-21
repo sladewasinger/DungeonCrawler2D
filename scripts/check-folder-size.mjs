@@ -1,8 +1,10 @@
 /** Enforce the direct-file limit for feature folders, with a migration baseline. */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import process from "node:process";
+
+const toBaselineKey = (directory) => directory.split(sep).join("/");
 
 const MAX_DIRECT_FILES = 12;
 const ROOT = process.cwd();
@@ -34,7 +36,7 @@ function countsByDirectory() {
     const directory = resolve(ROOT, root);
     if (!existsSync(directory)) continue;
     for (const file of collectFiles(directory)) {
-      const relativeDirectory = relative(ROOT, resolve(file, ".."));
+      const relativeDirectory = toBaselineKey(relative(ROOT, resolve(file, "..")));
       counts.set(relativeDirectory, (counts.get(relativeDirectory) ?? 0) + 1);
     }
   }
@@ -56,7 +58,7 @@ function changedDirectories() {
   });
   return new Set(output
     .filter((file) => SOURCE_FILE.test(file))
-    .map((file) => relative(ROOT, resolve(ROOT, file, ".."))));
+    .map((file) => toBaselineKey(relative(ROOT, resolve(ROOT, file, "..")))));
 }
 
 const changedOnly = process.argv.includes("--changed");

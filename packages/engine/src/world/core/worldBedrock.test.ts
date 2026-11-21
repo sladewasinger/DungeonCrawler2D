@@ -12,17 +12,20 @@ describe("Bedrock world collision", () => {
     const world = new World(hashString("dev-world-1"), 1, {
       features: { voidTerrain: false },
     });
-    const chunk = world.getChunk(1, -1);
-    const index = chunk.tiles.findIndex((tile) => tile === TILE.Bedrock);
-
-    expect(index).toBeGreaterThanOrEqual(0);
-    const x = chunk.cx * CHUNK_SIZE + index % CHUNK_SIZE;
-    const y = chunk.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
+    const { x, y } = findBedrockCell(world);
     expect(world.surfaceTileAt(x, y)).toBe(TILE.Bedrock);
     expect(world.tileAt(x, y)).toBe(TILE.Bedrock);
     expect(world.heightAt(x, y)).toBeGreaterThanOrEqual(BEDROCK_MIN_HEIGHT);
     expect(world.isWalkable(x, y)).toBe(false);
   });
+
+function findBedrockCell(world: World): { x: number; y: number } {
+  const bounds = world.floorBounds;
+  const chunk = world.getChunk(bounds?.minChunkX ?? 1, bounds?.minChunkY ?? -1);
+  const index = chunk.tiles.findIndex((tile) => tile === TILE.Bedrock);
+  expect(index).toBeGreaterThanOrEqual(0);
+  return { x: chunk.cx * CHUNK_SIZE + index % CHUNK_SIZE, y: chunk.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE) };
+}
 
   it("rejects runtime Bedrock overrides below z2", () => {
     const world = new World(hashString("bedrock-override"), 1, {

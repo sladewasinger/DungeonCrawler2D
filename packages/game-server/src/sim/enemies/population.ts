@@ -21,8 +21,8 @@ const ROOM_LOOT = [
 
 export function activateChunksNearPlayers(sim: SimState): void {
   ensureCombatSandboxTrainingDummies(sim);
+  if (sim.world.generatedFloor !== null) syncObservableMiniBossEncounters(sim);
   if (sim.world.level === LEVEL.Sandbox) return;
-  if (sim.world.level === LEVEL.Dungeon) syncObservableMiniBossEncounters(sim);
   for (const slot of sim.players.values()) {
     const ccx = Math.floor(slot.entity.body.x / CHUNK_SIZE);
     const ccy = Math.floor(slot.entity.body.y / CHUNK_SIZE);

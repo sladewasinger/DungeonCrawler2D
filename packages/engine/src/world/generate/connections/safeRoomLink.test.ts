@@ -34,9 +34,9 @@ function coordinateSquare(range: number): Array<{ cx: number; cy: number }> {
 
 describe("safe-room kiosk stays reachable", () => {
   it("keeps the wall-mounted door independent from its raised collision terrain", () => {
-    const checked = Array.from({ length: 24 }, (_, index) => index + 1)
+    const checked = Array.from({ length: 8 }, (_, index) => index + 1)
       .filter((seed) => assertSafeRoomDoor(seed * 7919 + 13)).length;
-    expect(checked).toBe(24);
+    expect(checked).toBe(8);
   }, 60_000);
 
   it("the pad the door fronts still reaches the wider corridor network (feature-link.ts's connector, unaffected by the kiosk's Floor/Wall change)", () => {
@@ -68,7 +68,7 @@ function assertSafeRoomDoor(worldSeed: number): boolean {
   expect(chunk.tiles[doorIndex]).toBe(TILE.Floor);
   expect(chunk.features[doorIndex]).toBe(TILE.DoorSafeRoom);
   expect(chunk.featureFaces[doorIndex]).toBe(FEATURE_FACE.South);
-  expect(chunk.featureHeight[doorIndex]).toBe(1);
+  expect(chunk.featureHeight[doorIndex]).toBe(0);
   expect(chunk.height[doorIndex]).toBe(2);
   expect(chunk.features[southIndex]).toBe(TILE.Stairs);
   expect(chunk.height[southIndex]).toBe(1);

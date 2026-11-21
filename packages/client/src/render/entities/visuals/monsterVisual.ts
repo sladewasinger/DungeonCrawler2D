@@ -17,7 +17,7 @@ import {
   resolveCombatantTintLayer,
 } from "../combat/status/statusTint.js";
 import type { MonsterEntityView, RenderContext } from "./view.js";
-import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
+import { depthForActorNow, worldToScreen } from "../geometry/worldToScreen.js";
 import { updateMonsterTrainingWeapon } from "../monster/trainingWeaponVisual.js";
 import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
 
@@ -43,7 +43,7 @@ function positionMonsterBody(visual: MonsterVisual, view: MonsterEntityView, hei
   // playerVisual.ts's matching comment.
   const anchor = actorScreenAnchor({ screen, liftPx: spriteLiftPx(view.z) });
   visual.body.setPosition(anchor.x, anchor.y);
-  visual.body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
+  visual.body.setDepth(depthForActorNow(view.x, view.y, heightAboveGround));
   visual.body.setFlipX(view.faceX < 0);
 }
 

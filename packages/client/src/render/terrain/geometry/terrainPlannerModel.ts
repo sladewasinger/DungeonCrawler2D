@@ -43,6 +43,13 @@ export const TERRAIN_PROPS = {
   ArenaGate: "arena-gate",
   CraftingTable: "crafting-table",
   Stash: "stash",
+  Water: "water",
+  Bridge: "bridge",
+  Tree: "tree",
+  Bush: "bush",
+  Boulder: "boulder",
+  SafeHouse: "safe-house",
+  SpawnHouse: "spawn-house",
 } as const;
 export type TerrainPropKind = (typeof TERRAIN_PROPS)[keyof typeof TERRAIN_PROPS];
 
@@ -99,7 +106,7 @@ export interface TerrainPropQuad extends TerrainQuadBase {
 }
 export interface TerrainSouthFaceQuad extends TerrainQuadBase {
   readonly kind: "south-face"; readonly topHeight: number; readonly bottomHeight: number;
-  readonly stairWall?: boolean; readonly voidWall?: boolean;
+  readonly stairWall?: boolean; readonly voidWall?: boolean; readonly bedrockWall?: boolean;
   readonly wallFeature?: { readonly feature: TerrainFeatureKind; readonly topHeight: number };
 }
 export interface TerrainCliffEdgeQuad extends TerrainQuadBase {

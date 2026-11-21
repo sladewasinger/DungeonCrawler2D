@@ -109,13 +109,14 @@ describe("chasm = death (knockback-death-pit ruling)", () => {
     expect(sim.worldEvents.some((e) => e.ev.t === "death" && e.ev.id === a.entity.id)).toBe(true);
   }, 15_000);
 
-  it("keeps ordinary finite floor at z=-2 playable and nonlethal", () => {
+  it("keeps ordinary finite floor below zero elevation playable and nonlethal", () => {
     const sim = newSim(CHASM_WORLD_SEED_INPUT, false);
     const spot = findWorldPoint({
       world: sim.world,
-      predicate: ({ height, terrain }) => height === -2 && terrain === TERRAIN.Floor,
+      predicate: ({ point, height, terrain }) =>
+        height < 0 && terrain === TERRAIN.Floor && sim.world.isWalkable(point.x, point.y),
     });
-    expect(spot, "no finite z=-2 floor found in scan range").not.toBeNull();
+    expect(spot, "no walkable negative-z finite floor found in scan range").not.toBeNull();
     if (!spot) return;
     expect(sim.world.isWalkable(spot.x, spot.y)).toBe(true);
     expect(sim.world.terrainAt(spot.x, spot.y)).toBe(TERRAIN.Floor);

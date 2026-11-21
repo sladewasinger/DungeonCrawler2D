@@ -115,7 +115,7 @@ export class TerrainAtlasBatchRenderer {
       // A second full-floor Graphics wash only adds overdraw and display
       // objects; fallback materials retain the tint path when no atlas exists.
       biomeEnabled: false,
-      bedrockEnabled: this.visualFeatures.bedrockTint,
+      bedrockEnabled: false,
     }, this.visible);
     this.aoOverlay.render(batches.ao, options.projection, {
       enabled: this.visualFeatures.ambientOcclusion,

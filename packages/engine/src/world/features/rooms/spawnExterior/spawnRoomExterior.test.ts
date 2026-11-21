@@ -6,16 +6,18 @@ import {
 } from "./spawnRoomExterior.js";
 
 describe("spawn-room exterior", () => {
-  it("stamps a finite-mode facade with walkable landing tiles", () => {
+  it("stamps a finite-mode manor facade with walkable landing tiles", () => {
     const world = finiteFeatureWorldFixture(false);
     const exterior = spawnRoomExteriorSite();
     const door = exterior.door;
 
     expect(world.featureAt(door.x, door.y)).toBe(TILE.DoorExit);
     expect(world.featureFaceAt(door.x, door.y)).toBe(door.featureFace);
-    expect(world.heightAt(door.x, door.y)).toBe(3);
-    expect(world.surfaceTileAt(door.x, door.y)).toBe(TILE.Bedrock);
+    expect(world.heightAt(door.x, door.y)).toBe(0);
+    expect(world.surfaceTileAt(door.x, door.y)).toBe(TILE.Floor);
+    expect(world.featureAt(door.x - 1, door.y)).toBe(TILE.BuildingWall);
     expect(world.isWalkable(door.x, door.y)).toBe(false);
+    expect(world.isWalkable(door.x - 1, door.y)).toBe(false);
 
     for (const landing of exterior.landingPositions) {
       expect(world.isWalkable(

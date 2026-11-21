@@ -13,6 +13,17 @@ Count Austin's new wording only. Do not recount quoted history, attachments,
 code, tool output, or the phrases “f word” and “f bomb” when the word itself
 does not appear.
 
+## Workflow & Documentation
+
+- **Single-agent workflow**: One agent owns investigation, implementation,
+  testing, and verification directly. Do not use multi-agent ceremony or task
+  workflow folders.
+- **Colocated docs**: Architecture and subsystem documentation lives in concise
+  `README.md` files next to the code they describe. When changing a subsystem's
+  behavior or boundaries, update its nearest `README.md` in the same change.
+- **Durable pitfalls**: Record only cross-cutting, confirmed technical gotchas
+  in `docs/LESSONS.md`.
+
 ## Validation workflow
 
 - During iterative work, run `npm run lint:working-tree`; it lints only changed
@@ -21,13 +32,6 @@ does not appear.
 - Do not run tests during implementation iterations. Run `npm test` only at the
   final validation checkpoint immediately before committing, unless Austin asks
   for an earlier test run.
-
-## Multi-agent workflow
-
-- Before delegating repository work, the parent agent must read and follow
-  `.codex/agents/CONTEXT.md` and `agent-workflow/CONTEXT.md`.
-- Repository custom agents are subagents. They must never spawn or coordinate
-  additional agents; the parent agent owns all delegation and handoffs.
 
 ## Critical code quality rules
 

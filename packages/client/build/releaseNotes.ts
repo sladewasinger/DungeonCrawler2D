@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import {
@@ -123,6 +123,7 @@ function validateManifestVersions(repositoryRoot: string, applicationVersion: st
 
 function loadReleaseNotes(repositoryRoot: string, applicationVersion: string): ReleaseNote[] {
   const directory = resolve(repositoryRoot, "docs/releases");
+  if (!existsSync(directory)) return [];
   const notes = readdirSync(directory)
     .filter((name) => /^v\d+\.\d+\.\d+\.md$/.test(name))
     .map((name) => parseNote(readFileSync(resolve(directory, name), "utf8"), name))

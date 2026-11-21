@@ -34,6 +34,11 @@ interface RampInput extends RampGeometry {
 /** Applies coherent ordinary elevations before restoring authored feature ramps. */
 export function applyElevationTransitions(input: ElevationInput): void {
   applyOrdinaryElevations(input);
+  applyFeatureElevationRamps(input);
+}
+
+/** Stamps stairway and mini-boss arena platform ramps onto the current terrain. */
+export function applyFeatureElevationRamps(input: ElevationInput): void {
   for (const stairway of input.stairways.down) stampStairwayRamp(input, stairway);
   if (input.stairways.up) stampStairwayRamp(input, input.stairways.up);
   for (const arena of input.miniBossArenas) {

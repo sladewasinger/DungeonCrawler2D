@@ -1,22 +1,22 @@
 import { hash2D } from "../../core/rng.js";
 import { CHUNK_SIZE, FEATURE_FACE, TILE } from "../core/types.js";
 import { spawnRoomExteriorSite } from "../features/rooms/spawnExterior/spawnRoomExterior.js";
-import { carveAt, forEachRect, insideBounds, localIndex, protectRect, stampFeature, stampSolid, carveLine } from "./finiteFloorBuffers.js";
+import { carveAt, forEachRect, insideBounds, localIndex, protectRect, stampFeature, carveLine } from "./finiteFloorBuffers.js";
 import { FLOOR_SEMANTIC, type FloorBounds, type FloorBuffers, type FloorPoint, type GeneratedFeatureStamp, type GeneratedSafeRoomEntrance, type GeneratedStairway } from "./finiteFloorTypes.js";
 
 export function placeSpawnExterior(input: { readonly buffers: FloorBuffers; readonly bounds: FloorBounds }): GeneratedFeatureStamp {
   const door = spawnRoomExteriorSite().door;
   const bounds = { x0: door.x - 4, y0: door.y - 4, x1: door.x + 4, y1: door.y + 3 };
-  forEachRect({ x0: door.x - 4, y0: door.y - 4, x1: door.x + 4, y1: door.y }, (x, y) => stampSpawnExteriorWall({ ...input, x, y }));
-  forEachRect({ x0: door.x - 3, y0: door.y + 1, x1: door.x + 3, y1: door.y + 3 }, (x, y) => carveAt({ buffers: input.buffers, bounds: input.bounds, point: { x, y }, semantic: FLOOR_SEMANTIC.SpawnExterior, regionId: 1 }));
-  stampFeature({ buffers: input.buffers, bounds: input.bounds, x: door.x, y: door.y, tile: TILE.DoorExit, face: FEATURE_FACE.South, height: 1 });
+  forEachRect(bounds, (x, y) => {
+    carveAt({ buffers: input.buffers, bounds: input.bounds, point: { x, y }, semantic: FLOOR_SEMANTIC.SpawnExterior, regionId: 1 });
+    if (insideBounds({ bounds: input.bounds, x, y })) input.buffers.height[localIndex({ bounds: input.bounds, x, y })] = 0;
+  });
+  forEachRect({ x0: door.x - 3, y0: door.y - 3, x1: door.x + 3, y1: door.y }, (x, y) => {
+    stampFeature({ buffers: input.buffers, bounds: input.bounds, x, y, tile: TILE.BuildingWall, face: FEATURE_FACE.Top, height: 0, semantic: FLOOR_SEMANTIC.SpawnExterior });
+  });
+  stampFeature({ buffers: input.buffers, bounds: input.bounds, x: door.x, y: door.y, tile: TILE.DoorExit, face: FEATURE_FACE.South, height: 0, semantic: FLOOR_SEMANTIC.SpawnExterior });
   protectRect({ buffers: input.buffers, bounds: input.bounds, rect: bounds });
   return { id: "spawn-exterior", kind: "spawn-exterior", bounds, ports: [{ x: door.x, y: door.y + 3 }], protectedCells: [door], position: { x: door.x, y: door.y + 3 } };
-}
-
-function stampSpawnExteriorWall(input: { readonly buffers: FloorBuffers; readonly bounds: FloorBounds; readonly x: number; readonly y: number }): void {
-  stampSolid(input);
-  if (insideBounds(input)) input.buffers.semantic[localIndex(input)] = FLOOR_SEMANTIC.SpawnExterior;
 }
 
 export const SAFE_ROOM_CHUNKS = [{ cx: 2, cy: 2 }, { cx: 5, cy: 4 }, { cx: 8, cy: 6 }] as const;
@@ -28,20 +28,20 @@ export function placeSafeRooms(input: { readonly buffers: FloorBuffers; readonly
 function placeSafeRoom(input: { readonly buffers: FloorBuffers; readonly bounds: FloorBounds; readonly seed: number; readonly chunk: { cx: number; cy: number }; readonly index: number }): GeneratedSafeRoomEntrance {
   const center = { x: input.chunk.cx * CHUNK_SIZE + 14 + hash2D(input.seed, input.index, 1) % 5, y: input.chunk.cy * CHUNK_SIZE + 14 + hash2D(input.seed, input.index, 2) % 5 };
   const door = { x: center.x, y: center.y + 1, featureFace: FEATURE_FACE.South };
-  const bounds = { x0: center.x - 3, y0: center.y - 5, x1: center.x + 3, y1: center.y + 3 };
-  forEachRect(bounds, (x, y) => stampSolid({ buffers: input.buffers, bounds: input.bounds, x, y, semantic: FLOOR_SEMANTIC.SafeRoom }));
-  forEachRect({ x0: center.x - 2, y0: center.y - 4, x1: center.x + 2, y1: center.y + 1 }, (x, y) => {
+  const bounds = { x0: center.x - 3, y0: center.y - 3, x1: center.x + 3, y1: center.y + 4 };
+  forEachRect(bounds, (x, y) => {
     carveAt({ buffers: input.buffers, bounds: input.bounds, point: { x, y }, semantic: FLOOR_SEMANTIC.SafeRoom, regionId: 1 });
-    input.buffers.height[localIndex({ bounds: input.bounds, x, y })] = 0;
+    if (insideBounds({ bounds: input.bounds, x, y })) input.buffers.height[localIndex({ bounds: input.bounds, x, y })] = 0;
   });
-  carveAt({ buffers: input.buffers, bounds: input.bounds, point: { x: center.x, y: center.y + 2 }, semantic: FLOOR_SEMANTIC.SafeRoom, regionId: 1 });
-  carveAt({ buffers: input.buffers, bounds: input.bounds, point: { x: center.x, y: center.y + 3 }, semantic: FLOOR_SEMANTIC.SafeRoom, regionId: 1 });
+  forEachRect({ x0: center.x - 2, y0: center.y - 1, x1: center.x + 2, y1: center.y + 1 }, (x, y) => {
+    stampFeature({ buffers: input.buffers, bounds: input.bounds, x, y, tile: TILE.BuildingWall, face: FEATURE_FACE.Top, height: 0, semantic: FLOOR_SEMANTIC.SafeRoom });
+  });
   const approach = safeRoomApproach(input, center);
   for (const point of approach) carveAt({ buffers: input.buffers, bounds: input.bounds, point, semantic: FLOOR_SEMANTIC.SafeRoom, regionId: 1 });
-  stampFeature({ buffers: input.buffers, bounds: input.bounds, x: door.x, y: door.y, tile: TILE.DoorSafeRoom, face: door.featureFace, height: 1 });
+  stampFeature({ buffers: input.buffers, bounds: input.bounds, x: door.x, y: door.y, tile: TILE.DoorSafeRoom, face: door.featureFace, height: 0, semantic: FLOOR_SEMANTIC.SafeRoom });
   protectRect({ buffers: input.buffers, bounds: input.bounds, rect: bounds });
   for (const point of approach) protectPoint(input, point);
-  return { id: `safe-room-${input.index}`, kind: "safe-room", bounds, ports: [{ x: center.x, y: center.y + 3 }], protectedCells: [door, ...approach], position: door, door };
+  return { id: `safe-room-${input.index}`, kind: "safe-room", bounds, ports: [{ x: center.x, y: center.y + 2 }], protectedCells: [door, ...approach], position: door, door };
 }
 
 function safeRoomApproach(input: { readonly bounds: FloorBounds }, center: FloorPoint): FloorPoint[] {

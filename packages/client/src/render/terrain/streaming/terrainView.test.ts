@@ -51,13 +51,20 @@ describe("clipTerrainBounds", () => {
     )).toEqual({ x: 100, y: 100, width: 0, height: 0 });
   });
 
-  it("keeps the isolated authored room plane renderable outside finite bounds", () => {
+  it("clips isolated room views to the active room chunk and stays stable across steps", () => {
     expect(isRoomIsolationView({ x: -16, y: 131_072, width: 32, height: 32 })).toBe(true);
-    expect(clipTerrainBounds(
-      { x: -16, y: 131_072, width: 32, height: 32 },
+    const first = clipTerrainBounds(
+      { x: 0, y: 131_072, width: 32, height: 32 },
       { minX: -4, minY: -4, maxX: 4, maxY: 4 },
       true,
-    )).toEqual({ x: -16, y: 131_072, width: 32, height: 32 });
+    );
+    const stepped = clipTerrainBounds(
+      { x: 4, y: 131_074, width: 24, height: 20 },
+      { minX: -4, minY: -4, maxX: 4, maxY: 4 },
+      true,
+    );
+    expect(first).toEqual({ x: 0, y: 131_072, width: 32, height: 32 });
+    expect(stepped).toEqual(first);
   });
 
   it("clips a boundary view without expanding the finite floor", () => {

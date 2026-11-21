@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { resetViewOrientation, setViewOrientation } from "../../view/transform/viewState.js";
-import { depthForEntityNow, groundToScreen, worldToScreen } from "./worldToScreen.js";
+import { depthForCapOccluder } from "../presentation/depthSort.js";
+import { depthForActorNow, depthForEntityNow, groundToScreen, worldToScreen } from "./worldToScreen.js";
 
 afterEach(() => resetViewOrientation());
 
@@ -39,5 +40,15 @@ describe("depthForEntityNow", () => {
     setViewOrientation(90);
     // At 90, view.y = -world.x, so a MORE NEGATIVE world x sorts further screen-south.
     expect(depthForEntityNow(5, 0)).toBeLessThan(depthForEntityNow(-5, 0));
+  });
+});
+
+describe("depthForActorNow", () => {
+  it("clears the screen-south floor cap across the actor visual baseline offset", () => {
+    expect(depthForActorNow(0, 10.95)).toBeGreaterThan(depthForCapOccluder(11));
+  });
+
+  it("stays behind a solid cap when standing comfortably north of the row boundary", () => {
+    expect(depthForActorNow(0, 10.7)).toBeLessThan(depthForCapOccluder(11));
   });
 });

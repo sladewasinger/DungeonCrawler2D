@@ -94,6 +94,8 @@ function appendSouthFaceSegment(target: TerrainAtlasDraw[], request: SouthFaceSe
     territory: request.territoryAt?.(quad.worldTile),
     voidWall: quad.voidWall,
     stairWall: quad.stairWall,
+    bedrockWall: quad.bedrockWall,
+    topSegment: Math.abs(bottom + height - quad.topHeight) <= 1e-6,
     wallFeature: quad.wallFeature,
   }, bottom + height);
   target.push({ atlas, frame: terrainAtlasFrameName(atlas, role, 0), role, variant: 0, worldTile: quad.worldTile,

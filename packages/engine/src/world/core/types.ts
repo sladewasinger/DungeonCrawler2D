@@ -29,6 +29,18 @@ export const TILE = {
   Bedrock: 10,
   /** Floor-mounted turnstile controlling an ordinary mini-boss arena. */
   ArenaGate: 11,
+  /** Subterranean river / water channel (solid obstacle). */
+  Water: 12,
+  /** Walkable wooden bridge crossing water. */
+  Bridge: 13,
+  /** Subterranean tree (solid obstacle). */
+  Tree: 14,
+  /** Walkable bush / fern cover. */
+  Bush: 15,
+  /** Cavern boulder (solid obstacle). */
+  Boulder: 16,
+  /** Solid interior footprint for custom building sprites (e.g. safe-room shack). */
+  BuildingWall: 17,
 } as const;
 export type TileType = (typeof TILE)[keyof typeof TILE];
 
@@ -69,9 +81,15 @@ export type TerrainType = (typeof TERRAIN)[keyof typeof TERRAIN];
 export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.CraftingTable,
   TILE.Stash,
+  TILE.DoorExit,
   TILE.Void,
   TILE.Bedrock,
   TILE.ArenaGate,
+  TILE.DoorSafeRoom,
+  TILE.Water,
+  TILE.Tree,
+  TILE.Boulder,
+  TILE.BuildingWall,
 ]);
 
 export const ZONE = {

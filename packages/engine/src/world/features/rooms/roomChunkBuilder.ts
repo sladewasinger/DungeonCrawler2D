@@ -60,7 +60,6 @@ function createRoomGrid(): RoomGrid {
 function stampRoom(input: { readonly grid: RoomGrid; readonly slot: RoomSlot }): void {
   const rect = centeredRoomRect(input.slot);
   const set = roomTileSetter(input.grid);
-  stampBackWall(set, rect);
   carveInterior(set, rect);
   placeFixtures({ grid: input.grid, set, kind: input.slot.kind, ...rect });
 }
@@ -80,12 +79,6 @@ function writeRoomTile(grid: RoomGrid, cell: RoomTile): void {
   grid.featureHeight[index] = 0;
   grid.zones[index] = cell.zone ?? ZONE.Sanctuary;
   grid.height[index] = cell.tileHeight ?? 0;
-}
-
-function stampBackWall(set: SetRoomTile, rect: RoomRect): void {
-  for (let lx = rect.left; lx < rect.left + rect.w; lx++) {
-    set({ lx, ly: rect.top, tile: TILE.Floor, tileHeight: ROOM_WALL_RISE });
-  }
 }
 
 function carveInterior(set: SetRoomTile, rect: RoomRect): void {

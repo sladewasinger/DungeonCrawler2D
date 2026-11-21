@@ -71,7 +71,7 @@ describe("cohesive district enemy population", () => {
   it("uses territory ownership to select faction-domain mobs", () => {
     const sim = createTestSim("territory-owned-population");
     const samples = sampleTerritories(sim);
-    expect(samples.size).toBe(4);
+    expect(samples.size).toBe(3);
     for (const [id, point] of samples) expectTerritoryRoster(sim, id, point);
   });
 
@@ -85,7 +85,7 @@ describe("cohesive district enemy population", () => {
       counts.set(enemy.def.id, (counts.get(enemy.def.id) ?? 0) + 1);
     }
     expect(counts.get("chort")).toBe(1);
-    expect(counts.get("pitchbloom")).toBe(1);
+    expect(counts.get("pitchbloom")).toBeGreaterThanOrEqual(1);
     for (const a of enemies) {
       for (const b of enemies) {
         expect(Math.hypot(

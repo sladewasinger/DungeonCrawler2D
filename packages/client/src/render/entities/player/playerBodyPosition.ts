@@ -1,7 +1,7 @@
 import type Phaser from "phaser";
 import { spriteLiftPx } from "../motion/lift.js";
 import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
-import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
+import { depthForActorNow, worldToScreen } from "../geometry/worldToScreen.js";
 import { playerFacesLeft } from "./playerFacing.js";
 import type { PlayerEntityView } from "../visuals/view.js";
 
@@ -23,6 +23,6 @@ export function positionPlayerBody({
   // exactly on it — see lift.ts's module doc.
   const anchor = actorScreenAnchor({ screen, liftPx: spriteLiftPx(view.z) });
   body.setPosition(anchor.x, anchor.y);
-  body.setDepth(depthForEntityNow(view.x, view.y, heightAboveGround));
+  body.setDepth(depthForActorNow(view.x, view.y, heightAboveGround));
   body.setFlipX(playerFacesLeft(view));
 }

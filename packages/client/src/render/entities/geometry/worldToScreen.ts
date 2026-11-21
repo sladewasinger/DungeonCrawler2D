@@ -5,12 +5,13 @@
 // wedges, nameplates, HP bars) along with them with no per-file changes needed.
 // Reads the seam's ViewState directly (not a threaded parameter) for the same reason
 // TerrainRenderer does — see viewState.ts's module doc.
-import { depthForViewEntity } from "../../view/transform/viewDepth.js";
+import { depthForViewEntity, viewSpaceFeetY } from "../../view/transform/viewDepth.js";
 import { depthForEntity } from "../presentation/depthSort.js";
 import { worldToView } from "../../view/transform/viewTransform.js";
 import { getViewOrientation } from "../../view/transform/viewState.js";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { spriteLiftPx } from "../motion/lift.js";
+import { ACTOR_VISUAL_SCREEN_OFFSET_Y_PX } from "../presentation/actorScreenAnchor.js";
 
 export function worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
   const view = worldToView({ x: worldX, y: worldY }, getViewOrientation());
@@ -28,6 +29,12 @@ export function groundToScreen(worldX: number, worldY: number, groundHeight: num
  * depthForEntity(feetWorldY, lift) at every call site that used it directly. */
 export function depthForEntityNow(feetWorldX: number, feetWorldY: number, liftUnits = 0): number {
   return depthForViewEntity({ feetWorldX, feetWorldY, liftUnits }, getViewOrientation());
+}
+
+/** Phaser depth for actors anchored by `actorScreenAnchor`, matching their screen baseline. */
+export function depthForActorNow(feetWorldX: number, feetWorldY: number, liftUnits = 0): number {
+  const viewY = viewSpaceFeetY(feetWorldX, feetWorldY, getViewOrientation());
+  return depthForEntity(viewY + ACTOR_VISUAL_SCREEN_OFFSET_Y_PX / SCREEN_TILE_PX, liftUnits);
 }
 
 /** Depth for a screen-space attachment point. Unlike an entity's feet row, this

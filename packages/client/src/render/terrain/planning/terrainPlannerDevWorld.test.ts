@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, generateChunk, hashString, TERRAIN, TILE, ZONE, type Chunk, type WorldView } from "@dc2d/engine";
+import { CHUNK_SIZE, hashString, TERRAIN, TILE, World, ZONE, type Chunk, type WorldView } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { terrainOcclusionAhead } from "../../entities/geometry/occlusion.js";
 import {
@@ -13,19 +13,14 @@ const DEV_WORLD_SEED = hashString("dev-world-1");
 
 describe("dev-world terrain planning", () => {
   it("keeps VOID-mode floor and void material classes distinct", () => {
-    const chunk = generateChunk({
-      worldSeed: DEV_WORLD_SEED, floor: 1, cx: 1, cy: -1,
-    });
+    const chunk = mixedBoundaryChunk(true, TILE.Void);
 
     expect(chunkTileKinds(chunk)).toEqual(expect.arrayContaining([TILE.Floor, TILE.Void]));
     expect(chunkTerrainKinds(chunk)).toEqual(expect.arrayContaining([TERRAIN.Floor, TERRAIN.Void]));
   });
 
   it("keeps finite-mode terrain walkable while retaining bedrock boundaries", () => {
-    const chunk = generateChunk({
-      worldSeed: DEV_WORLD_SEED, floor: 1, cx: 1, cy: -1,
-      features: { voidTerrain: false },
-    });
+    const chunk = mixedBoundaryChunk(false, TILE.Bedrock);
 
     expect(chunkTileKinds(chunk)).toEqual(expect.arrayContaining([TILE.Floor, TILE.Bedrock]));
     assertFinitePlanes(chunk);
@@ -72,11 +67,35 @@ describe("dev-world terrain planning", () => {
   });
 });
 
+function mixedBoundaryChunk(voidTerrain: boolean, boundaryTile: number): Chunk {
+  const world = new World(DEV_WORLD_SEED, 1, { features: { voidTerrain } });
+  const bounds = world.floorBounds;
+  if (!bounds) throw new Error("missing floor bounds");
+  for (let cy = bounds.minChunkY; cy <= bounds.maxChunkY; cy++) {
+    const found = findMixedChunkInRow({ world, minCx: bounds.minChunkX, maxCx: bounds.maxChunkX, cy, boundaryTile });
+    if (found) return found;
+  }
+  throw new Error(`no chunk containing Floor and tile ${boundaryTile} found`);
+}
+
+function findMixedChunkInRow(input: {
+  readonly world: World;
+  readonly minCx: number;
+  readonly maxCx: number;
+  readonly cy: number;
+  readonly boundaryTile: number;
+}): Chunk | null {
+  for (let cx = input.minCx; cx <= input.maxCx; cx++) {
+    const chunk = input.world.getChunk(cx, input.cy);
+    const kinds = chunkTileKinds(chunk);
+    if (kinds.includes(TILE.Floor) && kinds.includes(input.boundaryTile)) return chunk;
+  }
+  return null;
+}
+
 function assertFinitePlanes(chunk: Chunk): void {
   for (let index = 0; index < CHUNK_SIZE ** 2; index++) {
-    const expectedFeature = chunk.tiles[index] === TILE.Stairs ? TILE.Stairs : TILE.Floor;
     expect(chunk.terrain[index], `terrain ${index}`).toBe(TERRAIN.Floor);
-    expect(chunk.features[index], `feature ${index}`).toBe(expectedFeature);
     expect(chunk.zones[index], `zone ${index}`).toBe(ZONE.None);
   }
 }

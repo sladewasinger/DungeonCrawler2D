@@ -29,21 +29,20 @@ describe("spawn-room visual plan", () => {
     });
 
     expect(world.featureFaceAt(door.x, door.y)).toBe(FEATURE_FACE.South);
-    expect(source.featureAt?.(door.x, door.y)).toBe("door");
+    expect(source.featureAt?.(door.x, door.y)).toBeNull();
+    expect(source.propAt?.(door.x, door.y)).toBe("spawn-house");
     expect(plan.batches.floors).toEqual(expect.arrayContaining([
-      expect.objectContaining({ worldTile: door, surface: "bedrock" }),
+      expect.objectContaining({ worldTile: door, surface: "floor" }),
       expect.objectContaining({ worldTile: landing, surface: "floor" }),
     ]));
-    expect(plan.batches.southFaces).toEqual(expect.arrayContaining([
+    expect(plan.batches.props).toEqual(expect.arrayContaining([
+      expect.objectContaining({ worldTile: door, prop: "spawn-house", featureFace: FEATURE_FACE.South }),
+    ]));
+    expect(draws).toEqual(expect.arrayContaining([
       expect.objectContaining({
         worldTile: door,
-        wallFeature: expect.objectContaining({ feature: "door" }),
+        role: terrainFloorRole("floor", world.territoryAtWorldTile(door.x, door.y)),
       }),
-    ]));
-    expect(plan.batches.cliffEdges.some(({ worldTile }) => samePoint(worldTile, door))).toBe(true);
-    expect(draws).toEqual(expect.arrayContaining([
-      expect.objectContaining({ worldTile: door, role: "bedrock" }),
-      expect.objectContaining({ worldTile: door, role: "door" }),
       expect.objectContaining({
         worldTile: landing,
         role: terrainFloorRole("floor", world.territoryAtWorldTile(landing.x, landing.y)),
@@ -61,8 +60,4 @@ function findExitDoor(world: World): { readonly x: number; readonly y: number } 
     }
   }
   throw new Error("finite terrain fixture has no spawn-room exit door");
-}
-
-function samePoint(left: { readonly x: number; readonly y: number }, right: { readonly x: number; readonly y: number }): boolean {
-  return left.x === right.x && left.y === right.y;
 }

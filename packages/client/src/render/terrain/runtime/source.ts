@@ -9,7 +9,7 @@ import {
   TERRAIN_SURFACES,
   type TerrainSource,
 } from "../planning/terrainPlanner.js";
-import { terrainFeatureAt, terrainPropForTile } from "../planning/tileFeatures.js";
+import { terrainFeatureAt, terrainPropAt } from "../planning/tileFeatures.js";
 import { roomTerrainPresentation } from "./roomPresentation.js";
 import type { TerrainWorld } from "./world.js";
 
@@ -39,7 +39,7 @@ export function createTerrainSource(world: TerrainWorld): TerrainSource {
     featureHeightAt: (x, y) => world.featureHeightAt(x, y),
     presentationAt: (_x, y) => roomTerrainPresentation(y),
     featureAt: (x, y) => terrainFeatureAt(world, x, y),
-    propAt: (x, y) => terrainPropForTile(world.featureAt(x, y)),
+    propAt: (x, y) => terrainPropAt(world, x, y),
   };
 }
 

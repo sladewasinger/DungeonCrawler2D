@@ -9,7 +9,7 @@ import type {
   TerrainQuadVertices,
   TerrainSource,
 } from "./terrainPlannerModel.js";
-import { TERRAIN_SURFACES } from "./terrainPlannerModel.js";
+import { TERRAIN_PROPS, TERRAIN_SURFACES } from "./terrainPlannerModel.js";
 import { appendStairTreads } from "./stairs/stairArt.js";
 import { featureHeightAt, isElevatedWallDoor } from "./wallFeatureGeometry.js";
 
@@ -61,14 +61,21 @@ function appendPropOrFloor(
 ): void {
   request.batches.floors.push(floorQuad(request));
   if (!prop) return;
-  const { source, worldTile, viewTile, height, batches } = request;
+  const { source, worldTile, viewTile, batches } = request;
   const featureFace = source.featureFaceAt?.(worldTile.x, worldTile.y);
   batches.props.push({
     kind: "prop", prop, worldTile, viewTile,
-    height: featureHeightAt(source, worldTile, height),
+    height: propBaseHeight(prop, request),
     ...(featureFace === undefined ? {} : { featureFace }),
     vertices,
   });
+}
+
+function propBaseHeight(prop: TerrainPropKind, request: FeatureArtRequest): number {
+  if (prop === TERRAIN_PROPS.ArenaGate || prop === TERRAIN_PROPS.CraftingTable || prop === TERRAIN_PROPS.Stash) {
+    return featureHeightAt(request.source, request.worldTile, request.height);
+  }
+  return request.height;
 }
 
 function floorQuad(request: FeatureArtRequest): TerrainFloorQuad {

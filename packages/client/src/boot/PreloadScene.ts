@@ -4,6 +4,7 @@ import { ASSET_KEYS, ASSET_PATHS } from "./assetManifest.js";
 import { registerAnimations, type AnimationManifest } from "./registerAnimations.js";
 import { waitForPixelFontReady } from "../ui/foundation/font.js";
 import { setViewOrientation } from "../render/view/transform/viewState.js";
+import { installForestTerrainAtlas } from "../render/terrain/material/forestTerrainAtlas.js";
 import { PET_ASSETS } from "./petAssetManifest.js";
 import { terrainDebugIsEnabled } from "../render/terrain/runtime/debugMode.js";
 import { resolveStartupScene } from "./startupScene.js";
@@ -36,7 +37,6 @@ export class PreloadScene extends Phaser.Scene {
     if (terrainDebugIsEnabled(window.location.search)) {
       this.load.image(ASSET_KEYS.debugAtlas, ASSET_PATHS.debugAtlasImage);
     }
-    this.load.image(ASSET_KEYS.sharedAtlas, ASSET_PATHS.sharedAtlasImage);
     this.load.image(
       ASSET_KEYS.spawnRoomMegaphone,
       ASSET_PATHS.spawnRoomMegaphoneImage,
@@ -54,6 +54,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
+    installForestTerrainAtlas(this.textures);
     const manifest = this.cache.json.get(ASSET_KEYS.animations) as AnimationManifest;
     registerAnimations(this.anims, manifest);
     registerPetAnimations(this.anims);

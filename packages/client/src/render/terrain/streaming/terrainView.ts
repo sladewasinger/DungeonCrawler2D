@@ -37,12 +37,24 @@ export function clipTerrainBounds(
   finiteBounds: TerrainWorldBounds | null | undefined,
   allowOutsideFinite = false,
 ): TerrainRect {
-  if (!finiteBounds || allowOutsideFinite) return bounds;
+  if (allowOutsideFinite) return activeRoomChunkBounds(bounds);
+  if (!finiteBounds) return bounds;
   const x = Math.max(bounds.x, finiteBounds.minX);
   const y = Math.max(bounds.y, finiteBounds.minY);
   const maxX = Math.min(bounds.x + bounds.width, finiteBounds.maxX + 1);
   const maxY = Math.min(bounds.y + bounds.height, finiteBounds.maxY + 1);
   return { x, y, width: Math.max(0, maxX - x), height: Math.max(0, maxY - y) };
+}
+
+function activeRoomChunkBounds(bounds: TerrainRect): TerrainRect {
+  const cx = Math.floor((bounds.x + bounds.width / 2) / CHUNK_SIZE);
+  const cy = Math.floor((bounds.y + bounds.height / 2) / CHUNK_SIZE);
+  return {
+    x: cx * CHUNK_SIZE,
+    y: cy * CHUNK_SIZE,
+    width: CHUNK_SIZE,
+    height: CHUNK_SIZE,
+  };
 }
 
 /** Legacy authored rooms live on an isolated plane outside finite floors. */

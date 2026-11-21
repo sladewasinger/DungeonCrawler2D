@@ -36,7 +36,7 @@ describe("atlas Mesh2D UV coordinates", () => {
 
     expect(draw.frame).toBe("terrain:shared-atlas:0:bedrock");
     expect(uv).toEqual({
-      u0: (192.5 / 576), u1: (255.5 / 576),
+      u0: (384.5 / 576), u1: (447.5 / 576),
       v0: 0.9984375, v1: 0.8015625,
     });
   });
@@ -45,8 +45,8 @@ describe("atlas Mesh2D UV coordinates", () => {
     const draw = atlasDraw("bedrock", TERRAIN_TILESETS[BIOME.Maze]);
     const uv = atlasUvBounds(draw, ATLAS_IMAGE);
 
-    expect(uv.u0 * ATLAS_IMAGE.width).toBe(192.5);
-    expect(uv.u1 * ATLAS_IMAGE.width).toBe(255.5);
+    expect(uv.u0 * ATLAS_IMAGE.width).toBe(384.5);
+    expect(uv.u1 * ATLAS_IMAGE.width).toBe(447.5);
   });
 });
 

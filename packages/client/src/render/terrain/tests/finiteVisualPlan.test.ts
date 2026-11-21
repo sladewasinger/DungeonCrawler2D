@@ -7,6 +7,7 @@ import { atlasDraws } from "../batch/atlasBatch.js";
 import { territoryWallRole } from "../planning/tileset.js";
 import type { TerrainScreenProjection } from "../batch/quadBatch.js";
 
+const VOID_WALL_FACE = "void-wall-face";
 const projection: TerrainScreenProjection = {
   project: ({ x, y, z }) => ({ x: x * 10, y: y * 10 - z * 5 }),
 };
@@ -38,7 +39,7 @@ describe("finite terrain visual plan", () => {
       debug: false,
     });
     expect(draws.some(({ role }) => role === "bedrock")).toBe(true);
-    expect(draws.some(({ role }) => role === "south-face")).toBe(true);
+    expect(draws.some(({ role }) => role === VOID_WALL_FACE)).toBe(true);
     expect(groupCliffRimParts(plan.batches.cliffEdges).size).toBeGreaterThan(0);
   });
 
@@ -95,11 +96,11 @@ describe("finite terrain visual plan", () => {
     });
     const bedrock = draws.find(({ role, worldTile }) =>
       role === "bedrock" && worldTile?.x === 1 && worldTile.y === 1);
-    const wall = draws.find(({ role }) => role === territoryWallRole(territory));
+    const wall = draws.find(({ role, phase }) => phase === 2 && role === VOID_WALL_FACE);
 
     expect(bedrock?.role).toBe("bedrock");
-    expect(wall?.role).toBe(territoryWallRole(territory));
-    expect(wall?.role).not.toBe(bedrock?.role);
+    expect(wall?.role).toBe(VOID_WALL_FACE);
+    expect(wall?.role).not.toBe(territoryWallRole(territory));
   });
 });
 

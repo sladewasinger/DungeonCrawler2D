@@ -53,8 +53,7 @@ interface TerrainAtlasSlot { readonly row: number; readonly column: number; }
 /** Column zero is reserved for non-functional row labels in the debug atlas. */
 const TERRAIN_ATLAS_LAYOUT: Readonly<Record<TerrainTileRole, TerrainAtlasSlot>> = {
   floor: { row: 0, column: 1 },
-  // The compact authored atlas shares its dark column-3 art with goblin floors.
-  [BEDROCK_ROLE]: { row: 0, column: 3 },
+  [BEDROCK_ROLE]: { row: 0, column: 6 },
   "raised-floor": { row: 0, column: 2 },
   "south-face": { row: 1, column: 1 },
   "void-wall-face": { row: 4, column: 2 },

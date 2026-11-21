@@ -13,7 +13,7 @@ import {
 } from "./behavior/dinoBehaviorVisual.js";
 import type { PetVisual } from "../visuals/state.js";
 import type { PetEntityView, RenderContext } from "../visuals/view.js";
-import { depthForEntityNow, worldToScreen } from "../geometry/worldToScreen.js";
+import { depthForActorNow, worldToScreen } from "../geometry/worldToScreen.js";
 import { actorScreenAnchor } from "../presentation/actorScreenAnchor.js";
 
 /** The source sheets leave a transparent foot pad; this keeps visible feet
@@ -119,7 +119,7 @@ function updatePetLabels(visual: PetVisual, presentation: PetLabelPresentation):
 export function updatePetVisual(visual: PetVisual, view: PetEntityView, ctx: RenderContext): void {
   const groundHeight = ctx.world.groundAt(view.x, view.y);
   const heightAboveGround = airborneHeightAboveGround(view.z, groundHeight, view.air);
-  const depth = depthForEntityNow(view.x, view.y, heightAboveGround);
+  const depth = depthForActorNow(view.x, view.y, heightAboveGround);
   const presentation = { depth, groundHeight, heightAboveGround, context: ctx };
   updatePetBody(visual, view, presentation);
   updatePetShadow(visual, view, presentation);

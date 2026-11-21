@@ -85,13 +85,12 @@ describe("world generation", () => {
       }
     }
     expect(doors).toBe(1);
-    // The kiosk terrace's walkable top platform sits north of the door
-    // (KIOSK_HEIGHT, not a flat floor — VISUAL_DIRECTION.md's z+1 rule);
-    // ordinary pad ground continues south of it.
     expect(chunk.tiles[doorIndex]).toBe(TILE.Floor);
     expect(chunk.height[doorIndex]).toBe(KIOSK_HEIGHT);
     expect(chunk.featureFaces[doorIndex]).toBe(FEATURE_FACE.South);
-    expect(chunk.featureHeight[doorIndex]).toBe(1);
+    expect(chunk.featureHeight[doorIndex]).toBe(0);
+    expect(chunk.features[doorIndex - 1]).toBe(TILE.BuildingWall);
+    expect(chunk.features[doorIndex + 1]).toBe(TILE.BuildingWall);
     expect(chunk.tiles[doorIndex + CHUNK_SIZE]).toBe(TILE.Floor);
     expect(chunk.features[doorIndex + CHUNK_SIZE]).toBe(TILE.Stairs);
     expect(chunk.height[doorIndex + CHUNK_SIZE]).toBe(1);

@@ -11,7 +11,6 @@ import type { LightSource } from "./core/lightSource.js";
 import { LightSpritePool } from "./core/pool.js";
 import { clearSoftLightPool } from "./core/softLightPool.js";
 import { PlayerGroundLightPass } from "./ground/playerGroundLightPass.js";
-import { playerGroundLightEnabledForProfile } from "./ground/playerGroundLight.js";
 import {
   terrainDeviceProfileForScene,
   type TerrainDeviceProfile,
@@ -31,8 +30,7 @@ export class LightingSystem {
   private readonly pool: LightSpritePool;
   private readonly groundLight: PlayerGroundLightPass;
   private readonly toon: ToonVisibilityController;
-  private playerGroundLightEnabled = true;
-  private personalHaloEnabled = true;
+  private personalHaloEnabled = false;
   private readonly chunkLights: ChunkLightStream;
   private accentLights: readonly LightSource[] = [];
   private readonly candidateLights: LightSource[] = [];
@@ -50,21 +48,21 @@ export class LightingSystem {
     this.chunkLights = new ChunkLightStream(world, {
       loadMarginChunks: profile.lightLoadMarginChunks,
     });
-    this.setPlayerGroundLightEnabled(playerGroundLightEnabledForProfile(profile.kind));
+    this.setPlayerGroundLightEnabled(false);
   }
   /** Extra colored lights the caller owns (area VFX, showcase set-pieces) — replaces the whole set each call. */
   setAccentLights(lights: readonly LightSource[]): void {
     this.accentLights = lights;
   }
-  /** Performance fallback: disabling the bounded floor pass restores the personal halo. */
+  /** Player personal lighting is disabled; keep method for profile callers. */
   setPlayerGroundLightEnabled(enabled: boolean): void {
-    this.playerGroundLightEnabled = enabled;
-    this.syncPersonalLighting(false);
+    void enabled;
+    this.syncPersonalLighting();
   }
   /** Runs before interpolation so the same LOS field can cull remote presentation. */
   prepareToonVisibility(input: ToonLightingFrame): boolean {
     const active = this.toon.prepare(input);
-    this.syncPersonalLighting(active);
+    this.syncPersonalLighting();
     return active;
   }
   isToonVisible(x: number, y: number): boolean {
@@ -136,10 +134,9 @@ export class LightingSystem {
     this.personalLight.groundHeight = this.world.groundAt(personal.x, personal.y);
   }
 
-  private syncPersonalLighting(toonActive: boolean): void {
-    const groundEnabled = this.playerGroundLightEnabled && !toonActive;
-    this.groundLight.setEnabled(groundEnabled);
-    this.personalHaloEnabled = !groundEnabled && !toonActive;
+  private syncPersonalLighting(): void {
+    this.groundLight.setEnabled(false);
+    this.personalHaloEnabled = false;
   }
 
   dispose(): void {

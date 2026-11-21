@@ -22,7 +22,7 @@ describe("Terrain atlas contract", () => {
 
   it("assigns roles to their labeled feature rows", () => {
     expect(terrainFrameFor("floor", 0)).toBe(1);
-    expect(terrainFrameFor("bedrock", 0)).toBe(3);
+    expect(terrainFrameFor("bedrock", 0)).toBe(6);
     expect(terrainFrameFor("raised-floor", 0)).toBe(2);
     expect(terrainFrameFor("void", 0)).toBe(37);
     expect(terrainFrameFor("void-wall-face", 0)).toBe(38);

@@ -58,16 +58,35 @@ describe("height-derived terrain boundaries", () => {
 
   it("topology-only wall cells become flat infinite-height VOID", () => {
     const world = new World(SEED, FLOOR);
-    const chunk = world.getChunk(2, 2);
-    const index = chunk.terrain.findIndex((terrain) => terrain === TERRAIN.Void);
-    expect(index).toBeGreaterThanOrEqual(0);
-    if (index < 0) return;
-    const x = 2 * CHUNK_SIZE + (index % CHUNK_SIZE);
-    const y = 2 * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE);
-    expect(world.tileAt(x, y)).toBe(TILE.Void);
-    expect(world.heightAt(x, y)).toBe(0);
-    expect(world.isWalkable(x, y)).toBe(false);
+    const point = findVoidCell(world);
+    expect(world.tileAt(point.x, point.y)).toBe(TILE.Void);
+    expect(world.heightAt(point.x, point.y)).toBe(0);
+    expect(world.isWalkable(point.x, point.y)).toBe(false);
   });
+
+function findVoidCell(world: World): { x: number; y: number } {
+  const bounds = world.floorBounds;
+  if (!bounds) throw new Error("missing floor bounds");
+  for (let cy = bounds.minChunkY; cy <= bounds.maxChunkY; cy++) {
+    const found = findVoidInRow({ world, minCx: bounds.minChunkX, maxCx: bounds.maxChunkX, cy });
+    if (found) return found;
+  }
+  throw new Error("no Void cell found in finite floor");
+}
+
+function findVoidInRow(input: {
+  readonly world: World;
+  readonly minCx: number;
+  readonly maxCx: number;
+  readonly cy: number;
+}): { x: number; y: number } | null {
+  for (let cx = input.minCx; cx <= input.maxCx; cx++) {
+    const chunk = input.world.getChunk(cx, input.cy);
+    const index = chunk.terrain.findIndex((terrain) => terrain === TERRAIN.Void);
+    if (index >= 0) return { x: cx * CHUNK_SIZE + (index % CHUNK_SIZE), y: input.cy * CHUNK_SIZE + Math.floor(index / CHUNK_SIZE) };
+  }
+  return null;
+}
 
   it("runtime chunks do not retain z2 Floor plateau cells", () => {
     const world = new World(SEED, FLOOR);

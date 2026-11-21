@@ -11,9 +11,9 @@ brand-new items at runtime, validated like any other content.
 The game has its own server-authoritative architecture, visual direction, and
 engineering standards; the current codebase is the sole implementation.
 
-The current release is **v0.8.0** ([release notes](docs/releases/v0.8.0.md)).
-It makes combat clearer, gives companions more personality, adds a live-watch
-mode, and expands the tools used to operate and debug the dungeon.
+The current version is **v0.9.0**. It includes finite-floor world generation,
+multiplayer combat, companion pets, a live-watch spectator mode, and operational
+debugging tools.
 
 ## Austin's F-Bomb Counter
 
@@ -24,22 +24,20 @@ mode, and expands the tools used to operate and debug the dungeon.
 Estimated from the project conversation history and incremented whenever Austin
 uses “fuck” or a clear derivative.
 
-## Documents
+## Documentation
 
-| Doc | Purpose |
+Documentation lives next to the code it describes:
+
+| Location | Covers |
 | --- | --- |
-| [docs/ENGINEERING_STANDARDS.md](docs/ENGINEERING_STANDARDS.md) | **The constitution.** Hard limits, structure rules, definition of done |
-| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Developer-facing terrain, room, lighting, announcement, and content tuning |
-| [docs/VISUAL_DIRECTION.md](docs/VISUAL_DIRECTION.md) | **The beauty bar.** Palette, lighting, motion, UI language, acceptance criteria |
-| [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) | World & floor lifecycle, verticality, PvPvE rules, safe/stretch rooms, social systems |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Tech stack, package layout, networking model, simulation |
-| [docs/EFFECTS.md](docs/EFFECTS.md) | The generic effect model: primitives, statuses, areas, interactions |
-| [docs/AI_CRAFTING.md](docs/AI_CRAFTING.md) | AI crafting pipeline: prompt → proposal → validation → shared registry |
-| [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | AWS serverless architecture, Terraform layout, cost model |
-| [docs/RELEASING.md](docs/RELEASING.md) | Versioning, release notes, validation, tagging, publication, and verification |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Epics and release sequencing |
-| [docs/MANUAL_TEST_CHECKLIST.md](docs/MANUAL_TEST_CHECKLIST.md) | Risk-ordered browser and device checks for release candidates |
+| [packages/engine/src/README.md](packages/engine/src/README.md) | Core engine, physics, combat, effects, entities, networking schemas |
+| [packages/engine/src/world/README.md](packages/engine/src/world/README.md) | Finite-floor & underground-forest world generation, chunks, tile semantics |
+| [packages/client/src/README.md](packages/client/src/README.md) | Phaser client, terrain & prop rendering, input, UI, spectator/admin |
+| [packages/game-server/src/README.md](packages/game-server/src/README.md) | Authoritative simulation loop, floor lifecycle, persistence, WebSocket server |
+| [packages/content/src/README.md](packages/content/src/README.md) | Static JSON game definitions, schemas, live tuning, tile catalog |
+| [docs/LESSONS.md](docs/LESSONS.md) | Durable engineering pitfalls and repository constraints |
 | [assets/LICENSES.md](assets/LICENSES.md) | Source, license, and attribution records for committed art |
+| [infra/README.md](infra/README.md) | Terraform & production deployment setup |
 
 ## Getting started
 
@@ -58,8 +56,7 @@ npm run build      # production artifacts: client dist/ + server main.cjs
 Day-to-day work happens on `develop`. Push each commit to `origin/develop` so it
 can be reviewed or tested there. `main` is reserved for releases: prepare and
 validate a release on `develop`, merge it fast-forward into `main`, then push
-`main` and return to `develop`. See [docs/RELEASING.md](docs/RELEASING.md) for
-the release/tag/deployment sequence.
+`main` and return to `develop`.
 
 **The game is playable**: `npm run dev`, open <http://localhost:5173>, enter a name,
 walk into the dungeon. Multiplayer works out of the box — friends on your network
@@ -119,8 +116,7 @@ adopting a pet or holding to revive) · `Enter` chats. In development,
 `/god` toggles full heal, no damage/knockback, 4× outgoing damage, and unlimited
 stamina; `/tp x y` teleports. Touch devices get a floating joystick plus
 attack/jump/use buttons automatically. Inventory is available with `I` or `Tab`;
-on mobile, opening it does not focus the filter or summon the keyboard. See
-[docs/HUD_OS.md](docs/HUD_OS.md) for layout editing and persistence.
+on mobile, opening it does not focus the filter or summon the keyboard.
 
 The first nearby crawler to press `E` on an unclaimed pet adopts it; each crawler
 can have only one pet. Several pets are seeded around floor 1, with one about 20
@@ -150,7 +146,7 @@ values and otherwise use their defaults; `VOID_TERRAIN` rejects unrecognized val
 | `DEBUG_COMMANDS` | Enabled outside production unless exact value `0`; controls development commands such as `/god` and `/tp`. |
 | `NODE_ENV` | Unset locally; exact value `production` hard-disables debug commands regardless of `DEBUG_COMMANDS`. |
 | `CLUSTER_SPAWNS` | Off; exact value `1` uses deterministic grid-style diagnostic spawns. |
-| `ADMIN_TOKEN` | Unset locally; token for the separate admin portal. With no token, portal authentication is disabled. Production systemd loads it from the SSM-backed protected environment file described in [admin operations](docs/ADMIN-OPERATIONS.md). |
+| `ADMIN_TOKEN` | Unset locally; token for the separate admin portal. With no token, portal authentication is disabled. Production systemd loads it from the SSM-backed protected environment file. |
 | `TRUST_PROXY` | Off; exact value `1` trusts the rightmost proxy-appended viewer address. Enable only behind the configured CloudFront path. |
 | `OPERATIONAL_EVENT_TABLE` | Unset; DynamoDB table for sanitized connection/admin history. Unset uses a no-op event sink. |
 | `OPERATIONAL_EVENT_RETENTION_SECONDS` | 31536000 (365 days) when a table is configured; positive per-event TTL. Every new event receives a fresh expiration. |
