@@ -77,6 +77,7 @@ describe("Connection respawn state", () => {
 describe("Connection contextual action completion", () => {
   it("records attack and block presses so persistent combat help can dismiss", () => {
     const conn = freshConnection();
+    conn.worldReady = true;
     conn.attack(1, 0);
     conn.sampleInput({
       moveX: 0,

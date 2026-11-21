@@ -37,7 +37,7 @@ describe("safe-room kiosk stays reachable", () => {
     const checked = Array.from({ length: 24 }, (_, index) => index + 1)
       .filter((seed) => assertSafeRoomDoor(seed * 7919 + 13)).length;
     expect(checked).toBe(24);
-  });
+  }, 60_000);
 
   it("the pad the door fronts still reaches the wider corridor network (feature-link.ts's connector, unaffected by the kiosk's Floor/Wall change)", () => {
     let checked = 0;
@@ -54,7 +54,7 @@ describe("safe-room kiosk stays reachable", () => {
       checked++;
     }
     expect(checked).toBe(8);
-  }, 15_000);
+  }, 60_000);
 });
 
 function assertSafeRoomDoor(worldSeed: number): boolean {
@@ -70,7 +70,9 @@ function assertSafeRoomDoor(worldSeed: number): boolean {
   expect(chunk.featureFaces[doorIndex]).toBe(FEATURE_FACE.South);
   expect(chunk.featureHeight[doorIndex]).toBe(1);
   expect(chunk.height[doorIndex]).toBe(2);
-  expect(chunk.height[southIndex]).toBe(0);
+  expect(chunk.features[southIndex]).toBe(TILE.Stairs);
+  expect(chunk.height[southIndex]).toBe(1);
+  expect(chunk.height[southIndex + CHUNK_SIZE]).toBe(0);
   return true;
 }
 

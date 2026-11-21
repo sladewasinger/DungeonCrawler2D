@@ -19,10 +19,11 @@ export class TerrainPresentationState {
   private metrics = EMPTY_METRICS;
 
   setVisibility(visibility: WorldPresentationVisibility | null): boolean {
+    const nextRevision = visibility?.revision ?? null;
     if (this.visibility === visibility &&
-        this.visibilityRevision === visibility?.revision) return false;
+        this.visibilityRevision === nextRevision) return false;
     this.visibility = visibility;
-    this.visibilityRevision = visibility?.revision ?? null;
+    this.visibilityRevision = nextRevision;
     return true;
   }
 

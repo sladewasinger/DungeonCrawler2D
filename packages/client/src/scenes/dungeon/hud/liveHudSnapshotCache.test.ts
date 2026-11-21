@@ -106,7 +106,7 @@ describe("LiveHudSnapshotCache", () => {
       fps: 57,
       compassBearingDeg: 90,
       headingDeg: 135,
-      biome: expect.any(String),
+      biome: null,
       interactionPrompt: { key: "R", label: "pick up" },
       touch,
       throwAvailable: false,
@@ -114,7 +114,7 @@ describe("LiveHudSnapshotCache", () => {
     expect(second.coords.x).not.toBe(5);
   });
 
-  it("rebuilds once the fixed prediction clock advances", () => {
+  it("keeps the fixed snapshot while prediction only updates transient state", () => {
     const conn = connection();
     const input = inputState();
     const cache = new LiveHudSnapshotCache();
@@ -133,8 +133,8 @@ describe("LiveHudSnapshotCache", () => {
     conn.prediction.predict({ world, body, input: neutral, resources: conn, canBlock: false });
     const next = cache.build(cacheInput({ conn, input: input.input, chat: controller }));
 
-    expect(next).not.toBe(first);
-    expect(cache.build(cacheInput({ conn, input: input.input, chat: controller }))).toBe(next);
+    expect(next).toBe(first);
+    expect(cache.build(cacheInput({ conn, input: input.input, chat: controller }))).toBe(first);
   });
 
   it("invalidates when 2D combat help is completed", () => {

@@ -5,7 +5,12 @@ import { resolveInteractionPrompt, type PromptWorld } from "./interactionPrompt.
 /** worldSeed 1 / floor 1's StairwayDown lands at (93, 53) — far from every tile-based
  * test's probe coordinates below, so none of them accidentally cross into its range. */
 function worldWithTileAt(tx: number, ty: number, tile: TileType): PromptWorld {
-  return { worldSeed: 1, floor: 1, tileAt: (wx, wy) => (wx === tx && wy === ty ? tile : TILE.Floor) };
+  return {
+    worldSeed: 1,
+    floor: 1,
+    downStairwayPositions: () => [stairwayDownPosition({ worldSeed: 1, floor: 1 })!],
+    tileAt: (wx, wy) => (wx === tx && wy === ty ? tile : TILE.Floor),
+  };
 }
 
 describe("resolveInteractionPrompt", () => {

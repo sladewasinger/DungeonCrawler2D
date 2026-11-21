@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { drawMinimapLandmark } from "./minimapCanvasPrimitives.js";
 import { MinimapCanvasRenderer } from "./minimapCanvasRenderer.js";
 import type {
@@ -7,6 +7,34 @@ import type {
 } from "./minimapTypes.js";
 
 describe("minimap marker rendering", () => {
+  it("draws terrain beneath entity markers instead of replacing the terrain layer", () => {
+    const terrainContext = new FakeMinimapContext();
+    vi.stubGlobal("document", {
+      createElement: () => ({ getContext: () => terrainContext }),
+    });
+    try {
+      const context = new FakeMinimapContext();
+      new MinimapCanvasRenderer().render({
+        canvas: fakeCanvas(),
+        context: context as unknown as CanvasRenderingContext2D,
+        bearingDeg: 0,
+        snapshot: {
+          ...emptySnapshot(),
+          terrain: [{ x: 0, y: 0, height: 2, walkable: true }],
+          entities: [{ kind: "enemy", x: 0, y: 0 }],
+        },
+      });
+
+      expect(terrainContext.fillRectCount).toBe(1);
+      expect(context.drawImageCount).toBe(1);
+      expect(context.operations.lastIndexOf("fill")).toBeGreaterThan(
+        context.operations.indexOf("drawImage"),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("uses the landmark legend colors and projects an off-map safe room to the edge", () => {
     const safeRoom = drawLandmark("safeRoom", 0, -20);
     const miniBossArena = drawLandmark("miniBossArena", 0, -2);
@@ -75,7 +103,9 @@ function fakeCanvas(): HTMLCanvasElement {
 class FakeMinimapContext {
   readonly arcs: number[] = [];
   readonly translations: Array<{ x: number; y: number }> = [];
+  readonly operations: string[] = [];
   fillRectCount = 0;
+  drawImageCount = 0;
   fillStyle = "";
   strokeStyle = "";
   lineWidth = 1;
@@ -86,13 +116,13 @@ class FakeMinimapContext {
   save(): void {}
   restore(): void {}
   beginPath(): void {}
-  fill(): void {}
+  fill(): void { this.operations.push("fill"); }
   stroke(): void {}
   clip(): void {}
   moveTo(): void {}
   lineTo(): void {}
   rotate(): void {}
-  drawImage(): void {}
+  drawImage(): void { this.drawImageCount += 1; this.operations.push("drawImage"); }
 
   translate(x: number, y: number): void {
     this.translations.push({ x, y });

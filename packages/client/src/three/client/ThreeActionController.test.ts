@@ -1,7 +1,10 @@
 /* eslint-disable max-lines -- interaction gesture scenarios share one fixture. */
-import { World, stairwayDownPosition } from "@dc2d/engine";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Connection } from "../../net/connection/connection.js";
+import {
+  finiteTerrainWorldFixture,
+  staticTileWorldFixture,
+} from "../../testing/terrainWorldFixture.js";
 import { ThreeActionController } from "./ThreeActionController.js";
 import type { ThreeInputSample } from "../input/ThreeInput.js";
 
@@ -56,7 +59,7 @@ describe("ThreeActionController interaction gesture", () => {
 
   it("fires an ordinary use press immediately", () => {
     const conn = connection();
-    new ThreeActionController(conn).publish(new World(1, 1), sample({
+    new ThreeActionController(conn).publish(staticTileWorldFixture(), sample({
       interactPressed: true,
       interactHeld: true,
     }));
@@ -67,7 +70,7 @@ describe("ThreeActionController interaction gesture", () => {
     const now = vi.spyOn(performance, "now");
     const conn = connection(true);
     const controller = new ThreeActionController(conn);
-    const world = new World(1, 1);
+    const world = staticTileWorldFixture();
 
     now.mockReturnValue(0);
     controller.publish(world, sample({ interactPressed: true, interactHeld: true }));
@@ -80,16 +83,14 @@ describe("ThreeActionController interaction gesture", () => {
   });
 
   it("keeps stair descent ahead of a nearby revive target", () => {
-    const world = new World(228182761, 1);
-    const stairs = stairwayDownPosition(world);
-    expect(stairs).not.toBeNull();
+    const { world, downStairway } = finiteTerrainWorldFixture();
     const conn = connection(true);
-    if (!stairs || !conn.party || !conn.party.members[0]) {
+    if (!conn.party || !conn.party.members[0]) {
       throw new Error("stair and party fixtures are required");
     }
-    conn.body = { x: stairs.x, y: stairs.y } as Connection["body"];
-    conn.party.members[0].x = stairs.x;
-    conn.party.members[0].y = stairs.y;
+    conn.body = { x: downStairway.x, y: downStairway.y } as Connection["body"];
+    conn.party.members[0].x = downStairway.x;
+    conn.party.members[0].y = downStairway.y;
     conn.descend = vi.fn();
 
     new ThreeActionController(conn).publish(world, sample({
@@ -106,7 +107,7 @@ describe("ThreeActionController interaction gesture", () => {
     const conn = connection();
     Object.defineProperty(conn, "dead", { value: true });
     const controller = new ThreeActionController(conn);
-    const world = new World(1, 1);
+    const world = staticTileWorldFixture();
 
     now.mockReturnValue(0);
     controller.publish(world, sample({ interactPressed: true, interactHeld: true }));
@@ -139,13 +140,13 @@ describe("ThreeActionController interaction gesture", () => {
     });
     const input = sample({ interactPressed: true, interactHeld: true });
 
-    controller.publish(new World(1, 1), input);
+    controller.publish(staticTileWorldFixture(), input);
     expect(conn.lootChestOp).toHaveBeenCalledWith("loot", "open");
     expect(conn.interact).not.toHaveBeenCalled();
     expect(toggleStash).not.toHaveBeenCalled();
 
     conn.welcome = { playerId: "killer" } as Connection["welcome"];
-    controller.publish(new World(1, 1), input);
+    controller.publish(staticTileWorldFixture(), input);
     expect(toggleStash).toHaveBeenCalledOnce();
   });
 
@@ -164,7 +165,7 @@ describe("ThreeActionController interaction gesture", () => {
     const controller = new ThreeActionController(conn);
     controller.selectHotbar(0);
 
-    controller.publish(new World(1, 1), sample({ bandageOther: true }));
+    controller.publish(staticTileWorldFixture(), sample({ bandageOther: true }));
 
     expect(conn.useSlotOnPlayer).toHaveBeenCalledWith(0, "near");
   });

@@ -48,7 +48,7 @@ function sees(snapshot: ServerSnapshot, entityId: string): boolean {
 
 describe("personal room isolation", () => {
   it("routes distinct owners to separate rooms and private entity state", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const a = sim.addPlayer({ name: "A", clientId: "private-owner-a" });
     const b = sim.addPlayer({ name: "B", clientId: "private-owner-b" });
     const entrance = findSafeRoomDoor(sim);
@@ -91,7 +91,7 @@ describe("personal room isolation", () => {
   });
 
   it("reclaims one authoritative entity for duplicate owner sessions", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const first = sim.addPlayer({ name: "A", clientId: "same-private-owner" });
     const replacement = sim.addPlayer({ name: "A", clientId: "same-private-owner" });
 
@@ -104,7 +104,7 @@ describe("personal room isolation", () => {
   });
 
   it("keeps safe hubs and party destinations shared", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const { aId, bId } = makeParty(sim);
     const entrance = findSafeRoomDoor(sim);
     const safeSpawn = safeRoomSpawn(entrance.doorCx, entrance.doorCy);

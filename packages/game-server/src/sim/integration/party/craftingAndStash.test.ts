@@ -46,7 +46,7 @@ describe("GameSim: crafting and stash", () => {
 });
 
 function createPersistentSim(store: PlayerStore, seed: number): GameSim {
-  return new GameSim({ world: new World(SEED, 1, LEVEL.Sandbox), content: content, store: store, rngSeed: seed, opts: {} });
+  return new GameSim({ world: new World(SEED, 0, LEVEL.Sandbox), content: content, store: store, rngSeed: seed, opts: {} });
 }
 
 function stashSlots(sim: GameSim, playerId: string): unknown[] {

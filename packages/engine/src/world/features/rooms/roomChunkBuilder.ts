@@ -36,7 +36,7 @@ interface FixtureContext extends RoomRect {
 export function generateRoomChunk(cx: number, cy: number): Chunk {
   const grid = createRoomGrid();
   const slot = roomSlotAt(cx, cy);
-  if (slot) stampRoom(grid, slot);
+  if (slot) stampRoom({ grid, slot });
   populateFeatures(grid);
   return { cx, cy, ...grid };
 }
@@ -57,12 +57,12 @@ function createRoomGrid(): RoomGrid {
   };
 }
 
-function stampRoom(grid: RoomGrid, slot: RoomSlot): void {
-  const rect = centeredRoomRect(slot);
-  const set = roomTileSetter(grid);
+function stampRoom(input: { readonly grid: RoomGrid; readonly slot: RoomSlot }): void {
+  const rect = centeredRoomRect(input.slot);
+  const set = roomTileSetter(input.grid);
   stampBackWall(set, rect);
   carveInterior(set, rect);
-  placeFixtures({ grid, set, kind: slot.kind, ...rect });
+  placeFixtures({ grid: input.grid, set, kind: input.slot.kind, ...rect });
 }
 
 function centeredRoomRect(slot: RoomSlot): RoomRect {

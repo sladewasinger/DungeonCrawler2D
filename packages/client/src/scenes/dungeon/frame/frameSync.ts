@@ -17,6 +17,7 @@ import { syncTorches, type TorchSyncState } from "../entities/torches/sync.js";
 import { presentationEntityFilter } from "./entityPresentationFilter.js";
 import { syncLightingAndVfx } from "./frameLightingSync.js";
 import type { DungeonPresentationInput } from "./presentationInput.js";
+import { measureRuntimeWork } from "../../../performance/runtimeWorkMetrics.js";
 
 export interface EntitySyncResult {
   interactionPrompt: InteractionPrompt | null;
@@ -128,7 +129,9 @@ function syncFrameTorches(request: TorchFrameSyncRequest): LightSource[] {
 }
 
 export function syncFrame(context: FrameSyncContext): EntitySyncResult {
-  const synced = syncEntities(context);
-  syncLightingAndVfx(context, synced.torchAccentLights);
-  return synced;
+  return measureRuntimeWork("frame.sync", () => {
+    const synced = syncEntities(context);
+    syncLightingAndVfx(context, synced.torchAccentLights);
+    return synced;
+  });
 }

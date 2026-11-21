@@ -30,6 +30,12 @@ export interface RingSelection {
   radius: number;
 }
 
+export interface RingChunkSelection {
+  world: Pick<WorldChunk, "worldSeed" | "floor">;
+  selection: RingSelection;
+  isReserved: (chunk: ChunkCoord) => boolean;
+}
+
 export interface AnchorPlacement {
   salt: number;
   clearance: number;
@@ -62,12 +68,21 @@ function isReserved(chunk: WorldChunk): boolean {
  * different ring, full stop, before any hashing even happens.
  */
 export function pickRingChunk(world: Pick<WorldChunk, "worldSeed" | "floor">, selection: RingSelection): ChunkCoord {
+  return pickRingChunkFrom({
+    world,
+    selection,
+    isReserved: (chunk) => isReserved({ ...world, ...chunk }),
+  });
+}
+
+export function pickRingChunkFrom(input: RingChunkSelection): ChunkCoord {
+  const { world, selection } = input;
   const seed = mixSeeds(placementSeed(world.worldSeed, world.floor), selection.salt);
   const perimeter = ringPerimeter(selection.radius);
   const start = hash2D(seed, 1, 0) % perimeter.length;
   for (let step = 0; step < perimeter.length; step++) {
     const candidate = perimeter[(start + step) % perimeter.length];
-    if (candidate && !isReserved({ ...world, ...candidate })) return candidate;
+    if (candidate && !input.isReserved(candidate)) return candidate;
   }
   // Every ring cell reserved — astronomically unlikely (would need a safe
   // room or stairway ramp on EVERY chunk of the ring); fall back to the

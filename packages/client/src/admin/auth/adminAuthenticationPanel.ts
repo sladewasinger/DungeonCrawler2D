@@ -1,4 +1,4 @@
-import { button, controlFieldset, text } from "../adminPagePrimitives.js";
+import { button, controlFieldset, text } from "../portal/adminPagePrimitives.js";
 
 export interface AdminAuthenticationPanel {
   readonly root: HTMLFieldSetElement;

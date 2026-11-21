@@ -1,5 +1,5 @@
 import type { Connection } from "../../net/connection/connection.js";
-import type { AdminPageView } from "../adminPageView.js";
+import type { AdminPageView } from "../portal/adminPageView.js";
 import type { AdminSpawnPlacementController } from "../adminSpawnPlacementController.js";
 import type { AdminPlayerObserverController } from "../spectator/adminPlayerObserverController.js";
 import {

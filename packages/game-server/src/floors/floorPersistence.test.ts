@@ -2,38 +2,21 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  areasData,
-  areaReactionsData,
-  enemiesData,
-  itemsData,
-  recipesData,
-  rulesData,
-  statusesData,
-} from "@dc2d/content";
-import {
   LEVEL,
-  buildContentRegistry,
-  hashString,
-  stairwayDownPosition,
-  type ContentRegistry,
   type Entity,
+  type World,
 } from "@dc2d/engine";
 import { afterEach, describe, expect, it } from "vitest";
 import { FloorRegistry } from "./floorRegistry.js";
 import { DOWNED_DURATION_TICKS } from "../sim/combat/deathTestSupport.js";
 import { PlayerStore } from "../store.js";
+import {
+  createFloorRegistryFixture,
+  disposeFloorRegistryFixture,
+} from "./floorRegistryTestSupport.js";
 
-const content: ContentRegistry = buildContentRegistry({
-  statuses: [...statusesData],
-  rules: [...rulesData],
-  areas: [...areasData],
-  areaReactions: [...areaReactionsData],
-  items: [...itemsData],
-  enemies: [...enemiesData],
-  recipes: [...recipesData],
-});
-const SEED = hashString("floor-persistence-test-world");
 const files: string[] = [];
+const registries = new Set<FloorRegistry>();
 
 function tempFile(): string {
   const file = join(tmpdir(), `dc2d-floor-persistence-${Date.now()}-${Math.random()}.json`);
@@ -41,54 +24,78 @@ function tempFile(): string {
   return file;
 }
 
-function registry(store: PlayerStore): FloorRegistry {
-  return new FloorRegistry({ worldSeed: SEED, content, store, rngSeedBase: 1, opts: {} });
+function registry(store: PlayerStore, floors: readonly number[]): FloorRegistry {
+  const created = createFloorRegistryFixture({ store, floors });
+  registries.add(created);
+  return created;
 }
 
-function place(entity: Entity, x: number, y: number): void {
-  entity.body.x = x;
-  entity.body.y = y;
+function place(
+  entity: Entity,
+  position: { readonly x: number; readonly y: number },
+  world: Pick<World, "groundAt">,
+): void {
+  entity.body.x = position.x;
+  entity.body.y = position.y;
+  entity.body.z = world.groundAt(position.x, position.y);
+  entity.body.fallStart = entity.body.z;
   entity.body.grounded = true;
 }
 
-function descend(floors: FloorRegistry, token: string, playerId: string): void {
+async function descend(floors: FloorRegistry, token: string, playerId: string): Promise<void> {
   const source = floors.findByToken(token)!;
-  const stairs = stairwayDownPosition(source.world)!;
-  place(source.getPlayerEntity(playerId)!, stairs.x, stairs.y);
+  const stairs = source.world.downStairwayPositions()[0]!;
+  place(source.getPlayerEntity(playerId)!, stairs, source.world);
   source.queueAction(playerId, { type: "descend" });
-  floors.stepAll();
+  const acknowledgement = floors.stepAll();
+  expect(acknowledgement.moved).toHaveLength(0);
+  await floors.waitForPendingFloorPreparations();
+  const moved = floors.stepAll().moved;
+  expect(moved.some((entry) => entry.playerId === playerId)).toBe(true);
 }
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.all([...registries].map(disposeFloorRegistryFixture));
+  registries.clear();
   for (const file of files.splice(0)) rmSync(file, { force: true });
 });
 
+async function disposeRegistry(registry: FloorRegistry): Promise<void> {
+  registries.delete(registry);
+  await disposeFloorRegistryFixture(registry);
+}
+
 describe("durable descent lifecycle", () => {
-  it("restores the active floor after process restart and resumes there in memory", () => {
+  it("restores the active floor after process restart and resumes there in memory", { timeout: 30_000 }, async () => {
     const file = tempFile();
     const firstStore = new PlayerStore(file);
-    const firstFloors = registry(firstStore);
+    const firstFloors = registry(firstStore, [1, 2, 3]);
     const joined = firstFloors.base.addPlayer({ name: "A", clientId: "client-a" });
-    descend(firstFloors, joined.resumeToken, joined.playerId);
-    descend(firstFloors, joined.resumeToken, joined.playerId);
+    await descend(firstFloors, joined.resumeToken, joined.playerId);
+    await descend(firstFloors, joined.resumeToken, joined.playerId);
     firstStore.flush();
+    await disposeRegistry(firstFloors);
 
     const secondStore = new PlayerStore(file);
-    const secondFloors = registry(secondStore);
-    const restoredFloor = secondFloors.joinSim("client-a");
-    expect(restoredFloor.world.floor).toBe(3);
-    const restored = restoredFloor.addPlayer({ name: "A", clientId: "client-a" });
-    restoredFloor.markDisconnected(restored.playerId);
-    expect(restoredFloor.addPlayer({ name: "A", clientId: "client-a", resumeToken: restored.resumeToken })).toMatchObject({
-      resumed: true,
-      floor: 3,
-    });
+    const secondFloors = registry(secondStore, [1, 3]);
+    const restoredFloor = await secondFloors.prepareJoinSim("client-a");
+    try {
+      expect(restoredFloor.world.floor).toBe(3);
+      const restored = restoredFloor.addPlayer({ name: "A", clientId: "client-a" });
+      restoredFloor.markDisconnected(restored.playerId);
+      expect(restoredFloor.addPlayer({ name: "A", clientId: "client-a", resumeToken: restored.resumeToken })).toMatchObject({
+        resumed: true,
+        floor: 3,
+      });
+    } finally {
+      await disposeRegistry(secondFloors);
+    }
   });
 
-  it("records floor 1 as soon as hard death begins, surviving a restart during the delay", () => {
+  it("records floor 1 as soon as hard death begins, surviving a restart during the delay", { timeout: 15_000 }, () => {
     const file = tempFile();
     const firstStore = new PlayerStore(file);
-    const firstFloors = registry(firstStore);
+    const firstFloors = registry(firstStore, [1, 3]);
     const floor3 = firstFloors.ensureFloor(3);
     const joined = floor3.addPlayer({ name: "A", clientId: "client-a" });
     floor3.getPlayerEntity(joined.playerId)!.hp = 0;
@@ -99,7 +106,7 @@ describe("durable descent lifecycle", () => {
 
     const secondStore = new PlayerStore(file);
     expect(secondStore.find("client-a")?.activeFloor).toBe(1);
-    expect(registry(secondStore).joinSim("client-a").world.floor).toBe(1);
+    expect(registry(secondStore, [1]).joinSim("client-a").world.floor).toBe(1);
   });
 
   it("persists terminal completion once and keeps it through death/restart", () => {
@@ -119,20 +126,20 @@ describe("durable descent lifecycle", () => {
     });
   });
 
-  it("dissolves a party when one member descends so no party spans floor sims", () => {
-    const floors = registry(new PlayerStore(null));
+  it("dissolves a party when one member descends so no party spans floor sims", async () => {
+    const floors = registry(new PlayerStore(null), [1, 2]);
     const a = floors.base.addPlayer({ name: "A", clientId: "client-a" });
     const b = floors.base.addPlayer({ name: "B", clientId: "client-b" });
     const aEntity = floors.base.getPlayerEntity(a.playerId)!;
     const bEntity = floors.base.getPlayerEntity(b.playerId)!;
-    place(aEntity, 10, 10);
-    place(bEntity, 11, 10);
+    place(aEntity, a.spawn, floors.base.world);
+    place(bEntity, a.spawn, floors.base.world);
     floors.base.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
     floors.stepAll();
     floors.base.queueAction(b.playerId, { type: "party", op: "accept" });
     expect(floors.stepAll().snapshots.get(a.playerId)?.party).not.toBeNull();
 
-    descend(floors, a.resumeToken, a.playerId);
+    await descend(floors, a.resumeToken, a.playerId);
     const snapshots = floors.stepAll().snapshots;
     expect(snapshots.get(a.playerId)?.self.floor).toBe(2);
     expect(snapshots.get(a.playerId)?.party).toBeNull();
@@ -140,7 +147,7 @@ describe("durable descent lifecycle", () => {
   });
 
   it("does not allow a new client to select a deeper floor", () => {
-    const floors = registry(new PlayerStore(null));
+    const floors = registry(new PlayerStore(null), [1]);
     expect(floors.joinSim("unknown-client").world.level).toBe(LEVEL.Dungeon);
     expect(floors.joinSim("unknown-client").world.floor).toBe(1);
   });

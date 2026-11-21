@@ -28,6 +28,26 @@ describe("atlasDraws", () => {
     expect(draw?.role).toBe("floor");
     expect(draw?.frame).toBe(FLOOR_FRAME);
   });
+  it("uses a non-floor atlas role for bedrock caps before territory selection", () => {
+    const draw = atlasDraws({ ...batches, voids: [], southFaces: [], floors: [{ ...batches.floors[0]!, surface: "bedrock" }] }, {
+      projection, biomeAt: () => BIOME.Maze, territoryAt: () => 1, debug: false,
+    })[0];
+    expect(draw?.role).toBe("bedrock");
+    expect(draw?.frame).toBe("terrain:shared-atlas:0:bedrock");
+  });
+  it("selects visible shared-atlas floor roles from finite territories", () => {
+    const draws = atlasDraws(batches, {
+      projection,
+      biomeAt: () => BIOME.Maze,
+      territoryAt: ({ x }) => x,
+      debug: false,
+    }).filter(({ phase, role }) => phase === 1 && role !== "void");
+
+    expect(draws.slice(0, 2).map(({ role, frame }) => ({ role, frame }))).toEqual([
+      { role: "territory-goblin-floor", frame: "terrain:shared-atlas:0:territory-goblin-floor" },
+      { role: "territory-spider-floor", frame: "terrain:shared-atlas:0:territory-spider-floor" },
+    ]);
+  });
   it("groups by biome material and switches every draw to the debug atlas on request", () => {
     const biomeDraws = atlasDraws(batches, {
       projection,
@@ -60,6 +80,16 @@ describe("atlasDraws", () => {
       0, 0, 0.11197916666666667, 0.19843750000000004, 10, 0, 0.22135416666666666, 0.19843750000000004,
       10, 10, 0.22135416666666666, 0.0015625000000000222, 0, 10, 0.11197916666666667, 0.0015625000000000222,
     ]);
+  });
+  it("keeps equal-depth painter phases in separate submissions", () => {
+    const draws = atlasDraws(batches, { projection, biomeAt: () => BIOME.Maze, debug: false });
+    const mixedPhaseDraws = draws.map((draw) => ({ ...draw, depth: 10 }));
+    const meshes = terrainMeshBatches(mixedPhaseDraws, () => atlasImage);
+
+    expect(meshes).toHaveLength(3);
+    expect(meshes.map((mesh) => mesh.phase)).toEqual([0, 1, 2]);
+    expect(meshes.reduce((count, mesh) => count + mesh.vertices.length, 0))
+      .toBe(mixedPhaseDraws.length * 16);
   });
   it("keeps cliff geometry out of atlas texture draws", () => {
     const draws = atlasDraws({

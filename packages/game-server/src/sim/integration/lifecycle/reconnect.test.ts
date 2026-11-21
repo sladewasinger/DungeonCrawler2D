@@ -1,17 +1,25 @@
 /** Verifies disconnected players remain inert, visible, and safely resumable during grace. */
 import {
   AOI_RADIUS,
+  LEVEL,
   TICK_RATE,
   featureApproachPosition,
   personalRoomFeatures,
   safeRoomFeatures,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { findSafeRoomDoor, input, makeSim, stepN, teleport } from "../support.js";
+import {
+  findFlatArena,
+  findSafeRoomDoor,
+  input,
+  makeSim,
+  stepN,
+  teleport,
+} from "../support.js";
 
 describe("GameSim reconnect grace", () => {
   it("accepts fresh input after a resume and sends a complete area snapshot", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     sim.handleInput(player.playerId, input({ seq: 500, moveX: 1, moveY: 0 }));
     sim.step();
@@ -23,11 +31,13 @@ describe("GameSim reconnect grace", () => {
   });
 
   it("keeps a disconnected player visible, inert, and resumable during grace", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { level: LEVEL.CombatSandbox });
     const observer = sim.addPlayer({ name: "Observer", clientId: "client-observer" });
     const leaving = sim.addPlayer({ name: "Leaving", clientId: "client-leaving" });
+    const arena = findFlatArena({ sim, anchor: { x: 28, y: 28 }, clearance: 4 });
+    teleport({ entity: sim.getPlayerEntity(observer.playerId)!, ...arena, sim });
     const entity = sim.getPlayerEntity(leaving.playerId)!;
-    teleport({ entity: entity, x: observer.spawn.x + 3, y: observer.spawn.y, sim: sim });
+    teleport({ entity, x: arena.x + 3, y: arena.y, sim });
     sim.getInventory(leaving.playerId)!.push({ item: "knife", qty: 1 });
     sim.getHotbar(leaving.playerId)![2] = "bandage";
     sim.queueAction(leaving.playerId, { type: "equip", item: "knife" });
@@ -63,7 +73,7 @@ describe("GameSim reconnect grace", () => {
   });
 
   it("replays a pending party invite after the invited player reconnects", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const inviter = sim.addPlayer({ name: "Inviter", clientId: "client-inviter" });
     const invited = sim.addPlayer({ name: "Invited", clientId: "client-invited" });
     teleport({ entity: sim.getPlayerEntity(invited.playerId)!, x: inviter.spawn.x + 2, y: inviter.spawn.y, sim: sim });
@@ -75,7 +85,7 @@ describe("GameSim reconnect grace", () => {
   });
 
   it("resumes a player just before the fixed four-minute grace boundary", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const player = sim.addPlayer({ name: "Boundary", clientId: "boundary-client" });
     sim.markDisconnected(player.playerId);
     stepN(sim, TICK_RATE * 239);
@@ -86,7 +96,7 @@ describe("GameSim reconnect grace", () => {
   });
 
   it("resumes the same safe-room return stack and rejects stolen resume tokens", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     const door = findSafeRoomDoor(sim);
@@ -118,7 +128,7 @@ describe("GameSim reconnect grace", () => {
   });
 
   it("reaps disconnected players without dropping their inventory after the grace boundary", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true });
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     sim.getInventory(player.playerId)![0] = { item: "knife", qty: 1 };
     sim.markDisconnected(player.playerId);

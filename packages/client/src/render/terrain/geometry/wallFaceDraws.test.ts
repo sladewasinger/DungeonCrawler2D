@@ -35,9 +35,9 @@ describe("wall face draws", () => {
       ...batches,
       southFaces: [{
         ...face,
-        topHeight: 2,
+        topHeight: 3,
         bottomHeight: 0,
-        wallFeature: { feature: "door", topHeight: 1 },
+        wallFeature: { feature: "door", topHeight: 2 },
       }],
     }, {
       projection,
@@ -45,7 +45,7 @@ describe("wall face draws", () => {
       debug: true,
     });
 
-    expect(draws.map((draw) => draw.role)).toEqual(["door", SOUTH_FACE]);
+    expect(draws.map((draw) => draw.role)).toEqual(["door", SOUTH_FACE, SOUTH_FACE]);
   });
 });
 

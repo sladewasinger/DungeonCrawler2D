@@ -1,5 +1,7 @@
 import {
   ADMIN_MAP_MAX_RADIUS,
+  BIOME,
+  TILE,
   TERRAIN,
   type AdminMap,
   type AdminMapEntity,
@@ -80,14 +82,25 @@ function mapCells(sim: SimState, center: { x: number; y: number }, radius: numbe
   for (let y = originY - radius; y <= originY + radius; y++) {
     for (let x = originX - radius; x <= originX + radius; x++) {
       cells.push({
-        x,
-        y,
-        height: sim.world.heightAt(x, y),
-        walkable: sim.world.isWalkable(x + 0.5, y + 0.5),
-        terrain: sim.world.terrainAt(x, y) === TERRAIN.Void ? "void" : "floor",
-        feature: sim.world.featureAt(x, y),
+        ...mapCell(sim, x, y),
       });
     }
   }
   return cells;
+}
+
+function mapCell(sim: SimState, x: number, y: number): AdminMap["cells"][number] {
+  return {
+    x,
+    y,
+    height: sim.world.heightAt(x, y),
+    walkable: sim.world.isWalkable(x + 0.5, y + 0.5),
+    terrain: sim.world.terrainAt(x, y) === TERRAIN.Void ? "void" : "floor",
+    feature: sim.world.featureAt(x, y),
+    surface: sim.world.surfaceTileAt(x, y) === TILE.Bedrock ? "bedrock" : "floor",
+    biome: sim.world.biomeAtWorldTile(x, y)?.biome ?? BIOME.Maze,
+    territory: sim.world.territoryAtWorldTile(x, y),
+    featureFace: sim.world.featureFaceAt(x, y),
+    featureHeight: sim.world.featureHeightAt(x, y),
+  };
 }

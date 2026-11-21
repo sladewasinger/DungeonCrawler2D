@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, LEVEL, TILE, World, buildContentRegistry, createBody, hashString, makeEntity, newEntityId, roomKindAt, type RawContent } from "@dc2d/engine";
+import { CHUNK_SIZE, TILE, buildContentRegistry, createBody, makeEntity, newEntityId, roomKindAt, type RawContent } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { addPlayer } from "../players/join.js";
@@ -6,6 +6,7 @@ import { reapAndRespawn } from "../players/players.js";
 import { RADIUS_SPAWN_MIN_SPACING, findSpawn, resolveSpawnAnchor } from "./spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
+import { finiteServerWorldFixture } from "../testing/finiteWorldTestSupport.js";
 
 /**
  * Unit tests for spawn.ts's `spawnRadiusTiles` friend-playtest mode: split
@@ -66,8 +67,8 @@ function makeSlotAt(x: number, y: number): PlayerSlot {
   };
 }
 
-function makeRadiusSim(radiusTiles: number, seedText = "spawn-radius-test", rngSeed = 42): SimState {
-  const world = new World(hashString(seedText), 1, LEVEL.Dungeon);
+function makeRadiusSim(radiusTiles: number, rngSeed = 42): SimState {
+  const world = finiteServerWorldFixture();
   const content = buildContentRegistry(EMPTY_CONTENT);
   return createSimState({ world, content, store: new PlayerStore(null), rngSeed, opts: { spawnRadiusTiles: radiusTiles } });
 }
@@ -149,9 +150,9 @@ describe("findSpawn with spawnRadiusTiles", () => {
 describe("resolveSpawnAnchor", () => {
   it("is identical for the same worldSeed+floor regardless of rngSeed, join order, or player count", () => {
     // spawnRadiusTiles itself is irrelevant here — the anchor never reads it.
-    const simA = makeRadiusSim(50, "spawn-radius-anchor-test", 1);
+    const simA = makeRadiusSim(50, 1);
 
-    const simB = makeRadiusSim(50, "spawn-radius-anchor-test", 999);
+    const simB = makeRadiusSim(50, 999);
     simB.rng.next();
     simB.rng.next();
     simB.players.set("noise", makeSlotAt(5, 5));

@@ -1,5 +1,5 @@
 import type { AdminMap } from "@dc2d/engine";
-import { ADMIN_MAP_DEFAULT_TILE_SIZE } from "./camera/adminMapZoom.js";
+import { ADMIN_MAP_DEFAULT_TILE_SIZE } from "./camera/zoom/adminMapZoom.js";
 
 export const ADMIN_MAP_TILE_SIZE = ADMIN_MAP_DEFAULT_TILE_SIZE;
 

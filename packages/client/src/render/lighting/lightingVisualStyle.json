@@ -1,6 +1,7 @@
 {
   "streaming": {
     "loadMarginChunks": 1,
+    "maximumChunkScansPerUpdate": 2,
     "maximumActiveLights": 24,
     "maximumSpareLights": 24,
     "overlayDepthMarginTiles": 4
@@ -38,6 +39,7 @@
     "color": "#ffe9c9",
     "alpha": 0.2,
     "radiusTiles": 12,
+    "maxPresentationCells": 96,
     "maximumStepHeight": 0.5,
     "updateIntervalMs": 100,
     "fadeMs": 180,

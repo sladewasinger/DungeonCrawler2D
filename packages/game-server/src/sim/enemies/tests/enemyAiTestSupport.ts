@@ -8,17 +8,21 @@ import {
   statusesData,
 } from "@dc2d/content";
 import {
+  COMBAT_SANDBOX_LAYOUT,
   LEVEL,
-  World,
+  TILE,
   buildContentRegistry,
   createBody,
-  hashString,
   makeEntity,
   type Entity,
 } from "@dc2d/engine";
 import { PlayerStore } from "../../../store.js";
 import { createSimState, type PlayerSlot, type SimState } from "../../state/state.js";
 import { adminTestPlayerState } from "../../testing/adminTestPlayerState.js";
+import {
+  authoredServerWorldFixture,
+  finiteServerWorldFixture,
+} from "../../testing/finiteWorldTestSupport.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -32,7 +36,17 @@ const content = buildContentRegistry({
 
 export function createEnemyTestSim(): SimState {
   return createSimState({
-    world: new World(hashString("enemies-test-world"), 1, LEVEL.Dungeon),
+    world: authoredServerWorldFixture(LEVEL.CombatSandbox, 1),
+    content,
+    store: new PlayerStore(null),
+    rngSeed: 42,
+    opts: {},
+  });
+}
+
+export function createFiniteEnemyTestSim(): SimState {
+  return createSimState({
+    world: finiteServerWorldFixture(),
     content,
     store: new PlayerStore(null),
     rngSeed: 42,
@@ -41,11 +55,16 @@ export function createEnemyTestSim(): SimState {
 }
 
 export function findEnemyTestFloor(sim: SimState): { x: number; y: number } {
-  for (let radius = 0; radius < 64; radius++) {
-    const floor = perimeterTiles(radius).find((tile) => isOpenFloor(sim, tile));
-    if (floor) return { x: floor.x + 0.5, y: floor.y + 0.5 };
-  }
-  throw new Error("no open floor found near (200, 200)");
+  const center = largestFixtureRoomCenter(sim) ?? authoredArenaCenter();
+  sim.world.replaceTileOverrides(flatTestPatch(center));
+  return { x: center.x + 0.5, y: center.y + 0.5 };
+}
+
+function authoredArenaCenter(): { x: number; y: number } {
+  return {
+    x: Math.floor(COMBAT_SANDBOX_LAYOUT.playerSpawn.x),
+    y: Math.floor(COMBAT_SANDBOX_LAYOUT.playerSpawn.y),
+  };
 }
 
 export function addEnemyTestPlayer(
@@ -70,20 +89,27 @@ export function launchEnemyForPhysicsTest(enemy: Entity): void {
   enemy.body.fallStart = enemy.body.z;
 }
 
-function perimeterTiles(radius: number): Array<{ x: number; y: number }> {
-  const tiles: Array<{ x: number; y: number }> = [];
-  for (let offset = -radius; offset <= radius; offset++) {
-    tiles.push(
-      { x: 200 + offset, y: 200 - radius },
-      { x: 200 + offset, y: 200 + radius },
-    );
-  }
-  return tiles;
+function largestFixtureRoomCenter(sim: SimState): { x: number; y: number } | undefined {
+  return [...(sim.world.generatedFloor?.rooms ?? [])]
+    .sort((left, right) => roomArea(right) - roomArea(left))[0]?.center;
 }
 
-function isOpenFloor(sim: SimState, tile: { x: number; y: number }): boolean {
-  return Array.from({ length: 5 }, (_, offset) => tile.x + offset).every((x) =>
-    sim.world.isWalkable(x, tile.y) && !sim.world.isSanctuary(x, tile.y));
+function roomArea(room: { x0: number; y0: number; x1: number; y1: number }): number {
+  return (room.x1 - room.x0 + 1) * (room.y1 - room.y0 + 1);
+}
+
+function flatTestPatch(center: { readonly x: number; readonly y: number }) {
+  const tiles: Array<{ x: number; y: number; tile: typeof TILE.Floor }> = [];
+  for (let offsetY = -10; offsetY <= 10; offsetY += 1) {
+    for (let offsetX = -10; offsetX <= 10; offsetX += 1) {
+      tiles.push({
+        x: center.x + offsetX,
+        y: center.y + offsetY,
+        tile: TILE.Floor,
+      });
+    }
+  }
+  return tiles;
 }
 
 function playerSlot(entity: Entity): PlayerSlot {

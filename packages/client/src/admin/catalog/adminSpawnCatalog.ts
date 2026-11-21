@@ -1,11 +1,13 @@
-import { controlFieldset } from "../adminPagePrimitives.js";
-import type { AdminSpawnKind } from "../adminPageSupport.js";
+import { controlFieldset } from "../portal/adminPagePrimitives.js";
+import type { AdminSpawnKind } from "../portal/adminPageSupport.js";
 import {
   adminCatalogEntries,
   type AdminCatalogEntry,
 } from "./adminCatalogDefinitions.js";
 import { adminCatalogCardContent } from "./adminCatalogCardContent.js";
 import { adminSpawnTypeTabs } from "./adminSpawnTypeTabs.js";
+
+export const ADMIN_CATALOG_LAYOUT = "full-width";
 
 export interface AdminSpawnCatalog {
   readonly root: HTMLElement;
@@ -26,6 +28,7 @@ export interface AdminSpawnCatalogRenderInput {
 export function createAdminSpawnCatalog(): AdminSpawnCatalog {
   const root = controlFieldset("Entity palette");
   root.dataset.adminCatalog = "";
+  root.dataset.adminCatalogLayout = ADMIN_CATALOG_LAYOUT;
   let renderKey = "";
   return {
     root,

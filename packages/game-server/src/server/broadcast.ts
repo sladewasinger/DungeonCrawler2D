@@ -8,6 +8,7 @@ import type { AdminController } from "./admin/controller.js";
 import type { AdminStateSubscriptions } from "./admin/observer/adminStateSubscriptions.js";
 import { expireInactiveGameplayConnections } from "./connection/activity/gameplayInactivity.js";
 import type { SpectatorSubscriptions } from "./spectator/spectatorSubscriptions.js";
+import { measureServerWork } from "./runtime/runtimeWork.js";
 
 export interface BroadcastContext {
   floors: FloorRegistry;
@@ -31,34 +32,23 @@ export interface SnapshotDeliveryContext {
  * floor transfers to socket routing, and ship snapshots out. */
 
 export function broadcastTick(input: BroadcastContext): void {
+  measureServerWork("server.broadcastTick", () => broadcastTickInternal(input));
+}
+
+function broadcastTickInternal(input: BroadcastContext): void {
   const { floors, sandbox, combatSandbox, sockets, diagnostics, admin, adminSubscriptions, spectatorSubscriptions, gameplayIdleTimeoutMs } = input;
-  expireInactiveGameplayConnections({
-    sockets,
-    diagnostics,
-    now: Date.now(),
-    ...(gameplayIdleTimeoutMs ? { timeoutMs: gameplayIdleTimeoutMs } : {}),
-  });
-  const { snapshots, moved } = floors.stepAllPreparedReplicated();
+  expireInactiveGameplayConnections({ sockets, diagnostics, now: Date.now(), ...(gameplayIdleTimeoutMs ? { timeoutMs: gameplayIdleTimeoutMs } : {}) });
+  const { snapshots, moved } = measureServerWork("server.floorStep", () => floors.stepAllPreparedReplicated());
   for (const { playerId, sim } of moved) {
     const entry = sockets.get(playerId);
     if (entry) entry.sim = sim;
   }
   spectatorSubscriptions?.prepare();
   deliverWorldSnapshots({ snapshots, sockets, diagnostics, spectatorSubscriptions });
-  const sandboxSnapshots = sandbox.stepPreparedReplicated();
-  deliverWorldSnapshots({
-    snapshots: sandboxSnapshots,
-    sockets,
-    diagnostics,
-    spectatorSubscriptions,
-  });
-  const combatSandboxSnapshots = combatSandbox.stepPreparedReplicated();
-  deliverWorldSnapshots({
-    snapshots: combatSandboxSnapshots,
-    sockets,
-    diagnostics,
-    spectatorSubscriptions,
-  });
+  const sandboxSnapshots = measureServerWork("server.sandboxStep", () => sandbox.stepPreparedReplicated());
+  deliverWorldSnapshots({ snapshots: sandboxSnapshots, sockets, diagnostics, spectatorSubscriptions });
+  const combatSandboxSnapshots = measureServerWork("server.combatSandboxStep", () => combatSandbox.stepPreparedReplicated());
+  deliverWorldSnapshots({ snapshots: combatSandboxSnapshots, sockets, diagnostics, spectatorSubscriptions });
   spectatorSubscriptions?.refresh();
   if (admin && adminSubscriptions) adminSubscriptions.broadcast(admin, diagnostics);
 }

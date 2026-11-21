@@ -48,7 +48,10 @@ export function bindControllerKeys(request: ControllerKeyBindings): void {
   });
   bindInteractKey(keys.E, guardedAction(request.onInteract, panelBlocked), request.onInteractReleased);
   keys.R.on("down", guardedAction(() => conn.pickup(), panelBlocked));
-  keys.C.on("down", guardedAction(() => panels.toggleCraft(conn), panelBlocked));
+  keys.C.on("down", guardedAction(() => {
+    if (conn.activeAdmin) return conn.toggleNoclip?.();
+    panels.toggleCraft(conn);
+  }, panelBlocked));
   bindBandageKey({ key: keys.F, conn, queries, selectedSlot: () => state.selectedSlot,
     fallbackDown: request.onBandageDown, fallbackUp: request.onBandageUp, blocked: panelBlocked });
   keys.N.on("down", guardedAction(request.onKidAttack, panelBlocked));

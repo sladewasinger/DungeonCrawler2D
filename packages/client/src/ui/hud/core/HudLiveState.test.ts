@@ -1,14 +1,12 @@
-import { TILE, type EntitySnapshot, type World } from "@dc2d/engine";
+import { TILE, type EntitySnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { Connection } from "../../../net/connection/connection.js";
+import { staticTileWorldFixture } from "../../../testing/terrainWorldFixture.js";
 import { buildHudLiveState } from "./HudLiveState.js";
 
-const world = (station = false) => ({
-  worldSeed: 228182761,
-  floor: 1,
-  tileAt: (x: number, y: number) =>
-    station && x === 20 && y === 20 ? TILE.CraftingTable : TILE.Floor,
-}) as World;
+const world = (station = false) => staticTileWorldFixture(
+  station ? TILE.CraftingTable : TILE.Floor,
+);
 
 const connection = (
   withItem = false,

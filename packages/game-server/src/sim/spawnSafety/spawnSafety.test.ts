@@ -9,12 +9,9 @@ import {
 } from "@dc2d/content";
 import {
   CHASM_DEATH_Z,
-  LEVEL,
-  PLAYER_MAX_HP,
   CHUNK_SIZE,
-  World,
+  PLAYER_MAX_HP,
   buildContentRegistry,
-  hashString,
   roomKindAt,
   type ContentRegistry,
 } from "@dc2d/engine";
@@ -26,6 +23,10 @@ import { reapAndRespawn } from "../players/players.js";
 import { SPAWN_CLEARANCE_RADIUS, SPAWN_GRACE_TICKS, enforceSpawnClearance } from "./spawnSafety.js";
 import { createSimState, type SimState } from "../state/state.js";
 import { openFloorNear } from "./testSupport.js";
+import {
+  finiteFixtureSpawn,
+  finiteServerWorldFixture,
+} from "../testing/finiteWorldTestSupport.js";
 
 /**
  * Spawn-safety CLEARANCE (panel round 3b blocker #1): no living hostile
@@ -43,8 +44,8 @@ const content: ContentRegistry = buildContentRegistry({
   recipes: [...recipesData],
 });
 
-function makeDungeonSim(seedText: string, rngSeed: number, opts: SimState["opts"] = {}): SimState {
-  const world = new World(hashString(seedText), 1, LEVEL.Dungeon);
+function makeDungeonSim(rngSeed: number, opts: SimState["opts"] = {}): SimState {
+  const world = finiteServerWorldFixture();
   return createSimState({ world, content, store: new PlayerStore(null), rngSeed, opts });
 }
 
@@ -58,10 +59,11 @@ function nearestHostileDistance(sim: SimState, x: number, y: number): number {
 
 describe("enforceSpawnClearance", () => {
   it("teleports a hostile parked on the spawn tile to walkable floor outside the radius", () => {
-    const sim = makeDungeonSim("spawn-safety-unit", 42);
-    const spot = openFloorNear(sim, { x: 200, y: 200 });
+    const sim = makeDungeonSim(42);
+    const origin = finiteFixtureSpawn(sim.world);
+    const spot = openFloorNear(sim, origin);
     const camper = spawnEnemy(sim, { defId: "slime", x: spot.x, y: spot.y }); // parked dead-on
-    const far = openFloorNear(sim, { x: 230, y: 200 });
+    const far = openFloorNear(sim, { x: origin.x + 30, y: origin.y });
     const bystander = spawnEnemy(sim, { defId: "slime", x: far.x, y: far.y });
     // Fixture sanity: the bystander really is outside the radius already.
     expect(Math.hypot(far.x - spot.x, far.y - spot.y)).toBeGreaterThan(SPAWN_CLEARANCE_RADIUS);
@@ -81,8 +83,8 @@ describe("enforceSpawnClearance", () => {
   });
 
   it("two hostiles on the same entry tile land on distinct tiles, both clear", () => {
-    const sim = makeDungeonSim("spawn-safety-unit", 42);
-    const spot = openFloorNear(sim, { x: 200, y: 200 });
+    const sim = makeDungeonSim(42);
+    const spot = openFloorNear(sim, finiteFixtureSpawn(sim.world));
     const first = spawnEnemy(sim, { defId: "skeleton", x: spot.x, y: spot.y });
     const second = spawnEnemy(sim, { defId: "skeleton", x: spot.x, y: spot.y });
 
@@ -98,11 +100,11 @@ describe("enforceSpawnClearance", () => {
 
 describe("spawn handoff safety", () => {
   it("a join clears a stale hostile from its protected room handoff", () => {
-    const simA = makeDungeonSim("spawn-safety-handoff", 7, { spawnRadiusTiles: 12 });
+    const simA = makeDungeonSim(7, { spawnRadiusTiles: 12 });
     const joinA = addPlayer(simA, { name: "Scout", clientId: "client-s" });
 
-    const simB = makeDungeonSim("spawn-safety-handoff", 7, { spawnRadiusTiles: 12 });
-    const floor = openFloorNear(simB, { x: 200, y: 200 });
+    const simB = makeDungeonSim(7, { spawnRadiusTiles: 12 });
+    const floor = openFloorNear(simB, finiteFixtureSpawn(simB.world));
     const stale = spawnEnemy(simB, { defId: "skeleton", x: floor.x, y: floor.y });
     Object.assign(stale.body, joinA.spawn);
     const joinB = addPlayer(simB, { name: "Scout", clientId: "client-s" });
@@ -116,11 +118,11 @@ describe("spawn handoff safety", () => {
   });
 
   it("death respawn returns to the spawn room and evicts a stale hostile", () => {
-    const sim = makeDungeonSim("spawn-safety-respawn", 11, { spawnRadiusTiles: 12 });
+    const sim = makeDungeonSim(11, { spawnRadiusTiles: 12 });
     const join = addPlayer(sim, { name: "Doomed", clientId: "client-d" });
     const slot = sim.players.get(join.playerId)!;
 
-    const floor = openFloorNear(sim, { x: 200, y: 200 });
+    const floor = openFloorNear(sim, finiteFixtureSpawn(sim.world));
     const stale = spawnEnemy(sim, { defId: "skeleton", x: floor.x, y: floor.y });
     Object.assign(stale.body, slot.entity.body);
 

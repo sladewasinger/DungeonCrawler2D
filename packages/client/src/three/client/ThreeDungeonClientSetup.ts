@@ -1,4 +1,4 @@
-import { World } from "@dc2d/engine";
+import type { World } from "@dc2d/engine";
 import { ThreeActionController } from "./ThreeActionController.js";
 import { ThreeFirstPersonViewport } from "../viewport/ThreeFirstPersonViewport.js";
 import { SharedHtmlHud } from "../../ui/hud/core/SharedHtmlHud.js";
@@ -6,7 +6,7 @@ import { ThreeInput } from "../input/ThreeInput.js";
 import { enableMobileDisplay } from "../viewport/ThreeMobileDisplay.js";
 import type { FirstPersonState } from "../input/movement.js";
 import { ThreeTerrain } from "../terrain/core/ThreeTerrain.js";
-import { queryRouteNumber, queryViewDistance, type ThreeRouteOptions } from "./threeRouteConfig.js";
+import { queryViewDistance, type ThreeRouteOptions } from "./threeRouteConfig.js";
 import type { ViewDistance } from "../terrain/view/viewDistance.js";
 import { findWalkable } from "../world/entities/worldSearch.js";
 
@@ -27,9 +27,9 @@ export const createThreeDungeonSetup = (
   options: ThreeRouteOptions,
   setViewDistance: (viewDistance: ViewDistance) => void,
 ): ThreeDungeonSetup => {
-  const world = new World(queryRouteNumber(options.search, "seed", 228182761), queryRouteNumber(options.search, "floor", 1));
+  const world = readyConnectionWorld(options);
   const viewDistance = queryViewDistance(options.search);
-  const spawn = findWalkable({ world, origin: { x: 0, z: 0 } });
+  const spawn = spawnForReadyConnection(options.conn, world);
   const state = { x: spawn.x, y: spawn.height, z: spawn.z, verticalVelocity: 0, grounded: true };
   const viewport = new ThreeFirstPersonViewport(spawn, viewDistance);
   options.root.replaceChildren(viewport.renderer.domElement);
@@ -58,3 +58,18 @@ export const createThreeDungeonSetup = (
   input.setGameplayBlocked(() => hud.blocksGameplay());
   return setup;
 };
+
+function readyConnectionWorld(options: ThreeRouteOptions): World {
+  const world = options.conn.world;
+  if (world) return world;
+  throw new Error("Three dungeon setup requires a ready connection world");
+}
+
+function spawnForReadyConnection(
+  connection: ThreeRouteOptions["conn"],
+  world: World,
+): { x: number; z: number; height: number } {
+  const body = connection.body;
+  if (body) return { x: body.x, z: body.y, height: body.z };
+  return findWalkable({ world, origin: { x: 0, z: 0 } });
+}

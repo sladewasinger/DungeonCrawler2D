@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { spawnEnemy } from "../../../core/helpers.js";
 import type { SimState } from "../../../state/state.js";
 import { stepEnemies } from "../../index.js";
+import { ENEMY_SIMULATION_TUNING } from "../../configuration/enemySimulationTuning.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
@@ -30,6 +31,14 @@ describe("enemy AI targeting", () => {
     const attackers = [...sim.enemies.values()].filter((enemy) =>
       enemy.brain.targetId === "p1"
     );
-    expect(attackers).toHaveLength(3);
+    const unassigned = [...sim.enemies.values()].filter((enemy) =>
+      enemy.brain.targetId !== "p1"
+    );
+    expect(attackers).toHaveLength(
+      ENEMY_SIMULATION_TUNING.perception.maximumAttackersPerPlayer,
+    );
+    expect(attackers.length).toBeLessThan(sim.enemies.size);
+    expect(unassigned.length).toBe(sim.enemies.size - attackers.length);
+    expect(attackers.every((enemy) => enemy.brain.targetId === "p1")).toBe(true);
   });
 });

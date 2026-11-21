@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { hashString } from "../../../core/rng.js";
 import { CHUNK_SIZE, TERRAIN, TILE } from "../../core/types.js";
 import { World } from "../../core/world.js";
+import { authoredRoomWorldFixture } from "../fixtures/featureWorldFixture.js";
 import {
   ROOM_ISOLATION_BUFFER_CHUNKS,
   SAFE_ROOM_H,
@@ -33,17 +33,13 @@ describe("protected room terrain isolation", () => {
   it.each(CASES)(
     "keeps the $kind exterior as a sealed Bedrock apron when ordinary VOID is disabled",
     (room) => {
-      const world = new World(hashString("room-isolation"), 1, {
-        features: { voidTerrain: false },
-      });
+      const world = authoredRoomWorldFixture({ voidTerrain: false });
       assertRoomExteriorIsSealed(world, room);
     },
   );
 
   it("separates the spawn plane from dungeon terrain with a sealed apron", () => {
-    const world = new World(hashString("room-isolation-buffer"), 1, {
-      features: { voidTerrain: false },
-    });
+    const world = authoredRoomWorldFixture({ voidTerrain: false });
     const spawn = spawnRoomChunk();
 
     for (let distance = 1;
@@ -57,9 +53,7 @@ describe("protected room terrain isolation", () => {
   });
 
   it("keeps the open horizontal room plane rendered and blocked", () => {
-    const world = new World(hashString("room-isolation-horizontal-apron"), 1, {
-      features: { voidTerrain: false },
-    });
+    const world = authoredRoomWorldFixture({ voidTerrain: false });
     const spawn = spawnRoomChunk();
 
     for (let distance = 1;

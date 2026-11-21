@@ -1,4 +1,4 @@
-import { BIOME, biomeAtWorldTile, type BiomeKind, type World } from "@dc2d/engine";
+import { BIOME, type BiomeKind, type World } from "@dc2d/engine";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import type { ViewRect } from "../../terrain/streaming/streaming.js";
 import { viewTileToWorld } from "../../view/transform/viewTransform.js";
@@ -62,8 +62,8 @@ function fallbackMaterial(biome: BiomeKind): { floor: number; face: number } {
 }
 
 export function worldBiomeAt(world: Partial<World>, x: number, y: number): BiomeKind {
-  if (world.worldSeed === undefined || world.floor === undefined) return BIOME.Maze;
-  return biomeAtWorldTile({ worldSeed: world.worldSeed, floor: world.floor, wx: x, wy: y }).biome;
+  if (world.biomeAtWorldTile) return world.biomeAtWorldTile(x, y)?.biome ?? BIOME.Maze;
+  return BIOME.Maze;
 }
 
 export function worldBoundsForView(

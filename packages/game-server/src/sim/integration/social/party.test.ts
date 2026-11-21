@@ -13,7 +13,7 @@ import {
 } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { GameSim } from "../../core/index.js";
-import { content, eventsOf, findSafeRoomDoor, makeParty, makeSim, stepN, teleport } from "../support.js";
+import { content, eventsOf, findSafeRoomDoor, makeParty, makeSim, separatedFiniteFloorPositions, stepN, teleport } from "../support.js";
 
 /**
  * Epic 7 regressions driven through the full GameSim facade (wire-level
@@ -26,18 +26,21 @@ describe("GameSim: party, portals, crafting, stash", () => {
   let sim: GameSim;
 
   beforeEach(() => {
-    sim = makeSim();
+    sim = makeSim(1234, { finite: true });
   });
 
   it("party invite/accept requires proximity and consent; leave disbands at 1", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const b = sim.addPlayer({ name: "B", clientId: "client-b" });
-    teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: a.spawn.x + 500, y: a.spawn.y, sim: sim });
+    const { nearby, distant } = separatedFiniteFloorPositions(sim);
+    expect(Math.hypot(distant.x - nearby.x, distant.y - nearby.y)).toBeGreaterThan(6);
+    teleport({ entity: sim.getPlayerEntity(a.playerId)!, ...nearby, sim });
+    teleport({ entity: sim.getPlayerEntity(b.playerId)!, ...distant, sim });
     sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
     let snaps = sim.step();
     expect(eventsOf(snaps, b.playerId).some((e) => e.t === "invite")).toBe(false);
 
-    teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: a.spawn.x + 2, y: a.spawn.y, sim: sim });
+    teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: nearby.x + 0.75, y: nearby.y, sim });
     sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
     snaps = sim.step();
     expect(eventsOf(snaps, b.playerId).some((e) => e.t === "invite")).toBe(true);
@@ -46,10 +49,10 @@ describe("GameSim: party, portals, crafting, stash", () => {
     snaps = sim.step();
     expect(snaps.get(a.playerId)!.party?.members.map((m) => m.id)).toContain(b.playerId);
 
-    teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: a.spawn.x + 500, y: a.spawn.y, sim: sim });
+    teleport({ entity: sim.getPlayerEntity(b.playerId)!, ...distant, sim });
     snaps = sim.step();
     const ping = snaps.get(a.playerId)!.party!.members.find((m) => m.id === b.playerId)!;
-    expect(ping.x).toBeCloseTo(a.spawn.x + 500, 3);
+    expect(ping.x).toBeCloseTo(distant.x, 3);
 
     sim.queueAction(b.playerId, { type: "party", op: "leave" });
     snaps = sim.step();
@@ -97,7 +100,7 @@ describe("GameSim: party, portals, crafting, stash", () => {
     expect(snaps.get(bId)!.self.hp).toBe(0);
     expect(snaps.get(bId)!.self.downed).toBeUndefined();
 
-    stepN(sim, RESPAWN_DELAY_TICKS);
+    stepN(sim, RESPAWN_DELAY_TICKS + 1);
     expect(sim.getPlayerEntity(bId)!.hp).toBe(PLAYER_MAX_HP);
   });
 

@@ -1,13 +1,11 @@
 import {
   CHUNK_SIZE,
   FEATURE_FACE,
-  LEVEL,
   TERRAIN,
   TILE,
-  World,
   buildContentRegistry,
   createBody,
-  hashString,
+  type World,
 } from "@dc2d/engine";
 import {
   areaReactionsData,
@@ -28,6 +26,7 @@ import {
   spawnPet,
   stepPets,
 } from "../index.js";
+import { authoredServerWorldFixture } from "../../testing/finiteWorldTestSupport.js";
 const content = buildContentRegistry({
   statuses: [...statusesData],
   rules: [...rulesData],
@@ -82,7 +81,7 @@ describe("pet airborne physics", () => {
 });
 
 function petPhysicsState() {
-  const world = new World(hashString("pet-airborne-physics"), 1, LEVEL.Dungeon);
+  const world = authoredServerWorldFixture();
   const sim = createSimState({
     world,
     content,

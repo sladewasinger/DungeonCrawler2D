@@ -11,6 +11,7 @@ export function findArena(sim: SimState): MiniBossArenaSite {
       const arena = miniBossArenaForChunk({
         worldSeed: sim.world.worldSeed,
         floor: sim.world.floor,
+        generatedFloor: sim.world.generatedFloor,
         cx,
         cy,
       });

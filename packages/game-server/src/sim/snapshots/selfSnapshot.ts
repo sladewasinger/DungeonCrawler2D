@@ -1,4 +1,5 @@
 import {
+  ADMIN_NOCLIP_SPEED,
   PLAYER_MAX_STAMINA,
   REVIVE_HOLD_TICKS,
   xpForLevel,
@@ -51,6 +52,8 @@ export function toSelfSnapshot(
     ...adminSnapshot(sim, slot),
     floor: sim.world.floor,
     deepestFloor: slot.stored.deepestFloor ?? 1,
+    ...(sim.world.floorIdentity ? { generation: sim.world.floorIdentity } : {}),
+    ...(slot.pendingFiniteFloorArtifact ? { finiteFloorArtifact: slot.pendingFiniteFloorArtifact } : {}),
   };
 }
 
@@ -69,11 +72,12 @@ function presentationSnapshot(
 function adminSnapshot(
   sim: SimState,
   slot: PlayerSlot,
-): Pick<ServerSnapshot["self"], "admin" | "adminDebug" | "adminDebugEntities"> | Record<string, never> {
+): Pick<ServerSnapshot["self"], "admin" | "noclip" | "adminDebug" | "adminDebugEntities"> | Record<string, never> {
   if (!slot.admin) return {};
   const flags = { ...slot.debugFlags };
   return {
     admin: true,
+    noclip: slot.noclip,
     adminDebug: flags,
     adminDebugEntities: activeAdminDebugEntities(sim, slot, flags),
   };
@@ -114,7 +118,7 @@ function effectSnapshot(sim: SimState, slot: PlayerSlot): Pick<ServerSnapshot["s
   return {
     fx: slot.entity.statuses.map((status) => status.defId),
     statusEffects: statusEffectSnapshots(sim, slot),
-    movementSpeed: sim.effects.movementSpeed(slot.entity),
+    movementSpeed: slot.noclip ? ADMIN_NOCLIP_SPEED : sim.effects.movementSpeed(slot.entity),
   };
 }
 

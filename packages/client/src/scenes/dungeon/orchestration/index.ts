@@ -33,6 +33,7 @@ import { advanceDungeonRotation, buildDungeonHudSnapshot, buildDungeonInputContr
 import { redirectExpiredSession } from "./expiredSessionRedirect.js";
 import { createDungeonChatInputBox } from "./dungeonChatInput.js";
 import { createMobilePerformanceDiagnostics, type MobilePerformanceDiagnostics } from "../../../performance/mobilePerformanceDiagnostics.js";
+import { createWorldLoadingOverlay, type WorldLoadingOverlay } from "../loading/worldLoadingOverlay.js";
 export class DungeonScene extends Phaser.Scene {
   private readonly state: DungeonSceneState = createDungeonSceneState();
   private entityRenderer!: EntityRenderer;
@@ -51,7 +52,7 @@ export class DungeonScene extends Phaser.Scene {
   private chatInputBox!: ChatInputBox;
   private inputGestureVisuals!: InputGestureVisuals;
   private debugOverlay!: GameplayDebugOverlay; private cameraZoom!: DungeonCameraZoomController;
-  private mobilePerformanceDiagnostics: MobilePerformanceDiagnostics | undefined;
+  private mobilePerformanceDiagnostics: MobilePerformanceDiagnostics | undefined; private worldLoading!: WorldLoadingOverlay;
   private readonly rotation = new RotationController((direction) => {
     const terrain = this.terrain as TerrainRenderer | undefined;
     terrain?.prewarmRotation(this.cameras.main.worldView, direction);
@@ -65,7 +66,7 @@ export class DungeonScene extends Phaser.Scene {
     const presentation = createDungeonPresentationSystems(this, this.cameraZoom);
     this.deviceProfile = presentation.deviceProfile; this.entityRenderer = presentation.entityRenderer; this.vfx = presentation.vfx;
     this.mobilePerformanceDiagnostics = createMobilePerformanceDiagnostics({ game: this.game, connection: this.conn, profile: this.deviceProfile, terrain: () => this.terrain, buckets: () => this.state.entityBuckets });
-    this.inputGestureVisuals = new InputGestureVisuals(this);
+    this.worldLoading = createWorldLoadingOverlay(this.conn, document.body); this.inputGestureVisuals = new InputGestureVisuals(this);
     this.debugOverlay = new GameplayDebugOverlay(this);
     this.hudScene = this.scene.get("hud") as HudScene;
     this.chatController = new ChatController(createChatPort(this.conn));
@@ -85,8 +86,8 @@ export class DungeonScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
   update(time: number, deltaMs: number): void {
-    this.mobilePerformanceDiagnostics?.update(time, deltaMs);
-    const { conn } = this;
+    this.mobilePerformanceDiagnostics?.update(time, deltaMs); const { conn } = this;
+    this.worldLoading.sync(conn.worldReady);
     if (redirectExpiredSession(this, conn)) return;
     this.chatController.sync();
     if (!conn.world || !conn.body || !conn.welcome) return this.inputGestureVisuals.hide();
@@ -145,7 +146,6 @@ export class DungeonScene extends Phaser.Scene {
     this.entityRenderer.dispose();
     this.vfx.dispose();
     this.chatInputBox.dispose();
-    this.inputGestureVisuals.dispose();
+    this.worldLoading.dispose(); this.inputGestureVisuals.dispose();
     this.debugOverlay.dispose(); this.mobilePerformanceDiagnostics?.dispose(); this.mobilePerformanceDiagnostics = undefined;
-  }
-}
+  } }

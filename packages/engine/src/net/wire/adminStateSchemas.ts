@@ -80,6 +80,11 @@ const adminPlayerSchema = z.object({
 const adminMapCellSchema = z.object({
   x: adminTileCoordinateSchema, y: adminTileCoordinateSchema, height: z.number().finite(), walkable: z.boolean(),
   terrain: z.enum(["floor", "void"]), feature: z.number().int(),
+  /** Authoritative normal-render identity; optional for older admin clients. */
+  surface: z.enum(["floor", "bedrock"]).optional(),
+  biome: z.enum(["maze", "open-halls", "ruins", "pillars", "pools", "arena"]).optional(),
+  territory: z.number().int().nullable().optional(),
+  featureFace: z.number().int().optional(), featureHeight: z.number().finite().optional(),
 }).strict();
 export const adminMapEntitySchema = z.object({
   id: z.string(), kind: z.enum(["player", "enemy", "pet", "item", "weapon", "projectile", "torch"]),

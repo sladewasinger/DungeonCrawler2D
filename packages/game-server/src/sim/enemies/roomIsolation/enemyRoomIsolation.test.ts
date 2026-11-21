@@ -2,7 +2,6 @@ import {
   CHUNK_SIZE,
   LEVEL,
   ROOM_REGION_CY,
-  World,
   safeRoomSpawn,
   spawnRoomSpawn,
 } from "@dc2d/engine";
@@ -10,13 +9,14 @@ import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
 import { spawnAdminEntity } from "../../admin/adminSpawning.js";
 import { spawnEnemy } from "../../core/helpers.js";
-import { content, SEED } from "../../integration/support.js";
+import { content } from "../../integration/support.js";
 import { addPlayer } from "../../players/join.js";
 import { createSimState, type SimState } from "../../state/state.js";
 import { stepEnemies } from "../ai.js";
 import { moveEnemy } from "../ai/enemyMovement.js";
 import { activateChunksNearPlayers } from "../population.js";
 import { validEnemySpawn } from "../populationPlacement.js";
+import { finiteServerWorldFixture } from "../../testing/finiteWorldTestSupport.js";
 
 describe("enemy isolation from protected rooms", () => {
   it.each([
@@ -55,7 +55,8 @@ describe("enemy isolation from protected rooms", () => {
 
   it("removes a hostile moved into protected room space before it can act", () => {
     const sim = isolationState();
-    const entity = spawnEnemy(sim, { defId: "goblin", x: 8.5, y: 8.5 });
+    const point = ordinaryEnemyPoint(sim);
+    const entity = spawnEnemy(sim, { defId: "goblin", ...point });
     Object.assign(entity.body, spawnRoomSpawn(0));
 
     stepEnemies(sim, []);
@@ -78,7 +79,8 @@ describe("enemy isolation from protected rooms", () => {
 
   it("blocks enemy movement inside protected room space", () => {
     const sim = isolationState();
-    const entity = spawnEnemy(sim, { defId: "goblin", x: 8.5, y: 8.5 });
+    const point = ordinaryEnemyPoint(sim);
+    const entity = spawnEnemy(sim, { defId: "goblin", ...point });
     const enemy = sim.enemies.get(entity.id);
     if (!enemy) throw new Error("missing enemy isolation fixture");
     Object.assign(entity.body, spawnRoomSpawn(0));
@@ -97,13 +99,19 @@ describe("enemy isolation from protected rooms", () => {
 
 function isolationState(): SimState {
   return createSimState({
-    world: new World(SEED, 1, {
-      level: LEVEL.Dungeon,
-      features: { voidTerrain: false },
-    }),
+    world: finiteServerWorldFixture(),
     content,
     store: new PlayerStore(null),
     rngSeed: 1,
     opts: {},
   });
+}
+
+function ordinaryEnemyPoint(sim: SimState): { readonly x: number; readonly y: number } {
+  const rooms = sim.world.generatedFloor?.rooms ?? [];
+  for (const room of rooms) {
+    const point = { x: room.center.x + 0.5, y: room.center.y + 0.5 };
+    if (validEnemySpawn(sim, point.x, point.y)) return point;
+  }
+  throw new Error("finite fixture has no ordinary enemy room position");
 }

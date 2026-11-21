@@ -1,14 +1,13 @@
 /** Owns deterministic remote-pack fixtures and roster assertions for population tests. */
 import { expect, vi } from "vitest";
-import { biomeAtWorldTile } from "@dc2d/engine";
 import type { SimState } from "../../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../../configuration/enemySimulationTuning.js";
 import { spawnEnemyPack } from "../../population.js";
 import { validEnemySpawn } from "../../populationPlacement.js";
-import {
-  enemyRosterForBiome,
-  RANDOM_ENEMY_ROSTER,
-} from "../../populationRoster.js";
+import { enemyRosterAtPosition, RANDOM_ENEMY_ROSTER } from "../../populationRoster.js";
+import { mostPopulatableChunk } from "./populationTerrainFixture.js";
+
+const RANDOM_ENEMIES = new Set<string>(RANDOM_ENEMY_ROSTER);
 
 interface TilePosition {
   readonly x: number;
@@ -28,7 +27,8 @@ interface NearbyTileSearch {
 }
 
 export function spawnRepeatedAnchorPack(sim: SimState): void {
-  const anchor = findValidTile(sim, 8, 8);
+  const chunk = mostPopulatableChunk(sim);
+  const anchor = findValidTile(sim, chunk.cx, chunk.cy);
   const chunkX = Math.floor(anchor.x / 32);
   const chunkY = Math.floor(anchor.y / 32);
   const values = [
@@ -54,21 +54,26 @@ export function spawnControlledOutlierPack(sim: SimState): void {
 
 export function expectPackMembers(sim: SimState): void {
   const enemies = [...sim.enemies.values()];
-  const native = nativeRoster(sim, enemies[0]?.entity.body ?? { x: 0, y: 0 });
   const optional = enemies.slice(2);
-  expectOptionalRoster(optional, native);
+  expectOptionalRoster(sim, optional);
   expect(enemies.every((enemy) => Number.isFinite(enemy.entity.body.x) &&
     Number.isFinite(enemy.entity.body.y))).toBe(true);
 }
 
 function expectOptionalRoster(
-  optional: readonly { def: { id: string } }[],
-  native: readonly string[],
+  sim: SimState,
+  optional: readonly { def: { id: string }; entity: { body: TilePosition } }[],
 ): void {
-  expect(optional.every((enemy) =>
-    [...native, ...RANDOM_ENEMY_ROSTER].includes(enemy.def.id),
+  const nativeAtEachPosition = optional.map((enemy) =>
+    nativeRoster(sim, enemy.entity.body)
+  );
+  expect(optional.every((enemy, index) =>
+    nativeAtEachPosition[index]?.includes(enemy.def.id) ||
+    RANDOM_ENEMIES.has(enemy.def.id),
   )).toBe(true);
-  expect(optional.filter((enemy) => !native.includes(enemy.def.id)).length)
+  expect(optional.filter((enemy, index) =>
+    !nativeAtEachPosition[index]?.includes(enemy.def.id)
+  ).length)
     .toBeLessThanOrEqual(1);
 }
 
@@ -89,8 +94,10 @@ interface NativeTileSearch {
 }
 
 function findNativeExcludingTile(sim: SimState, excluded: string): TilePosition {
-  for (let chunkY = 8; chunkY < 13; chunkY += 1) {
-    for (let chunkX = 8; chunkX < 13; chunkX += 1) {
+  const bounds = sim.world.floorBounds;
+  if (!bounds) throw new Error("Native population fixture requires finite bounds");
+  for (let chunkY = bounds.minChunkY; chunkY <= bounds.maxChunkY; chunkY += 1) {
+    for (let chunkX = bounds.minChunkX; chunkX <= bounds.maxChunkX; chunkX += 1) {
       const input = { sim, chunkX, chunkY, excluded };
       const tile = findNativeTileInChunk(input);
       if (tile) return tile;
@@ -156,11 +163,5 @@ function placementRandomValues(anchor: TilePosition, target: TilePosition): numb
 }
 
 function nativeRoster(sim: SimState, tile: TilePosition): readonly string[] {
-  const biome = biomeAtWorldTile({
-    worldSeed: sim.world.worldSeed,
-    floor: sim.world.floor,
-    wx: tile.x,
-    wy: tile.y,
-  }).biome;
-  return enemyRosterForBiome(biome);
+  return enemyRosterAtPosition(sim, tile.x, tile.y);
 }

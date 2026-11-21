@@ -32,10 +32,11 @@ import {
   type WorldView,
 } from "@dc2d/engine";
 import type Phaser from "phaser";
-import { ASSET_KEYS, SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
+import { SCREEN_TILE_PX, WORLD_PIXEL_SCALE } from "../../../boot/assetManifest.js";
 import { screenSouthWorldDirection, type CompassDir } from "../../view/orientation/directionRemap.js";
 import type { ViewOrientation } from "../../view/orientation/viewOrientation.js";
 import { worldTileToView } from "../../view/transform/viewTransform.js";
+import { getViewOrientation } from "../../view/transform/viewState.js";
 import { depthForOccluder } from "../presentation/depthSort.js";
 
 const GHOST_DATA_KEY = "occlusionGhost";
@@ -72,6 +73,33 @@ export interface TerrainOcclusionInput {
   readonly y: number;
   readonly z: number;
   readonly orientation: ViewOrientation;
+}
+
+export interface OcclusionActor {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+export interface OcclusionSpriteSource {
+  readonly textureKey: string;
+  readonly frame: string | number;
+}
+
+export function occlusionSpriteSource(body: Phaser.GameObjects.Sprite): OcclusionSpriteSource {
+  return { textureKey: body.texture.key, frame: body.frame.name };
+}
+
+/** Applies the shared terrain ghost treatment to every ground-anchored actor. */
+export function syncEntityOcclusion(
+  body: Phaser.GameObjects.Sprite,
+  actor: OcclusionActor,
+  world: WorldView,
+): void {
+  const occlusion = terrainOcclusionAhead({
+    world, x: actor.x, y: actor.y, z: actor.z, orientation: getViewOrientation(),
+  });
+  syncOcclusionSilhouette(body, actor.y, occlusion);
 }
 
 /** Finds the foremost terrain face that actually crosses the entity's row. The returned
@@ -147,7 +175,10 @@ export function syncOcclusionSilhouette(
 
 function syncGhostPose(ghost: Phaser.GameObjects.Sprite, body: Phaser.GameObjects.Sprite): void {
   ghost.setPosition(body.x, body.y);
-  if (body.frame.name !== ghost.frame.name) ghost.setFrame(body.frame.name);
+  const source = occlusionSpriteSource(body);
+  if (ghost.texture.key !== source.textureKey || ghost.frame.name !== source.frame) {
+    ghost.setTexture(source.textureKey, source.frame);
+  }
   ghost.setFlipX(body.flipX).setScale(body.scaleX, body.scaleY).setAngle(body.angle);
 }
 
@@ -178,8 +209,9 @@ function sourceCropTopAtOcclusion(
 }
 
 function createGhost(body: Phaser.GameObjects.Sprite): Phaser.GameObjects.Sprite {
+  const source = occlusionSpriteSource(body);
   const ghost = body.scene.add
-    .sprite(0, 0, ASSET_KEYS.atlas)
+    .sprite(0, 0, source.textureKey, source.frame)
     .setOrigin(0.5, 1)
     .setScale(WORLD_PIXEL_SCALE);
   ghost.setTint(GHOST_TINT);

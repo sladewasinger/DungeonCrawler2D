@@ -33,6 +33,7 @@ function applySpectatorPresentation(
 
 function applyActiveAdminState(conn: Connection, snap: ServerSnapshot): void {
   conn.activeAdmin = snap.self.admin === true;
+  conn.noclip = conn.activeAdmin && snap.self.noclip === true;
   conn.activeAdminDebugFlags = conn.activeAdmin
     ? snap.self.adminDebug ?? createDebugFlags()
     : createDebugFlags();

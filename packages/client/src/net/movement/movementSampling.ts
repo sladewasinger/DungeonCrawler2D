@@ -42,6 +42,7 @@ export function sampleMovement(connection: Connection, input: MoveInput): void {
       connection.movementSpeed,
       connection.statusEffects,
     ),
+    noclip: connection.noclip,
   });
   if (!connection.movementCadence.shouldSend(input)) return;
   sendMovement(connection, input, identity);

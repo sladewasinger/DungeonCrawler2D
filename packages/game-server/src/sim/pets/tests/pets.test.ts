@@ -1,4 +1,4 @@
-import { LEVEL, MOVE_SPEED, World, buildContentRegistry, hashString } from "@dc2d/engine";
+import { LEVEL, MOVE_SPEED, buildContentRegistry } from "@dc2d/engine";
 import {
   areasData,
   areaReactionsData,
@@ -22,6 +22,10 @@ import {
   spawnPet,
   stepPets,
 } from "../index.js";
+import {
+  authoredServerWorldFixture,
+  finiteServerWorldFixture,
+} from "../../testing/finiteWorldTestSupport.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -35,7 +39,7 @@ const content = buildContentRegistry({
 
 function dungeonState() {
   return createSimState({
-    world: new World(hashString("pet-test-world"), 1, LEVEL.Dungeon),
+    world: finiteServerWorldFixture(),
     content, store: new PlayerStore(null), rngSeed: 7, opts: { spawnRadiusTiles: 2 },
   });
 }
@@ -112,7 +116,7 @@ describe("pets", () => {
 
   it("does not seed pets on sandbox simulations", () => {
     const sim = createSimState({
-      world: new World(hashString("pet-sandbox"), 1, LEVEL.Sandbox),
+      world: authoredServerWorldFixture(LEVEL.Sandbox),
       content, store: new PlayerStore(null), rngSeed: 3, opts: {},
     });
     seedPets(sim);

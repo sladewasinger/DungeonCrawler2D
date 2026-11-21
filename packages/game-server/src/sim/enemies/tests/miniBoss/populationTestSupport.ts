@@ -1,10 +1,8 @@
 import {
   buildContentRegistry,
   hashString,
-  miniBossArenaForChunk,
   miniBossArenaIsStamped,
   TILE,
-  World,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
 import {
@@ -23,6 +21,7 @@ import {
   type MiniBossEncounterId,
 } from "../../miniBossArena/encounterComposition.js";
 import { spawnMiniBossEncounter } from "../../miniBossArena/population.js";
+import { finiteServerWorldFixture } from "../../../testing/finiteWorldTestSupport.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -34,19 +33,12 @@ const content = buildContentRegistry({
   recipes: [...recipesData],
 });
 
-const SEARCH_RADIUS_CHUNKS = 12;
-const SEARCH_COORDINATES = Array.from(
-  { length: SEARCH_RADIUS_CHUNKS * 2 + 1 },
-  (_, index) => index - SEARCH_RADIUS_CHUNKS,
-);
-
 export function createMiniBossPopulationSim(seedText: string): SimState {
-  const worldSeed = hashString(seedText);
   return createSimState({
-    world: new World(worldSeed, 1),
+    world: finiteServerWorldFixture(),
     content,
     store: new PlayerStore(null),
-    rngSeed: worldSeed,
+    rngSeed: hashString(seedText),
     opts: {},
   });
 }
@@ -96,29 +88,15 @@ function matchingArena(
   sim: SimState,
   compositionId: MiniBossEncounterId | undefined,
 ): MiniBossArenaSite | null {
-  for (const chunk of candidateChunks()) {
-    const arena = arenaAtChunk(sim, chunk);
+  for (const arena of generatedArenas(sim)) {
     if (arena && matchesComposition(sim, arena, compositionId)) return arena;
   }
   return null;
 }
 
-function candidateChunks(): Array<{ readonly cx: number; readonly cy: number }> {
-  return SEARCH_COORDINATES.flatMap((cy) =>
-    SEARCH_COORDINATES.map((cx) => ({ cx, cy }))
-  );
-}
-
-function arenaAtChunk(
-  sim: SimState,
-  chunk: { readonly cx: number; readonly cy: number },
-): MiniBossArenaSite | null {
-  const arena = miniBossArenaForChunk({
-    worldSeed: sim.world.worldSeed,
-    floor: sim.world.floor,
-    ...chunk,
-  });
-  return arena && miniBossArenaIsStamped(sim.world, arena) ? arena : null;
+function generatedArenas(sim: SimState): readonly MiniBossArenaSite[] {
+  const arenas = sim.world.generatedFloor?.miniBossArenas ?? [];
+  return arenas.filter((arena) => miniBossArenaIsStamped(sim.world, arena));
 }
 
 function matchesComposition(

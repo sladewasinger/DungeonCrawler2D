@@ -1,4 +1,10 @@
 import { LEVEL, type LevelId } from "./level.js";
+import type {
+  FloorBounds,
+  FloorGenerationConfig,
+  FloorGenerationIdentity,
+  GeneratedFloor,
+} from "../generate/finiteFloor.js";
 
 /** Server-selected world-generation features shared with every client. */
 export interface WorldFeatures {
@@ -9,6 +15,21 @@ export interface WorldFeatures {
 export interface WorldOptions {
   readonly level?: LevelId;
   readonly features?: WorldFeatures;
+  readonly generation?: FloorGenerationConfig;
+  /** Worker/transport handoff for an already authoritative finite floor. */
+  readonly generatedFloor?: GeneratedFloor;
+  readonly expectedGeneration?: Pick<
+    FloorGenerationIdentity,
+    "seed" | "generatorVersion" | "retryIndex" | "configurationFingerprint" | "fingerprint" | "bounds"
+  >;
+}
+
+export interface WorldGenerationIdentity {
+  readonly generatorVersion: number;
+  readonly retryIndex: number;
+  readonly configurationFingerprint: string;
+  readonly fingerprint: string;
+  readonly bounds: FloorBounds;
 }
 
 /** Preserve the currently shipped world unless startup explicitly disables it. */

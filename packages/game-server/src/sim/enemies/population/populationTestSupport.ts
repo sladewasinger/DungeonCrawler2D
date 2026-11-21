@@ -10,10 +10,8 @@ import {
 import {
   buildContentRegistry,
   createBody,
-  hashString,
   LEVEL,
   makeEntity,
-  World,
   type LevelId,
 } from "@dc2d/engine";
 import { PlayerStore } from "../../../store.js";
@@ -23,6 +21,10 @@ import {
   type SimState,
 } from "../../state/state.js";
 import { adminTestPlayerState } from "../../testing/adminTestPlayerState.js";
+import {
+  authoredServerWorldFixture,
+  finiteServerWorldFixture,
+} from "../../testing/finiteWorldTestSupport.js";
 
 const CONTENT = buildContentRegistry({
   statuses: [...statusesData],
@@ -45,7 +47,9 @@ export function createPopulationTestSim(
 ): SimState {
   const floor = options.floor ?? 1;
   const level = options.level ?? LEVEL.Dungeon;
-  const world = new World(hashString("population-test-world"), floor, level);
+  const world = level === LEVEL.Dungeon
+    ? finiteServerWorldFixture(floor)
+    : authoredServerWorldFixture(level);
   return createSimState({
     world,
     content: CONTENT,
@@ -61,6 +65,7 @@ export function addPopulationTestPlayer(
 ): void {
   sim.players.set("p1", makeSlot(sim, position));
 }
+
 
 interface PopulationCount {
   readonly sim: SimState;

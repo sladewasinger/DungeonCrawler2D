@@ -9,13 +9,11 @@ import {
 } from "@dc2d/content";
 import {
   buildContentRegistry,
-  hashString,
-  LEVEL,
   makeEntity,
   TILE,
-  World,
   createBody,
   type ContentRegistry,
+  type World,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { resolveDeaths } from "../combat/deaths.js";
@@ -23,7 +21,7 @@ import { spawnEnemy } from "../core/helpers.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
 import { PlayerStore } from "../../store.js";
-import { findWorldPoint } from "../combat/chasmTestSupport.js";
+import { finiteServerWorldFixture } from "../testing/finiteWorldTestSupport.js";
 import { stepEnemies } from "./index.js";
 
 /**
@@ -82,12 +80,19 @@ function makeScoutSlot(x: number, y: number, sim: SimState): PlayerSlot {
 /** Any explicit void tile at or below chasm depth, scanning outward from the
  * origin (mirrors sim/chasmDeath.test.ts's findChasmFloor). */
 function findChasmFloor(world: World): { x: number; y: number } | null {
-  return findWorldPoint({ world, predicate: ({ tile }) => tile === TILE.Void });
+  const floor = world.generatedFloor;
+  if (!floor) return null;
+  const index = floor.tiles.findIndex((tile) => tile === TILE.Void);
+  if (index < 0) return null;
+  return {
+    x: floor.bounds.minX + index % floor.bounds.width,
+    y: floor.bounds.minY + Math.floor(index / floor.bounds.width),
+  };
 }
 
 describe("enemy void safety: a ranged enemy locked into shooting still dies in a chasm", () => {
   it("a spitter placed directly in a rift, in range of a stationary player, dies on its first active tick", () => {
-    const world = new World(hashString("void-safety-spitter"), 1, LEVEL.Dungeon);
+    const world = finiteServerWorldFixture();
     const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 7, opts: {} });
     const rift = findChasmFloor(world);
     expect(rift, "no chasm floor found in scan range").not.toBeNull();

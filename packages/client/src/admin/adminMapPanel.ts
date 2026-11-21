@@ -3,8 +3,8 @@ import {
   actionButton,
   controlFieldset,
   text,
-  title,
-} from "./adminPagePrimitives.js";
+} from "./portal/adminPagePrimitives.js";
+import { mapCanvasFieldset, mapLevelSelect, mapPanelSection } from "./adminMapPanelDom.js";
 import {
   createAdminSpawnCatalog,
   type AdminSpawnCatalog,
@@ -21,14 +21,15 @@ export interface AdminMapPanel {
 }
 
 export function mapPanel(): AdminMapPanel {
-  const section = panel("World editor");
+  const section = mapPanelSection("Runtime entity spawner");
   const map = mapCanvas();
   const workspace = document.createElement("div");
   workspace.dataset.adminMapWorkspace = "";
   const controls = mapControls();
   const catalog = createAdminSpawnCatalog();
-  workspace.append(controls.root, mapFieldset(map));
-  section.append(workspace, catalog.root);
+  workspace.append(controls.root, mapCanvasFieldset(map));
+  workspace.append(catalog.root);
+  section.append(workspace);
   return {
     root: section,
     map,
@@ -45,15 +46,8 @@ function mapCanvas(): HTMLCanvasElement {
   map.height = 480;
   map.tabIndex = 0;
   map.dataset.adminMap = "";
-  map.setAttribute("aria-label", "World editor map and placement canvas");
+  map.setAttribute("aria-label", "Runtime entity spawner map");
   return map;
-}
-
-function mapFieldset(map: HTMLCanvasElement): HTMLFieldSetElement {
-  const fieldset = controlFieldset("Map");
-  fieldset.dataset.adminMapCanvasSection = "";
-  fieldset.append(map);
-  return fieldset;
 }
 
 interface MapControls {
@@ -66,7 +60,7 @@ interface MapControls {
 function mapControls(): MapControls {
   const root = document.createElement("div");
   root.dataset.adminMapControls = "";
-  const mapLevel = select("Map level", [...LEVEL_IDS]);
+  const mapLevel = mapLevelSelect("Map level", [...LEVEL_IDS]);
   const mapFloor = mapFloorInput();
   const mapZoomStatus = zoomStatus();
   root.append(...mapControlContent({ mapLevel, mapFloor, mapZoomStatus }));
@@ -85,7 +79,7 @@ function mapFloorInput(): HTMLInputElement {
 }
 
 function mapControlContent(controls: Omit<MapControls, "root">): readonly HTMLElement[] {
-  const help = text("Click to place on a walkable cell. Right-click an enemy or weapon marker to remove it. Middle-drag or use WASD/arrow keys to pan.");
+  const help = text("Click to place the selected runtime entity. Right-click an enemy or weapon marker to remove it. Middle-drag or use WASD/arrow keys to pan.");
   help.dataset.adminMapHelp = "";
   return [
     controlGroup("Map", controls.mapLevel, controls.mapFloor, actionButton("Load map", "inspect-map")),
@@ -130,25 +124,4 @@ function controlGroup(label: string, ...controls: HTMLElement[]): HTMLElement {
   group.dataset.adminMapControlGroup = "";
   group.append(...controls);
   return group;
-}
-
-function select(label: string, values: readonly string[]): HTMLSelectElement {
-  const selectElement = document.createElement("select");
-  selectElement.title = label;
-  selectElement.dataset.adminMapLevel = "";
-  for (const value of values) selectElement.append(option(value));
-  return selectElement;
-}
-
-function option(value: string): HTMLOptionElement {
-  const element = document.createElement("option");
-  element.value = value;
-  element.textContent = value;
-  return element;
-}
-
-function panel(label: string): HTMLElement {
-  const section = document.createElement("section");
-  section.append(title(label));
-  return section;
 }

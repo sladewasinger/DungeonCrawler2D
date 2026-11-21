@@ -4,7 +4,7 @@ import type { TerrainScreenPoint, TerrainScreenProjection } from "../batch/quadB
 import type { TerrainAOQuad, TerrainBatches, TerrainQuadVertices } from "../geometry/terrainPlannerModel.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
 import { ambientOcclusionDepth } from "./ambientOcclusionDepth.js";
-import { pruneTerrainLayers } from "./layerRetention.js";
+import { TerrainOverlayLayerPool } from "./pooling/layerPool.js";
 
 const AO_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.ambientOcclusion.color);
 
@@ -15,9 +15,7 @@ export interface TerrainAOOverlayOptions {
 
 /** One Graphics object per depth row keeps AO batched while preserving entity ordering. */
 export class TerrainAOOverlayRenderer {
-  private readonly layers = new Map<number, Phaser.GameObjects.Graphics>();
-
-  constructor(private readonly scene: Phaser.Scene) {}
+  constructor(private readonly layers: TerrainOverlayLayerPool) {}
 
   render(
     masks: TerrainBatches["ao"],
@@ -25,27 +23,10 @@ export class TerrainAOOverlayRenderer {
     options: TerrainAOOverlayOptions,
   ): void {
     const grouped = options.enabled ? groupByDepth(masks) : new Map();
-    pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, group] of grouped) {
-      const graphics = this.layers.get(depth) ?? this.createLayer(depth);
-      graphics.clear().setVisible(options.visible).fillStyle(AO_COLOR, 1);
+      const graphics = this.layers.acquire("ao", depth, options.visible).fillStyle(AO_COLOR, 1);
       drawGroup(graphics, group, projection);
     }
-  }
-
-  setVisible(visible: boolean): void {
-    for (const graphics of this.layers.values()) graphics.setVisible(visible);
-  }
-
-  destroy(): void {
-    for (const graphics of this.layers.values()) graphics.destroy();
-    this.layers.clear();
-  }
-
-  private createLayer(depth: number): Phaser.GameObjects.Graphics {
-    const graphics = this.scene.add.graphics().setDepth(depth);
-    this.layers.set(depth, graphics);
-    return graphics;
   }
 }
 

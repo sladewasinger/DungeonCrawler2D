@@ -2,7 +2,8 @@
   "retention": {
     "maxChunkPlans": 32,
     "maxOrientationRoots": 4,
-    "maxWorldChunks": 96
+    "maxWorldChunks": 96,
+    "maxNewChunkPlansPerFrame": 2
   },
   "cameraPresentation": {
     "referenceViewport": {
@@ -10,8 +11,10 @@
       "height": 720
     },
     "baseZoom": 1,
+    "mobileZoomMultiplier": 1.25,
     "minimumAspectRatio": 1.3333333333333333,
     "maximumAspectRatio": 2,
+    "finiteTerrainMarginTiles": 1,
     "spectator": {
       "minimumZoom": 0.5,
       "maximumZoom": 2.5,

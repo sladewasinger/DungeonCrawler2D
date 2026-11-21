@@ -1,3 +1,4 @@
+import { clampFiniteFloorPosition } from "@dc2d/engine";
 import type { Connection } from "./connection.js";
 
 /**
@@ -158,7 +159,8 @@ export function rescueIntent(conn: Connection): void {
 }
 
 export function debugTeleportIntent(conn: Connection, x: number, y: number): void {
-  conn.send({ type: "debug", op: "teleport", x, y });
+  const position = clampFiniteFloorPosition(conn.world?.floorBounds ?? null, { x, y });
+  conn.send({ type: "debug", op: "teleport", x: position.x, y: position.y });
 }
 
 export function debugGodIntent(conn: Connection, on?: boolean): void {
@@ -167,4 +169,9 @@ export function debugGodIntent(conn: Connection, on?: boolean): void {
     op: "god",
     ...(on === undefined ? {} : { on }),
   });
+}
+
+export function debugNoclipIntent(conn: Connection, on?: boolean): void {
+  if (!conn.activeAdmin) return;
+  conn.send({ type: "debug", op: "noclip", ...(on === undefined ? {} : { on }) });
 }

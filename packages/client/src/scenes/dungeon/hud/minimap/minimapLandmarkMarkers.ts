@@ -1,4 +1,4 @@
-import { stairwayDownPosition, type World } from "@dc2d/engine";
+import type { World } from "@dc2d/engine";
 import type { Connection } from "../../../../net/connection/connection.js";
 import { resolveCompassLandmarkPositions } from "../../world/landmarks/compassLandmarks.js";
 import type { MinimapLandmarkMarker } from "../../../../ui/hud/model/minimap/minimapTypes.js";
@@ -18,8 +18,9 @@ export const resolveMinimapLandmarks = ({
 }: LandmarkRequest): MinimapLandmarkMarker[] => {
   if (!world) return [];
   const markers = compassLandmarks({ connection, world, centerX, centerY });
-  const stairs = stairwayDownPosition(world);
-  if (stairs) markers.push({ kind: "stairs", x: stairs.x, y: stairs.y });
+  for (const stairs of world.downStairwayPositions()) {
+    markers.push({ kind: "stairs", x: stairs.x, y: stairs.y });
+  }
   return markers;
 };
 

@@ -1,6 +1,5 @@
 import {
   LEVEL,
-  World,
   decodeServerMessage,
   spawnRoomSpawn,
 } from "@dc2d/engine";
@@ -23,6 +22,7 @@ import {
 } from "../spectator/spectatorSession.js";
 import { authenticatedAdminStateSubscriptions, ObserverSocket } from "./adminStateSubscriptionTestSupport.js";
 import type { ConnState } from "../../types.js";
+import { authoredServerWorldFixture } from "../../../sim/testing/finiteWorldTestSupport.js";
 
 describe("admin state subscriptions", () => {
   it("includes a connected crawler still inside the reserved spawn room", () => {
@@ -123,7 +123,7 @@ function adminRuntime(): { readonly floors: FloorRegistry; readonly controller: 
     opts: {},
   });
   const sandbox = new GameSim({
-    world: new World(123, 1, LEVEL.Sandbox),
+    world: authoredServerWorldFixture(),
     content,
     store,
     rngSeed: 12,

@@ -21,6 +21,7 @@ export interface LiveSpectatorViewInput {
   readonly map: AdminMap;
   readonly targetId: string | null;
   readonly canvas: LiveSpectatorCanvas;
+  readonly zoom?: number;
 }
 
 /**
@@ -33,7 +34,7 @@ export function createLiveSpectatorView(input: LiveSpectatorViewInput): LiveSpec
   return {
     center,
     focus: { x: input.canvas.width / 2, y: input.canvas.height * 0.6 },
-    tileSize: liveSpectatorTileSize(input.canvas),
+    tileSize: liveSpectatorTileSize(input.canvas) * (input.zoom ?? 1),
     elevation: target?.z ?? elevationAt(input.map, center),
   };
 }

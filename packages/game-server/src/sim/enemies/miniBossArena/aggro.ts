@@ -72,6 +72,7 @@ function arenaContainsPlayer(
     floor: sim.world.floor,
     cx: Math.floor(body.x / CHUNK_SIZE),
     cy: Math.floor(body.y / CHUNK_SIZE),
+    generatedFloor: sim.world.generatedFloor,
   });
   return arena?.key === arenaKey &&
     containsPoint(arena.interior, body.x, body.y);

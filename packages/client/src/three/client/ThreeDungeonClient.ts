@@ -13,6 +13,7 @@ import { needsTerrainRefresh } from "../terrain/core/terrainStreaming.js";
 import type { ThreeRouteOptions } from "./threeRouteConfig.js";
 import type { ViewDistance } from "../terrain/view/viewDistance.js";
 import { createThreeDungeonSetup } from "./ThreeDungeonClientSetup.js";
+import { createWorldLoadingOverlay, type WorldLoadingOverlay } from "../../scenes/dungeon/loading/worldLoadingOverlay.js";
 
 export const startThreeDungeon = (options: ThreeRouteOptions) => new ThreeDungeonClient(options).start();
 
@@ -32,6 +33,7 @@ class ThreeDungeonClient {
   private inputClock = 0;
   private terrainRevision: number;
   private active = false;
+  private readonly loading: WorldLoadingOverlay;
 
   constructor(private readonly options: ThreeRouteOptions) {
     const setup = createThreeDungeonSetup(options, this.setViewDistance);
@@ -46,6 +48,7 @@ class ThreeDungeonClient {
     this.viewDistance = setup.viewDistance;
     this.state = setup.state;
     this.terrainRevision = setup.world.tileRevision;
+    this.loading = createWorldLoadingOverlay(options.conn, options.root);
   }
 
   start(): () => void {
@@ -70,6 +73,7 @@ class ThreeDungeonClient {
     if (!this.active) return;
     if (this.redirectEndedSession()) return;
     this.syncAuthoritativeWorld();
+    this.loading.sync(this.options.conn.worldReady);
     const elapsed = this.elapsed(time);
     const sampled = this.input.sample(elapsed);
     this.actions.publish(this.world, sampled);
@@ -179,6 +183,7 @@ class ThreeDungeonClient {
     window.removeEventListener("resize", this.resize);
     window.removeEventListener("pagehide", this.dispose);
     this.hud.dispose();
+    this.loading.dispose();
     this.input.dispose();
     this.terrain.dispose();
     this.viewport.dispose();

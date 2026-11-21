@@ -1,4 +1,3 @@
-import { biomeAtWorldTile } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
 import { resolveCompassLandmarks } from "../world/landmarks/compassLandmarks.js";
 import { resolveStairwayTick } from "../world/stairwayTick.js";
@@ -16,12 +15,7 @@ export function updateLiveHudWorldFields(
 ): void {
   const { snapshot, conn, body, compassBearingDeg } = request;
   snapshot.biome = conn.world
-    ? biomeAtWorldTile({
-      worldSeed: conn.world.worldSeed,
-      floor: conn.floor,
-      wx: body.x,
-      wy: body.y,
-    }).biome
+    ? conn.world.biomeAtWorldTile(body.x, body.y)?.biome ?? null
     : null;
   snapshot.stairway = conn.world
     ? resolveStairwayTick({

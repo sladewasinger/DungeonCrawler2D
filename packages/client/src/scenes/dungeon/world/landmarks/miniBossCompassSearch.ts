@@ -103,7 +103,13 @@ function miniBossArenaCenter(request: {
   const { world, chunk, defeatedArenaChunks } = request;
   const { cx, cy } = chunk;
   if (defeatedArenaChunks.has(arenaChunkKey(cx, cy))) return [];
-  const arena = miniBossArenaForChunk({ worldSeed: world.worldSeed, floor: world.floor, cx, cy });
+  const arena = miniBossArenaForChunk({
+    worldSeed: world.worldSeed,
+    floor: world.floor,
+    cx,
+    cy,
+    generatedFloor: world.generatedFloor,
+  });
   // Eligibility reserves ordinary generated chunks from authored structures.
   // Runtime stamping remains guarded for injected/custom feature planes.
   if (!arena) return [];

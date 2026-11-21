@@ -30,14 +30,18 @@ export function processActions(sim: SimState, effectEvents: EffectEvent[]): void
 function processSlotActions(sim: SimState, slot: PlayerSlot, effectEvents: EffectEvent[]): void {
   const actions = slot.pendingActions.splice(0);
   if (!slot.connected) return;
-  for (const action of actions) {
-    if (action.type === "rescue") {
-      dispatchAction({ sim, slot, action, effectEvents });
-      return;
-    }
-    if (slot.entity.hp <= 0) return;
-    dispatchAction({ sim, slot, action, effectEvents });
+  for (const action of actions) if (!processSlotAction({ sim, slot, action, effectEvents })) return;
+}
+
+function processSlotAction(context: ActionContext): boolean {
+  if (context.slot.pendingTransfer) return false;
+  if (context.action.type === "rescue") {
+    dispatchAction(context);
+    return false;
   }
+  if (context.slot.entity.hp <= 0) return false;
+  dispatchAction(context);
+  return true;
 }
 
 /** Action types that a downed player (mid-revive, can't act) may not perform. */

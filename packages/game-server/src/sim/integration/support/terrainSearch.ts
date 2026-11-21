@@ -48,6 +48,16 @@ export function findFlatArena({ sim, anchor, clearance = 2 }: ArenaSearch): Tile
   }));
 }
 
+export function separatedFiniteFloorPositions(sim: GameSim): {
+  readonly nearby: TilePosition;
+  readonly distant: TilePosition;
+} {
+  const spawn = sim.world.generatedFloor?.spawn;
+  if (!spawn) throw new Error("missing finite integration fixture spawn");
+  const nearby = findFlatFloor(sim, spawn.x, spawn.y);
+  return { nearby, distant: findFlatFloor(sim, nearby.x + 24, nearby.y) };
+}
+
 function isFlatFloor(sim: GameSim, x: number, y: number): boolean {
   return sim.world.isWalkable(x, y) && sim.world.heightAt(x, y) === 0 && !sim.world.isSanctuary(x, y);
 }

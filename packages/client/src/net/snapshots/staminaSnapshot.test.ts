@@ -1,7 +1,8 @@
-import { LEVEL, World, type ServerSnapshot } from "@dc2d/engine";
+import { type ServerSnapshot } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { applySnapshot } from "../sync/apply.js";
 import { Connection } from "../connection/connection.js";
+import { sandboxWorld } from "../prediction/predictionTestSupport.js";
 
 function exhaustedSnapshot(): ServerSnapshot {
   return {
@@ -43,8 +44,9 @@ function exhaustedSnapshot(): ServerSnapshot {
 describe("authoritative stamina exhaustion", () => {
   it("stays at zero through local prediction while the recovery delay counts down", () => {
     const conn = new Connection("wss://example.test", "Tester", "client-1");
-    conn.world = new World(12345, 1, LEVEL.Dungeon);
+    conn.world = sandboxWorld();
     conn.status = "connected";
+    conn.worldReady = true;
 
     applySnapshot(conn, exhaustedSnapshot());
     conn.sampleInput({

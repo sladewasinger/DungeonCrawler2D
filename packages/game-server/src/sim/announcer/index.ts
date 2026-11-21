@@ -2,7 +2,7 @@
 // join/death/level/kill/fistbump/torch moments — the DCC book-fan lane
 // (Epic 7.13). Every line rides the existing "system" chat channel, so
 // no client changes are required to see them.
-import { stairwayDownChunk, type EnemyDef, type GameEvent } from "@dc2d/engine";
+import { type EnemyDef, type GameEvent, type World } from "@dc2d/engine";
 import type { PlayerSlot, SimState } from "../state/state.js";
 import { killVerbPhrase } from "./killLine.js";
 import {
@@ -144,9 +144,9 @@ export function announceFloorEntry(floor: number): GameEvent {
 export function announceStairwayHint(
   tick: number,
   playerId: string,
-  world: { worldSeed: number; floor: number },
+  world: Pick<World, "floor" | "downStairwayPositions">,
 ): GameEvent | null {
-  if (!stairwayDownChunk(world)) return null;
+  if (world.downStairwayPositions().length === 0) return null;
   return systemLine(pick(STAIRWAY_HINT_LINES, tick, `stairs:${playerId}:${world.floor}`)());
 }
 

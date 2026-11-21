@@ -1,11 +1,10 @@
 /** Owns deterministic near-boundary roaming-pack fixtures for population tests. */
+import { CHASM_DEATH_Z, TILE } from "@dc2d/engine";
 import { vi } from "vitest";
 import type { SimState } from "../../../state/state.js";
 import { ENEMY_SIMULATION_TUNING } from "../../configuration/enemySimulationTuning.js";
 import { spawnEnemyPack } from "../../population.js";
-import { enemySpawnCenter, validEnemySpawn } from "../../populationPlacement.js";
 import {
-  isNearSpawnPopulationPosition,
   nearSpawnPopulationCenter,
   NEAR_SPAWN_POPULATION_RADIUS_TILES,
 } from "../nearSpawn.js";
@@ -23,31 +22,97 @@ interface TilePosition {
   readonly y: number;
 }
 
-interface BoundarySearch {
-  readonly sim: SimState;
-  readonly anchor: TilePosition;
-  readonly center: TilePosition;
-  readonly radius: number;
-}
-
 interface ControlledPackInput {
   readonly sim: SimState;
   readonly fixture: BoundaryPackFixture;
   readonly second: TilePosition;
 }
 
+interface BoundaryTerrainSearch {
+  readonly sim: SimState;
+  readonly center: TilePosition;
+  readonly radius: number;
+}
+
+interface BoundaryCandidates extends BoundaryTerrainSearch {
+  readonly inside: TilePosition;
+  readonly outside: TilePosition;
+}
+
 export function findBoundaryPackFixture(sim: SimState): BoundaryPackFixture {
   const center = nearSpawnPopulationCenter();
-  const input = { sim, center, radius: NEAR_SPAWN_POPULATION_RADIUS_TILES };
-  const anchor = findBoundaryAnchor(input);
-  const candidates = findBoundaryCandidates({ ...input, anchor });
-  if (!candidates) throw new Error("missing near-boundary pack fixture");
+  const radius = NEAR_SPAWN_POPULATION_RADIUS_TILES;
+  const { anchor, inside, outside } = findBoundaryTerrain({ sim, center, radius });
+  sim.world.replaceTileOverrides([anchor, inside, outside].map(({ x, y }) => ({
+    x, y, tile: TILE.Floor,
+  })));
   return {
-    anchor,
-    ...candidates,
+    anchor, inside, outside,
     chunkX: Math.floor(anchor.x / 32),
     chunkY: Math.floor(anchor.y / 32),
   };
+}
+
+function findBoundaryTerrain(
+  input: BoundaryTerrainSearch,
+): Pick<BoundaryPackFixture, "anchor" | "inside" | "outside"> {
+  for (const anchor of boundarySearchTiles(input)) {
+    if (!insideBoundaryBand(input, anchor)) continue;
+    const fixture = boundaryFixtureAt(input, anchor);
+    if (fixture) return fixture;
+  }
+  throw new Error("missing height-valid near-boundary terrain");
+}
+
+function boundarySearchTiles(input: BoundaryTerrainSearch): TilePosition[] {
+  const minimumY = Math.floor(input.center.y - input.radius - 1);
+  const maximumY = Math.ceil(input.center.y + input.radius + 1);
+  const minimumX = Math.floor(input.center.x - input.radius - 1);
+  const maximumX = Math.ceil(input.center.x + input.radius + 1);
+  return Array.from({ length: maximumY - minimumY + 1 }, (_, row) =>
+    Array.from({ length: maximumX - minimumX + 1 }, (_, column) => ({
+      x: minimumX + column,
+      y: minimumY + row,
+    })),
+  ).flat();
+}
+
+const CARDINAL_DIRECTIONS = [
+  { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+] as const;
+
+function boundaryFixtureAt(
+  input: BoundaryTerrainSearch,
+  anchor: TilePosition,
+): Pick<BoundaryPackFixture, "anchor" | "inside" | "outside"> | null {
+  for (const direction of CARDINAL_DIRECTIONS) {
+    const inside = { x: anchor.x + direction.x, y: anchor.y + direction.y };
+    const outside = { x: anchor.x - direction.x, y: anchor.y - direction.y };
+    if (boundaryCandidatesFit({ ...input, inside, outside })) {
+      return { anchor, inside, outside };
+    }
+  }
+  return null;
+}
+
+function insideBoundaryBand(
+  input: BoundaryTerrainSearch,
+  tile: TilePosition,
+): boolean {
+  const distance = tileDistance(input.center, tile);
+  return input.sim.world.heightAt(tile.x, tile.y) > CHASM_DEATH_Z &&
+    distance >= input.radius - 1 && distance <= input.radius;
+}
+
+function boundaryCandidatesFit(input: BoundaryCandidates): boolean {
+  return input.sim.world.heightAt(input.inside.x, input.inside.y) > CHASM_DEATH_Z &&
+    input.sim.world.heightAt(input.outside.x, input.outside.y) > CHASM_DEATH_Z &&
+    tileDistance(input.center, input.inside) <= input.radius &&
+    tileDistance(input.center, input.outside) > input.radius;
+}
+
+function tileDistance(center: TilePosition, tile: TilePosition): number {
+  return Math.hypot(tile.x + 0.5 - center.x, tile.y + 0.5 - center.y);
 }
 
 export function spawnControlledBoundaryPack(input: ControlledPackInput): void {
@@ -56,69 +121,6 @@ export function spawnControlledBoundaryPack(input: ControlledPackInput): void {
   rng.mockImplementation(() => values.shift() ?? 0);
   spawnEnemyPack(input.sim, input.fixture.chunkX, input.fixture.chunkY);
   rng.mockRestore();
-}
-
-function findBoundaryAnchor(input: Omit<BoundarySearch, "anchor">): TilePosition {
-  const { center, radius } = input;
-  for (let y = Math.floor(center.y - radius); y <= center.y + radius; y += 1) {
-    for (let x = Math.floor(center.x - radius); x <= center.x + radius; x += 1) {
-      const anchor = { x, y };
-      if (isBoundaryAnchor({ ...input, anchor })) return anchor;
-    }
-  }
-  throw new Error("missing valid near-boundary anchor");
-}
-
-function isBoundaryAnchor(input: BoundarySearch): boolean {
-  const position = enemySpawnCenter(input.anchor);
-  const distance = Math.hypot(
-    position.x - input.center.x,
-    position.y - input.center.y,
-  );
-  return validEnemySpawn(input.sim, input.anchor.x, input.anchor.y) &&
-    distance >= input.radius - 1 && distance <= input.radius;
-}
-
-function findBoundaryCandidates(
-  input: BoundarySearch,
-): Pick<BoundaryPackFixture, "inside" | "outside"> | null {
-  const inside = findBoundaryCandidate(input, "inside");
-  const outside = findBoundaryCandidate(input, "outside");
-  return inside && outside ? { inside, outside } : null;
-}
-
-function findBoundaryCandidate(
-  input: BoundarySearch,
-  kind: "inside" | "outside",
-): TilePosition | null {
-  const spread = ENEMY_SIMULATION_TUNING.population.packSpreadRadiusTiles;
-  for (let y = input.anchor.y - spread; y <= input.anchor.y + spread; y += 1) {
-    for (let x = input.anchor.x - spread; x <= input.anchor.x + spread; x += 1) {
-      const candidate = { x, y };
-      if (classifyBoundaryCandidate(input, candidate) === kind) return candidate;
-    }
-  }
-  return null;
-}
-
-function classifyBoundaryCandidate(
-  input: BoundarySearch,
-  candidate: TilePosition,
-): "inside" | "outside" | null {
-  if (!isValidNearbyCandidate(input, candidate)) return null;
-  return isNearSpawnPopulationPosition(input.sim, enemySpawnCenter(candidate))
-    ? "inside"
-    : "outside";
-}
-
-function isValidNearbyCandidate(input: BoundarySearch, candidate: TilePosition): boolean {
-  if (candidate.x === input.anchor.x && candidate.y === input.anchor.y) return false;
-  if (!validEnemySpawn(input.sim, candidate.x, candidate.y)) return false;
-  const distance = Math.hypot(
-    candidate.x - input.anchor.x + 0.5,
-    candidate.y - input.anchor.y + 0.5,
-  );
-  return distance <= ENEMY_SIMULATION_TUNING.population.packSpreadRadiusTiles;
 }
 
 function boundaryRandomValues(

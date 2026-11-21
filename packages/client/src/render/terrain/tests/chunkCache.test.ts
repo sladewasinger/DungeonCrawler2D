@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE } from "@dc2d/engine";
-import { TERRAIN_KINDS, type TerrainSource } from "../planning/terrainPlanner.js";
+import {
+  TERRAIN_KINDS,
+  VOID_SOUTH_FACE_MODES,
+  type TerrainSource,
+} from "../planning/terrainPlanner.js";
 import { TerrainChunkPlanCache, appendVisibleChunkPlans, emptyTerrainBatches } from "../planning/chunkCache.js";
 
 const source: TerrainSource = {
@@ -23,6 +27,18 @@ describe("TerrainChunkPlanCache", () => {
     const enabled = cache.get({ ...input, source: { ...source, voidTerrain: true } });
     const disabled = cache.get({ ...input, source: { ...source, voidTerrain: false } });
     expect(disabled).not.toBe(enabled);
+  });
+
+  it("does not reuse floating faces for open-edge previews", () => {
+    const cache = new TerrainChunkPlanCache();
+    const input = { coord: { cx: 0, cy: 0 }, orientation: 0 as const, revision: 1 };
+    const floating = cache.get({ ...input, source });
+    const openEdges = cache.get({
+      ...input,
+      source: { ...source, voidSouthFaceMode: VOID_SOUTH_FACE_MODES.OpenEdges },
+    });
+
+    expect(openEdges).not.toBe(floating);
   });
 
   it("does not reuse plans across inside and outside presentation", () => {
@@ -84,6 +100,25 @@ describe("TerrainChunkPlanCache", () => {
 
     expect(batches.floors.map(({ worldTile }) => worldTile.x)).toEqual([0, 1]);
     expect(metrics).toEqual({ candidateQuads: 4, submittedQuads: 2 });
+  });
+
+  it("bounds new chunk planning while retaining immutable cached plans", () => {
+    const batches = emptyTerrainBatches();
+    const cache = new TerrainChunkPlanCache();
+    const pending: string[] = [];
+    appendVisibleChunkPlans({
+      target: batches,
+      cache,
+      source,
+      bounds: { x: 0, y: 0, width: CHUNK_SIZE * 3, height: 1 },
+      orientation: 0,
+      revision: 1,
+      maxNewPlans: 1,
+      onPendingPlan: ({ cx, cy }) => pending.push(`${cx},${cy}`),
+    });
+
+    expect(cache.size).toBe(1);
+    expect(pending).toEqual(["1,0", "2,0"]);
   });
 
   it("clips every terrain presentation layer at a chunk seam", () => {

@@ -1,25 +1,29 @@
-import {
-  BIOME,
-  biomeAtWorldTile,
-  type BiomeKind,
-} from "@dc2d/engine";
+import { BIOME, type BiomeKind } from "@dc2d/engine";
 import type { SimState } from "../state/state.js";
+import { factionRosterForOwnershipTags } from "./population/territoryFactionPolicies.js";
 
+const GOBLIN = "goblin";
+const SLIME = "slime";
+const SPITTER = "spitter";
+const PLANT_CREEPER = "plant-creeper";
+const ORC_SHAMAN = "orc-shaman";
+const CHORT = "chort";
 const ORC_WARRIOR = "orc-warrior";
 const SKELETON = "skeleton";
 const FALLEN_ANGEL = "fallen-angel";
 const MASKED_ORC = "masked-orc";
 const PITCHBLOOM = "pitchbloom";
+
 export const RANDOM_ENEMY_ROSTER = [
-  "slime", "plant-creeper", PITCHBLOOM, SKELETON, "spitter", "goblin",
-  MASKED_ORC, ORC_WARRIOR, "orc-shaman", "tiny-zombie",
-  "big-zombie", "chort", "wogol", "pumpkin-fiend",
+  SLIME, PLANT_CREEPER, PITCHBLOOM, SKELETON, SPITTER, GOBLIN,
+  MASKED_ORC, ORC_WARRIOR, ORC_SHAMAN, "tiny-zombie",
+  "big-zombie", CHORT, "wogol", "pumpkin-fiend",
   FALLEN_ANGEL,
 ] as const;
 
 export function enemyRosterForBiome(biome: BiomeKind): readonly string[] {
   if (biome === BIOME.Maze) {
-    return ["goblin", MASKED_ORC, ORC_WARRIOR, "orc-shaman"];
+    return [GOBLIN, MASKED_ORC, ORC_WARRIOR, ORC_SHAMAN];
   }
   if (biome === BIOME.OpenHalls) {
     return [SKELETON, FALLEN_ANGEL, ORC_WARRIOR];
@@ -28,12 +32,12 @@ export function enemyRosterForBiome(biome: BiomeKind): readonly string[] {
     return [SKELETON, "tiny-zombie", "big-zombie", FALLEN_ANGEL];
   }
   if (biome === BIOME.Pillars) {
-    return ["plant-creeper", "pumpkin-fiend", "wogol"];
+    return [PLANT_CREEPER, "pumpkin-fiend", "wogol"];
   }
   if (biome === BIOME.Pools) {
-    return ["slime", "spitter", PITCHBLOOM, "wogol"];
+    return [SLIME, SPITTER, PITCHBLOOM, "wogol"];
   }
-  return ["chort", MASKED_ORC, ORC_WARRIOR];
+  return [CHORT, MASKED_ORC, ORC_WARRIOR];
 }
 
 function randomEntry(sim: SimState, entries: readonly string[]): string {
@@ -61,8 +65,7 @@ export function pickNativeEnemyDef(
   x: number,
   y: number,
 ): string {
-  const biome = biomeAtPosition(sim, x, y);
-  return randomEntry(sim, enemyRosterForBiome(biome));
+  return randomEntry(sim, nativeRosterAtPosition(sim, x, y));
 }
 
 export function pickAllowedEnemyDef(
@@ -86,17 +89,29 @@ export function pickAllowedNativeEnemyDef(
 function allowedNativeRoster(
   selection: AllowedEnemySelection,
 ): readonly string[] {
-  const biome = biomeAtPosition(selection.sim, selection.x, selection.y);
-  return enemyRosterForBiome(biome).filter(selection.isAllowed);
+  return nativeRosterAtPosition(selection.sim, selection.x, selection.y)
+    .filter(selection.isAllowed);
 }
 
 function biomeAtPosition(sim: SimState, x: number, y: number): BiomeKind {
-  return biomeAtWorldTile({
-    worldSeed: sim.world.worldSeed,
-    floor: sim.world.floor,
-    wx: x,
-    wy: y,
-  }).biome;
+  return sim.world.biomeAtWorldTile(x, y)?.biome ?? BIOME.Maze;
+}
+
+function nativeRosterAtPosition(sim: SimState, x: number, y: number): readonly string[] {
+  const territory = territoryAtPosition(sim, x, y);
+  if (territory) {
+    return factionRosterForOwnershipTags(territory.ownershipTags);
+  }
+  return enemyRosterForBiome(biomeAtPosition(sim, x, y));
+}
+
+export function enemyRosterAtPosition(sim: SimState, x: number, y: number): readonly string[] {
+  return nativeRosterAtPosition(sim, x, y);
+}
+
+function territoryAtPosition(sim: SimState, x: number, y: number) {
+  const index = sim.world.territoryAtWorldTile(x, y);
+  return index === null ? undefined : sim.world.generatedFloor?.territories[index];
 }
 
 function randomOptionalEntry(

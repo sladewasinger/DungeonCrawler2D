@@ -33,6 +33,7 @@ export interface PredictionRequest {
   canBlock?: boolean;
   movementSpeed?: number;
   movementSpeedProjection?: ContinuousMovementSpeedProjection;
+  noclip?: boolean;
 }
 
 export interface ReconciliationRequest {
@@ -44,6 +45,7 @@ export interface ReconciliationRequest {
   canBlock?: boolean;
   movementSpeed?: number;
   movementSpeedProjection?: ContinuousMovementSpeedProjection;
+  noclip?: boolean;
 }
 
 export class Prediction {
@@ -74,6 +76,7 @@ export class Prediction {
       canBlock = false,
       movementSpeed = MOVE_SPEED,
       movementSpeedProjection,
+      noclip,
     } = request;
     this.projectedMovementSpeed.ensure(movementSpeedProjection);
     this.seq++;
@@ -85,6 +88,7 @@ export class Prediction {
       resources,
       canBlock,
       movementSpeed: this.projectedMovementSpeed.current(movementSpeed),
+      noclip,
     });
     this.projectedMovementSpeed.advance();
     this.history.add(this.projectedServerTick, input);
@@ -102,6 +106,7 @@ export class Prediction {
       canBlock = false,
       movementSpeed = MOVE_SPEED,
       movementSpeedProjection,
+      noclip,
     } = request;
     this.projectedMovementSpeed.replace(movementSpeedProjection);
     const acknowledgedTick = this.resolveAcknowledgedTick(
@@ -120,6 +125,7 @@ export class Prediction {
       resources,
       canBlock,
       movementSpeed,
+      noclip,
     });
   }
 

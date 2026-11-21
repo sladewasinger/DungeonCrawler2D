@@ -1,10 +1,14 @@
-import { LEVEL, World, safeRoomSpawn, spawnRoomSpawn } from "@dc2d/engine";
+import { LEVEL, safeRoomSpawn, spawnRoomSpawn } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { findSpawn } from "../spawn/spawn.js";
 import { createSimState } from "../state/state.js";
-import { SEED, content } from "../integration/support.js";
+import { content } from "../integration/support.js";
 import { despawnAdminEntity, spawnAdminEntity } from "./adminSpawning.js";
+import {
+  authoredServerWorldFixture,
+  finiteServerWorldFixture,
+} from "../testing/finiteWorldTestSupport.js";
 
 describe("admin entity placement", () => {
   it("normalizes every accepted spawn to the selected tile centre", () => {
@@ -13,7 +17,7 @@ describe("admin entity placement", () => {
     const result = spawnAdminEntity(sim, {
       op: "spawn",
       level: "sandbox",
-      floor: 1,
+      floor: sim.world.floor,
       kind: "enemy",
       defId: "slime",
       x: Math.floor(spawn.x) + 0.07,
@@ -51,7 +55,7 @@ describe("admin entity placement", () => {
     const result = spawnAdminEntity(sim, {
       op: "spawn",
       level: "sandbox",
-      floor: 1,
+      floor: sim.world.floor,
       kind: "enemy",
       defId: "slime",
       x: point.x,
@@ -86,7 +90,7 @@ describe("admin entity placement", () => {
 
 function adminTestState() {
   return createSimState({
-    world: new World(SEED, 1, LEVEL.Sandbox),
+    world: authoredServerWorldFixture(),
     content,
     store: new PlayerStore(null),
     rngSeed: 1,
@@ -96,10 +100,7 @@ function adminTestState() {
 
 function adminDungeonState() {
   return createSimState({
-    world: new World(SEED, 1, {
-      level: LEVEL.Dungeon,
-      features: { voidTerrain: false },
-    }),
+    world: finiteServerWorldFixture(),
     content,
     store: new PlayerStore(null),
     rngSeed: 1,
@@ -115,7 +116,7 @@ function spawnCommand(
   return {
     op: "spawn" as const,
     level: "sandbox" as const,
-    floor: 1,
+    floor: 0,
     kind,
     defId,
     x: point.x,
@@ -124,5 +125,5 @@ function spawnCommand(
 }
 
 function despawnCommand(entityId: string) {
-  return { op: "despawn" as const, level: "sandbox" as const, floor: 1, entityId };
+  return { op: "despawn" as const, level: "sandbox" as const, floor: 0, entityId };
 }

@@ -8,6 +8,7 @@ import {
   chatIntent,
   craftIntent,
   debugGodIntent,
+  debugNoclipIntent,
   debugTeleportIntent,
   descendIntent,
   dropIntent,
@@ -121,6 +122,7 @@ export class ConnectionActions extends ConnectionState {
   rescue(): void { rescueIntent(this.connection); }
   debugTeleport(x: number, y: number): void { debugTeleportIntent(this.connection, x, y); }
   debugGod(on?: boolean): void { debugGodIntent(this.connection, on); }
+  debugNoclip(on?: boolean): void { debugNoclipIntent(this.connection, on); }
 
   private resolveSocialTarget(nameOrId?: string): string | undefined {
     const connection = this.connection;

@@ -10,5 +10,9 @@ export default defineConfig({
     ],
     exclude: ["**/node_modules/**", "**/dist/**"],
     environment: "node",
+    setupFiles: [
+      "./tests/support/finiteFloorRuntimeCacheSetup.ts",
+      "./tests/support/finiteFloorTraceCacheSetup.ts",
+    ],
   },
 });

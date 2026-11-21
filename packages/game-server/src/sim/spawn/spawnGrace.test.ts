@@ -8,12 +8,9 @@ import {
   statusesData,
 } from "@dc2d/content";
 import {
-  LEVEL,
   PLAYER_MAX_HP,
-  World,
   buildContentRegistry,
   createBody,
-  hashString,
   type ContentRegistry,
   type EffectEvent,
 } from "@dc2d/engine";
@@ -28,6 +25,10 @@ import { DEFAULT_HANDICAP, GOD_MODE_DAMAGE_MULTIPLIER } from "../progression/han
 import { isSpawnProtected } from "../spawnSafety/spawnSafety.js";
 import { openFloorNear } from "../spawnSafety/testSupport.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
+import {
+  finiteFixtureSpawn,
+  finiteServerWorldFixture,
+} from "../testing/finiteWorldTestSupport.js";
 
 /**
  * Spawn-safety GRACE window (panel round 3b blocker #1): for
@@ -53,13 +54,13 @@ describe("spawn grace", () => {
   let slot: PlayerSlot;
 
   beforeEach(() => {
-    const world = new World(hashString("spawn-grace-test"), 1, LEVEL.Dungeon);
+    const world = finiteServerWorldFixture();
     sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 5, opts: { spawnRadiusTiles: 12 } });
     playerId = addPlayer(sim, { name: "Newborn", clientId: "client-g" }).playerId;
     slot = sim.players.get(playerId)!;
     // Damage paths sanctuary-suppress independently of grace — park the
     // body on known NON-sanctuary floor so every assertion isolates grace.
-    const spot = openFloorNear(sim, { x: 200, y: 200 });
+    const spot = openFloorNear(sim, finiteFixtureSpawn(world));
     slot.entity.body = createBody(spot.x, spot.y, sim.world.groundAt(spot.x, spot.y));
   });
 
@@ -117,7 +118,8 @@ describe("spawn grace", () => {
   it("applies the name-based handicap after spawn grace expires", () => {
     const handicappedId = addPlayer(sim, { name: "ELLIE-the-crawler", clientId: "client-ellie" }).playerId;
     const handicapped = sim.players.get(handicappedId)!;
-    const spot = openFloorNear(sim, { x: 220, y: 200 });
+    const spawn = finiteFixtureSpawn(sim.world);
+    const spot = openFloorNear(sim, { x: spawn.x + 20, y: spawn.y });
     handicapped.entity.body = createBody(
       spot.x,
       spot.y,

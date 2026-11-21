@@ -12,12 +12,13 @@ import {
   countPopulation,
   createPopulationTestSim,
 } from "./population/populationTestSupport.js";
+import { findPopulationTile } from "./population/testSupport/populationTerrainFixture.js";
 import { repopulateNearSpawn } from "./repopulation.js";
 
 describe("occupied-area repopulation", () => {
   it("preserves ordinary density on deeper floors", () => {
     const sim = createPopulationTestSim({ floor: 2 });
-    const center = resolveSpawnAnchor(sim);
+    const center = findPopulationTile(sim);
     addPopulationTestPlayer(sim, center);
 
     repopulateNearSpawn(sim);

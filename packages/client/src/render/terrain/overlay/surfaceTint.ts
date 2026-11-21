@@ -12,10 +12,9 @@ import type {
 } from "../geometry/terrainPlannerModel.js";
 import { TERRAIN_SURFACES } from "../geometry/terrainPlannerModel.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
-import { pruneTerrainLayers } from "./layerRetention.js";
+import { TerrainOverlayLayerPool } from "./pooling/layerPool.js";
 import { projectTerrainQuad } from "./projectedTerrainQuad.js";
 
-const TINT_DEPTH_BIAS = 0.02;
 const TINT_ALPHA = TERRAIN_VISUAL_STYLE.biomeTint.alpha;
 const BEDROCK_COLOR = phaserColor(TERRAIN_VISUAL_STYLE.bedrock.topColor);
 const BEDROCK_ALPHA = TERRAIN_VISUAL_STYLE.bedrock.topAlpha;
@@ -46,9 +45,7 @@ export interface SurfaceTintPart {
 
 /** Batched color washes keep one shared terrain atlas biome- and surface-aware. */
 export class TerrainSurfaceTintRenderer {
-  private readonly layers = new Map<number, Phaser.GameObjects.Graphics>();
-
-  constructor(private readonly scene: Phaser.Scene) {}
+  constructor(private readonly layers: TerrainOverlayLayerPool) {}
 
   render(
     batches: TerrainBatches,
@@ -56,36 +53,13 @@ export class TerrainSurfaceTintRenderer {
     visible: boolean,
   ): void {
     if (!options.biomeEnabled && !options.bedrockEnabled) {
-      this.hideLayers();
       return;
     }
     const grouped = groupTintParts(batches, options);
-    pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, parts] of grouped) {
-      const graphics = this.layers.get(depth) ?? this.createLayer(depth);
-      graphics.clear().setVisible(visible);
+      const graphics = this.layers.acquire("surface", depth, visible);
       drawParts(graphics, parts, options.projection);
     }
-  }
-
-  setVisible(visible: boolean): void {
-    for (const graphics of this.layers.values()) graphics.setVisible(visible);
-  }
-
-  destroy(): void {
-    for (const graphics of this.layers.values()) graphics.destroy();
-    this.layers.clear();
-  }
-
-  private hideLayers(): void {
-    for (const graphics of this.layers.values()) {
-      graphics.clear().setVisible(false);
-    }
-  }
-  private createLayer(depth: number): Phaser.GameObjects.Graphics {
-    const graphics = this.scene.add.graphics().setDepth(depth);
-    this.layers.set(depth, graphics);
-    return graphics;
   }
 }
 
@@ -129,7 +103,7 @@ function tintDepth(quad: TintQuad): number {
   const surface = quad.kind === "floor"
     ? depthForCapOccluder(quad.viewTile.y)
     : depthForOccluder(quad.viewTile.y + 1);
-  return surface + TINT_DEPTH_BIAS;
+  return surface;
 }
 
 function drawParts(

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PLAYER_SKINS } from "../../entities/playerAppearance.js";
 import { LEVEL_IDS } from "../../world/core/level.js";
+import { floorGenerationIdentitySchema } from "../schemas/snapshotSchemas.js";
 
 export const spectatorModeSchema = z.enum(["free", "track"]);
 const spectatorPlayerIdSchema = z.string().min(1).max(64);
@@ -34,6 +35,7 @@ export const spectatorWelcomeSchema = z.object({
   seedInputText: z.string(),
   worldSeed: z.number().int(),
   worldFeatures: z.object({ voidTerrain: z.boolean() }).strict(),
+  generation: floorGenerationIdentitySchema.optional(),
   tickRate: z.number().int(),
   target: spectatorPlayerSchema,
   mode: spectatorModeSchema,

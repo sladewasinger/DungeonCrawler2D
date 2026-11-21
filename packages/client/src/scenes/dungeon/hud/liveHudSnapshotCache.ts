@@ -8,6 +8,7 @@ import {
   type LiveHudSnapshot,
 } from "./liveHudSnapshot.js";
 import { updateLiveHudWorldFields } from "./liveHudWorldFields.js";
+import { measureRuntimeWork } from "../../../performance/runtimeWorkMetrics.js";
 
 const CHAT_LINES_SHOWN = 4;
 
@@ -49,7 +50,6 @@ interface LiveHudBodyFields {
 export class LiveHudSnapshotCache {
   private snapshot: LiveHudSnapshot | undefined;
   private serverTick = -1;
-  private projectedTick: number | null = null;
   private world: Connection["world"] = null;
   private selectedSlot: number | null = null;
   private armedSlot: number | null = null;
@@ -61,6 +61,10 @@ export class LiveHudSnapshotCache {
   private completedBlock = false;
 
   build(input: LiveHudCacheInput): LiveHudSnapshot {
+    return measureRuntimeWork("hud.snapshot", () => this.buildInternal(input));
+  }
+
+  private buildInternal(input: LiveHudCacheInput): LiveHudSnapshot {
     const { conn, input: controller, interactionPrompt, chat, actualFps, compassBearingDeg, aimHeadingDeg = 0 } = input;
     const selectedSlot = controller.selectedHotbarSlot();
     const armedSlot = controller.armedThrowableSlot();
@@ -86,7 +90,6 @@ export class LiveHudSnapshotCache {
 
   private fixedClockChanged(conn: Connection): boolean {
     return this.serverTick !== conn.serverTick ||
-      this.projectedTick !== conn.prediction.projectedTick ||
       this.world !== conn.world;
   }
 
@@ -105,7 +108,6 @@ export class LiveHudSnapshotCache {
   private captureFixedState(fixed: LiveHudFixedState): void {
     const { conn, selectedSlot, armedSlot, chatModel, lastToast } = fixed;
     this.serverTick = conn.serverTick;
-    this.projectedTick = conn.prediction.projectedTick;
     this.world = conn.world;
     this.selectedSlot = selectedSlot;
     this.armedSlot = armedSlot;

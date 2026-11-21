@@ -1,3 +1,4 @@
+import { BIOME } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import type { TerrainAtlasDraw, TerrainMeshBatch } from "../batch/atlasBatch.js";
 import {
@@ -5,7 +6,7 @@ import {
   terrainAtlasFrameName,
   type TerrainTileRole,
 } from "../planning/tileset.js";
-import { appendMeshQuad } from "./atlasGeometry.js";
+import { appendMeshQuad, atlasUvBounds } from "./atlasGeometry.js";
 
 const ATLAS_IMAGE = { width: 576, height: 320 };
 const ROLE_V_BOUNDS = [
@@ -28,11 +29,31 @@ describe("atlas Mesh2D UV coordinates", () => {
       expect(batch.vertices[11]).toBeCloseTo(bottom);
     },
   );
+
+  it("maps a normal-atlas bedrock cap to its distinct frame column and UVs", () => {
+    const draw = atlasDraw("bedrock", TERRAIN_TILESETS[BIOME.Maze]);
+    const uv = atlasUvBounds(draw, ATLAS_IMAGE);
+
+    expect(draw.frame).toBe("terrain:shared-atlas:0:bedrock");
+    expect(uv).toEqual({
+      u0: (192.5 / 576), u1: (255.5 / 576),
+      v0: 0.9984375, v1: 0.8015625,
+    });
+  });
+
+  it("keeps the shared bedrock frame's dark source edge out of Mesh2D sampling", () => {
+    const draw = atlasDraw("bedrock", TERRAIN_TILESETS[BIOME.Maze]);
+    const uv = atlasUvBounds(draw, ATLAS_IMAGE);
+
+    expect(uv.u0 * ATLAS_IMAGE.width).toBe(192.5);
+    expect(uv.u1 * ATLAS_IMAGE.width).toBe(255.5);
+  });
 });
 
 function emptyBatch(): TerrainMeshBatch {
   return {
     atlas: TERRAIN_TILESETS.debug,
+    role: "floor",
     phase: 1,
     depth: 0,
     vertices: [],
@@ -40,8 +61,7 @@ function emptyBatch(): TerrainMeshBatch {
   };
 }
 
-function atlasDraw(role: TerrainTileRole): TerrainAtlasDraw {
-  const atlas = TERRAIN_TILESETS.debug;
+function atlasDraw(role: TerrainTileRole, atlas = TERRAIN_TILESETS.debug): TerrainAtlasDraw {
   return {
     atlas,
     frame: terrainAtlasFrameName(atlas, role),

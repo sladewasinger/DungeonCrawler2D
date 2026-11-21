@@ -6,7 +6,7 @@ import { makeSim, stepN } from "../support.js";
 
 describe("GameSim disconnected lifecycle continuity", () => {
   it("freezes a pending dead-screen respawn and resumes its remaining delay", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { finite: true, freezeEnemies: true });
     const player = sim.addPlayer({ name: "Dead", clientId: "dead-client" });
     const entity = sim.getPlayerEntity(player.playerId)!;
     entity.hp = 0;

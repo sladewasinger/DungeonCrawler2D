@@ -1,8 +1,7 @@
-import { hash2D, mixSeeds } from "../../../core/rng.js";
 import { smoothstep01 } from "../../../core/math.js";
 import { WALL_DOOR_FEATURE_HEIGHT } from "../../../core/constants.js";
 import { CHUNK_SIZE, FEATURE_FACE, TILE } from "../../core/types.js";
-import { placementSeed } from "../../generate/layout/placement.js";
+import { finiteFloorForRuntime, type GeneratedFloor } from "../../generate/finiteFloor.js";
 import { WORLD_GENERATION_TUNING } from "../../generate/tuning.js";
 import type { WorldChunk } from "../descent/descentShared.js";
 
@@ -14,23 +13,18 @@ import type { WorldChunk } from "../descent/descentShared.js";
 
 const FIXED_FEATURES = WORLD_GENERATION_TUNING.fixedFeatures;
 
-function posMod(n: number, m: number): number {
-  return ((n % m) + m) % m;
-}
-
 export function isSafeRoomChunk(chunk: WorldChunk): boolean {
-  const layout = placementSeed(chunk.worldSeed, chunk.floor);
-  const spacing = FIXED_FEATURES.safeRoomChunkSpacing;
-  const offX = hash2D(mixSeeds(layout, 0x5afe), 1, 0) % spacing;
-  const offY = hash2D(mixSeeds(layout, 0x5afe), 0, 1) % spacing;
-  return posMod(chunk.cx, spacing) === offX && posMod(chunk.cy, spacing) === offY;
+  return finiteFloorForRuntime(chunk).safeRooms.some((site) =>
+    Math.floor(site.door.x / CHUNK_SIZE) === chunk.cx &&
+    Math.floor(site.door.y / CHUNK_SIZE) === chunk.cy,
+  );
 }
 
 export function isStairsChunk(chunk: WorldChunk): boolean {
   if (isSafeRoomChunk(chunk)) return false;
-  const layout = placementSeed(chunk.worldSeed, chunk.floor);
-  return hash2D(mixSeeds(layout, 0x57a1), chunk.cx, chunk.cy) %
-    FIXED_FEATURES.stairwayFrequency === 0;
+  const floor = finiteFloorForRuntime(chunk);
+  return [...floor.downStairways, ...(floor.upStairway ? [floor.upStairway] : [])]
+    .some((stairway) => stairway.chunk.cx === chunk.cx && stairway.chunk.cy === chunk.cy);
 }
 
 export interface FeatureLayout {
@@ -43,37 +37,46 @@ export interface FeatureLayout {
 
 /** Where the feature sits and how tall its flattened pad is (pure). */
 export function featureLayout(chunk: WorldChunk): FeatureLayout | null {
-  const safeRoom = isSafeRoomChunk(chunk);
-  const stairs = isStairsChunk(chunk);
-  if (!safeRoom && !stairs) return null;
+  const floor = finiteFloorForRuntime(chunk);
+  const safe = safeRoomForChunk(floor, chunk);
+  const stairPosition = stairPositionForChunk(floor, chunk);
+  if (!safe && !stairPosition) return null;
+  return buildFeatureLayout({ chunk, safe, stairPosition });
+}
 
-  const jitterRange = safeRoom
-    ? FIXED_FEATURES.safeRoomJitter
-    : FIXED_FEATURES.stairwayJitter;
-  const layout = placementSeed(chunk.worldSeed, chunk.floor);
-  const jx = centeredJitter({ seed: layout, salt: 0xf1a7, chunk, range: jitterRange });
-  const jy = centeredJitter({ seed: layout, salt: 0xf1a8, chunk, range: jitterRange });
-  const centerLx = CHUNK_SIZE / 2 + jx;
-  const centerLy = CHUNK_SIZE / 2 + jy;
+function buildFeatureLayout(input: { readonly chunk: WorldChunk; readonly safe: ReturnType<typeof safeRoomForChunk>; readonly stairPosition: ReturnType<typeof stairPositionForChunk> }): FeatureLayout {
+  const safeRoom = input.safe !== undefined;
+  const center = featureCenter(input, safeRoom);
   return {
     safeRoom,
-    half: safeRoom ? FIXED_FEATURES.safeRoomRadius : 1,
-    centerLx,
-    centerLy,
+    half: featureHalf(safeRoom),
+    centerLx: center.x - input.chunk.cx * CHUNK_SIZE,
+    centerLy: center.y - input.chunk.cy * CHUNK_SIZE,
     featureH: 0,
   };
 }
 
-interface JitterRequest {
-  seed: number,
-  salt: number,
-  chunk: WorldChunk,
-  range: number,
+function featureCenter(input: { readonly safe: ReturnType<typeof safeRoomForChunk>; readonly stairPosition: ReturnType<typeof stairPositionForChunk> }, safeRoom: boolean): { x: number; y: number } {
+  return safeRoom ? safeCenter(input.safe) : stairCenter(input.stairPosition);
 }
 
-function centeredJitter({ seed, salt, chunk, range }: JitterRequest): number {
-  return (hash2D(mixSeeds(seed, salt), chunk.cx, chunk.cy) %
-    (range * 2 + 1)) - range;
+function safeCenter(site: ReturnType<typeof safeRoomForChunk>): { x: number; y: number } {
+  return { x: site?.door.x ?? 0, y: (site?.door.y ?? 0) - 1 };
+}
+
+function stairCenter(position: ReturnType<typeof stairPositionForChunk>): { x: number; y: number } {
+  return { x: position?.x ?? 0, y: position?.y ?? 0 };
+}
+
+function featureHalf(safeRoom: boolean): number { return safeRoom ? FIXED_FEATURES.kioskHalfWidth : 1; }
+
+function safeRoomForChunk(floor: GeneratedFloor, chunk: WorldChunk) {
+  return floor.safeRooms.find((site) => Math.floor(site.door.x / CHUNK_SIZE) === chunk.cx && Math.floor(site.door.y / CHUNK_SIZE) === chunk.cy);
+}
+
+function stairPositionForChunk(floor: GeneratedFloor, chunk: WorldChunk) {
+  return [...floor.downStairways, ...(floor.upStairway ? [floor.upStairway] : [])]
+    .find((site) => site.chunk.cx === chunk.cx && site.chunk.cy === chunk.cy)?.position;
 }
 
 /** Stamp the flattened pad and its height-blend apron into `tiles`/`height`. */

@@ -38,7 +38,8 @@ vi.mock("../presentation/nameplate.js", () => ({
   NAMEPLATE_LINE_HEIGHT_PX: probes.nameplateLineHeightPx,
   updateNameplate: probes.nameplate,
 }));
-vi.mock("../geometry/occlusion.js", () => ({ syncOcclusionSilhouette: vi.fn(), terrainOcclusionAhead: () => false }));
+vi.mock("../geometry/occlusion.js", () => ({ syncEntityOcclusion: vi.fn(),
+  syncOcclusionSilhouette: vi.fn(), terrainOcclusionAhead: () => false }));
 vi.mock("../motion/playerMotion.js", () => ({ inferPlayerAnimState: () => "idle", isRunningPace: () => false }));
 vi.mock("../geometry/shadow.js", () => ({ createShadow: vi.fn(), updateShadowPosition: vi.fn() }));
 vi.mock("../motion/squash.js", () => ({ squashScale: () => ({ scaleX: 1, scaleY: 1 }) }));

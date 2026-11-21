@@ -1,6 +1,7 @@
 /** Locks first-person hotbar use/throw priority to the established 2D contract. */
-import { TILE, type TileType, World } from "@dc2d/engine";
+import { TILE, type TileType } from "@dc2d/engine";
 import { describe, expect, it, vi } from "vitest";
+import { staticTileWorldFixture } from "../../testing/terrainWorldFixture.js";
 import {
   throwSelectedItem,
   useSelectedOrInteract,
@@ -22,11 +23,7 @@ const connection = (
   return port satisfies ThreeActionPort;
 };
 
-const world = (tile: TileType = TILE.Floor): World => ({
-  floor: 1,
-  worldSeed: 228182761,
-  tileAt: () => tile,
-}) as unknown as World;
+const world = (tile: TileType = TILE.Floor) => staticTileWorldFixture(tile);
 
 describe("Three.js selected item actions", () => {
   it("uses a selected bandage when no world interaction wins", () => {

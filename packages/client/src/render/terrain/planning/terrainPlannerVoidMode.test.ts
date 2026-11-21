@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHUNK_SIZE, LEVEL, TERRAIN, World, hashString } from "@dc2d/engine";
+import { CHUNK_SIZE, LEVEL, World, hashString } from "@dc2d/engine";
+import { finiteTerrainWorldFixture } from "../../../testing/terrainWorldFixture.js";
 import { VIEW_ORIENTATIONS } from "../../view/orientation/viewOrientation.js";
 import { viewTileToWorld, worldTileToView } from "../../view/transform/viewTransform.js";
 import { createTerrainSource } from "../runtime/source.js";
@@ -36,12 +37,17 @@ describe("disabled VOID terrain presentation", () => {
   });
 
   it.each(VIEW_ORIENTATIONS)("plans a complete disabled-mode chunk with no VOID geometry at orientation %i", (orientation) => {
-    const world = new World(hashString("dev-world-1"), 1, { features: { voidTerrain: false } });
-    const plan = planTerrain({
-      voidTerrain: false,
-      terrainAt: (x, y) => world.terrainAt(x, y) === TERRAIN.Void ? TERRAIN_KINDS.Void : TERRAIN_KINDS.Floor,
-      heightAt: (x, y) => world.heightAt(x, y),
-    }, { bounds: { x: 0, y: 0, width: CHUNK_SIZE, height: CHUNK_SIZE }, orientation });
+    const { world, spawn } = finiteTerrainWorldFixture(false);
+    const bounds = {
+      x: Math.floor(spawn.x / CHUNK_SIZE) * CHUNK_SIZE,
+      y: Math.floor(spawn.y / CHUNK_SIZE) * CHUNK_SIZE,
+      width: CHUNK_SIZE,
+      height: CHUNK_SIZE,
+    };
+    const plan = planTerrain(createTerrainSource(world), {
+      bounds,
+      orientation,
+    });
 
     expect(plan.batches.voids).toEqual([]);
     expect(plan.batches.southFaces.every((face) => face.voidWall !== true)).toBe(true);

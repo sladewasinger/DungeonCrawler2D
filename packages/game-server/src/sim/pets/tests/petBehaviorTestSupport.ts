@@ -1,9 +1,4 @@
-import {
-  LEVEL,
-  World,
-  buildContentRegistry,
-  hashString,
-} from "@dc2d/engine";
+import { buildContentRegistry } from "@dc2d/engine";
 import {
   areaReactionsData,
   areasData,
@@ -18,6 +13,7 @@ import { PlayerStore } from "../../../store.js";
 import { addPlayer } from "../../players/join.js";
 import { createSimState } from "../../state/state.js";
 import { PET_DEFINITIONS, claimNearestPet, spawnPet, stepPets } from "../index.js";
+import { finiteServerWorldFixture } from "../../testing/finiteWorldTestSupport.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -61,10 +57,10 @@ export function forceRandom(sim: ReturnType<typeof createSimState>, value: numbe
 
 function createPetBehaviorSim(definitionId: string) {
   return createSimState({
-    world: new World(hashString(`pet-behavior-${definitionId}`), 1, LEVEL.Dungeon),
+    world: finiteServerWorldFixture(),
     content,
     store: new PlayerStore(null),
-    rngSeed: 7,
+    rngSeed: 7 + definitionId.length,
     opts: { spawnRadiusTiles: 2 },
   });
 }

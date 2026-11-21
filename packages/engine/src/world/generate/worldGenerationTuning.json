@@ -55,12 +55,12 @@
   },
   "corridors": {
     "roomToRoomWidth": {
-      "min": 4,
-      "max": 6
+      "min": 2,
+      "max": 3
     },
     "districtEdgeWidth": {
-      "min": 4,
-      "max": 6
+      "min": 2,
+      "max": 3
     },
     "edgeAnchorMargin": 6,
     "doorwayJitter": 2,

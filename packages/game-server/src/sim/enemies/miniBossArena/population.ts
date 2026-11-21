@@ -35,6 +35,7 @@ export function spawnMiniBossEncounter(
     floor: sim.world.floor,
     cx,
     cy,
+    generatedFloor: sim.world.generatedFloor,
   });
   if (!arena ||
       !miniBossArenaIsStamped(sim.world, arena) ||

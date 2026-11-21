@@ -25,7 +25,7 @@ does not appear.
 ## Multi-agent workflow
 
 - Before delegating repository work, the parent agent must read and follow
-  `.codex/agents/README.md` and `agent-workflow/README.md`.
+  `.codex/agents/CONTEXT.md` and `agent-workflow/CONTEXT.md`.
 - Repository custom agents are subagents. They must never spawn or coordinate
   additional agents; the parent agent owns all delegation and handoffs.
 

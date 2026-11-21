@@ -14,13 +14,15 @@ describe("GameSim: standing effects and fall damage", () => {
   let sim: GameSim;
 
   beforeEach(() => {
-    sim = makeSim();
+    sim = makeSim(1234, { finite: true });
   });
 
   it("standing in fire ignites you; fire cannot exist in sanctuary", () => {
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     sim.endSpawnGrace(a.playerId); // spawn grace would suppress the debuff (spawnSafety.ts)
     const entity = sim.getPlayerEntity(a.playerId)!;
+    const ordinary = findFlatFloor(sim, 28, 28);
+    teleport({ entity, ...ordinary, sim });
     sim.areas.spawn({ defId: "area-fire", x: Math.floor(entity.body.x), y: Math.floor(entity.body.y), radius: 0 });
     const snap = sim.step().get(a.playerId)!;
     expect(snap.self.fx).toContain("on-fire");
@@ -39,7 +41,9 @@ describe("GameSim: standing effects and fall damage", () => {
     sim.endSpawnGrace(a.playerId);
     const entity = sim.getPlayerEntity(a.playerId)!;
     const observer = sim.getPlayerEntity(b.playerId)!;
-    teleport({ entity: observer, x: entity.body.x + 1, y: entity.body.y, sim });
+    const ordinary = findFlatFloor(sim, 28, 28);
+    teleport({ entity, ...ordinary, sim });
+    teleport({ entity: observer, x: ordinary.x + 1, y: ordinary.y, sim });
     sim.areas.place({
       defId: "area-oil",
       x: Math.floor(entity.body.x),

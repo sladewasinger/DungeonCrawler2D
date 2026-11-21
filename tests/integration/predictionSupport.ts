@@ -57,6 +57,8 @@ function prepareServerPlayer(
 function createConnection(sim: Sim, options: PredictionSetupOptions): Connection {
   const connection = new Connection("ws://integration.test", options.name, options.clientId);
   connection.status = "connected";
+  connection.floor = sim.world.floor;
+  connection.worldReady = true;
   connection.world = new World(sim.world.worldSeed, sim.world.floor, LEVEL.Sandbox);
   return connection;
 }

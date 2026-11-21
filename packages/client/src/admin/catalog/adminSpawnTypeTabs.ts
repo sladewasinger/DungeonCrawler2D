@@ -1,6 +1,7 @@
-import type { AdminSpawnKind } from "../adminPageSupport.js";
+import type { AdminSpawnKind } from "../portal/adminPageSupport.js";
 
-const SPAWN_TYPES: readonly AdminSpawnKind[] = ["enemy", "item", "weapon", "pet"];
+export const ADMIN_SPAWN_TYPES: readonly AdminSpawnKind[] = ["enemy", "item", "weapon", "pet"];
+export const ADMIN_SPAWN_TAB_COLUMNS = 4;
 
 export function adminSpawnTypeTabs(
   selectedKind: AdminSpawnKind,
@@ -8,9 +9,10 @@ export function adminSpawnTypeTabs(
 ): HTMLElement {
   const tabs = document.createElement("div");
   tabs.dataset.adminCatalogTabs = "";
+  tabs.dataset.adminCatalogTabCount = String(ADMIN_SPAWN_TAB_COLUMNS);
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", "Entity type");
-  tabs.append(...SPAWN_TYPES.map((kind) => spawnTypeTab(kind, selectedKind, onSelect)));
+  tabs.append(...ADMIN_SPAWN_TYPES.map((kind) => spawnTypeTab(kind, selectedKind, onSelect)));
   return tabs;
 }
 

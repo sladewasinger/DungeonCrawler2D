@@ -6,7 +6,7 @@ import {
   TICK_RATE,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
-import { makeParty, makeSim, stepN, teleport } from "../support.js";
+import { makeSim, stepN, teleport } from "../support.js";
 
 function downPlayer(
   sim: ReturnType<typeof makeSim>,
@@ -72,8 +72,9 @@ describe("authoritative revive lifecycle", () => {
   });
 
   it("keeps the revive window at 15 seconds before its ordinary respawn", () => {
-    const sim = makeSim(1234, { freezeEnemies: true });
-    const { aId } = makeParty(sim);
+    const sim = makeSim(1234, { freezeEnemies: true, finite: true });
+    const player = sim.addPlayer({ name: "Timer", clientId: "revive-timer" });
+    const aId = player.playerId;
     const entity = sim.getPlayerEntity(aId);
     if (!entity) throw new Error("missing timer fixture");
     downPlayer(sim, aId);
@@ -81,7 +82,9 @@ describe("authoritative revive lifecycle", () => {
     expect(entity.hp).toBe(1);
     sim.step();
     expect(entity.hp).toBe(0);
-    stepN(sim, RESPAWN_DELAY_TICKS);
+    stepN(sim, RESPAWN_DELAY_TICKS - 1);
+    expect(entity.hp).toBe(0);
+    sim.step();
     expect(entity.hp).toBe(PLAYER_MAX_HP);
   });
 });

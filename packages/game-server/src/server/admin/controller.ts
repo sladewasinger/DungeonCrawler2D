@@ -1,4 +1,4 @@
-import type { AdminState, DebugFlags } from "@dc2d/engine";
+import type { AdminCommand, AdminState, DebugFlags, FloorGenerationIdentity } from "@dc2d/engine";
 import type { FloorRegistry } from "../../floors/floorRegistry.js";
 import type { GameSim } from "../../sim/core/index.js";
 import {
@@ -8,21 +8,18 @@ import {
 } from "./access/authorization.js";
 import type { AdminAuditHistory, AdminAuditSink } from "./audit.js";
 import { recordAdminCommand, recordAdminLogout } from "./audit/adminAuditRecording.js";
-import { adminHistoryFeed } from "./history/adminHistoryFeed.js";
 import { newSpectatorSession, type SpectatorSession } from "./spectator/spectatorSession.js";
-import { executeSpectatorCommand } from "./spectator/spectatorCommands.js";
-import { commandTargetId } from "./commands/commandTargets.js";
 import { executeActiveAdminCommand } from "./commands/activeAdminExecution.js";
-import { executeAdminWorldCommand, type AdminWorldContext } from "./worldCommands.js";
-import { controllerAdminState, controllerObserverState } from "./state/adminControllerState.js";
-import { activeAdminSim, adminControllerPlayers, simForAdminPlayer } from "./state/adminControllerPlayers.js";
 import type { AdminExecuteInput, AuthorizedAdminCommand, FailedAdminCommand } from "./controllerTypes.js";
+import * as operations from "./controllerOperations.js";
 
 export interface AdminCommandOutcome {
   readonly ok: boolean;
   readonly code?: string;
   readonly message?: string;
   readonly state: AdminState;
+  readonly floor?: number;
+  readonly generation?: FloorGenerationIdentity;
 }
 
 export type ActiveAdminCommandOutcome = Omit<AdminCommandOutcome, "state">;
@@ -70,7 +67,7 @@ export class AdminController {
   executeActive(input: Omit<AdminExecuteInput, "session">): ActiveAdminCommandOutcome {
     return executeActiveAdminCommand({
       ...input,
-      active: (playerId) => Boolean(activeAdminSim(this.worldContext(), playerId)),
+      active: (playerId) => operations.isActiveAdmin(this.operationContext(), playerId),
       execute: (command) => this.executeAuthorized(command),
       updateDebug: (playerId, flags) => this.updateActiveDebug(playerId, flags),
       audit: (command, outcome) => recordAdminCommand(this.audit, {
@@ -82,27 +79,20 @@ export class AdminController {
     });
   }
 
+  async applyGeneratedFloor(input: {
+    readonly session: AdminSession;
+    readonly command: Extract<AdminCommand, { op: "applyGeneratedFloor" }>;
+    readonly operatorPlayerId: string | null;
+  }): Promise<ActiveAdminCommandOutcome> {
+    return operations.applyGeneratedFloor({ ...input, context: this.operationContext() });
+  }
+
   state(spectator: SpectatorSession, session: AdminSession | null): AdminState {
-    const players = adminControllerPlayers(this.worldContext());
-    return controllerAdminState({
-      floors: this.floors,
-      sandbox: this.sandbox,
-      combatSandbox: this.combatSandbox,
-      spectator,
-      session,
-      players,
-      history: adminHistoryFeed({ session, audit: this.history, players }),
-    });
+    return operations.state(this.operationContext(), spectator, session);
   }
 
   observerState(spectator: SpectatorSession): import("@dc2d/engine").AdminObserverState {
-    return controllerObserverState({
-      floors: this.floors,
-      sandbox: this.sandbox,
-      combatSandbox: this.combatSandbox,
-      spectator,
-      players: adminControllerPlayers(this.worldContext()),
-    });
+    return operations.observerState(this.operationContext(), spectator);
   }
 
   recordPortalLogout(session: AdminSession): void {
@@ -110,21 +100,7 @@ export class AdminController {
   }
 
   private executeAuthorized(input: AuthorizedAdminCommand): Omit<AdminCommandOutcome, "state"> {
-    const { spectator, command, operatorPlayerId } = input;
-    if (command.op === "list") return { ok: true };
-    const spectatorResult = executeSpectatorCommand(
-      spectator,
-      command,
-      adminControllerPlayers(this.worldContext()),
-    );
-    if (spectatorResult.handled) return spectatorResult;
-    const worldResult = executeAdminWorldCommand({ context: this.worldContext(), spectator, command });
-    if (worldResult) return worldResult;
-    const targetId = commandTargetId(command);
-    const sim = targetId ? simForAdminPlayer(this.worldContext(), targetId) : undefined;
-    if (!sim) return { ok: false, code: "player_not_found" };
-    const result = sim.admin.execute(command, operatorPlayerId);
-    return result;
+    return operations.executeAuthorized(this.operationContext(), input);
   }
 
   private updateDebug(
@@ -146,17 +122,16 @@ export class AdminController {
     playerId: string,
     flags: DebugFlags,
   ): ActiveAdminCommandOutcome {
-    const sim = activeAdminSim(this.worldContext(), playerId);
-    return sim?.admin.setDebugFlags(playerId, flags)
-      ? { ok: true }
-      : { ok: false, code: "unauthorized" };
+    return operations.updateActiveDebug(this.operationContext(), playerId, flags);
   }
 
-  private worldContext(): AdminWorldContext {
+  private operationContext(): operations.AdminControllerOperationContext {
     return {
       floors: this.floors,
       sandbox: this.sandbox,
       combatSandbox: this.combatSandbox,
+      audit: this.audit,
+      history: this.history,
     };
   }
 }

@@ -1,6 +1,6 @@
 import type { ActionDefinition } from "../spectator/actions/adminPlayerActions.js";
 import { configureToggleSwitch } from "../../ui/foundation/toggleSwitch.js";
-import { actionButton } from "../adminPagePrimitives.js";
+import { actionButton } from "../portal/adminPagePrimitives.js";
 
 export const FREE_PAN_ACTION: ActionDefinition = ["Free pan", "map-free-camera", false];
 

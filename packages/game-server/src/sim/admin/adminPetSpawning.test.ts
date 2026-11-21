@@ -1,11 +1,11 @@
-import { LEVEL, World } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
 import { findSpawn } from "../spawn/spawn.js";
 import { addPlayer } from "../players/join.js";
 import { createSimState } from "../state/state.js";
-import { SEED, content } from "../integration/support.js";
+import { content } from "../integration/support.js";
 import { spawnAdminEntity } from "./adminSpawning.js";
+import { authoredServerWorldFixture } from "../testing/finiteWorldTestSupport.js";
 
 describe("admin pet placement", () => {
   it("attaches a pet to its selected owner at the tile centre", () => {
@@ -40,7 +40,7 @@ describe("admin pet placement", () => {
 
 function petTestState() {
   return createSimState({
-    world: new World(SEED, 1, LEVEL.Sandbox),
+    world: authoredServerWorldFixture(),
     content,
     store: new PlayerStore(null),
     rngSeed: 1,
@@ -59,7 +59,7 @@ function spawnPet(sim: ReturnType<typeof petTestState>, input: PetSpawnInput) {
   return spawnAdminEntity(sim, {
     op: "spawn",
     level: "sandbox",
-    floor: 1,
+    floor: sim.world.floor,
     kind: "pet",
     defId: input.defId ?? "pet-dino-tard",
     x: input.x,

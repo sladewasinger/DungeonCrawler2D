@@ -10,7 +10,9 @@ export function chunkAt(scope: GenerationScope, coordinate: ChunkCoordinate): Ch
   const key = `${coordinate.cx},${coordinate.cy}`;
   const cached = scope.cache.get(key);
   if (cached) return cached;
-  const chunk = generateChunk({ worldSeed: scope.seed, floor: scope.floor, ...coordinate });
+  const chunk = scope.chunkFactory
+    ? scope.chunkFactory(coordinate)
+    : generateChunk({ worldSeed: scope.seed, floor: scope.floor, ...coordinate });
   scope.cache.set(key, chunk);
   return chunk;
 }

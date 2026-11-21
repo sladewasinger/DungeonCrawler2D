@@ -43,6 +43,8 @@ export class Connection extends ConnectionSpectatorActions {
   private readonly interpolationFrame: InterpolatedEntity[] = [];
 
   onConnected: (() => void) | null = null;
+  onWorldLoading: (() => void) | null = null;
+  onWorldLoadError: ((message: string) => void) | null = null;
   onSnapshot: (() => void) | null = null;
   onUpdateRequired: ((message: string) => void) | null = null;
   onAdminAuth: ((ok: boolean, reason?: AdminAuthFailureReason) => void) | null = null;
@@ -78,7 +80,7 @@ export class Connection extends ConnectionSpectatorActions {
   }
 
   get canAct(): boolean {
-    return this.status === "connected" && this.hasReceivedSnapshot && this.hp > 0 && !this.downed;
+    return this.status === "connected" && this.worldReady && this.hasReceivedSnapshot && this.hp > 0 && !this.downed;
   }
 
   get canBlock(): boolean {
@@ -110,26 +112,25 @@ export class Connection extends ConnectionSpectatorActions {
 
   /** Called by the scene at the fixed tick rate. Predicts and sends. */
   sampleInput(input: MoveInput): void {
+    if (!this.worldReady) return;
     if (input.block) this.contextualActionsUsed.add("block");
     sampleMovement(this, input);
   }
 
   sendInputEdge(input: MoveInput): void {
+    if (!this.worldReady) return;
     sendMovementEdge(this, input);
   }
 
-  // ── intents (bodies live in intents.ts, split out for the file-size cap) ──
+  toggleNoclip(): void {
+    if (!this.activeAdmin) return;
+    this.debugNoclip(!this.noclip);
+  }
 
-  /** Throws a hotbar torch toward an aim direction (not a clicked tile) —
-   * the dedicated Epic 7.8 torch-throw intent, distinct from useSlot's target-tile throw. */
-  /** Descends a nearby one-way stairway; the server validates range. */
-  /** Hold-F contact gesture intent — server gates range/rate/mutuality. */
-  // ── dev harness (server drops these unless debugCommands is on) ──
+  // Intents live in intents.ts; dev harness messages are server-gated.
 
   drainVisualEvents(): VisualEvent[] {
-    const out = this.visualEvents;
-    this.visualEvents = [];
-    return out;
+    const out = this.visualEvents; this.visualEvents = []; return out;
   }
 
   recordBlockFeedback(kind: BlockFeedbackKind, startedAtMs: number): void {
@@ -139,9 +140,7 @@ export class Connection extends ConnectionSpectatorActions {
   get respawnSecondsRemaining(): number { return this.respawnAtTick === null ? 0 : Math.ceil(Math.max(0, this.respawnAtTick - this.serverTick) / TICK_RATE); } get downedSecondsRemaining(): number { return this.downedUntilTick === null ? 0 : Math.ceil(Math.max(0, this.downedUntilTick - this.serverTick) / TICK_RATE); }
 
   drainDeathVisualEvents(): DeathVisualEvent[] {
-    const out = this.deathVisualEvents;
-    this.deathVisualEvents = [];
-    return out;
+    const out = this.deathVisualEvents; this.deathVisualEvents = []; return out;
   }
 
   /** Peer positions rendered behind the server by the adaptive jitter buffer. */
@@ -178,13 +177,7 @@ export class Connection extends ConnectionSpectatorActions {
     };
   }
 
-  /**
-   * Queues a client-local toast through the same queue/renderer as server "toast"
-   * events (net/apply.ts, ui/widgets/hud/toastStack.ts) — for failures the client can
-   * already tell won't do anything (no crafting table nearby, out of torches...)
-   * without waiting on a server round trip. Never asserts a gameplay outcome, purely
-   * UI feedback; the real intent is still sent to the server regardless.
-   */
+  /** Queues a client-local toast without asserting a gameplay outcome. */
   pushToast(msg: string, ms = 2500): void {
     this.toasts.push({ msg, until: performance.now() + ms });
     if (this.toasts.length > 5) this.toasts.shift();

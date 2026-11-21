@@ -3,6 +3,7 @@ import { spawnEnemy } from "../../../core/helpers.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
+  createFiniteEnemyTestSim,
   findEnemyTestFloor,
 } from "../enemyAiTestSupport.js";
 import type { EnemySlot, SimState } from "../../../state/state.js";
@@ -68,7 +69,7 @@ export interface ArenaFlameFixture {
 }
 
 export function createArenaFlameFixture(): ArenaFlameFixture {
-  const sim = createEnemyTestSim();
+  const sim = createFiniteEnemyTestSim();
   const arena = findArena(sim);
   const entity = spawnEnemy(sim, {
     defId: "chort",

@@ -6,7 +6,7 @@ model_reasoning_effort = "high"
 developer_instructions = """
 Use this profile only when Austin explicitly selected Spark. Implement only the
 scope in the assigned `agent-workflow/active/` artifact. Read `AGENTS.md`,
-`.codex/agents/README.md`, `agent-workflow/README.md`, and the artifact before
+`.codex/agents/CONTEXT.md`, `agent-workflow/CONTEXT.md`, and the artifact before
 editing. If the artifact is missing or ambiguous, stop and report the blocker.
 
 Preserve unrelated work and keep the artifact's status, checklist, decisions,

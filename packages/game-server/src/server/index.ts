@@ -36,6 +36,8 @@ export interface ServerOptions {
   debugCommands?: boolean;
   freezeEnemies?: boolean;
   worldFeatures?: WorldFeatures;
+  /** Test harness override; production keeps next-floor prewarm enabled. */
+  prewarmNextFloor?: boolean;
   /** Secret for the separate admin WebSocket contract; null disables it. */
   adminToken?: string | null;
   /** Trust X-Forwarded-For only when a trusted reverse proxy strips client headers. */
@@ -80,14 +82,17 @@ export function startServer(opts: ServerOptions): RunningServer {
     networkMetrics: runtime.networkMetrics,
     adminAudit: runtime.adminAudit,
     operationalEvents: runtime.operationalEvents,
-    stop: () => stopServer({
-      stopTickLoop,
-      stopHeartbeat,
-      store: runtime.store,
-      wss: runtime.wss,
-      sockets: runtime.sockets,
-      operationalEvents: runtime.operationalEvents,
-    }),
+    stop: () => {
+      void runtime.floors.dispose();
+      stopServer({
+        stopTickLoop,
+        stopHeartbeat,
+        store: runtime.store,
+        wss: runtime.wss,
+        sockets: runtime.sockets,
+        operationalEvents: runtime.operationalEvents,
+      });
+    },
     flushOperationalEvents: () => runtime.operationalEvents.flush(),
   };
 }

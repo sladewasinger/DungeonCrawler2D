@@ -1,4 +1,5 @@
 import type { EnemySlot, PlayerSlot, SimState } from "../../../state/state.js";
+import { spawnEnemy } from "../../../core/helpers.js";
 import { useMiniBossArenaGate } from "../../miniBossArena/gate.js";
 import {
   addArenaPlayer,
@@ -63,6 +64,12 @@ export function admittedFullArenaFixture(): FullArenaAggroFixture {
   const player = addArenaPlayer(sim, "fighter", gate.outside);
   useMiniBossArenaGate({ sim, slot: player, gate });
   advanceTestArenaEntry(sim, player);
+  spawnEnemy(sim, {
+    defId: ORC_WARRIOR,
+    x: arena.center.x + 0.5,
+    y: arena.center.y + 0.5,
+    arenaKey: arena.key,
+  });
   return { sim, arena, player, leader: requireArenaLeader(sim) };
 }
 
@@ -94,8 +101,8 @@ interface EnemyPlacement extends ArenaAggroFixture {
 
 export function placeEnemyBesidePlayer(input: EnemyPlacement): void {
   const { sim, enemy, player, distance } = input;
-  enemy.entity.body.x = player.entity.body.x + distance;
-  enemy.entity.body.y = player.entity.body.y;
+  enemy.entity.body.x = player.entity.body.x;
+  enemy.entity.body.y = player.entity.body.y + distance;
   enemy.entity.body.z = sim.world.groundAt(
     enemy.entity.body.x,
     enemy.entity.body.y,

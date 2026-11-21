@@ -20,11 +20,19 @@ import {
   type GameEvent,
   type LevelId,
   type ServerSnapshot,
+  type GeneratedFloor,
 } from "@dc2d/engine";
 import { GameSim } from "../core/index.js";
 import { PlayerStore } from "../../store.js";
+import { loadIntegrationDungeonFixture } from "./support/finiteFloorFixture.js";
 export { findSafeRoomDoor } from "./support/safeRoomSearch.js";
-export { findFlatArena, findFlatFloor, nearbyAreaTile, type NearbyAreaSearch } from "./support/terrainSearch.js";
+export {
+  findFlatArena,
+  findFlatFloor,
+  nearbyAreaTile,
+  separatedFiniteFloorPositions,
+  type NearbyAreaSearch,
+} from "./support/terrainSearch.js";
 
 /**
  * Shared fixtures for the GameSim integration suite (sim/integration/):
@@ -47,25 +55,46 @@ export const content: ContentRegistry = buildContentRegistry({
 });
 
 export const SEED = hashString("sim-test-world");
+let dungeonFixture: GeneratedFloor | undefined;
 /** Ticks until the next melee swing is accepted (see sim/actions/melee.ts). */
 export const SWING_TICKS = Math.round((ATTACK_COOLDOWN_MS / 1000) * TICK_RATE);
 
 export interface IntegrationSimOptions {
   readonly level?: LevelId;
+  /** Opt into the real floor-1 fixture; default sandbox tests use floor 0. */
+  readonly finite?: boolean;
   readonly debugCommands?: boolean;
   readonly freezeEnemies?: boolean;
   readonly torchBurnTicks?: number;
 }
 
 export function makeSim(rngSeed = 1234, options: IntegrationSimOptions = {}): GameSim {
-  const { level = LEVEL.Sandbox, ...opts } = options;
+  const { level = LEVEL.Sandbox, finite = false, ...opts } = options;
   return new GameSim({
-    world: new World(SEED, 1, level),
+    world: createIntegrationWorld(level, finite),
     content,
     store: new PlayerStore(null),
     rngSeed,
     opts,
   });
+}
+
+function createIntegrationWorld(level: LevelId, finite: boolean): World {
+  if (level !== LEVEL.Dungeon && !finite) {
+    const floor = level === LEVEL.Sandbox ? 0 : 1;
+    return new World(SEED, floor, level);
+  }
+  const floor = integrationDungeonFixture();
+  return new World(SEED, 1, {
+    level: LEVEL.Dungeon,
+    generatedFloor: floor,
+    expectedGeneration: floor.identity,
+  });
+}
+
+function integrationDungeonFixture(): GeneratedFloor {
+  dungeonFixture ??= loadIntegrationDungeonFixture(SEED, 1);
+  return dungeonFixture;
 }
 
 export interface InputFixture {
@@ -118,7 +147,7 @@ export function eventsOf(snapshots: Map<string, ServerSnapshot>, id: string): Ga
 export function makeParty(sim: GameSim): { aId: string; bId: string } {
   const a = sim.addPlayer({ name: "A", clientId: "client-a" });
   const b = sim.addPlayer({ name: "B", clientId: "client-b" });
-  teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: a.spawn.x + 2, y: a.spawn.y, sim: sim });
+  teleport({ entity: sim.getPlayerEntity(b.playerId)!, x: a.spawn.x, y: a.spawn.y, sim });
   sim.queueAction(a.playerId, { type: "party", op: "invite", target: b.playerId });
   sim.step();
   sim.queueAction(b.playerId, { type: "party", op: "accept" });

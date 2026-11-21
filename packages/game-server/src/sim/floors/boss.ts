@@ -1,8 +1,3 @@
-import {
-  ARENA_HALF,
-  bossArenaGatePosition,
-  bossArenaSpawnAnchor,
-} from "@dc2d/engine";
 import { announceBossIntro, announceBossKill, broadcastAnnouncement } from "../announcer/index.js";
 import { spawnEnemy } from "../core/helpers.js";
 import { levelForXp } from "../progression/xp.js";
@@ -48,19 +43,16 @@ function hasLivingBoss(sim: SimState): boolean {
 }
 
 function isInsideArena(sim: SimState, body: { x: number; y: number }): boolean {
-  const anchor = bossArenaSpawnAnchor(sim.world);
-  if (!anchor) return false;
-  return Math.max(Math.abs(body.x - anchor.x), Math.abs(body.y - anchor.y)) < ARENA_HALF;
+  const arena = sim.world.generatedFloor?.bossArena;
+  if (!arena) return false;
+  return body.x >= arena.bounds.x0 && body.x <= arena.bounds.x1 + 1
+    && body.y >= arena.bounds.y0 && body.y <= arena.bounds.y1 + 1;
 }
 
 function spawnBoss(sim: SimState): void {
-  const anchor = bossArenaSpawnAnchor(sim.world);
-  // No arena landmark on this seed/floor (shouldn't happen at FLOOR_CAP,
-  // but the generator's ring search has a documented last-resort
-  // fallback) — the boss is simply absent rather than crashing floor-5
-  // creation.
-  if (!anchor) return;
-  spawnEnemy(sim, { defId: WARDEN_DEF_ID, x: anchor.x, y: anchor.y });
+  const arena = sim.world.generatedFloor?.bossArena;
+  if (!arena) throw new Error(`Floor ${sim.world.floor} has no generated boss arena`);
+  spawnEnemy(sim, { defId: WARDEN_DEF_ID, x: arena.center.x, y: arena.center.y });
 }
 
 /** Called once from GameSim's constructor when it creates a floor-5 sim. */
@@ -79,7 +71,7 @@ export function stepBoss(sim: SimState): void {
 }
 
 function enforceBossGate(sim: SimState): void {
-  const gate = bossArenaGatePosition(sim.world);
+  const gate = sim.world.generatedFloor?.bossArena?.gate;
   if (!gate) return resetGate(sim);
   if (!hasLivingBoss(sim)) return resetGate(sim);
   if (!sim.bossGateSealed) {

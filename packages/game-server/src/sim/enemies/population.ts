@@ -63,6 +63,7 @@ function spawnRoomLoot(sim: SimState, cx: number, cy: number): void {
     floor: sim.world.floor,
     cx,
     cy,
+    generatedFloor: sim.world.generatedFloor,
   });
   for (const spot of spots) {
     if (!sim.world.isWalkable(Math.floor(spot.x), Math.floor(spot.y))) continue;

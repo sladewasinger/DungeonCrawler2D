@@ -1,6 +1,7 @@
 import type Phaser from "phaser";
 import { describe, expect, it, vi } from "vitest";
 import { HIT_STOP_ZOOM } from "../../../../vfx/combat/camera/hitStop.js";
+import { TERRAIN_RUNTIME_TUNING } from "../../../../render/terrain/terrainRuntimeTuning.js";
 import { DungeonCameraZoomController } from "./cameraZoomController.js";
 
 describe("DungeonCameraZoomController", () => {
@@ -36,6 +37,16 @@ describe("DungeonCameraZoomController", () => {
     controller.setKillPunchMultiplier(HIT_STOP_ZOOM);
 
     expect(harness.setZoom).toHaveBeenLastCalledWith(0.5 * HIT_STOP_ZOOM);
+  });
+
+  it("uses the configured mobile presentation zoom", () => {
+    const harness = cameraHarness(1280, 720);
+    const controller = new DungeonCameraZoomController(harness.scene);
+    controller.syncPresentation(1, true);
+
+    expect(harness.setZoom).toHaveBeenLastCalledWith(
+      TERRAIN_RUNTIME_TUNING.cameraPresentation.mobileZoomMultiplier,
+    );
   });
 });
 

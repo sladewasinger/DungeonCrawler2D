@@ -103,6 +103,9 @@ export interface InputConnection {
   sendInputEdge?(input: MoveInput): void;
   /** Dev-only god-mode toggle; the controller gates the keyboard shortcut to Vite dev builds. */
   debugGod?(): void;
+  /** Live admin-only traversal toggle; the server remains authoritative. */
+  toggleNoclip?(): void;
+  readonly activeAdmin?: boolean | undefined;
 }
 
 /** Resolves whether the HUD's own layer consumed a pointer event. */

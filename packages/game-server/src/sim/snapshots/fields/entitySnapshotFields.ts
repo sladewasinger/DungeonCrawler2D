@@ -77,6 +77,7 @@ function playerAnimationFields(sim: SimState, slot: PlayerSlot): SnapshotFields 
 function playerStateFields(slot: PlayerSlot): SnapshotFields {
   return {
     ...(slot.admin ? { admin: true } : {}),
+    ...(slot.noclip ? { noclip: true } : {}),
     ...(slot.downedAtTick !== null ? { downed: true } : {}),
     ...(slot.connected ? {} : { disconnected: true }),
     ...(slot.blocking ? { blocking: true } : {}),

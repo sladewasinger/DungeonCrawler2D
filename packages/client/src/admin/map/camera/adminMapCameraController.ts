@@ -1,8 +1,8 @@
 import { LEVEL, type AdminPlayer, type LevelId } from "@dc2d/engine";
 import type { Connection } from "../../../net/connection/connection.js";
 import type { AdminSpectatorSurface } from "../../adminSpectatorSurface.js";
-import type { AdminPageView } from "../../adminPageView.js";
-import { boundedAdminFloor } from "../../adminPageSupport.js";
+import type { AdminPageView } from "../../portal/adminPageView.js";
+import { boundedAdminFloor } from "../../portal/adminPageSupport.js";
 import { adminMapTileCenter, type AdminMapCenter } from "../adminMapCamera.js";
 import {
   AdminMapRequestThrottle,

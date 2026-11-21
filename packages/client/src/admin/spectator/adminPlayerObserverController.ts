@@ -1,5 +1,5 @@
 import type { Connection } from "../../net/connection/connection.js";
-import type { AdminPageView } from "../adminPageView.js";
+import type { AdminPageView } from "../portal/adminPageView.js";
 import { renderAdminPlayers } from "../players/adminPlayerTable.js";
 import {
   AdminPlayerSelection,
@@ -46,13 +46,15 @@ export class AdminPlayerObserverController {
       spectatorMode: this.connection.spectatorMode,
       spectatorTargetId: this.connection.spectatorTargetId,
     });
-    this.renderPlayers();
+    const playersElement = this.view.players;
+    if (!playersElement) return;
+    this.renderPlayers(playersElement);
     this.renderObserver();
   }
 
-  private renderPlayers(): void {
+  private renderPlayers(playersElement: HTMLTableSectionElement): void {
     renderAdminPlayers({
-      playersElement: this.view.players,
+      playersElement,
       players: this.connection.adminPlayers,
       authenticated: this.connection.adminAuthenticated,
       selectedPlayerId: this.selection.selectedPlayerId,

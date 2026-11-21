@@ -1,30 +1,19 @@
-import {
-  LEVEL,
-  PROTOCOL_VERSION,
-  type ClientHello,
-  type ClientMessage,
-} from "@dc2d/engine";
+import { PROTOCOL_VERSION, type ClientHello, type ClientMessage } from "@dc2d/engine";
 import type { WebSocket } from "ws";
-import type { FloorRegistry } from "../floors/floorRegistry.js";
 import type { GameSim } from "../sim/core/index.js";
-import type { ConnState } from "./types.js";
 import { routeAuthenticatedMessage } from "./messages/authenticatedMessage.js";
 import { sendServerMessage } from "./telemetry/measuredSend.js";
 import type { ServerNetworkDiagnostics } from "./telemetry/networkDiagnostics.js";
 import { currentSocketOwnsPlayer } from "./socketAuthority.js";
-import { sendWelcome } from "./welcome.js";
 import { dispatchAdminChatMessage, dispatchAdminMessage } from "./admin/dispatch.js";
 import { isAdminMessage } from "./admin/adminMessageTypes.js";
-import {
-  recordMeaningfulGameplayActivity,
-  startGameplayActivity,
-} from "./connection/activity/gameplayInactivity.js";
+import { recordMeaningfulGameplayActivity } from "./connection/activity/gameplayInactivity.js";
 import { recordLiveAdminActivity } from "./connection/adminGameplayActivity.js";
-import { recordConnectionJoined } from "./connection/connectionLifecycle.js";
 import {
   type ServerConnectionMessageContext,
 } from "./connection/connectionContext.js";
 import { dispatchSpectatorMessage } from "./spectator/spectatorDispatch.js";
+import { addJoinedPlayer, registerJoinedConnection, resolveJoinSim, sendJoinWelcome } from "./dispatchJoin.js";
 
 /** Per-connection message routing: hello/resume, protocol check, and
  * handing off input/action messages to whichever sim currently owns
@@ -56,7 +45,7 @@ function dispatchControlMessage(msg: ClientMessage, context: ServerConnectionMes
     return true;
   }
   if (msg.type === "hello") {
-    handleHello(msg, context);
+    void handleHello(msg, context);
     return true;
   }
   if (msg.type === "ping") {
@@ -69,62 +58,19 @@ function dispatchControlMessage(msg: ClientMessage, context: ServerConnectionMes
 export { routeAuthenticatedMessage } from "./messages/authenticatedMessage.js";
 export { handleConnection } from "./connection/connectionHandler.js";
 
-/** Which sim a hello lands in: sandbox is unchanged; a dungeon resume
- * reattaches wherever its slot currently lives (any active floor); a
- * fresh process/session join restores the server-owned active floor. */
-function resolveJoinSim(
-  msg: ClientHello,
-  simulations: JoinSimulations,
-): GameSim {
-  if (msg.level === LEVEL.Sandbox) return simulations.sandbox;
-  if (msg.level === LEVEL.CombatSandbox) return simulations.combatSandbox;
-  if (msg.resumeToken) {
-    const resumed = simulations.floors.findByToken(msg.resumeToken);
-    if (resumed) return resumed;
-  }
-  return simulations.floors.joinSim(msg.clientId);
-}
-
-interface JoinSimulations {
-  readonly floors: FloorRegistry;
-  readonly sandbox: GameSim;
-  readonly combatSandbox: GameSim;
-}
-
-function handleHello(msg: ClientHello, context: ServerConnectionMessageContext): void {
-  const { ws, conn, floors, sandbox, combatSandbox, sockets, seedInputText, worldSeed, diagnostics } = context;
-  const inputText = seedInputText ?? String(worldSeed);
+async function handleHello(msg: ClientHello, context: ServerConnectionMessageContext): Promise<void> {
+  const { floors, sandbox, combatSandbox, seedInputText, worldSeed } = context;
   if (!canAcceptHello(msg, context)) return;
-  const sim = resolveJoinSim(msg, { floors, sandbox, combatSandbox });
-  const join = sim.addPlayer({
-    name: msg.name,
-    clientId: msg.clientId,
-    resumeToken: msg.resumeToken,
-    skin: msg.skin,
-    clientMetadata: msg.clientMetadata,
-  });
-  configureJoin(sim, join.playerId, msg);
-  context.adminSessions.unbind(ws);
-  conn.playerId = join.playerId;
-  startGameplayActivity(conn);
-  // Admin sessions are created only after the connection proves the server
-  // token through adminAuth. Client-controlled hello identity is not a
-  // credential, even when its stored profile has an admin grant.
-  conn.adminSession = null;
-  const previous = sockets.get(join.playerId);
-  sockets.set(join.playerId, { ws, sim, conn });
-  closePreviousSocket(previous, ws);
-  recordConnectionJoined({
-    events: context.operationalEvents,
-    conn,
-    playerId: join.playerId,
-    level: msg.level,
-    resumed: join.resumed,
-  });
-  sendWelcome({
-    ws, join, level: msg.level, seedInputText: inputText, worldSeed,
-    worldFeatures: sim.world.features, diagnostics,
-  });
+  try {
+    const sim = await resolveJoinSim(msg, { floors, sandbox, combatSandbox });
+    const join = addJoinedPlayer(sim, msg);
+    configureJoin(sim, join.playerId, msg);
+    registerJoinedConnection({ context, msg, sim, join });
+    sendJoinWelcome({ context, msg, sim, join, inputText: seedInputText ?? String(worldSeed) });
+  } catch {
+    context.conn.terminationReason = "floor_preparation_failed";
+    context.ws.close(1011, "floor preparation failed");
+  }
 }
 
 function canAcceptHello(msg: ClientHello, context: ServerConnectionMessageContext): boolean {
@@ -138,12 +84,6 @@ function canAcceptHello(msg: ClientHello, context: ServerConnectionMessageContex
 function configureJoin(sim: GameSim, playerId: string, msg: ClientHello): void {
   sim.configureSnapshotMode(playerId, msg.snapshotMode);
   if (msg.networkProfile !== undefined) sim.configureNetworkProfile(playerId, msg.networkProfile);
-}
-
-function closePreviousSocket(previous: { ws: WebSocket; conn?: ConnState } | undefined, current: WebSocket): void {
-  if (!previous || previous.ws === current) return;
-  if (previous.conn) previous.conn.terminationReason = "resumed_elsewhere";
-  previous.ws.close(1000, "resumed elsewhere");
 }
 
 function rejectProtocolMismatch(ws: WebSocket, diagnostics: ServerNetworkDiagnostics): void {

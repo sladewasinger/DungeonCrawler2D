@@ -1,21 +1,25 @@
 import {
-  LEVEL,
   TILE,
   WALL_DOOR_FEATURE_HEIGHT,
-  World,
   featureApproachPosition,
   safeRoomFeatures,
   safeRoomSpawn,
 } from "@dc2d/engine";
-import { describe, expect, it } from "vitest";
-import { PlayerStore } from "../../../store.js";
-import { GameSim } from "../../core/index.js";
-import { content, findSafeRoomDoor, teleport } from "../support.js";
+import { describe, expect, it, vi } from "vitest";
+import { findSafeRoomDoor, makeSim, teleport } from "../support.js";
 
-const bootSim = () => new GameSim({ world: new World(228182761, 1, LEVEL.Sandbox), content: content, store: new PlayerStore(null), rngSeed: 1234, opts: { freezeEnemies: true } }
-);
+const bootSim = () => makeSim(1234, { finite: true, freezeEnemies: true });
 
 describe("dynamic safe room doors", () => {
+  it("fails when generated safe-room metadata has no stamped door", () => {
+    const sim = bootSim();
+    vi.spyOn(sim.world, "tileAt").mockReturnValue(TILE.Floor);
+
+    expect(() => findSafeRoomDoor(sim)).toThrow(
+      "generated finite-floor fixture has no safe-room door",
+    );
+  });
+
   it("shows one personal portal for a solo occupant plus the distinct exit", () => {
     const sim = bootSim();
     const player = sim.addPlayer({ name: "A", clientId: "solo-safe-room" });

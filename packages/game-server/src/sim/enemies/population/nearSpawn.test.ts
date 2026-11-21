@@ -16,14 +16,22 @@ import {
 import { enemySpawnCenter } from "../populationPlacement.js";
 import {
   addPopulationTestPlayer,
-  countPopulation,
   createPopulationTestSim,
-  ordinaryTypeCounts,
 } from "./populationTestSupport.js";
 import {
   findBoundaryPackFixture,
   spawnControlledBoundaryPack,
 } from "./testSupport/nearBoundaryPackFixture.js";
+import {
+  findPopulationTile,
+  mostPopulatableChunk,
+} from "./testSupport/populationTerrainFixture.js";
+import {
+  expectEnemiesOutsideExitBuffer,
+  maximumNearSpawnTypeCount as maximumTypeCount,
+  ordinaryNearSpawnCount as ordinaryCount,
+  repopulateNearSpawnToTarget as repopulateToTarget,
+} from "./testSupport/nearSpawnPopulationFixture.js";
 
 describe("near-spawn population", () => {
   let sim: SimState;
@@ -31,7 +39,7 @@ describe("near-spawn population", () => {
 
   beforeEach(() => {
     sim = createPopulationTestSim();
-    addPopulationTestPlayer(sim, anchor);
+    addPopulationTestPlayer(sim, findPopulationTile(sim, { nearSpawnOnly: true }));
     activateChunksNearPlayers(sim);
   });
 
@@ -47,7 +55,7 @@ describe("near-spawn population", () => {
   it("restores the bounded density without exceeding the archetype cap", () => {
     sim.enemies.clear();
     sim.tickCount = REPOPULATE_INTERVAL_TICKS;
-    repopulateNearSpawn(sim);
+    repopulateToTarget(sim);
 
     const tuning = ENEMY_SIMULATION_TUNING.population;
     expect(ordinaryCount(sim)).toBe(tuning.nearSpawnTargetCount);
@@ -58,7 +66,7 @@ describe("near-spawn population", () => {
   });
 
   it("does not pile on enemies after reaching the shared target", () => {
-    repopulateNearSpawn(sim);
+    repopulateToTarget(sim);
     const before = ordinaryCount(sim);
     repopulateNearSpawn(sim);
     expect(ordinaryCount(sim)).toBe(before);
@@ -66,8 +74,9 @@ describe("near-spawn population", () => {
 
   it("creates a near-spawn pack with both required species", () => {
     sim.enemies.clear();
-    const chunkX = Math.floor(anchor.x / 32);
-    const chunkY = Math.floor(anchor.y / 32);
+    const { cx: chunkX, cy: chunkY } = mostPopulatableChunk(sim, {
+      nearSpawnOnly: true,
+    });
 
     spawnEnemyPack(sim, chunkX, chunkY);
 
@@ -143,28 +152,4 @@ describe("near-spawn population", () => {
     );
   });
 
-  function ordinaryCount(currentSim: SimState): number {
-    return countPopulation({
-      sim: currentSim,
-      anchor,
-      radius: NEAR_SPAWN_POPULATION_RADIUS_TILES,
-      ordinaryOnly: true,
-    });
-  }
-
-  function maximumTypeCount(currentSim: SimState): number {
-    const counts = ordinaryTypeCounts({
-      sim: currentSim,
-      anchor,
-      radius: NEAR_SPAWN_POPULATION_RADIUS_TILES,
-    });
-    return Math.max(0, ...counts.values());
-  }
-
-  function expectEnemiesOutsideExitBuffer(currentSim: SimState): void {
-    for (const enemy of currentSim.enemies.values()) {
-      if (enemy.arenaKey || enemy.entity.hp <= 0) continue;
-      expect(isInsideSpawnEnemyExclusion(currentSim, enemy.entity.body)).toBe(false);
-    }
-  }
 });

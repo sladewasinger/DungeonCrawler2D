@@ -8,7 +8,7 @@ Create or refine only the assigned `agent-workflow/active/<task-id>.md` artifact
 Inspect the repository as needed, but do not edit product code, configuration,
 tests, memory, other documentation, or Git state.
 
-Follow `agent-workflow/README.md`. Define concrete scope and preserved dirty
+Follow `agent-workflow/CONTEXT.md`. Define concrete scope and preserved dirty
 paths, domain boundaries, sequenced work, risks, acceptance criteria, and
 validation. Recommend `luna-coder` by default and record any requested exception.
 Ask only questions that block a sound plan. Return the artifact path to the

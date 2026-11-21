@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { debugFlagsSchema } from "../../debug/debugFlags.js";
+import { floorGenerationIdentitySchema } from "../schemas/floorGenerationIdentity.js";
+import { TERRITORY_IDS, type TerritoryId } from "../../world/generate/territories/territoryCatalog.js";
 import {
   ADMIN_MAP_MAX_RADIUS,
   adminCoordinateSchema,
@@ -43,6 +45,22 @@ const adminSpawnSchema = z.object({
   if (command.kind !== "pet" || command.ownerPlayerId) return;
   context.addIssue({ code: "custom", message: "Pet spawn requires an owner player." });
 });
+
+const territoryIdValues = Object.values(TERRITORY_IDS) as [TerritoryId, ...TerritoryId[]];
+const finiteGenerationConfigSchema = z.object({
+  territoryRoster: z.array(z.enum(territoryIdValues)).min(4).max(12).optional(),
+  roomSize: z.number().finite().optional(), roomSpacing: z.number().finite().optional(),
+  roomTargetCount: z.number().finite().optional(), roomMinWidth: z.number().finite().optional(),
+  roomMaxWidth: z.number().finite().optional(), roomMinHeight: z.number().finite().optional(),
+  roomMaxHeight: z.number().finite().optional(), roomSizeVariation: z.number().finite().optional(),
+  roomEntranceWidth: z.number().finite().optional(), mazeDensity: z.number().finite().optional(),
+  connectorDensity: z.number().finite().optional(), territoryLayoutDensity: z.number().finite().optional(),
+  targetLoopCount: z.number().finite().optional(), minimumLoopPathSaving: z.number().finite().optional(),
+  connectorSpacing: z.number().finite().optional(), ordinaryCorridorWidthMin: z.number().finite().optional(),
+  ordinaryCorridorWidthMax: z.number().finite().optional(), mazeCorridorWidth: z.number().finite().optional(),
+  deadEndRemovalFraction: z.number().finite().optional(), minimumBiomeArea: z.number().finite().optional(),
+  elevationStep: z.number().finite().optional(), stairTreadCount: z.number().finite().optional(),
+}).strict();
 
 export const clientAdminAuthSchema = z.object({
   type: z.literal("adminAuth"),
@@ -92,6 +110,13 @@ export const clientAdminCommandSchema = z.discriminatedUnion("op", [
     op: z.literal("despawn"), level: adminLevelSchema, floor: z.number().int().min(1).max(64), entityId: adminEntityIdSchema,
   }),
   z.object({ op: z.literal("debug"), flags: debugFlagsSchema }),
+  z.object({
+    op: z.literal("applyGeneratedFloor"),
+    floor: z.number().int().min(1).max(64),
+    confirm: z.literal(true),
+    config: finiteGenerationConfigSchema.optional(),
+    expectedGeneration: floorGenerationIdentitySchema.optional(),
+  }),
 ]);
 export const clientAdminCommandMessageSchema = z.object({
   type: z.literal("adminCommand"),
@@ -106,7 +131,8 @@ export const adminAuthResultSchema = z.object({
 });
 export const adminCommandResultSchema = z.object({
   type: z.literal("adminCommandResult"), ok: z.boolean(), requestId: z.string().optional(),
-  code: z.string().optional(), message: z.string().optional(),
+  code: z.string().optional(), message: z.string().optional(), floor: z.number().int().optional(),
+  generation: floorGenerationIdentitySchema.optional(),
 });
 
 export type AdminCommand = z.infer<typeof clientAdminCommandSchema>;

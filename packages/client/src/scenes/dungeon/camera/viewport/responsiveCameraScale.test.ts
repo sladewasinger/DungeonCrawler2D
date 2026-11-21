@@ -29,6 +29,12 @@ describe("responsive gameplay camera scale", () => {
       .toBe(GAMEPLAY_BASE_CAMERA_ZOOM * 0.25);
   });
 
+  it("applies the configured mobile zoom multiplier after viewport scaling", () => {
+    const desktop = responsiveGameplayCameraZoom(reference);
+    const mobile = responsiveGameplayCameraZoom(reference, 1, true);
+    expect(mobile).toBe(desktop * camera.mobileZoomMultiplier);
+  });
+
   it("centers pillarbox bars beyond the configured maximum aspect", () => {
     const height = reference.height * 2;
     const boundedWidth = height * camera.maximumAspectRatio;

@@ -1,14 +1,6 @@
 import { hash2D, mixSeeds } from "../../core/rng.js";
 import { CHUNK_SIZE } from "../core/types.js";
-import { isSafeRoomChunk, isStairsChunk } from "../features/fixed/fixed.js";
-import { partitionRegion } from "./layout/bsp.js";
-import {
-  districtAt,
-  districtCoordinateForChunk,
-  districtOriginForChunk,
-  DISTRICT_TILE_SPAN,
-} from "./layout/district.js";
-import { districtSeed, layoutSeed } from "./layout/hash.js";
+import { finiteFloorForRuntime, type GeneratedFloor } from "./finiteFloor.js";
 import { placementSeed } from "./layout/placement.js";
 import { WORLD_GENERATION_TUNING } from "./tuning.js";
 
@@ -25,29 +17,16 @@ export interface PopulationChunk {
   readonly floor: number;
   readonly cx: number;
   readonly cy: number;
+  readonly generatedFloor?: GeneratedFloor | null;
 }
 
-export function populationRoomsForChunk({
-  worldSeed,
-  floor,
-  cx,
-  cy,
-}: PopulationChunk): PopulationRoom[] {
-  const seed = layoutSeed(worldSeed, floor);
-  const district = districtAt(seed, cx, cy);
-  const coordinate = districtCoordinateForChunk(cx, cy);
-  const origin = districtOriginForChunk(cx, cy);
-  const rooms = partitionRegion(
-    districtSeed(seed, coordinate.dx, coordinate.dy),
-    DISTRICT_TILE_SPAN,
-    district,
-  ).rooms;
-  const offsetX = (cx - origin.cx) * CHUNK_SIZE;
-  const offsetY = (cy - origin.cy) * CHUNK_SIZE;
-  return rooms.flatMap(({ rect }) => {
-    const clipped = clipToChunk(rect, offsetX, offsetY);
-    if (!clipped) return [];
-    return [worldPopulationRoom(clipped, origin.cx, origin.cy)];
+export function populationRoomsForChunk(input: PopulationChunk): PopulationRoom[] {
+  const { worldSeed, floor, cx, cy } = input;
+  const generated = input.generatedFloor ?? finiteFloorForRuntime({ worldSeed, floor });
+  if (!chunkInsideFloor(generated, cx, cy)) return [];
+  return generated.rooms.flatMap((room) => {
+    const clipped = clipToChunk(room, cx * CHUNK_SIZE, cy * CHUNK_SIZE);
+    return clipped ? [worldPopulationRoom(clipped)] : [];
   });
 }
 
@@ -65,14 +44,8 @@ function clipToChunk(
 
 function worldPopulationRoom(
   rect: { x0: number; y0: number; x1: number; y1: number },
-  originCx: number,
-  originCy: number,
 ): PopulationRoom {
-  const x0 = originCx * CHUNK_SIZE + rect.x0;
-  const y0 = originCy * CHUNK_SIZE + rect.y0;
-  const x1 = originCx * CHUNK_SIZE + rect.x1;
-  const y1 = originCy * CHUNK_SIZE + rect.y1;
-  return { x0, y0, x1, y1, area: (x1 - x0 + 1) * (y1 - y0 + 1) };
+  return { ...rect, area: (rect.x1 - rect.x0 + 1) * (rect.y1 - rect.y0 + 1) };
 }
 
 function roomCenter(room: PopulationRoom): { x: number; y: number } {
@@ -83,10 +56,16 @@ function roomCenter(room: PopulationRoom): { x: number; y: number } {
 }
 
 /** Stable spawn-search anchor inside the largest generated room in a chunk. */
-export function populationAnchorForChunk(chunk: PopulationChunk): { x: number; y: number } {
+export function populationAnchorForChunk(chunk: PopulationChunk): { x: number; y: number } | null {
   const rooms = populationRoomsForChunk(chunk);
+  if (rooms.length === 0) return null;
   const largest = rooms.reduce((best, room) => room.area > best.area ? room : best);
   return roomCenter(largest);
+}
+
+function chunkInsideFloor(floor: GeneratedFloor, cx: number, cy: number): boolean {
+  return cx >= floor.bounds.minChunkX && cx <= floor.bounds.maxChunkX
+    && cy >= floor.bounds.minChunkY && cy <= floor.bounds.maxChunkY;
 }
 
 const POPULATION = WORLD_GENERATION_TUNING.population;
@@ -95,8 +74,8 @@ function isProvingGround({ cx, cy }: PopulationChunk): boolean {
   return cx >= 0 && cx <= 1 && cy >= 0 && cy <= 1;
 }
 
-function hasRoomLoot(chunk: PopulationChunk): boolean {
-  if (isProvingGround(chunk) || isSafeRoomChunk(chunk) || isStairsChunk(chunk)) {
+function hasRoomLoot(chunk: PopulationChunk, generatedFloor: GeneratedFloor): boolean {
+  if (isProvingGround(chunk) || isGeneratedFeatureChunk(chunk, generatedFloor)) {
     return false;
   }
   const seed = mixSeeds(placementSeed(chunk.worldSeed, chunk.floor), 0x9e5a);
@@ -106,11 +85,22 @@ function hasRoomLoot(chunk: PopulationChunk): boolean {
 
 /** Up to three deterministic room-center loot candidates in eligible chunks. */
 export function roomLootSpotsForChunk(chunk: PopulationChunk): Array<{ x: number; y: number }> {
-  if (!hasRoomLoot(chunk)) return [];
-  return populationRoomsForChunk(chunk)
+  const generatedFloor = chunk.generatedFloor ?? finiteFloorForRuntime(chunk);
+  if (!hasRoomLoot(chunk, generatedFloor)) return [];
+  return populationRoomsForChunk({ ...chunk, generatedFloor })
     .slice()
     .sort((a, b) => b.area - a.area)
     .slice(0, POPULATION.lootSpotsPerChunk)
     .map(roomCenter)
     .map(({ x, y }) => ({ x: x + 0.5, y: y + 0.5 }));
+}
+
+function isGeneratedFeatureChunk(chunk: PopulationChunk, floor: GeneratedFloor): boolean {
+  if (floor.safeRooms.some((site) => pointInChunk(site.door, chunk))) return true;
+  const stairways = [...floor.downStairways, ...(floor.upStairway ? [floor.upStairway] : [])];
+  return stairways.some((site) => site.chunk.cx === chunk.cx && site.chunk.cy === chunk.cy);
+}
+
+function pointInChunk(point: { readonly x: number; readonly y: number }, chunk: PopulationChunk): boolean {
+  return Math.floor(point.x / CHUNK_SIZE) === chunk.cx && Math.floor(point.y / CHUNK_SIZE) === chunk.cy;
 }

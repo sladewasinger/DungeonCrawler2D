@@ -35,9 +35,30 @@ export function executeAuthorizedAdminCommand(
 ): void {
   const { admin, conn } = context;
   if (!admin) return sendOutcome(context, { ok: false, code: "unauthorized" }, requestId);
+  if (command.op === "applyGeneratedFloor") return executeApplyGeneratedFloor(command, requestId, context);
   const session = touchBoundAdminSession(context);
   if (session) return executeTokenCommand({ command, requestId, context, session });
   sendOutcome(context, admin.executeActive({ spectator: conn.spectator, command, operatorPlayerId: conn.playerId }), requestId);
+}
+
+function executeApplyGeneratedFloor(
+  command: Extract<AdminCommand, { op: "applyGeneratedFloor" }>,
+  requestId: string | undefined,
+  context: AdminDispatchContext,
+): void {
+  const session = touchBoundAdminSession(context);
+  if (!session || !context.admin) {
+    sendOutcome(context, { ok: false, code: "unauthorized" }, requestId);
+    return;
+  }
+  void context.admin.applyGeneratedFloor({
+    session,
+    command,
+    operatorPlayerId: context.conn.playerId,
+  }).then((outcome) => {
+    sendOutcome(context, outcome, requestId);
+    sendAdminMessage(context, context.admin!.state(context.conn.spectator, session));
+  }).catch(() => sendOutcome(context, { ok: false, code: "apply_failed" }, requestId));
 }
 
 interface TokenCommandExecution {
@@ -65,7 +86,7 @@ function hasAdminAuthority(context: AdminDispatchContext): boolean {
 
 function sendOutcome(
   context: AdminDispatchContext,
-  outcome: { readonly ok: boolean; readonly code?: string; readonly message?: string },
+  outcome: { readonly ok: boolean; readonly code?: string; readonly message?: string; readonly floor?: number; readonly generation?: import("@dc2d/engine").FloorGenerationIdentity },
   requestId: string | undefined,
 ): void {
   sendAdminMessage(context, {
@@ -73,6 +94,8 @@ function sendOutcome(
     ...(requestId ? { requestId } : {}),
     ...(outcome.code ? { code: outcome.code } : {}),
     ...(outcome.message ? { message: outcome.message } : {}),
+    ...(outcome.floor !== undefined ? { floor: outcome.floor } : {}),
+    ...(outcome.generation ? { generation: outcome.generation } : {}),
   });
 }
 

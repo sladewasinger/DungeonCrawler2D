@@ -102,6 +102,7 @@ function nearbyArenas(
         floor: sim.world.floor,
         cx: cx + dx,
         cy: cy + dy,
+        generatedFloor: sim.world.generatedFloor,
       });
       if (arena && arenaBoundaryIsActive(sim, arena)) {
         arenas.push(arena);

@@ -50,10 +50,10 @@ function findFloorRaisedPair(world: World): { floor: { x: number; y: number }; r
 describe("height-derived terrain boundaries", () => {
   it("authored raised cells remain finite Floor surfaces", () => {
     const world = new World(SEED, FLOOR);
-    const { raised } = findFloorRaisedPair(world);
+    const { floor, raised } = findFloorRaisedPair(world);
     expect(world.tileAt(raised.x, raised.y)).toBe(TILE.Floor);
     expect(world.terrainAt(raised.x, raised.y)).toBe(TERRAIN.Floor);
-    expect(world.heightAt(raised.x, raised.y)).toBeGreaterThan(0);
+    expect(world.heightAt(raised.x, raised.y)).toBeGreaterThan(world.heightAt(floor.x, floor.y));
   });
 
   it("topology-only wall cells become flat infinite-height VOID", () => {

@@ -46,7 +46,7 @@ export function appendTerrainCliffEdges(
 
 function boundarySides(context: TerrainTileContext): BoundarySide[] {
   return VIEW_SIDES.flatMap(({ side, dx, dy }): BoundarySide[] => {
-    if (context.voidTerrain && context.presentation.mode === "outside" &&
+    if (context.presentation.mode === "outside" &&
         context.source.voidBoundaryAt?.(context.worldTile.x, context.worldTile.y) !== "flat" &&
         isVoidNeighbor(context, { x: dx, y: dy })) return [{ side, voidBoundary: true }];
     if (isLowerFloor(context, { x: dx, y: dy })) return [{ side, voidBoundary: false }];
@@ -89,7 +89,19 @@ function isLowerFloor(context: TerrainTileContext, offset: Point): boolean {
 
 function isVoidNeighbor(context: TerrainTileContext, offset: Point): boolean {
   const neighbor = viewTileToWorld({ x: context.viewTile.x + offset.x, y: context.viewTile.y + offset.y }, context.orientation);
+  if (isOutsideFiniteBoundary(context.source, neighbor)) return true;
+  if (context.source.isInBoundsAt?.(neighbor.x, neighbor.y) === false) return true;
   return context.source.terrainAt(neighbor.x, neighbor.y) === "void";
+}
+
+function isOutsideFiniteBoundary(
+  source: TerrainSource,
+  point: Point,
+): boolean {
+  const bounds = source.finiteBounds;
+  if (!bounds) return false;
+  return point.x < bounds.x || point.x >= bounds.x + bounds.width ||
+    point.y < bounds.y || point.y >= bounds.y + bounds.height;
 }
 
 function hasHeightDifference(context: TerrainTileContext, offset: Point, sign: 1 | -1): boolean {

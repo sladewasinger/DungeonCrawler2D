@@ -6,6 +6,7 @@ export interface GenerationScope {
   readonly seed: number;
   readonly floor: number;
   readonly cache: ChunkCache;
+  readonly chunkFactory?: (coordinate: ChunkCoordinate) => Chunk;
 }
 
 export interface WorldPoint {

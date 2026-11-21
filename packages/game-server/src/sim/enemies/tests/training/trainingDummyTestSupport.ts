@@ -1,8 +1,6 @@
 import {
   LEVEL,
-  World,
   buildContentRegistry,
-  hashString,
 } from "@dc2d/engine";
 import {
   areaReactionsData,
@@ -19,12 +17,13 @@ import {
   ensureCombatSandboxTrainingDummies,
   TRAINING_DUMMY_DEF_ID,
 } from "../../training/trainingDummy.js";
+import { authoredServerWorldFixture } from "../../../testing/finiteWorldTestSupport.js";
 
 export function makeTrainingSandbox(
   level: typeof LEVEL.Sandbox | typeof LEVEL.CombatSandbox = LEVEL.CombatSandbox,
 ): SimState {
   return createSimState({
-    world: new World(hashString("training-dummy-test"), 1, level),
+    world: authoredServerWorldFixture(level),
     content: buildContentRegistry({
       statuses: [...statusesData], rules: [...rulesData], areas: [...areasData],
       areaReactions: [...areaReactionsData], items: [...itemsData],

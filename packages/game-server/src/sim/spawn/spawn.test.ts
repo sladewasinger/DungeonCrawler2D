@@ -3,10 +3,8 @@ import {
   LEVEL,
   MIN_SPAWN_DIST,
   TILE,
-  World,
   buildContentRegistry,
   createBody,
-  hashString,
   makeEntity,
   newEntityId,
   type RawContent,
@@ -16,6 +14,10 @@ import { PlayerStore } from "../../store.js";
 import { findSpawn, findWalkableNear, newToken } from "./spawn.js";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
+import {
+  authoredServerWorldFixture,
+  finiteServerWorldFixture,
+} from "../testing/finiteWorldTestSupport.js";
 
 /** Unit tests for spawn selection against the active BSP generator. */
 
@@ -27,8 +29,6 @@ const EMPTY_CONTENT: RawContent = {
   enemies: [],
   recipes: [],
 };
-const SPAWN_TEST_SEED = "spawn-test";
-
 function makeSlotAt(x: number, y: number): PlayerSlot {
   const entity = makeEntity("player", createBody(x, y, 0), {
     id: newEntityId("p"),
@@ -70,7 +70,7 @@ describe("findSpawn", () => {
   let sim: SimState;
 
   beforeEach(() => {
-    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.Dungeon);
+    const world = finiteServerWorldFixture();
     const content = buildContentRegistry(EMPTY_CONTENT);
     sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
   });
@@ -107,7 +107,7 @@ describe("findSpawn", () => {
   });
 
   it("uses the authored tile center in the Combat Sandbox", () => {
-    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.CombatSandbox);
+    const world = authoredServerWorldFixture(LEVEL.CombatSandbox);
     sim = createSimState({
       world,
       content: buildContentRegistry(EMPTY_CONTENT),
@@ -122,7 +122,7 @@ describe("findSpawn", () => {
 
 describe("findWalkableNear", () => {
   it("returns the queried tile itself when it is already walkable floor", () => {
-    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.Dungeon);
+    const world = finiteServerWorldFixture();
     const content = buildContentRegistry(EMPTY_CONTENT);
     const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 1, opts: {} });
     const seed = findSpawn(sim);
@@ -134,7 +134,7 @@ describe("findWalkableNear", () => {
 
 describe("newToken", () => {
   it("produces distinct non-empty tokens on successive calls", () => {
-    const world = new World(hashString(SPAWN_TEST_SEED), 1, LEVEL.Dungeon);
+    const world = authoredServerWorldFixture(LEVEL.Sandbox);
     const content = buildContentRegistry(EMPTY_CONTENT);
     const sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 7, opts: {} });
 

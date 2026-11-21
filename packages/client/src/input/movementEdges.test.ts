@@ -1,13 +1,13 @@
 import {
   decodeClientMessage,
   type BodyState,
-  type World,
 } from "@dc2d/engine";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Connection } from "../net/connection/connection.js";
 import { readMoveInput } from "./controls/keys.js";
 import { bindKeyboardMovementEdges } from "./movementEdges.js";
 import type { InputConnection, InputState } from "./controls/state.js";
+import { sandboxWorld } from "../net/prediction/predictionTestSupport.js";
 
 class FakeKey {
   isDown = false;
@@ -70,10 +70,11 @@ function createInputState(w: FakeKey): InputState {
 
 function connectedConnection(send: (payload: string) => void): Connection {
   const connection = new Connection("ws://example.test", "Tester", "client-1");
-  connection.world = {} as World;
+  connection.world = sandboxWorld();
   connection.body = {} as BodyState;
   connection.status = "connected";
   connection.hasReceivedSnapshot = true;
+  connection.worldReady = true;
   connection.hp = 1;
   connection.ws = {
     readyState: 1,

@@ -1,4 +1,3 @@
-import { LEVEL, World, hashString } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../../store.js";
 import { content } from "../../integration/support.js";
@@ -14,11 +13,12 @@ import {
   announcementIntervalTicks,
   initialAnnouncementDelayTicks,
 } from "./spawnRoomAnnouncementConfig.js";
+import { finiteServerWorldFixture } from "../../testing/finiteWorldTestSupport.js";
 
 describe("spawn room intercom", () => {
   it("rotates announcements and personalizes its crawler callout", () => {
     const sim = createSimState({
-      world: new World(hashString("spawn-room-announcer"), 1, LEVEL.Dungeon),
+      world: finiteServerWorldFixture(),
       content,
       store: new PlayerStore(null),
       rngSeed: 4,

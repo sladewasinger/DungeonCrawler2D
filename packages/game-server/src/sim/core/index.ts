@@ -71,7 +71,7 @@ export class GameSim {
   }
 
   get world(): World { return this.state.world; }
-
+  get finiteFloorArtifact(): string | undefined { return this.state.finiteFloorArtifact; } setFiniteFloorArtifact(artifact: string): void { this.state.finiteFloorArtifact = artifact; }
   get effects(): EffectsEngine { return this.state.effects; }
 
   get areas(): AreaSystem { return this.state.areas; }

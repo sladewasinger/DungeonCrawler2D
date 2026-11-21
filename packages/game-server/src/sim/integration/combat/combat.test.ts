@@ -161,6 +161,7 @@ describe("GameSim: combat", () => {
   });
 
   it("sanctuary suppresses PvP entirely", () => {
+    sim = makeSim(1234, { finite: true });
     const a = sim.addPlayer({ name: "A", clientId: "client-a" });
     const b = sim.addPlayer({ name: "B", clientId: "client-b" });
     const aEntity = sim.getPlayerEntity(a.playerId)!;

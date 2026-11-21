@@ -85,6 +85,9 @@ export class SpectatorDirectory {
       seedInputText: this.options.seedInputText,
       worldSeed: this.options.worldSeed,
       worldFeatures: entry.sim.world.features,
+      ...(entry.sim.world.floorIdentity
+        ? { generation: entry.sim.world.floorIdentity }
+        : {}),
       tickRate: TICK_RATE,
       target: spectatorPlayer(playerId, entry.sim),
       mode,

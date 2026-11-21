@@ -1,10 +1,22 @@
-import { BIOME, type AdminMap, type AdminMapCell } from "@dc2d/engine";
+import type { AdminMap, BiomeKind } from "@dc2d/engine";
+import {
+  planTerrain,
+  TERRAIN_SURFACES,
+  type TerrainFloorQuad,
+  type TerrainPlan,
+  type TerrainSouthFaceQuad,
+} from "../../render/terrain/planning/terrainPlanner.js";
 import {
   TERRAIN_TILESETS,
   terrainAtlasFrame,
   type TerrainAtlasFrame,
   type TerrainTileRole,
 } from "../../render/terrain/planning/tileset.js";
+import { createSpectatorTerrainSource } from "./terrain/liveSpectatorTerrainSource.js";
+import {
+  terrainFloorRole,
+} from "../../render/terrain/material/terrainMaterialRoles.js";
+import { drawLiveSpectatorWall } from "./terrain/liveSpectatorWall.js";
 import {
   liveSpectatorPoint,
   liveSpectatorPointIsVisible,
@@ -18,118 +30,109 @@ export interface LiveSpectatorTerrainInput {
   readonly view: LiveSpectatorView;
 }
 
-type TerrainRole = Extract<TerrainTileRole, "floor" | "raised-floor" | "south-face" | "void">;
-
 export function drawLiveSpectatorTerrain(input: LiveSpectatorTerrainInput): void {
   input.context.imageSmoothingEnabled = false;
-  drawTerrainCaps(input);
-  drawTerrainFaces(input);
+  const prepared = createSpectatorTerrainSource(input.map);
+  const plan = planTerrain(prepared.source, {
+    bounds: prepared.bounds,
+    orientation: 0,
+    seamApron: 0,
+  });
+  drawPlan(input, plan, prepared.biomeAt);
   drawTerrainVignette(input.context);
 }
 
-function drawTerrainCaps(input: LiveSpectatorTerrainInput): void {
-  const cells = [...input.map.cells].sort(compareTerrainCells);
-  for (const cell of cells) drawTerrainCap(input, cell);
+/** Uses the same finite terrain planner and material classification as gameplay. */
+export function planLiveSpectatorTerrain(map: AdminMap): TerrainPlan {
+  const prepared = createSpectatorTerrainSource(map);
+  return planTerrain(prepared.source, {
+    bounds: prepared.bounds,
+    orientation: 0,
+    seamApron: 0,
+  });
 }
 
-function drawTerrainCap(input: LiveSpectatorTerrainInput, cell: AdminMapCell): void {
-  const point = liveSpectatorPoint(input.view, cell, cell.height);
+function drawPlan(input: LiveSpectatorTerrainInput, plan: TerrainPlan, biomeAt: (x: number, y: number) => BiomeKind): void {
+  for (const quad of plan.batches.voids) drawVoidQuad(input, quad.viewTile, biomeAt(quad.viewTile.x, quad.viewTile.y));
+  for (const quad of plan.batches.floors) drawFloorQuad(input, quad, biomeAt(quad.worldTile.x, quad.worldTile.y));
+  for (const quad of plan.batches.features) drawFeatureQuad(input, quad, biomeAt(quad.worldTile.x, quad.worldTile.y));
+  for (const quad of plan.batches.southFaces) drawSouthFace(input, quad, biomeAt(quad.worldTile.x, quad.worldTile.y));
+  for (const quad of plan.batches.cliffEdges) drawCliffEdge(input, quad.worldTile);
+}
+
+function drawVoidQuad(input: LiveSpectatorTerrainInput, tile: { readonly x: number; readonly y: number }, biome: BiomeKind): void {
+  const point = liveSpectatorPoint(input.view, tile);
   if (!liveSpectatorPointIsVisible(point, input.context.canvas, input.view.tileSize)) return;
-  const role = terrainRole(cell);
-  drawTerrainFrame({ ...input, cell, point, role });
-  drawUnloadedTerrain({ ...input, cell, point, role });
+  drawTerrainTile({ ...input, point, role: "void", biome, walkable: false });
 }
 
-function drawTerrainFaces(input: LiveSpectatorTerrainInput): void {
-  for (const cell of input.map.cells) drawSouthFace(input, cell);
-}
-
-function drawSouthFace(input: LiveSpectatorTerrainInput, cell: AdminMapCell): void {
-  const drop = southDrop(cell, input.map.cells);
-  if (drop <= 0 || cell.terrain === "void") return;
-  const point = liveSpectatorPoint(input.view, cell, cell.height);
+function drawFloorQuad(input: LiveSpectatorTerrainInput, quad: TerrainFloorQuad, biome: BiomeKind): void {
+  const point = liveSpectatorPoint(input.view, quad.worldTile, quad.height);
   if (!liveSpectatorPointIsVisible(point, input.context.canvas, input.view.tileSize)) return;
-  drawTerrainFace(input, point, drop);
+  const role: TerrainTileRole = terrainFloorRole(quad.surface, cellTerritory(input.map, quad.worldTile.x, quad.worldTile.y));
+  drawTerrainTile({ ...input, point, role, biome, walkable: quad.surface === TERRAIN_SURFACES.Floor });
 }
 
-function drawTerrainFace(
-  input: LiveSpectatorTerrainInput,
-  point: { readonly x: number; readonly y: number },
-  drop: number,
-): void {
+function drawFeatureQuad(input: LiveSpectatorTerrainInput, quad: TerrainPlan["batches"]["features"][number], biome: BiomeKind): void {
+  const point = liveSpectatorPoint(input.view, quad.worldTile, quad.height);
+  if (!liveSpectatorPointIsVisible(point, input.context.canvas, input.view.tileSize)) return;
+  drawTerrainTile({ ...input, point, role: quad.feature, biome, walkable: true });
+}
+
+function drawSouthFace(input: LiveSpectatorTerrainInput, quad: TerrainSouthFaceQuad, biome: BiomeKind): void {
+  drawLiveSpectatorWall({ input, quad, biome });
+}
+
+function drawCliffEdge(input: LiveSpectatorTerrainInput, tile: { readonly x: number; readonly y: number }): void {
+  const point = liveSpectatorPoint(input.view, tile, input.view.elevation);
+  if (!liveSpectatorPointIsVisible(point, input.context.canvas, input.view.tileSize)) return;
   const size = input.view.tileSize;
-  const height = Math.min(size * 3, drop * size);
-  const x = point.x - size / 2;
-  const y = point.y + size / 2;
+  input.context.strokeStyle = "rgb(245 248 255 / 88%)";
+  input.context.lineWidth = Math.max(1, Math.round(size / 14));
+  input.context.strokeRect(point.x - size / 2, point.y - size / 2, size, size);
+}
+
+interface TerrainTileDrawInput extends LiveSpectatorTerrainInput {
+  readonly point: { readonly x: number; readonly y: number };
+  readonly role: TerrainTileRole;
+  readonly biome: BiomeKind;
+  readonly walkable: boolean;
+}
+
+function drawTerrainTile(input: TerrainTileDrawInput): void {
+  const { point, role, walkable } = input;
+  const size = input.view.tileSize;
   if (terrainReady(input.terrain)) {
-    const frame = terrainFrame(input.terrain, "south-face");
-    input.context.drawImage(input.terrain, frame.x, frame.y, frame.width, frame.height, x, y, size, height);
+    const frame = terrainFrame(input.terrain, role, input.biome);
+    input.context.drawImage(input.terrain, frame.x, frame.y, frame.width, frame.height,
+      point.x - size / 2, point.y - size / 2, size, size);
     return;
   }
-  input.context.fillStyle = "#243043";
-  input.context.fillRect(x, y, size, height);
+  input.context.fillStyle = fallbackTerrainColor(role, walkable);
+  input.context.fillRect(point.x - size / 2, point.y - size / 2, size, size);
 }
 
-function drawTerrainFrame(input: LiveSpectatorTerrainInput & {
-  readonly cell: AdminMapCell;
-  readonly point: { readonly x: number; readonly y: number };
-  readonly role: TerrainRole;
-}): void {
-  if (!terrainReady(input.terrain)) return;
-  const frame = terrainFrame(input.terrain, input.role);
-  const size = input.view.tileSize;
-  input.context.drawImage(
-    input.terrain,
-    frame.x,
-    frame.y,
-    frame.width,
-    frame.height,
-    input.point.x - size / 2,
-    input.point.y - size / 2,
-    size,
-    size,
-  );
+function terrainFrame(image: HTMLImageElement, role: TerrainTileRole, biome: BiomeKind): TerrainAtlasFrame {
+  return terrainAtlasFrame({ set: TERRAIN_TILESETS[biome], role, variant: 0, image });
 }
 
-function drawUnloadedTerrain(input: LiveSpectatorTerrainInput & {
-  readonly cell: AdminMapCell;
-  readonly point: { readonly x: number; readonly y: number };
-  readonly role: TerrainRole;
-}): void {
-  if (terrainReady(input.terrain)) return;
-  const size = input.view.tileSize;
-  input.context.fillStyle = fallbackTerrainColor(input.role, input.cell.walkable);
-  input.context.fillRect(input.point.x - size / 2, input.point.y - size / 2, size, size);
-  input.context.strokeStyle = "rgb(21 27 38 / 72%)";
-  input.context.strokeRect(input.point.x - size / 2, input.point.y - size / 2, size, size);
-}
-
-function terrainRole(cell: AdminMapCell): TerrainRole {
-  if (cell.terrain === "void") return "void";
-  return cell.walkable && cell.height <= 0 ? "floor" : "raised-floor";
-}
-
-function terrainFrame(image: HTMLImageElement, role: TerrainRole): TerrainAtlasFrame {
-  return terrainAtlasFrame({ set: TERRAIN_TILESETS[BIOME.Maze], role, variant: 0, image });
+function cellTerritory(map: AdminMap, x: number, y: number): number | null {
+  return map.cells.find((cell) => cell.x === x && cell.y === y)?.territory ?? null;
 }
 
 function terrainReady(image: HTMLImageElement): boolean {
   return image.complete && image.naturalWidth > 0;
 }
 
-function compareTerrainCells(left: AdminMapCell, right: AdminMapCell): number {
-  return left.y - right.y || left.x - right.x || left.height - right.height;
-}
-
-function southDrop(cell: AdminMapCell, cells: readonly AdminMapCell[]): number {
-  const south = cells.find((candidate) => candidate.x === cell.x && candidate.y === cell.y + 1);
-  return Math.max(0, cell.height - (south?.height ?? cell.height - 1));
-}
-
-function fallbackTerrainColor(role: TerrainRole, walkable: boolean): string {
+function terrainRoleFallback(role: TerrainTileRole): string {
   if (role === "void") return "#080b10";
-  if (role === "raised-floor") return "#5a6473";
-  return walkable ? "#36445a" : "#4a5360";
+  if (role === "bedrock" || role === "south-face") return "#4a5360";
+  return "#36445a";
+}
+
+function fallbackTerrainColor(role: TerrainTileRole, walkable: boolean): string {
+  if (role === "floor" && !walkable) return "#4a5360";
+  return terrainRoleFallback(role);
 }
 
 function drawTerrainVignette(context: CanvasRenderingContext2D): void {

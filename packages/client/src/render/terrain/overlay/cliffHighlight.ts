@@ -4,7 +4,7 @@ import type {
   TerrainBatches,
 } from "../geometry/terrainPlannerModel.js";
 import { phaserColor, TERRAIN_VISUAL_STYLE } from "../terrainVisualStyle.js";
-import { pruneTerrainLayers } from "./layerRetention.js";
+import { TerrainOverlayLayerPool } from "./pooling/layerPool.js";
 import {
   cliffRimSideBand,
   roundedCliffRimCorner,
@@ -23,33 +23,14 @@ const RIM_ALPHA = TERRAIN_VISUAL_STYLE.cliffRim.alpha;
 
 /** Cheap post-process rim: one Graphics layer per depth row, no per-tile sprites. */
 export class TerrainCliffHighlightRenderer {
-  private readonly layers = new Map<number, Phaser.GameObjects.Graphics>();
-
-  constructor(private readonly scene: Phaser.Scene) {}
+  constructor(private readonly layers: TerrainOverlayLayerPool) {}
 
   render(edges: TerrainBatches["cliffEdges"], projection: TerrainScreenProjection, visible: boolean): void {
     const grouped = groupCliffRimParts(edges);
-    pruneTerrainLayers(this.layers, new Set(grouped.keys()));
     for (const [depth, group] of grouped) {
-      const graphics = this.layers.get(depth) ?? this.createLayer(depth);
-      graphics.clear().setVisible(visible).fillStyle(RIM_COLOR, RIM_ALPHA);
+      const graphics = this.layers.acquire("cliff-rim", depth, visible).fillStyle(RIM_COLOR, RIM_ALPHA);
       drawEdges(graphics, group, projection);
     }
-  }
-
-  setVisible(visible: boolean): void {
-    for (const graphics of this.layers.values()) graphics.setVisible(visible);
-  }
-
-  destroy(): void {
-    for (const graphics of this.layers.values()) graphics.destroy();
-    this.layers.clear();
-  }
-
-  private createLayer(depth: number): Phaser.GameObjects.Graphics {
-    const graphics = this.scene.add.graphics().setDepth(depth);
-    this.layers.set(depth, graphics);
-    return graphics;
   }
 }
 

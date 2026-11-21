@@ -18,7 +18,7 @@ export function createInputConnectionAdapter(conn: Connection): InputConnection 
 function inputConnectionState(conn: Connection): Omit<InputConnection, keyof ReturnType<typeof createInputActions>> {
   return {
     get body() { return conn.body; }, get canAct() { return conn.canAct; }, get downed() { return conn.downed; },
-    get dead() { return conn.dead; }, get hotbar() { return conn.hotbar.map((id) => id ?? undefined); },
+    get dead() { return conn.dead; }, get activeAdmin() { return conn.activeAdmin; }, get hotbar() { return conn.hotbar.map((id) => id ?? undefined); },
     get inventory() { return conn.inventory; }, get stash() { return conn.stash; },
     get pendingInvite() { return conn.pendingInvite !== null; }, get weapon() { return conn.weapon; },
     heightAt: (wx, wy) => conn.world?.heightAt(wx, wy) ?? 0,
@@ -28,7 +28,7 @@ function inputConnectionState(conn: Connection): Omit<InputConnection, keyof Ret
 /** Delegates input intents without exposing the concrete Connection to the controller. */
 function createInputActions(conn: Connection): Omit<
   InputConnection,
-  "body" | "canAct" | "downed" | "dead" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt"
+  "body" | "canAct" | "downed" | "dead" | "hotbar" | "inventory" | "stash" | "pendingInvite" | "weapon" | "heightAt" | "activeAdmin"
 > {
   return {
     interact: () => conn.interact(), revive: (targetId, held) => conn.revive(targetId, held), pickup: () => conn.pickup(),
@@ -42,10 +42,11 @@ function createInputActions(conn: Connection): Omit<
   };
 }
 
-function createDebugActions(conn: Connection): Pick<InputConnection, "pushToast" | "debugGod"> {
+function createDebugActions(conn: Connection): Pick<InputConnection, "pushToast" | "debugGod" | "toggleNoclip"> {
   return {
     pushToast: (msg) => conn.pushToast(msg),
     debugGod: () => conn.debugGod(),
+    toggleNoclip: () => conn.toggleNoclip(),
   };
 }
 

@@ -17,7 +17,7 @@ import {
 import { projectSelfRenderPose } from "../../../scenes/dungeon/player/selfInterpolation.js";
 import { PredictionCorrection } from "../predictionCorrection.js";
 import { Prediction } from "../prediction.js";
-import { sandboxWorld, SPAWN_X, SPAWN_Y } from "../predictionTestSupport.js";
+import { openPredictionWorld, SPAWN_X, SPAWN_Y } from "../predictionTestSupport.js";
 
 const WALK: MoveInput = { moveX: 1, moveY: 0, jump: false };
 const APPLY_TICK = 3;
@@ -95,7 +95,7 @@ function renderSpeed(prediction: Prediction, body: BodyState, world: World): num
 export function runMovementModifierTimeline(
   activatedStatuses: readonly ContinuousMovementStatusSnapshot[],
 ): readonly MovementTimelineSample[] {
-  const world = sandboxWorld();
+  const world = openPredictionWorld();
   const prediction = new Prediction();
   const server = createBody(SPAWN_X, SPAWN_Y, 5);
   let client = cloneBody(server);

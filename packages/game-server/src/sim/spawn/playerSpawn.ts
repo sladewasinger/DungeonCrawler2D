@@ -11,8 +11,5 @@ export function findPlayerSpawn(
     return findSpawn(sim);
   }
   const roomSpawn = spawnRoomSpawn(slotIndex);
-  return {
-    ...roomSpawn,
-    z: sim.world.groundAt(roomSpawn.x, roomSpawn.y),
-  };
+  return { ...roomSpawn, z: sim.world.groundAt(roomSpawn.x, roomSpawn.y) };
 }

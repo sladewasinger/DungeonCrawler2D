@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- pooled ground-light lifecycle stays cohesive. */
 import Phaser from "phaser";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import { depthForCapOccluder } from "../../entities/presentation/depthSort.js";
@@ -6,20 +7,28 @@ import { getViewOrientation } from "../../view/transform/viewState.js";
 import { worldTileToView } from "../../view/transform/viewTransform.js";
 import {
   PLAYER_GROUND_LIGHT_FADE_MS,
-  PLAYER_GROUND_LIGHT_MAX_CELLS,
   playerGroundLightFadeAlpha,
   type PlayerGroundLightCell,
 } from "./playerGroundLight.js";
 import {
+  PLAYER_GROUND_LIGHT_MAX_POOL_TILES,
+  presentationCells,
+} from "./playerGroundLightPresentation.js";
+import {
   LIGHTING_VISUAL_STYLE,
   lightingColor,
 } from "../lightingVisualStyle.js";
+import { measureRuntimeWork } from "../../../performance/runtimeWorkMetrics.js";
+import { PlayerGroundLightLayerPool } from "./playerGroundLightLayers.js";
 
 const GROUND_LIGHT = LIGHTING_VISUAL_STYLE.ground;
 const LIGHT_ALPHA = GROUND_LIGHT.alpha;
 const LIGHT_COLOR = lightingColor(GROUND_LIGHT.color);
 const FLOOR_LAYER_BIAS = GROUND_LIGHT.floorLayerBias;
-export const PLAYER_GROUND_LIGHT_MAX_POOL_TILES = PLAYER_GROUND_LIGHT_MAX_CELLS * 2;
+export {
+  PLAYER_GROUND_LIGHT_MAX_PRESENTATION_CELLS,
+  PLAYER_GROUND_LIGHT_MAX_POOL_TILES,
+} from "./playerGroundLightPresentation.js";
 
 export interface PlayerGroundLightTile { setActive(active: boolean): this; setVisible(visible: boolean): this; setPosition(x: number, y: number): this; setDepth(depth: number): this; setAlpha(alpha: number): this; destroy(): void; }
 
@@ -32,14 +41,19 @@ export class PlayerGroundLightPool {
   private readonly desiredKeys = new Set<string>();
   private readonly desiredKeyList: string[] = [];
   private readonly spare: PlayerGroundLightTile[] = [];
+  private readonly layerPool: PlayerGroundLightLayerPool | undefined;
 
-  constructor(private readonly scene: Phaser.Scene, private readonly tileFactory?: PlayerGroundLightTileFactory) {}
+  constructor(private readonly scene: Phaser.Scene, private readonly tileFactory?: PlayerGroundLightTileFactory) {
+    this.layerPool = tileFactory ? undefined : new PlayerGroundLightLayerPool(scene);
+  }
 
   sync(cells: readonly PlayerGroundLightCell[], nowMs: number): void {
-    const count = Math.min(cells.length, PLAYER_GROUND_LIGHT_MAX_CELLS);
-    this.collectDesiredCells(cells, count);
+    if (this.layerPool) return this.layerPool.sync(cells, nowMs);
+    const selected = presentationCells(cells);
+    const count = selected.length;
+    this.collectDesiredCells(selected, count);
     this.fadeDepartedCells(nowMs);
-    this.syncDesiredCells(cells, count, nowMs);
+    this.syncDesiredCells(selected, count, nowMs);
     this.update(nowMs);
   }
 
@@ -81,6 +95,7 @@ export class PlayerGroundLightPool {
   }
 
   update(nowMs: number): void {
+    if (this.layerPool) return this.layerPool.update(nowMs);
     for (const [key, state] of this.active) {
       state.alpha = playerGroundLightFadeAlpha(
         state.startAlpha,
@@ -99,6 +114,7 @@ export class PlayerGroundLightPool {
   }
 
   clear(): void {
+    if (this.layerPool) return this.layerPool.clear();
     for (const state of this.active.values()) this.release(state.tile);
     this.active.clear();
     this.desiredKeys.clear();
@@ -106,14 +122,21 @@ export class PlayerGroundLightPool {
   }
 
   activeCount(): number {
+    if (this.layerPool) return this.layerPool.activeCount();
     return this.active.size;
+  }
+
+  debugState(): { readonly activeCells: number; readonly layerCount: number } {
+    if (this.layerPool) return this.layerPool.debugState();
+    return { activeCells: this.active.size, layerCount: 0 };
   }
 
   private createTile(): PlayerGroundLightTile {
     if (this.tileFactory) return this.tileFactory();
-    return this.scene.add.rectangle(0, 0, SCREEN_TILE_PX, SCREEN_TILE_PX, LIGHT_COLOR, 1)
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setOrigin(0.5, 0.5);
+    return measureRuntimeWork("lighting.groundPoolCreate", () =>
+      this.scene.add.rectangle(0, 0, SCREEN_TILE_PX, SCREEN_TILE_PX, LIGHT_COLOR, 1)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setOrigin(0.5, 0.5));
   }
 
   private createState(nowMs: number): PlayerGroundLightTileState {
@@ -158,6 +181,7 @@ export class PlayerGroundLightPool {
   }
 
   dispose(): void {
+    if (this.layerPool) return this.layerPool.dispose();
     for (const state of this.active.values()) state.tile.destroy();
     for (const tile of this.spare) tile.destroy();
     this.active.clear();

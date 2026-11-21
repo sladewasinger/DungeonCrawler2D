@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { TICK_DT, WALL_DOOR_FEATURE_HEIGHT } from "../../../core/constants.js";
-import { hashString } from "../../../core/rng.js";
 import { createBody, stepBody } from "../../../entities/movement/index.js";
 import {
   CHUNK_SIZE,
@@ -8,7 +7,6 @@ import {
   TERRAIN,
   TILE,
 } from "../../core/types.js";
-import { World } from "../../core/world.js";
 import {
   roomDoorWallAt,
   safeRoomDoorPlacements,
@@ -16,6 +14,7 @@ import {
 import { SAFE_ROOM_H, SAFE_ROOM_W } from "./roomModel.js";
 import { generateRoomChunk } from "./roomChunkBuilder.js";
 import { safeRoomChunk, safeRoomFeatures } from "./rooms.js";
+import { authoredRoomWorldFixture } from "../fixtures/featureWorldFixture.js";
 
 describe("safe-room door placements", () => {
   it("keeps wall-feature sites empty until replicated overrides arrive", () => {
@@ -69,7 +68,7 @@ describe("safe-room door placements", () => {
   });
 
   it("overlays a door without punching through either raised or sealed collision", () => {
-    const world = new World(hashString("room-wall-feature"), 1);
+    const world = authoredRoomWorldFixture();
     const room = safeRoomChunk(4, 7);
     const doors = safeRoomDoorPlacements(room.cx, room.cy);
     const north = doors.find((door) => door.wall === "north");

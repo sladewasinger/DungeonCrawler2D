@@ -1,5 +1,5 @@
 import type { AdminPlayer } from "@dc2d/engine";
-import { cell } from "../adminPagePrimitives.js";
+import { cell } from "../portal/adminPagePrimitives.js";
 
 export function renderAdminPlayers(
   input: AdminPlayerTableInput,

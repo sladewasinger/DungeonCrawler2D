@@ -55,6 +55,7 @@ export const gameEventSchema = z.discriminatedUnion("t", [
     blocked: z.array(z.string()),
   }),
   z.object({ t: z.literal("teleported") }),
+  z.object({ t: z.literal("floorTransition"), floor: z.number().int().positive() }),
   z.object({
     t: z.literal("stash"),
     slots: z.array(z.object({ item: z.string(), qty: z.number().int() })),

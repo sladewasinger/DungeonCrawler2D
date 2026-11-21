@@ -140,4 +140,7 @@ export function commitPlayerSnapshotFrame(
   for (const key of frame.pendingAreaKeys) pending?.areas.delete(key);
   if (frame.includesFullAreas) slot.needsFullAreas = false;
   slot.lastAreaAoiCenter = frame.areaAoiCenter;
+  if (frame.self.finiteFloorArtifact === slot.pendingFiniteFloorArtifact) {
+    delete slot.pendingFiniteFloorArtifact;
+  }
 }

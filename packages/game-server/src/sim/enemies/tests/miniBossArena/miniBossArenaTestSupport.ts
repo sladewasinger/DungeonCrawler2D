@@ -3,8 +3,6 @@ import {
   createBody,
   hashString,
   makeEntity,
-  miniBossArenaForChunk,
-  World,
   type MiniBossArenaGate,
   type MiniBossArenaSite,
 } from "@dc2d/engine";
@@ -31,6 +29,7 @@ import {
 } from "../../miniBossArena/population.js";
 import { miniBossEncounterForArena } from "../../miniBossArena/encounterComposition.js";
 import { miniBossArenaEntryForPlayer } from "../../miniBossArena/runtime.js";
+import { finiteServerWorldFixture } from "../../../testing/finiteWorldTestSupport.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -45,7 +44,7 @@ const content = buildContentRegistry({
 export function createMiniBossArenaSim(): SimState {
   const seed = hashString("mini-boss-gate");
   return createSimState({
-    world: new World(seed, 1),
+    world: finiteServerWorldFixture(1, seed),
     content,
     store: new PlayerStore(null),
     rngSeed: seed,
@@ -54,11 +53,21 @@ export function createMiniBossArenaSim(): SimState {
 }
 
 export function spawnTestArena(sim: SimState): MiniBossArenaSite {
-  for (const chunk of candidateChunks()) {
-    const arena = spawnArenaInChunk(sim, chunk);
-    if (arena) return arena;
+  for (const arena of orderedArenaFixtures(sim)) {
+    const spawned = spawnArena(sim, arena);
+    if (spawned) return arena;
   }
   throw new Error("test seed produced no mini-boss arena");
+}
+
+function orderedArenaFixtures(sim: SimState): readonly MiniBossArenaSite[] {
+  return [...(sim.world.generatedFloor?.miniBossArenas ?? [])]
+    .filter((arena) =>
+      Math.abs(arena.chunk.cx) <= 10 && Math.abs(arena.chunk.cy) <= 10
+    )
+    .sort((left, right) =>
+      left.chunk.cy - right.chunk.cy || left.chunk.cx - right.chunk.cx
+    );
 }
 
 export function addArenaPlayer(
@@ -82,30 +91,20 @@ export function addArenaPlayer(
   return slot;
 }
 
-function candidateChunks(): Array<{ x: number; y: number }> {
-  const coordinates = Array.from({ length: 21 }, (_, index) => index - 10);
-  return coordinates.flatMap((y) =>
-    coordinates.map((x) => ({ x, y }))
-  );
-}
-
-function spawnArenaInChunk(
+function spawnArena(
   sim: SimState,
-  chunk: { readonly x: number; readonly y: number },
-): MiniBossArenaSite | null {
-  const candidate = miniBossArenaForChunk({
-    worldSeed: sim.world.worldSeed,
-    floor: sim.world.floor,
-    cx: chunk.x,
-    cy: chunk.y,
-  });
-  if (!candidate || miniBossEncounterForArena({
+  candidate: MiniBossArenaSite,
+): boolean {
+  if (miniBossEncounterForArena({
     worldSeed: sim.world.worldSeed,
     floor: sim.world.floor,
     arena: candidate,
-  }).id !== "orc-warlord") return null;
-  if (!spawnMiniBossEncounter(sim, chunk.x, chunk.y)) return null;
-  return candidate;
+  }).id !== "orc-warlord") return false;
+  return spawnMiniBossEncounter(
+    sim,
+    candidate.chunk.cx,
+    candidate.chunk.cy,
+  );
 }
 
 export function requiredArenaGate(

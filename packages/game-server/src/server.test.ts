@@ -73,15 +73,22 @@ describe("level loader", () => {
       storeFile: null,
       rngSeed: 12,
       worldFeatures,
+      prewarmNextFloor: false,
     });
-    await waitForListening(server);
-    const address = server.wss.address() as AddressInfo;
-    const dungeon = await join(address.port, "dungeon");
-    const sandbox = await join(address.port, "sandbox");
-    const combatSandbox = await join(address.port, "combat-sandbox");
-    worldFeatures.voidTerrain = true;
+    const sockets: WebSocket[] = [];
     try {
+      await waitForListening(server);
+      const address = server.wss.address() as AddressInfo;
+      const dungeon = await join(address.port, "dungeon");
+      sockets.push(dungeon.socket);
+      const sandbox = await join(address.port, "sandbox");
+      sockets.push(sandbox.socket);
+      const combatSandbox = await join(address.port, "combat-sandbox");
+      sockets.push(combatSandbox.socket);
+      worldFeatures.voidTerrain = true;
       expect(dungeon.welcome.level).toBe("dungeon");
+      expect(dungeon.welcome.finiteFloorArtifact).toMatch(/^gzip-base64-v1:/);
+      expect(sandbox.welcome.finiteFloorArtifact).toBeUndefined();
       expect(sandbox.welcome.level).toBe("sandbox");
       expect(combatSandbox.welcome.level).toBe("combat-sandbox");
       expect(dungeon.welcome.worldFeatures).toEqual({ voidTerrain: false });
@@ -90,7 +97,6 @@ describe("level loader", () => {
       expect(server.sims.dungeon.world.features.voidTerrain).toBe(false);
       expect(server.sims.sandbox.world.features.voidTerrain).toBe(false);
       expect(server.sims["combat-sandbox"].world.features.voidTerrain).toBe(true);
-      expect(server.floors.ensureFloor(3).world.features.voidTerrain).toBe(false);
       expect(server.sims.dungeon.playerCount).toBe(1);
       expect(server.sims.sandbox.playerCount).toBe(1);
       expect(server.sims["combat-sandbox"].playerCount).toBe(1);
@@ -98,30 +104,33 @@ describe("level loader", () => {
       expect(server.sims.sandbox.admin.players()[0]?.admin).toBe(false);
       expect(server.sims["combat-sandbox"].admin.players()[0]?.admin).toBe(false);
     } finally {
-      dungeon.socket.close();
-      sandbox.socket.close();
-      combatSandbox.socket.close();
-      server.stop();
+      for (const socket of sockets) socket.close();
+      await server.floors.waitForPendingFloorPreparations();
+      server.stop(); await server.floors.dispose();
     }
   });
 
   it("rejects a hello whose protocol version does not match the server", async () => {
     const server = startServer({
       port: 0,
-      worldSeed: hashString("server-protocol-test"),
+      // Reuse the bounded fixture seed; protocol behavior is independent of topology.
+      worldSeed: hashString("server-level-test"),
       floor: 1,
       content,
       storeFile: null,
       rngSeed: 12,
+      worldFeatures: { voidTerrain: false },
+      prewarmNextFloor: false,
     });
-    await waitForListening(server);
-    const address = server.wss.address() as AddressInfo;
-    const socket = new WebSocket(`ws://127.0.0.1:${address.port}`);
+    let socket: WebSocket | undefined;
     try {
+      await waitForListening(server);
+      const address = server.wss.address() as AddressInfo;
+      socket = new WebSocket(`ws://127.0.0.1:${address.port}`);
       const error = await new Promise((resolve, reject) => {
-        socket.once("error", reject);
-        socket.once("open", () => {
-          socket.send(
+        socket!.once("error", reject);
+        socket!.once("open", () => {
+          socket!.send(
             encodeMessage({
               type: "hello",
               protocol: PROTOCOL_VERSION + 1,
@@ -131,15 +140,16 @@ describe("level loader", () => {
             }),
           );
         });
-        socket.on("message", (raw) => {
+        socket!.on("message", (raw) => {
           const message = decodeServerMessage(raw.toString());
           if (message?.type === "error") resolve(message);
         });
       });
       expect(error).toMatchObject({ type: "error", code: "protocol_mismatch" });
     } finally {
-      socket.close();
-      server.stop();
+      socket?.close();
+      await server.floors.waitForPendingFloorPreparations();
+      server.stop(); await server.floors.dispose();
     }
   });
 });

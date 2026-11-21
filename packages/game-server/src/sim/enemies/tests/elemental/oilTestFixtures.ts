@@ -1,8 +1,13 @@
-import { type Entity, type MiniBossArenaSite } from "@dc2d/engine";
+import {
+  COMBAT_SANDBOX_LAYOUT,
+  type Entity,
+  type MiniBossArenaSite,
+} from "@dc2d/engine";
 import { spawnEnemy } from "../../../core/helpers.js";
 import {
   addEnemyTestPlayer,
   createEnemyTestSim,
+  createFiniteEnemyTestSim,
 } from "../enemyAiTestSupport.js";
 import type { EnemySlot, SimState } from "../../../state/state.js";
 import { launchOilLob } from "../../elemental/oilLob.js";
@@ -46,7 +51,7 @@ export interface ArenaOilFixture {
 }
 
 export function createArenaOilFixture(): ArenaOilFixture {
-  const sim = createEnemyTestSim();
+  const sim = createFiniteEnemyTestSim();
   const arena = findArena(sim);
   const entity = spawnEnemy(sim, {
     defId: "pitchbloom",
@@ -75,8 +80,11 @@ function findOpenSquare(
   sim: SimState,
   size: number,
 ): { readonly x: number; readonly y: number } {
-  for (let y = 160; y < 260; y++) {
-    for (let x = 160; x < 260; x++) {
+  const arena = COMBAT_SANDBOX_LAYOUT.arena;
+  const maxX = arena.origin.x + arena.width - size;
+  const maxY = arena.origin.y + arena.height - size;
+  for (let y = arena.origin.y; y <= maxY; y++) {
+    for (let x = arena.origin.x; x <= maxX; x++) {
       if (squareIsOpen({ sim, startX: x, startY: y, size })) {
         return { x, y };
       }

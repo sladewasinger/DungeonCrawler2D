@@ -6,6 +6,7 @@ import type {
   TerrainPlan, TerrainPlanOptions, TerrainPresentation, TerrainRect, TerrainSource,
 } from "../geometry/terrainPlannerModel.js";
 import { OUTSIDE_TERRAIN_PRESENTATION } from "../geometry/terrainPlannerModel.js";
+import { measureRuntimeWork } from "../../../performance/runtimeWorkMetrics.js";
 
 /**
  * Produces the height-map renderer's minimal geometry in view space.
@@ -18,8 +19,15 @@ import { OUTSIDE_TERRAIN_PRESENTATION } from "../geometry/terrainPlannerModel.js
  * all four cardinal camera orientations.
  */
 export function planTerrain(source: TerrainSource, options: TerrainPlanOptions): TerrainPlan {
+  return measureRuntimeWork("terrain.plan", () => planTerrainInternal(source, options));
+}
+
+function planTerrainInternal(source: TerrainSource, options: TerrainPlanOptions): TerrainPlan {
   assertRect(options.bounds, "bounds");
   const seamApron = validatedApron(options.seamApron);
+  if (outsideFiniteView(source, options.bounds)) {
+    return emptyPlan(source, options);
+  }
   const batches = emptyBatches();
   const { bounds, orientation } = options;
   const presentation = source.presentationAt?.(bounds.x, bounds.y) ??
@@ -31,6 +39,25 @@ export function planTerrain(source: TerrainSource, options: TerrainPlanOptions):
     source, bounds, orientation, batches, voidTerrain, presentation,
   });
   return { bounds, sampleBounds, orientation, presentation, batches };
+}
+
+function outsideFiniteView(source: TerrainSource, bounds: TerrainRect): boolean {
+  if (!source.finiteBounds) return false;
+  const roomView = source.allowsVoidAt?.(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  ) === true;
+  return !roomView && !rectanglesIntersect(bounds, source.finiteBounds);
+}
+
+function emptyPlan(source: TerrainSource, options: TerrainPlanOptions): TerrainPlan {
+  return {
+    bounds: options.bounds,
+    sampleBounds: options.bounds,
+    orientation: options.orientation,
+    presentation: source.presentationAt?.(options.bounds.x, options.bounds.y) ?? OUTSIDE_TERRAIN_PRESENTATION,
+    batches: emptyBatches(),
+  };
 }
 
 export interface TerrainPlanningContext {
@@ -62,6 +89,11 @@ function assertFiniteSample(source: TerrainSource, bounds: TerrainRect): void {
       throw new Error(`VOID terrain leaked into disabled world at (${x}, ${y})`);
     }
   }
+}
+
+function rectanglesIntersect(left: TerrainRect, right: TerrainRect): boolean {
+  return left.x < right.x + right.width && left.x + left.width > right.x &&
+    left.y < right.y + right.height && left.y + left.height > right.y;
 }
 
 function hasUnexpectedFiniteVoid(

@@ -7,8 +7,8 @@
 // is a trustworthy geometry source).
 import { describe, expect, it } from "vitest";
 import { CHUNK_SIZE } from "../../core/types.js";
-import { bossArenaChunk, bossArenaGatePosition, bossArenaSpawnAnchor } from "./bossArena.js";
-import { FLOOR_CAP } from "../descent/descentShared.js";
+import { bossArenaChunk, bossArenaPlacementAtChunk, bossArenaGatePosition, bossArenaSpawnAnchor } from "./bossArena.js";
+import { FLOOR_CAP, pickRingChunk } from "../descent/descentShared.js";
 
 const SEEDS = Array.from({ length: 30 }, (_, i) => i * 7919 + 13);
 
@@ -17,6 +17,17 @@ function world(seed: number, floor: number, location = { cx: 0, cy: 0 }) {
 }
 
 describe("boss arena chunk selection", () => {
+  it("preserves the legacy ring selection contract", () => {
+    const legacyWorld = world(13, FLOOR_CAP);
+    expect(bossArenaChunk(legacyWorld)).toEqual({ cx: 0, cy: 2 });
+    expect(bossArenaChunk(world(13, FLOOR_CAP))).toEqual(
+      pickRingChunk(world(13, FLOOR_CAP), { salt: 0xde5e, radius: 2 }),
+    );
+    const expected = bossArenaPlacementAtChunk(legacyWorld, { cx: 0, cy: 2 });
+    expect(bossArenaGatePosition(legacyWorld)).toEqual(expected.gate);
+    expect(bossArenaSpawnAnchor(legacyWorld)).toEqual(expected.spawn);
+  });
+
   it("exists on FLOOR_CAP only", () => {
     for (const seed of SEEDS) {
       for (let floor = 1; floor < FLOOR_CAP; floor++) expect(bossArenaChunk(world(seed, floor))).toBeNull();
@@ -29,13 +40,17 @@ describe("boss arena chunk selection", () => {
       expect(bossArenaGatePosition({ worldSeed: seed, floor: 1 })).toBeNull();
       expect(bossArenaSpawnAnchor({ worldSeed: seed, floor: 1 })).toBeNull();
 
-      const chunk = bossArenaChunk(world(seed, FLOOR_CAP));
-      const gate = bossArenaGatePosition({ worldSeed: seed, floor: FLOOR_CAP });
-      const spawn = bossArenaSpawnAnchor({ worldSeed: seed, floor: FLOOR_CAP });
+      const input = { worldSeed: seed, floor: FLOOR_CAP };
+      const chunk = bossArenaChunk(input);
+      const gate = bossArenaGatePosition(input);
+      const spawn = bossArenaSpawnAnchor(input);
       expect(chunk).not.toBeNull();
       expect(gate).not.toBeNull();
       expect(spawn).not.toBeNull();
       if (!chunk || !gate || !spawn) continue;
+      const placement = bossArenaPlacementAtChunk(input, chunk);
+      expect(gate).toEqual(placement.gate);
+      expect(spawn).toEqual(placement.spawn);
       expect(Math.floor(gate.x / CHUNK_SIZE)).toBe(chunk.cx);
       expect(Math.floor(gate.y / CHUNK_SIZE)).toBe(chunk.cy);
       expect(Math.floor(spawn.x / CHUNK_SIZE)).toBe(chunk.cx);

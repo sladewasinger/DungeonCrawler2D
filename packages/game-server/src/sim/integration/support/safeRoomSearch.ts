@@ -1,7 +1,8 @@
 import {
   CHUNK_SIZE,
   TILE,
-  isSafeRoomChunk,
+  safeRoomChunk,
+  safeRoomDoorPositions,
   type FeatureFace,
 } from "@dc2d/engine";
 import type { GameSim } from "../../core/index.js";
@@ -17,11 +18,10 @@ interface DoorPosition extends ChunkPosition {
   featureFace: FeatureFace;
 }
 
-const SEARCH_CHUNK_LIMIT = 16;
-
 export function findSafeRoomDoor(sim: GameSim): DoorPosition {
+  if (!sim.world.generatedFloor) return legacySafeRoomDoor();
   const safeRoom = nearbySafeRoomChunks(sim).find((chunk) => scanChunkForDoor(sim, chunk));
-  if (!safeRoom) throw new Error("no safe-room door found within the scanned chunk range");
+  if (!safeRoom) throw new Error("generated finite-floor fixture has no safe-room door");
   const door = scanChunkForDoor(sim, safeRoom)!;
   return {
     ...door,
@@ -31,16 +31,21 @@ export function findSafeRoomDoor(sim: GameSim): DoorPosition {
   };
 }
 
-function nearbySafeRoomChunks(sim: GameSim): ChunkPosition[] {
-  return chunkPositions().filter(({ x, y }) =>
-    isSafeRoomChunk({ worldSeed: sim.world.worldSeed, floor: sim.world.floor, cx: x, cy: y }),
-  );
+function legacySafeRoomDoor(): DoorPosition {
+  const room = safeRoomChunk(0, 0);
+  const door = safeRoomDoorPositions(room.cx, room.cy)[0];
+  if (!door) throw new Error("legacy safe-room fixture has no door");
+  return { ...door, doorCx: 0, doorCy: 0 };
 }
 
-function chunkPositions(): ChunkPosition[] {
-  return Array.from({ length: SEARCH_CHUNK_LIMIT }, (_, y) =>
-    Array.from({ length: SEARCH_CHUNK_LIMIT }, (_, x) => ({ x, y })),
-  ).flat();
+function nearbySafeRoomChunks(sim: GameSim): ChunkPosition[] {
+  const floor = sim.world.generatedFloor;
+  if (!floor) return [];
+  const chunks = floor.safeRooms.map(({ door }) => ({
+    x: Math.floor(door.x / CHUNK_SIZE),
+    y: Math.floor(door.y / CHUNK_SIZE),
+  }));
+  return chunks;
 }
 
 function scanChunkForDoor(sim: GameSim, chunk: ChunkPosition): ChunkPosition | undefined {

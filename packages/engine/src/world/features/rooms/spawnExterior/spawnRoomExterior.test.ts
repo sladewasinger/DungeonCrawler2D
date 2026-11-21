@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { hashString } from "../../../../core/rng.js";
 import { TILE } from "../../../core/types.js";
-import { World } from "../../../core/world.js";
+import { finiteFeatureWorldFixture } from "../../fixtures/featureWorldFixture.js";
 import {
   spawnRoomExteriorSite,
 } from "./spawnRoomExterior.js";
 
 describe("spawn-room exterior", () => {
   it("stamps a finite-mode facade with walkable landing tiles", () => {
-    const world = new World(hashString("spawn-room-exterior"), 1, {
-      features: { voidTerrain: false },
-    });
+    const world = finiteFeatureWorldFixture(false);
     const exterior = spawnRoomExteriorSite();
     const door = exterior.door;
 

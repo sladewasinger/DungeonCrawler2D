@@ -1,6 +1,6 @@
 import type { AdminHistoryEntry } from "@dc2d/engine";
 import type { AdminCommandResult } from "../../net/connection/admin/adminMessages.js";
-import { controlFieldset, text } from "../adminPagePrimitives.js";
+import { controlFieldset, text } from "../portal/adminPagePrimitives.js";
 
 export interface AdminHistoryPanel {
   readonly root: HTMLFieldSetElement;

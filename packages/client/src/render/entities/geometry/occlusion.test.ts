@@ -1,15 +1,23 @@
 // Headless tests for the occlusion heuristic — no Phaser involved (syncOcclusionSilhouette's
 // Phaser glue is exercised via the manual zoomed screenshot proof instead).
 import { describe, expect, it } from "vitest";
+import type Phaser from "phaser";
 import {
   CHUNK_SIZE,
   ROOM_REGION_CY,
   TERRAIN,
   type WorldView,
 } from "@dc2d/engine";
+import { PET_ASSETS } from "../../../boot/petAssetManifest.js";
 import { SCREEN_TILE_PX } from "../../../boot/assetManifest.js";
 import type { ViewOrientation } from "../../view/index.js";
-import { isOccludedByTerrainAhead, terrainOcclusionAhead } from "./occlusion.js";
+import {
+  isOccludedByTerrainAhead,
+  occlusionSpriteSource,
+  syncOcclusionSilhouette,
+  terrainOcclusionAhead,
+} from "./occlusion.js";
+import { fakeOcclusionSpritePair } from "./occlusionTestSprite.js";
 
 function occlusionAt(world: WorldView, z: number, orientation: ViewOrientation = 0) {
   return terrainOcclusionAhead({ world, x: 5.5, y: 5.5, z, orientation });
@@ -32,6 +40,32 @@ function fakeWorld(heights: Record<string, number>, voids: readonly string[] = [
 }
 
 describe("isOccludedByTerrainAhead", () => {
+  it.each(Object.values(PET_ASSETS))("keeps native pet texture/frame sources for %s", (asset) => {
+    const body = {
+      texture: { key: asset.textureKey },
+      frame: { name: asset.idleFrames[0] },
+    } as unknown as Phaser.GameObjects.Sprite;
+
+    expect(occlusionSpriteSource(body)).toEqual({
+      textureKey: asset.textureKey,
+      frame: asset.idleFrames[0],
+    });
+  });
+
+  it.each([
+    ["pet-dino-doux", 7],
+    ["pet-dog", 174],
+  ] as const)("clones the native %s texture and frame into its occlusion ghost", (defId, frame) => {
+    const asset = PET_ASSETS[defId];
+    const { body, ghost, addSprite } = fakeOcclusionSpritePair(asset.textureKey, String(frame));
+
+    syncOcclusionSilhouette(body, 5, { screenY: 80 });
+
+    expect(addSprite).toHaveBeenCalledWith(0, 0, asset.textureKey, String(frame));
+    expect(ghost.texture.key).toBe(asset.textureKey);
+    expect(ghost.frame.name).toBe(String(frame));
+  });
+
   it("never applies outside-wall occlusion inside a room", () => {
     const y = ROOM_REGION_CY * CHUNK_SIZE + 16.5;
     const world = fakeWorld({ [`5,${Math.floor(y) + 1}`]: 3 });
@@ -55,6 +89,12 @@ describe("isOccludedByTerrainAhead", () => {
 
   it("is true for a z1 wall one row south (its body reaches this row)", () => {
     expect(isOccludedAt(fakeWorld({ "5,6": 1 }), 0)).toBe(true);
+  });
+
+  it("uses the same terrain occlusion contract for enemy and pet actor heights", () => {
+    const world = fakeWorld({ "5,6": 1 });
+    expect(isOccludedByTerrainAhead({ world, x: 5.5, y: 5.5, z: 0, orientation: 0 })).toBe(true);
+    expect(isOccludedByTerrainAhead({ world, x: 5.5, y: 5.5, z: 1, orientation: 0 })).toBe(false);
   });
 
   it("does not occlude from a VOID cell with a height-map value", () => {

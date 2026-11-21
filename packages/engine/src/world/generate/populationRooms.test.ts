@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { hashString } from "../../core/rng.js";
 import { CHUNK_SIZE } from "../core/types.js";
+import { generateFiniteFloor, type GeneratedFloor } from "./finiteFloor.js";
 import {
   populationAnchorForChunk,
   populationRoomsForChunk,
@@ -8,12 +9,12 @@ import {
   type PopulationChunk,
 } from "./populationRooms.js";
 
-const CHUNK: PopulationChunk = {
+const FLOOR_INPUT = {
   worldSeed: hashString("population-room-coordinates"),
   floor: 2,
-  cx: 3,
-  cy: -2,
 };
+const GENERATED_FLOOR = generateFiniteFloor(FLOOR_INPUT);
+const CHUNK = findPopulationChunk(GENERATED_FLOOR);
 
 describe("population room geometry", () => {
   it("returns direct tile bounds inside the requested runtime chunk", () => {
@@ -49,12 +50,56 @@ describe("population room geometry", () => {
     expect(spots).toHaveLength(Math.min(3, rooms.length));
     for (const spot of spots) expect(centers.has(`${spot.x},${spot.y}`)).toBe(true);
   });
+
+  it("uses supplied configured-floor metadata instead of regenerating defaults", () => {
+    const generatedFloor = generateFiniteFloor({ ...FLOOR_INPUT, config: { roomSize: 11 } });
+    const room = generatedFloor.rooms[0];
+    expect(room).toBeDefined();
+    if (!room) return;
+    const chunk = {
+      ...FLOOR_INPUT, generatedFloor,
+      cx: Math.floor(room.center.x / CHUNK_SIZE), cy: Math.floor(room.center.y / CHUNK_SIZE),
+    };
+    expect(populationRoomsForChunk(chunk).length).toBeGreaterThan(0);
+    expect(populationAnchorForChunk(chunk)).not.toBeNull();
+  });
 });
 
+function findPopulationChunk(floor: GeneratedFloor): PopulationChunk {
+  const room = floor.rooms[0];
+  if (!room) throw new Error("Expected a generated population room");
+  return {
+    ...FLOOR_INPUT, generatedFloor: floor,
+    cx: Math.floor(room.center.x / CHUNK_SIZE), cy: Math.floor(room.center.y / CHUNK_SIZE),
+  };
+}
+
 function findLootChunk(): PopulationChunk {
-  for (let cx = -8; cx <= 8; cx++) {
-    const chunk = { ...CHUNK, cx, cy: 4 };
+  for (const chunk of generatedRoomChunks(GENERATED_FLOOR)) {
     if (roomLootSpotsForChunk(chunk).length > 0) return chunk;
   }
-  throw new Error("Expected an eligible room-loot chunk in the scan range");
+  throw new Error("Expected an eligible generated room-loot chunk");
+}
+
+function generatedRoomChunks(floor: GeneratedFloor): PopulationChunk[] {
+  const coordinates = new Set<string>();
+  for (const room of floor.rooms) addRoomChunkCoordinates(coordinates, room);
+  return [...coordinates].map((coordinate) => {
+    const [cx, cy] = coordinate.split(",").map(Number);
+    if (cx === undefined || cy === undefined) throw new Error(`Invalid chunk coordinate: ${coordinate}`);
+    return { ...FLOOR_INPUT, generatedFloor: floor, cx, cy };
+  });
+}
+
+function addRoomChunkCoordinates(
+  coordinates: Set<string>,
+  room: GeneratedFloor["rooms"][number],
+): void {
+  const minimumCx = Math.floor(room.x0 / CHUNK_SIZE);
+  const maximumCx = Math.floor(room.x1 / CHUNK_SIZE);
+  const minimumCy = Math.floor(room.y0 / CHUNK_SIZE);
+  const maximumCy = Math.floor(room.y1 / CHUNK_SIZE);
+  for (let cy = minimumCy; cy <= maximumCy; cy += 1) {
+    for (let cx = minimumCx; cx <= maximumCx; cx += 1) coordinates.add(`${cx},${cy}`);
+  }
 }

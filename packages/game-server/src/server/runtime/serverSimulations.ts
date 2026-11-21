@@ -38,6 +38,7 @@ export function createServerSimulations(input: SimulationCreation): ServerSimula
       rngSeedBase: seed,
       opts: simOpts,
       worldFeatures: features,
+      prewarmNextFloor: opts.prewarmNextFloor ?? true,
     }),
     sandbox: new GameSim({
       ...shared,

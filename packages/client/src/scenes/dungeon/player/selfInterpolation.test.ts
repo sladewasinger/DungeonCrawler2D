@@ -9,13 +9,13 @@ import { describe, expect, it } from "vitest";
 import { PredictionCorrection } from "../../../net/prediction/predictionCorrection.js";
 import { projectSelfRenderPose } from "./selfInterpolation.js";
 
-const SPAWN_X = -12;
-const SPAWN_Y = -26;
+const SPAWN_X = 25.5;
+const SPAWN_Y = 25.5;
 
 describe("projectSelfRenderPose", () => {
   it("renders into the unsimulated tick remainder instead of one tick behind", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
-    const body = createBody(SPAWN_X, SPAWN_Y, 5);
+    const body = createBody(SPAWN_X, SPAWN_Y, world.groundAt(SPAWN_X, SPAWN_Y));
     const before = cloneBody(body);
     const resources = { stamina: 100, maxStamina: 100, blocking: false };
 
@@ -38,7 +38,7 @@ describe("projectSelfRenderPose", () => {
 
   it("keeps reconciliation smoothing render-only while projecting", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
-    const body = createBody(SPAWN_X, SPAWN_Y, 5);
+    const body = createBody(SPAWN_X, SPAWN_Y, world.groundAt(SPAWN_X, SPAWN_Y));
     const correction = new PredictionCorrection();
     correction.record(
       { x: body.x + 0.25, y: body.y, z: body.z },
@@ -62,7 +62,7 @@ describe("projectSelfRenderPose", () => {
 
   it("stays on authoritative position while downed input cannot act", () => {
     const world = new World(7, 0, LEVEL.Sandbox);
-    const body = createBody(SPAWN_X, SPAWN_Y, 5);
+    const body = createBody(SPAWN_X, SPAWN_Y, world.groundAt(SPAWN_X, SPAWN_Y));
     body.kx = 5;
     body.ky = -3;
     const held = { moveX: 1, moveY: 0, jump: false };

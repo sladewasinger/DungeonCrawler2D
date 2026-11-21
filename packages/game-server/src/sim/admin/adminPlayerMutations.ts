@@ -80,7 +80,10 @@ function toggleHandicap(sim: SimState, slot: PlayerSlot, command: Extract<AdminC
 
 function toggleAdmin(slot: PlayerSlot, command: Extract<AdminCommand, { op: "assignAdmin" }>): void {
   slot.admin = command.enabled;
-  if (!command.enabled) slot.debugFlags = createDebugFlags();
+  if (!command.enabled) {
+    slot.debugFlags = createDebugFlags();
+    slot.noclip = false;
+  }
   notify(slot, `Admin access ${command.enabled ? "granted" : "revoked"} for this live session.`);
 }
 

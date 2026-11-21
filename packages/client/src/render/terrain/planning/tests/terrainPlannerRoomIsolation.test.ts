@@ -2,17 +2,21 @@ import {
   CHUNK_SIZE,
   ROOM_WALL_RISE,
   TERRAIN,
-  World,
   generateRoomChunk,
-  hashString,
   spawnRoomChunk,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
+import { finiteTerrainWorldFixture } from "../../../../testing/terrainWorldFixture.js";
 import { createTerrainSource } from "../../runtime/source.js";
 import {
   planTerrain,
   type TerrainSource,
 } from "../terrainPlanner.js";
+import {
+  TerrainChunkPlanCache,
+  appendVisibleChunkPlans,
+  emptyTerrainBatches,
+} from "../chunkCache.js";
 
 describe("room terrain isolation", () => {
   it("renders the sealed room shell when ordinary world VOID is disabled", () => {
@@ -38,9 +42,7 @@ describe("room terrain isolation", () => {
 
   it("allows a finite dungeon view to sample the adjacent reserved plane", () => {
     const room = spawnRoomChunk();
-    const world = new World(hashString("room-render-isolation"), 1, {
-      features: { voidTerrain: false },
-    });
+    const { world } = finiteTerrainWorldFixture(false);
     const source = createTerrainSource(world);
     const boundaryY = room.cy * CHUNK_SIZE;
 
@@ -55,6 +57,37 @@ describe("room terrain isolation", () => {
     })).not.toThrow();
     expect(world.terrainAt(room.cx * CHUNK_SIZE, boundaryY))
       .toBe(TERRAIN.Floor);
+
+    const batches = emptyTerrainBatches();
+    appendVisibleChunkPlans({
+      target: batches,
+      cache: new TerrainChunkPlanCache(),
+      source,
+      bounds: {
+        x: room.cx * CHUNK_SIZE,
+        y: room.cy * CHUNK_SIZE,
+        width: CHUNK_SIZE,
+        height: CHUNK_SIZE,
+      },
+      orientation: 0,
+      revision: world.tileRevision,
+    });
+    expect(batches.floors.length).toBeGreaterThan(0);
+    expect(batches.southFaces.length).toBeGreaterThan(0);
+    const doorVisible = [0, 90, 180, 270].some((orientation) => {
+      const plan = planTerrain(source, {
+        bounds: {
+          x: room.cx * CHUNK_SIZE,
+          y: room.cy * CHUNK_SIZE,
+          width: CHUNK_SIZE,
+          height: CHUNK_SIZE,
+        },
+        orientation: orientation as 0 | 90 | 180 | 270,
+      });
+      return plan.batches.southFaces.some(({ wallFeature }) =>
+        wallFeature?.feature === "door");
+    });
+    expect(doorVisible).toBe(true);
   });
 });
 

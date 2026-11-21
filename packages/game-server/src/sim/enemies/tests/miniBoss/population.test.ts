@@ -2,7 +2,6 @@ import {
   AOI_RADIUS,
   CHUNK_SIZE,
   createBody,
-  hashString,
   makeEntity,
   populationRoomsForChunk,
 } from "@dc2d/engine";
@@ -21,6 +20,7 @@ import {
   blockArenaInterior,
   spawnMiniBossPopulationEncounter,
 } from "./populationTestSupport.js";
+import { finiteServerFloorFixture } from "../../../testing/finiteWorldTestSupport.js";
 
 describe("mini-boss arena population", () => {
   it("spawns one explicit leader and three minions inside its arena", () => {
@@ -88,14 +88,20 @@ describe("mini-boss arena population", () => {
   });
 
   it("reports direct room bounds inside their owning chunk", () => {
+    const floor = finiteServerFloorFixture();
+    const source = floor.rooms[0];
+    if (!source) throw new Error("finite fixture has no ordinary room");
+    const cx = Math.floor(source.x0 / CHUNK_SIZE);
+    const cy = Math.floor(source.y0 / CHUNK_SIZE);
     const rooms = populationRoomsForChunk({
-      worldSeed: hashString("room-bounds"),
-      floor: 1,
-      cx: 2,
-      cy: -3,
+      worldSeed: floor.worldSeed,
+      floor: floor.floor,
+      cx,
+      cy,
+      generatedFloor: floor,
     });
     expect(rooms.length).toBeGreaterThan(0);
-    for (const room of rooms) assertRoomInChunk(room);
+    for (const room of rooms) assertRoomInChunk(room, cx, cy);
   });
 });
 
@@ -151,10 +157,10 @@ interface PopulationRoom {
   readonly area: number;
 }
 
-function assertRoomInChunk(room: PopulationRoom): void {
-  expect(room.x0).toBeGreaterThanOrEqual(2 * CHUNK_SIZE);
-  expect(room.x1).toBeLessThan(3 * CHUNK_SIZE);
-  expect(room.y0).toBeGreaterThanOrEqual(-3 * CHUNK_SIZE);
-  expect(room.y1).toBeLessThan(-2 * CHUNK_SIZE);
+function assertRoomInChunk(room: PopulationRoom, cx: number, cy: number): void {
+  expect(room.x0).toBeGreaterThanOrEqual(cx * CHUNK_SIZE);
+  expect(room.x1).toBeLessThan((cx + 1) * CHUNK_SIZE);
+  expect(room.y0).toBeGreaterThanOrEqual(cy * CHUNK_SIZE);
+  expect(room.y1).toBeLessThan((cy + 1) * CHUNK_SIZE);
   expect(room.area).toBe((room.x1 - room.x0 + 1) * (room.y1 - room.y0 + 1));
 }

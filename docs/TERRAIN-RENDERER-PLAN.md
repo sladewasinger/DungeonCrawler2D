@@ -92,6 +92,7 @@ row labels in the debug sheet; the remaining columns are stable role slots.
 | ---: | ---: | --- | --- |
 | 0 | 1 | `floor` | flat floor cap |
 | 0 | 2 | `raised-floor` | cap with a height cue |
+| 0 | 3 | `bedrock` | dark structural cap; shares the authored goblin source slot |
 | 1 | 1 | `south-face` | finite Floor-to-Floor drop |
 | 2 | 1 | `stairs` | traversable stair feature |
 | 2 | 2 | `stair-wall-face` | stair riser wall face |
@@ -123,6 +124,13 @@ useful for screenshots and rotation/biome checks without connecting a player.
 
 The shared sheet is intentionally compact; faces and void boundaries are
 generated from the height map, so no per-direction wall atlas is needed.
+
+The authored territory pairs occupy row 0/1 columns 3, 4, and 5. Column 3 is
+therefore a deliberate source-slot alias: the semantic `bedrock` role uses
+its dark structural art for caps, while `territory-goblin-floor` uses the same
+bitmap cell for goblin territory floors. The renderer keeps those semantic
+roles separate for material ordering and classification; the compact atlas
+does not claim a fourth bitmap pair.
 Cliff edges do not select atlas tiles; they receive a cheap procedural white
 Graphics rim overlay in both debug and normal modes. Height-map planning
 retains its cliff-edge geometry for that overlay and the non-atlas fallback,

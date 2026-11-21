@@ -41,6 +41,9 @@ import { SpectatorDeathPresentationJournal } from "../../spectator/events/specta
 
 export class ConnectionState {
   world: World | null = null;
+  worldReady = false; worldLoading = false; worldLoadError: string | null = null; pendingFloorTransition: number | null = null;
+  worldLoadAttempt = 0;
+  pendingWorldSnapshot: ServerSnapshot | null = null; worldLoadCancel: (() => void) | null = null;
   welcome: ServerWelcome | null = null;
   body: BodyState | null = null;
   rttMs = 0;
@@ -57,6 +60,7 @@ export class ConnectionState {
   staminaExhausted = false;
   healthRegenerationDelaySeconds = 0;
   movementSpeed = MOVE_SPEED;
+  noclip = false;
   readonly contextualActionsUsed = new Set<"attack" | "block">();
   fx: string[] = [];
   statusEffects: ActiveStatusSnapshot[] = [];
@@ -143,7 +147,5 @@ export class ConnectionState {
   activeAdminDebugFlags: DebugFlags = createDebugFlags();
   activeAdminDebugEntities: AdminMapEntity[] = [];
   adminOnly = false;
-  spectatorOnly = false;
-
-  constructor(readonly url: string, public name: string, readonly clientId: string) {}
+  spectatorOnly = false; constructor(readonly url: string, public name: string, readonly clientId: string) {}
 }

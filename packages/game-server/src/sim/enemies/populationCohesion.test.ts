@@ -11,24 +11,24 @@ import {
   BIOME,
   buildContentRegistry,
   hashString,
-  World,
 } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { PlayerStore } from "../../store.js";
+import { finiteServerWorldFixture } from "../testing/finiteWorldTestSupport.js";
 import { spawnEnemy } from "../core/helpers.js";
 import { createSimState } from "../state/state.js";
-import { spawnEnemyPack } from "./population.js";
 import {
   enemyRosterForBiome,
   RANDOM_ENEMY_ROSTER,
 } from "./populationRoster.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
-import { nearSpawnPopulationCenter } from "./population/nearSpawn.js";
 import {
   expectPackMembers,
   spawnControlledOutlierPack,
   spawnRepeatedAnchorPack,
 } from "./population/testSupport/populationCohesionSupport.js";
+import { expectTerritoryRoster, sampleTerritories } from "./population/testSupport/populationTerritoryTestSupport.js";
+import { spawnMostPopulatablePack } from "./population/testSupport/populationTerrainFixture.js";
 
 const content = buildContentRegistry({
   statuses: [...statusesData],
@@ -41,9 +41,13 @@ const content = buildContentRegistry({
 });
 
 function createTestSim(seed = "cohesive-population") {
-  const worldSeed = hashString(seed);
+  const rngSeed = hashString(seed);
   return createSimState({
-    world: new World(worldSeed, 1), content, store: new PlayerStore(null), rngSeed: worldSeed, opts: {},
+    world: finiteServerWorldFixture(),
+    content,
+    store: new PlayerStore(null),
+    rngSeed,
+    opts: {},
   });
 }
 
@@ -57,7 +61,6 @@ describe("cohesive district enemy population", () => {
     expect(enemyRosterForBiome(BIOME.Pools)).toContain("slime");
     expect(enemyRosterForBiome(BIOME.Maze)).toContain("orc-warrior");
   });
-
   it("never puts the sandbox training dummy in a random dungeon roster", () => {
     expect(RANDOM_ENEMY_ROSTER).not.toContain("training-dummy");
     for (const biome of Object.values(BIOME)) {
@@ -65,9 +68,16 @@ describe("cohesive district enemy population", () => {
     }
   });
 
+  it("uses territory ownership to select faction-domain mobs", () => {
+    const sim = createTestSim("territory-owned-population");
+    const samples = sampleTerritories(sim);
+    expect(samples.size).toBe(4);
+    for (const [id, point] of samples) expectTerritoryRoster(sim, id, point);
+  });
+
   it("spawns a tight pack with at most one off-theme wanderer", () => {
     const sim = createTestSim();
-    spawnEnemyPack(sim, 8, 8);
+    spawnMostPopulatablePack(sim);
     const enemies = [...sim.enemies.values()];
     expect(enemies.length).toBeGreaterThanOrEqual(2);
     const counts = new Map<string, number>();
@@ -91,7 +101,7 @@ describe("cohesive district enemy population", () => {
   it("keeps the required pair across deterministic remote pack seeds", () => {
     for (const seed of ["remote-pack-a", "remote-pack-b", "remote-pack-c"]) {
       const sim = createTestSim(seed);
-      spawnEnemyPack(sim, 8, 8);
+      spawnMostPopulatablePack(sim);
       const ids = new Set([...sim.enemies.values()].map((enemy) => enemy.def.id));
       expect(ids.has("chort")).toBe(true);
       expect(ids.has("pitchbloom")).toBe(true);
@@ -124,12 +134,7 @@ describe("cohesive district enemy population", () => {
 
   it("uses the configured pack bounds next to the floor-one spawn anchor", () => {
     const sim = createTestSim("near-spawn-population");
-    const anchor = nearSpawnPopulationCenter();
-    spawnEnemyPack(
-      sim,
-      Math.floor(anchor.x / 32),
-      Math.floor(anchor.y / 32),
-    );
+    spawnMostPopulatablePack(sim, { nearSpawnOnly: true });
     const tuning = ENEMY_SIMULATION_TUNING.population;
     expect(sim.enemies.size).toBeGreaterThanOrEqual(tuning.nearSpawnPackMinimum);
     expect(sim.enemies.size).toBeLessThanOrEqual(tuning.nearSpawnPackMaximum);
@@ -144,10 +149,9 @@ describe("cohesive district enemy population", () => {
       spawnEnemy(sim, { defId: "slime", x: 1000 + index, y: 1000 });
     }
 
-    spawnEnemyPack(sim, 8, 8);
+    spawnMostPopulatablePack(sim);
 
     expect(sim.enemies.size).toBe(150);
-    expect([...sim.enemies.values()].some((enemy) => enemy.def.id === "chort")).toBe(false);
-    expect([...sim.enemies.values()].some((enemy) => enemy.def.id === "pitchbloom")).toBe(false);
+    expect([...sim.enemies.values()].some((enemy) => enemy.def.id === "chort")).toBe(false); expect([...sim.enemies.values()].some((enemy) => enemy.def.id === "pitchbloom")).toBe(false);
   });
 });

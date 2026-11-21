@@ -1,5 +1,15 @@
+/* eslint-disable max-lines -- Terrain owns one cohesive Three.js scene-resource lifecycle. */
 /** Owns deterministic Three.js terrain and bounded wall-sconce lighting. */
-import { TILE, biomeAtWorldTile, type World } from "@dc2d/engine";
+import {
+  CHUNK_SIZE,
+  entryClimbDir,
+  roomCenterAt,
+  roomSlotAt,
+  SOUTH_EXIT_HALL_DEPTH,
+  TILE,
+  type FloorBounds,
+  type World,
+} from "@dc2d/engine";
 import * as THREE from "three";
 import { environmentProfile } from "./threeEnvironment.js";
 import { createBiomeMaterials, disposeBiomeMaterials, type BiomeMaterials } from "./threeTerrainPalette.js";
@@ -100,6 +110,7 @@ export class ThreeTerrain {
   }
 
   private populateTile(x: number, z: number): void {
+    if (!isFiniteTerrainPresentationCell(this.world.floorBounds, x, z) && !isAuthoredRoomCell(x, z)) return;
     const rawHeight = this.world.heightAt(x, z);
     const height = Math.max(MIN_HEIGHT + 0.25, Math.min(7, rawHeight));
     const tile = this.world.tileAt(x, z);
@@ -115,10 +126,28 @@ export class ThreeTerrain {
   }
 
   private addWalkableTile({ x, z, height, tile }: TerrainTile): void {
-    const material = tile === TILE.Stairs
-      ? this.stairMaterial
-      : this.materialsAt({ x, z }).floors[depthIndex(height)];
+    if (tile === TILE.Stairs && this.addStairTile(x, z)) return;
+    const material = this.materialsAt({ x, z }).floors[depthIndex(height)];
     this.addBlock({ x, z, material, top: height });
+  }
+
+  private addStairTile(x: number, z: number): boolean {
+    const direction = entryClimbDir(this.world, x, z);
+    const axis = direction === null ? undefined : STAIR_DIRECTIONS[direction];
+    if (!axis) return false;
+    const high = this.world.heightAt(x + axis.x, z + axis.z);
+    const low = this.world.heightAt(x - axis.x, z - axis.z);
+    const count = Math.max(1, Math.floor(this.world.stairTreadCount ?? 1));
+    for (let step = 0; step < count; step++) {
+      this.addStairStep({ x, z, axis, top: low + (high - low) * (step + 1) / count, step, count });
+    }
+    return true;
+  }
+
+  private addStairStep(input: { readonly x: number; readonly z: number; readonly axis: { readonly x: number; readonly z: number }; readonly top: number; readonly step: number; readonly count: number }): void {
+    const along = (input.step + 0.5) / input.count - 0.5;
+    const center = { x: input.x + 0.5 + input.axis.x * along, z: input.z + 0.5 + input.axis.z * along };
+    this.addPrism({ center, size: { x: input.axis.x === 0 ? 1 : 1 / input.count, z: input.axis.z === 0 ? 1 : 1 / input.count }, material: this.stairMaterial, top: input.top });
   }
 
   private solidMaterial({ x, z, tile, height }: TerrainTile): unknown {
@@ -128,14 +157,18 @@ export class ThreeTerrain {
   }
 
   private materialsAt({ x, z }: TerrainCell): BiomeMaterials {
-    const { biome } = biomeAtWorldTile({ worldSeed: this.world.worldSeed, floor: this.world.floor, wx: x, wy: z });
+    const biome = this.world.biomeAtWorldTile(x, z)?.biome ?? "maze";
     return this.biomeMaterials[biome];
   }
 
   private addBlock({ x, z, material, top }: TerrainBlock): void {
-    const mesh = new THREE.Mesh(this.cube, material);
-    mesh.position.set(x + 0.5, (MIN_HEIGHT + top) / 2, z + 0.5);
-    mesh.scale.set(1, Math.max(0.08, top - MIN_HEIGHT), 1);
+    this.addPrism({ center: { x: x + 0.5, z: z + 0.5 }, size: { x: 1, z: 1 }, material, top });
+  }
+
+  private addPrism(input: { readonly center: { readonly x: number; readonly z: number }; readonly size: { readonly x: number; readonly z: number }; readonly material: unknown; readonly top: number }): void {
+    const mesh = new THREE.Mesh(this.cube, input.material);
+    mesh.position.set(input.center.x, (MIN_HEIGHT + input.top) / 2, input.center.z);
+    mesh.scale.set(input.size.x, Math.max(0.08, input.top - MIN_HEIGHT), input.size.z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     const outline = new THREE.LineSegments(this.edges, this.borderMaterial);
@@ -165,3 +198,30 @@ export class ThreeTerrain {
   }
 
 }
+
+export function isFiniteTerrainPresentationCell(
+  bounds: FloorBounds | null,
+  x: number,
+  z: number,
+): boolean {
+  return !bounds || (x >= bounds.minX && x <= bounds.maxX && z >= bounds.minY && z <= bounds.maxY);
+}
+
+function isAuthoredRoomCell(x: number, z: number): boolean {
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const cy = Math.floor(z / CHUNK_SIZE);
+  const slot = roomSlotAt(cx, cy);
+  if (!slot) return false;
+  const center = roomCenterAt(cx, cy);
+  const left = cx * CHUNK_SIZE + Math.floor(CHUNK_SIZE / 2 - slot.w / 2);
+  const top = cy * CHUNK_SIZE + Math.floor(CHUNK_SIZE / 2 - slot.h / 2);
+  const inRoom = x >= left && x < left + slot.w && z >= top && z < top + slot.h;
+  const exitX = Math.floor(center.x);
+  const exitStart = top + slot.h - 1;
+  const inExitHall = x === exitX && z >= exitStart && z <= exitStart + SOUTH_EXIT_HALL_DEPTH;
+  return inRoom || inExitHall;
+}
+
+const STAIR_DIRECTIONS = [
+  { x: 0, z: -1 }, { x: 1, z: 0 }, { x: 0, z: 1 }, { x: -1, z: 0 },
+] as const;

@@ -1,15 +1,19 @@
 import { CHUNK_SIZE } from "../../core/types.js";
-import type { WorldChunk } from "../descent/descentShared.js";
-import { featureLayout } from "./fixed.js";
+import type { GeneratedFloor } from "../../generate/finiteFloor.js";
 
 /** Pure world-space location of the safe-room door authored for a chunk. */
 export function safeRoomEntranceDoorForChunk(
-  chunk: WorldChunk,
+  floor: Pick<GeneratedFloor, "safeRooms"> | null,
+  cx: number,
+  cy: number,
 ): { readonly x: number; readonly y: number } | null {
-  const layout = featureLayout(chunk);
-  if (!layout?.safeRoom) return null;
+  const room = floor?.safeRooms.find((site) =>
+    Math.floor(site.door.x / CHUNK_SIZE) === cx &&
+    Math.floor(site.door.y / CHUNK_SIZE) === cy,
+  );
+  if (!room) return null;
   return {
-    x: chunk.cx * CHUNK_SIZE + layout.centerLx,
-    y: chunk.cy * CHUNK_SIZE + layout.centerLy + 1,
+    x: room.door.x,
+    y: room.door.y,
   };
 }

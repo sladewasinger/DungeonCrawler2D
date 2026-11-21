@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { TICK_DT } from "../../../core/constants.js";
-import { hashString } from "../../../core/rng.js";
 import { createBody, stepBody } from "../../../entities/movement/index.js";
 import { CHUNK_SIZE, TERRAIN, TILE } from "../../core/types.js";
 import { World } from "../../core/world.js";
+import { authoredRoomWorldFixture } from "../fixtures/featureWorldFixture.js";
 import { SOUTH_EXIT_HALL_DEPTH } from "./roomExitGeometry.js";
 import {
   generateRoomChunk,
@@ -19,7 +19,6 @@ const ROOM_CASES = [
   { kind: "safe", position: safeRoomChunk(4, 7) },
   { kind: "spawn", position: spawnRoomChunk() },
 ] as const;
-const WORLD_SEED = hashString("room-exit-collision");
 
 const exitPosition = (
   chunk: ReturnType<typeof generateRoomChunk>,
@@ -61,14 +60,14 @@ function assertHallGeometry(world: World, exit: { x: number; y: number }): void 
 
 describe("south exit collision", () => {
   it.each(ROOM_CASES)("keeps every $kind hall side and endpoint sealed", ({ position }) => {
-    const world = new World(WORLD_SEED, 1);
+    const world = authoredRoomWorldFixture();
     assertHallGeometry(world, exitPosition(world.getChunk(position.cx, position.cy)));
   });
 
   it.each(ROOM_CASES)(
     "blocks axis movement and jumping through both $kind hall sides",
     ({ position }) => {
-      const world = new World(WORLD_SEED, 1);
+      const world = authoredRoomWorldFixture();
       const exit = exitPosition(world.getChunk(position.cx, position.cy));
 
       for (let depth = 1; depth <= SOUTH_EXIT_HALL_DEPTH; depth++) {
@@ -87,7 +86,7 @@ describe("south exit collision", () => {
   it.each(ROOM_CASES)(
     "blocks diagonal corner slides and jumping beyond the $kind hall endpoint",
     ({ position }) => {
-      const world = new World(WORLD_SEED, 1);
+      const world = authoredRoomWorldFixture();
       const exit = exitPosition(world.getChunk(position.cx, position.cy));
 
       for (const direction of [-1, 1]) {

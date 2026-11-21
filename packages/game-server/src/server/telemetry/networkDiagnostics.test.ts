@@ -6,10 +6,14 @@ import {
   type ClientHello,
   type ClientMessage,
 } from "@dc2d/engine";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { FloorRegistry } from "../../floors/floorRegistry.js";
-import { content, makeSim } from "../../sim/integration/support.js";
+import {
+  createFloorRegistryFixture,
+  disposeFloorRegistryFixture,
+} from "../../floors/floorRegistryTestSupport.js";
+import { makeSim } from "../../sim/integration/support.js";
 import { PlayerStore } from "../../store.js";
 import { deliverSnapshots } from "../broadcast.js";
 import { handleConnection } from "../dispatch.js";
@@ -18,6 +22,18 @@ import { ServerNetworkDiagnostics } from "./networkDiagnostics.js";
 import type { SocketMap } from "../types.js";
 
 type Listener = (data?: string) => void;
+const registries = new Set<FloorRegistry>();
+
+afterEach(async () => {
+  await Promise.all([...registries].map(disposeFloorRegistryFixture));
+  registries.clear();
+});
+
+function diagnosticFloors(store: PlayerStore): FloorRegistry {
+  const floors = createFloorRegistryFixture({ floors: [1], seed: 123, store });
+  registries.add(floors);
+  return floors;
+}
 
 class FakeSocket {
   readyState: number = WebSocket.OPEN;
@@ -66,9 +82,9 @@ function wireTypes(socket: FakeSocket): string[] {
 }
 
 describe("server network diagnostics wiring", () => {
-  it("measures welcome, pong, snapshot, and protocol-error sends through fake sockets", () => {
+  it("measures welcome, pong, snapshot, and protocol-error sends through fake sockets", async () => {
     const store = new PlayerStore(null);
-    const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: {} });
+    const floors = diagnosticFloors(store);
     const sandbox = makeSim();
     const combatSandbox = makeSim(4321, { level: LEVEL.CombatSandbox });
     const diagnostics = new ServerNetworkDiagnostics();
@@ -77,6 +93,7 @@ describe("server network diagnostics wiring", () => {
     const accepted = new FakeSocket();
     handleConnection(accepted as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     accepted.receive(hello());
+    await flushConnectionWork();
     accepted.receive({ type: "ping", t: 4 });
     deliverSnapshots({ snapshots: sandbox.stepPreparedReplicated(), sockets, diagnostics });
 
@@ -96,9 +113,9 @@ describe("server network diagnostics wiring", () => {
     expect(measured.server.maximumQueueBytes).toBe(77);
   });
 
-  it("keeps a replacement client's diagnostics until its current socket closes", () => {
+  it("keeps a replacement client's diagnostics until its current socket closes", async () => {
     const store = new PlayerStore(null);
-    const floors = new FloorRegistry({ worldSeed: 123, content, store, rngSeedBase: 1, opts: {} });
+    const floors = diagnosticFloors(store);
     const sandbox = makeSim();
     const combatSandbox = makeSim(4321, { level: LEVEL.CombatSandbox });
     const diagnostics = new ServerNetworkDiagnostics();
@@ -107,12 +124,14 @@ describe("server network diagnostics wiring", () => {
     const first = new FakeSocket();
     handleConnection(first as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     first.receive(hello());
+    await flushConnectionWork();
     const joined = welcome(first);
     sandbox.markDisconnected(joined.playerId);
 
     const replacement = new FakeSocket();
     handleConnection(replacement as unknown as WebSocket, { floors, sandbox, combatSandbox, sockets, worldSeed: 123, diagnostics, adminSessions });
     replacement.receive(hello(PROTOCOL_VERSION, joined.resumeToken));
+    await flushConnectionWork();
 
     expect(sockets.get(joined.playerId)?.ws).toBe(replacement);
     const measured = diagnostics.snapshot(performance.now() + 1000).clients.get(joined.playerId);
@@ -127,3 +146,7 @@ describe("server network diagnostics wiring", () => {
     expect(diagnostics.snapshot(performance.now() + 1000).clients.has(joined.playerId)).toBe(false);
   });
 });
+
+function flushConnectionWork(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}

@@ -1,4 +1,4 @@
-import { GRAVITY, PROJECTILE_CONTACT_RADIUS, TICK_DT, combatHurtboxBounds, type EffectEvent, type Entity } from "@dc2d/engine";
+import { COMBAT_SANDBOX_LAYOUT, GRAVITY, PROJECTILE_CONTACT_RADIUS, TICK_DT, combatHurtboxBounds, type EffectEvent, type Entity } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { doAttack } from "../actions/melee.js";
 import { spawnEnemy } from "../core/helpers.js";
@@ -40,11 +40,9 @@ function createReflectionFixture(
 }
 
 function findFlatNorthApproach(sim: SimState): { x: number; y: number } {
-  for (let x = 136; x < 264; x++) {
-    for (let y = 136; y < 264; y++) {
-      if (isFlatNorthApproach(sim, x, y)) return { x: x + 0.5, y: y + 0.5 };
-    }
-  }
+  const x = Math.floor(COMBAT_SANDBOX_LAYOUT.playerSpawn.x);
+  const y = Math.floor(COMBAT_SANDBOX_LAYOUT.playerSpawn.y);
+  if (isFlatNorthApproach(sim, x, y)) return { x: x + 0.5, y: y + 0.5 };
   throw new Error("missing flat north projectile approach");
 }
 

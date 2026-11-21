@@ -80,6 +80,8 @@ describe("prediction under host timer drift", () => {
       "clock-drift-client",
     );
     connection.status = "connected";
+    connection.floor = sim.world.floor;
+    connection.worldReady = true;
     connection.world = new World(
       sim.world.worldSeed,
       sim.world.floor,

@@ -7,7 +7,7 @@ import {
   rulesData,
   statusesData,
 } from "@dc2d/content";
-import { buildContentRegistry, CHASM_DEATH_Z, hashString, LEVEL, makeEntity, World, createBody, type ContentRegistry } from "@dc2d/engine";
+import { buildContentRegistry, CHASM_DEATH_Z, LEVEL, makeEntity, createBody, type ContentRegistry } from "@dc2d/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createSimState, type PlayerSlot, type SimState } from "../state/state.js";
 import { adminTestPlayerState } from "../testing/adminTestPlayerState.js";
@@ -15,6 +15,11 @@ import { PlayerStore } from "../../store.js";
 import { populateCombatSandboxChunk } from "../sandbox/combatSandboxPopulation.js";
 import { activateChunksNearPlayers } from "./index.js";
 import { ENEMY_SIMULATION_TUNING } from "./configuration/enemySimulationTuning.js";
+import {
+  authoredServerWorldFixture,
+  finiteFixtureSpawn,
+  finiteServerWorldFixture,
+} from "../testing/finiteWorldTestSupport.js";
 
 /** Headless tests for the enemy subsystem: population placement and per-tick AI. */
 
@@ -27,25 +32,33 @@ const content: ContentRegistry = buildContentRegistry({
   enemies: [...enemiesData],
   recipes: [...recipesData],
 });
-const SEED = hashString("enemies-test-world");
-
-/** Scan outward from (0,0) for a walkable, non-sanctuary tile —
+/** Scan outward from the generated spawn for a walkable, non-sanctuary tile —
  * robust to worldgen changes, unlike hardcoded coordinates. */
 function findOpenFloor(sim: SimState): { x: number; y: number } {
+  const origin = finiteFixtureSpawn(sim.world);
   for (let radius = 0; radius < 64; radius++) {
-    const floor = perimeterTiles(radius).find((tile) => isOpenFloor(sim, tile));
+    const floor = perimeterTiles(origin, radius).find((tile) => isOpenFloor(sim, tile));
     if (floor) return { x: floor.x + 0.5, y: floor.y + 0.5 };
   }
-  throw new Error("no open floor found near (200, 200)");
+  throw new Error("no open floor found near the finite spawn");
 }
 
-function perimeterTiles(radius: number): Array<{ x: number; y: number }> {
+function perimeterTiles(
+  origin: { readonly x: number; readonly y: number },
+  radius: number,
+): Array<{ x: number; y: number }> {
   const tiles: Array<{ x: number; y: number }> = [];
   for (let offset = -radius; offset <= radius; offset++) {
-    tiles.push({ x: 200 + offset, y: 200 - radius }, { x: 200 + offset, y: 200 + radius });
+    tiles.push(
+      { x: origin.x + offset, y: origin.y - radius },
+      { x: origin.x + offset, y: origin.y + radius },
+    );
   }
   for (let offset = 1 - radius; offset < radius; offset++) {
-    tiles.push({ x: 200 - radius, y: 200 + offset }, { x: 200 + radius, y: 200 + offset });
+    tiles.push(
+      { x: origin.x - radius, y: origin.y + offset },
+      { x: origin.x + radius, y: origin.y + offset },
+    );
   }
   return tiles;
 }
@@ -91,7 +104,7 @@ describe("enemy population", () => {
   let sim: SimState;
 
   beforeEach(() => {
-    const world = new World(SEED, 1, LEVEL.Dungeon);
+    const world = finiteServerWorldFixture();
     sim = createSimState({ world, content, store: new PlayerStore(null), rngSeed: 42, opts: {} });
   });
 
@@ -129,7 +142,7 @@ describe("enemy population", () => {
   });
 
   it("populates the Combat Sandbox with content-derived non-hostile fixtures", () => {
-    const world = new World(SEED, 1, LEVEL.CombatSandbox);
+    const world = authoredServerWorldFixture(LEVEL.CombatSandbox);
     const fixtureSim = createSimState({
       world,
       content,

@@ -1,13 +1,16 @@
-import { stairwayDownPosition } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
+import {
+  finiteTerrainWorldFixture,
+  terminalTerrainWorldFixture,
+} from "../../../testing/terrainWorldFixture.js";
 import { STAIRWAY_NEAR_TILES, resolveStairwayTick } from "./stairwayTick.js";
 
-const SEED = 1337;
-const WORLD = { worldSeed: SEED, floor: 1 };
+const FIXTURE = finiteTerrainWorldFixture();
+const WORLD = FIXTURE.world;
 // The deterministic landmark the tick must point at — the test only borrows its
 // POSITION (the same seam the shipped code reads); every expected bearing below is
 // hand-derived from the player's offset relative to it, never from the implementation.
-const TARGET = stairwayDownPosition(WORLD)!;
+const TARGET = FIXTURE.downStairway;
 
 describe("resolveStairwayTick", () => {
   // Player 20 tiles SOUTH of the stairway (stairs due world-NORTH, world bearing 0).
@@ -59,6 +62,11 @@ describe("resolveStairwayTick", () => {
   });
 
   it("returns null on the boss floor (FLOOR_CAP has no StairwayDown)", () => {
-    expect(resolveStairwayTick({ world: { worldSeed: SEED, floor: 5 }, x: 0, y: 0, viewBearingDeg: 0 })).toBeNull();
+    expect(resolveStairwayTick({
+      world: terminalTerrainWorldFixture(),
+      x: 0,
+      y: 0,
+      viewBearingDeg: 0,
+    })).toBeNull();
   });
 });

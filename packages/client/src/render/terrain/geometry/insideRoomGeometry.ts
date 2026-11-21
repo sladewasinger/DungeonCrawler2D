@@ -11,7 +11,7 @@ import {
 } from "./terrainPlannerModel.js";
 import { appendWallAmbientOcclusion } from "./wallAmbientOcclusion.js";
 import { wallFeatureForFace } from "./wallFeatureGeometry.js";
-import type { TerrainTileContext } from "../planning/terrainPlannerBuild.js";
+import type { TerrainTileContext } from "./walls/southFaceGeometry.js";
 import type { TerrainPlanningContext } from "../planning/terrainPlanner.js";
 
 /** Inside rooms draw no backdrop and materialize only their screen-north wall. */

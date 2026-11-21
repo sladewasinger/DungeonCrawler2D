@@ -5,7 +5,12 @@ import { createFrameEntityBuckets } from "./frameEntityBuckets.js";
 import { resolveFrameInteractionPrompt } from "./frameInteractionPrompt.js";
 
 const connection = (...snapshots: EntitySnapshot[]) => ({
-  world: { worldSeed: 1, floor: 1, tileAt: () => TILE.Floor },
+  world: {
+    worldSeed: 1,
+    floor: 1,
+    tileAt: () => TILE.Floor,
+    downStairwayPositions: () => [],
+  },
   body: { x: 5, y: 5, z: 0 },
   entities: new Map(snapshots.map((snapshot) => [snapshot.id, { snap: snapshot, samples: [] }])),
 }) as unknown as Connection;

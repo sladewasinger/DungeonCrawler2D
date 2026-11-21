@@ -111,6 +111,15 @@ describe("movement", () => {
     expect(body.x).toBeLessThan(6); // never entered the wall tile
   });
 
+  it("bypasses walls only when the authoritative noclip option is present", () => {
+    const world = fakeWorld({ walls: [[6, 5]] });
+    const body = createBody(5.5, 5.5, 0);
+    for (let i = 0; i < 10; i++) {
+      stepBody(world, body, { moveX: 1, moveY: 0, jump: false }, TICK_DT, { speed: 25, noclip: true });
+    }
+    expect(body.x).toBeGreaterThan(6);
+  });
+
   it("steps up terrain within STEP_UP but is blocked by cliffs", () => {
     const step = fakeWorld({ heightFn: (x) => (x >= 8 ? STEP_UP : 0) });
     const stepper = createBody(7.5, 5.5, 0);

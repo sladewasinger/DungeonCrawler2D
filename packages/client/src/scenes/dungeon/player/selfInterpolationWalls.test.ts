@@ -3,25 +3,13 @@ import { describe, expect, it } from "vitest";
 import { PredictionCorrection } from "../../../net/prediction/predictionCorrection.js";
 import { projectSelfRenderPose } from "./selfInterpolation.js";
 
+const EAST_BLOCK_APPROACH = { x: 43, y: 44 } as const;
+
 function eastWall(world: World): { x: number; y: number; z: number } {
-  for (let y = -30; y <= 30; y += 1) {
-    const approach = eastApproachInRow(world, y);
-    if (approach) return approach;
-  }
-  throw new Error("seed fixture has no east-facing wall approach");
-}
-
-function eastApproachInRow(world: World, y: number): { x: number; y: number; z: number } | undefined {
-  for (let x = -30; x <= 30; x += 1) {
-    const approach = eastApproachAt(world, x, y);
-    if (approach) return approach;
-  }
-  return undefined;
-}
-
-function eastApproachAt(world: World, x: number, y: number): { x: number; y: number; z: number } | undefined {
-  if (!world.isWalkable(x, y) || !world.isWalkable(x + 1, y)) return undefined;
-  if (world.heightAt(x + 1, y) - world.heightAt(x, y) <= STEP_UP) return undefined;
+  const { x, y } = EAST_BLOCK_APPROACH;
+  expect(world.isWalkable(x, y)).toBe(true);
+  expect(world.isWalkable(x + 1, y)).toBe(true);
+  expect(world.heightAt(x + 1, y) - world.heightAt(x, y)).toBeGreaterThan(STEP_UP);
   return { x: x + 0.5, y: y + 0.5, z: world.groundAt(x + 0.5, y + 0.5) };
 }
 

@@ -1,10 +1,12 @@
 import type { AdminMap, AdminPlayer } from "@dc2d/engine";
-import { text, title } from "../adminPagePrimitives.js";
+import { text, title } from "../portal/adminPagePrimitives.js";
 import {
   clearAdminPlayerActions,
   renderAdminPlayerActions,
 } from "./actions/adminPlayerActions.js";
-import { FullSpectatorEmbed } from "./fullSpectatorEmbed.js";
+import { createLiveSpectatorAssets, type LiveSpectatorAssets } from "./liveSpectatorAssets.js";
+import { renderLiveSpectatorMap } from "./liveSpectatorRenderer.js";
+import { adminLiveViewerProjection } from "./adminLiveViewerProjection.js";
 
 export interface AdminPlayerObserver {
   readonly root: HTMLElement;
@@ -29,20 +31,34 @@ interface ObserverElements {
   readonly actions: HTMLElement;
   readonly viewer: HTMLElement;
   readonly liveStatus: HTMLElement;
-  readonly embed: FullSpectatorEmbed;
+  readonly canvas: HTMLCanvasElement;
+  readonly context: CanvasRenderingContext2D;
+  readonly assets: LiveSpectatorAssets;
 }
 
 export function createAdminPlayerObserver(): AdminPlayerObserver {
-  const elements = createElements();
+  let latestInput: AdminPlayerObserverRenderInput | null = null;
+  let zoom = 1;
+  let redraw = (): void => {};
+  const elements = createElements(() => redraw());
+  redraw = (): void => {
+    if (latestInput) renderObserver({ elements, input: latestInput, zoom });
+  };
   return {
     root: elements.root,
-    render: (input) => renderObserver({ elements, input }),
-    centerCamera: () => elements.embed.centerOnPlayer(),
-    zoomCamera: (direction) => elements.embed.zoom(direction),
+    render: (input) => {
+      latestInput = input;
+      redraw();
+    },
+    centerCamera: redraw,
+    zoomCamera: (direction) => {
+      zoom = nextLiveSpectatorZoom(zoom, direction);
+      redraw();
+    },
   };
 }
 
-function createElements(): ObserverElements {
+function createElements(onAssetLoad: () => void): ObserverElements {
   const root = document.createElement("section");
   root.dataset.adminPlayerObserver = "";
   const heading = title("Player controls");
@@ -55,20 +71,28 @@ function createElements(): ObserverElements {
   const liveStatus = text("Not spectating");
   liveStatus.dataset.adminSpectatorStatus = "";
   liveStatus.setAttribute("aria-live", "polite");
-  const embed = new FullSpectatorEmbed();
-  viewer.append(liveStatus, embed.element);
+  const canvas = document.createElement("canvas");
+  canvas.width = 800;
+  canvas.height = 450;
+  canvas.dataset.adminSpectatorCanvas = "";
+  canvas.setAttribute("aria-label", "Live spectator map");
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Admin spectator canvas is unavailable.");
+  const assets = createLiveSpectatorAssets(onAssetLoad);
+  viewer.append(liveStatus, canvas);
   root.append(heading, details, actions, viewer);
-  return { root, heading, details, actions, viewer, liveStatus, embed };
+  return { root, heading, details, actions, viewer, liveStatus, canvas, context, assets };
 }
 
 interface RenderObserverInput {
   readonly elements: ObserverElements;
   readonly input: AdminPlayerObserverRenderInput;
+  readonly zoom: number;
 }
 
-function renderObserver({ elements, input }: RenderObserverInput): void {
+function renderObserver({ elements, input, zoom }: RenderObserverInput): void {
   renderPlayerControls(elements, input);
-  renderLiveViewer({ elements, input });
+  renderLiveViewer({ elements, input, zoom });
 }
 
 function renderPlayerControls(
@@ -95,14 +119,23 @@ function renderEmptyControls(elements: ObserverElements): void {
 
 function renderLiveViewer(input: RenderObserverInput): void {
   const { elements } = input;
-  const active = input.input.spectatorMode !== "off";
-  elements.viewer.dataset.live = String(active);
+  const projection = adminLiveViewerProjection(input.input, input.zoom);
+  elements.viewer.dataset.live = String(projection.active);
   elements.liveStatus.textContent = liveStatus(input.input);
-  elements.embed.update({
-    active,
-    playerId: input.input.spectatorTargetId ?? input.input.player?.playerId ?? null,
-    mode: input.input.spectatorMode,
+  renderLiveSpectatorMap({
+    context: elements.context,
+    map: projection.map,
+    targetId: projection.targetId,
+    atlas: elements.assets.atlas,
+    terrain: elements.assets.terrain,
+    pets: elements.assets.pets,
+    zoom: projection.zoom,
   });
+}
+
+function nextLiveSpectatorZoom(current: number, direction: "in" | "out"): number {
+  const delta = direction === "in" ? 0.15 : -0.15;
+  return Math.max(0.7, Math.min(1.8, current + delta));
 }
 
 function isTracking(input: AdminPlayerObserverRenderInput): boolean {

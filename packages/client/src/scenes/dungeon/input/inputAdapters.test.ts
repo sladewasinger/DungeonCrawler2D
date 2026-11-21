@@ -34,6 +34,7 @@ describe("production InputConnection adapter", () => {
     expect(adapter.body).toBeNull();
 
     conn.status = "connected";
+    conn.worldReady = true;
     conn.hasReceivedSnapshot = true;
     conn.hp = 10;
     conn.body = {

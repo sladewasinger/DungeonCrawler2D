@@ -6,15 +6,15 @@
 import { describe, expect, it } from "vitest";
 import { FLOOR_CAP, stairwayDownChunk, stairwayDownPosition, stairwayUpChunk, stairwayUpPosition } from "../../features/descent/descent.js";
 import { CHUNK_SIZE, TILE, TOPOLOGY } from "../../core/types.js";
-import { generateChunk } from "../index.js";
 import { reachesNeighborChunk, type ChunkCache, type WorldPoint } from "../test-support.js";
+import { compatibilityDescentChunk } from "./descentInvariantSupport.js";
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
 
 function tileAt(seed: number, floor: number, p: WorldPoint): number {
   const cx = Math.floor(p.x / CHUNK_SIZE);
   const cy = Math.floor(p.y / CHUNK_SIZE);
-  const chunk = generateChunk({ worldSeed: seed, floor: floor, cx: cx, cy: cy });
+  const chunk = compatibilityDescentChunk({ seed, floor, coordinate: { cx, cy } });
   const i = (p.y - cy * CHUNK_SIZE) * CHUNK_SIZE + (p.x - cx * CHUNK_SIZE);
   return chunk.tiles[i] ?? TOPOLOGY.Uncarved;
 }
@@ -44,7 +44,12 @@ describe("StairwayDown/StairwayUp reachability", () => {
       expect(pos).not.toBeNull();
       if (!chunk || !pos) continue;
       const cache: ChunkCache = new Map();
-      const reachesNeighbor = reachesNeighborChunk({ seed, floor, cache }, pos);
+      const reachesNeighbor = reachesNeighborChunk({
+        seed,
+        floor,
+        cache,
+        chunkFactory: (coordinate) => compatibilityDescentChunk({ seed, floor, coordinate }),
+      }, pos);
       expect(reachesNeighbor, `seed ${seed}: StairwayDown pad never leaves its own chunk`).toBe(true);
       checked++;
     }
@@ -61,7 +66,12 @@ describe("StairwayDown/StairwayUp reachability", () => {
       expect(pos).not.toBeNull();
       if (!chunk || !pos) continue;
       const cache: ChunkCache = new Map();
-      const reachesNeighbor = reachesNeighborChunk({ seed, floor, cache }, pos);
+      const reachesNeighbor = reachesNeighborChunk({
+        seed,
+        floor,
+        cache,
+        chunkFactory: (coordinate) => compatibilityDescentChunk({ seed, floor, coordinate }),
+      }, pos);
       expect(reachesNeighbor, `seed ${seed}: StairwayUp pad never leaves its own chunk`).toBe(true);
       checked++;
     }

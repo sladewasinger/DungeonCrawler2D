@@ -1,5 +1,5 @@
-import { stairwayDownPosition, World } from "@dc2d/engine";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { finiteTerrainWorldFixture } from "../../../testing/terrainWorldFixture.js";
 import {
   compassCoordinates,
   resolveCompassState,
@@ -66,13 +66,11 @@ describe("shared HTML HUD compass", () => {
   });
 
   it("uses camera-forward compass signs and a live stairway tick in renderer-neutral", () => {
-    const world = new World(228182761, 1);
-    const stairs = stairwayDownPosition(world);
-    if (!stairs) throw new Error("expected a floor-one stairway");
+    const { world, downStairway } = finiteTerrainWorldFixture();
 
     const compass = resolveCompassState({
       world,
-      player: { x: stairs.x, z: stairs.y + 12 },
+      player: { x: downStairway.x, z: downStairway.y + 12 },
       yaw: -Math.PI / 2,
     });
 

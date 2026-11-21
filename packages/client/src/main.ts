@@ -2,16 +2,20 @@
 import { installBootErrorOverlay } from "./boot/errorOverlay.js";
 import { registerServiceWorker } from "./boot/registerServiceWorker.js";
 import { installGameDomPolicy } from "./ui/foundation/gameDomPolicy.js";
+import { isEditorRoute } from "./admin/portal/editorRoutePredicate.js";
 
 installBootErrorOverlay(import.meta.env.DEV);
 registerServiceWorker(import.meta.env.PROD);
 
 const search = new URLSearchParams(window.location.search);
+const editorRoute = isEditorRoute();
 const adminRoute = window.location.pathname === "/admin" || search.get("admin") === "1";
 const spectatorRoute = window.location.pathname === "/spectate" || search.get("spectate") === "1";
 
-if (adminRoute) {
-  void import("./admin/adminRoute.js").then(({ startAdminRoute }) => startAdminRoute());
+if (editorRoute) {
+  void import("./admin/portal/editorRoute.js").then(({ startEditorRoute }) => startEditorRoute());
+} else if (adminRoute) {
+  void import("./admin/portal/adminRoute.js").then(({ startAdminRoute }) => startAdminRoute());
 } else if (spectatorRoute) {
   installGameDomPolicy();
   void import("./spectator/spectatorRoute.js")

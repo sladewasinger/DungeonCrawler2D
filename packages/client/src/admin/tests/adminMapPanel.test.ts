@@ -108,4 +108,21 @@ describe("admin map free-pan toggle", () => {
     expect(control.attributes.get(ARIA_CHECKED)).toBe("false");
     expect(control.children[1]?.textContent).toBe("OFF");
   });
+
+  it("keeps scene editor camera actions delegated to placement", () => {
+    const calls: string[] = [];
+    const controller = new AdminPageActionController({
+      connection: {} as never,
+      view: { root: new TestElement() } as never,
+      spawnPlacement: {
+        zoom: (direction: string) => calls.push(`zoom:${direction}`),
+        resetZoom: () => calls.push("reset"),
+      } as never,
+      playerObserver: {} as never,
+    });
+    controller.send("map-zoom-in", null);
+    controller.send("map-zoom-out", null);
+    controller.send("map-zoom-reset", null);
+    expect(calls).toEqual(["zoom:in", "zoom:out", "reset"]);
+  });
 });

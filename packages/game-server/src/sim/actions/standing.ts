@@ -114,6 +114,7 @@ function doEquip(sim: SimState, slot: PlayerSlot, item: string | null): void {
 }
 
 function doDebug(sim: SimState, slot: PlayerSlot, action: Extract<PlayerAction, { type: "debug" }>): void {
+  if (action.op === "noclip") return toggleNoclip(slot, action.on);
   if (!sim.opts.debugCommands) return;
   if (action.op === "god") return toggleGod(slot, action.on);
   if (action.op === "teleport" && Number.isFinite(action.x) && Number.isFinite(action.y)) {
@@ -122,8 +123,15 @@ function doDebug(sim: SimState, slot: PlayerSlot, action: Extract<PlayerAction, 
       slot,
       to: { x: action.x as number, y: action.y as number },
       remember: false,
+      clampToFloor: true,
     });
   }
+}
+
+function toggleNoclip(slot: PlayerSlot, on: boolean | undefined): void {
+  if (!slot.admin) return;
+  slot.noclip = on ?? !slot.noclip;
+  slot.outbox.push({ t: "toast", msg: slot.noclip ? "Admin noclip ON" : "Admin noclip off" });
 }
 
 function toggleGod(slot: PlayerSlot, on: boolean | undefined): void {

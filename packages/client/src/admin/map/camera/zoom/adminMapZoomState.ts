@@ -3,7 +3,7 @@ import {
   adminMapZoomPercent,
   nextAdminMapTileSize,
   type AdminMapZoomDirection,
-} from "../adminMapZoom.js";
+} from "./adminMapZoom.js";
 
 export class AdminMapZoomState {
   private tileSize = ADMIN_MAP_DEFAULT_TILE_SIZE;

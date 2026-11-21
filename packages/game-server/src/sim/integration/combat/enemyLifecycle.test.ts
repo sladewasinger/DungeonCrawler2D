@@ -1,11 +1,11 @@
-import { PLAYER_MAX_HP, TICK_RATE } from "@dc2d/engine";
+import { LEVEL, PLAYER_MAX_HP, TICK_RATE } from "@dc2d/engine";
 import { describe, expect, it } from "vitest";
 import { DEATH_TO_RESPAWN_TICKS } from "../../combat/deathTestSupport.js";
 import { findFlatArena, makeSim, stepN, teleport } from "../support.js";
 
 describe("GameSim: enemy lifecycle", () => {
   it("enemies chase and hurt players; kills drop loot and respawn far away", () => {
-    const sim = makeSim();
+    const sim = makeSim(1234, { level: LEVEL.CombatSandbox });
     const player = sim.addPlayer({ name: "A", clientId: "client-a" });
     sim.endSpawnGrace(player.playerId);
     const entity = sim.getPlayerEntity(player.playerId)!;
