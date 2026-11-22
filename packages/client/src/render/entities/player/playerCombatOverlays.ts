@@ -77,6 +77,8 @@ export function updatePlayerAttackRecovery(input: PlayerAttackRecoveryInput): bo
     state: cooldown,
     x: worldAnchor.screenX,
     feetY: worldAnchor.feetY,
+    headY: visual.body.y - visual.body.displayHeight,
+    bowChargeRatio: view.bowChargeRatio ?? null,
     depth: depthForCombatGeometry(depthForCombatOverlay(combatDepth)),
     blocking,
     downed: view.downed,

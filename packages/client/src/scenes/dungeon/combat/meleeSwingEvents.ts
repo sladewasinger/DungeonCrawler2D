@@ -76,6 +76,10 @@ function updateSwingRecord(input: {
 }): void {
   const { player, previousAttacking, spawns, records, seen } = input;
   seen.add(player.id);
+  if (player.weaponId === "bow") {
+    previousAttacking.set(player.id, false);
+    return;
+  }
   if (player.attacking && !previousAttacking.get(player.id)) {
     const record = toSpawn(player, records[spawns.length]);
     records[spawns.length] = record; spawns.push(record);

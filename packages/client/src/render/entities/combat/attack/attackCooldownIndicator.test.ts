@@ -65,4 +65,17 @@ describe("attack cooldown indicator", () => {
     expect(graphics.setVisible).toHaveBeenLastCalledWith(false);
     expect(graphics.fillRect).not.toHaveBeenCalled();
   });
+
+  it("draws bow draw charge above headY even when cooldown is ready", () => {
+    const graphics = update({
+      state: { ready: true, progress: 1, remainingMs: 0 },
+      headY: 60,
+      bowChargeRatio: 0.5,
+    });
+
+    expect(graphics.fillRect).toHaveBeenCalledTimes(2);
+    expect(graphics.fillRect.mock.calls[1]?.[1]).toBe(60 - 8);
+    expect(graphics.fillRect.mock.calls[1]?.[2]).toBe(16);
+    expect(graphics.setVisible).toHaveBeenLastCalledWith(true);
+  });
 });

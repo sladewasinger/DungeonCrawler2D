@@ -40,6 +40,7 @@ export interface PlayerEntityView {
   attacking: boolean;
   blocking: boolean;
   weaponId: string | null;
+  bowChargeRatio?: number | null;
   blockFeedback?: BlockFeedbackState;
   /** Self-only live weapon-orbit target. Remote players use replicated facing instead. */
   weaponAimAngle: number | null;

@@ -27,7 +27,7 @@ export interface PlayerWeaponUpdate {
 export function updatePlayerWeapon({ visual, view, context }: PlayerWeaponUpdate): void {
   const blocking = !view.downed && view.blocking;
   const attackActive = !view.downed && view.attacking;
-  const striking = attackActive && !view.blocking;
+  const striking = attackActive && !view.blocking && view.weaponId !== "bow";
   const profile = weaponProfileForId(view.weaponId);
   applySwingEdge({ visual, attacking: attackActive, nowMs: context.nowMs, cooldownMs: profile.cooldownMs });
   const facingAngle = worldAngleToView(Math.atan2(view.faceY, view.faceX), getViewOrientation());

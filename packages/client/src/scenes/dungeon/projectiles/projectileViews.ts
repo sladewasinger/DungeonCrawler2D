@@ -12,15 +12,16 @@ export interface ProjectileViewInput {
 
 export function projectileView(input: ProjectileViewInput): ProjectileEntityView {
   const { e, velocity, nowMs, target } = input;
-  const { vx, vy } = trackProjectileVelocity(velocity, { id: e.id, x: e.x, y: e.y, nowMs });
+  const tracked = trackProjectileVelocity(velocity, { id: e.id, x: e.x, y: e.y, nowMs });
+  const hasTracked = tracked.vx !== 0 || tracked.vy !== 0;
   const view = target ?? {} as ProjectileEntityView;
   view.id = e.id;
   view.x = e.x;
   view.y = e.y;
   view.z = e.z;
   view.frame = groundItemFrame(e.snap.defId);
-  view.vx = vx;
-  view.vy = vy;
+  view.vx = hasTracked ? tracked.vx : (e.snap.vx ?? 0);
+  view.vy = hasTracked ? tracked.vy : (e.snap.vy ?? 0);
   return view;
 }
 

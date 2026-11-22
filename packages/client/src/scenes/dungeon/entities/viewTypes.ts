@@ -19,6 +19,7 @@ export interface SelfVitals {
   hp: number; maxHp: number; fx: readonly string[]; downed: boolean;
   admin?: boolean;
   reviveProgress?: number; blocking: boolean; weaponId: string | null;
+  bowChargeRatio?: number | null;
   blockFeedback?: BlockFeedbackState | null;
 }
 

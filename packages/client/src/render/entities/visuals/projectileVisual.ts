@@ -3,6 +3,8 @@
 // particle wake so it reads as a moving object, not a sliding icon.
 import type Phaser from "phaser";
 import { ASSET_KEYS } from "../../../boot/assetManifest.js";
+import { getViewOrientation } from "../../view/transform/viewState.js";
+import { worldToView } from "../../view/transform/viewTransform.js";
 import { velocityAngleDegrees } from "../motion/projectileMotion.js";
 
 const TRAIL_TINT = 0xfff2d8;
@@ -41,6 +43,10 @@ export function updateProjectileMotion({
   vy,
 }: ProjectileMotionVisualInput): void {
   sprite.setPosition(x, y);
-  sprite.setAngle(velocityAngleDegrees(vx, vy));
   trail.setPosition(x, y);
+  if (vx === 0 && vy === 0) return;
+  const screenVel = worldToView({ x: vx, y: vy }, getViewOrientation());
+  const baseDeg = velocityAngleDegrees(screenVel.x, screenVel.y);
+  const offsetDeg = sprite.frame.name === "weapon_arrow" ? 90 : 0;
+  sprite.setAngle(baseDeg + offsetDeg);
 }

@@ -122,6 +122,12 @@ describe("resolveMeleeSwings", () => {
     expect(spawn?.depth).toBeLessThan(depthForEntity(7));
   });
 
+  it("never emits a melee swing wedge when wielding a bow", () => {
+    const previous = new Map<string, boolean>();
+    expect(resolveMeleeSwings([view({ id: "archer", weaponId: "bow", attacking: true })], previous)).toEqual([]);
+    expect(previous.get("archer")).toBe(false);
+  });
+
   it("reuses caller-owned spawn, record, and presence collections", () => {
     const previous = new Map<string, boolean>();
     const spawns: MeleeSwingSpawn[] = [];

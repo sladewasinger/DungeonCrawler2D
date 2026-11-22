@@ -1,18 +1,16 @@
 /** Maps network snapshots and local prediction into renderer entity view models. */
-import { TICK_RATE } from "@dc2d/engine";
 import type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
 import type {
-  ItemEntityView,
   MonsterEntityView,
   PetEntityView,
   PlayerEntityView,
   RenderContext,
 } from "../../../render/entities/geometry/index.js";
-import { groundItemFrame } from "./itemFrame.js";
 import { remotePlayerFieldsInto } from "./remotePlayerFields.js";
 import { isSelfAttacking } from "../player/selfCosmetics.js";
-import type { ItemViewSource, RenderContextSource, SelfPlayerViewSource } from "./viewTypes.js";
+import type { RenderContextSource, SelfPlayerViewSource } from "./viewTypes.js";
 export type { SelfPose, SelfVitals, ItemViewSource, RenderContextSource, SelfPlayerViewSource } from "./viewTypes.js";
+export { itemView } from "./items/itemView.js";
 export { projectileView, torchView } from "../projectiles/projectileViews.js";
 
 export type { InterpolatedEntity } from "../../../net/interpolation/interpolate.js";
@@ -57,6 +55,7 @@ export function selfPlayerView(source: SelfPlayerViewSource): PlayerEntityView {
   view.attacking = isSelfAttacking(cosmetics, nowMs);
   view.blocking = vitals.blocking;
   view.weaponId = vitals.weaponId;
+  view.bowChargeRatio = vitals.bowChargeRatio ?? null;
   if (vitals.blockFeedback === null || vitals.blockFeedback === undefined) {
     delete view.blockFeedback;
   } else {
@@ -81,6 +80,7 @@ export function remotePlayerView(
   view.x = e.x;
   view.y = e.y;
   view.z = e.z;
+  delete view.bowChargeRatio;
   remotePlayerFieldsInto(e.snap, view);
   return view;
 }
@@ -125,39 +125,4 @@ export function petView(
   if (e.snap.petOwnerName === undefined) delete view.ownerName;
   else view.ownerName = e.snap.petOwnerName;
   return view;
-}
-
-export function itemView(source: ItemViewSource): ItemEntityView {
-  const { e, target, context } = source;
-  const view = target ?? {} as ItemEntityView;
-  view.id = e.id;
-  view.x = e.x;
-  view.y = e.y;
-  view.z = e.z;
-  view.frame = groundItemFrame(e.snap.defId);
-  if (!isPlayerLootChest(e)) {
-    clearLootView(view);
-    return view;
-  }
-  {
-    view.lootLabel = `[DEAD] ${e.snap.lootOwnerName}'s loot`;
-    if (e.snap.lootKillerName === undefined) delete view.lootKillerName;
-    else view.lootKillerName = e.snap.lootKillerName;
-    view.lootLockSeconds = Math.ceil(Math.max(
-      0,
-      (e.snap.lootUnlockAtTick ?? 0) - (context?.serverTick ?? 0),
-    ) / TICK_RATE);
-    view.lootNearby = !!context &&
-      Math.hypot(e.x - context.selfX, e.y - context.selfY) <= 3.5;
-  }
-  return view;
-}
-
-function isPlayerLootChest(e: InterpolatedEntity): boolean {
-  return e.snap.defId === "player-loot-chest" && e.snap.lootOwnerName !== undefined;
-}
-
-function clearLootView(view: ItemEntityView): void {
-  delete view.lootLabel; delete view.lootKillerName;
-  delete view.lootLockSeconds; delete view.lootNearby;
 }

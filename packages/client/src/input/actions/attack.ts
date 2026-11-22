@@ -3,7 +3,6 @@ import type {
   InputConnection,
   InputHooks,
   InputState,
-  ThrowPreview,
 } from "../controls/state.js";
 
 export interface AttackDirection {
@@ -57,30 +56,24 @@ export function consumeBowDrawRatio(
 ): number | null {
   const startedAt = state.bowDrawStartedAtMs;
   state.bowDrawStartedAtMs = null;
+  return computeBowDrawRatio(startedAt, conn, nowMs);
+}
+
+export function currentBowDrawRatio(
+  state: InputState,
+  conn: InputConnection,
+  nowMs: number,
+): number | null {
+  return computeBowDrawRatio(state.bowDrawStartedAtMs, conn, nowMs);
+}
+
+function computeBowDrawRatio(
+  startedAt: number | null | undefined,
+  conn: InputConnection,
+  nowMs: number,
+): number | null {
   if (startedAt === null || startedAt === undefined) return null;
   const ranged = itemRangedDef(conn.weapon);
   if (!conn.body || !conn.canAct || !ranged) return null;
   return Math.max(0.2, Math.min(1, (nowMs - startedAt) / ranged.maxDrawMs));
-}
-
-export function resolveBowDrawPreview(input: {
-  state: InputState;
-  conn: InputConnection;
-  cursor: { x: number; y: number };
-  nowMs: number;
-}): ThrowPreview | null {
-  const { state, conn, cursor, nowMs } = input;
-  const startedAt = state.bowDrawStartedAtMs;
-  const ranged = itemRangedDef(conn.weapon);
-  if (startedAt === null || startedAt === undefined || !conn.body || !ranged) return null;
-  const ratio = Math.max(0.2, Math.min(1, (nowMs - startedAt) / ranged.maxDrawMs));
-  const dx = cursor.x - conn.body.x;
-  const dy = cursor.y - conn.body.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const range = Math.max(3, ranged.maxRange * (0.4 + 0.6 * ratio));
-  return {
-    slot: state.selectedSlot ?? 0,
-    targetX: conn.body.x + (dx / len) * range,
-    targetY: conn.body.y + (dy / len) * range,
-  };
 }

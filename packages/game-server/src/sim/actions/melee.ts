@@ -65,7 +65,6 @@ function fireRangedWeapon(request: RangedFireRequest): void {
     return;
   }
   slot.attackReadyAtTick = sim.tickCount + attackCooldownTicks(ranged.cooldownMs);
-  slot.attackStartedAtTick = sim.tickCount;
   const ratio = Math.max(0.15, Math.min(1, drawRatio ?? 0.65));
   const projectile = createRangedProjectile({ sim, attacker: slot.entity, ranged, dirX, dirY, ratio });
   sim.projectiles.set(projectile.id, projectile);
@@ -81,15 +80,15 @@ function createRangedProjectile(input: {
 }) {
   const { sim, attacker, ranged, dirX, dirY, ratio } = input;
   const len = Math.hypot(dirX, dirY) || 1;
-  const range = Math.max(3, ranged.maxRange * (0.4 + 0.6 * ratio));
-  const speed = ranged.minSpeed + (ranged.maxSpeed - ranged.minSpeed) * ratio;
+  const speed = 7 + (ranged.maxSpeed - 7) * ratio;
+  const targetRange = 1.6 + (ranged.maxRange - 1.6) * (ratio * ratio);
   const baseDamage = ranged.minDamage + (ranged.maxDamage - ranged.minDamage) * ratio;
-  const origin = { x: attacker.body.x, y: attacker.body.y, z: attacker.body.z + 0.5 };
+  const origin = { x: attacker.body.x, y: attacker.body.y, z: attacker.body.z + 0.45 };
   const vx = (dirX / len) * speed;
   const vy = (dirY / len) * speed;
-  const duration = Math.max(0.05, range / speed);
+  const flightTime = Math.max(0.08, targetRange / speed);
   const arrowGravity = GRAVITY * 0.12;
-  const vz = 0.35 * arrowGravity * duration;
+  const vz = 0.5 * arrowGravity * flightTime - 0.45 / flightTime;
   return makeEntity("projectile", createBody(origin.x, origin.y, origin.z), {
     id: newEntityId("j"),
     defId: ranged.ammoItem,

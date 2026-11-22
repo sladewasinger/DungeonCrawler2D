@@ -43,7 +43,8 @@ export function syncCombatants(frame: CombatantSyncFrame): void {
   const aimAngle = resolveSelfAimAngle({ assistedAim, faceX: facing.x, faceY: facing.y, render, camera: scene.cameras.main, pointer: scene.input.activePointer });
   const selectedSlot = inputController.selectedHotbarSlot();
   const heldItemId = selectedSlot !== null ? (conn.hotbar[selectedSlot] ?? conn.weapon) : conn.weapon;
-  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId });
+  const bowChargeRatio = inputController.bowDrawRatio(performance.now());
+  const players = syncPlayerViews({ conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId, bowChargeRatio });
   const monsters = mapFrameInto({ source: buckets.enemies, out: state.entityViews.enemies, records: state.entityViews.enemyRecords, map: monsterView });
   const pets = mapFrameInto({ source: buckets.pets, out: state.entityViews.pets, records: state.entityViews.petRecords, map: petView });
   syncDamageVfx({
@@ -91,15 +92,16 @@ interface PlayerViewSyncInput {
   readonly conn: Connection; readonly state: DungeonSceneState; readonly buckets: FrameEntityBuckets;
   readonly render: RenderPose; readonly nowMs: number; readonly aimAngle: number;
   readonly assistedAim: boolean; readonly heldItemId: string | null;
+  readonly bowChargeRatio: number | null;
 }
 
 function syncPlayerViews(input: PlayerViewSyncInput): PlayerEntityView[] {
-  const { conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId } = input;
+  const { conn, state, buckets, render, nowMs, aimAngle, assistedAim, heldItemId, bowChargeRatio } = input;
   if (!conn.welcome || !conn.body) return state.entityViews.players;
   const players = state.entityViews.players;
   const records = state.entityViews.playerRecords;
   players.length = buckets.players.length + 1;
-  updateSelfSource(conn, state, { render, heldItemId });
+  updateSelfSource(conn, state, { render, heldItemId, bowChargeRatio });
   const self = selfPlayerView({
     pose: state.selfPose, vitals: state.selfVitals, cosmetics: state.cosmetics,
     nowMs, weaponAimAngle: aimAngle, assistedAim, target: records[0],
@@ -128,9 +130,9 @@ function syncRemotePlayers(
 function updateSelfSource(
   conn: Connection,
   state: DungeonSceneState,
-  input: { render: RenderPose; heldItemId: string | null },
+  input: { render: RenderPose; heldItemId: string | null; bowChargeRatio: number | null },
 ): void {
-  const { render, heldItemId } = input;
+  const { render, heldItemId, bowChargeRatio } = input;
   if (!conn.welcome || !conn.body) return;
   const pose = state.selfPose;
   pose.id = conn.welcome.playerId;
@@ -149,5 +151,6 @@ function updateSelfSource(
   vitals.reviveProgress = conn.reviveProgress;
   vitals.blocking = conn.blocking;
   vitals.weaponId = heldItemId;
+  vitals.bowChargeRatio = bowChargeRatio;
   vitals.blockFeedback = conn.blockFeedback;
 }

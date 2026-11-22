@@ -13,9 +13,8 @@ import { createTouchInputState, resetTouchInputState, touchVisualSnapshot, type 
 import { readCurrentInput } from "./movement/readCurrentInput.js";
 import { attackInKidMode, createKidModeState } from "./controls/kidMode.js";
 import { assistedAimActive } from "./actions/assistedAim.js";
-import { resolveBowDrawPreview } from "./actions/attack.js";
+import { currentBowDrawRatio } from "./actions/attack.js";
 import { activeThrowableSlot } from "./gameplay/hotbar.js";
-import { cursorWorldTile } from "./pointer/pointer.js";
 export type { InputConnection, InputHooks, InputHud, InputPanels, InputQueries, ThrowPreview } from "./controls/state.js";
 export type { TouchVisualSnapshot } from "./touch/index.js";
 
@@ -162,12 +161,14 @@ export class InputController {
     return true;
   }
 
-  /** Current held-G trajectory preview or held-bow draw trajectory preview. */
+  /** Current held-G trajectory preview. */
   throwPreview(): ThrowPreview | null {
-    const heldThrow = this.throwAim.preview();
-    if (heldThrow) return heldThrow;
-    const cursor = cursorWorldTile({ camera: this.scene.cameras.main, pointer: this.scene.input.activePointer, tilePx: this.tilePx, heightAt: this.conn.heightAt });
-    return resolveBowDrawPreview({ state: this.state, conn: this.conn, cursor, nowMs: performance.now() });
+    return this.throwAim.preview();
+  }
+
+  /** Normalized 0.2..1 bow draw charge ratio while drawing a bow, else null. */
+  bowDrawRatio(nowMs = performance.now()): number | null {
+    return currentBowDrawRatio(this.state, this.conn, nowMs);
   }
 
   /** The hotbar slot currently armed for a world-target throw, or null — HUD pulse hook. */
