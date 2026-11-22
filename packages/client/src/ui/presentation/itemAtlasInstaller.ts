@@ -1,10 +1,16 @@
 /** Expands the runtime Phaser atlas with pixel-art frames for new forest items, armor, and mobs. */
 import type Phaser from "phaser";
 import { ASSET_KEYS } from "../../boot/assetManifest.js";
-import { PROCEDURAL_ENEMY_SPECS } from "./enemyAtlasShapes.js";
+import { drawOutlinedPixelRects } from "./atlas/pixelOutline.js";
+import { PROCEDURAL_ENEMY_SPECS, type ProceduralEnemySpriteSpec } from "./enemyAtlasShapes.js";
 import { ITEM_ICON_SHAPES, type PixelRect } from "./itemIconShapes.js";
 
 export const PROCEDURAL_ITEM_FRAMES: Readonly<Record<string, string>> = {
+  bandage: "item_bandage",
+  rag: "item_rag",
+  "raw-meat": "item_raw_meat",
+  stick: "item_stick",
+  torch: "item_torch",
   "cooked-meat": "item_cooked_meat",
   herb: "item_herb",
   flint: "item_flint",
@@ -70,15 +76,18 @@ function rebuildAtlasWithItems(
   sourceImage: HTMLImageElement | HTMLCanvasElement,
 ): void {
   const extraY = sourceImage.height + 2;
+  const itemRows = Math.ceil(Object.keys(PROCEDURAL_ITEM_FRAMES).length / 28);
+  const enemyStartY = extraY + itemRows * 18 + 8;
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(512, sourceImage.width);
-  canvas.height = extraY + 190;
+  canvas.height = enemyStartY + 160;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.drawImage(sourceImage, 0, 0);
   const itemFrames = stampProceduralItems(ctx, extraY);
-  const enemyFrames = stampProceduralEnemies(ctx, extraY + 36);
-  const savedFrames = collectExistingFrames(existing);
+  const enemyFrames = stampProceduralEnemies(ctx, enemyStartY);
+  const replaced = new Set(Object.values(PROCEDURAL_ITEM_FRAMES));
+  const savedFrames = collectExistingFrames(existing).filter((frame) => !replaced.has(frame.name));
   textures.remove(ASSET_KEYS.atlas);
   const updated = textures.addCanvas(ASSET_KEYS.atlas, canvas);
   if (!updated) return;
@@ -100,16 +109,29 @@ function stampProceduralEnemies(ctx: CanvasRenderingContext2D, startY: number): 
   const out: FrameCoord[] = [];
   let cursorY = startY;
   for (const spec of PROCEDURAL_ENEMY_SPECS) {
-    let col = 0;
-    for (const anim of ["idle", "run"] as const) {
-      for (let f = 0; f < 4; f++) {
-        const x = col * (spec.width + 2);
-        drawPixelRects(ctx, { ox: x, oy: cursorY, rects: spec.frameRects(anim, f) });
-        out.push({ name: `${spec.prefix}_${anim}_f${f}`, x, y: cursorY, w: spec.width, h: spec.height });
-        col++;
-      }
-    }
+    out.push(...stampEnemySpec(ctx, spec, cursorY));
     cursorY += spec.height + 2;
+  }
+  return out;
+}
+
+function stampEnemySpec(
+  ctx: CanvasRenderingContext2D,
+  spec: ProceduralEnemySpriteSpec,
+  cursorY: number,
+): FrameCoord[] {
+  const out: FrameCoord[] = [];
+  let col = 0;
+  for (const anim of ["idle", "run"] as const) {
+    for (let f = 0; f < 4; f++) {
+      const x = col * (spec.width + 2);
+      drawOutlinedPixelRects(ctx, {
+        ox: x, oy: cursorY, width: spec.width, height: spec.height,
+        rects: spec.frameRects(anim, f),
+      });
+      out.push({ name: `${spec.prefix}_${anim}_f${f}`, x, y: cursorY, w: spec.width, h: spec.height });
+      col++;
+    }
   }
   return out;
 }
