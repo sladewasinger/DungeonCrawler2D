@@ -1,138 +1,173 @@
 /** Entry script for standalone local multi-track Sound Studio (/sound-studio.html). */
+import {
+  StudioPresetBar, buildStudioTopBar, buildStudioTrackToolbar, buildStudioVisualizers, cloneStudioTracks, makeStudioBtn,
+} from "./studioPresetBar.js";
 import { STUDIO_PRESETS } from "./studioPresets.js";
+import {
+  loadSavedPresets, mergePresetLibrary, persistSavedPresets, removeSavedPreset,
+  tracksFingerprint, upsertSavedPreset, type LibraryPreset,
+} from "./studioStorage.js";
 import { ensureStudioStyles } from "./studioStyles.js";
-import { StudioSynthEngine, totalTracksDurationSec } from "./studioSynth.js";
+import { StudioSynthEngine, activeStudioTracks, totalTracksDurationSec } from "./studioSynth.js";
+import { StudioTimeline } from "./studioTimeline.js";
 import { createDefaultTrack, type SoundTrackSpec, type TrackKind } from "./studioTypes.js";
 import { StudioVisualizer } from "./studioVisualizer.js";
-import { renderTrackCard } from "./trackRowUi.js";
+import { renderTrackCard, syncTrackCardTimingField } from "./trackRowUi.js";
 
 class SoundStudioApp {
   private readonly synth = new StudioSynthEngine();
   private readonly viz: StudioVisualizer;
+  private readonly timeline: StudioTimeline;
+  private readonly presetBar: StudioPresetBar;
   private readonly tracksHost = document.createElement("div");
   private readonly descEl = document.createElement("div");
+  private readonly timelineReadout = document.createElement("span");
   private readonly statusEl = document.createElement("div");
   private readonly loopBtn: HTMLButtonElement;
-  private tracks: SoundTrackSpec[] = [...STUDIO_PRESETS[0]!.tracks];
-  private presetName: string = STUDIO_PRESETS[0]!.name;
-  private looping = false;
+  private savedPresets = loadSavedPresets();
+  private library: LibraryPreset[] = mergePresetLibrary(STUDIO_PRESETS, this.savedPresets);
+  private presetId = this.library[0]!.id;
+  private presetName = this.library[0]!.name;
+  private tracks: SoundTrackSpec[] = cloneStudioTracks(this.library[0]!.tracks);
+  private savedFp = tracksFingerprint(this.tracks);
+  private playheadSec = 0;
+  private playing = false;
+  private playOffsetSec = 0;
   private playStartMs = 0;
   private playDurMs = 0;
+  private scrubUntilMs = 0;
+  private lastScrubAtMs = 0;
+  private looping = false;
   private loopTimer: number | null = null;
   private nextId = 1;
 
   constructor(host: HTMLElement) {
     ensureStudioStyles();
-    const shell = document.createElement("div");
-    shell.className = "st-shell";
-    const canvases = this.buildVisualizers();
-    this.viz = new StudioVisualizer(canvases.wave, canvases.spec, canvases.timeline);
-    this.loopBtn = this.makeBtn("Loop: Off", () => this.toggleLoop());
+    const vizDom = buildStudioVisualizers(this.timelineReadout);
+    this.viz = new StudioVisualizer(vizDom.wave, vizDom.spec);
+    this.timeline = new StudioTimeline(vizDom.timeline, {
+      onSeek: (sec, scrubbing) => this.handleSeek(sec, scrubbing),
+      onTrackTiming: (id, patch) => this.handleTimelineDrag(id, patch),
+      onDragEnd: () => this.presetBar.syncDirty(this.library, this.presetId, this.isDirty()),
+    });
+    this.presetBar = new StudioPresetBar({
+      onSelect: (id) => { const hit = this.library.find((p) => p.id === id); if (hit) this.applyActivePreset(hit, true); },
+      onSave: () => this.saveCurrentPreset(),
+      onSaveAs: (name) => this.savePresetAs(name),
+      onResetOrDelete: () => this.resetOrDeletePreset(),
+    });
+    this.loopBtn = makeStudioBtn("Loop: Off", () => this.toggleLoop());
     this.tracksHost.className = "st-tracks";
     this.descEl.className = "st-sub";
-    this.descEl.textContent = STUDIO_PRESETS[0]!.description;
     this.statusEl.className = "st-status";
-    shell.append(this.buildTopBar(), this.descEl, canvases.grid, this.buildTrackToolbar(), this.statusEl, this.tracksHost);
-    host.append(shell);
-    this.renderTracks();
+    this.mountShell(host, vizDom.row1, vizDom.row2);
+    this.applyActivePreset(this.library[0]!, false);
     this.bindKeys();
     this.startVisualizerLoop();
   }
 
-  private makeBtn(label: string, onClick: () => void, extra = ""): HTMLButtonElement {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = extra ? `st-btn ${extra}` : "st-btn";
-    b.textContent = label;
-    b.addEventListener("click", onClick);
-    return b;
+  private mountShell(host: HTMLElement, row1: HTMLElement, row2: HTMLElement): void {
+    const shell = document.createElement("div");
+    shell.className = "st-shell";
+    const topBar = buildStudioTopBar({
+      loopBtn: this.loopBtn,
+      onJumpStart: () => { this.playing = false; this.playheadSec = 0; },
+      onPlay: () => this.triggerPlayFromPlayhead(),
+    });
+    const trackToolbar = buildStudioTrackToolbar({
+      onAddTrack: (kind) => this.addTrack(kind),
+      onCopyJson: () => void this.copyPresetJson(),
+      onExportWav: () => void this.downloadWav(),
+    });
+    shell.append(topBar, this.presetBar.el, this.descEl, row1, row2, trackToolbar, this.statusEl, this.tracksHost);
+    host.append(shell);
   }
 
-  private buildTopBar(): HTMLDivElement {
-    const top = document.createElement("div");
-    top.className = "st-top";
-    const brand = document.createElement("div");
-    brand.innerHTML = `<div class="st-brand">Sound Studio</div><div class="st-sub">Multi-Track Procedural Web Audio Synthesizer & Visualizer</div>`;
-    const controls = document.createElement("div");
-    controls.className = "st-bar";
-    const back = document.createElement("a");
-    back.className = "st-btn";
-    back.href = "/";
-    back.textContent = "Back to Game";
-    controls.append(this.buildPresetSelect(), this.makeBtn("Play [Space]", () => this.triggerPlay(), "st-btn-play"), this.loopBtn, back);
-    top.append(brand, controls);
-    return top;
+  private isDirty(): boolean {
+    return tracksFingerprint(this.tracks) !== this.savedFp;
   }
 
-  private buildPresetSelect(): HTMLSelectElement {
-    const sel = document.createElement("select");
-    sel.className = "st-select";
-    for (const p of STUDIO_PRESETS) {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.name;
-      sel.append(opt);
-    }
-    sel.addEventListener("change", () => this.loadPreset(sel.value));
-    return sel;
-  }
-
-  private buildVisualizers(): { readonly grid: HTMLDivElement; readonly wave: HTMLCanvasElement; readonly spec: HTMLCanvasElement; readonly timeline: HTMLCanvasElement } {
-    const grid = document.createElement("div");
-    grid.className = "st-viz-grid";
-    const wave = this.makeVizCard(grid, "Oscilloscope Waveform");
-    const spec = this.makeVizCard(grid, "FFT Frequency Spectrum");
-    const timeline = this.makeVizCard(grid, "Multi-Track Envelope Timeline");
-    return { grid, wave, spec, timeline };
-  }
-
-  private makeVizCard(parent: HTMLDivElement, title: string): HTMLCanvasElement {
-    const card = document.createElement("div");
-    card.className = "st-viz-card";
-    const lbl = document.createElement("div");
-    lbl.className = "st-viz-title";
-    lbl.textContent = title;
-    const canvas = document.createElement("canvas");
-    canvas.className = "st-canvas";
-    canvas.width = 360;
-    canvas.height = 110;
-    card.append(lbl, canvas);
-    parent.append(card);
-    return canvas;
-  }
-
-  private buildTrackToolbar(): HTMLDivElement {
-    const bar = document.createElement("div");
-    bar.className = "st-bar";
-    bar.append(
-      this.makeBtn("+ Swept Noise", () => this.addTrack("sweptNoise")),
-      this.makeBtn("+ Noise Burst", () => this.addTrack("noise")),
-      this.makeBtn("+ Tone Osc", () => this.addTrack("tone")),
-      this.makeBtn("Copy JSON", () => void this.copyPresetJson()),
-      this.makeBtn("Export .WAV", () => void this.downloadWav()),
-    );
-    return bar;
-  }
-
-  private loadPreset(id: string): void {
-    const found = STUDIO_PRESETS.find((p) => p.id === id);
-    if (!found) return;
-    this.presetName = found.name;
-    this.descEl.textContent = found.description;
-    this.tracks = found.tracks.map((t) => ({ ...t }));
+  private applyActivePreset(preset: LibraryPreset, play: boolean): void {
+    this.presetId = preset.id;
+    this.presetName = preset.name;
+    this.tracks = cloneStudioTracks(preset.tracks);
+    this.savedFp = tracksFingerprint(this.tracks);
+    this.playheadSec = 0;
+    this.playing = false;
+    this.descEl.textContent = preset.description;
+    this.presetBar.refreshList(this.library, this.presetId, false);
     this.renderTracks();
-    this.triggerPlay();
+    if (play) this.triggerPlayFromPlayhead();
+  }
+
+  private commitPresetStore(id: string, name: string, description: string): void {
+    this.savedPresets = upsertSavedPreset(this.savedPresets, { id, name, description, tracks: cloneStudioTracks(this.tracks) });
+    persistSavedPresets(this.savedPresets);
+    this.library = mergePresetLibrary(STUDIO_PRESETS, this.savedPresets);
+    this.presetId = id;
+    this.presetName = name;
+    this.savedFp = tracksFingerprint(this.tracks);
+    this.presetBar.refreshList(this.library, id, false);
+  }
+
+  private saveCurrentPreset(): void {
+    const cur = this.library.find((p) => p.id === this.presetId);
+    this.commitPresetStore(this.presetId, this.presetName, cur?.description ?? "Custom saved preset.");
+    this.statusEl.textContent = `Saved changes to "${this.presetName}" cleanly.`;
+  }
+
+  private savePresetAs(rawName: string): void {
+    const name = rawName.trim() || `${this.presetName} Custom`;
+    const id = `custom-${Date.now().toString(36)}`;
+    this.commitPresetStore(id, name, `Custom preset based on ${this.presetName}.`);
+    this.statusEl.textContent = `Saved new custom preset "${name}".`;
+  }
+
+  private resetOrDeletePreset(): void {
+    const active = this.library.find((p) => p.id === this.presetId);
+    if (active && (active.isCustom || active.isOverride)) {
+      this.savedPresets = removeSavedPreset(this.savedPresets, active.id);
+      persistSavedPresets(this.savedPresets);
+      this.library = mergePresetLibrary(STUDIO_PRESETS, this.savedPresets);
+      this.applyActivePreset(this.library.find((p) => p.id === active.id) ?? this.library[0]!, false);
+      this.statusEl.textContent = active.isCustom ? `Deleted "${active.name}".` : `Restored "${active.name}" defaults.`;
+      return;
+    }
+    if (active) this.applyActivePreset(active, false);
+    this.statusEl.textContent = "Reverted unsaved edits.";
   }
 
   private addTrack(kind: TrackKind): void {
     this.tracks = [...this.tracks, createDefaultTrack(kind, this.nextId++)];
+    this.presetBar.syncDirty(this.library, this.presetId, this.isDirty());
     this.renderTracks();
   }
 
-  private triggerPlay(): void {
-    const durSec = this.synth.play(this.tracks);
+  private handleSeek(sec: number, scrubbing: boolean): void {
+    this.playing = false;
+    this.playheadSec = sec;
+    if (!scrubbing) return;
+    const now = performance.now();
+    if (now - this.lastScrubAtMs < 75) return;
+    this.lastScrubAtMs = now;
+    this.scrubUntilMs = now + 115;
+    this.synth.playScrubSlice(this.tracks, sec);
+  }
+
+  private handleTimelineDrag(id: string, patch: { readonly delaySec?: number; readonly durationSec?: number }): void {
+    this.tracks = this.tracks.map((t) => (t.id === id ? { ...t, ...patch } : t));
+    if (patch.delaySec !== undefined) syncTrackCardTimingField(this.tracksHost, { id, field: "delaySec", valueSec: patch.delaySec });
+    if (patch.durationSec !== undefined) syncTrackCardTimingField(this.tracksHost, { id, field: "durationSec", valueSec: patch.durationSec });
+    this.presetBar.syncDirty(this.library, this.presetId, this.isDirty());
+  }
+
+  private triggerPlayFromPlayhead(): void {
+    const total = totalTracksDurationSec(activeStudioTracks(this.tracks));
+    if (this.playheadSec >= total - 0.02) this.playheadSec = 0;
+    this.playDurMs = this.synth.playFrom(this.tracks, this.playheadSec) * 1000;
+    this.playOffsetSec = this.playheadSec;
     this.playStartMs = performance.now();
-    this.playDurMs = durSec * 1000;
+    this.playing = true;
   }
 
   private toggleLoop(): void {
@@ -141,15 +176,18 @@ class SoundStudioApp {
     this.loopBtn.dataset.active = String(this.looping);
     if (this.loopTimer !== null) { window.clearInterval(this.loopTimer); this.loopTimer = null; }
     if (!this.looping) return;
-    this.triggerPlay();
+    this.playheadSec = 0;
+    this.triggerPlayFromPlayhead();
     this.loopTimer = window.setInterval(() => {
-      if (performance.now() - this.playStartMs >= totalTracksDurationSec(this.tracks) * 1000 + 280) this.triggerPlay();
-    }, 120);
+      if (!this.playing && performance.now() - this.playStartMs >= this.playDurMs + 220) {
+        this.playheadSec = 0;
+        this.triggerPlayFromPlayhead();
+      }
+    }, 100);
   }
 
   private async copyPresetJson(): Promise<void> {
-    const payload = JSON.stringify({ name: this.presetName, tracks: this.tracks }, null, 2);
-    await navigator.clipboard?.writeText(payload).catch(() => {});
+    await navigator.clipboard?.writeText(JSON.stringify({ name: this.presetName, tracks: this.tracks }, null, 2)).catch(() => {});
     this.statusEl.textContent = "Copied preset JSON layers to clipboard.";
   }
 
@@ -164,47 +202,51 @@ class SoundStudioApp {
     this.statusEl.textContent = "Exported mono 16-bit PCM .WAV render.";
   }
 
+  private commitTrackList(next: SoundTrackSpec[], rerender = true): void {
+    this.tracks = next;
+    this.presetBar.syncDirty(this.library, this.presetId, this.isDirty());
+    if (rerender) this.renderTracks();
+  }
+
   private renderTracks(): void {
     this.tracksHost.replaceChildren();
     for (const track of this.tracks) {
-      const card = renderTrackCard(track, {
-        onUpdate: (next) => {
-          this.tracks = this.tracks.map((t) => (t.id === next.id ? next : t));
-          if (next.kind !== track.kind || next.solo !== track.solo || next.enabled !== track.enabled) this.renderTracks();
-        },
+      this.tracksHost.append(renderTrackCard(track, {
+        onPatch: (id, patch) => this.commitTrackList(this.tracks.map((t) => (t.id === id ? { ...t, ...patch } : t)), patch.kind !== undefined),
+        onToggle: (id, field) => this.commitTrackList(this.tracks.map((t) => (t.id === id ? { ...t, [field]: !t[field] } : t))),
         onClone: (id) => {
           const src = this.tracks.find((t) => t.id === id);
-          if (!src) return;
-          this.tracks = [...this.tracks, { ...src, id: `trk-c-${this.nextId++}`, name: `${src.name} Copy` }];
-          this.renderTracks();
+          if (src) this.commitTrackList([...this.tracks, { ...src, id: `trk-c-${this.nextId++}`, name: `${src.name} Copy` }]);
         },
         onDelete: (id) => {
-          if (this.tracks.length <= 1) return;
-          this.tracks = this.tracks.filter((t) => t.id !== id);
-          this.renderTracks();
+          if (this.tracks.length > 1) this.commitTrackList(this.tracks.filter((t) => t.id !== id));
         },
-      });
-      this.tracksHost.append(card);
+      }));
     }
   }
 
   private bindKeys(): void {
     window.addEventListener("keydown", (e) => {
-      if (e.code === "Space" && (e.target as HTMLElement | null)?.tagName !== "INPUT") {
-        e.preventDefault();
-        this.triggerPlay();
-      }
+      const el = e.target as HTMLElement | null;
+      const typingText = el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && el.type !== "range");
+      if (e.code === "Space" && !typingText) { e.preventDefault(); this.triggerPlayFromPlayhead(); }
     });
   }
 
   private startVisualizerLoop(): void {
     const { timeBuf, freqBuf } = this.viz.buffers();
     const tick = (): void => {
+      const now = performance.now();
+      const total = totalTracksDurationSec(this.tracks);
+      if (this.playing) {
+        const elapsed = now - this.playStartMs;
+        if (elapsed >= this.playDurMs) { this.playing = false; this.playheadSec = total; }
+        else this.playheadSec = Math.min(total, this.playOffsetSec + elapsed / 1000);
+      }
       const sampleRate = this.synth.sampleAnalyser(timeBuf, freqBuf);
-      const elapsed = performance.now() - this.playStartMs;
-      const playing = this.playDurMs > 0 && elapsed < this.playDurMs;
-      const playProgress = playing ? elapsed / this.playDurMs : 0;
-      this.viz.drawLive({ sampleRate, tracks: this.tracks, hasSignal: sampleRate > 0 && playing, playProgress });
+      this.viz.drawLive({ sampleRate, hasSignal: sampleRate > 0 && (this.playing || now < this.scrubUntilMs) });
+      this.timeline.draw(this.tracks, this.playheadSec);
+      this.timelineReadout.textContent = `Playhead: ${Math.round(this.playheadSec * 1000)}ms / ${Math.round(total * 1000)}ms`;
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

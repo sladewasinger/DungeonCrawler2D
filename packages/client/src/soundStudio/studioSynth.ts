@@ -1,5 +1,35 @@
-/** Web Audio synthesizer + OfflineAudioContext WAV exporter for multi-track presets. */
+/** Web Audio synthesizer, playhead offset slicing, scrub preview, and OfflineAudioContext WAV exporter. */
 import type { SoundTrackSpec } from "./studioTypes.js";
+
+export interface TrackWindow {
+  readonly startDelaySec: number;
+  readonly durationSec: number;
+  readonly f0: number;
+  readonly f1: number;
+  readonly attackSec: number;
+}
+
+export function computeTrackWindow(track: SoundTrackSpec, offsetSec: number): TrackWindow | null {
+  const endSec = track.delaySec + track.durationSec;
+  if (endSec <= offsetSec) return null;
+  if (track.delaySec >= offsetSec) {
+    return {
+      startDelaySec: track.delaySec - offsetSec, durationSec: track.durationSec,
+      f0: track.f0, f1: track.f1, attackSec: track.attackSec,
+    };
+  }
+  const frac = (offsetSec - track.delaySec) / Math.max(0.001, track.durationSec);
+  const fStart = Math.max(25, track.f0);
+  const fEnd = Math.max(25, track.f1);
+  const midF0 = track.kind === "noise" ? fStart : fStart * Math.pow(fEnd / fStart, frac);
+  return {
+    startDelaySec: 0,
+    durationSec: Math.max(0.015, endSec - offsetSec),
+    f0: midF0,
+    f1: track.f1,
+    attackSec: 0.006,
+  };
+}
 
 function makeNoiseBuffer(ctx: BaseAudioContext): AudioBuffer {
   const len = Math.floor(ctx.sampleRate * 1.5);
@@ -9,41 +39,45 @@ function makeNoiseBuffer(ctx: BaseAudioContext): AudioBuffer {
   return buf;
 }
 
-function scheduleToneTrack(opts: {
-  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly track: SoundTrackSpec; readonly baseTime: number;
+function scheduleToneWindow(opts: {
+  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly track: SoundTrackSpec;
+  readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number;
 }): void {
-  const { ctx, dst, track, baseTime } = opts;
-  const now = baseTime + track.delaySec;
-  const dur = Math.max(0.015, track.durationSec);
+  const { ctx, dst, track, win, baseTime } = opts;
+  const now = baseTime + win.startDelaySec;
+  const dur = Math.max(0.015, opts.maxDur ? Math.min(win.durationSec, opts.maxDur) : win.durationSec);
   const osc = ctx.createOscillator();
   osc.type = track.wave;
-  osc.frequency.setValueAtTime(Math.max(25, track.f0), now);
-  osc.frequency.exponentialRampToValueAtTime(Math.max(25, track.f1), now + dur);
+  osc.frequency.setValueAtTime(Math.max(25, win.f0), now);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(25, win.f1), now + Math.max(0.015, win.durationSec));
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(Math.max(0.001, track.gain), now + Math.min(dur * 0.45, track.attackSec));
+  g.gain.linearRampToValueAtTime(Math.max(0.001, track.gain), now + Math.min(dur * 0.45, win.attackSec));
   g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
   osc.connect(g).connect(dst);
   osc.start(now);
   osc.stop(now + dur + 0.02);
 }
 
-function scheduleNoiseTrack(opts: {
-  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly noise: AudioBuffer; readonly track: SoundTrackSpec; readonly baseTime: number;
+function scheduleNoiseWindow(opts: {
+  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly noise: AudioBuffer;
+  readonly track: SoundTrackSpec; readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number;
 }): void {
-  const { ctx, dst, noise, track, baseTime } = opts;
-  const now = baseTime + track.delaySec;
-  const dur = Math.max(0.015, track.durationSec);
+  const { ctx, dst, noise, track, win, baseTime } = opts;
+  const now = baseTime + win.startDelaySec;
+  const dur = Math.max(0.015, opts.maxDur ? Math.min(win.durationSec, opts.maxDur) : win.durationSec);
   const src = ctx.createBufferSource();
   src.buffer = noise;
   const filter = ctx.createBiquadFilter();
   filter.type = track.filterType;
   filter.Q.value = Math.max(0.1, track.q);
-  filter.frequency.setValueAtTime(Math.max(40, track.f0), now);
-  if (track.kind === "sweptNoise") filter.frequency.exponentialRampToValueAtTime(Math.max(40, track.f1), now + dur);
+  filter.frequency.setValueAtTime(Math.max(40, win.f0), now);
+  if (track.kind === "sweptNoise") {
+    filter.frequency.exponentialRampToValueAtTime(Math.max(40, win.f1), now + Math.max(0.015, win.durationSec));
+  }
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, now);
-  g.gain.linearRampToValueAtTime(Math.max(0.001, track.gain), now + Math.min(dur * 0.45, track.attackSec));
+  g.gain.linearRampToValueAtTime(Math.max(0.001, track.gain), now + Math.min(dur * 0.45, win.attackSec));
   g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
   src.connect(filter).connect(g).connect(dst);
   src.start(now, Math.random() * 0.35, dur + 0.03);
@@ -85,6 +119,14 @@ function encodeWavPcm16(buf: AudioBuffer): Blob {
   return new Blob([ab], { type: "audio/wav" });
 }
 
+function scheduleWindow(opts: {
+  readonly ctx: BaseAudioContext; readonly dst: AudioNode; readonly noise: AudioBuffer;
+  readonly track: SoundTrackSpec; readonly win: TrackWindow; readonly baseTime: number; readonly maxDur?: number;
+}): void {
+  if (opts.track.kind === "tone") scheduleToneWindow(opts);
+  else scheduleNoiseWindow(opts);
+}
+
 export class StudioSynthEngine {
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
@@ -106,19 +148,34 @@ export class StudioSynthEngine {
   }
 
   play(tracks: readonly SoundTrackSpec[]): number {
+    return this.playFrom(tracks, 0);
+  }
+
+  playFrom(tracks: readonly SoundTrackSpec[], offsetSec = 0): number {
     const { ctx, dst, noise } = this.ensureAudio();
     const audible = activeStudioTracks(tracks);
     const baseTime = ctx.currentTime + 0.015;
     for (const track of audible) {
-      if (track.kind === "tone") scheduleToneTrack({ ctx, dst, track, baseTime });
-      else scheduleNoiseTrack({ ctx, dst, noise, track, baseTime });
+      const win = computeTrackWindow(track, offsetSec);
+      if (win) scheduleWindow({ ctx, dst, noise, track, win, baseTime });
     }
-    return totalTracksDurationSec(audible);
+    return Math.max(0.05, totalTracksDurationSec(audible) - offsetSec);
   }
 
-  sampleAnalyser(timeDomainOut: Uint8Array<ArrayBuffer>, freqOut: Uint8Array<ArrayBuffer>): number {
+  playScrubSlice(tracks: readonly SoundTrackSpec[], offsetSec: number): void {
+    const { ctx, dst, noise } = this.ensureAudio();
+    const baseTime = ctx.currentTime + 0.008;
+    for (const track of activeStudioTracks(tracks)) {
+      const win = track.delaySec <= offsetSec + 0.075 ? computeTrackWindow(track, offsetSec) : null;
+      if (!win) continue;
+      const capped: TrackWindow = { ...win, startDelaySec: Math.max(0, track.delaySec - offsetSec), attackSec: 0.006 };
+      scheduleWindow({ ctx, dst, noise, track, win: capped, baseTime, maxDur: 0.075 });
+    }
+  }
+
+  sampleAnalyser(floatTimeOut: Float32Array<ArrayBuffer>, freqOut: Uint8Array<ArrayBuffer>): number {
     if (!this.analyser || !this.ctx) return 0;
-    this.analyser.getByteTimeDomainData(timeDomainOut);
+    this.analyser.getFloatTimeDomainData(floatTimeOut);
     this.analyser.getByteFrequencyData(freqOut);
     return this.ctx.sampleRate;
   }
@@ -133,8 +190,8 @@ export class StudioSynthEngine {
     master.connect(off.destination);
     const noise = makeNoiseBuffer(off);
     for (const track of audible) {
-      if (track.kind === "tone") scheduleToneTrack({ ctx: off, dst: master, track, baseTime: 0.005 });
-      else scheduleNoiseTrack({ ctx: off, dst: master, noise, track, baseTime: 0.005 });
+      const win = computeTrackWindow(track, 0);
+      if (win) scheduleWindow({ ctx: off, dst: master, noise, track, win, baseTime: 0.005 });
     }
     const rendered = await off.startRendering();
     return encodeWavPcm16(rendered);
