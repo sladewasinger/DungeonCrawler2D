@@ -2,17 +2,20 @@
 import { getItemDef } from "@dc2d/content";
 import {
   BOW_MAX_CHARGE_SEC, COMBAT_TUNING, COMBO_SWING_SEC, COMBO_WINDOW_SEC, DODGE_COOLDOWN_SEC, DODGE_DURATION_SEC,
-  DODGE_IFRAME_SEC, DODGE_STAMINA_COST, WorldChunkCache,
+  DODGE_IFRAME_SEC, DODGE_STAMINA_COST, PARRY_STAGGER_SEC, WorldChunkCache,
   consumeItemFromSlots, evaluateBowShot, isInSanctuary,
-  type GoreStyle, type ProjectileSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  type GoreStyle, type GroundLootSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import {
   applyIncomingPlayerHit, comboMultFor, finisherGore, resolveDummyStrikeOnPlayer,
   resolveMeleeHits, stepCombatTimers, tryHealConsumable, type CombatPlayerRef,
 } from "./combatActions.js";
 import {
-  createTrainingDummies, damageDummy, serializeDummies, stepTrainingDummies, type SimEntity,
+  createTrainingDummies, serializeDummies, stepTrainingDummies, type SimEntity,
 } from "./dummySim.js";
+import { CREATURE_SPECS } from "./wildlife/creatureSpecs.js";
+import { serializeProjectiles, stepProjectileList, type SimProjectile } from "./wildlife/projectileSim.js";
+import { WorldEcology } from "./wildlife/worldEcology.js";
 
 export interface CombatStepRequest {
   readonly player: CombatPlayerRef;
@@ -29,37 +32,26 @@ export interface CombatInputFlags {
   readonly bowReleaseQueued: boolean;
   readonly blockHeld: boolean;
   readonly dodgeQueued: boolean;
-}
-
-interface SimProjectile {
-  readonly id: string;
-  readonly ownerId: string;
-  readonly originX: number;
-  readonly originY: number;
-  x: number;
-  y: number;
-  readonly vx: number;
-  readonly vy: number;
-  readonly elevation: number;
-  readonly charge: number;
-  readonly damage: number;
-  ttl: number;
+  readonly interactQueued?: boolean;
 }
 
 export class CombatWorld {
   readonly dummies: SimEntity[];
+  readonly ecology: WorldEcology;
   private readonly projectiles: SimProjectile[] = [];
   private events: WorldEvent[] = [];
   private nextProjId = 1;
 
   constructor(private readonly cache: WorldChunkCache) {
     this.dummies = createTrainingDummies(cache);
+    this.ecology = new WorldEcology(cache);
   }
 
   stepPlayerAction(req: CombatStepRequest): void {
     const { player: p, players, input, dt } = req;
     stepCombatTimers(p, input.blockHeld, dt);
     if (p.combat.staggerTimer > 0) { p.combat.bowCharge = 0; return; }
+    if (input.interactQueued) this.ecology.tryInteractChest(p, this.events);
     if (input.dodgeQueued) this.tryStartDodge(p, input.moveX, input.moveY);
     this.stepOffense({ p, players, input, dt });
   }
@@ -76,7 +68,8 @@ export class CombatWorld {
     this.tryMeleeSwing(p, heldId, players);
   }
 
-  stepWorld(players: Map<string, CombatPlayerRef>, dt: number): void {
+  stepWorld(opts: { readonly players: Map<string, CombatPlayerRef>; readonly dt: number; readonly dayPhase: number; readonly timeSec: number }): void {
+    const { players, dt, dayPhase, timeSec } = opts;
     const targets = Array.from(players.values());
     stepTrainingDummies({
       dummies: this.dummies, dt, players: targets, events: this.events,
@@ -85,7 +78,22 @@ export class CombatWorld {
         if (hitPlayer) resolveDummyStrikeOnPlayer({ entity, target: hitPlayer, damage: dmg, events: this.events });
       },
     });
-    this.stepProjectiles(players, dt);
+    this.ecology.step({
+      dt, timeSec, dayPhase,
+      players: targets.map((p) => Object.assign(p, { moving: Boolean(p.moving) })),
+      events: this.events,
+      onStrike: (entity, target) => {
+        const hitPlayer = players.get(target.id);
+        if (!hitPlayer) return;
+        const spec = CREATURE_SPECS[entity.kind];
+        applyIncomingPlayerHit({
+          target: hitPlayer, attackerOrigin: entity, attackerId: entity.id, rawDamage: spec.damage,
+          goreStyle: spec.goreStyle, attackerIsPlayer: false, events: this.events,
+          onParry: () => { entity.staggerTimer = PARRY_STAGGER_SEC; entity.telegraphTimer = 0; },
+        });
+      },
+    });
+    stepProjectileList({ cache: this.cache, projectiles: this.projectiles, dummies: this.dummies, ecology: this.ecology, players, events: this.events, dt });
   }
 
   moveMultiplier(p: CombatPlayerRef): number {
@@ -97,13 +105,18 @@ export class CombatWorld {
     return 1;
   }
 
-  snapshots(): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[] } {
+  snapshots(): {
+    readonly projectiles: ProjectileSnapshot[];
+    readonly entities: WorldEntitySnapshot[];
+    readonly chests: WorldChestSnapshot[];
+    readonly groundLoot: GroundLootSnapshot[];
+  } {
+    const eco = this.ecology.snapshots();
     return {
-      entities: serializeDummies(this.dummies),
-      projectiles: this.projectiles.map((pr) => ({
-        id: pr.id, ownerId: pr.ownerId, kind: "arrow",
-        x: pr.x, y: pr.y, vx: pr.vx, vy: pr.vy, elevation: pr.elevation, charge: pr.charge, element: "none",
-      })),
+      entities: [...serializeDummies(this.dummies), ...eco.entities],
+      projectiles: serializeProjectiles(this.projectiles),
+      chests: eco.chests,
+      groundLoot: eco.groundLoot,
     };
   }
 
@@ -173,46 +186,11 @@ export class CombatWorld {
       range: stats.range, halfArcRad: stats.halfArc,
       goreStyle: finisherGore(stats.gore, c.comboStep), events: this.events,
     });
-  }
-
-  private stepProjectiles(players: Map<string, CombatPlayerRef>, dt: number): void {
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const pr = this.projectiles[i]!;
-      pr.x += pr.vx * dt;
-      pr.y += pr.vy * dt;
-      pr.ttl -= dt;
-      const blocked = this.cache.tileAt(Math.floor(pr.x), Math.floor(pr.y)).elevation > pr.elevation;
-      if (blocked || pr.ttl <= 0 || this.hitProjectileTarget(pr, players)) {
-        this.projectiles.splice(i, 1);
-      }
-    }
-  }
-
-  private hitProjectileDummy(pr: SimProjectile, dx: number, dy: number): boolean {
-    for (const d of this.dummies) {
-      if (d.respawnTimer <= 0 && Math.hypot(pr.x - d.x, pr.y - d.y) <= 0.48) {
-        return damageDummy({ entity: d, damage: pr.damage, dirX: dx, dirY: dy, goreStyle: "drip", actorId: pr.ownerId, events: this.events });
-      }
-    }
-    return false;
-  }
-
-  private hitProjectilePlayer(pr: SimProjectile, players: Map<string, CombatPlayerRef>): boolean {
-    for (const p of players.values()) {
-      if (p.id === pr.ownerId || Math.hypot(pr.x - p.x, pr.y - p.y) > 0.42) continue;
-      if (isInSanctuary(pr.originX, pr.originY) || isInSanctuary(p.x, p.y)) return true;
-      applyIncomingPlayerHit({
-        target: p, attackerOrigin: { x: pr.originX, y: pr.originY }, attackerId: pr.ownerId,
-        rawDamage: pr.damage, goreStyle: "drip", attackerIsPlayer: true, events: this.events,
-      });
-      return true;
-    }
-    return false;
-  }
-
-  private hitProjectileTarget(pr: SimProjectile, players: Map<string, CombatPlayerRef>): boolean {
-    const spd = Math.max(0.01, Math.hypot(pr.vx, pr.vy));
-    return this.hitProjectileDummy(pr, pr.vx / spd, pr.vy / spd) || this.hitProjectilePlayer(pr, players);
+    this.ecology.hitSector({
+      attacker: p, dir: { x: p.aimX, y: p.aimY }, damage: rawDamage,
+      range: stats.range, halfArcRad: stats.halfArc,
+      goreStyle: finisherGore(stats.gore, c.comboStep), events: this.events,
+    });
   }
 }
 

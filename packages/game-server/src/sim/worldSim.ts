@@ -2,8 +2,8 @@
 import {
   COMBAT_TUNING, DAY_DURATION_SECONDS, DEFAULT_APPEARANCE, ELEVATION_DROP_TO_JUMP_Z, HOTBAR_SLOT_COUNT, WorldChunkCache, resolveMovement,
   sanitizeCharacterAppearance, stepJumpArc, wrapDayPhase,
-  type ArmorSlotKey, type CharacterAppearance, type InventorySnapshot, type PlayerInventoryState,
-  type PlayerSnapshot, type ProjectileSnapshot, type WorldEntitySnapshot, type WorldEvent,
+  type ArmorSlotKey, type CharacterAppearance, type GroundLootSnapshot, type InventorySnapshot, type PlayerInventoryState,
+  type PlayerSnapshot, type ProjectileSnapshot, type WorldChestSnapshot, type WorldEntitySnapshot, type WorldEvent,
 } from "@dc2d/engine";
 import { createCombatState, type PlayerCombatState } from "./combatActions.js";
 import { CombatWorld, playerCombatExtras } from "./combatSim.js";
@@ -46,6 +46,7 @@ interface SimPlayer {
   bowReleaseQueued: boolean;
   blockHeld: boolean;
   dodgeQueued: boolean;
+  interactQueued: boolean;
   readonly combat: PlayerCombatState;
 }
 
@@ -73,7 +74,7 @@ export class WorldSim {
       jumpZ: 0, jumpVz: 0, jumpQueued: false,
       moveX: 0, moveY: 0, moving: false, torchLit: true, inWater: false, lastAckSeq: 0, lastActionAckSeq: 0,
       selectedHotbar: 0, inventory: createStarterInventory(),
-      attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false,
+      attackQueued: false, bowDrawing: false, bowReleaseQueued: false, blockHeld: false, dodgeQueued: false, interactQueued: false,
       combat: createCombatState(),
     });
     return id;
@@ -94,7 +95,7 @@ export class WorldSim {
     readonly aimX?: number | undefined; readonly aimY?: number | undefined;
     readonly jump?: boolean | undefined; readonly attack?: boolean | undefined;
     readonly bowDraw?: boolean | undefined; readonly bowRelease?: boolean | undefined;
-    readonly block?: boolean | undefined; readonly dodge?: boolean | undefined;
+    readonly block?: boolean | undefined; readonly dodge?: boolean | undefined; readonly interact?: boolean | undefined;
   }): void {
     const p = this.players.get(playerId);
     if (!p) return;
@@ -107,6 +108,7 @@ export class WorldSim {
     if (input.bowRelease) p.bowReleaseQueued = true;
     p.blockHeld = Boolean(input.block);
     if (input.dodge) p.dodgeQueued = true;
+    if (input.interact) p.interactQueued = true;
     applyAimInput(p, input);
   }
 
@@ -150,7 +152,7 @@ export class WorldSim {
     this.tick += 1;
     if (!this.dayPaused) this.dayPhase = wrapDayPhase(this.dayPhase + dtSeconds / DAY_DURATION_SECONDS);
     for (const p of this.players.values()) this.stepPlayer(p, dtSeconds);
-    this.combat.stepWorld(this.players, dtSeconds);
+    this.combat.stepWorld({ players: this.players, dt: dtSeconds, dayPhase: this.dayPhase, timeSec: this.tick / TICK_RATE });
   }
 
   private stepPlayer(p: SimPlayer, dtSeconds: number): void {
@@ -162,13 +164,14 @@ export class WorldSim {
       input: {
         moveX: p.moveX, moveY: p.moveY, attackQueued: p.attackQueued,
         bowDrawing: p.bowDrawing, bowReleaseQueued: p.bowReleaseQueued,
-        blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued,
+        blockHeld: p.blockHeld, dodgeQueued: p.dodgeQueued, interactQueued: p.interactQueued,
       },
     });
     p.jumpQueued = false;
     p.attackQueued = false;
     p.bowReleaseQueued = false;
     p.dodgeQueued = false;
+    p.interactQueued = false;
     this.movePlayer(p, dtSeconds);
   }
 
@@ -195,7 +198,12 @@ export class WorldSim {
     p.inWater = res.inWater;
   }
 
-  combatSnapshots(): { readonly projectiles: ProjectileSnapshot[]; readonly entities: WorldEntitySnapshot[] } {
+  combatSnapshots(): {
+    readonly projectiles: ProjectileSnapshot[];
+    readonly entities: WorldEntitySnapshot[];
+    readonly chests: WorldChestSnapshot[];
+    readonly groundLoot: GroundLootSnapshot[];
+  } {
     return this.combat.snapshots();
   }
 

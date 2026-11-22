@@ -40,6 +40,7 @@ export interface CombatPlayerRef {
   aimX: number;
   aimY: number;
   selectedHotbar: number;
+  moving?: boolean;
   inventory: PlayerInventoryState;
   readonly combat: PlayerCombatState;
 }

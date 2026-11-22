@@ -34,6 +34,8 @@ interface TickBroadcastData {
   readonly players: PlayerSnapshot[];
   readonly projectiles: ReturnType<WorldSim["combatSnapshots"]>["projectiles"];
   readonly entities: ReturnType<WorldSim["combatSnapshots"]>["entities"];
+  readonly chests: ReturnType<WorldSim["combatSnapshots"]>["chests"];
+  readonly groundLoot: ReturnType<WorldSim["combatSnapshots"]>["groundLoot"];
   readonly events: WorldEvent[];
 }
 
@@ -44,14 +46,15 @@ function buildClientSnapshot(input: {
     t: "snapshot", tick: input.sim.tick, dayPhase: input.sim.dayPhase, dayPaused: input.sim.dayPaused,
     actionAckSeq: input.sim.actionAckSeq(input.playerId), players: input.data.players,
     selfInventory: input.sim.inventorySnapshot(input.playerId),
-    projectiles: input.data.projectiles, entities: input.data.entities, events: input.data.events,
+    projectiles: input.data.projectiles, entities: input.data.entities,
+    chests: input.data.chests, groundLoot: input.data.groundLoot, events: input.data.events,
   };
 }
 
 function broadcastTickSnapshots(ctx: { readonly clients: Map<WebSocket, string>; readonly sim: WorldSim; readonly includeEvents?: boolean }): void {
-  const { projectiles, entities } = ctx.sim.combatSnapshots();
+  const { projectiles, entities, chests, groundLoot } = ctx.sim.combatSnapshots();
   const data: TickBroadcastData = {
-    players: ctx.sim.snapshots(), projectiles, entities,
+    players: ctx.sim.snapshots(), projectiles, entities, chests, groundLoot,
     events: ctx.includeEvents === false ? [] : ctx.sim.drainCombatEvents(),
   };
   for (const [ws, playerId] of ctx.clients) sendJson(ws, buildClientSnapshot({ sim: ctx.sim, playerId, data }));
@@ -77,8 +80,8 @@ function dispatchMessage(ctx: {
   handlers[msg.t]();
   if (BROADCAST_ACTIONS.has(msg.t)) broadcastTickSnapshots({ clients, sim, includeEvents: false });
   else if (msg.t !== "input") {
-    const { projectiles, entities } = sim.combatSnapshots();
-    sendJson(ws, buildClientSnapshot({ sim, playerId, data: { players: sim.snapshots(), projectiles, entities, events: [] } }));
+    const { projectiles, entities, chests, groundLoot } = sim.combatSnapshots();
+    sendJson(ws, buildClientSnapshot({ sim, playerId, data: { players: sim.snapshots(), projectiles, entities, chests, groundLoot, events: [] } }));
   }
 }
 
